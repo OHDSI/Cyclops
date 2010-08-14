@@ -114,6 +114,7 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 	free(hOffs);
 	
 	free(hXBeta);
+	free(hXBetaSave);
 	free(hDelta);
 	
 	free(hXjEta);
@@ -149,6 +150,7 @@ void CyclicCoordinateDescent::init() {
 
 	hBeta = (real*) calloc(J, sizeof(real)); // Fixed starting state
 	hXBeta = (real*) calloc(K, sizeof(real));
+	hXBetaSave = (real*) calloc(K, sizeof(real));
 
 	// Set prior
 	priorType = LAPLACE;
@@ -255,7 +257,7 @@ double CyclicCoordinateDescent::getLogPrior(void) {
 }
 
 double CyclicCoordinateDescent::getObjectiveFunction(void) {	
-//	return getLogLikelihood() + getLogPrior();
+//	return getLogLikelihood() + getLogPrior(); // This is LANGE
 	double criterion = 0;
 	for (int i = 0; i < K; i++) {
 		criterion += hXBeta[i] * hEta[i];
@@ -263,14 +265,40 @@ double CyclicCoordinateDescent::getObjectiveFunction(void) {
 	return criterion;
 }
 
+double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
+	double sumAbsDiffs = 0;
+	double sumAbsResiduals = 0;
+	for (int i = 0; i < K; i++) {
+		sumAbsDiffs += abs(hXBeta[i] - hXBetaSave[i]) * hEta[i];
+		sumAbsResiduals += abs(hXBeta[i]) * hEta[i];
+	}
+	return sumAbsDiffs / (1.0 + sumAbsResiduals);
+}
+
+void CyclicCoordinateDescent::saveXBeta(void) {
+	memcpy(hXBetaSave, hXBeta, K * sizeof(real));
+}
+
 void CyclicCoordinateDescent::update(
-		int maxIterations, 
+		int maxIterations,
+		int convergenceType,
 		double epsilon
 		) {
-	
+
+	if (convergenceType != LANGE && convergenceType != ZHANG_OLES) {
+		cerr << "Unknown convergence criterion" << endl;
+		exit(-1);
+	}
+
 	bool done = false;
 	int iteration = 0;
-	double lastObjFunc = getObjectiveFunction();
+	double lastObjFunc;
+
+	if (convergenceType == LANGE) {
+		lastObjFunc = getObjectiveFunction();
+	} else { // ZHANG_OLES
+		saveXBeta();
+	}
 	
 	while (!done) {
 	
@@ -295,20 +323,23 @@ void CyclicCoordinateDescent::update(
 		bool checkConvergence = true; // Check after each complete cycle
 
 		if (checkConvergence) {
-			double logLike = getLogLikelihood();
-			double logPrior = getLogPrior();
-			cout << logLike << " " << logPrior << endl;
-//			double thisLogPost = getLogLikelihood() + getLogPrior();
-			double thisLogPost = logLike + logPrior;
-						
-			double thisObjFunc = getObjectiveFunction();
-		
+
+			double conv;
+			if (convergenceType == LANGE) {
+				double thisObjFunc = getObjectiveFunction();
+				conv = computeConvergenceCriterion(thisObjFunc, lastObjFunc);
+				lastObjFunc = thisObjFunc;
+			} else { // ZHANG_OLES
+				conv = computeZhangOlesConvergenceCriterion();
+				saveXBeta();
+			} // Necessary to call getObjFxn or computeZO before getLogLikelihood,
+			  // since these copy over XBeta
+
+			double thisLogPost = getLogLikelihood() + getLogPrior();
 			printVector(hBeta, J, cout);
 			cout << endl;
-			cout << "log post: " << thisLogPost << " (iter:" << iteration << ") " << getLogLikelihood() << " " << getLogPrior();
+			cout << "log post: " << thisLogPost << " (iter:" << iteration << ") ";
 
-			double conv = computeConvergenceCriterion(thisObjFunc, lastObjFunc);
-											
 			if (epsilon > 0 && conv < epsilon) {
 				cout << "Reached convergence criterion" << endl;
 				done = true;
@@ -318,7 +349,6 @@ void CyclicCoordinateDescent::update(
 			} else {
 				cout << endl;
 			}
-			lastObjFunc = thisObjFunc;
 		}				
 	}
 }

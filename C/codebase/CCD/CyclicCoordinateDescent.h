@@ -22,6 +22,11 @@ enum PriorType {
 	NORMAL  = 1
 };
 
+enum ConvergenceType {
+	LANGE = 0,
+	ZHANG_OLES = 1
+};
+
 class CyclicCoordinateDescent {
 	
 public:
@@ -59,7 +64,7 @@ public:
 	
 	virtual double getObjectiveFunction(void);
 		
-	void update(int maxIterations, double epsilon);
+	void update(int maxIterations, int convergenceType, double epsilon);
 
 	// Setters
 	void setHyperprior(double value);
@@ -76,6 +81,8 @@ protected:
 	void init(void);
 	
 	void computeXBeta(void);
+
+	void saveXBeta(void);
 
 	real* computeXjEta(void);
 
@@ -104,6 +111,8 @@ protected:
 	
 	double computeConvergenceCriterion(double newObjFxn, double oldObjFxn);
 	
+	virtual double computeZhangOlesConvergenceCriterion(void);
+
 	template <class T>
 	void zeroVector(T* vector, const int length) {
 		for (int i = 0; i < length; i++) {
@@ -140,6 +149,7 @@ protected:
  	
 	real* hBeta;
 	real* hXBeta;
+	real* hXBetaSave;
 	real* hDelta;
 
 	int N; // Number of patients

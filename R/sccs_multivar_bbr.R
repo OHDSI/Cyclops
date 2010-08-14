@@ -11,6 +11,13 @@ args = commandArgs(trailing=TRUE)
 	}
 
 	prior_var = as.numeric(args[3])
+	
+	convergence_type = "L"
+	if (!is.na(args[4]) && args[4] == "ZO") {
+		convergence_type = "ZO"
+	} else {
+		args[4] = "L"
+	}
 
 	cat(args, "\n\n")
 
@@ -307,6 +314,7 @@ system.time(
 			iter = iter + 1
 		
 				# calculate and check convergence criteria
+				if (convergence_type == "L") {
 					conv = as.numeric(
 						abs(
 							t(X.sM %*% (beta - beta_old)) %*%y
@@ -317,6 +325,10 @@ system.time(
 							t(X.sM %*% beta) %*% y
 						)
 					)
+				} else { # Zhange Oles criterion
+					conv = t(abs(X.sM %*% (beta - beta_old))) %*% y
+					conv = conv / (1 + (t(abs(X.sM %*% beta_old)) %*% y) )				
+				}
 		
 					if (as.numeric(conv	) <= 0.0001) { done = TRUE }
 		}

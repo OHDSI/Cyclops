@@ -47,25 +47,30 @@ int main(int argc, char* argv[]) {
 	bool useNormalPrior;
 	bool hyperPriorSet = false;
 	int maxIterations;
+	int convergenceType;
 
 	try {
 
 		CmdLine cmd("Cyclic coordinate descent algorithm for self-controlled case studies", ' ', "0.1");
 		ValueArg<int> gpuArg("g","GPU","Use GPU device", false, -1, "device #");
-		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, 1E-4, "real");
 		ValueArg<int> maxIterationsArg("i", "iterations", "Maximum iterations", false, 100, "int");
 		UnlabeledValueArg<string> inFileArg("inFileName","Input file name", true, "default", "inFileName");
 		UnlabeledValueArg<string> outFileArg("outFileName","Output file name", true, "default", "outFileName");
 
 		// Prior arguments
 		ValueArg<double> hyperPriorArg("v", "variance", "Hyperprior variance", false, 1.0, "real");
-		SwitchArg normalPriorArg("n", "normalprior", "Use normal prior, default is laplace", false);
+		SwitchArg normalPriorArg("n", "normalPrior", "Use normal prior, default is laplace", false);
+
+		// Convergence criterion arguments
+		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, 1E-4, "real");
+		SwitchArg zhangOlesConvergenceArg("z", "zhangOles", "Use Zhange-Oles convergence criterion, default is false", false);
 
 		cmd.add(gpuArg);
 		cmd.add(toleranceArg);
 		cmd.add(maxIterationsArg);
 		cmd.add(hyperPriorArg);
 		cmd.add(normalPriorArg);
+		cmd.add(zhangOlesConvergenceArg);
 
 		cmd.add(inFileArg);
 		cmd.add(outFileArg);
@@ -83,6 +88,12 @@ int main(int argc, char* argv[]) {
 		useNormalPrior = normalPriorArg.getValue();
 		if (hyperPriorArg.isSet()) {
 			hyperPriorSet = true;
+		}
+
+		if (zhangOlesConvergenceArg.isSet()) {
+			convergenceType = ZHANG_OLES;
+		} else {
+			convergenceType = LANGE;
 		}
 	} catch (ArgException &e) {
 		cerr << "Error: " << e.error() << " for argument " << e.argId() << endl;
@@ -125,7 +136,7 @@ int main(int argc, char* argv[]) {
 	
 	gettimeofday(&time1, NULL);
 
-	ccd->update(maxIterations, tolerance);
+	ccd->update(maxIterations, convergenceType, tolerance);
 	
 	gettimeofday(&time2, NULL);	
 	double sec2 = time2.tv_sec - time1.tv_sec +

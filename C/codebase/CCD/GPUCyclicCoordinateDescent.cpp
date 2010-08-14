@@ -233,8 +233,6 @@ double GPUCyclicCoordinateDescent::getObjectiveFunction(void) {
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::getObjectiveFunction\n");
 #endif 	
-
-//    cout << "hEta[0] = " << hEta[0] << endl;
     
 	gpu->MemcpyDeviceToHost(hXBeta, dXBeta, sizeof(real) * K);
 	double criterion = 0;
@@ -247,6 +245,13 @@ double GPUCyclicCoordinateDescent::getObjectiveFunction(void) {
 #endif
     
     return criterion;
+}
+
+double GPUCyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
+	gpu->MemcpyDeviceToHost(hXBeta, dXBeta, sizeof(real) * K);
+
+	// TODO Could do reduction on GPU
+	return CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion();
 }
 
 void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {

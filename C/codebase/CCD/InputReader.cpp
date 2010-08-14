@@ -145,8 +145,8 @@ InputReader::InputReader(const char* fileName) {
 	}
 
 	cout << "Read " << currentEntry << " data lines from " << fileName << endl;
-	cout << "Number of patients: " << numPatients << endl;
-	cout << "Number of drugs: " << numDrugs << endl;
+//	cout << "Number of patients: " << numPatients << endl;
+//	cout << "Number of drugs: " << numDrugs << endl;
 
 	nPatients = numPatients;
 	nCols = columns.size();

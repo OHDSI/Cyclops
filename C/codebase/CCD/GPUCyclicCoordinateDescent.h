@@ -39,6 +39,8 @@ protected:
 
 	virtual void getDenominators(void);
 
+	virtual double computeZhangOlesConvergenceCriterion(void);
+
 private:
 	int deviceNumber;
 	GPUInterface* gpu;
