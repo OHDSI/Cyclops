@@ -1,0 +1,96 @@
+CXX = g++
+CXXFLAGS = -O2
+#CXXFLAGS = -O2 -DCUDA
+INCPATH = -I../codebase
+#LIBPATH = -L../matrix -L../random
+
+CCD_ROOT = ../codebase/CCD
+
+##### CUDA definitions
+
+# CUDA_PATH = /usr/local/cuda
+# 
+# OSNAME := $(shell uname)
+# ifeq ($(OSNAME),Linux)
+# 	CUDA_SDK_PATH   := /usr/local/cuda_sdk/
+# 	BOOST_INC_PATH 	:= $(HOME)/local/include
+# 	BOOST_LIB_PATH 	:= $(HOME)/local/lib
+# 	BOOST_LIB		:= boost_thread
+# endif
+# ifeq ($(OSNAME),Darwin)
+# 	CUDA_SDK_PATH   := /Developer/GPU\ Computing/C
+# 	BOOST_INC_PATH 	:= /opt/local/include
+# 	BOOST_LIB_PATH 	:= /opt/local/lib
+# 	BOOST_LIB		:= boost_thread-mt
+# 	CXXFLAGS		+= -m32
+# endif
+# 
+# CUDA_INC = -I$(CUDA_PATH)/include -I$(BOOST_INC_PATH)
+# 
+# CUDA_SDK_COMMONDIR = $(CUDA_SDK_PATH)/common
+# CUDA_SDK_INC = -I$(CUDA_SDK_COMMONDIR)/inc
+# CUDA_LIB_GEN  = -L$(CUDA_PATH)/lib -L$(CUDA_SDK_PATH)/lib -lcuda -lcudart -lcublas \
+# 		-L$(BOOST_LIB_PATH) -l$(BOOST_LIB)
+# 		
+# ifeq  ($(OSNAME),Linux)
+# 	CUDA_LIB = $(CUDA_LIB_GEN) -lcutil
+# endif
+# ifeq ($(OSNAME),Darwin)
+# 	CUDA_LIB = $(CUDA_LIB_GEN) -lcutil_i386
+# endif 
+# ifeq ($(OSNAME),Linux)
+# 	CUDA_LIB_GEN +=-L$(CUDA_SDK_COMMONDIR)/lib/linux
+# endif
+# ifeq ($(OSNAME),Darwin)
+# 	CUDA_LIB_GEN +=-L$(CUDA_SDK_COMMONDIR)/lib/darwin
+# endif
+
+NVCC = $(CUDA_PATH)/bin/nvcc
+
+# CUDA_OBJS =	../CUDA/EMCDPBaseCUDA.cpp_o \
+# 			../CUDA/CDPBaseCUDA.cpp_o \
+# 			../CUDA/EMmvNormalPDF_kernel.cu_o \
+# 			../CUDA/mvNormalPDF_kernel.cu_o \
+# 			../CUDA/sampleFromMeasure_kernel.cu_o \
+# 			../CUDA/EMCalcPi_kernel.cu_o \
+# 			../CUDA/calcSigma_kernel.cu_o \
+# 			../CUDA/calcSumPi_kernel.cu_o \
+# 			../CUDA/CUDASharedFunctions.cpp_o \
+# 			../CUDA/CUDASharedFunctions_kernel.cu_o \
+# 			../hoomd/GPUWorker.cpp_o
+# 			
+# 			
+# CUDA_HEADERS = ../CUDA/CDPBaseCUDA.h \
+# 			   ../CUDA/EMCDPBaseCUDA.h \
+# 			   ../CUDA/EMCDPBaseCUDA_kernel.h \
+# 			   ../CUDA/CDPBaseCUDA_kernel.h \
+# 			   ../CUDA/CUDASharedFunctions.h 
+
+##### CCD files
+
+%.o:	%.cpp
+		$(CXX) $(CXXFLAGS) -c $*.cpp $(INCPATH) $(CUDA_INC) $(CUDA_SDK_INC)
+
+ccd_obj = 	$(CCD_ROOT)/CompressedIndicatorMatrix.o $(CCD_ROOT)/InputReader.o $(CCD_ROOT)/CyclicCoordinateDescent.o $(CCD_ROOT)/ccd.o
+
+# Hack a second copy of names to keep objects local, *bad* form
+ccd_obj_local = 	CompressedIndicatorMatrix.o InputReader.o CyclicCoordinateDescent.o ccd.o
+
+ccd:	$(ccd_obj) $(CUDA_OBJS)
+		$(CXX) $(CXXFLAGS) $(PROFILE)  -o ccd $(ccd_obj_local) $(CUDA_OBJS) -L. -lm -lstdc++ $(LIBPATH) $(CUDA_LIB)
+
+clean :
+	-rm ccd
+	-rm *.o		
+
+#### CUDA files
+
+%.c_o : %.c
+	$(GCC) $(PROFILE) -c $< -o $@ $(LOCAL_INC)
+
+%.cpp_o : %.cpp
+	$(CXX) $(CXXFLAGS) $(INCPATH) $(LOCAL_INC) $(CUDA_INC) $(CUDA_SDK_INC) $(PROFILE) -c $< -o $@
+	
+%.cu_o : %.cu $(CUDA_HEADERS)
+	$(NVCC) $(NVCC_DBG_FLAGS) -c $< -o $@ -I. $(INCPATH) $(LOCAL_INC) $(CUDA_INC) $(CUDA_SDK_INC) -DUNIX
+		

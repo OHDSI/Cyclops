@@ -1,0 +1,81 @@
+/*
+ * GPUCyclicCoordinateDescent.h
+ *
+ *  Created on: July, 2010
+ *      Author: msuchard
+ */
+
+#ifndef GPUCYCLICCOORDINATEDESCENT_H_
+#define GPUCYCLICCOORDINATEDESCENT_H_
+
+#include "CyclicCoordinateDescent.h"
+#include "InputReader.h"
+#include "GPU/GPUInterface.h"
+#include "GPU/KernelLauncherCCD.h"
+
+typedef float gpu_real;
+
+class GPUCyclicCoordinateDescent: public CyclicCoordinateDescent {
+public:
+	GPUCyclicCoordinateDescent(int deviceNumber, InputReader *reader);
+	virtual ~GPUCyclicCoordinateDescent();
+
+	virtual double getObjectiveFunction(void);
+
+protected:
+	
+	using CyclicCoordinateDescent::hXI;
+	
+	virtual void updateXBeta(double delta, int index);
+
+	virtual void computeRemainingStatistics(void);
+
+	virtual void computeRatiosForGradientAndHessian(int index);
+
+	virtual void computeGradientAndHession(
+			int index,
+			double *gradient,
+			double *hessian);
+
+	virtual void getDenominators(void);
+
+private:
+	int deviceNumber;
+	GPUInterface* gpu;
+	KernelLauncherCCD* kernels;
+	
+	InputReader* hReader;
+
+	GPUPtr* dXI;
+	GPUPtr dXColumnLength;
+	GPUPtr dOffs;
+	GPUPtr dEta;
+	GPUPtr dNEvents;
+	GPUPtr dPid;
+	GPUPtr dXFullRowOffsets;
+	GPUPtr dBeta;
+	GPUPtr dXBeta;
+
+	GPUPtr dOffsExpXBeta;
+	GPUPtr dDenomPid;
+	GPUPtr dNumerPid;
+	GPUPtr dT1;
+	GPUPtr dXOffsExpXBeta;
+
+#ifdef GRADIENT_HESSIAN_GPU
+	GPUPtr dGradient;
+	GPUPtr dHessian;
+	GPUPtr dReducedGradientHessian;
+
+	real* hGradient;
+	real* hHessian;
+#endif
+
+	GPUPtr* dXColumnRowIndicators;
+//	int* hColumnRowLength;
+
+	GPUPtr dTmpCooRows;
+	GPUPtr dTmpCooVals;
+};
+
+#endif /* GPUCYCLICCOORDINATEDESCENT_H_ */

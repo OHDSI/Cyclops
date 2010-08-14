@@ -1,0 +1,168 @@
+/*
+ * CyclicCoordinateDescent.h
+ *
+ *  Created on: May-June, 2010
+ *      Author: msuchard
+ */
+
+#ifndef CYCLICCOORDINATEDESCENT_H_
+#define CYCLICCOORDINATEDESCENT_H_
+
+#include "CompressedIndicatorMatrix.h"
+#include "InputReader.h"
+
+using namespace std;
+
+#define DEBUG
+
+typedef float real;
+
+enum PriorType {
+	LAPLACE = 0,
+	NORMAL  = 1
+};
+
+class CyclicCoordinateDescent {
+	
+public:
+	
+	CyclicCoordinateDescent(void);
+	
+	CyclicCoordinateDescent(			
+			const char* fileNameX,
+			const char* fileNameEta,
+			const char* fileNameOffs,
+			const char* fileNameNEvents,
+			const char* fileNamePid			
+		);
+	
+	CyclicCoordinateDescent(
+			InputReader* reader
+		);
+
+	CyclicCoordinateDescent(
+			int inN,
+			CompressedIndicatorMatrix* inX,
+			int* inEta, 
+			int* inOffs, 
+			int* inNEvents,
+			int* inPid
+		);
+	
+	void logResults(const char* fileName);
+
+	virtual ~CyclicCoordinateDescent();
+	
+	double getLogLikelihood(void);
+
+	double getLogPrior(void);
+	
+	virtual double getObjectiveFunction(void);
+		
+	void update(int maxIterations, double epsilon);
+
+	// Setters
+	void setHyperprior(double value);
+
+	void setPriorType(int priorType);
+
+	// Getters
+	string getPriorInfo();
+		
+protected:
+	
+//private:
+	
+	void init(void);
+	
+	void computeXBeta(void);
+
+	real* computeXjEta(void);
+
+	void computeSufficientStatistics(void);
+
+	void updateSufficientStatistics(double delta, int index);
+
+	virtual void updateXBeta(double delta, int index);
+
+	virtual void computeRemainingStatistics(void);
+	
+	virtual void computeRatiosForGradientAndHessian(int index);
+
+	virtual void computeGradientAndHession(
+			int index,
+			double *gradient,
+			double *hessian);
+
+	virtual void getDenominators(void);
+
+	double ccdUpdateBeta(int index);
+	
+	double applyBounds(
+			double inDelta,
+			int index);
+	
+	double computeConvergenceCriterion(double newObjFxn, double oldObjFxn);
+	
+	template <class T>
+	void zeroVector(T* vector, const int length) {
+		for (int i = 0; i < length; i++) {
+			vector[i] = 0;
+		}
+	}
+		
+	void testDimension(int givenValue, int trueValue, const char *parameterName);
+	
+	void printVector(real* vector, const int length, ostream &os);
+	
+	double oneNorm(real* vector, const int length);
+	
+	double twoNormSquared(real * vector, const int length); 
+	
+	int sign(double x); 
+	
+	template <class T> 
+	T* readVector(const char *fileName, int *length); 
+			
+	// Local variables
+	
+	//InputReader* hReader;
+	
+	ofstream outLog;
+	bool hasLog;
+
+	CompressedIndicatorMatrix* hXI; // K-by-J-indicator matrix	
+
+	int* hOffs;  // K-vector
+	int* hEta; // K-vector
+	int* hNEvents; // K-vector
+	int* hPid; // N-vector
+ 	
+	real* hBeta;
+	real* hXBeta;
+	real* hDelta;
+
+	int N; // Number of patients
+	int K; // Number of exposure levels
+	int J; // Number of drugs
+	
+	string conditionId;
+
+	int priorType;
+	double sigma2Beta;
+	double lambda;
+
+	bool sufficientStatisticsKnown;
+
+	// temporary variables
+	real* expXBeta;
+	real* offsExpXBeta;
+	real* denomPid;
+	real* numerPid;
+	real* t1;
+	real* xOffsExpXBeta;
+	real* hXjEta;
+};
+
+
+#endif /* CYCLICCOORDINATEDESCENT_H_ */
