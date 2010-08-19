@@ -10,6 +10,7 @@
 #include <sstream>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <map>
 #include <time.h>
 
@@ -336,6 +337,7 @@ void CyclicCoordinateDescent::update(
 			  // since these copy over XBeta
 
 			double thisLogPost = getLogLikelihood() + getLogPrior();
+			cout << endl;
 			printVector(hBeta, J, cout);
 			cout << endl;
 			cout << "log post: " << thisLogPost << " (iter:" << iteration << ") ";
