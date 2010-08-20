@@ -51,6 +51,7 @@ void KernelLauncherCCD::LoadKernels() {
 
 	fSpmvCsr = gpu->GetFunction("spmv_csr_vector_kernel");
 	fReduceTwo = gpu->GetFunction("kernelReduceTwo");
+	fReduceSum = gpu->GetFunction("kernelReduceSum");
 
 	fClearMemory = gpu->GetFunction("kernelClear");
 }
@@ -160,6 +161,18 @@ void KernelLauncherCCD::reduceTwo(
 	Dim3Int grid(2);
 	gpu->LaunchKernelParams(fReduceTwo, block, grid, 2, 1, 0,
 			oC, iX, length);
+}
+
+void KernelLauncherCCD::reduceSum(
+		GPUPtr d_idata,
+		GPUPtr d_odata,
+		unsigned int size,
+		unsigned int blocks) {
+	unsigned int threads = 256; // TODO Consider where this should be calculated
+	Dim3Int block(threads);
+	Dim3Int grid(blocks);
+	gpu->LaunchKernelParams(fReduceSum, block, grid, 2, 2, 0, 
+			d_idata, d_odata, size, threads);
 }
 
 void KernelLauncherCCD::updateXBeta(GPUPtr xBeta, GPUPtr xIColumn, int length,

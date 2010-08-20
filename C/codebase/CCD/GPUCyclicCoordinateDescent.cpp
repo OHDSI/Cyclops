@@ -405,7 +405,6 @@ void GPUCyclicCoordinateDescent::getDenominators(void) {
 #endif 	
 }
 
-
 void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *ogradient,
 		double *ohessian) {
 #ifdef GPU_DEBUG_FLOW
@@ -413,27 +412,28 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
 #endif 	
 	real gradient = 0;
 	real hessian = 0;
-#ifdef GRADIENT_HESSIAN_GPU
-#ifdef GH_REDUCTION_GPU
+#ifdef COKI_REDUCTION	
+	unsigned int blocks = 64; // TODO Calculate based on N, maxBlocks, maxThreads
+	unsigned int threads = 256; // TODO See immediately above
+	
+	kernels->reduceSum(dGradient, dGradient, N, blocks);
+	kernels->reduceSum(dHessian, dGradient+(blocks*sizeof(real)), N, blocks);
+	gpu-> MemcpyDeviceToHost(hGradient, dGradient, 2*blocks*sizeof(real));
+
+	for (int i = 0; i < blocks; i++)
+	{	
+		gradient += hGradient[i];
+		hessian += hGradient[i+blocks];
+	}
+	
+#else
 	real tmp[2];
 	kernels->reduceTwo(dReducedGradientHessian, dGradient, N);
 	gpu->MemcpyDeviceToHost(tmp, dReducedGradientHessian, sizeof(real) * 2);
 	gradient = tmp[0];
 	hessian = tmp[1];
-#else
-	gpu->MemcpyDeviceToHost(hGradient, dGradient, sizeof(real) * N);
-	gpu->MemcpyDeviceToHost(hHessian, dHessian, sizeof(real) * N);
-	for (int i = 0; i < N; i++) { // TODO Could try reduction on GPU
-		gradient += hGradient[i];
-		hessian += hHessian[i];
-	}
 #endif
-#else
-	for (int i = 0; i < N; i++) {
-		gradient += hNEvents[i] * t1[i];
-		hessian += hNEvents[i] * t1[i] * (1.0 - t1[i]);
-	}
-#endif
+
 	gradient -= hXjEta[index];
 	*ogradient = (double) gradient;
 	*ohessian = (double) hessian;

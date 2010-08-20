@@ -22,6 +22,8 @@
 #define GRADIENT_HESSIAN_GPU
 #define GH_REDUCTION_GPU
 
+//#define COKI_REDUCTION
+
 /* Definition of REAL can be switched between 'double' and 'float' */
 #ifdef DOUBLE_PRECISION
     #define REAL    double

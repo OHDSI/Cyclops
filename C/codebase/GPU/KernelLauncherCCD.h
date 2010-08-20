@@ -33,6 +33,7 @@ private:
 
     GPUFunction fSpmvCsr;
     GPUFunction fReduceTwo;
+    GPUFunction fReduceSum;
 
     GPUFunction fClearMemory;
 
@@ -59,6 +60,12 @@ public:
     void reduceTwo(GPUPtr oC,
 				   GPUPtr iX,
 				   unsigned int length);
+    
+    void reduceSum(
+    		GPUPtr d_idata,
+    		GPUPtr d_odata,
+    		unsigned int size,
+    		unsigned int blocks);    
 
     void computeIntermediates(
     		GPUPtr offsExpXBeta,
