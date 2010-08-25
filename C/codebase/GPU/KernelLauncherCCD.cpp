@@ -167,8 +167,8 @@ void KernelLauncherCCD::reduceSum(
 		GPUPtr d_idata,
 		GPUPtr d_odata,
 		unsigned int size,
-		unsigned int blocks) {
-	unsigned int threads = 256; // TODO Consider where this should be calculated
+		unsigned int blocks,
+		unsigned int threads) {
 	Dim3Int block(threads);
 	Dim3Int grid(blocks);
 	gpu->LaunchKernelParams(fReduceSum, block, grid, 2, 2, 0, 

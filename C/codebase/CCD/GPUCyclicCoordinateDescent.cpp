@@ -405,6 +405,16 @@ void GPUCyclicCoordinateDescent::getDenominators(void) {
 #endif 	
 }
 
+unsigned int nextPow2( unsigned int x) {
+	--x;
+	x |= x >> 1;
+	x |= x >> 2;
+	x |= x >> 4;
+	x |= x >> 8;
+	x |= x >> 16;
+	return ++x;
+}
+
 void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *ogradient,
 		double *ohessian) {
 #ifdef GPU_DEBUG_FLOW
@@ -413,11 +423,13 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
 	real gradient = 0;
 	real hessian = 0;
 #ifdef COKI_REDUCTION	
-	unsigned int blocks = 64; // TODO Calculate based on N, maxBlocks, maxThreads
-	unsigned int threads = 256; // TODO See immediately above
 	
-	kernels->reduceSum(dGradient, dGradient, N, blocks);
-	kernels->reduceSum(dHessian, dGradient+(blocks*sizeof(real)), N, blocks);
+	unsigned int threads = (N < 512) ? nextPow2((N + 1)/ 2) : 256;
+	unsigned int blocks = (N + (threads * 2 - 1)) / (threads * 2);
+	blocks = (64 < blocks) ? 64 : blocks;
+	
+	kernels->reduceSum(dGradient, dGradient, N, blocks, threads);
+	kernels->reduceSum(dHessian, dGradient+(blocks*sizeof(real)), N, blocks, threads);
 	gpu-> MemcpyDeviceToHost(hGradient, dGradient, 2*blocks*sizeof(real));
 
 	for (int i = 0; i < blocks; i++)

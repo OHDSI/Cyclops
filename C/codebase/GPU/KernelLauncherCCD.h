@@ -65,7 +65,8 @@ public:
     		GPUPtr d_idata,
     		GPUPtr d_odata,
     		unsigned int size,
-    		unsigned int blocks);    
+    		unsigned int blocks,
+		unsigned int threads);    
 
     void computeIntermediates(
     		GPUPtr offsExpXBeta,
