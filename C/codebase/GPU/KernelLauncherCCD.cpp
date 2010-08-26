@@ -9,8 +9,12 @@
 #include <iostream>
 
 #include "GPU/KernelLauncherCCD.h"
-#include "GPU/kernels/CCDKernels.h"
 
+#ifdef DOUBLE_PRECISION
+	#include "GPU-DP/kernels/CCDKernels.h"
+#else
+	#include "GPU/kernels/CCDKernels.h"
+#endif
 using namespace std;
 
 /**************CODE***********/
@@ -116,6 +120,7 @@ void KernelLauncherCCD::computeIntermediates(GPUPtr offsExpXBeta,
 	Dim3Int gridI(nBlocksI);
 	gpu->LaunchKernelParams(fComputeIntermediates, blockI, gridI, 5, 1, 0,
 			offsExpXBeta, denomPid, offs, xBeta, rowOffsets, nRows);
+		
 #if 0
 	int nBlocksR = nPatients / BLOCK_SIZE_REDUCE_ALL + // TODO Compute once
 	(nPatients % BLOCK_SIZE_REDUCE_ALL == 0 ? 0 : 1);
@@ -148,6 +153,15 @@ void KernelLauncherCCD::computeIntermediates(GPUPtr offsExpXBeta,
 #endif
 #ifdef PROFILE_GPU
 	gpu->Synchronize();
+#endif
+	
+#ifdef DP_DEBUG
+	gpu->PrintfDeviceInt(offs, 10); // RIGHT
+	gpu->PrintfDeviceVector(xBeta, 10); // RIGHT
+	gpu->PrintfDeviceInt(rowOffsets, 10);  // RIGHT
+	gpu->PrintfDeviceVector(denomPid, 10); // RIGHT
+	gpu->PrintfDeviceVector(offsExpXBeta, 10); // RIGHT
+//	exit(0);	
 #endif
 }
 

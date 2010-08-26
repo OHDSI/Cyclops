@@ -62,7 +62,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 		if (columnLength[j] != 0) {
 			dXI[j] = gpu->AllocateRealMemory(columnLength[j]);
 			gpu->MemcpyHostToDevice(dXI[j], hXI->getCompressedColumnVector(j),
-				sizeof(REAL) * columnLength[j]);
+				sizeof(int) * columnLength[j]);
 		}
 	}
 //	dXColumnLength = gpu->AllocateIntMemory(K);
@@ -263,6 +263,11 @@ void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 	hBeta[index] += delta;
 	REAL gpuBeta = hBeta[index];
 	gpu->MemcpyHostToDevice(dBeta + sizeof(REAL) * index, &gpuBeta, sizeof(REAL));
+	
+#ifdef DP_DEBUG
+	fprintf(stderr,"uXB ");
+	gpu->PrintfDeviceVector(dBeta, 10);
+#endif
 
 	const int n = hXI->getNumberOfEntries(index);
 
@@ -277,6 +282,13 @@ void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 
 	// NEW
 	kernels->updateXBeta(dXBeta, dXI[index], n, delta);
+
+#ifdef DP_DEBUG
+	fprintf(stderr,"uXB ");
+	gpu->PrintfDeviceVector(dXBeta, 10);
+//	exit(-1);
+#endif
+	
 
 #ifdef PROFILE_GPU
 	gpu->Synchronize();
@@ -449,6 +461,10 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
 	gradient -= hXjEta[index];
 	*ogradient = (double) gradient;
 	*ohessian = (double) hessian;
+	
+#ifdef DP_DEBUG
+	fprintf(stderr,"%5.3f %5.3f\n", *ogradient, *ohessian);
+#endif
 	
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::computeGradientAndHessian\n");

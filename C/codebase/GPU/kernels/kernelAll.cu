@@ -36,10 +36,10 @@ extern "C" {
 	}
 	
 	__global__ void kernelComputeIntermediates(REAL *offsExpXBeta,
-											   REAL *denomPid,
-									           int *offs,
+											   REAL *denomPid, // TODO Remove
+									           int *offs, // TODO Remove
 									           REAL *xBeta,
-									           int *pid,									           
+									           int *pid, // TODO Remove									           
 									           int length) {
 									           
 		int idx = blockIdx.x * COMPUTE_INTERMEDIATES_BLOCK_SIZE + threadIdx.x;
@@ -129,22 +129,22 @@ __global__ void kernelReduceTwo(
 
     if (tid < 32) {
 #if (BLOCKSIZE >=  64)
-    	SDATA_XWU(pred, ch, tid) = mySum = mySum + SDATA_XWU(pred, ch, tid + 32);
+    	SDATA_XWU(pred, ch, tid) = mySum = mySum + SDATA_XWU(pred, ch, tid + 32); __syncthreads();
 #endif
 #if (BLOCKSIZE >=  32)
-    	SDATA_XWU(pred, ch, tid) = mySum = mySum + SDATA_XWU(pred, ch, tid + 16);
+    	SDATA_XWU(pred, ch, tid) = mySum = mySum + SDATA_XWU(pred, ch, tid + 16); __syncthreads();
 #endif
 #if (BLOCKSIZE >=  16)
-    	SDATA_XWU(pred, ch, tid) = mySum = mySum + SDATA_XWU(pred, ch, tid +  8);
+    	SDATA_XWU(pred, ch, tid) = mySum = mySum + SDATA_XWU(pred, ch, tid +  8); __syncthreads();
 #endif
 #if (BLOCKSIZE >=   8)
-    	SDATA_XWU(pred, ch, tid) = mySum = mySum + SDATA_XWU(pred, ch, tid +  4);
+    	SDATA_XWU(pred, ch, tid) = mySum = mySum + SDATA_XWU(pred, ch, tid +  4); __syncthreads();
 #endif
 #if (BLOCKSIZE >=   4)
-    	SDATA_XWU(pred, ch, tid) = mySum = mySum + SDATA_XWU(pred, ch, tid +  2);
+    	SDATA_XWU(pred, ch, tid) = mySum = mySum + SDATA_XWU(pred, ch, tid +  2); __syncthreads();
 #endif
 #if (BLOCKSIZE >=   2)
-    	SDATA_XWU(pred, ch, tid) = mySum = mySum + SDATA_XWU(pred, ch, tid +  1);
+    	SDATA_XWU(pred, ch, tid) = mySum = mySum + SDATA_XWU(pred, ch, tid +  1); __syncthreads();
 #endif
     }
 

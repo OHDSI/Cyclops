@@ -15,7 +15,11 @@ using namespace std;
 
 #define DEBUG
 
-typedef float real;
+#ifdef DOUBLE_PRECISION
+	typedef double real;
+#else
+	typedef float real;
+#endif 
 
 enum PriorType {
 	LAPLACE = 0,

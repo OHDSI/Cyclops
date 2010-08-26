@@ -100,7 +100,13 @@ int main(int argc, char* argv[]) {
 		exit(-1);
 	}
 
-	cout << "Running CCD ..." << endl;
+	cout << "Running CCD (" <<
+#ifdef DOUBLE_PRECISION
+	"double"
+#else
+	"single"
+#endif
+	"-precision) ..." << endl;
 
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);

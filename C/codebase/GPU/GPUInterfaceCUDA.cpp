@@ -234,10 +234,14 @@ void GPUInterface::LaunchKernelParams(GPUFunction deviceFunction,
     }
     for(int i = 0; i < totalFloatParameterCount; i++) {
     	REAL param = (REAL) va_arg(parameters, double); // Implicit case
-
+    
     	offset = (offset + __alignof(param) - 1) & ~(__alignof(param) - 1);
 
+#ifdef DOUBLE_PRECISION
+    	SAFE_CUDA(cuParamSetv(deviceFunction, offset, &param, sizeof(REAL)));
+#else
     	SAFE_CUDA(cuParamSetf(deviceFunction, offset, param));
+#endif
 
     	offset += sizeof(param);
     }
@@ -259,6 +263,11 @@ GPUPtr GPUInterface::AllocateMemory(int memSize) {
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr,"\t\t\tEntering GPUInterface::AllocateMemory\n");
 #endif
+    
+    if (memSize < 0) {
+    	fprintf(stderr,"BAD ALLOC!\n");
+    	exit(-1);
+    }
     
     GPUPtr data;
     
@@ -284,8 +293,13 @@ GPUPtr GPUInterface::AllocateRealMemory(int length) {
     fprintf(stderr,"\t\t\tEntering GPUInterface::AllocateRealMemory\n");
 #endif
 
+    if (length < 0) {
+    	fprintf(stderr,"BAD ALLOC!\n");
+    	exit(-1);
+    }
+    
     GPUPtr data;
-
+ 
     SAFE_CUPP(cuMemAlloc(&data, SIZE_REAL * length));
 
 #ifdef MMGPU_DEBUG_VALUES
@@ -308,6 +322,11 @@ GPUPtr GPUInterface::AllocateIntMemory(int length) {
     fprintf(stderr, "\t\t\tEntering GPUInterface::AllocateIntMemory\n");
 #endif
 
+    if(length < 0) {
+    	fprintf(stderr,"BAD ALLOC!\n");
+    	exit(-1);
+    }
+    
     GPUPtr data;
     
     SAFE_CUPP(cuMemAlloc(&data, SIZE_INT * length));
@@ -334,6 +353,11 @@ void GPUInterface::MemcpyHostToDevice(GPUPtr dest,
     fprintf(stderr, "\t\t\tEntering GPUInterface::MemcpyHostToDevice\n");
 #endif    
     
+    if (memSize < 0) {
+    	fprintf(stderr,"BAD IO\n");
+    	exit(-1);
+    }
+    
     SAFE_CUPP(cuMemcpyHtoD(dest, src, memSize));
     
 #ifdef GPU_DEBUG_FLOW
@@ -348,6 +372,11 @@ void GPUInterface::MemcpyDeviceToHost(void* dest,
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering GPUInterface::MemcpyDeviceToHost\n");
 #endif        
+    
+    if (memSize < 0) {
+    	fprintf(stderr,"BAD IO\n");
+    	exit(-1);
+    }
     
     SAFE_CUPP(cuMemcpyDtoH(dest, src, memSize));
     

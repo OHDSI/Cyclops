@@ -13,7 +13,12 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/KernelLauncherCCD.h"
 
-typedef float gpu_real;
+#ifdef DOUBLE_PRECISION
+	typedef double gpu_real;
+#else
+	typedef float gpu_real;
+#endif
+
 
 class GPUCyclicCoordinateDescent: public CyclicCoordinateDescent {
 public:
