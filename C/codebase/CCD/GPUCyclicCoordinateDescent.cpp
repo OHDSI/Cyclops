@@ -81,8 +81,8 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	gpu->MemcpyHostToDevice(dOffs, hOffs, sizeof(int) * K);
 	dEta = gpu->AllocateIntMemory(K);
 	gpu->MemcpyHostToDevice(dEta, hEta, sizeof(int) * K);
-	dNEvents = gpu->AllocateIntMemory(K);
-	gpu->MemcpyHostToDevice(dNEvents, hNEvents, sizeof(int) * K);
+	dNEvents = gpu->AllocateIntMemory(N);
+	gpu->MemcpyHostToDevice(dNEvents, hNEvents, sizeof(int) * N);
 //	dPid = gpu->AllocateIntMemory()
 
 //	cerr << "Memory allocate 3" << endl;
