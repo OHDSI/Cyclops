@@ -12,6 +12,7 @@
 #include <map>
 #include <cstdlib>
 #include <cstring>
+#include <algorithm>
 
 #include "InputReader.h"
 
