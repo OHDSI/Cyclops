@@ -36,8 +36,6 @@ InputReader::InputReader() {
 	// Do nothing
 }
 
-//InputReader::InputReader(const ifstream& in) {
-
 InputReader::InputReader(const char* fileName) {
 
 	ifstream in(fileName);
@@ -113,6 +111,7 @@ InputReader::InputReader(const char* fileName) {
 
 			// Parse remaining (variable-length) entries
 			DrugIdType drug;
+			vector<DrugIdType> uniqueDrugsForEntry;
 			while (ss >> drug) {
 				if (drug == noDrug) { // No drug
 					// Do nothing
@@ -122,8 +121,11 @@ InputReader::InputReader(const char* fileName) {
 						unorderColumns.push_back(int_vector());
 						numDrugs++;
 					}
-					// Add to CSC storage
-					unorderColumns[drugMap[drug]].push_back(currentEntry);
+					if (!listContains(uniqueDrugsForEntry, drug)) {
+						// Add to CSC storage
+						unorderColumns[drugMap[drug]].push_back(currentEntry);
+						uniqueDrugsForEntry.push_back(drug);
+					}
 				}
 			}
 
@@ -152,6 +154,11 @@ InputReader::InputReader(const char* fileName) {
 	nCols = columns.size();
 	nRows = currentEntry;
 	conditionId = outcomeId;
+}
+
+bool InputReader::listContains(const vector<DrugIdType>& list, DrugIdType value) {
+	return (find(list.begin(), list.end(), value)
+				!=  list.end());
 }
 
 int InputReader::getNumberOfPatients() {

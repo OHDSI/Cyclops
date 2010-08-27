@@ -47,6 +47,8 @@ private:
 	
 	int* makeDeepCopy(int *original, unsigned int length);
 
+	bool listContains(const vector<DrugIdType>& list, DrugIdType value);
+
 	int nPatients;
 	vector<int> pid;
 	vector<int> eta;
