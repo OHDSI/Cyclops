@@ -179,7 +179,7 @@ void CyclicCoordinateDescent::init() {
 	t1 = (real*) malloc(sizeof(real) * N);
 
 	// Some precomputed values
-	hXjEta = computeXjEta();
+	hXjEta = computeXjEta(); // TODO Call with cv indicators
 	CyclicCoordinateDescent::computeRemainingStatistics();
 		
 #ifdef DEBUG	
@@ -222,11 +222,11 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 	double logLikelihood = 0;
 
 	for (int i = 0; i < K; i++) {
-		logLikelihood += hEta[i] * hXBeta[i];
+		logLikelihood += hEta[i] * hXBeta[i]; // TODO If check for cv
 	}
 
 	for (int i = 0; i < N; i++) {
-		logLikelihood -= hNEvents[i] * log(denomPid[i]);
+		logLikelihood -= hNEvents[i] * log(denomPid[i]); // TODO If check for cv
 	}
 
 	return logLikelihood;
@@ -363,7 +363,7 @@ void CyclicCoordinateDescent::computeGradientAndHession(int index, double *ograd
 		double *ohessian) {
 	double gradient = 0;
 	double hessian = 0;
-	for (int i = 0; i < N; i++) {
+	for (int i = 0; i < N; i++) { // TODO If check for cv
 		gradient += hNEvents[i] * t1[i];
 		hessian += hNEvents[i] * t1[i] * (1.0 - t1[i]);
 	}
@@ -533,7 +533,7 @@ real* CyclicCoordinateDescent::computeXjEta(void) {
 		const int* indicators = hXI->getCompressedColumnVector(drug);
 		const int n = hXI->getNumberOfEntries(drug);
 		for (int i = 0; i < n; i++) { // Loop through non-zero entries only
-			const int k = indicators[i];
+			const int k = indicators[i]; // TODO Add if for cross-validation
 			XjEta[drug] += hEta[k];
 		}
 #endif
