@@ -75,6 +75,8 @@ public:
 
 	void setPriorType(int priorType);
 
+	void setWeights(real* weights);
+
 	// Getters
 	string getPriorInfo();
 		
@@ -84,11 +86,13 @@ protected:
 	
 	void init(void);
 	
+	void computeNEvents(void);
+
 	void computeXBeta(void);
 
 	void saveXBeta(void);
 
-	real* computeXjEta(void);
+	void computeXjEta(void);
 
 	void computeSufficientStatistics(void);
 
@@ -106,6 +110,8 @@ protected:
 			double *hessian);
 
 	virtual void getDenominators(void);
+
+	double computeLogLikelihood(void);
 
 	double ccdUpdateBeta(int index);
 	
@@ -126,7 +132,8 @@ protected:
 		
 	void testDimension(int givenValue, int trueValue, const char *parameterName);
 	
-	void printVector(real* vector, const int length, ostream &os);
+	template <class T>
+	void printVector(T* vector, const int length, ostream &os);
 	
 	double oneNorm(real* vector, const int length);
 	
@@ -167,6 +174,10 @@ protected:
 	double lambda;
 
 	bool sufficientStatisticsKnown;
+
+	bool validWeights;
+	bool useCrossValidation;
+	real* hWeights;
 
 	// temporary variables
 	real* expXBeta;

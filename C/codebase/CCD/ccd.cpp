@@ -22,6 +22,7 @@
 
 #include "CyclicCoordinateDescent.h"
 #include "InputReader.h"
+#include "CrossValidation.h"
 
 #include "tclap/CmdLine.h"
 
@@ -35,22 +36,28 @@
 using namespace TCLAP;
 using namespace std;
 
-int main(int argc, char* argv[]) {
-	
-	CyclicCoordinateDescent* ccd;
+struct CCDArguments {
+
+	// Needed for fitting
 	std::string inFileName;
 	std::string outFileName;
-	bool useGPU = false;
-	int deviceNumber = 0;
+	bool useGPU;
+	int deviceNumber;
 	double tolerance;
 	double hyperprior;
 	bool useNormalPrior;
-	bool hyperPriorSet = false;
+	bool hyperPriorSet;
 	int maxIterations;
 	int convergenceType;
 
-	try {
+	// Needed for cross-validation
 
+	// Needed for boot-strapping
+};
+
+void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
+
+	try {
 		CmdLine cmd("Cyclic coordinate descent algorithm for self-controlled case studies", ' ', "0.1");
 		ValueArg<int> gpuArg("g","GPU","Use GPU device", false, -1, "device #");
 		ValueArg<int> maxIterationsArg("i", "iterations", "Maximum iterations", false, 100, "int");
@@ -77,28 +84,42 @@ int main(int argc, char* argv[]) {
 		cmd.parse(argc, argv);
 
 		if (gpuArg.getValue() > -1) {
-			useGPU = true;
-			deviceNumber = gpuArg.getValue();
+			arguments.useGPU = true;
+			arguments.deviceNumber = gpuArg.getValue();
+		} else {
+			arguments.useGPU = false;
 		}
-		inFileName = inFileArg.getValue();
-		outFileName = outFileArg.getValue();
-		tolerance = toleranceArg.getValue();
-		maxIterations = maxIterationsArg.getValue();
-		hyperprior = hyperPriorArg.getValue();
-		useNormalPrior = normalPriorArg.getValue();
+
+		arguments.inFileName = inFileArg.getValue();
+		arguments.outFileName = outFileArg.getValue();
+		arguments.tolerance = toleranceArg.getValue();
+		arguments.maxIterations = maxIterationsArg.getValue();
+		arguments.hyperprior = hyperPriorArg.getValue();
+		arguments.useNormalPrior = normalPriorArg.getValue();
+
 		if (hyperPriorArg.isSet()) {
-			hyperPriorSet = true;
+			arguments.hyperPriorSet = true;
+		} else {
+			arguments.hyperPriorSet = false;
 		}
 
 		if (zhangOlesConvergenceArg.isSet()) {
-			convergenceType = ZHANG_OLES;
+			arguments.convergenceType = ZHANG_OLES;
 		} else {
-			convergenceType = LANGE;
+			arguments.convergenceType = LANGE;
 		}
 	} catch (ArgException &e) {
 		cerr << "Error: " << e.error() << " for argument " << e.argId() << endl;
 		exit(-1);
 	}
+}
+
+int main(int argc, char* argv[]) {
+	
+	CyclicCoordinateDescent* ccd;
+
+	CCDArguments arguments;
+	parseCommandLine(argc, argv, arguments);
 
 	cout << "Running CCD (" <<
 #ifdef DOUBLE_PRECISION
@@ -111,11 +132,11 @@ int main(int argc, char* argv[]) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	InputReader* reader = new InputReader(inFileName.c_str());
+	InputReader* reader = new InputReader(arguments.inFileName.c_str());
 
 #ifdef CUDA
-	if (useGPU) {
-		ccd = new GPUCyclicCoordinateDescent(deviceNumber, reader);
+	if (arguments.useGPU) {
+		ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, reader);
 	} else {
 #endif
 
@@ -126,11 +147,11 @@ int main(int argc, char* argv[]) {
 #endif
 
 	// Set prior from the command-line
-	if (useNormalPrior) {
+	if (arguments.useNormalPrior) {
 		ccd->setPriorType(NORMAL);
 	}
-	if (hyperPriorSet) {
-		ccd->setHyperprior(hyperprior);
+	if (arguments.hyperPriorSet) {
+		ccd->setHyperprior(arguments.hyperprior);
 	}
 
 	cout << "Using prior: " << ccd->getPriorInfo() << endl;
@@ -142,8 +163,17 @@ int main(int argc, char* argv[]) {
 	
 	gettimeofday(&time1, NULL);
 
-	ccd->update(maxIterations, convergenceType, tolerance);
-	
+	cout << "Playing with weights..." << endl;
+
+	int fold = 30;
+
+	CrossValidation crossValidation(fold, reader->getPidVectorSTL(), SUBJECT);
+	std::vector<real> weights;
+	crossValidation.getWeights(0, weights);
+	ccd->setWeights(&weights[0]);
+
+	ccd->update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+
 	gettimeofday(&time2, NULL);	
 	double sec2 = time2.tv_sec - time1.tv_sec +
 		(double)(time2.tv_usec - time1.tv_usec) / 1000000.0;
@@ -151,7 +181,7 @@ int main(int argc, char* argv[]) {
 	cout << "Load   duration: " << scientific << sec1 << endl;
 	cout << "Update duration: " << scientific << sec2 << endl;
 	
-	ccd->logResults(outFileName.c_str());
+	ccd->logResults(arguments.outFileName.c_str());
 
 	delete ccd;
 
