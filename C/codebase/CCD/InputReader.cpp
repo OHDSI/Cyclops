@@ -170,8 +170,7 @@ string InputReader::getConditionId() {
 	return conditionId;
 }
 
-InputReader::~InputReader() {	
-	cerr << "Entering InputReader::destructor" << endl;
+InputReader::~InputReader() {
 	// Do nothing
 }
 

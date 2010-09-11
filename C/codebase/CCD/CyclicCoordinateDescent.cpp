@@ -144,13 +144,19 @@ string CyclicCoordinateDescent::getPriorInfo() {
 	return priorInfo.str();
 }
 
+void CyclicCoordinateDescent::resetBounds() {
+	for (int j = 0; j < J; j++) {
+		hDelta[j] = 2.0;
+	}
+}
+
 void CyclicCoordinateDescent::init() {
 	
 	// Set parameters and statistics space
 	hDelta = (real*) malloc(J * sizeof(real));
-	for (int j = 0; j < J; j++) {
-		hDelta[j] = 2.0;
-	}
+//	for (int j = 0; j < J; j++) {
+//		hDelta[j] = 2.0;
+//	}
 
 	hBeta = (real*) calloc(J, sizeof(real)); // Fixed starting state
 	hXBeta = (real*) calloc(K, sizeof(real));
@@ -196,7 +202,6 @@ void CyclicCoordinateDescent::init() {
 }
 
 void CyclicCoordinateDescent::computeNEvents() {
-
 	zeroVector(hNEvents, N);
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
@@ -207,7 +212,6 @@ void CyclicCoordinateDescent::computeNEvents() {
 			hNEvents[hPid[i]] += hEta[i];
 		}
 	}
-
 	validWeights = true;
 }
 
@@ -234,6 +238,23 @@ void CyclicCoordinateDescent::logResults(const char* fileName) {
 		drugMap[i] << sep << hBeta[i] << endl;
 	}
 	outLog.close();
+}
+
+double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
+
+	if (!sufficientStatisticsKnown) {
+		computeRemainingStatistics();
+	}
+
+	getDenominators();
+
+	double logLikelihood = 0;
+
+	for (int i = 0; i < K; i++) {
+		logLikelihood += hEta[i] * weights[i] * (hXBeta[i] - log(denomPid[hPid[i]]));
+	}
+
+	return logLikelihood;
 }
 
 double CyclicCoordinateDescent::getLogLikelihood(void) {
@@ -289,6 +310,7 @@ void CyclicCoordinateDescent::setWeights(real* iWeights) {
 	}
 	useCrossValidation = true;
 	validWeights = false;
+	sufficientStatisticsKnown = false;
 }
 	
 double CyclicCoordinateDescent::getLogPrior(void) {
@@ -354,6 +376,8 @@ void CyclicCoordinateDescent::update(
 	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics();
 	}
+
+	resetBounds();
 
 	bool done = false;
 	int iteration = 0;

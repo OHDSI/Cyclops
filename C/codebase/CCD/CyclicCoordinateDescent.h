@@ -64,6 +64,8 @@ public:
 	
 	double getLogLikelihood(void);
 
+	double getPredictiveLogLikelihood(real* weights);
+
 	double getLogPrior(void);
 	
 	virtual double getObjectiveFunction(void);
@@ -86,6 +88,8 @@ protected:
 	
 	void init(void);
 	
+	void resetBounds(void);
+
 	void computeNEvents(void);
 
 	void computeXBeta(void);

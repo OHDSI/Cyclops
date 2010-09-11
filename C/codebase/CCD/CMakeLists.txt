@@ -73,7 +73,8 @@ set(SOURCE_FILES
 	CyclicCoordinateDescent.cpp	
 	CompressedIndicatorMatrix.cpp
 	InputReader.cpp
-	CrossValidation.cpp)
+	CrossValidationSelector.cpp
+	CrossValidationDriver.cpp)
 	
 if(CUDA_FOUND)
 	set(SOURCE_FILES ${SOURCE_FILES}
