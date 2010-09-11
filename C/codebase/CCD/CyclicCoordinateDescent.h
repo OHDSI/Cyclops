@@ -90,8 +90,6 @@ protected:
 	
 	void resetBounds(void);
 
-	void computeNEvents(void);
-
 	void computeXBeta(void);
 
 	void saveXBeta(void);
@@ -101,6 +99,8 @@ protected:
 	void computeSufficientStatistics(void);
 
 	void updateSufficientStatistics(double delta, int index);
+
+	virtual void computeNEvents(void);
 
 	virtual void updateXBeta(double delta, int index);
 
@@ -193,5 +193,6 @@ protected:
 	real* hXjEta;
 };
 
+double convertVarianceToHyperparameter(double variance);
 
 #endif /* CYCLICCOORDINATEDESCENT_H_ */

@@ -82,6 +82,7 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 	}
 
 	std::fill(weights.begin(), weights.end(), 1.0);
+
 	if (type == SUBJECT) {
 		std:set<int> excludeSet;
 		std::copy(
@@ -89,11 +90,6 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 				permutation.begin() + intervalStart[batch + 1],
 				insert_iterator< std::set<int> >(excludeSet, excludeSet.begin())
 				);
-
-//		std::copy(excludeSet.begin(), excludeSet.end(),
-//				ostream_iterator<int> (std::cout, " "));
-//		std::cout << std::endl;
-//		exit(0);
 
 		for (int k = 0; k < K; k++) {
 			if (excludeSet.find(ids->at(k)) != excludeSet.end()) { // found
@@ -106,11 +102,6 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 		std::fill(weights.begin(), weights.end(), 0.0);
 		std::fill(weights.begin(), weights.begin() + 100, 1.0);
 	}
-
-//	std::copy(weights.begin(), weights.end(),
-//			ostream_iterator<int>(std::cout, " "));
-//	std::cout << std::endl;
-//	exit(0);
 }
 
 void CrossValidationSelector::getComplement(std::vector<real>& weights) {

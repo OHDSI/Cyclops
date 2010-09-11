@@ -209,7 +209,7 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, InputReader *reader,
 
 	gettimeofday(&time2, NULL);
 
-	driver.logResults(arguments.outFileName.c_str());
+	driver.logResults(arguments);
 
 	return calculateSeconds(time1, time2);
 }

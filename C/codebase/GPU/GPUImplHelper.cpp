@@ -7,23 +7,11 @@
 #include <cstdio>
 #include <iostream>
 #include <cmath>
-#include "GPU/GPUImplDefs.h"
 
 void checkHostMemory(void* ptr) {
     if (ptr == NULL) {
         fprintf(stderr, "Unable to allocate some memory!\n");
         exit(-1);
-    }
-}
-
-void transposeSquareMatrix(REAL* mat,
-                           int size) {
-    for (int i = 0; i < size - 1; i++) {
-        for (int j = i + 1; j < size; j++) {
-            REAL tmp = mat[i * size + j];
-            mat[i * size + j] = mat[j * size + i];
-            mat[j * size + i] = tmp;
-        }
     }
 }
 
@@ -45,6 +33,7 @@ void printfVectorF(float* ptr,
     fprintf(stderr, " ]\n");
 }
 
+template <typename REAL>
 void printfVector(REAL* ptr,
                   int length) {
     fprintf(stderr, "[ %1.5e", ptr[0]);

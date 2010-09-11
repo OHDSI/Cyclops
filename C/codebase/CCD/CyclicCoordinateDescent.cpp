@@ -288,9 +288,13 @@ void CyclicCoordinateDescent::getDenominators() {
 	// Do nothing
 }
 
+double convertVarianceToHyperparameter(double value) {
+	return sqrt(2.0 / value);
+}
+
 void CyclicCoordinateDescent::setHyperprior(double value) {
 	sigma2Beta = value;
-	lambda = sqrt(2.0 / value);  // TODO Could use a single hyperprior value
+	lambda = convertVarianceToHyperparameter(value);
 }
 
 void CyclicCoordinateDescent::setPriorType(int iPriorType) {
