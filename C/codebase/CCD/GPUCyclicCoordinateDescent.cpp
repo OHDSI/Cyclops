@@ -117,7 +117,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 //	cerr << "Memory allocate 5" << endl;
 	// Allocate computed indices for sparse matrix operations
 	dXFullRowOffsets = gpu->AllocateIntMemory(N+1);
-	vector<int> rowOffsets(N);
+	vector<int> rowOffsets(N + 1);
 	int offset = 0;
 	int currentPid = -1;
 	for (int i = 0; i < K; i++) {

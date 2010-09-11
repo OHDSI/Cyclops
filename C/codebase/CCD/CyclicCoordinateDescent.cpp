@@ -205,7 +205,7 @@ void CyclicCoordinateDescent::computeNEvents() {
 	zeroVector(hNEvents, N);
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
-			hNEvents[hPid[i]] += hEta[i] * hWeights[i];
+			hNEvents[hPid[i]] += hEta[i] * int(hWeights[i]); // TODO Consider using only integer weights
 		}
 	} else {
 		for (int i = 0; i < K; i++) {
