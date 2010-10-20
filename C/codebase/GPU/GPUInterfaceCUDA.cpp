@@ -403,8 +403,15 @@ void GPUInterface::FreeMemory(GPUPtr dPtr) {
 }
 
 unsigned int GPUInterface::GetAvailableMemory() {
+#if CUDA_VERSION >= 3020
+    size_t availableMem = 0;
+    size_t totalMem = 0;
+    SAFE_CUPP(cuMemGetInfo(&availableMem, &totalMem));
+#else
     unsigned int availableMem = 0;
-    SAFE_CUPP(cuMemGetInfo(&availableMem, NULL));
+    unsigned int totalMem = 0;
+    SAFE_CUPP(cuMemGetInfo(&availableMem, &totalMem));
+#endif
     return availableMem;
 }
 
@@ -436,14 +443,19 @@ void GPUInterface::GetDeviceDescription(int deviceNumber,
     
     SAFE_CUDA(cuDeviceGet(&tmpCudaDevice, deviceNumber));
     
+#if CUDA_VERSION >= 3020
+    size_t totalGlobalMemory = 0;
+#else
     unsigned int totalGlobalMemory = 0;
+#endif
+
     int clockSpeed = 0;
     int mpCount = 0;
-    
+
     SAFE_CUDA(cuDeviceTotalMem(&totalGlobalMemory, tmpCudaDevice));
     SAFE_CUDA(cuDeviceGetAttribute(&clockSpeed, CU_DEVICE_ATTRIBUTE_CLOCK_RATE, tmpCudaDevice));
     SAFE_CUDA(cuDeviceGetAttribute(&mpCount, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, tmpCudaDevice));
-    
+
     sprintf(deviceDescription,
             "Global memory (MB): %d | Clock speed (Ghz): %1.2f | Number of cores: %d",
             int(totalGlobalMemory / 1024.0 / 1024.0 + 0.5),
