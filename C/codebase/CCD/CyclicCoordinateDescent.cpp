@@ -336,11 +336,15 @@ void CyclicCoordinateDescent::update(
 			} // Necessary to call getObjFxn or computeZO before getLogLikelihood,
 			  // since these copy over XBeta
 
-			double thisLogPost = getLogLikelihood() + getLogPrior();
+			double thisLogLikelihood = getLogLikelihood();
+			double thisLogPrior = getLogPrior();
+			double thisLogPost = thisLogLikelihood + thisLogPrior;
 			cout << endl;
 			printVector(hBeta, J, cout);
 			cout << endl;
-			cout << "log post: " << thisLogPost << " (iter:" << iteration << ") ";
+			cout << "log post: " << thisLogPost
+				 << " (" << thisLogLikelihood << " + " << thisLogPrior
+			     << ") (iter:" << iteration << ") ";
 
 			if (epsilon > 0 && conv < epsilon) {
 				cout << "Reached convergence criterion" << endl;
