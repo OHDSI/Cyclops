@@ -31,6 +31,8 @@ protected:
 	
 	using CyclicCoordinateDescent::hXI;
 	
+	virtual void resetBeta(void);
+
 	virtual void computeNEvents(void);
 
 	virtual void updateXBeta(double delta, int index);

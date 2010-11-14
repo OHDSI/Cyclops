@@ -67,6 +67,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, 10, "int");
 		ValueArg<int> gridCVArg("r", "gridSize", "Uniform grid size for cross-validation search", false, 10, "int");
 		ValueArg<int> foldToComputeCVArg("k", "computeFold", "Number of fold to iterate, default is 'fold' value", false, 10, "int");
+		ValueArg<string> outFile2Arg("p","cvFileName", "Cross-validation output file name", false, "cv.txt", "cvFileName");
 
 		cmd.add(gpuArg);
 		cmd.add(toleranceArg);
@@ -82,6 +83,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		cmd.add(foldCVArg);
 		cmd.add(gridCVArg);
 		cmd.add(foldToComputeCVArg);
+		cmd.add(outFile2Arg);
 
 		cmd.add(inFileArg);
 		cmd.add(outFileArg);
@@ -126,6 +128,8 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 			} else {
 				arguments.foldToCompute = arguments.fold;
 			}
+			arguments.cvFileName = outFile2Arg.getValue();
+			arguments.doFitAtOptimal = true;
 		}
 
 	} catch (ArgException &e) {
@@ -175,15 +179,14 @@ double initializeModel(
 	gettimeofday(&time2, NULL);
 	double sec1 = calculateSeconds(time1, time2);
 
-	if (!arguments.doCrossValidation) {
-		cout << "Using prior: " << (*ccd)->getPriorInfo() << endl;
-	}
 	cout << "Everything loaded and ready to run ..." << endl;
 	
 	return sec1;
 }
 
 double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
+	cout << "Using prior: " << ccd->getPriorInfo() << endl;
+
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
@@ -210,6 +213,13 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, InputReader *reader,
 	gettimeofday(&time2, NULL);
 
 	driver.logResults(arguments);
+
+	if (arguments.doFitAtOptimal) {
+		std::cout << "Fitting model at optimal hyperparameter" << std::endl;
+ 		// Do full fit for optimal parameter
+		driver.resetForOptimal(*ccd, selector, arguments);
+		fitModel(ccd, arguments);
+	}
 
 	return calculateSeconds(time1, time2);
 }

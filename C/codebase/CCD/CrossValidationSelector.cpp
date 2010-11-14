@@ -83,6 +83,10 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 
 	std::fill(weights.begin(), weights.end(), 1.0);
 
+	if (batch == -1) {
+		return;
+	}
+
 	if (type == SUBJECT) {
 		std:set<int> excludeSet;
 		std::copy(

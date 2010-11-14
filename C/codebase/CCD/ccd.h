@@ -36,6 +36,8 @@ struct CCDArguments {
 	int fold;
 	int foldToCompute;
 	int gridSteps;
+	std::string cvFileName;
+	bool doFitAtOptimal;
 
 	// Needed for boot-strapping
 };

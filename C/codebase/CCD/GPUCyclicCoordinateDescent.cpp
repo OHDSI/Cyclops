@@ -228,6 +228,12 @@ GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
 //	cerr << "7" << endl;
 }
 
+void GPUCyclicCoordinateDescent::resetBeta(void) {
+	CyclicCoordinateDescent::resetBeta();
+	gpu->MemcpyHostToDevice(dBeta, hBeta, sizeof(REAL) * J);
+	gpu->MemcpyHostToDevice(dXBeta, hXBeta, sizeof(REAL) * K);
+}
+
 void GPUCyclicCoordinateDescent::computeNEvents(void) {
 	CyclicCoordinateDescent::computeNEvents();
 	gpu->MemcpyHostToDevice(dNEvents, hNEvents, sizeof(int) * N);

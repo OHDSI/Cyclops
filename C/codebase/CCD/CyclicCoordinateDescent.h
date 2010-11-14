@@ -72,6 +72,8 @@ public:
 		
 	void update(int maxIterations, int convergenceType, double epsilon);
 
+	virtual void resetBeta(void);
+
 	// Setters
 	void setHyperprior(double value);
 

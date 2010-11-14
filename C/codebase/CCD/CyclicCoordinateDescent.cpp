@@ -219,6 +219,16 @@ void CyclicCoordinateDescent::computeNEvents() {
 //
 //}
 
+void CyclicCoordinateDescent::resetBeta(void) {
+	for (int j = 0; j < J; j++) {
+		hBeta[j] = 0.0;
+	}
+	for (int k = 0; k < K; k++) {
+		hXBeta[k] = 0.0;
+	}
+	sufficientStatisticsKnown = false;
+}
+
 void CyclicCoordinateDescent::logResults(const char* fileName) {
 
 	ofstream outLog(fileName);
@@ -306,6 +316,16 @@ void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 }
 
 void CyclicCoordinateDescent::setWeights(real* iWeights) {
+
+	if (iWeights == NULL) {
+		std::cerr << "Turning off weights!" << std::endl;
+		// Turn off weights
+		useCrossValidation = false;
+		validWeights = false;
+		sufficientStatisticsKnown = false;
+		return;
+	}
+
 	if (hWeights == NULL) {
 		hWeights = (real*) malloc(sizeof(real) * K);
 	}

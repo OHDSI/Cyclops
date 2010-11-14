@@ -46,23 +46,42 @@ double CrossValidationDriver::computePointEstimate(const std::vector<double>& va
 
 void CrossValidationDriver::logResults(const CCDArguments& arguments) {
 
-	ofstream outLog(arguments.outFileName.c_str());
+	ofstream outLog(arguments.cvFileName.c_str());
 	if (!outLog) {
-		cerr << "Unable to open log file: " << arguments.outFileName << endl;
+		cerr << "Unable to open log file: " << arguments.cvFileName << endl;
 		exit(-1);
 	}
 
 	string sep(","); // TODO Make option
+
+	double maxPoint;
+	double maxValue;
+	findMax(&maxPoint, &maxValue);
 
 	for (int i = 0; i < gridPoint.size(); i++) {
 		outLog << std::setw(5) << std::setprecision(4) << std::fixed << gridPoint[i] << sep;
 		if (!arguments.useNormalPrior) {
 			outLog << convertVarianceToHyperparameter(gridPoint[i]) << sep;
 		}
-		outLog << std::scientific << gridValue[i] << std::endl;
+		outLog << std::scientific << gridValue[i] << sep;
+		outLog << (maxValue - gridValue[i]) << std::endl;
 	}
 
 	outLog.close();
+}
+
+void CrossValidationDriver::resetForOptimal(
+		CyclicCoordinateDescent& ccd,
+		CrossValidationSelector& selector,
+		const CCDArguments& arguments) {
+
+	ccd.setWeights(NULL);
+
+	double maxPoint;
+	double maxValue;
+	findMax(&maxPoint, &maxValue);
+	ccd.setHyperprior(maxPoint);
+	ccd.resetBeta(); // Cold-start
 }
 
 void CrossValidationDriver::drive(
@@ -111,14 +130,9 @@ void CrossValidationDriver::drive(
 	}
 
 	// Report results
-	double maxPoint = gridPoint[0];
-	double maxValue = gridValue[0];
-	for (int i = 1; i < gridPoint.size(); i++) {
-		if (gridValue[i] > maxValue) {
-			maxPoint = gridPoint[i];
-			maxValue = gridValue[i];
-		}
-	}
+	double maxPoint;
+	double maxValue;
+	findMax(&maxPoint, &maxValue);
 
 	std::cout << std::endl;
 	std::cout << "Maximum predicted log likelihood (" << maxValue << ") found at:" << std::endl;
@@ -129,3 +143,17 @@ void CrossValidationDriver::drive(
 	}
 	std:cout << std::endl;
 }
+
+
+void CrossValidationDriver::findMax(double* maxPoint, double* maxValue) {
+
+	*maxPoint = gridPoint[0];
+	*maxValue = gridValue[0];
+	for (int i = 1; i < gridPoint.size(); i++) {
+		if (gridValue[i] > *maxValue) {
+			*maxPoint = gridPoint[i];
+			*maxValue = gridValue[i];
+		}
+	}
+}
+

@@ -26,6 +26,11 @@ public:
 			CrossValidationSelector& selector,
 			const CCDArguments& arguments);
 
+	void resetForOptimal(
+			CyclicCoordinateDescent& ccd,
+			CrossValidationSelector& selector,
+			const CCDArguments& arguments);
+
 	void logResults(const CCDArguments& arguments);
 
 private:
@@ -33,6 +38,8 @@ private:
 	double computeGridPoint(int step);
 
 	double computePointEstimate(const std::vector<double>& value);
+
+	void findMax(double* maxPoint, double* maxValue);
 
 	std::vector<double> gridPoint;
 	std::vector<double> gridValue;
