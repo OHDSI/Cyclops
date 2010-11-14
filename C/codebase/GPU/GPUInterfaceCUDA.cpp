@@ -451,7 +451,10 @@ void GPUInterface::GetDeviceDescription(int deviceNumber,
 
     int clockSpeed = 0;
     int mpCount = 0;
+    int major = 0;
+    int minor = 0;
 
+    SAFE_CUDA(cuDeviceComputeCapability(&major, &minor, tmpCudaDevice));
     SAFE_CUDA(cuDeviceTotalMem(&totalGlobalMemory, tmpCudaDevice));
     SAFE_CUDA(cuDeviceGetAttribute(&clockSpeed, CU_DEVICE_ATTRIBUTE_CLOCK_RATE, tmpCudaDevice));
     SAFE_CUDA(cuDeviceGetAttribute(&mpCount, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, tmpCudaDevice));
