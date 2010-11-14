@@ -170,8 +170,7 @@ string InputReader::getConditionId() {
 	return conditionId;
 }
 
-InputReader::~InputReader() {	
-	cerr << "Entering InputReader::destructor" << endl;
+InputReader::~InputReader() {
 	// Do nothing
 }
 
@@ -185,6 +184,10 @@ int* InputReader::makeDeepCopy(int *original, unsigned int length) {
 int* InputReader::getPidVector() {	
 	//return &pid[0];
 	return makeDeepCopy(&pid[0], pid.size());
+}
+
+std::vector<int>* InputReader::getPidVectorSTL() {
+	return new std::vector<int>(pid);
 }
 
 int* InputReader::getEtaVector() {

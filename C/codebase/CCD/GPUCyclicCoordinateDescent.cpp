@@ -82,7 +82,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	dEta = gpu->AllocateIntMemory(K);
 	gpu->MemcpyHostToDevice(dEta, hEta, sizeof(int) * K);
 	dNEvents = gpu->AllocateIntMemory(N);
-	gpu->MemcpyHostToDevice(dNEvents, hNEvents, sizeof(int) * N);
+//	gpu->MemcpyHostToDevice(dNEvents, hNEvents, sizeof(int) * N); // Moved to computeNEvents
 //	dPid = gpu->AllocateIntMemory()
 
 //	cerr << "Memory allocate 3" << endl;
@@ -117,7 +117,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 //	cerr << "Memory allocate 5" << endl;
 	// Allocate computed indices for sparse matrix operations
 	dXFullRowOffsets = gpu->AllocateIntMemory(N+1);
-	vector<int> rowOffsets(N);
+	vector<int> rowOffsets(N + 1);
 	int offset = 0;
 	int currentPid = -1;
 	for (int i = 0; i < K; i++) {
@@ -226,6 +226,11 @@ GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
 //	cerr << "6" << endl;
 	delete gpu;
 //	cerr << "7" << endl;
+}
+
+void GPUCyclicCoordinateDescent::computeNEvents(void) {
+	CyclicCoordinateDescent::computeNEvents();
+	gpu->MemcpyHostToDevice(dNEvents, hNEvents, sizeof(int) * N);
 }
 
 double GPUCyclicCoordinateDescent::getObjectiveFunction(void) {

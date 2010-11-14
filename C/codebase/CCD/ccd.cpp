@@ -20,8 +20,11 @@
 
 #include <math.h>
 
+#include "ccd.h"
 #include "CyclicCoordinateDescent.h"
 #include "InputReader.h"
+#include "CrossValidationSelector.h"
+#include "CrossValidationDriver.h"
 
 #include "tclap/CmdLine.h"
 
@@ -35,22 +38,13 @@
 using namespace TCLAP;
 using namespace std;
 
-int main(int argc, char* argv[]) {
-	
-	CyclicCoordinateDescent* ccd;
-	std::string inFileName;
-	std::string outFileName;
-	bool useGPU = false;
-	int deviceNumber = 0;
-	double tolerance;
-	double hyperprior;
-	bool useNormalPrior;
-	bool hyperPriorSet = false;
-	int maxIterations;
-	int convergenceType;
+double calculateSeconds(const timeval &time1, const timeval &time2) {
+	return time2.tv_sec - time1.tv_sec +
+			(double)(time2.tv_usec - time1.tv_usec) / 1000000.0;
+}
 
+void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 	try {
-
 		CmdLine cmd("Cyclic coordinate descent algorithm for self-controlled case studies", ' ', "0.1");
 		ValueArg<int> gpuArg("g","GPU","Use GPU device", false, -1, "device #");
 		ValueArg<int> maxIterationsArg("i", "iterations", "Maximum iterations", false, 100, "int");
@@ -64,6 +58,15 @@ int main(int argc, char* argv[]) {
 		// Convergence criterion arguments
 		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, 1E-4, "real");
 		SwitchArg zhangOlesConvergenceArg("z", "zhangOles", "Use Zhange-Oles convergence criterion, default is false", false);
+		ValueArg<long> seedArg("s", "seed", "Random number generator seed", false, 0, "long");
+
+		// Cross-validation arguments
+		SwitchArg doCVArg("c", "cv", "Perform cross-validation selection of hyperprior variance", false);
+		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, 1.0, "real");
+		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, 10.0, "real");
+		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, 10, "int");
+		ValueArg<int> gridCVArg("r", "gridSize", "Uniform grid size for cross-validation search", false, 10, "int");
+		ValueArg<int> foldToComputeCVArg("k", "computeFold", "Number of fold to iterate, default is 'fold' value", false, 10, "int");
 
 		cmd.add(gpuArg);
 		cmd.add(toleranceArg);
@@ -71,35 +74,71 @@ int main(int argc, char* argv[]) {
 		cmd.add(hyperPriorArg);
 		cmd.add(normalPriorArg);
 		cmd.add(zhangOlesConvergenceArg);
+		cmd.add(seedArg);
+
+		cmd.add(doCVArg);
+		cmd.add(lowerCVArg);
+		cmd.add(upperCVArg);
+		cmd.add(foldCVArg);
+		cmd.add(gridCVArg);
+		cmd.add(foldToComputeCVArg);
 
 		cmd.add(inFileArg);
 		cmd.add(outFileArg);
 		cmd.parse(argc, argv);
 
 		if (gpuArg.getValue() > -1) {
-			useGPU = true;
-			deviceNumber = gpuArg.getValue();
+			arguments.useGPU = true;
+			arguments.deviceNumber = gpuArg.getValue();
+		} else {
+			arguments.useGPU = false;
 		}
-		inFileName = inFileArg.getValue();
-		outFileName = outFileArg.getValue();
-		tolerance = toleranceArg.getValue();
-		maxIterations = maxIterationsArg.getValue();
-		hyperprior = hyperPriorArg.getValue();
-		useNormalPrior = normalPriorArg.getValue();
+
+		arguments.inFileName = inFileArg.getValue();
+		arguments.outFileName = outFileArg.getValue();
+		arguments.tolerance = toleranceArg.getValue();
+		arguments.maxIterations = maxIterationsArg.getValue();
+		arguments.hyperprior = hyperPriorArg.getValue();
+		arguments.useNormalPrior = normalPriorArg.getValue();
+		arguments.seed = seedArg.getValue();
+
 		if (hyperPriorArg.isSet()) {
-			hyperPriorSet = true;
+			arguments.hyperPriorSet = true;
+		} else {
+			arguments.hyperPriorSet = false;
 		}
 
 		if (zhangOlesConvergenceArg.isSet()) {
-			convergenceType = ZHANG_OLES;
+			arguments.convergenceType = ZHANG_OLES;
 		} else {
-			convergenceType = LANGE;
+			arguments.convergenceType = LANGE;
 		}
+
+		// Cross-validation
+		arguments.doCrossValidation = doCVArg.isSet();
+		if (arguments.doCrossValidation) {
+			arguments.lowerLimit = lowerCVArg.getValue();
+			arguments.upperLimit = upperCVArg.getValue();
+			arguments.fold = foldCVArg.getValue();
+			arguments.gridSteps = gridCVArg.getValue();
+			if(foldToComputeCVArg.isSet()) {
+				arguments.foldToCompute = foldToComputeCVArg.getValue();
+			} else {
+				arguments.foldToCompute = arguments.fold;
+			}
+		}
+
 	} catch (ArgException &e) {
 		cerr << "Error: " << e.error() << " for argument " << e.argId() << endl;
 		exit(-1);
 	}
+}
 
+double initializeModel(
+		InputReader** reader,
+		CyclicCoordinateDescent** ccd,
+		CCDArguments &arguments) {
+	
 	cout << "Running CCD (" <<
 #ifdef DOUBLE_PRECISION
 	"double"
@@ -111,49 +150,94 @@ int main(int argc, char* argv[]) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	InputReader* reader = new InputReader(inFileName.c_str());
+	*reader = new InputReader(arguments.inFileName.c_str());
 
 #ifdef CUDA
-	if (useGPU) {
-		ccd = new GPUCyclicCoordinateDescent(deviceNumber, reader);
+	if (arguments.useGPU) {
+		*ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, *reader);
 	} else {
 #endif
 
-	ccd = new CyclicCoordinateDescent(reader);
+	*ccd = new CyclicCoordinateDescent(*reader);
 
 #ifdef CUDA
 	}
 #endif
 
 	// Set prior from the command-line
-	if (useNormalPrior) {
-		ccd->setPriorType(NORMAL);
+	if (arguments.useNormalPrior) {
+		(*ccd)->setPriorType(NORMAL);
 	}
-	if (hyperPriorSet) {
-		ccd->setHyperprior(hyperprior);
+	if (arguments.hyperPriorSet) {
+		(*ccd)->setHyperprior(arguments.hyperprior);
 	}
 
-	cout << "Using prior: " << ccd->getPriorInfo() << endl;
+	gettimeofday(&time2, NULL);
+	double sec1 = calculateSeconds(time1, time2);
+
+	if (!arguments.doCrossValidation) {
+		cout << "Using prior: " << (*ccd)->getPriorInfo() << endl;
+	}
 	cout << "Everything loaded and ready to run ..." << endl;
-
-	gettimeofday(&time2, NULL);	
-	double sec1 = time2.tv_sec - time1.tv_sec +
-		(double)(time2.tv_usec - time1.tv_usec) / 1000000.0;
 	
+	return sec1;
+}
+
+double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
+	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	ccd->update(maxIterations, convergenceType, tolerance);
-	
-	gettimeofday(&time2, NULL);	
-	double sec2 = time2.tv_sec - time1.tv_sec +
-		(double)(time2.tv_usec - time1.tv_usec) / 1000000.0;
-		
-	cout << "Load   duration: " << scientific << sec1 << endl;
-	cout << "Update duration: " << scientific << sec2 << endl;
-	
-	ccd->logResults(outFileName.c_str());
+	ccd->update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 
-	delete ccd;
+	gettimeofday(&time2, NULL);
+
+	ccd->logResults(arguments.outFileName.c_str());
+
+	return calculateSeconds(time1, time2);
+}
+
+double runCrossValidation(CyclicCoordinateDescent *ccd, InputReader *reader,
+		CCDArguments &arguments) {
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
+
+	CrossValidationSelector selector(arguments.fold, reader->getPidVectorSTL(),
+			SUBJECT, arguments.seed);
+	CrossValidationDriver driver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+
+	driver.drive(*ccd, selector, arguments);
+
+	gettimeofday(&time2, NULL);
+
+	driver.logResults(arguments);
+
+	return calculateSeconds(time1, time2);
+}
+
+int main(int argc, char* argv[]) {
+
+	CyclicCoordinateDescent* ccd = NULL;
+	InputReader* reader = NULL;
+	CCDArguments arguments;
+
+	parseCommandLine(argc, argv, arguments);
+
+	double timeInitialize = initializeModel(&reader, &ccd, arguments);
+
+	double timeUpdate;
+	if (arguments.doCrossValidation) {
+		timeUpdate = runCrossValidation(ccd, reader, arguments);
+	} else {
+		timeUpdate = fitModel(ccd, arguments);
+	}
+		
+	cout << "Load   duration: " << scientific << timeInitialize << endl;
+	cout << "Update duration: " << scientific << timeUpdate << endl;
+	
+	if (ccd)
+		delete ccd;
+	if (reader)
+		delete reader;
 
     return 0;
 }

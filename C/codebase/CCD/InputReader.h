@@ -43,6 +43,8 @@ public:
 	int getNumberOfPatients();
 	string getConditionId();
 
+	std::vector<int>* getPidVectorSTL();
+
 private:
 	
 	int* makeDeepCopy(int *original, unsigned int length);

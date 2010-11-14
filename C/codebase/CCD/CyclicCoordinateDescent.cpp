@@ -32,43 +32,43 @@ void compareIntVector(int* vec0, int* vec1, int dim, const char* name) {
 	}
 }
 
-CyclicCoordinateDescent::CyclicCoordinateDescent(			
-		const char* fileNameX,
-		const char* fileNameEta,
-		const char* fileNameOffs,
-		const char* fileNameNEvents,
-		const char* fileNamePid
-	) {
-	
-	hXI = new CompressedIndicatorMatrix(fileNameX);
-		
-	K = hXI->getNumberOfRows();
-	J = hXI->getNumberOfColumns();
-	
-	conditionId = "NA";
-
-	int lOffs;
-    hOffs = readVector<int>(fileNameOffs, &lOffs);
-    
-    int lEta;
-    hEta = readVector<int>(fileNameEta, &lEta); 
-    
-    int lNEvents;
-    hNEvents = readVector<int>(fileNameNEvents, &lNEvents); 
-    
-    int lPid;
-    hPid = readVector<int>(fileNamePid, &lPid);
-    
-    testDimension(lOffs, K, "hOffs");
-    testDimension(lEta, K, "hEta");
-    testDimension(lPid, K, "hPid");
-        
-    N = lNEvents;
-
-    hasLog = false;
-   
-    init();
-}
+//CyclicCoordinateDescent::CyclicCoordinateDescent(
+//		const char* fileNameX,
+//		const char* fileNameEta,
+//		const char* fileNameOffs,
+//		const char* fileNameNEvents,
+//		const char* fileNamePid
+//	) {
+//
+//	hXI = new CompressedIndicatorMatrix(fileNameX);
+//
+//	K = hXI->getNumberOfRows();
+//	J = hXI->getNumberOfColumns();
+//
+//	conditionId = "NA";
+//
+//	int lOffs;
+//    hOffs = readVector<int>(fileNameOffs, &lOffs);
+//
+//    int lEta;
+//    hEta = readVector<int>(fileNameEta, &lEta);
+//
+//    int lNEvents;
+//    hNEvents = readVector<int>(fileNameNEvents, &lNEvents);
+//
+//    int lPid;
+//    hPid = readVector<int>(fileNamePid, &lPid);
+//
+//    testDimension(lOffs, K, "hOffs");
+//    testDimension(lEta, K, "hEta");
+//    testDimension(lPid, K, "hPid");
+//
+//    N = lNEvents;
+//
+//    hasLog = false;
+//
+//    init();
+//}
 
 CyclicCoordinateDescent::CyclicCoordinateDescent() {
 	// Do nothing
@@ -84,7 +84,8 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	hXI = reader;
 	hEta = reader->getEtaVector();
 	hOffs = reader->getOffsetVector();
-	hNEvents = reader->getNEventVector();
+//	hNEvents = reader->getNEventVector(); // Move computation until after weighing
+	hNEvents = NULL;
 	hPid = reader->getPidVector();
 
 	conditionId = reader->getConditionId();
@@ -92,20 +93,20 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	init();
 }
 
-CyclicCoordinateDescent::CyclicCoordinateDescent(
-		int inN,
-		CompressedIndicatorMatrix* inX,
-		int* inEta, 
-		int* inOffs, 
-		int* inNEvents,
-		int* inPid) :
-	N(inN), hXI(inX), hEta(inEta), hOffs(inOffs), hNEvents(inNEvents), hPid(inPid) {
-
-	K = hXI->getNumberOfRows();
-	J = hXI->getNumberOfColumns();
-
-	init();
-}
+//CyclicCoordinateDescent::CyclicCoordinateDescent(
+//		int inN,
+//		CompressedIndicatorMatrix* inX,
+//		int* inEta,
+//		int* inOffs,
+//		int* inNEvents,
+//		int* inPid) :
+//	N(inN), hXI(inX), hEta(inEta), hOffs(inOffs), hNEvents(inNEvents), hPid(inPid) {
+//
+//	K = hXI->getNumberOfRows();
+//	J = hXI->getNumberOfColumns();
+//
+//	init();
+//}
 
 CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 
@@ -119,13 +120,15 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 	free(hDelta);
 	
 	free(hXjEta);
-//	free(expXBeta);
 	free(offsExpXBeta);
 	free(xOffsExpXBeta);
 	free(denomPid);
 	free(numerPid);
 	free(t1);
 	
+	if (hWeights) {
+		free(hWeights);
+	}
 }
 
 string CyclicCoordinateDescent::getPriorInfo() {
@@ -141,13 +144,19 @@ string CyclicCoordinateDescent::getPriorInfo() {
 	return priorInfo.str();
 }
 
+void CyclicCoordinateDescent::resetBounds() {
+	for (int j = 0; j < J; j++) {
+		hDelta[j] = 2.0;
+	}
+}
+
 void CyclicCoordinateDescent::init() {
 	
 	// Set parameters and statistics space
 	hDelta = (real*) malloc(J * sizeof(real));
-	for (int j = 0; j < J; j++) {
-		hDelta[j] = 2.0;
-	}
+//	for (int j = 0; j < J; j++) {
+//		hDelta[j] = 2.0;
+//	}
 
 	hBeta = (real*) calloc(J, sizeof(real)); // Fixed starting state
 	hXBeta = (real*) calloc(K, sizeof(real));
@@ -171,24 +180,44 @@ void CyclicCoordinateDescent::init() {
 	}
 		
 	// Init temporary variables
-//	expXBeta = (real*) malloc(sizeof(real) * K);
 	offsExpXBeta = (real*) malloc(sizeof(real) * K);
 	xOffsExpXBeta = (real*) malloc(sizeof(real) * K);
 	denomPid = (real*) malloc(sizeof(real) * N);
 	numerPid = (real*) malloc(sizeof(real) * N);
 	t1 = (real*) malloc(sizeof(real) * N);
+	hNEvents = (int*) malloc(sizeof(int) * N);
+	hXjEta = (real*) malloc(sizeof(real) * J);
+	hWeights = NULL;
 
-	// Some precomputed values
-	hXjEta = computeXjEta();
-	CyclicCoordinateDescent::computeRemainingStatistics();
-		
+	useCrossValidation = false;
+	validWeights = false;
+	sufficientStatisticsKnown = false;
+
 #ifdef DEBUG	
 	cerr << "Number of patients = " << N << endl;
 	cerr << "Number of exposure levels = " << K << endl;
 	cerr << "Number of drugs = " << J << endl;	
-	cerr << "Last patient id = " << hPid[K-1] << endl;
+//	cerr << "Last patient id = " << hPid[K-1] << endl;
 #endif          
 }
+
+void CyclicCoordinateDescent::computeNEvents() {
+	zeroVector(hNEvents, N);
+	if (useCrossValidation) {
+		for (int i = 0; i < K; i++) {
+			hNEvents[hPid[i]] += hEta[i] * int(hWeights[i]); // TODO Consider using only integer weights
+		}
+	} else {
+		for (int i = 0; i < K; i++) {
+			hNEvents[hPid[i]] += hEta[i];
+		}
+	}
+	validWeights = true;
+}
+
+//void CyclicCoordinateDescent::setCrossValidationIndicators() {
+//
+//}
 
 void CyclicCoordinateDescent::logResults(const char* fileName) {
 
@@ -211,7 +240,7 @@ void CyclicCoordinateDescent::logResults(const char* fileName) {
 	outLog.close();
 }
 
-double CyclicCoordinateDescent::getLogLikelihood(void) {
+double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
 
 	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics();
@@ -222,7 +251,30 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 	double logLikelihood = 0;
 
 	for (int i = 0; i < K; i++) {
-		logLikelihood += hEta[i] * hXBeta[i];
+		logLikelihood += hEta[i] * weights[i] * (hXBeta[i] - log(denomPid[hPid[i]]));
+	}
+
+	return logLikelihood;
+}
+
+double CyclicCoordinateDescent::getLogLikelihood(void) {
+
+	if (!sufficientStatisticsKnown) {
+		computeRemainingStatistics();
+	}
+
+	getDenominators();
+
+	double logLikelihood = 0;
+
+	if (useCrossValidation) {
+		for (int i = 0; i < K; i++) {
+			logLikelihood += hEta[i] * hXBeta[i] * hWeights[i];
+		}
+	} else {
+		for (int i = 0; i < K; i++) {
+			logLikelihood += hEta[i] * hXBeta[i];
+		}
 	}
 
 	for (int i = 0; i < N; i++) {
@@ -236,9 +288,13 @@ void CyclicCoordinateDescent::getDenominators() {
 	// Do nothing
 }
 
+double convertVarianceToHyperparameter(double value) {
+	return sqrt(2.0 / value);
+}
+
 void CyclicCoordinateDescent::setHyperprior(double value) {
 	sigma2Beta = value;
-	lambda = sqrt(2.0 / value);  // TODO Could use a single hyperprior value
+	lambda = convertVarianceToHyperparameter(value);
 }
 
 void CyclicCoordinateDescent::setPriorType(int iPriorType) {
@@ -247,6 +303,18 @@ void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 		exit(-1);
 	}
 	priorType = iPriorType;
+}
+
+void CyclicCoordinateDescent::setWeights(real* iWeights) {
+	if (hWeights == NULL) {
+		hWeights = (real*) malloc(sizeof(real) * K);
+	}
+	for (int i = 0; i < K; ++i) {
+		hWeights[i] = iWeights[i];
+	}
+	useCrossValidation = true;
+	validWeights = false;
+	sufficientStatisticsKnown = false;
 }
 	
 double CyclicCoordinateDescent::getLogPrior(void) {
@@ -260,8 +328,14 @@ double CyclicCoordinateDescent::getLogPrior(void) {
 double CyclicCoordinateDescent::getObjectiveFunction(void) {	
 //	return getLogLikelihood() + getLogPrior(); // This is LANGE
 	double criterion = 0;
-	for (int i = 0; i < K; i++) {
-		criterion += hXBeta[i] * hEta[i];
+	if (useCrossValidation) {
+		for (int i = 0; i < K; i++) {
+			criterion += hXBeta[i] * hEta[i] * hWeights[i];
+		}
+	} else {
+		for (int i = 0; i < K; i++) {
+			criterion += hXBeta[i] * hEta[i];
+		}
 	}
 	return criterion;
 }
@@ -269,9 +343,16 @@ double CyclicCoordinateDescent::getObjectiveFunction(void) {
 double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 	double sumAbsDiffs = 0;
 	double sumAbsResiduals = 0;
-	for (int i = 0; i < K; i++) {
-		sumAbsDiffs += abs(hXBeta[i] - hXBetaSave[i]) * hEta[i];
-		sumAbsResiduals += abs(hXBeta[i]) * hEta[i];
+	if (useCrossValidation) {
+		for (int i = 0; i < K; i++) {
+			sumAbsDiffs += abs(hXBeta[i] - hXBetaSave[i]) * hEta[i] * hWeights[i];
+			sumAbsResiduals += abs(hXBeta[i]) * hEta[i] * hWeights[i];
+		}
+	} else {
+		for (int i = 0; i < K; i++) {
+			sumAbsDiffs += abs(hXBeta[i] - hXBetaSave[i]) * hEta[i];
+			sumAbsResiduals += abs(hXBeta[i]) * hEta[i];
+		}
 	}
 	return sumAbsDiffs / (1.0 + sumAbsResiduals);
 }
@@ -290,6 +371,17 @@ void CyclicCoordinateDescent::update(
 		cerr << "Unknown convergence criterion" << endl;
 		exit(-1);
 	}
+
+	if (!validWeights) {
+		computeXjEta();
+		computeNEvents();
+	}
+
+	if (!sufficientStatisticsKnown) {
+		computeRemainingStatistics();
+	}
+
+	resetBounds();
 
 	bool done = false;
 	int iteration = 0;
@@ -524,28 +616,29 @@ double CyclicCoordinateDescent::applyBounds(double inDelta, int index) {
  * Utility functions
  */
 
-real* CyclicCoordinateDescent::computeXjEta(void) {
+void CyclicCoordinateDescent::computeXjEta(void) {
 
-	real* XjEta = (real*) malloc(sizeof(real) * J);
 	for (int drug = 0; drug < J; drug++) {
-		XjEta[drug] = 0;
-#if 0
-		for (int i = 0; i < K; i++) {
-			XjEta[drug] += hX[i][drug] * hEta[i];  // Very inefficient
-		}
-#else
+		hXjEta[drug] = 0;
 		const int* indicators = hXI->getCompressedColumnVector(drug);
 		const int n = hXI->getNumberOfEntries(drug);
-		for (int i = 0; i < n; i++) { // Loop through non-zero entries only
-			const int k = indicators[i];
-			XjEta[drug] += hEta[k];
+
+		if (useCrossValidation) {
+			for (int i = 0; i < n; i++) { // Loop through non-zero entries only
+				const int k = indicators[i];
+				hXjEta[drug] += hEta[k] * hWeights[k];
+			}
+		} else {
+			for (int i = 0; i < n; i++) { // Loop through non-zero entries only
+				const int k = indicators[i];
+				hXjEta[drug] += hEta[k];
+			}
 		}
-#endif
 	}
-	return XjEta;
 }
 
-void CyclicCoordinateDescent::printVector(real* vector, int length, ostream &os) {
+template <class T>
+void CyclicCoordinateDescent::printVector(T* vector, int length, ostream &os) {
 	os << "(" << vector[0];
 	for (int i = 1; i < length; i++) {
 		os << ", " << vector[i];
