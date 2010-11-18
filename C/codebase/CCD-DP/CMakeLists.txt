@@ -5,8 +5,12 @@ set(SOURCE_FILES
 	../CCD/CyclicCoordinateDescent.cpp	
 	../CCD/CompressedIndicatorMatrix.cpp
 	../CCD/InputReader.cpp
+	../CCD/AbstractDriver.cpp
+	../CCD/AbstractSelector.cpp
 	../CCD/CrossValidationSelector.cpp
-	../CCD/CrossValidationDriver.cpp)
+	../CCD/CrossValidationDriver.cpp
+	../CCD/BootstrapSelector.cpp
+	../CCD/BootstrapDriver.cpp)
 	
 set(DOUBLE_PRECISION true)	
 	

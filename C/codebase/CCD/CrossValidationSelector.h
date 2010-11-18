@@ -11,18 +11,14 @@
 #include <vector>
 #include "InputReader.h"
 
-#ifdef DOUBLE_PRECISION
-	typedef double real;
-#else
-	typedef float real;
-#endif
+#include "AbstractSelector.h"
 
 enum CrossValidationType {
 	SUBJECT = 0,
 	ENTRY  = 1
 };
 
-class CrossValidationSelector {
+class CrossValidationSelector : public AbstractSelector {
 public:
 	CrossValidationSelector(
 			int inFold,

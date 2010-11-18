@@ -86,8 +86,10 @@ void CrossValidationDriver::resetForOptimal(
 
 void CrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
-		CrossValidationSelector& selector,
+		AbstractSelector& selector,
 		const CCDArguments& arguments) {
+
+	// TODO Check that selector is type of CrossValidationSelector
 
 	std::vector<real> weights;
 

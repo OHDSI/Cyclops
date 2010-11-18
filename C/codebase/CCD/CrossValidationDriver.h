@@ -10,9 +10,12 @@
 
 #include "CyclicCoordinateDescent.h"
 #include "CrossValidationSelector.h"
+#include "AbstractSelector.h"
 #include "ccd.h"
 
-class CrossValidationDriver {
+#include "AbstractDriver.h"
+
+class CrossValidationDriver : public AbstractDriver {
 public:
 	CrossValidationDriver(
 			int iGridSize,
@@ -23,7 +26,7 @@ public:
 
 	void drive(
 			CyclicCoordinateDescent& ccd,
-			CrossValidationSelector& selector,
+			AbstractSelector& selector,
 			const CCDArguments& arguments);
 
 	void resetForOptimal(
