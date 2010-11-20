@@ -16,9 +16,17 @@
 	typedef float real;
 #endif
 
+enum SelectorType {
+	SUBJECT = 0,
+	ENTRY  = 1
+};
+
 class AbstractSelector {
 public:
-	AbstractSelector();
+	AbstractSelector(
+			std::vector<int>* inIds,
+			SelectorType inType,
+			long inSeed);
 
 	virtual ~AbstractSelector();
 
@@ -27,6 +35,14 @@ public:
 	virtual void getWeights(int batch, std::vector<real>& weights) = 0; // pure virtual
 
 	virtual void getComplement(std::vector<real>& weights) = 0; // pure virtual
+
+protected:
+	std::vector<int>* ids;
+	SelectorType type;
+	long seed;
+	int K;
+	int N;
+	bool deterministic;
 };
 
 #endif /* ABSTRACTSELECTOR_H_ */

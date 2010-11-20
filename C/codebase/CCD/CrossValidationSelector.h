@@ -13,17 +13,12 @@
 
 #include "AbstractSelector.h"
 
-enum CrossValidationType {
-	SUBJECT = 0,
-	ENTRY  = 1
-};
-
 class CrossValidationSelector : public AbstractSelector {
 public:
 	CrossValidationSelector(
 			int inFold,
 			std::vector<int>* inIds,
-			CrossValidationType inType,
+			SelectorType inType,
 			long inSeed = 0);
 
 	virtual ~CrossValidationSelector();
@@ -36,14 +31,8 @@ public:
 
 private:
 	int fold;
-	std::vector<int>* ids;
-	CrossValidationType type;
-	long seed;
-	int K;
-	int N;
 	std::vector<int> permutation;
 	std::vector<int> intervalStart;
-	bool deterministic;
 };
 
 #endif /* CROSSVALIDATION_H_ */

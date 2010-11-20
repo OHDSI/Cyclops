@@ -84,7 +84,6 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	hXI = reader;
 	hEta = reader->getEtaVector();
 	hOffs = reader->getOffsetVector();
-//	hNEvents = reader->getNEventVector(); // Move computation until after weighing
 	hNEvents = NULL;
 	hPid = reader->getPidVector();
 
@@ -197,7 +196,6 @@ void CyclicCoordinateDescent::init() {
 	cerr << "Number of patients = " << N << endl;
 	cerr << "Number of exposure levels = " << K << endl;
 	cerr << "Number of drugs = " << J << endl;	
-//	cerr << "Last patient id = " << hPid[K-1] << endl;
 #endif          
 }
 
@@ -214,10 +212,6 @@ void CyclicCoordinateDescent::computeNEvents() {
 	}
 	validWeights = true;
 }
-
-//void CyclicCoordinateDescent::setCrossValidationIndicators() {
-//
-//}
 
 void CyclicCoordinateDescent::resetBeta(void) {
 	for (int j = 0; j < J; j++) {
@@ -265,6 +259,13 @@ double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
 	}
 
 	return logLikelihood;
+}
+
+real CyclicCoordinateDescent::getBeta(int i) {
+	if (!sufficientStatisticsKnown) {
+		computeRemainingStatistics();
+	}
+	return hBeta[i];
 }
 
 double CyclicCoordinateDescent::getLogLikelihood(void) {

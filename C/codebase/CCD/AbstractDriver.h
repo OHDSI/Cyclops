@@ -15,12 +15,15 @@
 class AbstractDriver {
 public:
 	AbstractDriver();
+
 	virtual ~AbstractDriver();
 
 	virtual void drive(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
 			const CCDArguments& arguments) = 0; // pure virtual
+
+	virtual void logResults(const CCDArguments& arguments) = 0; // pure virtual
 };
 
 #endif /* ABSTRACTDRIVER_H_ */

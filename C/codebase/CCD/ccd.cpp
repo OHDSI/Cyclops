@@ -25,6 +25,8 @@
 #include "InputReader.h"
 #include "CrossValidationSelector.h"
 #include "CrossValidationDriver.h"
+#include "BootstrapSelector.h"
+#include "BootstrapDriver.h"
 
 #include "tclap/CmdLine.h"
 
@@ -47,7 +49,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 	try {
 		CmdLine cmd("Cyclic coordinate descent algorithm for self-controlled case studies", ' ', "0.1");
 		ValueArg<int> gpuArg("g","GPU","Use GPU device", false, -1, "device #");
-		ValueArg<int> maxIterationsArg("i", "iterations", "Maximum iterations", false, 100, "int");
+		ValueArg<int> maxIterationsArg("", "maxIterations", "Maximum iterations", false, 100, "int");
 		UnlabeledValueArg<string> inFileArg("inFileName","Input file name", true, "default", "inFileName");
 		UnlabeledValueArg<string> outFileArg("outFileName","Output file name", true, "default", "outFileName");
 
@@ -65,9 +67,15 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, 1.0, "real");
 		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, 10.0, "real");
 		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, 10, "int");
-		ValueArg<int> gridCVArg("r", "gridSize", "Uniform grid size for cross-validation search", false, 10, "int");
-		ValueArg<int> foldToComputeCVArg("k", "computeFold", "Number of fold to iterate, default is 'fold' value", false, 10, "int");
-		ValueArg<string> outFile2Arg("p","cvFileName", "Cross-validation output file name", false, "cv.txt", "cvFileName");
+		ValueArg<int> gridCVArg("", "gridSize", "Uniform grid size for cross-validation search", false, 20, "int");
+		ValueArg<int> foldToComputeCVArg("", "computeFold", "Number of fold to iterate, default is 'fold' value", false, 10, "int");
+		ValueArg<string> outFile2Arg("", "cvFileName", "Cross-validation output file name", false, "cv.txt", "cvFileName");
+
+		//Bootstrap arguments
+		SwitchArg doBootstrapArg("b", "bs", "Perform bootstrap estimation", false);
+		ValueArg<string> bsOutFileArg("", "bsFileName", "Bootstrap output file name", false, "bs.txt", "bsFileName");
+		ValueArg<int> replicatesArg("r", "replicates", "Number of bootstrap replicates", false, 200, "int");
+		SwitchArg reportRawEstimatesArg("","raw", "Report the raw bootstrap estimates", false);
 
 		cmd.add(gpuArg);
 		cmd.add(toleranceArg);
@@ -84,6 +92,11 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		cmd.add(gridCVArg);
 		cmd.add(foldToComputeCVArg);
 		cmd.add(outFile2Arg);
+
+		cmd.add(doBootstrapArg);
+		cmd.add(bsOutFileArg);
+		cmd.add(replicatesArg);
+		cmd.add(reportRawEstimatesArg);
 
 		cmd.add(inFileArg);
 		cmd.add(outFileArg);
@@ -130,6 +143,18 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 			}
 			arguments.cvFileName = outFile2Arg.getValue();
 			arguments.doFitAtOptimal = true;
+		}
+
+		// Bootstrap
+		arguments.doBootstrap = doBootstrapArg.isSet();
+		if (arguments.doBootstrap) {
+			arguments.bsFileName = bsOutFileArg.getValue();
+			arguments.replicates = replicatesArg.getValue();
+			if (reportRawEstimatesArg.isSet()) {
+				arguments.reportRawEstimates = true;
+			} else {
+				arguments.reportRawEstimates = false;
+			}
 		}
 
 	} catch (ArgException &e) {
@@ -199,6 +224,24 @@ double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
 	return calculateSeconds(time1, time2);
 }
 
+double runBoostrap(
+		CyclicCoordinateDescent *ccd,
+		InputReader *reader,
+		CCDArguments &arguments) {
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
+
+	BootstrapSelector selector(arguments.replicates, reader->getPidVectorSTL(),
+			SUBJECT, arguments.seed);
+	BootstrapDriver driver(arguments.replicates, reader);
+
+	driver.drive(*ccd, selector, arguments);
+	gettimeofday(&time2, NULL);
+
+	driver.logResults(arguments);
+	return calculateSeconds(time1, time2);
+}
+
 double runCrossValidation(CyclicCoordinateDescent *ccd, InputReader *reader,
 		CCDArguments &arguments) {
 	struct timeval time1, time2;
@@ -239,6 +282,10 @@ int main(int argc, char* argv[]) {
 		timeUpdate = runCrossValidation(ccd, reader, arguments);
 	} else {
 		timeUpdate = fitModel(ccd, arguments);
+	}
+
+	if (arguments.doBootstrap) {
+		timeUpdate += runBoostrap(ccd, reader, arguments);
 	}
 		
 	cout << "Load   duration: " << scientific << timeInitialize << endl;

@@ -15,17 +15,8 @@
 CrossValidationSelector::CrossValidationSelector(
 		int inFold,
 		std::vector<int>* inIds,
-		CrossValidationType inType,
-		long inSeed) : fold(inFold), ids(inIds), type(inType), seed(inSeed),
-					   K(inIds->size()) {
-
-//	std::cerr << "id length = " << ids->size() << std::endl;
-	if (type == SUBJECT) {
-		N = *(std::max_element(ids->begin(), ids->end())) + 1;
-	} else {
-		N = ids->size();
-	}
-//	std::cerr << "# objects = " << N << std::endl;
+		SelectorType inType,
+		long inSeed) : AbstractSelector(inIds, inType, inSeed), fold(inFold) {
 
 	// Calculate interval starts
 	intervalStart.reserve(fold + 1);
@@ -41,24 +32,10 @@ CrossValidationSelector::CrossValidationSelector(
 	}
 	intervalStart.push_back(N);
 
-//	std::copy(intervalStart.begin(), intervalStart.end(),
-//			ostream_iterator<int> (std::cout, " "));
-//	std::cout << std::endl;
-//
 	for (int i = 0; i < fold; i++) {
 		std::cout << (intervalStart[i+1] - intervalStart[i]) << " ";
 	}
 	std::cout << std::endl;
-
-	if (seed == -1) {
-		deterministic = true;
-	} else {
-		deterministic = false;
-		if (seed == 0) {
-			seed = time(NULL);
-		}
-		srand(seed);
-	}
 
 	std::cout << "Performing " << fold << "-fold cross-validation [seed = "
 		      << seed << "]" << std::endl;
@@ -71,9 +48,7 @@ CrossValidationSelector::CrossValidationSelector(
 }
 
 CrossValidationSelector::~CrossValidationSelector() {
-	if (ids) {
-		delete ids;
-	}
+	// Do nothing
 }
 
 void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) {

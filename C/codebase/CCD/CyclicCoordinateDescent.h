@@ -69,6 +69,8 @@ public:
 	double getLogPrior(void);
 	
 	virtual double getObjectiveFunction(void);
+
+	real getBeta(int i);
 		
 	void update(int maxIterations, int convergenceType, double epsilon);
 

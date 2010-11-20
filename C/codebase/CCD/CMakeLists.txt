@@ -76,7 +76,9 @@ set(SOURCE_FILES
 	AbstractDriver.cpp
 	AbstractSelector.cpp
 	CrossValidationSelector.cpp
-	CrossValidationDriver.cpp)
+	CrossValidationDriver.cpp
+	BootstrapSelector.cpp
+	BootstrapDriver.cpp)
 	
 if(CUDA_FOUND)
 	set(SOURCE_FILES ${SOURCE_FILES}

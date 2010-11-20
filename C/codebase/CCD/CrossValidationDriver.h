@@ -24,7 +24,7 @@ public:
 
 	virtual ~CrossValidationDriver();
 
-	void drive(
+	virtual void drive(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
 			const CCDArguments& arguments);
@@ -34,7 +34,7 @@ public:
 			CrossValidationSelector& selector,
 			const CCDArguments& arguments);
 
-	void logResults(const CCDArguments& arguments);
+	virtual void logResults(const CCDArguments& arguments);
 
 private:
 

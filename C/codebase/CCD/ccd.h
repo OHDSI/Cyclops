@@ -40,6 +40,10 @@ struct CCDArguments {
 	bool doFitAtOptimal;
 
 	// Needed for boot-strapping
+	bool doBootstrap;
+	bool reportRawEstimates;
+	int replicates;
+	std::string bsFileName;
 };
 
 void parseCommandLine(
@@ -57,6 +61,11 @@ double fitModel(
 		CCDArguments &arguments);
 
 double runCrossValidation(
+		CyclicCoordinateDescent *ccd,
+		InputReader *reader,
+		CCDArguments &arguments);
+
+double runBoostrap(
 		CyclicCoordinateDescent *ccd,
 		InputReader *reader,
 		CCDArguments &arguments);
