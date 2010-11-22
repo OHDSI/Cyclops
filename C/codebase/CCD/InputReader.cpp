@@ -16,7 +16,7 @@
 
 #include "InputReader.h"
 
-#define MAX_ENTRIES		10000000
+#define MAX_ENTRIES		1000000000
 
 #define FORMAT_MATCH_1	"CONDITION_CONCEPT_ID"
 #define MATCH_LENGTH_1	20
