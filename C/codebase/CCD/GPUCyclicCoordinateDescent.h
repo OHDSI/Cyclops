@@ -28,9 +28,9 @@ public:
 	virtual double getObjectiveFunction(void);
 
 protected:
-	
+
 	using CyclicCoordinateDescent::hXI;
-	
+
 	virtual void resetBeta(void);
 
 	virtual void computeNEvents(void);
@@ -52,9 +52,15 @@ protected:
 
 private:
 	int deviceNumber;
+
+#ifdef MULTI_GPU
+	GPUInterface firstGPU;
+	GPUInterface** gpu;
+	KernelLauncherCCD** kernels;
+#else
 	GPUInterface* gpu;
 	KernelLauncherCCD* kernels;
-	
+#endif
 	InputReader* hReader;
 
 	GPUPtr* dXI;

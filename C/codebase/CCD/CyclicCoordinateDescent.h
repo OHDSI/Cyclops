@@ -19,7 +19,7 @@ using namespace std;
 	typedef double real;
 #else
 	typedef float real;
-#endif 
+#endif
 
 enum PriorType {
 	LAPLACE = 0,
@@ -32,19 +32,19 @@ enum ConvergenceType {
 };
 
 class CyclicCoordinateDescent {
-	
+
 public:
-	
+
 	CyclicCoordinateDescent(void);
-	
-	CyclicCoordinateDescent(			
+
+	CyclicCoordinateDescent(
 			const char* fileNameX,
 			const char* fileNameEta,
 			const char* fileNameOffs,
 			const char* fileNameNEvents,
-			const char* fileNamePid			
+			const char* fileNamePid
 		);
-	
+
 	CyclicCoordinateDescent(
 			InputReader* reader
 		);
@@ -52,26 +52,26 @@ public:
 	CyclicCoordinateDescent(
 			int inN,
 			CompressedIndicatorMatrix* inX,
-			int* inEta, 
-			int* inOffs, 
+			int* inEta,
+			int* inOffs,
 			int* inNEvents,
 			int* inPid
 		);
-	
+
 	void logResults(const char* fileName);
 
 	virtual ~CyclicCoordinateDescent();
-	
+
 	double getLogLikelihood(void);
 
 	double getPredictiveLogLikelihood(real* weights);
 
 	double getLogPrior(void);
-	
+
 	virtual double getObjectiveFunction(void);
 
 	real getBeta(int i);
-		
+
 	void update(int maxIterations, int convergenceType, double epsilon);
 
 	virtual void resetBeta(void);
@@ -85,13 +85,13 @@ public:
 
 	// Getters
 	string getPriorInfo();
-		
+
 protected:
-	
+
 //private:
-	
+
 	void init(void);
-	
+
 	void resetBounds(void);
 
 	void computeXBeta(void);
@@ -109,7 +109,7 @@ protected:
 	virtual void updateXBeta(double delta, int index);
 
 	virtual void computeRemainingStatistics(void);
-	
+
 	virtual void computeRatiosForGradientAndHessian(int index);
 
 	virtual void computeGradientAndHession(
@@ -122,13 +122,13 @@ protected:
 	double computeLogLikelihood(void);
 
 	double ccdUpdateBeta(int index);
-	
+
 	double applyBounds(
 			double inDelta,
 			int index);
-	
+
 	double computeConvergenceCriterion(double newObjFxn, double oldObjFxn);
-	
+
 	virtual double computeZhangOlesConvergenceCriterion(void);
 
 	template <class T>
@@ -137,35 +137,35 @@ protected:
 			vector[i] = 0;
 		}
 	}
-		
+
 	void testDimension(int givenValue, int trueValue, const char *parameterName);
-	
+
 	template <class T>
 	void printVector(T* vector, const int length, ostream &os);
-	
+
 	double oneNorm(real* vector, const int length);
-	
-	double twoNormSquared(real * vector, const int length); 
-	
-	int sign(double x); 
-	
-	template <class T> 
-	T* readVector(const char *fileName, int *length); 
-			
+
+	double twoNormSquared(real * vector, const int length);
+
+	int sign(double x);
+
+	template <class T>
+	T* readVector(const char *fileName, int *length);
+
 	// Local variables
-	
+
 	//InputReader* hReader;
-	
+
 	ofstream outLog;
 	bool hasLog;
 
-	CompressedIndicatorMatrix* hXI; // K-by-J-indicator matrix	
+	CompressedIndicatorMatrix* hXI; // K-by-J-indicator matrix
 
 	int* hOffs;  // K-vector
 	int* hEta; // K-vector
 	int* hNEvents; // K-vector
 	int* hPid; // N-vector
- 	
+
 	real* hBeta;
 	real* hXBeta;
 	real* hXBetaSave;
@@ -174,7 +174,7 @@ protected:
 	int N; // Number of patients
 	int K; // Number of exposure levels
 	int J; // Number of drugs
-	
+
 	string conditionId;
 
 	int priorType;

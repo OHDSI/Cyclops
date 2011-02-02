@@ -16,12 +16,42 @@ using namespace std;
 
 GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputReader* reader)
 	: CyclicCoordinateDescent(reader) {
-	
+
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::constructor\n");
-#endif 	
-    
+#endif
+
 	cout << "Running GPU version" << endl;
+#ifdef MULTI_GPU
+
+	firstGPU = new GPUInterface;
+	int gpuDeviceCount = 0;
+	if (firstGPU->Initialize()) {
+		gpuDeviceCount = firstGPU->GetDeviceCount();
+		cout << "Number of GPU devices found: " << gpuDeviceCount << endl;
+	} else {
+		cerr << "Unable to initialize CUDA driver library!" << endl;
+		exit(-1);
+	}
+	gpu = new GPUInterface* [gpuDeviceCount];
+	gpu[0] = firstGPU;
+	int numberChars = 80;
+	std::vector<char> charVector(numberChars);
+	GPUDataPartition* = new GPUDataPartition [gpuDeviceCount];
+	for (int i = 0; i < gpuDeviceCount; i++) {
+		gpu[i]->GetDeviceName(i, &charVector[0], numberChars);
+		string deviceNameString(charVector.begin(), charVector.end());
+		gpu[i]->GetDeviceDescription(i, &charVector[0]);
+		string deviceDescrString(charVector.begin(), charVector.end());
+		cout << "Using " << deviceNameString << ": " << deviceDescrString << endl;
+		kernels[i] = new KernelLauncherCCD(gpu[i]);
+		gpu[i]->SetDevice(i, kernels[i]->getKernelsString());
+		kernels[i]->LoadKernels();
+
+	}
+
+#else
+
 
 	gpu = new GPUInterface;
 	int gpuDeviceCount = 0;
@@ -32,6 +62,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 		cerr << "Unable to initialize CUDA driver library!" << endl;
 		exit(-1);
 	}
+
 
 	if (deviceNumber < 0 || deviceNumber >= gpuDeviceCount) {
 		cerr << "Unknown device number: " << deviceNumber << endl;
@@ -50,7 +81,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	gpu->SetDevice(deviceNumber, kernels->getKernelsString());
 	kernels->LoadKernels();
 	// GPU device is already to go!
-	
+
 	hReader = reader;
 
 //	cerr << "Memory allocate 0" << endl;
@@ -101,6 +132,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 //	cerr << "Memory allocate 4" << endl;
 	dNumerPid = gpu->AllocateRealMemory(N);
 	dT1 = gpu->AllocateRealMemory(N);
+#endif
 #ifdef GRADIENT_HESSIAN_GPU
 #ifndef GH_REDUCTION_GPU
 	dGradient = gpu->AllocateRealMemory(N);
@@ -154,25 +186,25 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 			dXColumnRowIndicators[j] = 0;
 		}
 	}
-	
+
 //	cerr << "Memory allocate 7" << endl;
 	maxActiveWarps++;
 	dTmpCooRows = gpu->AllocateIntMemory(maxActiveWarps);
 	dTmpCooVals = gpu->AllocateRealMemory(maxActiveWarps);
-	
+
 	cout << "MaxActiveWarps = " << maxActiveWarps << endl;
 
 //	cerr << "Done with GPU memory allocation." << endl;
-	
+
 	//delete hReader;
-	
+
 	//hReader = reader; // Keep a local copy
-	
+
 	computeRemainingStatistics();
-	
+
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::constructor\n");
-#endif 	
+#endif
 }
 
 GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
@@ -243,8 +275,8 @@ double GPUCyclicCoordinateDescent::getObjectiveFunction(void) {
 //	return getLogLikelihood() + getLogPrior();
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::getObjectiveFunction\n");
-#endif 	
-    
+#endif
+
 	gpu->MemcpyDeviceToHost(hXBeta, dXBeta, sizeof(real) * K);
 	double criterion = 0;
 	for (int i = 0; i < K; i++) {
@@ -254,7 +286,7 @@ double GPUCyclicCoordinateDescent::getObjectiveFunction(void) {
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::getObjectiveFunction\n");
 #endif
-    
+
     return criterion;
 }
 
@@ -266,15 +298,15 @@ double GPUCyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 }
 
 void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
-	
+
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::updateXBeta\n");
-#endif   	
+#endif
 	// Separate function for benchmarking
 	hBeta[index] += delta;
 	REAL gpuBeta = hBeta[index];
 	gpu->MemcpyHostToDevice(dBeta + sizeof(REAL) * index, &gpuBeta, sizeof(REAL));
-	
+
 #ifdef DP_DEBUG
 	fprintf(stderr,"uXB ");
 	gpu->PrintfDeviceVector(dBeta, 10);
@@ -299,22 +331,22 @@ void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 	gpu->PrintfDeviceVector(dXBeta, 10);
 //	exit(-1);
 #endif
-	
+
 
 #ifdef PROFILE_GPU
 	gpu->Synchronize();
 #endif
-	
+
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving  GPUCylicCoordinateDescent::updateXBeta\n");
-#endif  	
+#endif
 }
 
 void GPUCyclicCoordinateDescent::computeRemainingStatistics(void) {
 
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering  GPUCylicCoordinateDescent::computeRemainingStatistics\n");
-#endif  
+#endif
 
 #ifdef REPLICATE_ON_CPU
 	// OLD
@@ -368,15 +400,15 @@ void GPUCyclicCoordinateDescent::computeRemainingStatistics(void) {
 
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving  GPUCylicCoordinateDescent::computeRemainingStatistics\n");
-#endif  
-	
+#endif
+
 }
 
-void GPUCyclicCoordinateDescent::computeRatiosForGradientAndHessian(int index) {	
+void GPUCyclicCoordinateDescent::computeRatiosForGradientAndHessian(int index) {
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::computeRatiosForGradientAndHessian\n");
-#endif  	
-    
+#endif
+
 #ifndef REDUCE_ROW_GPU
 	// OLD
 	zeroVector(numerPid, N);
@@ -412,20 +444,20 @@ void GPUCyclicCoordinateDescent::computeRatiosForGradientAndHessian(int index) {
 	gpu->MemcpyDeviceToHost(t1, dT1, sizeof(REAL) * N);
 #endif
 #endif
-	
+
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::computeRatiosForGradientAndHessian\n");
-#endif  		
+#endif
 }
 
 void GPUCyclicCoordinateDescent::getDenominators(void) {
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::getDenominators\n");
-#endif  		
+#endif
 	gpu->MemcpyDeviceToHost(denomPid, dDenomPid, sizeof(real) * N);
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::getDenominators\n");
-#endif 	
+#endif
 }
 
 unsigned int nextPow2( unsigned int x) {
@@ -442,25 +474,25 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
 		double *ohessian) {
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::computeGradientAndHessian\n");
-#endif 	
+#endif
 	real gradient = 0;
 	real hessian = 0;
-#ifdef COKI_REDUCTION	
-	
+#ifdef COKI_REDUCTION
+
 	unsigned int threads = (N < 512) ? nextPow2((N + 1)/ 2) : 256;
 	unsigned int blocks = (N + (threads * 2 - 1)) / (threads * 2);
 	blocks = (64 < blocks) ? 64 : blocks;
-	
+
 	kernels->reduceSum(dGradient, dGradient, N, blocks, threads);
 	kernels->reduceSum(dHessian, dGradient+(blocks*sizeof(real)), N, blocks, threads);
 	gpu-> MemcpyDeviceToHost(hGradient, dGradient, 2*blocks*sizeof(real));
 
 	for (int i = 0; i < blocks; i++)
-	{	
+	{
 		gradient += hGradient[i];
 		hessian += hGradient[i+blocks];
 	}
-	
+
 #else
 	real tmp[2];
 	kernels->reduceTwo(dReducedGradientHessian, dGradient, N);
@@ -472,13 +504,13 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
 	gradient -= hXjEta[index];
 	*ogradient = (double) gradient;
 	*ohessian = (double) hessian;
-	
+
 #ifdef DP_DEBUG
 	fprintf(stderr,"%5.3f %5.3f\n", *ogradient, *ohessian);
 #endif
-	
+
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::computeGradientAndHessian\n");
-#endif 	
+#endif
 }
 

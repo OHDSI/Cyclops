@@ -9,9 +9,9 @@
 #define GPUDATAPARTITION_H_
 
 class GPUDataPartition {
-private:
-	GPUInterface gpu;
-	KernelLauncherCCD kernels;
+public:
+
+
 
 };
 
