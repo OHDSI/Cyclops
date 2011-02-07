@@ -25,32 +25,34 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 #ifdef MULTI_GPU
 
 	firstGPU = new GPUInterface;
-	int gpuDeviceCount = 0;
+	int gpuDeviceCount2 = 0;
 	if (firstGPU->Initialize()) {
-		gpuDeviceCount = firstGPU->GetDeviceCount();
-		cout << "Number of GPU devices found: " << gpuDeviceCount << endl;
+		gpuDeviceCount2 = firstGPU->GetDeviceCount();
+		cout << "Number of GPU devices found: " << gpuDeviceCount2 << endl;
 	} else {
 		cerr << "Unable to initialize CUDA driver library!" << endl;
 		exit(-1);
 	}
-	gpu = new GPUInterface* [gpuDeviceCount];
-	gpu[0] = firstGPU;
-	int numberChars = 80;
-	std::vector<char> charVector(numberChars);
-	GPUDataPartition* = new GPUDataPartition [gpuDeviceCount];
-	for (int i = 0; i < gpuDeviceCount; i++) {
-		gpu[i]->GetDeviceName(i, &charVector[0], numberChars);
-		string deviceNameString(charVector.begin(), charVector.end());
-		gpu[i]->GetDeviceDescription(i, &charVector[0]);
-		string deviceDescrString(charVector.begin(), charVector.end());
-		cout << "Using " << deviceNameString << ": " << deviceDescrString << endl;
-		kernels[i] = new KernelLauncherCCD(gpu[i]);
-		gpu[i]->SetDevice(i, kernels[i]->getKernelsString());
-		kernels[i]->LoadKernels();
-
+	gpu2 = new GPUInterface* [gpuDeviceCount2];
+	kernels2 = new KernelLauncherCCD* [gpuDeviceCount2];
+	gpu2[0] = firstGPU;
+	int numberChars2 = 80;
+	std::vector<char> charVector2(numberChars2);
+	//GPUDataPartition* = new GPUDataPartition [gpuDeviceCount];
+	for (int i = 0; i < gpuDeviceCount2; i++) {
+		gpu2[i]->GetDeviceName(i, &charVector2[0], numberChars2);
+		string deviceNameString2(charVector2.begin(), charVector2.end());
+		gpu2[i]->GetDeviceDescription(i, &charVector2[0]);
+		string deviceDescrString2(charVector2.begin(), charVector2.end());
+		cout << "Using " << deviceNameString2 << ": " << deviceDescrString2 << endl;
+		kernels2[i] = new KernelLauncherCCD(gpu2[i]);
+		gpu2[i]->SetDevice(i, kernels2[i]->getKernelsString());
+		kernels2[i]->LoadKernels();
 	}
+	cout << "GOT HERE" << endl;
+	exit(-1);
 
-#else
+#endif
 
 
 	gpu = new GPUInterface;
@@ -132,7 +134,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 //	cerr << "Memory allocate 4" << endl;
 	dNumerPid = gpu->AllocateRealMemory(N);
 	dT1 = gpu->AllocateRealMemory(N);
-#endif
+
 #ifdef GRADIENT_HESSIAN_GPU
 #ifndef GH_REDUCTION_GPU
 	dGradient = gpu->AllocateRealMemory(N);

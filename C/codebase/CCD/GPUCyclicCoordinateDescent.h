@@ -54,13 +54,13 @@ private:
 	int deviceNumber;
 
 #ifdef MULTI_GPU
-	GPUInterface firstGPU;
-	GPUInterface** gpu;
-	KernelLauncherCCD** kernels;
-#else
+	GPUInterface* firstGPU;
+	GPUInterface** gpu2;
+	KernelLauncherCCD** kernels2;
+#endif
 	GPUInterface* gpu;
 	KernelLauncherCCD* kernels;
-#endif
+
 	InputReader* hReader;
 
 	GPUPtr* dXI;

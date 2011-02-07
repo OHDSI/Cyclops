@@ -16,6 +16,7 @@
 
 //#define MIN_GPU
 //#define REPLICATE_ON_CPU
+#define MULTI_GPU
 #define PROFILE_GPU
 
 #define REDUCE_ROW_GPU
