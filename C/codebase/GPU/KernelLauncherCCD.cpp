@@ -84,6 +84,9 @@ void KernelLauncherCCD::computeDerivatives(
     	GPUPtr tmpVals) {
 
 	clearMemory(y, nRows);
+#ifdef MULTI_GPU
+	if(nElements>0)
+#endif
 	computeSpmvCooIndicatorMatrix(y, rows, columns, x, nElements, tmpRows, tmpVals);
 
 	int nBlocks = nRows / MAKE_RATIO_BLOCK_SIZE + // TODO Compute once
