@@ -7,10 +7,13 @@
 
 #include <iostream>
 #include <cmath>
+#include <omp.h>
 
 #include "GPUCyclicCoordinateDescent.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/KernelLauncherCCD.h"
+#include "GPUContainer.h"
+
 
 using namespace std;
 
@@ -25,7 +28,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 #ifdef MULTI_GPU
 
 	firstGPU = new GPUInterface;
-	int gpuDeviceCount2 = 0;
+	gpuDeviceCount2 = 0;
 	if (firstGPU->Initialize()) {
 		gpuDeviceCount2 = firstGPU->GetDeviceCount();
 		cout << "Number of GPU devices found: " << gpuDeviceCount2 << endl;
@@ -33,28 +36,232 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 		cerr << "Unable to initialize CUDA driver library!" << endl;
 		exit(-1);
 	}
-	gpu2 = new GPUInterface* [gpuDeviceCount2];
-	kernels2 = new KernelLauncherCCD* [gpuDeviceCount2];
-	gpu2[0] = firstGPU;
-	int numberChars2 = 80;
-	std::vector<char> charVector2(numberChars2);
-	//GPUDataPartition* = new GPUDataPartition [gpuDeviceCount];
-	for (int i = 0; i < gpuDeviceCount2; i++) {
-		gpu2[i]->GetDeviceName(i, &charVector2[0], numberChars2);
-		string deviceNameString2(charVector2.begin(), charVector2.end());
-		gpu2[i]->GetDeviceDescription(i, &charVector2[0]);
-		string deviceDescrString2(charVector2.begin(), charVector2.end());
-		cout << "Using " << deviceNameString2 << ": " << deviceDescrString2 << endl;
-		kernels2[i] = new KernelLauncherCCD(gpu2[i]);
-		gpu2[i]->SetDevice(i, kernels2[i]->getKernelsString());
-		kernels2[i]->LoadKernels();
-	}
-	cout << "GOT HERE" << endl;
-	exit(-1);
 
+	omp_set_num_threads(gpuDeviceCount2);
+	partition = new GPUContainer*[gpuDeviceCount2];
+
+	vector<int> rowOffsets(N+1);
+
+	int offset = 0;
+	int currentPid = -1;
+	for (int i = 0; i < K; i++) {
+		int thisPid = hPid[i];
+		if (thisPid != currentPid) {
+			rowOffsets[thisPid] = offset;
+			currentPid = thisPid;
+		}
+		offset++;
+	}
+	rowOffsets[N] = offset;
+#pragma omp parallel
+	{
+		int g = omp_get_thread_num();
+		
+		partition[g] = new GPUContainer;
+		
+		partition[g]->gpu = new GPUInterface;
+
+		int numberChars = 80;
+		std::vector<char> charVector2 (numberChars);
+		partition[g]->gpu->GetDeviceName(g, &charVector2[0], numberChars);
+		string deviceNameString(charVector2.begin(), charVector2.end());
+		partition[g]->gpu->GetDeviceDescription(0, &charVector2[0]);
+		string deviceDescrString(charVector2.begin(), charVector2.end());
+		cout << "Using "<< deviceNameString << ": " << deviceDescrString << endl;
+		partition[g]->kernels = new KernelLauncherCCD(partition[g]->gpu);
+		partition[g]->gpu->SetDevice(g, partition[g]->kernels->getKernelsString());
+		partition[g]->kernels->LoadKernels();
+#pragma omp barrier
+	}
+		gpu = partition[0]->gpu;
+                dBeta = gpu->AllocateRealMemory(J);
+                gpu->MemcpyHostToDevice(dBeta, hBeta, sizeof(REAL) * J);
+
+	for (int g = 0; g < gpuDeviceCount2; g++)
+	{
+		partition[g]->hReader = reader;
+		partition[g]->drugs = J/gpuDeviceCount2;
+		partition[g]->patients = N/gpuDeviceCount2;
+		if (g == (gpuDeviceCount2-1))
+		{
+			partition[g]->drugs+=(J%gpuDeviceCount2);
+			partition[g]->patients+=(N%gpuDeviceCount2);
+		}
+		partition[g]->prev_exposures = 0;
+		partition[g]->prev_patients = 0;
+		for (int i = 0; i < g; i++)
+		{
+			partition[g]->prev_exposures+= partition[i]->exposures;
+			partition[g]->prev_patients += partition[i]->patients;
+		}
+		if (g == (gpuDeviceCount2-1))
+			partition[g]->exposures = K-partition[g]->prev_exposures;
+		else
+			partition[g]->exposures = rowOffsets[partition[g]->patients + partition[g]->prev_patients]-partition[g]->prev_exposures;
+		
+		partition[g]->dXI = (GPUPtr*) malloc(J * sizeof(GPUPtr));
+		partition[g]->columnLength = new int[J];
+		for (int j = 0; j < J; j++) {
+			partition[g]->columnLength[j] = hXI->getNumberOfEntries(j);
+			if (partition[g]->columnLength[j] != 0) {
+				int temp_length = partition[g]->columnLength[j];
+				partition[g]->columnLength[j] = 0;
+				int* starting_value = 0;
+				
+				vector<int> temp_column;
+				
+				for (int i = 0; i < temp_length; i++)
+				{
+					if ((hXI->getCompressedColumnVector(j))[i] >= partition[g]->prev_exposures
+							&& (hXI->getCompressedColumnVector(j))[i] < (partition[g]->exposures + partition[g]->prev_exposures))
+					{
+						/*if (partition[g]->columnLength[j] == 0)
+						{
+							starting_value = &((hXI->getCompressedColumnVector(j))[i]);
+						}*/
+						temp_column.push_back((hXI->getCompressedColumnVector(j))[i] - partition[g]->prev_exposures);
+						partition[g]->columnLength[j]++;
+						
+					}
+				}
+				if (partition[g]->columnLength[j]!=0)
+				{
+					partition[g]->dXI[j] = partition[g]->gpu->AllocateRealMemory(partition[g]->columnLength[j]);
+					partition[g]->gpu->MemcpyHostToDevice(partition[g]->dXI[j], &temp_column[0],
+							sizeof(int) * partition[g]->columnLength[j]);
+
+				}
+				else
+				{
+					partition[g]->dXI[j] = 0;
+				}
+
+			}
+		}
+	//	dXColumnLength = gpu->AllocateIntMemory(K);
+	//	gpu->MemcpyHostToDevice(dXColumnLength, &columnLength[0], sizeof(int) * K);
+		//	cerr << "Memory allocate 1" << endl;
+		// Allocate GPU memory for X and beta
+		
+
+//		partition[g]->dBeta = partition[g]->gpu->AllocateRealMemory(partition[g]->drugs);
+//		partition[g]->gpu->MemcpyHostToDevice(partition[g]->dBeta, (hBeta+(g*(int)(J/gpuDeviceCount2))), sizeof(REAL) * partition[g]->drugs);
+		partition[g]->dXBeta = partition[g]->gpu->AllocateRealMemory(partition[g]->exposures);
+		partition[g]->gpu->MemcpyHostToDevice(partition[g]->dXBeta, (hXBeta+partition[g]->prev_exposures), sizeof(REAL) * partition[g]->exposures);
+		//	cerr << "Memory allocate 2" << endl;
+		// Allocate GPU memory for integer vectors
+		partition[g]->dOffs = partition[g]->gpu->AllocateIntMemory(partition[g]->exposures);
+		partition[g]->gpu->MemcpyHostToDevice(partition[g]->dOffs, (hOffs+partition[g]->prev_exposures), sizeof(int) * partition[g]->exposures);
+		partition[g]->dEta = partition[g]->gpu->AllocateIntMemory(partition[g]->exposures);
+		partition[g]->gpu->MemcpyHostToDevice(partition[g]->dEta, (hEta+partition[g]->prev_exposures), sizeof(int) * partition[g]->exposures);
+		partition[g]->dNEvents = partition[g]->gpu->AllocateIntMemory(partition[g]->patients);
+	//	gpu->MemcpyHostToDevice(dNEvents, hNEvents, sizeof(int) * N); // Moved to computeNEvents
+	//	dPid = gpu->AllocateIntMemory()
+		//	cerr << "Memory allocate 3" << endl;
+		// Allocate GPU memory for intermediate calculations
+		partition[g]->dOffsExpXBeta = partition[g]->gpu->AllocateRealMemory(partition[g]->exposures);
+		partition[g]->dXOffsExpXBeta = partition[g]->gpu->AllocateRealMemory(partition[g]->exposures);
+		partition[g]->dDenomPid = partition[g]->gpu->AllocateRealMemory(partition[g]->patients);
+		//	real *tmp = (real *)calloc(sizeof(real), N);
+	//	gpu->MemcpyHostToDevice(dDenomPid, tmp, sizeof(real) * N);
+	//	free(tmp);
+	//	tmp = (real *)calloc(sizeof(real), K);
+	//	gpu->MemcpyHostToDevice(dOffsExpXBeta, tmp, sizeof(real) * K);
+	//	free(tmp);
+		//	cerr << "Memory allocate 4" << endl;
+
+
+		partition[g]->dNumerPid = partition[g]->gpu->AllocateRealMemory(partition[g]->patients);
+		partition[g]->dT1 = partition[g]->gpu->AllocateRealMemory(partition[g]->patients);
+#ifdef GRADIENT_HESSIAN_GPU
+#ifndef GH_REDUCTION_GPU
+		partition[g]->dGradient = partition[g]->gpu->AllocateRealMemory(partition[g]->patients);
+		partition[g]->dHessian = partition[g]->gpu->AllocateRealMemory(partition[g]->patients);
+#else
+		partition[g]->dGradient = partition[g]->gpu->AllocateRealMemory(2 * partition[g]->patients);
+		partition[g]->dHessian = partition[g]->dGradient + sizeof(real) * partition[g]->patients;
+		partition[g]->dReducedGradientHessian = partition[g]->gpu->AllocateRealMemory(2);
+#endif
+		partition[g]->hGradient = (real*) malloc(sizeof(real) * partition[g]->patients);
+		partition[g]->hHessian = (real*) malloc(sizeof(real) * partition[g]->patients);
 #endif
 
+	//	cerr << "Memory allocate 5" << endl;
+	// Allocate computed indices for sparse matrix operations
 
+
+
+		partition[g]->dXFullRowOffsets = partition[g]->gpu->AllocateIntMemory(partition[g]->patients+1);
+
+		for (int i = 0; i < partition[g]->patients+1; i++)
+		{
+			rowOffsets[partition[g]->prev_patients+i] -= partition[g]->prev_exposures;
+		}
+
+		partition[g]->gpu->MemcpyHostToDevice(partition[g]->dXFullRowOffsets,
+				&rowOffsets[partition[g]->prev_patients], sizeof(int) * (partition[g]->patients+1));
+		rowOffsets[partition[g]->prev_patients+partition[g]->patients]+=partition[g]->prev_exposures;
+
+		//	cerr << "Memory allocate 6" << endl;
+
+
+		partition[g]->dXColumnRowIndicators = (GPUPtr*) malloc(J * sizeof(GPUPtr));
+	//	hColumnRowLength = (int*) malloc(J * sizeof(int));
+		unsigned int maxActiveWarps = 0;
+		for (int j = 0; j < J; j++) {
+			const int n = partition[g]->columnLength[j];
+			if (n > 0) {
+				if (n / WARP_SIZE > maxActiveWarps) { // TODO May be reduce for very large entries
+					maxActiveWarps = n / WARP_SIZE;
+				}
+				vector<int> columnRowIndicators(n);
+				int prev_partition_column = 0;
+				for (int k = 0; k < g; k++)
+				{
+					prev_partition_column+= partition[k]->columnLength[j];
+					
+				}
+				const int* indicators = hXI->getCompressedColumnVector(j);
+				for (int i = 0; i < n; i++) { // Loop through non-zero entries only
+					int thisPid = hPid[indicators[i+prev_partition_column]];
+					columnRowIndicators[i] = thisPid - partition[g]->prev_patients;
+				}
+				partition[g]->dXColumnRowIndicators[j] = partition[g]->gpu->AllocateIntMemory(n);
+				partition[g]->gpu->MemcpyHostToDevice(partition[g]->dXColumnRowIndicators[j],
+						&columnRowIndicators[0], sizeof(int) * n);
+			} else {
+				partition[g]->dXColumnRowIndicators[j] = 0;
+			}
+		}
+
+/*	unsigned int maxActiveWarps = 0;
+        for (int j = 0; j < J; j++) {
+                const int n = hXI->getNumberOfEntries(j);
+                if (n > 0) {
+                        if (n / WARP_SIZE > maxActiveWarps) { // TODO May be reduce for very large entries
+                                maxActiveWarps = n / WARP_SIZE;
+                        }
+                        vector<int> columnRowIndicators(n);
+                        const int* indicators = hXI->getCompressedColumnVector(j);
+                        for (int i = 0; i < n; i++) { // Loop through non-zero entries only
+                                int thisPid = hPid[indicators[i]];
+                                columnRowIndicators[i] = thisPid;
+                        }
+                        dXColumnRowIndicators[j] = gpu->AllocateIntMemory(n);
+                        gpu->MemcpyHostToDevice(dXColumnRowIndicators[j],
+                                        &columnRowIndicators[0], sizeof(int) * n);
+                } else {
+                        dXColumnRowIndicators[j] = 0;
+                }
+        }*/
+
+		//	cerr << "Memory allocate 7" << endl;
+		maxActiveWarps++;
+		partition[g]->dTmpCooRows = partition[g]->gpu->AllocateIntMemory(maxActiveWarps);
+		partition[g]->dTmpCooVals = partition[g]->gpu->AllocateRealMemory(maxActiveWarps);
+		cout << "MaxActiveWarps = " << maxActiveWarps << endl;
+	}
+#else
 	gpu = new GPUInterface;
 	int gpuDeviceCount = 0;
 	if (gpu->Initialize()) {
@@ -201,7 +408,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	//delete hReader;
 
 	//hReader = reader; // Keep a local copy
-
+#endif
 	computeRemainingStatistics();
 
 #ifdef GPU_DEBUG_FLOW
@@ -210,7 +417,67 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 }
 
 GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
+#ifdef MULTI_GPU
+	//	cerr << "1" << endl;
 
+//#pragma omp parallel
+	for (int g = 0; g < gpuDeviceCount2; g++)
+	{
+//		unsigned int g = omp_get_thread_num();
+		for (int j = 0; j < J; j++) {
+			if (partition[g]->columnLength[j] > 0) {
+				partition[g]->gpu->FreeMemory(partition[g]->dXI[j]);
+			}
+		}
+		free(partition[g]->dXI);
+
+	//	cerr << "2" << endl;
+	//	partition[g]->gpu->FreeMemory(partition[g]->dBeta);
+		partition[g]->gpu->FreeMemory(partition[g]->dXBeta);
+
+		partition[g]->gpu->FreeMemory(partition[g]->dOffs);
+		partition[g]->gpu->FreeMemory(partition[g]->dEta);
+		partition[g]->gpu->FreeMemory(partition[g]->dNEvents);
+	//	gpu->FreeMemory(dPid);
+		partition[g]->gpu->FreeMemory(partition[g]->dXFullRowOffsets);
+
+	//	cerr << "3" << endl;
+		partition[g]->gpu->FreeMemory(partition[g]->dOffsExpXBeta);
+		partition[g]->gpu->FreeMemory(partition[g]->dXOffsExpXBeta);
+		partition[g]->gpu->FreeMemory(partition[g]->dDenomPid);
+		partition[g]->gpu->FreeMemory(partition[g]->dNumerPid);
+		partition[g]->gpu->FreeMemory(partition[g]->dT1);
+
+#ifdef GRADIENT_HESSIAN_GPU
+		partition[g]->gpu->FreeMemory(partition[g]->dGradient);
+#ifndef GH_REDUCTION_GPU
+		partition[g]->gpu->FreeMemory(partition[g]->dHessian);
+#else
+		partition[g]->gpu->FreeMemory(partition[g]->dReducedGradientHessian);
+#endif
+#endif
+
+	//	cerr << "4" << endl;
+		for (int j = 0; j < J; j++) {
+			if (partition[g]->dXColumnRowIndicators[j]) {
+		//		gpu->FreeMemory(dXColumnRowIndicators[j]); // TODO Causing error under Linux
+			}
+		}
+		free(partition[g]->dXColumnRowIndicators);
+
+	//	cerr << "5" << endl;
+		partition[g]->gpu->FreeMemory(partition[g]->dTmpCooRows);
+		partition[g]->gpu->FreeMemory(partition[g]->dTmpCooVals);
+
+	//	cerr << "6" << endl;
+		delete partition[g]->gpu;
+		delete partition[g];
+//#pragma omp barrier
+	}
+	delete partition;
+	delete firstGPU;
+
+#else
 //	cerr << "1" << endl;
 	for (int j = 0; j < J; j++) {
 		if (hXI->getNumberOfEntries(j) > 0) {
@@ -260,17 +527,42 @@ GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
 //	cerr << "6" << endl;
 	delete gpu;
 //	cerr << "7" << endl;
+#endif
 }
 
 void GPUCyclicCoordinateDescent::resetBeta(void) {
+
 	CyclicCoordinateDescent::resetBeta();
+
 	gpu->MemcpyHostToDevice(dBeta, hBeta, sizeof(REAL) * J);
+#ifdef MULTI_GPU
+#pragma omp parallel
+        {
+                unsigned int g = omp_get_thread_num();
+                partition[g]->gpu->MemcpyHostToDevice(partition[g]->dXBeta, hXBeta+partition[g]->prev_exposures, sizeof(REAL) * partition[g]->exposures);
+#pragma omp barrier
+        }
+#else
+
 	gpu->MemcpyHostToDevice(dXBeta, hXBeta, sizeof(REAL) * K);
+#endif
 }
 
 void GPUCyclicCoordinateDescent::computeNEvents(void) {
 	CyclicCoordinateDescent::computeNEvents();
+#ifdef MULTI_GPU
+#pragma omp parallel
+//	for (int g = 0; g < gpuDeviceCount2; g++)
+	{
+		unsigned int g = omp_get_thread_num();
+		partition[g]->gpu->MemcpyHostToDevice(partition[g]->dNEvents,
+				hNEvents+partition[g]->prev_patients, sizeof(int) * partition[g]->patients);
+#pragma omp barrier
+	}
+#else
+
 	gpu->MemcpyHostToDevice(dNEvents, hNEvents, sizeof(int) * N);
+#endif
 }
 
 double GPUCyclicCoordinateDescent::getObjectiveFunction(void) {
@@ -278,8 +570,18 @@ double GPUCyclicCoordinateDescent::getObjectiveFunction(void) {
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::getObjectiveFunction\n");
 #endif
-
+#ifdef MULTI_GPU
+#pragma omp parallel
+//    for (int g = 0; g < gpuDeviceCount2; g++)
+	{
+		unsigned int g = omp_get_thread_num();
+    	partition[g]->gpu->MemcpyDeviceToHost(hXBeta+partition[g]->prev_exposures,
+    			partition[g]->dXBeta, sizeof(real) * partition[g]->exposures);
+#pragma omp barrier
+    }
+#else
 	gpu->MemcpyDeviceToHost(hXBeta, dXBeta, sizeof(real) * K);
+#endif
 	double criterion = 0;
 	for (int i = 0; i < K; i++) {
 		criterion += hXBeta[i] * hEta[i];
@@ -293,8 +595,19 @@ double GPUCyclicCoordinateDescent::getObjectiveFunction(void) {
 }
 
 double GPUCyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
-	gpu->MemcpyDeviceToHost(hXBeta, dXBeta, sizeof(real) * K);
+#ifdef MULTI_GPU
+#pragma omp parallel
+//	for (int g = 0; g < gpuDeviceCount2; g++)
+	{
+		unsigned int g = omp_get_thread_num();
+		partition[g]->gpu->MemcpyDeviceToHost(hXBeta+partition[g]->prev_exposures,
+				partition[g]->dXBeta, sizeof(real)*partition[g]->exposures);
+#pragma omp barrier
+	}
+#else
 
+	gpu->MemcpyDeviceToHost(hXBeta, dXBeta, sizeof(real) * K);
+#endif
 	// TODO Could do reduction on GPU
 	return CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion();
 }
@@ -313,6 +626,24 @@ void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 	fprintf(stderr,"uXB ");
 	gpu->PrintfDeviceVector(dBeta, 10);
 #endif
+#ifdef MULTI_GPU
+#pragma omp parallel
+//	for (int g = 0; g < gpuDeviceCount2; g++)
+	{
+		int g = omp_get_thread_num();
+		const int n = partition[g]->columnLength[index];
+		if (n > 0)
+		{
+			partition[g]->kernels->updateXBeta(partition[g]->dXBeta,
+					partition[g]->dXI[index], n, delta);
+			partition[g]->gpu->Synchronize();
+		}
+
+#pragma omp barrier
+	}
+
+
+#else
 
 	const int n = hXI->getNumberOfEntries(index);
 
@@ -324,10 +655,10 @@ void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 		hXBeta[k] += delta;
 	}
 #endif
-
 	// NEW
 	kernels->updateXBeta(dXBeta, dXI[index], n, delta);
 
+#endif
 #ifdef DP_DEBUG
 	fprintf(stderr,"uXB ");
 	gpu->PrintfDeviceVector(dXBeta, 10);
@@ -335,8 +666,10 @@ void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 #endif
 
 
+#ifndef MULTI_GPU
 #ifdef PROFILE_GPU
 	gpu->Synchronize();
+#endif
 #endif
 
 #ifdef GPU_DEBUG_FLOW
@@ -360,7 +693,27 @@ void GPUCyclicCoordinateDescent::computeRemainingStatistics(void) {
 #endif
 
 	// NEW
+#ifdef MULTI_GPU
+#pragma omp parallel
+//	for (int g = 0; g < gpuDeviceCount2; g++)
+	{
+		unsigned int g = omp_get_thread_num();
+		partition[g]->kernels->computeIntermediates(
+				partition[g]->dOffsExpXBeta, //exposures
+				partition[g]->dDenomPid,  //patients
+				partition[g]->dOffs,  //exposures
+				partition[g]->dXBeta, //exposures
+				partition[g]->dXFullRowOffsets, //patients
+				partition[g]->exposures,
+				partition[g]->patients);
+		partition[g]->gpu->Synchronize();
+//		partition[g]->gpu->MemcpyDeviceToHost(denomPid+partition[g]->prev_patients, partition[g]->dDenomPid, sizeof(real)*partition[g]->patients);
+	}	
+#pragma omp barrier
+#else
+
 	kernels->computeIntermediates(dOffsExpXBeta, dDenomPid, dOffs, dXBeta, dXFullRowOffsets, K, N);
+#endif
 #ifdef MIN_GPU
 	gpu->MemcpyDeviceToHost(offsExpXBeta, dOffsExpXBeta, sizeof(real) * K);
 	zeroVector(denomPid, N);
@@ -396,9 +749,12 @@ void GPUCyclicCoordinateDescent::computeRemainingStatistics(void) {
 //	exit(0);
 
 	sufficientStatisticsKnown = true;
+#ifndef MULTI_GPU
 #ifdef PROFILE_GPU
 	gpu->Synchronize();
 #endif
+#endif
+
 
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving  GPUCylicCoordinateDescent::computeRemainingStatistics\n");
@@ -426,8 +782,37 @@ void GPUCyclicCoordinateDescent::computeRatiosForGradientAndHessian(int index) {
 	}
 #else
 	// NEW
+#ifdef MULTI_GPU
+
+#pragma omp parallel
+//	for (int g = 0; g < gpuDeviceCount2; g++)
+	{
+			unsigned int g = omp_get_thread_num();
+			const int n = partition[g]->columnLength[index];
+			partition[g]->kernels->computeDerivatives(
+			partition[g]->dNumerPid,
+			partition[g]->dXColumnRowIndicators[index],
+			partition[g]->dXI[index],
+			partition[g]->dOffsExpXBeta,
+			partition[g]->dDenomPid,
+			partition[g]->dT1,
+#ifdef GRADIENT_HESSIAN_GPU
+			partition[g]->dGradient,
+			partition[g]->dHessian,
+			partition[g]->dNEvents,
+#endif
+			n,
+			partition[g]->patients,
+			partition[g]->dTmpCooRows, partition[g]->dTmpCooVals);
+
+			
+			
+#pragma omp barrier
+	}
+
+#else
 	const int n = hXI->getNumberOfEntries(index);
-	kernels->computeDerivatives(
+			kernels->computeDerivatives(
 			dNumerPid,
 			dXColumnRowIndicators[index],
 			dXI[index],
@@ -442,10 +827,12 @@ void GPUCyclicCoordinateDescent::computeRatiosForGradientAndHessian(int index) {
 			n,
 			N,
 			dTmpCooRows, dTmpCooVals);
+#endif
+#endif
 #ifndef GRADIENT_HESSIAN_GPU
 	gpu->MemcpyDeviceToHost(t1, dT1, sizeof(REAL) * N);
 #endif
-#endif
+
 
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::computeRatiosForGradientAndHessian\n");
@@ -456,7 +843,18 @@ void GPUCyclicCoordinateDescent::getDenominators(void) {
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::getDenominators\n");
 #endif
+#ifdef MULTI_GPU
+#pragma omp parallel
+//    for (int g = 0; g < gpuDeviceCount2; g++)
+    {
+		unsigned int g = omp_get_thread_num();
+    	partition[g]->gpu->MemcpyDeviceToHost(denomPid+(partition[g]->prev_patients),
+    			partition[g]->dDenomPid, sizeof(real)*partition[g]->patients);
+#pragma omp barrier
+    }
+#else
 	gpu->MemcpyDeviceToHost(denomPid, dDenomPid, sizeof(real) * N);
+#endif
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::getDenominators\n");
 #endif
@@ -497,10 +895,33 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
 
 #else
 	real tmp[2];
+#ifdef MULTI_GPU
+
+#pragma omp parallel
+//	for (int g = 0; g < gpuDeviceCount2; g++)
+	{
+		unsigned int g = omp_get_thread_num();
+		partition[g]->kernels->reduceTwo(partition[g]->dReducedGradientHessian, partition[g]->dGradient, partition[g]->patients);
+		partition[g]->gpu->MemcpyDeviceToHost(partition[g]->hGradient, partition[g]->dReducedGradientHessian, sizeof(real)*2);
+//		gradient += tmp[0];
+//		hessian += tmp[1];
+#pragma omp barrier
+	}
+	for (int g = 0; g < gpuDeviceCount2; g++)
+	{
+		gradient+= partition[g]->hGradient[0];
+		hessian+= partition[g]->hGradient[1];
+	}
+
+#else
+
 	kernels->reduceTwo(dReducedGradientHessian, dGradient, N);
 	gpu->MemcpyDeviceToHost(tmp, dReducedGradientHessian, sizeof(real) * 2);
+
+
 	gradient = tmp[0];
 	hessian = tmp[1];
+#endif
 #endif
 
 	gradient -= hXjEta[index];

@@ -80,7 +80,6 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	N = reader->getNumberOfPatients();
 	K = reader->getNumberOfRows();
 	J = reader->getNumberOfColumns();
-
 	hXI = reader;
 	hEta = reader->getEtaVector();
 	hOffs = reader->getOffsetVector();

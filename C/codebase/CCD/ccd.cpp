@@ -32,6 +32,9 @@
 
 #ifdef CUDA
 	#include "GPUCyclicCoordinateDescent.h"
+#ifdef MULTI_GPU
+	#include "GPUContainer.h"
+#endif
 #endif
 
 

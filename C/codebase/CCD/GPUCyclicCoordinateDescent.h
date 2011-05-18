@@ -12,6 +12,7 @@
 #include "InputReader.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/KernelLauncherCCD.h"
+#include "GPUContainer.h"
 
 #ifdef DOUBLE_PRECISION
 	typedef double gpu_real;
@@ -54,9 +55,9 @@ private:
 	int deviceNumber;
 
 #ifdef MULTI_GPU
+	GPUContainer** partition;
 	GPUInterface* firstGPU;
-	GPUInterface** gpu2;
-	KernelLauncherCCD** kernels2;
+	int gpuDeviceCount2;
 #endif
 	GPUInterface* gpu;
 	KernelLauncherCCD* kernels;
