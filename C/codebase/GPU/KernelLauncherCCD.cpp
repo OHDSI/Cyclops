@@ -41,6 +41,7 @@ void KernelLauncherCCD::LoadKernels() {
 //	fDotProduct = gpu->GetFunction("kernelDotProduct");
 	fUpdateXBeta = gpu->GetFunction("kernelUpdateXBeta");
 	fComputeIntermediates = gpu->GetFunction("kernelComputeIntermediates");
+	fComputeIntermediatesMoreWork = gpu->GetFunction("kernelComputeIntermediatesMoreWork");
 //	fReduceAll = gpu->GetFunction("kernelReduceAll");
 	fReduceFast = gpu->GetFunction("kernelReduceFast");
 	fComputeAndReduceFast = gpu->GetFunction("kernelComputeIntermediatesAndReduceFast");
@@ -105,30 +106,26 @@ void KernelLauncherCCD::computeDerivatives(
 void KernelLauncherCCD::computeIntermediates(GPUPtr offsExpXBeta,
 		GPUPtr denomPid, GPUPtr offs, GPUPtr xBeta, GPUPtr rowOffsets,
 		int nRows, int nPatients) {
-#ifdef MIN_GPU
-	int nBlocksI = nRows / COMPUTE_INTERMEDIATES_BLOCK_SIZE + // TODO Compute once
-	(nRows % COMPUTE_INTERMEDIATES_BLOCK_SIZE == 0 ? 0 : 1);
+
+//#define TEST_MORE_WORK
+
+#ifdef TEST_MORE_WORK
+	int nBlocksI = nRows / (COMPUTE_INTERMEDIATES_BLOCK_SIZE * COMPUTE_INTERMEDIATES_LOOP_SIZE) + // TODO Compute once
+	(nRows % (COMPUTE_INTERMEDIATES_BLOCK_SIZE * COMPUTE_INTERMEDIATES_LOOP_SIZE) == 0 ? 0 : 1);
 	Dim3Int blockI(COMPUTE_INTERMEDIATES_BLOCK_SIZE);
 	Dim3Int gridI(nBlocksI);
-	gpu->LaunchKernelIntParams(fComputeIntermediates, blockI, gridI, 6,
+	gpu->LaunchKernelParams(fComputeIntermediatesMoreWork, blockI, gridI, 5, 1, 0,
 			offsExpXBeta, denomPid, offs, xBeta, rowOffsets, nRows);
 #else
-#if 1 // Fastest on 9400M
-	int nBlocksI = nRows / COMPUTE_INTERMEDIATES_BLOCK_SIZE + // TODO Compute once
-	(nRows % COMPUTE_INTERMEDIATES_BLOCK_SIZE == 0 ? 0 : 1);
+	int nBlocksI = nRows / (COMPUTE_INTERMEDIATES_BLOCK_SIZE) + // TODO Compute once
+	(nRows % (COMPUTE_INTERMEDIATES_BLOCK_SIZE) == 0 ? 0 : 1);
 	Dim3Int blockI(COMPUTE_INTERMEDIATES_BLOCK_SIZE);
 	Dim3Int gridI(nBlocksI);
 	gpu->LaunchKernelParams(fComputeIntermediates, blockI, gridI, 5, 1, 0,
 			offsExpXBeta, denomPid, offs, xBeta, rowOffsets, nRows);
-		
-#if 0
-	int nBlocksR = nPatients / BLOCK_SIZE_REDUCE_ALL + // TODO Compute once
-	(nPatients % BLOCK_SIZE_REDUCE_ALL == 0 ? 0 : 1);
-	Dim3Int blockR(BLOCK_SIZE_REDUCE_ALL);
-	Dim3Int gridR(nBlocksR);
-	gpu->LaunchKernelIntParams(fReduceAll, blockR, gridR, 4, offsExpXBeta, denomPid, rowOffsets, nPatients);
-#else
-#if 1 // Fastest on 9400M ???
+#endif
+
+#if 1
 	unsigned int gridParam;
 	gridParam = (unsigned int) nPatients / (BLOCK_SIZE_ROW/HALFWARP);
 	if ((gridParam * (BLOCK_SIZE_ROW/HALFWARP)) < nPatients) gridParam++;
@@ -139,18 +136,7 @@ void KernelLauncherCCD::computeIntermediates(GPUPtr offsExpXBeta,
 #else
 	computeSpmvCsrIndicatorMatrixNoColumns(denomPid, rowOffsets, offsExpXBeta, nPatients);
 #endif
-#endif
-#else
-	unsigned int gridParam;
-	gridParam = (unsigned int) nPatients / BLOCK_SIZE_ROW * HALFWARP;
-	if ((gridParam * BLOCK_SIZE_ROW / HALFWARP) < nPatients)
-		gridParam++;
-	Dim3Int gridR(1, gridParam);
-	Dim3Int blockR(1, BLOCK_SIZE_ROW);
-	gpu->LaunchKernelIntParams(fComputeAndReduceFast, blockR, gridR, 6,
-			denomPid, rowOffsets, offs, xBeta, offsExpXBeta, nPatients);
-#endif
-#endif
+
 #ifdef PROFILE_GPU
 	gpu->Synchronize();
 #endif

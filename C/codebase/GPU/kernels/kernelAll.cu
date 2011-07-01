@@ -41,12 +41,26 @@ extern "C" {
 									           REAL *xBeta,
 									           int *pid, // TODO Remove									           
 									           int length) {
-									           
-		int idx = blockIdx.x * COMPUTE_INTERMEDIATES_BLOCK_SIZE + threadIdx.x;
-		if (idx < length) {
-			offsExpXBeta[idx] = offs[idx] * exp(xBeta[idx]);
-		}								           
-	}
+									                   
+        int idx = blockIdx.x * COMPUTE_INTERMEDIATES_BLOCK_SIZE + threadIdx.x;         
+        if (idx < length) {      
+	    	offsExpXBeta[idx] = offs[idx] * exp(xBeta[idx]);
+ 	    }								           
+    }
+	
+	__global__ void kernelComputeIntermediatesMoreWork(REAL *offsExpXBeta,
+											   REAL *denomPid, // TODO Remove
+									           int *offs, // TODO Remove
+									           REAL *xBeta,
+									           int *pid, // TODO Remove									           
+									           int length) {
+									                   
+        int idx = blockIdx.x * COMPUTE_INTERMEDIATES_BLOCK_SIZE + threadIdx.x;
+        while (idx < length) {
+	    	offsExpXBeta[idx] = offs[idx] * exp(xBeta[idx]);							          
+	    	idx += gridDim.x * COMPUTE_INTERMEDIATES_BLOCK_SIZE;
+		}
+	}	
 	
 	__global__ void kernelComputeRatio(
 			REAL *numerPid,

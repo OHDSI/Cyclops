@@ -448,7 +448,6 @@ void GPUInterface::GetDeviceDescription(int deviceNumber,
 #else
     unsigned int totalGlobalMemory = 0;
 #endif
-
     int clockSpeed = 0;
     int mpCount = 0;
     int major = 0;

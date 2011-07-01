@@ -19,6 +19,7 @@ private:
     GPUFunction fDotProduct;
     GPUFunction fUpdateXBeta;
     GPUFunction fComputeIntermediates;
+    GPUFunction fComputeIntermediatesMoreWork;
     GPUFunction fReduceAll;
     GPUFunction fReduceFast;
     GPUFunction fComputeAndReduceFast;
