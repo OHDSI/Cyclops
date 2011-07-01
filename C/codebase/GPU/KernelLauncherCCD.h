@@ -62,6 +62,8 @@ public:
     void updateXBetaAndFriends(GPUPtr xBeta, 
     		GPUPtr offsExpXBeta, 
     		GPUPtr denomPid, 
+    		GPUPtr rowOffs,
+    		GPUPtr otherOffs,
     		GPUPtr offs, 
     		GPUPtr xIColumn, 
     		int length, 

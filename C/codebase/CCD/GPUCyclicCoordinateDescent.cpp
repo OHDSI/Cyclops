@@ -83,7 +83,8 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	gpu->MemcpyHostToDevice(dEta, hEta, sizeof(int) * K);
 	dNEvents = gpu->AllocateIntMemory(N);
 //	gpu->MemcpyHostToDevice(dNEvents, hNEvents, sizeof(int) * N); // Moved to computeNEvents
-//	dPid = gpu->AllocateIntMemory()
+	dPid = gpu->AllocateIntMemory(K);
+	gpu->MemcpyHostToDevice(dPid, hPid, sizeof(int) * K); // TODO Remove
 
 //	cerr << "Memory allocate 3" << endl;
 	// Allocate GPU memory for intermediate calculations
@@ -192,7 +193,7 @@ GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
 	gpu->FreeMemory(dOffs);
 	gpu->FreeMemory(dEta);
 	gpu->FreeMemory(dNEvents);
-//	gpu->FreeMemory(dPid);
+	gpu->FreeMemory(dPid);
 	gpu->FreeMemory(dXFullRowOffsets);
 
 //	cerr << "3" << endl;
@@ -280,7 +281,7 @@ void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 
 	// NEW
 #ifdef TEST_SPARSE	
-	kernels->updateXBetaAndFriends(dXBeta,  dOffsExpXBeta,  dDenomPid,  dOffs, dXI[index], n, delta);	
+	kernels->updateXBetaAndFriends(dXBeta,  dOffsExpXBeta,  dDenomPid, dXColumnRowIndicators[index], dPid, dOffs, dXI[index], n, delta);	
 #else
 	kernels->updateXBeta(dXBeta, dXI[index], n, delta);
 #endif

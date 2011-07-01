@@ -109,16 +109,7 @@ void KernelLauncherCCD::computeIntermediates(GPUPtr offsExpXBeta,
 		GPUPtr denomPid, GPUPtr offs, GPUPtr xBeta, GPUPtr rowOffsets,
 		int nRows, int nPatients, bool allStats) {
 
-//#define TEST_MORE_WORK
 
-#ifdef TEST_MORE_WORK
-	int nBlocksI = nRows / (COMPUTE_INTERMEDIATES_BLOCK_SIZE * COMPUTE_INTERMEDIATES_LOOP_SIZE) + // TODO Compute once
-	(nRows % (COMPUTE_INTERMEDIATES_BLOCK_SIZE * COMPUTE_INTERMEDIATES_LOOP_SIZE) == 0 ? 0 : 1);
-	Dim3Int blockI(COMPUTE_INTERMEDIATES_BLOCK_SIZE);
-	Dim3Int gridI(nBlocksI);
-	gpu->LaunchKernelParams(fComputeIntermediatesMoreWork, blockI, gridI, 5, 1, 0,
-			offsExpXBeta, denomPid, offs, xBeta, rowOffsets, nRows);
-#else
 if (allStats) {
 	int nBlocksI = nRows / (COMPUTE_INTERMEDIATES_BLOCK_SIZE) + // TODO Compute once
 	(nRows % (COMPUTE_INTERMEDIATES_BLOCK_SIZE) == 0 ? 0 : 1);
@@ -126,9 +117,7 @@ if (allStats) {
 	Dim3Int gridI(nBlocksI);
 	gpu->LaunchKernelParams(fComputeIntermediates, blockI, gridI, 5, 1, 0,
 			offsExpXBeta, denomPid, offs, xBeta, rowOffsets, nRows);
-	fprintf(stderr,"a");
-}
-#endif
+
 
 #if 1
 	unsigned int gridParam;
@@ -141,6 +130,7 @@ if (allStats) {
 #else
 	computeSpmvCsrIndicatorMatrixNoColumns(denomPid, rowOffsets, offsExpXBeta, nPatients);
 #endif
+}
 
 #ifdef PROFILE_GPU
 	gpu->Synchronize();
@@ -191,14 +181,15 @@ void KernelLauncherCCD::updateXBeta(GPUPtr xBeta, GPUPtr xIColumn, int length,
 			length, delta);
 }
 
-void KernelLauncherCCD::updateXBetaAndFriends(GPUPtr xBeta, GPUPtr offsExpXBeta, GPUPtr denomPid, GPUPtr offs, 
+void KernelLauncherCCD::updateXBetaAndFriends(GPUPtr xBeta, GPUPtr offsExpXBeta, GPUPtr denomPid, GPUPtr rowOffs, 
+		GPUPtr otherOffs, GPUPtr offs, 
 		GPUPtr xIColumn, int length, double delta) {
 
 	int nBlocks = length / UPDATE_XBETA_AND_FRIENDS_BLOCK_SIZE + // TODO Compute once
 			(length % UPDATE_XBETA_AND_FRIENDS_BLOCK_SIZE == 0 ? 0 : 1);
 	Dim3Int block(UPDATE_XBETA_AND_FRIENDS_BLOCK_SIZE, 1);
 	Dim3Int grid(nBlocks, 1);
-	gpu->LaunchKernelParams(fUpdateXBetaAndFriends, block, grid, 5, 1, 1, xBeta, offsExpXBeta, denomPid, offs, xIColumn,
+	gpu->LaunchKernelParams(fUpdateXBetaAndFriends, block, grid, 7, 1, 1, xBeta, offsExpXBeta, denomPid, rowOffs, otherOffs, offs, xIColumn,
 			length, delta);
 }
 

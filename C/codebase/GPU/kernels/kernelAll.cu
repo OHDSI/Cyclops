@@ -39,6 +39,8 @@ extern "C" {
 									  REAL *xBeta,
 									  REAL *offsExpXBeta,
 									  REAL *denomPid,
+									  int *rowOffs,
+									  int *otherOffs,
 									  int *offs,
 									  int *xIColumn,
 								      int length,
@@ -47,22 +49,19 @@ extern "C" {
 		int idx = blockIdx.x * UPDATE_XBETA_AND_FRIENDS_BLOCK_SIZE + threadIdx.x;
 		if (idx < length) {
 			int k = xIColumn[idx];
+			//int n = rowOffs[idx];
+			int n = otherOffs[k];
 			
 			REAL xb = xBeta[k] + delta; // Compute new xBeta			
-			REAL newOffsExpXBeta = offs[k] * exp(xb);
-//			REAL oldOffsExpXBeta = offsExpXBeta[k];
+			REAL newOffsExpXBeta;
+			REAL oldOffsExpXBeta = offsExpXBeta[k];
 			
 			// Store new values
 			xBeta[k] = xb;
-			offsExpXBeta[k] = newOffsExpXBeta;
-//			denomPid[k] += (newOffsExpXBeta - oldOffsExpXBeta);						
-		}		
-		
-//#ifdef TEST_SPARSE		
-//		denomPid[hPid[k]] -= offsExpXBeta[k]; // Old value
-//		offsExpXBeta[k] = hOffs[k] * exp(hXBeta[k]);
-//		denomPid[hPid[k]] += offsExpXBeta[k]; // New value
-//#endif		
+			offsExpXBeta[k] = newOffsExpXBeta = offs[k] * exp(xb); //newOffsExpXBeta;
+			
+			denomPid[n] += (newOffsExpXBeta - oldOffsExpXBeta);						
+		}					
 	}	
 	
 	__global__ void kernelComputeIntermediates(REAL *offsExpXBeta,
