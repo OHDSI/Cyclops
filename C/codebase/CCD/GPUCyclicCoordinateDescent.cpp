@@ -168,7 +168,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	
 	//hReader = reader; // Keep a local copy
 	
-	computeRemainingStatistics();
+	computeRemainingStatistics(true);
 	
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::constructor\n");
@@ -310,56 +310,14 @@ void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 #endif  	
 }
 
-void GPUCyclicCoordinateDescent::computeRemainingStatistics(void) {
+void GPUCyclicCoordinateDescent::computeRemainingStatistics(bool allStats) {
 
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering  GPUCylicCoordinateDescent::computeRemainingStatistics\n");
 #endif  
 
-#ifdef REPLICATE_ON_CPU
-	// OLD
-	zeroVector(denomPid, N);
-	for (int i = 0; i < K; i++) {
-		offsExpXBeta[i] = hOffs[i] * exp(hXBeta[i]);
-		denomPid[hPid[i]] += offsExpXBeta[i];
-	}
-#endif
-
 	// NEW
 	kernels->computeIntermediates(dOffsExpXBeta, dDenomPid, dOffs, dXBeta, dXFullRowOffsets, K, N);
-#ifdef MIN_GPU
-	gpu->MemcpyDeviceToHost(offsExpXBeta, dOffsExpXBeta, sizeof(real) * K);
-	zeroVector(denomPid, N);
-	for (int i = 0; i < K; i++) {
-		denomPid[hPid[i]] += offsExpXBeta[i];
-	}
-#else
-#ifdef REDUCE_ROW_GPU
-//	gpu->MemcpyDeviceToHost(denomPid, dDenomPid, sizeof(real) * N); // TODO Move to compute likelihood
-#else
-	gpu->MemcpyDeviceToHost(offsExpXBeta, dOffsExpXBeta, sizeof(real) * K); // TODO Remove
-	gpu->MemcpyDeviceToHost(denomPid, dDenomPid, sizeof(real) * N); // TODO Move to compute likelihood
-#endif
-//	int I = 100;
-//	cout << "Check offsExpXBeta" << endl;
-//	gpu->PrintfDeviceVector(dOffsExpXBeta, I);
-//	for (int i = 0; i < I; i++) {
-//		cout << " " << offsExpXBeta[i];
-//	}
-//	cout << endl << endl;
-//
-//
-//	cout << "Check Denom" << endl;
-//
-//	gpu->PrintfDeviceVector(dDenomPid, I);
-//	for (int i = 0; i < I; i++) {
-//		cout << " " << denomPid[i];
-//	}
-//	cout << endl << endl;
-//	exit(0);
-#endif // MIN_GPU
-
-//	exit(0);
 
 	sufficientStatisticsKnown = true;
 #ifdef PROFILE_GPU

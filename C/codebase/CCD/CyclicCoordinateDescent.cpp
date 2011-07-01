@@ -247,7 +247,7 @@ void CyclicCoordinateDescent::logResults(const char* fileName) {
 double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
 
 	if (!sufficientStatisticsKnown) {
-		computeRemainingStatistics();
+		computeRemainingStatistics(true);
 	}
 
 	getDenominators();
@@ -263,7 +263,7 @@ double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
 
 real CyclicCoordinateDescent::getBeta(int i) {
 	if (!sufficientStatisticsKnown) {
-		computeRemainingStatistics();
+		computeRemainingStatistics(true);
 	}
 	return hBeta[i];
 }
@@ -271,7 +271,7 @@ real CyclicCoordinateDescent::getBeta(int i) {
 double CyclicCoordinateDescent::getLogLikelihood(void) {
 
 	if (!sufficientStatisticsKnown) {
-		computeRemainingStatistics();
+		computeRemainingStatistics(true);
 	}
 
 	getDenominators();
@@ -399,7 +399,7 @@ void CyclicCoordinateDescent::update(
 	}
 
 	if (!sufficientStatisticsKnown) {
-		computeRemainingStatistics();
+		computeRemainingStatistics(true);
 	}
 
 	resetBounds();
@@ -577,22 +577,32 @@ void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
 	for (int i = 0; i < n; i++) { // Loop through non-zero entries only
 		const int k = indicators[i];
 		hXBeta[k] += delta;
+#ifdef TEST_SPARSE		
+		denomPid[hPid[k]] -= offsExpXBeta[k]; // Old value
+		offsExpXBeta[k] = hOffs[k] * exp(hXBeta[k]);
+		denomPid[hPid[k]] += offsExpXBeta[k]; // New value
+#endif
 	}
 }
 
 void CyclicCoordinateDescent::updateSufficientStatistics(double delta, int index) {
 	updateXBeta(delta, index);
-	computeRemainingStatistics();
+	computeRemainingStatistics(false);
 }
 
-void CyclicCoordinateDescent::computeRemainingStatistics(void) {
-	// Separate function for benchmarking	
+void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats) {
+	// Separate function for benchmarking
+#ifdef TEST_SPARSE		
+	if (allStats) {
+#endif	
 	zeroVector(denomPid, N);
 	for (int i = 0; i < K; i++) {
-		offsExpXBeta[i] = hOffs[i] * exp(hXBeta[i]);
+		offsExpXBeta[i] = hOffs[i] * exp(hXBeta[i]);	
 		denomPid[hPid[i]] += offsExpXBeta[i];
 	}
-
+#ifdef TEST_SPARSE			
+	}
+#endif	
 	sufficientStatisticsKnown = true;
 }
 

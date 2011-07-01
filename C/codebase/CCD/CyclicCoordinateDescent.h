@@ -15,6 +15,8 @@ using namespace std;
 
 #define DEBUG
 
+#define TEST_SPARSE // New sparse updates
+
 #ifdef DOUBLE_PRECISION
 	typedef double real;
 #else
@@ -108,7 +110,7 @@ protected:
 
 	virtual void updateXBeta(double delta, int index);
 
-	virtual void computeRemainingStatistics(void);
+	virtual void computeRemainingStatistics(bool);
 	
 	virtual void computeRatiosForGradientAndHessian(int index);
 
