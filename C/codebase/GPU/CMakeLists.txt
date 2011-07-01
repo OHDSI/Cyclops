@@ -15,6 +15,7 @@ set(CUDA_SRCS
 	)
 
 add_definitions("-DCUDA")
+set(CUDA_NVCC_FLAGS "-arch=sm_20")
 
 ######## Less editting below this point
 
@@ -26,10 +27,10 @@ if(NOT BIN2C)
 endif(NOT BIN2C)
 message(STATUS "Found bin2c: " ${BIN2C})
 
-if(APPLE)
-	set(CUDA_64_BIT_DEVICE_CODE OFF)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
-endif(APPLE)
+#if(APPLE)
+#	set(CUDA_64_BIT_DEVICE_CODE OFF)
+#	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+#endif(APPLE)
 
 CUDA_COMPILE_PTX(PTX_FILE ${CU_FILE})
 

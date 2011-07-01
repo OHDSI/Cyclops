@@ -119,13 +119,13 @@ if (allStats) {
 	gpu->LaunchKernelParams(fComputeIntermediates, blockI, gridI, 5, 1, 0,
 			offsExpXBeta, denomPid, offs, xBeta, rowOffsets, nRows);
 
-//	unsigned int gridParam;
-//	gridParam = (unsigned int) nPatients / (BLOCK_SIZE_ROW/HALFWARP);
-//	if ((gridParam * (BLOCK_SIZE_ROW/HALFWARP)) < nPatients) gridParam++;
-//	Dim3Int gridR(1, gridParam);
-//	Dim3Int blockR(1, BLOCK_SIZE_ROW);
-//	gpu->LaunchKernelParams(fReduceFast, blockR, gridR, 3, 1, 0,
-//			denomPid, rowOffsets, offsExpXBeta, nPatients);
+	unsigned int gridParam;
+	gridParam = (unsigned int) nPatients / (BLOCK_SIZE_ROW/HALFWARP);
+	if ((gridParam * (BLOCK_SIZE_ROW/HALFWARP)) < nPatients) gridParam++;
+	Dim3Int gridR(1, gridParam);
+	Dim3Int blockR(1, BLOCK_SIZE_ROW);
+	gpu->LaunchKernelParams(fReduceFast, blockR, gridR, 3, 1, 0,
+			denomPid, rowOffsets, offsExpXBeta, nPatients);
 
 //	computeSpmvCsrIndicatorMatrixNoColumns(denomPid, rowOffsets, offsExpXBeta, nPatients);
 
@@ -134,13 +134,13 @@ if (allStats) {
 }
 #endif
 
-	unsigned int gridParam;
-	gridParam = (unsigned int) nPatients / (BLOCK_SIZE_ROW/HALFWARP);
-	if ((gridParam * (BLOCK_SIZE_ROW/HALFWARP)) < nPatients) gridParam++;
-	Dim3Int gridR(1, gridParam);
-	Dim3Int blockR(1, BLOCK_SIZE_ROW);
-	gpu->LaunchKernelParams(fReduceFast, blockR, gridR, 3, 1, 0,
-			denomPid, rowOffsets, offsExpXBeta, nPatients);
+//	unsigned int gridParam;
+//	gridParam = (unsigned int) nPatients / (BLOCK_SIZE_ROW/HALFWARP);
+//	if ((gridParam * (BLOCK_SIZE_ROW/HALFWARP)) < nPatients) gridParam++;
+//	Dim3Int gridR(1, gridParam);
+//	Dim3Int blockR(1, BLOCK_SIZE_ROW);
+//	gpu->LaunchKernelParams(fReduceFast, blockR, gridR, 3, 1, 0,
+//			denomPid, rowOffsets, offsExpXBeta, nPatients);
 
 #ifdef PROFILE_GPU
 	gpu->Synchronize();

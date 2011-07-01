@@ -3,6 +3,7 @@
  */
 
 #include "GPU/GPUImplDefs.h"
+#include "device_functions.h"
 
 #include "kernelSpmvCoo.cu"
 #include "kernelSpmvCsr.cu"
@@ -49,17 +50,20 @@ extern "C" {
 		int idx = blockIdx.x * UPDATE_XBETA_AND_FRIENDS_BLOCK_SIZE + threadIdx.x;
 		if (idx < length) {
 			int k = xIColumn[idx];
-//			int n = rowOffs[idx];
+			int n = rowOffs[idx];
 			//int n = otherOffs[k];
 			
-			REAL xb = xBeta[k] + delta; // Compute new xBeta
-			xBeta[k] = xb;
+			REAL xb = xBeta[k] + delta; // Compute new xBeta			
+			REAL newOffsExpXBeta = offs[k] * exp(xb);
+			REAL oldOffsExpXBeta = offsExpXBeta[k];			 
 			
-//			REAL oldOffsExpXBeta = offsExpXBeta[k];									
-			REAL newOffsExpXBeta = offsExpXBeta[k] = offs[k] * exp(xb); //newOffsExpXBeta;
+			// Store new values
+			xBeta[k] = xb;				
 			
-//			denomPid[n] += (newOffsExpXBeta - oldOffsExpXBeta);
-
+		#ifndef DOUBLE_PRECISION	
+			atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));	
+		#endif					
+			offsExpXBeta[k] = newOffsExpXBeta;
 		}					
 	}	
 	
