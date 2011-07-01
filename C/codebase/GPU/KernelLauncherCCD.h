@@ -18,6 +18,7 @@ class KernelLauncherCCD : public KernelLauncher {
 private:
     GPUFunction fDotProduct;
     GPUFunction fUpdateXBeta;
+    GPUFunction fUpdateXBetaAndFriends;
     GPUFunction fComputeIntermediates;
     GPUFunction fComputeIntermediatesMoreWork;
     GPUFunction fReduceAll;
@@ -57,6 +58,14 @@ public:
 					 GPUPtr xIColumn,
 					 int length,
 					 double delta);
+    
+    void updateXBetaAndFriends(GPUPtr xBeta, 
+    		GPUPtr offsExpXBeta, 
+    		GPUPtr denomPid, 
+    		GPUPtr offs, 
+    		GPUPtr xIColumn, 
+    		int length, 
+    		double delta);    
 
     void reduceTwo(GPUPtr oC,
 				   GPUPtr iX,
@@ -76,7 +85,8 @@ public:
             GPUPtr xBeta,
             GPUPtr pid,
             int nRows,
-            int nPatients);
+            int nPatients,
+            bool allStats);
 
     void clearMemory(
     		GPUPtr dest,

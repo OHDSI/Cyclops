@@ -9,6 +9,7 @@
 #include <iostream>
 
 #include "GPU/KernelLauncherCCD.h"
+#include "CCD/CyclicCoordinateDescent.h"
 
 #ifdef DOUBLE_PRECISION
 	#include "GPU-DP/kernels/CCDKernels.h"
@@ -40,6 +41,7 @@ void KernelLauncherCCD::SetupKernelBlocksAndGrids() {
 void KernelLauncherCCD::LoadKernels() {
 //	fDotProduct = gpu->GetFunction("kernelDotProduct");
 	fUpdateXBeta = gpu->GetFunction("kernelUpdateXBeta");
+	fUpdateXBetaAndFriends = gpu->GetFunction("kernelUpdateXBetaAndFriends");
 	fComputeIntermediates = gpu->GetFunction("kernelComputeIntermediates");
 	fComputeIntermediatesMoreWork = gpu->GetFunction("kernelComputeIntermediatesMoreWork");
 //	fReduceAll = gpu->GetFunction("kernelReduceAll");
@@ -105,7 +107,7 @@ void KernelLauncherCCD::computeDerivatives(
 
 void KernelLauncherCCD::computeIntermediates(GPUPtr offsExpXBeta,
 		GPUPtr denomPid, GPUPtr offs, GPUPtr xBeta, GPUPtr rowOffsets,
-		int nRows, int nPatients) {
+		int nRows, int nPatients, bool allStats) {
 
 //#define TEST_MORE_WORK
 
@@ -117,12 +119,15 @@ void KernelLauncherCCD::computeIntermediates(GPUPtr offsExpXBeta,
 	gpu->LaunchKernelParams(fComputeIntermediatesMoreWork, blockI, gridI, 5, 1, 0,
 			offsExpXBeta, denomPid, offs, xBeta, rowOffsets, nRows);
 #else
+if (allStats) {
 	int nBlocksI = nRows / (COMPUTE_INTERMEDIATES_BLOCK_SIZE) + // TODO Compute once
 	(nRows % (COMPUTE_INTERMEDIATES_BLOCK_SIZE) == 0 ? 0 : 1);
 	Dim3Int blockI(COMPUTE_INTERMEDIATES_BLOCK_SIZE);
 	Dim3Int gridI(nBlocksI);
 	gpu->LaunchKernelParams(fComputeIntermediates, blockI, gridI, 5, 1, 0,
 			offsExpXBeta, denomPid, offs, xBeta, rowOffsets, nRows);
+	fprintf(stderr,"a");
+}
 #endif
 
 #if 1
@@ -183,6 +188,17 @@ void KernelLauncherCCD::updateXBeta(GPUPtr xBeta, GPUPtr xIColumn, int length,
 	Dim3Int block(UPDATE_XBETA_BLOCK_SIZE, 1);
 	Dim3Int grid(nBlocks, 1);
 	gpu->LaunchKernelParams(fUpdateXBeta, block, grid, 2, 1, 1, xBeta, xIColumn,
+			length, delta);
+}
+
+void KernelLauncherCCD::updateXBetaAndFriends(GPUPtr xBeta, GPUPtr offsExpXBeta, GPUPtr denomPid, GPUPtr offs, 
+		GPUPtr xIColumn, int length, double delta) {
+
+	int nBlocks = length / UPDATE_XBETA_AND_FRIENDS_BLOCK_SIZE + // TODO Compute once
+			(length % UPDATE_XBETA_AND_FRIENDS_BLOCK_SIZE == 0 ? 0 : 1);
+	Dim3Int block(UPDATE_XBETA_AND_FRIENDS_BLOCK_SIZE, 1);
+	Dim3Int grid(nBlocks, 1);
+	gpu->LaunchKernelParams(fUpdateXBetaAndFriends, block, grid, 5, 1, 1, xBeta, offsExpXBeta, denomPid, offs, xIColumn,
 			length, delta);
 }
 

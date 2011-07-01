@@ -275,31 +275,15 @@ void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 	REAL gpuBeta = hBeta[index];
 	gpu->MemcpyHostToDevice(dBeta + sizeof(REAL) * index, &gpuBeta, sizeof(REAL));
 	
-#ifdef DP_DEBUG
-	fprintf(stderr,"uXB ");
-	gpu->PrintfDeviceVector(dBeta, 10);
-#endif
-
 	const int n = hXI->getNumberOfEntries(index);
 
-	// OLD
-#ifdef REPLICATE_ON_CPU
-	const int* indicators = hXI->getCompressedColumnVector(index);
-	for (int i = 0; i < n; i++) { // Loop through non-zero entries only
-		const int k = indicators[i];
-		hXBeta[k] += delta;
-	}
-#endif
 
 	// NEW
+#ifdef TEST_SPARSE	
+	kernels->updateXBetaAndFriends(dXBeta,  dOffsExpXBeta,  dDenomPid,  dOffs, dXI[index], n, delta);	
+#else
 	kernels->updateXBeta(dXBeta, dXI[index], n, delta);
-
-#ifdef DP_DEBUG
-	fprintf(stderr,"uXB ");
-	gpu->PrintfDeviceVector(dXBeta, 10);
-//	exit(-1);
 #endif
-	
 
 #ifdef PROFILE_GPU
 	gpu->Synchronize();
@@ -317,7 +301,7 @@ void GPUCyclicCoordinateDescent::computeRemainingStatistics(bool allStats) {
 #endif  
 
 	// NEW
-	kernels->computeIntermediates(dOffsExpXBeta, dDenomPid, dOffs, dXBeta, dXFullRowOffsets, K, N);
+	kernels->computeIntermediates(dOffsExpXBeta, dDenomPid, dOffs, dXBeta, dXFullRowOffsets, K, N, allStats);
 
 	sufficientStatisticsKnown = true;
 #ifdef PROFILE_GPU
@@ -335,20 +319,6 @@ void GPUCyclicCoordinateDescent::computeRatiosForGradientAndHessian(int index) {
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::computeRatiosForGradientAndHessian\n");
 #endif  	
     
-#ifndef REDUCE_ROW_GPU
-	// OLD
-	zeroVector(numerPid, N);
-	const int* indicators = hXI->getCompressedColumnVector(index);
-	const int n = hXI->getNumberOfEntries(index);
-	for (int i = 0; i < n; i++) { // Loop through non-zero entries only
-		const int k = indicators[i];
-		numerPid[hPid[k]] += offsExpXBeta[k];
-	}
-
-	for (int i = 0; i < N; i++) {
-		t1[i] = numerPid[i] / denomPid[i];
-	}
-#else
 	// NEW
 	const int n = hXI->getNumberOfEntries(index);
 	kernels->computeDerivatives(
@@ -358,19 +328,13 @@ void GPUCyclicCoordinateDescent::computeRatiosForGradientAndHessian(int index) {
 			dOffsExpXBeta,
 			dDenomPid,
 			dT1,
-#ifdef GRADIENT_HESSIAN_GPU
 			dGradient,
 			dHessian,
 			dNEvents,
-#endif
 			n,
 			N,
 			dTmpCooRows, dTmpCooVals);
-#ifndef GRADIENT_HESSIAN_GPU
-	gpu->MemcpyDeviceToHost(t1, dT1, sizeof(REAL) * N);
-#endif
-#endif
-	
+
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::computeRatiosForGradientAndHessian\n");
 #endif  		
