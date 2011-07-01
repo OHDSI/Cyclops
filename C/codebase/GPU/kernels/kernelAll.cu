@@ -49,18 +49,17 @@ extern "C" {
 		int idx = blockIdx.x * UPDATE_XBETA_AND_FRIENDS_BLOCK_SIZE + threadIdx.x;
 		if (idx < length) {
 			int k = xIColumn[idx];
-			//int n = rowOffs[idx];
-			int n = otherOffs[k];
+//			int n = rowOffs[idx];
+			//int n = otherOffs[k];
 			
-			REAL xb = xBeta[k] + delta; // Compute new xBeta			
-			REAL newOffsExpXBeta;
-			REAL oldOffsExpXBeta = offsExpXBeta[k];
-			
-			// Store new values
+			REAL xb = xBeta[k] + delta; // Compute new xBeta
 			xBeta[k] = xb;
-			offsExpXBeta[k] = newOffsExpXBeta = offs[k] * exp(xb); //newOffsExpXBeta;
 			
-			denomPid[n] += (newOffsExpXBeta - oldOffsExpXBeta);						
+//			REAL oldOffsExpXBeta = offsExpXBeta[k];									
+			REAL newOffsExpXBeta = offsExpXBeta[k] = offs[k] * exp(xb); //newOffsExpXBeta;
+			
+//			denomPid[n] += (newOffsExpXBeta - oldOffsExpXBeta);
+
 		}					
 	}	
 	

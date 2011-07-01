@@ -577,12 +577,12 @@ void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
 	for (int i = 0; i < n; i++) { // Loop through non-zero entries only
 		const int k = indicators[i];
 		hXBeta[k] += delta;
-#ifdef TEST_SPARSE		
-		denomPid[hPid[k]] -= offsExpXBeta[k]; // Old value
-		offsExpXBeta[k] = hOffs[k] * exp(hXBeta[k]);
-		denomPid[hPid[k]] += offsExpXBeta[k]; // New value
+#ifdef TEST_SPARSE
+		real oldEntry = offsExpXBeta[k];
+		real newEntry = offsExpXBeta[k] = hOffs[k] * exp(hXBeta[k]);		 
+		denomPid[hPid[k]] += (newEntry - oldEntry);	 
 #endif
-	}
+	}	
 }
 
 void CyclicCoordinateDescent::updateSufficientStatistics(double delta, int index) {

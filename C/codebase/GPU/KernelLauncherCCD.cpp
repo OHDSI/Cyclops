@@ -109,8 +109,9 @@ void KernelLauncherCCD::computeIntermediates(GPUPtr offsExpXBeta,
 		GPUPtr denomPid, GPUPtr offs, GPUPtr xBeta, GPUPtr rowOffsets,
 		int nRows, int nPatients, bool allStats) {
 
-
-if (allStats) {
+#ifdef TEST_SPARSE
+if (allStats) {	
+#endif
 	int nBlocksI = nRows / (COMPUTE_INTERMEDIATES_BLOCK_SIZE) + // TODO Compute once
 	(nRows % (COMPUTE_INTERMEDIATES_BLOCK_SIZE) == 0 ? 0 : 1);
 	Dim3Int blockI(COMPUTE_INTERMEDIATES_BLOCK_SIZE);
@@ -118,8 +119,21 @@ if (allStats) {
 	gpu->LaunchKernelParams(fComputeIntermediates, blockI, gridI, 5, 1, 0,
 			offsExpXBeta, denomPid, offs, xBeta, rowOffsets, nRows);
 
+//	unsigned int gridParam;
+//	gridParam = (unsigned int) nPatients / (BLOCK_SIZE_ROW/HALFWARP);
+//	if ((gridParam * (BLOCK_SIZE_ROW/HALFWARP)) < nPatients) gridParam++;
+//	Dim3Int gridR(1, gridParam);
+//	Dim3Int blockR(1, BLOCK_SIZE_ROW);
+//	gpu->LaunchKernelParams(fReduceFast, blockR, gridR, 3, 1, 0,
+//			denomPid, rowOffsets, offsExpXBeta, nPatients);
 
-#if 1
+//	computeSpmvCsrIndicatorMatrixNoColumns(denomPid, rowOffsets, offsExpXBeta, nPatients);
+
+	
+#ifdef TEST_SPARSE
+}
+#endif
+
 	unsigned int gridParam;
 	gridParam = (unsigned int) nPatients / (BLOCK_SIZE_ROW/HALFWARP);
 	if ((gridParam * (BLOCK_SIZE_ROW/HALFWARP)) < nPatients) gridParam++;
@@ -127,10 +141,6 @@ if (allStats) {
 	Dim3Int blockR(1, BLOCK_SIZE_ROW);
 	gpu->LaunchKernelParams(fReduceFast, blockR, gridR, 3, 1, 0,
 			denomPid, rowOffsets, offsExpXBeta, nPatients);
-#else
-	computeSpmvCsrIndicatorMatrixNoColumns(denomPid, rowOffsets, offsExpXBeta, nPatients);
-#endif
-}
 
 #ifdef PROFILE_GPU
 	gpu->Synchronize();
