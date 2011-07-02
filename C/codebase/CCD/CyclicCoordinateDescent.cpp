@@ -118,10 +118,19 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 	free(hXBetaSave);
 	free(hDelta);
 	
+#ifdef TEST_ROW_INDEX
+	for (int j = 0; j < J; ++j) {
+		if (hXColumnRowIndicators[j]) {
+			free(hXColumnRowIndicators[j]);
+		}
+	}
+	free(hXColumnRowIndicators);
+#endif
+
 	free(hXjEta);
 	free(offsExpXBeta);
 	free(xOffsExpXBeta);
-	free(denomPid);
+//	free(denomPid);  // Nested in denomPid allocation
 	free(numerPid);
 	free(t1);
 	
@@ -181,12 +190,38 @@ void CyclicCoordinateDescent::init() {
 	// Init temporary variables
 	offsExpXBeta = (real*) malloc(sizeof(real) * K);
 	xOffsExpXBeta = (real*) malloc(sizeof(real) * K);
-	denomPid = (real*) malloc(sizeof(real) * N);
-	numerPid = (real*) malloc(sizeof(real) * N);
+
+	// Put numer and denom in single memory block, with first entries on 16-word boundary
+	int alignedLength = getAlignedLength(N);
+
+	numerPid = (real*) malloc(sizeof(real) * 2 * alignedLength);
+//	denomPid = (real*) malloc(sizeof(real) * N);
+	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
 	t1 = (real*) malloc(sizeof(real) * N);
 	hNEvents = (int*) malloc(sizeof(int) * N);
 	hXjEta = (real*) malloc(sizeof(real) * J);
 	hWeights = NULL;
+
+	// Initialize XColumnRowIndicators for fast spMV
+
+#ifdef TEST_ROW_INDEX
+	hXColumnRowIndicators = (int**) malloc(J * sizeof(int*));
+	unsigned int maxActiveWarps = 0;
+	for (int j = 0; j < J; j++) {
+		const int n = hXI->getNumberOfEntries(j);
+		if (n > 0) {
+			int* columnRowIndicators = (int*) malloc(n * sizeof(int));
+			const int* indicators = hXI->getCompressedColumnVector(j);
+			for (int i = 0; i < n; i++) { // Loop through non-zero entries only
+				int thisPid = hPid[indicators[i]];
+				columnRowIndicators[i] = thisPid;
+			}
+			hXColumnRowIndicators[j] = columnRowIndicators;
+		} else {
+			hXColumnRowIndicators[j] = 0;
+		}
+	}
+#endif
 
 	useCrossValidation = false;
 	validWeights = false;
@@ -197,6 +232,10 @@ void CyclicCoordinateDescent::init() {
 	cerr << "Number of exposure levels = " << K << endl;
 	cerr << "Number of drugs = " << J << endl;	
 #endif          
+}
+
+int CyclicCoordinateDescent::getAlignedLength(int N) {
+	return (N / 16) * 16 + (N % 16 == 0 ? 0 : 16);
 }
 
 void CyclicCoordinateDescent::computeNEvents() {
@@ -478,32 +517,77 @@ void CyclicCoordinateDescent::update(
 
 void CyclicCoordinateDescent::computeGradientAndHession(int index, double *ogradient,
 		double *ohessian) {
-	double gradient = 0;
-	double hessian = 0;
+	real gradient = 0;
+	real hessian = 0;
+
+#ifdef BETTER_LOOPS
+	int* nEvents = hNEvents;
+	real* tmp = t1;
+	const int* end = hNEvents + N;
+	for (; nEvents != end; ++nEvents, ++tmp) {
+		const real t = *tmp;
+		const real g = *nEvents * t;
+		gradient += g;
+		hessian += g * (static_cast<real>(1.0) - t);
+	}
+#else
 	for (int i = 0; i < N; i++) {
 		gradient += hNEvents[i] * t1[i];
-		hessian += hNEvents[i] * t1[i] * (1.0 - t1[i]);
+		hessian += hNEvents[i] * t1[i] * (static_cast<real>(1.0) - t1[i]);
 	}
+#endif
 
-	gradient -= hXjEta[index];
-	*ogradient = gradient;
-	*ohessian = hessian;
+	double dblGradient = gradient;
+	double dblHessian = hessian;
+
+	dblGradient -= hXjEta[index];
+	*ogradient = dblGradient;
+	*ohessian = dblHessian;
 }
 
-void CyclicCoordinateDescent::computeRatiosForGradientAndHessian(int index) {
-	
+void CyclicCoordinateDescent::computeNumeratorForGradient(int index) {
+
 	zeroVector(numerPid, N);
-	
-	const int* indicators = hXI->getCompressedColumnVector(index);
 	const int n = hXI->getNumberOfEntries(index);
+
+#ifdef TEST_ROW_INDEX
+	const int* rows = hXColumnRowIndicators[index];
+#else
+	const int* indicators = hXI->getCompressedColumnVector(index);
+#endif
+
 	for (int i = 0; i < n; i++) { // Loop through non-zero entries only
+#ifdef TEST_ROW_INDEX
+		const int k = rows[i];
+		numerPid[k] += offsExpXBeta[k];
+#else
 		const int k = indicators[i];
 		numerPid[hPid[k]] += offsExpXBeta[k];
+#endif
 	}
-	
+}
+
+void CyclicCoordinateDescent::computeRatio(int index) {
+	const int n = hXI->getNumberOfEntries(index);
+
+#ifdef BETTER_LOOPS
+	real* t = t1;
+	const real* end = t + N;
+	real* num = numerPid;
+	real* denom = denomPid;
+	for (; t != end; ++t, ++num, ++denom) {
+		*t = *num / *denom;
+	}
+#else
 	for (int i = 0; i < N; i++) {
 		t1[i] = numerPid[i] / denomPid[i];
 	}
+#endif
+}
+
+void CyclicCoordinateDescent::computeRatiosForGradientAndHessian(int index) {
+	computeNumeratorForGradient(index);
+	computeRatio(index);
 }
 
 double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
@@ -572,15 +656,26 @@ void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
 	// Separate function for benchmarking
 	hBeta[index] += delta;
 
+	real realDelta = static_cast<real>(delta);
+
+
+#ifdef TEST_ROW_INDEX
+	const int* rows = hXColumnRowIndicators[index];
+#endif
+
 	const int* indicators = hXI->getCompressedColumnVector(index);
 	const int n = hXI->getNumberOfEntries(index);
 	for (int i = 0; i < n; i++) { // Loop through non-zero entries only
 		const int k = indicators[i];
-		hXBeta[k] += delta;
+		hXBeta[k] += realDelta;
 #ifdef TEST_SPARSE
 		real oldEntry = offsExpXBeta[k];
-		real newEntry = offsExpXBeta[k] = hOffs[k] * exp(hXBeta[k]);		 
-		denomPid[hPid[k]] += (newEntry - oldEntry);	 
+		real newEntry = offsExpXBeta[k] = hOffs[k] * exp(hXBeta[k]);
+#ifdef TEST_ROW_INDEX
+		denomPid[rows[i]] += (newEntry - oldEntry);
+#else
+		denomPid[hPid[k]] += (newEntry - oldEntry);
+#endif
 #endif
 	}	
 }

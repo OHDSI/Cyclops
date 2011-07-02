@@ -25,6 +25,7 @@ private:
     GPUFunction fReduceFast;
     GPUFunction fComputeAndReduceFast;
     GPUFunction fReduceRow;
+    GPUFunction fComputeGradientAndHessianWithReduction;
 
     GPUFunction fComputeRatio;
     GPUFunction fComputeGradientHessian;
@@ -78,7 +79,20 @@ public:
     		GPUPtr d_odata,
     		unsigned int size,
     		unsigned int blocks,
-		unsigned int threads);    
+		unsigned int threads);
+
+    int computeGradientAndHessianWithReduction(
+    		GPUPtr numerPid,
+    		GPUPtr denomPid,
+    		GPUPtr nevents,
+    		GPUPtr gradient,
+    		GPUPtr hessian,
+    		unsigned int length,
+    		unsigned int blocks,
+    		unsigned int threads
+    );
+
+    int getGradientAndHessianBlocks(unsigned int length);
 
     void computeIntermediates(
     		GPUPtr offsExpXBeta,

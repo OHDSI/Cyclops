@@ -15,7 +15,9 @@ using namespace std;
 
 #define DEBUG
 
-#define TEST_SPARSE // New sparse updates
+#define TEST_SPARSE // New sparse updates are great
+//#define TEST_ROW_INDEX
+#define BETTER_LOOPS
 
 #ifdef DOUBLE_PRECISION
 	typedef double real;
@@ -106,6 +108,8 @@ protected:
 
 	void updateSufficientStatistics(double delta, int index);
 
+	void computeNumeratorForGradient(int index);
+
 	virtual void computeNEvents(void);
 
 	virtual void updateXBeta(double delta, int index);
@@ -113,6 +117,8 @@ protected:
 	virtual void computeRemainingStatistics(bool);
 	
 	virtual void computeRatiosForGradientAndHessian(int index);
+
+	virtual void computeRatio(int index);
 
 	virtual void computeGradientAndHession(
 			int index,
@@ -139,6 +145,8 @@ protected:
 			vector[i] = 0;
 		}
 	}
+
+	int getAlignedLength(int N);
 		
 	void testDimension(int givenValue, int trueValue, const char *parameterName);
 	
@@ -167,6 +175,7 @@ protected:
 	int* hEta; // K-vector
 	int* hNEvents; // K-vector
 	int* hPid; // N-vector
+	int** hXColumnRowIndicators; // J-vector
  	
 	real* hBeta;
 	real* hXBeta;

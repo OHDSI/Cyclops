@@ -15,7 +15,11 @@ set(CUDA_SRCS
 	)
 
 add_definitions("-DCUDA")
-set(CUDA_NVCC_FLAGS "-arch=sm_20")
+if(APPLE)
+	set(CUDA_NVCC_FLAGS "-arch=sm_11")
+else(APPLE)
+	set(CUDA_NVCC_FLAGS "-arch=sm_20")
+endif(APPLE)
 
 ######## Less editting below this point
 

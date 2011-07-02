@@ -47,6 +47,7 @@ void KernelLauncherCCD::LoadKernels() {
 //	fReduceAll = gpu->GetFunction("kernelReduceAll");
 	fReduceFast = gpu->GetFunction("kernelReduceFast");
 	fComputeAndReduceFast = gpu->GetFunction("kernelComputeIntermediatesAndReduceFast");
+	fComputeGradientAndHessianWithReduction = gpu->GetFunction("kernelComputeGradientAndHessianWithReduction");
 // 	fReduceRow = gpu->GetFunction("kernelReduceRow");
 
 	fComputeRatio = gpu->GetFunction("kernelComputeRatio");
@@ -166,6 +167,30 @@ void KernelLauncherCCD::reduceTwo(
 	Dim3Int grid(2);
 	gpu->LaunchKernelParams(fReduceTwo, block, grid, 2, 1, 0,
 			oC, iX, length);
+}
+
+int KernelLauncherCCD::getGradientAndHessianBlocks(unsigned int length) {
+	return length / WORK_BLOCK_SIZE + (length % WORK_BLOCK_SIZE == 0 ? 0 : 1);
+}
+
+int KernelLauncherCCD::computeGradientAndHessianWithReduction(
+		GPUPtr numerPid,
+		GPUPtr denomPid,
+		GPUPtr nevents,
+		GPUPtr gradient,
+		GPUPtr hessian,
+		unsigned int length,
+		unsigned int blocks_not_used,
+		unsigned int threads_not_used
+) {
+
+	int blocks = getGradientAndHessianBlocks(length);
+	Dim3Int block(WORK_BLOCK_SIZE);
+	Dim3Int grid(blocks);
+
+	gpu->LaunchKernelParams(fComputeGradientAndHessianWithReduction, block, grid, 5, 2, 0,
+			numerPid, denomPid, nevents, gradient, hessian, length, blocks);
+	return blocks;
 }
 
 void KernelLauncherCCD::reduceSum(

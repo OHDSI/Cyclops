@@ -32,7 +32,11 @@ message(STATUS "Found bin2c: " ${BIN2C})
 #	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
 #endif(APPLE)
 
-set(CUDA_NVCC_FLAGS -arch compute_13)
+if(APPLE)
+	set(CUDA_NVCC_FLAGS -arch=sm_11)
+else(APPLE)
+	set(CUDA_NVCC_FLAGS -arch=sm_20)
+endif(APPLE)
 CUDA_COMPILE_PTX(PTX_FILE_DP ${CU_FILE_DP})
 
 add_custom_command(

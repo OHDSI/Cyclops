@@ -59,6 +59,9 @@
 #define REDUCE_ROW_BLOCK_SIZE	64
 #define MAKE_RATIO_BLOCK_SIZE	256
 
+// BetterGPU defaults below here
+#define WORK_BLOCK_SIZE	256
+
 #define READ_ONCE
 
 #define PAD					1		// Removes some bank conflicts (?)

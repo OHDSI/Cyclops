@@ -20,6 +20,7 @@ struct CCDArguments {
 	std::string inFileName;
 	std::string outFileName;
 	bool useGPU;
+	bool useBetterGPU;
 	int deviceNumber;
 	double tolerance;
 	double hyperprior;

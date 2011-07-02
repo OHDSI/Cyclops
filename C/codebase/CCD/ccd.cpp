@@ -32,6 +32,7 @@
 
 #ifdef CUDA
 	#include "GPUCyclicCoordinateDescent.h"
+	#include "BetterGPU.h"
 #endif
 
 
@@ -49,6 +50,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 	try {
 		CmdLine cmd("Cyclic coordinate descent algorithm for self-controlled case studies", ' ', "0.1");
 		ValueArg<int> gpuArg("g","GPU","Use GPU device", false, -1, "device #");
+		SwitchArg betterGPUArg("1","better", "Use better GPU implementation", false);
 		ValueArg<int> maxIterationsArg("", "maxIterations", "Maximum iterations", false, 100, "int");
 		UnlabeledValueArg<string> inFileArg("inFileName","Input file name", true, "default", "inFileName");
 		UnlabeledValueArg<string> outFileArg("outFileName","Output file name", true, "default", "outFileName");
@@ -78,6 +80,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		SwitchArg reportRawEstimatesArg("","raw", "Report the raw bootstrap estimates", false);
 
 		cmd.add(gpuArg);
+		cmd.add(betterGPUArg);
 		cmd.add(toleranceArg);
 		cmd.add(maxIterationsArg);
 		cmd.add(hyperPriorArg);
@@ -108,6 +111,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		} else {
 			arguments.useGPU = false;
 		}
+		arguments.useBetterGPU = betterGPUArg.isSet();
 
 		arguments.inFileName = inFileArg.getValue();
 		arguments.outFileName = outFileArg.getValue();
@@ -183,7 +187,12 @@ double initializeModel(
 
 #ifdef CUDA
 	if (arguments.useGPU) {
-		*ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, *reader);
+		if (arguments.useBetterGPU) {
+			*ccd = new BetterGPU(arguments.deviceNumber, *reader);
+//			*ccd = NULL;
+		} else {
+			*ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, *reader);
+		}
 	} else {
 #endif
 

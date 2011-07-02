@@ -82,13 +82,18 @@ set(SOURCE_FILES
 	
 if(CUDA_FOUND)
 	set(SOURCE_FILES ${SOURCE_FILES}
-	    GPUCyclicCoordinateDescent.cpp)
+	    GPUCyclicCoordinateDescent.cpp
+	    BetterGPU.cpp)
 	add_definitions(-DCUDA)	
  #	if(APPLE)
  #		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
  #		set(CUDA_64_BIT_DEVICE_CODE OFF)	
  # 	endif(APPLE)		
- 	set(CUDA_NVCC_FLAGS "-arch sm_20")
+	if(APPLE)
+		set(CUDA_NVCC_FLAGS "-arch=sm_11")
+	else(APPLE)
+		set(CUDA_NVCC_FLAGS "-arch=sm_20")
+	endif(APPLE)
  	cuda_add_executable(ccd ${SOURCE_FILES})
  	target_link_libraries(ccd CUDADriver)
 else(CUDA_FOUND)

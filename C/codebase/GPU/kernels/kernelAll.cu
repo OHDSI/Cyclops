@@ -3,13 +3,70 @@
  */
 
 #include "GPU/GPUImplDefs.h"
-#include "device_functions.h"
+
+//#if __CUDA_ARCH__ >= 200
+//#error "HERE"
+//    #include "device_functions.h"
+//#endif
 
 #include "kernelSpmvCoo.cu"
 #include "kernelSpmvCsr.cu"
 
 #define multBy4(x)	(x << 2)
 #define multBy16(x)	(x << 4)
+
+namespace device {
+
+#if __CUDA_ARCH__ < 200
+//
+// We have to emulate FP atomicAdd because it isn't supported natively
+// on devices prior to capability 2.0.
+//
+// Note that the semantics of atomicCAS() on float values is a little
+// dodgy.  It just does a bit comparison rather than a true floating
+// point comparison.  Hence 0 != -0, for instance.
+//
+static __inline__ __device__ float atomicAdd(float *addr, float val)
+{
+    float old=*addr, assumed;
+    
+    do {
+        assumed = old;
+        old = int_as_float( atomicCAS((int*)addr,
+                                        float_as_int(assumed),
+                                        float_as_int(val+assumed)));
+    } while( float_as_int(assumed)!=float_as_int(old) );
+    //
+    // NOTE: Comparing as ints rather than floats is mandatory.
+    // For floats, the test NaN==NaN would always fall, leading to an
+    // infinite loop.
+
+    return old;
+}
+#endif // __CUDA_ARCH__ < 200
+
+#if __CUDA_ARCH__ >= 130
+
+//
+// Double precision atomics are not supported on any device, so we
+// always emulate with atomicCAS().
+//
+static __inline__ __device__ double atomicAdd(double *addr, double val)
+{
+    double old=*addr, assumed;
+    
+    do {
+        assumed = old;
+        old = __longlong_as_double( atomicCAS((unsigned long long int*)addr,
+                                        __double_as_longlong(assumed),
+                                        __double_as_longlong(val+assumed)));
+    } while( __double_as_longlong(assumed)!=__double_as_longlong(old) );
+
+    return old;
+}
+#endif // __CUDA_ARCH__ >= 130
+
+} // namespace device
 
 #ifdef __cplusplus
 extern "C" {
@@ -60,10 +117,16 @@ extern "C" {
 			// Store new values
 			xBeta[k] = xb;				
 			
-		#ifndef DOUBLE_PRECISION	
+//		#ifndef DOUBLE_PRECISION	
+#if __CUDA_ARCH__ >= 130
 			atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));	
-		#endif					
-			offsExpXBeta[k] = newOffsExpXBeta;
+#else
+#ifndef DOUBLE_PRECISION
+            device::atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));
+#else
+            offsExpXBeta[k] = newOffsExpXBeta; // Will not run correctly, but never called
+#endif
+#endif
 		}					
 	}	
 	
