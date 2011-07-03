@@ -520,7 +520,6 @@ void CyclicCoordinateDescent::computeGradientAndHession(int index, double *ograd
 	real gradient = 0;
 	real hessian = 0;
 
-#ifdef BETTER_LOOPS
 	int* nEvents = hNEvents;
 	const int* end = hNEvents + N;
 
@@ -542,20 +541,10 @@ void CyclicCoordinateDescent::computeGradientAndHession(int index, double *ograd
 		hessian += g * (static_cast<real>(1.0) - t);
 	}
 #endif
-#else
-	for (int i = 0; i < N; i++) {
-		gradient += hNEvents[i] * t1[i];
-		hessian += hNEvents[i] * t1[i] * (static_cast<real>(1.0) - t1[i]);
-	}
-#endif
 
-
-	double dblGradient = gradient;
-	double dblHessian = hessian;
-
-	dblGradient -= hXjEta[index];
-	*ogradient = dblGradient;
-	*ohessian = dblHessian;
+	gradient -= hXjEta[index];
+	*ogradient = static_cast<double>(gradient);
+	*ohessian = static_cast<double>(hessian);
 }
 
 void CyclicCoordinateDescent::computeNumeratorForGradient(int index) {

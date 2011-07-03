@@ -87,20 +87,21 @@ void KernelLauncherCCD::computeDerivatives(
     	GPUPtr tmpRows,
     	GPUPtr tmpVals) {
 
+	// Compute numerPid
 	clearMemory(y, nRows);
 	computeSpmvCooIndicatorMatrix(y, rows, columns, x, nElements, tmpRows, tmpVals);
 
+#ifndef MERGE_TRANSFORMATION
 	int nBlocks = nRows / MAKE_RATIO_BLOCK_SIZE + // TODO Compute once
 			(nRows % MAKE_RATIO_BLOCK_SIZE == 0 ? 0 : 1);
 	Dim3Int block(MAKE_RATIO_BLOCK_SIZE);
 	Dim3Int grid(nBlocks);
-#ifdef GRADIENT_HESSIAN_GPU
 	gpu->LaunchKernelParams(fComputeGradientHessian, block, grid, 5, 1, 0,
 			y, denomPid, nEvent, gradient, hessian, nRows);
 #else
-	gpu->LaunchKernelIntParams(fComputeRatio, block, grid, 4,
-			y, denomPid, t1, nRows);
+	// Transformation and reduction moved into a single function
 #endif
+
 #ifdef PROFILE_GPU
 	gpu->Synchronize();
 #endif

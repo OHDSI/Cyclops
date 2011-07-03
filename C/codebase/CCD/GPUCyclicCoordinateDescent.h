@@ -13,6 +13,8 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/KernelLauncherCCD.h"
 
+#define NO_BETA
+
 #ifdef DOUBLE_PRECISION
 	typedef double gpu_real;
 #else
@@ -64,29 +66,33 @@ private:
 	GPUPtr dNEvents;
 	GPUPtr dPid;
 	GPUPtr dXFullRowOffsets;
+#ifndef NO_BETA
 	GPUPtr dBeta;
+#endif
 	GPUPtr dXBeta;
 
 	GPUPtr dOffsExpXBeta;
 	GPUPtr dDenomPid;
 	GPUPtr dNumerPid;
 	GPUPtr dT1;
-	GPUPtr dXOffsExpXBeta;
+//	GPUPtr dXOffsExpXBeta;
 
-#ifdef GRADIENT_HESSIAN_GPU
 	GPUPtr dGradient;
 	GPUPtr dHessian;
 	GPUPtr dReducedGradientHessian;
 
 	real* hGradient;
 	real* hHessian;
-#endif
 
 	GPUPtr* dXColumnRowIndicators;
 //	int* hColumnRowLength;
 
 	GPUPtr dTmpCooRows;
 	GPUPtr dTmpCooVals;
+
+	int alignedN;
+	int cacheSizeGH;
+	int alignedGHCacheSize;
 };
 
 #endif /* GPUCYCLICCOORDINATEDESCENT_H_ */

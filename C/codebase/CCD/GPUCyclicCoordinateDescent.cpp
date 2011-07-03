@@ -70,8 +70,10 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 
 //	cerr << "Memory allocate 1" << endl;
 	// Allocate GPU memory for X and beta
+#ifndef NO_BETA
 	dBeta = gpu->AllocateRealMemory(J);
-	gpu->MemcpyHostToDevice(dBeta, hBeta, sizeof(REAL) * J);
+	gpu->MemcpyHostToDevice(dBeta, hBeta, sizeof(REAL) * J); // Beta is never actually used on GPU
+#endif
 	dXBeta = gpu->AllocateRealMemory(K);
 	gpu->MemcpyHostToDevice(dXBeta, hXBeta, sizeof(REAL) * K);
 
@@ -89,28 +91,28 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 //	cerr << "Memory allocate 3" << endl;
 	// Allocate GPU memory for intermediate calculations
 	dOffsExpXBeta = gpu->AllocateRealMemory(K);
-	dXOffsExpXBeta = gpu->AllocateRealMemory(K);
+//	dXOffsExpXBeta = gpu->AllocateRealMemory(K); // TODO Do we use this?  Remove
+
+
+#ifdef MERGE_TRANSFORMATION
+	alignedN = getAlignedLength(N);
+	cacheSizeGH = kernels->getGradientAndHessianBlocks(N);
+	alignedGHCacheSize = getAlignedLength(cacheSizeGH);
+
+	dNumerPid = gpu->AllocateRealMemory(2 * alignedN);
+	dDenomPid = dNumerPid  + sizeof(real) * alignedN; // GPUPtr is void* not real*
+
+	dGradient = gpu->AllocateRealMemory(2 * alignedGHCacheSize);
+	dHessian = dGradient + sizeof(real) * alignedGHCacheSize; // GPUPtr is void* not real*
+	hGradient = (real*) malloc(2 * sizeof(real) * alignedGHCacheSize);
+	hHessian = hGradient + alignedGHCacheSize;
+#else
 	dDenomPid = gpu->AllocateRealMemory(N);
-
-//	real *tmp = (real *)calloc(sizeof(real), N);
-//	gpu->MemcpyHostToDevice(dDenomPid, tmp, sizeof(real) * N);
-//	free(tmp);
-//	tmp = (real *)calloc(sizeof(real), K);
-//	gpu->MemcpyHostToDevice(dOffsExpXBeta, tmp, sizeof(real) * K);
-//	free(tmp);
-
-//	cerr << "Memory allocate 4" << endl;
 	dNumerPid = gpu->AllocateRealMemory(N);
 	dT1 = gpu->AllocateRealMemory(N);
-#ifdef GRADIENT_HESSIAN_GPU
-#ifndef GH_REDUCTION_GPU
-	dGradient = gpu->AllocateRealMemory(N);
-	dHessian = gpu->AllocateRealMemory(N);
-#else
 	dGradient = gpu->AllocateRealMemory(2 * N);
 	dHessian = dGradient + sizeof(real) * N;
 	dReducedGradientHessian = gpu->AllocateRealMemory(2);
-#endif
 	hGradient = (real*) malloc(sizeof(real) * N);
 	hHessian = (real*) malloc(sizeof(real) * N);
 #endif
@@ -186,8 +188,9 @@ GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
 	}
 	free(dXI);
 
-//	cerr << "2" << endl;
+#ifndef NO_BETA
 	gpu->FreeMemory(dBeta);
+#endif
 	gpu->FreeMemory(dXBeta);
 
 	gpu->FreeMemory(dOffs);
@@ -195,21 +198,19 @@ GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
 	gpu->FreeMemory(dNEvents);
 	gpu->FreeMemory(dPid);
 	gpu->FreeMemory(dXFullRowOffsets);
-
-//	cerr << "3" << endl;
 	gpu->FreeMemory(dOffsExpXBeta);
-	gpu->FreeMemory(dXOffsExpXBeta);
+//	gpu->FreeMemory(dXOffsExpXBeta);
+
+#ifdef MERGE_TRANSFORMATION
+	gpu->FreeMemory(dNumerPid);
+	gpu->FreeMemory(dGradient);
+	free(hGradient);
+#else
 	gpu->FreeMemory(dDenomPid);
 	gpu->FreeMemory(dNumerPid);
 	gpu->FreeMemory(dT1);
-
-#ifdef GRADIENT_HESSIAN_GPU
 	gpu->FreeMemory(dGradient);
-#ifndef GH_REDUCTION_GPU
-	gpu->FreeMemory(dHessian);
-#else
 	gpu->FreeMemory(dReducedGradientHessian);
-#endif
 #endif
 
 //	cerr << "4" << endl;
@@ -225,13 +226,16 @@ GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
 	gpu->FreeMemory(dTmpCooVals);
 
 //	cerr << "6" << endl;
+	delete kernels;
 	delete gpu;
 //	cerr << "7" << endl;
 }
 
 void GPUCyclicCoordinateDescent::resetBeta(void) {
 	CyclicCoordinateDescent::resetBeta();
+#ifndef NO_BETA
 	gpu->MemcpyHostToDevice(dBeta, hBeta, sizeof(REAL) * J);
+#endif
 	gpu->MemcpyHostToDevice(dXBeta, hXBeta, sizeof(REAL) * K);
 }
 
@@ -274,12 +278,12 @@ void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 	// Separate function for benchmarking
 	hBeta[index] += delta;
 	REAL gpuBeta = hBeta[index];
+#ifndef NO_BETA
 	gpu->MemcpyHostToDevice(dBeta + sizeof(REAL) * index, &gpuBeta, sizeof(REAL));
+#endif
 	
 	const int n = hXI->getNumberOfEntries(index);
 
-
-	// NEW
 #ifdef TEST_SPARSE	
 	kernels->updateXBetaAndFriends(dXBeta,  dOffsExpXBeta,  dDenomPid, dXColumnRowIndicators[index], dPid, dOffs, dXI[index], n, delta);	
 #else
@@ -368,7 +372,23 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
 #endif 	
 	real gradient = 0;
 	real hessian = 0;
-#ifdef COKI_REDUCTION	
+
+#ifdef MERGE_TRANSFORMATION
+	int blockUsed = kernels->computeGradientAndHessianWithReduction(dNumerPid, dDenomPid, dNEvents,
+			dGradient, dHessian, N, 1, WORK_BLOCK_SIZE);
+	gpu->MemcpyDeviceToHost(hGradient, dGradient, sizeof(real) * 2 * alignedGHCacheSize);
+
+	real* gradientCache = hGradient;
+	const real* end = gradientCache + cacheSizeGH;
+	real* hessianCache = hHessian;
+
+	// TODO Remove code duplication with CPU version from here below
+	for (; gradientCache != end; ++gradientCache, ++hessianCache) {
+		gradient += *gradientCache;
+		hessian += *hessianCache;
+	}
+
+#else
 	
 	unsigned int threads = (N < 512) ? nextPow2((N + 1)/ 2) : 256;
 	unsigned int blocks = (N + (threads * 2 - 1)) / (threads * 2);
@@ -383,18 +403,12 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
 		gradient += hGradient[i];
 		hessian += hGradient[i+blocks];
 	}
-	
-#else
-	real tmp[2];
-	kernels->reduceTwo(dReducedGradientHessian, dGradient, N);
-	gpu->MemcpyDeviceToHost(tmp, dReducedGradientHessian, sizeof(real) * 2);
-	gradient = tmp[0];
-	hessian = tmp[1];
 #endif
+	
 
 	gradient -= hXjEta[index];
-	*ogradient = (double) gradient;
-	*ohessian = (double) hessian;
+	*ogradient = static_cast<double>(gradient);
+	*ohessian = static_cast<double>(hessian);
 	
 #ifdef DP_DEBUG
 	fprintf(stderr,"%5.3f %5.3f\n", *ogradient, *ohessian);
