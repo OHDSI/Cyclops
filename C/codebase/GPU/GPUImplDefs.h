@@ -61,6 +61,7 @@
 
 // BetterGPU defaults below here
 #define WORK_BLOCK_SIZE	256
+#define WORK_PER_THREAD	16
 
 #define READ_ONCE
 

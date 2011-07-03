@@ -170,7 +170,7 @@ void KernelLauncherCCD::reduceTwo(
 }
 
 int KernelLauncherCCD::getGradientAndHessianBlocks(unsigned int length) {
-	return length / WORK_BLOCK_SIZE + (length % WORK_BLOCK_SIZE == 0 ? 0 : 1);
+	return length / (WORK_BLOCK_SIZE * WORK_PER_THREAD) + (length % (WORK_BLOCK_SIZE * WORK_PER_THREAD) == 0 ? 0 : 1);
 }
 
 int KernelLauncherCCD::computeGradientAndHessianWithReduction(

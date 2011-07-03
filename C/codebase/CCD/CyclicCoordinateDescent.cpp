@@ -522,20 +522,33 @@ void CyclicCoordinateDescent::computeGradientAndHession(int index, double *ograd
 
 #ifdef BETTER_LOOPS
 	int* nEvents = hNEvents;
-	real* tmp = t1;
 	const int* end = hNEvents + N;
+
+#ifdef MERGE_TRANSFORMATION
+	real* num = numerPid;
+	real* denom = denomPid;
+	for (; nEvents != end; ++nEvents, ++num, ++denom) {
+		const real t = *num / *denom;
+		const real g = *nEvents * t;
+		gradient += g;
+		hessian += g * (static_cast<real>(1.0) - t);
+	}
+#else
+	real* tmp = t1;
 	for (; nEvents != end; ++nEvents, ++tmp) {
 		const real t = *tmp;
 		const real g = *nEvents * t;
 		gradient += g;
 		hessian += g * (static_cast<real>(1.0) - t);
 	}
+#endif
 #else
 	for (int i = 0; i < N; i++) {
 		gradient += hNEvents[i] * t1[i];
 		hessian += hNEvents[i] * t1[i] * (static_cast<real>(1.0) - t1[i]);
 	}
 #endif
+
 
 	double dblGradient = gradient;
 	double dblHessian = hessian;
@@ -587,7 +600,9 @@ void CyclicCoordinateDescent::computeRatio(int index) {
 
 void CyclicCoordinateDescent::computeRatiosForGradientAndHessian(int index) {
 	computeNumeratorForGradient(index);
+#ifndef MERGE_TRANSFORMATION
 	computeRatio(index);
+#endif
 }
 
 double CyclicCoordinateDescent::ccdUpdateBeta(int index) {

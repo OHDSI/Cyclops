@@ -15,7 +15,6 @@
 #define multBy16(x)	(x << 4)
 
 #if __APPLE__
-#warning "here??"
 namespace util { 
 //
 // We have to emulate FP atomicAdd because it isn't supported natively

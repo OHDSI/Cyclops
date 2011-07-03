@@ -18,6 +18,7 @@ using namespace std;
 #define TEST_SPARSE // New sparse updates are great
 //#define TEST_ROW_INDEX
 #define BETTER_LOOPS
+#define MERGE_TRANSFORMATION
 
 #ifdef DOUBLE_PRECISION
 	typedef double real;
