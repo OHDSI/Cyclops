@@ -60,10 +60,10 @@
 #define MAKE_RATIO_BLOCK_SIZE	256
 
 // BetterGPU defaults below here
-#define WORK_BLOCK_SIZE	256
+#define WORK_BLOCK_SIZE	128	
 #define WORK_PER_THREAD	16
 #define	UPDATE_NUMERATOR_BLOCK_SIZE 256
-#define MERGE_CLEAR
+//#define MERGE_CLEAR
 
 #define READ_ONCE
 
