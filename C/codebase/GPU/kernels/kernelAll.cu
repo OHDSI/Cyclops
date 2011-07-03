@@ -15,6 +15,7 @@
 #define multBy16(x)	(x << 4)
 
 #if __APPLE__
+#warning "here??"
 namespace util { 
 //
 // We have to emulate FP atomicAdd because it isn't supported natively
@@ -90,19 +91,21 @@ extern "C" {
 			
 			REAL xb = xBeta[k] + delta; // Compute new xBeta			
 			REAL newOffsExpXBeta = offs[k] * exp(xb);
-			REAL oldOffsExpXBeta = offsExpXBeta[k];			 
+			REAL oldOffsExpXBeta = offsExpXBeta[k];	
+			offsExpXBeta[k] = newOffsExpXBeta;		 
 			
 			// Store new values
 			xBeta[k] = xb;				
 			
 		#ifndef DOUBLE_PRECISION
 		#if __APPLE__
-		    util::atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));
+		    	util::atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));
 		#else
 			atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));	
 		#endif
+		#else
+			atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));
 		#endif					
-			offsExpXBeta[k] = newOffsExpXBeta;
 		}					
 	}	
 	
