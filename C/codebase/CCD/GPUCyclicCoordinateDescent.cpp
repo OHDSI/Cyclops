@@ -374,6 +374,7 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
 	real hessian = 0;
 
 #ifdef MERGE_TRANSFORMATION
+	// TODO dynamically determine threads/blocks.
 	int blockUsed = kernels->computeGradientAndHessianWithReduction(dNumerPid, dDenomPid, dNEvents,
 			dGradient, dHessian, N, 1, WORK_BLOCK_SIZE);
 	gpu->MemcpyDeviceToHost(hGradient, dGradient, sizeof(real) * 2 * alignedGHCacheSize);

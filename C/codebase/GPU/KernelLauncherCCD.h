@@ -26,6 +26,7 @@ private:
     GPUFunction fComputeAndReduceFast;
     GPUFunction fReduceRow;
     GPUFunction fComputeGradientAndHessianWithReduction;
+    GPUFunction fComputeNumerator;
 
     GPUFunction fComputeRatio;
     GPUFunction fComputeGradientHessian;

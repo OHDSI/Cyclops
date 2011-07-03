@@ -71,6 +71,41 @@ extern "C" {
 		}		
 	}
 	
+    __global__ void kernelComputeNumerator(
+                                    const REAL *offsExpXBeta,
+                                    REAL *numer,
+                                    const int *rows,
+                                    const int *cols,                                    
+                                    int lengthX,
+                                    int lengthN) {
+                                    
+        int idx = blockIdx.x * UPDATE_NUMERATOR_BLOCK_SIZE + threadIdx.x;
+        
+#ifdef MERGE_CLEAR
+        // Clear numer
+        int i = idx;
+        while (i < lengthN) {
+            numer[i] = 0.0;
+            i += gridDim.x * UPDATE_NUMERATOR_BLOCK_SIZE;
+        }
+#endif
+        
+        if (idx < lengthX) {
+            int k = cols[idx];
+            int n = rows[idx];
+                
+#ifndef DOUBLE_PRECISION
+#if __APPLE__
+		    util::atomicAdd(&numer[n], offsExpXBeta[k]);
+#else
+			atomicAdd(&numer[n], offsExpXBeta[k]);	
+#endif
+#else
+			atomicAdd(&numer[n], offsExpXBeta[k]);
+#endif                                                                        
+		}
+    }
+
 	__global__ void kernelUpdateXBetaAndFriends(
 									  REAL *xBeta,
 									  REAL *offsExpXBeta,
@@ -86,7 +121,6 @@ extern "C" {
 		if (idx < length) {
 			int k = xIColumn[idx];
 			int n = rowOffs[idx];
-			//int n = otherOffs[k];
 			
 			REAL xb = xBeta[k] + delta; // Compute new xBeta			
 			REAL newOffsExpXBeta = offs[k] * exp(xb);

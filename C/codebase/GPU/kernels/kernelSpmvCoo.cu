@@ -120,7 +120,6 @@ spmv_coo_flat_kernel(const unsigned int * I,
         unsigned int row = I[n];                                         // row index (i)
 #ifdef IS_INDICATOR_MATRIX
         REAL val = x[J[n]];
-//        REAL val = 1.0;
 #else
         REAL val = V[n] * x[J[n]];        					  			// A(i,j) * x(j)
 #endif

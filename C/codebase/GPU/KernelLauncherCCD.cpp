@@ -52,6 +52,7 @@ void KernelLauncherCCD::LoadKernels() {
 
 	fComputeRatio = gpu->GetFunction("kernelComputeRatio");
 	fComputeGradientHessian = gpu->GetFunction("kernelComputeGradientHessian");
+	fComputeNumerator = gpu->GetFunction("kernelComputeNumerator");
 
 	fSpmvCooSerial = gpu->GetFunction("spmv_coo_serial_kernel");
 	fSpmvCooFlat = gpu->GetFunction("spmv_coo_flat_kernel");
@@ -88,8 +89,28 @@ void KernelLauncherCCD::computeDerivatives(
     	GPUPtr tmpVals) {
 
 	// Compute numerPid
+
+#ifdef NEW_NUMERATOR
+#ifndef MERGE_CLEAR
+	clearMemory(y, nRows);
+#endif // MERGE_CLEAR
+	int nBlocks = nElements / UPDATE_NUMERATOR_BLOCK_SIZE + // TODO Compute once
+			(nElements % UPDATE_NUMERATOR_BLOCK_SIZE == 0 ? 0 : 1);
+	Dim3Int block(UPDATE_NUMERATOR_BLOCK_SIZE);
+	Dim3Int grid(nBlocks);
+	gpu->LaunchKernelParams(fComputeNumerator, block, grid, 4, 2, 0,
+//            const REAL *offsExpXBeta,
+//            REAL *numer,
+//            const int *rows,
+//            const int *cols,
+//            int lengthX,
+//            int lengthN
+			x, y, rows, columns, nElements, nRows);
+
+#else // NEW_NUMERATOR
 	clearMemory(y, nRows);
 	computeSpmvCooIndicatorMatrix(y, rows, columns, x, nElements, tmpRows, tmpVals);
+#endif // NEW_NUMERATOR
 
 #ifndef MERGE_TRANSFORMATION
 	int nBlocks = nRows / MAKE_RATIO_BLOCK_SIZE + // TODO Compute once
@@ -130,7 +151,6 @@ if (allStats) {
 			denomPid, rowOffsets, offsExpXBeta, nPatients);
 
 //	computeSpmvCsrIndicatorMatrixNoColumns(denomPid, rowOffsets, offsExpXBeta, nPatients);
-
 	
 #ifdef TEST_SPARSE
 }

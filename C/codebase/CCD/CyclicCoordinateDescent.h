@@ -19,6 +19,7 @@ using namespace std;
 //#define TEST_ROW_INDEX
 #define BETTER_LOOPS
 #define MERGE_TRANSFORMATION
+#define NEW_NUMERATOR
 
 #ifdef DOUBLE_PRECISION
 	typedef double real;
