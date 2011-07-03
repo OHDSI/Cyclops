@@ -3,21 +3,19 @@
  */
 
 #include "GPU/GPUImplDefs.h"
-
-//#if __CUDA_ARCH__ >= 200
-//#error "HERE"
-//    #include "device_functions.h"
-//#endif
+#include "device_functions.h"
 
 #include "kernelSpmvCoo.cu"
 #include "kernelSpmvCsr.cu"
 
+#include <cmath>
+#include "cuda.h"
+
 #define multBy4(x)	(x << 2)
 #define multBy16(x)	(x << 4)
 
-namespace device {
-
-#if __CUDA_ARCH__ < 200
+#if __APPLE__
+namespace util { 
 //
 // We have to emulate FP atomicAdd because it isn't supported natively
 // on devices prior to capability 2.0.
@@ -43,30 +41,10 @@ static __inline__ __device__ float atomicAdd(float *addr, float val)
 
     return old;
 }
-#endif // __CUDA_ARCH__ < 200
 
-#if __CUDA_ARCH__ >= 130
+} // end namespace device
 
-//
-// Double precision atomics are not supported on any device, so we
-// always emulate with atomicCAS().
-//
-static __inline__ __device__ double atomicAdd(double *addr, double val)
-{
-    double old=*addr, assumed;
-    
-    do {
-        assumed = old;
-        old = __longlong_as_double( atomicCAS((unsigned long long int*)addr,
-                                        __double_as_longlong(assumed),
-                                        __double_as_longlong(val+assumed)));
-    } while( __double_as_longlong(assumed)!=__double_as_longlong(old) );
-
-    return old;
-}
-#endif // __CUDA_ARCH__ >= 130
-
-} // namespace device
+#endif // __APPLE__
 
 #ifdef __cplusplus
 extern "C" {
@@ -117,16 +95,14 @@ extern "C" {
 			// Store new values
 			xBeta[k] = xb;				
 			
-//		#ifndef DOUBLE_PRECISION	
-#if __CUDA_ARCH__ >= 130
+		#ifndef DOUBLE_PRECISION
+		#if __APPLE__
+		    util::atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));
+		#else
 			atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));	
-#else
-#ifndef DOUBLE_PRECISION
-            device::atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));
-#else
-            offsExpXBeta[k] = newOffsExpXBeta; // Will not run correctly, but never called
-#endif
-#endif
+		#endif
+		#endif					
+			offsExpXBeta[k] = newOffsExpXBeta;
 		}					
 	}	
 	
