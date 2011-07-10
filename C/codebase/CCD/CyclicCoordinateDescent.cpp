@@ -315,7 +315,7 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 
 	getDenominators();
 
-	double logLikelihood = 0;
+	real logLikelihood = 0;
 
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
@@ -331,7 +331,7 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 		logLikelihood -= hNEvents[i] * log(denomPid[i]);
 	}
 
-	return logLikelihood;
+	return static_cast<double>(logLikelihood);
 }
 
 void CyclicCoordinateDescent::getDenominators() {
@@ -387,7 +387,7 @@ double CyclicCoordinateDescent::getLogPrior(void) {
 
 double CyclicCoordinateDescent::getObjectiveFunction(void) {	
 //	return getLogLikelihood() + getLogPrior(); // This is LANGE
-	double criterion = 0;
+	real criterion = 0;
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
 			criterion += hXBeta[i] * hEta[i] * hWeights[i];
@@ -397,7 +397,7 @@ double CyclicCoordinateDescent::getObjectiveFunction(void) {
 			criterion += hXBeta[i] * hEta[i];
 		}
 	}
-	return criterion;
+	return static_cast<double>(criterion);
 }
 
 double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {

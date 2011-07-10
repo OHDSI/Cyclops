@@ -60,7 +60,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	for (int j = 0; j < J; j++) {
 		columnLength[j] = hXI->getNumberOfEntries(j);
 		if (columnLength[j] != 0) {
-			dXI[j] = gpu->AllocateRealMemory(columnLength[j]);
+			dXI[j] = gpu->AllocateIntMemory(columnLength[j]);
 			gpu->MemcpyHostToDevice(dXI[j], hXI->getCompressedColumnVector(j),
 				sizeof(int) * columnLength[j]);
 		}
@@ -70,10 +70,10 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 
 //	cerr << "Memory allocate 1" << endl;
 	// Allocate GPU memory for X and beta
-#ifndef NO_BETA
-	dBeta = gpu->AllocateRealMemory(J);
-	gpu->MemcpyHostToDevice(dBeta, hBeta, sizeof(REAL) * J); // Beta is never actually used on GPU
-#endif
+//#ifndef NO_BETA
+//	dBeta = gpu->AllocateRealMemory(J);
+//	gpu->MemcpyHostToDevice(dBeta, hBeta, sizeof(REAL) * J); // Beta is never actually used on GPU
+//#endif
 	dXBeta = gpu->AllocateRealMemory(K);
 	gpu->MemcpyHostToDevice(dXBeta, hXBeta, sizeof(REAL) * K);
 
@@ -81,12 +81,12 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	// Allocate GPU memory for integer vectors
 	dOffs = gpu->AllocateIntMemory(K);
 	gpu->MemcpyHostToDevice(dOffs, hOffs, sizeof(int) * K);
-	dEta = gpu->AllocateIntMemory(K);
-	gpu->MemcpyHostToDevice(dEta, hEta, sizeof(int) * K);
+//	dEta = gpu->AllocateIntMemory(K);
+//	gpu->MemcpyHostToDevice(dEta, hEta, sizeof(int) * K);
 	dNEvents = gpu->AllocateIntMemory(N);
 //	gpu->MemcpyHostToDevice(dNEvents, hNEvents, sizeof(int) * N); // Moved to computeNEvents
-	dPid = gpu->AllocateIntMemory(K);
-	gpu->MemcpyHostToDevice(dPid, hPid, sizeof(int) * K); // TODO Remove
+//	dPid = gpu->AllocateIntMemory(K);
+//	gpu->MemcpyHostToDevice(dPid, hPid, sizeof(int) * K); // TODO Remove
 
 //	cerr << "Memory allocate 3" << endl;
 	// Allocate GPU memory for intermediate calculations
@@ -94,7 +94,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 //	dXOffsExpXBeta = gpu->AllocateRealMemory(K); // TODO Do we use this?  Remove
 
 
-#ifdef MERGE_TRANSFORMATION
+//#ifdef MERGE_TRANSFORMATION
 	alignedN = getAlignedLength(N);
 	cacheSizeGH = kernels->getGradientAndHessianBlocks(N);
 	alignedGHCacheSize = getAlignedLength(cacheSizeGH);
@@ -106,16 +106,16 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	dHessian = dGradient + sizeof(real) * alignedGHCacheSize; // GPUPtr is void* not real*
 	hGradient = (real*) malloc(2 * sizeof(real) * alignedGHCacheSize);
 	hHessian = hGradient + alignedGHCacheSize;
-#else
-	dDenomPid = gpu->AllocateRealMemory(N);
-	dNumerPid = gpu->AllocateRealMemory(N);
-	dT1 = gpu->AllocateRealMemory(N);
-	dGradient = gpu->AllocateRealMemory(2 * N);
-	dHessian = dGradient + sizeof(real) * N;
-	dReducedGradientHessian = gpu->AllocateRealMemory(2);
-	hGradient = (real*) malloc(sizeof(real) * N);
-	hHessian = (real*) malloc(sizeof(real) * N);
-#endif
+//#else
+//	dDenomPid = gpu->AllocateRealMemory(N);
+//	dNumerPid = gpu->AllocateRealMemory(N);
+//	dT1 = gpu->AllocateRealMemory(N);
+//	dGradient = gpu->AllocateRealMemory(2 * N);
+//	dHessian = dGradient + sizeof(real) * N;
+//	dReducedGradientHessian = gpu->AllocateRealMemory(2);
+//	hGradient = (real*) malloc(sizeof(real) * N);
+//	hHessian = (real*) malloc(sizeof(real) * N);
+//#endif
 
 //	cerr << "Memory allocate 5" << endl;
 	// Allocate computed indices for sparse matrix operations
@@ -160,8 +160,8 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	
 //	cerr << "Memory allocate 7" << endl;
 	maxActiveWarps++;
-	dTmpCooRows = gpu->AllocateIntMemory(maxActiveWarps);
-	dTmpCooVals = gpu->AllocateRealMemory(maxActiveWarps);
+//	dTmpCooRows = gpu->AllocateIntMemory(maxActiveWarps);
+//	dTmpCooVals = gpu->AllocateRealMemory(maxActiveWarps);
 	
 	cout << "MaxActiveWarps = " << maxActiveWarps << endl;
 
@@ -194,9 +194,9 @@ GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
 	gpu->FreeMemory(dXBeta);
 
 	gpu->FreeMemory(dOffs);
-	gpu->FreeMemory(dEta);
+//	gpu->FreeMemory(dEta);
 	gpu->FreeMemory(dNEvents);
-	gpu->FreeMemory(dPid);
+//	gpu->FreeMemory(dPid);
 	gpu->FreeMemory(dXFullRowOffsets);
 	gpu->FreeMemory(dOffsExpXBeta);
 //	gpu->FreeMemory(dXOffsExpXBeta);
@@ -222,8 +222,8 @@ GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
 	free(dXColumnRowIndicators);
 
 //	cerr << "5" << endl;
-	gpu->FreeMemory(dTmpCooRows);
-	gpu->FreeMemory(dTmpCooVals);
+//	gpu->FreeMemory(dTmpCooRows);
+//	gpu->FreeMemory(dTmpCooVals);
 
 //	cerr << "6" << endl;
 	delete kernels;
@@ -285,7 +285,7 @@ void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 	const int n = hXI->getNumberOfEntries(index);
 
 #ifdef TEST_SPARSE	
-	kernels->updateXBetaAndFriends(dXBeta,  dOffsExpXBeta,  dDenomPid, dXColumnRowIndicators[index], dPid, dOffs, dXI[index], n, delta);	
+	kernels->updateXBetaAndFriends(dXBeta,  dOffsExpXBeta,  dDenomPid, dXColumnRowIndicators[index], NULL, dOffs, dXI[index], n, delta);
 #else
 	kernels->updateXBeta(dXBeta, dXI[index], n, delta);
 #endif

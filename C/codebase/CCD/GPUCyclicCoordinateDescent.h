@@ -62,9 +62,9 @@ private:
 	GPUPtr* dXI;
 	GPUPtr dXColumnLength;
 	GPUPtr dOffs;
-	GPUPtr dEta;
+//	GPUPtr dEta;
 	GPUPtr dNEvents;
-	GPUPtr dPid;
+//	GPUPtr dPid;
 	GPUPtr dXFullRowOffsets;
 #ifndef NO_BETA
 	GPUPtr dBeta;

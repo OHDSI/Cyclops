@@ -133,7 +133,7 @@ void KernelLauncherCCD::computeIntermediates(GPUPtr offsExpXBeta,
 		int nRows, int nPatients, bool allStats) {
 
 #ifdef TEST_SPARSE
-if (allStats) {	
+if (allStats) {
 #endif
 	int nBlocksI = nRows / (COMPUTE_INTERMEDIATES_BLOCK_SIZE) + // TODO Compute once
 	(nRows % (COMPUTE_INTERMEDIATES_BLOCK_SIZE) == 0 ? 0 : 1);
@@ -151,7 +151,7 @@ if (allStats) {
 			denomPid, rowOffsets, offsExpXBeta, nPatients);
 
 //	computeSpmvCsrIndicatorMatrixNoColumns(denomPid, rowOffsets, offsExpXBeta, nPatients);
-	
+
 #ifdef TEST_SPARSE
 }
 #endif
@@ -238,14 +238,15 @@ void KernelLauncherCCD::updateXBeta(GPUPtr xBeta, GPUPtr xIColumn, int length,
 }
 
 void KernelLauncherCCD::updateXBetaAndFriends(GPUPtr xBeta, GPUPtr offsExpXBeta, GPUPtr denomPid, GPUPtr rowOffs, 
-		GPUPtr otherOffs, GPUPtr offs, 
+		GPUPtr otherOffs_not_used, GPUPtr offs,
 		GPUPtr xIColumn, int length, double delta) {
 
 	int nBlocks = length / UPDATE_XBETA_AND_FRIENDS_BLOCK_SIZE + // TODO Compute once
 			(length % UPDATE_XBETA_AND_FRIENDS_BLOCK_SIZE == 0 ? 0 : 1);
 	Dim3Int block(UPDATE_XBETA_AND_FRIENDS_BLOCK_SIZE, 1);
 	Dim3Int grid(nBlocks, 1);
-	gpu->LaunchKernelParams(fUpdateXBetaAndFriends, block, grid, 7, 1, 1, xBeta, offsExpXBeta, denomPid, rowOffs, otherOffs, offs, xIColumn,
+	gpu->LaunchKernelParams(fUpdateXBetaAndFriends, block, grid, 7, 1, 1, xBeta, offsExpXBeta,
+			denomPid, rowOffs, NULL, offs, xIColumn,
 			length, delta);
 }
 
