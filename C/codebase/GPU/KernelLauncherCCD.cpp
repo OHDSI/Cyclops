@@ -128,34 +128,20 @@ void KernelLauncherCCD::computeDerivatives(
 #endif
 }
 
-void KernelLauncherCCD::computeIntermediates(GPUPtr offsExpXBeta,
-		GPUPtr denomPid, GPUPtr offs, GPUPtr xBeta, GPUPtr rowOffsets,
-		int nRows, int nPatients, bool allStats) {
-
-#ifdef TEST_SPARSE
-if (allStats) {
-#endif
-	int nBlocksI = nRows / (COMPUTE_INTERMEDIATES_BLOCK_SIZE) + // TODO Compute once
-	(nRows % (COMPUTE_INTERMEDIATES_BLOCK_SIZE) == 0 ? 0 : 1);
-	Dim3Int blockI(COMPUTE_INTERMEDIATES_BLOCK_SIZE);
-	Dim3Int gridI(nBlocksI);
-	gpu->LaunchKernelParams(fComputeIntermediates, blockI, gridI, 5, 1, 0,
-			offsExpXBeta, denomPid, offs, xBeta, rowOffsets, nRows);
-
-	unsigned int gridParam;
-	gridParam = (unsigned int) nPatients / (BLOCK_SIZE_ROW/HALFWARP);
-	if ((gridParam * (BLOCK_SIZE_ROW/HALFWARP)) < nPatients) gridParam++;
-	Dim3Int gridR(1, gridParam);
-	Dim3Int blockR(1, BLOCK_SIZE_ROW);
-	gpu->LaunchKernelParams(fReduceFast, blockR, gridR, 3, 1, 0,
-			denomPid, rowOffsets, offsExpXBeta, nPatients);
-
-//	computeSpmvCsrIndicatorMatrixNoColumns(denomPid, rowOffsets, offsExpXBeta, nPatients);
-
-#ifdef TEST_SPARSE
-}
-#endif
-
+//void KernelLauncherCCD::computeIntermediates(GPUPtr offsExpXBeta,
+//		GPUPtr denomPid, GPUPtr offs, GPUPtr xBeta, GPUPtr rowOffsets,
+//		int nRows, int nPatients, bool allStats) {
+//
+//#ifdef TEST_SPARSE
+//if (false) {
+//#endif
+//	int nBlocksI = nRows / (COMPUTE_INTERMEDIATES_BLOCK_SIZE) + // TODO Compute once
+//	(nRows % (COMPUTE_INTERMEDIATES_BLOCK_SIZE) == 0 ? 0 : 1);
+//	Dim3Int blockI(COMPUTE_INTERMEDIATES_BLOCK_SIZE);
+//	Dim3Int gridI(nBlocksI);
+//	gpu->LaunchKernelParams(fComputeIntermediates, blockI, gridI, 5, 1, 0,
+//			offsExpXBeta, denomPid, offs, xBeta, rowOffsets, nRows);
+//
 //	unsigned int gridParam;
 //	gridParam = (unsigned int) nPatients / (BLOCK_SIZE_ROW/HALFWARP);
 //	if ((gridParam * (BLOCK_SIZE_ROW/HALFWARP)) < nPatients) gridParam++;
@@ -163,20 +149,34 @@ if (allStats) {
 //	Dim3Int blockR(1, BLOCK_SIZE_ROW);
 //	gpu->LaunchKernelParams(fReduceFast, blockR, gridR, 3, 1, 0,
 //			denomPid, rowOffsets, offsExpXBeta, nPatients);
-
-#ifdef PROFILE_GPU
-	gpu->Synchronize();
-#endif
-	
-#ifdef DP_DEBUG
-	gpu->PrintfDeviceInt(offs, 10); // RIGHT
-	gpu->PrintfDeviceVector(xBeta, 10); // RIGHT
-	gpu->PrintfDeviceInt(rowOffsets, 10);  // RIGHT
-	gpu->PrintfDeviceVector(denomPid, 10); // RIGHT
-	gpu->PrintfDeviceVector(offsExpXBeta, 10); // RIGHT
-//	exit(0);	
-#endif
-}
+//
+////	computeSpmvCsrIndicatorMatrixNoColumns(denomPid, rowOffsets, offsExpXBeta, nPatients);
+//
+//#ifdef TEST_SPARSE
+//}
+//#endif
+//
+////	unsigned int gridParam;
+////	gridParam = (unsigned int) nPatients / (BLOCK_SIZE_ROW/HALFWARP);
+////	if ((gridParam * (BLOCK_SIZE_ROW/HALFWARP)) < nPatients) gridParam++;
+////	Dim3Int gridR(1, gridParam);
+////	Dim3Int blockR(1, BLOCK_SIZE_ROW);
+////	gpu->LaunchKernelParams(fReduceFast, blockR, gridR, 3, 1, 0,
+////			denomPid, rowOffsets, offsExpXBeta, nPatients);
+//
+//#ifdef PROFILE_GPU
+//	gpu->Synchronize();
+//#endif
+//
+//#ifdef DP_DEBUG
+//	gpu->PrintfDeviceInt(offs, 10); // RIGHT
+//	gpu->PrintfDeviceVector(xBeta, 10); // RIGHT
+//	gpu->PrintfDeviceInt(rowOffsets, 10);  // RIGHT
+//	gpu->PrintfDeviceVector(denomPid, 10); // RIGHT
+//	gpu->PrintfDeviceVector(offsExpXBeta, 10); // RIGHT
+////	exit(0);
+//#endif
+//}
 
 #define RT_BLOCK_SIZE	512
 
@@ -246,7 +246,7 @@ void KernelLauncherCCD::updateXBetaAndFriends(GPUPtr xBeta, GPUPtr offsExpXBeta,
 	Dim3Int block(UPDATE_XBETA_AND_FRIENDS_BLOCK_SIZE, 1);
 	Dim3Int grid(nBlocks, 1);
 	gpu->LaunchKernelParams(fUpdateXBetaAndFriends, block, grid, 7, 1, 1, xBeta, offsExpXBeta,
-			denomPid, rowOffs, NULL, offs, xIColumn,
+			denomPid, rowOffs, otherOffs_not_used, offs, xIColumn,
 			length, delta);
 }
 

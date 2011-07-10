@@ -55,16 +55,21 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 
 //	cerr << "Memory allocate 0" << endl;
 	// Allocate GPU memory for X
+	cerr << "Available = " << gpu->GetAvailableMemory() << endl;
+	int nonZero = 0;
 	dXI = (GPUPtr*) malloc(J * sizeof(GPUPtr));
 	vector<int> columnLength(J);
 	for (int j = 0; j < J; j++) {
 		columnLength[j] = hXI->getNumberOfEntries(j);
+		nonZero += hXI->getNumberOfEntries(j);
 		if (columnLength[j] != 0) {
 			dXI[j] = gpu->AllocateIntMemory(columnLength[j]);
 			gpu->MemcpyHostToDevice(dXI[j], hXI->getCompressedColumnVector(j),
 				sizeof(int) * columnLength[j]);
 		}
 	}
+	cerr << "Available = " << gpu->GetAvailableMemory() << endl;
+	cerr << "Nonzero = " << nonZero << endl;
 //	dXColumnLength = gpu->AllocateIntMemory(K);
 //	gpu->MemcpyHostToDevice(dXColumnLength, &columnLength[0], sizeof(int) * K);
 
@@ -74,8 +79,13 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 //	dBeta = gpu->AllocateRealMemory(J);
 //	gpu->MemcpyHostToDevice(dBeta, hBeta, sizeof(REAL) * J); // Beta is never actually used on GPU
 //#endif
+	cerr << "Available = " << gpu->GetAvailableMemory() << endl;
+
 	dXBeta = gpu->AllocateRealMemory(K);
 	gpu->MemcpyHostToDevice(dXBeta, hXBeta, sizeof(REAL) * K);
+	cerr << "Available = " << gpu->GetAvailableMemory() << endl;
+	cerr << "K = " << K << endl;
+//	exit(-1);
 
 //	cerr << "Memory allocate 2" << endl;
 	// Allocate GPU memory for integer vectors
@@ -188,9 +198,9 @@ GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
 	}
 	free(dXI);
 
-#ifndef NO_BETA
-	gpu->FreeMemory(dBeta);
-#endif
+//#ifndef NO_BETA
+//	gpu->FreeMemory(dBeta);
+//#endif
 	gpu->FreeMemory(dXBeta);
 
 	gpu->FreeMemory(dOffs);
@@ -305,8 +315,13 @@ void GPUCyclicCoordinateDescent::computeRemainingStatistics(bool allStats) {
     fprintf(stderr, "\t\t\tEntering  GPUCylicCoordinateDescent::computeRemainingStatistics\n");
 #endif  
 
-	// NEW
-	kernels->computeIntermediates(dOffsExpXBeta, dDenomPid, dOffs, dXBeta, dXFullRowOffsets, K, N, allStats);
+    if (allStats) {
+    	// NEW
+//    	kernels->computeIntermediates(dOffsExpXBeta, dDenomPid, dOffs, dXBeta, dXFullRowOffsets, K, N, allStats);
+    	CyclicCoordinateDescent::computeRemainingStatistics(true);
+    	gpu->MemcpyHostToDevice(dDenomPid, denomPid, sizeof(real) * N);
+    	gpu->MemcpyHostToDevice(dOffsExpXBeta, offsExpXBeta, sizeof(real) * K);
+    }
 
 	sufficientStatisticsKnown = true;
 #ifdef PROFILE_GPU
