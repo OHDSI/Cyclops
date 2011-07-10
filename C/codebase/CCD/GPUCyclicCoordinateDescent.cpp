@@ -55,7 +55,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 
 //	cerr << "Memory allocate 0" << endl;
 	// Allocate GPU memory for X
-	cerr << "Available = " << gpu->GetAvailableMemory() << endl;
+//	cerr << "Available = " << gpu->GetAvailableMemory() << endl;
 	int nonZero = 0;
 	dXI = (GPUPtr*) malloc(J * sizeof(GPUPtr));
 	vector<int> columnLength(J);
@@ -68,8 +68,8 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 				sizeof(int) * columnLength[j]);
 		}
 	}
-	cerr << "Available = " << gpu->GetAvailableMemory() << endl;
-	cerr << "Nonzero = " << nonZero << endl;
+//	cerr << "Available = " << gpu->GetAvailableMemory() << endl;
+//	cerr << "Nonzero = " << nonZero << endl;
 //	dXColumnLength = gpu->AllocateIntMemory(K);
 //	gpu->MemcpyHostToDevice(dXColumnLength, &columnLength[0], sizeof(int) * K);
 
@@ -79,12 +79,12 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 //	dBeta = gpu->AllocateRealMemory(J);
 //	gpu->MemcpyHostToDevice(dBeta, hBeta, sizeof(REAL) * J); // Beta is never actually used on GPU
 //#endif
-	cerr << "Available = " << gpu->GetAvailableMemory() << endl;
+//	cerr << "Available = " << gpu->GetAvailableMemory() << endl;
 
 	dXBeta = gpu->AllocateRealMemory(K);
 	gpu->MemcpyHostToDevice(dXBeta, hXBeta, sizeof(REAL) * K);
-	cerr << "Available = " << gpu->GetAvailableMemory() << endl;
-	cerr << "K = " << K << endl;
+//	cerr << "Available = " << gpu->GetAvailableMemory() << endl;
+//	cerr << "K = " << K << endl;
 //	exit(-1);
 
 //	cerr << "Memory allocate 2" << endl;
@@ -129,20 +129,20 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 
 //	cerr << "Memory allocate 5" << endl;
 	// Allocate computed indices for sparse matrix operations
-	dXFullRowOffsets = gpu->AllocateIntMemory(N+1);
-	vector<int> rowOffsets(N + 1);
-	int offset = 0;
-	int currentPid = -1;
-	for (int i = 0; i < K; i++) {
-		int thisPid = hPid[i];
-		if (thisPid != currentPid) {
-			rowOffsets[thisPid] = offset;
-			currentPid = thisPid;
-		}
-		offset++;
-	}
-	rowOffsets[N] = offset;
-	gpu->MemcpyHostToDevice(dXFullRowOffsets, &rowOffsets[0], sizeof(int) * (N + 1));
+//	dXFullRowOffsets = gpu->AllocateIntMemory(N+1);
+//	vector<int> rowOffsets(N + 1);
+//	int offset = 0;
+//	int currentPid = -1;
+//	for (int i = 0; i < K; i++) {
+//		int thisPid = hPid[i];
+//		if (thisPid != currentPid) {
+//			rowOffsets[thisPid] = offset;
+//			currentPid = thisPid;
+//		}
+//		offset++;
+//	}
+//	rowOffsets[N] = offset;
+//	gpu->MemcpyHostToDevice(dXFullRowOffsets, &rowOffsets[0], sizeof(int) * (N + 1));
 
 //	cerr << "Memory allocate 6" << endl;
 	dXColumnRowIndicators = (GPUPtr*) malloc(J * sizeof(GPUPtr));
@@ -207,26 +207,26 @@ GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
 //	gpu->FreeMemory(dEta);
 	gpu->FreeMemory(dNEvents);
 //	gpu->FreeMemory(dPid);
-	gpu->FreeMemory(dXFullRowOffsets);
+//	gpu->FreeMemory(dXFullRowOffsets);
 	gpu->FreeMemory(dOffsExpXBeta);
 //	gpu->FreeMemory(dXOffsExpXBeta);
 
-#ifdef MERGE_TRANSFORMATION
+//#ifdef MERGE_TRANSFORMATION
 	gpu->FreeMemory(dNumerPid);
 	gpu->FreeMemory(dGradient);
 	free(hGradient);
-#else
-	gpu->FreeMemory(dDenomPid);
-	gpu->FreeMemory(dNumerPid);
-	gpu->FreeMemory(dT1);
-	gpu->FreeMemory(dGradient);
-	gpu->FreeMemory(dReducedGradientHessian);
-#endif
+//#else
+//	gpu->FreeMemory(dDenomPid);
+//	gpu->FreeMemory(dNumerPid);
+//	gpu->FreeMemory(dT1);
+//	gpu->FreeMemory(dGradient);
+//	gpu->FreeMemory(dReducedGradientHessian);
+//#endif
 
 //	cerr << "4" << endl;
 	for (int j = 0; j < J; j++) {
 		if (dXColumnRowIndicators[j]) {
-	//		gpu->FreeMemory(dXColumnRowIndicators[j]); // TODO Causing error under Linux
+			gpu->FreeMemory(dXColumnRowIndicators[j]); // TODO Causing error under Linux
 		}
 	}
 	free(dXColumnRowIndicators);

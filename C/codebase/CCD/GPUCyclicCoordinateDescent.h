@@ -65,7 +65,7 @@ private:
 //	GPUPtr dEta;
 	GPUPtr dNEvents;
 //	GPUPtr dPid;
-	GPUPtr dXFullRowOffsets;
+//	GPUPtr dXFullRowOffsets;
 #ifndef NO_BETA
 	GPUPtr dBeta;
 #endif
