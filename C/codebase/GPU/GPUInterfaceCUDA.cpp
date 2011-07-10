@@ -32,6 +32,8 @@
                             SAFE_CUDA(cuCtxPopCurrent(&cudaContext)); \
                         }
 
+static int nGpuArchCoresPerSM[] = { -1, 8, 32 };
+
 GPUInterface::GPUInterface() {
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr,"\t\t\tEntering GPUInterface::GPUInterface\n");
@@ -462,7 +464,9 @@ void GPUInterface::GetDeviceDescription(int deviceNumber,
             "Global memory (MB): %d | Clock speed (Ghz): %1.2f | Number of cores: %d",
             int(totalGlobalMemory / 1024.0 / 1024.0 + 0.5),
             clockSpeed / 1000000.0,
-            8 * mpCount);
+            nGpuArchCoresPerSM[major] * mpCount
+//            8 * mpCount
+            );
     
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving  GPUInterface::GetDeviceDescription\n");

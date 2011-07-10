@@ -12,7 +12,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/KernelLauncherCCD.h"
 
-#define CONTIG_MEMORY
+//#define CONTIG_MEMORY
 
 using namespace std;
 
@@ -41,11 +41,14 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	}
 
 	int numberChars = 80;
-	std::vector<char> charVector(numberChars);
-	gpu->GetDeviceName(deviceNumber, &charVector[0], numberChars);
-	string deviceNameString(charVector.begin(), charVector.end());
-	gpu->GetDeviceDescription(deviceNumber, &charVector[0]);
-	string deviceDescrString(charVector.begin(), charVector.end());
+	std::vector<char> charVectorName(numberChars);
+	gpu->GetDeviceName(deviceNumber, &charVectorName[0], numberChars);
+	string deviceNameString(&charVectorName[0]);
+
+	std::vector<char> charVectorDesc(numberChars);
+	gpu->GetDeviceDescription(deviceNumber, &charVectorDesc[0]);
+	string deviceDescrString(&charVectorDesc[0]);
+
 	cout << "Using " << deviceNameString << ": " << deviceDescrString << endl;
 
 	kernels = new KernelLauncherCCD(gpu);
@@ -74,6 +77,8 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 			gpu->MemcpyHostToDevice(dXI[j], hXI->getCompressedColumnVector(j),
 					sizeof(int) * columnLength[j]);
 			ptr += sizeof(int) * columnLength[j];
+		} else {
+			dXI[j] = NULL;
 		}
 	}
 #else
@@ -87,6 +92,8 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 			dXI[j] = gpu->AllocateIntMemory(columnLength[j]);
 			gpu->MemcpyHostToDevice(dXI[j], hXI->getCompressedColumnVector(j),
 				sizeof(int) * columnLength[j]);
+		} else {
+			dXI[j] = NULL;
 		}
 	}
 #endif
