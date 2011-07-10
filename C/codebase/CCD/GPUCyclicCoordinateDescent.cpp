@@ -12,6 +12,8 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/KernelLauncherCCD.h"
 
+#define CONTIG_MEMORY
+
 using namespace std;
 
 GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputReader* reader)
@@ -54,8 +56,27 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	hReader = reader;
 
 //	cerr << "Memory allocate 0" << endl;
-	// Allocate GPU memory for X
-//	cerr << "Available = " << gpu->GetAvailableMemory() << endl;
+	size_t initial = gpu->GetAvailableMemory();
+	cerr << "Available = " << initial << endl;
+
+#ifdef CONTIG_MEMORY
+	int nonZero = 0;
+	dXI = (GPUPtr*) malloc(J * sizeof(GPUPtr));
+	vector<int> columnLength(J);
+	for (int j = 0; j < J; j++) {
+		columnLength[j] = hXI->getNumberOfEntries(j);
+		nonZero += hXI->getNumberOfEntries(j);
+	}
+	GPUPtr ptr = gpu->AllocateIntMemory(nonZero);
+	for (int j = 0; j < J; j++) {
+		if (columnLength[j] != 0) {
+			dXI[j] = ptr;
+			gpu->MemcpyHostToDevice(dXI[j], hXI->getCompressedColumnVector(j),
+					sizeof(int) * columnLength[j]);
+			ptr += sizeof(int) * columnLength[j];
+		}
+	}
+#else
 	int nonZero = 0;
 	dXI = (GPUPtr*) malloc(J * sizeof(GPUPtr));
 	vector<int> columnLength(J);
@@ -68,8 +89,8 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 				sizeof(int) * columnLength[j]);
 		}
 	}
-//	cerr << "Available = " << gpu->GetAvailableMemory() << endl;
-//	cerr << "Nonzero = " << nonZero << endl;
+#endif
+	cerr << "Used = " << (initial - gpu->GetAvailableMemory()) << endl;
 //	dXColumnLength = gpu->AllocateIntMemory(K);
 //	gpu->MemcpyHostToDevice(dXColumnLength, &columnLength[0], sizeof(int) * K);
 
@@ -96,12 +117,12 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	dNEvents = gpu->AllocateIntMemory(N);
 //	gpu->MemcpyHostToDevice(dNEvents, hNEvents, sizeof(int) * N); // Moved to computeNEvents
 //	dPid = gpu->AllocateIntMemory(K);
-//	gpu->MemcpyHostToDevice(dPid, hPid, sizeof(int) * K); // TODO Remove
+//	gpu->MemcpyHostToDevice(dPid, hPid, sizeof(int) * K);
 
 //	cerr << "Memory allocate 3" << endl;
 	// Allocate GPU memory for intermediate calculations
 	dOffsExpXBeta = gpu->AllocateRealMemory(K);
-//	dXOffsExpXBeta = gpu->AllocateRealMemory(K); // TODO Do we use this?  Remove
+//	dXOffsExpXBeta = gpu->AllocateRealMemory(K);
 
 
 //#ifdef MERGE_TRANSFORMATION
@@ -145,8 +166,14 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 //	gpu->MemcpyHostToDevice(dXFullRowOffsets, &rowOffsets[0], sizeof(int) * (N + 1));
 
 //	cerr << "Memory allocate 6" << endl;
+
+	initial = gpu->GetAvailableMemory();
+	cerr << "Available = " << initial << endl;
+
 	dXColumnRowIndicators = (GPUPtr*) malloc(J * sizeof(GPUPtr));
-//	hColumnRowLength = (int*) malloc(J * sizeof(int));
+#ifdef CONTIG_MEMORY
+	GPUPtr crPtr = gpu->AllocateIntMemory(nonZero);
+#endif
 	unsigned int maxActiveWarps = 0;
 	for (int j = 0; j < J; j++) {
 		const int n = hXI->getNumberOfEntries(j);
@@ -160,7 +187,12 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 				int thisPid = hPid[indicators[i]];
 				columnRowIndicators[i] = thisPid;
 			}
+#ifdef CONTIG_MEMORY
+			dXColumnRowIndicators[j] = crPtr;
+			crPtr += sizeof(int) * n;
+#else
 			dXColumnRowIndicators[j] = gpu->AllocateIntMemory(n);
+#endif
 			gpu->MemcpyHostToDevice(dXColumnRowIndicators[j],
 					&columnRowIndicators[0], sizeof(int) * n);
 		} else {
@@ -168,12 +200,14 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 		}
 	}
 	
+	cerr << "Used = " << (initial - gpu->GetAvailableMemory()) << endl;
+
 //	cerr << "Memory allocate 7" << endl;
 	maxActiveWarps++;
 //	dTmpCooRows = gpu->AllocateIntMemory(maxActiveWarps);
 //	dTmpCooVals = gpu->AllocateRealMemory(maxActiveWarps);
 	
-	cout << "MaxActiveWarps = " << maxActiveWarps << endl;
+//	cout << "MaxActiveWarps = " << maxActiveWarps << endl;
 
 //	cerr << "Done with GPU memory allocation." << endl;
 	
@@ -191,11 +225,15 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
 
 //	cerr << "1" << endl;
+#ifdef CONTIG_MEMORY
+	gpu->FreeMemory(dXI[0]);
+#else
 	for (int j = 0; j < J; j++) {
 		if (hXI->getNumberOfEntries(j) > 0) {
 			gpu->FreeMemory(dXI[j]);
 		}
 	}
+#endif
 	free(dXI);
 
 //#ifndef NO_BETA
@@ -224,11 +262,15 @@ GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
 //#endif
 
 //	cerr << "4" << endl;
+#ifdef CONTIG_MEMORY
+	gpu->FreeMemory(dXColumnRowIndicators[0]);
+#else
 	for (int j = 0; j < J; j++) {
 		if (dXColumnRowIndicators[j]) {
 			gpu->FreeMemory(dXColumnRowIndicators[j]); // TODO Causing error under Linux
 		}
 	}
+#endif
 	free(dXColumnRowIndicators);
 
 //	cerr << "5" << endl;
