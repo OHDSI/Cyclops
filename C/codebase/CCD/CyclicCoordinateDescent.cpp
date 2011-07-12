@@ -275,10 +275,12 @@ void CyclicCoordinateDescent::logResults(const char* fileName) {
 
 	string sep(","); // TODO Make option
 
+	outLog << "Drug_concept_id" << sep << "Condition_concept_id" << sep << "score" << endl;
+
 	for (int i = 0; i < J; i++) {
-		outLog << conditionId << sep <<
+		outLog << drugMap[i] << sep <<
 //		i << sep <<
-		drugMap[i] << sep << hBeta[i] << endl;
+		conditionId << sep << hBeta[i] << endl;
 	}
 	outLog.close();
 }
@@ -298,6 +300,10 @@ double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
 	}
 
 	return logLikelihood;
+}
+
+int CyclicCoordinateDescent::getBetaSize(void) {
+	return J;
 }
 
 real CyclicCoordinateDescent::getBeta(int i) {

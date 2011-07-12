@@ -32,6 +32,8 @@ public:
 
 	virtual void logResults(const CCDArguments& arguments);
 
+	void logResults(const CCDArguments& arguments, std::vector<real>& savedBeta, std::string conditionId);
+
 private:
 	const int replicates;
 	InputReader* reader;

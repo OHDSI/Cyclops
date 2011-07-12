@@ -10,6 +10,7 @@
 #include <numeric>
 #include <algorithm>
 #include <cstdlib>
+#include <cmath>
 
 #include "BootstrapDriver.h"
 #include "AbstractSelector.h"
@@ -60,6 +61,11 @@ void BootstrapDriver::drive(
 }
 
 void BootstrapDriver::logResults(const CCDArguments& arguments) {
+	fprintf(stderr,"Not yet implemented.\n");
+	exit(-1);
+}
+
+void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<real>& savedBeta, std::string conditionId) {
 
 	ofstream outLog(arguments.bsFileName.c_str());
 	if (!outLog) {
@@ -72,12 +78,13 @@ void BootstrapDriver::logResults(const CCDArguments& arguments) {
 	string sep(","); // TODO Make option
 
 	if (!arguments.reportRawEstimates) {
-		outLog << "drug" << sep << "mean" << sep << "var" << sep << "lower" << sep <<
-			"upper" << sep << "prob0" << endl;
+		outLog << "Drug_concept_id" << sep << "Condition_concept_id" << sep <<
+				"score" << sep << "standard_error" << sep << "bs_mean" << sep << "bs_lower" << sep <<
+				"bs_upper" << sep << "bs_prob0" << endl;
 	}
 
 	for (int j = 0; j < J; ++j) {
-		outLog << drugMap[j] << sep;
+		outLog << drugMap[j] << sep << conditionId << sep;
 		if (arguments.reportRawEstimates) {
 			ostream_iterator<real> output(outLog, sep.c_str());
 			copy(estimates[j]->begin(), estimates[j]->end(), output);
@@ -106,7 +113,8 @@ void BootstrapDriver::logResults(const CCDArguments& arguments) {
 			real lower = *(estimates[j]->begin() + offsetLower);
 			real upper = *(estimates[j]->begin() + offsetUpper);
 
-			outLog << mean << sep << var << sep << lower << sep << upper << sep << prob0 << endl;
+			outLog << savedBeta[j] << sep;
+			outLog << mean << sep << std::sqrt(var) << sep << lower << sep << upper << sep << prob0 << endl;
 		}
 	}
 	outLog.close();

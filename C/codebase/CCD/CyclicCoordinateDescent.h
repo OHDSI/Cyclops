@@ -77,6 +77,8 @@ public:
 	virtual double getObjectiveFunction(void);
 
 	real getBeta(int i);
+
+	int getBetaSize(void);
 		
 	void update(int maxIterations, int convergenceType, double epsilon);
 
@@ -91,6 +93,10 @@ public:
 
 	// Getters
 	string getPriorInfo();
+
+	string getConditionId() const {
+		return conditionId;
+	}
 		
 protected:
 	

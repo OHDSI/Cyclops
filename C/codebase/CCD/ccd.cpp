@@ -66,8 +66,8 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 
 		// Cross-validation arguments
 		SwitchArg doCVArg("c", "cv", "Perform cross-validation selection of hyperprior variance", false);
-		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, 1.0, "real");
-		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, 10.0, "real");
+		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, 0.001, "real");
+		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, 1000.0, "real");
 		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, 10, "int");
 		ValueArg<int> gridCVArg("", "gridSize", "Uniform grid size for cross-validation search", false, 20, "int");
 		ValueArg<int> foldToComputeCVArg("", "computeFold", "Number of fold to iterate, default is 'fold' value", false, 10, "int");
@@ -236,7 +236,8 @@ double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
 double runBoostrap(
 		CyclicCoordinateDescent *ccd,
 		InputReader *reader,
-		CCDArguments &arguments) {
+		CCDArguments &arguments,
+		std::vector<real>& savedBeta) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
@@ -247,7 +248,7 @@ double runBoostrap(
 	driver.drive(*ccd, selector, arguments);
 	gettimeofday(&time2, NULL);
 
-	driver.logResults(arguments);
+	driver.logResults(arguments, savedBeta, ccd->getConditionId());
 	return calculateSeconds(time1, time2);
 }
 
@@ -294,7 +295,12 @@ int main(int argc, char* argv[]) {
 	}
 
 	if (arguments.doBootstrap) {
-		timeUpdate += runBoostrap(ccd, reader, arguments);
+		// Save parameter point-estimates
+		std::vector<real> savedBeta;
+		for (int j = 0; j < ccd->getBetaSize(); ++j) {
+			savedBeta.push_back(ccd->getBeta(j));
+		}
+		timeUpdate += runBoostrap(ccd, reader, arguments, savedBeta);
 	}
 		
 	cout << "Load   duration: " << scientific << timeInitialize << endl;
