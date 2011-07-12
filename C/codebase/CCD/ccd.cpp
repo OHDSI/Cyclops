@@ -111,7 +111,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		} else {
 			arguments.useGPU = false;
 		}
-		arguments.useBetterGPU = betterGPUArg.isSet();
+//		arguments.useBetterGPU = betterGPUArg.isSet();
 
 		arguments.inFileName = inFileArg.getValue();
 		arguments.outFileName = outFileArg.getValue();
@@ -152,7 +152,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		// Bootstrap
 		arguments.doBootstrap = doBootstrapArg.isSet();
 		if (arguments.doBootstrap) {
-			arguments.bsFileName = bsOutFileArg.getValue();
+//			arguments.bsFileName = bsOutFileArg.getValue();
 			arguments.replicates = replicatesArg.getValue();
 			if (reportRawEstimatesArg.isSet()) {
 				arguments.reportRawEstimates = true;
