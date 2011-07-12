@@ -80,7 +80,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		SwitchArg reportRawEstimatesArg("","raw", "Report the raw bootstrap estimates", false);
 
 		cmd.add(gpuArg);
-		cmd.add(betterGPUArg);
+//		cmd.add(betterGPUArg);
 		cmd.add(toleranceArg);
 		cmd.add(maxIterationsArg);
 		cmd.add(hyperPriorArg);
@@ -97,7 +97,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		cmd.add(outFile2Arg);
 
 		cmd.add(doBootstrapArg);
-		cmd.add(bsOutFileArg);
+//		cmd.add(bsOutFileArg);
 		cmd.add(replicatesArg);
 		cmd.add(reportRawEstimatesArg);
 
