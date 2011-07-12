@@ -50,7 +50,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 	try {
 		CmdLine cmd("Cyclic coordinate descent algorithm for self-controlled case studies", ' ', "0.1");
 		ValueArg<int> gpuArg("g","GPU","Use GPU device", false, -1, "device #");
-		SwitchArg betterGPUArg("1","better", "Use better GPU implementation", false);
+//		SwitchArg betterGPUArg("1","better", "Use better GPU implementation", false);
 		ValueArg<int> maxIterationsArg("", "maxIterations", "Maximum iterations", false, 100, "int");
 		UnlabeledValueArg<string> inFileArg("inFileName","Input file name", true, "default", "inFileName");
 		UnlabeledValueArg<string> outFileArg("outFileName","Output file name", true, "default", "outFileName");
@@ -61,22 +61,22 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 
 		// Convergence criterion arguments
 		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, 1E-4, "real");
-		SwitchArg zhangOlesConvergenceArg("z", "zhangOles", "Use Zhange-Oles convergence criterion, default is false", false);
+		SwitchArg zhangOlesConvergenceArg("z", "zhangOles", "Use Zhange-Oles convergence criterion, default is true", true);
 		ValueArg<long> seedArg("s", "seed", "Random number generator seed", false, 0, "long");
 
 		// Cross-validation arguments
 		SwitchArg doCVArg("c", "cv", "Perform cross-validation selection of hyperprior variance", false);
-		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, 0.001, "real");
-		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, 1000.0, "real");
+		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, 0.01, "real");
+		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, 100.0, "real");
 		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, 10, "int");
-		ValueArg<int> gridCVArg("", "gridSize", "Uniform grid size for cross-validation search", false, 20, "int");
+		ValueArg<int> gridCVArg("", "gridSize", "Uniform grid size for cross-validation search", false, 10, "int");
 		ValueArg<int> foldToComputeCVArg("", "computeFold", "Number of fold to iterate, default is 'fold' value", false, 10, "int");
 		ValueArg<string> outFile2Arg("", "cvFileName", "Cross-validation output file name", false, "cv.txt", "cvFileName");
 
 		//Bootstrap arguments
 		SwitchArg doBootstrapArg("b", "bs", "Perform bootstrap estimation", false);
-		ValueArg<string> bsOutFileArg("", "bsFileName", "Bootstrap output file name", false, "bs.txt", "bsFileName");
-		ValueArg<int> replicatesArg("r", "replicates", "Number of bootstrap replicates", false, 200, "int");
+//		ValueArg<string> bsOutFileArg("", "bsFileName", "Bootstrap output file name", false, "bs.txt", "bsFileName");
+		ValueArg<int> replicatesArg("r", "replicates", "Number of bootstrap replicates", false, 100, "int");
 		SwitchArg reportRawEstimatesArg("","raw", "Report the raw bootstrap estimates", false);
 
 		cmd.add(gpuArg);
@@ -187,12 +187,12 @@ double initializeModel(
 
 #ifdef CUDA
 	if (arguments.useGPU) {
-		if (arguments.useBetterGPU) {
-			*ccd = new BetterGPU(arguments.deviceNumber, *reader);
+//		if (arguments.useBetterGPU) {
+//			*ccd = new BetterGPU(arguments.deviceNumber, *reader);
 //			*ccd = NULL;
-		} else {
+//		} else {
 			*ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, *reader);
-		}
+//		}
 	} else {
 #endif
 

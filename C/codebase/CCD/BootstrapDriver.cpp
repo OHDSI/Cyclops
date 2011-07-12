@@ -67,7 +67,7 @@ void BootstrapDriver::logResults(const CCDArguments& arguments) {
 
 void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<real>& savedBeta, std::string conditionId) {
 
-	ofstream outLog(arguments.bsFileName.c_str());
+	ofstream outLog(arguments.outFileName.c_str());
 	if (!outLog) {
 		cerr << "Unable to open log file: " << arguments.bsFileName << endl;
 		exit(-1);
