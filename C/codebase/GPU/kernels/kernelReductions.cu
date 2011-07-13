@@ -172,9 +172,6 @@ __global__ void kernelComputeGradientAndHessianWithReduction(
         unsigned int length,
         unsigned int blockSize_not_used
 ) {
-//	int idx = blockIdx.x * blockDim.x + threadIdx.x;
-//	if (idx < length) {	
-
     __shared__ REAL sgradient[WORK_BLOCK_SIZE];
     __shared__ REAL shessian[WORK_BLOCK_SIZE];
     
@@ -190,9 +187,54 @@ __global__ void kernelComputeGradientAndHessianWithReduction(
 	    REAL gradient;
 	    REAL hessian;
 	    transform(iNumer[i], iDenom[i], iNEvents[i], gradient, hessian);
-//	    oGradient[i] = gradient;
-//	    oHessian[i] = hessian;
-	    
+
+	    // Add to local thread sum
+	    mySumGradient += gradient;
+	    mySumHessian += hessian;
+	    i += gridSize;
+	}
+	
+	// Reduce across threads in block
+	parallelReduction(sgradient, mySumGradient);
+	parallelReduction(shessian, mySumHessian);
+	
+ 	if (tid == 0) {
+ 	    oGradient[blockIdx.x] = sgradient[0];
+ 	    oHessian[blockIdx.x] = shessian[0];
+ 	}
+}
+
+__global__ void kernelComputeGradientAndHessianWithReductionSparse(
+        const REAL* iNumer,
+        const REAL* iDenom,
+        const int* iNEvents,
+        const int* iNI,
+        REAL* oGradient,
+        REAL* oHessian,
+        unsigned int length,
+        unsigned int blockSize_not_used
+) {
+    __shared__ REAL sgradient[SPARSE_WORK_BLOCK_SIZE];
+    __shared__ REAL shessian[SPARSE_WORK_BLOCK_SIZE];
+    
+    unsigned int tid = threadIdx.x;
+    unsigned int i = blockIdx.x * SPARSE_WORK_BLOCK_SIZE + threadIdx.x;
+    unsigned int gridSize = SPARSE_WORK_BLOCK_SIZE * gridDim.x;
+    
+    REAL mySumGradient = REAL(0.0);
+    REAL mySumHessian = REAL(0.0);
+    
+    while (i < length) {
+	    // Do work of this entry
+	    REAL gradient;
+	    REAL hessian;
+#if 1	    
+	    int n = iNI[i]; // Coalesced
+	    transform(iNumer[n], iDenom[n], iNEvents[n], gradient, hessian); // Not coalesced
+#else	   
+	    transform(iNumer[i], iDenom[i], iNEvents[i], gradient, hessian); // Not coalesced
+#endif	    
+
 	    // Add to local thread sum
 	    mySumGradient += gradient;
 	    mySumHessian += hessian;

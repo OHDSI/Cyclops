@@ -14,6 +14,7 @@
 #include "GPU/KernelLauncherCCD.h"
 
 #define NO_BETA
+#define GPU_SPARSE_PRODUCT
 
 #ifdef DOUBLE_PRECISION
 	typedef double gpu_real;
@@ -85,6 +86,12 @@ private:
 	real* hHessian;
 
 	GPUPtr* dXColumnRowIndicators;
+
+#ifdef GPU_SPARSE_PRODUCT
+	GPUPtr* dNI;
+	int maxNISize;
+	int avgNISize;
+#endif
 //	int* hColumnRowLength;
 
 	GPUPtr dTmpCooRows;

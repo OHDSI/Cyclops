@@ -131,29 +131,59 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	dOffsExpXBeta = gpu->AllocateRealMemory(K);
 //	dXOffsExpXBeta = gpu->AllocateRealMemory(K);
 
-
-//#ifdef MERGE_TRANSFORMATION
 	alignedN = getAlignedLength(N);
-	cacheSizeGH = kernels->getGradientAndHessianBlocks(N);
-	alignedGHCacheSize = getAlignedLength(cacheSizeGH);
-
 	dNumerPid = gpu->AllocateRealMemory(2 * alignedN);
 	dDenomPid = dNumerPid  + sizeof(real) * alignedN; // GPUPtr is void* not real*
 
+#ifdef GPU_SPARSE_PRODUCT
+	std::vector<int> hNI; // temporary
+	int totalLength = 0;
+	maxNISize = 0;
+	for (int j = 0; j < J; ++j) {
+		const int size = sparseIndices[j]->size();
+		if (size > maxNISize) {
+			maxNISize = size;
+		}
+		totalLength += size;
+	}
+	avgNISize = totalLength / J;
+
+//	std::cerr << "Original N = " << N << std::endl;
+	std::cout << "Max patients per drug = " << maxNISize << std::endl;
+	std::cout << "Avg patients per drug = " << avgNISize << std::endl;
+
+	GPUPtr head = gpu->AllocateIntMemory(totalLength);
+	dNI = (GPUPtr*) malloc(J * sizeof(GPUPtr));
+	for (int j = 0; j < J; ++j) {
+		const int n = sparseIndices[j]->size();
+		if (n > 0) {
+			dNI[j] = head;
+			typedef std::vector<int>::iterator Iterator;
+			Iterator it = sparseIndices[j]->begin();
+			const Iterator end = sparseIndices[j]->end();
+			for (; it != end; ++it) {
+				hNI.push_back(*it);
+			}
+		} else {
+			dNI[j] = NULL;
+		}
+		head += sizeof(int) * n; // GPUPtr is void* not int*
+	}
+	gpu->MemcpyHostToDevice(dNI[0], &hNI[0], sizeof(int) * totalLength);
+	cacheSizeGH = kernels->getGradientAndHessianBlocks(
+			maxNISize
+//			avgNISize
+			);
+#else
+	cacheSizeGH = kernels->getGradientAndHessianBlocks(N);
+#endif
+
+	alignedGHCacheSize = getAlignedLength(cacheSizeGH);
 	dGradient = gpu->AllocateRealMemory(2 * alignedGHCacheSize);
 	dHessian = dGradient + sizeof(real) * alignedGHCacheSize; // GPUPtr is void* not real*
 	hGradient = (real*) malloc(2 * sizeof(real) * alignedGHCacheSize);
 	hHessian = hGradient + alignedGHCacheSize;
-//#else
-//	dDenomPid = gpu->AllocateRealMemory(N);
-//	dNumerPid = gpu->AllocateRealMemory(N);
-//	dT1 = gpu->AllocateRealMemory(N);
-//	dGradient = gpu->AllocateRealMemory(2 * N);
-//	dHessian = dGradient + sizeof(real) * N;
-//	dReducedGradientHessian = gpu->AllocateRealMemory(2);
-//	hGradient = (real*) malloc(sizeof(real) * N);
-//	hHessian = (real*) malloc(sizeof(real) * N);
-//#endif
+
 
 //	cerr << "Memory allocate 5" << endl;
 	// Allocate computed indices for sparse matrix operations
@@ -203,7 +233,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 			gpu->MemcpyHostToDevice(dXColumnRowIndicators[j],
 					&columnRowIndicators[0], sizeof(int) * n);
 		} else {
-			dXColumnRowIndicators[j] = 0;
+			dXColumnRowIndicators[j] = NULL;
 		}
 	}
 	
@@ -267,6 +297,11 @@ GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
 //	gpu->FreeMemory(dGradient);
 //	gpu->FreeMemory(dReducedGradientHessian);
 //#endif
+
+#ifdef GPU_SPARSE_PRODUCT
+	gpu->FreeMemory(dNI[0]);
+#endif
+
 
 //	cerr << "4" << endl;
 #ifdef CONTIG_MEMORY
@@ -437,7 +472,25 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
 	real gradient = 0;
 	real hessian = 0;
 
-#ifdef MERGE_TRANSFORMATION
+#ifdef GPU_SPARSE_PRODUCT
+	int blockUsed = kernels->computeGradientAndHessianWithReductionSparse(dNumerPid, dDenomPid, dNEvents, dNI[index],
+			dGradient, dHessian,
+			sparseIndices[index]->size(),
+//			N,
+			1, SPARSE_WORK_BLOCK_SIZE);
+	gpu->MemcpyDeviceToHost(hGradient, dGradient, sizeof(real) * 2 * alignedGHCacheSize);
+
+	real* gradientCache = hGradient;
+	const real* end = gradientCache + cacheSizeGH;
+	real* hessianCache = hHessian;
+
+	// TODO Remove code duplication with CPU version from here below
+	for (; gradientCache != end; ++gradientCache, ++hessianCache) {
+		gradient += *gradientCache;
+		hessian += *hessianCache;
+	}
+
+#else
 	// TODO dynamically determine threads/blocks.
 	int blockUsed = kernels->computeGradientAndHessianWithReduction(dNumerPid, dDenomPid, dNEvents,
 			dGradient, dHessian, N, 1, WORK_BLOCK_SIZE);
@@ -452,23 +505,14 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
 		gradient += *gradientCache;
 		hessian += *hessianCache;
 	}
-
-#else
-	
-	unsigned int threads = (N < 512) ? nextPow2((N + 1)/ 2) : 256;
-	unsigned int blocks = (N + (threads * 2 - 1)) / (threads * 2);
-	blocks = (64 < blocks) ? 64 : blocks;
-	
-	kernels->reduceSum(dGradient, dGradient, N, blocks, threads);
-	kernels->reduceSum(dHessian, dGradient+(blocks*sizeof(real)), N, blocks, threads);
-	gpu-> MemcpyDeviceToHost(hGradient, dGradient, 2*blocks*sizeof(real));
-
-	for (int i = 0; i < blocks; i++)
-	{	
-		gradient += hGradient[i];
-		hessian += hGradient[i+blocks];
-	}
 #endif
+
+//  // Example of dynamic block sizes
+//	unsigned int threads = (N < 512) ? nextPow2((N + 1)/ 2) : 256;
+//	unsigned int blocks = (N + (threads * 2 - 1)) / (threads * 2);
+//	blocks = (64 < blocks) ? 64 : blocks;
+	
+
 	
 
 	gradient -= hXjEta[index];
