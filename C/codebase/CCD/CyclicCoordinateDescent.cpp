@@ -13,6 +13,7 @@
 #include <cstring>
 #include <map>
 #include <time.h>
+#include <set>
 
 #include "CyclicCoordinateDescent.h"
 #include "InputReader.h"
@@ -20,7 +21,6 @@
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
 
 using namespace std;
-
 
 void compareIntVector(int* vec0, int* vec1, int dim, const char* name) {
 	for (int i = 0; i < dim; i++) {
@@ -137,6 +137,14 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 	if (hWeights) {
 		free(hWeights);
 	}
+
+#ifdef SPARSE_PRODUCT
+	for (std::vector<std::vector<int>* >::iterator it = sparseIndices.begin(); it != sparseIndices.end(); ++it) {
+		if (*it) {
+			delete *it;
+		}
+	}
+#endif
 }
 
 string CyclicCoordinateDescent::getPriorInfo() {
@@ -221,6 +229,22 @@ void CyclicCoordinateDescent::init() {
 			hXColumnRowIndicators[j] = 0;
 		}
 	}
+#endif
+
+#ifdef SPARSE_PRODUCT
+	for (int j = 0; j < J; ++j) {
+		std::set<int> unique;
+		const int n = hXI->getNumberOfEntries(j);
+		const int* indicators = hXI->getCompressedColumnVector(j);
+		for (int j = 0; j < n; j++) { // Loop through non-zero entries only
+			const int k = indicators[j];
+			const int i = hPid[k];
+			unique.insert(i);
+		}
+		std::vector<int>* indices = new std::vector<int>(unique.begin(), unique.end());
+		sparseIndices.push_back(indices);
+	}
+
 #endif
 
 	useCrossValidation = false;
@@ -526,10 +550,22 @@ void CyclicCoordinateDescent::computeGradientAndHession(int index, double *ograd
 	real gradient = 0;
 	real hessian = 0;
 
+#ifdef SPARSE_PRODUCT
+	std::vector<int>::iterator it = sparseIndices[index]->begin();
+	const std::vector<int>::iterator end = sparseIndices[index]->end();
+
+	for (; it != end; ++it) {
+		const int i = *it;
+		const real t = numerPid[i] / denomPid[i];
+		const real g = hNEvents[i] * t;
+		gradient += g;
+		hessian += g * (static_cast<real>(1.0) - t);
+	}
+#else
+
 	int* nEvents = hNEvents;
 	const int* end = hNEvents + N;
 
-#ifdef MERGE_TRANSFORMATION
 	real* num = numerPid;
 	real* denom = denomPid;
 	for (; nEvents != end; ++nEvents, ++num, ++denom) {
@@ -538,15 +574,7 @@ void CyclicCoordinateDescent::computeGradientAndHession(int index, double *ograd
 		gradient += g;
 		hessian += g * (static_cast<real>(1.0) - t);
 	}
-#else
-	real* tmp = t1;
-	for (; nEvents != end; ++nEvents, ++tmp) {
-		const real t = *tmp;
-		const real g = *nEvents * t;
-		gradient += g;
-		hessian += g * (static_cast<real>(1.0) - t);
-	}
-#endif
+#endif // SPARSE_PRODUCT
 
 	gradient -= hXjEta[index];
 	*ogradient = static_cast<double>(gradient);
@@ -555,7 +583,16 @@ void CyclicCoordinateDescent::computeGradientAndHession(int index, double *ograd
 
 void CyclicCoordinateDescent::computeNumeratorForGradient(int index) {
 
-	zeroVector(numerPid, N);
+#ifdef SPARSE_PRODUCT
+	std::vector<int>::iterator it = sparseIndices[index]->begin();
+	const std::vector<int>::iterator end = sparseIndices[index]->end();
+
+	for (; it != end; ++it) {
+		numerPid[*it] = real(0.0);
+	}
+#else
+	zeroVector(numerPid, N); // TODO Zero only non-zero entries
+#endif
 	const int n = hXI->getNumberOfEntries(index);
 
 #ifdef TEST_ROW_INDEX

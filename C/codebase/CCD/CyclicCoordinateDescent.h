@@ -20,6 +20,7 @@ using namespace std;
 #define BETTER_LOOPS
 #define MERGE_TRANSFORMATION
 #define NEW_NUMERATOR
+#define SPARSE_PRODUCT
 
 #ifdef DOUBLE_PRECISION
 	typedef double real;
@@ -214,6 +215,10 @@ protected:
 	real* t1;
 	real* xOffsExpXBeta;
 	real* hXjEta;
+
+#ifdef SPARSE_PRODUCT
+	std::vector<std::vector<int>* > sparseIndices;
+#endif
 };
 
 double convertVarianceToHyperparameter(double variance);

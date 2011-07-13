@@ -60,14 +60,14 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		SwitchArg normalPriorArg("n", "normalPrior", "Use normal prior, default is laplace", false);
 
 		// Convergence criterion arguments
-		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, 1E-4, "real");
+		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, 5E-4, "real");
 		SwitchArg zhangOlesConvergenceArg("z", "zhangOles", "Use Zhange-Oles convergence criterion, default is true", true);
-		ValueArg<long> seedArg("s", "seed", "Random number generator seed", false, 0, "long");
+		ValueArg<long> seedArg("s", "seed", "Random number generator seed", false, 123, "long");
 
 		// Cross-validation arguments
 		SwitchArg doCVArg("c", "cv", "Perform cross-validation selection of hyperprior variance", false);
 		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, 0.01, "real");
-		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, 100.0, "real");
+		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, 20.0, "real");
 		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, 10, "int");
 		ValueArg<int> gridCVArg("", "gridSize", "Uniform grid size for cross-validation search", false, 10, "int");
 		ValueArg<int> foldToComputeCVArg("", "computeFold", "Number of fold to iterate, default is 'fold' value", false, 10, "int");

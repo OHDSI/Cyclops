@@ -114,7 +114,7 @@ void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<real
 			real upper = *(estimates[j]->begin() + offsetUpper);
 
 			outLog << savedBeta[j] << sep;
-			outLog << mean << sep << std::sqrt(var) << sep << lower << sep << upper << sep << prob0 << endl;
+			outLog << std::sqrt(var) << sep << mean << sep << lower << sep << upper << sep << prob0 << endl;
 		}
 	}
 	outLog.close();
