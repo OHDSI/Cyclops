@@ -134,6 +134,10 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 	free(numerPid);
 	free(t1);
 	
+#ifdef NO_FUSE
+	free(wPid);
+#endif
+	
 	if (hWeights) {
 		free(hWeights);
 	}
@@ -209,6 +213,10 @@ void CyclicCoordinateDescent::init() {
 	hNEvents = (int*) malloc(sizeof(int) * N);
 	hXjEta = (real*) malloc(sizeof(real) * J);
 	hWeights = NULL;
+	
+#ifdef NO_FUSE
+	wPid = (real*) malloc(sizeof(real) * alignedLength);
+#endif
 
 	// Initialize XColumnRowIndicators for fast spMV
 
@@ -550,9 +558,29 @@ void CyclicCoordinateDescent::computeGradientAndHession(int index, double *ograd
 	real gradient = 0;
 	real hessian = 0;
 
-#ifdef SPARSE_PRODUCT
+#ifdef SPARSE_PRODUCT	
 	std::vector<int>::iterator it = sparseIndices[index]->begin();
 	const std::vector<int>::iterator end = sparseIndices[index]->end();
+	
+#ifdef NO_FUSE
+	for (; it != end; ++it) {
+		const int i = *it;
+		wPid[i] = numerPid[i] / denomPid[i];
+	}
+	
+	it = sparseIndices[index]->begin();
+	for (; it != end; ++it) {
+		const int i = *it;
+		gradient += hNEvents[i] * wPid[i];		
+	}	
+	
+	it = sparseIndices[index]->begin();
+	for (; it != end; ++it) {
+		const int i = *it;
+		hessian += hNEvents[i] * wPid[i] * (static_cast<real>(1.0) - wPid[i]);		
+	}	
+	
+#else // NO_FUSE
 
 	for (; it != end; ++it) {
 		const int i = *it;
@@ -561,7 +589,9 @@ void CyclicCoordinateDescent::computeGradientAndHession(int index, double *ograd
 		gradient += g;
 		hessian += g * (static_cast<real>(1.0) - t);
 	}
-#else
+#endif // NO_FUSE
+	
+#else // SPARSE_PRODUCT
 
 	int* nEvents = hNEvents;
 	const int* end = hNEvents + N;

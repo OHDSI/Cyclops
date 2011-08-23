@@ -22,6 +22,10 @@ using namespace std;
 #define NEW_NUMERATOR
 #define SPARSE_PRODUCT
 
+
+//#define NO_FUSE
+
+
 #ifdef DOUBLE_PRECISION
 	typedef double real;
 #else
@@ -218,6 +222,10 @@ protected:
 
 #ifdef SPARSE_PRODUCT
 	std::vector<std::vector<int>* > sparseIndices;
+#endif
+	
+#ifdef NO_FUSE
+	real* wPid;
 #endif
 };
 
