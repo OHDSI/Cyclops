@@ -69,7 +69,7 @@ CompressedIndicatorMatrix::~CompressedIndicatorMatrix() {
 	// Do nothing
 }
 
-int CompressedIndicatorMatrix::getNumberOfRows(void) {
+int CompressedIndicatorMatrix::getNumberOfRows(void) const {
 	return nRows;
 }
 
@@ -77,12 +77,12 @@ int CompressedIndicatorMatrix::getNumberOfColumns(void) {
 	return nCols;
 }
 
-int CompressedIndicatorMatrix::getNumberOfEntries(int column) {
+int CompressedIndicatorMatrix::getNumberOfEntries(int column) const {
 	return columns[column].size();
 }
 
-int* CompressedIndicatorMatrix::getCompressedColumnVector(int column) {
-	return &(columns[column])[0];
+int* CompressedIndicatorMatrix::getCompressedColumnVector(int column) const {
+	return const_cast<int*>(&(columns[column])[0]);
 }
 
 void CompressedIndicatorMatrix::allocateMemory(int nCols) {

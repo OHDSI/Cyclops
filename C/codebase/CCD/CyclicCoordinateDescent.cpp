@@ -17,6 +17,7 @@
 
 #include "CyclicCoordinateDescent.h"
 #include "InputReader.h"
+#include "Iterators.h"
 
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
 
@@ -731,29 +732,31 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 
 void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
 	// Separate function for benchmarking
-	hBeta[index] += delta;
 
 	real realDelta = static_cast<real>(delta);
+	hBeta[index] += realDelta;
 
-
-#ifdef TEST_ROW_INDEX
-	const int* rows = hXColumnRowIndicators[index];
-#endif
-
+#if 0
 	const int* indicators = hXI->getCompressedColumnVector(index);
 	const int n = hXI->getNumberOfEntries(index);
 	for (int i = 0; i < n; i++) { // Loop through non-zero entries only
 		const int k = indicators[i];
-		hXBeta[k] += realDelta;
-#ifdef TEST_SPARSE
+#else
+	SparseIndicatorIterator it(*hXI, index);
+//	IteratorType it(*hXI, index);
+
+	for (; it; ++it) {
+		const int k = it.index();
+#endif
+
+		hXBeta[k] += realDelta
+#if 1
+				* it.value() // TODO Check if optimized way
+#endif
+				;
 		real oldEntry = offsExpXBeta[k];
 		real newEntry = offsExpXBeta[k] = hOffs[k] * exp(hXBeta[k]);
-#ifdef TEST_ROW_INDEX
-		denomPid[rows[i]] += (newEntry - oldEntry);
-#else
 		denomPid[hPid[k]] += (newEntry - oldEntry);
-#endif
-#endif
 	}	
 }
 

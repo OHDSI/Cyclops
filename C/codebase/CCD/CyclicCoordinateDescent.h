@@ -127,6 +127,9 @@ protected:
 
 	virtual void updateXBeta(double delta, int index);
 
+	template <class IteratorType>
+	void updateXBetaImpl(real delta, int index);
+
 	virtual void computeRemainingStatistics(bool);
 	
 	virtual void computeRatiosForGradientAndHessian(int index);
