@@ -27,12 +27,13 @@ using namespace std;
 typedef std::vector<int> int_vector;
 typedef std::vector<real> real_vector;
 
+enum FormatType {
+	DENSE, SPARSE, INDICATOR
+};
+
 class CompressedIndicatorMatrix {
 
 public:
-	enum FormatType {
-		DENSE, SPARSE, INDICATOR
-	};
 
 	CompressedIndicatorMatrix();
 
@@ -48,7 +49,11 @@ public:
 
 	int* getCompressedColumnVector(int column) const;
 
+	real* getDataVector(int column) const;
+
 	FormatType getFormatType(int column) const;
+
+	void convertColumnToDense(int column);
 
 protected:
 	void allocateMemory(int nCols);
@@ -57,8 +62,12 @@ protected:
 	int nRows;
 	int nCols;
 	int nEntries;
-	std::vector<int_vector> columns;	
-	std::vector<real_vector> data;
+
+	std::vector<int_vector*> columns; // TODO should be std::vector<int_vector*>
+
+	std::vector<real_vector*> data;
+	std::vector<FormatType> formatType;
+
 //	std::vector<int> rows;  // standard CSC representation
 //	std::vector<int> ptrStart;
 

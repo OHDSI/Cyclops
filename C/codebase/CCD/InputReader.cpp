@@ -59,7 +59,7 @@ InputReader::InputReader(const char* fileName) {
 		hasConditionId = false; // Original data format style
 	}
 
-	vector<int_vector> unorderColumns = vector<int_vector>();
+	vector<int_vector*> unorderColumns = vector<int_vector*>();
 
 	int numPatients = 0;
 	int numDrugs = 0;
@@ -119,12 +119,12 @@ InputReader::InputReader(const char* fileName) {
 				} else {
 					if (drugMap.count(drug) == 0) {
 						drugMap.insert(make_pair(drug,numDrugs));
-						unorderColumns.push_back(int_vector());
+						unorderColumns.push_back(new int_vector());
 						numDrugs++;
 					}
 					if (!listContains(uniqueDrugsForEntry, drug)) {
 						// Add to CSC storage
-						unorderColumns[drugMap[drug]].push_back(currentEntry);
+						unorderColumns[drugMap[drug]]->push_back(currentEntry);
 						uniqueDrugsForEntry.push_back(drug);
 					}
 				}
@@ -136,11 +136,16 @@ InputReader::InputReader(const char* fileName) {
 
 	nevents.push_back(numEvents); // Save last patient
 
-	columns = vector<int_vector>(unorderColumns.size());
+//	columns = vector<int_vector>(unorderColumns.size());
+	columns.resize(unorderColumns.size());
+	formatType.resize(unorderColumns.size(), INDICATOR);
 
 	// Sort drugs numerically
 	int index = 0;
 	for (map<DrugIdType,int>::iterator ii = drugMap.begin(); ii != drugMap.end(); ii++) {
+		if (columns[index]) {
+			delete columns[index];
+		}
 	   	columns[index] = unorderColumns[(*ii).second];
 	   	drugMap[(*ii).first] = index;
 	   	indexToDrugIdMap.insert(make_pair(index, (*ii).first));
@@ -155,6 +160,27 @@ InputReader::InputReader(const char* fileName) {
 	nCols = columns.size();
 	nRows = currentEntry;
 	conditionId = outcomeId;
+
+#if 0
+	cout << "Converting first column to dense format" << endl;
+	convertColumnToDense(0);
+#endif
+
+#if 1
+	const int count = 20;
+	cout << "Converting some columns to dense format" << endl;
+	for (int j = 0; j < std::min(count, nCols); ++j) {
+		convertColumnToDense(j);
+	}
+	nCols = std::min(count, nCols);
+#endif
+
+#if 0
+	cout << "Converting all columns to dense format" << endl;
+	for (int j = 0; j < nCols; ++j) {
+		convertColumnToDense(j);
+	}
+#endif
 }
 
 bool InputReader::listContains(const vector<DrugIdType>& list, DrugIdType value) {

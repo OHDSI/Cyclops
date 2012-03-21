@@ -22,6 +22,8 @@ using namespace std;
 #define NEW_NUMERATOR
 #define SPARSE_PRODUCT
 
+#define USE_ITER
+
 
 //#define NO_FUSE
 
@@ -121,6 +123,9 @@ protected:
 
 	void updateSufficientStatistics(double delta, int index);
 
+	template <class IteratorType>
+	void incrementNumeratorForGradientImpl(int index);
+
 	void computeNumeratorForGradient(int index);
 
 	virtual void computeNEvents(void);
@@ -130,16 +135,29 @@ protected:
 	template <class IteratorType>
 	void updateXBetaImpl(real delta, int index);
 
+	void updateXBetaImplHand(real realDelta, int index);
+
 	virtual void computeRemainingStatistics(bool);
 	
 	virtual void computeRatiosForGradientAndHessian(int index);
 
 	virtual void computeRatio(int index);
 
-	virtual void computeGradientAndHession(
+	virtual void computeGradientAndHessian(
 			int index,
 			double *gradient,
 			double *hessian);
+
+	template <class IteratorType>
+	void computeGradientAndHessianImpl(
+			int index,
+			double *gradient,
+			double *hessian);
+
+	void computeGradientAndHessianImplHand(
+			int index,
+						double *gradient,
+						double *hessian);
 
 	virtual void getDenominators(void);
 

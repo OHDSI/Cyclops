@@ -49,12 +49,12 @@ CompressedIndicatorMatrix::CompressedIndicatorMatrix(const char* fileName) {
 			cerr << "Non-zero/one element in matrix." << endl;
 			exit(-1);
 		}
-		columns[j].push_back(i);
+		columns[j]->push_back(i);
 	}
 	
 	// Sort all columns, just in case MatrixMarket file is corrupted
 	for (int j = 0; j < nCols; j++) {
-		std::sort(columns[j].begin(), columns[j].end());
+		std::sort(columns[j]->begin(), columns[j]->end());
 	}
 		
 #ifdef DEBUG
@@ -66,7 +66,52 @@ CompressedIndicatorMatrix::CompressedIndicatorMatrix(const char* fileName) {
 }
 
 CompressedIndicatorMatrix::~CompressedIndicatorMatrix() {
-	// Do nothing
+	typedef std::vector<real_vector*>::iterator RIterator;
+	for (RIterator it = data.begin(); it != data.end(); ++it) {
+		if (*it) {
+			delete *it;
+		}
+	}
+
+	typedef std::vector<int_vector*>::iterator IIterator;
+	for (IIterator it = columns.begin(); it != columns.end(); ++it) {
+		if (*it) {
+			delete *it;
+		}
+	}
+}
+
+void CompressedIndicatorMatrix::convertColumnToDense(int column) {
+	if (getFormatType(column) == DENSE) {
+		return;
+	}
+	if (getFormatType(column) == SPARSE) {
+		fprintf(stderr, "Format not yet support.\n");
+		exit(-1);
+	}
+
+	while (data.size() <= column) {
+		data.push_back(NULL);
+	}
+	if (data[column] == NULL) {
+		data[column] = new real_vector();
+	}
+	data[column]->resize(nRows, static_cast<real>(0));
+
+	int* indicators = getCompressedColumnVector(column);
+	int n = getNumberOfEntries(column);
+//	int nonzero = 0;
+	for (int i = 0; i < n; ++i) {
+		const int k = indicators[i];
+//		cerr << " " << k;
+//		nonzero++;
+		data[column]->at(k) = static_cast<real>(1);
+	}
+//	cerr << endl;
+//	cerr << "Non-zero count: " << nonzero << endl;
+//	exit(0);
+	formatType[column] = DENSE;
+	delete columns[column]; columns[column] = NULL;
 }
 
 int CompressedIndicatorMatrix::getNumberOfRows(void) const {
@@ -78,17 +123,27 @@ int CompressedIndicatorMatrix::getNumberOfColumns(void) {
 }
 
 int CompressedIndicatorMatrix::getNumberOfEntries(int column) const {
-	return columns[column].size();
+	return columns[column]->size();
 }
 
 int* CompressedIndicatorMatrix::getCompressedColumnVector(int column) const {
-	return const_cast<int*>(&(columns[column])[0]);
+	return const_cast<int*>(&(columns[column]->at(0)));
+}
+
+real* CompressedIndicatorMatrix::getDataVector(int column) const {
+	return const_cast<real*>(data[column]->data());
 }
 
 void CompressedIndicatorMatrix::allocateMemory(int nCols) {
 	// Allocate some memory
-	columns = std::vector<int_vector>(nCols);
+//	columns = std::vector<int_vector*>(nCols);
+	columns.resize(nCols);
 	for (int j = 0; j < nCols; j++) {
-		columns[j] = int_vector(); // Create empty list
+//		columns[j] = int_vector(); // Create empty list
+		columns[j] = new int_vector();
 	}
+}
+
+FormatType CompressedIndicatorMatrix::getFormatType(int column) const {
+	return formatType[column];
 }
