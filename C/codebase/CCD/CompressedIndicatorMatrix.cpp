@@ -81,6 +81,32 @@ CompressedIndicatorMatrix::~CompressedIndicatorMatrix() {
 	}
 }
 
+void CompressedIndicatorMatrix::convertColumnToSparse(int column) {
+	if (getFormatType(column) == SPARSE) {
+		return;
+	}
+	if (getFormatType(column) == DENSE) {
+		fprintf(stderr, "Format not yet support.\n");
+		exit(-1);
+	}
+
+	while (data.size() <= column) {
+		data.push_back(NULL);
+	}
+	if (data[column] == NULL) {
+		data[column] = new real_vector();
+	}
+
+#if 1
+	const real value = 1.0;
+#else
+	const real value = 2.0;
+#endif
+
+	data[column]->assign(nRows, value);
+	formatType[column] = SPARSE;
+}
+
 void CompressedIndicatorMatrix::convertColumnToDense(int column) {
 	if (getFormatType(column) == DENSE) {
 		return;
@@ -105,7 +131,13 @@ void CompressedIndicatorMatrix::convertColumnToDense(int column) {
 		const int k = indicators[i];
 //		cerr << " " << k;
 //		nonzero++;
-		data[column]->at(k) = static_cast<real>(1);
+
+#if 0
+		const real value = 1.0;
+#else
+		const real value = 2.0;
+#endif
+		data[column]->at(k) = value;
 	}
 //	cerr << endl;
 //	cerr << "Non-zero count: " << nonzero << endl;

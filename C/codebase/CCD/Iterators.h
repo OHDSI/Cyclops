@@ -17,6 +17,9 @@ class IndicatorIterator {
 	typedef real Scalar;
 	typedef int Index;
 
+//	static const bool isIndicator = true;
+	enum  { isIndicator = true };
+
 	inline IndicatorIterator(const CompressedIndicatorMatrix& mat, Index column)
 	  : mIndices(mat.getCompressedColumnVector(column)),
 	    mId(0), mEnd(mat.getNumberOfEntries(column)){
@@ -52,15 +55,26 @@ class SparseIterator {
 	typedef real Scalar;
 	typedef int Index;
 
+//	static const bool isIndicator = false;
+	enum  { isIndicator = false };
+
 	inline SparseIterator(const CompressedIndicatorMatrix& mat, Index column)
 	  : mValues(mat.getDataVector(column)), mIndices(mat.getCompressedColumnVector(column)),
 	    mId(0), mEnd(mat.getNumberOfEntries(column)){
 		// Do nothing
 	}
 
+	inline SparseIterator(const std::vector<int>& vec, Index max = 0)
+	: mIndices(vec.data()), mId(0), mEnd(vec.size()) {
+		// Do nothing
+	}
+
     inline SparseIterator& operator++() { ++mId; return *this; }
 
-    inline const Scalar& value() const { return mValues[mId]; }
+    inline const Scalar& value() const {
+//    	cerr << "Oh yes!" << endl;
+//    	exit(-1);
+    	return mValues[mId]; }
     inline Scalar& valueRef() { return const_cast<Scalar&>(mValues[mId]); }
 
     inline Index index() const { return mIndices[mId]; }
@@ -77,6 +91,9 @@ class SparseIterator {
 class CountingIterator {
 public:
 	typedef int Index;
+
+//	static const bool isIndicator = false;
+	enum  { isIndicator = false };
 
 	inline CountingIterator(const std::vector<int>& vec, Index end)
 	: mId(0), mEnd(end) {
@@ -99,9 +116,17 @@ class DenseIterator {
 	typedef real Scalar;
 	typedef int Index;
 
+//	static const bool isIndicator = false;
+	enum  { isIndicator = false };
+
 	inline DenseIterator(const CompressedIndicatorMatrix& mat, Index column)
 	  : mValues(mat.getDataVector(column)),
 	    mId(0), mEnd(mat.getNumberOfRows()){
+		// Do nothing
+	}
+
+	inline DenseIterator(const std::vector<int>& vec, Index end)
+	: mId(0), mEnd(end) {
 		// Do nothing
 	}
 

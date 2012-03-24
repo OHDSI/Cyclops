@@ -166,11 +166,20 @@ InputReader::InputReader(const char* fileName) {
 	convertColumnToDense(0);
 #endif
 
-#if 1
+#if 0
 	const int count = 20;
 	cout << "Converting some columns to dense format" << endl;
 	for (int j = 0; j < std::min(count, nCols); ++j) {
 		convertColumnToDense(j);
+	}
+	nCols = std::min(count, nCols);
+#endif
+
+#if 0
+	const int count = 20;
+	cout << "Converting some columns to sparse format" << endl;
+	for (int j = 0; j < std::min(count, nCols); ++j) {
+		convertColumnToSparse(j);
 	}
 	nCols = std::min(count, nCols);
 #endif

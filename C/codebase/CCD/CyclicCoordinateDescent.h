@@ -137,11 +137,11 @@ protected:
 
 	void updateXBetaImplHand(real realDelta, int index);
 
-	virtual void computeRemainingStatistics(bool);
+	virtual void computeRemainingStatistics(bool skip, int index);
 	
 	virtual void computeRatiosForGradientAndHessian(int index);
 
-	virtual void computeRatio(int index);
+//	virtual void computeRatio(int index);
 
 	virtual void computeGradientAndHessian(
 			int index,
@@ -158,6 +158,16 @@ protected:
 			int index,
 						double *gradient,
 						double *hessian);
+
+	template <class IteratorType>
+	inline real computeHessian(
+			real numer, real numer2, real denom,
+			real g, real t);
+
+	template <class IteratorType>
+	inline void incrementGradientAndHessian(
+			real* gradient, real* hessian,
+			real numer, real numer2, real denom, int nEvents);
 
 	virtual void getDenominators(void);
 
@@ -237,7 +247,7 @@ protected:
 	real* offsExpXBeta;
 	real* denomPid;
 	real* numerPid;
-	real* t1;
+	real* numerPid2;
 	real* xOffsExpXBeta;
 	real* hXjEta;
 

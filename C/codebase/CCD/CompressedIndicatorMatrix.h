@@ -55,6 +55,8 @@ public:
 
 	void convertColumnToDense(int column);
 
+	void convertColumnToSparse(int column);
+
 protected:
 	void allocateMemory(int nCols);
 

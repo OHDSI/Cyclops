@@ -40,7 +40,7 @@ protected:
 
 	virtual void updateXBeta(double delta, int index);
 
-	virtual void computeRemainingStatistics(bool);
+	virtual void computeRemainingStatistics(bool, int index);
 
 	virtual void computeRatiosForGradientAndHessian(int index);
 
