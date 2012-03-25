@@ -183,16 +183,12 @@ double initializeModel(
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	*reader = new InputReader(arguments.inFileName.c_str());
+	*reader = new SCCSInputReader();
+	(*reader)->readFile(arguments.inFileName.c_str()); // TODO Check for error
 
 #ifdef CUDA
 	if (arguments.useGPU) {
-//		if (arguments.useBetterGPU) {
-//			*ccd = new BetterGPU(arguments.deviceNumber, *reader);
-//			*ccd = NULL;
-//		} else {
-			*ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, *reader);
-//		}
+		*ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, *reader);
 	} else {
 #endif
 

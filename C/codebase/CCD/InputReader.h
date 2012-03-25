@@ -16,23 +16,19 @@
 
 using namespace std;
 
-#include "CompressedIndicatorMatrix.h"
+#include "CompressedDataMatrix.h"
 
 //#define USE_DRUG_STRING
 
 #ifdef USE_DRUG_STRING
-	typedef string DrugIdType; // TODO String do not get sorted in numerical order
+	typedef string DrugIdType; // TODO Strings do not get sorted in numerical order
 #else
 	typedef int DrugIdType;
 #endif
 
-class InputReader: public CompressedIndicatorMatrix {
+class InputReader: public CompressedDataMatrix {
 public:
 	InputReader();
-
-	InputReader(const char* fileName);
-//	InputReader(const ifstream& in);
-
 	virtual ~InputReader();
 
 	int* getPidVector();
@@ -42,13 +38,12 @@ public:
 	map<int, DrugIdType> getDrugNameMap();
 	int getNumberOfPatients();
 	string getConditionId();
-
 	std::vector<int>* getPidVectorSTL();
 
-private:
-	
-	int* makeDeepCopy(int *original, unsigned int length);
+	virtual void readFile(const char* fileName) = 0;
 
+protected:
+	int* makeDeepCopy(int *original, unsigned int length);
 	bool listContains(const vector<DrugIdType>& list, DrugIdType value);
 
 	int nPatients;

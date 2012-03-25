@@ -71,8 +71,10 @@ include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 set(SOURCE_FILES
 	ccd.cpp
 	CyclicCoordinateDescent.cpp	
-	CompressedIndicatorMatrix.cpp
+	CompressedDataMatrix.cpp
 	InputReader.cpp
+	SCCSInputReader.cpp
+	CLRInputReader.cpp
 	AbstractDriver.cpp
 	AbstractSelector.cpp
 	CrossValidationSelector.cpp

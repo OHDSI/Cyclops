@@ -1,7 +1,7 @@
 #ifndef ITERATORS_H
 #define ITERATORS_H
 
-#include "CompressedIndicatorMatrix.h"
+#include "CompressedDataMatrix.h"
 
 /**
  * Iterators for dense, sparse and indicator vectors.  Each can be passed as a
@@ -20,7 +20,7 @@ class IndicatorIterator {
 //	static const bool isIndicator = true;
 	enum  { isIndicator = true };
 
-	inline IndicatorIterator(const CompressedIndicatorMatrix& mat, Index column)
+	inline IndicatorIterator(const CompressedDataMatrix& mat, Index column)
 	  : mIndices(mat.getCompressedColumnVector(column)),
 	    mId(0), mEnd(mat.getNumberOfEntries(column)){
 		// Do nothing
@@ -58,7 +58,7 @@ class SparseIterator {
 //	static const bool isIndicator = false;
 	enum  { isIndicator = false };
 
-	inline SparseIterator(const CompressedIndicatorMatrix& mat, Index column)
+	inline SparseIterator(const CompressedDataMatrix& mat, Index column)
 	  : mValues(mat.getDataVector(column)), mIndices(mat.getCompressedColumnVector(column)),
 	    mId(0), mEnd(mat.getNumberOfEntries(column)){
 		// Do nothing
@@ -119,7 +119,7 @@ class DenseIterator {
 //	static const bool isIndicator = false;
 	enum  { isIndicator = false };
 
-	inline DenseIterator(const CompressedIndicatorMatrix& mat, Index column)
+	inline DenseIterator(const CompressedDataMatrix& mat, Index column)
 	  : mValues(mat.getDataVector(column)),
 	    mId(0), mEnd(mat.getNumberOfRows()){
 		// Do nothing
@@ -151,7 +151,7 @@ class GenericIterator {
 	typedef real Scalar;
 	typedef int Index;
 
-	inline GenericIterator(const CompressedIndicatorMatrix& mat, Index column)
+	inline GenericIterator(const CompressedDataMatrix& mat, Index column)
 	  : mFormatType(mat.getFormatType(column)),
 	    mId(0) {
 		if (mFormatType == DENSE) {

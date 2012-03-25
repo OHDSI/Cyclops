@@ -1,5 +1,5 @@
 /*
- * CompressedIndicatorMatrix.h
+ * CompressedDataMatrix.h
  *
  *  Created on: May-June, 2010
  *      Author: msuchard
@@ -31,15 +31,15 @@ enum FormatType {
 	DENSE, SPARSE, INDICATOR
 };
 
-class CompressedIndicatorMatrix {
+class CompressedDataMatrix {
 
 public:
 
-	CompressedIndicatorMatrix();
+	CompressedDataMatrix();
 
-	CompressedIndicatorMatrix(const char* fileName);
+	CompressedDataMatrix(const char* fileName);
 
-	virtual ~CompressedIndicatorMatrix();
+	virtual ~CompressedDataMatrix();
 	
 	int getNumberOfRows(void) const;
 	

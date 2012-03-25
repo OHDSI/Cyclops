@@ -8,7 +8,7 @@
 #ifndef CYCLICCOORDINATEDESCENT_H_
 #define CYCLICCOORDINATEDESCENT_H_
 
-#include "CompressedIndicatorMatrix.h"
+#include "CompressedDataMatrix.h"
 #include "InputReader.h"
 
 using namespace std;
@@ -64,7 +64,7 @@ public:
 
 	CyclicCoordinateDescent(
 			int inN,
-			CompressedIndicatorMatrix* inX,
+			CompressedDataMatrix* inX,
 			int* inEta, 
 			int* inOffs, 
 			int* inNEvents,
@@ -213,7 +213,7 @@ protected:
 	ofstream outLog;
 	bool hasLog;
 
-	CompressedIndicatorMatrix* hXI; // K-by-J-indicator matrix	
+	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
 	int* hOffs;  // K-vector
 	int* hEta; // K-vector
