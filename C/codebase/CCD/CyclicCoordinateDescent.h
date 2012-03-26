@@ -98,6 +98,8 @@ public:
 
 	void setWeights(real* weights);
 
+	void setLogisticRegression(bool idoLR);
+
 	// Getters
 	string getPriorInfo();
 
@@ -125,6 +127,8 @@ protected:
 
 	template <class IteratorType>
 	void incrementNumeratorForGradientImpl(int index);
+
+	void incrementNumeratorForGradientImplHand(int index);
 
 	void computeNumeratorForGradient(int index);
 
@@ -184,6 +188,13 @@ protected:
 	virtual double computeZhangOlesConvergenceCriterion(void);
 
 	template <class T>
+	void fillVector(T* vector, const int length, const T& value) {
+		for (int i = 0; i < length; i++) {
+			vector[i] = value;
+		}
+	}
+
+	template <class T>
 	void zeroVector(T* vector, const int length) {
 		for (int i = 0; i < length; i++) {
 			vector[i] = 0;
@@ -236,10 +247,13 @@ protected:
 	double sigma2Beta;
 	double lambda;
 
+	real denomNullValue;
+
 	bool sufficientStatisticsKnown;
 
 	bool validWeights;
 	bool useCrossValidation;
+	bool doLogisticRegression;
 	real* hWeights;
 
 	// temporary variables

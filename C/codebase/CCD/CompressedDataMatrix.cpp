@@ -81,6 +81,38 @@ CompressedDataMatrix::~CompressedDataMatrix() {
 	}
 }
 
+void CompressedDataMatrix::printColumn(int column) {
+	real_vector values;
+	if (getFormatType(column) == DENSE) {
+		values.assign(data[column]->begin(), data[column]->end());
+	} else {
+		bool isSparse = getFormatType(column) == SPARSE;
+		values.assign(nRows, 0.0);
+		int* indicators = getCompressedColumnVector(column);
+		int n = getNumberOfEntries(column);
+		for (int i = 0; i < n; ++i) {
+			const int k = indicators[i];
+			if (isSparse) {
+				values[k] = data[column]->at(i);
+			} else {
+				values[k] = 1.0;
+			}
+		}
+	}
+	printVector(values.data(), values.size());
+}
+
+//template <class T>
+//void CompressedDataMatrix::printVector(T values, const int size) {
+//	cout << "[" << values[0];
+//	for (int i = 1; i < size; ++i) {
+//		cout << " " << values[i];
+//	}
+//	cout << "]" << endl;
+//}
+
+
+
 void CompressedDataMatrix::convertColumnToSparse(int column) {
 	if (getFormatType(column) == SPARSE) {
 		return;

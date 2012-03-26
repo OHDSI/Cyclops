@@ -7,6 +7,7 @@ set(SOURCE_FILES
 	../CCD/InputReader.cpp
 	../CCD/SCCSInputReader.cpp
 	../CCD/CLRInputReader.cpp
+	../CCD/RTestInputReader.cpp
 	../CCD/AbstractDriver.cpp
 	../CCD/AbstractSelector.cpp
 	../CCD/CrossValidationSelector.cpp

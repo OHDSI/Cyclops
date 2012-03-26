@@ -23,6 +23,8 @@
 #include "ccd.h"
 #include "CyclicCoordinateDescent.h"
 #include "InputReader.h"
+#include "CLRInputReader.h"
+#include "RTestInputReader.h"
 #include "CrossValidationSelector.h"
 #include "CrossValidationDriver.h"
 #include "BootstrapSelector.h"
@@ -73,11 +75,22 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		ValueArg<int> foldToComputeCVArg("", "computeFold", "Number of fold to iterate, default is 'fold' value", false, 10, "int");
 		ValueArg<string> outFile2Arg("", "cvFileName", "Cross-validation output file name", false, "cv.txt", "cvFileName");
 
-		//Bootstrap arguments
+		// Bootstrap arguments
 		SwitchArg doBootstrapArg("b", "bs", "Perform bootstrap estimation", false);
 //		ValueArg<string> bsOutFileArg("", "bsFileName", "Bootstrap output file name", false, "bs.txt", "bsFileName");
 		ValueArg<int> replicatesArg("r", "replicates", "Number of bootstrap replicates", false, 100, "int");
 		SwitchArg reportRawEstimatesArg("","raw", "Report the raw bootstrap estimates", false);
+
+		// Model arguments
+		SwitchArg doLogisticRegressionArg("", "logistic", "Use ordinary logistic regression", false);
+
+		// Format arguments
+		std::vector<std::string> allowed;
+		allowed.push_back("sccs");
+		allowed.push_back("clr");
+		allowed.push_back("csv");
+		ValuesConstraint<std::string> allowedValues(allowed);
+		ValueArg<string> formatArg("", "format", "Format of data file", false, "sccs", &allowedValues);
 
 		cmd.add(gpuArg);
 //		cmd.add(betterGPUArg);
@@ -87,6 +100,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		cmd.add(normalPriorArg);
 		cmd.add(zhangOlesConvergenceArg);
 		cmd.add(seedArg);
+		cmd.add(formatArg);
 
 		cmd.add(doCVArg);
 		cmd.add(lowerCVArg);
@@ -100,6 +114,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 //		cmd.add(bsOutFileArg);
 		cmd.add(replicatesArg);
 		cmd.add(reportRawEstimatesArg);
+		cmd.add(doLogisticRegressionArg);
 
 		cmd.add(inFileArg);
 		cmd.add(outFileArg);
@@ -120,6 +135,8 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		arguments.hyperprior = hyperPriorArg.getValue();
 		arguments.useNormalPrior = normalPriorArg.getValue();
 		arguments.seed = seedArg.getValue();
+
+		arguments.fileFormat = formatArg.getValue();
 
 		if (hyperPriorArg.isSet()) {
 			arguments.hyperPriorSet = true;
@@ -160,6 +177,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 				arguments.reportRawEstimates = false;
 			}
 		}
+		arguments.doLogisticRegression = doLogisticRegressionArg.isSet();
 
 	} catch (ArgException &e) {
 		cerr << "Error: " << e.error() << " for argument " << e.argId() << endl;
@@ -183,7 +201,16 @@ double initializeModel(
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	*reader = new SCCSInputReader();
+	if (arguments.fileFormat == "sccs") {
+		*reader = new SCCSInputReader();
+	} else if (arguments.fileFormat == "clr") {
+		*reader = new CLRInputReader();
+	} else if (arguments.fileFormat == "csv") {
+		*reader = new RTestInputReader();
+	} else {
+		cerr << "Invalid file format." << endl;
+		exit(-1);
+	}
 	(*reader)->readFile(arguments.inFileName.c_str()); // TODO Check for error
 
 #ifdef CUDA
@@ -204,6 +231,11 @@ double initializeModel(
 	}
 	if (arguments.hyperPriorSet) {
 		(*ccd)->setHyperprior(arguments.hyperprior);
+	}
+
+	// Set model from the command-line
+	if (arguments.doLogisticRegression) {
+		(*ccd)->setLogisticRegression(true);
 	}
 
 	gettimeofday(&time2, NULL);

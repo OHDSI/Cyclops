@@ -13,6 +13,7 @@
 #define COMPRESSEDINDICATORMATRIX_H_
 
 #include <vector>
+#include <iostream>
 
 using namespace std;
 
@@ -57,16 +58,44 @@ public:
 
 	void convertColumnToSparse(int column);
 
+	void printColumn(int column);
+
+	template <class T>
+	void printVector(T values, const int size) {
+		cout << "[" << values[0];
+		for (int i = 1; i < size; ++i) {
+			cout << " " << values[i];
+		}
+		cout << "]" << endl;
+	}
+
 protected:
 	void allocateMemory(int nCols);
+
+	void push_back(int_vector* colIndices, real_vector* colData, FormatType colFormat) {
+		columns.push_back(colIndices);
+		data.push_back(colData);
+		formatType.push_back(colFormat);
+	}
+
+	void erase(int column) {
+		if (columns[column]) {
+			delete columns[column];
+		}
+		columns.erase(columns.begin() + column);
+		if (data[column]) {
+			delete data[column];
+		}
+		data.erase(data.begin() + column);
+		formatType.erase(formatType.begin() + column);
+	}
 
 //private:
 	int nRows;
 	int nCols;
 	int nEntries;
 
-	std::vector<int_vector*> columns; // TODO should be std::vector<int_vector*>
-
+	std::vector<int_vector*> columns;
 	std::vector<real_vector*> data;
 	std::vector<FormatType> formatType;
 

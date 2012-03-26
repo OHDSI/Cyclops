@@ -46,6 +46,10 @@ protected:
 	int* makeDeepCopy(int *original, unsigned int length);
 	bool listContains(const vector<DrugIdType>& list, DrugIdType value);
 
+	void split( vector<string> & theStringVector,
+	       const  string  & theString,
+	       const  string  & theDelimiter);
+
 	int nPatients;
 	vector<int> pid;
 	vector<int> eta;

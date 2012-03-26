@@ -19,6 +19,7 @@ struct CCDArguments {
 	// Needed for fitting
 	std::string inFileName;
 	std::string outFileName;
+	std::string fileFormat;
 	bool useGPU;
 	bool useBetterGPU;
 	int deviceNumber;
@@ -45,6 +46,9 @@ struct CCDArguments {
 	bool reportRawEstimates;
 	int replicates;
 	std::string bsFileName;
+
+	// Needed for model specification
+	bool doLogisticRegression;
 };
 
 void parseCommandLine(
