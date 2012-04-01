@@ -345,16 +345,17 @@ double GPUCyclicCoordinateDescent::getObjectiveFunction(void) {
 #endif 	
     
 	gpu->MemcpyDeviceToHost(hXBeta, dXBeta, sizeof(real) * K);
-	double criterion = 0;
-	for (int i = 0; i < K; i++) {
-		criterion += hXBeta[i] * hEta[i];
-	}
+	return CyclicCoordinateDescent::getObjectiveFunction();
+//	double criterion = 0;
+//	for (int i = 0; i < K; i++) {
+//		criterion += hXBeta[i] * hEta[i];
+//	}
 
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::getObjectiveFunction\n");
 #endif
     
-    return criterion;
+//    return criterion;
 }
 
 double GPUCyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {

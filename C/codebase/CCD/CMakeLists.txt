@@ -76,6 +76,7 @@ set(SOURCE_FILES
 	SCCSInputReader.cpp
 	CLRInputReader.cpp
 	RTestInputReader.cpp
+	CCTestInputReader.cpp
 	AbstractDriver.cpp
 	AbstractSelector.cpp
 	CrossValidationSelector.cpp

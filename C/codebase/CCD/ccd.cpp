@@ -25,6 +25,7 @@
 #include "InputReader.h"
 #include "CLRInputReader.h"
 #include "RTestInputReader.h"
+#include "CCTestInputReader.h"
 #include "CrossValidationSelector.h"
 #include "CrossValidationDriver.h"
 #include "BootstrapSelector.h"
@@ -89,6 +90,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		allowed.push_back("sccs");
 		allowed.push_back("clr");
 		allowed.push_back("csv");
+		allowed.push_back("cc");
 		ValuesConstraint<std::string> allowedValues(allowed);
 		ValueArg<string> formatArg("", "format", "Format of data file", false, "sccs", &allowedValues);
 
@@ -207,6 +209,8 @@ double initializeModel(
 		*reader = new CLRInputReader();
 	} else if (arguments.fileFormat == "csv") {
 		*reader = new RTestInputReader();
+	} else if (arguments.fileFormat == "cc") {
+		*reader = new CCTestInputReader();
 	} else {
 		cerr << "Invalid file format." << endl;
 		exit(-1);

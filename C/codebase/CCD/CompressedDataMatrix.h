@@ -78,6 +78,42 @@ protected:
 		formatType.push_back(colFormat);
 	}
 
+	void push_back(FormatType colFormat) {
+		if (colFormat == DENSE) {
+			real_vector* r = new real_vector();
+			push_back(NULL, r, DENSE);
+		} else if (colFormat == SPARSE) {
+			real_vector* r = new real_vector();
+			int_vector* i = new int_vector();
+			push_back(i, r, SPARSE);
+		} else if (colFormat == INDICATOR) {
+			int_vector* i = new int_vector();
+			push_back(i, NULL, INDICATOR);
+		} else {
+			cerr << "Error" << endl;
+			exit(-1);
+ 		}
+	}
+
+	void add_data(int column, int row, real value) {
+		FormatType colFormat = getFormatType(column);
+		if (colFormat == DENSE) {
+			data[column]->push_back(value);
+		} else if (colFormat == SPARSE) {
+			if (value != static_cast<real>(0)) {
+				data[column]->push_back(value);
+				columns[column]->push_back(row);
+			}
+		} else if (colFormat == INDICATOR) {
+			if (value != static_cast<real>(0)) {
+				columns[column]->push_back(row);
+			}
+		} else {
+			cerr << "Error" << endl;
+			exit(-1);
+		}
+	}
+
 	void erase(int column) {
 		if (columns[column]) {
 			delete columns[column];
