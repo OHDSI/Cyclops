@@ -60,6 +60,8 @@ public:
 
 	void printColumn(int column);
 
+	real sumColumn(int column);
+
 	template <class T>
 	void printVector(T values, const int size) {
 		cout << "[" << values[0];

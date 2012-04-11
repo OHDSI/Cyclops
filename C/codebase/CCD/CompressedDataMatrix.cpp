@@ -81,6 +81,20 @@ CompressedDataMatrix::~CompressedDataMatrix() {
 	}
 }
 
+real CompressedDataMatrix::sumColumn(int column) {
+	real sum = 0.0;
+	if (getFormatType(column) == DENSE) {
+		cerr << "Not yet implemented (DENSE)." << endl;
+		exit(-1);
+	} else if (getFormatType(column) == SPARSE) {
+		cerr << "Not yet implemented (SPARSE)." << endl;
+		exit(-1);
+	} else { // is indiciator
+		sum = columns[column]->size();
+	}
+	return sum;
+}
+
 void CompressedDataMatrix::printColumn(int column) {
 	real_vector values;
 	if (getFormatType(column) == DENSE) {
