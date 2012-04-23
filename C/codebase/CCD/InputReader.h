@@ -10,11 +10,26 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
 
 #include <vector>
 #include <map>
 
-using namespace std;
+using std::map;
+using std::string;
+using std::vector;
+using std::stringstream;
+
+#ifdef MY_RCPP_FLAG
+	#include <R.h>
+//// For OSX 10.6, R is built with 4.2.1 which has a bug in stringstream
+//stringstream& operator>> (stringstream &in, int &out) {
+//	string entry;
+//	in >> entry;
+//	out = atoi(entry.c_str());
+//	return in;
+//}
+#endif
 
 #include "CompressedDataMatrix.h"
 
@@ -43,6 +58,7 @@ public:
 	virtual void readFile(const char* fileName) = 0;
 
 protected:
+
 	int* makeDeepCopy(int *original, unsigned int length);
 	bool listContains(const vector<DrugIdType>& list, DrugIdType value);
 

@@ -11,9 +11,14 @@
 #include "CompressedDataMatrix.h"
 #include "InputReader.h"
 
-using namespace std;
+//using namespace std;
+using std::cout;
+using std::cerr;
+using std::endl;
+using std::ostream;
+using std::ofstream;
 
-#define DEBUG
+//#define DEBUG
 
 #define TEST_SPARSE // New sparse updates are great
 //#define TEST_ROW_INDEX
@@ -100,11 +105,24 @@ public:
 
 	void setLogisticRegression(bool idoLR);
 
+//	template <typename T>
+	void setBeta(const std::vector<double>& beta);
+
+//	void double getHessianComponent(int i, int j);
+
 	// Getters
 	string getPriorInfo();
 
 	string getConditionId() const {
 		return conditionId;
+	}
+
+	int getUpdateCount() const {
+		return updateCount;
+	}
+
+	int getLikelihoodCount() const {
+		return likelihoodCount;
 	}
 		
 protected:
@@ -172,6 +190,9 @@ protected:
 	inline void incrementGradientAndHessian(
 			real* gradient, real* hessian,
 			real numer, real numer2, real denom, int nEvents);
+
+	template <class IteratorType>
+	void axpy(real* y, const real alpha, const int index);
 
 	virtual void getDenominators(void);
 
@@ -250,6 +271,7 @@ protected:
 	real denomNullValue;
 
 	bool sufficientStatisticsKnown;
+	bool xBetaKnown;
 
 	bool validWeights;
 	bool useCrossValidation;
@@ -264,6 +286,9 @@ protected:
 	real* numerPid2;
 	real* xOffsExpXBeta;
 	real* hXjEta;
+
+	int updateCount;
+	int likelihoodCount;
 
 #ifdef SPARSE_PRODUCT
 	std::vector<std::vector<int>* > sparseIndices;

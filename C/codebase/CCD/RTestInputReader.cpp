@@ -88,8 +88,9 @@ void RTestInputReader::readFile(const char* fileName) {
 			pid.push_back(numCases - 1);
 
 			// Parse outcome entry
-			int thisEta;
-			istringstream(strVector[1]) >> thisEta;
+//			int thisEta;
+//			stringstream(strVector[1]) >> thisEta;
+			int thisEta = atoi(strVector[1].c_str());
  			numEvents += thisEta;
 			eta.push_back(thisEta);
 
@@ -98,8 +99,9 @@ void RTestInputReader::readFile(const char* fileName) {
 
 			// Parse covariates
 			for (int i = 0; i < numCovariates; ++i) {
-				real value;
-				istringstream(strVector[2 + i]) >> value;
+//				real value;
+//				istringstream(strVector[2 + i]) >> value;
+				real value = static_cast<real>(atof(strVector[2 + i].c_str()));
 				data[i]->push_back(value);
 			}
 
@@ -110,21 +112,23 @@ void RTestInputReader::readFile(const char* fileName) {
 
 	int index = columns.size();
 
+#ifndef MY_RCPP_FLAG
 	cout << "RTestInputReader" << endl;
 	cout << "Read " << currentRow << " data lines from " << fileName << endl;
 	cout << "Number of stratum: " << numCases << endl;
 	cout << "Number of covariates: " << numCovariates << endl;
+#endif
 
 	nPatients = numCases;
 	nCols = columns.size();
 	nRows = currentRow;
 	conditionId = "0";
 
+#if 0
 	for (int i = 0; i < nCols; ++i) {
 		printColumn(i);
 	}
 
-#if 1
 	cerr << "PIDs ";
 	printVector(&(pid[0]), static_cast<int>(pid.size()));
 

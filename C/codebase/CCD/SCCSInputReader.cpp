@@ -16,6 +16,16 @@
 
 #include "SCCSInputReader.h"
 
+#ifdef MY_RCPP_FLAG
+// For OSX 10.6, R is built with 4.2.1 which has a bug in stringstream
+stringstream& operator>> (stringstream &in, int &out) {
+	string entry;
+	in >> entry;
+	out = atoi(entry.c_str());
+	return in;
+}
+#endif
+
 #define MAX_ENTRIES		1000000000
 
 #define FORMAT_MATCH_1	"CONDITION_CONCEPT_ID"
@@ -155,7 +165,11 @@ void SCCSInputReader::readFile(const char* fileName) {
 	   	index++;
 	}
 
+#ifndef MY_RCPP_FLAG
 	cout << "Read " << currentEntry << " data lines from " << fileName << endl;
+#endif
+//	Rprintf("Read %d data lines from %s\n", currentEntry, fileName);
+//	Rprintf("Number of drugs: %d\n", numDrugs);
 //	cout << "Number of patients: " << numPatients << endl;
 //	cout << "Number of drugs: " << numDrugs << endl;
 

@@ -19,7 +19,19 @@
 #include "InputReader.h"
 #include "Iterators.h"
 
+//#ifdef MY_RCPP_FLAG
+//	#include <R.h>
+//#else
+//	void Rprintf(...) {
+//		// Do nothing
+//	}
+//#endif
+
+#ifndef MY_RCPP_FLAG
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
+#else
+//#include "Rcpp.h"
+#endif
 
 using namespace std;
 
@@ -32,44 +44,6 @@ void compareIntVector(int* vec0, int* vec1, int dim, const char* name) {
 		}
 	}
 }
-
-//CyclicCoordinateDescent::CyclicCoordinateDescent(
-//		const char* fileNameX,
-//		const char* fileNameEta,
-//		const char* fileNameOffs,
-//		const char* fileNameNEvents,
-//		const char* fileNamePid
-//	) {
-//
-//	hXI = new CompressedIndicatorMatrix(fileNameX);
-//
-//	K = hXI->getNumberOfRows();
-//	J = hXI->getNumberOfColumns();
-//
-//	conditionId = "NA";
-//
-//	int lOffs;
-//    hOffs = readVector<int>(fileNameOffs, &lOffs);
-//
-//    int lEta;
-//    hEta = readVector<int>(fileNameEta, &lEta);
-//
-//    int lNEvents;
-//    hNEvents = readVector<int>(fileNameNEvents, &lNEvents);
-//
-//    int lPid;
-//    hPid = readVector<int>(fileNamePid, &lPid);
-//
-//    testDimension(lOffs, K, "hOffs");
-//    testDimension(lEta, K, "hEta");
-//    testDimension(lPid, K, "hPid");
-//
-//    N = lNEvents;
-//
-//    hasLog = false;
-//
-//    init();
-//}
 
 CyclicCoordinateDescent::CyclicCoordinateDescent() {
 	// Do nothing
@@ -90,6 +64,9 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 
 	conditionId = reader->getConditionId();
 	denomNullValue = static_cast<real>(0.0);
+
+	updateCount = 0;
+	likelihoodCount = 0;
 
 	init();
 }
@@ -154,6 +131,9 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 }
 
 string CyclicCoordinateDescent::getPriorInfo() {
+#ifdef MY_RCPP_FLAG
+	return "prior"; // Rcpp error with stringstream
+#else
 	stringstream priorInfo;
 	if (priorType == LAPLACE) {
 		priorInfo << "Laplace(";
@@ -164,6 +144,7 @@ string CyclicCoordinateDescent::getPriorInfo() {
 	}
 	priorInfo << ")";
 	return priorInfo.str();
+#endif
 }
 
 void CyclicCoordinateDescent::resetBounds() {
@@ -242,13 +223,23 @@ void CyclicCoordinateDescent::init() {
 	useCrossValidation = false;
 	validWeights = false;
 	sufficientStatisticsKnown = false;
+	xBetaKnown = true;
 	doLogisticRegression = false;
 
 #ifdef DEBUG	
+#ifndef MY_RCPP_FLAG
 	cerr << "Number of patients = " << N << endl;
 	cerr << "Number of exposure levels = " << K << endl;
-	cerr << "Number of drugs = " << J << endl;	
+	cerr << "Number of drugs = " << J << endl;
+#endif
 #endif          
+
+//#ifdef MY_RCPP_FLAG
+//	Rprintf("Number of patients = %d\n", N);
+//	Rprintf("Number of exposure levels = %d\n", K);
+//	Rprintf("Number of drugs = %d\n", J);
+//#endif
+
 }
 
 int CyclicCoordinateDescent::getAlignedLength(int N) {
@@ -281,6 +272,10 @@ void CyclicCoordinateDescent::resetBeta(void) {
 	sufficientStatisticsKnown = false;
 }
 
+//void double getHessianComponent(int i, int j) {
+//	return 0.0;
+//}
+
 void CyclicCoordinateDescent::logResults(const char* fileName) {
 
 	ofstream outLog(fileName);
@@ -298,13 +293,17 @@ void CyclicCoordinateDescent::logResults(const char* fileName) {
 
 	for (int i = 0; i < J; i++) {
 		outLog << drugMap[i] << sep <<
-//		i << sep <<
 		conditionId << sep << hBeta[i] << endl;
 	}
+	outLog.flush();
 	outLog.close();
 }
 
 double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
+
+	if (!xBetaKnown) {
+		computeXBeta();
+	}
 
 	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics(true, 0); // TODO Remove index????
@@ -334,9 +333,20 @@ real CyclicCoordinateDescent::getBeta(int i) {
 
 double CyclicCoordinateDescent::getLogLikelihood(void) {
 
+	if (!xBetaKnown) {
+		computeXBeta();
+	}
+
+	if (!validWeights) {
+		computeNEvents();
+	}
+
 	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics(true, 0); // TODO Check index?
 	}
+
+//	double sum1 = 0.0;
+//	double sum2 = 0.0;
 
 	getDenominators();
 
@@ -349,13 +359,30 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 	} else {
 		for (int i = 0; i < K; i++) {
 			logLikelihood += hEta[i] * hXBeta[i];
+//			sum1 += hEta[i];
 		}
 	}
 
 	for (int i = 0; i < N; i++) {
-		logLikelihood -= hNEvents[i] * log(denomPid[i]); // TODO What about weights?
+		logLikelihood -= hNEvents[i] * log(denomPid[i]); // Weights modified in computeNEvents()
+//		sum2 += hNEvents[i];
 	}
 
+//#ifdef MY_RCPP_FLAG
+//	Rprintf("xbeta[0] = %f\n", hXBeta[0]);
+//	Rprintf("beta[0]  = %f\n", hBeta[0]);
+//	Rprintf("eta = %f\n", sum1);
+//	Rprintf("events = %f\n", sum2);
+//
+////	typedef Rcpp::Rout cerr;
+////	cerr << "hello" << endl;
+//#else
+//	cerr << "xbeta[0] = " << hXBeta[0] << endl;
+//	cerr << "eta = " << sum1 << endl;
+//	cerr << "events = " << sum2 << endl;
+//#endif
+
+	likelihoodCount += 1;
 	return static_cast<double>(logLikelihood);
 }
 
@@ -386,6 +413,14 @@ void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 		exit(-1);
 	}
 	priorType = iPriorType;
+}
+
+//template <typename T>
+void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
+	for (int j = 0; j < J; ++j) {
+		hBeta[j] = static_cast<real>(beta[j]);
+	}
+	xBetaKnown = false;
 }
 
 void CyclicCoordinateDescent::setWeights(real* iWeights) {
@@ -470,6 +505,10 @@ void CyclicCoordinateDescent::update(
 		computeNEvents();
 	}
 
+	if (!xBetaKnown) {
+		computeXBeta();
+	}
+
 	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics(true, 0); // TODO Check index?
 	}
@@ -542,6 +581,7 @@ void CyclicCoordinateDescent::update(
 			}
 		}				
 	}
+	updateCount += 1;
 }
 
 /**
@@ -607,6 +647,21 @@ inline void CyclicCoordinateDescent::incrementGradientAndHessian(
 		*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
 	}
 }
+
+//template <class IteratorType>
+//inline void CyclicCoordinateDescent::incrementGradientAndHessian(
+//		real* gradient, real* hessian,
+//		real numer, real numer2, real denom, int nEvents) {
+//
+//	const real t = numer / denom;
+//	const real g = nEvents * t;
+//	*gradient += g;
+//	if (IteratorType::isIndicator) {
+//		*hessian += g * (static_cast<real>(1.0) - t);
+//	} else {
+//		*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
+//	}
+//}
 
 //template <>
 //inline void CyclicCoordinateDescent::incrementGradientAndHessian<SparseIterator>(
@@ -678,6 +733,20 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl(int index, double *o
 	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
 }
+
+//template <class IteratorType>
+//void CyclicCoordinateDescent::computeHessianImpl(int index_i, int index_j, double *ohessian) {
+//	real hessian = 0;
+//	IteratorType it = IteratorType::intersection(*sparseIndices[index_i], *sparseIndices[index_j], N);
+//	for (; it; ++it) {
+//		const int k = it.index();
+//		incrementHessian<IteratorType(
+//				&hessian,
+//				numerPid[k], numerPid2[k], denomPid[k], hNEvents[k]
+//		);
+//	}
+//	*ohessian = static_cast<double>(hessian);
+//}
 
 //#define MD
 
@@ -821,12 +890,49 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	return delta;
 }
 
+template <class IteratorType>
+void CyclicCoordinateDescent::axpy(real* y, const real alpha, const int index) {
+	IteratorType it(*hXI, index);
+	for (; it; ++it) {
+		const int k = it.index();
+		y[k] += alpha * it.value();
+	}
+}
+
 void CyclicCoordinateDescent::computeXBeta(void) {
 	// Separate function for benchmarking
-	cerr << "Computing X %*% beta" << endl;
-	cerr << "Not yet implemented." << endl;
-	exit(-1);
-//	hXBeta = hX * hBeta;
+//	cerr << "Computing X %*% beta" << endl;
+
+	//	hXBeta = hX * hBeta;
+
+	// Note: X is current stored in (sparse) column-major format, which is
+	// inefficient for forming X\beta.
+	// TODO Make row-major version of X
+
+	// clear X\beta
+	zeroVector(hXBeta, K);
+
+	// Update one column at a time (poor cache locality)
+	for (int j = 0; j < J; ++j) {
+		const real beta = hBeta[j];
+		switch(hXI->getFormatType(j)) {
+			case INDICATOR :
+				axpy<IndicatorIterator>(hXBeta, beta, j);
+				break;
+			case DENSE :
+				axpy<DenseIterator>(hXBeta, beta, j);
+				break;
+			case SPARSE :
+				axpy<SparseIterator>(hXBeta, beta, j);
+				break;
+			default :
+				// throw error
+				exit(-1);
+		}
+	}
+
+	xBetaKnown = true;
+	sufficientStatisticsKnown = false;
 }
 
 template <class IteratorType>

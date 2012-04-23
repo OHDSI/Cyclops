@@ -15,7 +15,11 @@
 #include <vector>
 #include <iostream>
 
-using namespace std;
+using std::cout;
+using std::cerr;
+using std::endl;
+//using std::in;
+using std::ifstream;
 
 #define DEBUG
 

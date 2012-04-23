@@ -51,10 +51,15 @@ struct CCDArguments {
 	bool doLogisticRegression;
 };
 
+
 void parseCommandLine(
 		int argc,
 		char* argv[],
 		CCDArguments &arguments);
+
+void parseCommandLine(
+		std::vector<std::string>& argcpp,
+		CCDArguments& arguments);
 
 double initializeModel(
 		InputReader** reader,
@@ -78,5 +83,8 @@ double runBoostrap(
 double calculateSeconds(
 		const struct timeval &time1,
 		const struct timeval &time2);
+
+void setDefaultArguments(
+		CCDArguments &arguments);
 
 #endif /* CCD_H_ */
