@@ -13,12 +13,12 @@ if(run.par) registerDoParallel(cores=12) else registerDoParallel(cores=1)
 
 check.phi <- TRUE
 
-set.seed(42)
+set.seed(123456789)
 
 data.loaded = FALSE
 
-infer.hyperprior = TRUE
-initial.hyperprior = 100
+infer.hyperprior = FALSE
+initial.hyperprior = 4.9
 
 if(data.loaded == FALSE) {
     cat("Loading data...\n")
@@ -52,24 +52,29 @@ cat("Ready to start...\n")
 #browser()
 
 ## Section C:  Set parameters for the sampling algorithm
-n.draws <- 1000
-M <- 3000
-N <- 3000
+n.draws <- 10000
+M <- 10000
+N <- 1000
 #M = 10
 #N = 10
-max.AR.tries <- 25000
+max.AR.tries <- 100
 #ds.scale <- 20
-ds.scale = 2
+#ds.scale = 0.09
+ds.scale = 0.75
+#ds.scale = 1 / 1000000 # attempting with min, not median
 get.log.prop <- get.log.dens.MVN
 draw.prop <- draw.MVN.proposals
-
 
 ##
 dim = length(mode$beta)
 if (infer.hyperprior == TRUE) {
     dim = dim + 1
 }
-chol.prec = t(chol(ds.scale*diag(dim)))
+
+infert.var = matrix(c(0.124, 0.0927, 0.0927, 0.130),nrow=2)
+
+#chol.prec = t(chol(ds.scale*diag(dim)))
+chol.prec = t(chol(ds.scale*solve(infert.var)))
 post.mode = mode$beta
 if (infer.hyperprior == TRUE) {
     post.mode = c(post.mode, log(mode$hyperprior))
@@ -93,6 +98,9 @@ draws.m <- foreach(mz=1:M,
 cat("Collecting log posterior evaluations\n")
 log.post.m <- laply(draws.m, get.log.post.model,model=model, infer.hyperprior=infer.hyperprior, .parallel=run.par)
 
+#cat("Before remove inf/NaN]\n")
+#browser()
+
 ## drop any proposals with Inf or NaN posteriors (numerical underflow issues?)
 wf <- is.finite(log.post.m)
 draws.m <- draws.m[wf]
@@ -109,8 +117,14 @@ if (check.phi == TRUE) {
     browser()
 }
 
-Z <- median(log.phi) ## median log.phi
+#Z <- median(log.phi) ## median log.phi, for use with logit transform
+Z <- min(log.phi)
 q <- get.bernstein.weights(log.phi, N, Z)
+
+cat("Check function approximation?\n")
+if (check.phi == TRUE) {
+    browser()
+}
 
 cat("Generating GDS draws - accept-reject phase\n")
 draws <- get.GDS.draws(n.draws, q, log.const, Z,
@@ -121,5 +135,6 @@ draws <- get.GDS.draws(n.draws, q, log.const, Z,
                        max.tries=max.AR.tries,
                        model=model,
                        infer.hyperprior = infer.hyperprior,
-                       run.par=run.par,
-                       .progress="text")
+                       run.par=run.par,                      
+                       .progress="none")
+#                       .progress="text")
