@@ -12,6 +12,7 @@
 #ifndef COMPRESSEDINDICATORMATRIX_H_
 #define COMPRESSEDINDICATORMATRIX_H_
 
+#include <cstdlib>
 #include <vector>
 #include <iostream>
 
