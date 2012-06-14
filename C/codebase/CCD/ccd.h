@@ -8,8 +8,16 @@
 #ifndef CCD_H_
 #define CCD_H_
 
+#ifdef _WIN32
 #include <time.h>
+#include <stddef.h>
+#include <io.h>
+#include <stdlib.h>
+#include <winsock.h>
+#include <stdio.h>
+#else
 #include <sys/time.h>
+#endif
 
 #include "CyclicCoordinateDescent.h"
 

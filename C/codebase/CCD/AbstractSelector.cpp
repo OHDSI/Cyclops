@@ -27,8 +27,13 @@ AbstractSelector::AbstractSelector(
 		deterministic = true;
 	} else {
 		deterministic = false;
-		if (seed == 0) {
+		if (seed == 0) 
+		{
+#ifdef _WIN32
+			seed = time_t(NULL);
+#else
 			seed = time(NULL);
+#endif
 		}
 		srand(seed);
 	}
