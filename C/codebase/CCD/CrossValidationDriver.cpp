@@ -135,6 +135,10 @@ void CrossValidationDriver::drive(
 	double maxPoint;
 	double maxValue;
 	findMax(&maxPoint, &maxValue);
+	
+	std::cout << "Cross-validation results:" << std::endl << std::setw(30) << "hyperparameter values," << std::setw(30) << "cv mean loglikelihood" << std::endl;
+	for (int step = 0; step < gridSize; step++)
+		std::cout << std::setw(30) << fixed << gridPoint[step] << std::setw(30) << std::setprecision(6) << gridValue[step] << endl;
 
 	std::cout << std::endl;
 	std::cout << "Maximum predicted log likelihood (" << maxValue << ") found at:" << std::endl;
@@ -155,6 +159,18 @@ void CrossValidationDriver::findMax(double* maxPoint, double* maxValue) {
 		if (gridValue[i] > *maxValue) {
 			*maxPoint = gridPoint[i];
 			*maxValue = gridValue[i];
+		}
+	}
+}
+
+void CrossValidationDriver::findMin(double* minPoint, double* minValue) {
+
+	*minPoint = gridPoint[0];
+	*minValue = gridValue[0];
+	for (int i = 1; i < gridPoint.size(); i++) {
+		if (gridValue[i] < *minValue) {
+			*minPoint = gridPoint[i];
+			*minValue = gridValue[i];
 		}
 	}
 }

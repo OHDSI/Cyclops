@@ -137,7 +137,7 @@ string CyclicCoordinateDescent::getPriorInfo() {
 	stringstream priorInfo;
 	if (priorType == LAPLACE) {
 		priorInfo << "Laplace(";
-		priorInfo << lambda;
+		priorInfo << sigma2Beta;
 	} else if (priorType == NORMAL) {
 		priorInfo << "Normal(";
 		priorInfo << sigma2Beta;
@@ -301,7 +301,7 @@ void CyclicCoordinateDescent::logResults(const char* fileName) {
 
 double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
 
-	if (!xBetaKnown) {
+/*	if (!xBetaKnown) {
 		computeXBeta();
 	}
 
@@ -310,13 +310,15 @@ double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
 	}
 
 	getDenominators();
-
+*/
 	double logLikelihood = 0;
+	for(int i = 0; i < K; i++) 
+		logLikelihood += -(hEta[i] - hXBeta[i]) * (hEta[i] - hXBeta[i]) * weights[i];
 
-	for (int i = 0; i < K; i++) {
+/*	for (int i = 0; i < K; i++) {
 		logLikelihood += hEta[i] * weights[i] * (hXBeta[i] - log(denomPid[hPid[i]]));
 	}
-
+*/
 	return logLikelihood;
 }
 
@@ -331,8 +333,9 @@ real CyclicCoordinateDescent::getBeta(int i) {
 	return hBeta[i];
 }
 
-double CyclicCoordinateDescent::getLogLikelihood(void) {
-
+double CyclicCoordinateDescent::getLogLikelihood(void) 
+{
+/*
 	if (!xBetaKnown) {
 		computeXBeta();
 	}
@@ -344,29 +347,30 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics(true, 0); // TODO Check index?
 	}
-
+*/
 //	double sum1 = 0.0;
 //	double sum2 = 0.0;
 
-	getDenominators();
+//	getDenominators();
 
 	real logLikelihood = 0;
 
-	if (useCrossValidation) {
-		for (int i = 0; i < K; i++) {
-			logLikelihood += hEta[i] * hXBeta[i] * hWeights[i];
-		}
-	} else {
-		for (int i = 0; i < K; i++) {
-			logLikelihood += hEta[i] * hXBeta[i];
-//			sum1 += hEta[i];
-		}
+	if (useCrossValidation) 
+	{
+		for(int i = 0; i < K; i++) 
+			logLikelihood += -(hEta[i] - hXBeta[i]) * (hEta[i] - hXBeta[i]) * hWeights[i];
+	} 
+	else 
+	{
+		for (int i = 0; i < K; i++)
+			logLikelihood += -(hEta[i] - hXBeta[i]) * (hEta[i] - hXBeta[i]);
 	}
 
-	for (int i = 0; i < N; i++) {
+/*	for (int i = 0; i < N; i++) {
 		logLikelihood -= hNEvents[i] * log(denomPid[i]); // Weights modified in computeNEvents()
 //		sum2 += hNEvents[i];
 	}
+*/
 
 //#ifdef MY_RCPP_FLAG
 //	Rprintf("xbeta[0] = %f\n", hXBeta[0]);
@@ -446,16 +450,16 @@ void CyclicCoordinateDescent::setWeights(real* iWeights) {
 }
 	
 double CyclicCoordinateDescent::getLogPrior(void) {
-	if (priorType == LAPLACE) {
-		return J * log(0.5 * lambda) - lambda * oneNorm(hBeta, J);
-	} else {
-		return -0.5 * J * log(2.0 * PI * sigma2Beta) - 0.5 * twoNormSquared(hBeta, J) / sigma2Beta;		
-	}
+	if (priorType == LAPLACE) 
+		return -sigma2Beta*oneNorm(hBeta,J);
+	else
+		return -sigma2Beta*twoNormSquared(hBeta,J);		
 }
 
 double CyclicCoordinateDescent::getObjectiveFunction(void) {	
 //	return getLogLikelihood() + getLogPrior(); // This is LANGE
-	real criterion = 0;
+	return getLogLikelihood(); 
+/*	real criterion = 0;
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
 			criterion += hXBeta[i] * hEta[i] * hWeights[i];
@@ -466,6 +470,7 @@ double CyclicCoordinateDescent::getObjectiveFunction(void) {
 		}
 	}
 	return static_cast<double>(criterion);
+*/
 }
 
 double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
@@ -489,72 +494,71 @@ void CyclicCoordinateDescent::saveXBeta(void) {
 	memcpy(hXBetaSave, hXBeta, K * sizeof(real));
 }
 
-void CyclicCoordinateDescent::update(
-		int maxIterations,
-		int convergenceType,
-		double epsilon
-		) {
-
-	if (convergenceType != LANGE && convergenceType != ZHANG_OLES) {
+void CyclicCoordinateDescent::update(int maxIterations,	int convergenceType, double epsilon) 
+{
+	if (convergenceType != LANGE && convergenceType != ZHANG_OLES) 
+	{
 		cerr << "Unknown convergence criterion" << endl;
 		exit(-1);
 	}
 
-	if (!validWeights) {
+/*	if (!validWeights) 
+	{
 		computeXjEta();
 		computeNEvents();
 	}
 
-	if (!xBetaKnown) {
+	if (!xBetaKnown) 
+	{
 		computeXBeta();
 	}
 
-	if (!sufficientStatisticsKnown) {
+	if (!sufficientStatisticsKnown) 
 		computeRemainingStatistics(true, 0); // TODO Check index?
-	}
-
+*/
 	resetBounds();
 
 	bool done = false;
 	int iteration = 0;
 	double lastObjFunc;
 
-	if (convergenceType == LANGE) {
+	if (convergenceType == LANGE) 
 		lastObjFunc = getObjectiveFunction();
-	} else { // ZHANG_OLES
+	else // ZHANG_OLES
 		saveXBeta();
-	}
 	
-	while (!done) {
-	
+	while (!done) 
+	{
 		// Do a complete cycle
-		for(int index = 0; index < J; index++) {
-		
+		for(int index = 0; index < J; index++) 
+		{
 			double delta = ccdUpdateBeta(index);
 			delta = applyBounds(delta, index);
-			if (delta != 0.0) {
+			if(delta != 0.0) 
+			{
 				sufficientStatisticsKnown = false;
 				updateSufficientStatistics(delta, index);
 			}
 			
-			if ((index+1) % 100 == 0) {
+			if ((index+1) % 100 == 0) 
 				cout << "Finished variable " << (index+1) << endl;
-			}
-			
 		}
 		
 		iteration++;
 //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
 		bool checkConvergence = true; // Check after each complete cycle
 
-		if (checkConvergence) {
-
+		if(checkConvergence) 
+		{
 			double conv;
-			if (convergenceType == LANGE) {
+			if (convergenceType == LANGE) 
+			{
 				double thisObjFunc = getObjectiveFunction();
 				conv = computeConvergenceCriterion(thisObjFunc, lastObjFunc);
 				lastObjFunc = thisObjFunc;
-			} else { // ZHANG_OLES
+			} 
+			else 
+			{ // ZHANG_OLES
 				conv = computeZhangOlesConvergenceCriterion();
 				saveXBeta();
 			} // Necessary to call getObjFxn or computeZO before getLogLikelihood,
@@ -570,13 +574,17 @@ void CyclicCoordinateDescent::update(
 				 << " (" << thisLogLikelihood << " + " << thisLogPrior
 			     << ") (iter:" << iteration << ") ";
 
-			if (epsilon > 0 && conv < epsilon) {
+			if(epsilon > 0 && conv < epsilon) 
+			{
 				cout << "Reached convergence criterion" << endl;
 				done = true;
-			} else if (iteration == maxIterations) {
+			} 
+			else if(iteration == maxIterations) 
+			{
 				cout << "Reached maximum iterations" << endl;
 				done = true;
-			} else {
+			} else 
+			{
 				cout << endl;
 			}
 		}				
@@ -633,19 +641,30 @@ void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ograd
 //	*hessian += g * (static_cast<real>(1.0) - t);
 //}
 
+/*
 template <class IteratorType>
 inline void CyclicCoordinateDescent::incrementGradientAndHessian(
 		real* gradient, real* hessian,
 		real numer, real numer2, real denom, int nEvents) {
 
 	const real t = numer / denom;
-	const real g = nEvents * t;
+	const real g = t;
 	*gradient += g;
 	if (IteratorType::isIndicator) {
 		*hessian += g * (static_cast<real>(1.0) - t);
 	} else {
 		*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
 	}
+}
+*/
+
+template <class IteratorType>
+inline void CyclicCoordinateDescent::incrementGradientAndHessian(
+	real* gradient, real* hessian,
+	real numer, real numer2, real denom, int nEvents) 
+{
+		*gradient += numer;
+		*hessian += numer2;
 }
 
 //template <class IteratorType>
@@ -721,14 +740,11 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl(int index, double *o
 	real hessian = 0;
 	
 	IteratorType it(*sparseIndices[index], N); // TODO How to create with different constructor signatures?
-	for (; it; ++it) {
+	for (; it; ++it) 
+	{
 		const int k = it.index();
-		incrementGradientAndHessian<IteratorType>(
-				&gradient, &hessian,
-				numerPid[k], numerPid2[k], denomPid[k], hNEvents[k]
-		);
+		incrementGradientAndHessian<IteratorType>(&gradient, &hessian, numerPid[k], numerPid2[k], denomPid[k], hNEvents[k]);
 	}
-	gradient -= hXjEta[index];
 
 	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
@@ -791,6 +807,7 @@ void CyclicCoordinateDescent::incrementNumeratorForGradientImplHand(int index) {
 	}
 }
 
+/*
 template <class IteratorType>
 void CyclicCoordinateDescent::incrementNumeratorForGradientImpl(int index) {
 	IteratorType it(*hXI, index);
@@ -800,6 +817,17 @@ void CyclicCoordinateDescent::incrementNumeratorForGradientImpl(int index) {
 		if (!IteratorType::isIndicator) {
 			numerPid2[hPid[k]] += offsExpXBeta[k] * it.value() * it.value();
 		}
+	}
+}
+*/
+
+template <class IteratorType>
+void CyclicCoordinateDescent::incrementNumeratorForGradientImpl(int index) {
+	IteratorType it(*hXI, index);
+	for (; it; ++it) {
+		const int k = it.index();
+		numerPid[hPid[k]] += 2*it.value() * (hXBeta[k] - hEta[k]);
+		numerPid2[hPid[k]] += 2*it.value() * it.value();
 	}
 }
 
@@ -833,12 +861,12 @@ void CyclicCoordinateDescent::computeRatiosForGradientAndHessian(int index) {
 double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 
 	double delta;
-
+/*
 	if (!sufficientStatisticsKnown) {
 		cerr << "Error in state synchronization." << endl;
 		exit(0);		
 	}
-	
+*/	
 	computeNumeratorForGradient(index);
 	
 	double g_d1;
@@ -852,38 +880,30 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 //	}
 		
 	// Move into separate delegate-function (below)
-	if (priorType == NORMAL) {
-		
-		delta = - (g_d1 + (hBeta[index] / sigma2Beta)) /
-				  (g_d2 + (1.0 / sigma2Beta));
-		
-	} else {
-					
-		double neg_update = - (g_d1 - lambda) / g_d2;
-		double pos_update = - (g_d1 + lambda) / g_d2;
+	if(priorType == NORMAL)
+		delta = - (g_d1 + 2*hBeta[index]*sigma2Beta) / (g_d2 + 2*sigma2Beta);
+	else 
+	{
+		double neg_update = - (g_d1 - sigma2Beta) / g_d2;
+		double pos_update = - (g_d1 + sigma2Beta) / g_d2;
 		
 		int signBetaIndex = sign(hBeta[index]);
 		
-		if (signBetaIndex == 0) {
-						
-			if (neg_update < 0) {
+		if(signBetaIndex == 0) 
+		{
+			if (neg_update < 0) 
 				delta = neg_update;
-			} else if (pos_update > 0) {
+			else if (pos_update > 0) 
 				delta = pos_update;
-			} else {
+			else 
 				delta = 0;
-			}
-		} else { // non-zero entry
-			
-			if (signBetaIndex < 0) {
-				delta = neg_update;
-			} else {
-				delta = pos_update;			
-			}
-			
-			if ( sign(hBeta[index] + delta) != signBetaIndex ) {
+		}
+		else
+		{ // non-zero entry
+			delta = -(g_d1 + signBetaIndex*sigma2Beta)/g_d2;		
+						
+			if(sign(hBeta[index] + delta) != signBetaIndex)
 				delta = - hBeta[index];
-			}			
 		}
 	}
 	
@@ -938,13 +958,15 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 template <class IteratorType>
 void CyclicCoordinateDescent::updateXBetaImpl(real realDelta, int index) {
 	IteratorType it(*hXI, index);
-	for (; it; ++it) {
+	for (; it; ++it) 
+	{
 		const int k = it.index();
 		hXBeta[k] += realDelta * it.value();
 		// Update denominators as well
-		real oldEntry = offsExpXBeta[k];
+/*		real oldEntry = offsExpXBeta[k];
 		real newEntry = offsExpXBeta[k] = hOffs[k] * exp(hXBeta[k]);
 		denomPid[hPid[k]] += (newEntry - oldEntry);
+*/
 	}
 }
 
@@ -1000,7 +1022,7 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 		fillVector(denomPid, N, denomNullValue);
 		for (int i = 0; i < K; i++) {
 			offsExpXBeta[i] = hOffs[i] * exp(hXBeta[i]);
-			denomPid[hPid[i]] += offsExpXBeta[i];
+			denomPid[hPid[i]] += 1;
 		}
 //		cerr << "den[0] = " << denomPid[0] << endl;
 //		exit(-1);
@@ -1034,13 +1056,7 @@ double CyclicCoordinateDescent::computeConvergenceCriterion(double newObjFxn, do
 }
 
 double CyclicCoordinateDescent::applyBounds(double inDelta, int index) {
-	double delta = inDelta;
-	if (delta < -hDelta[index]) {
-		delta = -hDelta[index];
-	} else if (delta > hDelta[index]) {
-		delta = hDelta[index];
-	}
-
+	double delta = min(max(inDelta,-(double)hDelta[index]),(double)hDelta[index]);
 	hDelta[index] = max(2.0 * abs(delta), 0.5 * hDelta[index]);
 	return delta;
 }
@@ -1052,7 +1068,7 @@ double CyclicCoordinateDescent::applyBounds(double inDelta, int index) {
 void CyclicCoordinateDescent::computeXjEta(void) {
 
 //	cerr << "YXj";
-	for (int drug = 0; drug < J; drug++) {
+	for (int drug = 0; drug < J; drug++) { //J is the number of covariates
 		hXjEta[drug] = 0;
 		GenericIterator it(*hXI, drug);
 

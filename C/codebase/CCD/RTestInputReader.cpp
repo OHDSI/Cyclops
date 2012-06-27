@@ -90,8 +90,9 @@ void RTestInputReader::readFile(const char* fileName) {
 			// Parse outcome entry
 //			int thisEta;
 //			stringstream(strVector[1]) >> thisEta;
-			int thisEta = atoi(strVector[1].c_str());
- 			numEvents += thisEta;
+			double thisEta = atof(strVector[1].c_str());
+// 			numEvents += thisEta;
+			numEvents += 1;
 			eta.push_back(thisEta);
 
 			// Fix offs for CLR

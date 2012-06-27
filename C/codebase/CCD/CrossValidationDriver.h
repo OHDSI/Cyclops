@@ -43,6 +43,7 @@ private:
 	double computePointEstimate(const std::vector<double>& value);
 
 	void findMax(double* maxPoint, double* maxValue);
+	void findMin(double* minPoint, double* minValue);
 
 	std::vector<double> gridPoint;
 	std::vector<double> gridValue;

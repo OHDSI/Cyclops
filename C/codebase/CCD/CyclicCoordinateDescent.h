@@ -248,7 +248,8 @@ protected:
 	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
 	int* hOffs;  // K-vector
-	int* hEta; // K-vector
+//	int* hEta; // K-vector
+	double* hEta; //K-vector
 	int* hNEvents; // K-vector
 	int* hPid; // N-vector
 	int** hXColumnRowIndicators; // J-vector

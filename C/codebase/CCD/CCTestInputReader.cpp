@@ -92,7 +92,7 @@ void CCTestInputReader::readFile(const char* fileName) {
 			pid.push_back(numCases - 1);
 
 			// Parse outcome entry
-			int thisEta;
+			double thisEta;
 			istringstream(strVector[colOutcome]) >> thisEta;
  			numEvents += thisEta;
 			eta.push_back(thisEta);
@@ -107,7 +107,6 @@ void CCTestInputReader::readFile(const char* fileName) {
 				if (value != 0) {
 					value = 1;
 				}
-
 			}
 			add_data(0, currentRow, value);
 

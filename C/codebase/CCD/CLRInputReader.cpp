@@ -135,7 +135,7 @@ void CLRInputReader::readFile(const char* fileName) {
 			pid.push_back(numCases - 1);
 
 			// Parse outcome entry
-			int thisEta;
+			double thisEta;
 			istringstream(strVector[2]) >> thisEta;
  			numEvents += thisEta;
 			eta.push_back(thisEta);

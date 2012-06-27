@@ -47,7 +47,7 @@ public:
 	virtual ~InputReader();
 
 	int* getPidVector();
-	int* getEtaVector();
+	double* getEtaVector();
 	int* getNEventVector();
 	int* getOffsetVector();
 	map<int, DrugIdType> getDrugNameMap();
@@ -59,7 +59,7 @@ public:
 
 protected:
 
-	int* makeDeepCopy(int *original, unsigned int length);
+	template<class Tp> Tp* makeDeepCopy(Tp *original, unsigned int length);
 	bool listContains(const vector<DrugIdType>& list, DrugIdType value);
 
 	void split( vector<string> & theStringVector,
@@ -68,7 +68,7 @@ protected:
 
 	int nPatients;
 	vector<int> pid;
-	vector<int> eta;
+	vector<double> eta;
 	vector<int> offs;
 	vector<int> nevents;
 	map<DrugIdType, int> drugMap;

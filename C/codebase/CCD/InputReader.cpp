@@ -54,9 +54,9 @@ InputReader::~InputReader() {
 	// Do nothing
 }
 
-int* InputReader::makeDeepCopy(int *original, unsigned int length) {
-	int *copy = (int *) malloc(length * sizeof(int));
-	memcpy(copy, original, length * sizeof(int));
+template<class Tp> Tp* InputReader::makeDeepCopy(Tp *original, unsigned int length) {
+	Tp *copy = (Tp *) malloc(length * sizeof(Tp));
+	memcpy(copy, original, length * sizeof(Tp));
 	return copy;
 }
 
@@ -88,7 +88,7 @@ std::vector<int>* InputReader::getPidVectorSTL() {
 	return new std::vector<int>(pid);
 }
 
-int* InputReader::getEtaVector() {
+double* InputReader::getEtaVector() {
 	//return &eta[0];
 	return makeDeepCopy(&eta[0], eta.size());
 }
