@@ -88,7 +88,7 @@ std::vector<int>* InputReader::getPidVectorSTL() {
 	return new std::vector<int>(pid);
 }
 
-double* InputReader::getEtaVector() {
+real* InputReader::getEtaVector() {
 	//return &eta[0];
 	return makeDeepCopy(&eta[0], eta.size());
 }

@@ -47,7 +47,7 @@ public:
 	virtual ~InputReader();
 
 	int* getPidVector();
-	double* getEtaVector();
+	real* getEtaVector();
 	int* getNEventVector();
 	int* getOffsetVector();
 	map<int, DrugIdType> getDrugNameMap();
@@ -68,7 +68,7 @@ protected:
 
 	int nPatients;
 	vector<int> pid;
-	vector<double> eta;
+	vector<real> eta;
 	vector<int> offs;
 	vector<int> nevents;
 	map<DrugIdType, int> drugMap;

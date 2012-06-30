@@ -249,7 +249,7 @@ protected:
 
 	int* hOffs;  // K-vector
 //	int* hEta; // K-vector
-	double* hEta; //K-vector
+	real* hEta; //K-vector
 	int* hNEvents; // K-vector
 	int* hPid; // N-vector
 	int** hXColumnRowIndicators; // J-vector

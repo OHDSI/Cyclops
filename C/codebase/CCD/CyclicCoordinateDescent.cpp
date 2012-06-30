@@ -826,8 +826,9 @@ void CyclicCoordinateDescent::incrementNumeratorForGradientImpl(int index) {
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
-		numerPid[hPid[k]] += 2*it.value() * (hXBeta[k] - hEta[k]);
-		numerPid2[hPid[k]] += 2*it.value() * it.value();
+        // No need for an extra level of indirection when all rows are independent
+        numerPid[k] += static_cast<real>(2) * it.value() * (hXBeta[k] - hEta[k]);
+        numerPid2[k] += static_cast<real>(2) * it.value() * it.value(); // These can be precomputed
 	}
 }
 
