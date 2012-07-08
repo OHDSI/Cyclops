@@ -145,10 +145,13 @@ protected:
 
 	template <class IteratorType>
 	void incrementNumeratorForGradientImpl(int index);
+	template <class IteratorType>
+	void incrementNumeratorForHessianImpl(int index);
 
 	void incrementNumeratorForGradientImplHand(int index);
 
 	void computeNumeratorForGradient(int index);
+	void computeNumeratorForHessian(int index);
 
 	virtual void computeNEvents(void);
 
@@ -165,16 +168,16 @@ protected:
 
 //	virtual void computeRatio(int index);
 
-	virtual void computeGradientAndHessian(
-			int index,
-			double *gradient,
-			double *hessian);
+	virtual void computeGradientAndHessian(int index, double *gradient,	double *hessian);
+	virtual void computeGradient(int index, double *gradient);
+	virtual void computeHessian(int index, double *hessian);
 
 	template <class IteratorType>
-	void computeGradientAndHessianImpl(
-			int index,
-			double *gradient,
-			double *hessian);
+	void computeGradientAndHessianImpl(int index, double *gradient,	double *hessian);
+	template <class IteratorType>
+	void computeGradientImpl(int index, double *gradient);
+	template <class IteratorType>
+	void computeHessianImpl(int index, double *hessian);
 
 	void computeGradientAndHessianImplHand(
 			int index,
@@ -187,9 +190,13 @@ protected:
 			real g, real t);
 
 	template <class IteratorType>
-	inline void incrementGradientAndHessian(
-			real* gradient, real* hessian,
-			real numer, real numer2, real denom, int nEvents);
+	inline void incrementGradientAndHessian(real* gradient, real* hessian, real numer, real numer2, real denom, int nEvents);
+
+	template <class IteratorType>
+	inline void incrementGradient(real* gradient, real numer);
+
+	template <class IteratorType>
+	inline void incrementHessian(real* hessian, real numer2);
 
 	template <class IteratorType>
 	void axpy(real* y, const real alpha, const int index);
@@ -258,6 +265,8 @@ protected:
 	real* hXBeta;
 	real* hXBetaSave;
 	real* hDelta;
+
+	vector<double> hHessian;
 
 	int N; // Number of patients
 	int K; // Number of exposure levels

@@ -165,6 +165,8 @@ void CyclicCoordinateDescent::init() {
 	hXBeta = (real*) calloc(K, sizeof(real));
 	hXBetaSave = (real*) calloc(K, sizeof(real));
 
+	hHessian.resize(J);
+
 	// Set prior
 	priorType = LAPLACE;
 	sigma2Beta = 1000;
@@ -526,6 +528,21 @@ void CyclicCoordinateDescent::update(int maxIterations,	int convergenceType, dou
 		lastObjFunc = getObjectiveFunction();
 	else // ZHANG_OLES
 		saveXBeta();
+
+	if(0) //Logistic regression
+	{
+		//do nothing
+	}
+	else  // Pre-compute hessian for least-squares
+	{
+		for(int index = 0; index < J; index++)
+		{
+			computeNumeratorForHessian(index);
+			double g_d2;
+			computeHessian(index, &g_d2);
+			hHessian[index] = g_d2;
+		}
+	}
 	
 	while (!done) 
 	{
@@ -596,10 +613,11 @@ void CyclicCoordinateDescent::update(int maxIterations,	int convergenceType, dou
  * Computationally heavy functions
  */
 
-void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ogradient,
-		double *ohessian) {
+void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ogradient, double *ohessian) 
+{
 	// Run-time dispatch
-	switch (hXI->getFormatType(index)) {
+	switch (hXI->getFormatType(index)) 
+	{
 	case INDICATOR :
 //		computeGradientAndHessianImplHand(index, ogradient, ohessian);
 		computeGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian);
@@ -613,6 +631,39 @@ void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ograd
 	}
 }
 
+void CyclicCoordinateDescent::computeGradient(int index, double *ogradient) 
+{
+	// Run-time dispatch
+	switch (hXI->getFormatType(index)) 
+	{
+	case INDICATOR :
+		computeGradientImpl<IndicatorIterator>(index, ogradient);
+		break;
+	case SPARSE :
+		computeGradientImpl<SparseIterator>(index, ogradient);
+		break;
+	case DENSE :
+		computeGradientImpl<DenseIterator>(index, ogradient);
+		break;
+	}
+}
+
+void CyclicCoordinateDescent::computeHessian(int index, double *ohessian) 
+{
+	// Run-time dispatch
+	switch (hXI->getFormatType(index)) 
+	{
+	case INDICATOR :
+		computeHessianImpl<IndicatorIterator>(index, ohessian);
+		break;
+	case SPARSE :
+		computeHessianImpl<SparseIterator>(index, ohessian);
+		break;
+	case DENSE :
+		computeHessianImpl<DenseIterator>(index, ohessian);
+		break;
+	}
+}
 //void CyclicCoordinateDescent::computeGradientAndHessianImplHand(int index, double *ogradient,
 //		double *ohessian) {
 //	real gradient = 0;
@@ -659,12 +710,22 @@ inline void CyclicCoordinateDescent::incrementGradientAndHessian(
 */
 
 template <class IteratorType>
-inline void CyclicCoordinateDescent::incrementGradientAndHessian(
-	real* gradient, real* hessian,
-	real numer, real numer2, real denom, int nEvents) 
+inline void CyclicCoordinateDescent::incrementGradientAndHessian(real* gradient, real* hessian,	real numer, real numer2, real denom, int nEvents) 
 {
-		*gradient += numer;
-		*hessian += numer2;
+	*gradient += numer;
+	*hessian += numer2;
+}
+
+template <class IteratorType>
+inline void CyclicCoordinateDescent::incrementGradient(real* gradient, real numer) 
+{
+	*gradient += numer;
+}
+
+template <class IteratorType>
+inline void CyclicCoordinateDescent::incrementHessian(real* hessian,	real numer2) 
+{
+	*hessian += numer2;
 }
 
 //template <class IteratorType>
@@ -750,6 +811,37 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl(int index, double *o
 	*ohessian = static_cast<double>(hessian);
 }
 
+template <class IteratorType>
+void CyclicCoordinateDescent::computeGradientImpl(int index, double *ogradient) 
+{
+		real gradient = 0;
+		real hessian = 0;
+
+		IteratorType it(*sparseIndices[index], N); // TODO How to create with different constructor signatures?
+		for (; it; ++it) 
+		{
+			const int k = it.index();
+			incrementGradient<IteratorType>(&gradient, numerPid[k]);
+		}
+
+		*ogradient = static_cast<double>(gradient);
+}
+
+template <class IteratorType>
+void CyclicCoordinateDescent::computeHessianImpl(int index, double *ohessian) 
+{
+		real hessian = 0;
+
+		IteratorType it(*sparseIndices[index], N); // TODO How to create with different constructor signatures?
+		for (; it; ++it) 
+		{
+			const int k = it.index();
+			incrementHessian<IteratorType>(&hessian, numerPid2[k]);
+		}
+
+		*ohessian = static_cast<double>(hessian);
+}
+
 //template <class IteratorType>
 //void CyclicCoordinateDescent::computeHessianImpl(int index_i, int index_j, double *ohessian) {
 //	real hessian = 0;
@@ -780,16 +872,42 @@ void CyclicCoordinateDescent::computeNumeratorForGradient(int index) {
 			break;
 		case DENSE :
 			zeroVector(numerPid, N);
-			zeroVector(numerPid2, N);
 			incrementNumeratorForGradientImpl<DenseIterator>(index);
 			break;
 		case SPARSE : {
 			IndicatorIterator it(*sparseIndices[index]);
 			for (; it; ++it) { // Only affected entries
 				numerPid[it.index()] = static_cast<real>(0.0);
-				numerPid2[it.index()] = static_cast<real>(0.0); // TODO Does this invalid the cache line too much?
 			}
 			incrementNumeratorForGradientImpl<SparseIterator>(index); }
+			break;
+		default :
+			// throw error
+			exit(-1);
+	}
+}
+
+void CyclicCoordinateDescent::computeNumeratorForHessian(int index) {
+	// Run-time delegation
+	switch (hXI->getFormatType(index)) {
+		case INDICATOR : {
+			IndicatorIterator it(*sparseIndices[index]);
+			for (; it; ++it) { // Only affected entries
+				numerPid2[it.index()] = static_cast<real>(0.0);
+			}
+			incrementNumeratorForHessianImpl<IndicatorIterator>(index);
+  			}
+			break;
+		case DENSE :
+			zeroVector(numerPid2, N);
+			incrementNumeratorForHessianImpl<DenseIterator>(index);
+			break;
+		case SPARSE : {
+			IndicatorIterator it(*sparseIndices[index]);
+			for (; it; ++it) { // Only affected entries
+				numerPid2[it.index()] = static_cast<real>(0.0);
+			}
+			incrementNumeratorForHessianImpl<SparseIterator>(index); }
 			break;
 		default :
 			// throw error
@@ -828,7 +946,16 @@ void CyclicCoordinateDescent::incrementNumeratorForGradientImpl(int index) {
 		const int k = it.index();
         // No need for an extra level of indirection when all rows are independent
         numerPid[k] += static_cast<real>(2) * it.value() * (hXBeta[k] - hEta[k]);
-        numerPid2[k] += static_cast<real>(2) * it.value() * it.value(); // These can be precomputed
+	}
+}
+
+template <class IteratorType>
+void CyclicCoordinateDescent::incrementNumeratorForHessianImpl(int index) {
+	IteratorType it(*hXI, index);
+	for (; it; ++it) {
+		const int k = it.index();
+		// No need for an extra level of indirection when all rows are independent
+		numerPid2[k] += static_cast<real>(2) * it.value() * it.value(); // These can be precomputed
 	}
 }
 
@@ -869,11 +996,18 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	}
 */	
 	computeNumeratorForGradient(index);
+	if(0) //Logistic regression
+		computeNumeratorForHessian(index);
 	
 	double g_d1;
 	double g_d2;
 					
-	computeGradientAndHessian(index, &g_d1, &g_d2);
+	computeGradient(index, &g_d1);
+
+	if(0) //Logistic regression
+		computeHessian(index, &g_d2);
+	else  //least-squares
+		g_d2 = hHessian[index];
 
 //	if (g_d2 <= 0.0) {
 //		cerr << "Not positive-definite! Hessian = " << g_d2 << endl;
