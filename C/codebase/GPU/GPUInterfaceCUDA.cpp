@@ -397,7 +397,9 @@ void GPUInterface::FreeMemory(GPUPtr dPtr) {
     fprintf(stderr, "\t\t\tEntering GPUInterface::FreeMemory\n");
 #endif
     
-    SAFE_CUPP(cuMemFree(dPtr));
+    if (dPtr) {
+    	SAFE_CUPP(cuMemFree(dPtr));
+    }
 
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr,"\t\t\tLeaving  GPUInterface::FreeMemory\n");

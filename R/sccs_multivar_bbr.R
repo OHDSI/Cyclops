@@ -3,14 +3,19 @@
 args = commandArgs(trailing=TRUE)
 
 # input arguments:
-	datafile = args[1]
-	prior = args[2]
+	#datafile = args[1]
+	#prior = args[2]
+	
+#	datafile = "data/sm_ge_format_multivar_OUT_53drugs.txt"
+	datafile = "data/test-301.txt"
+	prior ="laplace"	
 
 	if (prior != "normal" & prior != "laplace") {
 		cat("Invalid prior (arg 2): must be 'normal' or 'laplace' \n")
 	}
 
-	prior_var = as.numeric(args[3])
+	#prior_var = as.numeric(args[3])
+	prior_var = 0.1
 	
 	convergence_type = "L"
 	if (!is.na(args[4]) && args[4] == "ZO") {
@@ -162,12 +167,15 @@ args = commandArgs(trailing=TRUE)
 	# read in data
 	#datafile = "/Users/ses/Desktop/sccs_multivar_package/ge_bbrtest/cond_373474_ge_bbrtest_Rin.txt"
 	#datafile = "data/sm_ge_format_multivar_OUT_53drugs.txt"
+	#prior ="laplace"
 
 	# data in format of flat tab-delimited text file, header: 
 	#	PID	EVT	OFFS	D1	D2	D3	... etc.
 	dat = read.table(datafile, fill=TRUE, row.names=NULL, 
 				header=TRUE, sep="\t")        # will automatically pad with NAs
 												        # for rows w/o max num of drugs
+												        
+    dat = dat[,2:dim(dat)[2]]												        
 	nrows = dim(dat)[1]
 	ncols = dim(dat)[2]
 	drugcols = paste("D", 1:(ncols-3), sep="")
