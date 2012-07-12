@@ -8,12 +8,17 @@
 #ifndef CYCLICCOORDINATEDESCENT_H_
 #define CYCLICCOORDINATEDESCENT_H_
 
-#include "CompressedIndicatorMatrix.h"
+#include "CompressedDataMatrix.h"
 #include "InputReader.h"
 
-using namespace std;
+//using namespace std;
+using std::cout;
+using std::cerr;
+using std::endl;
+using std::ostream;
+using std::ofstream;
 
-#define DEBUG
+//#define DEBUG
 
 #define TEST_SPARSE // New sparse updates are great
 //#define TEST_ROW_INDEX
@@ -21,6 +26,8 @@ using namespace std;
 #define MERGE_TRANSFORMATION
 #define NEW_NUMERATOR
 #define SPARSE_PRODUCT
+
+#define USE_ITER
 
 
 //#define NO_FUSE
@@ -62,7 +69,7 @@ public:
 
 	CyclicCoordinateDescent(
 			int inN,
-			CompressedIndicatorMatrix* inX,
+			CompressedDataMatrix* inX,
 			int* inEta, 
 			int* inOffs, 
 			int* inNEvents,
@@ -96,11 +103,26 @@ public:
 
 	void setWeights(real* weights);
 
+	void setLogisticRegression(bool idoLR);
+
+//	template <typename T>
+	void setBeta(const std::vector<double>& beta);
+
+//	void double getHessianComponent(int i, int j);
+
 	// Getters
 	string getPriorInfo();
 
 	string getConditionId() const {
 		return conditionId;
+	}
+
+	int getUpdateCount() const {
+		return updateCount;
+	}
+
+	int getLikelihoodCount() const {
+		return likelihoodCount;
 	}
 		
 protected:
@@ -121,22 +143,56 @@ protected:
 
 	void updateSufficientStatistics(double delta, int index);
 
+	template <class IteratorType>
+	void incrementNumeratorForGradientImpl(int index);
+
+	void incrementNumeratorForGradientImplHand(int index);
+
 	void computeNumeratorForGradient(int index);
 
 	virtual void computeNEvents(void);
 
 	virtual void updateXBeta(double delta, int index);
 
-	virtual void computeRemainingStatistics(bool);
+	template <class IteratorType>
+	void updateXBetaImpl(real delta, int index);
+
+	void updateXBetaImplHand(real realDelta, int index);
+
+	virtual void computeRemainingStatistics(bool skip, int index);
 	
 	virtual void computeRatiosForGradientAndHessian(int index);
 
-	virtual void computeRatio(int index);
+//	virtual void computeRatio(int index);
 
-	virtual void computeGradientAndHession(
+	virtual void computeGradientAndHessian(
 			int index,
 			double *gradient,
 			double *hessian);
+
+	template <class IteratorType>
+	void computeGradientAndHessianImpl(
+			int index,
+			double *gradient,
+			double *hessian);
+
+	void computeGradientAndHessianImplHand(
+			int index,
+						double *gradient,
+						double *hessian);
+
+	template <class IteratorType>
+	inline real computeHessian(
+			real numer, real numer2, real denom,
+			real g, real t);
+
+	template <class IteratorType>
+	inline void incrementGradientAndHessian(
+			real* gradient, real* hessian,
+			real numer, real numer2, real denom, int nEvents);
+
+	template <class IteratorType>
+	void axpy(real* y, const real alpha, const int index);
 
 	virtual void getDenominators(void);
 
@@ -151,6 +207,13 @@ protected:
 	double computeConvergenceCriterion(double newObjFxn, double oldObjFxn);
 	
 	virtual double computeZhangOlesConvergenceCriterion(void);
+
+	template <class T>
+	void fillVector(T* vector, const int length, const T& value) {
+		for (int i = 0; i < length; i++) {
+			vector[i] = value;
+		}
+	}
 
 	template <class T>
 	void zeroVector(T* vector, const int length) {
@@ -182,7 +245,7 @@ protected:
 	ofstream outLog;
 	bool hasLog;
 
-	CompressedIndicatorMatrix* hXI; // K-by-J-indicator matrix	
+	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
 	int* hOffs;  // K-vector
 	int* hEta; // K-vector
@@ -205,10 +268,14 @@ protected:
 	double sigma2Beta;
 	double lambda;
 
+	real denomNullValue;
+
 	bool sufficientStatisticsKnown;
+	bool xBetaKnown;
 
 	bool validWeights;
 	bool useCrossValidation;
+	bool doLogisticRegression;
 	real* hWeights;
 
 	// temporary variables
@@ -216,9 +283,12 @@ protected:
 	real* offsExpXBeta;
 	real* denomPid;
 	real* numerPid;
-	real* t1;
+	real* numerPid2;
 	real* xOffsExpXBeta;
 	real* hXjEta;
+
+	int updateCount;
+	int likelihoodCount;
 
 #ifdef SPARSE_PRODUCT
 	std::vector<std::vector<int>* > sparseIndices;

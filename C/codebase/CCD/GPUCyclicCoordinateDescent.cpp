@@ -252,7 +252,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	
 	//hReader = reader; // Keep a local copy
 	
-	computeRemainingStatistics(true);
+	computeRemainingStatistics(true, 0);  // TODO Check index?  Probably not right.
 	
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::constructor\n");
@@ -345,16 +345,17 @@ double GPUCyclicCoordinateDescent::getObjectiveFunction(void) {
 #endif 	
     
 	gpu->MemcpyDeviceToHost(hXBeta, dXBeta, sizeof(real) * K);
-	double criterion = 0;
-	for (int i = 0; i < K; i++) {
-		criterion += hXBeta[i] * hEta[i];
-	}
+	return CyclicCoordinateDescent::getObjectiveFunction();
+//	double criterion = 0;
+//	for (int i = 0; i < K; i++) {
+//		criterion += hXBeta[i] * hEta[i];
+//	}
 
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::getObjectiveFunction\n");
 #endif
     
-    return criterion;
+//    return criterion;
 }
 
 double GPUCyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
@@ -393,7 +394,7 @@ void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 #endif  	
 }
 
-void GPUCyclicCoordinateDescent::computeRemainingStatistics(bool allStats) {
+void GPUCyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int index) {
 
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering  GPUCylicCoordinateDescent::computeRemainingStatistics\n");
@@ -402,7 +403,7 @@ void GPUCyclicCoordinateDescent::computeRemainingStatistics(bool allStats) {
     if (allStats) {
     	// NEW
 //    	kernels->computeIntermediates(dOffsExpXBeta, dDenomPid, dOffs, dXBeta, dXFullRowOffsets, K, N, allStats);
-    	CyclicCoordinateDescent::computeRemainingStatistics(true);
+    	CyclicCoordinateDescent::computeRemainingStatistics(true, index);
     	gpu->MemcpyHostToDevice(dDenomPid, denomPid, sizeof(real) * N);
     	gpu->MemcpyHostToDevice(dOffsExpXBeta, offsExpXBeta, sizeof(real) * K);
     }

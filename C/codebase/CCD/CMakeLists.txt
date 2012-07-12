@@ -71,8 +71,12 @@ include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 set(SOURCE_FILES
 	ccd.cpp
 	CyclicCoordinateDescent.cpp	
-	CompressedIndicatorMatrix.cpp
+	CompressedDataMatrix.cpp
 	InputReader.cpp
+	SCCSInputReader.cpp
+	CLRInputReader.cpp
+	RTestInputReader.cpp
+	CCTestInputReader.cpp
 	AbstractDriver.cpp
 	AbstractSelector.cpp
 	CrossValidationSelector.cpp
@@ -94,6 +98,7 @@ if(CUDA_FOUND)
 	else(APPLE)
 		set(CUDA_NVCC_FLAGS "-arch=sm_20")
 	endif(APPLE)
+#	cuda_add_library(ccd-lib ${SOURCE_FILES})
  	cuda_add_executable(ccd ${SOURCE_FILES})
  	target_link_libraries(ccd CUDADriver)
 else(CUDA_FOUND)

@@ -19,6 +19,7 @@ struct CCDArguments {
 	// Needed for fitting
 	std::string inFileName;
 	std::string outFileName;
+	std::string fileFormat;
 	bool useGPU;
 	bool useBetterGPU;
 	int deviceNumber;
@@ -45,12 +46,20 @@ struct CCDArguments {
 	bool reportRawEstimates;
 	int replicates;
 	std::string bsFileName;
+
+	// Needed for model specification
+	bool doLogisticRegression;
 };
+
 
 void parseCommandLine(
 		int argc,
 		char* argv[],
 		CCDArguments &arguments);
+
+void parseCommandLine(
+		std::vector<std::string>& argcpp,
+		CCDArguments& arguments);
 
 double initializeModel(
 		InputReader** reader,
@@ -74,5 +83,8 @@ double runBoostrap(
 double calculateSeconds(
 		const struct timeval &time1,
 		const struct timeval &time2);
+
+void setDefaultArguments(
+		CCDArguments &arguments);
 
 #endif /* CCD_H_ */

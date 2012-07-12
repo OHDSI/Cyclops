@@ -179,6 +179,28 @@ extern "C" {
 			t1[idx] = numerPid[idx] / denomPid[idx];
 		}
 	}
+	
+	__global__ void kernelComputeGradientNoFuse(
+			REAL *t1,
+			int *nEvents,
+			REAL *gradient,			
+			int length) {
+		int idx = blockIdx.x * MAKE_RATIO_BLOCK_SIZE + threadIdx.x;
+		if (idx < length) {
+			gradient[idx] = nEvents[idx] * t1[idx];			
+		}
+	}	
+	
+	__global__ void kernelComputeHessianNoFuse(
+			REAL *t1,
+			int *nEvents,			
+			REAL *hessian,
+			int length) {
+		int idx = blockIdx.x * MAKE_RATIO_BLOCK_SIZE + threadIdx.x;
+		if (idx < length) {
+			hessian[idx] = nEvents[idx] * t1[idx] * (1.0 - t1[idx]);
+		}
+	}	
 
 	__global__ void kernelComputeGradientHessian(
 			REAL *numerPid,

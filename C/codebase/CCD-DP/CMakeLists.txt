@@ -3,8 +3,11 @@ include_directories(. ${CMAKE_SOURCE_DIR}/codebase ${CMAKE_SOURCE_DIR}/codebase/
 set(SOURCE_FILES
 	../CCD/ccd.cpp
 	../CCD/CyclicCoordinateDescent.cpp	
-	../CCD/CompressedIndicatorMatrix.cpp
+	../CCD/CompressedDataMatrix.cpp
 	../CCD/InputReader.cpp
+	../CCD/SCCSInputReader.cpp
+	../CCD/CLRInputReader.cpp
+	../CCD/RTestInputReader.cpp
 	../CCD/AbstractDriver.cpp
 	../CCD/AbstractSelector.cpp
 	../CCD/CrossValidationSelector.cpp

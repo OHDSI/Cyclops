@@ -51,9 +51,15 @@ void KernelLauncherCCD::LoadKernels() {
 	fComputeGradientAndHessianWithReductionSparse = gpu->GetFunction("kernelComputeGradientAndHessianWithReductionSparse");
 // 	fReduceRow = gpu->GetFunction("kernelReduceRow");
 
-	fComputeRatio = gpu->GetFunction("kernelComputeRatio");
+	
 	fComputeGradientHessian = gpu->GetFunction("kernelComputeGradientHessian");
 	fComputeNumerator = gpu->GetFunction("kernelComputeNumerator");
+	
+#ifdef NO_FUSE
+	fComputeRatio = gpu->GetFunction("kernelComputeRatio");
+	fComputeGradientNoFuse = gpu->GetFunction("kernelComputeGradientNoFuse");
+	fComputeHessianNoFuse = gpu->GetFunction("kernelComputeHessianNoFuse");
+#endif
 
 	fSpmvCooSerial = gpu->GetFunction("spmv_coo_serial_kernel");
 	fSpmvCooFlat = gpu->GetFunction("spmv_coo_flat_kernel");

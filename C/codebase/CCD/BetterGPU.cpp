@@ -68,7 +68,7 @@ BetterGPU::BetterGPU(int deviceNumber, InputReader* reader)
 	hGradient = (real*) malloc(2 * sizeof(real) * alignedGHCacheSize);
 	hHessian = hGradient + alignedGHCacheSize;
 
-	computeRemainingStatistics(true);
+	computeRemainingStatistics(true, 0);
 	
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving BetterGPU::constructor\n");

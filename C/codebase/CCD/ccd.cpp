@@ -23,12 +23,17 @@
 #include "ccd.h"
 #include "CyclicCoordinateDescent.h"
 #include "InputReader.h"
+#include "CLRInputReader.h"
+#include "RTestInputReader.h"
+#include "CCTestInputReader.h"
 #include "CrossValidationSelector.h"
 #include "CrossValidationDriver.h"
 #include "BootstrapSelector.h"
 #include "BootstrapDriver.h"
 
 #include "tclap/CmdLine.h"
+
+//#include <R.h>
 
 #ifdef CUDA
 	#include "GPUCyclicCoordinateDescent.h"
@@ -46,38 +51,87 @@ double calculateSeconds(const timeval &time1, const timeval &time2) {
 			(double)(time2.tv_usec - time1.tv_usec) / 1000000.0;
 }
 
-void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
+void parseCommandLine(int argc, char* argv[],
+		CCDArguments &arguments) {
+	std::vector<std::string> args;
+	for (int i = 0; i < argc; i++)
+		args.push_back(argv[i]);
+	parseCommandLine(args, arguments);
+}
+
+void setDefaultArguments(CCDArguments &arguments) {
+	arguments.useGPU = false;
+	arguments.maxIterations = 100;
+	arguments.inFileName = "default_in";
+	arguments.outFileName = "default_out";
+	arguments.hyperPriorSet = false;
+	arguments.hyperprior = 1.0;
+	arguments.tolerance = 5E-4;
+	arguments.seed = 123;
+	arguments.doCrossValidation = false;
+	arguments.lowerLimit = 0.01;
+	arguments.upperLimit = 20.0;
+	arguments.fold = 10;
+	arguments.gridSteps = 10;
+	arguments.cvFileName = "cv.txt";
+	arguments.doBootstrap = false;
+	arguments.replicates = 100;
+	arguments.reportRawEstimates = false;
+	arguments.doLogisticRegression = false;
+	arguments.fileFormat = "sccs";
+	arguments.useNormalPrior = false;
+	arguments.convergenceType = ZHANG_OLES;
+}
+
+
+void parseCommandLine(std::vector<std::string>& args,
+		CCDArguments &arguments) {
+
+	setDefaultArguments(arguments);
+
 	try {
 		CmdLine cmd("Cyclic coordinate descent algorithm for self-controlled case studies", ' ', "0.1");
-		ValueArg<int> gpuArg("g","GPU","Use GPU device", false, -1, "device #");
+		ValueArg<int> gpuArg("g","GPU","Use GPU device", arguments.useGPU, -1, "device #");
 //		SwitchArg betterGPUArg("1","better", "Use better GPU implementation", false);
-		ValueArg<int> maxIterationsArg("", "maxIterations", "Maximum iterations", false, 100, "int");
-		UnlabeledValueArg<string> inFileArg("inFileName","Input file name", true, "default", "inFileName");
-		UnlabeledValueArg<string> outFileArg("outFileName","Output file name", true, "default", "outFileName");
+		ValueArg<int> maxIterationsArg("", "maxIterations", "Maximum iterations", false, arguments.maxIterations, "int");
+		UnlabeledValueArg<string> inFileArg("inFileName","Input file name", true, arguments.inFileName, "inFileName");
+		UnlabeledValueArg<string> outFileArg("outFileName","Output file name", true, arguments.outFileName, "outFileName");
 
 		// Prior arguments
-		ValueArg<double> hyperPriorArg("v", "variance", "Hyperprior variance", false, 1.0, "real");
-		SwitchArg normalPriorArg("n", "normalPrior", "Use normal prior, default is laplace", false);
+		ValueArg<double> hyperPriorArg("v", "variance", "Hyperprior variance", false, arguments.hyperprior, "real");
+		SwitchArg normalPriorArg("n", "normalPrior", "Use normal prior, default is laplace", arguments.useNormalPrior);
 
 		// Convergence criterion arguments
-		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, 5E-4, "real");
+		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, arguments.tolerance, "real");
 		SwitchArg zhangOlesConvergenceArg("z", "zhangOles", "Use Zhange-Oles convergence criterion, default is true", true);
-		ValueArg<long> seedArg("s", "seed", "Random number generator seed", false, 123, "long");
+		ValueArg<long> seedArg("s", "seed", "Random number generator seed", false, arguments.seed, "long");
 
 		// Cross-validation arguments
-		SwitchArg doCVArg("c", "cv", "Perform cross-validation selection of hyperprior variance", false);
-		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, 0.01, "real");
-		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, 20.0, "real");
-		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, 10, "int");
-		ValueArg<int> gridCVArg("", "gridSize", "Uniform grid size for cross-validation search", false, 10, "int");
+		SwitchArg doCVArg("c", "cv", "Perform cross-validation selection of hyperprior variance", arguments.doCrossValidation);
+		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, arguments.lowerLimit, "real");
+		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, arguments.upperLimit, "real");
+		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, arguments.fold, "int");
+		ValueArg<int> gridCVArg("", "gridSize", "Uniform grid size for cross-validation search", false, arguments.gridSteps, "int");
 		ValueArg<int> foldToComputeCVArg("", "computeFold", "Number of fold to iterate, default is 'fold' value", false, 10, "int");
-		ValueArg<string> outFile2Arg("", "cvFileName", "Cross-validation output file name", false, "cv.txt", "cvFileName");
+		ValueArg<string> outFile2Arg("", "cvFileName", "Cross-validation output file name", false, arguments.cvFileName, "cvFileName");
 
-		//Bootstrap arguments
-		SwitchArg doBootstrapArg("b", "bs", "Perform bootstrap estimation", false);
+		// Bootstrap arguments
+		SwitchArg doBootstrapArg("b", "bs", "Perform bootstrap estimation", arguments.doBootstrap);
 //		ValueArg<string> bsOutFileArg("", "bsFileName", "Bootstrap output file name", false, "bs.txt", "bsFileName");
-		ValueArg<int> replicatesArg("r", "replicates", "Number of bootstrap replicates", false, 100, "int");
-		SwitchArg reportRawEstimatesArg("","raw", "Report the raw bootstrap estimates", false);
+		ValueArg<int> replicatesArg("r", "replicates", "Number of bootstrap replicates", false, arguments.replicates, "int");
+		SwitchArg reportRawEstimatesArg("","raw", "Report the raw bootstrap estimates", arguments.reportRawEstimates);
+
+		// Model arguments
+		SwitchArg doLogisticRegressionArg("", "logistic", "Use ordinary logistic regression", arguments.doLogisticRegression);
+
+		// Format arguments
+		std::vector<std::string> allowed;
+		allowed.push_back("sccs");
+		allowed.push_back("clr");
+		allowed.push_back("csv");
+		allowed.push_back("cc");
+		ValuesConstraint<std::string> allowedValues(allowed);
+		ValueArg<string> formatArg("", "format", "Format of data file", false, arguments.fileFormat, &allowedValues);
 
 		cmd.add(gpuArg);
 //		cmd.add(betterGPUArg);
@@ -87,6 +141,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		cmd.add(normalPriorArg);
 		cmd.add(zhangOlesConvergenceArg);
 		cmd.add(seedArg);
+		cmd.add(formatArg);
 
 		cmd.add(doCVArg);
 		cmd.add(lowerCVArg);
@@ -100,10 +155,11 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 //		cmd.add(bsOutFileArg);
 		cmd.add(replicatesArg);
 		cmd.add(reportRawEstimatesArg);
+		cmd.add(doLogisticRegressionArg);
 
 		cmd.add(inFileArg);
 		cmd.add(outFileArg);
-		cmd.parse(argc, argv);
+		cmd.parse(args);
 
 		if (gpuArg.getValue() > -1) {
 			arguments.useGPU = true;
@@ -120,6 +176,8 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 		arguments.hyperprior = hyperPriorArg.getValue();
 		arguments.useNormalPrior = normalPriorArg.getValue();
 		arguments.seed = seedArg.getValue();
+
+		arguments.fileFormat = formatArg.getValue();
 
 		if (hyperPriorArg.isSet()) {
 			arguments.hyperPriorSet = true;
@@ -160,7 +218,7 @@ void parseCommandLine(int argc, char* argv[], CCDArguments &arguments) {
 				arguments.reportRawEstimates = false;
 			}
 		}
-
+		arguments.doLogisticRegression = doLogisticRegressionArg.isSet();
 	} catch (ArgException &e) {
 		cerr << "Error: " << e.error() << " for argument " << e.argId() << endl;
 		exit(-1);
@@ -183,16 +241,24 @@ double initializeModel(
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	*reader = new InputReader(arguments.inFileName.c_str());
+	if (arguments.fileFormat == "sccs") {
+		*reader = new SCCSInputReader();
+	} else if (arguments.fileFormat == "clr") {
+		*reader = new CLRInputReader();
+	} else if (arguments.fileFormat == "csv") {
+		*reader = new RTestInputReader();
+	} else if (arguments.fileFormat == "cc") {
+		*reader = new CCTestInputReader();
+	} else {
+		cerr << "Invalid file format." << endl;
+		exit(-1);
+	}
+	(*reader)->readFile(arguments.inFileName.c_str()); // TODO Check for error
+
 
 #ifdef CUDA
 	if (arguments.useGPU) {
-//		if (arguments.useBetterGPU) {
-//			*ccd = new BetterGPU(arguments.deviceNumber, *reader);
-//			*ccd = NULL;
-//		} else {
-			*ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, *reader);
-//		}
+		*ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, *reader);
 	} else {
 #endif
 
@@ -210,6 +276,11 @@ double initializeModel(
 		(*ccd)->setHyperprior(arguments.hyperprior);
 	}
 
+	// Set model from the command-line
+	if (arguments.doLogisticRegression) {
+		(*ccd)->setLogisticRegression(true);
+	}
+
 	gettimeofday(&time2, NULL);
 	double sec1 = calculateSeconds(time1, time2);
 
@@ -219,7 +290,9 @@ double initializeModel(
 }
 
 double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
+#ifndef MY_RCPP_FLAG
 	cout << "Using prior: " << ccd->getPriorInfo() << endl;
+#endif
 
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
@@ -228,7 +301,9 @@ double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
 
 	gettimeofday(&time2, NULL);
 
+#ifndef MY_RCPP_FLAG
 	ccd->logResults(arguments.outFileName.c_str());
+#endif
 
 	return calculateSeconds(time1, time2);
 }
@@ -277,6 +352,46 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, InputReader *reader,
 	return calculateSeconds(time1, time2);
 }
 
+#if 0
+
+int main(int argc, char* argv[]) {
+
+	std::string myFileName = "short.txt";
+
+    CCDArguments* arguments = new CCDArguments;
+    setDefaultArguments(*arguments);
+
+    // Change options
+    arguments->inFileName = myFileName;
+    arguments->outFileName = "out.txt";
+    arguments->fileFormat = "sccs";
+
+//    std::vector<std::string> args;
+//    args.push_back("R"); // program name
+//    args.push_back("short.txt");
+//    args.push_back("out.txt");
+
+//	parseCommandLine(args, arguments); // TODO No idea why this doesn't work in Rcpp
+
+    CyclicCoordinateDescent* ccd = NULL;
+    InputReader* reader = NULL;
+    double timeInitialize = initializeModel(&reader, &ccd, *arguments);
+
+	double timeUpdate = fitModel(ccd, *arguments);
+
+	cout << "Load   duration: " << scientific << timeInitialize << endl;
+	cout << "Update duration: " << scientific << timeUpdate << endl;
+
+	if (ccd)
+		delete ccd;
+	if (reader)
+		delete reader;
+
+    return 0;
+}
+
+#else
+
 int main(int argc, char* argv[]) {
 
 	CyclicCoordinateDescent* ccd = NULL;
@@ -303,6 +418,7 @@ int main(int argc, char* argv[]) {
 		timeUpdate += runBoostrap(ccd, reader, arguments, savedBeta);
 	}
 		
+	cout << endl;
 	cout << "Load   duration: " << scientific << timeInitialize << endl;
 	cout << "Update duration: " << scientific << timeUpdate << endl;
 	
@@ -313,3 +429,5 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+
+#endif
