@@ -25,7 +25,8 @@
 
 class GPUCyclicCoordinateDescent: public CyclicCoordinateDescent {
 public:
-	GPUCyclicCoordinateDescent(int deviceNumber, InputReader *reader);
+	GPUCyclicCoordinateDescent(int deviceNumber, InputReader *reader,
+			AbstractModelSpecifics& specifics);
 	virtual ~GPUCyclicCoordinateDescent();
 
 	virtual double getObjectiveFunction(void);

@@ -10,6 +10,7 @@
 
 #include "CompressedDataMatrix.h"
 #include "InputReader.h"
+#include "ModelSpecifics.h"
 
 //using namespace std;
 using std::cout;
@@ -64,7 +65,8 @@ public:
 		);
 	
 	CyclicCoordinateDescent(
-			InputReader* reader
+			InputReader* reader,
+			AbstractModelSpecifics& specifics
 		);
 
 	CyclicCoordinateDescent(
@@ -127,6 +129,7 @@ public:
 		
 protected:
 	
+	AbstractModelSpecifics& modelSpecifics;
 //private:
 	
 	void init(void);
@@ -143,53 +146,20 @@ protected:
 
 	void updateSufficientStatistics(double delta, int index);
 
-	template <class IteratorType>
-	void incrementNumeratorForGradientImpl(int index);
-
-	void incrementNumeratorForGradientImplHand(int index);
-
 	void computeNumeratorForGradient(int index);
 
 	virtual void computeNEvents(void);
 
 	virtual void updateXBeta(double delta, int index);
 
-	template <class IteratorType>
-	void updateXBetaImpl(real delta, int index);
-
-	void updateXBetaImplHand(real realDelta, int index);
-
 	virtual void computeRemainingStatistics(bool skip, int index);
 	
 	virtual void computeRatiosForGradientAndHessian(int index);
-
-//	virtual void computeRatio(int index);
 
 	virtual void computeGradientAndHessian(
 			int index,
 			double *gradient,
 			double *hessian);
-
-	template <class IteratorType>
-	void computeGradientAndHessianImpl(
-			int index,
-			double *gradient,
-			double *hessian);
-
-	void computeGradientAndHessianImplHand(
-			int index,
-						double *gradient,
-						double *hessian);
-
-	template <class IteratorType>
-	inline real computeHessian(
-			real numer, real numer2, real denom,
-			real g, real t);
-
-	template <class IteratorType>
-	inline void incrementGradientAndHessian(
-			real* gradient, real* hessian,
-			real numer, real numer2, real denom, int nEvents);
 
 	template <class IteratorType>
 	void axpy(real* y, const real alpha, const int index);

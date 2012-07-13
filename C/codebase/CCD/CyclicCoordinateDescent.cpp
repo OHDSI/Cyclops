@@ -45,13 +45,10 @@ void compareIntVector(int* vec0, int* vec1, int dim, const char* name) {
 	}
 }
 
-CyclicCoordinateDescent::CyclicCoordinateDescent() {
-	// Do nothing
-}
-
 CyclicCoordinateDescent::CyclicCoordinateDescent(
-			InputReader* reader
-		) {
+			InputReader* reader,
+			AbstractModelSpecifics& specifics
+		) : modelSpecifics(specifics) {
 	N = reader->getNumberOfPatients();
 	K = reader->getNumberOfRows();
 	J = reader->getNumberOfColumns();
@@ -70,21 +67,6 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 
 	init();
 }
-
-//CyclicCoordinateDescent::CyclicCoordinateDescent(
-//		int inN,
-//		CompressedIndicatorMatrix* inX,
-//		int* inEta,
-//		int* inOffs,
-//		int* inNEvents,
-//		int* inPid) :
-//	N(inN), hXI(inX), hEta(inEta), hOffs(inOffs), hNEvents(inNEvents), hPid(inPid) {
-//
-//	K = hXI->getNumberOfRows();
-//	J = hXI->getNumberOfColumns();
-//
-//	init();
-//}
 
 CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 
@@ -109,7 +91,7 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 	free(hXjEta);
 	free(offsExpXBeta);
 	free(xOffsExpXBeta);
-//	free(denomPid);  // Nested in denomPid allocation
+//	free(denomPid);  // Nested in numerPid allocation
 	free(numerPid);
 //	free(t1);
 	
@@ -122,7 +104,8 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 	}
 
 #ifdef SPARSE_PRODUCT
-	for (std::vector<std::vector<int>* >::iterator it = sparseIndices.begin(); it != sparseIndices.end(); ++it) {
+	for (std::vector<std::vector<int>* >::iterator it = sparseIndices.begin();
+			it != sparseIndices.end(); ++it) {
 		if (*it) {
 			delete *it;
 		}
@@ -157,10 +140,6 @@ void CyclicCoordinateDescent::init() {
 	
 	// Set parameters and statistics space
 	hDelta = (real*) malloc(J * sizeof(real));
-//	for (int j = 0; j < J; j++) {
-//		hDelta[j] = 2.0;
-//	}
-
 	hBeta = (real*) calloc(J, sizeof(real)); // Fixed starting state
 	hXBeta = (real*) calloc(K, sizeof(real));
 	hXBetaSave = (real*) calloc(K, sizeof(real));
@@ -186,14 +165,12 @@ void CyclicCoordinateDescent::init() {
 	offsExpXBeta = (real*) malloc(sizeof(real) * K);
 	xOffsExpXBeta = (real*) malloc(sizeof(real) * K);
 
-	// Put numer and denom in single memory block, with first entries on 16-word boundary
+	// Put numer, numer2 and denom in single memory block, with first entries on 16-word boundary
 	int alignedLength = getAlignedLength(N);
-
 	numerPid = (real*) malloc(sizeof(real) * 3 * alignedLength);
-//	denomPid = (real*) malloc(sizeof(real) * N);
 	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
 	numerPid2 = numerPid + 2 * alignedLength;
-//	t1 = (real*) malloc(sizeof(real) * N);
+
 	hNEvents = (int*) malloc(sizeof(int) * N);
 	hXjEta = (real*) malloc(sizeof(real) * J);
 	hWeights = NULL;
@@ -239,7 +216,10 @@ void CyclicCoordinateDescent::init() {
 //	Rprintf("Number of exposure levels = %d\n", K);
 //	Rprintf("Number of drugs = %d\n", J);
 //#endif
-
+	modelSpecifics.initialize(N, K, hXI, numerPid, numerPid2, denomPid,
+			hNEvents, hXjEta, &sparseIndices,
+			hPid, offsExpXBeta,
+			hXBeta, hOffs);
 }
 
 int CyclicCoordinateDescent::getAlignedLength(int N) {
@@ -345,9 +325,6 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 		computeRemainingStatistics(true, 0); // TODO Check index?
 	}
 
-//	double sum1 = 0.0;
-//	double sum2 = 0.0;
-
 	getDenominators();
 
 	real logLikelihood = 0;
@@ -359,28 +336,12 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 	} else {
 		for (int i = 0; i < K; i++) {
 			logLikelihood += hEta[i] * hXBeta[i];
-//			sum1 += hEta[i];
 		}
 	}
 
 	for (int i = 0; i < N; i++) {
 		logLikelihood -= hNEvents[i] * log(denomPid[i]); // Weights modified in computeNEvents()
-//		sum2 += hNEvents[i];
 	}
-
-//#ifdef MY_RCPP_FLAG
-//	Rprintf("xbeta[0] = %f\n", hXBeta[0]);
-//	Rprintf("beta[0]  = %f\n", hBeta[0]);
-//	Rprintf("eta = %f\n", sum1);
-//	Rprintf("events = %f\n", sum2);
-//
-////	typedef Rcpp::Rout cerr;
-////	cerr << "hello" << endl;
-//#else
-//	cerr << "xbeta[0] = " << hXBeta[0] << endl;
-//	cerr << "eta = " << sum1 << endl;
-//	cerr << "events = " << sum2 << endl;
-//#endif
 
 	likelihoodCount += 1;
 	return static_cast<double>(logLikelihood);
@@ -415,7 +376,6 @@ void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 	priorType = iPriorType;
 }
 
-//template <typename T>
 void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
 	for (int j = 0; j < J; ++j) {
 		hBeta[j] = static_cast<real>(beta[j]);
@@ -590,242 +550,16 @@ void CyclicCoordinateDescent::update(
 
 void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ogradient,
 		double *ohessian) {
-	// Run-time dispatch
-	switch (hXI->getFormatType(index)) {
-	case INDICATOR :
-//		computeGradientAndHessianImplHand(index, ogradient, ohessian);
-		computeGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian);
-		break;
-	case SPARSE :
-		computeGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian);
-		break;
-	case DENSE :
-		computeGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian);
-		break;
-	}
+	// Delegate
+	modelSpecifics.computeGradientAndHessian(index, ogradient, ohessian);
 }
-
-//void CyclicCoordinateDescent::computeGradientAndHessianImplHand(int index, double *ogradient,
-//		double *ohessian) {
-//	real gradient = 0;
-//	real hessian = 0;
-//	for (int k = 0; k < N; ++k) {
-//		const real t = numerPid[k] / denomPid[k];
-//		const real g = hNEvents[k] * t;
-//		gradient += g;
-//		hessian += g * (static_cast<real>(1.0) - t); // TODO Update for !indicators
-//	}
-//
-//	gradient -= hXjEta[index];
-//	*ogradient = static_cast<double>(gradient);
-//	*ohessian = static_cast<double>(hessian);
-//}
-
-//#define LR
-
-//template <>
-//inline void CyclicCoordinateDescent::incrementGradientAndHessian<IndicatorIterator>(
-//		real* gradient, real* hessian,
-//		real numer, real numer2, real denom, int nEvents) {
-//	const real t = numer / denom;
-//	const real g = nEvents * t;
-//	*gradient += g;
-//	*hessian += g * (static_cast<real>(1.0) - t);
-//}
-
-template <class IteratorType>
-inline void CyclicCoordinateDescent::incrementGradientAndHessian(
-		real* gradient, real* hessian,
-		real numer, real numer2, real denom, int nEvents) {
-
-	const real t = numer / denom;
-	const real g = nEvents * t;
-	*gradient += g;
-	if (IteratorType::isIndicator) {
-		*hessian += g * (static_cast<real>(1.0) - t);
-	} else {
-		*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
-	}
-}
-
-//template <class IteratorType>
-//inline void CyclicCoordinateDescent::incrementGradientAndHessian(
-//		real* gradient, real* hessian,
-//		real numer, real numer2, real denom, int nEvents) {
-//
-//	const real t = numer / denom;
-//	const real g = nEvents * t;
-//	*gradient += g;
-//	if (IteratorType::isIndicator) {
-//		*hessian += g * (static_cast<real>(1.0) - t);
-//	} else {
-//		*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
-//	}
-//}
-
-//template <>
-//inline void CyclicCoordinateDescent::incrementGradientAndHessian<SparseIterator>(
-//		real* gradient, real* hessian,
-//		real numer, real numer2, real denom, int nEvents) {
-//	const real t = numer / denom;
-//	const real g = nEvents * t;
-//	*gradient += g;
-////	const real h1 = nEvents * (numer2 * denom - numer * numer) / (denom * denom);
-//	const real h1 = nEvents * (numer2 / denom - t * t);
-//	const real h2 =  g * (static_cast<real>(1.0) - t);
-//	*hessian += g * (static_cast<real>(1.0) - t);
-//	cerr << "Sparse it! " << h1 << " " << h2 << endl;
-//	exit(-1);
-//}
-//
-//template <>
-//inline void CyclicCoordinateDescent::incrementGradientAndHessian<DenseIterator>(
-//		real* gradient, real* hessian,
-//		real numer, real numer2, real denom, int nEvents) {
-//	const real t = numer / denom;
-//	const real g = nEvents * t;
-//	*gradient += g;
-//	const real h1 = nEvents * (numer2 * denom - numer * numer) / (denom * denom);
-//	const real h2 =  g * (static_cast<real>(1.0) - t);
-//	*hessian += g * (static_cast<real>(1.0) - t);
-//	cerr << "Dense it! " << h1 << " " << h2 << endl;
-////	exit(-1);
-//}
-
-void CyclicCoordinateDescent::computeGradientAndHessianImplHand(int index, double *ogradient,
-		double *ohessian) {
-	real gradient = 0;
-	real hessian = 0;
-
-	std::vector<int>::iterator it = sparseIndices[index]->begin();
-	const std::vector<int>::iterator end = sparseIndices[index]->end();
-
-	for (; it != end; ++it) {
-
-		const int k = *it;
-		incrementGradientAndHessian<IndicatorIterator>(
-				&gradient, &hessian,
-				numerPid[k], numerPid2[k], denomPid[k], hNEvents[k]
-		);
-	}
-	gradient -= hXjEta[index];
-
-	*ogradient = static_cast<double>(gradient);
-	*ohessian = static_cast<double>(hessian);
-}
-
-template <class IteratorType>
-void CyclicCoordinateDescent::computeGradientAndHessianImpl(int index, double *ogradient,
-		double *ohessian) {
-	real gradient = 0;
-	real hessian = 0;
-	
-	IteratorType it(*sparseIndices[index], N); // TODO How to create with different constructor signatures?
-	for (; it; ++it) {
-		const int k = it.index();
-		incrementGradientAndHessian<IteratorType>(
-				&gradient, &hessian,
-				numerPid[k], numerPid2[k], denomPid[k], hNEvents[k]
-		);
-	}
-	gradient -= hXjEta[index];
-
-	*ogradient = static_cast<double>(gradient);
-	*ohessian = static_cast<double>(hessian);
-}
-
-//template <class IteratorType>
-//void CyclicCoordinateDescent::computeHessianImpl(int index_i, int index_j, double *ohessian) {
-//	real hessian = 0;
-//	IteratorType it = IteratorType::intersection(*sparseIndices[index_i], *sparseIndices[index_j], N);
-//	for (; it; ++it) {
-//		const int k = it.index();
-//		incrementHessian<IteratorType(
-//				&hessian,
-//				numerPid[k], numerPid2[k], denomPid[k], hNEvents[k]
-//		);
-//	}
-//	*ohessian = static_cast<double>(hessian);
-//}
-
-//#define MD
 
 void CyclicCoordinateDescent::computeNumeratorForGradient(int index) {
-	// Run-time delegation
-	switch (hXI->getFormatType(index)) {
-		case INDICATOR : {
-			IndicatorIterator it(*sparseIndices[index]);
-			for (; it; ++it) { // Only affected entries
-				numerPid[it.index()] = static_cast<real>(0.0);
-			}
-			incrementNumeratorForGradientImpl<IndicatorIterator>(index);
-//			incrementNumeratorForGradientImplHand(index);
-			}
-			break;
-		case DENSE :
-			zeroVector(numerPid, N);
-			zeroVector(numerPid2, N);
-			incrementNumeratorForGradientImpl<DenseIterator>(index);
-			break;
-		case SPARSE : {
-			IndicatorIterator it(*sparseIndices[index]);
-			for (; it; ++it) { // Only affected entries
-				numerPid[it.index()] = static_cast<real>(0.0);
-				numerPid2[it.index()] = static_cast<real>(0.0); // TODO Does this invalid the cache line too much?
-			}
-			incrementNumeratorForGradientImpl<SparseIterator>(index); }
-			break;
-		default :
-			// throw error
-			exit(-1);
-	}
+	// Delegate
+	modelSpecifics.computeNumeratorForGradient(index);
 }
-
-void CyclicCoordinateDescent::incrementNumeratorForGradientImplHand(int index) {
-	IndicatorIterator it(*hXI, index);
-	const int n = hXI->getNumberOfEntries(index);
-	int* indices = hXI->getCompressedColumnVector(index);
-	for (int i = 0; i < n; ++i) {
-		const int k = indices[i];
-		numerPid[hPid[k]] += offsExpXBeta[k] * it.value();
-	}
-}
-
-template <class IteratorType>
-void CyclicCoordinateDescent::incrementNumeratorForGradientImpl(int index) {
-	IteratorType it(*hXI, index);
-	for (; it; ++it) {
-		const int k = it.index();
-		numerPid[hPid[k]] += offsExpXBeta[k] * it.value();
-		if (!IteratorType::isIndicator) {
-			numerPid2[hPid[k]] += offsExpXBeta[k] * it.value() * it.value();
-		}
-	}
-}
-
-//void CyclicCoordinateDescent::computeRatio(int index) {
-//	const int n = hXI->getNumberOfEntries(index);
-//
-//#ifdef BETTER_LOOPS
-//	real* t = t1;
-//	const real* end = t + N;
-//	real* num = numerPid;
-//	real* denom = denomPid;
-//	for (; t != end; ++t, ++num, ++denom) {
-//		*t = *num / *denom;
-//	}
-//#else
-//	for (int i = 0; i < N; i++) {
-//		t1[i] = numerPid[i] / denomPid[i];
-//	}
-//#endif
-//}
 
 void CyclicCoordinateDescent::computeRatiosForGradientAndHessian(int index) {
-//	computeNumeratorForGradient(index);
-//#ifndef MERGE_TRANSFORMATION
-//	computeRatio(index);
-//#endif
 	cerr << "Error!" << endl;
 	exit(-1);
 }
@@ -900,11 +634,6 @@ void CyclicCoordinateDescent::axpy(real* y, const real alpha, const int index) {
 }
 
 void CyclicCoordinateDescent::computeXBeta(void) {
-	// Separate function for benchmarking
-//	cerr << "Computing X %*% beta" << endl;
-
-	//	hXBeta = hX * hBeta;
-
 	// Note: X is current stored in (sparse) column-major format, which is
 	// inefficient for forming X\beta.
 	// TODO Make row-major version of X
@@ -935,75 +664,24 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 	sufficientStatisticsKnown = false;
 }
 
-template <class IteratorType>
-void CyclicCoordinateDescent::updateXBetaImpl(real realDelta, int index) {
-	IteratorType it(*hXI, index);
-	for (; it; ++it) {
-		const int k = it.index();
-		hXBeta[k] += realDelta * it.value();
-		// Update denominators as well
-		real oldEntry = offsExpXBeta[k];
-		real newEntry = offsExpXBeta[k] = hOffs[k] * exp(hXBeta[k]);
-		denomPid[hPid[k]] += (newEntry - oldEntry);
-	}
-}
-
-void CyclicCoordinateDescent::updateXBetaImplHand(real realDelta, int index) {
-
-	real* data = hXI->getDataVector(index);
-	real* xBeta = hXBeta;
-	real* offsEXB = offsExpXBeta;
-	int* offs = hOffs;
-	int* pid = hPid;
-
-	for (int k = 0; k < K; k++) {
-		*xBeta += realDelta * *data;
-		real oldEntry = *offsEXB;
-		real newEntry = *offsEXB = *offs * exp(*xBeta);
-		denomPid[*pid] += (newEntry - oldEntry);
-		data++; xBeta++; offsEXB++; offs++; pid++;
-	}
-}
-
 void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
+	// Update beta
 	real realDelta = static_cast<real>(delta);
 	hBeta[index] += realDelta;
-
-	// Run-time dispatch to implementation depending on covariate FormatType
-	switch(hXI->getFormatType(index)) {
-		case INDICATOR :
-			updateXBetaImpl<IndicatorIterator>(realDelta, index);
-			break;
-		case DENSE :
-			updateXBetaImpl<DenseIterator>(realDelta, index);
-//			updateXBetaImplHand(realDelta, index); // Oddly slower!
-			break;
-		case SPARSE :
-			updateXBetaImpl<SparseIterator>(realDelta, index);
-			break;
-		default :
-			// throw error
-			exit(-1);
-	}
+	// Delegate
+	modelSpecifics.updateXBeta(realDelta, index);
 }
 
 void CyclicCoordinateDescent::updateSufficientStatistics(double delta, int index) {
 	updateXBeta(delta, index);
 	sufficientStatisticsKnown = true;
-//	computeRemainingStatistics(false);
 }
 
 void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int index) { // TODO Rename
 	// Separate function for benchmarking
-
 	if (allStats) {
-		fillVector(denomPid, N, denomNullValue);
-		for (int i = 0; i < K; i++) {
-			offsExpXBeta[i] = hOffs[i] * exp(hXBeta[i]);
-			denomPid[hPid[i]] += offsExpXBeta[i];
-		}
-//		cerr << "den[0] = " << denomPid[0] << endl;
-//		exit(-1);
+		// Delegate
+		modelSpecifics.computeRemainingStatistics();
 	}
 	sufficientStatisticsKnown = true;
 }

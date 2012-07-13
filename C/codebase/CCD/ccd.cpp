@@ -30,6 +30,7 @@
 #include "CrossValidationDriver.h"
 #include "BootstrapSelector.h"
 #include "BootstrapDriver.h"
+#include "ModelSpecifics.h"
 
 #include "tclap/CmdLine.h"
 
@@ -37,7 +38,7 @@
 
 #ifdef CUDA
 	#include "GPUCyclicCoordinateDescent.h"
-	#include "BetterGPU.h"
+//	#include "BetterGPU.h"
 #endif
 
 
@@ -228,6 +229,7 @@ void parseCommandLine(std::vector<std::string>& args,
 double initializeModel(
 		InputReader** reader,
 		CyclicCoordinateDescent** ccd,
+		AbstractModelSpecifics** model,
 		CCDArguments &arguments) {
 	
 	cout << "Running CCD (" <<
@@ -255,14 +257,15 @@ double initializeModel(
 	}
 	(*reader)->readFile(arguments.inFileName.c_str()); // TODO Check for error
 
+	*model = new ModelSpecifics<DefaultModel>();
 
 #ifdef CUDA
 	if (arguments.useGPU) {
-		*ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, *reader);
+		*ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, *reader, **model);
 	} else {
 #endif
 
-	*ccd = new CyclicCoordinateDescent(*reader);
+	*ccd = new CyclicCoordinateDescent(*reader, **model);
 
 #ifdef CUDA
 	}
@@ -395,12 +398,13 @@ int main(int argc, char* argv[]) {
 int main(int argc, char* argv[]) {
 
 	CyclicCoordinateDescent* ccd = NULL;
+	AbstractModelSpecifics* model = NULL;
 	InputReader* reader = NULL;
 	CCDArguments arguments;
 
 	parseCommandLine(argc, argv, arguments);
 
-	double timeInitialize = initializeModel(&reader, &ccd, arguments);
+	double timeInitialize = initializeModel(&reader, &ccd, &model, arguments);
 
 	double timeUpdate;
 	if (arguments.doCrossValidation) {
@@ -424,6 +428,8 @@ int main(int argc, char* argv[]) {
 	
 	if (ccd)
 		delete ccd;
+	if (model)
+		delete model;
 	if (reader)
 		delete reader;
 

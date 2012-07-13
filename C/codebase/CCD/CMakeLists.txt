@@ -77,6 +77,7 @@ set(SOURCE_FILES
 	CLRInputReader.cpp
 	RTestInputReader.cpp
 	CCTestInputReader.cpp
+	AbstractModelSpecifics.cpp
 	AbstractDriver.cpp
 	AbstractSelector.cpp
 	CrossValidationSelector.cpp
@@ -87,7 +88,8 @@ set(SOURCE_FILES
 if(CUDA_FOUND)
 	set(SOURCE_FILES ${SOURCE_FILES}
 	    GPUCyclicCoordinateDescent.cpp
-	    BetterGPU.cpp)
+#	    BetterGPU.cpp
+	    )
 	add_definitions(-DCUDA)	
  #	if(APPLE)
  #		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")

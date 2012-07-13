@@ -18,8 +18,9 @@
 
 using namespace std;
 
-GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputReader* reader)
-	: CyclicCoordinateDescent(reader), hReader(reader) {
+GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputReader* reader,
+		AbstractModelSpecifics& specifics)
+	: CyclicCoordinateDescent(reader, specifics), hReader(reader) {
 	
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::constructor\n");

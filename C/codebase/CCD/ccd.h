@@ -11,6 +11,7 @@
 #include <time.h>
 #include <sys/time.h>
 
+#include "AbstractModelSpecifics.h"
 #include "CyclicCoordinateDescent.h"
 
 
@@ -64,6 +65,7 @@ void parseCommandLine(
 double initializeModel(
 		InputReader** reader,
 		CyclicCoordinateDescent** ccd,
+		AbstractModelSpecifics** model,
 		CCDArguments &arguments);
 
 double fitModel(
