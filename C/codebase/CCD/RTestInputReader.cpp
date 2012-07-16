@@ -88,11 +88,11 @@ void RTestInputReader::readFile(const char* fileName) {
 			pid.push_back(numCases - 1);
 
 			// Parse outcome entry
-//			int thisEta;
-//			stringstream(strVector[1]) >> thisEta;
-			int thisEta = atoi(strVector[1].c_str());
- 			numEvents += thisEta;
-			eta.push_back(thisEta);
+//			real thisY;
+//			stringstream(strVector[1]) >> thisY;
+			real thisY = static_cast<real>(atof(strVector[1].c_str()));
+ 			numEvents += thisY;
+			y.push_back(thisY);
 
 			// Fix offs for CLR
 			offs.push_back(1);

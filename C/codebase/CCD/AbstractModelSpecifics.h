@@ -33,7 +33,7 @@ public:
 			real* iXBeta,
 			int* iOffs,
 			real* iBeta,
-			int* iEta,
+			real* iEta,
 			real* iWeights
 			);
 
@@ -68,7 +68,7 @@ protected:
 	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
 	int* hOffs;  // K-vector
-	int* hEta; // K-vector
+	real* hEta; // K-vector
 	int* hNEvents; // K-vector
 	int* hPid; // N-vector
 	int** hXColumnRowIndicators; // J-vector

@@ -135,10 +135,10 @@ void CLRInputReader::readFile(const char* fileName) {
 			pid.push_back(numCases - 1);
 
 			// Parse outcome entry
-			int thisEta;
-			istringstream(strVector[2]) >> thisEta;
- 			numEvents += thisEta;
-			eta.push_back(thisEta);
+			int thisY;
+			istringstream(strVector[2]) >> thisY;
+ 			numEvents += thisY;
+			y.push_back(thisY);
 
 			// Fix offs for CLR
 			offs.push_back(1);

@@ -113,10 +113,10 @@ void SCCSInputReader::readFile(const char* fileName) {
 			pid.push_back(numPatients - 1);
 
 			// Parse third entry
-			int thisEta;
-			ss >> thisEta;
-			numEvents += thisEta;
-			eta.push_back(thisEta);
+			int thisY;
+			ss >> thisY;
+			numEvents += thisY;
+			y.push_back(thisY);
 
 			// Parse fourth entry
 			int thisOffs;

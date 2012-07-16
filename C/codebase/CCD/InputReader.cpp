@@ -54,12 +54,6 @@ InputReader::~InputReader() {
 	// Do nothing
 }
 
-int* InputReader::makeDeepCopy(int *original, unsigned int length) {
-	int *copy = (int *) malloc(length * sizeof(int));
-	memcpy(copy, original, length * sizeof(int));
-	return copy;
-}
-
 void InputReader::split( vector<string> & theStringVector,  /* Altered/returned value */
        const  string  & theString,
        const  string  & theDelimiter) {
@@ -88,9 +82,9 @@ std::vector<int>* InputReader::getPidVectorSTL() {
 	return new std::vector<int>(pid);
 }
 
-int* InputReader::getEtaVector() {
+real* InputReader::getYVector() {
 	//return &eta[0];
-	return makeDeepCopy(&eta[0], eta.size());
+	return makeDeepCopy(&y[0], y.size());
 }
 
 int* InputReader::getNEventVector() {

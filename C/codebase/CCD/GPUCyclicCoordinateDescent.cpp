@@ -124,7 +124,7 @@ bool GPUCyclicCoordinateDescent::initializeDevice(int deviceNumber) {
 	dOffs = gpu->AllocateIntMemory(K);
 	gpu->MemcpyHostToDevice(dOffs, hOffs, sizeof(int) * K);
 //	dEta = gpu->AllocateIntMemory(K);
-//	gpu->MemcpyHostToDevice(dEta, hEta, sizeof(int) * K);
+//	gpu->MemcpyHostToDevice(dEta, hY, sizeof(int) * K);
 	dNEvents = gpu->AllocateIntMemory(N);
 //	gpu->MemcpyHostToDevice(dNEvents, hNEvents, sizeof(int) * N); // Moved to computeNEvents
 //	dPid = gpu->AllocateIntMemory(K);
@@ -362,7 +362,7 @@ double GPUCyclicCoordinateDescent::getObjectiveFunction(void) {
 	return CyclicCoordinateDescent::getObjectiveFunction();
 //	double criterion = 0;
 //	for (int i = 0; i < K; i++) {
-//		criterion += hXBeta[i] * hEta[i];
+//		criterion += hXBeta[i] * hY[i];
 //	}
 
 #ifdef GPU_DEBUG_FLOW

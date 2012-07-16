@@ -55,7 +55,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	J = reader->getNumberOfColumns();
 
 	hXI = reader;
-	hEta = reader->getEtaVector();
+	hY = reader->getYVector();
 	hOffs = reader->getOffsetVector();
 	hNEvents = NULL;
 	hPid = reader->getPidVector();
@@ -73,7 +73,7 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 
 	free(hPid);
 	free(hNEvents);
-	free(hEta);
+	free(hY);
 	free(hOffs);
 	
 	free(hXBeta);
@@ -224,7 +224,7 @@ void CyclicCoordinateDescent::init() {
 			hPid, offsExpXBeta,
 			hXBeta, hOffs,
 			hBeta,
-			hEta, hWeights);
+			hY, hWeights);
 
 //	int iN,
 //	int iK,
@@ -250,12 +250,12 @@ void CyclicCoordinateDescent::computeNEvents() {
 	zeroVector(hNEvents, N);
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
-			int events = doLogisticRegression ? 1 : hEta[i];
+			int events = doLogisticRegression ? 1 : hY[i];
 			hNEvents[hPid[i]] += events * int(hWeights[i]); // TODO Consider using only integer weights
 		}
 	} else {
 		for (int i = 0; i < K; i++) {
-			int events = doLogisticRegression ? 1 : hEta[i];
+			int events = doLogisticRegression ? 1 : hY[i];
 			hNEvents[hPid[i]] += events;
 		}
 	}
@@ -346,11 +346,11 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
-			logLikelihood += hEta[i] * hXBeta[i] * hWeights[i];
+			logLikelihood += hY[i] * hXBeta[i] * hWeights[i];
 		}
 	} else {
 		for (int i = 0; i < K; i++) {
-			logLikelihood += hEta[i] * hXBeta[i];
+			logLikelihood += hY[i] * hXBeta[i];
 		}
 	}
 
@@ -437,11 +437,11 @@ double CyclicCoordinateDescent::getObjectiveFunction(void) {
 	real criterion = 0;
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
-			criterion += hXBeta[i] * hEta[i] * hWeights[i];
+			criterion += hXBeta[i] * hY[i] * hWeights[i];
 		}
 	} else {
 		for (int i = 0; i < K; i++) {
-			criterion += hXBeta[i] * hEta[i];
+			criterion += hXBeta[i] * hY[i];
 		}
 	}
 	return static_cast<double>(criterion);
@@ -452,13 +452,13 @@ double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 	double sumAbsResiduals = 0;
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
-			sumAbsDiffs += abs(hXBeta[i] - hXBetaSave[i]) * hEta[i] * hWeights[i];
-			sumAbsResiduals += abs(hXBeta[i]) * hEta[i] * hWeights[i];
+			sumAbsDiffs += abs(hXBeta[i] - hXBetaSave[i]) * hY[i] * hWeights[i];
+			sumAbsResiduals += abs(hXBeta[i]) * hY[i] * hWeights[i];
 		}
 	} else {
 		for (int i = 0; i < K; i++) {
-			sumAbsDiffs += abs(hXBeta[i] - hXBetaSave[i]) * hEta[i];
-			sumAbsResiduals += abs(hXBeta[i]) * hEta[i];
+			sumAbsDiffs += abs(hXBeta[i] - hXBetaSave[i]) * hY[i];
+			sumAbsResiduals += abs(hXBeta[i]) * hY[i];
 		}
 	}
 	return sumAbsDiffs / (1.0 + sumAbsResiduals);
@@ -903,12 +903,12 @@ void CyclicCoordinateDescent::computeXjEta(void) {
 		if (useCrossValidation) {
 			for (; it; ++it) {
 				const int k = it.index();
-				hXjEta[drug] += it.value() * hEta[k] * hWeights[k];
+				hXjEta[drug] += it.value() * hY[k] * hWeights[k];
 			}
 		} else {
 			for (; it; ++it) {
 				const int k = it.index();
-				hXjEta[drug] += it.value() * hEta[k];
+				hXjEta[drug] += it.value() * hY[k];
 			}
 		}
 //		cerr << " " << hXjEta[drug];

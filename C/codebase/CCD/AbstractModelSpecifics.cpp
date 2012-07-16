@@ -30,7 +30,7 @@ void AbstractModelSpecifics::initialize(
 		real* iXBeta,
 		int* iOffs,
 		real* iBeta,
-		int* iEta,
+		real* iEta,
 		real* iWeights
 		) {
 	N = iN;

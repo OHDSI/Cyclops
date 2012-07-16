@@ -92,10 +92,10 @@ void CCTestInputReader::readFile(const char* fileName) {
 			pid.push_back(numCases - 1);
 
 			// Parse outcome entry
-			int thisEta;
-			istringstream(strVector[colOutcome]) >> thisEta;
- 			numEvents += thisEta;
-			eta.push_back(thisEta);
+			int thisY;
+			istringstream(strVector[colOutcome]) >> thisY;
+ 			numEvents += thisY;
+			y.push_back(thisY);
 
 			// Fix offs for CLR
 			offs.push_back(1);
