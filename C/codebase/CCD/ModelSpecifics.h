@@ -21,15 +21,22 @@ public:
 	void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian);
 
+protected:
 	void computeNumeratorForGradient(int index);
 
 	void updateXBeta(real realDelta, int index);
 
 	void computeRemainingStatistics(void);
 
+	void computeFixedTermsInGradientAndHessian(bool useCrossValidation);
+
 	double getLogLikelihood(bool useCrossValidation);
 
 	double getPredictiveLogLikelihood(real* weights);
+
+	bool allocateXjY(void);
+
+	bool allocateXjX(void);
 
 private:
 	template <class IteratorType>
@@ -37,11 +44,6 @@ private:
 			int index,
 			double *gradient,
 			double *hessian);
-
-	template <class IteratorType>
-	void incrementGradientAndHessian(
-			real* gradient, real* hessian,
-			real numer, real numer2, real denom, int nEvents);
 
 	template <class IteratorType>
 	void incrementNumeratorForGradientImpl(int index);
@@ -70,6 +72,8 @@ public:
 
 struct LinearProjection {
 public:
+	const static bool precomputeGradient = true; // XjY
+
 	real logLikeNumeratorContrib(int yi, real xBetai) {
 		return yi * xBetai;
 	}
@@ -78,6 +82,8 @@ public:
 struct SelfControlledCaseSeries : public GroupedData, LinearProjection {
 public:
 	const static real denomNullValue = 0.0;
+
+	const static bool precomputeHessian = false; // XjX
 
 	template <class IteratorType>
 	void incrementGradientAndHessian(
@@ -113,6 +119,8 @@ struct LogisticRegression : public IndependentData, LinearProjection {
 public:
 	const static real denomNullValue = 1.0;
 
+	const static bool precomputeHessian = false;
+
 	template <class IteratorType>
 	void incrementGradientAndHessian(
 			const IteratorType& it,
@@ -144,7 +152,9 @@ public:
 
 struct LeastSquares : public IndependentData, LinearProjection {
 public:
-	const static real denomNullValue = 0.0; // TODO No need to compute denominators
+	const static real denomNullValue = 0.0;
+
+	const static bool precomputeHessian = true;
 
 	template <class IteratorType>
 	void incrementGradientAndHessian(

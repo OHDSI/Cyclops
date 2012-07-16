@@ -25,16 +25,64 @@ ModelSpecifics<BaseModel>::~ModelSpecifics() {
 }
 
 template <class BaseModel>
+bool ModelSpecifics<BaseModel>::allocateXjY(void) { return BaseModel::precomputeGradient; }
+
+template <class BaseModel>
+bool ModelSpecifics<BaseModel>::allocateXjX(void) { return BaseModel::precomputeHessian; }
+
+template <class BaseModel>
+void ModelSpecifics<BaseModel>::computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
+
+	if (allocateXjY()) {
+		for (int j = 0; j < J; ++j) {
+			hXjY[j] = 0;
+			GenericIterator it(*hXI, j);
+
+			if (useCrossValidation) {
+				for (; it; ++it) {
+					const int k = it.index();
+					hXjY[j] += it.value() * hY[k] * hWeights[k];
+				}
+			} else {
+				for (; it; ++it) {
+					const int k = it.index();
+					hXjY[j] += it.value() * hY[k];
+				}
+			}
+		}
+	}
+
+	if (allocateXjX()) {
+		for (int j = 0; j < J; ++j) {
+			hXjX[j] = 0;
+			GenericIterator it(*hXI, j);
+
+			if (useCrossValidation) {
+				for (; it; ++it) {
+					const int k = it.index();
+					hXjX[j] += it.value() * it.value() * hWeights[k];
+				}
+			} else {
+				for (; it; ++it) {
+					const int k = it.index();
+					hXjX[j] += it.value() * it.value();
+				}
+			}
+		}
+	}
+}
+
+template <class BaseModel>
 double ModelSpecifics<BaseModel>::getLogLikelihood(bool useCrossValidation) {
 
 	real logLikelihood = static_cast<real>(0.0);
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
-			logLikelihood += BaseModel::logLikeNumeratorContrib(hEta[i], hXBeta[i]) * hWeights[i];
+			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]) * hWeights[i];
 		}
 	} else {
 		for (int i = 0; i < K; i++) {
-			logLikelihood += BaseModel::logLikeNumeratorContrib(hEta[i], hXBeta[i]);
+			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]);
 		}
 	}
 
@@ -51,7 +99,7 @@ double ModelSpecifics<BaseModel>::getPredictiveLogLikelihood(real* weights) {
 	real logLikelihood = static_cast<real>(0.0);
 
 	for (int k = 0; k < K; ++k) {
-		logLikelihood += BaseModel::logPredLikeContrib(hEta[k], weights[k], hXBeta[k], denomPid, hPid, k);
+		logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], denomPid, hPid, k);
 	}
 
 	return static_cast<double>(logLikelihood);
@@ -86,30 +134,23 @@ void ModelSpecifics<BaseModel>::computeGradientAndHessianImpl(int index, double 
 	IteratorType it(*(*sparseIndices)[index], N); // TODO How to create with different constructor signatures?
 	for (; it; ++it) {
 		const int k = it.index();
+		// Compile-time delegation
 		BaseModel::incrementGradientAndHessian(it,
 						&gradient, &hessian,
 						numerPid[k], numerPid2[k], denomPid[k], hNEvents[k]
 				);
 	}
-	gradient -= hXjEta[index];
+
+	if (BaseModel::precomputeGradient) { // Compile-time switch
+		gradient -= hXjY[index];
+	}
+
+	if (BaseModel::precomputeHessian) { // Compile-time switch
+		hessian += hXjX[index];
+	}
 
 	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
-}
-
-template <class BaseModel> template <class IteratorType>
-inline void ModelSpecifics<BaseModel>::incrementGradientAndHessian(
-		real* gradient, real* hessian,
-		real numer, real numer2, real denom, int nEvents) {
-
-	const real t = numer / denom;
-	const real g = nEvents * t;
-	*gradient += g;
-	if (IteratorType::isIndicator) {
-		*hessian += g * (static_cast<real>(1.0) - t);
-	} else {
-		*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
-	}
 }
 
 template <class BaseModel>

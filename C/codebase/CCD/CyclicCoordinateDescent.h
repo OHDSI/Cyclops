@@ -149,7 +149,9 @@ protected:
 
 	void saveXBeta(void);
 
-	void computeXjEta(void);
+	void computeFixedTermsInGradientAndHessian(void);
+
+//	void computeXjY(void);
 
 	void computeSufficientStatistics(void);
 
@@ -292,7 +294,7 @@ protected:
 	real* numerPid;
 	real* numerPid2;
 	real* xOffsExpXBeta;
-	real* hXjEta;
+	real* hXjY;
 
 	int updateCount;
 	int likelihoodCount;

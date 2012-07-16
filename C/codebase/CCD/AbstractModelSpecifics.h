@@ -21,19 +21,20 @@ public:
 	void initialize(
 			int iN,
 			int iK,
+			int iJ,
 			CompressedDataMatrix* iXI,
 			real* iNumerPid,
 			real* iNumerPid2,
 			real* iDenomPid,
 			int* iNEvents,
-			real* iXjEta,
+			real* iXjY,
 			std::vector<std::vector<int>* >* iSparseIndices,
 			int* iPid,
 			real* iOffsExpXBeta,
 			real* iXBeta,
 			int* iOffs,
 			real* iBeta,
-			real* iEta,
+			real* iY,
 			real* iWeights
 			);
 
@@ -46,11 +47,17 @@ public:
 
 	virtual void computeRemainingStatistics(void) = 0; // pure virtual
 
+	virtual void computeFixedTermsInGradientAndHessian(bool useCrossValidation) = 0; // pure virtual
+
 	virtual double getLogLikelihood(bool useCrossValidation) = 0; // pure virtual
 
 	virtual double getPredictiveLogLikelihood(real* weights) = 0; // pure virtual
 
 protected:
+
+	virtual bool allocateXjY(void) = 0; // pure virtual
+
+	virtual bool allocateXjX(void) = 0; // pure virtual
 
 	template <class T>
 	void fillVector(T* vector, const int length, const T& value) {
@@ -68,7 +75,7 @@ protected:
 	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
 	int* hOffs;  // K-vector
-	real* hEta; // K-vector
+	real* hY; // K-vector
 	int* hNEvents; // K-vector
 	int* hPid; // N-vector
 	int** hXColumnRowIndicators; // J-vector
@@ -90,7 +97,8 @@ protected:
 	real* numerPid;
 	real* numerPid2;
 	real* xOffsExpXBeta;
-	real* hXjEta;
+	real* hXjY;
+	real* hXjX;
 
 	std::vector<std::vector<int>* > *sparseIndices;
 

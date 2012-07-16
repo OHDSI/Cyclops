@@ -12,35 +12,39 @@ AbstractModelSpecifics::AbstractModelSpecifics() {
 }
 
 AbstractModelSpecifics::~AbstractModelSpecifics() {
-	// Do nothing
+	if (hXjX) {
+		free(hXjX);
+	}
 }
 
 void AbstractModelSpecifics::initialize(
 		int iN,
 		int iK,
+		int iJ,
 		CompressedDataMatrix* iXI,
 		real* iNumerPid,
 		real* iNumerPid2,
 		real* iDenomPid,
 		int* iNEvents,
-		real* iXjEta,
+		real* iXjY,
 		std::vector<std::vector<int>* >* iSparseIndices,
 		int* iPid,
 		real* iOffsExpXBeta,
 		real* iXBeta,
 		int* iOffs,
 		real* iBeta,
-		real* iEta,
+		real* iY,
 		real* iWeights
 		) {
 	N = iN;
 	K = iK;
+	J = iJ;
 	hXI = iXI;
 	numerPid = iNumerPid;
 	numerPid2 = iNumerPid2;
 	denomPid = iDenomPid;
 	hNEvents = iNEvents;
-	hXjEta = iXjEta;
+
 	sparseIndices = iSparseIndices;
 
 	hPid = iPid;
@@ -51,9 +55,20 @@ void AbstractModelSpecifics::initialize(
 
 	hBeta = iBeta;
 
-	hEta = iEta;
+	hY = iY;
 	hWeights = iWeights;
 
 //	hPid[100] = 0;  // Gets used elsewhere???
 //	hPid[101] = 1;
+
+	if (allocateXjY()) {
+		hXjY = iXjY;
+	}
+
+	// TODO Should allocate host memory here
+
+	hXjX = NULL;
+	if (allocateXjX()) {
+		hXjX = (real*) malloc(sizeof(real) * J);
+	}
 }

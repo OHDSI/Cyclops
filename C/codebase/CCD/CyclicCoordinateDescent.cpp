@@ -89,7 +89,7 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 	free(hXColumnRowIndicators);
 #endif
 
-	free(hXjEta);
+	free(hXjY);
 	free(offsExpXBeta);
 	free(xOffsExpXBeta);
 //	free(denomPid);  // Nested in numerPid allocation
@@ -173,7 +173,7 @@ void CyclicCoordinateDescent::init() {
 	numerPid2 = numerPid + 2 * alignedLength;
 
 	hNEvents = (int*) malloc(sizeof(int) * N);
-	hXjEta = (real*) malloc(sizeof(real) * J);
+	hXjY = (real*) malloc(sizeof(real) * J);
 	hWeights = NULL;
 	
 #ifdef NO_FUSE
@@ -219,8 +219,8 @@ void CyclicCoordinateDescent::init() {
 //	Rprintf("Number of exposure levels = %d\n", K);
 //	Rprintf("Number of drugs = %d\n", J);
 //#endif
-	modelSpecifics.initialize(N, K, hXI, numerPid, numerPid2, denomPid,
-			hNEvents, hXjEta, &sparseIndices,
+	modelSpecifics.initialize(N, K, J, hXI, numerPid, numerPid2, denomPid,
+			hNEvents, hXjY, &sparseIndices,
 			hPid, offsExpXBeta,
 			hXBeta, hOffs,
 			hBeta,
@@ -259,7 +259,6 @@ void CyclicCoordinateDescent::computeNEvents() {
 			hNEvents[hPid[i]] += events;
 		}
 	}
-	validWeights = true;
 }
 
 void CyclicCoordinateDescent::resetBeta(void) {
@@ -480,16 +479,20 @@ void CyclicCoordinateDescent::update(
 	}
 
 	if (!validWeights) {
-		computeXjEta();
+		computeFixedTermsInGradientAndHessian();
 		computeNEvents();
+		validWeights = true;
 	}
 
 	if (!xBetaKnown) {
 		computeXBeta();
+		xBetaKnown = true;
+		sufficientStatisticsKnown = false;
 	}
 
 	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics(true, 0); // TODO Check index?
+		sufficientStatisticsKnown = true;
 	}
 
 	resetBounds();
@@ -824,9 +827,6 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 				exit(-1);
 		}
 	}
-
-	xBetaKnown = true;
-	sufficientStatisticsKnown = false;
 }
 
 void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
@@ -849,7 +849,6 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 		// Delegate
 		modelSpecifics.computeRemainingStatistics();
 	}
-	sufficientStatisticsKnown = true;
 }
 
 double CyclicCoordinateDescent::oneNorm(real* vector, const int length) {
@@ -893,29 +892,12 @@ double CyclicCoordinateDescent::applyBounds(double inDelta, int index) {
  * Utility functions
  */
 
-void CyclicCoordinateDescent::computeXjEta(void) {
-
-//	cerr << "YXj";
-	for (int drug = 0; drug < J; drug++) {
-		hXjEta[drug] = 0;
-		GenericIterator it(*hXI, drug);
-
-		if (useCrossValidation) {
-			for (; it; ++it) {
-				const int k = it.index();
-				hXjEta[drug] += it.value() * hY[k] * hWeights[k];
-			}
-		} else {
-			for (; it; ++it) {
-				const int k = it.index();
-				hXjEta[drug] += it.value() * hY[k];
-			}
-		}
-//		cerr << " " << hXjEta[drug];
-	}
-//	cerr << endl;
-//	exit(1);
+void CyclicCoordinateDescent::computeFixedTermsInGradientAndHessian(void) {
+	// Delegate
+	modelSpecifics.computeFixedTermsInGradientAndHessian(useCrossValidation);
 }
+
+
 
 template <class T>
 void CyclicCoordinateDescent::printVector(T* vector, int length, ostream &os) {

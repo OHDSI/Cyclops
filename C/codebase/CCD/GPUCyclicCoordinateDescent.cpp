@@ -527,10 +527,7 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
 //	unsigned int blocks = (N + (threads * 2 - 1)) / (threads * 2);
 //	blocks = (64 < blocks) ? 64 : blocks;
 	
-
-	
-
-	gradient -= hXjEta[index];
+	gradient -= hXjY[index];
 	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
 	
