@@ -79,6 +79,7 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.replicates = 100;
 	arguments.reportRawEstimates = false;
 	arguments.doLogisticRegression = false;
+	arguments.modelName = "sccs";
 	arguments.fileFormat = "sccs";
 	arguments.useNormalPrior = false;
 	arguments.convergenceType = ZHANG_OLES;
@@ -124,15 +125,22 @@ void parseCommandLine(std::vector<std::string>& args,
 
 		// Model arguments
 		SwitchArg doLogisticRegressionArg("", "logistic", "Use ordinary logistic regression", arguments.doLogisticRegression);
+		std::vector<std::string> allowedModels;
+		allowedModels.push_back("sccs");
+		allowedModels.push_back("clr");
+		allowedModels.push_back("lr");
+		allowedModels.push_back("ls");
+		ValuesConstraint<std::string> allowedModelValues(allowedModels);
+		ValueArg<string> modelArg("", "model", "Model specification", false, arguments.modelName, &allowedModelValues);
 
 		// Format arguments
-		std::vector<std::string> allowed;
-		allowed.push_back("sccs");
-		allowed.push_back("clr");
-		allowed.push_back("csv");
-		allowed.push_back("cc");
-		ValuesConstraint<std::string> allowedValues(allowed);
-		ValueArg<string> formatArg("", "format", "Format of data file", false, arguments.fileFormat, &allowedValues);
+		std::vector<std::string> allowedFormats;
+		allowedFormats.push_back("sccs");
+		allowedFormats.push_back("clr");
+		allowedFormats.push_back("csv");
+		allowedFormats.push_back("cc");
+		ValuesConstraint<std::string> allowedFormatValues(allowedFormats);
+		ValueArg<string> formatArg("", "format", "Format of data file", false, arguments.fileFormat, &allowedFormatValues);
 
 		cmd.add(gpuArg);
 //		cmd.add(betterGPUArg);
@@ -142,6 +150,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(normalPriorArg);
 		cmd.add(zhangOlesConvergenceArg);
 		cmd.add(seedArg);
+		cmd.add(modelArg);
 		cmd.add(formatArg);
 
 		cmd.add(doCVArg);
@@ -178,6 +187,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		arguments.useNormalPrior = normalPriorArg.getValue();
 		arguments.seed = seedArg.getValue();
 
+		arguments.modelName = modelArg.getValue();
 		arguments.fileFormat = formatArg.getValue();
 
 		if (hyperPriorArg.isSet()) {
@@ -230,6 +240,7 @@ double initializeModel(
 		InputReader** reader,
 		CyclicCoordinateDescent** ccd,
 		AbstractModelSpecifics** model,
+//		ModelSpecifics<DefaultModel>** model,
 		CCDArguments &arguments) {
 	
 	cout << "Running CCD (" <<
@@ -257,7 +268,19 @@ double initializeModel(
 	}
 	(*reader)->readFile(arguments.inFileName.c_str()); // TODO Check for error
 
-	*model = new ModelSpecifics<DefaultModel>();
+
+	if (arguments.modelName == "sccs") {
+		*model = new ModelSpecifics<SelfControlledCaseSeries>();
+//	} else if (arguments.modelName == "clr") {
+//		*model = new ModelSpecifics<ConditionalLogisticRegression>(); // TODO
+	} else if (arguments.modelName == "lr") {
+		*model = new ModelSpecifics<LogisticRegression>();
+	} else if (arguments.modelName == "ls") {
+		*model = new ModelSpecifics<LeastSquares>();
+	} else {
+		cerr << "Invalid model type." << endl;
+		exit(-1);
+	}
 
 #ifdef CUDA
 	if (arguments.useGPU) {

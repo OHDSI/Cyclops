@@ -9,6 +9,7 @@
 #define MODELSPECIFICS_HPP_
 
 #include <cmath>
+#include <cstdlib>
 
 #include "ModelSpecifics.h"
 #include "Iterators.h"
@@ -21,6 +22,39 @@ ModelSpecifics<BaseModel>::ModelSpecifics() : AbstractModelSpecifics(), BaseMode
 template <class BaseModel>
 ModelSpecifics<BaseModel>::~ModelSpecifics() {
 	// TODO Memory release here
+}
+
+template <class BaseModel>
+double ModelSpecifics<BaseModel>::getLogLikelihood(bool useCrossValidation) {
+
+	real logLikelihood = static_cast<real>(0.0);
+	if (useCrossValidation) {
+		for (int i = 0; i < K; i++) {
+			logLikelihood += BaseModel::logLikeNumeratorContrib(hEta[i], hXBeta[i]) * hWeights[i];
+		}
+	} else {
+		for (int i = 0; i < K; i++) {
+			logLikelihood += BaseModel::logLikeNumeratorContrib(hEta[i], hXBeta[i]);
+		}
+	}
+
+	for (int i = 0; i < N; i++) {
+		// Weights modified in computeNEvents()
+		logLikelihood -= BaseModel::logLikeDenominatorContrib(hNEvents[i], denomPid[i]);
+	}
+
+	return static_cast<double>(logLikelihood);
+}
+
+template <class BaseModel>
+double ModelSpecifics<BaseModel>::getPredictiveLogLikelihood(real* weights) {
+	real logLikelihood = static_cast<real>(0.0);
+
+	for (int k = 0; k < K; ++k) {
+		logLikelihood += BaseModel::logPredLikeContrib(hEta[k], weights[k], hXBeta[k], denomPid, hPid, k);
+	}
+
+	return static_cast<double>(logLikelihood);
 }
 
 // TODO The following function is an example of a double-dispatch, rewrite without need for virtual function
@@ -41,6 +75,8 @@ void ModelSpecifics<BaseModel>::computeGradientAndHessian(int index, double *ogr
 	}
 }
 
+//incrementGradientAndHessian<SparseIterator>();
+
 template <class BaseModel> template <class IteratorType>
 void ModelSpecifics<BaseModel>::computeGradientAndHessianImpl(int index, double *ogradient,
 		double *ohessian) {
@@ -50,10 +86,10 @@ void ModelSpecifics<BaseModel>::computeGradientAndHessianImpl(int index, double 
 	IteratorType it(*(*sparseIndices)[index], N); // TODO How to create with different constructor signatures?
 	for (; it; ++it) {
 		const int k = it.index();
-		incrementGradientAndHessian<IteratorType>(
-				&gradient, &hessian,
-				numerPid[k], numerPid2[k], denomPid[k], hNEvents[k]
-		);
+		BaseModel::incrementGradientAndHessian(it,
+						&gradient, &hessian,
+						numerPid[k], numerPid2[k], denomPid[k], hNEvents[k]
+				);
 	}
 	gradient -= hXjEta[index];
 
@@ -112,9 +148,9 @@ void ModelSpecifics<BaseModel>::incrementNumeratorForGradientImpl(int index) {
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
-		numerPid[hPid[k]] += offsExpXBeta[k] * it.value();
+		incrementByGroup(numerPid, hPid, k, offsExpXBeta[k] * it.value());
 		if (!IteratorType::isIndicator) {
-			numerPid2[hPid[k]] += offsExpXBeta[k] * it.value() * it.value();
+			incrementByGroup(numerPid2, hPid, k, offsExpXBeta[k] * it.value() * it.value());
 		}
 	}
 }
@@ -139,24 +175,24 @@ void ModelSpecifics<BaseModel>::updateXBeta(real realDelta, int index) {
 }
 
 template <class BaseModel> template <class IteratorType>
-void ModelSpecifics<BaseModel>::updateXBetaImpl(real realDelta, int index) {
+inline void ModelSpecifics<BaseModel>::updateXBetaImpl(real realDelta, int index) {
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
 		hXBeta[k] += realDelta * it.value();
 		// Update denominators as well
 		real oldEntry = offsExpXBeta[k];
-		real newEntry = offsExpXBeta[k] = hOffs[k] * exp(hXBeta[k]);
-		denomPid[hPid[k]] += (newEntry - oldEntry);
+		real newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], k);
+		incrementByGroup(denomPid, hPid, k, (newEntry - oldEntry));
 	}
 }
 
 template <class BaseModel>
 void ModelSpecifics<BaseModel>::computeRemainingStatistics(void) {
 	fillVector(denomPid, N, BaseModel::denomNullValue);
-	for (int i = 0; i < K; i++) {
-		offsExpXBeta[i] = hOffs[i] * exp(hXBeta[i]);
-		denomPid[hPid[i]] += offsExpXBeta[i];
+	for (int k = 0; k < K; ++k) {
+		offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], k);
+		incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
 	}
 }
 

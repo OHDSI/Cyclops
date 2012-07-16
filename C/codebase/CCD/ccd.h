@@ -11,9 +11,8 @@
 #include <time.h>
 #include <sys/time.h>
 
-#include "AbstractModelSpecifics.h"
+#include "ModelSpecifics.h"
 #include "CyclicCoordinateDescent.h"
-
 
 struct CCDArguments {
 
@@ -50,6 +49,8 @@ struct CCDArguments {
 
 	// Needed for model specification
 	bool doLogisticRegression;
+	int modelType;
+	std::string modelName;
 };
 
 
@@ -65,6 +66,7 @@ void parseCommandLine(
 double initializeModel(
 		InputReader** reader,
 		CyclicCoordinateDescent** ccd,
+//		ModelSpecifics<DefaultModel>** model,
 		AbstractModelSpecifics** model,
 		CCDArguments &arguments);
 

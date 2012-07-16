@@ -8,7 +8,10 @@
 #ifndef ABSTRACTMODELSPECIFICS_H_
 #define ABSTRACTMODELSPECIFICS_H_
 
+#include <cmath>
+
 #include "CompressedDataMatrix.h"
+#include "Iterators.h"
 
 class AbstractModelSpecifics {
 public:
@@ -24,28 +27,15 @@ public:
 			real* iDenomPid,
 			int* iNEvents,
 			real* iXjEta,
-			std::vector<std::vector<int>* > *iSparseIndices,
+			std::vector<std::vector<int>* >* iSparseIndices,
 			int* iPid,
 			real* iOffsExpXBeta,
 			real* iXBeta,
-			int* iOffs
-			) {
-		hXI = iXI;
-		N = iN;
-		K = iK;
-		numerPid = iNumerPid;
-		numerPid2 = iNumerPid2;
-		denomPid = iDenomPid;
-		hNEvents = iNEvents;
-		hXjEta = iXjEta;
-		sparseIndices = iSparseIndices;
-
-		hPid = iPid;
-		offsExpXBeta = iOffsExpXBeta;
-
-		hXBeta = iXBeta;
-		hOffs = iOffs;
-	}
+			int* iOffs,
+			real* iBeta,
+			int* iEta,
+			real* iWeights
+			);
 
 	virtual void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian) = 0; // pure virtual
@@ -55,6 +45,10 @@ public:
 	virtual void updateXBeta(real realDelta, int index) = 0; // pure virtual
 
 	virtual void computeRemainingStatistics(void) = 0; // pure virtual
+
+	virtual double getLogLikelihood(bool useCrossValidation) = 0; // pure virtual
+
+	virtual double getPredictiveLogLikelihood(real* weights) = 0; // pure virtual
 
 protected:
 
@@ -68,9 +62,6 @@ protected:
 	template <class T>
 	void zeroVector(T* vector, const int length) {
 		fillVector(vector, length, T());
-//		for (int i = 0; i < length; i++) {
-//			vector[i] = 0;
-//		}
 	}
 
 	// TODO Currently constructed in CyclicCoordinateDescent, but should be encapsulated here
@@ -102,6 +93,10 @@ protected:
 	real* hXjEta;
 
 	std::vector<std::vector<int>* > *sparseIndices;
+
+//	using AbstractModelSpecifics::updateXBetaImpl<SparseIterator>();
+//	using AbstractModelSpecifics::updateXBetaImpl<SparseIterator>();
+//	using AbstractModelSpecifics::updateXBetaImpl<SparseIterator>();
 };
 
 #endif /* ABSTRACTMODELSPECIFICS_H_ */
