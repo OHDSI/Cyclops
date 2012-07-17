@@ -29,7 +29,7 @@ public:
 			AbstractModelSpecifics& specifics);
 	virtual ~GPUCyclicCoordinateDescent();
 
-	virtual double getObjectiveFunction(void);
+	virtual double getObjectiveFunction(int convergenceType);
 
 	virtual bool initializeDevice(int deviceNumber);
 

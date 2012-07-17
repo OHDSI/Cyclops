@@ -86,9 +86,11 @@ double ModelSpecifics<BaseModel>::getLogLikelihood(bool useCrossValidation) {
 		}
 	}
 
-	for (int i = 0; i < N; i++) {
-		// Weights modified in computeNEvents()
-		logLikelihood -= BaseModel::logLikeDenominatorContrib(hNEvents[i], denomPid[i]);
+	if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+		for (int i = 0; i < N; i++) {
+			// Weights modified in computeNEvents()
+			logLikelihood -= BaseModel::logLikeDenominatorContrib(hNEvents[i], denomPid[i]);
+		}
 	}
 
 	return static_cast<double>(logLikelihood);
@@ -135,10 +137,11 @@ void ModelSpecifics<BaseModel>::computeGradientAndHessianImpl(int index, double 
 	for (; it; ++it) {
 		const int k = it.index();
 		// Compile-time delegation
-		BaseModel::incrementGradientAndHessian(it,
+		BaseModel::incrementGradientAndHessian(it, // Signature-only, for iterator-type specialization
 						&gradient, &hessian,
-						numerPid[k], numerPid2[k], denomPid[k], hNEvents[k]
-				);
+						numerPid[k], numerPid2[k], denomPid[k], hNEvents[k], // For GLM models
+						it.value(), hXBeta[k], hY[k] // For linear models
+				); // When function is in-lined, compiler will only use necessary arguments
 	}
 
 	if (BaseModel::precomputeGradient) { // Compile-time switch
@@ -146,7 +149,7 @@ void ModelSpecifics<BaseModel>::computeGradientAndHessianImpl(int index, double 
 	}
 
 	if (BaseModel::precomputeHessian) { // Compile-time switch
-		hessian += hXjX[index];
+		hessian += 2.0 * hXjX[index];
 	}
 
 	*ogradient = static_cast<double>(gradient);
@@ -167,14 +170,18 @@ void ModelSpecifics<BaseModel>::computeNumeratorForGradient(int index) {
 			break;
 		case DENSE :
 			zeroVector(numerPid, N);
-			zeroVector(numerPid2, N);
+			if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
+				zeroVector(numerPid2, N);
+			}
 			incrementNumeratorForGradientImpl<DenseIterator>(index);
 			break;
 		case SPARSE : {
 			IndicatorIterator it(*(*sparseIndices)[index]);
 			for (; it; ++it) { // Only affected entries
 				numerPid[it.index()] = static_cast<real>(0.0);
-				numerPid2[it.index()] = static_cast<real>(0.0); // TODO Does this invalid the cache line too much?
+				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
+					numerPid2[it.index()] = static_cast<real>(0.0); // TODO Does this invalid the cache line too much?
+				}
 			}
 			incrementNumeratorForGradientImpl<SparseIterator>(index); }
 			break;
@@ -189,9 +196,11 @@ void ModelSpecifics<BaseModel>::incrementNumeratorForGradientImpl(int index) {
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
-		incrementByGroup(numerPid, hPid, k, offsExpXBeta[k] * it.value());
-		if (!IteratorType::isIndicator) {
-			incrementByGroup(numerPid2, hPid, k, offsExpXBeta[k] * it.value() * it.value());
+		incrementByGroup(numerPid, hPid, k,
+				BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
+		if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
+			incrementByGroup(numerPid2, hPid, k,
+					BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]));
 		}
 	}
 }
@@ -222,18 +231,23 @@ inline void ModelSpecifics<BaseModel>::updateXBetaImpl(real realDelta, int index
 		const int k = it.index();
 		hXBeta[k] += realDelta * it.value();
 		// Update denominators as well
-		real oldEntry = offsExpXBeta[k];
-		real newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], k);
-		incrementByGroup(denomPid, hPid, k, (newEntry - oldEntry));
+		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+			real oldEntry = offsExpXBeta[k];
+			real newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
+			incrementByGroup(denomPid, hPid, k, (newEntry - oldEntry));
+		}
 	}
 }
 
 template <class BaseModel>
 void ModelSpecifics<BaseModel>::computeRemainingStatistics(void) {
-	fillVector(denomPid, N, BaseModel::denomNullValue);
-	for (int k = 0; k < K; ++k) {
-		offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], k);
-		incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
+	if (BaseModel::likelihoodHasDenominator) {
+		fillVector(denomPid, N, BaseModel::denomNullValue);
+		for (int k = 0; k < K; ++k) {
+			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
+			incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
+
+		}
 	}
 }
 

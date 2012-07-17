@@ -28,6 +28,7 @@ struct CCDArguments {
 	bool useNormalPrior;
 	bool hyperPriorSet;
 	int maxIterations;
+	std::string convergenceTypeString;
 	int convergenceType;
 	long seed;
 
@@ -48,7 +49,7 @@ struct CCDArguments {
 	std::string bsFileName;
 
 	// Needed for model specification
-	bool doLogisticRegression;
+//	bool doLogisticRegression;
 	int modelType;
 	std::string modelName;
 };

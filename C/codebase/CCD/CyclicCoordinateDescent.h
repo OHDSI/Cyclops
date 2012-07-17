@@ -46,8 +46,10 @@ enum PriorType {
 };
 
 enum ConvergenceType {
-	LANGE = 0,
-	ZHANG_OLES = 1
+	GRADIENT,
+	LANGE,
+	MITTAL,
+	ZHANG_OLES
 };
 
 enum ModelType {
@@ -96,7 +98,7 @@ public:
 
 	double getLogPrior(void);
 	
-	virtual double getObjectiveFunction(void);
+	virtual double getObjectiveFunction(int convergenceType);
 
 	real getBeta(int i);
 

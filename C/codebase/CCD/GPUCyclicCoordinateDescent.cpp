@@ -352,14 +352,14 @@ void GPUCyclicCoordinateDescent::computeNEvents(void) {
 	gpu->MemcpyHostToDevice(dNEvents, hNEvents, sizeof(int) * N);
 }
 
-double GPUCyclicCoordinateDescent::getObjectiveFunction(void) {
+double GPUCyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
 //	return getLogLikelihood() + getLogPrior();
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::getObjectiveFunction\n");
 #endif 	
     
 	gpu->MemcpyDeviceToHost(hXBeta, dXBeta, sizeof(real) * K);
-	return CyclicCoordinateDescent::getObjectiveFunction();
+	return CyclicCoordinateDescent::getObjectiveFunction(convergenceType);
 //	double criterion = 0;
 //	for (int i = 0; i < K; i++) {
 //		criterion += hXBeta[i] * hY[i];

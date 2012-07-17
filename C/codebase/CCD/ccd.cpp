@@ -16,7 +16,9 @@
 
 #include <iostream>
 #include <time.h>
-#include <sys/time.h>
+#ifndef _WIN32
+	#include <sys/time.h>
+#endif
 
 #include <math.h>
 
@@ -46,6 +48,71 @@
 
 using namespace TCLAP;
 using namespace std;
+
+//Sushil:Implementing gettimeofday functionality for windows.
+#ifdef _WIN32
+	#if defined(_MSC_VER) || defined(_MSC_EXTENSIONS)
+		#define DELTA_EPOCH_IN_MICROSECS  11644473600000000Ui64
+	#else
+		#define DELTA_EPOCH_IN_MICROSECS  11644473600000000ULL
+	#endif
+	struct timezone
+	{
+		int  tz_minuteswest; /* minutes W of Greenwich */
+		int  tz_dsttime;     /* type of dst correction */
+	};
+
+	// Definition of a gettimeofday function
+
+	int gettimeofday(struct timeval *tv, struct timezone *tz)
+	{
+		// Define a structure to receive the current Windows filetime
+		FILETIME ft;
+
+		// Initialize the present time to 0 and the timezone to UTC
+		unsigned __int64 tmpres = 0;
+		static int tzflag = 0;
+
+		if (NULL != tv)
+		{
+			GetSystemTimeAsFileTime(&ft);
+
+			// The GetSystemTimeAsFileTime returns the number of 100 nanosecond
+			// intervals since Jan 1, 1601 in a structure. Copy the high bits to
+			// the 64 bit tmpres, shift it left by 32 then or in the low 32 bits.
+			tmpres |= ft.dwHighDateTime;
+			tmpres <<= 32;
+			tmpres |= ft.dwLowDateTime;
+
+			// Convert to microseconds by dividing by 10
+			tmpres /= 10;
+
+			// The Unix epoch starts on Jan 1 1970.  Need to subtract the difference
+			// in seconds from Jan 1 1601.
+			tmpres -= DELTA_EPOCH_IN_MICROSECS;
+
+			// Finally change microseconds to seconds and place in the seconds value.
+			// The modulus picks up the microseconds.
+			tv->tv_sec = (long)(tmpres / 1000000UL);
+			tv->tv_usec = (long)(tmpres % 1000000UL);
+		}
+
+		if (NULL != tz)
+		{
+			if (!tzflag)
+			{
+				_tzset();
+				tzflag++;
+			}
+
+			// Adjust for the timezone west of Greenwich
+			tz->tz_minuteswest = _timezone / 60;
+			tz->tz_dsttime = _daylight;
+		}
+
+		return 0;
+	}
+#endif
 
 double calculateSeconds(const timeval &time1, const timeval &time2) {
 	return time2.tv_sec - time1.tv_sec +
@@ -78,11 +145,12 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.doBootstrap = false;
 	arguments.replicates = 100;
 	arguments.reportRawEstimates = false;
-	arguments.doLogisticRegression = false;
+//	arguments.doLogisticRegression = false;
 	arguments.modelName = "sccs";
 	arguments.fileFormat = "sccs";
 	arguments.useNormalPrior = false;
-	arguments.convergenceType = ZHANG_OLES;
+	arguments.convergenceType = GRADIENT;
+	arguments.convergenceTypeString = "gradient";
 }
 
 
@@ -105,7 +173,15 @@ void parseCommandLine(std::vector<std::string>& args,
 
 		// Convergence criterion arguments
 		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, arguments.tolerance, "real");
-		SwitchArg zhangOlesConvergenceArg("z", "zhangOles", "Use Zhange-Oles convergence criterion, default is true", true);
+//		SwitchArg zhangOlesConvergenceArg("z", "zhangOles", "Use Zhange-Oles convergence criterion, default is true", true);
+		std::vector<std::string> allowedConvergence;
+		allowedConvergence.push_back("gradient");
+		allowedConvergence.push_back("ZhangOles");
+		allowedConvergence.push_back("Lange");
+		allowedConvergence.push_back("Mittal");
+		ValuesConstraint<std::string> allowedConvergenceValues(allowedConvergence);
+		ValueArg<string> convergenceArg("", "convergence", "Convergence criterion", false, arguments.convergenceTypeString, &allowedConvergenceValues);
+
 		ValueArg<long> seedArg("s", "seed", "Random number generator seed", false, arguments.seed, "long");
 
 		// Cross-validation arguments
@@ -124,7 +200,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		SwitchArg reportRawEstimatesArg("","raw", "Report the raw bootstrap estimates", arguments.reportRawEstimates);
 
 		// Model arguments
-		SwitchArg doLogisticRegressionArg("", "logistic", "Use ordinary logistic regression", arguments.doLogisticRegression);
+//		SwitchArg doLogisticRegressionArg("", "logistic", "Use ordinary logistic regression", arguments.doLogisticRegression);
 		std::vector<std::string> allowedModels;
 		allowedModels.push_back("sccs");
 		allowedModels.push_back("clr");
@@ -148,7 +224,8 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(maxIterationsArg);
 		cmd.add(hyperPriorArg);
 		cmd.add(normalPriorArg);
-		cmd.add(zhangOlesConvergenceArg);
+//		cmd.add(zhangOlesConvergenceArg);
+		cmd.add(convergenceArg);
 		cmd.add(seedArg);
 		cmd.add(modelArg);
 		cmd.add(formatArg);
@@ -165,7 +242,7 @@ void parseCommandLine(std::vector<std::string>& args,
 //		cmd.add(bsOutFileArg);
 		cmd.add(replicatesArg);
 		cmd.add(reportRawEstimatesArg);
-		cmd.add(doLogisticRegressionArg);
+//		cmd.add(doLogisticRegressionArg);
 
 		cmd.add(inFileArg);
 		cmd.add(outFileArg);
@@ -189,6 +266,7 @@ void parseCommandLine(std::vector<std::string>& args,
 
 		arguments.modelName = modelArg.getValue();
 		arguments.fileFormat = formatArg.getValue();
+		arguments.convergenceTypeString = convergenceArg.getValue();
 
 		if (hyperPriorArg.isSet()) {
 			arguments.hyperPriorSet = true;
@@ -196,10 +274,22 @@ void parseCommandLine(std::vector<std::string>& args,
 			arguments.hyperPriorSet = false;
 		}
 
-		if (zhangOlesConvergenceArg.isSet()) {
+//		if (zhangOlesConvergenceArg.isSet()) {
+//			arguments.convergenceType = ZHANG_OLES;
+//		} else {
+//			arguments.convergenceType = LANGE;
+//		}
+		if (arguments.convergenceTypeString == "ZhangOles") {
 			arguments.convergenceType = ZHANG_OLES;
-		} else {
+		} else if (arguments.convergenceTypeString == "Lange") {
 			arguments.convergenceType = LANGE;
+		} else if (arguments.convergenceTypeString == "Mittal") {
+			arguments.convergenceType = MITTAL;
+		} else if (arguments.convergenceTypeString == "gradient") {
+			arguments.convergenceType = GRADIENT;
+		} else {
+			cerr << "Unknown convergence type: " << convergenceArg.getValue() << " " << arguments.convergenceTypeString << endl;
+			exit(-1);
 		}
 
 		// Cross-validation
@@ -229,7 +319,7 @@ void parseCommandLine(std::vector<std::string>& args,
 				arguments.reportRawEstimates = false;
 			}
 		}
-		arguments.doLogisticRegression = doLogisticRegressionArg.isSet();
+//		arguments.doLogisticRegression = doLogisticRegressionArg.isSet();
 	} catch (ArgException &e) {
 		cerr << "Error: " << e.error() << " for argument " << e.argId() << endl;
 		exit(-1);
@@ -303,9 +393,9 @@ double initializeModel(
 	}
 
 	// Set model from the command-line
-	if (arguments.doLogisticRegression) {
-		(*ccd)->setLogisticRegression(true);
-	}
+//	if (arguments.doLogisticRegression) {
+//		(*ccd)->setLogisticRegression(true);
+//	}
 
 	gettimeofday(&time2, NULL);
 	double sec1 = calculateSeconds(time1, time2);

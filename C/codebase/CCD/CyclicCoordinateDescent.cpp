@@ -339,30 +339,9 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 	}
 
 	getDenominators();
-
-#if 0
-	real logLikelihood = 0;
-
-	if (useCrossValidation) {
-		for (int i = 0; i < K; i++) {
-			logLikelihood += hY[i] * hXBeta[i] * hWeights[i];
-		}
-	} else {
-		for (int i = 0; i < K; i++) {
-			logLikelihood += hY[i] * hXBeta[i];
-		}
-	}
-
-	for (int i = 0; i < N; i++) {
-		logLikelihood -= hNEvents[i] * log(denomPid[i]); // Weights modified in computeNEvents()
-	}
-
 	likelihoodCount += 1;
-	return static_cast<double>(logLikelihood);
-#else
-	likelihoodCount += 1;
+
 	return modelSpecifics.getLogLikelihood(useCrossValidation);
-#endif
 }
 
 void CyclicCoordinateDescent::getDenominators() {
@@ -376,14 +355,6 @@ double convertVarianceToHyperparameter(double value) {
 void CyclicCoordinateDescent::setHyperprior(double value) {
 	sigma2Beta = value;
 	lambda = convertVarianceToHyperparameter(value);
-}
-
-void CyclicCoordinateDescent::setLogisticRegression(bool idoLR) {
-	std::cerr << "Setting LR to " << idoLR << std::endl;
-	doLogisticRegression = idoLR;
-	denomNullValue = static_cast<real>(1.0);
-	validWeights = false;
-	sufficientStatisticsKnown = false;
 }
 
 void CyclicCoordinateDescent::setPriorType(int iPriorType) {
@@ -431,19 +402,28 @@ double CyclicCoordinateDescent::getLogPrior(void) {
 	}
 }
 
-double CyclicCoordinateDescent::getObjectiveFunction(void) {	
-//	return getLogLikelihood() + getLogPrior(); // This is LANGE
-	real criterion = 0;
-	if (useCrossValidation) {
-		for (int i = 0; i < K; i++) {
-			criterion += hXBeta[i] * hY[i] * hWeights[i];
+double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
+	if (convergenceType == GRADIENT) {
+		real criterion = 0;
+		if (useCrossValidation) {
+			for (int i = 0; i < K; i++) {
+				criterion += hXBeta[i] * hY[i] * hWeights[i];
+			}
+		} else {
+			for (int i = 0; i < K; i++) {
+				criterion += hXBeta[i] * hY[i];
+			}
 		}
-	} else {
-		for (int i = 0; i < K; i++) {
-			criterion += hXBeta[i] * hY[i];
-		}
+		return static_cast<double> (criterion);
 	}
-	return static_cast<double>(criterion);
+	if (convergenceType == MITTAL) {
+		return getLogLikelihood();
+	}
+	if (convergenceType == LANGE) {
+		return getLogLikelihood() + getLogPrior();
+	}
+	cerr << "Invalid convergence type: " << convergenceType << endl;
+	exit(-1);
 }
 
 double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
@@ -473,8 +453,8 @@ void CyclicCoordinateDescent::update(
 		double epsilon
 		) {
 
-	if (convergenceType != LANGE && convergenceType != ZHANG_OLES) {
-		cerr << "Unknown convergence criterion" << endl;
+	if (convergenceType < GRADIENT || convergenceType > ZHANG_OLES) {
+		cerr << "Unknown convergence criterion: " << convergenceType << endl;
 		exit(-1);
 	}
 
@@ -501,8 +481,8 @@ void CyclicCoordinateDescent::update(
 	int iteration = 0;
 	double lastObjFunc;
 
-	if (convergenceType == LANGE) {
-		lastObjFunc = getObjectiveFunction();
+	if (convergenceType < ZHANG_OLES) {
+		lastObjFunc = getObjectiveFunction(convergenceType);
 	} else { // ZHANG_OLES
 		saveXBeta();
 	}
@@ -524,7 +504,7 @@ void CyclicCoordinateDescent::update(
 			}
 			
 		}
-		
+
 		iteration++;
 //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
 		bool checkConvergence = true; // Check after each complete cycle
@@ -532,8 +512,8 @@ void CyclicCoordinateDescent::update(
 		if (checkConvergence) {
 
 			double conv;
-			if (convergenceType == LANGE) {
-				double thisObjFunc = getObjectiveFunction();
+			if (convergenceType < ZHANG_OLES) {
+ 				double thisObjFunc = getObjectiveFunction(convergenceType);
 				conv = computeConvergenceCriterion(thisObjFunc, lastObjFunc);
 				lastObjFunc = thisObjFunc;
 			} else { // ZHANG_OLES
@@ -755,9 +735,14 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 		
 	// Move into separate delegate-function (below)
 	if (priorType == NORMAL) {
-		
+
+#if 1		
 		delta = - (g_d1 + (hBeta[index] / sigma2Beta)) /
 				  (g_d2 + (1.0 / sigma2Beta));
+#else			  
+		delta = - (g_d1 + 2*hBeta[index]*sigma2Beta) / (g_d2 + 2*sigma2Beta);
+#endif
+				  
 		
 	} else {
 					
