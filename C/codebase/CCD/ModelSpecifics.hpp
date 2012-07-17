@@ -242,7 +242,7 @@ inline void ModelSpecifics<BaseModel>::updateXBetaImpl(real realDelta, int index
 template <class BaseModel>
 void ModelSpecifics<BaseModel>::computeRemainingStatistics(void) {
 	if (BaseModel::likelihoodHasDenominator) {
-		fillVector(denomPid, N, BaseModel::denomNullValue);
+		fillVector(denomPid, N, BaseModel::getDenomNullValue());
 		for (int k = 0; k < K; ++k) {
 			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
 			incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);

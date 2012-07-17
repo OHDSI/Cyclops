@@ -94,9 +94,11 @@ public:
 
 struct SelfControlledCaseSeries : public GroupedData, GLMProjection {
 public:
-	const static real denomNullValue = 0.0;
+//	const static real denomNullValue = 0.0;
 
 	const static bool precomputeHessian = false; // XjX
+
+	static real getDenomNullValue () { return static_cast<real>(0.0); }
 
 	template <class IteratorType>
 	void incrementGradientAndHessian(
@@ -131,9 +133,11 @@ public:
 
 struct LogisticRegression : public IndependentData, GLMProjection {
 public:
-	const static real denomNullValue = 1.0;
+//	const static real denomNullValue = 1.0;
 
 	const static bool precomputeHessian = false;
+
+	static real getDenomNullValue () { return static_cast<real>(1.0); }
 
 	template <class IteratorType>
 	void incrementGradientAndHessian(
@@ -167,7 +171,7 @@ public:
 
 struct LeastSquares : public IndependentData {
 public:
-	const static real denomNullValue = 0.0;
+//	const static real denomNullValue = 0.0;
 
 	const static bool precomputeGradient = false; // XjY
 
@@ -176,6 +180,8 @@ public:
 	const static bool likelihoodHasDenominator = false;
 
 	const static bool hasTwoNumeratorTerms = false;
+
+	static real getDenomNullValue () { return static_cast<real>(0.0); }
 
 	real logLikeNumeratorContrib(int yi, real xBetai) {
 		real residual = yi - xBetai;
