@@ -9,7 +9,16 @@
 #define CCD_H_
 
 #include <time.h>
+
+#ifdef _WIN32
+#include <stddef.h>
+#include <io.h>
+#include <stdlib.h>
+#include <winsock.h>
+#include <stdio.h>
+#else
 #include <sys/time.h>
+#endif
 
 #include "ModelSpecifics.h"
 #include "CyclicCoordinateDescent.h"
