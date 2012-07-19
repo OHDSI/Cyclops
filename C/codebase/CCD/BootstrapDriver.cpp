@@ -57,6 +57,7 @@ void BootstrapDriver::drive(
 		for (int j = 0; j < J; ++j) {
 			estimates[j]->push_back(ccd.getBeta(j));
 		}
+		exit(-1); // ***
 	}
 }
 

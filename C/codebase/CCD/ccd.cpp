@@ -31,6 +31,7 @@
 #include "CrossValidationSelector.h"
 #include "CrossValidationDriver.h"
 #include "BootstrapSelector.h"
+#include "ProportionSelector.h"
 #include "BootstrapDriver.h"
 #include "ModelSpecifics.h"
 
@@ -151,6 +152,7 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.useNormalPrior = false;
 	arguments.convergenceType = GRADIENT;
 	arguments.convergenceTypeString = "gradient";
+	arguments.doPartial = false;
 }
 
 
@@ -198,6 +200,7 @@ void parseCommandLine(std::vector<std::string>& args,
 //		ValueArg<string> bsOutFileArg("", "bsFileName", "Bootstrap output file name", false, "bs.txt", "bsFileName");
 		ValueArg<int> replicatesArg("r", "replicates", "Number of bootstrap replicates", false, arguments.replicates, "int");
 		SwitchArg reportRawEstimatesArg("","raw", "Report the raw bootstrap estimates", arguments.reportRawEstimates);
+		ValueArg<int> partialArg("", "partial", "Number of rows to use in partial estimation", false, -1, "int");
 
 		// Model arguments
 //		SwitchArg doLogisticRegressionArg("", "logistic", "Use ordinary logistic regression", arguments.doLogisticRegression);
@@ -241,6 +244,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(doBootstrapArg);
 //		cmd.add(bsOutFileArg);
 		cmd.add(replicatesArg);
+		cmd.add(partialArg);
 		cmd.add(reportRawEstimatesArg);
 //		cmd.add(doLogisticRegressionArg);
 
@@ -319,6 +323,12 @@ void parseCommandLine(std::vector<std::string>& args,
 				arguments.reportRawEstimates = false;
 			}
 		}
+
+		if (partialArg.getValue() != -1) {
+			arguments.doPartial = true;
+			arguments.replicates = partialArg.getValue();
+		}
+
 //		arguments.doLogisticRegression = doLogisticRegressionArg.isSet();
 	} catch (ArgException &e) {
 		cerr << "Error: " << e.error() << " for argument " << e.argId() << endl;
@@ -358,15 +368,16 @@ double initializeModel(
 	}
 	(*reader)->readFile(arguments.inFileName.c_str()); // TODO Check for error
 
-
 	if (arguments.modelName == "sccs") {
-		*model = new ModelSpecifics<SelfControlledCaseSeries>();
+		*model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>();
 //	} else if (arguments.modelName == "clr") {
 //		*model = new ModelSpecifics<ConditionalLogisticRegression>(); // TODO
 	} else if (arguments.modelName == "lr") {
-		*model = new ModelSpecifics<LogisticRegression>();
+		*model = new ModelSpecifics<LogisticRegression<real>,real>();
 	} else if (arguments.modelName == "ls") {
-		*model = new ModelSpecifics<LeastSquares>();
+		*model = new ModelSpecifics<LeastSquares<real>,real>();
+	} else if (arguments.modelName == "cox") {
+		*model = new ModelSpecifics<CoxProportionalHazards<real>,real>();
 	} else {
 		cerr << "Invalid model type." << endl;
 		exit(-1);
@@ -523,6 +534,13 @@ int main(int argc, char* argv[]) {
 	if (arguments.doCrossValidation) {
 		timeUpdate = runCrossValidation(ccd, reader, arguments);
 	} else {
+		if (arguments.doPartial) {
+			ProportionSelector selector(arguments.replicates, reader->getPidVectorSTL(),
+					SUBJECT, arguments.seed);
+			std::vector<real> weights;
+			selector.getWeights(0, weights);
+			ccd->setWeights(&weights[0]);
+		}
 		timeUpdate = fitModel(ccd, arguments);
 	}
 

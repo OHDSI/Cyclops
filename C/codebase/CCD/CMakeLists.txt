@@ -80,6 +80,7 @@ set(SOURCE_FILES
 	AbstractModelSpecifics.cpp
 	AbstractDriver.cpp
 	AbstractSelector.cpp
+	ProportionSelector.cpp
 	CrossValidationSelector.cpp
 	CrossValidationDriver.cpp
 	BootstrapSelector.cpp

@@ -8,10 +8,16 @@
 #ifndef ABSTRACTMODELSPECIFICS_H_
 #define ABSTRACTMODELSPECIFICS_H_
 
+#include <vector>
 #include <cmath>
 
-#include "CompressedDataMatrix.h"
-#include "Iterators.h"
+class CompressedDataMatrix;  // forward declaration
+
+#ifdef DOUBLE_PRECISION
+	typedef double real;
+#else
+	typedef float real;
+#endif
 
 class AbstractModelSpecifics {
 public:
@@ -26,7 +32,6 @@ public:
 			real* iNumerPid,
 			real* iNumerPid2,
 			real* iDenomPid,
-			int* iNEvents,
 			real* iXjY,
 			std::vector<std::vector<int>* >* iSparseIndices,
 			int* iPid,
@@ -34,12 +39,12 @@ public:
 			real* iXBeta,
 			int* iOffs,
 			real* iBeta,
-			real* iY,
-			real* iWeights
-			);
+			real* iY);
+
+	virtual void setWeights(real* inWeights, bool useCrossValidation) = 0; // pure virtual
 
 	virtual void computeGradientAndHessian(int index, double *ogradient,
-			double *ohessian) = 0; // pure virtual
+			double *ohessian, bool useWeights) = 0; // pure virtual
 
 	virtual void computeNumeratorForGradient(int index) = 0; // pure virtual
 
@@ -52,6 +57,8 @@ public:
 	virtual double getLogLikelihood(bool useCrossValidation) = 0; // pure virtual
 
 	virtual double getPredictiveLogLikelihood(real* weights) = 0; // pure virtual
+
+	virtual void sortPid(bool useCrossValidation) = 0; // pure virtual
 
 protected:
 
@@ -76,8 +83,8 @@ protected:
 
 	int* hOffs;  // K-vector
 	real* hY; // K-vector
-	int* hNEvents; // K-vector
-	int* hPid; // N-vector
+
+	int* hPid; // K-vector
 	int** hXColumnRowIndicators; // J-vector
 
 	real* hBeta;
@@ -89,8 +96,6 @@ protected:
 	int K; // Number of exposure levels
 	int J; // Number of drugs
 
-	real* hWeights;
-
 	real* expXBeta;
 	real* offsExpXBeta;
 	real* denomPid;
@@ -101,10 +106,6 @@ protected:
 	real* hXjX;
 
 	std::vector<std::vector<int>* > *sparseIndices;
-
-//	using AbstractModelSpecifics::updateXBetaImpl<SparseIterator>();
-//	using AbstractModelSpecifics::updateXBetaImpl<SparseIterator>();
-//	using AbstractModelSpecifics::updateXBetaImpl<SparseIterator>();
 };
 
 #endif /* ABSTRACTMODELSPECIFICS_H_ */

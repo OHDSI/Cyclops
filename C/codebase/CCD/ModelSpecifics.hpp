@@ -14,25 +14,48 @@
 #include "ModelSpecifics.h"
 #include "Iterators.h"
 
-template <class BaseModel>
-ModelSpecifics<BaseModel>::ModelSpecifics() : AbstractModelSpecifics(), BaseModel() {
+template <class BaseModel,typename WeightType>
+ModelSpecifics<BaseModel,WeightType>::ModelSpecifics() : AbstractModelSpecifics(), BaseModel() {
 	// TODO Memory allocation here
 }
 
-template <class BaseModel>
-ModelSpecifics<BaseModel>::~ModelSpecifics() {
+template <class BaseModel,typename WeightType>
+ModelSpecifics<BaseModel,WeightType>::~ModelSpecifics() {
 	// TODO Memory release here
 }
 
-template <class BaseModel>
-bool ModelSpecifics<BaseModel>::allocateXjY(void) { return BaseModel::precomputeGradient; }
+template <class BaseModel,typename WeightType>
+bool ModelSpecifics<BaseModel,WeightType>::allocateXjY(void) { return BaseModel::precomputeGradient; }
 
-template <class BaseModel>
-bool ModelSpecifics<BaseModel>::allocateXjX(void) { return BaseModel::precomputeHessian; }
+template <class BaseModel,typename WeightType>
+bool ModelSpecifics<BaseModel,WeightType>::allocateXjX(void) { return BaseModel::precomputeHessian; }
 
-template <class BaseModel>
-void ModelSpecifics<BaseModel>::computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useCrossValidation) {
+	// Set K weights
+	if (hKWeight.size() != K) {
+		hKWeight.resize(K);
+	}
+	if (useCrossValidation) {
+		for (int k = 0; k < K; ++k) {
+			hKWeight[k] = inWeights[k];
+		}
+	} else {
+		std::fill(hKWeight.begin(), hKWeight.end(), static_cast<WeightType>(1));
+	}
+	// Set N weights (these are the same for independent data models
+	if (hNWeight.size() != N) {
+		hNWeight.resize(N);
+	}
+	std::fill(hNWeight.begin(), hNWeight.end(), static_cast<WeightType>(0));
+	for (int k = 0; k < K; ++k) {
+		WeightType event = BaseModel::observationCount(hY[k]);
+		incrementByGroup(hNWeight.data(), hPid, k, event);
+	}
+}
 
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
 	if (allocateXjY()) {
 		for (int j = 0; j < J; ++j) {
 			hXjY[j] = 0;
@@ -41,7 +64,7 @@ void ModelSpecifics<BaseModel>::computeFixedTermsInGradientAndHessian(bool useCr
 			if (useCrossValidation) {
 				for (; it; ++it) {
 					const int k = it.index();
-					hXjY[j] += it.value() * hY[k] * hWeights[k];
+					hXjY[j] += it.value() * hY[k] * hKWeight[k];
 				}
 			} else {
 				for (; it; ++it) {
@@ -60,7 +83,7 @@ void ModelSpecifics<BaseModel>::computeFixedTermsInGradientAndHessian(bool useCr
 			if (useCrossValidation) {
 				for (; it; ++it) {
 					const int k = it.index();
-					hXjX[j] += it.value() * it.value() * hWeights[k];
+					hXjX[j] += it.value() * it.value() * hKWeight[k];
 				}
 			} else {
 				for (; it; ++it) {
@@ -72,13 +95,13 @@ void ModelSpecifics<BaseModel>::computeFixedTermsInGradientAndHessian(bool useCr
 	}
 }
 
-template <class BaseModel>
-double ModelSpecifics<BaseModel>::getLogLikelihood(bool useCrossValidation) {
+template <class BaseModel,typename WeightType>
+double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValidation) {
 
 	real logLikelihood = static_cast<real>(0.0);
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
-			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]) * hWeights[i];
+			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]) * hKWeight[i];
 		}
 	} else {
 		for (int i = 0; i < K; i++) {
@@ -89,15 +112,14 @@ double ModelSpecifics<BaseModel>::getLogLikelihood(bool useCrossValidation) {
 	if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
 		for (int i = 0; i < N; i++) {
 			// Weights modified in computeNEvents()
-			logLikelihood -= BaseModel::logLikeDenominatorContrib(hNEvents[i], denomPid[i]);
+			logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], denomPid[i]);
 		}
 	}
-
 	return static_cast<double>(logLikelihood);
 }
 
-template <class BaseModel>
-double ModelSpecifics<BaseModel>::getPredictiveLogLikelihood(real* weights) {
+template <class BaseModel,typename WeightType>
+double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* weights) {
 	real logLikelihood = static_cast<real>(0.0);
 
 	for (int k = 0; k < K; ++k) {
@@ -108,28 +130,42 @@ double ModelSpecifics<BaseModel>::getPredictiveLogLikelihood(real* weights) {
 }
 
 // TODO The following function is an example of a double-dispatch, rewrite without need for virtual function
-template <class BaseModel>
-void ModelSpecifics<BaseModel>::computeGradientAndHessian(int index, double *ogradient,
-		double *ohessian) {
-	// Run-time dispatch, so virtual call should not effect speed, TODO Check
-	switch (hXI->getFormatType(index)) {
-		case INDICATOR :
-			computeGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian);
-			break;
-		case SPARSE :
-			computeGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian);
-			break;
-		case DENSE :
-			computeGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian);
-			break;
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, double *ogradient,
+		double *ohessian, bool useWeights) {
+	// Run-time dispatch, so virtual call should not effect speed
+	if (useWeights) {
+		switch (hXI->getFormatType(index)) {
+			case INDICATOR :
+				computeGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, weighted);
+				break;
+			case SPARSE :
+				computeGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, weighted);
+				break;
+			case DENSE :
+				computeGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, weighted);
+				break;
+		}
+	} else {
+		switch (hXI->getFormatType(index)) {
+			case INDICATOR :
+				computeGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, unweighted);
+				break;
+			case SPARSE :
+				computeGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, unweighted);
+				break;
+			case DENSE :
+				computeGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, unweighted);
+				break;
+		}
 	}
 }
 
 //incrementGradientAndHessian<SparseIterator>();
 
-template <class BaseModel> template <class IteratorType>
-void ModelSpecifics<BaseModel>::computeGradientAndHessianImpl(int index, double *ogradient,
-		double *ohessian) {
+template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
+void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
+		double *ohessian, Weights w) {
 	real gradient = 0;
 	real hessian = 0;
 
@@ -137,10 +173,10 @@ void ModelSpecifics<BaseModel>::computeGradientAndHessianImpl(int index, double 
 	for (; it; ++it) {
 		const int k = it.index();
 		// Compile-time delegation
-		BaseModel::incrementGradientAndHessian(it, // Signature-only, for iterator-type specialization
+		BaseModel::incrementGradientAndHessian(it, w, // Signature-only, for iterator-type specialization
 						&gradient, &hessian,
-						numerPid[k], numerPid2[k], denomPid[k], hNEvents[k], // For GLM models
-						it.value(), hXBeta[k], hY[k] // For linear models
+						numerPid[k], numerPid2[k], denomPid[k], hNWeight[k],
+						it.value(), hXBeta[k], hY[k]
 				); // When function is in-lined, compiler will only use necessary arguments
 	}
 
@@ -149,15 +185,15 @@ void ModelSpecifics<BaseModel>::computeGradientAndHessianImpl(int index, double 
 	}
 
 	if (BaseModel::precomputeHessian) { // Compile-time switch
-		hessian += 2.0 * hXjX[index];
+		hessian += static_cast<real>(2.0) * hXjX[index];
 	}
 
 	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
 }
 
-template <class BaseModel>
-void ModelSpecifics<BaseModel>::computeNumeratorForGradient(int index) {
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index) {
 	// Run-time delegation
 	switch (hXI->getFormatType(index)) {
 		case INDICATOR : {
@@ -191,8 +227,8 @@ void ModelSpecifics<BaseModel>::computeNumeratorForGradient(int index) {
 	}
 }
 
-template <class BaseModel> template <class IteratorType>
-void ModelSpecifics<BaseModel>::incrementNumeratorForGradientImpl(int index) {
+template <class BaseModel,typename WeightType> template <class IteratorType>
+void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int index) {
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
@@ -205,8 +241,8 @@ void ModelSpecifics<BaseModel>::incrementNumeratorForGradientImpl(int index) {
 	}
 }
 
-template <class BaseModel>
-void ModelSpecifics<BaseModel>::updateXBeta(real realDelta, int index) {
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index) {
 	// Run-time dispatch to implementation depending on covariate FormatType
 	switch(hXI->getFormatType(index)) {
 		case INDICATOR :
@@ -224,8 +260,8 @@ void ModelSpecifics<BaseModel>::updateXBeta(real realDelta, int index) {
 	}
 }
 
-template <class BaseModel> template <class IteratorType>
-inline void ModelSpecifics<BaseModel>::updateXBetaImpl(real realDelta, int index) {
+template <class BaseModel,typename WeightType> template <class IteratorType>
+inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta, int index) {
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
@@ -239,16 +275,26 @@ inline void ModelSpecifics<BaseModel>::updateXBetaImpl(real realDelta, int index
 	}
 }
 
-template <class BaseModel>
-void ModelSpecifics<BaseModel>::computeRemainingStatistics(void) {
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(void) {
 	if (BaseModel::likelihoodHasDenominator) {
 		fillVector(denomPid, N, BaseModel::getDenomNullValue());
 		for (int k = 0; k < K; ++k) {
 			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
 			incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
-
 		}
 	}
+}
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::sortPid(bool useCrossValidation) {
+/* For Cox model:
+ *
+ * We need to sort on hY[k], such that hY[hPid[k]] for k = 0,1,... are in increasing order.
+ * Then, denom[k] is a subset of denom[k-1], and updating denom[k] implies updating demon[m]
+ * for m = k,k-1,...,0.
+ * NB: This should be an interesting update on the GPU, worthy of publication
+ */
 }
 
 #endif /* MODELSPECIFICS_HPP_ */

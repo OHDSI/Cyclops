@@ -220,11 +220,14 @@ void CyclicCoordinateDescent::init() {
 //	Rprintf("Number of drugs = %d\n", J);
 //#endif
 	modelSpecifics.initialize(N, K, J, hXI, numerPid, numerPid2, denomPid,
-			hNEvents, hXjY, &sparseIndices,
+//			hNEvents,
+			hXjY, &sparseIndices,
 			hPid, offsExpXBeta,
 			hXBeta, hOffs,
 			hBeta,
-			hY, hWeights);
+			hY//,
+//			hWeights
+			);
 
 //	int iN,
 //	int iK,
@@ -247,18 +250,7 @@ int CyclicCoordinateDescent::getAlignedLength(int N) {
 }
 
 void CyclicCoordinateDescent::computeNEvents() {
-	zeroVector(hNEvents, N);
-	if (useCrossValidation) {
-		for (int i = 0; i < K; i++) {
-			int events = doLogisticRegression ? 1 : hY[i];
-			hNEvents[hPid[i]] += events * int(hWeights[i]); // TODO Consider using only integer weights
-		}
-	} else {
-		for (int i = 0; i < K; i++) {
-			int events = doLogisticRegression ? 1 : hY[i];
-			hNEvents[hPid[i]] += events;
-		}
-	}
+	modelSpecifics.setWeights(hWeights, useCrossValidation);
 }
 
 void CyclicCoordinateDescent::resetBeta(void) {
@@ -375,23 +367,27 @@ void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
 void CyclicCoordinateDescent::setWeights(real* iWeights) {
 
 	if (iWeights == NULL) {
+		if (hWeights) {
+			free(hWeights);
+			hWeights = NULL;
+		}
 		std::cerr << "Turning off weights!" << std::endl;
 		// Turn off weights
 		useCrossValidation = false;
 		validWeights = false;
 		sufficientStatisticsKnown = false;
-		return;
-	}
+	} else {
 
-	if (hWeights == NULL) {
-		hWeights = (real*) malloc(sizeof(real) * K);
+		if (hWeights == NULL) {
+			hWeights = (real*) malloc(sizeof(real) * K);
+		}
+		for (int i = 0; i < K; ++i) {
+			hWeights[i] = iWeights[i];
+		}
+		useCrossValidation = true;
+		validWeights = false;
+		sufficientStatisticsKnown = false;
 	}
-	for (int i = 0; i < K; ++i) {
-		hWeights[i] = iWeights[i];
-	}
-	useCrossValidation = true;
-	validWeights = false;
-	sufficientStatisticsKnown = false;
 }
 	
 double CyclicCoordinateDescent::getLogPrior(void) {
@@ -459,8 +455,8 @@ void CyclicCoordinateDescent::update(
 	}
 
 	if (!validWeights) {
-		computeFixedTermsInGradientAndHessian();
 		computeNEvents();
+		computeFixedTermsInGradientAndHessian();
 		validWeights = true;
 	}
 
@@ -552,157 +548,10 @@ void CyclicCoordinateDescent::update(
 
 void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ogradient,
 		double *ohessian) {
-//#if 1
-	// Delegate
-	modelSpecifics.computeGradientAndHessian(index, ogradient, ohessian);
-//#else
-//	// Run-time dispatch
-//	switch (hXI->getFormatType(index)) {
-//	case INDICATOR :
-////		computeGradientAndHessianImplHand(index, ogradient, ohessian);
-//		computeGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian);
-//		break;
-//	case SPARSE :
-//		computeGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian);
-//		break;
-//	case DENSE :
-//		computeGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian);
-//		break;
-//	}
-//#endif
+	modelSpecifics.computeGradientAndHessian(index, ogradient, ohessian, useCrossValidation);
 }
 
-//void CyclicCoordinateDescent::computeGradientAndHessianImplHand(int index, double *ogradient,
-//		double *ohessian) {
-//	real gradient = 0;
-//	real hessian = 0;
-//	for (int k = 0; k < N; ++k) {
-//		const real t = numerPid[k] / denomPid[k];
-//		const real g = hNEvents[k] * t;
-//		gradient += g;
-//		hessian += g * (static_cast<real>(1.0) - t); // TODO Update for !indicators
-//	}
-//
-//	gradient -= hXjEta[index];
-//	*ogradient = static_cast<double>(gradient);
-//	*ohessian = static_cast<double>(hessian);
-//}
-
-//#define LR
-
-//template <>
-//inline void CyclicCoordinateDescent::incrementGradientAndHessian<IndicatorIterator>(
-//		real* gradient, real* hessian,
-//		real numer, real numer2, real denom, int nEvents) {
-//	const real t = numer / denom;
-//	const real g = nEvents * t;
-//	*gradient += g;
-//	*hessian += g * (static_cast<real>(1.0) - t);
-//}
-//
-//template <class IteratorType>
-//inline void CyclicCoordinateDescent::incrementGradientAndHessian(
-//		real* gradient, real* hessian,
-//		real numer, real numer2, real denom, int nEvents) {
-//
-//	const real t = numer / denom;
-//	const real g = nEvents * t;
-//	*gradient += g;
-//	if (IteratorType::isIndicator) {
-//		*hessian += g * (static_cast<real>(1.0) - t);
-//	} else {
-//		*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
-//	}
-//}
-//
-//template <class IteratorType>
-//inline void CyclicCoordinateDescent::incrementGradientAndHessian(
-//		real* gradient, real* hessian,
-//		real numer, real numer2, real denom, int nEvents) {
-//
-//	const real t = numer / denom;
-//	const real g = nEvents * t;
-//	*gradient += g;
-//	if (IteratorType::isIndicator) {
-//		*hessian += g * (static_cast<real>(1.0) - t);
-//	} else {
-//		*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
-//	}
-//}
-
-//template <>
-//inline void CyclicCoordinateDescent::incrementGradientAndHessian<SparseIterator>(
-//		real* gradient, real* hessian,
-//		real numer, real numer2, real denom, int nEvents) {
-//	const real t = numer / denom;
-//	const real g = nEvents * t;
-//	*gradient += g;
-////	const real h1 = nEvents * (numer2 * denom - numer * numer) / (denom * denom);
-//	const real h1 = nEvents * (numer2 / denom - t * t);
-//	const real h2 =  g * (static_cast<real>(1.0) - t);
-//	*hessian += g * (static_cast<real>(1.0) - t);
-//	cerr << "Sparse it! " << h1 << " " << h2 << endl;
-//	exit(-1);
-//}
-//
-//template <>
-//inline void CyclicCoordinateDescent::incrementGradientAndHessian<DenseIterator>(
-//		real* gradient, real* hessian,
-//		real numer, real numer2, real denom, int nEvents) {
-//	const real t = numer / denom;
-//	const real g = nEvents * t;
-//	*gradient += g;
-//	const real h1 = nEvents * (numer2 * denom - numer * numer) / (denom * denom);
-//	const real h2 =  g * (static_cast<real>(1.0) - t);
-//	*hessian += g * (static_cast<real>(1.0) - t);
-//	cerr << "Dense it! " << h1 << " " << h2 << endl;
-////	exit(-1);
-//}
-//
-//void CyclicCoordinateDescent::computeGradientAndHessianImplHand(int index, double *ogradient,
-//		double *ohessian) {
-//	real gradient = 0;
-//	real hessian = 0;
-//
-//	std::vector<int>::iterator it = sparseIndices[index]->begin();
-//	const std::vector<int>::iterator end = sparseIndices[index]->end();
-//
-//	for (; it != end; ++it) {
-//
-//		const int k = *it;
-//		incrementGradientAndHessian<IndicatorIterator>(
-//				&gradient, &hessian,
-//				numerPid[k], numerPid2[k], denomPid[k], hNEvents[k]
-//		);
-//	}
-//	gradient -= hXjEta[index];
-//
-//	*ogradient = static_cast<double>(gradient);
-//	*ohessian = static_cast<double>(hessian);
-//}
-//
-//template <class IteratorType>
-//void CyclicCoordinateDescent::computeGradientAndHessianImpl(int index, double *ogradient,
-//		double *ohessian) {
-//	real gradient = 0;
-//	real hessian = 0;
-//
-//	IteratorType it(*sparseIndices[index], N); // TODO How to create with different constructor signatures?
-//	for (; it; ++it) {
-//		const int k = it.index();
-//		incrementGradientAndHessian<IteratorType>(
-//				&gradient, &hessian,
-//				numerPid[k], numerPid2[k], denomPid[k], hNEvents[k]
-//		);
-//	}
-//	gradient -= hXjEta[index];
-//
-//	*ogradient = static_cast<double>(gradient);
-//	*ohessian = static_cast<double>(hessian);
-//}
-
 void CyclicCoordinateDescent::computeNumeratorForGradient(int index) {
-//#if 1
 	// Delegate
 	modelSpecifics.computeNumeratorForGradient(index);
 }
@@ -732,7 +581,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 //		cerr << "Not positive-definite! Hessian = " << g_d2 << endl;
 //		exit(-1);
 //	}
-		
+
 	// Move into separate delegate-function (below)
 	if (priorType == NORMAL) {
 

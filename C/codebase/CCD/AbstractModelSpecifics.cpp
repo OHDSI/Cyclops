@@ -25,7 +25,7 @@ void AbstractModelSpecifics::initialize(
 		real* iNumerPid,
 		real* iNumerPid2,
 		real* iDenomPid,
-		int* iNEvents,
+//		int* iNEvents,
 		real* iXjY,
 		std::vector<std::vector<int>* >* iSparseIndices,
 		int* iPid,
@@ -33,8 +33,8 @@ void AbstractModelSpecifics::initialize(
 		real* iXBeta,
 		int* iOffs,
 		real* iBeta,
-		real* iY,
-		real* iWeights
+		real* iY//,
+//		real* iWeights
 		) {
 	N = iN;
 	K = iK;
@@ -43,7 +43,7 @@ void AbstractModelSpecifics::initialize(
 	numerPid = iNumerPid;
 	numerPid2 = iNumerPid2;
 	denomPid = iDenomPid;
-	hNEvents = iNEvents;
+
 
 	sparseIndices = iSparseIndices;
 
@@ -56,7 +56,7 @@ void AbstractModelSpecifics::initialize(
 	hBeta = iBeta;
 
 	hY = iY;
-	hWeights = iWeights;
+//	hKWeights = iWeights;
 
 //	hPid[100] = 0;  // Gets used elsewhere???
 //	hPid[101] = 1;
@@ -71,4 +71,15 @@ void AbstractModelSpecifics::initialize(
 	if (allocateXjX()) {
 		hXjX = (real*) malloc(sizeof(real) * J);
 	}
+
+//#ifdef TRY_REAL
+////	hNWeight.resize(N);
+////	for (int i = 0; i < N; ++i) {
+////		hNWeight[i] = static_cast<real>(iNEvents[i]);
+////		cerr << iNEvents[i] << " " << hNWeight[i] << endl;
+////	}
+//#else
+//	hNEvents = iNEvents;
+//#endif
+
 }

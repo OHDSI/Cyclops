@@ -56,6 +56,7 @@ struct CCDArguments {
 	bool reportRawEstimates;
 	int replicates;
 	std::string bsFileName;
+	bool doPartial;
 
 	// Needed for model specification
 //	bool doLogisticRegression;
