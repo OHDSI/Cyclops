@@ -6,8 +6,20 @@
  */
 
 #include "AbstractModelSpecifics.h"
+#include "InputReader.h"
 
-AbstractModelSpecifics::AbstractModelSpecifics() {
+//AbstractModelSpecifics::AbstractModelSpecifics(
+//		const std::vector<real>& y,
+//		const std::vector<real>& z) : hY(y), hZ(z) {
+//	// Do nothing
+//}
+
+AbstractModelSpecifics::AbstractModelSpecifics(const InputReader& input)
+	: oY(input.getYVectorRef()), oZ(input.getZVectorRef()),
+	  oPid(input.getPidVectorRef()),
+	  hY(const_cast<real*>(oY.data())), hZ(const_cast<real*>(oZ.data())),
+	  hPid(const_cast<int*>(oPid.data()))
+	  {
 	// Do nothing
 }
 
@@ -28,12 +40,12 @@ void AbstractModelSpecifics::initialize(
 //		int* iNEvents,
 		real* iXjY,
 		std::vector<std::vector<int>* >* iSparseIndices,
-		int* iPid,
+		int* iPid_unused,
 		real* iOffsExpXBeta,
 		real* iXBeta,
 		int* iOffs,
 		real* iBeta,
-		real* iY//,
+		real* iY_unused//,
 //		real* iWeights
 		) {
 	N = iN;
@@ -47,7 +59,7 @@ void AbstractModelSpecifics::initialize(
 
 	sparseIndices = iSparseIndices;
 
-	hPid = iPid;
+//	hPid = iPid;
 	offsExpXBeta = iOffsExpXBeta;
 
 	hXBeta = iXBeta;
@@ -55,7 +67,9 @@ void AbstractModelSpecifics::initialize(
 
 	hBeta = iBeta;
 
-	hY = iY;
+//	hY = iY;
+
+
 //	hKWeights = iWeights;
 
 //	hPid[100] = 0;  // Gets used elsewhere???

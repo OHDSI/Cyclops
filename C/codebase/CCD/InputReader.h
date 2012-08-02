@@ -55,6 +55,18 @@ public:
 	string getConditionId();
 	std::vector<int>* getPidVectorSTL();
 
+	const std::vector<real>& getZVectorRef() const {
+		return z;
+	}
+
+	const std::vector<real>& getYVectorRef() const {
+		return y;
+	}
+
+	const std::vector<int>& getPidVectorRef() const {
+		return pid;
+	}
+
 	virtual void readFile(const char* fileName) = 0;
 
 protected:
@@ -75,6 +87,7 @@ protected:
 	int nPatients;
 	vector<int> pid;
 	vector<real> y;
+	vector<real> z;
 	vector<int> offs;
 	vector<int> nevents;
 	map<DrugIdType, int> drugMap;

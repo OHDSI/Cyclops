@@ -15,7 +15,8 @@
 template <class BaseModel, typename WeightType>
 class ModelSpecifics : public AbstractModelSpecifics, BaseModel {
 public:
-	ModelSpecifics();
+	ModelSpecifics(const InputReader& input);
+
 	virtual ~ModelSpecifics();
 
 	void computeGradientAndHessian(int index, double *ogradient,
@@ -38,9 +39,11 @@ protected:
 
 	bool allocateXjX(void);
 
+	bool sortPid(void);
+
 	void setWeights(real* inWeights, bool useCrossValidation);
 
-	void sortPid(bool useCrossValidation);
+	void doSortPid(bool useCrossValidation);
 
 private:
 	template <class IteratorType, class Weights>
@@ -60,8 +63,15 @@ private:
 		values[BaseModel::getGroup(groups, k)] += inc;
 	}
 
+	void computeXjY(bool useCrossValidation);
+
+	void computeXjX(bool useCrossValidation);
+
 	std::vector<WeightType> hNWeight;
 	std::vector<WeightType> hKWeight;
+
+	std::vector<int> nPid;
+	std::vector<real> nY;
 
 	struct WeightedOperation {
 		const static bool isWeighted = true;
@@ -73,12 +83,35 @@ private:
 
 };
 
+template <typename WeightType>
+class CompareSurvivalTuples {
+	bool useCrossValidation;
+	std::vector<WeightType>& weight;
+	const std::vector<real>& z;
+public:
+	CompareSurvivalTuples(bool _ucv,
+			std::vector<WeightType>& _weight,
+			const std::vector<real>& _z)
+		: useCrossValidation(_ucv), weight(_weight), z(_z) {
+		// Do nothing
+	}
+	bool operator()(size_t i, size_t j) { // return turn if element[i] is before element[j]
+		if (useCrossValidation) {
+			if (weight[i] > weight[j]) { 			// weight[i] = 1, weight[j] = 0
+				return true; // weighted first
+			} else if (weight[i] < weight[j]) {		// weight[i] = 0, weight[j] = 1
+				return false;
+			}
+		}
+		return z[i] > z[j]; // TODO Throw error if non-unique y
+	}
+};
+
 struct GroupedData {
 public:
 	int getGroup(int* groups, int k) {
 		return groups[k];
 	}
-	// TODO Should include grouping, i.e. nevents functions as well
 };
 
 struct OrderedData {
@@ -93,6 +126,18 @@ public:
 	int getGroup(int* groups, int k) {
 		return k;
 	}
+};
+
+struct FixedPid {
+	const static bool sortPid = false;
+
+	const static bool cumulativeGradientAndHessian = false;
+};
+
+struct SortedPid {
+	const static bool sortPid = true;
+
+	const static bool cumulativeGradientAndHessian = true;
 };
 
 struct GLMProjection {
@@ -117,7 +162,7 @@ public:
 };
 
 template <typename WeightType>
-struct SelfControlledCaseSeries : public GroupedData, GLMProjection {
+struct SelfControlledCaseSeries : public GroupedData, GLMProjection, FixedPid {
 public:
 	const static bool precomputeHessian = false; // XjX
 
@@ -161,7 +206,7 @@ public:
 };
 
 template <typename WeightType>
-struct LogisticRegression : public IndependentData, GLMProjection {
+struct LogisticRegression : public IndependentData, GLMProjection, FixedPid {
 public:
 	const static bool precomputeHessian = false;
 
@@ -216,14 +261,14 @@ public:
 };
 
 template <typename WeightType>
-struct CoxProportionalHazards : public OrderedData, GLMProjection {
+struct CoxProportionalHazards : public OrderedData, GLMProjection, SortedPid {
 public:
 	const static bool precomputeHessian = false;
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
 
 	int observationCount(real yi) {
-		return static_cast<int>(1);
+		return static_cast<int>(yi);
 	}
 
 	template <class IteratorType, class Weights>
@@ -236,7 +281,7 @@ public:
 			real x, real xBeta, real y) {
 
 		const real t = numer / denom;
-		const real g = nEvents * t; // Always use weights (number of events)
+		const real g = nEvents * t; // Always use weights (not censured indicator)
 		*gradient += g;
 		if (IteratorType::isIndicator) {
 			*hessian += g * (static_cast<real>(1.0) - t);
@@ -260,7 +305,7 @@ public:
 };
 
 template <typename WeightType>
-struct LeastSquares : public IndependentData {
+struct LeastSquares : public IndependentData, FixedPid {
 public:
 	const static bool precomputeGradient = false; // XjY
 

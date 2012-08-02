@@ -12,6 +12,7 @@
 #include <cmath>
 
 class CompressedDataMatrix;  // forward declaration
+class InputReader; // forward declaration
 
 #ifdef DOUBLE_PRECISION
 	typedef double real;
@@ -21,7 +22,12 @@ class CompressedDataMatrix;  // forward declaration
 
 class AbstractModelSpecifics {
 public:
-	AbstractModelSpecifics();
+//	AbstractModelSpecifics(
+//			const std::vector<real>& y,
+//			const std::vector<real>& z);
+
+	AbstractModelSpecifics(const InputReader& intput);
+
 	virtual ~AbstractModelSpecifics();
 
 	void initialize(
@@ -58,7 +64,7 @@ public:
 
 	virtual double getPredictiveLogLikelihood(real* weights) = 0; // pure virtual
 
-	virtual void sortPid(bool useCrossValidation) = 0; // pure virtual
+//	virtual void sortPid(bool useCrossValidation) = 0; // pure virtual
 
 protected:
 
@@ -78,11 +84,16 @@ protected:
 		fillVector(vector, length, T());
 	}
 
+	const std::vector<real>& oY;
+	const std::vector<real>& oZ;
+	const std::vector<int>& oPid;
+
 	// TODO Currently constructed in CyclicCoordinateDescent, but should be encapsulated here
 	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
 	int* hOffs;  // K-vector
 	real* hY; // K-vector
+	real* hZ; // K-vector
 
 	int* hPid; // K-vector
 	int** hXColumnRowIndicators; // J-vector

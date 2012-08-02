@@ -76,6 +76,7 @@ set(SOURCE_FILES
 	SCCSInputReader.cpp
 	CLRInputReader.cpp
 	RTestInputReader.cpp
+	CoxInputReader.cpp
 	CCTestInputReader.cpp
 	AbstractModelSpecifics.cpp
 	AbstractDriver.cpp

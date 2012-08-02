@@ -28,6 +28,7 @@
 #include "CLRInputReader.h"
 #include "RTestInputReader.h"
 #include "CCTestInputReader.h"
+#include "CoxInputReader.h"
 #include "CrossValidationSelector.h"
 #include "CrossValidationDriver.h"
 #include "BootstrapSelector.h"
@@ -209,6 +210,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		allowedModels.push_back("clr");
 		allowedModels.push_back("lr");
 		allowedModels.push_back("ls");
+		allowedModels.push_back("cox");
 		ValuesConstraint<std::string> allowedModelValues(allowedModels);
 		ValueArg<string> modelArg("", "model", "Model specification", false, arguments.modelName, &allowedModelValues);
 
@@ -218,6 +220,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		allowedFormats.push_back("clr");
 		allowedFormats.push_back("csv");
 		allowedFormats.push_back("cc");
+		allowedFormats.push_back("cox-csv");
 		ValuesConstraint<std::string> allowedFormatValues(allowedFormats);
 		ValueArg<string> formatArg("", "format", "Format of data file", false, arguments.fileFormat, &allowedFormatValues);
 
@@ -362,6 +365,8 @@ double initializeModel(
 		*reader = new RTestInputReader();
 	} else if (arguments.fileFormat == "cc") {
 		*reader = new CCTestInputReader();
+	} else if (arguments.fileFormat == "cox-csv") {
+		*reader = new CoxInputReader();
 	} else {
 		cerr << "Invalid file format." << endl;
 		exit(-1);
@@ -369,15 +374,15 @@ double initializeModel(
 	(*reader)->readFile(arguments.inFileName.c_str()); // TODO Check for error
 
 	if (arguments.modelName == "sccs") {
-		*model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>();
+		*model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>(**reader);
 //	} else if (arguments.modelName == "clr") {
-//		*model = new ModelSpecifics<ConditionalLogisticRegression>(); // TODO
+//		*model = new ModelSpecifics<ConditionalLogisticRegression>((**reader)); // TODO
 	} else if (arguments.modelName == "lr") {
-		*model = new ModelSpecifics<LogisticRegression<real>,real>();
+		*model = new ModelSpecifics<LogisticRegression<real>,real>(**reader);
 	} else if (arguments.modelName == "ls") {
-		*model = new ModelSpecifics<LeastSquares<real>,real>();
+		*model = new ModelSpecifics<LeastSquares<real>,real>(**reader);
 	} else if (arguments.modelName == "cox") {
-		*model = new ModelSpecifics<CoxProportionalHazards<real>,real>();
+		*model = new ModelSpecifics<CoxProportionalHazards<real>,real>(**reader);
 	} else {
 		cerr << "Invalid model type." << endl;
 		exit(-1);

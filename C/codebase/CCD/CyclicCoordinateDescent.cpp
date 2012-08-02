@@ -55,7 +55,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	J = reader->getNumberOfColumns();
 
 	hXI = reader;
-	hY = reader->getYVector();
+	hY = reader->getYVector(); // TODO Delegate all data to ModelSpecifics
 	hOffs = reader->getOffsetVector();
 	hNEvents = NULL;
 	hPid = reader->getPidVector();
