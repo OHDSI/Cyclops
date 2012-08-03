@@ -14,10 +14,18 @@
 #include <map>
 #include <time.h>
 #include <set>
+#include <gsl/gsl_linalg.h>
+#include <gsl/gsl_blas.h>
+#include <gsl/gsl_matrix.h>
+#include <Eigen/Core>
+#include <Eigen/Cholesky>
+
 
 #include "CyclicCoordinateDescent.h"
 #include "InputReader.h"
 #include "Iterators.h"
+#include "SparseRowVector.h"
+
 
 //#ifdef MY_RCPP_FLAG
 //	#include <R.h>
@@ -33,7 +41,8 @@
 //#include "Rcpp.h"
 #endif
 
-using namespace std;
+//using namespace Eigen::MatrixX;
+//using namespace std;
 
 void compareIntVector(int* vec0, int* vec1, int dim, const char* name) {
 	for (int i = 0; i < dim; i++) {
@@ -68,6 +77,27 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	updateCount = 0;
 	likelihoodCount = 0;
 
+	/*
+	SparseRowVector test;
+	test.fillSparseRowVector(reader);
+
+	cout << "Printing Trans by Col" << endl;
+	cout << "Trans Rows = " << test.getNumberOfRows() << endl;
+	cout << "Trans Cols = " << test.getNumberOfColumns() << endl;
+
+	for (int j = 0; j < test.getNumberOfColumns(); j++) {
+		test.printRow(j);
+	}
+
+
+	cout << "Printing Non-trans by Col!" << endl;
+
+	cout << "n Rows = " << hXI->getNumberOfRows() << endl;
+	cout << "n Cols = " << hXI->getNumberOfColumns() << endl;
+	for (int i = 0; i < hXI->getNumberOfColumns(); i++) {
+		hXI->printColumn(i);
+	}
+*/
 	init();
 }
 
@@ -407,6 +437,165 @@ void CyclicCoordinateDescent::setLogisticRegression(bool idoLR) {
 	sufficientStatisticsKnown = false;
 }
 
+void CyclicCoordinateDescent::getHessianForCholesky_GSL() {
+	//naming of variables consistent with Suchard write up page 23 Appendix A
+
+	vector<int> giVector(N, 0); // get Gi given patient i
+
+	vector<vector<int> > kValues;
+
+	for (int j = 0; j < K; j++) {
+		giVector[hPid[j]] ++;
+	}
+
+	for (int n = 0; n < N; n++) {
+		vector<int> temp;
+		kValues.push_back(temp);
+	}
+
+	for (int j = 0; j < K; j++) {
+		kValues[hPid[j]].push_back(j);
+	}
+
+	gsl_matrix * HessianMatrix = gsl_matrix_alloc(J,J);
+	gsl_matrix_set_zero(HessianMatrix);
+
+	for (int i = 0; i < N; i ++) { // sum over patients
+		gsl_matrix * FirstTerm = gsl_matrix_alloc(J, J);
+		gsl_matrix * SecondTerm = gsl_matrix_alloc(J, J);
+		int ni = hNEvents[i];
+
+		for (int j = 0; j < J; j++) {
+			for (int j2 = 0; j2 < J; j2 ++) {
+				computeNumeratorForGradient(j);
+				double firstNumer = numerPid[i];
+				computeNumeratorForGradient(j2);
+				double secondNumer = numerPid[i];
+				double FirstTermjj2 = firstNumer*secondNumer / (denomPid[i]*denomPid[i]);
+				gsl_matrix_set(FirstTerm, j, j2, FirstTermjj2);
+				real * columnVectorj = hXI->getDataVector(j);
+				real * columnVectorj2 = hXI->getDataVector(j2);
+				double SecondTermjj2 = 0;
+				for (int g = 0; g < kValues[i].size(); g++) {
+					SecondTermjj2 += offsExpXBeta[kValues[i][g]]*columnVectorj[kValues[i][g]]*columnVectorj2[kValues[i][g]] / (denomPid[i]);
+				}
+				gsl_matrix_set(SecondTerm, j, j2, SecondTermjj2);
+
+			}
+		}
+
+		gsl_matrix_scale(FirstTerm, -ni);
+		gsl_matrix_scale(SecondTerm, -ni);
+		gsl_matrix_add(HessianMatrix, FirstTerm);
+		gsl_matrix_sub(HessianMatrix, SecondTerm);
+	}
+
+	cout << "print Final GSL" << endl;
+
+	for (int p = 0; p < J; p++){
+		cout << "[";
+		for (int q = 0; q < J; q++) {
+			cout << gsl_matrix_get(HessianMatrix, p, q) << " ";
+		}
+		cout << "]" << endl;
+	}
+
+	int test = gsl_linalg_cholesky_decomp(HessianMatrix);
+
+	cout << "print Final GSL Chol" << endl;
+
+	for (int p = 0; p < J; p++){
+		cout << "[";
+		for (int q = 0; q < J; q++) {
+			cout << gsl_matrix_get(HessianMatrix, p, q) << " ";
+		}
+		cout << "]" << endl;
+	}
+
+
+}
+
+
+void CyclicCoordinateDescent::getHessianForCholesky_Eigen() {
+	//naming of variables consistent with Suchard write up page 23 Appendix A
+
+	vector<int> giVector(N, 0); // get Gi given patient i
+
+	vector<vector<int> > kValues;
+
+	for (int j = 0; j < K; j++) {
+		giVector[hPid[j]] ++;
+	}
+
+	for (int n = 0; n < N; n++) {
+		vector<int> temp;
+		kValues.push_back(temp);
+	}
+
+	for (int j = 0; j < K; j++) {
+		kValues[hPid[j]].push_back(j);
+	}
+
+	Eigen::MatrixXf HessianMatrix_Eigen(J, J);
+	HessianMatrix_Eigen.setZero(J, J);
+
+	for (int i = 0; i < N; i ++) { // sum over patients
+		Eigen::MatrixXf FirstTerm_Eigen(J, J);
+		Eigen::MatrixXf SecondTerm_Eigen(J, J);
+
+		int ni = hNEvents[i];
+
+		for (int j = 0; j < J; j++) {
+			for (int j2 = 0; j2 < J; j2 ++) {
+				computeNumeratorForGradient(j);
+				double firstNumer = numerPid[i];
+				computeNumeratorForGradient(j2);
+				double secondNumer = numerPid[i];
+				double FirstTermjj2 = firstNumer*secondNumer / (denomPid[i]*denomPid[i]);
+				FirstTerm_Eigen(j, j2) = FirstTermjj2;
+				real * columnVectorj = hXI->getDataVector(j);
+				real * columnVectorj2 = hXI->getDataVector(j2);
+				double SecondTermjj2 = 0;
+				for (int g = 0; g < kValues[i].size(); g++) {
+					SecondTermjj2 += offsExpXBeta[kValues[i][g]]*columnVectorj[kValues[i][g]]*columnVectorj2[kValues[i][g]] / (denomPid[i]);
+				}
+				SecondTerm_Eigen(j, j2) = SecondTermjj2;
+			}
+		}
+
+		FirstTerm_Eigen *= -ni;
+		SecondTerm_Eigen *= -ni;
+		HessianMatrix_Eigen += FirstTerm_Eigen;
+
+		HessianMatrix_Eigen -= SecondTerm_Eigen;
+	}
+
+	cout << "print Final Eigen" << endl;
+
+	for (int p = 0; p < J; p++){
+		cout << "[";
+		for (int q = 0; q < J; q++) {
+			cout << HessianMatrix_Eigen(p,q) <<" ";
+		}
+		cout << "]" << endl;
+	}
+
+	Eigen::MatrixXf CholeskyDecomp(J, J);
+	Eigen::LLT<Eigen::MatrixXf> CholDecom(HessianMatrix_Eigen);
+	CholeskyDecomp = CholDecom.matrixL();
+
+	cout << "print Final Eigen" << endl;
+
+		for (int p = 0; p < J; p++){
+			cout << "[";
+			for (int q = 0; q < J; q++) {
+				cout << CholeskyDecomp(p,q) <<" ";
+			}
+			cout << "]" << endl;
+		}
+
+}
+
 void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 	if (iPriorType != LAPLACE && iPriorType != NORMAL) {
 		cerr << "Unknown prior type" << endl;
@@ -495,6 +684,7 @@ void CyclicCoordinateDescent::update(
 		double epsilon
 		) {
 
+
 	if (convergenceType != LANGE && convergenceType != ZHANG_OLES) {
 		cerr << "Unknown convergence criterion" << endl;
 		exit(-1);
@@ -515,6 +705,7 @@ void CyclicCoordinateDescent::update(
 
 	resetBounds();
 
+
 	bool done = false;
 	int iteration = 0;
 	double lastObjFunc;
@@ -525,6 +716,8 @@ void CyclicCoordinateDescent::update(
 		saveXBeta();
 	}
 	
+
+
 	while (!done) {
 	
 		// Do a complete cycle
@@ -544,8 +737,8 @@ void CyclicCoordinateDescent::update(
 		}
 		
 		iteration++;
-//		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
-		bool checkConvergence = true; // Check after each complete cycle
+		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
+		//bool checkConvergence = true; // Check after each complete cycle
 
 		if (checkConvergence) {
 
@@ -582,6 +775,10 @@ void CyclicCoordinateDescent::update(
 		}				
 	}
 	updateCount += 1;
+
+	Eigen::MatrixXf HessianMatrix(J,J);
+	getHessianForCholesky_Eigen();
+	getHessianForCholesky_GSL();
 }
 
 /**
@@ -794,9 +991,19 @@ void CyclicCoordinateDescent::incrementNumeratorForGradientImplHand(int index) {
 template <class IteratorType>
 void CyclicCoordinateDescent::incrementNumeratorForGradientImpl(int index) {
 	IteratorType it(*hXI, index);
+
+	//cout << "incrementNumeratorForGradientImpl" << endl;
+	//cout << "Index = " << index << endl;
 	for (; it; ++it) {
+		//cout << "it.index() = " << it.index() << endl;
 		const int k = it.index();
 		numerPid[hPid[k]] += offsExpXBeta[k] * it.value();
+		//cout << "offsExpXBeta[k] = " << offsExpXBeta[k] << endl;
+		//cout << "it.value = " << it.value() << endl;
+		//cout << "hPid[k] = " << hPid[k] << endl;
+		//cout << "numerPid[hPid[K]] = " << numerPid[hPid[k]] << endl;
+		//cout << "denomPid[hPid[k]] = " << denomPid[hPid[k]] << endl;
+		//cout << "hNevents[k] = " << hNEvents[hPid[k]] << endl;
 		if (!IteratorType::isIndicator) {
 			numerPid2[hPid[k]] += offsExpXBeta[k] * it.value() * it.value();
 		}
@@ -834,13 +1041,20 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 
 	double delta;
 
+
 	if (!sufficientStatisticsKnown) {
 		cerr << "Error in state synchronization." << endl;
 		exit(0);		
 	}
 	
+
+
+	cout << "ccdUpdateBeta" << endl;
 	computeNumeratorForGradient(index);
 	
+
+
+
 	double g_d1;
 	double g_d2;
 					
@@ -950,6 +1164,7 @@ void CyclicCoordinateDescent::updateXBetaImpl(real realDelta, int index) {
 
 void CyclicCoordinateDescent::updateXBetaImplHand(real realDelta, int index) {
 
+
 	real* data = hXI->getDataVector(index);
 	real* xBeta = hXBeta;
 	real* offsEXB = offsExpXBeta;
@@ -1041,7 +1256,7 @@ double CyclicCoordinateDescent::applyBounds(double inDelta, int index) {
 		delta = hDelta[index];
 	}
 
-	hDelta[index] = max(2.0 * abs(delta), 0.5 * hDelta[index]);
+	hDelta[index] = std::max(2.0 * abs(delta), 0.5 * hDelta[index]); //made std::max vs just max post Eigen use
 	return delta;
 }
 

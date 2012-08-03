@@ -8,10 +8,15 @@
 #ifndef CYCLICCOORDINATEDESCENT_H_
 #define CYCLICCOORDINATEDESCENT_H_
 
+#include <Eigen/Dense>
 #include "CompressedDataMatrix.h"
 #include "InputReader.h"
 
+
+
+
 //using namespace std;
+//using namespace Eigen;
 using std::cout;
 using std::cerr;
 using std::endl;
@@ -32,12 +37,12 @@ using std::ofstream;
 
 //#define NO_FUSE
 
-
 #ifdef DOUBLE_PRECISION
 	typedef double real;
 #else
 	typedef float real;
 #endif 
+
 
 enum PriorType {
 	LAPLACE = 0,
@@ -104,6 +109,12 @@ public:
 	void setWeights(real* weights);
 
 	void setLogisticRegression(bool idoLR);
+
+	void getHessianForCholesky_GSL();
+
+	void getHessianForCholesky_Eigen();
+
+	//Eigen::MatrixXf getHessianForCholesky_Eigen(Eigen::MatrixXf* ReturnHessian);
 
 //	template <typename T>
 	void setBeta(const std::vector<double>& beta);

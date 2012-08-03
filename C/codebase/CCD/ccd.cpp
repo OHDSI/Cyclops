@@ -30,6 +30,7 @@
 #include "CrossValidationDriver.h"
 #include "BootstrapSelector.h"
 #include "BootstrapDriver.h"
+#include "SparseRowVector.h"
 
 #include "tclap/CmdLine.h"
 
@@ -397,6 +398,8 @@ int main(int argc, char* argv[]) {
 	CyclicCoordinateDescent* ccd = NULL;
 	InputReader* reader = NULL;
 	CCDArguments arguments;
+
+
 
 	parseCommandLine(argc, argv, arguments);
 

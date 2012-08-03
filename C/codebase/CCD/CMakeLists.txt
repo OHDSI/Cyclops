@@ -1,8 +1,8 @@
 include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 
-#find_path(GSL_INCLUDE_DIR
-#	NAMES gsl
-#    DOCS "Location of GSL header file")
+find_path(GSL_INCLUDE_DIR
+	NAMES gsl
+    	DOCS "Location of GSL header file")
     
 #find_path(MTL_INCLUDE_DIR
 #	NAMES mtl4
@@ -14,13 +14,13 @@ include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 #	DOCS "Location of boost header file"
 #	PATHS "/Users/msuchard/Documents/Projects/boost_1_42_0")
 	
-#find_library(GSL_LIBRARY
-#	NAMES gsl
-#	DOCS "Location of GSL library file")
+find_library(GSL_LIBRARY
+	NAMES gsl
+	DOCS "Location of GSL library file")
 
-#find_library(GSL_CBLAS_LIBRARY
-#	NAMES gslcblas
-#	DOCS "Location of GSL BLAS library file")
+find_library(GSL_CBLAS_LIBRARY
+	NAMES gslcblas
+	DOCS "Location of GSL BLAS library file")
 
 #find_library(CUBLAS_LIBRARY
 #	NAMES cublas
@@ -48,13 +48,13 @@ include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 
 #set(MTL_INCLUDE_DIR "${MTL_INCLUDE_DIR}/mtl4")
 
-#message(STATUS "Found GSL library: " ${GSL_LIBRARY})
+message(STATUS "Found GSL library: " ${GSL_LIBRARY})
 
-#message(STATUS "Found CBLAS library: " ${GSL_CBLAS_LIBRARY})
+message(STATUS "Found CBLAS library: " ${GSL_CBLAS_LIBRARY})
 
-#message(STATUS "Found CUBLAS library: " ${CUBLAS_LIBRARY})
+message(STATUS "Found CUBLAS library: " ${CUBLAS_LIBRARY})
 
-#message(STATUS "Found GSL header file in:  " ${GSL_INCLUDE_DIR})
+message(STATUS "Found GSL header file in:  " ${GSL_INCLUDE_DIR})
 
 #message(STATUS "Found MTL header file in: " ${MTL_INCLUDE_DIR})
 
@@ -62,11 +62,11 @@ include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 
 
 
-#include_directories(${GSL_INCLUDE_DIR} 
-#					${CUDA_INCLUDE_DIR}
-#					${MTL_INCLUDE_DIR}
-#					${BOOST_INCLUDE_DIR}
-#					)
+include_directories(${GSL_INCLUDE_DIR} 
+					${CUDA_INCLUDE_DIR}
+					${MTL_INCLUDE_DIR}
+					${BOOST_INCLUDE_DIR}
+					)
 
 set(SOURCE_FILES
 	ccd.cpp
@@ -82,7 +82,8 @@ set(SOURCE_FILES
 	CrossValidationSelector.cpp
 	CrossValidationDriver.cpp
 	BootstrapSelector.cpp
-	BootstrapDriver.cpp)
+	BootstrapDriver.cpp
+	SparseRowVector.cpp)
 	
 if(CUDA_FOUND)
 	set(SOURCE_FILES ${SOURCE_FILES}
@@ -103,6 +104,8 @@ if(CUDA_FOUND)
  	target_link_libraries(ccd CUDADriver)
 else(CUDA_FOUND)
 	add_executable(ccd ${SOURCE_FILES})
+	target_link_libraries(ccd ${GSL_LIBRARY})
+	target_link_libraries(ccd ${GSL_CBLAS_LIBRARY})
 endif(CUDA_FOUND)
 
 

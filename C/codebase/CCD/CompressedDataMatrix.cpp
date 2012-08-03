@@ -17,7 +17,6 @@ CompressedDataMatrix::CompressedDataMatrix() {
 }
 
 CompressedDataMatrix::CompressedDataMatrix(const char* fileName) {
-	
 	ifstream in(fileName);	
 	if (!in) {
 		cerr << "Unable to open " << fileName << endl;
