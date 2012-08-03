@@ -12,6 +12,7 @@
 
 #include "CrossValidationSelector.h"
 
+namespace BayesianSCCS {
 CrossValidationSelector::CrossValidationSelector(
 		int inFold,
 		std::vector<int>* inIds,
@@ -93,4 +94,5 @@ void CrossValidationSelector::permute() {
 	if (!deterministic) {
 		std::random_shuffle(permutation.begin(), permutation.end());
 	}
+}
 }

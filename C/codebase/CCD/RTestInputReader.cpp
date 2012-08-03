@@ -15,7 +15,7 @@
 #include <algorithm>
 
 #include "RTestInputReader.h"
-
+namespace BayesianSCCS {
 #define MAX_ENTRIES		1000000000
 
 #define FORMAT_MATCH_1	"CONDITION_CONCEPT_ID"
@@ -138,4 +138,5 @@ void RTestInputReader::readFile(const char* fileName) {
 	cerr << "nEvents ";
 	printVector(nevents.data(), nevents.size());
 #endif
+}
 }

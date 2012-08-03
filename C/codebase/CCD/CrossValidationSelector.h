@@ -12,7 +12,7 @@
 #include "SCCSInputReader.h"
 
 #include "AbstractSelector.h"
-
+namespace BayesianSCCS {
 class CrossValidationSelector : public AbstractSelector {
 public:
 	CrossValidationSelector(
@@ -34,5 +34,5 @@ private:
 	std::vector<int> permutation;
 	std::vector<int> intervalStart;
 };
-
+}
 #endif /* CROSSVALIDATION_H_ */

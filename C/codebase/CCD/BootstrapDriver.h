@@ -5,13 +5,17 @@
  *      Author: msuchard
  */
 
+
 #ifndef BOOTSTRAPDRIVER_H_
 #define BOOTSTRAPDRIVER_H_
+
 
 #include <vector>
 
 #include "AbstractDriver.h"
 #include "InputReader.h"
+
+namespace BayesianSCCS {
 
 typedef std::vector<realTRS> rvector;
 typedef std::vector<rvector*> rarray;
@@ -40,5 +44,6 @@ private:
 	const int J;
 	rarray estimates;
 };
-
+}
 #endif /* BOOTSTRAPDRIVER_H_ */
+

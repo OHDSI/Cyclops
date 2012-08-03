@@ -9,7 +9,7 @@
 #include <algorithm>
 
 #include "AbstractSelector.h"
-
+namespace BayesianSCCS {
 AbstractSelector::AbstractSelector(
 		std::vector<int>* inIds,
 		SelectorType inType,
@@ -38,4 +38,6 @@ AbstractSelector::~AbstractSelector() {
 	if (ids) {
 		delete ids;
 	}
+}
+
 }

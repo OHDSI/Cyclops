@@ -5,13 +5,17 @@
  *      Author: msuchard
  */
 
+
+
 #ifndef ABSTRACTDRIVER_H_
 #define ABSTRACTDRIVER_H_
+
 
 #include "CyclicCoordinateDescent.h"
 #include "CrossValidationSelector.h"
 #include "ccd.h"
 
+namespace BayesianSCCS {
 class AbstractDriver {
 public:
 	AbstractDriver();
@@ -25,5 +29,6 @@ public:
 
 	virtual void logResults(const CCDArguments& arguments) = 0; // pure virtual
 };
-
+}
 #endif /* ABSTRACTDRIVER_H_ */
+

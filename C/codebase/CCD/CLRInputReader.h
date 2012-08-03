@@ -18,6 +18,8 @@ using namespace std;
 
 #include "InputReader.h"
 
+namespace BayesianSCCS {
+
 class CLRInputReader: public InputReader {
 public:
 	CLRInputReader();
@@ -25,5 +27,5 @@ public:
 
 	virtual void readFile(const char* fileName);
 };
-
+}
 #endif /* CLRINPUTREADER_H_ */

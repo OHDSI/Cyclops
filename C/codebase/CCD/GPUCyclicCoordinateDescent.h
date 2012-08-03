@@ -16,6 +16,8 @@
 #define NO_BETA
 #define GPU_SPARSE_PRODUCT
 
+namespace BayesianSCCS {
+
 #ifdef DOUBLE_PRECISION
 	typedef double gpu_real;
 #else
@@ -101,5 +103,5 @@ private:
 	int cacheSizeGH;
 	int alignedGHCacheSize;
 };
-
+}
 #endif /* GPUCYCLICCOORDINATEDESCENT_H_ */

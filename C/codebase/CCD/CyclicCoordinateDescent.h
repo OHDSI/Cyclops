@@ -23,6 +23,8 @@ using std::endl;
 using std::ostream;
 using std::ofstream;
 
+namespace BayesianSCCS {
+
 //#define DEBUG
 
 #define TEST_SPARSE // New sparse updates are great
@@ -311,5 +313,5 @@ protected:
 };
 
 double convertVarianceToHyperparameter(double variance);
-
+}
 #endif /* CYCLICCOORDINATEDESCENT_H_ */

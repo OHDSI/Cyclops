@@ -15,6 +15,7 @@
 
 using namespace std;
 
+namespace BayesianSCCS {
 BetterGPU::BetterGPU(int deviceNumber, InputReader* reader)
 	: CyclicCoordinateDescent(reader) {
 	
@@ -131,4 +132,4 @@ void BetterGPU::computeGradientAndHession(int index, double *ogradient,
 	*ogradient = dblGradient;
 	*ohessian = dblHessian;
 }
-
+}

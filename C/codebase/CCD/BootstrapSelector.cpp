@@ -10,6 +10,8 @@
 
 #include "BootstrapSelector.h"
 
+namespace BayesianSCCS {
+
 BootstrapSelector::BootstrapSelector(
 		int replicates,
 		std::vector<int>* inIds,
@@ -75,4 +77,5 @@ void BootstrapSelector::getWeights(int batch, std::vector<realTRS>& weights) {
 void BootstrapSelector::getComplement(std::vector<realTRS>& weights) {
 	std::cerr << "BootstrapSelector::getComplement is not yet implemented." << std::endl;
 	exit(-1);
+}
 }

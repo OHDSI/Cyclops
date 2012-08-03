@@ -12,6 +12,8 @@
 
 #include "CompressedDataMatrix.h"
 
+namespace BayesianSCCS {
+
 CompressedDataMatrix::CompressedDataMatrix() {
 	// Do nothing
 }
@@ -223,4 +225,5 @@ void CompressedDataMatrix::allocateMemory(int nCols) {
 
 FormatType CompressedDataMatrix::getFormatType(int column) const {
 	return formatType[column];
+}
 }

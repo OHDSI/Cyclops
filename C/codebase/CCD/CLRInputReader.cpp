@@ -34,6 +34,8 @@
 
 using namespace std;
 
+namespace BayesianSCCS {
+
 CLRInputReader::CLRInputReader() : InputReader() {
 	// Do nothing
 }
@@ -256,6 +258,7 @@ void CLRInputReader::readFile(const char* fileName) {
 
 	// TODO If !useGender, etc., then delete memory
 
+}
 }
 
 

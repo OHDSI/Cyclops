@@ -9,7 +9,7 @@
 #define CCTESTINPUTREADER_H_
 
 #include "InputReader.h"
-
+namespace BayesianSCCS {
 class CCTestInputReader : public InputReader {
 public:
 	CCTestInputReader();
@@ -17,5 +17,5 @@ public:
 
 	virtual void readFile(const char* fileName);
 };
-
+}
 #endif /* CCTESTINPUTREADER_H_ */

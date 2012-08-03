@@ -36,16 +36,19 @@
 
 //#include <R.h>
 
+
 #ifdef CUDA
 	#include "GPUCyclicCoordinateDescent.h"
 	#include "BetterGPU.h"
 #endif
 
 
+
 #define NEW
 
 using namespace TCLAP;
 using namespace std;
+using namespace BayesianSCCS;
 
 double calculateSeconds(const timeval &time1, const timeval &time2) {
 	return time2.tv_sec - time1.tv_sec +

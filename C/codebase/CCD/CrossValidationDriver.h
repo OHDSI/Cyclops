@@ -5,6 +5,8 @@
  *      Author: msuchard
  */
 
+
+
 #ifndef CROSSVALIDATIONDRIVER_H_
 #define CROSSVALIDATIONDRIVER_H_
 
@@ -14,7 +16,7 @@
 #include "ccd.h"
 
 #include "AbstractDriver.h"
-
+namespace BayesianSCCS {
 class CrossValidationDriver : public AbstractDriver {
 public:
 	CrossValidationDriver(
@@ -52,5 +54,6 @@ private:
 	double upperLimit;
 
 };
-
+}
 #endif /* CROSSVALIDATIONDRIVER_H_ */
+

@@ -13,6 +13,8 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/KernelLauncherCCD.h"
 
+namespace BayesianSCCS {
+
 #ifdef DOUBLE_PRECISION
 	typedef double gpu_real;
 #else
@@ -71,5 +73,5 @@ private:
 	realTRS* hGradient;
 	realTRS* hHessian;
 };
-
+}
 #endif /* BETTERGPU_H_ */

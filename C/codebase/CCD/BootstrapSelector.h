@@ -12,6 +12,8 @@
 
 #include "AbstractSelector.h"
 
+namespace BayesianSCCS {
+
 class BootstrapSelector : public AbstractSelector {
 public:
 	BootstrapSelector(
@@ -31,5 +33,5 @@ public:
 private:
 	std::multiset<int> selectedSet;
 };
-
+}
 #endif /* BOOTSTRAPSELECTOR_H_ */

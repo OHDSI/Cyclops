@@ -17,7 +17,7 @@
 using namespace std;
 
 #include "InputReader.h"
-
+namespace BayesianSCCS {
 class SCCSInputReader: public InputReader {
 public:
 	SCCSInputReader();
@@ -25,5 +25,5 @@ public:
 
 	virtual void readFile(const char* fileName);
 };
-
+}
 #endif /* SCCSINPUTREADER_H_ */

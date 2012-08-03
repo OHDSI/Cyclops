@@ -11,6 +11,7 @@
  */
 
 // Iterator for a sparse of indicators column
+namespace BayesianSCCS {
 class IndicatorIterator {
   public:
 
@@ -197,5 +198,5 @@ class GenericIterator {
     Index mEnd;
 };
 
-
+}
 #endif // ITERATORS_H

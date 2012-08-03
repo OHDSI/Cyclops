@@ -15,7 +15,7 @@
 #include <algorithm>
 
 #include "SCCSInputReader.h"
-
+namespace BayesianSCCS {
 #ifdef MY_RCPP_FLAG
 // For OSX 10.6, R is built with 4.2.1 which has a bug in stringstream
 stringstream& operator>> (stringstream &in, int &out) {
@@ -209,4 +209,4 @@ void SCCSInputReader::readFile(const char* fileName) {
 #endif
 
 }
-
+}

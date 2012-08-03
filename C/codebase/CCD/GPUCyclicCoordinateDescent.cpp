@@ -15,7 +15,7 @@
 //#define CONTIG_MEMORY
 
 using namespace std;
-
+namespace BayesianSCCS {
 GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputReader* reader)
 	: CyclicCoordinateDescent(reader) {
 	
@@ -528,4 +528,4 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::computeGradientAndHessian\n");
 #endif 	
 }
-
+}

@@ -12,7 +12,7 @@
 #include <cstdlib>
 
 #include "CrossValidationDriver.h"
-
+namespace BayesianSCCS {
 CrossValidationDriver::CrossValidationDriver(
 			int iGridSize,
 			double iLowerLimit,
@@ -158,4 +158,4 @@ void CrossValidationDriver::findMax(double* maxPoint, double* maxValue) {
 		}
 	}
 }
-
+}

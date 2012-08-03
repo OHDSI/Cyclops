@@ -13,6 +13,7 @@
 
 #include "CyclicCoordinateDescent.h"
 
+using namespace BayesianSCCS;
 
 struct CCDArguments {
 

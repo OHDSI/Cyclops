@@ -24,6 +24,8 @@ using std::ifstream;
 
 #define DEBUG
 
+namespace BayesianSCCS {
+
 #ifdef DOUBLE_PRECISION
 	typedef double realTRS;
 #else
@@ -146,5 +148,5 @@ protected:
 //	std::vector<int> ptrStart;
 
 };
-
+}
 #endif /* COMPRESSEDINDICATORMATRIX_H_ */

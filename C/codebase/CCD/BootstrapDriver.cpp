@@ -15,6 +15,8 @@
 #include "BootstrapDriver.h"
 #include "AbstractSelector.h"
 
+namespace BayesianSCCS {
+
 BootstrapDriver::BootstrapDriver(
 		int inReplicates,
 		InputReader* inReader) : replicates(inReplicates), reader(inReader),
@@ -118,4 +120,5 @@ void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<real
 		}
 	}
 	outLog.close();
+}
 }

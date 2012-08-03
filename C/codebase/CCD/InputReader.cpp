@@ -33,6 +33,8 @@
 
 using namespace std;
 
+namespace BayesianSCCS {
+
 InputReader::InputReader() {
 	// Do nothing
 }
@@ -106,4 +108,6 @@ int* InputReader::getOffsetVector() {
 map<int, DrugIdType> InputReader::getDrugNameMap() {
 //	return drugMap;
 	return indexToDrugIdMap;
+}
+
 }

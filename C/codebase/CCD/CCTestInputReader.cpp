@@ -29,6 +29,9 @@
 
 using namespace std;
 
+namespace BayesianSCCS {
+
+
 CCTestInputReader::CCTestInputReader() : InputReader() { }
 
 CCTestInputReader::~CCTestInputReader() { }
@@ -134,4 +137,5 @@ void CCTestInputReader::readFile(const char* fileName) {
 	nCols = columns.size();
 	nRows = currentRow;
 	conditionId = "0";
+}
 }

@@ -10,6 +10,7 @@
 
 #include <vector>
 
+namespace BayesianSCCS {
 // Trevor Shaddox changed from real to realTRS after namespace errors for #include <Eigen/Dense>
 #ifdef DOUBLE_PRECISION
 	typedef double realTRS;
@@ -45,5 +46,5 @@ protected:
 	int N;
 	bool deterministic;
 };
-
+}
 #endif /* ABSTRACTSELECTOR_H_ */

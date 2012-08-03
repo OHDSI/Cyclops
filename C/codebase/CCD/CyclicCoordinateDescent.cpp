@@ -43,7 +43,7 @@
 
 //using namespace Eigen::MatrixX;
 //using namespace std;
-
+namespace BayesianSCCS {
 void compareIntVector(int* vec0, int* vec1, int dim, const char* name) {
 	for (int i = 0; i < dim; i++) {
 		if (vec0[i] != vec1[i]) {
@@ -77,10 +77,10 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	updateCount = 0;
 	likelihoodCount = 0;
 
-	/*
-	SparseRowVector test;
-	test.fillSparseRowVector(reader);
 
+	BayesianSCCS::SparseRowVector test;
+	//test.fillSparseRowVector(reader);
+/*
 	cout << "Printing Trans by Col" << endl;
 	cout << "Trans Rows = " << test.getNumberOfRows() << endl;
 	cout << "Trans Cols = " << test.getNumberOfColumns() << endl;
@@ -1295,4 +1295,5 @@ inline int CyclicCoordinateDescent::sign(double x) {
 		return -1;
 	}
 	return 1;
+}
 }
