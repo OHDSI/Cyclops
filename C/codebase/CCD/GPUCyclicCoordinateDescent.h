@@ -82,8 +82,8 @@ private:
 	GPUPtr dHessian;
 	GPUPtr dReducedGradientHessian;
 
-	real* hGradient;
-	real* hHessian;
+	realTRS* hGradient;
+	realTRS* hHessian;
 
 	GPUPtr* dXColumnRowIndicators;
 

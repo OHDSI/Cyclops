@@ -42,7 +42,7 @@ void BootstrapDriver::drive(
 		const CCDArguments& arguments) {
 
 	// TODO Make sure that selector is type-of BootstrapSelector
-	std::vector<real> weights;
+	std::vector<realTRS> weights;
 
 	for (int step = 0; step < replicates; step++) {
 		selector.permute();
@@ -65,7 +65,7 @@ void BootstrapDriver::logResults(const CCDArguments& arguments) {
 	exit(-1);
 }
 
-void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<real>& savedBeta, std::string conditionId) {
+void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<realTRS>& savedBeta, std::string conditionId) {
 
 	ofstream outLog(arguments.outFileName.c_str());
 	if (!outLog) {
@@ -86,13 +86,13 @@ void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<real
 	for (int j = 0; j < J; ++j) {
 		outLog << drugMap[j] << sep << conditionId << sep;
 		if (arguments.reportRawEstimates) {
-			ostream_iterator<real> output(outLog, sep.c_str());
+			ostream_iterator<realTRS> output(outLog, sep.c_str());
 			copy(estimates[j]->begin(), estimates[j]->end(), output);
 			outLog << endl;
 		} else {
-			real mean = 0.0;
-			real var = 0.0;
-			real prob0 = 0.0;
+			realTRS mean = 0.0;
+			realTRS var = 0.0;
+			realTRS prob0 = 0.0;
 			for (rvector::iterator it = estimates[j]->begin(); it != estimates[j]->end(); ++it) {
 				mean += *it;
 				var += *it * *it;
@@ -101,7 +101,7 @@ void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<real
 				}
 			}
 
-			real size = static_cast<real>(estimates[j]->size());
+			realTRS size = static_cast<realTRS>(estimates[j]->size());
 			mean /= size;
 			var = (var / size) - (mean * mean);
 			prob0 /= size;
@@ -110,8 +110,8 @@ void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<real
 			int offsetLower = static_cast<int>(size * 0.025);
 			int offsetUpper = static_cast<int>(size * 0.975);
 
-			real lower = *(estimates[j]->begin() + offsetLower);
-			real upper = *(estimates[j]->begin() + offsetUpper);
+			realTRS lower = *(estimates[j]->begin() + offsetLower);
+			realTRS upper = *(estimates[j]->begin() + offsetUpper);
 
 			outLog << savedBeta[j] << sep;
 			outLog << std::sqrt(var) << sep << mean << sep << lower << sep << upper << sep << prob0 << endl;

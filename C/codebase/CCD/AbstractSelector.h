@@ -10,10 +10,11 @@
 
 #include <vector>
 
+// Trevor Shaddox changed from real to realTRS after namespace errors for #include <Eigen/Dense>
 #ifdef DOUBLE_PRECISION
-	typedef double real;
+	typedef double realTRS;
 #else
-	typedef float real;
+	typedef float realTRS;
 #endif
 
 enum SelectorType {
@@ -32,9 +33,9 @@ public:
 
 	virtual void permute() = 0; // pure virtual
 
-	virtual void getWeights(int batch, std::vector<real>& weights) = 0; // pure virtual
+	virtual void getWeights(int batch, std::vector<realTRS>& weights) = 0; // pure virtual
 
-	virtual void getComplement(std::vector<real>& weights) = 0; // pure virtual
+	virtual void getComplement(std::vector<realTRS>& weights) = 0; // pure virtual
 
 protected:
 	std::vector<int>* ids;

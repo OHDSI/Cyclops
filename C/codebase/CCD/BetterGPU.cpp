@@ -61,11 +61,11 @@ BetterGPU::BetterGPU(int deviceNumber, InputReader* reader)
 	alignedGHCacheSize = getAlignedLength(cacheSizeGH);
 
 	dNumerPid = gpu->AllocateRealMemory(2 * alignedN);
-	dDenomPid = dNumerPid  + sizeof(real) * alignedN; // GPUPtr is void* not real*
+	dDenomPid = dNumerPid  + sizeof(realTRS) * alignedN; // GPUPtr is void* not realTRS*
 
 	dGradient = gpu->AllocateRealMemory(2 * alignedGHCacheSize);
-	dHessian = dGradient + sizeof(real) * alignedGHCacheSize; // GPUPtr is void* not real*
-	hGradient = (real*) malloc(2 * sizeof(real) * alignedGHCacheSize);
+	dHessian = dGradient + sizeof(realTRS) * alignedGHCacheSize; // GPUPtr is void* not real*
+	hGradient = (realTRS*) malloc(2 * sizeof(realTRS) * alignedGHCacheSize);
 	hHessian = hGradient + alignedGHCacheSize;
 
 	computeRemainingStatistics(true, 0);
@@ -107,16 +107,16 @@ void BetterGPU::computeRatiosForGradientAndHessian(int index) {
 void BetterGPU::computeGradientAndHession(int index, double *ogradient,
 		double *ohessian) {
 
-	gpu->MemcpyHostToDevice(dNumerPid, numerPid, sizeof(real) * 2 * alignedN); // Copy both numer and demon
+	gpu->MemcpyHostToDevice(dNumerPid, numerPid, sizeof(realTRS) * 2 * alignedN); // Copy both numer and demon
 	int blockUsed = kernels->computeGradientAndHessianWithReduction(dNumerPid, dDenomPid, dNEvents,
 			dGradient, dHessian, N, 1, WORK_BLOCK_SIZE);
-	gpu->MemcpyDeviceToHost(hGradient, dGradient, sizeof(real) * 2 * alignedGHCacheSize);
+	gpu->MemcpyDeviceToHost(hGradient, dGradient, sizeof(realTRS) * 2 * alignedGHCacheSize);
 
-	real g = 0;
-	real h = 0;
-	real* gradient = hGradient;
-	const real* end = gradient + cacheSizeGH;
-	real* hessian = hHessian;
+	realTRS g = 0;
+	realTRS h = 0;
+	realTRS* gradient = hGradient;
+	const realTRS* end = gradient + cacheSizeGH;
+	realTRS* hessian = hHessian;
 
 	// TODO Remove code duplication with CPU version from here below
 	for (; gradient != end; ++gradient, ++hessian) {

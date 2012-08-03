@@ -25,13 +25,13 @@ using std::ifstream;
 #define DEBUG
 
 #ifdef DOUBLE_PRECISION
-	typedef double real;
+	typedef double realTRS;
 #else
-	typedef float real;
+	typedef float realTRS;
 #endif 
 
 typedef std::vector<int> int_vector;
-typedef std::vector<real> real_vector;
+typedef std::vector<realTRS> real_vector;
 
 enum FormatType {
 	DENSE, SPARSE, INDICATOR
@@ -55,7 +55,7 @@ public:
 
 	int* getCompressedColumnVector(int column) const;
 
-	real* getDataVector(int column) const;
+	realTRS* getDataVector(int column) const;
 
 	FormatType getFormatType(int column) const;
 
@@ -65,7 +65,7 @@ public:
 
 	void printColumn(int column);
 
-	real sumColumn(int column);
+	realTRS sumColumn(int column);
 
 	template <class T>
 	void printVector(T values, const int size) {
@@ -102,17 +102,17 @@ protected:
  		}
 	}
 
-	void add_data(int column, int row, real value) {
+	void add_data(int column, int row, realTRS value) {
 		FormatType colFormat = getFormatType(column);
 		if (colFormat == DENSE) {
 			data[column]->push_back(value);
 		} else if (colFormat == SPARSE) {
-			if (value != static_cast<real>(0)) {
+			if (value != static_cast<realTRS>(0)) {
 				data[column]->push_back(value);
 				columns[column]->push_back(row);
 			}
 		} else if (colFormat == INDICATOR) {
-			if (value != static_cast<real>(0)) {
+			if (value != static_cast<realTRS>(0)) {
 				columns[column]->push_back(row);
 			}
 		} else {

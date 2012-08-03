@@ -72,7 +72,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	hPid = reader->getPidVector();
 
 	conditionId = reader->getConditionId();
-	denomNullValue = static_cast<real>(0.0);
+	denomNullValue = static_cast<realTRS>(0.0);
 
 	updateCount = 0;
 	likelihoodCount = 0;
@@ -186,14 +186,14 @@ void CyclicCoordinateDescent::resetBounds() {
 void CyclicCoordinateDescent::init() {
 	
 	// Set parameters and statistics space
-	hDelta = (real*) malloc(J * sizeof(real));
+	hDelta = (realTRS*) malloc(J * sizeof(realTRS));
 //	for (int j = 0; j < J; j++) {
 //		hDelta[j] = 2.0;
 //	}
 
-	hBeta = (real*) calloc(J, sizeof(real)); // Fixed starting state
-	hXBeta = (real*) calloc(K, sizeof(real));
-	hXBetaSave = (real*) calloc(K, sizeof(real));
+	hBeta = (realTRS*) calloc(J, sizeof(realTRS)); // Fixed starting state
+	hXBeta = (realTRS*) calloc(K, sizeof(realTRS));
+	hXBetaSave = (realTRS*) calloc(K, sizeof(realTRS));
 
 	// Set prior
 	priorType = LAPLACE;
@@ -213,23 +213,23 @@ void CyclicCoordinateDescent::init() {
 	}
 		
 	// Init temporary variables
-	offsExpXBeta = (real*) malloc(sizeof(real) * K);
-	xOffsExpXBeta = (real*) malloc(sizeof(real) * K);
+	offsExpXBeta = (realTRS*) malloc(sizeof(realTRS) * K);
+	xOffsExpXBeta = (realTRS*) malloc(sizeof(realTRS) * K);
 
 	// Put numer and denom in single memory block, with first entries on 16-word boundary
 	int alignedLength = getAlignedLength(N);
 
-	numerPid = (real*) malloc(sizeof(real) * 3 * alignedLength);
-//	denomPid = (real*) malloc(sizeof(real) * N);
+	numerPid = (realTRS*) malloc(sizeof(realTRS) * 3 * alignedLength);
+//	denomPid = (realTRS*) malloc(sizeof(realTRS) * N);
 	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
 	numerPid2 = numerPid + 2 * alignedLength;
-//	t1 = (real*) malloc(sizeof(real) * N);
+//	t1 = (realTRS*) malloc(sizeof(realTRS) * N);
 	hNEvents = (int*) malloc(sizeof(int) * N);
-	hXjEta = (real*) malloc(sizeof(real) * J);
+	hXjEta = (realTRS*) malloc(sizeof(realTRS) * J);
 	hWeights = NULL;
 	
 #ifdef NO_FUSE
-	wPid = (real*) malloc(sizeof(real) * alignedLength);
+	wPid = (realTRS*) malloc(sizeof(realTRS) * alignedLength);
 #endif
 
 	for (int j = 0; j < J; ++j) {
@@ -329,7 +329,7 @@ void CyclicCoordinateDescent::logResults(const char* fileName) {
 	outLog.close();
 }
 
-double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
+double CyclicCoordinateDescent::getPredictiveLogLikelihood(realTRS* weights) {
 
 	if (!xBetaKnown) {
 		computeXBeta();
@@ -354,7 +354,7 @@ int CyclicCoordinateDescent::getBetaSize(void) {
 	return J;
 }
 
-real CyclicCoordinateDescent::getBeta(int i) {
+realTRS CyclicCoordinateDescent::getBeta(int i) {
 	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics(true, i);
 	}
@@ -380,7 +380,7 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 
 	getDenominators();
 
-	real logLikelihood = 0;
+	realTRS logLikelihood = 0;
 
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
@@ -432,7 +432,7 @@ void CyclicCoordinateDescent::setHyperprior(double value) {
 void CyclicCoordinateDescent::setLogisticRegression(bool idoLR) {
 	std::cerr << "Setting LR to " << idoLR << std::endl;
 	doLogisticRegression = idoLR;
-	denomNullValue = static_cast<real>(1.0);
+	denomNullValue = static_cast<realTRS>(1.0);
 	validWeights = false;
 	sufficientStatisticsKnown = false;
 }
@@ -473,8 +473,8 @@ void CyclicCoordinateDescent::getHessianForCholesky_GSL() {
 				double secondNumer = numerPid[i];
 				double FirstTermjj2 = firstNumer*secondNumer / (denomPid[i]*denomPid[i]);
 				gsl_matrix_set(FirstTerm, j, j2, FirstTermjj2);
-				real * columnVectorj = hXI->getDataVector(j);
-				real * columnVectorj2 = hXI->getDataVector(j2);
+				realTRS * columnVectorj = hXI->getDataVector(j);
+				realTRS * columnVectorj2 = hXI->getDataVector(j2);
 				double SecondTermjj2 = 0;
 				for (int g = 0; g < kValues[i].size(); g++) {
 					SecondTermjj2 += offsExpXBeta[kValues[i][g]]*columnVectorj[kValues[i][g]]*columnVectorj2[kValues[i][g]] / (denomPid[i]);
@@ -490,33 +490,13 @@ void CyclicCoordinateDescent::getHessianForCholesky_GSL() {
 		gsl_matrix_sub(HessianMatrix, SecondTerm);
 	}
 
-	cout << "print Final GSL" << endl;
-
-	for (int p = 0; p < J; p++){
-		cout << "[";
-		for (int q = 0; q < J; q++) {
-			cout << gsl_matrix_get(HessianMatrix, p, q) << " ";
-		}
-		cout << "]" << endl;
-	}
-
 	int test = gsl_linalg_cholesky_decomp(HessianMatrix);
-
-	cout << "print Final GSL Chol" << endl;
-
-	for (int p = 0; p < J; p++){
-		cout << "[";
-		for (int q = 0; q < J; q++) {
-			cout << gsl_matrix_get(HessianMatrix, p, q) << " ";
-		}
-		cout << "]" << endl;
-	}
 
 
 }
 
 
-void CyclicCoordinateDescent::getHessianForCholesky_Eigen() {
+void CyclicCoordinateDescent::getHessianForCholesky_Eigen(Eigen::MatrixXf* ReturnHessian) {
 	//naming of variables consistent with Suchard write up page 23 Appendix A
 
 	vector<int> giVector(N, 0); // get Gi given patient i
@@ -553,8 +533,8 @@ void CyclicCoordinateDescent::getHessianForCholesky_Eigen() {
 				double secondNumer = numerPid[i];
 				double FirstTermjj2 = firstNumer*secondNumer / (denomPid[i]*denomPid[i]);
 				FirstTerm_Eigen(j, j2) = FirstTermjj2;
-				real * columnVectorj = hXI->getDataVector(j);
-				real * columnVectorj2 = hXI->getDataVector(j2);
+				realTRS * columnVectorj = hXI->getDataVector(j);
+				realTRS * columnVectorj2 = hXI->getDataVector(j2);
 				double SecondTermjj2 = 0;
 				for (int g = 0; g < kValues[i].size(); g++) {
 					SecondTermjj2 += offsExpXBeta[kValues[i][g]]*columnVectorj[kValues[i][g]]*columnVectorj2[kValues[i][g]] / (denomPid[i]);
@@ -570,31 +550,20 @@ void CyclicCoordinateDescent::getHessianForCholesky_Eigen() {
 		HessianMatrix_Eigen -= SecondTerm_Eigen;
 	}
 
-	cout << "print Final Eigen" << endl;
-
-	for (int p = 0; p < J; p++){
-		cout << "[";
-		for (int q = 0; q < J; q++) {
-			cout << HessianMatrix_Eigen(p,q) <<" ";
-		}
-		cout << "]" << endl;
-	}
-
 	Eigen::MatrixXf CholeskyDecomp(J, J);
 	Eigen::LLT<Eigen::MatrixXf> CholDecom(HessianMatrix_Eigen);
 	CholeskyDecomp = CholDecom.matrixL();
-
-	cout << "print Final Eigen" << endl;
-
-		for (int p = 0; p < J; p++){
-			cout << "[";
-			for (int q = 0; q < J; q++) {
-				cout << CholeskyDecomp(p,q) <<" ";
-			}
-			cout << "]" << endl;
-		}
+	*ReturnHessian = HessianMatrix_Eigen; //CholDecom.matrixL();
 
 }
+
+void CyclicCoordinateDescent::getCholeskyFromHessian(Eigen::MatrixXf* HessianMatrix, Eigen::MatrixXf* CholeskyDecomp){
+	Eigen::MatrixXf CholeskyDecompL(J, J);
+	Eigen::LLT<Eigen::MatrixXf> CholDecom(*HessianMatrix);
+	CholeskyDecompL = CholDecom.matrixL();
+	*CholeskyDecomp = CholDecom.matrixL();
+}
+
 
 void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 	if (iPriorType != LAPLACE && iPriorType != NORMAL) {
@@ -607,12 +576,12 @@ void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 //template <typename T>
 void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
 	for (int j = 0; j < J; ++j) {
-		hBeta[j] = static_cast<real>(beta[j]);
+		hBeta[j] = static_cast<realTRS>(beta[j]);
 	}
 	xBetaKnown = false;
 }
 
-void CyclicCoordinateDescent::setWeights(real* iWeights) {
+void CyclicCoordinateDescent::setWeights(realTRS* iWeights) {
 
 	if (iWeights == NULL) {
 		std::cerr << "Turning off weights!" << std::endl;
@@ -624,7 +593,7 @@ void CyclicCoordinateDescent::setWeights(real* iWeights) {
 	}
 
 	if (hWeights == NULL) {
-		hWeights = (real*) malloc(sizeof(real) * K);
+		hWeights = (realTRS*) malloc(sizeof(realTRS) * K);
 	}
 	for (int i = 0; i < K; ++i) {
 		hWeights[i] = iWeights[i];
@@ -644,7 +613,7 @@ double CyclicCoordinateDescent::getLogPrior(void) {
 
 double CyclicCoordinateDescent::getObjectiveFunction(void) {	
 //	return getLogLikelihood() + getLogPrior(); // This is LANGE
-	real criterion = 0;
+	realTRS criterion = 0;
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
 			criterion += hXBeta[i] * hEta[i] * hWeights[i];
@@ -675,7 +644,7 @@ double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 }
 
 void CyclicCoordinateDescent::saveXBeta(void) {
-	memcpy(hXBetaSave, hXBeta, K * sizeof(real));
+	memcpy(hXBetaSave, hXBeta, K * sizeof(realTRS));
 }
 
 void CyclicCoordinateDescent::update(
@@ -775,10 +744,6 @@ void CyclicCoordinateDescent::update(
 		}				
 	}
 	updateCount += 1;
-
-	Eigen::MatrixXf HessianMatrix(J,J);
-	getHessianForCholesky_Eigen();
-	getHessianForCholesky_GSL();
 }
 
 /**
@@ -804,13 +769,13 @@ void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ograd
 
 //void CyclicCoordinateDescent::computeGradientAndHessianImplHand(int index, double *ogradient,
 //		double *ohessian) {
-//	real gradient = 0;
-//	real hessian = 0;
+//	realTRS gradient = 0;
+//	realTRS hessian = 0;
 //	for (int k = 0; k < N; ++k) {
-//		const real t = numerPid[k] / denomPid[k];
-//		const real g = hNEvents[k] * t;
+//		const realTRS t = numerPid[k] / denomPid[k];
+//		const realTRS g = hNEvents[k] * t;
 //		gradient += g;
-//		hessian += g * (static_cast<real>(1.0) - t); // TODO Update for !indicators
+//		hessian += g * (static_cast<realTRS>(1.0) - t); // TODO Update for !indicators
 //	}
 //
 //	gradient -= hXjEta[index];
@@ -822,24 +787,24 @@ void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ograd
 
 //template <>
 //inline void CyclicCoordinateDescent::incrementGradientAndHessian<IndicatorIterator>(
-//		real* gradient, real* hessian,
-//		real numer, real numer2, real denom, int nEvents) {
-//	const real t = numer / denom;
-//	const real g = nEvents * t;
+//		realTRS* gradient, realTRS* hessian,
+//		realTRS numer, realTRS numer2, realTRS denom, int nEvents) {
+//	const realTRS t = numer / denom;
+//	const realTRS g = nEvents * t;
 //	*gradient += g;
-//	*hessian += g * (static_cast<real>(1.0) - t);
+//	*hessian += g * (static_cast<realTRS>(1.0) - t);
 //}
 
 template <class IteratorType>
 inline void CyclicCoordinateDescent::incrementGradientAndHessian(
-		real* gradient, real* hessian,
-		real numer, real numer2, real denom, int nEvents) {
+		realTRS* gradient, realTRS* hessian,
+		realTRS numer, realTRS numer2, realTRS denom, int nEvents) {
 
-	const real t = numer / denom;
-	const real g = nEvents * t;
+	const realTRS t = numer / denom;
+	const realTRS g = nEvents * t;
 	*gradient += g;
 	if (IteratorType::isIndicator) {
-		*hessian += g * (static_cast<real>(1.0) - t);
+		*hessian += g * (static_cast<realTRS>(1.0) - t);
 	} else {
 		*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
 	}
@@ -847,14 +812,14 @@ inline void CyclicCoordinateDescent::incrementGradientAndHessian(
 
 //template <class IteratorType>
 //inline void CyclicCoordinateDescent::incrementGradientAndHessian(
-//		real* gradient, real* hessian,
-//		real numer, real numer2, real denom, int nEvents) {
+//		realTRS* gradient, realTRS* hessian,
+//		realTRS numer, realTRS numer2, realTRS denom, int nEvents) {
 //
-//	const real t = numer / denom;
-//	const real g = nEvents * t;
+//	const realTRS t = numer / denom;
+//	const realTRS g = nEvents * t;
 //	*gradient += g;
 //	if (IteratorType::isIndicator) {
-//		*hessian += g * (static_cast<real>(1.0) - t);
+//		*hessian += g * (static_cast<realTRS>(1.0) - t);
 //	} else {
 //		*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
 //	}
@@ -862,37 +827,37 @@ inline void CyclicCoordinateDescent::incrementGradientAndHessian(
 
 //template <>
 //inline void CyclicCoordinateDescent::incrementGradientAndHessian<SparseIterator>(
-//		real* gradient, real* hessian,
-//		real numer, real numer2, real denom, int nEvents) {
-//	const real t = numer / denom;
-//	const real g = nEvents * t;
+//		realTRS* gradient, realTRS* hessian,
+//		realTRS numer, realTRS numer2, realTRS denom, int nEvents) {
+//	const realTRS t = numer / denom;
+//	const realTRS g = nEvents * t;
 //	*gradient += g;
-////	const real h1 = nEvents * (numer2 * denom - numer * numer) / (denom * denom);
-//	const real h1 = nEvents * (numer2 / denom - t * t);
-//	const real h2 =  g * (static_cast<real>(1.0) - t);
-//	*hessian += g * (static_cast<real>(1.0) - t);
+////	const realTRS h1 = nEvents * (numer2 * denom - numer * numer) / (denom * denom);
+//	const realTRS h1 = nEvents * (numer2 / denom - t * t);
+//	const realTRS h2 =  g * (static_cast<realTRS>(1.0) - t);
+//	*hessian += g * (static_cast<realTRS>(1.0) - t);
 //	cerr << "Sparse it! " << h1 << " " << h2 << endl;
 //	exit(-1);
 //}
 //
 //template <>
 //inline void CyclicCoordinateDescent::incrementGradientAndHessian<DenseIterator>(
-//		real* gradient, real* hessian,
-//		real numer, real numer2, real denom, int nEvents) {
-//	const real t = numer / denom;
-//	const real g = nEvents * t;
+//		realTRS* gradient, realTRS* hessian,
+//		realTRS numer, realTRS numer2, realTRS denom, int nEvents) {
+//	const realTRS t = numer / denom;
+//	const realTRS g = nEvents * t;
 //	*gradient += g;
-//	const real h1 = nEvents * (numer2 * denom - numer * numer) / (denom * denom);
-//	const real h2 =  g * (static_cast<real>(1.0) - t);
-//	*hessian += g * (static_cast<real>(1.0) - t);
+//	const realTRS h1 = nEvents * (numer2 * denom - numer * numer) / (denom * denom);
+//	const realTRS h2 =  g * (static_cast<realTRS>(1.0) - t);
+//	*hessian += g * (static_cast<realTRS>(1.0) - t);
 //	cerr << "Dense it! " << h1 << " " << h2 << endl;
 ////	exit(-1);
 //}
 
 void CyclicCoordinateDescent::computeGradientAndHessianImplHand(int index, double *ogradient,
 		double *ohessian) {
-	real gradient = 0;
-	real hessian = 0;
+	realTRS gradient = 0;
+	realTRS hessian = 0;
 
 	std::vector<int>::iterator it = sparseIndices[index]->begin();
 	const std::vector<int>::iterator end = sparseIndices[index]->end();
@@ -914,8 +879,8 @@ void CyclicCoordinateDescent::computeGradientAndHessianImplHand(int index, doubl
 template <class IteratorType>
 void CyclicCoordinateDescent::computeGradientAndHessianImpl(int index, double *ogradient,
 		double *ohessian) {
-	real gradient = 0;
-	real hessian = 0;
+	realTRS gradient = 0;
+	realTRS hessian = 0;
 	
 	IteratorType it(*sparseIndices[index], N); // TODO How to create with different constructor signatures?
 	for (; it; ++it) {
@@ -933,7 +898,7 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl(int index, double *o
 
 //template <class IteratorType>
 //void CyclicCoordinateDescent::computeHessianImpl(int index_i, int index_j, double *ohessian) {
-//	real hessian = 0;
+//	realTRS hessian = 0;
 //	IteratorType it = IteratorType::intersection(*sparseIndices[index_i], *sparseIndices[index_j], N);
 //	for (; it; ++it) {
 //		const int k = it.index();
@@ -953,7 +918,7 @@ void CyclicCoordinateDescent::computeNumeratorForGradient(int index) {
 		case INDICATOR : {
 			IndicatorIterator it(*sparseIndices[index]);
 			for (; it; ++it) { // Only affected entries
-				numerPid[it.index()] = static_cast<real>(0.0);
+				numerPid[it.index()] = static_cast<realTRS>(0.0);
 			}
 			incrementNumeratorForGradientImpl<IndicatorIterator>(index);
 //			incrementNumeratorForGradientImplHand(index);
@@ -967,8 +932,8 @@ void CyclicCoordinateDescent::computeNumeratorForGradient(int index) {
 		case SPARSE : {
 			IndicatorIterator it(*sparseIndices[index]);
 			for (; it; ++it) { // Only affected entries
-				numerPid[it.index()] = static_cast<real>(0.0);
-				numerPid2[it.index()] = static_cast<real>(0.0); // TODO Does this invalid the cache line too much?
+				numerPid[it.index()] = static_cast<realTRS>(0.0);
+				numerPid2[it.index()] = static_cast<realTRS>(0.0); // TODO Does this invalid the cache line too much?
 			}
 			incrementNumeratorForGradientImpl<SparseIterator>(index); }
 			break;
@@ -1014,10 +979,10 @@ void CyclicCoordinateDescent::incrementNumeratorForGradientImpl(int index) {
 //	const int n = hXI->getNumberOfEntries(index);
 //
 //#ifdef BETTER_LOOPS
-//	real* t = t1;
-//	const real* end = t + N;
-//	real* num = numerPid;
-//	real* denom = denomPid;
+//	realTRS* t = t1;
+//	const realTRS* end = t + N;
+//	realTRS* num = numerPid;
+//	realTRS* denom = denomPid;
 //	for (; t != end; ++t, ++num, ++denom) {
 //		*t = *num / *denom;
 //	}
@@ -1048,12 +1013,8 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	}
 	
 
-
-	cout << "ccdUpdateBeta" << endl;
 	computeNumeratorForGradient(index);
 	
-
-
 
 	double g_d1;
 	double g_d2;
@@ -1105,7 +1066,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 }
 
 template <class IteratorType>
-void CyclicCoordinateDescent::axpy(real* y, const real alpha, const int index) {
+void CyclicCoordinateDescent::axpy(realTRS* y, const realTRS alpha, const int index) {
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
@@ -1128,7 +1089,7 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 
 	// Update one column at a time (poor cache locality)
 	for (int j = 0; j < J; ++j) {
-		const real beta = hBeta[j];
+		const realTRS beta = hBeta[j];
 		switch(hXI->getFormatType(j)) {
 			case INDICATOR :
 				axpy<IndicatorIterator>(hXBeta, beta, j);
@@ -1150,38 +1111,38 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 }
 
 template <class IteratorType>
-void CyclicCoordinateDescent::updateXBetaImpl(real realDelta, int index) {
+void CyclicCoordinateDescent::updateXBetaImpl(realTRS realDelta, int index) {
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
 		hXBeta[k] += realDelta * it.value();
 		// Update denominators as well
-		real oldEntry = offsExpXBeta[k];
-		real newEntry = offsExpXBeta[k] = hOffs[k] * exp(hXBeta[k]);
+		realTRS oldEntry = offsExpXBeta[k];
+		realTRS newEntry = offsExpXBeta[k] = hOffs[k] * exp(hXBeta[k]);
 		denomPid[hPid[k]] += (newEntry - oldEntry);
 	}
 }
 
-void CyclicCoordinateDescent::updateXBetaImplHand(real realDelta, int index) {
+void CyclicCoordinateDescent::updateXBetaImplHand(realTRS realDelta, int index) {
 
 
-	real* data = hXI->getDataVector(index);
-	real* xBeta = hXBeta;
-	real* offsEXB = offsExpXBeta;
+	realTRS* data = hXI->getDataVector(index);
+	realTRS* xBeta = hXBeta;
+	realTRS* offsEXB = offsExpXBeta;
 	int* offs = hOffs;
 	int* pid = hPid;
 
 	for (int k = 0; k < K; k++) {
 		*xBeta += realDelta * *data;
-		real oldEntry = *offsEXB;
-		real newEntry = *offsEXB = *offs * exp(*xBeta);
+		realTRS oldEntry = *offsEXB;
+		realTRS newEntry = *offsEXB = *offs * exp(*xBeta);
 		denomPid[*pid] += (newEntry - oldEntry);
 		data++; xBeta++; offsEXB++; offs++; pid++;
 	}
 }
 
 void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
-	real realDelta = static_cast<real>(delta);
+	realTRS realDelta = static_cast<realTRS>(delta);
 	hBeta[index] += realDelta;
 
 	// Run-time dispatch to implementation depending on covariate FormatType
@@ -1223,7 +1184,7 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 	sufficientStatisticsKnown = true;
 }
 
-double CyclicCoordinateDescent::oneNorm(real* vector, const int length) {
+double CyclicCoordinateDescent::oneNorm(realTRS* vector, const int length) {
 	double norm = 0;
 	for (int i = 0; i < length; i++) {
 		norm += abs(vector[i]);
@@ -1231,7 +1192,7 @@ double CyclicCoordinateDescent::oneNorm(real* vector, const int length) {
 	return norm;
 }
 
-double CyclicCoordinateDescent::twoNormSquared(real * vector, const int length) {
+double CyclicCoordinateDescent::twoNormSquared(realTRS * vector, const int length) {
 	double norm = 0;
 	for (int i = 0; i < length; i++) {
 		norm += vector[i] * vector[i];

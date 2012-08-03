@@ -80,8 +80,8 @@ CompressedDataMatrix::~CompressedDataMatrix() {
 	}
 }
 
-real CompressedDataMatrix::sumColumn(int column) {
-	real sum = 0.0;
+realTRS CompressedDataMatrix::sumColumn(int column) {
+	realTRS sum = 0.0;
 	if (getFormatType(column) == DENSE) {
 		cerr << "Not yet implemented (DENSE)." << endl;
 		exit(-1);
@@ -143,9 +143,9 @@ void CompressedDataMatrix::convertColumnToSparse(int column) {
 	}
 
 #if 1
-	const real value = 1.0;
+	const realTRS value = 1.0;
 #else
-	const real value = 2.0;
+	const realTRS value = 2.0;
 #endif
 
 	data[column]->assign(nRows, value);
@@ -167,7 +167,7 @@ void CompressedDataMatrix::convertColumnToDense(int column) {
 	if (data[column] == NULL) {
 		data[column] = new real_vector();
 	}
-	data[column]->resize(nRows, static_cast<real>(0));
+	data[column]->resize(nRows, static_cast<realTRS>(0));
 
 	int* indicators = getCompressedColumnVector(column);
 	int n = getNumberOfEntries(column);
@@ -178,9 +178,9 @@ void CompressedDataMatrix::convertColumnToDense(int column) {
 //		nonzero++;
 
 #if 0
-		const real value = 1.0;
+		const realTRS value = 1.0;
 #else
-		const real value = 2.0;
+		const realTRS value = 2.0;
 #endif
 		data[column]->at(k) = value;
 	}
@@ -207,8 +207,8 @@ int* CompressedDataMatrix::getCompressedColumnVector(int column) const {
 	return const_cast<int*>(&(columns[column]->at(0)));
 }
 
-real* CompressedDataMatrix::getDataVector(int column) const {
-	return const_cast<real*>(data[column]->data());
+realTRS* CompressedDataMatrix::getDataVector(int column) const {
+	return const_cast<realTRS*>(data[column]->data());
 }
 
 void CompressedDataMatrix::allocateMemory(int nCols) {

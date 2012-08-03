@@ -38,9 +38,9 @@ using std::ofstream;
 //#define NO_FUSE
 
 #ifdef DOUBLE_PRECISION
-	typedef double real;
+	typedef double realTRS;
 #else
-	typedef float real;
+	typedef float realTRS;
 #endif 
 
 
@@ -87,13 +87,13 @@ public:
 	
 	double getLogLikelihood(void);
 
-	double getPredictiveLogLikelihood(real* weights);
+	double getPredictiveLogLikelihood(realTRS* weights);
 
 	double getLogPrior(void);
 	
 	virtual double getObjectiveFunction(void);
 
-	real getBeta(int i);
+	realTRS getBeta(int i);
 
 	int getBetaSize(void);
 		
@@ -106,15 +106,15 @@ public:
 
 	void setPriorType(int priorType);
 
-	void setWeights(real* weights);
+	void setWeights(realTRS* weights);
 
 	void setLogisticRegression(bool idoLR);
 
 	void getHessianForCholesky_GSL();
 
-	void getHessianForCholesky_Eigen();
+	void getHessianForCholesky_Eigen(Eigen::MatrixXf* ReturnHessian);
 
-	//Eigen::MatrixXf getHessianForCholesky_Eigen(Eigen::MatrixXf* ReturnHessian);
+	void getCholeskyFromHessian(Eigen::MatrixXf* HessianMatrix, Eigen::MatrixXf* CholeskyDecomp);
 
 //	template <typename T>
 	void setBeta(const std::vector<double>& beta);
@@ -166,9 +166,9 @@ protected:
 	virtual void updateXBeta(double delta, int index);
 
 	template <class IteratorType>
-	void updateXBetaImpl(real delta, int index);
+	void updateXBetaImpl(realTRS delta, int index);
 
-	void updateXBetaImplHand(real realDelta, int index);
+	void updateXBetaImplHand(realTRS realDelta, int index);
 
 	virtual void computeRemainingStatistics(bool skip, int index);
 	
@@ -193,17 +193,17 @@ protected:
 						double *hessian);
 
 	template <class IteratorType>
-	inline real computeHessian(
-			real numer, real numer2, real denom,
-			real g, real t);
+	inline realTRS computeHessian(
+			realTRS numer, realTRS numer2, realTRS denom,
+			realTRS g, realTRS t);
 
 	template <class IteratorType>
 	inline void incrementGradientAndHessian(
-			real* gradient, real* hessian,
-			real numer, real numer2, real denom, int nEvents);
+			realTRS* gradient, realTRS* hessian,
+			realTRS numer, realTRS numer2, realTRS denom, int nEvents);
 
 	template <class IteratorType>
-	void axpy(real* y, const real alpha, const int index);
+	void axpy(realTRS* y, const realTRS alpha, const int index);
 
 	virtual void getDenominators(void);
 
@@ -240,9 +240,9 @@ protected:
 	template <class T>
 	void printVector(T* vector, const int length, ostream &os);
 	
-	double oneNorm(real* vector, const int length);
+	double oneNorm(realTRS* vector, const int length);
 	
-	double twoNormSquared(real * vector, const int length); 
+	double twoNormSquared(realTRS * vector, const int length);
 	
 	int sign(double x); 
 	
@@ -264,10 +264,10 @@ protected:
 	int* hPid; // N-vector
 	int** hXColumnRowIndicators; // J-vector
  	
-	real* hBeta;
-	real* hXBeta;
-	real* hXBetaSave;
-	real* hDelta;
+	realTRS* hBeta;
+	realTRS* hXBeta;
+	realTRS* hXBetaSave;
+	realTRS* hDelta;
 
 	int N; // Number of patients
 	int K; // Number of exposure levels
@@ -279,7 +279,7 @@ protected:
 	double sigma2Beta;
 	double lambda;
 
-	real denomNullValue;
+	realTRS denomNullValue;
 
 	bool sufficientStatisticsKnown;
 	bool xBetaKnown;
@@ -287,16 +287,16 @@ protected:
 	bool validWeights;
 	bool useCrossValidation;
 	bool doLogisticRegression;
-	real* hWeights;
+	realTRS* hWeights;
 
 	// temporary variables
-	real* expXBeta;
-	real* offsExpXBeta;
-	real* denomPid;
-	real* numerPid;
-	real* numerPid2;
-	real* xOffsExpXBeta;
-	real* hXjEta;
+	realTRS* expXBeta;
+	realTRS* offsExpXBeta;
+	realTRS* denomPid;
+	realTRS* numerPid;
+	realTRS* numerPid2;
+	realTRS* xOffsExpXBeta;
+	realTRS* hXjEta;
 
 	int updateCount;
 	int likelihoodCount;
@@ -306,7 +306,7 @@ protected:
 #endif
 	
 #ifdef NO_FUSE
-	real* wPid;
+	realTRS* wPid;
 #endif
 };
 

@@ -25,9 +25,9 @@ public:
 
 	void permute();
 
-	void getWeights(int batch, std::vector<real>& weights);
+	void getWeights(int batch, std::vector<realTRS>& weights);
 
-	void getComplement(std::vector<real>& weights);
+	void getComplement(std::vector<realTRS>& weights);
 
 private:
 	int fold;

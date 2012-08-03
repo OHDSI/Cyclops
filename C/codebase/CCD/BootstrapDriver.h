@@ -13,7 +13,7 @@
 #include "AbstractDriver.h"
 #include "InputReader.h"
 
-typedef std::vector<real> rvector;
+typedef std::vector<realTRS> rvector;
 typedef std::vector<rvector*> rarray;
 typedef	rarray::iterator rarrayIterator;
 
@@ -32,7 +32,7 @@ public:
 
 	virtual void logResults(const CCDArguments& arguments);
 
-	void logResults(const CCDArguments& arguments, std::vector<real>& savedBeta, std::string conditionId);
+	void logResults(const CCDArguments& arguments, std::vector<realTRS>& savedBeta, std::string conditionId);
 
 private:
 	const int replicates;

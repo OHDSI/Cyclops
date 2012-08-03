@@ -14,7 +14,7 @@
 class IndicatorIterator {
   public:
 
-	typedef real Scalar;
+	typedef realTRS Scalar;
 	typedef int Index;
 
 //	static const bool isIndicator = true;
@@ -52,7 +52,7 @@ class IndicatorIterator {
 class SparseIterator {
   public:
 
-	typedef real Scalar;
+	typedef realTRS Scalar;
 	typedef int Index;
 
 //	static const bool isIndicator = false;
@@ -113,7 +113,7 @@ protected:
 class DenseIterator {
   public:
 
-	typedef real Scalar;
+	typedef realTRS Scalar;
 	typedef int Index;
 
 //	static const bool isIndicator = false;
@@ -148,7 +148,7 @@ class DenseIterator {
 class GenericIterator {
   public:
 
-	typedef real Scalar;
+	typedef realTRS Scalar;
 	typedef int Index;
 
 	inline GenericIterator(const CompressedDataMatrix& mat, Index column)

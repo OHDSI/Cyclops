@@ -24,9 +24,9 @@ public:
 
 	virtual void permute();
 
-	virtual void getWeights(int batch, std::vector<real>& weights);
+	virtual void getWeights(int batch, std::vector<realTRS>& weights);
 
-	virtual void getComplement(std::vector<real>& weights);
+	virtual void getComplement(std::vector<realTRS>& weights);
 
 private:
 	std::multiset<int> selectedSet;

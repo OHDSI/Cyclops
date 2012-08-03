@@ -99,9 +99,9 @@ void RTestInputReader::readFile(const char* fileName) {
 
 			// Parse covariates
 			for (int i = 0; i < numCovariates; ++i) {
-//				real value;
+//				realTRS value;
 //				istringstream(strVector[2 + i]) >> value;
-				real value = static_cast<real>(atof(strVector[2 + i].c_str()));
+				realTRS value = static_cast<realTRS>(atof(strVector[2 + i].c_str()));
 				data[i]->push_back(value);
 			}
 

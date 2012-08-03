@@ -91,7 +91,7 @@ void CrossValidationDriver::drive(
 
 	// TODO Check that selector is type of CrossValidationSelector
 
-	std::vector<real> weights;
+	std::vector<realTRS> weights;
 
 	for (int step = 0; step < gridSize; step++) {
 
