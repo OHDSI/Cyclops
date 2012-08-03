@@ -61,7 +61,7 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useC
 	}
 	std::fill(hNWeight.begin(), hNWeight.end(), static_cast<WeightType>(0));
 	for (int k = 0; k < K; ++k) {
-		WeightType event = BaseModel::observationCount(hY[k]);
+		WeightType event = BaseModel::observationCount(hY[k])*hKWeight[k];
 		incrementByGroup(hNWeight.data(), hPid, k, event);
 	}
 }
