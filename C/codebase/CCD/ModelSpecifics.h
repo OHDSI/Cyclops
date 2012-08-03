@@ -75,11 +75,11 @@ private:
 
 	struct WeightedOperation {
 		const static bool isWeighted = true;
-	} unweighted;
+	} weighted;
 
 	struct UnweightedOperation {
 		const static bool isWeighted = false;
-	} weighted;
+	} unweighted;
 
 };
 
@@ -321,7 +321,7 @@ public:
 		return static_cast<int>(1);
 	}
 
-	real logLikeNumeratorContrib(int yi, real xBetai) {
+	real logLikeNumeratorContrib(real yi, real xBetai) {
 		real residual = yi - xBetai;
 		return - (residual * residual);
 	}
