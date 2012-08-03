@@ -295,12 +295,12 @@ public:
 	}
 
 	real logLikeDenominatorContrib(WeightType ni, real denom) {
-		return std::log(denom);
+		return std::log(denom); // TODO Wrong
 	}
 
 	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
 			int* groups, int i) {
-		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
+		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)])); // TODO Wrong
 	}
 };
 

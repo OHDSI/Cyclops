@@ -20,6 +20,8 @@ class InputReader; // forward declaration
 	typedef float real;
 #endif
 
+//#define DEBUG_COX // Uncomment to get output for Cox model
+
 class AbstractModelSpecifics {
 public:
 //	AbstractModelSpecifics(
@@ -87,6 +89,8 @@ protected:
 	const std::vector<real>& oY;
 	const std::vector<real>& oZ;
 	const std::vector<int>& oPid;
+
+	std::vector<real> accDenomPid;
 
 	// TODO Currently constructed in CyclicCoordinateDescent, but should be encapsulated here
 	CompressedDataMatrix* hXI; // K-by-J-indicator matrix

@@ -83,6 +83,9 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjY(bool useCrossValidation) 
 				hXjY[j] += it.value() * hY[k];
 			}
 		}
+#ifdef DEBUG_COX
+		cerr << "j: " << j << " = " << hXjY[j]<< endl;
+#endif
 	}
 }
 
@@ -199,18 +202,23 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 		real accNumerPid  = static_cast<real>(0);
 		real accNumerPid2 = static_cast<real>(0);
-		real accDenomPid  = static_cast<real>(0);
 
 		for (; it; ++it) {
 			const int k = it.index();
-			accNumerPid  += numerPid[BaseModel::getGroup(hPid, k)];
+			accNumerPid  += numerPid[BaseModel::getGroup(hPid, k)]; // TODO Only works when X-rows are sorted as well
 			accNumerPid2 += numerPid2[BaseModel::getGroup(hPid, k)];
-			accDenomPid  += denomPid[BaseModel::getGroup(hPid, k)];
+#ifdef DEBUG_COX
+			cerr << "w: " << hNWeight[k] << " " << numerPid[BaseModel::getGroup(hPid, k)] << ":" <<
+#endif
+					accNumerPid;
 			// Compile-time delegation
 			BaseModel::incrementGradientAndHessian(it,
 					w, // Signature-only, for iterator-type specialization
 					&gradient, &hessian, accNumerPid, accNumerPid2,
-					accDenomPid, hNWeight[k], it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
+					accDenomPid[BaseModel::getGroup(hPid, k)], hNWeight[k], it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
+#ifdef DEBUG_COX
+			cerr << " -> g:" << gradient << " h:" << hessian << endl;
+#endif
 		}
 	} else {
 		for (; it; ++it) {
@@ -316,6 +324,23 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 			incrementByGroup(denomPid, hPid, k, (newEntry - oldEntry));
 		}
 	}
+
+	if (BaseModel::likelihoodHasDenominator &&
+			BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
+		// TODO Bad!  Code duplication with computeRemainingStatistics
+		if (accDenomPid.size() != K) {
+			accDenomPid.resize(K, static_cast<real>(0));
+		}
+		// prefix-scan
+		real total = static_cast<real>(0);
+		for (int k = 0; k < K; ++k) {
+			total += denomPid[k];
+			accDenomPid[k] = total;
+#ifdef DEBUG_COX
+			cerr << denomPid[k] << " " << accDenomPid[k] << " (beta)" << endl;
+#endif
+		}
+	}
 }
 
 template <class BaseModel,typename WeightType>
@@ -326,16 +351,33 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(void) {
 			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
 			incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
 		}
+		if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
+			if (accDenomPid.size() != K) {
+				accDenomPid.resize(K, static_cast<real>(0));
+			}
+			// prefix-scan
+			real total = static_cast<real>(0); // TODO Add breaks for strata
+			for (int k = 0; k < K; ++k) {
+				total += denomPid[k];
+				accDenomPid[k] = total;
+			}
+		}
 	}
+#ifdef DEBUG_COX
+	cerr << "Done with initial denominators" << endl;
+
+	for (int k = 0; k < K; ++k) {
+		cerr << denomPid[k] << " " << accDenomPid[k] << endl;
+	}
+#endif
 }
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::doSortPid(bool useCrossValidation) {
 /* For Cox model:
  *
- * We need to sort on hZ[k], such that hZ[hPid[k]] for k = 0,1,... are in decreasing order.
- * Then, denomNew[k] = sum_{j=0}^{k} denom[j]
- * NB: This should be an interesting update on the GPU, worthy of publication
+ * We currently assume that hZ[k] are sorted in decreasing order by k.
+ *
  */
 
 //	cerr << "Copying Y" << endl;
@@ -344,22 +386,22 @@ void ModelSpecifics<BaseModel,WeightType>::doSortPid(bool useCrossValidation) {
 //	std::copy(oY.begin(),oY.end(),back_inserter(nY));
 //	hY = const_cast<real*>(nY.data());
 
-	cerr << "Sorting PIDs" << endl;
-
-	std::vector<int> inverse_ranks;
-	inverse_ranks.reserve(K);
-	for (int i = 0; i < K; ++i) {
-		inverse_ranks.push_back(i);
-	}
-
-	std::sort(inverse_ranks.begin(), inverse_ranks.end(),
-			CompareSurvivalTuples<WeightType>(useCrossValidation, hKWeight, oZ));
-
-	nPid.resize(K, 0);
-	for (int i = 0; i < K; ++i) {
-		nPid[inverse_ranks[i]] = i;
-	}
-	hPid = const_cast<int*>(nPid.data());
+//	cerr << "Sorting PIDs" << endl;
+//
+//	std::vector<int> inverse_ranks;
+//	inverse_ranks.reserve(K);
+//	for (int i = 0; i < K; ++i) {
+//		inverse_ranks.push_back(i);
+//	}
+//
+//	std::sort(inverse_ranks.begin(), inverse_ranks.end(),
+//			CompareSurvivalTuples<WeightType>(useCrossValidation, hKWeight, oZ));
+//
+//	nPid.resize(K, 0);
+//	for (int i = 0; i < K; ++i) {
+//		nPid[inverse_ranks[i]] = i;
+//	}
+//	hPid = const_cast<int*>(nPid.data());
 
 //	for (int i = 0; i < K; ++i) {
 //		cerr << oZ[inverse_ranks[i]] << endl;
@@ -377,7 +419,6 @@ void ModelSpecifics<BaseModel,WeightType>::doSortPid(bool useCrossValidation) {
 //		cerr << i << " -> " << hPid[i] << endl;
 //	}
 //
-//	exit(-1);
 }
 
 #endif /* MODELSPECIFICS_HPP_ */
