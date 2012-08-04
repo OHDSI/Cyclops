@@ -130,8 +130,8 @@ void CCTestInputReader::readFile(const char* fileName) {
 	cout << "Number of stratum: " << numCases << endl;
 	cout << "Number of covariates: " << numCovariates << endl;
 
-//	cout << "Sum of exposed: " << std::accumulate(data[0]->begin(), data[0]->end(), static_cast<realTRS>(0.0)) << endl;
-//	cout << "Sum of count  : " << std::accumulate(data[1]->begin(), data[1]->end(), static_cast<realTRS>(0.0)) << endl;
+//	cout << "Sum of exposed: " << std::accumulate(data[0]->begin(), data[0]->end(), static_cast<BayesianSCCS::real>(0.0)) << endl;
+//	cout << "Sum of count  : " << std::accumulate(data[1]->begin(), data[1]->end(), static_cast<BayesianSCCS::real>(0.0)) << endl;
 
 	nPatients = numCases;
 	nCols = columns.size();

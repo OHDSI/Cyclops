@@ -11,11 +11,11 @@
 #include <vector>
 
 namespace BayesianSCCS {
-// Trevor Shaddox changed from real to realTRS after namespace errors for #include <Eigen/Dense>
+
 #ifdef DOUBLE_PRECISION
-	typedef double realTRS;
+	typedef double real;
 #else
-	typedef float realTRS;
+	typedef float real;
 #endif
 
 enum SelectorType {
@@ -34,9 +34,9 @@ public:
 
 	virtual void permute() = 0; // pure virtual
 
-	virtual void getWeights(int batch, std::vector<realTRS>& weights) = 0; // pure virtual
+	virtual void getWeights(int batch, std::vector<BayesianSCCS::real>& weights) = 0; // pure virtual
 
-	virtual void getComplement(std::vector<realTRS>& weights) = 0; // pure virtual
+	virtual void getComplement(std::vector<BayesianSCCS::real>& weights) = 0; // pure virtual
 
 protected:
 	std::vector<int>* ids;

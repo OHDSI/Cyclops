@@ -102,18 +102,18 @@ void parseCommandLine(std::vector<std::string>& args,
 		UnlabeledValueArg<string> outFileArg("outFileName","Output file name", true, arguments.outFileName, "outFileName");
 
 		// Prior arguments
-		ValueArg<double> hyperPriorArg("v", "variance", "Hyperprior variance", false, arguments.hyperprior, "realTRS");
+		ValueArg<double> hyperPriorArg("v", "variance", "Hyperprior variance", false, arguments.hyperprior, "BayesianSCCS::real");
 		SwitchArg normalPriorArg("n", "normalPrior", "Use normal prior, default is laplace", arguments.useNormalPrior);
 
 		// Convergence criterion arguments
-		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, arguments.tolerance, "realTRS");
+		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, arguments.tolerance, "BayesianSCCS::real");
 		SwitchArg zhangOlesConvergenceArg("z", "zhangOles", "Use Zhange-Oles convergence criterion, default is true", true);
 		ValueArg<long> seedArg("s", "seed", "Random number generator seed", false, arguments.seed, "long");
 
 		// Cross-validation arguments
 		SwitchArg doCVArg("c", "cv", "Perform cross-validation selection of hyperprior variance", arguments.doCrossValidation);
-		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, arguments.lowerLimit, "realTRS");
-		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, arguments.upperLimit, "realTRS");
+		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, arguments.lowerLimit, "BayesianSCCS::real");
+		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, arguments.upperLimit, "BayesianSCCS::real");
 		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, arguments.fold, "int");
 		ValueArg<int> gridCVArg("", "gridSize", "Uniform grid size for cross-validation search", false, arguments.gridSteps, "int");
 		ValueArg<int> foldToComputeCVArg("", "computeFold", "Number of fold to iterate, default is 'fold' value", false, 10, "int");
@@ -316,7 +316,7 @@ double runBoostrap(
 		CyclicCoordinateDescent *ccd,
 		InputReader *reader,
 		CCDArguments &arguments,
-		std::vector<realTRS>& savedBeta) {
+		std::vector<BayesianSCCS::real>& savedBeta) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
@@ -417,7 +417,7 @@ int main(int argc, char* argv[]) {
 
 	if (arguments.doBootstrap) {
 		// Save parameter point-estimates
-		std::vector<realTRS> savedBeta;
+		std::vector<BayesianSCCS::real> savedBeta;
 		for (int j = 0; j < ccd->getBetaSize(); ++j) {
 			savedBeta.push_back(ccd->getBeta(j));
 		}

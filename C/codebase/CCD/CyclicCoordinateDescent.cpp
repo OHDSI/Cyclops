@@ -72,7 +72,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	hPid = reader->getPidVector();
 
 	conditionId = reader->getConditionId();
-	denomNullValue = static_cast<realTRS>(0.0);
+	denomNullValue = static_cast<BayesianSCCS::real>(0.0);
 
 	updateCount = 0;
 	likelihoodCount = 0;
@@ -186,14 +186,14 @@ void CyclicCoordinateDescent::resetBounds() {
 void CyclicCoordinateDescent::init() {
 	
 	// Set parameters and statistics space
-	hDelta = (realTRS*) malloc(J * sizeof(realTRS));
+	hDelta = (BayesianSCCS::real*) malloc(J * sizeof(BayesianSCCS::real));
 //	for (int j = 0; j < J; j++) {
 //		hDelta[j] = 2.0;
 //	}
 
-	hBeta = (realTRS*) calloc(J, sizeof(realTRS)); // Fixed starting state
-	hXBeta = (realTRS*) calloc(K, sizeof(realTRS));
-	hXBetaSave = (realTRS*) calloc(K, sizeof(realTRS));
+	hBeta = (BayesianSCCS::real*) calloc(J, sizeof(BayesianSCCS::real)); // Fixed starting state
+	hXBeta = (BayesianSCCS::real*) calloc(K, sizeof(BayesianSCCS::real));
+	hXBetaSave = (BayesianSCCS::real*) calloc(K, sizeof(BayesianSCCS::real));
 
 	// Set prior
 	priorType = LAPLACE;
@@ -213,23 +213,23 @@ void CyclicCoordinateDescent::init() {
 	}
 		
 	// Init temporary variables
-	offsExpXBeta = (realTRS*) malloc(sizeof(realTRS) * K);
-	xOffsExpXBeta = (realTRS*) malloc(sizeof(realTRS) * K);
+	offsExpXBeta = (BayesianSCCS::real*) malloc(sizeof(BayesianSCCS::real) * K);
+	xOffsExpXBeta = (BayesianSCCS::real*) malloc(sizeof(BayesianSCCS::real) * K);
 
 	// Put numer and denom in single memory block, with first entries on 16-word boundary
 	int alignedLength = getAlignedLength(N);
 
-	numerPid = (realTRS*) malloc(sizeof(realTRS) * 3 * alignedLength);
-//	denomPid = (realTRS*) malloc(sizeof(realTRS) * N);
+	numerPid = (BayesianSCCS::real*) malloc(sizeof(BayesianSCCS::real) * 3 * alignedLength);
+//	denomPid = (BayesianSCCS::real*) malloc(sizeof(BayesianSCCS::real) * N);
 	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
 	numerPid2 = numerPid + 2 * alignedLength;
-//	t1 = (realTRS*) malloc(sizeof(realTRS) * N);
+//	t1 = (BayesianSCCS::real*) malloc(sizeof(BayesianSCCS::real) * N);
 	hNEvents = (int*) malloc(sizeof(int) * N);
-	hXjEta = (realTRS*) malloc(sizeof(realTRS) * J);
+	hXjEta = (BayesianSCCS::real*) malloc(sizeof(BayesianSCCS::real) * J);
 	hWeights = NULL;
 	
 #ifdef NO_FUSE
-	wPid = (realTRS*) malloc(sizeof(realTRS) * alignedLength);
+	wPid = (BayesianSCCS::real*) malloc(sizeof(BayesianSCCS::real) * alignedLength);
 #endif
 
 	for (int j = 0; j < J; ++j) {
@@ -329,7 +329,7 @@ void CyclicCoordinateDescent::logResults(const char* fileName) {
 	outLog.close();
 }
 
-double CyclicCoordinateDescent::getPredictiveLogLikelihood(realTRS* weights) {
+double CyclicCoordinateDescent::getPredictiveLogLikelihood(BayesianSCCS::real* weights) {
 
 	if (!xBetaKnown) {
 		computeXBeta();
@@ -354,7 +354,7 @@ int CyclicCoordinateDescent::getBetaSize(void) {
 	return J;
 }
 
-realTRS CyclicCoordinateDescent::getBeta(int i) {
+BayesianSCCS::real CyclicCoordinateDescent::getBeta(int i) {
 	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics(true, i);
 	}
@@ -380,7 +380,7 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 
 	getDenominators();
 
-	realTRS logLikelihood = 0;
+	BayesianSCCS::real logLikelihood = 0;
 
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
@@ -432,7 +432,7 @@ void CyclicCoordinateDescent::setHyperprior(double value) {
 void CyclicCoordinateDescent::setLogisticRegression(bool idoLR) {
 	std::cerr << "Setting LR to " << idoLR << std::endl;
 	doLogisticRegression = idoLR;
-	denomNullValue = static_cast<realTRS>(1.0);
+	denomNullValue = static_cast<BayesianSCCS::real>(1.0);
 	validWeights = false;
 	sufficientStatisticsKnown = false;
 }
@@ -473,8 +473,8 @@ void CyclicCoordinateDescent::getHessianForCholesky_GSL() {
 				double secondNumer = numerPid[i];
 				double FirstTermjj2 = firstNumer*secondNumer / (denomPid[i]*denomPid[i]);
 				gsl_matrix_set(FirstTerm, j, j2, FirstTermjj2);
-				realTRS * columnVectorj = hXI->getDataVector(j);
-				realTRS * columnVectorj2 = hXI->getDataVector(j2);
+				BayesianSCCS::real * columnVectorj = hXI->getDataVector(j);
+				BayesianSCCS::real * columnVectorj2 = hXI->getDataVector(j2);
 				double SecondTermjj2 = 0;
 				for (int g = 0; g < kValues[i].size(); g++) {
 					SecondTermjj2 += offsExpXBeta[kValues[i][g]]*columnVectorj[kValues[i][g]]*columnVectorj2[kValues[i][g]] / (denomPid[i]);
@@ -533,8 +533,8 @@ void CyclicCoordinateDescent::getHessianForCholesky_Eigen(Eigen::MatrixXf* Retur
 				double secondNumer = numerPid[i];
 				double FirstTermjj2 = firstNumer*secondNumer / (denomPid[i]*denomPid[i]);
 				FirstTerm_Eigen(j, j2) = FirstTermjj2;
-				realTRS * columnVectorj = hXI->getDataVector(j);
-				realTRS * columnVectorj2 = hXI->getDataVector(j2);
+				BayesianSCCS::real * columnVectorj = hXI->getDataVector(j);
+				BayesianSCCS::real * columnVectorj2 = hXI->getDataVector(j2);
 				double SecondTermjj2 = 0;
 				for (int g = 0; g < kValues[i].size(); g++) {
 					SecondTermjj2 += offsExpXBeta[kValues[i][g]]*columnVectorj[kValues[i][g]]*columnVectorj2[kValues[i][g]] / (denomPid[i]);
@@ -576,12 +576,12 @@ void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 //template <typename T>
 void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
 	for (int j = 0; j < J; ++j) {
-		hBeta[j] = static_cast<realTRS>(beta[j]);
+		hBeta[j] = static_cast<BayesianSCCS::real>(beta[j]);
 	}
 	xBetaKnown = false;
 }
 
-void CyclicCoordinateDescent::setWeights(realTRS* iWeights) {
+void CyclicCoordinateDescent::setWeights(BayesianSCCS::real* iWeights) {
 
 	if (iWeights == NULL) {
 		std::cerr << "Turning off weights!" << std::endl;
@@ -593,7 +593,7 @@ void CyclicCoordinateDescent::setWeights(realTRS* iWeights) {
 	}
 
 	if (hWeights == NULL) {
-		hWeights = (realTRS*) malloc(sizeof(realTRS) * K);
+		hWeights = (BayesianSCCS::real*) malloc(sizeof(BayesianSCCS::real) * K);
 	}
 	for (int i = 0; i < K; ++i) {
 		hWeights[i] = iWeights[i];
@@ -613,7 +613,7 @@ double CyclicCoordinateDescent::getLogPrior(void) {
 
 double CyclicCoordinateDescent::getObjectiveFunction(void) {	
 //	return getLogLikelihood() + getLogPrior(); // This is LANGE
-	realTRS criterion = 0;
+	BayesianSCCS::real criterion = 0;
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
 			criterion += hXBeta[i] * hEta[i] * hWeights[i];
@@ -644,7 +644,7 @@ double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 }
 
 void CyclicCoordinateDescent::saveXBeta(void) {
-	memcpy(hXBetaSave, hXBeta, K * sizeof(realTRS));
+	memcpy(hXBetaSave, hXBeta, K * sizeof(BayesianSCCS::real));
 }
 
 void CyclicCoordinateDescent::update(
@@ -769,13 +769,13 @@ void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ograd
 
 //void CyclicCoordinateDescent::computeGradientAndHessianImplHand(int index, double *ogradient,
 //		double *ohessian) {
-//	realTRS gradient = 0;
-//	realTRS hessian = 0;
+//	BayesianSCCS::real gradient = 0;
+//	BayesianSCCS::real hessian = 0;
 //	for (int k = 0; k < N; ++k) {
-//		const realTRS t = numerPid[k] / denomPid[k];
-//		const realTRS g = hNEvents[k] * t;
+//		const BayesianSCCS::real t = numerPid[k] / denomPid[k];
+//		const BayesianSCCS::real g = hNEvents[k] * t;
 //		gradient += g;
-//		hessian += g * (static_cast<realTRS>(1.0) - t); // TODO Update for !indicators
+//		hessian += g * (static_cast<BayesianSCCS::real>(1.0) - t); // TODO Update for !indicators
 //	}
 //
 //	gradient -= hXjEta[index];
@@ -787,24 +787,24 @@ void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ograd
 
 //template <>
 //inline void CyclicCoordinateDescent::incrementGradientAndHessian<IndicatorIterator>(
-//		realTRS* gradient, realTRS* hessian,
-//		realTRS numer, realTRS numer2, realTRS denom, int nEvents) {
-//	const realTRS t = numer / denom;
-//	const realTRS g = nEvents * t;
+//		BayesianSCCS::real* gradient, BayesianSCCS::real* hessian,
+//		BayesianSCCS::real numer, BayesianSCCS::real numer2, BayesianSCCS::real denom, int nEvents) {
+//	const BayesianSCCS::real t = numer / denom;
+//	const BayesianSCCS::real g = nEvents * t;
 //	*gradient += g;
-//	*hessian += g * (static_cast<realTRS>(1.0) - t);
+//	*hessian += g * (static_cast<BayesianSCCS::real>(1.0) - t);
 //}
 
 template <class IteratorType>
 inline void CyclicCoordinateDescent::incrementGradientAndHessian(
-		realTRS* gradient, realTRS* hessian,
-		realTRS numer, realTRS numer2, realTRS denom, int nEvents) {
+		BayesianSCCS::real* gradient, BayesianSCCS::real* hessian,
+		BayesianSCCS::real numer, BayesianSCCS::real numer2, BayesianSCCS::real denom, int nEvents) {
 
-	const realTRS t = numer / denom;
-	const realTRS g = nEvents * t;
+	const BayesianSCCS::real t = numer / denom;
+	const BayesianSCCS::real g = nEvents * t;
 	*gradient += g;
 	if (IteratorType::isIndicator) {
-		*hessian += g * (static_cast<realTRS>(1.0) - t);
+		*hessian += g * (static_cast<BayesianSCCS::real>(1.0) - t);
 	} else {
 		*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
 	}
@@ -812,14 +812,14 @@ inline void CyclicCoordinateDescent::incrementGradientAndHessian(
 
 //template <class IteratorType>
 //inline void CyclicCoordinateDescent::incrementGradientAndHessian(
-//		realTRS* gradient, realTRS* hessian,
-//		realTRS numer, realTRS numer2, realTRS denom, int nEvents) {
+//		BayesianSCCS::real* gradient, BayesianSCCS::real* hessian,
+//		BayesianSCCS::real numer, BayesianSCCS::real numer2, BayesianSCCS::real denom, int nEvents) {
 //
-//	const realTRS t = numer / denom;
-//	const realTRS g = nEvents * t;
+//	const BayesianSCCS::real t = numer / denom;
+//	const BayesianSCCS::real g = nEvents * t;
 //	*gradient += g;
 //	if (IteratorType::isIndicator) {
-//		*hessian += g * (static_cast<realTRS>(1.0) - t);
+//		*hessian += g * (static_cast<BayesianSCCS::real>(1.0) - t);
 //	} else {
 //		*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
 //	}
@@ -827,37 +827,37 @@ inline void CyclicCoordinateDescent::incrementGradientAndHessian(
 
 //template <>
 //inline void CyclicCoordinateDescent::incrementGradientAndHessian<SparseIterator>(
-//		realTRS* gradient, realTRS* hessian,
-//		realTRS numer, realTRS numer2, realTRS denom, int nEvents) {
-//	const realTRS t = numer / denom;
-//	const realTRS g = nEvents * t;
+//		BayesianSCCS::real* gradient, BayesianSCCS::real* hessian,
+//		BayesianSCCS::real numer, BayesianSCCS::real numer2, BayesianSCCS::real denom, int nEvents) {
+//	const BayesianSCCS::real t = numer / denom;
+//	const BayesianSCCS::real g = nEvents * t;
 //	*gradient += g;
-////	const realTRS h1 = nEvents * (numer2 * denom - numer * numer) / (denom * denom);
-//	const realTRS h1 = nEvents * (numer2 / denom - t * t);
-//	const realTRS h2 =  g * (static_cast<realTRS>(1.0) - t);
-//	*hessian += g * (static_cast<realTRS>(1.0) - t);
+////	const BayesianSCCS::real h1 = nEvents * (numer2 * denom - numer * numer) / (denom * denom);
+//	const BayesianSCCS::real h1 = nEvents * (numer2 / denom - t * t);
+//	const BayesianSCCS::real h2 =  g * (static_cast<BayesianSCCS::real>(1.0) - t);
+//	*hessian += g * (static_cast<BayesianSCCS::real>(1.0) - t);
 //	cerr << "Sparse it! " << h1 << " " << h2 << endl;
 //	exit(-1);
 //}
 //
 //template <>
 //inline void CyclicCoordinateDescent::incrementGradientAndHessian<DenseIterator>(
-//		realTRS* gradient, realTRS* hessian,
-//		realTRS numer, realTRS numer2, realTRS denom, int nEvents) {
-//	const realTRS t = numer / denom;
-//	const realTRS g = nEvents * t;
+//		BayesianSCCS::real* gradient, BayesianSCCS::real* hessian,
+//		BayesianSCCS::real numer, BayesianSCCS::real numer2, BayesianSCCS::real denom, int nEvents) {
+//	const BayesianSCCS::real t = numer / denom;
+//	const BayesianSCCS::real g = nEvents * t;
 //	*gradient += g;
-//	const realTRS h1 = nEvents * (numer2 * denom - numer * numer) / (denom * denom);
-//	const realTRS h2 =  g * (static_cast<realTRS>(1.0) - t);
-//	*hessian += g * (static_cast<realTRS>(1.0) - t);
+//	const BayesianSCCS::real h1 = nEvents * (numer2 * denom - numer * numer) / (denom * denom);
+//	const BayesianSCCS::real h2 =  g * (static_cast<BayesianSCCS::real>(1.0) - t);
+//	*hessian += g * (static_cast<BayesianSCCS::real>(1.0) - t);
 //	cerr << "Dense it! " << h1 << " " << h2 << endl;
 ////	exit(-1);
 //}
 
 void CyclicCoordinateDescent::computeGradientAndHessianImplHand(int index, double *ogradient,
 		double *ohessian) {
-	realTRS gradient = 0;
-	realTRS hessian = 0;
+	BayesianSCCS::real gradient = 0;
+	BayesianSCCS::real hessian = 0;
 
 	std::vector<int>::iterator it = sparseIndices[index]->begin();
 	const std::vector<int>::iterator end = sparseIndices[index]->end();
@@ -879,8 +879,8 @@ void CyclicCoordinateDescent::computeGradientAndHessianImplHand(int index, doubl
 template <class IteratorType>
 void CyclicCoordinateDescent::computeGradientAndHessianImpl(int index, double *ogradient,
 		double *ohessian) {
-	realTRS gradient = 0;
-	realTRS hessian = 0;
+	BayesianSCCS::real gradient = 0;
+	BayesianSCCS::real hessian = 0;
 	
 	IteratorType it(*sparseIndices[index], N); // TODO How to create with different constructor signatures?
 	for (; it; ++it) {
@@ -898,7 +898,7 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl(int index, double *o
 
 //template <class IteratorType>
 //void CyclicCoordinateDescent::computeHessianImpl(int index_i, int index_j, double *ohessian) {
-//	realTRS hessian = 0;
+//	BayesianSCCS::real hessian = 0;
 //	IteratorType it = IteratorType::intersection(*sparseIndices[index_i], *sparseIndices[index_j], N);
 //	for (; it; ++it) {
 //		const int k = it.index();
@@ -918,7 +918,7 @@ void CyclicCoordinateDescent::computeNumeratorForGradient(int index) {
 		case INDICATOR : {
 			IndicatorIterator it(*sparseIndices[index]);
 			for (; it; ++it) { // Only affected entries
-				numerPid[it.index()] = static_cast<realTRS>(0.0);
+				numerPid[it.index()] = static_cast<BayesianSCCS::real>(0.0);
 			}
 			incrementNumeratorForGradientImpl<IndicatorIterator>(index);
 //			incrementNumeratorForGradientImplHand(index);
@@ -932,8 +932,8 @@ void CyclicCoordinateDescent::computeNumeratorForGradient(int index) {
 		case SPARSE : {
 			IndicatorIterator it(*sparseIndices[index]);
 			for (; it; ++it) { // Only affected entries
-				numerPid[it.index()] = static_cast<realTRS>(0.0);
-				numerPid2[it.index()] = static_cast<realTRS>(0.0); // TODO Does this invalid the cache line too much?
+				numerPid[it.index()] = static_cast<BayesianSCCS::real>(0.0);
+				numerPid2[it.index()] = static_cast<BayesianSCCS::real>(0.0); // TODO Does this invalid the cache line too much?
 			}
 			incrementNumeratorForGradientImpl<SparseIterator>(index); }
 			break;
@@ -979,10 +979,10 @@ void CyclicCoordinateDescent::incrementNumeratorForGradientImpl(int index) {
 //	const int n = hXI->getNumberOfEntries(index);
 //
 //#ifdef BETTER_LOOPS
-//	realTRS* t = t1;
-//	const realTRS* end = t + N;
-//	realTRS* num = numerPid;
-//	realTRS* denom = denomPid;
+//	BayesianSCCS::real* t = t1;
+//	const BayesianSCCS::real* end = t + N;
+//	BayesianSCCS::real* num = numerPid;
+//	BayesianSCCS::real* denom = denomPid;
 //	for (; t != end; ++t, ++num, ++denom) {
 //		*t = *num / *denom;
 //	}
@@ -1066,7 +1066,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 }
 
 template <class IteratorType>
-void CyclicCoordinateDescent::axpy(realTRS* y, const realTRS alpha, const int index) {
+void CyclicCoordinateDescent::axpy(BayesianSCCS::real* y, const BayesianSCCS::real alpha, const int index) {
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
@@ -1089,7 +1089,7 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 
 	// Update one column at a time (poor cache locality)
 	for (int j = 0; j < J; ++j) {
-		const realTRS beta = hBeta[j];
+		const BayesianSCCS::real beta = hBeta[j];
 		switch(hXI->getFormatType(j)) {
 			case INDICATOR :
 				axpy<IndicatorIterator>(hXBeta, beta, j);
@@ -1111,38 +1111,38 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 }
 
 template <class IteratorType>
-void CyclicCoordinateDescent::updateXBetaImpl(realTRS realDelta, int index) {
+void CyclicCoordinateDescent::updateXBetaImpl(BayesianSCCS::real realDelta, int index) {
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
 		hXBeta[k] += realDelta * it.value();
 		// Update denominators as well
-		realTRS oldEntry = offsExpXBeta[k];
-		realTRS newEntry = offsExpXBeta[k] = hOffs[k] * exp(hXBeta[k]);
+		BayesianSCCS::real oldEntry = offsExpXBeta[k];
+		BayesianSCCS::real newEntry = offsExpXBeta[k] = hOffs[k] * exp(hXBeta[k]);
 		denomPid[hPid[k]] += (newEntry - oldEntry);
 	}
 }
 
-void CyclicCoordinateDescent::updateXBetaImplHand(realTRS realDelta, int index) {
+void CyclicCoordinateDescent::updateXBetaImplHand(BayesianSCCS::real realDelta, int index) {
 
 
-	realTRS* data = hXI->getDataVector(index);
-	realTRS* xBeta = hXBeta;
-	realTRS* offsEXB = offsExpXBeta;
+	BayesianSCCS::real* data = hXI->getDataVector(index);
+	BayesianSCCS::real* xBeta = hXBeta;
+	BayesianSCCS::real* offsEXB = offsExpXBeta;
 	int* offs = hOffs;
 	int* pid = hPid;
 
 	for (int k = 0; k < K; k++) {
 		*xBeta += realDelta * *data;
-		realTRS oldEntry = *offsEXB;
-		realTRS newEntry = *offsEXB = *offs * exp(*xBeta);
+		BayesianSCCS::real oldEntry = *offsEXB;
+		BayesianSCCS::real newEntry = *offsEXB = *offs * exp(*xBeta);
 		denomPid[*pid] += (newEntry - oldEntry);
 		data++; xBeta++; offsEXB++; offs++; pid++;
 	}
 }
 
 void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
-	realTRS realDelta = static_cast<realTRS>(delta);
+	BayesianSCCS::real realDelta = static_cast<BayesianSCCS::real>(delta);
 	hBeta[index] += realDelta;
 
 	// Run-time dispatch to implementation depending on covariate FormatType
@@ -1184,7 +1184,7 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 	sufficientStatisticsKnown = true;
 }
 
-double CyclicCoordinateDescent::oneNorm(realTRS* vector, const int length) {
+double CyclicCoordinateDescent::oneNorm(BayesianSCCS::real* vector, const int length) {
 	double norm = 0;
 	for (int i = 0; i < length; i++) {
 		norm += abs(vector[i]);
@@ -1192,7 +1192,7 @@ double CyclicCoordinateDescent::oneNorm(realTRS* vector, const int length) {
 	return norm;
 }
 
-double CyclicCoordinateDescent::twoNormSquared(realTRS * vector, const int length) {
+double CyclicCoordinateDescent::twoNormSquared(BayesianSCCS::real * vector, const int length) {
 	double norm = 0;
 	for (int i = 0; i < length; i++) {
 		norm += vector[i] * vector[i];

@@ -99,9 +99,9 @@ void RTestInputReader::readFile(const char* fileName) {
 
 			// Parse covariates
 			for (int i = 0; i < numCovariates; ++i) {
-//				realTRS value;
+//				BayesianSCCS::real value;
 //				istringstream(strVector[2 + i]) >> value;
-				realTRS value = static_cast<realTRS>(atof(strVector[2 + i].c_str()));
+				BayesianSCCS::real value = static_cast<BayesianSCCS::real>(atof(strVector[2 + i].c_str()));
 				data[i]->push_back(value);
 			}
 

@@ -62,11 +62,11 @@ BetterGPU::BetterGPU(int deviceNumber, InputReader* reader)
 	alignedGHCacheSize = getAlignedLength(cacheSizeGH);
 
 	dNumerPid = gpu->AllocateRealMemory(2 * alignedN);
-	dDenomPid = dNumerPid  + sizeof(realTRS) * alignedN; // GPUPtr is void* not realTRS*
+	dDenomPid = dNumerPid  + sizeof(BayesianSCCS::real) * alignedN; // GPUPtr is void* not BayesianSCCS::real*
 
 	dGradient = gpu->AllocateRealMemory(2 * alignedGHCacheSize);
-	dHessian = dGradient + sizeof(realTRS) * alignedGHCacheSize; // GPUPtr is void* not real*
-	hGradient = (realTRS*) malloc(2 * sizeof(realTRS) * alignedGHCacheSize);
+	dHessian = dGradient + sizeof(BayesianSCCS::real) * alignedGHCacheSize; // GPUPtr is void* not real*
+	hGradient = (BayesianSCCS::real*) malloc(2 * sizeof(BayesianSCCS::real) * alignedGHCacheSize);
 	hHessian = hGradient + alignedGHCacheSize;
 
 	computeRemainingStatistics(true, 0);
@@ -108,16 +108,16 @@ void BetterGPU::computeRatiosForGradientAndHessian(int index) {
 void BetterGPU::computeGradientAndHession(int index, double *ogradient,
 		double *ohessian) {
 
-	gpu->MemcpyHostToDevice(dNumerPid, numerPid, sizeof(realTRS) * 2 * alignedN); // Copy both numer and demon
+	gpu->MemcpyHostToDevice(dNumerPid, numerPid, sizeof(BayesianSCCS::real) * 2 * alignedN); // Copy both numer and demon
 	int blockUsed = kernels->computeGradientAndHessianWithReduction(dNumerPid, dDenomPid, dNEvents,
 			dGradient, dHessian, N, 1, WORK_BLOCK_SIZE);
-	gpu->MemcpyDeviceToHost(hGradient, dGradient, sizeof(realTRS) * 2 * alignedGHCacheSize);
+	gpu->MemcpyDeviceToHost(hGradient, dGradient, sizeof(BayesianSCCS::real) * 2 * alignedGHCacheSize);
 
-	realTRS g = 0;
-	realTRS h = 0;
-	realTRS* gradient = hGradient;
-	const realTRS* end = gradient + cacheSizeGH;
-	realTRS* hessian = hHessian;
+	BayesianSCCS::real g = 0;
+	BayesianSCCS::real h = 0;
+	BayesianSCCS::real* gradient = hGradient;
+	const BayesianSCCS::real* end = gradient + cacheSizeGH;
+	BayesianSCCS::real* hessian = hHessian;
 
 	// TODO Remove code duplication with CPU version from here below
 	for (; gradient != end; ++gradient, ++hessian) {

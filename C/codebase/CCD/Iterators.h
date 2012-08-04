@@ -15,7 +15,7 @@ namespace BayesianSCCS {
 class IndicatorIterator {
   public:
 
-	typedef realTRS Scalar;
+	typedef BayesianSCCS::real Scalar;
 	typedef int Index;
 
 //	static const bool isIndicator = true;
@@ -53,7 +53,7 @@ class IndicatorIterator {
 class SparseIterator {
   public:
 
-	typedef realTRS Scalar;
+	typedef BayesianSCCS::real Scalar;
 	typedef int Index;
 
 //	static const bool isIndicator = false;
@@ -114,7 +114,7 @@ protected:
 class DenseIterator {
   public:
 
-	typedef realTRS Scalar;
+	typedef BayesianSCCS::real Scalar;
 	typedef int Index;
 
 //	static const bool isIndicator = false;
@@ -149,7 +149,7 @@ class DenseIterator {
 class GenericIterator {
   public:
 
-	typedef realTRS Scalar;
+	typedef BayesianSCCS::real Scalar;
 	typedef int Index;
 
 	inline GenericIterator(const CompressedDataMatrix& mat, Index column)

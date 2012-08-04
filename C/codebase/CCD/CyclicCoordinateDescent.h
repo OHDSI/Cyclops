@@ -40,9 +40,9 @@ namespace BayesianSCCS {
 //#define NO_FUSE
 
 #ifdef DOUBLE_PRECISION
-	typedef double realTRS;
+	typedef double real;
 #else
-	typedef float realTRS;
+	typedef float real;
 #endif 
 
 
@@ -89,13 +89,13 @@ public:
 	
 	double getLogLikelihood(void);
 
-	double getPredictiveLogLikelihood(realTRS* weights);
+	double getPredictiveLogLikelihood(BayesianSCCS::real* weights);
 
 	double getLogPrior(void);
 	
 	virtual double getObjectiveFunction(void);
 
-	realTRS getBeta(int i);
+	BayesianSCCS::real getBeta(int i);
 
 	int getBetaSize(void);
 		
@@ -108,7 +108,7 @@ public:
 
 	void setPriorType(int priorType);
 
-	void setWeights(realTRS* weights);
+	void setWeights(BayesianSCCS::real* weights);
 
 	void setLogisticRegression(bool idoLR);
 
@@ -168,9 +168,9 @@ protected:
 	virtual void updateXBeta(double delta, int index);
 
 	template <class IteratorType>
-	void updateXBetaImpl(realTRS delta, int index);
+	void updateXBetaImpl(BayesianSCCS::real delta, int index);
 
-	void updateXBetaImplHand(realTRS realDelta, int index);
+	void updateXBetaImplHand(BayesianSCCS::real realDelta, int index);
 
 	virtual void computeRemainingStatistics(bool skip, int index);
 	
@@ -195,17 +195,17 @@ protected:
 						double *hessian);
 
 	template <class IteratorType>
-	inline realTRS computeHessian(
-			realTRS numer, realTRS numer2, realTRS denom,
-			realTRS g, realTRS t);
+	inline BayesianSCCS::real computeHessian(
+			BayesianSCCS::real numer, BayesianSCCS::real numer2, BayesianSCCS::real denom,
+			BayesianSCCS::real g, BayesianSCCS::real t);
 
 	template <class IteratorType>
 	inline void incrementGradientAndHessian(
-			realTRS* gradient, realTRS* hessian,
-			realTRS numer, realTRS numer2, realTRS denom, int nEvents);
+			BayesianSCCS::real* gradient, BayesianSCCS::real* hessian,
+			BayesianSCCS::real numer, BayesianSCCS::real numer2, BayesianSCCS::real denom, int nEvents);
 
 	template <class IteratorType>
-	void axpy(realTRS* y, const realTRS alpha, const int index);
+	void axpy(BayesianSCCS::real* y, const BayesianSCCS::real alpha, const int index);
 
 	virtual void getDenominators(void);
 
@@ -242,9 +242,9 @@ protected:
 	template <class T>
 	void printVector(T* vector, const int length, ostream &os);
 	
-	double oneNorm(realTRS* vector, const int length);
+	double oneNorm(BayesianSCCS::real* vector, const int length);
 	
-	double twoNormSquared(realTRS * vector, const int length);
+	double twoNormSquared(BayesianSCCS::real * vector, const int length);
 	
 	int sign(double x); 
 	
@@ -266,10 +266,10 @@ protected:
 	int* hPid; // N-vector
 	int** hXColumnRowIndicators; // J-vector
  	
-	realTRS* hBeta;
-	realTRS* hXBeta;
-	realTRS* hXBetaSave;
-	realTRS* hDelta;
+	BayesianSCCS::real* hBeta;
+	BayesianSCCS::real* hXBeta;
+	BayesianSCCS::real* hXBetaSave;
+	BayesianSCCS::real* hDelta;
 
 	int N; // Number of patients
 	int K; // Number of exposure levels
@@ -281,7 +281,7 @@ protected:
 	double sigma2Beta;
 	double lambda;
 
-	realTRS denomNullValue;
+	BayesianSCCS::real denomNullValue;
 
 	bool sufficientStatisticsKnown;
 	bool xBetaKnown;
@@ -289,16 +289,16 @@ protected:
 	bool validWeights;
 	bool useCrossValidation;
 	bool doLogisticRegression;
-	realTRS* hWeights;
+	BayesianSCCS::real* hWeights;
 
 	// temporary variables
-	realTRS* expXBeta;
-	realTRS* offsExpXBeta;
-	realTRS* denomPid;
-	realTRS* numerPid;
-	realTRS* numerPid2;
-	realTRS* xOffsExpXBeta;
-	realTRS* hXjEta;
+	BayesianSCCS::real* expXBeta;
+	BayesianSCCS::real* offsExpXBeta;
+	BayesianSCCS::real* denomPid;
+	BayesianSCCS::real* numerPid;
+	BayesianSCCS::real* numerPid2;
+	BayesianSCCS::real* xOffsExpXBeta;
+	BayesianSCCS::real* hXjEta;
 
 	int updateCount;
 	int likelihoodCount;
@@ -308,7 +308,7 @@ protected:
 #endif
 	
 #ifdef NO_FUSE
-	realTRS* wPid;
+	BayesianSCCS::real* wPid;
 #endif
 };
 

@@ -53,7 +53,7 @@ void BootstrapSelector::permute() {
 //	exit(0);
 }
 
-void BootstrapSelector::getWeights(int batch, std::vector<realTRS>& weights) {
+void BootstrapSelector::getWeights(int batch, std::vector<BayesianSCCS::real>& weights) {
 	if (weights.size() != K) {
 		weights.resize(K);
 	}
@@ -66,7 +66,7 @@ void BootstrapSelector::getWeights(int batch, std::vector<realTRS>& weights) {
 	if (type == SUBJECT) {
 		for (int k = 0; k < K; k++) {
 			int count = selectedSet.count(ids->at(k));
-			weights[k] = static_cast<realTRS>(count);
+			weights[k] = static_cast<BayesianSCCS::real>(count);
 		}
 	} else {
 		std::cerr << "BootstrapSelector::getWeights is not yet implemented." << std::endl;
@@ -74,7 +74,7 @@ void BootstrapSelector::getWeights(int batch, std::vector<realTRS>& weights) {
 	}
 }
 
-void BootstrapSelector::getComplement(std::vector<realTRS>& weights) {
+void BootstrapSelector::getComplement(std::vector<BayesianSCCS::real>& weights) {
 	std::cerr << "BootstrapSelector::getComplement is not yet implemented." << std::endl;
 	exit(-1);
 }

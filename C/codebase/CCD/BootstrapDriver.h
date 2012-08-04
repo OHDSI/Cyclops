@@ -17,7 +17,7 @@
 
 namespace BayesianSCCS {
 
-typedef std::vector<realTRS> rvector;
+typedef std::vector<BayesianSCCS::real> rvector;
 typedef std::vector<rvector*> rarray;
 typedef	rarray::iterator rarrayIterator;
 
@@ -36,7 +36,7 @@ public:
 
 	virtual void logResults(const CCDArguments& arguments);
 
-	void logResults(const CCDArguments& arguments, std::vector<realTRS>& savedBeta, std::string conditionId);
+	void logResults(const CCDArguments& arguments, std::vector<BayesianSCCS::real>& savedBeta, std::string conditionId);
 
 private:
 	const int replicates;

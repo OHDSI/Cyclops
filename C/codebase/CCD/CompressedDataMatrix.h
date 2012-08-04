@@ -27,13 +27,13 @@ using std::ifstream;
 namespace BayesianSCCS {
 
 #ifdef DOUBLE_PRECISION
-	typedef double realTRS;
+	typedef double real;
 #else
-	typedef float realTRS;
+	typedef float real;
 #endif 
 
 typedef std::vector<int> int_vector;
-typedef std::vector<realTRS> real_vector;
+typedef std::vector<BayesianSCCS::real> real_vector;
 
 enum FormatType {
 	DENSE, SPARSE, INDICATOR
@@ -57,7 +57,7 @@ public:
 
 	int* getCompressedColumnVector(int column) const;
 
-	realTRS* getDataVector(int column) const;
+	BayesianSCCS::real* getDataVector(int column) const;
 
 	FormatType getFormatType(int column) const;
 
@@ -67,7 +67,7 @@ public:
 
 	void printColumn(int column);
 
-	realTRS sumColumn(int column);
+	BayesianSCCS::real sumColumn(int column);
 
 	template <class T>
 	void printVector(T values, const int size) {
@@ -104,17 +104,17 @@ protected:
  		}
 	}
 
-	void add_data(int column, int row, realTRS value) {
+	void add_data(int column, int row, BayesianSCCS::real value) {
 		FormatType colFormat = getFormatType(column);
 		if (colFormat == DENSE) {
 			data[column]->push_back(value);
 		} else if (colFormat == SPARSE) {
-			if (value != static_cast<realTRS>(0)) {
+			if (value != static_cast<BayesianSCCS::real>(0)) {
 				data[column]->push_back(value);
 				columns[column]->push_back(row);
 			}
 		} else if (colFormat == INDICATOR) {
-			if (value != static_cast<realTRS>(0)) {
+			if (value != static_cast<BayesianSCCS::real>(0)) {
 				columns[column]->push_back(row);
 			}
 		} else {

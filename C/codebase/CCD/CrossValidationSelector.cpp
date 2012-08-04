@@ -52,7 +52,7 @@ CrossValidationSelector::~CrossValidationSelector() {
 	// Do nothing
 }
 
-void CrossValidationSelector::getWeights(int batch, std::vector<realTRS>& weights) {
+void CrossValidationSelector::getWeights(int batch, std::vector<BayesianSCCS::real>& weights) {
 	if (weights.size() != K) {
 		weights.resize(K);
 	}
@@ -84,8 +84,8 @@ void CrossValidationSelector::getWeights(int batch, std::vector<realTRS>& weight
 	}
 }
 
-void CrossValidationSelector::getComplement(std::vector<realTRS>& weights) {
-	for(std::vector<realTRS>::iterator it = weights.begin(); it != weights.end(); it++) {
+void CrossValidationSelector::getComplement(std::vector<BayesianSCCS::real>& weights) {
+	for(std::vector<BayesianSCCS::real>::iterator it = weights.begin(); it != weights.end(); it++) {
 		*it = 1 - *it;
 	}
 }

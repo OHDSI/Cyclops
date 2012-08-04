@@ -70,8 +70,8 @@ private:
 	int cacheSizeGH;
 	int alignedGHCacheSize;
 
-	realTRS* hGradient;
-	realTRS* hHessian;
+	BayesianSCCS::real* hGradient;
+	BayesianSCCS::real* hHessian;
 };
 }
 #endif /* BETTERGPU_H_ */

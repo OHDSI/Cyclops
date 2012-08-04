@@ -25,9 +25,9 @@ public:
 
 	void permute();
 
-	void getWeights(int batch, std::vector<realTRS>& weights);
+	void getWeights(int batch, std::vector<BayesianSCCS::real>& weights);
 
-	void getComplement(std::vector<realTRS>& weights);
+	void getComplement(std::vector<BayesianSCCS::real>& weights);
 
 private:
 	int fold;

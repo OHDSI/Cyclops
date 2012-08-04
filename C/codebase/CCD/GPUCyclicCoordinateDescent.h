@@ -84,8 +84,8 @@ private:
 	GPUPtr dHessian;
 	GPUPtr dReducedGradientHessian;
 
-	realTRS* hGradient;
-	realTRS* hHessian;
+	BayesianSCCS::real* hGradient;
+	BayesianSCCS::real* hHessian;
 
 	GPUPtr* dXColumnRowIndicators;
 

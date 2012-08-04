@@ -82,8 +82,8 @@ CompressedDataMatrix::~CompressedDataMatrix() {
 	}
 }
 
-realTRS CompressedDataMatrix::sumColumn(int column) {
-	realTRS sum = 0.0;
+BayesianSCCS::real CompressedDataMatrix::sumColumn(int column) {
+	BayesianSCCS::real sum = 0.0;
 	if (getFormatType(column) == DENSE) {
 		cerr << "Not yet implemented (DENSE)." << endl;
 		exit(-1);
@@ -145,9 +145,9 @@ void CompressedDataMatrix::convertColumnToSparse(int column) {
 	}
 
 #if 1
-	const realTRS value = 1.0;
+	const BayesianSCCS::real value = 1.0;
 #else
-	const realTRS value = 2.0;
+	const BayesianSCCS::real value = 2.0;
 #endif
 
 	data[column]->assign(nRows, value);
@@ -169,7 +169,7 @@ void CompressedDataMatrix::convertColumnToDense(int column) {
 	if (data[column] == NULL) {
 		data[column] = new real_vector();
 	}
-	data[column]->resize(nRows, static_cast<realTRS>(0));
+	data[column]->resize(nRows, static_cast<BayesianSCCS::real>(0));
 
 	int* indicators = getCompressedColumnVector(column);
 	int n = getNumberOfEntries(column);
@@ -180,9 +180,9 @@ void CompressedDataMatrix::convertColumnToDense(int column) {
 //		nonzero++;
 
 #if 0
-		const realTRS value = 1.0;
+		const BayesianSCCS::real value = 1.0;
 #else
-		const realTRS value = 2.0;
+		const BayesianSCCS::real value = 2.0;
 #endif
 		data[column]->at(k) = value;
 	}
@@ -209,8 +209,8 @@ int* CompressedDataMatrix::getCompressedColumnVector(int column) const {
 	return const_cast<int*>(&(columns[column]->at(0)));
 }
 
-realTRS* CompressedDataMatrix::getDataVector(int column) const {
-	return const_cast<realTRS*>(data[column]->data());
+BayesianSCCS::real* CompressedDataMatrix::getDataVector(int column) const {
+	return const_cast<BayesianSCCS::real*>(data[column]->data());
 }
 
 void CompressedDataMatrix::allocateMemory(int nCols) {
