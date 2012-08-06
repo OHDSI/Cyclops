@@ -83,7 +83,8 @@ set(SOURCE_FILES
 	CrossValidationDriver.cpp
 	BootstrapSelector.cpp
 	BootstrapDriver.cpp
-	SparseRowVector.cpp)
+	SparseRowVector.cpp
+	MarkovChainMonteCarlo.cpp)
 	
 if(CUDA_FOUND)
 	set(SOURCE_FILES ${SOURCE_FILES}

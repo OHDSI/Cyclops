@@ -9,6 +9,7 @@
 #define CYCLICCOORDINATEDESCENT_H_
 
 #include <Eigen/Dense>
+#include <gsl/gsl_matrix.h>
 #include "CompressedDataMatrix.h"
 #include "InputReader.h"
 
@@ -112,7 +113,7 @@ public:
 
 	void setLogisticRegression(bool idoLR);
 
-	void getHessianForCholesky_GSL();
+	void getHessianForCholesky_GSL(gsl_matrix * HessianValues);
 
 	void getHessianForCholesky_Eigen(Eigen::MatrixXf* ReturnHessian);
 

@@ -25,6 +25,7 @@
 #include "InputReader.h"
 #include "Iterators.h"
 #include "SparseRowVector.h"
+#include "MarkovChainMonteCarlo.h"
 
 
 //#ifdef MY_RCPP_FLAG
@@ -437,7 +438,7 @@ void CyclicCoordinateDescent::setLogisticRegression(bool idoLR) {
 	sufficientStatisticsKnown = false;
 }
 
-void CyclicCoordinateDescent::getHessianForCholesky_GSL() {
+void CyclicCoordinateDescent::getHessianForCholesky_GSL(gsl_matrix * HessianValues) {
 	//naming of variables consistent with Suchard write up page 23 Appendix A
 
 	vector<int> giVector(N, 0); // get Gi given patient i
@@ -490,9 +491,7 @@ void CyclicCoordinateDescent::getHessianForCholesky_GSL() {
 		gsl_matrix_sub(HessianMatrix, SecondTerm);
 	}
 
-	int test = gsl_linalg_cholesky_decomp(HessianMatrix);
-
-
+	gsl_matrix_add(HessianValues, HessianMatrix);
 }
 
 
@@ -744,6 +743,12 @@ void CyclicCoordinateDescent::update(
 		}				
 	}
 	updateCount += 1;
+
+	gsl_matrix * HessianValues = gsl_matrix_alloc(J,J);
+	gsl_matrix_set_zero(HessianValues);
+	getHessianForCholesky_GSL(HessianValues);
+
+	cout << gsl_matrix_get(HessianValues, 0,0);
 }
 
 /**
