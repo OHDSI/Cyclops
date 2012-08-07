@@ -12,7 +12,7 @@
 #include <cstdlib>
 
 #include "CrossValidationDriver.h"
-namespace BayesianSCCS {
+namespace bsccs {
 CrossValidationDriver::CrossValidationDriver(
 			int iGridSize,
 			double iLowerLimit,
@@ -91,7 +91,7 @@ void CrossValidationDriver::drive(
 
 	// TODO Check that selector is type of CrossValidationSelector
 
-	std::vector<BayesianSCCS::real> weights;
+	std::vector<bsccs::real> weights;
 
 	for (int step = 0; step < gridSize; step++) {
 

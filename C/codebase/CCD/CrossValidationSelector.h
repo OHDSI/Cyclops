@@ -12,7 +12,7 @@
 #include "SCCSInputReader.h"
 
 #include "AbstractSelector.h"
-namespace BayesianSCCS {
+namespace bsccs {
 class CrossValidationSelector : public AbstractSelector {
 public:
 	CrossValidationSelector(
@@ -25,9 +25,9 @@ public:
 
 	void permute();
 
-	void getWeights(int batch, std::vector<BayesianSCCS::real>& weights);
+	void getWeights(int batch, std::vector<bsccs::real>& weights);
 
-	void getComplement(std::vector<BayesianSCCS::real>& weights);
+	void getComplement(std::vector<bsccs::real>& weights);
 
 private:
 	int fold;

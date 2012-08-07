@@ -84,7 +84,9 @@ set(SOURCE_FILES
 	BootstrapSelector.cpp
 	BootstrapDriver.cpp
 	SparseRowVector.cpp
-	MarkovChainMonteCarlo.cpp)
+	MCMCDriver.cpp
+	IndependenceSampler.cpp
+	MHRatio.cpp)
 	
 if(CUDA_FOUND)
 	set(SOURCE_FILES ${SOURCE_FILES}

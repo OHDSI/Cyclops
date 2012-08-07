@@ -33,7 +33,7 @@
 
 using namespace std;
 
-namespace BayesianSCCS {
+namespace bsccs {
 
 InputReader::InputReader() {
 	// Do nothing

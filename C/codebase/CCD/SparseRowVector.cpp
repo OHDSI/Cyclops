@@ -28,7 +28,7 @@
 #include "InputReader.h"
 
 
-namespace BayesianSCCS {
+namespace bsccs {
 
 SparseRowVector::SparseRowVector() {
 	// Do nothing

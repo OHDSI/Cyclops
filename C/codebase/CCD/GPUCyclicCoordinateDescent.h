@@ -16,7 +16,7 @@
 #define NO_BETA
 #define GPU_SPARSE_PRODUCT
 
-namespace BayesianSCCS {
+namespace bsccs {
 
 #ifdef DOUBLE_PRECISION
 	typedef double gpu_real;
@@ -84,8 +84,8 @@ private:
 	GPUPtr dHessian;
 	GPUPtr dReducedGradientHessian;
 
-	BayesianSCCS::real* hGradient;
-	BayesianSCCS::real* hHessian;
+	bsccs::real* hGradient;
+	bsccs::real* hHessian;
 
 	GPUPtr* dXColumnRowIndicators;
 

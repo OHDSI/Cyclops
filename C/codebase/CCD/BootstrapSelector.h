@@ -12,7 +12,7 @@
 
 #include "AbstractSelector.h"
 
-namespace BayesianSCCS {
+namespace bsccs {
 
 class BootstrapSelector : public AbstractSelector {
 public:
@@ -26,9 +26,9 @@ public:
 
 	virtual void permute();
 
-	virtual void getWeights(int batch, std::vector<BayesianSCCS::real>& weights);
+	virtual void getWeights(int batch, std::vector<bsccs::real>& weights);
 
-	virtual void getComplement(std::vector<BayesianSCCS::real>& weights);
+	virtual void getComplement(std::vector<bsccs::real>& weights);
 
 private:
 	std::multiset<int> selectedSet;

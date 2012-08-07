@@ -15,7 +15,7 @@
 
 using namespace std;
 
-namespace BayesianSCCS {
+namespace bsccs {
 BetterGPU::BetterGPU(int deviceNumber, InputReader* reader)
 	: CyclicCoordinateDescent(reader) {
 	
@@ -62,11 +62,11 @@ BetterGPU::BetterGPU(int deviceNumber, InputReader* reader)
 	alignedGHCacheSize = getAlignedLength(cacheSizeGH);
 
 	dNumerPid = gpu->AllocateRealMemory(2 * alignedN);
-	dDenomPid = dNumerPid  + sizeof(BayesianSCCS::real) * alignedN; // GPUPtr is void* not BayesianSCCS::real*
+	dDenomPid = dNumerPid  + sizeof(bsccs::real) * alignedN; // GPUPtr is void* not bsccs::real*
 
 	dGradient = gpu->AllocateRealMemory(2 * alignedGHCacheSize);
-	dHessian = dGradient + sizeof(BayesianSCCS::real) * alignedGHCacheSize; // GPUPtr is void* not real*
-	hGradient = (BayesianSCCS::real*) malloc(2 * sizeof(BayesianSCCS::real) * alignedGHCacheSize);
+	dHessian = dGradient + sizeof(bsccs::real) * alignedGHCacheSize; // GPUPtr is void* not real*
+	hGradient = (bsccs::real*) malloc(2 * sizeof(bsccs::real) * alignedGHCacheSize);
 	hHessian = hGradient + alignedGHCacheSize;
 
 	computeRemainingStatistics(true, 0);
@@ -108,16 +108,16 @@ void BetterGPU::computeRatiosForGradientAndHessian(int index) {
 void BetterGPU::computeGradientAndHession(int index, double *ogradient,
 		double *ohessian) {
 
-	gpu->MemcpyHostToDevice(dNumerPid, numerPid, sizeof(BayesianSCCS::real) * 2 * alignedN); // Copy both numer and demon
+	gpu->MemcpyHostToDevice(dNumerPid, numerPid, sizeof(bsccs::real) * 2 * alignedN); // Copy both numer and demon
 	int blockUsed = kernels->computeGradientAndHessianWithReduction(dNumerPid, dDenomPid, dNEvents,
 			dGradient, dHessian, N, 1, WORK_BLOCK_SIZE);
-	gpu->MemcpyDeviceToHost(hGradient, dGradient, sizeof(BayesianSCCS::real) * 2 * alignedGHCacheSize);
+	gpu->MemcpyDeviceToHost(hGradient, dGradient, sizeof(bsccs::real) * 2 * alignedGHCacheSize);
 
-	BayesianSCCS::real g = 0;
-	BayesianSCCS::real h = 0;
-	BayesianSCCS::real* gradient = hGradient;
-	const BayesianSCCS::real* end = gradient + cacheSizeGH;
-	BayesianSCCS::real* hessian = hHessian;
+	bsccs::real g = 0;
+	bsccs::real h = 0;
+	bsccs::real* gradient = hGradient;
+	const bsccs::real* end = gradient + cacheSizeGH;
+	bsccs::real* hessian = hHessian;
 
 	// TODO Remove code duplication with CPU version from here below
 	for (; gradient != end; ++gradient, ++hessian) {

@@ -11,11 +11,11 @@
  */
 
 // Iterator for a sparse of indicators column
-namespace BayesianSCCS {
+namespace bsccs {
 class IndicatorIterator {
   public:
 
-	typedef BayesianSCCS::real Scalar;
+	typedef bsccs::real Scalar;
 	typedef int Index;
 
 //	static const bool isIndicator = true;
@@ -53,7 +53,7 @@ class IndicatorIterator {
 class SparseIterator {
   public:
 
-	typedef BayesianSCCS::real Scalar;
+	typedef bsccs::real Scalar;
 	typedef int Index;
 
 //	static const bool isIndicator = false;
@@ -114,7 +114,7 @@ protected:
 class DenseIterator {
   public:
 
-	typedef BayesianSCCS::real Scalar;
+	typedef bsccs::real Scalar;
 	typedef int Index;
 
 //	static const bool isIndicator = false;
@@ -149,7 +149,7 @@ class DenseIterator {
 class GenericIterator {
   public:
 
-	typedef BayesianSCCS::real Scalar;
+	typedef bsccs::real Scalar;
 	typedef int Index;
 
 	inline GenericIterator(const CompressedDataMatrix& mat, Index column)

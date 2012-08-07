@@ -24,7 +24,7 @@ using std::endl;
 using std::ostream;
 using std::ofstream;
 
-namespace BayesianSCCS {
+namespace bsccs {
 
 //#define DEBUG
 
@@ -90,13 +90,13 @@ public:
 	
 	double getLogLikelihood(void);
 
-	double getPredictiveLogLikelihood(BayesianSCCS::real* weights);
+	double getPredictiveLogLikelihood(bsccs::real* weights);
 
 	double getLogPrior(void);
 	
 	virtual double getObjectiveFunction(void);
 
-	BayesianSCCS::real getBeta(int i);
+	bsccs::real getBeta(int i);
 
 	int getBetaSize(void);
 		
@@ -109,7 +109,7 @@ public:
 
 	void setPriorType(int priorType);
 
-	void setWeights(BayesianSCCS::real* weights);
+	void setWeights(bsccs::real* weights);
 
 	void setLogisticRegression(bool idoLR);
 
@@ -169,9 +169,9 @@ protected:
 	virtual void updateXBeta(double delta, int index);
 
 	template <class IteratorType>
-	void updateXBetaImpl(BayesianSCCS::real delta, int index);
+	void updateXBetaImpl(bsccs::real delta, int index);
 
-	void updateXBetaImplHand(BayesianSCCS::real realDelta, int index);
+	void updateXBetaImplHand(bsccs::real realDelta, int index);
 
 	virtual void computeRemainingStatistics(bool skip, int index);
 	
@@ -196,17 +196,17 @@ protected:
 						double *hessian);
 
 	template <class IteratorType>
-	inline BayesianSCCS::real computeHessian(
-			BayesianSCCS::real numer, BayesianSCCS::real numer2, BayesianSCCS::real denom,
-			BayesianSCCS::real g, BayesianSCCS::real t);
+	inline bsccs::real computeHessian(
+			bsccs::real numer, bsccs::real numer2, bsccs::real denom,
+			bsccs::real g, bsccs::real t);
 
 	template <class IteratorType>
 	inline void incrementGradientAndHessian(
-			BayesianSCCS::real* gradient, BayesianSCCS::real* hessian,
-			BayesianSCCS::real numer, BayesianSCCS::real numer2, BayesianSCCS::real denom, int nEvents);
+			bsccs::real* gradient, bsccs::real* hessian,
+			bsccs::real numer, bsccs::real numer2, bsccs::real denom, int nEvents);
 
 	template <class IteratorType>
-	void axpy(BayesianSCCS::real* y, const BayesianSCCS::real alpha, const int index);
+	void axpy(bsccs::real* y, const bsccs::real alpha, const int index);
 
 	virtual void getDenominators(void);
 
@@ -243,9 +243,9 @@ protected:
 	template <class T>
 	void printVector(T* vector, const int length, ostream &os);
 	
-	double oneNorm(BayesianSCCS::real* vector, const int length);
+	double oneNorm(bsccs::real* vector, const int length);
 	
-	double twoNormSquared(BayesianSCCS::real * vector, const int length);
+	double twoNormSquared(bsccs::real * vector, const int length);
 	
 	int sign(double x); 
 	
@@ -267,10 +267,10 @@ protected:
 	int* hPid; // N-vector
 	int** hXColumnRowIndicators; // J-vector
  	
-	BayesianSCCS::real* hBeta;
-	BayesianSCCS::real* hXBeta;
-	BayesianSCCS::real* hXBetaSave;
-	BayesianSCCS::real* hDelta;
+	bsccs::real* hBeta;
+	bsccs::real* hXBeta;
+	bsccs::real* hXBetaSave;
+	bsccs::real* hDelta;
 
 	int N; // Number of patients
 	int K; // Number of exposure levels
@@ -282,7 +282,7 @@ protected:
 	double sigma2Beta;
 	double lambda;
 
-	BayesianSCCS::real denomNullValue;
+	bsccs::real denomNullValue;
 
 	bool sufficientStatisticsKnown;
 	bool xBetaKnown;
@@ -290,16 +290,16 @@ protected:
 	bool validWeights;
 	bool useCrossValidation;
 	bool doLogisticRegression;
-	BayesianSCCS::real* hWeights;
+	bsccs::real* hWeights;
 
 	// temporary variables
-	BayesianSCCS::real* expXBeta;
-	BayesianSCCS::real* offsExpXBeta;
-	BayesianSCCS::real* denomPid;
-	BayesianSCCS::real* numerPid;
-	BayesianSCCS::real* numerPid2;
-	BayesianSCCS::real* xOffsExpXBeta;
-	BayesianSCCS::real* hXjEta;
+	bsccs::real* expXBeta;
+	bsccs::real* offsExpXBeta;
+	bsccs::real* denomPid;
+	bsccs::real* numerPid;
+	bsccs::real* numerPid2;
+	bsccs::real* xOffsExpXBeta;
+	bsccs::real* hXjEta;
 
 	int updateCount;
 	int likelihoodCount;
@@ -309,7 +309,7 @@ protected:
 #endif
 	
 #ifdef NO_FUSE
-	BayesianSCCS::real* wPid;
+	bsccs::real* wPid;
 #endif
 };
 

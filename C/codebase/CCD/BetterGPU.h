@@ -13,7 +13,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/KernelLauncherCCD.h"
 
-namespace BayesianSCCS {
+namespace bsccs {
 
 #ifdef DOUBLE_PRECISION
 	typedef double gpu_real;
@@ -70,8 +70,8 @@ private:
 	int cacheSizeGH;
 	int alignedGHCacheSize;
 
-	BayesianSCCS::real* hGradient;
-	BayesianSCCS::real* hHessian;
+	bsccs::real* hGradient;
+	bsccs::real* hHessian;
 };
 }
 #endif /* BETTERGPU_H_ */

@@ -34,7 +34,7 @@
 
 using namespace std;
 
-namespace BayesianSCCS {
+namespace bsccs {
 
 CLRInputReader::CLRInputReader() : InputReader() {
 	// Do nothing

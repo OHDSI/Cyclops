@@ -9,7 +9,7 @@
 #define CCTESTINPUTREADER_H_
 
 #include "InputReader.h"
-namespace BayesianSCCS {
+namespace bsccs {
 class CCTestInputReader : public InputReader {
 public:
 	CCTestInputReader();

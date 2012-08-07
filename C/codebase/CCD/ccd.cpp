@@ -31,6 +31,7 @@
 #include "BootstrapSelector.h"
 #include "BootstrapDriver.h"
 #include "SparseRowVector.h"
+#include "MCMCDriver.h"
 
 #include "tclap/CmdLine.h"
 
@@ -48,7 +49,7 @@
 
 using namespace TCLAP;
 using namespace std;
-using namespace BayesianSCCS;
+using namespace bsccs;
 
 double calculateSeconds(const timeval &time1, const timeval &time2) {
 	return time2.tv_sec - time1.tv_sec +
@@ -102,18 +103,18 @@ void parseCommandLine(std::vector<std::string>& args,
 		UnlabeledValueArg<string> outFileArg("outFileName","Output file name", true, arguments.outFileName, "outFileName");
 
 		// Prior arguments
-		ValueArg<double> hyperPriorArg("v", "variance", "Hyperprior variance", false, arguments.hyperprior, "BayesianSCCS::real");
+		ValueArg<double> hyperPriorArg("v", "variance", "Hyperprior variance", false, arguments.hyperprior, "bsccs::real");
 		SwitchArg normalPriorArg("n", "normalPrior", "Use normal prior, default is laplace", arguments.useNormalPrior);
 
 		// Convergence criterion arguments
-		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, arguments.tolerance, "BayesianSCCS::real");
+		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, arguments.tolerance, "bsccs::real");
 		SwitchArg zhangOlesConvergenceArg("z", "zhangOles", "Use Zhange-Oles convergence criterion, default is true", true);
 		ValueArg<long> seedArg("s", "seed", "Random number generator seed", false, arguments.seed, "long");
 
 		// Cross-validation arguments
 		SwitchArg doCVArg("c", "cv", "Perform cross-validation selection of hyperprior variance", arguments.doCrossValidation);
-		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, arguments.lowerLimit, "BayesianSCCS::real");
-		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, arguments.upperLimit, "BayesianSCCS::real");
+		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, arguments.lowerLimit, "bsccs::real");
+		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, arguments.upperLimit, "bsccs::real");
 		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, arguments.fold, "int");
 		ValueArg<int> gridCVArg("", "gridSize", "Uniform grid size for cross-validation search", false, arguments.gridSteps, "int");
 		ValueArg<int> foldToComputeCVArg("", "computeFold", "Number of fold to iterate, default is 'fold' value", false, 10, "int");
@@ -316,7 +317,7 @@ double runBoostrap(
 		CyclicCoordinateDescent *ccd,
 		InputReader *reader,
 		CCDArguments &arguments,
-		std::vector<BayesianSCCS::real>& savedBeta) {
+		std::vector<bsccs::real>& savedBeta) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
@@ -417,7 +418,7 @@ int main(int argc, char* argv[]) {
 
 	if (arguments.doBootstrap) {
 		// Save parameter point-estimates
-		std::vector<BayesianSCCS::real> savedBeta;
+		std::vector<bsccs::real> savedBeta;
 		for (int j = 0; j < ccd->getBetaSize(); ++j) {
 			savedBeta.push_back(ccd->getBeta(j));
 		}
@@ -428,6 +429,10 @@ int main(int argc, char* argv[]) {
 	cout << "Load   duration: " << scientific << timeInitialize << endl;
 	cout << "Update duration: " << scientific << timeUpdate << endl;
 	
+	MCMCDriver testMCMCDriver;
+
+	testMCMCDriver.drive(*ccd);
+
 	if (ccd)
 		delete ccd;
 	if (reader)

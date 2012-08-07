@@ -12,7 +12,7 @@
 
 #include "CompressedDataMatrix.h"
 
-namespace BayesianSCCS {
+namespace bsccs {
 
 CompressedDataMatrix::CompressedDataMatrix() {
 	// Do nothing
@@ -82,8 +82,8 @@ CompressedDataMatrix::~CompressedDataMatrix() {
 	}
 }
 
-BayesianSCCS::real CompressedDataMatrix::sumColumn(int column) {
-	BayesianSCCS::real sum = 0.0;
+bsccs::real CompressedDataMatrix::sumColumn(int column) {
+	bsccs::real sum = 0.0;
 	if (getFormatType(column) == DENSE) {
 		cerr << "Not yet implemented (DENSE)." << endl;
 		exit(-1);
@@ -145,9 +145,9 @@ void CompressedDataMatrix::convertColumnToSparse(int column) {
 	}
 
 #if 1
-	const BayesianSCCS::real value = 1.0;
+	const bsccs::real value = 1.0;
 #else
-	const BayesianSCCS::real value = 2.0;
+	const bsccs::real value = 2.0;
 #endif
 
 	data[column]->assign(nRows, value);
@@ -169,7 +169,7 @@ void CompressedDataMatrix::convertColumnToDense(int column) {
 	if (data[column] == NULL) {
 		data[column] = new real_vector();
 	}
-	data[column]->resize(nRows, static_cast<BayesianSCCS::real>(0));
+	data[column]->resize(nRows, static_cast<bsccs::real>(0));
 
 	int* indicators = getCompressedColumnVector(column);
 	int n = getNumberOfEntries(column);
@@ -180,9 +180,9 @@ void CompressedDataMatrix::convertColumnToDense(int column) {
 //		nonzero++;
 
 #if 0
-		const BayesianSCCS::real value = 1.0;
+		const bsccs::real value = 1.0;
 #else
-		const BayesianSCCS::real value = 2.0;
+		const bsccs::real value = 2.0;
 #endif
 		data[column]->at(k) = value;
 	}
@@ -209,8 +209,8 @@ int* CompressedDataMatrix::getCompressedColumnVector(int column) const {
 	return const_cast<int*>(&(columns[column]->at(0)));
 }
 
-BayesianSCCS::real* CompressedDataMatrix::getDataVector(int column) const {
-	return const_cast<BayesianSCCS::real*>(data[column]->data());
+bsccs::real* CompressedDataMatrix::getDataVector(int column) const {
+	return const_cast<bsccs::real*>(data[column]->data());
 }
 
 void CompressedDataMatrix::allocateMemory(int nCols) {

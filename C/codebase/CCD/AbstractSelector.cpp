@@ -9,7 +9,7 @@
 #include <algorithm>
 
 #include "AbstractSelector.h"
-namespace BayesianSCCS {
+namespace bsccs {
 AbstractSelector::AbstractSelector(
 		std::vector<int>* inIds,
 		SelectorType inType,

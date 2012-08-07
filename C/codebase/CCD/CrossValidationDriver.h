@@ -16,7 +16,7 @@
 #include "ccd.h"
 
 #include "AbstractDriver.h"
-namespace BayesianSCCS {
+namespace bsccs {
 class CrossValidationDriver : public AbstractDriver {
 public:
 	CrossValidationDriver(

@@ -15,7 +15,7 @@
 #include <algorithm>
 
 #include "RTestInputReader.h"
-namespace BayesianSCCS {
+namespace bsccs {
 #define MAX_ENTRIES		1000000000
 
 #define FORMAT_MATCH_1	"CONDITION_CONCEPT_ID"
@@ -99,9 +99,9 @@ void RTestInputReader::readFile(const char* fileName) {
 
 			// Parse covariates
 			for (int i = 0; i < numCovariates; ++i) {
-//				BayesianSCCS::real value;
+//				bsccs::real value;
 //				istringstream(strVector[2 + i]) >> value;
-				BayesianSCCS::real value = static_cast<BayesianSCCS::real>(atof(strVector[2 + i].c_str()));
+				bsccs::real value = static_cast<bsccs::real>(atof(strVector[2 + i].c_str()));
 				data[i]->push_back(value);
 			}
 

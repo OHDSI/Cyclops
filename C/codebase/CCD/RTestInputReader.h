@@ -9,7 +9,7 @@
 #define RTESTINPUTREADER_H_
 
 #include "InputReader.h"
-namespace BayesianSCCS {
+namespace bsccs {
 class RTestInputReader : public InputReader {
 public:
 	RTestInputReader();

@@ -15,7 +15,7 @@
 #include "BootstrapDriver.h"
 #include "AbstractSelector.h"
 
-namespace BayesianSCCS {
+namespace bsccs {
 
 BootstrapDriver::BootstrapDriver(
 		int inReplicates,
@@ -44,7 +44,7 @@ void BootstrapDriver::drive(
 		const CCDArguments& arguments) {
 
 	// TODO Make sure that selector is type-of BootstrapSelector
-	std::vector<BayesianSCCS::real> weights;
+	std::vector<bsccs::real> weights;
 
 	for (int step = 0; step < replicates; step++) {
 		selector.permute();
@@ -67,7 +67,7 @@ void BootstrapDriver::logResults(const CCDArguments& arguments) {
 	exit(-1);
 }
 
-void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<BayesianSCCS::real>& savedBeta, std::string conditionId) {
+void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<bsccs::real>& savedBeta, std::string conditionId) {
 
 	ofstream outLog(arguments.outFileName.c_str());
 	if (!outLog) {
@@ -88,13 +88,13 @@ void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<Baye
 	for (int j = 0; j < J; ++j) {
 		outLog << drugMap[j] << sep << conditionId << sep;
 		if (arguments.reportRawEstimates) {
-			ostream_iterator<BayesianSCCS::real> output(outLog, sep.c_str());
+			ostream_iterator<bsccs::real> output(outLog, sep.c_str());
 			copy(estimates[j]->begin(), estimates[j]->end(), output);
 			outLog << endl;
 		} else {
-			BayesianSCCS::real mean = 0.0;
-			BayesianSCCS::real var = 0.0;
-			BayesianSCCS::real prob0 = 0.0;
+			bsccs::real mean = 0.0;
+			bsccs::real var = 0.0;
+			bsccs::real prob0 = 0.0;
 			for (rvector::iterator it = estimates[j]->begin(); it != estimates[j]->end(); ++it) {
 				mean += *it;
 				var += *it * *it;
@@ -103,7 +103,7 @@ void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<Baye
 				}
 			}
 
-			BayesianSCCS::real size = static_cast<BayesianSCCS::real>(estimates[j]->size());
+			bsccs::real size = static_cast<bsccs::real>(estimates[j]->size());
 			mean /= size;
 			var = (var / size) - (mean * mean);
 			prob0 /= size;
@@ -112,8 +112,8 @@ void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<Baye
 			int offsetLower = static_cast<int>(size * 0.025);
 			int offsetUpper = static_cast<int>(size * 0.975);
 
-			BayesianSCCS::real lower = *(estimates[j]->begin() + offsetLower);
-			BayesianSCCS::real upper = *(estimates[j]->begin() + offsetUpper);
+			bsccs::real lower = *(estimates[j]->begin() + offsetLower);
+			bsccs::real upper = *(estimates[j]->begin() + offsetUpper);
 
 			outLog << savedBeta[j] << sep;
 			outLog << std::sqrt(var) << sep << mean << sep << lower << sep << upper << sep << prob0 << endl;

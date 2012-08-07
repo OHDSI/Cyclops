@@ -7,7 +7,7 @@
 
 #include "AbstractDriver.h"
 
-namespace BayesianSCCS {
+namespace bsccs {
 AbstractDriver::AbstractDriver() {
 	// TODO Auto-generated constructor stub
 

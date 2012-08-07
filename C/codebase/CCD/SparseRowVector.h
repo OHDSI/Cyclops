@@ -26,7 +26,7 @@ using std::endl;
 //using std::in;
 using std::ifstream;
 
-namespace BayesianSCCS {
+namespace bsccs {
 
 typedef std::vector<int> int_vector;
 

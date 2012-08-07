@@ -15,9 +15,9 @@
 #include "AbstractDriver.h"
 #include "InputReader.h"
 
-namespace BayesianSCCS {
+namespace bsccs {
 
-typedef std::vector<BayesianSCCS::real> rvector;
+typedef std::vector<bsccs::real> rvector;
 typedef std::vector<rvector*> rarray;
 typedef	rarray::iterator rarrayIterator;
 
@@ -36,7 +36,7 @@ public:
 
 	virtual void logResults(const CCDArguments& arguments);
 
-	void logResults(const CCDArguments& arguments, std::vector<BayesianSCCS::real>& savedBeta, std::string conditionId);
+	void logResults(const CCDArguments& arguments, std::vector<bsccs::real>& savedBeta, std::string conditionId);
 
 private:
 	const int replicates;

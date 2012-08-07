@@ -34,7 +34,7 @@ using std::stringstream;
 #include "CompressedDataMatrix.h"
 
 //#define USE_DRUG_STRING
-namespace BayesianSCCS {
+namespace bsccs {
 #ifdef USE_DRUG_STRING
 	typedef string DrugIdType; // TODO Strings do not get sorted in numerical order
 #else
