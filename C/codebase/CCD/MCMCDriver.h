@@ -16,19 +16,29 @@
 namespace bsccs {
 class MCMCDriver {
 public:
-	MCMCDriver();
+	MCMCDriver(InputReader * inReader);
 
 	virtual ~MCMCDriver();
 
 	virtual void drive(
 			CyclicCoordinateDescent& ccd);
 
-
+	void logResults(const CCDArguments& arguments, std::string conditionId);
 
 private:
+	InputReader* reader;
+
+	vector<vector<bsccs::real> > credibleIntervals;
+
+	vector<bsccs::real> BetaValues;
+
+	int J;
+
 	int maxIterations;
 
-	int sampleSize;
+	int nBetaSamples;
+
+	int nSigmaSquaredSamples;
 };
 }
 

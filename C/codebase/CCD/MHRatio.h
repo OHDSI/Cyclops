@@ -44,9 +44,20 @@ namespace bsccs {
 
 		~MHRatio();
 
-		bool acceptBool(CyclicCoordinateDescent &ccd, IndependenceSampler * sampler, double uniformRandom, int betaSize, gsl_vector * betaOld, gsl_vector * betaToEvaluate, gsl_matrix * covarianceMatrix);
+		bool acceptBetaBool(CyclicCoordinateDescent &ccd, IndependenceSampler * sampler, double uniformRandom, int betaSize, gsl_vector * betaOld, gsl_vector * betaToEvaluate, gsl_matrix * covarianceMatrix);
+
+		bool getSigmaSquaredBool(double uniformRandom);
+
 	private:
 		double min(double value1, double value2);
+
+		double acceptanceRatioNumerator;
+		double acceptanceRatioDenominator;
+
+		double alpha;
+
+		double fudgeFactor;
+
 	};
 }
 

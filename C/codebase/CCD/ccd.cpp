@@ -429,9 +429,11 @@ int main(int argc, char* argv[]) {
 	cout << "Load   duration: " << scientific << timeInitialize << endl;
 	cout << "Update duration: " << scientific << timeUpdate << endl;
 	
-	MCMCDriver testMCMCDriver;
+	MCMCDriver testMCMCDriver(reader);
 
 	testMCMCDriver.drive(*ccd);
+
+	testMCMCDriver.logResults(arguments, ccd->getConditionId());
 
 	if (ccd)
 		delete ccd;

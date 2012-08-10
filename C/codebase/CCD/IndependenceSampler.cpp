@@ -101,6 +101,15 @@ int IndependenceSampler::rmvnorm_stl(gsl_rng * r, const int n, gsl_vector *mean,
 	gsl_matrix_memcpy(work,var);
 	gsl_linalg_cholesky_decomp(work);
 
+	cout << "in RMVNORM: var = " << endl;
+	for (int i = 0; i < n; i++) {
+		cout << "[";
+		for (int j = 0; j< n; j++) {
+			cout << gsl_matrix_get(var, i, j) << ",";
+		}
+		cout << "]" << endl;
+	}
+
 	for(k=0; k<n; k++) {
 		gsl_vector_set(result, k, gsl_ran_ugaussian(r));
 	}

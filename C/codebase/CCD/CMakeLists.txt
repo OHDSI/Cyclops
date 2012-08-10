@@ -86,7 +86,9 @@ set(SOURCE_FILES
 	SparseRowVector.cpp
 	MCMCDriver.cpp
 	IndependenceSampler.cpp
-	MHRatio.cpp)
+	MHRatio.cpp
+	SigmaSampler.cpp
+	CredibleIntervals.cpp)
 	
 if(CUDA_FOUND)
 	set(SOURCE_FILES ${SOURCE_FILES}

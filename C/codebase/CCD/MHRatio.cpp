@@ -31,14 +31,14 @@
 namespace bsccs{
 
 MHRatio::MHRatio(){
-
+	fudgeFactor = 0.1;
 }
 
 MHRatio::~MHRatio(){
 
 }
 
-bool MHRatio::acceptBool(CyclicCoordinateDescent & ccd, IndependenceSampler * sampler, double uniformRandom, int betaSize, gsl_vector * betaOld, gsl_vector * betaToEvaluate, gsl_matrix * covarianceMatrix){
+bool MHRatio::acceptBetaBool(CyclicCoordinateDescent & ccd, IndependenceSampler * sampler, double uniformRandom, int betaSize, gsl_vector * betaOld, gsl_vector * betaToEvaluate, gsl_matrix * covarianceMatrix){
 
 
 	double ratio = 0;
@@ -74,16 +74,29 @@ bool MHRatio::acceptBool(CyclicCoordinateDescent & ccd, IndependenceSampler * sa
 
 
 
-	double alphaValue = min(ratio, 1.0);
+	alpha = min(ratio, 1.0);
 
 	cout << "ratio = " << ratio << " and uniformRandom = " << uniformRandom << endl;
 
-	if (alphaValue > uniformRandom) {
+	if (alpha > uniformRandom) {
 		return true;
 	} else{
+		return true;
+	}
+}
+
+bool MHRatio::getSigmaSquaredBool(double uniformRandom) {
+
+	cout << "in getSigmaSquaredBool fudgeFactor*alpha = " << fudgeFactor*alpha << endl;
+	cout << "in getSigmaSquaredBool uniformRandom = " << uniformRandom<< endl;
+	if (fudgeFactor*alpha > uniformRandom) {
+		cout << "CHANGING SIGMA SQUARED" << endl;
+		return false;
+	} else {
 		return false;
 	}
 }
+
 
 double MHRatio::min(double value1, double value2) {
 	if (value1 > value2) {
