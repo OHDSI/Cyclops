@@ -22,6 +22,9 @@
 #include "IndependenceSampler.h"
 #include "SigmaSampler.h"
 #include "CredibleIntervals.h"
+#include "Parameter.h"
+#include "ModelLikelihood.h"
+
 
 namespace bsccs {
 

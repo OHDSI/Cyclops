@@ -139,6 +139,7 @@ public:
 		return likelihoodCount;
 	}
 		
+	bsccs::real* hBeta; //tshaddox change TEMPORARY for Parameter testing...
 protected:
 	
 //private:
@@ -267,7 +268,7 @@ protected:
 	int* hPid; // N-vector
 	int** hXColumnRowIndicators; // J-vector
  	
-	bsccs::real* hBeta;
+
 	bsccs::real* hXBeta;
 	bsccs::real* hXBetaSave;
 	bsccs::real* hDelta;

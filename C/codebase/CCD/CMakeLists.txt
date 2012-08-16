@@ -88,7 +88,9 @@ set(SOURCE_FILES
 	IndependenceSampler.cpp
 	MHRatio.cpp
 	SigmaSampler.cpp
-	CredibleIntervals.cpp)
+	CredibleIntervals.cpp
+	Parameter.cpp
+	ModelLikelihood.cpp)
 	
 if(CUDA_FOUND)
 	set(SOURCE_FILES ${SOURCE_FILES}
