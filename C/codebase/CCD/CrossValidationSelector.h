@@ -9,7 +9,7 @@
 #define CROSSVALIDATION_H_
 
 #include <vector>
-#include "SCCSInputReader.h"
+#include "io/SCCSInputReader.h"
 
 #include "AbstractSelector.h"
 

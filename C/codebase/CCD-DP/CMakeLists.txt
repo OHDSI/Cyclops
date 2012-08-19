@@ -4,11 +4,11 @@ set(SOURCE_FILES
 	../CCD/ccd.cpp
 	../CCD/CyclicCoordinateDescent.cpp	
 	../CCD/CompressedDataMatrix.cpp
-	../CCD/InputReader.cpp
-	../CCD/SCCSInputReader.cpp
-	../CCD/CLRInputReader.cpp
-	../CCD/RTestInputReader.cpp
-	../CCD/CCTestInputReader.cpp
+	../CCD/io/InputReader.cpp
+	../CCD/io/SCCSInputReader.cpp
+	../CCD/io/CLRInputReader.cpp
+	../CCD/io/RTestInputReader.cpp
+	../CCD/io/CCTestInputReader.cpp
 	../CCD/AbstractModelSpecifics.cpp
 	../CCD/AbstractDriver.cpp
 	../CCD/AbstractSelector.cpp

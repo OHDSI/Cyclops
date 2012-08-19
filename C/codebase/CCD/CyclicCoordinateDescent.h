@@ -9,7 +9,7 @@
 #define CYCLICCOORDINATEDESCENT_H_
 
 #include "CompressedDataMatrix.h"
-#include "InputReader.h"
+#include "io/InputReader.h"
 #include "AbstractModelSpecifics.h"
 
 //using namespace std;

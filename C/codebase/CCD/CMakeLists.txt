@@ -72,12 +72,12 @@ set(SOURCE_FILES
 	ccd.cpp
 	CyclicCoordinateDescent.cpp	
 	CompressedDataMatrix.cpp
-	InputReader.cpp
-	SCCSInputReader.cpp
-	CLRInputReader.cpp
-	RTestInputReader.cpp
-	CoxInputReader.cpp
-	CCTestInputReader.cpp
+	io/InputReader.cpp
+	io/SCCSInputReader.cpp
+	io/CLRInputReader.cpp
+	io/RTestInputReader.cpp
+	io/CoxInputReader.cpp
+	io/CCTestInputReader.cpp
 	AbstractModelSpecifics.cpp
 	AbstractDriver.cpp
 	AbstractSelector.cpp

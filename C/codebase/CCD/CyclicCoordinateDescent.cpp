@@ -16,7 +16,7 @@
 #include <set>
 
 #include "CyclicCoordinateDescent.h"
-#include "InputReader.h"
+#include "io/InputReader.h"
 #include "Iterators.h"
 
 //#ifdef MY_RCPP_FLAG

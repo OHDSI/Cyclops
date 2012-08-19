@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "AbstractDriver.h"
-#include "InputReader.h"
+#include "io/InputReader.h"
 
 typedef std::vector<real> rvector;
 typedef std::vector<rvector*> rarray;

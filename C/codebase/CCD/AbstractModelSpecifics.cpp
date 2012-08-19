@@ -6,7 +6,7 @@
  */
 
 #include "AbstractModelSpecifics.h"
-#include "InputReader.h"
+#include "io/InputReader.h"
 
 //AbstractModelSpecifics::AbstractModelSpecifics(
 //		const std::vector<real>& y,
