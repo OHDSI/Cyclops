@@ -375,8 +375,8 @@ double initializeModel(
 
 	if (arguments.modelName == "sccs") {
 		*model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>(**reader);
-//	} else if (arguments.modelName == "clr") {
-//		*model = new ModelSpecifics<ConditionalLogisticRegression>((**reader)); // TODO
+	} else if (arguments.modelName == "clr") {
+		*model = new ModelSpecifics<ConditionalLogisticRegression<real>,real>((**reader));
 	} else if (arguments.modelName == "lr") {
 		*model = new ModelSpecifics<LogisticRegression<real>,real>(**reader);
 	} else if (arguments.modelName == "ls") {

@@ -49,7 +49,7 @@ public:
 	
 	int getNumberOfRows(void) const;
 	
-	int getNumberOfColumns(void);
+	int getNumberOfColumns(void) const;
 
 	int getNumberOfEntries(int column) const;
 

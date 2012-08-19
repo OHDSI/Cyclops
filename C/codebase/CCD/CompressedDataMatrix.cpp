@@ -196,7 +196,7 @@ int CompressedDataMatrix::getNumberOfRows(void) const {
 	return nRows;
 }
 
-int CompressedDataMatrix::getNumberOfColumns(void) {
+int CompressedDataMatrix::getNumberOfColumns(void) const {
 	return nCols;
 }
 
