@@ -115,6 +115,10 @@ public:
 
 	void getHessianForCholesky_GSL(gsl_matrix * HessianValues);
 
+	void getHessianForCholesky_GSL_Dense(gsl_matrix * HessianValues);
+
+	void getHessianForCholesky_GSL_Indicator(gsl_matrix * HessianValues);
+
 	void getHessianForCholesky_Eigen(Eigen::MatrixXf* ReturnHessian);
 
 	void getCholeskyFromHessian(Eigen::MatrixXf* HessianMatrix, Eigen::MatrixXf* CholeskyDecomp);

@@ -45,7 +45,10 @@ void MCMCDriver::drive(
 	// Select First Beta vector = modes from ccd
 	int betaSize = ccd.getBetaSize();
 
-	J = ccd.getBetaSize();
+	Parameter OriginalBeta(ccd.hBeta, betaSize);
+	Parameter Beta(ccd.hBeta, betaSize);
+
+	J = Beta.getSize();
 
 	gsl_vector * gslBetaStart = gsl_vector_alloc(betaSize);
 
@@ -54,20 +57,35 @@ void MCMCDriver::drive(
 		BetaValues.push_back(ccd.getBeta(i));
 	}
 
+
 	// Generate the tools for the MH loop
 	IndependenceSampler sampler;
 	gsl_rng * randomizer = gsl_rng_alloc(gsl_rng_taus);
+
 
 	vector<gsl_vector*> betaValuesSampled_gsl;
 	betaValuesSampled_gsl.push_back(gslBetaStart);
 	nBetaSamples ++;
 
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
 	gsl_matrix * precisionMatrix = gsl_matrix_alloc(betaSize, betaSize);
-	ccd.getHessianForCholesky_GSL(precisionMatrix);
+	ccd.getHessianForCholesky_GSL_Indicator(precisionMatrix);
+	gettimeofday(&time2, NULL);
+	cout << "time Indicator = " << calculateSeconds(time1, time2) << endl;
+	struct timeval time3, time4;
+	gettimeofday(&time3, NULL);
+	gsl_matrix * precisionMatrix2 = gsl_matrix_alloc(betaSize, betaSize);
+	ccd.getHessianForCholesky_GSL_Dense(precisionMatrix2);
+	gettimeofday(&time4, NULL);
+	cout << "time Dense = " << calculateSeconds(time3, time4) << endl;
+
+/*
 	cout << gsl_matrix_get(precisionMatrix, 0,0) << endl;
 	gsl_linalg_cholesky_decomp(precisionMatrix); // get Cholesky decomposition (done in place)
 
 	gsl_linalg_cholesky_invert(precisionMatrix); // Inversion of the matrix from which Cholesky was taken (i.e. the Hessian Matrix)
+
 
 	// Rename the matrix to avoid confusion
 	gsl_matrix * precisionInverse = gsl_matrix_alloc(betaSize, betaSize);
@@ -122,7 +140,7 @@ void MCMCDriver::drive(
 	CredibleIntervals intervalsToReport;
 
 	credibleIntervals = intervalsToReport.computeCredibleIntervals(betaValuesSampled_gsl, betaSize, nBetaSamples);
-
+*/
 }
 
 void MCMCDriver::logResults(const CCDArguments& arguments, std::string conditionId) {
@@ -153,4 +171,6 @@ void MCMCDriver::logResults(const CCDArguments& arguments, std::string condition
 
 	outLog.close();
 }
+
+
 }

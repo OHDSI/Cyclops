@@ -45,13 +45,25 @@ void SparseRowVector::fillSparseRowVector(CompressedDataMatrix * columnData) {
 		matrixTranspose[k] = new int_vector();
 	}
 
+	/*
+	cout << "printing indicator matrix" << endl;
+
+	for (int i = 0; i < columnData->getNumberOfColumns(); i++) {
+		int numRows = columnData->getNumberOfEntries(i);
+		cout << "Column i = " << i << " [";
+		for (int j = 0; j< numRows; j++) {
+			cout << columnData->getCompressedColumnVector(i)[j] << ",";
+		}
+		cout << "]" << endl;
+	}
+	*/
+
 	for (int i = 0; i < nTransposeRows; i++) {
 		int rows = columnData->getNumberOfEntries(i);
 		for (int j = 0; j < rows; j++) {
 			matrixTranspose[columnData->getCompressedColumnVector(i)[j]]->push_back(i);
 		}
 	}
-
 }
 
 
@@ -84,6 +96,10 @@ void SparseRowVector::printRow(int row) {
 		}
 	}
 	printVector(values.data(), values.size());
+
+}
+
+void SparseRowVector::printSparseMatrix() {
 
 }
 

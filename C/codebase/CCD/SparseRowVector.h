@@ -40,6 +40,8 @@ public:
 
 	virtual ~SparseRowVector();
 
+	void printSparseMatrix();
+
 	int getNumberOfRows();
 
 	int getNumberOfColumns();
