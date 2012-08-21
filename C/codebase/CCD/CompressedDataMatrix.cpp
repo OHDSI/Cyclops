@@ -178,7 +178,7 @@ void CompressedDataMatrix::convertColumnToDense(int column) {
 //		cerr << " " << k;
 //		nonzero++;
 
-#if 0
+#if 1
 		const real value = 1.0;
 #else
 		const real value = 2.0;
