@@ -9,7 +9,7 @@
 #define CYCLICCOORDINATEDESCENT_H_
 
 #include "CompressedDataMatrix.h"
-#include "io/InputReader.h"
+#include "ModelData.h"
 #include "AbstractModelSpecifics.h"
 
 //using namespace std;
@@ -74,7 +74,7 @@ public:
 		);
 	
 	CyclicCoordinateDescent(
-			InputReader* reader,
+			ModelData* modelData,
 			AbstractModelSpecifics& specifics
 //			ModelSpecifics<DefaultModel>& specifics
 		);

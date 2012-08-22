@@ -72,6 +72,7 @@ set(SOURCE_FILES
 	ccd.cpp
 	CyclicCoordinateDescent.cpp	
 	CompressedDataMatrix.cpp
+	ModelData.cpp
 	io/InputReader.cpp
 	io/SCCSInputReader.cpp
 	io/CLRInputReader.cpp

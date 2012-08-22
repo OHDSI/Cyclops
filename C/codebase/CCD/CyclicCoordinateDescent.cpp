@@ -46,7 +46,7 @@ void compareIntVector(int* vec0, int* vec1, int dim, const char* name) {
 }
 
 CyclicCoordinateDescent::CyclicCoordinateDescent(
-			InputReader* reader,
+			ModelData* reader,
 			AbstractModelSpecifics& specifics
 //			ModelSpecifics<DefaultModel>& specifics
 		) : modelSpecifics(specifics) {
@@ -275,7 +275,7 @@ void CyclicCoordinateDescent::logResults(const char* fileName) {
 		exit(-1);
 	}
 
-	InputReader* reader = dynamic_cast<InputReader*>(hXI);
+	ModelData* reader = dynamic_cast<ModelData*>(hXI);
 	map<int, DrugIdType> drugMap = reader->getDrugNameMap();
 
 	string sep(","); // TODO Make option

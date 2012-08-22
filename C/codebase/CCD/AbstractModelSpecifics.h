@@ -12,7 +12,7 @@
 #include <cmath>
 
 class CompressedDataMatrix;  // forward declaration
-class InputReader; // forward declaration
+class ModelData; // forward declaration
 
 #ifdef DOUBLE_PRECISION
 	typedef double real;
@@ -28,7 +28,7 @@ public:
 //			const std::vector<real>& y,
 //			const std::vector<real>& z);
 
-	AbstractModelSpecifics(const InputReader& intput);
+	AbstractModelSpecifics(const ModelData& intput);
 
 	virtual ~AbstractModelSpecifics();
 

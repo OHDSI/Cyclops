@@ -22,6 +22,14 @@ using std::stringstream;
 
 #include "CompressedDataMatrix.h"
 
+//#define USE_DRUG_STRING
+
+#ifdef USE_DRUG_STRING
+	typedef string DrugIdType; // TODO Strings do not get sorted in numerical order
+#else
+	typedef int DrugIdType;
+#endif
+
 class ModelData : public CompressedDataMatrix {
 public:
 	ModelData();
@@ -48,6 +56,13 @@ public:
 		return pid;
 	}
 	
+	// TODO Improve encapsulation
+	friend class SCCSInputReader;
+	friend class CLRInputReader;
+	friend class RTestInputReader;
+	friend class CoxInputReader;
+	friend class CCTestInputReader;
+
 private:
 
 	template <class T>

@@ -68,7 +68,7 @@ void RTestInputReader::readFile(const char* fileName) {
 				numCovariates = strVector.size() - 2;
 				for (int i = 0; i < numCovariates; ++i) {
 					real_vector* thisColumn = new real_vector();
-					push_back(NULL, thisColumn, DENSE);
+					modelData->push_back(NULL, thisColumn, DENSE);
 				}
 			} else if (numCovariates != strVector.size() - 2) {
 				cerr << "All rows must be the same length" << endl;
@@ -79,38 +79,38 @@ void RTestInputReader::readFile(const char* fileName) {
 			string unmappedStratum = strVector[0];
 			if (unmappedStratum != currentStratum) { // New stratum, ASSUMES these are sorted
 				if (currentStratum != MISSING_STRING) { // Skip first switch
-					nevents.push_back(1);
+					modelData->nevents.push_back(1);
 					numEvents = 0;
 				}
 				currentStratum = unmappedStratum;
 				numCases++;
 			}
-			pid.push_back(numCases - 1);
+			modelData->pid.push_back(numCases - 1);
 
 			// Parse outcome entry
 //			real thisY;
 //			stringstream(strVector[1]) >> thisY;
 			real thisY = static_cast<real>(atof(strVector[1].c_str()));
  			numEvents += thisY;
-			y.push_back(thisY);
+ 			modelData->y.push_back(thisY);
 
 			// Fix offs for CLR
-			offs.push_back(1);
+ 			modelData->offs.push_back(1);
 
 			// Parse covariates
 			for (int i = 0; i < numCovariates; ++i) {
 //				real value;
 //				istringstream(strVector[2 + i]) >> value;
 				real value = static_cast<real>(atof(strVector[2 + i].c_str()));
-				data[i]->push_back(value);
+				modelData->data[i]->push_back(value);
 			}
 
 			currentRow++;
 		}
 	}
-	nevents.push_back(1); // Save last patient
+	modelData->nevents.push_back(1); // Save last patient
 
-	int index = columns.size();
+	int index = modelData->columns.size();
 
 #ifndef MY_RCPP_FLAG
 	cout << "RTestInputReader" << endl;
@@ -119,10 +119,10 @@ void RTestInputReader::readFile(const char* fileName) {
 	cout << "Number of covariates: " << numCovariates << endl;
 #endif
 
-	nPatients = numCases;
-	nCols = columns.size();
-	nRows = currentRow;
-	conditionId = "0";
+	modelData->nPatients = numCases;
+	modelData->nCols = modelData->columns.size();
+	modelData->nRows = currentRow;
+	modelData->conditionId = "0";
 
 #if 0
 	for (int i = 0; i < nCols; ++i) {

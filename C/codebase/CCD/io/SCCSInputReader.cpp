@@ -104,24 +104,24 @@ void SCCSInputReader::readFile(const char* fileName) {
 			ss >> unmappedPid;
 			if (unmappedPid != currentPid) { // New patient, ASSUMES these are sorted
 				if (currentPid != MISSING_STRING) { // Skip first switch
-					nevents.push_back(numEvents);
+					modelData->nevents.push_back(numEvents);
 					numEvents = 0;
 				}
 				currentPid = unmappedPid;
 				numPatients++;
 			}
-			pid.push_back(numPatients - 1);
+			modelData->pid.push_back(numPatients - 1);
 
 			// Parse third entry
 			int thisY;
 			ss >> thisY;
 			numEvents += thisY;
-			y.push_back(thisY);
+			modelData->y.push_back(thisY);
 
 			// Parse fourth entry
 			int thisOffs;
 			ss >> thisOffs;
-			offs.push_back(thisOffs);
+			modelData->offs.push_back(thisOffs);
 
 			// Parse remaining (variable-length) entries
 			DrugIdType drug;
@@ -130,14 +130,14 @@ void SCCSInputReader::readFile(const char* fileName) {
 				if (drug == noDrug) { // No drug
 					// Do nothing
 				} else {
-					if (drugMap.count(drug) == 0) {
-						drugMap.insert(make_pair(drug,numDrugs));
+					if (modelData->drugMap.count(drug) == 0) {
+						modelData->drugMap.insert(make_pair(drug,numDrugs));
 						unorderColumns.push_back(new int_vector());
 						numDrugs++;
 					}
 					if (!listContains(uniqueDrugsForEntry, drug)) {
 						// Add to CSC storage
-						unorderColumns[drugMap[drug]]->push_back(currentEntry);
+						unorderColumns[modelData->drugMap[drug]]->push_back(currentEntry);
 						uniqueDrugsForEntry.push_back(drug);
 					}
 				}
@@ -147,21 +147,21 @@ void SCCSInputReader::readFile(const char* fileName) {
 		}
 	}
 
-	nevents.push_back(numEvents); // Save last patient
+	modelData->nevents.push_back(numEvents); // Save last patient
 
 //	columns = vector<int_vector>(unorderColumns.size());
-	columns.resize(unorderColumns.size());
-	formatType.resize(unorderColumns.size(), INDICATOR);
+	modelData->columns.resize(unorderColumns.size());
+	modelData->formatType.resize(unorderColumns.size(), INDICATOR);
 
 	// Sort drugs numerically
 	int index = 0;
-	for (map<DrugIdType,int>::iterator ii = drugMap.begin(); ii != drugMap.end(); ii++) {
-		if (columns[index]) {
-			delete columns[index];
+	for (map<DrugIdType,int>::iterator ii = modelData->drugMap.begin(); ii != modelData->drugMap.end(); ii++) {
+		if (modelData->columns[index]) {
+			delete modelData->columns[index];
 		}
-	   	columns[index] = unorderColumns[(*ii).second];
-	   	drugMap[(*ii).first] = index;
-	   	indexToDrugIdMap.insert(make_pair(index, (*ii).first));
+	   	modelData->columns[index] = unorderColumns[(*ii).second];
+	   	modelData->drugMap[(*ii).first] = index;
+	   	modelData->indexToDrugIdMap.insert(make_pair(index, (*ii).first));
 	   	index++;
 	}
 
@@ -173,10 +173,10 @@ void SCCSInputReader::readFile(const char* fileName) {
 //	cout << "Number of patients: " << numPatients << endl;
 //	cout << "Number of drugs: " << numDrugs << endl;
 
-	nPatients = numPatients;
-	nCols = columns.size();
-	nRows = currentEntry;
-	conditionId = outcomeId;
+	modelData->nPatients = numPatients;
+	modelData->nCols = modelData->columns.size();
+	modelData->nRows = currentEntry;
+	modelData->conditionId = outcomeId;
 
 #if 0
 	cout << "Converting first column to dense format" << endl;

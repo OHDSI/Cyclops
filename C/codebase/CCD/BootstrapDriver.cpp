@@ -17,8 +17,8 @@
 
 BootstrapDriver::BootstrapDriver(
 		int inReplicates,
-		InputReader* inReader) : replicates(inReplicates), reader(inReader),
-		J(inReader->getNumberOfColumns()) {
+		ModelData* inModelData) : replicates(inReplicates), modelData(inModelData),
+		J(inModelData->getNumberOfColumns()) {
 
 	// Set-up storage for bootstrap estimates
 	estimates.resize(J);
@@ -74,7 +74,7 @@ void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<real
 		exit(-1);
 	}
 
-	map<int, DrugIdType> drugMap = reader->getDrugNameMap();
+	map<int, DrugIdType> drugMap = modelData->getDrugNameMap();
 
 	string sep(","); // TODO Make option
 

@@ -16,56 +16,62 @@ CompressedDataMatrix::CompressedDataMatrix() {
 	// Do nothing
 }
 
-CompressedDataMatrix::CompressedDataMatrix(const char* fileName) {
-	
-	ifstream in(fileName);	
-	if (!in) {
-		cerr << "Unable to open " << fileName << endl;
-		exit(-1);
-	}
-	
-	// Read header line
-	char buffer[256];
-	in.getline(buffer, 256);
-	
-	// Read matrix dimensions
-	in >> nRows >> nCols >> nEntries;
-	
-//	// Allocate some memory
-//	columns = std::vector<int_vector>(nCols);
-//	for (int j = 0; j < nCols; j++) {
-//		columns[j] = int_vector(); // Create empty list
+//CompressedDataMatrix::CompressedDataMatrix(const char* fileName) {
+//
+//	ifstream in(fileName);
+//	if (!in) {
+//		cerr << "Unable to open " << fileName << endl;
+//		exit(-1);
 //	}
-	allocateMemory(nCols);
-	
-	// Read each matrix entry
-	for (int k = 0; k < nEntries; k++) {
-		int i, j;
-		double x;
-		in >> i >> j >> x;
-		i--; // C uses 0-indices, MatrixMarket uses 1-indices
-		j--;	
-		if (x != 1) {
-			cerr << "Non-zero/one element in matrix." << endl;
-			exit(-1);
-		}
-		columns[j]->push_back(i);
-	}
-	
-	// Sort all columns, just in case MatrixMarket file is corrupted
-	for (int j = 0; j < nCols; j++) {
-		std::sort(columns[j]->begin(), columns[j]->end());
-	}
-		
-#ifdef DEBUG
-	cerr << "Read in sparse indicator matrix from " << fileName << endl;
-	cerr << "Spare matrix dimensions = " << nRows << " x " << nCols << endl;
-	cerr << "Number of non-zero elements = " << nEntries << endl;	
-#endif
-	
-}
+//
+//	// Read header line
+//	char buffer[256];
+//	in.getline(buffer, 256);
+//
+//	// Read matrix dimensions
+//	in >> nRows >> nCols >> nEntries;
+//
+////	// Allocate some memory
+////	columns = std::vector<int_vector>(nCols);
+////	for (int j = 0; j < nCols; j++) {
+////		columns[j] = int_vector(); // Create empty list
+////	}
+//	allocateMemory(nCols);
+//
+//	// Read each matrix entry
+//	for (int k = 0; k < nEntries; k++) {
+//		int i, j;
+//		double x;
+//		in >> i >> j >> x;
+//		i--; // C uses 0-indices, MatrixMarket uses 1-indices
+//		j--;
+//		if (x != 1) {
+//			cerr << "Non-zero/one element in matrix." << endl;
+//			exit(-1);
+//		}
+//		columns[j]->push_back(i);
+//	}
+//
+//	// Sort all columns, just in case MatrixMarket file is corrupted
+//	for (int j = 0; j < nCols; j++) {
+//		std::sort(columns[j]->begin(), columns[j]->end());
+//	}
+//
+//#ifdef DEBUG
+//	cerr << "Read in sparse indicator matrix from " << fileName << endl;
+//	cerr << "Spare matrix dimensions = " << nRows << " x " << nCols << endl;
+//	cerr << "Number of non-zero elements = " << nEntries << endl;
+//#endif
+//
+//}
 
 CompressedDataMatrix::~CompressedDataMatrix() {
+#ifdef DATA_AOS
+	typedef std::vector<CompressedDataColumn*>::iterator CIterator;
+	for (CIterator it = allColumns.begin(); it != allColumns.end(); ++it) {
+		delete *it;
+	}
+#else
 	typedef std::vector<real_vector*>::iterator RIterator;
 	for (RIterator it = data.begin(); it != data.end(); ++it) {
 		if (*it) {
@@ -79,9 +85,14 @@ CompressedDataMatrix::~CompressedDataMatrix() {
 			delete *it;
 		}
 	}
+#endif
 }
 
 real CompressedDataMatrix::sumColumn(int column) {
+#ifdef DATA_AOS
+	cerr << "Not yet implemented.\n";
+	exit(-1);
+#else
 	real sum = 0.0;
 	if (getFormatType(column) == DENSE) {
 		cerr << "Not yet implemented (DENSE)." << endl;
@@ -93,9 +104,14 @@ real CompressedDataMatrix::sumColumn(int column) {
 		sum = columns[column]->size();
 	}
 	return sum;
+#endif
 }
 
 void CompressedDataMatrix::printColumn(int column) {
+#ifdef DATA_AOS
+	cerr << "Not yet implemented.\n";
+	exit(-1);
+#else
 	real_vector values;
 	if (getFormatType(column) == DENSE) {
 		values.assign(data[column]->begin(), data[column]->end());
@@ -114,6 +130,7 @@ void CompressedDataMatrix::printColumn(int column) {
 		}
 	}
 	printVector(values.data(), values.size());
+#endif
 }
 
 //template <class T>
@@ -128,6 +145,10 @@ void CompressedDataMatrix::printColumn(int column) {
 
 
 void CompressedDataMatrix::convertColumnToSparse(int column) {
+#ifdef DATA_AOS
+	cerr << "Not yet implemented.\n";
+	exit(-1);
+#else
 	if (getFormatType(column) == SPARSE) {
 		return;
 	}
@@ -151,9 +172,14 @@ void CompressedDataMatrix::convertColumnToSparse(int column) {
 
 	data[column]->assign(nRows, value);
 	formatType[column] = SPARSE;
+#endif
 }
 
 void CompressedDataMatrix::convertColumnToDense(int column) {
+#ifdef DATA_AOS
+	cerr << "Not yet implemented.\n";
+	exit(-1);
+#else
 	if (getFormatType(column) == DENSE) {
 		return;
 	}
@@ -190,6 +216,7 @@ void CompressedDataMatrix::convertColumnToDense(int column) {
 //	exit(0);
 	formatType[column] = DENSE;
 	delete columns[column]; columns[column] = NULL;
+#endif
 }
 
 int CompressedDataMatrix::getNumberOfRows(void) const {
@@ -201,27 +228,43 @@ int CompressedDataMatrix::getNumberOfColumns(void) const {
 }
 
 int CompressedDataMatrix::getNumberOfEntries(int column) const {
+#ifdef DATA_AOS
+	return allColcolumns[column]->getNumberOfEntries();
+#else
 	return columns[column]->size();
+#endif
 }
 
 int* CompressedDataMatrix::getCompressedColumnVector(int column) const {
+#ifdef DATA_AOS
+	return allColumns[column]->getColumns();
+#else
 	return const_cast<int*>(&(columns[column]->at(0)));
+#endif
 }
 
 real* CompressedDataMatrix::getDataVector(int column) const {
+#ifdef DATA_AOS
+	return allColumns[column]->getData();
+#else
 	return const_cast<real*>(data[column]->data());
+#endif
 }
 
-void CompressedDataMatrix::allocateMemory(int nCols) {
-	// Allocate some memory
-//	columns = std::vector<int_vector*>(nCols);
-	columns.resize(nCols);
-	for (int j = 0; j < nCols; j++) {
-//		columns[j] = int_vector(); // Create empty list
-		columns[j] = new int_vector();
-	}
-}
+//void CompressedDataMatrix::allocateMemory(int nCols) {
+//	// Allocate some memory
+////	columns = std::vector<int_vector*>(nCols);
+//	columns.resize(nCols);
+//	for (int j = 0; j < nCols; j++) {
+////		columns[j] = int_vector(); // Create empty list
+//		columns[j] = new int_vector();
+//	}
+//}
 
 FormatType CompressedDataMatrix::getFormatType(int column) const {
+#ifdef DATA_AOS
+	allColumns[column]->getFormatType();
+#else
 	return formatType[column];
+#endif
 }

@@ -19,10 +19,7 @@
 using std::cout;
 using std::cerr;
 using std::endl;
-//using std::in;
 using std::ifstream;
-
-//#define DEBUG
 
 //#define DATA_AOS
 
@@ -40,9 +37,10 @@ enum FormatType {
 };
 
 class CompressedDataColumn {
-	
-	CompressedDataColumn(int_vector* colIndices, real_vector* colData, FormatType colFormat) :
-		 columns(colIndices), data(colData), formatType(colFormat) {
+public:
+	CompressedDataColumn(int_vector* colIndices, real_vector* colData, FormatType colFormat,
+			std::string colName = "") :
+		 columns(colIndices), data(colData), formatType(colFormat), name(colName) {
 		// Do nothing
 	}	
 	
@@ -55,18 +53,26 @@ class CompressedDataColumn {
 		}
 	}
 	
-	int* getColumns() {
+	int* getColumns() const {
 		return static_cast<int*>(columns->data());
 	}
 	
-	real* getData() {
+	real* getData() const {
 		return static_cast<real*>(data->data());
 	}
 	
-	FormatType getFormatType() {
+	FormatType getFormatType() const {
 		return formatType;
 	}
 	
+	const std::string& getName() const {
+		return name;
+	}
+
+	int getNumberOfEntries() const {
+		return columns->size();
+	}
+
 	void add_data(int row, real value) {
 		if (formatType == DENSE) {
 			data->push_back(value);
@@ -87,13 +93,14 @@ class CompressedDataColumn {
 	}
 	
 private:
-	
+	// Disable copy-constructors
 	CompressedDataColumn();
 	CompressedDataColumn(const CompressedDataColumn&);
 	
 	int_vector* columns;
 	real_vector* data;
 	FormatType formatType;
+	std::string name;
 };
 
 class CompressedDataMatrix {
@@ -193,7 +200,7 @@ protected:
 		if (allColumns[column]) {
 			delete allColumns[column];
 		}
-		allColumns.erase(allColumsn.begin() + column);		
+		allColumns.erase(allColumns.begin() + column);
 #else
 		if (columns[column]) {
 			delete columns[column];

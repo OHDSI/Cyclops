@@ -66,22 +66,22 @@ void CLRInputReader::readFile(const char* fileName) {
 	// Set-up fixed columns of covariates
 	int_vector* gender = new int_vector();
 	if (useGender) {
-		push_back(gender, NULL, INDICATOR);
+		modelData->push_back(gender, NULL, INDICATOR);
 	}
 
 	real_vector* age = new real_vector();
 	if (useAge) {
-		push_back(NULL, age, DENSE);
+		modelData->push_back(NULL, age, DENSE);
 	}
 
 	real_vector* drugCount = new real_vector();
 	if (useDrugCount) {
-		push_back(NULL, drugCount, DENSE);
+		modelData->push_back(NULL, drugCount, DENSE);
 	}
 
 	real_vector* days = new real_vector();
 	if (useDays) {
-		push_back(NULL, days, DENSE);
+		modelData->push_back(NULL, days, DENSE);
 	}
 
 	vector<int_vector*> unorderColumns = vector<int_vector*>();
@@ -125,23 +125,23 @@ void CLRInputReader::readFile(const char* fileName) {
 			string unmappedPid = strVector[0];
 			if (unmappedPid != currentPid) { // New patient, ASSUMES these are sorted
 				if (currentPid != MISSING_STRING) { // Skip first switch
-					nevents.push_back(numEvents);
+					modelData->nevents.push_back(numEvents);
 					numEvents = 0;
 				}
 				currentPid = unmappedPid;
 				numCases++;
 //				cerr << "Added new case!" << endl;
 			}
-			pid.push_back(numCases - 1);
+			modelData->pid.push_back(numCases - 1);
 
 			// Parse outcome entry
 			int thisY;
 			istringstream(strVector[2]) >> thisY;
  			numEvents += thisY;
-			y.push_back(thisY);
+ 			modelData->y.push_back(thisY);
 
 			// Fix offs for CLR
-			offs.push_back(1);
+ 			modelData->offs.push_back(1);
 
 			// Parse gender entry; F = 0; M = 1
 			if (strVector[3] == "F") {
@@ -183,8 +183,8 @@ void CLRInputReader::readFile(const char* fileName) {
 //					cerr  << drug << ":" << thisQuantity << " ";
 					if (maxDaysOnDrug == -1 || thisQuantity <= maxDaysOnDrug) {  // Only add drug:0 pairs
 //						cerr << "add ";
-						if (drugMap.count(drug) == 0) {
-							drugMap.insert(make_pair(drug, numDrugs));
+						if (modelData->drugMap.count(drug) == 0) {
+							modelData->drugMap.insert(make_pair(drug, numDrugs));
 							unorderColumns.push_back(new int_vector());
 							if (useDrugIndicator) {
 								unorderData.push_back(NULL);
@@ -195,9 +195,9 @@ void CLRInputReader::readFile(const char* fileName) {
 						}
 						if (!listContains(uniqueDrugsForEntry, drug)) {
 							// Add to CSC storage
-							unorderColumns[drugMap[drug]]->push_back(currentEntry);
+							unorderColumns[modelData->drugMap[drug]]->push_back(currentEntry);
 							if (!useDrugIndicator) {
-								unorderData[drugMap[drug]]->push_back(thisQuantity);
+								unorderData[modelData->drugMap[drug]]->push_back(thisQuantity);
 							}
 						}
 					}
@@ -208,39 +208,39 @@ void CLRInputReader::readFile(const char* fileName) {
 		}
 	}
 
-	nevents.push_back(numEvents); // Save last patient
-	int index = columns.size();
+	modelData->nevents.push_back(numEvents); // Save last patient
+	int index = modelData->columns.size();
 
 	for (int i = 0; i < unorderColumns.size(); ++i) {
-		columns.push_back(NULL);
-		data.push_back(NULL);
-		formatType.push_back(useDrugIndicator ?  INDICATOR : SPARSE);
+		modelData->columns.push_back(NULL);
+		modelData->data.push_back(NULL);
+		modelData->formatType.push_back(useDrugIndicator ?  INDICATOR : SPARSE);
 	}
 
 	// Sort drugs numerically
-	for (map<DrugIdType,int>::iterator ii = drugMap.begin(); ii != drugMap.end(); ii++) {
-		if (columns[index]) {
-			delete columns[index];
+	for (map<DrugIdType,int>::iterator ii = modelData->drugMap.begin(); ii != modelData->drugMap.end(); ii++) {
+		if (modelData->columns[index]) {
+			delete modelData->columns[index];
 		}
-		if (data[index]) {
-			delete data[index];
+		if (modelData->data[index]) {
+			delete modelData->data[index];
 		}
-	   	columns[index] = unorderColumns[(*ii).second];
-	   	data[index] = unorderData[(*ii).second];
-	   	drugMap[(*ii).first] = index;
-	   	indexToDrugIdMap.insert(make_pair(index, (*ii).first));
+		modelData->columns[index] = unorderColumns[(*ii).second];
+		modelData->data[index] = unorderData[(*ii).second];
+		modelData->drugMap[(*ii).first] = index;
+		modelData->indexToDrugIdMap.insert(make_pair(index, (*ii).first));
 	   	index++;
 	}
 
 	cout << "Read " << currentEntry << " data lines from " << fileName << endl;
 	cout << "Number of patients: " << numCases << endl;
-	cout << "Number of drugs: " << numDrugs << " out of " << columns.size() << endl;
+	cout << "Number of drugs: " << numDrugs << " out of " << modelData->columns.size() << endl;
 
 
-	nPatients = numCases;
-	nCols = columns.size();
-	nRows = currentEntry;
-	conditionId = outcomeId;
+	modelData->nPatients = numCases;
+	modelData->nCols = modelData->columns.size();
+	modelData->nRows = currentEntry;
+	modelData->conditionId = outcomeId;
 
 #if 0
 //	erase(0);

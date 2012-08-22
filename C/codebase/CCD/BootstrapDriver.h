@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "AbstractDriver.h"
-#include "io/InputReader.h"
+#include "ModelData.h"
 
 typedef std::vector<real> rvector;
 typedef std::vector<rvector*> rarray;
@@ -21,7 +21,7 @@ class BootstrapDriver : public AbstractDriver {
 public:
 	BootstrapDriver(
 			int inReplicates,
-			InputReader* inReader);
+			ModelData* inModelData);
 
 	virtual ~BootstrapDriver();
 
@@ -36,7 +36,7 @@ public:
 
 private:
 	const int replicates;
-	InputReader* reader;
+	ModelData* modelData;
 	const int J;
 	rarray estimates;
 };

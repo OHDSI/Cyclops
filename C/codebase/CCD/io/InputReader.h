@@ -31,52 +31,57 @@ using std::stringstream;
 //}
 #endif
 
-#include "CompressedDataMatrix.h"
+#include "ModelData.h"
 
-//#define USE_DRUG_STRING
+////#define USE_DRUG_STRING
+//
+//#ifdef USE_DRUG_STRING
+//	typedef string DrugIdType; // TODO Strings do not get sorted in numerical order
+//#else
+//	typedef int DrugIdType;
+//#endif
 
-#ifdef USE_DRUG_STRING
-	typedef string DrugIdType; // TODO Strings do not get sorted in numerical order
-#else
-	typedef int DrugIdType;
-#endif
-
-class InputReader: public CompressedDataMatrix {
+class InputReader {
 public:
 	InputReader();
 	virtual ~InputReader();
 
-	int* getPidVector();
-	real* getYVector();
-	int* getNEventVector();
-	int* getOffsetVector();
-	map<int, DrugIdType> getDrugNameMap();
-	int getNumberOfPatients();
-	string getConditionId();
-	std::vector<int>* getPidVectorSTL();
-
-	const std::vector<real>& getZVectorRef() const {
-		return z;
-	}
-
-	const std::vector<real>& getYVectorRef() const {
-		return y;
-	}
-
-	const std::vector<int>& getPidVectorRef() const {
-		return pid;
-	}
+//	int* getPidVector();
+//	real* getYVector();
+//	int* getNEventVector();
+//	int* getOffsetVector();
+//	map<int, DrugIdType> getDrugNameMap();
+//	int getNumberOfPatients();
+//	string getConditionId();
+//	std::vector<int>* getPidVectorSTL();
+//
+//	const std::vector<real>& getZVectorRef() const {
+//		return z;
+//	}
+//
+//	const std::vector<real>& getYVectorRef() const {
+//		return y;
+//	}
+//
+//	const std::vector<int>& getPidVectorRef() const {
+//		return pid;
+//	}
 
 	virtual void readFile(const char* fileName) = 0;
 
+	ModelData* getModelData() {
+		deleteModelData = false;
+		return modelData;
+	}
+
 protected:
 
-	template <class T>
-	T* makeDeepCopy(T *original, unsigned int length) {
-		T *copy = (T *) malloc(length * sizeof(T));
-		memcpy(copy, original, length * sizeof(T));
-		return copy;
-	}
+//	template <class T>
+//	T* makeDeepCopy(T *original, unsigned int length) {
+//		T *copy = (T *) malloc(length * sizeof(T));
+//		memcpy(copy, original, length * sizeof(T));
+//		return copy;
+//	}
 
 	bool listContains(const vector<DrugIdType>& list, DrugIdType value);
 
@@ -84,15 +89,18 @@ protected:
 	       const  string  & theString,
 	       const  string  & theDelimiter);
 
-	int nPatients;
-	vector<int> pid;
-	vector<real> y;
-	vector<real> z;
-	vector<int> offs;
-	vector<int> nevents;
-	map<DrugIdType, int> drugMap;
-	map<int, DrugIdType> indexToDrugIdMap;
-	string conditionId;
+//	int nPatients;
+//	vector<int> pid;
+//	vector<real> y;
+//	vector<real> z;
+//	vector<int> offs;
+//	vector<int> nevents;
+//	map<DrugIdType, int> drugMap;
+//	map<int, DrugIdType> indexToDrugIdMap;
+//	string conditionId;
+
+	ModelData* modelData;
+	bool deleteModelData;
 };
 
 #endif /* INPUTREADER_H_ */

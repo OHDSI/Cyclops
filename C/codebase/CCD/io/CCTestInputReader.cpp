@@ -69,8 +69,8 @@ void CCTestInputReader::readFile(const char* fileName) {
 	vector<string> strVector;
 	string outerDelimiter(DELIMITER);
 
-	push_back(INDICATOR); // Exposed
-	push_back(SPARSE); // DrugCount
+	modelData->push_back(INDICATOR); // Exposed
+	modelData->push_back(SPARSE); // DrugCount
 
 	int currentRow = 0;
 	while (getline(in, line) && (currentRow < MAX_ENTRIES)) {
@@ -83,22 +83,22 @@ void CCTestInputReader::readFile(const char* fileName) {
 			string unmappedStratum = strVector[colStratum];
 			if (unmappedStratum != currentStratum) { // New stratum, ASSUMES these are sorted
 				if (currentStratum != MISSING_STRING) { // Skip first switch
-					nevents.push_back(1);
+					modelData->nevents.push_back(1);
 					numEvents = 0;
 				}
 				currentStratum = unmappedStratum;
 				numCases++;
 			}
-			pid.push_back(numCases - 1);
+			modelData->pid.push_back(numCases - 1);
 
 			// Parse outcome entry
 			int thisY;
 			istringstream(strVector[colOutcome]) >> thisY;
  			numEvents += thisY;
-			y.push_back(thisY);
+ 			modelData->y.push_back(thisY);
 
 			// Fix offs for CLR
-			offs.push_back(1);
+ 			modelData->offs.push_back(1);
 
 			// Parse covariates
 			int value = 0;
@@ -109,18 +109,18 @@ void CCTestInputReader::readFile(const char* fileName) {
 				}
 
 			}
-			add_data(0, currentRow, value);
+			modelData->add_data(0, currentRow, value);
 
 			value = 0;
 			istringstream(strVector[colCount]) >> value;
-			add_data(1, currentRow, value);
+			modelData->add_data(1, currentRow, value);
 
 			currentRow++;
 		}
 	}
-	nevents.push_back(1); // Save last patient
+	modelData->nevents.push_back(1); // Save last patient
 
-	int index = columns.size();
+	int index = modelData->columns.size();
 
 	cout << "CCTestInputReader" << endl;
 	cout << "Read " << currentRow << " data lines from " << fileName << endl;
@@ -130,8 +130,8 @@ void CCTestInputReader::readFile(const char* fileName) {
 //	cout << "Sum of exposed: " << std::accumulate(data[0]->begin(), data[0]->end(), static_cast<real>(0.0)) << endl;
 //	cout << "Sum of count  : " << std::accumulate(data[1]->begin(), data[1]->end(), static_cast<real>(0.0)) << endl;
 
-	nPatients = numCases;
-	nCols = columns.size();
-	nRows = currentRow;
-	conditionId = "0";
+	modelData->nPatients = numCases;
+	modelData->nCols = modelData->columns.size();
+	modelData->nRows = currentRow;
+	modelData->conditionId = "0";
 }

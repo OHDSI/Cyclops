@@ -24,6 +24,7 @@
 
 #include "ccd.h"
 #include "CyclicCoordinateDescent.h"
+#include "ModelData.h"
 #include "io/InputReader.h"
 #include "io/CLRInputReader.h"
 #include "io/RTestInputReader.h"
@@ -340,7 +341,7 @@ void parseCommandLine(std::vector<std::string>& args,
 }
 
 double initializeModel(
-		InputReader** reader,
+		ModelData** modelData,
 		CyclicCoordinateDescent** ccd,
 		AbstractModelSpecifics** model,
 //		ModelSpecifics<DefaultModel>** model,
@@ -357,32 +358,36 @@ double initializeModel(
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
+	InputReader* reader;
+
 	if (arguments.fileFormat == "sccs") {
-		*reader = new SCCSInputReader();
+		reader = new SCCSInputReader();
 	} else if (arguments.fileFormat == "clr") {
-		*reader = new CLRInputReader();
+		reader = new CLRInputReader();
 	} else if (arguments.fileFormat == "csv") {
-		*reader = new RTestInputReader();
+		reader = new RTestInputReader();
 	} else if (arguments.fileFormat == "cc") {
-		*reader = new CCTestInputReader();
+		reader = new CCTestInputReader();
 	} else if (arguments.fileFormat == "cox-csv") {
-		*reader = new CoxInputReader();
+		reader = new CoxInputReader();
 	} else {
 		cerr << "Invalid file format." << endl;
 		exit(-1);
 	}
-	(*reader)->readFile(arguments.inFileName.c_str()); // TODO Check for error
+	reader->readFile(arguments.inFileName.c_str()); // TODO Check for error
+	// delete reader;
+	*modelData = reader->getModelData();
 
 	if (arguments.modelName == "sccs") {
-		*model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>(**reader);
+		*model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>(**modelData);
 	} else if (arguments.modelName == "clr") {
-		*model = new ModelSpecifics<ConditionalLogisticRegression<real>,real>((**reader));
+		*model = new ModelSpecifics<ConditionalLogisticRegression<real>,real>(**modelData);
 	} else if (arguments.modelName == "lr") {
-		*model = new ModelSpecifics<LogisticRegression<real>,real>(**reader);
+		*model = new ModelSpecifics<LogisticRegression<real>,real>(**modelData);
 	} else if (arguments.modelName == "ls") {
-		*model = new ModelSpecifics<LeastSquares<real>,real>(**reader);
+		*model = new ModelSpecifics<LeastSquares<real>,real>(**modelData);
 	} else if (arguments.modelName == "cox") {
-		*model = new ModelSpecifics<CoxProportionalHazards<real>,real>(**reader);
+		*model = new ModelSpecifics<CoxProportionalHazards<real>,real>(**modelData);
 	} else {
 		cerr << "Invalid model type." << endl;
 		exit(-1);
@@ -394,7 +399,7 @@ double initializeModel(
 	} else {
 #endif
 
-	*ccd = new CyclicCoordinateDescent(*reader, **model);
+	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model);
 
 #ifdef CUDA
 	}
@@ -442,15 +447,15 @@ double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
 
 double runBoostrap(
 		CyclicCoordinateDescent *ccd,
-		InputReader *reader,
+		ModelData *modelData,
 		CCDArguments &arguments,
 		std::vector<real>& savedBeta) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	BootstrapSelector selector(arguments.replicates, reader->getPidVectorSTL(),
+	BootstrapSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
 			SUBJECT, arguments.seed);
-	BootstrapDriver driver(arguments.replicates, reader);
+	BootstrapDriver driver(arguments.replicates, modelData);
 
 	driver.drive(*ccd, selector, arguments);
 	gettimeofday(&time2, NULL);
@@ -459,12 +464,12 @@ double runBoostrap(
 	return calculateSeconds(time1, time2);
 }
 
-double runCrossValidation(CyclicCoordinateDescent *ccd, InputReader *reader,
+double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
 		CCDArguments &arguments) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	CrossValidationSelector selector(arguments.fold, reader->getPidVectorSTL(),
+	CrossValidationSelector selector(arguments.fold, modelData->getPidVectorSTL(),
 			SUBJECT, arguments.seed);
 	CrossValidationDriver driver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
 
@@ -528,19 +533,19 @@ int main(int argc, char* argv[]) {
 
 	CyclicCoordinateDescent* ccd = NULL;
 	AbstractModelSpecifics* model = NULL;
-	InputReader* reader = NULL;
+	ModelData* modelData = NULL;
 	CCDArguments arguments;
 
 	parseCommandLine(argc, argv, arguments);
 
-	double timeInitialize = initializeModel(&reader, &ccd, &model, arguments);
+	double timeInitialize = initializeModel(&modelData, &ccd, &model, arguments);
 
 	double timeUpdate;
 	if (arguments.doCrossValidation) {
-		timeUpdate = runCrossValidation(ccd, reader, arguments);
+		timeUpdate = runCrossValidation(ccd, modelData, arguments);
 	} else {
 		if (arguments.doPartial) {
-			ProportionSelector selector(arguments.replicates, reader->getPidVectorSTL(),
+			ProportionSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
 					SUBJECT, arguments.seed);
 			std::vector<real> weights;
 			selector.getWeights(0, weights);
@@ -555,7 +560,7 @@ int main(int argc, char* argv[]) {
 		for (int j = 0; j < ccd->getBetaSize(); ++j) {
 			savedBeta.push_back(ccd->getBeta(j));
 		}
-		timeUpdate += runBoostrap(ccd, reader, arguments, savedBeta);
+		timeUpdate += runBoostrap(ccd, modelData, arguments, savedBeta);
 	}
 		
 	cout << endl;
@@ -566,8 +571,8 @@ int main(int argc, char* argv[]) {
 		delete ccd;
 	if (model)
 		delete model;
-	if (reader)
-		delete reader;
+	if (modelData)
+		delete modelData;
 
     return 0;
 }

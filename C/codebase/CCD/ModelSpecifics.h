@@ -15,7 +15,7 @@
 template <class BaseModel, typename WeightType>
 class ModelSpecifics : public AbstractModelSpecifics, BaseModel {
 public:
-	ModelSpecifics(const InputReader& input);
+	ModelSpecifics(const ModelData& input);
 
 	virtual ~ModelSpecifics();
 

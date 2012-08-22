@@ -14,7 +14,7 @@
 //	// Do nothing
 //}
 
-AbstractModelSpecifics::AbstractModelSpecifics(const InputReader& input)
+AbstractModelSpecifics::AbstractModelSpecifics(const ModelData& input)
 	: oY(input.getYVectorRef()), oZ(input.getZVectorRef()),
 	  oPid(input.getPidVectorRef()),
 	  hY(const_cast<real*>(oY.data())), hZ(const_cast<real*>(oZ.data())),

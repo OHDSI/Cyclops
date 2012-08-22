@@ -23,7 +23,7 @@
 //}
 
 template <class BaseModel,typename WeightType>
-ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const InputReader& input)
+ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
 	: AbstractModelSpecifics(input), BaseModel() {
 	// TODO Memory allocation here
 }

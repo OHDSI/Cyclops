@@ -33,7 +33,7 @@
 
 using namespace std;
 
-InputReader::InputReader() {
+InputReader::InputReader() : modelData(new ModelData()), deleteModelData(true) {
 	// Do nothing
 }
 
@@ -42,16 +42,18 @@ bool InputReader::listContains(const vector<DrugIdType>& list, DrugIdType value)
 				!=  list.end());
 }
 
-int InputReader::getNumberOfPatients() {
-	return nPatients;
-}
-
-string InputReader::getConditionId() {
-	return conditionId;
-}
+//int InputReader::getNumberOfPatients() {
+//	return nPatients;
+//}
+//
+//string InputReader::getConditionId() {
+//	return conditionId;
+//}
 
 InputReader::~InputReader() {
-	// Do nothing
+	if (deleteModelData) {
+		delete modelData;
+	}
 }
 
 void InputReader::split( vector<string> & theStringVector,  /* Altered/returned value */
@@ -73,31 +75,31 @@ void InputReader::split( vector<string> & theStringVector,  /* Altered/returned 
     }
 }
 
-int* InputReader::getPidVector() {	
-	//return &pid[0];
-	return makeDeepCopy(&pid[0], pid.size());
-}
-
-std::vector<int>* InputReader::getPidVectorSTL() {
-	return new std::vector<int>(pid);
-}
-
-real* InputReader::getYVector() {
-	//return &eta[0];
-	return makeDeepCopy(&y[0], y.size());
-}
-
-int* InputReader::getNEventVector() {
-	//return &nevents[0];
-	return makeDeepCopy(&nevents[0], nevents.size());
-}
-
-int* InputReader::getOffsetVector() {
-	//return &offs[0];
-	return makeDeepCopy(&offs[0], offs.size());
-}
-
-map<int, DrugIdType> InputReader::getDrugNameMap() {
-//	return drugMap;
-	return indexToDrugIdMap;
-}
+//int* InputReader::getPidVector() {
+//	//return &pid[0];
+//	return makeDeepCopy(&pid[0], pid.size());
+//}
+//
+//std::vector<int>* InputReader::getPidVectorSTL() {
+//	return new std::vector<int>(pid);
+//}
+//
+//real* InputReader::getYVector() {
+//	//return &eta[0];
+//	return makeDeepCopy(&y[0], y.size());
+//}
+//
+//int* InputReader::getNEventVector() {
+//	//return &nevents[0];
+//	return makeDeepCopy(&nevents[0], nevents.size());
+//}
+//
+//int* InputReader::getOffsetVector() {
+//	//return &offs[0];
+//	return makeDeepCopy(&offs[0], offs.size());
+//}
+//
+//map<int, DrugIdType> InputReader::getDrugNameMap() {
+////	return drugMap;
+//	return indexToDrugIdMap;
+//}
