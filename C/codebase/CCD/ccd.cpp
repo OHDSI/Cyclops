@@ -362,6 +362,7 @@ double initializeModel(
 
 	if (arguments.fileFormat == "sccs") {
 		reader = new SCCSInputReader();
+#ifndef DATA_AOS
 	} else if (arguments.fileFormat == "clr") {
 		reader = new CLRInputReader();
 	} else if (arguments.fileFormat == "csv") {
@@ -370,6 +371,7 @@ double initializeModel(
 		reader = new CCTestInputReader();
 	} else if (arguments.fileFormat == "cox-csv") {
 		reader = new CoxInputReader();
+#endif
 	} else {
 		cerr << "Invalid file format." << endl;
 		exit(-1);

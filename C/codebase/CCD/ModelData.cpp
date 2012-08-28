@@ -18,7 +18,7 @@
 
 
 ModelData::ModelData() {
-	// Do nothing
+	// Do nothing	
 }
 
 int ModelData::getNumberOfPatients() {

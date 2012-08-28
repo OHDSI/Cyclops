@@ -166,7 +166,7 @@ class GenericIterator {
 			}
 			mIndices = mat.getCompressedColumnVector(column);
 			mEnd = mat.getNumberOfEntries(column);
-		}
+		}		
 	}
 
     inline GenericIterator& operator++() { ++mId; return *this; }

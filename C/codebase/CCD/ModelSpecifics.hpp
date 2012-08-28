@@ -70,6 +70,7 @@ template<class BaseModel, typename WeightType>
 void ModelSpecifics<BaseModel, WeightType>::computeXjY(bool useCrossValidation) {
 	for (int j = 0; j < J; ++j) {
 		hXjY[j] = 0;
+				
 		GenericIterator it(*hXI, j);
 
 		if (useCrossValidation) {

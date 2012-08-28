@@ -229,7 +229,7 @@ int CompressedDataMatrix::getNumberOfColumns(void) const {
 
 int CompressedDataMatrix::getNumberOfEntries(int column) const {
 #ifdef DATA_AOS
-	return allColcolumns[column]->getNumberOfEntries();
+	return allColumns[column]->getNumberOfEntries();
 #else
 	return columns[column]->size();
 #endif
@@ -262,8 +262,8 @@ real* CompressedDataMatrix::getDataVector(int column) const {
 //}
 
 FormatType CompressedDataMatrix::getFormatType(int column) const {
-#ifdef DATA_AOS
-	allColumns[column]->getFormatType();
+#ifdef DATA_AOS	
+	return allColumns[column]->getFormatType();
 #else
 	return formatType[column];
 #endif

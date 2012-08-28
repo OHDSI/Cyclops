@@ -16,6 +16,10 @@
 
 #include "SCCSInputReader.h"
 
+#ifdef DATA_AOS
+#include "SparseIndexer.h"
+#endif
+
 #ifdef MY_RCPP_FLAG
 // For OSX 10.6, R is built with 4.2.1 which has a bug in stringstream
 stringstream& operator>> (stringstream &in, int &out) {
@@ -73,6 +77,10 @@ void SCCSInputReader::readFile(const char* fileName) {
 	}
 
 	vector<int_vector*> unorderColumns = vector<int_vector*>();
+	
+#ifdef DATA_AOS
+	SparseIndexer indexer(*modelData);
+#endif
 
 	int numPatients = 0;
 	int numDrugs = 0;
@@ -124,32 +132,41 @@ void SCCSInputReader::readFile(const char* fileName) {
 			modelData->offs.push_back(thisOffs);
 
 			// Parse remaining (variable-length) entries
-			DrugIdType drug;
-			vector<DrugIdType> uniqueDrugsForEntry;
+			DrugIdType drug;		
 			while (ss >> drug) {
 				if (drug == noDrug) { // No drug
 					// Do nothing
 				} else {
+#ifdef DATA_AOS				
+					if (!indexer.hasColumn(drug)) {
+						// Add new column
+						indexer.addColumn(drug, INDICATOR);
+					}		
+					// Add to CSC storage
+					indexer.getColumn(drug).add_data(currentEntry, 1.0);
+#else
 					if (modelData->drugMap.count(drug) == 0) {
 						modelData->drugMap.insert(make_pair(drug,numDrugs));
 						unorderColumns.push_back(new int_vector());
 						numDrugs++;
 					}
-					if (!listContains(uniqueDrugsForEntry, drug)) {
-						// Add to CSC storage
-						unorderColumns[modelData->drugMap[drug]]->push_back(currentEntry);
-						uniqueDrugsForEntry.push_back(drug);
-					}
+					
+					// Add to CSC storage
+					unorderColumns[modelData->drugMap[drug]]->push_back(currentEntry);						
+#endif
+
 				}
 			}
-
 			currentEntry++;
 		}
 	}
 
 	modelData->nevents.push_back(numEvents); // Save last patient
 
-//	columns = vector<int_vector>(unorderColumns.size());
+#ifdef DATA_AOS
+	// Easy to sort columns now in AOS format
+	modelData->sortColumns(CompressedDataColumn::sortNumerically);
+#else
 	modelData->columns.resize(unorderColumns.size());
 	modelData->formatType.resize(unorderColumns.size(), INDICATOR);
 
@@ -164,17 +181,20 @@ void SCCSInputReader::readFile(const char* fileName) {
 	   	modelData->indexToDrugIdMap.insert(make_pair(index, (*ii).first));
 	   	index++;
 	}
-
+#endif
+	
 #ifndef MY_RCPP_FLAG
 	cout << "Read " << currentEntry << " data lines from " << fileName << endl;
 #endif
 //	Rprintf("Read %d data lines from %s\n", currentEntry, fileName);
 //	Rprintf("Number of drugs: %d\n", numDrugs);
 //	cout << "Number of patients: " << numPatients << endl;
-//	cout << "Number of drugs: " << numDrugs << endl;
+//	cout << "Number of drugs: " << modelData->getNumberOfColumns() << endl;
 
 	modelData->nPatients = numPatients;
+#ifndef DATA_AOS
 	modelData->nCols = modelData->columns.size();
+#endif
 	modelData->nRows = currentEntry;
 	modelData->conditionId = outcomeId;
 

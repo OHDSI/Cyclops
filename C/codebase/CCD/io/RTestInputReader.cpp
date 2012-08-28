@@ -39,6 +39,8 @@ RTestInputReader::~RTestInputReader() { }
  * Assumes that file is sorted by 'Stratum'
  */
 void RTestInputReader::readFile(const char* fileName) {
+#ifndef DATA_AOS	
+	
 	ifstream in(fileName);
 	if (!in) {
 		cerr << "Unable to open " << fileName << endl;
@@ -137,5 +139,7 @@ void RTestInputReader::readFile(const char* fileName) {
 
 	cerr << "nEvents ";
 	printVector(nevents.data(), nevents.size());
+#endif
+	
 #endif
 }

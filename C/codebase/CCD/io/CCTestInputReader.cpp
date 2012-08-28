@@ -43,7 +43,7 @@ CCTestInputReader::~CCTestInputReader() { }
  * Assumes that file is sorted by 'CaseSetID' (Stratum)
  */
 void CCTestInputReader::readFile(const char* fileName) {
-
+#ifndef DATA_AOS
 	const int numCovariates = 2;
 	const int colStratum = 0;
 	const int colOutcome = 6;
@@ -134,4 +134,5 @@ void CCTestInputReader::readFile(const char* fileName) {
 	modelData->nCols = modelData->columns.size();
 	modelData->nRows = currentRow;
 	modelData->conditionId = "0";
+#endif
 }

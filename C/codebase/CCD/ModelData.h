@@ -56,6 +56,30 @@ public:
 		return pid;
 	}
 	
+	bool hasCovariate(DrugIdType covariate) const {
+		return drugMap.count(covariate) != 0;
+	}
+	
+	
+	void addCovariate(DrugIdType covariate, FormatType type) {
+		drugMap.insert(std::make_pair(covariate,getNumberOfColumns()));
+		push_back(type);
+	}
+	
+	void addLabel(DrugIdType covariate, std::string label) {
+		add_label(drugMap[covariate], label);
+	}
+	
+	void addDatum(DrugIdType covariate, int row, real value) {
+		add_data(drugMap[covariate], row, value);		
+	}
+
+//#ifdef DATA_AOS
+//	CompressedDataColumn& getColumn(DrugIdType covariate) {
+//		return allColumns[drugMap[covariate]];
+//	}
+//#endif
+	
 	// TODO Improve encapsulation
 	friend class SCCSInputReader;
 	friend class CLRInputReader;
@@ -64,6 +88,8 @@ public:
 	friend class CCTestInputReader;
 
 private:
+	// Disable copy-constructors
+	ModelData(const ModelData&);
 
 	template <class T>
 	T* makeDeepCopy(T *original, unsigned int length) {

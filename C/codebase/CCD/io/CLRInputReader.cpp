@@ -48,7 +48,7 @@ void CLRInputReader::readFile(const char* fileName) {
 		cerr << "Unable to open " << fileName << endl;
 		exit(-1);
 	}
-
+#ifndef DATA_AOS
 	string line;
 #ifdef HAS_HEADER
 	getline(in, line); // Read header
@@ -255,7 +255,7 @@ void CLRInputReader::readFile(const char* fileName) {
 #endif
 
 	// TODO If !useGender, etc., then delete memory
-
+#endif
 }
 
 
