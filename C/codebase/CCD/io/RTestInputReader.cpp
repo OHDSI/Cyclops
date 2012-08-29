@@ -39,7 +39,6 @@ RTestInputReader::~RTestInputReader() { }
  * Assumes that file is sorted by 'Stratum'
  */
 void RTestInputReader::readFile(const char* fileName) {
-#ifndef DATA_AOS	
 	
 	ifstream in(fileName);
 	if (!in) {
@@ -69,8 +68,7 @@ void RTestInputReader::readFile(const char* fileName) {
 			if (numCovariates == MISSING_LENGTH) {
 				numCovariates = strVector.size() - 2;
 				for (int i = 0; i < numCovariates; ++i) {
-					real_vector* thisColumn = new real_vector();
-					modelData->push_back(NULL, thisColumn, DENSE);
+					modelData->push_back(DENSE);
 				}
 			} else if (numCovariates != strVector.size() - 2) {
 				cerr << "All rows must be the same length" << endl;
@@ -104,15 +102,13 @@ void RTestInputReader::readFile(const char* fileName) {
 //				real value;
 //				istringstream(strVector[2 + i]) >> value;
 				real value = static_cast<real>(atof(strVector[2 + i].c_str()));
-				modelData->data[i]->push_back(value);
+				modelData->getColumn(i).add_data(currentRow, value);
 			}
 
 			currentRow++;
 		}
 	}
 	modelData->nevents.push_back(1); // Save last patient
-
-	int index = modelData->columns.size();
 
 #ifndef MY_RCPP_FLAG
 	cout << "RTestInputReader" << endl;
@@ -122,24 +118,7 @@ void RTestInputReader::readFile(const char* fileName) {
 #endif
 
 	modelData->nPatients = numCases;
-	modelData->nCols = modelData->columns.size();
 	modelData->nRows = currentRow;
 	modelData->conditionId = "0";
 
-#if 0
-	for (int i = 0; i < nCols; ++i) {
-		printColumn(i);
-	}
-
-	cerr << "PIDs ";
-	printVector(&(pid[0]), static_cast<int>(pid.size()));
-
-	cerr << "Ys ";
-	printVector(eta.data(), eta.size());
-
-	cerr << "nEvents ";
-	printVector(nevents.data(), nevents.size());
-#endif
-	
-#endif
 }

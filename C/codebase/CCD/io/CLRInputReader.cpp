@@ -15,6 +15,7 @@
 #include <algorithm>
 
 #include "CLRInputReader.h"
+#include "SparseIndexer.h"
 
 #define MAX_ENTRIES		1000000000
 #define HAS_HEADER
@@ -48,7 +49,7 @@ void CLRInputReader::readFile(const char* fileName) {
 		cerr << "Unable to open " << fileName << endl;
 		exit(-1);
 	}
-#ifndef DATA_AOS
+
 	string line;
 #ifdef HAS_HEADER
 	getline(in, line); // Read header
@@ -63,29 +64,30 @@ void CLRInputReader::readFile(const char* fileName) {
 	const int maxDaysOnDrug = 0; // -1 = any
 	const bool useDrugIndicator = true;
 
+	SparseIndexer indexer(*modelData);
+
+#define GENDER	-10
+#define AGE		-9
+#define DRUG	-8
+#define DAYS	-7
+
 	// Set-up fixed columns of covariates
 	int_vector* gender = new int_vector();
 	if (useGender) {
-		modelData->push_back(gender, NULL, INDICATOR);
+		indexer.addColumn(GENDER, INDICATOR);
 	}
 
-	real_vector* age = new real_vector();
 	if (useAge) {
-		modelData->push_back(NULL, age, DENSE);
+		indexer.addColumn(AGE, DENSE);
 	}
 
-	real_vector* drugCount = new real_vector();
 	if (useDrugCount) {
-		modelData->push_back(NULL, drugCount, DENSE);
+		indexer.addColumn(DRUG, DENSE);
 	}
 
-	real_vector* days = new real_vector();
 	if (useDays) {
-		modelData->push_back(NULL, days, DENSE);
+		indexer.addColumn(DAYS, DENSE);
 	}
-
-	vector<int_vector*> unorderColumns = vector<int_vector*>();
-	vector<real_vector*> unorderData = vector<real_vector*>();
 
 	int numCases = 0;
 	int numDrugs = 0;
@@ -148,27 +150,26 @@ void CLRInputReader::readFile(const char* fileName) {
 //				cerr << "Female " << currentEntry << endl;
 			} else {
 //				cerr << "Male " << currentEntry << endl;
-				gender->push_back(currentEntry); // Keep track of males
+				indexer.getColumn(GENDER).add_data(currentEntry, 1.0);
 			}
 
 			// Parse age entry
 			int thisAge;
 			istringstream(strVector[4]) >> thisAge;
-			age->push_back(thisAge);
+			indexer.getColumn(AGE).add_data(currentEntry, thisAge);
 
 			// Parse drugCount entry
 			int thisCount;
 			istringstream(strVector[5]) >> thisCount;
-			drugCount->push_back(thisCount);
+			indexer.getColumn(DRUG).add_data(currentEntry, thisCount);
 
 			// Parse days entry
 			int thisDays;
 			istringstream(strVector[6]) >> thisDays;
-			days->push_back(thisDays);
+			indexer.getColumn(DAYS).add_data(currentEntry, thisDays);
 
 			// Parse variable-length entries
 			DrugIdType drug;
-			vector<DrugIdType> uniqueDrugsForEntry;
 
 			vector<string> drugs;
 			if (strVector[drugColumn] != "") {
@@ -180,82 +181,41 @@ void CLRInputReader::readFile(const char* fileName) {
 					istringstream(pair[0]) >> drug;
 					int thisQuantity;
 					istringstream(pair[1]) >> thisQuantity;
-//					cerr  << drug << ":" << thisQuantity << " ";
+
 					if (maxDaysOnDrug == -1 || thisQuantity <= maxDaysOnDrug) {  // Only add drug:0 pairs
-//						cerr << "add ";
-						if (modelData->drugMap.count(drug) == 0) {
-							modelData->drugMap.insert(make_pair(drug, numDrugs));
-							unorderColumns.push_back(new int_vector());
+						if (!indexer.hasColumn(drug)) {
+							// Add new column
 							if (useDrugIndicator) {
-								unorderData.push_back(NULL);
+								indexer.addColumn(drug, INDICATOR);
 							} else {
-								unorderData.push_back(new real_vector());
-							}
-							numDrugs++;
-						}
-						if (!listContains(uniqueDrugsForEntry, drug)) {
-							// Add to CSC storage
-							unorderColumns[modelData->drugMap[drug]]->push_back(currentEntry);
-							if (!useDrugIndicator) {
-								unorderData[modelData->drugMap[drug]]->push_back(thisQuantity);
+								indexer.addColumn(drug, SPARSE);
 							}
 						}
+						// Add to CSC storage
+						real value = useDrugIndicator ? 1.0 : thisQuantity;
+						indexer.getColumn(drug).add_data(currentEntry, value);
 					}
 				}
-//				cerr << endl;
 			}
 			currentEntry++;
 		}
 	}
 
 	modelData->nevents.push_back(numEvents); // Save last patient
-	int index = modelData->columns.size();
 
-	for (int i = 0; i < unorderColumns.size(); ++i) {
-		modelData->columns.push_back(NULL);
-		modelData->data.push_back(NULL);
-		modelData->formatType.push_back(useDrugIndicator ?  INDICATOR : SPARSE);
-	}
-
-	// Sort drugs numerically
-	for (map<DrugIdType,int>::iterator ii = modelData->drugMap.begin(); ii != modelData->drugMap.end(); ii++) {
-		if (modelData->columns[index]) {
-			delete modelData->columns[index];
-		}
-		if (modelData->data[index]) {
-			delete modelData->data[index];
-		}
-		modelData->columns[index] = unorderColumns[(*ii).second];
-		modelData->data[index] = unorderData[(*ii).second];
-		modelData->drugMap[(*ii).first] = index;
-		modelData->indexToDrugIdMap.insert(make_pair(index, (*ii).first));
-	   	index++;
-	}
+	// Easy to sort columns now in AOS format
+	modelData->sortColumns(CompressedDataColumn::sortNumerically);
 
 	cout << "Read " << currentEntry << " data lines from " << fileName << endl;
 	cout << "Number of patients: " << numCases << endl;
-	cout << "Number of drugs: " << numDrugs << " out of " << modelData->columns.size() << endl;
+	cout << "Number of drugs: " << numDrugs << " out of " << modelData->getNumberOfColumns() << endl;
 
 
+	// TODO Code duplication
 	modelData->nPatients = numCases;
-	modelData->nCols = modelData->columns.size();
 	modelData->nRows = currentEntry;
 	modelData->conditionId = outcomeId;
 
-#if 0
-//	erase(0);
-//	erase(0);
-	printColumn(0);
-	cerr << "Sum = " << sumColumn(0) << endl;
-//	printColumn(1);
-//	printColumn(2);
-//	printColumn(3);
-//	printColumn(4);
-	exit(-1);
-#endif
-
-	// TODO If !useGender, etc., then delete memory
-#endif
 }
 
 

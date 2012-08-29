@@ -22,7 +22,7 @@ using std::cerr;
 using std::endl;
 using std::ifstream;
 
-//#define DATA_AOS
+#define DATA_AOS
 
 #ifdef DOUBLE_PRECISION
 	typedef double real;
@@ -55,7 +55,7 @@ public:
 			delete data;
 		}
 	}
-	
+
 	int* getColumns() const {
 		return static_cast<int*>(columns->data());
 	}
@@ -111,7 +111,22 @@ public:
 			exit(-1);
 		}
 	}
+
+	void convertColumnToDense(int nRows);
 	
+	void convertColumnToSparse(void);
+
+	void printColumn(int nRows);
+
+	template <class T>
+	void printVector(T values, const int size) {
+		cout << "[" << values[0];
+		for (int i = 1; i < size; ++i) {
+			cout << " " << values[i];
+		}
+		cout << "]" << endl;
+	}
+
 	static bool sortNumerically(const CompressedDataColumn* i, const CompressedDataColumn* j) {
 		return i->getNumericalLabel() < j->getNumericalLabel();
 	}
@@ -157,36 +172,22 @@ public:
 	void printColumn(int column);
 
 	real sumColumn(int column);
-	
 
-	
-#ifdef DATA_AOS
-	
+	/**
+	 * To sort by any arbitrary measure:
+	 * 1. Construct a std::map<CompressedDataColumn*, measure>
+	 * 2. Build a comparator that examines:
+	 * 			map[CompressedDataColumn* i] < map[CompressedDataColumn* j]
+	 */
 
-	
 	template <typename Comparator>
 	void sortColumns(Comparator cmp) {
-				
 		std::sort(allColumns.begin(), allColumns.end(),
 				cmp);		
 	}
 
 	CompressedDataColumn& getColumn(int column) {
 		return *(allColumns[column]);
-	}
-	
-//	CompressedDataColumn* getColumn(int column) {
-//		return allColumns[column];
-//	}
-#endif
-		
-	template <class T>
-	void printVector(T values, const int size) {
-		cout << "[" << values[0];
-		for (int i = 1; i < size; ++i) {
-			cout << " " << values[i];
-		}
-		cout << "]" << endl;
 	}
 	
 	void push_back(FormatType colFormat) {
@@ -207,71 +208,17 @@ public:
 	}	
 
 protected:
-	void allocateMemory(int nCols);
-	
-//	void addDatumImpl(int column, int row, real value) {
-//#ifdef DATA_AOS
-//		allColumns[column]->add_data(row, value);
-//#endif
-//	}
 
 	void push_back(int_vector* colIndices, real_vector* colData, FormatType colFormat) {
-#ifdef DATA_AOS
 		allColumns.push_back(new CompressedDataColumn(colIndices, colData, colFormat));	
 		nCols++;
-#else
-		columns.push_back(colIndices);
-		data.push_back(colData);
-		formatType.push_back(colFormat);
-#endif
 	}
 	
-	void add_label(int column, std::string label) {
-#ifdef DATA_AOS
-		allColumns[column]->add_label(label);
-#endif
-	}
-
-	void add_data(int column, int row, real value) {
-#ifdef DATA_AOS		
-		allColumns[column]->add_data(row, value);
-#else
-		FormatType colFormat = getFormatType(column);
-		if (colFormat == DENSE) {
-			data[column]->push_back(value);
-		} else if (colFormat == SPARSE) {
-			if (value != static_cast<real>(0)) {
-				data[column]->push_back(value);
-				columns[column]->push_back(row);
-			}
-		} else if (colFormat == INDICATOR) {
-			if (value != static_cast<real>(0)) {
-				columns[column]->push_back(row);
-			}
-		} else {
-			cerr << "Error" << endl;
-			exit(-1);
-		}
-#endif
-	}
-
 	void erase(int column) {
-#ifdef DATA_AOS
 		if (allColumns[column]) {
 			delete allColumns[column];
 		}
 		allColumns.erase(allColumns.begin() + column);
-#else
-		if (columns[column]) {
-			delete columns[column];
-		}
-		columns.erase(columns.begin() + column);
-		if (data[column]) {
-			delete data[column];
-		}
-		data.erase(data.begin() + column);
-		formatType.erase(formatType.begin() + column);
-#endif
 	}
 
 //private:
@@ -279,13 +226,7 @@ protected:
 	int nCols;
 	int nEntries;
 
-#ifdef DATA_AOS
 	std::vector<CompressedDataColumn*> allColumns;
-#else
-	std::vector<int_vector*> columns;
-	std::vector<real_vector*> data;
-	std::vector<FormatType> formatType;
-#endif
 
 //	std::vector<int> rows;  // standard CSC representation
 //	std::vector<int> ptrStart;

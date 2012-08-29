@@ -274,24 +274,14 @@ void CyclicCoordinateDescent::logResults(const char* fileName) {
 		cerr << "Unable to open log file: " << fileName << endl;
 		exit(-1);
 	}
-
-#ifndef DATA_AOS
-	ModelData* reader = dynamic_cast<ModelData*>(hXI);
-	map<int, DrugIdType> drugMap = reader->getDrugNameMap();
-#endif
-
 	string sep(","); // TODO Make option
 
 	outLog << "Drug_concept_id" << sep << "Condition_concept_id" << sep << "score" << endl;
 
 	for (int i = 0; i < J; i++) {		
-#ifdef DATA_AOS
-		outLog << hXI->getColumn(i).getLabel();
-#else
-		outLog << drugMap[i];
-#endif
-		outLog << sep <<
-		conditionId << sep << hBeta[i] << endl;
+		outLog << hXI->getColumn(i).getLabel() <<
+				sep <<
+				conditionId << sep << hBeta[i] << endl;
 	}
 	outLog.flush();
 	outLog.close();

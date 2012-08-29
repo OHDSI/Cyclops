@@ -53,6 +53,6 @@ int* ModelData::getOffsetVector() { // TODO deprecated
 	return makeDeepCopy(&offs[0], offs.size());
 }
 
-map<int, DrugIdType> ModelData::getDrugNameMap() {
-	return indexToDrugIdMap;
-}
+//map<int, DrugIdType> ModelData::getDrugNameMap() {
+//	return indexToDrugIdMap;
+//}

@@ -74,8 +74,6 @@ void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<real
 		exit(-1);
 	}
 
-	map<int, DrugIdType> drugMap = modelData->getDrugNameMap();
-
 	string sep(","); // TODO Make option
 
 	if (!arguments.reportRawEstimates) {
@@ -85,7 +83,8 @@ void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<real
 	}
 
 	for (int j = 0; j < J; ++j) {
-		outLog << drugMap[j] << sep << conditionId << sep;
+		outLog << modelData->getColumn(j).getLabel() <<
+			sep << conditionId << sep;
 		if (arguments.reportRawEstimates) {
 			ostream_iterator<real> output(outLog, sep.c_str());
 			copy(estimates[j]->begin(), estimates[j]->end(), output);

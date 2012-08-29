@@ -43,7 +43,7 @@ CCTestInputReader::~CCTestInputReader() { }
  * Assumes that file is sorted by 'CaseSetID' (Stratum)
  */
 void CCTestInputReader::readFile(const char* fileName) {
-#ifndef DATA_AOS
+
 	const int numCovariates = 2;
 	const int colStratum = 0;
 	const int colOutcome = 6;
@@ -109,18 +109,16 @@ void CCTestInputReader::readFile(const char* fileName) {
 				}
 
 			}
-			modelData->add_data(0, currentRow, value);
+			modelData->getColumn(0).add_data(currentRow, value);
 
 			value = 0;
 			istringstream(strVector[colCount]) >> value;
-			modelData->add_data(1, currentRow, value);
+			modelData->getColumn(1).add_data(currentRow, value);
 
 			currentRow++;
 		}
 	}
 	modelData->nevents.push_back(1); // Save last patient
-
-	int index = modelData->columns.size();
 
 	cout << "CCTestInputReader" << endl;
 	cout << "Read " << currentRow << " data lines from " << fileName << endl;
@@ -131,8 +129,6 @@ void CCTestInputReader::readFile(const char* fileName) {
 //	cout << "Sum of count  : " << std::accumulate(data[1]->begin(), data[1]->end(), static_cast<real>(0.0)) << endl;
 
 	modelData->nPatients = numCases;
-	modelData->nCols = modelData->columns.size();
 	modelData->nRows = currentRow;
 	modelData->conditionId = "0";
-#endif
 }
