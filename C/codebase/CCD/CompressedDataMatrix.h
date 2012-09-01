@@ -16,6 +16,7 @@
 #include <vector>
 #include <sstream>
 #include <iostream>
+#include <algorithm>
 
 using std::cout;
 using std::cerr;

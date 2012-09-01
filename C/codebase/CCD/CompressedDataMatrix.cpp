@@ -12,7 +12,7 @@
 
 #include "CompressedDataMatrix.h"
 
-CompressedDataMatrix::CompressedDataMatrix() {
+CompressedDataMatrix::CompressedDataMatrix() : nCols(0), nRows(0), nEntries(0) {
 	// Do nothing
 }
 
