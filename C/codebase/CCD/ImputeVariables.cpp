@@ -66,7 +66,7 @@ ImputeVariables::~ImputeVariables(){
 
 void ImputeVariables::initialize(CCDArguments args){
 	arguments = args;
-	nImputations = arguments.numberOfImputations;
+	nImputations = 5;//arguments.numberOfImputations;
 	if(arguments.fileFormat == "csv"){
 		reader = new CSVInputReader<ImputationHelper>();
 		static_cast<CSVInputReader<ImputationHelper>*>(reader)->readFile(arguments.inFileName.c_str());
