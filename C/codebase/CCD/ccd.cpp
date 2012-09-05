@@ -231,7 +231,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		ValueArg<string> formatArg("", "format", "Format of data file", false, arguments.fileFormat, &allowedFormatValues);
 
 		// Imputation arguments
-		SwitchArg doImputationArg("i", "imputation", "Perform multiple imputation (If this option is switched on, then all others args for doing modelling will be ignored)", arguments.doImputation);
+		SwitchArg doImputationArg("i", "imputation", "Perform multiple imputation", arguments.doImputation);
 		ValueArg<int> numberOfImputationsArg("m", "numberOfImputations", "Number of imputed data sets (default is m=5)", false, arguments.numberOfImputations, "int");
 
 		cmd.add(gpuArg);
@@ -547,7 +547,7 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-#else
+#elif defined(IMPUTATION)
 
 int main(int argc, char* argv[]) {
 
@@ -555,54 +555,61 @@ int main(int argc, char* argv[]) {
 
 	parseCommandLine(argc, argv, arguments);
 
-	if(!arguments.doImputation){// Proceed normally without any imputation
-		
-		CyclicCoordinateDescent* ccd = NULL;
-		AbstractModelSpecifics* model = NULL;
-		ModelData* modelData = NULL;
-		
-		double timeInitialize = initializeModel(&modelData, &ccd, &model, arguments);
+	ImputeVariables imputation;
+	imputation.initialize(arguments);
+	imputation.impute();
+	return 0;
+}
 
-		double timeUpdate;
-		if (arguments.doCrossValidation) {
-			timeUpdate = runCrossValidation(ccd, modelData, arguments);
-		} else {
-			if (arguments.doPartial) {
-				ProportionSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
-					SUBJECT, arguments.seed);
-				std::vector<real> weights;
-				selector.getWeights(0, weights);
-				ccd->setWeights(&weights[0]);
-			}
-			timeUpdate = fitModel(ccd, arguments);
+
+#else
+
+int main(int argc, char* argv[]) {
+
+	CyclicCoordinateDescent* ccd = NULL;
+	AbstractModelSpecifics* model = NULL;
+	ModelData* modelData = NULL;
+	CCDArguments arguments;
+
+	parseCommandLine(argc, argv, arguments);
+
+	double timeInitialize = initializeModel(&modelData, &ccd, &model, arguments);
+
+	double timeUpdate;
+	if (arguments.doCrossValidation) {
+		timeUpdate = runCrossValidation(ccd, modelData, arguments);
+	} else {
+		if (arguments.doPartial) {
+			ProportionSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
+				SUBJECT, arguments.seed);
+			std::vector<real> weights;
+			selector.getWeights(0, weights);
+			ccd->setWeights(&weights[0]);
 		}
+		timeUpdate = fitModel(ccd, arguments);
+	}
 
-		if (arguments.doBootstrap) {
-			// Save parameter point-estimates
-			std::vector<real> savedBeta;
-			for (int j = 0; j < ccd->getBetaSize(); ++j) {
-				savedBeta.push_back(ccd->getBeta(j));
-			}
-			timeUpdate += runBoostrap(ccd, modelData, arguments, savedBeta);
+	if (arguments.doBootstrap) {
+		// Save parameter point-estimates
+		std::vector<real> savedBeta;
+		for (int j = 0; j < ccd->getBetaSize(); ++j) {
+			savedBeta.push_back(ccd->getBeta(j));
 		}
-
-		cout << endl;
-		cout << "Load   duration: " << scientific << timeInitialize << endl;
-		cout << "Update duration: " << scientific << timeUpdate << endl;
-
-		if (ccd)
-			delete ccd;
-		if (model)
-			delete model;
-		if (modelData)
-			delete modelData;
+		timeUpdate += runBoostrap(ccd, modelData, arguments, savedBeta);
 	}
-	else{ //Perform Imputation
-		ImputeVariables imputation;
-		imputation.initialize(arguments);
-		imputation.impute();
-	}
-    return 0;
+
+	cout << endl;
+	cout << "Load   duration: " << scientific << timeInitialize << endl;
+	cout << "Update duration: " << scientific << timeUpdate << endl;
+
+	if (ccd)
+		delete ccd;
+	if (model)
+		delete model;
+	if (modelData)
+		delete modelData;
+
+	return 0;
 }
 
 #endif
