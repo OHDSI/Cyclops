@@ -30,14 +30,12 @@
 #include "io/RTestInputReader.h"
 #include "io/CCTestInputReader.h"
 #include "io/CoxInputReader.h"
-#include "io/BBRInputReader.h"
 #include "CrossValidationSelector.h"
 #include "CrossValidationDriver.h"
 #include "BootstrapSelector.h"
 #include "ProportionSelector.h"
 #include "BootstrapDriver.h"
 #include "ModelSpecifics.h"
-#include "ImputeVariables.h"
 
 #include "tclap/CmdLine.h"
 
@@ -157,8 +155,6 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.convergenceType = GRADIENT;
 	arguments.convergenceTypeString = "gradient";
 	arguments.doPartial = false;
-	arguments.doImputation = false;
-	arguments.numberOfImputations = 5;
 }
 
 
@@ -226,13 +222,8 @@ void parseCommandLine(std::vector<std::string>& args,
 		allowedFormats.push_back("csv");
 		allowedFormats.push_back("cc");
 		allowedFormats.push_back("cox-csv");
-		allowedFormats.push_back("bbr");
 		ValuesConstraint<std::string> allowedFormatValues(allowedFormats);
 		ValueArg<string> formatArg("", "format", "Format of data file", false, arguments.fileFormat, &allowedFormatValues);
-
-		// Imputation arguments
-		SwitchArg doImputationArg("i", "imputation", "Perform multiple imputation", arguments.doImputation);
-		ValueArg<int> numberOfImputationsArg("m", "numberOfImputations", "Number of imputed data sets (default is m=5)", false, arguments.numberOfImputations, "int");
 
 		cmd.add(gpuArg);
 //		cmd.add(betterGPUArg);
@@ -261,8 +252,6 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(reportRawEstimatesArg);
 //		cmd.add(doLogisticRegressionArg);
 
-		cmd.add(doImputationArg);
-		cmd.add(numberOfImputationsArg);
 		cmd.add(inFileArg);
 		cmd.add(outFileArg);
 		cmd.parse(args);
@@ -339,12 +328,6 @@ void parseCommandLine(std::vector<std::string>& args,
 			}
 		}
 
-		// Imputation
-		arguments.doImputation = doImputationArg.isSet();
-		if(arguments.doImputation){
-			arguments.numberOfImputations = numberOfImputationsArg.getValue();
-		}
-
 		if (partialArg.getValue() != -1) {
 			arguments.doPartial = true;
 			arguments.replicates = partialArg.getValue();
@@ -387,10 +370,7 @@ double initializeModel(
 		reader = new CCTestInputReader();
 	} else if (arguments.fileFormat == "cox-csv") {
 		reader = new CoxInputReader();
-	} else if (arguments.fileFormat == "bbr") {
-		reader = new BBRInputReader<NoImputation>();
-	}
-	else {
+	} else {
 		cerr << "Invalid file format." << endl;
 		exit(-1);
 	}
@@ -547,21 +527,6 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-#elif defined(IMPUTATION)
-
-int main(int argc, char* argv[]) {
-
-	CCDArguments arguments;
-
-	parseCommandLine(argc, argv, arguments);
-
-	ImputeVariables imputation;
-	imputation.initialize(arguments);
-	imputation.impute();
-	return 0;
-}
-
-
 #else
 
 int main(int argc, char* argv[]) {
@@ -581,7 +546,7 @@ int main(int argc, char* argv[]) {
 	} else {
 		if (arguments.doPartial) {
 			ProportionSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
-				SUBJECT, arguments.seed);
+					SUBJECT, arguments.seed);
 			std::vector<real> weights;
 			selector.getWeights(0, weights);
 			ccd->setWeights(&weights[0]);
@@ -597,11 +562,11 @@ int main(int argc, char* argv[]) {
 		}
 		timeUpdate += runBoostrap(ccd, modelData, arguments, savedBeta);
 	}
-
+		
 	cout << endl;
 	cout << "Load   duration: " << scientific << timeInitialize << endl;
 	cout << "Update duration: " << scientific << timeUpdate << endl;
-
+	
 	if (ccd)
 		delete ccd;
 	if (model)
@@ -609,7 +574,7 @@ int main(int argc, char* argv[]) {
 	if (modelData)
 		delete modelData;
 
-	return 0;
+    return 0;
 }
 
 #endif
