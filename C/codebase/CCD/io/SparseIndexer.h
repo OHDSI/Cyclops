@@ -35,6 +35,10 @@ public:
 	bool hasColumn(DrugIdType covariate) const {
 		return sparseMap.count(covariate) != 0;
 	}	
+
+	int getIndex(DrugIdType covariate){
+		return sparseMap[covariate];
+	}
 		
 private:
 	CompressedDataMatrix& dataMatrix;

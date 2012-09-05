@@ -95,6 +95,94 @@ FormatType CompressedDataMatrix::getFormatType(int column) const {
 	return allColumns[column]->getFormatType();
 }
 
+CompressedDataMatrix* CompressedDataMatrix::transpose(){
+	CompressedDataMatrix* matTranspose = new CompressedDataMatrix();
+
+	matTranspose->nRows = this->getNumberOfColumns();
+	int numCols = this->getNumberOfRows();
+
+	bool flagDense = false;
+	bool flagIndicator = false;
+	bool flagSparse = false;
+	for(int i = 0; i < nCols; i++){
+		FormatType thisFormatType = this->allColumns[i]->getFormatType();
+		if(thisFormatType == DENSE)
+			flagDense = true;
+		if(thisFormatType == INDICATOR)
+			flagIndicator = true;
+	}
+
+	if(flagIndicator && flagDense){
+		flagSparse = true;
+		flagIndicator = flagDense = false;
+	}
+	for(int k = 0; k < numCols; k++){
+		if(flagIndicator){
+			matTranspose->push_back(INDICATOR);
+		}
+		else if(flagDense){
+			matTranspose->push_back(DENSE);
+		}
+		else{
+			matTranspose->push_back(SPARSE);
+		}
+	}
+	
+	for (int i = 0; i < matTranspose->nRows; i++) {
+		FormatType thisFormatType = this->allColumns[i]->getFormatType();
+		if(thisFormatType == INDICATOR || thisFormatType == SPARSE){
+			int rows = this->getNumberOfEntries(i);
+			for (int j = 0; j < rows; j++) {
+				if(thisFormatType == SPARSE)
+					matTranspose->allColumns[this->getCompressedColumnVector(i)[j]]->add_data(i,this->getDataVector(i)[j]);
+				else
+					matTranspose->allColumns[this->getCompressedColumnVector(i)[j]]->add_data(i,1.0);
+			}
+		}
+		else{
+			for (int j = 0; j < nRows; j++) {
+				matTranspose->getColumn(j).add_data(i,this->getDataVector(i)[j]);
+			}
+		}
+	}
+
+	return matTranspose;
+}
+
+
+void CompressedDataMatrix::addToColumnVector(int column, int_vector addEntries) const{
+	allColumns[column]->addToColumnVector(addEntries);
+}
+
+void CompressedDataMatrix::removeFromColumnVector(int column, int_vector removeEntries) const{
+	allColumns[column]->removeFromColumnVector(removeEntries);
+}
+
+
+void CompressedDataMatrix::getDataRow(int row, real* x) const {
+	for(int j = 0; j < nCols; j++)
+	{
+		if(this->allColumns[j]->getFormatType() == DENSE)
+			x[j] = this->getDataVector(j)[row];
+		else{
+			x[j] = 0.0;
+			int* col = this->getCompressedColumnVector(j);
+			for(int i = 0; i < this->allColumns[j]->getNumberOfEntries(); i++){
+				if(col[i] == row){
+					x[j] = 1.0;
+					break;
+				}
+				else if(col[i] > row)
+					break;
+			}
+		}
+	}
+}
+
+void CompressedDataMatrix::setNumberOfColumns(int nColumns) {
+	nCols = nColumns;
+}
+
 void CompressedDataColumn::printColumn(int nRows) {
 	real_vector values;
 	if (formatType == DENSE) {
@@ -166,4 +254,37 @@ void CompressedDataColumn::convertColumnToDense(int nRows) {
 //	exit(0);
 	formatType = DENSE;
 	delete columns; columns = NULL;
+}
+
+void CompressedDataColumn::addToColumnVector(int_vector addEntries){
+	int lastit = 0;
+
+	for(int i = 0; i < (int)addEntries.size(); i++)
+	{
+		int_vector::iterator it = columns->begin() + lastit;
+		if(columns->size() > 0){
+			while(*it < addEntries[i]){
+				it++;
+				lastit++;
+			}
+		}
+		columns->insert(it,addEntries[i]);
+	}
+}
+
+void CompressedDataColumn::removeFromColumnVector(int_vector removeEntries){
+	int lastit = 0;
+	int_vector::iterator it1 = removeEntries.begin();
+	int_vector::iterator it2 = columns->begin();
+	while(it1 < removeEntries.end() && it2 < columns->end()){
+		if(*it1 < *it2)
+			it1++;
+		else if(*it2 < *it1){
+			it2++;
+		}
+		else{
+			columns->erase(it2);
+			it2 = columns->begin() + lastit;
+		}
+	}
 }

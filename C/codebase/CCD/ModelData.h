@@ -30,6 +30,14 @@ using std::stringstream;
 	typedef int DrugIdType;
 #endif
 
+template <class T> void reindexVector(vector<T>& vec, vector<int> ind) {
+	int n = (int) vec.size();
+	vector<T> temp = vec;
+	for(int i = 0; i < n; i++){
+		vec[i] = temp[ind[i]];
+	}
+}
+
 class ModelData : public CompressedDataMatrix {
 public:
 	ModelData();
@@ -37,9 +45,10 @@ public:
 
 	int* getPidVector();
 	real* getYVector();
+	void setYVector(vector<real> y_);
 	int* getNEventVector();
 	int* getOffsetVector();
-	map<int, DrugIdType> getDrugNameMap();
+//	map<int, DrugIdType> getDrugNameMap();
 	int getNumberOfPatients();
 	string getConditionId();
 	std::vector<int>* getPidVectorSTL();
@@ -59,6 +68,8 @@ public:
 	const std::vector<int>& getNEventsVectorRef() const {
 		return nevents;
 	}
+
+	void sortDataColumns(vector<int> sortedInds);
 	
 	// TODO Improve encapsulation
 	friend class SCCSInputReader;
@@ -66,6 +77,8 @@ public:
 	friend class RTestInputReader;
 	friend class CoxInputReader;
 	friend class CCTestInputReader;
+	template <class ImputationPolicy> friend class BBRInputReader;
+	template <class ImputationPolicy> friend class CSVInputReader;
 
 private:
 	// Disable copy-constructors

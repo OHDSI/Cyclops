@@ -62,6 +62,10 @@ struct CCDArguments {
 //	bool doLogisticRegression;
 	int modelType;
 	std::string modelName;
+
+	// Needed for doing multiple imputation
+	bool doImputation;
+	int numberOfImputations;
 };
 
 

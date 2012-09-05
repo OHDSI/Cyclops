@@ -86,7 +86,9 @@ set(SOURCE_FILES
 	CrossValidationSelector.cpp
 	CrossValidationDriver.cpp
 	BootstrapSelector.cpp
-	BootstrapDriver.cpp)
+	BootstrapDriver.cpp
+	ImputationPolicy.cpp
+	ImputeVariables.cpp)
 	
 if(CUDA_FOUND)
 	set(SOURCE_FILES ${SOURCE_FILES}

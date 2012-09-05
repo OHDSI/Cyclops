@@ -132,6 +132,8 @@ public:
 		return i->getNumericalLabel() < j->getNumericalLabel();
 	}
 		
+	void addToColumnVector(int_vector addEntries);
+	void removeFromColumnVector(int_vector removeEntries);
 private:
 	// Disable copy-constructors
 	CompressedDataColumn();
@@ -158,11 +160,19 @@ public:
 	
 	int getNumberOfColumns(void) const;
 
+	void setNumberOfColumns(int nColumns);
+
 	int getNumberOfEntries(int column) const;
 
 	int* getCompressedColumnVector(int column) const;
 
+	void removeFromColumnVector(int column, int_vector removeEntries) const;
+	void addToColumnVector(int column, int_vector addEntries) const;
+
 	real* getDataVector(int column) const;
+
+	void getDataRow(int row, real* x) const;
+	CompressedDataMatrix* transpose();
 
 	FormatType getFormatType(int column) const;
 

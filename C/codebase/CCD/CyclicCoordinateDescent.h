@@ -96,6 +96,8 @@ public:
 
 	double getPredictiveLogLikelihood(real* weights);
 
+	void getPredictiveEstimates(real* y, real* weights);
+
 	double getLogPrior(void);
 	
 	virtual double getObjectiveFunction(int convergenceType);

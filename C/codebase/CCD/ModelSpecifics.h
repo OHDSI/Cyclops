@@ -35,6 +35,8 @@ protected:
 
 	double getPredictiveLogLikelihood(real* weights);
 
+	void getPredictiveEstimates(real* y, real* weights);
+
 	bool allocateXjY(void);
 
 	bool allocateXjX(void);
@@ -237,6 +239,10 @@ public:
 			int* groups, int i) {
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
+
+	void predictEstimate(real& yi, real xBeta){
+		//do nothing for now
+	}
 };
 
 template <typename WeightType>
@@ -263,6 +269,10 @@ public:
 		 // TODO Can this be optimized for CLR?
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
+
+	void predictEstimate(real& yi, real xBeta){
+		// do nothing for now
+	}
 };
 
 template <typename WeightType>
@@ -287,6 +297,11 @@ public:
 	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
 			int* groups, int i) {
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
+	}
+
+	void predictEstimate(real& yi, real xBeta){
+		real t = exp(xBeta);
+		yi = t/(t+1);
 	}
 };
 
@@ -331,6 +346,10 @@ public:
 	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
 			int* groups, int i) {
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)])); // TODO Wrong
+	}
+
+	void predictEstimate(real& yi, real xBeta){
+		// do nothing for now
 	}
 };
 
@@ -396,6 +415,10 @@ public:
 			int* groups, int i) {
 		real residual = ji - xBetai;
 		return - (residual * residual * weighti);
+	}
+
+	void predictEstimate(real& yi, real xBeta){
+		yi = xBeta;
 	}
 };
 

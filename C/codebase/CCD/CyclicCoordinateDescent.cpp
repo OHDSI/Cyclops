@@ -302,6 +302,11 @@ double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
 	return modelSpecifics.getPredictiveLogLikelihood(weights); // TODO Pass double
 }
 
+void CyclicCoordinateDescent::getPredictiveEstimates(real* y, real* weights)
+{
+	modelSpecifics.getPredictiveEstimates(y, weights);
+}
+
 int CyclicCoordinateDescent::getBetaSize(void) {
 	return J;
 }

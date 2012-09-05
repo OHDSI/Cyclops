@@ -66,6 +66,8 @@ public:
 
 	virtual double getPredictiveLogLikelihood(real* weights) = 0; // pure virtual
 
+    virtual void getPredictiveEstimates(real* y, real* weights) = 0; // pure virtual
+
 //	virtual void sortPid(bool useCrossValidation) = 0; // pure virtual
 
 protected:

@@ -18,7 +18,7 @@
 
 
 ModelData::ModelData() {
-	// Do nothing	
+	// Do nothing
 }
 
 int ModelData::getNumberOfPatients() {
@@ -45,6 +45,10 @@ real* ModelData::getYVector() { // TODO deprecated
 	return makeDeepCopy(&y[0], y.size());
 }
 
+void ModelData::setYVector(vector<real> y_){
+	y = y_;
+}
+
 int* ModelData::getNEventVector() { // TODO deprecated
 	return makeDeepCopy(&nevents[0], nevents.size());
 }
@@ -53,6 +57,6 @@ int* ModelData::getOffsetVector() { // TODO deprecated
 	return makeDeepCopy(&offs[0], offs.size());
 }
 
-//map<int, DrugIdType> ModelData::getDrugNameMap() {
-//	return indexToDrugIdMap;
-//}
+void ModelData::sortDataColumns(vector<int> sortedInds){
+	reindexVector(allColumns,sortedInds);
+}
