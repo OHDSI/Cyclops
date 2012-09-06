@@ -19,8 +19,6 @@
 #include <time.h>
 #include <set>
 
-#include <Eigen/core>
-
 #include "CyclicCoordinateDescent.h"
 #include "IndependenceSampler.h"
 
@@ -42,11 +40,15 @@ namespace bsccs {
 
 		~CredibleIntervals();
 
-		vector<vector<bsccs::real> > computeCredibleIntervals(vector<vector<bsccs::real> > sampledBetaValues);
+		void computeCredibleIntervals(vector<vector<double> > * BetaValues, vector<double> * SigmaSquaredValues);
+
+		void logResults(const CCDArguments& arguments, std::string conditionId);
 
 	private:
 
+		vector<vector<bsccs::real> > BetaUpperAndlower;
 
+		vector<bsccs::real> SigmaSquaredUpperAndLower;
 
 	};
 }

@@ -40,7 +40,7 @@ void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta, std::ve
 
 	double unifRand1;
 	double unifRand2;
-	srand(time(NULL));
+
 	for (int i = 0; i < sizeOfSample; i++) {
 		unifRand1 = (rand() / (RAND_MAX + 1.0));
 		unifRand2 = (rand() / (RAND_MAX + 1.0));
@@ -48,23 +48,12 @@ void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta, std::ve
 		independentNormal.push_back(normalValue);
 	}
 
-	vector<bsccs::real> intermediateVector;
-
-	for (int i = 0; i < sizeOfSample; i++) {
-		bsccs::real current;
-		current = independentNormal[i];
-		for (int j = 0; j < sizeOfSample; j++) {
-			current += Cholesky_notGSL[i][j]*Beta_Hat->get(j);
-		}
-		intermediateVector.push_back(current);
-	}
-
 	for (int i = 0; i < sizeOfSample; i++) {
 		bsccs::real actualValue = 0;
 		for (int j = 0; j < sizeOfSample; j++) {
-			actualValue += Cholesky_notGSL[i][j]*intermediateVector[j];
+			actualValue += Cholesky_notGSL[j][i]*independentNormal[j];
 		}
-		Beta->set(i, actualValue);
+		Beta->set(i, actualValue + Beta_Hat->get(i));
 	}
 
 }

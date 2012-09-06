@@ -50,12 +50,12 @@ bool MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 	ccd.setBeta(betaPossible);
 	fBetaPossible = exp(ccd.getLogLikelihood());
 	pBetaPossible = exp(ccd.getLogPrior());
-	mvtBetaPossible = 0.5; // TODO Implement
+	mvtBetaPossible = 1; // TODO Implement
 
 	ccd.setBeta(betaOldValues);
 	fBetaCurrent = exp(ccd.getLogLikelihood());
 	pBetaCurrent = exp(ccd.getLogPrior());
-	mvtBetaCurrent = 0.5; //TODO Implement
+	mvtBetaCurrent = 1; //TODO Implement
 
 
 	ratio = ((fBetaPossible*pBetaPossible) / mvtBetaPossible) / ((fBetaCurrent*pBetaCurrent) / mvtBetaCurrent);
@@ -67,6 +67,7 @@ bool MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 
 	if (alpha > uniformRandom) {
 		Beta->setChangeStatus(true);
+		cout << "Change Beta" << endl;
 	} else{
 		Beta->setChangeStatus(false);
 		Beta->restore();
@@ -75,6 +76,7 @@ bool MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 	if (fudgeFactor*alpha > uniformRandom) {
 		SigmaSquared->setChangeStatus(false);
 		SigmaSquared->setNeedToChangeStatus(true);
+		cout << "Need to change some sigmaSquared" << endl;
 	} else {
 		SigmaSquared->setChangeStatus(false);
 		SigmaSquared->setNeedToChangeStatus(false);

@@ -11,6 +11,7 @@
 #include <numeric>
 #include <math.h>
 #include <cstdlib>
+#include <time.h>
 
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
@@ -27,7 +28,7 @@ namespace bsccs {
 
 
 MCMCDriver::MCMCDriver(InputReader * inReader): reader(inReader) {
-	maxIterations = 1;
+	maxIterations = 10000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
 
@@ -52,12 +53,19 @@ void MCMCDriver::drive(
 	// Select First Beta vector = modes from ccd
 	J = ccd.getBetaSize();
 
+	cout << "J = " << J << endl;
+
 	Parameter Beta_Hat(ccd.hBeta, J);
+	Beta_Hat.logParameter();
+
 	Parameter Beta(ccd.hBeta, J);
+	Beta.logParameter();
+
 	Beta.store();
 	bsccs::real sigma2Start;
 	sigma2Start = (bsccs::real) ccd.sigma2Beta;
 	Parameter SigmaSquared(&sigma2Start, 1);
+	SigmaSquared.logParameter();
 
 	initializeHessian();
 	ccd.getHessian(&hessian_notGSL);
@@ -65,31 +73,38 @@ void MCMCDriver::drive(
 
 	// Generate the tools for the MH loop
 	IndependenceSampler sampler;
-	// need randomizer
+	srand(time(NULL));
 
 	//Framework for storing MCMC data
 	vector<vector<bsccs::real> > MCMCBetaValues;
 	vector<double> MCMCSigmaSquaredValues;
 
+	//MCMC Loop
 	for (int iterations = 0; iterations < maxIterations; iterations ++) {
 
 		//Select a sample beta vector
 		sampler.sample(&Beta_Hat, &Beta, Cholesky_notGSL);
+		cout << "Sample Draw: ";
+		Beta.logParameter();
 
-		//Compute the acceptance ratio, and decide if accept or reject beta sample
-
+		//Compute the acceptance ratio, and decide if Beta should be changed
 		MHRatio MHstep;
 		MHstep.evaluate(&Beta, &SigmaSquared, ccd, &hessian_notGSL, precisionDeterminant);
 
 		if (Beta.getChangeStatus()) {
-			// TODO Make storage functionality
+			MCMCResults_BetaVectors.push_back(Beta.returnCurrentValues());
 			nBetaSamples ++;
+			cout << "nBetaSamples = " << nBetaSamples << endl;
 		}
 
 		if (SigmaSquared.getNeedToChangeStatus()) {
 			SigmaSampler sigmaMaker;
 			sigmaMaker.sampleSigma(&SigmaSquared);
+			MCMCResults_SigmaSquared.push_back(SigmaSquared.returnCurrentValues()[0]);
 			nSigmaSquaredSamples ++;
+			cout << "nSigmaSquaredSamples = " << nSigmaSquaredSamples << endl;
+			cout << "new SigmaSquared: ";
+			SigmaSquared.logParameter();
 
 			// Need Wrapper for this....
 			ccd.resetBeta();
@@ -99,42 +114,10 @@ void MCMCDriver::drive(
 			double tolerance = 5E-4;
 			ccd.update(ccdIterations, ZHANG_OLES, tolerance);
 		}
-
-		/*
-		if (acceptanceRatio.acceptBetaBool(ccd, &sampler, uniformRandom, betaSize, gslBetaStart, sample, precisionInverse)){
-			// Accept the sampled beta
-			nBetaSamples++;  //record sample size
-			betaValuesSampled_gsl.push_back(sample);
-
-			if (acceptanceRatio.getSigmaSquaredBool(uniformRandom)){
-				nSigmaSquaredSamples ++;
-				SigmaSampler getSigma;
-				double alpha = 0.5;
-				double beta = 0.5;
-				double sigmaSquared = getSigma.sampleSigma(sample, betaSize, alpha, beta, r);
-				cout << "Sigma squared = " << sigmaSquared << endl;
-
-				ccd.resetBeta();
-				ccd.setHyperprior(sigmaSquared);
-
-				int ZHANG_OLES = 1;
-				int ccdIterations = 100;
-				double tolerance = 5E-4;
-				ccd.update(ccdIterations, ZHANG_OLES, tolerance);
-				for (int i = 0; i < betaSize; i++) {
-					//betaValuesStart.push_back(ccd.getBeta(i));
-					gsl_vector_set(gslBetaStart, i, ccd.getBeta(i));
-				}
-			}
-
-		} else {
-			//do nothing
-		}
-*/
 	}
 
-	//CredibleIntervals intervalsToReport;
-	//credibleIntervals = intervalsToReport.computeCredibleIntervals(betaValuesSampled_gsl, betaSize, nBetaSamples);
+	CredibleIntervals intervalsToReport;
+	intervalsToReport.computeCredibleIntervals(&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared);
 }
 
 void MCMCDriver::generateCholesky() {
@@ -171,35 +154,5 @@ void MCMCDriver::generateCholesky() {
 		}
 	}
 }
-
-void MCMCDriver::logResults(const CCDArguments& arguments, std::string conditionId) {
-
-	ofstream outLog(arguments.outFileName.c_str());
-	if (!outLog) {
-		cerr << "Unable to open log file: " << arguments.bsFileName << endl;
-		exit(-1);
-	}
-
-	map<int, DrugIdType> drugMap = reader->getDrugNameMap();
-
-	string sep(","); // TODO Make option
-
-	if (!arguments.reportRawEstimates) {
-		outLog << "Drug_concept_id" << sep << "Condition_concept_id" << sep <<
-				"score" << sep << "lower" << sep <<
-				"upper" << endl;
-	}
-
-	for (int j = 0; j < J; ++j) {
-		outLog << drugMap[j] << sep << conditionId << sep;
-
-		outLog << BetaValues[j] << sep << credibleIntervals[0][j] << sep << credibleIntervals[1][j] << endl;
-
-	}
-
-
-	outLog.close();
-}
-
 
 }

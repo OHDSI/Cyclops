@@ -25,14 +25,14 @@ public:
 
 	void generateCholesky();
 
-	void logResults(const CCDArguments& arguments, std::string conditionId);
-
 	void initializeHessian();
 
 private:
 	InputReader* reader;
 
-	vector<vector<bsccs::real> > credibleIntervals;
+	vector<vector<double> > MCMCResults_BetaVectors;
+
+	vector<double> MCMCResults_SigmaSquared;
 
 	vector<bsccs::real> BetaValues;
 
