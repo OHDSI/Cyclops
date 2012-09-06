@@ -1,5 +1,5 @@
 include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
-
+include_directories(. ${CMAKE_SOURCE_DIR}/codebase/CCD)
 #find_path(GSL_INCLUDE_DIR
 #	NAMES gsl
 #    DOCS "Location of GSL header file")
@@ -69,28 +69,30 @@ include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 #					)
 
 set(SOURCE_FILES
-	ccd.cpp
-	CyclicCoordinateDescent.cpp	
-	CompressedDataMatrix.cpp
-	ModelData.cpp
-	io/InputReader.cpp
-	io/SCCSInputReader.cpp
-	io/CLRInputReader.cpp
-	io/RTestInputReader.cpp
-	io/CoxInputReader.cpp
-	io/CCTestInputReader.cpp
-	AbstractModelSpecifics.cpp
-	AbstractDriver.cpp
-	AbstractSelector.cpp
-	ProportionSelector.cpp
-	CrossValidationSelector.cpp
-	CrossValidationDriver.cpp
-	BootstrapSelector.cpp
-	BootstrapDriver.cpp)
+	ccdimpute.cpp
+	ImputationPolicy.cpp
+	ImputeVariables.cpp
+	../CyclicCoordinateDescent.cpp	
+	../CompressedDataMatrix.cpp
+	../ModelData.cpp
+	../io/InputReader.cpp
+	../io/SCCSInputReader.cpp
+	../io/CLRInputReader.cpp
+	../io/RTestInputReader.cpp
+	../io/CoxInputReader.cpp
+	../io/CCTestInputReader.cpp
+	../AbstractModelSpecifics.cpp
+	../AbstractDriver.cpp
+	../AbstractSelector.cpp
+	../ProportionSelector.cpp
+	../CrossValidationSelector.cpp
+	../CrossValidationDriver.cpp
+	../BootstrapSelector.cpp
+	../BootstrapDriver.cpp)
 	
 if(CUDA_FOUND)
 	set(SOURCE_FILES ${SOURCE_FILES}
-	    GPUCyclicCoordinateDescent.cpp
+	    ../GPUCyclicCoordinateDescent.cpp
 #	    BetterGPU.cpp
 	    )
 	add_definitions(-DCUDA)	
@@ -104,10 +106,10 @@ if(CUDA_FOUND)
 		set(CUDA_NVCC_FLAGS "-arch=sm_20")
 	endif(APPLE)
 #	cuda_add_library(ccd-lib ${SOURCE_FILES})
- 	cuda_add_executable(ccd ${SOURCE_FILES})
- 	target_link_libraries(ccd CUDADriver)
+ 	cuda_add_executable(ccdimpute ${SOURCE_FILES})
+ 	target_link_libraries(ccdimpute CUDADriver)
 else(CUDA_FOUND)
-	add_executable(ccd ${SOURCE_FILES})
+	add_executable(ccdimpute ${SOURCE_FILES})
 endif(CUDA_FOUND)
 
 

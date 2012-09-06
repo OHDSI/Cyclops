@@ -64,9 +64,9 @@ ImputeVariables::~ImputeVariables(){
 		delete modelData;
 }
 
-void ImputeVariables::initialize(CCDArguments args){
+void ImputeVariables::initialize(CCDArguments args, int numberOfImputations){
 	arguments = args;
-	nImputations = 5;//arguments.numberOfImputations;
+	nImputations = numberOfImputations;
 	if(arguments.fileFormat == "csv"){
 		reader = new CSVInputReader<ImputationHelper>();
 		static_cast<CSVInputReader<ImputationHelper>*>(reader)->readFile(arguments.inFileName.c_str());

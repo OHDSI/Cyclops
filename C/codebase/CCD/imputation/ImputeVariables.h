@@ -15,7 +15,7 @@ class ImputeVariables {
 public:
 	ImputeVariables();
 	~ImputeVariables();
-	void initialize(CCDArguments args);
+	void initialize(CCDArguments args, int numberOfImputations);
 	void impute();
 	void imputeColumn(int col);
 	void getColumnToImpute(int col, real* y);
