@@ -18,11 +18,6 @@
 #include <Eigen/core>
 
 #include "CyclicCoordinateDescent.h"
-#include <gsl/gsl_rng.h>
-#include <gsl/gsl_vector.h>
-#include <gsl/gsl_sort.h>
-#include <gsl/gsl_statistics.h>
-#include <gsl/gsl_matrix.h>
 #include "IndependenceSampler.h"
 
 
@@ -43,30 +38,16 @@ CredibleIntervals::~CredibleIntervals(){
 
 }
 
-vector<vector<bsccs::real> > CredibleIntervals::computeCredibleIntervals(vector<gsl_vector*> sampledBetaValues, int betaSize, int nSamples){
+vector<vector<bsccs::real> > CredibleIntervals::computeCredibleIntervals(vector<vector<bsccs::real> > sampledBetaValues){
 
+	int nSamples = sampledBetaValues.size();
+	int betaSize = sampledBetaValues[0].size();
 	vector<vector<bsccs::real> > returnValues;
 
 	vector<bsccs::real> lowerBoundtoReturn;
 	vector<bsccs::real> upperBoundtoReturn;
 
-	cout << "nSamples = " << nSamples << endl;
-
-	for (int i = 0 ; i < betaSize; i++) {
-		double MCMCSamples[nSamples];
-		for (int j = 0; j < nSamples; j++) {
-			MCMCSamples[j] = gsl_vector_get(sampledBetaValues[j],i);
-		}
-		gsl_sort(MCMCSamples,1,nSamples);
-		lowerBoundtoReturn.push_back(gsl_stats_quantile_from_sorted_data(MCMCSamples,1,nSamples,0.05));
-
-		upperBoundtoReturn.push_back(gsl_stats_quantile_from_sorted_data(MCMCSamples,1,nSamples,0.95));
-
-	}
-
-
-	returnValues.push_back(lowerBoundtoReturn);
-	returnValues.push_back(upperBoundtoReturn);
+	//TODO construct quantile intervals
 	return returnValues;
 }
 

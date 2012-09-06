@@ -23,7 +23,11 @@ public:
 	virtual void drive(
 			CyclicCoordinateDescent& ccd);
 
+	void generateCholesky();
+
 	void logResults(const CCDArguments& arguments, std::string conditionId);
+
+	void initializeHessian();
 
 private:
 	InputReader* reader;
@@ -31,6 +35,12 @@ private:
 	vector<vector<bsccs::real> > credibleIntervals;
 
 	vector<bsccs::real> BetaValues;
+
+	vector<vector<bsccs::real> > hessian_notGSL;
+
+	double precisionDeterminant;
+
+	vector<vector<bsccs::real> > Cholesky_notGSL;
 
 	int J;
 

@@ -1,8 +1,8 @@
 include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 
-find_path(GSL_INCLUDE_DIR
-	NAMES gsl
-    	DOCS "Location of GSL header file")
+#find_path(GSL_INCLUDE_DIR
+#	NAMES gsl
+#    	DOCS "Location of GSL header file")
     
 #find_path(MTL_INCLUDE_DIR
 #	NAMES mtl4
@@ -14,9 +14,9 @@ find_path(GSL_INCLUDE_DIR
 #	DOCS "Location of boost header file"
 #	PATHS "/Users/msuchard/Documents/Projects/boost_1_42_0")
 	
-find_library(GSL_LIBRARY
-	NAMES gsl
-	DOCS "Location of GSL library file")
+#find_library(GSL_LIBRARY
+#	NAMES gsl
+#	DOCS "Location of GSL library file")
 
 find_library(GSL_CBLAS_LIBRARY
 	NAMES gslcblas
@@ -111,8 +111,6 @@ if(CUDA_FOUND)
  	target_link_libraries(ccd CUDADriver)
 else(CUDA_FOUND)
 	add_executable(ccd ${SOURCE_FILES})
-	target_link_libraries(ccd ${GSL_LIBRARY})
-	target_link_libraries(ccd ${GSL_CBLAS_LIBRARY})
 endif(CUDA_FOUND)
 
 

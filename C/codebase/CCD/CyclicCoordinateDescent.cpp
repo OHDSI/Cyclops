@@ -14,11 +14,7 @@
 #include <map>
 #include <time.h>
 #include <set>
-#include <gsl/gsl_linalg.h>
-#include <gsl/gsl_blas.h>
-#include <gsl/gsl_matrix.h>
-#include <Eigen/Core>
-#include <Eigen/Cholesky>
+
 
 
 #include "CyclicCoordinateDescent.h"
@@ -438,235 +434,108 @@ void CyclicCoordinateDescent::setLogisticRegression(bool idoLR) {
 	sufficientStatisticsKnown = false;
 }
 
-void CyclicCoordinateDescent::getHessianForCholesky_GSL_Indicator(gsl_matrix * HessianValues) {
+
+void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHessian) {
 	//naming of variables consistent with Suchard write up page 23 Appendix A
 
-	vector<int> giVector(N, 0); // get Gi given patient i
+		vector<int> giVector(N, 0); // get Gi given patient i
+		vector<vector<int> > kValues;
+		vector<vector<bsccs::real> > numerPidValuesMatrix; // [J][N] Matrix
 
-	gsl_matrix_set_zero(HessianValues);
-
-	vector<vector<int> > kValues;
-
-	for (int j = 0; j < K; j++) {
-		giVector[hPid[j]] ++;
-	}
-
-	for (int n = 0; n < N; n++) {
-		vector<int> temp;
-		kValues.push_back(temp);
-	}
-
-	for (int j = 0; j < K; j++) {
-		kValues[hPid[j]].push_back(j);
-	}
-
-	gsl_matrix * HessianMatrix = gsl_matrix_alloc(J,J);
-	gsl_matrix_set_zero(HessianMatrix);
-
-
-	for (int i = 0; i < N; i ++) { // sum over patients
-		gsl_matrix * FirstTerm = gsl_matrix_alloc(J, J);
-		int ni = hNEvents[i];
-
-		for (int j = 0; j < J; j++) {
-			for (int j2 = 0; j2 < J; j2 ++) {
-				computeNumeratorForGradient(j);
-				double firstNumer = numerPid[i];
-				computeNumeratorForGradient(j2);
-				double secondNumer = numerPid[i];
-				double FirstTermjj2 = firstNumer*secondNumer / (denomPid[i]*denomPid[i]);
-				gsl_matrix_set(FirstTerm, j, j2, FirstTermjj2);
-			}
+		//Set up gi values
+		for (int j = 0; j < K; j++) {
+			giVector[hPid[j]] ++;
 		}
-		gsl_matrix_scale(FirstTerm, -ni);
-		gsl_matrix_add(HessianMatrix, FirstTerm);
-	}
 
-	SparseRowVector transposeSparseMatrix;
-	transposeSparseMatrix.fillSparseRowVector(hXI);
-
-
-	for (int k = 0; k < K; k ++) { // Iterate over the exposures
-		gsl_matrix * SecondTerm = gsl_matrix_alloc(J, J);
-		gsl_matrix_set_zero(SecondTerm);
-		int compressedVectorLength = transposeSparseMatrix.getNumberOfEntries(k); // Get compressed Column for Drug d
-
-		int ni = hNEvents[hPid[k]];
-
-		for (int p = 0; p < compressedVectorLength; p ++){
-			int rowNumber = transposeSparseMatrix.getCompressedRowVector(k)[p];
-			for (int q = 0; q < compressedVectorLength; q ++) {
-				int columnNumber = transposeSparseMatrix.getCompressedRowVector(k)[q];
-				double currentValue = gsl_matrix_get(SecondTerm, rowNumber, columnNumber);
-				double newValue = currentValue - ni*offsExpXBeta[k]/denomPid[hPid[k]];
-				gsl_matrix_set(SecondTerm, rowNumber, columnNumber, newValue);
-			}
+		//Set up k values
+		for (int n = 0; n < N; n++) {
+			vector<int> temp;
+			kValues.push_back(temp);
 		}
-		gsl_matrix_sub(HessianMatrix, SecondTerm);
-	}
+		for (int j = 0; j < K; j++) {
+			kValues[hPid[j]].push_back(j);
+		}
 
-	cout << "Sparse Hessian is " << endl;
-	for (int i = 0; i < J; i ++) {
+		// Set up matrix of numerPid values
+		for (int t = 0; t < J; t++) {
+			computeNumeratorForGradient(t);
+			vector<bsccs::real> numerPidValues_t;
+			for(int s = 0; s < N; s++) {
+				numerPidValues_t.push_back(numerPid[s]);
+			}
+			numerPidValuesMatrix.push_back(numerPidValues_t);
+		}
+
+		// Do the work
+		switch (hXI->getFormatType(0)) {
+		case DENSE:
+			for (int i = 0; i < N; i ++) { // sum over patients
+				int ni = hNEvents[i];
+				for (int j = 0; j < J; j++) {
+					for (int j2 = 0; j2 < J; j2 ++) {
+						double firstNumer = numerPidValuesMatrix[j][i];
+						double secondNumer = numerPidValuesMatrix[j2][i];
+						bsccs::real FirstTermjj2 = firstNumer*secondNumer / (denomPid[i]*denomPid[i]);
+
+
+						//Precaution: This should not actually do anything...
+						hXI->convertColumnToDense(j);
+						hXI->convertColumnToDense(j2);
+
+						bsccs::real * columnVectorj = hXI->getDataVector(j);
+						bsccs::real * columnVectorj2 = hXI->getDataVector(j2);
+
+						bsccs::real SecondTermjj2 = 0;
+						for (int g = 0; g < kValues[i].size(); g++) {
+							SecondTermjj2 += offsExpXBeta[kValues[i][g]]*columnVectorj[kValues[i][g]]*columnVectorj2[kValues[i][g]] / (denomPid[i]);
+						}
+						(*blankHessian)[j][j2] = (*blankHessian)[j][j2] - ni*(FirstTermjj2 - SecondTermjj2);
+					}
+				}
+			}
+			break;
+		case INDICATOR:
+			for (int i = 0; i < N; i ++) { // sum over patients
+				int ni = hNEvents[i];
+
+				for (int j = 0; j < J; j++) {
+					for (int j2 = 0; j2 < J; j2 ++) {
+						double firstNumer = numerPidValuesMatrix[j][i];
+						double secondNumer = numerPidValuesMatrix[j2][i];
+						double FirstTermjj2 = firstNumer*secondNumer / (denomPid[i]*denomPid[i]);
+						(*blankHessian)[j][j2] += -ni*FirstTermjj2;
+					}
+				}
+			}
+
+			SparseRowVector transposeSparseMatrix;
+			transposeSparseMatrix.fillSparseRowVector(hXI);
+
+			for (int k = 0; k < K; k ++) { // Iterate over the exposures
+				int compressedVectorLength = transposeSparseMatrix.getNumberOfEntries(k); // Get compressed Column for Drug d
+
+				int ni = hNEvents[hPid[k]];
+
+				for (int p = 0; p < compressedVectorLength; p ++){
+					int rowNumber = transposeSparseMatrix.getCompressedRowVector(k)[p];
+					for (int q = 0; q < compressedVectorLength; q ++) {
+						int columnNumber = transposeSparseMatrix.getCompressedRowVector(k)[q];
+						(*blankHessian)[rowNumber][columnNumber] -= -ni*offsExpXBeta[k]/denomPid[hPid[k]];
+					}
+				}
+			}
+
+			break;
+		}
+		cout << "Hessian is " << endl;
+		for (int i = 0; i < J; i ++) {
 			cout << "[";
 			for (int j = 0; j < J; j++) {
-				cout << gsl_matrix_get(HessianMatrix, i, j)<< ",";
+				cout << (*blankHessian)[i][j]<< ",";
 			}
 			cout << "]" << endl;
 		}
 
-
-}
-
-void CyclicCoordinateDescent::getHessianForCholesky_GSL(gsl_matrix * HessianValues) {
-
-	if (hXI->getFormatType(0) == DENSE){
-		getHessianForCholesky_GSL_Dense(HessianValues);
-	} else {
-		getHessianForCholesky_GSL_Indicator(HessianValues);
-	}
-
-}
-
-void CyclicCoordinateDescent::getHessianForCholesky_GSL_Dense(gsl_matrix * HessianValues) {
-	//naming of variables consistent with Suchard write up page 23 Appendix A
-
-
-	vector<int> giVector(N, 0); // get Gi given patient i
-
-	gsl_matrix_set_zero(HessianValues);
-
-	vector<vector<int> > kValues;
-
-	for (int j = 0; j < K; j++) {
-		giVector[hPid[j]] ++;
-	}
-
-	for (int n = 0; n < N; n++) {
-		vector<int> temp;
-		kValues.push_back(temp);
-	}
-
-	for (int j = 0; j < K; j++) {
-		kValues[hPid[j]].push_back(j);
-	}
-
-	gsl_matrix * HessianMatrix = gsl_matrix_alloc(J,J);
-	gsl_matrix_set_zero(HessianMatrix);
-
-
-	for (int i = 0; i < N; i ++) { // sum over patients
-		gsl_matrix * FirstTerm = gsl_matrix_alloc(J, J);
-		gsl_matrix * SecondTerm = gsl_matrix_alloc(J, J);
-		int ni = hNEvents[i];
-		for (int j = 0; j < J; j++) {
-			for (int j2 = 0; j2 < J; j2 ++) {
-				computeNumeratorForGradient(j);
-				double firstNumer = numerPid[i];
-				computeNumeratorForGradient(j2);
-				double secondNumer = numerPid[i];
-				double FirstTermjj2 = firstNumer*secondNumer / (denomPid[i]*denomPid[i]);
-				gsl_matrix_set(FirstTerm, j, j2, FirstTermjj2);
-
-
-				double SecondTermjj2 = 0;
-
-				hXI->convertColumnToDense(j);
-				hXI->convertColumnToDense(j2);
-
-				bsccs::real * columnVectorj = hXI->getDataVector(j);
-				bsccs::real * columnVectorj2 = hXI->getDataVector(j2);
-				for (int g = 0; g < kValues[i].size(); g++) {
-					SecondTermjj2 += offsExpXBeta[kValues[i][g]]*columnVectorj[kValues[i][g]]*columnVectorj2[kValues[i][g]] / (denomPid[i]);
-				}
-				gsl_matrix_set(SecondTerm, j, j2, SecondTermjj2);
-			}
-		}
-
-		gsl_matrix_scale(FirstTerm, -ni);
-		gsl_matrix_scale(SecondTerm, -ni);
-		gsl_matrix_add(HessianMatrix, FirstTerm);
-		gsl_matrix_sub(HessianMatrix, SecondTerm);
-	}
-	gsl_matrix_add(HessianValues, HessianMatrix);
-
-	cout << "Dense Hessian is " << endl;
-	for (int i = 0; i < J; i ++) {
-		cout << "[";
-		for (int j = 0; j < J; j++) {
-			cout << gsl_matrix_get(HessianMatrix, i, j)<< ",";
-		}
-		cout << "]" << endl;
-	}
-
-}
-
-
-void CyclicCoordinateDescent::getHessianForCholesky_Eigen(Eigen::MatrixXf* ReturnHessian) {
-	//naming of variables consistent with Suchard write up page 23 Appendix A
-
-	vector<int> giVector(N, 0); // get Gi given patient i
-
-	vector<vector<int> > kValues;
-
-	for (int j = 0; j < K; j++) {
-		giVector[hPid[j]] ++;
-	}
-
-	for (int n = 0; n < N; n++) {
-		vector<int> temp;
-		kValues.push_back(temp);
-	}
-
-	for (int j = 0; j < K; j++) {
-		kValues[hPid[j]].push_back(j);
-	}
-
-	Eigen::MatrixXf HessianMatrix_Eigen(J, J);
-	HessianMatrix_Eigen.setZero(J, J);
-
-	for (int i = 0; i < N; i ++) { // sum over patients
-		Eigen::MatrixXf FirstTerm_Eigen(J, J);
-		Eigen::MatrixXf SecondTerm_Eigen(J, J);
-
-		int ni = hNEvents[i];
-
-		for (int j = 0; j < J; j++) {
-			for (int j2 = 0; j2 < J; j2 ++) {
-				computeNumeratorForGradient(j);
-				double firstNumer = numerPid[i];
-				computeNumeratorForGradient(j2);
-				double secondNumer = numerPid[i];
-				double FirstTermjj2 = firstNumer*secondNumer / (denomPid[i]*denomPid[i]);
-				FirstTerm_Eigen(j, j2) = FirstTermjj2;
-				bsccs::real * columnVectorj = hXI->getDataVector(j);
-				bsccs::real * columnVectorj2 = hXI->getDataVector(j2);
-				double SecondTermjj2 = 0;
-				for (int g = 0; g < kValues[i].size(); g++) {
-					SecondTermjj2 += offsExpXBeta[kValues[i][g]]*columnVectorj[kValues[i][g]]*columnVectorj2[kValues[i][g]] / (denomPid[i]);
-				}
-				SecondTerm_Eigen(j, j2) = SecondTermjj2;
-			}
-		}
-
-		FirstTerm_Eigen *= -ni;
-		SecondTerm_Eigen *= -ni;
-		HessianMatrix_Eigen += FirstTerm_Eigen;
-
-		HessianMatrix_Eigen -= SecondTerm_Eigen;
-	}
-
-	Eigen::MatrixXf CholeskyDecomp(J, J);
-	Eigen::LLT<Eigen::MatrixXf> CholDecom(HessianMatrix_Eigen);
-	CholeskyDecomp = CholDecom.matrixL();
-	*ReturnHessian = HessianMatrix_Eigen; //CholDecom.matrixL();
-
-}
-
-void CyclicCoordinateDescent::getCholeskyFromHessian(Eigen::MatrixXf* HessianMatrix, Eigen::MatrixXf* CholeskyDecomp){
-	Eigen::MatrixXf CholeskyDecompL(J, J);
-	Eigen::LLT<Eigen::MatrixXf> CholDecom(*HessianMatrix);
-	CholeskyDecompL = CholDecom.matrixL();
-	*CholeskyDecomp = CholDecom.matrixL();
 }
 
 

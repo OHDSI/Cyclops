@@ -21,15 +21,12 @@
 
 #include <Eigen/core>
 
-#include <gsl/gsl_rng.h>
+#include "Parameter.h"
 
-
-using std::cout;
-using std::cerr;
-using std::endl;
-//using std::in;
-using std::ifstream;
-
+#include "CyclicCoordinateDescent.h"
+#include "CrossValidationSelector.h"
+#include "AbstractSelector.h"
+#include "ccd.h"
 
 namespace bsccs {
 
@@ -41,11 +38,7 @@ public:
 
 	virtual ~IndependenceSampler();
 
-	int rmvnorm_stl(gsl_rng * r, const int n, gsl_vector *mean, gsl_matrix *var, gsl_vector *result);
-	//NOT MY CODE - from gsl help line http://www.mail-archive.com/help-gsl@gnu.org/msg00631.html
-	int rmvnorm(gsl_rng * r, const int n, gsl_vector *mean, gsl_matrix *var, gsl_vector *result);
-	//NOT MY CODE - from gsl help line http://www.mail-archive.com/help-gsl@gnu.org/msg00631.html
-	double dmvnorm(const int n, gsl_vector *x, gsl_vector *mean, gsl_matrix *var);
+	void sample(Parameter * Beta_Hat, Parameter * Beta, std::vector<std::vector<bsccs::real> > Cholesky_notGSL);
 
 protected:
 

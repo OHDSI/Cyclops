@@ -22,9 +22,6 @@
 #include <Eigen/core>
 
 #include "CyclicCoordinateDescent.h"
-#include <gsl/gsl_rng.h>
-#include <gsl/gsl_vector.h>
-#include <gsl/gsl_matrix.h>
 #include "IndependenceSampler.h"
 
 
@@ -45,7 +42,7 @@ namespace bsccs {
 
 		~CredibleIntervals();
 
-		vector<vector<bsccs::real> > computeCredibleIntervals(vector<gsl_vector*> sampledBetaValues, int betaSize, int nSamples);
+		vector<vector<bsccs::real> > computeCredibleIntervals(vector<vector<bsccs::real> > sampledBetaValues);
 
 	private:
 

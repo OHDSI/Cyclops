@@ -17,16 +17,9 @@
 #include <set>
 
 #include <math.h>
-#include <gsl/gsl_sf_gamma.h>
-#include <gsl/gsl_rng.h>
-#include <gsl/gsl_randist.h>
-#include <gsl/gsl_vector.h>
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_blas.h>
-#include <gsl/gsl_linalg.h>
 
 #include "MHRatio.h"
-#include "Eigen/core"
+
 
 namespace bsccs{
 
@@ -38,7 +31,7 @@ MHRatio::~MHRatio(){
 
 }
 
-bool MHRatio::acceptBetaBool(CyclicCoordinateDescent & ccd, IndependenceSampler * sampler, double uniformRandom, int betaSize, gsl_vector * betaOld, gsl_vector * betaToEvaluate, gsl_matrix * covarianceMatrix){
+bool MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, vector<vector<bsccs::real> > * precisionMatrix, bsccs::real precisionDeterminant) {//CyclicCoordinateDescent & ccd, IndependenceSampler * sampler, double uniformRandom, int betaSize, gsl_vector * betaOld, gsl_vector * betaToEvaluate, gsl_matrix * covarianceMatrix){
 
 
 	double ratio = 0;
@@ -49,51 +42,42 @@ bool MHRatio::acceptBetaBool(CyclicCoordinateDescent & ccd, IndependenceSampler 
 	double mvtBetaPossible = 1;
 	double mvtBetaCurrent = 1;
 
-	vector<double> betaPossible;
-	vector<double> betaOldValues;
+	int betaSize = Beta->getSize();
 
-	for (int i = 0; i < betaSize; i++) {
-		betaPossible.push_back(gsl_vector_get(betaToEvaluate,i));
-		betaOldValues.push_back(gsl_vector_get(betaOld,i));
-	}
+	vector<double> betaPossible = Beta->returnCurrentValues();
+	vector<double> betaOldValues = Beta->returnStoredValues();
 
 	ccd.setBeta(betaPossible);
 	fBetaPossible = exp(ccd.getLogLikelihood());
 	pBetaPossible = exp(ccd.getLogPrior());
-	mvtBetaPossible = sampler->dmvnorm(betaSize, betaToEvaluate, betaOld, covarianceMatrix);
-
-	//These will be passed in eventually
+	mvtBetaPossible = 0.5; // TODO Implement
 
 	ccd.setBeta(betaOldValues);
 	fBetaCurrent = exp(ccd.getLogLikelihood());
 	pBetaCurrent = exp(ccd.getLogPrior());
-	mvtBetaCurrent = sampler->dmvnorm(betaSize, betaOld, betaOld, covarianceMatrix);
+	mvtBetaCurrent = 0.5; //TODO Implement
 
 
 	ratio = ((fBetaPossible*pBetaPossible) / mvtBetaPossible) / ((fBetaCurrent*pBetaCurrent) / mvtBetaCurrent);
 
-
-
 	alpha = min(ratio, 1.0);
 
+	double uniformRandom = (rand() / (RAND_MAX + 1.0));
 	cout << "ratio = " << ratio << " and uniformRandom = " << uniformRandom << endl;
 
 	if (alpha > uniformRandom) {
-		return true;
+		Beta->setChangeStatus(true);
 	} else{
-		return true;
+		Beta->setChangeStatus(false);
+		Beta->restore();
 	}
-}
 
-bool MHRatio::getSigmaSquaredBool(double uniformRandom) {
-
-	cout << "in getSigmaSquaredBool fudgeFactor*alpha = " << fudgeFactor*alpha << endl;
-	cout << "in getSigmaSquaredBool uniformRandom = " << uniformRandom<< endl;
 	if (fudgeFactor*alpha > uniformRandom) {
-		cout << "CHANGING SIGMA SQUARED" << endl;
-		return false;
+		SigmaSquared->setChangeStatus(false);
+		SigmaSquared->setNeedToChangeStatus(true);
 	} else {
-		return false;
+		SigmaSquared->setChangeStatus(false);
+		SigmaSquared->setNeedToChangeStatus(false);
 	}
 }
 

@@ -21,9 +21,6 @@
 #include <Eigen/core>
 
 #include "CyclicCoordinateDescent.h"
-#include <gsl/gsl_rng.h>
-#include <gsl/gsl_vector.h>
-#include <gsl/gsl_matrix.h>
 #include "IndependenceSampler.h"
 
 
@@ -44,9 +41,7 @@ namespace bsccs {
 
 		~MHRatio();
 
-		bool acceptBetaBool(CyclicCoordinateDescent &ccd, IndependenceSampler * sampler, double uniformRandom, int betaSize, gsl_vector * betaOld, gsl_vector * betaToEvaluate, gsl_matrix * covarianceMatrix);
-
-		bool getSigmaSquaredBool(double uniformRandom);
+		bool evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, vector<vector<bsccs::real> > * precisionMatrix, bsccs::real precisionDeterminant);
 
 	private:
 		double min(double value1, double value2);

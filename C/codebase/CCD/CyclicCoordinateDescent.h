@@ -8,8 +8,7 @@
 #ifndef CYCLICCOORDINATEDESCENT_H_
 #define CYCLICCOORDINATEDESCENT_H_
 
-#include <Eigen/Dense>
-#include <gsl/gsl_matrix.h>
+
 #include "CompressedDataMatrix.h"
 #include "InputReader.h"
 
@@ -17,7 +16,7 @@
 
 
 //using namespace std;
-//using namespace Eigen;
+
 using std::cout;
 using std::cerr;
 using std::endl;
@@ -113,15 +112,7 @@ public:
 
 	void setLogisticRegression(bool idoLR);
 
-	void getHessianForCholesky_GSL(gsl_matrix * HessianValues);
-
-	void getHessianForCholesky_GSL_Dense(gsl_matrix * HessianValues);
-
-	void getHessianForCholesky_GSL_Indicator(gsl_matrix * HessianValues);
-
-	void getHessianForCholesky_Eigen(Eigen::MatrixXf* ReturnHessian);
-
-	void getCholeskyFromHessian(Eigen::MatrixXf* HessianMatrix, Eigen::MatrixXf* CholeskyDecomp);
+	void getHessian(vector<vector<bsccs::real> > * blankHessian);
 
 //	template <typename T>
 	void setBeta(const std::vector<double>& beta);
@@ -144,6 +135,8 @@ public:
 	}
 		
 	bsccs::real* hBeta; //tshaddox change TEMPORARY for Parameter testing...
+	double sigma2Beta;  //tshaddox change TEMPORARY for Parameter testing...
+
 protected:
 	
 //private:
@@ -284,7 +277,7 @@ protected:
 	string conditionId;
 
 	int priorType;
-	double sigma2Beta;
+
 	double lambda;
 
 	bsccs::real denomNullValue;

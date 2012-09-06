@@ -6,15 +6,7 @@
  */
 
 #include "Parameter.h"
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <cmath>
-#include <cstdlib>
-#include <cstring>
-#include <map>
-#include <time.h>
-#include <set>
+
 
 using namespace std;
 namespace bsccs{
@@ -23,6 +15,8 @@ namespace bsccs{
 		parameterValues = (bsccs::real*) calloc(sizeIn, sizeof(bsccs::real));
 		memcpy(parameterValues, data, sizeof(bsccs::real)*sizeIn);
 		size = sizeIn;
+		didValueGetChanged = false;
+		shouldBeChanged = false;
 	}
 
 	Parameter::~Parameter(){
@@ -38,6 +32,15 @@ namespace bsccs{
 	bsccs::real Parameter::get(int index){
 		return parameterValues[index];
 	}
+
+	bsccs::real Parameter::getStored(int index){
+		return storedValues[index];
+	}
+
+	void Parameter::set(int index, bsccs::real setTo){
+		parameterValues[index] = setTo;
+	}
+
 
 	void Parameter::logParameter() {
 		cout << "Parameter value is <";
@@ -62,6 +65,41 @@ namespace bsccs{
 		parameterValues = storedValues;
 	}
 
+	bool Parameter::getChangeStatus() {
+		return didValueGetChanged;
+	}
+
+	bool Parameter::getNeedToChangeStatus() {
+		return shouldBeChanged;
+	}
+
+	void Parameter::setChangeStatus(bool status) {
+		didValueGetChanged = status;
+	}
+
+	void Parameter::setNeedToChangeStatus(bool status) {
+		shouldBeChanged = status;
+	}
+
+	std::vector<double> Parameter::returnCurrentValues() {
+		std::vector<double> returnVector;
+
+		for (int i = 0; i < size; i++) {
+			returnVector.push_back((double) parameterValues[i]);
+		}
+
+		return returnVector;
+	}
+
+	std::vector<double> Parameter::returnStoredValues() {
+		std::vector<double> returnVector;
+
+		for (int i = 0; i < size; i++) {
+			returnVector.push_back((double) storedValues[i]);
+		}
+
+		return returnVector;
+	}
 
 }
 

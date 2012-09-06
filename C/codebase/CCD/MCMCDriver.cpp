@@ -11,12 +11,9 @@
 #include <numeric>
 #include <math.h>
 #include <cstdlib>
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_linalg.h>
-#include <gsl/gsl_vector.h>
-#include <gsl/gsl_rng.h>
-#include <gsl/gsl_blas.h>
 
+#include <Eigen/Dense>
+#include <Eigen/Cholesky>
 #include "MCMCDriver.h"
 #include "MHRatio.h"
 #include "IndependenceSampler.h"
@@ -30,9 +27,19 @@ namespace bsccs {
 
 
 MCMCDriver::MCMCDriver(InputReader * inReader): reader(inReader) {
-	maxIterations = 1000;
+	maxIterations = 1;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
+
+
+}
+
+void MCMCDriver::initializeHessian() {
+
+	for (int i = 0; i < J; i ++){
+		vector<bsccs::real> columnInHessian(J,0);
+		hessian_notGSL.push_back(columnInHessian);
+	}
 }
 
 MCMCDriver::~MCMCDriver() {
@@ -43,69 +50,57 @@ void MCMCDriver::drive(
 		CyclicCoordinateDescent& ccd) {
 
 	// Select First Beta vector = modes from ccd
-	int betaSize = ccd.getBetaSize();
+	J = ccd.getBetaSize();
 
-	Parameter OriginalBeta(ccd.hBeta, betaSize);
-	Parameter Beta(ccd.hBeta, betaSize);
+	Parameter Beta_Hat(ccd.hBeta, J);
+	Parameter Beta(ccd.hBeta, J);
+	Beta.store();
+	bsccs::real sigma2Start;
+	sigma2Start = (bsccs::real) ccd.sigma2Beta;
+	Parameter SigmaSquared(&sigma2Start, 1);
 
-	J = Beta.getSize();
-
-	gsl_vector * gslBetaStart = gsl_vector_alloc(betaSize);
-
-	for (int i = 0; i < betaSize; i++) {
-		gsl_vector_set(gslBetaStart, i, ccd.getBeta(i));
-		BetaValues.push_back(ccd.getBeta(i));
-	}
-
+	initializeHessian();
+	ccd.getHessian(&hessian_notGSL);
+	generateCholesky();  //Inverts the cholesky too
 
 	// Generate the tools for the MH loop
 	IndependenceSampler sampler;
-	gsl_rng * randomizer = gsl_rng_alloc(gsl_rng_taus);
+	// need randomizer
 
-
-	vector<gsl_vector*> betaValuesSampled_gsl;
-	betaValuesSampled_gsl.push_back(gslBetaStart);
-	nBetaSamples ++;
-
-	struct timeval time1, time2;
-	gettimeofday(&time1, NULL);
-	gsl_matrix * precisionMatrix = gsl_matrix_alloc(betaSize, betaSize);
-	ccd.getHessianForCholesky_GSL_Indicator(precisionMatrix);
-	gettimeofday(&time2, NULL);
-	cout << "time Indicator = " << calculateSeconds(time1, time2) << endl;
-	struct timeval time3, time4;
-	gettimeofday(&time3, NULL);
-	gsl_matrix * precisionMatrix2 = gsl_matrix_alloc(betaSize, betaSize);
-	ccd.getHessianForCholesky_GSL_Dense(precisionMatrix2);
-	gettimeofday(&time4, NULL);
-	cout << "time Dense = " << calculateSeconds(time3, time4) << endl;
-
-/*
-	cout << gsl_matrix_get(precisionMatrix, 0,0) << endl;
-	gsl_linalg_cholesky_decomp(precisionMatrix); // get Cholesky decomposition (done in place)
-
-	gsl_linalg_cholesky_invert(precisionMatrix); // Inversion of the matrix from which Cholesky was taken (i.e. the Hessian Matrix)
-
-
-	// Rename the matrix to avoid confusion
-	gsl_matrix * precisionInverse = gsl_matrix_alloc(betaSize, betaSize);
-	gsl_matrix_set_zero(precisionInverse);
-	gsl_matrix_add(precisionInverse, precisionMatrix);
-
-
-	gsl_rng * r = gsl_rng_alloc(gsl_rng_taus);
+	//Framework for storing MCMC data
+	vector<vector<bsccs::real> > MCMCBetaValues;
+	vector<double> MCMCSigmaSquaredValues;
 
 	for (int iterations = 0; iterations < maxIterations; iterations ++) {
 
-		double uniformRandom = gsl_rng_uniform(r);
-
 		//Select a sample beta vector
-		gsl_vector * sample = gsl_vector_alloc(betaSize);
-		sampler.rmvnorm_stl(randomizer, betaSize, gslBetaStart, precisionInverse, sample);
+		sampler.sample(&Beta_Hat, &Beta, Cholesky_notGSL);
 
 		//Compute the acceptance ratio, and decide if accept or reject beta sample
-		MHRatio acceptanceRatio;
 
+		MHRatio MHstep;
+		MHstep.evaluate(&Beta, &SigmaSquared, ccd, &hessian_notGSL, precisionDeterminant);
+
+		if (Beta.getChangeStatus()) {
+			// TODO Make storage functionality
+			nBetaSamples ++;
+		}
+
+		if (SigmaSquared.getNeedToChangeStatus()) {
+			SigmaSampler sigmaMaker;
+			sigmaMaker.sampleSigma(&SigmaSquared);
+			nSigmaSquaredSamples ++;
+
+			// Need Wrapper for this....
+			ccd.resetBeta();
+			ccd.setHyperprior(SigmaSquared.get(0));
+			int ZHANG_OLES = 1;
+			int ccdIterations = 100;
+			double tolerance = 5E-4;
+			ccd.update(ccdIterations, ZHANG_OLES, tolerance);
+		}
+
+		/*
 		if (acceptanceRatio.acceptBetaBool(ccd, &sampler, uniformRandom, betaSize, gslBetaStart, sample, precisionInverse)){
 			// Accept the sampled beta
 			nBetaSamples++;  //record sample size
@@ -135,12 +130,46 @@ void MCMCDriver::drive(
 		} else {
 			//do nothing
 		}
-
-	}
-	CredibleIntervals intervalsToReport;
-
-	credibleIntervals = intervalsToReport.computeCredibleIntervals(betaValuesSampled_gsl, betaSize, nBetaSamples);
 */
+	}
+
+	//CredibleIntervals intervalsToReport;
+	//credibleIntervals = intervalsToReport.computeCredibleIntervals(betaValuesSampled_gsl, betaSize, nBetaSamples);
+}
+
+void MCMCDriver::generateCholesky() {
+	Eigen::MatrixXf HessianMatrix(J, J);
+	Eigen::MatrixXf CholeskyDecompL(J, J);
+
+	// initialize Cholesky matrix
+	for (int i = 0; i < J; i ++){
+		vector<bsccs::real> columnInCholesky(J,0);
+		Cholesky_notGSL.push_back(columnInCholesky);
+	}
+
+	//Convert to Eigen for Cholesky decomposition
+	for (int i = 0; i < J; i++) {
+		for (int j = 0; j < J; j++) {
+			HessianMatrix(i, j) = hessian_notGSL[i][j];
+		}
+	}
+
+	precisionDeterminant = HessianMatrix.determinant();
+
+	//Perform Cholesky Decomposition
+	Eigen::LLT<Eigen::MatrixXf> CholDecom(HessianMatrix);
+
+
+
+	Eigen::VectorXf b = Eigen::VectorXf::Random(J);
+	CholeskyDecompL = CholDecom.matrixL();
+	Eigen::MatrixXf CholeskyInverted = CholeskyDecompL.inverse();
+
+	for (int i = 0; i < J; i ++) {
+		for (int j = 0; j < J; j++) {
+			Cholesky_notGSL[i][j] = CholeskyInverted(i,j);
+		}
+	}
 }
 
 void MCMCDriver::logResults(const CCDArguments& arguments, std::string conditionId) {

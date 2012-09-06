@@ -8,6 +8,14 @@
 #ifndef PARAMETER_H_
 #define PARAMETER_H_
 
+#include <vector>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+
 namespace bsccs{
 
 #ifdef DOUBLE_PRECISION
@@ -26,7 +34,9 @@ namespace bsccs{
 
 		bsccs::real get(int index);
 
-		void set(int index);
+		bsccs::real getStored(int index);
+
+		void set(int index, bsccs::real setTo);
 
 		void logParameter();
 
@@ -36,6 +46,18 @@ namespace bsccs{
 
 		void restore();
 
+		bool getChangeStatus();
+
+		bool getNeedToChangeStatus();
+
+		void setChangeStatus(bool status);
+
+		void setNeedToChangeStatus(bool status);
+
+		std::vector<double> returnCurrentValues();
+
+		std::vector<double> returnStoredValues();
+
 	private:
 
 		int size;
@@ -43,6 +65,10 @@ namespace bsccs{
 		bsccs::real * parameterValues;
 
 		bsccs::real * storedValues;
+
+		bool didValueGetChanged;
+
+		bool shouldBeChanged;
 
 	};
 }
