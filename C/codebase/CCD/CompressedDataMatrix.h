@@ -117,7 +117,11 @@ public:
 	
 	void convertColumnToSparse(void);
 
+	void fill(real_vector& values, int nRows);
+
 	void printColumn(int nRows);
+
+	real sumColumn(int nRows);
 
 	template <class T>
 	void printVector(T values, const int size) {

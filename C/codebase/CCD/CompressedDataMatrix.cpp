@@ -8,6 +8,7 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <numeric>
 #include <vector>
 
 #include "CompressedDataMatrix.h"
@@ -95,6 +96,26 @@ FormatType CompressedDataMatrix::getFormatType(int column) const {
 	return allColumns[column]->getFormatType();
 }
 
+void CompressedDataColumn::fill(real_vector& values, int nRows) {
+	values.resize(nRows);
+	if (formatType == DENSE) {
+			values.assign(data->begin(), data->end());
+		} else {
+			bool isSparse = formatType == SPARSE;
+			values.assign(nRows, 0.0);
+			int* indicators = getColumns();
+			int n = getNumberOfEntries();
+			for (int i = 0; i < n; ++i) {
+				const int k = indicators[i];
+				if (isSparse) {
+					values[k] = data->at(i);
+				} else {
+					values[k] = 1.0;
+				}
+			}
+		}
+}
+
 CompressedDataMatrix* CompressedDataMatrix::transpose(){
 	CompressedDataMatrix* matTranspose = new CompressedDataMatrix();
 
@@ -149,7 +170,7 @@ CompressedDataMatrix* CompressedDataMatrix::transpose(){
 	return matTranspose;
 }
 
-
+// TODO Fix massive copying
 void CompressedDataMatrix::addToColumnVector(int column, int_vector addEntries) const{
 	allColumns[column]->addToColumnVector(addEntries);
 }
@@ -182,26 +203,18 @@ void CompressedDataMatrix::getDataRow(int row, real* x) const {
 void CompressedDataMatrix::setNumberOfColumns(int nColumns) {
 	nCols = nColumns;
 }
+// End TODO
 
 void CompressedDataColumn::printColumn(int nRows) {
 	real_vector values;
-	if (formatType == DENSE) {
-		values.assign(data->begin(), data->end());
-	} else {
-		bool isSparse = formatType == SPARSE;
-		values.assign(nRows, 0.0);
-		int* indicators = getColumns();
-		int n = getNumberOfEntries();
-		for (int i = 0; i < n; ++i) {
-			const int k = indicators[i];
-			if (isSparse) {
-				values[k] = data->at(i);
-			} else {
-				values[k] = 1.0;
-			}
-		}
-	}
+	fill(values, nRows);
 	printVector(values.data(), values.size());
+}
+
+real CompressedDataColumn::sumColumn(int nRows) {
+	real_vector values;
+	fill(values, nRows);
+	return std::accumulate(values.begin(), values.end(), 0);
 }
 
 void CompressedDataColumn::convertColumnToSparse(void) {
@@ -256,6 +269,7 @@ void CompressedDataColumn::convertColumnToDense(int nRows) {
 	delete columns; columns = NULL;
 }
 
+// TODO Fix massive copying
 void CompressedDataColumn::addToColumnVector(int_vector addEntries){
 	int lastit = 0;
 

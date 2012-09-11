@@ -14,16 +14,21 @@
 using namespace std;
 
 class BBROutputWriter{
+
 public:
-	BBROutputWriter() {} ;
+
+	BBROutputWriter() {}
+
 	virtual ~BBROutputWriter() {}
 
-	void BBROutputWriter::writeFile(const char* fileName, ModelData* modelData) {
+
+	void writeFile(const char* fileName, ModelData* modelData) {
 		
 		int nRows = modelData->getNumberOfRows();
 		int nCols = modelData->getNumberOfColumns();
 
 		CompressedDataMatrix* dataTranspose = modelData->transpose();
+
 
 		ofstream out;
 		out.open(fileName,ios::out);
@@ -70,6 +75,7 @@ public:
 		if(dataTranspose)
 			delete dataTranspose;
 	}
+
 };
 
 #endif /* BBROUTPUTWRITER_H_ */
