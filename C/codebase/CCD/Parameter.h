@@ -18,11 +18,13 @@
 
 namespace bsccs{
 
+
 #ifdef DOUBLE_PRECISION
 	typedef double real;
 #else
 	typedef float real;
 #endif
+
 
 	class Parameter{
 	public:

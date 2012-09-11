@@ -34,13 +34,11 @@ private:
 
 	vector<double> MCMCResults_SigmaSquared;
 
-	vector<bsccs::real> BetaValues;
+	vector<double> BetaValues;
 
-	vector<vector<bsccs::real> > hessian_notGSL;
+	vector<vector<bsccs::real> > hessian;
 
-	double precisionDeterminant;
-
-	vector<vector<bsccs::real> > Cholesky_notGSL;
+	vector<vector<bsccs::real> > cholesky;
 
 	int J;
 

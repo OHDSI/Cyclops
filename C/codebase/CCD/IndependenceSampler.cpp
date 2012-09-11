@@ -20,6 +20,9 @@
 #include "IndependenceSampler.h"
 #include "Eigen/core"
 
+#include <boost/random.hpp>
+#include <boost/random/normal_distribution.hpp>
+
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
 
 namespace bsccs {
@@ -33,25 +36,29 @@ IndependenceSampler::~IndependenceSampler() {
 
 }
 
-void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta, std::vector<std::vector<bsccs::real> > Cholesky_notGSL) {
+void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta, std::vector<std::vector<bsccs::real> > cholesky, boost::mt19937& rng) {
+	//TODO Better rng passing...  Make wrapper
+
+	Beta->store();
+
 	int sizeOfSample = Beta->getSize();
 
 	vector<bsccs::real> independentNormal;  //Sampled independent normal values
 
-	double unifRand1;
-	double unifRand2;
+	boost::normal_distribution<> nd(0.0, 1.0);
+
+	boost::variate_generator<boost::mt19937&,
+	                           boost::normal_distribution<> > var_nor(rng, nd);
 
 	for (int i = 0; i < sizeOfSample; i++) {
-		unifRand1 = (rand() / (RAND_MAX + 1.0));
-		unifRand2 = (rand() / (RAND_MAX + 1.0));
-		bsccs::real normalValue = sqrt(-2*log(unifRand1)) * cos(2*PI*unifRand2); // Box-Muller method
+		bsccs::real normalValue = var_nor();
 		independentNormal.push_back(normalValue);
 	}
 
 	for (int i = 0; i < sizeOfSample; i++) {
 		bsccs::real actualValue = 0;
 		for (int j = 0; j < sizeOfSample; j++) {
-			actualValue += Cholesky_notGSL[j][i]*independentNormal[j];
+			actualValue += cholesky[j][i]*independentNormal[j];
 		}
 		Beta->set(i, actualValue + Beta_Hat->get(i));
 	}

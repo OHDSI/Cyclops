@@ -410,6 +410,7 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 //#endif
 
 	likelihoodCount += 1;
+	cout << "logLikelihood = " << logLikelihood << endl;
 	return static_cast<double>(logLikelihood);
 }
 
@@ -550,7 +551,9 @@ void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 //template <typename T>
 void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
 	for (int j = 0; j < J; ++j) {
+
 		hBeta[j] = static_cast<bsccs::real>(beta[j]);
+		cout << "hBeta[" << j << "] = " << hBeta[j] << endl;
 	}
 	xBetaKnown = false;
 }

@@ -41,7 +41,7 @@ namespace bsccs {
 
 		~MHRatio();
 
-		bool evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, vector<vector<bsccs::real> > * precisionMatrix, bsccs::real precisionDeterminant);
+		void evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, vector<vector<bsccs::real> > * precisionMatrix);
 
 	private:
 		double min(double value1, double value2);

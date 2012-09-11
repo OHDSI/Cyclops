@@ -29,7 +29,7 @@ namespace bsccs{
 		return size;
 	}
 
-	bsccs::real Parameter::get(int index){
+	bsccs::real	 Parameter::get(int index){
 		return parameterValues[index];
 	}
 

@@ -20,7 +20,6 @@
 #include "CyclicCoordinateDescent.h"
 #include "IndependenceSampler.h"
 
-
 using std::cout;
 using std::cerr;
 using std::endl;
@@ -59,50 +58,39 @@ void CredibleIntervals::computeCredibleIntervals(vector<vector<double> > * BetaV
 		cout << sum/nSamples << endl;
 	}
 
-	/*//Write Beta Data to a file
-	string fileName = "/Users/trevorshaddox/Desktop/CredibleIntervals_out.csv";
+
+	//Write Beta Data to a file
+	string fileName = "/Users/trevorshaddox/Desktop/CredibleIntervals_beta_out.csv";
 	ofstream outLog(fileName.c_str());
 
 	string sep(","); // TODO Make option
 
 	for (int j = 0; j < nSamples; ++j) {
-		outLog << (*BetaValues)[j][0] << sep << (*BetaValues)[j][1] << endl;
+		for (int k = 0; k < betaSize; k++) {
+			outLog << (*BetaValues)[j][k] << sep;
+		}
+		outLog << endl;
 	}
 	outLog.close();
-	*/
+
+	//Write Sigma Data to a file
+	string fileName2 = "/Users/trevorshaddox/Desktop/CredibleIntervals_sigma_out.csv";
+	ofstream outLog2(fileName2.c_str());
+
+	string sep2(","); // TODO Make option
+
+	for (int j = 0; j < nSamples; ++j) {
+		outLog2 << (*SigmaSquaredValues)[j] << sep2 << endl;
+	}
+	outLog2.close();
+
 
 	//TODO construct quantile intervals
 }
 
 void CredibleIntervals::logResults(const CCDArguments& arguments, std::string conditionId) {
 
-	/*
-	string fileName = "/Users/trevorshaddox/Desktop/CredibleIntervals_out.csv"
-	ofstream outLog(fileName.c_str());
-	if (!outLog) {
-		cerr << "Unable to open log file: " << arguments.bsFileName << endl;
-		exit(-1);
-	}
-	//map<int, DrugIdType> drugMap = reader->getDrugNameMap();
-
-	string sep(","); // TODO Make option
-
-
-	if (!arguments.reportRawEstimates) {
-		outLog << "Drug_concept_id" << sep << "Condition_concept_id" << sep <<
-				"score" << sep << "lower" << sep <<
-				"upper" << endl;
-	}
-
-
-	for (int j = 0; j < J; ++j) {
-		outLog << drugMap[j] << sep << conditionId << sep;
-
-		outLog << BetaValues[j] << sep << credibleIntervals[0][j] << sep << credibleIntervals[1][j] << endl;
-
-	}
-	outLog.close();
-	*/
+	//TODO write as separate way to print all data
 }
 
 }

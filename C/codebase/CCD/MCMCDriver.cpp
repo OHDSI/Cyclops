@@ -23,23 +23,22 @@
 #include "Parameter.h"
 #include "ModelLikelihood.h"
 
+#include <boost/random.hpp>
 
 namespace bsccs {
 
 
 MCMCDriver::MCMCDriver(InputReader * inReader): reader(inReader) {
-	maxIterations = 10000;
+	maxIterations = 100;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
-
-
 }
 
 void MCMCDriver::initializeHessian() {
 
 	for (int i = 0; i < J; i ++){
 		vector<bsccs::real> columnInHessian(J,0);
-		hessian_notGSL.push_back(columnInHessian);
+		hessian.push_back(columnInHessian);
 	}
 }
 
@@ -52,8 +51,6 @@ void MCMCDriver::drive(
 
 	// Select First Beta vector = modes from ccd
 	J = ccd.getBetaSize();
-
-	cout << "J = " << J << endl;
 
 	Parameter Beta_Hat(ccd.hBeta, J);
 	Beta_Hat.logParameter();
@@ -68,28 +65,27 @@ void MCMCDriver::drive(
 	SigmaSquared.logParameter();
 
 	initializeHessian();
-	ccd.getHessian(&hessian_notGSL);
+	ccd.getHessian(&hessian);
 	generateCholesky();  //Inverts the cholesky too
 
 	// Generate the tools for the MH loop
 	IndependenceSampler sampler;
-	srand(time(NULL));
 
-	//Framework for storing MCMC data
-	vector<vector<bsccs::real> > MCMCBetaValues;
-	vector<double> MCMCSigmaSquaredValues;
+	//Set Boost rng
+	boost::mt19937 rng;
 
 	//MCMC Loop
 	for (int iterations = 0; iterations < maxIterations; iterations ++) {
 
+
 		//Select a sample beta vector
-		sampler.sample(&Beta_Hat, &Beta, Cholesky_notGSL);
+		sampler.sample(&Beta_Hat, &Beta, cholesky, rng);
 		cout << "Sample Draw: ";
 		Beta.logParameter();
 
-		//Compute the acceptance ratio, and decide if Beta should be changed
+		//Compute the acceptance ratio, and decide if Beta and sigma should be changed
 		MHRatio MHstep;
-		MHstep.evaluate(&Beta, &SigmaSquared, ccd, &hessian_notGSL, precisionDeterminant);
+		MHstep.evaluate(&Beta, &SigmaSquared, ccd, &hessian);
 
 		if (Beta.getChangeStatus()) {
 			MCMCResults_BetaVectors.push_back(Beta.returnCurrentValues());
@@ -99,14 +95,15 @@ void MCMCDriver::drive(
 
 		if (SigmaSquared.getNeedToChangeStatus()) {
 			SigmaSampler sigmaMaker;
-			sigmaMaker.sampleSigma(&SigmaSquared);
+			sigmaMaker.sampleSigma(&SigmaSquared, &Beta, rng);
+
 			MCMCResults_SigmaSquared.push_back(SigmaSquared.returnCurrentValues()[0]);
 			nSigmaSquaredSamples ++;
 			cout << "nSigmaSquaredSamples = " << nSigmaSquaredSamples << endl;
 			cout << "new SigmaSquared: ";
 			SigmaSquared.logParameter();
 
-			// Need Wrapper for this....
+			// TODO Need Wrapper for this....
 			ccd.resetBeta();
 			ccd.setHyperprior(SigmaSquared.get(0));
 			int ZHANG_OLES = 1;
@@ -127,22 +124,18 @@ void MCMCDriver::generateCholesky() {
 	// initialize Cholesky matrix
 	for (int i = 0; i < J; i ++){
 		vector<bsccs::real> columnInCholesky(J,0);
-		Cholesky_notGSL.push_back(columnInCholesky);
+		cholesky.push_back(columnInCholesky);
 	}
 
 	//Convert to Eigen for Cholesky decomposition
 	for (int i = 0; i < J; i++) {
 		for (int j = 0; j < J; j++) {
-			HessianMatrix(i, j) = hessian_notGSL[i][j];
+			HessianMatrix(i, j) = hessian[i][j];
 		}
 	}
 
-	precisionDeterminant = HessianMatrix.determinant();
-
 	//Perform Cholesky Decomposition
 	Eigen::LLT<Eigen::MatrixXf> CholDecom(HessianMatrix);
-
-
 
 	Eigen::VectorXf b = Eigen::VectorXf::Random(J);
 	CholeskyDecompL = CholDecom.matrixL();
@@ -150,7 +143,7 @@ void MCMCDriver::generateCholesky() {
 
 	for (int i = 0; i < J; i ++) {
 		for (int j = 0; j < J; j++) {
-			Cholesky_notGSL[i][j] = CholeskyInverted(i,j);
+			cholesky[i][j] = CholeskyInverted(i,j);
 		}
 	}
 }

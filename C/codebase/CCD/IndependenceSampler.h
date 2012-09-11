@@ -28,6 +28,8 @@
 #include "AbstractSelector.h"
 #include "ccd.h"
 
+#include <boost/random.hpp>
+
 namespace bsccs {
 
 class IndependenceSampler {
@@ -38,7 +40,7 @@ public:
 
 	virtual ~IndependenceSampler();
 
-	void sample(Parameter * Beta_Hat, Parameter * Beta, std::vector<std::vector<bsccs::real> > Cholesky_notGSL);
+	void sample(Parameter * Beta_Hat, Parameter * Beta, std::vector<std::vector<bsccs::real> > cholesky, boost::mt19937& rng);
 
 protected:
 

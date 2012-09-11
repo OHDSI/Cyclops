@@ -9,18 +9,18 @@ include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 #	DOCS "Location of MTL header file"
 #	PATHS "/Users/msuchard/Documents/Projects")
 #	
-#find_path(BOOST_INCLUDE_DIR
-#	NAMES boost
-#	DOCS "Location of boost header file"
-#	PATHS "/Users/msuchard/Documents/Projects/boost_1_42_0")
+find_path(BOOST_INCLUDE_DIR
+	NAMES boost
+	DOCS "Location of boost header file"
+	PATHS "/Users/trevorshaddox/Desktop/workspace/boost_1_51_0")
 	
 #find_library(GSL_LIBRARY
 #	NAMES gsl
 #	DOCS "Location of GSL library file")
 
-find_library(GSL_CBLAS_LIBRARY
-	NAMES gslcblas
-	DOCS "Location of GSL BLAS library file")
+#find_library(GSL_CBLAS_LIBRARY
+#	NAMES gslcblas
+#	DOCS "Location of GSL BLAS library file")
 
 #find_library(CUBLAS_LIBRARY
 #	NAMES cublas
@@ -58,7 +58,7 @@ message(STATUS "Found GSL header file in:  " ${GSL_INCLUDE_DIR})
 
 #message(STATUS "Found MTL header file in: " ${MTL_INCLUDE_DIR})
 
-#message(STATUS "Found boost header files in: " ${BOOST_INCLUDE_DIR})
+message(STATUS "Found boost header files in: " ${BOOST_INCLUDE_DIR})
 
 
 
@@ -109,6 +109,7 @@ if(CUDA_FOUND)
 #	cuda_add_library(ccd-lib ${SOURCE_FILES})
  	cuda_add_executable(ccd ${SOURCE_FILES})
  	target_link_libraries(ccd CUDADriver)
+	target_link_libraries(ccd ${BOOST_INCLUDE_LIBRARY})
 else(CUDA_FOUND)
 	add_executable(ccd ${SOURCE_FILES})
 endif(CUDA_FOUND)

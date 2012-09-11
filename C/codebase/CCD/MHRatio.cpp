@@ -20,27 +20,21 @@
 
 #include "MHRatio.h"
 
+#include <boost/random.hpp>
+#include <boost/random/uniform_real.hpp>
+
 
 namespace bsccs{
 
 MHRatio::MHRatio(){
-	fudgeFactor = 0.1;
+	fudgeFactor = 1;
 }
 
 MHRatio::~MHRatio(){
 
 }
 
-bool MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, vector<vector<bsccs::real> > * precisionMatrix, bsccs::real precisionDeterminant) {//CyclicCoordinateDescent & ccd, IndependenceSampler * sampler, double uniformRandom, int betaSize, gsl_vector * betaOld, gsl_vector * betaToEvaluate, gsl_matrix * covarianceMatrix){
-
-
-	double ratio = 0;
-	double fBetaPossible = 1;
-	double fBetaCurrent = 1;
-	double pBetaPossible = 1;
-	double pBetaCurrent = 1;
-	double mvtBetaPossible = 1;
-	double mvtBetaCurrent = 1;
+void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, vector<vector<bsccs::real> > * precisionMatrix) {
 
 	int betaSize = Beta->getSize();
 
@@ -48,27 +42,26 @@ bool MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 	vector<double> betaOldValues = Beta->returnStoredValues();
 
 	ccd.setBeta(betaPossible);
-	fBetaPossible = exp(ccd.getLogLikelihood());
-	pBetaPossible = exp(ccd.getLogPrior());
-	mvtBetaPossible = 1; // TODO Implement
+	double fBetaPossible = ccd.getLogLikelihood();
+	double pBetaPossible = ccd.getLogPrior();
 
 	ccd.setBeta(betaOldValues);
-	fBetaCurrent = exp(ccd.getLogLikelihood());
-	pBetaCurrent = exp(ccd.getLogPrior());
-	mvtBetaCurrent = 1; //TODO Implement
+	double fBetaCurrent = ccd.getLogLikelihood();
+	double pBetaCurrent = ccd.getLogPrior();
 
-
-	ratio = ((fBetaPossible*pBetaPossible) / mvtBetaPossible) / ((fBetaCurrent*pBetaCurrent) / mvtBetaCurrent);
+	double ratio = exp(fBetaPossible + pBetaPossible - (fBetaCurrent + pBetaCurrent));
 
 	alpha = min(ratio, 1.0);
-
-	double uniformRandom = (rand() / (RAND_MAX + 1.0));
+	boost::mt19937 rng(43);
+	static boost::uniform_01<boost::mt19937> zeroone(rng);
+	double uniformRandom = zeroone();
 	cout << "ratio = " << ratio << " and uniformRandom = " << uniformRandom << endl;
 
 	if (alpha > uniformRandom) {
 		Beta->setChangeStatus(true);
-		cout << "Change Beta" << endl;
+		cout << "--------------  Change Beta ------------------" << endl;
 	} else{
+		cout << "##############  Reject Beta ##################" << endl;
 		Beta->setChangeStatus(false);
 		Beta->restore();
 	}
@@ -76,7 +69,7 @@ bool MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 	if (fudgeFactor*alpha > uniformRandom) {
 		SigmaSquared->setChangeStatus(false);
 		SigmaSquared->setNeedToChangeStatus(true);
-		cout << "Need to change some sigmaSquared" << endl;
+		cout << "*****************  Change Sigma Squared ********************" << endl;
 	} else {
 		SigmaSquared->setChangeStatus(false);
 		SigmaSquared->setNeedToChangeStatus(false);
