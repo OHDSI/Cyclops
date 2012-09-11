@@ -9,7 +9,7 @@
 #define BBRINPUTREADER_H_
 
 #include "InputReader.h"
-#include "ImputationPolicy.h"
+#include "imputation/ImputationPolicy.h"
 #include "SparseIndexer.h"
 
 using namespace std;

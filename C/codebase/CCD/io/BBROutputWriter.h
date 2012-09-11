@@ -9,7 +9,7 @@
 #define BBROUTPUTWRITER_H_
 
 #include "ModelData.h"
-#include "ImputationPolicy.h"
+#include "imputation/ImputationPolicy.h"
 
 using namespace std;
 

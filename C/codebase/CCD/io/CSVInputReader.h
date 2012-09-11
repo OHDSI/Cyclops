@@ -9,7 +9,7 @@
 #define CSVINPUTREADER_H_
 
 #include "InputReader.h"
-#include "ImputationPolicy.h"
+#include "imputation/ImputationPolicy.h"
 
 using namespace std;
 
