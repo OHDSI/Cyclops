@@ -9,6 +9,8 @@
 #include "io/CSVInputReader.h"
 #include "io/BBRInputReader.h"
 #include "io/BBROutputWriter.h"
+#include "CrossValidationDriver.h"
+#include "CrossValidationSelector.h"
 #include <time.h>
 
 double randn_notrig(double mu=0.0, double sigma=1.0) {
@@ -133,11 +135,25 @@ void ImputeVariables::imputeColumn(int col){
 	modelData->setYVector(y);
 	modelData->setNumberOfColumns(col);
 
-	vector<real> weights;
-
-	imputeHelper->setWeightsForImputation(col,weights,nRows);
-
+	vector<real> weights(nRows,1.0);
 	initializeCCDModel(col,weights);
+
+	vector<int> missingEntries;
+	imputeHelper->getMissingEntries(col,missingEntries);
+
+	// Do cross validation for finding optimum hyperparameter value
+	CrossValidationSelector selector(arguments.fold, modelData->getPidVectorSTL(), SUBJECT, arguments.seed);
+	CrossValidationDriver driver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+	driver.drive(*ccd, selector, arguments, &missingEntries);
+	driver.logResults(arguments);
+	driver.resetForOptimal(*ccd, selector, arguments);
+
+	weights.clear();
+	imputeHelper->setWeightsForImputation(col,weights,nRows);
+	
+	//initializeCCDModel(col,weights);
+	// No need to initialize ccd again, just reset weights.
+	ccd->setWeights(&weights[0]);
 
 	ccd->update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 	getComplement(weights);
@@ -184,7 +200,7 @@ void ImputeVariables::initializeCCDModel(int col, vector<real> weights){
 
 	if(arguments.useNormalPrior)
 		ccd->setPriorType(NORMAL);
-	if (arguments.hyperPriorSet)
+	if(arguments.hyperPriorSet)
 		ccd->setHyperprior(arguments.hyperprior);
 }
 

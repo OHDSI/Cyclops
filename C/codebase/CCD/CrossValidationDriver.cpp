@@ -87,7 +87,7 @@ void CrossValidationDriver::resetForOptimal(
 void CrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
-		const CCDArguments& arguments) {
+		const CCDArguments& arguments, vector<int>* excludeFromCV) {
 
 	// TODO Check that selector is type of CrossValidationSelector
 
@@ -108,12 +108,22 @@ void CrossValidationDriver::drive(
 
 			// Get this fold and update
 			selector.getWeights(fold, weights);
+			if(excludeFromCV){
+				for(int j = 0; j < excludeFromCV->size(); j++){
+					weights[excludeFromCV->at(j)] = 0.0;
+				}
+			}
 			ccd.setWeights(&weights[0]);
 			std::cout << "Running at " << ccd.getPriorInfo() << " ";
 			ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 
 			// Compute predictive loglikelihood for this fold
 			selector.getComplement(weights);
+			if(excludeFromCV){
+				for(int j = 0; j < excludeFromCV->size(); j++){
+					weights[excludeFromCV->at(j)] = 0.0;
+				}
+			}
 			double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
 
 			std::cout << "Grid-point #" << (step + 1) << " at " << point;

@@ -512,7 +512,13 @@ void CyclicCoordinateDescent::update(
 			double conv;
 			if (convergenceType < ZHANG_OLES) {
  				double thisObjFunc = getObjectiveFunction(convergenceType);
-				conv = computeConvergenceCriterion(thisObjFunc, lastObjFunc);
+				if(thisObjFunc != thisObjFunc){
+					cout << endl << "Warning! problem is ill-conditioned for this choice of hyperparameter. Enforcing convergence!" << endl;
+					conv = 0.0;
+				}
+				else{
+					conv = computeConvergenceCriterion(thisObjFunc, lastObjFunc);
+				}
 				lastObjFunc = thisObjFunc;
 			} else { // ZHANG_OLES
 				conv = computeZhangOlesConvergenceCriterion();
