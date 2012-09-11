@@ -142,7 +142,7 @@ void ImputeVariables::imputeColumn(int col){
 	imputeHelper->getMissingEntries(col,missingEntries);
 
 	// Do cross validation for finding optimum hyperparameter value
-	CrossValidationSelector selector(arguments.fold, modelData->getPidVectorSTL(), SUBJECT, arguments.seed);
+	CrossValidationSelector selector(arguments.fold, modelData->getPidVectorSTL(), SUBJECT, rand());
 	CrossValidationDriver driver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
 	driver.drive(*ccd, selector, arguments, &missingEntries);
 	driver.logResults(arguments);
@@ -164,6 +164,7 @@ void ImputeVariables::imputeColumn(int col){
 
 	ccd->getPredictiveEstimates(&yPred[0], &allOnes[0]);
 
+	srand(time(NULL));
 	if(modelData->getFormatType(col) == DENSE)
 		randomizeImputationsLS(yPred, weights, col);
 	else
