@@ -77,6 +77,9 @@ public:
 	friend class RTestInputReader;
 	friend class CoxInputReader;
 	friend class CCTestInputReader;
+	friend class GenericSparseReader;
+
+	template <class FormatType, class MissingPolicy> friend class BaseInputReader;
 	template <class ImputationPolicy> friend class BBRInputReader;
 	template <class ImputationPolicy> friend class CSVInputReader;
 

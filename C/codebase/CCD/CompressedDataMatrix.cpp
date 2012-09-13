@@ -116,7 +116,7 @@ void CompressedDataColumn::fill(real_vector& values, int nRows) {
 		}
 }
 
-CompressedDataMatrix* CompressedDataMatrix::transpose(){
+CompressedDataMatrix* CompressedDataMatrix::transpose() {
 	CompressedDataMatrix* matTranspose = new CompressedDataMatrix();
 
 	matTranspose->nRows = this->getNumberOfColumns();
@@ -125,44 +125,44 @@ CompressedDataMatrix* CompressedDataMatrix::transpose(){
 	bool flagDense = false;
 	bool flagIndicator = false;
 	bool flagSparse = false;
-	for(int i = 0; i < nCols; i++){
+	for (int i = 0; i < nCols; i++) {
 		FormatType thisFormatType = this->allColumns[i]->getFormatType();
-		if(thisFormatType == DENSE)
+		if (thisFormatType == DENSE)
 			flagDense = true;
-		if(thisFormatType == INDICATOR)
+		if (thisFormatType == INDICATOR)
 			flagIndicator = true;
 	}
 
-	if(flagIndicator && flagDense){
+	if (flagIndicator && flagDense) {
 		flagSparse = true;
 		flagIndicator = flagDense = false;
 	}
-	for(int k = 0; k < numCols; k++){
-		if(flagIndicator){
+	for (int k = 0; k < numCols; k++) {
+		if (flagIndicator) {
 			matTranspose->push_back(INDICATOR);
-		}
-		else if(flagDense){
+		} else if (flagDense) {
 			matTranspose->push_back(DENSE);
-		}
-		else{
+		} else {
 			matTranspose->push_back(SPARSE);
 		}
 	}
-	
+
 	for (int i = 0; i < matTranspose->nRows; i++) {
 		FormatType thisFormatType = this->allColumns[i]->getFormatType();
-		if(thisFormatType == INDICATOR || thisFormatType == SPARSE){
+		if (thisFormatType == INDICATOR || thisFormatType == SPARSE) {
 			int rows = this->getNumberOfEntries(i);
 			for (int j = 0; j < rows; j++) {
-				if(thisFormatType == SPARSE)
-					matTranspose->allColumns[this->getCompressedColumnVector(i)[j]]->add_data(i,this->getDataVector(i)[j]);
+				if (thisFormatType == SPARSE)
+					matTranspose->allColumns[this->getCompressedColumnVector(i)[j]]->add_data(
+							i, this->getDataVector(i)[j]);
 				else
-					matTranspose->allColumns[this->getCompressedColumnVector(i)[j]]->add_data(i,1.0);
+					matTranspose->allColumns[this->getCompressedColumnVector(i)[j]]->add_data(
+							i, 1.0);
 			}
-		}
-		else{
+		} else {
 			for (int j = 0; j < nRows; j++) {
-				matTranspose->getColumn(j).add_data(i,this->getDataVector(i)[j]);
+				matTranspose->getColumn(j).add_data(i,
+						this->getDataVector(i)[j]);
 			}
 		}
 	}
@@ -231,7 +231,6 @@ void CompressedDataColumn::convertColumnToSparse(void) {
 	}
 
 	const real value = 1.0;
-
 	data->assign(getNumberOfEntries(), value);
 	formatType = SPARSE;
 }

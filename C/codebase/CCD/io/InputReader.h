@@ -85,9 +85,53 @@ protected:
 
 	bool listContains(const vector<DrugIdType>& list, DrugIdType value);
 
-	void split( vector<string> & theStringVector,
+//	void split( vector<string> & theStringVector,
+//	       const  string  & theString,
+//	       const  string  & theDelimiter);
+
+
+	void split( vector<string> & theStringVector,  /* Altered/returned value */
 	       const  string  & theString,
-	       const  string  & theDelimiter);
+	       const  string  & theDelimiter) {
+	//	istringstream iss(theString);
+	//	copy(istream_iterator<string>(iss),
+	//	         istream_iterator<string>(),
+	//	         back_inserter<vector<string> >(theStringVector));
+		tokenize(theString, theStringVector, theDelimiter);
+	}
+
+	template < class ContainerT >
+	void tokenize(const std::string& str, ContainerT& tokens,
+	              const std::string& delimiters = " ", const bool trimEmpty = false)
+	{
+
+		typedef ContainerT Base;
+		typedef typename Base::value_type ValueType;
+		typedef typename ValueType::size_type SizeType;
+	   std::string::size_type pos, lastPos = 0;
+	   while(true)
+	   {
+	      pos = str.find_first_of(delimiters, lastPos);
+	      if(pos == std::string::npos)
+	      {
+	         pos = str.length();
+
+	         if(pos != lastPos || !trimEmpty)
+	            tokens.push_back(ValueType(str.data()+lastPos,
+	                  (SizeType)pos-lastPos ));
+
+	         break;
+	      }
+	      else
+	      {
+	         if(pos != lastPos || !trimEmpty)
+	            tokens.push_back(ValueType(str.data()+lastPos,
+	                  (SizeType)pos-lastPos ));
+	      }
+
+	      lastPos = pos + 1;
+	   }
+	}
 
 //	int nPatients;
 //	vector<int> pid;

@@ -12,6 +12,7 @@
 #include <map>
 #include <cstdlib>
 #include <cstring>
+#include <numeric>
 #include <algorithm>
 
 #include "SCCSInputReader.h"
