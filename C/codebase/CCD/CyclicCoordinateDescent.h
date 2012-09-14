@@ -12,6 +12,8 @@
 #include "CompressedDataMatrix.h"
 #include "InputReader.h"
 
+#include "SparseRowVector.h"
+
 
 
 
@@ -136,6 +138,8 @@ public:
 		
 	bsccs::real* hBeta; //tshaddox change TEMPORARY for Parameter testing...
 	double sigma2Beta;  //tshaddox change TEMPORARY for Parameter testing...
+
+	SparseRowVector hXI_Transpose;
 
 protected:
 	

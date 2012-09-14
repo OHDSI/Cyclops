@@ -32,6 +32,8 @@
 //	}
 //#endif
 
+//#define Debug_TRS
+
 #ifndef MY_RCPP_FLAG
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
 #else
@@ -75,7 +77,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	likelihoodCount = 0;
 
 
-	bsccs::SparseRowVector test;
+
 	//test.fillSparseRowVector(reader);
 /*
 	cout << "Printing Trans by Col" << endl;
@@ -410,7 +412,6 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 //#endif
 
 	likelihoodCount += 1;
-	cout << "logLikelihood = " << logLikelihood << endl;
 	return static_cast<double>(logLikelihood);
 }
 
@@ -467,9 +468,12 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 			numerPidValuesMatrix.push_back(numerPidValues_t);
 		}
 
+
 		// Do the work
 		switch (hXI->getFormatType(0)) {
-		case DENSE:
+		case DENSE: {
+			hXI_Transpose.fillSparseRowVector(hXI);
+			hXI_Transpose.printSparseMatrix();
 			for (int i = 0; i < N; i ++) { // sum over patients
 				int ni = hNEvents[i];
 				for (int j = 0; j < J; j++) {
@@ -494,8 +498,9 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 					}
 				}
 			}
+		}
 			break;
-		case INDICATOR:
+		case INDICATOR: {
 			for (int i = 0; i < N; i ++) { // sum over patients
 				int ni = hNEvents[i];
 
@@ -509,23 +514,23 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 				}
 			}
 
-			SparseRowVector transposeSparseMatrix;
-			transposeSparseMatrix.fillSparseRowVector(hXI);
+			hXI_Transpose.fillSparseRowVector(hXI);
+			hXI_Transpose.printSparseMatrix();
 
 			for (int k = 0; k < K; k ++) { // Iterate over the exposures
-				int compressedVectorLength = transposeSparseMatrix.getNumberOfEntries(k); // Get compressed Column for Drug d
+				int compressedVectorLength = hXI_Transpose.getNumberOfEntries(k); // Get compressed Column for Drug d
 
 				int ni = hNEvents[hPid[k]];
 
 				for (int p = 0; p < compressedVectorLength; p ++){
-					int rowNumber = transposeSparseMatrix.getCompressedRowVector(k)[p];
+					int rowNumber = hXI_Transpose.getCompressedRowVector(k)[p];
 					for (int q = 0; q < compressedVectorLength; q ++) {
-						int columnNumber = transposeSparseMatrix.getCompressedRowVector(k)[q];
+						int columnNumber = hXI_Transpose.getCompressedRowVector(k)[q];
 						(*blankHessian)[rowNumber][columnNumber] -= -ni*offsExpXBeta[k]/denomPid[hPid[k]];
 					}
 				}
 			}
-
+		}
 			break;
 		}
 		cout << "Hessian is " << endl;
@@ -551,9 +556,7 @@ void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 //template <typename T>
 void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
 	for (int j = 0; j < J; ++j) {
-
 		hBeta[j] = static_cast<bsccs::real>(beta[j]);
-		cout << "hBeta[" << j << "] = " << hBeta[j] << endl;
 	}
 	xBetaKnown = false;
 }
@@ -1049,6 +1052,7 @@ void CyclicCoordinateDescent::axpy(bsccs::real* y, const bsccs::real alpha, cons
 	for (; it; ++it) {
 		const int k = it.index();
 		y[k] += alpha * it.value();
+
 	}
 }
 
@@ -1063,25 +1067,70 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 	// TODO Make row-major version of X
 
 	// clear X\beta
+
 	zeroVector(hXBeta, K);
 
-	// Update one column at a time (poor cache locality)
-	for (int j = 0; j < J; ++j) {
-		const bsccs::real beta = hBeta[j];
-		switch(hXI->getFormatType(j)) {
-			case INDICATOR :
-				axpy<IndicatorIterator>(hXBeta, beta, j);
-				break;
-			case DENSE :
-				axpy<DenseIterator>(hXBeta, beta, j);
-				break;
-			case SPARSE :
-				axpy<SparseIterator>(hXBeta, beta, j);
-				break;
-			default :
-				// throw error
-				exit(-1);
+	if (hXI_Transpose.getUseThisStatus()) { //TODO This is not the most elegant way to do this
+		switch(hXI_Transpose.getFormatType()) {
+			case(DENSE): {
+				for (int i = 0; i < K; i ++) {
+					bsccs::real * dataVector = hXI_Transpose.getDataVector(i);
+					for (int p = 0; p < J; p++) {
+						hXBeta[i] += hBeta[p]*(dataVector[p]);
+					}
+				}
+			}
+			break;
+			case(INDICATOR): {
+				int * entriesLengths = hXI_Transpose.getNumberOfEntriesList();
+				for (int i = 0; i < K; i ++) {
+					int * compressedRow = hXI_Transpose.getCompressedRowVector(i);
+					int numberEntries = entriesLengths[i];
+					for (int q = 0; q < numberEntries; q++) {
+						hXBeta[i] += hBeta[compressedRow[q]];
+					}
+				}
+			break;
+			}
+			case(SPARSE): {
+				//TODO This is not handled by the SparseRowVector class (ironically...)
+			}
+			break;
+
+#ifdef Debug_TRS
+		cout << "########################Using Transpose#############################" << endl;
+		printVector(hXBeta, K, cout);
+		cout << endl;
+#endif
 		}
+
+	} else {
+
+		zeroVector(hXBeta, K);
+
+		// Update one column at a time (poor cache locality)
+		for (int j = 0; j < J; ++j) {
+			const bsccs::real beta = hBeta[j];
+			switch(hXI->getFormatType(j)) {
+				case INDICATOR :
+					axpy<IndicatorIterator>(hXBeta, beta, j);
+					break;
+				case DENSE :
+					axpy<DenseIterator>(hXBeta, beta, j);
+					break;
+				case SPARSE :
+					axpy<SparseIterator>(hXBeta, beta, j);
+					break;
+				default :
+					// throw error
+					exit(-1);
+			}
+		}
+#ifdef Debug_TRS
+		cout << "%%%%%%%%%%%%%%%%%%%%%%%%%Not Using Transpose%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << endl;
+		printVector(hXBeta, K, cout);
+		cout << endl;
+#endif
 	}
 
 	xBetaKnown = true;

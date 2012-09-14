@@ -25,11 +25,13 @@
 
 #include <boost/random.hpp>
 
+//#define Debug_TRS
+
 namespace bsccs {
 
 
 MCMCDriver::MCMCDriver(InputReader * inReader): reader(inReader) {
-	maxIterations = 100;
+	maxIterations = 10000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
 }
@@ -80,8 +82,11 @@ void MCMCDriver::drive(
 
 		//Select a sample beta vector
 		sampler.sample(&Beta_Hat, &Beta, cholesky, rng);
+
+#ifdef Debug_TRS
 		cout << "Sample Draw: ";
 		Beta.logParameter();
+#endif
 
 		//Compute the acceptance ratio, and decide if Beta and sigma should be changed
 		MHRatio MHstep;
@@ -90,7 +95,9 @@ void MCMCDriver::drive(
 		if (Beta.getChangeStatus()) {
 			MCMCResults_BetaVectors.push_back(Beta.returnCurrentValues());
 			nBetaSamples ++;
+#ifdef Debug_TRS
 			cout << "nBetaSamples = " << nBetaSamples << endl;
+#endif
 		}
 
 		if (SigmaSquared.getNeedToChangeStatus()) {
@@ -99,9 +106,11 @@ void MCMCDriver::drive(
 
 			MCMCResults_SigmaSquared.push_back(SigmaSquared.returnCurrentValues()[0]);
 			nSigmaSquaredSamples ++;
+#ifdef Debug_TRS
 			cout << "nSigmaSquaredSamples = " << nSigmaSquaredSamples << endl;
 			cout << "new SigmaSquared: ";
 			SigmaSquared.logParameter();
+#endif
 
 			// TODO Need Wrapper for this....
 			ccd.resetBeta();
@@ -113,8 +122,13 @@ void MCMCDriver::drive(
 		}
 	}
 
-	CredibleIntervals intervalsToReport;
-	intervalsToReport.computeCredibleIntervals(&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared);
+	cout << "Starting Credible Intervals" << endl;
+	if (nBetaSamples > 0 && nSigmaSquaredSamples > 0) {
+		CredibleIntervals intervalsToReport;
+		intervalsToReport.computeCredibleIntervals(&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared);
+	} else {
+		cout << "No MCMC data" << endl;
+	}
 }
 
 void MCMCDriver::generateCholesky() {

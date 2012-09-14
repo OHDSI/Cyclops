@@ -29,6 +29,8 @@ using std::ifstream;
 namespace bsccs {
 
 typedef std::vector<int> int_vector;
+typedef std::vector<bsccs::real> real_vector;
+
 
 class SparseRowVector {
 
@@ -48,9 +50,23 @@ public:
 
 	int getNumberOfEntries(int column);
 
+	int * getNumberOfEntriesList() const;
+
+	FormatType getFormatType();
+
 	void printRow(int row);
 
 	int * getCompressedRowVector(int row) const;
+
+	bsccs::real* getDataVector(int row) const;
+
+	void setChangedStatus(bool changeSetting);
+
+	bool getChangedStatus();
+
+	void setUseThisStatus(bool useTransposeSetting);
+
+	bool getUseThisStatus();
 
 	template <class T>
 	void printVector(T values, const int size) {
@@ -63,15 +79,25 @@ public:
 
 protected:
 
-//private:
 	int nTransposeRows;
 	int nTransposeCols;
 	int nEntries;
 
-	std::vector<int_vector*> matrixTranspose;
+	int_vector* listCompressedVectorLengths;
 
-//	std::vector<int> rows;  // standard CSC representation
-//	std::vector<int> ptrStart;
+	std::vector<int_vector*> matrixTransposeIndicator;
+
+	std::vector<real_vector*> matrixTransposeDense;
+
+	void transposeIndicator(CompressedDataMatrix* columnData);
+
+	void transposeDense(CompressedDataMatrix* columnData);
+
+	FormatType formatType;
+
+	bool hasChanged;
+
+	bool useTransposeMatrix;
 
 };
 

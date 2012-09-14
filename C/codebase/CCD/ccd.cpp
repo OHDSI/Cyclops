@@ -433,8 +433,6 @@ int main(int argc, char* argv[]) {
 
 	testMCMCDriver.drive(*ccd);
 
-	//testMCMCDriver.logResults(arguments, ccd->getConditionId());
-
 	if (ccd)
 		delete ccd;
 	if (reader)
