@@ -20,14 +20,15 @@ public:
 	CrossValidationDriver(
 			int iGridSize,
 			double iLowerLimit,
-			double iUpperLimit);
+			double iUpperLimit,
+			vector<real>* wtsExclude = NULL);
 
 	virtual ~CrossValidationDriver();
 
 	virtual void drive(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
-			const CCDArguments& arguments, vector<int>* excludeFromCV = NULL);
+			const CCDArguments& arguments);
 
 	void resetForOptimal(
 			CyclicCoordinateDescent& ccd,
@@ -50,7 +51,7 @@ private:
 	int gridSize;
 	double lowerLimit;
 	double upperLimit;
-
+	vector<real>* weightsExclude;
 };
 
 #endif /* CROSSVALIDATIONDRIVER_H_ */

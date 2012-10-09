@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
+#include <time.h>
 
 #include "ImputationPolicy.h"
 
@@ -28,7 +29,10 @@
 
 using namespace std;
 
-ImputationHelper::ImputationHelper(){ }
+ImputationHelper::ImputationHelper(){
+	nMissingY = 0; 
+	nCols_Orig = 0;
+}
 
 ImputationHelper::~ImputationHelper() { }
 
@@ -77,11 +81,14 @@ int set_difference(int* columns, int length, InputIterator first2, InputIterator
 	return result;
 }
 void ImputationHelper::sortColumns(){
-
 	colIndices.clear();
-	for(int i = 0; i < nCols_Orig; i++)
+	srand(time(NULL));
+	vector<int> rands;
+	for(int i = 0; i < nCols_Orig; i++){
 		colIndices.push_back(i);
-	sort(colIndices.begin(),colIndices.end(),Compare(nMissingPerColumn));
+		rands.push_back(rand());
+	}
+	sort(colIndices.begin(),colIndices.end(),Compare(nMissingPerColumn,rands));
 
 	reverseColIndices.resize(nCols_Orig,0);
 	for(int i = 0; i < nCols_Orig; i++)
@@ -111,14 +118,30 @@ void ImputationHelper::resortColumns(){
 	reverseColIndices = colIndices;
 }
 
-void ImputationHelper::push_back(int_vector* vecAbsent, int valMissing){
-	missingEntries.push_back(vecAbsent);
-	nMissingPerColumn.push_back(valMissing);
+void ImputationHelper::push_back(int_vector* vecMissing, int nMissing){
+	missingEntries.push_back(vecMissing);
+	nMissingPerColumn.push_back(nMissing);
+	nCols_Orig++;
 }
 
-void ImputationHelper::push_back(int col, int indAbsent){
-	missingEntries[col]->push_back(indAbsent);
+void ImputationHelper::push_back(int col, int indMissing){
+	missingEntries[col]->push_back(indMissing);
 	nMissingPerColumn[col]++;
+}
+
+void ImputationHelper::push_backY(int indMissing){
+	missingEntriesY.push_back(indMissing);
+	nMissingY++;
+}
+
+void ImputationHelper::includeYVector(){
+	push_back(&missingEntriesY,missingEntriesY.size());
+}
+
+void ImputationHelper::pop_back(){
+	missingEntries.pop_back();
+	nMissingPerColumn.pop_back();
+	nCols_Orig--;
 }
 
 const vector<int>& ImputationHelper::getnMissingPerColumn() const{

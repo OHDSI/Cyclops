@@ -14,21 +14,16 @@
 using namespace std;
 
 class BBROutputWriter{
-
 public:
-
-	BBROutputWriter() {}
-
+	BBROutputWriter() {} ;
 	virtual ~BBROutputWriter() {}
 
-
-	void writeFile(const char* fileName, ModelData* modelData) {
+	void BBROutputWriter::writeFile(const char* fileName, ModelData* modelData) {
 		
 		int nRows = modelData->getNumberOfRows();
 		int nCols = modelData->getNumberOfColumns();
 
 		CompressedDataMatrix* dataTranspose = modelData->transpose();
-
 
 		ofstream out;
 		out.open(fileName,ios::out);
@@ -57,8 +52,8 @@ public:
 				break;
 			case DENSE:
 				data = dataTranspose->getDataVector(i);
-				for(int j = 1; j < nRows; j++){
-					out << " " << dataTranspose->getColumn(j).getNumericalLabel() << ":" << data[j];
+				for(int j = 1; j < nCols; j++){
+					out << " " << modelData->getColumn(j).getNumericalLabel() << ":" << data[j];
 				}
 				break;
 			case SPARSE:
@@ -75,7 +70,6 @@ public:
 		if(dataTranspose)
 			delete dataTranspose;
 	}
-
 };
 
 #endif /* BBROUTPUTWRITER_H_ */

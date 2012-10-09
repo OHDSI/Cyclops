@@ -16,11 +16,11 @@
 CrossValidationDriver::CrossValidationDriver(
 			int iGridSize,
 			double iLowerLimit,
-			double iUpperLimit) : gridSize(iGridSize),
-			lowerLimit(iLowerLimit), upperLimit(iUpperLimit) {
+			double iUpperLimit,
+			vector<real>* wtsExclude) : gridSize(iGridSize),
+			lowerLimit(iLowerLimit), upperLimit(iUpperLimit), weightsExclude(wtsExclude) {
 
 	// Do anything???
-
 }
 
 CrossValidationDriver::~CrossValidationDriver() {
@@ -87,7 +87,7 @@ void CrossValidationDriver::resetForOptimal(
 void CrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
-		const CCDArguments& arguments, vector<int>* excludeFromCV) {
+		const CCDArguments& arguments) {
 
 	// TODO Check that selector is type of CrossValidationSelector
 
@@ -100,7 +100,6 @@ void CrossValidationDriver::drive(
 		ccd.setHyperprior(point);
 
 		for (int i = 0; i < arguments.foldToCompute; i++) {
-
 			int fold = i % arguments.fold;
 			if (fold == 0) {
 				selector.permute(); // Permute every full cross-validation rep
@@ -108,9 +107,11 @@ void CrossValidationDriver::drive(
 
 			// Get this fold and update
 			selector.getWeights(fold, weights);
-			if(excludeFromCV){
-				for(int j = 0; j < excludeFromCV->size(); j++){
-					weights[excludeFromCV->at(j)] = 0.0;
+			if(weightsExclude){
+				for(int j = 0; j < (int)weightsExclude->size(); j++){
+					if(weightsExclude->at(j) == 1.0){
+						weights[j] = 0.0;
+					}
 				}
 			}
 			ccd.setWeights(&weights[0]);
@@ -119,11 +120,14 @@ void CrossValidationDriver::drive(
 
 			// Compute predictive loglikelihood for this fold
 			selector.getComplement(weights);
-			if(excludeFromCV){
-				for(int j = 0; j < excludeFromCV->size(); j++){
-					weights[excludeFromCV->at(j)] = 0.0;
+			if(weightsExclude){
+				for(int j = 0; j < (int)weightsExclude->size(); j++){
+					if(weightsExclude->at(j) == 1.0){
+						weights[j] = 0.0;
+					}
 				}
 			}
+
 			double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
 
 			std::cout << "Grid-point #" << (step + 1) << " at " << point;

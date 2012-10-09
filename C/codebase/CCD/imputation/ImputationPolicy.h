@@ -12,10 +12,14 @@
 
 class Compare{
 	vector<int>& _vec;
+	vector<int>& _rands;
 public:
-	Compare(vector<int>& vec) : _vec(vec) {}
+	Compare(vector<int>& vec, vector<int>& rands) : _vec(vec), _rands(rands) {}
 	bool operator()(size_t i, size_t j){
-		return _vec[i] < _vec[j];
+		if(_vec[i] != _vec[j])
+			return _vec[i] < _vec[j];
+		else
+			return _rands[i] < _rands[j];
 	}
 };
 
@@ -26,8 +30,11 @@ public:
 
 	void sortColumns();
 	void resortColumns();
-	void push_back(int_vector* vecAbsent,int valMissing);
-	void push_back(int col, int indAbsent);
+	void push_back(int_vector* vecMissing,int nMissing);
+	void push_back(int col, int indMissing);
+	void push_backY(int indMissing);
+	void includeYVector();
+	void pop_back();
 	const vector<int>& getnMissingPerColumn() const;
 	const vector<int>& getSortedColIndices() const;
 	const vector<int>& getReverseColIndices() const;
@@ -39,6 +46,8 @@ public:
 	void getMissingEntries(int col, vector<int>& missing);
 	void getSampleMeanVariance(int col, real& Xmean, real& Xvar, real* dataVec, int* columnVec, FormatType formatType, int nRows, int nEntries);
 protected:
+	vector<int> missingEntriesY;
+	int nMissingY;
 	vector<int> nMissingPerColumn;
 	vector<int> colIndices;
 	vector<int> reverseColIndices;
@@ -56,8 +65,11 @@ public:
 
 	void sortColumns() {}
 	void resortColumns() {}
-	void push_back(int_vector* vecAbsent,int valMissing) {}
-	void push_back(int col, int indAbsent) {}
+	void push_back(int_vector* vecMissing,int nMissing) {}
+	void push_back(int col, int indMissing) {}
+	void push_backY(int indMissing) {}
+	void includeY() {}
+	void pop_back() {}
 	const vector<int>& getnMissingPerColumn() const {}
 	const vector<int>& getSortedColIndices() const {}
 	const vector<int>& getReverseColIndices() const {}

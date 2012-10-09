@@ -83,10 +83,17 @@ public:
 				}
 				modelData->pid.push_back(numCases - 1);
 
-				// Parse outcome entry
-				real thisY = static_cast<real>(atof(strVector[1].c_str()));
-				numEvents += thisY;
+				// Parse outcome entry. Also handling missingness in Y now.
+				real thisY;
+				if(strVector[1] == MISSING_STRING_1 || strVector[1] == MISSING_STRING_2){
+					imputePolicy->push_backY(currentRow);
+					thisY = 0.0;
+				}
+				else{
+					thisY = static_cast<real>(atof(strVector[1].c_str()));
+				}
 				modelData->y.push_back(thisY);
+				numEvents += thisY;
 
 				// Fix offs for CLR
 				modelData->offs.push_back(1);

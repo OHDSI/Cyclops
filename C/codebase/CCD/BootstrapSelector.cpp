@@ -14,10 +14,24 @@ BootstrapSelector::BootstrapSelector(
 		int replicates,
 		std::vector<int>* inIds,
 		SelectorType inType,
-		long inSeed) : AbstractSelector(inIds, inType, inSeed) {
+		long inSeed,
+		std::vector<real>* wtsExclude) : AbstractSelector(inIds, inType, inSeed) {
 
 	std::cout << "Performing bootstrap estimation with " << replicates
 		<< " replicates [seed = " << seed << "]" << std::endl;
+
+	if(wtsExclude){
+		for(int i = 0; i < wtsExclude->size(); i++){
+			if(wtsExclude->at(i) == 0){
+				indicesIncluded.push_back(i);
+			}
+		}
+	}
+	else{
+		for(int i = 0; i < N; i++){
+			indicesIncluded.push_back(i);
+		}
+	}
 
 	permute();
 
@@ -31,9 +45,12 @@ BootstrapSelector::~BootstrapSelector() {
 void BootstrapSelector::permute() {
 	selectedSet.clear();
 
+	// Get non-excluded indices
+	int N_new = indicesIncluded.size();
 	if (type == SUBJECT) {
-		for (int i = 0; i < N; i++) {
-			int draw = rand() / (RAND_MAX / N + 1);
+		for (int i = 0; i < N_new; i++) {
+			int ind = rand() / (RAND_MAX / N_new + 1);
+			int draw = indicesIncluded[ind];
 			selectedSet.insert(draw);
 		}
 	} else {

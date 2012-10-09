@@ -71,8 +71,15 @@ public:
 				vector<string> thisCovariate;
 				split(thisCovariate, strVector[0], ":");
 
-				// Parse outcome entry
-				real thisY = static_cast<real>(atof(thisCovariate[0].c_str()));
+				// Parse outcome entry. Also handling missingness in Y now.
+				real thisY;
+				if(thisCovariate[0] == MISSING_STRING_1 || thisCovariate[0] == MISSING_STRING_2){
+					imputePolicy->push_backY(currentRow);
+					thisY = 0.0;
+				}
+				else{
+					thisY = static_cast<real>(atof(thisCovariate[0].c_str()));
+				}
 				modelData->y.push_back(thisY);
 
 				// Parse censoring index entry if any

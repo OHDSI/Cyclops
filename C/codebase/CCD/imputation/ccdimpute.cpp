@@ -81,6 +81,7 @@ void setDefaultArguments(CCDArguments &ccdArgs, ImputeArguments& imputeArgs) {
 	ccdArgs.doPartial = false;
 	imputeArgs.doImputation = false;
 	imputeArgs.numberOfImputations = 5;
+	imputeArgs.includeY = false;
 }
 
 void parseCommandLine(std::vector<std::string>& args,
@@ -154,6 +155,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		// Imputation ccdArgs
 		SwitchArg doImputationArg("i", "imputation", "Perform multiple imputation", imputeArgs.doImputation);
 		ValueArg<int> numberOfImputationsArg("m", "numberOfImputations", "Number of imputed data sets (default is m=5)", false, imputeArgs.numberOfImputations, "int");
+		SwitchArg includeYArg("y", "includeY", "Use output vector y for imputation", imputeArgs.includeY);
 
 		cmd.add(gpuArg);
 //		cmd.add(betterGPUArg);
@@ -184,6 +186,7 @@ void parseCommandLine(std::vector<std::string>& args,
 
 		cmd.add(doImputationArg);
 		cmd.add(numberOfImputationsArg);
+		cmd.add(includeYArg);
 		cmd.add(inFileArg);
 		cmd.add(outFileArg);
 		cmd.parse(args);
@@ -264,6 +267,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		imputeArgs.doImputation = doImputationArg.isSet();
 		if(imputeArgs.doImputation){
 			imputeArgs.numberOfImputations = numberOfImputationsArg.getValue();
+			imputeArgs.includeY = includeYArg.isSet();
 		}
 
 		if (partialArg.getValue() != -1) {
@@ -286,7 +290,7 @@ int main(int argc, char* argv[]) {
 	parseCommandLine(argc, argv, ccdArgs, imputeArgs);
 
 	ImputeVariables imputation;
-	imputation.initialize(ccdArgs, imputeArgs.numberOfImputations);
+	imputation.initialize(ccdArgs, imputeArgs.numberOfImputations, imputeArgs.includeY);
 	imputation.impute();
 	return 0;
 }

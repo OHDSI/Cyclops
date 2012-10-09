@@ -19,7 +19,8 @@ public:
 			int inFold,
 			std::vector<int>* inIds,
 			SelectorType inType,
-			long inSeed = 0);
+			long inSeed = 0,
+			std::vector<real>* wtsExclude = NULL);
 
 	virtual ~CrossValidationSelector();
 
@@ -33,6 +34,7 @@ private:
 	int fold;
 	std::vector<int> permutation;
 	std::vector<int> intervalStart;
+	std::vector<real>* weightsExclude;
 };
 
 #endif /* CROSSVALIDATION_H_ */

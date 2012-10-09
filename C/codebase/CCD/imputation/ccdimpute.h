@@ -69,6 +69,7 @@ struct ImputeArguments{
 	// Needed for doing multiple imputation
 	bool doImputation;
 	int numberOfImputations;
+	bool includeY;
 };
 
 void parseCommandLine(

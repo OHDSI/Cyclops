@@ -18,7 +18,8 @@ public:
 			int inReplicates,
 			std::vector<int>* inIds,
 			SelectorType inType,
-			long inSeed);
+			long inSeed,
+			std::vector<real>* wtsExclude = NULL);
 
 	virtual ~BootstrapSelector();
 
@@ -30,6 +31,7 @@ public:
 
 private:
 	std::multiset<int> selectedSet;
+	std::vector<int> indicesIncluded;
 };
 
 #endif /* BOOTSTRAPSELECTOR_H_ */
