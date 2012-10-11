@@ -18,7 +18,7 @@ public:
 	BBROutputWriter() {} ;
 	virtual ~BBROutputWriter() {}
 
-	void BBROutputWriter::writeFile(const char* fileName, ModelData* modelData) {
+	void writeFile(const char* fileName, ModelData* modelData) {
 		
 		int nRows = modelData->getNumberOfRows();
 		int nCols = modelData->getNumberOfColumns();
