@@ -23,7 +23,7 @@
 #include <boost/random.hpp>
 #include <boost/random/uniform_real.hpp>
 
-//#define Debug_TRS
+#define Debug_TRS
 
 namespace bsccs{
 
@@ -48,7 +48,7 @@ void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 	double fBetaPossible = ccd.getLogLikelihood();
 	double pBetaPossible = ccd.getLogPrior();
 
-	ccd.setBeta(betaOldValues);
+	ccd.setBeta(betaOldValues);   // Just keep track of current logLikelihood... its a number, cache, do not recompute
 	double fBetaCurrent = ccd.getLogLikelihood();
 	double pBetaCurrent = ccd.getLogPrior();
 
@@ -62,6 +62,7 @@ void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 	double uniformRandom = zeroone();
 
 #ifdef Debug_TRS
+	cout << "fBetaPossible = " << fBetaPossible << endl;
 	cout << "ratio = " << ratio << " and uniformRandom = " << uniformRandom << endl;
 #endif
 

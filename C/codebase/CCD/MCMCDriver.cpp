@@ -31,7 +31,7 @@ namespace bsccs {
 
 
 MCMCDriver::MCMCDriver(InputReader * inReader): reader(inReader) {
-	maxIterations = 10000;
+	maxIterations = 100;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
 }
@@ -68,6 +68,7 @@ void MCMCDriver::drive(
 
 	initializeHessian();
 	ccd.getHessian(&hessian);
+
 	generateCholesky();  //Inverts the cholesky too
 
 	// Generate the tools for the MH loop
@@ -100,7 +101,7 @@ void MCMCDriver::drive(
 #endif
 		}
 
-		if (SigmaSquared.getNeedToChangeStatus()) {
+		if (false) {//SigmaSquared.getNeedToChangeStatus()) {
 			SigmaSampler sigmaMaker;
 			sigmaMaker.sampleSigma(&SigmaSquared, &Beta, rng);
 
@@ -129,6 +130,7 @@ void MCMCDriver::drive(
 	} else {
 		cout << "No MCMC data" << endl;
 	}
+
 }
 
 void MCMCDriver::generateCholesky() {

@@ -460,6 +460,7 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 
 		// Set up matrix of numerPid values
 		for (int t = 0; t < J; t++) {
+			zeroVector(numerPid, N);
 			computeNumeratorForGradient(t);
 			vector<bsccs::real> numerPidValues_t;
 			for(int s = 0; s < N; s++) {
@@ -468,12 +469,11 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 			numerPidValuesMatrix.push_back(numerPidValues_t);
 		}
 
-
 		// Do the work
 		switch (hXI->getFormatType(0)) {
 		case DENSE: {
 			hXI_Transpose.fillSparseRowVector(hXI);
-			hXI_Transpose.printSparseMatrix();
+
 			for (int i = 0; i < N; i ++) { // sum over patients
 				int ni = hNEvents[i];
 				for (int j = 0; j < J; j++) {
@@ -481,7 +481,6 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 						double firstNumer = numerPidValuesMatrix[j][i];
 						double secondNumer = numerPidValuesMatrix[j2][i];
 						bsccs::real FirstTermjj2 = firstNumer*secondNumer / (denomPid[i]*denomPid[i]);
-
 
 						//Precaution: This should not actually do anything...
 						hXI->convertColumnToDense(j);
@@ -492,48 +491,48 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 
 						bsccs::real SecondTermjj2 = 0;
 						for (int g = 0; g < kValues[i].size(); g++) {
-							SecondTermjj2 += offsExpXBeta[kValues[i][g]]*columnVectorj[kValues[i][g]]*columnVectorj2[kValues[i][g]] / (denomPid[i]);
+							bsccs::real tempTerm = offsExpXBeta[kValues[i][g]]*columnVectorj[kValues[i][g]]*columnVectorj2[kValues[i][g]]/ (denomPid[i]);
+							SecondTermjj2 += tempTerm;
 						}
-						(*blankHessian)[j][j2] = (*blankHessian)[j][j2] - ni*(FirstTermjj2 - SecondTermjj2);
+						(*blankHessian)[j][j2] = (*blankHessian)[j][j2] - ni*FirstTermjj2 + ni*SecondTermjj2; //-ni*FirstTermjj2 + ni*SecondTermjj2;
 					}
 				}
 			}
 		}
 			break;
 		case INDICATOR: {
+
 			for (int i = 0; i < N; i ++) { // sum over patients
 				int ni = hNEvents[i];
-
 				for (int j = 0; j < J; j++) {
 					for (int j2 = 0; j2 < J; j2 ++) {
 						double firstNumer = numerPidValuesMatrix[j][i];
 						double secondNumer = numerPidValuesMatrix[j2][i];
-						double FirstTermjj2 = firstNumer*secondNumer / (denomPid[i]*denomPid[i]);
-						(*blankHessian)[j][j2] += -ni*FirstTermjj2;
+						bsccs::real FirstTermjj2 = firstNumer*secondNumer / (denomPid[i]*denomPid[i]);
+						(*blankHessian)[j][j2] = (*blankHessian)[j][j2] - ni*FirstTermjj2;
 					}
 				}
 			}
 
 			hXI_Transpose.fillSparseRowVector(hXI);
-			hXI_Transpose.printSparseMatrix();
 
 			for (int k = 0; k < K; k ++) { // Iterate over the exposures
 				int compressedVectorLength = hXI_Transpose.getNumberOfEntries(k); // Get compressed Column for Drug d
-
 				int ni = hNEvents[hPid[k]];
-
 				for (int p = 0; p < compressedVectorLength; p ++){
 					int rowNumber = hXI_Transpose.getCompressedRowVector(k)[p];
 					for (int q = 0; q < compressedVectorLength; q ++) {
 						int columnNumber = hXI_Transpose.getCompressedRowVector(k)[q];
-						(*blankHessian)[rowNumber][columnNumber] -= -ni*offsExpXBeta[k]/denomPid[hPid[k]];
+						bsccs:: real intermediateValue = ni*offsExpXBeta[k]/denomPid[hPid[k]];
+						(*blankHessian)[rowNumber][columnNumber] += intermediateValue; //ni*offsExpXBeta[k]/denomPid[hPid[k]];
 					}
 				}
 			}
 		}
 			break;
 		}
-		cout << "Hessian is " << endl;
+
+		cout << "blankHessian is " << endl;
 		for (int i = 0; i < J; i ++) {
 			cout << "[";
 			for (int j = 0; j < J; j++) {
@@ -897,6 +896,7 @@ void CyclicCoordinateDescent::computeNumeratorForGradient(int index) {
 	// Run-time delegation
 	switch (hXI->getFormatType(index)) {
 		case INDICATOR : {
+			zeroVector(numerPid, N);
 			IndicatorIterator it(*sparseIndices[index]);
 			for (; it; ++it) { // Only affected entries
 				numerPid[it.index()] = static_cast<bsccs::real>(0.0);
@@ -938,18 +938,9 @@ template <class IteratorType>
 void CyclicCoordinateDescent::incrementNumeratorForGradientImpl(int index) {
 	IteratorType it(*hXI, index);
 
-	//cout << "incrementNumeratorForGradientImpl" << endl;
-	//cout << "Index = " << index << endl;
 	for (; it; ++it) {
-		//cout << "it.index() = " << it.index() << endl;
 		const int k = it.index();
 		numerPid[hPid[k]] += offsExpXBeta[k] * it.value();
-		//cout << "offsExpXBeta[k] = " << offsExpXBeta[k] << endl;
-		//cout << "it.value = " << it.value() << endl;
-		//cout << "hPid[k] = " << hPid[k] << endl;
-		//cout << "numerPid[hPid[K]] = " << numerPid[hPid[k]] << endl;
-		//cout << "denomPid[hPid[k]] = " << denomPid[hPid[k]] << endl;
-		//cout << "hNevents[k] = " << hNEvents[hPid[k]] << endl;
 		if (!IteratorType::isIndicator) {
 			numerPid2[hPid[k]] += offsExpXBeta[k] * it.value() * it.value();
 		}
@@ -1056,6 +1047,38 @@ void CyclicCoordinateDescent::axpy(bsccs::real* y, const bsccs::real alpha, cons
 	}
 }
 
+void computeStep1() {
+}
+
+void computeStep2() {
+}
+
+template <bool DoFunkyStuff>
+void weirdStuff(void) {
+	computeStep1();
+	if (DoFunkyStuff) {
+		computeStep2();
+	}
+}
+
+template <typename MyType>
+void doMoreWeirdStuff(MyType data) {
+
+}
+
+void myFunction() {
+	weirdStuff<true>();
+
+	weirdStuff<false>();
+
+	double type1 = 1;
+	float type2 = 1;
+
+	doMoreWeirdStuff(type1);
+	doMoreWeirdStuff(type2);
+}
+
+
 void CyclicCoordinateDescent::computeXBeta(void) {
 	// Separate function for benchmarking
 //	cerr << "Computing X %*% beta" << endl;
@@ -1075,9 +1098,22 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 			case(DENSE): {
 				for (int i = 0; i < K; i ++) {
 					bsccs::real * dataVector = hXI_Transpose.getDataVector(i);
+
+//#define NEW_ATTEMPT
+#ifdef NEW_ATTEMPT
+
+					bsccs::real* begin1 = &dataVector[0];
+					bsccs::real* end1 = &dataVector[J];
+					bsccs::real* begin2 = &hBeta[0];
+
+					hXBeta[i] = std::inner_product(begin1, end1, begin2, 0.0);
+#else
 					for (int p = 0; p < J; p++) {
 						hXBeta[i] += hBeta[p]*(dataVector[p]);
 					}
+
+#endif
+					//cout << "hXBeta[" << i << "] = " << hXBeta[i] << endl;
 				}
 			}
 			break;
@@ -1105,8 +1141,6 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 		}
 
 	} else {
-
-		zeroVector(hXBeta, K);
 
 		// Update one column at a time (poor cache locality)
 		for (int j = 0; j < J; ++j) {

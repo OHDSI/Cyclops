@@ -36,8 +36,10 @@ SparseRowVector::SparseRowVector() {
 
 void SparseRowVector::fillSparseRowVector(CompressedDataMatrix * columnData) {
 
-	nTransposeRows = columnData->getNumberOfColumns();;
+	nTransposeRows = columnData->getNumberOfColumns();
+	cout << "nCols Original start = " << nTransposeRows << endl;
 	nTransposeCols = columnData->getNumberOfRows();
+	cout << "nRows Original start = " << nTransposeCols << endl;
 
 	formatType = columnData->getFormatType(0);
 
