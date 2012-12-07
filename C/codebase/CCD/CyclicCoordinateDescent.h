@@ -105,6 +105,10 @@ public:
 	real getBeta(int i);
 
 	int getBetaSize(void);
+
+	bool getFixedBeta(int i);
+
+	void setFixedBeta(int i, bool value);
 		
 	void update(int maxIterations, int convergenceType, double epsilon);
 
@@ -121,6 +125,8 @@ public:
 
 //	template <typename T>
 	void setBeta(const std::vector<double>& beta);
+
+	void setBeta(int i, double beta);
 
 //	void double getHessianComponent(int i, int j);
 
@@ -145,7 +151,7 @@ protected:
 //	ModelSpecifics<DefaultModel>& modelSpecifics;
 //private:
 	
-	void init(void);
+	void init(bool offset);
 	
 	void resetBounds(void);
 
@@ -270,6 +276,7 @@ protected:
 	real* hXBeta;
 	real* hXBetaSave;
 	real* hDelta;
+	std::vector<bool> fixBeta;
 
 	int N; // Number of patients
 	int K; // Number of exposure levels

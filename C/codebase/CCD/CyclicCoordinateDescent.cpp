@@ -66,7 +66,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	updateCount = 0;
 	likelihoodCount = 0;
 
-	init();
+	init(reader->getHasOffsetCovariate());
 }
 
 CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
@@ -137,13 +137,14 @@ void CyclicCoordinateDescent::resetBounds() {
 	}
 }
 
-void CyclicCoordinateDescent::init() {
+void CyclicCoordinateDescent::init(bool offset) {
 	
 	// Set parameters and statistics space
 	hDelta = (real*) malloc(J * sizeof(real));
 	hBeta = (real*) calloc(J, sizeof(real)); // Fixed starting state
 	hXBeta = (real*) calloc(K, sizeof(real));
 	hXBetaSave = (real*) calloc(K, sizeof(real));
+	fixBeta.resize(J);
 
 	// Set prior
 	priorType = LAPLACE;
@@ -203,7 +204,13 @@ void CyclicCoordinateDescent::init() {
 	useCrossValidation = false;
 	validWeights = false;
 	sufficientStatisticsKnown = false;
-	xBetaKnown = true;
+	if (offset) {
+		hBeta[0] = static_cast<real>(1);
+		fixBeta[0] = true;
+		xBetaKnown = false;
+	} else {
+		xBetaKnown = true; // all beta = 0 => xBeta = 0
+	}
 	doLogisticRegression = false;
 
 #ifdef DEBUG	
@@ -318,6 +325,14 @@ real CyclicCoordinateDescent::getBeta(int i) {
 	return hBeta[i];
 }
 
+bool CyclicCoordinateDescent::getFixedBeta(int i) {
+	return fixBeta[i];
+}
+
+void CyclicCoordinateDescent::setFixedBeta(int i, bool value) {
+	fixBeta[i] = value;
+}
+
 double CyclicCoordinateDescent::getLogLikelihood(void) {
 
 	if (!xBetaKnown) {
@@ -363,6 +378,11 @@ void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
 	for (int j = 0; j < J; ++j) {
 		hBeta[j] = static_cast<real>(beta[j]);
 	}
+	xBetaKnown = false;
+}
+
+void CyclicCoordinateDescent::setBeta(int i, double beta) {
+	hBeta[i] = static_cast<real>(beta);
 	xBetaKnown = false;
 }
 
@@ -490,11 +510,13 @@ void CyclicCoordinateDescent::update(
 		// Do a complete cycle
 		for(int index = 0; index < J; index++) {
 		
-			double delta = ccdUpdateBeta(index);
-			delta = applyBounds(delta, index);
-			if (delta != 0.0) {
-				sufficientStatisticsKnown = false;
-				updateSufficientStatistics(delta, index);
+			if (!fixBeta[index]) {
+				double delta = ccdUpdateBeta(index);
+				delta = applyBounds(delta, index);
+				if (delta != 0.0) {
+					sufficientStatisticsKnown = false;
+					updateSufficientStatistics(delta, index);
+				}
 			}
 			
 			if ((index+1) % 100 == 0) {
@@ -654,19 +676,21 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 	// Update one column at a time (poor cache locality)
 	for (int j = 0; j < J; ++j) {
 		const real beta = hBeta[j];
-		switch(hXI->getFormatType(j)) {
-			case INDICATOR :
+		if (beta != static_cast<real>(0)) {
+			switch (hXI->getFormatType(j)) {
+			case INDICATOR:
 				axpy<IndicatorIterator>(hXBeta, beta, j);
 				break;
-			case DENSE :
+			case DENSE:
 				axpy<DenseIterator>(hXBeta, beta, j);
 				break;
-			case SPARSE :
+			case SPARSE:
 				axpy<SparseIterator>(hXBeta, beta, j);
 				break;
-			default :
+			default:
 				// throw error
 				exit(-1);
+			}
 		}
 	}
 }

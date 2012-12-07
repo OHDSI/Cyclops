@@ -69,6 +69,10 @@ public:
 		return nevents;
 	}
 
+	bool getHasOffsetCovariate() const {
+		return hasOffsetCovariate;
+	}
+
 	void sortDataColumns(vector<int> sortedInds);
 	
 	// TODO Improve encapsulation
@@ -101,6 +105,7 @@ private:
 	vector<int> offs;
 	vector<int> nevents;
 	string conditionId;
+	bool hasOffsetCovariate;
 };
 
 #endif /* MODELDATA_H_ */

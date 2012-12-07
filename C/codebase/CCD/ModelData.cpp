@@ -17,7 +17,7 @@
 #include "ModelData.h"
 
 
-ModelData::ModelData() {
+ModelData::ModelData() : hasOffsetCovariate(false) {
 	// Do nothing
 }
 

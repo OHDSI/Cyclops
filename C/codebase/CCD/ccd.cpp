@@ -420,11 +420,6 @@ double initializeModel(
 		(*ccd)->setHyperprior(arguments.hyperprior);
 	}
 
-	// Set model from the command-line
-//	if (arguments.doLogisticRegression) {
-//		(*ccd)->setLogisticRegression(true);
-//	}
-
 	gettimeofday(&time2, NULL);
 	double sec1 = calculateSeconds(time1, time2);
 
