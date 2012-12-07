@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
+#include <numeric>
 
 #include "CoxInputReader.h"
 
@@ -109,4 +110,9 @@ void CoxInputReader::readFile(const char* fileName) {
 	modelData->nPatients = numCases;
 	modelData->nRows = currentRow;
 	modelData->conditionId = "0";
+	
+	cerr << "Total 0: " << modelData->getColumn(0).sumColumn(currentRow) << endl;
+	cerr << "Total 1: " << modelData->getColumn(1).sumColumn(currentRow) << endl;
+	cerr << "Y: " << std::accumulate(modelData->y.begin(), modelData->y.end(), 0.0) << endl;
+	cerr << "Z: " << std::accumulate(modelData->z.begin(), modelData->z.end(), 0.0) << endl;
 }

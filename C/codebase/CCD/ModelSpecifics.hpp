@@ -218,27 +218,53 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	IteratorType it(*(*sparseIndices)[index], N); // TODO How to create with different constructor signatures?
 
 	if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
-
+		
 		real accNumerPid  = static_cast<real>(0);
 		real accNumerPid2 = static_cast<real>(0);
 
-		for (; it; ++it) {
-			const int k = it.index();
+		// This is an optimization point compared to iterating over a completely dense view:  
+		// a) the view below starts at the first non-zero entry
+		// b) we only access numerPid and numerPid2 for non-zero entries 
+		// This may save time; should document speed-up in massive Cox manuscript
+		
+		for (; it; ) {
+			int k = it.index();
 			accNumerPid  += numerPid[BaseModel::getGroup(hPid, k)]; // TODO Only works when X-rows are sorted as well
 			accNumerPid2 += numerPid2[BaseModel::getGroup(hPid, k)];
 #ifdef DEBUG_COX
-			cerr << "w: " << hNWeight[k] << " " << numerPid[BaseModel::getGroup(hPid, k)] << ":" <<
-#endif
-					accNumerPid;
+			cerr << "w: " << k << " " << hNWeight[k] << " " << numerPid[BaseModel::getGroup(hPid, k)] << ":" <<
+					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[BaseModel::getGroup(hPid, k)];
+#endif			
 			// Compile-time delegation
 			BaseModel::incrementGradientAndHessian(it,
 					w, // Signature-only, for iterator-type specialization
 					&gradient, &hessian, accNumerPid, accNumerPid2,
 					accDenomPid[BaseModel::getGroup(hPid, k)], hNWeight[k], it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
-#ifdef DEBUG_COX
-			cerr << " -> g:" << gradient << " h:" << hessian << endl;
+#ifdef DEBUG_COX		
+			cerr << " -> g:" << gradient << " h:" << hessian << endl;	
 #endif
+			++it;
+			
+			if (IteratorType::isSparse) {
+				const int next = it ? it.index() : N;
+				for (++k; k < next; ++k) {
+#ifdef DEBUG_COX
+			cerr << "q: " << k << " " << hNWeight[k] << " " << 0 << ":" <<
+					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[BaseModel::getGroup(hPid, k)];
+#endif			
+					
+					BaseModel::incrementGradientAndHessian(it,
+							w, // Signature-only, for iterator-type specialization
+							&gradient, &hessian, accNumerPid, accNumerPid2,
+							accDenomPid[BaseModel::getGroup(hPid, k)], hNWeight[k], static_cast<real>(0), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
+#ifdef DEBUG_COX		
+			cerr << " -> g:" << gradient << " h:" << hessian << endl;	
+#endif
+					
+				}						
+			}
 		}
+		//exit(-1);	
 	} else {
 		for (; it; ++it) {
 			const int k = it.index();
@@ -279,6 +305,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 			if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
 				zeroVector(numerPid2, N);
 			}
+#ifdef DEBUG_COX
+			cerr << "N = " << N << endl;
+#endif			
 			incrementNumeratorForGradientImpl<DenseIterator>(index);
 			break;
 		case SPARSE : {
@@ -308,6 +337,19 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 			incrementByGroup(numerPid2, hPid, k,
 					BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]));
 		}
+		
+#ifdef DEBUG_COX			
+//			if (numerPid[BaseModel::getGroup(hPid, k)] > 0 && numerPid[BaseModel::getGroup(hPid, k)] < 1e-40) {
+				cerr << "Increment" << endl;
+				cerr << "hPid = " << hPid << ", k = " << k << ", index = " << BaseModel::getGroup(hPid, k) << endl;
+				cerr << BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]) <<  " "
+				<< it.value() << " " << offsExpXBeta[k] << " " << hXBeta[k] << " " << hY[k] << endl;
+//				exit(-1);
+//			}
+#endif		
+		
+		
+		
 	}
 }
 
@@ -350,11 +392,23 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 		if (accDenomPid.size() != K) {
 			accDenomPid.resize(K, static_cast<real>(0));
 		}
+		if (accNumerPid.size() != K) {
+			accNumerPid.resize(K, static_cast<real>(0));
+		}
+		if (accNumerPid2.size() != K) {
+			accNumerPid2.resize(K, static_cast<real>(0));
+		}
 		// prefix-scan
-		real total = static_cast<real>(0);
+		real totalDenom = static_cast<real>(0);
+		real totalNumer = static_cast<real>(0);
+		real totalNumer2 = static_cast<real>(0);
 		for (int k = 0; k < K; ++k) {
-			total += denomPid[k];
-			accDenomPid[k] = total;
+			totalDenom += denomPid[k];
+			totalNumer += numerPid[k];
+			totalNumer2 += numerPid2[k];
+			accDenomPid[k] = totalDenom;
+			accNumerPid[k] = totalNumer;
+			accNumerPid2[k] = totalNumer2;
 #ifdef DEBUG_COX
 			cerr << denomPid[k] << " " << accDenomPid[k] << " (beta)" << endl;
 #endif
@@ -374,11 +428,23 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(void) {
 			if (accDenomPid.size() != K) {
 				accDenomPid.resize(K, static_cast<real>(0));
 			}
+			if (accNumerPid.size() != K) {
+				accNumerPid.resize(K, static_cast<real>(0));
+			}
+			if (accNumerPid2.size() != K) {
+				accNumerPid2.resize(K, static_cast<real>(0));
+			}
 			// prefix-scan
-			real total = static_cast<real>(0); // TODO Add breaks for strata
+			real totalDenom = static_cast<real>(0);
+			real totalNumer = static_cast<real>(0);
+			real totalNumer2 = static_cast<real>(0);
 			for (int k = 0; k < K; ++k) {
-				total += denomPid[k];
-				accDenomPid[k] = total;
+				totalDenom += denomPid[k];
+				totalNumer += numerPid[k];
+				totalNumer2 += numerPid2[k];
+				accDenomPid[k] = totalDenom;
+				accNumerPid[k] = totalNumer;
+				accNumerPid2[k] = totalNumer2;
 			}
 		}
 	}
@@ -386,7 +452,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(void) {
 	cerr << "Done with initial denominators" << endl;
 
 	for (int k = 0; k < K; ++k) {
-		cerr << denomPid[k] << " " << accDenomPid[k] << endl;
+		cerr << denomPid[k] << " " << accDenomPid[k] << " " << numerPid[k] << endl;
 	}
 #endif
 }

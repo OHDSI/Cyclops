@@ -21,7 +21,7 @@ public:
 	void parseHeader(ifstream& in) {
 		// Do nothing
 	}
-
+	
 };
 
 #endif /* NEWCLRINPUTREADER_H_ */

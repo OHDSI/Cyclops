@@ -33,9 +33,15 @@ public:
 		vector<real> z = modelData->getZVectorRef();
 		for(int i = 0; i < nRows; i++){
 
+			if((int)z.size() > 0){
+				out << z[i] << ":";
+			}
+			out << y[i];
+			/*
 			out << y[i];
 			if((int)z.size() > 0)
 				out << ":" << z[i];
+				*/
 
 			int* column;
 			real* data;

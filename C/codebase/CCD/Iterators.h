@@ -19,6 +19,7 @@ class IndicatorIterator {
 
 //	static const bool isIndicator = true;
 	enum  { isIndicator = true };
+	enum  { isSparse = true };
 
 	inline IndicatorIterator(const CompressedDataMatrix& mat, Index column)
 	  : mIndices(mat.getCompressedColumnVector(column)),
@@ -57,6 +58,7 @@ class SparseIterator {
 
 //	static const bool isIndicator = false;
 	enum  { isIndicator = false };
+	enum  { isSparse = true };
 
 	inline SparseIterator(const CompressedDataMatrix& mat, Index column)
 	  : mValues(mat.getDataVector(column)), mIndices(mat.getCompressedColumnVector(column)),
@@ -118,6 +120,12 @@ class DenseIterator {
 
 //	static const bool isIndicator = false;
 	enum  { isIndicator = false };
+	enum  { isSparse = false };
+	
+	inline DenseIterator(const int& start, const int& end)
+		: mId(start), mEnd(end) {
+		
+	}
 
 	inline DenseIterator(const CompressedDataMatrix& mat, Index column)
 	  : mValues(mat.getDataVector(column)),
@@ -143,6 +151,38 @@ class DenseIterator {
     Index mId;
     const Index mEnd;
 };
+
+
+// Iterator for a dense view of an arbitrary column
+class DenseViewIterator {
+  public:
+
+	typedef real Scalar;
+	typedef int Index;
+
+	enum  { isIndicator = false };
+	enum  { isSparse = false };
+	
+	inline DenseViewIterator(const CompressedDataMatrix& mat, Index column)
+	  : mValues(mat.getDataVector(column)),
+	    mId(0), mEnd(mat.getNumberOfRows()){
+		// Do nothing
+	}
+
+    inline DenseViewIterator& operator++() { ++mId; return *this; }
+
+    inline const Scalar& value() const { return mValues[mId]; }
+    inline Scalar& valueRef() { return const_cast<Scalar&>(mValues[mId]); }
+
+    inline Index index() const { return mId; }
+    inline operator bool() const { return (mId < mEnd); }
+
+  protected:
+    const Scalar* mValues;
+    Index mId;
+    const Index mEnd;
+};
+
 
 // Generic iterator for a run-time format determined column
 class GenericIterator {

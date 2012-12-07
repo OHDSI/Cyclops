@@ -239,14 +239,14 @@ void CompressedDataColumn::convertColumnToDense(int nRows) {
 	if (formatType == DENSE) {
 		return;
 	}
-	if (formatType == SPARSE) {
-		fprintf(stderr, "Format not yet support.\n");
-		exit(-1);
-	}
+//	if (formatType == SPARSE) {
+//		fprintf(stderr, "Format not yet support.\n");
+//		exit(-1);
+//	}
 
-	if (data == NULL) {
-		data = new real_vector();
-	}
+	real_vector* oldData = data;	
+	data = new real_vector();
+	
 	data->resize(nRows, static_cast<real>(0));
 
 	int* indicators = getColumns();
@@ -257,7 +257,7 @@ void CompressedDataColumn::convertColumnToDense(int nRows) {
 //		cerr << " " << k;
 //		nonzero++;
 
-		const real value = 1.0;
+		real value = (formatType == SPARSE) ? oldData->at(i) : 1.0;	
 
 		data->at(k) = value;
 	}
@@ -266,6 +266,9 @@ void CompressedDataColumn::convertColumnToDense(int nRows) {
 //	exit(0);
 	formatType = DENSE;
 	delete columns; columns = NULL;
+	if (oldData) {
+		delete oldData;
+	}
 }
 
 // TODO Fix massive copying

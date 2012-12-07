@@ -8,6 +8,8 @@
 #ifndef BBRINPUTREADER_H_
 #define BBRINPUTREADER_H_
 
+#include <numeric>
+
 #include "InputReader.h"
 #include "imputation/ImputationPolicy.h"
 #include "SparseIndexer.h"
@@ -54,7 +56,7 @@ public:
 		int_vector* nullVector = new int_vector();
 		imputePolicy->push_back(nullVector,0);
 
-		indexer.addColumn(0, DENSE);
+//		indexer.addColumn(0, DENSE);
 
 		int currentRow = 0;
 		modelData->nRows = 0;
@@ -71,7 +73,27 @@ public:
 				vector<string> thisCovariate;
 				split(thisCovariate, strVector[0], ":");
 
-				// Parse outcome entry. Also handling missingness in Y now.
+				// Parse outcome and censoring (if any). Also handling missingness in Y now.
+				real thisY;
+				int yIndex;
+				if(thisCovariate.size() == 2){
+					yIndex = 1;
+					real thisZ = static_cast<real>(atof(thisCovariate[0].c_str()));
+					modelData->z.push_back(thisZ);
+				}
+				else{
+					yIndex = 0;
+				}
+				if(thisCovariate[yIndex] == MISSING_STRING_1 || thisCovariate[yIndex] == MISSING_STRING_2){
+					imputePolicy->push_backY(currentRow);
+					thisY = 0.0;
+				}
+				else{
+					thisY = static_cast<real>(atof(thisCovariate[yIndex].c_str()));
+				}
+				modelData->y.push_back(thisY);
+
+				/*
 				real thisY;
 				if(thisCovariate[0] == MISSING_STRING_1 || thisCovariate[0] == MISSING_STRING_2){
 					imputePolicy->push_backY(currentRow);
@@ -87,12 +109,12 @@ public:
 					real thisZ = static_cast<real>(atof(thisCovariate[1].c_str()));
 					modelData->z.push_back(thisZ);
 				}
-
+				*/
 				// Fix offs for CLR
 				modelData->offs.push_back(1);
 
 				//Fill intercept
-				modelData->getColumn(0).add_data(currentRow, 1.0);
+//				modelData->getColumn(0).add_data(currentRow, 1.0);
 
 				// Parse covariates
 				for (int i = 0; i < (int)strVector.size() - 1; ++i){
@@ -146,6 +168,14 @@ public:
 		modelData->nPatients = numCases;
 		modelData->nRows = currentRow;
 		modelData->conditionId = "0";
+		
+		
+		cerr << "Total 0: " << modelData->getColumn(0).sumColumn(currentRow) << endl;
+		cerr << "Total 1: " << modelData->getColumn(1).sumColumn(currentRow) << endl;
+		cerr << "Y: " << std::accumulate(modelData->y.begin(), modelData->y.end(), 0.0) << endl;
+		cerr << "Z: " << std::accumulate(modelData->z.begin(), modelData->z.end(), 0.0) << endl;
+
+//		cerr << "Total 2: " << modelData->getColumn(2).sumColumn(currentRow) << endl;
 	}
 
 	ImputationPolicy* getImputationPolicy(){

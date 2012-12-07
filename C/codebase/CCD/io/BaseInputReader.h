@@ -12,8 +12,7 @@
 
 #include "InputReader.h"
 #include "SparseIndexer.h"
-
-
+ 
 #define MAX_ENTRIES		1000000000
 #define MISSING_STRING	"NA"
 
@@ -91,6 +90,8 @@ public:
 			}
 		}
 		addEventEntry(rowInfo.numEvents); // Save last patient
+		
+		static_cast<DerivedFormat*>(this)->upcastColumns(modelData, rowInfo);
 
 		doSort(); // Override for sort criterion or no sorting
 
@@ -101,13 +102,59 @@ public:
 		modelData->nPatients = rowInfo.numCases;
 		modelData->nRows = rowInfo.currentRow;
 		modelData->conditionId = rowInfo.outcomeId;
-	}
-
+	}	 
+	
 protected:
 	void parseHeader(ifstream& in) {
 		string line;
 		getline(in, line); // Read header
 	}
+	
+	void upcastColumns(ModelData* modelData, RowInformation& rowInfo) {
+		// Do nothing
+	}
+		
+//	void handleUpcast(CompressedDataColumn& column, RowInformation& rowInfo) {	
+//#ifndef UPCAST_DENSE		
+//		cerr << "Up-casting covariate " << column.getLabel() << " to sparse!" << endl;
+//		column.convertColumnToSparse();
+//#else
+//		cerr << "Up-casting covariate " << column.getLabel() << " to dense!" << endl;
+//		column.convertColumnToDense(rowInfo.currentRow);	
+//#endif
+//	}		
+		
+	void parseAllBBRCovariatesEntry(stringstream& ss, RowInformation& rowInfo) {
+		string entry;
+		int count = 0;
+		while (ss >> entry) {
+			rowInfo.scratch.clear();
+			split(rowInfo.scratch, entry, getInnerDelimitor());
+			DrugIdType drug = atoi(rowInfo.scratch[0].c_str());
+			real value = atof(rowInfo.scratch[1].c_str());
+			if (!rowInfo.indexer.hasColumn(drug)) {
+				// Add new column
+				rowInfo.indexer.addColumn(drug, INDICATOR);
+				Missing::hook1(); // Handle allocation if necessary
+			}
+
+			CompressedDataColumn& column = rowInfo.indexer.getColumn(drug);
+			if (value != static_cast<real>(1) && value != static_cast<real>(0)) {
+				if (column.getFormatType() == INDICATOR) {								
+//					handleUpcast(column, rowInfo);
+					cerr << "Up-casting covariate " << column.getLabel() << " to sparse!" << endl;
+					column.convertColumnToSparse();
+				}
+			}
+			if (Missing::isMissing(value)) {
+				// Handle missing values
+				Missing::hook2();
+			} else {
+				// Add to storage
+				column.add_data(rowInfo.currentRow, value);
+			}
+		}
+	}		
 
 	void doSort() {
 		// Easy to sort columns now in AOS format
@@ -157,6 +204,13 @@ protected:
 		rowInfo.numEvents += thisY;
 		modelData->y.push_back(thisY);
 	}
+	
+	template <typename T>
+	void parseSingleTimeEntry(stringstream& ss, RowInformation& rowInfo) {
+		T thisY;
+		ss >> thisY;		
+		modelData->z.push_back(thisY);
+	}	
 
 	template <typename T>
 	void parseSingleBBROutcomeEntry(stringstream& ss, RowInformation& rowInfo) {
@@ -190,39 +244,7 @@ protected:
 			}
 		}
 	}
-
-	void parseAllBBRCovariatesEntry(stringstream& ss, RowInformation& rowInfo) {
-		string entry;
-		int count = 0;
-		while (ss >> entry) {
-			rowInfo.scratch.clear();
-			split(rowInfo.scratch, entry, getInnerDelimitor());
-			DrugIdType drug = atoi(rowInfo.scratch[0].c_str());
-			real value = atof(rowInfo.scratch[1].c_str());
-			if (!rowInfo.indexer.hasColumn(drug)) {
-				// Add new column
-				rowInfo.indexer.addColumn(drug, INDICATOR);
-				Missing::hook1(); // Handle allocation if necessary
-			}
-
-			CompressedDataColumn& column = rowInfo.indexer.getColumn(drug);
-			if (value != static_cast<real>(1) && value != static_cast<real>(0)) {
-				if (column.getFormatType() == INDICATOR) {
-					// Upcase to sparse format
-					cerr << "Up-casting covariate " << column.getLabel() << " to sparse!" << endl;
-					column.convertColumnToSparse();
-				}
-			}
-			if (Missing::isMissing(value)) {
-				// Handle missing values
-				Missing::hook2();
-			} else {
-				// Add to storage
-				column.add_data(rowInfo.currentRow, value);
-			}
-		}
-	}
-
+	
 	// Inlined functions
 	const string& getInnerDelimitor() {
 		return innerDelimitor;

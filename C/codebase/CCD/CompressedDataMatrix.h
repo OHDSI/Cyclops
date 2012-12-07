@@ -96,6 +96,9 @@ public:
 
 	void add_data(int row, real value) {
 		if (formatType == DENSE) {
+			//Making sure that we are at the correct row
+			for(int i = (int)data->size(); i < row; i++) 
+				data->push_back(0.0);
 			data->push_back(value);
 			// TODO Make sure we are at the correct row
 		} else if (formatType == SPARSE) {

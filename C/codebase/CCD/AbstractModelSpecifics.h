@@ -93,6 +93,8 @@ protected:
 	const std::vector<int>& oPid;
 
 	std::vector<real> accDenomPid;
+	std::vector<real> accNumerPid;
+	std::vector<real> accNumerPid2;
 
 	// TODO Currently constructed in CyclicCoordinateDescent, but should be encapsulated here
 	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
