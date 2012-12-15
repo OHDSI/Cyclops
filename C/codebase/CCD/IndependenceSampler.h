@@ -23,6 +23,7 @@
 
 #include "Parameter.h"
 
+
 #include "CyclicCoordinateDescent.h"
 #include "CrossValidationSelector.h"
 #include "AbstractSelector.h"
@@ -40,7 +41,7 @@ public:
 
 	virtual ~IndependenceSampler();
 
-	void sample(Parameter * Beta_Hat, Parameter * Beta, std::vector<std::vector<bsccs::real> > cholesky, boost::mt19937& rng);
+	void sample(Parameter * Beta_Hat, Parameter * Beta, std::vector<std::vector<bsccs::real> > cholesky, boost::mt19937& rng, double tuningParameter);
 
 protected:
 

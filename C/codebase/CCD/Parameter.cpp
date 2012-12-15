@@ -13,14 +13,25 @@ namespace bsccs{
 
 	Parameter::Parameter(bsccs::real * data, int sizeIn){
 		parameterValues = (bsccs::real*) calloc(sizeIn, sizeof(bsccs::real));
+		storedValues = (bsccs::real*) calloc(size, sizeof(bsccs::real));
+		memcpy(storedValues, data, sizeof(bsccs::real)*sizeIn);
 		memcpy(parameterValues, data, sizeof(bsccs::real)*sizeIn);
 		size = sizeIn;
 		didValueGetChanged = false;
 		shouldBeChanged = false;
+
+		for (int i = 0; i < size; i++) {
+			parameterDoubleValues.push_back(1.00);
+		}
+
+		for (int i = 0; i < size; i++) {
+			storedDoubleValues.push_back(1.00);
+		}
+
 	}
 
 	Parameter::~Parameter(){
-
+		free(storedValues);
 		free(parameterValues);
 
 	}
@@ -41,6 +52,9 @@ namespace bsccs{
 		parameterValues[index] = setTo;
 	}
 
+	void Parameter::set(bsccs::real* newData){
+		memcpy(parameterValues, newData, sizeof(bsccs::real)*size);
+	}
 
 	void Parameter::logParameter() {
 		cout << "Parameter value is <";
@@ -56,13 +70,16 @@ namespace bsccs{
 	}
 
 	void Parameter::store(){
-		storedValues = (bsccs::real*) calloc(size, sizeof(bsccs::real));
 		memcpy(storedValues, parameterValues, sizeof(bsccs::real)*size);
 	}
 
 	void Parameter::restore(){
-		free(parameterValues);
-		parameterValues = storedValues;
+
+		bsccs::real* temp;
+		temp = storedValues;
+		storedValues = parameterValues;
+		parameterValues = temp;
+
 	}
 
 	bool Parameter::getChangeStatus() {
@@ -100,6 +117,36 @@ namespace bsccs{
 
 		return returnVector;
 	}
+
+	std::vector<double> * Parameter::returnCurrentValuesPointer() {
+		//std::vector<double> returnVector;
+
+		for (int i = 0; i < size; i++) {
+			//returnVector.push_back((double) parameterValues[i]);
+			parameterDoubleValues[i] = (double) parameterValues[i];
+		}
+
+
+		return & parameterDoubleValues; //returnVector;
+	}
+
+	std::vector<double> * Parameter::returnStoredValuesPointer() {
+		//std::vector<double> returnVector;
+
+//		for (int i = 0; i < size; i++) {
+//			//returnVector.push_back((double) storedValues[i]);
+//			storedDoubleValues.push_back((double) storedValues[i]);
+//		}
+
+		for (int i = 0; i < size; i++) {
+			storedDoubleValues[i] = (double) storedValues[i];
+		}
+
+
+		return & storedDoubleValues; //returnVector;
+	}
+
+
 
 }
 

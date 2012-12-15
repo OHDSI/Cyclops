@@ -8,6 +8,10 @@
 #include <iostream>
 #include <cmath>
 
+
+
+#include <cusp/print.h>
+
 #include "GPUCyclicCoordinateDescent.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/KernelLauncherCCD.h"
@@ -23,7 +27,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::constructor\n");
 #endif 	
     
-	cout << "Running GPU version" << endl;
+	cout << "Running GPUt version" << endl;
 
 	gpu = new GPUInterface;
 	int gpuDeviceCount = 0;

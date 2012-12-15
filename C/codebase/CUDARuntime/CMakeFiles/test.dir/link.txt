@@ -1,0 +1,1 @@
+/usr/bin/c++    -mmacosx-version-min=10.6  -O3 -Wl,-search_paths_first -headerpad_max_install_names  ./test_generated_Crap.cu.o  -o test  /Developer/NVIDIA/CUDA-5.0/lib/libcudart.dylib -framework cuda 

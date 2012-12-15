@@ -67,7 +67,7 @@ namespace bsccs {
 		double newValue = 1/scale*var_gamma();
 
 		SigmaSquared->set(0, newValue);
-		SigmaSquared->logParameter();
+		//SigmaSquared->logParameter();
 
 	}
 

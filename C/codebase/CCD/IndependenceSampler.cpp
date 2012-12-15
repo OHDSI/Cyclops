@@ -20,6 +20,7 @@
 #include "IndependenceSampler.h"
 #include "Eigen/core"
 
+
 #include <boost/random.hpp>
 #include <boost/random/normal_distribution.hpp>
 
@@ -36,7 +37,7 @@ IndependenceSampler::~IndependenceSampler() {
 
 }
 
-void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta, std::vector<std::vector<bsccs::real> > cholesky, boost::mt19937& rng) {
+void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta, std::vector<std::vector<bsccs::real> > cholesky, boost::mt19937& rng, double tuningParameter) {
 	//TODO Better rng passing...  Make wrapper
 
 	Beta->store();
@@ -58,7 +59,7 @@ void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta, std::ve
 	for (int i = 0; i < sizeOfSample; i++) {
 		bsccs::real actualValue = 0;
 		for (int j = 0; j < sizeOfSample; j++) {
-			actualValue += cholesky[j][i]*independentNormal[j];
+			actualValue += exp(tuningParameter)*cholesky[j][i]*independentNormal[j];
 		}
 		Beta->set(i, actualValue + Beta_Hat->get(i));
 	}

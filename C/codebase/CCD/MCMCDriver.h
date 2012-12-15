@@ -30,7 +30,13 @@ public:
 private:
 	InputReader* reader;
 
+	double acceptanceTuningParameter;
+
+	double acceptanceRatioTarget;
+
 	vector<vector<double> > MCMCResults_BetaVectors;
+
+	void adaptiveKernel(int numberIterations, int numberAcceptances);
 
 	vector<double> MCMCResults_SigmaSquared;
 

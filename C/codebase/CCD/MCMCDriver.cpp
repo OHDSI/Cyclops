@@ -25,15 +25,17 @@
 
 #include <boost/random.hpp>
 
-//#define Debug_TRS
+#define Debug_TRS
 
 namespace bsccs {
 
 
 MCMCDriver::MCMCDriver(InputReader * inReader): reader(inReader) {
-	maxIterations = 100;
+	maxIterations = 10000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
+	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies the hessian
+	acceptanceRatioTarget = 0.25;
 }
 
 void MCMCDriver::initializeHessian() {
@@ -69,6 +71,8 @@ void MCMCDriver::drive(
 	initializeHessian();
 	ccd.getHessian(&hessian);
 
+	//ccd.computeXBeta_GPU_TRS_initialize();
+
 	generateCholesky();  //Inverts the cholesky too
 
 	// Generate the tools for the MH loop
@@ -77,12 +81,15 @@ void MCMCDriver::drive(
 	//Set Boost rng
 	boost::mt19937 rng;
 
+	int numberAcceptances = 0;
+
 	//MCMC Loop
 	for (int iterations = 0; iterations < maxIterations; iterations ++) {
 
-
+		cout << endl;
+		cout << "New Loop" << endl;
 		//Select a sample beta vector
-		sampler.sample(&Beta_Hat, &Beta, cholesky, rng);
+		sampler.sample(&Beta_Hat, &Beta, cholesky, rng, acceptanceTuningParameter);
 
 #ifdef Debug_TRS
 		cout << "Sample Draw: ";
@@ -93,15 +100,19 @@ void MCMCDriver::drive(
 		MHRatio MHstep;
 		MHstep.evaluate(&Beta, &SigmaSquared, ccd, &hessian);
 
-		if (Beta.getChangeStatus()) {
-			MCMCResults_BetaVectors.push_back(Beta.returnCurrentValues());
-			nBetaSamples ++;
+
+		MCMCResults_BetaVectors.push_back(Beta.returnCurrentValues());
+		nBetaSamples ++;
+
+		if (Beta.getChangeStatus()){
+			numberAcceptances ++;
+		}
+
 #ifdef Debug_TRS
 			cout << "nBetaSamples = " << nBetaSamples << endl;
 #endif
-		}
 
-		if (false) {//SigmaSquared.getNeedToChangeStatus()) {
+		if (SigmaSquared.getNeedToChangeStatus()) {
 			SigmaSampler sigmaMaker;
 			sigmaMaker.sampleSigma(&SigmaSquared, &Beta, rng);
 
@@ -119,18 +130,47 @@ void MCMCDriver::drive(
 			int ZHANG_OLES = 1;
 			int ccdIterations = 100;
 			double tolerance = 5E-4;
+
 			ccd.update(ccdIterations, ZHANG_OLES, tolerance);
+			initializeHessian();
+			ccd.getHessian(&hessian);
+			generateCholesky();
+			Beta_Hat.set(ccd.hBeta);
+
+#ifdef Debug_TRS
+			Beta_Hat.logParameter();
+#endif
 		}
+
+	//	Beta_Hat.logParameter();
+	//	cout << "This is Beta_Hat" << endl;
+		adaptiveKernel(iterations+1, numberAcceptances);
+//		cout << endl;
+		cout << "numberAcceptances = " << numberAcceptances << endl;
+		cout << "iterations = " << iterations << endl;
+		cout << "Acceptance Ratio is " << (double) numberAcceptances/(iterations+1) << endl;
+		cout << "AcceptanceTuningParameter is " << acceptanceTuningParameter << endl;
+	//	Beta_Hat.logParameter();
+		cout << "That was Beta_Hat" << endl;
+
+		// End MCMC loop
 	}
 
 	cout << "Starting Credible Intervals" << endl;
 	if (nBetaSamples > 0 && nSigmaSquaredSamples > 0) {
+		cout << "at End, nBetaSamples = " << nBetaSamples << endl;
+		cout << "at End, nSigmaSquaredSamples = " << nSigmaSquaredSamples << endl;
+		cout << "number of acceptances = " << numberAcceptances << endl;
 		CredibleIntervals intervalsToReport;
 		intervalsToReport.computeCredibleIntervals(&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared);
 	} else {
 		cout << "No MCMC data" << endl;
 	}
 
+}
+
+void MCMCDriver::adaptiveKernel(int numberIterations, int numberAcceptances) {
+	acceptanceTuningParameter = acceptanceTuningParameter + (1/(1+sqrt(numberIterations)))*((double) numberAcceptances/numberIterations - acceptanceRatioTarget);
 }
 
 void MCMCDriver::generateCholesky() {
@@ -156,6 +196,7 @@ void MCMCDriver::generateCholesky() {
 	Eigen::VectorXf b = Eigen::VectorXf::Random(J);
 	CholeskyDecompL = CholDecom.matrixL();
 	Eigen::MatrixXf CholeskyInverted = CholeskyDecompL.inverse();
+
 
 	for (int i = 0; i < J; i ++) {
 		for (int j = 0; j < J; j++) {

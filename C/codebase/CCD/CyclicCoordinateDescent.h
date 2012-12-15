@@ -9,11 +9,12 @@
 #define CYCLICCOORDINATEDESCENT_H_
 
 
+
+#include "CUDARuntime/CUSPEngine.h"
+
 #include "CompressedDataMatrix.h"
 #include "InputReader.h"
-
 #include "SparseRowVector.h"
-
 
 
 
@@ -135,11 +136,18 @@ public:
 	int getLikelihoodCount() const {
 		return likelihoodCount;
 	}
+
+
+	void computeXBeta_GPU_TRS_initialize(void);
+
 		
 	bsccs::real* hBeta; //tshaddox change TEMPORARY for Parameter testing...
 	double sigma2Beta;  //tshaddox change TEMPORARY for Parameter testing...
 
+	CUSPEngine runCuspTest;
+
 	SparseRowVector hXI_Transpose;
+
 
 protected:
 	
@@ -148,6 +156,8 @@ protected:
 	void init(void);
 	
 	void resetBounds(void);
+
+	void computeXBeta_GPU_TRS(void);
 
 	void computeXBeta(void);
 

@@ -46,12 +46,16 @@ namespace bsccs {
 	private:
 		double min(double value1, double value2);
 
+		double storedFBetaCurrent;
+		double storedPBetaCurrent;
+		bool storedValuesUpToDate;
+
 		double acceptanceRatioNumerator;
 		double acceptanceRatioDenominator;
 
 		double alpha;
 
-		double fudgeFactor;
+		double sigmaSampleTuningParameter;
 
 	};
 }

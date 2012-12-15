@@ -28,7 +28,7 @@
 namespace bsccs{
 
 MHRatio::MHRatio(){
-	fudgeFactor = 1;
+	sigmaSampleTuningParameter = 1; // How frequently we sample sigma is determined by this
 }
 
 MHRatio::~MHRatio(){
@@ -37,35 +37,50 @@ MHRatio::~MHRatio(){
 
 void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, vector<vector<bsccs::real> > * precisionMatrix) {
 
-	int betaSize = Beta->getSize();
+// Get the current Beta values
+	vector<double> * betaPossible = Beta->returnCurrentValuesPointer();
 
-	vector<double> betaPossible = Beta->returnCurrentValues();
-	vector<double> betaOldValues = Beta->returnStoredValues();
 
-	(ccd.hXI_Transpose).setUseThisStatus(true);
+// Compute log Likelihood and log prior
+	ccd.resetBeta();
+	ccd.setBeta(*betaPossible);
 
-	ccd.setBeta(betaPossible);
 	double fBetaPossible = ccd.getLogLikelihood();
 	double pBetaPossible = ccd.getLogPrior();
 
-	ccd.setBeta(betaOldValues);   // Just keep track of current logLikelihood... its a number, cache, do not recompute
-	double fBetaCurrent = ccd.getLogLikelihood();
-	double pBetaCurrent = ccd.getLogPrior();
+// Have we changed the Beta Values?  If so, get new Log Likelihood and prior values...
+	//if (Beta->getChangeStatus()) {
 
-	(ccd.hXI_Transpose).setUseThisStatus(false);
+		vector<double> * betaOldValues = Beta->returnStoredValuesPointer();
+		ccd.setBeta(*betaOldValues);   // Just keep track of current logLikelihood... its a number, cache, do not recompute
+		storedFBetaCurrent = ccd.getLogLikelihood();
+		storedPBetaCurrent = ccd.getLogPrior();
+	//}
 
-	double ratio = exp(fBetaPossible + pBetaPossible - (fBetaCurrent + pBetaCurrent));
 
+	(ccd.hXI_Transpose).setUseThisStatus(true); // Testing code
+
+// Compute the ratio for the MH step
+	double ratio = exp((fBetaPossible + pBetaPossible) - (storedFBetaCurrent + storedPBetaCurrent));
+
+// Set our alpha
 	alpha = min(ratio, 1.0);
 	boost::mt19937 rng(43);
 	static boost::uniform_01<boost::mt19937> zeroone(rng);
+
+// Sample from a uniform distribution
 	double uniformRandom = zeroone();
 
 #ifdef Debug_TRS
 	cout << "fBetaPossible = " << fBetaPossible << endl;
+	cout << "fBetaCurrent = " << storedFBetaCurrent << endl;
+	cout << "pBetaPossible = " << pBetaPossible << endl;
+	cout << "pBetaCurrent = " << storedPBetaCurrent << endl;
 	cout << "ratio = " << ratio << " and uniformRandom = " << uniformRandom << endl;
 #endif
 
+
+// This is the Metropolis step
 	if (alpha > uniformRandom) {
 		Beta->setChangeStatus(true);
 #ifdef Debug_TRS
@@ -79,9 +94,10 @@ void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 		Beta->restore();
 	}
 
-	if (fudgeFactor*alpha > uniformRandom) {
+// This determines if we will perform a Gibbs step to update sigma squared on the next iteration
+	if (sigmaSampleTuningParameter*alpha > uniformRandom) {
 		SigmaSquared->setChangeStatus(false);
-		SigmaSquared->setNeedToChangeStatus(true);
+		SigmaSquared->setNeedToChangeStatus(false);
 #ifdef Debug_TRS
 		cout << "*****************  Change Sigma Squared ********************" << endl;
 #endif
@@ -89,6 +105,8 @@ void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 		SigmaSquared->setChangeStatus(false);
 		SigmaSquared->setNeedToChangeStatus(false);
 	}
+
+
 }
 
 

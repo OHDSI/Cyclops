@@ -77,6 +77,10 @@ public:
 		cout << "]" << endl;
 	}
 
+	std::vector<int> offsets;
+	std::vector<int> columns;
+	std::vector<float> values;
+
 protected:
 
 	int nTransposeRows;
@@ -89,6 +93,8 @@ protected:
 
 	std::vector<real_vector*> matrixTransposeDense;
 
+	void fillForCUDA();
+
 	void transposeIndicator(CompressedDataMatrix* columnData);
 
 	void transposeDense(CompressedDataMatrix* columnData);
@@ -98,6 +104,8 @@ protected:
 	bool hasChanged;
 
 	bool useTransposeMatrix;
+
+
 
 };
 

@@ -40,6 +40,8 @@ namespace bsccs{
 
 		void set(int index, bsccs::real setTo);
 
+		void set(bsccs::real* newData);
+
 		void logParameter();
 
 		void logParameter(const char * fileName);
@@ -60,6 +62,11 @@ namespace bsccs{
 
 		std::vector<double> returnStoredValues();
 
+		std::vector<double> * returnCurrentValuesPointer();
+
+		std::vector<double> * returnStoredValuesPointer();
+
+
 	private:
 
 		int size;
@@ -67,6 +74,10 @@ namespace bsccs{
 		bsccs::real * parameterValues;
 
 		bsccs::real * storedValues;
+
+		std::vector<double> parameterDoubleValues;
+
+		std::vector<double> storedDoubleValues;
 
 		bool didValueGetChanged;
 

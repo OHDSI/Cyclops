@@ -12,7 +12,9 @@ include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 find_path(BOOST_INCLUDE_DIR
 	NAMES boost
 	DOCS "Location of boost header file"
-	PATHS "/Users/trevorshaddox/Desktop/workspace/boost_1_51_0")
+	PATHS "/Users/tshaddox/Desktop/workspace/boost_1_51_0")
+
+
 	
 #find_library(GSL_LIBRARY
 #	NAMES gsl
@@ -60,6 +62,9 @@ message(STATUS "Found GSL header file in:  " ${GSL_INCLUDE_DIR})
 
 message(STATUS "Found boost header files in: " ${BOOST_INCLUDE_DIR})
 
+message(STATUS "Found CUDA directory files in: " ${CUDA_INCLUDE_DIR})
+
+
 
 
 include_directories(${GSL_INCLUDE_DIR} 
@@ -97,6 +102,7 @@ if(CUDA_FOUND)
 	    GPUCyclicCoordinateDescent.cpp
 	    BetterGPU.cpp)
 	add_definitions(-DCUDA)	
+ #	add_definitions(-DCUDA_TRS)
  #	if(APPLE)
  #		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
  #		set(CUDA_64_BIT_DEVICE_CODE OFF)	
@@ -110,6 +116,7 @@ if(CUDA_FOUND)
  	cuda_add_executable(ccd ${SOURCE_FILES})
  	target_link_libraries(ccd CUDADriver)
 	target_link_libraries(ccd ${BOOST_INCLUDE_LIBRARY})
+	target_link_libraries(ccd CUDARuntime)
 else(CUDA_FOUND)
 	add_executable(ccd ${SOURCE_FILES})
 endif(CUDA_FOUND)

@@ -1,0 +1,2 @@
+/usr/bin/ar cr libCUDARuntime.a  ./CUDARuntime_generated_CUSPEngine.cu.o
+/usr/bin/ranlib libCUDARuntime.a

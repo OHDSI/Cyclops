@@ -532,6 +532,7 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 			break;
 		}
 
+		/*
 		cout << "blankHessian is " << endl;
 		for (int i = 0; i < J; i ++) {
 			cout << "[";
@@ -540,6 +541,7 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 			}
 			cout << "]" << endl;
 		}
+		*/
 
 }
 
@@ -704,21 +706,22 @@ void CyclicCoordinateDescent::update(
 			double thisLogLikelihood = getLogLikelihood();
 			double thisLogPrior = getLogPrior();
 			double thisLogPost = thisLogLikelihood + thisLogPrior;
+			/* tshaddox comment out for autoadaptive MH test
 			cout << endl;
 			printVector(hBeta, J, cout);
 			cout << endl;
 			cout << "log post: " << thisLogPost
 				 << " (" << thisLogLikelihood << " + " << thisLogPrior
 			     << ") (iter:" << iteration << ") ";
-
+*/
 			if (epsilon > 0 && conv < epsilon) {
-				cout << "Reached convergence criterion" << endl;
+//				cout << "Reached convergence criterion" << endl;
 				done = true;
 			} else if (iteration == maxIterations) {
-				cout << "Reached maximum iterations" << endl;
+//				cout << "Reached maximum iterations" << endl;
 				done = true;
 			} else {
-				cout << endl;
+//				cout << endl; tshaddox comment out for autoadaptive MH test
 			}
 		}				
 	}
@@ -1047,35 +1050,19 @@ void CyclicCoordinateDescent::axpy(bsccs::real* y, const bsccs::real alpha, cons
 	}
 }
 
-void computeStep1() {
+
+void CyclicCoordinateDescent::computeXBeta_GPU_TRS_initialize() {
+
+	cout << "INITIALIZING FOR GPU COMPUTATION!" << endl;
+	runCuspTest.loadXMatrix(hXI_Transpose.offsets, hXI_Transpose.columns, hXI_Transpose.values, J);
 }
 
-void computeStep2() {
-}
+void CyclicCoordinateDescent::computeXBeta_GPU_TRS(void) {
 
-template <bool DoFunkyStuff>
-void weirdStuff(void) {
-	computeStep1();
-	if (DoFunkyStuff) {
-		computeStep2();
-	}
-}
+	runCuspTest.computeMultiplyBeta((float*) hBeta, J, (float*) hXBeta, K);
 
-template <typename MyType>
-void doMoreWeirdStuff(MyType data) {
-
-}
-
-void myFunction() {
-	weirdStuff<true>();
-
-	weirdStuff<false>();
-
-	double type1 = 1;
-	float type2 = 1;
-
-	doMoreWeirdStuff(type1);
-	doMoreWeirdStuff(type2);
+	//cout << "Print hXBeta in GPU = ";
+	//printVector(hXBeta, 8, cout);
 }
 
 
@@ -1090,8 +1077,14 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 	// TODO Make row-major version of X
 
 	// clear X\beta
-
 	zeroVector(hXBeta, K);
+
+//#define CUDA_Test
+
+#ifdef CUDA_Test
+	computeXBeta_GPU_TRS();
+
+#else
 
 	if (hXI_Transpose.getUseThisStatus()) { //TODO This is not the most elegant way to do this
 		switch(hXI_Transpose.getFormatType()) {
@@ -1118,14 +1111,19 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 			}
 			break;
 			case(INDICATOR): {
+
 				int * entriesLengths = hXI_Transpose.getNumberOfEntriesList();
+
 				for (int i = 0; i < K; i ++) {
-					int * compressedRow = hXI_Transpose.getCompressedRowVector(i);
 					int numberEntries = entriesLengths[i];
-					for (int q = 0; q < numberEntries; q++) {
-						hXBeta[i] += hBeta[compressedRow[q]];
+					if (numberEntries > 0) {
+						int * compressedRow = hXI_Transpose.getCompressedRowVector(i);
+						for (int q = 0; q < numberEntries; q++) {
+							hXBeta[i] += hBeta[compressedRow[q]];
+						}
 					}
 				}
+
 			break;
 			}
 			case(SPARSE): {
@@ -1166,6 +1164,8 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 		cout << endl;
 #endif
 	}
+
+#endif
 
 	xBetaKnown = true;
 	sufficientStatisticsKnown = false;

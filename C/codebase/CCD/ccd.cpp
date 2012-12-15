@@ -261,7 +261,7 @@ double initializeModel(
 	(*reader)->readFile(arguments.inFileName.c_str()); // TODO Check for error
 
 
-#ifdef CUDA
+#ifdef CUDA_TRS
 	if (arguments.useGPU) {
 		*ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, *reader);
 	} else {
@@ -269,7 +269,7 @@ double initializeModel(
 
 	*ccd = new CyclicCoordinateDescent(*reader);
 
-#ifdef CUDA
+#ifdef CUDA_TRS
 	}
 #endif
 
@@ -429,6 +429,7 @@ int main(int argc, char* argv[]) {
 	cout << "Load   duration: " << scientific << timeInitialize << endl;
 	cout << "Update duration: " << scientific << timeUpdate << endl;
 	
+
 	MCMCDriver testMCMCDriver(reader);
 
 	testMCMCDriver.drive(*ccd);

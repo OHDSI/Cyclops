@@ -1,0 +1,2 @@
+/usr/bin/ar cr libTRS_Parallel.a  ./TRS_Parallel_generated_CUDASparseRowVector.cu.o
+/usr/bin/ranlib libTRS_Parallel.a

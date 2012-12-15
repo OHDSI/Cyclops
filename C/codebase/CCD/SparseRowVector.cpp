@@ -23,6 +23,7 @@
 #include <time.h>
 #include <set>
 
+
 #include "SparseRowVector.h"
 #include "CompressedDataMatrix.h"
 #include "InputReader.h"
@@ -37,9 +38,9 @@ SparseRowVector::SparseRowVector() {
 void SparseRowVector::fillSparseRowVector(CompressedDataMatrix * columnData) {
 
 	nTransposeRows = columnData->getNumberOfColumns();
-	cout << "nCols Original start = " << nTransposeRows << endl;
+//	cout << "nCols Original start = " << nTransposeRows << endl;
 	nTransposeCols = columnData->getNumberOfRows();
-	cout << "nRows Original start = " << nTransposeCols << endl;
+//	cout << "nRows Original start = " << nTransposeCols << endl;
 
 	formatType = columnData->getFormatType(0);
 
@@ -70,11 +71,12 @@ SparseRowVector::~SparseRowVector() {
 					delete *it;
 				}
 			}
+			delete listCompressedVectorLengths;
 		}
 		break;
 		case(DENSE): {
-			typedef std::vector<int_vector*>::iterator IIterator;
-			for (IIterator it = matrixTransposeIndicator.begin(); it != matrixTransposeIndicator.end(); ++it) {
+			typedef std::vector<real_vector*>::iterator RIterator;
+			for (RIterator it = matrixTransposeDense.begin(); it != matrixTransposeDense.end(); ++it) {
 				if (*it) {
 					delete *it;
 				}
@@ -118,10 +120,11 @@ void SparseRowVector::printSparseMatrix() {
 	switch(formatType) {
 		case(INDICATOR): {
 			cout << "Printing Indicator Matrix Transpose" << endl;
-			for (int i = 0; i < this->nTransposeCols; i++) {
+			for (int i = 0; i < this->nTransposeCols; i++) { //number of exposures
 				int numRows = this->getNumberOfEntries(i);
 				cout << "Column i = " << i << " [";
-				for (int j = 0; j< numRows; j++) {
+				for (int j = 0; j< numRows; j++) { // number of drugs
+					cout << "numRows = " << numRows << endl;
 					cout << this->getCompressedRowVector(i)[j] << ",";
 				}
 				cout << "]" << endl;
@@ -168,36 +171,57 @@ int * SparseRowVector::getNumberOfEntriesList() const {
 	return const_cast<int*>(&(listCompressedVectorLengths->at(0)));
 }
 
+
+void SparseRowVector::fillForCUDA() {
+	cout << "Calling Fill for CUDA" << endl;
+	int offsetsValues = 0;
+	offsets.push_back(offsetsValues);
+	for (int i = 0; i < nTransposeCols; i ++) {
+		int nCols = this->getNumberOfEntries(i);
+		offsetsValues += nCols;
+		offsets.push_back(offsetsValues);
+		for (int k = 0; k < nCols; k++) {
+			columns.push_back(getCompressedRowVector(i)[k]);
+			values.push_back(1.0);
+		}
+	}
+	//printVector(offsets, offsets.size());
+	//printVector(columns, columns.size());
+	//printVector(values, values.size());
+
+}
+
 void SparseRowVector::transposeIndicator(CompressedDataMatrix* columnData) {
 
 	cout <<"TransposeIndicator Used" << endl;
+
 	matrixTransposeIndicator.resize(nTransposeCols);
 
 	for (int k = 0; k < nTransposeCols; k++) {
 		matrixTransposeIndicator[k] = new int_vector();
 	}
-
 	for (int i = 0; i < nTransposeRows; i++) {
 		int rows = columnData->getNumberOfEntries(i);
 		for (int j = 0; j < rows; j++) {
 			matrixTransposeIndicator[columnData->getCompressedColumnVector(i)[j]]->push_back(i);
 		}
-		//listCompressedVectorLengths->push_back(rows);
 	}
 
 	for (int p = 0; p < nTransposeCols; p++) {
 		listCompressedVectorLengths->push_back(matrixTransposeIndicator[p]->size());
 	}
 
+	fillForCUDA();
+
 }
 
 void SparseRowVector::transposeDense(CompressedDataMatrix* columnData) {
 
-	cout <<"TransposeDense Used" << endl;
+//	cout <<"TransposeDense Used" << endl;
 
 	matrixTransposeDense.resize(nTransposeCols);
 
-	cout << "Number of Columns = " << nTransposeCols << endl;
+//	cout << "Number of Columns = " << nTransposeCols << endl;
 
 	for (int k = 0; k < nTransposeCols; k++) {
 		matrixTransposeDense[k] = new real_vector();
@@ -209,6 +233,7 @@ void SparseRowVector::transposeDense(CompressedDataMatrix* columnData) {
 		}
 	}
 }
+
 
 void SparseRowVector::setChangedStatus(bool changeSetting) {
 	hasChanged = changeSetting;
