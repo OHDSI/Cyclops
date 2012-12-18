@@ -33,6 +33,7 @@
 #include "io/NewCLRInputReader.h"
 #include "io/NewSCCSInputReader.h"
 #include "io/NewCoxInputReader.h"
+#include "io/NewGenericInputReader.h"
 #include "io/BBRInputReader.h"
 #include "CrossValidationSelector.h"
 #include "CrossValidationDriver.h"
@@ -382,7 +383,8 @@ double initializeModel(
 	} else if (arguments.fileFormat == "bbr") {
 		reader = new BBRInputReader<NoImputation>();
 	} else if (arguments.fileFormat == "generic") {
-		reader = new NewSCCSInputReader();
+//		reader = new NewSCCSInputReader();
+		reader = new NewGenericInputReader();
 	} else if (arguments.fileFormat == "new-cox") {
 		reader = new NewCoxInputReader();
 	} else {
