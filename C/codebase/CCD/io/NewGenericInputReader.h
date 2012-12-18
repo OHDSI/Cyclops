@@ -15,13 +15,23 @@ public:
 
 	NewGenericInputReader() : BaseInputReader<NewGenericInputReader>()
 		, upcastToDense(false)
-		, upcastToSparse(false) {
+		, upcastToSparse(false)
+		, includeIntercept(false)
+		, includeOffset(false) {
 		// Do nothing
 	}
 
 	inline void parseRow(stringstream& ss, RowInformation& rowInfo) {
 		parseNoStratumEntry(ss, rowInfo);
 		parseSingleOutcomeEntry<int>(ss, rowInfo);
+
+		if (includeOffset) {
+			parseOffsetCovariateEntry(ss, rowInfo, logOffset);
+		}
+
+		if (includeIntercept) {
+			modelData->getColumn(columnIntercept).add_data(rowInfo.currentRow, static_cast<real>(1.0));
+		}
 		parseAllBBRCovariatesEntry(ss, rowInfo);
 	}
 
@@ -30,14 +40,24 @@ public:
 		if (firstChar == '#') { // There is a header
 			string line;
 			getline(in, line);
-			size_t found = line.find("dense");
-			if (found != string::npos) {
-				upcastToDense = true;
+			upcastToDense = includesOption(line, "dense");
+			upcastToSparse = includesOption(line, "sparse");
+			includeIntercept = includesOption(line, "add_intercept");
+			includeOffset = includesOption(line, "offset");
+			if (includeOffset) {
+				logOffset = includesOption(line, "log_offset");
 			}
-			found = line.find("sparse");
-			if (found != string::npos) {
-				upcastToSparse = true;
-			}
+		}
+	}
+
+	void addFixedCovariateColumns(void) {
+		if (includeOffset) {
+			modelData->push_back(DENSE); // Column 0
+			modelData->setHasOffsetCovariate(true);
+		}
+		if (includeIntercept) {
+			modelData->push_back(DENSE); // Column 0 or 1
+			columnIntercept = modelData->getNumberOfColumns() - 1;
 		}
 	}
 
@@ -57,8 +77,20 @@ public:
 	}
 
 private:
+
+	bool includesOption(const string& line, const string& option) {
+		size_t found = line.find(option);
+		return found != string::npos;
+	}
+
+
 	bool upcastToDense;
 	bool upcastToSparse;
+	bool includeIntercept;
+	bool includeOffset;
+
+	int columnIntercept;
+	bool logOffset;
 };
 
 

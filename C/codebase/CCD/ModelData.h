@@ -73,6 +73,10 @@ public:
 		return hasOffsetCovariate;
 	}
 
+	void setHasOffsetCovariate(bool b) {
+		hasOffsetCovariate = b;
+	}
+
 	void sortDataColumns(vector<int> sortedInds);
 	
 	// TODO Improve encapsulation

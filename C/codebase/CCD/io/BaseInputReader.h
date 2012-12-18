@@ -80,7 +80,7 @@ public:
 		RowInformation rowInfo(0,0,0, MISSING_STRING, MISSING_STRING, *modelData);
 		string line;
 
-		addFixedCovariateColumns();
+		static_cast<DerivedFormat*>(this)->addFixedCovariateColumns();
 
 		while (getline(in, line) && (rowInfo.currentRow < MAX_ENTRIES)) {
 			if (!line.empty()) {
@@ -221,6 +221,15 @@ protected:
 		}
 		rowInfo.numEvents += thisY;
 		modelData->y.push_back(thisY);
+	}
+
+	void parseOffsetCovariateEntry(stringstream& ss, RowInformation& rowInfo, bool log) {
+		real thisOffset;
+		ss >> thisOffset;
+		if (log) {
+			thisOffset = std::log(thisOffset);
+		}
+		modelData->getColumn(0).add_data(rowInfo.currentRow, thisOffset);
 	}
 
 	void parseOffsetEntry(stringstream& ss, RowInformation&) {
