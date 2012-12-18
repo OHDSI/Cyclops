@@ -443,12 +443,29 @@ public:
 		real x, real xBeta, real y
 		) {
 			// Reduce contribution here
-			if (Weights::isWeighted) {
-				*gradient += weight * numer;
-				*hessian += weight * numer2;
+			if (IteratorType::isIndicator) {
+				if (Weights::isWeighted) {
+					const real value = weight * numer;
+					*gradient += value;
+					*hessian += value;
+				} else {
+					*gradient += numer;
+					*hessian += numer;
+				}
+#ifdef DEBUG_POISSON
+				std::cerr << (*gradient) << std::endl;
+#endif
 			} else {
-				*gradient += numer;
-				*hessian += numer2;
+				if (Weights::isWeighted) {
+					*gradient += weight * numer;
+					*hessian += weight * numer2;
+				} else {
+					*gradient += numer;
+					*hessian += numer2;
+				}
+#ifdef DEBUG_POISSON
+				std::cerr << (*gradient) << std::endl;
+#endif
 			}
 	}
 

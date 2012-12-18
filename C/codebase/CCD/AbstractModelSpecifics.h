@@ -21,6 +21,7 @@ class ModelData; // forward declaration
 #endif
 
 //#define DEBUG_COX // Uncomment to get output for Cox model
+//#define DEBUG_POISSON
 
 class AbstractModelSpecifics {
 public:
