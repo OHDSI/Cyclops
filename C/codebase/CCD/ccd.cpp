@@ -215,6 +215,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		allowedModels.push_back("clr");
 		allowedModels.push_back("lr");
 		allowedModels.push_back("ls");
+		allowedModels.push_back("pr");
 		allowedModels.push_back("cox");
 		ValuesConstraint<std::string> allowedModelValues(allowedModels);
 		ValueArg<string> modelArg("", "model", "Model specification", false, arguments.modelName, &allowedModelValues);
@@ -401,6 +402,8 @@ double initializeModel(
 		*model = new ModelSpecifics<LogisticRegression<real>,real>(**modelData);
 	} else if (arguments.modelName == "ls") {
 		*model = new ModelSpecifics<LeastSquares<real>,real>(**modelData);
+	} else if (arguments.modelName == "pr") {
+		*model = new ModelSpecifics<PoissonRegression<real>,real>(**modelData);
 	} else if (arguments.modelName == "cox") {
 		*model = new ModelSpecifics<CoxProportionalHazards<real>,real>(**modelData);
 	} else {

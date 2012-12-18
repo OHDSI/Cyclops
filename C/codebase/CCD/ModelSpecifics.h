@@ -422,6 +422,54 @@ public:
 	}
 };
 
+template <typename WeightType>
+struct PoissonRegression : public IndependentData, GLMProjection, FixedPid {
+public:
+
+	const static bool precomputeHessian = false; // XjX
+
+	static real getDenomNullValue () { return static_cast<real>(0.0); }
+
+	real observationCount(real yi) {
+		return static_cast<real>(1);
+	}
+
+	template <class IteratorType, class Weights>
+	void incrementGradientAndHessian(
+		const IteratorType& it,
+		const Weights& w,
+		real* gradient, real* hessian,
+		real numer, real numer2, real denom, WeightType weight,
+		real x, real xBeta, real y
+		) {
+			// Reduce contribution here
+			if (Weights::isWeighted) {
+				*gradient += weight * numer;
+				*hessian += weight * numer2;
+			} else {
+				*gradient += numer;
+				*hessian += numer2;
+			}
+	}
+
+	real getOffsExpXBeta(int* offs, real xBeta, real y, int k) {
+		return std::exp(xBeta);
+	}
+
+	real logLikeDenominatorContrib(int ni, real denom) {
+		return denom;
+	}
+
+	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
+		int* groups, int i) {
+			return (ji*xBetai - exp(xBetai))*weighti;
+	}
+
+	void predictEstimate(real& yi, real xBeta){
+		yi = exp(xBeta);
+	}
+};
+
 #include "ModelSpecifics.hpp"
 
 #endif /* MODELSPECIFICS_H_ */

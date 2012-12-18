@@ -137,6 +137,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		allowedModels.push_back("clr");
 		allowedModels.push_back("lr");
 		allowedModels.push_back("ls");
+		allowedModels.push_back("pr");
 		allowedModels.push_back("cox");
 		ValuesConstraint<std::string> allowedModelValues(allowedModels);
 		ValueArg<string> modelArg("", "model", "Model specification", false, ccdArgs.modelName, &allowedModelValues);
