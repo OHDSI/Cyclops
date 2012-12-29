@@ -111,6 +111,22 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjX(bool useCrossValidation) 
 }
 
 template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInLogLikelihood(bool useCrossValidation) {
+	if(BaseModel::likelihoodHasFixedTerms) {
+		logLikelihoodFixedTerm = 0.0;
+		if(useCrossValidation) {
+			for(int i = 0; i < N; i++){
+				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i]) * hKWeight[i];
+			}
+		} else {
+			for(int i = 0; i < N; i++){
+				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i]);
+			}
+		}
+	}
+}
+
+template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
 	if (sortPid()) {
 		doSortPid(useCrossValidation);
@@ -143,6 +159,11 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 			logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], denomPid[i]);
 		}
 	}
+
+	if (BaseModel::likelihoodHasFixedTerms) {
+		logLikelihood += logLikelihoodFixedTerm;
+	}
+
 	return static_cast<double>(logLikelihood);
 }
 

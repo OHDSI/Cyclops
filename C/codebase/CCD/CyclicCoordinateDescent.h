@@ -159,6 +159,8 @@ protected:
 
 	void saveXBeta(void);
 
+	void computeFixedTermsInLogLikelihood(void);
+	
 	void computeFixedTermsInGradientAndHessian(void);
 
 //	void computeXjY(void);

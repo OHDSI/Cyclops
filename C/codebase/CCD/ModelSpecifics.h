@@ -29,6 +29,8 @@ protected:
 
 	void computeRemainingStatistics(void);
 
+	void computeFixedTermsInLogLikelihood(bool useCrossValidation);
+
 	void computeFixedTermsInGradientAndHessian(bool useCrossValidation);
 
 	double getLogLikelihood(bool useCrossValidation);
@@ -142,6 +144,16 @@ struct SortedPid {
 	const static bool cumulativeGradientAndHessian = true;
 };
 
+struct NoFixedLikelihoodTerms {
+	const static bool likelihoodHasFixedTerms = false;
+
+	real logLikeFixedTermsContrib(real yi){
+		std::cerr << "Error!" << std::endl;
+		exit(-1);
+		return static_cast<real>(0);
+	}
+};
+
 struct GLMProjection {
 public:
 	const static bool precomputeGradient = true; // XjY
@@ -198,7 +210,7 @@ public:
 };
 
 template <typename WeightType>
-struct SelfControlledCaseSeries : public GroupedData, GLMProjection, FixedPid {
+struct SelfControlledCaseSeries : public GroupedData, GLMProjection, FixedPid, NoFixedLikelihoodTerms {
 public:
 	const static bool precomputeHessian = false; // XjX
 
@@ -243,10 +255,12 @@ public:
 	void predictEstimate(real& yi, real xBeta){
 		//do nothing for now
 	}
+
 };
 
 template <typename WeightType>
-struct ConditionalLogisticRegression : public GroupedData, GLMProjection, Logistic<WeightType>, FixedPid {
+struct ConditionalLogisticRegression : public GroupedData, GLMProjection, Logistic<WeightType>, FixedPid,
+	NoFixedLikelihoodTerms { // TODO Implement likelihood terms
 public:
 	const static bool precomputeHessian = false; // XjX
 
@@ -276,7 +290,8 @@ public:
 };
 
 template <typename WeightType>
-struct LogisticRegression : public IndependentData, GLMProjection, Logistic<WeightType>, FixedPid {
+struct LogisticRegression : public IndependentData, GLMProjection, Logistic<WeightType>, FixedPid,
+	NoFixedLikelihoodTerms {
 public:
 	const static bool precomputeHessian = false;
 
@@ -306,7 +321,7 @@ public:
 };
 
 template <typename WeightType>
-struct CoxProportionalHazards : public OrderedData, GLMProjection, SortedPid {
+struct CoxProportionalHazards : public OrderedData, GLMProjection, SortedPid, NoFixedLikelihoodTerms {
 public:
 	const static bool precomputeHessian = false;
 
@@ -354,7 +369,7 @@ public:
 };
 
 template <typename WeightType>
-struct LeastSquares : public IndependentData, FixedPid {
+struct LeastSquares : public IndependentData, FixedPid, NoFixedLikelihoodTerms {
 public:
 	const static bool precomputeGradient = false; // XjY
 
@@ -428,6 +443,8 @@ public:
 
 	const static bool precomputeHessian = false; // XjX
 
+	const static bool likelihoodHasFixedTerms = true;
+
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
 
 	real observationCount(real yi) {
@@ -485,6 +502,14 @@ public:
 	void predictEstimate(real& yi, real xBeta){
 		yi = exp(xBeta);
 	}
+
+	real logLikeFixedTermsContrib(real yi){
+		real logLikeFixedTerm = 0.0;
+		for(int i = 2; i <= (int)yi; i++)
+			logLikeFixedTerm += -log((real)i);
+		return logLikeFixedTerm;
+	}
+
 };
 
 #include "ModelSpecifics.hpp"

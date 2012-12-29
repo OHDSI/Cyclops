@@ -61,6 +61,8 @@ public:
 
 	virtual void computeRemainingStatistics(void) = 0; // pure virtual
 
+	virtual void computeFixedTermsInLogLikelihood(bool useCrossValidation) = 0; // pure virtual
+
 	virtual void computeFixedTermsInGradientAndHessian(bool useCrossValidation) = 0; // pure virtual
 
 	virtual double getLogLikelihood(bool useCrossValidation) = 0; // pure virtual
@@ -124,6 +126,7 @@ protected:
 	real* xOffsExpXBeta;
 	real* hXjY;
 	real* hXjX;
+	real logLikelihoodFixedTerm;
 
 	std::vector<std::vector<int>* > *sparseIndices;
 };

@@ -478,6 +478,7 @@ void CyclicCoordinateDescent::update(
 
 	if (!validWeights) {
 		computeNEvents();
+		computeFixedTermsInLogLikelihood();
 		computeFixedTermsInGradientAndHessian();
 		validWeights = true;
 	}
@@ -757,6 +758,10 @@ double CyclicCoordinateDescent::applyBounds(double inDelta, int index) {
 /**
  * Utility functions
  */
+
+void CyclicCoordinateDescent::computeFixedTermsInLogLikelihood(void) {
+	modelSpecifics.computeFixedTermsInLogLikelihood(useCrossValidation);
+}
 
 void CyclicCoordinateDescent::computeFixedTermsInGradientAndHessian(void) {
 	// Delegate
