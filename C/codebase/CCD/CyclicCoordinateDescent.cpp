@@ -449,13 +449,13 @@ double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 	double sumAbsResiduals = 0;
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
-			sumAbsDiffs += abs(hXBeta[i] - hXBetaSave[i]) * hY[i] * hWeights[i];
-			sumAbsResiduals += abs(hXBeta[i]) * hY[i] * hWeights[i];
+			sumAbsDiffs += abs(hXBeta[i] - hXBetaSave[i]) * hWeights[i];
+			sumAbsResiduals += abs(hXBeta[i]) * hWeights[i];
 		}
 	} else {
 		for (int i = 0; i < K; i++) {
-			sumAbsDiffs += abs(hXBeta[i] - hXBetaSave[i]) * hY[i];
-			sumAbsResiduals += abs(hXBeta[i]) * hY[i];
+			sumAbsDiffs += abs(hXBeta[i] - hXBetaSave[i]);
+			sumAbsResiduals += abs(hXBeta[i]);
 		}
 	}
 	return sumAbsDiffs / (1.0 + sumAbsResiduals);
@@ -535,11 +535,10 @@ void CyclicCoordinateDescent::update(
 			double conv;
 			if (convergenceType < ZHANG_OLES) {
  				double thisObjFunc = getObjectiveFunction(convergenceType);
-				if(thisObjFunc != thisObjFunc){
+				if (thisObjFunc != thisObjFunc) {
 					cout << endl << "Warning! problem is ill-conditioned for this choice of hyperparameter. Enforcing convergence!" << endl;
 					conv = 0.0;
-				}
-				else{
+				} else {
 					conv = computeConvergenceCriterion(thisObjFunc, lastObjFunc);
 				}
 				lastObjFunc = thisObjFunc;
