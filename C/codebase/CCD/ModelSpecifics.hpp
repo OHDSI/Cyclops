@@ -181,19 +181,27 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::getPredictiveEstimates(real* y, real* weights){
 
-	std::vector<real> xBeta(K,0.0);
-	for(int j = 0; j < J; j++){
-		GenericIterator it(*hXI, j);
-		for(; it; ++it){
-			const int k = it.index();
-			xBeta[k] += it.value() * hBeta[j] * weights[k];
+	// TODO Check with SM: the following code appears to recompute hXBeta at large expense
+//	std::vector<real> xBeta(K,0.0);
+//	for(int j = 0; j < J; j++){
+//		GenericIterator it(*hXI, j);
+//		for(; it; ++it){
+//			const int k = it.index();
+//			xBeta[k] += it.value() * hBeta[j] * weights[k];
+//		}
+//	}
+	if (weights) {
+		for (int k = 0; k < K; ++k) {
+			if (weights[k]) {
+				BaseModel::predictEstimate(y[k], hXBeta[k]);
+			}
+		}
+	} else {
+		for (int k = 0; k < K; ++k) {
+			BaseModel::predictEstimate(y[k], hXBeta[k]);
 		}
 	}
-	for(int k = 0; k < K; k++){
-		if(weights[k]){
-			BaseModel::predictEstimate(y[k], xBeta[k]);
-		}
-	}
+	// TODO How to remove code duplication above?
 }
 
 // TODO The following function is an example of a double-dispatch, rewrite without need for virtual function
