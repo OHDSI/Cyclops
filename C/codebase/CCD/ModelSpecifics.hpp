@@ -220,6 +220,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 			case DENSE :
 				computeGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, weighted);
 				break;
+			case INTERCEPT :
+				computeGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, weighted);
+				break;
 		}
 	} else {
 		switch (hXI->getFormatType(index)) {
@@ -231,6 +234,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 				break;
 			case DENSE :
 				computeGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, unweighted);
+				break;
+			case INTERCEPT :
+				computeGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, unweighted);
 				break;
 		}
 	}
@@ -329,16 +335,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 			incrementNumeratorForGradientImpl<IndicatorIterator>(index);
 			}
 			break;
-		case DENSE :
-			zeroVector(numerPid, N);
-			if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
-				zeroVector(numerPid2, N);
-			}
-#ifdef DEBUG_COX
-			cerr << "N = " << N << endl;
-#endif			
-			incrementNumeratorForGradientImpl<DenseIterator>(index);
-			break;
 		case SPARSE : {
 			IndicatorIterator it(*(*sparseIndices)[index]);
 			for (; it; ++it) { // Only affected entries
@@ -348,6 +344,20 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 				}
 			}
 			incrementNumeratorForGradientImpl<SparseIterator>(index); }
+			break;
+		case DENSE :
+			zeroVector(numerPid, N);
+			if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
+				zeroVector(numerPid2, N);
+			}
+			incrementNumeratorForGradientImpl<DenseIterator>(index);
+			break;
+		case INTERCEPT :
+			zeroVector(numerPid, N);
+			if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
+				zeroVector(numerPid2, N);
+			}
+			incrementNumeratorForGradientImpl<InterceptIterator>(index);
 			break;
 		default :
 			// throw error
@@ -389,11 +399,14 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index
 		case INDICATOR :
 			updateXBetaImpl<IndicatorIterator>(realDelta, index);
 			break;
+		case SPARSE :
+			updateXBetaImpl<SparseIterator>(realDelta, index);
+			break;
 		case DENSE :
 			updateXBetaImpl<DenseIterator>(realDelta, index);
 			break;
-		case SPARSE :
-			updateXBetaImpl<SparseIterator>(realDelta, index);
+		case INTERCEPT :
+			updateXBetaImpl<InterceptIterator>(realDelta, index);
 			break;
 		default :
 			// throw error
@@ -406,7 +419,7 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
-		hXBeta[k] += realDelta * it.value();
+		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
 		// Update denominators as well
 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
 			real oldEntry = offsExpXBeta[k];

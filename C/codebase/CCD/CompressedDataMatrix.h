@@ -23,7 +23,7 @@ using std::cerr;
 using std::endl;
 using std::ifstream;
 
-#define DATA_AOS
+//#define DATA_AOS
 
 #ifdef DOUBLE_PRECISION
 	typedef double real;
