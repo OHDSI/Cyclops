@@ -16,6 +16,7 @@ public:
 	NewGenericInputReader() : BaseInputReader<NewGenericInputReader>()
 		, upcastToDense(false)
 		, upcastToSparse(false)
+		, useBBROutcome(false)
 		, includeIntercept(false)
 		, includeOffset(false) {
 		// Do nothing
@@ -23,7 +24,12 @@ public:
 
 	inline void parseRow(stringstream& ss, RowInformation& rowInfo) {
 		parseNoStratumEntry(ss, rowInfo);
-		parseSingleOutcomeEntry<int>(ss, rowInfo);
+
+		if (useBBROutcome) {
+			parseSingleBBROutcomeEntry<int>(ss, rowInfo);
+		} else {
+			parseSingleOutcomeEntry<int>(ss, rowInfo);
+		}
 
 		if (includeOffset) {
 			parseOffsetCovariateEntry(ss, rowInfo, logOffset);
@@ -42,6 +48,7 @@ public:
 			getline(in, line);
 			upcastToDense = includesOption(line, "dense");
 			upcastToSparse = includesOption(line, "sparse");
+			useBBROutcome = includesOption(line, "bbr_outcome");
 			includeIntercept = includesOption(line, "add_intercept");
 			includeOffset = includesOption(line, "offset");
 			if (includeOffset) {
@@ -88,6 +95,7 @@ private:
 	bool upcastToSparse;
 	bool includeIntercept;
 	bool includeOffset;
+	bool useBBROutcome;
 
 	int columnIntercept;
 	bool logOffset;

@@ -153,7 +153,6 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.doBootstrap = false;
 	arguments.replicates = 100;
 	arguments.reportRawEstimates = false;
-//	arguments.doLogisticRegression = false;
 	arguments.modelName = "sccs";
 	arguments.fileFormat = "sccs";
 	arguments.useNormalPrior = false;

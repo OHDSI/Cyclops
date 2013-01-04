@@ -35,7 +35,7 @@ typedef std::vector<int> int_vector;
 typedef std::vector<real> real_vector;
 
 enum FormatType {
-	DENSE, SPARSE, INDICATOR
+	DENSE, SPARSE, INDICATOR, INTERCEPT
 };
 
 typedef int DrugIdType;
@@ -97,10 +97,10 @@ public:
 	void add_data(int row, real value) {
 		if (formatType == DENSE) {
 			//Making sure that we are at the correct row
-			for(int i = (int)data->size(); i < row; i++) 
+			for(size_t i = data->size(); i < row; i++) {
 				data->push_back(0.0);
+			}
 			data->push_back(value);
-			// TODO Make sure we are at the correct row
 		} else if (formatType == SPARSE) {
 			if (value != static_cast<real> (0)) {
 				data->push_back(value);
@@ -110,6 +110,8 @@ public:
 			if (value != static_cast<real> (0)) {
 				columns->push_back(row);
 			}
+		} else if (formatType == INTERCEPT) {
+			// Do nothing
 		} else {
 			cerr << "Error" << endl;
 			exit(-1);
@@ -219,6 +221,8 @@ public:
 		} else if (colFormat == INDICATOR) {
 			int_vector* i = new int_vector();
 			push_back(i, NULL, INDICATOR);
+		} else if (colFormat == INTERCEPT) {
+			push_back(NULL, NULL, INTERCEPT);
 		} else {
 			cerr << "Error" << endl;
 			exit(-1);
@@ -240,16 +244,10 @@ protected:
 		nCols++;
 	}
 	
-//private:
 	int nRows;
 	int nCols;
 	int nEntries;
-
 	std::vector<CompressedDataColumn*> allColumns;
-
-//	std::vector<int> rows;  // standard CSC representation
-//	std::vector<int> ptrStart;
-
 };
 
 #endif /* COMPRESSEDINDICATORMATRIX_H_ */

@@ -152,6 +152,44 @@ class DenseIterator {
     const Index mEnd;
 };
 
+// Iterator for an intercept column
+class InterceptIterator {
+  public:
+
+	typedef real Scalar;
+	typedef int Index;
+
+	enum  { isIndicator = true };
+	enum  { isSparse = false };
+
+	inline InterceptIterator(const int& start, const int& end)
+		: mId(start), mEnd(end) {
+		// Do nothing
+	}
+
+	inline InterceptIterator(const CompressedDataMatrix& mat, Index column)
+	  : mId(0), mEnd(mat.getNumberOfRows()){
+		// Do nothing
+	}
+
+	inline InterceptIterator(const std::vector<int>& vec, Index end)
+	: mId(0), mEnd(end) {
+		// Do nothing
+	}
+
+    inline InterceptIterator& operator++() { ++mId; return *this; }
+
+    inline const int value() const { return 1; }
+    inline int valueRef() { return 1; }
+    // TODO Confirm optimization of (real) * value() => (real)
+
+    inline Index index() const { return mId; }
+    inline operator bool() const { return (mId < mEnd); }
+
+  protected:
+    Index mId;
+    const Index mEnd;
+};
 
 // Iterator for a dense view of an arbitrary column
 class DenseViewIterator {
@@ -182,7 +220,6 @@ class DenseViewIterator {
     Index mId;
     const Index mEnd;
 };
-
 
 // Generic iterator for a run-time format determined column
 class GenericIterator {
