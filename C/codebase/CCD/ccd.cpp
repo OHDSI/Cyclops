@@ -155,6 +155,7 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.reportRawEstimates = false;
 	arguments.modelName = "sccs";
 	arguments.fileFormat = "sccs";
+	arguments.outputFormat = "estimates";
 	arguments.useNormalPrior = false;
 	arguments.convergenceType = GRADIENT;
 	arguments.convergenceTypeString = "gradient";
@@ -233,6 +234,13 @@ void parseCommandLine(std::vector<std::string>& args,
 		ValuesConstraint<std::string> allowedFormatValues(allowedFormats);
 		ValueArg<string> formatArg("", "format", "Format of data file", false, arguments.fileFormat, &allowedFormatValues);
 
+		// Output format arguments
+		std::vector<std::string> allowedOutputFormats;
+		allowedOutputFormats.push_back("estimates");
+		allowedOutputFormats.push_back("prediction");
+		ValuesConstraint<std::string> allowedOutputFormatValues(allowedOutputFormats);
+		ValueArg<string> outputFormatArg("", "outputFormat", "Format of the output file", false, arguments.outputFormat, &allowedOutputFormatValues);
+
 		cmd.add(gpuArg);
 //		cmd.add(betterGPUArg);
 		cmd.add(toleranceArg);
@@ -244,6 +252,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(seedArg);
 		cmd.add(modelArg);
 		cmd.add(formatArg);
+		cmd.add(outputFormatArg);
 
 		cmd.add(doCVArg);
 		cmd.add(lowerCVArg);
@@ -282,6 +291,7 @@ void parseCommandLine(std::vector<std::string>& args,
 
 		arguments.modelName = modelArg.getValue();
 		arguments.fileFormat = formatArg.getValue();
+		arguments.outputFormat = outputFormatArg.getValue();
 		arguments.convergenceTypeString = convergenceArg.getValue();
 
 		if (hyperPriorArg.isSet()) {
@@ -440,6 +450,26 @@ double initializeModel(
 	return sec1;
 }
 
+double predictModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
+
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
+	int K = ccd->getPredictionSize();
+
+	std::vector<real> predictions(K); // TODO Should be double
+	ccd->getPredictiveEstimates(&predictions[0], NULL);
+
+//	cout << "(";
+//	for (int k = 0; k < K; ++k) {
+//		cout <<
+//	}
+
+
+	gettimeofday(&time2, NULL);
+	return calculateSeconds(time1, time2);
+}
+
+
 double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
 #ifndef MY_RCPP_FLAG
 	cout << "Using prior: " << ccd->getPriorInfo() << endl;
@@ -568,6 +598,13 @@ int main(int argc, char* argv[]) {
 		timeUpdate = fitModel(ccd, arguments);
 	}
 
+	double timePredict;
+	bool doPrediction = false;
+	if (arguments.outputFormat == "prediction") {
+		doPrediction = true;
+		timePredict = predictModel(ccd, arguments);
+	}
+
 	if (arguments.doBootstrap) {
 		// Save parameter point-estimates
 		std::vector<real> savedBeta;
@@ -578,8 +615,11 @@ int main(int argc, char* argv[]) {
 	}
 		
 	cout << endl;
-	cout << "Load   duration: " << scientific << timeInitialize << endl;
-	cout << "Update duration: " << scientific << timeUpdate << endl;
+	cout << "Load    duration: " << scientific << timeInitialize << endl;
+	cout << "Update  duration: " << scientific << timeUpdate << endl;
+	if (doPrediction) {
+		cout << "Predict duration: " << scientific << timePredict << endl;
+	}
 	
 	if (ccd)
 		delete ccd;

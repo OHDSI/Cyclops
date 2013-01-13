@@ -29,6 +29,7 @@ struct CCDArguments {
 	std::string inFileName;
 	std::string outFileName;
 	std::string fileFormat;
+	std::string outputFormat;
 	bool useGPU;
 	bool useBetterGPU;
 	int deviceNumber;
@@ -82,6 +83,10 @@ double initializeModel(
 		CCDArguments &arguments);
 
 double fitModel(
+		CyclicCoordinateDescent *ccd,
+		CCDArguments &arguments);
+
+double predictModel(
 		CyclicCoordinateDescent *ccd,
 		CCDArguments &arguments);
 

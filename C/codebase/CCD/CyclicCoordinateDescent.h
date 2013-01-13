@@ -106,6 +106,8 @@ public:
 
 	int getBetaSize(void);
 
+	int getPredictionSize(void);
+
 	bool getFixedBeta(int i);
 
 	void setFixedBeta(int i, bool value);
