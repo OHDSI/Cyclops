@@ -5,8 +5,8 @@
  *      Author: msuchard
  */
 
-#ifndef CCD_H_
-#define CCD_H_
+#ifndef CCDIMPUTE_H_
+#define CCDIMPUTE_H_
 
 #include <time.h>
 
@@ -23,7 +23,7 @@
 #include "ModelSpecifics.h"
 #include "CyclicCoordinateDescent.h"
 
-struct CCDArguments {
+struct CCDImputeArguments {
 
 	// Needed for fitting
 	std::string inFileName;
@@ -63,9 +63,6 @@ struct CCDArguments {
 	int modelType;
 	std::string modelName;
 
-};
-
-struct ImputeArguments{
 	// Needed for doing multiple imputation
 	bool doImputation;
 	int numberOfImputations;
@@ -75,16 +72,13 @@ struct ImputeArguments{
 void parseCommandLine(
 		int argc,
 		char* argv[],
-		CCDArguments &ccdArgs,
-		ImputeArguments &imputeArgs);
+		CCDImputeArguments &ccdImputeArgs);
 
 void parseCommandLine(
 		std::vector<std::string>& argcpp,
-		CCDArguments& ccdArgs,
-		ImputeArguments& imputeArgs);
+		CCDImputeArguments& ccdImputeArgs);
 
 void setDefaultArguments(
-		CCDArguments &ccdArgs,
-		ImputeArguments &imputeArgs);
+		CCDImputeArguments &ccdImputeArgs);
 
-#endif /* CCD_H_ */
+#endif /* CCDIMPUTE_H_ */

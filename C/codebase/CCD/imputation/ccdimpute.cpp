@@ -14,7 +14,8 @@
 
 #include <math.h>
 
-#include "ccdimpute.h"
+#include "imputation/ccdimpute.h"
+#include "ccd.h"
 #include "CyclicCoordinateDescent.h"
 #include "ModelData.h"
 #include "io/InputReader.h"
@@ -47,62 +48,62 @@ using namespace TCLAP;
 using namespace std;
 
 void parseCommandLine(int argc, char* argv[],
-	CCDArguments &ccdArgs, ImputeArguments& imputeArgs) {
+	CCDImputeArguments &ccdImputeArgs) {
 		std::vector<std::string> args;
 		for (int i = 0; i < argc; i++)
 			args.push_back(argv[i]);
-		parseCommandLine(args, ccdArgs, imputeArgs);
+		parseCommandLine(args, ccdImputeArgs);
 }
 
-void setDefaultArguments(CCDArguments &ccdArgs, ImputeArguments& imputeArgs) {
-	ccdArgs.useGPU = false;
-	ccdArgs.maxIterations = 100;
-	ccdArgs.inFileName = "default_in";
-	ccdArgs.outFileName = "default_out";
-	ccdArgs.hyperPriorSet = false;
-	ccdArgs.hyperprior = 1.0;
-	ccdArgs.tolerance = 5E-4;
-	ccdArgs.seed = 123;
-	ccdArgs.doCrossValidation = false;
-	ccdArgs.lowerLimit = 0.01;
-	ccdArgs.upperLimit = 20.0;
-	ccdArgs.fold = 10;
-	ccdArgs.gridSteps = 10;
-	ccdArgs.cvFileName = "cv.txt";
-	ccdArgs.doBootstrap = false;
-	ccdArgs.replicates = 100;
-	ccdArgs.reportRawEstimates = false;
-	//	ccdArgs.doLogisticRegression = false;
-	ccdArgs.modelName = "sccs";
-	ccdArgs.fileFormat = "sccs";
-	ccdArgs.useNormalPrior = false;
-	ccdArgs.convergenceType = GRADIENT;
-	ccdArgs.convergenceTypeString = "gradient";
-	ccdArgs.doPartial = false;
-	imputeArgs.doImputation = false;
-	imputeArgs.numberOfImputations = 5;
-	imputeArgs.includeY = false;
+void setDefaultArguments(CCDImputeArguments &ccdImputeArgs) {
+	ccdImputeArgs.useGPU = false;
+	ccdImputeArgs.maxIterations = 100;
+	ccdImputeArgs.inFileName = "default_in";
+	ccdImputeArgs.outFileName = "default_out";
+	ccdImputeArgs.hyperPriorSet = false;
+	ccdImputeArgs.hyperprior = 1.0;
+	ccdImputeArgs.tolerance = 5E-4;
+	ccdImputeArgs.seed = 123;
+	ccdImputeArgs.doCrossValidation = false;
+	ccdImputeArgs.lowerLimit = 0.01;
+	ccdImputeArgs.upperLimit = 20.0;
+	ccdImputeArgs.fold = 10;
+	ccdImputeArgs.gridSteps = 10;
+	ccdImputeArgs.cvFileName = "cv.txt";
+	ccdImputeArgs.doBootstrap = false;
+	ccdImputeArgs.replicates = 100;
+	ccdImputeArgs.reportRawEstimates = false;
+	//	ccdImputeArgs.doLogisticRegression = false;
+	ccdImputeArgs.modelName = "sccs";
+	ccdImputeArgs.fileFormat = "sccs";
+	ccdImputeArgs.useNormalPrior = false;
+	ccdImputeArgs.convergenceType = GRADIENT;
+	ccdImputeArgs.convergenceTypeString = "gradient";
+	ccdImputeArgs.doPartial = false;
+	ccdImputeArgs.doImputation = false;
+	ccdImputeArgs.numberOfImputations = 5;
+	ccdImputeArgs.includeY = false;
 }
 
 void parseCommandLine(std::vector<std::string>& args,
-		CCDArguments &ccdArgs, ImputeArguments& imputeArgs) {
+		CCDImputeArguments &ccdImputeArgs) {
 
-	setDefaultArguments(ccdArgs,imputeArgs);
+	setDefaultArguments(ccdImputeArgs);
 
 	try {
 		CmdLine cmd("Cyclic coordinate descent algorithm for self-controlled case studies", ' ', "0.1");
-		ValueArg<int> gpuArg("g","GPU","Use GPU device", ccdArgs.useGPU, -1, "device #");
+		ValueArg<int> gpuArg("g","GPU","Use GPU device", ccdImputeArgs.useGPU, -1, "device #");
 //		SwitchArg betterGPUArg("1","better", "Use better GPU implementation", false);
-		ValueArg<int> maxIterationsArg("", "maxIterations", "Maximum iterations", false, ccdArgs.maxIterations, "int");
-		UnlabeledValueArg<string> inFileArg("inFileName","Input file name", true, ccdArgs.inFileName, "inFileName");
-		UnlabeledValueArg<string> outFileArg("outFileName","Output file name", true, ccdArgs.outFileName, "outFileName");
+		ValueArg<int> maxIterationsArg("", "maxIterations", "Maximum iterations", false, ccdImputeArgs.maxIterations, "int");
+		UnlabeledValueArg<string> inFileArg("inFileName","Input file name", true, ccdImputeArgs.inFileName, "inFileName");
+		UnlabeledValueArg<string> outFileArg("outFileName","Output file name", true, ccdImputeArgs.outFileName, "outFileName");
 
-		// Prior ccdArgs
-		ValueArg<double> hyperPriorArg("v", "variance", "Hyperprior variance", false, ccdArgs.hyperprior, "real");
-		SwitchArg normalPriorArg("n", "normalPrior", "Use normal prior, default is laplace", ccdArgs.useNormalPrior);
+		// Prior ccdImputeArgs
+		ValueArg<double> hyperPriorArg("v", "variance", "Hyperprior variance", false, ccdImputeArgs.hyperprior, "real");
+		SwitchArg normalPriorArg("n", "normalPrior", "Use normal prior, default is laplace", ccdImputeArgs.useNormalPrior);
 
-		// Convergence criterion ccdArgs
-		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, ccdArgs.tolerance, "real");
+		// Convergence criterion ccdImputeArgs
+		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, ccdImputeArgs.tolerance, "real");
 //		SwitchArg zhangOlesConvergenceArg("z", "zhangOles", "Use Zhange-Oles convergence criterion, default is true", true);
 		std::vector<std::string> allowedConvergence;
 		allowedConvergence.push_back("gradient");
@@ -110,28 +111,28 @@ void parseCommandLine(std::vector<std::string>& args,
 		allowedConvergence.push_back("Lange");
 		allowedConvergence.push_back("Mittal");
 		ValuesConstraint<std::string> allowedConvergenceValues(allowedConvergence);
-		ValueArg<string> convergenceArg("", "convergence", "Convergence criterion", false, ccdArgs.convergenceTypeString, &allowedConvergenceValues);
+		ValueArg<string> convergenceArg("", "convergence", "Convergence criterion", false, ccdImputeArgs.convergenceTypeString, &allowedConvergenceValues);
 
-		ValueArg<long> seedArg("s", "seed", "Random number generator seed", false, ccdArgs.seed, "long");
+		ValueArg<long> seedArg("s", "seed", "Random number generator seed", false, ccdImputeArgs.seed, "long");
 
-		// Cross-validation ccdArgs
-		SwitchArg doCVArg("c", "cv", "Perform cross-validation selection of hyperprior variance", ccdArgs.doCrossValidation);
-		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, ccdArgs.lowerLimit, "real");
-		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, ccdArgs.upperLimit, "real");
-		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, ccdArgs.fold, "int");
-		ValueArg<int> gridCVArg("", "gridSize", "Uniform grid size for cross-validation search", false, ccdArgs.gridSteps, "int");
+		// Cross-validation ccdImputeArgs
+		SwitchArg doCVArg("c", "cv", "Perform cross-validation selection of hyperprior variance", ccdImputeArgs.doCrossValidation);
+		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, ccdImputeArgs.lowerLimit, "real");
+		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, ccdImputeArgs.upperLimit, "real");
+		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, ccdImputeArgs.fold, "int");
+		ValueArg<int> gridCVArg("", "gridSize", "Uniform grid size for cross-validation search", false, ccdImputeArgs.gridSteps, "int");
 		ValueArg<int> foldToComputeCVArg("", "computeFold", "Number of fold to iterate, default is 'fold' value", false, 10, "int");
-		ValueArg<string> outFile2Arg("", "cvFileName", "Cross-validation output file name", false, ccdArgs.cvFileName, "cvFileName");
+		ValueArg<string> outFile2Arg("", "cvFileName", "Cross-validation output file name", false, ccdImputeArgs.cvFileName, "cvFileName");
 
-		// Bootstrap ccdArgs
-		SwitchArg doBootstrapArg("b", "bs", "Perform bootstrap estimation", ccdArgs.doBootstrap);
+		// Bootstrap ccdImputeArgs
+		SwitchArg doBootstrapArg("b", "bs", "Perform bootstrap estimation", ccdImputeArgs.doBootstrap);
 //		ValueArg<string> bsOutFileArg("", "bsFileName", "Bootstrap output file name", false, "bs.txt", "bsFileName");
-		ValueArg<int> replicatesArg("r", "replicates", "Number of bootstrap replicates", false, ccdArgs.replicates, "int");
-		SwitchArg reportRawEstimatesArg("","raw", "Report the raw bootstrap estimates", ccdArgs.reportRawEstimates);
+		ValueArg<int> replicatesArg("r", "replicates", "Number of bootstrap replicates", false, ccdImputeArgs.replicates, "int");
+		SwitchArg reportRawEstimatesArg("","raw", "Report the raw bootstrap estimates", ccdImputeArgs.reportRawEstimates);
 		ValueArg<int> partialArg("", "partial", "Number of rows to use in partial estimation", false, -1, "int");
 
-		// Model ccdArgs
-//		SwitchArg doLogisticRegressionArg("", "logistic", "Use ordinary logistic regression", ccdArgs.doLogisticRegression);
+		// Model ccdImputeArgs
+//		SwitchArg doLogisticRegressionArg("", "logistic", "Use ordinary logistic regression", ccdImputeArgs.doLogisticRegression);
 		std::vector<std::string> allowedModels;
 		allowedModels.push_back("sccs");
 		allowedModels.push_back("clr");
@@ -140,9 +141,9 @@ void parseCommandLine(std::vector<std::string>& args,
 		allowedModels.push_back("pr");
 		allowedModels.push_back("cox");
 		ValuesConstraint<std::string> allowedModelValues(allowedModels);
-		ValueArg<string> modelArg("", "model", "Model specification", false, ccdArgs.modelName, &allowedModelValues);
+		ValueArg<string> modelArg("", "model", "Model specification", false, ccdImputeArgs.modelName, &allowedModelValues);
 
-		// Format ccdArgs
+		// Format ccdImputeArgs
 		std::vector<std::string> allowedFormats;
 		allowedFormats.push_back("sccs");
 		allowedFormats.push_back("clr");
@@ -151,12 +152,12 @@ void parseCommandLine(std::vector<std::string>& args,
 		allowedFormats.push_back("cox-csv");
 		allowedFormats.push_back("bbr");
 		ValuesConstraint<std::string> allowedFormatValues(allowedFormats);
-		ValueArg<string> formatArg("", "format", "Format of data file", false, ccdArgs.fileFormat, &allowedFormatValues);
+		ValueArg<string> formatArg("", "format", "Format of data file", false, ccdImputeArgs.fileFormat, &allowedFormatValues);
 
-		// Imputation ccdArgs
-		SwitchArg doImputationArg("i", "imputation", "Perform multiple imputation", imputeArgs.doImputation);
-		ValueArg<int> numberOfImputationsArg("m", "numberOfImputations", "Number of imputed data sets (default is m=5)", false, imputeArgs.numberOfImputations, "int");
-		SwitchArg includeYArg("y", "includeY", "Use output vector y for imputation", imputeArgs.includeY);
+		// Imputation ccdImputeArgs
+		SwitchArg doImputationArg("i", "imputation", "Perform multiple imputation", ccdImputeArgs.doImputation);
+		ValueArg<int> numberOfImputationsArg("m", "numberOfImputations", "Number of imputed data sets (default is m=5)", false, ccdImputeArgs.numberOfImputations, "int");
+		SwitchArg includeYArg("y", "includeY", "Use output vector y for imputation", ccdImputeArgs.includeY);
 
 		cmd.add(gpuArg);
 //		cmd.add(betterGPUArg);
@@ -193,105 +194,141 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.parse(args);
 
 		if (gpuArg.getValue() > -1) {
-			ccdArgs.useGPU = true;
-			ccdArgs.deviceNumber = gpuArg.getValue();
+			ccdImputeArgs.useGPU = true;
+			ccdImputeArgs.deviceNumber = gpuArg.getValue();
 		} else {
-			ccdArgs.useGPU = false;
+			ccdImputeArgs.useGPU = false;
 		}
-//		ccdArgs.useBetterGPU = betterGPUArg.isSet();
+//		ccdImputeArgs.useBetterGPU = betterGPUArg.isSet();
 
-		ccdArgs.inFileName = inFileArg.getValue();
-		ccdArgs.outFileName = outFileArg.getValue();
-		ccdArgs.tolerance = toleranceArg.getValue();
-		ccdArgs.maxIterations = maxIterationsArg.getValue();
-		ccdArgs.hyperprior = hyperPriorArg.getValue();
-		ccdArgs.useNormalPrior = normalPriorArg.getValue();
-		ccdArgs.seed = seedArg.getValue();
+		ccdImputeArgs.inFileName = inFileArg.getValue();
+		ccdImputeArgs.outFileName = outFileArg.getValue();
+		ccdImputeArgs.tolerance = toleranceArg.getValue();
+		ccdImputeArgs.maxIterations = maxIterationsArg.getValue();
+		ccdImputeArgs.hyperprior = hyperPriorArg.getValue();
+		ccdImputeArgs.useNormalPrior = normalPriorArg.getValue();
+		ccdImputeArgs.seed = seedArg.getValue();
 
-		ccdArgs.modelName = modelArg.getValue();
-		ccdArgs.fileFormat = formatArg.getValue();
-		ccdArgs.convergenceTypeString = convergenceArg.getValue();
+		ccdImputeArgs.modelName = modelArg.getValue();
+		ccdImputeArgs.fileFormat = formatArg.getValue();
+		ccdImputeArgs.convergenceTypeString = convergenceArg.getValue();
 
 		if (hyperPriorArg.isSet()) {
-			ccdArgs.hyperPriorSet = true;
+			ccdImputeArgs.hyperPriorSet = true;
 		} else {
-			ccdArgs.hyperPriorSet = false;
+			ccdImputeArgs.hyperPriorSet = false;
 		}
 
 //		if (zhangOlesConvergenceArg.isSet()) {
-//			ccdArgs.convergenceType = ZHANG_OLES;
+//			ccdImputeArgs.convergenceType = ZHANG_OLES;
 //		} else {
-//			ccdArgs.convergenceType = LANGE;
+//			ccdImputeArgs.convergenceType = LANGE;
 //		}
-		if (ccdArgs.convergenceTypeString == "ZhangOles") {
-			ccdArgs.convergenceType = ZHANG_OLES;
-		} else if (ccdArgs.convergenceTypeString == "Lange") {
-			ccdArgs.convergenceType = LANGE;
-		} else if (ccdArgs.convergenceTypeString == "Mittal") {
-			ccdArgs.convergenceType = MITTAL;
-		} else if (ccdArgs.convergenceTypeString == "gradient") {
-			ccdArgs.convergenceType = GRADIENT;
+		if (ccdImputeArgs.convergenceTypeString == "ZhangOles") {
+			ccdImputeArgs.convergenceType = ZHANG_OLES;
+		} else if (ccdImputeArgs.convergenceTypeString == "Lange") {
+			ccdImputeArgs.convergenceType = LANGE;
+		} else if (ccdImputeArgs.convergenceTypeString == "Mittal") {
+			ccdImputeArgs.convergenceType = MITTAL;
+		} else if (ccdImputeArgs.convergenceTypeString == "gradient") {
+			ccdImputeArgs.convergenceType = GRADIENT;
 		} else {
-			cerr << "Unknown convergence type: " << convergenceArg.getValue() << " " << ccdArgs.convergenceTypeString << endl;
+			cerr << "Unknown convergence type: " << convergenceArg.getValue() << " " << ccdImputeArgs.convergenceTypeString << endl;
 			exit(-1);
 		}
 
 		// Cross-validation
-		ccdArgs.doCrossValidation = doCVArg.isSet();
-		if (ccdArgs.doCrossValidation) {
-			ccdArgs.lowerLimit = lowerCVArg.getValue();
-			ccdArgs.upperLimit = upperCVArg.getValue();
-			ccdArgs.fold = foldCVArg.getValue();
-			ccdArgs.gridSteps = gridCVArg.getValue();
+		ccdImputeArgs.doCrossValidation = doCVArg.isSet();
+		if (ccdImputeArgs.doCrossValidation) {
+			ccdImputeArgs.lowerLimit = lowerCVArg.getValue();
+			ccdImputeArgs.upperLimit = upperCVArg.getValue();
+			ccdImputeArgs.fold = foldCVArg.getValue();
+			ccdImputeArgs.gridSteps = gridCVArg.getValue();
 			if(foldToComputeCVArg.isSet()) {
-				ccdArgs.foldToCompute = foldToComputeCVArg.getValue();
+				ccdImputeArgs.foldToCompute = foldToComputeCVArg.getValue();
 			} else {
-				ccdArgs.foldToCompute = ccdArgs.fold;
+				ccdImputeArgs.foldToCompute = ccdImputeArgs.fold;
 			}
-			ccdArgs.cvFileName = outFile2Arg.getValue();
-			ccdArgs.doFitAtOptimal = true;
+			ccdImputeArgs.cvFileName = outFile2Arg.getValue();
+			ccdImputeArgs.doFitAtOptimal = true;
 		}
 
 		// Bootstrap
-		ccdArgs.doBootstrap = doBootstrapArg.isSet();
-		if (ccdArgs.doBootstrap) {
-//			ccdArgs.bsFileName = bsOutFileArg.getValue();
-			ccdArgs.replicates = replicatesArg.getValue();
+		ccdImputeArgs.doBootstrap = doBootstrapArg.isSet();
+		if (ccdImputeArgs.doBootstrap) {
+//			ccdImputeArgs.bsFileName = bsOutFileArg.getValue();
+			ccdImputeArgs.replicates = replicatesArg.getValue();
 			if (reportRawEstimatesArg.isSet()) {
-				ccdArgs.reportRawEstimates = true;
+				ccdImputeArgs.reportRawEstimates = true;
 			} else {
-				ccdArgs.reportRawEstimates = false;
+				ccdImputeArgs.reportRawEstimates = false;
 			}
 		}
 
 		// Imputation
-		imputeArgs.doImputation = doImputationArg.isSet();
-		if(imputeArgs.doImputation){
-			imputeArgs.numberOfImputations = numberOfImputationsArg.getValue();
-			imputeArgs.includeY = includeYArg.isSet();
+		ccdImputeArgs.doImputation = doImputationArg.isSet();
+		if(ccdImputeArgs.doImputation){
+			ccdImputeArgs.numberOfImputations = numberOfImputationsArg.getValue();
+			ccdImputeArgs.includeY = includeYArg.isSet();
 		}
 
 		if (partialArg.getValue() != -1) {
-			ccdArgs.doPartial = true;
-			ccdArgs.replicates = partialArg.getValue();
+			ccdImputeArgs.doPartial = true;
+			ccdImputeArgs.replicates = partialArg.getValue();
 		}
 
-//		ccdArgs.doLogisticRegression = doLogisticRegressionArg.isSet();
+//		ccdImputeArgs.doLogisticRegression = doLogisticRegressionArg.isSet();
 	} catch (ArgException &e) {
 		cerr << "Error: " << e.error() << " for argument " << e.argId() << endl;
 		exit(-1);
 	}
 }
 
+CCDArguments convertCCDToCCDImpute(CCDImputeArguments ccdImputeArgs){
+	CCDArguments ccdArgs;
+
+	ccdArgs.inFileName = ccdImputeArgs.inFileName;
+	ccdArgs.outFileName = ccdImputeArgs.outFileName;
+	ccdArgs.fileFormat = ccdImputeArgs.fileFormat;
+	ccdArgs.useGPU = ccdImputeArgs.useGPU;
+	ccdArgs.useBetterGPU = ccdImputeArgs.useBetterGPU;
+	ccdArgs.deviceNumber = ccdImputeArgs.deviceNumber;
+	ccdArgs.tolerance = ccdImputeArgs.tolerance;
+	ccdArgs.hyperprior = ccdImputeArgs.hyperprior;
+	ccdArgs.useNormalPrior = ccdImputeArgs.useNormalPrior;
+	ccdArgs.hyperPriorSet = ccdImputeArgs.hyperPriorSet;
+	ccdArgs.maxIterations = ccdImputeArgs.maxIterations;
+	ccdArgs.convergenceTypeString = ccdImputeArgs.convergenceTypeString;
+	ccdArgs.convergenceType = ccdImputeArgs.convergenceType;
+	ccdArgs.seed = ccdImputeArgs.seed;
+	ccdArgs.doCrossValidation = ccdImputeArgs.doCrossValidation;
+	ccdArgs.lowerLimit = ccdImputeArgs.lowerLimit;
+	ccdArgs.upperLimit = ccdImputeArgs.upperLimit;
+	ccdArgs.fold = ccdImputeArgs.fold;
+	ccdArgs.foldToCompute = ccdImputeArgs.foldToCompute;
+	ccdArgs.gridSteps = ccdImputeArgs.gridSteps;
+	ccdArgs.cvFileName = ccdImputeArgs.cvFileName;
+	ccdArgs.doFitAtOptimal = ccdImputeArgs.doFitAtOptimal;
+	ccdArgs.doBootstrap = ccdImputeArgs.doBootstrap;
+	ccdArgs.reportRawEstimates = ccdImputeArgs.reportRawEstimates;
+	ccdArgs.replicates = ccdImputeArgs.replicates;
+	ccdArgs.bsFileName = ccdImputeArgs.bsFileName;
+	ccdArgs.doPartial = ccdImputeArgs.doPartial;
+	ccdArgs.modelType = ccdImputeArgs.modelType;
+	ccdArgs.modelName = ccdImputeArgs.modelName;
+
+	return ccdArgs;
+}
+
 int main(int argc, char* argv[]) {
 
-	CCDArguments ccdArgs;
-	ImputeArguments imputeArgs;
+	CCDImputeArguments ccdImputeArgs;
 
-	parseCommandLine(argc, argv, ccdArgs, imputeArgs);
+	parseCommandLine(argc, argv, ccdImputeArgs);
 
 	ImputeVariables imputation;
-	imputation.initialize(ccdArgs, imputeArgs.numberOfImputations, imputeArgs.includeY);
+	CCDArguments ccdArgs = convertCCDToCCDImpute(ccdImputeArgs);
+	imputation.initialize(ccdArgs, ccdImputeArgs.numberOfImputations, ccdImputeArgs.includeY);
 	imputation.impute();
 	return 0;
 }

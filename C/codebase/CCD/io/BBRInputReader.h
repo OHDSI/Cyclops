@@ -53,9 +53,8 @@ public:
 		SparseIndexer indexer(*modelData);
 
 		// Allocate a column for intercept
-		int_vector* nullVector = new int_vector();
-		imputePolicy->push_back(nullVector,0);
-
+//		int_vector* nullVector = new int_vector();
+//		imputePolicy->push_back(nullVector,0);
 //		indexer.addColumn(0, DENSE);
 
 		int currentRow = 0;
@@ -155,6 +154,14 @@ public:
 				}
 				currentRow++;
 				modelData->nRows++;
+			}
+		}
+
+		for(int col = 0; col < modelData->nCols; col++) {
+			if(modelData->getFormatType(col) == DENSE) {
+				if(modelData->getColumn(col).getDataVectorLength() < currentRow) {
+					modelData->getColumn(col).add_data(currentRow-1,0.0);
+				}
 			}
 		}
 

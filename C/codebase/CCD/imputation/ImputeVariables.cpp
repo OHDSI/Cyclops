@@ -112,7 +112,7 @@ void ImputeVariables::impute(){
 
 		for(int j = 0; j < (int)nMissingPerColumn.size(); j++){
 			if(nMissingPerColumn[j] > 0){
-				cout << "Imputing column " << j - ((int)nMissingPerColumn.size() - nColsToImpute) << endl;
+				cout << endl << "Imputing column " << j - ((int)nMissingPerColumn.size() - nColsToImpute) << endl;
 				imputeColumn(j);
 			}
 		}
@@ -154,7 +154,7 @@ void ImputeVariables::imputeColumn(int col){
 	CrossValidationSelector selector(arguments.fold, modelData->getPidVectorSTL(), SUBJECT, rand(), &weightsMissing);
 	CrossValidationDriver driver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit, &weightsMissing);
 	driver.drive(*ccd, selector, arguments);
-	driver.logResults(arguments);
+//	driver.logResults(arguments);
 	driver.resetForOptimal(*ccd, selector, arguments);
 
 	//initializeCCDModel(col,weights);

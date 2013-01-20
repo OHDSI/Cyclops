@@ -85,6 +85,10 @@ public:
 	int getNumberOfEntries() const {
 		return columns->size();
 	}
+
+	int getDataVectorLength() const {
+		return data->size();
+	}
 	
 	void add_label(std::string label) {
 		stringName = label;
