@@ -52,6 +52,7 @@ public:
 	int getNumberOfPatients();
 	string getConditionId();
 	std::vector<int>* getPidVectorSTL();
+	std::map<int, int> getNumericalLabelsMap();
 
 	const std::vector<real>& getZVectorRef() const {
 		return z;

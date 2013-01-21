@@ -25,13 +25,19 @@ public:
 protected:
 	void computeNumeratorForGradient(int index);
 
-	void updateXBeta(real realDelta, int index);
+	void updateXBeta(real realDelta, int index, bool useCrossValidation);
 
-	void computeRemainingStatistics(void);
+	void computeRemainingStatistics(bool useCrossValidation);
+
+	void computeAccumlatedNumerDenom(bool useCrossValidation);
 
 	void computeFixedTermsInGradientAndHessian(bool useCrossValidation);
 
 	double getLogLikelihood(bool useCrossValidation);
+
+	void getRelativeRisks(real* risks);
+
+	void getCumulativeHazards(real* hazards);
 
 	double getPredictiveLogLikelihood(real* weights);
 
@@ -58,7 +64,7 @@ private:
 	void incrementNumeratorForGradientImpl(int index);
 
 	template <class IteratorType>
-	void updateXBetaImpl(real delta, int index);
+	void updateXBetaImpl(real delta, int index, bool useCrossValidation);
 
 	template <class OutType, class InType>
 	void incrementByGroup(OutType* values, int* groups, int k, InType inc) {
@@ -142,6 +148,21 @@ struct SortedPid {
 	const static bool cumulativeGradientAndHessian = true;
 };
 
+struct NoSurvivalModel {
+
+	real getRelativeRisk(real xbetai) {
+		std::cerr << "Error!" << std::endl;
+		exit(-1);
+		return static_cast<real>(0);
+	}
+
+	real getCumulativeHazard(real xbetai) {
+		std::cerr << "Error!" << std::endl;
+		exit(-1);
+		return static_cast<real>(0);
+	}
+};
+
 struct GLMProjection {
 public:
 	const static bool precomputeGradient = true; // XjY
@@ -198,7 +219,7 @@ public:
 };
 
 template <typename WeightType>
-struct SelfControlledCaseSeries : public GroupedData, GLMProjection, FixedPid {
+struct SelfControlledCaseSeries : public GroupedData, GLMProjection, FixedPid, NoSurvivalModel {
 public:
 	const static bool precomputeHessian = false; // XjX
 
@@ -246,7 +267,7 @@ public:
 };
 
 template <typename WeightType>
-struct ConditionalLogisticRegression : public GroupedData, GLMProjection, Logistic<WeightType>, FixedPid {
+struct ConditionalLogisticRegression : public GroupedData, GLMProjection, Logistic<WeightType>, FixedPid, NoSurvivalModel {
 public:
 	const static bool precomputeHessian = false; // XjX
 
@@ -276,7 +297,7 @@ public:
 };
 
 template <typename WeightType>
-struct LogisticRegression : public IndependentData, GLMProjection, Logistic<WeightType>, FixedPid {
+struct LogisticRegression : public IndependentData, GLMProjection, Logistic<WeightType>, FixedPid, NoSurvivalModel {
 public:
 	const static bool precomputeHessian = false;
 
@@ -339,8 +360,8 @@ public:
 		return std::exp(xBeta);
 	}
 
-	real logLikeDenominatorContrib(WeightType ni, real denom) {
-		return std::log(denom); // TODO Wrong
+	real logLikeDenominatorContrib(WeightType ni, real accDenom) {
+		return ni*std::log(accDenom); // TODO Wrong: Corrected!
 	}
 
 	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
@@ -351,10 +372,18 @@ public:
 	void predictEstimate(real& yi, real xBeta){
 		// do nothing for now
 	}
+
+	real getRelativeRisk(real xbetai) {
+		return xbetai;
+	}
+
+	real getCumulativeHazard(real xbetai) {
+		return exp(xbetai);
+	}
 };
 
 template <typename WeightType>
-struct LeastSquares : public IndependentData, FixedPid {
+struct LeastSquares : public IndependentData, FixedPid, NoSurvivalModel {
 public:
 	const static bool precomputeGradient = false; // XjY
 
@@ -423,7 +452,7 @@ public:
 };
 
 template <typename WeightType>
-struct PoissonRegression : public IndependentData, GLMProjection, FixedPid {
+struct PoissonRegression : public IndependentData, GLMProjection, FixedPid, NoSurvivalModel {
 public:
 
 	const static bool precomputeHessian = false; // XjX

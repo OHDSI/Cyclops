@@ -62,6 +62,11 @@ struct CCDArguments {
 //	bool doLogisticRegression;
 	int modelType;
 	std::string modelName;
+
+	//Needed for held-out-testing
+	bool doHeldOutTesting;
+	std::string testFileName;
+	std::string modelFileName;
 };
 
 
@@ -79,7 +84,7 @@ double initializeModel(
 		CyclicCoordinateDescent** ccd,
 //		ModelSpecifics<DefaultModel>** model,
 		AbstractModelSpecifics** model,
-		CCDArguments &arguments);
+		CCDArguments &arguments, int learningPhase);
 
 double fitModel(
 		CyclicCoordinateDescent *ccd,

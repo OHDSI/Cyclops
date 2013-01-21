@@ -41,6 +41,15 @@ std::vector<int>* ModelData::getPidVectorSTL() { // TODO deprecated
 	return new std::vector<int>(pid);
 }
 
+std::map<int, int> ModelData::getNumericalLabelsMap() {
+	std::map<int, int> labelMap;
+	for(int i = 0; i < nCols; i++) {
+		int label = getColumn(i).getNumericalLabel();
+		labelMap.insert(std::make_pair(label, i));
+	}
+	return labelMap;
+}
+
 real* ModelData::getYVector() { // TODO deprecated
 	return makeDeepCopy(&y[0], y.size());
 }

@@ -325,6 +325,14 @@ real CyclicCoordinateDescent::getBeta(int i) {
 	return hBeta[i];
 }
 
+std::vector<double> CyclicCoordinateDescent::getBeta() {
+	std::vector<double> betaVector;
+	for(int i = 0; i < J; i++) {
+		betaVector.push_back(hBeta[i]);
+	}
+	return betaVector;
+}
+
 bool CyclicCoordinateDescent::getFixedBeta(int i) {
 	return fixBeta[i];
 }
@@ -351,6 +359,22 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 	likelihoodCount += 1;
 
 	return modelSpecifics.getLogLikelihood(useCrossValidation);
+}
+
+void CyclicCoordinateDescent::getRelativeRisks(real* risks) {
+	if (!xBetaKnown) {
+		computeXBeta();
+		xBetaKnown = true;
+	}
+	modelSpecifics.getRelativeRisks(risks);
+}
+
+void CyclicCoordinateDescent::getCumulativeHazards(real* hazards) {
+	if (!xBetaKnown) {
+		computeXBeta();
+		xBetaKnown = true;
+	}
+	modelSpecifics.getCumulativeHazards(hazards);
 }
 
 void CyclicCoordinateDescent::getDenominators() {
@@ -701,7 +725,7 @@ void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
 	hBeta[index] += realDelta;
 
 	// Delegate
-	modelSpecifics.updateXBeta(realDelta, index);
+	modelSpecifics.updateXBeta(realDelta, index, useCrossValidation);
 }
 
 void CyclicCoordinateDescent::updateSufficientStatistics(double delta, int index) {
@@ -713,7 +737,7 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 	// Separate function for benchmarking
 	if (allStats) {
 		// Delegate
-		modelSpecifics.computeRemainingStatistics();
+		modelSpecifics.computeRemainingStatistics(useCrossValidation);
 	}
 }
 

@@ -57,13 +57,17 @@ public:
 
 	virtual void computeNumeratorForGradient(int index) = 0; // pure virtual
 
-	virtual void updateXBeta(real realDelta, int index) = 0; // pure virtual
+	virtual void updateXBeta(real realDelta, int index, bool useCrossValidation) = 0; // pure virtual
 
-	virtual void computeRemainingStatistics(void) = 0; // pure virtual
+	virtual void computeRemainingStatistics(bool useCrossValidation) = 0; // pure virtual
 
 	virtual void computeFixedTermsInGradientAndHessian(bool useCrossValidation) = 0; // pure virtual
 
 	virtual double getLogLikelihood(bool useCrossValidation) = 0; // pure virtual
+
+	virtual void getRelativeRisks(real* risks) = 0; // pure virtual
+
+	virtual void getCumulativeHazards(real* hazards) = 0; // pure virtual
 
 	virtual double getPredictiveLogLikelihood(real* weights) = 0; // pure virtual
 

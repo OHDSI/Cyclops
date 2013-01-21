@@ -93,6 +93,10 @@ public:
 	virtual ~CyclicCoordinateDescent();
 	
 	double getLogLikelihood(void);
+	
+	void getRelativeRisks(real* risks);
+
+	void getCumulativeHazards(real* hazards);
 
 	double getPredictiveLogLikelihood(real* weights);
 
@@ -103,6 +107,8 @@ public:
 	virtual double getObjectiveFunction(int convergenceType);
 
 	real getBeta(int i);
+
+	std::vector<double> getBeta();
 
 	int getBetaSize(void);
 

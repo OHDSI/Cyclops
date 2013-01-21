@@ -57,6 +57,10 @@
 using namespace TCLAP;
 using namespace std;
 
+enum LearningPhase {
+	TRAINING, TESTING
+};
+
 //Sushil:Implementing gettimeofday functionality for windows.
 #ifdef _WIN32
 	#if defined(_MSC_VER) || defined(_MSC_EXTENSIONS)
@@ -127,6 +131,116 @@ double calculateSeconds(const timeval &time1, const timeval &time2) {
 			(double)(time2.tv_usec - time1.tv_usec) / 1000000.0;
 }
 
+static void quickSort(vector<real>& arr, vector<int>& ind, int left, int right) 
+{
+
+	int i = left, j = right;
+	double tmp;
+	double pivot = arr[(left + right) / 2];
+
+	/* partition */
+	while (i <= j) {
+		while (arr[i] < pivot)
+			i++;
+		while (arr[j] > pivot)
+			j--;
+		if (i <= j) {
+			tmp = arr[i];
+			arr[i] = arr[j];
+			arr[j] = tmp;
+			int temp = ind[i];
+			ind[i] = ind[j];
+			ind[j] = temp;
+			i++;
+			j--;
+		}
+	};
+
+	/* recursion */
+	if (left < j)
+		quickSort(arr, ind, left, j);
+	if (i < right)
+		quickSort(arr, ind, i, right);
+}
+
+double computeCIndex(vector<real> risks, vector<int> sortedInds, vector<real> lifeTime, vector<real> censorInd){
+	int nPatients = (int)lifeTime.size();
+	double riski, riskj;
+	int Pcomp = 0;
+	int Pconc = 0;
+	for(int i = 0; i < nPatients; i++){
+		if((int)censorInd[i] == 1){
+			riski = risks[i];
+			for(int j = 0; j < nPatients; j++){
+				if(i != j){
+					riskj = risks[j];
+					if(lifeTime[i] < lifeTime[j]){
+						Pcomp++;
+						if(riski > riskj)
+							Pconc++;
+					}
+				}
+			}
+		}
+	}
+	cout<<"Pconc = "<<Pconc<<", Pcomp = "<<Pcomp<<endl;
+	return (double)(Pconc)/((double)(Pcomp));
+}
+
+void ComputeHLStatistics(vector<int> inds_observed,
+	vector<real> hazards,
+	vector<real> censorInd, 
+	vector<double>& xisquared, 
+	vector<int> nbins) {
+
+	int nPatients = (int)censorInd.size();
+
+	int count = 0;
+
+	for(int ii = 0; ii < (int)nbins.size(); ii++){
+		if(nPatients >= nbins[ii]){
+			int nPatientsPerBin = (int)((double)nPatients/(double)nbins[ii] + 0.5);
+			int nPatientsLastBin;
+			int nbinsActual = nPatients/nPatientsPerBin;
+			if(nbinsActual*nPatientsPerBin < nPatients){
+				nPatientsLastBin = nPatients - nbinsActual*nPatientsPerBin;
+				nbinsActual++;
+			}
+			else {
+				nPatientsLastBin = nPatientsPerBin;
+			}
+
+			vector<real> observed(nbinsActual,0.0);
+			vector<real> expected(nbinsActual,0.0);
+
+			int count = 0;
+			for(int i = 0; i < nbinsActual-1; i++){
+				for(int j = 0; j < nPatientsPerBin; j++){
+					observed[i] += censorInd[inds_observed[count]];
+					expected[i] += hazards[inds_observed[count++]];
+				}
+			}
+			for(int j = 0; j < nPatientsLastBin; j++){
+				observed[nbinsActual-1] += censorInd[inds_observed[count]];
+				expected[nbinsActual-1] += hazards[inds_observed[count++]];
+			}
+
+			real xisquaredTemp = 0.0;
+			for(int i = 0; i < nbinsActual; i++){
+				if(expected[i] > 0.0)
+					xisquaredTemp += pow((observed[i] - expected[i]),2)/expected[i];
+			}
+			xisquared.push_back(xisquaredTemp);
+			if(ii == 0){
+				cout << endl << "Observed\t" << "Expected\t";
+				for(int i = 0; i < nbinsActual; i++){
+					cout << endl << observed[i] << "\t\t" << expected[i];
+				}
+			}
+		}
+	}
+}
+
 void parseCommandLine(int argc, char* argv[],
 		CCDArguments &arguments) {
 	std::vector<std::string> args;
@@ -160,6 +274,9 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.convergenceType = GRADIENT;
 	arguments.convergenceTypeString = "gradient";
 	arguments.doPartial = false;
+	arguments.doHeldOutTesting = false;
+	arguments.testFileName = "test.txt";
+	arguments.modelFileName = "model.txt";
 }
 
 
@@ -234,6 +351,11 @@ void parseCommandLine(std::vector<std::string>& args,
 		ValuesConstraint<std::string> allowedFormatValues(allowedFormats);
 		ValueArg<string> formatArg("", "format", "Format of data file", false, arguments.fileFormat, &allowedFormatValues);
 
+		// Held-out testing arguments
+		SwitchArg doHeldOutTestingArg("T", "test", "Perform testing on held-out data", arguments.doHeldOutTesting);
+		ValueArg<string> testFileArg("", "testFileName", "Held-out test file name", false, arguments.testFileName, "testFileName");
+		ValueArg<string> modelFileArg("", "modelFileName", "Input model file name", false, arguments.modelFileName, "modelFileName");
+
 		cmd.add(gpuArg);
 //		cmd.add(betterGPUArg);
 		cmd.add(toleranceArg);
@@ -260,6 +382,10 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(partialArg);
 		cmd.add(reportRawEstimatesArg);
 //		cmd.add(doLogisticRegressionArg);
+
+		cmd.add(doHeldOutTestingArg);
+		cmd.add(testFileArg);
+		cmd.add(modelFileArg);
 
 		cmd.add(inFileArg);
 		cmd.add(outFileArg);
@@ -337,6 +463,13 @@ void parseCommandLine(std::vector<std::string>& args,
 			}
 		}
 
+
+		// Held-out testing
+		arguments.doHeldOutTesting = doHeldOutTestingArg.isSet();
+		if(arguments.doHeldOutTesting){
+			arguments.testFileName = testFileArg.getValue();
+		}
+
 		if (partialArg.getValue() != -1) {
 			arguments.doPartial = true;
 			arguments.replicates = partialArg.getValue();
@@ -354,7 +487,8 @@ double initializeModel(
 		CyclicCoordinateDescent** ccd,
 		AbstractModelSpecifics** model,
 //		ModelSpecifics<DefaultModel>** model,
-		CCDArguments &arguments) {
+		CCDArguments &arguments, 
+		int learningPhase) {
 	
 	cout << "Running CCD (" <<
 #ifdef DOUBLE_PRECISION
@@ -392,7 +526,12 @@ double initializeModel(
 		exit(-1);
 	}
 
-	reader->readFile(arguments.inFileName.c_str()); // TODO Check for error
+	if(learningPhase == TRAINING) {
+		reader->readFile(arguments.inFileName.c_str()); // TODO Check for error
+	} else {
+		reader->readFile(arguments.testFileName.c_str());
+	}
+
 	// delete reader;
 	*modelData = reader->getModelData();
 
@@ -425,12 +564,14 @@ double initializeModel(
 	}
 #endif
 
-	// Set prior from the command-line
-	if (arguments.useNormalPrior) {
-		(*ccd)->setPriorType(NORMAL);
-	}
-	if (arguments.hyperPriorSet) {
-		(*ccd)->setHyperprior(arguments.hyperprior);
+	if(learningPhase == TRAINING) {
+		// Set prior from the command-line
+		if (arguments.useNormalPrior) {
+			(*ccd)->setPriorType(NORMAL);
+		}
+		if (arguments.hyperPriorSet) {
+			(*ccd)->setHyperprior(arguments.hyperprior);
+		}
 	}
 
 	gettimeofday(&time2, NULL);
@@ -504,6 +645,72 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
 	return calculateSeconds(time1, time2);
 }
 
+double performHeldOutTesting(CCDArguments arguments, vector<double> trainBeta, map<int, int> trainLabels) {
+	CyclicCoordinateDescent* ccd = NULL;
+	AbstractModelSpecifics* model = NULL;
+	ModelData* modelData = NULL;
+
+	double initializeTime = initializeModel(&modelData, &ccd, &model, arguments, TESTING);
+
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
+
+	if(arguments.fileFormat == "bbr") {
+		map<int,int> testLabels = modelData->getNumericalLabelsMap();
+		vector<double> testBeta(testLabels.size());
+		for(map<int,int>::iterator it = testLabels.begin(); it != testLabels.end(); it++){
+			if(trainLabels.find((*it).first) == trainLabels.end()) {
+				testBeta[(*it).second] = 0.0;
+			} else {
+				testBeta[(*it).second] = trainBeta[trainLabels.at((*it).first)];
+			}
+		}
+		ccd->setBeta(testBeta);
+	} else {
+		ccd->setBeta(trainBeta);
+	}
+	int N = modelData->getNumberOfRows();
+	
+	//Compute logLikeLihood
+	double logLikeLihood = ccd->getLogLikelihood();
+	cout << "\nTest data statistics:\n";
+	cout << "Log-likelihood = " << logLikeLihood << endl;
+	
+	if(arguments.modelName == "cox") {
+		vector<real> risks(N);
+		vector<real> hazards(N);
+		vector<int> sortedInds;
+		for(int i = 0; i < N; i++){
+			sortedInds.push_back(i);
+		}
+
+		ccd->getRelativeRisks(&risks[0]);
+		double cIndex = computeCIndex(risks,sortedInds,modelData->getZVectorRef(),modelData->getYVectorRef());
+		cout << "c-index = " << cIndex;
+
+		quickSort(risks,sortedInds,0,N-1);
+
+		vector<double> xisquared;
+		vector<int> nbins;
+		nbins.push_back(10); nbins.push_back(50); nbins.push_back(100); nbins.push_back(500); nbins.push_back(1000);
+		ccd->getCumulativeHazards(&hazards[0]);
+		ComputeHLStatistics(sortedInds,hazards,modelData->getYVectorRef(),xisquared,nbins);
+		cout << endl << "HL Xi Squared Index:" << endl;
+		for(int i = 0; i < (int)xisquared.size(); i++)
+			cout << nbins[i] << "\t:\t" << xisquared[i] << endl;
+	}
+	gettimeofday(&time2, NULL);
+
+	if (ccd)
+		delete ccd;
+	if (model)
+		delete model;
+	if (modelData)
+		delete modelData;
+
+	return initializeTime + calculateSeconds(time1, time2);;
+}
+
 #if 0
 
 int main(int argc, char* argv[]) {
@@ -553,7 +760,7 @@ int main(int argc, char* argv[]) {
 
 	parseCommandLine(argc, argv, arguments);
 
-	double timeInitialize = initializeModel(&modelData, &ccd, &model, arguments);
+	double timeInitialize = initializeModel(&modelData, &ccd, &model, arguments, TRAINING);
 
 	double timeUpdate;
 	if (arguments.doCrossValidation) {
@@ -577,10 +784,19 @@ int main(int argc, char* argv[]) {
 		}
 		timeUpdate += runBoostrap(ccd, modelData, arguments, savedBeta);
 	}
+
+	double timeTesting;
+	if(arguments.doHeldOutTesting) {
+		timeTesting = performHeldOutTesting(arguments,ccd->getBeta(),modelData->getNumericalLabelsMap());
+	}
 		
 	cout << endl;
 	cout << "Load   duration: " << scientific << timeInitialize << endl;
 	cout << "Update duration: " << scientific << timeUpdate << endl;
+	
+	if(arguments.doHeldOutTesting) {
+		cout << "Held-out testing duration: " << scientific << timeTesting << endl;
+	}	
 	
 	if (ccd)
 		delete ccd;
