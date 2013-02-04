@@ -164,7 +164,7 @@ void ImputeVariables::imputeColumn(int col){
 	ccd->update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 	getComplement(weights);
 
-	vector<real> yPred(nRows);
+	vector<real> yPred(nRows,0.0);
 
 	vector<real> allOnes(nRows,1.0);
 

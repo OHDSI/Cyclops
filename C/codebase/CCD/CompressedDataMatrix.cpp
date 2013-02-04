@@ -278,11 +278,11 @@ void CompressedDataColumn::addToColumnVector(int_vector addEntries){
 	for(int i = 0; i < (int)addEntries.size(); i++)
 	{
 		int_vector::iterator it = columns->begin() + lastit;
-		if(columns->size() > 0){
-			while(*it < addEntries[i]){
-				it++;
-				lastit++;
-			}
+        for(; it != columns->end(); it++){
+    		if(*it > addEntries[i]){
+                break;
+            }
+		    lastit++;
 		}
 		columns->insert(it,addEntries[i]);
 	}
