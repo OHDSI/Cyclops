@@ -148,9 +148,10 @@ public:
 	void addToColumnVector(int_vector addEntries);
 	void removeFromColumnVector(int_vector removeEntries);
 private:
-	// Disable copy-constructors
+	// Disable copy-constructors and assignment constructors
 	CompressedDataColumn();
 	CompressedDataColumn(const CompressedDataColumn&);
+	CompressedDataColumn& operator = (const CompressedDataColumn&);
 	
 	int_vector* columns;
 	real_vector* data;
@@ -252,6 +253,11 @@ protected:
 	int nCols;
 	int nEntries;
 	std::vector<CompressedDataColumn*> allColumns;
+
+private:
+	// Disable copy-constructors and copy-assignment
+	CompressedDataMatrix(const CompressedDataMatrix&);
+	CompressedDataMatrix& operator = (const CompressedDataMatrix&);
 };
 
 #endif /* COMPRESSEDINDICATORMATRIX_H_ */

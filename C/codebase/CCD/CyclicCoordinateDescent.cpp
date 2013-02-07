@@ -181,12 +181,12 @@ void CyclicCoordinateDescent::init(bool offset) {
 	wPid = (real*) malloc(sizeof(real) * alignedLength);
 #endif
 
+	// TODO Suspect below is not necessary for non-grouped data.
+	// If true, then fill with pointers to CompressedDataColumn and do not delete in destructor
 	for (int j = 0; j < J; ++j) {
 		if (hXI->getFormatType(j) == DENSE) {
 			sparseIndices.push_back(NULL);
 		} else {
-//			cerr << "Here!" << endl;
-//			exit(-1);
 			std::set<int> unique;
 			const int n = hXI->getNumberOfEntries(j);
 			const int* indicators = hXI->getCompressedColumnVector(j);
