@@ -57,7 +57,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	hXI = reader;
 	hY = reader->getYVector(); // TODO Delegate all data to ModelSpecifics
 	hOffs = reader->getOffsetVector();
-	hNEvents = NULL;
+//	hNEvents = NULL;
 	hPid = reader->getPidVector();
 
 	conditionId = reader->getConditionId();
@@ -71,10 +71,10 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 
 CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 
-	free(hPid);
-	free(hNEvents);
-	free(hY);
-	free(hOffs);
+//	free(hPid);
+//	free(hNEvents);
+//	free(hY);
+//	free(hOffs);
 	
 	free(hXBeta);
 	free(hXBetaSave);
@@ -173,7 +173,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
 	numerPid2 = numerPid + 2 * alignedLength;
 
-	hNEvents = (int*) malloc(sizeof(int) * N);
+//	hNEvents = (int*) malloc(sizeof(int) * N);
 	hXjY = (real*) malloc(sizeof(real) * J);
 	hWeights = NULL;
 	

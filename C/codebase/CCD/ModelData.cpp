@@ -33,8 +33,9 @@ ModelData::~ModelData() {
 	// Do nothing
 }
 
-int* ModelData::getPidVector() { // TODO deprecated	
-	return makeDeepCopy(&pid[0], pid.size());
+int* ModelData::getPidVector() { // TODO deprecated
+//	return makeDeepCopy(&pid[0], pid.size());
+	return &pid[0];
 }
 
 std::vector<int>* ModelData::getPidVectorSTL() { // TODO deprecated
@@ -42,19 +43,22 @@ std::vector<int>* ModelData::getPidVectorSTL() { // TODO deprecated
 }
 
 real* ModelData::getYVector() { // TODO deprecated
-	return makeDeepCopy(&y[0], y.size());
+//	return makeDeepCopy(&y[0], y.size());
+	return &y[0];
 }
 
 void ModelData::setYVector(vector<real> y_){
 	y = y_;
 }
 
-int* ModelData::getNEventVector() { // TODO deprecated
-	return makeDeepCopy(&nevents[0], nevents.size());
-}
+//int* ModelData::getNEventVector() { // TODO deprecated
+////	return makeDeepCopy(&nevents[0], nevents.size());
+//	return &nevents[0];
+//}
 
 int* ModelData::getOffsetVector() { // TODO deprecated
-	return makeDeepCopy(&offs[0], offs.size());
+//	return makeDeepCopy(&offs[0], offs.size());
+	return &offs[0];
 }
 
 void ModelData::sortDataColumns(vector<int> sortedInds){

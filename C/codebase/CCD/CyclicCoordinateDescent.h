@@ -273,7 +273,8 @@ protected:
 	int* hOffs;  // K-vector
 	real* hY; // K-vector
 	int* hNEvents; // K-vector
-	int* hPid; // N-vector
+//	int* hPid; // N-vector
+	int* hPid;
 	int** hXColumnRowIndicators; // J-vector
  	
 	real* hBeta;

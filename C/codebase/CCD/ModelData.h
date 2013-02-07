@@ -61,13 +61,13 @@ public:
 		return y;
 	}
 
-	const std::vector<int>& getPidVectorRef() const {
+	const std::vector<int>& getPidVectorRef() const { // Not const before PIDs can get renumbered
 		return pid;
 	}
 	
-	const std::vector<int>& getNEventsVectorRef() const {
-		return nevents;
-	}
+//	const std::vector<int>& getNEventsVectorRef() const {
+//		return nevents;
+//	}
 
 	bool getHasOffsetCovariate() const {
 		return hasOffsetCovariate;
@@ -92,22 +92,25 @@ public:
 	template <class ImputationPolicy> friend class CSVInputReader;
 
 private:
-	// Disable copy-constructors
+	// Disable copy-constructors and copy-assignment
 	ModelData(const ModelData&);
+	ModelData& operator = (const ModelData&);
 
-	template <class T>
-	T* makeDeepCopy(T *original, unsigned int length) {
-		T *copy = (T *) malloc(length * sizeof(T));
-		memcpy(copy, original, length * sizeof(T));
-		return copy;
-	}
+//	template <class T>
+//	T* makeDeepCopy(T *original, unsigned int length) {
+//		T *copy = (T *) malloc(length * sizeof(T));
+//		memcpy(copy, original, length * sizeof(T));
+//		fprintf(stderr, "makeDeepCopy\n");
+//		//exit(-1);
+//		return copy;
+//	}
 
 	int nPatients;
 	vector<int> pid;
 	vector<real> y;
 	vector<real> z;
 	vector<int> offs;
-	vector<int> nevents;
+	vector<int> nevents; // TODO Where are these used?
 	string conditionId;
 	bool hasOffsetCovariate;
 };
