@@ -88,6 +88,7 @@ double fitModel(
 
 double predictModel(
 		CyclicCoordinateDescent *ccd,
+		ModelData *modelData,
 		CCDArguments &arguments);
 
 double runCrossValidation(

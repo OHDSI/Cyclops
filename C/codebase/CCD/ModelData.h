@@ -61,7 +61,7 @@ public:
 		return y;
 	}
 
-	const std::vector<int>& getPidVectorRef() const { // Not const before PIDs can get renumbered
+	const std::vector<int>& getPidVectorRef() const { // Not const because PIDs can get renumbered
 		return pid;
 	}
 	
@@ -77,10 +77,14 @@ public:
 		hasOffsetCovariate = b;
 	}
 
+	bool getHasRowLobels() const {
+		return (labels.size() == getNumberOfRows());
+	}
+
 	void sortDataColumns(vector<int> sortedInds);
 	
-	const std::string& getRowLabel(size_t i) const {
-		if (i < 0 || i > labels.size()) {
+	const string& getRowLabel(size_t i) const {
+		if (i < 0 || i >= labels.size()) {
 			return missing;
 		} else {
 			return labels[i];
@@ -103,15 +107,6 @@ private:
 	// Disable copy-constructors and copy-assignment
 	ModelData(const ModelData&);
 	ModelData& operator = (const ModelData&);
-
-//	template <class T>
-//	T* makeDeepCopy(T *original, unsigned int length) {
-//		T *copy = (T *) malloc(length * sizeof(T));
-//		memcpy(copy, original, length * sizeof(T));
-//		fprintf(stderr, "makeDeepCopy\n");
-//		//exit(-1);
-//		return copy;
-//	}
 
 	int nPatients;
 	vector<int> pid;

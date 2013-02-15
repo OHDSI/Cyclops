@@ -35,6 +35,7 @@
 #include "io/NewCoxInputReader.h"
 #include "io/NewGenericInputReader.h"
 #include "io/BBRInputReader.h"
+#include "io/OutputWriter.h"
 #include "CrossValidationSelector.h"
 #include "CrossValidationDriver.h"
 #include "BootstrapSelector.h"
@@ -450,20 +451,13 @@ double initializeModel(
 	return sec1;
 }
 
-double predictModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
+double predictModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArguments &arguments) {
 
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
-	int K = ccd->getPredictionSize();
 
-	std::vector<real> predictions(K); // TODO Should be double
-	ccd->getPredictiveEstimates(&predictions[0], NULL);
-
-//	cout << "(";
-//	for (int k = 0; k < K; ++k) {
-//		cout <<
-//	}
-
+	bsccs::PredictionOutputWriter predictor(*ccd, *modelData);
+	predictor.writeFile(arguments.outFileName.c_str());
 
 	gettimeofday(&time2, NULL);
 	return calculateSeconds(time1, time2);
@@ -481,10 +475,6 @@ double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
 	ccd->update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 
 	gettimeofday(&time2, NULL);
-
-#ifndef MY_RCPP_FLAG
-	ccd->logResults(arguments.outFileName.c_str());
-#endif
 
 	return calculateSeconds(time1, time2);
 }
@@ -602,7 +592,12 @@ int main(int argc, char* argv[]) {
 	bool doPrediction = false;
 	if (arguments.outputFormat == "prediction") {
 		doPrediction = true;
-		timePredict = predictModel(ccd, arguments);
+		timePredict = predictModel(ccd, modelData, arguments);
+	} else {
+#ifndef MY_RCPP_FLAG
+		// TODO Make into OutputWriter
+		ccd->logResults(arguments.outFileName.c_str());
+#endif
 	}
 
 	if (arguments.doBootstrap) {

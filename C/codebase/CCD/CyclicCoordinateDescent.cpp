@@ -309,18 +309,17 @@ double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
 	return modelSpecifics.getPredictiveLogLikelihood(weights); // TODO Pass double
 }
 
-void CyclicCoordinateDescent::getPredictiveEstimates(real* y, real* weights)
-{
+void CyclicCoordinateDescent::getPredictiveEstimates(real* y, real* weights) const {
 	modelSpecifics.getPredictiveEstimates(y, weights);
 
-	printVector(y, K, cout);
+//	printVector(y, K, cout);
 }
 
 int CyclicCoordinateDescent::getBetaSize(void) {
 	return J;
 }
 
-int CyclicCoordinateDescent::getPredictionSize(void) {
+int CyclicCoordinateDescent::getPredictionSize(void) const {
 	return K;
 }
 

@@ -96,7 +96,7 @@ public:
 
 	double getPredictiveLogLikelihood(real* weights);
 
-	void getPredictiveEstimates(real* y, real* weights);
+	void getPredictiveEstimates(real* y, real* weights) const;
 
 	double getLogPrior(void);
 	
@@ -106,7 +106,7 @@ public:
 
 	int getBetaSize(void);
 
-	int getPredictionSize(void);
+	int getPredictionSize(void) const;
 
 	bool getFixedBeta(int i);
 
