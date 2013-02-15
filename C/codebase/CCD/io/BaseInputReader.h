@@ -183,6 +183,12 @@ protected:
 		rowInfo.numCases++;
 	}
 
+	void parseRowLabel(stringstream& ss, RowInformation& rowInfo) {
+		string label;
+		ss >> label;
+		modelData->labels.push_back(label);
+	}
+
 	void parseStratumEntry(stringstream& ss, RowInformation& rowInfo) {
 		string unmappedPid;
 		ss >> unmappedPid;

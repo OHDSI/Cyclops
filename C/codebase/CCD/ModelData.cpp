@@ -64,3 +64,5 @@ int* ModelData::getOffsetVector() { // TODO deprecated
 void ModelData::sortDataColumns(vector<int> sortedInds){
 	reindexVector(allColumns,sortedInds);
 }
+
+const string ModelData::missing = "NA";

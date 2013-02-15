@@ -18,11 +18,17 @@ public:
 		, upcastToSparse(false)
 		, useBBROutcome(false)
 		, includeIntercept(false)
-		, includeOffset(false) {
+		, includeOffset(false)
+		, includeRowLabel(false)
+	{
 		// Do nothing
 	}
 
 	inline void parseRow(stringstream& ss, RowInformation& rowInfo) {
+		if (includeRowLabel) {
+			parseRowLabel(ss, rowInfo);
+		}
+
 		parseNoStratumEntry(ss, rowInfo);
 
 		if (useBBROutcome) {
@@ -54,6 +60,7 @@ public:
 			if (includeOffset) {
 				logOffset = includesOption(line, "log_offset");
 			}
+			includeRowLabel = includesOption(line, "row_label");
 		}
 	}
 
@@ -99,6 +106,7 @@ private:
 
 	int columnIntercept;
 	bool logOffset;
+	bool includeRowLabel;
 };
 
 

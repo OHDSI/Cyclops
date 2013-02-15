@@ -79,6 +79,14 @@ public:
 
 	void sortDataColumns(vector<int> sortedInds);
 	
+	const std::string& getRowLabel(size_t i) const {
+		if (i < 0 || i > labels.size()) {
+			return missing;
+		} else {
+			return labels[i];
+		}
+	}
+
 	// TODO Improve encapsulation
 	friend class SCCSInputReader;
 	friend class CLRInputReader;
@@ -113,6 +121,8 @@ private:
 	vector<int> nevents; // TODO Where are these used?
 	string conditionId;
 	bool hasOffsetCovariate;
+	vector<string> labels;
+	static const string missing;
 };
 
 #endif /* MODELDATA_H_ */

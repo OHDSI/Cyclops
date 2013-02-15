@@ -56,7 +56,6 @@ void AbstractModelSpecifics::initialize(
 	numerPid2 = iNumerPid2;
 	denomPid = iDenomPid;
 
-
 	sparseIndices = iSparseIndices;
 
 //	hPid = iPid;
