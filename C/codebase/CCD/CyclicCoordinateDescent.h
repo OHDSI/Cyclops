@@ -10,7 +10,7 @@
 
 
 
-#include "CUDARuntime/CUSPEngine.h"
+//#include "CUDARuntime/CUSPEngine.h"
 
 #include "CompressedDataMatrix.h"
 #include "InputReader.h"
@@ -115,6 +115,8 @@ public:
 
 	void setLogisticRegression(bool idoLR);
 
+	void setUpHessianComponents();
+
 	void getHessian(vector<vector<bsccs::real> > * blankHessian);
 
 //	template <typename T>
@@ -144,7 +146,7 @@ public:
 	bsccs::real* hBeta; //tshaddox change TEMPORARY for Parameter testing...
 	double sigma2Beta;  //tshaddox change TEMPORARY for Parameter testing...
 
-	CUSPEngine runCuspTest;
+	//CUSPEngine runCuspTest;
 
 	SparseRowVector hXI_Transpose;
 
@@ -278,6 +280,11 @@ protected:
 	int* hNEvents; // K-vector
 	int* hPid; // N-vector
 	int** hXColumnRowIndicators; // J-vector
+
+	vector<int> giVector; // get Gi given patient i
+	vector<vector<int> > kValues;
+	vector<vector<bsccs::real> > numerPidValuesMatrix; // [J][N] Matrix
+	vector<vector<int> > jValuesPerNMatrix; //Sparse matrix for what J's go to each patient
  	
 
 	bsccs::real* hXBeta;

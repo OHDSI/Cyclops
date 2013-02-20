@@ -173,7 +173,7 @@ int * SparseRowVector::getNumberOfEntriesList() const {
 
 
 void SparseRowVector::fillForCUDA() {
-	cout << "Calling Fill for CUDA" << endl;
+//	cout << "Calling Fill for CUDA" << endl;
 	int offsetsValues = 0;
 	offsets.push_back(offsetsValues);
 	for (int i = 0; i < nTransposeCols; i ++) {
@@ -193,7 +193,7 @@ void SparseRowVector::fillForCUDA() {
 
 void SparseRowVector::transposeIndicator(CompressedDataMatrix* columnData) {
 
-	cout <<"TransposeIndicator Used" << endl;
+//	cout <<"TransposeIndicator Used" << endl;
 
 	matrixTransposeIndicator.resize(nTransposeCols);
 

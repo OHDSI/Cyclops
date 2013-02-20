@@ -23,19 +23,19 @@
 #include <boost/random.hpp>
 #include <boost/random/uniform_real.hpp>
 
-#define Debug_TRS
+//#define Debug_TRS
 
 namespace bsccs{
 
 MHRatio::MHRatio(){
-	sigmaSampleTuningParameter = 1; // How frequently we sample sigma is determined by this
+	sigmaSampleTuningParameter = 100; // How frequently we sample sigma is determined by this
 }
 
 MHRatio::~MHRatio(){
 
 }
 
-void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, vector<vector<bsccs::real> > * precisionMatrix) {
+void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, boost::mt19937& rng) {
 
 // Get the current Beta values
 	vector<double> * betaPossible = Beta->returnCurrentValuesPointer();
@@ -65,7 +65,6 @@ void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 
 // Set our alpha
 	alpha = min(ratio, 1.0);
-	boost::mt19937 rng(43);
 	static boost::uniform_01<boost::mt19937> zeroone(rng);
 
 // Sample from a uniform distribution
@@ -97,7 +96,7 @@ void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 // This determines if we will perform a Gibbs step to update sigma squared on the next iteration
 	if (sigmaSampleTuningParameter*alpha > uniformRandom) {
 		SigmaSquared->setChangeStatus(false);
-		SigmaSquared->setNeedToChangeStatus(false);
+		SigmaSquared->setNeedToChangeStatus(true);
 #ifdef Debug_TRS
 		cout << "*****************  Change Sigma Squared ********************" << endl;
 #endif

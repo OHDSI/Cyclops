@@ -58,6 +58,10 @@ namespace bsccs{
 
 		void setNeedToChangeStatus(bool status);
 
+		void setProbabilityUpdate(double probabilityIn);
+
+		double getProbabilityUpdate();
+
 		std::vector<double> returnCurrentValues();
 
 		std::vector<double> returnStoredValues();
@@ -70,6 +74,8 @@ namespace bsccs{
 	private:
 
 		int size;
+
+		double probabilityUpdate;
 
 		bsccs::real * parameterValues;
 

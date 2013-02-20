@@ -120,6 +120,13 @@ void parseCommandLine(std::vector<std::string>& args,
 		ValueArg<int> foldToComputeCVArg("", "computeFold", "Number of fold to iterate, default is 'fold' value", false, 10, "int");
 		ValueArg<string> outFile2Arg("", "cvFileName", "Cross-validation output file name", false, arguments.cvFileName, "cvFileName");
 
+
+		//Test MCMC values
+		ValueArg<double> betaAmountArg("q", "betaAmount", "beta amount in MCMC", false, arguments.betaAmount, "bsccs::real");
+		ValueArg<double> sigmaAmountArg("w", "sigmaAmount", "sigma amount in MCMC", false, arguments.sigmaAmount, "bsccs::real");
+
+
+
 		// Bootstrap arguments
 		SwitchArg doBootstrapArg("b", "bs", "Perform bootstrap estimation", arguments.doBootstrap);
 //		ValueArg<string> bsOutFileArg("", "bsFileName", "Bootstrap output file name", false, "bs.txt", "bsFileName");
@@ -148,6 +155,10 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(seedArg);
 		cmd.add(formatArg);
 
+		//for MCMC tshaddox
+		cmd.add(betaAmountArg);
+		cmd.add(sigmaAmountArg);
+
 		cmd.add(doCVArg);
 		cmd.add(lowerCVArg);
 		cmd.add(upperCVArg);
@@ -173,6 +184,9 @@ void parseCommandLine(std::vector<std::string>& args,
 			arguments.useGPU = false;
 		}
 //		arguments.useBetterGPU = betterGPUArg.isSet();
+
+		arguments.betaAmount = betaAmountArg.getValue();
+		arguments.sigmaAmount = sigmaAmountArg.getValue();
 
 		arguments.inFileName = inFileArg.getValue();
 		arguments.outFileName = outFileArg.getValue();
@@ -432,7 +446,8 @@ int main(int argc, char* argv[]) {
 
 	MCMCDriver testMCMCDriver(reader);
 
-	testMCMCDriver.drive(*ccd);
+	cout << "betaAmount = " << arguments.betaAmount << endl;
+	testMCMCDriver.drive(*ccd, arguments.betaAmount);
 
 	if (ccd)
 		delete ccd;

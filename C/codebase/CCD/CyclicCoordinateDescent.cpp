@@ -76,7 +76,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	updateCount = 0;
 	likelihoodCount = 0;
 
-
+	hXI_Transpose.fillSparseRowVector(hXI);
 
 	//test.fillSparseRowVector(reader);
 /*
@@ -436,43 +436,66 @@ void CyclicCoordinateDescent::setLogisticRegression(bool idoLR) {
 	sufficientStatisticsKnown = false;
 }
 
+void CyclicCoordinateDescent::setUpHessianComponents(){
+	//vector<int> giVector(N, 0); // get Gi given patient i
+	//vector<vector<int> > kValues;
+	//vector<vector<bsccs::real> > numerPidValuesMatrix; // [J][N] Matrix
+
+	giVector.assign(N,0);
+	//Set up gi values
+	for (int j = 0; j < K; j++) {
+		giVector[hPid[j]] ++;
+	}
+
+	//Set up k values
+	for (int n = 0; n < N; n++) {
+		vector<int> temp;
+		kValues.push_back(temp);
+	}
+	for (int j = 0; j < K; j++) {
+		kValues[hPid[j]].push_back(j);
+	}
+
+
+
+	// Set up matrix of numerPid values
+	for (int t = 0; t < J; t++) {
+		zeroVector(numerPid, N);
+		computeNumeratorForGradient(t);
+		vector<bsccs::real> numerPidValues_t;
+		for(int s = 0; s < N; s++) {
+			numerPidValues_t.push_back(numerPid[s]);
+		}
+		numerPidValuesMatrix.push_back(numerPidValues_t);
+	}
+
+	//Set up the matrix of Drugs per patient
+	//vector<vector<int> > jValuesPerNMatrix; //Sparse matrix for what J's go to each patient
+	for (int i = 0; i < N; i ++) { // sum over patients
+		int ni = hNEvents[i];
+		vector<int> jValues_t;
+		for (int j = 0; j < J; j++) {
+				if (numerPidValuesMatrix[j][i] != 0){
+					jValues_t.push_back(j);
+				}
+		}
+		jValuesPerNMatrix.push_back(jValues_t);
+	}
+
+
+
+}
+
 
 void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHessian) {
 	//naming of variables consistent with Suchard write up page 23 Appendix A
 
-		vector<int> giVector(N, 0); // get Gi given patient i
-		vector<vector<int> > kValues;
-		vector<vector<bsccs::real> > numerPidValuesMatrix; // [J][N] Matrix
 
-		//Set up gi values
-		for (int j = 0; j < K; j++) {
-			giVector[hPid[j]] ++;
-		}
-
-		//Set up k values
-		for (int n = 0; n < N; n++) {
-			vector<int> temp;
-			kValues.push_back(temp);
-		}
-		for (int j = 0; j < K; j++) {
-			kValues[hPid[j]].push_back(j);
-		}
-
-		// Set up matrix of numerPid values
-		for (int t = 0; t < J; t++) {
-			zeroVector(numerPid, N);
-			computeNumeratorForGradient(t);
-			vector<bsccs::real> numerPidValues_t;
-			for(int s = 0; s < N; s++) {
-				numerPidValues_t.push_back(numerPid[s]);
-			}
-			numerPidValuesMatrix.push_back(numerPidValues_t);
-		}
 
 		// Do the work
 		switch (hXI->getFormatType(0)) {
 		case DENSE: {
-			hXI_Transpose.fillSparseRowVector(hXI);
+			//hXI_Transpose.fillSparseRowVector(hXI);
 
 			for (int i = 0; i < N; i ++) { // sum over patients
 				int ni = hNEvents[i];
@@ -502,6 +525,11 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 			break;
 		case INDICATOR: {
 
+			struct timeval time0, time1, time2, time3;
+			//gettimeofday(&time0, NULL);
+
+			// Original Code... slow
+/*
 			for (int i = 0; i < N; i ++) { // sum over patients
 				int ni = hNEvents[i];
 				for (int j = 0; j < J; j++) {
@@ -513,9 +541,38 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 					}
 				}
 			}
+*/
 
-			hXI_Transpose.fillSparseRowVector(hXI);
+			// New code ...  fast
+			// gettimeofday(&time1, NULL);
 
+			//cout << "time 0 = " << calculateSeconds(time0, time1) << endl;
+
+
+			for (int i = 0; i < N; i ++) { // sum over patients
+				int ni = hNEvents[i];
+				int numberOfDrugsAffected = jValuesPerNMatrix[i].size();
+				for (int j = 0; j < numberOfDrugsAffected; j++) {
+					int firstDrug = jValuesPerNMatrix[i][j];
+					for (int j2 = j+1; j2 < numberOfDrugsAffected; j2 ++) {
+						int secondDrug = jValuesPerNMatrix[i][j2];
+						bsccs::real FirstTermjj2 = ni*numerPidValuesMatrix[firstDrug][i]*numerPidValuesMatrix[secondDrug][i] / (denomPid[i]*denomPid[i]);
+						(*blankHessian)[firstDrug][secondDrug] = (*blankHessian)[firstDrug][secondDrug] - FirstTermjj2; //WRONG SIGN
+						(*blankHessian)[secondDrug][firstDrug] = (*blankHessian)[firstDrug][secondDrug];
+					}
+					bsccs::real diagonalTerm = ni*numerPidValuesMatrix[firstDrug][i]*numerPidValuesMatrix[firstDrug][i] / (denomPid[i]*denomPid[i]);
+					(*blankHessian)[firstDrug][firstDrug] = (*blankHessian)[firstDrug][firstDrug] - diagonalTerm; //WRONG SIGN
+				}
+			}
+
+
+			// gettimeofday(&time2, NULL);
+
+			// cout << "time 1 = " << calculateSeconds(time1, time2) << endl;
+
+
+			//hXI_Transpose.fillSparseRowVector(hXI);
+/*
 			for (int k = 0; k < K; k ++) { // Iterate over the exposures
 				int compressedVectorLength = hXI_Transpose.getNumberOfEntries(k); // Get compressed Column for Drug d
 				int ni = hNEvents[hPid[k]];
@@ -528,20 +585,47 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 					}
 				}
 			}
+*/
+			//NEW code
+			for (int k = 0; k < K; k ++) { // Iterate over the exposures
+				int compressedVectorLength = hXI_Transpose.getNumberOfEntries(k); // Get compressed Column for Drug d
+				int ni = hNEvents[hPid[k]];
+				bsccs:: real intermediateValue = ni*offsExpXBeta[k]/denomPid[hPid[k]];
+				for (int p = 0; p < compressedVectorLength; p ++){
+					int rowNumber = hXI_Transpose.getCompressedRowVector(k)[p];
+					for (int q = p + 1; q < compressedVectorLength; q ++) {
+						int columnNumber = hXI_Transpose.getCompressedRowVector(k)[q];
+						(*blankHessian)[rowNumber][columnNumber] += intermediateValue; //WRONG SIGN
+						(*blankHessian)[columnNumber][rowNumber] += intermediateValue; //WRONG SIGN
+					}
+					(*blankHessian)[rowNumber][rowNumber] += intermediateValue; //WRONG SIGN
+				}
+			}
+
+
+			//gettimeofday(&time3, NULL);
+
+			//cout << "time 2 = " << calculateSeconds(time2, time3) << endl;
+
 		}
 			break;
 		}
 
-		/*
+/*
 		cout << "blankHessian is " << endl;
+		bsccs::real maxValue = 0;
 		for (int i = 0; i < J; i ++) {
 			cout << "[";
 			for (int j = 0; j < J; j++) {
 				cout << (*blankHessian)[i][j]<< ",";
+				if ((*blankHessian)[i][j] > maxValue) {
+					maxValue = (*blankHessian)[i][j];
+				}
 			}
 			cout << "]" << endl;
 		}
-		*/
+		cout << "Max Value = " << maxValue << endl;
+*/
 
 }
 
@@ -681,14 +765,14 @@ void CyclicCoordinateDescent::update(
 			}
 			
 			if ((index+1) % 100 == 0) {
-				cout << "Finished variable " << (index+1) << endl;
+		// tshaddox		cout << "Finished variable " << (index+1) << endl;
 			}
 			
 		}
 		
 		iteration++;
-		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
-		//bool checkConvergence = true; // Check after each complete cycle
+		//bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
+		bool checkConvergence = true; // Check after each complete cycle
 
 		if (checkConvergence) {
 
@@ -706,22 +790,23 @@ void CyclicCoordinateDescent::update(
 			double thisLogLikelihood = getLogLikelihood();
 			double thisLogPrior = getLogPrior();
 			double thisLogPost = thisLogLikelihood + thisLogPrior;
-			/* tshaddox comment out for autoadaptive MH test
-			cout << endl;
-			printVector(hBeta, J, cout);
-			cout << endl;
-			cout << "log post: " << thisLogPost
-				 << " (" << thisLogLikelihood << " + " << thisLogPrior
-			     << ") (iter:" << iteration << ") ";
-*/
+
+		//tshaddox
+		//	cout << endl;
+		//	printVector(hBeta, J, cout);
+		//	cout << endl;
+		//	cout << "log post: " << thisLogPost
+		//		 << " (" << thisLogLikelihood << " + " << thisLogPrior
+		//	     << ") (iter:" << iteration << ") ";
+
 			if (epsilon > 0 && conv < epsilon) {
-//				cout << "Reached convergence criterion" << endl;
+				cout << "Reached convergence criterion" << endl;
 				done = true;
 			} else if (iteration == maxIterations) {
-//				cout << "Reached maximum iterations" << endl;
+				cout << "Reached maximum iterations" << endl;
 				done = true;
 			} else {
-//				cout << endl; tshaddox comment out for autoadaptive MH test
+				cout << endl;
 			}
 		}				
 	}
@@ -1053,13 +1138,13 @@ void CyclicCoordinateDescent::axpy(bsccs::real* y, const bsccs::real alpha, cons
 
 void CyclicCoordinateDescent::computeXBeta_GPU_TRS_initialize() {
 
-	cout << "INITIALIZING FOR GPU COMPUTATION!" << endl;
-	runCuspTest.loadXMatrix(hXI_Transpose.offsets, hXI_Transpose.columns, hXI_Transpose.values, J);
+	//cout << "INITIALIZING FOR GPU COMPUTATION!" << endl;
+	//runCuspTest.loadXMatrix(hXI_Transpose.offsets, hXI_Transpose.columns, hXI_Transpose.values, J);
 }
 
 void CyclicCoordinateDescent::computeXBeta_GPU_TRS(void) {
 
-	runCuspTest.computeMultiplyBeta((float*) hBeta, J, (float*) hXBeta, K);
+	//runCuspTest.computeMultiplyBeta((float*) hBeta, J, (float*) hXBeta, K);
 
 	//cout << "Print hXBeta in GPU = ";
 	//printVector(hXBeta, 8, cout);
@@ -1078,6 +1163,8 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 
 	// clear X\beta
 	zeroVector(hXBeta, K);
+
+	cout << "###########################" << endl;
 
 //#define CUDA_Test
 

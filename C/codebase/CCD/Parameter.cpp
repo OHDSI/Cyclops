@@ -12,11 +12,12 @@ using namespace std;
 namespace bsccs{
 
 	Parameter::Parameter(bsccs::real * data, int sizeIn){
+		size = sizeIn;
 		parameterValues = (bsccs::real*) calloc(sizeIn, sizeof(bsccs::real));
 		storedValues = (bsccs::real*) calloc(size, sizeof(bsccs::real));
 		memcpy(storedValues, data, sizeof(bsccs::real)*sizeIn);
 		memcpy(parameterValues, data, sizeof(bsccs::real)*sizeIn);
-		size = sizeIn;
+
 		didValueGetChanged = false;
 		shouldBeChanged = false;
 
@@ -96,6 +97,14 @@ namespace bsccs{
 
 	void Parameter::setNeedToChangeStatus(bool status) {
 		shouldBeChanged = status;
+	}
+
+	void Parameter::setProbabilityUpdate(double probabilityIn){
+		probabilityUpdate = probabilityIn;
+	}
+
+	double Parameter::getProbabilityUpdate(){
+		return probabilityUpdate;
 	}
 
 	std::vector<double> Parameter::returnCurrentValues() {

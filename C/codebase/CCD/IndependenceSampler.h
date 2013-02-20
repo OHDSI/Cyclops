@@ -19,10 +19,10 @@
 #include <time.h>
 #include <set>
 
-#include <Eigen/core>
-
 #include "Parameter.h"
 
+#include <Eigen/Dense>
+#include <Eigen/Cholesky>
 
 #include "CyclicCoordinateDescent.h"
 #include "CrossValidationSelector.h"
@@ -41,7 +41,8 @@ public:
 
 	virtual ~IndependenceSampler();
 
-	void sample(Parameter * Beta_Hat, Parameter * Beta, std::vector<std::vector<bsccs::real> > cholesky, boost::mt19937& rng, double tuningParameter);
+	void sample(Parameter * Beta_Hat, Parameter * Beta, std::vector<std::vector<bsccs::real> > * cholesky,
+			boost::mt19937& rng, double tuningParameter, Eigen::LLT<Eigen::MatrixXf> & choleskyEigen);
 
 protected:
 

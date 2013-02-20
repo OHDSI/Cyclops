@@ -18,8 +18,6 @@
 #include <time.h>
 #include <set>
 
-#include <Eigen/core>
-
 #include "CyclicCoordinateDescent.h"
 #include "IndependenceSampler.h"
 
@@ -41,7 +39,7 @@ namespace bsccs {
 
 		~MHRatio();
 
-		void evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, vector<vector<bsccs::real> > * precisionMatrix);
+		void evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, boost::mt19937& rng);
 
 	private:
 		double min(double value1, double value2);

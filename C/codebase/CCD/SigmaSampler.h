@@ -18,7 +18,7 @@
 #include <time.h>
 #include <set>
 
-#include <Eigen/core>
+
 #include <boost/random.hpp>
 
 #include "Parameter.h"

@@ -18,7 +18,8 @@
 #include <math.h>
 
 #include "IndependenceSampler.h"
-#include "Eigen/core"
+#include <Eigen/Dense>
+#include <Eigen/Cholesky>
 
 
 #include <boost/random.hpp>
@@ -37,12 +38,16 @@ IndependenceSampler::~IndependenceSampler() {
 
 }
 
-void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta, std::vector<std::vector<bsccs::real> > cholesky, boost::mt19937& rng, double tuningParameter) {
+void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta,
+		std::vector<std::vector<bsccs::real> > * cholesky, boost::mt19937& rng, double tuningParameter,
+		Eigen::LLT<Eigen::MatrixXf> & choleskyEigen) {
 	//TODO Better rng passing...  Make wrapper
 
-	Beta->store();
 
+
+	Beta->store();
 	int sizeOfSample = Beta->getSize();
+
 
 	vector<bsccs::real> independentNormal;  //Sampled independent normal values
 
@@ -51,17 +56,32 @@ void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta, std::ve
 	boost::variate_generator<boost::mt19937&,
 	                           boost::normal_distribution<> > var_nor(rng, nd);
 
+	Eigen::VectorXf b = Eigen::VectorXf::Random(sizeOfSample);
 	for (int i = 0; i < sizeOfSample; i++) {
 		bsccs::real normalValue = var_nor();
-		independentNormal.push_back(normalValue);
+		//independentNormal.push_back(normalValue);
+		//cout << "independent normal " << independentNormal[i] << endl;
+		b[i] = exp(tuningParameter)*normalValue;
+		//cout << "b[i] " << b[i] << endl;
 	}
 
+	/*
 	for (int i = 0; i < sizeOfSample; i++) {
 		bsccs::real actualValue = 0;
 		for (int j = 0; j < sizeOfSample; j++) {
-			actualValue += exp(tuningParameter)*cholesky[j][i]*independentNormal[j];
+			actualValue += exp(tuningParameter)*cholesky[i][j]*independentNormal[j];
 		}
-		Beta->set(i, actualValue + Beta_Hat->get(i));
+		Beta->set(i, actualValue);// + Beta_Hat->get(i));
+	}
+	*/
+
+
+
+	choleskyEigen.matrixL().solveInPlace(b);
+
+
+	for (int i = 0; i < sizeOfSample; i++) {
+		Beta->set(i, b[i] + Beta_Hat->get(i));
 	}
 
 }

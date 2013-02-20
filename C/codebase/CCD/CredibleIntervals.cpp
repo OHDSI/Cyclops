@@ -15,7 +15,7 @@
 #include <time.h>
 #include <set>
 
-#include <Eigen/core>
+
 
 #include "CyclicCoordinateDescent.h"
 #include "IndependenceSampler.h"
@@ -37,7 +37,7 @@ CredibleIntervals::~CredibleIntervals(){
 
 }
 
-void CredibleIntervals::computeCredibleIntervals(vector<vector<double> > * BetaValues, vector<double> * SigmaSquaredValues){
+void CredibleIntervals::computeCredibleIntervals(vector<vector<double> > * BetaValues, vector<double> * SigmaSquaredValues, double betaProbability, double sigmaProbability){
 
 	int nSamples = BetaValues->size();
 	int betaSize = (*BetaValues)[0].size();
@@ -50,17 +50,19 @@ void CredibleIntervals::computeCredibleIntervals(vector<vector<double> > * BetaV
 	cout << "betaSize = " << betaSize << endl;
 
 	for (int i = 0; i < betaSize; i ++) {
-		cout << "Avg Beta_" << i << " = ";
+	//	cout << "Avg Beta_" << i << " = ";
 		double sum = 0;
 		for (int j = 0; j < nSamples; j ++) {
 			sum += (*BetaValues)[j][i];
 		}
-		cout << sum/nSamples << endl;
+	//	cout << sum/nSamples << endl;
 	}
 
 
 	//Write Beta Data to a file
-	string fileName = "/Users/trevorshaddox/Desktop/CredibleIntervals_beta_out.csv";
+	std::stringstream ss;
+	ss << "/Users/trevorshaddox/Desktop/CredibleIntervals_betadata_b" << 100*betaProbability << "s" << 100*sigmaProbability << "big.csv";
+	string fileName = ss.str();
 	ofstream outLog(fileName.c_str());
 
 	string sep(","); // TODO Make option
@@ -72,9 +74,12 @@ void CredibleIntervals::computeCredibleIntervals(vector<vector<double> > * BetaV
 		outLog << endl;
 	}
 	outLog.close();
+	nSamples = SigmaSquaredValues->size();
 
 	//Write Sigma Data to a file
-	string fileName2 = "/Users/trevorshaddox/Desktop/CredibleIntervals_sigma_out.csv";
+	std::stringstream ss2;
+	ss2 << "/Users/trevorshaddox/Desktop/CredibleIntervals_sigmadata_b" << 100*betaProbability << "s" << 100*sigmaProbability << "big.csv";
+	string fileName2 = ss2.str();
 	ofstream outLog2(fileName2.c_str());
 
 	string sep2(","); // TODO Make option

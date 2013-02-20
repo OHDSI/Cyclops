@@ -32,6 +32,11 @@ struct CCDArguments {
 	int convergenceType;
 	long seed;
 
+	// Needed to test balance of beta and sigma MCMC tshaddox
+
+	double betaAmount;
+	double sigmaAmount;
+
 	// Needed for cross-validation
 	bool doCrossValidation;
 	double lowerLimit;

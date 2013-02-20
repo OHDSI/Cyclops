@@ -8,6 +8,10 @@
 #ifndef MCMCDRIVER_H_
 #define MCMCDRIVER_H_
 
+
+#include <Eigen/Dense>
+#include <Eigen/Cholesky>
+
 #include "CyclicCoordinateDescent.h"
 #include "CrossValidationSelector.h"
 #include "AbstractSelector.h"
@@ -21,7 +25,7 @@ public:
 	virtual ~MCMCDriver();
 
 	virtual void drive(
-			CyclicCoordinateDescent& ccd);
+			CyclicCoordinateDescent& ccd, double betaAmount);
 
 	void generateCholesky();
 
@@ -31,6 +35,8 @@ private:
 	InputReader* reader;
 
 	double acceptanceTuningParameter;
+
+	Eigen::LLT<Eigen::MatrixXf> CholDecom;
 
 	double acceptanceRatioTarget;
 

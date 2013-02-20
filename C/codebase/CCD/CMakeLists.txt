@@ -12,7 +12,7 @@ include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 find_path(BOOST_INCLUDE_DIR
 	NAMES boost
 	DOCS "Location of boost header file"
-	PATHS "/Users/tshaddox/Desktop/workspace/boost_1_51_0")
+	PATHS "/Users/trevorshaddox/Desktop/workspace/boost_1_51_0")
 
 
 	
