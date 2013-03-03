@@ -25,9 +25,11 @@ public:
 protected:
 	void computeNumeratorForGradient(int index);
 
-	void updateXBeta(real realDelta, int index);
+	void updateXBeta(real realDelta, int index, bool useWeights);
 
-	void computeRemainingStatistics(void);
+	void computeRemainingStatistics(bool useWeights);
+
+	void computeAccumlatedNumerDenom(bool useWeights);
 
 	void computeFixedTermsInLogLikelihood(bool useCrossValidation);
 
@@ -60,7 +62,7 @@ private:
 	void incrementNumeratorForGradientImpl(int index);
 
 	template <class IteratorType>
-	void updateXBetaImpl(real delta, int index);
+	void updateXBetaImpl(real delta, int index, bool useWeights);
 
 	template <class OutType, class InType>
 	void incrementByGroup(OutType* values, int* groups, int k, InType inc) {
@@ -354,8 +356,8 @@ public:
 		return std::exp(xBeta);
 	}
 
-	real logLikeDenominatorContrib(WeightType ni, real denom) {
-		return std::log(denom); // TODO Wrong
+	real logLikeDenominatorContrib(WeightType ni, real accDenom) {
+		return ni*std::log(accDenom);
 	}
 
 	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,

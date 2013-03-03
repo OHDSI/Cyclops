@@ -57,9 +57,9 @@ public:
 
 	virtual void computeNumeratorForGradient(int index) = 0; // pure virtual
 
-	virtual void updateXBeta(real realDelta, int index) = 0; // pure virtual
+	virtual void updateXBeta(real realDelta, int index, bool useWeights) = 0; // pure virtual
 
-	virtual void computeRemainingStatistics(void) = 0; // pure virtual
+	virtual void computeRemainingStatistics(bool useWeights) = 0; // pure virtual
 
 	virtual void computeFixedTermsInLogLikelihood(bool useCrossValidation) = 0; // pure virtual
 

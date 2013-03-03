@@ -706,7 +706,7 @@ void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
 	hBeta[index] += realDelta;
 
 	// Delegate
-	modelSpecifics.updateXBeta(realDelta, index);
+	modelSpecifics.updateXBeta(realDelta, index, useCrossValidation);
 }
 
 void CyclicCoordinateDescent::updateSufficientStatistics(double delta, int index) {
@@ -718,7 +718,7 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 	// Separate function for benchmarking
 	if (allStats) {
 		// Delegate
-		modelSpecifics.computeRemainingStatistics();
+		modelSpecifics.computeRemainingStatistics(useCrossValidation);
 	}
 }
 

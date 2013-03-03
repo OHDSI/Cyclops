@@ -154,9 +154,16 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 	}
 
 	if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-		for (int i = 0; i < N; i++) {
-			// Weights modified in computeNEvents()
-			logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], denomPid[i]);
+		if(BaseModel::cumulativeGradientAndHessian) {
+			for (int i = 0; i < N; i++) {
+				// Weights modified in computeNEvents()
+				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], accDenomPid[i]);
+			}
+		} else {  // TODO Unnecessary code duplication
+			for (int i = 0; i < N; i++) {
+				// Weights modified in computeNEvents()
+				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], denomPid[i]);
+			}
 		}
 	}
 
@@ -171,8 +178,14 @@ template <class BaseModel,typename WeightType>
 double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* weights) {
 	real logLikelihood = static_cast<real>(0.0);
 
-	for (int k = 0; k < K; ++k) {
-		logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], denomPid, hPid, k);
+	if(BaseModel::cumulativeGradientAndHessian)	{
+		for (int k = 0; k < K; ++k) {
+			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], &accDenomPid[0], hPid, k);
+		}
+	} else { // TODO Unnecessary code duplication
+		for (int k = 0; k < K; ++k) {
+			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], denomPid, hPid, k);
+		}
 	}
 
 	return static_cast<double>(logLikelihood);
@@ -264,8 +277,13 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		
 		for (; it; ) {
 			int k = it.index();
-			accNumerPid  += numerPid[BaseModel::getGroup(hPid, k)]; // TODO Only works when X-rows are sorted as well
-			accNumerPid2 += numerPid2[BaseModel::getGroup(hPid, k)];
+			if(w.isWeighted){ //if useCrossValidation
+				accNumerPid  += numerPid[BaseModel::getGroup(hPid, k)] * hKWeight[k]; // TODO Only works when X-rows are sorted as well
+				accNumerPid2 += numerPid2[BaseModel::getGroup(hPid, k)] * hKWeight[k];
+			} else { // TODO Unnecessary code duplication
+				accNumerPid  += numerPid[BaseModel::getGroup(hPid, k)]; // TODO Only works when X-rows are sorted as well
+				accNumerPid2 += numerPid2[BaseModel::getGroup(hPid, k)];
+			}
 #ifdef DEBUG_COX
 			cerr << "w: " << k << " " << hNWeight[k] << " " << numerPid[BaseModel::getGroup(hPid, k)] << ":" <<
 					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[BaseModel::getGroup(hPid, k)];
@@ -393,20 +411,20 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index) {
+void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index, bool useWeights) {
 	// Run-time dispatch to implementation depending on covariate FormatType
 	switch(hXI->getFormatType(index)) {
 		case INDICATOR :
-			updateXBetaImpl<IndicatorIterator>(realDelta, index);
+			updateXBetaImpl<IndicatorIterator>(realDelta, index, useWeights);
 			break;
 		case SPARSE :
-			updateXBetaImpl<SparseIterator>(realDelta, index);
+			updateXBetaImpl<SparseIterator>(realDelta, index, useWeights);
 			break;
 		case DENSE :
-			updateXBetaImpl<DenseIterator>(realDelta, index);
+			updateXBetaImpl<DenseIterator>(realDelta, index, useWeights);
 			break;
 		case INTERCEPT :
-			updateXBetaImpl<InterceptIterator>(realDelta, index);
+			updateXBetaImpl<InterceptIterator>(realDelta, index, useWeights);
 			break;
 		default :
 			// throw error
@@ -415,7 +433,7 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index
 }
 
 template <class BaseModel,typename WeightType> template <class IteratorType>
-inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta, int index) {
+inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta, int index, bool useWeights) {
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
@@ -427,46 +445,33 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 			incrementByGroup(denomPid, hPid, k, (newEntry - oldEntry));
 		}
 	}
-
-	if (BaseModel::likelihoodHasDenominator &&
-			BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
-		// TODO Bad!  Code duplication with computeRemainingStatistics
-		if (accDenomPid.size() != K) {
-			accDenomPid.resize(K, static_cast<real>(0));
-		}
-		if (accNumerPid.size() != K) {
-			accNumerPid.resize(K, static_cast<real>(0));
-		}
-		if (accNumerPid2.size() != K) {
-			accNumerPid2.resize(K, static_cast<real>(0));
-		}
-		// prefix-scan
-		real totalDenom = static_cast<real>(0);
-		real totalNumer = static_cast<real>(0);
-		real totalNumer2 = static_cast<real>(0);
-		for (int k = 0; k < K; ++k) {
-			totalDenom += denomPid[k];
-			totalNumer += numerPid[k];
-			totalNumer2 += numerPid2[k];
-			accDenomPid[k] = totalDenom;
-			accNumerPid[k] = totalNumer;
-			accNumerPid2[k] = totalNumer2;
-#ifdef DEBUG_COX
-			cerr << denomPid[k] << " " << accDenomPid[k] << " (beta)" << endl;
-#endif
-		}
-	}
+	computeAccumlatedNumerDenom(useWeights);
 }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(void) {
+void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWeights) {
 	if (BaseModel::likelihoodHasDenominator) {
 		fillVector(denomPid, N, BaseModel::getDenomNullValue());
 		for (int k = 0; k < K; ++k) {
 			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
 			incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
 		}
-		if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
+		computeAccumlatedNumerDenom(useWeights);
+	}
+#ifdef DEBUG_COX
+	cerr << "Done with initial denominators" << endl;
+
+	for (int k = 0; k < K; ++k) {
+		cerr << denomPid[k] << " " << accDenomPid[k] << " " << numerPid[k] << endl;
+	}
+#endif
+}
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useWeights) {
+
+	if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
+		BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 			if (accDenomPid.size() != K) {
 				accDenomPid.resize(K, static_cast<real>(0));
 			}
@@ -476,27 +481,51 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(void) {
 			if (accNumerPid2.size() != K) {
 				accNumerPid2.resize(K, static_cast<real>(0));
 			}
-			// prefix-scan
-			real totalDenom = static_cast<real>(0);
-			real totalNumer = static_cast<real>(0);
-			real totalNumer2 = static_cast<real>(0);
-			for (int k = 0; k < K; ++k) {
-				totalDenom += denomPid[k];
-				totalNumer += numerPid[k];
-				totalNumer2 += numerPid2[k];
-				accDenomPid[k] = totalDenom;
-				accNumerPid[k] = totalNumer;
-				accNumerPid2[k] = totalNumer2;
-			}
-		}
-	}
-#ifdef DEBUG_COX
-	cerr << "Done with initial denominators" << endl;
 
-	for (int k = 0; k < K; ++k) {
-		cerr << denomPid[k] << " " << accDenomPid[k] << " " << numerPid[k] << endl;
-	}
+			// prefix-scan
+			if(useWeights) { 
+				//accumulating separately over train and validation sets
+				real totalDenomTrain = static_cast<real>(0);
+				real totalNumerTrain = static_cast<real>(0);
+				real totalNumer2Train = static_cast<real>(0);
+				real totalDenomValid = static_cast<real>(0);
+				real totalNumerValid = static_cast<real>(0);
+				real totalNumer2Valid = static_cast<real>(0);
+				for (int k = 0; k < K; ++k) {
+					if(hKWeight[k] == 1.0){
+						totalDenomTrain += denomPid[k];
+						totalNumerTrain += numerPid[k];
+						totalNumer2Train += numerPid2[k];
+						accDenomPid[k] = totalDenomTrain;
+						accNumerPid[k] = totalNumerTrain;
+						accNumerPid2[k] = totalNumer2Train;
+					} else {
+						totalDenomValid += denomPid[k];
+						totalNumerValid += numerPid[k];
+						totalNumer2Valid += numerPid2[k];
+						accDenomPid[k] = totalDenomValid;
+						accNumerPid[k] = totalNumerValid;
+						accNumerPid2[k] = totalNumer2Valid;
+					}
+				}
+			} else {
+				real totalDenom = static_cast<real>(0);
+				real totalNumer = static_cast<real>(0);
+				real totalNumer2 = static_cast<real>(0);
+				for (int k = 0; k < K; ++k) {
+					totalDenom += denomPid[k];
+					totalNumer += numerPid[k];
+					totalNumer2 += numerPid2[k];
+					accDenomPid[k] = totalDenom;
+					accNumerPid[k] = totalNumer;
+					accNumerPid2[k] = totalNumer2;
+#ifdef DEBUG_COX
+					cerr << denomPid[k] << " " << accDenomPid[k] << " (beta)" << endl;
 #endif
+				}
+
+			}
+	}
 }
 
 template <class BaseModel,typename WeightType>
