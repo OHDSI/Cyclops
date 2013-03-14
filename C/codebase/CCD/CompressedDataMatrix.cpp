@@ -76,6 +76,10 @@ int CompressedDataMatrix::getNumberOfRows(void) const {
 	return nRows;
 }
 
+void CompressedDataMatrix::setNumberOfRows(int iRows) {
+	nRows = iRows;
+}
+
 int CompressedDataMatrix::getNumberOfColumns(void) const {
 	return nCols;
 }
@@ -214,7 +218,7 @@ void CompressedDataColumn::printColumn(int nRows) {
 real CompressedDataColumn::sumColumn(int nRows) {
 	real_vector values;
 	fill(values, nRows);
-	return std::accumulate(values.begin(), values.end(), 0);
+	return std::accumulate(values.begin(), values.end(), static_cast<real>(0));
 }
 
 void CompressedDataColumn::convertColumnToSparse(void) {

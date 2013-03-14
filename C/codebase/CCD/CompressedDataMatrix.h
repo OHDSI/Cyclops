@@ -172,6 +172,8 @@ public:
 	
 	int getNumberOfRows(void) const;
 	
+	void setNumberOfRows(int);
+
 	int getNumberOfColumns(void) const;
 
 	void setNumberOfColumns(int nColumns);

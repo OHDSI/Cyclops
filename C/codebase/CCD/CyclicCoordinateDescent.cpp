@@ -658,6 +658,12 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 		}
 	}
 	
+	// Constrain to interior point
+	// TODO Delegate to NonNegativityConstraint class
+	if (hBeta[index] + delta < 0) {
+		delta = -hBeta[index];
+	}
+
 	return delta;
 }
 

@@ -95,9 +95,13 @@ public:
 
 		doSort(); // Override for sort criterion or no sorting
 
+		modelData->setNumberOfRows(rowInfo.currentRow);
+
 		cout << "Number of rows: " << rowInfo.currentRow << " read from " << fileName << endl;
 		cout << "Number of cases: " << rowInfo.numCases << endl;
 		cout << "Number of covariates: " <<  modelData->getNumberOfColumns() << endl;
+
+		printDebugInfo();
 
 		modelData->nPatients = rowInfo.numCases;
 		modelData->nRows = rowInfo.currentRow;
@@ -112,6 +116,15 @@ protected:
 	
 	void upcastColumns(ModelData* modelData, RowInformation& rowInfo) {
 		// Do nothing
+	}
+
+	void printDebugInfo() {
+#if 0
+		for (int i = 0; i < modelData->getNumberOfColumns(); ++i) {
+			double total = modelData->getColumn(i).sumColumn(modelData->getNumberOfRows());
+			cerr << i << ": " << total << endl;
+		}
+#endif
 	}
 		
 //	void handleUpcast(CompressedDataColumn& column, RowInformation& rowInfo) {	
