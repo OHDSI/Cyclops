@@ -16,6 +16,7 @@
 #include <set>
 
 #include "CyclicCoordinateDescent.h"
+#include "Constraints.h"
 #include "io/InputReader.h"
 #include "Iterators.h"
 
@@ -391,6 +392,14 @@ void CyclicCoordinateDescent::setBeta(int i, double beta) {
 	xBetaKnown = false;
 }
 
+double CyclicCoordinateDescent::getWeight(int k) const {
+	if (hWeights) {
+		return static_cast<double>(hWeights[k]);
+	} else {
+		return 1.0;
+	}
+}
+
 void CyclicCoordinateDescent::setWeights(real* iWeights) {
 
 	if (iWeights == NULL) {
@@ -658,11 +667,28 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 		}
 	}
 	
+#if 1
 	// Constrain to interior point
 	// TODO Delegate to NonNegativityConstraint class
-	if (hBeta[index] + delta < 0) {
-		delta = -hBeta[index];
+//	if (hBeta[index] + delta < 0) {
+//		delta = -hBeta[index];
+//	}
+
+#define TEST
+
+#ifdef TEST
+	if (index == 0) {
+		bsccs::NoConstraint constraint;
+		delta = constraint.getConstrainedDelta(hBeta[index], delta);
+	} else {
+#endif
+		bsccs::NonNegativityConstraint constraint;
+		delta = constraint.getConstrainedDelta(hBeta[index], delta);
+#ifdef TEST
 	}
+#endif
+
+#endif
 
 	return delta;
 }

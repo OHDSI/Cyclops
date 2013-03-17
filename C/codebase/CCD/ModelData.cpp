@@ -38,9 +38,9 @@ int* ModelData::getPidVector() { // TODO deprecated
 	return &pid[0];
 }
 
-std::vector<int>* ModelData::getPidVectorSTL() { // TODO deprecated
-	return new std::vector<int>(pid);
-}
+//std::vector<int>* ModelData::getPidVectorSTL() { // TODO deprecated
+//	return new std::vector<int>(pid);
+//}
 
 real* ModelData::getYVector() { // TODO deprecated
 //	return makeDeepCopy(&y[0], y.size());

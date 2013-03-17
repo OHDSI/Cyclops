@@ -51,7 +51,7 @@ public:
 //	map<int, DrugIdType> getDrugNameMap();
 	int getNumberOfPatients();
 	string getConditionId();
-	std::vector<int>* getPidVectorSTL();
+//	std::vector<int>* getPidVectorSTL();
 
 	const std::vector<real>& getZVectorRef() const {
 		return z;
@@ -61,7 +61,7 @@ public:
 		return y;
 	}
 
-	const std::vector<int>& getPidVectorRef() const { // Not const because PIDs can get renumbered
+	const std::vector<int>& getPidVectorRef() const {
 		return pid;
 	}
 	
@@ -75,6 +75,15 @@ public:
 
 	void setHasOffsetCovariate(bool b) {
 		hasOffsetCovariate = b;
+	}
+
+	void setGenericLabels() {
+		labels.empty();
+		for (int i = 1; i <= getNumberOfRows(); ++i) {
+			std::ostringstream convert;
+			convert << i;
+			labels.push_back(convert.str());
+		}
 	}
 
 	bool getHasRowLobels() const {

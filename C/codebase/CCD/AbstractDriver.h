@@ -12,11 +12,19 @@
 #include "CrossValidationSelector.h"
 #include "ccd.h"
 
+namespace bsccs {
+	class OutputWriter; // forward declaration
+}
+
 class AbstractDriver {
 public:
 	AbstractDriver();
 
 	virtual ~AbstractDriver();
+
+	void addOutputWriter(bsccs::OutputWriter* writer) {
+		outputList.push_back(writer);
+	}
 
 	virtual void drive(
 			CyclicCoordinateDescent& ccd,
@@ -24,6 +32,9 @@ public:
 			const CCDArguments& arguments) = 0; // pure virtual
 
 	virtual void logResults(const CCDArguments& arguments) = 0; // pure virtual
+
+protected:
+	std::vector<bsccs::OutputWriter*> outputList;
 };
 
 #endif /* ABSTRACTDRIVER_H_ */

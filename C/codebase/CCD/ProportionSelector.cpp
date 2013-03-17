@@ -12,7 +12,7 @@
 
 ProportionSelector::ProportionSelector(
 		int inTotal,
-		std::vector<int>* inIds,
+		const std::vector<int>& inIds,
 		SelectorType inType,
 		long inSeed) : AbstractSelector(inIds, inType, inSeed), total(inTotal) {
 

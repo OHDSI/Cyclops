@@ -17,7 +17,7 @@ class CrossValidationSelector : public AbstractSelector {
 public:
 	CrossValidationSelector(
 			int inFold,
-			std::vector<int>* inIds,
+			const std::vector<int>& inIds,
 			SelectorType inType,
 			long inSeed = 0,
 			std::vector<real>* wtsExclude = NULL);

@@ -16,7 +16,7 @@ class ProportionSelector : public AbstractSelector {
 public:
 	ProportionSelector(
 			int inReplicates,
-			std::vector<int>* inIds,
+			const std::vector<int>& inIds,
 			SelectorType inType,
 			long inSeed);
 

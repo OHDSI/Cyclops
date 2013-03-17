@@ -14,7 +14,7 @@
 
 CrossValidationSelector::CrossValidationSelector(
 		int inFold,
-		std::vector<int>* inIds,
+		const std::vector<int>& inIds,
 		SelectorType inType,
 		long inSeed,
 		std::vector<real>* wtsExclude) : AbstractSelector(inIds, inType, inSeed), fold(inFold) {
@@ -73,7 +73,7 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 				);
 
 		for (int k = 0; k < K; k++) {
-			if (excludeSet.find(ids->at(k)) != excludeSet.end()) { // found
+			if (excludeSet.find(ids.at(k)) != excludeSet.end()) { // found
 				weights[k] = 0.0;
 			} else {
 				weights[k] = 1.0;

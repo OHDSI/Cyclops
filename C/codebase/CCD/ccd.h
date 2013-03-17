@@ -44,6 +44,7 @@ struct CCDArguments {
 
 	// Needed for cross-validation
 	bool doCrossValidation;
+	bool doLeaveOneOut;
 	double lowerLimit;
 	double upperLimit;
 	int fold;
@@ -92,6 +93,11 @@ double predictModel(
 		CCDArguments &arguments);
 
 double runCrossValidation(
+		CyclicCoordinateDescent *ccd,
+		ModelData *modelData,
+		CCDArguments &arguments);
+
+double runLeaveOneOut(
 		CyclicCoordinateDescent *ccd,
 		ModelData *modelData,
 		CCDArguments &arguments);

@@ -8,6 +8,17 @@
 #ifndef OUTPUTWRITER_H_
 #define OUTPUTWRITER_H_
 
+
+//#include <iostream>
+//#include <fstream>
+//#include <sstream>
+//#include <vector>
+//#include <map>
+//#include <cstdlib>
+//#include <cstring>
+//
+//#include <fstream>
+//#include <iostream>
 #include "../CyclicCoordinateDescent.h"
 #include "../ModelData.h"
 
@@ -17,10 +28,18 @@ namespace bsccs {
 
 class OutputWriter {
 public:
+
+	enum DisplayMask {
+		ALL, WEIGHTED, UNWEIGHTED
+	};
+
 	OutputWriter() { }
 	virtual ~OutputWriter() { }
 
-	virtual void writeFile(const char* fileName) = 0;
+	virtual void openFile(const char* fileName) = 0;
+	virtual void writeFile() = 0;
+	virtual void closeFile() = 0;
+	virtual void setDisplayMask(DisplayMask use) = 0;
 };
 
 namespace OutputHelper {
@@ -55,35 +74,71 @@ class BaseOutputWriter : public OutputWriter, Missing {
 public:
 	BaseOutputWriter(const CyclicCoordinateDescent& _ccd, const ModelData& _data) :
 		OutputWriter(), ccd(_ccd), data(_data), delimitor("\t") {
-		// Do nothing
+		setDisplayMask(ALL);
 	}
 	virtual ~BaseOutputWriter() {
 		// Do nothing
 	}
 
-	virtual void writeFile(const char* fileName) {
-		ofstream out;
+	void openFile(const char* fileName) {
 		out.open(fileName, ios::out);
-		writeFile(out);
+	}
 
+	void closeFile() {
+		out.close();
+	}
+
+	void writeFile() {
+		if (out) {
+			writeFile(out);
+		}
+	}
+
+	void setDisplayMask(DisplayMask usage) {
+		switch (usage) {
+			case WEIGHTED :
+				useWeightAsMask = true;
+				useComplementWeight = false;
+				break;
+			case UNWEIGHTED :
+				useWeightAsMask = true;
+				useComplementWeight = true;
+				break;
+			default :
+				useWeightAsMask = false;
+				break;
+		}
 	}
 
 protected:
 	void writeFile(ofstream& out) {
-		out << "Hello world!" << endl;
 
 		static_cast<DerivedFormat*>(this)->preprocessAllRows();
 
 		OutputHelper::RowInformation rowInformation(0);
 		while(rowInformation.currentRow < data.getNumberOfRows()) {
-			static_cast<DerivedFormat*>(this)->writeRow(out, rowInformation);
+			if (displayRow(rowInformation.currentRow)) {
+				static_cast<DerivedFormat*>(this)->writeRow(out, rowInformation);
+			}
 			++(rowInformation.currentRow);
 		}
 	}
 
-	const CyclicCoordinateDescent& ccd; // TODO Should be const
+	const CyclicCoordinateDescent& ccd;
 	const ModelData& data;
 	string delimitor;
+	ofstream out;
+
+private:
+	bool displayRow(int row) {
+		if (!useWeightAsMask) {
+			return true;
+		}
+		return useComplementWeight == (ccd.getWeight(row) == 0.0);
+	}
+
+	bool useWeightAsMask;
+	bool useComplementWeight;
 };
 
 class PredictionOutputWriter : public BaseOutputWriter<PredictionOutputWriter> {

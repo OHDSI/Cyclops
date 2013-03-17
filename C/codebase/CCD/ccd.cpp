@@ -14,7 +14,6 @@
 #include <cstdlib>
 #include <cstring>
 
-#include <iostream>
 #include <time.h>
 #ifndef _WIN32
 	#include <sys/time.h>
@@ -38,6 +37,8 @@
 #include "io/OutputWriter.h"
 #include "CrossValidationSelector.h"
 #include "CrossValidationDriver.h"
+#include "LeaveOneOutDriver.h"
+#include "LeaveOneOutSelector.h"
 #include "BootstrapSelector.h"
 #include "ProportionSelector.h"
 #include "BootstrapDriver.h"
@@ -146,6 +147,7 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.tolerance = 5E-4;
 	arguments.seed = 123;
 	arguments.doCrossValidation = false;
+	arguments.doLeaveOneOut = false;
 	arguments.lowerLimit = 0.01;
 	arguments.upperLimit = 20.0;
 	arguments.fold = 10;
@@ -196,6 +198,7 @@ void parseCommandLine(std::vector<std::string>& args,
 
 		// Cross-validation arguments
 		SwitchArg doCVArg("c", "cv", "Perform cross-validation selection of hyperprior variance", arguments.doCrossValidation);
+		SwitchArg doLeaveOneOutArg("","leaveOneOut", "Perform a leave-one-out analysis", arguments.doLeaveOneOut);
 		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, arguments.lowerLimit, "real");
 		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, arguments.upperLimit, "real");
 		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, arguments.fold, "int");
@@ -256,6 +259,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(outputFormatArg);
 
 		cmd.add(doCVArg);
+		cmd.add(doLeaveOneOutArg);
 		cmd.add(lowerCVArg);
 		cmd.add(upperCVArg);
 		cmd.add(foldCVArg);
@@ -321,6 +325,11 @@ void parseCommandLine(std::vector<std::string>& args,
 
 		// Cross-validation
 		arguments.doCrossValidation = doCVArg.isSet();
+		arguments.doLeaveOneOut = doLeaveOneOutArg.isSet();
+		if (arguments.doCrossValidation && arguments.doLeaveOneOut) {
+			cerr << "Cross-validation and leave-one-out analyses are not yet simultaneously supported." << endl;
+			exit(-1);
+		}
 		if (arguments.doCrossValidation) {
 			arguments.lowerLimit = lowerCVArg.getValue();
 			arguments.upperLimit = upperCVArg.getValue();
@@ -335,11 +344,11 @@ void parseCommandLine(std::vector<std::string>& args,
 			arguments.doFitAtOptimal = true;
 		}
 
-		// Bootstrap
+		// Bootstrap and leave-one-out
 		arguments.doBootstrap = doBootstrapArg.isSet();
+		arguments.replicates = replicatesArg.getValue();
 		if (arguments.doBootstrap) {
 //			arguments.bsFileName = bsOutFileArg.getValue();
-			arguments.replicates = replicatesArg.getValue();
 			if (reportRawEstimatesArg.isSet()) {
 				arguments.reportRawEstimates = true;
 			} else {
@@ -457,7 +466,9 @@ double predictModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArgum
 	gettimeofday(&time1, NULL);
 
 	bsccs::PredictionOutputWriter predictor(*ccd, *modelData);
-	predictor.writeFile(arguments.outFileName.c_str());
+	predictor.openFile(arguments.outFileName.c_str());
+	predictor.writeFile();
+	predictor.closeFile();
 
 	gettimeofday(&time2, NULL);
 	return calculateSeconds(time1, time2);
@@ -487,7 +498,7 @@ double runBoostrap(
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	BootstrapSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
+	BootstrapSelector selector(arguments.replicates, modelData->getPidVectorRef(),
 			SUBJECT, arguments.seed);
 	BootstrapDriver driver(arguments.replicates, modelData);
 
@@ -498,12 +509,39 @@ double runBoostrap(
 	return calculateSeconds(time1, time2);
 }
 
+double runLeaveOneOut(CyclicCoordinateDescent *ccd, ModelData *modelData,
+		CCDArguments &arguments) {
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
+
+	// Add generic row names if there are none
+	if (!modelData->getHasRowLobels()) {
+		modelData->setGenericLabels();
+	}
+
+	bsccs::LeaveOneOutSelector selector(modelData->getPidVectorRef(), SUBJECT, arguments.seed);
+	bsccs::LeaveOneOutDriver driver(modelData->getNumberOfPatients());
+
+	bsccs::PredictionOutputWriter predictor(*ccd, *modelData);
+	predictor.openFile(arguments.outFileName.c_str());
+	predictor.setDisplayMask(bsccs::OutputWriter::UNWEIGHTED);
+	driver.addOutputWriter(&predictor); // TODO Should use smart pointer
+
+	driver.drive(*ccd, selector, arguments);
+
+	predictor.closeFile();
+
+	gettimeofday(&time2, NULL);
+	return calculateSeconds(time1, time2);
+}
+
+
 double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
 		CCDArguments &arguments) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	CrossValidationSelector selector(arguments.fold, modelData->getPidVectorSTL(),
+	CrossValidationSelector selector(arguments.fold, modelData->getPidVectorRef(),
 			SUBJECT, arguments.seed);
 	CrossValidationDriver driver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
 
@@ -571,15 +609,19 @@ int main(int argc, char* argv[]) {
 	CCDArguments arguments;
 
 	parseCommandLine(argc, argv, arguments);
+	bool leaveOneOut = true;
 
 	double timeInitialize = initializeModel(&modelData, &ccd, &model, arguments);
 
+	// TODO Overly convoluted logic; needs cleaning.
 	double timeUpdate;
 	if (arguments.doCrossValidation) {
 		timeUpdate = runCrossValidation(ccd, modelData, arguments);
+	} else if (arguments.doLeaveOneOut) {
+		timeUpdate = runLeaveOneOut(ccd, modelData, arguments);
 	} else {
 		if (arguments.doPartial) {
-			ProportionSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
+			ProportionSelector selector(arguments.replicates, modelData->getPidVectorRef(),
 					SUBJECT, arguments.seed);
 			std::vector<real> weights;
 			selector.getWeights(0, weights);
@@ -596,7 +638,9 @@ int main(int argc, char* argv[]) {
 	} else {
 #ifndef MY_RCPP_FLAG
 		// TODO Make into OutputWriter
-		ccd->logResults(arguments.outFileName.c_str());
+		if (!arguments.doLeaveOneOut) {
+			ccd->logResults(arguments.outFileName.c_str());
+		}
 #endif
 	}
 

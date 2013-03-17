@@ -24,7 +24,7 @@ enum SelectorType {
 class AbstractSelector {
 public:
 	AbstractSelector(
-			std::vector<int>* inIds,
+			const std::vector<int>& inIds,
 			SelectorType inType,
 			long inSeed);
 
@@ -37,7 +37,7 @@ public:
 	virtual void getComplement(std::vector<real>& weights) = 0; // pure virtual
 
 protected:
-	std::vector<int>* ids;
+	const std::vector<int>& ids;
 	SelectorType type;
 	long seed;
 	int K;

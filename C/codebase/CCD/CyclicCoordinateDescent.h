@@ -39,6 +39,7 @@ using std::ofstream;
 #else
 	typedef float real;
 #endif 
+	// TODO Move all real typdefs into single header
 
 enum PriorType {
 	LAPLACE = 0,
@@ -97,6 +98,8 @@ public:
 	double getPredictiveLogLikelihood(real* weights);
 
 	void getPredictiveEstimates(real* y, real* weights) const;
+
+	double getWeight(int k) const;
 
 	double getLogPrior(void);
 	

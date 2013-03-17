@@ -16,6 +16,8 @@ set(BASE_SOURCE_FILES
 	ProportionSelector.cpp
 	CrossValidationSelector.cpp
 	CrossValidationDriver.cpp
+	LeaveOneOutSelector.cpp
+	LeaveOneOutDriver.cpp
 	BootstrapSelector.cpp
 	BootstrapDriver.cpp)
 	

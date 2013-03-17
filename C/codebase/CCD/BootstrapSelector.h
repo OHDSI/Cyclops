@@ -16,7 +16,7 @@ class BootstrapSelector : public AbstractSelector {
 public:
 	BootstrapSelector(
 			int inReplicates,
-			std::vector<int>* inIds,
+			const std::vector<int>& inIds,
 			SelectorType inType,
 			long inSeed,
 			std::vector<real>* wtsExclude = NULL);

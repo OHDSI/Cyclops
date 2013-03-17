@@ -12,7 +12,7 @@
 
 BootstrapSelector::BootstrapSelector(
 		int replicates,
-		std::vector<int>* inIds,
+		const std::vector<int>& inIds,
 		SelectorType inType,
 		long inSeed,
 		std::vector<real>* wtsExclude) : AbstractSelector(inIds, inType, inSeed) {
@@ -80,7 +80,7 @@ void BootstrapSelector::getWeights(int batch, std::vector<real>& weights) {
 
 	if (type == SUBJECT) {
 		for (int k = 0; k < K; k++) {
-			int count = selectedSet.count(ids->at(k));
+			int count = selectedSet.count(ids.at(k));
 			weights[k] = static_cast<real>(count);
 		}
 	} else {

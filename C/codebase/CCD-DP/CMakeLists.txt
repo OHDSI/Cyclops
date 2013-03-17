@@ -16,6 +16,8 @@ set(BASE_SOURCE_FILES_DP
 	../CCD/ProportionSelector.cpp
 	../CCD/CrossValidationSelector.cpp
 	../CCD/CrossValidationDriver.cpp
+	../CCD/LeaveOneOutSelector.cpp
+	../CCD/LeaveOneOutDriver.cpp
 	../CCD/BootstrapSelector.cpp
 	../CCD/BootstrapDriver.cpp)
 	

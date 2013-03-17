@@ -11,15 +11,15 @@
 #include "AbstractSelector.h"
 
 AbstractSelector::AbstractSelector(
-		std::vector<int>* inIds,
+		const std::vector<int>& inIds,
 		SelectorType inType,
-		long inSeed) : ids(inIds), type(inType), seed(inSeed), K(inIds->size()) {
+		long inSeed) : ids(inIds), type(inType), seed(inSeed), K(inIds.size()) {
 
 	// Set up number of exchangeable objects
 	if (type == SUBJECT) {
-		N = *(std::max_element(ids->begin(), ids->end())) + 1;
+		N = *(std::max_element(ids.begin(), ids.end())) + 1;
 	} else {
-		N = ids->size();
+		N = ids.size();
 	}
 
 	// Set up seed
@@ -38,8 +38,4 @@ AbstractSelector::AbstractSelector(
 	}
 }
 
-AbstractSelector::~AbstractSelector() {
-	if (ids) {
-		delete ids;
-	}
-}
+AbstractSelector::~AbstractSelector() { /* nothing */ }
