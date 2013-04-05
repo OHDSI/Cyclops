@@ -56,20 +56,20 @@ if(NOT generated_file)
 endif()
 
 # Set these up as variables to make reading the generated file easier
-set(CMAKE_COMMAND "/Applications/CMake 2.8-0.app/Contents/bin/cmake")
-set(source_file "/Users/tshaddox/Desktop/workspace/full_Bayesian_2/C/codebase/CUDARuntime/CUSPEngine.cu")
-set(NVCC_generated_dependency_file "/Users/tshaddox/Desktop/workspace/full_Bayesian_2/C/codebase/CUDARuntime/CMakeFiles/CUDARuntime_generated_CUSPEngine.cu.o.NVCC-depend")
-set(cmake_dependency_file "/Users/tshaddox/Desktop/workspace/full_Bayesian_2/C/codebase/CUDARuntime/CMakeFiles/CUDARuntime_generated_CUSPEngine.cu.o.depend")
-set(CUDA_make2cmake "/Users/tshaddox/Desktop/workspace/full_Bayesian_2/C/CMake/FindCUDA/make2cmake.cmake")
-set(CUDA_parse_cubin "/Users/tshaddox/Desktop/workspace/full_Bayesian_2/C/CMake/FindCUDA/parse_cubin.cmake")
+set(CMAKE_COMMAND "/Applications/CMake 2.8-10.app/Contents/bin/cmake")
+set(source_file "/Users/tshaddox/Desktop/workspace/full_Bayesian/C/codebase/CUDARuntime/CUSPEngine.cu")
+set(NVCC_generated_dependency_file "/Users/tshaddox/Desktop/workspace/full_Bayesian/C/codebase/CUDARuntime/CMakeFiles/CUDARuntime_generated_CUSPEngine.cu.o.NVCC-depend")
+set(cmake_dependency_file "/Users/tshaddox/Desktop/workspace/full_Bayesian/C/codebase/CUDARuntime/CMakeFiles/CUDARuntime_generated_CUSPEngine.cu.o.depend")
+set(CUDA_make2cmake "/Users/tshaddox/Desktop/workspace/full_Bayesian/C/CMake/FindCUDA/make2cmake.cmake")
+set(CUDA_parse_cubin "/Users/tshaddox/Desktop/workspace/full_Bayesian/C/CMake/FindCUDA/parse_cubin.cmake")
 set(build_cubin OFF)
 # We won't actually use these variables for now, but we need to set this, in
 # order to force this file to be run again if it changes.
-set(generated_file_path "/Users/tshaddox/Desktop/workspace/full_Bayesian_2/C/codebase/CUDARuntime/.")
-set(generated_file_internal "/Users/tshaddox/Desktop/workspace/full_Bayesian_2/C/codebase/CUDARuntime/./CUDARuntime_generated_CUSPEngine.cu.o")
-set(generated_cubin_file_internal "/Users/tshaddox/Desktop/workspace/full_Bayesian_2/C/codebase/CUDARuntime/./CUDARuntime_generated_CUSPEngine.cu.o.cubin.txt")
+set(generated_file_path "/Users/tshaddox/Desktop/workspace/full_Bayesian/C/codebase/CUDARuntime/.")
+set(generated_file_internal "/Users/tshaddox/Desktop/workspace/full_Bayesian/C/codebase/CUDARuntime/./CUDARuntime_generated_CUSPEngine.cu.o")
+set(generated_cubin_file_internal "/Users/tshaddox/Desktop/workspace/full_Bayesian/C/codebase/CUDARuntime/./CUDARuntime_generated_CUSPEngine.cu.o.cubin.txt")
 
-set(CUDA_NVCC_EXECUTABLE "/Developer/NVIDIA/CUDA-5.0/bin/nvcc")
+set(CUDA_NVCC_EXECUTABLE "/usr/local/cuda/bin/nvcc")
 set(CUDA_NVCC_FLAGS ";;")
 # Build specific configuration flags
 set(CUDA_NVCC_FLAGS_DEBUG ";;")
@@ -77,7 +77,7 @@ set(CUDA_NVCC_FLAGS_MINSIZEREL ";;")
 set(CUDA_NVCC_FLAGS_RELEASE ";;")
 set(CUDA_NVCC_FLAGS_RELWITHDEBINFO ";;")
 set(nvcc_flags "-m64")
-set(CUDA_NVCC_INCLUDE_ARGS "-I/Users/tshaddox/Desktop/workspace/full_Bayesian_2/C/codebase/CUDARuntime;-I/Developer/NVIDIA/CUDA-5.0/include;-I/Users/tshaddox/Desktop/workspace/full_Bayesian_2/C/codebase;-I/Developer/NVIDIA/CUDA-5.0/include")
+set(CUDA_NVCC_INCLUDE_ARGS "-I/Users/tshaddox/Desktop/workspace/full_Bayesian/C/codebase/CUDARuntime;-I/usr/local/cuda/include;-I/Users/tshaddox/Desktop/workspace/full_Bayesian/C/codebase;-I/usr/local/cuda/include")
 set(format_flag "-c")
 
 if(build_cubin AND NOT generated_cubin_file)
@@ -86,11 +86,11 @@ endif()
 
 # This is the list of host compilation flags.  It C or CXX should already have
 # been chosen by FindCUDA.cmake.
-set(CMAKE_HOST_FLAGS  -O3 -g )
-set(CMAKE_HOST_FLAGS_DEBUG  -O3 -g -g -pg)
+set(CMAKE_HOST_FLAGS  -O3 -g -pg -O3 )
+set(CMAKE_HOST_FLAGS_DEBUG  -O3 -g -pg -O3 -g -pg)
 set(CMAKE_HOST_FLAGS_MINSIZEREL -Os -DNDEBUG)
 set(CMAKE_HOST_FLAGS_RELEASE -O3 -DNDEBUG)
-set(CMAKE_HOST_FLAGS_RELWITHDEBINFO -O2 -g)
+set(CMAKE_HOST_FLAGS_RELWITHDEBINFO -O2 -g -DNDEBUG)
 
 # Take the compiler flags and package them up to be sent to the compiler via -Xcompiler
 set(nvcc_host_compiler_flags "")

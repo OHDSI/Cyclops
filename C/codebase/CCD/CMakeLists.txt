@@ -12,8 +12,12 @@ include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 find_path(BOOST_INCLUDE_DIR
 	NAMES boost
 	DOCS "Location of boost header file"
-	PATHS "/Users/trevorshaddox/Desktop/workspace/boost_1_51_0")
-
+	PATHS "/Users/tshaddox/Desktop/workspace/boost_1_53_0")
+	
+find_path(EIGEN_INCLUDE_DIR
+	NAMES Eigen
+	DOCS "Location of boost header files"
+	PATHS "/Users/tshaddox/Desktop/workspace/eigen")
 
 	
 #find_library(GSL_LIBRARY
@@ -71,6 +75,7 @@ include_directories(${GSL_INCLUDE_DIR}
 					${CUDA_INCLUDE_DIR}
 					${MTL_INCLUDE_DIR}
 					${BOOST_INCLUDE_DIR}
+					${EIGEN_INCLUDE_DIR}
 					)
 
 set(SOURCE_FILES
@@ -116,6 +121,7 @@ if(CUDA_FOUND)
  	cuda_add_executable(ccd ${SOURCE_FILES})
  	target_link_libraries(ccd CUDADriver)
 	target_link_libraries(ccd ${BOOST_INCLUDE_LIBRARY})
+	target_link_libraries(ccd ${EIGEN_INCLUDE_LIBRARY})
 	target_link_libraries(ccd CUDARuntime)
 else(CUDA_FOUND)
 	add_executable(ccd ${SOURCE_FILES})

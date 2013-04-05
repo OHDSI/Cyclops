@@ -4,8 +4,15 @@ find_path(BOOST_INCLUDE_DIR
 	NAMES boost
 	DOCS "Location of boost header file"
 	PATHS "/Users/trevorshaddox/Desktop/workspace/boost_1_51_0")
+		
+find_path(EIGEN_INCLUDE_DIR
+	NAMES Eigen
+	DOCS "Location of boost header files"
+	PATHS "/Users/tshaddox/Desktop/workspace/eigen")
+	
 	
 include_directories(${BOOST_INCLUDE_DIR})
+include_directories(${EIGEN_INCLUDE_DIR})
 
 
 
@@ -51,7 +58,12 @@ if(CUDA_FOUND)
  		set(CUDA_NVCC_FLAGS -arch=sm_20) 		
  	endif(APPLE) 	
  	cuda_add_executable(ccd-dp ${SOURCE_FILES})
- 	target_link_libraries(ccd-dp CUDADriver-dp)
+ #	target_link_libraries(ccd-dp CUDADriver-dp)
+ 	target_link_libraries(ccd-dp CUDADriver)
+	target_link_libraries(ccd-dp ${BOOST_INCLUDE_LIBRARY})
+	target_link_libraries(ccd-dp ${EIGEN_INCLUDE_LIBRARY})
+	target_link_libraries(ccd-dp CUDARuntime)
+ 	
 else(CUDA_FOUND)
 	add_definitions(-DDOUBLE_PRECISION)	
 	add_executable(ccd-dp ${SOURCE_FILES})

@@ -2,7 +2,7 @@ CUDA_INCLUDE_DIRECTORIES(
   ${CMAKE_CURRENT_SOURCE_DIR}
   )
   
-#include_directories (${CMAKE_SOURCE_DIR}/codebase ${CUDA_INCLUDE_DIRS})
+include_directories (${CMAKE_SOURCE_DIR}/codebase ${CUDA_INCLUDE_DIRS})
 
 message("Cmake current = " ${CMAKE_CURRENT_SOURCE_DIR})
 message("cmake source / codebase = "  ${CMAKE_SOURCE_DIR}/codebase)

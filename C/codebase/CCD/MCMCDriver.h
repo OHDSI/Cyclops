@@ -30,6 +30,7 @@ public:
 	void generateCholesky();
 
 	void initializeHessian();
+	void clearHessian();
 
 private:
 	InputReader* reader;
@@ -49,8 +50,6 @@ private:
 	vector<double> BetaValues;
 
 	vector<vector<bsccs::real> > hessian;
-
-	vector<vector<bsccs::real> > cholesky;
 
 	int J;
 

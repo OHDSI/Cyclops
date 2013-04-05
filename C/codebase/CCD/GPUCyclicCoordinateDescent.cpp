@@ -189,22 +189,23 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	hHessian = hGradient + alignedGHCacheSize;
 
 
-//	cerr << "Memory allocate 5" << endl;
-	// Allocate computed indices for sparse matrix operations
-//	dXFullRowOffsets = gpu->AllocateIntMemory(N+1);
-//	vector<int> rowOffsets(N + 1);
-//	int offset = 0;
-//	int currentPid = -1;
-//	for (int i = 0; i < K; i++) {
-//		int thisPid = hPid[i];
-//		if (thisPid != currentPid) {
-//			rowOffsets[thisPid] = offset;
-//			currentPid = thisPid;
-//		}
-//		offset++;
-//	}
-//	rowOffsets[N] = offset;
-//	gpu->MemcpyHostToDevice(dXFullRowOffsets, &rowOffsets[0], sizeof(int) * (N + 1));
+	//tshaddox uncomment
+	cerr << "Memory allocate 5" << endl;
+	//Allocate computed indices for sparse matrix operations
+	dXFullRowOffsets = gpu->AllocateIntMemory(N+1);
+	vector<int> rowOffsets(N + 1);
+	int offset = 0;
+	int currentPid = -1;
+	for (int i = 0; i < K; i++) {
+		int thisPid = hPid[i];
+		if (thisPid != currentPid) {
+			rowOffsets[thisPid] = offset;
+			currentPid = thisPid;
+		}
+		offset++;
+	}
+	rowOffsets[N] = offset;
+	gpu->MemcpyHostToDevice(dXFullRowOffsets, &rowOffsets[0], sizeof(int) * (N + 1));
 
 //	cerr << "Memory allocate 6" << endl;
 
@@ -286,7 +287,7 @@ GPUCyclicCoordinateDescent::~GPUCyclicCoordinateDescent() {
 //	gpu->FreeMemory(dEta);
 	gpu->FreeMemory(dNEvents);
 //	gpu->FreeMemory(dPid);
-//	gpu->FreeMemory(dXFullRowOffsets);
+	gpu->FreeMemory(dXFullRowOffsets);
 	gpu->FreeMemory(dOffsExpXBeta);
 //	gpu->FreeMemory(dXOffsExpXBeta);
 
@@ -370,7 +371,7 @@ double GPUCyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 }
 
 void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
-	
+
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::updateXBeta\n");
 #endif   	
@@ -399,14 +400,15 @@ void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 }
 
 void GPUCyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int index) {
-
+	cout << "here???" << endl;
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering  GPUCylicCoordinateDescent::computeRemainingStatistics\n");
 #endif  
 
     if (allStats) {
     	// NEW
-//    	kernels->computeIntermediates(dOffsExpXBeta, dDenomPid, dOffs, dXBeta, dXFullRowOffsets, K, N, allStats);
+    	cout << "here!?" << endl;
+    	//kernels->computeIntermediates(dOffsExpXBeta, dDenomPid, dOffs, dXBeta, dXFullRowOffsets, K, N, allStats);
     	CyclicCoordinateDescent::computeRemainingStatistics(true, index);
     	gpu->MemcpyHostToDevice(dDenomPid, denomPid, sizeof(bsccs::real) * N);
     	gpu->MemcpyHostToDevice(dOffsExpXBeta, offsExpXBeta, sizeof(bsccs::real) * K);

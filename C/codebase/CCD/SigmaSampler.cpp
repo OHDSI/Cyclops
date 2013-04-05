@@ -64,7 +64,7 @@ namespace bsccs {
 		boost::gamma_distribution<> gd( shape );
 		boost::variate_generator<boost::mt19937&,boost::gamma_distribution<> > var_gamma( rng, gd );
 
-		double newValue = 1/scale*var_gamma();
+		double newValue = 1/scale*var_gamma();  //tshaddox comment out
 
 		SigmaSquared->set(0, newValue);
 		//SigmaSquared->logParameter();

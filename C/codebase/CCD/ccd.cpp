@@ -37,6 +37,7 @@
 
 //#include <R.h>
 
+#define CUDA_TRS
 
 #ifdef CUDA
 	#include "GPUCyclicCoordinateDescent.h"

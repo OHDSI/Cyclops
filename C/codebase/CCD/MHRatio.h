@@ -48,6 +48,7 @@ namespace bsccs {
 		double storedPBetaCurrent;
 		bool storedValuesUpToDate;
 
+
 		double acceptanceRatioNumerator;
 		double acceptanceRatioDenominator;
 

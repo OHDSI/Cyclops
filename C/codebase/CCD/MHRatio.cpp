@@ -28,7 +28,7 @@
 namespace bsccs{
 
 MHRatio::MHRatio(){
-	sigmaSampleTuningParameter = 100; // How frequently we sample sigma is determined by this
+	storedValuesUpToDate = false;
 }
 
 MHRatio::~MHRatio(){
@@ -44,12 +44,15 @@ void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 // Compute log Likelihood and log prior
 	ccd.resetBeta();
 	ccd.setBeta(*betaPossible);
+	cout << "logging Beta in MHRatio:evalulate" << endl;
+	//Beta->logParameter();
+	cout << "done logging" << endl;
 
 	double fBetaPossible = ccd.getLogLikelihood();
 	double pBetaPossible = ccd.getLogPrior();
 
 // Have we changed the Beta Values?  If so, get new Log Likelihood and prior values...
-	//if (Beta->getChangeStatus()) {
+	//if (!storedValuesUpToDate) {
 
 		vector<double> * betaOldValues = Beta->returnStoredValuesPointer();
 		ccd.setBeta(*betaOldValues);   // Just keep track of current logLikelihood... its a number, cache, do not recompute
@@ -82,6 +85,7 @@ void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 // This is the Metropolis step
 	if (alpha > uniformRandom) {
 		Beta->setChangeStatus(true);
+		storedValuesUpToDate = false;
 #ifdef Debug_TRS
 		cout << "--------------  Change Beta ------------------" << endl;
 #endif
@@ -90,6 +94,7 @@ void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 		cout << "##############  Reject Beta ##################" << endl;
 #endif
 		Beta->setChangeStatus(false);
+		storedValuesUpToDate = true;
 		Beta->restore();
 	}
 

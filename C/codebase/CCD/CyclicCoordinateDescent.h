@@ -10,7 +10,7 @@
 
 
 
-//#include "CUDARuntime/CUSPEngine.h"
+#include "CUDARuntime/CUSPEngine.h"
 
 #include "CompressedDataMatrix.h"
 #include "InputReader.h"
@@ -146,7 +146,7 @@ public:
 	bsccs::real* hBeta; //tshaddox change TEMPORARY for Parameter testing...
 	double sigma2Beta;  //tshaddox change TEMPORARY for Parameter testing...
 
-	//CUSPEngine runCuspTest;
+	CUSPEngine runCuspTest;
 
 	SparseRowVector hXI_Transpose;
 
@@ -186,6 +186,8 @@ protected:
 	void updateXBetaImpl(bsccs::real delta, int index);
 
 	void updateXBetaImplHand(bsccs::real realDelta, int index);
+
+	virtual void computeRemainingStatistics_GPU_TRS();
 
 	virtual void computeRemainingStatistics(bool skip, int index);
 	

@@ -61,24 +61,28 @@ void CredibleIntervals::computeCredibleIntervals(vector<vector<double> > * BetaV
 
 	//Write Beta Data to a file
 	std::stringstream ss;
-	ss << "/Users/trevorshaddox/Desktop/CredibleIntervals_betadata_b" << 100*betaProbability << "s" << 100*sigmaProbability << "big.csv";
+	ss << "/Users/tshaddox/Desktop/CredibleIntervals_beta_simulated_postMatching_notCleared.csv";
 	string fileName = ss.str();
 	ofstream outLog(fileName.c_str());
 
 	string sep(","); // TODO Make option
 
-	for (int j = 0; j < nSamples; ++j) {
+	//Thinning...
+	int thinningAmount = 1;
+
+	for (int j = 0; j < nSamples;) {
 		for (int k = 0; k < betaSize; k++) {
 			outLog << (*BetaValues)[j][k] << sep;
 		}
 		outLog << endl;
+		j = j + thinningAmount;
 	}
 	outLog.close();
 	nSamples = SigmaSquaredValues->size();
 
 	//Write Sigma Data to a file
 	std::stringstream ss2;
-	ss2 << "/Users/trevorshaddox/Desktop/CredibleIntervals_sigmadata_b" << 100*betaProbability << "s" << 100*sigmaProbability << "big.csv";
+	ss2 << "/Users/tshaddox/Desktop/CredibleIntervals_sigma_simulated_postMatching_notCleared.csv";
 	string fileName2 = ss2.str();
 	ofstream outLog2(fileName2.c_str());
 

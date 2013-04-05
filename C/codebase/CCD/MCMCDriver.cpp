@@ -31,10 +31,10 @@ namespace bsccs {
 
 
 MCMCDriver::MCMCDriver(InputReader * inReader): reader(inReader) {
-	maxIterations = 20000;
+	maxIterations = 100000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
-	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies the hessian
+	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies
 	acceptanceRatioTarget = 0.25;
 }
 
@@ -43,6 +43,15 @@ void MCMCDriver::initializeHessian() {
 	for (int i = 0; i < J; i ++){
 		vector<bsccs::real> columnInHessian(J,0);
 		hessian.push_back(columnInHessian);
+	}
+}
+
+void MCMCDriver::clearHessian() {
+
+	for (int i = 0; i < J; i ++){
+		for (int j = 0; j < J; j++) {
+			hessian[j][i] = 0;
+		}
 	}
 }
 
@@ -75,9 +84,12 @@ void MCMCDriver::drive(
 
 	ccd.setUpHessianComponents();
 	initializeHessian();
+
+	double loglike = ccd.getLogLikelihood();
+
 	ccd.getHessian(&hessian);
 
-	//ccd.computeXBeta_GPU_TRS_initialize();
+	ccd.computeXBeta_GPU_TRS_initialize();
 
 	generateCholesky();  //Inverts the cholesky too
 
@@ -105,8 +117,8 @@ void MCMCDriver::drive(
 		//Select a sample beta vector
 		if (Beta.getProbabilityUpdate() > uniformRandom) {
 			getBeta ++;
-
-			sampler.sample(&Beta_Hat, &Beta, &cholesky, rng, acceptanceTuningParameter,  CholDecom);
+			sampler.sample(&Beta_Hat, &Beta, rng, acceptanceTuningParameter,  CholDecom);
+			cout << "acceptanceTuningParameter = " <<  acceptanceTuningParameter << endl;
 			//Compute the acceptance ratio, and decide if Beta and sigma should be changed
 			MHRatio MHstep;
 			MHstep.evaluate(&Beta, &SigmaSquared, ccd, rng);
@@ -136,7 +148,7 @@ void MCMCDriver::drive(
 			double tolerance = 5E-4;
 
 			ccd.update(ccdIterations, ZHANG_OLES, tolerance);
-			initializeHessian();
+			clearHessian();
 			ccd.getHessian(&hessian);
 			generateCholesky();
 			Beta_Hat.set(ccd.hBeta);
@@ -150,11 +162,12 @@ void MCMCDriver::drive(
 
 		cout << "getBeta = " << getBeta << endl;
 		cout << "getSigma = " << getSigma << endl;
+		cout << "number of acceptances = " << numberAcceptances << endl;
 		cout << "Starting Credible Intervals" << endl;
 
 		cout << "at End, nBetaSamples = " << nBetaSamples << endl;
 		cout << "at End, nSigmaSquaredSamples = " << nSigmaSquaredSamples << endl;
-		cout << "number of acceptances = " << numberAcceptances << endl;
+
 		CredibleIntervals intervalsToReport;
 		intervalsToReport.computeCredibleIntervals(&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared, Beta.getProbabilityUpdate(), SigmaSquared.getProbabilityUpdate());
 
@@ -169,44 +182,27 @@ void MCMCDriver::generateCholesky() {
 	Eigen::MatrixXf HessianMatrix(J, J);
 	Eigen::MatrixXf CholeskyDecompL(J, J);
 
-	// initialize Cholesky matrix
-	for (int i = 0; i < J; i ++){
-		vector<bsccs::real> columnInCholesky(J,0);
-		cholesky.push_back(columnInCholesky);
-	}
-
 	//Convert to Eigen for Cholesky decomposition
 	for (int i = 0; i < J; i++) {
 		for (int j = 0; j < J; j++) {
-			HessianMatrix(i, j) = hessian[i][j];
+			HessianMatrix(i, j) = -hessian[i][j];
 		}
 	}
 
 	//Perform Cholesky Decomposition
-	//Eigen::LLT<Eigen::MatrixXf> CholDecom(HessianMatrix);
-
+	Eigen::LLT<Eigen::MatrixXf> CholDecomTest(HessianMatrix);
 
 	CholDecom.compute(HessianMatrix);
 
-
-	Eigen::VectorXf b = Eigen::VectorXf::Random(J);
 	CholeskyDecompL = CholDecom.matrixL();
-	Eigen::MatrixXf CholeskyInverted = CholeskyDecompL.inverse();
 
-
-	for (int i = 0; i < J; i ++) {
-		for (int j = 0; j < J; j++) {
-			cholesky[i][j] = CholeskyInverted(i,j);
-		}
-	}
-
-	/*
-	cout << "Printing Inverted Cholesky" << endl;
+/*
+	cout << "Printing Cholesky" << endl;
 
 	for (int i = 0; i < J; i ++) {
 		cout << "[";
 			for (int j = 0; j < J; j++) {
-				cout << CholeskyInverted(i,j) << ", ";
+				cout << CholeskyDecompL(i,j) << ", ";
 			}
 		cout << "]" << endl;
 		}

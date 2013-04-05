@@ -60,7 +60,7 @@ namespace bsccs{
 	void Parameter::logParameter() {
 		cout << "Parameter value is <";
 		for (int i = 0; i < size; i++) {
-			cout << parameterValues[i] << ",";
+			cout << parameterValues[i] << ", ";
 		}
 		cout << ">" << endl;
 

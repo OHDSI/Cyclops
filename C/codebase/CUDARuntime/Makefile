@@ -8,7 +8,7 @@ default_target: all
 #=============================================================================
 # Special targets provided by cmake.
 
-# Disable implicit rules so canoncical targets will work.
+# Disable implicit rules so canonical targets will work.
 .SUFFIXES:
 
 # Remove some rules from gmake that .SUFFIXES does not remove.
@@ -30,19 +30,22 @@ cmake_force:
 SHELL = /bin/sh
 
 # The CMake executable.
-CMAKE_COMMAND = "/Applications/CMake 2.8-0.app/Contents/bin/cmake"
+CMAKE_COMMAND = "/Applications/CMake 2.8-10.app/Contents/bin/cmake"
 
 # The command to remove a file.
-RM = "/Applications/CMake 2.8-0.app/Contents/bin/cmake" -E remove -f
+RM = "/Applications/CMake 2.8-10.app/Contents/bin/cmake" -E remove -f
+
+# Escaping for special characters.
+EQUALS = =
 
 # The program to use to edit the cache.
-CMAKE_EDIT_COMMAND = "/Applications/CMake 2.8-0.app/Contents/bin/ccmake"
+CMAKE_EDIT_COMMAND = "/Applications/CMake 2.8-10.app/Contents/bin/ccmake"
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /Users/tshaddox/Desktop/workspace/full_Bayesian_2/C
+CMAKE_SOURCE_DIR = /Users/tshaddox/Desktop/workspace/full_Bayesian/C
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /Users/tshaddox/Desktop/workspace/full_Bayesian_2/C
+CMAKE_BINARY_DIR = /Users/tshaddox/Desktop/workspace/full_Bayesian/C
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -50,7 +53,7 @@ CMAKE_BINARY_DIR = /Users/tshaddox/Desktop/workspace/full_Bayesian_2/C
 # Special rule for the target edit_cache
 edit_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
-	"/Applications/CMake 2.8-0.app/Contents/bin/ccmake" -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+	"/Applications/CMake 2.8-10.app/Contents/bin/ccmake" -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
 .PHONY : edit_cache
 
 # Special rule for the target edit_cache
@@ -60,7 +63,7 @@ edit_cache/fast: edit_cache
 # Special rule for the target rebuild_cache
 rebuild_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
-	"/Applications/CMake 2.8-0.app/Contents/bin/cmake" -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+	"/Applications/CMake 2.8-10.app/Contents/bin/cmake" -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
 .PHONY : rebuild_cache
 
 # Special rule for the target rebuild_cache
@@ -69,14 +72,14 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	cd /Users/tshaddox/Desktop/workspace/full_Bayesian_2/C && $(CMAKE_COMMAND) -E cmake_progress_start /Users/tshaddox/Desktop/workspace/full_Bayesian_2/C/CMakeFiles /Users/tshaddox/Desktop/workspace/full_Bayesian_2/C/codebase/CUDARuntime/CMakeFiles/progress.marks
-	cd /Users/tshaddox/Desktop/workspace/full_Bayesian_2/C && $(MAKE) -f CMakeFiles/Makefile2 codebase/CUDARuntime/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/tshaddox/Desktop/workspace/full_Bayesian_2/C/CMakeFiles 0
+	cd /Users/tshaddox/Desktop/workspace/full_Bayesian/C && $(CMAKE_COMMAND) -E cmake_progress_start /Users/tshaddox/Desktop/workspace/full_Bayesian/C/CMakeFiles /Users/tshaddox/Desktop/workspace/full_Bayesian/C/codebase/CUDARuntime/CMakeFiles/progress.marks
+	cd /Users/tshaddox/Desktop/workspace/full_Bayesian/C && $(MAKE) -f CMakeFiles/Makefile2 codebase/CUDARuntime/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/tshaddox/Desktop/workspace/full_Bayesian/C/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
 clean:
-	cd /Users/tshaddox/Desktop/workspace/full_Bayesian_2/C && $(MAKE) -f CMakeFiles/Makefile2 codebase/CUDARuntime/clean
+	cd /Users/tshaddox/Desktop/workspace/full_Bayesian/C && $(MAKE) -f CMakeFiles/Makefile2 codebase/CUDARuntime/clean
 .PHONY : clean
 
 # The main clean target
@@ -85,22 +88,22 @@ clean/fast: clean
 
 # Prepare targets for installation.
 preinstall: all
-	cd /Users/tshaddox/Desktop/workspace/full_Bayesian_2/C && $(MAKE) -f CMakeFiles/Makefile2 codebase/CUDARuntime/preinstall
+	cd /Users/tshaddox/Desktop/workspace/full_Bayesian/C && $(MAKE) -f CMakeFiles/Makefile2 codebase/CUDARuntime/preinstall
 .PHONY : preinstall
 
 # Prepare targets for installation.
 preinstall/fast:
-	cd /Users/tshaddox/Desktop/workspace/full_Bayesian_2/C && $(MAKE) -f CMakeFiles/Makefile2 codebase/CUDARuntime/preinstall
+	cd /Users/tshaddox/Desktop/workspace/full_Bayesian/C && $(MAKE) -f CMakeFiles/Makefile2 codebase/CUDARuntime/preinstall
 .PHONY : preinstall/fast
 
 # clear depends
 depend:
-	cd /Users/tshaddox/Desktop/workspace/full_Bayesian_2/C && $(CMAKE_COMMAND) -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
+	cd /Users/tshaddox/Desktop/workspace/full_Bayesian/C && $(CMAKE_COMMAND) -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
 .PHONY : depend
 
 # Convenience name for target.
 codebase/CUDARuntime/CMakeFiles/CUDARuntime.dir/rule:
-	cd /Users/tshaddox/Desktop/workspace/full_Bayesian_2/C && $(MAKE) -f CMakeFiles/Makefile2 codebase/CUDARuntime/CMakeFiles/CUDARuntime.dir/rule
+	cd /Users/tshaddox/Desktop/workspace/full_Bayesian/C && $(MAKE) -f CMakeFiles/Makefile2 codebase/CUDARuntime/CMakeFiles/CUDARuntime.dir/rule
 .PHONY : codebase/CUDARuntime/CMakeFiles/CUDARuntime.dir/rule
 
 # Convenience name for target.
@@ -109,7 +112,7 @@ CUDARuntime: codebase/CUDARuntime/CMakeFiles/CUDARuntime.dir/rule
 
 # fast build rule for target.
 CUDARuntime/fast:
-	cd /Users/tshaddox/Desktop/workspace/full_Bayesian_2/C && $(MAKE) -f codebase/CUDARuntime/CMakeFiles/CUDARuntime.dir/build.make codebase/CUDARuntime/CMakeFiles/CUDARuntime.dir/build
+	cd /Users/tshaddox/Desktop/workspace/full_Bayesian/C && $(MAKE) -f codebase/CUDARuntime/CMakeFiles/CUDARuntime.dir/build.make codebase/CUDARuntime/CMakeFiles/CUDARuntime.dir/build
 .PHONY : CUDARuntime/fast
 
 # Help Target
@@ -132,6 +135,6 @@ help:
 # No rule that depends on this can have commands that come from listfiles
 # because they might be regenerated.
 cmake_check_build_system:
-	cd /Users/tshaddox/Desktop/workspace/full_Bayesian_2/C && $(CMAKE_COMMAND) -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
+	cd /Users/tshaddox/Desktop/workspace/full_Bayesian/C && $(CMAKE_COMMAND) -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
 .PHONY : cmake_check_build_system
 

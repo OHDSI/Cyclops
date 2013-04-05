@@ -1,4 +1,4 @@
-# Install script for directory: /Users/tshaddox/Desktop/workspace/full_Bayesian_2/C/codebase/CUDARuntime
+# Install script for directory: /Users/tshaddox/Desktop/workspace/full_Bayesian/C/codebase/CUDARuntime
 
 # Set the install prefix
 IF(NOT DEFINED CMAKE_INSTALL_PREFIX)

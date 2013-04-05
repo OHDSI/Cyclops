@@ -20,6 +20,7 @@
 #include "IndependenceSampler.h"
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
+#include <Eigen/Core>
 
 
 #include <boost/random.hpp>
@@ -39,10 +40,9 @@ IndependenceSampler::~IndependenceSampler() {
 }
 
 void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta,
-		std::vector<std::vector<bsccs::real> > * cholesky, boost::mt19937& rng, double tuningParameter,
+		boost::mt19937& rng, double tuningParameter,
 		Eigen::LLT<Eigen::MatrixXf> & choleskyEigen) {
 	//TODO Better rng passing...  Make wrapper
-
 
 
 	Beta->store();
@@ -59,31 +59,25 @@ void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta,
 	Eigen::VectorXf b = Eigen::VectorXf::Random(sizeOfSample);
 	for (int i = 0; i < sizeOfSample; i++) {
 		bsccs::real normalValue = var_nor();
-		//independentNormal.push_back(normalValue);
-		//cout << "independent normal " << independentNormal[i] << endl;
 		b[i] = exp(tuningParameter)*normalValue;
 		//cout << "b[i] " << b[i] << endl;
 	}
 
-	/*
-	for (int i = 0; i < sizeOfSample; i++) {
-		bsccs::real actualValue = 0;
-		for (int j = 0; j < sizeOfSample; j++) {
-			actualValue += exp(tuningParameter)*cholesky[i][j]*independentNormal[j];
-		}
-		Beta->set(i, actualValue);// + Beta_Hat->get(i));
-	}
-	*/
-
-
-
-	choleskyEigen.matrixL().solveInPlace(b);
+	(choleskyEigen.matrixU()).solveInPlace(b);
 
 
 	for (int i = 0; i < sizeOfSample; i++) {
 		Beta->set(i, b[i] + Beta_Hat->get(i));
 	}
+	/*
+	cout << "Printing Beta_Hat" << endl;
+	Beta_Hat->logParameter();
+	cout << "That was Beta_Hat" << endl;
 
+	cout <<"PRINTING BETA" << endl;
+	Beta->logParameter();
+	cout <<"THAT WAS BETA" << endl;
+	*/
 }
 
 

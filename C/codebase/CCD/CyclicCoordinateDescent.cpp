@@ -441,6 +441,17 @@ void CyclicCoordinateDescent::setUpHessianComponents(){
 	//vector<vector<int> > kValues;
 	//vector<vector<bsccs::real> > numerPidValuesMatrix; // [J][N] Matrix
 
+	if (!xBetaKnown) {
+		cout << "!xBetaKnown" << endl;
+		computeXBeta();
+		computeRemainingStatistics(true, 0); //Need to do this before running with fixed values
+		for(int i = 0; i < J; i ++){
+			cout << "J = " << J << endl;
+			cout << "i = " << i << endl;
+			computeNumeratorForGradient(i);
+		}
+	}
+
 	giVector.assign(N,0);
 	//Set up gi values
 	for (int j = 0; j < K; j++) {
@@ -489,6 +500,7 @@ void CyclicCoordinateDescent::setUpHessianComponents(){
 
 void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHessian) {
 	//naming of variables consistent with Suchard write up page 23 Appendix A
+
 
 
 
@@ -557,11 +569,11 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 					for (int j2 = j+1; j2 < numberOfDrugsAffected; j2 ++) {
 						int secondDrug = jValuesPerNMatrix[i][j2];
 						bsccs::real FirstTermjj2 = ni*numerPidValuesMatrix[firstDrug][i]*numerPidValuesMatrix[secondDrug][i] / (denomPid[i]*denomPid[i]);
-						(*blankHessian)[firstDrug][secondDrug] = (*blankHessian)[firstDrug][secondDrug] - FirstTermjj2; //WRONG SIGN
+						(*blankHessian)[firstDrug][secondDrug] = (*blankHessian)[firstDrug][secondDrug] + FirstTermjj2; //RIGHT? SIGN
 						(*blankHessian)[secondDrug][firstDrug] = (*blankHessian)[firstDrug][secondDrug];
 					}
 					bsccs::real diagonalTerm = ni*numerPidValuesMatrix[firstDrug][i]*numerPidValuesMatrix[firstDrug][i] / (denomPid[i]*denomPid[i]);
-					(*blankHessian)[firstDrug][firstDrug] = (*blankHessian)[firstDrug][firstDrug] - diagonalTerm; //WRONG SIGN
+					(*blankHessian)[firstDrug][firstDrug] = (*blankHessian)[firstDrug][firstDrug] + diagonalTerm; //RIGHT? SIGN
 				}
 			}
 
@@ -581,12 +593,13 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 					for (int q = 0; q < compressedVectorLength; q ++) {
 						int columnNumber = hXI_Transpose.getCompressedRowVector(k)[q];
 						bsccs:: real intermediateValue = ni*offsExpXBeta[k]/denomPid[hPid[k]];
-						(*blankHessian)[rowNumber][columnNumber] += intermediateValue; //ni*offsExpXBeta[k]/denomPid[hPid[k]];
+//						(*blankHessian)[rowNumber][columnNumber] += intermediateValue; //ni*offsExpXBeta[k]/denomPid[hPid[k]];
 					}
 				}
 			}
 */
 			//NEW code
+			//hXI_Transpose.printSparseMatrix();
 			for (int k = 0; k < K; k ++) { // Iterate over the exposures
 				int compressedVectorLength = hXI_Transpose.getNumberOfEntries(k); // Get compressed Column for Drug d
 				int ni = hNEvents[hPid[k]];
@@ -595,10 +608,10 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 					int rowNumber = hXI_Transpose.getCompressedRowVector(k)[p];
 					for (int q = p + 1; q < compressedVectorLength; q ++) {
 						int columnNumber = hXI_Transpose.getCompressedRowVector(k)[q];
-						(*blankHessian)[rowNumber][columnNumber] += intermediateValue; //WRONG SIGN
-						(*blankHessian)[columnNumber][rowNumber] += intermediateValue; //WRONG SIGN
+						(*blankHessian)[rowNumber][columnNumber] -= intermediateValue; //RIGHT? SIGN
+						(*blankHessian)[columnNumber][rowNumber] -= intermediateValue; //RIGHT? SIGN
 					}
-					(*blankHessian)[rowNumber][rowNumber] += intermediateValue; //WRONG SIGN
+					(*blankHessian)[rowNumber][rowNumber] -= intermediateValue; //Right? SIGN
 				}
 			}
 
@@ -611,7 +624,7 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 			break;
 		}
 
-/*
+		/*
 		cout << "blankHessian is " << endl;
 		bsccs::real maxValue = 0;
 		for (int i = 0; i < J; i ++) {
@@ -624,8 +637,8 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 			}
 			cout << "]" << endl;
 		}
-		cout << "Max Value = " << maxValue << endl;
-*/
+		*/
+
 
 }
 
@@ -806,7 +819,7 @@ void CyclicCoordinateDescent::update(
 				cout << "Reached maximum iterations" << endl;
 				done = true;
 			} else {
-				cout << endl;
+		//		cout << endl;
 			}
 		}				
 	}
@@ -1138,13 +1151,13 @@ void CyclicCoordinateDescent::axpy(bsccs::real* y, const bsccs::real alpha, cons
 
 void CyclicCoordinateDescent::computeXBeta_GPU_TRS_initialize() {
 
-	//cout << "INITIALIZING FOR GPU COMPUTATION!" << endl;
-	//runCuspTest.loadXMatrix(hXI_Transpose.offsets, hXI_Transpose.columns, hXI_Transpose.values, J);
+
+	runCuspTest.loadXMatrix(hXI_Transpose.offsets, hXI_Transpose.columns, hXI_Transpose.values, J);
 }
 
 void CyclicCoordinateDescent::computeXBeta_GPU_TRS(void) {
 
-	//runCuspTest.computeMultiplyBeta((float*) hBeta, J, (float*) hXBeta, K);
+	runCuspTest.computeMultiplyBeta((float*) hBeta, J, (float*) hXBeta, K);
 
 	//cout << "Print hXBeta in GPU = ";
 	//printVector(hXBeta, 8, cout);
@@ -1164,9 +1177,8 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 	// clear X\beta
 	zeroVector(hXBeta, K);
 
-	cout << "###########################" << endl;
 
-//#define CUDA_Test
+#define CUDA_Test
 
 #ifdef CUDA_Test
 	computeXBeta_GPU_TRS();
@@ -1315,6 +1327,12 @@ void CyclicCoordinateDescent::updateSufficientStatistics(double delta, int index
 	updateXBeta(delta, index);
 	sufficientStatisticsKnown = true;
 //	computeRemainingStatistics(false);
+}
+
+void CyclicCoordinateDescent::computeRemainingStatistics_GPU_TRS() {
+
+
+
 }
 
 void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int index) { // TODO Rename
