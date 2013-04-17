@@ -667,28 +667,13 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 		}
 	}
 	
-#if 1
-	// Constrain to interior point
-	// TODO Delegate to NonNegativityConstraint class
-//	if (hBeta[index] + delta < 0) {
-//		delta = -hBeta[index];
-//	}
-
-#define TEST
-
-#ifdef TEST
 	if (index == 0) {
 		bsccs::NoConstraint constraint;
 		delta = constraint.getConstrainedDelta(hBeta[index], delta);
 	} else {
-#endif
 		bsccs::NonNegativityConstraint constraint;
 		delta = constraint.getConstrainedDelta(hBeta[index], delta);
-#ifdef TEST
 	}
-#endif
-
-#endif
 
 	return delta;
 }

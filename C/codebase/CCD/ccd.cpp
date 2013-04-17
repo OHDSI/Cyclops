@@ -632,7 +632,7 @@ int main(int argc, char* argv[]) {
 
 	double timePredict;
 	bool doPrediction = false;
-	if (arguments.outputFormat == "prediction") {
+	if (!arguments.doLeaveOneOut && arguments.outputFormat == "prediction") {
 		doPrediction = true;
 		timePredict = predictModel(ccd, modelData, arguments);
 	} else {
