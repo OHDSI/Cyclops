@@ -38,6 +38,7 @@
 //#include <R.h>
 
 #define CUDA_TRS
+//#define Debug_TRS
 
 #ifdef CUDA
 	#include "GPUCyclicCoordinateDescent.h"
@@ -419,11 +420,13 @@ int main(int argc, char* argv[]) {
 	CCDArguments arguments;
 
 
-
 	parseCommandLine(argc, argv, arguments);
 
 	double timeInitialize = initializeModel(&reader, &ccd, arguments);
 
+#ifdef Debug_TRS
+	cout << " /t initialized Model" << endl;
+#endif
 	double timeUpdate;
 	if (arguments.doCrossValidation) {
 		timeUpdate = runCrossValidation(ccd, reader, arguments);

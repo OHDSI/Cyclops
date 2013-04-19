@@ -120,7 +120,7 @@ public:
 	void getHessian(vector<vector<bsccs::real> > * blankHessian);
 
 //	template <typename T>
-	void setBeta(const std::vector<double>& beta);
+	virtual void setBeta(const std::vector<double>& beta);
 
 //	void double getHessianComponent(int i, int j);
 

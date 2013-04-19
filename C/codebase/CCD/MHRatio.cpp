@@ -44,11 +44,13 @@ void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 // Compute log Likelihood and log prior
 	ccd.resetBeta();
 	ccd.setBeta(*betaPossible);
-	cout << "logging Beta in MHRatio:evalulate" << endl;
+	//cout << "logging Beta in MHRatio:evalulate" << endl;
 	//Beta->logParameter();
-	cout << "done logging" << endl;
+	//cout << "done logging" << endl;
 
+	//cout << "\n Calling Log Likelihood " << endl;
 	double fBetaPossible = ccd.getLogLikelihood();
+	//cout << "\n Called Log Likelihood " << endl;
 	double pBetaPossible = ccd.getLogPrior();
 
 // Have we changed the Beta Values?  If so, get new Log Likelihood and prior values...

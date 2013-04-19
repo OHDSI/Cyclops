@@ -36,6 +36,8 @@ protected:
 	
 	using CyclicCoordinateDescent::hXI;
 	
+	virtual void setBeta(const std::vector<double>& beta);
+
 	virtual void resetBeta(void);
 
 	virtual void computeNEvents(void);
@@ -65,9 +67,9 @@ private:
 	GPUPtr* dXI;
 	GPUPtr dXColumnLength;
 	GPUPtr dOffs;
-//	GPUPtr dEta;
+	GPUPtr dEta;
 	GPUPtr dNEvents;
-//	GPUPtr dPid;
+	GPUPtr dPid;
 	GPUPtr dXFullRowOffsets;
 #ifndef NO_BETA
 	GPUPtr dBeta;
@@ -78,7 +80,7 @@ private:
 	GPUPtr dDenomPid;
 	GPUPtr dNumerPid;
 	GPUPtr dT1;
-//	GPUPtr dXOffsExpXBeta;
+	GPUPtr dXOffsExpXBeta;
 
 	GPUPtr dGradient;
 	GPUPtr dHessian;
@@ -94,7 +96,7 @@ private:
 	int maxNISize;
 	int avgNISize;
 #endif
-//	int* hColumnRowLength;
+	int* hColumnRowLength;
 
 	GPUPtr dTmpCooRows;
 	GPUPtr dTmpCooVals;

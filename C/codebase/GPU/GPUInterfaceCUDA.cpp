@@ -17,6 +17,8 @@
 #include "GPU/GPUImplHelper.h"
 #include "GPU/GPUInterface.h"
 
+//#define GPU_DEBUG_FLOW
+
 #define SAFE_CUDA(call) { \
                             CUresult error = call; \
                             if(error != CUDA_SUCCESS) { \

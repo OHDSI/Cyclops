@@ -25,13 +25,13 @@
 
 #include <boost/random.hpp>
 
-#define Debug_TRS
+//#define Debug_TRS
 
 namespace bsccs {
 
 
 MCMCDriver::MCMCDriver(InputReader * inReader): reader(inReader) {
-	maxIterations = 100000;
+	maxIterations = 500;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
 	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies
@@ -91,7 +91,25 @@ void MCMCDriver::drive(
 
 	ccd.computeXBeta_GPU_TRS_initialize();
 
-	generateCholesky();  //Inverts the cholesky too
+	generateCholesky();
+
+
+	////////////////////  GPU Test CODE /////////////////
+	/*
+	ccd.resetBeta();
+	vector<double> betaTest;
+	for (int i = 0; i < 3; i ++) {
+		betaTest.push_back(2.00);
+	}
+
+	ccd.setBeta(betaTest);
+
+	double loglike2 = ccd.getLogLikelihood();
+
+	cout << "loglike = " << loglike << endl;
+	cout << "loglike2 = " << loglike2 << endl;
+*/
+	///////////////////                 /////////////////
 
 	// Generate the tools for the MH loop
 	IndependenceSampler sampler;

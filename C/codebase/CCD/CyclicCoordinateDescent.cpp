@@ -374,10 +374,18 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 		computeRemainingStatistics(true, 0); // TODO Check index?
 	}
 
+	getDenominators();
+	//for (int i = 0; i < K; i++) {
+	//	cout << "offsExpXBeta[" << i << "] = " << offsExpXBeta[i] << endl;
+	//	cout << "denomPid[hPid[" << i << "]] = " << denomPid[hPid[i]] << endl;
+	//	cout << "hXBeta[" << i << "] = " << hXBeta[i] << endl;
+	//}
+
+
 //	double sum1 = 0.0;
 //	double sum2 = 0.0;
 
-	getDenominators();
+
 
 	bsccs::real logLikelihood = 0;
 
@@ -446,8 +454,8 @@ void CyclicCoordinateDescent::setUpHessianComponents(){
 		computeXBeta();
 		computeRemainingStatistics(true, 0); //Need to do this before running with fixed values
 		for(int i = 0; i < J; i ++){
-			cout << "J = " << J << endl;
-			cout << "i = " << i << endl;
+			//cout << "J = " << J << endl;
+			//cout << "i = " << i << endl;
 			computeNumeratorForGradient(i);
 		}
 	}
@@ -653,6 +661,7 @@ void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 
 //template <typename T>
 void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
+	//cout << "setBeta in CCD non GPU" << endl;
 	for (int j = 0; j < J; ++j) {
 		hBeta[j] = static_cast<bsccs::real>(beta[j]);
 	}
@@ -731,11 +740,16 @@ void CyclicCoordinateDescent::update(
 		double epsilon
 		) {
 
+#ifdef Debug_TRS
+	cout << "/t starting UPDATE in CCD " << endl;
+#endif
 
 	if (convergenceType != LANGE && convergenceType != ZHANG_OLES) {
 		cerr << "Unknown convergence criterion" << endl;
 		exit(-1);
 	}
+
+
 
 	if (!validWeights) {
 		computeXjEta();
@@ -764,6 +778,9 @@ void CyclicCoordinateDescent::update(
 	}
 	
 
+	//Tshaddox ADDED
+
+	//maxIterations = 2;
 
 	while (!done) {
 	
@@ -771,6 +788,7 @@ void CyclicCoordinateDescent::update(
 		for(int index = 0; index < J; index++) {
 		
 			double delta = ccdUpdateBeta(index);
+			//cout << "delta = " << delta << endl;
 			delta = applyBounds(delta, index);
 			if (delta != 0.0) {
 				sufficientStatisticsKnown = false;
@@ -813,10 +831,10 @@ void CyclicCoordinateDescent::update(
 		//	     << ") (iter:" << iteration << ") ";
 
 			if (epsilon > 0 && conv < epsilon) {
-				cout << "Reached convergence criterion" << endl;
+		//		cout << "Reached convergence criterion" << endl;
 				done = true;
 			} else if (iteration == maxIterations) {
-				cout << "Reached maximum iterations" << endl;
+		//		cout << "Reached maximum iterations" << endl;
 				done = true;
 			} else {
 		//		cout << endl;
@@ -953,6 +971,7 @@ void CyclicCoordinateDescent::computeGradientAndHessianImplHand(int index, doubl
 	}
 	gradient -= hXjEta[index];
 
+
 	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
 }
@@ -972,6 +991,11 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl(int index, double *o
 		);
 	}
 	gradient -= hXjEta[index];
+
+	//for(int i = 0; i < J; i++) {
+	//	cout << "denomPid[" <<i << "] = " << denomPid[i] << " in computeGradientAndHessianImpl" << endl;
+	//}
+
 
 	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
@@ -1079,7 +1103,6 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 
 	double delta;
 
-
 	if (!sufficientStatisticsKnown) {
 		cerr << "Error in state synchronization." << endl;
 		exit(0);		
@@ -1161,12 +1184,13 @@ void CyclicCoordinateDescent::computeXBeta_GPU_TRS(void) {
 
 	//cout << "Print hXBeta in GPU = ";
 	//printVector(hXBeta, 8, cout);
+	//cout << "" << endl;
 }
 
 
 void CyclicCoordinateDescent::computeXBeta(void) {
 	// Separate function for benchmarking
-//	cerr << "Computing X %*% beta" << endl;
+	//cout << "Computing X %*% beta" << endl;
 
 	//	hXBeta = hX * hBeta;
 
@@ -1178,7 +1202,7 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 	zeroVector(hXBeta, K);
 
 
-#define CUDA_Test
+//#define CUDA_Test
 
 #ifdef CUDA_Test
 	computeXBeta_GPU_TRS();
@@ -1346,6 +1370,7 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 		}
 //		cerr << "den[0] = " << denomPid[0] << endl;
 //		exit(-1);
+
 	}
 	sufficientStatisticsKnown = true;
 }
