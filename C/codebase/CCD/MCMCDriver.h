@@ -20,12 +20,12 @@
 namespace bsccs {
 class MCMCDriver {
 public:
-	MCMCDriver(InputReader * inReader);
+	MCMCDriver(InputReader * inReader, std::string MCMCFileName);
 
 	virtual ~MCMCDriver();
 
 	virtual void drive(
-			CyclicCoordinateDescent& ccd, double betaAmount);
+			CyclicCoordinateDescent& ccd, double betaAmount, long int seed);
 
 	void generateCholesky();
 
@@ -33,6 +33,9 @@ public:
 	void clearHessian();
 
 private:
+
+	std::string MCMCFileNameRoot;
+
 	InputReader* reader;
 
 	double acceptanceTuningParameter;

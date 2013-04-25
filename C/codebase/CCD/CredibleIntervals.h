@@ -40,7 +40,8 @@ namespace bsccs {
 
 		~CredibleIntervals();
 
-		void computeCredibleIntervals(vector<vector<double> > * BetaValues, vector<double> * SigmaSquaredValues, double betaProbability, double sigmaProbability);
+		void computeCredibleIntervals(vector<vector<double> > * BetaValues, vector<double> * SigmaSquaredValues,
+				double betaProbability, double sigmaProbability, std::string MCMCFileNameRoot);
 
 		void logResults(const CCDArguments& arguments, std::string conditionId);
 

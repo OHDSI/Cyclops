@@ -126,6 +126,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		//Test MCMC values
 		ValueArg<double> betaAmountArg("q", "betaAmount", "beta amount in MCMC", false, arguments.betaAmount, "bsccs::real");
 		ValueArg<double> sigmaAmountArg("w", "sigmaAmount", "sigma amount in MCMC", false, arguments.sigmaAmount, "bsccs::real");
+		ValueArg<string> MCMCOutFileArg("m", "MCMCFileName", "MCMC output file name", false, "MCMC.txt", "MCMCFileName");
 
 
 
@@ -160,6 +161,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		//for MCMC tshaddox
 		cmd.add(betaAmountArg);
 		cmd.add(sigmaAmountArg);
+		cmd.add(MCMCOutFileArg);
 
 		cmd.add(doCVArg);
 		cmd.add(lowerCVArg);
@@ -189,6 +191,7 @@ void parseCommandLine(std::vector<std::string>& args,
 
 		arguments.betaAmount = betaAmountArg.getValue();
 		arguments.sigmaAmount = sigmaAmountArg.getValue();
+		arguments.MCMCFileName = MCMCOutFileArg.getValue();
 
 		arguments.inFileName = inFileArg.getValue();
 		arguments.outFileName = outFileArg.getValue();
@@ -448,10 +451,10 @@ int main(int argc, char* argv[]) {
 	cout << "Update duration: " << scientific << timeUpdate << endl;
 	
 
-	MCMCDriver testMCMCDriver(reader);
+	MCMCDriver testMCMCDriver(reader, arguments.MCMCFileName);
 
 	cout << "betaAmount = " << arguments.betaAmount << endl;
-	testMCMCDriver.drive(*ccd, arguments.betaAmount);
+	testMCMCDriver.drive(*ccd, arguments.betaAmount, arguments.seed);
 
 	if (ccd)
 		delete ccd;

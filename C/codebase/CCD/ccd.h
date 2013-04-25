@@ -36,6 +36,7 @@ struct CCDArguments {
 
 	double betaAmount;
 	double sigmaAmount;
+	std::string MCMCFileName;
 
 	// Needed for cross-validation
 	bool doCrossValidation;

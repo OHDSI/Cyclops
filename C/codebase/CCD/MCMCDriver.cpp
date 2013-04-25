@@ -30,8 +30,9 @@
 namespace bsccs {
 
 
-MCMCDriver::MCMCDriver(InputReader * inReader): reader(inReader) {
-	maxIterations = 500;
+MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
+	MCMCFileNameRoot = MCMCFileName;
+	maxIterations = 2000000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
 	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies
@@ -60,7 +61,7 @@ MCMCDriver::~MCMCDriver() {
 }
 
 void MCMCDriver::drive(
-		CyclicCoordinateDescent& ccd, double betaAmount) {
+		CyclicCoordinateDescent& ccd, double betaAmount, long int seed) {
 
 	cout << "double = " << betaAmount << endl;
 
@@ -115,7 +116,7 @@ void MCMCDriver::drive(
 	IndependenceSampler sampler;
 
 	//Set Boost rng
-	boost::mt19937 rng;
+	boost::mt19937 rng(seed);
 
 	int getBeta = 0;
 	int getSigma = 0;
@@ -187,7 +188,7 @@ void MCMCDriver::drive(
 		cout << "at End, nSigmaSquaredSamples = " << nSigmaSquaredSamples << endl;
 
 		CredibleIntervals intervalsToReport;
-		intervalsToReport.computeCredibleIntervals(&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared, Beta.getProbabilityUpdate(), SigmaSquared.getProbabilityUpdate());
+		intervalsToReport.computeCredibleIntervals(&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared, Beta.getProbabilityUpdate(), SigmaSquared.getProbabilityUpdate(), MCMCFileNameRoot);
 
 
 }
