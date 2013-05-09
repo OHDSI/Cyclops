@@ -21,6 +21,9 @@
 #include "CyclicCoordinateDescent.h"
 #include "IndependenceSampler.h"
 
+#include <Eigen/Dense>
+#include <Eigen/Cholesky>
+
 
 using std::cout;
 using std::cerr;
@@ -35,18 +38,19 @@ namespace bsccs {
 
 	public:
 
-		MHRatio();
+		MHRatio(CyclicCoordinateDescent & ccd);
 
 		~MHRatio();
 
-		void evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, boost::mt19937& rng);
+		double evaluate(Parameter * Beta, Parameter * Beta_Hat, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, boost::mt19937& rng);
+
+		double getHastingsRatio(Parameter * Beta, Parameter * Beta_Hat);
 
 	private:
 		double min(double value1, double value2);
 
 		double storedFBetaCurrent;
 		double storedPBetaCurrent;
-		bool storedValuesUpToDate;
 
 
 		double acceptanceRatioNumerator;

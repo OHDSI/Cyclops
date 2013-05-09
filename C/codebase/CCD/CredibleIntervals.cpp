@@ -69,7 +69,7 @@ void CredibleIntervals::computeCredibleIntervals(vector<vector<double> > * BetaV
 	string sep(","); // TODO Make option
 
 	//Thinning...
-	int thinningAmount = 1000;
+	int thinningAmount = 1;
 
 	for (int j = 0; j < nSamples;) {
 		for (int k = 0; k < betaSize; k++) {

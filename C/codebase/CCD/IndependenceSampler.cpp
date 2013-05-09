@@ -60,7 +60,7 @@ void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta,
 	for (int i = 0; i < sizeOfSample; i++) {
 		bsccs::real normalValue = var_nor();
 		b[i] = exp(tuningParameter)*normalValue;
-		//cout << "b[i] " << b[i] << endl;
+
 	}
 
 	(choleskyEigen.matrixU()).solveInPlace(b);

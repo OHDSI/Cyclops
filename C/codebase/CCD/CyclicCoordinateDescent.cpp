@@ -648,6 +648,7 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 		*/
 
 
+
 }
 
 

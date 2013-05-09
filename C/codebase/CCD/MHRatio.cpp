@@ -23,34 +23,53 @@
 #include <boost/random.hpp>
 #include <boost/random/uniform_real.hpp>
 
-//#define Debug_TRS
+#define Debug_TRS
 
 namespace bsccs{
 
-MHRatio::MHRatio(){
-	storedValuesUpToDate = false;
+MHRatio::MHRatio(CyclicCoordinateDescent & ccd){
+	storedFBetaCurrent = ccd.getLogLikelihood();
+	storedPBetaCurrent = ccd.getLogPrior();
+
 }
 
 MHRatio::~MHRatio(){
 
 }
 
-void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, boost::mt19937& rng) {
+double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, boost::mt19937& rng) {
 
-// Get the current Beta values
+// Get the proposed Beta values
 	vector<double> * betaPossible = Beta->returnCurrentValuesPointer();
 
+	double hastingsRatio = getHastingsRatio(Beta,Beta_Hat);
 
 // Compute log Likelihood and log prior
+#ifdef Debug_TRS
+	int lengthIs = Beta->getSize();
+	cout << "Printing Stored Beta in CCD" << endl;
+	cout << "<";
+	for (int i = 0; i < lengthIs; i ++) {
+		cout << ccd.getBeta(i) << ", ";
+	}
+	cout << endl;
+#endif
+
+
 	ccd.resetBeta();
 	ccd.setBeta(*betaPossible);
-	//cout << "logging Beta in MHRatio:evalulate" << endl;
-	//Beta->logParameter();
-	//cout << "done logging" << endl;
 
-	//cout << "\n Calling Log Likelihood " << endl;
+
+#ifdef Debug_TRS
+	cout << "Printing Proposed Beta in CCD" << endl;
+	cout << "<";
+	for (int i = 0; i < lengthIs; i ++) {
+		cout << ccd.getBeta(i) << ", ";
+	}
+	cout << endl;
+#endif
+
 	double fBetaPossible = ccd.getLogLikelihood();
-	//cout << "\n Called Log Likelihood " << endl;
 	double pBetaPossible = ccd.getLogPrior();
 
 // Have we changed the Beta Values?  If so, get new Log Likelihood and prior values...
@@ -58,8 +77,6 @@ void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 
 		vector<double> * betaOldValues = Beta->returnStoredValuesPointer();
 		ccd.setBeta(*betaOldValues);   // Just keep track of current logLikelihood... its a number, cache, do not recompute
-		storedFBetaCurrent = ccd.getLogLikelihood();
-		storedPBetaCurrent = ccd.getLogPrior();
 	//}
 
 
@@ -85,34 +102,40 @@ void MHRatio::evaluate(Parameter * Beta, Parameter * SigmaSquared, CyclicCoordin
 
 
 // This is the Metropolis step
+
 	if (alpha > uniformRandom) {
-		Beta->setChangeStatus(true);
-		storedValuesUpToDate = false;
+
 #ifdef Debug_TRS
-		cout << "--------------  Change Beta ------------------" << endl;
+		cout << "\n \n \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Change Beta @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n \n" << endl;
 #endif
+
+		Beta->setChangeStatus(true);
+		ccd.resetBeta();
+		ccd.setBeta(*betaPossible);
+		storedFBetaCurrent = ccd.getLogLikelihood();
+		storedPBetaCurrent = ccd.getLogPrior();
+
+
+
 	} else{
+
 #ifdef Debug_TRS
 		cout << "##############  Reject Beta ##################" << endl;
 #endif
 		Beta->setChangeStatus(false);
-		storedValuesUpToDate = true;
+
 		Beta->restore();
 	}
 
-// This determines if we will perform a Gibbs step to update sigma squared on the next iteration
-	if (sigmaSampleTuningParameter*alpha > uniformRandom) {
-		SigmaSquared->setChangeStatus(false);
-		SigmaSquared->setNeedToChangeStatus(true);
-#ifdef Debug_TRS
-		cout << "*****************  Change Sigma Squared ********************" << endl;
-#endif
-	} else {
-		SigmaSquared->setChangeStatus(false);
-		SigmaSquared->setNeedToChangeStatus(false);
-	}
+	return alpha;
 
 
+}
+
+
+double MHRatio::getHastingsRatio(Parameter * Beta, Parameter * Beta_Hat){
+
+	return(0.001);
 }
 
 

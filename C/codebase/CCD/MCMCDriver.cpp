@@ -32,7 +32,7 @@ namespace bsccs {
 
 MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
 	MCMCFileNameRoot = MCMCFileName;
-	maxIterations = 2000000;
+	maxIterations = 200000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
 	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies
@@ -124,6 +124,10 @@ void MCMCDriver::drive(
 	MCMCResults_SigmaSquared.push_back(SigmaSquared.returnCurrentValues()[0]);
 	MCMCResults_BetaVectors.push_back(Beta.returnCurrentValues());
 
+	MHRatio MHstep(ccd);
+
+	double alpha;
+
 	//MCMC Loop
 	for (int iterations = 0; iterations < maxIterations; iterations ++) {
 
@@ -136,11 +140,14 @@ void MCMCDriver::drive(
 		//Select a sample beta vector
 		if (Beta.getProbabilityUpdate() > uniformRandom) {
 			getBeta ++;
+			///////////////////   WARNING  !!!!!!!!!! /////////////////
+			//cout << "%%%%%%%%%%%%%%   WARNING - no Tuning  %%%%%%%%%%%%%%" << endl;
+			//acceptanceTuningParameter = 0;
 			sampler.sample(&Beta_Hat, &Beta, rng, acceptanceTuningParameter,  CholDecom);
 			cout << "acceptanceTuningParameter = " <<  acceptanceTuningParameter << endl;
 			//Compute the acceptance ratio, and decide if Beta and sigma should be changed
-			MHRatio MHstep;
-			MHstep.evaluate(&Beta, &SigmaSquared, ccd, rng);
+
+			alpha = MHstep.evaluate(&Beta, &Beta_Hat, &SigmaSquared, ccd, rng);
 
 			MCMCResults_BetaVectors.push_back(Beta.returnCurrentValues());
 			nBetaSamples ++;
@@ -148,6 +155,8 @@ void MCMCDriver::drive(
 			if (Beta.getChangeStatus()){
 				numberAcceptances ++;
 			}
+
+			adaptiveKernel(iterations,alpha);
 
 		}
 
@@ -174,8 +183,6 @@ void MCMCDriver::drive(
 		}
 
 
-		adaptiveKernel(iterations+1, numberAcceptances);
-
 		// End MCMC loop
 	}
 
@@ -193,8 +200,9 @@ void MCMCDriver::drive(
 
 }
 
-void MCMCDriver::adaptiveKernel(int numberIterations, int numberAcceptances) {
-	acceptanceTuningParameter = acceptanceTuningParameter + (1/(1+sqrt(numberIterations)))*((double) numberAcceptances/numberIterations - acceptanceRatioTarget);
+void MCMCDriver::adaptiveKernel(int numberIterations, double alpha) {
+	acceptanceTuningParameter = acceptanceTuningParameter + (1/(1+sqrt(numberIterations)))*(alpha -
+			acceptanceRatioTarget);
 }
 
 void MCMCDriver::generateCholesky() {

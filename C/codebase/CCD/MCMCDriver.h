@@ -46,7 +46,7 @@ private:
 
 	vector<vector<double> > MCMCResults_BetaVectors;
 
-	void adaptiveKernel(int numberIterations, int numberAcceptances);
+	void adaptiveKernel(int numberIterations, double alpha);
 
 	vector<double> MCMCResults_SigmaSquared;
 
