@@ -42,6 +42,10 @@ private:
 
 	Eigen::LLT<Eigen::MatrixXf> CholDecom;
 
+
+	Eigen::MatrixXf HessianMatrix;
+
+
 	double acceptanceRatioTarget;
 
 	vector<vector<double> > MCMCResults_BetaVectors;

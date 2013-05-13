@@ -32,7 +32,7 @@ namespace bsccs {
 
 MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
 	MCMCFileNameRoot = MCMCFileName;
-	maxIterations = 200000;
+	maxIterations = 2;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
 	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies
@@ -147,7 +147,7 @@ void MCMCDriver::drive(
 			cout << "acceptanceTuningParameter = " <<  acceptanceTuningParameter << endl;
 			//Compute the acceptance ratio, and decide if Beta and sigma should be changed
 
-			alpha = MHstep.evaluate(&Beta, &Beta_Hat, &SigmaSquared, ccd, rng);
+			alpha = MHstep.evaluate(&Beta, &Beta_Hat, &SigmaSquared, ccd, rng, HessianMatrix);
 
 			MCMCResults_BetaVectors.push_back(Beta.returnCurrentValues());
 			nBetaSamples ++;
@@ -206,7 +206,7 @@ void MCMCDriver::adaptiveKernel(int numberIterations, double alpha) {
 }
 
 void MCMCDriver::generateCholesky() {
-	Eigen::MatrixXf HessianMatrix(J, J);
+	HessianMatrix.resize(J, J);
 	Eigen::MatrixXf CholeskyDecompL(J, J);
 
 	//Convert to Eigen for Cholesky decomposition
@@ -222,6 +222,19 @@ void MCMCDriver::generateCholesky() {
 	CholDecom.compute(HessianMatrix);
 
 	CholeskyDecompL = CholDecom.matrixL();
+
+
+		cout << "Printing Hessian in generateCholesky" << endl;
+
+		for (int i = 0; i < J; i ++) {
+			cout << "[";
+				for (int j = 0; j < J; j++) {
+					cout << HessianMatrix(i,j) << ", ";
+				}
+			cout << "]" << endl;
+			}
+
+
 
 /*
 	cout << "Printing Cholesky" << endl;

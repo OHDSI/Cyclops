@@ -23,6 +23,9 @@
 #include <boost/random.hpp>
 #include <boost/random/uniform_real.hpp>
 
+#include <Eigen/Dense>
+#include <Eigen/Cholesky>
+
 #define Debug_TRS
 
 namespace bsccs{
@@ -37,12 +40,12 @@ MHRatio::~MHRatio(){
 
 }
 
-double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, boost::mt19937& rng) {
+double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, boost::mt19937& rng, Eigen::MatrixXf PrecisionMatrix) {
 
 // Get the proposed Beta values
 	vector<double> * betaPossible = Beta->returnCurrentValuesPointer();
 
-	double hastingsRatio = getHastingsRatio(Beta,Beta_Hat);
+	double hastingsRatio = getHastingsRatio(Beta,Beta_Hat, PrecisionMatrix);
 
 // Compute log Likelihood and log prior
 #ifdef Debug_TRS
@@ -133,9 +136,58 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat, Parameter * Sig
 }
 
 
-double MHRatio::getHastingsRatio(Parameter * Beta, Parameter * Beta_Hat){
+double MHRatio::getHastingsRatio(Parameter * Beta, Parameter * Beta_Hat, Eigen::MatrixXf PrecisionMatrix){
 
-	return(0.001);
+	int betaLength = Beta->getSize();
+
+	Eigen::VectorXf betaProposal(betaLength);
+
+	Eigen::VectorXf betaCurrent(betaLength);
+
+	Eigen::VectorXf beta_hat(betaLength);
+
+	Eigen::VectorXf betaHat_minus_current(betaLength);
+
+	Eigen::VectorXf betaHat_minus_proposal(betaLength);
+
+	Eigen::VectorXf precisionDifferenceProduct_proposal(betaLength);
+
+	Eigen::VectorXf precisionDifferenceProduct_current(betaLength);
+
+
+	for (int i = 0; i< betaLength; i++){
+		betaProposal(i) = Beta->get(i);
+		betaCurrent(i) = Beta->getStored(i);
+		beta_hat(i) = Beta_Hat->get(i);
+	}
+
+	betaHat_minus_current = beta_hat - betaCurrent;
+	betaHat_minus_proposal = beta_hat - betaProposal;
+
+	precisionDifferenceProduct_proposal = PrecisionMatrix*betaHat_minus_proposal;
+	precisionDifferenceProduct_current = PrecisionMatrix*betaHat_minus_current;
+
+	double numerator = betaHat_minus_current.dot(precisionDifferenceProduct_current);
+
+	double denominator = betaHat_minus_proposal.dot(precisionDifferenceProduct_proposal);
+
+
+
+
+
+
+	cout << "Printing Hessian in gethasingsratio" << endl;
+
+	for (int i = 0; i < betaLength; i ++) {
+		cout << "[";
+			for (int j = 0; j < betaLength; j++) {
+				cout << PrecisionMatrix(i,j) << ", ";
+			}
+		cout << "]" << endl;
+		}
+
+
+	return(0.5*(numerator - denominator)); // log scale
 }
 
 
