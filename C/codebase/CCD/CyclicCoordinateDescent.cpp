@@ -418,11 +418,19 @@ void CyclicCoordinateDescent::setWeights(real* iWeights) {
 }
 	
 double CyclicCoordinateDescent::getLogPrior(void) {
+	double value;
 	if (priorType == LAPLACE) {
-		return J * log(0.5 * lambda) - lambda * oneNorm(hBeta, J);
+		value = J * log(0.5 * lambda) - lambda * oneNorm(hBeta, J);
 	} else {
-		return -0.5 * J * log(2.0 * PI * sigma2Beta) - 0.5 * twoNormSquared(hBeta, J) / sigma2Beta;		
+		value = -0.5 * J * log(2.0 * PI * sigma2Beta) - 0.5 * twoNormSquared(hBeta, J) / sigma2Beta;
 	}
+	// TODO INTERCEPT
+// 	if (priorType == LAPLACE) {
+// 		value -= log(0.5 * lambda) - lambda * std::abs(hBeta[0]);
+// 	} else {
+// 		value -= -0.5 * log(2.0 * PI * sigma2Beta) - 0.5 * (hBeta[0] * hBeta[0]) / sigma2Beta;
+// 	}
+	return value;
 }
 
 double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
@@ -618,9 +626,12 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 //	}
 
 	// Move into separate delegate-function (below)
+
+//	if (index > 0) { // TODO Bad hard coding, INTERCEPT
+
 	if (priorType == NORMAL) {
 
-#if 1		
+#if 1
 		delta = - (g_d1 + (hBeta[index] / sigma2Beta)) /
 				  (g_d2 + (1.0 / sigma2Beta));
 #else			  
@@ -657,6 +668,10 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 			}			
 		}
 	}
+
+//	} else { // TODO INTERCEPT
+//		delta = -g_d1 / g_d2;
+//	}
 	
 	return delta;
 }

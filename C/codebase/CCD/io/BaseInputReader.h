@@ -140,8 +140,7 @@ protected:
 
 			CompressedDataColumn& column = rowInfo.indexer.getColumn(drug);
 			if (value != static_cast<real>(1) && value != static_cast<real>(0)) {
-				if (column.getFormatType() == INDICATOR) {								
-//					handleUpcast(column, rowInfo);
+				if (column.getFormatType() == INDICATOR) {
 					cerr << "Up-casting covariate " << column.getLabel() << " to sparse!" << endl;
 					column.convertColumnToSparse();
 				}
@@ -151,7 +150,12 @@ protected:
 				Missing::hook2();
 			} else {
 				// Add to storage
-				column.add_data(rowInfo.currentRow, value);
+				bool valid = column.add_data(rowInfo.currentRow, value);
+				if (!valid) {
+					cerr << "Warning: repeated sparse entries in data row: "
+							<< (rowInfo.currentRow + 1)
+							<< ", column: " << column.getLabel() << endl;
+				}
 			}
 		}
 	}		

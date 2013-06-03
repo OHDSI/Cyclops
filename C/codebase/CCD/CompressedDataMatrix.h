@@ -98,7 +98,7 @@ public:
 		numericalName = label;
 	}	
 
-	void add_data(int row, real value) {
+	bool add_data(int row, real value) {
 		if (formatType == DENSE) {
 			//Making sure that we are at the correct row
 			for(size_t i = data->size(); i < row; i++) {
@@ -107,11 +107,19 @@ public:
 			data->push_back(value);
 		} else if (formatType == SPARSE) {
 			if (value != static_cast<real> (0)) {
+				// Check for previous entry
+				if (columns->size() > 0 && columns->back() == row) {
+					return false;
+				}
 				data->push_back(value);
 				columns->push_back(row);
 			}
 		} else if (formatType == INDICATOR) {
 			if (value != static_cast<real> (0)) {
+				// Check for previous entry
+				if (columns->size() > 0 && columns->back() == row) {
+					return false;
+				}
 				columns->push_back(row);
 			}
 		} else if (formatType == INTERCEPT) {
@@ -120,6 +128,7 @@ public:
 			cerr << "Error" << endl;
 			exit(-1);
 		}
+		return true;
 	}
 
 	void convertColumnToDense(int nRows);
