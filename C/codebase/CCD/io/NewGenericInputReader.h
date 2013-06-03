@@ -78,7 +78,8 @@ public:
 	void upcastColumns(ModelData* modelData, RowInformation& rowInfo) {
 		if (upcastToSparse) {
 			cerr << "Going to up-cast all columns to sparse!" << endl;
-			for (int i = 0; i < modelData->getNumberOfColumns(); ++i) {
+			int i = includeIntercept ? 1 : 0;
+			for (; i < modelData->getNumberOfColumns(); ++i) {
 				modelData->getColumn(i).convertColumnToSparse();
 			}
 		}
@@ -96,7 +97,6 @@ private:
 		size_t found = line.find(option);
 		return found != string::npos;
 	}
-
 
 	bool upcastToDense;
 	bool upcastToSparse;

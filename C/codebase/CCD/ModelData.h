@@ -84,7 +84,7 @@ public:
 	void sortDataColumns(vector<int> sortedInds);
 	
 	const string& getRowLabel(size_t i) const {
-		if (i < 0 || i >= labels.size()) {
+		if (i >= labels.size()) {
 			return missing;
 		} else {
 			return labels[i];

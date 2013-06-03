@@ -70,14 +70,14 @@ public:
 	void push_backY(int indMissing) {}
 	void includeY() {}
 	void pop_back() {}
-	const vector<int>& getnMissingPerColumn() const {}
-	const vector<int>& getSortedColIndices() const {}
-	const vector<int>& getReverseColIndices() const {}
+//	const vector<int>& getnMissingPerColumn() const {}
+//	const vector<int>& getSortedColIndices() const {}
+//	const vector<int>& getReverseColIndices() const {}
 	void setWeightsForImputation(int col, vector<real>& weights, int nRows) {}
 	void saveOrigYVector(real* y, int nRows) {}
 	void saveOrigNumberOfColumns(int nCols) {}
-	int getOrigNumberOfColumns() {}
-	vector<real> getOrigYVector() {}
+	int getOrigNumberOfColumns() { return 0; }
+//	vector<real> getOrigYVector() {}
 	void getMissingEntries(int col, vector<int>& missing) {}
 	void getSampleMeanVariance(int col, real& Xmean, real& Xvar, real* dataVec, int* columnVec, FormatType formatType, int nRows, int nEntries) {}
 };

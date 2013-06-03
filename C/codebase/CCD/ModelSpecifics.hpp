@@ -354,7 +354,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 			}
 			break;
 		case SPARSE : {
-			IndicatorIterator it(*(*sparseIndices)[index]);
+			SparseIterator it(*(*sparseIndices)[index]);
 			for (; it; ++it) { // Only affected entries
 				numerPid[it.index()] = static_cast<real>(0.0);
 				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch

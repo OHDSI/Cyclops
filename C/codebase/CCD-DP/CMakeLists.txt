@@ -4,14 +4,17 @@ set(SOURCE_FILES
 	../CCD/ccd.cpp
 	../CCD/CyclicCoordinateDescent.cpp	
 	../CCD/CompressedDataMatrix.cpp
+	../CCD/ModelData.cpp
 	../CCD/io/InputReader.cpp
 	../CCD/io/SCCSInputReader.cpp
 	../CCD/io/CLRInputReader.cpp
 	../CCD/io/RTestInputReader.cpp
+	../CCD/io/CoxInputReader.cpp
 	../CCD/io/CCTestInputReader.cpp
 	../CCD/AbstractModelSpecifics.cpp
 	../CCD/AbstractDriver.cpp
 	../CCD/AbstractSelector.cpp
+	../CCD/ProportionSelector.cpp
 	../CCD/CrossValidationSelector.cpp
 	../CCD/CrossValidationDriver.cpp
 	../CCD/BootstrapSelector.cpp

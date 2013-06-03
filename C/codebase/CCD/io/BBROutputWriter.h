@@ -50,7 +50,7 @@ public:
 			switch (formatType)
 			{
 			case INDICATOR:
-//				column = dataTranspose->getCompressedColumnVector(i);
+			case INTERCEPT:
 				nEntries = dataTranspose->getNumberOfEntries(i);
 				for(int j = 1; j < nEntries; j++){
 					out << " " << dataTranspose->getColumn(j).getNumericalLabel() << ":1";
