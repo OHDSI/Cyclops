@@ -13,6 +13,7 @@ find_path(EIGEN_INCLUDE_DIR
 	
 include_directories(${BOOST_INCLUDE_DIR})
 include_directories(${EIGEN_INCLUDE_DIR})
+include_directories(${CUSP_INCLUDE_DIR})
 
 
 

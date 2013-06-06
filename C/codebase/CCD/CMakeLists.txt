@@ -17,8 +17,15 @@ find_path(BOOST_INCLUDE_DIR
 find_path(EIGEN_INCLUDE_DIR
 	NAMES Eigen
 	DOCS "Location of boost header files"
+	PATHS "/Users/msuchard/Dropbox/Projects/eigen"
 	PATHS "/Users/tshaddox/Desktop/workspace/eigen")
 
+	
+find_path(CUSP_INCLUDE_DIR
+	NAMES cusp
+	DOCS "Location of boost header files"
+	PATHS "/Users/msuchard/Dropbox/Projects/cusplibrary")
+	
 	
 #find_library(GSL_LIBRARY
 #	NAMES gsl
@@ -76,6 +83,7 @@ include_directories(${GSL_INCLUDE_DIR}
 					${MTL_INCLUDE_DIR}
 					${BOOST_INCLUDE_DIR}
 					${EIGEN_INCLUDE_DIR}
+					${CUSP_INCLUDE_DIR}
 					)
 
 set(SOURCE_FILES

@@ -2,7 +2,16 @@ include_directories (${CMAKE_SOURCE_DIR}/codebase ${CUDA_INCLUDE_DIRS})
 
 message(STATUS "found source at: " ${CUDA_INCLUDE_DIRS})
 
-cuda_include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/kernels)
+find_path(CUSP_INCLUDE_DIR
+	NAMES cusp
+	DOCS "Location of boost header files"
+	PATHS "/Users/msuchard/Dropbox/Projects/cusplibrary")
+
+cuda_include_directories(
+	${CMAKE_CURRENT_SOURCE_DIR} 
+	${CMAKE_CURRENT_SOURCE_DIR}/kernels)
+	
+include_directories(${CUSP_INCLUDE_DIR})
 
 set(CU_FILE "kernels/kernelAll.cu")
 
