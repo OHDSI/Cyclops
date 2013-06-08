@@ -24,7 +24,8 @@ find_path(EIGEN_INCLUDE_DIR
 find_path(CUSP_INCLUDE_DIR
 	NAMES cusp
 	DOCS "Location of boost header files"
-	PATHS "/Users/msuchard/Dropbox/Projects/cusplibrary")
+	PATHS "/Users/msuchard/Dropbox/Projects/cusplibrary"
+	PATHS "/Users/tshaddox/Downloads/")
 	
 	
 #find_library(GSL_LIBRARY

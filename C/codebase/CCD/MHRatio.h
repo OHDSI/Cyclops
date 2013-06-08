@@ -42,9 +42,14 @@ namespace bsccs {
 
 		~MHRatio();
 
-		double evaluate(Parameter * Beta, Parameter * Beta_Hat, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, boost::mt19937& rng, Eigen::MatrixXf PrecisionMatrix);
+		double evaluate(Parameter * Beta, Parameter * Beta_Hat,
+				Parameter * SigmaSquared, CyclicCoordinateDescent & ccd,
+				boost::mt19937& rng, Eigen::MatrixXf PrecisionMatrix, double tuningParameter);
 
-		double getHastingsRatio(Parameter * Beta, Parameter * Beta_Hat, Eigen::MatrixXf PrecisionMatrix);
+		double getHastingsRatio(Parameter * Beta,
+				Parameter * Beta_Hat,
+				Eigen::MatrixXf PrecisionMatrix,
+				double tuningParameter);
 
 	private:
 		double min(double value1, double value2);

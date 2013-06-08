@@ -40,12 +40,14 @@ MHRatio::~MHRatio(){
 
 }
 
-double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat, Parameter * SigmaSquared, CyclicCoordinateDescent & ccd, boost::mt19937& rng, Eigen::MatrixXf PrecisionMatrix) {
+double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
+		Parameter * SigmaSquared, CyclicCoordinateDescent & ccd,
+		boost::mt19937& rng, Eigen::MatrixXf PrecisionMatrix, double tuningParameter) {
 
 // Get the proposed Beta values
 	vector<double> * betaPossible = Beta->returnCurrentValuesPointer();
 
-	double hastingsRatio = getHastingsRatio(Beta,Beta_Hat, PrecisionMatrix);
+	double hastingsRatio = getHastingsRatio(Beta,Beta_Hat, PrecisionMatrix, tuningParameter);
 
 // Compute log Likelihood and log prior
 #ifdef Debug_TRS
@@ -96,6 +98,7 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat, Parameter * Sig
 	double uniformRandom = zeroone();
 
 #ifdef Debug_TRS
+	cout << "hastingsRatio = " << hastingsRatio << endl;
 	cout << "fBetaPossible = " << fBetaPossible << endl;
 	cout << "fBetaCurrent = " << storedFBetaCurrent << endl;
 	cout << "pBetaPossible = " << pBetaPossible << endl;
@@ -136,7 +139,11 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat, Parameter * Sig
 }
 
 
-double MHRatio::getHastingsRatio(Parameter * Beta, Parameter * Beta_Hat, Eigen::MatrixXf PrecisionMatrix){
+double MHRatio::getHastingsRatio(Parameter * Beta,
+		Parameter * Beta_Hat, Eigen::MatrixXf PrecisionMatrix,
+		double tuningParameter){
+
+	double tuningValue = exp(tuningParameter);
 
 	int betaLength = Beta->getSize();
 
@@ -164,8 +171,13 @@ double MHRatio::getHastingsRatio(Parameter * Beta, Parameter * Beta_Hat, Eigen::
 	betaHat_minus_current = beta_hat - betaCurrent;
 	betaHat_minus_proposal = beta_hat - betaProposal;
 
-	precisionDifferenceProduct_proposal = PrecisionMatrix*betaHat_minus_proposal;
-	precisionDifferenceProduct_current = PrecisionMatrix*betaHat_minus_current;
+#ifdef Debug_TRS
+	cout << "tuning Parameter = " << tuningParameter << " in getHastingsRatio" << endl;
+	cout << "tuningValue = " << tuningValue << " in getHastingsRatio" << endl;
+#endif
+
+	precisionDifferenceProduct_proposal = (tuningValue*PrecisionMatrix)*betaHat_minus_proposal;
+	precisionDifferenceProduct_current = (tuningValue*PrecisionMatrix)*betaHat_minus_current;
 
 	double numerator = betaHat_minus_current.dot(precisionDifferenceProduct_current);
 
@@ -174,7 +186,7 @@ double MHRatio::getHastingsRatio(Parameter * Beta, Parameter * Beta_Hat, Eigen::
 
 
 
-
+#ifdef Debug_TRS
 
 	cout << "Printing Hessian in gethasingsratio" << endl;
 
@@ -185,6 +197,8 @@ double MHRatio::getHastingsRatio(Parameter * Beta, Parameter * Beta_Hat, Eigen::
 			}
 		cout << "]" << endl;
 		}
+
+#endif
 
 
 	return(0.5*(numerator - denominator)); // log scale

@@ -25,7 +25,7 @@
 
 #include <boost/random.hpp>
 
-//#define Debug_TRS
+#define Debug_TRS
 
 namespace bsccs {
 
@@ -145,9 +145,9 @@ void MCMCDriver::drive(
 			//acceptanceTuningParameter = 0;
 			sampler.sample(&Beta_Hat, &Beta, rng, acceptanceTuningParameter,  CholDecom);
 			cout << "acceptanceTuningParameter = " <<  acceptanceTuningParameter << endl;
-			//Compute the acceptance ratio, and decide if Beta and sigma should be changed
-
-			alpha = MHstep.evaluate(&Beta, &Beta_Hat, &SigmaSquared, ccd, rng, HessianMatrix);
+			//Compute the acceptance ratio
+			alpha = MHstep.evaluate(&Beta, &Beta_Hat, &SigmaSquared, ccd, rng, HessianMatrix, acceptanceTuningParameter);
+			cout << "alpha = " << alpha << endl;
 
 			MCMCResults_BetaVectors.push_back(Beta.returnCurrentValues());
 			nBetaSamples ++;
