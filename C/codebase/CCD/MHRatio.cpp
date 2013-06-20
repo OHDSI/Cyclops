@@ -26,7 +26,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
 
-#define Debug_TRS
+//#define Debug_TRS
 
 namespace bsccs{
 
@@ -88,7 +88,7 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 	(ccd.hXI_Transpose).setUseThisStatus(true); // Testing code
 
 // Compute the ratio for the MH step
-	double ratio = exp((fBetaPossible + pBetaPossible) - (storedFBetaCurrent + storedPBetaCurrent));
+	double ratio = exp((fBetaPossible + pBetaPossible + hastingsRatio) - (storedFBetaCurrent + storedPBetaCurrent));
 
 // Set our alpha
 	alpha = min(ratio, 1.0);
@@ -96,6 +96,9 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 
 // Sample from a uniform distribution
 	double uniformRandom = zeroone();
+
+	//cout << "SERIOUS WARNING: UNIFORM RANDOM = 0 >>>>>>>>>  change this " << endl;
+	//uniformRandom = 0;
 
 #ifdef Debug_TRS
 	cout << "hastingsRatio = " << hastingsRatio << endl;
@@ -143,7 +146,7 @@ double MHRatio::getHastingsRatio(Parameter * Beta,
 		Parameter * Beta_Hat, Eigen::MatrixXf PrecisionMatrix,
 		double tuningParameter){
 
-	double tuningValue = exp(tuningParameter);
+	double tuningValue = exp(2*tuningParameter);
 
 	int betaLength = Beta->getSize();
 
@@ -171,37 +174,36 @@ double MHRatio::getHastingsRatio(Parameter * Beta,
 	betaHat_minus_current = beta_hat - betaCurrent;
 	betaHat_minus_proposal = beta_hat - betaProposal;
 
+	Eigen::MatrixXf scaledPrecision = PrecisionMatrix; //tuningValue*PrecisionMatrix;
+
 #ifdef Debug_TRS
 	cout << "tuning Parameter = " << tuningParameter << " in getHastingsRatio" << endl;
 	cout << "tuningValue = " << tuningValue << " in getHastingsRatio" << endl;
+	cout << "scaledPrecision" << endl;
+	cout << scaledPrecision << endl;
+
+	cout << "betaProposal in getHastingsRatio" << endl;
+	cout << betaProposal << endl;
+
+	cout << "beta_hat in getHastingsRatio" << endl;
+	cout << beta_hat << endl;
+
+	cout << "betaCurrent in getHastingsRatio" << endl;
+	cout << betaCurrent << endl;
 #endif
 
-	precisionDifferenceProduct_proposal = (tuningValue*PrecisionMatrix)*betaHat_minus_proposal;
-	precisionDifferenceProduct_current = (tuningValue*PrecisionMatrix)*betaHat_minus_current;
+	precisionDifferenceProduct_proposal = (scaledPrecision)*betaHat_minus_proposal;
+	precisionDifferenceProduct_current = (scaledPrecision)*betaHat_minus_current;
 
 	double numerator = betaHat_minus_current.dot(precisionDifferenceProduct_current);
 
 	double denominator = betaHat_minus_proposal.dot(precisionDifferenceProduct_proposal);
 
+	//return(tuningValue*0.5*(numerator - denominator)); // log scale
 
+	cout << "BAD HASTINGS RATIO" << endl;
 
-
-#ifdef Debug_TRS
-
-	cout << "Printing Hessian in gethasingsratio" << endl;
-
-	for (int i = 0; i < betaLength; i ++) {
-		cout << "[";
-			for (int j = 0; j < betaLength; j++) {
-				cout << PrecisionMatrix(i,j) << ", ";
-			}
-		cout << "]" << endl;
-		}
-
-#endif
-
-
-	return(0.5*(numerator - denominator)); // log scale
+	return(0);
 }
 
 

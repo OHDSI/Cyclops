@@ -32,11 +32,11 @@ namespace bsccs {
 
 MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
 	MCMCFileNameRoot = MCMCFileName;
-	maxIterations = 2;
+	maxIterations = 20000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
-	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies
-	acceptanceRatioTarget = 0.25;
+	//acceptanceTuningParameter = -3; // exp(acceptanceTuningParameter) modifies
+	acceptanceRatioTarget = 0.30;
 }
 
 void MCMCDriver::initializeHessian() {
@@ -142,7 +142,12 @@ void MCMCDriver::drive(
 			getBeta ++;
 			///////////////////   WARNING  !!!!!!!!!! /////////////////
 			//cout << "%%%%%%%%%%%%%%   WARNING - no Tuning  %%%%%%%%%%%%%%" << endl;
-			//acceptanceTuningParameter = 0;
+			//acceptanceTuningParameter = -3;
+			///  MAJOR WARNING  ///
+
+			cout << "  %%%%%%%%%%%%%%%  MAJOR WARNING  %%%%%%%%%%%%%%" << endl;
+			Beta_Hat = Beta;
+
 			sampler.sample(&Beta_Hat, &Beta, rng, acceptanceTuningParameter,  CholDecom);
 			cout << "acceptanceTuningParameter = " <<  acceptanceTuningParameter << endl;
 			//Compute the acceptance ratio
@@ -224,6 +229,7 @@ void MCMCDriver::generateCholesky() {
 	CholeskyDecompL = CholDecom.matrixL();
 
 
+#ifdef Debug_TRS
 		cout << "Printing Hessian in generateCholesky" << endl;
 
 		for (int i = 0; i < J; i ++) {
@@ -233,20 +239,9 @@ void MCMCDriver::generateCholesky() {
 				}
 			cout << "]" << endl;
 			}
+#endif
 
 
-
-/*
-	cout << "Printing Cholesky" << endl;
-
-	for (int i = 0; i < J; i ++) {
-		cout << "[";
-			for (int j = 0; j < J; j++) {
-				cout << CholeskyDecompL(i,j) << ", ";
-			}
-		cout << "]" << endl;
-		}
-*/
 }
 
 }

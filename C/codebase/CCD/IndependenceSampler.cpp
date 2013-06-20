@@ -59,7 +59,7 @@ void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta,
 	Eigen::VectorXf b = Eigen::VectorXf::Random(sizeOfSample);
 	for (int i = 0; i < sizeOfSample; i++) {
 		bsccs::real normalValue = var_nor();
-		b[i] = exp(tuningParameter)*normalValue;
+		b[i] = exp(tuningParameter/2)*normalValue;
 
 	}
 
