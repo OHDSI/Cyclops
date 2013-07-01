@@ -32,6 +32,8 @@ public:
 	void initializeHessian();
 	void clearHessian();
 
+	void modifyHessianWithTuning(double tuningParameter);
+
 private:
 
 	std::string MCMCFileNameRoot;
@@ -44,6 +46,8 @@ private:
 
 
 	Eigen::MatrixXf HessianMatrix;
+
+	Eigen::MatrixXf HessianMatrixTuned;
 
 
 	double acceptanceRatioTarget;

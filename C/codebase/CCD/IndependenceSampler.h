@@ -41,9 +41,10 @@ public:
 
 	virtual ~IndependenceSampler();
 
-	void sample(Parameter * Beta_Hat, Parameter * Beta, boost::mt19937& rng, double tuningParameter, Eigen::LLT<Eigen::MatrixXf> & choleskyEigen);
+	void sample(Parameter * Beta_Hat, Parameter * Beta, boost::mt19937& rng, Eigen::LLT<Eigen::MatrixXf> & choleskyEigen);
 
 protected:
+
 
 
 };

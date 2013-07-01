@@ -42,8 +42,7 @@ IndependenceSampler::~IndependenceSampler() {
 double getTransformedTuningValue(double tuningParameter); // forward declaration, move to a header
 
 void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta,
-		boost::mt19937& rng, double tuningParameter,
-		Eigen::LLT<Eigen::MatrixXf> & choleskyEigen) {
+		boost::mt19937& rng, Eigen::LLT<Eigen::MatrixXf> & choleskyEigen) {
 	//TODO Better rng passing...  Make wrapper
 
 
@@ -61,7 +60,7 @@ void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta,
 	Eigen::VectorXf b = Eigen::VectorXf::Random(sizeOfSample);
 	for (int i = 0; i < sizeOfSample; i++) {
 		bsccs::real normalValue = var_nor();
-		b[i] = getTransformedTuningValue(tuningParameter)*normalValue;
+		b[i] = normalValue;
 
 	}
 

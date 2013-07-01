@@ -26,7 +26,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
 
-//#define Debug_TRS
+#define Debug_TRS
 
 namespace bsccs{
 
@@ -42,12 +42,12 @@ MHRatio::~MHRatio(){
 
 double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 		Parameter * SigmaSquared, CyclicCoordinateDescent & ccd,
-		boost::mt19937& rng, Eigen::MatrixXf PrecisionMatrix, double tuningParameter) {
+		boost::mt19937& rng, Eigen::MatrixXf PrecisionMatrix) {
 
 // Get the proposed Beta values
 	vector<double> * betaPossible = Beta->returnCurrentValuesPointer();
 
-	double hastingsRatio = getHastingsRatio(Beta,Beta_Hat, PrecisionMatrix, tuningParameter);
+	double hastingsRatio = getHastingsRatio(Beta,Beta_Hat, PrecisionMatrix);
 
 // Compute log Likelihood and log prior
 #ifdef Debug_TRS
@@ -97,8 +97,8 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 // Sample from a uniform distribution
 	double uniformRandom = zeroone();
 
-	//cout << "SERIOUS WARNING: UNIFORM RANDOM = 0 >>>>>>>>>  change this " << endl;
-	//uniformRandom = 0;
+	cout << "SERIOUS WARNING: UNIFORM RANDOM = 0 >>>>>>>>>  change this " << endl;
+	uniformRandom = 0;
 
 #ifdef Debug_TRS
 	cout << "hastingsRatio = " << hastingsRatio << endl;
@@ -141,16 +141,9 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 
 }
 
-
-double getTransformedTuningValue(double tuningParameter) {
-	return exp(tuningParameter);
-}
-
 double MHRatio::getHastingsRatio(Parameter * Beta,
-		Parameter * Beta_Hat, Eigen::MatrixXf PrecisionMatrix,
-		double tuningParameter){
+		Parameter * Beta_Hat, Eigen::MatrixXf PrecisionMatrix){
 
-	double tuningValue = getTransformedTuningValue(tuningParameter);
 
 	int betaLength = Beta->getSize();
 
@@ -178,13 +171,10 @@ double MHRatio::getHastingsRatio(Parameter * Beta,
 	betaHat_minus_current = beta_hat - betaCurrent;
 	betaHat_minus_proposal = beta_hat - betaProposal;
 
-	Eigen::MatrixXf scaledPrecision = PrecisionMatrix; //tuningValue*PrecisionMatrix;
 
 #ifdef Debug_TRS
-	cout << "tuning Parameter = " << tuningParameter << " in getHastingsRatio" << endl;
-	cout << "tuningValue = " << tuningValue << " in getHastingsRatio" << endl;
-	cout << "scaledPrecision" << endl;
-	cout << scaledPrecision << endl;
+	cout << "PrecisionMatrix" << endl;
+	cout << PrecisionMatrix << endl;
 
 	cout << "betaProposal in getHastingsRatio" << endl;
 	cout << betaProposal << endl;
@@ -196,18 +186,15 @@ double MHRatio::getHastingsRatio(Parameter * Beta,
 	cout << betaCurrent << endl;
 #endif
 
-	precisionDifferenceProduct_proposal = (scaledPrecision)*betaHat_minus_proposal;
-	precisionDifferenceProduct_current = (scaledPrecision)*betaHat_minus_current;
+	precisionDifferenceProduct_proposal = (PrecisionMatrix)*betaHat_minus_proposal;
+	precisionDifferenceProduct_current = (PrecisionMatrix)*betaHat_minus_current;
 
 	double numerator = betaHat_minus_current.dot(precisionDifferenceProduct_current);
 
 	double denominator = betaHat_minus_proposal.dot(precisionDifferenceProduct_proposal);
 
-	//return(tuningValue*0.5*(numerator - denominator)); // log scale
+	return(0.5*(numerator - denominator)); // log scale
 
-	cout << "BAD HASTINGS RATIO" << endl;
-
-	return(0);
 }
 
 

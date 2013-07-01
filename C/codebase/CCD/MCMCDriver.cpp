@@ -35,7 +35,7 @@ MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader
 	maxIterations = 20000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
-	//acceptanceTuningParameter = -3; // exp(acceptanceTuningParameter) modifies
+	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies
 	acceptanceRatioTarget = 0.30;
 }
 
@@ -140,18 +140,14 @@ void MCMCDriver::drive(
 		//Select a sample beta vector
 		if (Beta.getProbabilityUpdate() > uniformRandom) {
 			getBeta ++;
-			///////////////////   WARNING  !!!!!!!!!! /////////////////
-			//cout << "%%%%%%%%%%%%%%   WARNING - no Tuning  %%%%%%%%%%%%%%" << endl;
-			//acceptanceTuningParameter = -3;
-			///  MAJOR WARNING  ///
 
-			cout << "  %%%%%%%%%%%%%%%  MAJOR WARNING  %%%%%%%%%%%%%%" << endl;
-			Beta_Hat = Beta;
+			modifyHessianWithTuning(acceptanceTuningParameter);  // Tuning parameter to one place only
 
-			sampler.sample(&Beta_Hat, &Beta, rng, acceptanceTuningParameter,  CholDecom);
+			sampler.sample(&Beta_Hat, &Beta, rng, CholDecom);
 			cout << "acceptanceTuningParameter = " <<  acceptanceTuningParameter << endl;
+
 			//Compute the acceptance ratio
-			alpha = MHstep.evaluate(&Beta, &Beta_Hat, &SigmaSquared, ccd, rng, HessianMatrix, acceptanceTuningParameter);
+			alpha = MHstep.evaluate(&Beta, &Beta_Hat, &SigmaSquared, ccd, rng, HessianMatrixTuned);
 			cout << "alpha = " << alpha << endl;
 
 			MCMCResults_BetaVectors.push_back(Beta.returnCurrentValues());
@@ -161,7 +157,7 @@ void MCMCDriver::drive(
 				numberAcceptances ++;
 			}
 
-			adaptiveKernel(iterations,alpha);
+			//adaptiveKernel(iterations,alpha);
 
 		}
 
@@ -212,6 +208,7 @@ void MCMCDriver::adaptiveKernel(int numberIterations, double alpha) {
 
 void MCMCDriver::generateCholesky() {
 	HessianMatrix.resize(J, J);
+	HessianMatrixTuned.resize(J,J);
 	Eigen::MatrixXf CholeskyDecompL(J, J);
 
 	//Convert to Eigen for Cholesky decomposition
@@ -220,6 +217,9 @@ void MCMCDriver::generateCholesky() {
 			HessianMatrix(i, j) = -hessian[i][j];
 		}
 	}
+
+	// Initial tuned precision matrix is the same as the CCD Hessian
+	HessianMatrixTuned = HessianMatrix;
 
 	//Perform Cholesky Decomposition
 	Eigen::LLT<Eigen::MatrixXf> CholDecomTest(HessianMatrix);
@@ -242,6 +242,23 @@ void MCMCDriver::generateCholesky() {
 #endif
 
 
+}
+
+
+double getTransformedTuningValue(double tuningParameter) {
+	return exp(tuningParameter);
+}
+
+
+/* Modifies the Hessian with the tuning parameter
+ * and calculates the new Cholesky. Cholesky currently
+ * recomputed. Dividing starting Cholesky by sqrt(transformed tuning parameter)
+ * should be better.
+ */
+void MCMCDriver::modifyHessianWithTuning(double tuningParameter){
+	HessianMatrixTuned = HessianMatrix/getTransformedTuningValue(tuningParameter);  // Divide - working in precision space
+	//Perform Cholesky Decomposition
+	CholDecom.compute(HessianMatrixTuned);  // Expensive step, will optimize once check accuracy
 }
 
 }
