@@ -90,6 +90,7 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.fileFormat = "sccs";
 	arguments.useNormalPrior = false;
 	arguments.convergenceType = ZHANG_OLES;
+	arguments.betaAmount = 1.0;
 }
 
 
