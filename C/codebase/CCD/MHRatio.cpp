@@ -81,7 +81,7 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 	//if (!storedValuesUpToDate) {
 
 		vector<double> * betaOldValues = Beta->returnStoredValuesPointer();
-		ccd.setBeta(*betaOldValues);   // Just keep track of current logLikelihood... its a number, cache, do not recompute
+		ccd.setBeta(*betaOldValues); // TODO MAS doubts this is necessary  // Just keep track of current logLikelihood... its a number, cache, do not recompute
 	//}
 
 
@@ -120,9 +120,9 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 
 		Beta->setChangeStatus(true);
 		ccd.resetBeta();
-		ccd.setBeta(*betaPossible);
-		storedFBetaCurrent = ccd.getLogLikelihood();
-		storedPBetaCurrent = ccd.getLogPrior();
+		ccd.setBeta(*betaPossible); // TODO MAS doubts this is necessary
+		storedFBetaCurrent = fBetaPossible; // ccd.getLogLikelihood(); // TODO No need to recompute if cached correctly
+		storedPBetaCurrent = pBetaPossible; // ccd.getLogPrior();
 
 
 
