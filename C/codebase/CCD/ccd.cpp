@@ -51,7 +51,9 @@
 
 using namespace TCLAP;
 using namespace std;
-using namespace bsccs;
+//using namespace bsccs;
+
+namespace bsccs {
 
 double calculateSeconds(const timeval &time1, const timeval &time2) {
 	return time2.tv_sec - time1.tv_sec +
@@ -376,6 +378,8 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, InputReader *reader,
 	return calculateSeconds(time1, time2);
 }
 
+} // namespace bsccs
+
 #if 0
 
 int main(int argc, char* argv[]) {
@@ -417,6 +421,8 @@ int main(int argc, char* argv[]) {
 #else
 
 int main(int argc, char* argv[]) {
+
+	using namespace bsccs;
 
 	CyclicCoordinateDescent* ccd = NULL;
 	InputReader* reader = NULL;
@@ -465,3 +471,4 @@ int main(int argc, char* argv[]) {
 }
 
 #endif
+

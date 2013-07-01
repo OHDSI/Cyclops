@@ -13,7 +13,8 @@
 
 #include "CyclicCoordinateDescent.h"
 
-using namespace bsccs;
+//using namespace bsccs;
+namespace bsccs {
 
 struct CCDArguments {
 
@@ -93,5 +94,7 @@ double calculateSeconds(
 
 void setDefaultArguments(
 		CCDArguments &arguments);
+
+}
 
 #endif /* CCD_H_ */
