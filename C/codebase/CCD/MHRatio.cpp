@@ -142,11 +142,15 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 }
 
 
+double getTransformedTuningValue(double tuningParameter) {
+	return exp(tuningParameter);
+}
+
 double MHRatio::getHastingsRatio(Parameter * Beta,
 		Parameter * Beta_Hat, Eigen::MatrixXf PrecisionMatrix,
 		double tuningParameter){
 
-	double tuningValue = exp(2*tuningParameter);
+	double tuningValue = getTransformedTuningValue(tuningParameter);
 
 	int betaLength = Beta->getSize();
 

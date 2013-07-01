@@ -39,6 +39,8 @@ IndependenceSampler::~IndependenceSampler() {
 
 }
 
+double getTransformedTuningValue(double tuningParameter); // forward declaration, move to a header
+
 void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta,
 		boost::mt19937& rng, double tuningParameter,
 		Eigen::LLT<Eigen::MatrixXf> & choleskyEigen) {
@@ -51,15 +53,15 @@ void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta,
 
 	vector<bsccs::real> independentNormal;  //Sampled independent normal values
 
-	boost::normal_distribution<> nd(0.0, 1.0);
+	boost::normal_distribution<> nd(0.0, 1.0); // TODO Construct once
 
 	boost::variate_generator<boost::mt19937&,
-	                           boost::normal_distribution<> > var_nor(rng, nd);
+	                           boost::normal_distribution<> > var_nor(rng, nd); // TODO Construct once
 
 	Eigen::VectorXf b = Eigen::VectorXf::Random(sizeOfSample);
 	for (int i = 0; i < sizeOfSample; i++) {
 		bsccs::real normalValue = var_nor();
-		b[i] = exp(tuningParameter/2)*normalValue;
+		b[i] = getTransformedTuningValue(tuningParameter)*normalValue;
 
 	}
 
