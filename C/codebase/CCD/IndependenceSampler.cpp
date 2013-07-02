@@ -28,6 +28,8 @@
 
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
 
+#define Debug_TRS
+
 namespace bsccs {
 
 IndependenceSampler::IndependenceSampler() {
@@ -61,13 +63,22 @@ void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta,
 	for (int i = 0; i < sizeOfSample; i++) {
 		bsccs::real normalValue = var_nor();
 		b[i] = normalValue;
-
 	}
+
+#ifdef Debug_TRS
+	cout << "Cholesky in Sampler " << endl;
+	Eigen::MatrixXf CholeskyDecompL(sizeOfSample, sizeOfSample);
+	CholeskyDecompL = choleskyEigen.matrixU();
+	cout << CholeskyDecompL << endl;
+#endif
 
 	(choleskyEigen.matrixU()).solveInPlace(b);
 
 
 	for (int i = 0; i < sizeOfSample; i++) {
+
+	//	cout << "b[" << i << "] = " <<b[i] << endl;
+	//	cout << "beta[" << i << "] = " <<Beta_Hat->get(i) << endl;
 		Beta->set(i, b[i] + Beta_Hat->get(i));
 	}
 	/*

@@ -32,10 +32,10 @@ namespace bsccs {
 
 MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
 	MCMCFileNameRoot = MCMCFileName;
-	maxIterations = 20000;
+	maxIterations = 500;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
-	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies
+	acceptanceTuningParameter = 1; // exp(acceptanceTuningParameter) modifies
 	acceptanceRatioTarget = 0.30;
 }
 
@@ -62,8 +62,6 @@ MCMCDriver::~MCMCDriver() {
 
 void MCMCDriver::drive(
 		CyclicCoordinateDescent& ccd, double betaAmount, long int seed) {
-
-	cout << "double = " << betaAmount << endl;
 
 	// Select First Beta vector = modes from ccd
 	J = ccd.getBetaSize();
@@ -143,6 +141,15 @@ void MCMCDriver::drive(
 
 			modifyHessianWithTuning(acceptanceTuningParameter);  // Tuning parameter to one place only
 
+			cout << "Printing Hessian in drive" << endl;
+
+			for (int i = 0; i < J; i ++) {
+				cout << "[";
+					for (int j = 0; j < J; j++) {
+						cout << HessianMatrixTuned(i,j) << ", ";
+					}
+				cout << "]" << endl;
+			}
 			sampler.sample(&Beta_Hat, &Beta, rng, CholDecom);
 			cout << "acceptanceTuningParameter = " <<  acceptanceTuningParameter << endl;
 
@@ -209,7 +216,6 @@ void MCMCDriver::adaptiveKernel(int numberIterations, double alpha) {
 void MCMCDriver::generateCholesky() {
 	HessianMatrix.resize(J, J);
 	HessianMatrixTuned.resize(J,J);
-	Eigen::MatrixXf CholeskyDecompL(J, J);
 
 	//Convert to Eigen for Cholesky decomposition
 	for (int i = 0; i < J; i++) {
@@ -222,12 +228,7 @@ void MCMCDriver::generateCholesky() {
 	HessianMatrixTuned = HessianMatrix;
 
 	//Perform Cholesky Decomposition
-	Eigen::LLT<Eigen::MatrixXf> CholDecomTest(HessianMatrix);
-
 	CholDecom.compute(HessianMatrix);
-
-	CholeskyDecompL = CholDecom.matrixL();
-
 
 #ifdef Debug_TRS
 		cout << "Printing Hessian in generateCholesky" << endl;
@@ -259,6 +260,34 @@ void MCMCDriver::modifyHessianWithTuning(double tuningParameter){
 	HessianMatrixTuned = HessianMatrix/getTransformedTuningValue(tuningParameter);  // Divide - working in precision space
 	//Perform Cholesky Decomposition
 	CholDecom.compute(HessianMatrixTuned);  // Expensive step, will optimize once check accuracy
+
+
+#ifdef Debug_TRS
+	cout << "Printing Hessian in modifyHessianWithTuning" << endl;
+
+	for (int i = 0; i < J; i ++) {
+		cout << "[";
+			for (int j = 0; j < J; j++) {
+				cout << HessianMatrixTuned(i,j) << ", ";
+			}
+		cout << "]" << endl;
+	}
+
+	Eigen::MatrixXf CholeskyDecompL(J, J);
+	CholeskyDecompL = CholDecom.matrixL();
+
+	cout << "Printing Cholesky in modifyHessianWithTuning" << endl;
+
+	for (int i = 0; i < J; i ++) {
+		cout << "[";
+			for (int j = 0; j < J; j++) {
+				cout << CholeskyDecompL(i,j) << ", ";
+			}
+		cout << "]" << endl;
+	}
+#endif
+
+
 }
 
 }

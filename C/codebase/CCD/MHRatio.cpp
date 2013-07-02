@@ -97,8 +97,8 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 // Sample from a uniform distribution
 	double uniformRandom = zeroone();
 
-	cout << "SERIOUS WARNING: UNIFORM RANDOM = 0 >>>>>>>>>  change this " << endl;
-	uniformRandom = 0;
+	//cout << "SERIOUS WARNING: UNIFORM RANDOM = 0 >>>>>>>>>  change this " << endl;
+	//uniformRandom = 0;
 
 #ifdef Debug_TRS
 	cout << "hastingsRatio = " << hastingsRatio << endl;
@@ -189,12 +189,31 @@ double MHRatio::getHastingsRatio(Parameter * Beta,
 	precisionDifferenceProduct_proposal = (PrecisionMatrix)*betaHat_minus_proposal;
 	precisionDifferenceProduct_current = (PrecisionMatrix)*betaHat_minus_current;
 
+#ifdef Debug_TRS
+
+	cout << "precisionDifferenceProduct_proposal" << endl;
+	cout << precisionDifferenceProduct_proposal << endl;
+
+	cout << "precisionDifferenceProduct_current" << endl;
+	cout << precisionDifferenceProduct_current << endl;
+
+
+#endif
+
+
 	double numerator = betaHat_minus_current.dot(precisionDifferenceProduct_current);
 
 	double denominator = betaHat_minus_proposal.dot(precisionDifferenceProduct_proposal);
 
-	return(0.5*(numerator - denominator)); // log scale
 
+#ifdef Debug_TRS
+	cout << "numerator = " << numerator << endl;
+
+	cout << "denominator = " << denominator << endl;
+#endif
+
+	return(-0.5*(numerator - denominator)); // log scale
+	//return(0);
 }
 
 

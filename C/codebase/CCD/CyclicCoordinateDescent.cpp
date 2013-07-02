@@ -1176,12 +1176,12 @@ void CyclicCoordinateDescent::axpy(bsccs::real* y, const bsccs::real alpha, cons
 void CyclicCoordinateDescent::computeXBeta_GPU_TRS_initialize() {
 
 
-	runCuspTest.loadXMatrix(hXI_Transpose.offsets, hXI_Transpose.columns, hXI_Transpose.values, J);
+	//runCuspTest.loadXMatrix(hXI_Transpose.offsets, hXI_Transpose.columns, hXI_Transpose.values, J);
 }
 
 void CyclicCoordinateDescent::computeXBeta_GPU_TRS(void) {
 
-	runCuspTest.computeMultiplyBeta((float*) hBeta, J, (float*) hXBeta, K);
+	//runCuspTest.computeMultiplyBeta((float*) hBeta, J, (float*) hXBeta, K);
 
 	//cout << "Print hXBeta in GPU = ";
 	//printVector(hXBeta, 8, cout);
@@ -1203,7 +1203,7 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 	zeroVector(hXBeta, K);
 
 
-#define CUDA_Test
+//#define CUDA_Test
 
 #ifdef CUDA_Test
 	computeXBeta_GPU_TRS();

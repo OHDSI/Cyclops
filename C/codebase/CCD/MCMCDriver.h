@@ -44,7 +44,6 @@ private:
 
 	Eigen::LLT<Eigen::MatrixXf> CholDecom;
 
-
 	Eigen::MatrixXf HessianMatrix;
 
 	Eigen::MatrixXf HessianMatrixTuned;
