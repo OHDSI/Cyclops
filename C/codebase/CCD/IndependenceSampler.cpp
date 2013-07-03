@@ -44,11 +44,12 @@ IndependenceSampler::~IndependenceSampler() {
 double getTransformedTuningValue(double tuningParameter); // forward declaration, move to a header
 
 void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta,
-		boost::mt19937& rng, Eigen::LLT<Eigen::MatrixXf> & choleskyEigen) {
+		boost::mt19937& rng, Eigen::LLT<Eigen::MatrixXf> & choleskyEigen,
+		double tuningParameter) {
 	//TODO Better rng passing...  Make wrapper
 
 
-	Beta->store();
+//	Beta->store();
 	int sizeOfSample = Beta->getSize();
 
 
@@ -62,7 +63,8 @@ void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta,
 	Eigen::VectorXf b = Eigen::VectorXf::Random(sizeOfSample);
 	for (int i = 0; i < sizeOfSample; i++) {
 		bsccs::real normalValue = var_nor();
-		b[i] = normalValue;
+		// NB: tuningParameter scales the VARIANCE
+		b[i] = normalValue * std::sqrt(getTransformedTuningValue(tuningParameter)); // multiply by stdev
 	}
 
 #ifdef Debug_TRS
@@ -73,6 +75,8 @@ void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta,
 #endif
 
 	(choleskyEigen.matrixU()).solveInPlace(b);
+
+	// TODO Check marginal variance on b[i]
 
 
 	for (int i = 0; i < sizeOfSample; i++) {

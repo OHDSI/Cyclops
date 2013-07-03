@@ -44,11 +44,16 @@ namespace bsccs {
 
 		double evaluate(Parameter * Beta, Parameter * Beta_Hat,
 				Parameter * SigmaSquared, CyclicCoordinateDescent & ccd,
-				boost::mt19937& rng, Eigen::MatrixXf PrecisionMatrix);
+				boost::mt19937& rng, Eigen::MatrixXf& PrecisionMatrix,
+				double tuningParameter);
 
 		double getHastingsRatio(Parameter * Beta,
 				Parameter * Beta_Hat,
-				Eigen::MatrixXf PrecisionMatrix);
+				Eigen::MatrixXf& PrecisionMatrix,
+				double tuningParameter);
+
+		double getStoredLogLikelihood() { return storedFBetaCurrent; }
+		double getStoredLogPrior() { return storedPBetaCurrent; }
 
 	private:
 		double min(double value1, double value2);

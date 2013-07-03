@@ -15,6 +15,8 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
+#include <Eigen/Core>
+
 #include "MCMCDriver.h"
 #include "MHRatio.h"
 #include "IndependenceSampler.h"
@@ -26,17 +28,19 @@
 #include <boost/random.hpp>
 
 //#define Debug_TRS
+#define DEBUG_STATE
 
 namespace bsccs {
 
 
 MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
 	MCMCFileNameRoot = MCMCFileName;
-	maxIterations = 50000;
+	maxIterations = 100000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
-	acceptanceTuningParameter = 1; // exp(acceptanceTuningParameter) modifies
+	acceptanceTuningParameter = -0.5; // exp(acceptanceTuningParameter) modifies
 	acceptanceRatioTarget = 0.30;
+	autoAdapt = true;
 }
 
 void MCMCDriver::initializeHessian() {
@@ -60,12 +64,52 @@ MCMCDriver::~MCMCDriver() {
 
 }
 
+vector<double> storedBetaHat;
+
+void checkValidState(CyclicCoordinateDescent& ccd, MHRatio& MHstep, Parameter& Beta,
+		Parameter& Beta_Hat,
+		Parameter& SigmaSquared) {
+	ccd.setBeta(Beta.returnCurrentValues());
+	double logLike = ccd.getLogLikelihood();
+	double storedLogLike =  MHstep.getStoredLogLikelihood();
+	if (logLike != storedLogLike) {
+		cerr << "Error in internal state of beta/log_likelihood." << endl;
+		cerr << "\tStored value: " << storedLogLike << endl;
+		cerr << "\tRecomp value: " << logLike << endl;
+		exit(-1);
+	} else {
+		cerr << "All fine" << endl;
+	}
+
+	if (storedBetaHat.size() == 0) { // first time through
+		for (int i = 0; i < Beta_Hat.getSize(); ++i) {
+			storedBetaHat.push_back(Beta_Hat.get(i));
+		}
+
+	} else {
+		for (int i = 0; i < Beta_Hat.getSize(); ++i) {
+			if (storedBetaHat[i] != Beta_Hat.get(i)) {
+				cerr << "Beta hat has changed!" << endl;
+				exit(-1);
+			}
+		}
+	}
+
+	// TODO Check internals with sigma
+}
+
+
+
 void MCMCDriver::drive(
 		CyclicCoordinateDescent& ccd, double betaAmount, long int seed) {
 
+	// MAS All initialization
+
 	// Select First Beta vector = modes from ccd
 	J = ccd.getBetaSize();
+	vector<bsccs::real> zero(J, 0);
 	Parameter Beta_Hat(ccd.hBeta, J);
+//	Parameter Beta_Hat(zero.data(), J);
 
 	Beta_Hat.logParameter();
 
@@ -86,11 +130,15 @@ void MCMCDriver::drive(
 
 	double loglike = ccd.getLogLikelihood();
 
-	ccd.getHessian(&hessian);
+
 
 	ccd.computeXBeta_GPU_TRS_initialize();
 
+	clearHessian();
+	ccd.getHessian(&hessian);
 	generateCholesky();
+
+	// MAS Seems like end of initialization?
 
 
 	////////////////////  GPU Test CODE /////////////////
@@ -109,6 +157,20 @@ void MCMCDriver::drive(
 	cout << "loglike2 = " << loglike2 << endl;
 */
 	///////////////////                 /////////////////
+
+	/**
+	 * initialize
+	 * loop over iterations {
+	 * 		store_state
+	 * 		pick_transition_kernel
+	 * 		apply_transition_kernel
+	 * 		bool accept = decide_accept
+	 * 		if accept {
+	 * 			update_internal_state
+	 * 		} else {
+	 * 			restore
+	 * }
+	 */
 
 	// Generate the tools for the MH loop
 	IndependenceSampler sampler;
@@ -129,8 +191,21 @@ void MCMCDriver::drive(
 	//MCMC Loop
 	for (int iterations = 0; iterations < maxIterations; iterations ++) {
 
+		cout << endl << "iterations = " << iterations << endl;
+
+#ifdef DEBUG_STATE
+		checkValidState(ccd, MHstep, Beta, Beta_Hat, SigmaSquared);
+#endif
+
+//		cerr << "Yo!" << endl;
+//		exit(-1);
+
+		// Store values
+		Beta.store();
+		SigmaSquared.store();
+
 		static boost::uniform_01<boost::mt19937> zeroone(rng);
-		cout << "iterations = " << iterations << endl;
+
 		// Sample from a uniform distribution
 		double uniformRandom = zeroone();
 
@@ -139,22 +214,34 @@ void MCMCDriver::drive(
 		if (Beta.getProbabilityUpdate() > uniformRandom) {
 			getBeta ++;
 
-			modifyHessianWithTuning(acceptanceTuningParameter);  // Tuning parameter to one place only
+//			modifyHessianWithTuning(acceptanceTuningParameter);  // Tuning parameter to one place only
+//
+//			cout << "Printing Hessian in drive" << endl;
+//
+//			for (int i = 0; i < J; i ++) {
+//				cout << "[";
+//					for (int j = 0; j < J; j++) {
+//						cout << HessianMatrixTuned(i,j) << ", ";
+//					}
+//				cout << "]" << endl;
+//			}
 
-			cout << "Printing Hessian in drive" << endl;
+//			cout << HessianMatrix << endl;
+//			cout << (CholDecom.matrixU()) << endl;
+//			Beta_Hat.logParameter();
+//			exit(-1);
 
-			for (int i = 0; i < J; i ++) {
-				cout << "[";
-					for (int j = 0; j < J; j++) {
-						cout << HessianMatrixTuned(i,j) << ", ";
-					}
-				cout << "]" << endl;
-			}
-			sampler.sample(&Beta_Hat, &Beta, rng, CholDecom);
+			sampler.sample(&Beta_Hat, &Beta, rng, CholDecom, acceptanceTuningParameter);
+
+//			Beta.logParameter();
+//			exit(-1);
+
+
 			cout << "acceptanceTuningParameter = " <<  acceptanceTuningParameter << endl;
 
 			//Compute the acceptance ratio
-			alpha = MHstep.evaluate(&Beta, &Beta_Hat, &SigmaSquared, ccd, rng, HessianMatrixTuned);
+			alpha = MHstep.evaluate(&Beta, &Beta_Hat, &SigmaSquared, ccd, rng,
+					HessianMatrix, acceptanceTuningParameter);
 			cout << "alpha = " << alpha << endl;
 
 			MCMCResults_BetaVectors.push_back(Beta.returnCurrentValues());
@@ -164,7 +251,9 @@ void MCMCDriver::drive(
 				numberAcceptances ++;
 			}
 
-			//adaptiveKernel(iterations,alpha);
+			if (autoAdapt) {
+				adaptiveKernel(iterations,alpha);
+			}
 
 		}
 
@@ -191,6 +280,12 @@ void MCMCDriver::drive(
 		}
 
 
+#ifdef DEBUG_STATE
+		checkValidState(ccd, MHstep, Beta, Beta_Hat, SigmaSquared);
+		cerr << "acceptance rate: " << ( static_cast<double>(numberAcceptances)
+				/ static_cast<double>(iterations)) << endl;
+#endif
+
 		// End MCMC loop
 	}
 
@@ -208,9 +303,30 @@ void MCMCDriver::drive(
 
 }
 
+double coolingTransform(int x) {
+//	return std::log(x);
+	return std::sqrt(x);
+//	return static_cast<double>(x);
+}
+
+double targetTransform(double alpha, double target) {
+	return (alpha - target);
+}
+
 void MCMCDriver::adaptiveKernel(int numberIterations, double alpha) {
-	acceptanceTuningParameter = acceptanceTuningParameter + (1/(1+sqrt(numberIterations)))*(alpha -
-			acceptanceRatioTarget);
+
+	acceptanceTuningParameter = acceptanceTuningParameter +
+			(1.0 / (1.0 + coolingTransform(numberIterations))) *
+			targetTransform(alpha, acceptanceRatioTarget);
+//			(0.4 - std::abs(alpha - acceptanceRatioTarget));
+
+//	double delta;
+//	if (alpha < 0.2 || alpha > 0.8) {
+//		delta -= 1.0;
+//	} else {
+//		delta += 1.0;
+//	}
+//	acceptanceTuningParameter += (1.0 / (1.0 + coolingTransform(numberIterations))) * delta;
 }
 
 void MCMCDriver::generateCholesky() {
@@ -220,7 +336,14 @@ void MCMCDriver::generateCholesky() {
 	//Convert to Eigen for Cholesky decomposition
 	for (int i = 0; i < J; i++) {
 		for (int j = 0; j < J; j++) {
-			HessianMatrix(i, j) = -hessian[i][j];
+//			HessianMatrix(i, j) = -hessian[i][j];
+			// TODO Debugging here
+			if (i == j) {
+				HessianMatrix(i,j) = 1.0;
+			} else {
+				HessianMatrix(i,j) = 0.0;
+			}
+
 		}
 	}
 
@@ -247,7 +370,7 @@ void MCMCDriver::generateCholesky() {
 
 
 double getTransformedTuningValue(double tuningParameter) {
-	return exp(tuningParameter);
+	return exp(-tuningParameter);
 }
 
 

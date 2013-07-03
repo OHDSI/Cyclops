@@ -68,6 +68,8 @@ private:
 	int nBetaSamples;
 
 	int nSigmaSquaredSamples;
+
+	bool autoAdapt;
 };
 }
 

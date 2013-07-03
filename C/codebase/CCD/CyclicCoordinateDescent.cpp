@@ -362,6 +362,7 @@ bsccs::real CyclicCoordinateDescent::getBeta(int i) {
 
 double CyclicCoordinateDescent::getLogLikelihood(void) {
 
+	return 0.0; // No SCCS
 
 	cout << "WARNING - CHANGED LOG LIKELIHOOD" << endl;
 
@@ -671,6 +672,7 @@ void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
 		hBeta[j] = static_cast<bsccs::real>(beta[j]);
 	}
 	xBetaKnown = false;
+	sufficientStatisticsKnown = false;
 }
 
 void CyclicCoordinateDescent::setWeights(bsccs::real* iWeights) {
