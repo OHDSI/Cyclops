@@ -28,7 +28,7 @@
 
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
 
-#define Debug_TRS
+//#define Debug_TRS
 
 namespace bsccs {
 

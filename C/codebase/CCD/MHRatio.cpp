@@ -26,7 +26,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
 
-#define Debug_TRS
+//#define Debug_TRS
 
 namespace bsccs{
 
@@ -146,19 +146,12 @@ double MHRatio::getHastingsRatio(Parameter * Beta,
 
 
 	int betaLength = Beta->getSize();
-
 	Eigen::VectorXf betaProposal(betaLength);
-
 	Eigen::VectorXf betaCurrent(betaLength);
-
 	Eigen::VectorXf beta_hat(betaLength);
-
 	Eigen::VectorXf betaHat_minus_current(betaLength);
-
 	Eigen::VectorXf betaHat_minus_proposal(betaLength);
-
 	Eigen::VectorXf precisionDifferenceProduct_proposal(betaLength);
-
 	Eigen::VectorXf precisionDifferenceProduct_current(betaLength);
 
 
@@ -190,19 +183,15 @@ double MHRatio::getHastingsRatio(Parameter * Beta,
 	precisionDifferenceProduct_current = (PrecisionMatrix)*betaHat_minus_current;
 
 #ifdef Debug_TRS
-
 	cout << "precisionDifferenceProduct_proposal" << endl;
 	cout << precisionDifferenceProduct_proposal << endl;
 
 	cout << "precisionDifferenceProduct_current" << endl;
 	cout << precisionDifferenceProduct_current << endl;
-
-
 #endif
 
 
 	double numerator = betaHat_minus_current.dot(precisionDifferenceProduct_current);
-
 	double denominator = betaHat_minus_proposal.dot(precisionDifferenceProduct_proposal);
 
 

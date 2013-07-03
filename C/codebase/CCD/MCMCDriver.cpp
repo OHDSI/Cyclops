@@ -25,14 +25,14 @@
 
 #include <boost/random.hpp>
 
-#define Debug_TRS
+//#define Debug_TRS
 
 namespace bsccs {
 
 
 MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
 	MCMCFileNameRoot = MCMCFileName;
-	maxIterations = 500;
+	maxIterations = 50000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
 	acceptanceTuningParameter = 1; // exp(acceptanceTuningParameter) modifies
