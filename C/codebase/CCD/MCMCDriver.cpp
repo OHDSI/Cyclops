@@ -35,12 +35,12 @@ namespace bsccs {
 
 MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
 	MCMCFileNameRoot = MCMCFileName;
-	maxIterations = 100000;
+	maxIterations = 1000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
 	acceptanceTuningParameter = -0.5; // exp(acceptanceTuningParameter) modifies
 	acceptanceRatioTarget = 0.30;
-	autoAdapt = true;
+	autoAdapt = false;
 }
 
 void MCMCDriver::initializeHessian() {
@@ -336,13 +336,13 @@ void MCMCDriver::generateCholesky() {
 	//Convert to Eigen for Cholesky decomposition
 	for (int i = 0; i < J; i++) {
 		for (int j = 0; j < J; j++) {
-//			HessianMatrix(i, j) = -hessian[i][j];
+			HessianMatrix(i, j) = -hessian[i][j];
 			// TODO Debugging here
-			if (i == j) {
-				HessianMatrix(i,j) = 1.0;
-			} else {
-				HessianMatrix(i,j) = 0.0;
-			}
+//			if (i == j) {
+//				HessianMatrix(i,j) = 1.0;
+//			} else {
+//				HessianMatrix(i,j) = 0.0;
+//			}
 
 		}
 	}

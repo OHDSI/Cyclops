@@ -362,9 +362,7 @@ bsccs::real CyclicCoordinateDescent::getBeta(int i) {
 
 double CyclicCoordinateDescent::getLogLikelihood(void) {
 
-	return 0.0; // No SCCS
-
-	cout << "WARNING - CHANGED LOG LIKELIHOOD" << endl;
+	//return 0.0; // No SCCS
 
 
 	//if (!xBetaKnown) {

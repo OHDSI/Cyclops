@@ -51,7 +51,7 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 	double logHastingsRatio = getHastingsRatio(Beta,Beta_Hat, PrecisionMatrix, tuningParameter);
 
 // Compute log Likelihood and log prior
-#ifdef Debug_TRS
+//#ifdef Debug_TRS
 	int lengthIs = Beta->getSize();
 	cout << "Printing Stored Beta in CCD" << endl;
 	cout << "<";
@@ -59,21 +59,21 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 		cout << ccd.getBeta(i) << ", ";
 	}
 	cout << endl;
-#endif
+//#endif
 
 
 	ccd.resetBeta();
 	ccd.setBeta(*betaPossible);
 
 
-#ifdef Debug_TRS
+//#ifdef Debug_TRS
 	cout << "Printing Proposed Beta in CCD" << endl;
 	cout << "<";
 	for (int i = 0; i < lengthIs; i ++) {
 		cout << ccd.getBeta(i) << ", ";
 	}
 	cout << endl;
-#endif
+//#endif
 
 	double fBetaPossible = ccd.getLogLikelihood();
 	double pBetaPossible = ccd.getLogPrior();
@@ -99,7 +99,7 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 		cerr << "pLL: " << fBetaPossible << endl;
 		cerr << "cLL: " << storedFBetaCurrent << endl;
 		cerr << "hR : " << logHastingsRatio << endl;
-		exit(-1);
+		//exit(-1);
 	}
 
 // Sample from a uniform distribution
@@ -108,14 +108,14 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 	//cout << "SERIOUS WARNING: UNIFORM RANDOM = 0 >>>>>>>>>  change this " << endl;
 	//uniformRandom = 0;
 
-#ifdef Debug_TRS
-	cout << "hastingsRatio = " << hastingsRatio << endl;
+//#ifdef Debug_TRS
+	cout << "hastingsRatio = " << logHastingsRatio << endl;
 	cout << "fBetaPossible = " << fBetaPossible << endl;
 	cout << "fBetaCurrent = " << storedFBetaCurrent << endl;
 	cout << "pBetaPossible = " << pBetaPossible << endl;
 	cout << "pBetaCurrent = " << storedPBetaCurrent << endl;
 	cout << "ratio = " << ratio << " and uniformRandom = " << uniformRandom << endl;
-#endif
+//#endif
 
 
 // This is the Metropolis step
