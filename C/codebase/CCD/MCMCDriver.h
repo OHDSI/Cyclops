@@ -16,6 +16,7 @@
 #include "CrossValidationSelector.h"
 #include "AbstractSelector.h"
 #include "ccd.h"
+#include "Parameter.h"
 
 namespace bsccs {
 class MCMCDriver {
@@ -28,6 +29,10 @@ public:
 			CyclicCoordinateDescent& ccd, double betaAmount, long int seed);
 
 	void generateCholesky();
+
+	void initialize(CyclicCoordinateDescent& ccd, Parameter& Beta_Hat, Parameter& Beta, Parameter& SigmaSquared);
+
+	void logState(Parameter& Beta, Parameter& SigmaSquared);
 
 	void initializeHessian();
 	void clearHessian();

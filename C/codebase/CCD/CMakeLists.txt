@@ -109,7 +109,8 @@ set(SOURCE_FILES
 	SigmaSampler.cpp
 	CredibleIntervals.cpp
 	Parameter.cpp
-	ModelLikelihood.cpp)
+	ModelLikelihood.cpp
+	TransitionKernel.cpp)
 	
 if(CUDA_FOUND)
 	set(SOURCE_FILES ${SOURCE_FILES}

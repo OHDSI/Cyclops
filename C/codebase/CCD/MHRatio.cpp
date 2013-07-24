@@ -26,7 +26,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
 
-//#define Debug_TRS
+#define Debug_TRS
 
 namespace bsccs{
 
@@ -51,29 +51,11 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 	double logHastingsRatio = getHastingsRatio(Beta,Beta_Hat, PrecisionMatrix, tuningParameter);
 
 // Compute log Likelihood and log prior
-#ifdef Debug_TRS
-	int lengthIs = Beta->getSize();
-	cout << "Printing Stored Beta in CCD" << endl;
-	cout << "<";
-	for (int i = 0; i < lengthIs; i ++) {
-		cout << ccd.getBeta(i) << ", ";
-	}
-	cout << endl;
-#endif
-
 
 	ccd.resetBeta();
 	ccd.setBeta(*betaPossible);
 
 
-#ifdef Debug_TRS
-	cout << "Printing Proposed Beta in CCD" << endl;
-	cout << "<";
-	for (int i = 0; i < lengthIs; i ++) {
-		cout << ccd.getBeta(i) << ", ";
-	}
-	cout << endl;
-#endif
 
 	double fBetaPossible = ccd.getLogLikelihood();
 	double pBetaPossible = ccd.getLogPrior();
@@ -109,7 +91,7 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 	//uniformRandom = 0;
 
 #ifdef Debug_TRS
-	cout << "hastingsRatio = " << hastingsRatio << endl;
+	cout << "hastingsRatio = " << logHastingsRatio << endl;
 	cout << "fBetaPossible = " << fBetaPossible << endl;
 	cout << "fBetaCurrent = " << storedFBetaCurrent << endl;
 	cout << "pBetaPossible = " << pBetaPossible << endl;
@@ -179,42 +161,11 @@ double MHRatio::getHastingsRatio(Parameter * Beta,
 	betaHat_minus_current = beta_hat - betaCurrent;
 	betaHat_minus_proposal = beta_hat - betaProposal;
 
-
-#ifdef Debug_TRS
-	cout << "PrecisionMatrix" << endl;
-	cout << PrecisionMatrix << endl;
-
-	cout << "betaProposal in getHastingsRatio" << endl;
-	cout << betaProposal << endl;
-
-	cout << "beta_hat in getHastingsRatio" << endl;
-	cout << beta_hat << endl;
-
-	cout << "betaCurrent in getHastingsRatio" << endl;
-	cout << betaCurrent << endl;
-#endif
-
 	precisionDifferenceProduct_current =  PrecisionMatrix * betaHat_minus_current;
 	precisionDifferenceProduct_proposal = PrecisionMatrix * betaHat_minus_proposal;
 
-#ifdef Debug_TRS
-	cout << "precisionDifferenceProduct_proposal" << endl;
-	cout << precisionDifferenceProduct_proposal << endl;
-
-	cout << "precisionDifferenceProduct_current" << endl;
-	cout << precisionDifferenceProduct_current << endl;
-#endif
-
-
 	double numerator = betaHat_minus_current.dot(precisionDifferenceProduct_current);
 	double denominator = betaHat_minus_proposal.dot(precisionDifferenceProduct_proposal);
-
-
-#ifdef Debug_TRS
-	cout << "numerator = " << numerator << endl;
-
-	cout << "denominator = " << denominator << endl;
-#endif
 
 	return(-0.5*(numerator - denominator) / getTransformedTuningValue(tuningParameter)); // log scale
 	// NB: tuningParameter scales the variance

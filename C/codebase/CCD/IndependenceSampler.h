@@ -20,6 +20,7 @@
 #include <set>
 
 #include "Parameter.h"
+#include "TransitionKernel.h"
 
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
@@ -33,7 +34,7 @@
 
 namespace bsccs {
 
-class IndependenceSampler {
+class IndependenceSampler : public TransitionKernel {
 
 public:
 

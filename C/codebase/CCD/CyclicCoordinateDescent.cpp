@@ -362,22 +362,22 @@ bsccs::real CyclicCoordinateDescent::getBeta(int i) {
 
 double CyclicCoordinateDescent::getLogLikelihood(void) {
 
-	return 0.0; // No SCCS
+	//return 0.0; // No SCCS
 
-	cout << "WARNING - CHANGED LOG LIKELIHOOD" << endl;
+	//cout << "WARNING - CHANGED LOG LIKELIHOOD" << endl;
 
 
-	//if (!xBetaKnown) {
+	if (!xBetaKnown) {
 		computeXBeta();
-	//}
+	}
 
-	//if (!validWeights) {
+	if (!validWeights) {
 		computeNEvents();
-	//}
+	}
 
-	//if (!sufficientStatisticsKnown) {
+	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics(true, 0); // TODO Check index?
-	//}
+	}
 
 	getDenominators();
 	//for (int i = 0; i < K; i++) {

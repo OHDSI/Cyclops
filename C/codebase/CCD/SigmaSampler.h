@@ -22,6 +22,7 @@
 #include <boost/random.hpp>
 
 #include "Parameter.h"
+#include "TransitionKernel.h"
 
 using std::cout;
 using std::cerr;
@@ -32,7 +33,7 @@ using std::ifstream;
 
 namespace bsccs {
 
-class SigmaSampler {
+class SigmaSampler: public TransitionKernel {
 
 public:
 

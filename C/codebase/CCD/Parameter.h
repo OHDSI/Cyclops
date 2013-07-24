@@ -30,6 +30,8 @@ namespace bsccs{
 	public:
 		Parameter(bsccs::real * data, int sizeIn);
 
+		Parameter();
+
 		~Parameter();
 
 		int getSize();
@@ -37,6 +39,9 @@ namespace bsccs{
 		bsccs::real get(int index);
 
 		bsccs::real getStored(int index);
+
+		void initialize(bsccs::real * data, int sizeIn);
+
 
 		void set(int index, bsccs::real setTo);
 

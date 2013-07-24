@@ -12,6 +12,12 @@ using namespace std;
 namespace bsccs{
 
 	Parameter::Parameter(bsccs::real * data, int sizeIn){
+		initialize(data, sizeIn);
+	}
+
+	Parameter::Parameter(){}
+
+	void Parameter::initialize(bsccs::real * data, int sizeIn){
 		size = sizeIn;
 		parameterValues = (bsccs::real*) calloc(sizeIn, sizeof(bsccs::real));
 		storedValues = (bsccs::real*) calloc(size, sizeof(bsccs::real));
