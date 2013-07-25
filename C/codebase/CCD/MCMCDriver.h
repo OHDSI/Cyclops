@@ -17,6 +17,8 @@
 #include "AbstractSelector.h"
 #include "ccd.h"
 #include "Parameter.h"
+#include "Model.h"
+#include "TransitionKernel.h"
 
 namespace bsccs {
 class MCMCDriver {
@@ -28,16 +30,16 @@ public:
 	virtual void drive(
 			CyclicCoordinateDescent& ccd, double betaAmount, long int seed);
 
-	void generateCholesky();
 
-	void initialize(CyclicCoordinateDescent& ccd, Parameter& Beta_Hat, Parameter& Beta, Parameter& SigmaSquared);
+	void initialize(double betaAmount, Model & model, CyclicCoordinateDescent& ccd);
 
-	void logState(Parameter& Beta, Parameter& SigmaSquared);
+	void logState(Model & model);
 
-	void initializeHessian();
-	void clearHessian();
+	double targetTransform(double alpha, double target);
 
-	void modifyHessianWithTuning(double tuningParameter);
+	double coolingTransform(int x);
+
+	double getTransformedTuningValue(double tuningParameter);
 
 private:
 
@@ -47,24 +49,20 @@ private:
 
 	double acceptanceTuningParameter;
 
-	Eigen::LLT<Eigen::MatrixXf> CholDecom;
-
-	Eigen::MatrixXf HessianMatrix;
-
-	Eigen::MatrixXf HessianMatrixTuned;
-
-
 	double acceptanceRatioTarget;
 
 	vector<vector<double> > MCMCResults_BetaVectors;
 
 	void adaptiveKernel(int numberIterations, double alpha);
 
+	vector<double> transitionKernelSelectionProb;
+	vector<TransitionKernel*> transitionKernels;
+
+	int findTransitionKernelIndex(double uniformRandom, vector<double>& transitionKernelSelectionProb);
+
 	vector<double> MCMCResults_SigmaSquared;
 
 	vector<double> BetaValues;
-
-	vector<vector<bsccs::real> > hessian;
 
 	int J;
 

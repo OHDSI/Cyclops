@@ -110,7 +110,8 @@ set(SOURCE_FILES
 	CredibleIntervals.cpp
 	Parameter.cpp
 	ModelLikelihood.cpp
-	TransitionKernel.cpp)
+	TransitionKernel.cpp
+	Model.cpp)
 	
 if(CUDA_FOUND)
 	set(SOURCE_FILES ${SOURCE_FILES}

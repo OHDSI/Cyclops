@@ -21,6 +21,8 @@
 
 #include "Parameter.h"
 #include "TransitionKernel.h"
+#include "MHRatio.h"
+
 
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
@@ -42,8 +44,11 @@ public:
 
 	virtual ~IndependenceSampler();
 
-	void sample(Parameter * Beta_Hat, Parameter * Beta, boost::mt19937& rng,
-			Eigen::LLT<Eigen::MatrixXf> & choleskyEigen, double tuningParameter);
+	void sample(Model& model, double tuningParameter, boost::mt19937& rng);
+
+	bool evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent& ccd);
+
+	double getTransformedTuningValue(double tuningParameter);
 
 protected:
 

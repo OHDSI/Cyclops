@@ -38,11 +38,17 @@ namespace bsccs {
 
 	}
 
-	void SigmaSampler::sampleSigma(Parameter * SigmaSquared, Parameter * BetaValues, boost::mt19937& rng){
-		//TODO fix passing in rng as boost::mt19937
+	void SigmaSampler::sample(Model& model, double tuningParameter, boost::mt19937& rng){
+		cout << "SigmaSampler::sample" << endl;
 
 		// tau | BetaVector ~ gamma(alpha + N/2, Beta + (1/2)(SUM(beta_i - mu)^2)
 		// prior: tau ~ gamma(alpha, beta)
+
+		Parameter* BetaValues = model.getBeta();
+		Parameter* SigmaSquared = model.getSigmaSquared();
+
+		model.SigmaSquaredRestorableSet(true);
+
 
 		double SigmaParameter_alpha = 2;
 		double SigmaParameter_beta = 4;
@@ -69,6 +75,11 @@ namespace bsccs {
 		SigmaSquared->set(0, newValue);
 		//SigmaSquared->logParameter();
 
+	}
+
+	bool SigmaSampler::evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent& ccd){
+		cout << "SigmaSampler::evaluateSample" << endl;
+		return(true); // Gibbs step always accepts
 	}
 
 

@@ -41,14 +41,15 @@ IndependenceSampler::~IndependenceSampler() {
 
 }
 
-double getTransformedTuningValue(double tuningParameter); // forward declaration, move to a header
+double IndependenceSampler::getTransformedTuningValue(double tuningParameter){
+	return exp(-tuningParameter);
+}
+void IndependenceSampler::sample(Model& model, double tuningParameter, boost::mt19937& rng) {
+	cout << "IndependenceSampler::sample" << endl;
 
-void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta,
-		boost::mt19937& rng, Eigen::LLT<Eigen::MatrixXf> & choleskyEigen,
-		double tuningParameter) {
-	//TODO Better rng passing...  Make wrapper
-
-
+	Parameter * Beta = model.getBeta();
+	Parameter * Beta_Hat = model.getBeta_Hat();
+	Eigen::LLT<Eigen::MatrixXf> choleskyEigen = model.getCholeskyLLT();
 //	Beta->store();
 	int sizeOfSample = Beta->getSize();
 
@@ -80,20 +81,18 @@ void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta,
 
 
 	for (int i = 0; i < sizeOfSample; i++) {
-
-	//	cout << "b[" << i << "] = " <<b[i] << endl;
-	//	cout << "beta[" << i << "] = " <<Beta_Hat->get(i) << endl;
 		Beta->set(i, b[i] + Beta_Hat->get(i));
 	}
-	/*
-	cout << "Printing Beta_Hat" << endl;
-	Beta_Hat->logParameter();
-	cout << "That was Beta_Hat" << endl;
 
-	cout <<"PRINTING BETA" << endl;
-	Beta->logParameter();
-	cout <<"THAT WAS BETA" << endl;
-	*/
+}
+
+bool IndependenceSampler::evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent & ccd){
+	cout << "IndependenceSampler::evaluateSample" << endl;
+
+	MHRatio MHstep(ccd);
+	//MHstep.evaluate(Beta, Beta_Hat, SigmaSquared, ccd, rng, choleskyEigen, tuningParameter);
+
+	 return(false);
 }
 
 

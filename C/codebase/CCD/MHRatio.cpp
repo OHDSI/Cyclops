@@ -40,13 +40,13 @@ MHRatio::~MHRatio(){
 
 }
 
-double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
-		Parameter * SigmaSquared, CyclicCoordinateDescent & ccd,
+double MHRatio::evaluate(Parameter & Beta, Parameter & Beta_Hat,
+		Parameter & SigmaSquared, CyclicCoordinateDescent & ccd,
 		boost::mt19937& rng, Eigen::MatrixXf& PrecisionMatrix,
 		double tuningParameter) {
 
 // Get the proposed Beta values
-	vector<double> * betaPossible = Beta->returnCurrentValuesPointer();
+	vector<double> * betaPossible = Beta.returnCurrentValuesPointer();
 
 	double logHastingsRatio = getHastingsRatio(Beta,Beta_Hat, PrecisionMatrix, tuningParameter);
 
@@ -108,7 +108,7 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 		cout << "\n \n \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Change Beta @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n \n" << endl;
 #endif
 
-		Beta->setChangeStatus(true);
+		Beta.setChangeStatus(true);
 //		ccd.resetBeta();
 //		ccd.setBeta(*betaPossible); // TODO MAS doubts this is necessary
 		storedFBetaCurrent = fBetaPossible; // ccd.getLogLikelihood(); // TODO No need to recompute if cached correctly
@@ -121,9 +121,9 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 #ifdef Debug_TRS
 		cout << "##############  Reject Beta ##################" << endl;
 #endif
-		Beta->setChangeStatus(false);
+		Beta.setChangeStatus(false);
 
-		Beta->restore();
+		Beta.restore();
 	}
 
 	return alpha;
@@ -131,15 +131,18 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 
 }
 
-double getTransformedTuningValue(double tuningParameter); // TODO Don't forward reference like this.
+double MHRatio::getTransformedTuningValue(double tuningParameter){
+	// TODO Don't forward reference like this.
+	return exp(-tuningParameter);
+}
 
-double MHRatio::getHastingsRatio(Parameter * Beta,
-		Parameter * Beta_Hat, Eigen::MatrixXf& PrecisionMatrix,
+double MHRatio::getHastingsRatio(Parameter & Beta,
+		Parameter & Beta_Hat, Eigen::MatrixXf& PrecisionMatrix,
 		double tuningParameter
 		){
 
 
-	int betaLength = Beta->getSize();
+	int betaLength = Beta.getSize();
 	Eigen::VectorXf betaCurrent(betaLength);
 	Eigen::VectorXf betaProposal(betaLength);
 
@@ -153,9 +156,9 @@ double MHRatio::getHastingsRatio(Parameter * Beta,
 
 
 	for (int i = 0; i< betaLength; i++){
-		betaProposal(i) = Beta->get(i);
-		betaCurrent(i) = Beta->getStored(i);
-		beta_hat(i) = Beta_Hat->get(i);
+		betaProposal(i) = Beta.get(i);
+		betaCurrent(i) = Beta.getStored(i);
+		beta_hat(i) = Beta_Hat.get(i);
 	}
 
 	betaHat_minus_current = beta_hat - betaCurrent;

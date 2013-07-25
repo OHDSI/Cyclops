@@ -23,7 +23,6 @@
 #include "SigmaSampler.h"
 #include "CredibleIntervals.h"
 #include "Parameter.h"
-#include "ModelLikelihood.h"
 
 #include <boost/random.hpp>
 
@@ -35,7 +34,7 @@ namespace bsccs {
 
 MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
 	MCMCFileNameRoot = MCMCFileName;
-	maxIterations = 1000;
+	maxIterations = 10;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
 	acceptanceTuningParameter = 3; // exp(acceptanceTuningParameter) modifies
@@ -43,22 +42,7 @@ MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader
 	autoAdapt = false;
 }
 
-void MCMCDriver::initializeHessian() {
 
-	for (int i = 0; i < J; i ++){
-		vector<bsccs::real> columnInHessian(J,0);
-		hessian.push_back(columnInHessian);
-	}
-}
-
-void MCMCDriver::clearHessian() {
-
-	for (int i = 0; i < J; i ++){
-		for (int j = 0; j < J; j++) {
-			hessian[j][i] = 0;
-		}
-	}
-}
 
 MCMCDriver::~MCMCDriver() {
 
@@ -98,119 +82,94 @@ void checkValidState(CyclicCoordinateDescent& ccd, MHRatio& MHstep, Parameter& B
 	// TODO Check internals with sigma
 }
 
-void MCMCDriver::initialize(CyclicCoordinateDescent& ccd, Parameter& Beta_Hat, Parameter& Beta, Parameter& SigmaSquared) {
+void MCMCDriver::initialize(double betaAmount, Model & model, CyclicCoordinateDescent& ccd) {
 	// MAS All initialization
 
-	// Beta_Hat = modes from ccd
-	J = ccd.getBetaSize();
-	Beta_Hat.initialize(ccd.hBeta, J);
 
-	// Set up Beta
-	Beta.initialize(ccd.hBeta, J);
-	//Beta.setProbabilityUpdate(betaAmount);
-	Beta.store();
+	cout << "MCMCDriver initialize" << endl;
+	model.initialize(ccd);
 
-	// Set up Sigma squared
-	bsccs::real sigma2Start;
-	sigma2Start = (bsccs::real) ccd.sigma2Beta;
-	SigmaSquared.initialize(&sigma2Start, 1);
-	SigmaSquared.logParameter();
+	transitionKernelSelectionProb.push_back(betaAmount);
+	transitionKernelSelectionProb.push_back(1.0);
 
-	ccd.setUpHessianComponents();
-	initializeHessian();
+	transitionKernels.push_back(new IndependenceSampler);
+	transitionKernels.push_back(new SigmaSampler);
 
-	ccd.computeXBeta_GPU_TRS_initialize();
 
-	clearHessian();
-	ccd.getHessian(&hessian);
-	generateCholesky();
 
 }
 
-void MCMCDriver::logState(Parameter& Beta, Parameter& SigmaSquared){
-	MCMCResults_SigmaSquared.push_back(SigmaSquared.returnCurrentValues()[0]);
-	MCMCResults_BetaVectors.push_back(Beta.returnCurrentValues());
+void MCMCDriver::logState(Model & model){
+	cout << "\n MCMCDriver::logState" << endl;
+	MCMCResults_SigmaSquared.push_back(model.getSigmaSquared()->returnCurrentValues()[0]);
+	model.getSigmaSquared()->logParameter();
+	MCMCResults_BetaVectors.push_back(model.getBeta()->returnCurrentValues());
+	model.getBeta()->logParameter();
+}
+
+int MCMCDriver::findTransitionKernelIndex(double uniformRandom, vector<double>& transitionKernelSelectionProb){
+	cout << "\t MCMCDriver::findTransitionKernalIndex" << endl;
+	int length = transitionKernelSelectionProb.size();
+	for (int i = 0; i < length; i++){
+		if (uniformRandom <= transitionKernelSelectionProb[i]){
+			cout << "\t\t Picking Kernel " << i << endl;
+			return(i);
+		}
+	}
+
 }
 
 void MCMCDriver::drive(
 		CyclicCoordinateDescent& ccd, double betaAmount, long int seed) {
 
-
-	int getBeta = 0;
-	int getSigma = 0;
-	int numberAcceptances = 0;
-	vector<double> transitionKernelSelectionProb;
-	transitionKernelSelectionProb.push_back(betaAmount);
-	transitionKernelSelectionProb.push_back(1-betaAmount);
-
-	vector<TransitionKernel> transitionKernels;
-	IndependenceSampler independenceSamplerInstance;
-	SigmaSampler sigmaSamplerInstance;
-	transitionKernels.push_back(independenceSamplerInstance);
-	transitionKernels.push_back(sigmaSamplerInstance);
-
-	Parameter Beta_Hat;
-	Parameter Beta;
-	Parameter SigmaSquared;
-	initialize(ccd, Beta_Hat, Beta, SigmaSquared);
-	logState(Beta, SigmaSquared);
-
+	Model model;
+	initialize(betaAmount, model, ccd);
+	logState(model);
 
 	//Set Boost rng
 	boost::mt19937 rng(seed);
 
 
-	MHRatio MHstep(ccd);
-
-	double alpha;
-
 	//MCMC Loop
 	for (int iterations = 0; iterations < maxIterations; iterations ++) {
 
-		cout << endl << "iteration " << iterations << endl;
+		cout << endl << "MCMC iteration " << iterations << endl;
 
 #ifdef DEBUG_STATE
 		checkValidState(ccd, MHstep, Beta, Beta_Hat, SigmaSquared);
 #endif
 
-//		cerr << "Yo!" << endl;
-//		exit(-1);
-
 		// Store values
-		Beta.store();
-		SigmaSquared.store();
+		//Beta.store();
+		//SigmaSquared.store();
 
 		static boost::uniform_01<boost::mt19937> zeroone(rng);
 
 		// Sample from a uniform distribution
 		double uniformRandom = zeroone();
 
+		int transitionKernelIndex = findTransitionKernelIndex(uniformRandom, transitionKernelSelectionProb);
+		TransitionKernel* currentTransitionKernel = transitionKernels[transitionKernelIndex];
 
+		transitionKernels[transitionKernelIndex]->sample(model, acceptanceTuningParameter, rng);
+
+		bool accept = transitionKernels[transitionKernelIndex]->evaluateSample(model, acceptanceTuningParameter, rng, ccd);
+
+		cout << accept << endl;
+
+		if (accept) {
+			//model.keepCurrentState
+		} else {
+			model.restore();
+		}
 		//Select a sample beta vector
+
+		/*
 		if (betaAmount > uniformRandom) {
 			getBeta ++;
 
-//			modifyHessianWithTuning(acceptanceTuningParameter);  // Tuning parameter to one place only
-//
-//			cout << "Printing Hessian in drive" << endl;
-//
-//			for (int i = 0; i < J; i ++) {
-//				cout << "[";
-//					for (int j = 0; j < J; j++) {
-//						cout << HessianMatrixTuned(i,j) << ", ";
-//					}
-//				cout << "]" << endl;
-//			}
-
-//			cout << HessianMatrix << endl;
-//			cout << (CholDecom.matrixU()) << endl;
-//			Beta_Hat.logParameter();
-//			exit(-1);
 
 			independenceSamplerInstance.sample(&Beta_Hat, &Beta, rng, CholDecom, acceptanceTuningParameter);
-
-//			Beta.logParameter();
-//			exit(-1);
 
 
 			cout << "acceptanceTuningParameter = " <<  acceptanceTuningParameter << endl;
@@ -275,17 +234,17 @@ void MCMCDriver::drive(
 
 		CredibleIntervals intervalsToReport;
 		intervalsToReport.computeCredibleIntervals(&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared, Beta.getProbabilityUpdate(), SigmaSquared.getProbabilityUpdate(), MCMCFileNameRoot);
-
+*/logState(model); }
 
 }
 
-double coolingTransform(int x) {
+double MCMCDriver::coolingTransform(int x) {
 //	return std::log(x);
 	return std::sqrt(x);
 //	return static_cast<double>(x);
 }
 
-double targetTransform(double alpha, double target) {
+double MCMCDriver::targetTransform(double alpha, double target) {
 	return (alpha - target);
 }
 
@@ -305,88 +264,11 @@ void MCMCDriver::adaptiveKernel(int numberIterations, double alpha) {
 //	acceptanceTuningParameter += (1.0 / (1.0 + coolingTransform(numberIterations))) * delta;
 }
 
-void MCMCDriver::generateCholesky() {
-	HessianMatrix.resize(J, J);
-	HessianMatrixTuned.resize(J,J);
-
-	//Convert to Eigen for Cholesky decomposition
-	for (int i = 0; i < J; i++) {
-		for (int j = 0; j < J; j++) {
-			HessianMatrix(i, j) = -hessian[i][j];
-			// TODO Debugging here
-//			if (i == j) {
-//				HessianMatrix(i,j) = 1.0;
-//			} else {
-//				HessianMatrix(i,j) = 0.0;
-//			}
-
-		}
-	}
-
-	// Initial tuned precision matrix is the same as the CCD Hessian
-	HessianMatrixTuned = HessianMatrix;
-
-	//Perform Cholesky Decomposition
-	CholDecom.compute(HessianMatrix);
-
-#ifdef Debug_TRS
-		cout << "Printing Hessian in generateCholesky" << endl;
-
-		for (int i = 0; i < J; i ++) {
-			cout << "[";
-				for (int j = 0; j < J; j++) {
-					cout << HessianMatrix(i,j) << ", ";
-				}
-			cout << "]" << endl;
-			}
-#endif
 
 
-}
 
-
-double getTransformedTuningValue(double tuningParameter) {
+double MCMCDriver::getTransformedTuningValue(double tuningParameter) {
 	return exp(-tuningParameter);
-}
-
-
-/* Modifies the Hessian with the tuning parameter
- * and calculates the new Cholesky. Cholesky currently
- * recomputed. Dividing starting Cholesky by sqrt(transformed tuning parameter)
- * should be better.
- */
-void MCMCDriver::modifyHessianWithTuning(double tuningParameter){
-	HessianMatrixTuned = HessianMatrix/getTransformedTuningValue(tuningParameter);  // Divide - working in precision space
-	//Perform Cholesky Decomposition
-	CholDecom.compute(HessianMatrixTuned);  // Expensive step, will optimize once check accuracy
-
-
-#ifdef Debug_TRS
-	cout << "Printing Hessian in modifyHessianWithTuning" << endl;
-
-	for (int i = 0; i < J; i ++) {
-		cout << "[";
-			for (int j = 0; j < J; j++) {
-				cout << HessianMatrixTuned(i,j) << ", ";
-			}
-		cout << "]" << endl;
-	}
-
-	Eigen::MatrixXf CholeskyDecompL(J, J);
-	CholeskyDecompL = CholDecom.matrixL();
-
-	cout << "Printing Cholesky in modifyHessianWithTuning" << endl;
-
-	for (int i = 0; i < J; i ++) {
-		cout << "[";
-			for (int j = 0; j < J; j++) {
-				cout << CholeskyDecompL(i,j) << ", ";
-			}
-		cout << "]" << endl;
-	}
-#endif
-
-
 }
 
 }

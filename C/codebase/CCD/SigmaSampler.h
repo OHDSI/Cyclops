@@ -23,6 +23,7 @@
 
 #include "Parameter.h"
 #include "TransitionKernel.h"
+#include "Model.h"
 
 using std::cout;
 using std::cerr;
@@ -41,7 +42,9 @@ public:
 
 	virtual ~SigmaSampler();
 
-	void sampleSigma(Parameter * SigmaSquared, Parameter * BetaValues, boost::mt19937& rng);
+	void sample(Model& model, double tuningParameter, boost::mt19937& rng);
+
+	bool evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent & ccd);
 
 protected:
 
