@@ -49,6 +49,8 @@ namespace bsccs{
 
 		void logParameter();
 
+		void logStored();
+
 		void logParameter(const char * fileName);
 
 		void store();

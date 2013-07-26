@@ -48,6 +48,21 @@ namespace bsccs {
  	}
  }
 
+ void Model::resetWithNewSigma(CyclicCoordinateDescent& ccd){
+		// TODO Need Wrapper for this....
+		ccd.resetBeta();
+		ccd.setHyperprior(SigmaSquared.get(0));
+		int ZHANG_OLES = 1;
+		int ccdIterations = 100;
+		double tolerance = 5E-4;
+
+		ccd.update(ccdIterations, ZHANG_OLES, tolerance);
+		clearHessian();
+		ccd.getHessian(&hessian);
+		generateCholesky();
+		Beta_Hat.set(ccd.hBeta);
+ }
+
  void Model::clearHessian() {
 
  	for (int i = 0; i < J; i ++){
@@ -116,22 +131,36 @@ void Model::SigmaSquaredRestorableSet(bool restorable){
 	SigmaSquaredRestorable = restorable;
 }
 
+void Model::logState(){
+	cout << "Model::logState" << endl;
+	Beta.logParameter();
+	Beta.logStored();
+	Beta_Hat.logParameter();
+	Beta_Hat.logStored();
+	SigmaSquared.logParameter();
+	SigmaSquared.logStored();
+}
 
- Parameter* Model::getBeta(){
-	 return(&Beta);
+
+ Parameter& Model::getBeta(){
+	 return(Beta);
  }
 
- Parameter* Model::getBeta_Hat(){
-	 return(&Beta_Hat);
+ Parameter& Model::getBeta_Hat(){
+	 return(Beta_Hat);
  }
 
- Parameter* Model::getSigmaSquared(){
-	 return(&SigmaSquared);
+ Parameter& Model::getSigmaSquared(){
+	 return(SigmaSquared);
  }
 
  Eigen::LLT<Eigen::MatrixXf> Model::getCholeskyLLT(){
 	 return(CholDecom);
  }
+
+ Eigen::MatrixXf& Model::getHessian(){
+ 	 return(HessianMatrix);
+  }
 
 
 }

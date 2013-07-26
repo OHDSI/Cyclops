@@ -72,6 +72,15 @@ namespace bsccs{
 
 	}
 
+	void Parameter::logStored() {
+		cout << "Stored Parameter value is <";
+		for (int i = 0; i < size; i++) {
+			cout << storedValues[i] << ", ";
+		}
+		cout << ">" << endl;
+
+	}
+
 	void Parameter::logParameter(const char * fileName) {
 		// TODO Implement a write to file function...
 	}

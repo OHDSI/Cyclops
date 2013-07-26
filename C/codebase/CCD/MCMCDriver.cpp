@@ -101,10 +101,11 @@ void MCMCDriver::initialize(double betaAmount, Model & model, CyclicCoordinateDe
 
 void MCMCDriver::logState(Model & model){
 	cout << "\n MCMCDriver::logState" << endl;
-	MCMCResults_SigmaSquared.push_back(model.getSigmaSquared()->returnCurrentValues()[0]);
-	model.getSigmaSquared()->logParameter();
-	MCMCResults_BetaVectors.push_back(model.getBeta()->returnCurrentValues());
-	model.getBeta()->logParameter();
+	MCMCResults_SigmaSquared.push_back(model.getSigmaSquared().returnCurrentValues()[0]);
+	model.getSigmaSquared().logParameter();
+	MCMCResults_BetaVectors.push_back(model.getBeta().returnCurrentValues());
+	model.getBeta().logParameter();
+
 }
 
 int MCMCDriver::findTransitionKernelIndex(double uniformRandom, vector<double>& transitionKernelSelectionProb){
@@ -153,9 +154,11 @@ void MCMCDriver::drive(
 
 		transitionKernels[transitionKernelIndex]->sample(model, acceptanceTuningParameter, rng);
 
+		model.logState();
+
 		bool accept = transitionKernels[transitionKernelIndex]->evaluateSample(model, acceptanceTuningParameter, rng, ccd);
 
-		cout << accept << endl;
+		cout << "accept = " << accept << endl;
 
 		if (accept) {
 			//model.keepCurrentState
@@ -234,7 +237,9 @@ void MCMCDriver::drive(
 
 		CredibleIntervals intervalsToReport;
 		intervalsToReport.computeCredibleIntervals(&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared, Beta.getProbabilityUpdate(), SigmaSquared.getProbabilityUpdate(), MCMCFileNameRoot);
-*/logState(model); }
+*/
+
+		logState(model); }
 
 }
 

@@ -47,11 +47,11 @@ double IndependenceSampler::getTransformedTuningValue(double tuningParameter){
 void IndependenceSampler::sample(Model& model, double tuningParameter, boost::mt19937& rng) {
 	cout << "IndependenceSampler::sample" << endl;
 
-	Parameter * Beta = model.getBeta();
-	Parameter * Beta_Hat = model.getBeta_Hat();
+	Parameter & Beta = model.getBeta();
+	Parameter & Beta_Hat = model.getBeta_Hat();
 	Eigen::LLT<Eigen::MatrixXf> choleskyEigen = model.getCholeskyLLT();
 //	Beta->store();
-	int sizeOfSample = Beta->getSize();
+	int sizeOfSample = Beta.getSize();
 
 
 	vector<bsccs::real> independentNormal;  //Sampled independent normal values
@@ -81,7 +81,7 @@ void IndependenceSampler::sample(Model& model, double tuningParameter, boost::mt
 
 
 	for (int i = 0; i < sizeOfSample; i++) {
-		Beta->set(i, b[i] + Beta_Hat->get(i));
+		Beta.set(i, b[i] + Beta_Hat.get(i));
 	}
 
 }
@@ -90,7 +90,7 @@ bool IndependenceSampler::evaluateSample(Model& model, double tuningParameter, b
 	cout << "IndependenceSampler::evaluateSample" << endl;
 
 	MHRatio MHstep(ccd);
-	//MHstep.evaluate(Beta, Beta_Hat, SigmaSquared, ccd, rng, choleskyEigen, tuningParameter);
+	bool accept = MHstep.evaluate(model.getBeta(), model.getBeta_Hat(), model.getSigmaSquared(), ccd, rng, model.getHessian(), tuningParameter);
 
 	 return(false);
 }

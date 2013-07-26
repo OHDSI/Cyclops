@@ -34,11 +34,16 @@ public:
 
 	void restore();
 
+	void logState();
 
-	Parameter* getBeta();
-	Parameter* getBeta_Hat();
-	Parameter* getSigmaSquared();
+	void resetWithNewSigma(CyclicCoordinateDescent& ccd);
+
+
+	Parameter& getBeta();
+	Parameter& getBeta_Hat();
+	Parameter& getSigmaSquared();
 	Eigen::LLT<Eigen::MatrixXf> getCholeskyLLT();
+	Eigen::MatrixXf& getHessian();
 
 private:
 	Eigen::LLT<Eigen::MatrixXf> CholDecom;

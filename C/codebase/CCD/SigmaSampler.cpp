@@ -44,8 +44,10 @@ namespace bsccs {
 		// tau | BetaVector ~ gamma(alpha + N/2, Beta + (1/2)(SUM(beta_i - mu)^2)
 		// prior: tau ~ gamma(alpha, beta)
 
-		Parameter* BetaValues = model.getBeta();
-		Parameter* SigmaSquared = model.getSigmaSquared();
+		Parameter& BetaValues = model.getBeta();
+		Parameter& SigmaSquared = model.getSigmaSquared();
+
+		SigmaSquared.store();
 
 		model.SigmaSquaredRestorableSet(true);
 
@@ -56,29 +58,29 @@ namespace bsccs {
 		double BetaMinusMu = 0;
 		double Mu = 0;
 
-		for (int i = 0; i < BetaValues->getSize(); i++) {
-			Mu += BetaValues->get(i) / BetaValues->getSize();
+		for (int i = 0; i < BetaValues.getSize(); i++) {
+			Mu += BetaValues.get(i) / BetaValues.getSize();
 		}
 
-		for (int j = 0; j < BetaValues->getSize(); j++ ) {
-			BetaMinusMu += (BetaValues->get(j) - Mu)*(BetaValues->get(j) - Mu); //
+		for (int j = 0; j < BetaValues.getSize(); j++ ) {
+			BetaMinusMu += (BetaValues.get(j) - Mu)*(BetaValues.get(j) - Mu); //
 		}
 
-		const double shape = SigmaParameter_alpha + BetaValues->getSize() / 2;
+		const double shape = SigmaParameter_alpha + BetaValues.getSize() / 2;
 		double scale = SigmaParameter_beta + BetaMinusMu / 2;
 
 		boost::gamma_distribution<> gd( shape );
 		boost::variate_generator<boost::mt19937&,boost::gamma_distribution<> > var_gamma( rng, gd );
 
-		double newValue = 1/scale*var_gamma();  //tshaddox comment out
+		double newValue = 1/scale*var_gamma();
 
-		SigmaSquared->set(0, newValue);
-		//SigmaSquared->logParameter();
+		SigmaSquared.set(0, newValue);
 
 	}
 
 	bool SigmaSampler::evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent& ccd){
 		cout << "SigmaSampler::evaluateSample" << endl;
+		model.resetWithNewSigma(ccd);
 		return(true); // Gibbs step always accepts
 	}
 
