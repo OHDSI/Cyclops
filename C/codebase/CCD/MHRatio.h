@@ -47,7 +47,12 @@ namespace bsccs {
 				boost::mt19937& rng, Eigen::MatrixXf& PrecisionMatrix,
 				double tuningParameter);
 
-		double getHastingsRatio(Parameter & Beta,
+		double getLogMetropolisRatio(Parameter & Beta, Parameter & Beta_Hat,
+				Parameter & SigmaSquared, CyclicCoordinateDescent & ccd,
+				boost::mt19937& rng, Eigen::MatrixXf& PrecisionMatrix,
+				double tuningParameter);
+
+		double getLogHastingsRatio(Parameter & Beta,
 				Parameter & Beta_Hat,
 				Eigen::MatrixXf& PrecisionMatrix,
 				double tuningParameter);
@@ -58,6 +63,10 @@ namespace bsccs {
 
 	private:
 		double min(double value1, double value2);
+
+		double fBetaPossible;
+		double pBetaPossible;
+
 
 		double storedFBetaCurrent;
 		double storedPBetaCurrent;

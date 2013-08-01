@@ -40,67 +40,57 @@ MHRatio::~MHRatio(){
 
 }
 
+double MHRatio::getLogMetropolisRatio(Parameter & Beta, Parameter & Beta_Hat,
+		Parameter & SigmaSquared, CyclicCoordinateDescent & ccd,
+		boost::mt19937& rng, Eigen::MatrixXf& PrecisionMatrix,
+		double tuningParameter){
+
+	// Get the proposed Beta values
+		vector<double> * betaPossible = Beta.returnCurrentValuesPointer();
+
+	// Compute log Likelihood and log prior
+
+		ccd.resetBeta();
+		ccd.setBeta(*betaPossible);
+
+
+
+		fBetaPossible = ccd.getLogLikelihood();
+		pBetaPossible = ccd.getLogPrior();
+
+		double ratio = (fBetaPossible + pBetaPossible) - (storedFBetaCurrent + storedPBetaCurrent);
+
+	#ifdef Debug_TRS
+		cout << "fBetaPossible = " << fBetaPossible << endl;
+		cout << "fBetaCurrent = " << storedFBetaCurrent << endl;
+		cout << "pBetaPossible = " << pBetaPossible << endl;
+		cout << "pBetaCurrent = " << storedPBetaCurrent << endl;
+		#endif
+
+		return(ratio);
+
+}
+
 double MHRatio::evaluate(Parameter & Beta, Parameter & Beta_Hat,
 		Parameter & SigmaSquared, CyclicCoordinateDescent & ccd,
 		boost::mt19937& rng, Eigen::MatrixXf& PrecisionMatrix,
 		double tuningParameter) {
 
-// Get the proposed Beta values
-	vector<double> * betaPossible = Beta.returnCurrentValuesPointer();
+	double logMetropolisRatio =getLogMetropolisRatio(Beta,Beta_Hat, SigmaSquared, ccd, rng, PrecisionMatrix, tuningParameter);
+	double logHastingsRatio = getLogHastingsRatio(Beta,Beta_Hat, PrecisionMatrix, tuningParameter);
 
-	double logHastingsRatio = getHastingsRatio(Beta,Beta_Hat, PrecisionMatrix, tuningParameter);
-
-// Compute log Likelihood and log prior
-
-	ccd.resetBeta();
-	ccd.setBeta(*betaPossible);
-
-
-
-	double fBetaPossible = ccd.getLogLikelihood();
-	double pBetaPossible = ccd.getLogPrior();
-
-// Have we changed the Beta Values?  If so, get new Log Likelihood and prior values...
-	//if (!storedValuesUpToDate) {
-
-//		vector<double> * betaOldValues = Beta->returnStoredValuesPointer();
-//		ccd.setBeta(*betaOldValues); // TODO MAS doubts this is necessary  // Just keep track of current logLikelihood... its a number, cache, do not recompute
-	//}
-
-
-//	(ccd.hXI_Transpose).setUseThisStatus(true); // Testing code
 
 // Compute the ratio for the MH step
-	double ratio = exp((fBetaPossible + pBetaPossible + logHastingsRatio) - (storedFBetaCurrent + storedPBetaCurrent));
+	double ratio = exp(logMetropolisRatio + logHastingsRatio);
 
 // Set our alpha
 	alpha = min(ratio, 1.0);
 	static boost::uniform_01<boost::mt19937> zeroone(rng);
 
-	if (ratio != ratio) {
-		cerr << "pLL: " << fBetaPossible << endl;
-		cerr << "cLL: " << storedFBetaCurrent << endl;
-		cerr << "hR : " << logHastingsRatio << endl;
-		exit(-1);
-	}
 
 // Sample from a uniform distribution
 	double uniformRandom = zeroone();
 
-	//cout << "SERIOUS WARNING: UNIFORM RANDOM = 0 >>>>>>>>>  change this " << endl;
-	//uniformRandom = 0;
-
-#ifdef Debug_TRS
-	cout << "hastingsRatio = " << logHastingsRatio << endl;
-	cout << "fBetaPossible = " << fBetaPossible << endl;
-	cout << "fBetaCurrent = " << storedFBetaCurrent << endl;
-	cout << "pBetaPossible = " << pBetaPossible << endl;
-	cout << "pBetaCurrent = " << storedPBetaCurrent << endl;
-	cout << "ratio = " << ratio << " and uniformRandom = " << uniformRandom << endl;
-#endif
-
-
-// This is the Metropolis step
 
 	if (alpha > uniformRandom) {
 
@@ -109,8 +99,7 @@ double MHRatio::evaluate(Parameter & Beta, Parameter & Beta_Hat,
 #endif
 
 		Beta.setChangeStatus(true);
-//		ccd.resetBeta();
-//		ccd.setBeta(*betaPossible); // TODO MAS doubts this is necessary
+
 		storedFBetaCurrent = fBetaPossible; // ccd.getLogLikelihood(); // TODO No need to recompute if cached correctly
 		storedPBetaCurrent = pBetaPossible; // ccd.getLogPrior();
 
@@ -136,7 +125,7 @@ double MHRatio::getTransformedTuningValue(double tuningParameter){
 	return exp(-tuningParameter);
 }
 
-double MHRatio::getHastingsRatio(Parameter & Beta,
+double MHRatio::getLogHastingsRatio(Parameter & Beta,
 		Parameter & Beta_Hat, Eigen::MatrixXf& PrecisionMatrix,
 		double tuningParameter
 		){

@@ -34,7 +34,7 @@ namespace bsccs {
 
 MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
 	MCMCFileNameRoot = MCMCFileName;
-	maxIterations = 10;
+	maxIterations = 100;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
 	acceptanceTuningParameter = 3; // exp(acceptanceTuningParameter) modifies
@@ -140,9 +140,7 @@ void MCMCDriver::drive(
 		checkValidState(ccd, MHstep, Beta, Beta_Hat, SigmaSquared);
 #endif
 
-		// Store values
-		//Beta.store();
-		//SigmaSquared.store();
+
 
 		static boost::uniform_01<boost::mt19937> zeroone(rng);
 
@@ -234,10 +232,10 @@ void MCMCDriver::drive(
 
 		cout << "at End, nBetaSamples = " << nBetaSamples << endl;
 		cout << "at End, nSigmaSquaredSamples = " << nSigmaSquaredSamples << endl;
-
-		CredibleIntervals intervalsToReport;
-		intervalsToReport.computeCredibleIntervals(&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared, Beta.getProbabilityUpdate(), SigmaSquared.getProbabilityUpdate(), MCMCFileNameRoot);
 */
+		CredibleIntervals intervalsToReport;
+		intervalsToReport.computeCredibleIntervals(&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared, 0.5, 0.5, MCMCFileNameRoot);
+
 
 		logState(model); }
 

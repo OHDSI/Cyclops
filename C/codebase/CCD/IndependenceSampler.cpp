@@ -92,7 +92,8 @@ bool IndependenceSampler::evaluateSample(Model& model, double tuningParameter, b
 	MHRatio MHstep(ccd);
 	bool accept = MHstep.evaluate(model.getBeta(), model.getBeta_Hat(), model.getSigmaSquared(), ccd, rng, model.getHessian(), tuningParameter);
 
-	 return(false);
+
+	return(accept);
 }
 
 

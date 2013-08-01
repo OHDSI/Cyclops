@@ -111,6 +111,7 @@ set(SOURCE_FILES
 	Parameter.cpp
 	ModelLikelihood.cpp
 	TransitionKernel.cpp
+	RandomWalk.cpp
 	Model.cpp)
 	
 if(CUDA_FOUND)
