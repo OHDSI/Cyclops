@@ -35,6 +35,7 @@ struct CCDArguments {
 	int deviceNumber;
 	double tolerance;
 	double hyperprior;
+	bool computeMLE;
 	bool useNormalPrior;
 	bool hyperPriorSet;
 	int maxIterations;

@@ -74,22 +74,28 @@ public:
 			exit(-1);
 		}
 
-		static_cast<DerivedFormat*>(this)->parseHeader(in);
-
 		// Initial values
 		RowInformation rowInfo(0,0,0, MISSING_STRING, MISSING_STRING, *modelData);
 		string line;
 
-		static_cast<DerivedFormat*>(this)->addFixedCovariateColumns();
+		try {
+			static_cast<DerivedFormat*>(this)->parseHeader(in);
 
-		while (getline(in, line) && (rowInfo.currentRow < MAX_ENTRIES)) {
-			if (!line.empty()) {
-				stringstream ss(line.c_str()); // Tokenize
-				static_cast<DerivedFormat*>(this)->parseRow(ss, rowInfo);
-				rowInfo.currentRow++;
+			static_cast<DerivedFormat*>(this)->addFixedCovariateColumns();
+
+			while (getline(in, line) && (rowInfo.currentRow < MAX_ENTRIES)) {
+				if (!line.empty()) {
+					stringstream ss(line.c_str()); // Tokenize
+					static_cast<DerivedFormat*>(this)->parseRow(ss, rowInfo);
+					rowInfo.currentRow++;
+				}
 			}
+			addEventEntry(rowInfo.numEvents); // Save last patient
+
+		} catch (...) {
+			cerr << "Exception while trying to read " << fileName << endl;
+			exit(-1);
 		}
-		addEventEntry(rowInfo.numEvents); // Save last patient
 		
 		static_cast<DerivedFormat*>(this)->upcastColumns(modelData, rowInfo);
 
@@ -113,17 +119,7 @@ protected:
 	void upcastColumns(ModelData* modelData, RowInformation& rowInfo) {
 		// Do nothing
 	}
-		
-//	void handleUpcast(CompressedDataColumn& column, RowInformation& rowInfo) {	
-//#ifndef UPCAST_DENSE		
-//		cerr << "Up-casting covariate " << column.getLabel() << " to sparse!" << endl;
-//		column.convertColumnToSparse();
-//#else
-//		cerr << "Up-casting covariate " << column.getLabel() << " to dense!" << endl;
-//		column.convertColumnToDense(rowInfo.currentRow);	
-//#endif
-//	}		
-		
+
 	void parseAllBBRCovariatesEntry(stringstream& ss, RowInformation& rowInfo) {
 		string entry;
 		int count = 0;
@@ -145,6 +141,7 @@ protected:
 					column.convertColumnToSparse();
 				}
 			}
+
 			if (Missing::isMissing(value)) {
 				// Handle missing values
 				Missing::hook2();
@@ -233,10 +230,10 @@ protected:
 		modelData->y.push_back(thisY);
 	}
 
-	void parseOffsetCovariateEntry(stringstream& ss, RowInformation& rowInfo, bool log) {
+	void parseOffsetCovariateEntry(stringstream& ss, RowInformation& rowInfo, bool inLogSpace) {
 		real thisOffset;
 		ss >> thisOffset;
-		if (log) {
+		if (!inLogSpace) {
 			thisOffset = std::log(thisOffset);
 		}
 		modelData->getColumn(0).add_data(rowInfo.currentRow, thisOffset);

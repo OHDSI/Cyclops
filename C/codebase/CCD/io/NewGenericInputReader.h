@@ -9,6 +9,7 @@
 #define NEWGENERICINPUTREADER_H_
 
 #include "BaseInputReader.h"
+#include "Types.h"
 
 class NewGenericInputReader : public BaseInputReader<NewGenericInputReader> {
 public:
@@ -20,16 +21,73 @@ public:
 		, includeIntercept(false)
 		, includeOffset(false)
 		, includeRowLabel(false)
+		, includeStratumLabel(false)
+		, includeCensoredData(false)
+		, includeCensoredData2(false)
+		, includeWeights(false)
+		, modelType(bsccs::Models::NONE)
 	{
 		// Do nothing
 	}
 
+	NewGenericInputReader(const bsccs::Models::ModelType model) : BaseInputReader<NewGenericInputReader>()
+		, upcastToDense(false)
+		, upcastToSparse(false)
+		, useBBROutcome(false)
+		, includeIntercept(false)
+		, includeOffset(false)
+		, includeRowLabel(false)
+		, includeStratumLabel(false)
+		, includeCensoredData(false)
+		, includeCensoredData2(false)
+		, includeWeights(false)
+		, modelType(model)
+	{
+		setRequiredFlags(model);
+//		std::cerr << bsccs::Models::RequiresStratumID << std::endl;
+//		std::cerr << bsccs::Models::RequiresCensoredData << std::endl;
+//		std::cerr << bsccs::Models::RequiresCensoredData2 << std::endl;
+//		exit(-1);
+
+
+
+	}
+
+	void setRequiredFlags(const bsccs::Models::ModelType model) {
+		using namespace bsccs::Models;
+		includeStratumLabel = requiresStratumID(model);
+		includeCensoredData = requiresCensoredData(model);
+		includeOffset = requiresOffset(model);
+//		std::cerr << "Model = " << model << std::endl;
+//		std::cerr << includeStratumLabel << std::endl << std::endl;
+	}
+
 	inline void parseRow(stringstream& ss, RowInformation& rowInfo) {
+
+//		std::cerr << includeRowLabel << std::endl;
+//		std::cerr << includeStratumLabel << std::endl;
+//		std::cerr << includeWeights << std::endl;
+//		std::cerr << includeOffset << std::endl;
+//		std::cerr << ss << std::endl << std::endl;
+//		exit(-1);
+
 		if (includeRowLabel) {
 			parseRowLabel(ss, rowInfo);
 		}
 
-		parseNoStratumEntry(ss, rowInfo);
+		if (includeStratumLabel) {
+			parseStratumEntry(ss,rowInfo);
+		} else {
+			parseNoStratumEntry(ss, rowInfo);
+		}
+
+		if (includeWeights) {
+			// TODO
+		}
+
+		if (includeCensoredData) {
+			parseSingleTimeEntry<real>(ss, rowInfo);
+		}
 
 		if (useBBROutcome) {
 			parseSingleBBROutcomeEntry<int>(ss, rowInfo);
@@ -38,7 +96,7 @@ public:
 		}
 
 		if (includeOffset) {
-			parseOffsetCovariateEntry(ss, rowInfo, logOffset);
+			parseOffsetCovariateEntry(ss, rowInfo, offsetInLogSpace);
 		}
 
 		if (includeIntercept) {
@@ -58,9 +116,18 @@ public:
 			includeIntercept = includesOption(line, "add_intercept");
 			includeOffset = includesOption(line, "offset");
 			if (includeOffset) {
-				logOffset = includesOption(line, "log_offset");
+				offsetInLogSpace = includesOption(line, "log_offset");
 			}
-			includeRowLabel = includesOption(line, "row_label");
+			// Only set if true
+			if (includesOption(line, "row_label")) {
+				includeRowLabel = true;
+			}
+			if (includesOption(line, "stratum_label")) {
+				includeStratumLabel = true;
+			}
+			if (includesOption(line, "weight")) {
+				includeWeights = true;
+			}
 		}
 	}
 
@@ -105,8 +172,14 @@ private:
 	bool useBBROutcome;
 
 	int columnIntercept;
-	bool logOffset;
+	bool offsetInLogSpace;
 	bool includeRowLabel;
+	bool includeStratumLabel;
+	bool includeWeights;
+	bool includeCensoredData;
+	bool includeCensoredData2;
+
+	bsccs::Models::ModelType modelType;
 };
 
 

@@ -22,6 +22,7 @@
 
 #include <math.h>
 
+#include "Types.h"
 #include "ccd.h"
 #include "CyclicCoordinateDescent.h"
 #include "ModelData.h"
@@ -157,6 +158,7 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.modelName = "sccs";
 	arguments.fileFormat = "sccs";
 	arguments.outputFormat = "estimates";
+	arguments.computeMLE = false;
 	arguments.useNormalPrior = false;
 	arguments.convergenceType = GRADIENT;
 	arguments.convergenceTypeString = "gradient";
@@ -180,6 +182,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		// Prior arguments
 		ValueArg<double> hyperPriorArg("v", "variance", "Hyperprior variance", false, arguments.hyperprior, "real");
 		SwitchArg normalPriorArg("n", "normalPrior", "Use normal prior, default is laplace", arguments.useNormalPrior);
+		SwitchArg computeMLEArg("", "MLE", "Compute the maximum likelihood estimator", arguments.computeMLE);
 
 		// Convergence criterion arguments
 		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, arguments.tolerance, "real");
@@ -248,6 +251,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(maxIterationsArg);
 		cmd.add(hyperPriorArg);
 		cmd.add(normalPriorArg);
+		cmd.add(computeMLEArg);
 //		cmd.add(zhangOlesConvergenceArg);
 		cmd.add(convergenceArg);
 		cmd.add(seedArg);
@@ -288,6 +292,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		arguments.maxIterations = maxIterationsArg.getValue();
 		arguments.hyperprior = hyperPriorArg.getValue();
 		arguments.useNormalPrior = normalPriorArg.getValue();
+		arguments.computeMLE = computeMLEArg.getValue();
 		arguments.seed = seedArg.getValue();
 
 		arguments.modelName = modelArg.getValue();
@@ -377,6 +382,27 @@ double initializeModel(
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
+	// Parse type of model
+	//using namespace bsccs::Models;
+	 bsccs::Models::ModelType modelType;
+	if (arguments.modelName == "sccs") {
+		modelType = bsccs::Models::SELF_CONTROLLED_MODEL;
+	} else if (arguments.modelName == "clr") {
+		modelType = bsccs::Models::CONDITIONAL_LOGISTIC;
+	} else if (arguments.modelName == "lr") {
+		modelType = bsccs::Models::LOGISTIC;
+	} else if (arguments.modelName == "ls") {
+		modelType = bsccs::Models::NORMAL;
+	} else if (arguments.modelName == "pr") {
+		modelType = bsccs::Models::POISSON;
+	} else if (arguments.modelName == "cox") {
+		modelType = bsccs::Models::COX;
+	} else {
+		cerr << "Invalid model type." << endl;
+		exit(-1);
+	}
+
+
 	InputReader* reader;
 
 	if (arguments.fileFormat == "sccs") {
@@ -393,8 +419,7 @@ double initializeModel(
 	} else if (arguments.fileFormat == "bbr") {
 		reader = new BBRInputReader<NoImputation>();
 	} else if (arguments.fileFormat == "generic") {
-//		reader = new NewSCCSInputReader();
-		reader = new NewGenericInputReader();
+		reader = new NewGenericInputReader(modelType);
 	} else if (arguments.fileFormat == "new-cox") {
 		reader = new NewCoxInputReader();
 	} else {
@@ -406,22 +431,46 @@ double initializeModel(
 	// delete reader;
 	*modelData = reader->getModelData();
 
-	if (arguments.modelName == "sccs") {
-		*model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>(**modelData);
-	} else if (arguments.modelName == "clr") {
-		*model = new ModelSpecifics<ConditionalLogisticRegression<real>,real>(**modelData);
-	} else if (arguments.modelName == "lr") {
-		*model = new ModelSpecifics<LogisticRegression<real>,real>(**modelData);
-	} else if (arguments.modelName == "ls") {
-		*model = new ModelSpecifics<LeastSquares<real>,real>(**modelData);
-	} else if (arguments.modelName == "pr") {
-		*model = new ModelSpecifics<PoissonRegression<real>,real>(**modelData);
-	} else if (arguments.modelName == "cox") {
-		*model = new ModelSpecifics<CoxProportionalHazards<real>,real>(**modelData);
-	} else {
-		cerr << "Invalid model type." << endl;
-		exit(-1);
+	switch (modelType) {
+		case bsccs::Models::SELF_CONTROLLED_MODEL :
+			*model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>(**modelData);
+			break;
+		case bsccs::Models::CONDITIONAL_LOGISTIC :
+			*model = new ModelSpecifics<ConditionalLogisticRegression<real>,real>(**modelData);
+			break;
+		case bsccs::Models::LOGISTIC :
+			*model = new ModelSpecifics<LogisticRegression<real>,real>(**modelData);
+			break;
+		case bsccs::Models::NORMAL :
+			*model = new ModelSpecifics<LeastSquares<real>,real>(**modelData);
+			break;
+		case bsccs::Models::POISSON :
+			*model = new ModelSpecifics<PoissonRegression<real>,real>(**modelData);
+			break;
+		case bsccs::Models::COX :
+			*model = new ModelSpecifics<CoxProportionalHazards<real>,real>(**modelData);
+			break;
+		default:
+			cerr << "Invalid model type." << endl;
+			exit(-1);
 	}
+
+//	if (arguments.modelName == "sccs") {
+//		*model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>(**modelData);
+//	} else if (arguments.modelName == "clr") {
+//		*model = new ModelSpecifics<ConditionalLogisticRegression<real>,real>(**modelData);
+//	} else if (arguments.modelName == "lr") {
+//		*model = new ModelSpecifics<LogisticRegression<real>,real>(**modelData);
+//	} else if (arguments.modelName == "ls") {
+//		*model = new ModelSpecifics<LeastSquares<real>,real>(**modelData);
+//	} else if (arguments.modelName == "pr") {
+//		*model = new ModelSpecifics<PoissonRegression<real>,real>(**modelData);
+//	} else if (arguments.modelName == "cox") {
+//		*model = new ModelSpecifics<CoxProportionalHazards<real>,real>(**modelData);
+//	} else {
+//		cerr << "Invalid model type." << endl;
+//		exit(-1);
+//	}
 
 #ifdef CUDA
 	if (arguments.useGPU) {
@@ -441,6 +490,10 @@ double initializeModel(
 	}
 	if (arguments.hyperPriorSet) {
 		(*ccd)->setHyperprior(arguments.hyperprior);
+	}
+
+	if (arguments.computeMLE) {
+		(*ccd)->setPriorType(NONE);
 	}
 
 	gettimeofday(&time2, NULL);

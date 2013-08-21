@@ -41,8 +41,9 @@ using std::ofstream;
 #endif 
 
 enum PriorType {
-	LAPLACE = 0,
-	NORMAL  = 1
+	NONE = 0,
+	LAPLACE,
+	NORMAL
 };
 
 enum ConvergenceType {
@@ -52,12 +53,12 @@ enum ConvergenceType {
 	ZHANG_OLES
 };
 
-enum ModelType {
-	MSCCS, // multiple self-controlled case series
-	CLR,   // conditional logistic regression
-	LR,    // logistic regression
-	LS     // least squares
-};
+//enum ModelType {
+//	MSCCS, // multiple self-controlled case series
+//	CLR,   // conditional logistic regression
+//	LR,    // logistic regression
+//	LS     // least squares
+//};
 
 class CyclicCoordinateDescent {
 	
@@ -289,6 +290,7 @@ protected:
 	
 	string conditionId;
 
+	bool computeMLE;
 	int priorType;
 	double sigma2Beta;
 	double lambda;

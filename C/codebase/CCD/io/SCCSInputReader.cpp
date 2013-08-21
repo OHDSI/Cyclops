@@ -138,7 +138,11 @@ void SCCSInputReader::readFile(const char* fileName) {
 						indexer.addColumn(drug, INDICATOR);
 					}		
 					// Add to CSC storage
-					indexer.getColumn(drug).add_data(currentEntry, 1.0);
+					bool valid = indexer.getColumn(drug).add_data(currentEntry, 1.0);
+					if (!valid) {
+//						std::cerr << "Repeated entry!" << std::endl;
+//						exit(-1);
+					}
 				}
 			}
 			currentEntry++;

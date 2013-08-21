@@ -119,7 +119,9 @@ string CyclicCoordinateDescent::getPriorInfo() {
 	return "prior"; // Rcpp error with stringstream
 #else
 	stringstream priorInfo;
-	if (priorType == LAPLACE) {
+	if (priorType == NONE) {
+		priorInfo << "None(";
+	} else if (priorType == LAPLACE) {
 		priorInfo << "Laplace(";
 		priorInfo << lambda;
 	} else if (priorType == NORMAL) {
@@ -372,7 +374,7 @@ void CyclicCoordinateDescent::setHyperprior(double value) {
 }
 
 void CyclicCoordinateDescent::setPriorType(int iPriorType) {
-	if (iPriorType != LAPLACE && iPriorType != NORMAL) {
+	if (iPriorType < NONE || iPriorType > NORMAL) {
 		cerr << "Unknown prior type" << endl;
 		exit(-1);
 	}
@@ -419,7 +421,10 @@ void CyclicCoordinateDescent::setWeights(real* iWeights) {
 	
 double CyclicCoordinateDescent::getLogPrior(void) {
 	double value;
-	if (priorType == LAPLACE) {
+	if (priorType == NONE) {
+		value = 0.0;
+	}
+	else if (priorType == LAPLACE) {
 		value = J * log(0.5 * lambda) - lambda * oneNorm(hBeta, J);
 	} else {
 		value = -0.5 * J * log(2.0 * PI * sigma2Beta) - 0.5 * twoNormSquared(hBeta, J) / sigma2Beta;
@@ -639,7 +644,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 #endif
 				  
 		
-	} else {
+	} else if (priorType == LAPLACE){
 					
 		double neg_update = - (g_d1 - lambda) / g_d2;
 		double pos_update = - (g_d1 + lambda) / g_d2;
@@ -667,6 +672,8 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 				delta = - hBeta[index];
 			}			
 		}
+	} else {
+		delta = -g_d1 / g_d2; // No regularization
 	}
 
 //	} else { // TODO INTERCEPT
