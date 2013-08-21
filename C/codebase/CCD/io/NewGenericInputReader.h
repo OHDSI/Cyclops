@@ -25,6 +25,7 @@ public:
 		, includeCensoredData(false)
 		, includeCensoredData2(false)
 		, includeWeights(false)
+		, includeSCCSOffset(false)
 		, modelType(bsccs::Models::NONE)
 	{
 		// Do nothing
@@ -41,6 +42,7 @@ public:
 		, includeCensoredData(false)
 		, includeCensoredData2(false)
 		, includeWeights(false)
+		, includeSCCSOffset(false)
 		, modelType(model)
 	{
 		setRequiredFlags(model);
@@ -57,7 +59,11 @@ public:
 		using namespace bsccs::Models;
 		includeStratumLabel = requiresStratumID(model);
 		includeCensoredData = requiresCensoredData(model);
-		includeOffset = requiresOffset(model);
+//		includeOffset = requiresOffset(model);
+		includeSCCSOffset = requiresOffset(model);
+		if (includeSCCSOffset) {
+			includeOffset = false;
+		}
 //		std::cerr << "Model = " << model << std::endl;
 //		std::cerr << includeStratumLabel << std::endl << std::endl;
 	}
@@ -95,7 +101,9 @@ public:
 			parseSingleOutcomeEntry<int>(ss, rowInfo);
 		}
 
-		if (includeOffset) {
+		if (includeSCCSOffset) {
+			parseOffsetEntry(ss, rowInfo);
+		} else if (includeOffset) {
 			parseOffsetCovariateEntry(ss, rowInfo, offsetInLogSpace);
 		}
 
@@ -178,6 +186,7 @@ private:
 	bool includeWeights;
 	bool includeCensoredData;
 	bool includeCensoredData2;
+	bool includeSCCSOffset;
 
 	bsccs::Models::ModelType modelType;
 };
