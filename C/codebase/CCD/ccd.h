@@ -36,6 +36,7 @@ struct CCDArguments {
 	double tolerance;
 	double hyperprior;
 	bool computeMLE;
+	bool fitMLEAtMode;
 	bool useNormalPrior;
 	bool hyperPriorSet;
 	int maxIterations;
@@ -108,5 +109,8 @@ double calculateSeconds(
 
 void setDefaultArguments(
 		CCDArguments &arguments);
+
+void setZeroBetaAsFixed(
+		CyclicCoordinateDescent *ccd);
 
 #endif /* CCD_H_ */

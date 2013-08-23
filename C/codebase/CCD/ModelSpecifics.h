@@ -149,12 +149,13 @@ struct SortedPid {
 struct NoFixedLikelihoodTerms {
 	const static bool likelihoodHasFixedTerms = false;
 
-	real logLikeFixedTermsContrib(real yi){
+	real logLikeFixedTermsContrib(real yi, real offseti){
 		std::cerr << "Error!" << std::endl;
 		exit(-1);
 		return static_cast<real>(0);
 	}
 };
+
 
 struct GLMProjection {
 public:
@@ -164,12 +165,12 @@ public:
 
 	const static bool hasTwoNumeratorTerms = true;
 
-	real logLikeNumeratorContrib(int yi, real xBetai) {
-		return yi * xBetai;
-	}
-
 	real gradientNumeratorContrib(real x, real predictor, real xBeta, real y) {
 		return predictor * x;
+	}
+
+	real logLikeNumeratorContrib(int yi, real xBetai) {
+		return yi * xBetai;
 	}
 
 	real gradientNumerator2Contrib(real x, real predictor) {
@@ -212,9 +213,26 @@ public:
 };
 
 template <typename WeightType>
-struct SelfControlledCaseSeries : public GroupedData, GLMProjection, FixedPid, NoFixedLikelihoodTerms {
+struct SelfControlledCaseSeries : public GroupedData, GLMProjection, FixedPid {
 public:
 	const static bool precomputeHessian = false; // XjX
+
+#define TEST_CONSTANT_SCCS
+#ifdef TEST_CONSTANT_SCCS
+	const static bool likelihoodHasFixedTerms = true;
+
+	real logLikeFixedTermsContrib(real yi, real offseti){
+		return yi * std::log(offseti);
+	}
+#else
+	const static bool likelihoodHasFixedTerms = false;
+
+	real logLikeFixedTermsContrib(real yi, real offseti){
+		std::cerr << "Error!" << std::endl;
+		exit(-1);
+		return static_cast<real>(0);
+	}
+#endif
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
 
@@ -505,7 +523,7 @@ public:
 		yi = exp(xBeta);
 	}
 
-	real logLikeFixedTermsContrib(real yi){
+	real logLikeFixedTermsContrib(real yi, real offseti){
 		real logLikeFixedTerm = 0.0;
 		for(int i = 2; i <= (int)yi; i++)
 			logLikeFixedTerm += -log((real)i);

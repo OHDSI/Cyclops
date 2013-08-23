@@ -340,8 +340,15 @@ void CyclicCoordinateDescent::setFixedBeta(int i, bool value) {
 	fixBeta[i] = value;
 }
 
-double CyclicCoordinateDescent::getLogLikelihood(void) {
+//void CyclicCoordinateDescent::setZeroBetaFixed(void) {
+//	for (int j = 0; j < J; ++j) {
+//		if (hBeta[j] == static_cast<real>(0.0)) {
+//			setFixedBeta(j, true);
+//		}
+//	}
+//}
 
+void CyclicCoordinateDescent::checkAllLazyFlags(void) {
 	if (!xBetaKnown) {
 		computeXBeta();
 	}
@@ -353,6 +360,11 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics(true, 0); // TODO Check index?
 	}
+}
+
+double CyclicCoordinateDescent::getLogLikelihood(void) {
+
+	checkAllLazyFlags();
 
 	getDenominators();
 	likelihoodCount += 1;
@@ -607,6 +619,17 @@ void CyclicCoordinateDescent::computeNumeratorForGradient(int index) {
 void CyclicCoordinateDescent::computeRatiosForGradientAndHessian(int index) {
 	cerr << "Error!" << endl;
 	exit(-1);
+}
+
+double CyclicCoordinateDescent::getHessianDiagonal(int index) {
+
+	checkAllLazyFlags();
+	double g_d1, g_d2;
+
+	computeNumeratorForGradient(index);
+	computeGradientAndHessian(index, &g_d1, &g_d2);
+
+	return g_d2;
 }
 
 double CyclicCoordinateDescent::ccdUpdateBeta(int index) {

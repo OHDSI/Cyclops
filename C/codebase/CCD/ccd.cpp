@@ -159,6 +159,7 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.fileFormat = "sccs";
 	arguments.outputFormat = "estimates";
 	arguments.computeMLE = false;
+	arguments.fitMLEAtMode = false;
 	arguments.useNormalPrior = false;
 	arguments.convergenceType = GRADIENT;
 	arguments.convergenceTypeString = "gradient";
@@ -182,7 +183,8 @@ void parseCommandLine(std::vector<std::string>& args,
 		// Prior arguments
 		ValueArg<double> hyperPriorArg("v", "variance", "Hyperprior variance", false, arguments.hyperprior, "real");
 		SwitchArg normalPriorArg("n", "normalPrior", "Use normal prior, default is laplace", arguments.useNormalPrior);
-		SwitchArg computeMLEArg("", "MLE", "Compute the maximum likelihood estimator", arguments.computeMLE);
+		SwitchArg computeMLEArg("", "MLE", "Compute maximum likelihood estimates only", arguments.computeMLE);
+		SwitchArg computeMLEAtModeArg("", "MLEAtMode", "Compute maximum likelihood estimates at posterior mode", arguments.fitMLEAtMode);
 
 		// Convergence criterion arguments
 		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, arguments.tolerance, "real");
@@ -252,6 +254,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(hyperPriorArg);
 		cmd.add(normalPriorArg);
 		cmd.add(computeMLEArg);
+		cmd.add(computeMLEAtModeArg);
 //		cmd.add(zhangOlesConvergenceArg);
 		cmd.add(convergenceArg);
 		cmd.add(seedArg);
@@ -293,6 +296,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		arguments.hyperprior = hyperPriorArg.getValue();
 		arguments.useNormalPrior = normalPriorArg.getValue();
 		arguments.computeMLE = computeMLEArg.getValue();
+		arguments.fitMLEAtMode = computeMLEAtModeArg.getValue();
 		arguments.seed = seedArg.getValue();
 
 		arguments.modelName = modelArg.getValue();
@@ -384,7 +388,7 @@ double initializeModel(
 
 	// Parse type of model
 	//using namespace bsccs::Models;
-	 bsccs::Models::ModelType modelType;
+	bsccs::Models::ModelType modelType;
 	if (arguments.modelName == "sccs") {
 		modelType = bsccs::Models::SELF_CONTROLLED_MODEL;
 	} else if (arguments.modelName == "clr") {
@@ -402,9 +406,7 @@ double initializeModel(
 		exit(-1);
 	}
 
-
 	InputReader* reader;
-
 	if (arguments.fileFormat == "sccs") {
 		reader = new SCCSInputReader();
 	} else if (arguments.fileFormat == "clr") {
@@ -455,23 +457,6 @@ double initializeModel(
 			exit(-1);
 	}
 
-//	if (arguments.modelName == "sccs") {
-//		*model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>(**modelData);
-//	} else if (arguments.modelName == "clr") {
-//		*model = new ModelSpecifics<ConditionalLogisticRegression<real>,real>(**modelData);
-//	} else if (arguments.modelName == "lr") {
-//		*model = new ModelSpecifics<LogisticRegression<real>,real>(**modelData);
-//	} else if (arguments.modelName == "ls") {
-//		*model = new ModelSpecifics<LeastSquares<real>,real>(**modelData);
-//	} else if (arguments.modelName == "pr") {
-//		*model = new ModelSpecifics<PoissonRegression<real>,real>(**modelData);
-//	} else if (arguments.modelName == "cox") {
-//		*model = new ModelSpecifics<CoxProportionalHazards<real>,real>(**modelData);
-//	} else {
-//		cerr << "Invalid model type." << endl;
-//		exit(-1);
-//	}
-
 #ifdef CUDA
 	if (arguments.useGPU) {
 		*ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, *reader, **model);
@@ -494,6 +479,10 @@ double initializeModel(
 
 	if (arguments.computeMLE) {
 		(*ccd)->setPriorType(NONE);
+		if (arguments.fitMLEAtMode) {
+			cerr << "Unable to compute MLE at posterior mode, if mode is not first explored." << endl;
+			exit(-1);
+		}
 	}
 
 	gettimeofday(&time2, NULL);
@@ -516,6 +505,13 @@ double predictModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArgum
 	return calculateSeconds(time1, time2);
 }
 
+void setZeroBetaAsFixed(CyclicCoordinateDescent *ccd) {
+	for (int j = 0; j < ccd->getBetaSize(); ++j) {
+		if (ccd->getBeta(j) == 0.0) {
+			ccd->setFixedBeta(j, true);
+		}
+	}
+}
 
 double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
 #ifndef MY_RCPP_FLAG
@@ -551,6 +547,14 @@ double runBoostrap(
 	return calculateSeconds(time1, time2);
 }
 
+
+void runFitMLEAtMode(CyclicCoordinateDescent* ccd, CCDArguments &arguments) {
+	std::cout << std::endl << "Estimating MLE at posterior mode" << std::endl;
+	setZeroBetaAsFixed(ccd);
+	ccd->setPriorType(NONE);
+	fitModel(ccd, arguments);
+}
+
 double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
 		CCDArguments &arguments) {
 	struct timeval time1, time2;
@@ -571,6 +575,9 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
  		// Do full fit for optimal parameter
 		driver.resetForOptimal(*ccd, selector, arguments);
 		fitModel(ccd, arguments);
+		if (arguments.fitMLEAtMode) {
+			runFitMLEAtMode(ccd, arguments);
+		}
 	}
 
 	return calculateSeconds(time1, time2);
@@ -639,6 +646,9 @@ int main(int argc, char* argv[]) {
 			ccd->setWeights(&weights[0]);
 		}
 		timeUpdate = fitModel(ccd, arguments);
+		if (arguments.fitMLEAtMode) {
+			runFitMLEAtMode(ccd, arguments);
+		}
 	}
 
 	double timePredict;

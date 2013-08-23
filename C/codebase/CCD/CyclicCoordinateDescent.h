@@ -112,6 +112,10 @@ public:
 	bool getFixedBeta(int i);
 
 	void setFixedBeta(int i, bool value);
+
+	double getHessianDiagonal(int index);
+
+//	void setZeroBetaFixed(void);
 		
 	void update(int maxIterations, int convergenceType, double epsilon);
 
@@ -221,6 +225,8 @@ protected:
 	virtual void getDenominators(void);
 
 	double computeLogLikelihood(void);
+
+	void checkAllLazyFlags(void);
 
 	double ccdUpdateBeta(int index);
 	
