@@ -9,7 +9,7 @@
 #define GPUCYCLICCOORDINATEDESCENT_H_
 
 #include "CyclicCoordinateDescent.h"
-#include "InputReader.h"
+#include "io/InputReader.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/KernelLauncherCCD.h"
 

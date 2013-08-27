@@ -21,6 +21,10 @@
     #include <OpenCL/opencl.h>
     typedef cl_mem GPUPtr;
     typedef cl_kernel GPUFunction;
+#else
+	#include <cuda.h> // TODO Remove
+    typedef void* GPUPtr;
+    typedef void* GPUFunction;
 #endif
 #endif
 

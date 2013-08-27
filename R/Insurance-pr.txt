@@ -1,4 +1,4 @@
-# header options: log_offset (assumes 2nd column) add_intercept (bbr format thereafter)
+# header options: offset (assumes 2nd column) add_intercept (bbr format thereafter)
   38  197          
   35  264        
   20  246        
