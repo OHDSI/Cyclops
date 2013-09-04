@@ -157,13 +157,14 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.reportRawEstimates = false;
 	arguments.modelName = "sccs";
 	arguments.fileFormat = "sccs";
-	arguments.outputFormat = "estimates";
+	//arguments.outputFormat = "estimates";
 	arguments.computeMLE = false;
 	arguments.fitMLEAtMode = false;
 	arguments.useNormalPrior = false;
 	arguments.convergenceType = GRADIENT;
 	arguments.convergenceTypeString = "gradient";
 	arguments.doPartial = false;
+	arguments.noiseLevel = NOISY;
 }
 
 
@@ -244,8 +245,14 @@ void parseCommandLine(std::vector<std::string>& args,
 		std::vector<std::string> allowedOutputFormats;
 		allowedOutputFormats.push_back("estimates");
 		allowedOutputFormats.push_back("prediction");
+		allowedOutputFormats.push_back("diagnostics");
 		ValuesConstraint<std::string> allowedOutputFormatValues(allowedOutputFormats);
-		ValueArg<string> outputFormatArg("", "outputFormat", "Format of the output file", false, arguments.outputFormat, &allowedOutputFormatValues);
+//		ValueArg<string> outputFormatArg("", "outputFormat", "Format of the output file", false, arguments.outputFormat, &allowedOutputFormatValues);
+		MultiArg<std::string> outputFormatArg("", "output", "Format of the output file", false, &allowedOutputFormatValues);
+
+		// Control screen output volume
+		SwitchArg quietArg("q", "quiet", "Limit writing to standard out", arguments.noiseLevel <= QUIET);
+
 
 		cmd.add(gpuArg);
 //		cmd.add(betterGPUArg);
@@ -277,6 +284,8 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(reportRawEstimatesArg);
 //		cmd.add(doLogisticRegressionArg);
 
+		cmd.add(quietArg);
+
 		cmd.add(inFileArg);
 		cmd.add(outFileArg);
 		cmd.parse(args);
@@ -302,6 +311,10 @@ void parseCommandLine(std::vector<std::string>& args,
 		arguments.modelName = modelArg.getValue();
 		arguments.fileFormat = formatArg.getValue();
 		arguments.outputFormat = outputFormatArg.getValue();
+		if (arguments.outputFormat.size() == 0) {
+			arguments.outputFormat.push_back("estimates");
+		}
+
 		arguments.convergenceTypeString = convergenceArg.getValue();
 
 		if (hyperPriorArg.isSet()) {
@@ -359,6 +372,10 @@ void parseCommandLine(std::vector<std::string>& args,
 		if (partialArg.getValue() != -1) {
 			arguments.doPartial = true;
 			arguments.replicates = partialArg.getValue();
+		}
+
+		if (quietArg.getValue()) {
+			arguments.noiseLevel = QUIET;
 		}
 
 //		arguments.doLogisticRegression = doLogisticRegressionArg.isSet();
@@ -477,6 +494,8 @@ double initializeModel(
 		(*ccd)->setHyperprior(arguments.hyperprior);
 	}
 
+	(*ccd)->setNoiseLevel(arguments.noiseLevel);
+
 	if (arguments.computeMLE) {
 		(*ccd)->setPriorType(NONE);
 		if (arguments.fitMLEAtMode) {
@@ -499,10 +518,49 @@ double predictModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArgum
 	gettimeofday(&time1, NULL);
 
 	bsccs::PredictionOutputWriter predictor(*ccd, *modelData);
-	predictor.writeFile(arguments.outFileName.c_str());
+
+	string fileName;
+	if (arguments.outputFormat.size() == 1) {
+		fileName = arguments.outFileName;
+	} else {
+		fileName = "pred_" + arguments.outFileName;
+	}
+
+	predictor.writeFile(fileName.c_str());
 
 	gettimeofday(&time2, NULL);
 	return calculateSeconds(time1, time2);
+}
+
+double diagnoseModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
+		CCDArguments& arguments,
+		double loadTime,
+		double updateTime) {
+
+	using namespace bsccs;
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
+
+	DiagnosticsOutputWriter diagnostics(*ccd, *modelData);
+
+	string fileName;
+	if (arguments.outputFormat.size() == 1) {
+		fileName = arguments.outFileName;
+	} else {
+		fileName = "diag_" + arguments.outFileName;
+	}
+
+	vector<ExtraInformation> extraInfo;
+	extraInfo.push_back(ExtraInformation("load_time",loadTime));
+	extraInfo.push_back(ExtraInformation("update_time",updateTime));
+
+	diagnostics.addExtraInformation(extraInfo);
+	diagnostics.writeFile(fileName.c_str());
+
+
+	gettimeofday(&time2, NULL);
+	return calculateSeconds(time1, time2);
+
 }
 
 void setZeroBetaAsFixed(CyclicCoordinateDescent *ccd) {
@@ -548,11 +606,18 @@ double runBoostrap(
 }
 
 
-void runFitMLEAtMode(CyclicCoordinateDescent* ccd, CCDArguments &arguments) {
+double runFitMLEAtMode(CyclicCoordinateDescent* ccd, CCDArguments &arguments) {
 	std::cout << std::endl << "Estimating MLE at posterior mode" << std::endl;
+
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
+
 	setZeroBetaAsFixed(ccd);
 	ccd->setPriorType(NONE);
 	fitModel(ccd, arguments);
+
+	gettimeofday(&time2, NULL);
+	return calculateSeconds(time1, time2);
 }
 
 double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
@@ -623,6 +688,11 @@ int main(int argc, char* argv[]) {
 
 #else
 
+bool includesOption(const string& line, const string& option) {
+	size_t found = line.find(option);
+	return found != string::npos;
+}
+
 int main(int argc, char* argv[]) {
 
 	CyclicCoordinateDescent* ccd = NULL;
@@ -647,20 +717,39 @@ int main(int argc, char* argv[]) {
 		}
 		timeUpdate = fitModel(ccd, arguments);
 		if (arguments.fitMLEAtMode) {
-			runFitMLEAtMode(ccd, arguments);
+			timeUpdate += runFitMLEAtMode(ccd, arguments);
 		}
+	}
+
+	if (std::find(arguments.outputFormat.begin(),arguments.outputFormat.end(), "estimates")
+			!= arguments.outputFormat.end()) {
+#ifndef MY_RCPP_FLAG
+		// TODO Make into OutputWriter
+		bool withASE = false;
+		string fileName;
+		if (arguments.outputFormat.size() == 1) {
+			fileName = arguments.outFileName;
+		} else {
+			fileName = "est_" + arguments.outFileName;
+		}
+		ccd->logResults(fileName.c_str(), withASE);
+#endif
 	}
 
 	double timePredict;
 	bool doPrediction = false;
-	if (arguments.outputFormat == "prediction") {
+	if (std::find(arguments.outputFormat.begin(),arguments.outputFormat.end(), "prediction")
+			!= arguments.outputFormat.end()) {
 		doPrediction = true;
 		timePredict = predictModel(ccd, modelData, arguments);
-	} else {
-#ifndef MY_RCPP_FLAG
-		// TODO Make into OutputWriter
-		ccd->logResults(arguments.outFileName.c_str());
-#endif
+	}
+
+	double timeDiagnose;
+	bool doDiagnosis = false;
+	if (std::find(arguments.outputFormat.begin(),arguments.outputFormat.end(), "diagnostics")
+			!= arguments.outputFormat.end()) {
+		doDiagnosis = true;
+		timeDiagnose = diagnoseModel(ccd, modelData, arguments, timeInitialize, timeUpdate);
 	}
 
 	if (arguments.doBootstrap) {
@@ -679,6 +768,10 @@ int main(int argc, char* argv[]) {
 		cout << "Predict duration: " << scientific << timePredict << endl;
 	}
 	
+	if (doDiagnosis) {
+		cout << "Diag    duration: " << scientific << timeDiagnose << endl;
+	}
+
 	if (ccd)
 		delete ccd;
 	if (model)

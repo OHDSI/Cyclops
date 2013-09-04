@@ -65,6 +65,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 
 	updateCount = 0;
 	likelihoodCount = 0;
+	noiseLevel = NOISY;
 
 	init(reader->getHasOffsetCovariate());
 }
@@ -112,6 +113,10 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 		}
 	}
 #endif
+}
+
+void CyclicCoordinateDescent::setNoiseLevel(NoiseLevels noise) {
+	noiseLevel = noise;
 }
 
 string CyclicCoordinateDescent::getPriorInfo() {
@@ -276,7 +281,7 @@ void CyclicCoordinateDescent::resetBeta(void) {
 //	return 0.0;
 //}
 
-void CyclicCoordinateDescent::logResults(const char* fileName) {
+void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
 
 	ofstream outLog(fileName);
 	if (!outLog) {
@@ -285,12 +290,25 @@ void CyclicCoordinateDescent::logResults(const char* fileName) {
 	}
 	string sep(","); // TODO Make option
 
-	outLog << "Drug_concept_id" << sep << "Condition_concept_id" << sep << "score" << endl;
+	outLog << "label"
+			<< sep << "estimate"
+			//<< sep << "score"
+			;
+	if (withASE) {
+		outLog << sep << "ASE";
+	}
+	outLog << endl;
 
 	for (int i = 0; i < J; i++) {		
-		outLog << hXI->getColumn(i).getLabel() <<
-				sep <<
-				conditionId << sep << hBeta[i] << endl;
+		outLog << hXI->getColumn(i).getLabel()
+//				<< sep << conditionId
+				<< sep << hBeta[i];
+		if (withASE) {
+			double ASE = getHessianDiagonal(i);
+			cerr << "Asymptotic standard errors are not yet calculated!" << endl;
+			outLog << sep << "0.0";
+		}
+		outLog << endl;
 	}
 	outLog.flush();
 	outLog.close();
@@ -380,9 +398,24 @@ double convertVarianceToHyperparameter(double value) {
 	return sqrt(2.0 / value);
 }
 
+double convertHyperparameterToVariance(double value) {
+	return 2.0 / (value * value);
+}
+
 void CyclicCoordinateDescent::setHyperprior(double value) {
 	sigma2Beta = value;
 	lambda = convertVarianceToHyperparameter(value);
+}
+
+double CyclicCoordinateDescent::getHyperprior(void) const {
+	double hyperPrior;
+	switch (priorType) {
+		case NONE : hyperPrior = 0.0; break;
+		case LAPLACE : hyperPrior = convertHyperparameterToVariance(lambda); break;
+		case NORMAL : hyperPrior = sigma2Beta; break;
+		default : hyperPrior = 0.0; break;
+	}
+	return hyperPrior;
 }
 
 void CyclicCoordinateDescent::setPriorType(int iPriorType) {
@@ -550,7 +583,7 @@ void CyclicCoordinateDescent::update(
 				}
 			}
 			
-			if ((index+1) % 100 == 0) {
+			if ( (noiseLevel > QUIET) && ((index+1) % 100 == 0)) {
 				cout << "Finished variable " << (index+1) << endl;
 			}
 			
@@ -563,11 +596,13 @@ void CyclicCoordinateDescent::update(
 		if (checkConvergence) {
 
 			double conv;
+			bool illconditioned = false;
 			if (convergenceType < ZHANG_OLES) {
  				double thisObjFunc = getObjectiveFunction(convergenceType);
 				if (thisObjFunc != thisObjFunc) {
 					cout << endl << "Warning! problem is ill-conditioned for this choice of hyperparameter. Enforcing convergence!" << endl;
 					conv = 0.0;
+					illconditioned = true;
 				} else {
 					conv = computeConvergenceCriterion(thisObjFunc, lastObjFunc);
 				}
@@ -581,24 +616,36 @@ void CyclicCoordinateDescent::update(
 			double thisLogLikelihood = getLogLikelihood();
 			double thisLogPrior = getLogPrior();
 			double thisLogPost = thisLogLikelihood + thisLogPrior;
-			cout << endl;
-			printVector(hBeta, J, cout);
-			cout << endl;
-			cout << "log post: " << thisLogPost
-				 << " (" << thisLogLikelihood << " + " << thisLogPrior
-			     << ") (iter:" << iteration << ") ";
+
+			if (noiseLevel > QUIET) {
+				cout << endl;
+				printVector(hBeta, J, cout);
+				cout << endl;
+				cout << "log post: " << thisLogPost
+						<< " (" << thisLogLikelihood << " + " << thisLogPrior
+						<< ") (iter:" << iteration << ") ";
+			}
 
 			if (epsilon > 0 && conv < epsilon) {
-				cout << "Reached convergence criterion" << endl;
+				if (illconditioned) {
+					lastReturnFlag = ILLCONDITIONED;
+				} else {
+					cout << "Reached convergence criterion" << endl;
+					lastReturnFlag = SUCCESS;
+				}
 				done = true;
 			} else if (iteration == maxIterations) {
 				cout << "Reached maximum iterations" << endl;
 				done = true;
+				lastReturnFlag = MAX_ITERATIONS;
 			} else {
-				cout << endl;
+				if (noiseLevel > QUIET) {
+					cout << endl;
+				}
 			}
 		}				
 	}
+	lastIterationCount = iteration;
 	updateCount += 1;
 }
 

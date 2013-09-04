@@ -53,6 +53,19 @@ enum ConvergenceType {
 	ZHANG_OLES
 };
 
+enum NoiseLevels {
+	SILENT = 0,
+	QUIET,
+	NOISY
+};
+
+enum UpdateReturnFlags {
+	SUCCESS = 0,
+	FAIL,
+	MAX_ITERATIONS,
+	ILLCONDITIONED
+};
+
 //enum ModelType {
 //	MSCCS, // multiple self-controlled case series
 //	CLR,   // conditional logistic regression
@@ -89,7 +102,7 @@ public:
 			int* inPid
 		);
 	
-	void logResults(const char* fileName);
+	void logResults(const char* fileName, bool withASE);
 
 	virtual ~CyclicCoordinateDescent();
 	
@@ -138,6 +151,9 @@ public:
 //	void double getHessianComponent(int i, int j);
 
 	// Getters
+
+	double getHyperprior(void) const;
+
 	string getPriorInfo();
 
 	string getConditionId() const {
@@ -151,6 +167,16 @@ public:
 	int getLikelihoodCount() const {
 		return likelihoodCount;
 	}
+
+	UpdateReturnFlags getUpdateReturnFlag() const {
+		return lastReturnFlag;
+	}
+
+	int getIterationCount() const {
+		return lastIterationCount;
+	}
+
+	void setNoiseLevel(NoiseLevels);
 		
 protected:
 	
@@ -322,6 +348,10 @@ protected:
 
 	int updateCount;
 	int likelihoodCount;
+
+	NoiseLevels noiseLevel;
+	UpdateReturnFlags lastReturnFlag;
+	int lastIterationCount;
 
 #ifdef SPARSE_PRODUCT
 	std::vector<std::vector<int>* > sparseIndices;

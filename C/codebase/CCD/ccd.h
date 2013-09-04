@@ -29,7 +29,7 @@ struct CCDArguments {
 	std::string inFileName;
 	std::string outFileName;
 	std::string fileFormat;
-	std::string outputFormat;
+	std::vector<std::string> outputFormat;
 	bool useGPU;
 	bool useBetterGPU;
 	int deviceNumber;
@@ -65,6 +65,8 @@ struct CCDArguments {
 //	bool doLogisticRegression;
 	int modelType;
 	std::string modelName;
+
+	NoiseLevels noiseLevel;
 };
 
 
