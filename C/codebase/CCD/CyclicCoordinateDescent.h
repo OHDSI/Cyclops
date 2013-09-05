@@ -177,6 +177,8 @@ public:
 	}
 
 	void setNoiseLevel(NoiseLevels);
+
+	void makeDirty(void);
 		
 protected:
 	

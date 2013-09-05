@@ -418,6 +418,12 @@ double CyclicCoordinateDescent::getHyperprior(void) const {
 	return hyperPrior;
 }
 
+void CyclicCoordinateDescent::makeDirty(void) {
+	xBetaKnown = false;
+	validWeights = false;
+	sufficientStatisticsKnown = false;
+}
+
 void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 	if (iPriorType < NONE || iPriorType > NORMAL) {
 		cerr << "Unknown prior type" << endl;
