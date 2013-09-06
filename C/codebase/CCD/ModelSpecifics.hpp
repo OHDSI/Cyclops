@@ -115,11 +115,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInLogLikelihood(bool
 	if(BaseModel::likelihoodHasFixedTerms) {
 		logLikelihoodFixedTerm = 0.0;
 		if(useCrossValidation) {
-			for(int i = 0; i < N; i++){
+			for(int i = 0; i < K; i++) {
 				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], hOffs[i]) * hKWeight[i];
 			}
 		} else {
-			for(int i = 0; i < N; i++){
+			for(int i = 0; i < K; i++) {
 				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], hOffs[i]);
 			}
 		}
