@@ -4,7 +4,7 @@
  *  Created on: July, 2010
  *      Author: msuchard
  */
-
+ 
 
 #include <iostream>
 #include <fstream>
@@ -16,7 +16,8 @@
 
 #include <iostream>
 #include <time.h>
-#ifndef _WIN32
+
+#ifndef _MSC_VER
 	#include <sys/time.h>
 #endif
 
@@ -60,7 +61,7 @@ using namespace TCLAP;
 using namespace std;
 
 //Sushil:Implementing gettimeofday functionality for windows.
-#ifdef _WIN32
+#ifdef _MSC_VER
 	#if defined(_MSC_VER) || defined(_MSC_EXTENSIONS)
 		#define DELTA_EPOCH_IN_MICROSECS  11644473600000000Ui64
 	#else
