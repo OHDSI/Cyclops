@@ -5,6 +5,8 @@
 #include "ModelData.h"
 #include "io/InputReader.h"
 
+using namespace bsccs;
+
 struct RegressionModel {
 	CyclicCoordinateDescent* ccd;
 	AbstractModelSpecifics* model;
@@ -17,10 +19,9 @@ std::vector<RegressionModel> instances;
 extern "C"
 JNIEXPORT jint JNICALL Java_dr_inference_regression_RegressionJNIWrapper_loadData
   (JNIEnv *env, jobject obj, jstring javaFileName) {
-	fprintf(stderr, "Hello there!\n");
 
-	  const char *nativeFileName = env->GetStringUTFChars(javaFileName, 0);
-	 fprintf(stderr,"%s\n", nativeFileName);
+	const char *nativeFileName = env->GetStringUTFChars(javaFileName, 0);
+	fprintf(stderr,"%s\n", nativeFileName);
 
 	RegressionModel rModel;
 	rModel.arguments = new CCDArguments;

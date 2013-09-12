@@ -57,6 +57,8 @@
 
 #define NEW
 
+namespace bsccs {
+
 using namespace TCLAP;
 using namespace std;
 
@@ -694,7 +696,11 @@ bool includesOption(const string& line, const string& option) {
 	return found != string::npos;
 }
 
+} // namespace
+
 int main(int argc, char* argv[]) {
+
+	using namespace bsccs;
 
 	CyclicCoordinateDescent* ccd = NULL;
 	AbstractModelSpecifics* model = NULL;

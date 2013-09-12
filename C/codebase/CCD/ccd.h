@@ -23,6 +23,8 @@
 #include "ModelSpecifics.h"
 #include "CyclicCoordinateDescent.h"
 
+namespace bsccs {
+
 struct CCDArguments {
 
 	// Needed for fitting
@@ -114,5 +116,7 @@ void setDefaultArguments(
 
 void setZeroBetaAsFixed(
 		CyclicCoordinateDescent *ccd);
+
+} // namespace
 
 #endif /* CCD_H_ */

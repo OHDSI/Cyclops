@@ -44,6 +44,8 @@
 
 #define NEW
 
+namespace bsccs {
+
 using namespace TCLAP;
 using namespace std;
 
@@ -320,7 +322,11 @@ CCDArguments convertCCDToCCDImpute(CCDImputeArguments ccdImputeArgs){
 	return ccdArgs;
 }
 
+} // namespace
+
 int main(int argc, char* argv[]) {
+
+	using namespace bsccs;
 
 	CCDImputeArguments ccdImputeArgs;
 

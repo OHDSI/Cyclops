@@ -13,6 +13,8 @@
 #include "CrossValidationSelector.h"
 #include <time.h>
 
+namespace bsccs {
+
 double randn_notrig(double mu=0.0, double sigma=1.0) {
 	static bool deviateAvailable=false;        //        flag
 	static float storedDeviate;                        //        deviate from previous calculation
@@ -366,3 +368,5 @@ void ImputeVariables::excludeYVector(){
 	modelData->erase(colY);
 	imputeHelper->pop_back();
 }
+
+} // namespace

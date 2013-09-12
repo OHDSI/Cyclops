@@ -19,6 +19,8 @@
 #include "io/InputReader.h"
 #include "Iterators.h"
 
+#include <Eigen/Sparse>
+
 //#ifdef MY_RCPP_FLAG
 //	#include <R.h>
 //#else
@@ -32,6 +34,8 @@
 #else
 //#include "Rcpp.h"
 #endif
+
+namespace bsccs {
 
 using namespace std;
 
@@ -279,6 +283,10 @@ void CyclicCoordinateDescent::resetBeta(void) {
 
 //void double getHessianComponent(int i, int j) {
 //	return 0.0;
+//}
+
+//void getHessian(SparseMatrix& hessian) {
+//
 //}
 
 void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
@@ -919,3 +927,5 @@ inline int CyclicCoordinateDescent::sign(double x) {
 	}
 	return 1;
 }
+
+} // namespace

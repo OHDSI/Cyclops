@@ -12,7 +12,8 @@
 #include "ModelData.h"
 #include "AbstractModelSpecifics.h"
 
-//using namespace std;
+namespace bsccs {
+
 using std::cout;
 using std::cerr;
 using std::endl;
@@ -365,5 +366,7 @@ protected:
 };
 
 double convertVarianceToHyperparameter(double variance);
+
+} // namespace
 
 #endif /* CYCLICCOORDINATEDESCENT_H_ */

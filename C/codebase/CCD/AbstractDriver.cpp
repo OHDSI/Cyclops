@@ -7,6 +7,8 @@
 
 #include "AbstractDriver.h"
 
+namespace bsccs {
+
 AbstractDriver::AbstractDriver() {
 	// TODO Auto-generated constructor stub
 
@@ -15,3 +17,5 @@ AbstractDriver::AbstractDriver() {
 AbstractDriver::~AbstractDriver() {
 	// TODO Auto-generated destructor stub
 }
+
+} // namespace

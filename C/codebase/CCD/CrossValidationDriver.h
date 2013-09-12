@@ -15,6 +15,8 @@
 
 #include "AbstractDriver.h"
 
+namespace bsccs {
+
 class CrossValidationDriver : public AbstractDriver {
 public:
 	CrossValidationDriver(
@@ -53,5 +55,7 @@ private:
 	double upperLimit;
 	vector<real>* weightsExclude;
 };
+
+} // namespace
 
 #endif /* CROSSVALIDATIONDRIVER_H_ */

@@ -13,6 +13,8 @@
 
 #include "CrossValidationDriver.h"
 
+namespace bsccs {
+
 CrossValidationDriver::CrossValidationDriver(
 			int iGridSize,
 			double iLowerLimit,
@@ -173,3 +175,4 @@ void CrossValidationDriver::findMax(double* maxPoint, double* maxValue) {
 	}
 }
 
+} // namespace

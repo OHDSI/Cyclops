@@ -11,6 +11,8 @@
 #include "ImputationPolicy.h"
 #include "ccd.h"
 
+namespace bsccs {
+
 class ImputeVariables {
 public:
 	ImputeVariables();
@@ -38,5 +40,6 @@ private:
 	FormatType formatTypeY;
 };
 
+} // namespace
 
 #endif

@@ -17,6 +17,7 @@ typedef std::vector<real> rvector;
 typedef std::vector<rvector*> rarray;
 typedef	rarray::iterator rarrayIterator;
 
+namespace bsccs {
 class BootstrapDriver : public AbstractDriver {
 public:
 	BootstrapDriver(
@@ -40,5 +41,7 @@ private:
 	const int J;
 	rarray estimates;
 };
+
+} // namespace
 
 #endif /* BOOTSTRAPDRIVER_H_ */

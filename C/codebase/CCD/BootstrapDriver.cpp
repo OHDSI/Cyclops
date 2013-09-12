@@ -15,6 +15,8 @@
 #include "BootstrapDriver.h"
 #include "AbstractSelector.h"
 
+namespace bsccs {
+
 BootstrapDriver::BootstrapDriver(
 		int inReplicates,
 		ModelData* inModelData) : replicates(inReplicates), modelData(inModelData),
@@ -119,3 +121,5 @@ void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<real
 	}
 	outLog.close();
 }
+
+} // namespace

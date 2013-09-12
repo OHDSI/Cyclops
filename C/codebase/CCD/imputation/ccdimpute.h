@@ -23,6 +23,8 @@
 #include "ModelSpecifics.h"
 #include "CyclicCoordinateDescent.h"
 
+namespace bsccs {
+
 struct CCDImputeArguments {
 
 	// Needed for fitting
@@ -80,5 +82,7 @@ void parseCommandLine(
 
 void setDefaultArguments(
 		CCDImputeArguments &ccdImputeArgs);
+
+} // namespace
 
 #endif /* CCDIMPUTE_H_ */
