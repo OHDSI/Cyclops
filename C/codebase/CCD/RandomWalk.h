@@ -42,7 +42,7 @@ class RandomWalk : public TransitionKernel {
 
 public:
 
-	RandomWalk();
+	RandomWalk(CyclicCoordinateDescent & ccd);
 
 	virtual ~RandomWalk();
 
@@ -54,7 +54,7 @@ public:
 
 protected:
 
-
+	MHRatio MHstep;
 
 };
 

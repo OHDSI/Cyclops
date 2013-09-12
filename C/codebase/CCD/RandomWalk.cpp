@@ -33,8 +33,8 @@
 
 namespace bsccs {
 
-RandomWalk::RandomWalk() {
-
+RandomWalk::RandomWalk(CyclicCoordinateDescent & ccd) {
+	MHstep.initialize(ccd);
 }
 
 
@@ -95,7 +95,7 @@ bool RandomWalk::evaluateSample(Model& model, double tuningParameter, boost::mt1
 	Parameter & Beta = model.getBeta();
 	Parameter & Beta_Hat = model.getBeta_Hat();
 
-	MHRatio MHstep(ccd);
+
 	bool accept = MHstep.evaluate(model.getBeta(), model.getBeta_Hat(), model.getSigmaSquared(), ccd, rng, model.getHessian(), tuningParameter);
 
 	if(accept) {

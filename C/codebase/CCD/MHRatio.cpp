@@ -30,7 +30,9 @@
 
 namespace bsccs{
 
-MHRatio::MHRatio(CyclicCoordinateDescent & ccd){
+MHRatio::MHRatio(){}
+
+void MHRatio::initialize(CyclicCoordinateDescent & ccd){
 	storedFBetaCurrent = ccd.getLogLikelihood();
 	storedPBetaCurrent = ccd.getLogPrior();
 
@@ -60,15 +62,21 @@ double MHRatio::getLogMetropolisRatio(Parameter & Beta, Parameter & Beta_Hat,
 
 		double ratio = (fBetaPossible + pBetaPossible) - (storedFBetaCurrent + storedPBetaCurrent);
 
-	#ifdef Debug_TRS
+
+
+		#ifdef Debug_TRS
 		cout << "fBetaPossible = " << fBetaPossible << endl;
 		cout << "fBetaCurrent = " << storedFBetaCurrent << endl;
 		cout << "pBetaPossible = " << pBetaPossible << endl;
 		cout << "pBetaCurrent = " << storedPBetaCurrent << endl;
 		#endif
 
-		return(ratio);
-
+		//Check for numerical issues
+		if (isfinite(fBetaPossible) && isfinite(pBetaPossible)){
+			return(ratio);
+		} else {
+			return(0); // Want to reject if numerical issues at proposal
+		}
 }
 
 double MHRatio::evaluate(Parameter & Beta, Parameter & Beta_Hat,
@@ -76,7 +84,7 @@ double MHRatio::evaluate(Parameter & Beta, Parameter & Beta_Hat,
 		boost::mt19937& rng, Eigen::MatrixXf& PrecisionMatrix,
 		double tuningParameter) {
 
-	double logMetropolisRatio =getLogMetropolisRatio(Beta,Beta_Hat, SigmaSquared, ccd, rng, PrecisionMatrix, tuningParameter);
+	double logMetropolisRatio = getLogMetropolisRatio(Beta,Beta_Hat, SigmaSquared, ccd, rng, PrecisionMatrix, tuningParameter);
 	double logHastingsRatio = getLogHastingsRatio(Beta,Beta_Hat, PrecisionMatrix, tuningParameter);
 
 
@@ -95,6 +103,8 @@ double MHRatio::evaluate(Parameter & Beta, Parameter & Beta_Hat,
 	if (alpha > uniformRandom) {
 
 #ifdef Debug_TRS
+		cout << "logMetropolisRatio = " << logMetropolisRatio << endl;
+		cout << "logHastingsRatio = " << logHastingsRatio << endl;
 		cout << "\n \n \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Change Beta @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n \n" << endl;
 #endif
 

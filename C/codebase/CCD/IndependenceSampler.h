@@ -23,6 +23,9 @@
 #include "TransitionKernel.h"
 #include "MHRatio.h"
 
+#include <boost/random.hpp>
+#include <boost/random/normal_distribution.hpp>
+
 
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
@@ -40,7 +43,7 @@ class IndependenceSampler : public TransitionKernel {
 
 public:
 
-	IndependenceSampler();
+	IndependenceSampler(CyclicCoordinateDescent & ccd);
 
 	virtual ~IndependenceSampler();
 
@@ -52,7 +55,7 @@ public:
 
 protected:
 
-
+	MHRatio MHstep;
 
 };
 

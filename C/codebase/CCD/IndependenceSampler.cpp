@@ -23,8 +23,6 @@
 #include <Eigen/Core>
 
 
-#include <boost/random.hpp>
-#include <boost/random/normal_distribution.hpp>
 
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
 
@@ -32,8 +30,8 @@
 
 namespace bsccs {
 
-IndependenceSampler::IndependenceSampler() {
-
+IndependenceSampler::IndependenceSampler(CyclicCoordinateDescent & ccd) {
+	MHstep.initialize(ccd);
 }
 
 
@@ -89,7 +87,7 @@ void IndependenceSampler::sample(Model& model, double tuningParameter, boost::mt
 bool IndependenceSampler::evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent & ccd){
 	cout << "IndependenceSampler::evaluateSample" << endl;
 
-	MHRatio MHstep(ccd);
+
 	bool accept = MHstep.evaluate(model.getBeta(), model.getBeta_Hat(), model.getSigmaSquared(), ccd, rng, model.getHessian(), tuningParameter);
 
 

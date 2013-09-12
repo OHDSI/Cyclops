@@ -637,7 +637,13 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 			break;
 		}
 
+		//  Consider the prior in Hessian space = -precision (precisions add)
+		for(int i = 0; i < J; i++) {
+			(*blankHessian)[i][i] -= 1/sigma2Beta;
+		}
 
+
+		/*
 		cout << "in CCD blankHessian is " << endl;
 		bsccs::real maxValue = 0;
 		for (int i = 0; i < J; i ++) {
@@ -650,6 +656,7 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 			}
 			cout << "]" << endl;
 		}
+		*/
 
 
 
@@ -663,6 +670,17 @@ void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 		exit(-1);
 	}
 	priorType = iPriorType;
+}
+
+
+void CyclicCoordinateDescent::setBeta(int i, double beta) {
+        sufficientStatisticsKnown = false;
+        double delta = beta - hBeta[i];
+        updateSufficientStatistics(delta, i);
+
+//      hBeta[i] = static_cast<real>(beta);
+//      xBetaKnown = false;
+//      sufficientStatisticsKnown = false;
 }
 
 //template <typename T>

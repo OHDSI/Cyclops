@@ -154,7 +154,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	maxNISize = 0;
 	for (int j = 0; j < J; ++j) {
 		const int size = sparseIndices[j]->size();
-		cout << "size = " << size << endl;
+		//cout << "size = " << size << endl;
 		if (size > maxNISize) {
 			maxNISize = size;
 		}

@@ -20,6 +20,7 @@
 #include "MCMCDriver.h"
 #include "MHRatio.h"
 #include "IndependenceSampler.h"
+#include "RandomWalk.h"
 #include "SigmaSampler.h"
 #include "CredibleIntervals.h"
 #include "Parameter.h"
@@ -37,7 +38,7 @@ MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader
 	maxIterations = 100;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
-	acceptanceTuningParameter = 3; // exp(acceptanceTuningParameter) modifies
+	acceptanceTuningParameter = 10; // exp(acceptanceTuningParameter) modifies
 	acceptanceRatioTarget = 0.30;
 	autoAdapt = false;
 }
@@ -92,7 +93,7 @@ void MCMCDriver::initialize(double betaAmount, Model & model, CyclicCoordinateDe
 	transitionKernelSelectionProb.push_back(betaAmount);
 	transitionKernelSelectionProb.push_back(1.0);
 
-	transitionKernels.push_back(new IndependenceSampler);
+	transitionKernels.push_back(new IndependenceSampler(ccd));
 	transitionKernels.push_back(new SigmaSampler);
 
 
@@ -126,36 +127,29 @@ void MCMCDriver::drive(
 	Model model;
 	initialize(betaAmount, model, ccd);
 	logState(model);
-
 	//Set Boost rng
 	boost::mt19937 rng(seed);
 
 
 	//MCMC Loop
 	for (int iterations = 0; iterations < maxIterations; iterations ++) {
-
 		cout << endl << "MCMC iteration " << iterations << endl;
 
 #ifdef DEBUG_STATE
 		checkValidState(ccd, MHstep, Beta, Beta_Hat, SigmaSquared);
 #endif
 
-
-
-		static boost::uniform_01<boost::mt19937> zeroone(rng);
-
 		// Sample from a uniform distribution
+		static boost::uniform_01<boost::mt19937> zeroone(rng);
 		double uniformRandom = zeroone();
 
 		int transitionKernelIndex = findTransitionKernelIndex(uniformRandom, transitionKernelSelectionProb);
 		TransitionKernel* currentTransitionKernel = transitionKernels[transitionKernelIndex];
-
 		transitionKernels[transitionKernelIndex]->sample(model, acceptanceTuningParameter, rng);
 
-		model.logState();
+		//model.logState();
 
 		bool accept = transitionKernels[transitionKernelIndex]->evaluateSample(model, acceptanceTuningParameter, rng, ccd);
-
 		cout << "accept = " << accept << endl;
 
 		if (accept) {
@@ -163,82 +157,10 @@ void MCMCDriver::drive(
 		} else {
 			model.restore();
 		}
-		//Select a sample beta vector
-
-		/*
-		if (betaAmount > uniformRandom) {
-			getBeta ++;
-
-
-			independenceSamplerInstance.sample(&Beta_Hat, &Beta, rng, CholDecom, acceptanceTuningParameter);
-
-
-			cout << "acceptanceTuningParameter = " <<  acceptanceTuningParameter << endl;
-
-			//Compute the acceptance ratio
-			alpha = MHstep.evaluate(&Beta, &Beta_Hat, &SigmaSquared, ccd, rng,
-					HessianMatrix, acceptanceTuningParameter);
-			cout << "alpha = " << alpha << endl;
-
-			MCMCResults_BetaVectors.push_back(Beta.returnCurrentValues());
-			nBetaSamples ++;
-
-			if (Beta.getChangeStatus()){
-				numberAcceptances ++;
-			}
-
-			if (autoAdapt) {
-				adaptiveKernel(iterations,alpha);
-			}
-
+		//logState(model);
 		}
-
-		if (Beta.getProbabilityUpdate() < uniformRandom) {
-			getSigma ++;
-			SigmaSampler sigmaMaker;
-			sigmaMaker.sampleSigma(&SigmaSquared, &Beta, rng);
-
-			MCMCResults_SigmaSquared.push_back(SigmaSquared.returnCurrentValues()[0]);
-			nSigmaSquaredSamples ++;
-
-			// TODO Need Wrapper for this....
-			ccd.resetBeta();
-			ccd.setHyperprior(SigmaSquared.get(0));
-			int ZHANG_OLES = 1;
-			int ccdIterations = 100;
-			double tolerance = 5E-4;
-
-			ccd.update(ccdIterations, ZHANG_OLES, tolerance);
-			clearHessian();
-			ccd.getHessian(&hessian);
-			generateCholesky();
-			Beta_Hat.set(ccd.hBeta);
-		}
-
-
-//#ifdef DEBUG_STATE
-//		checkValidState(ccd, MHstep, Beta, Beta_Hat, SigmaSquared);
-		cerr << "acceptance rate: " << ( static_cast<double>(numberAcceptances)
-				/ static_cast<double>(iterations)) << endl;
-//#endif
-
-		// End MCMC loop
-	}
-
-		cout << "getBeta = " << getBeta << endl;
-		cout << "getSigma = " << getSigma << endl;
-		cout << "number of acceptances = " << numberAcceptances << endl;
-		cout << "Starting Credible Intervals" << endl;
-
-		cout << "at End, nBetaSamples = " << nBetaSamples << endl;
-		cout << "at End, nSigmaSquaredSamples = " << nSigmaSquaredSamples << endl;
-*/
-		CredibleIntervals intervalsToReport;
-		intervalsToReport.computeCredibleIntervals(&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared, 0.5, 0.5, MCMCFileNameRoot);
-
-
-		logState(model); }
-
+	CredibleIntervals intervalsToReport;
+	intervalsToReport.computeCredibleIntervals(&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared, 0.5, 0.5, MCMCFileNameRoot);
 }
 
 double MCMCDriver::coolingTransform(int x) {

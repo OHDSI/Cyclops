@@ -19,7 +19,10 @@
 #include <set>
 
 #include "CyclicCoordinateDescent.h"
-#include "IndependenceSampler.h"
+#include "Parameter.h"
+
+#include <boost/random.hpp>
+#include <boost/random/normal_distribution.hpp>
 
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
@@ -38,9 +41,11 @@ namespace bsccs {
 
 	public:
 
-		MHRatio(CyclicCoordinateDescent & ccd);
+		MHRatio();
 
 		~MHRatio();
+
+		void initialize(CyclicCoordinateDescent & ccd);
 
 		double evaluate(Parameter & Beta, Parameter & Beta_Hat,
 				Parameter & SigmaSquared, CyclicCoordinateDescent & ccd,

@@ -122,6 +122,8 @@ public:
 //	template <typename T>
 	virtual void setBeta(const std::vector<double>& beta);
 
+	void setBeta(int i, double beta);
+
 //	void double getHessianComponent(int i, int j);
 
 	// Getters
