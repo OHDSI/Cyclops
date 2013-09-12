@@ -119,6 +119,9 @@ public:
 
 	void getHessian(vector<vector<bsccs::real> > * blankHessian);
 
+
+	void setBeta(int i, double beta);
+
 //	template <typename T>
 	virtual void setBeta(const std::vector<double>& beta);
 

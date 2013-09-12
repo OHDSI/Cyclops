@@ -28,17 +28,17 @@
 #include <boost/random.hpp>
 
 //#define Debug_TRS
-#define DEBUG_STATE
+//#define DEBUG_STATE
 
 namespace bsccs {
 
 
 MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
 	MCMCFileNameRoot = MCMCFileName;
-	maxIterations = 1000;
+	maxIterations = 2000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
-	acceptanceTuningParameter = -0.5; // exp(acceptanceTuningParameter) modifies
+	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies
 	acceptanceRatioTarget = 0.30;
 	autoAdapt = false;
 }
@@ -76,7 +76,7 @@ void checkValidState(CyclicCoordinateDescent& ccd, MHRatio& MHstep, Parameter& B
 		cerr << "Error in internal state of beta/log_likelihood." << endl;
 		cerr << "\tStored value: " << storedLogLike << endl;
 		cerr << "\tRecomp value: " << logLike << endl;
-		exit(-1);
+		//exit(-1);
 	} else {
 		cerr << "All fine" << endl;
 	}
@@ -90,7 +90,7 @@ void checkValidState(CyclicCoordinateDescent& ccd, MHRatio& MHstep, Parameter& B
 		for (int i = 0; i < Beta_Hat.getSize(); ++i) {
 			if (storedBetaHat[i] != Beta_Hat.get(i)) {
 				cerr << "Beta hat has changed!" << endl;
-				exit(-1);
+				//exit(-1);
 			}
 		}
 	}
@@ -111,11 +111,11 @@ void MCMCDriver::drive(
 	Parameter Beta_Hat(ccd.hBeta, J);
 //	Parameter Beta_Hat(zero.data(), J);
 
-	Beta_Hat.logParameter();
+	//Beta_Hat.logParameter();
 
 	// Set up Beta
 	Parameter Beta(ccd.hBeta, J);
-	Beta.logParameter();
+	//Beta.logParameter();
 	Beta.setProbabilityUpdate(betaAmount);
 	Beta.store();
 
@@ -129,8 +129,6 @@ void MCMCDriver::drive(
 	initializeHessian();
 
 	double loglike = ccd.getLogLikelihood();
-
-
 
 	ccd.computeXBeta_GPU_TRS_initialize();
 
@@ -191,7 +189,7 @@ void MCMCDriver::drive(
 	//MCMC Loop
 	for (int iterations = 0; iterations < maxIterations; iterations ++) {
 
-		cout << endl << "iterations = " << iterations << endl;
+		cout << endl << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     iterations = " << iterations << endl;
 
 #ifdef DEBUG_STATE
 		checkValidState(ccd, MHstep, Beta, Beta_Hat, SigmaSquared);
@@ -214,27 +212,7 @@ void MCMCDriver::drive(
 		if (Beta.getProbabilityUpdate() > uniformRandom) {
 			getBeta ++;
 
-//			modifyHessianWithTuning(acceptanceTuningParameter);  // Tuning parameter to one place only
-//
-//			cout << "Printing Hessian in drive" << endl;
-//
-//			for (int i = 0; i < J; i ++) {
-//				cout << "[";
-//					for (int j = 0; j < J; j++) {
-//						cout << HessianMatrixTuned(i,j) << ", ";
-//					}
-//				cout << "]" << endl;
-//			}
-
-//			cout << HessianMatrix << endl;
-//			cout << (CholDecom.matrixU()) << endl;
-//			Beta_Hat.logParameter();
-//			exit(-1);
-
 			sampler.sample(&Beta_Hat, &Beta, rng, CholDecom, acceptanceTuningParameter);
-
-//			Beta.logParameter();
-//			exit(-1);
 
 
 			cout << "acceptanceTuningParameter = " <<  acceptanceTuningParameter << endl;
@@ -244,7 +222,7 @@ void MCMCDriver::drive(
 					HessianMatrix, acceptanceTuningParameter);
 			cout << "alpha = " << alpha << endl;
 
-			MCMCResults_BetaVectors.push_back(Beta.returnCurrentValues());
+			//MCMCResults_BetaVectors.push_back(Beta.returnCurrentValues());
 			nBetaSamples ++;
 
 			if (Beta.getChangeStatus()){
@@ -262,7 +240,7 @@ void MCMCDriver::drive(
 			SigmaSampler sigmaMaker;
 			sigmaMaker.sampleSigma(&SigmaSquared, &Beta, rng);
 
-			MCMCResults_SigmaSquared.push_back(SigmaSquared.returnCurrentValues()[0]);
+			//MCMCResults_SigmaSquared.push_back(SigmaSquared.returnCurrentValues()[0]);
 			nSigmaSquaredSamples ++;
 
 			// TODO Need Wrapper for this....
@@ -279,6 +257,8 @@ void MCMCDriver::drive(
 			Beta_Hat.set(ccd.hBeta);
 		}
 
+		MCMCResults_BetaVectors.push_back(Beta.returnCurrentValues());
+		MCMCResults_SigmaSquared.push_back(SigmaSquared.returnCurrentValues()[0]);
 
 #ifdef DEBUG_STATE
 		checkValidState(ccd, MHstep, Beta, Beta_Hat, SigmaSquared);
@@ -346,12 +326,18 @@ void MCMCDriver::generateCholesky() {
 
 		}
 	}
-
 	// Initial tuned precision matrix is the same as the CCD Hessian
 	HessianMatrixTuned = HessianMatrix;
 
+	std::ofstream file("/Users/tshaddox/Desktop/Precision.txt");
+	  if (file.is_open())
+	  {
+	    file << HessianMatrixTuned << '\n';
+	  }
+
 	//Perform Cholesky Decomposition
 	CholDecom.compute(HessianMatrix);
+
 
 #ifdef Debug_TRS
 		cout << "Printing Hessian in generateCholesky" << endl;

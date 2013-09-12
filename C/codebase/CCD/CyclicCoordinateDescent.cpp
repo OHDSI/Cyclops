@@ -276,6 +276,8 @@ int CyclicCoordinateDescent::getAlignedLength(int N) {
 }
 
 void CyclicCoordinateDescent::computeNEvents() {
+
+
 	zeroVector(hNEvents, N);
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
@@ -378,11 +380,6 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 	//}
 
 	getDenominators();
-	//for (int i = 0; i < K; i++) {
-	//	cout << "offsExpXBeta[" << i << "] = " << offsExpXBeta[i] << endl;
-	//	cout << "denomPid[hPid[" << i << "]] = " << denomPid[hPid[i]] << endl;
-	//	cout << "hXBeta[" << i << "] = " << hXBeta[i] << endl;
-	//}
 
 
 //	double sum1 = 0.0;
@@ -402,6 +399,8 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 //			sum1 += hEta[i];
 		}
 	}
+
+	cout << "logLikelihood here in CCD = " << logLikelihood << endl;
 
 	for (int i = 0; i < N; i++) {
 		logLikelihood -= hNEvents[i] * log(denomPid[i]); // Weights modified in computeNEvents()
@@ -635,7 +634,12 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 			break;
 		}
 
+		//  Consider the prior in Hessian space = -precision (precisions add)
+		for(int i = 0; i < J; i++) {
+			(*blankHessian)[i][i] -= 1/sigma2Beta;
+		}
 
+/*
 		cout << "in CCD blankHessian is " << endl;
 		bsccs::real maxValue = 0;
 		for (int i = 0; i < J; i ++) {
@@ -649,7 +653,7 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 			cout << "]" << endl;
 		}
 
-
+*/
 
 
 }
@@ -663,9 +667,23 @@ void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 	priorType = iPriorType;
 }
 
+
+
+
+void CyclicCoordinateDescent::setBeta(int i, double beta) {
+        sufficientStatisticsKnown = false;
+        double delta = beta - hBeta[i];
+        updateSufficientStatistics(delta, i);
+
+//      hBeta[i] = static_cast<real>(beta);
+//      xBetaKnown = false;
+//      sufficientStatisticsKnown = false;
+}
+
 //template <typename T>
+
 void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
-	//cout << "setBeta in CCD non GPU" << endl;
+
 	for (int j = 0; j < J; ++j) {
 		hBeta[j] = static_cast<bsccs::real>(beta[j]);
 	}
@@ -1194,6 +1212,7 @@ void CyclicCoordinateDescent::computeXBeta_GPU_TRS(void) {
 
 
 void CyclicCoordinateDescent::computeXBeta(void) {
+
 	// Separate function for benchmarking
 	//cout << "Computing X %*% beta" << endl;
 
@@ -1213,8 +1232,10 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 	computeXBeta_GPU_TRS();
 
 #else
+	//hXI_Transpose.setUseThisStatus(false);
 
 	if (hXI_Transpose.getUseThisStatus()) { //TODO This is not the most elegant way to do this
+		cout << "Using Transpose in computeXBeta" << endl;
 		switch(hXI_Transpose.getFormatType()) {
 			case(DENSE): {
 				for (int i = 0; i < K; i ++) {
@@ -1229,12 +1250,12 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 
 					hXBeta[i] = std::inner_product(begin1, end1, begin2, 0.0);
 #else
+
 					for (int p = 0; p < J; p++) {
 						hXBeta[i] += hBeta[p]*(dataVector[p]);
 					}
 
 #endif
-					//cout << "hXBeta[" << i << "] = " << hXBeta[i] << endl;
 				}
 			}
 			break;
@@ -1248,6 +1269,7 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 						int * compressedRow = hXI_Transpose.getCompressedRowVector(i);
 						for (int q = 0; q < numberEntries; q++) {
 							hXBeta[i] += hBeta[compressedRow[q]];
+
 						}
 					}
 				}
@@ -1267,6 +1289,7 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 		}
 
 	} else {
+		cout << "not using Transpose class in computeXBeta" << endl;
 
 		// Update one column at a time (poor cache locality)
 		for (int j = 0; j < J; ++j) {
@@ -1314,7 +1337,6 @@ void CyclicCoordinateDescent::updateXBetaImpl(bsccs::real realDelta, int index) 
 
 void CyclicCoordinateDescent::updateXBetaImplHand(bsccs::real realDelta, int index) {
 
-
 	bsccs::real* data = hXI->getDataVector(index);
 	bsccs::real* xBeta = hXBeta;
 	bsccs::real* offsEXB = offsExpXBeta;
@@ -1331,6 +1353,8 @@ void CyclicCoordinateDescent::updateXBetaImplHand(bsccs::real realDelta, int ind
 }
 
 void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
+
+
 	bsccs::real realDelta = static_cast<bsccs::real>(delta);
 	hBeta[index] += realDelta;
 

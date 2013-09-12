@@ -51,7 +51,7 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 	double logHastingsRatio = getHastingsRatio(Beta,Beta_Hat, PrecisionMatrix, tuningParameter);
 
 // Compute log Likelihood and log prior
-//#ifdef Debug_TRS
+#ifdef Debug_TRS
 	int lengthIs = Beta->getSize();
 	cout << "Printing Stored Beta in CCD" << endl;
 	cout << "<";
@@ -59,21 +59,22 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 		cout << ccd.getBeta(i) << ", ";
 	}
 	cout << endl;
-//#endif
+#endif
 
 
 	ccd.resetBeta();
 	ccd.setBeta(*betaPossible);
 
 
-//#ifdef Debug_TRS
+#ifdef Debug_TRS
 	cout << "Printing Proposed Beta in CCD" << endl;
 	cout << "<";
 	for (int i = 0; i < lengthIs; i ++) {
 		cout << ccd.getBeta(i) << ", ";
 	}
 	cout << endl;
-//#endif
+#endif
+
 
 	double fBetaPossible = ccd.getLogLikelihood();
 	double pBetaPossible = ccd.getLogPrior();
@@ -109,7 +110,8 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 	//uniformRandom = 0;
 
 //#ifdef Debug_TRS
-	cout << "hastingsRatio = " << logHastingsRatio << endl;
+	cout << "loghastingsRatio = " << logHastingsRatio << endl;
+	cout << "logMetropolisRatio = " << (fBetaPossible + pBetaPossible) - (storedFBetaCurrent + storedPBetaCurrent) << endl;
 	cout << "fBetaPossible = " << fBetaPossible << endl;
 	cout << "fBetaCurrent = " << storedFBetaCurrent << endl;
 	cout << "pBetaPossible = " << pBetaPossible << endl;
@@ -120,7 +122,8 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 
 // This is the Metropolis step
 
-	if (alpha > uniformRandom) {
+	if (alpha > uniformRandom && isfinite(fBetaPossible) && isfinite(pBetaPossible)) {
+
 
 #ifdef Debug_TRS
 		cout << "\n \n \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Change Beta @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n \n" << endl;
@@ -148,6 +151,8 @@ double MHRatio::evaluate(Parameter * Beta, Parameter * Beta_Hat,
 
 
 }
+
+
 
 double getTransformedTuningValue(double tuningParameter); // TODO Don't forward reference like this.
 

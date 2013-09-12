@@ -69,7 +69,7 @@ void CredibleIntervals::computeCredibleIntervals(vector<vector<double> > * BetaV
 	string sep(","); // TODO Make option
 
 	//Thinning...
-	int thinningAmount = 1;
+	int thinningAmount = 10;
 
 	for (int j = 0; j < nSamples;) {
 		for (int k = 0; k < betaSize; k++) {
@@ -93,7 +93,6 @@ void CredibleIntervals::computeCredibleIntervals(vector<vector<double> > * BetaV
 		outLog2 << (*SigmaSquaredValues)[j] << sep2 << endl;
 	}
 	outLog2.close();
-
 
 	//TODO construct quantile intervals
 }

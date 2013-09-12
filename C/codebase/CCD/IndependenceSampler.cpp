@@ -75,25 +75,13 @@ void IndependenceSampler::sample(Parameter * Beta_Hat, Parameter * Beta,
 #endif
 
 	(choleskyEigen.matrixU()).solveInPlace(b);
-
 	// TODO Check marginal variance on b[i]
 
 
 	for (int i = 0; i < sizeOfSample; i++) {
-
-	//	cout << "b[" << i << "] = " <<b[i] << endl;
-	//	cout << "beta[" << i << "] = " <<Beta_Hat->get(i) << endl;
 		Beta->set(i, b[i] + Beta_Hat->get(i));
 	}
-	/*
-	cout << "Printing Beta_Hat" << endl;
-	Beta_Hat->logParameter();
-	cout << "That was Beta_Hat" << endl;
 
-	cout <<"PRINTING BETA" << endl;
-	Beta->logParameter();
-	cout <<"THAT WAS BETA" << endl;
-	*/
 }
 
 
