@@ -15,7 +15,7 @@ public:
 	inline void parseRow(stringstream& ss, RowInformation& rowInfo) {
 		parseSingleBBROutcomeEntry<int>(ss, rowInfo);
 		parseStratumEntry(ss, rowInfo);
-		parseAllBBRCovariatesEntry(ss, rowInfo);
+		parseAllBBRCovariatesEntry(ss, rowInfo,false);
 	}
 
 	void parseHeader(ifstream& in) {

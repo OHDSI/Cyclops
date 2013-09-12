@@ -26,6 +26,7 @@ public:
 		, includeCensoredData2(false)
 		, includeWeights(false)
 		, includeSCCSOffset(false)
+		, indicatorOnly(false)
 		, modelType(bsccs::Models::NONE)
 	{
 		// Do nothing
@@ -43,6 +44,7 @@ public:
 		, includeCensoredData2(false)
 		, includeWeights(false)
 		, includeSCCSOffset(false)
+		, indicatorOnly(false)
 		, modelType(model)
 	{
 		setRequiredFlags(model);
@@ -110,7 +112,7 @@ public:
 		if (includeIntercept) {
 			modelData->getColumn(columnIntercept).add_data(rowInfo.currentRow, static_cast<real>(1.0));
 		}
-		parseAllBBRCovariatesEntry(ss, rowInfo);
+		parseAllBBRCovariatesEntry(ss, rowInfo, indicatorOnly);
 	}
 
 	void parseHeader(ifstream& in) {
@@ -123,6 +125,7 @@ public:
 			useBBROutcome = includesOption(line, "bbr_outcome");
 			includeIntercept = includesOption(line, "add_intercept");
 			includeOffset = includesOption(line, "offset");
+			indicatorOnly = includesOption(line, "indicator_only");
 			if (includeOffset) {
 				offsetInLogSpace = includesOption(line, "log_offset");
 			}
@@ -187,6 +190,7 @@ private:
 	bool includeCensoredData;
 	bool includeCensoredData2;
 	bool includeSCCSOffset;
+	bool indicatorOnly;
 
 	bsccs::Models::ModelType modelType;
 };

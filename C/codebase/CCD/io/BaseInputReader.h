@@ -120,14 +120,21 @@ protected:
 		// Do nothing
 	}
 
-	void parseAllBBRCovariatesEntry(stringstream& ss, RowInformation& rowInfo) {
+	void parseAllBBRCovariatesEntry(stringstream& ss, RowInformation& rowInfo, bool indicatorOnly) {
 		string entry;
 		int count = 0;
 		while (ss >> entry) {
 			rowInfo.scratch.clear();
-			split(rowInfo.scratch, entry, getInnerDelimitor());
-			DrugIdType drug = atoi(rowInfo.scratch[0].c_str());
-			real value = atof(rowInfo.scratch[1].c_str());
+			DrugIdType drug;
+			real value;
+			if (indicatorOnly) {
+				drug = atoi(entry.c_str());
+				value = static_cast<real>(1);
+			} else {
+				split(rowInfo.scratch, entry, getInnerDelimitor());
+				drug = atoi(rowInfo.scratch[0].c_str());
+				value = atof(rowInfo.scratch[1].c_str());
+			}
 			if (!rowInfo.indexer.hasColumn(drug)) {
 				// Add new column
 				rowInfo.indexer.addColumn(drug, INDICATOR);

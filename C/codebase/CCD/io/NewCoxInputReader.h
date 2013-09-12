@@ -18,7 +18,7 @@ public:
 		parseNoStratumEntry(ss, rowInfo);
 		parseSingleTimeEntry<float>(ss, rowInfo);
 		parseSingleOutcomeEntry<int>(ss, rowInfo);	
-		parseAllBBRCovariatesEntry(ss, rowInfo);
+		parseAllBBRCovariatesEntry(ss, rowInfo, false);
 	}
 	
 	void parseHeader(ifstream& in) {
