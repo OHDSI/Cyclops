@@ -21,6 +21,7 @@ set(SOURCE_FILES
 	../CCD/BootstrapDriver.cpp)
 	
 set(DOUBLE_PRECISION true)	
+add_definitions(-DDOUBLE_PRECISION)
 	
 #if(CUDA_FOUND)
 #	set(SOURCE_FILES ${SOURCE_FILES}

@@ -773,6 +773,11 @@ int main(int argc, char* argv[]) {
 		cout << "Diag    duration: " << scientific << timeDiagnose << endl;
 	}
 
+//#define PRINT_LOG_LIKELIHOOD
+#ifdef PRINT_LOG_LIKELIHOOD
+	cout << endl << setprecision(15) << ccd->getLogLikelihood() << endl;
+#endif
+
 	if (ccd)
 		delete ccd;
 	if (model)
