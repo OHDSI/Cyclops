@@ -33,6 +33,8 @@
 	#define	NO_DRUG			0
 #endif
 
+namespace bsccs {
+
 using namespace std;
 
 CLRInputReader::CLRInputReader() : InputReader() {
@@ -218,5 +220,4 @@ void CLRInputReader::readFile(const char* fileName) {
 
 }
 
-
-
+} // namespace

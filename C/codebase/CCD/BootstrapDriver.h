@@ -13,11 +13,12 @@
 #include "AbstractDriver.h"
 #include "ModelData.h"
 
+namespace bsccs {
+
 typedef std::vector<real> rvector;
 typedef std::vector<rvector*> rarray;
 typedef	rarray::iterator rarrayIterator;
 
-namespace bsccs {
 class BootstrapDriver : public AbstractDriver {
 public:
 	BootstrapDriver(

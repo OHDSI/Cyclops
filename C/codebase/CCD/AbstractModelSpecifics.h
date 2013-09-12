@@ -11,6 +11,8 @@
 #include <vector>
 #include <cmath>
 
+namespace bsccs {
+
 class CompressedDataMatrix;  // forward declaration
 class ModelData; // forward declaration
 
@@ -130,5 +132,7 @@ protected:
 
 	std::vector<std::vector<int>* > *sparseIndices;
 };
+
+} // namespace
 
 #endif /* ABSTRACTMODELSPECIFICS_H_ */

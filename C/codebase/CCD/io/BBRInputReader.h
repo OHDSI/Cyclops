@@ -27,6 +27,8 @@ using namespace std;
 #define MISSING_LENGTH	-1
 #define DELIMITER		" "
 
+namespace bsccs {
+
 template <class ImputationPolicy>
 class BBRInputReader : public InputReader{
 public:
@@ -192,5 +194,7 @@ public:
 protected:
 	ImputationPolicy* imputePolicy;
 };
+
+}
 
 #endif /* BBRINPUTREADER_H_ */

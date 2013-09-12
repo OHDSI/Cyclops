@@ -24,6 +24,8 @@ using namespace std;
 #define MISSING_LENGTH	-1
 #define DELIMITER		" "
 
+namespace bsccs {
+
 template <typename ImputationPolicy>
 class CSVInputReader : public InputReader{
 public:
@@ -151,5 +153,7 @@ public:
 protected:
 	ImputationPolicy* imputePolicy;
 };
+
+} // namespace
 
 #endif /* CSVINPUTREADER_H_ */

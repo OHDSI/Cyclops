@@ -24,6 +24,8 @@ using std::stringstream;
 
 //#define USE_DRUG_STRING
 
+namespace bsccs {
+
 #ifdef USE_DRUG_STRING
 	typedef string DrugIdType; // TODO Strings do not get sorted in numerical order
 #else
@@ -119,5 +121,7 @@ private:
 	vector<string> labels;
 	static const string missing;
 };
+
+} // namespace
 
 #endif /* MODELDATA_H_ */

@@ -10,6 +10,8 @@
 
 #include "InputReader.h"
 
+namespace bsccs {
+
 class CCTestInputReader : public InputReader {
 public:
 	CCTestInputReader();
@@ -17,5 +19,7 @@ public:
 
 	virtual void readFile(const char* fileName);
 };
+
+} // namespace
 
 #endif /* CCTESTINPUTREADER_H_ */

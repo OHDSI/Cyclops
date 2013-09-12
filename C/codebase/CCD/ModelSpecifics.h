@@ -14,6 +14,8 @@
 
 #include "AbstractModelSpecifics.h"
 
+namespace bsccs {
+
 template <class BaseModel, typename WeightType>
 class ModelSpecifics : public AbstractModelSpecifics, BaseModel {
 public:
@@ -533,6 +535,8 @@ public:
 	}
 
 };
+
+} // namespace
 
 #include "ModelSpecifics.hpp"
 

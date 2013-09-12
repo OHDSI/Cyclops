@@ -36,6 +36,8 @@
 	#define	NO_DRUG			0
 #endif
 
+namespace bsccs {
+
 using namespace std;
 
 InputReader::InputReader() : modelData(new ModelData()), deleteModelData(true) {
@@ -52,3 +54,6 @@ InputReader::~InputReader() {
 		delete modelData;
 	}
 }
+
+} // namespace
+

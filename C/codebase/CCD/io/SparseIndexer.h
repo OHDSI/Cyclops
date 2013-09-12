@@ -12,6 +12,8 @@
 
 #include "../CompressedDataMatrix.h"
 
+namespace bsccs {
+
 class SparseIndexer {
 public:
 	SparseIndexer(CompressedDataMatrix& matrix) : dataMatrix(matrix), nCovariates(0) {}
@@ -45,5 +47,7 @@ private:
 	int nCovariates;
 	std::map<DrugIdType, int> sparseMap;	
 };
+
+} // namespace
 
 #endif /* SPARSEINDEXER_H_ */

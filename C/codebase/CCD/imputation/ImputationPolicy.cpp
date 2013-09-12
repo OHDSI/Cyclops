@@ -27,6 +27,8 @@
 #define MISSING_LENGTH	-1
 #define DELIMITER		","
 
+namespace bsccs {
+
 using namespace std;
 
 ImputationHelper::ImputationHelper(){
@@ -216,3 +218,5 @@ void ImputationHelper::getSampleMeanVariance(int col, real& Xmean, real& Xvar, r
 	Xmean = sumx/n;
 	Xvar =  (sumx2 - Xmean*Xmean*n)/(n-1);
 }
+
+} // namespace

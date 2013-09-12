@@ -11,6 +11,8 @@
 #include "ModelData.h"
 #include "imputation/ImputationPolicy.h"
 
+namespace bsccs {
+
 using namespace std;
 
 class BBROutputWriter{
@@ -77,5 +79,7 @@ public:
 			delete dataTranspose;
 	}
 };
+
+} // namespace
 
 #endif /* BBROUTPUTWRITER_H_ */

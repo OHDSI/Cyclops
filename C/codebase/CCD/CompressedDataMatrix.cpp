@@ -13,6 +13,8 @@
 
 #include "CompressedDataMatrix.h"
 
+namespace bsccs {
+
 CompressedDataMatrix::CompressedDataMatrix() : nCols(0), nRows(0), nEntries(0) {
 	// Do nothing
 }
@@ -304,3 +306,5 @@ void CompressedDataColumn::removeFromColumnVector(int_vector removeEntries){
 		}
 	}
 }
+
+} // namespace

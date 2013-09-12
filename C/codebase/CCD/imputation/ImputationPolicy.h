@@ -10,6 +10,8 @@
 
 #include "io/InputReader.h"
 
+namespace bsccs {
+
 class Compare{
 	vector<int>& _vec;
 	vector<int>& _rands;
@@ -57,7 +59,6 @@ protected:
 	int nCols_Orig;
 };
 
-
 class NoImputation{
 public:
 	NoImputation() {}
@@ -81,5 +82,7 @@ public:
 	void getMissingEntries(int col, vector<int>& missing) {}
 	void getSampleMeanVariance(int col, real& Xmean, real& Xvar, real* dataVec, int* columnVec, FormatType formatType, int nRows, int nEntries) {}
 };
+
+} // namespace
 
 #endif /* ImputationHelper_H_ */

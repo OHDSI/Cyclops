@@ -8,6 +8,8 @@
 #include "AbstractModelSpecifics.h"
 #include "io/InputReader.h"
 
+namespace bsccs {
+
 //AbstractModelSpecifics::AbstractModelSpecifics(
 //		const std::vector<real>& y,
 //		const std::vector<real>& z) : hY(y), hZ(z) {
@@ -96,3 +98,5 @@ void AbstractModelSpecifics::initialize(
 //#endif
 
 }
+
+} // namespace

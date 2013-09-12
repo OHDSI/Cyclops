@@ -12,6 +12,8 @@
 
 //#define UPCAST_DENSE 
 
+namespace bsccs {
+
 class NewCoxInputReader : public BaseInputReader<NewCoxInputReader> {
 public:
 	inline void parseRow(stringstream& ss, RowInformation& rowInfo) {		
@@ -35,5 +37,7 @@ public:
 #endif
 	
 };
+
+} // namespace
 
 #endif /* NEWCOXINPUTREADER_H_ */

@@ -18,6 +18,8 @@ using namespace std;
 
 #include "InputReader.h"
 
+namespace bsccs {
+
 class CLRInputReader: public InputReader {
 public:
 	CLRInputReader();
@@ -25,5 +27,7 @@ public:
 
 	virtual void readFile(const char* fileName);
 };
+
+} // namespace
 
 #endif /* CLRINPUTREADER_H_ */

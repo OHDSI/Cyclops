@@ -10,6 +10,8 @@
 
 #include "InputReader.h"
 
+namespace bsccs {
+
 class RTestInputReader : public InputReader {
 public:
 	RTestInputReader();
@@ -17,5 +19,7 @@ public:
 
 	virtual void readFile(const char* fileName);
 };
+
+} // namespace
 
 #endif /* RTESTINPUTREADER_H_ */

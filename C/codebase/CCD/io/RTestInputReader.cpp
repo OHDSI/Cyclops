@@ -26,6 +26,8 @@
 #define MISSING_LENGTH	-1
 #define DELIMITER		","
 
+namespace bsccs {
+
 using namespace std;
 
 RTestInputReader::RTestInputReader() : InputReader() { }
@@ -122,3 +124,5 @@ void RTestInputReader::readFile(const char* fileName) {
 	modelData->conditionId = "0";
 
 }
+
+} // namespace

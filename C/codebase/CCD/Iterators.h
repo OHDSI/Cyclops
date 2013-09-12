@@ -3,6 +3,8 @@
 
 #include "CompressedDataMatrix.h"
 
+namespace bsccs {
+
 /**
  * Iterators for dense, sparse and indicator vectors.  Each can be passed as a
  * template parameter to functions for compile-time specialization and optimization.
@@ -274,5 +276,6 @@ class GenericIterator {
     Index mEnd;
 };
 
+} // namespace
 
 #endif // ITERATORS_H

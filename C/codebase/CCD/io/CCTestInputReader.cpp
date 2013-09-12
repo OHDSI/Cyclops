@@ -27,6 +27,8 @@
 #define MISSING_LENGTH	-1
 #define DELIMITER		","
 
+namespace bsccs {
+
 using namespace std;
 
 CCTestInputReader::CCTestInputReader() : InputReader() { }
@@ -132,3 +134,5 @@ void CCTestInputReader::readFile(const char* fileName) {
 	modelData->nRows = currentRow;
 	modelData->conditionId = "0";
 }
+
+} // namespace

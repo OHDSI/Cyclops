@@ -16,6 +16,7 @@
 
 #include "ModelData.h"
 
+namespace bsccs {
 
 ModelData::ModelData() : hasOffsetCovariate(false) {
 	// Do nothing
@@ -66,3 +67,5 @@ void ModelData::sortDataColumns(vector<int> sortedInds){
 }
 
 const string ModelData::missing = "NA";
+
+} // namespace

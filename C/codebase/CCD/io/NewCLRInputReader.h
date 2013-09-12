@@ -10,6 +10,8 @@
 
 #include "BaseInputReader.h"
 
+namespace bsccs {
+
 class NewCLRInputReader : public BaseInputReader<NewCLRInputReader> {
 public:
 	inline void parseRow(stringstream& ss, RowInformation& rowInfo) {
@@ -23,5 +25,7 @@ public:
 	}
 	
 };
+
+} // namespace
 
 #endif /* NEWCLRINPUTREADER_H_ */

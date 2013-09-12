@@ -16,6 +16,8 @@
 #define MAX_ENTRIES		1000000000
 #define MISSING_STRING	"NA"
 
+namespace bsccs {
+
 using std::string;
 
 typedef std::vector<std::string> string_vector;
@@ -282,5 +284,7 @@ protected:
 private:
 	string innerDelimitor;
 };
+
+} // namespace
 
 #endif /* GENERICSPARSEREADER_H_ */

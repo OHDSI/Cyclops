@@ -27,6 +27,8 @@
 #define MISSING_LENGTH	-1
 #define DELIMITER		","
 
+namespace bsccs {
+
 using namespace std;
 
 CoxInputReader::CoxInputReader() : InputReader() { }
@@ -116,3 +118,5 @@ void CoxInputReader::readFile(const char* fileName) {
 	cerr << "Y: " << std::accumulate(modelData->y.begin(), modelData->y.end(), 0.0) << endl;
 	cerr << "Z: " << std::accumulate(modelData->z.begin(), modelData->z.end(), 0.0) << endl;
 }
+
+} // namespace

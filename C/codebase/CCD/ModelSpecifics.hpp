@@ -15,6 +15,8 @@
 #include "ModelSpecifics.h"
 #include "Iterators.h"
 
+namespace bsccs {
+
 //template <class BaseModel,typename WeightType>
 //ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(
 //		const std::vector<real>& y,
@@ -576,5 +578,7 @@ void ModelSpecifics<BaseModel,WeightType>::doSortPid(bool useCrossValidation) {
 //	}
 //
 }
+
+} // namespace
 
 #endif /* MODELSPECIFICS_HPP_ */

@@ -14,9 +14,11 @@
 #include <vector>
 #include <map>
 
-using namespace std;
-
 #include "InputReader.h"
+
+namespace bsccs {
+
+using namespace std;
 
 class SCCSInputReader: public InputReader {
 public:
@@ -25,5 +27,7 @@ public:
 
 	virtual void readFile(const char* fileName);
 };
+
+} // namespace
 
 #endif /* SCCSINPUTREADER_H_ */

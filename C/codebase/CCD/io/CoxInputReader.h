@@ -10,6 +10,8 @@
 
 #include "InputReader.h"
 
+namespace bsccs {
+
 class CoxInputReader : public InputReader {
 public:
 	CoxInputReader();
@@ -17,5 +19,7 @@ public:
 
 	virtual void readFile(const char* fileName);
 };
+
+} // namespace
 
 #endif /* COXINPUTREADER_H_ */

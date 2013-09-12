@@ -33,6 +33,8 @@ using std::stringstream;
 
 #include "ModelData.h"
 
+namespace bsccs {
+
 class InputReader {
 public:
 	InputReader();
@@ -96,5 +98,7 @@ protected:
 	ModelData* modelData;
 	bool deleteModelData;
 };
+
+} // namespace
 
 #endif /* INPUTREADER_H_ */

@@ -25,6 +25,8 @@ using std::ifstream;
 
 //#define DATA_AOS
 
+namespace bsccs {
+
 #ifdef DOUBLE_PRECISION
 	typedef double real;
 #else
@@ -268,5 +270,7 @@ private:
 	CompressedDataMatrix(const CompressedDataMatrix&);
 	CompressedDataMatrix& operator = (const CompressedDataMatrix&);
 };
+
+} // namespace
 
 #endif /* COMPRESSEDINDICATORMATRIX_H_ */

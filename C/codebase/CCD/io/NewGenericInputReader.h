@@ -11,6 +11,8 @@
 #include "BaseInputReader.h"
 #include "Types.h"
 
+namespace bsccs {
+
 class NewGenericInputReader : public BaseInputReader<NewGenericInputReader> {
 public:
 
@@ -195,5 +197,6 @@ private:
 	bsccs::Models::ModelType modelType;
 };
 
+} // namespace
 
 #endif /* NEWGENERICINPUTREADER_H_ */
