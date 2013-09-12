@@ -10,6 +10,8 @@
 
 #include "ProportionSelector.h"
 
+namespace bsccs {
+
 ProportionSelector::ProportionSelector(
 		int inTotal,
 		std::vector<int>* inIds,
@@ -76,3 +78,6 @@ void ProportionSelector::getComplement(std::vector<real>& weights) {
 	std::cerr << "ProportionSelector::getComplement is not yet implemented." << std::endl;
 	exit(-1);
 }
+
+} // namespace
+

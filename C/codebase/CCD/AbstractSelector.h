@@ -10,6 +10,8 @@
 
 #include <vector>
 
+namespace bsccs {
+
 #ifdef DOUBLE_PRECISION
 	typedef double real;
 #else
@@ -44,5 +46,7 @@ protected:
 	int N;
 	bool deterministic;
 };
+
+} // namespace
 
 #endif /* ABSTRACTSELECTOR_H_ */

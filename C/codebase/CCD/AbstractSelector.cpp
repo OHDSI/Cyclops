@@ -10,6 +10,8 @@
 
 #include "AbstractSelector.h"
 
+namespace bsccs {
+
 AbstractSelector::AbstractSelector(
 		std::vector<int>* inIds,
 		SelectorType inType,
@@ -43,3 +45,5 @@ AbstractSelector::~AbstractSelector() {
 		delete ids;
 	}
 }
+
+} // namespace

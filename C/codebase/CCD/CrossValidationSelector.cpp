@@ -12,6 +12,8 @@
 
 #include "CrossValidationSelector.h"
 
+namespace bsccs {
+
 CrossValidationSelector::CrossValidationSelector(
 		int inFold,
 		std::vector<int>* inIds,
@@ -142,3 +144,5 @@ void CrossValidationSelector::permute() {
 		}
 	}
 }
+
+} // namespace

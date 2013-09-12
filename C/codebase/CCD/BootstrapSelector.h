@@ -12,6 +12,8 @@
 
 #include "AbstractSelector.h"
 
+namespace bsccs {
+
 class BootstrapSelector : public AbstractSelector {
 public:
 	BootstrapSelector(
@@ -33,5 +35,7 @@ private:
 	std::multiset<int> selectedSet;
 	std::vector<int> indicesIncluded;
 };
+
+} // namespace
 
 #endif /* BOOTSTRAPSELECTOR_H_ */

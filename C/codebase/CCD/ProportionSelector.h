@@ -12,6 +12,8 @@
 
 #include "AbstractSelector.h"
 
+namespace bsccs {
+
 class ProportionSelector : public AbstractSelector {
 public:
 	ProportionSelector(
@@ -34,5 +36,7 @@ private:
 	int total;
 
 };
+
+} // namespace
 
 #endif /* PROPORTIONSELECTOR_H_ */

@@ -13,6 +13,8 @@
 
 #include "AbstractSelector.h"
 
+namespace bsccs {
+
 class CrossValidationSelector : public AbstractSelector {
 public:
 	CrossValidationSelector(
@@ -36,5 +38,7 @@ private:
 	std::vector<int> intervalStart;
 	std::vector<real>* weightsExclude;
 };
+
+} // namespace
 
 #endif /* CROSSVALIDATION_H_ */

@@ -10,6 +10,8 @@
 
 #include "BootstrapSelector.h"
 
+namespace bsccs {
+
 BootstrapSelector::BootstrapSelector(
 		int replicates,
 		std::vector<int>* inIds,
@@ -93,3 +95,6 @@ void BootstrapSelector::getComplement(std::vector<real>& weights) {
 	std::cerr << "BootstrapSelector::getComplement is not yet implemented." << std::endl;
 	exit(-1);
 }
+
+} // namespace
+
