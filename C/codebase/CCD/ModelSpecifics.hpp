@@ -344,6 +344,90 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 }
 
 template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeFisherInformation(int indexOne, int indexTwo,
+		double *oinfo, bool useWeights) {
+
+	if (useWeights) {
+		std::cerr << "Weights are not yet implemented in Fisher Information calculations" << std::endl;
+		exit(-1);
+
+	} else { // no weights
+		switch (hXI->getFormatType(indexOne)) {
+			case INDICATOR :
+				dispatchFisherInformation<IndicatorIterator>(indexOne, indexTwo, oinfo, weighted);
+				break;
+			case SPARSE :
+				dispatchFisherInformation<SparseIterator>(indexOne, indexTwo, oinfo, weighted);
+				break;
+			case DENSE :
+				dispatchFisherInformation<DenseIterator>(indexOne, indexTwo, oinfo, weighted);
+				break;
+			case INTERCEPT :
+				dispatchFisherInformation<InterceptIterator>(indexOne, indexTwo, oinfo, weighted);
+				break;
+		}
+	}
+}
+
+template <class BaseModel, typename WeightType> template <typename IteratorTypeOne, class Weights>
+void ModelSpecifics<BaseModel,WeightType>::dispatchFisherInformation(int indexOne, int indexTwo, double *oinfo, Weights w) {
+	switch (hXI->getFormatType(indexTwo)) {
+		case INDICATOR :
+			computeFisherInformationImpl<IteratorTypeOne,IndicatorIterator>(indexOne, indexTwo, oinfo, w);
+			break;
+		case SPARSE :
+			computeFisherInformationImpl<IteratorTypeOne,SparseIterator>(indexOne, indexTwo, oinfo, w);
+			break;
+		case DENSE :
+			computeFisherInformationImpl<IteratorTypeOne,DenseIterator>(indexOne, indexTwo, oinfo, w);
+			break;
+		case INTERCEPT :
+			computeFisherInformationImpl<IteratorTypeOne,InterceptIterator>(indexOne, indexTwo, oinfo, w);
+			break;
+	}
+//	std::cerr << "End of dispatch" << std::endl;
+}
+
+template <class BaseModel, typename WeightType> template <class IteratorTypeOne, class IteratorTypeTwo, class Weights>
+void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int indexOne, int indexTwo, double *oinfo, Weights w) {
+
+	IteratorTypeOne itOne(*hXI, indexOne);
+	IteratorTypeTwo itTwo(*hXI, indexTwo);
+	PairProductIterator<IteratorTypeOne,IteratorTypeTwo> it(itOne, itTwo);
+
+//	for (; it; ++it) {
+//		std::cerr << it.index() << " ";
+//	}
+//	std::cerr << std::endl;
+//	exit(-1);
+
+	if (!it.valid()) { // empty
+		*oinfo = static_cast<double>(0.0);
+	}
+
+//	std::cerr << "it start: " << it.index() << std::endl;
+
+	real information = static_cast<real>(0);
+
+	for (; it.valid(); ++it) {
+//		std::cerr << it.index() << std::endl;
+		const int k = it.index();
+		// Compile-time delegation
+		BaseModel::incrementFisherInformation(it,
+				w, // Signature-only, for iterator-type specialization
+				&information,
+				offsExpXBeta[k],
+				numerPid[k], numerPid2[k],
+				denomPid[k], hNWeight[k], it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
+	}
+
+	*oinfo = static_cast<double>(information);
+//	std::cerr << *oinfo << std::endl;
+}
+
+
+
+template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index) {
 	// Run-time delegation
 	switch (hXI->getFormatType(index)) {

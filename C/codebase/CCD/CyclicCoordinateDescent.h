@@ -12,6 +12,8 @@
 #include "ModelData.h"
 #include "AbstractModelSpecifics.h"
 
+#include <Eigen/Dense>
+
 namespace bsccs {
 
 using std::cout;
@@ -129,6 +131,8 @@ public:
 
 	double getHessianDiagonal(int index);
 
+	double getAsymptoticVariance(int i, int j);
+
 //	void setZeroBetaFixed(void);
 		
 	void update(int maxIterations, int convergenceType, double epsilon);
@@ -206,6 +210,8 @@ protected:
 	void updateSufficientStatistics(double delta, int index);
 
 	void computeNumeratorForGradient(int index);
+
+	void computeAsymptoticVarianceMatrix(void);
 
 	template <class IteratorType>
 	void incrementNumeratorForGradientImpl(int index);
@@ -334,6 +340,7 @@ protected:
 
 	bool sufficientStatisticsKnown;
 	bool xBetaKnown;
+	bool fisherInformationKnown;
 
 	bool validWeights;
 	bool useCrossValidation;
@@ -363,6 +370,12 @@ protected:
 #ifdef NO_FUSE
 	real* wPid;
 #endif
+
+	typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
+	Matrix hessianMatrix;
+
+	typedef std::map<int, int> IndexMap;
+	IndexMap hessianIndexMap;
 };
 
 double convertVarianceToHyperparameter(double variance);

@@ -483,6 +483,33 @@ double initializeModel(
 	} else {
 #endif
 
+//#define TEST
+#ifdef TEST
+		IndicatorIterator sparseOne(**modelData, 0);
+		IndicatorIterator sparseTwo(**modelData, 1);
+
+		for (; sparseOne; ++sparseOne) {
+			cout << sparseOne.index() << ",";
+		}
+		cout << endl;
+		for (; sparseTwo; ++sparseTwo) {
+			cout << sparseTwo.index() << ",";
+		}
+		cout << endl;
+
+		IndicatorIterator sparseOneA(**modelData, 0);
+		IndicatorIterator sparseTwoA(**modelData, 1);
+		PairProductIterator<IndicatorIterator,IndicatorIterator> product(sparseOneA,sparseTwoA);
+//		cout << product.index() << endl;
+//		exit(-1);
+		for (; product; ++product) {
+			cout << product.index() << ",";
+		}
+		cout << endl;
+		exit(-1);
+#endif
+
+
 	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model);
 
 #ifdef CUDA
@@ -718,7 +745,7 @@ int main(int argc, char* argv[]) {
 		if (arguments.doPartial) {
 			ProportionSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
 					SUBJECT, arguments.seed);
-			std::vector<real> weights;
+			std::vector<bsccs::real> weights;
 			selector.getWeights(0, weights);
 			ccd->setWeights(&weights[0]);
 		}
@@ -732,7 +759,7 @@ int main(int argc, char* argv[]) {
 			!= arguments.outputFormat.end()) {
 #ifndef MY_RCPP_FLAG
 		// TODO Make into OutputWriter
-		bool withASE = false;
+		bool withASE = arguments.fitMLEAtMode ||arguments.computeMLE;
 		string fileName;
 		if (arguments.outputFormat.size() == 1) {
 			fileName = arguments.outFileName;
@@ -761,7 +788,7 @@ int main(int argc, char* argv[]) {
 
 	if (arguments.doBootstrap) {
 		// Save parameter point-estimates
-		std::vector<real> savedBeta;
+		std::vector<bsccs::real> savedBeta;
 		for (int j = 0; j < ccd->getBetaSize(); ++j) {
 			savedBeta.push_back(ccd->getBeta(j));
 		}

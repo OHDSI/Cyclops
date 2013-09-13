@@ -276,6 +276,68 @@ class GenericIterator {
     Index mEnd;
 };
 
+// Iterator for the component-wise product of two Iterator
+template <class IteratorOneType, class IteratorTwoType>
+class PairProductIterator {
+  public:
+
+	typedef real Scalar;
+	typedef int Index;
+
+//	enum  { isIndicator = true }; // Need to determine from IteratorTypeOne/IteratorTypeTwo
+//	enum  { isSparse = true };
+
+//	inline PairProductIterator(const CompressedDataMatrix& mat, Index column)
+//	  : mIndices(mat.getCompressedColumnVector(column)),
+//	    mId(0), mEnd(mat.getNumberOfEntries(column)){
+//		// Do nothing
+//	}
+	inline PairProductIterator(IteratorOneType& itOne, IteratorTwoType& itTwo)
+		: iteratorOne(itOne), iteratorTwo(itTwo) {
+		// Find start
+		advance();
+	}
+
+    inline PairProductIterator& operator++() {
+    	if (valid()) {
+    		++iteratorOne;
+    		++iteratorTwo;
+    		advance();
+    	}
+    	return *this;
+    }
+
+    inline const Scalar value() const {
+    	return iteratorOne.value() * iteratorTwo.value();
+    }
+
+    inline Index index() const { return iteratorOne.index(); }
+
+    inline bool valid() const {
+    	return iteratorOne && iteratorTwo;
+    }
+
+//    inline operator bool() const {
+//    	return valid();
+//    }
+
+  protected:
+
+	inline void advance() {
+//		bool valid = this;
+		while (valid() && iteratorOne.index() != iteratorTwo.index()) {
+    		if (iteratorOne.index() < iteratorTwo.index()) {
+    			++iteratorOne;
+    		} else {
+    			++iteratorTwo;
+    		}
+		}
+	}
+
+    IteratorOneType& iteratorOne;
+    IteratorTwoType& iteratorTwo;
+};
+
 } // namespace
 
 #endif // ITERATORS_H

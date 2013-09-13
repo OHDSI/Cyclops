@@ -19,8 +19,6 @@
 #include "io/InputReader.h"
 #include "Iterators.h"
 
-#include <Eigen/Sparse>
-
 //#ifdef MY_RCPP_FLAG
 //	#include <R.h>
 //#else
@@ -215,6 +213,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 	useCrossValidation = false;
 	validWeights = false;
 	sufficientStatisticsKnown = false;
+	fisherInformationKnown = false;
 	if (offset) {
 		hBeta[0] = static_cast<real>(1);
 		fixBeta[0] = true;
@@ -312,9 +311,8 @@ void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
 //				<< sep << conditionId
 				<< sep << hBeta[i];
 		if (withASE) {
-			double ASE = getHessianDiagonal(i);
-			cerr << "Asymptotic standard errors are not yet calculated!" << endl;
-			outLog << sep << "0.0";
+			double ASE = sqrt(getAsymptoticVariance(i,i));
+			outLog << sep << ASE;
 		}
 		outLog << endl;
 	}
@@ -445,11 +443,19 @@ void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
 		hBeta[j] = static_cast<real>(beta[j]);
 	}
 	xBetaKnown = false;
+	sufficientStatisticsKnown = false;
+	fisherInformationKnown = false;
 }
 
 void CyclicCoordinateDescent::setBeta(int i, double beta) {
+//	sufficientStatisticsKnown = false;
+//	double delta = beta - hBeta[i];
+//	updateSufficientStatistics(delta, i);
+
 	hBeta[i] = static_cast<real>(beta);
 	xBetaKnown = false;
+	sufficientStatisticsKnown = false;
+	fisherInformationKnown = false;
 }
 
 void CyclicCoordinateDescent::setWeights(real* iWeights) {
@@ -661,6 +667,8 @@ void CyclicCoordinateDescent::update(
 	}
 	lastIterationCount = iteration;
 	updateCount += 1;
+
+	fisherInformationKnown = false;
 }
 
 /**
@@ -691,6 +699,65 @@ double CyclicCoordinateDescent::getHessianDiagonal(int index) {
 	computeGradientAndHessian(index, &g_d1, &g_d2);
 
 	return g_d2;
+}
+
+double CyclicCoordinateDescent::getAsymptoticVariance(int indexOne, int indexTwo) {
+	checkAllLazyFlags();
+	if (!fisherInformationKnown) {
+		computeAsymptoticVarianceMatrix();
+		fisherInformationKnown = true;
+	}
+
+	IndexMap::iterator itOne = hessianIndexMap.find(indexOne);
+	IndexMap::iterator itTwo = hessianIndexMap.find(indexTwo);
+
+	if (itOne == hessianIndexMap.end() || itTwo == hessianIndexMap.end()) {
+		return NAN;
+	} else {
+		return hessianMatrix(itOne->second, itTwo->second);
+	}
+}
+
+void CyclicCoordinateDescent::computeAsymptoticVarianceMatrix(void) {
+
+	typedef std::vector<int> int_vec;
+	int_vec indices;
+	hessianIndexMap.clear();
+
+	int index = 0;
+	for (int j = 0; j < J; ++j) {
+		if (!fixBeta[j]) {
+			indices.push_back(j);
+			hessianIndexMap[j] = index;
+			index++;
+		}
+	}
+
+	hessianMatrix.resize(indices.size(), indices.size());
+
+	for (int ii = 0; ii < indices.size(); ++ii) {
+		for (int jj = ii; jj < indices.size(); ++jj) {
+			const int i = indices[ii];
+			const int j = indices[jj];
+			double fisherInformation = 0.0;
+			modelSpecifics.computeFisherInformation(i, j, &fisherInformation, useCrossValidation);
+//			if (fisherInformation != 0.0) {
+				// Add tuple to sparse matrix
+//				tripletList.push_back(Triplet<double>(ii,jj,fisherInformation));
+//			}
+			hessianMatrix(jj,ii) = hessianMatrix(ii,jj) = fisherInformation;
+		}
+	}
+
+//	sm.setFromTriplets(tripletList.begin(), tripletList.end());
+//	cout << sm;
+//	auto inv = sm.triangularView<Upper>().solve(dv1);
+//	cout << sm.inverse();
+
+	// Take inverse
+	hessianMatrix = hessianMatrix.inverse();
+
+//	cout << hessianMatrix << endl;
 }
 
 double CyclicCoordinateDescent::ccdUpdateBeta(int index) {

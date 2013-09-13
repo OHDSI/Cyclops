@@ -59,6 +59,9 @@ public:
 
 	virtual void computeNumeratorForGradient(int index) = 0; // pure virtual
 
+	virtual void computeFisherInformation(int indexOne, int indexTwo,
+			double *oinfo, bool useWeights) = 0; // pure virtual
+
 	virtual void updateXBeta(real realDelta, int index, bool useWeights) = 0; // pure virtual
 
 	virtual void computeRemainingStatistics(bool useWeights) = 0; // pure virtual

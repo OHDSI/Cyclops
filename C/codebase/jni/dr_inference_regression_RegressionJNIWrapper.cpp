@@ -75,8 +75,13 @@ JNIEXPORT void JNICALL Java_dr_inference_regression_RegressionJNIWrapper_setBeta
 extern "C"
 JNIEXPORT void JNICALL Java_dr_inference_regression_RegressionJNIWrapper_setBeta__I_3D
   (JNIEnv *env, jobject obj, jint instance, jdoubleArray inValues) {
-	fprintf(stderr,"Not yet implemented (setBeta - array).\n");
-	exit(-1);
+	jsize size = env->GetArrayLength( inValues );
+	std::vector<double> input( size );
+	env->GetDoubleArrayRegion( inValues, 0, size, &input[0] );
+	instances[instance].ccd->setBeta(input);
+
+//	fprintf(stderr,"Not yet implemented (setBeta - array).\n");
+//	exit(-1);
 }
 
 extern "C"
