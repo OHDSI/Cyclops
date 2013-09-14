@@ -37,7 +37,7 @@
 
 //#include <R.h>
 
-#define CUDA_TRS
+//#define CUDA_TRS
 //#define Debug_TRS
 
 #ifdef CUDA

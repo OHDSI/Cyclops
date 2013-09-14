@@ -53,16 +53,12 @@ double MHRatio::getLogMetropolisRatio(Parameter & Beta, Parameter & Beta_Hat,
 	// Compute log Likelihood and log prior
 
 		ccd.resetBeta();
-		ccd.setBeta(*betaPossible);
-
-
+		ccd.setBeta(*betaPossible);  //TODO use new setBeta
 
 		fBetaPossible = ccd.getLogLikelihood();
 		pBetaPossible = ccd.getLogPrior();
 
 		double ratio = (fBetaPossible + pBetaPossible) - (storedFBetaCurrent + storedPBetaCurrent);
-
-
 
 		#ifdef Debug_TRS
 		cout << "fBetaPossible = " << fBetaPossible << endl;
@@ -72,7 +68,7 @@ double MHRatio::getLogMetropolisRatio(Parameter & Beta, Parameter & Beta_Hat,
 		#endif
 
 		//Check for numerical issues
-		if (isfinite(fBetaPossible) && isfinite(pBetaPossible)){
+		if (std::isfinite(fBetaPossible) && std::isfinite(pBetaPossible)){
 			return(ratio);
 		} else {
 			return(0); // Want to reject if numerical issues at proposal

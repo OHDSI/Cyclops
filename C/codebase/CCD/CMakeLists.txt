@@ -12,7 +12,8 @@ include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 find_path(BOOST_INCLUDE_DIR
 	NAMES boost
 	DOCS "Location of boost header file"
-	PATHS "/Users/tshaddox/Desktop/workspace/boost_1_53_0")
+	PATHS "/Users/tshaddox/Desktop/workspace/boost_1_53_0"
+	PATHS "/Users/trevorshaddox/Desktop/workspace/boost_1_51_0")
 	
 find_path(EIGEN_INCLUDE_DIR
 	NAMES Eigen
@@ -79,14 +80,6 @@ message(STATUS "Found CUDA directory files in: " ${CUDA_INCLUDE_DIR})
 
 
 
-include_directories(${GSL_INCLUDE_DIR} 
-					${CUDA_INCLUDE_DIR}
-					${MTL_INCLUDE_DIR}
-					${BOOST_INCLUDE_DIR}
-					${EIGEN_INCLUDE_DIR}
-					${CUSP_INCLUDE_DIR}
-					)
-
 set(SOURCE_FILES
 	ccd.cpp
 	CyclicCoordinateDescent.cpp	
@@ -112,9 +105,17 @@ set(SOURCE_FILES
 	ModelLikelihood.cpp
 	TransitionKernel.cpp
 	RandomWalk.cpp
+	OneDimensionRandomWalk.cpp
 	Model.cpp)
 	
 if(CUDA_FOUND)
+	include_directories(${GSL_INCLUDE_DIR} 
+					${CUDA_INCLUDE_DIR}
+					${MTL_INCLUDE_DIR}
+					${BOOST_INCLUDE_DIR}
+					${EIGEN_INCLUDE_DIR}
+					${CUSP_INCLUDE_DIR}
+					)
 	set(SOURCE_FILES ${SOURCE_FILES}
 	    GPUCyclicCoordinateDescent.cpp
 	    BetterGPU.cpp)
@@ -135,8 +136,19 @@ if(CUDA_FOUND)
 	target_link_libraries(ccd ${BOOST_INCLUDE_LIBRARY})
 	target_link_libraries(ccd ${EIGEN_INCLUDE_LIBRARY})
 	target_link_libraries(ccd CUDARuntime)
+
 else(CUDA_FOUND)
+	include_directories(${GSL_INCLUDE_DIR} 
+					${CUDA_INCLUDE_DIR}
+					${MTL_INCLUDE_DIR}
+					${BOOST_INCLUDE_DIR}
+					${EIGEN_INCLUDE_DIR}
+					#${CUSP_INCLUDE_DIR}
+	)
 	add_executable(ccd ${SOURCE_FILES})
+	target_link_libraries(ccd ${BOOST_INCLUDE_LIBRARY})
+	target_link_libraries(ccd ${EIGEN_INCLUDE_LIBRARY})
+
 endif(CUDA_FOUND)
 
 
