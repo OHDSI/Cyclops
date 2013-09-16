@@ -734,11 +734,13 @@ void CyclicCoordinateDescent::computeAsymptoticVarianceMatrix(void) {
 	}
 
 	hessianMatrix.resize(indices.size(), indices.size());
+	modelSpecifics.makeDirty(); // clear hessian terms
 
 	for (int ii = 0; ii < indices.size(); ++ii) {
 		for (int jj = ii; jj < indices.size(); ++jj) {
 			const int i = indices[ii];
 			const int j = indices[jj];
+//			std::cerr << "(" << i << "," << j << ")" << std::endl;
 			double fisherInformation = 0.0;
 			modelSpecifics.computeFisherInformation(i, j, &fisherInformation, useCrossValidation);
 //			if (fisherInformation != 0.0) {
@@ -746,6 +748,10 @@ void CyclicCoordinateDescent::computeAsymptoticVarianceMatrix(void) {
 //				tripletList.push_back(Triplet<double>(ii,jj,fisherInformation));
 //			}
 			hessianMatrix(jj,ii) = hessianMatrix(ii,jj) = fisherInformation;
+
+//			std::cerr << "Info = " << fisherInformation << std::endl;
+//			std::cerr << "Hess = " << getHessianDiagonal(0) << std::endl;
+//			exit(-1);
 		}
 	}
 
@@ -753,6 +759,7 @@ void CyclicCoordinateDescent::computeAsymptoticVarianceMatrix(void) {
 //	cout << sm;
 //	auto inv = sm.triangularView<Upper>().solve(dv1);
 //	cout << sm.inverse();
+//	cout << hessianMatrix << endl;
 
 	// Take inverse
 	hessianMatrix = hessianMatrix.inverse();

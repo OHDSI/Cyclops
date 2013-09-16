@@ -31,6 +31,10 @@ AbstractModelSpecifics::~AbstractModelSpecifics() {
 	}
 }
 
+void AbstractModelSpecifics::makeDirty(void) {
+	hessianCrossTerms.erase(hessianCrossTerms.begin(), hessianCrossTerms.end());
+}
+
 void AbstractModelSpecifics::initialize(
 		int iN,
 		int iK,

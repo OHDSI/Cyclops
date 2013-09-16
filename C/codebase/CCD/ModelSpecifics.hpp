@@ -395,34 +395,58 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 	IteratorTypeTwo itTwo(*hXI, indexTwo);
 	PairProductIterator<IteratorTypeOne,IteratorTypeTwo> it(itOne, itTwo);
 
-//	for (; it; ++it) {
-//		std::cerr << it.index() << " ";
-//	}
-//	std::cerr << std::endl;
-//	exit(-1);
-
-	if (!it.valid()) { // empty
-		*oinfo = static_cast<double>(0.0);
-	}
-
-//	std::cerr << "it start: " << it.index() << std::endl;
-
 	real information = static_cast<real>(0);
-
 	for (; it.valid(); ++it) {
-//		std::cerr << it.index() << std::endl;
 		const int k = it.index();
 		// Compile-time delegation
+
 		BaseModel::incrementFisherInformation(it,
 				w, // Signature-only, for iterator-type specialization
 				&information,
 				offsExpXBeta[k],
-				numerPid[k], numerPid2[k],
-				denomPid[k], hNWeight[k], it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
+				0.0, 0.0, // numerPid[k], numerPid2[k], // remove
+				denomPid[BaseModel::getGroup(hPid, k)],
+				hKWeight[k], it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
+	}
+
+	if (BaseModel::hasStrataCrossTerms) {
+
+		// Check if index is pre-computed
+		if (hessianCrossTerms.find(indexOne) == hessianCrossTerms.end()) {
+			// Make new
+			std::vector<real> crossOneTerms(N);
+			IteratorTypeOne crossOne(*hXI, indexOne);
+			for (; crossOne; ++crossOne) {
+				const int k = crossOne.index();
+				incrementByGroup(crossOneTerms.data(), hPid, k,
+						BaseModel::gradientNumeratorContrib(crossOne.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
+			}
+			hessianCrossTerms[indexOne];
+			hessianCrossTerms[indexOne].swap(crossOneTerms);
+		}
+		std::vector<real>& crossOneTerms = hessianCrossTerms[indexOne];
+
+		// TODO Remove code duplication
+		if (hessianCrossTerms.find(indexTwo) == hessianCrossTerms.end()) {
+			std::vector<real> crossTwoTerms(N);
+			IteratorTypeTwo crossTwo(*hXI, indexTwo);
+			for (; crossTwo; ++crossTwo) {
+				const int k = crossTwo.index();
+				incrementByGroup(crossTwoTerms.data(), hPid, k,
+						BaseModel::gradientNumeratorContrib(crossTwo.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
+			}
+			hessianCrossTerms[indexTwo];
+			hessianCrossTerms[indexTwo].swap(crossTwoTerms);
+		}
+		std::vector<real>& crossTwoTerms = hessianCrossTerms[indexTwo];
+
+		// TODO Sparse loop
+		for (int n = 0; n < N; ++n) {
+			information -= crossOneTerms[n] * crossTwoTerms[n] / (denomPid[n] * denomPid[n]);
+		}
 	}
 
 	*oinfo = static_cast<double>(information);
-//	std::cerr << *oinfo << std::endl;
 }
 
 

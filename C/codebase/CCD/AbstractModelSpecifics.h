@@ -10,6 +10,7 @@
 
 #include <vector>
 #include <cmath>
+#include <map>
 
 namespace bsccs {
 
@@ -76,6 +77,8 @@ public:
 
     virtual void getPredictiveEstimates(real* y, real* weights) = 0; // pure virtual
 
+    virtual void makeDirty();
+
 //	virtual void sortPid(bool useCrossValidation) = 0; // pure virtual
 
 protected:
@@ -134,6 +137,9 @@ protected:
 	real logLikelihoodFixedTerm;
 
 	std::vector<std::vector<int>* > *sparseIndices;
+
+	typedef std::map<int, std::vector<real> > HessianMap;
+	HessianMap hessianCrossTerms;
 };
 
 } // namespace

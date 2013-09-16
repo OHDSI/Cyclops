@@ -127,6 +127,8 @@ public:
 
 struct GroupedData {
 public:
+	const static bool hasStrataCrossTerms = true;
+
 	int getGroup(int* groups, int k) {
 		return groups[k];
 	}
@@ -134,6 +136,8 @@ public:
 
 struct OrderedData {
 public:
+	const static bool hasStrataCrossTerms = true;
+
 	int getGroup(int* groups, int k) {
 		return groups[k];
 	}
@@ -141,6 +145,8 @@ public:
 
 struct IndependentData {
 public:
+	const static bool hasStrataCrossTerms = false;
+
 	int getGroup(int* groups, int k) {
 		return k;
 	}
@@ -168,7 +174,6 @@ struct NoFixedLikelihoodTerms {
 	}
 };
 
-
 struct GLMProjection {
 public:
 	const static bool precomputeGradient = true; // XjY
@@ -192,7 +197,23 @@ public:
 };
 
 template <typename WeightType>
-struct GenericFisher {
+struct Survival {
+public: /***/
+	template <class IteratorType, class Weights>
+	void incrementFisherInformation(
+			const IteratorType& it,
+			Weights false_signature,
+			real* information,
+			real predictor,
+			real numer, real numer2, real denom,
+			WeightType weight,
+			real x, real xBeta, real y) {
+		*information += weight * predictor / denom * it.value();
+	}
+};
+
+template <typename WeightType>
+struct Logistic {
 public:
 	template <class IteratorType, class Weights>
 	void incrementFisherInformation(
@@ -201,15 +222,16 @@ public:
 			real* information,
 			real predictor,
 			real numer, real numer2, real denom,
-			WeightType nEvents,
+			WeightType weight,
 			real x, real xBeta, real y) {
-		*information += nEvents * numer * it.value();
+		const real g = predictor / denom;
+		*information += weight *
+				 (predictor / denom - g * g)
+//
+//				predictor / (denom * denom)
+				 * it.value();
 	}
-};
 
-template <typename WeightType>
-struct Logistic {
-public:
 	template <class IteratorType, class Weights> // TODO Code duplication with LR
 	void incrementGradientAndHessian(
 			const IteratorType& it,
@@ -242,7 +264,7 @@ public:
 };
 
 template <typename WeightType>
-struct SelfControlledCaseSeries : public GroupedData, GLMProjection, FixedPid, GenericFisher<WeightType> {
+struct SelfControlledCaseSeries : public GroupedData, GLMProjection, FixedPid, Survival<WeightType> {
 public:
 	const static bool precomputeHessian = false; // XjX
 
@@ -309,7 +331,7 @@ public:
 
 template <typename WeightType>
 struct ConditionalLogisticRegression : public GroupedData, GLMProjection, Logistic<WeightType>, FixedPid,
-	NoFixedLikelihoodTerms, GenericFisher<WeightType> { // TODO Implement likelihood terms
+	NoFixedLikelihoodTerms { // TODO Implement likelihood terms
 public:
 	const static bool precomputeHessian = false; // XjX
 
@@ -336,6 +358,18 @@ public:
 	void predictEstimate(real& yi, real xBeta){
 		// do nothing for now
 	}
+
+	template <class IteratorType, class Weights>
+	void incrementFisherInformation(
+			const IteratorType& it,
+			Weights false_signature,
+			real* information,
+			real predictor,
+			real numer, real numer2, real denom,
+			WeightType weight,
+			real x, real xBeta, real y) {
+		*information += weight * predictor / denom * it.value();
+	}
 };
 
 template <typename WeightType>
@@ -348,19 +382,6 @@ public:
 
 	real observationCount(real yi) {
 		return static_cast<real>(1);
-	}
-
-	template <class IteratorType, class Weights>
-	void incrementFisherInformation(
-			const IteratorType& it,
-			Weights false_signature,
-			real* information,
-			real predictor,
-			real numer, real numer2, real denom,
-			WeightType weight,
-			real x, real xBeta, real y) {
-		const real g = numer / denom;
-		*information += weight * predictor / (denom * denom) * it.value();
 	}
 
 	real getOffsExpXBeta(int* offs, real xBeta, real y, int k) {
@@ -383,7 +404,7 @@ public:
 };
 
 template <typename WeightType>
-struct CoxProportionalHazards : public OrderedData, GLMProjection, SortedPid, NoFixedLikelihoodTerms, GenericFisher<WeightType> {
+struct CoxProportionalHazards : public OrderedData, GLMProjection, SortedPid, NoFixedLikelihoodTerms, Survival<WeightType> {
 public:
 	const static bool precomputeHessian = false;
 
@@ -431,7 +452,7 @@ public:
 };
 
 template <typename WeightType>
-struct LeastSquares : public IndependentData, FixedPid, NoFixedLikelihoodTerms, GenericFisher<WeightType> {
+struct LeastSquares : public IndependentData, FixedPid, NoFixedLikelihoodTerms {
 public:
 	const static bool precomputeGradient = false; // XjY
 
@@ -460,6 +481,18 @@ public:
 		std::cerr << "Error!" << std::endl;
 		exit(-1);
 		return static_cast<real>(0);
+	}
+
+	template <class IteratorType, class Weights>
+	void incrementFisherInformation(
+			const IteratorType& it,
+			Weights false_signature,
+			real* information,
+			real predictor,
+			real numer, real numer2, real denom,
+			WeightType weight,
+			real x, real xBeta, real y) {
+		*information += weight * it.value();
 	}
 
 	template <class IteratorType, class Weights>
