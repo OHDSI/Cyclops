@@ -68,6 +68,12 @@ class SparseIterator {
 		// Do nothing
 	}
 
+	inline SparseIterator(const CompressedDataColumn& column)
+	  : mValues(column.getData()), mIndices(column.getColumns()),
+	    mId(0), mEnd(column.getNumberOfEntries()){
+		// Do nothing
+	}
+
 	inline SparseIterator(const std::vector<int>& vec, Index max = 0)
 	: mIndices(vec.data()), mId(0), mEnd(vec.size()) {
 		// Do nothing

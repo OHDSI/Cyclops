@@ -29,10 +29,19 @@ AbstractModelSpecifics::~AbstractModelSpecifics() {
 	if (hXjX) {
 		free(hXjX);
 	}
+	for (HessianSparseMap::iterator it = hessianSparseCrossTerms.begin();
+			it != hessianSparseCrossTerms.end(); ++it) {
+		delete it->second;
+	}
 }
 
 void AbstractModelSpecifics::makeDirty(void) {
 	hessianCrossTerms.erase(hessianCrossTerms.begin(), hessianCrossTerms.end());
+
+	for (HessianSparseMap::iterator it = hessianSparseCrossTerms.begin();
+			it != hessianSparseCrossTerms.end(); ++it) {
+		delete it->second;
+	}
 }
 
 void AbstractModelSpecifics::initialize(

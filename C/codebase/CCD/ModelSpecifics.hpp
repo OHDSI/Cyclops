@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <algorithm>
+#include <numeric>
 
 #include "ModelSpecifics.h"
 #include "Iterators.h"
@@ -412,6 +413,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 	if (BaseModel::hasStrataCrossTerms) {
 
 		// Check if index is pre-computed
+//#define USE_DENSE
+#ifdef USE_DENSE
 		if (hessianCrossTerms.find(indexOne) == hessianCrossTerms.end()) {
 			// Make new
 			std::vector<real> crossOneTerms(N);
@@ -422,10 +425,38 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 						BaseModel::gradientNumeratorContrib(crossOne.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
 			}
 			hessianCrossTerms[indexOne];
+//			std::cerr << std::accumulate(crossOneTerms.begin(), crossOneTerms.end(), 0.0) << std::endl;
 			hessianCrossTerms[indexOne].swap(crossOneTerms);
 		}
 		std::vector<real>& crossOneTerms = hessianCrossTerms[indexOne];
+#else
+		if (hessianSparseCrossTerms.find(indexOne) == hessianSparseCrossTerms.end()) {
+			// Make new
+			std::vector<int>* indices = new std::vector<int>();
+			std::vector<real>* values = new std::vector<real>();
+			CompressedDataColumn* column = new CompressedDataColumn(
+					indices, values, SPARSE
+			);
+			hessianSparseCrossTerms.insert(std::make_pair(indexOne, column));
 
+			IteratorTypeOne crossOne(*hXI, indexOne);
+			for (; crossOne;) {
+				real value = 0.0;
+				int currentPid = hPid[crossOne.index()];
+				do {
+					const int k = crossOne.index();
+					value += BaseModel::gradientNumeratorContrib(crossOne.value(), offsExpXBeta[k], hXBeta[k], hY[k]);
+					++crossOne;
+				} while (crossOne && currentPid == hPid[crossOne.index()]);
+				indices->push_back(currentPid);
+				values->push_back(value);
+			}
+//			std::cerr << column->sumColumn(N) << std::endl << std::endl;
+		}
+		SparseIterator sparseCrossOneTerms(*hessianSparseCrossTerms[indexOne]);
+#endif
+
+#ifdef USE_DENSE
 		// TODO Remove code duplication
 		if (hessianCrossTerms.find(indexTwo) == hessianCrossTerms.end()) {
 			std::vector<real> crossTwoTerms(N);
@@ -436,14 +467,55 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 						BaseModel::gradientNumeratorContrib(crossTwo.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
 			}
 			hessianCrossTerms[indexTwo];
+//			std::cerr << std::accumulate(crossTwoTerms.begin(), crossTwoTerms.end(), 0.0) << std::endl;
 			hessianCrossTerms[indexTwo].swap(crossTwoTerms);
 		}
 		std::vector<real>& crossTwoTerms = hessianCrossTerms[indexTwo];
+#else
+		if (hessianSparseCrossTerms.find(indexTwo) == hessianSparseCrossTerms.end()) {
+			// Make new
+			std::vector<int>* indices = new std::vector<int>();
+			std::vector<real>* values = new std::vector<real>();
+			CompressedDataColumn* column = new CompressedDataColumn(
+					indices, values, SPARSE
+			);
+			hessianSparseCrossTerms.insert(std::make_pair(indexTwo, column));
 
-		// TODO Sparse loop
-		for (int n = 0; n < N; ++n) {
-			information -= crossOneTerms[n] * crossTwoTerms[n] / (denomPid[n] * denomPid[n]);
+			IteratorTypeOne crossTwo(*hXI, indexTwo);
+			for (; crossTwo;) {
+				real value = 0.0;
+				int currentPid = hPid[crossTwo.index()];
+				do {
+					const int k = crossTwo.index();
+					value += BaseModel::gradientNumeratorContrib(crossTwo.value(), offsExpXBeta[k], hXBeta[k], hY[k]);
+					++crossTwo;
+				} while (crossTwo && currentPid == hPid[crossTwo.index()]);
+				indices->push_back(currentPid);
+				values->push_back(value);
+			}
+//			std::cerr << column->sumColumn(N) << std::endl << std::endl;
 		}
+		SparseIterator sparseCrossTwoTerms(*hessianSparseCrossTerms[indexTwo]);
+#endif
+
+#ifdef USE_DENSE
+		// TODO Sparse loop
+		real cross = 0.0;
+		for (int n = 0; n < N; ++n) {
+			cross += crossOneTerms[n] * crossTwoTerms[n] / (denomPid[n] * denomPid[n]);
+		}
+//		std::cerr << cross << std::endl;
+		information -= cross;
+#else
+		real sparseCross = 0.0;
+		PairProductIterator<SparseIterator,SparseIterator> itSparseCross(sparseCrossOneTerms, sparseCrossTwoTerms);
+		for (; itSparseCross.valid(); ++itSparseCross) {
+			const int n = itSparseCross.index();
+			sparseCross += itSparseCross.value() / (denomPid[n] * denomPid[n]);
+		}
+//		std::cerr << sparseCross << std::endl << std::endl;
+		information -= sparseCross;
+#endif
 	}
 
 	*oinfo = static_cast<double>(information);

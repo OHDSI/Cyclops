@@ -15,6 +15,7 @@
 namespace bsccs {
 
 class CompressedDataMatrix;  // forward declaration
+class CompressedDataColumn; // forward declaration
 class ModelData; // forward declaration
 
 #ifdef DOUBLE_PRECISION
@@ -140,6 +141,9 @@ protected:
 
 	typedef std::map<int, std::vector<real> > HessianMap;
 	HessianMap hessianCrossTerms;
+
+	typedef std::map<int, CompressedDataColumn* > HessianSparseMap;
+	HessianSparseMap hessianSparseCrossTerms;
 };
 
 } // namespace
