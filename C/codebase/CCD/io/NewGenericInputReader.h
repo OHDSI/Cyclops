@@ -148,6 +148,7 @@ public:
 		if (includeOffset) {
 			modelData->push_back(DENSE); // Column 0
 			modelData->setHasOffsetCovariate(true);
+			modelData->getColumn(0).add_label(-1);
 		}
 		if (includeIntercept) {
 			modelData->push_back(DENSE); // Column 0 or 1
