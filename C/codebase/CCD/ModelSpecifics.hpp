@@ -389,6 +389,37 @@ void ModelSpecifics<BaseModel,WeightType>::dispatchFisherInformation(int indexOn
 //	std::cerr << "End of dispatch" << std::endl;
 }
 
+
+template<class BaseModel, typename WeightType> template<class IteratorType>
+SparseIterator ModelSpecifics<BaseModel, WeightType>::getSubjectSpecificHessianIterator(int index) {
+
+	if (hessianSparseCrossTerms.find(index) == hessianSparseCrossTerms.end()) {
+		// Make new
+		std::vector<int>* indices = new std::vector<int>();
+		std::vector<real>* values = new std::vector<real>();
+		CompressedDataColumn* column = new CompressedDataColumn(indices, values,
+				SPARSE);
+		hessianSparseCrossTerms.insert(std::make_pair(index, column));
+
+		IteratorType itCross(*hXI, index);
+		for (; itCross;) {
+			real value = 0.0;
+			int currentPid = hPid[itCross.index()];
+			do {
+				const int k = itCross.index();
+				value += BaseModel::gradientNumeratorContrib(itCross.value(),
+						offsExpXBeta[k], hXBeta[k], hY[k]);
+				++itCross;
+			} while (itCross && currentPid == hPid[itCross.index()]);
+			indices->push_back(currentPid);
+			values->push_back(value);
+		}
+	}
+	return SparseIterator(*hessianSparseCrossTerms[index]);
+
+}
+
+
 template <class BaseModel, typename WeightType> template <class IteratorTypeOne, class IteratorTypeTwo, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int indexOne, int indexTwo, double *oinfo, Weights w) {
 
@@ -429,34 +460,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 			hessianCrossTerms[indexOne].swap(crossOneTerms);
 		}
 		std::vector<real>& crossOneTerms = hessianCrossTerms[indexOne];
-#else
-		if (hessianSparseCrossTerms.find(indexOne) == hessianSparseCrossTerms.end()) {
-			// Make new
-			std::vector<int>* indices = new std::vector<int>();
-			std::vector<real>* values = new std::vector<real>();
-			CompressedDataColumn* column = new CompressedDataColumn(
-					indices, values, SPARSE
-			);
-			hessianSparseCrossTerms.insert(std::make_pair(indexOne, column));
 
-			IteratorTypeOne crossOne(*hXI, indexOne);
-			for (; crossOne;) {
-				real value = 0.0;
-				int currentPid = hPid[crossOne.index()];
-				do {
-					const int k = crossOne.index();
-					value += BaseModel::gradientNumeratorContrib(crossOne.value(), offsExpXBeta[k], hXBeta[k], hY[k]);
-					++crossOne;
-				} while (crossOne && currentPid == hPid[crossOne.index()]);
-				indices->push_back(currentPid);
-				values->push_back(value);
-			}
-//			std::cerr << column->sumColumn(N) << std::endl << std::endl;
-		}
-		SparseIterator sparseCrossOneTerms(*hessianSparseCrossTerms[indexOne]);
-#endif
-
-#ifdef USE_DENSE
 		// TODO Remove code duplication
 		if (hessianCrossTerms.find(indexTwo) == hessianCrossTerms.end()) {
 			std::vector<real> crossTwoTerms(N);
@@ -471,34 +475,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 			hessianCrossTerms[indexTwo].swap(crossTwoTerms);
 		}
 		std::vector<real>& crossTwoTerms = hessianCrossTerms[indexTwo];
-#else
-		if (hessianSparseCrossTerms.find(indexTwo) == hessianSparseCrossTerms.end()) {
-			// Make new
-			std::vector<int>* indices = new std::vector<int>();
-			std::vector<real>* values = new std::vector<real>();
-			CompressedDataColumn* column = new CompressedDataColumn(
-					indices, values, SPARSE
-			);
-			hessianSparseCrossTerms.insert(std::make_pair(indexTwo, column));
 
-			IteratorTypeOne crossTwo(*hXI, indexTwo);
-			for (; crossTwo;) {
-				real value = 0.0;
-				int currentPid = hPid[crossTwo.index()];
-				do {
-					const int k = crossTwo.index();
-					value += BaseModel::gradientNumeratorContrib(crossTwo.value(), offsExpXBeta[k], hXBeta[k], hY[k]);
-					++crossTwo;
-				} while (crossTwo && currentPid == hPid[crossTwo.index()]);
-				indices->push_back(currentPid);
-				values->push_back(value);
-			}
-//			std::cerr << column->sumColumn(N) << std::endl << std::endl;
-		}
-		SparseIterator sparseCrossTwoTerms(*hessianSparseCrossTerms[indexTwo]);
-#endif
-
-#ifdef USE_DENSE
 		// TODO Sparse loop
 		real cross = 0.0;
 		for (int n = 0; n < N; ++n) {
@@ -507,13 +484,15 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 //		std::cerr << cross << std::endl;
 		information -= cross;
 #else
-		real sparseCross = 0.0;
+		SparseIterator sparseCrossOneTerms = getSubjectSpecificHessianIterator<IteratorTypeOne>(indexOne);
+		SparseIterator sparseCrossTwoTerms = getSubjectSpecificHessianIterator<IteratorTypeTwo>(indexTwo);
 		PairProductIterator<SparseIterator,SparseIterator> itSparseCross(sparseCrossOneTerms, sparseCrossTwoTerms);
+
+		real sparseCross = 0.0;
 		for (; itSparseCross.valid(); ++itSparseCross) {
 			const int n = itSparseCross.index();
 			sparseCross += itSparseCross.value() / (denomPid[n] * denomPid[n]);
 		}
-//		std::cerr << sparseCross << std::endl << std::endl;
 		information -= sparseCross;
 #endif
 	}

@@ -16,6 +16,8 @@
 
 namespace bsccs {
 
+class SparseIterator; // forward declaration
+
 template <class BaseModel, typename WeightType>
 class ModelSpecifics : public AbstractModelSpecifics, BaseModel {
 public:
@@ -80,6 +82,9 @@ private:
 
 	template <class IteratorTypeOne, class IteratorTypeTwo, class Weights>
 	void computeFisherInformationImpl(int indexOne, int indexTwo, double *oinfo, Weights w);
+
+	template<class IteratorType>
+	SparseIterator getSubjectSpecificHessianIterator(int index);
 
 	void computeXjY(bool useCrossValidation);
 
@@ -329,6 +334,7 @@ public:
 
 };
 
+#if 0
 template <typename WeightType>
 struct ConditionalLogisticRegression : public GroupedData, GLMProjection, Logistic<WeightType>, FixedPid,
 	NoFixedLikelihoodTerms { // TODO Implement likelihood terms
@@ -345,8 +351,12 @@ public:
 		return std::exp(xBeta);
 	}
 
+//	real logLikeDenominatorContrib(WeightType ni, real denom) {
+//		return std::log(denom);
+//	}
+
 	real logLikeDenominatorContrib(WeightType ni, real denom) {
-		return std::log(denom);
+		return ni * std::log(denom);
 	}
 
 	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
@@ -357,6 +367,36 @@ public:
 
 	void predictEstimate(real& yi, real xBeta){
 		// do nothing for now
+	}
+
+	template <class IteratorType, class Weights> // TODO Code duplication with LR
+	void incrementGradientAndHessian(
+			const IteratorType& it,
+			Weights w,
+			real* gradient, real* hessian,
+			real numer, real numer2, real denom,
+			WeightType weight,
+			real x, real xBeta, real y) {
+
+		const real g = numer / denom;
+//		if (Weights::isWeighted) {
+			*gradient += weight * g;
+//		} else {
+//			*gradient += g;
+//		}
+		if (IteratorType::isIndicator) {
+//			if (Weights::isWeighted) {
+				*hessian += weight * g * (static_cast<real>(1.0) - g);
+//			} else {
+//				*hessian += g * (static_cast<real>(1.0) - g);
+//			}
+		} else {
+//			if (Weights::isWeighted) {
+				*hessian += weight * (numer2 / denom - g * g); // Bounded by x_j^2
+//			} else {
+//				*hessian += (numer2 / denom - g * g); // Bounded by x_j^2
+//			}
+		}
 	}
 
 	template <class IteratorType, class Weights>
@@ -371,6 +411,63 @@ public:
 		*information += weight * predictor / denom * it.value();
 	}
 };
+#else
+template <typename WeightType>
+struct ConditionalLogisticRegression : public GroupedData, GLMProjection, FixedPid, Survival<WeightType> {
+public:
+	const static bool precomputeHessian = false; // XjX
+	const static bool likelihoodHasFixedTerms = false;
+
+	real logLikeFixedTermsContrib(real yi, real offseti){
+		std::cerr << "Error!" << std::endl;
+		exit(-1);
+		return static_cast<real>(0);
+	}
+
+	static real getDenomNullValue () { return static_cast<real>(0.0); }
+
+	real observationCount(real yi) {
+		return static_cast<real>(yi);
+	}
+
+	template <class IteratorType, class Weights>
+	void incrementGradientAndHessian(
+			const IteratorType& it,
+			Weights false_signature,
+			real* gradient, real* hessian,
+			real numer, real numer2, real denom,
+			WeightType nEvents,
+			real x, real xBeta, real y) {
+
+		const real t = numer / denom;
+		const real g = nEvents * t; // Always use weights (number of events)
+		*gradient += g;
+		if (IteratorType::isIndicator) {
+			*hessian += g * (static_cast<real>(1.0) - t);
+		} else {
+			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
+		}
+	}
+
+	real getOffsExpXBeta(int* offs, real xBeta, real y, int k) {
+		return std::exp(xBeta);
+	}
+
+	real logLikeDenominatorContrib(WeightType ni, real denom) {
+		return ni * std::log(denom);
+	}
+
+	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
+			int* groups, int i) {
+		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
+	}
+
+	void predictEstimate(real& yi, real xBeta){
+		//do nothing for now
+	}
+
+};
+#endif
 
 template <typename WeightType>
 struct LogisticRegression : public IndependentData, GLMProjection, Logistic<WeightType>, FixedPid,
