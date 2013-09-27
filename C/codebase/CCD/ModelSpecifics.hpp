@@ -322,22 +322,33 @@ std::pair<real,real> computeHowardRecursion(UIteratorType itExpXBeta, SparseIter
 	ScratchType& dB = scratch2;
 	Indexer index(numSubjects);
 
+#if 0
 	for (int m = 1; m <= numCases; ++m) {
-//		std::cerr << "m = " << m << std::endl;
 		UIteratorType itU = itExpXBeta;
 		SparseIteratorType itV = itX;
 		for (int n = m; n <= numSubjects /* Filling in too much */; ++n) {
-//			std::cerr << "  n = " << n << " U:" << *itU << " X:" << *itV << std::endl;
-			 B[index(m,n)] =  B[index(m,n-1)] + *itU *  B[index(m-1,n-1)]; // Equation (3)			
-			dB[index(m,n)] = dB[index(m,n-1)] + *itU * dB[index(m-1,n-1)] + (*itV) * (*itU) * B[index(m-1,n-1)]; // Equation (6)
+			 B[index(m,n)] =  B[index(m,n-1)] + (*itU) *  B[index(m-1,n-1)]; // Equation (3)
+			dB[index(m,n)] = dB[index(m,n-1)] + (*itU) * dB[index(m-1,n-1)] + (*itV) * (*itU) * B[index(m-1,n-1)]; // Equation (6)
 			++itU; ++itV;
 		}
 		++itExpXBeta;
 		++itX;
 	}
+#else
+//	UIteratorType itU = itExpXBeta;
+//	SparseIteratorType itV = itX;
+	for (int n = 1; n <= numSubjects; ++n) {
+		for (int m = std::min(1,n-1); m <= numCases; ++m) {
+			 B[index(m,n)] =  B[index(m,n-1)] + (*itExpXBeta) *  B[index(m-1,n-1)]; // Equation (3)
+			dB[index(m,n)] = dB[index(m,n-1)] + (*itExpXBeta) * dB[index(m-1,n-1)] + (*itX) * (*itExpXBeta) * B[index(m-1,n-1)]; // Equation (6)
+		}
+//		++itU; ++itV;
+		++itExpXBeta; ++itX;
+	}
+#endif
 	return std::pair<real,real>(
 			dB[index(numCases, numSubjects)], // numerator
-			B[index(numCases, numSubjects)] // denominator
+	 		 B[index(numCases, numSubjects)]  // denominator
 		);
 }
 
@@ -408,23 +419,17 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			if (true && hNWeight[n] > 1) {
 				int numSubjects = hNtoK[n+1] - hNtoK[n];
 				int numCases = hNWeight[n];
-
-//				std::vector<real> tmp(K, 1.0);
-				
-//				real* U = tmp.data();
-				real* U = offsExpXBeta + hNtoK[n];
+#if 0
 				real* x = hXI->getDataVector(index) + hNtoK[n];
-//				std::cerr << "NtoK = " << hNtoK[n] << std::endl;
-				std::pair<real,real> value = computeHowardRecursion(
-				    U, //offsExpXBeta
-    				x, //X
+#else
+				DenseView<IteratorType> x(IteratorType(*hXI, index), hNtoK[n], hNtoK[n+1]);
+#endif
+				std::pair<real,real> value = computeHowardRecursion(offsExpXBeta + hNtoK[n], x,
     				numSubjects, numCases);
-//				std::cerr << numCases << " " << numSubjects << " " << value.first << " " << value.second << std::endl;
 
 				gradient += value.first / value.second;
 				//hessian += 0.0;  // linear
 
-//				real g = computeHowardRecursion(hXBeta.begin(), numSubjects, numCases)
 			} else {
 
 				// Compile-time delegation
@@ -434,7 +439,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 						denomPid[n], hNWeight[n], it.value(), hXBeta[n], hY[n]); // When function is in-lined, compiler will only use necessary arguments
 			}
 		}
-	//	exit(-1);
 	}
 
 	if (BaseModel::precomputeGradient) { // Compile-time switch

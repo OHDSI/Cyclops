@@ -104,15 +104,40 @@ public:
 	typedef int Index;
 
 	enum  { isIndicator = false };
-	enum  { isSparse = true };
+	enum  { isSparse = false };
 
-	DenseView(IteratorType& iterator, Index end)
-		: mIterator(iterator), mId(iterator.index()), mEnd(end) {
-		// Do nothing
+	inline DenseView(const IteratorType& iterator, Index start, Index end)
+		: mIterator(iterator), mId(start), mEnd(end) {
+		while (mIterator && mIterator.index() < start) {
+			++mIterator;
+		}
 	}
 
+    inline DenseView& operator++() {
+    	if (mIterator.index() == mId) {
+    		++mIterator;
+    	}
+    	++mId;
+    	return *this;
+    }
+
+    inline const Scalar operator*() const {
+    	return value();
+    }
+
+    inline const Scalar value() const {
+    	if (mIterator.index() == mId) {
+    		return mIterator.value();
+    	} else {
+    		return static_cast<Scalar>(0.0);
+    	}
+    }
+
+    inline Index index() const { return mId; }
+    inline operator bool() const { return (mId < mEnd); }
+
 protected:
-	IteratorType& mIterator;
+	IteratorType mIterator;
 	Index mId;
 	const Index mEnd;
 };
