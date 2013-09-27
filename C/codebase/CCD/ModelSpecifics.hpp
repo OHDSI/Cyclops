@@ -73,10 +73,10 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useC
 		incrementByGroup(hNWeight.data(), hPid, k, event);
 	}
 
-	for (int n = 0; n < N; ++n) {
-		std::cout << hNWeight[n] << ", ";
-	}
-	std::cout << std::endl;
+//	for (int n = 0; n < N; ++n) {
+//		std::cout << hNWeight[n] << ", ";
+//	}
+//	std::cout << std::endl;
 }
 
 template<class BaseModel, typename WeightType>
@@ -138,9 +138,9 @@ void ModelSpecifics<BaseModel, WeightType>::computeNtoKIndices(bool useCrossVali
 	}
 	hNtoK[n] = K;
 
-	for (std::vector<int>::iterator it = hNtoK.begin(); it != hNtoK.end(); ++it) {
-		std::cerr << *it << ", ";
-	}
+//	for (std::vector<int>::iterator it = hNtoK.begin(); it != hNtoK.end(); ++it) {
+//		std::cerr << *it << ", ";
+//	}
 //	std::cerr << std::endl;
 //	exit(-1);
 }
@@ -323,11 +323,11 @@ std::pair<real,real> computeHowardRecursion(UIteratorType itExpXBeta, SparseIter
 	Indexer index(numSubjects);
 
 	for (int m = 1; m <= numCases; ++m) {
-		std::cerr << "m = " << m << std::endl;
+//		std::cerr << "m = " << m << std::endl;
 		UIteratorType itU = itExpXBeta;
 		SparseIteratorType itV = itX;
 		for (int n = m; n <= numSubjects /* Filling in too much */; ++n) {
-			std::cerr << "  n = " << n << " U:" << *itU << " X:" << *itV << std::endl;
+//			std::cerr << "  n = " << n << " U:" << *itU << " X:" << *itV << std::endl;
 			 B[index(m,n)] =  B[index(m,n-1)] + *itU *  B[index(m-1,n-1)]; // Equation (3)			
 			dB[index(m,n)] = dB[index(m,n-1)] + *itU * dB[index(m-1,n-1)] + (*itV) * (*itU) * B[index(m-1,n-1)]; // Equation (6)
 			++itU; ++itV;
@@ -402,7 +402,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 				}						
 			}
 		}
-		//exit(-1);	
 	} else {
 		for (; it; ++it) {
 			const int n = it.index();
@@ -410,17 +409,17 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 				int numSubjects = hNtoK[n+1] - hNtoK[n];
 				int numCases = hNWeight[n];
 
-				std::vector<real> tmp(K, 1.0);
+//				std::vector<real> tmp(K, 1.0);
 				
 //				real* U = tmp.data();
 				real* U = offsExpXBeta + hNtoK[n];
 				real* x = hXI->getDataVector(index) + hNtoK[n];
-				std::cerr << "NtoK = " << hNtoK[n] << std::endl;
+//				std::cerr << "NtoK = " << hNtoK[n] << std::endl;
 				std::pair<real,real> value = computeHowardRecursion(
 				    U, //offsExpXBeta
     				x, //X
     				numSubjects, numCases);
-				std::cerr << numCases << " " << numSubjects << " " << value.first << " " << value.second << std::endl;
+//				std::cerr << numCases << " " << numSubjects << " " << value.first << " " << value.second << std::endl;
 
 				gradient += value.first / value.second;
 				//hessian += 0.0;  // linear
@@ -428,11 +427,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 //				real g = computeHowardRecursion(hXBeta.begin(), numSubjects, numCases)
 			} else {
 
-			// Compile-time delegation
-			BaseModel::incrementGradientAndHessian(it,
-					w, // Signature-only, for iterator-type specialization
-					&gradient, &hessian, numerPid[n], numerPid2[n],
-					denomPid[n], hNWeight[n], it.value(), hXBeta[n], hY[n]); // When function is in-lined, compiler will only use necessary arguments
+				// Compile-time delegation
+				BaseModel::incrementGradientAndHessian(it,
+						w, // Signature-only, for iterator-type specialization
+						&gradient, &hessian, numerPid[n], numerPid2[n],
+						denomPid[n], hNWeight[n], it.value(), hXBeta[n], hY[n]); // When function is in-lined, compiler will only use necessary arguments
 			}
 		}
 	//	exit(-1);
@@ -719,7 +718,7 @@ template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWeights) {
 	if (BaseModel::likelihoodHasDenominator) {
 		fillVector(denomPid, N, BaseModel::getDenomNullValue());
-		if (false) {
+		if (true) {
 			for (int k = 0; k < K; ++k) {
 				offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
 				incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
