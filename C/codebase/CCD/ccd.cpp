@@ -738,6 +738,12 @@ int main(int argc, char* argv[]) {
 
 	double timeInitialize = initializeModel(&modelData, &ccd, &model, arguments);
 
+//	for (int j = 0; j < ccd->getBetaSize(); ++j) {
+//		if (j != 1) {
+//			ccd->setFixedBeta(j, true);
+//		}
+//	}
+
 	double timeUpdate;
 	if (arguments.doCrossValidation) {
 		timeUpdate = runCrossValidation(ccd, modelData, arguments);

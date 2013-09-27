@@ -600,6 +600,7 @@ void CyclicCoordinateDescent::update(
 				if (delta != 0.0) {
 					sufficientStatisticsKnown = false;
 					updateSufficientStatistics(delta, index);
+					computeRemainingStatistics(true, 0); // TODO REMOVE, only for CLR
 				}
 			}
 			

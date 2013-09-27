@@ -15,6 +15,7 @@
 
 #include "ModelSpecifics.h"
 #include "Iterators.h"
+// #include "Combinations.h"
 
 namespace bsccs {
 
@@ -45,6 +46,10 @@ bool ModelSpecifics<BaseModel,WeightType>::allocateXjX(void) { return BaseModel:
 template <class BaseModel,typename WeightType>
 bool ModelSpecifics<BaseModel,WeightType>::sortPid(void) { return BaseModel::sortPid; }
 
+
+template <class BaseModel,typename WeightType>
+bool ModelSpecifics<BaseModel,WeightType>::allocateNtoKIndices(void) { return BaseModel::hasNtoKIndices; }
+
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useCrossValidation) {
 	// Set K weights
@@ -67,6 +72,11 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useC
 		WeightType event = BaseModel::observationCount(hY[k])*hKWeight[k];
 		incrementByGroup(hNWeight.data(), hPid, k, event);
 	}
+
+	for (int n = 0; n < N; ++n) {
+		std::cout << hNWeight[n] << ", ";
+	}
+	std::cout << std::endl;
 }
 
 template<class BaseModel, typename WeightType>
@@ -113,6 +123,28 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjX(bool useCrossValidation) 
 	}
 }
 
+template<class BaseModel, typename WeightType>
+void ModelSpecifics<BaseModel, WeightType>::computeNtoKIndices(bool useCrossValidation) {
+
+	hNtoK.resize(N+1);
+	int n = 0;
+	for (int k = 0; k < K;) {
+		hNtoK[n] = k;
+		int currentPid = hPid[k];
+		do {
+			++k;
+		} while (k < K && currentPid == hPid[k]);
+		++n;
+	}
+	hNtoK[n] = K;
+
+	for (std::vector<int>::iterator it = hNtoK.begin(); it != hNtoK.end(); ++it) {
+		std::cerr << *it << ", ";
+	}
+//	std::cerr << std::endl;
+//	exit(-1);
+}
+
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInLogLikelihood(bool useCrossValidation) {
 	if(BaseModel::likelihoodHasFixedTerms) {
@@ -139,6 +171,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInGradientAndHessian
 	}
 	if (allocateXjX()) {
 		computeXjX(useCrossValidation);
+	}
+	if (allocateNtoKIndices()) {
+		computeNtoKIndices(useCrossValidation);
 	}
 }
 
@@ -258,7 +293,54 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 	}
 }
 
-//incrementGradientAndHessian<SparseIterator>();
+
+template <typename UIteratorType, typename SparseIteratorType>
+std::pair<real,real> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorType itX, int numSubjects, int numCases) {
+	// Recursion by Susanne Howard in Gail, Lubin and Rubinstein (1981)
+	// Rewritten as a loop since very deep recursion can be expensive
+
+	typedef std::vector<real> ScratchType;
+	struct Indexer {
+		int dim;
+		Indexer(int d) : dim(d) { }
+		int operator()(int m, int n) {
+			return m * dim + n; // row-major
+		}
+	};
+
+	// TODO Reuse scratch space
+	ScratchType scratch1((numCases + 1) * (numSubjects + 1));
+	fill(scratch1.begin(), scratch1.end(), 0.0);
+	fill(scratch1.begin(), scratch1.begin() + numSubjects, 1.0); // B(0,n) = 1 for n >= 0
+
+	ScratchType scratch2((numCases + 1) * (numSubjects + 1));
+	fill(scratch2.begin(), scratch2.end(), 0.0); // B'(0.n) = 0 for all n
+
+	// B(m,n)  m = cases, n = subjects
+	// B(x) x = m * numSubjects + n  (row-major)
+	ScratchType& B = scratch1;
+	ScratchType& dB = scratch2;
+	Indexer index(numSubjects);
+
+	for (int m = 1; m <= numCases; ++m) {
+		std::cerr << "m = " << m << std::endl;
+		UIteratorType itU = itExpXBeta;
+		SparseIteratorType itV = itX;
+		for (int n = m; n <= numSubjects /* Filling in too much */; ++n) {
+			std::cerr << "  n = " << n << " U:" << *itU << " X:" << *itV << std::endl;
+			 B[index(m,n)] =  B[index(m,n-1)] + *itU *  B[index(m-1,n-1)]; // Equation (3)			
+			dB[index(m,n)] = dB[index(m,n-1)] + *itU * dB[index(m-1,n-1)] + (*itV) * (*itU) * B[index(m-1,n-1)]; // Equation (6)
+			++itU; ++itV;
+		}
+		++itExpXBeta;
+		++itX;
+	}
+	return std::pair<real,real>(
+			dB[index(numCases, numSubjects)], // numerator
+			B[index(numCases, numSubjects)] // denominator
+		);
+}
+
 
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
@@ -323,13 +405,37 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		//exit(-1);	
 	} else {
 		for (; it; ++it) {
-			const int k = it.index();
+			const int n = it.index();
+			if (true && hNWeight[n] > 1) {
+				int numSubjects = hNtoK[n+1] - hNtoK[n];
+				int numCases = hNWeight[n];
+
+				std::vector<real> tmp(K, 1.0);
+				
+//				real* U = tmp.data();
+				real* U = offsExpXBeta + hNtoK[n];
+				real* x = hXI->getDataVector(index) + hNtoK[n];
+				std::cerr << "NtoK = " << hNtoK[n] << std::endl;
+				std::pair<real,real> value = computeHowardRecursion(
+				    U, //offsExpXBeta
+    				x, //X
+    				numSubjects, numCases);
+				std::cerr << numCases << " " << numSubjects << " " << value.first << " " << value.second << std::endl;
+
+				gradient += value.first / value.second;
+				//hessian += 0.0;  // linear
+
+//				real g = computeHowardRecursion(hXBeta.begin(), numSubjects, numCases)
+			} else {
+
 			// Compile-time delegation
 			BaseModel::incrementGradientAndHessian(it,
 					w, // Signature-only, for iterator-type specialization
-					&gradient, &hessian, numerPid[k], numerPid2[k],
-					denomPid[k], hNWeight[k], it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
+					&gradient, &hessian, numerPid[n], numerPid2[n],
+					denomPid[n], hNWeight[n], it.value(), hXBeta[n], hY[n]); // When function is in-lined, compiler will only use necessary arguments
+			}
 		}
+	//	exit(-1);
 	}
 
 	if (BaseModel::precomputeGradient) { // Compile-time switch
@@ -389,6 +495,37 @@ void ModelSpecifics<BaseModel,WeightType>::dispatchFisherInformation(int indexOn
 //	std::cerr << "End of dispatch" << std::endl;
 }
 
+
+template<class BaseModel, typename WeightType> template<class IteratorType>
+SparseIterator ModelSpecifics<BaseModel, WeightType>::getSubjectSpecificHessianIterator(int index) {
+
+	if (hessianSparseCrossTerms.find(index) == hessianSparseCrossTerms.end()) {
+		// Make new
+		std::vector<int>* indices = new std::vector<int>();
+		std::vector<real>* values = new std::vector<real>();
+		CompressedDataColumn* column = new CompressedDataColumn(indices, values,
+				SPARSE);
+		hessianSparseCrossTerms.insert(std::make_pair(index, column));
+
+		IteratorType itCross(*hXI, index);
+		for (; itCross;) {
+			real value = 0.0;
+			int currentPid = hPid[itCross.index()];
+			do {
+				const int k = itCross.index();
+				value += BaseModel::gradientNumeratorContrib(itCross.value(),
+						offsExpXBeta[k], hXBeta[k], hY[k]);
+				++itCross;
+			} while (itCross && currentPid == hPid[itCross.index()]);
+			indices->push_back(currentPid);
+			values->push_back(value);
+		}
+	}
+	return SparseIterator(*hessianSparseCrossTerms[index]);
+
+}
+
+
 template <class BaseModel, typename WeightType> template <class IteratorTypeOne, class IteratorTypeTwo, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int indexOne, int indexTwo, double *oinfo, Weights w) {
 
@@ -429,34 +566,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 			hessianCrossTerms[indexOne].swap(crossOneTerms);
 		}
 		std::vector<real>& crossOneTerms = hessianCrossTerms[indexOne];
-#else
-		if (hessianSparseCrossTerms.find(indexOne) == hessianSparseCrossTerms.end()) {
-			// Make new
-			std::vector<int>* indices = new std::vector<int>();
-			std::vector<real>* values = new std::vector<real>();
-			CompressedDataColumn* column = new CompressedDataColumn(
-					indices, values, SPARSE
-			);
-			hessianSparseCrossTerms.insert(std::make_pair(indexOne, column));
 
-			IteratorTypeOne crossOne(*hXI, indexOne);
-			for (; crossOne;) {
-				real value = 0.0;
-				int currentPid = hPid[crossOne.index()];
-				do {
-					const int k = crossOne.index();
-					value += BaseModel::gradientNumeratorContrib(crossOne.value(), offsExpXBeta[k], hXBeta[k], hY[k]);
-					++crossOne;
-				} while (crossOne && currentPid == hPid[crossOne.index()]);
-				indices->push_back(currentPid);
-				values->push_back(value);
-			}
-//			std::cerr << column->sumColumn(N) << std::endl << std::endl;
-		}
-		SparseIterator sparseCrossOneTerms(*hessianSparseCrossTerms[indexOne]);
-#endif
-
-#ifdef USE_DENSE
 		// TODO Remove code duplication
 		if (hessianCrossTerms.find(indexTwo) == hessianCrossTerms.end()) {
 			std::vector<real> crossTwoTerms(N);
@@ -471,34 +581,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 			hessianCrossTerms[indexTwo].swap(crossTwoTerms);
 		}
 		std::vector<real>& crossTwoTerms = hessianCrossTerms[indexTwo];
-#else
-		if (hessianSparseCrossTerms.find(indexTwo) == hessianSparseCrossTerms.end()) {
-			// Make new
-			std::vector<int>* indices = new std::vector<int>();
-			std::vector<real>* values = new std::vector<real>();
-			CompressedDataColumn* column = new CompressedDataColumn(
-					indices, values, SPARSE
-			);
-			hessianSparseCrossTerms.insert(std::make_pair(indexTwo, column));
 
-			IteratorTypeOne crossTwo(*hXI, indexTwo);
-			for (; crossTwo;) {
-				real value = 0.0;
-				int currentPid = hPid[crossTwo.index()];
-				do {
-					const int k = crossTwo.index();
-					value += BaseModel::gradientNumeratorContrib(crossTwo.value(), offsExpXBeta[k], hXBeta[k], hY[k]);
-					++crossTwo;
-				} while (crossTwo && currentPid == hPid[crossTwo.index()]);
-				indices->push_back(currentPid);
-				values->push_back(value);
-			}
-//			std::cerr << column->sumColumn(N) << std::endl << std::endl;
-		}
-		SparseIterator sparseCrossTwoTerms(*hessianSparseCrossTerms[indexTwo]);
-#endif
-
-#ifdef USE_DENSE
 		// TODO Sparse loop
 		real cross = 0.0;
 		for (int n = 0; n < N; ++n) {
@@ -507,13 +590,15 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 //		std::cerr << cross << std::endl;
 		information -= cross;
 #else
-		real sparseCross = 0.0;
+		SparseIterator sparseCrossOneTerms = getSubjectSpecificHessianIterator<IteratorTypeOne>(indexOne);
+		SparseIterator sparseCrossTwoTerms = getSubjectSpecificHessianIterator<IteratorTypeTwo>(indexTwo);
 		PairProductIterator<SparseIterator,SparseIterator> itSparseCross(sparseCrossOneTerms, sparseCrossTwoTerms);
+
+		real sparseCross = 0.0;
 		for (; itSparseCross.valid(); ++itSparseCross) {
 			const int n = itSparseCross.index();
 			sparseCross += itSparseCross.value() / (denomPid[n] * denomPid[n]);
 		}
-//		std::cerr << sparseCross << std::endl << std::endl;
 		information -= sparseCross;
 #endif
 	}
@@ -634,11 +719,81 @@ template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWeights) {
 	if (BaseModel::likelihoodHasDenominator) {
 		fillVector(denomPid, N, BaseModel::getDenomNullValue());
-		for (int k = 0; k < K; ++k) {
-			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
-			incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
+		if (false) {
+			for (int k = 0; k < K; ++k) {
+				offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
+				incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
+			}
+			computeAccumlatedNumerDenom(useWeights);
+		} else { // CLR
+			std::cerr << "Got here!" << std::endl;
+
+			typedef std::vector<int> IndicesType;
+
+			IndicesType indices;
+			for (int k = 0; k < K; ++k) {
+				indices.push_back(k);
+			}
+
+			for (int k = 0; k < K; ) {
+				real value = 0.0;
+				int currentPid = hPid[k];
+				int cases = hNWeight[currentPid];
+				if (cases == 1) {
+					do {
+						offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
+						incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
+						++k;
+					} while (k < K && currentPid == hPid[k]);
+				} else { // multiple cases
+					int count = 0;
+					int kk = k;
+					do { // count rows in stratum
+						offsExpXBeta[kk] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[kk], hY[kk], kk);
+						++count;
+						++kk;
+					} while (kk < K && currentPid == hPid[kk]);
+					std::cerr << cases << " " << currentPid << " " << count << std::endl;
+
+					IndicesType::iterator itBegin = indices.begin() + k;
+					IndicesType::iterator itEnd = itBegin + count;
+
+					struct F {
+						real value;
+						real* offsExpXBeta;
+						real* hXBeta;
+						real* hY;
+						F(real* ptr1, real* ptr2, real* ptr3) : value(0.0), offsExpXBeta(ptr1), hXBeta(ptr2), hY(ptr3) {}
+						bool operator()(IndicesType::iterator begin, IndicesType::iterator end) {
+//							for (; begin != end; ++begin) {
+//								std::cout << *begin << ", ";
+//							}
+							real tmp = 0.0;
+							for (; begin != end; ++begin) {
+								tmp += hXBeta[*begin];
+							}
+//							std::cout << std::endl;
+							value += std::exp(tmp);
+							return false;
+						}
+					};
+
+					F f(offsExpXBeta, hXBeta, hY);
+// 					f = for_each_combination(itBegin, itBegin + /*cases*/ 1, itEnd, f);
+					denomPid[currentPid] = f.value;
+					std::cerr << "denom = " << f.value << std::endl;
+					k = kk; // continue outer loop after stratum
+				}
+//				if (nEvents > 1) {
+//					std::cerr << nEvents << " " << currentPid << std::endl;
+//				}
+//				do {
+//					offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
+//					incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
+//					++k;
+//				} while (k < K && currentPid == hPid[k]);
+			}
 		}
-		computeAccumlatedNumerDenom(useWeights);
 	}
 #ifdef DEBUG_COX
 	cerr << "Done with initial denominators" << endl;

@@ -97,6 +97,26 @@ class SparseIterator {
     const Index mEnd;
 };
 
+template <typename IteratorType>
+class DenseView {
+public:
+	typedef real Scalar;
+	typedef int Index;
+
+	enum  { isIndicator = false };
+	enum  { isSparse = true };
+
+	DenseView(IteratorType& iterator, Index end)
+		: mIterator(iterator), mId(iterator.index()), mEnd(end) {
+		// Do nothing
+	}
+
+protected:
+	IteratorType& mIterator;
+	Index mId;
+	const Index mEnd;
+};
+
 // Counting iterator
 class CountingIterator {
 public:

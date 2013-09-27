@@ -134,12 +134,15 @@ public:
 		double logPrior = ccd.getLogPrior();
 		UpdateReturnFlags returnFlag = ccd.getUpdateReturnFlag();
 		int iterations = ccd.getIterationCount();
+		string priorInfo = ccd.getPriorInfo();
 
 		out << "key" << delimitor << "value" << endl;
 		out << "log_likelihood" << delimitor << logLikelihood << endl;
 		out << "log_prior" << delimitor << logPrior << endl;
 		out << "return_flag" << delimitor << returnFlagString(returnFlag) << endl;
 		out << "iterations" << delimitor << iterations << endl;
+		out << "prior_info" << delimitor << priorInfo << endl;
+		out << "variance" << delimitor << hyperParameter << endl;
 
 		for (ExtraInformationVector::const_iterator it = extraInfoVector.begin();
 			it != extraInfoVector.end(); ++it) {
