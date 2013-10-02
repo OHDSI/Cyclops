@@ -31,6 +31,7 @@ struct CCDArguments {
 	std::string inFileName;
 	std::string outFileName;
 	std::string fileFormat;
+	std::string outDirectoryName;
 	std::vector<std::string> outputFormat;
 	bool useGPU;
 	bool useBetterGPU;
