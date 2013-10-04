@@ -1,7 +1,6 @@
 include_directories(. ${CMAKE_SOURCE_DIR}/codebase ${CMAKE_SOURCE_DIR}/codebase/CCD)
 
-set(SOURCE_FILES	
-	../CCD/ccd.cpp
+set(BASE_SOURCE_FILES	
 	../CCD/CyclicCoordinateDescent.cpp	
 	../CCD/CompressedDataMatrix.cpp
 	../CCD/ModelData.cpp
@@ -19,6 +18,9 @@ set(SOURCE_FILES
 	../CCD/CrossValidationDriver.cpp
 	../CCD/BootstrapSelector.cpp
 	../CCD/BootstrapDriver.cpp)
+
+set(CCD_SOURCE_FILES
+	../CCD/ccd.cpp)
 	
 set(DOUBLE_PRECISION true)	
 add_definitions(-DDOUBLE_PRECISION)
@@ -42,7 +44,10 @@ add_definitions(-DDOUBLE_PRECISION)
 # 	cuda_add_executable(ccd-dp ${SOURCE_FILES})
 # 	target_link_libraries(ccd-dp CUDADriver-dp)
 #else(CUDA_FOUND)
-	add_executable(ccd-dp ${SOURCE_FILES})
+	add_definitions(-DDOUBLE_PRECISION)
+	add_library(base_bsccs-dp ${BASE_SOURCE_FILES})	
+	add_executable(ccd-dp ${CCD_SOURCE_FILES})
+	target_link_libraries(ccd-dp base_bsccs-dp)
 #endif(CUDA_FOUND)
 
 
