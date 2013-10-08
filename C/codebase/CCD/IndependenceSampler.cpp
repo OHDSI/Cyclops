@@ -88,7 +88,7 @@ bool IndependenceSampler::evaluateSample(Model& model, double tuningParameter, b
 	cout << "IndependenceSampler::evaluateSample" << endl;
 
 
-	bool accept = MHstep.evaluate(model.getBeta(), model.getBeta_Hat(), model.getSigmaSquared(), ccd, rng, model.getHessian(), tuningParameter);
+	bool accept = MHstep.evaluate(model, model.getBeta(), model.getBeta_Hat(), model.getSigmaSquared(), ccd, rng, model.getHessian(), tuningParameter);
 
 
 	return(accept);

@@ -42,6 +42,79 @@ MHRatio::~MHRatio(){
 
 }
 
+
+
+bool MHRatio::evaluate(Model & currentModel, Parameter & Beta, Parameter & Beta_Hat,
+		Parameter & SigmaSquared, CyclicCoordinateDescent & ccd,
+		boost::mt19937& rng, Eigen::MatrixXf& PrecisionMatrix,
+		double tuningParameter) {
+
+	double logMetropolisRatio = getLogMetropolisRatio(Beta,Beta_Hat, SigmaSquared, ccd, rng, PrecisionMatrix, tuningParameter);
+	double logHastingsRatio;
+	if (currentModel.getUseHastingsRatio()){
+		logHastingsRatio = getLogHastingsRatio(Beta,Beta_Hat, PrecisionMatrix, tuningParameter);
+	} else {
+		cout << "+++++++++++++++++++++++++++++++   Log Hastings 0   ----------------------" << endl;
+		logHastingsRatio = 0;
+	}
+
+
+
+// Compute the ratio for the MH step
+	double ratio = exp(logMetropolisRatio + logHastingsRatio);
+
+// Set our alpha
+	alpha = min(ratio, 1.0);
+	static boost::uniform_01<boost::mt19937> zeroone(rng);
+
+
+// Sample from a uniform distribution
+	double uniformRandom = zeroone();
+
+#ifdef Debug_TRS
+		cout << "logMetropolisRatio = " << logMetropolisRatio << endl;
+		cout << "logHastingsRatio = " << logHastingsRatio << endl;
+
+#endif
+
+	bool returnValue;
+	if (alpha > uniformRandom) {
+
+#ifdef Debug_TRS
+	//	cout << "logMetropolisRatio = " << logMetropolisRatio << endl;
+	//	cout << "logHastingsRatio = " << logHastingsRatio << endl;
+		cout << "\n \n \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Change Beta @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n \n" << endl;
+#endif
+
+		Beta.setChangeStatus(true);
+
+		storedFBetaCurrent = fBetaPossible; // ccd.getLogLikelihood(); // TODO No need to recompute if cached correctly
+		storedPBetaCurrent = pBetaPossible; // ccd.getLogPrior();
+		currentModel.setLoglikelihood(fBetaPossible);
+
+		returnValue = true;
+	} else{
+
+#ifdef Debug_TRS
+		cout << "##############  Reject Beta ##################" << endl;
+#endif
+		Beta.setChangeStatus(false);
+		Beta.restore();
+		currentModel.setLoglikelihood(storedFBetaCurrent);
+		returnValue = false;
+	}
+
+	return(returnValue);
+
+
+}
+
+double MHRatio::getTransformedTuningValue(double tuningParameter){
+	// TODO Don't forward reference like this.
+	return exp(-tuningParameter);
+}
+
+
 double MHRatio::getLogMetropolisRatio(Parameter & Beta, Parameter & Beta_Hat,
 		Parameter & SigmaSquared, CyclicCoordinateDescent & ccd,
 		boost::mt19937& rng, Eigen::MatrixXf& PrecisionMatrix,
@@ -60,6 +133,8 @@ double MHRatio::getLogMetropolisRatio(Parameter & Beta, Parameter & Beta_Hat,
 
 		double ratio = (fBetaPossible + pBetaPossible) - (storedFBetaCurrent + storedPBetaCurrent);
 
+
+
 		#ifdef Debug_TRS
 		cout << "fBetaPossible = " << fBetaPossible << endl;
 		cout << "fBetaCurrent = " << storedFBetaCurrent << endl;
@@ -71,64 +146,9 @@ double MHRatio::getLogMetropolisRatio(Parameter & Beta, Parameter & Beta_Hat,
 		if (std::isfinite(fBetaPossible) && std::isfinite(pBetaPossible)){
 			return(ratio);
 		} else {
+			cout << "########--------------#########  Warning: Numerical Issues   ########-------#######" << endl;
 			return(0); // Want to reject if numerical issues at proposal
 		}
-}
-
-double MHRatio::evaluate(Parameter & Beta, Parameter & Beta_Hat,
-		Parameter & SigmaSquared, CyclicCoordinateDescent & ccd,
-		boost::mt19937& rng, Eigen::MatrixXf& PrecisionMatrix,
-		double tuningParameter) {
-
-	double logMetropolisRatio = getLogMetropolisRatio(Beta,Beta_Hat, SigmaSquared, ccd, rng, PrecisionMatrix, tuningParameter);
-	double logHastingsRatio = getLogHastingsRatio(Beta,Beta_Hat, PrecisionMatrix, tuningParameter);
-
-
-// Compute the ratio for the MH step
-	double ratio = exp(logMetropolisRatio + logHastingsRatio);
-
-// Set our alpha
-	alpha = min(ratio, 1.0);
-	static boost::uniform_01<boost::mt19937> zeroone(rng);
-
-
-// Sample from a uniform distribution
-	double uniformRandom = zeroone();
-
-
-	if (alpha > uniformRandom) {
-
-#ifdef Debug_TRS
-		cout << "logMetropolisRatio = " << logMetropolisRatio << endl;
-		cout << "logHastingsRatio = " << logHastingsRatio << endl;
-		cout << "\n \n \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Change Beta @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n \n" << endl;
-#endif
-
-		Beta.setChangeStatus(true);
-
-		storedFBetaCurrent = fBetaPossible; // ccd.getLogLikelihood(); // TODO No need to recompute if cached correctly
-		storedPBetaCurrent = pBetaPossible; // ccd.getLogPrior();
-
-
-
-	} else{
-
-#ifdef Debug_TRS
-		cout << "##############  Reject Beta ##################" << endl;
-#endif
-		Beta.setChangeStatus(false);
-
-		Beta.restore();
-	}
-
-	return alpha;
-
-
-}
-
-double MHRatio::getTransformedTuningValue(double tuningParameter){
-	// TODO Don't forward reference like this.
-	return exp(-tuningParameter);
 }
 
 double MHRatio::getLogHastingsRatio(Parameter & Beta,

@@ -20,6 +20,7 @@
 
 #include "CyclicCoordinateDescent.h"
 #include "Parameter.h"
+#include "Model.h"
 
 #include <boost/random.hpp>
 #include <boost/random/normal_distribution.hpp>
@@ -47,7 +48,7 @@ namespace bsccs {
 
 		void initialize(CyclicCoordinateDescent & ccd);
 
-		double evaluate(Parameter & Beta, Parameter & Beta_Hat,
+		bool evaluate(Model & currentModel, Parameter & Beta, Parameter & Beta_Hat,
 				Parameter & SigmaSquared, CyclicCoordinateDescent & ccd,
 				boost::mt19937& rng, Eigen::MatrixXf& PrecisionMatrix,
 				double tuningParameter);

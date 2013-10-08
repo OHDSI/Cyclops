@@ -38,6 +38,13 @@ public:
 
 	void resetWithNewSigma(CyclicCoordinateDescent& ccd);
 
+	bool getUseHastingsRatio();
+	void setUseHastingsRatio(bool useHastingsRatio);
+
+	double getLoglikelihood();
+	void setLoglikelihood(double useHastingsRatio);
+
+
 
 	Parameter& getBeta();
 	Parameter& getBeta_Hat();
@@ -56,9 +63,12 @@ private:
 	Parameter Beta;
 	Parameter SigmaSquared;
 
+	double loglikelihood;
+
 	bool Beta_HatRestorable;
 	bool BetaRestorable;
 	bool SigmaSquaredRestorable;
+	bool useHastingsRatio;
 
 	int J;
 

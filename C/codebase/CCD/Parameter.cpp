@@ -19,6 +19,7 @@ namespace bsccs{
 
 	void Parameter::initialize(bsccs::real * data, int sizeIn){
 		size = sizeIn;
+		numberOfChanges = 0;
 		parameterValues = (bsccs::real*) calloc(sizeIn, sizeof(bsccs::real));
 		storedValues = (bsccs::real*) calloc(size, sizeof(bsccs::real));
 		memcpy(storedValues, data, sizeof(bsccs::real)*sizeIn);
@@ -29,10 +30,8 @@ namespace bsccs{
 
 		for (int i = 0; i < size; i++) {
 			parameterDoubleValues.push_back(1.00);
-		}
-
-		for (int i = 0; i < size; i++) {
 			storedDoubleValues.push_back(1.00);
+			vectorOfChanges.push_back(false);
 		}
 
 	}
@@ -56,6 +55,8 @@ namespace bsccs{
 	}
 
 	void Parameter::set(int index, bsccs::real setTo){
+		numberOfChanges ++;
+		vectorOfChanges[index] = true;
 		parameterValues[index] = setTo;
 	}
 
@@ -114,12 +115,26 @@ namespace bsccs{
 		shouldBeChanged = status;
 	}
 
-	void Parameter::setProbabilityUpdate(double probabilityIn){
-		probabilityUpdate = probabilityIn;
+	void Parameter::resetChangesRecorded() {
+		numberOfChanges = 0;
+
+		for (int i = 0; i < size; i++) {
+			vectorOfChanges.push_back(false);
+		}
+
 	}
 
-	double Parameter::getProbabilityUpdate(){
-		return probabilityUpdate;
+	std::vector<int> Parameter::returnIndicesOfChanges(){
+
+		std::vector<int> indicesOfChanges;
+
+		for (int i = 0; i < size; i++) {
+			if (vectorOfChanges[i]){
+				indicesOfChanges.push_back(i);
+			}
+		}
+		return(indicesOfChanges);
+
 	}
 
 	std::vector<double> Parameter::returnCurrentValues() {

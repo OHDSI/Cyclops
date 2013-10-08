@@ -35,10 +35,10 @@ namespace bsccs {
 
 MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
 	MCMCFileNameRoot = MCMCFileName;
-	maxIterations = 100;
+	maxIterations = 20000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
-	acceptanceTuningParameter = 10; // exp(acceptanceTuningParameter) modifies
+	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies
 	acceptanceRatioTarget = 0.30;
 	autoAdapt = false;
 }
@@ -84,19 +84,15 @@ void checkValidState(CyclicCoordinateDescent& ccd, MHRatio& MHstep, Parameter& B
 }
 
 void MCMCDriver::initialize(double betaAmount, Model & model, CyclicCoordinateDescent& ccd) {
-	// MAS All initialization
-
 
 	cout << "MCMCDriver initialize" << endl;
 	model.initialize(ccd);
 
 	transitionKernelSelectionProb.push_back(betaAmount);
-	transitionKernelSelectionProb.push_back(1.0);
+	transitionKernelSelectionProb.push_back(1.0 - betaAmount);
 
 	transitionKernels.push_back(new IndependenceSampler(ccd));
 	transitionKernels.push_back(new SigmaSampler);
-
-
 
 }
 
@@ -106,19 +102,23 @@ void MCMCDriver::logState(Model & model){
 	model.getSigmaSquared().logParameter();
 	MCMCResults_BetaVectors.push_back(model.getBeta().returnCurrentValues());
 	model.getBeta().logParameter();
+	double loglikelihoodHere = model.getLoglikelihood();
+	cout << "loglikelihood = " << loglikelihoodHere << endl;
+	MCMCResults_loglikelihoods.push_back(model.getLoglikelihood());
 
 }
 
 int MCMCDriver::findTransitionKernelIndex(double uniformRandom, vector<double>& transitionKernelSelectionProb){
 	cout << "\t MCMCDriver::findTransitionKernalIndex" << endl;
 	int length = transitionKernelSelectionProb.size();
+	double currentTotal = 0;
 	for (int i = 0; i < length; i++){
-		if (uniformRandom <= transitionKernelSelectionProb[i]){
+		currentTotal += transitionKernelSelectionProb[i];
+		if (uniformRandom <= currentTotal){
 			cout << "\t\t Picking Kernel " << i << endl;
 			return(i);
 		}
 	}
-
 }
 
 void MCMCDriver::drive(
@@ -144,10 +144,7 @@ void MCMCDriver::drive(
 		double uniformRandom = zeroone();
 
 		int transitionKernelIndex = findTransitionKernelIndex(uniformRandom, transitionKernelSelectionProb);
-		TransitionKernel* currentTransitionKernel = transitionKernels[transitionKernelIndex];
 		transitionKernels[transitionKernelIndex]->sample(model, acceptanceTuningParameter, rng);
-
-		//model.logState();
 
 		bool accept = transitionKernels[transitionKernelIndex]->evaluateSample(model, acceptanceTuningParameter, rng, ccd);
 		cout << "accept = " << accept << endl;
@@ -157,10 +154,10 @@ void MCMCDriver::drive(
 		} else {
 			model.restore();
 		}
-		//logState(model);
-		}
+		logState(model);
+	}
 	CredibleIntervals intervalsToReport;
-	intervalsToReport.computeCredibleIntervals(&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared, 0.5, 0.5, MCMCFileNameRoot);
+	intervalsToReport.computeCredibleIntervals(&MCMCResults_loglikelihoods,&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared, 0.5, 0.5, MCMCFileNameRoot);
 }
 
 double MCMCDriver::coolingTransform(int x) {

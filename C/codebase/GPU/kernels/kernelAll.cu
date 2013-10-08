@@ -8,6 +8,7 @@
 #include "kernelSpmvCoo.cu"
 #include "kernelSpmvCsr.cu"
 
+
 #include <cmath>
 #include "cuda.h"
 
@@ -27,7 +28,7 @@ namespace util {
 static __inline__ __device__ float atomicAdd(float *addr, float val)
 {
     float old=*addr, assumed;
-    
+       
     do {
         assumed = old;
         old = int_as_float( atomicCAS((int*)addr,
@@ -39,6 +40,26 @@ static __inline__ __device__ float atomicAdd(float *addr, float val)
     // For floats, the test NaN==NaN would always fall, leading to an
     // infinite loop.
 
+    return old;
+}
+
+static __inline__ __device__ float atomicAdd(double *addr, double val)
+{
+    float old=*addr, assumed;
+    
+           
+    do {
+        assumed = old;
+        old = int_as_float( atomicCAS((int*)addr,
+                                        float_as_int(assumed),
+                                        float_as_int(val+assumed)));
+    } while( float_as_int(assumed)!=float_as_int(old) );
+    //
+    // NOTE: Comparing as ints rather than floats is mandatory.
+    // For floats, the test NaN==NaN would always fall, leading to an
+    // infinite loop.
+    
+       
     return old;
 }
 
@@ -98,10 +119,10 @@ extern "C" {
 #if __APPLE__
 		    util::atomicAdd(&numer[n], offsExpXBeta[k]);
 #else
-			atomicAdd(&numer[n], offsExpXBeta[k]);	
+			util::atomicAdd(&numer[n], offsExpXBeta[k]);	
 #endif
 #else
-			atomicAdd(&numer[n], offsExpXBeta[k]);
+			util::atomicAdd(&numer[n], offsExpXBeta[k]);
 #endif                                                                        
 		}
     }
@@ -134,10 +155,10 @@ extern "C" {
 		#if __APPLE__
 		    	util::atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));
 		#else
-			atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));	
+			util::atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));	
 		#endif
 		#else
-			atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));
+			util::atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));
 		#endif					
 		}					
 	}	

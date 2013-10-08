@@ -39,9 +39,14 @@ set(SOURCE_FILES
 	../CCD/SigmaSampler.cpp
 	../CCD/CredibleIntervals.cpp
 	../CCD/Parameter.cpp
-	../CCD/ModelLikelihood.cpp)
+	../CCD/ModelLikelihood.cpp
+	../CCD/Model.cpp
+	../CCD/RandomWalk.cpp
+	../CCD/TransitionKernel.cpp)
 	
 set(DOUBLE_PRECISION true)	
+
+#set(CUDA_FOUND false)
 	
 if(CUDA_FOUND)
 	set(SOURCE_FILES ${SOURCE_FILES}

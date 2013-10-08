@@ -49,7 +49,11 @@ void RandomWalk::sample(Model& model, double tuningParameter, boost::mt19937& rn
 	cout << "RandomWalk::sample" << endl;
 
 	Parameter & Beta = model.getBeta();
+	cout << "Beta is" << endl;
+	Beta.logParameter();
 	Parameter & Beta_Hat = model.getBeta_Hat();
+	cout << "BetaHat is " << endl;
+	Beta_Hat.logParameter();
 	Eigen::LLT<Eigen::MatrixXf> choleskyEigen = model.getCholeskyLLT();
 //	Beta->store();
 	int sizeOfSample = Beta.getSize();
@@ -84,21 +88,23 @@ void RandomWalk::sample(Model& model, double tuningParameter, boost::mt19937& rn
 	for (int i = 0; i < sizeOfSample; i++) {
 		Beta.set(i, b[i] + Beta_Hat.get(i));
 	}
+	cout << "End of Sample Beta is" << endl;
+	Beta.logParameter();
 
 }
 
 bool RandomWalk::evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent & ccd){
 	cout << "RandomWalk::evaluateSample" << endl;
 
-
-
 	Parameter & Beta = model.getBeta();
 	Parameter & Beta_Hat = model.getBeta_Hat();
 
+	model.setUseHastingsRatio(false);
 
-	bool accept = MHstep.evaluate(model.getBeta(), model.getBeta_Hat(), model.getSigmaSquared(), ccd, rng, model.getHessian(), tuningParameter);
+	bool accept = MHstep.evaluate(model, model.getBeta(), model.getBeta_Hat(), model.getSigmaSquared(), ccd, rng, model.getHessian(), tuningParameter);
 
 	if(accept) {
+		cout << "Accepted in evaluate Sample" << endl;
 		for (int i = 0; i < Beta.getSize(); i++) {
 			Beta_Hat.set(i, Beta.get(i));
 		}

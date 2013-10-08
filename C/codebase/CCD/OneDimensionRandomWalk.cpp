@@ -82,7 +82,7 @@ bool OneDimensionRandomWalk::evaluateSample(Model& model, double tuningParameter
 	Parameter & Beta = model.getBeta();
 	Parameter & Beta_Hat = model.getBeta_Hat();
 
-	bool accept = MHstep.evaluate(model.getBeta(), model.getBeta_Hat(), model.getSigmaSquared(), ccd, rng, model.getHessian(), tuningParameter);
+	bool accept = MHstep.evaluate(model, model.getBeta(), model.getBeta_Hat(), model.getSigmaSquared(), ccd, rng, model.getHessian(), tuningParameter);
 
 	if(accept) {
 		Beta_Hat.set(coordinate, Beta.get(coordinate));

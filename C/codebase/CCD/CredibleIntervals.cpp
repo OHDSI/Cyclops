@@ -37,7 +37,7 @@ CredibleIntervals::~CredibleIntervals(){
 
 }
 
-void CredibleIntervals::computeCredibleIntervals(vector<vector<double> > * BetaValues, vector<double> * SigmaSquaredValues,
+void CredibleIntervals::computeCredibleIntervals(vector<double> * loglikelihoods, vector<vector<double> > * BetaValues, vector<double> * SigmaSquaredValues,
 		double betaProbability, double sigmaProbability, std::string MCMCFileNameRoot){
 
 	int nSamples = BetaValues->size();
@@ -50,49 +50,29 @@ void CredibleIntervals::computeCredibleIntervals(vector<vector<double> > * BetaV
 	cout << "nSamples = " << nSamples << endl;
 	cout << "betaSize = " << betaSize << endl;
 
-	for (int i = 0; i < betaSize; i ++) {
-	//	cout << "Avg Beta_" << i << " = ";
-		double sum = 0;
-		for (int j = 0; j < nSamples; j ++) {
-			sum += (*BetaValues)[j][i];
-		}
-	//	cout << sum/nSamples << endl;
-	}
-
-
 	//Write Beta Data to a file
 	std::stringstream ss;
-	ss << MCMCFileNameRoot << "_beta.csv";
+	ss << MCMCFileNameRoot << ".csv";
 	string fileName = ss.str();
 	ofstream outLog(fileName.c_str());
 
 	string sep(","); // TODO Make option
 
 	//Thinning...
-	int thinningAmount = 1;
+	int thinningAmount = 10;
+
+
 
 	for (int j = 0; j < nSamples;) {
+		outLog << j << sep;
+		outLog << std::setprecision(10) << (*loglikelihoods)[j] << sep;
 		for (int k = 0; k < betaSize; k++) {
 			outLog << (*BetaValues)[j][k] << sep;
 		}
-		outLog << endl;
+		outLog << (*SigmaSquaredValues)[j] << sep << endl;
 		j = j + thinningAmount;
 	}
 	outLog.close();
-	nSamples = SigmaSquaredValues->size();
-
-	//Write Sigma Data to a file
-	std::stringstream ss2;
-	ss2 << MCMCFileNameRoot << "_sigma.csv";
-	string fileName2 = ss2.str();
-	ofstream outLog2(fileName2.c_str());
-
-	string sep2(","); // TODO Make option
-
-	for (int j = 0; j < nSamples; ++j) {
-		outLog2 << (*SigmaSquaredValues)[j] << sep2 << endl;
-	}
-	outLog2.close();
 
 
 	//TODO construct quantile intervals

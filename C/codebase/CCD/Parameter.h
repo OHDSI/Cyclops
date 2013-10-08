@@ -65,9 +65,9 @@ namespace bsccs{
 
 		void setNeedToChangeStatus(bool status);
 
-		void setProbabilityUpdate(double probabilityIn);
+		void resetChangesRecorded();
 
-		double getProbabilityUpdate();
+		std::vector<int> returnIndicesOfChanges();
 
 		std::vector<double> returnCurrentValues();
 
@@ -82,8 +82,6 @@ namespace bsccs{
 
 		int size;
 
-		double probabilityUpdate;
-
 		bsccs::real * parameterValues;
 
 		bsccs::real * storedValues;
@@ -91,6 +89,10 @@ namespace bsccs{
 		std::vector<double> parameterDoubleValues;
 
 		std::vector<double> storedDoubleValues;
+
+		std::vector<bool> vectorOfChanges;
+
+		int numberOfChanges;
 
 		bool didValueGetChanged;
 

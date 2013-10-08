@@ -52,6 +52,8 @@ private:
 	double acceptanceRatioTarget;
 
 	vector<vector<double> > MCMCResults_BetaVectors;
+	vector<double> MCMCResults_loglikelihoods;
+
 
 	void adaptiveKernel(int numberIterations, double alpha);
 

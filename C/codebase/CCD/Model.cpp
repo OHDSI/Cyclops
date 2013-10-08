@@ -36,6 +36,8 @@ namespace bsccs {
 	 sigma2Start = (bsccs::real) ccd.sigma2Beta;
 	 SigmaSquared.initialize(&sigma2Start, 1);
 	 SigmaSquared.logParameter();
+
+	 useHastingsRatio = true;
  }
 
  Model::~Model(){}
@@ -139,6 +141,22 @@ void Model::logState(){
 	Beta_Hat.logStored();
 	SigmaSquared.logParameter();
 	SigmaSquared.logStored();
+}
+
+bool Model::getUseHastingsRatio(){
+	return(useHastingsRatio);
+}
+
+void Model::setUseHastingsRatio(bool newUseHastingsRatio){
+	useHastingsRatio = newUseHastingsRatio;
+}
+
+
+double Model::getLoglikelihood(){
+	return(loglikelihood);
+}
+void Model::setLoglikelihood(double newLoglikelihood){
+	loglikelihood = newLoglikelihood;
 }
 
 
