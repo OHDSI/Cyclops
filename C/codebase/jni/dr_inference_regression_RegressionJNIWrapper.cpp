@@ -61,6 +61,12 @@ JNIEXPORT jdouble JNICALL Java_dr_inference_regression_RegressionJNIWrapper_getB
 }
 
 extern "C"
+JNIEXPORT jdouble JNICALL Java_dr_inference_regression_RegressionJNIWrapper_getHessian
+  (JNIEnv *env, jobject obj, jint instance, jint index1, jint index2) {
+ 	return instances[instance].ccd->getAsymptoticPrecision(index1, index2);
+}
+
+extern "C"
 JNIEXPORT jint JNICALL Java_dr_inference_regression_RegressionJNIWrapper_getBetaSize
   (JNIEnv *env, jobject obj, jint instance) {
 	return instances[instance].ccd->getBetaSize();

@@ -52,6 +52,14 @@ JNIEXPORT jdouble JNICALL Java_dr_inference_regression_RegressionJNIWrapper_getB
  */
 JNIEXPORT jint JNICALL Java_dr_inference_regression_RegressionJNIWrapper_getBetaSize
   (JNIEnv *, jobject, jint);
+  
+/*
+ * Class:     dr_inference_regression_RegressionJNIWrapper
+ * Method:    getHessian
+ * Signature: (III)D
+ */
+JNIEXPORT jdouble JNICALL Java_dr_inference_regression_RegressionJNIWrapper_getHessian
+  (JNIEnv *, jobject, jint, jint, jint);  
 
 /*
  * Class:     dr_inference_regression_RegressionJNIWrapper
