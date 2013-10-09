@@ -40,6 +40,7 @@ struct CCDArguments {
 	double hyperprior;
 	bool computeMLE;
 	bool fitMLEAtMode;
+	bool reportASE;
 	bool useNormalPrior;
 	bool hyperPriorSet;
 	int maxIterations;

@@ -214,6 +214,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 	validWeights = false;
 	sufficientStatisticsKnown = false;
 	fisherInformationKnown = false;
+	varianceKnown = false;
 	if (offset) {
 		hBeta[0] = static_cast<real>(1);
 		fixBeta[0] = true;
@@ -349,11 +350,11 @@ int CyclicCoordinateDescent::getPredictionSize(void) const {
 	return K;
 }
 
-real CyclicCoordinateDescent::getBeta(int i) {
+double CyclicCoordinateDescent::getBeta(int i) {
 	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics(true, i);
 	}
-	return hBeta[i];
+	return static_cast<double>(hBeta[i]);
 }
 
 bool CyclicCoordinateDescent::getFixedBeta(int i) {
@@ -445,6 +446,7 @@ void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
 	xBetaKnown = false;
 	sufficientStatisticsKnown = false;
 	fisherInformationKnown = false;
+	varianceKnown = false;
 }
 
 void CyclicCoordinateDescent::setBeta(int i, double beta) {
@@ -456,6 +458,7 @@ void CyclicCoordinateDescent::setBeta(int i, double beta) {
 	xBetaKnown = false;
 	sufficientStatisticsKnown = false;
 	fisherInformationKnown = false;
+	varianceKnown = false;
 }
 
 void CyclicCoordinateDescent::setWeights(real* iWeights) {
@@ -669,6 +672,7 @@ void CyclicCoordinateDescent::update(
 	updateCount += 1;
 
 	fisherInformationKnown = false;
+	varianceKnown = false;
 }
 
 /**
@@ -704,7 +708,29 @@ double CyclicCoordinateDescent::getHessianDiagonal(int index) {
 double CyclicCoordinateDescent::getAsymptoticVariance(int indexOne, int indexTwo) {
 	checkAllLazyFlags();
 	if (!fisherInformationKnown) {
+		computeAsymptoticPrecisionMatrix();
+		fisherInformationKnown = true;
+	}
+
+	if (!varianceKnown) {
 		computeAsymptoticVarianceMatrix();
+		varianceKnown = true;
+	}
+
+	IndexMap::iterator itOne = hessianIndexMap.find(indexOne);
+	IndexMap::iterator itTwo = hessianIndexMap.find(indexTwo);
+
+	if (itOne == hessianIndexMap.end() || itTwo == hessianIndexMap.end()) {
+		return NAN;
+	} else {
+		return varianceMatrix(itOne->second, itTwo->second);
+	}
+}
+
+double CyclicCoordinateDescent::getAsymptoticPrecision(int indexOne, int indexTwo) {
+	checkAllLazyFlags();
+	if (!fisherInformationKnown) {
+		computeAsymptoticPrecisionMatrix();
 		fisherInformationKnown = true;
 	}
 
@@ -718,7 +744,7 @@ double CyclicCoordinateDescent::getAsymptoticVariance(int indexOne, int indexTwo
 	}
 }
 
-void CyclicCoordinateDescent::computeAsymptoticVarianceMatrix(void) {
+void CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix(void) {
 
 	typedef std::vector<int> int_vec;
 	int_vec indices;
@@ -726,7 +752,8 @@ void CyclicCoordinateDescent::computeAsymptoticVarianceMatrix(void) {
 
 	int index = 0;
 	for (int j = 0; j < J; ++j) {
-		if (!fixBeta[j]) {
+		if (!fixBeta[j] &&
+				(priorType != LAPLACE || getBeta(j) != 0.0)) {
 			indices.push_back(j);
 			hessianIndexMap[j] = index;
 			index++;
@@ -762,9 +789,14 @@ void CyclicCoordinateDescent::computeAsymptoticVarianceMatrix(void) {
 //	cout << hessianMatrix << endl;
 
 	// Take inverse
-	hessianMatrix = hessianMatrix.inverse();
+//	hessianMatrix = hessianMatrix.inverse();
 
 //	cout << hessianMatrix << endl;
+}
+
+void CyclicCoordinateDescent::computeAsymptoticVarianceMatrix(void) {
+	varianceMatrix = hessianMatrix.inverse();
+// 	cout << varianceMatrix << endl;
 }
 
 double CyclicCoordinateDescent::ccdUpdateBeta(int index) {

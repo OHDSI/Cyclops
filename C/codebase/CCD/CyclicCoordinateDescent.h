@@ -119,7 +119,7 @@ public:
 	
 	virtual double getObjectiveFunction(int convergenceType);
 
-	real getBeta(int i);
+	double getBeta(int i);
 
 	int getBetaSize(void);
 
@@ -132,6 +132,8 @@ public:
 	double getHessianDiagonal(int index);
 
 	double getAsymptoticVariance(int i, int j);
+
+	double getAsymptoticPrecision(int i, int j);
 
 //	void setZeroBetaFixed(void);
 		
@@ -210,6 +212,8 @@ protected:
 	void updateSufficientStatistics(double delta, int index);
 
 	void computeNumeratorForGradient(int index);
+
+	void computeAsymptoticPrecisionMatrix(void);
 
 	void computeAsymptoticVarianceMatrix(void);
 
@@ -341,6 +345,7 @@ protected:
 	bool sufficientStatisticsKnown;
 	bool xBetaKnown;
 	bool fisherInformationKnown;
+	bool varianceKnown;
 
 	bool validWeights;
 	bool useCrossValidation;
@@ -373,6 +378,7 @@ protected:
 
 	typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 	Matrix hessianMatrix;
+	Matrix varianceMatrix;
 
 	typedef std::map<int, int> IndexMap;
 	IndexMap hessianIndexMap;
