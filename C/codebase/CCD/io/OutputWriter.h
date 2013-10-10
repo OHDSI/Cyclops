@@ -119,6 +119,7 @@ public:
 			case SUCCESS : return "SUCCESS";
 			case MAX_ITERATIONS : return "MAX_ITERATIONS";
 			case ILLCONDITIONED : return "ILLCONDITIONED";
+			case MISSING_COVARIATES : return "MISSING_COVARIATES";
 			default : return "FAILED";
 		}
 	}
@@ -135,6 +136,11 @@ public:
 		UpdateReturnFlags returnFlag = ccd.getUpdateReturnFlag();
 		int iterations = ccd.getIterationCount();
 		string priorInfo = ccd.getPriorInfo();
+		int covariateCount = ccd.getBetaSize();
+
+		if (covariateCount == 0) {
+			returnFlag = MISSING_COVARIATES;
+		}
 
 		out << "key" << delimitor << "value" << endl;
 		out << "log_likelihood" << delimitor << logLikelihood << endl;
@@ -143,6 +149,7 @@ public:
 		out << "iterations" << delimitor << iterations << endl;
 		out << "prior_info" << delimitor << priorInfo << endl;
 		out << "variance" << delimitor << hyperParameter << endl;
+		out << "covariate_count" << delimitor << covariateCount << endl;
 
 		for (ExtraInformationVector::const_iterator it = extraInfoVector.begin();
 			it != extraInfoVector.end(); ++it) {

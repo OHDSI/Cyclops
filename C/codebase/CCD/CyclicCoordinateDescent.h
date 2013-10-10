@@ -66,7 +66,8 @@ enum UpdateReturnFlags {
 	SUCCESS = 0,
 	FAIL,
 	MAX_ITERATIONS,
-	ILLCONDITIONED
+	ILLCONDITIONED,
+	MISSING_COVARIATES
 };
 
 //enum ModelType {
