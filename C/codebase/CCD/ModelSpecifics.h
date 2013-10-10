@@ -315,7 +315,7 @@ public:
 		}
 	}
 
-	real getOffsExpXBeta(int* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
 		return offs[k] * std::exp(xBeta);
 	}
 
@@ -347,7 +347,7 @@ public:
 		return static_cast<real>(yi);
 	}
 
-	real getOffsExpXBeta(int* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -449,7 +449,7 @@ public:
 		}
 	}
 
-	real getOffsExpXBeta(int* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -481,7 +481,7 @@ public:
 		return static_cast<real>(1);
 	}
 
-	real getOffsExpXBeta(int* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -530,7 +530,7 @@ public:
 		}
 	}
 
-	real getOffsExpXBeta(int* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -608,7 +608,7 @@ public:
 		}
 	}
 
-	real getOffsExpXBeta(int* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
 		std::cerr << "Error!" << std::endl;
 		exit(-1);
 		return static_cast<real>(0);
@@ -690,7 +690,7 @@ public:
 			}
 	}
 
-	real getOffsExpXBeta(int* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 

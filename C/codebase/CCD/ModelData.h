@@ -49,7 +49,7 @@ public:
 	real* getYVector();
 	void setYVector(vector<real> y_);
 	int* getNEventVector();
-	int* getOffsetVector();
+	real* getOffsetVector();
 //	map<int, DrugIdType> getDrugNameMap();
 	int getNumberOfPatients();
 	string getConditionId();
@@ -114,7 +114,7 @@ private:
 	vector<int> pid;
 	vector<real> y;
 	vector<real> z;
-	vector<int> offs;
+	vector<real> offs;
 	vector<int> nevents; // TODO Where are these used?
 	string conditionId;
 	bool hasOffsetCovariate;

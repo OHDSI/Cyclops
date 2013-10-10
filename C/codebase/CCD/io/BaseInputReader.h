@@ -249,7 +249,7 @@ protected:
 	}
 
 	void parseOffsetEntry(stringstream& ss, RowInformation&) {
-		int thisOffs;
+		real thisOffs;
 		ss >> thisOffs;
 		modelData->offs.push_back(thisOffs);
 	}

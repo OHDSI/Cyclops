@@ -57,7 +57,7 @@ void ModelData::setYVector(vector<real> y_){
 //	return &nevents[0];
 //}
 
-int* ModelData::getOffsetVector() { // TODO deprecated
+real* ModelData::getOffsetVector() { // TODO deprecated
 //	return makeDeepCopy(&offs[0], offs.size());
 	return &offs[0];
 }

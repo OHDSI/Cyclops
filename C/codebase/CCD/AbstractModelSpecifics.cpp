@@ -58,7 +58,7 @@ void AbstractModelSpecifics::initialize(
 		int* iPid_unused,
 		real* iOffsExpXBeta,
 		real* iXBeta,
-		int* iOffs,
+		real* iOffs,
 		real* iBeta,
 		real* iY_unused//,
 //		real* iWeights

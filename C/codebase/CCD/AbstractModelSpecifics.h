@@ -50,7 +50,7 @@ public:
 			int* iPid,
 			real* iOffsExpXBeta,
 			real* iXBeta,
-			int* iOffs,
+			real* iOffs,
 			real* iBeta,
 			real* iY);
 
@@ -111,7 +111,7 @@ protected:
 	// TODO Currently constructed in CyclicCoordinateDescent, but should be encapsulated here
 	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
-	int* hOffs;  // K-vector
+	real* hOffs;  // K-vector
 	real* hY; // K-vector
 	real* hZ; // K-vector
 

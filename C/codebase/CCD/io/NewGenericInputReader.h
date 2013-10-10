@@ -81,6 +81,7 @@ public:
 //		std::cerr << ss << std::endl << std::endl;
 //		exit(-1);
 
+
 		if (includeRowLabel) {
 			parseRowLabel(ss, rowInfo);
 		}
@@ -126,7 +127,11 @@ public:
 			upcastToSparse = includesOption(line, "sparse");
 			useBBROutcome = includesOption(line, "bbr_outcome");
 			includeIntercept = includesOption(line, "add_intercept");
-			includeOffset = includesOption(line, "offset");
+			if (!includeSCCSOffset) {
+				includeOffset = includesOption(line, "offset");
+			} else {
+				includeOffset = false;
+			}
 			indicatorOnly = includesOption(line, "indicator_only");
 			if (includeOffset) {
 				offsetInLogSpace = includesOption(line, "log_offset");
