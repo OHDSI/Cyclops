@@ -30,7 +30,8 @@ JNIEXPORT jint JNICALL Java_dr_inference_regression_RegressionJNIWrapper_loadDat
      (rModel.arguments)->inFileName = nativeFileName;
      (rModel.arguments)->modelName = "sccs";
      (rModel.arguments)->fileFormat ="sccs";
-     (rModel.arguments)->outFileName = "r_out.txt";     
+     (rModel.arguments)->outFileName = "r_out.txt";
+     (rModel.arguments)->noiseLevel = SILENT;
 
 	double timeInitialize = initializeModel(&(rModel.modelData), &(rModel.ccd), &(rModel.model), *(rModel.arguments));
 

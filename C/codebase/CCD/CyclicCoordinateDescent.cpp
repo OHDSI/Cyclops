@@ -653,12 +653,16 @@ void CyclicCoordinateDescent::update(
 				if (illconditioned) {
 					lastReturnFlag = ILLCONDITIONED;
 				} else {
-					cout << "Reached convergence criterion" << endl;
+					if (noiseLevel > SILENT) {
+						cout << "Reached convergence criterion" << endl;
+					}
 					lastReturnFlag = SUCCESS;
 				}
 				done = true;
 			} else if (iteration == maxIterations) {
-				cout << "Reached maximum iterations" << endl;
+				if (noiseLevel > SILENT) {
+					cout << "Reached maximum iterations" << endl;
+				}
 				done = true;
 				lastReturnFlag = MAX_ITERATIONS;
 			} else {

@@ -611,9 +611,9 @@ void setZeroBetaAsFixed(CyclicCoordinateDescent *ccd) {
 }
 
 double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
-#ifndef MY_RCPP_FLAG
-	cout << "Using prior: " << ccd->getPriorInfo() << endl;
-#endif
+	if (arguments.noiseLevel > SILENT) {
+		cout << "Using prior: " << ccd->getPriorInfo() << endl;
+	}
 
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
