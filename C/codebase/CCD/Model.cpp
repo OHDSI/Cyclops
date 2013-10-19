@@ -26,16 +26,25 @@ namespace bsccs {
 	 // Beta_Hat = modes from ccd
 
 	 Beta_Hat.initialize(ccd.hBeta, J);
-
+	 //Beta_Hat.store();
 	 // Set up Beta
 	 Beta.initialize(ccd.hBeta, J);
 	 //Beta.setProbabilityUpdate(betaAmount);
 	 Beta.store();
+
 	 // Set up Sigma squared
 	 bsccs::real sigma2Start;
 	 sigma2Start = (bsccs::real) ccd.sigma2Beta;
 	 SigmaSquared.initialize(&sigma2Start, 1);
 	 SigmaSquared.logParameter();
+
+	loglikelihood = ccd.getLogLikelihood();
+	logprior = ccd.getLogPrior();
+
+
+	 BetaRestorable = true;
+	 Beta_HatRestorable = true;
+	 SigmaSquaredRestorable = true;
 
 	 useHastingsRatio = true;
  }
@@ -52,6 +61,8 @@ namespace bsccs {
 
  void Model::resetWithNewSigma(CyclicCoordinateDescent& ccd){
 		// TODO Need Wrapper for this....
+	 	 cout << "\n\n \t\t Model::resetWithNewSigma " << endl;
+	 	 cout << "old likelihood = " << ccd.getLogLikelihood() << endl;
 		ccd.resetBeta();
 		ccd.setHyperprior(SigmaSquared.get(0));
 		int ZHANG_OLES = 1;
@@ -63,6 +74,11 @@ namespace bsccs {
 		ccd.getHessian(&hessian);
 		generateCholesky();
 		Beta_Hat.set(ccd.hBeta);
+		Beta.set(ccd.hBeta);
+		loglikelihood = ccd.getLogLikelihood();
+		logprior = ccd.getLogPrior();
+		cout << "new likelihood = " << loglikelihood << endl;
+		newLogPriorAndLikelihood = true;
  }
 
  void Model::clearHessian() {
@@ -81,15 +97,14 @@ namespace bsccs {
  	for (int i = 0; i < J; i++) {
  		for (int j = 0; j < J; j++) {
  			HessianMatrix(i, j) = -hessian[i][j];
- 			// TODO Debugging here
- //			if (i == j) {
- //				HessianMatrix(i,j) = 1.0;
- //			} else {
- //				HessianMatrix(i,j) = 0.0;
- //			}
-
  		}
  	}
+
+ 	//  Debugging code
+ 	HessianMatrixInverse.resize(J,J);
+ 	HessianMatrixInverse = HessianMatrix.inverse();
+ 	cout << "Hessian Inverse" << endl;
+ 	cout << HessianMatrixInverse(0,0) << endl;
 
  	//Perform Cholesky Decomposition
  	CholDecom.compute(HessianMatrix);
@@ -105,22 +120,35 @@ namespace bsccs {
  			cout << "]" << endl;
  			}
  #endif
+
  }
 
 void Model::restore(){
 	cout << "Model::restore" << endl;
+	cout << "Beta current" << endl;
+	Beta.logParameter();
+	cout << "Beta storred" << endl;
+	Beta.logStored();
 	if (Beta_HatRestorable){
 		Beta_Hat.restore();
-		Beta_HatRestorable = false;
+		//Beta_HatRestorable = false;
 	}
 	if (BetaRestorable) {
 		Beta.restore();
-		BetaRestorable = false;
+		//BetaRestorable = false;
 	}
 	if (SigmaSquaredRestorable){
 		SigmaSquared.restore();
-		SigmaSquaredRestorable = false;
+		//SigmaSquaredRestorable = false;
 	}
+}
+
+void Model::setNewLogPriorAndLikelihood(bool newOrNot){
+	newLogPriorAndLikelihood = newOrNot;
+}
+
+bool Model::getNewLogPriorAndLikelihood(){
+	return(newLogPriorAndLikelihood);
 }
 
 void Model::Beta_HatRestorableSet(bool restorable){
@@ -133,6 +161,24 @@ void Model::SigmaSquaredRestorableSet(bool restorable){
 	SigmaSquaredRestorable = restorable;
 }
 
+void Model::Beta_HatStore(){
+	Beta_Hat.store();
+}
+void Model::BetaStore(){
+	cout <<"Model:BetaStore" << endl;
+
+	Beta.store();
+	cout << "Beta current" << endl;
+	Beta.logParameter();
+	cout << "Beta storred" << endl;
+	Beta.logStored();
+	cout << "Model:BetaStore End" << endl;
+
+}void Model::SigmaSquaredStore(){
+	SigmaSquared.store();
+}
+
+
 void Model::logState(){
 	cout << "Model::logState" << endl;
 	Beta.logParameter();
@@ -141,6 +187,13 @@ void Model::logState(){
 	Beta_Hat.logStored();
 	SigmaSquared.logParameter();
 	SigmaSquared.logStored();
+}
+
+void Model::writeVariances(){
+	for(int i = 0; i<J; i ++){
+		Beta.set(i, HessianMatrixInverse(i,i));
+		//cout<< "Beta[" <<i <<"] = " << Beta.get(i) << endl;
+	}
 }
 
 bool Model::getUseHastingsRatio(){
@@ -158,6 +211,14 @@ double Model::getLoglikelihood(){
 void Model::setLoglikelihood(double newLoglikelihood){
 	loglikelihood = newLoglikelihood;
 }
+
+double Model::getLogPrior(){
+	return(loglikelihood);
+}
+void Model::setLogPrior(double newLogPrior){
+	loglikelihood = newLogPrior;
+}
+
 
 
  Parameter& Model::getBeta(){

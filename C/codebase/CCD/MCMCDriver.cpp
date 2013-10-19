@@ -35,7 +35,7 @@ namespace bsccs {
 
 MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
 	MCMCFileNameRoot = MCMCFileName;
-	maxIterations = 20000;
+	maxIterations = 100000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
 	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies
@@ -51,16 +51,18 @@ MCMCDriver::~MCMCDriver() {
 
 vector<double> storedBetaHat;
 
-void checkValidState(CyclicCoordinateDescent& ccd, MHRatio& MHstep, Parameter& Beta,
+void checkValidState(CyclicCoordinateDescent& ccd, Model& model, Parameter& Beta,
 		Parameter& Beta_Hat,
 		Parameter& SigmaSquared) {
+
+	cout << "Check Valid State" << endl;
 	ccd.setBeta(Beta.returnCurrentValues());
 	double logLike = ccd.getLogLikelihood();
-	double storedLogLike =  MHstep.getStoredLogLikelihood();
-	if (logLike != storedLogLike) {
-		cerr << "Error in internal state of beta/log_likelihood." << endl;
-		cerr << "\tStored value: " << storedLogLike << endl;
-		cerr << "\tRecomp value: " << logLike << endl;
+	double storedLogLike =  model.getLoglikelihood();
+	if (abs(logLike - storedLogLike) > 0.000001) {
+		cerr << "\n\n\n \t\tError in internal state of beta/log_likelihood." << endl;
+		cerr << std::setprecision(15) << "\tStored value: " << storedLogLike << endl;
+		cerr << std::setprecision(15) << "\tRecomp value: " << logLike << endl;
 		exit(-1);
 	} else {
 		cerr << "All fine" << endl;
@@ -73,9 +75,9 @@ void checkValidState(CyclicCoordinateDescent& ccd, MHRatio& MHstep, Parameter& B
 
 	} else {
 		for (int i = 0; i < Beta_Hat.getSize(); ++i) {
-			if (storedBetaHat[i] != Beta_Hat.get(i)) {
-				cerr << "Beta hat has changed!" << endl;
-				exit(-1);
+			if (abs(storedBetaHat[i] - Beta_Hat.get(i)) > 0.0001) {
+	//			cerr << "Beta hat has changed!" << endl;
+	//			exit(-1);
 			}
 		}
 	}
@@ -99,11 +101,11 @@ void MCMCDriver::initialize(double betaAmount, Model & model, CyclicCoordinateDe
 void MCMCDriver::logState(Model & model){
 	cout << "\n MCMCDriver::logState" << endl;
 	MCMCResults_SigmaSquared.push_back(model.getSigmaSquared().returnCurrentValues()[0]);
-	model.getSigmaSquared().logParameter();
+	//model.getSigmaSquared().logParameter();
 	MCMCResults_BetaVectors.push_back(model.getBeta().returnCurrentValues());
-	model.getBeta().logParameter();
+	//model.getBeta().logParameter();
 	double loglikelihoodHere = model.getLoglikelihood();
-	cout << "loglikelihood = " << loglikelihoodHere << endl;
+	cout << "MCMCDriver::logStat loglikelihood = " << loglikelihoodHere << endl;
 	MCMCResults_loglikelihoods.push_back(model.getLoglikelihood());
 
 }
@@ -130,6 +132,11 @@ void MCMCDriver::drive(
 	//Set Boost rng
 	boost::mt19937 rng(seed);
 
+	model.writeVariances();
+	logState(model);
+	model.restore();
+	logState(model);
+
 
 	//MCMC Loop
 	for (int iterations = 0; iterations < maxIterations; iterations ++) {
@@ -150,11 +157,14 @@ void MCMCDriver::drive(
 		cout << "accept = " << accept << endl;
 
 		if (accept) {
+			cout << "#Accept" << endl;
 			//model.keepCurrentState
 		} else {
-			model.restore();
+			cout << "#Reject" << endl;
+			//model.restore();
 		}
 		logState(model);
+		checkValidState(ccd, model, model.getBeta(), model.getBeta_Hat(), model.getSigmaSquared());
 	}
 	CredibleIntervals intervalsToReport;
 	intervalsToReport.computeCredibleIntervals(&MCMCResults_loglikelihoods,&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared, 0.5, 0.5, MCMCFileNameRoot);

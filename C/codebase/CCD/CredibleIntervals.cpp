@@ -59,13 +59,13 @@ void CredibleIntervals::computeCredibleIntervals(vector<double> * loglikelihoods
 	string sep(","); // TODO Make option
 
 	//Thinning...
-	int thinningAmount = 10;
+	int thinningAmount = 1;
 
 
 
 	for (int j = 0; j < nSamples;) {
 		outLog << j << sep;
-		outLog << std::setprecision(10) << (*loglikelihoods)[j] << sep;
+		outLog << std::setprecision(15) << (*loglikelihoods)[j] << sep;
 		for (int k = 0; k < betaSize; k++) {
 			outLog << (*BetaValues)[j][k] << sep;
 		}

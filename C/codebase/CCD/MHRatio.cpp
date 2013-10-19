@@ -49,6 +49,10 @@ bool MHRatio::evaluate(Model & currentModel, Parameter & Beta, Parameter & Beta_
 		boost::mt19937& rng, Eigen::MatrixXf& PrecisionMatrix,
 		double tuningParameter) {
 
+	if(currentModel.getNewLogPriorAndLikelihood()){
+		resetLikelihoodAndPrior(currentModel);
+	}
+
 	double logMetropolisRatio = getLogMetropolisRatio(Beta,Beta_Hat, SigmaSquared, ccd, rng, PrecisionMatrix, tuningParameter);
 	double logHastingsRatio;
 	if (currentModel.getUseHastingsRatio()){
@@ -61,8 +65,15 @@ bool MHRatio::evaluate(Model & currentModel, Parameter & Beta, Parameter & Beta_
 
 
 // Compute the ratio for the MH step
-	double ratio = exp(logMetropolisRatio + logHastingsRatio);
-
+	double ratio;// = exp(logMetropolisRatio + logHastingsRatio);
+	double logRatio = logMetropolisRatio + logHastingsRatio;
+	//Check for numerical issues
+	if (std::isfinite(logMetropolisRatio) && std::isfinite(logHastingsRatio)){// && std::isfinite(ratio)){
+		ratio = exp(logMetropolisRatio + logHastingsRatio);
+	} else {
+		cout << "########--------------#########  Warning: Numerical Issues   ########-------#######" << endl;
+		ratio = 0; // Want to reject if numerical issues at proposal
+	}
 // Set our alpha
 	alpha = min(ratio, 1.0);
 	static boost::uniform_01<boost::mt19937> zeroone(rng);
@@ -70,8 +81,14 @@ bool MHRatio::evaluate(Model & currentModel, Parameter & Beta, Parameter & Beta_
 
 // Sample from a uniform distribution
 	double uniformRandom = zeroone();
+	double logUniformRandom = log(uniformRandom);
 
 #ifdef Debug_TRS
+		cout << "alpha = " << alpha << endl;
+		cout << "ratio = " << ratio << endl;
+		cout << "logRatio = " << logRatio << endl;
+		cout << "uniformRandom = " << uniformRandom << endl;
+		cout << "logUniformRandom = " << logUniformRandom << endl;
 		cout << "logMetropolisRatio = " << logMetropolisRatio << endl;
 		cout << "logHastingsRatio = " << logHastingsRatio << endl;
 
@@ -114,6 +131,12 @@ double MHRatio::getTransformedTuningValue(double tuningParameter){
 	return exp(-tuningParameter);
 }
 
+void MHRatio::resetLikelihoodAndPrior(Model & model) {
+	storedFBetaCurrent = model.getLoglikelihood();
+	storedPBetaCurrent = model.getLogPrior();
+
+}
+
 
 double MHRatio::getLogMetropolisRatio(Parameter & Beta, Parameter & Beta_Hat,
 		Parameter & SigmaSquared, CyclicCoordinateDescent & ccd,
@@ -142,13 +165,7 @@ double MHRatio::getLogMetropolisRatio(Parameter & Beta, Parameter & Beta_Hat,
 		cout << "pBetaCurrent = " << storedPBetaCurrent << endl;
 		#endif
 
-		//Check for numerical issues
-		if (std::isfinite(fBetaPossible) && std::isfinite(pBetaPossible)){
-			return(ratio);
-		} else {
-			cout << "########--------------#########  Warning: Numerical Issues   ########-------#######" << endl;
-			return(0); // Want to reject if numerical issues at proposal
-		}
+		return(ratio);
 }
 
 double MHRatio::getLogHastingsRatio(Parameter & Beta,

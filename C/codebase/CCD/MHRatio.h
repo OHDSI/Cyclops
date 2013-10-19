@@ -67,6 +67,8 @@ namespace bsccs {
 		double getStoredLogPrior() { return storedPBetaCurrent; }
 		double getTransformedTuningValue(double tuningParameter);
 
+		void resetLikelihoodAndPrior(Model& model);
+
 	private:
 		double min(double value1, double value2);
 

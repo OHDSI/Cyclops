@@ -31,10 +31,18 @@ public:
 	void Beta_HatRestorableSet(bool restorable);
 	void BetaRestorableSet(bool restorable);
 	void SigmaSquaredRestorableSet(bool restorable);
+	void Beta_HatStore();
+	void BetaStore();
+	void SigmaSquaredStore();
+
+	bool getNewLogPriorAndLikelihood();
+	void setNewLogPriorAndLikelihood(bool newOrNot);
 
 	void restore();
 
 	void logState();
+
+	void writeVariances();
 
 	void resetWithNewSigma(CyclicCoordinateDescent& ccd);
 
@@ -42,7 +50,11 @@ public:
 	void setUseHastingsRatio(bool useHastingsRatio);
 
 	double getLoglikelihood();
-	void setLoglikelihood(double useHastingsRatio);
+	void setLoglikelihood(double newLikelihood);
+
+	double getLogPrior();
+	void setLogPrior(double newPrior);
+
 
 
 
@@ -56,6 +68,8 @@ private:
 	Eigen::LLT<Eigen::MatrixXf> CholDecom;
 
 	Eigen::MatrixXf HessianMatrix;
+	Eigen::MatrixXf HessianMatrixInverse;
+
 
 	vector<vector<bsccs::real> > hessian;
 
@@ -64,11 +78,14 @@ private:
 	Parameter SigmaSquared;
 
 	double loglikelihood;
+	double logprior;
 
 	bool Beta_HatRestorable;
 	bool BetaRestorable;
 	bool SigmaSquaredRestorable;
 	bool useHastingsRatio;
+
+	bool newLogPriorAndLikelihood;
 
 	int J;
 

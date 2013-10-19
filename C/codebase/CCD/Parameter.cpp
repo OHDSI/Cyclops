@@ -65,8 +65,8 @@ namespace bsccs{
 	}
 
 	void Parameter::logParameter() {
-		cout << "Parameter value is <";
-		for (int i = 0; i < size; i++) {
+		cout << "LogParameter:: Parameter value is <";
+		for (int i = 0; i < 4; i++) {
 			cout << parameterValues[i] << ", ";
 		}
 		cout << ">" << endl;
@@ -74,8 +74,8 @@ namespace bsccs{
 	}
 
 	void Parameter::logStored() {
-		cout << "Stored Parameter value is <";
-		for (int i = 0; i < size; i++) {
+		cout << "LogStored: Stored Parameter value is <";
+		for (int i = 0; i < 4; i++) {
 			cout << storedValues[i] << ", ";
 		}
 		cout << ">" << endl;
@@ -91,7 +91,7 @@ namespace bsccs{
 	}
 
 	void Parameter::restore(){
-
+		cout << "Parameter::restore()" << endl;
 		bsccs::real* temp;
 		temp = storedValues;
 		storedValues = parameterValues;
@@ -139,6 +139,13 @@ namespace bsccs{
 
 	std::vector<double> Parameter::returnCurrentValues() {
 		std::vector<double> returnVector;
+
+		cout << "Parameter value is <";
+		for (int i = 0; i < 4; i++) {
+			cout << parameterValues[i] << ", ";
+		}
+		cout << ">" << endl;
+
 
 		for (int i = 0; i < size; i++) {
 			returnVector.push_back((double) parameterValues[i]);

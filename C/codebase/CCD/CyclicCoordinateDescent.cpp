@@ -367,23 +367,24 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 	//cout << "WARNING - CHANGED LOG LIKELIHOOD" << endl;
 
 
-	if (!xBetaKnown) {
+	//if (!xBetaKnown) {
 		computeXBeta();
-	}
+	//}
 
-	if (!validWeights) {
+	//if (!validWeights) {
 		computeNEvents();
-	}
+	//}
 
-	if (!sufficientStatisticsKnown) {
+	//if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics(true, 0); // TODO Check index?
-	}
+	//}
 
 	getDenominators();
-	//for (int i = 0; i < K; i++) {
+	//for (int i = 0; i < 4; i++) {
 	//	cout << "offsExpXBeta[" << i << "] = " << offsExpXBeta[i] << endl;
 	//	cout << "denomPid[hPid[" << i << "]] = " << denomPid[hPid[i]] << endl;
 	//	cout << "hXBeta[" << i << "] = " << hXBeta[i] << endl;
+	//	cout << "Beta[" << i << "] = " << hBeta[i] << endl;
 	//}
 
 
