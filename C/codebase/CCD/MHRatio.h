@@ -48,26 +48,16 @@ namespace bsccs {
 
 		void initialize(CyclicCoordinateDescent & ccd);
 
-		bool evaluate(Model & currentModel, Parameter & Beta, Parameter & Beta_Hat,
-				Parameter & SigmaSquared, CyclicCoordinateDescent & ccd,
-				boost::mt19937& rng, Eigen::MatrixXf& PrecisionMatrix,
-				double tuningParameter);
+		bool evaluate(Model & model);
 
-		double getLogMetropolisRatio(Parameter & Beta, Parameter & Beta_Hat,
-				Parameter & SigmaSquared, CyclicCoordinateDescent & ccd,
-				boost::mt19937& rng, Eigen::MatrixXf& PrecisionMatrix,
-				double tuningParameter);
+		double getLogMetropolisRatio(Model & model);
 
-		double getLogHastingsRatio(Parameter & Beta,
-				Parameter & Beta_Hat,
-				Eigen::MatrixXf& PrecisionMatrix,
-				double tuningParameter);
+		double getLogHastingsRatio(Model & model);
 
 		double getStoredLogLikelihood() { return storedFBetaCurrent; }
 		double getStoredLogPrior() { return storedPBetaCurrent; }
 		double getTransformedTuningValue(double tuningParameter);
 
-		void resetLikelihoodAndPrior(Model& model);
 
 	private:
 		double min(double value1, double value2);

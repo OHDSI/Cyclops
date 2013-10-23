@@ -57,13 +57,9 @@ namespace bsccs{
 
 		void restore();
 
-		bool getChangeStatus();
+		bool getRestorable();
 
-		bool getNeedToChangeStatus();
-
-		void setChangeStatus(bool status);
-
-		void setNeedToChangeStatus(bool status);
+		void setRestorable(bool status);
 
 		void resetChangesRecorded();
 
@@ -94,10 +90,7 @@ namespace bsccs{
 
 		int numberOfChanges;
 
-		bool didValueGetChanged;
-
-		bool shouldBeChanged;
-
+		bool restorable;
 	};
 }
 

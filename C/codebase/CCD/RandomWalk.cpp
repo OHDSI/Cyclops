@@ -101,7 +101,7 @@ bool RandomWalk::evaluateSample(Model& model, double tuningParameter, boost::mt1
 
 	model.setUseHastingsRatio(false);
 
-	bool accept = MHstep.evaluate(model, model.getBeta(), model.getBeta_Hat(), model.getSigmaSquared(), ccd, rng, model.getHessian(), tuningParameter);
+	bool accept = MHstep.evaluate(model);
 
 	if(accept) {
 		cout << "Accepted in evaluate Sample" << endl;

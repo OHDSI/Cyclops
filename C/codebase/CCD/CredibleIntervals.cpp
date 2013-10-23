@@ -59,7 +59,7 @@ void CredibleIntervals::computeCredibleIntervals(vector<double> * loglikelihoods
 	string sep(","); // TODO Make option
 
 	//Thinning...
-	int thinningAmount = 1;
+	int thinningAmount = 10;
 
 
 

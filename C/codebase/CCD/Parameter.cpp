@@ -18,6 +18,7 @@ namespace bsccs{
 	Parameter::Parameter(){}
 
 	void Parameter::initialize(bsccs::real * data, int sizeIn){
+		restorable = true;
 		size = sizeIn;
 		numberOfChanges = 0;
 		parameterValues = (bsccs::real*) calloc(sizeIn, sizeof(bsccs::real));
@@ -25,8 +26,6 @@ namespace bsccs{
 		memcpy(storedValues, data, sizeof(bsccs::real)*sizeIn);
 		memcpy(parameterValues, data, sizeof(bsccs::real)*sizeIn);
 
-		didValueGetChanged = false;
-		shouldBeChanged = false;
 
 		for (int i = 0; i < size; i++) {
 			parameterDoubleValues.push_back(1.00);
@@ -88,31 +87,28 @@ namespace bsccs{
 
 	void Parameter::store(){
 		memcpy(storedValues, parameterValues, sizeof(bsccs::real)*size);
+		restorable = true;
 	}
 
 	void Parameter::restore(){
 		cout << "Parameter::restore()" << endl;
-		bsccs::real* temp;
-		temp = storedValues;
-		storedValues = parameterValues;
-		parameterValues = temp;
-
+		if (restorable) {
+			bsccs::real* temp;
+			temp = storedValues;
+			storedValues = parameterValues;
+			parameterValues = temp;
+			restorable = false;
+		} else {
+			cerr << "error trying to restore twice" << endl;
+			exit(-1);		}
 	}
 
-	bool Parameter::getChangeStatus() {
-		return didValueGetChanged;
+	bool Parameter::getRestorable() {
+		return restorable;
 	}
 
-	bool Parameter::getNeedToChangeStatus() {
-		return shouldBeChanged;
-	}
-
-	void Parameter::setChangeStatus(bool status) {
-		didValueGetChanged = status;
-	}
-
-	void Parameter::setNeedToChangeStatus(bool status) {
-		shouldBeChanged = status;
+	void Parameter::setRestorable(bool status) {
+		restorable = status;
 	}
 
 	void Parameter::resetChangesRecorded() {

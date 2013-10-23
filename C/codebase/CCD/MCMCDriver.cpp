@@ -58,15 +58,27 @@ void checkValidState(CyclicCoordinateDescent& ccd, Model& model, Parameter& Beta
 	cout << "Check Valid State" << endl;
 	ccd.setBeta(Beta.returnCurrentValues());
 	double logLike = ccd.getLogLikelihood();
-	double storedLogLike =  model.getLoglikelihood();
+	double logPrior = ccd.getLogPrior();
+	double storedLogLike =  model.getLogLikelihood();
+	double storedLogPrior = model.getLogPrior();
 	if (abs(logLike - storedLogLike) > 0.000001) {
 		cerr << "\n\n\n \t\tError in internal state of beta/log_likelihood." << endl;
 		cerr << std::setprecision(15) << "\tStored value: " << storedLogLike << endl;
 		cerr << std::setprecision(15) << "\tRecomp value: " << logLike << endl;
 		exit(-1);
 	} else {
-		cerr << "All fine" << endl;
+		cerr << "All fine - likelihood" << endl;
 	}
+
+	if (abs(logPrior - storedLogPrior) > 0.000001) {
+		cerr << "\n\n\n \t\tError in internal state of beta/log_prior." << endl;
+		cerr << std::setprecision(15) << "\tStored value: " << storedLogLike << endl;
+		cerr << std::setprecision(15) << "\tRecomp value: " << logLike << endl;
+		exit(-1);
+	} else {
+		cerr << "All fine - prior" << endl;
+	}
+
 
 	if (storedBetaHat.size() == 0) { // first time through
 		for (int i = 0; i < Beta_Hat.getSize(); ++i) {
@@ -85,10 +97,11 @@ void checkValidState(CyclicCoordinateDescent& ccd, Model& model, Parameter& Beta
 	// TODO Check internals with sigma
 }
 
-void MCMCDriver::initialize(double betaAmount, Model & model, CyclicCoordinateDescent& ccd) {
+void MCMCDriver::initialize(double betaAmount, Model & model, CyclicCoordinateDescent& ccd, long int seed) {
 
 	cout << "MCMCDriver initialize" << endl;
-	model.initialize(ccd);
+	model.initialize(ccd, seed);
+
 
 	transitionKernelSelectionProb.push_back(betaAmount);
 	transitionKernelSelectionProb.push_back(1.0 - betaAmount);
@@ -104,10 +117,12 @@ void MCMCDriver::logState(Model & model){
 	//model.getSigmaSquared().logParameter();
 	MCMCResults_BetaVectors.push_back(model.getBeta().returnCurrentValues());
 	//model.getBeta().logParameter();
-	double loglikelihoodHere = model.getLoglikelihood();
-	cout << "MCMCDriver::logStat loglikelihood = " << loglikelihoodHere << endl;
-	MCMCResults_loglikelihoods.push_back(model.getLoglikelihood());
-
+	double loglikelihoodHere = model.getLogLikelihood();
+	cerr << "loglikelihood = " << loglikelihoodHere << endl;
+	double logPriorHere = model.getLogPrior();
+	cerr << "logPrior = " << logPriorHere << endl;
+	MCMCResults_loglikelihoods.push_back(model.getLogLikelihood());
+	cout << "MCMCDriver::logState end" << endl;
 }
 
 int MCMCDriver::findTransitionKernelIndex(double uniformRandom, vector<double>& transitionKernelSelectionProb){
@@ -127,16 +142,17 @@ void MCMCDriver::drive(
 		CyclicCoordinateDescent& ccd, double betaAmount, long int seed) {
 
 	Model model;
-	initialize(betaAmount, model, ccd);
+	initialize(betaAmount, model, ccd, seed);
 	logState(model);
 	//Set Boost rng
-	boost::mt19937 rng(seed);
 
 	model.writeVariances();
 	logState(model);
 	model.restore();
 	logState(model);
 
+	double acceptNumber = 0.0;
+	double countIndependenceSampler = 0.0;
 
 	//MCMC Loop
 	for (int iterations = 0; iterations < maxIterations; iterations ++) {
@@ -147,25 +163,33 @@ void MCMCDriver::drive(
 #endif
 
 		// Sample from a uniform distribution
-		static boost::uniform_01<boost::mt19937> zeroone(rng);
+		static boost::uniform_01<boost::mt19937> zeroone(model.getRng());
 		double uniformRandom = zeroone();
 
 		int transitionKernelIndex = findTransitionKernelIndex(uniformRandom, transitionKernelSelectionProb);
-		transitionKernels[transitionKernelIndex]->sample(model, acceptanceTuningParameter, rng);
+		transitionKernels[transitionKernelIndex]->sample(model, acceptanceTuningParameter, model.getRng());
 
-		bool accept = transitionKernels[transitionKernelIndex]->evaluateSample(model, acceptanceTuningParameter, rng, ccd);
+		bool accept = transitionKernels[transitionKernelIndex]->evaluateSample(model, acceptanceTuningParameter, model.getRng(), ccd);
+		if (transitionKernelIndex == 0){
+			acceptNumber = acceptNumber + accept;
+			countIndependenceSampler = countIndependenceSampler + 1.0;
+		}
+
+		//cout << "**********  WARNING  ************" << endl;
+		//accept = true;
 		cout << "accept = " << accept << endl;
 
 		if (accept) {
-			cout << "#Accept" << endl;
-			//model.keepCurrentState
+			cout << "\t\t\t\t #######Accept#################" << endl;
+			model.acceptChanges();
 		} else {
-			cout << "#Reject" << endl;
-			//model.restore();
+			cout << "\t\t\t\t #######Reject#################" << endl;
+			model.restore();
 		}
 		logState(model);
-		checkValidState(ccd, model, model.getBeta(), model.getBeta_Hat(), model.getSigmaSquared());
+		//checkValidState(ccd, model, model.getBeta(), model.getBeta_Hat(), model.getSigmaSquared());
 	}
+	cout << "acceptances% = " << acceptNumber/countIndependenceSampler + 0.0 << endl;
 	CredibleIntervals intervalsToReport;
 	intervalsToReport.computeCredibleIntervals(&MCMCResults_loglikelihoods,&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared, 0.5, 0.5, MCMCFileNameRoot);
 }

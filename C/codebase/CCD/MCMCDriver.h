@@ -31,7 +31,7 @@ public:
 			CyclicCoordinateDescent& ccd, double betaAmount, long int seed);
 
 
-	void initialize(double betaAmount, Model & model, CyclicCoordinateDescent& ccd);
+	void initialize(double betaAmount, Model & model, CyclicCoordinateDescent& ccd, long int seed);
 
 	void logState(Model & model);
 
@@ -75,6 +75,7 @@ private:
 	int nSigmaSquaredSamples;
 
 	bool autoAdapt;
+
 };
 }
 

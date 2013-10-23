@@ -24,8 +24,9 @@ public:
 	virtual ~Model();
 
 	void generateCholesky();
-	void initialize(CyclicCoordinateDescent& ccd);
+	void initialize(CyclicCoordinateDescent& ccdIn, long int seed);
 	void initializeHessian();
+
 	void clearHessian();
 
 	void Beta_HatRestorableSet(bool restorable);
@@ -38,31 +39,40 @@ public:
 	bool getNewLogPriorAndLikelihood();
 	void setNewLogPriorAndLikelihood(bool newOrNot);
 
+	void acceptChanges();
+
 	void restore();
 
 	void logState();
 
 	void writeVariances();
 
-	void resetWithNewSigma(CyclicCoordinateDescent& ccd);
+	void resetWithNewSigma();
 
 	bool getUseHastingsRatio();
 	void setUseHastingsRatio(bool useHastingsRatio);
 
-	double getLoglikelihood();
-	void setLoglikelihood(double newLikelihood);
+	double getLogLikelihood();
+	double getStoredLogLikelihood();
+	void setLogLikelihood(double newLikelihood);
 
 	double getLogPrior();
+	double getStoredLogPrior();
 	void setLogPrior(double newPrior);
-
-
-
 
 	Parameter& getBeta();
 	Parameter& getBeta_Hat();
 	Parameter& getSigmaSquared();
 	Eigen::LLT<Eigen::MatrixXf> getCholeskyLLT();
 	Eigen::MatrixXf& getHessian();
+
+	double getTuningParameter();
+	void setTuningParameter(double nextTuningParameter);
+
+	boost::mt19937 & getRng();
+
+
+	CyclicCoordinateDescent& getCCD();
 
 private:
 	Eigen::LLT<Eigen::MatrixXf> CholDecom;
@@ -73,21 +83,27 @@ private:
 
 	vector<vector<bsccs::real> > hessian;
 
+	CyclicCoordinateDescent* ccd;
+
 	Parameter Beta_Hat;
 	Parameter Beta;
 	Parameter SigmaSquared;
 
-	double loglikelihood;
-	double logprior;
+	double logLikelihood;
+	double logPrior;
 
-	bool Beta_HatRestorable;
-	bool BetaRestorable;
-	bool SigmaSquaredRestorable;
+	double storedLogLikelihood;
+	double storedLogPrior;
+
 	bool useHastingsRatio;
 
 	bool newLogPriorAndLikelihood;
 
 	int J;
+
+	double tuningParameter;
+
+	boost::mt19937 rng;
 
 
 };

@@ -31,6 +31,7 @@ namespace bsccs {
 
 
 	SigmaSampler::SigmaSampler(){
+		cout << "Sigma Sampler" << endl;
 
 	}
 
@@ -49,8 +50,7 @@ namespace bsccs {
 
 		SigmaSquared.store();
 
-		model.SigmaSquaredRestorableSet(true);
-
+		SigmaSquared.setRestorable(true);
 
 		double SigmaParameter_alpha = 2;
 		double SigmaParameter_beta = 4;
@@ -70,7 +70,7 @@ namespace bsccs {
 		double scale = SigmaParameter_beta + BetaMinusMu / 2;
 
 		boost::gamma_distribution<> gd( shape );
-		boost::variate_generator<boost::mt19937&,boost::gamma_distribution<> > var_gamma( rng, gd );
+		boost::variate_generator<boost::mt19937&,boost::gamma_distribution<> > var_gamma(model.getRng(), gd );
 
 		double newValue = 1/scale*var_gamma();
 
@@ -78,9 +78,9 @@ namespace bsccs {
 
 	}
 
-	bool SigmaSampler::evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent& ccd){
+	bool SigmaSampler::evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent & ccd){
 		cout << "SigmaSampler::evaluateSample" << endl;
-		model.resetWithNewSigma(ccd);
+		model.resetWithNewSigma();
 		return(true); // Gibbs step always accepts
 	}
 
