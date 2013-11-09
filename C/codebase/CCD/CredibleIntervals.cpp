@@ -34,53 +34,33 @@ CredibleIntervals::CredibleIntervals() {
 }
 
 CredibleIntervals::~CredibleIntervals(){
-
+	//outLog.close();
 }
 
-void CredibleIntervals::computeCredibleIntervals(vector<double> * loglikelihoods, vector<vector<double> > * BetaValues, vector<double> * SigmaSquaredValues,
-		double betaProbability, double sigmaProbability, std::string MCMCFileNameRoot){
-
-	int nSamples = BetaValues->size();
-	int betaSize = (*BetaValues)[0].size();
-	vector<vector<bsccs::real> > returnValues;
-
-	vector<bsccs::real> lowerBoundtoReturn;
-	vector<bsccs::real> upperBoundtoReturn;
-
-	cout << "nSamples = " << nSamples << endl;
-	cout << "betaSize = " << betaSize << endl;
-
-	//Write Beta Data to a file
+void CredibleIntervals::initialize(std::string MCMCFileNameRootIn) {
+	MCMCFileNameRoot = MCMCFileNameRootIn;
 	std::stringstream ss;
 	ss << MCMCFileNameRoot << ".csv";
 	string fileName = ss.str();
-	ofstream outLog(fileName.c_str());
+	outLog.open(fileName.c_str());
+}
+
+void CredibleIntervals::fileLogCredibleIntervals(double loglikelihood, vector<double> * BetaValues, double SigmaSquaredValue, int iteration){
+
+	//
+	int betaSize = BetaValues->size();
 
 	string sep(","); // TODO Make option
 
-	//Thinning...
-	int thinningAmount = 10;
-
-
-
-	for (int j = 0; j < nSamples;) {
-		outLog << j << sep;
-		outLog << std::setprecision(15) << (*loglikelihoods)[j] << sep;
-		for (int k = 0; k < betaSize; k++) {
-			outLog << (*BetaValues)[j][k] << sep;
-		}
-		outLog << (*SigmaSquaredValues)[j] << sep << endl;
-		j = j + thinningAmount;
+	outLog << iteration << sep;
+	outLog << std::setprecision(15) << loglikelihood << sep;
+	for (int k = 0; k < betaSize; k++) {
+		outLog << (*BetaValues)[k] << sep;
 	}
-	outLog.close();
+	outLog << SigmaSquaredValue << sep << endl;
 
-
-	//TODO construct quantile intervals
 }
 
-void CredibleIntervals::logResults(const CCDArguments& arguments, std::string conditionId) {
 
-	//TODO write as separate way to print all data
-}
 
 }

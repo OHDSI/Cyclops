@@ -26,7 +26,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
 
-#define Debug_TRS
+//#define Debug_TRS
 
 namespace bsccs{
 
@@ -52,7 +52,7 @@ bool MHRatio::evaluate(Model & model) {
 	if (model.getUseHastingsRatio()){
 		logHastingsRatio = getLogHastingsRatio(model);
 	} else {
-		cout << "+++++++++++++++++++++++++++++++   Log Hastings 0   ----------------------" << endl;
+		//cout << "+++++++++++++++++++++++++++++++   Log Hastings 0   ----------------------" << endl;
 		logHastingsRatio = 0;
 	}
 
@@ -62,7 +62,7 @@ bool MHRatio::evaluate(Model & model) {
 //Check for numerical issues
 	if (std::isfinite(logMetropolisRatio) && std::isfinite(logHastingsRatio)){// && std::isfinite(ratio)){
 	} else {
-		cout << "########--------------#########  Warning: Numerical Issues   ########-------#######" << endl;
+		//cout << "########--------------#########  Warning: Numerical Issues   ########-------#######" << endl;
 	}
 // Set our alpha
 

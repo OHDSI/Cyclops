@@ -19,6 +19,7 @@
 #include "Parameter.h"
 #include "Model.h"
 #include "TransitionKernel.h"
+#include "CredibleIntervals.h"
 
 namespace bsccs {
 class MCMCDriver {
@@ -33,7 +34,7 @@ public:
 
 	void initialize(double betaAmount, Model & model, CyclicCoordinateDescent& ccd, long int seed);
 
-	void logState(Model & model);
+	void logState(Model & model, int iterations);
 
 	double targetTransform(double alpha, double target);
 
@@ -42,6 +43,10 @@ public:
 	double getTransformedTuningValue(double tuningParameter);
 
 private:
+
+	CredibleIntervals intervalsToReport;
+
+	int thinningValueForWritingToFile;
 
 	std::string MCMCFileNameRoot;
 

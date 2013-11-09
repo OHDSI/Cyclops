@@ -22,7 +22,7 @@
 #include "IndependenceSampler.h"
 #include "RandomWalk.h"
 #include "SigmaSampler.h"
-#include "CredibleIntervals.h"
+
 #include "Parameter.h"
 
 #include <boost/random.hpp>
@@ -35,7 +35,8 @@ namespace bsccs {
 
 MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
 	MCMCFileNameRoot = MCMCFileName;
-	maxIterations = 100000;
+	thinningValueForWritingToFile = 1000;
+	maxIterations = 3000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
 	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies
@@ -99,7 +100,7 @@ void checkValidState(CyclicCoordinateDescent& ccd, Model& model, Parameter& Beta
 
 void MCMCDriver::initialize(double betaAmount, Model & model, CyclicCoordinateDescent& ccd, long int seed) {
 
-	cout << "MCMCDriver initialize" << endl;
+	//cout << "MCMCDriver initialize" << endl;
 	model.initialize(ccd, seed);
 
 
@@ -108,25 +109,30 @@ void MCMCDriver::initialize(double betaAmount, Model & model, CyclicCoordinateDe
 
 	transitionKernels.push_back(new IndependenceSampler(ccd));
 	transitionKernels.push_back(new SigmaSampler);
+	intervalsToReport.initialize(MCMCFileNameRoot);
+
 
 }
 
-void MCMCDriver::logState(Model & model){
-	cout << "\n MCMCDriver::logState" << endl;
+void MCMCDriver::logState(Model & model, int iteration){
+	//cout << "\n MCMCDriver::logState" << endl;
 	MCMCResults_SigmaSquared.push_back(model.getSigmaSquared().returnCurrentValues()[0]);
 	//model.getSigmaSquared().logParameter();
 	MCMCResults_BetaVectors.push_back(model.getBeta().returnCurrentValues());
 	//model.getBeta().logParameter();
 	double loglikelihoodHere = model.getLogLikelihood();
-	cerr << "loglikelihood = " << loglikelihoodHere << endl;
+	//cerr << "loglikelihood = " << loglikelihoodHere << endl;
 	double logPriorHere = model.getLogPrior();
-	cerr << "logPrior = " << logPriorHere << endl;
+	//cerr << "logPrior = " << logPriorHere << endl;
 	MCMCResults_loglikelihoods.push_back(model.getLogLikelihood());
-	cout << "MCMCDriver::logState end" << endl;
+	//cout << "MCMCDriver::logState end" << endl;
+	if (iteration % thinningValueForWritingToFile == 0){
+		intervalsToReport.fileLogCredibleIntervals(model.getLogLikelihood(), &(model.getBeta().returnCurrentValues()), model.getSigmaSquared().returnCurrentValues()[0], iteration);
+	}
 }
 
 int MCMCDriver::findTransitionKernelIndex(double uniformRandom, vector<double>& transitionKernelSelectionProb){
-	cout << "\t MCMCDriver::findTransitionKernalIndex" << endl;
+	//cout << "\t MCMCDriver::findTransitionKernalIndex" << endl;
 	int length = transitionKernelSelectionProb.size();
 	double currentTotal = 0;
 	for (int i = 0; i < length; i++){
@@ -143,13 +149,13 @@ void MCMCDriver::drive(
 
 	Model model;
 	initialize(betaAmount, model, ccd, seed);
-	logState(model);
+	logState(model,0);
 	//Set Boost rng
 
 	model.writeVariances();
-	logState(model);
+	logState(model,0);
 	model.restore();
-	logState(model);
+	logState(model,0);
 
 	double acceptNumber = 0.0;
 	double countIndependenceSampler = 0.0;
@@ -186,12 +192,10 @@ void MCMCDriver::drive(
 			cout << "\t\t\t\t #######Reject#################" << endl;
 			model.restore();
 		}
-		logState(model);
+		logState(model, iterations);
 		//checkValidState(ccd, model, model.getBeta(), model.getBeta_Hat(), model.getSigmaSquared());
 	}
 	cout << "acceptances% = " << acceptNumber/countIndependenceSampler + 0.0 << endl;
-	CredibleIntervals intervalsToReport;
-	intervalsToReport.computeCredibleIntervals(&MCMCResults_loglikelihoods,&MCMCResults_BetaVectors, &MCMCResults_SigmaSquared, 0.5, 0.5, MCMCFileNameRoot);
 }
 
 double MCMCDriver::coolingTransform(int x) {

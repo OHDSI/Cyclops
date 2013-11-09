@@ -115,7 +115,7 @@ public:
 
 	void setLogisticRegression(bool idoLR);
 
-	void setUpHessianComponents();
+	void setUpHessianComponents(bool rebuild);
 
 	void getHessian(vector<vector<bsccs::real> > * blankHessian);
 

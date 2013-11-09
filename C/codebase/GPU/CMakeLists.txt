@@ -36,7 +36,7 @@ endif(APPLE)
 
 set(CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA OFF)
 
-find_program(BIN2C bin2c)
+find_program(BIN2C bin2c PATHS /usr/local/cuda/bin)
 if(NOT BIN2C)
        message(FATAL_ERROR "Could not find bin2c command")
 endif(NOT BIN2C)

@@ -450,10 +450,11 @@ void CyclicCoordinateDescent::setLogisticRegression(bool idoLR) {
 	sufficientStatisticsKnown = false;
 }
 
-void CyclicCoordinateDescent::setUpHessianComponents(){
+void CyclicCoordinateDescent::setUpHessianComponents(bool rebuild){
 	//vector<int> giVector(N, 0); // get Gi given patient i
 	//vector<vector<int> > kValues;
 	//vector<vector<bsccs::real> > numerPidValuesMatrix; // [J][N] Matrix
+
 
 	if (!xBetaKnown) {
 		cout << "!xBetaKnown" << endl;
@@ -475,10 +476,18 @@ void CyclicCoordinateDescent::setUpHessianComponents(){
 	//Set up k values
 	for (int n = 0; n < N; n++) {
 		vector<int> temp;
-		kValues.push_back(temp);
+		if (rebuild) {
+			//do nothing
+		} else {
+			kValues.push_back(temp);
+		}
 	}
 	for (int j = 0; j < K; j++) {
-		kValues[hPid[j]].push_back(j);
+		if (rebuild) {
+			//do nothing
+		} else {
+			kValues[hPid[j]].push_back(j);
+		}
 	}
 
 
@@ -489,25 +498,35 @@ void CyclicCoordinateDescent::setUpHessianComponents(){
 		computeNumeratorForGradient(t);
 		vector<bsccs::real> numerPidValues_t;
 		for(int s = 0; s < N; s++) {
-			numerPidValues_t.push_back(numerPid[s]);
+			if (rebuild) {
+				numerPidValuesMatrix[t][s] = numerPid[s]; // just assign
+			} else {
+				numerPidValues_t.push_back(numerPid[s]);
+			}
 		}
-		numerPidValuesMatrix.push_back(numerPidValues_t);
+		if (rebuild) {
+			//do nothing
+		} else {
+			numerPidValuesMatrix.push_back(numerPidValues_t);
+		}
 	}
 
 	//Set up the matrix of Drugs per patient
 	//vector<vector<int> > jValuesPerNMatrix; //Sparse matrix for what J's go to each patient
-	for (int i = 0; i < N; i ++) { // sum over patients
-		int ni = hNEvents[i];
-		vector<int> jValues_t;
-		for (int j = 0; j < J; j++) {
+	if (rebuild){
+		//do nothing
+	} else {
+		for (int i = 0; i < N; i ++) { // sum over patients
+			int ni = hNEvents[i];
+			vector<int> jValues_t;
+			for (int j = 0; j < J; j++) {
 				if (numerPidValuesMatrix[j][i] != 0){
 					jValues_t.push_back(j);
 				}
+			}
+			jValuesPerNMatrix.push_back(jValues_t);
 		}
-		jValuesPerNMatrix.push_back(jValues_t);
 	}
-
-
 
 }
 

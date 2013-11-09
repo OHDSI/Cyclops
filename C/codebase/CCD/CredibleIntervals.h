@@ -40,16 +40,15 @@ namespace bsccs {
 
 		~CredibleIntervals();
 
-		void computeCredibleIntervals(vector<double> * loglikelihoods, vector<vector<double> > * BetaValues, vector<double> * SigmaSquaredValues,
-				double betaProbability, double sigmaProbability, std::string MCMCFileNameRoot);
+		void initialize(std::string MCMCFileNameRootIn);
 
-		void logResults(const CCDArguments& arguments, std::string conditionId);
+		void fileLogCredibleIntervals(double loglikelihood, vector<double> * BetaValues, double SigmaSquaredValue, int iteration);
 
 	private:
 
-		vector<vector<bsccs::real> > BetaUpperAndlower;
+		std::string MCMCFileNameRoot;
 
-		vector<bsccs::real> SigmaSquaredUpperAndLower;
+		ofstream outLog;
 
 	};
 }

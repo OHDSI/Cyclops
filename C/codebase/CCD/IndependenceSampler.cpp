@@ -45,7 +45,7 @@ double IndependenceSampler::getTransformedTuningValue(double tuningParameter){
 
 
 void IndependenceSampler::sample(Model& model, double tuningParameter, boost::mt19937& rng) {
-	cout << "IndependenceSampler::sample" << endl;
+	//cout << "IndependenceSampler::sample" << endl;
 
 	model.BetaStore();
 	Parameter & Beta = model.getBeta();
@@ -86,6 +86,7 @@ void IndependenceSampler::sample(Model& model, double tuningParameter, boost::mt
 		Beta.set(i, b[i] + Beta_Hat.get(i));
 	}
 
+	/*
 	cout << "Beta current" << endl;
 	Beta.logParameter();
 	cout << "Beta storred" << endl;
@@ -94,12 +95,12 @@ void IndependenceSampler::sample(Model& model, double tuningParameter, boost::mt
 	Beta_Hat.logParameter();
 	cout << "BetaHat storred" << endl;
 	Beta_Hat.logStored();
-
+	*/
 
 }
 
 bool IndependenceSampler::evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent & ccd){
-	cout << "IndependenceSampler::evaluateSample" << endl;
+	//cout << "IndependenceSampler::evaluateSample" << endl;
 
 	bool accept = MHstep.evaluate(model);
 
