@@ -118,7 +118,7 @@ protected:
 	int* hPid; // K-vector
 	int** hXColumnRowIndicators; // J-vector
 
-	real* hBeta;
+//	real* hBeta;
 	real* hXBeta;
 	real* hXBetaSave;
 	real* hDelta;

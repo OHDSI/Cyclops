@@ -40,6 +40,26 @@ real CompressedDataMatrix::sumColumn(int column) {
 	return sum;
 }
 
+struct DrugIDComparator {
+	DrugIdType id;
+	DrugIDComparator(DrugIdType i) : id(i) { }
+	bool operator()(const CompressedDataColumn* column) {
+		return column->getNumericalLabel() == id;
+	}
+};
+
+int CompressedDataMatrix::getColumnIndexByName(DrugIdType name) {
+
+	DrugIDComparator cmp(name);
+	std::vector<CompressedDataColumn*>::iterator found = std::find_if(
+			allColumns.begin(), allColumns.end(), cmp);
+	if (found != allColumns.end()) {
+		return std::distance(allColumns.begin(), found);
+	} else {
+		return -1;
+	}
+}
+
 void CompressedDataMatrix::printColumn(int column) {
 #if 1
 	cerr << "Not yet implemented.\n";

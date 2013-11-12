@@ -226,6 +226,8 @@ public:
 		return *(allColumns[column]);
 	}
 	
+	int getColumnIndexByName(DrugIdType name);
+
 	void push_back(FormatType colFormat) {
 		if (colFormat == DENSE) {
 			real_vector* r = new real_vector();

@@ -11,8 +11,10 @@
 #include "CompressedDataMatrix.h"
 #include "ModelData.h"
 #include "AbstractModelSpecifics.h"
+#include "priors/JointPrior.h"
 
 #include <Eigen/Dense>
+#include <deque>
 
 namespace bsccs {
 
@@ -93,7 +95,8 @@ public:
 	
 	CyclicCoordinateDescent(
 			ModelData* modelData,
-			AbstractModelSpecifics& specifics
+			AbstractModelSpecifics& specifics,
+			priors::JointPrior& prior
 //			ModelSpecifics<DefaultModel>& specifics
 		);
 
@@ -191,6 +194,7 @@ public:
 protected:
 	
 	AbstractModelSpecifics& modelSpecifics;
+	priors::JointPrior& jointPrior;
 //	ModelSpecifics<DefaultModel>& modelSpecifics;
 //private:
 	
@@ -262,6 +266,8 @@ protected:
 	template <class IteratorType>
 	void axpy(real* y, const real alpha, const int index);
 
+	void axpyXBeta(const real beta, const int index);
+
 	virtual void getDenominators(void);
 
 	double computeLogLikelihood(void);
@@ -299,9 +305,11 @@ protected:
 	template <class T>
 	void printVector(T* vector, const int length, ostream &os);
 	
-	double oneNorm(real* vector, const int length);
+	template <typename Real>
+	double oneNorm(Real* vector, const int length);
 	
-	double twoNormSquared(real * vector, const int length); 
+	template <typename Real>
+	double twoNormSquared(Real * vector, const int length);
 	
 	int sign(double x); 
 	
@@ -324,10 +332,13 @@ protected:
 	int* hPid;
 	int** hXColumnRowIndicators; // J-vector
  	
-	real* hBeta;
+//	real* hBeta;
+	typedef std::vector<real> RealVector;
+	typedef std::vector<double> DoubleVector;
+	DoubleVector hBeta;
 	real* hXBeta;
 	real* hXBetaSave;
-	real* hDelta;
+	double* hDelta;
 	std::vector<bool> fixBeta;
 
 	int N; // Number of patients
@@ -341,7 +352,7 @@ protected:
 	double sigma2Beta;
 	double lambda;
 
-	real denomNullValue;
+//	real denomNullValue;
 
 	bool sufficientStatisticsKnown;
 	bool xBetaKnown;
@@ -383,6 +394,11 @@ protected:
 
 	typedef std::map<int, int> IndexMap;
 	IndexMap hessianIndexMap;
+
+	typedef std::pair<int, real> SetBetaEntry;
+	typedef std::deque<SetBetaEntry> SetBetaContainer;
+
+	SetBetaContainer setBetaList;
 };
 
 double convertVarianceToHyperparameter(double variance);

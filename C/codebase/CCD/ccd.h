@@ -71,6 +71,10 @@ struct CCDArguments {
 	std::string modelName;
 
 	NoiseLevels noiseLevel;
+
+
+	typedef std::vector<DrugIdType> ProfileVector;
+	ProfileVector profileCI;
 };
 
 

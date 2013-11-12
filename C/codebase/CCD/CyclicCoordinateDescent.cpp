@@ -49,9 +49,9 @@ void compareIntVector(int* vec0, int* vec1, int dim, const char* name) {
 
 CyclicCoordinateDescent::CyclicCoordinateDescent(
 			ModelData* reader,
-			AbstractModelSpecifics& specifics
-//			ModelSpecifics<DefaultModel>& specifics
-		) : modelSpecifics(specifics) {
+			AbstractModelSpecifics& specifics,
+			priors::JointPrior& prior
+		) : modelSpecifics(specifics), jointPrior(prior) {
 	N = reader->getNumberOfPatients();
 	K = reader->getNumberOfRows();
 	J = reader->getNumberOfColumns();
@@ -63,7 +63,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	hPid = reader->getPidVector();
 
 	conditionId = reader->getConditionId();
-	denomNullValue = static_cast<real>(0.0);
+//	denomNullValue = static_cast<real>(0.0);
 
 	updateCount = 0;
 	likelihoodCount = 0;
@@ -79,6 +79,7 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 //	free(hY);
 //	free(hOffs);
 	
+//	free(hBeta);
 	free(hXBeta);
 	free(hXBetaSave);
 	free(hDelta);
@@ -149,8 +150,9 @@ void CyclicCoordinateDescent::resetBounds() {
 void CyclicCoordinateDescent::init(bool offset) {
 	
 	// Set parameters and statistics space
-	hDelta = (real*) malloc(J * sizeof(real));
-	hBeta = (real*) calloc(J, sizeof(real)); // Fixed starting state
+	hDelta = (double*) malloc(J * sizeof(double));
+//	hBeta = (real*) calloc(J, sizeof(real)); // Fixed starting state
+	hBeta.resize(J, static_cast<double>(0.0));
 	hXBeta = (real*) calloc(K, sizeof(real));
 	hXBetaSave = (real*) calloc(K, sizeof(real));
 	fixBeta.resize(J);
@@ -216,7 +218,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 	fisherInformationKnown = false;
 	varianceKnown = false;
 	if (offset) {
-		hBeta[0] = static_cast<real>(1);
+		hBeta[0] = static_cast<double>(1);
 		fixBeta[0] = true;
 		xBetaKnown = false;
 	} else {
@@ -242,7 +244,8 @@ void CyclicCoordinateDescent::init(bool offset) {
 			hXjY, &sparseIndices,
 			hPid, offsExpXBeta,
 			hXBeta, hOffs,
-			hBeta,
+//			&hBeta[0],
+			NULL,
 			hY//,
 //			hWeights
 			);
@@ -325,10 +328,13 @@ double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
 
 	if (!xBetaKnown) {
 		computeXBeta();
+		xBetaKnown = true;
+		sufficientStatisticsKnown = false;
 	}
 
 	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics(true, 0); // TODO Remove index????
+		sufficientStatisticsKnown = true;
 	}
 
 	getDenominators();
@@ -376,14 +382,20 @@ void CyclicCoordinateDescent::setFixedBeta(int i, bool value) {
 void CyclicCoordinateDescent::checkAllLazyFlags(void) {
 	if (!xBetaKnown) {
 		computeXBeta();
+		xBetaKnown = true;
+		sufficientStatisticsKnown = false;
 	}
 
 	if (!validWeights) {
 		computeNEvents();
+		computeFixedTermsInLogLikelihood();
+		computeFixedTermsInGradientAndHessian();
+		validWeights = true;
 	}
 
 	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics(true, 0); // TODO Check index?
+		sufficientStatisticsKnown = true;
 	}
 }
 
@@ -441,7 +453,7 @@ void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 
 void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
 	for (int j = 0; j < J; ++j) {
-		hBeta[j] = static_cast<real>(beta[j]);
+		hBeta[j] = beta[j]; // TODO Use std::copy
 	}
 	xBetaKnown = false;
 	sufficientStatisticsKnown = false;
@@ -450,13 +462,16 @@ void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
 }
 
 void CyclicCoordinateDescent::setBeta(int i, double beta) {
-//	sufficientStatisticsKnown = false;
-//	double delta = beta - hBeta[i];
-//	updateSufficientStatistics(delta, i);
-
-	hBeta[i] = static_cast<real>(beta);
+#define PROCESS_IN_MS
+#ifdef PROCESS_IN_MS
+	double delta = beta - hBeta[i];
+	updateXBeta(delta, i);
+#else // Delay and then call computeSufficientStatistics
+	SetBetaEntry entry(i, hBeta[i]);
+	setBetaList.push_back(entry); // save old value and index
+	hBeta[i] = beta;
 	xBetaKnown = false;
-	sufficientStatisticsKnown = false;
+#endif
 	fisherInformationKnown = false;
 	varianceKnown = false;
 }
@@ -493,9 +508,9 @@ double CyclicCoordinateDescent::getLogPrior(void) {
 		value = 0.0;
 	}
 	else if (priorType == LAPLACE) {
-		value = J * log(0.5 * lambda) - lambda * oneNorm(hBeta, J);
+		value = J * log(0.5 * lambda) - lambda * oneNorm(&hBeta[0], J);
 	} else {
-		value = -0.5 * J * log(2.0 * PI * sigma2Beta) - 0.5 * twoNormSquared(hBeta, J) / sigma2Beta;
+		value = -0.5 * J * log(2.0 * PI * sigma2Beta) - 0.5 * twoNormSquared(&hBeta[0], J) / sigma2Beta;
 	}
 	// TODO INTERCEPT
 // 	if (priorType == LAPLACE) {
@@ -642,7 +657,7 @@ void CyclicCoordinateDescent::update(
 
 			if (noiseLevel > QUIET) {
 				cout << endl;
-				printVector(hBeta, J, cout);
+				printVector(&hBeta[0], J, cout);
 				cout << endl;
 				cout << "log post: " << thisLogPost
 						<< " (" << thisLogLikelihood << " + " << thisLogPrior
@@ -826,7 +841,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 
 	// Move into separate delegate-function (below)
 
-//	if (index > 0) { // TODO Bad hard coding, INTERCEPT
+	if (true /*index != 14*/) { // TODO Bad hard coding, INTERCEPT
 
 	if (priorType == NORMAL) {
 
@@ -870,9 +885,9 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 		delta = -g_d1 / g_d2; // No regularization
 	}
 
-//	} else { // TODO INTERCEPT
-//		delta = -g_d1 / g_d2;
-//	}
+	} else { // TODO INTERCEPT
+		delta = -g_d1 / g_d2;
+	}
 	
 	return delta;
 }
@@ -886,32 +901,41 @@ void CyclicCoordinateDescent::axpy(real* y, const real alpha, const int index) {
 	}
 }
 
+void CyclicCoordinateDescent::axpyXBeta(const real beta, const int j) {
+	if (beta != static_cast<real>(0.0)) {
+		switch (hXI->getFormatType(j)) {
+		case INDICATOR:
+			axpy < IndicatorIterator > (hXBeta, beta, j);
+			break;
+		case DENSE:
+			axpy < DenseIterator > (hXBeta, beta, j);
+			break;
+		case SPARSE:
+			axpy < SparseIterator > (hXBeta, beta, j);
+			break;
+		default:
+			// throw error
+			exit(-1);
+		}
+	}
+}
+
 void CyclicCoordinateDescent::computeXBeta(void) {
 	// Note: X is current stored in (sparse) column-major format, which is
 	// inefficient for forming X\beta.
 	// TODO Make row-major version of X
 
-	// clear X\beta
-	zeroVector(hXBeta, K);
-
-	// Update one column at a time (poor cache locality)
-	for (int j = 0; j < J; ++j) {
-		const real beta = hBeta[j];
-		if (beta != static_cast<real>(0)) {
-			switch (hXI->getFormatType(j)) {
-			case INDICATOR:
-				axpy<IndicatorIterator>(hXBeta, beta, j);
-				break;
-			case DENSE:
-				axpy<DenseIterator>(hXBeta, beta, j);
-				break;
-			case SPARSE:
-				axpy<SparseIterator>(hXBeta, beta, j);
-				break;
-			default:
-				// throw error
-				exit(-1);
-			}
+	if (setBetaList.empty()) { // Update all
+		// clear X\beta
+		zeroVector(hXBeta, K);
+		for (int j = 0; j < J; ++j) {
+			axpyXBeta(hBeta[j], j);
+		}
+	} else {
+		while (!setBetaList.empty()) {
+			SetBetaEntry entry = setBetaList.front();
+			axpyXBeta(hBeta[entry.first] - entry.second, entry.first);
+			setBetaList.pop_front();
 		}
 	}
 }
@@ -919,7 +943,7 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
 	// Update beta
 	real realDelta = static_cast<real>(delta);
-	hBeta[index] += realDelta;
+	hBeta[index] += delta;
 
 	// Delegate
 	modelSpecifics.updateXBeta(realDelta, index, useCrossValidation);
@@ -938,7 +962,8 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 	}
 }
 
-double CyclicCoordinateDescent::oneNorm(real* vector, const int length) {
+template <typename Real>
+double CyclicCoordinateDescent::oneNorm(Real* vector, const int length) {
 	double norm = 0;
 	for (int i = 0; i < length; i++) {
 		norm += abs(vector[i]);
@@ -946,7 +971,8 @@ double CyclicCoordinateDescent::oneNorm(real* vector, const int length) {
 	return norm;
 }
 
-double CyclicCoordinateDescent::twoNormSquared(real * vector, const int length) {
+template <typename Real>
+double CyclicCoordinateDescent::twoNormSquared(Real * vector, const int length) {
 	double norm = 0;
 	for (int i = 0; i < length; i++) {
 		norm += vector[i] * vector[i];
@@ -987,8 +1013,6 @@ void CyclicCoordinateDescent::computeFixedTermsInGradientAndHessian(void) {
 	// Delegate
 	modelSpecifics.computeFixedTermsInGradientAndHessian(useCrossValidation);
 }
-
-
 
 template <class T>
 void CyclicCoordinateDescent::printVector(T* vector, int length, ostream &os) {

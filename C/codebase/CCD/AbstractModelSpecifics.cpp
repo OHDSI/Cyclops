@@ -79,7 +79,7 @@ void AbstractModelSpecifics::initialize(
 	hXBeta = iXBeta;
 	hOffs = iOffs;
 
-	hBeta = iBeta;
+//	hBeta = iBeta;
 
 //	hY = iY;
 

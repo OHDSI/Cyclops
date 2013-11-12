@@ -204,12 +204,25 @@ void ImputeVariables::initializeCCDModel(int col){
 	else										//Logistic Regression
 		model = new ModelSpecifics<LogisticRegression<real>,real>(*modelData);
 
-	ccd = new CyclicCoordinateDescent(modelData, *model);
+	using namespace bsccs::priors;
+	PriorPtr covariatePrior;
+	if (arguments.useNormalPrior) {
+		covariatePrior = std::make_shared<NormalPrior>();
+	} else {
+		covariatePrior = std::make_shared<LaplacePrior>();
+	}
 
-	if(arguments.useNormalPrior)
-		ccd->setPriorType(NORMAL);
-	if(arguments.hyperPriorSet)
-		ccd->setHyperprior(arguments.hyperprior);
+	if (arguments.hyperPriorSet) {
+		covariatePrior->setVariance(arguments.hyperprior);
+	}
+
+	JointPriorPtr prior(new priors::FullyExchangeableJointPrior(covariatePrior));
+	ccd = new CyclicCoordinateDescent(modelData, *model, *prior);
+
+//	if(arguments.useNormalPrior)
+//		ccd->setPriorType(NORMAL);
+//	if(arguments.hyperPriorSet)
+//		ccd->setHyperprior(arguments.hyperprior);
 }
 
 void ImputeVariables::randomizeImputationsLR(vector<real> yPred, vector<real> weights, int col){
