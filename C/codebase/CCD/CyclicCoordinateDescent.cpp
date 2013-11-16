@@ -727,7 +727,7 @@ void CyclicCoordinateDescent::computeAsymptoticVarianceMatrix(void) {
 
 	int index = 0;
 	for (int j = 0; j < J; ++j) {
-		if (!fixBeta[j]) {
+		if (getBeta(j) != 0.0) {
 			indices.push_back(j);
 			hessianIndexMap[j] = index;
 			index++;
@@ -812,12 +812,12 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 		
 		if (signBetaIndex == 0) {
 						
-			if (neg_update < 0) {
+			if (neg_update < 0.0) {
 				delta = neg_update;
-			} else if (pos_update > 0) {
+			} else if (pos_update > 0.0) {
 				delta = pos_update;
 			} else {
-				delta = 0;
+				delta = 0.0;
 			}
 		} else { // non-zero entry
 			

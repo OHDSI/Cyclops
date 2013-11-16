@@ -335,14 +335,11 @@ std::pair<real,real> computeHowardRecursion(UIteratorType itExpXBeta, SparseIter
 		++itX;
 	}
 #else
-//	UIteratorType itU = itExpXBeta;
-//	SparseIteratorType itV = itX;
 	for (int n = 1; n <= numSubjects; ++n) {
-		for (int m = std::min(1,n-1); m <= numCases; ++m) {
+		for (int m = 1 /*std::min(1,n-1)*/; m <= numCases; ++m) {
 			 B[index(m,n)] =  B[index(m,n-1)] + (*itExpXBeta) *  B[index(m-1,n-1)]; // Equation (3)
 			dB[index(m,n)] = dB[index(m,n-1)] + (*itExpXBeta) * dB[index(m-1,n-1)] + (*itX) * (*itExpXBeta) * B[index(m-1,n-1)]; // Equation (6)
 		}
-//		++itU; ++itV;
 		++itExpXBeta; ++itX;
 	}
 #endif

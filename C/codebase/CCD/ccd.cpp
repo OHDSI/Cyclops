@@ -163,6 +163,7 @@ void setDefaultArguments(CCDArguments &arguments) {
 	//arguments.outputFormat = "estimates";
 	arguments.computeMLE = false;
 	arguments.fitMLEAtMode = false;
+	arguments.reportASE = false;
 	arguments.useNormalPrior = false;
 	arguments.convergenceType = GRADIENT;
 	arguments.convergenceTypeString = "gradient";
@@ -189,6 +190,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		SwitchArg normalPriorArg("n", "normalPrior", "Use normal prior, default is laplace", arguments.useNormalPrior);
 		SwitchArg computeMLEArg("", "MLE", "Compute maximum likelihood estimates only", arguments.computeMLE);
 		SwitchArg computeMLEAtModeArg("", "MLEAtMode", "Compute maximum likelihood estimates at posterior mode", arguments.fitMLEAtMode);
+		SwitchArg reportASEArg("","ASE", "Compute asymptotic standard errors at posterior mode", arguments.reportASE);
 
 		// Convergence criterion arguments
 		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, arguments.tolerance, "real");
@@ -265,6 +267,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(normalPriorArg);
 		cmd.add(computeMLEArg);
 		cmd.add(computeMLEAtModeArg);
+		cmd.add(reportASEArg);
 //		cmd.add(zhangOlesConvergenceArg);
 		cmd.add(convergenceArg);
 		cmd.add(seedArg);
@@ -309,6 +312,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		arguments.useNormalPrior = normalPriorArg.getValue();
 		arguments.computeMLE = computeMLEArg.getValue();
 		arguments.fitMLEAtMode = computeMLEAtModeArg.getValue();
+		arguments.reportASE = reportASEArg.getValue();
 		arguments.seed = seedArg.getValue();
 
 		arguments.modelName = modelArg.getValue();
@@ -765,7 +769,7 @@ int main(int argc, char* argv[]) {
 			!= arguments.outputFormat.end()) {
 #ifndef MY_RCPP_FLAG
 		// TODO Make into OutputWriter
-		bool withASE = arguments.fitMLEAtMode ||arguments.computeMLE;
+		bool withASE = arguments.fitMLEAtMode || arguments.computeMLE || arguments.reportASE;
 		string fileName;
 		if (arguments.outputFormat.size() == 1) {
 			fileName = arguments.outFileName;
