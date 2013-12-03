@@ -36,7 +36,7 @@ namespace bsccs {
 MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
 	MCMCFileNameRoot = MCMCFileName;
 	thinningValueForWritingToFile = 1000;
-	maxIterations = 3000;
+	maxIterations = 3000000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
 	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies
@@ -116,9 +116,9 @@ void MCMCDriver::initialize(double betaAmount, Model & model, CyclicCoordinateDe
 
 void MCMCDriver::logState(Model & model, int iteration){
 	//cout << "\n MCMCDriver::logState" << endl;
-	MCMCResults_SigmaSquared.push_back(model.getSigmaSquared().returnCurrentValues()[0]);
+	//MCMCResults_SigmaSquared.push_back(model.getSigmaSquared().returnCurrentValues()[0]);
 	//model.getSigmaSquared().logParameter();
-	MCMCResults_BetaVectors.push_back(model.getBeta().returnCurrentValues());
+	//MCMCResults_BetaVectors.push_back(model.getBeta().returnCurrentValues());
 	//model.getBeta().logParameter();
 	double loglikelihoodHere = model.getLogLikelihood();
 	//cerr << "loglikelihood = " << loglikelihoodHere << endl;
@@ -127,6 +127,7 @@ void MCMCDriver::logState(Model & model, int iteration){
 	MCMCResults_loglikelihoods.push_back(model.getLogLikelihood());
 	//cout << "MCMCDriver::logState end" << endl;
 	if (iteration % thinningValueForWritingToFile == 0){
+		//cout << "logging" << endl;
 		intervalsToReport.fileLogCredibleIntervals(model.getLogLikelihood(), &(model.getBeta().returnCurrentValues()), model.getSigmaSquared().returnCurrentValues()[0], iteration);
 	}
 }

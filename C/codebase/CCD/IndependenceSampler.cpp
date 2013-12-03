@@ -50,7 +50,7 @@ void IndependenceSampler::sample(Model& model, double tuningParameter, boost::mt
 	model.BetaStore();
 	Parameter & Beta = model.getBeta();
 	Parameter & Beta_Hat = model.getBeta_Hat();
-	Eigen::LLT<Eigen::MatrixXf> choleskyEigen = model.getCholeskyLLT();
+	//Eigen::LLT<Eigen::MatrixXf> choleskyEigen = model.getCholeskyLLT();
 
 
 	int sizeOfSample = Beta.getSize();
@@ -77,7 +77,7 @@ void IndependenceSampler::sample(Model& model, double tuningParameter, boost::mt
 	cout << CholeskyDecompL << endl;
 #endif
 
-	(choleskyEigen.matrixU()).solveInPlace(b);
+	((model.getCholeskyLLT()).matrixU()).solveInPlace(b);
 
 	// TODO Check marginal variance on b[i]
 

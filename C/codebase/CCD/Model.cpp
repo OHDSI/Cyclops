@@ -85,6 +85,7 @@ namespace bsccs {
 
  void Model::clearHessian() {
 
+
  	for (int i = 0; i < J; i ++){
  		for (int j = 0; j < J; j++) {
  			hessian[j][i] = 0;

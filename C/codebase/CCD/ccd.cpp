@@ -324,7 +324,7 @@ double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	ccd->update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+	ccd->update_MM(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 
 	gettimeofday(&time2, NULL);
 
@@ -458,10 +458,10 @@ int main(int argc, char* argv[]) {
 	cout << "Update duration: " << scientific << timeUpdate << endl;
 	
 
-	MCMCDriver testMCMCDriver(reader, arguments.MCMCFileName);
+	//MCMCDriver testMCMCDriver(reader, arguments.MCMCFileName);
 
-	cout << "betaAmount = " << arguments.betaAmount << endl;
-	testMCMCDriver.drive(*ccd, arguments.betaAmount, arguments.seed);
+	//cout << "betaAmount = " << arguments.betaAmount << endl;
+	//testMCMCDriver.drive(*ccd, arguments.betaAmount, arguments.seed);
 
 	if (ccd)
 		delete ccd;

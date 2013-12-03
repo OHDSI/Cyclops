@@ -104,6 +104,9 @@ public:
 		
 	void update(int maxIterations, int convergenceType, double epsilon);
 
+	void update_MM(int maxIterations, int convergenceType, double epsilon);
+
+
 	virtual void resetBeta(void);
 
 	// Setters
@@ -202,11 +205,24 @@ protected:
 			double *gradient,
 			double *hessian);
 
+	virtual void computeGradientAndHessian_MM(
+			int index,
+			double *gradient,
+			double *hessian);
+
+
 	template <class IteratorType>
 	void computeGradientAndHessianImpl(
 			int index,
 			double *gradient,
 			double *hessian);
+
+	template <class IteratorType>
+	void computeGradientAndHessianImpl_sccsMM(
+			int index,
+			double *gradient,
+			double *hessian);
+
 
 	void computeGradientAndHessianImplHand(
 			int index,
@@ -231,6 +247,7 @@ protected:
 	double computeLogLikelihood(void);
 
 	double ccdUpdateBeta(int index);
+	double ccdUpdateBeta_MM(int index);
 	
 	double applyBounds(
 			double inDelta,
