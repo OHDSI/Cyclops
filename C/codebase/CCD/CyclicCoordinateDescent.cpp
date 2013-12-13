@@ -937,8 +937,8 @@ void CyclicCoordinateDescent::update_MM(
 		for(int index = 0; index < J; index++) {
 
 			double delta = ccdUpdateBeta_MM(index);
-			cout << "in update_MM delta for drug " << index << " = " << delta << endl;
-			delta = applyBounds(delta, index);
+			//cout << "in update_MM delta for drug " << index << " = " << delta << endl;
+			//delta = applyBounds(delta, index);
 			deltas[index] = delta;
 		}
 
@@ -976,7 +976,7 @@ void CyclicCoordinateDescent::update_MM(
 			if (epsilon > 0 && conv < epsilon) {
 				cout << "Reached convergence criterion" << endl;
 				done = true;
-			} else if (iteration == 2) {
+			} else if (iteration == 200) {
 				cout << "Reached maximum iterations" << endl;
 				done = true;
 			} else {
@@ -1166,7 +1166,7 @@ template <class IteratorType>
 void CyclicCoordinateDescent::computeGradientAndHessianImpl_sccsMM(int index, double *ogradient,
 		double *ohessian) {
 	bsccs::real gradient = 0;
-	//bsccs::real hessian = 0;
+	bsccs::real hessian = 0;
 
 
 	//cout << "computeGradientAndHessianImpl_sccsMM" << endl;
@@ -1186,7 +1186,7 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl_sccsMM(int index, do
 		int n_i = hNEvents[hPid[currentObservation]];
 		int y_ik = hEta[currentObservation];
 		gradient += y_ik - t_ik*n_i/denomPid[hPid[currentObservation]];
-//#ifdef debugMM
+#ifdef debugMM
 		cout << "gradient = " << gradient << endl;
 		cout << "hPid[currentObservation] = " << hPid[currentObservation] << endl;
 		cout << "denomPid[hPid[currentObservation]] = " << denomPid[hPid[currentObservation]] <<  endl;
@@ -1194,25 +1194,11 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl_sccsMM(int index, do
 		cout << "n_i = " << n_i << endl;
 		cout << "y_ik = " << y_ik << endl;
 		cout << "y_ik - t_ik*n_i/denomPid[hPid[currentObservation]] = " << y_ik - t_ik*n_i/denomPid[hPid[currentObservation]] << endl;
-//#endif
+#endif
+
+		hessian -= n_i*hXI_Transpose.getNumberOfEntries(currentObservation)/denomPid[hPid[currentObservation]];
 	}
 
-	bsccs::real gradient2 = 0;
-	bsccs::real hessian = 0;
-
-
-
-	IteratorType it(*sparseIndices[index], N); // TODO How to create with different constructor signatures?
-	for (; it; ++it) {
-		const int k = it.index();
-		incrementGradientAndHessian<IteratorType>(
-				&gradient2, &hessian,
-				numerPid[k], numerPid2[k], denomPid[k], hNEvents[k]
-		);
-	}
-
-	// Denominator does not
-	//gradient -= hXjEta[index];
 
 
 
@@ -1330,10 +1316,10 @@ double CyclicCoordinateDescent::ccdUpdateBeta_MM(int index) {
 	computeGradientAndHessian_MM(index, &g_d1, &g_d2);
 
 	// Just do Normal to start
-	cout << "in ccdUpdateBeta_MM, gradient = " << g_d1 << endl;
-	cout << "in ccdUpdateBeta_MM, hessian = " << g_d2 << endl;
+	//cout << "in ccdUpdateBeta_MM, gradient = " << g_d1 << endl;
+	//cout << "in ccdUpdateBeta_MM, hessian = " << g_d2 << endl;
 	delta =  - (g_d1 + (hBeta[index] / sigma2Beta)) /
-				  (g_d2 + (1.0 / sigma2Beta));
+				  (10*g_d2 + (1.0 / sigma2Beta));
 
 
 	//cout << "delta in ccdUpdateBeta_MM = " << delta << endl;
