@@ -14,6 +14,8 @@
 //#include "Rcpp.h"
 #endif
 
+#include <memory>
+
 namespace bsccs {
 namespace priors {
 

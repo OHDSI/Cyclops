@@ -10,13 +10,14 @@
 
 #include "BaseInputReader.h"
 #include "Types.h"
+#include "InputOutputSystem.h"
 
 namespace bsccs {
 
 class NewGenericInputReader : public BaseInputReader<NewGenericInputReader> {
 public:
 
-	NewGenericInputReader() : BaseInputReader<NewGenericInputReader>()
+	NewGenericInputReader(DataSource* dataSource) : BaseInputReader<NewGenericInputReader>(dataSource)
 		, upcastToDense(false)
 		, upcastToSparse(false)
 		, useBBROutcome(false)
@@ -34,7 +35,7 @@ public:
 		// Do nothing
 	}
 
-	NewGenericInputReader(const bsccs::Models::ModelType model) : BaseInputReader<NewGenericInputReader>()
+	NewGenericInputReader(const bsccs::Models::ModelType model, DataSource* dataSource) : BaseInputReader<NewGenericInputReader>(dataSource)
 		, upcastToDense(false)
 		, upcastToSparse(false)
 		, useBBROutcome(false)
@@ -118,11 +119,15 @@ public:
 		parseAllBBRCovariatesEntry(ss, rowInfo, indicatorOnly);
 	}
 
-	void parseHeader(ifstream& in) {
-		int firstChar = in.peek();
+	/*void parseHeader(ifstream& in) {
+		int firstChar = in.peek();*/
+	void parseHeader() {
+		int firstChar = dataSource->peek();
 		if (firstChar == '#') { // There is a header
 			string line;
-			getline(in, line);
+			//getline(in, line);
+			dataSource->getLine(line);
+
 			upcastToDense = includesOption(line, "dense");
 			upcastToSparse = includesOption(line, "sparse");
 			useBBROutcome = includesOption(line, "bbr_outcome");

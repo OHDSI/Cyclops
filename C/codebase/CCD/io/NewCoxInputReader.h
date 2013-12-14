@@ -16,6 +16,10 @@ namespace bsccs {
 
 class NewCoxInputReader : public BaseInputReader<NewCoxInputReader> {
 public:
+	NewCoxInputReader(DataSource* dataSource) : BaseInputReader<NewCoxInputReader>(dataSource)
+	{
+	}
+
 	inline void parseRow(stringstream& ss, RowInformation& rowInfo) {		
 		parseNoStratumEntry(ss, rowInfo);
 		parseSingleTimeEntry<float>(ss, rowInfo);
@@ -23,7 +27,7 @@ public:
 		parseAllBBRCovariatesEntry(ss, rowInfo, false);
 	}
 	
-	void parseHeader(ifstream& in) {
+	void parseHeader(/*ifstream& in*/) {
 		// Do nothing
 	}
 

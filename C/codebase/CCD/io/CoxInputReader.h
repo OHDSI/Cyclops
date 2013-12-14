@@ -14,7 +14,7 @@ namespace bsccs {
 
 class CoxInputReader : public InputReader {
 public:
-	CoxInputReader();
+	CoxInputReader(DataSource* dataSource);
 	virtual ~CoxInputReader();
 
 	virtual void readFile(const char* fileName);

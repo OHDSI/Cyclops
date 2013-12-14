@@ -17,6 +17,7 @@
 
 #include "SCCSInputReader.h"
 #include "SparseIndexer.h"
+#include "io/InputOutputSystem.h"
 
 namespace bsccs {
 
@@ -47,8 +48,9 @@ stringstream& operator>> (stringstream &in, int &out) {
 
 using namespace std;
 
-SCCSInputReader::SCCSInputReader() : InputReader() {
+SCCSInputReader::SCCSInputReader(DataSource* dataSource) : InputReader() {
 	// Do nothing
+	this->dataSource = dataSource;
 }
 
 SCCSInputReader::~SCCSInputReader() {
@@ -56,14 +58,16 @@ SCCSInputReader::~SCCSInputReader() {
 }
 
 void SCCSInputReader::readFile(const char* fileName) {
-	ifstream in(fileName);
+	/*ifstream in(fileName);
 	if (!in) {
 		cerr << "Unable to open " << fileName << endl;
 		exit(-1);
-	}
+	}*/
+	dataSource->open(fileName);
 
 	string line;
-	getline(in, line); // Read header
+	//getline(in, line); // Read header
+	dataSource->getLine(line);
 
 	if ((line.compare(0, MATCH_LENGTH_1, FORMAT_MATCH_1) != 0) &&
 			(line.compare(0, MATCH_LENGTH_2, FORMAT_MATCH_2) != 0)) {
@@ -88,7 +92,7 @@ void SCCSInputReader::readFile(const char* fileName) {
 	DrugIdType noDrug = NO_DRUG;
 
 	int currentEntry = 0;
-	while (getline(in, line) && (currentEntry < MAX_ENTRIES)) {	
+	while (/*getline(in, line)*/ dataSource->getLine(line) && (currentEntry < MAX_ENTRIES)) {	
 		if (!line.empty()) {
 
 			stringstream ss(line.c_str()); // Tokenize
@@ -150,6 +154,7 @@ void SCCSInputReader::readFile(const char* fileName) {
 			currentEntry++;
 		}
 	}
+	dataSource->close();
 
 	modelData->nevents.push_back(numEvents); // Save last patient
 

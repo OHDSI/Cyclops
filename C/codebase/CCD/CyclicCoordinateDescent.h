@@ -18,6 +18,8 @@
 
 namespace bsccs {
 
+class OutputLocation;
+
 using std::cout;
 using std::cerr;
 using std::endl;
@@ -109,7 +111,7 @@ public:
 			int* inPid
 		);
 	
-	void logResults(const char* fileName, bool withASE);
+	void logResults(OutputLocation* outputLocation, bool withASE);
 
 	virtual ~CyclicCoordinateDescent();
 	

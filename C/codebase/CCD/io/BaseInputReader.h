@@ -12,7 +12,8 @@
 
 #include "InputReader.h"
 #include "SparseIndexer.h"
- 
+#include "InputOutputSystem.h"
+
 #define MAX_ENTRIES		1000000000
 #define MISSING_STRING	"NA"
 
@@ -61,8 +62,9 @@ public:
 	typedef std::vector<int> int_vector;
 	typedef std::vector<string> string_vector;
 
-	BaseInputReader() : innerDelimitor(":") {
+	BaseInputReader(DataSource* dataSource) : innerDelimitor(":") {
 		// Do nothing
+		this->dataSource = dataSource;
 	}
 
 	virtual ~BaseInputReader() {
@@ -70,22 +72,20 @@ public:
 	}
 
 	virtual void readFile(const char* fileName) {
-		ifstream in(fileName);
-		if (!in) {
-			cerr << "Unable to open " << fileName << endl;
-			exit(-1);
-		}
+		dataSource->open(fileName);
 
 		// Initial values
 		RowInformation rowInfo(0,0,0, MISSING_STRING, MISSING_STRING, *modelData);
 		string line;
 
 		try {
-			static_cast<DerivedFormat*>(this)->parseHeader(in);
+			static_cast<DerivedFormat*>(this)->parseHeader();
 
 			static_cast<DerivedFormat*>(this)->addFixedCovariateColumns();
 
-			while (getline(in, line) && (rowInfo.currentRow < MAX_ENTRIES)) {
+			bool result;
+			
+			while (dataSource->getLine(line)  && (rowInfo.currentRow < MAX_ENTRIES)) {
 				if (!line.empty()) {
 					stringstream ss(line.c_str()); // Tokenize
 					static_cast<DerivedFormat*>(this)->parseRow(ss, rowInfo);
@@ -93,9 +93,10 @@ public:
 				}
 			}
 			addEventEntry(rowInfo.numEvents); // Save last patient
-
+			dataSource->close();
 		} catch (...) {
 			cerr << "Exception while trying to read " << fileName << endl;
+			dataSource->close();
 			exit(-1);
 		}
 		
@@ -113,11 +114,11 @@ public:
 	}	 
 	
 protected:
-	void parseHeader(ifstream& in) {
+	void parseHeader() {
 		string line;
-		getline(in, line); // Read header
+		dataSource->getLine(line); // Read header
 	}
-	
+
 	void upcastColumns(ModelData* modelData, RowInformation& rowInfo) {
 		// Do nothing
 	}

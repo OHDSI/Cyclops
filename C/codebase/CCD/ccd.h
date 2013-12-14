@@ -48,6 +48,10 @@ struct CCDArguments {
 	int convergenceType;
 	long seed;
 
+	std::string inputLocation;
+	std::string outputLocation;
+	std::string odbcConnectionName;
+
 	// Needed for cross-validation
 	bool doCrossValidation;
 	double lowerLimit;
@@ -77,6 +81,8 @@ struct CCDArguments {
 	ProfileVector profileCI;
 };
 
+const std::string fileLocation = "file";
+const std::string odbcLocation = "odbc";
 
 void parseCommandLine(
 		int argc,

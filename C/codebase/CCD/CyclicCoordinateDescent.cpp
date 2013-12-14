@@ -19,6 +19,8 @@
 #include "io/InputReader.h"
 #include "Iterators.h"
 
+#include "io/InputOutputSystem.h"
+
 //#ifdef MY_RCPP_FLAG
 //	#include <R.h>
 //#else
@@ -31,6 +33,13 @@
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
 #else
 //#include "Rcpp.h"
+#endif
+
+#ifdef WIN32
+    #ifndef NAN
+        static const unsigned long __nan[2] = {0xffffffff, 0x7fffffff};
+        #define NAN (*(const float *) __nan)
+    #endif
 #endif
 
 namespace bsccs {
@@ -292,36 +301,39 @@ void CyclicCoordinateDescent::resetBeta(void) {
 //
 //}
 
-void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
+string toString(double value)
+{
+    std::ostringstream out;
+    out << value;
+    return out.str();
+}
 
-	ofstream outLog(fileName);
-	if (!outLog) {
-		cerr << "Unable to open log file: " << fileName << endl;
-		exit(-1);
-	}
+void CyclicCoordinateDescent::logResults(OutputLocation* outputLocation, bool withASE) {
+	outputLocation->open();
 	string sep(","); // TODO Make option
 
-	outLog << "label"
-			<< sep << "estimate"
-			//<< sep << "score"
-			;
+	string s;
+	s = "label" + sep + "estimate";
+
 	if (withASE) {
-		outLog << sep << "ASE";
+		s += sep + "ASE";
 	}
-	outLog << endl;
+
+	s += '\n';
+	outputLocation->writeLine(s);
 
 	for (int i = 0; i < J; i++) {		
-		outLog << hXI->getColumn(i).getLabel()
-//				<< sep << conditionId
-				<< sep << hBeta[i];
+		s = hXI->getColumn(i).getLabel() + sep + toString(hBeta[i]);
+
 		if (withASE) {
 			double ASE = sqrt(getAsymptoticVariance(i,i));
-			outLog << sep << ASE;
+			s += sep + toString(ASE);
 		}
-		outLog << endl;
+		s += '\n';
+		outputLocation->writeLine(s);
 	}
-	outLog.flush();
-	outLog.close();
+
+	outputLocation->close();
 }
 
 double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {

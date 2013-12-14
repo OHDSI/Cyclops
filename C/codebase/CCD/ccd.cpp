@@ -5,6 +5,8 @@
  *      Author: msuchard
  */
  
+ 
+#define ODBC_ENABLED
 
 #include <iostream>
 #include <fstream>
@@ -47,6 +49,10 @@
 
 #include "tclap/CmdLine.h"
 #include "utils/RZeroIn.h"
+
+#ifdef ODBC_ENABLED
+    #include "io/InputOutputSystem.h"
+#endif
 
 //#include <R.h>
 
@@ -171,6 +177,9 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.convergenceTypeString = "gradient";
 	arguments.doPartial = false;
 	arguments.noiseLevel = NOISY;
+	
+	arguments.inputLocation = fileLocation;
+	arguments.outputLocation = fileLocation;
 }
 
 
@@ -224,6 +233,12 @@ void parseCommandLine(std::vector<std::string>& args,
 		ValueArg<int> replicatesArg("r", "replicates", "Number of bootstrap replicates", false, arguments.replicates, "int");
 		SwitchArg reportRawEstimatesArg("","raw", "Report the raw bootstrap estimates", arguments.reportRawEstimates);
 		ValueArg<int> partialArg("", "partial", "Number of rows to use in partial estimation", false, -1, "int");
+
+#ifdef ODBC_ENABLED
+		ValueArg<string> inputLocationArg("", "inputLocation", "Data source location: file or odbc", false, arguments.inputLocation, "inputLocation");
+		ValueArg<string> outputLocationArg("", "outputLocation", "Output location: file or odbc", false, arguments.outputLocation, "outputLocation");
+		ValueArg<string> odbcConnectionName("", "odbcConnectionName", "Name of odbc connection", false, arguments.odbcConnectionName, "odbcConnectionName");
+#endif
 
 		// Model arguments
 //		SwitchArg doLogisticRegressionArg("", "logistic", "Use ordinary logistic regression", arguments.doLogisticRegression);
@@ -301,6 +316,13 @@ void parseCommandLine(std::vector<std::string>& args,
 
 		cmd.add(inFileArg);
 		cmd.add(outFileArg);
+
+#ifdef ODBC_ENABLED
+		cmd.add(inputLocationArg);
+		cmd.add(outputLocationArg);
+		cmd.add(odbcConnectionName);
+#endif
+
 		cmd.parse(args);
 
 		if (gpuArg.getValue() > -1) {
@@ -330,6 +352,12 @@ void parseCommandLine(std::vector<std::string>& args,
 			arguments.outputFormat.push_back("estimates");
 		}
 		arguments.profileCI = profileCIArg.getValue();
+
+#ifdef ODBC_ENABLED
+		arguments.inputLocation = inputLocationArg.getValue();
+		arguments.outputLocation = outputLocationArg.getValue();
+		arguments.odbcConnectionName = odbcConnectionName.getValue();
+#endif
 
 		arguments.convergenceTypeString = convergenceArg.getValue();
 
@@ -440,23 +468,34 @@ double initializeModel(
 	}
 
 	InputReader* reader;
+	
+#ifdef ODBC_ENABLED	
+	DataSource* dataSource;
+	if (arguments.inputLocation == odbcLocation) {
+		dataSource = new OdbcDataSource(arguments.odbcConnectionName.c_str(), arguments.inFileName.c_str());
+	}
+	else {
+		dataSource = new FileDataSource();
+	}
+#endif
+	
 	if (arguments.fileFormat == "sccs") {
-		reader = new SCCSInputReader();
+		reader = new SCCSInputReader(dataSource);
 	} else if (arguments.fileFormat == "clr") {
 //		reader = new CLRInputReader();
-		reader = new NewCLRInputReader();
+		reader = new NewCLRInputReader(dataSource);
 	} else if (arguments.fileFormat == "csv") {
-		reader = new RTestInputReader();
+		reader = new RTestInputReader(dataSource);
 	} else if (arguments.fileFormat == "cc") {
-		reader = new CCTestInputReader();
+		reader = new CCTestInputReader(dataSource);
 	} else if (arguments.fileFormat == "cox-csv") {
-		reader = new CoxInputReader();
+		reader = new CoxInputReader(dataSource);
 	} else if (arguments.fileFormat == "bbr") {
-		reader = new BBRInputReader<NoImputation>();
+		reader = new BBRInputReader<NoImputation>(dataSource);
 	} else if (arguments.fileFormat == "generic") {
-		reader = new NewGenericInputReader(modelType);
+		reader = new NewGenericInputReader(modelType, dataSource);
 	} else if (arguments.fileFormat == "new-cox") {
-		reader = new NewCoxInputReader();
+		reader = new NewCoxInputReader(dataSource);
 	} else {
 		cerr << "Invalid file format." << endl;
 		exit(-1);
@@ -779,12 +818,20 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
+	OutputLocation* outputLocation;
+	if (arguments.outputLocation == odbcLocation) {
+		outputLocation = new OdbcOutputLocation(arguments.odbcConnectionName.c_str(), arguments.outFileName.c_str());
+	}
+	else {
+		outputLocation = new FileOutputLocation(arguments.outFileName.c_str());
+	}
+
 	if (std::find(arguments.outputFormat.begin(),arguments.outputFormat.end(), "estimates")
 			!= arguments.outputFormat.end()) {
 #ifndef MY_RCPP_FLAG
 		// TODO Make into OutputWriter
 		bool withASE = arguments.fitMLEAtMode || arguments.computeMLE || arguments.reportASE;    string fileName = getPathAndFileName(arguments, "est_");
-		ccd->logResults(fileName.c_str(), withASE);
+		ccd->logResults(outputLocation, withASE);
 #endif
 	}
 

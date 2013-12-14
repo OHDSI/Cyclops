@@ -16,6 +16,7 @@
 #include <numeric>
 
 #include "CoxInputReader.h"
+#include "io/InputOutputSystem.h"
 
 #define MAX_ENTRIES		1000000000
 
@@ -31,7 +32,10 @@ namespace bsccs {
 
 using namespace std;
 
-CoxInputReader::CoxInputReader() : InputReader() { }
+CoxInputReader::CoxInputReader(DataSource* dataSource) : InputReader() 
+{ 
+	this->dataSource = dataSource;
+}
 
 CoxInputReader::~CoxInputReader() { }
 
@@ -43,14 +47,16 @@ CoxInputReader::~CoxInputReader() { }
  */
 void CoxInputReader::readFile(const char* fileName) {
 
-	ifstream in(fileName);
+	/*ifstream in(fileName);
 	if (!in) {
 		cerr << "Unable to open " << fileName << endl;
 		exit(-1);
-	}
+	}*/
+	dataSource->open(fileName);
 
 	string line;
-	getline(in, line); // Read header and ignore
+	//getline(in, line); // Read header and ignore
+	dataSource->getLine(line);
 
 	int numCases = 0;
 	int numCovariates = MISSING_LENGTH;
@@ -61,7 +67,7 @@ void CoxInputReader::readFile(const char* fileName) {
 	string outerDelimiter(DELIMITER);
 
 	int currentRow = 0;
-	while (getline(in, line) && (currentRow < MAX_ENTRIES)) {
+	while (/*getline(in, line)*/ dataSource->getLine(line) && (currentRow < MAX_ENTRIES)) {
 		if (!line.empty()) {
 
 			strVector.clear();
@@ -99,6 +105,8 @@ void CoxInputReader::readFile(const char* fileName) {
 			currentRow++;
 		}
 	}
+	dataSource->close();
+
 	modelData->nevents.push_back(1); // Save last patient
 
 #ifndef MY_RCPP_FLAG

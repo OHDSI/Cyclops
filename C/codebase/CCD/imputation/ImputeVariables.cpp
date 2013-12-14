@@ -72,14 +72,23 @@ void ImputeVariables::initialize(CCDArguments args, int numberOfImputations, boo
 	arguments = args;
 	nImputations = numberOfImputations;
 	includeY = inclY;
+
+	DataSource* dataSource;
+	if (arguments.inputLocation == odbcLocation) {
+		dataSource = new OdbcDataSource(arguments.odbcConnectionName.c_str(), arguments.inFileName.c_str());
+	}
+	else {
+		dataSource = new FileDataSource();
+	}
+
 	if(arguments.fileFormat == "csv"){
-		reader = new CSVInputReader<ImputationHelper>();
+		reader = new CSVInputReader<ImputationHelper>(dataSource);
 		static_cast<CSVInputReader<ImputationHelper>*>(reader)->readFile(arguments.inFileName.c_str());
 		imputeHelper = static_cast<CSVInputReader<ImputationHelper>*>(reader)->getImputationPolicy();
 		modelData = static_cast<CSVInputReader<ImputationHelper>*>(reader)->getModelData();
 	}
 	else if(arguments.fileFormat == "bbr"){
-		reader = new BBRInputReader<ImputationHelper>();
+		reader = new BBRInputReader<ImputationHelper>(dataSource);
 		static_cast<BBRInputReader<ImputationHelper>*>(reader)->readFile(arguments.inFileName.c_str());
 		imputeHelper = static_cast<BBRInputReader<ImputationHelper>*>(reader)->getImputationPolicy();
 		modelData = static_cast<BBRInputReader<ImputationHelper>*>(reader)->getModelData();

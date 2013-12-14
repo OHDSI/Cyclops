@@ -10,6 +10,7 @@
 
 #include "InputReader.h"
 #include "imputation/ImputationPolicy.h"
+#include "io/InputOutputSystem.h"
 
 using namespace std;
 
@@ -29,21 +30,24 @@ namespace bsccs {
 template <typename ImputationPolicy>
 class CSVInputReader : public InputReader{
 public:
-	CSVInputReader() : InputReader() {
+	CSVInputReader(DataSource* dataSource) : InputReader() {
 		imputePolicy = new ImputationPolicy();
+		this->dataSource = dataSource;
 	}
 	virtual ~CSVInputReader() {}
 
 	virtual void readFile(const char* fileName) {	
 		// Currently supports only DENSE columns
-		ifstream in(fileName);
+		/*ifstream in(fileName);
 		if (!in) {
 			cerr << "Unable to open " << fileName << endl;
 			exit(-1);
-		}
+		}*/
+		dataSource->open(fileName);
 
 		string line;
-		getline(in, line); // Read header and ignore
+		//getline(in, line); // Read header and ignore
+		dataSource->getLine(line);
 
 		int numCases = 0;
 		int numCovariates = MISSING_LENGTH;
@@ -54,7 +58,7 @@ public:
 		string outerDelimiter(DELIMITER);
 
 		int currentRow = 0;
-		while (getline(in, line) && (currentRow < MAX_ENTRIES)) {
+		while (/*getline(in, line)*/ dataSource->getLine(line) && (currentRow < MAX_ENTRIES)) {
 			if (!line.empty()) {
 
 				strVector.clear();
@@ -114,6 +118,7 @@ public:
 				currentRow++;
 			}
 		}
+		dataSource->close();
 
 		modelData->nPatients = numCases;
 		modelData->nCols = modelData->getNumberOfColumns();

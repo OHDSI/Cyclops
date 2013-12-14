@@ -22,7 +22,7 @@ using namespace std;
 
 class SCCSInputReader: public InputReader {
 public:
-	SCCSInputReader();
+	SCCSInputReader(DataSource* dataSource);
 	virtual ~SCCSInputReader();
 
 	virtual void readFile(const char* fileName);

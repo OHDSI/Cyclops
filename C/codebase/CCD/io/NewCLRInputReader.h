@@ -14,13 +14,17 @@ namespace bsccs {
 
 class NewCLRInputReader : public BaseInputReader<NewCLRInputReader> {
 public:
+	NewCLRInputReader(DataSource* dataSource) : BaseInputReader<NewCLRInputReader>(dataSource)
+	{
+	}
+
 	inline void parseRow(stringstream& ss, RowInformation& rowInfo) {
 		parseSingleBBROutcomeEntry<int>(ss, rowInfo);
 		parseStratumEntry(ss, rowInfo);
 		parseAllBBRCovariatesEntry(ss, rowInfo,false);
 	}
 
-	void parseHeader(ifstream& in) {
+	void parseHeader(/*ifstream& in*/) {
 		// Do nothing
 	}
 	

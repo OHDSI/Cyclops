@@ -14,7 +14,7 @@ namespace bsccs {
 
 class CCTestInputReader : public InputReader {
 public:
-	CCTestInputReader();
+	CCTestInputReader(DataSource* dataSource);
 	virtual ~CCTestInputReader();
 
 	virtual void readFile(const char* fileName);

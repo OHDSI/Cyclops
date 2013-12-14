@@ -13,6 +13,7 @@
 #include "InputReader.h"
 #include "imputation/ImputationPolicy.h"
 #include "SparseIndexer.h"
+#include "io/InputOutputSystem.h"
 
 using namespace std;
 
@@ -32,21 +33,24 @@ namespace bsccs {
 template <class ImputationPolicy>
 class BBRInputReader : public InputReader{
 public:
-	BBRInputReader():InputReader() {
+	BBRInputReader(DataSource* dataSource):InputReader() {
 		imputePolicy = new ImputationPolicy();
+		this->dataSource = dataSource;
 	}
 	virtual ~BBRInputReader() {}
 
 	virtual void readFile(const char* fileName){
 		// Currently supports only INDICATOR and DENSE columns
-		ifstream in(fileName);
+		/*ifstream in(fileName);
 		if (!in) {
 			cerr << "Unable to open " << fileName << endl;
 			exit(-1);
-		}
+		}*/
+		dataSource->open(fileName);
 
 		string line;
 		//	getline(in, line); // Read header and ignore
+		dataSource->getLine(line);
 
 		int numCases = 0;
 		vector<string> strVector;
@@ -54,15 +58,10 @@ public:
 
 		SparseIndexer indexer(*modelData);
 
-		// Allocate a column for intercept
-//		int_vector* nullVector = new int_vector();
-//		imputePolicy->push_back(nullVector,0);
-//		indexer.addColumn(0, DENSE);
-
 		int currentRow = 0;
 		modelData->nRows = 0;
 		int maxCol = 0;
-		while (getline(in, line) && (currentRow < MAX_ENTRIES)) {
+		while (/*getline(in, line)*/ dataSource->getLine(line) && (currentRow < MAX_ENTRIES)) {
 			if (!line.empty()) {
 				strVector.clear();
 				split(strVector, line, outerDelimiter);
@@ -94,28 +93,8 @@ public:
 				}
 				modelData->y.push_back(thisY);
 
-				/*
-				real thisY;
-				if(thisCovariate[0] == MISSING_STRING_1 || thisCovariate[0] == MISSING_STRING_2){
-					imputePolicy->push_backY(currentRow);
-					thisY = 0.0;
-				}
-				else{
-					thisY = static_cast<real>(atof(thisCovariate[0].c_str()));
-				}
-				modelData->y.push_back(thisY);
-
-				// Parse censoring index entry if any
-				if(thisCovariate.size() == 2){
-					real thisZ = static_cast<real>(atof(thisCovariate[1].c_str()));
-					modelData->z.push_back(thisZ);
-				}
-				*/
 				// Fix offs for CLR
 				modelData->offs.push_back(1);
-
-				//Fill intercept
-//				modelData->getColumn(0).add_data(currentRow, 1.0);
 
 				// Parse covariates
 				for (int i = 0; i < (int)strVector.size() - 1; ++i){
@@ -158,6 +137,8 @@ public:
 				modelData->nRows++;
 			}
 		}
+
+		dataSource->close();
 
 		for(int col = 0; col < modelData->nCols; col++) {
 			if(modelData->getFormatType(col) == DENSE) {

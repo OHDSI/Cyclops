@@ -11,6 +11,13 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/CMake ${CMAKE_MODULE_PATH})
 
 #find_package(CUDA)
 
+find_package(ODBC)
+
+if(ODBC_FOUND)
+    add_definitions(-DODBC_ENABLED)
+    include_directories(${ODBC_INCLUDE_DIR})
+endif(ODBC_FOUND)
+
 add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/CCD)
 add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/CCD-DP)
 

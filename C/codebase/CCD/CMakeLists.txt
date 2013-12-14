@@ -1,6 +1,6 @@
 include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 
-set(BASE_SOURCE_FILES
+set(BASE_SOURCE_FILES    
 	CyclicCoordinateDescent.cpp	
 	CompressedDataMatrix.cpp
 	ModelData.cpp
@@ -10,6 +10,7 @@ set(BASE_SOURCE_FILES
 	io/RTestInputReader.cpp
 	io/CoxInputReader.cpp
 	io/CCTestInputReader.cpp
+	io/InputOutputSystem.cpp
 	AbstractModelSpecifics.cpp
 	AbstractDriver.cpp
 	AbstractSelector.cpp

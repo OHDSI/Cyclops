@@ -35,6 +35,8 @@ using std::stringstream;
 
 namespace bsccs {
 
+class DataSource;
+
 class InputReader {
 public:
 	InputReader();
@@ -49,6 +51,7 @@ public:
 	}
 
 protected:
+	DataSource* dataSource;
 
 	bool listContains(const vector<DrugIdType>& list, DrugIdType value);
 

@@ -10,6 +10,7 @@ set(BASE_SOURCE_FILES
 	../CCD/io/RTestInputReader.cpp
 	../CCD/io/CoxInputReader.cpp
 	../CCD/io/CCTestInputReader.cpp
+	../CCD/io/InputOutputSystem.cpp
 	../CCD/AbstractModelSpecifics.cpp
 	../CCD/AbstractDriver.cpp
 	../CCD/AbstractSelector.cpp
