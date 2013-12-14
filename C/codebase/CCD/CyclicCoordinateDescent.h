@@ -219,6 +219,12 @@ protected:
 
 	template <class IteratorType>
 	void computeGradientAndHessianImpl_sccsMM(
+				int index,
+				double *gradient,
+				double *hessian);
+
+	template <class IteratorType>
+	void computeGradientAndHessianImpl_sccsMM_2(
 			int index,
 			double *gradient,
 			double *hessian);
