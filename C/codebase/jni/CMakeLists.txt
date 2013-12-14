@@ -43,7 +43,7 @@ add_library(bsccs_jni SHARED ${JNI_SOURCE_FILES})
 #ENDIF(APPLE)
 
 add_definitions(-DDOUBLE_PRECISION)
-target_link_libraries(bsccs_jni base_bsccs-dp)
+target_link_libraries(bsccs_jni base_bsccs-dp ${ODBC_LIBRARIES})
 else(JNI_FOUND)
 	message (WARNING " No JNI found!")
 endif(JNI_FOUND)

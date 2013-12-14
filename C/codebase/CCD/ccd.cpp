@@ -5,9 +5,6 @@
  *      Author: msuchard
  */
  
- 
-#define ODBC_ENABLED
-
 #include <iostream>
 #include <fstream>
 #include <sstream>

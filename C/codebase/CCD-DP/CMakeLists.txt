@@ -48,7 +48,7 @@ add_definitions(-DDOUBLE_PRECISION)
 	add_definitions(-DDOUBLE_PRECISION)
 	add_library(base_bsccs-dp ${BASE_SOURCE_FILES})	
 	add_executable(ccd-dp ${CCD_SOURCE_FILES})
-	target_link_libraries(ccd-dp base_bsccs-dp)
+	target_link_libraries(ccd-dp base_bsccs-dp ${ODBC_LIBRARIES})
 #endif(CUDA_FOUND)
 
 
