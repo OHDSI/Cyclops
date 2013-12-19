@@ -263,6 +263,8 @@ void parseCommandLine(std::vector<std::string>& args,
 		SwitchArg quietArg("q", "quiet", "Limit writing to standard out", arguments.noiseLevel <= QUIET);
 
 		MultiArg<int> profileCIArg("","profileCI", "Report confidence interval for covariate", false, "integer");
+		MultiArg<int> flatPriorArg("","flat", "Place no prior on covariate", false, "integer");
+
 
 		cmd.add(gpuArg);
 //		cmd.add(betterGPUArg);
@@ -280,6 +282,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(formatArg);
 		cmd.add(outputFormatArg);
 		cmd.add(profileCIArg);
+		cmd.add(flatPriorArg);
 
 		cmd.add(doCVArg);
 		cmd.add(lowerCVArg);
@@ -330,6 +333,7 @@ void parseCommandLine(std::vector<std::string>& args,
 			arguments.outputFormat.push_back("estimates");
 		}
 		arguments.profileCI = profileCIArg.getValue();
+		arguments.flatPrior = flatPriorArg.getValue();
 
 		arguments.convergenceTypeString = convergenceArg.getValue();
 
@@ -405,9 +409,10 @@ double initializeModel(
 		ModelData** modelData,
 		CyclicCoordinateDescent** ccd,
 		AbstractModelSpecifics** model,
-//		ModelSpecifics<DefaultModel>** model,
 		CCDArguments &arguments) {
 	
+	// TODO Break up function; too long
+
 	cout << "Running CCD (" <<
 #ifdef DOUBLE_PRECISION
 	"double"
@@ -443,7 +448,6 @@ double initializeModel(
 	if (arguments.fileFormat == "sccs") {
 		reader = new SCCSInputReader();
 	} else if (arguments.fileFormat == "clr") {
-//		reader = new CLRInputReader();
 		reader = new NewCLRInputReader();
 	} else if (arguments.fileFormat == "csv") {
 		reader = new RTestInputReader();
@@ -496,67 +500,50 @@ double initializeModel(
 	} else {
 #endif
 
-//#define TEST
-#ifdef TEST
-		IndicatorIterator sparseOne(**modelData, 0);
-		IndicatorIterator sparseTwo(**modelData, 1);
-
-		for (; sparseOne; ++sparseOne) {
-			cout << sparseOne.index() << ",";
-		}
-		cout << endl;
-		for (; sparseTwo; ++sparseTwo) {
-			cout << sparseTwo.index() << ",";
-		}
-		cout << endl;
-
-		IndicatorIterator sparseOneA(**modelData, 0);
-		IndicatorIterator sparseTwoA(**modelData, 1);
-		PairProductIterator<IndicatorIterator,IndicatorIterator> product(sparseOneA,sparseTwoA);
-//		cout << product.index() << endl;
-//		exit(-1);
-		for (; product; ++product) {
-			cout << product.index() << ",";
-		}
-		cout << endl;
-		exit(-1);
-#endif
-
 	using namespace bsccs::priors;
 	PriorPtr singlePrior;
 	if (arguments.useNormalPrior) {
 		singlePrior = std::make_shared<NormalPrior>();
+	} else if (arguments.computeMLE) {
+		if (arguments.fitMLEAtMode) {
+			cerr << "Unable to compute MLE at posterior mode, if mode is not first explored." << endl;
+			exit(-1);
+		}
+		singlePrior = std::make_shared<NoPrior>();
 	} else {
 		singlePrior = std::make_shared<LaplacePrior>();
 	}
-	if (arguments.hyperPriorSet) {
-		singlePrior->setVariance(arguments.hyperprior);
+	singlePrior->setVariance(arguments.hyperprior);
+
+	JointPriorPtr prior;
+	if (arguments.flatPrior.size() == 0) {
+		prior = std::make_shared<FullyExchangeableJointPrior>(singlePrior);
+	} else {
+		const int length =  (*modelData)->getNumberOfColumns();
+		std::shared_ptr<MixtureJointPrior> mixturePrior = std::make_shared<MixtureJointPrior>(
+						singlePrior, length
+				);
+
+		PriorPtr noPrior = std::make_shared<NoPrior>();
+		for (ProfileVector::const_iterator it = arguments.flatPrior.begin();
+				it != arguments.flatPrior.end(); ++it) {
+			int index = (*modelData)->getColumnIndexByName(*it);
+			if (index == -1) {
+				cerr << "Variable " << *it << " not found." << endl;
+			} else {
+				mixturePrior->changePrior(noPrior, index);
+			}
+		}
+		prior = mixturePrior;
 	}
 
-	JointPriorPtr prior(new FullyExchangeableJointPrior(singlePrior));
-	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model, *prior);
+	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model, prior);
 
 #ifdef CUDA
 	}
 #endif
 
-	// Set prior from the command-line
-	if (arguments.useNormalPrior) {
-		(*ccd)->setPriorType(NORMAL);
-	}
-	if (arguments.hyperPriorSet) {
-		(*ccd)->setHyperprior(arguments.hyperprior);
-	}
-
 	(*ccd)->setNoiseLevel(arguments.noiseLevel);
-
-	if (arguments.computeMLE) {
-		(*ccd)->setPriorType(NONE);
-		if (arguments.fitMLEAtMode) {
-			cerr << "Unable to compute MLE at posterior mode, if mode is not first explored." << endl;
-			exit(-1);
-		}
-	}
 
 	gettimeofday(&time2, NULL);
 	double sec1 = calculateSeconds(time1, time2);
@@ -809,7 +796,7 @@ int main(int argc, char* argv[]) {
 
 //	if (arguments.profileCI.size() > 0) {
 	// Attempt profile CIs
-	for (std::vector<DrugIdType>::iterator it = arguments.profileCI.begin();
+	for (ProfileVector::iterator it = arguments.profileCI.begin();
 			it != arguments.profileCI.end(); ++it) {
 		int index = modelData->getColumnIndexByName(*it);
 		if (index == -1) {
@@ -947,87 +934,6 @@ int main(int argc, char* argv[]) {
 	exit(-1);
 
 #endif // DO_PROFILE_CI
-//
-//	}
-
-
-
-
-//	if (true) {
-//
-//		// TODO Get mode and save;
-//		// TODO set beta <- mode
-//
-//		struct Obj {
-//
-//			CyclicCoordinateDescent& ccd;
-//
-//			Obj(CyclicCoordinateDescent& _ccd) : ccd(_ccd) { }
-//#define LIKELIHOOD_ONLY
-//#ifdef LIKELIHOOD_ONLY
-//			double objective() {
-//				return ccd.getLogLikelihood();
-//			}
-//#else
-//			double objective() {
-//				return ccd.getLogLikelihood() + ccd.getLogPrior();
-//			}
-//#endif
-//		};
-//
-//		Obj eval(*ccd);
-//
-//		int index =  14 /* 17 *//* 15 */;
-//		cout << "Name: " << modelData->getColumn(index).getLabel() << " " << eval.objective() << endl;
-//		double delta = 0.001;
-//		double mode = eval.objective();
-//
-//		double direction = -1.0;
-//		double xMode = ccd->getBeta(index);
-//		ccd->setBeta(index, xMode);
-//		mode = eval.objective();
-//		cout << "Test at mode: " << mode << endl; // TODO Why does not match above value?
-//
-//		int maxTries = 1000;
-//		double threshold = mode - 1.92;
-//
-//		int attempts = 0;
-//		double currentObj = mode;
-//		while (attempts < maxTries && currentObj > threshold) {
-//			double x = ccd->getBeta(index);
-//			x += direction * delta;
-//			ccd->setBeta(index, x);
-//			currentObj = eval.objective();
-//			cout << "beta: " << x << " with " << currentObj;
-//			if (currentObj < threshold) {
-//				cout << " hit";
-//			}
-//			cout << endl;
-//			attempts++;
-//		}
-//
-//		cout << "switch" << endl;
-//		ccd->setBeta(index, xMode);
-//
-//		attempts = 0;
-//		currentObj = mode;
-//		direction = 1.0;
-//		while (attempts < maxTries && currentObj > threshold) {
-//			double x = ccd->getBeta(index);
-//			x += direction * delta;
-//			ccd->setBeta(index, x);
-//			currentObj = eval.objective();
-//			cout << "beta: " << x << " with " << currentObj;
-//			if (currentObj < threshold) {
-//				cout << " hit";
-//			}
-//			cout << endl;
-//			attempts++;
-//		}
-//
-//		RZeroIn<Obj> zeroIn(eval);
-//
-//	}
 
 	if (arguments.doBootstrap) {
 		// Save parameter point-estimates

@@ -25,6 +25,8 @@
 
 namespace bsccs {
 
+	typedef std::vector<DrugIdType> ProfileVector;
+
 struct CCDArguments {
 
 	// Needed for fitting
@@ -72,9 +74,8 @@ struct CCDArguments {
 
 	NoiseLevels noiseLevel;
 
-
-	typedef std::vector<DrugIdType> ProfileVector;
 	ProfileVector profileCI;
+	ProfileVector flatPrior;
 };
 
 

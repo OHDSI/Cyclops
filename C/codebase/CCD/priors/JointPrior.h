@@ -14,7 +14,7 @@
 namespace bsccs {
 namespace priors {
 
-typedef std::vector<real> RealVector;
+typedef std::vector<double> DoubleVector;
 
 class JointPrior {
 public:
@@ -23,9 +23,13 @@ public:
 
 	virtual void setVariance(double x) = 0; // pure virtual
 
-	virtual double logDensity(const RealVector& beta) = 0; // pure virtual
+	virtual double getVariance() const = 0; // pure virtual
 
-	virtual double getDelta(const GradientHessian gh, const double beta, const int index) = 0; // pure virtual
+	virtual double logDensity(const DoubleVector& beta) const = 0; // pure virtual
+
+	virtual double getDelta(const GradientHessian gh, const double beta, const int index) const = 0; // pure virtual
+
+	virtual const std::string getDescription() const = 0; // pure virtual
 };
 
 class MixtureJointPrior : public JointPrior {
@@ -42,6 +46,10 @@ public:
 		listPriors[index] = newPrior;
 	}
 
+	const std::string getDescription() const {
+		return "Mixture";
+	}
+
 	void setVariance(double x) {
 		for (PriorList::iterator it = listPriors.begin(); it != listPriors.end(); ++it) {
 			(*it)->setVariance(x);
@@ -49,7 +57,11 @@ public:
 		}
 	}
 
-	double logDensity(const RealVector& beta) {
+	double getVariance() const {
+		return 0.0;
+	}
+
+	double logDensity(const DoubleVector& beta) const {
 
 		// TODO assert(beta.size() == listPriors.size());
 		double result = 0.0;
@@ -59,7 +71,7 @@ public:
 		return result;
 	}
 
-	double getDelta(const GradientHessian gh, const double beta, const int index) {
+	double getDelta(const GradientHessian gh, const double beta, const int index) const {
 		return listPriors[index]->getDelta(gh, beta);
 	}
 
@@ -78,16 +90,24 @@ public:
 		singlePrior->setVariance(x);
 	}
 
-	double logDensity(const RealVector& beta) {
+	double getVariance() const {
+		return singlePrior->getVariance();
+	}
+
+	double logDensity(const DoubleVector& beta) const {
 		double result = 0.0;
-		for (RealVector::const_iterator it = beta.begin(); it != beta.end(); ++it) {
+		for (DoubleVector::const_iterator it = beta.begin(); it != beta.end(); ++it) {
 			result += singlePrior->logDensity(*it);
 		}
 		return result;
 	}
 
-	double getDelta(const GradientHessian gh, const double beta, const int index) {
+	double getDelta(const GradientHessian gh, const double beta, const int index) const {
 		return singlePrior->getDelta(gh, beta);
+	}
+
+	const std::string getDescription() const {
+		return singlePrior->getDescription();
 	}
 
 private:

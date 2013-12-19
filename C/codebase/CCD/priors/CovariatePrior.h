@@ -32,13 +32,15 @@ public:
 
 	virtual void setVariance(double x) = 0; // pure virtual
 
-	virtual double getVariance() = 0; // pure virtual
+	virtual double getVariance() const = 0; // pure virtual
 
-	virtual double logDensity(double x) = 0; // pure virtual
+	virtual const std::string getDescription() const = 0; // pure virtual
 
-	virtual double getDelta(GradientHessian gh, double beta) = 0; // pure virtual
+	virtual double logDensity(double x) const = 0; // pure virtual
 
-	virtual double logDensity(const DoubleVector& vector) = 0; // pure virtual
+	virtual double getDelta(GradientHessian gh, double beta) const = 0; // pure virtual
+
+	virtual double logDensity(const DoubleVector& vector) const = 0; // pure virtual
 
 };
 
@@ -52,7 +54,7 @@ public:
 		// Do nothing
 	}
 
-	double getVariance() {
+	double getVariance() const {
 		return 0.0;
 	}
 
@@ -60,15 +62,19 @@ public:
 		// Do nothing
 	}
 
-	double logDensity(double x) {
+	const std::string getDescription() const {
+		return "None";
+	}
+
+	double logDensity(double x) const {
 		return 0.0;
 	}
 
-	double logDensity(const DoubleVector& vector) {
+	double logDensity(const DoubleVector& vector) const {
 		return 0.0;
 	}
 
-	double getDelta(GradientHessian gh, double beta) {
+	double getDelta(GradientHessian gh, double beta) const {
 		return -(gh.first / gh.second); // No regularization
 	}
 };
@@ -83,23 +89,29 @@ public:
 		// Do nothing
 	}
 
-	double getVariance() {
+	double getVariance() const {
 		return convertHyperparameterToVariance(lambda);
+	}
+
+	const std::string getDescription() const {
+		stringstream info;
+		info << "Laplace(" << lambda << ")";
+		return info.str();
 	}
 
 	void setVariance(double x) {
 		lambda = convertVarianceToHyperparameter(x);
 	}
 
-	double logDensity(double x) {
+	double logDensity(double x) const {
 		return log(0.5 * lambda) - lambda * std::abs(x);
 	}
 
-	double logDensity(const DoubleVector& vector) {
+	double logDensity(const DoubleVector& vector) const {
 		return logIndependentDensity(vector);
 	}
 
-	double getDelta(GradientHessian gh, double beta) {
+	double getDelta(GradientHessian gh, double beta) const {
 
 		double delta = 0.0;
 
@@ -135,12 +147,12 @@ public:
 private:
 
 	template <typename Vector>
-	typename Vector::value_type logIndependentDensity(const Vector& vector) {
+	typename Vector::value_type logIndependentDensity(const Vector& vector) const {
 		return vector.size() * log(0.5 * lambda) - lambda * oneNorm(vector);
 	}
 
 	template <typename Vector>
-	typename Vector::value_type oneNorm(const Vector& vector) {
+	typename Vector::value_type oneNorm(const Vector& vector) const {
 		typename Vector::value_type result = 0.0;
 		for (typename Vector::const_iterator it; it != vector.end(); ++it) {
 			result += std::abs(*it);
@@ -148,15 +160,15 @@ private:
 		return result;
 	}
 
-	double convertVarianceToHyperparameter(double value) {
+	double convertVarianceToHyperparameter(double value) const {
 		return sqrt(2.0 / value);
 	}
 
-	double convertHyperparameterToVariance(double value) {
+	double convertHyperparameterToVariance(double value) const {
 		return 2.0 / (value * value);
 	}
 
-	int sign(double x) {
+	int sign(double x) const {
 		if (x == 0) {
 			return 0;
 		}
@@ -179,23 +191,29 @@ public:
 		// Do nothing
 	}
 
-	double getVariance() {
+	double getVariance() const {
 		return sigma2Beta;
+	}
+
+	const std::string getDescription() const {
+		stringstream info;
+		info << "Normal(" << sigma2Beta << ")";
+		return info.str();
 	}
 
 	void setVariance(double x) {
 		sigma2Beta = x;
 	}
 
-	double logDensity(double x) {
+	double logDensity(double x) const {
 		return -0.5 * log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
 	}
 
-	double logDensity(const DoubleVector& vector) {
+	double logDensity(const DoubleVector& vector) const {
 		return logIndependentDensity(vector);
 	}
 
-	double getDelta(GradientHessian gh, double beta) {
+	double getDelta(GradientHessian gh, double beta) const {
 		return - (gh.first + (beta / sigma2Beta)) /
 				  (gh.second + (1.0 / sigma2Beta));
 	}
@@ -204,13 +222,13 @@ private:
 	double sigma2Beta;
 
 	template <typename Vector>
-	typename Vector::value_type logIndependentDensity(const Vector& vector) {
+	typename Vector::value_type logIndependentDensity(const Vector& vector) const {
 		return -0.5 * vector.size() * log(2.0 * PI * sigma2Beta)
 				- 0.5 * twoNormSquared(vector) / sigma2Beta;
 	}
 
 	template <typename Vector>
-	typename Vector::value_type twoNormSquared(const Vector& vector) {
+	typename Vector::value_type twoNormSquared(const Vector& vector) const {
 		typename Vector::value_type norm = 0.0;
 		for (typename Vector::const_iterator it = vector.begin();
 				it != vector.end(); ++it) {

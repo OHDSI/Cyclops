@@ -96,7 +96,7 @@ public:
 	CyclicCoordinateDescent(
 			ModelData* modelData,
 			AbstractModelSpecifics& specifics,
-			priors::JointPrior& prior
+			priors::JointPriorPtr prior
 //			ModelSpecifics<DefaultModel>& specifics
 		);
 
@@ -194,7 +194,7 @@ public:
 protected:
 	
 	AbstractModelSpecifics& modelSpecifics;
-	priors::JointPrior& jointPrior;
+	priors::JointPriorPtr jointPrior;
 //	ModelSpecifics<DefaultModel>& modelSpecifics;
 //private:
 	
@@ -338,7 +338,8 @@ protected:
 	DoubleVector hBeta;
 	real* hXBeta;
 	real* hXBetaSave;
-	double* hDelta;
+//	double* hDelta;
+	DoubleVector hDelta;
 	std::vector<bool> fixBeta;
 
 	int N; // Number of patients
@@ -349,8 +350,8 @@ protected:
 
 	bool computeMLE;
 	int priorType;
-	double sigma2Beta;
-	double lambda;
+//	double sigma2Beta;
+//	double lambda;
 
 //	real denomNullValue;
 

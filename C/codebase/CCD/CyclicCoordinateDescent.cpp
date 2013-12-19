@@ -50,7 +50,7 @@ void compareIntVector(int* vec0, int* vec1, int dim, const char* name) {
 CyclicCoordinateDescent::CyclicCoordinateDescent(
 			ModelData* reader,
 			AbstractModelSpecifics& specifics,
-			priors::JointPrior& prior
+			priors::JointPriorPtr prior
 		) : modelSpecifics(specifics), jointPrior(prior) {
 	N = reader->getNumberOfPatients();
 	K = reader->getNumberOfRows();
@@ -59,11 +59,9 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	hXI = reader;
 	hY = reader->getYVector(); // TODO Delegate all data to ModelSpecifics
 	hOffs = reader->getOffsetVector();
-//	hNEvents = NULL;
 	hPid = reader->getPidVector();
 
 	conditionId = reader->getConditionId();
-//	denomNullValue = static_cast<real>(0.0);
 
 	updateCount = 0;
 	likelihoodCount = 0;
@@ -82,7 +80,7 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 //	free(hBeta);
 	free(hXBeta);
 	free(hXBetaSave);
-	free(hDelta);
+//	free(hDelta);
 	
 #ifdef TEST_ROW_INDEX
 	for (int j = 0; j < J; ++j) {
@@ -126,18 +124,7 @@ string CyclicCoordinateDescent::getPriorInfo() {
 #ifdef MY_RCPP_FLAG
 	return "prior"; // Rcpp error with stringstream
 #else
-	stringstream priorInfo;
-	if (priorType == NONE) {
-		priorInfo << "None(";
-	} else if (priorType == LAPLACE) {
-		priorInfo << "Laplace(";
-		priorInfo << lambda;
-	} else if (priorType == NORMAL) {
-		priorInfo << "Normal(";
-		priorInfo << sigma2Beta;
-	}
-	priorInfo << ")";
-	return priorInfo.str();
+	return jointPrior->getDescription();
 #endif
 }
 
@@ -150,17 +137,12 @@ void CyclicCoordinateDescent::resetBounds() {
 void CyclicCoordinateDescent::init(bool offset) {
 	
 	// Set parameters and statistics space
-	hDelta = (double*) malloc(J * sizeof(double));
-//	hBeta = (real*) calloc(J, sizeof(real)); // Fixed starting state
+	hDelta.resize(J, static_cast<double>(2.0));
 	hBeta.resize(J, static_cast<double>(0.0));
+
 	hXBeta = (real*) calloc(K, sizeof(real));
 	hXBetaSave = (real*) calloc(K, sizeof(real));
 	fixBeta.resize(J);
-
-	// Set prior
-	priorType = LAPLACE;
-	sigma2Beta = 1000;
-	lambda = sqrt(2.0/20.0);
 	
 	// Recode patient ids  TODO Delegate to grouped model
 	int currentNewId = 0;
@@ -234,36 +216,13 @@ void CyclicCoordinateDescent::init(bool offset) {
 #endif
 #endif          
 
-//#ifdef MY_RCPP_FLAG
-//	Rprintf("Number of patients = %d\n", N);
-//	Rprintf("Number of exposure levels = %d\n", K);
-//	Rprintf("Number of drugs = %d\n", J);
-//#endif
 	modelSpecifics.initialize(N, K, J, hXI, numerPid, numerPid2, denomPid,
-//			hNEvents,
 			hXjY, &sparseIndices,
 			hPid, offsExpXBeta,
 			hXBeta, hOffs,
-//			&hBeta[0],
 			NULL,
-			hY//,
-//			hWeights
+			hY
 			);
-
-//	int iN,
-//	int iK,
-//	CompressedDataMatrix* iXI,
-//	real* iNumerPid,
-//	real* iNumerPid2,
-//	real* iDenomPid,
-//	int* iNEvents,
-//	real* iXjEta,
-//	std::vector<std::vector<int>* > *iSparseIndices,
-//	int* iPid,
-//	real* iOffsExpXBeta,
-//	real* iXBeta,
-//	int* iOffs,
-//	real* iBeta
 }
 
 int CyclicCoordinateDescent::getAlignedLength(int N) {
@@ -283,14 +242,6 @@ void CyclicCoordinateDescent::resetBeta(void) {
 	}
 	sufficientStatisticsKnown = false;
 }
-
-//void double getHessianComponent(int i, int j) {
-//	return 0.0;
-//}
-
-//void getHessian(SparseMatrix& hessian) {
-//
-//}
 
 void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
 
@@ -344,8 +295,6 @@ double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
 
 void CyclicCoordinateDescent::getPredictiveEstimates(real* y, real* weights) const {
 	modelSpecifics.getPredictiveEstimates(y, weights);
-
-//	printVector(y, K, cout);
 }
 
 int CyclicCoordinateDescent::getBetaSize(void) {
@@ -370,14 +319,6 @@ bool CyclicCoordinateDescent::getFixedBeta(int i) {
 void CyclicCoordinateDescent::setFixedBeta(int i, bool value) {
 	fixBeta[i] = value;
 }
-
-//void CyclicCoordinateDescent::setZeroBetaFixed(void) {
-//	for (int j = 0; j < J; ++j) {
-//		if (hBeta[j] == static_cast<real>(0.0)) {
-//			setFixedBeta(j, true);
-//		}
-//	}
-//}
 
 void CyclicCoordinateDescent::checkAllLazyFlags(void) {
 	if (!xBetaKnown) {
@@ -422,19 +363,11 @@ double convertHyperparameterToVariance(double value) {
 }
 
 void CyclicCoordinateDescent::setHyperprior(double value) {
-	sigma2Beta = value;
-	lambda = convertVarianceToHyperparameter(value);
+	jointPrior->setVariance(value);
 }
 
 double CyclicCoordinateDescent::getHyperprior(void) const {
-	double hyperPrior;
-	switch (priorType) {
-		case NONE : hyperPrior = 0.0; break;
-		case LAPLACE : hyperPrior = convertHyperparameterToVariance(lambda); break;
-		case NORMAL : hyperPrior = sigma2Beta; break;
-		default : hyperPrior = 0.0; break;
-	}
-	return hyperPrior;
+	return jointPrior->getVariance();
 }
 
 void CyclicCoordinateDescent::makeDirty(void) {
@@ -503,22 +436,7 @@ void CyclicCoordinateDescent::setWeights(real* iWeights) {
 }
 	
 double CyclicCoordinateDescent::getLogPrior(void) {
-	double value;
-	if (priorType == NONE) {
-		value = 0.0;
-	}
-	else if (priorType == LAPLACE) {
-		value = J * log(0.5 * lambda) - lambda * oneNorm(&hBeta[0], J);
-	} else {
-		value = -0.5 * J * log(2.0 * PI * sigma2Beta) - 0.5 * twoNormSquared(&hBeta[0], J) / sigma2Beta;
-	}
-	// TODO INTERCEPT
-// 	if (priorType == LAPLACE) {
-// 		value -= log(0.5 * lambda) - lambda * std::abs(hBeta[0]);
-// 	} else {
-// 		value -= -0.5 * log(2.0 * PI * sigma2Beta) - 0.5 * (hBeta[0] * hBeta[0]) / sigma2Beta;
-// 	}
-	return value;
+	return jointPrior->logDensity(hBeta);
 }
 
 double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
@@ -820,8 +738,6 @@ void CyclicCoordinateDescent::computeAsymptoticVarianceMatrix(void) {
 
 double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 
-	double delta;
-
 	if (!sufficientStatisticsKnown) {
 		cerr << "Error in state synchronization." << endl;
 		exit(0);		
@@ -829,67 +745,10 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	
 	computeNumeratorForGradient(index);
 	
-	double g_d1;
-	double g_d2;
-					
-	computeGradientAndHessian(index, &g_d1, &g_d2);
+	priors::GradientHessian gh;
+	computeGradientAndHessian(index, &gh.first, &gh.second);
 
-//	if (g_d2 <= 0.0) {
-//		cerr << "Not positive-definite! Hessian = " << g_d2 << endl;
-//		exit(-1);
-//	}
-
-	// Move into separate delegate-function (below)
-
-	if (true /*index != 14*/) { // TODO Bad hard coding, INTERCEPT
-
-	if (priorType == NORMAL) {
-
-#if 1
-		delta = - (g_d1 + (hBeta[index] / sigma2Beta)) /
-				  (g_d2 + (1.0 / sigma2Beta));
-#else			  
-		delta = - (g_d1 + 2*hBeta[index]*sigma2Beta) / (g_d2 + 2*sigma2Beta);
-#endif
-				  
-		
-	} else if (priorType == LAPLACE){
-					
-		double neg_update = - (g_d1 - lambda) / g_d2;
-		double pos_update = - (g_d1 + lambda) / g_d2;
-		
-		int signBetaIndex = sign(hBeta[index]);
-		
-		if (signBetaIndex == 0) {
-						
-			if (neg_update < 0) {
-				delta = neg_update;
-			} else if (pos_update > 0) {
-				delta = pos_update;
-			} else {
-				delta = 0;
-			}
-		} else { // non-zero entry
-			
-			if (signBetaIndex < 0) {
-				delta = neg_update;
-			} else {
-				delta = pos_update;			
-			}
-			
-			if ( sign(hBeta[index] + delta) != signBetaIndex ) {
-				delta = - hBeta[index];
-			}			
-		}
-	} else {
-		delta = -g_d1 / g_d2; // No regularization
-	}
-
-	} else { // TODO INTERCEPT
-		delta = -g_d1 / g_d2;
-	}
-	
-	return delta;
+	return jointPrior->getDelta(gh, hBeta[index], index);
 }
 
 template <class IteratorType>
@@ -960,24 +819,6 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 		// Delegate
 		modelSpecifics.computeRemainingStatistics(useCrossValidation);
 	}
-}
-
-template <typename Real>
-double CyclicCoordinateDescent::oneNorm(Real* vector, const int length) {
-	double norm = 0;
-	for (int i = 0; i < length; i++) {
-		norm += abs(vector[i]);
-	}
-	return norm;
-}
-
-template <typename Real>
-double CyclicCoordinateDescent::twoNormSquared(Real * vector, const int length) {
-	double norm = 0;
-	for (int i = 0; i < length; i++) {
-		norm += vector[i] * vector[i];
-	}
-	return norm;
 }
 
 /**
