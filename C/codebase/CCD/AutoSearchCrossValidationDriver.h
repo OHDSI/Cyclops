@@ -54,6 +54,8 @@ private:
 	vector<real>* weightsExclude;
 
 	const ModelData& modelData;
+
+	double maxPoint;
 };
 
 } // namespace

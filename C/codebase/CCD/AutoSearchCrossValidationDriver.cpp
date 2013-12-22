@@ -28,7 +28,7 @@ AutoSearchCrossValidationDriver::AutoSearchCrossValidationDriver(
 			int iGridSize,
 			double iLowerLimit,
 			double iUpperLimit,
-			vector<real>* wtsExclude) : modelData(_modelData), gridSize(iGridSize),
+			vector<real>* wtsExclude) : modelData(_modelData), maxPoint(0), gridSize(iGridSize),
 			lowerLimit(iLowerLimit), upperLimit(iUpperLimit), weightsExclude(wtsExclude) {
 
 	// Do anything???
@@ -54,22 +54,7 @@ void AutoSearchCrossValidationDriver::logResults(const CCDArguments& arguments) 
 		cerr << "Unable to open log file: " << arguments.cvFileName << endl;
 		exit(-1);
 	}
-
-	string sep(","); // TODO Make option
-
-	double maxPoint;
-	double maxValue;
-	findMax(&maxPoint, &maxValue);
-
-	for (int i = 0; i < gridPoint.size(); i++) {
-		outLog << std::setw(5) << std::setprecision(4) << std::fixed << gridPoint[i] << sep;
-		if (!arguments.useNormalPrior) {
-			outLog << convertVarianceToHyperparameter(gridPoint[i]) << sep;
-		}
-		outLog << std::scientific << gridValue[i] << sep;
-		outLog << (maxValue - gridValue[i]) << std::endl;
-	}
-
+	outLog << std::scientific << maxPoint << std::endl;
 	outLog.close();
 }
 
@@ -79,10 +64,6 @@ void AutoSearchCrossValidationDriver::resetForOptimal(
 		const CCDArguments& arguments) {
 
 	ccd.setWeights(NULL);
-
-	double maxPoint;
-	double maxValue;
-	findMax(&maxPoint, &maxValue);
 	ccd.setHyperprior(maxPoint);
 	ccd.resetBeta(); // Cold-start
 }
@@ -99,6 +80,36 @@ void AutoSearchCrossValidationDriver::drive(
 	double tryvalue = modelData.getNormalBasedDefaultVar();
 	UniModalSearch searcher;
 	const double eps = 0.05; //search stopper
+
+	std::cout << "Default var = " << tryvalue << std::endl;
+
+//	using std::cout;
+//	using std::map;
+//    map<double,double> y_by_x;
+//    //example llkl.d001145.b prepared in R
+//    y_by_x[ 2.000000e+04 ] = -408.199;
+//    y_by_x[ 2.002884e+03 ] = -328.581;
+//    y_by_x[ 2.000000e+02 ] = -281.788;
+//    y_by_x[ 2.002884e+01 ] = -229.966;
+//    y_by_x[ 2.000000e+00 ] = -184.908;
+//    y_by_x[ 2.002884e-01 ] = -150.792;
+//    y_by_x[ 2.000000e-02 ] = -132.081;
+//    y_by_x[ 2.002884e-03 ] = -127.708;
+//    y_by_x[ 2.000000e-04 ] = -146.397;
+//    y_by_x[ 2.002884e-05 ] = -183.208;
+//    QuadrCoefs c = QuadrLogFit( y_by_x );
+//    //R results:
+//    // (Intercept)     logvar2      logvar
+//    // -171.030466   -1.186039  -12.662184
+//    cout<<"c0="<<c.c0<<"  c1="<<c.c1<<"  c2="<<c.c2<<endl;
+//
+//    UniModalSearch s;
+//    for( map<double,double>::const_iterator itr=y_by_x.begin(); itr!=y_by_x.end(); itr++ )
+//        s.tried( itr->first, itr->second );
+//    //R result: 0.004805411
+//    cout<<"step="<<s.step().second<<endl;
+//    exit(-1);
+
 
 	bool finished = false;
 
@@ -155,22 +166,25 @@ void AutoSearchCrossValidationDriver::drive(
 
 		std::cout << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
         searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
-        pair<bool,double> step = searcher.step();
-        std::cout << "Next point at " << step.second << " and " << step.first << std::endl;
+        pair<bool,double> next = searcher.step();
+        std::cout << "Completed at " << tryvalue << std::endl;
+        std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
 
-        tryvalue = step.second;
-        if (!step.first) {
+        tryvalue = next.second;
+        if (!next.first) {
             finished = true;
         }
+        std::cout << searcher;
+        step++;
+        if (step >= 10) exit(-1);
 	}
 
+	maxPoint = tryvalue;
+
 	// Report results
-	double maxPoint;
-	double maxValue;
-	findMax(&maxPoint, &maxValue);
 
 	std::cout << std::endl;
-	std::cout << "Maximum predicted log likelihood (" << maxValue << ") found at:" << std::endl;
+	std::cout << "Maximum predicted log likelihood estimated at:" << std::endl;
 	std::cout << "\t" << maxPoint << " (variance)" << std::endl;
 	if (!arguments.useNormalPrior) {
 		double lambda = convertVarianceToHyperparameter(maxPoint);
@@ -257,16 +271,16 @@ void AutoSearchCrossValidationDriver::drive(
 }
 
 
-void AutoSearchCrossValidationDriver::findMax(double* maxPoint, double* maxValue) {
-
-	*maxPoint = gridPoint[0];
-	*maxValue = gridValue[0];
-	for (int i = 1; i < gridPoint.size(); i++) {
-		if (gridValue[i] > *maxValue) {
-			*maxPoint = gridPoint[i];
-			*maxValue = gridValue[i];
-		}
-	}
-}
+//void AutoSearchCrossValidationDriver::findMax(double* maxPoint, double* maxValue) {
+//
+//	*maxPoint = gridPoint[0];
+//	*maxValue = gridValue[0];
+//	for (int i = 1; i < gridPoint.size(); i++) {
+//		if (gridValue[i] > *maxValue) {
+//			*maxPoint = gridPoint[i];
+//			*maxValue = gridValue[i];
+//		}
+//	}
+//}
 
 } // namespace

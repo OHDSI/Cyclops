@@ -9,6 +9,11 @@
 #include <algorithm>*/
 using namespace std;
 
+struct QuadrCoefs {
+    double c0,c1,c2;
+};
+
+
 /* UniModalSearch: 
  - collects loglikelihood results from previous steps
  - suggests next step
@@ -39,12 +44,19 @@ public:
     //ctor
     UniModalSearch( double stdstep=100, double stop_by_y=.01, double stop_by_x=log(1.5) ) 
         : m_stdstep(stdstep), m_stop_by_y(stop_by_y), m_stop_by_x(stop_by_x) {}
+
+    friend std::ostream& operator<< (std::ostream& stream, const UniModalSearch& search);
+
+    void dump(std::ostream& stream) const;
+
 private:
     const double m_stdstep;
     const double m_stop_by_y, m_stop_by_x;
     std::map<double,MS> y_by_x;
     std::map<double,MS>::const_iterator best;
 };
+
+QuadrCoefs QuadrLogFit( const map<double,UniModalSearch::MS> & y_by_x );
 
 #endif //HYPER_PARAMETER_SEARCH_HPP_
 

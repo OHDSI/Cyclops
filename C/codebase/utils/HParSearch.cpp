@@ -17,10 +17,6 @@
 
 #include "HParSearch.h"
 
-struct QuadrCoefs {
-    double c0,c1,c2;
-};
-
 //observations weighted by inverse stddev
 QuadrCoefs QuadrLogFit( const map<double,UniModalSearch::MS> & y_by_x ) 
 {
@@ -110,6 +106,27 @@ pair<bool,double> UniModalSearch::step() //recommend: do/not next step, and the 
         }
     }
     return ret;
+}
+
+//void UniModalSearch::dump(std::ostream& stream) const {
+//    int i = 0;
+//    for (map<double,UniModalSearch::MS>::const_iterator itr=y_by_x.begin(); itr!=y_by_x.end();
+//        itr++, i++) {
+//    	stream << "search[ " << itr->first << " ] = " << itr->second << std::endl;
+//    }
+//}
+
+
+std::ostream& operator<< (std::ostream& stream, const UniModalSearch& search) {
+//	search.dump(stream);
+
+    for (map<double,UniModalSearch::MS>::const_iterator itr=search.y_by_x.begin(); itr!=search.y_by_x.end();
+        itr++) {
+    	stream << "search[ " << itr->first << " ] = " << itr->second.m
+    			<< "(" << itr->second.s << ")" << std::endl;
+    }
+
+	return stream;
 }
 
 #ifdef UNITTEST_
