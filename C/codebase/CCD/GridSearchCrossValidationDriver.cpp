@@ -43,10 +43,10 @@ double GridSearchCrossValidationDriver::computeGridPoint(int step) {
 	double stepSize = (log(upperLimit) - log(lowerLimit)) / (gridSize - 1);
 	return exp(log(lowerLimit) + step * stepSize);
 }
-double GridSearchCrossValidationDriver::computePointEstimate(const std::vector<double>& value) {
-	// Mean of log values
-	return accumulate(value.begin(), value.end(), 0.0);
-}
+//double GridSearchCrossValidationDriver::computePointEstimate(const std::vector<double>& value) {
+//	// Mean of log values
+//	return accumulate(value.begin(), value.end(), 0.0);
+//}
 
 
 void GridSearchCrossValidationDriver::logResults(const CCDArguments& arguments) {

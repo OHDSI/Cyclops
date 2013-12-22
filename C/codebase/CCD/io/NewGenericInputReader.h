@@ -157,7 +157,8 @@ public:
 		}
 		if (includeIntercept) {
 			modelData->push_back(DENSE); // Column 0 or 1
-			columnIntercept = modelData->getNumberOfColumns() - 1;
+			modelData->setHasInterceptCovariate(true);
+			columnIntercept = modelData->getNumberOfColumns() - 1;			
 		}
 	}
 

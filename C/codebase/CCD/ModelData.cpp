@@ -13,12 +13,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
+#include <numeric>
 
 #include "ModelData.h"
 
 namespace bsccs {
 
-ModelData::ModelData() : hasOffsetCovariate(false) {
+ModelData::ModelData() : hasOffsetCovariate(false), hasInterceptCovariate(false), nPatients(0) {
 	// Do nothing
 }
 
@@ -64,6 +65,28 @@ real* ModelData::getOffsetVector() { // TODO deprecated
 
 void ModelData::sortDataColumns(vector<int> sortedInds){
 	reindexVector(allColumns,sortedInds);
+}
+
+double ModelData::getAvgSquaredNorm() const {
+
+	int startIndex = 0;
+	if (hasInterceptCovariate) ++startIndex;
+	if (hasOffsetCovariate) ++startIndex;
+
+	std::vector<double> squaredNorm;
+
+	for (int index = startIndex; index < getNumberOfColumns(); ++index) {
+		squaredNorm.push_back(getColumn(index).squaredSumColumn());
+	}
+
+	return std::accumulate(squaredNorm.begin(), squaredNorm.end(), 0.0) / (double) squaredNorm.size();
+}
+
+int ModelData::getNumberOfVariableColumns() const {
+	int dim = getNumberOfColumns();
+	if (hasInterceptCovariate) --dim;
+	if (hasOffsetCovariate) --dim;
+	return dim;
 }
 
 const string ModelData::missing = "NA";

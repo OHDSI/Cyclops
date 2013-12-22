@@ -143,6 +143,8 @@ public:
 
 	real sumColumn(int nRows);
 
+	real squaredSumColumn() const;
+
 	template <class T>
 	void printVector(T values, const int size) {
 		cout << "[" << values[0];
@@ -220,6 +222,10 @@ public:
 	void sortColumns(Comparator cmp) {
 		std::sort(allColumns.begin(), allColumns.end(),
 				cmp);		
+	}
+
+	const CompressedDataColumn& getColumn(int column) const {
+		return *(allColumns[column]);
 	}
 
 	CompressedDataColumn& getColumn(int column) {

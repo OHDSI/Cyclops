@@ -1,7 +1,7 @@
 /*
  * AutoSearchCrossValidationDriver.cpp
  *
- *  Created on: Sep 10, 2010
+ *  Created on: Dec 10, 2013
  *      Author: msuchard
  */
 
@@ -19,14 +19,16 @@
 #include "CrossValidationSelector.h"
 #include "AbstractSelector.h"
 #include "ccd.h"
+#include "../utils/HParSearch.h"
 
 namespace bsccs {
 
 AutoSearchCrossValidationDriver::AutoSearchCrossValidationDriver(
+			const ModelData& _modelData,
 			int iGridSize,
 			double iLowerLimit,
 			double iUpperLimit,
-			vector<real>* wtsExclude) : gridSize(iGridSize),
+			vector<real>* wtsExclude) : modelData(_modelData), gridSize(iGridSize),
 			lowerLimit(iLowerLimit), upperLimit(iUpperLimit), weightsExclude(wtsExclude) {
 
 	// Do anything???
@@ -40,18 +42,10 @@ double AutoSearchCrossValidationDriver::computeGridPoint(int step) {
 	if (gridSize == 1) {
 		return upperLimit;
 	}
-	// Linear grid
-//	double stepSize = (upperLimit - lowerLimit) / (gridSize - 1);
-//	return lowerLimit + step * stepSize;
 	// Log uniform grid
 	double stepSize = (log(upperLimit) - log(lowerLimit)) / (gridSize - 1);
 	return exp(log(lowerLimit) + step * stepSize);
 }
-double AutoSearchCrossValidationDriver::computePointEstimate(const std::vector<double>& value) {
-	// Mean of log values
-	return accumulate(value.begin(), value.end(), 0.0);
-}
-
 
 void AutoSearchCrossValidationDriver::logResults(const CCDArguments& arguments) {
 
@@ -93,6 +87,39 @@ void AutoSearchCrossValidationDriver::resetForOptimal(
 	ccd.resetBeta(); // Cold-start
 }
 
+
+/*double AvgSquNorm( IRowSet& rs ) //for default bayes parameter: avg x*x
+{
+    rs.rewind();
+    double avgss = 0;
+    double n = 0;
+    while( rs.next() ) {
+        SparseVector x = rs.xsparse();
+        double xsqu = 0;
+        for( SparseVector::const_iterator ix=x.begin(); ix!=x.end(); ix++ )
+            xsqu += ix->second * ix->second;
+        avgss = avgss*n/(n+1) + xsqu/(n+1);
+        n ++;
+    }
+    return avgss;
+}*/
+
+//static double AutoSearchCrossValidationDriver::avgSquNorm() {
+//	CyclicCoordinateDescent& ccd;
+//	ccd.
+//}
+
+// Taken from BBR
+double AutoSearchCrossValidationDriver::normBasedDefaultVar() {
+
+	return
+//    double avgsqunorm = standardize ? 1.0 : AvgSquNorm(stats);
+//    double priorVar = dim/avgsqunorm;
+//    Log(3)<<"\nAvg square norm (no const term) "<<avgsqunorm<<" Prior var "<<priorVar;
+//    return priorVar;
+}
+
+
 void AutoSearchCrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
@@ -102,7 +129,14 @@ void AutoSearchCrossValidationDriver::drive(
 
 	std::vector<real> weights;
 
-	for (int step = 0; step < gridSize; step++) {
+	double tryvalue = 1.0; /*NormBasedDefaultVar( drs.dim(), stats, m_modelType.Standardize() );*/
+	UniModalSearch searcher;
+	const double eps = 0.05; //search stopper
+
+	bool finished = false;
+
+	int step = 0;
+	while (!finished) {
 
 		std::vector<double> predLogLikelihood;
 		double point = computeGridPoint(step);

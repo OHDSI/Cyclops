@@ -38,7 +38,7 @@ private:
 
 	double computeGridPoint(int step);
 
-	double computePointEstimate(const std::vector<double>& value);
+//	double computePointEstimate(const std::vector<double>& value);
 
 	void findMax(double* maxPoint, double* maxValue);
 

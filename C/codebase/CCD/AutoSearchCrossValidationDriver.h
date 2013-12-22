@@ -1,17 +1,12 @@
 /*
- * CrossValidationDriver.h
+ * AutoSearchCrossValidationDriver.h
  *
- *  Created on: Sep 10, 2010
+ *  Created on: Dec 10, 2013
  *      Author: msuchard
  */
 
-#ifndef CROSSVALIDATIONDRIVER_H_
-#define CROSSVALIDATIONDRIVER_H_
-
-#include "CyclicCoordinateDescent.h"
-#include "CrossValidationSelector.h"
-#include "AbstractSelector.h"
-#include "ccd.h"
+#ifndef AUTOSEARCHCROSSVALIDATIONDRIVER_H_
+#define AUTOSEARCHCROSSVALIDATIONDRIVER_H_
 
 #include "AbstractCrossValidationDriver.h"
 
@@ -20,6 +15,7 @@ namespace bsccs {
 class AutoSearchCrossValidationDriver : public AbstractCrossValidationDriver {
 public:
 	AutoSearchCrossValidationDriver(
+			const ModelData& modelData,
 			int iGridSize,
 			double iLowerLimit,
 			double iUpperLimit,
@@ -41,9 +37,11 @@ public:
 
 private:
 
+	double normBasedDefaultVar();
+
 	double computeGridPoint(int step);
 
-	double computePointEstimate(const std::vector<double>& value);
+//	double computePointEstimate(const std::vector<double>& value);
 
 	void findMax(double* maxPoint, double* maxValue);
 
@@ -54,8 +52,10 @@ private:
 	double lowerLimit;
 	double upperLimit;
 	vector<real>* weightsExclude;
+
+	const ModelData& modelData;
 };
 
 } // namespace
 
-#endif /* CROSSVALIDATIONDRIVER_H_ */
+#endif /* AUTOSEARCHCROSSVALIDATIONDRIVER_H_ */

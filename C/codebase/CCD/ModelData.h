@@ -79,12 +79,24 @@ public:
 		hasOffsetCovariate = b;
 	}
 
+	bool getHasInterceptCovariate() const {
+		return hasInterceptCovariate;
+	}
+
+	void setHasInterceptCovariate(bool b) {
+		hasInterceptCovariate = b;
+	}
+
 	bool getHasRowLobels() const {
 		return (labels.size() == getNumberOfRows());
 	}
 
 	void sortDataColumns(vector<int> sortedInds);
 	
+	double getAvgSquaredNorm() const;
+
+	int getNumberOfVariableColumns() const;
+
 	const string& getRowLabel(size_t i) const {
 		if (i >= labels.size()) {
 			return missing;
@@ -110,7 +122,7 @@ private:
 	ModelData(const ModelData&);
 	ModelData& operator = (const ModelData&);
 
-	int nPatients;
+	int nPatients; // TODO Where are these used?
 	vector<int> pid;
 	vector<real> y;
 	vector<real> z;
@@ -118,6 +130,7 @@ private:
 	vector<int> nevents; // TODO Where are these used?
 	string conditionId;
 	bool hasOffsetCovariate;
+	bool hasInterceptCovariate;
 	vector<string> labels;
 	static const string missing;
 };

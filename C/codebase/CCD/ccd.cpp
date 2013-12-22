@@ -153,6 +153,7 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.tolerance = 1E-6; //5E-4;
 	arguments.seed = 123;
 	arguments.doCrossValidation = false;
+	arguments.useAutoSearchCV = false;
 	arguments.lowerLimit = 0.01;
 	arguments.upperLimit = 20.0;
 	arguments.fold = 10;
@@ -212,6 +213,7 @@ void parseCommandLine(std::vector<std::string>& args,
 
 		// Cross-validation arguments
 		SwitchArg doCVArg("c", "cv", "Perform cross-validation selection of hyperprior variance", arguments.doCrossValidation);
+		SwitchArg useAutoSearchCVArg("", "auto", "Use an auto-search when performing cross-validation", arguments.useAutoSearchCV);
 		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, arguments.lowerLimit, "real");
 		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, arguments.upperLimit, "real");
 		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, arguments.fold, "int");
@@ -286,6 +288,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(flatPriorArg);
 
 		cmd.add(doCVArg);
+		cmd.add(useAutoSearchCVArg);
 		cmd.add(lowerCVArg);
 		cmd.add(upperCVArg);
 		cmd.add(foldCVArg);
@@ -365,6 +368,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		// Cross-validation
 		arguments.doCrossValidation = doCVArg.isSet();
 		if (arguments.doCrossValidation) {
+			arguments.useAutoSearchCV = useAutoSearchCVArg.isSet();
 			arguments.lowerLimit = lowerCVArg.getValue();
 			arguments.upperLimit = upperCVArg.getValue();
 			arguments.fold = foldCVArg.getValue();
@@ -669,23 +673,30 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
 
 	CrossValidationSelector selector(arguments.fold, modelData->getPidVectorSTL(),
 			SUBJECT, arguments.seed);
-	GridSearchCrossValidationDriver driver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
 
-	driver.drive(*ccd, selector, arguments);
+	AbstractCrossValidationDriver* driver;
+	if (arguments.useAutoSearchCV) {
+		driver = new AutoSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+	} else {
+		driver = new GridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+	}
+
+	driver->drive(*ccd, selector, arguments);
 
 	gettimeofday(&time2, NULL);
 
-	driver.logResults(arguments);
+	driver->logResults(arguments);
 
 	if (arguments.doFitAtOptimal) {
 		std::cout << "Fitting model at optimal hyperparameter" << std::endl;
  		// Do full fit for optimal parameter
-		driver.resetForOptimal(*ccd, selector, arguments);
+		driver->resetForOptimal(*ccd, selector, arguments);
 		fitModel(ccd, arguments);
 		if (arguments.fitMLEAtMode) {
 			runFitMLEAtMode(ccd, arguments);
 		}
 	}
+	delete driver;
 
 	return calculateSeconds(time1, time2);
 }

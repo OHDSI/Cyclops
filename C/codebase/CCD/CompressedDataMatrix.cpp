@@ -239,6 +239,14 @@ real CompressedDataColumn::sumColumn(int nRows) {
 	return std::accumulate(values.begin(), values.end(), static_cast<real>(0.0));
 }
 
+real CompressedDataColumn::squaredSumColumn() const {
+	if (formatType == INDICATOR) {
+		return getNumberOfEntries();
+	} else {
+		return std::inner_product( data->begin(), data->end(), data->begin(), static_cast<real>(0.0));
+	}
+}
+
 void CompressedDataColumn::convertColumnToSparse(void) {
 	if (formatType == SPARSE) {
 		return;

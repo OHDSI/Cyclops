@@ -52,6 +52,7 @@ struct CCDArguments {
 
 	// Needed for cross-validation
 	bool doCrossValidation;
+	bool useAutoSearchCV;
 	double lowerLimit;
 	double upperLimit;
 	int fold;
