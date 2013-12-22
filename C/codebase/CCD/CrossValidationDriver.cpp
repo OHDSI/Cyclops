@@ -5,6 +5,9 @@
  *      Author: msuchard
  */
 
+
+// TODO Change from fixed grid to adaptive approach in BBR
+
 #include <iostream>
 #include <iomanip>
 #include <numeric>
