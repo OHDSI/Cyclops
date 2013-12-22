@@ -2,15 +2,18 @@
 // 3.02     Sep 01, 11  watch for denormal or infinite limits during autosearch
 
 #define  _USE_MATH_DEFINES
-#include <math.h>
+#include <cmath>
 #include <stdexcept>
 #include <limits>
+#include <iostream>
 
-#include "tnt_array2d.h"
-#include "tnt_array2d_utils.h"
-#include "jama_lu.h"
-
-#include "logging.h"
+#include <Eigen/Core>
+#include <Eigen/LU>
+//#include "tnt_array2d.h"
+//#include "tnt_array2d_utils.h"
+//#include "jama_lu.h"
+//
+//#include "logging.h"
 
 #include "HParSearch.h"
 
@@ -25,43 +28,40 @@ QuadrCoefs QuadrLogFit( const map<double,UniModalSearch::MS> & y_by_x )
 
     //prepare for case weights: inverse of stddev; beware of zero stddev
     double minstddev=numeric_limits<double>::max();
-    for( map<double,UniModalSearch::MS>::const_iterator itr=y_by_x.begin(); itr!=y_by_x.end(); itr++ ) {
-        if( 0<itr->second.s && itr->second.s<minstddev )   minstddev = itr->second.s;
+    for (map<double,UniModalSearch::MS>::const_iterator itr=y_by_x.begin(); itr!=y_by_x.end(); itr++) {
+        if (0 < itr->second.s && itr->second.s < minstddev) {
+        	minstddev = itr->second.s;
+        }
     }
     const double zeroadjust = minstddev<numeric_limits<double>::max() ? 100.0/minstddev //non-zeroes present
         : 1.0; //all weights will be equal
 
-    TNT::Array2D<double> X( n, 3 ); //nRows, nCols 
-    TNT::Array2D<double> XTW( 3, n ); //nRows, nCols 
-    TNT::Array2D<double> Y( n, 1 );
+    Eigen::MatrixXd X( n, 3 ); //nRows, nCols
+    Eigen::MatrixXd XTW( 3, n ); //nRows, nCols
+    Eigen::VectorXd Y( n );
     int i = 0;
-    for( map<double,UniModalSearch::MS>::const_iterator itr=y_by_x.begin(); itr!=y_by_x.end(); 
-        itr++, i++ ) 
-    {
+    for (map<double,UniModalSearch::MS>::const_iterator itr=y_by_x.begin(); itr!=y_by_x.end();
+        itr++, i++) {
         double weight = itr->second.s>0 ? 1/itr->second.s : zeroadjust;
-        X[i][0] = XTW[0][i] = 1.0;
-        X[i][1] = XTW[1][i] = log( itr->first );
-        X[i][2] = XTW[2][i] = log( itr->first ) * log( itr->first );
-        for( int j=0;j<3;j++ )//for no weighting, just skip this
-            XTW[j][i] *= weight;
-        Y[i][0] = itr->second.m;
+        X(i,0) = XTW(0,i) = 1.0;
+        X(i,1) = XTW(1,i) = log( itr->first );
+        X(i,2) = XTW(2,i) = log( itr->first ) * log( itr->first );
+        for (int j=0; j < 3; j++) { //for no weighting, just skip this
+            XTW(j,i) *= weight;
+        }
+        Y(i) = itr->second.m;
     }
 
-    TNT::Array2D<double> XTX = TNT::matmult( XTW, X );
-    TNT::Array2D<double> XTY = TNT::matmult( XTW, Y );
+    Eigen::MatrixXd XTX =  XTW * X;
+    Eigen::VectorXd XTY = XTW * Y;
+    Eigen::VectorXd b_hat = XTX.fullPivLu().solve(XTY);
 
-    JAMA::LU<double> lu( XTX );
-    if( !lu.isNonsingular() )
-        throw runtime_error("Degenerate matrix, vector left division failed");  //--->>--
-
-    TNT::Array2D<double> b_hat = lu.solve( XTY );
-    if( 0==b_hat.dim1() )
-        throw runtime_error("Non-conformant matrix, left division failed");  //--->>--
+    // TODO Check numerical accuracy and throw error
 
     QuadrCoefs ret;
-    ret.c0 = b_hat[0][0];
-    ret.c1 = b_hat[1][0];
-    ret.c2 = b_hat[2][0];
+    ret.c0 = b_hat(0);
+    ret.c1 = b_hat(1);
+    ret.c2 = b_hat(2);
     return ret;
 }
 
@@ -103,8 +103,10 @@ pair<bool,double> UniModalSearch::step() //recommend: do/not next step, and the 
             ret.second = exp( log_argmax );
             //map<double,double>::const_iterator left = best; left--;
             //map<double,double>::const_iterator right = best; right++;
-            Log(6)<<"\nSearch step "<<ret.second<<" stop_by_y "<<((expected_max-maxval)/fabs(maxval))
-                <<" stop_by_x "<<(fabs(log_argmax-log(best->first)));
+            std::cout
+            //Log(6)
+            <<"\nSearch step "<<ret.second<<" stop_by_y "<<((expected_max-maxval)/fabs(maxval))
+                <<" stop_by_x "<<(fabs(log_argmax-log(best->first))) << endl;
         }
     }
     return ret;

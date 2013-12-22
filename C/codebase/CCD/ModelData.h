@@ -93,7 +93,9 @@ public:
 
 	void sortDataColumns(vector<int> sortedInds);
 	
-	double getAvgSquaredNorm() const;
+	double getSquaredNorm() const;
+
+	double getNormalBasedDefaultVar() const;
 
 	int getNumberOfVariableColumns() const;
 

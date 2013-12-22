@@ -19,7 +19,8 @@ set(BASE_SOURCE_FILES
 	GridSearchCrossValidationDriver.cpp
 	AutoSearchCrossValidationDriver.cpp
 	BootstrapSelector.cpp
-	BootstrapDriver.cpp)
+	BootstrapDriver.cpp
+	../utils/HParSearch.cpp)
 	
 set(CCD_SOURCE_FILES
     ccd.cpp)

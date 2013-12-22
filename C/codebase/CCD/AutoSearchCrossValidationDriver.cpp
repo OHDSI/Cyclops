@@ -87,39 +87,6 @@ void AutoSearchCrossValidationDriver::resetForOptimal(
 	ccd.resetBeta(); // Cold-start
 }
 
-
-/*double AvgSquNorm( IRowSet& rs ) //for default bayes parameter: avg x*x
-{
-    rs.rewind();
-    double avgss = 0;
-    double n = 0;
-    while( rs.next() ) {
-        SparseVector x = rs.xsparse();
-        double xsqu = 0;
-        for( SparseVector::const_iterator ix=x.begin(); ix!=x.end(); ix++ )
-            xsqu += ix->second * ix->second;
-        avgss = avgss*n/(n+1) + xsqu/(n+1);
-        n ++;
-    }
-    return avgss;
-}*/
-
-//static double AutoSearchCrossValidationDriver::avgSquNorm() {
-//	CyclicCoordinateDescent& ccd;
-//	ccd.
-//}
-
-// Taken from BBR
-double AutoSearchCrossValidationDriver::normBasedDefaultVar() {
-
-	return
-//    double avgsqunorm = standardize ? 1.0 : AvgSquNorm(stats);
-//    double priorVar = dim/avgsqunorm;
-//    Log(3)<<"\nAvg square norm (no const term) "<<avgsqunorm<<" Prior var "<<priorVar;
-//    return priorVar;
-}
-
-
 void AutoSearchCrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
@@ -129,7 +96,7 @@ void AutoSearchCrossValidationDriver::drive(
 
 	std::vector<real> weights;
 
-	double tryvalue = 1.0; /*NormBasedDefaultVar( drs.dim(), stats, m_modelType.Standardize() );*/
+	double tryvalue = modelData.getNormalBasedDefaultVar();
 	UniModalSearch searcher;
 	const double eps = 0.05; //search stopper
 
@@ -137,11 +104,10 @@ void AutoSearchCrossValidationDriver::drive(
 
 	int step = 0;
 	while (!finished) {
+		ccd.setHyperprior(tryvalue);
 
+		/* start code duplication */
 		std::vector<double> predLogLikelihood;
-		double point = computeGridPoint(step);
-		ccd.setHyperprior(point);
-
 		for (int i = 0; i < arguments.foldToCompute; i++) {
 			int fold = i % arguments.fold;
 			if (fold == 0) {
@@ -173,7 +139,7 @@ void AutoSearchCrossValidationDriver::drive(
 
 			double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
 
-			std::cout << "Grid-point #" << (step + 1) << " at " << point;
+			std::cout << "Grid-point #" << (step + 1) << " at " << tryvalue;
 			std::cout << "\tFold #" << (fold + 1)
 			          << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
 			          << logLikelihood << std::endl;
@@ -182,10 +148,20 @@ void AutoSearchCrossValidationDriver::drive(
 			predLogLikelihood.push_back(logLikelihood);
 		}
 
-		double value = computePointEstimate(predLogLikelihood) /
-				(double(arguments.foldToCompute) / double(arguments.fold));
-		gridPoint.push_back(point);
-		gridValue.push_back(value);
+		double pointEstimate = computePointEstimate(predLogLikelihood);
+		/* end code duplication */
+
+		double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
+
+		std::cout << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
+        searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
+        pair<bool,double> step = searcher.step();
+        std::cout << "Next point at " << step.second << " and " << step.first << std::endl;
+
+        tryvalue = step.second;
+        if (!step.first) {
+            finished = true;
+        }
 	}
 
 	// Report results

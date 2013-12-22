@@ -67,7 +67,7 @@ void ModelData::sortDataColumns(vector<int> sortedInds){
 	reindexVector(allColumns,sortedInds);
 }
 
-double ModelData::getAvgSquaredNorm() const {
+double ModelData::getSquaredNorm() const {
 
 	int startIndex = 0;
 	if (hasInterceptCovariate) ++startIndex;
@@ -79,7 +79,11 @@ double ModelData::getAvgSquaredNorm() const {
 		squaredNorm.push_back(getColumn(index).squaredSumColumn());
 	}
 
-	return std::accumulate(squaredNorm.begin(), squaredNorm.end(), 0.0) / (double) squaredNorm.size();
+	return std::accumulate(squaredNorm.begin(), squaredNorm.end(), 0.0);
+}
+
+double ModelData::getNormalBasedDefaultVar() const {
+	return getNumberOfVariableColumns() * getNumberOfRows() / getSquaredNorm();
 }
 
 int ModelData::getNumberOfVariableColumns() const {

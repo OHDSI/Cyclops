@@ -676,7 +676,7 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
 
 	AbstractCrossValidationDriver* driver;
 	if (arguments.useAutoSearchCV) {
-		driver = new AutoSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+		driver = new AutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
 	} else {
 		driver = new GridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
 	}
