@@ -17,22 +17,22 @@
 
 namespace bsccs {
 
-class AutoSearchCrossValidationDriver : public AbstractDriver {
+class AbstractCrossValidationDriver : public AbstractDriver {
 public:
-	AutoSearchCrossValidationDriver(
+	CrossValidationDriver(
 			int iGridSize,
 			double iLowerLimit,
 			double iUpperLimit,
 			vector<real>* wtsExclude = NULL);
 
-	virtual ~AutoSearchCrossValidationDriver();
+	virtual ~CrossValidationDriver();
 
 	virtual void drive(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
 			const CCDArguments& arguments);
 
-	void resetForOptimal( // TODO Make virtual
+	void resetForOptimal(
 			CyclicCoordinateDescent& ccd,
 			CrossValidationSelector& selector,
 			const CCDArguments& arguments);
