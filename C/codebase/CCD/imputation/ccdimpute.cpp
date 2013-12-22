@@ -25,7 +25,7 @@
 #include "io/CoxInputReader.h"
 #include "io/BBRInputReader.h"
 #include "CrossValidationSelector.h"
-#include "CrossValidationDriver.h"
+#include "GridSearchCrossValidationDriver.h"
 #include "BootstrapSelector.h"
 #include "ProportionSelector.h"
 #include "BootstrapDriver.h"

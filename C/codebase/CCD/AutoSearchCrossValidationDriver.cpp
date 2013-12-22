@@ -1,5 +1,5 @@
 /*
- * CrossValidationDriver.cpp
+ * AutoSearchCrossValidationDriver.cpp
  *
  *  Created on: Sep 10, 2010
  *      Author: msuchard
@@ -14,11 +14,15 @@
 #include <math.h>
 #include <cstdlib>
 
-#include "CrossValidationDriver.h"
+#include "AutoSearchCrossValidationDriver.h"
+#include "CyclicCoordinateDescent.h"
+#include "CrossValidationSelector.h"
+#include "AbstractSelector.h"
+#include "ccd.h"
 
 namespace bsccs {
 
-CrossValidationDriver::CrossValidationDriver(
+AutoSearchCrossValidationDriver::AutoSearchCrossValidationDriver(
 			int iGridSize,
 			double iLowerLimit,
 			double iUpperLimit,
@@ -28,11 +32,11 @@ CrossValidationDriver::CrossValidationDriver(
 	// Do anything???
 }
 
-CrossValidationDriver::~CrossValidationDriver() {
+AutoSearchCrossValidationDriver::~AutoSearchCrossValidationDriver() {
 	// Do nothing
 }
 
-double CrossValidationDriver::computeGridPoint(int step) {
+double AutoSearchCrossValidationDriver::computeGridPoint(int step) {
 	if (gridSize == 1) {
 		return upperLimit;
 	}
@@ -43,13 +47,13 @@ double CrossValidationDriver::computeGridPoint(int step) {
 	double stepSize = (log(upperLimit) - log(lowerLimit)) / (gridSize - 1);
 	return exp(log(lowerLimit) + step * stepSize);
 }
-double CrossValidationDriver::computePointEstimate(const std::vector<double>& value) {
+double AutoSearchCrossValidationDriver::computePointEstimate(const std::vector<double>& value) {
 	// Mean of log values
 	return accumulate(value.begin(), value.end(), 0.0);
 }
 
 
-void CrossValidationDriver::logResults(const CCDArguments& arguments) {
+void AutoSearchCrossValidationDriver::logResults(const CCDArguments& arguments) {
 
 	ofstream outLog(arguments.cvFileName.c_str());
 	if (!outLog) {
@@ -75,7 +79,7 @@ void CrossValidationDriver::logResults(const CCDArguments& arguments) {
 	outLog.close();
 }
 
-void CrossValidationDriver::resetForOptimal(
+void AutoSearchCrossValidationDriver::resetForOptimal(
 		CyclicCoordinateDescent& ccd,
 		CrossValidationSelector& selector,
 		const CCDArguments& arguments) {
@@ -89,7 +93,7 @@ void CrossValidationDriver::resetForOptimal(
 	ccd.resetBeta(); // Cold-start
 }
 
-void CrossValidationDriver::drive(
+void AutoSearchCrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
 		const CCDArguments& arguments) {
@@ -243,7 +247,7 @@ void CrossValidationDriver::drive(
 }
 
 
-void CrossValidationDriver::findMax(double* maxPoint, double* maxValue) {
+void AutoSearchCrossValidationDriver::findMax(double* maxPoint, double* maxValue) {
 
 	*maxPoint = gridPoint[0];
 	*maxValue = gridValue[0];

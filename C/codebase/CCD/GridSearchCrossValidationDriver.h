@@ -8,31 +8,26 @@
 #ifndef CROSSVALIDATIONDRIVER_H_
 #define CROSSVALIDATIONDRIVER_H_
 
-#include "CyclicCoordinateDescent.h"
-#include "CrossValidationSelector.h"
-#include "AbstractSelector.h"
-#include "ccd.h"
-
-#include "AbstractDriver.h"
+#include "AbstractCrossValidationDriver.h"
 
 namespace bsccs {
 
-class CrossValidationDriver : public AbstractDriver {
+class GridSearchCrossValidationDriver : public AbstractCrossValidationDriver {
 public:
-	CrossValidationDriver(
+	GridSearchCrossValidationDriver(
 			int iGridSize,
 			double iLowerLimit,
 			double iUpperLimit,
 			vector<real>* wtsExclude = NULL);
 
-	virtual ~CrossValidationDriver();
+	virtual ~GridSearchCrossValidationDriver();
 
 	virtual void drive(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
 			const CCDArguments& arguments);
 
-	void resetForOptimal(
+	virtual void resetForOptimal(
 			CyclicCoordinateDescent& ccd,
 			CrossValidationSelector& selector,
 			const CCDArguments& arguments);

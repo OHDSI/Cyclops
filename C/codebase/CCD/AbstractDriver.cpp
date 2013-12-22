@@ -10,12 +10,11 @@
 namespace bsccs {
 
 AbstractDriver::AbstractDriver() {
-	// TODO Auto-generated constructor stub
-
+	// Do nothing
 }
 
 AbstractDriver::~AbstractDriver() {
-	// TODO Auto-generated destructor stub
+	// Do nothing
 }
 
 } // namespace

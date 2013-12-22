@@ -13,9 +13,11 @@ set(BASE_SOURCE_FILES
 	AbstractModelSpecifics.cpp
 	AbstractDriver.cpp
 	AbstractSelector.cpp
+	AbstractCrossValidationDriver.cpp
 	ProportionSelector.cpp
 	CrossValidationSelector.cpp
-	CrossValidationDriver.cpp
+	GridSearchCrossValidationDriver.cpp
+	AutoSearchCrossValidationDriver.cpp
 	BootstrapSelector.cpp
 	BootstrapDriver.cpp)
 	

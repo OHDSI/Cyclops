@@ -39,7 +39,8 @@
 #include "io/BBRInputReader.h"
 #include "io/OutputWriter.h"
 #include "CrossValidationSelector.h"
-#include "CrossValidationDriver.h"
+#include "GridSearchCrossValidationDriver.h"
+#include "AutoSearchCrossValidationDriver.h"
 #include "BootstrapSelector.h"
 #include "ProportionSelector.h"
 #include "BootstrapDriver.h"
@@ -668,7 +669,7 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
 
 	CrossValidationSelector selector(arguments.fold, modelData->getPidVectorSTL(),
 			SUBJECT, arguments.seed);
-	CrossValidationDriver driver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+	GridSearchCrossValidationDriver driver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
 
 	driver.drive(*ccd, selector, arguments);
 

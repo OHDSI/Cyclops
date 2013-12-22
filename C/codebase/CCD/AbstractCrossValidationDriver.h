@@ -5,57 +5,37 @@
  *      Author: msuchard
  */
 
-#ifndef CROSSVALIDATIONDRIVER_H_
-#define CROSSVALIDATIONDRIVER_H_
-
-#include "CyclicCoordinateDescent.h"
-#include "CrossValidationSelector.h"
-#include "AbstractSelector.h"
-#include "ccd.h"
+#ifndef ABSTRACTCROSSVALIDATIONDRIVER_H_
+#define ABSTRACTCROSSVALIDATIONDRIVER_H_
 
 #include "AbstractDriver.h"
 
 namespace bsccs {
 
+ // forward references
+class CyclicCoordinateDescent;
+class AbstractSelector;
+class CCDArguments;
+
 class AbstractCrossValidationDriver : public AbstractDriver {
 public:
-	CrossValidationDriver(
-			int iGridSize,
-			double iLowerLimit,
-			double iUpperLimit,
-			vector<real>* wtsExclude = NULL);
+	AbstractCrossValidationDriver();
 
-	virtual ~CrossValidationDriver();
+	virtual ~AbstractCrossValidationDriver();
 
 	virtual void drive(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
-			const CCDArguments& arguments);
+			const CCDArguments& arguments) = 0; // pure virtual
 
-	void resetForOptimal(
+	virtual void resetForOptimal(
 			CyclicCoordinateDescent& ccd,
 			CrossValidationSelector& selector,
-			const CCDArguments& arguments);
+			const CCDArguments& arguments) = 0; // pure virtual
 
-	virtual void logResults(const CCDArguments& arguments);
-
-private:
-
-	double computeGridPoint(int step);
-
-	double computePointEstimate(const std::vector<double>& value);
-
-	void findMax(double* maxPoint, double* maxValue);
-
-	std::vector<double> gridPoint;
-	std::vector<double> gridValue;
-
-	int gridSize;
-	double lowerLimit;
-	double upperLimit;
-	vector<real>* weightsExclude;
+	virtual void logResults(const CCDArguments& arguments) = 0; // pure virtual
 };
 
 } // namespace
 
-#endif /* CROSSVALIDATIONDRIVER_H_ */
+#endif /* ABSTRACTCROSSVALIDATIONDRIVER_H_ */

@@ -13,11 +13,11 @@
 #include "AbstractSelector.h"
 #include "ccd.h"
 
-#include "AbstractDriver.h"
+#include "AbstractCrossValidationDriver.h"
 
 namespace bsccs {
 
-class AutoSearchCrossValidationDriver : public AbstractDriver {
+class AutoSearchCrossValidationDriver : public AbstractCrossValidationDriver {
 public:
 	AutoSearchCrossValidationDriver(
 			int iGridSize,
@@ -32,7 +32,7 @@ public:
 			AbstractSelector& selector,
 			const CCDArguments& arguments);
 
-	void resetForOptimal( // TODO Make virtual
+	virtual void resetForOptimal(
 			CyclicCoordinateDescent& ccd,
 			CrossValidationSelector& selector,
 			const CCDArguments& arguments);

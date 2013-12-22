@@ -14,11 +14,11 @@
 #include <math.h>
 #include <cstdlib>
 
-#include "CrossValidationDriver.h"
+#include "GridSearchCrossValidationDriver.h"
 
 namespace bsccs {
 
-CrossValidationDriver::CrossValidationDriver(
+GridSearchCrossValidationDriver::GridSearchCrossValidationDriver(
 			int iGridSize,
 			double iLowerLimit,
 			double iUpperLimit,
@@ -28,11 +28,11 @@ CrossValidationDriver::CrossValidationDriver(
 	// Do anything???
 }
 
-CrossValidationDriver::~CrossValidationDriver() {
+GridSearchCrossValidationDriver::~GridSearchCrossValidationDriver() {
 	// Do nothing
 }
 
-double CrossValidationDriver::computeGridPoint(int step) {
+double GridSearchCrossValidationDriver::computeGridPoint(int step) {
 	if (gridSize == 1) {
 		return upperLimit;
 	}
@@ -43,13 +43,13 @@ double CrossValidationDriver::computeGridPoint(int step) {
 	double stepSize = (log(upperLimit) - log(lowerLimit)) / (gridSize - 1);
 	return exp(log(lowerLimit) + step * stepSize);
 }
-double CrossValidationDriver::computePointEstimate(const std::vector<double>& value) {
+double GridSearchCrossValidationDriver::computePointEstimate(const std::vector<double>& value) {
 	// Mean of log values
 	return accumulate(value.begin(), value.end(), 0.0);
 }
 
 
-void CrossValidationDriver::logResults(const CCDArguments& arguments) {
+void GridSearchCrossValidationDriver::logResults(const CCDArguments& arguments) {
 
 	ofstream outLog(arguments.cvFileName.c_str());
 	if (!outLog) {
@@ -75,7 +75,7 @@ void CrossValidationDriver::logResults(const CCDArguments& arguments) {
 	outLog.close();
 }
 
-void CrossValidationDriver::resetForOptimal(
+void GridSearchCrossValidationDriver::resetForOptimal(
 		CyclicCoordinateDescent& ccd,
 		CrossValidationSelector& selector,
 		const CCDArguments& arguments) {
@@ -89,7 +89,7 @@ void CrossValidationDriver::resetForOptimal(
 	ccd.resetBeta(); // Cold-start
 }
 
-void CrossValidationDriver::drive(
+void GridSearchCrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
 		const CCDArguments& arguments) {
@@ -166,7 +166,7 @@ void CrossValidationDriver::drive(
 }
 
 
-void CrossValidationDriver::findMax(double* maxPoint, double* maxValue) {
+void GridSearchCrossValidationDriver::findMax(double* maxPoint, double* maxValue) {
 
 	*maxPoint = gridPoint[0];
 	*maxValue = gridValue[0];

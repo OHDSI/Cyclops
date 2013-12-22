@@ -9,7 +9,7 @@
 #include "io/CSVInputReader.h"
 #include "io/BBRInputReader.h"
 #include "io/BBROutputWriter.h"
-#include "CrossValidationDriver.h"
+#include "GridSearchCrossValidationDriver.h"
 #include "CrossValidationSelector.h"
 #include <time.h>
 
@@ -154,7 +154,7 @@ void ImputeVariables::imputeColumn(int col){
 	initializeCCDModel(col);
 	// Do cross validation for finding optimum hyperparameter value
 	CrossValidationSelector selector(arguments.fold, modelData->getPidVectorSTL(), SUBJECT, rand(), &weightsMissing);
-	CrossValidationDriver driver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit, &weightsMissing);
+	GridSearchCrossValidationDriver driver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit, &weightsMissing);
 	driver.drive(*ccd, selector, arguments);
 //	driver.logResults(arguments);
 	driver.resetForOptimal(*ccd, selector, arguments);
