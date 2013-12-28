@@ -878,91 +878,12 @@ int main(int argc, char* argv[]) {
 		timeDiagnose = diagnoseModel(ccd, modelData, arguments, timeInitialize, timeUpdate);
 	}
 
-
 	double timeProfile;
 	bool doProfile = false;
 	if (arguments.profileCI.size() > 0) {
 		doProfile = true;
 		timeProfile = profileModel(ccd, modelData, arguments);
 	}
-
-
-//	if (true) {
-//
-//		// TODO Get mode and save;
-//		// TODO set beta <- mode
-//
-//		struct Obj {
-//
-//			CyclicCoordinateDescent& ccd;
-//
-//			Obj(CyclicCoordinateDescent& _ccd) : ccd(_ccd) { }
-//#define LIKELIHOOD_ONLY
-//#ifdef LIKELIHOOD_ONLY
-//			double objective() {
-//				return ccd.getLogLikelihood();
-//			}
-//#else
-//			double objective() {
-//				return ccd.getLogLikelihood() + ccd.getLogPrior();
-//			}
-//#endif
-//		};
-//
-//		Obj eval(*ccd);
-//
-//		int index =  14 /* 17 *//* 15 */;
-//		cout << "Name: " << modelData->getColumn(index).getLabel() << " " << eval.objective() << endl;
-//		double delta = 0.001;
-//		double mode = eval.objective();
-//
-//		double direction = -1.0;
-//		double xMode = ccd->getBeta(index);
-//		ccd->setBeta(index, xMode);
-//		mode = eval.objective();
-//		cout << "Test at mode: " << mode << endl; // TODO Why does not match above value?
-//
-//		int maxTries = 1000;
-//		double threshold = mode - 1.92;
-//
-//		int attempts = 0;
-//		double currentObj = mode;
-//		while (attempts < maxTries && currentObj > threshold) {
-//			double x = ccd->getBeta(index);
-//			x += direction * delta;
-//			ccd->setBeta(index, x);
-//			currentObj = eval.objective();
-//			cout << "beta: " << x << " with " << currentObj;
-//			if (currentObj < threshold) {
-//				cout << " hit";
-//			}
-//			cout << endl;
-//			attempts++;
-//		}
-//
-//		cout << "switch" << endl;
-//		ccd->setBeta(index, xMode);
-//
-//		attempts = 0;
-//		currentObj = mode;
-//		direction = 1.0;
-//		while (attempts < maxTries && currentObj > threshold) {
-//			double x = ccd->getBeta(index);
-//			x += direction * delta;
-//			ccd->setBeta(index, x);
-//			currentObj = eval.objective();
-//			cout << "beta: " << x << " with " << currentObj;
-//			if (currentObj < threshold) {
-//				cout << " hit";
-//			}
-//			cout << endl;
-//			attempts++;
-//		}
-//
-//		RZeroIn<Obj> zeroIn(eval);
-//
-//	}
->>>>>>> Separated out profiling code from main
 
 	if (arguments.doBootstrap) {
 		// Save parameter point-estimates
