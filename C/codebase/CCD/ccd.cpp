@@ -627,6 +627,8 @@ double profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArgum
 			cerr << "Variable " << *it << " not found." << endl;
 		} else {
 
+			// TODO Check prior on covariate
+
 			// Bound edge
 			OptimizationProfile upEval(*ccd, index, mode);
 			RZeroIn<OptimizationProfile> zeroIn(upEval);
@@ -642,7 +644,7 @@ double profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArgum
 					zeroIn.bracketSignChange(x0, obj0, -1.0);
 			double lowerPt = zeroIn.getRoot(x0, lowerBracket.first, obj0, lowerBracket.second);
 
-			cout << "Profile #" << index << " (" << lowerPt << ", "
+			cout << "Profile: " << modelData->getColumn(index).getLabel() << " (" << lowerPt << ", "
 					<< upperPt << ")  in " << upEval.getEvaluations() << endl;
 			// TODO Save somewhere
 

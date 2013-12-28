@@ -55,7 +55,7 @@ public:
 			double delta = direction * displacement * multiplier;
 			x1 = x0 + delta;
 			obj1 = obj.objective(x1);
-			cerr << "Try at " << x1 << " with delta = " << delta << " : " << obj1 << endl;
+//			cerr << "Try at " << x1 << " with delta = " << delta << " : " << obj1 << endl;
 			multiplier *= factor;
 		}
 
