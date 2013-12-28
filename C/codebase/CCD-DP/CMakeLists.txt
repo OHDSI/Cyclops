@@ -13,13 +13,18 @@ set(BASE_SOURCE_FILES
 	../CCD/AbstractModelSpecifics.cpp
 	../CCD/AbstractDriver.cpp
 	../CCD/AbstractSelector.cpp
+	../CCD/AbstractCrossValidationDriver.cpp
 	../CCD/ProportionSelector.cpp
 	../CCD/CrossValidationSelector.cpp
-	../CCD/CrossValidationDriver.cpp
+    ../CCD/GridSearchCrossValidationDriver.cpp
+	../CCD/AutoSearchCrossValidationDriver.cpp
 	../CCD/BootstrapSelector.cpp
-	../CCD/BootstrapDriver.cpp)
-
+	../CCD/BootstrapDriver.cpp
+	../utils/HParSearch.cpp
+	)
+	
 set(CCD_SOURCE_FILES
+
 	../CCD/ccd.cpp)
 	
 set(DOUBLE_PRECISION true)	
