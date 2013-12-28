@@ -583,6 +583,153 @@ double predictModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArgum
 	return calculateSeconds(time1, time2);
 }
 
+struct OptimizationProfile {
+
+	CyclicCoordinateDescent& ccd;
+
+	OptimizationProfile(CyclicCoordinateDescent& _ccd, int _index, double _threshold = 1.92) :
+			ccd(_ccd), index(_index), threshold(_threshold), nEvals(0) {
+	}
+
+	int getEvaluations() {
+		return nEvals;
+	}
+
+	double objective(double x) {
+		++nEvals;
+		ccd.setBeta(index, x);
+		return ccd.getLogLikelihood() - threshold;
+	}
+
+	int index;
+	double threshold;
+	int nEvals;
+};
+
+double profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArguments &arguments) {
+
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
+
+	// Attempt profile CIs
+	for (std::vector<DrugIdType>::iterator it = arguments.profileCI.begin();
+			it != arguments.profileCI.end(); ++it) {
+		int index = modelData->getColumnIndexByName(*it);
+		if (index == -1) {
+			cerr << "Variable " << *it << " not found." << endl;
+		} else {
+//			cerr << "Working on: " << *it << " at " << index << endl;
+
+			struct Obj {
+
+				CyclicCoordinateDescent& ccd;
+
+				Obj(CyclicCoordinateDescent& _ccd) :
+						ccd(_ccd), nEvals(0) {
+				}
+
+				int getEvaluations() {
+					return nEvals;
+				}
+
+				double objective() {
+					++nEvals;
+#define LIKELIHOOD_ONLY
+#ifdef LIKELIHOOD_ONLY
+					return ccd.getLogLikelihood();
+#else
+					return ccd.getLogLikelihood() + ccd.getLogPrior();
+#endif
+				}
+
+				int nEvals;
+			};
+
+			Obj eval(*ccd);
+			cout << "Name: " << modelData->getColumn(index).getLabel() << " "
+					<< eval.objective() << endl;
+			double delta = 0.001;
+			double mode = eval.objective();
+
+			double direction = -1.0;
+			double xMode = ccd->getBeta(index);
+			ccd->setBeta(index, xMode);
+			mode = eval.objective();
+			cout << "Test at mode: " << mode << endl; // TODO Why does not match above value?
+
+			int maxTries = 2000;
+			double threshold = mode - 1.92;
+
+			int attempts = 0;
+			double currentObj = mode;
+			while (attempts < maxTries && currentObj > threshold) {
+				double x = ccd->getBeta(index);
+				x += direction * delta;
+				ccd->setBeta(index, x);
+				currentObj = eval.objective();
+
+				if (currentObj < threshold) {
+					cout << "beta: " << x << " with " << currentObj;
+					cout << " hit: " << eval.getEvaluations();
+					cout << endl;
+				}
+				attempts++;
+			}
+
+			cout << "switch" << endl;
+			ccd->setBeta(index, xMode);
+
+			attempts = 0;
+			currentObj = mode;
+			direction = 1.0;
+			while (attempts < maxTries && currentObj > threshold) {
+				double x = ccd->getBeta(index);
+				x += direction * delta;
+				ccd->setBeta(index, x);
+				currentObj = eval.objective();
+
+				if (currentObj < threshold) {
+					cout << "beta: " << x << " with " << currentObj;
+					cout << " hit: " << eval.getEvaluations();
+					cout << endl;
+				}
+				attempts++;
+			}
+
+			// Bound edge
+			OptimizationProfile upEval(*ccd, index);
+			double displacement = std::abs(xMode);
+			double xTry;
+			double multiplier = 1.0;
+			double factor = 2.0;
+			direction = 1.0;
+			double objective;
+			do {
+				double delta = direction * displacement * multiplier;
+				xTry = xMode + delta;
+				objective = upEval.objective(xMode + delta);
+				cerr << "Try at " << xTry << " with delta = " << delta << " : " << objective << endl;
+				multiplier *= factor;
+//			} while (objective > 0);
+			} while (multiplier < 10.0);
+
+
+
+
+			double upper = 10.0;
+			double objUpper = upEval.objective(upper);
+			RZeroIn<OptimizationProfile> zeroIn(upEval);
+			double root = zeroIn.getRoot(xMode, upper, mode, objUpper);
+			cerr << "Up root @ " << root << " (in " << upEval.getEvaluations() << ")" << endl;
+
+		}
+	}
+
+	gettimeofday(&time2, NULL);
+	return calculateSeconds(time1, time2);
+}
+
+
 double diagnoseModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
 		CCDArguments& arguments,
 		double loadTime,
@@ -803,149 +950,91 @@ int main(int argc, char* argv[]) {
 		timeDiagnose = diagnoseModel(ccd, modelData, arguments, timeInitialize, timeUpdate);
 	}
 
-//#define DO_PROFILE_CI
-#ifdef DO_PROFILE_CI
 
-//	if (arguments.profileCI.size() > 0) {
-	// Attempt profile CIs
-	for (ProfileVector::iterator it = arguments.profileCI.begin();
-			it != arguments.profileCI.end(); ++it) {
-		int index = modelData->getColumnIndexByName(*it);
-		if (index == -1) {
-			cerr << "Variable " << *it << " not found." << endl;
-		} else {
-//			cerr << "Working on: " << *it << " at " << index << endl;
-
-			struct Obj {
-
-				CyclicCoordinateDescent& ccd;
-
-				Obj(CyclicCoordinateDescent& _ccd) :
-						ccd(_ccd), nEvals(0) {
-				}
-
-				int getEvaluations() {
-					return nEvals;
-				}
-
-				double objective() {
-					++nEvals;
-#define LIKELIHOOD_ONLY
-#ifdef LIKELIHOOD_ONLY
-					return ccd.getLogLikelihood();
-#else
-					return ccd.getLogLikelihood() + ccd.getLogPrior();
-#endif
-				}
-
-				int nEvals;
-			};
-
-			Obj eval(*ccd);
-			cout << "Name: " << modelData->getColumn(index).getLabel() << " "
-					<< eval.objective() << endl;
-			double delta = 0.001;
-			double mode = eval.objective();
-
-			double direction = -1.0;
-			double xMode = ccd->getBeta(index);
-			ccd->setBeta(index, xMode);
-			mode = eval.objective();
-			cout << "Test at mode: " << mode << endl; // TODO Why does not match above value?
-
-			int maxTries = 2000;
-			double threshold = mode - 1.92;
-
-			int attempts = 0;
-			double currentObj = mode;
-			while (attempts < maxTries && currentObj > threshold) {
-				double x = ccd->getBeta(index);
-				x += direction * delta;
-				ccd->setBeta(index, x);
-				currentObj = eval.objective();
-
-				if (currentObj < threshold) {
-					cout << "beta: " << x << " with " << currentObj;
-					cout << " hit: " << eval.getEvaluations();
-					cout << endl;
-				}
-				attempts++;
-			}
-
-			cout << "switch" << endl;
-			ccd->setBeta(index, xMode);
-
-			attempts = 0;
-			currentObj = mode;
-			direction = 1.0;
-			while (attempts < maxTries && currentObj > threshold) {
-				double x = ccd->getBeta(index);
-				x += direction * delta;
-				ccd->setBeta(index, x);
-				currentObj = eval.objective();
-
-				if (currentObj < threshold) {
-					cout << "beta: " << x << " with " << currentObj;
-					cout << " hit: " << eval.getEvaluations();
-					cout << endl;
-				}
-				attempts++;
-			}
-
-			struct NewObj {
-
-				CyclicCoordinateDescent& ccd;
-
-				NewObj(CyclicCoordinateDescent& _ccd, int _index, double _threshold = 1.92) :
-						ccd(_ccd), index(_index), threshold(_threshold), nEvals(0) {
-				}
-
-				int getEvaluations() {
-					return nEvals;
-				}
-
-				double objective(double x) {
-					++nEvals;
-					ccd.setBeta(index, x);
-					return ccd.getLogLikelihood() - threshold;
-				}
-
-				int index;
-				double threshold;
-				int nEvals;
-			};
-
-			// Bound edge
-			NewObj upEval(*ccd, index);
-			double displacement = std::abs(xMode);
-			double xTry;
-			double multiplier = 1.0;
-			double factor = 2.0;
-			direction = 1.0;
-			double objective;
-			do {
-				double delta = direction * displacement * multiplier;
-				xTry = xMode + delta;
-				objective = upEval.objective(xMode + delta);
-				cerr << "Try at " << xTry << " with delta = " << delta << " : " << objective << endl;
-				multiplier *= factor;
-//			} while (objective > 0);
-			} while (multiplier < 10.0);
-
-
-
-
-			double upper = 10.0;
-			double objUpper = upEval.objective(upper);
-			RZeroIn<NewObj> zeroIn(upEval);
-			double root = zeroIn.getRoot(xMode, upper, mode, objUpper);
-			cerr << "Up root @ " << root << " (in " << upEval.getEvaluations() << ")" << endl;
-
-		}
+	double timeProfile;
+	bool doProfile = false;
+	if (arguments.profileCI.size() > 0) {
+		doProfile = true;
+		timeProfile = profileModel(ccd, modelData, arguments);
 	}
-	exit(-1);
 
-#endif // DO_PROFILE_CI
+
+//	if (true) {
+//
+//		// TODO Get mode and save;
+//		// TODO set beta <- mode
+//
+//		struct Obj {
+//
+//			CyclicCoordinateDescent& ccd;
+//
+//			Obj(CyclicCoordinateDescent& _ccd) : ccd(_ccd) { }
+//#define LIKELIHOOD_ONLY
+//#ifdef LIKELIHOOD_ONLY
+//			double objective() {
+//				return ccd.getLogLikelihood();
+//			}
+//#else
+//			double objective() {
+//				return ccd.getLogLikelihood() + ccd.getLogPrior();
+//			}
+//#endif
+//		};
+//
+//		Obj eval(*ccd);
+//
+//		int index =  14 /* 17 *//* 15 */;
+//		cout << "Name: " << modelData->getColumn(index).getLabel() << " " << eval.objective() << endl;
+//		double delta = 0.001;
+//		double mode = eval.objective();
+//
+//		double direction = -1.0;
+//		double xMode = ccd->getBeta(index);
+//		ccd->setBeta(index, xMode);
+//		mode = eval.objective();
+//		cout << "Test at mode: " << mode << endl; // TODO Why does not match above value?
+//
+//		int maxTries = 1000;
+//		double threshold = mode - 1.92;
+//
+//		int attempts = 0;
+//		double currentObj = mode;
+//		while (attempts < maxTries && currentObj > threshold) {
+//			double x = ccd->getBeta(index);
+//			x += direction * delta;
+//			ccd->setBeta(index, x);
+//			currentObj = eval.objective();
+//			cout << "beta: " << x << " with " << currentObj;
+//			if (currentObj < threshold) {
+//				cout << " hit";
+//			}
+//			cout << endl;
+//			attempts++;
+//		}
+//
+//		cout << "switch" << endl;
+//		ccd->setBeta(index, xMode);
+//
+//		attempts = 0;
+//		currentObj = mode;
+//		direction = 1.0;
+//		while (attempts < maxTries && currentObj > threshold) {
+//			double x = ccd->getBeta(index);
+//			x += direction * delta;
+//			ccd->setBeta(index, x);
+//			currentObj = eval.objective();
+//			cout << "beta: " << x << " with " << currentObj;
+//			if (currentObj < threshold) {
+//				cout << " hit";
+//			}
+//			cout << endl;
+//			attempts++;
+//		}
+//
+//		RZeroIn<Obj> zeroIn(eval);
+//
+//	}
+>>>>>>> Separated out profiling code from main
 
 	if (arguments.doBootstrap) {
 		// Save parameter point-estimates

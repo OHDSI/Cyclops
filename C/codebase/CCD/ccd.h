@@ -105,6 +105,11 @@ double predictModel(
 		ModelData *modelData,
 		CCDArguments &arguments);
 
+double profileModel(
+		CyclicCoordinateDescent *ccd,
+		ModelData *modelData,
+		CCDArguments &arguments);
+
 double runCrossValidation(
 		CyclicCoordinateDescent *ccd,
 		ModelData *modelData,
