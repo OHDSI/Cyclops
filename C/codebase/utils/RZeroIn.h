@@ -8,32 +8,22 @@
 #ifndef RZEROIN_H_
 #define RZEROIN_H_
 
-	#include <float.h>
-	#include <math.h>
+#include <float.h>
+#include <math.h>
 
-//	#include <R_ext/Applic.h>
+//#include <R_ext/Applic.h>
 
-	#define EPSILON DBL_EPSILON
+#define EPSILON DBL_EPSILON
 
-//double R_zeroin(double ax, double bx, double (*f)(double, void *), void *info,
-//		double *Tol, int *Maxit);
-///* R_zeroin2() is faster for "expensive" f(), in those typical cases where
-// *             f(ax) and f(bx) are available anyway : */
-//double R_zeroin2(double ax, double bx, double fa, double fb,
-//		 double (*f)(double, void *), void *info, double *Tol, int *Maxit);
-//
 namespace bsccs {
-
-template <typename Obj>
-double test_objective(double, void*) {
-	return 0.0;
-}
 
 template <typename Obj>
 class RZeroIn {
 public:
+	typedef std::pair<double, double> Coordinate;
+
 	RZeroIn(Obj& _obj, double _tol = 1E-6, int _maxIt = 1000) :
-		obj(_obj), tol(_tol), maxIt(_maxIt) {
+		obj(_obj), tol(_tol), maxIt(_maxIt), it(maxIt) {
 		// Do nothing
 	}
 
@@ -48,51 +38,35 @@ public:
 		}
 
 		it = maxIt;
-//		return R_zeroin2(xLower, xUpper,
-//				objLower, objUpper,
-////				(double (*)(double, void*)),
-////				std::ptr_fun<double, void*, double>(*test_objective),
-////				&(test_objective),
-//				*test_objective,
-//				NULL, &tol, &it);
-		return 0.0;
+		return R_zeroin2(xLower, xUpper,
+				objLower, objUpper, &tol, &it);
 	}
 
 	// Assumes that objective() > 0 at x0
-	double bracketSignChange(double x0, double direction) {
-		const double displacement = std::abs(x0);
-		double delta = 0;
-//		const double multiplier = 1.0;
-//		const double factor = 2.0;
-//
-//		it = maxIt;
-//
-//		double objective;
-//		do {
-//			double delta = direction * displacement * multiplier;
-//			xTry = xMode + delta;
-//			objective = upEval.objective(xMode + delta);
-//			cerr << "Try at " << xTry << " with delta = " << delta << " : " << objective << endl;
-//			multiplier *= factor;
-////			} while (objective > 0);
-//		} while (multiplier < 10.0);
+	Coordinate bracketSignChange(double x0, double obj0, double direction) {
+		double displacement = std::abs(x0);
+		double multiplier = 1.0;
+		double factor = 2.0;
 
-		return x0 + delta;
+		double x1 = x0;
+		double obj1 = obj0;
+
+		while (obj1 > 0) {  // TODO Check for over/under-flow and set max iterations
+			double delta = direction * displacement * multiplier;
+			x1 = x0 + delta;
+			obj1 = obj.objective(x1);
+			cerr << "Try at " << x1 << " with delta = " << delta << " : " << obj1 << endl;
+			multiplier *= factor;
+		}
+
+		return Coordinate(x1, obj1);
 	}
-
-
-
 
 	double getTolerance() { return tol; }
 
 	int getIterations() { return it; }
 
 private:
-
-	double objective(double x, void*) {
-		return 0.0;
-//		return obj.objective(x);
-	}
 
 	Obj& obj;
 	double tol;
@@ -177,14 +151,16 @@ private:
 	double R_zeroin(			/* An estimate of the root */
 	    double ax,				/* Left border | of the range	*/
 	    double bx,				/* Right border| the root is seeked*/
-	    double (*f)(double x, void *info),	/* Function under investigation	*/
-	    void *info,				/* Add'l info passed on to f	*/
+//	    double (*f)(double x, void *info),	/* Function under investigation	*/
+//	    void *info,				/* Add'l info passed on to f	*/
 	    double *Tol,			/* Acceptable tolerance		*/
 	    int *Maxit)				/* Max # of iterations */
 	{
-	    double fa = (*f)(ax, info);
-	    double fb = (*f)(bx, info);
-	    return R_zeroin2(ax, bx, fa, fb, f, info, Tol, Maxit);
+	    double fa = obj.objective(ax);
+	    double fb = obj.objective(bx);
+	    return R_zeroin2(ax, bx, fa, fb,
+//	    		f, info,
+	    		Tol, Maxit);
 	}
 
 	/* R_zeroin2() is faster for "expensive" f(), in those typical cases where
@@ -194,8 +170,8 @@ private:
 	    double ax,				/* Left border | of the range	*/
 	    double bx,				/* Right border| the root is seeked*/
 	    double fa, double fb,		/* f(a), f(b) */
-	    double (*f)(double x, void *info),	/* Function under investigation	*/
-	    void *info,				/* Add'l info passed on to f	*/
+//	    double (*f)(double x, void *info),	/* Function under investigation	*/
+//	    void *info,				/* Add'l info passed on to f	*/
 	    double *Tol,			/* Acceptable tolerance		*/
 	    int *Maxit)				/* Max # of iterations */
 	{
@@ -284,7 +260,7 @@ private:
 			new_step = -tol_act;
 		}
 		a = b;	fa = fb;			/* Save the previous approx. */
-		b += new_step;	fb = (*f)(b, info);	/* Do step to a new approxim. */
+		b += new_step;	fb = obj.objective(b);	/* Do step to a new approxim. */
 		if( (fb > 0 && fc > 0) || (fb < 0 && fc < 0) ) {
 		    /* Adjust c for it to have a sign opposite to that of b */
 		    c = a;  fc = fa;
@@ -296,8 +272,6 @@ private:
 	    *Maxit = -1;
 	    return b;
 	}
-
-
 };
 
 } /* namespace bsccs */
