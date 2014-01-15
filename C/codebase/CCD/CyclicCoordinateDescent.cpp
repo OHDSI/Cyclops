@@ -973,6 +973,7 @@ void CyclicCoordinateDescent::update_MM(
 				 << " (" << thisLogLikelihood << " + " << thisLogPrior
 			     << ") (iter:" << iteration << ") ";
 
+
 			if (epsilon > 0 && conv < epsilon) {
 				cout << "Reached convergence criterion" << endl;
 				done = true;
@@ -1015,7 +1016,7 @@ void CyclicCoordinateDescent::computeGradientAndHessian_MM(int index, double *og
 	switch (hXI->getFormatType(index)) {
 	case INDICATOR :
 //		computeGradientAndHessianImplHand(index, ogradient, ohessian);
-		computeGradientAndHessianImpl_sccsMM<IndicatorIterator>(index, ogradient, ohessian);
+		computeGradientAndHessianImpl_sccsMM_2<IndicatorIterator>(index, ogradient, ohessian);
 		break;
 	case SPARSE :
 		computeGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian);
@@ -1212,49 +1213,71 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl_sccsMM(int index, do
 template <class IteratorType>
 void CyclicCoordinateDescent::computeGradientAndHessianImpl_sccsMM_2(int index, double *ogradient,
 		double *ohessian) {
+
+	// Method 3 in the latex document...  It works but it is very slow to converge.
 	bsccs::real gradient = 0;
 	bsccs::real hessian = 0;
 
+	bsccs::real b = 0;
+	bsccs::real a = -0.50;
 
 	cout << "computeGradientAndHessianImpl_sccsMM_2" << endl;
-
 	int* observations = hXI->getCompressedColumnVector(index);
 	int nObservations = hXI->getNumberOfEntries(index);
 
 	// Stupid way of doing this...
 	vector<double> numeratorInNewMM(N);  // unique per patient
+
 	for (int k = 0; k < N; k++){
 		numeratorInNewMM[k] = 0;
 	}
 	for (int j =0; j < nObservations; j++){
 		int currentObservation = observations[j];
+		cout << "currentObservation = " << currentObservation << endl;
 		int Patient = hPid[currentObservation];
 		numeratorInNewMM[Patient] += hOffs[currentObservation]*exp(hXBeta[currentObservation]);
+		cout << "hOffs[currentObservation]*exp(hXBeta[currentObservation]) = " << hOffs[currentObservation]*exp(hXBeta[currentObservation]) << endl;
 	}
 
 
 	// Over N
+	for (int l = 0; l < N; l++){
+		int n_i = hNEvents[l];
+		b += - n_i*numeratorInNewMM[l]/denomPid[l]
+			            + n_i*numeratorInNewMM[l]*hBeta[index];
+		a += -n_i*numeratorInNewMM[l]/2;
+	//#ifdef debugMM
+			cout << "n_i = " << n_i << endl;
+			cout << "a += " << -n_i*numeratorInNewMM[l]/2 << endl;
+	//#endif
+
+	}
+
 	for (int i = 0; i < nObservations; i++){
 		int currentObservation = observations[i];
 		int currentPatient = hPid[currentObservation];
-		int t_ik = hOffs[currentObservation];
 		int n_i = hNEvents[hPid[currentObservation]];
 		int y_ik = hEta[currentObservation];
-		gradient += y_ik - n_i*numeratorInNewMM[hPid[currentObservation]]/denomPid[hPid[currentObservation]];
-#ifdef debugMM
+		b += y_ik;
+//#ifdef debugMM
+		cout << "currentObservation = " << currentObservation << endl;
 		cout << "gradient = " << gradient << endl;
 		cout << "hPid[currentObservation] = " << hPid[currentObservation] << endl;
 		cout << "denomPid[hPid[currentObservation]] = " << denomPid[hPid[currentObservation]] <<  endl;
-		cout << "t_ik = " << t_ik << endl;
 		cout << "n_i = " << n_i << endl;
 		cout << "y_ik = " << y_ik << endl;
-		cout << "y_ik - t_ik*n_i/denomPid[hPid[currentObservation]] = " << y_ik - t_ik*n_i/denomPid[hPid[currentObservation]] << endl;
-#endif
+		cout << "y_ik - n_i/denomPid[hPid[currentObservation]] = " << y_ik - n_i/denomPid[hPid[currentObservation]] << endl;
+//#endif
 
-		hessian -= 100;//n_i*hXI_Transpose.getNumberOfEntries(currentObservation)/denomPid[hPid[currentObservation]];
 	}
+	cout << "a = " << a << endl;
+	cout << "b= " << b << endl;
 
+	gradient = -b/(2*a);  //Assuming l2 norm  2aB + b = 0 => B = -b/(2a)
 
+	//Forcing into the Newton step framework
+	hessian = 1; // denominator not used
+	gradient -= hBeta[index]; // At x, want to set to y <=> add -x + y to x
 
 
 	*ogradient = static_cast<double>(gradient);
@@ -1371,14 +1394,14 @@ double CyclicCoordinateDescent::ccdUpdateBeta_MM(int index) {
 	computeGradientAndHessian_MM(index, &g_d1, &g_d2);
 
 	// Just do Normal to start
-	cout << "in ccdUpdateBeta_MM, gradient = " << g_d1 << endl;
-	cout << "in ccdUpdateBeta_MM, hessian = " << g_d2 << endl;
+	//cout << "in ccdUpdateBeta_MM, gradient = " << g_d1 << endl;
+	//cout << "in ccdUpdateBeta_MM, hessian = " << g_d2 << endl;
 	delta =  - (g_d1 + (hBeta[index] / sigma2Beta)) /
 				  (g_d2 + (1.0 / sigma2Beta));
 
-	//delta = -g_d1/g_d2;
-	cout << "Warning - no regularization" << endl;
-	cout << "delta in ccdUpdateBeta_MM = " << delta << endl;
+	delta = g_d1;
+	//cout << "Warning - no regularization" << endl;
+	//cout << "delta in ccdUpdateBeta_MM = " << delta << endl;
 
 	return delta;
 }
@@ -1412,8 +1435,8 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 		delta = - (g_d1 + (hBeta[index] / sigma2Beta)) /
 				  (g_d2 + (1.0 / sigma2Beta));
 		
-		delta = -g_d1/g_d2;
-		cout << "WARNING __ DELTA WRONG";
+		//delta = -g_d1/g_d2;
+		//cout << "WARNING __ DELTA WRONG";
 
 	} else {
 					

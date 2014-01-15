@@ -128,7 +128,8 @@ void MCMCDriver::logState(Model & model, int iteration){
 	//cout << "MCMCDriver::logState end" << endl;
 	if (iteration % thinningValueForWritingToFile == 0){
 		//cout << "logging" << endl;
-		intervalsToReport.fileLogCredibleIntervals(model.getLogLikelihood(), &(model.getBeta().returnCurrentValues()), model.getSigmaSquared().returnCurrentValues()[0], iteration);
+		//intervalsToReport.fileLogCredibleIntervals(model.getLogLikelihood(), &(model.getBeta().returnCurrentValues()), model.getSigmaSquared().returnCurrentValues()[0], iteration);
+		intervalsToReport.fileLogCredibleIntervals(model.getLogLikelihood(), model.getBeta().returnCurrentValuesPointer(), model.getSigmaSquared().returnCurrentValues()[0], iteration);
 	}
 }
 
