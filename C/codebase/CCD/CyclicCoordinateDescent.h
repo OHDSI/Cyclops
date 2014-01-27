@@ -312,7 +312,8 @@ protected:
 	vector<vector<int> > kValues;
 	vector<vector<bsccs::real> > numerPidValuesMatrix; // [J][N] Matrix
 	vector<vector<int> > jValuesPerNMatrix; //Sparse matrix for what J's go to each patient
- 	
+
+
 
 	bsccs::real* hXBeta;
 	bsccs::real* hXBetaSave;

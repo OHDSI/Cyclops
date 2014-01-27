@@ -97,6 +97,7 @@ set(SOURCE_FILES
 	BootstrapDriver.cpp
 	SparseRowVector.cpp
 	MCMCDriver.cpp
+	GeneralizedDirectSampler.cpp
 	IndependenceSampler.cpp
 	MHRatio.cpp
 	SigmaSampler.cpp

@@ -78,6 +78,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 
 	hXI_Transpose.fillSparseRowVector(hXI);
 
+
 	//test.fillSparseRowVector(reader);
 /*
 	cout << "Printing Trans by Col" << endl;
@@ -830,6 +831,9 @@ void CyclicCoordinateDescent::update(
 	//maxIterations = 2;
 
 	while (!done) {
+		done = true;
+		struct timeval time1, time2;
+		gettimeofday(&time1, NULL);
 	
 		// Do a complete cycle
 		for(int index = 0; index < J; index++) {
@@ -886,7 +890,11 @@ void CyclicCoordinateDescent::update(
 			} else {
 		//		cout << endl;
 			}
-		}				
+		}
+		gettimeofday(&time2, NULL);
+		double timeToLoop = calculateSeconds(time1, time2);
+		cout << "time = " << timeToLoop << endl;
+
 	}
 	updateCount += 1;
 
@@ -931,7 +939,10 @@ void CyclicCoordinateDescent::update_MM(
 
 
 	while (!done) {
-		//done = true;
+		done = true;
+		struct timeval time1, time2;
+		gettimeofday(&time1, NULL);
+
 
 		// Do a complete cycle
 		for(int index = 0; index < J; index++) {
@@ -984,6 +995,10 @@ void CyclicCoordinateDescent::update_MM(
 				cout << endl;
 			}
 		}
+		gettimeofday(&time2, NULL);
+		double timeToLoop = calculateSeconds(time1, time2);
+		cout << "time = " << timeToLoop << endl;
+
 	}
 	updateCount += 1;
 
@@ -1016,7 +1031,7 @@ void CyclicCoordinateDescent::computeGradientAndHessian_MM(int index, double *og
 	switch (hXI->getFormatType(index)) {
 	case INDICATOR :
 //		computeGradientAndHessianImplHand(index, ogradient, ohessian);
-		computeGradientAndHessianImpl_sccsMM_2<IndicatorIterator>(index, ogradient, ohessian);
+		computeGradientAndHessianImpl_sccsMM<IndicatorIterator>(index, ogradient, ohessian);
 		break;
 	case SPARSE :
 		computeGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian);
@@ -1221,7 +1236,6 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl_sccsMM_2(int index, 
 	bsccs::real b = 0;
 	bsccs::real a = -0.50;
 
-	cout << "computeGradientAndHessianImpl_sccsMM_2" << endl;
 	int* observations = hXI->getCompressedColumnVector(index);
 	int nObservations = hXI->getNumberOfEntries(index);
 
@@ -1233,10 +1247,8 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl_sccsMM_2(int index, 
 	}
 	for (int j =0; j < nObservations; j++){
 		int currentObservation = observations[j];
-		cout << "currentObservation = " << currentObservation << endl;
 		int Patient = hPid[currentObservation];
 		numeratorInNewMM[Patient] += hOffs[currentObservation]*exp(hXBeta[currentObservation]);
-		cout << "hOffs[currentObservation]*exp(hXBeta[currentObservation]) = " << hOffs[currentObservation]*exp(hXBeta[currentObservation]) << endl;
 	}
 
 
@@ -1246,10 +1258,10 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl_sccsMM_2(int index, 
 		b += - n_i*numeratorInNewMM[l]/denomPid[l]
 			            + n_i*numeratorInNewMM[l]*hBeta[index];
 		a += -n_i*numeratorInNewMM[l]/2;
-	//#ifdef debugMM
+	#ifdef debugMM
 			cout << "n_i = " << n_i << endl;
 			cout << "a += " << -n_i*numeratorInNewMM[l]/2 << endl;
-	//#endif
+	#endif
 
 	}
 
@@ -1259,7 +1271,7 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl_sccsMM_2(int index, 
 		int n_i = hNEvents[hPid[currentObservation]];
 		int y_ik = hEta[currentObservation];
 		b += y_ik;
-//#ifdef debugMM
+#ifdef debugMM
 		cout << "currentObservation = " << currentObservation << endl;
 		cout << "gradient = " << gradient << endl;
 		cout << "hPid[currentObservation] = " << hPid[currentObservation] << endl;
@@ -1267,11 +1279,9 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl_sccsMM_2(int index, 
 		cout << "n_i = " << n_i << endl;
 		cout << "y_ik = " << y_ik << endl;
 		cout << "y_ik - n_i/denomPid[hPid[currentObservation]] = " << y_ik - n_i/denomPid[hPid[currentObservation]] << endl;
-//#endif
+#endif
 
 	}
-	cout << "a = " << a << endl;
-	cout << "b= " << b << endl;
 
 	gradient = -b/(2*a);  //Assuming l2 norm  2aB + b = 0 => B = -b/(2a)
 
@@ -1399,7 +1409,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta_MM(int index) {
 	delta =  - (g_d1 + (hBeta[index] / sigma2Beta)) /
 				  (g_d2 + (1.0 / sigma2Beta));
 
-	delta = g_d1;
+	//delta = g_d1;
 	//cout << "Warning - no regularization" << endl;
 	//cout << "delta in ccdUpdateBeta_MM = " << delta << endl;
 
