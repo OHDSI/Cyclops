@@ -30,15 +30,29 @@ public:
 
 	virtual ~GeneralizedDirectSampler();
 
+	void initialize(Model & model, CyclicCoordinateDescent& ccd, long int seed);
+
+	void drive(CyclicCoordinateDescent& ccd,long int seed);
+
+	int getMultinomialSample(vector<double>& probabilites, long int seed);
+
+	double getTransformedTuningValue(double tuningParameter);
+
 private:
 
 	std::string GDSFileNameRoot;
 
 	InputReader* reader;
 
-	int nDraws;
-	int M;
+	int nDraws; // "R" in the algorithm of Braun et al.
+	int M; // number of proposal draws
 	double dsScale;
+
+	IndependenceSampler* GDSSampler;
+
+	Parameter mode;
+
+	CredibleIntervals intervalsToReport;
 
 
 };

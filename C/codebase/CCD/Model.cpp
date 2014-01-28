@@ -39,7 +39,7 @@ namespace bsccs {
 	 bsccs::real sigma2Start;
 	 sigma2Start = (bsccs::real) ccd->sigma2Beta;
 	 SigmaSquared.initialize(&sigma2Start, 1);
-	 SigmaSquared.logParameter();
+	 //SigmaSquared.logParameter();
 
 	logLikelihood = ccd->getLogLikelihood();
 	logPrior = ccd->getLogPrior();

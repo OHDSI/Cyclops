@@ -34,6 +34,7 @@ set(SOURCE_FILES
 	../CCD/BootstrapDriver.cpp
 	../CCD/SparseRowVector.cpp
 	../CCD/MCMCDriver.cpp
+	../CCD/GeneralizedDirectSampler.cpp
 	../CCD/IndependenceSampler.cpp
 	../CCD/MHRatio.cpp
 	../CCD/SigmaSampler.cpp

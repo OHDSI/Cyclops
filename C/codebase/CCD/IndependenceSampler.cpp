@@ -108,5 +108,14 @@ bool IndependenceSampler::evaluateSample(Model& model, double tuningParameter, b
 	return(accept);
 }
 
+double IndependenceSampler::evaluateLogMHRatio(Model& model){
+	//cout << "IndependenceSampler::evaluateSample" << endl;
+
+	double logRatio = MHstep.getLogMetropolisRatio(model)*MHstep.getLogHastingsRatio(model);
+
+
+	return(logRatio);
+}
+
 
 }

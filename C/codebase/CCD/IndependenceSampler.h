@@ -53,6 +53,8 @@ public:
 
 	double getTransformedTuningValue(double tuningParameter);
 
+	double evaluateLogMHRatio(Model& model);
+
 protected:
 
 	MHRatio MHstep;

@@ -32,6 +32,7 @@
 #include "BootstrapDriver.h"
 #include "SparseRowVector.h"
 #include "MCMCDriver.h"
+#include "GeneralizedDirectSampler.h"
 
 #include "tclap/CmdLine.h"
 
@@ -457,6 +458,11 @@ int main(int argc, char* argv[]) {
 	cout << "Load   duration: " << scientific << timeInitialize << endl;
 	cout << "Update duration: " << scientific << timeUpdate << endl;
 	
+
+	GeneralizedDirectSampler testGDSDriver(reader, arguments.MCMCFileName);
+
+	cout << "betaAmount = " << arguments.betaAmount << endl;
+	testGDSDriver.drive(*ccd, arguments.seed);
 
 	//MCMCDriver testMCMCDriver(reader, arguments.MCMCFileName);
 
