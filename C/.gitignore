@@ -1,0 +1,5 @@
+**/CMakeFiles/
+build/codebase/
+build/Makefile
+build/CMakeCache.txt
+build/cmake_install.cmake
