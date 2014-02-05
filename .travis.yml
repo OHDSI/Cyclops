@@ -9,6 +9,6 @@ notifications:
   recipients:
     - msuchard@gmail.com
   email:
-    on_success: always
-    on_failure: always
- 
+    on_success: change
+    on_failure: always 
+    
