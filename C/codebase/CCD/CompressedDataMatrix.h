@@ -71,7 +71,7 @@ public:
 		return formatType;
 	}
 	
-	const std::string& getLabel() {
+	const std::string& getLabel() const {
 		if (stringName == "") {
 			std::stringstream ss;
 			ss << numericalName;
@@ -169,7 +169,7 @@ private:
 	int_vector* columns;
 	real_vector* data;
 	FormatType formatType;
-	std::string stringName;
+	mutable std::string stringName;
 	DrugIdType numericalName;
 };
 

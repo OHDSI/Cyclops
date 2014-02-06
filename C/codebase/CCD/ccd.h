@@ -22,6 +22,7 @@
 
 #include "ModelSpecifics.h"
 #include "CyclicCoordinateDescent.h"
+#include "io/OutputWriter.h"
 
 namespace bsccs {
 
@@ -69,7 +70,6 @@ struct CCDArguments {
 	bool doPartial;
 
 	// Needed for model specification
-//	bool doLogisticRegression;
 	int modelType;
 	std::string modelName;
 
@@ -92,7 +92,6 @@ void parseCommandLine(
 double initializeModel(
 		ModelData** modelData,
 		CyclicCoordinateDescent** ccd,
-//		ModelSpecifics<DefaultModel>** model,
 		AbstractModelSpecifics** model,
 		CCDArguments &arguments);
 
@@ -108,7 +107,8 @@ double predictModel(
 double profileModel(
 		CyclicCoordinateDescent *ccd,
 		ModelData *modelData,
-		CCDArguments &arguments);
+		CCDArguments &arguments,
+		ProfileInformationMap &profileMap);
 
 double runCrossValidation(
 		CyclicCoordinateDescent *ccd,
@@ -129,6 +129,11 @@ void setDefaultArguments(
 
 void setZeroBetaAsFixed(
 		CyclicCoordinateDescent *ccd);
+		
+double logModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
+		CCDArguments& arguments,
+		ProfileInformationMap &profileMap,
+		bool withProfileBounds);
 
 } // namespace
 

@@ -612,12 +612,11 @@ struct OptimizationProfile {
 	int nEvals;
 };
 
-double profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArguments &arguments) {
+double profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArguments &arguments,
+		ProfileInformationMap& profileMap) {
 
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
-
-	double mode = ccd->getLogLikelihood();
 
 	// Attempt profile CIs
 	for (std::vector<DrugIdType>::iterator it = arguments.profileCI.begin();
@@ -626,6 +625,8 @@ double profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArgum
 		if (index == -1) {
 			cerr << "Variable " << *it << " not found." << endl;
 		} else {
+			// TODO : Minor bug, order of column evaluation yields different estimates
+			double mode = ccd->getLogLikelihood();
 
 			// TODO Check prior on covariate
 
@@ -646,7 +647,9 @@ double profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArgum
 
 			cout << "Profile: " << modelData->getColumn(index).getLabel() << " (" << lowerPt << ", "
 					<< upperPt << ")  in " << upEval.getEvaluations() << endl;
-			// TODO Save somewhere
+
+			ProfileInformation profile(lowerPt, upperPt);
+			profileMap.insert(std::pair<int,ProfileInformation>(index, profile));
 
 			// Reset beta[index] to value at mode
 			ccd->setBeta(index, x0);
@@ -682,6 +685,23 @@ double diagnoseModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
 	gettimeofday(&time2, NULL);
 	return calculateSeconds(time1, time2);
 
+}
+
+double logModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
+		CCDArguments& arguments, ProfileInformationMap& profileMap, bool withASE) {
+
+	using namespace bsccs;
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
+
+	bsccs::EstimationOutputWriter estimates(*ccd, *modelData);
+	estimates.addBoundInformation(profileMap);
+
+	string fileName = getPathAndFileName(arguments, "est_");
+	estimates.writeFile(fileName.c_str());
+	
+	gettimeofday(&time2, NULL);
+	return calculateSeconds(time1, time2);				
 }
 
 void setZeroBetaAsFixed(CyclicCoordinateDescent *ccd) {
@@ -852,13 +872,21 @@ int main(int argc, char* argv[]) {
 			timeUpdate += runFitMLEAtMode(ccd, arguments);
 		}
 	}
+	
+	double timeProfile;
+	bool doProfile = false;
+	bsccs::ProfileInformationMap profileMap;
+	if (arguments.profileCI.size() > 0) {
+		doProfile = true;
+		timeProfile = profileModel(ccd, modelData, arguments, profileMap);
+	}	
 
 	if (std::find(arguments.outputFormat.begin(),arguments.outputFormat.end(), "estimates")
 			!= arguments.outputFormat.end()) {
 #ifndef MY_RCPP_FLAG
 		// TODO Make into OutputWriter
-		bool withASE = arguments.fitMLEAtMode || arguments.computeMLE || arguments.reportASE;    string fileName = getPathAndFileName(arguments, "est_");
-		ccd->logResults(fileName.c_str(), withASE);
+		bool withASE = arguments.fitMLEAtMode || arguments.computeMLE || arguments.reportASE;    
+		logModel(ccd, modelData, arguments, profileMap, withASE);
 #endif
 	}
 
@@ -876,13 +904,6 @@ int main(int argc, char* argv[]) {
 			!= arguments.outputFormat.end()) {
 		doDiagnosis = true;
 		timeDiagnose = diagnoseModel(ccd, modelData, arguments, timeInitialize, timeUpdate);
-	}
-
-	double timeProfile;
-	bool doProfile = false;
-	if (arguments.profileCI.size() > 0) {
-		doProfile = true;
-		timeProfile = profileModel(ccd, modelData, arguments);
 	}
 
 	if (arguments.doBootstrap) {

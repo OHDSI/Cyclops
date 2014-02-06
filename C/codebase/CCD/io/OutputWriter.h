@@ -63,7 +63,7 @@ public:
 
 	virtual void writeFile(const char* fileName) {
 		ofstream out;
-		out.open(fileName, ios::out);
+		out.open(fileName, std::ios::out);
 		writeFile(out);
 	}
 
@@ -203,6 +203,79 @@ public:
 private:
 	std::vector<real> predictions; // TODO Should be double
 };
+
+struct ProfileInformation {
+	bool defined;
+	double lower95Bound;
+	double upper95Bound;
+
+	ProfileInformation() : defined(false), lower95Bound(0.0), upper95Bound(0.0) { }
+	ProfileInformation(double lower, double upper) : defined(true), lower95Bound(lower),
+			upper95Bound(upper) { }
+};
+
+typedef std::map<int, ProfileInformation> ProfileInformationMap;
+typedef std::vector<ProfileInformation> ProfileInformationList;
+
+class EstimationOutputWriter : public BaseOutputWriter<EstimationOutputWriter> {
+public:
+	EstimationOutputWriter(CyclicCoordinateDescent& ccd, const ModelData& data) :
+		BaseOutputWriter<EstimationOutputWriter>(ccd, data), withProfileBounds(false) {
+		// Do nothing
+	}
+	virtual ~EstimationOutputWriter() {
+		// Do nothing
+	}
+
+	int getNumberOfRows() { return ccd.getBetaSize(); }
+
+	void preprocessAllRows() {
+		// Set up profile information vector
+		informationList.resize(ccd.getBetaSize());
+		for (ProfileInformationMap::iterator it = informationMap.begin();
+				it != informationMap.end(); ++it) {
+			informationList[it->first] = it->second;
+		}
+		withProfileBounds = !informationMap.empty();
+	}
+	
+	void addBoundInformation(int column, ProfileInformation information) {
+		information.defined = true;
+		informationMap.insert(std::pair<int, ProfileInformation>(column, information));
+	}	
+
+	void addBoundInformation(const ProfileInformationMap& map) {
+		informationMap.insert(map.begin(), map.end());
+	}
+
+	void writeHeader(ofstream& out) {
+		out << "column_label" << delimitor << "estimate";
+		if (withProfileBounds) {
+			out << delimitor << "lower" << delimitor << "upper";
+		}
+		out << endl;		
+	}
+
+	void writeRow(ofstream& out, OutputHelper::RowInformation& rowInfo) {
+		out << data.getColumn(rowInfo.currentRow).getLabel();
+		out << delimitor;
+		out << ccd.getBeta(rowInfo.currentRow);
+		if (withProfileBounds && informationList[rowInfo.currentRow].defined) {
+			// TODO Delegate to friend of ProfileInformation
+			out << delimitor;
+			out << informationList[rowInfo.currentRow].lower95Bound;
+			out << delimitor;
+			out << informationList[rowInfo.currentRow].upper95Bound;
+		}
+		out << endl; // TODO This causes a flush; may be faster to stream several lines before flush
+	}
+
+private:
+	bool withProfileBounds;
+	ProfileInformationMap informationMap;
+	ProfileInformationList informationList;
+};
+
 
 }
 
