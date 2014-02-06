@@ -1,0 +1,6 @@
+C/build/**
+
+.project
+.cproject
+.csettings
+.settings
