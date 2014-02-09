@@ -23,13 +23,16 @@
 
 namespace bsccs {
 
+const static int MAX_STEPS = 50;
+
 AutoSearchCrossValidationDriver::AutoSearchCrossValidationDriver(
 			const ModelData& _modelData,
 			int iGridSize,
 			double iLowerLimit,
 			double iUpperLimit,
 			vector<real>* wtsExclude) : modelData(_modelData), maxPoint(0), gridSize(iGridSize),
-			lowerLimit(iLowerLimit), upperLimit(iUpperLimit), weightsExclude(wtsExclude) {
+			lowerLimit(iLowerLimit), upperLimit(iUpperLimit), weightsExclude(wtsExclude),
+			maxSteps(MAX_STEPS) {
 
 	// Do anything???
 }
@@ -147,7 +150,10 @@ void AutoSearchCrossValidationDriver::drive(
         }
         std::cout << searcher;
         step++;
-        if (step >= 10) exit(-1);
+        if (step >= maxSteps) {
+        	std::cerr << "Max steps reached!" << std::endl;
+        	finished = true;
+        }
 	}
 
 	maxPoint = tryvalue;

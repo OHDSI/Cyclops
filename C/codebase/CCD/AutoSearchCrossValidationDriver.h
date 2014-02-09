@@ -56,6 +56,7 @@ private:
 	const ModelData& modelData;
 
 	double maxPoint;
+	double maxSteps;
 };
 
 } // namespace
