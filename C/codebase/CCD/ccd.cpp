@@ -28,6 +28,7 @@
 #include "CyclicCoordinateDescent.h"
 #include "ModelData.h"
 #include "io/InputReader.h"
+#include "io/HierarchyReader.h"
 #include "io/CLRInputReader.h"
 #include "io/RTestInputReader.h"
 #include "io/CCTestInputReader.h"
@@ -198,6 +199,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		SwitchArg computeMLEAtModeArg("", "MLEAtMode", "Compute maximum likelihood estimates at posterior mode", arguments.fitMLEAtMode);
 		SwitchArg reportASEArg("","ASE", "Compute asymptotic standard errors at posterior mode", arguments.reportASE);
 
+		//Hierarchy arguments
 		ValueArg<string> hierarchyFileArg("a", "hierarchyFile", "Hierarchy file name", false, "noFileName", "hierarchyFile");
 		ValueArg<double> classHierarchyVarianceArg("d","classHierarchyVariance","Variance for drug class hierarchy", false, 10, "Variance at the class level of the hierarchy");
 		ValueArg<double> sigma2BetaArg("e","sigma2Beta","Variance for drug coefficients", false, 10, "Variance at the drug level of the hierarchy (hyperprior variance)");
@@ -315,6 +317,11 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(outFileArg);
 		cmd.parse(args);
 
+		//Hierarchy arguments
+		cmd.add(hierarchyFileArg);
+		cmd.add(classHierarchyVarianceArg);
+		cmd.add(sigma2BetaArg);
+
 		if (gpuArg.getValue() > -1) {
 			arguments.useGPU = true;
 			arguments.deviceNumber = gpuArg.getValue();
@@ -334,6 +341,9 @@ void parseCommandLine(std::vector<std::string>& args,
 		arguments.fitMLEAtMode = computeMLEAtModeArg.getValue();
 		arguments.reportASE = reportASEArg.getValue();
 		arguments.seed = seedArg.getValue();
+
+		arguments.hierarchyFileName = hierarchyFileArg.getValue(); // Hierarchy argument
+		arguments.classHierarchyVariance = classHierarchyVarianceArg.getValue(); //Hierarchy argument
 
 		arguments.modelName = modelArg.getValue();
 		arguments.fileFormat = formatArg.getValue();
@@ -509,6 +519,15 @@ double initializeModel(
 		*ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, *reader, **model);
 	} else {
 #endif
+
+	cout <<" ####################  Hierarchy File" << endl;
+	if ((arguments.hierarchyFileName).compare("noFileName") == 0) {
+		cout << "No Hierarchy File" << endl;
+	} else {
+		cout << "Using Hierarchy File " << arguments.hierarchyFileName << endl;
+		HierarchyReader hierarchyData = HierarchyReader(arguments.hierarchyFileName.c_str());
+	}
+
 
 	using namespace bsccs::priors;
 	PriorPtr singlePrior;
