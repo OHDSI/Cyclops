@@ -294,6 +294,11 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(profileCIArg);
 		cmd.add(flatPriorArg);
 
+		//Hierarchy arguments
+		cmd.add(hierarchyFileArg);
+		cmd.add(classHierarchyVarianceArg);
+		cmd.add(sigma2BetaArg);
+
 		cmd.add(doCVArg);
 		cmd.add(useAutoSearchCVArg);
 		cmd.add(lowerCVArg);
@@ -317,10 +322,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(outFileArg);
 		cmd.parse(args);
 
-		//Hierarchy arguments
-		cmd.add(hierarchyFileArg);
-		cmd.add(classHierarchyVarianceArg);
-		cmd.add(sigma2BetaArg);
+
 
 		if (gpuArg.getValue() > -1) {
 			arguments.useGPU = true;
@@ -342,6 +344,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		arguments.reportASE = reportASEArg.getValue();
 		arguments.seed = seedArg.getValue();
 
+		//Hierarchy arguments
 		arguments.hierarchyFileName = hierarchyFileArg.getValue(); // Hierarchy argument
 		arguments.classHierarchyVariance = classHierarchyVarianceArg.getValue(); //Hierarchy argument
 
@@ -525,7 +528,7 @@ double initializeModel(
 		cout << "No Hierarchy File" << endl;
 	} else {
 		cout << "Using Hierarchy File " << arguments.hierarchyFileName << endl;
-		HierarchyReader hierarchyData = HierarchyReader(arguments.hierarchyFileName.c_str());
+		HierarchyReader hierarchyData = HierarchyReader(arguments.hierarchyFileName.c_str(), *modelData);
 	}
 
 

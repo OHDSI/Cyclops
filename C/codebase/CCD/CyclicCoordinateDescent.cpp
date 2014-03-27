@@ -748,7 +748,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	priors::GradientHessian gh;
 	computeGradientAndHessian(index, &gh.first, &gh.second);
 
-	return jointPrior->getDelta(gh, hBeta[index], index);
+	return jointPrior->getDelta(gh, hBeta, index);
 }
 
 template <class IteratorType>

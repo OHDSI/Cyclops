@@ -27,7 +27,7 @@ public:
 
 	virtual double logDensity(const DoubleVector& beta) const = 0; // pure virtual
 
-	virtual double getDelta(const GradientHessian gh, const double beta, const int index) const = 0; // pure virtual
+	virtual double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const = 0; // pure virtual
 
 	virtual const std::string getDescription() const = 0; // pure virtual
 };
@@ -71,13 +71,48 @@ public:
 		return result;
 	}
 
-	double getDelta(const GradientHessian gh, const double beta, const int index) const {
-		return listPriors[index]->getDelta(gh, beta);
+	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
+		return listPriors[index]->getDelta(gh, beta[index]);
 	}
 
 private:
 	PriorList listPriors;
 
+};
+
+class HierarchicalJointPrior : public JointPrior {
+public:
+	HierarchicalJointPrior(PriorPtr _one) : JointPrior(), singlePrior(_one) {
+		// Do nothing
+	}
+
+	void setVariance(double x) {
+		singlePrior->setVariance(x);
+	}
+
+
+	double getVariance() const {
+		return singlePrior->getVariance();
+	}
+
+	double logDensity(const DoubleVector& beta) const {
+		double result = 0.0;
+		for (DoubleVector::const_iterator it = beta.begin(); it != beta.end(); ++it) {
+			result += singlePrior->logDensity(*it);
+		}
+		return result;
+	}
+
+	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
+		return singlePrior->getDelta(gh, beta[index]);
+	}
+
+	const std::string getDescription() const {
+		return singlePrior->getDescription();
+	}
+
+private:
+	PriorPtr singlePrior;
 };
 
 class FullyExchangeableJointPrior : public JointPrior {
@@ -102,8 +137,8 @@ public:
 		return result;
 	}
 
-	double getDelta(const GradientHessian gh, const double beta, const int index) const {
-		return singlePrior->getDelta(gh, beta);
+	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
+		return singlePrior->getDelta(gh, beta[index]);
 	}
 
 	const std::string getDescription() const {

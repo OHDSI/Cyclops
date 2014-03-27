@@ -32,7 +32,7 @@ class HierarchyReader {
 public:
 	HierarchyReader();
 
-	HierarchyReader(const char* fileName);
+	HierarchyReader(const char* fileName, ModelData* modelData);
 
 	void printChildren(int parent);
 

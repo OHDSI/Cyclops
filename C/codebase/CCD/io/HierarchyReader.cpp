@@ -35,7 +35,7 @@ using namespace std;
 
 namespace bsccs {
 
-HierarchyReader::HierarchyReader(const char* fileName) {
+HierarchyReader::HierarchyReader(const char* fileName, ModelData* modelData) {
 	//cout << "fileName = " << fileName << endl;
 	ifstream in(fileName);
 	if (!in) {
@@ -56,17 +56,17 @@ HierarchyReader::HierarchyReader(const char* fileName) {
 	while (getline(in, line) && (currentEntry < MAX_ENTRIES)) {
 		int parent;
 		int child;
+
 		string meaningless;
 		if (!line.empty()) {
 			stringstream ss(line.c_str());
-			//ss >> meaningless;
-			ss >> child; //ingredientId
+			ss >> child; //subnode in the hierarchy
 
-			if (drugIdToIndex[child] != NULL){
-				child = drugIdToIndex[child] - 1;
-				ss >> parent; //ATC group
+			if (modelData->getColumnIndexByName(child) > -1){
+				child = modelData->getColumnIndexByName(child);
+				ss >> parent; //supernode in the hierarchy
 
-				if (parent == 0) { //if not associated with a group, the group and ingredient have same id num
+				if (parent == 0) { //if not associated with a group, the sub- and supernodes have same id num
 					getChildMap[child].push_back(child);
 					getParentMap[child] = child;
 				} else {
