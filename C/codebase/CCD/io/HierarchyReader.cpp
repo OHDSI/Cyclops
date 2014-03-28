@@ -88,6 +88,15 @@ void HierarchyReader::printChildren(int parent){
 }
 
 
+std::map<int, vector<int> > HierarchyReader::returnGetChildMap(){
+	return(getChildMap);
+}
+
+std::map<int, int> HierarchyReader::returnGetParentMap(){
+	return(getParentMap);
+}
+
+
 vector<int> HierarchyReader::getChildren(int parent){
 	return(getChildMap[parent]);
 }

@@ -10,6 +10,7 @@
 
 #include "CyclicCoordinateDescent.h"
 #include "priors/CovariatePrior.h"
+#include "io/HierarchyReader.h"
 
 namespace bsccs {
 namespace priors {
@@ -90,6 +91,15 @@ public:
 		singlePrior->setVariance(x);
 	}
 
+	void setClassVariance(double x) {
+		classVariance = x;
+	}
+
+	void setHierarchy(HierarchyReader* hierarchyReader) {
+		cout << "in Set Hierarchy " << endl;
+		getParentMap = hierarchyReader->returnGetParentMap();
+		getChildMap = hierarchyReader->returnGetChildMap();
+	}
 
 	double getVariance() const {
 		return singlePrior->getVariance();
@@ -104,7 +114,27 @@ public:
 	}
 
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
-		return singlePrior->getDelta(gh, beta[index]);
+		double t1 = 1/singlePrior->getVariance(); // this is the hyperparameter that is used in the original code
+		double t2 = 1/classVariance;
+
+		int parent = getParentMap.at(index);
+		vector<int> siblings = getChildMap.at(parent);
+		double sumBetas = 0;
+		int nSiblingsOfInterest = 0; //Different from siblings length if weights used
+		for (int i = 0; i < siblings.size(); i++) {
+			sumBetas += beta[siblings[i]];
+		}
+		double hessian = t1 - t1 / (siblings.size() + t2/t1);
+
+		cout << "hessian = " << hessian << endl;
+		double gradient = t1*beta[index] - t1*t1*sumBetas / (siblings.size()*t1 + t2);
+		cout << "gradient = " << gradient << endl;
+		/*
+		- (gh.first + (beta / sigma2Beta)) /
+						  (gh.second + (1.0 / sigma2Beta));
+		 */
+
+		return (- (gh.first + gradient)/(gh.second + hessian));
 	}
 
 	const std::string getDescription() const {
@@ -113,6 +143,10 @@ public:
 
 private:
 	PriorPtr singlePrior;
+	double classVariance;
+	std::map<int, int> getParentMap;
+	std::map<int, vector<int> > getChildMap;
+	//PriorPtr classPrior;
 };
 
 class FullyExchangeableJointPrior : public JointPrior {

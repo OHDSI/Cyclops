@@ -34,6 +34,10 @@ public:
 
 	HierarchyReader(const char* fileName, ModelData* modelData);
 
+	std::map<int, vector<int> > returnGetChildMap();
+
+	std::map<int, int> returnGetParentMap();
+
 	void printChildren(int parent);
 
 	vector<int> getChildren(int parent);
@@ -42,7 +46,7 @@ public:
 
 	std::map<int, vector<int> > getChildMap;
 	std::map<int, int> getParentMap;
-	map<int, int> drugIdToIndex;
+	std::map<int, int> drugIdToIndex;
 
 private:
 

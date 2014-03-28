@@ -523,12 +523,13 @@ double initializeModel(
 	} else {
 #endif
 
-	cout <<" ####################  Hierarchy File" << endl;
+	// Hierarchy management
+	HierarchyReader* hierarchyData;
 	if ((arguments.hierarchyFileName).compare("noFileName") == 0) {
 		cout << "No Hierarchy File" << endl;
 	} else {
 		cout << "Using Hierarchy File " << arguments.hierarchyFileName << endl;
-		HierarchyReader hierarchyData = HierarchyReader(arguments.hierarchyFileName.c_str(), *modelData);
+		hierarchyData = new HierarchyReader(arguments.hierarchyFileName.c_str(), *modelData);
 	}
 
 
@@ -567,6 +568,15 @@ double initializeModel(
 			}
 		}
 		prior = mixturePrior;
+	}
+
+	//Hierarchy prior
+	if ((arguments.hierarchyFileName).compare("noFileName") != 0) {
+		cout << "Using Hierarchy prior "<< endl;
+		PriorPtr classPrior = std::make_shared<NormalPrior>();
+		std::shared_ptr<HierarchicalJointPrior> hierarchicalPrior = std::make_shared<HierarchicalJointPrior>(singlePrior);
+		hierarchicalPrior->setHierarchy(hierarchyData);
+		prior = hierarchicalPrior;
 	}
 
 	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model, prior);
