@@ -172,6 +172,7 @@ public:
 	}
 
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
+		cout << "vector" << endl;
 		return singlePrior->getDelta(gh, beta[index]);
 	}
 
