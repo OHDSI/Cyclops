@@ -4,6 +4,7 @@ set(BASE_SOURCE_FILES
 	../CCD/CyclicCoordinateDescent.cpp	
 	../CCD/CompressedDataMatrix.cpp
 	../CCD/ModelData.cpp
+	../CCD/io/HierarchyReader.cpp
 	../CCD/io/InputReader.cpp
 	../CCD/io/SCCSInputReader.cpp
 	../CCD/io/CLRInputReader.cpp
