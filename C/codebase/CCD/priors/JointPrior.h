@@ -117,22 +117,22 @@ public:
 		double t1 = 1/singlePrior->getVariance(); // this is the hyperparameter that is used in the original code
 		double t2 = 1/classVariance;
 
+		//cout << "t1 = " << t1 << endl;
+		//cout << "t2 = " << t2 << endl;
+
 		int parent = getParentMap.at(index);
 		vector<int> siblings = getChildMap.at(parent);
 		double sumBetas = 0;
 		int nSiblingsOfInterest = 0; //Different from siblings length if weights used
 		for (int i = 0; i < siblings.size(); i++) {
 			sumBetas += beta[siblings[i]];
+			//cout << "beta[" << siblings[i] << "] = " << beta[siblings[i]] << endl;
 		}
 		double hessian = t1 - t1 / (siblings.size() + t2/t1);
 
-		cout << "hessian = " << hessian << endl;
+		//cout << "hessian = " << hessian << endl;
 		double gradient = t1*beta[index] - t1*t1*sumBetas / (siblings.size()*t1 + t2);
-		cout << "gradient = " << gradient << endl;
-		/*
-		- (gh.first + (beta / sigma2Beta)) /
-						  (gh.second + (1.0 / sigma2Beta));
-		 */
+		//cout << "gradient = " << gradient << endl;
 
 		return (- (gh.first + gradient)/(gh.second + hessian));
 	}
@@ -172,7 +172,6 @@ public:
 	}
 
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
-		cout << "vector" << endl;
 		return singlePrior->getDelta(gh, beta[index]);
 	}
 

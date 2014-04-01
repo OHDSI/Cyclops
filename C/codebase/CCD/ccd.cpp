@@ -576,6 +576,7 @@ double initializeModel(
 		PriorPtr classPrior = std::make_shared<NormalPrior>();
 		std::shared_ptr<HierarchicalJointPrior> hierarchicalPrior = std::make_shared<HierarchicalJointPrior>(singlePrior);
 		hierarchicalPrior->setHierarchy(hierarchyData);
+		hierarchicalPrior->setClassVariance(arguments.classHierarchyVariance);
 		prior = hierarchicalPrior;
 	}
 

@@ -545,6 +545,7 @@ void CyclicCoordinateDescent::update(
 			
 		}
 
+
 		iteration++;
 //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
 		bool checkConvergence = true; // Check after each complete cycle
@@ -603,7 +604,7 @@ void CyclicCoordinateDescent::update(
 					cout << endl;
 				}
 			}
-		}				
+		}
 	}
 	lastIterationCount = iteration;
 	updateCount += 1;
