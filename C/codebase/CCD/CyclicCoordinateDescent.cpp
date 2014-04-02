@@ -366,6 +366,11 @@ void CyclicCoordinateDescent::setHyperprior(double value) {
 	jointPrior->setVariance(value);
 }
 
+//Hierarchical Support
+void CyclicCoordinateDescent::setClassHyperprior(double value) {
+	jointPrior->setClassVariance(value);
+}
+
 double CyclicCoordinateDescent::getHyperprior(void) const {
 	return jointPrior->getVariance();
 }

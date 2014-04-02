@@ -35,6 +35,11 @@ public:
 
 	virtual void logResults(const CCDArguments& arguments);
 
+	virtual void hierarchyDrive(CyclicCoordinateDescent& ccd,
+				AbstractSelector& selector,
+				const CCDArguments& arguments) {};
+
+
 private:
 
 	double normBasedDefaultVar();

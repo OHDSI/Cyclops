@@ -804,6 +804,9 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
+
+	cout << "runCrossValidation" << endl;
+
 	CrossValidationSelector selector(arguments.fold, modelData->getPidVectorSTL(),
 			SUBJECT, arguments.seed);
 
@@ -814,7 +817,15 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
 		driver = new GridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
 	}
 
-	driver->drive(*ccd, selector, arguments);
+
+	if ((arguments.hierarchyFileName).compare("noFileName") == 0) {
+		driver->drive(*ccd, selector, arguments);
+	} else {
+		cout << "Using Hierarchy Cross validation " << arguments.hierarchyFileName << endl;
+		driver->hierarchyDrive(*ccd, selector, arguments);
+		cout << "Using Hierarchy Cross validation " << arguments.hierarchyFileName << endl;
+	}
+
 
 	gettimeofday(&time2, NULL);
 

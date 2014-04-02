@@ -24,6 +24,8 @@ public:
 
 	virtual void setVariance(double x) = 0; // pure virtual
 
+	virtual void setClassVariance(double x) {}; // only works if of type HierarchicalPrior
+
 	virtual double getVariance() const = 0; // pure virtual
 
 	virtual double logDensity(const DoubleVector& beta) const = 0; // pure virtual
@@ -95,6 +97,12 @@ public:
 		classVariance = x;
 	}
 
+	const std::string getDescription() const {
+		stringstream info;
+		info << "Hierarchical prior with class variance " << classVariance << " and drug level prior " << singlePrior->getDescription();
+		return info.str();
+	}
+
 	void setHierarchy(HierarchyReader* hierarchyReader) {
 		cout << "in Set Hierarchy " << endl;
 		getParentMap = hierarchyReader->returnGetParentMap();
@@ -137,9 +145,7 @@ public:
 		return (- (gh.first + gradient)/(gh.second + hessian));
 	}
 
-	const std::string getDescription() const {
-		return singlePrior->getDescription();
-	}
+
 
 private:
 	PriorPtr singlePrior;
