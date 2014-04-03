@@ -34,9 +34,20 @@ public:
 
 	virtual void logResults(const CCDArguments& arguments);
 
+	virtual void hierarchyDrive(CyclicCoordinateDescent& ccd,
+			AbstractSelector& selector,
+			const CCDArguments& arguments);
+
 private:
 
 	double computeGridPoint(int step);
+
+	void changeParameter(CyclicCoordinateDescent &ccd, int varianceIndex, double varianceValue);
+
+	double oneFoldCrossValidation(CyclicCoordinateDescent& ccd,
+			AbstractSelector& selector,
+			const CCDArguments& arguments, int i,
+			vector<bsccs::real> weights, int step, int point);
 
 //	double computePointEstimate(const std::vector<double>& value);
 

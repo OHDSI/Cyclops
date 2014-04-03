@@ -421,6 +421,9 @@ void parseCommandLine(std::vector<std::string>& args,
 			arguments.noiseLevel = QUIET;
 		}
 
+		//for testing hierarchy cv
+		arguments.noiseLevel = SILENT;
+
 //		arguments.doLogisticRegression = doLogisticRegressionArg.isSet();
 	} catch (ArgException &e) {
 		cerr << "Error: " << e.error() << " for argument " << e.argId() << endl;
@@ -813,18 +816,19 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
 	AbstractCrossValidationDriver* driver;
 	if (arguments.useAutoSearchCV) {
 		driver = new AutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
-	} else {
-		driver = new GridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
-	}
-
-
-	if ((arguments.hierarchyFileName).compare("noFileName") == 0) {
 		driver->drive(*ccd, selector, arguments);
 	} else {
-		cout << "Using Hierarchy Cross validation " << arguments.hierarchyFileName << endl;
-		driver->hierarchyDrive(*ccd, selector, arguments);
-		cout << "Using Hierarchy Cross validation " << arguments.hierarchyFileName << endl;
+		driver = new GridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+		if ((arguments.hierarchyFileName).compare("noFileName") == 0) {
+			driver->drive(*ccd, selector, arguments);
+		} else {
+			cout << "Using Hierarchy Cross validation " << arguments.hierarchyFileName << endl;
+			driver->hierarchyDrive(*ccd, selector, arguments);
+			cout << "Using Hierarchy Cross validation " << arguments.hierarchyFileName << endl;
+		}
 	}
+
+
 
 
 	gettimeofday(&time2, NULL);

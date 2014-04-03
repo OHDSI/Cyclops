@@ -81,15 +81,32 @@ void AutoSearchCrossValidationDriver::drive(
 	std::vector<real> weights;
 
 	double tryvalue = modelData.getNormalBasedDefaultVar();
+	double tryvalueClass; // for hierarchy class variance
 	UniModalSearch searcher(10, 0.01, log(1.5));
+
+	UniModalSearch searcherClass(10, 0.01, log(1.5)); // Need a better way to do this.
+
 	const double eps = 0.05; //search stopper
 	std::cout << "Default var = " << tryvalue << std::endl;
+
+	// For hierarchy
+	if ((arguments.hierarchyFileName).compare("noFileName") != 0) {
+		tryvalueClass = tryvalue;
+	}
+
 
 	bool finished = false;
 
 	int step = 0;
 	while (!finished) {
-		ccd.setHyperprior(tryvalue);
+
+		// More hierarchy logic
+		if ((arguments.hierarchyFileName).compare("noFileName") != 0) {
+			ccd.setHyperprior(tryvalue);
+			ccd.setClassHyperprior(tryvalueClass);
+		} else {
+			ccd.setHyperprior(tryvalue);
+		}
 
 		/* start code duplication */
 		std::vector<double> predLogLikelihood;
@@ -139,15 +156,44 @@ void AutoSearchCrossValidationDriver::drive(
 		double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
 
 		std::cout << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
-        searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
-        pair<bool,double> next = searcher.step();
-        std::cout << "Completed at " << tryvalue << std::endl;
-        std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
+        //searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
+        //pair<bool,double> next = searcher.step();
 
-        tryvalue = next.second;
-        if (!next.first) {
-            finished = true;
+		 std::cout << "Completed at " << tryvalue << std::endl;
+		 std::cout << "Completed (class) at " << tryvalueClass << std::endl;
+
+        if ((arguments.hierarchyFileName).compare("noFileName") != 0) {
+        	if (step % 2 == 0){
+        		searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
+        		pair<bool,double> next = searcher.step();
+        		tryvalue = next.second;
+        	    std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
+                if (!next.first) {
+                 	finished = true;
+                }
+        	} else {
+        		searcherClass.tried(tryvalueClass, pointEstimate, stdDevEstimate);
+        		pair<bool,double> next = searcherClass.step();
+        		tryvalueClass = next.second;
+        	    std::cout << "Next Class point at " << next.second << " and " << next.first << std::endl;
+                if (!next.first) {
+                 	finished = true;
+                }
+        	}
+       	} else {
+       		std::cout << "Completed at " << tryvalue << std::endl;
+       		searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
+       		pair<bool,double> next = searcher.step();
+       		tryvalue = next.second;
+            std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
+            if (!next.first) {
+            	finished = true;
+            }
+
         }
+
+
+
         std::cout << searcher;
         step++;
         if (step >= maxSteps) {
