@@ -580,12 +580,14 @@ void CyclicCoordinateDescent::update(
 			double thisLogPost = thisLogLikelihood + thisLogPrior;
 
 			if (noiseLevel > QUIET) {
+				/* test comment out for hierarchy cv testing
 				cout << endl;
 				printVector(&hBeta[0], J, cout);
 				cout << endl;
 				cout << "log post: " << thisLogPost
 						<< " (" << thisLogLikelihood << " + " << thisLogPrior
 						<< ") (iter:" << iteration << ") ";
+				*/
 			}
 
 			if (epsilon > 0 && conv < epsilon) {

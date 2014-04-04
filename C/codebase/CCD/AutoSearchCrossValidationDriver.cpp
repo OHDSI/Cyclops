@@ -96,6 +96,8 @@ void AutoSearchCrossValidationDriver::drive(
 
 
 	bool finished = false;
+	bool drugLevelFinished = false;
+	bool classLevelFinished = false;
 
 	int step = 0;
 	while (!finished) {
@@ -163,13 +165,13 @@ void AutoSearchCrossValidationDriver::drive(
 		 std::cout << "Completed (class) at " << tryvalueClass << std::endl;
 
         if ((arguments.hierarchyFileName).compare("noFileName") != 0) {
-        	if (step % 2 == 0){
+        	if ((step % 2 == 0 && !drugLevelFinished) || classLevelFinished){
         		searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
         		pair<bool,double> next = searcher.step();
         		tryvalue = next.second;
         	    std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
                 if (!next.first) {
-                 	finished = true;
+                 	drugLevelFinished = true;
                 }
         	} else {
         		searcherClass.tried(tryvalueClass, pointEstimate, stdDevEstimate);
@@ -177,8 +179,11 @@ void AutoSearchCrossValidationDriver::drive(
         		tryvalueClass = next.second;
         	    std::cout << "Next Class point at " << next.second << " and " << next.first << std::endl;
                 if (!next.first) {
-                 	finished = true;
+                 	classLevelFinished = true;
                 }
+        	}
+        	if (drugLevelFinished && classLevelFinished){
+        		finished = true;
         	}
        	} else {
        		std::cout << "Completed at " << tryvalue << std::endl;
@@ -189,8 +194,8 @@ void AutoSearchCrossValidationDriver::drive(
             if (!next.first) {
             	finished = true;
             }
-
         }
+
 
 
 
