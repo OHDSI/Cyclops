@@ -91,7 +91,7 @@ void AutoSearchCrossValidationDriver::drive(
 
 	// For hierarchy
 	if ((arguments.hierarchyFileName).compare("noFileName") != 0) {
-		tryvalueClass = tryvalue;
+		tryvalueClass = tryvalue; // start with same variance at the class and element level
 	}
 
 
@@ -103,7 +103,7 @@ void AutoSearchCrossValidationDriver::drive(
 	while (!finished) {
 
 		// More hierarchy logic
-		if ((arguments.hierarchyFileName).compare("noFileName") != 0) {
+		if ((arguments.hierarchyFileName).compare("noFileName") != 0) { // if using a hierarchy, set the hyperpriors
 			ccd.setHyperprior(tryvalue);
 			ccd.setClassHyperprior(tryvalueClass);
 		} else {
@@ -161,10 +161,9 @@ void AutoSearchCrossValidationDriver::drive(
         //searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
         //pair<bool,double> next = searcher.step();
 
-		 std::cout << "Completed at " << tryvalue << std::endl;
-		 std::cout << "Completed (class) at " << tryvalueClass << std::endl;
-
-        if ((arguments.hierarchyFileName).compare("noFileName") != 0) {
+		// Hierarchy logic
+        if ((arguments.hierarchyFileName).compare("noFileName") != 0) { // if using hierarchy
+        	// alternate adapting the class and element level, unless one is finished
         	if ((step % 2 == 0 && !drugLevelFinished) || classLevelFinished){
         		searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
         		pair<bool,double> next = searcher.step();
@@ -182,10 +181,11 @@ void AutoSearchCrossValidationDriver::drive(
                  	classLevelFinished = true;
                 }
         	}
+        	// if everything is finished, end.
         	if (drugLevelFinished && classLevelFinished){
         		finished = true;
         	}
-       	} else {
+       	} else { // if not using the hierarchy
        		std::cout << "Completed at " << tryvalue << std::endl;
        		searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
        		pair<bool,double> next = searcher.step();
@@ -195,9 +195,6 @@ void AutoSearchCrossValidationDriver::drive(
             	finished = true;
             }
         }
-
-
-
 
         std::cout << searcher;
         step++;
@@ -213,6 +210,10 @@ void AutoSearchCrossValidationDriver::drive(
 	std::cout << std::endl;
 	std::cout << "Maximum predicted log likelihood estimated at:" << std::endl;
 	std::cout << "\t" << maxPoint << " (variance)" << std::endl;
+	if ((arguments.hierarchyFileName).compare("noFileName") != 0) { // if using a hierarchy, set the hyperpriors
+		cout << "class level = " << tryvalueClass << endl;
+	}
+
 	if (!arguments.useNormalPrior) {
 		double lambda = convertVarianceToHyperparameter(maxPoint);
 		std::cout << "\t" << lambda << " (lambda)" << std::endl;
