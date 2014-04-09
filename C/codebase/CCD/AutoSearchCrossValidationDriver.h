@@ -37,7 +37,7 @@ public:
 
 	virtual void hierarchyDrive(CyclicCoordinateDescent& ccd,
 				AbstractSelector& selector,
-				const CCDArguments& arguments) {};
+				const CCDArguments& arguments);
 
 
 private:

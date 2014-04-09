@@ -71,7 +71,7 @@ void AutoSearchCrossValidationDriver::resetForOptimal(
 	ccd.resetBeta(); // Cold-start
 }
 
-void AutoSearchCrossValidationDriver::drive(
+void AutoSearchCrossValidationDriver::hierarchyDrive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
 		const CCDArguments& arguments) {
@@ -81,18 +81,12 @@ void AutoSearchCrossValidationDriver::drive(
 	std::vector<real> weights;
 
 	double tryvalue = modelData.getNormalBasedDefaultVar();
-	double tryvalueClass; // for hierarchy class variance
+	double tryvalueClass = tryvalue; // start with same variance at the class and element level; // for hierarchy class variance
 	UniModalSearch searcher(10, 0.01, log(1.5));
-
 	UniModalSearch searcherClass(10, 0.01, log(1.5)); // Need a better way to do this.
 
 	const double eps = 0.05; //search stopper
 	std::cout << "Default var = " << tryvalue << std::endl;
-
-	// For hierarchy
-	if ((arguments.hierarchyFileName).compare("noFileName") != 0) {
-		tryvalueClass = tryvalue; // start with same variance at the class and element level
-	}
 
 
 	bool finished = false;
@@ -103,12 +97,8 @@ void AutoSearchCrossValidationDriver::drive(
 	while (!finished) {
 
 		// More hierarchy logic
-		if ((arguments.hierarchyFileName).compare("noFileName") != 0) { // if using a hierarchy, set the hyperpriors
-			ccd.setHyperprior(tryvalue);
-			ccd.setClassHyperprior(tryvalueClass);
-		} else {
-			ccd.setHyperprior(tryvalue);
-		}
+		ccd.setHyperprior(tryvalue);
+		ccd.setClassHyperprior(tryvalueClass);
 
 		/* start code duplication */
 		std::vector<double> predLogLikelihood;
@@ -162,39 +152,30 @@ void AutoSearchCrossValidationDriver::drive(
         //pair<bool,double> next = searcher.step();
 
 		// Hierarchy logic
-        if ((arguments.hierarchyFileName).compare("noFileName") != 0) { // if using hierarchy
-        	// alternate adapting the class and element level, unless one is finished
-        	if ((step % 2 == 0 && !drugLevelFinished) || classLevelFinished){
-        		searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
-        		pair<bool,double> next = searcher.step();
-        		tryvalue = next.second;
-        	    std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
-                if (!next.first) {
-                 	drugLevelFinished = true;
-                }
-        	} else {
-        		searcherClass.tried(tryvalueClass, pointEstimate, stdDevEstimate);
-        		pair<bool,double> next = searcherClass.step();
-        		tryvalueClass = next.second;
-        	    std::cout << "Next Class point at " << next.second << " and " << next.first << std::endl;
-                if (!next.first) {
-                 	classLevelFinished = true;
-                }
-        	}
-        	// if everything is finished, end.
-        	if (drugLevelFinished && classLevelFinished){
-        		finished = true;
-        	}
-       	} else { // if not using the hierarchy
-       		std::cout << "Completed at " << tryvalue << std::endl;
-       		searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
-       		pair<bool,double> next = searcher.step();
-       		tryvalue = next.second;
+
+        // alternate adapting the class and element level, unless one is finished
+        if ((step % 2 == 0 && !drugLevelFinished) || classLevelFinished){
+        	searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
+        	pair<bool,double> next = searcher.step();
+        	tryvalue = next.second;
             std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
             if (!next.first) {
-            	finished = true;
+               	drugLevelFinished = true;
+            }
+       	} else {
+       		searcherClass.tried(tryvalueClass, pointEstimate, stdDevEstimate);
+       		pair<bool,double> next = searcherClass.step();
+       		tryvalueClass = next.second;
+       	    std::cout << "Next Class point at " << next.second << " and " << next.first << std::endl;
+            if (!next.first) {
+               	classLevelFinished = true;
             }
         }
+        // if everything is finished, end.
+        if (drugLevelFinished && classLevelFinished){
+        	finished = true;
+        }
+
 
         std::cout << searcher;
         step++;
@@ -210,15 +191,23 @@ void AutoSearchCrossValidationDriver::drive(
 	std::cout << std::endl;
 	std::cout << "Maximum predicted log likelihood estimated at:" << std::endl;
 	std::cout << "\t" << maxPoint << " (variance)" << std::endl;
-	if ((arguments.hierarchyFileName).compare("noFileName") != 0) { // if using a hierarchy, set the hyperpriors
-		cout << "class level = " << tryvalueClass << endl;
-	}
+	std::cout << "class level = " << tryvalueClass << endl;
+
 
 	if (!arguments.useNormalPrior) {
 		double lambda = convertVarianceToHyperparameter(maxPoint);
 		std::cout << "\t" << lambda << " (lambda)" << std::endl;
 	}
 	std:cout << std::endl;
+}
+
+void AutoSearchCrossValidationDriver::drive(
+		CyclicCoordinateDescent& ccd,
+		AbstractSelector& selector,
+		const CCDArguments& arguments) {
+
+	// TODO Check that selector is type of CrossValidationSelector
+
 }
 
 } // namespace

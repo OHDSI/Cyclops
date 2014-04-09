@@ -816,7 +816,13 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
 	AbstractCrossValidationDriver* driver;
 	if (arguments.useAutoSearchCV) {
 		driver = new AutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
-		driver->drive(*ccd, selector, arguments);
+		if ((arguments.hierarchyFileName).compare("noFileName") == 0) {
+			driver->drive(*ccd, selector, arguments);
+		} else {
+			cout << "Using Autosearch Hierarchy Cross validation " << arguments.hierarchyFileName << endl;
+			driver->hierarchyDrive(*ccd, selector, arguments);
+			cout << "Using Autosearch Hierarchy Cross validation " << arguments.hierarchyFileName << endl;
+		}
 	} else {
 		driver = new GridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
 		if ((arguments.hierarchyFileName).compare("noFileName") == 0) {
