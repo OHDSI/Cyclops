@@ -208,6 +208,95 @@ void AutoSearchCrossValidationDriver::drive(
 
 	// TODO Check that selector is type of CrossValidationSelector
 
+	std::vector<real> weights;
+
+	double tryvalue = modelData.getNormalBasedDefaultVar();
+	UniModalSearch searcher(10, 0.01, log(1.5));
+	const double eps = 0.05; //search stopper
+	std::cout << "Default var = " << tryvalue << std::endl;
+
+	bool finished = false;
+
+	int step = 0;
+	while (!finished) {
+		ccd.setHyperprior(tryvalue);
+
+		/* start code duplication */
+		std::vector<double> predLogLikelihood;
+		for (int i = 0; i < arguments.foldToCompute; i++) {
+			int fold = i % arguments.fold;
+			if (fold == 0) {
+				selector.permute(); // Permute every full cross-validation rep
+			}
+
+			// Get this fold and update
+			selector.getWeights(fold, weights);
+			if(weightsExclude){
+				for(int j = 0; j < (int)weightsExclude->size(); j++){
+					if(weightsExclude->at(j) == 1.0){
+						weights[j] = 0.0;
+					}
+				}
+			}
+			ccd.setWeights(&weights[0]);
+			std::cout << "Running at " << ccd.getPriorInfo() << " ";
+			ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+
+			// Compute predictive loglikelihood for this fold
+			selector.getComplement(weights);
+			if(weightsExclude){
+				for(int j = 0; j < (int)weightsExclude->size(); j++){
+					if(weightsExclude->at(j) == 1.0){
+						weights[j] = 0.0;
+					}
+				}
+			}
+
+			double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
+
+			std::cout << "Grid-point #" << (step + 1) << " at " << tryvalue;
+			std::cout << "\tFold #" << (fold + 1)
+					  << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
+					  << logLikelihood << std::endl;
+
+			// Store value
+			predLogLikelihood.push_back(logLikelihood);
+		}
+
+		double pointEstimate = computePointEstimate(predLogLikelihood);
+		/* end code duplication */
+
+		double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
+
+		std::cout << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
+		searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
+		pair<bool,double> next = searcher.step();
+		std::cout << "Completed at " << tryvalue << std::endl;
+		std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
+
+		tryvalue = next.second;
+		if (!next.first) {
+			finished = true;
+		}
+		std::cout << searcher;
+		step++;
+		if (step >= maxSteps) {
+			std::cerr << "Max steps reached!" << std::endl;
+			finished = true;
+		}
+	}
+
+	maxPoint = tryvalue;
+
+	// Report results
+	std::cout << std::endl;
+	std::cout << "Maximum predicted log likelihood estimated at:" << std::endl;
+	std::cout << "\t" << maxPoint << " (variance)" << std::endl;
+	if (!arguments.useNormalPrior) {
+		double lambda = convertVarianceToHyperparameter(maxPoint);
+		std::cout << "\t" << lambda << " (lambda)" << std::endl;
+	}
+	std:cout << std::endl;
 }
 
 } // namespace
