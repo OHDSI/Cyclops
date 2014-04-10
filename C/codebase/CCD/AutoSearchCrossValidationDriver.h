@@ -28,6 +28,7 @@ public:
 			AbstractSelector& selector,
 			const CCDArguments& arguments);
 
+
 	virtual void resetForOptimal(
 			CyclicCoordinateDescent& ccd,
 			CrossValidationSelector& selector,
@@ -47,6 +48,13 @@ private:
 	double computeGridPoint(int step);
 
 //	double computePointEstimate(const std::vector<double>& value);
+
+	double doCrossValidation(
+					CyclicCoordinateDescent& ccd,
+					AbstractSelector& selector,
+					const CCDArguments& arguments,
+					int step,
+					std::vector<double> & predLogLikelihood);
 
 	void findMax(double* maxPoint, double* maxValue);
 

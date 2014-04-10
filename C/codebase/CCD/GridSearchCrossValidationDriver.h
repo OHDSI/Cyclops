@@ -38,6 +38,7 @@ public:
 			AbstractSelector& selector,
 			const CCDArguments& arguments);
 
+
 private:
 
 	double computeGridPoint(int step);

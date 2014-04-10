@@ -71,14 +71,77 @@ void AutoSearchCrossValidationDriver::resetForOptimal(
 	ccd.resetBeta(); // Cold-start
 }
 
+
+double AutoSearchCrossValidationDriver::doCrossValidation(
+		CyclicCoordinateDescent& ccd,
+		AbstractSelector& selector,
+		const CCDArguments& arguments,
+		int step,
+		std::vector<double> & predLogLikelihood){
+
+
+	cout << "doCrossValidation" << endl;
+
+	std::vector<real> weights;
+
+	/* start code duplication */
+	//std::vector<double> predLogLikelihood;
+	for (int i = 0; i < arguments.foldToCompute; i++) {
+		int fold = i % arguments.fold;
+		if (fold == 0) {
+			selector.permute(); // Permute every full cross-validation rep
+		}
+
+		// Get this fold and update
+		selector.getWeights(fold, weights);
+		if(weightsExclude){
+			for(int j = 0; j < (int)weightsExclude->size(); j++){
+				if(weightsExclude->at(j) == 1.0){
+					weights[j] = 0.0;
+				}
+			}
+		}
+		ccd.setWeights(&weights[0]);
+		std::cout << "Running at " << ccd.getPriorInfo() << " ";
+		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+
+		// Compute predictive loglikelihood for this fold
+		selector.getComplement(weights);
+		if(weightsExclude){
+			for(int j = 0; j < (int)weightsExclude->size(); j++){
+				if(weightsExclude->at(j) == 1.0){
+					weights[j] = 0.0;
+				}
+			}
+		}
+
+		double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
+
+		std::cout << "Grid-point #" << (step + 1) << " at " << ccd.getHyperprior();
+		std::cout << "\tFold #" << (fold + 1)
+				  << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
+				  << logLikelihood << std::endl;
+
+		// Store value
+		predLogLikelihood.push_back(logLikelihood);
+	}
+
+	double pointEstimate = computePointEstimate(predLogLikelihood);
+	/* end code duplication */
+
+	return(pointEstimate);
+
+}
+
+
 void AutoSearchCrossValidationDriver::hierarchyDrive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
 		const CCDArguments& arguments) {
 
 	// TODO Check that selector is type of CrossValidationSelector
-
 	std::vector<real> weights;
+
 
 	double tryvalue = modelData.getNormalBasedDefaultVar();
 	double tryvalueClass = tryvalue; // start with same variance at the class and element level; // for hierarchy class variance
@@ -100,58 +163,15 @@ void AutoSearchCrossValidationDriver::hierarchyDrive(
 		ccd.setHyperprior(tryvalue);
 		ccd.setClassHyperprior(tryvalueClass);
 
-		/* start code duplication */
 		std::vector<double> predLogLikelihood;
-		for (int i = 0; i < arguments.foldToCompute; i++) {
-			int fold = i % arguments.fold;
-			if (fold == 0) {
-				selector.permute(); // Permute every full cross-validation rep
-			}
 
-			// Get this fold and update
-			selector.getWeights(fold, weights);
-			if(weightsExclude){
-				for(int j = 0; j < (int)weightsExclude->size(); j++){
-					if(weightsExclude->at(j) == 1.0){
-						weights[j] = 0.0;
-					}
-				}
-			}
-			ccd.setWeights(&weights[0]);
-			std::cout << "Running at " << ccd.getPriorInfo() << " ";
-			ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
-
-			// Compute predictive loglikelihood for this fold
-			selector.getComplement(weights);
-			if(weightsExclude){
-				for(int j = 0; j < (int)weightsExclude->size(); j++){
-					if(weightsExclude->at(j) == 1.0){
-						weights[j] = 0.0;
-					}
-				}
-			}
-
-			double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
-
-			std::cout << "Grid-point #" << (step + 1) << " at " << tryvalue;
-			std::cout << "\tFold #" << (fold + 1)
-			          << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
-			          << logLikelihood << std::endl;
-
-			// Store value
-			predLogLikelihood.push_back(logLikelihood);
-		}
-
-		double pointEstimate = computePointEstimate(predLogLikelihood);
-		/* end code duplication */
+		// Newly re-located code
+		double pointEstimate = doCrossValidation(ccd, selector, arguments, step, predLogLikelihood);
 
 		double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
 
 		std::cout << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
-        //searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
-        //pair<bool,double> next = searcher.step();
 
-		// Hierarchy logic
 
         // alternate adapting the class and element level, unless one is finished
         if ((step % 2 == 0 && !drugLevelFinished) || classLevelFinished){
@@ -175,7 +195,6 @@ void AutoSearchCrossValidationDriver::hierarchyDrive(
         if (drugLevelFinished && classLevelFinished){
         	finished = true;
         }
-
 
         std::cout << searcher;
         step++;
@@ -201,6 +220,7 @@ void AutoSearchCrossValidationDriver::hierarchyDrive(
 	std:cout << std::endl;
 }
 
+
 void AutoSearchCrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
@@ -208,7 +228,9 @@ void AutoSearchCrossValidationDriver::drive(
 
 	// TODO Check that selector is type of CrossValidationSelector
 
-	std::vector<real> weights;
+
+	cout <<"driveTemp" << endl;
+
 
 	double tryvalue = modelData.getNormalBasedDefaultVar();
 	UniModalSearch searcher(10, 0.01, log(1.5));
@@ -221,50 +243,10 @@ void AutoSearchCrossValidationDriver::drive(
 	while (!finished) {
 		ccd.setHyperprior(tryvalue);
 
-		/* start code duplication */
 		std::vector<double> predLogLikelihood;
-		for (int i = 0; i < arguments.foldToCompute; i++) {
-			int fold = i % arguments.fold;
-			if (fold == 0) {
-				selector.permute(); // Permute every full cross-validation rep
-			}
 
-			// Get this fold and update
-			selector.getWeights(fold, weights);
-			if(weightsExclude){
-				for(int j = 0; j < (int)weightsExclude->size(); j++){
-					if(weightsExclude->at(j) == 1.0){
-						weights[j] = 0.0;
-					}
-				}
-			}
-			ccd.setWeights(&weights[0]);
-			std::cout << "Running at " << ccd.getPriorInfo() << " ";
-			ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
-
-			// Compute predictive loglikelihood for this fold
-			selector.getComplement(weights);
-			if(weightsExclude){
-				for(int j = 0; j < (int)weightsExclude->size(); j++){
-					if(weightsExclude->at(j) == 1.0){
-						weights[j] = 0.0;
-					}
-				}
-			}
-
-			double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
-
-			std::cout << "Grid-point #" << (step + 1) << " at " << tryvalue;
-			std::cout << "\tFold #" << (fold + 1)
-					  << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
-					  << logLikelihood << std::endl;
-
-			// Store value
-			predLogLikelihood.push_back(logLikelihood);
-		}
-
-		double pointEstimate = computePointEstimate(predLogLikelihood);
-		/* end code duplication */
+		// Newly re-located code
+		double pointEstimate = doCrossValidation(ccd, selector, arguments, step, predLogLikelihood);
 
 		double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
 
@@ -298,5 +280,6 @@ void AutoSearchCrossValidationDriver::drive(
 	}
 	std:cout << std::endl;
 }
+
 
 } // namespace

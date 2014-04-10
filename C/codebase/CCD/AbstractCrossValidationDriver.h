@@ -39,10 +39,13 @@ public:
 			AbstractSelector& selector,
 			const CCDArguments& arguments) = 0;
 
+
 protected:
 	double computePointEstimate(const std::vector<double>& value);
 
 	double computeStDev(const std::vector<double>& value, double mean);
+
+
 };
 
 } // namespace
