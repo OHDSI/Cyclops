@@ -24,7 +24,7 @@ public:
 
 	virtual void setVariance(double x) = 0; // pure virtual
 
-	virtual void setClassVariance(double x) {}; // only works if of type HierarchicalPrior
+	virtual void setVariance(int level, double x) {}; // only works if of type HierarchicalPrior
 
 	virtual double getVariance() const = 0; // pure virtual
 
@@ -85,74 +85,79 @@ private:
 
 class HierarchicalJointPrior : public JointPrior {
 public:
-	HierarchicalJointPrior(PriorPtr _one) : JointPrior(), singlePrior(_one) {
-		// Do nothing
+	typedef std::vector<PriorPtr> PriorList;
+
+	HierarchicalJointPrior(PriorPtr defaultPrior, int length) : JointPrior(),
+			hierarchyPriors(length, defaultPrior) {
+		hierarchyDepth = length;
 	}
 
 	void setVariance(double x) {
-		singlePrior->setVariance(x);
+		setVariance(0,x);
 	}
 
-	void setClassVariance(double x) {
-		classVariance = x;
+	void setVariance(int level, double x) {
+		hierarchyPriors[level]->setVariance(x);
+	}
+
+	void changePrior(PriorPtr newPrior, int index) {
+		// TODO assert(index < listPriors.size());
+		hierarchyPriors[index] = newPrior;
 	}
 
 	const std::string getDescription() const {
 		stringstream info;
-		info << "Hierarchical prior with class variance " << classVariance << " and drug level prior " << singlePrior->getDescription();
+		for (int i = 0; i < hierarchyDepth; i ++) {
+			info << "Hierarchy level " << i << " has prior " << hierarchyPriors[i]->getDescription() << " ";
+		}
 		return info.str();
 	}
 
 	void setHierarchy(HierarchyReader* hierarchyReader) {
-		cout << "in Set Hierarchy " << endl;
 		getParentMap = hierarchyReader->returnGetParentMap();
 		getChildMap = hierarchyReader->returnGetChildMap();
 	}
 
-	double getVariance() const {
-		return singlePrior->getVariance();
+	double getVariance() const{
+		return getVariance(0);
+	}
+
+	double getVariance(int level) const {
+		return hierarchyPriors[level]->getVariance();
 	}
 
 	double logDensity(const DoubleVector& beta) const {
 		double result = 0.0;
 		for (DoubleVector::const_iterator it = beta.begin(); it != beta.end(); ++it) {
-			result += singlePrior->logDensity(*it);
+			result += hierarchyPriors[0]->logDensity(*it);
 		}
 		return result;
 	}
 
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
-		double t1 = 1/singlePrior->getVariance(); // this is the hyperparameter that is used in the original code
-		double t2 = 1/classVariance;
-
-		//cout << "t1 = " << t1 << endl;
-		//cout << "t2 = " << t2 << endl;
+		double t1 = 1/hierarchyPriors[0]->getVariance(); // this is the hyperparameter that is used in the original code
+		double t2 = 1/hierarchyPriors[1]->getVariance();
 
 		int parent = getParentMap.at(index);
-		vector<int> siblings = getChildMap.at(parent);
+		const vector<int>& siblings = getChildMap.at(parent);
 		double sumBetas = 0;
 		int nSiblingsOfInterest = 0; //Different from siblings length if weights used
 		for (int i = 0; i < siblings.size(); i++) {
 			sumBetas += beta[siblings[i]];
-			//cout << "beta[" << siblings[i] << "] = " << beta[siblings[i]] << endl;
 		}
 		double hessian = t1 - t1 / (siblings.size() + t2/t1);
 
-		//cout << "hessian = " << hessian << endl;
 		double gradient = t1*beta[index] - t1*t1*sumBetas / (siblings.size()*t1 + t2);
-		//cout << "gradient = " << gradient << endl;
 
 		return (- (gh.first + gradient)/(gh.second + hessian));
 	}
 
-
-
 private:
-	PriorPtr singlePrior;
-	double classVariance;
+	PriorList hierarchyPriors;
+	int hierarchyDepth;
 	std::map<int, int> getParentMap;
 	std::map<int, vector<int> > getChildMap;
-	//PriorPtr classPrior;
+
 };
 
 class FullyExchangeableJointPrior : public JointPrior {

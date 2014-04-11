@@ -39,6 +39,17 @@ HierarchyAutoSearchCrossValidationDriver::~HierarchyAutoSearchCrossValidationDri
 	// Do nothing
 }
 
+void HierarchyAutoSearchCrossValidationDriver::resetForOptimal(
+		CyclicCoordinateDescent& ccd,
+		CrossValidationSelector& selector,
+		const CCDArguments& arguments) {
+
+	ccd.setWeights(NULL);
+	ccd.setHyperprior(maxPoint);
+	ccd.setClassHyperprior(maxPointClass);
+	ccd.resetBeta(); // Cold-start
+}
+
 
 void HierarchyAutoSearchCrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
@@ -111,12 +122,13 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 	}
 
 	maxPoint = tryvalue;
+	maxPointClass = tryvalueClass;
 
 	// Report results
 	std::cout << std::endl;
 	std::cout << "Maximum predicted log likelihood estimated at:" << std::endl;
 	std::cout << "\t" << maxPoint << " (variance)" << std::endl;
-	std::cout << "class level = " << tryvalueClass << endl;
+	std::cout << "class level = " << maxPointClass << endl;
 
 
 	if (!arguments.useNormalPrior) {

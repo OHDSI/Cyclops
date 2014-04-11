@@ -162,6 +162,7 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.fold = 10;
 	arguments.gridSteps = 10;
 	arguments.cvFileName = "cv.txt";
+	arguments.useHierarchy = false;
 	arguments.doBootstrap = false;
 	arguments.replicates = 100;
 	arguments.reportRawEstimates = false;
@@ -202,9 +203,9 @@ void parseCommandLine(std::vector<std::string>& args,
 		SwitchArg reportASEArg("","ASE", "Compute asymptotic standard errors at posterior mode", arguments.reportASE);
 
 		//Hierarchy arguments
+		SwitchArg useHierarchyArg("", "hier", "Use hierarchy in analysis", arguments.useHierarchy);
 		ValueArg<string> hierarchyFileArg("a", "hierarchyFile", "Hierarchy file name", false, "noFileName", "hierarchyFile");
 		ValueArg<double> classHierarchyVarianceArg("d","classHierarchyVariance","Variance for drug class hierarchy", false, 10, "Variance at the class level of the hierarchy");
-		ValueArg<double> sigma2BetaArg("e","sigma2Beta","Variance for drug coefficients", false, 10, "Variance at the drug level of the hierarchy (hyperprior variance)");
 
 
 		// Convergence criterion arguments
@@ -297,9 +298,9 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(flatPriorArg);
 
 		//Hierarchy arguments
+		cmd.add(useHierarchyArg);
 		cmd.add(hierarchyFileArg);
 		cmd.add(classHierarchyVarianceArg);
-		cmd.add(sigma2BetaArg);
 
 		cmd.add(doCVArg);
 		cmd.add(useAutoSearchCVArg);
@@ -324,8 +325,6 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(outFileArg);
 		cmd.parse(args);
 
-
-
 		if (gpuArg.getValue() > -1) {
 			arguments.useGPU = true;
 			arguments.deviceNumber = gpuArg.getValue();
@@ -347,6 +346,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		arguments.seed = seedArg.getValue();
 
 		//Hierarchy arguments
+		arguments.useHierarchy = useHierarchyArg.isSet();
 		arguments.hierarchyFileName = hierarchyFileArg.getValue(); // Hierarchy argument
 		arguments.classHierarchyVariance = classHierarchyVarianceArg.getValue(); //Hierarchy argument
 
@@ -422,9 +422,6 @@ void parseCommandLine(std::vector<std::string>& args,
 		if (quietArg.getValue()) {
 			arguments.noiseLevel = QUIET;
 		}
-
-		//for testing hierarchy cv
-		arguments.noiseLevel = SILENT;
 
 //		arguments.doLogisticRegression = doLogisticRegressionArg.isSet();
 	} catch (ArgException &e) {
@@ -530,10 +527,7 @@ double initializeModel(
 
 	// Hierarchy management
 	HierarchyReader* hierarchyData;
-	if ((arguments.hierarchyFileName).compare("noFileName") == 0) {
-		cout << "No Hierarchy File" << endl;
-	} else {
-		cout << "Using Hierarchy File " << arguments.hierarchyFileName << endl;
+	if (arguments.useHierarchy) {
 		hierarchyData = new HierarchyReader(arguments.hierarchyFileName.c_str(), *modelData);
 	}
 
@@ -576,12 +570,13 @@ double initializeModel(
 	}
 
 	//Hierarchy prior
-	if ((arguments.hierarchyFileName).compare("noFileName") != 0) {
-		cout << "Using Hierarchy prior "<< endl;
+	if (arguments.useHierarchy) {
+		std::shared_ptr<HierarchicalJointPrior> hierarchicalPrior = std::make_shared<HierarchicalJointPrior>(singlePrior, 2); //Depth of hierarchy fixed at 2 right now
 		PriorPtr classPrior = std::make_shared<NormalPrior>();
-		std::shared_ptr<HierarchicalJointPrior> hierarchicalPrior = std::make_shared<HierarchicalJointPrior>(singlePrior);
+		hierarchicalPrior->changePrior(classPrior,1);
 		hierarchicalPrior->setHierarchy(hierarchyData);
-		hierarchicalPrior->setClassVariance(arguments.classHierarchyVariance);
+		hierarchicalPrior->setVariance(0,arguments.hyperprior);
+		hierarchicalPrior->setVariance(1,arguments.classHierarchyVariance);
 		prior = hierarchicalPrior;
 	}
 
@@ -814,22 +809,20 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
 
 	AbstractCrossValidationDriver* driver;
 	if (arguments.useAutoSearchCV) {
-		if ((arguments.hierarchyFileName).compare("noFileName") == 0) {
-			driver = new AutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
-		} else {
+		if (arguments.useHierarchy) {
 			driver = new HierarchyAutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+		} else {
+			driver = new AutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
 		}
 	} else {
-
-		if ((arguments.hierarchyFileName).compare("noFileName") == 0) {
-			driver = new GridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
-		} else {
+		if (arguments.useHierarchy) {
 			driver = new HierarchyGridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+		} else {
+			driver = new GridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
 		}
 	}
 
 	driver->drive(*ccd, selector, arguments);
-
 
 	gettimeofday(&time2, NULL);
 

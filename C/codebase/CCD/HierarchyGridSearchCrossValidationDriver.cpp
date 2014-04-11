@@ -34,10 +34,36 @@ HierarchyGridSearchCrossValidationDriver::~HierarchyGridSearchCrossValidationDri
 	// Do nothing
 }
 
+void HierarchyGridSearchCrossValidationDriver::resetForOptimal(
+		CyclicCoordinateDescent& ccd,
+		CrossValidationSelector& selector,
+		const CCDArguments& arguments) {
+
+
+	ccd.setWeights(NULL);
+	ccd.setHyperprior(maxPoint);
+	ccd.setClassHyperprior(maxPointClass);
+	ccd.resetBeta(); // Cold-start
+}
+
+/* Author: tshaddox
+ * Changes one parameter in the ccd
+ */
+
+void HierarchyGridSearchCrossValidationDriver::changeParameter(CyclicCoordinateDescent &ccd, int varianceIndex, double varianceValue) {
+	if (varianceIndex == 0) {
+		ccd.setHyperprior(varianceValue);
+
+	}
+	if (varianceIndex == 1) {
+		ccd.setClassHyperprior(varianceValue);
+	}
+}
+
+
 void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
 		const CCDArguments& arguments) {
-
 
 	std::vector<bsccs::real> weights;
 	std::vector<double> outerPoints;
@@ -54,7 +80,6 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 
 			std::vector<double> predLogLikelihood;
 			double point = computeGridPoint(step);
-			cout << "point = " << point << endl;
 			ccd.setHyperprior(point);
 
 			for (int i = 0; i < arguments.foldToCompute; i++) {
@@ -67,7 +92,7 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 				// Get this fold and update
 				selector.getWeights(fold, weights);
 				ccd.setWeights(&weights[0]);
-			//	std::cout << "Running at " << ccd.getPriorInfo() << " ";
+
 				ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 				// Compute predictive loglikelihood for this fold
 				selector.getComplement(weights);
@@ -99,33 +124,25 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 		outerPoints.push_back(outerPoint);
 		outerValues.push_back(maxValue);
 
-
-
-		std::cout << std::endl;
-		std::cout << "Maximum predicted log likelihood (" << maxValue << ") found at:" << std::endl;
-		std::cout << "\t" << maxPoint << " (variance)" << std::endl;
-
 		if (!arguments.useNormalPrior) {
 			double lambda = convertVarianceToHyperparameter(maxPoint);
 			std::cout << "\t" << lambda << " (lambda)" << std::endl;
 		}
 
-		//std:cout << std::endl;
-
 	}
-	double outerMaxPoint = outerPoints[0];
-	double innerMaxPoint = innerPoints[0];
+	maxPointClass = outerPoints[0];
+	maxPoint = innerPoints[0];
 	double outerMaxValue = outerValues[0];
 	for (int i = 0; i < outerPoints.size(); i++) {
 		if (outerValues[i] > outerMaxValue) {
 			outerMaxValue = outerValues[i];
-			outerMaxPoint = outerPoints[i];
-			innerMaxPoint = innerPoints[i];
+			maxPointClass = outerPoints[i];
+			maxPoint = innerPoints[i];
 		}
 	}
 	std::cout << std::endl;
 	std::cout << "Maximum predicted log likelihood (" << outerMaxValue << ") found at:" << std::endl;
-	std::cout << "\t" << innerMaxPoint << " (drug variance) and at " << outerMaxPoint << " (class variance)" << std::endl;
+	std::cout << "\t" << maxPoint << " (drug variance) and at " << maxPointClass << " (class variance)" << std::endl;
 
 }
 

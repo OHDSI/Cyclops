@@ -22,10 +22,18 @@ public:
 
 	virtual ~HierarchyAutoSearchCrossValidationDriver();
 
+	virtual void resetForOptimal(
+			CyclicCoordinateDescent& ccd,
+			CrossValidationSelector& selector,
+			const CCDArguments& arguments);
+
 	virtual void drive(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
 			const CCDArguments& arguments);
+
+private:
+	double maxPointClass;
 
 };
 

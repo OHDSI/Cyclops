@@ -35,13 +35,10 @@ public:
 
 	virtual void logResults(const CCDArguments& arguments) = 0; // pure virtual
 
-
 protected:
 	double computePointEstimate(const std::vector<double>& value);
 
 	double computeStDev(const std::vector<double>& value, double mean);
-
-
 };
 
 } // namespace

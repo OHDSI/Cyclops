@@ -35,15 +35,17 @@ public:
 
 	virtual void logResults(const CCDArguments& arguments);
 
-protected:
+private:
 
 	double normBasedDefaultVar();
 
 	double computeGridPoint(int step);
 
-//	double computePointEstimate(const std::vector<double>& value);
-
 	void findMax(double* maxPoint, double* maxValue);
+
+protected:
+
+//	double computePointEstimate(const std::vector<double>& value);
 
 	std::vector<double> gridPoint;
 	std::vector<double> gridValue;
@@ -59,11 +61,11 @@ protected:
 	double maxSteps;
 
 	double doCrossValidation(
-					CyclicCoordinateDescent& ccd,
-					AbstractSelector& selector,
-					const CCDArguments& arguments,
-					int step,
-					std::vector<double> & predLogLikelihood);
+			CyclicCoordinateDescent& ccd,
+			AbstractSelector& selector,
+			const CCDArguments& arguments,
+			int step,
+			std::vector<double> & predLogLikelihood);
 
 };
 

@@ -38,8 +38,6 @@ protected:
 
 	double computeGridPoint(int step);
 
-	void changeParameter(CyclicCoordinateDescent &ccd, int varianceIndex, double varianceValue);
-
 //	double computePointEstimate(const std::vector<double>& value);
 
 	void findMax(double* maxPoint, double* maxValue);

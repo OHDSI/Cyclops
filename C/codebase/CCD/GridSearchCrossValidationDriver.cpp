@@ -89,20 +89,6 @@ void GridSearchCrossValidationDriver::resetForOptimal(
 	ccd.resetBeta(); // Cold-start
 }
 
-/* Author: tshaddox
- * Changes one parameter in the ccd
- */
-
-void GridSearchCrossValidationDriver::changeParameter(CyclicCoordinateDescent &ccd, int varianceIndex, double varianceValue) {
-	if (varianceIndex == 0) {
-		ccd.setHyperprior(varianceValue);
-
-	}
-	if (varianceIndex == 1) {
-		ccd.setClassHyperprior(varianceValue);
-	}
-}
-
 void GridSearchCrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,

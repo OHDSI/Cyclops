@@ -80,8 +80,6 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 		std::vector<double> & predLogLikelihood){
 
 
-	cout << "doCrossValidation" << endl;
-
 	std::vector<real> weights;
 
 	/* start code duplication */
@@ -140,10 +138,6 @@ void AutoSearchCrossValidationDriver::drive(
 
 	// TODO Check that selector is type of CrossValidationSelector
 
-
-	cout <<"driveTemp" << endl;
-
-
 	double tryvalue = modelData.getNormalBasedDefaultVar();
 	UniModalSearch searcher(10, 0.01, log(1.5));
 	const double eps = 0.05; //search stopper
@@ -163,21 +157,21 @@ void AutoSearchCrossValidationDriver::drive(
 		double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
 
 		std::cout << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
-		searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
-		pair<bool,double> next = searcher.step();
-		std::cout << "Completed at " << tryvalue << std::endl;
-		std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
+        searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
+        pair<bool,double> next = searcher.step();
+        std::cout << "Completed at " << tryvalue << std::endl;
+        std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
 
-		tryvalue = next.second;
-		if (!next.first) {
-			finished = true;
-		}
-		std::cout << searcher;
-		step++;
-		if (step >= maxSteps) {
-			std::cerr << "Max steps reached!" << std::endl;
-			finished = true;
-		}
+        tryvalue = next.second;
+        if (!next.first) {
+            finished = true;
+        }
+        std::cout << searcher;
+        step++;
+        if (step >= maxSteps) {
+        	std::cerr << "Max steps reached!" << std::endl;
+        	finished = true;
+        }
 	}
 
 	maxPoint = tryvalue;
@@ -192,6 +186,5 @@ void AutoSearchCrossValidationDriver::drive(
 	}
 	std:cout << std::endl;
 }
-
 
 } // namespace

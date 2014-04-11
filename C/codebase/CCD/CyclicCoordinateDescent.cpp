@@ -368,7 +368,7 @@ void CyclicCoordinateDescent::setHyperprior(double value) {
 
 //Hierarchical Support
 void CyclicCoordinateDescent::setClassHyperprior(double value) {
-	jointPrior->setClassVariance(value);
+	jointPrior->setVariance(1,value);
 }
 
 double CyclicCoordinateDescent::getHyperprior(void) const {
@@ -550,7 +550,6 @@ void CyclicCoordinateDescent::update(
 			
 		}
 
-
 		iteration++;
 //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
 		bool checkConvergence = true; // Check after each complete cycle
@@ -580,14 +579,12 @@ void CyclicCoordinateDescent::update(
 			double thisLogPost = thisLogLikelihood + thisLogPrior;
 
 			if (noiseLevel > QUIET) {
-				/* test comment out for hierarchy cv testing
 				cout << endl;
 				printVector(&hBeta[0], J, cout);
 				cout << endl;
 				cout << "log post: " << thisLogPost
 						<< " (" << thisLogLikelihood << " + " << thisLogPrior
 						<< ") (iter:" << iteration << ") ";
-				*/
 			}
 
 			if (epsilon > 0 && conv < epsilon) {
@@ -611,7 +608,7 @@ void CyclicCoordinateDescent::update(
 					cout << endl;
 				}
 			}
-		}
+		}				
 	}
 	lastIterationCount = iteration;
 	updateCount += 1;
