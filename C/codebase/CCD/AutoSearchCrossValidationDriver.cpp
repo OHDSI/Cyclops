@@ -133,7 +133,7 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 
 }
 
-
+/*
 void AutoSearchCrossValidationDriver::hierarchyDrive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
@@ -219,7 +219,7 @@ void AutoSearchCrossValidationDriver::hierarchyDrive(
 	}
 	std:cout << std::endl;
 }
-
+*/
 
 void AutoSearchCrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,

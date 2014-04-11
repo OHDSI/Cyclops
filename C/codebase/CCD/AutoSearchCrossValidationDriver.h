@@ -28,7 +28,6 @@ public:
 			AbstractSelector& selector,
 			const CCDArguments& arguments);
 
-
 	virtual void resetForOptimal(
 			CyclicCoordinateDescent& ccd,
 			CrossValidationSelector& selector,
@@ -36,25 +35,19 @@ public:
 
 	virtual void logResults(const CCDArguments& arguments);
 
+	/*
 	virtual void hierarchyDrive(CyclicCoordinateDescent& ccd,
 				AbstractSelector& selector,
 				const CCDArguments& arguments);
+*/
 
-
-private:
+protected:
 
 	double normBasedDefaultVar();
 
 	double computeGridPoint(int step);
 
 //	double computePointEstimate(const std::vector<double>& value);
-
-	double doCrossValidation(
-					CyclicCoordinateDescent& ccd,
-					AbstractSelector& selector,
-					const CCDArguments& arguments,
-					int step,
-					std::vector<double> & predLogLikelihood);
 
 	void findMax(double* maxPoint, double* maxValue);
 
@@ -70,6 +63,14 @@ private:
 
 	double maxPoint;
 	double maxSteps;
+
+	double doCrossValidation(
+					CyclicCoordinateDescent& ccd,
+					AbstractSelector& selector,
+					const CCDArguments& arguments,
+					int step,
+					std::vector<double> & predLogLikelihood);
+
 };
 
 } // namespace

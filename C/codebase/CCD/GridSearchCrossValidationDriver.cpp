@@ -133,7 +133,7 @@ double GridSearchCrossValidationDriver::oneFoldCrossValidation(CyclicCoordinateD
 }
 
 
-
+/*
 void GridSearchCrossValidationDriver::hierarchyDrive(CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
 		const CCDArguments& arguments) {
@@ -231,7 +231,7 @@ void GridSearchCrossValidationDriver::hierarchyDrive(CyclicCoordinateDescent& cc
 	std::cout << "\t" << innerMaxPoint << " (drug variance) and at " << outerMaxPoint << " (class variance)" << std::endl;
 
 }
-
+*/
 
 void GridSearchCrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,

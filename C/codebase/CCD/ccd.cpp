@@ -41,7 +41,9 @@
 #include "io/OutputWriter.h"
 #include "CrossValidationSelector.h"
 #include "GridSearchCrossValidationDriver.h"
+#include "HierarchyGridSearchCrossValidationDriver.h"
 #include "AutoSearchCrossValidationDriver.h"
+#include "HierarchyAutoSearchCrossValidationDriver.h"
 #include "BootstrapSelector.h"
 #include "ProportionSelector.h"
 #include "BootstrapDriver.h"
@@ -807,34 +809,26 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-
-	cout << "runCrossValidation" << endl;
-
 	CrossValidationSelector selector(arguments.fold, modelData->getPidVectorSTL(),
 			SUBJECT, arguments.seed);
 
 	AbstractCrossValidationDriver* driver;
 	if (arguments.useAutoSearchCV) {
-		driver = new AutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
 		if ((arguments.hierarchyFileName).compare("noFileName") == 0) {
-			driver->drive(*ccd, selector, arguments);
+			driver = new AutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
 		} else {
-			cout << "Using Autosearch Hierarchy Cross validation " << arguments.hierarchyFileName << endl;
-			driver->hierarchyDrive(*ccd, selector, arguments);
-			cout << "Using Autosearch Hierarchy Cross validation " << arguments.hierarchyFileName << endl;
+			driver = new HierarchyAutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
 		}
 	} else {
-		driver = new GridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+
 		if ((arguments.hierarchyFileName).compare("noFileName") == 0) {
-			driver->drive(*ccd, selector, arguments);
+			driver = new GridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
 		} else {
-			cout << "Using Hierarchy Cross validation " << arguments.hierarchyFileName << endl;
-			driver->hierarchyDrive(*ccd, selector, arguments);
-			cout << "Using Hierarchy Cross validation " << arguments.hierarchyFileName << endl;
+			driver = new HierarchyGridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
 		}
 	}
 
-
+	driver->drive(*ccd, selector, arguments);
 
 
 	gettimeofday(&time2, NULL);

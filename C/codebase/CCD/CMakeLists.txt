@@ -18,7 +18,9 @@ set(BASE_SOURCE_FILES
 	ProportionSelector.cpp
 	CrossValidationSelector.cpp
 	GridSearchCrossValidationDriver.cpp
+	HierarchyGridSearchCrossValidationDriver.cpp
 	AutoSearchCrossValidationDriver.cpp
+	HierarchyAutoSearchCrossValidationDriver.cpp
 	BootstrapSelector.cpp
 	BootstrapDriver.cpp
 	../utils/HParSearch.cpp)

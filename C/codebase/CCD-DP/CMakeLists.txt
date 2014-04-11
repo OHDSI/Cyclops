@@ -18,7 +18,9 @@ set(BASE_SOURCE_FILES
 	../CCD/ProportionSelector.cpp
 	../CCD/CrossValidationSelector.cpp
     ../CCD/GridSearchCrossValidationDriver.cpp
+    ../CCD/HierarchyGridSearchCrossValidationDriver.cpp
 	../CCD/AutoSearchCrossValidationDriver.cpp
+	../CCD/HierarchyAutoSearchCrossValidationDriver.cpp
 	../CCD/BootstrapSelector.cpp
 	../CCD/BootstrapDriver.cpp
 	../utils/HParSearch.cpp
