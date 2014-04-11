@@ -34,11 +34,7 @@ public:
 			const CCDArguments& arguments) = 0; // pure virtual
 
 	virtual void logResults(const CCDArguments& arguments) = 0; // pure virtual
-/*
-	virtual void hierarchyDrive(CyclicCoordinateDescent& ccd,
-			AbstractSelector& selector,
-			const CCDArguments& arguments) = 0;
-*/
+
 
 protected:
 	double computePointEstimate(const std::vector<double>& value);

@@ -34,12 +34,11 @@ HierarchyGridSearchCrossValidationDriver::~HierarchyGridSearchCrossValidationDri
 	// Do nothing
 }
 
-
 void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
 		const CCDArguments& arguments) {
 
-	cout << "hierarchy drive" << endl;
+
 	std::vector<bsccs::real> weights;
 	std::vector<double> outerPoints;
 	std::vector<double> innerPoints;
@@ -50,8 +49,6 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 		std::vector<double> predLogLikelihoodOuter;
 		double outerPoint = computeGridPoint(outerStep);
 		ccd.setClassHyperprior(outerPoint);
-		cout << "outerPoint = " << outerPoint << endl;
-		cout << outerStep << " out of " << gridSize << endl;
 
 		for (int step = 0; step < gridSize; step++) {
 
@@ -71,7 +68,7 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 				selector.getWeights(fold, weights);
 				ccd.setWeights(&weights[0]);
 			//	std::cout << "Running at " << ccd.getPriorInfo() << " ";
-				ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);  //tshaddox temporary comment out
+				ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 				// Compute predictive loglikelihood for this fold
 				selector.getComplement(weights);
 				double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
@@ -87,7 +84,6 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 
 			double value = computePointEstimate(predLogLikelihood) /
 					(double(arguments.foldToCompute) / double(arguments.fold));
-			cout << "\t value = " << value << endl;
 			gridPoint.push_back(point);
 			gridValue.push_back(value);
 		}
