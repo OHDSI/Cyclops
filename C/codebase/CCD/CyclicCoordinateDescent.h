@@ -148,6 +148,8 @@ public:
 	// Setters
 	void setHyperprior(double value);
 
+	void setClassHyperprior(double value);
+
 	void setPriorType(int priorType);
 
 	void setWeights(real* weights);

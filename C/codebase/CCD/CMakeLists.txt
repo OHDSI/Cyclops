@@ -4,6 +4,7 @@ set(BASE_SOURCE_FILES
 	CyclicCoordinateDescent.cpp	
 	CompressedDataMatrix.cpp
 	ModelData.cpp
+	io/HierarchyReader.cpp
 	io/InputReader.cpp
 	io/SCCSInputReader.cpp
 	io/CLRInputReader.cpp
@@ -17,7 +18,9 @@ set(BASE_SOURCE_FILES
 	ProportionSelector.cpp
 	CrossValidationSelector.cpp
 	GridSearchCrossValidationDriver.cpp
+	HierarchyGridSearchCrossValidationDriver.cpp
 	AutoSearchCrossValidationDriver.cpp
+	HierarchyAutoSearchCrossValidationDriver.cpp
 	BootstrapSelector.cpp
 	BootstrapDriver.cpp
 	../utils/HParSearch.cpp)

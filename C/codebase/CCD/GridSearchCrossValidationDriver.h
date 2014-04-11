@@ -34,7 +34,7 @@ public:
 
 	virtual void logResults(const CCDArguments& arguments);
 
-private:
+protected:
 
 	double computeGridPoint(int step);
 

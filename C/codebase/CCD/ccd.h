@@ -62,6 +62,11 @@ struct CCDArguments {
 	std::string cvFileName;
 	bool doFitAtOptimal;
 
+	//Needed for Hierarchy
+	bool useHierarchy;
+	std::string hierarchyFileName; //tshaddox
+	double classHierarchyVariance; //tshaddox
+
 	// Needed for boot-strapping
 	bool doBootstrap;
 	bool reportRawEstimates;

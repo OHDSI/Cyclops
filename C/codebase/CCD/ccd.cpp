@@ -28,6 +28,7 @@
 #include "CyclicCoordinateDescent.h"
 #include "ModelData.h"
 #include "io/InputReader.h"
+#include "io/HierarchyReader.h"
 #include "io/CLRInputReader.h"
 #include "io/RTestInputReader.h"
 #include "io/CCTestInputReader.h"
@@ -40,7 +41,9 @@
 #include "io/OutputWriter.h"
 #include "CrossValidationSelector.h"
 #include "GridSearchCrossValidationDriver.h"
+#include "HierarchyGridSearchCrossValidationDriver.h"
 #include "AutoSearchCrossValidationDriver.h"
+#include "HierarchyAutoSearchCrossValidationDriver.h"
 #include "BootstrapSelector.h"
 #include "ProportionSelector.h"
 #include "BootstrapDriver.h"
@@ -159,6 +162,7 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.fold = 10;
 	arguments.gridSteps = 10;
 	arguments.cvFileName = "cv.txt";
+	arguments.useHierarchy = false;
 	arguments.doBootstrap = false;
 	arguments.replicates = 100;
 	arguments.reportRawEstimates = false;
@@ -197,6 +201,12 @@ void parseCommandLine(std::vector<std::string>& args,
 		SwitchArg computeMLEArg("", "MLE", "Compute maximum likelihood estimates only", arguments.computeMLE);
 		SwitchArg computeMLEAtModeArg("", "MLEAtMode", "Compute maximum likelihood estimates at posterior mode", arguments.fitMLEAtMode);
 		SwitchArg reportASEArg("","ASE", "Compute asymptotic standard errors at posterior mode", arguments.reportASE);
+
+		//Hierarchy arguments
+		SwitchArg useHierarchyArg("", "hier", "Use hierarchy in analysis", arguments.useHierarchy);
+		ValueArg<string> hierarchyFileArg("a", "hierarchyFile", "Hierarchy file name", false, "noFileName", "hierarchyFile");
+		ValueArg<double> classHierarchyVarianceArg("d","classHierarchyVariance","Variance for drug class hierarchy", false, 10, "Variance at the class level of the hierarchy");
+
 
 		// Convergence criterion arguments
 		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, arguments.tolerance, "real");
@@ -287,6 +297,11 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(profileCIArg);
 		cmd.add(flatPriorArg);
 
+		//Hierarchy arguments
+		cmd.add(useHierarchyArg);
+		cmd.add(hierarchyFileArg);
+		cmd.add(classHierarchyVarianceArg);
+
 		cmd.add(doCVArg);
 		cmd.add(useAutoSearchCVArg);
 		cmd.add(lowerCVArg);
@@ -329,6 +344,11 @@ void parseCommandLine(std::vector<std::string>& args,
 		arguments.fitMLEAtMode = computeMLEAtModeArg.getValue();
 		arguments.reportASE = reportASEArg.getValue();
 		arguments.seed = seedArg.getValue();
+
+		//Hierarchy arguments
+		arguments.useHierarchy = useHierarchyArg.isSet();
+		arguments.hierarchyFileName = hierarchyFileArg.getValue(); // Hierarchy argument
+		arguments.classHierarchyVariance = classHierarchyVarianceArg.getValue(); //Hierarchy argument
 
 		arguments.modelName = modelArg.getValue();
 		arguments.fileFormat = formatArg.getValue();
@@ -505,6 +525,13 @@ double initializeModel(
 	} else {
 #endif
 
+	// Hierarchy management
+	HierarchyReader* hierarchyData;
+	if (arguments.useHierarchy) {
+		hierarchyData = new HierarchyReader(arguments.hierarchyFileName.c_str(), *modelData);
+	}
+
+
 	using namespace bsccs::priors;
 	PriorPtr singlePrior;
 	if (arguments.useNormalPrior) {
@@ -540,6 +567,17 @@ double initializeModel(
 			}
 		}
 		prior = mixturePrior;
+	}
+
+	//Hierarchy prior
+	if (arguments.useHierarchy) {
+		std::shared_ptr<HierarchicalJointPrior> hierarchicalPrior = std::make_shared<HierarchicalJointPrior>(singlePrior, 2); //Depth of hierarchy fixed at 2 right now
+		PriorPtr classPrior = std::make_shared<NormalPrior>();
+		hierarchicalPrior->changePrior(classPrior,1);
+		hierarchicalPrior->setHierarchy(hierarchyData);
+		hierarchicalPrior->setVariance(0,arguments.hyperprior);
+		hierarchicalPrior->setVariance(1,arguments.classHierarchyVariance);
+		prior = hierarchicalPrior;
 	}
 
 	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model, prior);
@@ -771,9 +809,17 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
 
 	AbstractCrossValidationDriver* driver;
 	if (arguments.useAutoSearchCV) {
-		driver = new AutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+		if (arguments.useHierarchy) {
+			driver = new HierarchyAutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+		} else {
+			driver = new AutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+		}
 	} else {
-		driver = new GridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+		if (arguments.useHierarchy) {
+			driver = new HierarchyGridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+		} else {
+			driver = new GridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+		}
 	}
 
 	driver->drive(*ccd, selector, arguments);

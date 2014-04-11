@@ -4,6 +4,7 @@ set(BASE_SOURCE_FILES
 	../CCD/CyclicCoordinateDescent.cpp	
 	../CCD/CompressedDataMatrix.cpp
 	../CCD/ModelData.cpp
+	../CCD/io/HierarchyReader.cpp
 	../CCD/io/InputReader.cpp
 	../CCD/io/SCCSInputReader.cpp
 	../CCD/io/CLRInputReader.cpp
@@ -17,7 +18,9 @@ set(BASE_SOURCE_FILES
 	../CCD/ProportionSelector.cpp
 	../CCD/CrossValidationSelector.cpp
     ../CCD/GridSearchCrossValidationDriver.cpp
+    ../CCD/HierarchyGridSearchCrossValidationDriver.cpp
 	../CCD/AutoSearchCrossValidationDriver.cpp
+	../CCD/HierarchyAutoSearchCrossValidationDriver.cpp
 	../CCD/BootstrapSelector.cpp
 	../CCD/BootstrapDriver.cpp
 	../utils/HParSearch.cpp

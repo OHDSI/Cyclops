@@ -366,6 +366,11 @@ void CyclicCoordinateDescent::setHyperprior(double value) {
 	jointPrior->setVariance(value);
 }
 
+//Hierarchical Support
+void CyclicCoordinateDescent::setClassHyperprior(double value) {
+	jointPrior->setVariance(1,value);
+}
+
 double CyclicCoordinateDescent::getHyperprior(void) const {
 	return jointPrior->getVariance();
 }
@@ -748,7 +753,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	priors::GradientHessian gh;
 	computeGradientAndHessian(index, &gh.first, &gh.second);
 
-	return jointPrior->getDelta(gh, hBeta[index], index);
+	return jointPrior->getDelta(gh, hBeta, index);
 }
 
 template <class IteratorType>
