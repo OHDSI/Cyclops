@@ -1,8 +1,7 @@
-C/build/**
-
 .project
 .cproject
 .csettings
 .settings
 .Rproj.user
 .Rhistory
+standalone/build/**
