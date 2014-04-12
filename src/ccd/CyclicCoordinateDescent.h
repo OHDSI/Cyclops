@@ -16,6 +16,8 @@
 #include <Eigen/Dense>
 #include <deque>
 
+#include "Types.h"
+
 namespace bsccs {
 
 using std::cout;
@@ -38,46 +40,6 @@ using std::ofstream;
 
 //#define NO_FUSE
 
-
-#ifdef DOUBLE_PRECISION
-	typedef double real;
-#else
-	typedef float real;
-#endif 
-
-enum PriorType {
-	NONE = 0,
-	LAPLACE,
-	NORMAL
-};
-
-enum ConvergenceType {
-	GRADIENT,
-	LANGE,
-	MITTAL,
-	ZHANG_OLES
-};
-
-enum NoiseLevels {
-	SILENT = 0,
-	QUIET,
-	NOISY
-};
-
-enum UpdateReturnFlags {
-	SUCCESS = 0,
-	FAIL,
-	MAX_ITERATIONS,
-	ILLCONDITIONED,
-	MISSING_COVARIATES
-};
-
-//enum ModelType {
-//	MSCCS, // multiple self-controlled case series
-//	CLR,   // conditional logistic regression
-//	LR,    // logistic regression
-//	LS     // least squares
-//};
 
 class CyclicCoordinateDescent {
 	

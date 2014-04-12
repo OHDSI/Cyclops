@@ -8,7 +8,70 @@
 #ifndef CCD_TYPES_H_
 #define CCD_TYPES_H_
 
+#include <vector>
+#include <map>
+
 namespace bsccs {
+
+// Output types
+
+typedef std::pair<std::string,double> ExtraInformation;
+typedef std::vector<ExtraInformation> ExtraInformationVector;
+
+struct ProfileInformation {
+	bool defined;
+	double lower95Bound;
+	double upper95Bound;
+
+	ProfileInformation() : defined(false), lower95Bound(0.0), upper95Bound(0.0) { }
+	ProfileInformation(double lower, double upper) : defined(true), lower95Bound(lower),
+			upper95Bound(upper) { }
+};
+
+typedef std::map<int, ProfileInformation> ProfileInformationMap;
+typedef std::vector<ProfileInformation> ProfileInformationList;
+
+
+#ifdef DOUBLE_PRECISION
+	typedef double real;
+#else
+	typedef float real;
+#endif 
+
+enum PriorType {
+	NONE = 0,
+	LAPLACE,
+	NORMAL
+};
+
+enum ConvergenceType {
+	GRADIENT,
+	LANGE,
+	MITTAL,
+	ZHANG_OLES
+};
+
+enum NoiseLevels {
+	SILENT = 0,
+	QUIET,
+	NOISY
+};
+
+enum UpdateReturnFlags {
+	SUCCESS = 0,
+	FAIL,
+	MAX_ITERATIONS,
+	ILLCONDITIONED,
+	MISSING_COVARIATES
+};
+
+#ifdef USE_DRUG_STRING
+	typedef string DrugIdType; // TODO Strings do not get sorted in numerical order
+#else
+	typedef int DrugIdType;
+#endif
+
+typedef std::vector<DrugIdType> ProfileVector;
 
 namespace Models {
 
@@ -22,13 +85,6 @@ enum ModelType {
 	COX
 };
 
-//const static long RequiresStratumID = 1 << 0;
-//const static long RequiresCensoredData = 1 << 1;
-//const static long RequiresCensoredData2 = 1 << 2;
-//
-//const static long NormalRequirements = 0;
-//const static long PoissonRequirements = 0;
-
 static bool requiresStratumID(const ModelType modelType) {
 	return (modelType == CONDITIONAL_LOGISTIC || modelType == SELF_CONTROLLED_MODEL);
 }
@@ -41,14 +97,8 @@ static bool requiresOffset(const ModelType modelType) {
 	return (modelType == SELF_CONTROLLED_MODEL);
 }
 
-//template<ModelType model>
-//long getRequirements();
-//
-//template<ModelType NORMAL>
-//long getRequirements() { return 0; }
-//
-}
+} // namespace Models
 
-}
+} // namespace bsccs
 
 #endif /* CCD_TYPES_H_ */

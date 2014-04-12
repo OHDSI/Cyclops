@@ -18,6 +18,7 @@
 #include <time.h>
 
 #include "CcdInterface.h"
+#include "CyclicCoordinateDescent.h"
 #include "drivers/ProportionSelector.h"
 
 using std::cout;

@@ -96,7 +96,7 @@ public:
 	}
 
 	const std::string getDescription() const {
-		stringstream info;
+		std::stringstream info;
 		info << "Laplace(" << lambda << ")";
 		return info.str();
 	}
@@ -198,7 +198,7 @@ public:
 	}
 
 	const std::string getDescription() const {
-		stringstream info;
+		std::stringstream info;
 		info << "Normal(" << sigma2Beta << ")";
 		return info.str();
 	}

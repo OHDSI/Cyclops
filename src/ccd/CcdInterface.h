@@ -20,13 +20,13 @@
 #include <sys/time.h>
 #endif
 
-#include "engine/ModelSpecifics.h" // TODO Why is this necessary?
-#include "CyclicCoordinateDescent.h"
-#include "io/OutputWriter.h"
+#include "Types.h"
 
 namespace bsccs {
 
-	typedef std::vector<DrugIdType> ProfileVector;
+    class CyclicCoordinateDescent; // forward declaration
+    class ModelData;
+    class AbstractModelSpecifics;
 
 struct CCDArguments {
 
@@ -133,7 +133,7 @@ double runBoostrap(
 		CyclicCoordinateDescent *ccd,
 		ModelData *modelData,
 		CCDArguments &arguments,
-		std::vector<real>& savedBeta);		
+		std::vector<double>& savedBeta);		
 
 double calculateSeconds(
 		const struct timeval &time1,

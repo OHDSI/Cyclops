@@ -101,8 +101,8 @@ protected:
 	string delimitor;
 };
 
-typedef std::pair<std::string,double> ExtraInformation;
-typedef std::vector<ExtraInformation> ExtraInformationVector;
+// typedef std::pair<std::string,double> ExtraInformation;
+// typedef std::vector<ExtraInformation> ExtraInformationVector;
 
 class DiagnosticsOutputWriter : public BaseOutputWriter<DiagnosticsOutputWriter> {
 public:
@@ -204,18 +204,18 @@ private:
 	std::vector<real> predictions; // TODO Should be double
 };
 
-struct ProfileInformation {
-	bool defined;
-	double lower95Bound;
-	double upper95Bound;
-
-	ProfileInformation() : defined(false), lower95Bound(0.0), upper95Bound(0.0) { }
-	ProfileInformation(double lower, double upper) : defined(true), lower95Bound(lower),
-			upper95Bound(upper) { }
-};
-
-typedef std::map<int, ProfileInformation> ProfileInformationMap;
-typedef std::vector<ProfileInformation> ProfileInformationList;
+// struct ProfileInformation {
+// 	bool defined;
+// 	double lower95Bound;
+// 	double upper95Bound;
+// 
+// 	ProfileInformation() : defined(false), lower95Bound(0.0), upper95Bound(0.0) { }
+// 	ProfileInformation(double lower, double upper) : defined(true), lower95Bound(lower),
+// 			upper95Bound(upper) { }
+// };
+// 
+// typedef std::map<int, ProfileInformation> ProfileInformationMap;
+// typedef std::vector<ProfileInformation> ProfileInformationList;
 
 class EstimationOutputWriter : public BaseOutputWriter<EstimationOutputWriter> {
 public:

@@ -19,6 +19,9 @@
 
 namespace bsccs {
 
+using std::string;
+using std::vector;
+
 ModelData::ModelData() : hasOffsetCovariate(false), hasInterceptCovariate(false), nPatients(0) {
 	// Do nothing
 }

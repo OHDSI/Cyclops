@@ -18,12 +18,9 @@
 #include <iostream>
 #include <algorithm>
 
-using std::cout;
-using std::cerr;
-using std::endl;
-using std::ifstream;
-
 //#define DATA_AOS
+
+#include "Types.h"
 
 namespace bsccs {
 
@@ -40,10 +37,9 @@ enum FormatType {
 	DENSE, SPARSE, INDICATOR, INTERCEPT
 };
 
-typedef int DrugIdType;
-
 class CompressedDataColumn {
 public:
+    
 	CompressedDataColumn(int_vector* colIndices, real_vector* colData, FormatType colFormat,
 			std::string colName = "", DrugIdType nName = 0) :
 		 columns(colIndices), data(colData), formatType(colFormat), stringName(colName), numericalName(nName) {
@@ -127,7 +123,7 @@ public:
 		} else if (formatType == INTERCEPT) {
 			// Do nothing
 		} else {
-			cerr << "Error" << endl;
+			std::cerr << "Error" << std::endl;
 			exit(-1);
 		}
 		return true;
@@ -147,6 +143,8 @@ public:
 
 	template <class T>
 	void printVector(T values, const int size) {
+	    using std::cout;
+	    using std::endl;
 		cout << "[" << values[0];
 		for (int i = 1; i < size; ++i) {
 			cout << " " << values[i];
@@ -248,7 +246,7 @@ public:
 		} else if (colFormat == INTERCEPT) {
 			push_back(NULL, NULL, INTERCEPT);
 		} else {
-			cerr << "Error" << endl;
+			std::cerr << "Error" << std::endl;
 			exit(-1);
  		}
 	}	

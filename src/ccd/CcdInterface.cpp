@@ -23,7 +23,7 @@
 
 #include <math.h>
 
-#include "Types.h"
+// #include "Types.h"
 #include "CcdInterface.h"
 #include "CyclicCoordinateDescent.h"
 #include "ModelData.h"

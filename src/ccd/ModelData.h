@@ -15,10 +15,10 @@
 #include <vector>
 #include <map>
 
-using std::map;
-using std::string;
-using std::vector;
-using std::stringstream;
+// using std::map;
+// using std::string;
+// using std::vector;
+// using std::stringstream;
 
 #include "CompressedDataMatrix.h"
 
@@ -26,15 +26,9 @@ using std::stringstream;
 
 namespace bsccs {
 
-#ifdef USE_DRUG_STRING
-	typedef string DrugIdType; // TODO Strings do not get sorted in numerical order
-#else
-	typedef int DrugIdType;
-#endif
-
-template <class T> void reindexVector(vector<T>& vec, vector<int> ind) {
+template <class T> void reindexVector(std::vector<T>& vec, std::vector<int> ind) {
 	int n = (int) vec.size();
-	vector<T> temp = vec;
+	std::vector<T> temp = vec;
 	for(int i = 0; i < n; i++){
 		vec[i] = temp[ind[i]];
 	}
@@ -47,12 +41,12 @@ public:
 
 	int* getPidVector();
 	real* getYVector();
-	void setYVector(vector<real> y_);
+	void setYVector(std::vector<real> y_);
 	int* getNEventVector();
 	real* getOffsetVector();
 //	map<int, DrugIdType> getDrugNameMap();
 	int getNumberOfPatients();
-	string getConditionId();
+	std::string getConditionId();
 	std::vector<int>* getPidVectorSTL();
 
 	const std::vector<real>& getZVectorRef() const {
@@ -91,7 +85,7 @@ public:
 		return (labels.size() == getNumberOfRows());
 	}
 
-	void sortDataColumns(vector<int> sortedInds);
+	void sortDataColumns(std::vector<int> sortedInds);
 	
 	double getSquaredNorm() const;
 
@@ -99,7 +93,7 @@ public:
 
 	int getNumberOfVariableColumns() const;
 
-	const string& getRowLabel(size_t i) const {
+	const std::string& getRowLabel(size_t i) const {
 		if (i >= labels.size()) {
 			return missing;
 		} else {
@@ -125,16 +119,16 @@ private:
 	ModelData& operator = (const ModelData&);
 
 	int nPatients; // TODO Where are these used?
-	vector<int> pid;
-	vector<real> y;
-	vector<real> z;
-	vector<real> offs;
-	vector<int> nevents; // TODO Where are these used?
-	string conditionId;
+	std::vector<int> pid;
+	std::vector<real> y;
+	std::vector<real> z;
+	std::vector<real> offs;
+	std::vector<int> nevents; // TODO Where are these used?
+	std::string conditionId;
 	bool hasOffsetCovariate;
 	bool hasInterceptCovariate;
-	vector<string> labels;
-	static const string missing;
+	std::vector<std::string> labels;
+	static const std::string missing;
 };
 
 } // namespace
