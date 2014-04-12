@@ -20,17 +20,17 @@ set(BASE_SOURCE_FILES
 	 ${CCD_SOURCE_DIR}/CCD/io/CoxInputReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/io/CCTestInputReader.cpp
 	${RCCD_SOURCE_DIR}/ccd/AbstractModelSpecifics.cpp
-	${RCCD_SOURCE_DIR}/ccd/AbstractDriver.cpp
-	${RCCD_SOURCE_DIR}/ccd/AbstractSelector.cpp
-	${RCCD_SOURCE_DIR}/ccd/AbstractCrossValidationDriver.cpp
-	${RCCD_SOURCE_DIR}/ccd/ProportionSelector.cpp
-	${RCCD_SOURCE_DIR}/ccd/CrossValidationSelector.cpp
-    ${RCCD_SOURCE_DIR}/ccd/GridSearchCrossValidationDriver.cpp
-    ${RCCD_SOURCE_DIR}/ccd/HierarchyGridSearchCrossValidationDriver.cpp
-	${RCCD_SOURCE_DIR}/ccd/AutoSearchCrossValidationDriver.cpp
-	${RCCD_SOURCE_DIR}/ccd/HierarchyAutoSearchCrossValidationDriver.cpp
-	${RCCD_SOURCE_DIR}/ccd/BootstrapSelector.cpp
-	${RCCD_SOURCE_DIR}/ccd/BootstrapDriver.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/AbstractDriver.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/AbstractSelector.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/AbstractCrossValidationDriver.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/ProportionSelector.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/CrossValidationSelector.cpp
+    ${RCCD_SOURCE_DIR}/ccd/drivers/GridSearchCrossValidationDriver.cpp
+    ${RCCD_SOURCE_DIR}/ccd/drivers/HierarchyGridSearchCrossValidationDriver.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/AutoSearchCrossValidationDriver.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/HierarchyAutoSearchCrossValidationDriver.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/BootstrapSelector.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/BootstrapDriver.cpp
 	${RCCD_SOURCE_DIR}/utils/HParSearch.cpp
 	)
 	
