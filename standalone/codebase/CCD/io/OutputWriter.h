@@ -8,8 +8,8 @@
 #ifndef OUTPUTWRITER_H_
 #define OUTPUTWRITER_H_
 
-#include "../CyclicCoordinateDescent.h"
-#include "../ModelData.h"
+#include "CyclicCoordinateDescent.h"
+#include "ModelData.h"
 
 namespace bsccs {
 

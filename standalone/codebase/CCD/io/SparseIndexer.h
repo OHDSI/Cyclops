@@ -10,7 +10,9 @@
 
 #include <map>
 
-#include "../CompressedDataMatrix.h"
+//#include "../CompressedDataMatrix.h"
+class CompressedDataMatrix; // forward reference
+class CompressedDataColumn; // forward reference
 
 namespace bsccs {
 

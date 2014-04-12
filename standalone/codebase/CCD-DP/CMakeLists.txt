@@ -1,34 +1,42 @@
-include_directories(. ${CMAKE_SOURCE_DIR}/codebase ${CMAKE_SOURCE_DIR}/codebase/CCD)
+set(RCCD_SOURCE_DIR ${CMAKE_SOURCE_DIR}/../src)
+set(CCD_SOURCE_DIR ${CMAKE_SOURCE_DIR}/codebase)
+
+include_directories(. 
+    ${RCCD_SOURCE_DIR}
+    ${RCCD_SOURCE_DIR}/ccd
+    ${CMAKE_SOURCE_DIR}/codebase
+    ${CMAKE_SOURCE_DIR}/codebase/CCD    
+    )
 
 set(BASE_SOURCE_FILES	
-	../CCD/CyclicCoordinateDescent.cpp	
-	../CCD/CompressedDataMatrix.cpp
-	../CCD/ModelData.cpp
-	../CCD/io/HierarchyReader.cpp
-	../CCD/io/InputReader.cpp
-	../CCD/io/SCCSInputReader.cpp
-	../CCD/io/CLRInputReader.cpp
-	../CCD/io/RTestInputReader.cpp
-	../CCD/io/CoxInputReader.cpp
-	../CCD/io/CCTestInputReader.cpp
-	../CCD/AbstractModelSpecifics.cpp
-	../CCD/AbstractDriver.cpp
-	../CCD/AbstractSelector.cpp
-	../CCD/AbstractCrossValidationDriver.cpp
-	../CCD/ProportionSelector.cpp
-	../CCD/CrossValidationSelector.cpp
-    ../CCD/GridSearchCrossValidationDriver.cpp
-    ../CCD/HierarchyGridSearchCrossValidationDriver.cpp
-	../CCD/AutoSearchCrossValidationDriver.cpp
-	../CCD/HierarchyAutoSearchCrossValidationDriver.cpp
-	../CCD/BootstrapSelector.cpp
-	../CCD/BootstrapDriver.cpp
-	../utils/HParSearch.cpp
+	${RCCD_SOURCE_DIR}/ccd/CyclicCoordinateDescent.cpp	
+	${RCCD_SOURCE_DIR}/ccd/CompressedDataMatrix.cpp
+	${RCCD_SOURCE_DIR}/ccd/ModelData.cpp
+	 ${CCD_SOURCE_DIR}/CCD/io/HierarchyReader.cpp
+	 ${CCD_SOURCE_DIR}/CCD/io/InputReader.cpp
+	 ${CCD_SOURCE_DIR}/CCD/io/SCCSInputReader.cpp
+	 ${CCD_SOURCE_DIR}/CCD/io/CLRInputReader.cpp
+	 ${CCD_SOURCE_DIR}/CCD/io/RTestInputReader.cpp
+	 ${CCD_SOURCE_DIR}/CCD/io/CoxInputReader.cpp
+	 ${CCD_SOURCE_DIR}/CCD/io/CCTestInputReader.cpp
+	${RCCD_SOURCE_DIR}/ccd/AbstractModelSpecifics.cpp
+	${RCCD_SOURCE_DIR}/ccd/AbstractDriver.cpp
+	${RCCD_SOURCE_DIR}/ccd/AbstractSelector.cpp
+	${RCCD_SOURCE_DIR}/ccd/AbstractCrossValidationDriver.cpp
+	${RCCD_SOURCE_DIR}/ccd/ProportionSelector.cpp
+	${RCCD_SOURCE_DIR}/ccd/CrossValidationSelector.cpp
+    ${RCCD_SOURCE_DIR}/ccd/GridSearchCrossValidationDriver.cpp
+    ${RCCD_SOURCE_DIR}/ccd/HierarchyGridSearchCrossValidationDriver.cpp
+	${RCCD_SOURCE_DIR}/ccd/AutoSearchCrossValidationDriver.cpp
+	${RCCD_SOURCE_DIR}/ccd/HierarchyAutoSearchCrossValidationDriver.cpp
+	${RCCD_SOURCE_DIR}/ccd/BootstrapSelector.cpp
+	${RCCD_SOURCE_DIR}/ccd/BootstrapDriver.cpp
+	${RCCD_SOURCE_DIR}/utils/HParSearch.cpp
 	)
 	
 set(CCD_SOURCE_FILES
 
-	../CCD/ccd.cpp)
+	${CCD_SOURCE_DIR}/CCD/ccd.cpp)
 	
 set(DOUBLE_PRECISION true)	
 add_definitions(-DDOUBLE_PRECISION)
