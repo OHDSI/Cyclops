@@ -4,7 +4,7 @@ compiler:
     - clang
 before_install:
 script:
-    - mkdir -p C/build && (cd C/build && cmake .. && make)
+    - mkdir -p standalone/build && (cd standalone/build && cmake .. && make)
 notifications:
   recipients:
     - msuchard@gmail.com
