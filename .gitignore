@@ -4,3 +4,5 @@ C/build/**
 .cproject
 .csettings
 .settings
+.Rproj.user
+.Rhistory
