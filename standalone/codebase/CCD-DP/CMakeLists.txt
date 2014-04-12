@@ -9,6 +9,7 @@ include_directories(.
     )
 
 set(BASE_SOURCE_FILES	
+    ${RCCD_SOURCE_DIR}/ccd/CcdInterface.cpp	
 	${RCCD_SOURCE_DIR}/ccd/CyclicCoordinateDescent.cpp	
 	${RCCD_SOURCE_DIR}/ccd/CompressedDataMatrix.cpp
 	${RCCD_SOURCE_DIR}/ccd/ModelData.cpp

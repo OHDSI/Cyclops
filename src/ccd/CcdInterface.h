@@ -103,6 +103,10 @@ double initializeModel(
 double fitModel(
 		CyclicCoordinateDescent *ccd,
 		CCDArguments &arguments);
+		
+double runFitMLEAtMode(
+        CyclicCoordinateDescent* ccd, 
+        CCDArguments &arguments);
 
 double predictModel(
 		CyclicCoordinateDescent *ccd,
@@ -120,10 +124,16 @@ double runCrossValidation(
 		ModelData *modelData,
 		CCDArguments &arguments);
 
+// double runBoostrap(
+// 		CyclicCoordinateDescent *ccd,
+// 		ModelData *modelData,
+// 		CCDArguments &arguments);
+		
 double runBoostrap(
 		CyclicCoordinateDescent *ccd,
 		ModelData *modelData,
-		CCDArguments &arguments);
+		CCDArguments &arguments,
+		std::vector<real>& savedBeta);		
 
 double calculateSeconds(
 		const struct timeval &time1,
@@ -139,6 +149,13 @@ double logModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
 		CCDArguments& arguments,
 		ProfileInformationMap &profileMap,
 		bool withProfileBounds);
+		
+double diagnoseModel(
+        CyclicCoordinateDescent *ccd, 
+        ModelData *modelData,
+		CCDArguments& arguments,
+		double loadTime,
+		double updateTime);
 
 } // namespace
 

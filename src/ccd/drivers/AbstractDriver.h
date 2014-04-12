@@ -10,7 +10,7 @@
 
 #include "CyclicCoordinateDescent.h"
 #include "CrossValidationSelector.h"
-#include "ccd.h"
+#include "CcdInterface.h"
 
 namespace bsccs {
 
