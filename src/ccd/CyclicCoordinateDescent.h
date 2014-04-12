@@ -10,7 +10,7 @@
 
 #include "CompressedDataMatrix.h"
 #include "ModelData.h"
-#include "AbstractModelSpecifics.h"
+#include "engine/AbstractModelSpecifics.h"
 #include "priors/JointPrior.h"
 
 #include <Eigen/Dense>

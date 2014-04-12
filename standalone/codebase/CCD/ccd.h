@@ -20,7 +20,7 @@
 #include <sys/time.h>
 #endif
 
-#include "ModelSpecifics.h"
+#include "engine/ModelSpecifics.h" // TODO Why is this necessary?
 #include "CyclicCoordinateDescent.h"
 #include "io/OutputWriter.h"
 
