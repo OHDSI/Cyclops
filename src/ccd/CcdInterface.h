@@ -85,6 +85,13 @@ struct CCDArguments {
 };
 
 
+class CcdInterface {
+
+public:
+
+    CcdInterface();
+    virtual ~CcdInterface();
+
 void parseCommandLine(
 		int argc,
 		char* argv[],
@@ -156,6 +163,23 @@ double diagnoseModel(
 		CCDArguments& arguments,
 		double loadTime,
 		double updateTime);
+		
+protected:
+    std::string getPathAndFileName(CCDArguments& arguments, std::string stem);
+    bool includesOption(const std::string& line, const std::string& option);
+		
+
+}; // class CcdInterface
+
+class CmdLineCcdInterface : public CcdInterface {
+
+
+}; // class CmdLineCcdInterface
+
+class RCcdInterface: public CcdInterface {
+
+
+}; // class RCcdInterface
 
 } // namespace
 

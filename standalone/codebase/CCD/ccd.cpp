@@ -31,25 +31,28 @@ int main(int argc, char* argv[]) {
 	AbstractModelSpecifics* model = NULL;
 	ModelData* modelData = NULL;
 	CCDArguments arguments;
+	
+	CcdInterface interface;
 
-	parseCommandLine(argc, argv, arguments);
+	interface.parseCommandLine(argc, argv, arguments);
 
-	double timeInitialize = initializeModel(&modelData, &ccd, &model, arguments);
+	double timeInitialize = interface.initializeModel(&modelData, &ccd, &model, arguments);
 
 	double timeUpdate;
 	if (arguments.doCrossValidation) {
-		timeUpdate = runCrossValidation(ccd, modelData, arguments);
+		timeUpdate = interface.runCrossValidation(ccd, modelData, arguments);
 	} else {
 		if (arguments.doPartial) {
+		    // TODO Delegate to CcdInterface
 			ProportionSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
 					SUBJECT, arguments.seed);
 			std::vector<bsccs::real> weights;
 			selector.getWeights(0, weights);
 			ccd->setWeights(&weights[0]);
 		}
-		timeUpdate = fitModel(ccd, arguments);
+		timeUpdate = interface.fitModel(ccd, arguments);
 		if (arguments.fitMLEAtMode) {
-			timeUpdate += runFitMLEAtMode(ccd, arguments);
+			timeUpdate += interface.runFitMLEAtMode(ccd, arguments);
 		}
 	}
 	
@@ -58,7 +61,7 @@ int main(int argc, char* argv[]) {
 	bsccs::ProfileInformationMap profileMap;
 	if (arguments.profileCI.size() > 0) {
 		doProfile = true;
-		timeProfile = profileModel(ccd, modelData, arguments, profileMap);
+		timeProfile = interface.profileModel(ccd, modelData, arguments, profileMap);
 	}	
 
 	if (std::find(arguments.outputFormat.begin(),arguments.outputFormat.end(), "estimates")
@@ -66,7 +69,7 @@ int main(int argc, char* argv[]) {
 #ifndef MY_RCPP_FLAG
 		// TODO Make into OutputWriter
 		bool withASE = arguments.fitMLEAtMode || arguments.computeMLE || arguments.reportASE;    
-		logModel(ccd, modelData, arguments, profileMap, withASE);
+		interface.logModel(ccd, modelData, arguments, profileMap, withASE);
 #endif
 	}
 
@@ -75,7 +78,7 @@ int main(int argc, char* argv[]) {
 	if (std::find(arguments.outputFormat.begin(),arguments.outputFormat.end(), "prediction")
 			!= arguments.outputFormat.end()) {
 		doPrediction = true;
-		timePredict = predictModel(ccd, modelData, arguments);
+		timePredict = interface.predictModel(ccd, modelData, arguments);
 	}
 
 	double timeDiagnose;
@@ -83,7 +86,7 @@ int main(int argc, char* argv[]) {
 	if (std::find(arguments.outputFormat.begin(),arguments.outputFormat.end(), "diagnostics")
 			!= arguments.outputFormat.end()) {
 		doDiagnosis = true;
-		timeDiagnose = diagnoseModel(ccd, modelData, arguments, timeInitialize, timeUpdate);
+		timeDiagnose = interface.diagnoseModel(ccd, modelData, arguments, timeInitialize, timeUpdate);
 	}
 
 	if (arguments.doBootstrap) {
@@ -92,7 +95,7 @@ int main(int argc, char* argv[]) {
 		for (int j = 0; j < ccd->getBetaSize(); ++j) {
 			savedBeta.push_back(ccd->getBeta(j));
 		}
-		timeUpdate += runBoostrap(ccd, modelData, arguments, savedBeta);
+		timeUpdate += interface.runBoostrap(ccd, modelData, arguments, savedBeta);
 	}
 		
 	cout << endl;

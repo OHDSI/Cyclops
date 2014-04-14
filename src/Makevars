@@ -24,4 +24,35 @@ PKG_LIBS = `$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"`
 ## done by a number of packages, but recommended only for more advanced users
 ## comfortable with autoconf and its related tools.
 
+PKG_CPPFLAGS = -Iccd
+
+SOURCES = $(wildcard ccd/*.cpp ccd/drivers/*.cpp ccd/engine/*.cpp utils/*.cpp)
+
+OBJECTS.ccd = \
+    ccd/CcdInterface.o \
+    ccd/CompressedDataMatrix.o \
+    ccd/CyclicCoordinateDescent.o \
+    ccd/ModelData.o
+
+OBJECTS.drivers = \
+    ccd/drivers/AbstractCrossValidationDriver.o \
+    ccd/drivers/AbstractDriver.o \
+    ccd/drivers/AbstractSelector.o \
+    ccd/drivers/AutoSearchCrossValidationDriver.o \
+    ccd/drivers/BootstrapDriver.o \
+    ccd/drivers/BootstrapSelector.o \
+    ccd/drivers/CrossValidationSelector.o \
+    ccd/drivers/GridSearchCrossValidationDriver.o \
+    ccd/drivers/HierarchyAutoSearchCrossValidationDriver.o \
+    ccd/drivers/HierarchyGridSearchCrossValidationDriver.o \
+    ccd/drivers/ProportionSelector.o
+    
+OBJECTS.engine = \
+    ccd/engine/AbstractModelSpecifics.o
+    
+OBJECTS.utils = \
+    util/HParSearch.o
+     
+OBJECTS = $(OBJECTS.ccd) $(OBJECTS.drivers) $(OBJECTS.engine) $(OBJECTS.utils) \
+    $(SOURCES:.cpp=.o)
 

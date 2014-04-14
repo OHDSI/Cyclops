@@ -132,12 +132,20 @@ using namespace std;
 	}
 #endif
 
-double calculateSeconds(const timeval &time1, const timeval &time2) {
+CcdInterface::CcdInterface(void) {
+    // Do nothing
+}
+
+CcdInterface::~CcdInterface(void) {
+    // Do nothing
+}
+
+double CcdInterface::calculateSeconds(const timeval &time1, const timeval &time2) {
 	return time2.tv_sec - time1.tv_sec +
 			(double)(time2.tv_usec - time1.tv_usec) / 1000000.0;
 }
 
-void parseCommandLine(int argc, char* argv[],
+void CcdInterface::parseCommandLine(int argc, char* argv[],
 		CCDArguments &arguments) {
 	std::vector<std::string> args;
 	for (int i = 0; i < argc; i++)
@@ -145,7 +153,7 @@ void parseCommandLine(int argc, char* argv[],
 	parseCommandLine(args, arguments);
 }
 
-void setDefaultArguments(CCDArguments &arguments) {
+void CcdInterface::setDefaultArguments(CCDArguments &arguments) {
 	arguments.useGPU = false;
 	arguments.maxIterations = 1000;
 	arguments.inFileName = "default_in";
@@ -180,7 +188,7 @@ void setDefaultArguments(CCDArguments &arguments) {
 }
 
 
-void parseCommandLine(std::vector<std::string>& args,
+void CcdInterface::parseCommandLine(std::vector<std::string>& args,
 		CCDArguments &arguments) {
 
 	setDefaultArguments(arguments);
@@ -430,7 +438,7 @@ void parseCommandLine(std::vector<std::string>& args,
 	}
 }
 
-double initializeModel(
+double CcdInterface::initializeModel(
 		ModelData** modelData,
 		CyclicCoordinateDescent** ccd,
 		AbstractModelSpecifics** model,
@@ -596,7 +604,7 @@ double initializeModel(
 	return sec1;
 }
 
-std::string getPathAndFileName(CCDArguments& arguments, std::string stem) {
+std::string CcdInterface::getPathAndFileName(CCDArguments& arguments, std::string stem) {
 	string fileName;
 	if (arguments.outputFormat.size() == 1) {
 		fileName = arguments.outDirectoryName + arguments.outFileName;
@@ -606,7 +614,7 @@ std::string getPathAndFileName(CCDArguments& arguments, std::string stem) {
 	return fileName;
 }
 
-double predictModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArguments &arguments) {
+double CcdInterface::predictModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArguments &arguments) {
 
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
@@ -650,7 +658,7 @@ struct OptimizationProfile {
 	int nEvals;
 };
 
-double profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArguments &arguments,
+double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArguments &arguments,
 		ProfileInformationMap& profileMap) {
 
 	struct timeval time1, time2;
@@ -699,7 +707,7 @@ double profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArgum
 }
 
 
-double diagnoseModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
+double CcdInterface::diagnoseModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
 		CCDArguments& arguments,
 		double loadTime,
 		double updateTime) {
@@ -725,7 +733,7 @@ double diagnoseModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
 
 }
 
-double logModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
+double CcdInterface::logModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
 		CCDArguments& arguments, ProfileInformationMap& profileMap, bool withASE) {
 
 	using namespace bsccs;
@@ -742,7 +750,7 @@ double logModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
 	return calculateSeconds(time1, time2);				
 }
 
-void setZeroBetaAsFixed(CyclicCoordinateDescent *ccd) {
+void CcdInterface::setZeroBetaAsFixed(CyclicCoordinateDescent *ccd) {
 	for (int j = 0; j < ccd->getBetaSize(); ++j) {
 		if (ccd->getBeta(j) == 0.0) {
 			ccd->setFixedBeta(j, true);
@@ -750,7 +758,7 @@ void setZeroBetaAsFixed(CyclicCoordinateDescent *ccd) {
 	}
 }
 
-double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
+double CcdInterface::fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
 	if (arguments.noiseLevel > SILENT) {
 		cout << "Using prior: " << ccd->getPriorInfo() << endl;
 	}
@@ -765,7 +773,7 @@ double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
 	return calculateSeconds(time1, time2);
 }
 
-double runBoostrap(
+double CcdInterface::runBoostrap(
 		CyclicCoordinateDescent *ccd,
 		ModelData *modelData,
 		CCDArguments &arguments,
@@ -785,7 +793,7 @@ double runBoostrap(
 }
 
 
-double runFitMLEAtMode(CyclicCoordinateDescent* ccd, CCDArguments &arguments) {
+double CcdInterface::runFitMLEAtMode(CyclicCoordinateDescent* ccd, CCDArguments &arguments) {
 	std::cout << std::endl << "Estimating MLE at posterior mode" << std::endl;
 
 	struct timeval time1, time2;
@@ -799,7 +807,7 @@ double runFitMLEAtMode(CyclicCoordinateDescent* ccd, CCDArguments &arguments) {
 	return calculateSeconds(time1, time2);
 }
 
-double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
+double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
 		CCDArguments &arguments) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
@@ -842,7 +850,7 @@ double runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
 	return calculateSeconds(time1, time2);
 }
 
-bool includesOption(const string& line, const string& option) {
+bool CcdInterface::includesOption(const string& line, const string& option) {
 	size_t found = line.find(option);
 	return found != string::npos;
 }

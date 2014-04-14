@@ -20,6 +20,7 @@
 
 namespace bsccs {
 
+// TODO Remove 'using' from headers
 using std::cout;
 using std::cerr;
 using std::endl;

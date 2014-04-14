@@ -24,12 +24,6 @@
 
 namespace bsccs {
 
-#ifdef DOUBLE_PRECISION
-	typedef double real;
-#else
-	typedef float real;
-#endif 
-
 typedef std::vector<int> int_vector;
 typedef std::vector<real> real_vector;
 
