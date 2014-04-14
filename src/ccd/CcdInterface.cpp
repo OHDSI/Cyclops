@@ -133,7 +133,7 @@ using namespace std;
 #endif
 
 CcdInterface::CcdInterface(void) {
-    // Do nothing
+    setDefaultArguments();
 }
 
 CcdInterface::~CcdInterface(void) {
@@ -145,15 +145,7 @@ double CcdInterface::calculateSeconds(const timeval &time1, const timeval &time2
 			(double)(time2.tv_usec - time1.tv_usec) / 1000000.0;
 }
 
-void CcdInterface::parseCommandLine(int argc, char* argv[],
-		CCDArguments &arguments) {
-	std::vector<std::string> args;
-	for (int i = 0; i < argc; i++)
-		args.push_back(argv[i]);
-	parseCommandLine(args, arguments);
-}
-
-void CcdInterface::setDefaultArguments(CCDArguments &arguments) {
+void CcdInterface::setDefaultArguments(void) {
 	arguments.useGPU = false;
 	arguments.maxIterations = 1000;
 	arguments.inFileName = "default_in";
@@ -188,10 +180,9 @@ void CcdInterface::setDefaultArguments(CCDArguments &arguments) {
 }
 
 
-void CcdInterface::parseCommandLine(std::vector<std::string>& args,
-		CCDArguments &arguments) {
+void CcdInterface::parseCommandLine(std::vector<std::string>& args) {
 
-	setDefaultArguments(arguments);
+	setDefaultArguments();
 
 	try {
 		CmdLine cmd("Cyclic coordinate descent algorithm for self-controlled case studies", ' ', "0.1");
@@ -441,8 +432,7 @@ void CcdInterface::parseCommandLine(std::vector<std::string>& args,
 double CcdInterface::initializeModel(
 		ModelData** modelData,
 		CyclicCoordinateDescent** ccd,
-		AbstractModelSpecifics** model,
-		CCDArguments &arguments) {
+		AbstractModelSpecifics** model) {
 	
 	// TODO Break up function; too long
 
@@ -604,7 +594,7 @@ double CcdInterface::initializeModel(
 	return sec1;
 }
 
-std::string CcdInterface::getPathAndFileName(CCDArguments& arguments, std::string stem) {
+std::string CcdInterface::getPathAndFileName(const CCDArguments& arguments, std::string stem) {
 	string fileName;
 	if (arguments.outputFormat.size() == 1) {
 		fileName = arguments.outDirectoryName + arguments.outFileName;
@@ -614,7 +604,7 @@ std::string CcdInterface::getPathAndFileName(CCDArguments& arguments, std::strin
 	return fileName;
 }
 
-double CcdInterface::predictModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArguments &arguments) {
+double CcdInterface::predictModel(CyclicCoordinateDescent *ccd, ModelData *modelData) {
 
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
@@ -658,7 +648,7 @@ struct OptimizationProfile {
 	int nEvals;
 };
 
-double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData, CCDArguments &arguments,
+double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
 		ProfileInformationMap& profileMap) {
 
 	struct timeval time1, time2;
@@ -707,8 +697,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *model
 }
 
 
-double CcdInterface::diagnoseModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
-		CCDArguments& arguments,
+double CcdInterface::diagnoseModel(CyclicCoordinateDescent *ccd, ModelData *modelData,	
 		double loadTime,
 		double updateTime) {
 
@@ -734,7 +723,7 @@ double CcdInterface::diagnoseModel(CyclicCoordinateDescent *ccd, ModelData *mode
 }
 
 double CcdInterface::logModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
-		CCDArguments& arguments, ProfileInformationMap& profileMap, bool withASE) {
+	    ProfileInformationMap& profileMap, bool withASE) {
 
 	using namespace bsccs;
 	struct timeval time1, time2;
@@ -758,7 +747,7 @@ void CcdInterface::setZeroBetaAsFixed(CyclicCoordinateDescent *ccd) {
 	}
 }
 
-double CcdInterface::fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
+double CcdInterface::fitModel(CyclicCoordinateDescent *ccd) {
 	if (arguments.noiseLevel > SILENT) {
 		cout << "Using prior: " << ccd->getPriorInfo() << endl;
 	}
@@ -776,7 +765,6 @@ double CcdInterface::fitModel(CyclicCoordinateDescent *ccd, CCDArguments &argume
 double CcdInterface::runBoostrap(
 		CyclicCoordinateDescent *ccd,
 		ModelData *modelData,
-		CCDArguments &arguments,
 		std::vector<real>& savedBeta) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
@@ -793,7 +781,7 @@ double CcdInterface::runBoostrap(
 }
 
 
-double CcdInterface::runFitMLEAtMode(CyclicCoordinateDescent* ccd, CCDArguments &arguments) {
+double CcdInterface::runFitMLEAtMode(CyclicCoordinateDescent* ccd) {
 	std::cout << std::endl << "Estimating MLE at posterior mode" << std::endl;
 
 	struct timeval time1, time2;
@@ -801,14 +789,13 @@ double CcdInterface::runFitMLEAtMode(CyclicCoordinateDescent* ccd, CCDArguments 
 
 	setZeroBetaAsFixed(ccd);
 	ccd->setPriorType(NONE);
-	fitModel(ccd, arguments);
+	fitModel(ccd);
 
 	gettimeofday(&time2, NULL);
 	return calculateSeconds(time1, time2);
 }
 
-double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData,
-		CCDArguments &arguments) {
+double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
@@ -840,9 +827,9 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData 
 		std::cout << "Fitting model at optimal hyperparameter" << std::endl;
  		// Do full fit for optimal parameter
 		driver->resetForOptimal(*ccd, selector, arguments);
-		fitModel(ccd, arguments);
+		fitModel(ccd);
 		if (arguments.fitMLEAtMode) {
-			runFitMLEAtMode(ccd, arguments);
+			runFitMLEAtMode(ccd);
 		}
 	}
 	delete driver;
@@ -854,6 +841,25 @@ bool CcdInterface::includesOption(const string& line, const string& option) {
 	size_t found = line.find(option);
 	return found != string::npos;
 }
+
+CmdLineCcdInterface::CmdLineCcdInterface(int argc, char* argv[]) {
+    std::vector<std::string> args;
+	for (int i = 0; i < argc; i++)
+		args.push_back(argv[i]);
+	CcdInterface::parseCommandLine(args);
+}
+
+CmdLineCcdInterface::~CmdLineCcdInterface() {
+    // Do nothing
+}
+
+// void CmdLineCcdInterface::parseCommandLine(int argc, char* argv[],
+// 		CCDArguments &arguments) {
+// 	std::vector<std::string> args;
+// 	for (int i = 0; i < argc; i++)
+// 		args.push_back(argv[i]);
+// 	CcdInterface::parseCommandLine(args, arguments);
+// }
 
 } // namespace
 

@@ -92,87 +92,87 @@ public:
     CcdInterface();
     virtual ~CcdInterface();
 
-void parseCommandLine(
-		int argc,
-		char* argv[],
-		CCDArguments &arguments);
+    double initializeModel(
+            ModelData** modelData,
+            CyclicCoordinateDescent** ccd,
+            AbstractModelSpecifics** model);
 
-void parseCommandLine(
-		std::vector<std::string>& argcpp,
-		CCDArguments& arguments);
+    double fitModel(
+            CyclicCoordinateDescent *ccd);
+        
+    double runFitMLEAtMode(
+            CyclicCoordinateDescent* ccd);
 
-double initializeModel(
-		ModelData** modelData,
-		CyclicCoordinateDescent** ccd,
-		AbstractModelSpecifics** model,
-		CCDArguments &arguments);
+    double predictModel(
+            CyclicCoordinateDescent *ccd,
+            ModelData *modelData);
 
-double fitModel(
-		CyclicCoordinateDescent *ccd,
-		CCDArguments &arguments);
+    double profileModel(
+            CyclicCoordinateDescent *ccd,
+            ModelData *modelData,          
+            ProfileInformationMap &profileMap);
+
+    double runCrossValidation(
+            CyclicCoordinateDescent *ccd,
+            ModelData *modelData);
+
+    // double runBoostrap(
+    // 		CyclicCoordinateDescent *ccd,
+    // 		ModelData *modelData,
+    // 		CCDArguments &arguments);
+        
+    double runBoostrap(
+            CyclicCoordinateDescent *ccd,
+            ModelData *modelData,     
+            std::vector<double>& savedBeta);		
+
+    void setDefaultArguments();
+
+    void setZeroBetaAsFixed(
+            CyclicCoordinateDescent *ccd);
+        
+    double logModel(CyclicCoordinateDescent *ccd, ModelData *modelData,        
+            ProfileInformationMap &profileMap,
+            bool withProfileBounds);
+        
+    double diagnoseModel(
+            CyclicCoordinateDescent *ccd, 
+            ModelData *modelData,  
+            double loadTime,
+            double updateTime);
 		
-double runFitMLEAtMode(
-        CyclicCoordinateDescent* ccd, 
-        CCDArguments &arguments);
-
-double predictModel(
-		CyclicCoordinateDescent *ccd,
-		ModelData *modelData,
-		CCDArguments &arguments);
-
-double profileModel(
-		CyclicCoordinateDescent *ccd,
-		ModelData *modelData,
-		CCDArguments &arguments,
-		ProfileInformationMap &profileMap);
-
-double runCrossValidation(
-		CyclicCoordinateDescent *ccd,
-		ModelData *modelData,
-		CCDArguments &arguments);
-
-// double runBoostrap(
-// 		CyclicCoordinateDescent *ccd,
-// 		ModelData *modelData,
-// 		CCDArguments &arguments);
-		
-double runBoostrap(
-		CyclicCoordinateDescent *ccd,
-		ModelData *modelData,
-		CCDArguments &arguments,
-		std::vector<double>& savedBeta);		
-
-double calculateSeconds(
+    void parseCommandLine(
+            std::vector<std::string>& argcpp);
+            
+    CCDArguments getArguments() {
+        return arguments;  // TODO To depricate
+    }		
+    		
+protected:
+    std::string getPathAndFileName(const CCDArguments& arguments, std::string stem);
+    bool includesOption(const std::string& line, const std::string& option);
+    
+    CCDArguments arguments;    
+    
+private:
+    double calculateSeconds(
 		const struct timeval &time1,
 		const struct timeval &time2);
-
-void setDefaultArguments(
-		CCDArguments &arguments);
-
-void setZeroBetaAsFixed(
-		CyclicCoordinateDescent *ccd);
-		
-double logModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
-		CCDArguments& arguments,
-		ProfileInformationMap &profileMap,
-		bool withProfileBounds);
-		
-double diagnoseModel(
-        CyclicCoordinateDescent *ccd, 
-        ModelData *modelData,
-		CCDArguments& arguments,
-		double loadTime,
-		double updateTime);
-		
-protected:
-    std::string getPathAndFileName(CCDArguments& arguments, std::string stem);
-    bool includesOption(const std::string& line, const std::string& option);
 		
 
 }; // class CcdInterface
 
 class CmdLineCcdInterface : public CcdInterface {
 
+public:
+
+    CmdLineCcdInterface(int argc, char* argv[]);
+    virtual ~CmdLineCcdInterface();
+
+    void parseCommandLine(
+            int argc,
+            char* argv[],
+            CCDArguments &arguments);
 
 }; // class CmdLineCcdInterface
 
