@@ -5,3 +5,7 @@ rcpp_hello_world <- function() {
     .Call('CCD_rcpp_hello_world', PACKAGE = 'CCD')
 }
 
+ccd_hello_world <- function() {
+    .Call('CCD_ccd_hello_world', PACKAGE = 'CCD')
+}
+

@@ -120,7 +120,7 @@ private:
 
 	int nPatients; // TODO Where are these used?
 	std::vector<int> pid;
-	std::vector<real> y;
+	std::vector<real> y; // TODO How to load these directly from Rcpp::NumericVector
 	std::vector<real> z;
 	std::vector<real> offs;
 	std::vector<int> nevents; // TODO Where are these used?

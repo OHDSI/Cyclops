@@ -153,29 +153,30 @@ protected:
 		const struct timeval &time1,
 		const struct timeval &time2);
 		
-    virtual double initializeModelImpl(
+    virtual void initializeModelImpl(
             ModelData** modelData,
             CyclicCoordinateDescent** ccd,
             AbstractModelSpecifics** model) = 0;
             
-    virtual double predictModelImpl(
+    virtual void predictModelImpl(
             CyclicCoordinateDescent *ccd,
             ModelData *modelData) = 0;  
             
-    virtual double logModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,        
+    virtual void logModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,        
             ProfileInformationMap &profileMap,
             bool withProfileBounds) = 0;  
             
-    virtual double diagnoseModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,	
-		double loadTime,
-		double updateTime) = 0;                                 
-		
+    virtual void diagnoseModelImpl(
+            CyclicCoordinateDescent *ccd, 
+            ModelData *modelData,	
+    		double loadTime,
+    		double updateTime) = 0;                                 		
 
 }; // class CcdInterface
 
-class RCcdInterface: public CcdInterface {
-
-}; // class RCcdInterface
+// class RCcdInterface: public CcdInterface {
+// 
+// }; // class RCcdInterface
 
 } // namespace
 

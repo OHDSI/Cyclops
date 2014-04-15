@@ -1,30 +1,22 @@
 /*
- * CmdLineCcdInterface.h
+ * RcppCcdInterface.h
  *
- *  Created on: April 15, 2014
- *      Author: Marc Suchard
+ * @author Marc Suchard
  */
 
-#ifndef CMD_LINE_CCD_INTERFACE_H_
-#define CMD_LINE_CCD_INTERFACE_H_
+#ifndef RCPP_CCD_INTERFACE_H_
+#define RCPP_CCD_INTERFACE_H_
 
 #include "CcdInterface.h"
 
 namespace bsccs {
 
-class CmdLineCcdInterface : public CcdInterface {
+class RcppCcdInterface : public CcdInterface {
 
 public:
 
-    CmdLineCcdInterface(int argc, char* argv[]);
-    virtual ~CmdLineCcdInterface();
-
-    void parseCommandLine(std::vector<std::string>& args);
-
-    void parseCommandLine(
-            int argc,
-            char* argv[],
-            CCDArguments &arguments);
+    RcppCcdInterface();
+    virtual ~RcppCcdInterface();
             
 protected:            
             
@@ -47,10 +39,9 @@ protected:
             CyclicCoordinateDescent *ccd, 
             ModelData *modelData,	
     		double loadTime,
-    		double updateTime);                                   
-
-}; // class CmdLineCcdInterface
+    		double updateTime);  
+}; // class RcppCcdInterface
 
 } // namespace
 
-#endif /* CMD_LINE_CCD_INTERFACE_H_ */
+#endif /* CCD_H_ */

@@ -35,16 +35,18 @@ class CompressedDataColumn {
 public:
     
 	CompressedDataColumn(int_vector* colIndices, real_vector* colData, FormatType colFormat,
-			std::string colName = "", DrugIdType nName = 0) :
-		 columns(colIndices), data(colData), formatType(colFormat), stringName(colName), numericalName(nName) {
+			std::string colName = "", DrugIdType nName = 0, bool sPtrs = false) :
+		 columns(colIndices), data(colData), formatType(colFormat), stringName(colName), 
+		 numericalName(nName), sharedPtrs(sPtrs) {
 		// Do nothing
 	}
 	
 	virtual ~CompressedDataColumn() {		
-		if (columns) {
+	    // Only release data if not shared
+		if (columns && !shartedPtrs) {
 			delete columns;
 		}
-		if (data) {
+		if (data && !sharedPtrs) {
 			delete data;
 		}
 	}
@@ -163,6 +165,7 @@ private:
 	FormatType formatType;
 	mutable std::string stringName;
 	DrugIdType numericalName;
+	bool sharedPtrs; // TODO Actually use shared pointers
 };
 
 class CompressedDataMatrix {

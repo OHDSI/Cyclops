@@ -316,7 +316,7 @@ void CmdLineCcdInterface::parseCommandLine(std::vector<std::string>& args) {
 	}
 }
 
-double CmdLineCcdInterface::initializeModelImpl(
+void CmdLineCcdInterface::initializeModelImpl(
 		ModelData** modelData,
 		CyclicCoordinateDescent** ccd,
 		AbstractModelSpecifics** model) {
@@ -330,9 +330,6 @@ double CmdLineCcdInterface::initializeModelImpl(
 	"single"
 #endif
 	"-precision) ..." << endl;
-
-	struct timeval time1, time2;
-	gettimeofday(&time1, NULL);
 
 	// Parse type of model
 	//using namespace bsccs::Models;
@@ -476,54 +473,32 @@ double CmdLineCcdInterface::initializeModelImpl(
 
 	(*ccd)->setNoiseLevel(arguments.noiseLevel);
 
-	gettimeofday(&time2, NULL);
-	double sec1 = calculateSeconds(time1, time2);
-
-	cout << "Everything loaded and ready to run ..." << endl;
-	
-	return sec1;
+	cout << "Everything loaded and ready to run ..." << endl;	
 }
 
-double CmdLineCcdInterface::predictModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData) {
-
-	struct timeval time1, time2;
-	gettimeofday(&time1, NULL);
+void CmdLineCcdInterface::predictModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData) {
 
 	bsccs::PredictionOutputWriter predictor(*ccd, *modelData);
-
 	string fileName = getPathAndFileName(arguments, "pred_");
-
 	predictor.writeFile(fileName.c_str());
-
-	gettimeofday(&time2, NULL);
-	return calculateSeconds(time1, time2);
 }
 	    
-double CmdLineCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,
+void CmdLineCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,
 	    ProfileInformationMap& profileMap, bool withASE) {
 
 	using namespace bsccs;
-	struct timeval time1, time2;
-	gettimeofday(&time1, NULL);
-
 	bsccs::EstimationOutputWriter estimates(*ccd, *modelData);
 	estimates.addBoundInformation(profileMap);
 
 	string fileName = getPathAndFileName(arguments, "est_");
 	estimates.writeFile(fileName.c_str());
-	
-	gettimeofday(&time2, NULL);
-	return calculateSeconds(time1, time2);				
 }
 
-double CmdLineCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,	
+void CmdLineCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,	
 		double loadTime,
 		double updateTime) {
 
 	using namespace bsccs;
-	struct timeval time1, time2;
-	gettimeofday(&time1, NULL);
-
 	DiagnosticsOutputWriter diagnostics(*ccd, *modelData);
 
 	string fileName = getPathAndFileName(arguments, "diag_");
@@ -534,11 +509,6 @@ double CmdLineCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, Mode
 
 	diagnostics.addExtraInformation(extraInfo);
 	diagnostics.writeFile(fileName.c_str());
-
-
-	gettimeofday(&time2, NULL);
-	return calculateSeconds(time1, time2);
-
 }
 
 CmdLineCcdInterface::CmdLineCcdInterface(int argc, char* argv[]) {
