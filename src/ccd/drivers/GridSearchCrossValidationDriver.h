@@ -18,7 +18,7 @@ public:
 			int iGridSize,
 			double iLowerLimit,
 			double iUpperLimit,
-			vector<real>* wtsExclude = NULL);
+			std::vector<real>* wtsExclude = NULL);
 
 	virtual ~GridSearchCrossValidationDriver();
 
@@ -48,7 +48,7 @@ protected:
 	int gridSize;
 	double lowerLimit;
 	double upperLimit;
-	vector<real>* weightsExclude;
+	std::vector<real>* weightsExclude;
 };
 
 } // namespace

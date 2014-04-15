@@ -14,6 +14,10 @@
 
 namespace bsccs {
 
+using std::vector;
+using std::set;
+using std::insert_iterator;
+
 CrossValidationSelector::CrossValidationSelector(
 		int inFold,
 		std::vector<int>* inIds,

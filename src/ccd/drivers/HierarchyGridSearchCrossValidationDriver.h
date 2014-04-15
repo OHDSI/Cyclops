@@ -18,7 +18,7 @@ public:
 			int iGridSize,
 			double iLowerLimit,
 			double iUpperLimit,
-			vector<real>* wtsExclude = NULL);
+			std::vector<real>* wtsExclude = NULL);
 
 	virtual ~HierarchyGridSearchCrossValidationDriver();
 

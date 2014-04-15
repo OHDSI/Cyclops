@@ -16,6 +16,7 @@
 
 using namespace std;
 
+#include "Types.h"
 #include "InputReader.h"
 
 //#define USE_DRUG_STRING
@@ -34,9 +35,9 @@ public:
 
 	HierarchyReader(const char* fileName, ModelData* modelData);
 
-	std::map<int, vector<int> > returnGetChildMap();
+	HierarchicalChildMap returnGetChildMap();
 
-	std::map<int, int> returnGetParentMap();
+	HierarchicalParentMap returnGetParentMap();
 
 	void printChildren(int parent);
 

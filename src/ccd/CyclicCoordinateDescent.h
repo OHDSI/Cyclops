@@ -26,6 +26,7 @@ using std::cerr;
 using std::endl;
 using std::ostream;
 using std::ofstream;
+using std::string;
 
 //#define DEBUG
 

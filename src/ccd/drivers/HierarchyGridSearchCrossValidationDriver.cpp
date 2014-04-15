@@ -18,6 +18,8 @@
 
 namespace bsccs {
 
+using std::vector;
+
 HierarchyGridSearchCrossValidationDriver::HierarchyGridSearchCrossValidationDriver(
 			int iGridSize,
 			double iLowerLimit,

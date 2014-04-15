@@ -17,7 +17,7 @@
 #include <iostream>
 #include <time.h>
 
-#include "CcdInterface.h"
+#include "CmdLineCcdInterface.h"
 #include "CyclicCoordinateDescent.h"
 #include "drivers/ProportionSelector.h"
 
@@ -99,6 +99,8 @@ int main(int argc, char* argv[]) {
 		}
 		timeUpdate += interface.runBoostrap(ccd, modelData, savedBeta);
 	}
+		
+	using std::scientific;
 		
 	cout << endl;
 	cout << "Load    duration: " << scientific << timeInitialize << endl;

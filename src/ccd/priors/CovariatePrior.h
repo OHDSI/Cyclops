@@ -16,6 +16,8 @@
 //#include "Rcpp.h"
 #endif
 
+#include "Types.h"
+
 namespace bsccs {
 namespace priors {
 
@@ -240,7 +242,7 @@ private:
 	}
 };
 
-typedef std::shared_ptr<CovariatePrior> PriorPtr;
+typedef bsccs::shared_ptr<CovariatePrior> PriorPtr;
 
 } /* namespace priors */
 } /* namespace bsccs */

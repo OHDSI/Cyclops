@@ -17,6 +17,8 @@
 
 namespace bsccs {
 
+using std::ostream_iterator;
+
 BootstrapDriver::BootstrapDriver(
 		int inReplicates,
 		ModelData* inModelData) : replicates(inReplicates), modelData(inModelData),

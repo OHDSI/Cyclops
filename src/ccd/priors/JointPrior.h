@@ -8,9 +8,9 @@
 #ifndef JOINTPRIOR_H_
 #define JOINTPRIOR_H_
 
+#include "Types.h"
 #include "CyclicCoordinateDescent.h"
 #include "priors/CovariatePrior.h"
-#include "io/HierarchyReader.h"
 
 namespace bsccs {
 namespace priors {
@@ -106,17 +106,24 @@ public:
 	}
 
 	const std::string getDescription() const {
-		stringstream info;
+		std::stringstream info;
 		for (int i = 0; i < hierarchyDepth; i ++) {
 			info << "Hierarchy level " << i << " has prior " << hierarchyPriors[i]->getDescription() << " ";
 		}
 		return info.str();
 	}
 
-	void setHierarchy(HierarchyReader* hierarchyReader) {
-		getParentMap = hierarchyReader->returnGetParentMap();
-		getChildMap = hierarchyReader->returnGetChildMap();
-	}
+// 	void setHierarchy(HierarchyReader* hierarchyReader) {
+// 		getParentMap = hierarchyReader->returnGetParentMap();
+// 		getChildMap = hierarchyReader->returnGetChildMap();
+// 	}
+
+    void setHierarchy(HierarchicalParentMap parentMap,
+             HierarchicalChildMap childMap) {
+        // TODO getParentMap, getChildMap should be refs; no need to copy
+        getParentMap = parentMap;
+        getChildMap = childMap;
+    }
 
 	double getVariance() const{
 		return getVariance(0);
@@ -139,7 +146,7 @@ public:
 		double t2 = 1/hierarchyPriors[1]->getVariance();
 
 		int parent = getParentMap.at(index);
-		const vector<int>& siblings = getChildMap.at(parent);
+		const std::vector<int>& siblings = getChildMap.at(parent);
 		double sumBetas = 0;
 		int nSiblingsOfInterest = 0; //Different from siblings length if weights used
 		for (int i = 0; i < siblings.size(); i++) {
@@ -155,8 +162,8 @@ public:
 private:
 	PriorList hierarchyPriors;
 	int hierarchyDepth;
-	std::map<int, int> getParentMap;
-	std::map<int, vector<int> > getChildMap;
+	HierarchicalParentMap getParentMap;
+	HierarchicalChildMap getChildMap;
 
 };
 
@@ -194,7 +201,7 @@ private:
 	PriorPtr singlePrior;
 };
 
-typedef std::shared_ptr<JointPrior> JointPriorPtr;
+typedef bsccs::shared_ptr<JointPrior> JointPriorPtr;
 
 } /* namespace priors */
 } /* namespace bsccs */

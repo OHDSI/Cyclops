@@ -115,11 +115,6 @@ public:
     double runCrossValidation(
             CyclicCoordinateDescent *ccd,
             ModelData *modelData);
-
-    // double runBoostrap(
-    // 		CyclicCoordinateDescent *ccd,
-    // 		ModelData *modelData,
-    // 		CCDArguments &arguments);
         
     double runBoostrap(
             CyclicCoordinateDescent *ccd,
@@ -141,8 +136,8 @@ public:
             double loadTime,
             double updateTime);
 		
-    void parseCommandLine(
-            std::vector<std::string>& argcpp);
+//     void parseCommandLine(
+//             std::vector<std::string>& argcpp);
             
     CCDArguments getArguments() {
         return arguments;  // TODO To depricate
@@ -154,30 +149,31 @@ protected:
     
     CCDArguments arguments;    
     
-private:
     double calculateSeconds(
 		const struct timeval &time1,
 		const struct timeval &time2);
 		
+    virtual double initializeModelImpl(
+            ModelData** modelData,
+            CyclicCoordinateDescent** ccd,
+            AbstractModelSpecifics** model) = 0;
+            
+    virtual double predictModelImpl(
+            CyclicCoordinateDescent *ccd,
+            ModelData *modelData) = 0;  
+            
+    virtual double logModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,        
+            ProfileInformationMap &profileMap,
+            bool withProfileBounds) = 0;  
+            
+    virtual double diagnoseModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,	
+		double loadTime,
+		double updateTime) = 0;                                 
+		
 
 }; // class CcdInterface
 
-class CmdLineCcdInterface : public CcdInterface {
-
-public:
-
-    CmdLineCcdInterface(int argc, char* argv[]);
-    virtual ~CmdLineCcdInterface();
-
-    void parseCommandLine(
-            int argc,
-            char* argv[],
-            CCDArguments &arguments);
-
-}; // class CmdLineCcdInterface
-
 class RCcdInterface: public CcdInterface {
-
 
 }; // class RCcdInterface
 

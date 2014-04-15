@@ -6,7 +6,8 @@
  */
 
 #include "AbstractModelSpecifics.h"
-#include "io/InputReader.h"
+#include "ModelData.h"
+// #include "io/InputReader.h"
 
 namespace bsccs {
 

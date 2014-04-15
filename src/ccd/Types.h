@@ -11,7 +11,17 @@
 #include <vector>
 #include <map>
 
+#ifdef R_BUILD
+    #include "boost/smart_ptr.hpp"
+#endif
+
 namespace bsccs {
+
+#ifdef R_BUILD
+    using boost::shared_ptr;
+#else
+    using std::shared_ptr;    
+#endif
 
 // Output types
 
@@ -98,6 +108,11 @@ static bool requiresOffset(const ModelType modelType) {
 }
 
 } // namespace Models
+
+// Hierarchical prior types
+
+typedef std::map<int, int> HierarchicalParentMap;
+typedef std::map<int, std::vector<int> > HierarchicalChildMap;
 
 } // namespace bsccs
 

@@ -20,6 +20,7 @@ set(BASE_SOURCE_FILES
 	 ${CCD_SOURCE_DIR}/CCD/io/RTestInputReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/io/CoxInputReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/io/CCTestInputReader.cpp
+	 ${CCD_SOURCE_DIR}/CCD/CmdLineCcdInterface.cpp
 	${RCCD_SOURCE_DIR}/ccd/engine/AbstractModelSpecifics.cpp
 	${RCCD_SOURCE_DIR}/ccd/drivers/AbstractDriver.cpp
 	${RCCD_SOURCE_DIR}/ccd/drivers/AbstractSelector.cpp
