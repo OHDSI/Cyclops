@@ -43,7 +43,7 @@ public:
 	
 	virtual ~CompressedDataColumn() {		
 	    // Only release data if not shared
-		if (columns && !shartedPtrs) {
+		if (columns && !sharedPtrs) {
 			delete columns;
 		}
 		if (data && !sharedPtrs) {
