@@ -10,6 +10,7 @@
 
 #include <vector>
 #include <map>
+#include <memory>
 
 #ifdef R_BUILD
     #include "boost/smart_ptr.hpp"
