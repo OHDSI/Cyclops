@@ -5,4 +5,5 @@
 .Rproj.user
 .Rhistory
 standalone/build/**
+src/*.o
 src/*.so

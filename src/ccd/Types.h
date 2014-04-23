@@ -10,19 +10,25 @@
 
 #include <vector>
 #include <map>
-#include <memory>
 
-#ifdef R_BUILD
+#if defined(__GXX_EXPERIMENTAL_CXX0X) || __cplusplus >= 201103L
+// C++11
+    #include <memory>
+    namespace bsccs { 
+        using std::shared_ptr;
+    }
+#else
+// C++98 (R build)
     #include "boost/smart_ptr.hpp"
+    namespace bsccs {
+        using boost::shared_ptr;
+    }
 #endif
+
+// #ifdef R_BUILD  // old alternative -DR_BUILD
+// #endif
 
 namespace bsccs {
-
-#ifdef R_BUILD
-    using boost::shared_ptr;
-#else
-    using std::shared_ptr;    
-#endif
 
 // Output types
 
