@@ -11,7 +11,7 @@
 #include <vector>
 #include <map>
 
-#if defined(__GXX_EXPERIMENTAL_CXX0X) || __cplusplus >= 201103L
+#if defined(__GXX_EXPERIMENTAL_CXX0X__) || __cplusplus >= 201103L
 // C++11
     #include <memory>
     namespace bsccs { 
