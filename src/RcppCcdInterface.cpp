@@ -6,22 +6,36 @@
  
 #include "Rcpp.h"
 #include "RcppCcdInterface.h"
+#include "RcppModelData.h"
 
 // Rcpp export code
 
 using namespace Rcpp;
 
+//// [[Rcpp::export]]
+//List ccd_hello_world() {
+//
+//   using namespace bsccs;
+//    CharacterVector x = CharacterVector::create( "foo", "bar" )  ;
+//    NumericVector y   = NumericVector::create( 0.0, 1.0 ) ;
+//    XPtr<RcppCcdInterface> ptr(new RcppCcdInterface());
+//    List z            = List::create( x, y, ptr ) ;
+////     List z = List::create(x, y);
+//
+//    return z ;
+//}
+
 // [[Rcpp::export]]
-List ccd_hello_world() {
-   
-   using namespace bsccs;
-    CharacterVector x = CharacterVector::create( "foo", "bar" )  ;
-    NumericVector y   = NumericVector::create( 0.0, 1.0 ) ;    
-    XPtr<RcppCcdInterface> ptr(new RcppCcdInterface());    
-    List z            = List::create( x, y, ptr ) ;
-//     List z = List::create(x, y);
-    
-    return z ;
+List ccd_interface(SEXP inModelData) {
+
+	using namespace bsccs;
+
+	XPtr<RcppModelData> rcppModelData(inModelData);
+	XPtr<RcppCcdInterface> ccd(new RcppCcdInterface(*rcppModelData));
+
+
+	List list = List::create(ccd, rcppModelData);
+	return list;
 }
 
 namespace bsccs {
@@ -239,9 +253,13 @@ void RcppCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, ModelData
 
 }
 
-RcppCcdInterface::RcppCcdInterface() {
-    // Do nothing
+RcppCcdInterface::RcppCcdInterface(const RcppModelData& _modelData) : modelData(_modelData) {
+	// Do nothing
 }
+
+//RcppCcdInterface::RcppCcdInterface() {
+//    // Do nothing
+//}
 
 RcppCcdInterface::~RcppCcdInterface() {
     // Do nothing

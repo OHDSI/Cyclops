@@ -229,6 +229,31 @@ public:
 	
 	int getColumnIndexByName(DrugIdType name);
 
+
+	// Make deep copy
+	template <typename IntVectorItr, typename RealVectorItr>
+	void push_back(
+			const IntVectorItr int_begin, const IntVectorItr int_end,
+			const RealVectorItr real_begin, const RealVectorItr real_end,
+			FormatType colFormat) {
+		if (colFormat == DENSE) {
+			real_vector* r = new real_vector(real_begin, real_end);
+			push_back(NULL, r, DENSE);
+		} else if (colFormat == SPARSE) {
+			real_vector* r = new real_vector(real_begin, real_end);
+			int_vector* i = new int_vector(int_begin, int_end);
+			push_back(i, r, SPARSE);
+		} else if (colFormat == INDICATOR) {
+			int_vector* i = new int_vector(int_begin, int_end);
+			push_back(i, NULL, INDICATOR);
+		} else if (colFormat == INTERCEPT) {
+			push_back(NULL, NULL, INTERCEPT);
+		} else {
+			std::cerr << "Error" << std::endl;
+			exit(-1);
+ 		}
+	}
+
 	void push_back(FormatType colFormat) {
 		if (colFormat == DENSE) {
 			real_vector* r = new real_vector();

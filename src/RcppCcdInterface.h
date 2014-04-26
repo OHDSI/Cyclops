@@ -11,11 +11,16 @@
 
 namespace bsccs {
 
+class RcppModelData; // forward reference
+
 class RcppCcdInterface : public CcdInterface {
 
 public:
 
-    RcppCcdInterface();
+	RcppCcdInterface();
+
+    RcppCcdInterface(const RcppModelData& modelData);
+
     virtual ~RcppCcdInterface();
             
 protected:            
@@ -40,6 +45,11 @@ protected:
             ModelData *modelData,	
     		double loadTime,
     		double updateTime);  
+
+private:
+
+     const RcppModelData& modelData;
+
 }; // class RcppCcdInterface
 
 } // namespace

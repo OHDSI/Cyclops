@@ -5,7 +5,11 @@ rcpp_hello_world <- function() {
     .Call('CCD_rcpp_hello_world', PACKAGE = 'CCD')
 }
 
-ccd_hello_world <- function() {
-    .Call('CCD_ccd_hello_world', PACKAGE = 'CCD')
+ccd_interface <- function(inModelData) {
+    .Call('CCD_ccd_interface', PACKAGE = 'CCD', inModelData)
+}
+
+ccd_model_data <- function(spid, sy, sz, soffs, dx, sx, ix) {
+    .Call('CCD_ccd_model_data', PACKAGE = 'CCD', spid, sy, sz, soffs, dx, sx, ix)
 }
 

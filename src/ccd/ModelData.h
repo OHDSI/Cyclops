@@ -37,6 +37,29 @@ template <class T> void reindexVector(std::vector<T>& vec, std::vector<int> ind)
 class ModelData : public CompressedDataMatrix {
 public:
 	ModelData();
+
+//	pid.begin(), pid.end(),
+//	y.begin(), y.end(),
+//	z.begin(), z.end(),
+//	offs.begin(), offs.end(),
+//	xip.begin(), xii.end()
+
+	template <typename IntegerVector, typename RealVector>
+	ModelData(
+			const IntegerVector& _pid,
+			const RealVector& _y,
+			const RealVector& _z,
+			const RealVector& _offs
+			) :
+		hasOffsetCovariate(false), hasInterceptCovariate(false), nPatients(0)
+		, pid(_pid.begin(), _pid.end()) // copy
+		, y(_y.begin(), _y.end()) // copy
+		, z(_z.begin(), _z.end()) // copy
+		, offs(_offs.begin(), _offs.end()) // copy
+		{
+
+	}
+
 	virtual ~ModelData();
 
 	int* getPidVector();
@@ -61,6 +84,18 @@ public:
 		return pid;
 	}
 	
+	std::vector<real>& getZVectorRef() {
+		return z;
+	}
+
+	std::vector<real>& getYVectorRef() {
+		return y;
+	}
+
+	std::vector<int>& getPidVectorRef() { // Not const because PIDs can get renumbered
+		return pid;
+	}
+
 //	const std::vector<int>& getNEventsVectorRef() const {
 //		return nevents;
 //	}

@@ -141,17 +141,17 @@ public:
             
     CCDArguments getArguments() {
         return arguments;  // TODO To depricate
-    }		
+    }
+
+    static double calculateSeconds(
+		const struct timeval &time1,
+		const struct timeval &time2);
     		
 protected:
     std::string getPathAndFileName(const CCDArguments& arguments, std::string stem);
     bool includesOption(const std::string& line, const std::string& option);
     
-    CCDArguments arguments;    
-    
-    double calculateSeconds(
-		const struct timeval &time1,
-		const struct timeval &time2);
+    CCDArguments arguments;
 		
     virtual void initializeModelImpl(
             ModelData** modelData,
