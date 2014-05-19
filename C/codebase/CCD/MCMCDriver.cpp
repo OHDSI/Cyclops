@@ -6,10 +6,6 @@
  */
 
 
-// This is a silly test for GitHub
-// Command line test
-
-
 #include <iostream>
 #include <iomanip>
 #include <numeric>

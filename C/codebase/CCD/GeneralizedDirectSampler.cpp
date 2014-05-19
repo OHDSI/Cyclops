@@ -133,7 +133,7 @@ void GeneralizedDirectSampler::drive(CyclicCoordinateDescent& ccd, long int seed
 int GeneralizedDirectSampler::getMultinomialSample(vector<double>& probabilities, long int seed){
 	double sum = 0;
 	boost::mt19937 rng(seed);
-	// but zeroone makes a copy which means the rng above *never advances*
+
 	static boost::uniform_01<boost::mt19937> zeroone(rng);
 	double target = zeroone();
 	for (int i = 0; i < M; i++){
