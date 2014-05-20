@@ -1,4 +1,4 @@
 library(testthat)
-library(Rccd)
+library(CCD)
 
-test_package("Rccd")
+test_package("CCD")
