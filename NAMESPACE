@@ -1,2 +1,8 @@
 useDynLib(CCD)
 exportPattern("^[[:alpha:]]+")
+import(
+	BH,
+	Rcpp,
+	RcppEigen,
+	testthat
+)
