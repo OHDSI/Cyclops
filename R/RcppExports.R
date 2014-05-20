@@ -9,7 +9,32 @@ ccd_interface <- function(inModelData) {
     .Call('CCD_ccd_interface', PACKAGE = 'CCD', inModelData)
 }
 
-ccd_model_data <- function(spid, sy, sz, soffs, dx, sx, ix) {
-    .Call('CCD_ccd_model_data', PACKAGE = 'CCD', spid, sy, sz, soffs, dx, sx, ix)
+#' @title ccd_model_data
+#'
+#' @description
+#' \code{ccd_model_data} creates a CCD model data object
+#'
+#' @details
+#' This function is fun.  This function currently creates a deep copy of all data.
+#' Another deep copy is also then made during CCD engine initialization; one of 
+#' these copies should be removed.
+#'
+#' @param pid               Vector of patient identifiers (function assumes these are sorted)
+#' @param y								 Vector of outcomes
+#' @param z								 Vector of secondary outcomes (or NULL if unneeded for model)
+#' @param offs							 Vector of regression model offsets (or NULL)
+#' @param dx								 Dense matrix of covariates (or NULL)
+#' @param sx							   Sparse matrix of covariates (or NULL)
+#' @param ix								 Indicator matrix of covariates (or NULL)
+#' 
+#' @return
+#' A CCD model data object
+#' 
+#' @examples
+#' splitSql("SELECT * INTO a FROM b; USE x; DROP TABLE c;")
+#'
+#' @export
+ccd_model_data <- function(pid, y, z, offs, dx, sx, ix) {
+    .Call('CCD_ccd_model_data', PACKAGE = 'CCD', pid, y, z, offs, dx, sx, ix)
 }
 

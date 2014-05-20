@@ -36,20 +36,20 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccd_model_data
-List ccd_model_data(SEXP spid, SEXP sy, SEXP sz, SEXP soffs, SEXP dx, SEXP sx, SEXP ix);
-RcppExport SEXP CCD_ccd_model_data(SEXP spidSEXP, SEXP sySEXP, SEXP szSEXP, SEXP soffsSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP) {
+List ccd_model_data(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix);
+RcppExport SEXP CCD_ccd_model_data(SEXP pidSEXP, SEXP ySEXP, SEXP zSEXP, SEXP offsSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
-        Rcpp::traits::input_parameter< SEXP >::type spid(spidSEXP );
-        Rcpp::traits::input_parameter< SEXP >::type sy(sySEXP );
-        Rcpp::traits::input_parameter< SEXP >::type sz(szSEXP );
-        Rcpp::traits::input_parameter< SEXP >::type soffs(soffsSEXP );
+        Rcpp::traits::input_parameter< SEXP >::type pid(pidSEXP );
+        Rcpp::traits::input_parameter< SEXP >::type y(ySEXP );
+        Rcpp::traits::input_parameter< SEXP >::type z(zSEXP );
+        Rcpp::traits::input_parameter< SEXP >::type offs(offsSEXP );
         Rcpp::traits::input_parameter< SEXP >::type dx(dxSEXP );
         Rcpp::traits::input_parameter< SEXP >::type sx(sxSEXP );
         Rcpp::traits::input_parameter< SEXP >::type ix(ixSEXP );
-        List __result = ccd_model_data(spid, sy, sz, soffs, dx, sx, ix);
+        List __result = ccd_model_data(pid, y, z, offs, dx, sx, ix);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);

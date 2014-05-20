@@ -11,26 +11,52 @@
 
 using namespace Rcpp;
 
+
+//' @title ccd_model_data
+//'
+//' @description
+//' \code{ccd_model_data} creates a CCD model data object
+//'
+//' @details
+//' This function is fun.  This function currently creates a deep copy of all data.
+//' Another deep copy is also then made during CCD engine initialization; one of 
+//' these copies should be removed.
+//'
+//' @param pid               Vector of patient identifiers (function assumes these are sorted)
+//' @param y								 Vector of outcomes
+//' @param z								 Vector of secondary outcomes (or NULL if unneeded for model)
+//' @param offs							 Vector of regression model offsets (or NULL)
+//' @param dx								 Dense matrix of covariates (or NULL)
+//' @param sx							   Sparse matrix of covariates (or NULL)
+//' @param ix								 Indicator matrix of covariates (or NULL)
+//' 
+//' @return
+//' A list that contains a CCD model data object pointer and an operation duration
+//' 
+//' @examples
+//' splitSql("SELECT * INTO a FROM b; USE x; DROP TABLE c;")
+//'
+//' @export
 // [[Rcpp::export]]
-List ccd_model_data(SEXP spid, SEXP sy, SEXP sz, SEXP soffs, SEXP dx, SEXP sx, SEXP ix) {
+List ccd_model_data(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix) {
 
 	bsccs::Timer timer;
 
-	IntegerVector pid;
+	IntegerVector ipid;
 	if (!Rf_isNull(pid)) {
-		pid = spid; // This is not a copy
+		ipid = pid; // This is not a copy
 	} // else pid.size() == 0
 
-	NumericVector y(sy);
+	NumericVector iy(y);
 
-	NumericVector z;
-	if (!Rf_isNull(sz)) {
-		z = sz;
+	NumericVector iz;
+	if (!Rf_isNull(z)) {
+		iz = z;
 	} // else z.size() == 0
 
-	NumericVector offs;
-	if (!Rf_isNull(soffs)) {
-		offs = soffs;
+	NumericVector ioffs;
+	if (!Rf_isNull(offs)) {
+		ioffs = offs;
 	}
 
 	// dense
@@ -58,7 +84,7 @@ List ccd_model_data(SEXP spid, SEXP sy, SEXP sz, SEXP soffs, SEXP dx, SEXP sx, S
 	}
 
 	using namespace bsccs;
-    XPtr<RcppModelData> ptr(new RcppModelData(pid, y, z, offs, dxv, siv, spv, sxv, iiv, ipv));
+    XPtr<RcppModelData> ptr(new RcppModelData(ipid, iy, iz, ioffs, dxv, siv, spv, sxv, iiv, ipv));
 
 	double duration = timer();
 
