@@ -3,11 +3,14 @@ compiler:
     - gcc
     - clang
 before_install:
+before_script:
+    sudo apt-get install -qq libboost-dev
 script:
     - mkdir -p C/build && (cd C/build && cmake .. && make)
 notifications:
   recipients:
     - msuchard@gmail.com
+    - tshaddox@ucla.edu
   email:
     on_success: change
     on_failure: always 
