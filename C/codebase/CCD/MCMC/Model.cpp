@@ -19,26 +19,26 @@ namespace bsccs {
 	 boost::mt19937 rng(seed);
 	 ccd = &ccdIn;
 	 J = ccd->getBetaSize();
-	 ccd->setUpHessianComponents(false);
+	 //ccd->setUpHessianComponents(false);
 	 initializeHessian();
-	 ccd->computeXBeta_GPU_TRS_initialize();
+	 //ccd->computeXBeta_GPU_TRS_initialize();
 
 	 clearHessian();
-	 ccd->getHessian(&hessian);
+	 //ccd->getHessian(&hessian);
 	 generateCholesky();
 	 // Beta_Hat = modes from ccd
 
-	 Beta_Hat.initialize(ccd->hBeta, J);
+	 // Beta_Hat.initialize(ccd->hBeta, J);
 	 //Beta_Hat.store();
 	 // Set up Beta
-	 Beta.initialize(ccd->hBeta, J);
+	 // Beta.initialize(ccd->hBeta, J);
 	 //Beta.setProbabilityUpdate(betaAmount);
 	 Beta.store();
 
 	 // Set up Sigma squared
 	 bsccs::real sigma2Start;
-	 sigma2Start = (bsccs::real) ccd->sigma2Beta;
-	 SigmaSquared.initialize(&sigma2Start, 1);
+	 //sigma2Start = (bsccs::real) ccd->sigma2Beta;
+	 //SigmaSquared.initialize(&sigma2Start, 1);
 	 //SigmaSquared.logParameter();
 
 	logLikelihood = ccd->getLogLikelihood();
@@ -68,13 +68,13 @@ namespace bsccs {
 		double tolerance = 5E-4;
 
 		ccd->update(ccdIterations, ZHANG_OLES, tolerance);
-		ccd->setUpHessianComponents(true);
+		//ccd->setUpHessianComponents(true);
 		clearHessian();
-		ccd->getHessian(&hessian);
+		//ccd->getHessian(&hessian);
 		generateCholesky();
-		Beta_Hat.set(ccd->hBeta);
-		Beta_Hat.setRestorable(true);
-		Beta.set(ccd->hBeta);
+		//Beta_Hat.set(ccd->hBeta);
+		//Beta_Hat.setRestorable(true);
+		//Beta.set(ccd->hBeta);
 		Beta.setRestorable(true);
 
 		setLogLikelihood(ccd->getLogLikelihood());

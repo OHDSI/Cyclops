@@ -16,7 +16,7 @@
 #include <time.h>
 #include <set>
 
-#include <SigmaSampler.h>
+#include "SigmaSampler.h"
 
 #include <boost/random.hpp>
 #include <boost/random/gamma_distribution.hpp>
