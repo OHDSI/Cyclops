@@ -40,7 +40,7 @@ namespace bsccs{
 
 		bsccs::real getStored(int index);
 
-		void initialize(bsccs::real * data, int sizeIn);
+		void initialize(int sizeIn);
 
 
 		void set(int index, bsccs::real setTo);
@@ -74,7 +74,7 @@ namespace bsccs{
 		std::vector<double> * returnStoredValuesPointer();
 
 
-	private:
+	protected:
 
 		int size;
 
@@ -87,8 +87,6 @@ namespace bsccs{
 		std::vector<double> storedDoubleValues;
 
 		std::vector<bool> vectorOfChanges;
-
-		int numberOfChanges;
 
 		bool restorable;
 	};

@@ -19,13 +19,9 @@
 #include <time.h>
 #include <set>
 
-#include "Parameter.h"
+#include "BetaParameter.h"
 #include "TransitionKernel.h"
 #include "MHRatio.h"
-
-#include <boost/random.hpp>
-#include <boost/random/normal_distribution.hpp>
-
 
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
@@ -34,8 +30,6 @@
 #include "CrossValidationSelector.h"
 #include "AbstractSelector.h"
 #include "ccd.h"
-
-#include <boost/random.hpp>
 
 namespace bsccs {
 
@@ -47,13 +41,14 @@ public:
 
 	virtual ~IndependenceSampler();
 
-	void sample(Model& model, double tuningParameter, boost::mt19937& rng);
+	void sample(MCMCModel& model, double tuningParameter);
 
-	bool evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent& ccd);
+	bool evaluateSample(MCMCModel& model, double tuningParameter, CyclicCoordinateDescent& ccd);
 
 	double getTransformedTuningValue(double tuningParameter);
 
-	double evaluateLogMHRatio(Model& model);
+	double evaluateLogMHRatio(MCMCModel& model);
+
 
 protected:
 

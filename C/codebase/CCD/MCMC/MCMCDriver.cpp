@@ -25,15 +25,13 @@
 
 #include "Parameter.h"
 
-#include <boost/random.hpp>
-
 #define Debug_TRS
 //#define DEBUG_STATE
 
 namespace bsccs {
 
 
-MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
+MCMCDriver::MCMCDriver(std::string MCMCFileName) {
 	MCMCFileNameRoot = MCMCFileName;
 	thinningValueForWritingToFile = 1;
 	maxIterations = 4000;
@@ -52,7 +50,7 @@ MCMCDriver::~MCMCDriver() {
 
 vector<double> storedBetaHat;
 
-void checkValidState(CyclicCoordinateDescent& ccd, Model& model, Parameter& Beta,
+void checkValidState(CyclicCoordinateDescent& ccd, MCMCModel& model, Parameter& Beta,
 		Parameter& Beta_Hat,
 		Parameter& SigmaSquared) {
 
@@ -98,7 +96,7 @@ void checkValidState(CyclicCoordinateDescent& ccd, Model& model, Parameter& Beta
 	// TODO Check internals with sigma
 }
 
-void MCMCDriver::initialize(double betaAmount, Model & model, CyclicCoordinateDescent& ccd, long int seed) {
+void MCMCDriver::initialize(double betaAmount, MCMCModel & model, CyclicCoordinateDescent& ccd, long int seed) {
 
 	//cout << "MCMCDriver initialize" << endl;
 	model.initialize(ccd, seed);
@@ -114,7 +112,7 @@ void MCMCDriver::initialize(double betaAmount, Model & model, CyclicCoordinateDe
 
 }
 
-void MCMCDriver::logState(Model & model, int iteration){
+void MCMCDriver::logState(MCMCModel & model, int iteration){
 	//cout << "\n MCMCDriver::logState" << endl;
 	//MCMCResults_SigmaSquared.push_back(model.getSigmaSquared().returnCurrentValues()[0]);
 	model.getSigmaSquared().logParameter();
@@ -149,10 +147,10 @@ int MCMCDriver::findTransitionKernelIndex(double uniformRandom, vector<double>& 
 void MCMCDriver::drive(
 		CyclicCoordinateDescent& ccd, double betaAmount, long int seed) {
 
-	Model model;
+	MCMCModel model;
 	initialize(betaAmount, model, ccd, seed);
 	logState(model,0);
-	//Set Boost rng
+
 
 	model.writeVariances();
 	logState(model,0);
@@ -171,13 +169,12 @@ void MCMCDriver::drive(
 #endif
 
 		// Sample from a uniform distribution
-		static boost::uniform_01<boost::mt19937> zeroone(model.getRng());
-		double uniformRandom = zeroone();
+		double uniformRandom = rand() / ((double) RAND_MAX);
 
 		int transitionKernelIndex = findTransitionKernelIndex(uniformRandom, transitionKernelSelectionProb);
-		transitionKernels[transitionKernelIndex]->sample(model, acceptanceTuningParameter, model.getRng());
+		transitionKernels[transitionKernelIndex]->sample(model, acceptanceTuningParameter);
 
-		bool accept = transitionKernels[transitionKernelIndex]->evaluateSample(model, acceptanceTuningParameter, model.getRng(), ccd);
+		bool accept = transitionKernels[transitionKernelIndex]->evaluateSample(model, acceptanceTuningParameter, ccd);
 		if (transitionKernelIndex == 0){
 			acceptNumber = acceptNumber + accept;
 			countIndependenceSampler = countIndependenceSampler + 1.0;

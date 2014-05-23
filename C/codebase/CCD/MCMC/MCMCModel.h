@@ -1,27 +1,28 @@
 /*
- * Model.h
+ * MCMCModel.h
  *
  *  Created on: Jul 24, 2013
  *      Author: tshaddox
  */
 
-#ifndef MODEL_H_
-#define MODEL_H_
+#ifndef MCMCModel_H_
+#define MCMCModel_H_
 
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include "Parameter.h"
-#include <boost/random.hpp>
-#include <boost/random/normal_distribution.hpp>
 #include "CyclicCoordinateDescent.h"
+#include "../AbstractModelSpecifics.h"
+#include "BetaParameter.h"
+#include "HyperpriorParameter.h"
 
 
 namespace bsccs {
-class Model {
+class MCMCModel {
 public:
-	Model();
-	virtual ~Model();
+	MCMCModel();
+	virtual ~MCMCModel();
 
 	void generateCholesky();
 	void initialize(CyclicCoordinateDescent& ccdIn, long int seed);
@@ -60,16 +61,14 @@ public:
 	double getStoredLogPrior();
 	void setLogPrior(double newPrior);
 
-	Parameter& getBeta();
-	Parameter& getBeta_Hat();
-	Parameter& getSigmaSquared();
+	BetaParameter& getBeta();
+	BetaParameter& getBeta_Hat();
+	HyperpriorParameter& getSigmaSquared();
 	Eigen::LLT<Eigen::MatrixXf> getCholeskyLLT();
 	Eigen::MatrixXf& getHessian();
 
 	double getTuningParameter();
 	void setTuningParameter(double nextTuningParameter);
-
-	boost::mt19937 & getRng();
 
 
 	CyclicCoordinateDescent& getCCD();
@@ -85,9 +84,9 @@ private:
 
 	CyclicCoordinateDescent* ccd;
 
-	Parameter Beta_Hat;
-	Parameter Beta;
-	Parameter SigmaSquared;
+	BetaParameter Beta_Hat;
+	BetaParameter Beta;
+	HyperpriorParameter SigmaSquared;
 
 	double logLikelihood;
 	double logPrior;
@@ -103,7 +102,6 @@ private:
 
 	double tuningParameter;
 
-	boost::mt19937 rng;
 
 
 };
@@ -113,4 +111,4 @@ private:
 
 
 
-#endif /* MODEL_H_ */
+#endif /* MCMCModel_H_ */

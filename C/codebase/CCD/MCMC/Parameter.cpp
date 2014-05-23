@@ -12,33 +12,22 @@ using namespace std;
 namespace bsccs{
 
 	Parameter::Parameter(bsccs::real * data, int sizeIn){
-		initialize(data, sizeIn);
+		initialize(sizeIn);
 	}
 
 	Parameter::Parameter(){}
 
-	void Parameter::initialize(bsccs::real * data, int sizeIn){
+	void Parameter::initialize(int sizeIn){
 		restorable = true;
 		size = sizeIn;
-		numberOfChanges = 0;
 		parameterValues = (bsccs::real*) calloc(sizeIn, sizeof(bsccs::real));
 		storedValues = (bsccs::real*) calloc(size, sizeof(bsccs::real));
-		memcpy(storedValues, data, sizeof(bsccs::real)*sizeIn);
-		memcpy(parameterValues, data, sizeof(bsccs::real)*sizeIn);
-
-
-		for (int i = 0; i < size; i++) {
-			parameterDoubleValues.push_back(1.00);
-			storedDoubleValues.push_back(1.00);
-			vectorOfChanges.push_back(false);
-		}
 
 	}
 
 	Parameter::~Parameter(){
 		free(storedValues);
 		free(parameterValues);
-
 	}
 
 	int Parameter::getSize(){
@@ -54,7 +43,6 @@ namespace bsccs{
 	}
 
 	void Parameter::set(int index, bsccs::real setTo){
-		numberOfChanges ++;
 		vectorOfChanges[index] = true;
 		parameterValues[index] = setTo;
 	}
@@ -112,7 +100,7 @@ namespace bsccs{
 	}
 
 	void Parameter::resetChangesRecorded() {
-		numberOfChanges = 0;
+
 
 		for (int i = 0; i < size; i++) {
 			vectorOfChanges.push_back(false);

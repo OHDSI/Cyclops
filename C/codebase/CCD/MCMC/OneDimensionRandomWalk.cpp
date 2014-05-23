@@ -23,9 +23,6 @@
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 
-#include <boost/random.hpp>
-#include <boost/random/normal_distribution.hpp>
-
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
 
 //#define Debug_TRS
@@ -46,10 +43,10 @@ OneDimensionRandomWalk::~OneDimensionRandomWalk() {
 double OneDimensionRandomWalk::getTransformedTuningValue(double tuningParameter){
 	return exp(-tuningParameter);
 }
-void OneDimensionRandomWalk::sample(Model& model, double tuningParameter, boost::mt19937& rng) {
+void OneDimensionRandomWalk::sample(MCMCModel& model, double tuningParameter) {
 
-	Parameter & Beta = model.getBeta();
-	Parameter & Beta_Hat = model.getBeta_Hat();
+	BetaParameter & Beta = model.getBeta();
+	BetaParameter & Beta_Hat = model.getBeta_Hat();
 	Eigen::LLT<Eigen::MatrixXf> choleskyEigen = model.getCholeskyLLT();
 
 	int sizeOfSample = Beta.getSize();
@@ -60,15 +57,16 @@ void OneDimensionRandomWalk::sample(Model& model, double tuningParameter, boost:
 
 
 
-	vector<bsccs::real> independentNormal;  //Sampled independent normal values
+	Eigen::VectorXf independentNormal = Eigen::VectorXf::Random(sizeOfSample);
+	for (int i = 0; i < sizeOfSample; i++) {
+		bsccs::real normalValue = generateGaussian();
+		// NB: tuningParameter scales the VARIANCE
+		independentNormal[i] = normalValue * std::sqrt(getTransformedTuningValue(tuningParameter)); // multiply by stdev
+	}
 
-	boost::normal_distribution<> nd(0.0, 1.0); // TODO Construct once
-
-	boost::variate_generator<boost::mt19937&,
-	                           boost::normal_distribution<> > var_nor(rng, nd); // TODO Construct once
 
 
-	bsccs::real normalValue = var_nor();
+	bsccs::real normalValue = generateGaussian();
 	// NB: tuningParameter scales the VARIANCE
 	bsccs::real scaledNormalValue = normalValue * std::sqrt(getTransformedTuningValue(tuningParameter)); // multiply by stdev
 
@@ -77,10 +75,10 @@ void OneDimensionRandomWalk::sample(Model& model, double tuningParameter, boost:
 	Beta.set(coordinate, scaledNormalValue + Beta_Hat.get(coordinate));
 }
 
-bool OneDimensionRandomWalk::evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent & ccd){
+bool OneDimensionRandomWalk::evaluateSample(MCMCModel& model, double tuningParameter, CyclicCoordinateDescent & ccd){
 
-	Parameter & Beta = model.getBeta();
-	Parameter & Beta_Hat = model.getBeta_Hat();
+	BetaParameter & Beta = model.getBeta();
+	BetaParameter & Beta_Hat = model.getBeta_Hat();
 
 	bool accept = MHstep.evaluate(model);
 

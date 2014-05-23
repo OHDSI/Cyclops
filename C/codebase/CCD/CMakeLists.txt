@@ -1,14 +1,5 @@
 include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 
-find_path(BOOST_INCLUDE_DIR
-	NAMES boost
-	DOCS "Location of boost header file"
-	PATHS "/Users/tshaddox/Desktop/workspace/boost_1_55_0"
-	PATHS "/Users/trevorshaddox/Desktop/workspace/boost_1_51_0")
-	
-	
-message(STATUS "Found boost header files in: " ${BOOST_INCLUDE_DIR})
-include_directories(${BOOST_INCLUDE_DIR})
 	
 set(BASE_SOURCE_FILES
 	CyclicCoordinateDescent.cpp	
@@ -21,11 +12,13 @@ set(BASE_SOURCE_FILES
 	io/RTestInputReader.cpp
 	io/CoxInputReader.cpp
 	io/CCTestInputReader.cpp
+	MCMC/BetaParameter.cpp
 	MCMC/CredibleIntervals.cpp
+	MCMC/HyperpriorParameter.cpp
 	MCMC/IndependenceSampler.cpp
 	MCMC/MCMCDriver.cpp
 	MCMC/MHRatio.cpp
-	MCMC/Model.cpp
+	MCMC/MCMCModel.cpp
 	MCMC/OneDimensionRandomWalk.cpp
 	MCMC/Parameter.cpp
 	MCMC/RandomWalk.cpp

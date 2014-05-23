@@ -67,6 +67,12 @@ struct CCDArguments {
 	std::string hierarchyFileName; //tshaddox
 	double classHierarchyVariance; //tshaddox
 
+	//Needed for MCMC
+	bool useMCMC;
+	std::string MCMCFileName;
+	double betaAmount;
+	double sigmaAmount;
+
 	// Needed for boot-strapping
 	bool doBootstrap;
 	bool reportRawEstimates;
@@ -124,6 +130,12 @@ double runBoostrap(
 		CyclicCoordinateDescent *ccd,
 		ModelData *modelData,
 		CCDArguments &arguments);
+
+double runMCMC(
+		CyclicCoordinateDescent *ccd,
+		ModelData *modelData,
+		CCDArguments &arguments,
+		std::vector<real>& savedBeta);
 
 double calculateSeconds(
 		const struct timeval &time1,

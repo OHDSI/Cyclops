@@ -44,30 +44,23 @@ double IndependenceSampler::getTransformedTuningValue(double tuningParameter){
 }
 
 
-void IndependenceSampler::sample(Model& model, double tuningParameter, boost::mt19937& rng) {
+void IndependenceSampler::sample(MCMCModel& model, double tuningParameter) {
 	//cout << "IndependenceSampler::sample" << endl;
 
 	model.BetaStore();
-	Parameter & Beta = model.getBeta();
-	Parameter & Beta_Hat = model.getBeta_Hat();
+	BetaParameter & Beta = model.getBeta();
+	BetaParameter & Beta_Hat = model.getBeta_Hat();
 	//Eigen::LLT<Eigen::MatrixXf> choleskyEigen = model.getCholeskyLLT();
-
 
 	int sizeOfSample = Beta.getSize();
 
+	//Sampled independent normal values
 
-	vector<bsccs::real> independentNormal;  //Sampled independent normal values
-
-	boost::normal_distribution<> nd(0.0, 1.0); // TODO Construct once
-
-	boost::variate_generator<boost::mt19937&,
-	                           boost::normal_distribution<> > var_nor(rng, nd); // TODO Construct once
-
-	Eigen::VectorXf b = Eigen::VectorXf::Random(sizeOfSample);
+	Eigen::VectorXf independentNormal = Eigen::VectorXf::Random(sizeOfSample);
 	for (int i = 0; i < sizeOfSample; i++) {
-		bsccs::real normalValue = var_nor();
+		bsccs::real normalValue = generateGaussian();
 		// NB: tuningParameter scales the VARIANCE
-		b[i] = normalValue * std::sqrt(getTransformedTuningValue(tuningParameter)); // multiply by stdev
+		independentNormal[i] = normalValue * std::sqrt(getTransformedTuningValue(tuningParameter)); // multiply by stdev
 	}
 
 #ifdef Debug_TRS
@@ -77,29 +70,18 @@ void IndependenceSampler::sample(Model& model, double tuningParameter, boost::mt
 	cout << CholeskyDecompL << endl;
 #endif
 
-	((model.getCholeskyLLT()).matrixU()).solveInPlace(b);
+	((model.getCholeskyLLT()).matrixU()).solveInPlace(independentNormal);
 
 	// TODO Check marginal variance on b[i]
 
 
 	for (int i = 0; i < sizeOfSample; i++) {
-		Beta.set(i, b[i] + Beta_Hat.get(i));
+		Beta.set(i,independentNormal[i] + Beta_Hat.get(i));
 	}
-
-	/*
-	cout << "Beta current" << endl;
-	Beta.logParameter();
-	cout << "Beta storred" << endl;
-	Beta.logStored();
-	cout << "BetaHat current" << endl;
-	Beta_Hat.logParameter();
-	cout << "BetaHat storred" << endl;
-	Beta_Hat.logStored();
-	*/
 
 }
 
-bool IndependenceSampler::evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent & ccd){
+bool IndependenceSampler::evaluateSample(MCMCModel& model, double tuningParameter, CyclicCoordinateDescent & ccd){
 	//cout << "IndependenceSampler::evaluateSample" << endl;
 
 	bool accept = MHstep.evaluate(model);
@@ -108,7 +90,7 @@ bool IndependenceSampler::evaluateSample(Model& model, double tuningParameter, b
 	return(accept);
 }
 
-double IndependenceSampler::evaluateLogMHRatio(Model& model){
+double IndependenceSampler::evaluateLogMHRatio(MCMCModel& model){
 	//cout << "IndependenceSampler::evaluateSample" << endl;
 
 	double logRatio = MHstep.getLogMetropolisRatio(model)*MHstep.getLogHastingsRatio(model);
@@ -116,6 +98,8 @@ double IndependenceSampler::evaluateLogMHRatio(Model& model){
 
 	return(logRatio);
 }
+
+
 
 
 }

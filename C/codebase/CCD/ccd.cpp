@@ -39,6 +39,7 @@
 #include "io/NewGenericInputReader.h"
 #include "io/BBRInputReader.h"
 #include "io/OutputWriter.h"
+#include "MCMC/MCMCDriver.h"
 #include "CrossValidationSelector.h"
 #include "GridSearchCrossValidationDriver.h"
 #include "HierarchyGridSearchCrossValidationDriver.h"
@@ -207,6 +208,11 @@ void parseCommandLine(std::vector<std::string>& args,
 		ValueArg<string> hierarchyFileArg("a", "hierarchyFile", "Hierarchy file name", false, "noFileName", "hierarchyFile");
 		ValueArg<double> classHierarchyVarianceArg("d","classHierarchyVariance","Variance for drug class hierarchy", false, 10, "Variance at the class level of the hierarchy");
 
+		//MCMC arguments
+		SwitchArg useMCMCArg("", "mcmc", "Use MCMC in analysis", arguments.useMCMC);
+		ValueArg<double> betaAmountArg("q", "betaAmount", "beta amount in MCMC", false, arguments.betaAmount, "bsccs::real");
+		ValueArg<double> sigmaAmountArg("w", "sigmaAmount", "sigma amount in MCMC", false, arguments.sigmaAmount, "bsccs::real");
+		ValueArg<string> MCMCOutFileArg("m", "MCMCFileName", "MCMC output file name", false, "MCMC.txt", "MCMCFileName");
 
 		// Convergence criterion arguments
 		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, arguments.tolerance, "real");
@@ -345,10 +351,19 @@ void parseCommandLine(std::vector<std::string>& args,
 		arguments.reportASE = reportASEArg.getValue();
 		arguments.seed = seedArg.getValue();
 
+
+
 		//Hierarchy arguments
 		arguments.useHierarchy = useHierarchyArg.isSet();
 		arguments.hierarchyFileName = hierarchyFileArg.getValue(); // Hierarchy argument
 		arguments.classHierarchyVariance = classHierarchyVarianceArg.getValue(); //Hierarchy argument
+
+		//MCMC Arguments
+		arguments.useMCMC = useMCMCArg.isSet();
+		arguments.betaAmount = betaAmountArg.getValue();
+		arguments.sigmaAmount = sigmaAmountArg.getValue();
+		arguments.MCMCFileName = MCMCOutFileArg.getValue();
+
 
 		arguments.modelName = modelArg.getValue();
 		arguments.fileFormat = formatArg.getValue();
@@ -781,6 +796,24 @@ double runBoostrap(
 	gettimeofday(&time2, NULL);
 
 	driver.logResults(arguments, savedBeta, ccd->getConditionId());
+	return calculateSeconds(time1, time2);
+}
+
+double runMCMC(
+		CyclicCoordinateDescent *ccd,
+		ModelData *modelData,
+		CCDArguments &arguments,
+		std::vector<real>& savedBeta) {
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
+
+
+	MCMCDriver driver(arguments.MCMCFileName);
+
+	driver.drive(*ccd, arguments.betaAmount, 3);
+
+	gettimeofday(&time2, NULL);
+
 	return calculateSeconds(time1, time2);
 }
 

@@ -109,6 +109,8 @@ public:
 			int* inPid
 		);
 	
+	typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
+
 	void logResults(const char* fileName, bool withASE);
 
 	virtual ~CyclicCoordinateDescent();
@@ -138,6 +140,8 @@ public:
 	double getAsymptoticVariance(int i, int j);
 
 	double getAsymptoticPrecision(int i, int j);
+
+	CyclicCoordinateDescent::Matrix& getHessianMatrix();
 
 //	void setZeroBetaFixed(void);
 		
@@ -391,7 +395,7 @@ protected:
 	real* wPid;
 #endif
 
-	typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
+	//typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 	Matrix hessianMatrix;
 	Matrix varianceMatrix;
 

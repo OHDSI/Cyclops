@@ -20,7 +20,7 @@
 #include <time.h>
 #include <set>
 
-#include "Parameter.h"
+#include "BetaParameter.h"
 #include "TransitionKernel.h"
 #include "MHRatio.h"
 
@@ -33,8 +33,6 @@
 #include "AbstractSelector.h"
 #include "ccd.h"
 
-#include <boost/random.hpp>
-
 
 namespace bsccs {
 
@@ -46,9 +44,9 @@ public:
 
 	virtual ~RandomWalk();
 
-	void sample(Model& model, double tuningParameter, boost::mt19937& rng);
+	void sample(MCMCModel& model, double tuningParameter);
 
-	bool evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent& ccd);
+	bool evaluateSample(MCMCModel& model, double tuningParameter, CyclicCoordinateDescent& ccd);
 
 	double getTransformedTuningValue(double tuningParameter);
 

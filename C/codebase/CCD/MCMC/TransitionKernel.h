@@ -12,10 +12,10 @@
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include "Parameter.h"
-#include <boost/random.hpp>
-#include <boost/random/normal_distribution.hpp>
+#include <random>
+
 #include "CyclicCoordinateDescent.h"
-#include "Model.h"
+#include "MCMCModel.h"
 
 
 namespace bsccs {
@@ -23,9 +23,11 @@ class TransitionKernel {
 public:
 	TransitionKernel();
 	virtual ~TransitionKernel();
-	virtual void sample(Model & model, double tuningParameter, boost::mt19937& rng);
+	virtual void sample(MCMCModel & model, double tuningParameter);
 
-	virtual bool evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent & ccd);
+	virtual bool evaluateSample(MCMCModel& model, double tuningParameter, CyclicCoordinateDescent & ccd);
+
+	double generateGaussian();
 };
 }
 

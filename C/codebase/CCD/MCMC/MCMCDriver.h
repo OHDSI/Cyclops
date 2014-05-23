@@ -17,14 +17,16 @@
 #include "AbstractSelector.h"
 #include "ccd.h"
 #include "Parameter.h"
-#include "Model.h"
+#include "BetaParameter.h"
+#include "HyperpriorParameter.h"
+#include "MCMCModel.h"
 #include "TransitionKernel.h"
 #include "CredibleIntervals.h"
 
 namespace bsccs {
 class MCMCDriver {
 public:
-	MCMCDriver(InputReader * inReader, std::string MCMCFileName);
+	MCMCDriver(std::string MCMCFileName);
 
 	virtual ~MCMCDriver();
 
@@ -32,9 +34,9 @@ public:
 			CyclicCoordinateDescent& ccd, double betaAmount, long int seed);
 
 
-	void initialize(double betaAmount, Model & model, CyclicCoordinateDescent& ccd, long int seed);
+	void initialize(double betaAmount, MCMCModel & model, CyclicCoordinateDescent& ccd, long int seed);
 
-	void logState(Model & model, int iterations);
+	void logState(MCMCModel & model, int iterations);
 
 	double targetTransform(double alpha, double target);
 

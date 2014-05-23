@@ -17,9 +17,7 @@
 #include <set>
 
 #include "SigmaSampler.h"
-
-#include <boost/random.hpp>
-#include <boost/random/gamma_distribution.hpp>
+#include <random>
 
 using std::cout;
 using std::cerr;
@@ -39,14 +37,14 @@ namespace bsccs {
 
 	}
 
-	void SigmaSampler::sample(Model& model, double tuningParameter, boost::mt19937& rng){
+	void SigmaSampler::sample(MCMCModel& model, double tuningParameter){
 		//cout << "SigmaSampler::sample" << endl;
 
 		// tau | BetaVector ~ gamma(alpha + N/2, Beta + (1/2)(SUM(beta_i - mu)^2)
 		// prior: tau ~ gamma(alpha, beta)
 
-		Parameter& BetaValues = model.getBeta();
-		Parameter& SigmaSquared = model.getSigmaSquared();
+		BetaParameter& BetaValues = model.getBeta();
+		HyperpriorParameter& SigmaSquared = model.getSigmaSquared();
 
 		SigmaSquared.store();
 
@@ -69,16 +67,17 @@ namespace bsccs {
 		const double shape = SigmaParameter_alpha + BetaValues.getSize() / 2;
 		double scale = SigmaParameter_beta + BetaMinusMu / 2;
 
-		boost::gamma_distribution<> gd( shape );
-		boost::variate_generator<boost::mt19937&,boost::gamma_distribution<> > var_gamma(model.getRng(), gd );
+		///  Check scale
+		std::default_random_engine generator;
+		std::gamma_distribution<double> distribution(shape,scale);
 
-		double newValue = (1/scale)*var_gamma();
+		double newValue = distribution(generator);
 
 		SigmaSquared.set(0, newValue);
 
 	}
 
-	bool SigmaSampler::evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent & ccd){
+	bool SigmaSampler::evaluateSample(MCMCModel& model, double tuningParameter, CyclicCoordinateDescent & ccd){
 		//cout << "SigmaSampler::evaluateSample" << endl;
 		model.resetWithNewSigma();
 		return(true); // Gibbs step always accepts

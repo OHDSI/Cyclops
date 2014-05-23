@@ -20,10 +20,7 @@
 
 #include "CyclicCoordinateDescent.h"
 #include "Parameter.h"
-#include "Model.h"
-
-#include <boost/random.hpp>
-#include <boost/random/normal_distribution.hpp>
+#include "MCMCModel.h"
 
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
@@ -48,11 +45,11 @@ namespace bsccs {
 
 		void initialize(CyclicCoordinateDescent & ccd);
 
-		bool evaluate(Model & model);
+		bool evaluate(MCMCModel & model);
 
-		double getLogMetropolisRatio(Model & model);
+		double getLogMetropolisRatio(MCMCModel & model);
 
-		double getLogHastingsRatio(Model & model);
+		double getLogHastingsRatio(MCMCModel & model);
 
 		double getStoredLogLikelihood() { return storedFBetaCurrent; }
 		double getStoredLogPrior() { return storedPBetaCurrent; }

@@ -686,6 +686,20 @@ double CyclicCoordinateDescent::getAsymptoticPrecision(int indexOne, int indexTw
 	}
 }
 
+
+/*  Code by Trevor Shaddox
+ * 	The MCMC utilities need access to the whole Hessian matrix,
+ * 	not just the diagonal elements.
+*/
+CyclicCoordinateDescent::Matrix& CyclicCoordinateDescent::getHessianMatrix(){
+	checkAllLazyFlags();
+	if (!fisherInformationKnown) {
+			computeAsymptoticPrecisionMatrix();
+			fisherInformationKnown = true;
+	}
+	return(hessianMatrix);
+}
+
 void CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix(void) {
 
 	typedef std::vector<int> int_vec;
@@ -724,16 +738,16 @@ void CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix(void) {
 		}
 	}
 
-//	sm.setFromTriplets(tripletList.begin(), tripletList.end());
-//	cout << sm;
-//	auto inv = sm.triangularView<Upper>().solve(dv1);
-//	cout << sm.inverse();
-//	cout << hessianMatrix << endl;
+	//sm.setFromTriplets(tripletList.begin(), tripletList.end());
+	//cout << sm;
+	//auto inv = sm.triangularView<Upper>().solve(dv1);
+	//cout << sm.inverse();
+	//cout << hessianMatrix << endl;
 
 	// Take inverse
-//	hessianMatrix = hessianMatrix.inverse();
+	//hessianMatrix = hessianMatrix.inverse();
 
-//	cout << hessianMatrix << endl;
+	cout << hessianMatrix << endl;
 }
 
 void CyclicCoordinateDescent::computeAsymptoticVarianceMatrix(void) {

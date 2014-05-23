@@ -18,12 +18,11 @@
 #include <time.h>
 #include <set>
 
-
-#include <boost/random.hpp>
-
 #include "Parameter.h"
+#include "HyperpriorParameter.h"
+#include "BetaParameter.h"
 #include "TransitionKernel.h"
-#include "Model.h"
+#include "MCMCModel.h"
 
 using std::cout;
 using std::cerr;
@@ -42,9 +41,9 @@ public:
 
 	virtual ~SigmaSampler();
 
-	void sample(Model& model, double tuningParameter, boost::mt19937& rng);
+	void sample(MCMCModel& model, double tuningParameter);
 
-	bool evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent & ccd);
+	bool evaluateSample(MCMCModel& model, double tuningParameter, CyclicCoordinateDescent & ccd);
 
 protected:
 

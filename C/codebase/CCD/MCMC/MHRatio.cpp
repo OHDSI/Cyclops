@@ -20,9 +20,6 @@
 
 #include "MHRatio.h"
 
-#include <boost/random.hpp>
-#include <boost/random/uniform_real.hpp>
-
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
 
@@ -43,7 +40,7 @@ MHRatio::~MHRatio(){
 }
 
 
-bool MHRatio::evaluate(Model & model) {
+bool MHRatio::evaluate(MCMCModel & model) {
 
 
 	double logMetropolisRatio = getLogMetropolisRatio(model);
@@ -67,12 +64,12 @@ bool MHRatio::evaluate(Model & model) {
 // Set our alpha
 
 	alpha = min(logRatio, 0.0);
-	static boost::uniform_01<boost::mt19937> zeroone(model.getRng());
+
 
 
 
 // Sample from a uniform distribution
-	double uniformRandom = zeroone();
+	double uniformRandom = rand() / ((double) RAND_MAX);
 	double logUniformRandom = log(uniformRandom);
 
 	bool returnValue;
@@ -106,7 +103,7 @@ double MHRatio::getTransformedTuningValue(double tuningParameter){
 
 
 
-double MHRatio::getLogMetropolisRatio(Model & model){
+double MHRatio::getLogMetropolisRatio(MCMCModel & model){
 
 	// Get the proposed Beta values
 		vector<double> * betaPossible = (model.getBeta()).returnCurrentValuesPointer();
@@ -133,7 +130,7 @@ double MHRatio::getLogMetropolisRatio(Model & model){
 		return(ratio);
 }
 
-double MHRatio::getLogHastingsRatio(Model & model){
+double MHRatio::getLogHastingsRatio(MCMCModel & model){
 
 
 	int betaLength = (model.getBeta()).getSize();

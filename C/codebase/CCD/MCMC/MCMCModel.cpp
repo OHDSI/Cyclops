@@ -7,39 +7,37 @@
 
 
 
-#include "Model.h"
+#include "MCMCModel.h"
 
 namespace bsccs {
 
- Model::Model(){}
+ MCMCModel::MCMCModel(){}
 
- void Model::initialize(CyclicCoordinateDescent& ccdIn, long int seed){
-	 // cout << "Model Initialize" << endl;
+ void MCMCModel::initialize(CyclicCoordinateDescent& ccdIn, long int seed){
+	 // cout << "MCMCModel Initialize" << endl;
 
-	 boost::mt19937 rng(seed);
+
 	 ccd = &ccdIn;
+
 	 J = ccd->getBetaSize();
-	 //ccd->setUpHessianComponents(false);
 	 initializeHessian();
-	 //ccd->computeXBeta_GPU_TRS_initialize();
 
-	 clearHessian();
-	 //ccd->getHessian(&hessian);
+	 HessianMatrix = (ccd->getHessianMatrix()).cast<float>();
 	 generateCholesky();
-	 // Beta_Hat = modes from ccd
 
-	 // Beta_Hat.initialize(ccd->hBeta, J);
-	 //Beta_Hat.store();
+	 // Beta_Hat = modes from ccd
+	 Beta_Hat.initialize(*ccd, J);
+	 Beta_Hat.store();
 	 // Set up Beta
-	 // Beta.initialize(ccd->hBeta, J);
+	 Beta.initialize(*ccd, J);
 	 //Beta.setProbabilityUpdate(betaAmount);
 	 Beta.store();
 
 	 // Set up Sigma squared
 	 bsccs::real sigma2Start;
-	 //sigma2Start = (bsccs::real) ccd->sigma2Beta;
-	 //SigmaSquared.initialize(&sigma2Start, 1);
-	 //SigmaSquared.logParameter();
+	 sigma2Start = (bsccs::real) ccd->getHyperprior();
+	 SigmaSquared.initialize(*ccd,1);
+	 SigmaSquared.logParameter();
 
 	logLikelihood = ccd->getLogLikelihood();
 	logPrior = ccd->getLogPrior();
@@ -47,19 +45,20 @@ namespace bsccs {
 	useHastingsRatio = true;
  }
 
- Model::~Model(){}
+ MCMCModel::~MCMCModel(){}
 
- void Model::initializeHessian() {
+ void MCMCModel::initializeHessian() {
 
  	for (int i = 0; i < J; i ++){
  		vector<bsccs::real> columnInHessian(J,0);
  		hessian.push_back(columnInHessian);
  	}
+ 	clearHessian();
  }
 
- void Model::resetWithNewSigma(){
+ void MCMCModel::resetWithNewSigma(){
 		// TODO Need Wrapper for this....
-	 	// cout << "\n\n \t\t Model::resetWithNewSigma " << endl;
+	 	// cout << "\n\n \t\t MCMCModel::resetWithNewSigma " << endl;
 	 	// cout << "old likelihood = " << ccd->getLogLikelihood() << endl;
 		ccd->resetBeta();
 		ccd->setHyperprior(SigmaSquared.get(0));
@@ -83,8 +82,7 @@ namespace bsccs {
 		newLogPriorAndLikelihood = true;
  }
 
- void Model::clearHessian() {
-
+ void MCMCModel::clearHessian() {
 
  	for (int i = 0; i < J; i ++){
  		for (int j = 0; j < J; j++) {
@@ -93,7 +91,7 @@ namespace bsccs {
  	}
  }
 
- void Model::generateCholesky() {
+ void MCMCModel::generateCholesky() {
  	HessianMatrix.resize(J, J);
 
  	//Convert to Eigen for Cholesky decomposition
@@ -126,8 +124,8 @@ namespace bsccs {
 
  }
 
-void Model::restore(){
-	// cout << "Model::restore" << endl;
+void MCMCModel::restore(){
+
 	if (Beta_Hat.getRestorable()){
 		Beta_Hat.restore();
 	}
@@ -137,48 +135,48 @@ void Model::restore(){
 	if (SigmaSquared.getRestorable()){
 		SigmaSquared.restore();
 	}
-	//cout << "in model::restore, storedLogLikelihood = " << storedLogLikelihood << endl;
+
 	setLogLikelihood(storedLogLikelihood);
 	setLogPrior(storedLogPrior);
 }
 
-void Model::acceptChanges(){
-	// cout << "Model::acceptChanges" << endl;
+void MCMCModel::acceptChanges(){
+	// cout << "MCMCModel::acceptChanges" << endl;
 
 	Beta_Hat.setRestorable(false);
 	Beta.setRestorable(false);
 	SigmaSquared.setRestorable(false);
 }
 
-void Model::setNewLogPriorAndLikelihood(bool newOrNot){
+void MCMCModel::setNewLogPriorAndLikelihood(bool newOrNot){
 	newLogPriorAndLikelihood = newOrNot;
 }
 
-bool Model::getNewLogPriorAndLikelihood(){
+bool MCMCModel::getNewLogPriorAndLikelihood(){
 	return(newLogPriorAndLikelihood);
 }
 
 
-void Model::Beta_HatStore(){
+void MCMCModel::Beta_HatStore(){
 	Beta_Hat.store();
 }
-void Model::BetaStore(){
-	// cout <<"Model:BetaStore" << endl;
+void MCMCModel::BetaStore(){
+	// cout <<"MCMCModel:BetaStore" << endl;
 
 	Beta.store();
 	//cout << "Beta current" << endl;
 	//Beta.logParameter();
 	//cout << "Beta storred" << endl;
 	//Beta.logStored();
-	//cout << "Model:BetaStore End" << endl;
+	//cout << "MCMCModel:BetaStore End" << endl;
 
-}void Model::SigmaSquaredStore(){
+}void MCMCModel::SigmaSquaredStore(){
 	SigmaSquared.store();
 }
 
 
-void Model::logState(){
-	// cout << "Model::logState" << endl;
+void MCMCModel::logState(){
+	// cout << "MCMCModel::logState" << endl;
 	Beta.logParameter();
 	Beta.logStored();
 	Beta_Hat.logParameter();
@@ -187,7 +185,7 @@ void Model::logState(){
 	SigmaSquared.logStored();
 }
 
-void Model::writeVariances(){
+void MCMCModel::writeVariances(){
 	for(int i = 0; i<J; i ++){
 		Beta.set(i, HessianMatrixInverse(i,i));
 		//cout<< "Beta[" <<i <<"] = " << Beta.get(i) << endl;
@@ -201,76 +199,73 @@ void Model::writeVariances(){
 
 }
 
-bool Model::getUseHastingsRatio(){
+bool MCMCModel::getUseHastingsRatio(){
 	return(useHastingsRatio);
 }
 
-void Model::setUseHastingsRatio(bool newUseHastingsRatio){
+void MCMCModel::setUseHastingsRatio(bool newUseHastingsRatio){
 	useHastingsRatio = newUseHastingsRatio;
 }
 
 
-double Model::getLogLikelihood(){
+double MCMCModel::getLogLikelihood(){
 	return(logLikelihood);
 }
 
-double Model::getStoredLogLikelihood(){
+double MCMCModel::getStoredLogLikelihood(){
 	return(storedLogLikelihood);
 }
 
-void Model::setLogLikelihood(double newLoglikelihood){
+void MCMCModel::setLogLikelihood(double newLoglikelihood){
 	storedLogLikelihood = logLikelihood;
 	logLikelihood = newLoglikelihood;
 }
 
-double Model::getLogPrior(){
+double MCMCModel::getLogPrior(){
 	return(logPrior);
 }
 
-double Model::getStoredLogPrior(){
+double MCMCModel::getStoredLogPrior(){
 	return(storedLogPrior);
 }
 
-void Model::setLogPrior(double newLogPrior){
+void MCMCModel::setLogPrior(double newLogPrior){
 	storedLogPrior = logPrior;
 	logPrior = newLogPrior;
 }
 
- Parameter& Model::getBeta(){
+ BetaParameter& MCMCModel::getBeta(){
 	 return(Beta);
  }
 
- Parameter& Model::getBeta_Hat(){
+ BetaParameter& MCMCModel::getBeta_Hat(){
 	 return(Beta_Hat);
  }
 
- Parameter& Model::getSigmaSquared(){
+ HyperpriorParameter& MCMCModel::getSigmaSquared(){
 	 return(SigmaSquared);
  }
 
- Eigen::LLT<Eigen::MatrixXf> Model::getCholeskyLLT(){
+ Eigen::LLT<Eigen::MatrixXf> MCMCModel::getCholeskyLLT(){
 	 return(CholDecom);
  }
 
- Eigen::MatrixXf& Model::getHessian(){
+ Eigen::MatrixXf& MCMCModel::getHessian(){
  	 return(HessianMatrix);
   }
 
- double Model::getTuningParameter(){
+ double MCMCModel::getTuningParameter(){
 	 return(tuningParameter);
  }
 
- void Model::setTuningParameter(double nextTuningParameter){
+ void MCMCModel::setTuningParameter(double nextTuningParameter){
 	 tuningParameter = nextTuningParameter;
  }
 
- CyclicCoordinateDescent& Model::getCCD(){
+ CyclicCoordinateDescent& MCMCModel::getCCD(){
 	 return(*ccd);
  }
 
- boost::mt19937 & Model::getRng(){
-	 return(rng);
- }
 
 
 

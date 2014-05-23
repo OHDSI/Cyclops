@@ -53,7 +53,7 @@ void CredibleIntervals::fileLogCredibleIntervals(double loglikelihood, vector<do
 	string sep(","); // TODO Make option
 
 	outLog << iteration << sep;
-	outLog << std::setprecision(15) << loglikelihood << sep;
+	outLog << loglikelihood << sep;
 	for (int k = 0; k < betaSize; k++) {
 		outLog << (*BetaValues)[k] << sep;
 	}

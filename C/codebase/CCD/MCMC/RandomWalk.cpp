@@ -24,9 +24,6 @@
 #include <Eigen/Core>
 
 
-#include <boost/random.hpp>
-#include <boost/random/normal_distribution.hpp>
-
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
 
 //#define Debug_TRS
@@ -45,13 +42,13 @@ RandomWalk::~RandomWalk() {
 double RandomWalk::getTransformedTuningValue(double tuningParameter){
 	return exp(-tuningParameter);
 }
-void RandomWalk::sample(Model& model, double tuningParameter, boost::mt19937& rng) {
+void RandomWalk::sample(MCMCModel& model, double tuningParameter) {
 	cout << "RandomWalk::sample" << endl;
 
-	Parameter & Beta = model.getBeta();
+	BetaParameter & Beta = model.getBeta();
 	cout << "Beta is" << endl;
 	Beta.logParameter();
-	Parameter & Beta_Hat = model.getBeta_Hat();
+	BetaParameter & Beta_Hat = model.getBeta_Hat();
 	cout << "BetaHat is " << endl;
 	Beta_Hat.logParameter();
 	Eigen::LLT<Eigen::MatrixXf> choleskyEigen = model.getCholeskyLLT();
@@ -59,19 +56,13 @@ void RandomWalk::sample(Model& model, double tuningParameter, boost::mt19937& rn
 	int sizeOfSample = Beta.getSize();
 
 
-	vector<bsccs::real> independentNormal;  //Sampled independent normal values
-
-	boost::normal_distribution<> nd(0.0, 1.0); // TODO Construct once
-
-	boost::variate_generator<boost::mt19937&,
-	                           boost::normal_distribution<> > var_nor(rng, nd); // TODO Construct once
-
-	Eigen::VectorXf b = Eigen::VectorXf::Random(sizeOfSample);
+	Eigen::VectorXf independentNormal = Eigen::VectorXf::Random(sizeOfSample);
 	for (int i = 0; i < sizeOfSample; i++) {
-		bsccs::real normalValue = var_nor();
+		bsccs::real normalValue = generateGaussian();
 		// NB: tuningParameter scales the VARIANCE
-		b[i] = normalValue * std::sqrt(getTransformedTuningValue(tuningParameter)); // multiply by stdev
+		independentNormal[i] = normalValue * std::sqrt(getTransformedTuningValue(tuningParameter)); // multiply by stdev
 	}
+
 
 #ifdef Debug_TRS
 	cout << "Cholesky in Sampler " << endl;
@@ -80,24 +71,24 @@ void RandomWalk::sample(Model& model, double tuningParameter, boost::mt19937& rn
 	cout << CholeskyDecompL << endl;
 #endif
 
-	(choleskyEigen.matrixU()).solveInPlace(b);
+	(choleskyEigen.matrixU()).solveInPlace(independentNormal);
 
 	// TODO Check marginal variance on b[i]
 
 
 	for (int i = 0; i < sizeOfSample; i++) {
-		Beta.set(i, b[i] + Beta_Hat.get(i));
+		Beta.set(i, independentNormal[i] + Beta_Hat.get(i));
 	}
 	cout << "End of Sample Beta is" << endl;
 	Beta.logParameter();
 
 }
 
-bool RandomWalk::evaluateSample(Model& model, double tuningParameter, boost::mt19937& rng, CyclicCoordinateDescent & ccd){
+bool RandomWalk::evaluateSample(MCMCModel& model, double tuningParameter, CyclicCoordinateDescent & ccd){
 	cout << "RandomWalk::evaluateSample" << endl;
 
-	Parameter & Beta = model.getBeta();
-	Parameter & Beta_Hat = model.getBeta_Hat();
+	BetaParameter & Beta = model.getBeta();
+	BetaParameter & Beta_Hat = model.getBeta_Hat();
 
 	model.setUseHastingsRatio(false);
 
