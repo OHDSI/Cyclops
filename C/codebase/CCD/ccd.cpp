@@ -164,6 +164,7 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.gridSteps = 10;
 	arguments.cvFileName = "cv.txt";
 	arguments.useHierarchy = false;
+	arguments.useMCMC = false;
 	arguments.doBootstrap = false;
 	arguments.replicates = 100;
 	arguments.reportRawEstimates = false;
@@ -203,16 +204,19 @@ void parseCommandLine(std::vector<std::string>& args,
 		SwitchArg computeMLEAtModeArg("", "MLEAtMode", "Compute maximum likelihood estimates at posterior mode", arguments.fitMLEAtMode);
 		SwitchArg reportASEArg("","ASE", "Compute asymptotic standard errors at posterior mode", arguments.reportASE);
 
+		cout << "here?" << endl;
+		//MCMC arguments
+		SwitchArg useMCMCArg("", "mcmc", "Use MCMC in analysis", arguments.useMCMC);
+		ValueArg<double> betaAmountArg("", "betaAmount", "beta amount in MCMC", false, arguments.betaAmount, "bsccs::real");
+		ValueArg<double> sigmaAmountArg("", "sigmaAmount", "sigma amount in MCMC", false, arguments.sigmaAmount, "bsccs::real");
+		ValueArg<string> MCMCOutFileArg("", "MCMCFileName", "MCMC output file name", false, "MCMC.txt", "MCMCFileName");
+		cout << "here?" << endl;
+
 		//Hierarchy arguments
 		SwitchArg useHierarchyArg("", "hier", "Use hierarchy in analysis", arguments.useHierarchy);
 		ValueArg<string> hierarchyFileArg("a", "hierarchyFile", "Hierarchy file name", false, "noFileName", "hierarchyFile");
 		ValueArg<double> classHierarchyVarianceArg("d","classHierarchyVariance","Variance for drug class hierarchy", false, 10, "Variance at the class level of the hierarchy");
 
-		//MCMC arguments
-		SwitchArg useMCMCArg("", "mcmc", "Use MCMC in analysis", arguments.useMCMC);
-		ValueArg<double> betaAmountArg("q", "betaAmount", "beta amount in MCMC", false, arguments.betaAmount, "bsccs::real");
-		ValueArg<double> sigmaAmountArg("w", "sigmaAmount", "sigma amount in MCMC", false, arguments.sigmaAmount, "bsccs::real");
-		ValueArg<string> MCMCOutFileArg("m", "MCMCFileName", "MCMC output file name", false, "MCMC.txt", "MCMCFileName");
 
 		// Convergence criterion arguments
 		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, arguments.tolerance, "real");
@@ -307,6 +311,12 @@ void parseCommandLine(std::vector<std::string>& args,
 		cmd.add(useHierarchyArg);
 		cmd.add(hierarchyFileArg);
 		cmd.add(classHierarchyVarianceArg);
+
+		//MCMC arguments
+		cmd.add(useMCMCArg);
+		cmd.add(betaAmountArg);
+		cmd.add(sigmaAmountArg);
+		cmd.add(MCMCOutFileArg);
 
 		cmd.add(doCVArg);
 		cmd.add(useAutoSearchCVArg);
@@ -807,7 +817,7 @@ double runMCMC(
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-
+	cout << "here"
 	MCMCDriver driver(arguments.MCMCFileName);
 
 	driver.drive(*ccd, arguments.betaAmount, 3);
@@ -992,6 +1002,15 @@ int main(int argc, char* argv[]) {
 			savedBeta.push_back(ccd->getBeta(j));
 		}
 		timeUpdate += runBoostrap(ccd, modelData, arguments, savedBeta);
+	}
+
+	if (arguments.useMCMC) {
+		// Save parameter point-estimates
+		std::vector<bsccs::real> savedBeta;
+		for (int j = 0; j < ccd->getBetaSize(); ++j) {
+			savedBeta.push_back(ccd->getBeta(j));
+		}
+		timeUpdate += runMCMC(ccd, modelData, arguments, savedBeta);
 	}
 		
 	cout << endl;
