@@ -38,22 +38,23 @@ namespace bsccs {
 
 using namespace std;
 
-void compareIntVector(int* vec0, int* vec1, int dim, const char* name) {
-	for (int i = 0; i < dim; i++) {
-		if (vec0[i] != vec1[i]) {
-			cerr << "Error at " << name << "[" << i << "]: ";
-			cerr << vec0[i] << " != " << vec1[i] << endl;
-			exit(0);
-		}
-	}
-}
+// void compareIntVector(int* vec0, int* vec1, int dim, const char* name) {
+// 	for (int i = 0; i < dim; i++) {
+// 		if (vec0[i] != vec1[i]) {
+// 			cerr << "Error at " << name << "[" << i << "]: ";
+// 			cerr << vec0[i] << " != " << vec1[i] << endl;
+// 			exit(0);
+// 		}
+// 	}
+// }
 
 CyclicCoordinateDescent::CyclicCoordinateDescent(
 			ModelData* reader,
 			AbstractModelSpecifics& specifics,
 			priors::JointPriorPtr prior,
-			loggers::ProgressLoggerPtr _logger
-		) : modelSpecifics(specifics), jointPrior(prior), logger(_logger) {
+			loggers::ProgressLoggerPtr _logger,
+			loggers::ErrorHandlerPtr _error
+		) : modelSpecifics(specifics), jointPrior(prior), logger(_logger), error(_error) {
 	N = reader->getNumberOfPatients();
 	K = reader->getNumberOfRows();
 	J = reader->getNumberOfColumns();
@@ -241,8 +242,9 @@ void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
 
 	ofstream outLog(fileName);
 	if (!outLog) {
-		cerr << "Unable to open log file: " << fileName << endl;
-		exit(-1);
+	    std::ostringstream stream;
+		stream << "Unable to open log file: " << fileName;
+		error->throwError(stream);		
 	}
 	string sep(","); // TODO Make option
 
@@ -377,8 +379,9 @@ void CyclicCoordinateDescent::makeDirty(void) {
 
 void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 	if (iPriorType < NONE || iPriorType > NORMAL) {
-		cerr << "Unknown prior type" << endl;
-		exit(-1);
+	    std::ostringstream stream;
+		stream << "Unknown prior type";
+		error->throwError(stream);		
 	}
 	priorType = iPriorType;
 }
@@ -415,7 +418,7 @@ void CyclicCoordinateDescent::setWeights(real* iWeights) {
 			free(hWeights);
 			hWeights = NULL;
 		}
-		std::cerr << "Turning off weights!" << std::endl;
+		
 		// Turn off weights
 		useCrossValidation = false;
 		validWeights = false;
@@ -451,15 +454,18 @@ double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
 			}
 		}
 		return static_cast<double> (criterion);
-	}
+	} else
 	if (convergenceType == MITTAL) {
 		return getLogLikelihood();
-	}
+	} else
 	if (convergenceType == LANGE) {
 		return getLogLikelihood() + getLogPrior();
-	}
-	cerr << "Invalid convergence type: " << convergenceType << endl;
-	exit(-1);
+	} else {
+    	std::ostringstream stream;
+    	stream << "Invalid convergence type: " << convergenceType;
+    	error->throwError(stream);	
+    }
+    return 0.0;
 }
 
 double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
@@ -490,8 +496,9 @@ void CyclicCoordinateDescent::update(
 		) {
 
 	if (convergenceType < GRADIENT || convergenceType > ZHANG_OLES) {
-		cerr << "Unknown convergence criterion: " << convergenceType << endl;		
-		exit(-1);
+	    std::ostringstream stream;
+		stream << "Unknown convergence criterion: " << convergenceType;
+		error->throwError(stream);				
 	}
 
 	if (!validWeights) {    	   	
@@ -630,8 +637,9 @@ void CyclicCoordinateDescent::computeNumeratorForGradient(int index) {
 }
 
 void CyclicCoordinateDescent::computeRatiosForGradientAndHessian(int index) {
-	cerr << "Error!" << endl;
-	exit(-1);
+    std::ostringstream stream;
+	stream << "Error!";
+	error->throwError(stream);
 }
 
 double CyclicCoordinateDescent::getHessianDiagonal(int index) {
@@ -742,8 +750,9 @@ void CyclicCoordinateDescent::computeAsymptoticVarianceMatrix(void) {
 double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 
 	if (!sufficientStatisticsKnown) {
-		cerr << "Error in state synchronization." << endl;
-		exit(0);		
+	    std::ostringstream stream;
+		stream << "Error in state synchronization.";
+		error->throwError(stream);				
 	}
 	
 	computeNumeratorForGradient(index);
@@ -777,7 +786,9 @@ void CyclicCoordinateDescent::axpyXBeta(const real beta, const int j) {
 			break;
 		default:
 			// throw error
-			exit(-1);
+			std::ostringstream stream;
+			stream << "Unknown vector type.";
+			error->throwError(stream);
 		}
 	}
 }
@@ -891,8 +902,9 @@ T* CyclicCoordinateDescent::readVector(
 
 void CyclicCoordinateDescent::testDimension(int givenValue, int trueValue, const char *parameterName) {
 	if (givenValue != trueValue) {
-		cerr << "Wrong dimension in " << parameterName << " vector." << endl;
-		exit(-1);
+	    std::ostringstream stream;
+		stream << "Wrong dimension in " << parameterName << " vector.";
+		error->throwError(stream);		
 	}
 }	
 

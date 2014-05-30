@@ -61,7 +61,8 @@ public:
 			ModelData* modelData,
 			AbstractModelSpecifics& specifics,
 			priors::JointPriorPtr prior,
-			loggers::ProgressLoggerPtr logger
+			loggers::ProgressLoggerPtr logger,
+			loggers::ErrorHandlerPtr error
 //			ModelSpecifics<DefaultModel>& specifics
 		);
 
@@ -369,6 +370,7 @@ protected:
 	SetBetaContainer setBetaList;
 	
 	loggers::ProgressLoggerPtr logger;
+	loggers::ErrorHandlerPtr error;
 };
 
 double convertVarianceToHyperparameter(double variance);

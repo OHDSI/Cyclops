@@ -14,6 +14,7 @@
 #include "CyclicCoordinateDescent.h"
 #include "io/OutputWriter.h"
 #include "RcppOutputHelper.h"
+#include "RcppProgressLogger.h"
 
 // Rcpp export code
 
@@ -179,8 +180,12 @@ void RcppCcdInterface::initializeModelImpl(
 // 		hierarchicalPrior->setVariance(1,arguments.classHierarchyVariance);
 // 		prior = hierarchicalPrior;
 // 	}
+
+  loggers::ProgressLoggerPtr logger = bsccs::make_shared<loggers::RcppProgressLogger>();
+  loggers::ErrorHandlerPtr error = bsccs::make_shared<loggers::RcppErrorHandler>();
+
  
- 	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model, prior);
+ 	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model, prior, logger, error);
  
  #ifdef CUDA
  	}
