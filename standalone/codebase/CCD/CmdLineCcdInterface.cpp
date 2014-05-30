@@ -50,6 +50,7 @@
 // #include "drivers/ProportionSelector.h"
 // #include "drivers/BootstrapDriver.h"
 #include "engine/ModelSpecifics.h"
+#include "io/ProgressLogger.h"
 // 
 #include "tclap/CmdLine.h"
 // #include "utils/RZeroIn.h"
@@ -465,7 +466,8 @@ void CmdLineCcdInterface::initializeModelImpl(
 		prior = hierarchicalPrior;
 	}
 
-	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model, prior);
+    loggers::ProgressLoggerPtr logger = bsccs::make_shared<loggers::CoutLogger>();
+	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model, prior, logger);
 
 #ifdef CUDA
 	}

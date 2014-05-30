@@ -18,6 +18,7 @@
 #include "CyclicCoordinateDescent.h"
 // #include "io/InputReader.h"
 #include "Iterators.h"
+// #include "io/ProgressLogger.h"
 
 //#ifdef MY_RCPP_FLAG
 //	#include <R.h>
@@ -50,8 +51,9 @@ void compareIntVector(int* vec0, int* vec1, int dim, const char* name) {
 CyclicCoordinateDescent::CyclicCoordinateDescent(
 			ModelData* reader,
 			AbstractModelSpecifics& specifics,
-			priors::JointPriorPtr prior
-		) : modelSpecifics(specifics), jointPrior(prior) {
+			priors::JointPriorPtr prior,
+			loggers::ProgressLoggerPtr _logger
+		) : modelSpecifics(specifics), jointPrior(prior), logger(_logger) {
 	N = reader->getNumberOfPatients();
 	K = reader->getNumberOfRows();
 	J = reader->getNumberOfColumns();
@@ -537,7 +539,9 @@ void CyclicCoordinateDescent::update(
 			}
 			
 			if ( (noiseLevel > QUIET) && ((index+1) % 100 == 0)) {
-				cout << "Finished variable " << (index+1) << endl;
+			    std::ostringstream stream;
+			    stream << "Finished variable " << (index+1);
+			    logger->writeLine(stream);
 			}
 			
 		}
@@ -553,7 +557,9 @@ void CyclicCoordinateDescent::update(
 			if (convergenceType < ZHANG_OLES) {
  				double thisObjFunc = getObjectiveFunction(convergenceType);
 				if (thisObjFunc != thisObjFunc) {
-					cout << endl << "Warning! problem is ill-conditioned for this choice of hyperparameter. Enforcing convergence!" << endl;
+				    std::ostringstream stream;
+					stream << "\nWarning! problem is ill-conditioned for this choice of hyperparameter. Enforcing convergence!";
+					logger->writeLine(stream);
 					conv = 0.0;
 					illconditioned = true;
 				} else {
@@ -570,11 +576,12 @@ void CyclicCoordinateDescent::update(
 			double thisLogPrior = getLogPrior();
 			double thisLogPost = thisLogLikelihood + thisLogPrior;
 
-			if (noiseLevel > QUIET) {
-				cout << endl;
-				printVector(&hBeta[0], J, cout);
-				cout << endl;
-				cout << "log post: " << thisLogPost
+            std::ostringstream stream;
+			if (noiseLevel > QUIET) {			    
+			    stream << "\n";				
+				printVector(&hBeta[0], J, stream);
+				stream << "\n";
+				stream << "log post: " << thisLogPost
 						<< " (" << thisLogLikelihood << " + " << thisLogPrior
 						<< ") (iter:" << iteration << ") ";
 			}
@@ -584,22 +591,21 @@ void CyclicCoordinateDescent::update(
 					lastReturnFlag = ILLCONDITIONED;
 				} else {
 					if (noiseLevel > SILENT) {
-						cout << "Reached convergence criterion" << endl;
+						stream << "Reached convergence criterion";
 					}
 					lastReturnFlag = SUCCESS;
 				}
 				done = true;
 			} else if (iteration == maxIterations) {
 				if (noiseLevel > SILENT) {
-					cout << "Reached maximum iterations" << endl;
+					stream << "Reached maximum iterations";
 				}
 				done = true;
 				lastReturnFlag = MAX_ITERATIONS;
-			} else {
-				if (noiseLevel > QUIET) {
-					cout << endl;
-				}
 			}
+			if (noiseLevel > QUIET) {
+                logger->writeLine(stream);
+			}			
 		}				
 	}
 	lastIterationCount = iteration;

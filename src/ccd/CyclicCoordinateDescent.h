@@ -12,6 +12,7 @@
 #include "ModelData.h"
 #include "engine/AbstractModelSpecifics.h"
 #include "priors/JointPrior.h"
+#include "io/ProgressLogger.h"
 
 #include <Eigen/Dense>
 #include <deque>
@@ -42,25 +43,25 @@ using std::string;
 
 //#define NO_FUSE
 
-
 class CyclicCoordinateDescent {
 	
 public:
 	
-	CyclicCoordinateDescent(void);
-	
-	CyclicCoordinateDescent(			
-			const char* fileNameX,
-			const char* fileNameEta,
-			const char* fileNameOffs,
-			const char* fileNameNEvents,
-			const char* fileNamePid			
-		);
-	
+// 	CyclicCoordinateDescent(void);
+// 	
+// 	CyclicCoordinateDescent(			
+// 			const char* fileNameX,
+// 			const char* fileNameEta,
+// 			const char* fileNameOffs,
+// 			const char* fileNameNEvents,
+// 			const char* fileNamePid			
+// 		);
+// 	
 	CyclicCoordinateDescent(
 			ModelData* modelData,
 			AbstractModelSpecifics& specifics,
-			priors::JointPriorPtr prior
+			priors::JointPriorPtr prior,
+			loggers::ProgressLoggerPtr logger
 //			ModelSpecifics<DefaultModel>& specifics
 		);
 
@@ -366,6 +367,8 @@ protected:
 	typedef std::deque<SetBetaEntry> SetBetaContainer;
 
 	SetBetaContainer setBetaList;
+	
+	loggers::ProgressLoggerPtr logger;
 };
 
 double convertVarianceToHyperparameter(double variance);
