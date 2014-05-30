@@ -16,12 +16,14 @@
     #include <memory>
     namespace bsccs { 
         using std::shared_ptr;
+        using std::make_shared;
     }
 #else
 // C++98 (R build)
     #include "boost/smart_ptr.hpp"
     namespace bsccs {
         using boost::shared_ptr;
+        using boost::make_shared;
     }
 #endif
 

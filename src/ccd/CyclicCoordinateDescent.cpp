@@ -207,15 +207,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 		xBetaKnown = true; // all beta = 0 => xBeta = 0
 	}
 	doLogisticRegression = false;
-
-#ifdef DEBUG	
-#ifndef MY_RCPP_FLAG
-	cerr << "Number of patients = " << N << endl;
-	cerr << "Number of exposure levels = " << K << endl;
-	cerr << "Number of drugs = " << J << endl;
-#endif
-#endif          
-
+        
 	modelSpecifics.initialize(N, K, J, hXI, numerPid, numerPid2, denomPid,
 			hXjY, &sparseIndices,
 			hPid, offsExpXBeta,
@@ -229,7 +221,7 @@ int CyclicCoordinateDescent::getAlignedLength(int N) {
 	return (N / 16) * 16 + (N % 16 == 0 ? 0 : 16);
 }
 
-void CyclicCoordinateDescent::computeNEvents() {
+void CyclicCoordinateDescent::computeNEvents() {  
 	modelSpecifics.setWeights(hWeights, useCrossValidation);
 }
 
@@ -496,11 +488,11 @@ void CyclicCoordinateDescent::update(
 		) {
 
 	if (convergenceType < GRADIENT || convergenceType > ZHANG_OLES) {
-		cerr << "Unknown convergence criterion: " << convergenceType << endl;
+		cerr << "Unknown convergence criterion: " << convergenceType << endl;		
 		exit(-1);
 	}
 
-	if (!validWeights) {
+	if (!validWeights) {    	   	
 		computeNEvents();
 		computeFixedTermsInLogLikelihood();
 		computeFixedTermsInGradientAndHessian();

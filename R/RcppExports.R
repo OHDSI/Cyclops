@@ -5,8 +5,8 @@ rcpp_hello_world <- function() {
     .Call('CCD_rcpp_hello_world', PACKAGE = 'CCD')
 }
 
-ccd_interface <- function(inModelData) {
-    .Call('CCD_ccd_interface', PACKAGE = 'CCD', inModelData)
+ccdInitializeModelImpl <- function(inModelData) {
+    .Call('CCD_ccdInitializeModelImpl', PACKAGE = 'CCD', inModelData)
 }
 
 #' @title ccd_model_data
@@ -19,7 +19,7 @@ ccd_interface <- function(inModelData) {
 #' Another deep copy is also then made during CCD engine initialization; one of 
 #' these copies should be removed.
 #'
-#' @param pid               Vector of patient identifiers (function assumes these are sorted)
+#' @param pid               Vector of row identifiers (function assumes these are sorted)
 #' @param y								 Vector of outcomes
 #' @param z								 Vector of secondary outcomes (or NULL if unneeded for model)
 #' @param offs							 Vector of regression model offsets (or NULL)
@@ -28,7 +28,7 @@ ccd_interface <- function(inModelData) {
 #' @param ix								 Indicator matrix of covariates (or NULL)
 #' 
 #' @return
-#' A CCD model data object
+#' A list that contains a CCD model data object pointer and an operation duration
 #' 
 #' @examples
 #' splitSql("SELECT * INTO a FROM b; USE x; DROP TABLE c;")

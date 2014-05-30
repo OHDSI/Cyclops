@@ -19,11 +19,58 @@ public:
 
 	RcppCcdInterface();
 
-    RcppCcdInterface(const RcppModelData& modelData);
+    RcppCcdInterface(RcppModelData& modelData);
 
     virtual ~RcppCcdInterface();
-            
+    
+    double initializeModel() {
+    	ModelData* tmp;
+    	return CcdInterface::initializeModel(&tmp, &ccd, &modelSpecifics);
+    }
+
+    double fitModel() {
+    	return CcdInterface::fitModel(ccd);
+    }
+        
+    double runFitMLEAtMode() {
+    	return CcdInterface::runFitMLEAtMode(ccd);
+    }
+
+    double predictModel() {
+    	return CcdInterface::predictModel(ccd, modelData);
+    }
+
+    double profileModel(ProfileInformationMap &profileMap) {
+    	return CcdInterface::profileModel(ccd, modelData, profileMap);
+    }
+           
+    double runCrossValidation() {
+    	return CcdInterface::runCrossValidation(ccd, modelData);
+    }           
+        
+    double runBoostrap(std::vector<double>& savedBeta) {
+    	return CcdInterface::runBoostrap(ccd, modelData, savedBeta);
+    }         		
+    
+    void setZeroBetaAsFixed() {
+    	CcdInterface::setZeroBetaAsFixed(ccd);
+    }            
+        
+    double logModel(ProfileInformationMap &profileMap, bool withProfileBounds) {
+    	return CcdInterface::logModel(ccd, modelData, profileMap, withProfileBounds);
+    }    
+        
+    double diagnoseModel(double loadTime, double updateTime) {
+    	return CcdInterface::diagnoseModel(ccd, modelData, loadTime, updateTime);
+    }
+    
+    Rcpp::List& getResult() {
+    	return result;
+    }
+                        
 protected:            
+
+		void handleError(const std::string& str);
             
     void initializeModelImpl(
             ModelData** modelData,
@@ -48,7 +95,17 @@ protected:
 
 private:
 
-     const RcppModelData& modelData;
+			RcppModelData& rcppModelData; // TODO Make const?
+			
+//      Rcpp::XPtr<RcppModelData> data;
+//      Rcpp::XPtr<CyclicCoordinateDescent> ccd;
+//      Rcpp::XPtr<AbstractModelSpecifics> model;
+	 		
+	 		ModelData* modelData;
+			CyclicCoordinateDescent* ccd;
+			AbstractModelSpecifics* modelSpecifics;
+			
+			Rcpp::List result;
 
 }; // class RcppCcdInterface
 

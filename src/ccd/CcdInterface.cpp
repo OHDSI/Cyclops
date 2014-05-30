@@ -167,7 +167,7 @@ void CcdInterface::setDefaultArguments(void) {
 	arguments.replicates = 100;
 	arguments.reportRawEstimates = false;
 	arguments.modelName = "sccs";
-	arguments.fileFormat = "sccs";
+	arguments.fileFormat = "generic";
 	//arguments.outputFormat = "estimates";
 	arguments.computeMLE = false;
 	arguments.fitMLEAtMode = false;

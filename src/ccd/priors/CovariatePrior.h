@@ -10,10 +10,8 @@
 
 #include <memory>
 
-#ifndef MY_RCPP_FLAG
+#ifndef PI
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
-#else
-//#include "Rcpp.h"
 #endif
 
 #include "Types.h"

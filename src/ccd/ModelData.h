@@ -147,13 +147,15 @@ public:
 	template <class FormatType, class MissingPolicy> friend class BaseInputReader;
 	template <class ImputationPolicy> friend class BBRInputReader;
 	template <class ImputationPolicy> friend class CSVInputReader;
+	
+protected:
+	int nPatients;
 
 private:
 	// Disable copy-constructors and copy-assignment
 	ModelData(const ModelData&);
 	ModelData& operator = (const ModelData&);
 
-	int nPatients; // TODO Where are these used?
 	std::vector<int> pid;
 	std::vector<real> y; // TODO How to load these directly from Rcpp::NumericVector
 	std::vector<real> z;

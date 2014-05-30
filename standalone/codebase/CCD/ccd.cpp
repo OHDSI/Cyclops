@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
 		std::vector<bsccs::real> savedBeta;
 		for (int j = 0; j < ccd->getBetaSize(); ++j) {
 			savedBeta.push_back(ccd->getBeta(j));
-		}
+		} // TODO Handle above work in interface.runBootstrap
 		timeUpdate += interface.runBoostrap(ccd, modelData, savedBeta);
 	}
 		

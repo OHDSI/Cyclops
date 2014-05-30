@@ -46,6 +46,41 @@ struct RowInformation {
 		// Do nothing
 	}
 };
+
+class OFStream : public std::ofstream {
+public:	
+
+	OFStream(std::string _delimitor) : delimitor(_delimitor) { }
+
+	template <typename T>
+	OFStream& addText(const T& t) {
+		*this << t;
+		return *this;
+	}
+		
+	OFStream& addDelimitor() { return addText(delimitor); }
+	
+	OFStream& addEndl() {
+		*this << std::endl;
+		return *this;
+	}
+	
+	template <typename T> 
+	OFStream& addHeader(const T& t) { return addText(t); }
+		
+	template <typename T>
+	OFStream& addMetaKey(const T& t) { return addText(t).addDelimitor(); };
+	
+	template <typename T>
+	OFStream& addMetaValue(const T& t) { return addText(t).addEndl(); };
+	
+	template <typename T>
+	OFStream& addValue(const T& t) { return addText(t); };
+	
+private:
+	const std::string delimitor;
+};
+
 }
 
 // Define base class
@@ -54,7 +89,7 @@ template <typename DerivedFormat, typename Missing = OutputHelper::NoMissingPoli
 class BaseOutputWriter : public OutputWriter, Missing {
 public:
 	BaseOutputWriter(CyclicCoordinateDescent& _ccd, const ModelData& _data) :
-		OutputWriter(), ccd(_ccd), data(_data), delimitor(",") {
+		OutputWriter(), ccd(_ccd), data(_data), delimitor(","), endl("\n") {
 		// Do nothing
 	}
 	virtual ~BaseOutputWriter() {
@@ -62,9 +97,15 @@ public:
 	}
 
 	virtual void writeFile(const char* fileName) {
-		ofstream out;
+//		ofstream out;
+		OutputHelper::OFStream out(delimitor);
 		out.open(fileName, std::ios::out);
 		writeFile(out);
+	}
+	
+	template <typename Stream>
+	void writeStream(Stream& stream) {
+	    writeFile(stream);
 	}
 
 protected:
@@ -75,16 +116,20 @@ protected:
 
 	virtual int getNumberOfRows() = 0; // pure virtual
 
-	virtual void writeHeader(ofstream& out) {
-		// Default: do nothing
-	}
+//	virtual void writeHeader(ofstream& out) {
+//		// Default: do nothing
+//	}
 
-	void writeFile(ofstream& out) {
+	template <typename Stream>
+	void writeFile(Stream& out) {
 //		static_cast<DerivedFormat*>(this)->
 				preprocessAllRows();
 
-//		static_cast<DerivedFormat*>(this)->
+		static_cast<DerivedFormat*>(this)->
 				writeHeader(out);
+				
+		static_cast<DerivedFormat*>(this)->
+				writeMetaData(out);
 
 		OutputHelper::RowInformation rowInformation(0);
 		int numRows = //static_cast<DerivedFormat*>(this)->
@@ -95,10 +140,16 @@ protected:
 			++(rowInformation.currentRow);
 		}
 	}
+	
+	template <typename Stream>
+	void writeMetaData(Stream& out) {
+		// Do nothing
+	}	
 
 	CyclicCoordinateDescent& ccd;
 	const ModelData& data;
 	string delimitor;
+	string endl;
 };
 
 // typedef std::pair<std::string,double> ExtraInformation;
@@ -128,7 +179,13 @@ public:
 		extraInfoVector.insert(extraInfoVector.end(), info.begin(), info.end());
 	}
 
-	void writeHeader(ofstream& out) {
+	template <typename Stream>
+	void writeHeader(Stream& out) {
+		out.addHeader("key").addDelimitor().addHeader("value").addEndl();
+	}
+	
+	template <typename Stream>
+	void writeMetaData(Stream& out) {
 		// Do work
 		double hyperParameter = ccd.getHyperprior();
 		double logLikelihood = ccd.getLogLikelihood();
@@ -140,24 +197,25 @@ public:
 
 		if (covariateCount == 0) {
 			returnFlag = MISSING_COVARIATES;
-		}
-
-		out << "key" << delimitor << "value" << endl;
-		out << "log_likelihood" << delimitor << logLikelihood << endl;
-		out << "log_prior" << delimitor << logPrior << endl;
-		out << "return_flag" << delimitor << returnFlagString(returnFlag) << endl;
-		out << "iterations" << delimitor << iterations << endl;
-		out << "prior_info" << delimitor << priorInfo << endl;
-		out << "variance" << delimitor << hyperParameter << endl;
-		out << "covariate_count" << delimitor << covariateCount << endl;
+		}	
+	
+		out.addMetaKey("log_likelihood").addMetaValue(logLikelihood);		
+		out.addMetaKey("log_prior").addMetaValue(logPrior);
+		out.addMetaKey("return_flag").addMetaValue(returnFlagString(returnFlag));
+		out.addMetaKey("iterations").addMetaValue(iterations);
+		out.addMetaKey("prior_info").addMetaValue(priorInfo);
+		out.addMetaKey("variance").addMetaValue(hyperParameter);
+		out.addMetaKey("covariate_count").addMetaValue(covariateCount);
 
 		for (ExtraInformationVector::const_iterator it = extraInfoVector.begin();
 			it != extraInfoVector.end(); ++it) {
-			out << (*it).first << delimitor << (*it).second << endl;
+			out.addMetaKey(it->first).addMetaValue(it->second);
+			//out << (*it).first << delimitor << (*it).second << endl;
 		}
 	}
 
-	void writeRow(ofstream& out, OutputHelper::RowInformation& rowInfo) {
+	template <typename Stream>
+	void writeRow(Stream& out, OutputHelper::RowInformation& rowInfo) {
 		// Do nothing;
 	}
 
@@ -184,20 +242,20 @@ public:
 		ccd.getPredictiveEstimates(&predictions[0], NULL);
 	}
 
-	void writeHeader(ofstream& out) {
+	template <typename Stream>
+	void writeHeader(Stream& out) {
 		if (data.getHasRowLobels()) {
-			out << "row_label" << delimitor;
+			out.addHeader("row_label").addDelimitor();
 		}
-		out << "prediction" << endl;
-		// Default: do nothing
+        out.addHeader("prediction").addEndl();		
 	}
-
-	void writeRow(ofstream& out, OutputHelper::RowInformation& rowInfo) {
+	
+	template <typename Stream>
+	void writeRow(Stream& out, OutputHelper::RowInformation& rowInfo) {
 		if (data.getHasRowLobels()) {
-			out << data.getRowLabel(rowInfo.currentRow) << delimitor;
+			out.addValue(data.getRowLabel(rowInfo.currentRow)).addDelimitor();
 		}
-		out << predictions[rowInfo.currentRow];
-		out << endl; // TODO This causes a flush; may be faster to stream several lines before flush
+        out.addValue(predictions[rowInfo.currentRow]).addEndl();
 	}
 
 private:
@@ -248,26 +306,27 @@ public:
 		informationMap.insert(map.begin(), map.end());
 	}
 
-	void writeHeader(ofstream& out) {
-		out << "column_label" << delimitor << "estimate";
+  template <typename Stream>
+	void writeHeader(Stream& out) {
+		out.addHeader("column_label").addDelimitor().addHeader("estimate");
 		if (withProfileBounds) {
-			out << delimitor << "lower" << delimitor << "upper";
+            out.addDelimitor().addHeader("lower").addDelimitor().addHeader("upper");
 		}
-		out << endl;		
+		out.addEndl();		
 	}
 
-	void writeRow(ofstream& out, OutputHelper::RowInformation& rowInfo) {
-		out << data.getColumn(rowInfo.currentRow).getLabel();
-		out << delimitor;
-		out << ccd.getBeta(rowInfo.currentRow);
+	template <typename Stream>
+	void writeRow(Stream& out, OutputHelper::RowInformation& rowInfo) {	
+		out.addValue(data.getColumn(rowInfo.currentRow).getLabel()).addDelimitor();
+		out.addValue(ccd.getBeta(rowInfo.currentRow));
 		if (withProfileBounds && informationList[rowInfo.currentRow].defined) {
 			// TODO Delegate to friend of ProfileInformation
-			out << delimitor;
-			out << informationList[rowInfo.currentRow].lower95Bound;
-			out << delimitor;
-			out << informationList[rowInfo.currentRow].upper95Bound;
+			out.addDelimitor();
+			out.addValue(informationList[rowInfo.currentRow].lower95Bound);
+			out.addDelimitor();
+			out.addValue(informationList[rowInfo.currentRow].upper95Bound);
 		}
-		out << endl; // TODO This causes a flush; may be faster to stream several lines before flush
+		out.addEndl();
 	}
 
 private:
@@ -275,7 +334,6 @@ private:
 	ProfileInformationMap informationMap;
 	ProfileInformationList informationList;
 };
-
 
 }
 

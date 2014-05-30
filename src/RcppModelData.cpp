@@ -22,7 +22,7 @@ using namespace Rcpp;
 //' Another deep copy is also then made during CCD engine initialization; one of 
 //' these copies should be removed.
 //'
-//' @param pid               Vector of patient identifiers (function assumes these are sorted)
+//' @param pid               Vector of row identifiers (function assumes these are sorted)
 //' @param y								 Vector of outcomes
 //' @param z								 Vector of secondary outcomes (or NULL if unneeded for model)
 //' @param offs							 Vector of regression model offsets (or NULL)
@@ -158,7 +158,20 @@ RcppModelData::RcppModelData(
 //	}
 
 	this->nRows = y.size();
-
+	
+	// Clean out PIDs
+	std::vector<int>& cpid = getPidVectorRef();
+	int currentCase = 0;
+	int currentPID = cpid[0];
+	cpid[0] = currentCase;
+	for (unsigned int i = 1; i < pid.size(); ++i) {
+	    int nextPID = cpid[i];
+	    if (nextPID != currentPID) {
+	        currentCase++;
+	    }
+	    cpid[i] = currentCase;
+	}
+    this->nPatients = currentCase + 1;
 }
 
 RcppModelData::~RcppModelData() {

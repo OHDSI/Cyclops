@@ -139,7 +139,7 @@ public:
 //     void parseCommandLine(
 //             std::vector<std::string>& argcpp);
             
-    CCDArguments getArguments() {
+    CCDArguments& getArguments() {
         return arguments;  // TODO To depricate
     }
 
