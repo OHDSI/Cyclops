@@ -161,17 +161,25 @@ RcppModelData::RcppModelData(
 	
 	// Clean out PIDs
 	std::vector<int>& cpid = getPidVectorRef();
-	int currentCase = 0;
-	int currentPID = cpid[0];
-	cpid[0] = currentCase;
-	for (unsigned int i = 1; i < pid.size(); ++i) {
-	    int nextPID = cpid[i];
-	    if (nextPID != currentPID) {
-	        currentCase++;
+	
+	if (cpid.size() == 0) {
+	    for (int i = 0; i < nRows; ++i) {
+	        cpid.push_back(i);
 	    }
-	    cpid[i] = currentCase;
-	}
-    this->nPatients = currentCase + 1;
+	    nPatients = nRows;
+	} else {
+    	int currentCase = 0;
+    	int currentPID = cpid[0];
+    	cpid[0] = currentCase;
+    	for (unsigned int i = 1; i < pid.size(); ++i) {
+    	    int nextPID = cpid[i];
+    	    if (nextPID != currentPID) {
+	            currentCase++;
+    	    }
+	        cpid[i] = currentCase;
+    	}
+      nPatients = currentCase + 1;
+    }
 }
 
 RcppModelData::~RcppModelData() {
