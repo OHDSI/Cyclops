@@ -5,8 +5,16 @@ rcpp_hello_world <- function() {
     .Call('CCD_rcpp_hello_world', PACKAGE = 'CCD')
 }
 
-ccdInitializeModelImpl <- function(inModelData) {
-    .Call('CCD_ccdInitializeModelImpl', PACKAGE = 'CCD', inModelData)
+ccdFitModel <- function(inRcppCcdInterface) {
+    .Call('CCD_ccdFitModel', PACKAGE = 'CCD', inRcppCcdInterface)
+}
+
+ccdLogModel <- function(inRcppCcdInterface) {
+    .Call('CCD_ccdLogModel', PACKAGE = 'CCD', inRcppCcdInterface)
+}
+
+ccdInitializeModel <- function(inModelData) {
+    .Call('CCD_ccdInitializeModel', PACKAGE = 'CCD', inModelData)
 }
 
 #' @title ccd_model_data

@@ -466,8 +466,8 @@ void CmdLineCcdInterface::initializeModelImpl(
 		prior = hierarchicalPrior;
 	}
 
-    loggers::ProgressLoggerPtr logger = bsccs::make_shared<loggers::CoutLogger>();
-    loggers::ErrorHandlerPtr error = bsccs::make_shared<loggers::CerrErrorHandler>();
+    logger = bsccs::make_shared<loggers::CoutLogger>();
+    error = bsccs::make_shared<loggers::CerrErrorHandler>();
 	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model, prior, logger, error);
 
 #ifdef CUDA

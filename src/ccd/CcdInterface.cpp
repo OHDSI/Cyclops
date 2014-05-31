@@ -254,7 +254,9 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *model
 			it != arguments.profileCI.end(); ++it) {
 		int index = modelData->getColumnIndexByName(*it);
 		if (index == -1) {
-			cerr << "Variable " << *it << " not found." << endl;
+		    std::ostringstream stream;
+			stream << "Variable " << *it << " not found.";
+			error->throwError(stream);
 		} else {
 			// TODO : Minor bug, order of column evaluation yields different estimates
 			double mode = ccd->getLogLikelihood();
@@ -276,8 +278,10 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *model
 					zeroIn.bracketSignChange(x0, obj0, -1.0);
 			double lowerPt = zeroIn.getRoot(x0, lowerBracket.first, obj0, lowerBracket.second);
 
-			cout << "Profile: " << modelData->getColumn(index).getLabel() << " (" << lowerPt << ", "
-					<< upperPt << ")  in " << upEval.getEvaluations() << endl;
+            std::ostringstream stream;
+			stream << "Profile: " << modelData->getColumn(index).getLabel() << " (" << lowerPt << ", "
+					<< upperPt << ")  in " << upEval.getEvaluations();
+			logger->writeLine(stream);
 
 			ProfileInformation profile(lowerPt, upperPt);
 			profileMap.insert(std::pair<int,ProfileInformation>(index, profile));
@@ -326,7 +330,9 @@ void CcdInterface::setZeroBetaAsFixed(CyclicCoordinateDescent *ccd) {
 
 double CcdInterface::fitModel(CyclicCoordinateDescent *ccd) {
 	if (arguments.noiseLevel > SILENT) {
-		cout << "Using prior: " << ccd->getPriorInfo() << endl;
+	    std::ostringstream stream;
+		stream << "Using prior: " << ccd->getPriorInfo();
+		logger->writeLine(stream);
 	}
 
 	struct timeval time1, time2;

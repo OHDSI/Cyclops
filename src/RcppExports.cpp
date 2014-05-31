@@ -20,15 +20,45 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
-// ccdInitializeModelImpl
-List ccdInitializeModelImpl(SEXP inModelData);
-RcppExport SEXP CCD_ccdInitializeModelImpl(SEXP inModelDataSEXP) {
+// ccdFitModel
+List ccdFitModel(SEXP inRcppCcdInterface);
+RcppExport SEXP CCD_ccdFitModel(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
+        List __result = ccdFitModel(inRcppCcdInterface);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
+// ccdLogModel
+List ccdLogModel(SEXP inRcppCcdInterface);
+RcppExport SEXP CCD_ccdLogModel(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
+        List __result = ccdLogModel(inRcppCcdInterface);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
+// ccdInitializeModel
+List ccdInitializeModel(SEXP inModelData);
+RcppExport SEXP CCD_ccdInitializeModel(SEXP inModelDataSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inModelData(inModelDataSEXP );
-        List __result = ccdInitializeModelImpl(inModelData);
+        List __result = ccdInitializeModel(inModelData);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);

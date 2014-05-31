@@ -118,6 +118,7 @@ RcppModelData::RcppModelData(
 				NULL, NULL,
 				dxv.begin() + i * y.size(), dxv.begin() + (i + 1) * y.size(),
 				DENSE);
+		getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns());
 		std::cout << "Added dense covariate" << std::endl;
 	}
 
@@ -132,6 +133,7 @@ RcppModelData::RcppModelData(
 				siv.begin() + begin, siv.begin() + end,
 				sxv.begin() + begin, sxv.begin() + end,
 				SPARSE);
+        getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns());				
 		std::cout << "Added sparse covariate " << (end - begin) << std::endl;
 	}
 
@@ -146,6 +148,7 @@ RcppModelData::RcppModelData(
 				iiv.begin() + begin, iiv.begin() + end,
 				NULL, NULL,
 				INDICATOR);
+        getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns());				
 		std::cout << "Added indicator covariate " << (end - begin) << std::endl;
 	}
 
@@ -179,7 +182,7 @@ RcppModelData::RcppModelData(
 	        cpid[i] = currentCase;
     	}
       nPatients = currentCase + 1;
-    }
+    }    
 }
 
 RcppModelData::~RcppModelData() {

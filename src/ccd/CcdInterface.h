@@ -21,6 +21,7 @@
 #endif
 
 #include "Types.h"
+#include "io/ProgressLogger.h"
 
 namespace bsccs {
 
@@ -170,7 +171,10 @@ protected:
             CyclicCoordinateDescent *ccd, 
             ModelData *modelData,	
     		double loadTime,
-    		double updateTime) = 0;                                 		
+    		double updateTime) = 0;     
+    		
+    loggers::ProgressLoggerPtr logger;  
+    loggers::ErrorHandlerPtr error;                          		
 
 }; // class CcdInterface
 

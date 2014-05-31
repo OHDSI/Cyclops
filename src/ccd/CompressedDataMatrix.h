@@ -95,7 +95,7 @@ public:
 	bool add_data(int row, real value) {
 		if (formatType == DENSE) {
 			//Making sure that we are at the correct row
-			for(size_t i = data->size(); i < row; i++) {
+			for(int i = data->size(); i < row; i++) {
 				data->push_back(0.0);
 			}
 			data->push_back(value);

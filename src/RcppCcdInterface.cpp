@@ -20,35 +20,53 @@
 
 using namespace Rcpp;
 
-//// [[Rcpp::export]]
-//List ccd_hello_world() {
-//
-//   using namespace bsccs;
-//    CharacterVector x = CharacterVector::create( "foo", "bar" )  ;
-//    NumericVector y   = NumericVector::create( 0.0, 1.0 ) ;
-//    XPtr<RcppCcdInterface> ptr(new RcppCcdInterface());
-//    List z            = List::create( x, y, ptr ) ;
-////     List z = List::create(x, y);
-//
-//    return z ;
-//}
+// [[Rcpp::export]]
+List ccdFitModel(SEXP inRcppCcdInterface) {	
+	using namespace bsccs;
+	
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);	
+	double timeUpdate = interface->fitModel();
+	List list = List::create(interface, timeUpdate);	
+	return list;
+}
 
 // [[Rcpp::export]]
-List ccdInitializeModelImpl(SEXP inModelData) {
+List ccdLogModel(SEXP inRcppCcdInterface) {	
+	using namespace bsccs;
+	
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);	
+	bool withASE = false;
+	//return List::create(interface);
+	
+	double timeLogModel = interface->logModel(withASE);
+	std::cout << "getResult " << interface->getResult() << std::endl;
+	
+	CharacterVector names;
+	names.push_back("interface");
+	names.push_back("timeLog");
+	CharacterVector oldNames = interface->getResult().attr("names");
+	List list = List::create(interface, timeLogModel);
+	for (unsigned int i = 0; i < interface->getResult().size(); ++i) {
+		list.push_back(interface->getResult()[i]);
+		names.push_back(oldNames[i]);
+	}
+	list.attr("names") = names;
+	
+	//, interface->getResult());	
+	return list;
+}
 
+// [[Rcpp::export]]
+List ccdInitializeModel(SEXP inModelData) {
 	using namespace bsccs;
 
 	XPtr<RcppModelData> rcppModelData(inModelData);
 	XPtr<RcppCcdInterface> interface(
 		new RcppCcdInterface(*rcppModelData));
 	
-	interface->getArguments().modelName = "ls"; // TODO Pass as argument
-	
+	interface->getArguments().modelName = "ls"; // TODO Pass as argument	
 	double timeInit = interface->initializeModel();
-	std::cout << "Done init" << std::endl;
-	double timeUpdate = interface->fitModel();
-	std::cout << "Done fit" << std::endl;
-//	
+	
 //	bsccs::ProfileInformationMap profileMap;
 //	// TODO Profile
 //	bool withASE = false; //arguments.fitMLEAtMode || arguments.computeMLE || arguments.reportASE;    
@@ -62,9 +80,7 @@ List ccdInitializeModelImpl(SEXP inModelData) {
 namespace bsccs {
 
 void RcppCcdInterface::handleError(const std::string& str) {	
-	::Rf_error(str.c_str()); 
-//	std::cerr << str << std::endl;
-//	exit(-1);
+	Rcpp::stop(str);
 }
 
 // TODO Massive code duplicate (to remove) with CmdLineCcdInterface
@@ -181,9 +197,8 @@ void RcppCcdInterface::initializeModelImpl(
 // 		prior = hierarchicalPrior;
 // 	}
 
-  loggers::ProgressLoggerPtr logger = bsccs::make_shared<loggers::RcppProgressLogger>();
-  loggers::ErrorHandlerPtr error = bsccs::make_shared<loggers::RcppErrorHandler>();
-
+  logger = bsccs::make_shared<loggers::RcppProgressLogger>();
+  error = bsccs::make_shared<loggers::RcppErrorHandler>();
  
  	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model, prior, logger, error);
  
@@ -237,9 +252,13 @@ void RcppCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, ModelData *mod
   	EstimationOutputWriter estimates(*ccd, *modelData);
   	estimates.addBoundInformation(profileMap);
   	// End move
-
+	
 		OutputHelper::RcppOutputHelper test(result);  	
-  	estimates.writeStream(test);		
+		//OutputHelper::CoutStream test(",");
+  	estimates.writeStream(test);	
+  	
+  	std::cout << result << std::endl;
+  	
 }
 
 void RcppCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,	

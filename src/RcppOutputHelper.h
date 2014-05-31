@@ -8,9 +8,6 @@
 #ifndef RCPPOUTPUTHELPER_H_
 #define RCPPOUTPUTHELPER_H_
 
-// #include "CyclicCoordinateDescent.h"
-// #include "ModelData.h"
-
 #include "Rcpp.h"
 
 namespace bsccs {
@@ -18,31 +15,89 @@ namespace bsccs {
 namespace OutputHelper {
 
 class RcppOutputHelper {
+	
+	typedef Rcpp::NumericVector Values;
+	typedef bsccs::shared_ptr<Values>	ValuesPtr;
+	typedef std::vector<ValuesPtr> ValuesVector;
+	
 public:				
 
-    RcppOutputHelper(Rcpp::List& _result) : result(_result) { }
+    RcppOutputHelper(Rcpp::List& _result) : result(_result)
+        , inHeaders(false), inMetaData(false), inTable(false), useHeaders(false)
+        , columnCounter(0) { }
 
 	RcppOutputHelper& addDelimitor() { return *this; } 
 	  
-	RcppOutputHelper& addEndl() { return *this; }
+	RcppOutputHelper& addEndl() { 
+	    if (inMetaData) { // finished metadata line
+	    
+	        inMetaData = false;
+	    } else if (inTable) { // finished table line
+	    
+	        inTable = false;
+	    }	    
+	    // TODO Fill NA into remaining columns, if any in table
+	    columnCounter = 0;
+	    return *this; 
+	}
 	
 	template <typename T>
 	RcppOutputHelper& addText(const T& t) { return *this; }
 	
-	template <typename T> 
-	RcppOutputHelper& addHeader(const T& t) { return addText(t); }
+
+    RcppOutputHelper& addHeader(const char* t) {        
+	    headers.push_back(std::string(t));
+	    allValues.push_back(bsccs::make_shared<Values>());
+	    return *this; 
+	}
 		
-	template <typename T>
-	RcppOutputHelper& addMetaKey(const T& t) { return addText(t).addDelimitor(); }
+    RcppOutputHelper& addMetaKey(const char* t) {
+	    currentKey = std::string(t);	    
+	    return *this; 
+	}
 	
 	template <typename T>
-	RcppOutputHelper& addMetaValue(const T& t) { return addText(t).addEndl(); }
+	RcppOutputHelper& addMetaValue(const T& t) { 
+	    result[currentKey] = t;
+	    return *this; 
+	}
 	
-	template <typename T>
-	RcppOutputHelper& addValue(const T& t) { return addText(t); }
+// 	template <typename T>
+//	RcppOutputHelper& addValue(const T& t) { 
+	RcppOutputHelper& addValue(const double& t) {
+		allValues[columnCounter]->push_back(t);
+		columnCounter++;
+		return *this; 
+	}
+	
+	RcppOutputHelper& endTable(const char* t) {
+		Rcpp::DataFrame dataFrame;
+		for (unsigned int column = 0; column < headers.size(); ++column) {
+			dataFrame[headers[column]] = *allValues[column];
+		}
+//		dataFrame.attr("class") = "data.frame";
+		result[t] = dataFrame;	
+		
+//		std::cout << " " << result << " " << dataFrame << std::endl;
+			
+		return *this;
+	}
 	
 private:
     Rcpp::List& result;
+    
+    std::vector<std::string> headers;
+//    std::vector<bsccs:shared_ptr<std::vector<double> > > values;
+		ValuesVector	allValues;
+    std::string currentKey;
+    
+    bool inHeaders;
+    bool inMetaData;
+    bool inTable;
+    
+    bool useHeaders;
+    
+    int columnCounter;
 };
 
 } // namespace OutputHelper

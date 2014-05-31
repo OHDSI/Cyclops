@@ -77,6 +77,44 @@ public:
 	template <typename T>
 	OFStream& addValue(const T& t) { return addText(t); };
 	
+	OFStream& endTable(const char* t) { return *this; }
+	
+private:
+	const std::string delimitor;
+};
+
+class CoutStream {
+public:	
+
+	CoutStream(std::string _delimitor) : delimitor(_delimitor) { }
+
+	template <typename T>
+	CoutStream& addText(const T& t) {
+		std::cout << t;
+		return *this;
+	}
+		
+	CoutStream& addDelimitor() { return addText(delimitor); }
+	
+	CoutStream& addEndl() {
+		std::cout << std::endl;
+		return *this;
+	}
+	
+	template <typename T> 
+	CoutStream& addHeader(const T& t) { return addText(t); }
+		
+	template <typename T>
+	CoutStream& addMetaKey(const T& t) { return addText(t).addDelimitor(); };
+	
+	template <typename T>
+	CoutStream& addMetaValue(const T& t) { return addText(t).addEndl(); };
+	
+	template <typename T>
+	CoutStream& addValue(const T& t) { return addText(t); };
+	
+	CoutStream& endTable(const char* t) { return *this; }
+	
 private:
 	const std::string delimitor;
 };
@@ -97,7 +135,6 @@ public:
 	}
 
 	virtual void writeFile(const char* fileName) {
-//		ofstream out;
 		OutputHelper::OFStream out(delimitor);
 		out.open(fileName, std::ios::out);
 		writeFile(out);
@@ -139,12 +176,20 @@ protected:
 			static_cast<DerivedFormat*>(this)->writeRow(out, rowInformation);
 			++(rowInformation.currentRow);
 		}
+		
+		static_cast<DerivedFormat*>(this)->
+			writeEndTable(out);		
 	}
 	
 	template <typename Stream>
 	void writeMetaData(Stream& out) {
 		// Do nothing
 	}	
+	
+	template <typename Stream>
+	void writeEndTable(Stream& out) {
+		// Do nothing
+	}		
 
 	CyclicCoordinateDescent& ccd;
 	const ModelData& data;
@@ -178,6 +223,11 @@ public:
 	void addExtraInformation(ExtraInformationVector info) {
 		extraInfoVector.insert(extraInfoVector.end(), info.begin(), info.end());
 	}
+	
+	template <typename Stream>
+	void writeEndTable(Stream& out) {
+		out.endTable("diagonstics");
+	}	
 
 	template <typename Stream>
 	void writeHeader(Stream& out) {
@@ -234,6 +284,11 @@ public:
 	virtual ~PredictionOutputWriter() {
 		// Do nothing
 	}
+	
+	template <typename Stream>
+	void writeEndTable(Stream& out) {
+		out.endTable("prediction");
+	}		
 
 	int getNumberOfRows() { return data.getNumberOfRows(); }
 
@@ -297,6 +352,11 @@ public:
 		withProfileBounds = !informationMap.empty();
 	}
 	
+	template <typename Stream>
+	void writeEndTable(Stream& out) {
+		out.endTable("estimation");
+	}		
+	
 	void addBoundInformation(int column, ProfileInformation information) {
 		information.defined = true;
 		informationMap.insert(std::pair<int, ProfileInformation>(column, information));
@@ -317,7 +377,7 @@ public:
 
 	template <typename Stream>
 	void writeRow(Stream& out, OutputHelper::RowInformation& rowInfo) {	
-		out.addValue(data.getColumn(rowInfo.currentRow).getLabel()).addDelimitor();
+		out.addValue(data.getColumn(rowInfo.currentRow).getNumericalLabel()).addDelimitor();
 		out.addValue(ccd.getBeta(rowInfo.currentRow));
 		if (withProfileBounds && informationList[rowInfo.currentRow].defined) {
 			// TODO Delegate to friend of ProfileInformation

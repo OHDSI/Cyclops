@@ -24,8 +24,8 @@ public:
     virtual ~RcppCcdInterface();
     
     double initializeModel() {
-    	ModelData* tmp;
-    	return CcdInterface::initializeModel(&tmp, &ccd, &modelSpecifics);
+//    	ModelData* tmp;
+    	return CcdInterface::initializeModel(&modelData, &ccd, &modelSpecifics);
     }
 
     double fitModel() {
@@ -40,7 +40,7 @@ public:
     	return CcdInterface::predictModel(ccd, modelData);
     }
 
-    double profileModel(ProfileInformationMap &profileMap) {
+    double profileModel(/*ProfileInformationMap &profileMap*/) {
     	return CcdInterface::profileModel(ccd, modelData, profileMap);
     }
            
@@ -56,7 +56,7 @@ public:
     	CcdInterface::setZeroBetaAsFixed(ccd);
     }            
         
-    double logModel(ProfileInformationMap &profileMap, bool withProfileBounds) {
+    double logModel(/*ProfileInformationMap &profileMap,*/ bool withProfileBounds) {
     	return CcdInterface::logModel(ccd, modelData, profileMap, withProfileBounds);
     }    
         
@@ -64,7 +64,7 @@ public:
     	return CcdInterface::diagnoseModel(ccd, modelData, loadTime, updateTime);
     }
     
-    Rcpp::List& getResult() {
+    const Rcpp::List& getResult() const {
     	return result;
     }
                         
@@ -104,7 +104,8 @@ private:
 	 		ModelData* modelData;
 			CyclicCoordinateDescent* ccd;
 			AbstractModelSpecifics* modelSpecifics;
-			
+						
+			bsccs::ProfileInformationMap profileMap;
 			Rcpp::List result;
 
 }; // class RcppCcdInterface
