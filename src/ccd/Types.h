@@ -104,17 +104,17 @@ enum ModelType {
 	COX
 };
 
-// static bool requiresStratumID(const ModelType modelType) {
-// 	return (modelType == CONDITIONAL_LOGISTIC || modelType == SELF_CONTROLLED_MODEL);
-// }
-//
-// static bool requiresCensoredData(const ModelType modelType) {
-// 	return (modelType == COX);
-// }
-//
-// static bool requiresOffset(const ModelType modelType) {
-// 	return (modelType == SELF_CONTROLLED_MODEL);
-// }
+static bool requiresStratumID(const ModelType modelType) {
+	return (modelType == CONDITIONAL_LOGISTIC || modelType == SELF_CONTROLLED_MODEL);
+}
+
+static bool requiresCensoredData(const ModelType modelType) {
+	return (modelType == COX);
+}
+
+static bool requiresOffset(const ModelType modelType) {
+	return (modelType == SELF_CONTROLLED_MODEL);
+}
 
 } // namespace Models
 
