@@ -56,6 +56,11 @@ public:
 	    return *this; 
 	}
 	
+    RcppOutputHelper& addMetaKey(const std::string& t) {
+	    currentKey = std::string(t);	    
+	    return *this; 
+	}	
+	
 	template <typename T>
 	RcppOutputHelper& addMetaValue(const T& t) { 
 	    result[currentKey] = t;
@@ -72,14 +77,16 @@ public:
 	
 	RcppOutputHelper& endTable(const char* t) {
 		Rcpp::DataFrame dataFrame;
+		bool any = false;
 		for (unsigned int column = 0; column < headers.size(); ++column) {
-			dataFrame[headers[column]] = *allValues[column];
+		    if (allValues[column]->size() > 0) {
+    			dataFrame[headers[column]] = *allValues[column];
+    			any = true;
+    		}
 		}
-//		dataFrame.attr("class") = "data.frame";
-		result[t] = dataFrame;	
-		
-//		std::cout << " " << result << " " << dataFrame << std::endl;
-			
+        if (any) {
+    		result[t] = dataFrame;	
+    	}
 		return *this;
 	}
 	

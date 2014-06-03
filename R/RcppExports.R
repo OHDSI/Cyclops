@@ -13,14 +13,14 @@ ccdLogModel <- function(inRcppCcdInterface) {
     .Call('CCD_ccdLogModel', PACKAGE = 'CCD', inRcppCcdInterface)
 }
 
-ccdInitializeModel <- function(inModelData) {
-    .Call('CCD_ccdInitializeModel', PACKAGE = 'CCD', inModelData)
+ccdInitializeModel <- function(inModelData, modelType, computeMLE = FALSE) {
+    .Call('CCD_ccdInitializeModel', PACKAGE = 'CCD', inModelData, modelType, computeMLE)
 }
 
-#' @title ccd_model_data
+#' @title ccdModelData
 #'
 #' @description
-#' \code{ccd_model_data} creates a CCD model data object
+#' \code{ccdModeData} creates a CCD model data object
 #'
 #' @details
 #' This function is fun.  This function currently creates a deep copy of all data.
@@ -41,8 +41,9 @@ ccdInitializeModel <- function(inModelData) {
 #' @examples
 #' splitSql("SELECT * INTO a FROM b; USE x; DROP TABLE c;")
 #'
-#' @export
-ccd_model_data <- function(pid, y, z, offs, dx, sx, ix) {
-    .Call('CCD_ccd_model_data', PACKAGE = 'CCD', pid, y, z, offs, dx, sx, ix)
+NULL
+
+ccdModelData <- function(pid, y, z, offs, dx, sx, ix) {
+    .Call('CCD_ccdModelData', PACKAGE = 'CCD', pid, y, z, offs, dx, sx, ix)
 }
 

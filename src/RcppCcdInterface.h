@@ -67,8 +67,13 @@ public:
     const Rcpp::List& getResult() const {
     	return result;
     }
+    
+    
+    static void appendRList(Rcpp::List& list, const Rcpp::List& append);
                         
 protected:            
+
+		Models::ModelType parseModelType(const std::string& modelName);
 
 		void handleError(const std::string& str);
             

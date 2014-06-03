@@ -3,8 +3,8 @@ library(CCD)
 
 #test_package("CCD")
 
-a = ccd_model_data(NULL, c(1:10), NULL, NULL, Matrix(rep(1,10),nrow=1), NULL, NULL)
-b = ccdInitializeModel(a[[1]])
+a = ccdModelData(NULL, c(1:10), NULL, NULL, Matrix(rep(1,10),nrow=1), NULL, NULL)
+b = ccdInitializeModel(a[[1]], modelType="ls", computeMLE=TRUE)
 c = ccdFitModel(b[[1]])
 d = ccdLogModel(b[[1]])
 

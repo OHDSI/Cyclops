@@ -24,9 +24,17 @@ using namespace Rcpp;
 List ccdFitModel(SEXP inRcppCcdInterface) {	
 	using namespace bsccs;
 	
-	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);	
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);		
 	double timeUpdate = interface->fitModel();
-	List list = List::create(interface, timeUpdate);	
+	
+//	interface->getResult().clear(); TODO
+	interface->diagnoseModel(0.0, 0.0);
+	
+	List list = List::create(
+			Rcpp::Named("interface")=interface, 
+			Rcpp::Named("timeFit")=timeUpdate
+		);
+	RcppCcdInterface::appendRList(list, interface->getResult());
 	return list;
 }
 
@@ -39,7 +47,7 @@ List ccdLogModel(SEXP inRcppCcdInterface) {
 	//return List::create(interface);
 	
 	double timeLogModel = interface->logModel(withASE);
-	std::cout << "getResult " << interface->getResult() << std::endl;
+	//std::cout << "getResult " << interface->getResult() << std::endl;
 	
 	CharacterVector names;
 	names.push_back("interface");
@@ -57,14 +65,18 @@ List ccdLogModel(SEXP inRcppCcdInterface) {
 }
 
 // [[Rcpp::export]]
-List ccdInitializeModel(SEXP inModelData) {
+List ccdInitializeModel(SEXP inModelData, const std::string& modelType, bool computeMLE = false) {
 	using namespace bsccs;
 
 	XPtr<RcppModelData> rcppModelData(inModelData);
 	XPtr<RcppCcdInterface> interface(
 		new RcppCcdInterface(*rcppModelData));
 	
-	interface->getArguments().modelName = "ls"; // TODO Pass as argument	
+//	interface->getArguments().modelName = "ls"; // TODO Pass as argument	
+	interface->getArguments().modelName = modelType;
+	if (computeMLE) {
+		interface->getArguments().computeMLE = true;
+	}	
 	double timeInit = interface->initializeModel();
 	
 //	bsccs::ProfileInformationMap profileMap;
@@ -73,14 +85,51 @@ List ccdInitializeModel(SEXP inModelData) {
 //	double timeLogModel = interface->logModel(profileMap, withASE);
 //	std::cout << "Done log model" << std::endl;
 	
-	List list = List::create(interface, rcppModelData, timeInit);
+	List list = List::create(
+			Rcpp::Named("interface") = interface, 
+			Rcpp::Named("data") = rcppModelData, 
+			Rcpp::Named("timeInit") = timeInit
+		);
 	return list;
 }
 
 namespace bsccs {
+	
+void RcppCcdInterface::appendRList(Rcpp::List& list, const Rcpp::List& append) {
+	if (append.size() > 0) {
+		CharacterVector names = list.attr("names");
+		CharacterVector appendNames = append.attr("names");
+		for (int i = 0; i < append.size(); ++i) {
+			list.push_back(append[i]);
+			names.push_back(appendNames[i]);
+		}
+		list.attr("names") = names;
+	}		
+}	
 
 void RcppCcdInterface::handleError(const std::string& str) {	
 	Rcpp::stop(str);
+}
+
+bsccs::Models::ModelType RcppCcdInterface::parseModelType(const std::string& modelName) {
+	// Parse type of model 
+ 	bsccs::Models::ModelType modelType;
+ 	if (modelName == "sccs") {
+ 		modelType = bsccs::Models::SELF_CONTROLLED_MODEL;
+ 	} else if (modelName == "clr") {
+ 		modelType = bsccs::Models::CONDITIONAL_LOGISTIC;
+ 	} else if (modelName == "lr") {
+ 		modelType = bsccs::Models::LOGISTIC;
+ 	} else if (modelName == "ls") {
+ 		modelType = bsccs::Models::NORMAL;
+ 	} else if (modelName == "pr") {
+ 		modelType = bsccs::Models::POISSON;
+ 	} else if (modelName == "cox") {
+ 		modelType = bsccs::Models::COX;
+ 	} else {
+ 		handleError("Invalid model type."); 		
+ 	}	
+ 	return modelType;
 }
 
 // TODO Massive code duplicate (to remove) with CmdLineCcdInterface
@@ -92,22 +141,23 @@ void RcppCcdInterface::initializeModelImpl(
 	 *modelData = &rcppModelData;
 	 
 	// Parse type of model 
- 	bsccs::Models::ModelType modelType;
- 	if (arguments.modelName == "sccs") {
- 		modelType = bsccs::Models::SELF_CONTROLLED_MODEL;
- 	} else if (arguments.modelName == "clr") {
- 		modelType = bsccs::Models::CONDITIONAL_LOGISTIC;
- 	} else if (arguments.modelName == "lr") {
- 		modelType = bsccs::Models::LOGISTIC;
- 	} else if (arguments.modelName == "ls") {
- 		modelType = bsccs::Models::NORMAL;
- 	} else if (arguments.modelName == "pr") {
- 		modelType = bsccs::Models::POISSON;
- 	} else if (arguments.modelName == "cox") {
- 		modelType = bsccs::Models::COX;
- 	} else {
- 		handleError("Invalid model type."); 		
- 	}
+	Models::ModelType modelType = parseModelType(arguments.modelName);
+// 	bsccs::Models::ModelType modelType;
+// 	if (arguments.modelName == "sccs") {
+// 		modelType = bsccs::Models::SELF_CONTROLLED_MODEL;
+// 	} else if (arguments.modelName == "clr") {
+// 		modelType = bsccs::Models::CONDITIONAL_LOGISTIC;
+// 	} else if (arguments.modelName == "lr") {
+// 		modelType = bsccs::Models::LOGISTIC;
+// 	} else if (arguments.modelName == "ls") {
+// 		modelType = bsccs::Models::NORMAL;
+// 	} else if (arguments.modelName == "pr") {
+// 		modelType = bsccs::Models::POISSON;
+// 	} else if (arguments.modelName == "cox") {
+// 		modelType = bsccs::Models::COX;
+// 	} else {
+// 		handleError("Invalid model type."); 		
+// 	}
  
  	switch (modelType) {
  		case bsccs::Models::SELF_CONTROLLED_MODEL :
@@ -253,8 +303,7 @@ void RcppCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, ModelData *mod
   	estimates.addBoundInformation(profileMap);
   	// End move
 	
-		OutputHelper::RcppOutputHelper test(result);  	
-		//OutputHelper::CoutStream test(",");
+		OutputHelper::RcppOutputHelper test(result);  		
   	estimates.writeStream(test);	
   	
   	std::cout << result << std::endl;
@@ -269,7 +318,10 @@ void RcppCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, ModelData
 // 	gettimeofday(&time1, NULL);
 // 	
 // //	using namespace bsccs;	
-// // 	DiagnosticsOutputWriter diagnostics(*ccd, *modelData);
+ 		DiagnosticsOutputWriter diagnostics(*ccd, *modelData);
+		OutputHelper::RcppOutputHelper test(result);  		
+  	diagnostics.writeStream(test);	
+  	
 // // 
 // // 	string fileName = getPathAndFileName(arguments, "diag_");
 // // 

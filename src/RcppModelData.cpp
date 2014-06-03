@@ -12,10 +12,10 @@
 using namespace Rcpp;
 
 
-//' @title ccd_model_data
+//' @title ccdModelData
 //'
 //' @description
-//' \code{ccd_model_data} creates a CCD model data object
+//' \code{ccdModeData} creates a CCD model data object
 //'
 //' @details
 //' This function is fun.  This function currently creates a deep copy of all data.
@@ -36,9 +36,9 @@ using namespace Rcpp;
 //' @examples
 //' splitSql("SELECT * INTO a FROM b; USE x; DROP TABLE c;")
 //'
-//' @export
+//////' @export
 // [[Rcpp::export]]
-List ccd_model_data(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix) {
+List ccdModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix) {
 
 	bsccs::Timer timer;
 
@@ -79,7 +79,7 @@ List ccd_model_data(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP 
 	IntegerVector iiv, ipv;
 	if (!Rf_isNull(ix)) {
 		S4 ixx(ix);
-		iiv = ixx.slot("i"); // TODO Check that not copy is made
+		iiv = ixx.slot("i"); // TODO Check that no copy is made
 		ipv = ixx.slot("p");
 	}
 
@@ -88,8 +88,11 @@ List ccd_model_data(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP 
 
 	double duration = timer();
 
-    List list = List::create(ptr, duration); // TODO Return some sort of S4 object
-    return list;
+ 	List list = List::create(
+ 			Rcpp::Named("data") = ptr,
+ 			Rcpp::Named("timeLoad") = duration
+ 		); // TODO Return some sort of S4 object
+  return list;
 }
 
 namespace bsccs {

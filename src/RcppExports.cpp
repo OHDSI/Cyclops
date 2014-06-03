@@ -51,23 +51,25 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdInitializeModel
-List ccdInitializeModel(SEXP inModelData);
-RcppExport SEXP CCD_ccdInitializeModel(SEXP inModelDataSEXP) {
+List ccdInitializeModel(SEXP inModelData, const std::string& modelType, bool computeMLE = false);
+RcppExport SEXP CCD_ccdInitializeModel(SEXP inModelDataSEXP, SEXP modelTypeSEXP, SEXP computeMLESEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inModelData(inModelDataSEXP );
-        List __result = ccdInitializeModel(inModelData);
+        Rcpp::traits::input_parameter< const std::string& >::type modelType(modelTypeSEXP );
+        Rcpp::traits::input_parameter< bool >::type computeMLE(computeMLESEXP );
+        List __result = ccdInitializeModel(inModelData, modelType, computeMLE);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccd_model_data
-List ccd_model_data(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix);
-RcppExport SEXP CCD_ccd_model_data(SEXP pidSEXP, SEXP ySEXP, SEXP zSEXP, SEXP offsSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP) {
+// ccdModelData
+List ccdModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix);
+RcppExport SEXP CCD_ccdModelData(SEXP pidSEXP, SEXP ySEXP, SEXP zSEXP, SEXP offsSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -79,7 +81,7 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< SEXP >::type dx(dxSEXP );
         Rcpp::traits::input_parameter< SEXP >::type sx(sxSEXP );
         Rcpp::traits::input_parameter< SEXP >::type ix(ixSEXP );
-        List __result = ccd_model_data(pid, y, z, offs, dx, sx, ix);
+        List __result = ccdModelData(pid, y, z, offs, dx, sx, ix);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
