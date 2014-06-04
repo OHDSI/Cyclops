@@ -10,9 +10,9 @@
 
 #include <numeric>
 
-#include "InputReader.h"
+#include "io/InputReader.h"
 #include "imputation/ImputationPolicy.h"
-#include "SparseIndexer.h"
+#include "io/SparseIndexer.h"
 
 using namespace std;
 

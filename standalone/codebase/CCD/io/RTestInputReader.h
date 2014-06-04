@@ -8,7 +8,7 @@
 #ifndef RTESTINPUTREADER_H_
 #define RTESTINPUTREADER_H_
 
-#include "InputReader.h"
+#include "io/InputReader.h"
 
 namespace bsccs {
 

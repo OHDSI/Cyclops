@@ -8,7 +8,7 @@
 #ifndef NEWCLRINPUTREADER_H_
 #define NEWCLRINPUTREADER_H_
 
-#include "BaseInputReader.h"
+#include "io/BaseInputReader.h"
 
 namespace bsccs {
 

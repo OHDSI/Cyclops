@@ -16,7 +16,7 @@
 
 using namespace std;
 
-#include "InputReader.h"
+#include "io/InputReader.h"
 
 namespace bsccs {
 

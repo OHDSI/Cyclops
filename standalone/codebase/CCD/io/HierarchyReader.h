@@ -17,7 +17,7 @@
 using namespace std;
 
 #include "Types.h"
-#include "InputReader.h"
+#include "io/InputReader.h"
 
 //#define USE_DRUG_STRING
 

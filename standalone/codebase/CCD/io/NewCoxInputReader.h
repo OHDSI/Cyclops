@@ -8,7 +8,7 @@
 #ifndef NEWCOXINPUTREADER_H_
 #define NEWCOXINPUTREADER_H_
 
-#include "BaseInputReader.h"
+#include "io/BaseInputReader.h"
 
 //#define UPCAST_DENSE 
 

@@ -15,7 +15,7 @@
 #include <algorithm>
 
 #include "CLRInputReader.h"
-#include "SparseIndexer.h"
+#include "io/SparseIndexer.h"
 
 #define MAX_ENTRIES		1000000000
 #define HAS_HEADER

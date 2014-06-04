@@ -8,7 +8,7 @@
 #ifndef NEWSCCSINPUTREADER_H_
 #define NEWSCCSINPUTREADER_H_
 
-#include "BaseInputReader.h"
+#include "io/BaseInputReader.h"
 
 namespace bsccs {
 

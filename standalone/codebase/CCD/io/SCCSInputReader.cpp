@@ -16,7 +16,7 @@
 #include <algorithm>
 
 #include "SCCSInputReader.h"
-#include "SparseIndexer.h"
+#include "io/SparseIndexer.h"
 
 namespace bsccs {
 

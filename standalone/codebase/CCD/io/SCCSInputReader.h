@@ -14,7 +14,7 @@
 #include <vector>
 #include <map>
 
-#include "InputReader.h"
+#include "io/InputReader.h"
 
 namespace bsccs {
 

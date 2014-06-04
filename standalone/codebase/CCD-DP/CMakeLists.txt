@@ -13,8 +13,8 @@ set(BASE_SOURCE_FILES
 	${RCCD_SOURCE_DIR}/ccd/CyclicCoordinateDescent.cpp	
 	${RCCD_SOURCE_DIR}/ccd/CompressedDataMatrix.cpp
 	${RCCD_SOURCE_DIR}/ccd/ModelData.cpp
+	${RCCD_SOURCE_DIR}/ccd/io/InputReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/io/HierarchyReader.cpp
-	 ${CCD_SOURCE_DIR}/CCD/io/InputReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/io/SCCSInputReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/io/CLRInputReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/io/RTestInputReader.cpp

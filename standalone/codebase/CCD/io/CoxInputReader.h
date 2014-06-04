@@ -8,7 +8,7 @@
 #ifndef COXINPUTREADER_H_
 #define COXINPUTREADER_H_
 
-#include "InputReader.h"
+#include "io/InputReader.h"
 
 namespace bsccs {
 
