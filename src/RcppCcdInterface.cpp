@@ -20,7 +20,7 @@
 
 using namespace Rcpp;
 
-// [[Rcpp::export]]
+// [[Rcpp::export(".ccdFitModel")]]
 List ccdFitModel(SEXP inRcppCcdInterface) {	
 	using namespace bsccs;
 	
@@ -38,7 +38,7 @@ List ccdFitModel(SEXP inRcppCcdInterface) {
 	return list;
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(".ccdLogModel")]]
 List ccdLogModel(SEXP inRcppCcdInterface) {	
 	using namespace bsccs;
 	
@@ -64,7 +64,7 @@ List ccdLogModel(SEXP inRcppCcdInterface) {
 	return list;
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(".ccdInitializeModel")]]
 List ccdInitializeModel(SEXP inModelData, const std::string& modelType, bool computeMLE = false) {
 	using namespace bsccs;
 
@@ -108,7 +108,8 @@ void RcppCcdInterface::appendRList(Rcpp::List& list, const Rcpp::List& append) {
 }	
 
 void RcppCcdInterface::handleError(const std::string& str) {	
-	Rcpp::stop(str);
+//	Rcpp::stop(str); // TODO Want this to work
+	::Rf_error(str.c_str());
 }
 
 bsccs::Models::ModelType RcppCcdInterface::parseModelType(const std::string& modelName) {
@@ -303,10 +304,12 @@ void RcppCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, ModelData *mod
   	estimates.addBoundInformation(profileMap);
   	// End move
 	
+	
+		result = List::create();
 		OutputHelper::RcppOutputHelper test(result);  		
   	estimates.writeStream(test);	
   	
-  	std::cout << result << std::endl;
+//  	std::cout << result << std::endl;
   	
 }
 
@@ -318,6 +321,7 @@ void RcppCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, ModelData
 // 	gettimeofday(&time1, NULL);
 // 	
 // //	using namespace bsccs;	
+		result = List::create();
  		DiagnosticsOutputWriter diagnostics(*ccd, *modelData);
 		OutputHelper::RcppOutputHelper test(result);  		
   	diagnostics.writeStream(test);	

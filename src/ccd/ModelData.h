@@ -51,7 +51,7 @@ public:
 			const RealVector& _z,
 			const RealVector& _offs
 			) :
-		hasOffsetCovariate(false), hasInterceptCovariate(false), nPatients(0)
+		nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false)
 		, pid(_pid.begin(), _pid.end()) // copy
 		, y(_y.begin(), _y.end()) // copy
 		, z(_z.begin(), _z.end()) // copy
@@ -127,6 +127,8 @@ public:
 	double getNormalBasedDefaultVar() const;
 
 	int getNumberOfVariableColumns() const;
+	
+	size_t getNumberOfStrata() const;
 
 	const std::string& getRowLabel(size_t i) const {
 		if (i >= labels.size()) {
@@ -149,7 +151,8 @@ public:
 	template <class ImputationPolicy> friend class CSVInputReader;
 	
 protected:
-	int nPatients;
+	mutable int nPatients;
+	mutable size_t nStrata;
 
 private:
 	// Disable copy-constructors and copy-assignment
@@ -166,6 +169,7 @@ private:
 	bool hasInterceptCovariate;
 	std::vector<std::string> labels;
 	static const std::string missing;
+
 };
 
 } // namespace

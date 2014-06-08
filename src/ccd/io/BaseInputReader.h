@@ -20,8 +20,8 @@
 namespace bsccs {
 
 using std::string;
-using std::cerr;
-using std::cout;
+//using std::cerr;
+//using std::cout;
 using std::endl;
 using std::ifstream;
 
@@ -66,12 +66,15 @@ public:
 	typedef std::vector<int> int_vector;
 	typedef std::vector<string> string_vector;
 
-	BaseInputReader() : error(bsccs::make_shared<loggers::CerrErrorHandler>()), innerDelimitor(":") {
-		// Do nothing
+	BaseInputReader() : logger(bsccs::make_shared<loggers::CoutLogger>())
+		, error(bsccs::make_shared<loggers::CerrErrorHandler>()), innerDelimitor(":") {
+		// Do nothing		
 	}
 	
-	BaseInputReader(loggers::ErrorHandlerPtr _error) : error(_error), innerDelimitor(":") {
-		// Do nothing
+	BaseInputReader(
+		loggers::ProgressLoggerPtr _logger,
+		loggers::ErrorHandlerPtr _error) : logger(_logger), error(_error), innerDelimitor(":") {
+		// Do nothing	
 	}
 
 	virtual ~BaseInputReader() {
@@ -79,11 +82,16 @@ public:
 	}
 
 	virtual void readFile(const char* fileName) {
+
 		ifstream in(fileName);
-		if (!in) {
-			cerr << "Unable to open " << fileName << endl;
-			exit(-1);
+		if (!in) {		
+			std::ostringstream stream;
+			stream << "Unable to open " << fileName;			
+			error->throwError(stream);
 		}
+		
+// 		in.close();
+// 		return;
 
 		// Initial values
 		RowInformation rowInfo(0,0,0, MISSING_STRING, MISSING_STRING, *modelData);
@@ -104,21 +112,27 @@ public:
 			addEventEntry(rowInfo.numEvents); // Save last patient
 
 		} catch (...) {
-			cerr << "Exception while trying to read " << fileName << endl;
-			exit(-1);
+			std::ostringstream stream;
+			stream << "Exception while trying to read " << fileName;
+			in.close();
+			error->throwError(stream);			
 		}
 		
 		static_cast<DerivedFormat*>(this)->upcastColumns(modelData, rowInfo);
 
 		doSort(); // Override for sort criterion or no sorting
 
-		cout << "Number of rows: " << rowInfo.currentRow << " read from " << fileName << endl;
-		cout << "Number of cases: " << rowInfo.numCases << endl;
-		cout << "Number of covariates: " <<  modelData->getNumberOfColumns() << endl;
+		std::ostringstream stream;
+		stream << "Number of rows: " << rowInfo.currentRow << " read from " << fileName << endl;
+		stream << "Number of cases: " << rowInfo.numCases << endl;
+		stream << "Number of covariates: " <<  modelData->getNumberOfColumns();
+		logger->writeLine(stream);
 
 		modelData->nPatients = rowInfo.numCases;
 		modelData->nRows = rowInfo.currentRow;
 		modelData->conditionId = rowInfo.outcomeId;
+		
+		in.close();
 	}	 
 	
 protected:
@@ -155,7 +169,9 @@ protected:
 			CompressedDataColumn& column = rowInfo.indexer.getColumn(drug);
 			if (value != static_cast<real>(1) && value != static_cast<real>(0)) {
 				if (column.getFormatType() == INDICATOR) {
-					cerr << "Up-casting covariate " << column.getLabel() << " to sparse!" << endl;
+					std::ostringstream stream;
+					stream << "Up-casting covariate " << column.getLabel() << " to sparse!";
+					logger->writeLine(stream);
 					column.convertColumnToSparse();
 				}
 			}
@@ -167,9 +183,11 @@ protected:
 				// Add to storage
 				bool valid = column.add_data(rowInfo.currentRow, value);
 				if (!valid) {
-					cerr << "Warning: repeated sparse entries in data row: "
+					std::ostringstream stream;
+					stream << "Warning: repeated sparse entries in data row: "
 							<< (rowInfo.currentRow + 1)
-							<< ", column: " << column.getLabel() << endl;
+							<< ", column: " << column.getLabel();
+					logger->writeLine(stream);
 				}
 			}
 		}
@@ -191,8 +209,9 @@ protected:
 		if (rowInfo.outcomeId == MISSING_STRING) {
 			rowInfo.outcomeId = currentOutcomeId;
 		} else if (currentOutcomeId != rowInfo.outcomeId) {
-			cerr << "More than one condition ID in input file" << endl;
-			exit(-1);
+			std::ostringstream stream;
+			stream << "More than one condition ID in input file";
+			error->throwError(stream);			
 		}
 	}
 
@@ -290,6 +309,7 @@ protected:
 		modelData->nevents.push_back(numEvents);
 	}
 	
+	loggers::ProgressLoggerPtr logger;
 	loggers::ErrorHandlerPtr error;
 
 private:

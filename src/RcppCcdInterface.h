@@ -70,12 +70,12 @@ public:
     
     
     static void appendRList(Rcpp::List& list, const Rcpp::List& append);
+    
+    static Models::ModelType parseModelType(const std::string& modelName);
                         
 protected:            
-
-		Models::ModelType parseModelType(const std::string& modelName);
-
-		void handleError(const std::string& str);
+		
+		static void handleError(const std::string& str);
             
     void initializeModelImpl(
             ModelData** modelData,

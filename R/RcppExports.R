@@ -5,45 +5,39 @@ rcpp_hello_world <- function() {
     .Call('CCD_rcpp_hello_world', PACKAGE = 'CCD')
 }
 
-ccdFitModel <- function(inRcppCcdInterface) {
+.ccdFitModel <- function(inRcppCcdInterface) {
     .Call('CCD_ccdFitModel', PACKAGE = 'CCD', inRcppCcdInterface)
 }
 
-ccdLogModel <- function(inRcppCcdInterface) {
+.ccdLogModel <- function(inRcppCcdInterface) {
     .Call('CCD_ccdLogModel', PACKAGE = 'CCD', inRcppCcdInterface)
 }
 
-ccdInitializeModel <- function(inModelData, modelType, computeMLE = FALSE) {
+.ccdInitializeModel <- function(inModelData, modelType, computeMLE = FALSE) {
     .Call('CCD_ccdInitializeModel', PACKAGE = 'CCD', inModelData, modelType, computeMLE)
 }
 
-#' @title ccdModelData
-#'
-#' @description
-#' \code{ccdModeData} creates a CCD model data object
-#'
-#' @details
-#' This function is fun.  This function currently creates a deep copy of all data.
-#' Another deep copy is also then made during CCD engine initialization; one of 
-#' these copies should be removed.
-#'
-#' @param pid               Vector of row identifiers (function assumes these are sorted)
-#' @param y								 Vector of outcomes
-#' @param z								 Vector of secondary outcomes (or NULL if unneeded for model)
-#' @param offs							 Vector of regression model offsets (or NULL)
-#' @param dx								 Dense matrix of covariates (or NULL)
-#' @param sx							   Sparse matrix of covariates (or NULL)
-#' @param ix								 Indicator matrix of covariates (or NULL)
-#' 
-#' @return
-#' A list that contains a CCD model data object pointer and an operation duration
-#' 
-#' @examples
-#' splitSql("SELECT * INTO a FROM b; USE x; DROP TABLE c;")
-#'
-NULL
+.isRcppPtrNull <- function(x) {
+    .Call('CCD_isRcppPtrNull', PACKAGE = 'CCD', x)
+}
 
-ccdModelData <- function(pid, y, z, offs, dx, sx, ix) {
+getNumberOfStrata <- function(x) {
+    .Call('CCD_ccdGetNumberOfStrata', PACKAGE = 'CCD', x)
+}
+
+getNumberOfCovariates <- function(x) {
+    .Call('CCD_ccdGetNumberOfColumns', PACKAGE = 'CCD', x)
+}
+
+getNumberOfRows <- function(x) {
+    .Call('CCD_ccdGetNumberOfRows', PACKAGE = 'CCD', x)
+}
+
+.ccdReadData <- function(fileName, modelTypeName) {
+    .Call('CCD_ccdReadData', PACKAGE = 'CCD', fileName, modelTypeName)
+}
+
+.ccdModelData <- function(pid, y, z, offs, dx, sx, ix) {
     .Call('CCD_ccdModelData', PACKAGE = 'CCD', pid, y, z, offs, dx, sx, ix)
 }
 

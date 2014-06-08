@@ -3,11 +3,13 @@
 \alias{createCcdDataFrame}
 \title{createCcdDataFrame}
 \usage{
-createCcdDataFrame(formula, sparseFormula, indicatorFormula, data, subset,
-  weights, offs = NULL, y = NULL, z = NULL, dx = NULL, sx = NULL,
-  ix = NULL, model = FALSE, method = "ccd.fit", ...)
+createCcdDataFrame(formula, sparseFormula, indicatorFormula, modelType, data,
+  subset, weights, offs = NULL, y = NULL, z = NULL, dx = NULL,
+  sx = NULL, ix = NULL, model = FALSE, method = "ccd.fit", ...)
 }
 \arguments{
+\item{modelType}{character string: Valid types are listed below.}
+
 \item{formula}{An R formula}
 
 \item{data}{}
@@ -21,20 +23,28 @@ A list that contains a CCD model data object pointer and an operation duration
 \details{
 This function creates a CCD model data object from an R formula and data.frame.
 }
+\section{Models}{
+
+Currently supported model types are:
+\tabular{ll}{
+	\verb{	"ls"} \tab Least squares \cr
+	\verb{	"pr"} \tab Poisson regression \cr
+	\verb{	"lr"} \tab Logistic regression \cr
+	\verb{	"clr"} \tab Conditional logistic regression \cr
+	\verb{	"sccs"} \tab Self-controlled case series \cr
+	\verb{	"cox"} \tab Cox proportional hazards regression \cr
+}
+}
 \examples{
 ## Dobson (1990) Page 93: Randomized Controlled Trial :
 counts <- c(18,17,15,20,10,20,25,13,12)
 outcome <- gl(3,1,9)
 treatment <- gl(3,3)
-ccdModelData <- createCcdDataFrame(counts ~ outcome + treatment, model=TRUE)
-ccdModel <- ccdInitializeModel(ccdModelData$ccdModelDataPtr, modelType="pr", computeMLE=TRUE)
-ccdFit <- ccdFitModel(ccdModel$interface)
-ccdLog <- ccdLogModel(ccdModel$interface)
-as.data.frame(ccdLog$estimation)
-
+ccdData <- createCcdDataFrame(counts ~ outcome + treatment, modelType = "pr")
+ccdFit <- fitCcdModel(ccdData)
 
 ccdModelData2 <- createCcdDataFrame(counts ~ outcome, indicatorFormula = ~ treatment, model=TRUE)
-ccdModel2 <- ccdInitializeModel(ccdModelData2$ccdModelDataPtr, modelType="pr", computeMLE=TRUE)
+ccdModel2 <- ccdInitializeModel(ccdModelData2$ccdDataPtr, modelType="pr", computeMLE=TRUE)
 ccdFit2 <- ccdFitModel(ccdModel2$interface)
 ccdLog2 <- ccdLogModel(ccdModel2$interface)
 as.data.frame(ccdLog2$estimation)

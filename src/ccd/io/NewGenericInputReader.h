@@ -16,8 +16,9 @@ namespace bsccs {
 class NewGenericInputReader : public BaseInputReader<NewGenericInputReader> {
 public:
 
-	NewGenericInputReader(loggers::ErrorHandlerPtr error) 
-		: BaseInputReader<NewGenericInputReader>(error)
+	NewGenericInputReader(
+		loggers::ProgressLoggerPtr logger,
+		loggers::ErrorHandlerPtr error) : BaseInputReader<NewGenericInputReader>(logger, error)
 		, upcastToDense(false)
 		, upcastToSparse(false)
 		, useBBROutcome(false)
@@ -51,17 +52,10 @@ public:
 		, modelType(model)
 	{
 		setRequiredFlags(model);
-//		std::cerr << bsccs::Models::RequiresStratumID << std::endl;
-//		std::cerr << bsccs::Models::RequiresCensoredData << std::endl;
-//		std::cerr << bsccs::Models::RequiresCensoredData2 << std::endl;
-//		exit(-1);
-
-
-
 	}	
 
 	NewGenericInputReader(const bsccs::Models::ModelType model, 
-			loggers::ErrorHandlerPtr error) : BaseInputReader<NewGenericInputReader>(error)
+			loggers::ProgressLoggerPtr logger, loggers::ErrorHandlerPtr error) : BaseInputReader<NewGenericInputReader>(logger, error)
 		, upcastToDense(false)
 		, upcastToSparse(false)
 		, useBBROutcome(false)
@@ -77,13 +71,8 @@ public:
 		, modelType(model)
 	{
 		setRequiredFlags(model);
-//		std::cerr << bsccs::Models::RequiresStratumID << std::endl;
-//		std::cerr << bsccs::Models::RequiresCensoredData << std::endl;
-//		std::cerr << bsccs::Models::RequiresCensoredData2 << std::endl;
-//		exit(-1);
-
-
-
+		
+		//Rcpp::stop("here");
 	}
 
 	void setRequiredFlags(const bsccs::Models::ModelType model) {
@@ -95,19 +84,9 @@ public:
 		if (includeSCCSOffset) {
 			includeOffset = false;
 		}
-//		std::cerr << "Model = " << model << std::endl;
-//		std::cerr << includeStratumLabel << std::endl << std::endl;
 	}
 
 	inline void parseRow(stringstream& ss, RowInformation& rowInfo) {
-
-//		std::cerr << includeRowLabel << std::endl;
-//		std::cerr << includeStratumLabel << std::endl;
-//		std::cerr << includeWeights << std::endl;
-//		std::cerr << includeOffset << std::endl;
-//		std::cerr << ss << std::endl << std::endl;
-//		exit(-1);
-
 
 		if (includeRowLabel) {
 			parseRowLabel(ss, rowInfo);
@@ -191,14 +170,18 @@ public:
 
 	void upcastColumns(ModelData* modelData, RowInformation& rowInfo) {
 		if (upcastToSparse) {
-			cerr << "Going to up-cast all columns to sparse!" << endl;
+			std::ostringstream stream;
+			stream << "Going to up-cast all columns to sparse!";
+			logger->writeLine(stream);
 			int i = includeIntercept ? 1 : 0;
 			for (; i < modelData->getNumberOfColumns(); ++i) {
 				modelData->getColumn(i).convertColumnToSparse();
 			}
 		}
 		if (upcastToDense) {
-			cerr << "Going to up-cast all columns to dense!" << endl;
+			std::ostringstream stream;
+			stream << "Going to up-cast all columns to dense!";
+			logger->writeLine(stream);
 			for (int i = 0; i < modelData->getNumberOfColumns(); ++i) {
 				modelData->getColumn(i).convertColumnToDense(rowInfo.currentRow);
 			}

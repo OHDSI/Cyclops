@@ -67,6 +67,82 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
+// isRcppPtrNull
+bool isRcppPtrNull(SEXP x);
+RcppExport SEXP CCD_isRcppPtrNull(SEXP xSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< SEXP >::type x(xSEXP );
+        bool __result = isRcppPtrNull(x);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
+// ccdGetNumberOfStrata
+size_t ccdGetNumberOfStrata(Environment x);
+RcppExport SEXP CCD_ccdGetNumberOfStrata(SEXP xSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
+        size_t __result = ccdGetNumberOfStrata(x);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
+// ccdGetNumberOfColumns
+size_t ccdGetNumberOfColumns(Environment x);
+RcppExport SEXP CCD_ccdGetNumberOfColumns(SEXP xSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
+        size_t __result = ccdGetNumberOfColumns(x);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
+// ccdGetNumberOfRows
+size_t ccdGetNumberOfRows(Environment x);
+RcppExport SEXP CCD_ccdGetNumberOfRows(SEXP xSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
+        size_t __result = ccdGetNumberOfRows(x);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
+// ccdReadData
+List ccdReadData(const std::string& fileName, const std::string& modelTypeName);
+RcppExport SEXP CCD_ccdReadData(SEXP fileNameSEXP, SEXP modelTypeNameSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< const std::string& >::type fileName(fileNameSEXP );
+        Rcpp::traits::input_parameter< const std::string& >::type modelTypeName(modelTypeNameSEXP );
+        List __result = ccdReadData(fileName, modelTypeName);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
 // ccdModelData
 List ccdModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix);
 RcppExport SEXP CCD_ccdModelData(SEXP pidSEXP, SEXP ySEXP, SEXP zSEXP, SEXP offsSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP) {

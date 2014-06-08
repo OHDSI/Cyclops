@@ -8,36 +8,86 @@
 #include "Rcpp.h"
 #include "RcppModelData.h"
 #include "Timer.h"
+#include "RcppCcdInterface.h"
+#include "io/NewGenericInputReader.h"
+#include "RcppProgressLogger.h"
 
 using namespace Rcpp;
+ 
+XPtr<bsccs::ModelData> parseEnvironmentForPtr(const Environment& x) {
+	if (!x.inherits("ccdData")) {
+		::Rf_error("Input must be a ccdData object");	// TODO Change to "stop"
+	}
+			
+	SEXP tSexp = x["ccdDataPtr"];
+	if (TYPEOF(tSexp) != EXTPTRSXP) {
+		::Rf_error("Input must contain a ccdDataPtr object"); // TODO Change to "stop" (bug in Rcpp 0.11)
+	}	
 
+	XPtr<bsccs::ModelData> ptr(tSexp);
+	if (!ptr) {
+		::Rf_error("ccdData object is uninitialized"); // TODO Change to "stop"
+	}
+	return ptr;	
+}
 
-//' @title ccdModelData
-//'
-//' @description
-//' \code{ccdModeData} creates a CCD model data object
-//'
-//' @details
-//' This function is fun.  This function currently creates a deep copy of all data.
-//' Another deep copy is also then made during CCD engine initialization; one of 
-//' these copies should be removed.
-//'
-//' @param pid               Vector of row identifiers (function assumes these are sorted)
-//' @param y								 Vector of outcomes
-//' @param z								 Vector of secondary outcomes (or NULL if unneeded for model)
-//' @param offs							 Vector of regression model offsets (or NULL)
-//' @param dx								 Dense matrix of covariates (or NULL)
-//' @param sx							   Sparse matrix of covariates (or NULL)
-//' @param ix								 Indicator matrix of covariates (or NULL)
-//' 
-//' @return
-//' A list that contains a CCD model data object pointer and an operation duration
-//' 
-//' @examples
-//' splitSql("SELECT * INTO a FROM b; USE x; DROP TABLE c;")
-//'
-//////' @export
-// [[Rcpp::export]]
+// [[Rcpp::export(".isRcppPtrNull")]]
+bool isRcppPtrNull(SEXP x) {
+	if (TYPEOF(x) != EXTPTRSXP) {
+		::Rf_error("Input must be an Rcpp externalptr"); // TODO Change to "stop"
+	}
+	XPtr<int> ptr(x); 
+	return !ptr;
+}
+
+// [[Rcpp::export("getNumberOfStrata")]]
+size_t ccdGetNumberOfStrata(Environment x) {			
+	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(x);	
+	return data->getNumberOfPatients();
+}
+
+// [[Rcpp::export("getNumberOfCovariates")]]
+size_t ccdGetNumberOfColumns(Environment x) {	
+	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(x);	
+	return data->getNumberOfColumns();
+}
+
+// [[Rcpp::export("getNumberOfRows")]]
+size_t ccdGetNumberOfRows(Environment x) {	
+	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(x);	
+	return data->getNumberOfRows();
+}
+
+// [[Rcpp::export(".ccdReadData")]]
+List ccdReadData(const std::string& fileName, const std::string& modelTypeName) {
+
+		using namespace bsccs;
+		Timer timer; 
+    Models::ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName);        		
+    InputReader* reader = new NewGenericInputReader(modelType,
+    	bsccs::make_shared<loggers::RcppProgressLogger>(true), // make silent
+    	bsccs::make_shared<loggers::RcppErrorHandler>());	
+		reader->readFile(fileName.c_str()); // TODO Check for error
+
+    XPtr<ModelData> ptr(reader->getModelData());
+    
+    
+    const std::vector<double>& y = ptr->getYVectorRef();
+    double total = std::accumulate(y.begin(), y.end(), 0.0);
+    // delete reader; // TODO Test
+       
+    double time = timer();
+    List list = List::create(
+            Rcpp::Named("ccdDataPtr") = ptr,            
+            Rcpp::Named("timeLoad") = time,
+            Rcpp::Named("debug") = List::create(
+            		Rcpp::Named("totalY") = total
+            )
+    );
+    return list;
+}
+
+// [[Rcpp::export(".ccdModelData")]]
 List ccdModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix) {
 
 	bsccs::Timer timer;
@@ -91,7 +141,7 @@ List ccdModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix
  	List list = List::create(
  			Rcpp::Named("data") = ptr,
  			Rcpp::Named("timeLoad") = duration
- 		); // TODO Return some sort of S4 object
+ 		);
   return list;
 }
 
@@ -122,7 +172,7 @@ RcppModelData::RcppModelData(
 				dxv.begin() + i * y.size(), dxv.begin() + (i + 1) * y.size(),
 				DENSE);
 		getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns());
-		std::cout << "Added dense covariate" << std::endl;
+//		std::cout << "Added dense covariate" << std::endl;
 	}
 
 	// Convert sparse
@@ -137,7 +187,7 @@ RcppModelData::RcppModelData(
 				sxv.begin() + begin, sxv.begin() + end,
 				SPARSE);
         getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns());				
-		std::cout << "Added sparse covariate " << (end - begin) << std::endl;
+//		std::cout << "Added sparse covariate " << (end - begin) << std::endl;
 	}
 
 	// Convert indicator
@@ -152,16 +202,10 @@ RcppModelData::RcppModelData(
 				NULL, NULL,
 				INDICATOR);
         getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns());				
-		std::cout << "Added indicator covariate " << (end - begin) << std::endl;
+//		std::cout << "Added indicator covariate " << (end - begin) << std::endl;
 	}
 
-	std::cout << "Ncol = " << getNumberOfColumns() << std::endl;
-
-//	using bsccs::CompressedDataColumn;
-//	for (int i = 0; i < getNumberOfColumns(); ++i) {
-//		const CompressedDataColumn& column = getColumn(i);
-//		std::cout << column.squaredSumColumn() << std::endl;
-//	}
+//	std::cout << "Ncol = " << getNumberOfColumns() << std::endl;
 
 	this->nRows = y.size();
 	
@@ -189,7 +233,7 @@ RcppModelData::RcppModelData(
 }
 
 RcppModelData::~RcppModelData() {
-	std::cout << "~RcppModelData() called." << std::endl;
+//	std::cout << "~RcppModelData() called." << std::endl;
 }
 
 } /* namespace bsccs */

@@ -19,19 +19,27 @@ namespace loggers {
 
 class RcppProgressLogger : public ProgressLogger {
 public:
+    RcppProgressLogger(bool _silent = false) : silent(_silent) { }
+
     void writeLine(const std::ostringstream& stream) {
-        Rcpp::Rcout << stream.str() << std::endl;
+        if (!silent) {
+            Rcpp::Rcout << stream.str() << std::endl;
+        }
     }    
     
     void yield() { 
         // TODO 
     }
+    
+private:
+    bool silent;    
 };
 
 class RcppErrorHandler : public ErrorHandler {
 public:
     void throwError(const std::ostringstream& stream) {
-        Rcpp::stop(stream.str());
+//        Rcpp::stop(stream.str());  // TODO Want this to work.
+		::Rf_error(stream.str().c_str());
     }
 };
 

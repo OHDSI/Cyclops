@@ -14,6 +14,7 @@
 #include <cstring>
 #include <algorithm>
 #include <numeric>
+#include <list>
 
 #include "ModelData.h"
 
@@ -22,7 +23,7 @@ namespace bsccs {
 using std::string;
 using std::vector;
 
-ModelData::ModelData() : hasOffsetCovariate(false), hasInterceptCovariate(false), nPatients(0) {
+ModelData::ModelData() : nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false) {
 	// Do nothing
 }
 
@@ -83,6 +84,16 @@ double ModelData::getSquaredNorm() const {
 	}
 
 	return std::accumulate(squaredNorm.begin(), squaredNorm.end(), 0.0);
+}
+
+size_t ModelData::getNumberOfStrata() const {
+    typedef std::list<int>  List;
+    if (nStrata == 0) {
+        List cPid(pid.begin(), pid.end());
+        List::iterator pos = std::unique(cPid.begin(), cPid.end());
+        nStrata = std::distance(pos, cPid.begin());        
+    }
+    return nStrata;
 }
 
 double ModelData::getNormalBasedDefaultVar() const {

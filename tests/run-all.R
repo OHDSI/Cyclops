@@ -8,6 +8,7 @@ b = ccdInitializeModel(a[[1]], modelType="ls", computeMLE=TRUE)
 c = ccdFitModel(b[[1]])
 d = ccdLogModel(b[[1]])
 
+readCcdData(system.file("extdata/infert_ccd.txt", package="CCD"), "clr")
 
 # (m <- Matrix(c(0,0,2:0), 3,5, dimnames=list(LETTERS[1:3],NULL)))
 # ## ``extract the nonzero-pattern of (m) into an nMatrix'':
