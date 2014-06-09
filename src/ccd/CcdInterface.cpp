@@ -371,7 +371,7 @@ double CcdInterface::runFitMLEAtMode(CyclicCoordinateDescent* ccd) {
 	gettimeofday(&time1, NULL);
 
 	setZeroBetaAsFixed(ccd);
-	ccd->setPriorType(NONE);
+	ccd->setPriorType(priors::NONE);
 	fitModel(ccd);
 
 	gettimeofday(&time2, NULL);

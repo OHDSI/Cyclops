@@ -20,6 +20,21 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
+// ccdSetPrior
+void ccdSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, double variance, SEXP excludeNumeric);
+RcppExport SEXP CCD_ccdSetPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP varianceSEXP, SEXP excludeNumericSEXP) {
+BEGIN_RCPP
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
+        Rcpp::traits::input_parameter< const std::string& >::type priorTypeName(priorTypeNameSEXP );
+        Rcpp::traits::input_parameter< double >::type variance(varianceSEXP );
+        Rcpp::traits::input_parameter< SEXP >::type excludeNumeric(excludeNumericSEXP );
+        ccdSetPrior(inRcppCcdInterface, priorTypeName, variance, excludeNumeric);
+    }
+    return R_NilValue;
+END_RCPP
+}
 // ccdFitModel
 List ccdFitModel(SEXP inRcppCcdInterface);
 RcppExport SEXP CCD_ccdFitModel(SEXP inRcppCcdInterfaceSEXP) {

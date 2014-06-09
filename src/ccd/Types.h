@@ -57,11 +57,15 @@ typedef std::vector<ProfileInformation> ProfileInformationList;
 	typedef float real;
 #endif 
 
+namespace priors {
+
 enum PriorType {
 	NONE = 0,
 	LAPLACE,
 	NORMAL
 };
+
+} // namespace priors
 
 enum ConvergenceType {
 	GRADIENT,

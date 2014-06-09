@@ -20,6 +20,30 @@
 
 using namespace Rcpp;
 
+// // [[Rcpp::export("test")]]
+// size_t ccdTest(SEXP exp) {
+// 	if (Rf_isNull(exp)) {	
+// 		return 0;
+// 	}
+// 	std::vector<std::string> strings = as<std::vector<std::string> >(exp);
+// 	return strings.size();
+// }
+
+// [[Rcpp::export(".ccdSetPrior")]]
+void ccdSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, double variance, SEXP excludeNumeric) {
+	using namespace bsccs;
+	
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	
+	priors::PriorType priorType = RcppCcdInterface::parsePriorType(priorTypeName);
+ 	ProfileVector exclude;
+ 	if (!Rf_isNull(excludeNumeric)) {
+ 		exclude = as<ProfileVector>(excludeNumeric);
+ 	}
+ 	
+  interface->setPrior(priorTypeName, variance, exclude);
+}
+
 // [[Rcpp::export(".ccdFitModel")]]
 List ccdFitModel(SEXP inRcppCcdInterface) {	
 	using namespace bsccs;
@@ -112,6 +136,21 @@ void RcppCcdInterface::handleError(const std::string& str) {
 	::Rf_error(str.c_str());
 }
 
+bsccs::priors::PriorType RcppCcdInterface::parsePriorType(const std::string& priorName) {
+	using namespace bsccs::priors;
+	bsccs::priors::PriorType priorType;
+	if (priorName == "none") {
+		priorType = NONE;
+	} else if (priorName == "laplace") {
+		priorType = LAPLACE;		
+	} else if (priorName == "normal") {
+		priorType = NORMAL;
+	} else {
+ 		handleError("Invalid prior type."); 		
+ 	}	
+ 	return priorType;
+}
+
 bsccs::Models::ModelType RcppCcdInterface::parseModelType(const std::string& modelName) {
 	// Parse type of model 
  	bsccs::Models::ModelType modelType;
@@ -133,6 +172,46 @@ bsccs::Models::ModelType RcppCcdInterface::parseModelType(const std::string& mod
  	return modelType;
 }
 
+void RcppCcdInterface::setPrior(const std::string& basePriorName, double baseVariance,
+		const ProfileVector& flatPrior) {			
+	using namespace bsccs::priors;
+	
+	JointPriorPtr prior = makePrior(basePriorName, baseVariance, flatPrior);
+	ccd->setPrior(prior);
+}
+
+priors::JointPriorPtr RcppCcdInterface::makePrior(const std::string& basePriorName, double baseVariance,
+		const ProfileVector& flatPrior) {
+	using namespace bsccs::priors;
+	
+ 	PriorPtr singlePrior = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName));
+ 	singlePrior->setVariance(baseVariance);
+ 
+ 	JointPriorPtr prior;
+ 	if (flatPrior.size() == 0) {
+ 		prior = bsccs::make_shared<FullyExchangeableJointPrior>(singlePrior);
+ 	} else {
+ 		const int length =  modelData->getNumberOfColumns();
+ 		bsccs::shared_ptr<MixtureJointPrior> mixturePrior = bsccs::make_shared<MixtureJointPrior>(
+ 						singlePrior, length
+ 				);
+ 
+ 		PriorPtr noPrior = bsccs::make_shared<NoPrior>();
+ 		for (ProfileVector::const_iterator it = flatPrior.begin();
+ 				it != flatPrior.end(); ++it) {
+ 			int index = modelData->getColumnIndexByName(*it);
+ 			if (index == -1) {
+ 				std::stringstream error;
+ 				error << "Variable " << *it << " not found.";
+ 				handleError(error.str()); 			
+ 			} else {
+ 				mixturePrior->changePrior(noPrior, index);
+ 			}
+ 		}
+ 		prior = mixturePrior;
+ 	}
+ 	return prior;
+}
 // TODO Massive code duplicate (to remove) with CmdLineCcdInterface
 void RcppCcdInterface::initializeModelImpl(
 		ModelData** modelData,
@@ -275,26 +354,6 @@ void RcppCcdInterface::predictModelImpl(CyclicCoordinateDescent *ccd, ModelData 
 // 	gettimeofday(&time2, NULL);
 // 	return calculateSeconds(time1, time2);
 }
-
-//  	struct Test { //: public std::ostream {  		
-//  		//std::ostream os;  		
-//  		std::stringstream s;
-//  	};
-  	
-//  	template <typename T>
-//  	Test& operator<<(Test& test, const T& obj) {
-//  		return test;
-//  	}
-//  	
-//  	template <>
-//  	Test& operator<<(Test& test, const std::string& string) {  		
-//  		return test;
-//  	}
-  	
-//  	template <>
-//  	Test& operator<<(Test& test, const char* string) {
-//  		return test;
-//  	}
 	    
 void RcppCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,
 	    ProfileInformationMap& profileMap, bool withASE) {
@@ -303,43 +362,20 @@ void RcppCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, ModelData *mod
   	EstimationOutputWriter estimates(*ccd, *modelData);
   	estimates.addBoundInformation(profileMap);
   	// End move
-	
-	
+		
 		result = List::create();
 		OutputHelper::RcppOutputHelper test(result);  		
-  	estimates.writeStream(test);	
-  	
-//  	std::cout << result << std::endl;
-  	
+  	estimates.writeStream(test);	  	
 }
 
 void RcppCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,	
 		double loadTime,
 		double updateTime) {
-
-// 	struct timeval time1, time2;
-// 	gettimeofday(&time1, NULL);
-// 	
-// //	using namespace bsccs;	
+	
 		result = List::create();
  		DiagnosticsOutputWriter diagnostics(*ccd, *modelData);
 		OutputHelper::RcppOutputHelper test(result);  		
   	diagnostics.writeStream(test);	
-  	
-// // 
-// // 	string fileName = getPathAndFileName(arguments, "diag_");
-// // 
-// // 	vector<ExtraInformation> extraInfo;
-// // 	extraInfo.push_back(ExtraInformation("load_time",loadTime));
-// // 	extraInfo.push_back(ExtraInformation("update_time",updateTime));
-// // 
-// // 	diagnostics.addExtraInformation(extraInfo);
-// // 	diagnostics.writeFile(fileName.c_str());
-// 
-// 
-// 	gettimeofday(&time2, NULL);
-// 	return calculateSeconds(time1, time2);
-
 }
 
 RcppCcdInterface::RcppCcdInterface(RcppModelData& _rcppModelData) 
@@ -352,7 +388,7 @@ RcppCcdInterface::RcppCcdInterface(RcppModelData& _rcppModelData)
 //}
 
 RcppCcdInterface::~RcppCcdInterface() {
-	std::cout << "~RcppCcdInterface() called." << std::endl;
+//	std::cout << "~RcppCcdInterface() called." << std::endl;
 	if (ccd) delete ccd;
 	if (modelSpecifics) delete modelSpecifics;		
 	// Do not delete modelData

@@ -8,6 +8,7 @@
 #define RCPP_CCD_INTERFACE_H_
 
 #include "CcdInterface.h"
+#include "priors/JointPrior.h"
 
 namespace bsccs {
 
@@ -68,14 +69,25 @@ public:
     	return result;
     }
     
+	void setPrior(
+				const std::string& basePriorName, 
+				double baseVariance,
+				const ProfileVector& flatPrior);    
+    
     
     static void appendRList(Rcpp::List& list, const Rcpp::List& append);
     
     static Models::ModelType parseModelType(const std::string& modelName);
+    static priors::PriorType parsePriorType(const std::string& priorName);
                         
 protected:            
 		
 		static void handleError(const std::string& str);
+		
+		priors::JointPriorPtr makePrior(
+				const std::string& basePriorName, 
+				double baseVariance,
+				const ProfileVector& flatPrior);
             
     void initializeModelImpl(
             ModelData** modelData,

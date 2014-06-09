@@ -124,11 +124,11 @@ void CyclicCoordinateDescent::setNoiseLevel(NoiseLevels noise) {
 }
 
 string CyclicCoordinateDescent::getPriorInfo() {
-#ifdef MY_RCPP_FLAG
-	return "prior"; // Rcpp error with stringstream
-#else
 	return jointPrior->getDescription();
-#endif
+}
+
+void CyclicCoordinateDescent::setPrior(priors::JointPriorPtr newPrior) {
+    jointPrior = newPrior;
 }
 
 void CyclicCoordinateDescent::resetBounds() {
@@ -378,7 +378,7 @@ void CyclicCoordinateDescent::makeDirty(void) {
 }
 
 void CyclicCoordinateDescent::setPriorType(int iPriorType) {
-	if (iPriorType < NONE || iPriorType > NORMAL) {
+	if (iPriorType < priors::NONE || iPriorType > priors::NORMAL) {
 	    std::ostringstream stream;
 		stream << "Unknown prior type";
 		error->throwError(stream);		
@@ -701,7 +701,7 @@ void CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix(void) {
 	int index = 0;
 	for (int j = 0; j < J; ++j) {
 		if (!fixBeta[j] &&
-				(priorType != LAPLACE || getBeta(j) != 0.0)) {
+				(priorType != priors::LAPLACE || getBeta(j) != 0.0)) {
 			indices.push_back(j);
 			hessianIndexMap[j] = index;
 			index++;

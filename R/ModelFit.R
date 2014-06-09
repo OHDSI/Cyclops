@@ -6,8 +6,8 @@
 #' @details
 #' This function performs numerical optimization to fit a CCD model data object.
 #'
-#' @param formula			An R formula
-#' @param data
+#' @param ccdData			An OHDSI data object
+#' @template prior
 #' 
 #' @return
 #' A list that contains a CCD model fit object pointer and an operation duration
@@ -17,12 +17,12 @@
 #' counts <- c(18,17,15,20,10,20,25,13,12)
 #' outcome <- gl(3,1,9)
 #' treatment <- gl(3,3)
-#' ccdData <- createCcdDataFrame(counts ~ outcome + treatment, modelType="pr")
+#' ccdData <- createCcdDataFrame(counts ~ outcome + treatment)
 #' ccdFit <- fitCcdModel(ccdData)
 #'
 fitCcdModel <- function(ccdData		
 		, tolerance = 1E-8
-		, variance
+		, prior
 		, returnEstimates = TRUE
 		, forceColdStart = FALSE
 	) {
@@ -37,18 +37,18 @@ fitCcdModel <- function(ccdData
 	
 	cl <- match.call()
 	
-	if (forceColdStart || is.null(ccdData$ccdInterfacePtr) 
-			|| class(ccdData$ccdInterfacePtr) != "externalptr") {
-		# Build interface
-		interface <- .ccdInitializeModel(ccdData$ccdDataPtr, modelType = ccdData$modelType, computeMLE = TRUE)
-		# TODO Check for errors
-        assign("ccdInterfacePtr", interface$interface, ccdData)
-#		ccdData$ccdInterfacePtr <- interface$interface
-#		ccdData$timeInit <- interface$timeInit
-	}
+    .checkInterface(ccdData, forceColdStart)
+    
+    if (!missing(prior)) { # Set up prior
+    	stopifnot(inherits(prior, "ccdPrior"))
+    	
+    	prior$exclude = as.numeric(prior$exclude) # TODO Search names
+    	
+    	stopifnot(!any(is.na(prior$exclude)))    
+    	.ccdSetPrior(ccdData$ccdInterfacePtr, prior$priorType, prior$variance, prior$exclude)    		
+    }
 	
-	fit <- .ccdFitModel(ccdData$ccdInterfacePtr) # TODO Pass along other options		
-#	fit <- fit[-1] # Remove interface, TODO clean up C++; no need to chain
+	fit <- .ccdFitModel(ccdData$ccdInterfacePtr) # TODO Pass along other options	
 	if (returnEstimates && fit$return_flag == "SUCCESS") {
 		estimates <- .ccdLogModel(ccdData$ccdInterfacePtr)		
 		fit <- c(fit, estimates)	
@@ -59,6 +59,16 @@ fitCcdModel <- function(ccdData
 	class(fit) <- "ccdFit"
 	return(fit)
 } 
+
+.checkInterface <- function(x, forceColdStart) {
+	if (forceColdStart || is.null(x$ccdInterfacePtr) 
+			|| class(x$ccdInterfacePtr) != "externalptr") {
+		# Build interface
+		interface <- .ccdInitializeModel(x$ccdDataPtr, modelType = x$modelType, computeMLE = TRUE)
+		# TODO Check for errors
+        assign("ccdInterfacePtr", interface$interface, x)
+	}
+}
 
 coef.ccdFit <- function(x, ...) {
 	x$estimation
@@ -96,4 +106,13 @@ print.ccdFit <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,..
 #     cat("Uninitialized interface.\n")
 #   }
   invisible(x)
+}
+
+prior <- function(priorType, variance = 1, exclude = c()) {
+	validNames = c("none", "laplace","normal")
+	stopifnot(priorType %in% validNames)	
+	if (!is.null(exclude)) {
+		stopifnot(inherits(exclude, "character"))
+	}
+	structure(list(priorType = priorType, variance = variance, exclude = exclude), class = "ccdPrior")
 }

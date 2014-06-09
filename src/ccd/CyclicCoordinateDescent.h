@@ -112,6 +112,8 @@ public:
 	virtual void resetBeta(void);
 
 	// Setters
+	void setPrior(priors::JointPriorPtr newPrior);
+	
 	void setHyperprior(double value);
 
 	void setClassHyperprior(double value);

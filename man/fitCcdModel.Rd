@@ -7,9 +7,9 @@ fitCcdModel(ccdData, tolerance = 1e-08, variance, returnEstimates = TRUE,
   forceColdStart = FALSE)
 }
 \arguments{
-\item{formula}{An R formula}
+\item{ccdData}{An OHDSI data object}
 
-\item{data}{}
+\item{prior}{A prior object. More details are given below.}
 }
 \value{
 A list that contains a CCD model fit object pointer and an operation duration
@@ -20,12 +20,20 @@ A list that contains a CCD model fit object pointer and an operation duration
 \details{
 This function performs numerical optimization to fit a CCD model data object.
 }
+\section{Prior}{
+
+Currently supported prior types are:
+\tabular{ll}{
+	\verb{	"none"} \tab Useful for finding MLE \cr
+	\verb{	"laplace"} \tab L_1 regularization \cr
+}
+}
 \examples{
 ## Dobson (1990) Page 93: Randomized Controlled Trial :
 counts <- c(18,17,15,20,10,20,25,13,12)
 outcome <- gl(3,1,9)
 treatment <- gl(3,3)
-ccdData <- createCcdDataFrame(counts ~ outcome + treatment, modelType="pr")
+ccdData <- createCcdDataFrame(counts ~ outcome + treatment)
 ccdFit <- fitCcdModel(ccdData)
 }
 

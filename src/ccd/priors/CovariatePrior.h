@@ -9,6 +9,9 @@
 #define COVARIATEPRIOR_H_
 
 #include <memory>
+#include <string>
+#include <cmath>
+#include <sstream>
 
 #ifndef PI
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
@@ -22,6 +25,9 @@ namespace priors {
 
 typedef std::pair<double, double> GradientHessian;
 typedef std::vector<double> DoubleVector;
+
+class CovariatePrior; // forward declaration
+typedef bsccs::shared_ptr<CovariatePrior> PriorPtr;
 
 class CovariatePrior {
 public:
@@ -43,8 +49,11 @@ public:
 	virtual double getDelta(GradientHessian gh, double beta) const = 0; // pure virtual
 
 	virtual double logDensity(const DoubleVector& vector) const = 0; // pure virtual
-
+	
+	static PriorPtr makePrior(PriorType priorType);	    
 };
+
+
 
 class NoPrior : public CovariatePrior {
 public:
@@ -106,7 +115,7 @@ public:
 	}
 
 	double logDensity(double x) const {
-		return log(0.5 * lambda) - lambda * std::abs(x);
+		return std::log(0.5 * lambda) - lambda * std::abs(x);
 	}
 
 	double logDensity(const DoubleVector& vector) const {
@@ -150,7 +159,7 @@ private:
 
 	template <typename Vector>
 	typename Vector::value_type logIndependentDensity(const Vector& vector) const {
-		return vector.size() * log(0.5 * lambda) - lambda * oneNorm(vector);
+		return vector.size() * std::log(0.5 * lambda) - lambda * oneNorm(vector);
 	}
 
 	template <typename Vector>
@@ -163,7 +172,7 @@ private:
 	}
 
 	double convertVarianceToHyperparameter(double value) const {
-		return sqrt(2.0 / value);
+		return std::sqrt(2.0 / value);
 	}
 
 	double convertHyperparameterToVariance(double value) const {
@@ -208,7 +217,7 @@ public:
 	}
 
 	double logDensity(double x) const {
-		return -0.5 * log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
+		return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
 	}
 
 	double logDensity(const DoubleVector& vector) const {
@@ -225,7 +234,7 @@ private:
 
 	template <typename Vector>
 	typename Vector::value_type logIndependentDensity(const Vector& vector) const {
-		return -0.5 * vector.size() * log(2.0 * PI * sigma2Beta)
+		return -0.5 * vector.size() * std::log(2.0 * PI * sigma2Beta)
 				- 0.5 * twoNormSquared(vector) / sigma2Beta;
 	}
 
@@ -239,8 +248,6 @@ private:
 		return norm;
 	}
 };
-
-typedef bsccs::shared_ptr<CovariatePrior> PriorPtr;
 
 } /* namespace priors */
 } /* namespace bsccs */

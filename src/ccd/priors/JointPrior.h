@@ -9,7 +9,6 @@
 #define JOINTPRIOR_H_
 
 #include "Types.h"
-//#include "CyclicCoordinateDescent.h"
 #include "priors/CovariatePrior.h"
 
 namespace bsccs {
