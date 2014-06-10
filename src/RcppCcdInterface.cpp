@@ -44,6 +44,16 @@ void ccdSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, doub
   interface->setPrior(priorTypeName, variance, exclude);
 }
 
+//arguments.maxIterations, arguments.convergenceType, arguments.tolerance
+
+// [[Rcpp::export(".ccdSetControl")]]
+void ccdSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance) {
+	using namespace bsccs;
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	interface->getArguments().maxIterations = maxIterations;
+	interface->getArguments().tolerance = tolerance;
+}
+
 // [[Rcpp::export(".ccdFitModel")]]
 List ccdFitModel(SEXP inRcppCcdInterface) {	
 	using namespace bsccs;
@@ -134,6 +144,22 @@ void RcppCcdInterface::appendRList(Rcpp::List& list, const Rcpp::List& append) {
 void RcppCcdInterface::handleError(const std::string& str) {	
 //	Rcpp::stop(str); // TODO Want this to work
 	::Rf_error(str.c_str());
+}
+
+bsccs::ConvergenceType RcppCcdInterface::parseConvergenceType(const std::string& convergenceName) {
+	ConvergenceType type;
+	if (convergenceName == "gradient") {
+		type = GRADIENT;
+	} else if (convergenceName == "lange") {
+		type = LANGE;
+	} else if (convergenceName == "mittal") {
+		type = MITTAL;
+	} else if (convergenceName == "zhang") {
+		type = ZHANG_OLES;
+	} else {
+		handleError("Invalid convergence type."); 	
+	}
+	return type;
 }
 
 bsccs::priors::PriorType RcppCcdInterface::parsePriorType(const std::string& priorName) {

@@ -79,6 +79,7 @@ public:
     
     static Models::ModelType parseModelType(const std::string& modelName);
     static priors::PriorType parsePriorType(const std::string& priorName);
+    static ConvergenceType parseConvergenceType(const std::string& convergenceName);
                         
 protected:            
 		

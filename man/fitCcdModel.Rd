@@ -3,7 +3,7 @@
 \alias{fitCcdModel}
 \title{fitCcdModel}
 \usage{
-fitCcdModel(ccdData, tolerance = 1e-08, variance, returnEstimates = TRUE,
+fitCcdModel(ccdData, tolerance = 1e-08, prior, returnEstimates = TRUE,
   forceColdStart = FALSE)
 }
 \arguments{

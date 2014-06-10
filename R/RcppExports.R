@@ -9,6 +9,10 @@ rcpp_hello_world <- function() {
     invisible(.Call('CCD_ccdSetPrior', PACKAGE = 'CCD', inRcppCcdInterface, priorTypeName, variance, excludeNumeric))
 }
 
+.ccdSetControl <- function(inRcppCcdInterface, maxIterations, tolerance) {
+    invisible(.Call('CCD_ccdSetControl', PACKAGE = 'CCD', inRcppCcdInterface, maxIterations, tolerance))
+}
+
 .ccdFitModel <- function(inRcppCcdInterface) {
     .Call('CCD_ccdFitModel', PACKAGE = 'CCD', inRcppCcdInterface)
 }

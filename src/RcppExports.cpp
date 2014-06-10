@@ -35,6 +35,20 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// ccdSetControl
+void ccdSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance);
+RcppExport SEXP CCD_ccdSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP) {
+BEGIN_RCPP
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
+        Rcpp::traits::input_parameter< int >::type maxIterations(maxIterationsSEXP );
+        Rcpp::traits::input_parameter< double >::type tolerance(toleranceSEXP );
+        ccdSetControl(inRcppCcdInterface, maxIterations, tolerance);
+    }
+    return R_NilValue;
+END_RCPP
+}
 // ccdFitModel
 List ccdFitModel(SEXP inRcppCcdInterface);
 RcppExport SEXP CCD_ccdFitModel(SEXP inRcppCcdInterfaceSEXP) {

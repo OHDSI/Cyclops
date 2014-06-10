@@ -47,6 +47,8 @@ fitCcdModel <- function(ccdData
     	stopifnot(!any(is.na(prior$exclude)))    
     	.ccdSetPrior(ccdData$ccdInterfacePtr, prior$priorType, prior$variance, prior$exclude)    		
     }
+    
+#    .ccdSetTolerance(tolerance)
 	
 	fit <- .ccdFitModel(ccdData$ccdInterfacePtr) # TODO Pass along other options	
 	if (returnEstimates && fit$return_flag == "SUCCESS") {
@@ -108,6 +110,25 @@ print.ccdFit <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,..
   invisible(x)
 }
 
+#' @title control
+#'
+#' @description
+#' \code{control} builds a CCD convergence criteria object
+#'
+#' @param maxIterations			Integer: maximum iterations of CCD to attempt before returning a failed-to-converge error
+#' @param tolerance					Numeric: maximum relative change in convergence criterion from successive iterations to achieve convergence
+#' @param convergenceType		String: name of convergence criterion to employ (described in more detail below)
+#' 
+#' @section Criteria:
+#' 
+#' @return
+#' A CCD convergence criteria object of class inheriting from \code{"ccdConvergence"} for use with \code{fitCcdModel}.
+#' 
+control <- function(maxIterations = 1000, tolerance = 1E-8, convergenceType = "gradient") {
+	structure(list(maxIterations = maxIterations, tolerance = tolerance, convergenceType = convergenceType),
+						class = "ccdConvergence")
+}
+
 prior <- function(priorType, variance = 1, exclude = c()) {
 	validNames = c("none", "laplace","normal")
 	stopifnot(priorType %in% validNames)	
@@ -115,4 +136,8 @@ prior <- function(priorType, variance = 1, exclude = c()) {
 		stopifnot(inherits(exclude, "character"))
 	}
 	structure(list(priorType = priorType, variance = variance, exclude = exclude), class = "ccdPrior")
+}
+
+.clear <- function() {
+    cat("\014")  
 }
