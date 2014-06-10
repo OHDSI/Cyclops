@@ -70,7 +70,7 @@ void BootstrapDriver::logResults(const CCDArguments& arguments) {
 	exit(-1);
 }
 
-void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<real>& savedBeta, std::string conditionId) {
+void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<double>& savedBeta, std::string conditionId) {
 
 	ofstream outLog(arguments.outFileName.c_str());
 	if (!outLog) {

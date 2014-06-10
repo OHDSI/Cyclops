@@ -348,7 +348,7 @@ double CcdInterface::fitModel(CyclicCoordinateDescent *ccd) {
 double CcdInterface::runBoostrap(
 		CyclicCoordinateDescent *ccd,
 		ModelData *modelData,
-		std::vector<real>& savedBeta) {
+		std::vector<double>& savedBeta) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 

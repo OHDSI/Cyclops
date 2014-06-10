@@ -1,37 +1,49 @@
-include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
+set(RCCD_SOURCE_DIR ${CMAKE_SOURCE_DIR}/../src)
+set(CCD_SOURCE_DIR ${CMAKE_SOURCE_DIR}/codebase)
 
-set(BASE_SOURCE_FILES
-	CyclicCoordinateDescent.cpp	
-	CompressedDataMatrix.cpp
-	ModelData.cpp
-	io/HierarchyReader.cpp
-	io/InputReader.cpp
-	io/SCCSInputReader.cpp
-	io/CLRInputReader.cpp
-	io/RTestInputReader.cpp
-	io/CoxInputReader.cpp
-	io/CCTestInputReader.cpp
-	AbstractModelSpecifics.cpp
-	AbstractDriver.cpp
-	AbstractSelector.cpp
-	AbstractCrossValidationDriver.cpp
-	ProportionSelector.cpp
-	CrossValidationSelector.cpp
-	GridSearchCrossValidationDriver.cpp
-	HierarchyGridSearchCrossValidationDriver.cpp
-	AutoSearchCrossValidationDriver.cpp
-	HierarchyAutoSearchCrossValidationDriver.cpp
-	BootstrapSelector.cpp
-	BootstrapDriver.cpp
-	../utils/HParSearch.cpp)
+include_directories(. 
+    ${RCCD_SOURCE_DIR}
+    ${RCCD_SOURCE_DIR}/ccd
+    ${CMAKE_SOURCE_DIR}/codebase
+    ${CMAKE_SOURCE_DIR}/codebase/CCD    
+    )
+
+set(BASE_SOURCE_FILES	
+    ${RCCD_SOURCE_DIR}/ccd/CcdInterface.cpp	
+	${RCCD_SOURCE_DIR}/ccd/CyclicCoordinateDescent.cpp	
+	${RCCD_SOURCE_DIR}/ccd/CompressedDataMatrix.cpp
+	${RCCD_SOURCE_DIR}/ccd/ModelData.cpp
+	${RCCD_SOURCE_DIR}/ccd/io/InputReader.cpp
+	 ${CCD_SOURCE_DIR}/CCD/io/HierarchyReader.cpp
+	 ${CCD_SOURCE_DIR}/CCD/io/SCCSInputReader.cpp
+	 ${CCD_SOURCE_DIR}/CCD/io/CLRInputReader.cpp
+	 ${CCD_SOURCE_DIR}/CCD/io/RTestInputReader.cpp
+	 ${CCD_SOURCE_DIR}/CCD/io/CoxInputReader.cpp
+	 ${CCD_SOURCE_DIR}/CCD/io/CCTestInputReader.cpp
+	 ${CCD_SOURCE_DIR}/CCD/CmdLineCcdInterface.cpp
+	${RCCD_SOURCE_DIR}/ccd/engine/AbstractModelSpecifics.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/AbstractDriver.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/AbstractSelector.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/AbstractCrossValidationDriver.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/ProportionSelector.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/CrossValidationSelector.cpp
+    ${RCCD_SOURCE_DIR}/ccd/drivers/GridSearchCrossValidationDriver.cpp
+    ${RCCD_SOURCE_DIR}/ccd/drivers/HierarchyGridSearchCrossValidationDriver.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/AutoSearchCrossValidationDriver.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/HierarchyAutoSearchCrossValidationDriver.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/BootstrapSelector.cpp
+	${RCCD_SOURCE_DIR}/ccd/drivers/BootstrapDriver.cpp
+	${RCCD_SOURCE_DIR}/utils/HParSearch.cpp
+	)
 	
 set(CCD_SOURCE_FILES
-    ccd.cpp)
+
+	${CCD_SOURCE_DIR}/CCD/ccd.cpp)		
     
 set(IMPUTE_SOURCE_FILES
-	imputation/ccdimpute.cpp
-	imputation/ImputationPolicy.cpp
-	imputation/ImputeVariables.cpp)   
+	${CCD_SOURCE_DIR}/CCD/imputation/ccdimpute.cpp
+	${CCD_SOURCE_DIR}/CCD/imputation/ImputationPolicy.cpp
+	${CCD_SOURCE_DIR}/CCD/imputation/ImputeVariables.cpp)   
 	
 add_library(base_bsccs ${BASE_SOURCE_FILES})	
 	
@@ -55,9 +67,9 @@ else(CUDA_FOUND)
 	add_executable(ccd ${CCD_SOURCE_FILES})
 endif(CUDA_FOUND)
 
-add_executable(ccdimpute ${IMPUTE_SOURCE_FILES})
+#add_executable(ccdimpute ${IMPUTE_SOURCE_FILES})
 
 target_link_libraries(ccd base_bsccs)
-target_link_libraries(ccdimpute base_bsccs)
+#target_link_libraries(ccdimpute base_bsccs)
 
 

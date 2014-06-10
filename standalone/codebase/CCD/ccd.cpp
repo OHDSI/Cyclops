@@ -93,7 +93,7 @@ int main(int argc, char* argv[]) {
 
 	if (arguments.doBootstrap) {
 		// Save parameter point-estimates
-		std::vector<bsccs::real> savedBeta;
+		std::vector<double> savedBeta;
 		for (int j = 0; j < ccd->getBetaSize(); ++j) {
 			savedBeta.push_back(ccd->getBeta(j));
 		} // TODO Handle above work in interface.runBootstrap

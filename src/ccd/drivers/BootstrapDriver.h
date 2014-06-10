@@ -34,7 +34,7 @@ public:
 
 	virtual void logResults(const CCDArguments& arguments);
 
-	void logResults(const CCDArguments& arguments, std::vector<real>& savedBeta, std::string conditionId);
+	void logResults(const CCDArguments& arguments, std::vector<double>& savedBeta, std::string conditionId);
 
 private:
 	const int replicates;
