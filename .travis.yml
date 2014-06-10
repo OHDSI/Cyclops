@@ -4,7 +4,8 @@ compiler:
     - clang
 before_install:
 script:
-    - mkdir -p C/build && (cd C/build && cmake .. && make)
+    - g++ -E -dM -std=c++98 -x c++ /dev/null > std1 && g++ -E -dM -std=c++0x -x c++ /dev/null > std2 && diff -u std1 std2 | grep '[+|-]^*#define' && rm std1 std2
+    - mkdir -p standalone/build && (cd standalone/build && cmake .. && make)
 notifications:
   recipients:
     - msuchard@gmail.com

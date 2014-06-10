@@ -1,0 +1,18 @@
+Package: CCD
+Type: Package
+Title: R Interface to Cyclic Coordinate Descent (CCD)
+Version: 0.1
+Date: 2014-03-26
+Author: Marc A. Suchard
+Maintainer: Marc A. Suchard <msuchard@gmail.com>
+Description: More about what it does (maybe more than one line)
+License: Apache License 2.0
+Depends:
+    Rcpp (>= 0.10.6),
+    BH (>= 1.51.0),
+    RcppEigen (>= 0.3.2),
+    Matrix,
+    testthat,
+LinkingTo: Rcpp,
+    BH,
+    RcppEigen
