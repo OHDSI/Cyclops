@@ -44,7 +44,19 @@ void ccdSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, doub
   interface->setPrior(priorTypeName, variance, exclude);
 }
 
-//arguments.maxIterations, arguments.convergenceType, arguments.tolerance
+// [[Rcpp::export(".ccdPredictModel")]]
+List ccdPredictModel(SEXP inRcppCcdInterface) {
+	using namespace bsccs;
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	double timePredict = interface->predictModel();
+	
+	List list = List::create(			
+			Rcpp::Named("timePredict") = timePredict
+		);
+	RcppCcdInterface::appendRList(list, interface->getResult());
+	return list;
+}
+	
 
 // [[Rcpp::export(".ccdSetControl")]]
 void ccdSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance) {
@@ -368,17 +380,11 @@ void RcppCcdInterface::initializeModelImpl(
 
 void RcppCcdInterface::predictModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData) {
 
-// 	struct timeval time1, time2;
-// 	gettimeofday(&time1, NULL);
-// 
-// // 	bsccs::PredictionOutputWriter predictor(*ccd, *modelData);
-// // 
-// // 	string fileName = getPathAndFileName(arguments, "pred_");
-// // 
-// // 	predictor.writeFile(fileName.c_str());
-// 
-// 	gettimeofday(&time2, NULL);
-// 	return calculateSeconds(time1, time2);
+	bsccs::PredictionOutputWriter predictor(*ccd, *modelData);
+
+    result = List::create();
+    OutputHelper::RcppOutputHelper test(result);
+    predictor.writeStream(test);
 }
 	    
 void RcppCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,
@@ -390,8 +396,8 @@ void RcppCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, ModelData *mod
   	// End move
 		
 		result = List::create();
-		OutputHelper::RcppOutputHelper test(result);  		
-  	estimates.writeStream(test);	  	
+		OutputHelper::RcppOutputHelper out(result);  		
+  	estimates.writeStream(out);	  	
 }
 
 void RcppCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,	

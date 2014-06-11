@@ -75,6 +75,10 @@ public:
 		return *this; 
 	}
 	
+	RcppOutputHelper& addValue(const string& t) {
+	    // Ignore
+	}
+	
 	RcppOutputHelper& endTable(const char* t) {
 		Rcpp::DataFrame dataFrame;
 		bool any = false;
@@ -89,6 +93,8 @@ public:
     	}
 		return *this;
 	}
+	
+	bool includeLabels() { return false; }
 	
 private:
     Rcpp::List& result;

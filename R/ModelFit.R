@@ -27,15 +27,10 @@ fitCcdModel <- function(ccdData
 		, forceColdStart = FALSE
 	) {
 		
-	# Check conditions
-	if (missing(ccdData) || is.null(ccdData$ccdDataPtr) || class(ccdData$ccdDataPtr) != "externalptr") {
-		stop("Improperly constructed ccdData object")
-	}	
-	if (.isRcppPtrNull(ccdData$ccdDataPtr)) {
-	    stop("Data object is no longer initialized")			
-	}
-	
 	cl <- match.call()
+	
+		# Check conditions
+		.checkData(ccdData)
 	
     .checkInterface(ccdData, forceColdStart)
     
@@ -58,13 +53,31 @@ fitCcdModel <- function(ccdData
 	}	
 	fit$call <- cl
 	fit$ccdData <- ccdData
+	fit$ccdInterfacePtr <- ccdData$ccdInterfacePtr
 	class(fit) <- "ccdFit"
 	return(fit)
 } 
 
-.checkInterface <- function(x, forceColdStart) {
-	if (forceColdStart || is.null(x$ccdInterfacePtr) 
-			|| class(x$ccdInterfacePtr) != "externalptr") {
+.checkData <- function(x) {
+	# Check conditions
+	if (missing(x) || is.null(x$ccdDataPtr) || class(x$ccdDataPtr) != "externalptr") {
+		stop("Improperly constructed ccdData object")
+	}	
+	if (.isRcppPtrNull(x$ccdDataPtr)) {
+		stop("Data object is no longer initialized")			
+	}
+}
+
+.checkInterface <- function(x, forceColdStart = FALSE, testOnly = FALSE) {
+	if (forceColdStart 
+			|| is.null(x$ccdInterfacePtr) 
+			|| class(x$ccdInterfacePtr) != "externalptr" 
+			|| .isRcppPtrNull(x$ccdInterfacePtr)
+		) {
+		
+		if (testOnly == TRUE) {
+			stop("Interface object is not initialized")
+		}
 		# Build interface
 		interface <- .ccdInitializeModel(x$ccdDataPtr, modelType = x$modelType, computeMLE = TRUE)
 		# TODO Check for errors
@@ -140,4 +153,10 @@ prior <- function(priorType, variance = 1, exclude = c()) {
 
 .clear <- function() {
     cat("\014")  
+}
+
+predict.ccdFit <- function(ccdFit) {
+	.checkInterface(ccdFit, testOnly = TRUE)
+	predictions <- .ccdPredictModel(ccdFit$ccdInterfacePtr)	
+	predictions
 }

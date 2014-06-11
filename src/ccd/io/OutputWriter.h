@@ -79,6 +79,8 @@ public:
 	
 	OFStream& endTable(const char* t) { return *this; }
 	
+	bool includeLabels() { return true; }
+	
 private:
 	const std::string delimitor;
 };
@@ -299,18 +301,18 @@ public:
 
 	template <typename Stream>
 	void writeHeader(Stream& out) {
-		if (data.getHasRowLobels()) {
+		if (data.getHasRowLobels() && out.includeLabels()) {
 			out.addHeader("row_label").addDelimitor();
 		}
-        out.addHeader("prediction").addEndl();		
+  	out.addHeader("prediction").addEndl();		
 	}
 	
 	template <typename Stream>
 	void writeRow(Stream& out, OutputHelper::RowInformation& rowInfo) {
-		if (data.getHasRowLobels()) {
+		if (data.getHasRowLobels() && out.includeLabels()) {
 			out.addValue(data.getRowLabel(rowInfo.currentRow)).addDelimitor();
 		}
-        out.addValue(predictions[rowInfo.currentRow]).addEndl();
+  	out.addValue(predictions[rowInfo.currentRow]).addEndl();
 	}
 
 private:

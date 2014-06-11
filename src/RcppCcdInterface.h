@@ -59,8 +59,8 @@ public:
         
     double logModel(/*ProfileInformationMap &profileMap,*/ bool withProfileBounds) {
     	return CcdInterface::logModel(ccd, modelData, profileMap, withProfileBounds);
-    }    
-        
+    } 
+             
     double diagnoseModel(double loadTime, double updateTime) {
     	return CcdInterface::diagnoseModel(ccd, modelData, loadTime, updateTime);
     }
