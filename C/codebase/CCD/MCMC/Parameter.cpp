@@ -13,11 +13,13 @@ namespace bsccs{
 
 	Parameter::Parameter(bsccs::real * data, int sizeIn){
 		initialize(sizeIn);
+
 	}
 
 	Parameter::Parameter(){}
 
 	void Parameter::initialize(int sizeIn){
+
 		restorable = true;
 		size = sizeIn;
 		parameterValues = (bsccs::real*) calloc(sizeIn, sizeof(bsccs::real));
@@ -52,8 +54,9 @@ namespace bsccs{
 	}
 
 	void Parameter::logParameter() {
+		cout << "size = " << size << endl;
 		cout << "LogParameter:: Parameter value is <";
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < size; i++) {
 			cout << parameterValues[i] << ", ";
 		}
 		cout << ">" << endl;
@@ -61,8 +64,9 @@ namespace bsccs{
 	}
 
 	void Parameter::logStored() {
+		cout << "size = " << size << endl;
 		cout << "LogStored: Stored Parameter value is <";
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < size; i++) {
 			cout << storedValues[i] << ", ";
 		}
 		cout << ">" << endl;

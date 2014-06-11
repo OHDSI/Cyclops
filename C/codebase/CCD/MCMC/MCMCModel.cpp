@@ -14,7 +14,7 @@ namespace bsccs {
  MCMCModel::MCMCModel(){}
 
  void MCMCModel::initialize(CyclicCoordinateDescent& ccdIn, long int seed){
-	 // cout << "MCMCModel Initialize" << endl;
+	 cout << "MCMCModel Initialize" << endl;
 
 
 	 ccd = &ccdIn;
@@ -23,13 +23,17 @@ namespace bsccs {
 	 initializeHessian();
 
 	 HessianMatrix = (ccd->getHessianMatrix()).cast<float>();
+
 	 generateCholesky();
 
 	 // Beta_Hat = modes from ccd
 	 Beta_Hat.initialize(*ccd, J);
+	 cout << "prestore?!" << endl;
 	 Beta_Hat.store();
+	 cout << "poststore?!" << endl;
 	 // Set up Beta
 	 Beta.initialize(*ccd, J);
+	 cout << "here?!" << endl;
 	 //Beta.setProbabilityUpdate(betaAmount);
 	 Beta.store();
 

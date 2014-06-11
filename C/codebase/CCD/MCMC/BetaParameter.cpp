@@ -19,6 +19,7 @@ namespace bsccs{
 	void BetaParameter::initialize(CyclicCoordinateDescent& ccd, int sizeIn){
 		restorable = true;
 		size = sizeIn;
+		cout << "size = " << size << endl;
 		parameterValues = (bsccs::real*) calloc(sizeIn, sizeof(bsccs::real));
 		storedValues = (bsccs::real*) calloc(size, sizeof(bsccs::real));
 
@@ -26,6 +27,8 @@ namespace bsccs{
 			parameterValues[i] = ccd.getBeta(i);
 			storedValues[i] = ccd.getBeta(i);
 		}
+
+		cout << "getSize = " << getSize() << endl;
 	}
 
 }

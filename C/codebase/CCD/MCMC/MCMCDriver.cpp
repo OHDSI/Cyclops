@@ -98,11 +98,12 @@ void checkValidState(CyclicCoordinateDescent& ccd, MCMCModel& model, Parameter& 
 
 void MCMCDriver::initialize(double betaAmount, MCMCModel & model, CyclicCoordinateDescent& ccd, long int seed) {
 
-	//cout << "MCMCDriver initialize" << endl;
+	cout << "MCMCDriver initialize" << endl;
 	model.initialize(ccd, seed);
 
-
+	cout << "betaAmount = " << betaAmount << endl;
 	transitionKernelSelectionProb.push_back(betaAmount);
+	cout << "here?" << endl;
 	transitionKernelSelectionProb.push_back(1.0 - betaAmount);
 
 	transitionKernels.push_back(new IndependenceSampler(ccd));
@@ -148,7 +149,9 @@ void MCMCDriver::drive(
 		CyclicCoordinateDescent& ccd, double betaAmount, long int seed) {
 
 	MCMCModel model;
+
 	initialize(betaAmount, model, ccd, seed);
+
 	logState(model,0);
 
 
@@ -156,6 +159,8 @@ void MCMCDriver::drive(
 	logState(model,0);
 	model.restore();
 	logState(model,0);
+
+
 
 	double acceptNumber = 0.0;
 	double countIndependenceSampler = 0.0;

@@ -204,13 +204,11 @@ void parseCommandLine(std::vector<std::string>& args,
 		SwitchArg computeMLEAtModeArg("", "MLEAtMode", "Compute maximum likelihood estimates at posterior mode", arguments.fitMLEAtMode);
 		SwitchArg reportASEArg("","ASE", "Compute asymptotic standard errors at posterior mode", arguments.reportASE);
 
-		cout << "here?" << endl;
 		//MCMC arguments
 		SwitchArg useMCMCArg("", "mcmc", "Use MCMC in analysis", arguments.useMCMC);
 		ValueArg<double> betaAmountArg("", "betaAmount", "beta amount in MCMC", false, arguments.betaAmount, "bsccs::real");
 		ValueArg<double> sigmaAmountArg("", "sigmaAmount", "sigma amount in MCMC", false, arguments.sigmaAmount, "bsccs::real");
 		ValueArg<string> MCMCOutFileArg("", "MCMCFileName", "MCMC output file name", false, "MCMC.txt", "MCMCFileName");
-		cout << "here?" << endl;
 
 		//Hierarchy arguments
 		SwitchArg useHierarchyArg("", "hier", "Use hierarchy in analysis", arguments.useHierarchy);
@@ -817,7 +815,6 @@ double runMCMC(
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	cout << "here"
 	MCMCDriver driver(arguments.MCMCFileName);
 
 	driver.drive(*ccd, arguments.betaAmount, 3);

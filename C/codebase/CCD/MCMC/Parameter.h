@@ -42,7 +42,6 @@ namespace bsccs{
 
 		void initialize(int sizeIn);
 
-
 		void set(int index, bsccs::real setTo);
 
 		void set(bsccs::real* newData);
@@ -72,9 +71,6 @@ namespace bsccs{
 		std::vector<double> * returnCurrentValuesPointer();
 
 		std::vector<double> * returnStoredValuesPointer();
-
-
-	protected:
 
 		int size;
 
