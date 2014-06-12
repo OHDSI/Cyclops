@@ -19,7 +19,7 @@ namespace bsccs{
 	Parameter::Parameter(){}
 
 	void Parameter::initialize(int sizeIn){
-
+		cout << "Parameter:: initialize" << endl;
 		restorable = true;
 		size = sizeIn;
 		parameterValues = (bsccs::real*) calloc(sizeIn, sizeof(bsccs::real));
@@ -33,7 +33,8 @@ namespace bsccs{
 	}
 
 	int Parameter::getSize(){
-		return size;
+		//cout << "Parameter::getSize" << endl;
+		return(size);
 	}
 
 	bsccs::real	 Parameter::get(int index){
@@ -45,7 +46,7 @@ namespace bsccs{
 	}
 
 	void Parameter::set(int index, bsccs::real setTo){
-		vectorOfChanges[index] = true;
+		//vectorOfChanges[index] = true;
 		parameterValues[index] = setTo;
 	}
 
@@ -78,6 +79,8 @@ namespace bsccs{
 	}
 
 	void Parameter::store(){
+		cout << "store" << endl;
+		cout <<"storedValues[" << 0 << "] = " << storedValues[0] << endl;
 		memcpy(storedValues, parameterValues, sizeof(bsccs::real)*size);
 		restorable = true;
 	}

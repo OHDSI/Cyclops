@@ -23,11 +23,11 @@ class TransitionKernel {
 public:
 	TransitionKernel();
 	virtual ~TransitionKernel();
-	virtual void sample(MCMCModel & model, double tuningParameter);
+	virtual void sample(MCMCModel & model, double tuningParameter,  std::default_random_engine& generator);
 
 	virtual bool evaluateSample(MCMCModel& model, double tuningParameter, CyclicCoordinateDescent & ccd);
 
-	double generateGaussian();
+	double generateGaussian(std::default_random_engine& generator);
 };
 }
 

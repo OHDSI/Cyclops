@@ -37,8 +37,8 @@ namespace bsccs {
 
 	}
 
-	void SigmaSampler::sample(MCMCModel& model, double tuningParameter){
-		//cout << "SigmaSampler::sample" << endl;
+	void SigmaSampler::sample(MCMCModel& model, double tuningParameter,  std::default_random_engine& generator){
+		cout << "SigmaSampler::sample" << endl;
 
 		// tau | BetaVector ~ gamma(alpha + N/2, Beta + (1/2)(SUM(beta_i - mu)^2)
 		// prior: tau ~ gamma(alpha, beta)
@@ -46,9 +46,9 @@ namespace bsccs {
 		BetaParameter& BetaValues = model.getBeta();
 		HyperpriorParameter& SigmaSquared = model.getSigmaSquared();
 
-		SigmaSquared.store();
+		//SigmaSquared.store();
 
-		SigmaSquared.setRestorable(true);
+		//SigmaSquared.setRestorable(true);
 
 		double SigmaParameter_alpha = 2;
 		double SigmaParameter_beta = 8;
@@ -68,13 +68,16 @@ namespace bsccs {
 		double scale = SigmaParameter_beta + BetaMinusMu / 2;
 
 		///  Check scale
-		std::default_random_engine generator;
+		//std::default_random_engine generator2;
 		std::gamma_distribution<double> distribution(shape,scale);
 
 		double newValue = distribution(generator);
 
-		SigmaSquared.set(0, newValue);
 
+		SigmaSquared.logParameter();
+		cout << "before set" << endl;
+		SigmaSquared.set(0, newValue);
+		cout << "here in sigma Sampler" << endl;
 	}
 
 	bool SigmaSampler::evaluateSample(MCMCModel& model, double tuningParameter, CyclicCoordinateDescent & ccd){

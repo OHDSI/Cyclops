@@ -44,10 +44,10 @@ double IndependenceSampler::getTransformedTuningValue(double tuningParameter){
 }
 
 
-void IndependenceSampler::sample(MCMCModel& model, double tuningParameter) {
-	//cout << "IndependenceSampler::sample" << endl;
+void IndependenceSampler::sample(MCMCModel& model, double tuningParameter, std::default_random_engine& generator) {
+	cout << "IndependenceSampler::sample" << endl;
 
-	model.BetaStore();
+	//model.BetaStore();
 	BetaParameter & Beta = model.getBeta();
 	BetaParameter & Beta_Hat = model.getBeta_Hat();
 	//Eigen::LLT<Eigen::MatrixXf> choleskyEigen = model.getCholeskyLLT();
@@ -58,7 +58,7 @@ void IndependenceSampler::sample(MCMCModel& model, double tuningParameter) {
 
 	Eigen::VectorXf independentNormal = Eigen::VectorXf::Random(sizeOfSample);
 	for (int i = 0; i < sizeOfSample; i++) {
-		bsccs::real normalValue = generateGaussian();
+		bsccs::real normalValue = generateGaussian(generator);
 		// NB: tuningParameter scales the VARIANCE
 		independentNormal[i] = normalValue * std::sqrt(getTransformedTuningValue(tuningParameter)); // multiply by stdev
 	}
@@ -74,24 +74,24 @@ void IndependenceSampler::sample(MCMCModel& model, double tuningParameter) {
 
 	// TODO Check marginal variance on b[i]
 
-
 	for (int i = 0; i < sizeOfSample; i++) {
+		cout <<"independentNormal[" << i << "] = " << independentNormal[i] << endl;
 		Beta.set(i,independentNormal[i] + Beta_Hat.get(i));
 	}
-
+	cout << "after setting to new values..." << endl;
+	Beta.logParameter();
 }
 
 bool IndependenceSampler::evaluateSample(MCMCModel& model, double tuningParameter, CyclicCoordinateDescent & ccd){
-	//cout << "IndependenceSampler::evaluateSample" << endl;
+	cout << "IndependenceSampler::evaluateSample" << endl;
 
 	bool accept = MHstep.evaluate(model);
-
 
 	return(accept);
 }
 
 double IndependenceSampler::evaluateLogMHRatio(MCMCModel& model){
-	//cout << "IndependenceSampler::evaluateSample" << endl;
+	cout << "IndependenceSampler::evaluateSample" << endl;
 
 	double logRatio = MHstep.getLogMetropolisRatio(model)*MHstep.getLogHastingsRatio(model);
 

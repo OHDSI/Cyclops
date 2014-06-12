@@ -45,19 +45,19 @@ void CredibleIntervals::initialize(std::string MCMCFileNameRootIn) {
 	outLog.open(fileName.c_str());
 }
 
-void CredibleIntervals::fileLogCredibleIntervals(double loglikelihood, vector<double> * BetaValues, double SigmaSquaredValue, int iteration){
+void CredibleIntervals::fileLogCredibleIntervals(double loglikelihood, Parameter& BetaValues, Parameter& SigmaSquaredValue, int iteration){
 
 	//
-	int betaSize = BetaValues->size();
+	int betaSize = BetaValues.getSize();
 
 	string sep(","); // TODO Make option
 
 	outLog << iteration << sep;
 	outLog << loglikelihood << sep;
 	for (int k = 0; k < betaSize; k++) {
-		outLog << (*BetaValues)[k] << sep;
+		outLog << BetaValues.get(k) << sep;
 	}
-	outLog << SigmaSquaredValue << sep << endl;
+	outLog << SigmaSquaredValue.get(0) << sep << endl;
 
 }
 

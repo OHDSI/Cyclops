@@ -18,14 +18,20 @@ namespace bsccs{
 
 	void HyperpriorParameter::initialize(CyclicCoordinateDescent& ccd, int sizeIn){
 		restorable = true;
+		cout << "in initialize hyperprior size = " << size << endl;
 		size = sizeIn;
+		cout << "getSize = " << getSize() << endl;
+		cout << "in initialize hyperprior size = " << size << endl;
 		parameterValues = (bsccs::real*) calloc(sizeIn, sizeof(bsccs::real));
 		storedValues = (bsccs::real*) calloc(size, sizeof(bsccs::real));
 
 		for (int i = 0; i < size; i++){
 			parameterValues[i] = ccd.getHyperprior();
 			storedValues[i] = ccd.getHyperprior();
+			cout << "in initialize hyperprior hyperprior = " << parameterValues[i] << endl;
 		}
+
+		cout << "getSize = " << getSize() << endl;
 	}
 
 

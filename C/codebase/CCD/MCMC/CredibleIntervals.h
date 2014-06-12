@@ -21,6 +21,7 @@
 
 #include "CyclicCoordinateDescent.h"
 #include "IndependenceSampler.h"
+#include "Parameter.h"
 
 
 using std::cout;
@@ -42,7 +43,7 @@ namespace bsccs {
 
 		void initialize(std::string MCMCFileNameRootIn);
 
-		void fileLogCredibleIntervals(double loglikelihood, vector<double> * BetaValues, double SigmaSquaredValue, int iteration);
+		void fileLogCredibleIntervals(double loglikelihood, Parameter& BetaValues, Parameter& SigmaSquaredValue, int iteration);
 
 	private:
 

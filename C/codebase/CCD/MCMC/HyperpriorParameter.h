@@ -36,21 +36,6 @@ namespace bsccs{
 
 		void initialize(CyclicCoordinateDescent& ccd, int sizeIn);
 
-	private:
-
-		int size;
-
-		bsccs::real * parameterValues;
-
-		bsccs::real * storedValues;
-
-		std::vector<double> parameterDoubleValues;
-
-		std::vector<double> storedDoubleValues;
-
-		std::vector<bool> vectorOfChanges;
-
-		bool restorable;
 	};
 }
 

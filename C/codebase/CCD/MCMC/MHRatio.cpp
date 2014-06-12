@@ -42,9 +42,11 @@ MHRatio::~MHRatio(){
 
 bool MHRatio::evaluate(MCMCModel & model) {
 
-
+	cout << "MHRatio::evaluate" << endl;
 	double logMetropolisRatio = getLogMetropolisRatio(model);
 	double logHastingsRatio;
+
+	cout << "M part done" << endl;
 
 	if (model.getUseHastingsRatio()){
 		logHastingsRatio = getLogHastingsRatio(model);
@@ -56,17 +58,15 @@ bool MHRatio::evaluate(MCMCModel & model) {
 // Compute the ratio for the MH step
 	double logRatio = logMetropolisRatio + logHastingsRatio;
 
+	cout << "H part done" << endl;
 //Check for numerical issues
 	if (std::isfinite(logMetropolisRatio) && std::isfinite(logHastingsRatio)){// && std::isfinite(ratio)){
 	} else {
-		//cout << "########--------------#########  Warning: Numerical Issues   ########-------#######" << endl;
+		cout << "########--------------#########  Warning: Numerical Issues   ########-------#######" << endl;
 	}
 // Set our alpha
 
 	alpha = min(logRatio, 0.0);
-
-
-
 
 // Sample from a uniform distribution
 	double uniformRandom = rand() / ((double) RAND_MAX);
@@ -104,18 +104,21 @@ double MHRatio::getTransformedTuningValue(double tuningParameter){
 
 
 double MHRatio::getLogMetropolisRatio(MCMCModel & model){
-
+	cout << "MHRatio::getLogMetropolisRatio" << endl;
 	// Get the proposed Beta values
-		vector<double> * betaPossible = (model.getBeta()).returnCurrentValuesPointer();
 
 	// Compute log Likelihood and log prior
 
-		CyclicCoordinateDescent & ccd = model.getCCD();
-		ccd.resetBeta();
-		ccd.setBeta(*betaPossible);  //TODO use new setBeta
+	CyclicCoordinateDescent & ccd = model.getCCD();
 
-		model.setLogLikelihood(ccd.getLogLikelihood());
-		model.setLogPrior(ccd.getLogPrior());
+	ccd.resetBeta();
+
+	for (int i = 0; i < model.getBeta().getSize(); i++){
+		ccd.setBeta(i, model.getBeta().get(i));
+	}
+
+	model.setLogLikelihood(ccd.getLogLikelihood());
+	model.setLogPrior(ccd.getLogPrior());
 
 #ifdef Debug_TRS
   cout << "proposed Likelihood = " << model.getLogLikelihood() << endl;
@@ -125,9 +128,9 @@ double MHRatio::getLogMetropolisRatio(MCMCModel & model){
   #endif
 
 
-		double ratio = (model.getLogLikelihood() + model.getLogPrior()) - (model.getStoredLogLikelihood() + model.getStoredLogPrior());
+	double ratio = (model.getLogLikelihood() + model.getLogPrior()) - (model.getStoredLogLikelihood() + model.getStoredLogPrior());
 
-		return(ratio);
+	return(ratio);
 }
 
 double MHRatio::getLogHastingsRatio(MCMCModel & model){

@@ -42,7 +42,7 @@ public:
 
 	virtual ~OneDimensionRandomWalk();
 
-	void sample(MCMCModel& model, double tuningParameter);
+	void sample(MCMCModel& model, double tuningParameter,  std::default_random_engine& generator);
 
 	bool evaluateSample(MCMCModel& model, double tuningParameter, CyclicCoordinateDescent& ccd);
 

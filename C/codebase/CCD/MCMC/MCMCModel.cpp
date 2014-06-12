@@ -9,6 +9,8 @@
 
 #include "MCMCModel.h"
 
+#define Debug_TRS;
+
 namespace bsccs {
 
  MCMCModel::MCMCModel(){}
@@ -24,29 +26,37 @@ namespace bsccs {
 
 	 HessianMatrix = (ccd->getHessianMatrix()).cast<float>();
 
+	 cout << "hessian is" << endl;
+	 cout << HessianMatrix << endl;
+	 cout << "ended" << endl;
+
 	 generateCholesky();
 
 	 // Beta_Hat = modes from ccd
 	 Beta_Hat.initialize(*ccd, J);
-	 cout << "prestore?!" << endl;
 	 Beta_Hat.store();
-	 cout << "poststore?!" << endl;
+
 	 // Set up Beta
 	 Beta.initialize(*ccd, J);
-	 cout << "here?!" << endl;
 	 //Beta.setProbabilityUpdate(betaAmount);
 	 Beta.store();
 
 	 // Set up Sigma squared
-	 bsccs::real sigma2Start;
-	 sigma2Start = (bsccs::real) ccd->getHyperprior();
+	 cout << "before initialize " << endl;
 	 SigmaSquared.initialize(*ccd,1);
+	 cout << "after initialized, sigmasquared.getSize() = " << SigmaSquared.getSize() << endl;
+	 cout << "after initialize " << endl;
+	 SigmaSquared.store();
+	 cout << "stored SS " << endl;
 	 SigmaSquared.logParameter();
+	 cout << "logged SS " << endl;
 
-	logLikelihood = ccd->getLogLikelihood();
-	logPrior = ccd->getLogPrior();
+	 logLikelihood = ccd->getLogLikelihood();
+	 logPrior = ccd->getLogPrior();
+	 storedLogLikelihood = ccd->getLogLikelihood();
+	 storedLogPrior = ccd->getLogPrior();
 
-	useHastingsRatio = true;
+	 useHastingsRatio = true;
  }
 
  MCMCModel::~MCMCModel(){}
@@ -96,36 +106,35 @@ namespace bsccs {
  }
 
  void MCMCModel::generateCholesky() {
- 	HessianMatrix.resize(J, J);
-
- 	//Convert to Eigen for Cholesky decomposition
- 	for (int i = 0; i < J; i++) {
- 		for (int j = 0; j < J; j++) {
- 			HessianMatrix(i, j) = -hessian[i][j];
- 		}
- 	}
 
  	//  Debugging code
  	HessianMatrixInverse.resize(J,J);
  	HessianMatrixInverse = HessianMatrix.inverse();
- 	// cout << "Hessian Inverse" << endl;
- 	// cout << HessianMatrixInverse(0,0) << endl;
+
+ 	cout << "Hessian Inverse" << endl;
+ 	cout << HessianMatrixInverse << endl;
 
  	//Perform Cholesky Decomposition
  	CholDecom.compute(HessianMatrix);
 
- #ifdef Debug_TRS
- 		cout << "Printing Hessian in generateCholesky" << endl;
+ 	Eigen::MatrixXf L = CholDecom.matrixL();
 
- 		for (int i = 0; i < J; i ++) {
- 			cout << "[";
- 				for (int j = 0; j < J; j++) {
- 					cout << HessianMatrix(i,j) << ", ";
- 				}
- 			cout << "]" << endl;
- 			}
- #endif
 
+ }
+
+ void MCMCModel::store(){
+
+
+ 	Beta_Hat.store();
+ 	Beta_Hat.setRestorable(true);
+  	Beta.store();
+  	Beta.setRestorable(true);
+
+ 	SigmaSquared.store();
+ 	SigmaSquared.setRestorable(true);
+
+ 	storedLogLikelihood = logLikelihood;
+ 	storedLogPrior = logPrior;
  }
 
 void MCMCModel::restore(){
@@ -143,6 +152,8 @@ void MCMCModel::restore(){
 	setLogLikelihood(storedLogLikelihood);
 	setLogPrior(storedLogPrior);
 }
+
+
 
 void MCMCModel::acceptChanges(){
 	// cout << "MCMCModel::acceptChanges" << endl;
@@ -190,6 +201,7 @@ void MCMCModel::logState(){
 }
 
 void MCMCModel::writeVariances(){
+	cout << "variances?" << endl;
 	for(int i = 0; i<J; i ++){
 		Beta.set(i, HessianMatrixInverse(i,i));
 		//cout<< "Beta[" <<i <<"] = " << Beta.get(i) << endl;

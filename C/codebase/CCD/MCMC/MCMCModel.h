@@ -42,6 +42,7 @@ public:
 
 	void acceptChanges();
 
+	void store();
 	void restore();
 
 	void logState();

@@ -42,7 +42,7 @@ RandomWalk::~RandomWalk() {
 double RandomWalk::getTransformedTuningValue(double tuningParameter){
 	return exp(-tuningParameter);
 }
-void RandomWalk::sample(MCMCModel& model, double tuningParameter) {
+void RandomWalk::sample(MCMCModel& model, double tuningParameter, std::default_random_engine& generator) {
 	cout << "RandomWalk::sample" << endl;
 
 	BetaParameter & Beta = model.getBeta();
@@ -58,7 +58,7 @@ void RandomWalk::sample(MCMCModel& model, double tuningParameter) {
 
 	Eigen::VectorXf independentNormal = Eigen::VectorXf::Random(sizeOfSample);
 	for (int i = 0; i < sizeOfSample; i++) {
-		bsccs::real normalValue = generateGaussian();
+		bsccs::real normalValue = generateGaussian(generator);
 		// NB: tuningParameter scales the VARIANCE
 		independentNormal[i] = normalValue * std::sqrt(getTransformedTuningValue(tuningParameter)); // multiply by stdev
 	}

@@ -43,7 +43,7 @@ OneDimensionRandomWalk::~OneDimensionRandomWalk() {
 double OneDimensionRandomWalk::getTransformedTuningValue(double tuningParameter){
 	return exp(-tuningParameter);
 }
-void OneDimensionRandomWalk::sample(MCMCModel& model, double tuningParameter) {
+void OneDimensionRandomWalk::sample(MCMCModel& model, double tuningParameter,  std::default_random_engine& generator) {
 
 	BetaParameter & Beta = model.getBeta();
 	BetaParameter & Beta_Hat = model.getBeta_Hat();
@@ -59,14 +59,14 @@ void OneDimensionRandomWalk::sample(MCMCModel& model, double tuningParameter) {
 
 	Eigen::VectorXf independentNormal = Eigen::VectorXf::Random(sizeOfSample);
 	for (int i = 0; i < sizeOfSample; i++) {
-		bsccs::real normalValue = generateGaussian();
+		bsccs::real normalValue = generateGaussian(generator);
 		// NB: tuningParameter scales the VARIANCE
 		independentNormal[i] = normalValue * std::sqrt(getTransformedTuningValue(tuningParameter)); // multiply by stdev
 	}
 
 
 
-	bsccs::real normalValue = generateGaussian();
+	bsccs::real normalValue = generateGaussian(generator);
 	// NB: tuningParameter scales the VARIANCE
 	bsccs::real scaledNormalValue = normalValue * std::sqrt(getTransformedTuningValue(tuningParameter)); // multiply by stdev
 
