@@ -1,67 +1,62 @@
 library("testthat")
 
-# s <- "{DEFAULT @a = '123'} SELECT * FROM table WHERE x = @a AND {@b == 'blaat'}?{y = 1234}:{x = 1};"
-# 
-# test_that("Parameter substitution works", {
-# 			sql <- renderSql(s,a="abc")$sql
-# 			expect_equal(sql, " SELECT * FROM table WHERE x = abc AND x = 1;")
-# 		})
-# 
-# test_that("Empty parameter does not cause trouble", {
-# 			sql <- renderSql(s,a="abc",b="")$sql
-# 			expect_equal(sql, " SELECT * FROM table WHERE x = abc AND x = 1;")
-# 		})
-# 
-# test_that("Default works", {
-# 			sql <- renderSql(s,b="1")$sql
-# 			expect_equal(sql, " SELECT * FROM table WHERE x = 123 AND x = 1;")
-# 		})
-# 
-# test_that("If-then-else: then works", {
-# 			sql <- renderSql(s,b="blaat")$sql
-# 			expect_equal(sql, " SELECT * FROM table WHERE x = 123 AND y = 1234;")
-# 		})
-# 
-# test_that("If-then-else: else works", {
-# 			sql <- renderSql(s,b="bla")$sql
-# 			expect_equal(sql, " SELECT * FROM table WHERE x = 123 AND x = 1;")
-# 		})
-# 
-# 
-# s <- "{1 IN (@a)}?{SELECT * FROM table}"
-# 
-# test_that("If-then-else: IN pattern works if value is in", {
-# 			sql <- renderSql(s,a = c(1,2,3,4))$sql
-# 			expect_equal(sql, "SELECT * FROM table")
-# 		})
-# 
-# test_that("If-then-else: IN pattern works if value is not in", {
-# 			sql <- renderSql(s,a = c(2,3,4))$sql
-# 			expect_equal(sql, "")
-# 		})
-# 
-# test_that("If-then-else: IN pattern nested in boolean condition", {
-# 			sql <- renderSql("{true & (true & (true & 4 IN (@a)))}?{true}:{false}",a = c(1,2,3))$sql
-# 			expect_equal(sql, "false")
-# 		})
-# 
-# 
-# test_that("If-then-else: nested if-then-else where nest in firing expression", {
-# 			sql <- renderSql("{true}?{{true} ? {double true} : {true false}} : {false}")$sql
-# 			expect_equal(sql, "double true")
-# 		})
-# 
-# test_that("If-then-else: nested if-then-else where nest in non-firing expression", {
-# 			sql <- renderSql("{false}?{{true} ? {double true} : {true false}} : {false}")$sql
-# 			expect_equal(sql, "false")
-# 		})
-# 
-# test_that("If-then-else: simple negation", {
-# 			sql <- renderSql("{!false}?{true}:{false}")$sql
-# 			expect_equal(sql, "true")
-# 		})
-# 
-# test_that("If-then-else: negation of parameter", {
-# 			sql <- renderSql("{!@a}?{true}:{false}", a = "true")$sql
-# 			expect_equal(sql, "false")
-# 		})
+#
+# Small Poisson MLE regression
+#
+
+test_that("Small Poisson dense regression", {
+	dobson <- data.frame(
+		counts = c(18,17,15,20,10,20,25,13,12),
+		outcome = gl(3,1,9),
+		treatment = gl(3,3)
+	)
+	tolerance <- 1E-4
+	
+	glmFit <- glm(counts ~ outcome + treatment, data = dobson, family = poisson()) # gold standard
+	
+	dataPtrD <- createCcdDataFrame(counts ~ outcome + treatment, data = dobson,
+																 modelType = "pr")														
+	ccdFitD <- fitCcdModel(dataPtrD, 
+												 prior = prior("none"),
+												 control = control(noiseLevel = "silent"))
+	expect_equal(coef(ccdFitD), coef(glmFit), tolerance = tolerance)
+	expect_equal(ccdFitD$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
+	expect_equal(confint(ccdFitD, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
+})
+
+test_that("Small Poisson indicator regression", {
+	counts <- c(18,17,15,20,10,20,25,13,12)
+	outcome <- gl(3,1,9)
+	treatment <- gl(3,3)
+	tolerance <- 1E-4
+	
+	glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard	
+
+	dataPtrI <- createCcdDataFrame(counts ~ outcome, indicatorFormula =  ~ treatment, 
+															modelType = "pr")
+
+	ccdFitI <- fitCcdModel(dataPtrI, 
+											prior = prior("none"),
+											control = control(noiseLevel = "silent"))
+	expect_equal(coef(ccdFitI), coef(glmFit), tolerance = tolerance)
+	expect_equal(ccdFitI$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
+	expect_equal(confint(ccdFitI, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
+})
+
+test_that("Small Poisson sparse regression", {
+	counts <- c(18,17,15,20,10,20,25,13,12)
+	outcome <- gl(3,1,9)
+	treatment <- gl(3,3)
+	tolerance <- 1E-4
+	
+	glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard		
+
+	dataPtrS <- createCcdDataFrame(counts ~ outcome, sparseFormula =  ~ treatment, 
+															modelType = "pr")
+	ccdFitS <- fitCcdModel(dataPtrS, 
+											prior = prior("none"),
+											control = control(noiseLevel = "silent"))
+	expect_equal(coef(ccdFitS), coef(glmFit), tolerance = tolerance)
+	expect_equal(ccdFitS$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
+	expect_equal(confint(ccdFitS, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
+})

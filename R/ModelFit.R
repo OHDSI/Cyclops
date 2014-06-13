@@ -45,13 +45,8 @@ fitCcdModel <- function(ccdData
     	.ccdSetPrior(ccdData$ccdInterfacePtr, prior$priorType, prior$variance, prior$exclude)    		
     }
 	
-		if (!missing(control)) { # Set up control
-			stopifnot(inherits(control, "ccdControl"))
-			.ccdSetControl(ccdData$ccdInterfacePtr, control$maxIterations, control$tolerance, 
-										 control$convergenceType, control$autoSearch, control$fold, 
-										 (control$fold * control$cvRepetitions),
-										 control$lowerLimit, control$upperLimit, control$gridSteps, control$noiseLevel)		
-		}
+		.setControl(ccdData$ccdInterfacePtr, control)
+			
  	
 	if (!missing(prior) && prior$useCrossValidation) {
 		if (missing(control)) {
@@ -75,6 +70,8 @@ fitCcdModel <- function(ccdData
 	fit$call <- cl
 	fit$ccdData <- ccdData
 	fit$ccdInterfacePtr <- ccdData$ccdInterfacePtr
+	fit$coefficientNames <- ccdData$coefficientNames
+	
 # 	if (!missing(prior)) {
 # 		fit$prior <- prior
 # 	} else {
@@ -112,7 +109,13 @@ fitCcdModel <- function(ccdData
 }
 
 coef.ccdFit <- function(x, ...) {
-	x$estimation
+	result <- x$estimation$estimate
+	if (is.null(x$coefficientNames)) {
+		names(result) <- x$estimation$coefficient_names	
+	} else {
+		names(result) <- x$coefficientNames
+	}
+	result
 }
 
 getHyperParameter <- function(x) {
@@ -211,14 +214,29 @@ prior <- function(priorType, variance = 1, exclude = c(), useCrossValidation = F
     cat("\014")  
 }
 
-predict.ccdFit <- function(ccdFit) {
-	.checkInterface(ccdFit, testOnly = TRUE)
-	pred <- .ccdPredictModel(ccdFit$ccdInterfacePtr)	
+predict.ccdFit <- function(object) {
+	.checkInterface(object, testOnly = TRUE)
+	pred <- .ccdPredictModel(object$ccdInterfacePtr)	
 	pred$prediction$prediction
 }
 
-profile.ccdFit <- function(fitted, covariates, forceProfile = FALSE) {
-	.checkInterface(ccdFit, testOnly = TRUE)
-	prof <- .ccdProfileModel(ccdFit$ccdInterfacePtr, covariates)
+.setControl <- function(ccdInterfacePtr, control) {
+	if (!missing(control)) { # Set up control
+		stopifnot(inherits(control, "ccdControl"))
+		.ccdSetControl(ccdInterfacePtr, control$maxIterations, control$tolerance, 
+									 control$convergenceType, control$autoSearch, control$fold, 
+									 (control$fold * control$cvRepetitions),
+									 control$lowerLimit, control$upperLimit, control$gridSteps, control$noiseLevel)		
+	}	
+}
+
+confint.ccdFit <- function(fitted, covariates, control) {
+	.checkInterface(fitted, testOnly = TRUE)
+	.setControl(fitted$ccdInterfacePtr, control)
+	
+	prof <- .ccdProfileModel(fitted$ccdInterfacePtr, covariates)
+	prof <- as.matrix(as.data.frame(prof))
+	rownames(prof) <- fitted$coefficientNames[covariates]
+	colnames(prof)[2:3] <- c("2.5 %", "97.5 %")
 	prof
 }

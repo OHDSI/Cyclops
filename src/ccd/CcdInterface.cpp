@@ -233,7 +233,6 @@ struct OptimizationProfile {
 	double objective(double x) {
 		++nEvals;
 		ccd.setBeta(index, x);
-		std::cout << "Trying " << x << std::endl;
 		ccd.setFixedBeta(index, true);
 		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 		ccd.setFixedBeta(index, false);
@@ -317,10 +316,12 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *model
 																						
 			double lowerPt = zeroInDn.getRoot(x0, lowerBracket.first, obj0, lowerBracket.second);
 
-            std::ostringstream stream;
-			stream << "Profile: " << modelData->getColumn(index).getLabel() << " (" << lowerPt << ", "
-					<< upperPt << ")  in " << upEval.getEvaluations();
-			logger->writeLine(stream);
+			if (arguments.noiseLevel >= NOISY) {
+	            std::ostringstream stream;
+				stream << "Profile: " << modelData->getColumn(index).getLabel() << " (" << lowerPt << ", "
+						<< upperPt << ")  in " << upEval.getEvaluations();
+				logger->writeLine(stream);
+			}
 
 			ProfileInformation profile(lowerPt, upperPt, upEval.getEvaluations());
 			profileMap.insert(std::pair<DrugIdType, ProfileInformation>(modelData->getColumn(index).getNumericalLabel(), profile));

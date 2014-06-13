@@ -45,10 +45,9 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 				"offset"), names(mf.all), 0L)
 		mf.d <- mf.all[c(1L, m.d)]
 		mf.d$drop.unused.levels <- TRUE
-		mf.d[[1L]] <- quote(stats::model.frame)		
-		mf.d <- eval(mf.d, parent.frame())
-		dx <- Matrix(model.matrix(mf.d), sparse=FALSE)	# TODO sparse / indicator matrices
-		
+		mf.d[[1L]] <- quote(stats::model.frame)			
+		mf.d <- eval(mf.d, parent.frame())	
+		dx <- Matrix(model.matrix(mf.d, data), sparse=FALSE)	# TODO sparse / indicator matrices
 		y <- model.response(mf.d) # TODO Update for censored outcomes
 		pid <- c(1:length(y)) # TODO Update for stratified models		       
     
@@ -60,20 +59,18 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 					"offset"), names(mf.all), 0L)
 			mf.s <- mf.all[c(1L, m.s)]
 			mf.s$drop.unused.levels <- TRUE
-			mf.s[[1L]] <- quote(stats::model.frame)
-			mf.s[[2L]] <- update(mf.s[[2L]], ~ . - 1) # Remove intercept
+			mf.s[[1L]] <- quote(stats::model.frame)			
 			names(mf.s)[2] = "formula"
-			mf.s <- eval(mf.s, parent.frame())
-			attr(attr(mf.s, "terms"), "intercept") <- 0  # Remove intercept
+			mf.s <- eval(mf.s, parent.frame())			
 			
 			if (!is.null(model.response(mf.s))) {
 				stop("Must only provide outcome variable in dense formula.")
 			}
 			
 			if (attr(attr(mf.s, "terms"), "intercept") == 1) { # Remove intercept
-				sx <- Matrix(model.matrix(mf.s), sparse=TRUE)[,-1]
+				sx <- Matrix(model.matrix(mf.s, data), sparse=TRUE)[,-1]
 			} else {
-				sx <- Matrix(model.matrix(mf.s), sparse=TRUE)			
+				sx <- Matrix(model.matrix(mf.s, data), sparse=TRUE)			
 			}					
 		}    
 	
@@ -88,8 +85,7 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 			mf.i[[1L]] <- quote(stats::model.frame)
 			names(mf.i)[2] = "formula"				
 			mf.i <- eval(mf.i, parent.frame())
-			hasIntercept <- attr(attr(mf.i, "terms"), "intercept") == 1
-			
+					
 			if (!is.null(model.response(mf.i))) {
 				stop("Must only provide outcome variable in dense formula.")
 			}			
@@ -97,9 +93,9 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 			# TODO Check that all values in mf.i are 0/1
 						
 			if (attr(attr(mf.i, "terms"), "intercept") == 1) { # Remove intercept
-				ix <- Matrix(model.matrix(mf.i), sparse=TRUE)[,-1]
+				ix <- Matrix(model.matrix(mf.i, data), sparse=TRUE)[,-1]
 			} else {
-				ix <- Matrix(model.matrix(mf.i), sparse=TRUE)			
+				ix <- Matrix(model.matrix(mf.i, data), sparse=TRUE)			
 			}
 		} 
 		
@@ -125,7 +121,16 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 		}	
 	}
     
- 
+ 	names <- c()
+	if (!is.null(dx)) {
+		names = c(names, dx@Dimnames[[2]])
+	}
+	if (!is.null(sx)) {
+		names <- c(names, sx@Dimnames[[2]])
+	}
+	if (!is.null(ix)) {
+		names <- c(names, ix@Dimnames[[2]])
+	}
     
     # TODO Check types and dimensions        
     
@@ -140,6 +145,7 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 	}
 	result$ccdInterfacePtr <- NULL
 	result$call <- cl
+	result$coefficientNames <- names
 	
 	result$debug <- list()
 	result$debug$dx <- dx
