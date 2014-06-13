@@ -58,8 +58,29 @@ size_t ccdGetNumberOfRows(Environment x) {
 	return data->getNumberOfRows();
 }
 
+
+// TODO MJS wants a default constructor and a append function that takes chunks
+
+// [[Rcpp::export(".ccdReadSqlData")]]
+List ccdReadSqlData(
+        const std::vector<long>& oStratumId,
+        const std::vector<long>& oRowId,
+        const std::vector<double>& oY,
+        const std::vector<double>& oTime,
+        const std::vector<long>& cRowId,
+        const std::vector<long>& cCovariateId,
+        const std::vector<double>& cCovariateValue,
+        const std::string& modelTypeName) {
+        // o -> outcome, c -> covariates
+//     SqlGenericInputReader reader(
+    List list = List::create(
+            Rcpp::Named("result") = 42.0
+        );
+    return list;
+}
+
 // [[Rcpp::export(".ccdReadData")]]
-List ccdReadData(const std::string& fileName, const std::string& modelTypeName) {
+List ccdReadFileData(const std::string& fileName, const std::string& modelTypeName) {
 
 		using namespace bsccs;
 		Timer timer; 

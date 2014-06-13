@@ -18,6 +18,8 @@ public:
 			int iGridSize,
 			double iLowerLimit,
 			double iUpperLimit,
+			loggers::ProgressLoggerPtr _logger,
+			loggers::ErrorHandlerPtr _error,			
 			std::vector<real>* wtsExclude = NULL);
 
 	virtual ~HierarchyGridSearchCrossValidationDriver();

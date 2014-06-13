@@ -23,7 +23,10 @@ class BootstrapDriver : public AbstractDriver {
 public:
 	BootstrapDriver(
 			int inReplicates,
-			ModelData* inModelData);
+			ModelData* inModelData,
+			loggers::ProgressLoggerPtr _logger,
+			loggers::ErrorHandlerPtr _error
+		);
 
 	virtual ~BootstrapDriver();
 

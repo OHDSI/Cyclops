@@ -44,6 +44,18 @@ void ccdSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, doub
   interface->setPrior(priorTypeName, variance, exclude);
 }
 
+// [[Rcpp::.ccdProfileModel]]
+List ccdProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates) {
+	using namespace bsccs;
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	std::vector<long> covariates;
+	if (!Rf_isNull(sexpCovariates)) {
+		covariates = as<std::vector<long> >(sexpCovariates);
+	}
+	List list = List::create( 42.0 );
+	return list;
+}
+
 // [[Rcpp::export(".ccdPredictModel")]]
 List ccdPredictModel(SEXP inRcppCcdInterface) {
 	using namespace bsccs;
@@ -59,11 +71,46 @@ List ccdPredictModel(SEXP inRcppCcdInterface) {
 	
 
 // [[Rcpp::export(".ccdSetControl")]]
-void ccdSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance) {
+void ccdSetControl(SEXP inRcppCcdInterface, 
+		int maxIterations, double tolerance, const std::string& convergenceType,
+		bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps,
+		const std::string& noiseLevel
+		) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	// Convergence control
+	CCDArguments& args = interface->getArguments();
 	interface->getArguments().maxIterations = maxIterations;
 	interface->getArguments().tolerance = tolerance;
+	interface->getArguments().convergenceType = RcppCcdInterface::parseConvergenceType(convergenceType);
+	
+	// Cross validation control
+	args.useAutoSearchCV = useAutoSearch;
+	args.fold = fold;
+	args.foldToCompute = foldToCompute;
+	args.lowerLimit = lowerLimit;
+	args.upperLimit = upperLimit;
+	args.gridSteps = gridSteps;
+	NoiseLevels noise = RcppCcdInterface::parseNoiseLevel(noiseLevel);
+	args.noiseLevel = noise;
+	interface->setNoiseLevel(noise);
+}
+
+// [[Rcpp::export(".ccdRunCrossValidation")]]
+List ccdRunCrossValidationl(SEXP inRcppCcdInterface) {	
+	using namespace bsccs;
+	
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);		
+	double timeUpdate = interface->runCrossValidation();
+		
+	interface->diagnoseModel(0.0, 0.0);
+	
+	List list = List::create(
+			Rcpp::Named("interface")=interface, 
+			Rcpp::Named("timeFit")=timeUpdate
+		);
+	RcppCcdInterface::appendRList(list, interface->getResult());
+	return list;
 }
 
 // [[Rcpp::export(".ccdFitModel")]]
@@ -73,7 +120,6 @@ List ccdFitModel(SEXP inRcppCcdInterface) {
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);		
 	double timeUpdate = interface->fitModel();
 	
-//	interface->getResult().clear(); TODO
 	interface->diagnoseModel(0.0, 0.0);
 	
 	List list = List::create(
@@ -174,6 +220,21 @@ bsccs::ConvergenceType RcppCcdInterface::parseConvergenceType(const std::string&
 	return type;
 }
 
+bsccs::NoiseLevels RcppCcdInterface::parseNoiseLevel(const std::string& noiseName) {
+	using namespace bsccs;
+	NoiseLevels level;
+	if (noiseName == "silent") {
+		level = SILENT; 
+	} else if (noiseName == "quiet") {
+		level = QUIET;
+	} else if (noiseName == "noisy") {
+		level = NOISY;
+	} else {
+		handleError("Invalid noise level.");
+	}
+	return level;
+}
+
 bsccs::priors::PriorType RcppCcdInterface::parsePriorType(const std::string& priorName) {
 	using namespace bsccs::priors;
 	bsccs::priors::PriorType priorType;
@@ -208,6 +269,11 @@ bsccs::Models::ModelType RcppCcdInterface::parseModelType(const std::string& mod
  		handleError("Invalid model type."); 		
  	}	
  	return modelType;
+}
+
+void RcppCcdInterface::setNoiseLevel(bsccs::NoiseLevels noiseLevel) {
+    using namespace bsccs;
+    ccd->setNoiseLevel(noiseLevel);
 }
 
 void RcppCcdInterface::setPrior(const std::string& basePriorName, double baseVariance,

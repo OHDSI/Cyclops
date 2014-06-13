@@ -23,6 +23,8 @@
 fitCcdModel <- function(ccdData		
 		, tolerance = 1E-8
 		, prior
+		, crossValidation
+		, control
 		, returnEstimates = TRUE
 		, forceColdStart = FALSE
 	) {
@@ -42,10 +44,29 @@ fitCcdModel <- function(ccdData
     	stopifnot(!any(is.na(prior$exclude)))    
     	.ccdSetPrior(ccdData$ccdInterfacePtr, prior$priorType, prior$variance, prior$exclude)    		
     }
-    
-#    .ccdSetTolerance(tolerance)
 	
-	fit <- .ccdFitModel(ccdData$ccdInterfacePtr) # TODO Pass along other options	
+		if (!missing(control)) { # Set up control
+			stopifnot(inherits(control, "ccdControl"))
+			.ccdSetControl(ccdData$ccdInterfacePtr, control$maxIterations, control$tolerance, 
+										 control$convergenceType, control$autoSearch, control$fold, 
+										 (control$fold * control$cvRepetitions),
+										 control$lowerLimit, control$upperLimit, control$gridSteps, control$noiseLevel)		
+		}
+ 	
+	if (!missing(prior) && prior$useCrossValidation) {
+		if (missing(control)) {
+			minCVData <- control()$minCVData		
+		} else {
+			minCVData <- control$minCVData
+		}
+		if (minCVData > getNumberOfRows(ccdData)) { # TODO Not correct; some models CV by stratum
+			stop("Insufficient data count for cross validation")
+		}
+		fit <- .ccdRunCrossValidation(ccdData$ccdInterfacePtr)
+	} else {
+		fit <- .ccdFitModel(ccdData$ccdInterfacePtr)
+	}
+	
 	if (returnEstimates && fit$return_flag == "SUCCESS") {
 		estimates <- .ccdLogModel(ccdData$ccdInterfacePtr)		
 		fit <- c(fit, estimates)	
@@ -54,6 +75,11 @@ fitCcdModel <- function(ccdData
 	fit$call <- cl
 	fit$ccdData <- ccdData
 	fit$ccdInterfacePtr <- ccdData$ccdInterfacePtr
+# 	if (!missing(prior)) {
+# 		fit$prior <- prior
+# 	} else {
+# 		fit$prior <- NULL # prior("none")
+# 	}
 	class(fit) <- "ccdFit"
 	return(fit)
 } 
@@ -89,6 +115,10 @@ coef.ccdFit <- function(x, ...) {
 	x$estimation
 }
 
+getHyperParameter <- function(x) {
+	x$variance
+}
+
 print.ccdFit <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,...) {
   cat("OHDSI CCD model fit object\n\n")
   
@@ -103,23 +133,6 @@ print.ccdFit <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,..
   	cat("Log likelikehood: ", x$log_likelihood, "\n", sep="")
   	cat("       Log prior: ", x$log_prior, "\n", sep="")
   }
-#   if (!is.null(x$ccdDataPtr) && !.isRcppPtrNull(x$ccdDataPtr)) {
-#       nRows <- getNumberOfRows(x)
-#       cat("      Rows: ", nRows, "\n", sep="")
-#       cat("Covariates: ", getNumberOfCovariates(x), "\n", sep="")
-#       nStrata <- getNumberOfStrata(x)
-#       if (nRows != nStrata) {
-#         cat("    Strata: ", nStrata, "\n", sep="")
-#       }
-#   } else {
-#     cat("\nObject is no longer or improperly initialized.\n")
-#   }
-#   cat("\n")
-#   if (!is.null(x$ccdInterfacePtr) && !.isRcppPtrNull(x$ccdInterfacePtr)) {    
-#     cat("Initialized interface (details coming soon).\n")
-#   } else {
-#     cat("Uninitialized interface.\n")
-#   }
   invisible(x)
 }
 
@@ -131,24 +144,67 @@ print.ccdFit <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,..
 #' @param maxIterations			Integer: maximum iterations of CCD to attempt before returning a failed-to-converge error
 #' @param tolerance					Numeric: maximum relative change in convergence criterion from successive iterations to achieve convergence
 #' @param convergenceType		String: name of convergence criterion to employ (described in more detail below)
+#' @param cvType						String: name of cross validation search. 
+#' 													Option \code{"auto"} selects an auto-search following BBR.
+#' 													Option \code{"grid"} selects a grid-search cross validation
+#' @param fold							Numeric: Number of random folds to employ in cross validation													
+#' @param lowerLimit				Numeric: Lower prior variance limit for grid-search
+#' @param upperLimit				Numeric: Upper prior variance limit for grid-search
+#' @param gridSteps					Numeric: Number of steps in grid-search
+#' @param cvRepetitions			Numeric: Number of repetitions of X-fold cross validation
+#' @param minCVData					Numeric: Minumim number of data for cross validation
+#' @param noiseLevel				String: level of CCD screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})
 #' 
 #' @section Criteria:
 #' 
 #' @return
 #' A CCD convergence criteria object of class inheriting from \code{"ccdConvergence"} for use with \code{fitCcdModel}.
 #' 
-control <- function(maxIterations = 1000, tolerance = 1E-8, convergenceType = "gradient") {
-	structure(list(maxIterations = maxIterations, tolerance = tolerance, convergenceType = convergenceType),
-						class = "ccdConvergence")
+control <- function(
+		maxIterations = 1000, tolerance = 1E-6, convergenceType = "gradient",
+		cvType = "grid", fold = 10, lowerLimit = 0.01, upperLimit = 20.0, gridSteps = 10,
+		cvRepetitions = 1,
+		minCVData = 100, noiseLevel = "noisy") {
+	
+	validCVNames = c("grid", "auto")
+	stopifnot(cvType %in% validCVNames)
+	
+	validNLNames = c("silent", "quiet", "noisy")
+	stopifnot(noiseLevel %in% validNLNames)
+	structure(list(maxIterations = maxIterations, tolerance = tolerance, convergenceType = convergenceType,
+								 autoSearch = (cvType == "auto"), fold = fold, lowerLimit = lowerLimit, 
+								 upperLimit = upperLimit, gridSteps = gridSteps, minCVData = minCVData, 
+								 cvRepetitions = cvRepetitions,
+								 noiseLevel = noiseLevel),
+						class = "ccdControl")
 }
 
-prior <- function(priorType, variance = 1, exclude = c()) {
+#' @title prior
+#'
+#' @description
+#' \code{prior} builds a CCD prior object
+#'
+#' @param priorType
+#' @param variance
+#' @param exclude
+#' @param useCrossValidation
+#' 
+#' @section Prior types:
+#' 
+#' @return
+#' A CCD prior object of class inheriting from \code{"ccdPrior"} for use with \code{fitCcdModel}.
+#' 
+prior <- function(priorType, variance = 1, exclude = c(), useCrossValidation = FALSE) {
 	validNames = c("none", "laplace","normal")
 	stopifnot(priorType %in% validNames)	
 	if (!is.null(exclude)) {
 		stopifnot(inherits(exclude, "character"))
 	}
-	structure(list(priorType = priorType, variance = variance, exclude = exclude), class = "ccdPrior")
+	if (priorType == "none" && useCrossValidation) {
+		stop("Cannot perform cross validation with a flat prior")
+	}
+	structure(list(priorType = priorType, variance = variance, exclude = exclude, 
+								 useCrossValidation = useCrossValidation), class = "ccdPrior")
 }
 
 .clear <- function() {
@@ -157,6 +213,17 @@ prior <- function(priorType, variance = 1, exclude = c()) {
 
 predict.ccdFit <- function(ccdFit) {
 	.checkInterface(ccdFit, testOnly = TRUE)
-	predictions <- .ccdPredictModel(ccdFit$ccdInterfacePtr)	
-	predictions
+	pred <- .ccdPredictModel(ccdFit$ccdInterfacePtr)	
+	pred$prediction$prediction
+}
+
+profile.ccdFit <- function(fitted, covariates = NULL, forceProfile = FALSE) {
+	cat("yo!")
+# 	if(!is.null(fitted$prior) && fitted$prior$priorType != "none"
+# 		 && !(covariate %in% fitted$prior$exclude) && !forceProfile) {
+# 		stop("Likelihood profile on regularized covariates is not recommend")
+# 	}
+	.checkInterface(ccdFit, testOnly = TRUE)
+	prof <- .ccdProfileModel(ccdFit$ccdInterfacePtr, covariates)
+	prof
 }

@@ -19,7 +19,10 @@ class CCDArguments;
 
 class AbstractCrossValidationDriver : public AbstractDriver {
 public:
-	AbstractCrossValidationDriver();
+	AbstractCrossValidationDriver(
+			loggers::ProgressLoggerPtr _logger,
+			loggers::ErrorHandlerPtr _error
+	);
 
 	virtual ~AbstractCrossValidationDriver();
 

@@ -11,7 +11,10 @@
 
 namespace bsccs {
 
-AbstractCrossValidationDriver::AbstractCrossValidationDriver() {
+AbstractCrossValidationDriver::AbstractCrossValidationDriver(
+			loggers::ProgressLoggerPtr _logger,
+			loggers::ErrorHandlerPtr _error
+	) : AbstractDriver(_logger, _error) {
 	// Do nothing
 }
 

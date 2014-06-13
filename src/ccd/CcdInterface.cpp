@@ -351,10 +351,10 @@ double CcdInterface::runBoostrap(
 		std::vector<double>& savedBeta) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
-
+	
 	BootstrapSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
 			SUBJECT, arguments.seed);
-	BootstrapDriver driver(arguments.replicates, modelData);
+	BootstrapDriver driver(arguments.replicates, modelData, logger, error);
 
 	driver.drive(*ccd, selector, arguments);
 	gettimeofday(&time2, NULL);
@@ -384,19 +384,20 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData 
 
 	CrossValidationSelector selector(arguments.fold, modelData->getPidVectorSTL(),
 			SUBJECT, arguments.seed);
-
+			
 	AbstractCrossValidationDriver* driver;
 	if (arguments.useAutoSearchCV) {
 		if (arguments.useHierarchy) {
-			driver = new HierarchyAutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+			driver = new HierarchyAutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, 
+			    arguments.upperLimit, logger, error);
 		} else {
-			driver = new AutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+			driver = new AutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit, logger, error);
 		}
 	} else {
 		if (arguments.useHierarchy) {
-			driver = new HierarchyGridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+			driver = new HierarchyGridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit, logger, error);
 		} else {
-			driver = new GridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit);
+			driver = new GridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit, logger, error);
 		}
 	}
 
@@ -407,8 +408,12 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData 
 	driver->logResults(arguments);
 
 	if (arguments.doFitAtOptimal) {
-		std::cout << "Fitting model at optimal hyperparameter" << std::endl;
- 		// Do full fit for optimal parameter
+	    if (arguments.noiseLevel > SILENT) {
+	        std::ostringstream stream;
+	        stream << "Fitting model at optimal hyperparameter";
+	        logger->writeLine(stream);
+	    }
+		// Do full fit for optimal parameter
 		driver->resetForOptimal(*ccd, selector, arguments);
 		fitModel(ccd);
 		if (arguments.fitMLEAtMode) {

@@ -11,12 +11,16 @@
 #include "CyclicCoordinateDescent.h"
 #include "CrossValidationSelector.h"
 #include "CcdInterface.h"
+#include "io/ProgressLogger.h"
 
 namespace bsccs {
 
 class AbstractDriver {
 public:
-	AbstractDriver();
+	AbstractDriver(
+	    loggers::ProgressLoggerPtr _logger,
+		loggers::ErrorHandlerPtr _error
+	);
 
 	virtual ~AbstractDriver();
 
@@ -26,6 +30,10 @@ public:
 			const CCDArguments& arguments) = 0; // pure virtual
 
 	virtual void logResults(const CCDArguments& arguments) = 0; // pure virtual
+	
+protected:
+    loggers::ProgressLoggerPtr logger;
+		loggers::ErrorHandlerPtr error;
 };
 
 } // namespace

@@ -5,9 +5,6 @@
  *      Author: msuchard
  */
 
-
-// TODO Change from fixed grid to adaptive approach in BBR
-
 #include <iostream>
 #include <iomanip>
 #include <numeric>
@@ -24,7 +21,9 @@ GridSearchCrossValidationDriver::GridSearchCrossValidationDriver(
 			int iGridSize,
 			double iLowerLimit,
 			double iUpperLimit,
-			vector<real>* wtsExclude) : gridSize(iGridSize),
+			loggers::ProgressLoggerPtr _logger,
+			loggers::ErrorHandlerPtr _error,			
+			vector<real>* wtsExclude) : AbstractCrossValidationDriver(_logger, _error), gridSize(iGridSize),
 			lowerLimit(iLowerLimit), upperLimit(iUpperLimit), weightsExclude(wtsExclude) {
 
 	// Do anything???
@@ -55,8 +54,9 @@ void GridSearchCrossValidationDriver::logResults(const CCDArguments& arguments) 
 
 	ofstream outLog(arguments.cvFileName.c_str());
 	if (!outLog) {
-		cerr << "Unable to open log file: " << arguments.cvFileName << endl;
-		exit(-1);
+	    std::ostringstream stream;
+		stream << "Unable to open log file: " << arguments.cvFileName;
+		error->throwError(stream);		
 	}
 
 	string sep(","); // TODO Make option
@@ -122,7 +122,8 @@ void GridSearchCrossValidationDriver::drive(
 				}
 			}
 			ccd.setWeights(&weights[0]);
-			std::cout << "Running at " << ccd.getPriorInfo() << " ";
+			std::ostringstream stream;
+			stream << "Running at " << ccd.getPriorInfo() << " ";
 			ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 
 			// Compute predictive loglikelihood for this fold
@@ -137,10 +138,11 @@ void GridSearchCrossValidationDriver::drive(
 
 			double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
 
-			std::cout << "Grid-point #" << (step + 1) << " at " << point;
-			std::cout << "\tFold #" << (fold + 1)
+			stream << "Grid-point #" << (step + 1) << " at " << point;
+			stream << "\tFold #" << (fold + 1)
 			          << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
-			          << logLikelihood << std::endl;
+			          << logLikelihood;
+            logger->writeLine(stream);			          
 
 			// Store value
 			predLogLikelihood.push_back(logLikelihood);
@@ -157,14 +159,15 @@ void GridSearchCrossValidationDriver::drive(
 	double maxValue;
 	findMax(&maxPoint, &maxValue);
 
-	std::cout << std::endl;
-	std::cout << "Maximum predicted log likelihood (" << maxValue << ") found at:" << std::endl;
-	std::cout << "\t" << maxPoint << " (variance)" << std::endl;
+    std::ostringstream stream;
+	stream << std::endl;
+	stream << "Maximum predicted log likelihood (" << maxValue << ") found at:" << std::endl;
+	stream << "\t" << maxPoint << " (variance)" << std::endl;
 	if (!arguments.useNormalPrior) {
 		double lambda = convertVarianceToHyperparameter(maxPoint);
-		std::cout << "\t" << lambda << " (lambda)" << std::endl;
+		stream << "\t" << lambda << " (lambda)" << std::endl;
 	}
-	std:cout << std::endl;
+	logger->writeLine(stream);	
 }
 
 

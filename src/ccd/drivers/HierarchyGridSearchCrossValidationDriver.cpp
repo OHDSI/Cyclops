@@ -24,9 +24,13 @@ HierarchyGridSearchCrossValidationDriver::HierarchyGridSearchCrossValidationDriv
 			int iGridSize,
 			double iLowerLimit,
 			double iUpperLimit,
+			loggers::ProgressLoggerPtr _logger,
+			loggers::ErrorHandlerPtr _error,			
 			vector<real>* wtsExclude) : GridSearchCrossValidationDriver(iGridSize,
 					iLowerLimit,
 					iUpperLimit,
+					_logger,
+					_error,
 					wtsExclude)
 {
 	// Do anything???

@@ -3,8 +3,8 @@
 \alias{fitCcdModel}
 \title{fitCcdModel}
 \usage{
-fitCcdModel(ccdData, tolerance = 1e-08, prior, returnEstimates = TRUE,
-  forceColdStart = FALSE)
+fitCcdModel(ccdData, tolerance = 1e-08, prior, crossValidation, control,
+  returnEstimates = TRUE, forceColdStart = FALSE)
 }
 \arguments{
 \item{ccdData}{An OHDSI data object}

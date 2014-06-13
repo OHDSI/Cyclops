@@ -3,22 +3,34 @@
 \alias{control}
 \title{control}
 \usage{
-control(maxIterations = 1000, tolerance = 1e-08,
-  convergenceType = "gradient")
+control(maxIterations = 1000, tolerance = 1e-06,
+  convergenceType = "gradient", cvType = "grid", fold = 10,
+  lowerLimit = 0.01, upperLimit = 20, gridSteps = 10)
 }
 \arguments{
 \item{maxIterations}{Integer: maximum iterations of CCD to attempt before returning a failed-to-converge error}
 
-\item{tolerance}{Numeric: maximum change in convergence criterion from successive iterations to achieve convergence}
+\item{tolerance}{Numeric: maximum relative change in convergence criterion from successive iterations to achieve convergence}
 
 \item{convergenceType}{String: name of convergence criterion to employ (described in more detail below)}
+
+\item{cvType}{String: name of cross validation search.
+Option \code{"auto"} selects an auto-search following BBR.
+Option \code{"grid"} selects a grid-search cross validation}
+
+\item{fold}{Numeric: Number of random folds to employ in cross validation}
+
+\item{lowerLimit}{Numeric: Lower prior variance limit for grid-search}
+
+\item{upperLimit}{Numeric: Upper prior variance limit for grid-search}
+
+\item{gridSteps}{Numeric: Number of steps in grid-search}
 }
 \value{
 A CCD convergence criteria object of class inheriting from \code{"ccdConvergence"} for use with \code{fitCcdModel}.
 }
 \description{
 \code{control} builds a CCD convergence criteria object
-#'
 }
 \section{Criteria}{
 

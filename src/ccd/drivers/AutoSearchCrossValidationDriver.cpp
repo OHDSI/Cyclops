@@ -29,8 +29,11 @@ AutoSearchCrossValidationDriver::AutoSearchCrossValidationDriver(
 			const ModelData& _modelData,
 			int iGridSize,
 			double iLowerLimit,
-			double iUpperLimit,
-			vector<real>* wtsExclude) : modelData(_modelData), maxPoint(0), gridSize(iGridSize),
+			double iUpperLimit,			
+			loggers::ProgressLoggerPtr _logger,
+			loggers::ErrorHandlerPtr _error,			
+            vector<real>* wtsExclude			
+			) : AbstractCrossValidationDriver(_logger, _error), modelData(_modelData), maxPoint(0), gridSize(iGridSize),
 			lowerLimit(iLowerLimit), upperLimit(iUpperLimit), weightsExclude(wtsExclude),
 			maxSteps(MAX_STEPS) {
 
@@ -54,8 +57,9 @@ void AutoSearchCrossValidationDriver::logResults(const CCDArguments& arguments) 
 
 	ofstream outLog(arguments.cvFileName.c_str());
 	if (!outLog) {
-		cerr << "Unable to open log file: " << arguments.cvFileName << endl;
-		exit(-1);
+	    std::ostringstream stream;
+		stream << "Unable to open log file: " << arguments.cvFileName;
+		error->throwError(stream);		
 	}
 	outLog << std::scientific << maxPoint << std::endl;
 	outLog.close();
@@ -100,7 +104,8 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 			}
 		}
 		ccd.setWeights(&weights[0]);
-		std::cout << "Running at " << ccd.getPriorInfo() << " ";
+		std::ostringstream stream;
+		stream << "Running at " << ccd.getPriorInfo() << " ";
 		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 
 		// Compute predictive loglikelihood for this fold
@@ -115,10 +120,11 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 
 		double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
 
-		std::cout << "Grid-point #" << (step + 1) << " at " << ccd.getHyperprior();
-		std::cout << "\tFold #" << (fold + 1)
+		stream << "Grid-point #" << (step + 1) << " at " << ccd.getHyperprior();
+		stream << "\tFold #" << (fold + 1)
 				  << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
-				  << logLikelihood << std::endl;
+				  << logLikelihood;
+        logger->writeLine(stream);				  
 
 		// Store value
 		predLogLikelihood.push_back(logLikelihood);
@@ -141,7 +147,9 @@ void AutoSearchCrossValidationDriver::drive(
 	double tryvalue = modelData.getNormalBasedDefaultVar();
 	UniModalSearch searcher(10, 0.01, log(1.5));
 	const double eps = 0.05; //search stopper
-	std::cout << "Default var = " << tryvalue << std::endl;
+	std::ostringstream stream;
+	stream << "Default var = " << tryvalue;
+	logger->writeLine(stream);
 
 	bool finished = false;
 
@@ -156,20 +164,26 @@ void AutoSearchCrossValidationDriver::drive(
 
 		double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
 
-		std::cout << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
+        std::ostringstream stream;
+				stream << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
         searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
         pair<bool,double> next = searcher.step();
-        std::cout << "Completed at " << tryvalue << std::endl;
-        std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
+        stream << "Completed at " << tryvalue << std::endl;
+        stream << "Next point at " << next.second << " and " << next.first;
+        logger->writeLine(stream);
 
         tryvalue = next.second;
         if (!next.first) {
             finished = true;
         }
-        std::cout << searcher;
+        std::ostringstream stream1;
+        stream1 << searcher;
+        logger->writeLine(stream1);
         step++;
         if (step >= maxSteps) {
-        	std::cerr << "Max steps reached!" << std::endl;
+          std::ostringstream stream;
+        	stream << "Max steps reached!";
+        	logger->writeLine(stream);
         	finished = true;
         }
 	}
@@ -177,14 +191,15 @@ void AutoSearchCrossValidationDriver::drive(
 	maxPoint = tryvalue;
 
 	// Report results
-	std::cout << std::endl;
-	std::cout << "Maximum predicted log likelihood estimated at:" << std::endl;
-	std::cout << "\t" << maxPoint << " (variance)" << std::endl;
+	std::ostringstream stream1;
+	stream1 << std::endl;
+	stream1 << "Maximum predicted log likelihood estimated at:" << std::endl;
+	stream1 << "\t" << maxPoint << " (variance)" << std::endl;
 	if (!arguments.useNormalPrior) {
 		double lambda = convertVarianceToHyperparameter(maxPoint);
-		std::cout << "\t" << lambda << " (lambda)" << std::endl;
-	}
-	std:cout << std::endl;
+		stream1 << "\t" << lambda << " (lambda)" << std::endl;
+	}	
+	logger->writeLine(stream1);
 }
 
 } // namespace

@@ -51,17 +51,40 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdSetControl
-void ccdSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance);
-RcppExport SEXP CCD_ccdSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP) {
+void ccdSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel);
+RcppExport SEXP CCD_ccdSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
         Rcpp::traits::input_parameter< int >::type maxIterations(maxIterationsSEXP );
         Rcpp::traits::input_parameter< double >::type tolerance(toleranceSEXP );
-        ccdSetControl(inRcppCcdInterface, maxIterations, tolerance);
+        Rcpp::traits::input_parameter< const std::string& >::type convergenceType(convergenceTypeSEXP );
+        Rcpp::traits::input_parameter< bool >::type useAutoSearch(useAutoSearchSEXP );
+        Rcpp::traits::input_parameter< int >::type fold(foldSEXP );
+        Rcpp::traits::input_parameter< int >::type foldToCompute(foldToComputeSEXP );
+        Rcpp::traits::input_parameter< double >::type lowerLimit(lowerLimitSEXP );
+        Rcpp::traits::input_parameter< double >::type upperLimit(upperLimitSEXP );
+        Rcpp::traits::input_parameter< int >::type gridSteps(gridStepsSEXP );
+        Rcpp::traits::input_parameter< const std::string& >::type noiseLevel(noiseLevelSEXP );
+        ccdSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel);
     }
     return R_NilValue;
+END_RCPP
+}
+// ccdRunCrossValidationl
+List ccdRunCrossValidationl(SEXP inRcppCcdInterface);
+RcppExport SEXP CCD_ccdRunCrossValidationl(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
+        List __result = ccdRunCrossValidationl(inRcppCcdInterface);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
 END_RCPP
 }
 // ccdFitModel
@@ -171,16 +194,38 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
-// ccdReadData
-List ccdReadData(const std::string& fileName, const std::string& modelTypeName);
-RcppExport SEXP CCD_ccdReadData(SEXP fileNameSEXP, SEXP modelTypeNameSEXP) {
+// ccdReadSqlData
+List ccdReadSqlData(const std::vector<long>& oStratumId, const std::vector<long>& oRowId, const std::vector<double>& oY, const std::vector<double>& oTime, const std::vector<long>& cRowId, const std::vector<long>& cCovariateId, const std::vector<double>& cCovariateValue, const std::string& modelTypeName);
+RcppExport SEXP CCD_ccdReadSqlData(SEXP oStratumIdSEXP, SEXP oRowIdSEXP, SEXP oYSEXP, SEXP oTimeSEXP, SEXP cRowIdSEXP, SEXP cCovariateIdSEXP, SEXP cCovariateValueSEXP, SEXP modelTypeNameSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< const std::vector<long>& >::type oStratumId(oStratumIdSEXP );
+        Rcpp::traits::input_parameter< const std::vector<long>& >::type oRowId(oRowIdSEXP );
+        Rcpp::traits::input_parameter< const std::vector<double>& >::type oY(oYSEXP );
+        Rcpp::traits::input_parameter< const std::vector<double>& >::type oTime(oTimeSEXP );
+        Rcpp::traits::input_parameter< const std::vector<long>& >::type cRowId(cRowIdSEXP );
+        Rcpp::traits::input_parameter< const std::vector<long>& >::type cCovariateId(cCovariateIdSEXP );
+        Rcpp::traits::input_parameter< const std::vector<double>& >::type cCovariateValue(cCovariateValueSEXP );
+        Rcpp::traits::input_parameter< const std::string& >::type modelTypeName(modelTypeNameSEXP );
+        List __result = ccdReadSqlData(oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue, modelTypeName);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
+// ccdReadFileData
+List ccdReadFileData(const std::string& fileName, const std::string& modelTypeName);
+RcppExport SEXP CCD_ccdReadFileData(SEXP fileNameSEXP, SEXP modelTypeNameSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< const std::string& >::type fileName(fileNameSEXP );
         Rcpp::traits::input_parameter< const std::string& >::type modelTypeName(modelTypeNameSEXP );
-        List __result = ccdReadData(fileName, modelTypeName);
+        List __result = ccdReadFileData(fileName, modelTypeName);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);

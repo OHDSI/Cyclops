@@ -13,8 +13,12 @@ rcpp_hello_world <- function() {
     .Call('CCD_ccdPredictModel', PACKAGE = 'CCD', inRcppCcdInterface)
 }
 
-.ccdSetControl <- function(inRcppCcdInterface, maxIterations, tolerance) {
-    invisible(.Call('CCD_ccdSetControl', PACKAGE = 'CCD', inRcppCcdInterface, maxIterations, tolerance))
+.ccdSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel) {
+    invisible(.Call('CCD_ccdSetControl', PACKAGE = 'CCD', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel))
+}
+
+.ccdRunCrossValidation <- function(inRcppCcdInterface) {
+    .Call('CCD_ccdRunCrossValidationl', PACKAGE = 'CCD', inRcppCcdInterface)
 }
 
 .ccdFitModel <- function(inRcppCcdInterface) {
@@ -45,8 +49,12 @@ getNumberOfRows <- function(x) {
     .Call('CCD_ccdGetNumberOfRows', PACKAGE = 'CCD', x)
 }
 
+.ccdReadSqlData <- function(oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue, modelTypeName) {
+    .Call('CCD_ccdReadSqlData', PACKAGE = 'CCD', oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue, modelTypeName)
+}
+
 .ccdReadData <- function(fileName, modelTypeName) {
-    .Call('CCD_ccdReadData', PACKAGE = 'CCD', fileName, modelTypeName)
+    .Call('CCD_ccdReadFileData', PACKAGE = 'CCD', fileName, modelTypeName)
 }
 
 .ccdModelData <- function(pid, y, z, offs, dx, sx, ix) {

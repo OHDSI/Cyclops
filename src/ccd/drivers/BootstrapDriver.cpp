@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cmath>
+#include <sstream>
 
 #include "BootstrapDriver.h"
 #include "AbstractSelector.h"
@@ -21,7 +22,10 @@ using std::ostream_iterator;
 
 BootstrapDriver::BootstrapDriver(
 		int inReplicates,
-		ModelData* inModelData) : replicates(inReplicates), modelData(inModelData),
+		ModelData* inModelData,
+		loggers::ProgressLoggerPtr _logger,
+		loggers::ErrorHandlerPtr _error		
+		) : AbstractDriver(_logger, _error), replicates(inReplicates), modelData(inModelData),
 		J(inModelData->getNumberOfColumns()) {
 
 	// Set-up storage for bootstrap estimates
@@ -66,8 +70,9 @@ void BootstrapDriver::drive(
 }
 
 void BootstrapDriver::logResults(const CCDArguments& arguments) {
-	fprintf(stderr,"Not yet implemented.\n");
-	exit(-1);
+    std::ostringstream stream;
+    stream << "Not yet implemented.";
+    error->throwError(stream);
 }
 
 void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<double>& savedBeta, std::string conditionId) {

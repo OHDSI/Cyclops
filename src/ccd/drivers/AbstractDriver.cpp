@@ -9,7 +9,10 @@
 
 namespace bsccs {
 
-AbstractDriver::AbstractDriver() {
+AbstractDriver::AbstractDriver(
+			loggers::ProgressLoggerPtr _logger,
+			loggers::ErrorHandlerPtr _error
+		) : logger(_logger), error(_error) {
 	// Do nothing
 }
 

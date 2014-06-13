@@ -32,7 +32,7 @@ public:
     double fitModel() {
     	return CcdInterface::fitModel(ccd);
     }
-        
+            
     double runFitMLEAtMode() {
     	return CcdInterface::runFitMLEAtMode(ccd);
     }
@@ -73,6 +73,8 @@ public:
 				const std::string& basePriorName, 
 				double baseVariance,
 				const ProfileVector& flatPrior);    
+				
+    void setNoiseLevel(bsccs::NoiseLevels noiseLevel);				
     
     
     static void appendRList(Rcpp::List& list, const Rcpp::List& append);
@@ -80,6 +82,7 @@ public:
     static Models::ModelType parseModelType(const std::string& modelName);
     static priors::PriorType parsePriorType(const std::string& priorName);
     static ConvergenceType parseConvergenceType(const std::string& convergenceName);
+    static NoiseLevels parseNoiseLevel(const std::string& noiseName);
                         
 protected:            
 		
