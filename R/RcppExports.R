@@ -5,8 +5,24 @@ rcpp_hello_world <- function() {
     .Call('CCD_rcpp_hello_world', PACKAGE = 'CCD')
 }
 
+ccdSetBeta <- function(inRcppCcdInterface, beta, value) {
+    invisible(.Call('CCD_ccdSetBeta', PACKAGE = 'CCD', inRcppCcdInterface, beta, value))
+}
+
+ccdSetFixedBeta <- function(inRcppCcdInterface, beta, fixed) {
+    invisible(.Call('CCD_ccdSetFixedBeta', PACKAGE = 'CCD', inRcppCcdInterface, beta, fixed))
+}
+
+ccdGetLogLikelihood <- function(inRcppCcdInterface) {
+    .Call('CCD_ccdGetLogLikelihood', PACKAGE = 'CCD', inRcppCcdInterface)
+}
+
 .ccdSetPrior <- function(inRcppCcdInterface, priorTypeName, variance, excludeNumeric) {
     invisible(.Call('CCD_ccdSetPrior', PACKAGE = 'CCD', inRcppCcdInterface, priorTypeName, variance, excludeNumeric))
+}
+
+.ccdProfileModel <- function(inRcppCcdInterface, sexpCovariates) {
+    .Call('CCD_ccdProfileModel', PACKAGE = 'CCD', inRcppCcdInterface, sexpCovariates)
 }
 
 .ccdPredictModel <- function(inRcppCcdInterface) {

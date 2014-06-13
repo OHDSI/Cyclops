@@ -76,7 +76,8 @@ public:
 	}
 	
 	RcppOutputHelper& addValue(const string& t) {
-	    // Ignore
+		// Ignore
+	    return *this;
 	}
 	
 	RcppOutputHelper& endTable(const char* t) {

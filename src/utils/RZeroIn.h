@@ -22,8 +22,10 @@ class RZeroIn {
 public:
 	typedef std::pair<double, double> Coordinate;
 
-	RZeroIn(Obj& _obj, double _tol = 1E-6, int _maxIt = 1000) :
-		obj(_obj), tol(_tol), maxIt(_maxIt), it(maxIt) {
+	RZeroIn(Obj& _obj, double _tol = 1E-6, int _maxIt = 1000, 
+		double _multiplier = 0.1, double _factor = 2.0) :
+		obj(_obj), tol(_tol), maxIt(_maxIt), it(maxIt), 
+		multiplier(_multiplier), factor(_factor) {
 		// Do nothing
 	}
 
@@ -45,8 +47,6 @@ public:
 	// Assumes that objective() > 0 at x0
 	Coordinate bracketSignChange(double x0, double obj0, double direction) {
 		double displacement = std::abs(x0);
-		double multiplier = 1.0;
-		double factor = 2.0;
 
 		double x1 = x0;
 		double obj1 = obj0;
@@ -55,7 +55,9 @@ public:
 			double delta = direction * displacement * multiplier;
 			x1 = x0 + delta;
 			obj1 = obj.objective(x1);
-//			cerr << "Try at " << x1 << " with delta = " << delta << " : " << obj1 << endl;
+			if (isnan(obj1)) {
+				return Coordinate(x1, obj1);
+			}
 			multiplier *= factor;
 		}
 
@@ -72,6 +74,8 @@ private:
 	double tol;
 	int maxIt;
 	int it;
+	double multiplier;
+	double factor;
 
 	/*
 	 *  R : A Computer Language for Statistical Data Analysis

@@ -32,6 +32,12 @@
 
 namespace bsccs {
 
+#ifdef USE_DRUG_STRING
+	typedef string DrugIdType; // TODO Strings do not get sorted in numerical order
+#else
+	typedef int DrugIdType;
+#endif
+
 // Output types
 
 typedef std::pair<std::string,double> ExtraInformation;
@@ -41,13 +47,16 @@ struct ProfileInformation {
 	bool defined;
 	double lower95Bound;
 	double upper95Bound;
+	int evaluations;
 
-	ProfileInformation() : defined(false), lower95Bound(0.0), upper95Bound(0.0) { }
+	ProfileInformation() : defined(false), lower95Bound(0.0), upper95Bound(0.0), evaluations(0) { }
 	ProfileInformation(double lower, double upper) : defined(true), lower95Bound(lower),
-			upper95Bound(upper) { }
+			upper95Bound(upper), evaluations(0) { }
+	ProfileInformation(double lower, double upper, int evals) : defined(true), lower95Bound(lower),
+			upper95Bound(upper), evaluations(evals) { } 
 };
 
-typedef std::map<int, ProfileInformation> ProfileInformationMap;
+typedef std::map<DrugIdType, ProfileInformation> ProfileInformationMap;
 typedef std::vector<ProfileInformation> ProfileInformationList;
 
 
@@ -87,12 +96,6 @@ enum UpdateReturnFlags {
 	ILLCONDITIONED,
 	MISSING_COVARIATES
 };
-
-#ifdef USE_DRUG_STRING
-	typedef string DrugIdType; // TODO Strings do not get sorted in numerical order
-#else
-	typedef int DrugIdType;
-#endif
 
 typedef std::vector<DrugIdType> ProfileVector;
 

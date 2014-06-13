@@ -217,12 +217,7 @@ predict.ccdFit <- function(ccdFit) {
 	pred$prediction$prediction
 }
 
-profile.ccdFit <- function(fitted, covariates = NULL, forceProfile = FALSE) {
-	cat("yo!")
-# 	if(!is.null(fitted$prior) && fitted$prior$priorType != "none"
-# 		 && !(covariate %in% fitted$prior$exclude) && !forceProfile) {
-# 		stop("Likelihood profile on regularized covariates is not recommend")
-# 	}
+profile.ccdFit <- function(fitted, covariates, forceProfile = FALSE) {
 	.checkInterface(ccdFit, testOnly = TRUE)
 	prof <- .ccdProfileModel(ccdFit$ccdInterfacePtr, covariates)
 	prof

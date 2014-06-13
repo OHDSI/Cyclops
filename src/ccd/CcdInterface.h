@@ -110,7 +110,8 @@ public:
 
     double profileModel(
             CyclicCoordinateDescent *ccd,
-            ModelData *modelData,          
+            ModelData *modelData,
+            const ProfileVector& profileCI,          
             ProfileInformationMap &profileMap);
 
     double runCrossValidation(

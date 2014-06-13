@@ -41,8 +41,8 @@ public:
     	return CcdInterface::predictModel(ccd, modelData);
     }
 
-    double profileModel(/*ProfileInformationMap &profileMap*/) {
-    	return CcdInterface::profileModel(ccd, modelData, profileMap);
+    double profileModel(const ProfileVector& profileCI, ProfileInformationMap& profileMap) {
+    	return CcdInterface::profileModel(ccd, modelData, profileCI, profileMap);
     }
            
     double runCrossValidation() {
@@ -76,6 +76,8 @@ public:
 				
     void setNoiseLevel(bsccs::NoiseLevels noiseLevel);				
     
+    // For debug purposes
+    CyclicCoordinateDescent& getCcd() { return *ccd; } 
     
     static void appendRList(Rcpp::List& list, const Rcpp::List& append);
     

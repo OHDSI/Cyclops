@@ -20,6 +20,49 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
+// ccdSetBeta
+void ccdSetBeta(SEXP inRcppCcdInterface, int beta, double value);
+RcppExport SEXP CCD_ccdSetBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP, SEXP valueSEXP) {
+BEGIN_RCPP
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
+        Rcpp::traits::input_parameter< int >::type beta(betaSEXP );
+        Rcpp::traits::input_parameter< double >::type value(valueSEXP );
+        ccdSetBeta(inRcppCcdInterface, beta, value);
+    }
+    return R_NilValue;
+END_RCPP
+}
+// ccdSetFixedBeta
+void ccdSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed);
+RcppExport SEXP CCD_ccdSetFixedBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP, SEXP fixedSEXP) {
+BEGIN_RCPP
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
+        Rcpp::traits::input_parameter< int >::type beta(betaSEXP );
+        Rcpp::traits::input_parameter< bool >::type fixed(fixedSEXP );
+        ccdSetFixedBeta(inRcppCcdInterface, beta, fixed);
+    }
+    return R_NilValue;
+END_RCPP
+}
+// ccdGetLogLikelihood
+double ccdGetLogLikelihood(SEXP inRcppCcdInterface);
+RcppExport SEXP CCD_ccdGetLogLikelihood(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
+        double __result = ccdGetLogLikelihood(inRcppCcdInterface);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
 // ccdSetPrior
 void ccdSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, double variance, SEXP excludeNumeric);
 RcppExport SEXP CCD_ccdSetPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP varianceSEXP, SEXP excludeNumericSEXP) {
@@ -33,6 +76,22 @@ BEGIN_RCPP
         ccdSetPrior(inRcppCcdInterface, priorTypeName, variance, excludeNumeric);
     }
     return R_NilValue;
+END_RCPP
+}
+// ccdProfileModel
+List ccdProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates);
+RcppExport SEXP CCD_ccdProfileModel(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
+        Rcpp::traits::input_parameter< SEXP >::type sexpCovariates(sexpCovariatesSEXP );
+        List __result = ccdProfileModel(inRcppCcdInterface, sexpCovariates);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
 END_RCPP
 }
 // ccdPredictModel

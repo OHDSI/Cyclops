@@ -14,6 +14,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "Rcpp.h"
+
 #include <iostream>
 #include <time.h>
 
@@ -217,10 +219,11 @@ double CcdInterface::predictModel(CyclicCoordinateDescent *ccd, ModelData *model
 struct OptimizationProfile {
 
 	CyclicCoordinateDescent& ccd;
+	CCDArguments& arguments;
 
-	OptimizationProfile(CyclicCoordinateDescent& _ccd, int _index, double _max,
-			double _threshold = 1.92) :
-			ccd(_ccd), index(_index), max(_max), threshold(_threshold), nEvals(0) {
+	OptimizationProfile(CyclicCoordinateDescent& _ccd, CCDArguments& _arguments, int _index, double _max,
+			double _threshold = 1.920729) :
+			ccd(_ccd), arguments(_arguments), index(_index), max(_max), threshold(_threshold), nEvals(0) {
 	}
 
 	int getEvaluations() {
@@ -230,6 +233,10 @@ struct OptimizationProfile {
 	double objective(double x) {
 		++nEvals;
 		ccd.setBeta(index, x);
+		std::cout << "Trying " << x << std::endl;
+		ccd.setFixedBeta(index, true);
+		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+		ccd.setFixedBeta(index, false);
 		return ccd.getLogLikelihood() + threshold - max;
 	}
 
@@ -244,52 +251,96 @@ struct OptimizationProfile {
 };
 
 double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
-		ProfileInformationMap& profileMap) {
+		const ProfileVector& profileCI, ProfileInformationMap& profileMap) {
 
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
-
-	// Attempt profile CIs
-	for (std::vector<DrugIdType>::iterator it = arguments.profileCI.begin();
-			it != arguments.profileCI.end(); ++it) {
+	
+	double mode = ccd->getLogLikelihood();
+	int J = ccd->getBetaSize();
+	std::vector<double> x0s(J);
+	for (int j = 0; j < J; ++j) {
+	    x0s[j] = ccd->getBeta(j);
+	}
+		
+	std::vector<int> columns;
+	for (ProfileVector::const_iterator it = profileCI.begin();
+	        it != profileCI.end(); ++it) {
 		int index = modelData->getColumnIndexByName(*it);
+		
+//		std::cerr << "Matched: " << *it << " at " << index << std::endl;
+		
 		if (index == -1) {
 		    std::ostringstream stream;
 			stream << "Variable " << *it << " not found.";
 			error->throwError(stream);
-		} else {
-			// TODO : Minor bug, order of column evaluation yields different estimates
-			double mode = ccd->getLogLikelihood();
-
+		} else {		
+			// TODO Minor bug, order of column evaluation yields different estimates			
 			// TODO Check prior on covariate
+		    columns.push_back(index);		  
+		}	    
+	}
+
+        for (std::vector<int>::const_iterator it = columns.begin();
+                it != columns.end(); ++it) {
+        
+            int index = *it;
+            double x0 = x0s[index];
 
 			// Bound edge
-			OptimizationProfile upEval(*ccd, index, mode);
-			RZeroIn<OptimizationProfile> zeroIn(upEval);
+			OptimizationProfile upEval(*ccd, arguments, index, mode);
+			RZeroIn<OptimizationProfile> zeroInUp(upEval, 1E-3);
+			RZeroIn<OptimizationProfile> zeroInDn(upEval, 1E-3);
 
-			double x0 = ccd->getBeta(index);
 			double obj0 = upEval.getMaximum();
 
+//		std::cout << "BEGIN UP bracket" << std::endl;
 			RZeroIn<OptimizationProfile>::Coordinate upperBracket =
-					zeroIn.bracketSignChange(x0, obj0, 1.0);
-			double upperPt = zeroIn.getRoot(x0, upperBracket.first, obj0, upperBracket.second);
-
+					zeroInUp.bracketSignChange(x0, obj0, 1.0);
+// 		std::cout << "END UP bracket " << upperBracket.first << " " << upperBracket.second << std::endl;
+			if (isnan(upperBracket.second)) {
+				std::ostringstream stream;
+				stream << "Unable to bracket sign change in profile.";
+				error->throwError(stream);				
+			}
+					
+			double upperPt = zeroInUp.getRoot(x0, upperBracket.first, obj0, upperBracket.second);
+// 		std::cout << "BEGIN DN bracket" << std::endl;
 			RZeroIn<OptimizationProfile>::Coordinate lowerBracket =
-					zeroIn.bracketSignChange(x0, obj0, -1.0);
-			double lowerPt = zeroIn.getRoot(x0, lowerBracket.first, obj0, lowerBracket.second);
+					zeroInDn.bracketSignChange(x0, obj0, -1.0);
+// 		std::cout << "END DN bracket " << lowerBracket.first << " " << lowerBracket.second << std::endl;					
+			if (isnan(lowerBracket.second)) {
+				std::ostringstream stream;
+				stream << "Unable to bracket sign change in profile.";
+				error->throwError(stream);				
+			}
+																						
+			double lowerPt = zeroInDn.getRoot(x0, lowerBracket.first, obj0, lowerBracket.second);
 
             std::ostringstream stream;
 			stream << "Profile: " << modelData->getColumn(index).getLabel() << " (" << lowerPt << ", "
 					<< upperPt << ")  in " << upEval.getEvaluations();
 			logger->writeLine(stream);
 
-			ProfileInformation profile(lowerPt, upperPt);
-			profileMap.insert(std::pair<int,ProfileInformation>(index, profile));
-
-			// Reset beta[index] to value at mode
-			ccd->setBeta(index, x0);
+			ProfileInformation profile(lowerPt, upperPt, upEval.getEvaluations());
+			profileMap.insert(std::pair<DrugIdType, ProfileInformation>(modelData->getColumn(index).getNumericalLabel(), profile));
+			
+	//		std::cerr << "Placing " << profileCI[index] << " with " << profile.lower95Bound << std::endl;
+		
 		}
-	}
+		
+		// Reset to mode
+		if (columns.size() > 0) {
+		    // Reset
+		    for (int j = 0; j < J; ++j) {
+		        ccd->setBeta(j, x0s[j]);
+		    }
+		    // DEBUG, TODO Remove?
+// 		    double testMode = ccd->getLogLikelihood();
+// 		    std::ostringstream stream;
+// 		    stream << "Difference after profile: " << testMode << " " << mode;
+// 		    logger->writeLine(stream);
+		}			
 
 	gettimeofday(&time2, NULL);
 	return calculateSeconds(time1, time2);

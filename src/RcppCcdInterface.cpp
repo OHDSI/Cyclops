@@ -29,6 +29,30 @@ using namespace Rcpp;
 // 	return strings.size();
 // }
 
+// [[Rcpp::export(ccdSetBeta)]]
+void ccdSetBeta(SEXP inRcppCcdInterface, int beta, double value) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);    
+    
+    interface->getCcd().setBeta(beta - 1, value);
+}
+
+// [[Rcpp::export(ccdSetFixedBeta)]]
+void ccdSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);    
+    
+    interface->getCcd().setFixedBeta(beta - 1, fixed);
+}
+
+// [[Rcpp::export(ccdGetLogLikelihood)]]
+double ccdGetLogLikelihood(SEXP inRcppCcdInterface) {
+	using namespace bsccs;
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	
+	return interface->getCcd().getLogLikelihood();
+}
+
 // [[Rcpp::export(".ccdSetPrior")]]
 void ccdSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, double variance, SEXP excludeNumeric) {
 	using namespace bsccs;
@@ -44,16 +68,40 @@ void ccdSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, doub
   interface->setPrior(priorTypeName, variance, exclude);
 }
 
-// [[Rcpp::.ccdProfileModel]]
+// [[Rcpp::export(".ccdProfileModel")]]
 List ccdProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
-	std::vector<long> covariates;
+	
 	if (!Rf_isNull(sexpCovariates)) {
-		covariates = as<std::vector<long> >(sexpCovariates);
+		ProfileVector covariates = as<ProfileVector>(sexpCovariates);
+		ProfileInformationMap profileMap;
+        interface->profileModel(covariates, profileMap);
+        
+        
+        std::vector<double> lower;
+        std::vector<double> upper;
+        std::vector<int> evals;
+        
+        for (ProfileVector::const_iterator it = covariates.begin();
+        		it != covariates.end(); ++it) {        
+//        int i = 0; i < covariates.size(); ++i) {
+            ProfileInformation info = profileMap[*it];
+            lower.push_back(info.lower95Bound);
+            upper.push_back(info.upper95Bound);
+            evals.push_back(info.evaluations);
+            
+ //           std::cout << *it << " " << info.lower95Bound << " " << info.upper95Bound << std::endl;
+        }
+        return List::create(
+            Rcpp::Named("covariate") = covariates,
+            Rcpp::Named("lower") = lower,
+            Rcpp::Named("upper") = upper,
+            Rcpp::Named("evaluations") = evals 
+        );
 	}
-	List list = List::create( 42.0 );
-	return list;
+        	
+	return List::create();
 }
 
 // [[Rcpp::export(".ccdPredictModel")]]
