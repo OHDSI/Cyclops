@@ -9,7 +9,8 @@
 #define RZEROIN_H_
 
 #include <float.h>
-#include <math.h>
+//#include <math.h>
+#include <cmath>
 
 //#include <R_ext/Applic.h>
 
@@ -55,7 +56,7 @@ public:
 			double delta = direction * displacement * multiplier;
 			x1 = x0 + delta;
 			obj1 = obj.objective(x1);
-			if (isnan(obj1)) {
+			if (std::isnan(obj1)) {
 				return Coordinate(x1, obj1);
 			}
 			multiplier *= factor;
