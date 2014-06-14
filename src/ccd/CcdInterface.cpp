@@ -295,7 +295,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *model
 			RZeroIn<OptimizationProfile>::Coordinate upperBracket =
 					zeroInUp.bracketSignChange(x0, obj0, 1.0);
 // 		std::cout << "END UP bracket " << upperBracket.first << " " << upperBracket.second << std::endl;
-			if (isnan(upperBracket.second)) {
+			if (std::isnan(upperBracket.second) == true) {
 				std::ostringstream stream;
 				stream << "Unable to bracket sign change in profile.";
 				error->throwError(stream);				
@@ -306,7 +306,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *model
 			RZeroIn<OptimizationProfile>::Coordinate lowerBracket =
 					zeroInDn.bracketSignChange(x0, obj0, -1.0);
 // 		std::cout << "END DN bracket " << lowerBracket.first << " " << lowerBracket.second << std::endl;					
-			if (isnan(lowerBracket.second)) {
+			if (std::isnan(lowerBracket.second == true)) {
 				std::ostringstream stream;
 				stream << "Unable to bracket sign change in profile.";
 				error->throwError(stream);				
