@@ -37,6 +37,8 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 			
 	if (!isValidModelType(modelType)) stop("Invalid model type.")		
 			
+	colnames <- NULL
+	
 	if (!missing(formula)) { # Use formula to construct CCD matrices
 		if (missing(data)) {
 			data <- environment(formula)
@@ -51,6 +53,8 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 		y <- model.response(mf.d) # TODO Update for censored outcomes
 		pid <- c(1:length(y)) # TODO Update for stratified models		       
     
+		colnames <- c(colnames, dx@Dimnames[[2]])
+		
 		if (!missing(sparseFormula)) {					
 			if (missing(data)) {
 				data <- environment(sparseFormula)
@@ -67,11 +71,15 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 				stop("Must only provide outcome variable in dense formula.")
 			}
 			
+			stmp <- model.matrix(mf.s, data)
+			slabels <- labels(stmp)[[2]]
 			if (attr(attr(mf.s, "terms"), "intercept") == 1) { # Remove intercept
-				sx <- Matrix(model.matrix(mf.s, data), sparse=TRUE)[,-1]
+				sx <- Matrix(as.matrix(stmp[,-1]), sparse=TRUE)
+				slabels <- slabels[-1]
 			} else {
-				sx <- Matrix(model.matrix(mf.s, data), sparse=TRUE)			
+				sx <- Matrix(as.matrix(stmp), sparse=TRUE)			
 			}					
+			colnames <- c(colnames, slabels)
 		}    
 	
 		if (!missing(indicatorFormula)) {
@@ -91,12 +99,22 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 			}			
 			
 			# TODO Check that all values in mf.i are 0/1
-						
+			
+			itmp <- model.matrix(mf.i, data)
+			ilabels <- labels(itmp)[[2]]
 			if (attr(attr(mf.i, "terms"), "intercept") == 1) { # Remove intercept
-				ix <- Matrix(model.matrix(mf.i, data), sparse=TRUE)[,-1]
+				ix <- Matrix(as.matrix(itmp[,-1]), sparse=TRUE)
+				ilabels <- ilabels[-1]
 			} else {
-				ix <- Matrix(model.matrix(mf.i, data), sparse=TRUE)			
-			}
+				ix <- Matrix(as.matrix(itmp), sparse=TRUE)			
+			}					
+			colnames <- c(colnames, ilabels)			
+						
+# 			if (attr(attr(mf.i, "terms"), "intercept") == 1) { # Remove intercept				      
+# 				ix <- Matrix(as.matrix(model.matrix(mf.i, data)[,-1]), sparse=TRUE)
+# 			} else {
+# 				ix <-  Matrix(as.matrix(model.matrix(mf.i, data)), sparse=TRUE)			
+# 			}
 		} 
 		
 		if (identical(method, "model.frame")) {
@@ -121,16 +139,16 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 		}	
 	}
     
- 	colnames <- c()
-	if (!is.null(dx)) {
-		colnames = c(colnames, dx@Dimnames[[2]])
-	}
-	if (!is.null(sx)) {
-		colnames <- c(colnames, sx@Dimnames[[2]])
-	}
-	if (!is.null(ix)) {
-		colnames <- c(colnames, ix@Dimnames[[2]])
-	}
+#  	colnames <- c()
+# 	if (!is.null(dx)) {
+# 		colnames = c(colnames, dx@Dimnames[[2]])
+# 	}
+# 	if (!is.null(sx)) {
+# 		colnames <- c(colnames, sx@Dimnames[[2]])
+# 	}
+# 	if (!is.null(ix)) {
+# 		colnames <- c(colnames, ix@Dimnames[[2]])
+# 	}
     
     # TODO Check types and dimensions        
     
