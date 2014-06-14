@@ -121,15 +121,15 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 		}	
 	}
     
- 	names <- c()
+ 	colnames <- c()
 	if (!is.null(dx)) {
-		names = c(names, dx@Dimnames[[2]])
+		colnames = c(colnames, dx@Dimnames[[2]])
 	}
 	if (!is.null(sx)) {
-		names <- c(names, sx@Dimnames[[2]])
+		colnames <- c(colnames, sx@Dimnames[[2]])
 	}
 	if (!is.null(ix)) {
-		names <- c(names, ix@Dimnames[[2]])
+		colnames <- c(colnames, ix@Dimnames[[2]])
 	}
     
     # TODO Check types and dimensions        
@@ -145,8 +145,8 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 	}
 	result$ccdInterfacePtr <- NULL
 	result$call <- cl
-	result$coefficientNames <- names
-	
+	result$coefficientNames <- colnames
+	result$rowNames <- dx@Dimnames[[1]]
 	result$debug <- list()
 	result$debug$dx <- dx
 	result$debug$sx <- sx

@@ -22,6 +22,7 @@ test_that("Small Poisson dense regression", {
 	expect_equal(coef(ccdFitD), coef(glmFit), tolerance = tolerance)
 	expect_equal(ccdFitD$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
 	expect_equal(confint(ccdFitD, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
+	expect_equal(predict(ccdFitD), predict(glmFit, type = "response"), tolerance = tolerance)
 })
 
 test_that("Small Poisson indicator regression", {
@@ -41,6 +42,7 @@ test_that("Small Poisson indicator regression", {
 	expect_equal(coef(ccdFitI), coef(glmFit), tolerance = tolerance)
 	expect_equal(ccdFitI$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
 	expect_equal(confint(ccdFitI, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
+	expect_equal(predict(ccdFitI), predict(glmFit, type = "response"), tolerance = tolerance)
 })
 
 test_that("Small Poisson sparse regression", {
@@ -59,4 +61,5 @@ test_that("Small Poisson sparse regression", {
 	expect_equal(coef(ccdFitS), coef(glmFit), tolerance = tolerance)
 	expect_equal(ccdFitS$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
 	expect_equal(confint(ccdFitS, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
+	expect_equal(predict(ccdFitS), predict(glmFit, type = "response"), tolerance = tolerance)
 })

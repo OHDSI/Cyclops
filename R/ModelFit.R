@@ -71,6 +71,7 @@ fitCcdModel <- function(ccdData
 	fit$ccdData <- ccdData
 	fit$ccdInterfacePtr <- ccdData$ccdInterfacePtr
 	fit$coefficientNames <- ccdData$coefficientNames
+	fit$rowNames <- ccdData$rowNames
 	
 # 	if (!missing(prior)) {
 # 		fit$prior <- prior
@@ -216,8 +217,15 @@ prior <- function(priorType, variance = 1, exclude = c(), useCrossValidation = F
 
 predict.ccdFit <- function(object) {
 	.checkInterface(object, testOnly = TRUE)
-	pred <- .ccdPredictModel(object$ccdInterfacePtr)	
-	pred$prediction$prediction
+	pred <- .ccdPredictModel(object$ccdInterfacePtr)
+	pred <- pred$prediction
+	values <- pred$prediction
+	if (is.null(pred$rownames)) {
+		names(values) <- object$rowNames
+	} else {
+		names(values) <- pred$rownames
+	}
+	values
 }
 
 .setControl <- function(ccdInterfacePtr, control) {
