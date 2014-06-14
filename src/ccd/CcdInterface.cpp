@@ -14,8 +14,6 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "Rcpp.h"
-
 #include <iostream>
 #include <time.h>
 
