@@ -5,7 +5,8 @@
 \usage{
 control(maxIterations = 1000, tolerance = 1e-06,
   convergenceType = "gradient", cvType = "grid", fold = 10,
-  lowerLimit = 0.01, upperLimit = 20, gridSteps = 10)
+  lowerLimit = 0.01, upperLimit = 20, gridSteps = 10, cvRepetitions = 1,
+  minCVData = 100, noiseLevel = "noisy")
 }
 \arguments{
 \item{maxIterations}{Integer: maximum iterations of CCD to attempt before returning a failed-to-converge error}
@@ -25,14 +26,25 @@ Option \code{"grid"} selects a grid-search cross validation}
 \item{upperLimit}{Numeric: Upper prior variance limit for grid-search}
 
 \item{gridSteps}{Numeric: Number of steps in grid-search}
+
+\item{cvRepetitions}{Numeric: Number of repetitions of X-fold cross validation}
+
+\item{minCVData}{Numeric: Minumim number of data for cross validation}
+
+\item{noiseLevel}{String: level of CCD screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})}
 }
 \value{
 A CCD convergence criteria object of class inheriting from \code{"ccdConvergence"} for use with \code{fitCcdModel}.
 }
 \description{
-\code{control} builds a CCD convergence criteria object
+\code{control} builds a CCD control object
 }
 \section{Criteria}{
 
+}
+\examples{
+\dontrun{
+# Add cross-validation example
+}
 }
 

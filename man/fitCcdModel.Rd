@@ -35,5 +35,7 @@ outcome <- gl(3,1,9)
 treatment <- gl(3,3)
 ccdData <- createCcdDataFrame(counts ~ outcome + treatment)
 ccdFit <- fitCcdModel(ccdData)
+coef(ccdFit)
+predict(ccdFit)
 }
 

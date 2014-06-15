@@ -22,11 +22,8 @@
 #' ccdData <- createCcdDataFrame(counts ~ outcome + treatment, modelType = "pr")
 #' ccdFit <- fitCcdModel(ccdData)
 #'
-#' ccdModelData2 <- createCcdDataFrame(counts ~ outcome, indicatorFormula = ~ treatment, model=TRUE)
-#' ccdModel2 <- ccdInitializeModel(ccdModelData2$ccdDataPtr, modelType="pr", computeMLE=TRUE)
-#' ccdFit2 <- ccdFitModel(ccdModel2$interface)
-#' ccdLog2 <- ccdLogModel(ccdModel2$interface)
-#' as.data.frame(ccdLog2$estimation)
+#' ccdData2 <- createCcdDataFrame(counts ~ outcome, indicatorFormula = ~ treatment, modeltype = "pr")
+#' ccdFit2 <- fittCcdModel(ccdData2)
 #'
 #' @export
 createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelType,
@@ -108,13 +105,7 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 			} else {
 				ix <- Matrix(as.matrix(itmp), sparse=TRUE)			
 			}					
-			colnames <- c(colnames, ilabels)			
-						
-# 			if (attr(attr(mf.i, "terms"), "intercept") == 1) { # Remove intercept				      
-# 				ix <- Matrix(as.matrix(model.matrix(mf.i, data)[,-1]), sparse=TRUE)
-# 			} else {
-# 				ix <-  Matrix(as.matrix(model.matrix(mf.i, data)), sparse=TRUE)			
-# 			}
+			colnames <- c(colnames, ilabels)
 		} 
 		
 		if (identical(method, "model.frame")) {
@@ -138,17 +129,6 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 			stop("Must provide a dense formula when specifying sparse or indicator covariates.")
 		}	
 	}
-    
-#  	colnames <- c()
-# 	if (!is.null(dx)) {
-# 		colnames = c(colnames, dx@Dimnames[[2]])
-# 	}
-# 	if (!is.null(sx)) {
-# 		colnames <- c(colnames, sx@Dimnames[[2]])
-# 	}
-# 	if (!is.null(ix)) {
-# 		colnames <- c(colnames, ix@Dimnames[[2]])
-# 	}
     
     # TODO Check types and dimensions        
     
