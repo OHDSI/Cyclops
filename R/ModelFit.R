@@ -112,7 +112,10 @@ fitCcdModel <- function(ccdData
 coef.ccdFit <- function(x, ...) {
 	result <- x$estimation$estimate
 	if (is.null(x$coefficientNames)) {
-		names(result) <- x$estimation$coefficient_names	
+		names(result) <- x$estimation$column_label
+		if ("0" %in% names(result)) {
+			names(result)[which(names(result) == "0")] <- "(Intercept)"
+		}
 	} else {
 		names(result) <- x$coefficientNames
 	}
