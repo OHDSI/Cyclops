@@ -116,7 +116,7 @@ public:
 		hasInterceptCovariate = b;
 	}
 
-	bool getHasRowLobels() const {
+	bool getHasRowLabels() const {
 		return (labels.size() == getNumberOfRows());
 	}
 
@@ -167,7 +167,7 @@ private:
 	std::string conditionId;
 	bool hasOffsetCovariate;
 	bool hasInterceptCovariate;
-	std::vector<std::string> labels;
+	std::vector<std::string> labels; // TODO Change back to 'long'
 	static const std::string missing;
 
 };

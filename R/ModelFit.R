@@ -221,14 +221,12 @@ prior <- function(priorType, variance = 1, exclude = c(), useCrossValidation = F
 predict.ccdFit <- function(object) {
 	.checkInterface(object, testOnly = TRUE)
 	pred <- .ccdPredictModel(object$ccdInterfacePtr)
-	pred <- pred$prediction
-	values <- pred$prediction
-	if (is.null(pred$rownames)) {
-		names(values) <- object$rowNames
-	} else {
-		names(values) <- pred$rownames
-	}
-	values
+#	pred <- pred$prediction
+ 	values <- pred$prediction
+ 	if (is.null(names(values))) {
+ 		names(values) <- object$rowNames
+ 	}
+ 	values
 }
 
 .setControl <- function(ccdInterfacePtr, control) {

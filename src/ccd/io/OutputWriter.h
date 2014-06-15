@@ -301,7 +301,7 @@ public:
 
 	template <typename Stream>
 	void writeHeader(Stream& out) {
-		if (data.getHasRowLobels() && out.includeLabels()) {
+		if (data.getHasRowLabels() && out.includeLabels()) {
 			out.addHeader("row_label").addDelimitor();
 		}
   	out.addHeader("prediction").addEndl();		
@@ -309,7 +309,7 @@ public:
 	
 	template <typename Stream>
 	void writeRow(Stream& out, OutputHelper::RowInformation& rowInfo) {
-		if (data.getHasRowLobels() && out.includeLabels()) {
+		if (data.getHasRowLabels() && out.includeLabels()) {
 			out.addValue(data.getRowLabel(rowInfo.currentRow)).addDelimitor();
 		}
   	out.addValue(predictions[rowInfo.currentRow]).addEndl();

@@ -494,11 +494,31 @@ void RcppCcdInterface::initializeModelImpl(
 
 void RcppCcdInterface::predictModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData) {
 
-	bsccs::PredictionOutputWriter predictor(*ccd, *modelData);
-
-    result = List::create();
-    OutputHelper::RcppOutputHelper test(result);
-    predictor.writeStream(test);
+// 	bsccs::PredictionOutputWriter predictor(*ccd, *modelData);
+// 
+//     result = List::create();
+//     OutputHelper::RcppOutputHelper test(result);
+//     predictor.writeStream(test);
+    
+    NumericVector predictions(ccd->getPredictionSize());
+    //std::vector<double> predictions(ccd->getPredictionSize());
+    ccd->getPredictiveEstimates(&predictions[0], NULL);
+    
+    if (modelData->getHasRowLabels()) {
+        size_t preds = ccd->getPredictionSize();
+        CharacterVector labels(preds);
+        for (size_t i = 0; i < preds; ++i) {
+            labels[i] = modelData->getRowLabel(i);
+        }
+        predictions.names() = labels;    
+    }
+    result = List::create(
+        Rcpp::Named("prediction") = predictions
+    );
+    
+//     predictions.resize(ccd.getPredictionSize());
+// 		ccd.getPredictiveEstimates(&predictions[0], NULL);
+    
 }
 	    
 void RcppCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,

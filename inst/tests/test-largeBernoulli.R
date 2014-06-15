@@ -15,6 +15,6 @@ test_that("Large Bernoulli CCD data file read", {
 	ccdFit <- fitCcdModel(dataPtr, prior = prior("none"), 
 												control = control(noiseLevel = "silent"))	
 	expect_equal(ccdFit$log_likelihood * 2, -1578.046, tolerance = tolerance) # SAS fit
-	expect_named(coef(ccdFit)) # Read covariate names from file
-		
+	expect_named(coef(ccdFit)) # Reads covariate names from file
+	expect_named(predict(ccdFit)) # Reads row names from file	
 })
