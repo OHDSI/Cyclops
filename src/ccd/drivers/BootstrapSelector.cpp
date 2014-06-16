@@ -23,14 +23,14 @@ BootstrapSelector::BootstrapSelector(
 		<< " replicates [seed = " << seed << "]" << std::endl;
 
 	if(wtsExclude){
-		for(int i = 0; i < wtsExclude->size(); i++){
+		for(size_t i = 0; i < wtsExclude->size(); i++){
 			if(wtsExclude->at(i) == 0){
 				indicesIncluded.push_back(i);
 			}
 		}
 	}
 	else{
-		for(int i = 0; i < N; i++){
+		for(size_t i = 0; i < N; i++){
 			indicesIncluded.push_back(i);
 		}
 	}
@@ -81,7 +81,7 @@ void BootstrapSelector::getWeights(int batch, std::vector<real>& weights) {
 	}
 
 	if (type == SUBJECT) {
-		for (int k = 0; k < K; k++) {
+		for (size_t k = 0; k < K; k++) {
 			int count = selectedSet.count(ids->at(k));
 			weights[k] = static_cast<real>(count);
 		}

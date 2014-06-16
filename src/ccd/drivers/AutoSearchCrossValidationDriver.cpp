@@ -146,7 +146,7 @@ void AutoSearchCrossValidationDriver::drive(
 
 	double tryvalue = modelData.getNormalBasedDefaultVar();
 	UniModalSearch searcher(10, 0.01, log(1.5));
-	const double eps = 0.05; //search stopper
+//	const double eps = 0.05; //search stopper
 	std::ostringstream stream;
 	stream << "Default var = " << tryvalue;
 	logger->writeLine(stream);

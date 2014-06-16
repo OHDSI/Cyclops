@@ -42,8 +42,8 @@ protected:
 	std::vector<int>* ids;
 	SelectorType type;
 	long seed;
-	int K;
-	int N;
+	size_t K;
+	size_t N;
 	bool deterministic;
 };
 

@@ -173,7 +173,7 @@ public:
 			std::ostringstream stream;
 			stream << "Going to up-cast all columns to sparse!";
 			logger->writeLine(stream);
-			int i = includeIntercept ? 1 : 0;
+			size_t i = includeIntercept ? 1 : 0;
 			for (; i < modelData->getNumberOfColumns(); ++i) {
 				modelData->getColumn(i).convertColumnToSparse();
 			}
@@ -182,7 +182,7 @@ public:
 			std::ostringstream stream;
 			stream << "Going to up-cast all columns to dense!";
 			logger->writeLine(stream);
-			for (int i = 0; i < modelData->getNumberOfColumns(); ++i) {
+			for (size_t i = 0; i < modelData->getNumberOfColumns(); ++i) {
 				modelData->getColumn(i).convertColumnToDense(rowInfo.currentRow);
 			}
 		}
@@ -197,21 +197,21 @@ private:
 
 	bool upcastToDense;
 	bool upcastToSparse;
+	bool useBBROutcome;
 	bool includeIntercept;
 	bool includeOffset;
-	bool useBBROutcome;
-
-	int columnIntercept;
-	bool offsetInLogSpace;
 	bool includeRowLabel;
 	bool includeStratumLabel;
-	bool includeWeights;
 	bool includeCensoredData;
-	bool includeCensoredData2;
+	bool includeCensoredData2;	
+	bool includeWeights;	
 	bool includeSCCSOffset;
 	bool indicatorOnly;
 
 	bsccs::Models::ModelType modelType;
+	
+	int columnIntercept;
+	bool offsetInLogSpace;	
 };
 
 } // namespace

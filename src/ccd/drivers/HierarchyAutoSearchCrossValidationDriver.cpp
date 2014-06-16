@@ -69,7 +69,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 	UniModalSearch searcher(10, 0.01, log(1.5));
 	UniModalSearch searcherClass(10, 0.01, log(1.5)); // Need a better way to do this.
 
-	const double eps = 0.05; //search stopper
+//	const double eps = 0.05; //search stopper
 	std::cout << "Default var = " << tryvalue << std::endl;
 
 
@@ -139,7 +139,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 		double lambda = convertVarianceToHyperparameter(maxPoint);
 		std::cout << "\t" << lambda << " (lambda)" << std::endl;
 	}
-	std:cout << std::endl;
+	std::cout << std::endl;
 }
 
 

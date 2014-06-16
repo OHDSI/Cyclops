@@ -79,7 +79,7 @@ double ModelData::getSquaredNorm() const {
 
 	std::vector<double> squaredNorm;
 
-	for (int index = startIndex; index < getNumberOfColumns(); ++index) {
+	for (size_t index = startIndex; index < getNumberOfColumns(); ++index) {
 		squaredNorm.push_back(getColumn(index).squaredSumColumn());
 	}
 

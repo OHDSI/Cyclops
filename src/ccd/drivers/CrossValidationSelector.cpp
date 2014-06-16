@@ -49,7 +49,7 @@ CrossValidationSelector::CrossValidationSelector(
 
 	// Generate random permutation
 	permutation.reserve(N);
-	for (int i = 0; i < N; ++i) {
+	for (size_t i = 0; i < N; ++i) {
 		permutation.push_back(i);
 	}
 	weightsExclude = wtsExclude;
@@ -71,14 +71,14 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 	}
 
 	if (type == SUBJECT) {
-		std:set<int> excludeSet;
+		std::set<int> excludeSet;
 		std::copy(
 				permutation.begin() + intervalStart[batch],
 				permutation.begin() + intervalStart[batch + 1],
 				insert_iterator< std::set<int> >(excludeSet, excludeSet.begin())
 				);
 
-		for (int k = 0; k < K; k++) {
+		for (size_t k = 0; k < K; k++) {
 			if (excludeSet.find(ids->at(k)) != excludeSet.end()) { // found
 				weights[k] = 0.0;
 			} else {
@@ -128,7 +128,7 @@ void CrossValidationSelector::permute() {
 		int foldExcluded = 0;
 		int nextExcluded = intervalStart[0];
 		int nextIncluded = intervalStart[0] + nExcludedPerFold[0];
-		for(int i = 0; i < permutationCopy.size(); i++){
+		for(size_t i = 0; i < permutationCopy.size(); i++){
 			if(weightsExclude->at(permutationCopy[i]) == 0.0){
 				permutation[nextIncluded] = permutationCopy[i];
 				nextIncluded++;

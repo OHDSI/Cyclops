@@ -52,14 +52,12 @@ protected:
 	std::vector<double> gridPoint;
 	std::vector<double> gridValue;
 
+	const ModelData& modelData;
+	double maxPoint;
 	int gridSize;
 	double lowerLimit;
 	double upperLimit;
 	std::vector<real>* weightsExclude;
-
-	const ModelData& modelData;
-
-	double maxPoint;
 	double maxSteps;
 
 	double doCrossValidation(

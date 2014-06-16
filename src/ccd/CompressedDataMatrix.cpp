@@ -19,7 +19,7 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
-CompressedDataMatrix::CompressedDataMatrix() : nCols(0), nRows(0), nEntries(0) {
+CompressedDataMatrix::CompressedDataMatrix() : nRows(0), nCols(0), nEntries(0) {
 	// Do nothing
 }
 
@@ -76,8 +76,8 @@ void CompressedDataMatrix::printColumn(int column) {
 		bool isSparse = getFormatType(column) == SPARSE;
 		values.assign(nRows, 0.0);
 		int* indicators = getCompressedColumnVector(column);
-		int n = getNumberOfEntries(column);
-		for (int i = 0; i < n; ++i) {
+		size_t n = getNumberOfEntries(column);
+		for (size_t i = 0; i < n; ++i) {
 			const int k = indicators[i];
 			if (isSparse) {
 				values[k] = data[column]->at(i);
@@ -98,15 +98,15 @@ void CompressedDataMatrix::convertColumnToDense(int column) {
 	allColumns[column]->convertColumnToDense(nRows);
 }
 
-int CompressedDataMatrix::getNumberOfRows(void) const {
+size_t CompressedDataMatrix::getNumberOfRows(void) const {
 	return nRows;
 }
 
-int CompressedDataMatrix::getNumberOfColumns(void) const {
+size_t CompressedDataMatrix::getNumberOfColumns(void) const {
 	return nCols;
 }
 
-int CompressedDataMatrix::getNumberOfEntries(int column) const {
+size_t CompressedDataMatrix::getNumberOfEntries(int column) const {
 	return allColumns[column]->getNumberOfEntries();
 }
 
@@ -130,8 +130,8 @@ void CompressedDataColumn::fill(real_vector& values, int nRows) {
 			bool isSparse = formatType == SPARSE;
 			values.assign(nRows, 0.0);
 			int* indicators = getColumns();
-			int n = getNumberOfEntries();
-			for (int i = 0; i < n; ++i) {
+			size_t n = getNumberOfEntries();
+			for (size_t i = 0; i < n; ++i) {
 				const int k = indicators[i];
 				if (isSparse) {
 					values[k] = data->at(i);
@@ -150,8 +150,8 @@ CompressedDataMatrix* CompressedDataMatrix::transpose() {
 
 	bool flagDense = false;
 	bool flagIndicator = false;
-	bool flagSparse = false;
-	for (int i = 0; i < nCols; i++) {
+//	bool flagSparse = false;
+	for (size_t i = 0; i < nCols; i++) {
 		FormatType thisFormatType = this->allColumns[i]->getFormatType();
 		if (thisFormatType == DENSE)
 			flagDense = true;
@@ -160,7 +160,7 @@ CompressedDataMatrix* CompressedDataMatrix::transpose() {
 	}
 
 	if (flagIndicator && flagDense) {
-		flagSparse = true;
+//		flagSparse = true;
 		flagIndicator = flagDense = false;
 	}
 	for (int k = 0; k < numCols; k++) {
@@ -173,7 +173,7 @@ CompressedDataMatrix* CompressedDataMatrix::transpose() {
 		}
 	}
 
-	for (int i = 0; i < matTranspose->nRows; i++) {
+	for (size_t i = 0; i < matTranspose->nRows; i++) {
 		FormatType thisFormatType = this->allColumns[i]->getFormatType();
 		if (thisFormatType == INDICATOR || thisFormatType == SPARSE) {
 			int rows = this->getNumberOfEntries(i);
@@ -186,7 +186,7 @@ CompressedDataMatrix* CompressedDataMatrix::transpose() {
 							i, 1.0);
 			}
 		} else {
-			for (int j = 0; j < nRows; j++) {
+			for (size_t j = 0; j < nRows; j++) {
 				matTranspose->getColumn(j).add_data(i,
 						this->getDataVector(i)[j]);
 			}
@@ -207,14 +207,14 @@ void CompressedDataMatrix::removeFromColumnVector(int column, int_vector removeE
 
 
 void CompressedDataMatrix::getDataRow(int row, real* x) const {
-	for(int j = 0; j < nCols; j++)
+	for(size_t j = 0; j < nCols; j++)
 	{
 		if(this->allColumns[j]->getFormatType() == DENSE)
 			x[j] = this->getDataVector(j)[row];
 		else{
 			x[j] = 0.0;
 			int* col = this->getCompressedColumnVector(j);
-			for(int i = 0; i < this->allColumns[j]->getNumberOfEntries(); i++){
+			for(size_t i = 0; i < this->allColumns[j]->getNumberOfEntries(); i++){
 				if(col[i] == row){
 					x[j] = 1.0;
 					break;

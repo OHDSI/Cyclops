@@ -158,15 +158,16 @@ private:
 	// Disable copy-constructors and copy-assignment
 	ModelData(const ModelData&);
 	ModelData& operator = (const ModelData&);
-
+	
+	bool hasOffsetCovariate;
+	bool hasInterceptCovariate;
+	
 	std::vector<int> pid;
 	std::vector<real> y; // TODO How to load these directly from Rcpp::NumericVector
 	std::vector<real> z;
 	std::vector<real> offs;
 	std::vector<int> nevents; // TODO Where are these used?
 	std::string conditionId;
-	bool hasOffsetCovariate;
-	bool hasInterceptCovariate;
 	std::vector<std::string> labels; // TODO Change back to 'long'
 	static const std::string missing;
 

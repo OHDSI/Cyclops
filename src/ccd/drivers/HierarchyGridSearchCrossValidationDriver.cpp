@@ -139,7 +139,7 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 	maxPointClass = outerPoints[0];
 	maxPoint = innerPoints[0];
 	double outerMaxValue = outerValues[0];
-	for (int i = 0; i < outerPoints.size(); i++) {
+	for (size_t i = 0; i < outerPoints.size(); i++) {
 		if (outerValues[i] > outerMaxValue) {
 			outerMaxValue = outerValues[i];
 			maxPointClass = outerPoints[i];

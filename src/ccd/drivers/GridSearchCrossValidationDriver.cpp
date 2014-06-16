@@ -65,7 +65,7 @@ void GridSearchCrossValidationDriver::logResults(const CCDArguments& arguments) 
 	double maxValue;
 	findMax(&maxPoint, &maxValue);
 
-	for (int i = 0; i < gridPoint.size(); i++) {
+	for (size_t i = 0; i < gridPoint.size(); i++) {
 		outLog << std::setw(5) << std::setprecision(4) << std::fixed << gridPoint[i] << sep;
 		if (!arguments.useNormalPrior) {
 			outLog << convertVarianceToHyperparameter(gridPoint[i]) << sep;
@@ -175,7 +175,7 @@ void GridSearchCrossValidationDriver::findMax(double* maxPoint, double* maxValue
 
 	*maxPoint = gridPoint[0];
 	*maxValue = gridValue[0];
-	for (int i = 1; i < gridPoint.size(); i++) {
+	for (size_t i = 1; i < gridPoint.size(); i++) {
 		if (gridValue[i] > *maxValue) {
 			*maxPoint = gridPoint[i];
 			*maxValue = gridValue[i];

@@ -234,7 +234,7 @@ RcppModelData::RcppModelData(
 	std::vector<int>& cpid = getPidVectorRef();
 	
 	if (cpid.size() == 0) {
-	    for (int i = 0; i < nRows; ++i) {
+	    for (size_t i = 0; i < nRows; ++i) {
 	        cpid.push_back(i);
 	    }
 	    nPatients = nRows;
@@ -242,7 +242,7 @@ RcppModelData::RcppModelData(
     	int currentCase = 0;
     	int currentPID = cpid[0];
     	cpid[0] = currentCase;
-    	for (unsigned int i = 1; i < pid.size(); ++i) {
+    	for (int i = 1; i < pid.size(); ++i) {
     	    int nextPID = cpid[i];
     	    if (nextPID != currentPID) {
 	            currentCase++;

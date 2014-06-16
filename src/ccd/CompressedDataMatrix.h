@@ -76,11 +76,11 @@ public:
 		return numericalName;
 	}
 	
-	int getNumberOfEntries() const {
+	size_t getNumberOfEntries() const {
 		return columns->size();
 	}
 
-	int getDataVectorLength() const {
+	size_t getDataVectorLength() const {
 		return data->size();
 	}
 	
@@ -178,13 +178,13 @@ public:
 
 	virtual ~CompressedDataMatrix();
 	
-	int getNumberOfRows(void) const;
+	size_t getNumberOfRows(void) const;
 	
-	int getNumberOfColumns(void) const;
+	size_t getNumberOfColumns(void) const;
 
 	void setNumberOfColumns(int nColumns);
 
-	int getNumberOfEntries(int column) const;
+	size_t getNumberOfEntries(int column) const;
 
 	int* getCompressedColumnVector(int column) const;
 
@@ -288,9 +288,9 @@ protected:
 		nCols++;
 	}
 	
-	int nRows;
-	int nCols;
-	int nEntries;
+	size_t nRows;
+	size_t nCols;
+	size_t nEntries;
 	std::vector<CompressedDataColumn*> allColumns;
 
 private:

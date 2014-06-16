@@ -106,7 +106,7 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjX(bool useCrossValidation) 
 			}
 		} else {
 			for (; it; ++it) {
-				const int k = it.index();
+//				const int k = it.index();
 				hXjX[j] += it.value() * it.value();
 			}
 		}

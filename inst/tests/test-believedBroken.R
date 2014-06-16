@@ -18,3 +18,9 @@ library("testthat")
 
 # test_that("Check correct dimensions in matrices in createCcdDataFrame", {
 # })
+
+# test_that("Fail to convergence", {
+# })
+
+# test_that("Use shared_ptr to handle most data", {
+# })

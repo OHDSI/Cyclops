@@ -147,7 +147,7 @@ protected:
 
 	void parseAllBBRCovariatesEntry(stringstream& ss, RowInformation& rowInfo, bool indicatorOnly) {
 		string entry;
-		int count = 0;
+//		int count = 0;
 		while (ss >> entry) {
 			rowInfo.scratch.clear();
 			DrugIdType drug;

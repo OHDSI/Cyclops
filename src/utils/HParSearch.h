@@ -33,9 +33,8 @@ public:
         y_by_x[x] = MS(y,y_stddev);
         if( y_by_x.size()==1 ) { //this is the first
             best = y_by_x.begin();
-        }
-        else {
-            double improve = (y - best->second.m) / best->second.m;
+        } else {
+//            double improve = (y - best->second.m) / best->second.m;
             if( y > best->second.m )
                 best = y_by_x.find( x );
         }

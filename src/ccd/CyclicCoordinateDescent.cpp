@@ -523,7 +523,7 @@ void CyclicCoordinateDescent::update(
 
 	bool done = false;
 	int iteration = 0;
-	double lastObjFunc;
+	double lastObjFunc = 0.0;
 
 	if (convergenceType < ZHANG_OLES) {
 		lastObjFunc = getObjectiveFunction(convergenceType);
@@ -711,8 +711,8 @@ void CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix(void) {
 	hessianMatrix.resize(indices.size(), indices.size());
 	modelSpecifics.makeDirty(); // clear hessian terms
 
-	for (int ii = 0; ii < indices.size(); ++ii) {
-		for (int jj = ii; jj < indices.size(); ++jj) {
+	for (size_t ii = 0; ii < indices.size(); ++ii) {
+		for (size_t jj = ii; jj < indices.size(); ++jj) {
 			const int i = indices[ii];
 			const int j = indices[jj];
 //			std::cerr << "(" << i << "," << j << ")" << std::endl;

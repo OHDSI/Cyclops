@@ -30,7 +30,7 @@ BootstrapDriver::BootstrapDriver(
 
 	// Set-up storage for bootstrap estimates
 	estimates.resize(J);
-	int count = 0;
+//	int count = 0;
 	for (rarrayIterator it = estimates.begin(); it != estimates.end(); ++it) {
 		*it = new rvector();
 	}

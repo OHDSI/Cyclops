@@ -67,7 +67,7 @@ public:
 
 		// TODO assert(beta.size() == listPriors.size());
 		double result = 0.0;
-		for (int i = 0; i < beta.size(); ++i) {
+		for (size_t i = 0; i < beta.size(); ++i) {
 			result += listPriors[i]->logDensity(beta[i]);
 		}
 		return result;
@@ -147,8 +147,8 @@ public:
 		int parent = getParentMap.at(index);
 		const std::vector<int>& siblings = getChildMap.at(parent);
 		double sumBetas = 0;
-		int nSiblingsOfInterest = 0; //Different from siblings length if weights used
-		for (int i = 0; i < siblings.size(); i++) {
+//		int nSiblingsOfInterest = 0; //Different from siblings length if weights used
+		for (size_t i = 0; i < siblings.size(); i++) {
 			sumBetas += beta[siblings[i]];
 		}
 		double hessian = t1 - t1 / (siblings.size() + t2/t1);

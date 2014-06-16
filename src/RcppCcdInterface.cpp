@@ -59,7 +59,7 @@ void ccdSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, doub
 	
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 	
-	priors::PriorType priorType = RcppCcdInterface::parsePriorType(priorTypeName);
+//	priors::PriorType priorType = RcppCcdInterface::parsePriorType(priorTypeName);
  	ProfileVector exclude;
  	if (!Rf_isNull(excludeNumeric)) {
  		exclude = as<ProfileVector>(excludeNumeric);
@@ -194,7 +194,7 @@ List ccdLogModel(SEXP inRcppCcdInterface) {
 	names.push_back("timeLog");
 	CharacterVector oldNames = interface->getResult().attr("names");
 	List list = List::create(interface, timeLogModel);
-	for (unsigned int i = 0; i < interface->getResult().size(); ++i) {
+	for (int i = 0; i < interface->getResult().size(); ++i) {
 		list.push_back(interface->getResult()[i]);
 		names.push_back(oldNames[i]);
 	}
