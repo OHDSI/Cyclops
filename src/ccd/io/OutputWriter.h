@@ -69,13 +69,13 @@ public:
 	OFStream& addHeader(const T& t) { return addText(t); }
 		
 	template <typename T>
-	OFStream& addMetaKey(const T& t) { return addText(t).addDelimitor(); };
+	OFStream& addMetaKey(const T& t) { return addText(t).addDelimitor(); }
 	
 	template <typename T>
-	OFStream& addMetaValue(const T& t) { return addText(t).addEndl(); };
+	OFStream& addMetaValue(const T& t) { return addText(t).addEndl(); }
 	
 	template <typename T>
-	OFStream& addValue(const T& t) { return addText(t); };
+	OFStream& addValue(const T& t) { return addText(t); }
 	
 	OFStream& endTable(const char* t) { return *this; }
 	
@@ -107,13 +107,13 @@ public:
 	CoutStream& addHeader(const T& t) { return addText(t); }
 		
 	template <typename T>
-	CoutStream& addMetaKey(const T& t) { return addText(t).addDelimitor(); };
+	CoutStream& addMetaKey(const T& t) { return addText(t).addDelimitor(); }
 	
 	template <typename T>
-	CoutStream& addMetaValue(const T& t) { return addText(t).addEndl(); };
+	CoutStream& addMetaValue(const T& t) { return addText(t).addEndl(); }
 	
 	template <typename T>
-	CoutStream& addValue(const T& t) { return addText(t); };
+	CoutStream& addValue(const T& t) { return addText(t); }
 	
 	CoutStream& endTable(const char* t) { return *this; }
 	
