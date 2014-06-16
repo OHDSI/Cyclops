@@ -6,20 +6,6 @@
 
 using namespace Rcpp;
 
-// rcpp_hello_world
-List rcpp_hello_world();
-RcppExport SEXP CCD_rcpp_hello_world() {
-BEGIN_RCPP
-    SEXP __sexp_result;
-    {
-        Rcpp::RNGScope __rngScope;
-        List __result = rcpp_hello_world();
-        PROTECT(__sexp_result = Rcpp::wrap(__result));
-    }
-    UNPROTECT(1);
-    return __sexp_result;
-END_RCPP
-}
 // ccdSetBeta
 void ccdSetBeta(SEXP inRcppCcdInterface, int beta, double value);
 RcppExport SEXP CCD_ccdSetBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP, SEXP valueSEXP) {

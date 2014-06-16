@@ -43,10 +43,7 @@ treatment <- gl(3,3)
 ccdData <- createCcdDataFrame(counts ~ outcome + treatment, modelType = "pr")
 ccdFit <- fitCcdModel(ccdData)
 
-ccdModelData2 <- createCcdDataFrame(counts ~ outcome, indicatorFormula = ~ treatment, model=TRUE)
-ccdModel2 <- ccdInitializeModel(ccdModelData2$ccdDataPtr, modelType="pr", computeMLE=TRUE)
-ccdFit2 <- ccdFitModel(ccdModel2$interface)
-ccdLog2 <- ccdLogModel(ccdModel2$interface)
-as.data.frame(ccdLog2$estimation)
+ccdData2 <- createCcdDataFrame(counts ~ outcome, indicatorFormula = ~ treatment, modeltype = "pr")
+ccdFit2 <- fittCcdModel(ccdData2)
 }
 
