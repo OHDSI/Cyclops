@@ -41,7 +41,7 @@ test_that("Test constructor and append", {
     expect_equal(getNumberOfRows(dataPtr), 0)
     expect_equal(getNumberOfStrata(dataPtr), 0)
     expect_equal(getNumberOfCovariates(dataPtr), 0)    
-#    expect_error(fitCcdModel(dataPtr)) # TODO Currently bombs R
+    expect_error(fitCcdModel(dataPtr))
 
 		count <- appendSqlCcdData(dataPtr,
 															oStratumId,

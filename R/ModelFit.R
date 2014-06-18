@@ -36,7 +36,13 @@ fitCcdModel <- function(ccdData
 	# Check conditions
 	.checkData(ccdData)
 	
-   .checkInterface(ccdData, forceColdStart)
+	if (getNumberOfRows(ccdData) < 1 ||
+				getNumberOfStrata(ccdData) < 1 ||
+				getNumberOfCovariates(ccdData) < 1) {
+		stop("Data are incompletely loaded")
+	}
+	
+	.checkInterface(ccdData, forceColdStart)
     
  	if (!missing(prior)) { # Set up prior
    	stopifnot(inherits(prior, "ccdPrior"))    	
@@ -97,7 +103,7 @@ fitCcdModel <- function(ccdData
 	}	
 	if (.isRcppPtrNull(x$ccdDataPtr)) {
 		stop("Data object is no longer initialized")			
-	}
+	}	
 }
 
 .checkInterface <- function(x, forceColdStart = FALSE, testOnly = FALSE) {
