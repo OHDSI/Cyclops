@@ -266,7 +266,27 @@ appendSqlCcdData <- function(object,
 										cCovariateValue)
 }
 
-finalizeSqlCcdData <- function(object) {
+#' @title finalizeSqlCcdData
+#'
+#' @description
+#' \code{finalizeSqlCcdData} finalizes a CCD data object
+#'
+#' @param object							CCD data object
+#' @param addIntercept				Add an intercept covariate if one was not imported through SQL
+#' @param useOffsetCovariate	Specify is a covariate should be used as an offset (fixed coefficient = 1).
+#' 														Set option to \code{"useTime"} to specify the time-to-event column, 
+#' 														otherwise include a single numeric or character covariate name.
+#' @param logOffset						Set to \code{TRUE} to indicate that offsets were log-transformed before importing into CCD data object. 														
+#' @param sortCovariates			Sort covariates in numeric-order with intercept first if it exists.
+#' @param makeCovariatesDense List of numeric or character covariates names to densely represent in CCD data object.
+#' 														For efficiency, we suggest making atleast the intercept dense.
+#'
+finalizeSqlCcdData <- function(object,
+															 addIntercept = FALSE,
+															 useOffsetCovariate = NULL,
+															 offsetAlreadyOnLogScale = FALSE,
+															 sortCovariates = TRUE,
+															 makeCovariatesDense = NULL) {
 	if (!isInitialized(object)) {
 		stop("Object is no longer or improperly initialized.")		
 	} 	
