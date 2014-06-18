@@ -8,7 +8,10 @@
 #ifndef PROGRESSLOGGER_H_
 #define PROGRESSLOGGER_H_
 
+#include <iostream>
 #include <sstream>
+
+#include "Types.h"
 
 namespace bsccs {
 

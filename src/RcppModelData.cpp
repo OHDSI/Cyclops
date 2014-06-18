@@ -11,6 +11,7 @@
 #include "RcppCcdInterface.h"
 #include "io/NewGenericInputReader.h"
 #include "RcppProgressLogger.h"
+#include "SqlModelData.h"
 
 using namespace Rcpp;
  
@@ -61,22 +62,41 @@ size_t ccdGetNumberOfRows(Environment x) {
 
 // TODO MJS wants a default constructor and a append function that takes chunks
 
-// [[Rcpp::export(".ccdReadSqlData")]]
-List ccdReadSqlData(
+// [[Rcpp::export(".ccdNewSqlData")]]
+List ccdNewSqlData(const std::string& modelTypeName) {
+        // o -> outcome, c -> covariates
+//     SqlGenericInputReader reader(
+	using namespace bsccs;
+
+	SqlModelData* ptr = new SqlModelData(modelTypeName,
+        bsccs::make_shared<loggers::RcppProgressLogger>(),
+        bsccs::make_shared<loggers::RcppErrorHandler>());
+        
+	XPtr<SqlModelData> sqlModelData(ptr);
+
+    List list = List::create(
+            Rcpp::Named("ccdDataPtr") = sqlModelData
+        );
+    return list;
+}
+
+
+
+// [[Rcpp::export(".appendSqlCcdData")]]
+size_t ccdAppendSqlData(Environment x,
         const std::vector<long>& oStratumId,
         const std::vector<long>& oRowId,
         const std::vector<double>& oY,
         const std::vector<double>& oTime,
         const std::vector<long>& cRowId,
         const std::vector<long>& cCovariateId,
-        const std::vector<double>& cCovariateValue,
-        const std::string& modelTypeName) {
+        const std::vector<double>& cCovariateValue) {
         // o -> outcome, c -> covariates
-//     SqlGenericInputReader reader(
-    List list = List::create(
-            Rcpp::Named("result") = 42.0
-        );
-    return list;
+
+    using namespace bsccs;
+    XPtr<ModelData> data = parseEnvironmentForPtr(x); // TODO This can cause a slice error when sent a ModelData
+    size_t count = data->append(oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue);
+    return count;
 }
 
 // [[Rcpp::export(".ccdReadData")]]

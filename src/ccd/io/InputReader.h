@@ -32,12 +32,18 @@ using std::stringstream;
 #endif
 
 #include "ModelData.h"
+#include "io/ProgressLogger.h"
 
 namespace bsccs {
 
 class InputReader {
 public:
-	InputReader();
+    InputReader();
+
+	InputReader(
+		loggers::ProgressLoggerPtr _logger,
+	    loggers::ErrorHandlerPtr _error
+	);
 	
 	virtual ~InputReader();
 
@@ -94,6 +100,9 @@ protected:
 	      lastPos = pos + 1;
 	   }
 	}
+
+	loggers::ProgressLoggerPtr logger;
+	loggers::ErrorHandlerPtr error;
 
 	ModelData* modelData;
 	bool deleteModelData;

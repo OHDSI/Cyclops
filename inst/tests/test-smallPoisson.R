@@ -23,6 +23,7 @@ test_that("Small Poisson dense regression", {
 	expect_equal(ccdFitD$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
 	expect_equal(confint(ccdFitD, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
 	expect_equal(predict(ccdFitD), predict(glmFit, type = "response"), tolerance = tolerance)
+	expect_equal(confint(ccdFitD, c("(Intercept)","outcome3")), confint(ccdFitD, c(1,3)))
 })
 
 test_that("Small Poisson indicator regression", {

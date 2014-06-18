@@ -66,14 +66,15 @@ public:
 	typedef std::vector<int> int_vector;
 	typedef std::vector<string> string_vector;
 
-	BaseInputReader() : logger(bsccs::make_shared<loggers::CoutLogger>())
-		, error(bsccs::make_shared<loggers::CerrErrorHandler>()), innerDelimitor(":") {
+	BaseInputReader() : InputReader(
+		bsccs::make_shared<loggers::CoutLogger>(),
+	 	bsccs::make_shared<loggers::CerrErrorHandler>()), innerDelimitor(":") {
 		// Do nothing		
 	}
 	
 	BaseInputReader(
 		loggers::ProgressLoggerPtr _logger,
-		loggers::ErrorHandlerPtr _error) : logger(_logger), error(_error), innerDelimitor(":") {
+		loggers::ErrorHandlerPtr _error) : InputReader(_logger, _error), innerDelimitor(":") {
 		// Do nothing	
 	}
 
@@ -309,8 +310,8 @@ protected:
 		modelData->nevents.push_back(numEvents);
 	}
 	
-	loggers::ProgressLoggerPtr logger;
-	loggers::ErrorHandlerPtr error;
+// 	loggers::ProgressLoggerPtr logger;
+// 	loggers::ErrorHandlerPtr error;
 
 private:
 	string innerDelimitor;

@@ -33,22 +33,18 @@ fitCcdModel <- function(ccdData
 		
 	cl <- match.call()
 	
-		# Check conditions
-		.checkData(ccdData)
+	# Check conditions
+	.checkData(ccdData)
 	
-    .checkInterface(ccdData, forceColdStart)
+   .checkInterface(ccdData, forceColdStart)
     
-    if (!missing(prior)) { # Set up prior
-    	stopifnot(inherits(prior, "ccdPrior"))
-    	
-    	prior$exclude = as.numeric(prior$exclude) # TODO Search names
-    	
-    	stopifnot(!any(is.na(prior$exclude)))    
-    	.ccdSetPrior(ccdData$ccdInterfacePtr, prior$priorType, prior$variance, prior$exclude)    		
-    }
+ 	if (!missing(prior)) { # Set up prior
+   	stopifnot(inherits(prior, "ccdPrior"))    	
+		prior$exclude <- .checkCovariates(ccdData, prior$exclude)
+    .ccdSetPrior(ccdData$ccdInterfacePtr, prior$priorType, prior$variance, prior$exclude)    		
+  }
 	
-		.setControl(ccdData$ccdInterfacePtr, control)
-			
+	.setControl(ccdData$ccdInterfacePtr, control)			
  	
 	if (!missing(prior) && prior$useCrossValidation) {
 		if (missing(control)) {
@@ -74,15 +70,25 @@ fitCcdModel <- function(ccdData
 	fit$ccdInterfacePtr <- ccdData$ccdInterfacePtr
 	fit$coefficientNames <- ccdData$coefficientNames
 	fit$rowNames <- ccdData$rowNames
-	
-# 	if (!missing(prior)) {
-# 		fit$prior <- prior
-# 	} else {
-# 		fit$prior <- NULL # prior("none")
-# 	}
 	class(fit) <- "ccdFit"
 	return(fit)
 } 
+
+.checkCovariates <- function(ccdData, covariates) {
+	if (!is.null(covariates)) {
+		saved <- covariates
+		if (inherits(covariates, "character")) {
+			# Try to match names
+			covariates <- match(covariates, ccdData$coefficientNames)
+		}
+		covariates = as.numeric(covariates) 
+	 
+		if (any(is.na(covariates))) {
+			stop(cat("Unable to match all excluded covariates: ", saved))
+		}
+	}
+	covariates
+}
 
 .checkData <- function(x) {
 	# Check conditions
@@ -210,7 +216,12 @@ prior <- function(priorType, variance = 1, exclude = c(), useCrossValidation = F
 	validNames = c("none", "laplace","normal")
 	stopifnot(priorType %in% validNames)	
 	if (!is.null(exclude)) {
-		stopifnot(inherits(exclude, "character"))
+		if (!inherits(exclude, "character") &&
+					!inherits(exclude, "numeric") &&
+					!inherits(exclude, "integer")
+					) {
+			stop(cat("Unable to parse excluded covariates:"), exclude)
+		}
 	}
 	if (priorType == "none" && useCrossValidation) {
 		stop("Cannot perform cross validation with a flat prior")
@@ -244,11 +255,25 @@ predict.ccdFit <- function(object) {
 	}	
 }
 
-confint.ccdFit <- function(fitted, covariates, control) {
+#' @title confint.ccdFit
+#'
+#' @description
+#' \code{confinit.ccdFit} profiles the data likelihood to construct 95% confidence intervals
+#'
+#' @param fitted
+#' @param covariates
+#' 
+#' @return
+#' A \code{data.frame} containing profile 95% confidence intervals
+#' 
+confint.ccdFit <- function(fitted, covariates, control, 
+													 overrideNoRegularization = FALSE) {
 	.checkInterface(fitted, testOnly = TRUE)
 	.setControl(fitted$ccdInterfacePtr, control)
+	covariates <- .checkCovariates(fitted$ccdData, covariates)
 	
-	prof <- .ccdProfileModel(fitted$ccdInterfacePtr, covariates)
+	prof <- .ccdProfileModel(fitted$ccdInterfacePtr, covariates,
+													 overrideNoRegularization)
 	prof <- as.matrix(as.data.frame(prof))
 	rownames(prof) <- fitted$coefficientNames[covariates]
 	colnames(prof)[2:3] <- c("2.5 %", "97.5 %")

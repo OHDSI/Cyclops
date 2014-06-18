@@ -21,6 +21,8 @@
 // using std::stringstream;
 
 #include "CompressedDataMatrix.h"
+#include "io/ProgressLogger.h"
+#include "io/SparseIndexer.h"
 
 //#define USE_DRUG_STRING
 
@@ -36,7 +38,12 @@ template <class T> void reindexVector(std::vector<T>& vec, std::vector<int> ind)
 
 class ModelData : public CompressedDataMatrix {
 public:
-	ModelData();
+//	ModelData();
+	
+	ModelData(
+        loggers::ProgressLoggerPtr log,
+        loggers::ErrorHandlerPtr error
+    );
 
 //	pid.begin(), pid.end(),
 //	y.begin(), y.end(),
@@ -56,11 +63,22 @@ public:
 		, y(_y.begin(), _y.end()) // copy
 		, z(_z.begin(), _z.end()) // copy
 		, offs(_offs.begin(), _offs.end()) // copy
+		, sparseIndexer(*this)
 		{
 
 	}
 
 	virtual ~ModelData();
+	
+	size_t append(
+        const std::vector<long>& oStratumId,
+        const std::vector<long>& oRowId,
+        const std::vector<double>& oY,
+        const std::vector<double>& oTime,
+        const std::vector<long>& cRowId,
+        const std::vector<long>& cCovariateId,
+        const std::vector<double>& cCovariateValue        
+    );		
 
 	int* getPidVector();
 	real* getYVector();
@@ -153,15 +171,10 @@ public:
 protected:
 	mutable int nPatients;
 	mutable size_t nStrata;
-
-private:
-	// Disable copy-constructors and copy-assignment
-	ModelData(const ModelData&);
-	ModelData& operator = (const ModelData&);
 	
 	bool hasOffsetCovariate;
 	bool hasInterceptCovariate;
-	
+		
 	std::vector<int> pid;
 	std::vector<real> y; // TODO How to load these directly from Rcpp::NumericVector
 	std::vector<real> z;
@@ -169,8 +182,21 @@ private:
 	std::vector<int> nevents; // TODO Where are these used?
 	std::string conditionId;
 	std::vector<std::string> labels; // TODO Change back to 'long'
+	
+private:
+	// Disable copy-constructors and copy-assignment
+	ModelData(const ModelData&);
+	ModelData& operator = (const ModelData&);
+			
 	static const std::string missing;
-
+		
+    std::pair<long,long> lastStratumMap;
+    
+    SparseIndexer sparseIndexer;
+	
+    loggers::ProgressLoggerPtr log;
+    loggers::ErrorHandlerPtr error;
+        
 };
 
 } // namespace

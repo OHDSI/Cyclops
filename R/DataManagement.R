@@ -240,6 +240,66 @@ readCcdData <- function(fileName, modelType) {
     result
 }
 
+#' @title appendSqlCcdData
+#'
+#' @description
+#' \code{appendSqlCcdData} appends data to an OHDSI data object.
+#' 
+appendSqlCcdData <- function(object,
+														 oStratumId,
+														 oRowId,
+														 oY,
+														 oTime,
+														 cRowId,
+														 cCovariateId,
+														 cCovariateValue) {
+	if (!isInitialized(object)) {
+		stop("Object is no longer or improperly initialized.")		
+	} 
+	.appendSqlCcdData(object, 
+										oStratumId, 
+										oRowId, 
+										oY, 
+										oTime, 
+										cRowId, 
+										cCovariateId, 
+										cCovariateValue)
+}
+
+finalizeSqlCcdData <- function(object) {
+	if (!isInitialized(object)) {
+		stop("Object is no longer or improperly initialized.")		
+	} 	
+	# Not yet implemented
+}
+
+createSqlCcdData <- function(modelType) {
+	cl <- match.call() # save to return
+	
+	if (!isValidModelType(modelType)) stop("Invalid model type.")   
+	
+	sql <- .ccdNewSqlData(modelType)
+	result <- new.env(parent = emptyenv()) # TODO Remove code duplication with two functions above
+	result$ccdDataPtr <- sql$ccdDataPtr
+	result$modelType <- modelType
+	result$timeLoad <- 0
+	result$ccdInterfacePtr <- NULL
+	result$call <- cl
+	class(result) <- "ccdData"
+	result
+}
+
+#' @title isInitialized
+#'
+#' @description
+#' \code{isInitialized} determines if an OHDSI data object is properly 
+#' initialized and remains in memory.  OHSDI data objects do not 
+#' serialized/deserialize their back-end memory across R sessions.
+#' 
+isInitialized <- function(object) {
+	return(!is.null(object$ccdDataPtr) && !.isRcppPtrNull(object$ccdDataPtr))	
+}
+
 print.ccdData <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,...) {
   cat("OHDSI CCD Data Object\n\n")
   
@@ -248,7 +308,7 @@ print.ccdData <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,.
   }
   cat("     Model: ", x$modelType, "\n", sep="")
   
-  if (!is.null(x$ccdDataPtr) && !.isRcppPtrNull(x$ccdDataPtr)) {
+  if (isInitialized(x)) {
       nRows <- getNumberOfRows(x)
       cat("      Rows: ", nRows, "\n", sep="")
       cat("Covariates: ", getNumberOfCovariates(x), "\n", sep="")

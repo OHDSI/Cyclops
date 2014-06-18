@@ -17,8 +17,8 @@ ccdGetLogLikelihood <- function(inRcppCcdInterface) {
     invisible(.Call('CCD_ccdSetPrior', PACKAGE = 'CCD', inRcppCcdInterface, priorTypeName, variance, excludeNumeric))
 }
 
-.ccdProfileModel <- function(inRcppCcdInterface, sexpCovariates) {
-    .Call('CCD_ccdProfileModel', PACKAGE = 'CCD', inRcppCcdInterface, sexpCovariates)
+.ccdProfileModel <- function(inRcppCcdInterface, sexpCovariates, override) {
+    .Call('CCD_ccdProfileModel', PACKAGE = 'CCD', inRcppCcdInterface, sexpCovariates, override)
 }
 
 .ccdPredictModel <- function(inRcppCcdInterface) {
@@ -61,8 +61,12 @@ getNumberOfRows <- function(x) {
     .Call('CCD_ccdGetNumberOfRows', PACKAGE = 'CCD', x)
 }
 
-.ccdReadSqlData <- function(oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue, modelTypeName) {
-    .Call('CCD_ccdReadSqlData', PACKAGE = 'CCD', oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue, modelTypeName)
+.ccdNewSqlData <- function(modelTypeName) {
+    .Call('CCD_ccdNewSqlData', PACKAGE = 'CCD', modelTypeName)
+}
+
+.appendSqlCcdData <- function(x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue) {
+    .Call('CCD_ccdAppendSqlData', PACKAGE = 'CCD', x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue)
 }
 
 .ccdReadData <- function(fileName, modelTypeName) {

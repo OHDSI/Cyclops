@@ -65,15 +65,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdProfileModel
-List ccdProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates);
-RcppExport SEXP CCD_ccdProfileModel(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP) {
+List ccdProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, bool override);
+RcppExport SEXP CCD_ccdProfileModel(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP, SEXP overrideSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
         Rcpp::traits::input_parameter< SEXP >::type sexpCovariates(sexpCovariatesSEXP );
-        List __result = ccdProfileModel(inRcppCcdInterface, sexpCovariates);
+        Rcpp::traits::input_parameter< bool >::type override(overrideSEXP );
+        List __result = ccdProfileModel(inRcppCcdInterface, sexpCovariates, override);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
@@ -239,13 +240,29 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
-// ccdReadSqlData
-List ccdReadSqlData(const std::vector<long>& oStratumId, const std::vector<long>& oRowId, const std::vector<double>& oY, const std::vector<double>& oTime, const std::vector<long>& cRowId, const std::vector<long>& cCovariateId, const std::vector<double>& cCovariateValue, const std::string& modelTypeName);
-RcppExport SEXP CCD_ccdReadSqlData(SEXP oStratumIdSEXP, SEXP oRowIdSEXP, SEXP oYSEXP, SEXP oTimeSEXP, SEXP cRowIdSEXP, SEXP cCovariateIdSEXP, SEXP cCovariateValueSEXP, SEXP modelTypeNameSEXP) {
+// ccdNewSqlData
+List ccdNewSqlData(const std::string& modelTypeName);
+RcppExport SEXP CCD_ccdNewSqlData(SEXP modelTypeNameSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< const std::string& >::type modelTypeName(modelTypeNameSEXP );
+        List __result = ccdNewSqlData(modelTypeName);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
+// ccdAppendSqlData
+size_t ccdAppendSqlData(Environment x, const std::vector<long>& oStratumId, const std::vector<long>& oRowId, const std::vector<double>& oY, const std::vector<double>& oTime, const std::vector<long>& cRowId, const std::vector<long>& cCovariateId, const std::vector<double>& cCovariateValue);
+RcppExport SEXP CCD_ccdAppendSqlData(SEXP xSEXP, SEXP oStratumIdSEXP, SEXP oRowIdSEXP, SEXP oYSEXP, SEXP oTimeSEXP, SEXP cRowIdSEXP, SEXP cCovariateIdSEXP, SEXP cCovariateValueSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
         Rcpp::traits::input_parameter< const std::vector<long>& >::type oStratumId(oStratumIdSEXP );
         Rcpp::traits::input_parameter< const std::vector<long>& >::type oRowId(oRowIdSEXP );
         Rcpp::traits::input_parameter< const std::vector<double>& >::type oY(oYSEXP );
@@ -253,8 +270,7 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< const std::vector<long>& >::type cRowId(cRowIdSEXP );
         Rcpp::traits::input_parameter< const std::vector<long>& >::type cCovariateId(cCovariateIdSEXP );
         Rcpp::traits::input_parameter< const std::vector<double>& >::type cCovariateValue(cCovariateValueSEXP );
-        Rcpp::traits::input_parameter< const std::string& >::type modelTypeName(modelTypeNameSEXP );
-        List __result = ccdReadSqlData(oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue, modelTypeName);
+        size_t __result = ccdAppendSqlData(x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);

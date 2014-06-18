@@ -23,11 +23,110 @@ namespace bsccs {
 using std::string;
 using std::vector;
 
-ModelData::ModelData() : nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false) {
+ModelData::ModelData(
+    loggers::ProgressLoggerPtr _log,
+    loggers::ErrorHandlerPtr _error
+    ) : nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false), 
+        lastStratumMap(0,0), sparseIndexer(*this), log(_log), error(_error) {
 	// Do nothing
 }
 
+
+size_t ModelData::append(
+        const std::vector<long>& oStratumId,
+        const std::vector<long>& oRowId,
+        const std::vector<double>& oY,
+        const std::vector<double>& oTime,
+        const std::vector<long>& cRowId,
+        const std::vector<long>& cCovariateId,
+        const std::vector<double>& cCovariateValue) {
+        
+    // Check covariate dimensions
+    if ((cRowId.size() != cCovariateId.size()) ||
+        (cRowId.size() != cCovariateValue.size())) {
+        std::ostringstream stream;
+        stream << "Mismatched covariate column dimensions";
+        error->throwError(stream);
+    }
+    
+    // TODO Check model-specific outcome dimensions
+    if ((oStratumId.size() != oY.size()) ||
+        (oStratumId.size() != oRowId.size())) {
+        std::ostringstream stream;
+        stream << "Mismatched outcome column dimensions";
+        error->throwError(stream);
+    }
+    const size_t nOutcomes = oStratumId.size();
+    const size_t nCovariates = cCovariateId.size();
+    
+    size_t cOffset = 0;   
+
+    for (size_t i = 0; i < nOutcomes; ++i) {
+        long cInStratum = oStratumId[i];
+        if (nRows == 0) {
+        	lastStratumMap.first = cInStratum;
+        	lastStratumMap.second = 0;
+        	nPatients++;
+        } else {
+        	if (cInStratum != lastStratumMap.first) {
+          	    lastStratumMap.first = cInStratum;
+            	lastStratumMap.second++;
+            	nPatients++;
+        	}
+        }
+        pid.push_back(lastStratumMap.second);        
+        y.push_back(oY[i]);    
+                
+        long currentRowId = oRowId[i];
+        // TODO Check timing on adding label as string
+        std::stringstream ss;
+        ss << currentRowId;
+        labels.push_back(ss.str());
+        
+        while (cOffset < nCovariates && cRowId[cOffset] == currentRowId) {
+            // Process covariates
+//             std::cout << "C: " << cRowId[cOffset] << ":" << cCovariateId[cOffset] << ":" << cCovariateValue[cOffset] << std::endl;
+                    
+            DrugIdType covariate = cCovariateId[cOffset];
+            real value = cCovariateValue[cOffset];
+            
+			if (!sparseIndexer.hasColumn(covariate)) {
+				// Add new column
+				sparseIndexer.addColumn(covariate, INDICATOR);		
+// 				std::cout << "Adding column " << covariate << std::endl;		
+			}
+
+			CompressedDataColumn& column = sparseIndexer.getColumn(covariate);
+			if (value != static_cast<real>(1) && value != static_cast<real>(0)) {
+				if (column.getFormatType() == INDICATOR) {
+					std::ostringstream stream;
+					stream << "Up-casting covariate " << column.getLabel() << " to sparse!";
+					log->writeLine(stream);
+					column.convertColumnToSparse();
+				}
+			}
+
+			// Add to storage
+			bool valid = column.add_data(nRows, value);
+			if (!valid) {
+				std::ostringstream stream;
+				stream << "Warning: repeated sparse entries in data row: "
+						<< cRowId[cOffset]
+						<< ", column: " << column.getLabel();
+				log->writeLine(stream);
+			}
+			++cOffset;		                        
+        }
+        ++nRows;
+    }        
+    return nOutcomes;   
+}        
+
+
 int ModelData::getNumberOfPatients() {
+    if (nPatients == 0) {
+        nPatients = getNumberOfStrata();
+    }
 	return nPatients;
 }
 
@@ -86,12 +185,19 @@ double ModelData::getSquaredNorm() const {
 	return std::accumulate(squaredNorm.begin(), squaredNorm.end(), 0.0);
 }
 
-size_t ModelData::getNumberOfStrata() const {
-    typedef std::list<int>  List;
+size_t ModelData::getNumberOfStrata() const {     
+    if (nRows == 0) {
+        return 0;
+    }
     if (nStrata == 0) {
-        List cPid(pid.begin(), pid.end());
-        List::iterator pos = std::unique(cPid.begin(), cPid.end());
-        nStrata = std::distance(pos, cPid.begin());        
+        nStrata = 1;
+        int cLabel = pid[0];
+        for (size_t i = 1; i < pid.size(); ++i) {
+            if (cLabel != pid[i]) {
+                cLabel = pid[i];
+                nStrata++;
+            }
+        }       
     }
     return nStrata;
 }
