@@ -32,6 +32,8 @@ public:
 	virtual double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const = 0; // pure virtual
 
 	virtual const std::string getDescription() const = 0; // pure virtual
+	
+	virtual bool getIsRegularized(const int index) const = 0; // pure virtual
 };
 
 class MixtureJointPrior : public JointPrior {
@@ -71,6 +73,10 @@ public:
 			result += listPriors[i]->logDensity(beta[i]);
 		}
 		return result;
+	}
+	
+	bool getIsRegularized(const int index) const {	    
+	    return listPriors[index]->getIsRegularized();
 	}
 
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
@@ -139,6 +145,10 @@ public:
 		}
 		return result;
 	}
+	
+	bool getIsRegularized(const int index) const {
+	    return true;
+	}
 
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
 		double t1 = 1/hierarchyPriors[0]->getVariance(); // this is the hyperparameter that is used in the original code
@@ -190,6 +200,10 @@ public:
 
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
 		return singlePrior->getDelta(gh, beta[index]);
+	}
+	
+	bool getIsRegularized(const int index) const {
+	    return singlePrior->getIsRegularized();
 	}
 
 	const std::string getDescription() const {

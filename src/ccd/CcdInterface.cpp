@@ -248,7 +248,7 @@ struct OptimizationProfile {
 };
 
 double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
-		const ProfileVector& profileCI, ProfileInformationMap& profileMap) {
+		const ProfileVector& profileCI, ProfileInformationMap& profileMap, bool overrideNoRegularization) {
 
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
@@ -273,7 +273,12 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *model
 			error->throwError(stream);
 		} else {		
 			// TODO Minor bug, order of column evaluation yields different estimates			
-			// TODO Check prior on covariate
+			// TODO Check prior on covariate						
+			if (!overrideNoRegularization && ccd->getIsRegularized(index)) {
+			    std::ostringstream stream;
+			    stream << "Variable " << *it << " is regularized.";
+			    error->throwError(stream);
+			}
 		    columns.push_back(index);		  
 		}	    
 	}

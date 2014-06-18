@@ -301,6 +301,10 @@ int CyclicCoordinateDescent::getPredictionSize(void) const {
 	return K;
 }
 
+bool CyclicCoordinateDescent::getIsRegularized(int i) const {
+    return jointPrior->getIsRegularized(i);    
+}
+
 double CyclicCoordinateDescent::getBeta(int i) {
 	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics(true, i);

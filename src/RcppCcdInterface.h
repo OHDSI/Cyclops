@@ -41,8 +41,8 @@ public:
     	return CcdInterface::predictModel(ccd, modelData);
     }
 
-    double profileModel(const ProfileVector& profileCI, ProfileInformationMap& profileMap) {
-    	return CcdInterface::profileModel(ccd, modelData, profileCI, profileMap);
+    double profileModel(const ProfileVector& profileCI, ProfileInformationMap& profileMap, bool override) {
+    	return CcdInterface::profileModel(ccd, modelData, profileCI, profileMap, override);
     }
            
     double runCrossValidation() {
@@ -68,7 +68,7 @@ public:
     const Rcpp::List& getResult() const {
     	return result;
     }
-    
+        
 	void setPrior(
 				const std::string& basePriorName, 
 				double baseVariance,

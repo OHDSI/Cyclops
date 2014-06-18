@@ -34,6 +34,22 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// ccdGetIsRegularized
+bool ccdGetIsRegularized(SEXP inRcppCcdInterface, const int index);
+RcppExport SEXP CCD_ccdGetIsRegularized(SEXP inRcppCcdInterfaceSEXP, SEXP indexSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
+        Rcpp::traits::input_parameter< const int >::type index(indexSEXP );
+        bool __result = ccdGetIsRegularized(inRcppCcdInterface, index);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
 // ccdGetLogLikelihood
 double ccdGetLogLikelihood(SEXP inRcppCcdInterface);
 RcppExport SEXP CCD_ccdGetLogLikelihood(SEXP inRcppCcdInterfaceSEXP) {

@@ -112,7 +112,8 @@ public:
             CyclicCoordinateDescent *ccd,
             ModelData *modelData,
             const ProfileVector& profileCI,          
-            ProfileInformationMap &profileMap);
+            ProfileInformationMap &profileMap,
+            bool overrideNoRegularization = false);
 
     double runCrossValidation(
             CyclicCoordinateDescent *ccd,

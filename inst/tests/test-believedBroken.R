@@ -16,8 +16,8 @@ test_that("Find covariate by name and number", {
 																modelType = "pr")
 	
 	ccdFit <- fitCcdModel(dataPtr,
-												prior = prior("laplace", 
-																			exclude = c("(Intercept)", "outcome2", "outcome3")),
+												prior = prior("laplace",																			
+												exclude = c("(Intercept)", "outcome2", "outcome3")),
 												control = control(noiseLevel = "silent"))
 
 	# Shrinkage on treatment-effects
@@ -79,11 +79,14 @@ test_that("Preclude profiling regularized coefficients", {
 	expect_true(
 		!is.null(confint(ccdFit, "(Intercept)")) # not regularized
 	)
-# 	expect_error(
-# 		confint(ccdFit, "outcome2") # regularized
-# 	)
+	expect_error(
+		confint(ccdFit, "outcome2") # regularized
+	)
 	
 })
+
+# test_that("Check profile conditional posterior vs likelihood", {
+# })
 
 # test_that("Check default regularization variance", {
 # })
@@ -101,12 +104,6 @@ test_that("Preclude profiling regularized coefficients", {
 # })
 
 # test_that("Use shared_ptr to handle most data", {
-# })
-
-# test_that("Use SQL append interface", {
-# })
-
-# test_that("Use SQL constructor and do not crash on fit without data", {
 # })
 
 # test_that("Return data summary statistics", {

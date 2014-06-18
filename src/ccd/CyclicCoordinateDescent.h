@@ -92,6 +92,8 @@ public:
 	double getBeta(int i);
 
 	int getBetaSize(void);
+	
+    bool getIsRegularized(int i) const;	
 
 	int getPredictionSize(void) const;
 

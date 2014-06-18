@@ -45,7 +45,14 @@ void ccdSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed) {
     interface->getCcd().setFixedBeta(beta - 1, fixed);
 }
 
-// [[Rcpp::export(ccdGetLogLikelihood)]]
+// [[Rcpp::export(".ccdGetIsRegularized")]]
+bool ccdGetIsRegularized(SEXP inRcppCcdInterface, const int index) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    return interface->getCcd().getIsRegularized(index);
+}
+
+// [[Rcpp::export("ccdGetLogLikelihood")]]
 double ccdGetLogLikelihood(SEXP inRcppCcdInterface) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
@@ -76,11 +83,8 @@ List ccdProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, bool override
 	if (!Rf_isNull(sexpCovariates)) {
 		ProfileVector covariates = as<ProfileVector>(sexpCovariates);
 		
-		if (!override) {
-		    // TODO Check that all covariates are not regularized
-		}
 		ProfileInformationMap profileMap;
-        interface->profileModel(covariates, profileMap);
+        interface->profileModel(covariates, profileMap, override);
                 
         std::vector<double> lower;
         std::vector<double> upper;

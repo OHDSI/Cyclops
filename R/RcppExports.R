@@ -9,6 +9,10 @@ ccdSetFixedBeta <- function(inRcppCcdInterface, beta, fixed) {
     invisible(.Call('CCD_ccdSetFixedBeta', PACKAGE = 'CCD', inRcppCcdInterface, beta, fixed))
 }
 
+.ccdGetIsRegularized <- function(inRcppCcdInterface, index) {
+    .Call('CCD_ccdGetIsRegularized', PACKAGE = 'CCD', inRcppCcdInterface, index)
+}
+
 ccdGetLogLikelihood <- function(inRcppCcdInterface) {
     .Call('CCD_ccdGetLogLikelihood', PACKAGE = 'CCD', inRcppCcdInterface)
 }

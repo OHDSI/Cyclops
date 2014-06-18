@@ -50,6 +50,8 @@ public:
 
 	virtual double logDensity(const DoubleVector& vector) const = 0; // pure virtual
 	
+	virtual bool getIsRegularized() const = 0; // pure virtual
+	
 	static PriorPtr makePrior(PriorType priorType);	    
 };
 
@@ -83,6 +85,10 @@ public:
 
 	double logDensity(const DoubleVector& vector) const {
 		return 0.0;
+	}
+	
+	bool getIsRegularized() const {    
+	    return false;
 	}
 
 	double getDelta(GradientHessian gh, double beta) const {
@@ -121,6 +127,10 @@ public:
 	double logDensity(const DoubleVector& vector) const {
 		return logIndependentDensity(vector);
 	}
+	
+	bool getIsRegularized() const {
+	    return true;
+	}	
 
 	double getDelta(GradientHessian gh, double beta) const {
 
@@ -215,6 +225,10 @@ public:
 	void setVariance(double x) {
 		sigma2Beta = x;
 	}
+	
+	bool getIsRegularized() const {
+	    return true;
+	}	
 
 	double logDensity(double x) const {
 		return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
