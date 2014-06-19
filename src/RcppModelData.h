@@ -10,6 +10,7 @@
 
 #include "Rcpp.h"
 #include "ModelData.h"
+#include "Iterators.h"
 
 namespace bsccs {
 
@@ -35,6 +36,45 @@ public:
 			);
 
 	virtual ~RcppModelData();
+	
+	double sum(const DrugIdType covariate);
+	
+	
+protected:
+
+    size_t getColumnIndex(const DrugIdType covariate);
+    
+	template <typename F>
+	double reduce(const size_t index, F func) {    		    
+	    double sum = 0.0;
+		switch (getFormatType(index)) {
+			case INDICATOR :
+				sum = reduceImpl<IndicatorIterator>(index, func);
+				break;				
+			case SPARSE :			
+				sum = reduceImpl<SparseIterator>(index, func);				
+				break;
+			case DENSE :
+				sum = reduceImpl<DenseIterator>(index, func);				
+				break;
+			case INTERCEPT :
+				sum = reduceImpl<InterceptIterator>(index, func);
+				break;
+				
+		}	    
+	    return sum;	
+	}
+	
+	template <typename IteratorType, typename F>
+	double reduceImpl(const size_t index, F func) {
+	    double sum = 0.0;
+	    IteratorType it(*this, index);
+	    for (; it; ++it) {
+	        sum += func(it.value());
+	    }	
+	    return sum;
+	}
+	
 
 private:
 	// Disable copy-constructors and copy-assignment

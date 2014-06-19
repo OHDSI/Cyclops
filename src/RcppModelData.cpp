@@ -32,6 +32,23 @@ XPtr<bsccs::ModelData> parseEnvironmentForPtr(const Environment& x) {
 	return ptr;	
 }
 
+XPtr<bsccs::RcppModelData> parseEnvironmentForRcppPtr(const Environment& x) {
+	if (!x.inherits("ccdData")) {
+		::Rf_error("Input must be a ccdData object");	// TODO Change to "stop"
+	}
+			
+	SEXP tSexp = x["ccdDataPtr"];
+	if (TYPEOF(tSexp) != EXTPTRSXP) {
+		::Rf_error("Input must contain a ccdDataPtr object"); // TODO Change to "stop" (bug in Rcpp 0.11)
+	}	
+
+	XPtr<bsccs::RcppModelData> ptr(tSexp);
+	if (!ptr) {
+		::Rf_error("ccdData object is uninitialized"); // TODO Change to "stop"
+	}
+	return ptr;	
+}
+
 // [[Rcpp::export(".isRcppPtrNull")]]
 bool isRcppPtrNull(SEXP x) {
 	if (TYPEOF(x) != EXTPTRSXP) {
@@ -60,8 +77,16 @@ size_t ccdGetNumberOfRows(Environment x) {
 }
 
 
-// TODO MJS wants a default constructor and a append function that takes chunks
-
+// [[Rcpp::export(".ccdSum")]]
+std::vector<double> ccdSum(Environment x, const std::vector<long>& covariateLabel) {
+	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
+	std::vector<double> result;
+	for (std::vector<long>::const_iterator it = covariateLabel.begin();
+	        it != covariateLabel.end(); ++it) {
+	    result.push_back(data->sum(*it));
+	}
+	return result;
+}
 // [[Rcpp::export(".ccdNewSqlData")]]
 List ccdNewSqlData(const std::string& modelTypeName) {
         // o -> outcome, c -> covariates
@@ -203,7 +228,9 @@ RcppModelData::RcppModelData(
 				pid,
 				y,
 				z,
-				offs
+				offs,
+				bsccs::make_shared<loggers::RcppProgressLogger>(),
+				bsccs::make_shared<loggers::RcppErrorHandler>()
 				) {
 	// Convert dense
 	int nCovariates = static_cast<int>(dxv.size() / y.size());
@@ -271,6 +298,34 @@ RcppModelData::RcppModelData(
     	}
       nPatients = currentCase + 1;
     }    
+}
+
+struct Sum {
+	inline double operator()(double x, double y) {
+	    return x + y;
+    }       
+};
+
+struct Identity {
+    inline double operator()(double x) {
+        return x;
+    }
+};
+
+size_t RcppModelData::getColumnIndex(const DrugIdType covariate) {
+    int index = getColumnIndexByName(covariate);
+    if (index == -1) {
+        std::ostringstream stream;
+        stream << "Variable " << covariate << " is unknown";
+        error->throwError(stream);
+    }
+    return index;
+}
+
+double RcppModelData::sum(const DrugIdType covariate) {
+    size_t index = getColumnIndex(covariate);   
+//    return 0.0;
+	return reduce(index, Identity());
 }
 
 RcppModelData::~RcppModelData() {

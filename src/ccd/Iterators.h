@@ -22,6 +22,10 @@ class IndicatorIterator {
 //	static const bool isIndicator = true;
 	enum  { isIndicator = true };
 	enum  { isSparse = true };
+	
+// 	inline IndicatorIterator(const CompressedDataColumn& col)
+// 	  : mIndices(col.getColumns()),
+// 	    mId(0), mEnd(
 
 	inline IndicatorIterator(const CompressedDataMatrix& mat, Index column)
 	  : mIndices(mat.getCompressedColumnVector(column)),

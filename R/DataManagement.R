@@ -240,6 +240,16 @@ readCcdData <- function(fileName, modelType) {
     result
 }
 
+reduce <- function(object, covariates) {
+	if (!isInitialized(object)) {
+		stop("Object is no longer or improperly initialized.")
+	}
+	covariates <- .checkCovariates(object, covariates)
+	.ccdSum(object, covariates)
+}
+
+
+
 #' @title appendSqlCcdData
 #'
 #' @description

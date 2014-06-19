@@ -256,6 +256,22 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
+// ccdSum
+std::vector<double> ccdSum(Environment x, const std::vector<long>& covariateLabel);
+RcppExport SEXP CCD_ccdSum(SEXP xSEXP, SEXP covariateLabelSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
+        Rcpp::traits::input_parameter< const std::vector<long>& >::type covariateLabel(covariateLabelSEXP );
+        std::vector<double> __result = ccdSum(x, covariateLabel);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
 // ccdNewSqlData
 List ccdNewSqlData(const std::string& modelTypeName);
 RcppExport SEXP CCD_ccdNewSqlData(SEXP modelTypeNameSEXP) {

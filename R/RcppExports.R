@@ -65,6 +65,10 @@ getNumberOfRows <- function(x) {
     .Call('CCD_ccdGetNumberOfRows', PACKAGE = 'CCD', x)
 }
 
+.ccdSum <- function(x, covariateLabel) {
+    .Call('CCD_ccdSum', PACKAGE = 'CCD', x, covariateLabel)
+}
+
 .ccdNewSqlData <- function(modelTypeName) {
     .Call('CCD_ccdNewSqlData', PACKAGE = 'CCD', modelTypeName)
 }

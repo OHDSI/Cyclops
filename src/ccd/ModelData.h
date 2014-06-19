@@ -56,7 +56,9 @@ public:
 			const IntegerVector& _pid,
 			const RealVector& _y,
 			const RealVector& _z,
-			const RealVector& _offs
+			const RealVector& _offs,
+            loggers::ProgressLoggerPtr _log,
+            loggers::ErrorHandlerPtr _error			
 			) :
 		nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false)
 		, pid(_pid.begin(), _pid.end()) // copy
@@ -64,6 +66,7 @@ public:
 		, z(_z.begin(), _z.end()) // copy
 		, offs(_offs.begin(), _offs.end()) // copy
 		, sparseIndexer(*this)
+		, log(_log), error(_error)
 		{
 
 	}
@@ -194,6 +197,7 @@ private:
     
     SparseIndexer sparseIndexer;
 	
+	protected:
     loggers::ProgressLoggerPtr log;
     loggers::ErrorHandlerPtr error;
         

@@ -36,21 +36,35 @@ test_that("Find covariate by name and number", {
 	expect_equal(coef(ccdFit), coef(ccdFit2))
 })
 
+test_that("Simple reductions", {
+	counts <- c(18,17,15,20,10,20,25,13,12)
+	outcome <- gl(3,1,9)
+	treatment <- gl(3,3)
+	tolerance <- 1E-4
+	
+	dataPtr <- createCcdDataFrame(counts ~ outcome + treatment, 
+																modelType = "pr")
+	
+	expect_error(reduce(dataPtr, 0))
+	expect_error(reduce(dataPtr, "BAD"))
+	expect_equal(reduce(dataPtr, c(1,2)), c(9,3))
+	
+})
+
 test_that("Error when covariate not found", {
 	counts <- c(18,17,15,20,10,20,25,13,12)
 	outcome <- gl(3,1,9)
 	treatment <- gl(3,3)
 	tolerance <- 1E-4
 	
-# 	dataPtr <- createCcdDataFrame(counts ~ outcome + treatment, 
-# 																modelType = "pr")
-# 	
-# 	# PRINTS TO SCREEN!  YUCK!
-# 	expect_error(
-# 	fitCcdModel(dataPtr,
-# 												prior = prior("laplace", 
-# 																			exclude = c("BAD", "outcome2", "outcome3")),
-# 												control = control(noiseLevel = "silent")), ".*")
+	dataPtr <- createCcdDataFrame(counts ~ outcome + treatment, 
+																modelType = "pr")
+	
+	expect_error(
+	fitCcdModel(dataPtr,
+												prior = prior("laplace", 
+																			exclude = c("BAD", "outcome2", "outcome3")),
+												control = control(noiseLevel = "silent")))
 	
 	dataPtr2 <- createCcdDataFrame(counts ~ outcome + treatment, 
 																 modelType = "pr")
