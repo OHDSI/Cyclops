@@ -235,7 +235,7 @@ RcppModelData::RcppModelData(
 	int nCovariates = static_cast<int>(dxv.size() / y.size());
 	for (int i = 0; i < nCovariates; ++i) {
 		push_back(
-				NULL, NULL,
+				static_cast<IntegerVector::iterator>(NULL), static_cast<IntegerVector::iterator>(NULL),
 				dxv.begin() + i * y.size(), dxv.begin() + (i + 1) * y.size(),
 				DENSE);
 		getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns());
@@ -266,7 +266,7 @@ RcppModelData::RcppModelData(
 
 		push_back(
 				iiv.begin() + begin, iiv.begin() + end,
-				NULL, NULL,
+				static_cast<NumericVector::iterator>(NULL), static_cast<NumericVector::iterator>(NULL),
 				INDICATOR);
         getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns());				
 //		std::cout << "Added indicator covariate " << (end - begin) << std::endl;

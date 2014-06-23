@@ -24,7 +24,7 @@ PKG_LIBS = `$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"`
 ## done by a number of packages, but recommended only for more advanced users
 ## comfortable with autoconf and its related tools.
 
-PKG_CPPFLAGS = -I. -Iccd -DR_BUILD -DWIN_BUILD -DDOUBLE_PRECISION -fpermissive
+PKG_CPPFLAGS = -I. -Iccd -DR_BUILD -DWIN_BUILD -DDOUBLE_PRECISION
 
 SOURCES = $(wildcard *.cpp ccd/*.cpp ccd/drivers/*.cpp ccd/engine/*.cpp \
 					ccd/io/*.cpp ccd/priors/*.cpp utils/*.cpp)
