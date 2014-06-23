@@ -212,14 +212,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdGetNumberOfStrata
-size_t ccdGetNumberOfStrata(Environment x);
+int ccdGetNumberOfStrata(Environment x);
 RcppExport SEXP CCD_ccdGetNumberOfStrata(SEXP xSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
-        size_t __result = ccdGetNumberOfStrata(x);
+        int __result = ccdGetNumberOfStrata(x);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
@@ -227,14 +227,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdGetNumberOfColumns
-size_t ccdGetNumberOfColumns(Environment x);
+int ccdGetNumberOfColumns(Environment x);
 RcppExport SEXP CCD_ccdGetNumberOfColumns(SEXP xSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
-        size_t __result = ccdGetNumberOfColumns(x);
+        int __result = ccdGetNumberOfColumns(x);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
@@ -242,14 +242,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdGetNumberOfRows
-size_t ccdGetNumberOfRows(Environment x);
+int ccdGetNumberOfRows(Environment x);
 RcppExport SEXP CCD_ccdGetNumberOfRows(SEXP xSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
-        size_t __result = ccdGetNumberOfRows(x);
+        int __result = ccdGetNumberOfRows(x);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
@@ -288,7 +288,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdAppendSqlData
-size_t ccdAppendSqlData(Environment x, const std::vector<long>& oStratumId, const std::vector<long>& oRowId, const std::vector<double>& oY, const std::vector<double>& oTime, const std::vector<long>& cRowId, const std::vector<long>& cCovariateId, const std::vector<double>& cCovariateValue);
+int ccdAppendSqlData(Environment x, const std::vector<long>& oStratumId, const std::vector<long>& oRowId, const std::vector<double>& oY, const std::vector<double>& oTime, const std::vector<long>& cRowId, const std::vector<long>& cCovariateId, const std::vector<double>& cCovariateValue);
 RcppExport SEXP CCD_ccdAppendSqlData(SEXP xSEXP, SEXP oStratumIdSEXP, SEXP oRowIdSEXP, SEXP oYSEXP, SEXP oTimeSEXP, SEXP cRowIdSEXP, SEXP cCovariateIdSEXP, SEXP cCovariateValueSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
@@ -302,7 +302,7 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< const std::vector<long>& >::type cRowId(cRowIdSEXP );
         Rcpp::traits::input_parameter< const std::vector<long>& >::type cCovariateId(cCovariateIdSEXP );
         Rcpp::traits::input_parameter< const std::vector<double>& >::type cCovariateValue(cCovariateValueSEXP );
-        size_t __result = ccdAppendSqlData(x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue);
+        int __result = ccdAppendSqlData(x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
