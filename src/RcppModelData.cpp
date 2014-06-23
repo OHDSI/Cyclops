@@ -59,21 +59,21 @@ bool isRcppPtrNull(SEXP x) {
 }
 
 // [[Rcpp::export("getNumberOfStrata")]]
-size_t ccdGetNumberOfStrata(Environment x) {			
+int ccdGetNumberOfStrata(Environment x) {			
 	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(x);	
-	return data->getNumberOfPatients();
+	return static_cast<int>(data->getNumberOfPatients());
 }
 
 // [[Rcpp::export("getNumberOfCovariates")]]
-size_t ccdGetNumberOfColumns(Environment x) {	
+int ccdGetNumberOfColumns(Environment x) {	
 	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(x);	
-	return data->getNumberOfColumns();
+	return static_cast<int>(data->getNumberOfColumns());
 }
 
 // [[Rcpp::export("getNumberOfRows")]]
-size_t ccdGetNumberOfRows(Environment x) {	
+int ccdGetNumberOfRows(Environment x) {	
 	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(x);	
-	return data->getNumberOfRows();
+	return static_cast<int>(data->getNumberOfRows());
 }
 
 // [[Rcpp::export(".ccdSumByGroup")]]
@@ -138,7 +138,7 @@ List ccdNewSqlData(const std::string& modelTypeName) {
 
 
 // [[Rcpp::export(".appendSqlCcdData")]]
-size_t ccdAppendSqlData(Environment x,
+int ccdAppendSqlData(Environment x,
         const std::vector<long>& oStratumId,
         const std::vector<long>& oRowId,
         const std::vector<double>& oY,
@@ -151,7 +151,7 @@ size_t ccdAppendSqlData(Environment x,
     using namespace bsccs;
     XPtr<ModelData> data = parseEnvironmentForPtr(x); // TODO This can cause a slice error when sent a ModelData
     size_t count = data->append(oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue);
-    return count;
+    return static_cast<int>(count);
 }
 
 // [[Rcpp::export(".ccdReadData")]]
@@ -266,7 +266,7 @@ RcppModelData::RcppModelData(
 	int nCovariates = static_cast<int>(dxv.size() / y.size());
 	for (int i = 0; i < nCovariates; ++i) {
 		push_back(
-				NULL, NULL,
+				static_cast<IntegerVector::iterator>(NULL), static_cast<IntegerVector::iterator>(NULL),
 				dxv.begin() + i * y.size(), dxv.begin() + (i + 1) * y.size(),
 				DENSE);
 		getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns());
@@ -295,7 +295,7 @@ RcppModelData::RcppModelData(
 
 		push_back(
 				iiv.begin() + begin, iiv.begin() + end,
-				NULL, NULL,
+				static_cast<NumericVector::iterator>(NULL), static_cast<NumericVector::iterator>(NULL),
 				INDICATOR);
         getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns());				
 	}
