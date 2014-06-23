@@ -256,6 +256,39 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
+// ccdSumByGroup
+List ccdSumByGroup(Environment x, const std::vector<long>& covariateLabel, const long groupByLabel);
+RcppExport SEXP CCD_ccdSumByGroup(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP groupByLabelSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
+        Rcpp::traits::input_parameter< const std::vector<long>& >::type covariateLabel(covariateLabelSEXP );
+        Rcpp::traits::input_parameter< const long >::type groupByLabel(groupByLabelSEXP );
+        List __result = ccdSumByGroup(x, covariateLabel, groupByLabel);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
+// ccdSumByStratum
+List ccdSumByStratum(Environment x, const std::vector<long>& covariateLabel);
+RcppExport SEXP CCD_ccdSumByStratum(SEXP xSEXP, SEXP covariateLabelSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
+        Rcpp::traits::input_parameter< const std::vector<long>& >::type covariateLabel(covariateLabelSEXP );
+        List __result = ccdSumByStratum(x, covariateLabel);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
 // ccdSum
 std::vector<double> ccdSum(Environment x, const std::vector<long>& covariateLabel);
 RcppExport SEXP CCD_ccdSum(SEXP xSEXP, SEXP covariateLabelSEXP) {
