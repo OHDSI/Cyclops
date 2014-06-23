@@ -123,9 +123,9 @@ protected:
 	real* hXBetaSave;
 	real* hDelta;
 
-	int N; // Number of patients
-	int K; // Number of exposure levels
-	int J; // Number of drugs
+	size_t N; // Number of patients
+	size_t K; // Number of exposure levels
+	size_t J; // Number of drugs
 
 	real* expXBeta;
 	real* offsExpXBeta;

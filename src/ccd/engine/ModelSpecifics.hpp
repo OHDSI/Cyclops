@@ -52,7 +52,7 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useC
 		hKWeight.resize(K);
 	}
 	if (useCrossValidation) {
-		for (int k = 0; k < K; ++k) {
+		for (size_t k = 0; k < K; ++k) {
 			hKWeight[k] = inWeights[k];
 		}
 	} else {
@@ -63,7 +63,7 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useC
 		hNWeight.resize(N);
 	}
 	std::fill(hNWeight.begin(), hNWeight.end(), static_cast<WeightType>(0));
-	for (int k = 0; k < K; ++k) {
+	for (size_t k = 0; k < K; ++k) {
 		WeightType event = BaseModel::observationCount(hY[k])*hKWeight[k];
 		incrementByGroup(hNWeight.data(), hPid, k, event);
 	}
@@ -71,7 +71,7 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useC
 
 template<class BaseModel, typename WeightType>
 void ModelSpecifics<BaseModel, WeightType>::computeXjY(bool useCrossValidation) {
-	for (int j = 0; j < J; ++j) {
+	for (size_t j = 0; j < J; ++j) {
 		hXjY[j] = 0;
 				
 		GenericIterator it(*hXI, j);
@@ -95,7 +95,7 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjY(bool useCrossValidation) 
 
 template<class BaseModel, typename WeightType>
 void ModelSpecifics<BaseModel, WeightType>::computeXjX(bool useCrossValidation) {
-	for (int j = 0; j < J; ++j) {
+	for (size_t j = 0; j < J; ++j) {
 		hXjX[j] = 0;
 		GenericIterator it(*hXI, j);
 
@@ -118,11 +118,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInLogLikelihood(bool
 	if(BaseModel::likelihoodHasFixedTerms) {
 		logLikelihoodFixedTerm = 0.0;
 		if(useCrossValidation) {
-			for(int i = 0; i < K; i++) {
+			for(size_t i = 0; i < K; i++) {
 				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], hOffs[i]) * hKWeight[i];
 			}
 		} else {
-			for(int i = 0; i < K; i++) {
+			for(size_t i = 0; i < K; i++) {
 				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], hOffs[i]);
 			}
 		}
@@ -147,23 +147,23 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 
 	real logLikelihood = static_cast<real>(0.0);
 	if (useCrossValidation) {
-		for (int i = 0; i < K; i++) {
+		for (size_t i = 0; i < K; i++) {
 			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]) * hKWeight[i];
 		}
 	} else {
-		for (int i = 0; i < K; i++) {
+		for (size_t i = 0; i < K; i++) {
 			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]);
 		}
 	}
 
 	if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
 		if(BaseModel::cumulativeGradientAndHessian) {
-			for (int i = 0; i < N; i++) {
+			for (size_t i = 0; i < N; i++) {
 				// Weights modified in computeNEvents()
 				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], accDenomPid[i]);
 			}
 		} else {  // TODO Unnecessary code duplication
-			for (int i = 0; i < N; i++) {
+			for (size_t i = 0; i < N; i++) {
 				// Weights modified in computeNEvents()
 				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], denomPid[i]);
 			}
@@ -182,11 +182,11 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 	real logLikelihood = static_cast<real>(0.0);
 
 	if(BaseModel::cumulativeGradientAndHessian)	{
-		for (int k = 0; k < K; ++k) {
+		for (size_t k = 0; k < K; ++k) {
 			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], &accDenomPid[0], hPid, k);
 		}
 	} else { // TODO Unnecessary code duplication
-		for (int k = 0; k < K; ++k) {
+		for (size_t k = 0; k < K; ++k) {
 			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], denomPid, hPid, k);
 		}
 	}
@@ -207,13 +207,13 @@ void ModelSpecifics<BaseModel,WeightType>::getPredictiveEstimates(real* y, real*
 //		}
 //	}
 	if (weights) {
-		for (int k = 0; k < K; ++k) {
+		for (size_t k = 0; k < K; ++k) {
 			if (weights[k]) {
 				BaseModel::predictEstimate(y[k], hXBeta[k]);
 			}
 		}
 	} else {
-		for (int k = 0; k < K; ++k) {
+		for (size_t k = 0; k < K; ++k) {
 			BaseModel::predictEstimate(y[k], hXBeta[k]);
 		}
 	}
@@ -613,7 +613,7 @@ template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWeights) {
 	if (BaseModel::likelihoodHasDenominator) {
 		fillVector(denomPid, N, BaseModel::getDenomNullValue());
-		for (int k = 0; k < K; ++k) {
+		for (size_t k = 0; k < K; ++k) {
 			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
 			incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
 		}
@@ -652,7 +652,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 				real totalDenomValid = static_cast<real>(0);
 				real totalNumerValid = static_cast<real>(0);
 				real totalNumer2Valid = static_cast<real>(0);
-				for (int k = 0; k < K; ++k) {
+				for (size_t k = 0; k < K; ++k) {
 					if(hKWeight[k] == 1.0){
 						totalDenomTrain += denomPid[k];
 						totalNumerTrain += numerPid[k];
@@ -673,7 +673,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 				real totalDenom = static_cast<real>(0);
 				real totalNumer = static_cast<real>(0);
 				real totalNumer2 = static_cast<real>(0);
-				for (int k = 0; k < K; ++k) {
+				for (size_t k = 0; k < K; ++k) {
 					totalDenom += denomPid[k];
 					totalNumer += numerPid[k];
 					totalNumer2 += numerPid2[k];
