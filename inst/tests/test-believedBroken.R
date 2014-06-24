@@ -30,3 +30,8 @@ library("testthat")
 
 # test_that("Make covariates dense in SQL input", {
 # })
+
+# test_that("Specify CI level", {
+###function(object, parm, level, ...)
+# })
+  
