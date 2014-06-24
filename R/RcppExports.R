@@ -49,6 +49,10 @@ ccdGetLogLikelihood <- function(inRcppCcdInterface) {
     .Call('CCD_ccdInitializeModel', PACKAGE = 'CCD', inModelData, modelType, computeMLE)
 }
 
+printCcdRowIds <- function(x) {
+    invisible(.Call('CCD_ccdPrintRowIds', PACKAGE = 'CCD', x))
+}
+
 .isRcppPtrNull <- function(x) {
     .Call('CCD_isRcppPtrNull', PACKAGE = 'CCD', x)
 }

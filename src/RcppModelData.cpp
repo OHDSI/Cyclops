@@ -49,6 +49,13 @@ XPtr<bsccs::RcppModelData> parseEnvironmentForRcppPtr(const Environment& x) {
 	return ptr;	
 }
 
+// [[Rcpp::export("printCcdRowIds")]]
+void ccdPrintRowIds(Environment x) {
+	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
+//	std::ostreamstring stream;
+// 	std::vector<DrugIdType>& rowsIds = data->get
+}
+
 // [[Rcpp::export(".isRcppPtrNull")]]
 bool isRcppPtrNull(SEXP x) {
 	if (TYPEOF(x) != EXTPTRSXP) {

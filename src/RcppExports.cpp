@@ -196,6 +196,18 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
+// ccdPrintRowIds
+void ccdPrintRowIds(Environment x);
+RcppExport SEXP CCD_ccdPrintRowIds(SEXP xSEXP) {
+BEGIN_RCPP
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
+        ccdPrintRowIds(x);
+    }
+    return R_NilValue;
+END_RCPP
+}
 // isRcppPtrNull
 bool isRcppPtrNull(SEXP x);
 RcppExport SEXP CCD_isRcppPtrNull(SEXP xSEXP) {

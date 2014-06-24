@@ -32,6 +32,8 @@ ModelData::ModelData(
 }
 
 
+//#define DEBUG_64BIT
+
 size_t ModelData::append(
         const std::vector<long>& oStratumId,
         const std::vector<long>& oRowId,
@@ -59,7 +61,11 @@ size_t ModelData::append(
     const size_t nOutcomes = oStratumId.size();
     const size_t nCovariates = cCovariateId.size();
     
-    size_t cOffset = 0;   
+    size_t cOffset = 0;  
+    
+#ifdef DEBUG_64BIT
+	std::cout << "sizeof(long) = " << sizeof(long) << std::endl;
+#endif     
 
     for (size_t i = 0; i < nOutcomes; ++i) {
         long cInStratum = oStratumId[i];
@@ -82,6 +88,10 @@ size_t ModelData::append(
         std::stringstream ss;
         ss << currentRowId;
         labels.push_back(ss.str());
+        
+#ifdef DEBUG_64BIT
+        std::cout << currentRowId << std::endl;        
+#endif
         
         while (cOffset < nCovariates && cRowId[cOffset] == currentRowId) {
             // Process covariates
