@@ -60,6 +60,10 @@ size_t ModelData::append(
     const size_t nCovariates = cCovariateId.size();
     
     size_t cOffset = 0;   
+    
+    std::cout << "sizeof(long) = " << sizeof(long) << std::endl;
+    std::cout << "sizeof(uint64_t) = " << sizeof(uint64_t) << std::endl;
+    std::cout << "sizeof(long long) = " << sizeof(long long) << std::endl;
 
     for (size_t i = 0; i < nOutcomes; ++i) {
         long cInStratum = oStratumId[i];
@@ -77,11 +81,12 @@ size_t ModelData::append(
         pid.push_back(lastStratumMap.second);        
         y.push_back(oY[i]);    
                 
-        long currentRowId = oRowId[i];
         // TODO Check timing on adding label as string
         std::stringstream ss;
         ss << currentRowId;
         labels.push_back(ss.str());
+        
+        std::cout << currentRowId << std::endl;
         
         while (cOffset < nCovariates && cRowId[cOffset] == currentRowId) {
             // Process covariates

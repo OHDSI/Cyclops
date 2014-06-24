@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <cstdlib>
 
 #include "Types.h"
 
@@ -43,7 +44,7 @@ class CerrErrorHandler : public ErrorHandler {
 public:
     void throwError(const std::ostringstream& stream) {
         std::cerr << stream.str() << std::endl;
-        exit(-1);
+        std::exit(-1);
     }
 };
 
