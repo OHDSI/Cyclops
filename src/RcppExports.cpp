@@ -318,14 +318,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdNewSqlData
-List ccdNewSqlData(const std::string& modelTypeName);
-RcppExport SEXP CCD_ccdNewSqlData(SEXP modelTypeNameSEXP) {
+List ccdNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel);
+RcppExport SEXP CCD_ccdNewSqlData(SEXP modelTypeNameSEXP, SEXP noiseLevelSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< const std::string& >::type modelTypeName(modelTypeNameSEXP );
-        List __result = ccdNewSqlData(modelTypeName);
+        Rcpp::traits::input_parameter< const std::string& >::type noiseLevel(noiseLevelSEXP );
+        List __result = ccdNewSqlData(modelTypeName, noiseLevel);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);

@@ -81,8 +81,8 @@ getNumberOfRows <- function(x) {
     .Call('CCD_ccdSum', PACKAGE = 'CCD', x, covariateLabel)
 }
 
-.ccdNewSqlData <- function(modelTypeName) {
-    .Call('CCD_ccdNewSqlData', PACKAGE = 'CCD', modelTypeName)
+.ccdNewSqlData <- function(modelTypeName, noiseLevel) {
+    .Call('CCD_ccdNewSqlData', PACKAGE = 'CCD', modelTypeName, noiseLevel)
 }
 
 .appendSqlCcdData <- function(x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue) {

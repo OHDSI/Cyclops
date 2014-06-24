@@ -318,12 +318,18 @@ finalizeSqlCcdData <- function(object,
 	# Not yet implemented
 }
 
-createSqlCcdData <- function(modelType) {
+createSqlCcdData <- function(modelType, control) {
 	cl <- match.call() # save to return
 	
-	if (!isValidModelType(modelType)) stop("Invalid model type.")   
+	if (!isValidModelType(modelType)) stop("Invalid model type.")  
+    
+    noiseLevel <- "silent"
+	if (!missing(control)) { # Set up control
+	    stopifnot(inherits(control, "ccdControl"))
+        noiseLevel <- control$noiseLevel
+	}
 	
-	sql <- .ccdNewSqlData(modelType)
+	sql <- .ccdNewSqlData(modelType, noiseLevel)
 	result <- new.env(parent = emptyenv()) # TODO Remove code duplication with two functions above
 	result$ccdDataPtr <- sql$ccdDataPtr
 	result$modelType <- modelType

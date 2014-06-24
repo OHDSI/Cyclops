@@ -188,7 +188,7 @@ control <- function(
 		maxIterations = 1000, tolerance = 1E-6, convergenceType = "gradient",
 		cvType = "grid", fold = 10, lowerLimit = 0.01, upperLimit = 20.0, gridSteps = 10,
 		cvRepetitions = 1,
-		minCVData = 100, noiseLevel = "noisy") {
+		minCVData = 100, noiseLevel = "silent") {
 	
 	validCVNames = c("grid", "auto")
 	stopifnot(cvType %in% validCVNames)

@@ -125,13 +125,14 @@ std::vector<double> ccdSum(Environment x, const std::vector<long>& covariateLabe
 }
 
 // [[Rcpp::export(".ccdNewSqlData")]]
-List ccdNewSqlData(const std::string& modelTypeName) {
-        // o -> outcome, c -> covariates
-//     SqlGenericInputReader reader(
+List ccdNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel) {
 	using namespace bsccs;
+	
+	NoiseLevels noise = RcppCcdInterface::parseNoiseLevel(noiseLevel);
+	bool silent = (noise == SILENT);
 
 	SqlModelData* ptr = new SqlModelData(modelTypeName,
-        bsccs::make_shared<loggers::RcppProgressLogger>(),
+        bsccs::make_shared<loggers::RcppProgressLogger>(silent),
         bsccs::make_shared<loggers::RcppErrorHandler>());
         
 	XPtr<SqlModelData> sqlModelData(ptr);

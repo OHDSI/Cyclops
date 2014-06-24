@@ -552,7 +552,7 @@ void RcppCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, ModelData
 
 RcppCcdInterface::RcppCcdInterface(RcppModelData& _rcppModelData) 
 	: rcppModelData(_rcppModelData), modelData(NULL), ccd(NULL), modelSpecifics(NULL) {
-	// Do nothing
+	arguments.noiseLevel = SILENT; // Change default value from command-line version
 }
 
 //RcppCcdInterface::RcppCcdInterface() {
