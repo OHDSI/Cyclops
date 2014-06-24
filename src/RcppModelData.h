@@ -37,17 +37,17 @@ public:
 
 	virtual ~RcppModelData();
 	
-	double sum(const DrugIdType covariate);
+	double sum(const IdType covariate);
 	
-	void standardize(const DrugIdType covariate);
+	void standardize(const IdType covariate);
 	
-	void sumByGroup(std::vector<double>& out, const DrugIdType covariate, const DrugIdType groupBy);
+	void sumByGroup(std::vector<double>& out, const IdType covariate, const IdType groupBy);
 	
-	void sumByGroup(std::vector<double>& out, const DrugIdType covariate);	
+	void sumByGroup(std::vector<double>& out, const IdType covariate);	
 			
 protected:
 
-    size_t getColumnIndex(const DrugIdType covariate);
+    size_t getColumnIndex(const IdType covariate);
     
     template <typename F>
     void transform(const size_t index, F func) {	    

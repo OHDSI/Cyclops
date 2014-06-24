@@ -74,12 +74,12 @@ public:
 	virtual ~ModelData();
 	
 	size_t append(
-        const std::vector<long>& oStratumId,
-        const std::vector<long>& oRowId,
+        const std::vector<IdType>& oStratumId,
+        const std::vector<IdType>& oRowId,
         const std::vector<double>& oY,
         const std::vector<double>& oTime,
-        const std::vector<long>& cRowId,
-        const std::vector<long>& cCovariateId,
+        const std::vector<IdType>& cRowId,
+        const std::vector<IdType>& cCovariateId,
         const std::vector<double>& cCovariateValue        
     );		
 
@@ -88,7 +88,7 @@ public:
 	void setYVector(std::vector<real> y_);
 	int* getNEventVector();
 	real* getOffsetVector();
-//	map<int, DrugIdType> getDrugNameMap();
+//	map<int, IdType> getDrugNameMap();
 	int getNumberOfPatients();
 	std::string getConditionId();
 	std::vector<int>* getPidVectorSTL();
@@ -193,7 +193,7 @@ private:
 			
 	static const std::string missing;
 		
-    std::pair<long,long> lastStratumMap;
+    std::pair<IdType,int> lastStratumMap;
     
     SparseIndexer sparseIndexer;
 	

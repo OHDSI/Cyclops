@@ -162,8 +162,8 @@ void CmdLineCcdInterface::parseCommandLine(std::vector<std::string>& args) {
 		// Control screen output volume
 		SwitchArg quietArg("q", "quiet", "Limit writing to standard out", arguments.noiseLevel <= QUIET);
 
-		MultiArg<int> profileCIArg("","profileCI", "Report confidence interval for covariate", false, "integer");
-		MultiArg<int> flatPriorArg("","flat", "Place no prior on covariate", false, "integer");
+		MultiArg<long> profileCIArg("","profileCI", "Report confidence interval for covariate", false, "integer");
+		MultiArg<long> flatPriorArg("","flat", "Place no prior on covariate", false, "integer");
 
 
 		cmd.add(gpuArg);
@@ -243,8 +243,14 @@ void CmdLineCcdInterface::parseCommandLine(std::vector<std::string>& args) {
 		if (arguments.outputFormat.size() == 0) {
 			arguments.outputFormat.push_back("estimates");
 		}
-		arguments.profileCI = profileCIArg.getValue();
-		arguments.flatPrior = flatPriorArg.getValue();
+						
+		for (int i = 0; i < profileCIArg.getValue().size(); ++i) {
+		    arguments.profileCI.push_back(profileCIArg.getValue()[i]);
+		}
+		
+		for (int i = 0; i < flatPriorArg.getValue().size(); ++i) {
+		    arguments.flatPrior.push_back(flatPriorArg.getValue()[i]);
+		}		
 
 		arguments.convergenceTypeString = convergenceArg.getValue();
 

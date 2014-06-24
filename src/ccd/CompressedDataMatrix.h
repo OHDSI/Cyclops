@@ -35,7 +35,7 @@ class CompressedDataColumn {
 public:
     
 	CompressedDataColumn(int_vector* colIndices, real_vector* colData, FormatType colFormat,
-			std::string colName = "", DrugIdType nName = 0, bool sPtrs = false) :
+			std::string colName = "", IdType nName = 0, bool sPtrs = false) :
 		 columns(colIndices), data(colData), formatType(colFormat), stringName(colName), 
 		 numericalName(nName), sharedPtrs(sPtrs) {
 		// Do nothing
@@ -72,7 +72,7 @@ public:
 		return stringName;
 	}
 
-	const DrugIdType& getNumericalLabel() const {
+	const IdType& getNumericalLabel() const {
 		return numericalName;
 	}
 	
@@ -88,7 +88,7 @@ public:
 		stringName = label;
 	}
 	
-	void add_label(DrugIdType label) {
+	void add_label(IdType label) {
 		numericalName = label;
 	}	
 
@@ -164,7 +164,7 @@ private:
 	real_vector* data;
 	FormatType formatType;
 	mutable std::string stringName;
-	DrugIdType numericalName;
+	IdType numericalName;
 	bool sharedPtrs; // TODO Actually use shared pointers
 };
 
@@ -227,7 +227,7 @@ public:
 		return *(allColumns[column]);
 	}
 	
-	int getColumnIndexByName(DrugIdType name);
+	int getColumnIndexByName(IdType name);
 
 	// Make deep copy
 	template <typename IntVectorItr, typename RealVectorItr>

@@ -333,19 +333,19 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdAppendSqlData
-int ccdAppendSqlData(Environment x, const std::vector<long>& oStratumId, const std::vector<long>& oRowId, const std::vector<double>& oY, const std::vector<double>& oTime, const std::vector<long>& cRowId, const std::vector<long>& cCovariateId, const std::vector<double>& cCovariateValue);
+int ccdAppendSqlData(Environment x, const std::vector<int64_t>& oStratumId, const std::vector<int64_t>& oRowId, const std::vector<double>& oY, const std::vector<double>& oTime, const std::vector<int64_t>& cRowId, const std::vector<int64_t>& cCovariateId, const std::vector<double>& cCovariateValue);
 RcppExport SEXP CCD_ccdAppendSqlData(SEXP xSEXP, SEXP oStratumIdSEXP, SEXP oRowIdSEXP, SEXP oYSEXP, SEXP oTimeSEXP, SEXP cRowIdSEXP, SEXP cCovariateIdSEXP, SEXP cCovariateValueSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
-        Rcpp::traits::input_parameter< const std::vector<long>& >::type oStratumId(oStratumIdSEXP );
-        Rcpp::traits::input_parameter< const std::vector<long>& >::type oRowId(oRowIdSEXP );
+        Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type oStratumId(oStratumIdSEXP );
+        Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type oRowId(oRowIdSEXP );
         Rcpp::traits::input_parameter< const std::vector<double>& >::type oY(oYSEXP );
         Rcpp::traits::input_parameter< const std::vector<double>& >::type oTime(oTimeSEXP );
-        Rcpp::traits::input_parameter< const std::vector<long>& >::type cRowId(cRowIdSEXP );
-        Rcpp::traits::input_parameter< const std::vector<long>& >::type cCovariateId(cCovariateIdSEXP );
+        Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type cRowId(cRowIdSEXP );
+        Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type cCovariateId(cCovariateIdSEXP );
         Rcpp::traits::input_parameter< const std::vector<double>& >::type cCovariateValue(cCovariateValueSEXP );
         int __result = ccdAppendSqlData(x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue);
         PROTECT(__sexp_result = Rcpp::wrap(__result));

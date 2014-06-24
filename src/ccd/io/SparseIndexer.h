@@ -22,11 +22,11 @@ public:
 	virtual ~SparseIndexer() {}
 	
 
-	CompressedDataColumn& getColumn(const DrugIdType& covariate) {
+	CompressedDataColumn& getColumn(const IdType& covariate) {
 		return dataMatrix.getColumn(sparseMap[covariate]);
 	}
 	
-	void addColumn(const DrugIdType& covariate, FormatType type) {
+	void addColumn(const IdType& covariate, FormatType type) {
 		const int index = dataMatrix.getNumberOfColumns();
 		sparseMap.insert(std::make_pair(covariate, index));
 		
@@ -36,18 +36,18 @@ public:
 		dataMatrix.getColumn(index).add_label(covariate);
 	}
 	
-	bool hasColumn(DrugIdType covariate) const {
+	bool hasColumn(IdType covariate) const {
 		return sparseMap.count(covariate) != 0;
 	}	
 
-	int getIndex(DrugIdType covariate){
+	int getIndex(IdType covariate){
 		return sparseMap[covariate];
 	}
 		
 private:
 	CompressedDataMatrix& dataMatrix;
 	int nCovariates;
-	std::map<DrugIdType, int> sparseMap;	
+	std::map<IdType, int> sparseMap;	
 };
 
 } // namespace

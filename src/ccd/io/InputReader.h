@@ -56,7 +56,7 @@ public:
 	}
 
 protected:
-	bool listContains(const vector<DrugIdType>& list, DrugIdType value);
+	bool listContains(const vector<IdType>& list, IdType value);
 
 	void split( vector<string> & theStringVector,  /* Altered/returned value */
 	       const  string  & theString,

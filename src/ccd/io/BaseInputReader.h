@@ -151,7 +151,7 @@ protected:
 //		int count = 0;
 		while (ss >> entry) {
 			rowInfo.scratch.clear();
-			DrugIdType drug;
+			IdType drug;
 			real value;
 			if (indicatorOnly) {
 				drug = atoi(entry.c_str());
@@ -284,7 +284,7 @@ protected:
 	}
 
 	void parseAllIndicatorCovariatesEntry(stringstream& ss, RowInformation& rowInfo) {
-		DrugIdType drug;
+		IdType drug;
 		while (ss >> drug) {
 			if (drug == 0) { // No drug
 				// Do nothing

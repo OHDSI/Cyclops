@@ -53,7 +53,7 @@ XPtr<bsccs::RcppModelData> parseEnvironmentForRcppPtr(const Environment& x) {
 void ccdPrintRowIds(Environment x) {
 	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
 //	std::ostreamstring stream;
-// 	std::vector<DrugIdType>& rowsIds = data->get
+// 	std::vector<IdType>& rowsIds = data->get
 }
 
 // [[Rcpp::export(".isRcppPtrNull")]]
@@ -144,14 +144,16 @@ List ccdNewSqlData(const std::string& modelTypeName) {
 
 
 
+// NOTE:  IdType does not get exported into RcppExports, so hard-coded here
+
 // [[Rcpp::export(".appendSqlCcdData")]]
 int ccdAppendSqlData(Environment x,
-        const std::vector<long>& oStratumId,
-        const std::vector<long>& oRowId,
+        const std::vector<int64_t>& oStratumId,
+        const std::vector<int64_t>& oRowId,
         const std::vector<double>& oY,
         const std::vector<double>& oTime,
-        const std::vector<long>& cRowId,
-        const std::vector<long>& cCovariateId,
+        const std::vector<int64_t>& cRowId,
+        const std::vector<int64_t>& cCovariateId,
         const std::vector<double>& cCovariateValue) {
         // o -> outcome, c -> covariates
 
@@ -344,7 +346,7 @@ struct Identity {
     }
 };
 
-size_t RcppModelData::getColumnIndex(const DrugIdType covariate) {
+size_t RcppModelData::getColumnIndex(const IdType covariate) {
     int index = getColumnIndexByName(covariate);
     if (index == -1) {
         std::ostringstream stream;
@@ -354,19 +356,19 @@ size_t RcppModelData::getColumnIndex(const DrugIdType covariate) {
     return index;
 }
 
-double RcppModelData::sum(const DrugIdType covariate) {
+double RcppModelData::sum(const IdType covariate) {
     size_t index = getColumnIndex(covariate);   
 	return reduce(index, Identity());
 }
 
-void RcppModelData::sumByGroup(std::vector<double>& out, const DrugIdType covariate, const DrugIdType groupBy) {
+void RcppModelData::sumByGroup(std::vector<double>& out, const IdType covariate, const IdType groupBy) {
     size_t covariateIndex = getColumnIndex(covariate);
     size_t groupByIndex = getColumnIndex(groupBy);
     out.resize(2);
     reduceByGroup(out, covariateIndex, groupByIndex, Identity());
 }
 
-void RcppModelData::sumByGroup(std::vector<double>& out, const DrugIdType covariate) {
+void RcppModelData::sumByGroup(std::vector<double>& out, const IdType covariate) {
     size_t covariateIndex = getColumnIndex(covariate);
     out.resize(nPatients);
     reduceByGroup(out, covariateIndex, pid, Identity());

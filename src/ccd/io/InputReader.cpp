@@ -54,7 +54,7 @@ InputReader::InputReader(
 	// Do nothing
 }
 
-bool InputReader::listContains(const vector<DrugIdType>& list, DrugIdType value) {
+bool InputReader::listContains(const vector<IdType>& list, IdType value) {
 	return (find(list.begin(), list.end(), value)
 				!=  list.end());
 }
