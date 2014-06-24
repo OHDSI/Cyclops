@@ -90,7 +90,7 @@ fitCcdModel <- function(ccdData
 		covariates = as.numeric(covariates) 
 	 
 		if (any(is.na(covariates))) {
-			stop("Unable to match all excluded covariates: ", paste(saved, collapse = ", "))
+			stop("Unable to match all covariates: ", paste(saved, collapse = ", "))
 		}
 	}
 	covariates

@@ -240,12 +240,27 @@ readCcdData <- function(fileName, modelType) {
     result
 }
 
-reduce <- function(object, covariates) {
+reduce <- function(object, covariates, groupBy) {
 	if (!isInitialized(object)) {
 		stop("Object is no longer or improperly initialized.")
 	}
 	covariates <- .checkCovariates(object, covariates)
-	.ccdSum(object, covariates)
+	
+	if (missing(groupBy)) {
+		.ccdSum(object, covariates)
+	} else {
+		if (length(groupBy) != 1L) {
+			stop("Only single stratification is currently implemented")
+		}
+		if (groupBy == "stratum") {
+			as.data.frame(.ccdSumByStratum(object, covariates), 
+										row.names = c(1L:getNumberOfStrata(object)))			
+		} else {
+			groupBy <- .checkCovariates(object, groupBy)
+			as.data.frame(.ccdSumByGroup(object, covariates, groupBy), 
+										row.names = c(0L,1L))			
+		}				
+	}
 }
 
 

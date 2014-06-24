@@ -39,10 +39,33 @@ public:
 	
 	double sum(const DrugIdType covariate);
 	
+	void standardize(const DrugIdType covariate);
 	
+	void sumByGroup(std::vector<double>& out, const DrugIdType covariate, const DrugIdType groupBy);
+	
+	void sumByGroup(std::vector<double>& out, const DrugIdType covariate);	
+			
 protected:
 
     size_t getColumnIndex(const DrugIdType covariate);
+    
+    template <typename F>
+    void transform(const size_t index, F func) {	    
+		switch (getFormatType(index)) {
+			case INDICATOR :
+				transformImpl<IndicatorIterator>(index, func);
+				break;				
+			case SPARSE :			
+				transformImpl<SparseIterator>(index, func);				
+				break;
+			case DENSE :
+				transformImpl<DenseIterator>(index, func);				
+				break;
+			case INTERCEPT :
+				transformImpl<InterceptIterator>(index, func);
+				break;				
+		} 	       
+    }
     
 	template <typename F>
 	double reduce(const size_t index, F func) {    		    
@@ -65,6 +88,76 @@ protected:
 	    return sum;	
 	}
 	
+	template <typename T, typename F>
+	void reduceByGroup(T& out, const size_t reductionIndex, const size_t groupByIndex, F func) {    		    
+	    if (getFormatType(groupByIndex) != INDICATOR) {
+	        std::ostringstream stream;
+	        stream << "Grouping by non-indicators is not yet supported.";
+	        error->throwError(stream);
+	    }	    
+		switch (getFormatType(reductionIndex)) {
+			case INDICATOR :
+                reduceByGroupImpl<IndicatorIterator>(out, reductionIndex, groupByIndex, func);				
+				break;				
+			case SPARSE :			
+				reduceByGroupImpl<SparseIterator>(out, reductionIndex, groupByIndex, func);				
+				break;
+			case DENSE :
+				reduceByGroupImpl<DenseIterator>(out, reductionIndex, groupByIndex, func);				
+				break;
+			case INTERCEPT :
+			    reduceByGroupImpl<InterceptIterator>(out, reductionIndex, groupByIndex, func);							
+				break;				
+		}	    
+	}
+
+	template <typename T, typename F>
+	void reduceByGroup(T& out, const size_t reductionIndex, const std::vector<int>& groups, F func) {    		       
+		switch (getFormatType(reductionIndex)) {
+			case INDICATOR :
+				reduceByGroupImpl<IndicatorIterator>(out, reductionIndex, groups, func);
+				break;				
+			case SPARSE :			
+				reduceByGroupImpl<SparseIterator>(out, reductionIndex, groups, func);				
+				break;
+			case DENSE :
+				reduceByGroupImpl<DenseIterator>(out, reductionIndex, groups, func);				
+				break;
+			case INTERCEPT :
+				reduceByGroupImpl<InterceptIterator>(out, reductionIndex, groups, func);
+				break;
+				
+		}	    
+	}
+
+	template <typename IteratorType, typename T, typename F>
+	void reduceByGroupImpl(T& out, const size_t reductionIndex, const size_t groupByIndex, F func) {	    
+	    IteratorType reduceIt(*this, reductionIndex);
+	    IndicatorIterator groupByIt(*this, groupByIndex);
+	    
+	    GroupByIterator<IteratorType> it(reduceIt, groupByIt);	    
+	    for (; it; ++it) {
+	        out[it.group()] += func(it.value()); // TODO compute reduction in registers
+	    }	  
+	}	
+	
+	template <typename IteratorType, typename T, typename F>	
+	void reduceByGroupImpl(T& out, const size_t reductionIndex, const std::vector<int>& groups, F func) {	    
+	    IteratorType it(*this, reductionIndex);	    
+	    	      
+	    for (; it; ++it) {
+	        out[groups[it.index()]] += func(it.value()); // TODO compute reduction in registers
+	    }	  
+	}	
+	
+	template <typename IteratorType, typename F>
+	void transformImpl(const size_t index, F func) {	 		
+	    IteratorType it(*this, index);
+	    for (; it; ++it) {
+	        it.ref() = func(it.value()); // TODO No yet implemented
+	    }		    
+	}		
+	
 	template <typename IteratorType, typename F>
 	double reduceImpl(const size_t index, F func) {
 	    double sum = 0.0;
@@ -75,7 +168,6 @@ protected:
 	    return sum;
 	}
 	
-
 private:
 	// Disable copy-constructors and copy-assignment
 	RcppModelData(const ModelData&);

@@ -65,6 +65,14 @@ getNumberOfRows <- function(x) {
     .Call('CCD_ccdGetNumberOfRows', PACKAGE = 'CCD', x)
 }
 
+.ccdSumByGroup <- function(x, covariateLabel, groupByLabel) {
+    .Call('CCD_ccdSumByGroup', PACKAGE = 'CCD', x, covariateLabel, groupByLabel)
+}
+
+.ccdSumByStratum <- function(x, covariateLabel) {
+    .Call('CCD_ccdSumByStratum', PACKAGE = 'CCD', x, covariateLabel)
+}
+
 .ccdSum <- function(x, covariateLabel) {
     .Call('CCD_ccdSum', PACKAGE = 'CCD', x, covariateLabel)
 }

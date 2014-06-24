@@ -229,7 +229,6 @@ public:
 	
 	int getColumnIndexByName(DrugIdType name);
 
-
 	// Make deep copy
 	template <typename IntVectorItr, typename RealVectorItr>
 	void push_back(
