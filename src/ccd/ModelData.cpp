@@ -32,13 +32,15 @@ ModelData::ModelData(
 }
 
 
+//#define DEBUG_64BIT
+
 size_t ModelData::append(
-        const std::vector<long>& oStratumId,
-        const std::vector<long>& oRowId,
+        const std::vector<IdType>& oStratumId,
+        const std::vector<IdType>& oRowId,
         const std::vector<double>& oY,
         const std::vector<double>& oTime,
-        const std::vector<long>& cRowId,
-        const std::vector<long>& cCovariateId,
+        const std::vector<IdType>& cRowId,
+        const std::vector<IdType>& cCovariateId,
         const std::vector<double>& cCovariateValue) {
         
     // Check covariate dimensions
@@ -59,14 +61,17 @@ size_t ModelData::append(
     const size_t nOutcomes = oStratumId.size();
     const size_t nCovariates = cCovariateId.size();
     
-    size_t cOffset = 0;   
-    
+//#define DEBUG_64BIT    
+#ifdef DEBUG_64BIT    
     std::cout << "sizeof(long) = " << sizeof(long) << std::endl;
-    std::cout << "sizeof(uint64_t) = " << sizeof(uint64_t) << std::endl;
+    std::cout << "sizeof(int64_t) = " << sizeof(uint64_t) << std::endl;
     std::cout << "sizeof(long long) = " << sizeof(long long) << std::endl;
+#endif
+
+    size_t cOffset = 0;  
 
     for (size_t i = 0; i < nOutcomes; ++i) {
-        long cInStratum = oStratumId[i];
+        IdType cInStratum = oStratumId[i];
         if (nRows == 0) {
         	lastStratumMap.first = cInStratum;
         	lastStratumMap.second = 0;
@@ -80,19 +85,21 @@ size_t ModelData::append(
         }
         pid.push_back(lastStratumMap.second);        
         y.push_back(oY[i]);    
-                
+        
+        IdType currentRowId = oRowId[i];
         // TODO Check timing on adding label as string
         std::stringstream ss;
         ss << currentRowId;
         labels.push_back(ss.str());
-        
-        std::cout << currentRowId << std::endl;
-        
+
+#ifdef DEBUG_64BIT
+        std::cout << currentRowId << std::endl;        
+#endif        
         while (cOffset < nCovariates && cRowId[cOffset] == currentRowId) {
             // Process covariates
 //             std::cout << "C: " << cRowId[cOffset] << ":" << cCovariateId[cOffset] << ":" << cCovariateValue[cOffset] << std::endl;
                     
-            DrugIdType covariate = cCovariateId[cOffset];
+            IdType covariate = cCovariateId[cOffset];
             real value = cCovariateValue[cOffset];
             
 			if (!sparseIndexer.hasColumn(covariate)) {
@@ -125,8 +132,7 @@ size_t ModelData::append(
         ++nRows;
     }        
     return nOutcomes;   
-}        
-
+}
 
 int ModelData::getNumberOfPatients() {
     if (nPatients == 0) {

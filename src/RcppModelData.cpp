@@ -49,6 +49,13 @@ XPtr<bsccs::RcppModelData> parseEnvironmentForRcppPtr(const Environment& x) {
 	return ptr;	
 }
 
+// [[Rcpp::export("printCcdRowIds")]]
+void ccdPrintRowIds(Environment x) {
+	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
+//	std::ostreamstring stream;
+// 	std::vector<IdType>& rowsIds = data->get
+}
+
 // [[Rcpp::export(".isRcppPtrNull")]]
 bool isRcppPtrNull(SEXP x) {
 	if (TYPEOF(x) != EXTPTRSXP) {
@@ -76,6 +83,36 @@ int ccdGetNumberOfRows(Environment x) {
 	return static_cast<int>(data->getNumberOfRows());
 }
 
+// [[Rcpp::export(".ccdSumByGroup")]]
+List ccdSumByGroup(Environment x, const std::vector<long>& covariateLabel, const long groupByLabel) {
+	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
+    List list(covariateLabel.size());
+    IntegerVector names(covariateLabel.size());
+    for (size_t i = 0; i < covariateLabel.size(); ++i) {
+        std::vector<double> result;
+        data->sumByGroup(result, covariateLabel[i], groupByLabel);
+        list[i] = result;
+        names[i] = covariateLabel[i];
+    }    
+	list.attr("names") = names;
+	return list;
+}
+
+// [[Rcpp::export(".ccdSumByStratum")]]
+List ccdSumByStratum(Environment x, const std::vector<long>& covariateLabel) {
+	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
+    List list(covariateLabel.size());
+    IntegerVector names(covariateLabel.size());
+    for (size_t i = 0; i < covariateLabel.size(); ++i) {
+        std::vector<double> result;
+        data->sumByGroup(result, covariateLabel[i]);
+        list[i] = result;
+        names[i] = covariateLabel[i];
+    }
+	list.attr("names") = names;
+	return list;
+}
+
 // [[Rcpp::export(".ccdSum")]]
 std::vector<double> ccdSum(Environment x, const std::vector<long>& covariateLabel) {
 	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
@@ -86,6 +123,7 @@ std::vector<double> ccdSum(Environment x, const std::vector<long>& covariateLabe
 	}
 	return result;
 }
+
 // [[Rcpp::export(".ccdNewSqlData")]]
 List ccdNewSqlData(const std::string& modelTypeName) {
         // o -> outcome, c -> covariates
@@ -106,14 +144,16 @@ List ccdNewSqlData(const std::string& modelTypeName) {
 
 
 
+// NOTE:  IdType does not get exported into RcppExports, so hard-coded here
+
 // [[Rcpp::export(".appendSqlCcdData")]]
 int ccdAppendSqlData(Environment x,
-        const std::vector<long>& oStratumId,
-        const std::vector<long>& oRowId,
+        const std::vector<int64_t>& oStratumId,
+        const std::vector<int64_t>& oRowId,
         const std::vector<double>& oY,
         const std::vector<double>& oTime,
-        const std::vector<long>& cRowId,
-        const std::vector<long>& cCovariateId,
+        const std::vector<int64_t>& cRowId,
+        const std::vector<int64_t>& cCovariateId,
         const std::vector<double>& cCovariateValue) {
         // o -> outcome, c -> covariates
 
@@ -239,7 +279,6 @@ RcppModelData::RcppModelData(
 				dxv.begin() + i * y.size(), dxv.begin() + (i + 1) * y.size(),
 				DENSE);
 		getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns());
-//		std::cout << "Added dense covariate" << std::endl;
 	}
 
 	// Convert sparse
@@ -254,7 +293,6 @@ RcppModelData::RcppModelData(
 				sxv.begin() + begin, sxv.begin() + end,
 				SPARSE);
         getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns());				
-//		std::cout << "Added sparse covariate " << (end - begin) << std::endl;
 	}
 
 	// Convert indicator
@@ -269,10 +307,7 @@ RcppModelData::RcppModelData(
 				static_cast<NumericVector::iterator>(NULL), static_cast<NumericVector::iterator>(NULL),
 				INDICATOR);
         getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns());				
-//		std::cout << "Added indicator covariate " << (end - begin) << std::endl;
 	}
-
-//	std::cout << "Ncol = " << getNumberOfColumns() << std::endl;
 
 	this->nRows = y.size();
 	
@@ -311,7 +346,7 @@ struct Identity {
     }
 };
 
-size_t RcppModelData::getColumnIndex(const DrugIdType covariate) {
+size_t RcppModelData::getColumnIndex(const IdType covariate) {
     int index = getColumnIndexByName(covariate);
     if (index == -1) {
         std::ostringstream stream;
@@ -321,11 +356,24 @@ size_t RcppModelData::getColumnIndex(const DrugIdType covariate) {
     return index;
 }
 
-double RcppModelData::sum(const DrugIdType covariate) {
+double RcppModelData::sum(const IdType covariate) {
     size_t index = getColumnIndex(covariate);   
-//    return 0.0;
 	return reduce(index, Identity());
 }
+
+void RcppModelData::sumByGroup(std::vector<double>& out, const IdType covariate, const IdType groupBy) {
+    size_t covariateIndex = getColumnIndex(covariate);
+    size_t groupByIndex = getColumnIndex(groupBy);
+    out.resize(2);
+    reduceByGroup(out, covariateIndex, groupByIndex, Identity());
+}
+
+void RcppModelData::sumByGroup(std::vector<double>& out, const IdType covariate) {
+    size_t covariateIndex = getColumnIndex(covariate);
+    out.resize(nPatients);
+    reduceByGroup(out, covariateIndex, pid, Identity());
+}
+
 
 RcppModelData::~RcppModelData() {
 //	std::cout << "~RcppModelData() called." << std::endl;

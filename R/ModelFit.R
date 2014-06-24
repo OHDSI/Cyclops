@@ -90,7 +90,7 @@ fitCcdModel <- function(ccdData
 		covariates = as.numeric(covariates) 
 	 
 		if (any(is.na(covariates))) {
-			stop("Unable to match all excluded covariates: ", paste(saved, collapse = ", "))
+			stop("Unable to match all covariates: ", paste(saved, collapse = ", "))
 		}
 	}
 	covariates
@@ -123,15 +123,15 @@ fitCcdModel <- function(ccdData
 	}
 }
 
-coef.ccdFit <- function(x, ...) {
-	result <- x$estimation$estimate
-	if (is.null(x$coefficientNames)) {
-		names(result) <- x$estimation$column_label
+coef.ccdFit <- function(object, ...) {
+	result <- object$estimation$estimate
+	if (is.null(object$coefficientNames)) {
+		names(result) <- object$estimation$column_label
 		if ("0" %in% names(result)) {
 			names(result)[which(names(result) == "0")] <- "(Intercept)"
 		}
 	} else {
-		names(result) <- x$coefficientNames
+		names(result) <- object$coefficientNames
 	}
 	result
 }
@@ -240,10 +240,9 @@ prior <- function(priorType, variance = 1, exclude = c(), useCrossValidation = F
     cat("\014")  
 }
 
-predict.ccdFit <- function(object) {
+predict.ccdFit <- function(object, ...) {
 	.checkInterface(object, testOnly = TRUE)
 	pred <- .ccdPredictModel(object$ccdInterfacePtr)
-#	pred <- pred$prediction
  	values <- pred$prediction
  	if (is.null(names(values))) {
  		names(values) <- object$rowNames
@@ -272,16 +271,16 @@ predict.ccdFit <- function(object) {
 #' @return
 #' A \code{data.frame} containing profile 95% confidence intervals
 #' 
-confint.ccdFit <- function(fitted, covariates, control, 
-													 overrideNoRegularization = FALSE) {
-	.checkInterface(fitted, testOnly = TRUE)
-	.setControl(fitted$ccdInterfacePtr, control)
-	covariates <- .checkCovariates(fitted$ccdData, covariates)
-	
-	prof <- .ccdProfileModel(fitted$ccdInterfacePtr, covariates,
-													 overrideNoRegularization)
-	prof <- as.matrix(as.data.frame(prof))
-	rownames(prof) <- fitted$coefficientNames[covariates]
-	colnames(prof)[2:3] <- c("2.5 %", "97.5 %")
-	prof
+confint.ccdFit <- function(object, parm, level, control, 
+                           overrideNoRegularization = FALSE, ...) {
+    .checkInterface(object, testOnly = TRUE)
+    .setControl(object$ccdInterfacePtr, control)
+    parm <- .checkCovariates(object$ccdData, parm)
+    
+    prof <- .ccdProfileModel(object$ccdInterfacePtr, parm,
+                             overrideNoRegularization)
+    prof <- as.matrix(as.data.frame(prof))
+    rownames(prof) <- object$coefficientNames[parm]
+    colnames(prof)[2:3] <- c("2.5 %", "97.5 %")
+    prof
 }

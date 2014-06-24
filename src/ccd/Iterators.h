@@ -286,6 +286,60 @@ class GenericIterator {
     Index mEnd;
 };
 
+// Iterator for grouping by another IndicatorIterator
+template <class IteratorType>
+class GroupByIterator {
+public:
+    
+    typedef real Scalar;
+    typedef int Index;
+    
+    inline GroupByIterator(IteratorType& itMain, IndicatorIterator& _groupBy)
+        : iterator(itMain), groupBy(_groupBy) {
+        // Find start   
+        advance();
+    }
+    
+    inline GroupByIterator& operator++() {        
+        ++iterator;
+        advance();        
+        return *this;
+    }
+    
+    inline Scalar value() const {
+        return iterator.value();
+    }
+    
+    inline Index index() const {
+        return iterator.index();
+    }
+    
+    inline Index group() const {        
+        return static_cast<Index>(groupBy && iterator.index() == groupBy.index());
+    }
+    
+    inline operator bool() const {
+        return iterator;    
+    }
+                
+private:
+	inline void advance() {
+	    while(groupBy && groupBy.index() < iterator.index()) {
+	        ++groupBy;
+	    }
+		// while (valid() && iteratorOne.index() != iteratorTwo.index()) {
+//     		if (iteratorOne.index() < iteratorTwo.index()) {
+//     			++iteratorOne;
+//     		} else {
+//     			++iteratorTwo;
+//     		}
+// 		}
+	}
+        
+    IteratorType& iterator;
+    IndicatorIterator& groupBy;
+};
+
 // Iterator for the component-wise product of two Iterator
 template <class IteratorOneType, class IteratorTwoType>
 class PairProductIterator {

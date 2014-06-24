@@ -327,7 +327,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *model
 			}
 
 			ProfileInformation profile(lowerPt, upperPt, upEval.getEvaluations());
-			profileMap.insert(std::pair<DrugIdType, ProfileInformation>(modelData->getColumn(index).getNumericalLabel(), profile));
+			profileMap.insert(std::pair<IdType, ProfileInformation>(modelData->getColumn(index).getNumericalLabel(), profile));
 			
 	//		std::cerr << "Placing " << profileCI[index] << " with " << profile.lower95Bound << std::endl;
 		

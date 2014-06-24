@@ -32,11 +32,7 @@
 
 namespace bsccs {
 
-#ifdef USE_DRUG_STRING
-	typedef string DrugIdType; // TODO Strings do not get sorted in numerical order
-#else
-	typedef int DrugIdType;
-#endif
+typedef int64_t IdType;
 
 // Output types
 
@@ -56,7 +52,7 @@ struct ProfileInformation {
 			upper95Bound(upper), evaluations(evals) { } 
 };
 
-typedef std::map<DrugIdType, ProfileInformation> ProfileInformationMap;
+typedef std::map<IdType, ProfileInformation> ProfileInformationMap;
 typedef std::vector<ProfileInformation> ProfileInformationList;
 
 
@@ -97,7 +93,7 @@ enum UpdateReturnFlags {
 	MISSING_COVARIATES
 };
 
-typedef std::vector<DrugIdType> ProfileVector;
+typedef std::vector<IdType> ProfileVector;
 
 namespace Models {
 

@@ -49,6 +49,10 @@ ccdGetLogLikelihood <- function(inRcppCcdInterface) {
     .Call('CCD_ccdInitializeModel', PACKAGE = 'CCD', inModelData, modelType, computeMLE)
 }
 
+printCcdRowIds <- function(x) {
+    invisible(.Call('CCD_ccdPrintRowIds', PACKAGE = 'CCD', x))
+}
+
 .isRcppPtrNull <- function(x) {
     .Call('CCD_isRcppPtrNull', PACKAGE = 'CCD', x)
 }
@@ -63,6 +67,14 @@ getNumberOfCovariates <- function(x) {
 
 getNumberOfRows <- function(x) {
     .Call('CCD_ccdGetNumberOfRows', PACKAGE = 'CCD', x)
+}
+
+.ccdSumByGroup <- function(x, covariateLabel, groupByLabel) {
+    .Call('CCD_ccdSumByGroup', PACKAGE = 'CCD', x, covariateLabel, groupByLabel)
+}
+
+.ccdSumByStratum <- function(x, covariateLabel) {
+    .Call('CCD_ccdSumByStratum', PACKAGE = 'CCD', x, covariateLabel)
 }
 
 .ccdSum <- function(x, covariateLabel) {

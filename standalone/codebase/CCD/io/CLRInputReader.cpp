@@ -96,7 +96,7 @@ void CLRInputReader::readFile(const char* fileName) {
 	string currentPid = MISSING_STRING;
 	int numEvents = 0;
 	string outcomeId = MISSING_STRING;
-	DrugIdType noDrug = NO_DRUG;
+	IdType noDrug = NO_DRUG;
 
 	vector<string> strVector;
 
@@ -171,7 +171,7 @@ void CLRInputReader::readFile(const char* fileName) {
 			indexer.getColumn(DAYS).add_data(currentEntry, thisDays);
 
 			// Parse variable-length entries
-			DrugIdType drug;
+			IdType drug;
 
 			vector<string> drugs;
 			if (strVector[drugColumn] != "") {

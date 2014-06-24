@@ -85,7 +85,7 @@ void SCCSInputReader::readFile(const char* fileName) {
 	string currentPid = MISSING_STRING;
 	int numEvents = 0;
 	string outcomeId = MISSING_STRING;
-	DrugIdType noDrug = NO_DRUG;
+	IdType noDrug = NO_DRUG;
 
 	int currentEntry = 0;
 	while (getline(in, line) && (currentEntry < MAX_ENTRIES)) {	
@@ -130,7 +130,7 @@ void SCCSInputReader::readFile(const char* fileName) {
 			modelData->offs.push_back(thisOffs);
 
 			// Parse remaining (variable-length) entries
-			DrugIdType drug;		
+			IdType drug;		
 			while (ss >> drug) {
 				if (drug == noDrug) { // No drug
 					// Do nothing
