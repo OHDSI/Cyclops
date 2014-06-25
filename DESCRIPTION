@@ -11,8 +11,10 @@ Depends:
     Rcpp (>= 0.10.6),
     BH (>= 1.51.0),
     RcppEigen (>= 0.3.2),
-    Matrix,
-    testthat,
+    Matrix
 LinkingTo: Rcpp,
     BH,
     RcppEigen
+Suggests:
+    testthat
+    
