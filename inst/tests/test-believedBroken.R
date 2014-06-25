@@ -4,6 +4,10 @@ library("testthat")
 # These tests are believed to be broken; they need confirmation and fixes
 #
 
+
+# test_that("Check intercept flag when specifying a formula", {
+# })
+
 # test_that("Check profile conditional posterior vs likelihood", {
 # })
 
@@ -31,7 +35,9 @@ library("testthat")
 # test_that("Make covariates dense in SQL input", {
 # })
 
+# test_that("Add intercept", {
+# })
+
 # test_that("Specify CI level", {
 ###function(object, parm, level, ...)
 # })
-  

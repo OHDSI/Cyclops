@@ -32,8 +32,9 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 	cl <- match.call() # save to return
 	mf.all <- match.call(expand.dots = FALSE)
 			
-	if (!isValidModelType(modelType)) stop("Invalid model type.")		
-			
+	if (!isValidModelType(modelType)) stop("Invalid model type.")
+    
+	hasIntercept <- FALSE		
 	colnames <- NULL
 	
 	if (!missing(formula)) { # Use formula to construct CCD matrices
@@ -46,11 +47,15 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 		mf.d$drop.unused.levels <- TRUE
 		mf.d[[1L]] <- quote(stats::model.frame)			
 		mf.d <- eval(mf.d, parent.frame())	
-		dx <- Matrix(model.matrix(mf.d, data), sparse=FALSE)	# TODO sparse / indicator matrices
+		dx <- Matrix(model.matrix(mf.d, data), sparse=FALSE)
 		y <- model.response(mf.d) # TODO Update for censored outcomes
 		pid <- c(1:length(y)) # TODO Update for stratified models		       
     
 		colnames <- c(colnames, dx@Dimnames[[2]])
+               
+		if (attr(attr(mf.d, "terms"), "intercept") == 1) { # Has intercept
+            hasIntercept <- TRUE
+		}
 		
 		if (!missing(sparseFormula)) {					
 			if (missing(data)) {
@@ -144,16 +149,19 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 	result$ccdInterfacePtr <- NULL
 	result$call <- cl
 	result$coefficientNames <- colnames
-	result$rowNames <- dx@Dimnames[[1]]
+	result$rowNames <- dx@Dimnames[[1]]        
 	result$debug <- list()
 	result$debug$dx <- dx
 	result$debug$sx <- sx
 	result$debug$ix <- ix
 	result$debug$y <- y
-	result$debug$pid <- pid
-	
-	
+	result$debug$pid <- pid		
 	class(result) <- "ccdData"
+    
+	if (hasIntercept == TRUE) {
+	    .ccdSetHasIntercept(result, hasIntercept = TRUE)
+	}
+	    
 	result
 }
 
@@ -307,15 +315,32 @@ appendSqlCcdData <- function(object,
 #' 														For efficiency, we suggest making atleast the intercept dense.
 #'
 finalizeSqlCcdData <- function(object,
-															 addIntercept = FALSE,
-															 useOffsetCovariate = NULL,
-															 offsetAlreadyOnLogScale = FALSE,
-															 sortCovariates = TRUE,
-															 makeCovariatesDense = NULL) {
-	if (!isInitialized(object)) {
-		stop("Object is no longer or improperly initialized.")		
-	} 	
-	# Not yet implemented
+                               addIntercept = FALSE,
+                               useOffsetCovariate = NULL,
+                               offsetAlreadyOnLogScale = FALSE,
+                               sortCovariates = FALSE,
+                               makeCovariatesDense = NULL) {
+    if (!isInitialized(object)) {
+        stop("Object is no longer or improperly initialized.")		
+    }
+    
+    useOffsetCovariate <- .checkCovariates(object, useOffsetCovariate)
+    if (length(useOffsetCovariate) > 1) {
+        stop("Can only supply one offset")
+    }
+    
+    makeCovariatesDense <- .checkCovariates(object, makeCovariatesDense)
+        
+    .ccdFinalizeData(object, addIntercept, useOffsetCovariate,
+                        offsetAlreadyOnLogScale, sortCovariates,
+                        makeCovariatesDense)
+    
+    if (addIntercept == TRUE) {
+        if (!is.null(object$coefficientNames)) {
+            object$coefficientNames = c("(Intercept)", 
+                                        object$coefficientNames)
+        }
+    }
 }
 
 createSqlCcdData <- function(modelType, control) {

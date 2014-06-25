@@ -53,6 +53,10 @@ printCcdRowIds <- function(x) {
     invisible(.Call('CCD_ccdPrintRowIds', PACKAGE = 'CCD', x))
 }
 
+testCcdCode <- function(position) {
+    invisible(.Call('CCD_testCcdCode', PACKAGE = 'CCD', position))
+}
+
 .isRcppPtrNull <- function(x) {
     .Call('CCD_isRcppPtrNull', PACKAGE = 'CCD', x)
 }
@@ -81,8 +85,20 @@ getNumberOfRows <- function(x) {
     .Call('CCD_ccdSum', PACKAGE = 'CCD', x, covariateLabel)
 }
 
+ccdTestRcppStop <- function() {
+    invisible(.Call('CCD_ccdTestRcppStop', PACKAGE = 'CCD'))
+}
+
 .ccdNewSqlData <- function(modelTypeName, noiseLevel) {
     .Call('CCD_ccdNewSqlData', PACKAGE = 'CCD', modelTypeName, noiseLevel)
+}
+
+.ccdSetHasIntercept <- function(x, hasIntercept) {
+    invisible(.Call('CCD_ccdSetHasIntercept', PACKAGE = 'CCD', x, hasIntercept))
+}
+
+.ccdFinalizeData <- function(x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag = FALSE) {
+    invisible(.Call('CCD_ccdFinalizeData', PACKAGE = 'CCD', x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag))
 }
 
 .appendSqlCcdData <- function(x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue) {

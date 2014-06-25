@@ -26,7 +26,7 @@ using std::vector;
 ModelData::ModelData(
     loggers::ProgressLoggerPtr _log,
     loggers::ErrorHandlerPtr _error
-    ) : nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false), 
+    ) : nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false), isFinalized(false),
         lastStratumMap(0,0), sparseIndexer(*this), log(_log), error(_error) {
 	// Do nothing
 }
@@ -95,17 +95,13 @@ size_t ModelData::append(
 #ifdef DEBUG_64BIT
         std::cout << currentRowId << std::endl;        
 #endif        
-        while (cOffset < nCovariates && cRowId[cOffset] == currentRowId) {
-            // Process covariates
-//             std::cout << "C: " << cRowId[cOffset] << ":" << cCovariateId[cOffset] << ":" << cCovariateValue[cOffset] << std::endl;
-                    
+        while (cOffset < nCovariates && cRowId[cOffset] == currentRowId) {          
             IdType covariate = cCovariateId[cOffset];
             real value = cCovariateValue[cOffset];
             
 			if (!sparseIndexer.hasColumn(covariate)) {
 				// Add new column
-				sparseIndexer.addColumn(covariate, INDICATOR);		
-// 				std::cout << "Adding column " << covariate << std::endl;		
+				sparseIndexer.addColumn(covariate, INDICATOR);			
 			}
 
 			CompressedDataColumn& column = sparseIndexer.getColumn(covariate);

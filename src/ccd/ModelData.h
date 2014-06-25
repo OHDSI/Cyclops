@@ -60,7 +60,7 @@ public:
             loggers::ProgressLoggerPtr _log,
             loggers::ErrorHandlerPtr _error			
 			) :
-		nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false)
+		nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false), isFinalized(false)
 		, pid(_pid.begin(), _pid.end()) // copy
 		, y(_y.begin(), _y.end()) // copy
 		, z(_z.begin(), _z.end()) // copy
@@ -140,6 +140,14 @@ public:
 	bool getHasRowLabels() const {
 		return (labels.size() == getNumberOfRows());
 	}
+	
+	bool getIsFinalized() const {
+	    return isFinalized;
+	}
+	
+	void setIsFinalized(bool b) {
+	    isFinalized = b;
+	}
 
 	void sortDataColumns(std::vector<int> sortedInds);
 	
@@ -177,6 +185,7 @@ protected:
 	
 	bool hasOffsetCovariate;
 	bool hasInterceptCovariate;
+	bool isFinalized;
 		
 	std::vector<int> pid;
 	std::vector<real> y; // TODO How to load these directly from Rcpp::NumericVector

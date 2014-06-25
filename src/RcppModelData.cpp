@@ -56,6 +56,22 @@ void ccdPrintRowIds(Environment x) {
 // 	std::vector<IdType>& rowsIds = data->get
 }
 
+// [[Rcpp::export("testCcdCode")]]
+void testCcdCode(int position) {
+    std::vector<int> v{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}; 
+    
+    if (position > 0 && position < static_cast<int>(v.size()))  {
+        auto reversePosition = v.size() - position - 1;
+        std::rotate(
+            v.rbegin() + reversePosition, 
+            v.rbegin() + reversePosition + 1, // rotate one element
+            v.rend());  
+        std::cout << "simple rotate right : ";
+        for (int n: v) std::cout << n << ' ';
+        std::cout << '\n';    
+    }
+}
+
 // [[Rcpp::export(".isRcppPtrNull")]]
 bool isRcppPtrNull(SEXP x) {
 	if (TYPEOF(x) != EXTPTRSXP) {
@@ -124,6 +140,11 @@ std::vector<double> ccdSum(Environment x, const std::vector<long>& covariateLabe
 	return result;
 }
 
+// [[Rcpp::export("ccdTestRcppStop")]]
+void ccdTestRcppStop() {
+    stop("Stop is now working");
+}
+
 // [[Rcpp::export(".ccdNewSqlData")]]
 List ccdNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel) {
 	using namespace bsccs;
@@ -143,13 +164,76 @@ List ccdNewSqlData(const std::string& modelTypeName, const std::string& noiseLev
     return list;
 }
 
+// [[Rcpp::export(".ccdSetHasIntercept")]]
+void ccdSetHasIntercept(Environment x, bool hasIntercept) {
+    using namespace bsccs;
+    XPtr<ModelData> data = parseEnvironmentForPtr(x);
+    data->setHasInterceptCovariate(hasIntercept);
+}
 
+// [[Rcpp::export(".ccdFinalizeData")]]
+void ccdFinalizeData(
+        Environment x,
+        bool addIntercept, 
+        SEXP sexpOffsetCovariate,
+        bool offsetAlreadyOnLogScale, 
+        bool sortCovariates,
+        SEXP sexpCovariatesDense,
+        bool magicFlag = false) {
+    using namespace bsccs;
+    XPtr<ModelData> data = parseEnvironmentForPtr(x);
+    
+    if (data->getIsFinalized()) {
+        ::Rf_error("OHDSI data object is already finalized");
+    }
+    
+    if (addIntercept) {
+        if (data->getHasInterceptCovariate()) {
+            ::Rf_error("OHDSI data object already has an intercept");
+        }
+        // TODO add intercept as INTERCEPT_TYPE if magicFlag ==  true
+        data->insert(0, DENSE); // add to front, TODO fix if offset
+        data->setHasInterceptCovariate(true);
+       // CompressedDataColumn& intercept = data->getColumn(0);
+        const size_t numRows = data->getNumberOfRows();
+        for (size_t i = 0; i < numRows; ++i) {
+            data->getColumn(0).add_data(i, static_cast<real>(1.0));
+        }
+    }
+    
+    if (!Rf_isNull(sexpOffsetCovariate)) {
+        // TODO handle offset
+        IdType covariate = as<IdType>(sexpOffsetCovariate);
+        int index = data->getColumnIndexByName(covariate);         		
+ 		if (index == -1) {
+            std::ostringstream stream;
+ 			stream << "Variable " << covariate << " not found.";
+            ::Rf_error(stream.str().c_str());
+ 			//error->throwError(stream); 
+        }
+        data->moveToFront(index);
+        data->getColumn(0).add_label(-1); // TODO Generic label for offset?
+        data->setHasOffsetCovariate(true);   
+    } 
+    
+    if (data->getHasOffsetCovariate() && !offsetAlreadyOnLogScale) {
+        ::Rf_error("Transforming the offset is not yet implemented");
+    }
+    
+    if (!Rf_isNull(sexpCovariatesDense)) {
+        // TODO handle dense conversion
+        ProfileVector covariates = as<ProfileVector>(sexpCovariatesDense);       
+       ::Rf_error("Upcasting to dense is not yet implemented");        
+    }
+                        
+    data->setIsFinalized(true);
+}                        
 
 // NOTE:  IdType does not get exported into RcppExports, so hard-coded here
 
 // [[Rcpp::export(".appendSqlCcdData")]]
 int ccdAppendSqlData(Environment x,
-        const std::vector<int64_t>& oStratumId,
+        const std::vector<int64_t>& oStratumId, // TODO Could use SEXP signature and cast in function
         const std::vector<int64_t>& oRowId,
         const std::vector<double>& oY,
         const std::vector<double>& oTime,
@@ -159,7 +243,7 @@ int ccdAppendSqlData(Environment x,
         // o -> outcome, c -> covariates
 
     using namespace bsccs;
-    XPtr<ModelData> data = parseEnvironmentForPtr(x); // TODO This can cause a slice error when sent a ModelData
+    XPtr<ModelData> data = parseEnvironmentForPtr(x);
     size_t count = data->append(oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue);
     return static_cast<int>(count);
 }

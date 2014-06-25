@@ -208,6 +208,18 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// testCcdCode
+void testCcdCode(int position);
+RcppExport SEXP CCD_testCcdCode(SEXP positionSEXP) {
+BEGIN_RCPP
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< int >::type position(positionSEXP );
+        testCcdCode(position);
+    }
+    return R_NilValue;
+END_RCPP
+}
 // isRcppPtrNull
 bool isRcppPtrNull(SEXP x);
 RcppExport SEXP CCD_isRcppPtrNull(SEXP xSEXP) {
@@ -317,6 +329,17 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
+// ccdTestRcppStop
+void ccdTestRcppStop();
+RcppExport SEXP CCD_ccdTestRcppStop() {
+BEGIN_RCPP
+    {
+        Rcpp::RNGScope __rngScope;
+        ccdTestRcppStop();
+    }
+    return R_NilValue;
+END_RCPP
+}
 // ccdNewSqlData
 List ccdNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel);
 RcppExport SEXP CCD_ccdNewSqlData(SEXP modelTypeNameSEXP, SEXP noiseLevelSEXP) {
@@ -331,6 +354,37 @@ BEGIN_RCPP
     }
     UNPROTECT(1);
     return __sexp_result;
+END_RCPP
+}
+// ccdSetHasIntercept
+void ccdSetHasIntercept(Environment x, bool hasIntercept);
+RcppExport SEXP CCD_ccdSetHasIntercept(SEXP xSEXP, SEXP hasInterceptSEXP) {
+BEGIN_RCPP
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
+        Rcpp::traits::input_parameter< bool >::type hasIntercept(hasInterceptSEXP );
+        ccdSetHasIntercept(x, hasIntercept);
+    }
+    return R_NilValue;
+END_RCPP
+}
+// ccdFinalizeData
+void ccdFinalizeData(Environment x, bool addIntercept, SEXP sexpOffsetCovariate, bool offsetAlreadyOnLogScale, bool sortCovariates, SEXP sexpCovariatesDense, bool magicFlag = false);
+RcppExport SEXP CCD_ccdFinalizeData(SEXP xSEXP, SEXP addInterceptSEXP, SEXP sexpOffsetCovariateSEXP, SEXP offsetAlreadyOnLogScaleSEXP, SEXP sortCovariatesSEXP, SEXP sexpCovariatesDenseSEXP, SEXP magicFlagSEXP) {
+BEGIN_RCPP
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
+        Rcpp::traits::input_parameter< bool >::type addIntercept(addInterceptSEXP );
+        Rcpp::traits::input_parameter< SEXP >::type sexpOffsetCovariate(sexpOffsetCovariateSEXP );
+        Rcpp::traits::input_parameter< bool >::type offsetAlreadyOnLogScale(offsetAlreadyOnLogScaleSEXP );
+        Rcpp::traits::input_parameter< bool >::type sortCovariates(sortCovariatesSEXP );
+        Rcpp::traits::input_parameter< SEXP >::type sexpCovariatesDense(sexpCovariatesDenseSEXP );
+        Rcpp::traits::input_parameter< bool >::type magicFlag(magicFlagSEXP );
+        ccdFinalizeData(x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag);
+    }
+    return R_NilValue;
 END_RCPP
 }
 // ccdAppendSqlData

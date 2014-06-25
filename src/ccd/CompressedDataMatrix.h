@@ -219,11 +219,11 @@ public:
 				cmp);		
 	}
 
-	const CompressedDataColumn& getColumn(int column) const {
+	const CompressedDataColumn& getColumn(size_t column) const {
 		return *(allColumns[column]);
 	}
 
-	CompressedDataColumn& getColumn(int column) {
+	CompressedDataColumn& getColumn(size_t column) {
 		return *(allColumns[column]);
 	}
 	
@@ -270,9 +270,29 @@ public:
 			std::cerr << "Error" << std::endl;
 			exit(-1);
  		}
+	}
+	
+	void insert(size_t position, FormatType colFormat) {
+	    if (colFormat == DENSE) {
+	        real_vector* r = new real_vector();
+	        insert(allColumns.begin() + position, NULL, r, DENSE);	    
+	    } else {
+	        std::cerr << "Error" << std::endl;
+	        exit(-1); // TODO Use error handler
+	    }
 	}	
+	
+	void moveToFront(size_t column) {
+        if (column > 0 && column < allColumns.size())  {
+            size_t reversePosition = allColumns.size() - column - 1;
+            std::rotate(
+                allColumns.rbegin() + reversePosition, 
+                allColumns.rbegin() + reversePosition + 1, // rotate one element
+                allColumns.rend()); 			
+    	}
+    }
 
-	void erase(int column) {
+	void erase(size_t column) {
 		if (allColumns[column]) {
 			delete allColumns[column];
 		}
@@ -282,15 +302,22 @@ public:
 
 protected:
 
+    typedef std::vector<CompressedDataColumn*>  DataColumnVector;
+
 	void push_back(int_vector* colIndices, real_vector* colData, FormatType colFormat) {
 		allColumns.push_back(new CompressedDataColumn(colIndices, colData, colFormat));	
 		nCols++;
 	}
 	
+	void insert(DataColumnVector::iterator position, int_vector* colIndices, real_vector* colData, FormatType colFormat) {
+	    allColumns.insert(position, new CompressedDataColumn(colIndices, colData, colFormat));
+	    nCols++;
+	}
+	
 	size_t nRows;
 	size_t nCols;
 	size_t nEntries;
-	std::vector<CompressedDataColumn*> allColumns;
+	DataColumnVector allColumns;
 
 private:
 	// Disable copy-constructors and copy-assignment
