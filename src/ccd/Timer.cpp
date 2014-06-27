@@ -5,6 +5,10 @@
  *      Author: msuchard
  */
 
+// #ifndef _MSC_VER
+#include <sys/time.h> // was just 'time.h'
+// #endif
+
 #include <cstddef>
 #include "Timer.h"
 
@@ -78,22 +82,6 @@ namespace bsccs {
 // 	}
 // #endif
 
-// #ifdef R_BUILD
-// #ifdef WIN_BUILD
-// 
-// int gettimeofday(struct timeval *tv, struct timezone *tz) {
-// 	
-// 	if (tv) {
-// 		tv->tv_sec = 0;
-// 		tv->tv_usec = 0;
-// 	}
-// 	return 0;
-// 	
-// }
-// 
-// #endif
-// #endif
-
 Timer::Timer() {
 	gettimeofday(&time1, NULL);
 }
@@ -104,9 +92,7 @@ double Timer::operator()() {
 	return calculateSeconds(time1, time2);
 }
 
-Timer::~Timer() {
-	// TODO Auto-generated destructor stub
-}
+Timer::~Timer() { }
 
 double Timer::calculateSeconds(const timeval &time1, const timeval &time2) {
 	return time2.tv_sec - time1.tv_sec +
