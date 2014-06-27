@@ -38,6 +38,15 @@ library("testthat")
 # test_that("Add intercept", {
 # })
 
+# test_that("Do not regularize intercept", {
+# })
+
+# test_that("Mixture report should show full details of components", {
+# })
+
+# test_that("Set seed for cross-validation", {
+# })
+
 # test_that("Specify CI level", {
 ###function(object, parm, level, ...)
 # })

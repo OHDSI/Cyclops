@@ -19,7 +19,7 @@ class SqlModelData : public ModelData {
 public:
 
 	SqlModelData(
-	    const std::string& modelTypeName,
+	    Models::ModelType modelType,
 	  	loggers::ProgressLoggerPtr log,
     	loggers::ErrorHandlerPtr error
 	);

@@ -18,9 +18,9 @@
 namespace bsccs {
 
 SqlModelData::SqlModelData(
-        const std::string& modelTypeName,
+        Models::ModelType _modelType,
 	  	loggers::ProgressLoggerPtr _log,
-    	loggers::ErrorHandlerPtr _error) : ModelData(_log, _error) {
+    	loggers::ErrorHandlerPtr _error) : ModelData(_modelType, _log, _error) {
     // TODO Do something with modelTypeName
 }
 

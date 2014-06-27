@@ -97,6 +97,10 @@ ccdTestRcppStop <- function() {
     invisible(.Call('CCD_ccdSetHasIntercept', PACKAGE = 'CCD', x, hasIntercept))
 }
 
+.ccdGetHasIntercept <- function(x) {
+    .Call('CCD_ccdGetHasIntercept', PACKAGE = 'CCD', x)
+}
+
 .ccdFinalizeData <- function(x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag = FALSE) {
     invisible(.Call('CCD_ccdFinalizeData', PACKAGE = 'CCD', x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag))
 }
@@ -105,11 +109,15 @@ ccdTestRcppStop <- function() {
     .Call('CCD_ccdAppendSqlData', PACKAGE = 'CCD', x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue)
 }
 
+.ccdGetInterceptLabel <- function(x) {
+    .Call('CCD_ccdGetInterceptLabel', PACKAGE = 'CCD', x)
+}
+
 .ccdReadData <- function(fileName, modelTypeName) {
     .Call('CCD_ccdReadFileData', PACKAGE = 'CCD', fileName, modelTypeName)
 }
 
-.ccdModelData <- function(pid, y, z, offs, dx, sx, ix) {
-    .Call('CCD_ccdModelData', PACKAGE = 'CCD', pid, y, z, offs, dx, sx, ix)
+.ccdModelData <- function(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset = FALSE) {
+    .Call('CCD_ccdModelData', PACKAGE = 'CCD', pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset)
 }
 

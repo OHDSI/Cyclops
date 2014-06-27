@@ -369,6 +369,21 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// ccdGetHasIntercept
+bool ccdGetHasIntercept(Environment x);
+RcppExport SEXP CCD_ccdGetHasIntercept(SEXP xSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
+        bool __result = ccdGetHasIntercept(x);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
 // ccdFinalizeData
 void ccdFinalizeData(Environment x, bool addIntercept, SEXP sexpOffsetCovariate, bool offsetAlreadyOnLogScale, bool sortCovariates, SEXP sexpCovariatesDense, bool magicFlag = false);
 RcppExport SEXP CCD_ccdFinalizeData(SEXP xSEXP, SEXP addInterceptSEXP, SEXP sexpOffsetCovariateSEXP, SEXP offsetAlreadyOnLogScaleSEXP, SEXP sortCovariatesSEXP, SEXP sexpCovariatesDenseSEXP, SEXP magicFlagSEXP) {
@@ -409,6 +424,21 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
+// ccdGetInterceptLabel
+SEXP ccdGetInterceptLabel(Environment x);
+RcppExport SEXP CCD_ccdGetInterceptLabel(SEXP xSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
+        SEXP __result = ccdGetInterceptLabel(x);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
 // ccdReadFileData
 List ccdReadFileData(const std::string& fileName, const std::string& modelTypeName);
 RcppExport SEXP CCD_ccdReadFileData(SEXP fileNameSEXP, SEXP modelTypeNameSEXP) {
@@ -426,8 +456,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdModelData
-List ccdModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix);
-RcppExport SEXP CCD_ccdModelData(SEXP pidSEXP, SEXP ySEXP, SEXP zSEXP, SEXP offsSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP) {
+List ccdModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix, const std::string& modelTypeName, bool useTimeAsOffset = false);
+RcppExport SEXP CCD_ccdModelData(SEXP pidSEXP, SEXP ySEXP, SEXP zSEXP, SEXP offsSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP, SEXP modelTypeNameSEXP, SEXP useTimeAsOffsetSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -439,7 +469,9 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< SEXP >::type dx(dxSEXP );
         Rcpp::traits::input_parameter< SEXP >::type sx(sxSEXP );
         Rcpp::traits::input_parameter< SEXP >::type ix(ixSEXP );
-        List __result = ccdModelData(pid, y, z, offs, dx, sx, ix);
+        Rcpp::traits::input_parameter< const std::string& >::type modelTypeName(modelTypeNameSEXP );
+        Rcpp::traits::input_parameter< bool >::type useTimeAsOffset(useTimeAsOffsetSEXP );
+        List __result = ccdModelData(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);

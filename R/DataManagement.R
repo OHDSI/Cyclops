@@ -27,7 +27,7 @@
 #'
 #' @export
 createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelType,
-	data, subset, weights, offs = NULL, y = NULL, z = NULL, dx = NULL, 
+	data, subset, weights, offset, time = NULL, y = NULL, z = NULL, dx = NULL, 
 	sx = NULL, ix = NULL, model = FALSE, method = "ccd.fit", ...) {	
 	cl <- match.call() # save to return
 	mf.all <- match.call(expand.dots = FALSE)
@@ -41,16 +41,19 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 		if (missing(data)) {
 			data <- environment(formula)
 		}					
+		mf.all <- match.call(expand.dots = FALSE)
 		m.d <- match(c("formula", "data", "subset", "weights",
 				"offset"), names(mf.all), 0L)
 		mf.d <- mf.all[c(1L, m.d)]
 		mf.d$drop.unused.levels <- TRUE
 		mf.d[[1L]] <- quote(stats::model.frame)			
 		mf.d <- eval(mf.d, parent.frame())	
-		dx <- Matrix(model.matrix(mf.d, data), sparse=FALSE)
+        mt.d <- attr(mf.d, "terms")
+		dx <- Matrix(model.matrix(mt.d, mf.d), sparse=FALSE) # TODO Change for sparse and indicator
 		y <- model.response(mf.d) # TODO Update for censored outcomes
-		pid <- c(1:length(y)) # TODO Update for stratified models		       
-    
+		pid <- c(1:length(y)) # TODO Update for stratified models		  
+        time <- as.vector(model.offset(mf.d))
+		
 		colnames <- c(colnames, dx@Dimnames[[2]])
                
 		if (attr(attr(mf.d, "terms"), "intercept") == 1) { # Has intercept
@@ -72,8 +75,9 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 			if (!is.null(model.response(mf.s))) {
 				stop("Must only provide outcome variable in dense formula.")
 			}
-			
-			stmp <- model.matrix(mf.s, data)
+			mt.s <- attr(mf.s, "terms")
+            stmp <- model.matrix(mt.s, mf.s)
+			#stmp <- model.matrix(mf.s, data)
 			slabels <- labels(stmp)[[2]]
 			if (attr(attr(mf.s, "terms"), "intercept") == 1) { # Remove intercept
 				sx <- Matrix(as.matrix(stmp[,-1]), sparse=TRUE)
@@ -101,8 +105,9 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 			}			
 			
 			# TODO Check that all values in mf.i are 0/1
-			
-			itmp <- model.matrix(mf.i, data)
+			mt.i <- attr(mf.i, "terms")
+			itmp <- model.matrix(mt.i, mf.i)			
+			#itmp <- model.matrix(mf.i, data)
 			ilabels <- labels(itmp)[[2]]
 			if (attr(attr(mf.i, "terms"), "intercept") == 1) { # Remove intercept
 				ix <- Matrix(as.matrix(itmp[,-1]), sparse=TRUE)
@@ -137,7 +142,12 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
     
     # TODO Check types and dimensions        
     
-    md <- .ccdModelData(pid, y, z, offs, dx, sx, ix)
+    useTimeAsOffset <- FALSE
+    if (!is.null(time)) { # TODO Fix for MSCCS/Cox
+        useTimeAsOffset <- TRUE
+    }
+    
+    md <- .ccdModelData(pid, y, z, time, dx, sx, ix, modelType, useTimeAsOffset)
 	result <- new.env(parent = emptyenv())
 	result$ccdDataPtr <- md$data
 	result$modelType <- modelType
@@ -324,6 +334,7 @@ finalizeSqlCcdData <- function(object,
         stop("Object is no longer or improperly initialized.")		
     }
     
+    savedUseOffsetCovariate <- useOffsetCovariate
     useOffsetCovariate <- .checkCovariates(object, useOffsetCovariate)
     if (length(useOffsetCovariate) > 1) {
         stop("Can only supply one offset")
@@ -339,6 +350,11 @@ finalizeSqlCcdData <- function(object,
         if (!is.null(object$coefficientNames)) {
             object$coefficientNames = c("(Intercept)", 
                                         object$coefficientNames)
+        }
+    }
+    if (!is.null(useOffsetCovariate)) {
+        if (!is.null(object$coefficientNames)) {
+            object$coefficientNames = object$coefficientNames[-useOffsetCovariate]
         }
     }
 }

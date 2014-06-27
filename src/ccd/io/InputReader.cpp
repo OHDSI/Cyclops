@@ -43,14 +43,14 @@ using namespace std;
 InputReader::InputReader() :
     logger(bsccs::make_shared<loggers::CoutLogger>()),
     error(bsccs::make_shared<loggers::CerrErrorHandler>()),
-    modelData(new ModelData(logger, error)),
+    modelData(new ModelData(Models::NONE, logger, error)),
     deleteModelData(true)
 {}
 
 InputReader::InputReader(
 	loggers::ProgressLoggerPtr _logger,
 	loggers::ErrorHandlerPtr _error
-	) : logger(_logger), error(_error), modelData(new ModelData(_logger, _error)), deleteModelData(true) {
+	) : logger(_logger), error(_error), modelData(new ModelData(Models::NONE, _logger, _error)), deleteModelData(true) {
 	// Do nothing
 }
 

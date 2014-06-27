@@ -23,6 +23,7 @@ public:
 	RcppModelData();
 
 	RcppModelData(
+            Models::ModelType modelType,
 			const IntegerVector& pid,
 			const NumericVector& y,
 			const NumericVector& z,
@@ -32,7 +33,8 @@ public:
 			const IntegerVector& spv,
 			const NumericVector& sxv,
 			const IntegerVector& iiv, // indicator
-			const IntegerVector& ipv
+			const IntegerVector& ipv,
+            bool useTimeAsOffset = false
 			);
 
 	virtual ~RcppModelData();

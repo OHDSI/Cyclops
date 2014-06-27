@@ -44,11 +44,21 @@ fitCcdModel <- function(ccdData
 	
 	.checkInterface(ccdData, forceColdStart)
     
- 	if (!missing(prior)) { # Set up prior
-   	stopifnot(inherits(prior, "ccdPrior"))    	
-		prior$exclude <- .checkCovariates(ccdData, prior$exclude)
-    .ccdSetPrior(ccdData$ccdInterfacePtr, prior$priorType, prior$variance, prior$exclude)    		
-  }
+	if (!missing(prior)) { # Set up prior
+	    stopifnot(inherits(prior, "ccdPrior"))    	
+	    prior$exclude <- .checkCovariates(ccdData, prior$exclude)
+        
+# 	    if (prior$priorType != "none" && .ccdGetHasIntercept(ccdData)) {           	        
+# 	        interceptId <- .ccdGetInterceptLabel(ccdData)
+# 	        if (!(interceptId %in% prior$exclude) && !prior$forceIntercept) {	           
+# 	           warning("Excluding intercept from regularization")
+# 	           prior$exclude <- c(interceptId, prior$exclude)	         	           
+#                browser()
+# 	        }	        
+# 	    }
+        
+	    .ccdSetPrior(ccdData$ccdInterfacePtr, prior$priorType, prior$variance, prior$exclude)    		
+	}
 	
 	.setControl(ccdData$ccdInterfacePtr, control)			
  	
@@ -218,7 +228,11 @@ control <- function(
 #' @return
 #' A CCD prior object of class inheriting from \code{"ccdPrior"} for use with \code{fitCcdModel}.
 #' 
-prior <- function(priorType, variance = 1, exclude = c(), useCrossValidation = FALSE) {
+prior <- function(priorType, 
+                  variance = 1, 
+                  exclude = c(), 
+                  useCrossValidation = FALSE,
+                  forceIntercept = FALSE) {
 	validNames = c("none", "laplace","normal")
 	stopifnot(priorType %in% validNames)	
 	if (!is.null(exclude)) {
@@ -233,10 +247,11 @@ prior <- function(priorType, variance = 1, exclude = c(), useCrossValidation = F
 		stop("Cannot perform cross validation with a flat prior")
 	}
 	structure(list(priorType = priorType, variance = variance, exclude = exclude, 
-								 useCrossValidation = useCrossValidation), class = "ccdPrior")
+	               useCrossValidation = useCrossValidation, forceIntercept = forceIntercept), 
+              class = "ccdPrior")
 }
 
-.clear <- function() {
+clear <- function() {
     cat("\014")  
 }
 

@@ -24,9 +24,10 @@ using std::string;
 using std::vector;
 
 ModelData::ModelData(
+    Models::ModelType _modelType,
     loggers::ProgressLoggerPtr _log,
     loggers::ErrorHandlerPtr _error
-    ) : nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false), isFinalized(false),
+    ) : modelType(_modelType), nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false), isFinalized(false),
         lastStratumMap(0,0), sparseIndexer(*this), log(_log), error(_error) {
 	// Do nothing
 }
@@ -52,12 +53,17 @@ size_t ModelData::append(
     }
     
     // TODO Check model-specific outcome dimensions
-    if ((oStratumId.size() != oY.size()) ||
+    if ((oStratumId.size() != oY.size()) ||   // Causing crashes
         (oStratumId.size() != oRowId.size())) {
         std::ostringstream stream;
         stream << "Mismatched outcome column dimensions";
         error->throwError(stream);
     }
+    
+    // TODO Check model-specific outcome dimensions    
+  //  if (requiresStratumID(
+    
+    
     const size_t nOutcomes = oStratumId.size();
     const size_t nCovariates = cCovariateId.size();
     

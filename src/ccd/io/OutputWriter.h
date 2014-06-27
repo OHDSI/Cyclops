@@ -379,16 +379,18 @@ public:
 
 	template <typename Stream>
 	void writeRow(Stream& out, OutputHelper::RowInformation& rowInfo) {	
-		out.addValue(data.getColumn(rowInfo.currentRow).getNumericalLabel()).addDelimitor();
-		out.addValue(ccd.getBeta(rowInfo.currentRow));
-		if (withProfileBounds && informationList[rowInfo.currentRow].defined) {
-			// TODO Delegate to friend of ProfileInformation
-			out.addDelimitor();
-			out.addValue(informationList[rowInfo.currentRow].lower95Bound);
-			out.addDelimitor();
-			out.addValue(informationList[rowInfo.currentRow].upper95Bound);
+	    if (rowInfo.currentRow > 0 || !data.getHasOffsetCovariate()) {
+            out.addValue(data.getColumn(rowInfo.currentRow).getNumericalLabel()).addDelimitor();
+            out.addValue(ccd.getBeta(rowInfo.currentRow));
+            if (withProfileBounds && informationList[rowInfo.currentRow].defined) {
+                // TODO Delegate to friend of ProfileInformation
+                out.addDelimitor();
+                out.addValue(informationList[rowInfo.currentRow].lower95Bound);
+                out.addDelimitor();
+                out.addValue(informationList[rowInfo.currentRow].upper95Bound);
+            }
+            out.addEndl();
 		}
-		out.addEndl();
 	}
 
 private:

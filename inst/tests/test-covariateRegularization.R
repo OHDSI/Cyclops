@@ -76,3 +76,34 @@ test_that("Preclude profiling regularized coefficients", {
         confint(ccdFit, "outcome2") # regularized
     )
 })
+
+test_that("Preclude intercept regularization by default", {
+    counts <- c(18,17,15,20,10,20,25,13,12)
+    outcome <- gl(3,1,9)
+    treatment <- gl(3,3)
+    tolerance <- 1E-4
+    
+    dataPtr <- createCcdDataFrame(counts ~ outcome + treatment, 
+                                  modelType = "pr")
+    
+#     expect_error(fitCcdModel(dataPtr,
+#                 prior = prior("laplace", 0.1)))
+    
+    c1 <- fitCcdModel(dataPtr,
+                      forceColdStart = TRUE,
+                      prior = prior("laplace", 0.1, forceIntercept = TRUE))    
+    
+    c2 <- fitCcdModel(dataPtr,
+                      forceColdStart = TRUE,
+                      prior = prior("laplace", 0.1, exclude = "(Intercept)"))
+    
+    c3 <- fitCcdModel(dataPtr,
+                      forceColdStart = TRUE,
+                      prior = prior("laplace", 0.1, exclude = 1))   
+    
+    expect_equal(coef(c2),
+                 coef(c3))
+    
+    expect_less_than(coef(c1)[1],  # Intercept is regularized
+                     coef(c2)[1])
+})

@@ -41,6 +41,7 @@ public:
 //	ModelData();
 	
 	ModelData(
+    	Models::ModelType modelType, 
         loggers::ProgressLoggerPtr log,
         loggers::ErrorHandlerPtr error
     );
@@ -53,6 +54,7 @@ public:
 
 	template <typename IntegerVector, typename RealVector>
 	ModelData(
+	        Models::ModelType _modelType,
 			const IntegerVector& _pid,
 			const RealVector& _y,
 			const RealVector& _z,
@@ -60,7 +62,7 @@ public:
             loggers::ProgressLoggerPtr _log,
             loggers::ErrorHandlerPtr _error			
 			) :
-		nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false), isFinalized(false)
+		modelType(_modelType), nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false), isFinalized(false)
 		, pid(_pid.begin(), _pid.end()) // copy
 		, y(_y.begin(), _y.end()) // copy
 		, z(_z.begin(), _z.end()) // copy
@@ -180,6 +182,8 @@ public:
 	template <class ImputationPolicy> friend class CSVInputReader;
 	
 protected:
+    Models::ModelType modelType;
+    
 	mutable int nPatients;
 	mutable size_t nStrata;
 	
@@ -190,7 +194,7 @@ protected:
 	std::vector<int> pid;
 	std::vector<real> y; // TODO How to load these directly from Rcpp::NumericVector
 	std::vector<real> z;
-	std::vector<real> offs;
+	std::vector<real> offs; // TODO Rename to 'time'
 	std::vector<int> nevents; // TODO Where are these used?
 	std::string conditionId;
 	std::vector<std::string> labels; // TODO Change back to 'long'

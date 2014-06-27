@@ -152,7 +152,8 @@ List ccdNewSqlData(const std::string& modelTypeName, const std::string& noiseLev
 	NoiseLevels noise = RcppCcdInterface::parseNoiseLevel(noiseLevel);
 	bool silent = (noise == SILENT);
 
-	SqlModelData* ptr = new SqlModelData(modelTypeName,
+    Models::ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName);
+	SqlModelData* ptr = new SqlModelData(modelType,
         bsccs::make_shared<loggers::RcppProgressLogger>(silent),
         bsccs::make_shared<loggers::RcppErrorHandler>());
         
@@ -169,6 +170,13 @@ void ccdSetHasIntercept(Environment x, bool hasIntercept) {
     using namespace bsccs;
     XPtr<ModelData> data = parseEnvironmentForPtr(x);
     data->setHasInterceptCovariate(hasIntercept);
+}
+
+// [[Rcpp::export(".ccdGetHasIntercept")]]
+bool ccdGetHasIntercept(Environment x) {
+    using namespace bsccs;
+    XPtr<ModelData> data = parseEnvironmentForPtr(x);
+    return data->getHasInterceptCovariate(); 
 }
 
 // [[Rcpp::export(".ccdFinalizeData")]]
@@ -248,6 +256,19 @@ int ccdAppendSqlData(Environment x,
     return static_cast<int>(count);
 }
 
+
+// [[Rcpp::export(".ccdGetInterceptLabel")]]
+SEXP ccdGetInterceptLabel(Environment x) {
+    using namespace bsccs;
+    XPtr<ModelData> data = parseEnvironmentForPtr(x);
+    if (data->getHasInterceptCovariate()) {
+        size_t index = data->getHasOffsetCovariate() ? 1 : 0;
+        return Rcpp::wrap(data->getColumn(index).getNumericalLabel());
+    } else {
+        return R_NilValue;
+    }
+}
+
 // [[Rcpp::export(".ccdReadData")]]
 List ccdReadFileData(const std::string& fileName, const std::string& modelTypeName) {
 
@@ -278,9 +299,14 @@ List ccdReadFileData(const std::string& fileName, const std::string& modelTypeNa
 }
 
 // [[Rcpp::export(".ccdModelData")]]
-List ccdModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix) {
+List ccdModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix, 
+    const std::string& modelTypeName,
+    bool useTimeAsOffset = false) {
 
-	bsccs::Timer timer;
+    using namespace bsccs;    
+    Models::ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName); 
+    
+	Timer timer;
 
 	IntegerVector ipid;
 	if (!Rf_isNull(pid)) {
@@ -323,8 +349,7 @@ List ccdModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix
 		ipv = ixx.slot("p");
 	}
 
-	using namespace bsccs;
-    XPtr<RcppModelData> ptr(new RcppModelData(ipid, iy, iz, ioffs, dxv, siv, spv, sxv, iiv, ipv));
+    XPtr<RcppModelData> ptr(new RcppModelData(modelType, ipid, iy, iz, ioffs, dxv, siv, spv, sxv, iiv, ipv, useTimeAsOffset));
 
 	double duration = timer();
 
@@ -338,24 +363,37 @@ List ccdModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix
 namespace bsccs {
 
 RcppModelData::RcppModelData(
-		const IntegerVector& pid,
-		const NumericVector& y,
-		const NumericVector& z,
-		const NumericVector& offs,
+        Models::ModelType _modelType,
+		const IntegerVector& _pid,
+		const NumericVector& _y,
+		const NumericVector& _z,
+		const NumericVector& _time,
 		const NumericVector& dxv, // dense
 		const IntegerVector& siv, // sparse
 		const IntegerVector& spv,
 		const NumericVector& sxv,
 		const IntegerVector& iiv, // indicator
-		const IntegerVector& ipv
+		const IntegerVector& ipv,
+		bool useTimeAsOffset
 		) : ModelData(
-				pid,
-				y,
-				z,
-				offs,
+                _modelType,
+				_pid,
+				_y,
+				_z,
+				_time,
 				bsccs::make_shared<loggers::RcppProgressLogger>(),
 				bsccs::make_shared<loggers::RcppErrorHandler>()
 				) {
+	if (useTimeAsOffset) {
+	    // offset
+	    //::Rf_error("A");
+	    push_back(NULL, &offs, DENSE);
+	    //::Rf_error("B");
+        setHasOffsetCovariate(true);
+	    getColumn(0).add_label(-1);
+	    //::Rf_error("C");
+	}			
+				
 	// Convert dense
 	int nCovariates = static_cast<int>(dxv.size() / y.size());
 	for (int i = 0; i < nCovariates; ++i) {
@@ -363,7 +401,7 @@ RcppModelData::RcppModelData(
 				static_cast<IntegerVector::iterator>(NULL), static_cast<IntegerVector::iterator>(NULL),
 				dxv.begin() + i * y.size(), dxv.begin() + (i + 1) * y.size(),
 				DENSE);
-		getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns());
+		getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
 	}
 
 	// Convert sparse
@@ -377,7 +415,7 @@ RcppModelData::RcppModelData(
 				siv.begin() + begin, siv.begin() + end,
 				sxv.begin() + begin, sxv.begin() + end,
 				SPARSE);
-        getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns());				
+        getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
 	}
 
 	// Convert indicator
@@ -391,7 +429,7 @@ RcppModelData::RcppModelData(
 				iiv.begin() + begin, iiv.begin() + end,
 				static_cast<NumericVector::iterator>(NULL), static_cast<NumericVector::iterator>(NULL),
 				INDICATOR);
-        getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns());				
+        getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
 	}
 
 	this->nRows = y.size();
