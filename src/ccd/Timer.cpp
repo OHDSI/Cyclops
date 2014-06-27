@@ -5,6 +5,7 @@
  *      Author: msuchard
  */
 
+#include <cstddef>
 #include "Timer.h"
 
 namespace bsccs {
