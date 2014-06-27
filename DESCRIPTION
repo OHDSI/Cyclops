@@ -17,4 +17,3 @@ LinkingTo: Rcpp,
     RcppEigen
 Suggests:
     testthat
-    
