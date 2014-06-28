@@ -386,12 +386,11 @@ RcppModelData::RcppModelData(
 				) {
 	if (useTimeAsOffset) {
 	    // offset
-	    //::Rf_error("A");
-	    push_back(NULL, &offs, DENSE);
-	    //::Rf_error("B");
+        real_vector* r = new real_vector();
+        push_back(NULL, r, DENSE);   
+        r->assign(offs.begin(), offs.end()); // TODO Should not be necessary with shared_ptr
         setHasOffsetCovariate(true);
 	    getColumn(0).add_label(-1);
-	    //::Rf_error("C");
 	}			
 				
 	// Convert dense
