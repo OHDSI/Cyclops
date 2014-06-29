@@ -128,7 +128,7 @@ List ccdPredictModel(SEXP inRcppCcdInterface) {
 void ccdSetControl(SEXP inRcppCcdInterface, 
 		int maxIterations, double tolerance, const std::string& convergenceType,
 		bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps,
-		const std::string& noiseLevel
+		const std::string& noiseLevel, int seed
 		) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
@@ -148,6 +148,7 @@ void ccdSetControl(SEXP inRcppCcdInterface,
 	NoiseLevels noise = RcppCcdInterface::parseNoiseLevel(noiseLevel);
 	args.noiseLevel = noise;
 	interface->setNoiseLevel(noise);
+	args.seed = seed;
 }
 
 // [[Rcpp::export(".ccdRunCrossValidation")]]

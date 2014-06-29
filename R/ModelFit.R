@@ -185,6 +185,7 @@ print.ccdFit <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,..
 #' @param cvRepetitions			Numeric: Number of repetitions of X-fold cross validation
 #' @param minCVData					Numeric: Minumim number of data for cross validation
 #' @param noiseLevel				String: level of CCD screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})
+#' @param seed                  Numeric: Specify random number generator seed. A null value sets seed via \code{\ref{Sys.time()}}.
 #' 
 #' @section Criteria:
 #' 
@@ -198,7 +199,8 @@ control <- function(
 		maxIterations = 1000, tolerance = 1E-6, convergenceType = "gradient",
 		cvType = "grid", fold = 10, lowerLimit = 0.01, upperLimit = 20.0, gridSteps = 10,
 		cvRepetitions = 1,
-		minCVData = 100, noiseLevel = "silent") {
+		minCVData = 100, noiseLevel = "silent",
+        seed = NULL) {
 	
 	validCVNames = c("grid", "auto")
 	stopifnot(cvType %in% validCVNames)
@@ -209,7 +211,8 @@ control <- function(
 								 autoSearch = (cvType == "auto"), fold = fold, lowerLimit = lowerLimit, 
 								 upperLimit = upperLimit, gridSteps = gridSteps, minCVData = minCVData, 
 								 cvRepetitions = cvRepetitions,
-								 noiseLevel = noiseLevel),
+								 noiseLevel = noiseLevel,
+                                 seed = seed),
 						class = "ccdControl")
 }
 
@@ -268,10 +271,14 @@ predict.ccdFit <- function(object, ...) {
 .setControl <- function(ccdInterfacePtr, control) {
 	if (!missing(control)) { # Set up control
 		stopifnot(inherits(control, "ccdControl"))
+        if (is.null(control$seed)) {
+            control$seed <- as.integer(Sys.time())
+        }
 		.ccdSetControl(ccdInterfacePtr, control$maxIterations, control$tolerance, 
 									 control$convergenceType, control$autoSearch, control$fold, 
 									 (control$fold * control$cvRepetitions),
-									 control$lowerLimit, control$upperLimit, control$gridSteps, control$noiseLevel)		
+									 control$lowerLimit, control$upperLimit, control$gridSteps, 
+                                     control$noiseLevel, control$seed)		
 	}	
 }
 

@@ -114,8 +114,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdSetControl
-void ccdSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel);
-RcppExport SEXP CCD_ccdSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP) {
+void ccdSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int seed);
+RcppExport SEXP CCD_ccdSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP seedSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
@@ -130,7 +130,8 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< double >::type upperLimit(upperLimitSEXP );
         Rcpp::traits::input_parameter< int >::type gridSteps(gridStepsSEXP );
         Rcpp::traits::input_parameter< const std::string& >::type noiseLevel(noiseLevelSEXP );
-        ccdSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel);
+        Rcpp::traits::input_parameter< int >::type seed(seedSEXP );
+        ccdSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, seed);
     }
     return R_NilValue;
 END_RCPP

@@ -29,8 +29,8 @@ ccdGetLogLikelihood <- function(inRcppCcdInterface) {
     .Call('CCD_ccdPredictModel', PACKAGE = 'CCD', inRcppCcdInterface)
 }
 
-.ccdSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel) {
-    invisible(.Call('CCD_ccdSetControl', PACKAGE = 'CCD', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel))
+.ccdSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, seed) {
+    invisible(.Call('CCD_ccdSetControl', PACKAGE = 'CCD', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, seed))
 }
 
 .ccdRunCrossValidation <- function(inRcppCcdInterface) {
