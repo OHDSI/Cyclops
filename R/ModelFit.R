@@ -286,16 +286,21 @@ predict.ccdFit <- function(object, ...) {
 #' @return
 #' A \code{data.frame} containing profile 95% confidence intervals
 #' 
-confint.ccdFit <- function(object, parm, level, control, 
+confint.ccdFit <- function(object, parm, level = 0.95, control, 
                            overrideNoRegularization = FALSE, ...) {
     .checkInterface(object, testOnly = TRUE)
     .setControl(object$ccdInterfacePtr, control)
     parm <- .checkCovariates(object$ccdData, parm)
+    if (level < 0.01 || level > 0.99) {
+        stop("level must be between 0 and 1")
+    }
+    threshold <- qchisq(level, df = 1) / 2
     
-    prof <- .ccdProfileModel(object$ccdInterfacePtr, parm,
+    prof <- .ccdProfileModel(object$ccdInterfacePtr, parm, threshold,
                              overrideNoRegularization)
     prof <- as.matrix(as.data.frame(prof))
     rownames(prof) <- object$coefficientNames[parm]
-    colnames(prof)[2:3] <- c("2.5 %", "97.5 %")
+    qs <- c((1 - level) / 2, 1 - (1 - level) / 2) * 100    
+    colnames(prof)[2:3] <- paste(sprintf("%.1f", qs), "%")
     prof
 }

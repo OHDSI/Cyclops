@@ -41,8 +41,9 @@ public:
     	return CcdInterface::predictModel(ccd, modelData);
     }
 
-    double profileModel(const ProfileVector& profileCI, ProfileInformationMap& profileMap, bool override) {
-    	return CcdInterface::profileModel(ccd, modelData, profileCI, profileMap, override);
+    double profileModel(const ProfileVector& profileCI, ProfileInformationMap& profileMap, 
+            double threshold, bool override) {
+    	return CcdInterface::profileModel(ccd, modelData, profileCI, profileMap, threshold, override);
     }
            
     double runCrossValidation() {

@@ -41,17 +41,22 @@ public:
 	typedef std::vector<PriorPtr> PriorList;
 
 	MixtureJointPrior(PriorPtr defaultPrior, int length) : JointPrior(),
-			listPriors(length, defaultPrior) {
+			listPriors(length, defaultPrior), uniquePriors(1, defaultPrior) {
 		// Do nothing
 	}
 
 	void changePrior(PriorPtr newPrior, int index) {
 		// TODO assert(index < listPriors.size());
 		listPriors[index] = newPrior;
+		uniquePriors.push_back(newPrior);
 	}
 
 	const std::string getDescription() const {
-		return "Mixture";
+	    std::ostringstream stream;
+	    for (PriorPtr prior : uniquePriors) {
+	        stream << prior->getDescription() << " ";
+	    }
+		return stream.str();
 	}
 
 	void setVariance(double x) {
@@ -85,6 +90,7 @@ public:
 
 private:
 	PriorList listPriors;
+	PriorList uniquePriors;
 
 };
 

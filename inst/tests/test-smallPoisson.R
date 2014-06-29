@@ -26,6 +26,29 @@ test_that("Small Poisson dense regression", {
     expect_equal(confint(ccdFitD, c("(Intercept)","outcome3")), confint(ccdFitD, c(1,3)))
 })
 
+test_that("Specify CI level", {
+###function(object, parm, level, ...)
+    counts <- c(18,17,15,20,10,20,25,13,12)
+    outcome <- gl(3,1,9)
+    treatment <- gl(3,3)
+    tolerance <- 1E-4
+    
+    glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard    
+    
+    dataPtr <- createCcdDataFrame(counts ~ outcome + treatment,
+                                   modelType = "pr")    													
+    ccdFit <- fitCcdModel(dataPtr, 
+                           prior = prior("none"),
+                           control = control(noiseLevel = "silent"))
+
+    expect_equal(
+        confint(ccdFit, c(1:3), level = 0.99)[,2:3], 
+        confint(glmFit, c(1:3), level = 0.99), 
+        tolerance = tolerance)
+    
+    
+})
+
 test_that("Small Poisson indicator regression", {
     counts <- c(18,17,15,20,10,20,25,13,12)
     outcome <- gl(3,1,9)

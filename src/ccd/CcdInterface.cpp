@@ -248,7 +248,7 @@ struct OptimizationProfile {
 };
 
 double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
-		const ProfileVector& profileCI, ProfileInformationMap& profileMap, bool overrideNoRegularization) {
+		const ProfileVector& profileCI, ProfileInformationMap& profileMap, double threshold, bool overrideNoRegularization) {
 
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
@@ -290,7 +290,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *model
             double x0 = x0s[index];
 
 			// Bound edge
-			OptimizationProfile upEval(*ccd, arguments, index, mode);
+			OptimizationProfile upEval(*ccd, arguments, index, mode, threshold);
 			RZeroIn<OptimizationProfile> zeroInUp(upEval, 1E-3);
 			RZeroIn<OptimizationProfile> zeroInDn(upEval, 1E-3);
 

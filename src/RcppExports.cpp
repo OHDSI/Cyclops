@@ -81,16 +81,17 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdProfileModel
-List ccdProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, bool override);
-RcppExport SEXP CCD_ccdProfileModel(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP, SEXP overrideSEXP) {
+List ccdProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, double threshold, bool override);
+RcppExport SEXP CCD_ccdProfileModel(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP, SEXP thresholdSEXP, SEXP overrideSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
         Rcpp::traits::input_parameter< SEXP >::type sexpCovariates(sexpCovariatesSEXP );
+        Rcpp::traits::input_parameter< double >::type threshold(thresholdSEXP );
         Rcpp::traits::input_parameter< bool >::type override(overrideSEXP );
-        List __result = ccdProfileModel(inRcppCcdInterface, sexpCovariates, override);
+        List __result = ccdProfileModel(inRcppCcdInterface, sexpCovariates, threshold, override);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);

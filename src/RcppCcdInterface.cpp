@@ -76,7 +76,7 @@ void ccdSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, doub
 }
 
 // [[Rcpp::export(".ccdProfileModel")]]
-List ccdProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, bool override) {
+List ccdProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, double threshold, bool override) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 	
@@ -84,7 +84,7 @@ List ccdProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, bool override
 		ProfileVector covariates = as<ProfileVector>(sexpCovariates);
 		
 		ProfileInformationMap profileMap;
-        interface->profileModel(covariates, profileMap, override);
+        interface->profileModel(covariates, profileMap, threshold, override);
                 
         std::vector<double> lower;
         std::vector<double> upper;

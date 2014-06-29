@@ -113,6 +113,7 @@ public:
             ModelData *modelData,
             const ProfileVector& profileCI,          
             ProfileInformationMap &profileMap,
+            double threshold = 1.920729,
             bool overrideNoRegularization = false);
 
     double runCrossValidation(

@@ -21,8 +21,8 @@ ccdGetLogLikelihood <- function(inRcppCcdInterface) {
     invisible(.Call('CCD_ccdSetPrior', PACKAGE = 'CCD', inRcppCcdInterface, priorTypeName, variance, excludeNumeric))
 }
 
-.ccdProfileModel <- function(inRcppCcdInterface, sexpCovariates, override) {
-    .Call('CCD_ccdProfileModel', PACKAGE = 'CCD', inRcppCcdInterface, sexpCovariates, override)
+.ccdProfileModel <- function(inRcppCcdInterface, sexpCovariates, threshold, override) {
+    .Call('CCD_ccdProfileModel', PACKAGE = 'CCD', inRcppCcdInterface, sexpCovariates, threshold, override)
 }
 
 .ccdPredictModel <- function(inRcppCcdInterface) {
