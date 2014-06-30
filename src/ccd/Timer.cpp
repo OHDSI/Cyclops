@@ -5,9 +5,6 @@
  *      Author: msuchard
  */
 
-// #ifndef _MSC_VER
-#include <sys/time.h> // was just 'time.h'
-// #endif
 
 #include <cstddef>
 #include "Timer.h"

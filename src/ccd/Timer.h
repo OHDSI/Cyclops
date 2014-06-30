@@ -8,6 +8,10 @@
 #ifndef TIMER_H_
 #define TIMER_H_
 
+// #ifndef _MSC_VER
+#include <sys/time.h> // was just 'time.h'
+// #endif
+
 namespace bsccs {
 
 class Timer {
