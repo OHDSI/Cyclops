@@ -4,41 +4,39 @@ library("testthat")
 # These tests are believed to be broken; they need confirmation and fixes
 #
 
-# test_that("Check intercept flag when specifying a formula", {
-# })
+# test_that("Extract Y from data object", {})
 
-# test_that("Check profile conditional posterior vs likelihood", {
-# })
+# test_that("Extract X from data object", {})
 
-# test_that("Check default regularization variance", {
-# })
+# test_that("Check Cox model", {})
 
-# test_that("Check starting regularization with cross validation", {
-# })
+# test_that("Predict CLR model", {})
 
-# test_that("Standardize covariates", {
-# })
+# test_that("Compute confint under CLR model", {})
 
-# test_that("Check correct dimensions in matrices in createCcdDataFrame", {
-# })
+# test_that("Check SCCS model via SQL", {})
 
-# test_that("Fail to convergence", {
-# })
+# test_that("Check SCCS model via R formula, {})
 
-# test_that("Use shared_ptr to handle most data", {
-# })
+# test_that("Check intercept flag when specifying a formula", {})
 
-# test_that("Return data summary statistics", {
-# })
+# test_that("Check profile conditional posterior vs likelihood", {})
 
-# test_that("Make covariates dense in SQL input", {
-# })
+# test_that("Check default regularization variance", {})
 
-# test_that("Add intercept", {
-# })
+# test_that("Check starting regularization with cross validation", {})
 
-# test_that("Do not regularize intercept", {
-# })
+# test_that("Standardize covariates", {})
+
+# test_that("Check correct dimensions in matrices in createCcdDataFrame", {})
+
+# test_that("Fail to convergence", {})
+
+# test_that("Use shared_ptr to handle most data", {})
+
+# test_that("Return data summary statistics", {})
+
+# test_that("Make covariates dense in SQL input", {})
 
 test_that("Mixture report should show full details of components", {
     counts <- c(18,17,15,20,10,20,25,13,12)

@@ -47,11 +47,34 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 		mf.d <- mf.all[c(1L, m.d)]
 		mf.d$drop.unused.levels <- TRUE
 		mf.d[[1L]] <- quote(stats::model.frame)			
-		mf.d <- eval(mf.d, parent.frame())	
-        mt.d <- attr(mf.d, "terms")
-		dx <- Matrix(model.matrix(mt.d, mf.d), sparse=FALSE) # TODO Change for sparse and indicator
+		mf.d <- eval(mf.d, parent.frame())
+            
 		y <- model.response(mf.d) # TODO Update for censored outcomes
-		pid <- c(1:length(y)) # TODO Update for stratified models		  
+        
+        mt.d <- attr(mf.d, "terms")
+        
+        # Handle strata
+		specialTerms <- terms(formula, "strata")
+		special <- attr(specialTerms, "special")
+		hasStrata <- !is.null(special$strata)
+		strata <- NULL
+        sortOrder <- NULL
+		if (hasStrata) {
+		    pid <- as.numeric(strata(mf.d[ , special$strata], shortlabel = TRUE))
+		    nterm <- untangle.specials(specialTerms, "strata")$terms
+		    mt.d <- mt.d[-nterm]
+            
+            ## Must sort outcomes
+            sortOrder <- order(pid)
+		} else {
+            pid <- c(1:length(y))
+		}      
+        
+        if (.removeIntercept(modelType)) {
+            attr(mt.d, "intercept") <- FALSE
+        }
+		dx <- Matrix(model.matrix(mt.d, mf.d), sparse=FALSE) # TODO Change for sparse and indicator
+					  
         time <- as.vector(model.offset(mf.d))
 		
 		colnames <- c(colnames, dx@Dimnames[[2]])
@@ -116,7 +139,17 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 				ix <- Matrix(as.matrix(itmp), sparse=TRUE)			
 			}					
 			colnames <- c(colnames, ilabels)
-		} 
+		}
+        
+        if (!is.null(sortOrder)) {      
+            pid <- pid[sortOrder] 
+            y <- y[sortOrder] 
+            z <- z[sortOrder] 
+            time <- time[sortOrder]
+            dx <- dx[sortOrder, ] 
+            sx <- sx[sortOrder, ]
+            ix <- ix[sortOrder, ]            
+        }
 		
 		if (identical(method, "model.frame")) {
 			result <- list()
@@ -390,6 +423,15 @@ createSqlCcdData <- function(modelType, control) {
 #' 
 isInitialized <- function(object) {
 	return(!is.null(object$ccdDataPtr) && !.isRcppPtrNull(object$ccdDataPtr))	
+}
+
+
+.removeIntercept <- function(modelType) {
+    if (modelType == "clr" || modelType == "sccs" || modelType == "cox") {
+        return(TRUE)
+    } else {
+        return(FALSE)
+    }
 }
 
 print.ccdData <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,...) {

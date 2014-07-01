@@ -16,4 +16,5 @@ LinkingTo: Rcpp,
     BH,
     RcppEigen
 Suggests:
-    testthat
+    testthat,
+    survival

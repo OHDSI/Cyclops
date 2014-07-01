@@ -449,6 +449,7 @@ RcppModelData::RcppModelData(
     	    int nextPID = cpid[i];
     	    if (nextPID != currentPID) {
 	            currentCase++;
+	            currentPID = nextPID;
     	    }
 	        cpid[i] = currentCase;
     	}
