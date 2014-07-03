@@ -18,6 +18,9 @@ set(BASE_SOURCE_FILES
 	MCMC/IndependenceSampler.cpp
 	MCMC/MCMCDriver.cpp
 	MCMC/MHRatio.cpp
+	MCMC/ModelSampler.cpp
+	MCMC/ModelSelectionDriver.cpp
+	MCMC/ModelPrior.cpp
 	MCMC/MCMCModel.cpp
 	MCMC/OneDimensionRandomWalk.cpp
 	MCMC/Parameter.cpp

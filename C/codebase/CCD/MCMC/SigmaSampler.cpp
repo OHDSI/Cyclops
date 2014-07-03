@@ -74,10 +74,8 @@ namespace bsccs {
 		double newValue = distribution(generator);
 
 
-		SigmaSquared.logParameter();
-		cout << "before set" << endl;
+		//SigmaSquared.logParameter();
 		SigmaSquared.set(0, newValue);
-		cout << "here in sigma Sampler" << endl;
 	}
 
 	bool SigmaSampler::evaluateSample(MCMCModel& model, double tuningParameter, CyclicCoordinateDescent & ccd){

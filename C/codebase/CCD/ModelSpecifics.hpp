@@ -442,9 +442,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 	}
 
 	if (BaseModel::hasStrataCrossTerms) {
-
 		// Check if index is pre-computed
-//#define USE_DENSE
+#define USE_DENSE
 #ifdef USE_DENSE
 		if (hessianCrossTerms.find(indexOne) == hessianCrossTerms.end()) {
 			// Make new
@@ -484,11 +483,17 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 //		std::cerr << cross << std::endl;
 		information -= cross;
 #else
+
 		SparseIterator sparseCrossOneTerms = getSubjectSpecificHessianIterator<IteratorTypeOne>(indexOne);
+
 		SparseIterator sparseCrossTwoTerms = getSubjectSpecificHessianIterator<IteratorTypeTwo>(indexTwo);
+
 		PairProductIterator<SparseIterator,SparseIterator> itSparseCross(sparseCrossOneTerms, sparseCrossTwoTerms);
 
+
+
 		real sparseCross = 0.0;
+
 		for (; itSparseCross.valid(); ++itSparseCross) {
 			const int n = itSparseCross.index();
 			sparseCross += itSparseCross.value() / (denomPid[n] * denomPid[n]);

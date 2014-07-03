@@ -79,8 +79,6 @@ namespace bsccs{
 	}
 
 	void Parameter::store(){
-		cout << "store" << endl;
-		cout <<"storedValues[" << 0 << "] = " << storedValues[0] << endl;
 		memcpy(storedValues, parameterValues, sizeof(bsccs::real)*size);
 		restorable = true;
 	}

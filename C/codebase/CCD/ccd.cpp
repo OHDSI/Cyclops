@@ -40,6 +40,7 @@
 #include "io/BBRInputReader.h"
 #include "io/OutputWriter.h"
 #include "MCMC/MCMCDriver.h"
+#include "MCMC/ModelSelectionDriver.h"
 #include "CrossValidationSelector.h"
 #include "GridSearchCrossValidationDriver.h"
 #include "HierarchyGridSearchCrossValidationDriver.h"
@@ -815,9 +816,18 @@ double runMCMC(
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
+	ModelSelectionDriver modelSelector;
+
+	modelSelector.drive(*ccd,arguments.seed,arguments.MCMCFileName,arguments.betaAmount);
+
+	exit(-1);
+	MCMCModel model;
+
+	model.initialize(*ccd, arguments.seed);
+
 	MCMCDriver driver(arguments.MCMCFileName);
 
-	driver.drive(*ccd, arguments.betaAmount, 3);
+	driver.drive(model,*ccd, arguments.betaAmount, arguments.seed, 1.0);
 
 	gettimeofday(&time2, NULL);
 

@@ -508,6 +508,7 @@ void CyclicCoordinateDescent::update(
 	}
 
 	if (!xBetaKnown) {
+		cout << "!xBetaKnow" << endl;
 		computeXBeta();
 		xBetaKnown = true;
 		sufficientStatisticsKnown = false;
@@ -701,7 +702,6 @@ CyclicCoordinateDescent::Matrix& CyclicCoordinateDescent::getHessianMatrix(){
 }
 
 void CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix(void) {
-
 	typedef std::vector<int> int_vec;
 	int_vec indices;
 	hessianIndexMap.clear();
@@ -716,6 +716,8 @@ void CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix(void) {
 		}
 	}
 
+
+
 	hessianMatrix.resize(indices.size(), indices.size());
 	modelSpecifics.makeDirty(); // clear hessian terms
 
@@ -723,7 +725,7 @@ void CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix(void) {
 		for (int jj = ii; jj < indices.size(); ++jj) {
 			const int i = indices[ii];
 			const int j = indices[jj];
-//			std::cerr << "(" << i << "," << j << ")" << std::endl;
+			//std::cerr << "(" << i << "," << j << ")" << std::endl;
 			double fisherInformation = 0.0;
 			modelSpecifics.computeFisherInformation(i, j, &fisherInformation, useCrossValidation);
 //			if (fisherInformation != 0.0) {
@@ -747,7 +749,7 @@ void CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix(void) {
 	// Take inverse
 	//hessianMatrix = hessianMatrix.inverse();
 
-	cout << hessianMatrix << endl;
+	//cout << hessianMatrix << endl;
 }
 
 void CyclicCoordinateDescent::computeAsymptoticVarianceMatrix(void) {

@@ -48,11 +48,9 @@ void IndependenceSampler::sample(MCMCModel& model, double tuningParameter, std::
 	cout << "IndependenceSampler::sample" << endl;
 
 	//model.BetaStore();
-	BetaParameter & Beta = model.getBeta();
 	BetaParameter & Beta_Hat = model.getBeta_Hat();
-	//Eigen::LLT<Eigen::MatrixXf> choleskyEigen = model.getCholeskyLLT();
 
-	int sizeOfSample = Beta.getSize();
+	int sizeOfSample = model.getBetaSize();
 
 	//Sampled independent normal values
 
@@ -63,6 +61,8 @@ void IndependenceSampler::sample(MCMCModel& model, double tuningParameter, std::
 		independentNormal[i] = normalValue * std::sqrt(getTransformedTuningValue(tuningParameter)); // multiply by stdev
 	}
 
+	//model.printFixedIndices();
+
 #ifdef Debug_TRS
 	cout << "Cholesky in Sampler " << endl;
 	Eigen::MatrixXf CholeskyDecompL(sizeOfSample, sizeOfSample);
@@ -72,18 +72,23 @@ void IndependenceSampler::sample(MCMCModel& model, double tuningParameter, std::
 
 	((model.getCholeskyLLT()).matrixU()).solveInPlace(independentNormal);
 
+	set<int> variableIndices = model.getVariableIndices();
+	set<int>::iterator iter;
+	int counter = 0;
+	for(iter=variableIndices.begin(); iter!=variableIndices.end();++iter) {
+		independentNormal[counter] = independentNormal[counter] + Beta_Hat.get((*iter));
+		counter++;
+	}
+
+
 	// TODO Check marginal variance on b[i]
 
-	for (int i = 0; i < sizeOfSample; i++) {
-		cout <<"independentNormal[" << i << "] = " << independentNormal[i] << endl;
-		Beta.set(i,independentNormal[i] + Beta_Hat.get(i));
-	}
-	cout << "after setting to new values..." << endl;
-	Beta.logParameter();
+	model.setBeta(independentNormal);
+
 }
 
 bool IndependenceSampler::evaluateSample(MCMCModel& model, double tuningParameter, CyclicCoordinateDescent & ccd){
-	cout << "IndependenceSampler::evaluateSample" << endl;
+	//cout << "IndependenceSampler::evaluateSample" << endl;
 
 	bool accept = MHstep.evaluate(model);
 
@@ -91,7 +96,7 @@ bool IndependenceSampler::evaluateSample(MCMCModel& model, double tuningParamete
 }
 
 double IndependenceSampler::evaluateLogMHRatio(MCMCModel& model){
-	cout << "IndependenceSampler::evaluateSample" << endl;
+	//cout << "IndependenceSampler::evaluateSample" << endl;
 
 	double logRatio = MHstep.getLogMetropolisRatio(model)*MHstep.getLogHastingsRatio(model);
 

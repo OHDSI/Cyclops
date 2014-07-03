@@ -23,6 +23,8 @@
 #include "TransitionKernel.h"
 #include "CredibleIntervals.h"
 
+#include "ModelPrior.h"
+
 namespace bsccs {
 class MCMCDriver {
 public:
@@ -31,12 +33,12 @@ public:
 	virtual ~MCMCDriver();
 
 	virtual void drive(
-			CyclicCoordinateDescent& ccd, double betaAmount, long int seed);
+			MCMCModel& model, CyclicCoordinateDescent& ccd, double betaAmount, long int seed, double logProbability);
 
 
-	void initialize(double betaAmount, MCMCModel & model, CyclicCoordinateDescent& ccd, long int seed);
+	void initialize(double betaAmount, CyclicCoordinateDescent& ccd);
 
-	void logState(MCMCModel & model, int iterations);
+	void logState(MCMCModel & model, int iterations, double logProbability);
 
 	double targetTransform(double alpha, double target);
 

@@ -8,6 +8,10 @@
 #ifndef MCMCModel_H_
 #define MCMCModel_H_
 
+#include <set>
+#include <algorithm>
+#include <string>
+
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
@@ -47,9 +51,24 @@ public:
 
 	void logState();
 
+	int getBetaSize();
+	void setBeta(Eigen::VectorXf& newBeta);
+
 	void writeVariances();
 
 	void resetWithNewSigma();
+
+	void syncCCDwithModel(set<int>& lastFixedIndices);
+
+	void setFixedIndices(set<int>& fixedIndices);
+	void setVariableIndices();
+	set<int> getVariableIndices();
+	set<int> getFixedIndices();
+	void printFixedIndices();
+	int getFixedSize();
+	void setModelProbability(double modelProbabilityIn);
+	double getModelProbability();
+	string getModelKey();
 
 	bool getUseHastingsRatio();
 	void setUseHastingsRatio(bool useHastingsRatio);
@@ -65,6 +84,7 @@ public:
 	BetaParameter& getBeta();
 	BetaParameter& getBeta_Hat();
 	HyperpriorParameter& getSigmaSquared();
+
 	Eigen::LLT<Eigen::MatrixXf> getCholeskyLLT();
 	Eigen::MatrixXf& getHessian();
 
@@ -85,9 +105,14 @@ private:
 
 	CyclicCoordinateDescent* ccd;
 
+	set<int> fixedBetaIndices;
+	string modelKey;
+	set<int> variableBetaIndices;
 	BetaParameter Beta_Hat;
 	BetaParameter Beta;
 	HyperpriorParameter SigmaSquared;
+
+	double modelProbability;
 
 	double logLikelihood;
 	double logPrior;

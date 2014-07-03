@@ -23,7 +23,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
 
-#define Debug_TRS
+//#define Debug_TRS
 
 namespace bsccs{
 
@@ -46,8 +46,6 @@ bool MHRatio::evaluate(MCMCModel & model) {
 	double logMetropolisRatio = getLogMetropolisRatio(model);
 	double logHastingsRatio;
 
-	cout << "M part done" << endl;
-
 	if (model.getUseHastingsRatio()){
 		logHastingsRatio = getLogHastingsRatio(model);
 	} else {
@@ -58,7 +56,6 @@ bool MHRatio::evaluate(MCMCModel & model) {
 // Compute the ratio for the MH step
 	double logRatio = logMetropolisRatio + logHastingsRatio;
 
-	cout << "H part done" << endl;
 //Check for numerical issues
 	if (std::isfinite(logMetropolisRatio) && std::isfinite(logHastingsRatio)){// && std::isfinite(ratio)){
 	} else {
@@ -137,29 +134,42 @@ double MHRatio::getLogHastingsRatio(MCMCModel & model){
 
 
 	int betaLength = (model.getBeta()).getSize();
-	Eigen::VectorXf betaCurrent(betaLength);
-	Eigen::VectorXf betaProposal(betaLength);
+	int numberFixed = model.getFixedSize();
+	Eigen::VectorXf betaCurrent(betaLength-numberFixed);
+	Eigen::VectorXf betaProposal(betaLength-numberFixed);
 
-	Eigen::VectorXf beta_hat(betaLength);
+	Eigen::VectorXf beta_hat(betaLength-numberFixed);
 
-	Eigen::VectorXf betaHat_minus_current(betaLength);
-	Eigen::VectorXf betaHat_minus_proposal(betaLength);
+	Eigen::VectorXf betaHat_minus_current(betaLength-numberFixed);
+	Eigen::VectorXf betaHat_minus_proposal(betaLength-numberFixed);
 
-	Eigen::VectorXf precisionDifferenceProduct_current(betaLength);
-	Eigen::VectorXf precisionDifferenceProduct_proposal(betaLength);
+	Eigen::VectorXf precisionDifferenceProduct_current(betaLength-numberFixed);
+	Eigen::VectorXf precisionDifferenceProduct_proposal(betaLength-numberFixed);
 
-
+	set<int> variableIndices = model.getVariableIndices();
+	set<int>::iterator iter;
+	int counter = 0;
+	for(iter=variableIndices.begin(); iter!=variableIndices.end();++iter) {
+		betaProposal(counter) = (model.getBeta()).get((*iter));
+		betaCurrent(counter) = (model.getBeta()).getStored((*iter));
+		beta_hat(counter) = (model.getBeta_Hat()).get((*iter));
+		counter ++;
+	}
+	/*
 	for (int i = 0; i< betaLength; i++){
 		betaProposal(i) = (model.getBeta()).get(i);
 		betaCurrent(i) = (model.getBeta()).getStored(i);
 		beta_hat(i) = (model.getBeta_Hat()).get(i);
 	}
+*/
+
 
 	betaHat_minus_current = beta_hat - betaCurrent;
 	betaHat_minus_proposal = beta_hat - betaProposal;
 
 	precisionDifferenceProduct_current =  model.getHessian() * betaHat_minus_current;
 	precisionDifferenceProduct_proposal = model.getHessian() * betaHat_minus_proposal;
+
 
 	double numerator = betaHat_minus_current.dot(precisionDifferenceProduct_current);
 	double denominator = betaHat_minus_proposal.dot(precisionDifferenceProduct_proposal);

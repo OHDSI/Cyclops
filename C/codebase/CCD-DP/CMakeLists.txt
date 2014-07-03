@@ -16,6 +16,9 @@ set(BASE_SOURCE_FILES
 	../CCD/MCMC/HyperpriorParameter.cpp
 	../CCD/MCMC/IndependenceSampler.cpp
 	../CCD/MCMC/MCMCDriver.cpp
+	../CCD/MCMC/ModelSampler.cpp
+	../CCD/MCMC/ModelSelectionDriver.cpp
+	../CCD/MCMC/ModelPrior.cpp
 	../CCD/MCMC/MHRatio.cpp
 	../CCD/MCMC/MCMCModel.cpp
 	../CCD/MCMC/OneDimensionRandomWalk.cpp

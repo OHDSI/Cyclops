@@ -18,17 +18,17 @@ namespace bsccs {
  void MCMCModel::initialize(CyclicCoordinateDescent& ccdIn, long int seed){
 	 cout << "MCMCModel Initialize" << endl;
 
-
 	 ccd = &ccdIn;
 
 	 J = ccd->getBetaSize();
+
+	 set<int> nullFixed;
+
+ 	 setFixedIndices(nullFixed);
+
 	 initializeHessian();
 
 	 HessianMatrix = (ccd->getHessianMatrix()).cast<float>();
-
-	 cout << "hessian is" << endl;
-	 cout << HessianMatrix << endl;
-	 cout << "ended" << endl;
 
 	 generateCholesky();
 
@@ -42,14 +42,10 @@ namespace bsccs {
 	 Beta.store();
 
 	 // Set up Sigma squared
-	 cout << "before initialize " << endl;
+
 	 SigmaSquared.initialize(*ccd,1);
-	 cout << "after initialized, sigmasquared.getSize() = " << SigmaSquared.getSize() << endl;
-	 cout << "after initialize " << endl;
 	 SigmaSquared.store();
-	 cout << "stored SS " << endl;
-	 SigmaSquared.logParameter();
-	 cout << "logged SS " << endl;
+	// SigmaSquared.logParameter();
 
 	 logLikelihood = ccd->getLogLikelihood();
 	 logPrior = ccd->getLogPrior();
@@ -72,7 +68,7 @@ namespace bsccs {
 
  void MCMCModel::resetWithNewSigma(){
 		// TODO Need Wrapper for this....
-	 	// cout << "\n\n \t\t MCMCModel::resetWithNewSigma " << endl;
+	 	//cout << "\n\n \t\t MCMCModel::resetWithNewSigma " << endl;
 	 	// cout << "old likelihood = " << ccd->getLogLikelihood() << endl;
 		ccd->resetBeta();
 		ccd->setHyperprior(SigmaSquared.get(0));
@@ -80,21 +76,159 @@ namespace bsccs {
 		int ccdIterations = 100;
 		double tolerance = 5E-4;
 
+		for (int j = 0; j < J; j++){
+			ccd->setFixedBeta(j, 0);
+		}
+
+		set<int>::iterator iter;
+		for(iter=fixedBetaIndices.begin(); iter!=fixedBetaIndices.end();++iter) {
+			ccd->setBeta((*iter), 0);
+			ccd->setFixedBeta((*iter),1);
+		}
+		//Beta.logParameter();
+		//cout << "now Update" << endl;
 		ccd->update(ccdIterations, ZHANG_OLES, tolerance);
+		//Beta.logParameter();
+		HessianMatrix = (ccd->getHessianMatrix()).cast<float>();
 		//ccd->setUpHessianComponents(true);
-		clearHessian();
+		//clearHessian();
 		//ccd->getHessian(&hessian);
 		generateCholesky();
+		for (int i = 0; i < J; i++){
+			Beta_Hat.set(i,ccd->getBeta(i));
+			Beta.set(i,ccd->getBeta(i));
+		}
+		//Beta.logParameter();
 		//Beta_Hat.set(ccd->hBeta);
-		//Beta_Hat.setRestorable(true);
+		Beta_Hat.setRestorable(true);
 		//Beta.set(ccd->hBeta);
 		Beta.setRestorable(true);
 
 		setLogLikelihood(ccd->getLogLikelihood());
 		setLogPrior(ccd->getLogPrior());
-		// cout << "new likelihood = " << logLikelihood << endl;
+		//cout << "new likelihood = " << logLikelihood << endl;
 		newLogPriorAndLikelihood = true;
  }
+
+ void MCMCModel::syncCCDwithModel(set<int>& lastFixedIndices){
+
+	//cout << "syncCCDwithModel" << endl;
+	ccd->resetBeta();
+	ccd->setHyperprior(SigmaSquared.get(0));
+	int ZHANG_OLES = 1;
+	int ccdIterations = 100;
+	double tolerance = 5E-4;
+
+
+	for(int i = 0; i < J; i++) {
+		ccd->setFixedBeta(i,0);
+	}
+
+	set<int>::iterator iter;
+	for(iter=fixedBetaIndices.begin(); iter!=fixedBetaIndices.end();++iter) {
+		ccd->setBeta((*iter), 0);
+		ccd->setFixedBeta((*iter),1);
+	}
+
+	ccd->update(ccdIterations, ZHANG_OLES, tolerance);
+	HessianMatrix = (ccd->getHessianMatrix()).cast<float>();
+	generateCholesky();
+	Beta.setRestorable(true);
+
+	setLogLikelihood(ccd->getLogLikelihood());
+	setLogPrior(ccd->getLogPrior());
+	newLogPriorAndLikelihood = true;
+ }
+
+ void MCMCModel::setFixedIndices(set<int>& fixedIndices){
+	 modelKey = "";
+	 ostringstream convert;
+	 set<int> newSet;
+	 fixedBetaIndices = newSet;
+	 set<int> newSet2;
+	 variableBetaIndices = newSet;
+	 set<int>::iterator iter;
+	 for(iter=fixedIndices.begin(); iter!=fixedIndices.end();++iter) {
+		 fixedBetaIndices.insert((*iter));
+		 convert << (*iter)<< "|";
+	 }
+	 modelKey = convert.str();
+	 setVariableIndices();
+ }
+
+ void MCMCModel::setVariableIndices(){
+ 	 //variableBetaIndices(J - fixedBetaIndices.size());
+ 	 set<int> allBetaIndices;
+
+ 	 for (int i = 0;i < J; i++){
+ 		 allBetaIndices.insert(i);
+ 	 }
+
+ 	 std::set_difference(allBetaIndices.begin(), allBetaIndices.end(),fixedBetaIndices.begin(), fixedBetaIndices.end(),
+ 	    std::inserter(variableBetaIndices, variableBetaIndices.end()));
+ }
+
+ set<int> MCMCModel::getVariableIndices(){
+	 return(variableBetaIndices);
+ }
+
+ set<int> MCMCModel::getFixedIndices(){
+ 	 return(fixedBetaIndices);
+  }
+
+ int MCMCModel::getFixedSize(){
+	 return(fixedBetaIndices.size());
+ }
+
+ void MCMCModel::setModelProbability(double modelProbabilityIn){
+	 modelProbability = modelProbabilityIn;
+  }
+
+ double MCMCModel::getModelProbability(){
+ 	 return(modelProbability);
+  }
+
+ string MCMCModel::getModelKey(){
+ 	 return(modelKey);
+  }
+
+ void MCMCModel::printFixedIndices(){
+	 cout << "fixed indices are <";
+	 set<int>::iterator iter;
+	 for(iter=fixedBetaIndices.begin(); iter!=fixedBetaIndices.end();++iter) {
+		 cout<<(*iter) << ", ";
+	 }
+	 cout << ">" << endl;
+
+	 cout << "variable indices are <";
+	 set<int>::iterator iter2;
+	 for(iter2=variableBetaIndices.begin(); iter2!=variableBetaIndices.end();++iter2) {
+		 cout<<(*iter2) << " ";
+	 }
+	 cout << ">" << endl;
+ }
+
+ int MCMCModel::getBetaSize(){
+ 	 return(Beta.getSize() - fixedBetaIndices.size());
+  }
+
+ void MCMCModel::setBeta(Eigen::VectorXf& newBeta){
+	 int counter = 0;
+
+	 set<int>::iterator iter;
+	 for(iter=fixedBetaIndices.begin(); iter!=fixedBetaIndices.end();++iter) {
+		 Beta.set((*iter), 0);
+		 ccd->setBeta((*iter), 0);
+		 ccd->setFixedBeta((*iter),1);
+	 }
+	 set<int>::iterator iter2;
+	 for(iter2=variableBetaIndices.begin(); iter2!=variableBetaIndices.end();++iter2) {
+		 Beta.set((*iter2), newBeta[counter]);
+		 ccd->setBeta((*iter2), newBeta[counter]);
+		 counter ++;
+	 }
+
+   }
 
  void MCMCModel::clearHessian() {
 
@@ -111,8 +245,6 @@ namespace bsccs {
  	HessianMatrixInverse.resize(J,J);
  	HessianMatrixInverse = HessianMatrix.inverse();
 
- 	cout << "Hessian Inverse" << endl;
- 	cout << HessianMatrixInverse << endl;
 
  	//Perform Cholesky Decomposition
  	CholDecom.compute(HessianMatrix);
@@ -201,7 +333,7 @@ void MCMCModel::logState(){
 }
 
 void MCMCModel::writeVariances(){
-	cout << "variances?" << endl;
+
 	for(int i = 0; i<J; i ++){
 		Beta.set(i, HessianMatrixInverse(i,i));
 		//cout<< "Beta[" <<i <<"] = " << Beta.get(i) << endl;
