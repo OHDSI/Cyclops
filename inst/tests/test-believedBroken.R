@@ -18,10 +18,6 @@ library("testthat")
 
 # test_that("Check SCCS model via SQL", {})
 
-# test_that("Check SCCS model via R formula, {})
-
-# test_that("Check intercept flag when specifying a formula", {})
-
 # test_that("Check profile conditional posterior vs likelihood", {})
 
 # test_that("Check default regularization variance", {})
@@ -38,14 +34,28 @@ library("testthat")
 
 # test_that("Return data summary statistics", {})
 
-# test_that("Make covariates dense in SQL input", {})
+test_that("Make covariates dense", {
+    counts <- c(18,17,15,20,10,20,25,13,12)
+    outcome <- gl(3,1,9)
+    treatment <- gl(3,3)
+    tolerance <- 1E-4
+    
+    dataPtr <- createCcdDataFrame(counts ~ outcome, indicatorFormula =  ~ treatment, 
+                                  modelType = "pr")
+    
+    expect_equal(as.character(summary(dataPtr)["treatment2","type"]),
+                 "indicator")
+    
+    finalizeSqlCcdData(dataPtr, makeCovariatesDense = "treatment2")
+    
+    expect_equal(as.character(summary(dataPtr)["treatment2","type"]),
+                 "dense")    
+})
+
+# test_that("Make intercept dense in SQL input", {})
 
 # test_that("Make logLike object" , {
 #expect_equal(logLik(ccdFit), logLik(gold))
-#})
-
-# test_that("Check simple SCCS as conditional logistic regression summary", {
-# summary(dataPtr) has 'getHasInterceptCovariate()' set wrong?
 #})
 
 # test_that("SCCS as conditional Poisson regression likelihoods" ,{
