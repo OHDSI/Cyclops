@@ -17,4 +17,5 @@ LinkingTo: Rcpp,
     RcppEigen
 Suggests:
     testthat,
-    survival
+    survival,
+    gnm

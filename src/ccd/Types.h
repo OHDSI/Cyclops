@@ -103,12 +103,13 @@ enum ModelType {
 	POISSON,
 	LOGISTIC,
 	CONDITIONAL_LOGISTIC,
+	CONDITIONAL_POISSON,
 	SELF_CONTROLLED_MODEL,
 	COX
 };
 
 inline bool requiresStratumID(const ModelType modelType) {
-	return (modelType == CONDITIONAL_LOGISTIC || modelType == SELF_CONTROLLED_MODEL);
+	return (modelType == CONDITIONAL_LOGISTIC || modelType == CONDITIONAL_POISSON || modelType == SELF_CONTROLLED_MODEL);
 }
 
 inline bool requiresCensoredData(const ModelType modelType) {

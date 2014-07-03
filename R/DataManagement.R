@@ -70,16 +70,24 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
             pid <- c(1:length(y))
 		}      
         
-        if (.removeIntercept(modelType)) {
-            attr(mt.d, "intercept") <- FALSE
+#         if (.removeIntercept(modelType)) { # This does not work with constrasts
+#             attr(mt.d, "intercept") <- FALSE
+#         }
+
+        dtmp = model.matrix(mt.d, mf.d)
+        if (attr(mt.d, "intercept") && .removeIntercept(modelType)) {
+            dx <- Matrix(as.matrix(dtmp[,-1]), sparse = FALSE)
+        } else {
+            dx <- Matrix(dtmp, sparse = FALSE)
         }
-		dx <- Matrix(model.matrix(mt.d, mf.d), sparse=FALSE) # TODO Change for sparse and indicator
 					  
+        
+
         time <- as.vector(model.offset(mf.d))
 		
 		colnames <- c(colnames, dx@Dimnames[[2]])
                
-		if (attr(attr(mf.d, "terms"), "intercept") == 1) { # Has intercept
+		if (attr(mt.d, "intercept") && !.removeIntercept(modelType)) { # Has intercept
             hasIntercept <- TRUE
 		}
 		
@@ -217,7 +225,7 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 #'
 #' @return TRUE/FALSE
 isValidModelType <- function(modelType) {
-    types <- c("ls", "pr", "lr", "clr", "sccs", "cox")
+    types <- c("ls", "pr", "lr", "clr", "cpr", "sccs", "cox")
     modelType %in% types
 }
 
@@ -427,7 +435,7 @@ isInitialized <- function(object) {
 
 
 .removeIntercept <- function(modelType) {
-    if (modelType == "clr" || modelType == "sccs" || modelType == "cox") {
+    if (modelType == "clr" || modelType == "cpr" || modelType == "sccs" || modelType == "cox") {
         return(TRUE)
     } else {
         return(FALSE)
@@ -442,11 +450,11 @@ summary.ccdData <- function(x,
         stop("OHDSI data object is no longer or improperly initialized")
     }
     covariates <- getCovariateIds(x)
-    sums <- reduce(dataPtr, covariates)
-    
+    sums <- reduce(dataPtr, covariates)    
     nc <- getNumberOfCovariates(x)
     
-    nc
+    data.frame(covariates = covariates,
+               sums = sums)   
 }
 
 print.ccdData <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,...) {

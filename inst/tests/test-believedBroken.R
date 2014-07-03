@@ -12,6 +12,8 @@ library("testthat")
 
 # test_that("Predict CLR model", {})
 
+# test_that("Throw error with more than one case in CLR" ,{})
+
 # test_that("Compute confint under CLR model", {})
 
 # test_that("Check SCCS model via SQL", {})
@@ -37,6 +39,18 @@ library("testthat")
 # test_that("Return data summary statistics", {})
 
 # test_that("Make covariates dense in SQL input", {})
+
+# test_that("Make logLike object" , {
+#expect_equal(logLik(ccdFit), logLik(gold))
+#})
+
+# test_that("Check simple SCCS as conditional logistic regression summary", {
+# summary(dataPtr) has 'getHasInterceptCovariate()' set wrong?
+#})
+
+# test_that("SCCS as conditional Poisson regression likelihoods" ,{
+#     expect_equal(logLik(ccdFit), logLik(gold.cp)[1]) # TODO Why are these different?
+#})
 
 test_that("Set seed for cross-validation", {
     counts <- c(18,17,15,20,10,20,25,13,12)

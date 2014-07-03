@@ -150,6 +150,10 @@ getHyperParameter <- function(x) {
 	x$variance
 }
 
+logLik.ccdFit <- function(object, ...) {
+    object$log_likelihood
+}
+
 print.ccdFit <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,...) {
   cat("OHDSI CCD model fit object\n\n")
   

@@ -52,7 +52,7 @@ bool ccdGetIsRegularized(SEXP inRcppCcdInterface, const int index) {
     return interface->getCcd().getIsRegularized(index);
 }
 
-// [[Rcpp::export("ccdGetLogLikelihood")]]
+// [[Rcpp::export(".ccdGetLogLikelihood")]]
 double ccdGetLogLikelihood(SEXP inRcppCcdInterface) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
@@ -310,6 +310,8 @@ bsccs::Models::ModelType RcppCcdInterface::parseModelType(const std::string& mod
  	bsccs::Models::ModelType modelType;
  	if (modelName == "sccs") {
  		modelType = bsccs::Models::SELF_CONTROLLED_MODEL;
+ 	} else if (modelName == "cpr") {
+ 		modelType = bsccs::Models::CONDITIONAL_POISSON;
  	} else if (modelName == "clr") {
  		modelType = bsccs::Models::CONDITIONAL_LOGISTIC;
  	} else if (modelName == "lr") {
@@ -414,6 +416,9 @@ void RcppCcdInterface::initializeModelImpl(
  		case bsccs::Models::POISSON :
  			*model = new ModelSpecifics<PoissonRegression<real>,real>(**modelData);
  			break;
+		case bsccs::Models::CONDITIONAL_POISSON :
+ 			*model = new ModelSpecifics<ConditionalPoissonRegression<real>,real>(**modelData);
+ 			break; 			
  		case bsccs::Models::COX :
  			*model = new ModelSpecifics<CoxProportionalHazards<real>,real>(**modelData);
  			break;

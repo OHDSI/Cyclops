@@ -172,7 +172,7 @@ struct SortedPid {
 struct NoFixedLikelihoodTerms {
 	const static bool likelihoodHasFixedTerms = false;
 
-	real logLikeFixedTermsContrib(real yi, real offseti){
+	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
 		std::cerr << "Error!" << std::endl;
 		exit(-1);
 		return static_cast<real>(0);
@@ -277,13 +277,13 @@ public:
 #ifdef TEST_CONSTANT_SCCS
 	const static bool likelihoodHasFixedTerms = true;
 
-	real logLikeFixedTermsContrib(real yi, real offseti){
+	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
 		return yi * std::log(offseti);
 	}
 #else
 	const static bool likelihoodHasFixedTerms = false;
 
-	real logLikeFixedTermsContrib(real yi, real offseti){
+	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
 		std::cerr << "Error!" << std::endl;
 		exit(-1);
 		return static_cast<real>(0);
@@ -317,6 +317,68 @@ public:
 
 	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
 		return offs[k] * std::exp(xBeta);
+	}
+
+	real logLikeDenominatorContrib(WeightType ni, real denom) {
+		return ni * std::log(denom);
+	}
+
+	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
+			int* groups, int i) {
+		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
+	}
+
+	void predictEstimate(real& yi, real xBeta){
+		//do nothing for now
+	}
+
+};
+
+template <typename WeightType>
+struct ConditionalPoissonRegression : public GroupedData, GLMProjection, FixedPid, Survival<WeightType> {
+public:
+	const static bool precomputeHessian = false; // XjX
+	
+	const static bool likelihoodHasFixedTerms = true;
+		
+// 	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
+// 		return yi * std::log(offseti);
+// 	}
+	
+	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
+		real logLikeFixedTerm = 0.0;
+		for(int i = 2; i <= (int)yi; i++)
+			logLikeFixedTerm += -log((real)i);
+		return logLikeFixedTerm;
+	}	
+
+	static real getDenomNullValue () { return static_cast<real>(0.0); }
+
+	real observationCount(real yi) {
+		return static_cast<real>(yi);
+	}
+
+	template <class IteratorType, class Weights>
+	void incrementGradientAndHessian(
+			const IteratorType& it,
+			Weights false_signature,
+			real* gradient, real* hessian,
+			real numer, real numer2, real denom,
+			WeightType nEvents,
+			real x, real xBeta, real y) {
+
+		const real t = numer / denom;
+		const real g = nEvents * t; // Always use weights (number of events)
+		*gradient += g;
+		if (IteratorType::isIndicator) {
+			*hessian += g * (static_cast<real>(1.0) - t);
+		} else {
+			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
+		}
+	}
+
+	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+		return std::exp(xBeta);
 	}
 
 	real logLikeDenominatorContrib(WeightType ni, real denom) {
@@ -418,7 +480,7 @@ public:
 	const static bool precomputeHessian = false; // XjX
 	const static bool likelihoodHasFixedTerms = false;
 
-	real logLikeFixedTermsContrib(real yi, real offseti){
+	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
 		std::cerr << "Error!" << std::endl;
 		exit(-1);
 		return static_cast<real>(0);
@@ -708,7 +770,7 @@ public:
 		yi = exp(xBeta);
 	}
 
-	real logLikeFixedTermsContrib(real yi, real offseti){
+	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
 		real logLikeFixedTerm = 0.0;
 		for(int i = 2; i <= (int)yi; i++)
 			logLikeFixedTerm += -log((real)i);
