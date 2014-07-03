@@ -463,7 +463,8 @@ public:
 	}
 
 	void predictEstimate(real& yi, real xBeta){
-		//do nothing for now
+	    // Do nothing
+		//yi = xBeta; // Returns the linear predictor;  ###relative risk		
 	}
 
 };

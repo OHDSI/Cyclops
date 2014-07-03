@@ -3,7 +3,8 @@
 \alias{prior}
 \title{prior}
 \usage{
-prior(priorType, variance = 1, exclude = c(), useCrossValidation = FALSE)
+prior(priorType, variance = 1, exclude = c(), useCrossValidation = FALSE,
+  forceIntercept = FALSE)
 }
 \arguments{
 \item{priorType}{}

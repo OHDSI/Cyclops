@@ -76,6 +76,22 @@ public:
 		return numericalName;
 	}
 	
+	const std::string getTypeString() const {
+		std::string str;
+		if (formatType == DENSE) {
+			str = "dense";
+		} else if (formatType == SPARSE) {
+			str = "sparse";
+		} else if (formatType == INDICATOR) {
+			str = "indicator";
+		} else if (formatType == INTERCEPT) {
+			str = "intercept";
+		} else {
+			str = "unknown";
+		}
+		return str;
+	}
+	
 	size_t getNumberOfEntries() const {
 		return columns->size();
 	}
@@ -227,7 +243,7 @@ public:
 		return *(allColumns[column]);
 	}
 	
-	int getColumnIndexByName(IdType name);
+	int getColumnIndexByName(IdType name) const;
 
 	// Make deep copy
 	template <typename IntVectorItr, typename RealVectorItr>

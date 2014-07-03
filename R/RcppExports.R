@@ -65,6 +65,14 @@ getNumberOfStrata <- function(x) {
     .Call('CCD_ccdGetNumberOfStrata', PACKAGE = 'CCD', x)
 }
 
+getCovariateIds <- function(x) {
+    .Call('CCD_ccdGetCovariateIds', PACKAGE = 'CCD', x)
+}
+
+getCovariateTypes <- function(x, covariateLabel) {
+    .Call('CCD_ccdGetCovariateType', PACKAGE = 'CCD', x, covariateLabel)
+}
+
 getNumberOfCovariates <- function(x) {
     .Call('CCD_ccdGetNumberOfColumns', PACKAGE = 'CCD', x)
 }

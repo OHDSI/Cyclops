@@ -4,7 +4,7 @@
 \title{createCcdDataFrame}
 \usage{
 createCcdDataFrame(formula, sparseFormula, indicatorFormula, modelType, data,
-  subset, weights, offs = NULL, y = NULL, z = NULL, dx = NULL,
+  subset, weights, offset, time = NULL, y = NULL, z = NULL, dx = NULL,
   sx = NULL, ix = NULL, model = FALSE, method = "ccd.fit", ...)
 }
 \arguments{

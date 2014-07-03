@@ -52,10 +52,10 @@ struct DrugIDComparator {
 	}
 };
 
-int CompressedDataMatrix::getColumnIndexByName(IdType name) {
+int CompressedDataMatrix::getColumnIndexByName(IdType name) const {
 
 	DrugIDComparator cmp(name);
-	std::vector<CompressedDataColumn*>::iterator found = std::find_if(
+	std::vector<CompressedDataColumn*>::const_iterator found = std::find_if(
 			allColumns.begin(), allColumns.end(), cmp);
 	if (found != allColumns.end()) {
 		return std::distance(allColumns.begin(), found);

@@ -38,20 +38,6 @@ library("testthat")
 
 # test_that("Make covariates dense in SQL input", {})
 
-test_that("Mixture report should show full details of components", {
-    counts <- c(18,17,15,20,10,20,25,13,12)
-    outcome <- gl(3,1,9)
-    treatment <- gl(3,3)   
-        
-    dataPtr <- createCcdDataFrame(counts ~ outcome + treatment, 
-                                  modelType = "pr")    
-    ccdFit <- fitCcdModel(dataPtr,
-                          prior = prior("laplace",																			
-                                        exclude = c("(Intercept)", "outcome2", "outcome3")))
-    expect_equal(length(strsplit(ccdFit$prior_info, ' ')[[1]]),
-                 4) # 4 different prior assignments    
-})
-
 test_that("Set seed for cross-validation", {
     counts <- c(18,17,15,20,10,20,25,13,12)
     outcome <- gl(3,1,9)

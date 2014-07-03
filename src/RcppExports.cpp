@@ -252,6 +252,37 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
+// ccdGetCovariateIds
+std::vector<int64_t> ccdGetCovariateIds(Environment x);
+RcppExport SEXP CCD_ccdGetCovariateIds(SEXP xSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
+        std::vector<int64_t> __result = ccdGetCovariateIds(x);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
+// ccdGetCovariateType
+CharacterVector ccdGetCovariateType(Environment x, const std::vector<int64_t>& covariateLabel);
+RcppExport SEXP CCD_ccdGetCovariateType(SEXP xSEXP, SEXP covariateLabelSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
+        Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type covariateLabel(covariateLabelSEXP );
+        CharacterVector __result = ccdGetCovariateType(x, covariateLabel);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
 // ccdGetNumberOfColumns
 int ccdGetNumberOfColumns(Environment x);
 RcppExport SEXP CCD_ccdGetNumberOfColumns(SEXP xSEXP) {

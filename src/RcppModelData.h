@@ -46,10 +46,10 @@ public:
 	void sumByGroup(std::vector<double>& out, const IdType covariate, const IdType groupBy);
 	
 	void sumByGroup(std::vector<double>& out, const IdType covariate);	
+    
+    size_t getColumnIndex(const IdType covariate) const;
 			
 protected:
-
-    size_t getColumnIndex(const IdType covariate);
     
     template <typename F>
     void transform(const size_t index, F func) {	    

@@ -322,24 +322,24 @@ reduce <- function(object, covariates, groupBy) {
 #' \code{appendSqlCcdData} appends data to an OHDSI data object.
 #' 
 appendSqlCcdData <- function(object,
-														 oStratumId,
-														 oRowId,
-														 oY,
-														 oTime,
-														 cRowId,
-														 cCovariateId,
-														 cCovariateValue) {
-	if (!isInitialized(object)) {
+                             oStratumId,
+                             oRowId,
+                             oY,
+                             oTime,
+                             cRowId,
+                             cCovariateId,
+                             cCovariateValue) {
+    if (!isInitialized(object)) {
 		stop("Object is no longer or improperly initialized.")		
 	} 
-	.appendSqlCcdData(object, 
-										oStratumId, 
-										oRowId, 
-										oY, 
-										oTime, 
-										cRowId, 
-										cCovariateId, 
-										cCovariateValue)
+    .appendSqlCcdData(object, 
+                      oStratumId, 
+                      oRowId, 
+                      oY, 
+                      oTime, 
+                      cRowId, 
+                      cCovariateId, 
+                      cCovariateValue)
 }
 
 #' @title finalizeSqlCcdData
@@ -432,6 +432,21 @@ isInitialized <- function(object) {
     } else {
         return(FALSE)
     }
+}
+
+summary.ccdData <- function(x,
+                            digits = max(3, getOptions("digiits")-3),
+                            show.call = TRUE,
+                            ...) {
+    if (!isInitialized(x)) {
+        stop("OHDSI data object is no longer or improperly initialized")
+    }
+    covariates <- getCovariateIds(x)
+    sums <- reduce(dataPtr, covariates)
+    
+    nc <- getNumberOfCovariates(x)
+    
+    nc
 }
 
 print.ccdData <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,...) {

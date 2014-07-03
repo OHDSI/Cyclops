@@ -87,6 +87,33 @@ int ccdGetNumberOfStrata(Environment x) {
 	return static_cast<int>(data->getNumberOfPatients());
 }
 
+// [[Rcpp::export("getCovariateIds")]]
+std::vector<int64_t> ccdGetCovariateIds(Environment x) {
+    using namespace bsccs;
+	XPtr<ModelData> data = parseEnvironmentForPtr(x);
+	ProfileVector covariates;
+	size_t i = 0;
+	if (data->getHasOffsetCovariate()) i++;
+	if (data->getHasInterceptCovariate()) i++;
+	for (; i < data->getNumberOfColumns(); ++i) {
+		covariates.push_back(data->getColumn(i).getNumericalLabel());
+	}
+	return covariates;
+}
+
+// [[Rcpp::export("getCovariateTypes")]]
+CharacterVector ccdGetCovariateType(Environment x, const std::vector<int64_t>& covariateLabel) {
+    using namespace bsccs;
+	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
+	CharacterVector types(covariateLabel.size());	
+	
+	for (size_t i = 0; i < covariateLabel.size(); ++i) {
+		IdType index = data->getColumnIndex(covariateLabel[i]);		
+		types[i] = data->getColumn(index).getTypeString();
+	}
+	return types;
+}
+
 // [[Rcpp::export("getNumberOfCovariates")]]
 int ccdGetNumberOfColumns(Environment x) {	
 	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(x);	
@@ -238,10 +265,11 @@ void ccdFinalizeData(
 }                        
 
 // NOTE:  IdType does not get exported into RcppExports, so hard-coded here
+// TODO Could use SEXP signature and cast in function
 
 // [[Rcpp::export(".appendSqlCcdData")]]
 int ccdAppendSqlData(Environment x,
-        const std::vector<int64_t>& oStratumId, // TODO Could use SEXP signature and cast in function
+        const std::vector<int64_t>& oStratumId, 
         const std::vector<int64_t>& oRowId,
         const std::vector<double>& oY,
         const std::vector<double>& oTime,
@@ -445,7 +473,7 @@ RcppModelData::RcppModelData(
     	int currentCase = 0;
     	int currentPID = cpid[0];
     	cpid[0] = currentCase;
-    	for (int i = 1; i < pid.size(); ++i) {
+    	for (size_t i = 1; i < pid.size(); ++i) {
     	    int nextPID = cpid[i];
     	    if (nextPID != currentPID) {
 	            currentCase++;
@@ -453,7 +481,7 @@ RcppModelData::RcppModelData(
     	    }
 	        cpid[i] = currentCase;
     	}
-      nPatients = currentCase + 1;
+        nPatients = currentCase + 1;
     }    
 }
 
@@ -469,7 +497,7 @@ struct Identity {
     }
 };
 
-size_t RcppModelData::getColumnIndex(const IdType covariate) {
+size_t RcppModelData::getColumnIndex(const IdType covariate) const {
     int index = getColumnIndexByName(covariate);
     if (index == -1) {
         std::ostringstream stream;
