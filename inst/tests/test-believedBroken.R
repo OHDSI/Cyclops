@@ -32,8 +32,6 @@ library("testthat")
 
 # test_that("Use shared_ptr to handle most data", {})
 
-# test_that("Return data summary statistics", {})
-
 # test_that("Make intercept dense in SQL input", {})
 
 # test_that("Make logLike object" , {
