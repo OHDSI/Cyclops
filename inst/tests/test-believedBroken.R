@@ -52,6 +52,10 @@ library("testthat")
 #     expect_equal(logLik(ccdFit), logLik(gold.cp)[1]) # TODO Why are these different?
 #})
 
+# test_that("SCCS as SCCS likelihoods" ,{
+#     expect_equal(logLik(ccdFit), MJS values) # TODO Why are these different?
+#})
+
 test_that("Set seed for cross-validation", {
     counts <- c(18,17,15,20,10,20,25,13,12)
     outcome <- gl(3,1,9)

@@ -81,9 +81,13 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
             dx <- Matrix(dtmp, sparse = FALSE)
         }
 					  
-        
-
-        time <- as.vector(model.offset(mf.d))
+        off.d <- model.offset(mf.d)
+        if (!is.null(time) && !is.null(off.d)) {
+            stop("Supplied both 'time' and 'offset' quantities")
+        }
+        if (!is.null(off.d)) {
+            time <- as.vector(off.d)
+        }
 		
 		colnames <- c(colnames, dx@Dimnames[[2]])
                
@@ -184,7 +188,7 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
     # TODO Check types and dimensions        
     
     useTimeAsOffset <- FALSE
-    if (!is.null(time)) { # TODO Fix for MSCCS/Cox
+    if (!is.null(time) && modelType != "sccs") { # TODO Fix for Cox
         useTimeAsOffset <- TRUE
     }
     
@@ -200,13 +204,16 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 	result$ccdInterfacePtr <- NULL
 	result$call <- cl
 	result$coefficientNames <- colnames
-	result$rowNames <- dx@Dimnames[[1]]        
-	result$debug <- list()
-	result$debug$dx <- dx
-	result$debug$sx <- sx
-	result$debug$ix <- ix
-	result$debug$y <- y
-	result$debug$pid <- pid		
+	result$rowNames <- dx@Dimnames[[1]]    
+    if (identical(method, "debug")) {
+	    result$debug <- list()
+	    result$debug$dx <- dx
+	    result$debug$sx <- sx
+	    result$debug$ix <- ix
+	    result$debug$y <- y
+	    result$debug$pid <- pid
+        result$debug$time <- time
+    }
 	class(result) <- "ccdData"
     
 	if (hasIntercept == TRUE) {
@@ -443,7 +450,7 @@ isInitialized <- function(object) {
 }
 
 summary.ccdData <- function(x,
-                            digits = max(3, getOptions("digiits")-3),
+                            digits = max(3, getOptions("digiits") - 3),
                             show.call = TRUE,
                             ...) {
     if (!isInitialized(x)) {
@@ -451,10 +458,15 @@ summary.ccdData <- function(x,
     }
     covariates <- getCovariateIds(x)
     sums <- reduce(dataPtr, covariates)    
-    nc <- getNumberOfCovariates(x)
+    types <- getCovariateTypes(dataPtr, covariates)    
     
-    data.frame(covariates = covariates,
-               sums = sums)   
+    df <- data.frame(covariateId = covariates,
+                     sum = sums,
+                     type = types)
+    if (!is.null(dataPtr$coefficientNames)) {
+        row.names(df) <- dataPtr$coefficientNames
+    }
+    df
 }
 
 print.ccdData <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,...) {

@@ -104,17 +104,17 @@ test_that("Check simple SCCS as conditional Poisson regression", {
 })
 
 test_that("Check simple SCCS as SCCS", {
-#     tolerance <- 1E-6
-#     chopdat <- constructOxfordDataFrame()
-#     gold.clogit <- clogit(event ~ exgr + agegr + strata(indiv) + offset(loginterval), 
-#                           data = chopdat)
-#     
-#     dataPtr <- createCcdDataFrame(event ~ exgr + agegr + strata(indiv), time = interval,
-#                                   data = chopdat,
-#                                   modelType = "sccs")        
-#     ccdFit <- fitCcdModel(dataPtr,
-#                           prior = prior("none"))
-#     expect_equal(logLik(ccdFit), logLik(gold.clogit)[1])
-#     expect_equal(coef(ccdFit), coef(gold.clogit), tolerance = tolerance)            
+    tolerance <- 1E-6
+    chopdat <- constructOxfordDataFrame()
+    gold.clogit <- clogit(event ~ exgr + agegr + strata(indiv) + offset(loginterval), 
+                          data = chopdat)
+    
+    dataPtr <- createCcdDataFrame(event ~ exgr + agegr + strata(indiv), time = chopdat$interval,
+                                  data = chopdat,
+                                  modelType = "sccs")        
+    ccdFit <- fitCcdModel(dataPtr,
+                          prior = prior("none"))
+    expect_equal(logLik(ccdFit), logLik(gold.clogit)[1])
+    expect_equal(coef(ccdFit), coef(gold.clogit), tolerance = tolerance)            
 })
 
