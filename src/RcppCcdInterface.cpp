@@ -260,7 +260,7 @@ void RcppCcdInterface::handleError(const std::string& str) {
 }
 
 bsccs::ConvergenceType RcppCcdInterface::parseConvergenceType(const std::string& convergenceName) {
-	ConvergenceType type;
+	ConvergenceType type = GRADIENT;
 	if (convergenceName == "gradient") {
 		type = GRADIENT;
 	} else if (convergenceName == "lange") {
@@ -277,7 +277,7 @@ bsccs::ConvergenceType RcppCcdInterface::parseConvergenceType(const std::string&
 
 bsccs::NoiseLevels RcppCcdInterface::parseNoiseLevel(const std::string& noiseName) {
 	using namespace bsccs;
-	NoiseLevels level;
+	NoiseLevels level = SILENT;
 	if (noiseName == "silent") {
 		level = SILENT; 
 	} else if (noiseName == "quiet") {
@@ -292,7 +292,7 @@ bsccs::NoiseLevels RcppCcdInterface::parseNoiseLevel(const std::string& noiseNam
 
 bsccs::priors::PriorType RcppCcdInterface::parsePriorType(const std::string& priorName) {
 	using namespace bsccs::priors;
-	bsccs::priors::PriorType priorType;
+	bsccs::priors::PriorType priorType = NONE;
 	if (priorName == "none") {
 		priorType = NONE;
 	} else if (priorName == "laplace") {
@@ -307,7 +307,7 @@ bsccs::priors::PriorType RcppCcdInterface::parsePriorType(const std::string& pri
 
 bsccs::Models::ModelType RcppCcdInterface::parseModelType(const std::string& modelName) {
 	// Parse type of model 
- 	bsccs::Models::ModelType modelType;
+ 	bsccs::Models::ModelType modelType =  bsccs::Models::LOGISTIC;
  	if (modelName == "sccs") {
  		modelType = bsccs::Models::SELF_CONTROLLED_MODEL;
  	} else if (modelName == "cpr") {

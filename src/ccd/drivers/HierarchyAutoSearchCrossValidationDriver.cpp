@@ -21,7 +21,7 @@
 
 namespace bsccs {
 
-const static int MAX_STEPS = 50;
+//const static int MAX_STEPS = 50;
 
 HierarchyAutoSearchCrossValidationDriver::HierarchyAutoSearchCrossValidationDriver(const ModelData& _modelData,
 		int iGridSize,

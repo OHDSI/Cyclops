@@ -15,7 +15,7 @@ namespace bsccs {
  // forward references
 class CyclicCoordinateDescent;
 class AbstractSelector;
-class CCDArguments;
+struct CCDArguments;
 
 class AbstractCrossValidationDriver : public AbstractDriver {
 public:

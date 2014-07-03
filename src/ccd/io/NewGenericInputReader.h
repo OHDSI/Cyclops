@@ -27,11 +27,11 @@ public:
 		, includeRowLabel(false)
 		, includeStratumLabel(false)
 		, includeCensoredData(false)
-		, includeCensoredData2(false)
+	//	, includeCensoredData2(false)
 		, includeWeights(false)
 		, includeSCCSOffset(false)
 		, indicatorOnly(false)
-		, modelType(bsccs::Models::NONE)
+	//	, modelType(bsccs::Models::NONE)
 	{
 		// Do nothing
 	}
@@ -45,11 +45,11 @@ public:
 		, includeRowLabel(false)
 		, includeStratumLabel(false)
 		, includeCensoredData(false)
-		, includeCensoredData2(false)
+	//	, includeCensoredData2(false)
 		, includeWeights(false)
 		, includeSCCSOffset(false)
 		, indicatorOnly(false)
-		, modelType(model)
+	//	, modelType(model)
 	{
 		setRequiredFlags(model);
 	}	
@@ -64,11 +64,11 @@ public:
 		, includeRowLabel(false)
 		, includeStratumLabel(false)
 		, includeCensoredData(false)
-		, includeCensoredData2(false)
+	//	, includeCensoredData2(false)
 		, includeWeights(false)
 		, includeSCCSOffset(false)
 		, indicatorOnly(false)
-		, modelType(model)
+	//	, modelType(model)
 	{
 		setRequiredFlags(model);
 		
@@ -203,12 +203,12 @@ private:
 	bool includeRowLabel;
 	bool includeStratumLabel;
 	bool includeCensoredData;
-	bool includeCensoredData2;	
+//	bool includeCensoredData2;	
 	bool includeWeights;	
 	bool includeSCCSOffset;
 	bool indicatorOnly;
 
-	bsccs::Models::ModelType modelType;
+//	bsccs::Models::ModelType modelType;
 	
 	int columnIntercept;
 	bool offsetInLogSpace;	

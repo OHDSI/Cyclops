@@ -18,7 +18,7 @@ namespace bsccs {
 
 class SparseIndexer {
 public:
-	SparseIndexer(CompressedDataMatrix& matrix) : dataMatrix(matrix), nCovariates(0) {}
+	SparseIndexer(CompressedDataMatrix& matrix) : dataMatrix(matrix) {}
 	virtual ~SparseIndexer() {}
 	
 
@@ -46,7 +46,7 @@ public:
 		
 private:
 	CompressedDataMatrix& dataMatrix;
-	int nCovariates;
+//	int nCovariates;
 	std::map<IdType, int> sparseMap;	
 };
 

@@ -23,7 +23,7 @@ class RcppOutputHelper {
 public:				
 
     RcppOutputHelper(Rcpp::List& _result) : result(_result)
-        , inHeaders(false), inMetaData(false), inTable(false), useHeaders(false)
+        , inMetaData(false), inTable(false)
         , columnCounter(0) { }
 
 	RcppOutputHelper& addDelimitor() { return *this; } 
@@ -105,11 +105,11 @@ private:
 		ValuesVector	allValues;
     std::string currentKey;
     
-    bool inHeaders;
+//    bool inHeaders;
     bool inMetaData;
     bool inTable;
     
-    bool useHeaders;
+//    bool useHeaders;
     
     int columnCounter;
 };
