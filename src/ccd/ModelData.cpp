@@ -33,6 +33,16 @@ ModelData::ModelData(
 }
 
 
+size_t ModelData::getColumnIndex(const IdType covariate) const {
+    int index = getColumnIndexByName(covariate);
+    if (index == -1) {
+        std::ostringstream stream;
+        stream << "Variable " << covariate << " is unknown";
+        error->throwError(stream);
+    }
+    return index;
+}
+
 //#define DEBUG_64BIT
 
 size_t ModelData::append(

@@ -94,7 +94,7 @@ std::vector<int64_t> ccdGetCovariateIds(Environment x) {
 	ProfileVector covariates;
 	size_t i = 0;
 	if (data->getHasOffsetCovariate()) i++;
-	if (data->getHasInterceptCovariate()) i++;
+// 	if (data->getHasInterceptCovariate()) i++;
 	for (; i < data->getNumberOfColumns(); ++i) {
 		covariates.push_back(data->getColumn(i).getNumericalLabel());
 	}
@@ -127,13 +127,14 @@ int ccdGetNumberOfRows(Environment x) {
 }
 
 // [[Rcpp::export(".ccdSumByGroup")]]
-List ccdSumByGroup(Environment x, const std::vector<long>& covariateLabel, const long groupByLabel) {
+List ccdSumByGroup(Environment x, const std::vector<long>& covariateLabel, 
+		const long groupByLabel, const int power) {
 	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
     List list(covariateLabel.size());
     IntegerVector names(covariateLabel.size());
     for (size_t i = 0; i < covariateLabel.size(); ++i) {
         std::vector<double> result;
-        data->sumByGroup(result, covariateLabel[i], groupByLabel);
+        data->sumByGroup(result, covariateLabel[i], groupByLabel, power);
         list[i] = result;
         names[i] = covariateLabel[i];
     }    
@@ -142,13 +143,14 @@ List ccdSumByGroup(Environment x, const std::vector<long>& covariateLabel, const
 }
 
 // [[Rcpp::export(".ccdSumByStratum")]]
-List ccdSumByStratum(Environment x, const std::vector<long>& covariateLabel) {
+List ccdSumByStratum(Environment x, const std::vector<long>& covariateLabel,
+		const int power) {
 	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
     List list(covariateLabel.size());
     IntegerVector names(covariateLabel.size());
     for (size_t i = 0; i < covariateLabel.size(); ++i) {
         std::vector<double> result;
-        data->sumByGroup(result, covariateLabel[i]);
+        data->sumByGroup(result, covariateLabel[i], power);
         list[i] = result;
         names[i] = covariateLabel[i];
     }
@@ -157,12 +159,13 @@ List ccdSumByStratum(Environment x, const std::vector<long>& covariateLabel) {
 }
 
 // [[Rcpp::export(".ccdSum")]]
-std::vector<double> ccdSum(Environment x, const std::vector<long>& covariateLabel) {
+std::vector<double> ccdSum(Environment x, const std::vector<long>& covariateLabel,
+		const int power) {
 	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
 	std::vector<double> result;
 	for (std::vector<long>::const_iterator it = covariateLabel.begin();
 	        it != covariateLabel.end(); ++it) {
-	    result.push_back(data->sum(*it));
+	    result.push_back(data->sum(*it, power));
 	}
 	return result;
 }
@@ -257,8 +260,11 @@ void ccdFinalizeData(
     
     if (!Rf_isNull(sexpCovariatesDense)) {
         // TODO handle dense conversion
-        ProfileVector covariates = as<ProfileVector>(sexpCovariatesDense);       
-       ::Rf_error("Upcasting to dense is not yet implemented");        
+        ProfileVector covariates = as<ProfileVector>(sexpCovariatesDense);
+        for (auto it = covariates.begin(); it != covariates.end(); ++it) {
+        	IdType index = data->getColumnIndex(*it);
+        	data->getColumn(index).convertColumnToDense(data->getNumberOfRows());      
+        }             
     }
                         
     data->setIsFinalized(true);
@@ -491,38 +497,58 @@ struct Sum {
     }       
 };
 
-struct Identity {
+struct ZeroPower {
+    inline double operator()(double x) {
+        return x == 0.0 ? 0.0 : 1.0;
+    }
+};
+
+struct FirstPower {
     inline double operator()(double x) {
         return x;
     }
 };
 
-size_t RcppModelData::getColumnIndex(const IdType covariate) const {
-    int index = getColumnIndexByName(covariate);
-    if (index == -1) {
-        std::ostringstream stream;
-        stream << "Variable " << covariate << " is unknown";
-        error->throwError(stream);
+struct SecondPower {
+    inline double operator()(double x) {
+        return x * x;
     }
-    return index;
+};
+
+double RcppModelData::sum(const IdType covariate, int power) {
+    size_t index = getColumnIndex(covariate); 
+    if (power == 0) {  
+		return reduce(index, ZeroPower());
+	} else if (power == 1) {
+		return reduce(index, FirstPower());
+	} else {
+		return reduce(index, SecondPower());	
+	}
 }
 
-double RcppModelData::sum(const IdType covariate) {
-    size_t index = getColumnIndex(covariate);   
-	return reduce(index, Identity());
-}
-
-void RcppModelData::sumByGroup(std::vector<double>& out, const IdType covariate, const IdType groupBy) {
+void RcppModelData::sumByGroup(std::vector<double>& out, const IdType covariate, const IdType groupBy, int power) {
     size_t covariateIndex = getColumnIndex(covariate);
     size_t groupByIndex = getColumnIndex(groupBy);
     out.resize(2);
-    reduceByGroup(out, covariateIndex, groupByIndex, Identity());
+    if (power == 0) {
+    	reduceByGroup(out, covariateIndex, groupByIndex, ZeroPower());
+    } else if (power == 1) {
+  		reduceByGroup(out, covariateIndex, groupByIndex, FirstPower());  
+    } else {
+    	reduceByGroup(out, covariateIndex, groupByIndex, SecondPower());    
+    }   
 }
 
-void RcppModelData::sumByGroup(std::vector<double>& out, const IdType covariate) {
+void RcppModelData::sumByGroup(std::vector<double>& out, const IdType covariate, int power) {
     size_t covariateIndex = getColumnIndex(covariate);
     out.resize(nPatients);
-    reduceByGroup(out, covariateIndex, pid, Identity());
+    if (power == 0) {
+    	reduceByGroup(out, covariateIndex, pid, ZeroPower());
+    } else if (power == 1) {
+  		reduceByGroup(out, covariateIndex, pid, FirstPower());  
+    } else {
+    	reduceByGroup(out, covariateIndex, pid, SecondPower());    
+    }    
 }
 
 

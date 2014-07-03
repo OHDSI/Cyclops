@@ -34,24 +34,6 @@ library("testthat")
 
 # test_that("Return data summary statistics", {})
 
-test_that("Make covariates dense", {
-    counts <- c(18,17,15,20,10,20,25,13,12)
-    outcome <- gl(3,1,9)
-    treatment <- gl(3,3)
-    tolerance <- 1E-4
-    
-    dataPtr <- createCcdDataFrame(counts ~ outcome, indicatorFormula =  ~ treatment, 
-                                  modelType = "pr")
-    
-    expect_equal(as.character(summary(dataPtr)["treatment2","type"]),
-                 "indicator")
-    
-    finalizeSqlCcdData(dataPtr, makeCovariatesDense = "treatment2")
-    
-    expect_equal(as.character(summary(dataPtr)["treatment2","type"]),
-                 "dense")    
-})
-
 # test_that("Make intercept dense in SQL input", {})
 
 # test_that("Make logLike object" , {

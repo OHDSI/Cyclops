@@ -81,16 +81,16 @@ getNumberOfRows <- function(x) {
     .Call('CCD_ccdGetNumberOfRows', PACKAGE = 'CCD', x)
 }
 
-.ccdSumByGroup <- function(x, covariateLabel, groupByLabel) {
-    .Call('CCD_ccdSumByGroup', PACKAGE = 'CCD', x, covariateLabel, groupByLabel)
+.ccdSumByGroup <- function(x, covariateLabel, groupByLabel, power) {
+    .Call('CCD_ccdSumByGroup', PACKAGE = 'CCD', x, covariateLabel, groupByLabel, power)
 }
 
-.ccdSumByStratum <- function(x, covariateLabel) {
-    .Call('CCD_ccdSumByStratum', PACKAGE = 'CCD', x, covariateLabel)
+.ccdSumByStratum <- function(x, covariateLabel, power) {
+    .Call('CCD_ccdSumByStratum', PACKAGE = 'CCD', x, covariateLabel, power)
 }
 
-.ccdSum <- function(x, covariateLabel) {
-    .Call('CCD_ccdSum', PACKAGE = 'CCD', x, covariateLabel)
+.ccdSum <- function(x, covariateLabel, power) {
+    .Call('CCD_ccdSum', PACKAGE = 'CCD', x, covariateLabel, power)
 }
 
 ccdTestRcppStop <- function() {

@@ -306,24 +306,28 @@ readCcdData <- function(fileName, modelType) {
     result
 }
 
-reduce <- function(object, covariates, groupBy) {
+reduce <- function(object, covariates, groupBy, power = 1) {
 	if (!isInitialized(object)) {
 		stop("Object is no longer or improperly initialized.")
 	}
 	covariates <- .checkCovariates(object, covariates)
 	
+    if (!(power %in% c(0,1,2))) {
+        stop("Only powers 0, 1 and 2 are allowed.")
+    }
+    
 	if (missing(groupBy)) {
-		.ccdSum(object, covariates)
+		.ccdSum(object, covariates, power)
 	} else {
 		if (length(groupBy) != 1L) {
 			stop("Only single stratification is currently implemented")
 		}
 		if (groupBy == "stratum") {
-			as.data.frame(.ccdSumByStratum(object, covariates), 
+			as.data.frame(.ccdSumByStratum(object, covariates, power), 
 										row.names = c(1L:getNumberOfStrata(object)))			
 		} else {
 			groupBy <- .checkCovariates(object, groupBy)
-			as.data.frame(.ccdSumByGroup(object, covariates, groupBy), 
+			as.data.frame(.ccdSumByGroup(object, covariates, groupBy, power), 
 										row.names = c(0L,1L))			
 		}				
 	}
@@ -457,16 +461,27 @@ summary.ccdData <- function(x,
         stop("OHDSI data object is no longer or improperly initialized")
     }
     covariates <- getCovariateIds(x)
-    sums <- reduce(dataPtr, covariates)    
-    types <- getCovariateTypes(dataPtr, covariates)    
+    counts <- reduce(x, covariates, power = 0)
+    sums <- reduce(x, covariates, power = 1)
+    sumsSquared <- reduce(x, covariates, power = 2)
+    types <- getCovariateTypes(x, covariates)    
     
-    df <- data.frame(covariateId = covariates,
-                     sum = sums,
+    tmean <- sums / counts;
+    
+    tdf <- data.frame(covariateId = covariates,
+                      nzCount = counts,
+                     nzMean = tmean,
+                     nzVar = (sumsSquared -  counts * tmean * tmean) / counts,
                      type = types)
-    if (!is.null(dataPtr$coefficientNames)) {
-        row.names(df) <- dataPtr$coefficientNames
+
+    if (!is.null(x$coefficientNames)) {
+#         if(.ccdGetHasIntercept(x)) {
+#             row.names(tdf) <- x$coefficientNames[-1]            
+#         } else {
+            row.names(tdf) <- x$coefficientNames
+#         }
     }
-    df
+    tdf
 }
 
 print.ccdData <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,...) {

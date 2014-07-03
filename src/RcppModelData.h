@@ -39,15 +39,13 @@ public:
 
 	virtual ~RcppModelData();
 	
-	double sum(const IdType covariate);
+	double sum(const IdType covariate, int power = 1);
 	
 	void standardize(const IdType covariate);
 	
-	void sumByGroup(std::vector<double>& out, const IdType covariate, const IdType groupBy);
+	void sumByGroup(std::vector<double>& out, const IdType covariate, const IdType groupBy, int power = 1);
 	
-	void sumByGroup(std::vector<double>& out, const IdType covariate);	
-    
-    size_t getColumnIndex(const IdType covariate) const;
+	void sumByGroup(std::vector<double>& out, const IdType covariate, int power = 1);	    
 			
 protected:
     
