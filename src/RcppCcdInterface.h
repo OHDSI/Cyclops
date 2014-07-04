@@ -79,6 +79,7 @@ public:
     
     // For debug purposes
     CyclicCoordinateDescent& getCcd() { return *ccd; } 
+    ModelData& getModelData() { return *modelData; }
     
     static void appendRList(Rcpp::List& list, const Rcpp::List& append);
     

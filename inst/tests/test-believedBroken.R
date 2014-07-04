@@ -4,6 +4,10 @@ library("testthat")
 # These tests are believed to be broken; they need confirmation and fixes
 #
 
+# test_that("Preclude SEs for regularized covariates", {})
+
+# test_that("getSEs() throws error when all covariates are not included", {})
+
 # test_that("Extract Y from data object", {})
 
 # test_that("Extract X from data object", {})

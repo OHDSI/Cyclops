@@ -108,7 +108,7 @@ CharacterVector ccdGetCovariateType(Environment x, const std::vector<int64_t>& c
 	CharacterVector types(covariateLabel.size());	
 	
 	for (size_t i = 0; i < covariateLabel.size(); ++i) {
-		IdType index = data->getColumnIndex(covariateLabel[i]);		
+		size_t index = data->getColumnIndex(covariateLabel[i]);		
 		types[i] = data->getColumn(index).getTypeString();
 	}
 	return types;

@@ -60,6 +60,28 @@ double ccdGetLogLikelihood(SEXP inRcppCcdInterface) {
 	return interface->getCcd().getLogLikelihood();
 }
 
+// [[Rcpp::export(".ccdGetFisherInformation")]]
+Eigen::MatrixXd ccdGetFisherInformation(SEXP inRcppCcdInterface, const SEXP sexpCovariates) {
+	using namespace bsccs;
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	
+// 	const int p = interface->getCcd().getBetaSize();
+// 	std::vector<size_t> indices;
+// 	for (int i = 0; i < p; ++i) indices.push_back(i);
+
+    std::vector<size_t> indices;
+    if (!Rf_isNull(sexpCovariates)) {
+	
+    	ProfileVector covariates = as<ProfileVector>(sexpCovariates);    	
+    	for (auto it = covariates.begin(); it != covariates.end(); ++it) {
+	        size_t index = interface->getModelData().getColumnIndex(*it);
+	        indices.push_back(index);	        
+	    }
+	}
+	
+    return interface->getCcd().computeFisherInformation(indices);
+}
+
 // [[Rcpp::export(".ccdSetPrior")]]
 void ccdSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, double variance, SEXP excludeNumeric) {
 	using namespace bsccs;

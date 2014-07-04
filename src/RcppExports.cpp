@@ -65,6 +65,22 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
+// ccdGetFisherInformation
+Eigen::MatrixXd ccdGetFisherInformation(SEXP inRcppCcdInterface, const SEXP sexpCovariates);
+RcppExport SEXP CCD_ccdGetFisherInformation(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
+        Rcpp::traits::input_parameter< const SEXP >::type sexpCovariates(sexpCovariatesSEXP );
+        Eigen::MatrixXd __result = ccdGetFisherInformation(inRcppCcdInterface, sexpCovariates);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
 // ccdSetPrior
 void ccdSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, double variance, SEXP excludeNumeric);
 RcppExport SEXP CCD_ccdSetPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP varianceSEXP, SEXP excludeNumericSEXP) {

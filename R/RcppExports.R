@@ -17,6 +17,10 @@ ccdSetFixedBeta <- function(inRcppCcdInterface, beta, fixed) {
     .Call('CCD_ccdGetLogLikelihood', PACKAGE = 'CCD', inRcppCcdInterface)
 }
 
+.ccdGetFisherInformation <- function(inRcppCcdInterface, sexpCovariates) {
+    .Call('CCD_ccdGetFisherInformation', PACKAGE = 'CCD', inRcppCcdInterface, sexpCovariates)
+}
+
 .ccdSetPrior <- function(inRcppCcdInterface, priorTypeName, variance, excludeNumeric) {
     invisible(.Call('CCD_ccdSetPrior', PACKAGE = 'CCD', inRcppCcdInterface, priorTypeName, variance, excludeNumeric))
 }

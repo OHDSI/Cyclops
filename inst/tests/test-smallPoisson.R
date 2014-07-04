@@ -87,3 +87,23 @@ test_that("Small Poisson sparse regression", {
     expect_equal(confint(ccdFitS, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
     expect_equal(predict(ccdFitS), predict(glmFit, type = "response"), tolerance = tolerance)
 })
+
+
+test_that("Get SEs in small Poisson model", {   
+    counts <- c(18,17,15,20,10,20,25,13,12)
+    outcome <- gl(3,1,9)
+    treatment <- gl(3,3)
+    tolerance <- 1E-4
+    
+    gold <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard    
+    goldSE <- summary(gold)$coefficients[,2]
+    
+    dataPtr <- createCcdDataFrame(counts ~ outcome + treatment,
+                                  modelType = "pr")        												
+    ccdFit <- fitCcdModel(dataPtr, 
+                          prior = prior("none"))
+        
+    ccdSE <- getSEs(ccdFit, c(1:5))
+     
+    expect_equal(goldSE, ccdSE, tolerance = tolerance)        
+})

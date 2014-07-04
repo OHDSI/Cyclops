@@ -47,6 +47,8 @@ class CyclicCoordinateDescent {
 	
 public:
 	
+	typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
+		
 // 	CyclicCoordinateDescent(void);
 // 	
 // 	CyclicCoordinateDescent(			
@@ -162,6 +164,8 @@ public:
 	void setNoiseLevel(NoiseLevels);
 
 	void makeDirty(void);
+	
+	Matrix computeFisherInformation(const std::vector<size_t>& indices) const;
 		
 protected:
 	
@@ -361,7 +365,6 @@ protected:
 	real* wPid;
 #endif
 
-	typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 	Matrix hessianMatrix;
 	Matrix varianceMatrix;
 

@@ -696,6 +696,20 @@ double CyclicCoordinateDescent::getAsymptoticPrecision(int indexOne, int indexTw
 	}
 }
 
+CyclicCoordinateDescent::Matrix CyclicCoordinateDescent::computeFisherInformation(const std::vector<size_t>& indices) const {
+    Matrix fisherInformation(indices.size(), indices.size());
+    for (size_t ii = 0; ii < indices.size(); ++ii) {
+        const int i = indices[ii];
+        for (size_t jj = ii; jj < indices.size(); ++jj) {
+            const int j = indices[jj];
+            double element = 0.0;            
+             modelSpecifics.computeFisherInformation(i, j, &element, useCrossValidation);
+            fisherInformation(jj, ii) = fisherInformation(ii, jj) = element;
+        }
+    }
+    return fisherInformation;
+}
+
 void CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix(void) {
 
 	typedef std::vector<int> int_vec;

@@ -286,6 +286,15 @@ predict.ccdFit <- function(object, ...) {
 	}	
 }
 
+getSEs <- function(object, covariates) {
+    .checkInterface(object, testOnly = TRUE)    
+    covariates <- .checkCovariates(object$ccdData, covariates)
+    fisherInformation <- .ccdGetFisherInformation(object$ccdInterfacePtr, covariates)
+    ses <- sqrt(diag(solve(fisherInformation)))
+    names(ses) <- object$coefficientNames[covariates]
+    ses
+}
+
 #' @title confint.ccdFit
 #'
 #' @description
