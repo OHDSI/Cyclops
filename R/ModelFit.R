@@ -189,7 +189,7 @@ print.ccdFit <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,..
 #' @param cvRepetitions			Numeric: Number of repetitions of X-fold cross validation
 #' @param minCVData					Numeric: Minumim number of data for cross validation
 #' @param noiseLevel				String: level of CCD screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})
-#' @param seed                  Numeric: Specify random number generator seed. A null value sets seed via \code{\ref{Sys.time()}}.
+#' @param seed                  Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time()}}.
 #' 
 #' @section Criteria:
 #' 
