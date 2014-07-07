@@ -38,13 +38,13 @@
 
 //#include <R.h>
 
-//#define CUDA_TRS
+#define CUDA_TRS
 //#define Debug_TRS
 
-#ifdef CUDA
+//#ifdef CUDA
 	#include "GPUCyclicCoordinateDescent.h"
 	#include "BetterGPU.h"
-#endif
+//#endif
 
 
 
@@ -454,20 +454,28 @@ int main(int argc, char* argv[]) {
 		timeUpdate += runBoostrap(ccd, reader, arguments, savedBeta);
 	}
 		
+	
+
+	//GeneralizedDirectSampler testGDSDriver(reader, arguments.MCMCFileName);
+
+	//cout << "betaAmount = " << arguments.betaAmount << endl;
+	//testGDSDriver.drive(*ccd, arguments.seed);
+
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
+
+
+	MCMCDriver testMCMCDriver(reader, arguments.MCMCFileName);
+
+	cout << "betaAmount = " << arguments.betaAmount << endl;
+	testMCMCDriver.drive(*ccd, arguments.betaAmount, arguments.seed);
+	gettimeofday(&time2, NULL);
+	double sec1 = calculateSeconds(time1, time2);
+
 	cout << endl;
 	cout << "Load   duration: " << scientific << timeInitialize << endl;
 	cout << "Update duration: " << scientific << timeUpdate << endl;
-	
-
-	GeneralizedDirectSampler testGDSDriver(reader, arguments.MCMCFileName);
-
-	cout << "betaAmount = " << arguments.betaAmount << endl;
-	testGDSDriver.drive(*ccd, arguments.seed);
-
-	//MCMCDriver testMCMCDriver(reader, arguments.MCMCFileName);
-
-	//cout << "betaAmount = " << arguments.betaAmount << endl;
-	//testMCMCDriver.drive(*ccd, arguments.betaAmount, arguments.seed);
+	cout << "MCMC duration: " << scientific << sec1 << endl;
 
 	if (ccd)
 		delete ccd;

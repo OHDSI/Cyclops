@@ -36,7 +36,7 @@ namespace bsccs {
 MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
 	MCMCFileNameRoot = MCMCFileName;
 	thinningValueForWritingToFile = 1000;
-	maxIterations = 3000000;
+	maxIterations = 3000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
 	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies

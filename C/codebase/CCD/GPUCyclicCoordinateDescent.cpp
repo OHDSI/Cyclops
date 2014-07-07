@@ -10,7 +10,7 @@
 
 
 
-#include <cusp/print.h>
+//#include <cusp/print.h>
 
 #include "GPUCyclicCoordinateDescent.h"
 #include "GPU/GPUInterface.h"
@@ -18,7 +18,7 @@
 
 //#define CONTIG_MEMORY
 
-//#define GPU_DEBUG_FLOW
+#define GPU_DEBUG_FLOW
 
 #define TEST_SPARSE
 

@@ -875,11 +875,11 @@ void CyclicCoordinateDescent::update(
 
 		//tshaddox
 		//	cout << endl;
-			printVector(hBeta, J, cout);
-			cout << endl;
-			cout << "log post: " << thisLogPost
-				 << " (" << thisLogLikelihood << " + " << thisLogPrior
-			     << ") (iter:" << iteration << ") ";
+		//	printVector(hBeta, J, cout);
+		//	cout << endl;
+		//	cout << "log post: " << thisLogPost
+		//		 << " (" << thisLogLikelihood << " + " << thisLogPrior
+		//	     << ") (iter:" << iteration << ") ";
 
 			if (epsilon > 0 && conv < epsilon) {
 		//		cout << "Reached convergence criterion" << endl;
@@ -891,9 +891,9 @@ void CyclicCoordinateDescent::update(
 		//		cout << endl;
 			}
 		}
-		gettimeofday(&time2, NULL);
-		double timeToLoop = calculateSeconds(time1, time2);
-		cout << "time = " << timeToLoop << endl;
+		//gettimeofday(&time2, NULL);
+		//double timeToLoop = calculateSeconds(time1, time2);
+		//cout << "time = " << timeToLoop << endl;
 
 	}
 	updateCount += 1;
