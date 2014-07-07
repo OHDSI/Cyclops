@@ -17,19 +17,17 @@
 #' counts <- c(18,17,15,20,10,20,25,13,12)
 #' outcome <- gl(3,1,9)
 #' treatment <- gl(3,3)
-#' ccdData <- createCcdDataFrame(counts ~ outcome + treatment)
-#' ccdFit <- fitCcdModel(ccdData)
+#' ccdData <- createCcdDataFrame(counts ~ outcome + treatment, modelType = "pr")
+#' ccdFit <- fitCcdModel(ccdData, prior = prior("none"))
 #' coef(ccdFit)
+#' confint(ccdFit, c("outcome2","treatment3"))
 #' predict(ccdFit)
 #'
-fitCcdModel <- function(ccdData		
-		, tolerance = 1E-8
-		, prior
-		, crossValidation
-		, control
-		, returnEstimates = TRUE
-		, forceColdStart = FALSE
-	) {
+fitCcdModel <- function(ccdData, 
+                        prior,
+                        control,                        
+                        forceColdStart = FALSE,
+                        returnEstimates = TRUE) {
 		
 	cl <- match.call()
 	
@@ -60,7 +58,9 @@ fitCcdModel <- function(ccdData
 	    .ccdSetPrior(ccdData$ccdInterfacePtr, prior$priorType, prior$variance, prior$exclude)    		
 	}
 	
-	.setControl(ccdData$ccdInterfacePtr, control)			
+    if (!missing(control)) {
+	    .setControl(ccdData$ccdInterfacePtr, control)
+    }
  	
 	if (!missing(prior) && prior$useCrossValidation) {
 		if (missing(control)) {

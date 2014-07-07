@@ -22,65 +22,85 @@
 #' ccdData <- createCcdDataFrame(counts ~ outcome + treatment, modelType = "pr")
 #' ccdFit <- fitCcdModel(ccdData)
 #'
-#' ccdData2 <- createCcdDataFrame(counts ~ outcome, indicatorFormula = ~ treatment, modeltype = "pr")
-#' ccdFit2 <- fittCcdModel(ccdData2)
+#' ccdData2 <- createCcdDataFrame(counts ~ outcome, indicatorFormula = ~ treatment, modelType = "pr")
+#' summary(ccdData2)
+#' ccdFit2 <- fitCcdModel(ccdData2)
 #'
 #' @export
 createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelType,
-	data, subset, weights, offset, time = NULL, y = NULL, z = NULL, dx = NULL, 
-	sx = NULL, ix = NULL, model = FALSE, method = "ccd.fit", ...) {	
-	cl <- match.call() # save to return
-	mf.all <- match.call(expand.dots = FALSE)
-			
-	if (!isValidModelType(modelType)) stop("Invalid model type.")
+                               data, subset, weights, offset, time = NULL, y = NULL, z = NULL, dx = NULL, 
+                               sx = NULL, ix = NULL, model = FALSE, method = "ccd.fit", ...) {	
+    cl <- match.call() # save to return
+    mf.all <- match.call(expand.dots = FALSE)
     
-	hasIntercept <- FALSE		
-	colnames <- NULL
-	
-	if (!missing(formula)) { # Use formula to construct CCD matrices
-		if (missing(data)) {
-			data <- environment(formula)
-		}					
-		mf.all <- match.call(expand.dots = FALSE)
-		m.d <- match(c("formula", "data", "subset", "weights",
-				"offset"), names(mf.all), 0L)
-		mf.d <- mf.all[c(1L, m.d)]
-		mf.d$drop.unused.levels <- TRUE
-		mf.d[[1L]] <- quote(stats::model.frame)			
-		mf.d <- eval(mf.d, parent.frame())
-            
-		y <- model.response(mf.d) # TODO Update for censored outcomes
+    if (!isValidModelType(modelType)) stop("Invalid model type.")
+    
+    hasIntercept <- FALSE		
+    colnames <- NULL
+    
+    if (!missing(formula)) { # Use formula to construct CCD matrices
+        if (missing(data)) {
+            data <- environment(formula)
+        }					
+        mf.all <- match.call(expand.dots = FALSE)
+        m.d <- match(c("formula", "data", "subset", "weights",
+                       "offset"), names(mf.all), 0L)
+        mf.d <- mf.all[c(1L, m.d)]
+        mf.d$drop.unused.levels <- TRUE
+        mf.d[[1L]] <- quote(stats::model.frame)			
+        mf.d <- eval(mf.d, parent.frame())
+        
+        y <- model.response(mf.d)
+        if (class(y) == "Surv") {
+            if (modelType != "cox") {
+                stop("Censored outcomes are currently only support for Cox regression.")
+            }
+            if (dim(y)[2] == 3) {
+                time <- as.numeric(y[,2] - y[,1])
+                y <- as.numeric(y[,3])
+            } else {
+                time <- as.numeric(y[,1])
+                y <- as.numeric(y[,2])
+            }            
+        }
         
         mt.d <- attr(mf.d, "terms")
         
         # Handle strata
-		specialTerms <- terms(formula, "strata")
-		special <- attr(specialTerms, "special")
-		hasStrata <- !is.null(special$strata)
-		strata <- NULL
+        specialTerms <- terms(formula, "strata")
+        special <- attr(specialTerms, "special")
+        hasStrata <- !is.null(special$strata)
+        strata <- NULL
         sortOrder <- NULL
-		if (hasStrata) {
-		    pid <- as.numeric(strata(mf.d[ , special$strata], shortlabel = TRUE))
-		    nterm <- untangle.specials(specialTerms, "strata")$terms
-		    mt.d <- mt.d[-nterm]
+        if (hasStrata) {
+            pid <- as.numeric(strata(mf.d[ , special$strata], shortlabel = TRUE))
+            nterm <- untangle.specials(specialTerms, "strata")$terms
+            mt.d <- mt.d[-nterm]
             
             ## Must sort outcomes
-            sortOrder <- order(pid)
-		} else {
+            if (modelType == "cox") {
+                sortOrder <- order(-time, pid)    
+            } else {
+                sortOrder <- order(pid)
+            }
+        } else {
             pid <- c(1:length(y))
-		}      
+            if (modelType == "cox") {
+                sortOrder <- order(-time)
+            }
+        }      
         
-#         if (.removeIntercept(modelType)) { # This does not work with constrasts
-#             attr(mt.d, "intercept") <- FALSE
-#         }
-
+        #         if (.removeIntercept(modelType)) { # This does not work with constrasts
+        #             attr(mt.d, "intercept") <- FALSE
+        #         }
+        
         dtmp = model.matrix(mt.d, mf.d)
         if (attr(mt.d, "intercept") && .removeIntercept(modelType)) {
             dx <- Matrix(as.matrix(dtmp[,-1]), sparse = FALSE)
         } else {
             dx <- Matrix(dtmp, sparse = FALSE)
         }
-					  
+        
         off.d <- model.offset(mf.d)
         if (!is.null(time) && !is.null(off.d)) {
             stop("Supplied both 'time' and 'offset' quantities")
@@ -88,70 +108,70 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
         if (!is.null(off.d)) {
             time <- as.vector(off.d)
         }
-		
-		colnames <- c(colnames, dx@Dimnames[[2]])
-               
-		if (attr(mt.d, "intercept") && !.removeIntercept(modelType)) { # Has intercept
+        
+        colnames <- c(colnames, dx@Dimnames[[2]])
+        
+        if (attr(mt.d, "intercept") && !.removeIntercept(modelType)) { # Has intercept
             hasIntercept <- TRUE
-		}
-		
-		if (!missing(sparseFormula)) {					
-			if (missing(data)) {
-				data <- environment(sparseFormula)
-			}					
-			m.s <- match(c("sparseFormula", "data", "subset", "weights",
-					"offset"), names(mf.all), 0L)
-			mf.s <- mf.all[c(1L, m.s)]
-			mf.s$drop.unused.levels <- TRUE
-			mf.s[[1L]] <- quote(stats::model.frame)			
-			names(mf.s)[2] = "formula"
-			mf.s <- eval(mf.s, parent.frame())			
-			
-			if (!is.null(model.response(mf.s))) {
-				stop("Must only provide outcome variable in dense formula.")
-			}
-			mt.s <- attr(mf.s, "terms")
+        }
+        
+        if (!missing(sparseFormula)) {					
+            if (missing(data)) {
+                data <- environment(sparseFormula)
+            }					
+            m.s <- match(c("sparseFormula", "data", "subset", "weights",
+                           "offset"), names(mf.all), 0L)
+            mf.s <- mf.all[c(1L, m.s)]
+            mf.s$drop.unused.levels <- TRUE
+            mf.s[[1L]] <- quote(stats::model.frame)			
+            names(mf.s)[2] = "formula"
+            mf.s <- eval(mf.s, parent.frame())			
+            
+            if (!is.null(model.response(mf.s))) {
+                stop("Must only provide outcome variable in dense formula.")
+            }
+            mt.s <- attr(mf.s, "terms")
             stmp <- model.matrix(mt.s, mf.s)
-			#stmp <- model.matrix(mf.s, data)
-			slabels <- labels(stmp)[[2]]
-			if (attr(attr(mf.s, "terms"), "intercept") == 1) { # Remove intercept
-				sx <- Matrix(as.matrix(stmp[,-1]), sparse=TRUE)
-				slabels <- slabels[-1]
-			} else {
-				sx <- Matrix(as.matrix(stmp), sparse=TRUE)			
-			}					
-			colnames <- c(colnames, slabels)
-		}    
-	
-		if (!missing(indicatorFormula)) {
-			if (missing(data)) {
-				data <- environment(indicatorFormula)
-			}						
-			m.i <- match(c("indicatorFormula", "data", "subset", "weights",
-					"offset"), names(mf.all), 0L)
-			mf.i <- mf.all[c(1L, m.i)]
-			mf.i$drop.unused.levels <- TRUE
-			mf.i[[1L]] <- quote(stats::model.frame)
-			names(mf.i)[2] = "formula"				
-			mf.i <- eval(mf.i, parent.frame())
-					
-			if (!is.null(model.response(mf.i))) {
-				stop("Must only provide outcome variable in dense formula.")
-			}			
-			
-			# TODO Check that all values in mf.i are 0/1
-			mt.i <- attr(mf.i, "terms")
-			itmp <- model.matrix(mt.i, mf.i)			
-			#itmp <- model.matrix(mf.i, data)
-			ilabels <- labels(itmp)[[2]]
-			if (attr(attr(mf.i, "terms"), "intercept") == 1) { # Remove intercept
-				ix <- Matrix(as.matrix(itmp[,-1]), sparse=TRUE)
-				ilabels <- ilabels[-1]
-			} else {
-				ix <- Matrix(as.matrix(itmp), sparse=TRUE)			
-			}					
-			colnames <- c(colnames, ilabels)
-		}
+            #stmp <- model.matrix(mf.s, data)
+            slabels <- labels(stmp)[[2]]
+            if (attr(attr(mf.s, "terms"), "intercept") == 1) { # Remove intercept
+                sx <- Matrix(as.matrix(stmp[,-1]), sparse=TRUE)
+                slabels <- slabels[-1]
+            } else {
+                sx <- Matrix(as.matrix(stmp), sparse=TRUE)			
+            }					
+            colnames <- c(colnames, slabels)
+        }    
+        
+        if (!missing(indicatorFormula)) {
+            if (missing(data)) {
+                data <- environment(indicatorFormula)
+            }						
+            m.i <- match(c("indicatorFormula", "data", "subset", "weights",
+                           "offset"), names(mf.all), 0L)
+            mf.i <- mf.all[c(1L, m.i)]
+            mf.i$drop.unused.levels <- TRUE
+            mf.i[[1L]] <- quote(stats::model.frame)
+            names(mf.i)[2] = "formula"				
+            mf.i <- eval(mf.i, parent.frame())
+            
+            if (!is.null(model.response(mf.i))) {
+                stop("Must only provide outcome variable in dense formula.")
+            }			
+            
+            # TODO Check that all values in mf.i are 0/1
+            mt.i <- attr(mf.i, "terms")
+            itmp <- model.matrix(mt.i, mf.i)			
+            #itmp <- model.matrix(mf.i, data)
+            ilabels <- labels(itmp)[[2]]
+            if (attr(attr(mf.i, "terms"), "intercept") == 1) { # Remove intercept
+                ix <- Matrix(as.matrix(itmp[,-1]), sparse=TRUE)
+                ilabels <- ilabels[-1]
+            } else {
+                ix <- Matrix(as.matrix(itmp), sparse=TRUE)			
+            }					
+            colnames <- c(colnames, ilabels)
+        }
         
         if (!is.null(sortOrder)) {      
             pid <- pid[sortOrder] 
@@ -162,65 +182,67 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
             sx <- sx[sortOrder, ]
             ix <- ix[sortOrder, ]            
         }
-		
-		if (identical(method, "model.frame")) {
-			result <- list()
-			if (exists("mf.d")) {
-				result$dense <- mf.d
-				result$dx <- dx
-			}
-			if (exists("mf.s")) {
-				result$sparse <- mf.s
-				result$sx <- sx
-			}
-			if (exists("mf.i")) {
-				result$indicator <- mf.i
-				result$ix <- ix
-			}	
-			return(result)    	
-		}     		
-	} else  {
-		if (!missing(sparseFormula) || !missing(indicatorFormula)) {
-			stop("Must provide a dense formula when specifying sparse or indicator covariates.")
-		}	
-	}
+        
+        if (identical(method, "model.frame")) {
+            result <- list()
+            if (exists("mf.d")) {
+                result$dense <- mf.d
+                result$dx <- dx
+                result$y <- y
+                result$time <- time
+            }
+            if (exists("mf.s")) {
+                result$sparse <- mf.s
+                result$sx <- sx
+            }
+            if (exists("mf.i")) {
+                result$indicator <- mf.i
+                result$ix <- ix
+            }	
+            return(result)    	
+        }     		
+    } else  {
+        if (!missing(sparseFormula) || !missing(indicatorFormula)) {
+            stop("Must provide a dense formula when specifying sparse or indicator covariates.")
+        }	
+    }
     
     # TODO Check types and dimensions        
     
     useTimeAsOffset <- FALSE
-    if (!is.null(time) && modelType != "sccs") { # TODO Fix for Cox
+    if (!is.null(time) && modelType != "sccs" && modelType != "cox") { # TODO Generic check
         useTimeAsOffset <- TRUE
     }
     
     md <- .ccdModelData(pid, y, z, time, dx, sx, ix, modelType, useTimeAsOffset)
-	result <- new.env(parent = emptyenv())
-	result$ccdDataPtr <- md$data
-	result$modelType <- modelType
-	result$timeLoad <- md$timeLoad	
-	result$call <- cl
-	if (exists("mf") && model == TRUE) {
-		result$mf <- mf
-	}
-	result$ccdInterfacePtr <- NULL
-	result$call <- cl
-	result$coefficientNames <- colnames
-	result$rowNames <- dx@Dimnames[[1]]    
+    result <- new.env(parent = emptyenv())
+    result$ccdDataPtr <- md$data
+    result$modelType <- modelType
+    result$timeLoad <- md$timeLoad	
+    result$call <- cl
+    if (exists("mf") && model == TRUE) {
+        result$mf <- mf
+    }
+    result$ccdInterfacePtr <- NULL
+    result$call <- cl
+    result$coefficientNames <- colnames
+    result$rowNames <- dx@Dimnames[[1]]    
     if (identical(method, "debug")) {
-	    result$debug <- list()
-	    result$debug$dx <- dx
-	    result$debug$sx <- sx
-	    result$debug$ix <- ix
-	    result$debug$y <- y
-	    result$debug$pid <- pid
+        result$debug <- list()
+        result$debug$dx <- dx
+        result$debug$sx <- sx
+        result$debug$ix <- ix
+        result$debug$y <- y
+        result$debug$pid <- pid
         result$debug$time <- time
     }
-	class(result) <- "ccdData"
+    class(result) <- "ccdData"
     
-	if (hasIntercept == TRUE) {
-	    .ccdSetHasIntercept(result, hasIntercept = TRUE)
-	}
-	    
-	result
+    if (hasIntercept == TRUE) {
+        .ccdSetHasIntercept(result, hasIntercept = TRUE)
+    }
+    
+    result
 }
 
 #' @title isValidModelType

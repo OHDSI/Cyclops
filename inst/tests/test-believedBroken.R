@@ -16,6 +16,10 @@ library("testthat")
 
 # test_that("Predict CLR model", {})
 
+# test_that("Predict SCCS model", {})
+
+# test_that("Predict Cox model", {})
+
 # test_that("Throw error with more than one case in CLR" ,{})
 
 # test_that("Compute confint under CLR model", {})

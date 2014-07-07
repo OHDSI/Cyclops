@@ -3,8 +3,8 @@
 \alias{fitCcdModel}
 \title{fitCcdModel}
 \usage{
-fitCcdModel(ccdData, tolerance = 1e-08, prior, crossValidation, control,
-  returnEstimates = TRUE, forceColdStart = FALSE)
+fitCcdModel(ccdData, prior, control, forceColdStart = FALSE,
+  returnEstimates = TRUE)
 }
 \arguments{
 \item{ccdData}{An OHDSI data object}
@@ -33,9 +33,10 @@ Currently supported prior types are:
 counts <- c(18,17,15,20,10,20,25,13,12)
 outcome <- gl(3,1,9)
 treatment <- gl(3,3)
-ccdData <- createCcdDataFrame(counts ~ outcome + treatment)
-ccdFit <- fitCcdModel(ccdData)
+ccdData <- createCcdDataFrame(counts ~ outcome + treatment, modelType = "pr")
+ccdFit <- fitCcdModel(ccdData, prior = prior("none"))
 coef(ccdFit)
+confint(ccdFit, c("outcome2","treatment3"))
 predict(ccdFit)
 }
 
