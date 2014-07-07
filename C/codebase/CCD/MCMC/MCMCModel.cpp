@@ -16,7 +16,6 @@ namespace bsccs {
  MCMCModel::MCMCModel(){}
 
  void MCMCModel::initialize(CyclicCoordinateDescent& ccdIn, long int seed){
-	 cout << "MCMCModel Initialize" << endl;
 
 	 ccd = &ccdIn;
 
@@ -68,8 +67,6 @@ namespace bsccs {
 
  void MCMCModel::resetWithNewSigma(){
 		// TODO Need Wrapper for this....
-	 	//cout << "\n\n \t\t MCMCModel::resetWithNewSigma " << endl;
-	 	// cout << "old likelihood = " << ccd->getLogLikelihood() << endl;
 		ccd->resetBeta();
 		ccd->setHyperprior(SigmaSquared.get(0));
 		int ZHANG_OLES = 1;
@@ -85,10 +82,8 @@ namespace bsccs {
 			ccd->setBeta((*iter), 0);
 			ccd->setFixedBeta((*iter),1);
 		}
-		//Beta.logParameter();
-		//cout << "now Update" << endl;
+
 		ccd->update(ccdIterations, ZHANG_OLES, tolerance);
-		//Beta.logParameter();
 		HessianMatrix = (ccd->getHessianMatrix()).cast<float>();
 		//ccd->setUpHessianComponents(true);
 		//clearHessian();
@@ -98,21 +93,17 @@ namespace bsccs {
 			Beta_Hat.set(i,ccd->getBeta(i));
 			Beta.set(i,ccd->getBeta(i));
 		}
-		//Beta.logParameter();
-		//Beta_Hat.set(ccd->hBeta);
+
 		Beta_Hat.setRestorable(true);
-		//Beta.set(ccd->hBeta);
 		Beta.setRestorable(true);
 
 		setLogLikelihood(ccd->getLogLikelihood());
 		setLogPrior(ccd->getLogPrior());
-		//cout << "new likelihood = " << logLikelihood << endl;
 		newLogPriorAndLikelihood = true;
  }
 
  void MCMCModel::syncCCDwithModel(set<int>& lastFixedIndices){
 
-	//cout << "syncCCDwithModel" << endl;
 	ccd->resetBeta();
 	ccd->setHyperprior(SigmaSquared.get(0));
 	int ZHANG_OLES = 1;
@@ -288,7 +279,6 @@ void MCMCModel::restore(){
 
 
 void MCMCModel::acceptChanges(){
-	// cout << "MCMCModel::acceptChanges" << endl;
 
 	Beta_Hat.setRestorable(false);
 	Beta.setRestorable(false);
@@ -308,22 +298,15 @@ void MCMCModel::Beta_HatStore(){
 	Beta_Hat.store();
 }
 void MCMCModel::BetaStore(){
-	// cout <<"MCMCModel:BetaStore" << endl;
-
 	Beta.store();
-	//cout << "Beta current" << endl;
-	//Beta.logParameter();
-	//cout << "Beta storred" << endl;
-	//Beta.logStored();
-	//cout << "MCMCModel:BetaStore End" << endl;
+}
 
-}void MCMCModel::SigmaSquaredStore(){
+void MCMCModel::SigmaSquaredStore(){
 	SigmaSquared.store();
 }
 
 
 void MCMCModel::logState(){
-	// cout << "MCMCModel::logState" << endl;
 	Beta.logParameter();
 	Beta.logStored();
 	Beta_Hat.logParameter();

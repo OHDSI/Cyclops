@@ -508,7 +508,6 @@ void CyclicCoordinateDescent::update(
 	}
 
 	if (!xBetaKnown) {
-		cout << "!xBetaKnow" << endl;
 		computeXBeta();
 		xBetaKnown = true;
 		sufficientStatisticsKnown = false;

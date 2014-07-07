@@ -42,7 +42,7 @@ MHRatio::~MHRatio(){
 
 bool MHRatio::evaluate(MCMCModel & model) {
 
-	cout << "MHRatio::evaluate" << endl;
+	//cout << "MHRatio::evaluate" << endl;
 	double logMetropolisRatio = getLogMetropolisRatio(model);
 	double logHastingsRatio;
 
@@ -101,7 +101,7 @@ double MHRatio::getTransformedTuningValue(double tuningParameter){
 
 
 double MHRatio::getLogMetropolisRatio(MCMCModel & model){
-	cout << "MHRatio::getLogMetropolisRatio" << endl;
+	//cout << "MHRatio::getLogMetropolisRatio" << endl;
 	// Get the proposed Beta values
 
 	// Compute log Likelihood and log prior

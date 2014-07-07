@@ -816,11 +816,11 @@ double runMCMC(
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	ModelSelectionDriver modelSelector;
+	//ModelSelectionDriver modelSelector;
 
-	modelSelector.drive(*ccd,arguments.seed,arguments.MCMCFileName,arguments.betaAmount);
+	//modelSelector.drive(*ccd,arguments.seed,arguments.MCMCFileName,arguments.betaAmount);
 
-	exit(-1);
+	//exit(-1);
 	MCMCModel model;
 
 	model.initialize(*ccd, arguments.seed);

@@ -44,10 +44,10 @@ vector<SampledModel> ModelSampler::sample(MCMCModel& model, ModelPrior& prior){
 		GibbsStep(model, prior);
 	}
 	vector<SampledModel> sampledModels = sortResults();
-	cout << "sampledModels.size() = " << sampledModels.size() << endl;
+	//cout << "sampledModels.size() = " << sampledModels.size() << endl;
 	for (int j = 0; j < sampledModels.size(); j++){
-		cout << "sampledModels[j].key() = " << sampledModels[j].key << endl;
-		cout << "sampledModels[j].visits = " << sampledModels[j].sampledProbability << endl;
+		//cout << "sampledModels[j].key() = " << sampledModels[j].key << endl;
+		//cout << "sampledModels[j].visits = " << sampledModels[j].sampledProbability << endl;
 	}
 //	printHistory();
 	//exit(-1);
@@ -63,7 +63,7 @@ vector<SampledModel> ModelSampler::sortResults(){
 		sampledModels.push_back(model);
 	}
 	std::sort(sampledModels.begin(), sampledModels.end(), compareModels);
-	cout << "sampledModels.size() = " << sampledModels.size() << endl;
+	//cout << "sampledModels.size() = " << sampledModels.size() << endl;
 	return(sampledModels);
 }
 
@@ -90,8 +90,6 @@ void ModelSampler::printHistory() {
 }
 
 void ModelSampler::GibbsStep (MCMCModel& model, ModelPrior& prior){
-	cout << "ModelSelection::GibbsStep" << endl;
-
 
 	set<int> currentFixedIndices =  models[lastKey];
 	model.setFixedIndices(currentFixedIndices);
@@ -102,8 +100,6 @@ void ModelSampler::GibbsStep (MCMCModel& model, ModelPrior& prior){
 	model.setFixedIndices(nextFixedIndices);
 	model.syncCCDwithModel(currentFixedIndices);
 	string newKey = model.getModelKey();
-	cout << "lastKey = " << lastKey << endl;
-	cout << "newKey = " << newKey << endl;
 	const bool is_in = keys.find(newKey) != keys.end();
 	if (is_in){
 		//model.getModelProbability();
@@ -120,10 +116,6 @@ void ModelSampler::GibbsStep (MCMCModel& model, ModelPrior& prior){
 	double uniformRandom = rand() / ((double) RAND_MAX);
 	double epsilon = 0.000000001;
 	double ratio = -log(1 + exp(oldPrior + oldProbability - newPrior - newProbability));
-	cout << "Gibbs Step Ratio = " << ratio << endl;
-	cout << "old = " << oldProbability << endl;
-	cout << "uniformRandom = " << log(uniformRandom) << endl;
-	cout << "new = " << newProbability << endl;
 
 	if (ratio > log(uniformRandom)) {
 		modelComplementIndices.push_back(nextFixedIndices);

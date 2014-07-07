@@ -99,8 +99,6 @@ void checkValidState(CyclicCoordinateDescent& ccd, MCMCModel& model, Parameter& 
 
 void MCMCDriver::initialize(double betaAmount, CyclicCoordinateDescent& ccd) {
 
-	cout << "MCMCDriver initialize" << endl;
-
 
 	transitionKernelSelectionProb.push_back(betaAmount);
 
@@ -113,15 +111,15 @@ void MCMCDriver::initialize(double betaAmount, CyclicCoordinateDescent& ccd) {
 }
 
 void MCMCDriver::logState(MCMCModel & model, int iteration, double logProbability){
-	cout << "\n MCMCDriver::logState" << endl;
+
 	//MCMCResults_SigmaSquared.push_back(model.getSigmaSquared().returnCurrentValues()[0]);
-	model.getSigmaSquared().logParameter();
+	//model.getSigmaSquared().logParameter();
 	//MCMCResults_BetaVectors.push_back(model.getBeta().returnCurrentValues());
-	model.getBeta().logParameter();
+	//model.getBeta().logParameter();
 	double loglikelihoodHere = model.getLogLikelihood();
-	cerr << "loglikelihood = " << loglikelihoodHere << endl;
+	//cerr << "loglikelihood = " << loglikelihoodHere << endl;
 	double logPriorHere = model.getLogPrior();
-	cerr << "logPrior = " << logPriorHere << endl;
+	//cerr << "logPrior = " << logPriorHere << endl;
 	MCMCResults_loglikelihoods.push_back(model.getLogLikelihood());
 
 
@@ -129,22 +127,18 @@ void MCMCDriver::logState(MCMCModel & model, int iteration, double logProbabilit
 	if (iteration % thinningValueForWritingToFile == 0){
 		double uniformRandom = rand() / ((double) RAND_MAX);
 		if (logProbability > uniformRandom) {
-			cout << "logging" << endl;
 			//intervalsToReport.fileLogCredibleIntervals(model.getLogLikelihood(), &(model.getBeta().returnCurrentValues()), model.getSigmaSquared().returnCurrentValues()[0], iteration);
 			intervalsToReport.fileLogCredibleIntervals(model.getLogLikelihood(), model.getBeta(), model.getSigmaSquared(), iteration);
 		}
 	}
-	cout << "MCMCDriver::logState end" << endl;
 }
 
 int MCMCDriver::findTransitionKernelIndex(double uniformRandom, vector<double>& transitionKernelSelectionProb){
-	//cout << "\t MCMCDriver::findTransitionKernalIndex" << endl;
 	int length = transitionKernelSelectionProb.size();
 	double currentTotal = 0;
 	for (int i = 0; i < length; i++){
 		currentTotal += transitionKernelSelectionProb[i];
 		if (uniformRandom <= currentTotal){
-			cout << "\t\t Picking Kernel " << i << endl;
 			return(i);
 		}
 	}
@@ -182,7 +176,6 @@ void MCMCDriver::drive(
 		// Sample from a uniform distribution
 		double uniformRandom = rand() / ((double) RAND_MAX);
 
-		cout << "\t\t\t\t\t\t\t\t\t UNIFORM RANDOM  = " << uniformRandom << endl;
 
 		model.store();
 		int transitionKernelIndex = findTransitionKernelIndex(uniformRandom, transitionKernelSelectionProb);
@@ -191,19 +184,14 @@ void MCMCDriver::drive(
 		bool accept = transitionKernels[transitionKernelIndex]->evaluateSample(model, acceptanceTuningParameter, ccd);
 		//cout << "**********  WARNING  ************" << endl;
 		//accept = true;
-		cout << "accept = " << accept << endl;
 		if (transitionKernelIndex == 0){
 			acceptNumber = acceptNumber + accept;
 			countIndependenceSampler = countIndependenceSampler + 1.0;
 		}
-
-
 		/////  need a model set to store or something like that...
 		if (accept) {
-			cout << "\t\t\t\t #######Accept#################" << endl;
 			model.acceptChanges();
 		} else {
-			cout << "\t\t\t\t #######Reject#################" << endl;
 			model.restore();
 		}
 		logState(model, iterations,logProbability);
