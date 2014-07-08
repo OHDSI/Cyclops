@@ -38,7 +38,7 @@ MCMCDriver::MCMCDriver(std::string MCMCFileName) {
 	maxIterations = 1000;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
-	acceptanceTuningParameter = 5; // exp(acceptanceTuningParameter) modifies
+	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies
 	acceptanceRatioTarget = 0.30;
 	autoAdapt = false;
 }
@@ -162,12 +162,13 @@ void MCMCDriver::drive(
 
 	std::default_random_engine generator(seed);
 
+
 	double acceptNumber = 0.0;
 	double countIndependenceSampler = 0.0;
 
 	//MCMC Loop
 	for (int iterations = 0; iterations < maxIterations; iterations ++) {
-		cout << endl << "MCMC iteration " << iterations << endl;
+		//cout << endl << "MCMC iteration " << iterations << endl;
 
 #ifdef DEBUG_STATE
 		checkValidState(ccd, MHstep, Beta, Beta_Hat, SigmaSquared);
@@ -180,10 +181,10 @@ void MCMCDriver::drive(
 		model.store();
 		int transitionKernelIndex = findTransitionKernelIndex(uniformRandom, transitionKernelSelectionProb);
 		transitionKernels[transitionKernelIndex]->sample(model, acceptanceTuningParameter,generator);
-
 		bool accept = transitionKernels[transitionKernelIndex]->evaluateSample(model, acceptanceTuningParameter, ccd);
 		//cout << "**********  WARNING  ************" << endl;
 		//accept = true;
+
 		if (transitionKernelIndex == 0){
 			acceptNumber = acceptNumber + accept;
 			countIndependenceSampler = countIndependenceSampler + 1.0;

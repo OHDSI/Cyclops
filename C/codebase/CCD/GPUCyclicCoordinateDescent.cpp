@@ -16,21 +16,39 @@
 
 //#define CONTIG_MEMORY
 
+namespace bsccs{
+
 using namespace std;
 
-GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputReader* reader,
-		AbstractModelSpecifics& specifics)
-	: CyclicCoordinateDescent(reader, specifics), hReader(reader) {
-	
+// GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputReader* reader,
+// 		AbstractModelSpecifics& specifics)
+// 	: CyclicCoordinateDescent(reader->getModelData(), specifics), hReader(reader) {
+// 	
+// #ifdef GPU_DEBUG_FLOW
+//     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::constructor\n");
+// #endif 	
+//     
+// 	cout << "Running GPU version" << endl;
+// }
+
+
+GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber,
+			InputReader *reader,
+			AbstractModelSpecifics& specifics,
+			priors::JointPriorPtr prior) :
+			CyclicCoordinateDescent(reader->getModelData(), specifics, prior), hReader(reader) {
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::constructor\n");
 #endif 	
     
 	cout << "Running GPU version" << endl;
+	initializeDevice(deviceNumber);
 }
+				
+
 
 bool GPUCyclicCoordinateDescent::initializeDevice(int deviceNumber) {
-
+	cout << "Running GPU initialize" << endl;
 	try {
 	gpu = new GPUInterface;
 	int gpuDeviceCount = 0;
@@ -539,4 +557,6 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::computeGradientAndHessian\n");
 #endif 	
 }
+
+}//namespace
 

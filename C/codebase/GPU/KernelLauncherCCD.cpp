@@ -8,7 +8,7 @@
 #include <cstdlib>
 #include <iostream>
 
-#include "GPU/KernelLauncherCCD.h"
+#include "KernelLauncherCCD.h"
 #include "CCD/CyclicCoordinateDescent.h"
 
 #ifdef DOUBLE_PRECISION

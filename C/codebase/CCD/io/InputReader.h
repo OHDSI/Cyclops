@@ -31,7 +31,7 @@ using std::stringstream;
 //}
 #endif
 
-#include "ModelData.h"
+#include "CCD/ModelData.h"
 
 namespace bsccs {
 

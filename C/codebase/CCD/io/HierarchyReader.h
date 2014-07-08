@@ -16,7 +16,7 @@
 
 using namespace std;
 
-#include "InputReader.h"
+#include "CCD/io/InputReader.h"
 
 //#define USE_DRUG_STRING
 

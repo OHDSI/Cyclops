@@ -543,11 +543,11 @@ double initializeModel(
 			exit(-1);
 	}
 
-#ifdef CUDA
-	if (arguments.useGPU) {
-		*ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, *reader, **model);
-	} else {
-#endif
+// #ifdef CUDA
+// 	if (arguments.useGPU) {
+// 		*ccd = new bsccs::GPUCyclicCoordinateDescent(arguments.deviceNumber, reader, **model);
+// 	} else {
+// #endif
 
 	// Hierarchy management
 	HierarchyReader* hierarchyData;
@@ -603,7 +603,14 @@ double initializeModel(
 		hierarchicalPrior->setVariance(1,arguments.classHierarchyVariance);
 		prior = hierarchicalPrior;
 	}
-
+	
+#ifdef CUDA
+	if (arguments.useGPU) {
+		*ccd = new bsccs::GPUCyclicCoordinateDescent(arguments.deviceNumber, reader, **model, prior);
+		cout << "hereGPU" << endl;
+	} else {
+#endif	
+		cout << "here" << endl;
 	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model, prior);
 
 #ifdef CUDA
@@ -781,9 +788,9 @@ double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
 
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
-
+	cout << "here fitmodel" << endl;
 	ccd->update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
-
+	cout << "here fitmodel2" << endl;
 	gettimeofday(&time2, NULL);
 
 	return calculateSeconds(time1, time2);
@@ -816,16 +823,18 @@ double runMCMC(
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	//ModelSelectionDriver modelSelector;
+	ModelSelectionDriver modelSelector;
 
-	//modelSelector.drive(*ccd,arguments.seed,arguments.MCMCFileName,arguments.betaAmount);
+	modelSelector.drive(*ccd,arguments.seed,arguments.MCMCFileName,arguments.betaAmount);
 
-	//exit(-1);
+	exit(-1);
 	MCMCModel model;
 
 	model.initialize(*ccd, arguments.seed);
 
 	MCMCDriver driver(arguments.MCMCFileName);
+
+	driver.initialize(arguments.betaAmount,*ccd);
 
 	driver.drive(model,*ccd, arguments.betaAmount, arguments.seed, 1.0);
 

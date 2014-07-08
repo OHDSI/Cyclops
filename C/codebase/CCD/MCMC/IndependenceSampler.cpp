@@ -45,7 +45,7 @@ double IndependenceSampler::getTransformedTuningValue(double tuningParameter){
 
 
 void IndependenceSampler::sample(MCMCModel& model, double tuningParameter, std::default_random_engine& generator) {
-	cout << "IndependenceSampler::sample" << endl;
+	//cout << "IndependenceSampler::sample" << endl;
 
 	//model.BetaStore();
 	BetaParameter & Beta_Hat = model.getBeta_Hat();

@@ -22,7 +22,7 @@
 namespace bsccs {
 
 ModelSampler::ModelSampler(MCMCModel& model, ModelPrior& prior, long int seed){
-	nSamples = 1000;
+	nSamples = 100;
 	srand(seed);
 	betaLength = model.getBeta().getSize();
 	std::set<int> initialFixedIndices;
@@ -44,10 +44,10 @@ vector<SampledModel> ModelSampler::sample(MCMCModel& model, ModelPrior& prior){
 		GibbsStep(model, prior);
 	}
 	vector<SampledModel> sampledModels = sortResults();
-	//cout << "sampledModels.size() = " << sampledModels.size() << endl;
+	cout << "sampledModels.size() = " << sampledModels.size() << endl;
 	for (int j = 0; j < sampledModels.size(); j++){
-		//cout << "sampledModels[j].key() = " << sampledModels[j].key << endl;
-		//cout << "sampledModels[j].visits = " << sampledModels[j].sampledProbability << endl;
+		cout << "sampledModels[j].key() = " << sampledModels[j].key << endl;
+		cout << "sampledModels[j].visits = " << sampledModels[j].sampledProbability << endl;
 	}
 //	printHistory();
 	//exit(-1);

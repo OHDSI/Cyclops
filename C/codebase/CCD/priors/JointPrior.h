@@ -8,9 +8,9 @@
 #ifndef JOINTPRIOR_H_
 #define JOINTPRIOR_H_
 
-#include "CyclicCoordinateDescent.h"
-#include "priors/CovariatePrior.h"
-#include "io/HierarchyReader.h"
+#include "CCD/CyclicCoordinateDescent.h"
+#include "CovariatePrior.h"
+#include "CCD/io/HierarchyReader.h"
 
 namespace bsccs {
 namespace priors {

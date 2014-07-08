@@ -22,11 +22,17 @@
 	typedef float gpu_real;
 #endif
 
-
+namespace bsccs{
 class GPUCyclicCoordinateDescent: public CyclicCoordinateDescent {
 public:
 	GPUCyclicCoordinateDescent(int deviceNumber, InputReader *reader,
 			AbstractModelSpecifics& specifics);
+			
+	GPUCyclicCoordinateDescent(int deviceNumber,
+			InputReader *reader,
+			AbstractModelSpecifics& specifics,
+			priors::JointPriorPtr prior);			
+			
 	virtual ~GPUCyclicCoordinateDescent();
 
 	virtual double getObjectiveFunction(int convergenceType);
@@ -104,5 +110,7 @@ private:
 	int cacheSizeGH;
 	int alignedGHCacheSize;
 };
+
+} //namespace
 
 #endif /* GPUCYCLICCOORDINATEDESCENT_H_ */

@@ -29,7 +29,7 @@ namespace bsccs {
 
 
 	SigmaSampler::SigmaSampler(){
-		//cout << "Sigma Sampler" << endl;
+
 
 	}
 
@@ -38,7 +38,7 @@ namespace bsccs {
 	}
 
 	void SigmaSampler::sample(MCMCModel& model, double tuningParameter,  std::default_random_engine& generator){
-		cout << "SigmaSampler::sample" << endl;
+		//cout << "SigmaSampler::sample" << endl;
 
 		// tau | BetaVector ~ gamma(alpha + N/2, Beta + (1/2)(SUM(beta_i - mu)^2)
 		// prior: tau ~ gamma(alpha, beta)

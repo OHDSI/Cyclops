@@ -592,7 +592,7 @@ void CyclicCoordinateDescent::update(
 					lastReturnFlag = ILLCONDITIONED;
 				} else {
 					if (noiseLevel > SILENT) {
-						cout << "Reached convergence criterion" << endl;
+				//		cout << "Reached convergence criterion" << endl;
 					}
 					lastReturnFlag = SUCCESS;
 				}
