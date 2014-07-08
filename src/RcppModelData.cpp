@@ -182,7 +182,7 @@ List ccdNewSqlData(const std::string& modelTypeName, const std::string& noiseLev
 	NoiseLevels noise = RcppCcdInterface::parseNoiseLevel(noiseLevel);
 	bool silent = (noise == SILENT);
 
-    Models::ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName);
+    ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName);
 	SqlModelData* ptr = new SqlModelData(modelType,
         bsccs::make_shared<loggers::RcppProgressLogger>(silent),
         bsccs::make_shared<loggers::RcppErrorHandler>());
@@ -308,7 +308,7 @@ List ccdReadFileData(const std::string& fileName, const std::string& modelTypeNa
 
 		using namespace bsccs;
 		Timer timer; 
-    Models::ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName);        		
+    ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName);        		
     InputReader* reader = new NewGenericInputReader(modelType,
     	bsccs::make_shared<loggers::RcppProgressLogger>(true), // make silent
     	bsccs::make_shared<loggers::RcppErrorHandler>());	
@@ -338,7 +338,7 @@ List ccdModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix
     bool useTimeAsOffset = false) {
 
     using namespace bsccs;    
-    Models::ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName); 
+    ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName); 
     
 	Timer timer;
 
@@ -397,7 +397,7 @@ List ccdModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix
 namespace bsccs {
 
 RcppModelData::RcppModelData(
-        Models::ModelType _modelType,
+        ModelType _modelType,
 		const IntegerVector& _pid,
 		const NumericVector& _y,
 		const NumericVector& _z,

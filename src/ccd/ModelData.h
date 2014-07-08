@@ -41,7 +41,7 @@ public:
 //	ModelData();
 	
 	ModelData(
-    	Models::ModelType modelType, 
+    	ModelType modelType, 
         loggers::ProgressLoggerPtr log,
         loggers::ErrorHandlerPtr error
     );
@@ -54,7 +54,7 @@ public:
 
 	template <typename IntegerVector, typename RealVector>
 	ModelData(
-	        Models::ModelType _modelType,
+	        ModelType _modelType,
 			const IntegerVector& _pid,
 			const RealVector& _y,
 			const RealVector& _z,
@@ -184,7 +184,7 @@ public:
 	template <class ImputationPolicy> friend class CSVInputReader;
 	
 protected:
-    Models::ModelType modelType;
+    ModelType modelType;
     
 	mutable int nPatients;
 	mutable size_t nStrata;

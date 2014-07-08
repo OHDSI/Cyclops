@@ -24,7 +24,7 @@ using std::string;
 using std::vector;
 
 ModelData::ModelData(
-    Models::ModelType _modelType,
+    ModelType _modelType,
     loggers::ProgressLoggerPtr _log,
     loggers::ErrorHandlerPtr _error
     ) : modelType(_modelType), nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false), isFinalized(false),

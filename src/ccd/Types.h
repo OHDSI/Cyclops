@@ -95,9 +95,8 @@ enum UpdateReturnFlags {
 
 typedef std::vector<IdType> ProfileVector;
 
-namespace Models {
 
-enum ModelType {
+enum class ModelType {
 	NONE = 0,
 	NORMAL,
 	POISSON,
@@ -108,16 +107,20 @@ enum ModelType {
 	COX
 };
 
+namespace Models {
+
 inline bool requiresStratumID(const ModelType modelType) {
-	return (modelType == CONDITIONAL_LOGISTIC || modelType == CONDITIONAL_POISSON || modelType == SELF_CONTROLLED_MODEL);
+	return (modelType == ModelType::CONDITIONAL_LOGISTIC || 
+            modelType == ModelType::CONDITIONAL_POISSON || 
+            modelType == ModelType::SELF_CONTROLLED_MODEL);
 }
 
 inline bool requiresCensoredData(const ModelType modelType) {
-	return (modelType == COX);
+	return (modelType == ModelType::COX);
 }
 
 inline bool requiresOffset(const ModelType modelType) {
-	return (modelType == SELF_CONTROLLED_MODEL);
+	return (modelType == ModelType::SELF_CONTROLLED_MODEL);
 }
 
 //#define UNUSED(x) ((void)(x))

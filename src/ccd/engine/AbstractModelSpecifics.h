@@ -13,13 +13,12 @@
 #include <map>
 #include <cstddef>
 
-#include "Types.h"
-
 namespace bsccs {
 
 class CompressedDataMatrix;  // forward declaration
 class CompressedDataColumn; // forward declaration
 class ModelData; // forward declaration
+enum class ModelType; // forward declaration
 
 #ifdef DOUBLE_PRECISION
 	typedef double real;
@@ -85,7 +84,7 @@ public:
 
 //	virtual void sortPid(bool useCrossValidation) = 0; // pure virtual
 
-	static AbstractModelSpecifics* factory(Models::ModelType modelType, ModelData* modelData); // TODO return shared_ptr
+	static AbstractModelSpecifics* factory(const ModelType modelType, ModelData* modelData); // TODO return shared_ptr
 
 protected:
 

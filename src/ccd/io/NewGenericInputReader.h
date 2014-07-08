@@ -36,7 +36,7 @@ public:
 		// Do nothing
 	}
 	
-	NewGenericInputReader(const bsccs::Models::ModelType model) : BaseInputReader<NewGenericInputReader>()
+	NewGenericInputReader(const bsccs::ModelType model) : BaseInputReader<NewGenericInputReader>()
 		, upcastToDense(false)
 		, upcastToSparse(false)
 		, useBBROutcome(false)
@@ -54,7 +54,7 @@ public:
 		setRequiredFlags(model);
 	}	
 
-	NewGenericInputReader(const bsccs::Models::ModelType model, 
+	NewGenericInputReader(const bsccs::ModelType model, 
 			loggers::ProgressLoggerPtr logger, loggers::ErrorHandlerPtr error) : BaseInputReader<NewGenericInputReader>(logger, error)
 		, upcastToDense(false)
 		, upcastToSparse(false)
@@ -75,7 +75,7 @@ public:
 		//Rcpp::stop("here");
 	}
 
-	void setRequiredFlags(const bsccs::Models::ModelType model) {
+	void setRequiredFlags(const bsccs::ModelType model) {
 		using namespace bsccs::Models;
 		includeStratumLabel = requiresStratumID(model);
 		includeCensoredData = requiresCensoredData(model);

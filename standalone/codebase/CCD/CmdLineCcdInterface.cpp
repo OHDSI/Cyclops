@@ -340,19 +340,19 @@ void CmdLineCcdInterface::initializeModelImpl(
 
 	// Parse type of model
 	//using namespace bsccs::Models;
-	bsccs::Models::ModelType modelType;
+	ModelType modelType;
 	if (arguments.modelName == "sccs") {
-		modelType = bsccs::Models::SELF_CONTROLLED_MODEL;
+		modelType = ModelType::SELF_CONTROLLED_MODEL;
 	} else if (arguments.modelName == "clr") {
-		modelType = bsccs::Models::CONDITIONAL_LOGISTIC;
+		modelType = ModelType::CONDITIONAL_LOGISTIC;
 	} else if (arguments.modelName == "lr") {
-		modelType = bsccs::Models::LOGISTIC;
+		modelType = ModelType::LOGISTIC;
 	} else if (arguments.modelName == "ls") {
-		modelType = bsccs::Models::NORMAL;
+		modelType = ModelType::NORMAL;
 	} else if (arguments.modelName == "pr") {
-		modelType = bsccs::Models::POISSON;
+		modelType = ModelType::POISSON;
 	} else if (arguments.modelName == "cox") {
-		modelType = bsccs::Models::COX;
+		modelType = ModelType::COX;
 	} else {
 		cerr << "Invalid model type." << endl;
 		exit(-1);

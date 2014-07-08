@@ -14,28 +14,28 @@ namespace bsccs {
 
 
 
-AbstractModelSpecifics* AbstractModelSpecifics::factory(Models::ModelType modelType, ModelData* modelData) {
+AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelType, ModelData* modelData) {
 	AbstractModelSpecifics* model = nullptr;
  	switch (modelType) {
- 		case bsccs::Models::SELF_CONTROLLED_MODEL :
+ 		case ModelType::SELF_CONTROLLED_MODEL :
  			model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>(*modelData);
  			break;
- 		case bsccs::Models::CONDITIONAL_LOGISTIC :
+ 		case ModelType::CONDITIONAL_LOGISTIC :
  			model = new ModelSpecifics<ConditionalLogisticRegression<real>,real>(*modelData);
  			break;
- 		case bsccs::Models::LOGISTIC :
+ 		case ModelType::LOGISTIC :
  			model = new ModelSpecifics<LogisticRegression<real>,real>(*modelData);
  			break;
- 		case bsccs::Models::NORMAL :
+ 		case ModelType::NORMAL :
  			model = new ModelSpecifics<LeastSquares<real>,real>(*modelData);
  			break;
- 		case bsccs::Models::POISSON :
+ 		case ModelType::POISSON :
  			model = new ModelSpecifics<PoissonRegression<real>,real>(*modelData);
  			break;
-		case bsccs::Models::CONDITIONAL_POISSON :
+		case ModelType::CONDITIONAL_POISSON :
  			model = new ModelSpecifics<ConditionalPoissonRegression<real>,real>(*modelData);
  			break; 			
- 		case bsccs::Models::COX :
+ 		case ModelType::COX :
  			model = new ModelSpecifics<CoxProportionalHazards<real>,real>(*modelData);
  			break;
  		default:

@@ -23,7 +23,7 @@ public:
 	RcppModelData();
 
 	RcppModelData(
-            Models::ModelType modelType,
+            ModelType modelType,
 			const IntegerVector& pid,
 			const NumericVector& y,
 			const NumericVector& z,

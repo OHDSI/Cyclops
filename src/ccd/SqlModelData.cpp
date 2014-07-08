@@ -18,7 +18,7 @@
 namespace bsccs {
 
 SqlModelData::SqlModelData(
-        Models::ModelType _modelType,
+        ModelType _modelType,
 	  	loggers::ProgressLoggerPtr _log,
     	loggers::ErrorHandlerPtr _error) : ModelData(_modelType, _log, _error) {
     // TODO Do something with modelTypeName

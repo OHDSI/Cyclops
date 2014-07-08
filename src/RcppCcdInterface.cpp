@@ -327,23 +327,23 @@ bsccs::priors::PriorType RcppCcdInterface::parsePriorType(const std::string& pri
  	return priorType;
 }
 
-bsccs::Models::ModelType RcppCcdInterface::parseModelType(const std::string& modelName) {
+bsccs::ModelType RcppCcdInterface::parseModelType(const std::string& modelName) {
 	// Parse type of model 
- 	bsccs::Models::ModelType modelType =  bsccs::Models::LOGISTIC;
+ 	bsccs::ModelType modelType =  bsccs::ModelType::LOGISTIC;
  	if (modelName == "sccs") {
- 		modelType = bsccs::Models::SELF_CONTROLLED_MODEL;
+ 		modelType = bsccs::ModelType::SELF_CONTROLLED_MODEL;
  	} else if (modelName == "cpr") {
- 		modelType = bsccs::Models::CONDITIONAL_POISSON;
+ 		modelType = bsccs::ModelType::CONDITIONAL_POISSON;
  	} else if (modelName == "clr") {
- 		modelType = bsccs::Models::CONDITIONAL_LOGISTIC;
+ 		modelType = bsccs::ModelType::CONDITIONAL_LOGISTIC;
  	} else if (modelName == "lr") {
- 		modelType = bsccs::Models::LOGISTIC;
+ 		modelType = bsccs::ModelType::LOGISTIC;
  	} else if (modelName == "ls") {
- 		modelType = bsccs::Models::NORMAL;
+ 		modelType = bsccs::ModelType::NORMAL;
  	} else if (modelName == "pr") {
- 		modelType = bsccs::Models::POISSON;
+ 		modelType = bsccs::ModelType::POISSON;
  	} else if (modelName == "cox") {
- 		modelType = bsccs::Models::COX;
+ 		modelType = bsccs::ModelType::COX;
  	} else {
  		handleError("Invalid model type."); 		
  	}	
@@ -404,7 +404,7 @@ void RcppCcdInterface::initializeModelImpl(
 	 *modelData = &rcppModelData;
 	 
 	// Parse type of model 
-	Models::ModelType modelType = parseModelType(arguments.modelName);
+	ModelType modelType = parseModelType(arguments.modelName);
 // 	bsccs::Models::ModelType modelType;
 // 	if (arguments.modelName == "sccs") {
 // 		modelType = bsccs::Models::SELF_CONTROLLED_MODEL;

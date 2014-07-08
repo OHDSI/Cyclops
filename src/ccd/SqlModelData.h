@@ -19,7 +19,7 @@ class SqlModelData : public ModelData {
 public:
 
 	SqlModelData(
-	    Models::ModelType modelType,
+	    ModelType modelType,
 	  	loggers::ProgressLoggerPtr log,
     	loggers::ErrorHandlerPtr error
 	);
