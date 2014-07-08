@@ -4,6 +4,8 @@ library("testthat")
 # These tests are believed to be broken; they need confirmation and fixes
 #
 
+# test_that("Approximations for ties in CLR and Cox" ,{})
+
 # test_that("Preclude SEs for regularized covariates", {})
 
 # test_that("getSEs() throws error when all covariates are not included", {})

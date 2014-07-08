@@ -49,7 +49,7 @@
 // #include "drivers/BootstrapSelector.h"
 // #include "drivers/ProportionSelector.h"
 // #include "drivers/BootstrapDriver.h"
-#include "engine/ModelSpecifics.h"
+//#include "engine/ModelSpecifics.h"
 #include "io/ProgressLogger.h"
 // 
 #include "tclap/CmdLine.h"
@@ -384,28 +384,34 @@ void CmdLineCcdInterface::initializeModelImpl(
 	// delete reader;
 	*modelData = reader->getModelData();
 
-	switch (modelType) {
-		case bsccs::Models::SELF_CONTROLLED_MODEL :
-			*model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>(**modelData);
-			break;
-		case bsccs::Models::CONDITIONAL_LOGISTIC :
-			*model = new ModelSpecifics<ConditionalLogisticRegression<real>,real>(**modelData);
-			break;
-		case bsccs::Models::LOGISTIC :
-			*model = new ModelSpecifics<LogisticRegression<real>,real>(**modelData);
-			break;
-		case bsccs::Models::NORMAL :
-			*model = new ModelSpecifics<LeastSquares<real>,real>(**modelData);
-			break;
-		case bsccs::Models::POISSON :
-			*model = new ModelSpecifics<PoissonRegression<real>,real>(**modelData);
-			break;
-		case bsccs::Models::COX :
-			*model = new ModelSpecifics<CoxProportionalHazards<real>,real>(**modelData);
-			break;
-		default:
-			cerr << "Invalid model type." << endl;
-			exit(-1);
+// 	switch (modelType) {
+// 		case bsccs::Models::SELF_CONTROLLED_MODEL :
+// 			*model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>(**modelData);
+// 			break;
+// 		case bsccs::Models::CONDITIONAL_LOGISTIC :
+// 			*model = new ModelSpecifics<ConditionalLogisticRegression<real>,real>(**modelData);
+// 			break;
+// 		case bsccs::Models::LOGISTIC :
+// 			*model = new ModelSpecifics<LogisticRegression<real>,real>(**modelData);
+// 			break;
+// 		case bsccs::Models::NORMAL :
+// 			*model = new ModelSpecifics<LeastSquares<real>,real>(**modelData);
+// 			break;
+// 		case bsccs::Models::POISSON :
+// 			*model = new ModelSpecifics<PoissonRegression<real>,real>(**modelData);
+// 			break;
+// 		case bsccs::Models::COX :
+// 			*model = new ModelSpecifics<CoxProportionalHazards<real>,real>(**modelData);
+// 			break;
+// 		default:
+// 			cerr << "Invalid model type." << endl;
+// 			exit(-1);
+// 	}
+
+	*model = AbstractModelSpecifics::factory(modelType, *modelData);
+	if (*model == nullptr) {
+		cerr << "Invalid model type." << endl;
+		exit(-1);
 	}
 
 #ifdef CUDA

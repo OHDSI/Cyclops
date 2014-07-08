@@ -618,7 +618,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 			incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
 		}
 		computeAccumlatedNumerDenom(useWeights);
-	}
+	} 
 #ifdef DEBUG_COX
 	cerr << "Done with initial denominators" << endl;
 

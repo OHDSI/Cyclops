@@ -571,7 +571,7 @@ public:
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
 
 	real observationCount(real yi) {
-		return static_cast<real>(yi);
+		return static_cast<real>(yi);  
 	}
 
 	template <class IteratorType, class Weights>

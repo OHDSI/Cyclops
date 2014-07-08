@@ -13,6 +13,8 @@
 #include <map>
 #include <cstddef>
 
+#include "Types.h"
+
 namespace bsccs {
 
 class CompressedDataMatrix;  // forward declaration
@@ -82,6 +84,8 @@ public:
     virtual void makeDirty();
 
 //	virtual void sortPid(bool useCrossValidation) = 0; // pure virtual
+
+	static AbstractModelSpecifics* factory(Models::ModelType modelType, ModelData* modelData); // TODO return shared_ptr
 
 protected:
 

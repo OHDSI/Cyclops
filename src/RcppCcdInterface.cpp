@@ -9,7 +9,7 @@
 #include "Rcpp.h"
 #include "RcppCcdInterface.h"
 #include "RcppModelData.h"
-#include "engine/ModelSpecifics.h"
+//#include "engine/ModelSpecifics.h"
 #include "priors/JointPrior.h"
 #include "CyclicCoordinateDescent.h"
 #include "io/OutputWriter.h"
@@ -421,32 +421,37 @@ void RcppCcdInterface::initializeModelImpl(
 // 	} else {
 // 		handleError("Invalid model type."); 		
 // 	}
- 
- 	switch (modelType) {
- 		case bsccs::Models::SELF_CONTROLLED_MODEL :
- 			*model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>(**modelData);
- 			break;
- 		case bsccs::Models::CONDITIONAL_LOGISTIC :
- 			*model = new ModelSpecifics<ConditionalLogisticRegression<real>,real>(**modelData);
- 			break;
- 		case bsccs::Models::LOGISTIC :
- 			*model = new ModelSpecifics<LogisticRegression<real>,real>(**modelData);
- 			break;
- 		case bsccs::Models::NORMAL :
- 			*model = new ModelSpecifics<LeastSquares<real>,real>(**modelData);
- 			break;
- 		case bsccs::Models::POISSON :
- 			*model = new ModelSpecifics<PoissonRegression<real>,real>(**modelData);
- 			break;
-		case bsccs::Models::CONDITIONAL_POISSON :
- 			*model = new ModelSpecifics<ConditionalPoissonRegression<real>,real>(**modelData);
- 			break; 			
- 		case bsccs::Models::COX :
- 			*model = new ModelSpecifics<CoxProportionalHazards<real>,real>(**modelData);
- 			break;
- 		default:
- 			handleError("Invalid model type."); 			
- 	}
+//  
+//  	switch (modelType) {
+//  		case bsccs::Models::SELF_CONTROLLED_MODEL :
+//  			*model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>(**modelData);
+//  			break;
+//  		case bsccs::Models::CONDITIONAL_LOGISTIC :
+//  			*model = new ModelSpecifics<ConditionalLogisticRegression<real>,real>(**modelData);
+//  			break;
+//  		case bsccs::Models::LOGISTIC :
+//  			*model = new ModelSpecifics<LogisticRegression<real>,real>(**modelData);
+//  			break;
+//  		case bsccs::Models::NORMAL :
+//  			*model = new ModelSpecifics<LeastSquares<real>,real>(**modelData);
+//  			break;
+//  		case bsccs::Models::POISSON :
+//  			*model = new ModelSpecifics<PoissonRegression<real>,real>(**modelData);
+//  			break;
+// 		case bsccs::Models::CONDITIONAL_POISSON :
+//  			*model = new ModelSpecifics<ConditionalPoissonRegression<real>,real>(**modelData);
+//  			break; 			
+//  		case bsccs::Models::COX :
+//  			*model = new ModelSpecifics<CoxProportionalHazards<real>,real>(**modelData);
+//  			break;
+//  		default:
+//  			handleError("Invalid model type."); 			
+//  	}
+
+	*model = AbstractModelSpecifics::factory(modelType, *modelData);
+	if (*model == nullptr) {
+		handleError("Invalid model type.");
+	}
  
  #ifdef CUDA
  	if (arguments.useGPU) {
