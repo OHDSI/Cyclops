@@ -8,3 +8,8 @@ standalone/build/**
 src/**/*.o
 src/*.so
 src/*.dll
+CMakeCache.txt
+CMakefiles/**
+Makefile
+cmake_install.cmake
+codebase/**
