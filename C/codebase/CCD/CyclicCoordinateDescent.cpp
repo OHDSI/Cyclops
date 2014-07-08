@@ -1160,8 +1160,6 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl(int index, double *o
 	bsccs::real gradient = 0;
 	bsccs::real hessian = 0;
 	
-
-
 	IteratorType it(*sparseIndices[index], N); // TODO How to create with different constructor signatures?
 	for (; it; ++it) {
 		const int k = it.index();

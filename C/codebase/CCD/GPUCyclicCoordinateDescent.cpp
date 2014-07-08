@@ -18,9 +18,9 @@
 
 //#define CONTIG_MEMORY
 
-#define GPU_DEBUG_FLOW
+//#define GPU_DEBUG_FLOW
 
-#define TEST_SPARSE
+//#define TEST_SPARSE
 
 using namespace std;
 namespace bsccs {
