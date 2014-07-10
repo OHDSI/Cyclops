@@ -14,8 +14,6 @@ script:
     - g++ -E -dM -std=c++98 -x c++ /dev/null > std1 && g++ -E -dM -std=c++0x -x c++ /dev/null > std2 && diff -u std1 std2 | grep '[+|-]^*#define' && rm std1 std2
     - mkdir -p standalone/build && (cd standalone/build && cmake .. && make)
     - pwd
-    - cd ../..
-    - pwd
     - R CMD INSTALL .
     - Rscript -e "require(CCD); require(testthat); test_package('CCD')"
     
