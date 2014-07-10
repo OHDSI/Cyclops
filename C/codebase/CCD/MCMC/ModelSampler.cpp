@@ -22,7 +22,7 @@
 namespace bsccs {
 
 ModelSampler::ModelSampler(MCMCModel& model, ModelPrior& prior, long int seed){
-	nSamples = 100;
+	nSamples = 10000;
 	srand(seed);
 	betaLength = model.getBeta().getSize();
 	std::set<int> initialFixedIndices;
@@ -50,7 +50,7 @@ vector<SampledModel> ModelSampler::sample(MCMCModel& model, ModelPrior& prior){
 		cout << "sampledModels[j].visits = " << sampledModels[j].sampledProbability << endl;
 	}
 //	printHistory();
-	//exit(-1);
+	exit(-1);
 	return(sampledModels);
 }
 
