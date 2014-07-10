@@ -78,6 +78,8 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 
 	hXI_Transpose.fillSparseRowVector(hXI);
 
+	GPUTRSInitialized = false;
+
 
 	//test.fillSparseRowVector(reader);
 /*
@@ -368,17 +370,17 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 	//cout << "WARNING - CHANGED LOG LIKELIHOOD" << endl;
 
 
-	//if (!xBetaKnown) {
+	if (!xBetaKnown) {
 		computeXBeta();
-	//}
+	}
 
-	//if (!validWeights) {
+	if (!validWeights) {
 		computeNEvents();
-	//}
+	}
 
-	//if (!sufficientStatisticsKnown) {
+	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics(true, 0); // TODO Check index?
-	//}
+	}
 
 	getDenominators();
 	//for (int i = 0; i < 4; i++) {
@@ -1494,12 +1496,12 @@ void CyclicCoordinateDescent::axpy(bsccs::real* y, const bsccs::real alpha, cons
 void CyclicCoordinateDescent::computeXBeta_GPU_TRS_initialize() {
 
 
-	//runCuspTest.loadXMatrix(hXI_Transpose.offsets, hXI_Transpose.columns, hXI_Transpose.values, J);
+	runCuspTest.loadXMatrix(hXI_Transpose.offsets, hXI_Transpose.columns, hXI_Transpose.values, J);
 }
 
 void CyclicCoordinateDescent::computeXBeta_GPU_TRS(void) {
 
-	//runCuspTest.computeMultiplyBeta((float*) hBeta, J, (float*) hXBeta, K);
+	runCuspTest.computeMultiplyBeta((float*) hBeta, J, (float*) hXBeta, K);
 
 	//cout << "Print hXBeta in GPU = ";
 	//printVector(hXBeta, 8, cout);
@@ -1524,6 +1526,11 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 //#define CUDA_Test
 
 #ifdef CUDA_Test
+
+	if (!GPUTRSInitialized){
+		computeXBeta_GPU_TRS_initialize();
+		GPUTRSInitialized = true;
+	}
 	computeXBeta_GPU_TRS();
 
 #else

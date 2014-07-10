@@ -422,6 +422,7 @@ void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 
 
 #ifdef PROFILE_GPU
+	//cout << "here?" << endl;
 	gpu->Synchronize();
 #endif
 	

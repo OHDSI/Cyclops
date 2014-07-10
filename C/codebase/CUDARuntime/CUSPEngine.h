@@ -6,6 +6,7 @@
  */
 
 
+#include <thrust/version.h>
 #include <thrust/device_vector.h>
 #include <cusp/csr_matrix.h>
 

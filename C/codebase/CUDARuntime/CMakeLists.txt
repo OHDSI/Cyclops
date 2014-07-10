@@ -5,7 +5,8 @@ CUDA_INCLUDE_DIRECTORIES(
 find_path(CUSP_INCLUDE_DIR
 	NAMES cusp
 	DOCS "Location of boost header files"
-	PATHS "/Users/msuchard/Dropbox/Projects/cusplibrary")
+	PATHS "/Users/msuchard/Dropbox/Projects/cusplibrary"
+	PATHS "/Users/tshaddox/Desktop")
   
   
 include_directories (${CMAKE_SOURCE_DIR}/codebase ${CUDA_INCLUDE_DIRS} ${CUSP_INCLUDE_DIR})
@@ -20,11 +21,3 @@ CUDA_ADD_LIBRARY(CUDARuntime
 	CUSPEngine.h CUSPEngine.cu
 	)
 	
-	
-	
-	
-#ADD_DEFINITION(-DMAKE_TEST)
-#CUDA_ADD_EXECUTABLE(test
-#  Crap.cu
-#  )
-

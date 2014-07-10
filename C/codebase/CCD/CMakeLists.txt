@@ -9,6 +9,7 @@ include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 #	DOCS "Location of MTL header file"
 #	PATHS "/Users/msuchard/Documents/Projects")
 #	
+
 find_path(BOOST_INCLUDE_DIR
 	NAMES boost
 	DOCS "Location of boost header file"
@@ -21,20 +22,12 @@ find_path(EIGEN_INCLUDE_DIR
 	PATHS "/Users/msuchard/Dropbox/Projects/eigen"
 	PATHS "/Users/tshaddox/Desktop/workspace/eigen")
 
-	
 find_path(CUSP_INCLUDE_DIR
 	NAMES cusp
 	DOCS "Location of boost header files"
 	PATHS "/Users/msuchard/Dropbox/Projects/cusplibrary"
-	PATHS "/Users/tshaddox/Downloads/")
-	
-find_path(THRUST_INCLUDE_DIR
-	NAMES thrust
-	DOCS "Location of boost header files"
-	PATHS "/Users/msuchard/Dropbox/Projects/cusplibrary"
-	PATHS "/Users/tshaddox/Desktop/")
-	
-	
+	PATHS "/Users/tshaddox/Desktop")
+
 #find_library(GSL_LIBRARY
 #	NAMES gsl
 #	DOCS "Location of GSL library file")
@@ -83,7 +76,7 @@ message(STATUS "Found boost header files in: " ${BOOST_INCLUDE_DIR})
 
 message(STATUS "Found CUDA directory files in: " ${CUDA_INCLUDE_DIR})
 
-message(STATUS "Found Thrust directory files in: " ${THRUST_INCLUDE_DIR})
+message(STATUS "Found CUSP directory files in: " ${CUSP_INCLUDE_DIR})
 
 
 
@@ -124,7 +117,6 @@ if(CUDA_FOUND)
 					${BOOST_INCLUDE_DIR}
 					${EIGEN_INCLUDE_DIR}
 					${CUSP_INCLUDE_DIR}
-					${THRUST_INCLUDE_DIR}
 					)
 	set(SOURCE_FILES ${SOURCE_FILES}
 	    GPUCyclicCoordinateDescent.cpp

@@ -144,6 +144,7 @@ int MCMCDriver::findTransitionKernelIndex(double uniformRandom, vector<double>& 
 			return(i);
 		}
 	}
+	return(0);
 }
 
 void MCMCDriver::drive(

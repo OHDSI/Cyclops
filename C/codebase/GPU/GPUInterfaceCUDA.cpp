@@ -130,7 +130,7 @@ void GPUInterface::Synchronize() {
     
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr,"\t\t\tEntering GPUInterface::Synchronize\n");
-#endif                
+#endif
     
     SAFE_CUPP(cuCtxSynchronize());
     
