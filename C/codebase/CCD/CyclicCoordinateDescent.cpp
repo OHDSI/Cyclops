@@ -1523,7 +1523,7 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 	zeroVector(hXBeta, K);
 
 
-//#define CUDA_Test
+#define CUDA_Test
 
 #ifdef CUDA_Test
 
