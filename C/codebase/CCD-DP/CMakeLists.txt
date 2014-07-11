@@ -59,11 +59,9 @@ if(CUDA_FOUND)
 # 		set(CUDA_64_BIT_DEVICE_CODE OFF)	
 # 	endif(APPLE)		
 	add_definitions(-DDOUBLE_PRECISION)	
- 	if(APPLE)
- 		set(CUDA_NVCC_FLAGS -arch=sm_11)
- 	else(APPLE)	 		
+	
  		set(CUDA_NVCC_FLAGS -arch=sm_20) 		
- 	endif(APPLE) 	
+
  	cuda_add_executable(ccd-dp ${SOURCE_FILES})
  #	target_link_libraries(ccd-dp CUDADriver-dp)
  	target_link_libraries(ccd-dp CUDADriver)

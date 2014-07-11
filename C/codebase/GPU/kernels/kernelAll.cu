@@ -14,6 +14,7 @@
 
 #define multBy4(x)	(x << 2)
 #define multBy16(x)	(x << 4)
+/*
 
 #if __APPLE__
 namespace util { 
@@ -43,6 +44,7 @@ static __inline__ __device__ float atomicAdd(float *addr, float val)
     return old;
 }
 
+
 static __inline__ __device__ float atomicAdd(double *addr, double val)
 {
     float old=*addr, assumed;
@@ -65,7 +67,9 @@ static __inline__ __device__ float atomicAdd(double *addr, double val)
 
 } // end namespace device
 
+
 #endif // __APPLE__
+*/
 
 #ifdef __cplusplus
 extern "C" {
@@ -117,12 +121,12 @@ extern "C" {
                 
 #ifndef DOUBLE_PRECISION
 #if __APPLE__
-		    util::atomicAdd(&numer[n], offsExpXBeta[k]);
+		    atomicAdd(&numer[n], offsExpXBeta[k]);
 #else
-			util::atomicAdd(&numer[n], offsExpXBeta[k]);	
+			atomicAdd(&numer[n], offsExpXBeta[k]);	
 #endif
 #else
-			util::atomicAdd(&numer[n], offsExpXBeta[k]);
+			atomicAdd(&numer[n], offsExpXBeta[k]);
 #endif                                                                        
 		}
     }
@@ -153,12 +157,12 @@ extern "C" {
 			
 		#ifndef DOUBLE_PRECISION
 		#if __APPLE__
-		    	util::atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));
+		    	atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));
 		#else
-			util::atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));	
+			atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));	
 		#endif
 		#else
-			util::atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));
+			atomicAdd(&denomPid[n], (newOffsExpXBeta - oldOffsExpXBeta));
 		#endif					
 		}					
 	}	

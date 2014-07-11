@@ -394,7 +394,7 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 //	double sum1 = 0.0;
 //	double sum2 = 0.0;
 
-
+//std::cerr << "Using denomPid" << std::endl;
 
 	bsccs::real logLikelihood = 0;
 
@@ -493,7 +493,8 @@ void CyclicCoordinateDescent::setUpHessianComponents(bool rebuild){
 		}
 	}
 
-
+std::cerr << "Die fool!" << std::endl;
+exit(-1);
 
 	// Set up matrix of numerPid values
 	for (int t = 0; t < J; t++) {
@@ -537,7 +538,8 @@ void CyclicCoordinateDescent::setUpHessianComponents(bool rebuild){
 void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHessian) {
 	//naming of variables consistent with Suchard write up page 23 Appendix A
 
-
+std::cerr << "Die fool!" << std::endl;
+exit(-1);
 
 
 		// Do the work
@@ -559,7 +561,7 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 
 						bsccs::real * columnVectorj = hXI->getDataVector(j);
 						bsccs::real * columnVectorj2 = hXI->getDataVector(j2);
-
+std::cerr << "H";
 						bsccs::real SecondTermjj2 = 0;
 						for (int g = 0; g < kValues[i].size(); g++) {
 							bsccs::real tempTerm = offsExpXBeta[kValues[i][g]]*columnVectorj[kValues[i][g]]*columnVectorj2[kValues[i][g]]/ (denomPid[i]);
@@ -634,6 +636,7 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 				}
 			}
 */
+			std::cerr << "B";
 			//NEW code
 			//hXI_Transpose.printSparseMatrix();
 			for (int k = 0; k < K; k ++) { // Iterate over the exposures
@@ -833,7 +836,7 @@ void CyclicCoordinateDescent::update(
 	//maxIterations = 2;
 
 	while (!done) {
-		done = true;
+		//done = true;
 		struct timeval time1, time2;
 		gettimeofday(&time1, NULL);
 	
@@ -853,7 +856,8 @@ void CyclicCoordinateDescent::update(
 			}
 			
 		}
-		
+		//exit(-1);
+
 		iteration++;
 		//bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
 		bool checkConvergence = true; // Check after each complete cycle
@@ -884,10 +888,10 @@ void CyclicCoordinateDescent::update(
 		//	     << ") (iter:" << iteration << ") ";
 
 			if (epsilon > 0 && conv < epsilon) {
-		//		cout << "Reached convergence criterion" << endl;
+				cout << "Reached convergence criterion" << endl;
 				done = true;
 			} else if (iteration == maxIterations) {
-		//		cout << "Reached maximum iterations" << endl;
+				cout << "Reached maximum iterations" << endl;
 				done = true;
 			} else {
 		//		cout << endl;
@@ -979,16 +983,16 @@ void CyclicCoordinateDescent::update_MM(
 			double thisLogPost = thisLogLikelihood + thisLogPrior;
 
 		//tshaddox
-			cout << endl;
-			printVector(hBeta, J, cout);
-			cout << endl;
-			cout << "log post: " << thisLogPost
-				 << " (" << thisLogLikelihood << " + " << thisLogPrior
-			     << ") (iter:" << iteration << ") ";
+		//	cout << endl;
+		//	printVector(hBeta, J, cout);
+		//	cout << endl;
+		//	cout << "log post: " << thisLogPost
+		//		 << " (" << thisLogLikelihood << " + " << thisLogPrior
+		//	     << ") (iter:" << iteration << ") ";
 
 
 			if (epsilon > 0 && conv < epsilon) {
-				cout << "Reached convergence criterion" << endl;
+				cout << "Reached converfgence criterion" << endl;
 				done = true;
 			} else if (iteration == 300) {
 				cout << "Reached maximum iterations" << endl;
@@ -1013,6 +1017,7 @@ void CyclicCoordinateDescent::update_MM(
 void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ogradient,
 		double *ohessian) {
 	// Run-time dispatch
+	//cout << "called compute Gradient and Hessian CPU" << endl;
 	switch (hXI->getFormatType(index)) {
 	case INDICATOR :
 //		computeGradientAndHessianImplHand(index, ogradient, ohessian);
@@ -1078,6 +1083,9 @@ inline void CyclicCoordinateDescent::incrementGradientAndHessian(
 		bsccs::real numer, bsccs::real numer2, bsccs::real denom, int nEvents) {
 
 	const bsccs::real t = numer / denom;
+	//cout << "CPU numer = " << numer << endl;
+	//cout << "CPU denom = " << denom << endl;
+	//cout << "CPU nEvents = " << nEvents << endl;
 	const bsccs::real g = nEvents * t;
 	*gradient += g;
 	if (IteratorType::isIndicator) {
@@ -1176,6 +1184,7 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl(int index, double *o
 
 	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
+	//fprintf(stderr,"%5.3f %5.3f\n", *ogradient, *ohessian);
 }
 
 template <class IteratorType>
@@ -1312,6 +1321,9 @@ void CyclicCoordinateDescent::computeGradientAndHessianImpl_sccsMM_2(int index, 
 
 void CyclicCoordinateDescent::computeNumeratorForGradient(int index) {
 	// Run-time delegation
+#ifdef DEBUG_MAS
+	std::cerr << "Into D ";
+#endif
 	switch (hXI->getFormatType(index)) {
 		case INDICATOR : {
 			zeroVector(numerPid, N);
@@ -1343,6 +1355,7 @@ void CyclicCoordinateDescent::computeNumeratorForGradient(int index) {
 }
 
 void CyclicCoordinateDescent::incrementNumeratorForGradientImplHand(int index) {
+	std::cerr << "C";
 	IndicatorIterator it(*hXI, index);
 	const int n = hXI->getNumberOfEntries(index);
 	int* indices = hXI->getCompressedColumnVector(index);
@@ -1355,7 +1368,9 @@ void CyclicCoordinateDescent::incrementNumeratorForGradientImplHand(int index) {
 template <class IteratorType>
 void CyclicCoordinateDescent::incrementNumeratorForGradientImpl(int index) {
 	IteratorType it(*hXI, index);
-
+#ifdef DEBUG_MAS
+	std::cerr << "D";
+#endif
 	for (; it; ++it) {
 		const int k = it.index();
 		numerPid[hPid[k]] += offsExpXBeta[k] * it.value();
@@ -1396,6 +1411,9 @@ double CyclicCoordinateDescent::ccdUpdateBeta_MM(int index) {
 
 	double delta;
 
+	std::cerr << "Die fool!" << std::endl;
+	exit(-1);
+
 	// Should be the same
 	computeNumeratorForGradient(index);
 	double g_d1;
@@ -1426,6 +1444,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	}
 	
 
+	//cout << "calling cNFG ccdUpdateBeta" << endl;
 	computeNumeratorForGradient(index);
 	
 
@@ -1523,7 +1542,7 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 	zeroVector(hXBeta, K);
 
 
-#define CUDA_Test
+//#define CUDA_Test
 
 #ifdef CUDA_Test
 
@@ -1631,10 +1650,11 @@ void CyclicCoordinateDescent::updateXBetaImpl(bsccs::real realDelta, int index) 
 		bsccs::real newEntry = offsExpXBeta[k] = hOffs[k] * exp(hXBeta[k]);
 		denomPid[hPid[k]] += (newEntry - oldEntry);
 	}
+	//std::cerr << "E";
 }
 
 void CyclicCoordinateDescent::updateXBetaImplHand(bsccs::real realDelta, int index) {
-
+	std::cerr << "F";
 
 	bsccs::real* data = hXI->getDataVector(index);
 	bsccs::real* xBeta = hXBeta;
@@ -1676,7 +1696,7 @@ void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
 void CyclicCoordinateDescent::updateSufficientStatistics(double delta, int index) {
 	updateXBeta(delta, index);
 	sufficientStatisticsKnown = true;
-//	computeRemainingStatistics(false);
+//	computeRemainingStatistics(false,0); /* MAS WHAT? */
 }
 
 void CyclicCoordinateDescent::computeRemainingStatistics_GPU_TRS() {
@@ -1688,7 +1708,10 @@ void CyclicCoordinateDescent::computeRemainingStatistics_GPU_TRS() {
 void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int index) { // TODO Rename
 	// Separate function for benchmarking
 
+
 	if (allStats) {
+		std::cerr << "cRS true" << std::endl;
+		std::cerr << "G";
 		fillVector(denomPid, N, denomNullValue);
 		for (int i = 0; i < K; i++) {
 			offsExpXBeta[i] = hOffs[i] * exp(hXBeta[i]);
@@ -1697,6 +1720,8 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 //		cerr << "den[0] = " << denomPid[0] << endl;
 //		exit(-1);
 
+	} else {
+		std::cerr << "cRS false" << std::endl;
 	}
 	sufficientStatisticsKnown = true;
 }

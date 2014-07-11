@@ -22,6 +22,8 @@
 
 //#define TEST_SPARSE
 
+//#define GPU_SPARSE_PRODUCT
+
 using namespace std;
 namespace bsccs {
 GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputReader* reader)
@@ -256,7 +258,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 
 //	cerr << "Memory allocate 7" << endl;
 	maxActiveWarps++;
-	dTmpCooRows = gpu->AllocateIntMemory(maxActiveWarps);
+	dTmpCooRows = gpu->AllocateIntMemory(maxActiveWarps); /* MAS */
 	dTmpCooVals = gpu->AllocateRealMemory(maxActiveWarps);
 	
 	cout << "MaxActiveWarps = " << maxActiveWarps << endl;
@@ -268,7 +270,7 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	//hReader = reader; // Keep a local copy
 	
 	// tshaddox comment out
-	//computeRemainingStatistics(true, 0);  // TODO Check index?  Probably not right.
+	computeRemainingStatistics(true, 0);  // TODO Check index?  Probably not right.
 	
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::constructor\n");
@@ -371,18 +373,17 @@ double GPUCyclicCoordinateDescent::getObjectiveFunction(void) {
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::getObjectiveFunction\n");
 #endif 	
     
-	gpu->MemcpyDeviceToHost(hXBeta, dXBeta, sizeof(bsccs::real) * K);
-	return CyclicCoordinateDescent::getObjectiveFunction();
-//	double criterion = 0;
-//	for (int i = 0; i < K; i++) {
-//		criterion += hXBeta[i] * hEta[i];
-//	}
+	gpu->MemcpyDeviceToHost(hXBeta, dXBeta, sizeof(real) * K);
+	double criterion = 0;
+	for (int i = 0; i < K; i++) {
+		criterion += hXBeta[i] * hEta[i];
+	}
 
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::getObjectiveFunction\n");
 #endif
     
-//    return criterion;
+    return criterion;
 }
 
 double GPUCyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
@@ -391,6 +392,11 @@ double GPUCyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 	// TODO Could do reduction on GPU
 	return CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion();
 }
+
+/*
+(0.176821, 0, 0.134246, -0.187103, 0.262053, 0.0162283, 0.0974134, 0.196335, 0.143734, 0.133817)
+log post: -178763 (-178744 + -18.8706) (iter:4) Reached convergence criterion
+*/
 
 void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 
@@ -414,8 +420,11 @@ void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 #endif
 
 	//TSHADDOX code
-	gpu->MemcpyDeviceToHost(offsExpXBeta, dOffsExpXBeta, sizeof(bsccs::real) * K);
-	gpu->MemcpyDeviceToHost(denomPid, dDenomPid, sizeof(bsccs::real) * N);
+	//gpu->MemcpyDeviceToHost(offsExpXBeta, dOffsExpXBeta, sizeof(bsccs::real) * K);
+	//gpu->MemcpyDeviceToHost(denomPid, dDenomPid, sizeof(bsccs::real) * N);
+#ifdef DEBUG_MAS
+	std::cerr << "Got demonPid in uXB" << std::endl;
+#endif
 	//for(int i = 0; i < J; i++) {
 	//	cout << "denomPid[" <<i << "] = " << denomPid[i] << " in GPU version updateXBeta" << endl;
 	//}
@@ -438,9 +447,10 @@ void GPUCyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int i
 
     if (allStats) {
     	// NEW
+    	/*
 
-       	gpu->MemcpyHostToDevice(dDenomPid, denomPid, sizeof(bsccs::real) * N);
-        gpu->MemcpyHostToDevice(dOffsExpXBeta, offsExpXBeta, sizeof(bsccs::real) * K);
+   //    	gpu->MemcpyHostToDevice(dDenomPid, denomPid, sizeof(bsccs::real) * N);
+   //     gpu->MemcpyHostToDevice(dOffsExpXBeta, offsExpXBeta, sizeof(bsccs::real) * K);
 
     	kernels->computeIntermediates(dOffsExpXBeta, dDenomPid, dOffs, dXBeta, dXFullRowOffsets, K, N, allStats);
     	//CyclicCoordinateDescent::computeRemainingStatistics(true, index);
@@ -448,6 +458,12 @@ void GPUCyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int i
     	//gpu->MemcpyHostToDevice(dOffsExpXBeta, offsExpXBeta, sizeof(bsccs::real) * K);
     	gpu->MemcpyDeviceToHost(denomPid, dDenomPid, sizeof(bsccs::real) * N);
     	gpu->MemcpyDeviceToHost(offsExpXBeta, dOffsExpXBeta, sizeof(bsccs::real) * K);
+    	std::cerr << "Got denomPid in cRS" << std::endl;*/
+    	
+//    	kernels->computeIntermediates(dOffsExpXBeta, dDenomPid, dOffs, dXBeta, dXFullRowOffsets, K, N, allStats);
+    	CyclicCoordinateDescent::computeRemainingStatistics(true, 0);
+    	gpu->MemcpyHostToDevice(dDenomPid, denomPid, sizeof(real) * N);
+    	gpu->MemcpyHostToDevice(dOffsExpXBeta, offsExpXBeta, sizeof(real) * K);    	
     }
 
 	sufficientStatisticsKnown = true;
@@ -492,6 +508,9 @@ void GPUCyclicCoordinateDescent::getDenominators(void) {
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::getDenominators\n");
 #endif
 	gpu->MemcpyDeviceToHost(denomPid, dDenomPid, sizeof(bsccs::real) * N);
+#ifdef DEBUG_MAS
+	std::cerr << "Got denomPid in getDen" << std::endl;
+#endif
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::getDenominators\n");
 #endif 	
@@ -507,21 +526,36 @@ unsigned int nextPow2( unsigned int x) {
 	return ++x;
 }
 
-void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *ogradient,
+void GPUCyclicCoordinateDescent::computeNumeratorForGradient(int index) {
+
+	//gpu->MemcpyDeviceToHost(offsExpXBeta, dOffsExpXBeta, sizeof(bsccs::real) * K);
+	//gpu->MemcpyDeviceToHost(denomPid, dDenomPid, sizeof(bsccs::real) * N);
+
+	//CyclicCoordinateDescent::computeNumeratorForGradient(index);
+#ifdef DEBUG_MAS
+	std::cerr << "In GPUcNFG ";
+#endif
+	computeRatiosForGradientAndHessian(index);
+}
+
+void GPUCyclicCoordinateDescent::computeGradientAndHessian(int index, double *ogradient,
 		double *ohessian) {
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tEntering GPUCylicCoordinateDescent::computeGradientAndHessian\n");
-#endif 	
+#endif
 	bsccs::real gradient = 0;
 	bsccs::real hessian = 0;
 
 #ifdef GPU_SPARSE_PRODUCT
+	//cout << "sparseProduct" << endl;
 	int blockUsed = kernels->computeGradientAndHessianWithReductionSparse(dNumerPid, dDenomPid, dNEvents, dNI[index],
 			dGradient, dHessian,
 			sparseIndices[index]->size(),
 //			N,
 			1, SPARSE_WORK_BLOCK_SIZE);
 	gpu->MemcpyDeviceToHost(hGradient, dGradient, sizeof(bsccs::real) * 2 * alignedGHCacheSize);
+
+	//cout << "hGradient[0] = " << hGradient[0] << endl;
 
 	bsccs::real* gradientCache = hGradient;
 	const bsccs::real* end = gradientCache + cacheSizeGH;
@@ -539,6 +573,9 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
 			dGradient, dHessian, N, 1, WORK_BLOCK_SIZE);
 	gpu->MemcpyDeviceToHost(hGradient, dGradient, sizeof(bsccs::real) * 2 * alignedGHCacheSize);
 
+	//cout << "hGradient[0] = " << hGradient[0] << endl;
+
+
 	bsccs::real* gradientCache = hGradient;
 	const bsccs::real* end = gradientCache + cacheSizeGH;
 	bsccs::real* hessianCache = hHessian;
@@ -546,6 +583,7 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
 	// TODO Remove code duplication with CPU version from here below
 	for (; gradientCache != end; ++gradientCache, ++hessianCache) {
 		gradient += *gradientCache;
+		//cout << "*gradientCache = " << *gradientCache << endl;
 		hessian += *hessianCache;
 	}
 #endif
@@ -569,5 +607,6 @@ void GPUCyclicCoordinateDescent::computeGradientAndHession(int index, double *og
 #ifdef GPU_DEBUG_FLOW
     fprintf(stderr, "\t\t\tLeaving GPUCylicCoordinateDescent::computeGradientAndHessian\n");
 #endif 	
+    //exit(-1);
 }
 }

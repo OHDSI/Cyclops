@@ -14,7 +14,7 @@
 #include "GPU/KernelLauncherCCD.h"
 
 #define NO_BETA
-#define GPU_SPARSE_PRODUCT
+//#define GPU_SPARSE_PRODUCT
 
 namespace bsccs {
 
@@ -48,7 +48,9 @@ protected:
 
 	virtual void computeRatiosForGradientAndHessian(int index);
 
-	virtual void computeGradientAndHession(
+	virtual void computeNumeratorForGradient(int index);
+
+	virtual void computeGradientAndHessian(
 			int index,
 			double *gradient,
 			double *hessian);

@@ -183,7 +183,7 @@ protected:
 
 	void incrementNumeratorForGradientImplHand(int index);
 
-	void computeNumeratorForGradient(int index);
+	virtual void computeNumeratorForGradient(int index);
 
 	virtual void computeNEvents(void);
 

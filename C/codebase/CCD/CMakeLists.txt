@@ -127,11 +127,9 @@ if(CUDA_FOUND)
  #		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
  #		set(CUDA_64_BIT_DEVICE_CODE OFF)	
  # 	endif(APPLE)		
-	if(APPLE)
-		set(CUDA_NVCC_FLAGS "-arch=sm_11")
-	else(APPLE)
+
 		set(CUDA_NVCC_FLAGS "-arch=sm_20")
-	endif(APPLE)
+
 #	cuda_add_library(ccd-lib ${SOURCE_FILES})
  	cuda_add_executable(ccd ${SOURCE_FILES})
  	target_link_libraries(ccd CUDADriver)
