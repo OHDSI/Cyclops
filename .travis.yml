@@ -9,14 +9,14 @@ before_install:
   - chmod 755 ./travis-tool.sh
   - ./travis-tool.sh bootstrap
   - ./travis-tool.sh github_package testthat
-  - ./travis-tool.sh install_r BH RcppEigen
+  - ./travis-tool.sh install_r BH RcppEigen gnm
   
 script:
     - g++ -E -dM -std=c++98 -x c++ /dev/null > std1 && g++ -E -dM -std=c++0x -x c++ /dev/null > std2 && diff -u std1 std2 | grep '[+|-]^*#define' && rm std1 std2
     - mkdir -p standalone/build && (cd standalone/build && cmake .. && make)
     - pwd
     - R CMD INSTALL .
-    - Rscript -e "require(CCD); require(testthat); test_package('CCD')"
+    - Rscript -e "require(CCD); require(testthat); require(gnm); test_package('CCD')"
     
 notifications:
   recipients:
