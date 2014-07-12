@@ -1543,8 +1543,6 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 	// TODO Make row-major version of X
 
 	// clear X\beta
-//	struct timeval time1, time2;
-//	gettimeofday(&time1, NULL);
 
 	zeroVector(hXBeta, K);
 
@@ -1557,12 +1555,13 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 		computeXBeta_GPU_TRS_initialize();
 		GPUTRSInitialized = true;
 	}
-	struct timeval time1, time2;
-	gettimeofday(&time1, NULL);
+
 
 	computeXBeta_GPU_TRS();
 
 #else
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
 
 	if (true){//hXI_Transpose.getUseThisStatus()) { //TODO This is not the most elegant way to do this
 		switch(hXI_Transpose.getFormatType()) {
