@@ -80,6 +80,8 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 
 	GPUTRSInitialized = false;
 
+	timer = 0;
+
 
 	//test.fillSparseRowVector(reader);
 /*
@@ -233,7 +235,6 @@ void CyclicCoordinateDescent::init() {
 #ifdef NO_FUSE
 	wPid = (bsccs::real*) malloc(sizeof(bsccs::real) * alignedLength);
 #endif
-
 	for (int j = 0; j < J; ++j) {
 		if (hXI->getFormatType(j) == DENSE) {
 			sparseIndices.push_back(NULL);
@@ -493,8 +494,8 @@ void CyclicCoordinateDescent::setUpHessianComponents(bool rebuild){
 		}
 	}
 
-std::cerr << "Die fool!" << std::endl;
-exit(-1);
+//std::cerr << "Die fool!" << std::endl;
+//exit(-1);
 
 	// Set up matrix of numerPid values
 	for (int t = 0; t < J; t++) {
@@ -538,8 +539,8 @@ exit(-1);
 void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHessian) {
 	//naming of variables consistent with Suchard write up page 23 Appendix A
 
-std::cerr << "Die fool!" << std::endl;
-exit(-1);
+//std::cerr << "Die fool!" << std::endl;
+//exit(-1);
 
 
 		// Do the work
@@ -561,7 +562,7 @@ exit(-1);
 
 						bsccs::real * columnVectorj = hXI->getDataVector(j);
 						bsccs::real * columnVectorj2 = hXI->getDataVector(j2);
-std::cerr << "H";
+//std::cerr << "H";
 						bsccs::real SecondTermjj2 = 0;
 						for (int g = 0; g < kValues[i].size(); g++) {
 							bsccs::real tempTerm = offsExpXBeta[kValues[i][g]]*columnVectorj[kValues[i][g]]*columnVectorj2[kValues[i][g]]/ (denomPid[i]);
@@ -636,7 +637,7 @@ std::cerr << "H";
 				}
 			}
 */
-			std::cerr << "B";
+		//	std::cerr << "B";
 			//NEW code
 			//hXI_Transpose.printSparseMatrix();
 			for (int k = 0; k < K; k ++) { // Iterate over the exposures
@@ -809,9 +810,11 @@ void CyclicCoordinateDescent::update(
 		computeNEvents();
 	}
 
+
 	if (!xBetaKnown) {
 		computeXBeta();
 	}
+
 
 	if (!sufficientStatisticsKnown) {
 		computeRemainingStatistics(true, 0); // TODO Check index?
@@ -880,12 +883,13 @@ void CyclicCoordinateDescent::update(
 			double thisLogPost = thisLogLikelihood + thisLogPrior;
 
 		//tshaddox
-		//	cout << endl;
-		//	printVector(hBeta, J, cout);
-		//	cout << endl;
-		//	cout << "log post: " << thisLogPost
-		//		 << " (" << thisLogLikelihood << " + " << thisLogPrior
-		//	     << ") (iter:" << iteration << ") ";
+
+			cout << endl;
+			//printVector(hBeta, J, cout);
+			cout << endl;
+			cout << "log post: " << thisLogPost
+				 << " (" << thisLogLikelihood << " + " << thisLogPrior
+			     << ") (iter:" << iteration << ") ";
 
 			if (epsilon > 0 && conv < epsilon) {
 				cout << "Reached convergence criterion" << endl;
@@ -1539,10 +1543,13 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 	// TODO Make row-major version of X
 
 	// clear X\beta
+//	struct timeval time1, time2;
+//	gettimeofday(&time1, NULL);
+
 	zeroVector(hXBeta, K);
 
 
-//#define CUDA_Test
+#define CUDA_Test
 
 #ifdef CUDA_Test
 
@@ -1550,11 +1557,14 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 		computeXBeta_GPU_TRS_initialize();
 		GPUTRSInitialized = true;
 	}
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
+
 	computeXBeta_GPU_TRS();
 
 #else
 
-	if (hXI_Transpose.getUseThisStatus()) { //TODO This is not the most elegant way to do this
+	if (true){//hXI_Transpose.getUseThisStatus()) { //TODO This is not the most elegant way to do this
 		switch(hXI_Transpose.getFormatType()) {
 			case(DENSE): {
 				for (int i = 0; i < K; i ++) {
@@ -1637,6 +1647,12 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 
 	xBetaKnown = true;
 	sufficientStatisticsKnown = false;
+
+	gettimeofday(&time2, NULL);
+	double sec1 = calculateSeconds(time1, time2);
+
+	timer += sec1;
+	cout << "timer = " << timer << endl;
 }
 
 template <class IteratorType>
@@ -1710,8 +1726,8 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 
 
 	if (allStats) {
-		std::cerr << "cRS true" << std::endl;
-		std::cerr << "G";
+		//std::cerr << "cRS true" << std::endl;
+		//std::cerr << "G";
 		fillVector(denomPid, N, denomNullValue);
 		for (int i = 0; i < K; i++) {
 			offsExpXBeta[i] = hOffs[i] * exp(hXBeta[i]);

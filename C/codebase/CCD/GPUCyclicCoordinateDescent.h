@@ -13,7 +13,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/KernelLauncherCCD.h"
 
-#define NO_BETA
+//#define NO_BETA
 //#define GPU_SPARSE_PRODUCT
 
 namespace bsccs {
@@ -88,8 +88,15 @@ private:
 	GPUPtr dHessian;
 	GPUPtr dReducedGradientHessian;
 
+
+	GPUPtr dGradientSum;
+	GPUPtr dHessianSum;
+
 	bsccs::real* hGradient;
 	bsccs::real* hHessian;
+	bsccs::real* testG;
+	bsccs::real* testH;
+
 
 	GPUPtr* dXColumnRowIndicators;
 

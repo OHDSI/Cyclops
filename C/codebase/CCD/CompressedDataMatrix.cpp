@@ -190,6 +190,7 @@ void CompressedDataMatrix::convertColumnToDense(int column) {
 //	cerr << "Non-zero count: " << nonzero << endl;
 //	exit(0);
 	formatType[column] = DENSE;
+
 	delete columns[column]; columns[column] = NULL;
 }
 
@@ -202,6 +203,8 @@ int CompressedDataMatrix::getNumberOfColumns(void) {
 }
 
 int CompressedDataMatrix::getNumberOfEntries(int column) const {
+	//cout << "column is " << column << endl;
+	//cout << "columns[column]->size() = " << columns[column]->size() << endl;
 	return columns[column]->size();
 }
 

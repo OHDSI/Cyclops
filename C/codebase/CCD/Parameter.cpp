@@ -91,7 +91,7 @@ namespace bsccs{
 	}
 
 	void Parameter::restore(){
-		cout << "Parameter::restore()" << endl;
+		//cout << "Parameter::restore()" << endl;
 		if (restorable) {
 			bsccs::real* temp;
 			temp = storedValues;

@@ -467,7 +467,7 @@ int main(int argc, char* argv[]) {
 
 	//MCMCDriver testMCMCDriver(reader, arguments.MCMCFileName);
 
-	//cout << "betaAmount = " << arguments.betaAmount << endl;
+	cout << "betaAmount = " << arguments.betaAmount << endl;
 	//testMCMCDriver.drive(*ccd, arguments.betaAmount, arguments.seed);
 	gettimeofday(&time2, NULL);
 	double sec1 = calculateSeconds(time1, time2);

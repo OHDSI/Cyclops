@@ -16,7 +16,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/KernelLauncherCCD.h"
 
-//#define CONTIG_MEMORY
+#define CONTIG_MEMORY
 
 //#define GPU_DEBUG_FLOW
 
@@ -79,11 +79,15 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	dXI = (GPUPtr*) malloc(J * sizeof(GPUPtr));
 	vector<int> columnLength(J);
 	for (int j = 0; j < J; j++) {
+	//	cout << "j = " << j << endl;
 		columnLength[j] = hXI->getNumberOfEntries(j);
+	//	cout << "length" << endl;
 		nonZero += hXI->getNumberOfEntries(j);
+	//	cout << "entries" << endl;
 	}
 	GPUPtr ptr = gpu->AllocateIntMemory(nonZero);
 	for (int j = 0; j < J; j++) {
+	//	cout << "j = " << j << endl;
 		if (columnLength[j] != 0) {
 			dXI[j] = ptr;
 			gpu->MemcpyHostToDevice(dXI[j], hXI->getCompressedColumnVector(j),
@@ -199,6 +203,12 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	dHessian = dGradient + sizeof(bsccs::real) * alignedGHCacheSize; // GPUPtr is void* not bsccs::real*
 	hGradient = (bsccs::real*) malloc(2 * sizeof(bsccs::real) * alignedGHCacheSize);
 	hHessian = hGradient + alignedGHCacheSize;
+
+
+	dGradientSum = gpu->AllocateRealMemory(1);
+	dHessianSum = gpu->AllocateRealMemory(1);
+	testG = (bsccs::real*) malloc(sizeof(bsccs::real));
+	testH = (bsccs::real*) malloc(sizeof(bsccs::real));
 
 
 	//tshaddox uncomment
@@ -432,7 +442,7 @@ void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 
 #ifdef PROFILE_GPU
 	//cout << "here?" << endl;
-	gpu->Synchronize();
+	//gpu->Synchronize();
 #endif
 	
 #ifdef GPU_DEBUG_FLOW
@@ -460,7 +470,7 @@ void GPUCyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int i
     	gpu->MemcpyDeviceToHost(offsExpXBeta, dOffsExpXBeta, sizeof(bsccs::real) * K);
     	std::cerr << "Got denomPid in cRS" << std::endl;*/
     	
-//    	kernels->computeIntermediates(dOffsExpXBeta, dDenomPid, dOffs, dXBeta, dXFullRowOffsets, K, N, allStats);
+    	//kernels->computeIntermediates(dOffsExpXBeta, dDenomPid, dOffs, dXBeta, dXFullRowOffsets, K, N, allStats);
     	CyclicCoordinateDescent::computeRemainingStatistics(true, 0);
     	gpu->MemcpyHostToDevice(dDenomPid, denomPid, sizeof(real) * N);
     	gpu->MemcpyHostToDevice(dOffsExpXBeta, offsExpXBeta, sizeof(real) * K);    	
@@ -545,6 +555,7 @@ void GPUCyclicCoordinateDescent::computeGradientAndHessian(int index, double *og
 #endif
 	bsccs::real gradient = 0;
 	bsccs::real hessian = 0;
+	bsccs::real hessian1 = 0;
 
 #ifdef GPU_SPARSE_PRODUCT
 	//cout << "sparseProduct" << endl;
@@ -567,14 +578,26 @@ void GPUCyclicCoordinateDescent::computeGradientAndHessian(int index, double *og
 		hessian += *hessianCache;
 	}
 
+
+
 #else
 	// TODO dynamically determine threads/blocks.
 	int blockUsed = kernels->computeGradientAndHessianWithReduction(dNumerPid, dDenomPid, dNEvents,
 			dGradient, dHessian, N, 1, WORK_BLOCK_SIZE);
-	gpu->MemcpyDeviceToHost(hGradient, dGradient, sizeof(bsccs::real) * 2 * alignedGHCacheSize);
+	//gpu->MemcpyDeviceToHost(hGradient, dGradient, sizeof(bsccs::real) * 2 * alignedGHCacheSize);
+	//cout << "alignedGHCacheSize = " << alignedGHCacheSize << endl;
 
-	//cout << "hGradient[0] = " << hGradient[0] << endl;
+/*
+	//bsccs::real* gradientCache = hGradient;
+	bsccs::real* hessianCache1 = hHessian;
+	const bsccs::real* end1 = hessianCache1 + 13;
 
+
+	// TODO Remove code duplication with CPU version from here below
+	for (; hessianCache1 != end1; ++hessianCache1) {
+		cout << " *hessianCache1 = " << *hessianCache1 << endl;
+		hessian1 += *hessianCache1;
+	}
 
 	bsccs::real* gradientCache = hGradient;
 	const bsccs::real* end = gradientCache + cacheSizeGH;
@@ -583,10 +606,27 @@ void GPUCyclicCoordinateDescent::computeGradientAndHessian(int index, double *og
 	// TODO Remove code duplication with CPU version from here below
 	for (; gradientCache != end; ++gradientCache, ++hessianCache) {
 		gradient += *gradientCache;
-		//cout << "*gradientCache = " << *gradientCache << endl;
 		hessian += *hessianCache;
+		cout << " *hessianCache = " << *hessianCache << endl;
 	}
+*/
 #endif
+
+	kernels->reduceSum(dGradient, dGradientSum, cacheSizeGH, 1, WORK_BLOCK_SIZE);
+	kernels->reduceSum(dHessian, dHessianSum, cacheSizeGH, 1, WORK_BLOCK_SIZE);
+	gpu->MemcpyDeviceToHost(testH, dHessianSum, sizeof(bsccs::real));
+	gpu->MemcpyDeviceToHost(testG, dGradientSum, sizeof(bsccs::real));
+
+	//cout << "?hGradient[0] = " << hGradient[0] << endl;
+	//cout << "?hHessian[0] = " << hHessian[0] << endl;
+
+
+	//cout << "gradient = " << gradient << endl;
+	//cout << "hessian = " << hessian << endl;
+	gradient = *testG;
+	hessian = *testH;
+	//cout << "gradient = " << gradient << endl;
+	//cout << "hessian = " << hessian << endl;
 
 //  // Example of dynamic block sizes
 //	unsigned int threads = (N < 512) ? nextPow2((N + 1)/ 2) : 256;
@@ -597,6 +637,7 @@ void GPUCyclicCoordinateDescent::computeGradientAndHessian(int index, double *og
 	
 
 	gradient -= hXjEta[index];
+	//cout << "hGradient[index] = " << hGradient[index] << endl;
 	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
 	

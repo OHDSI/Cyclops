@@ -351,6 +351,8 @@ protected:
 	bsccs::real* hXjEta;
 
 	int updateCount;
+	double timer;
+
 	int likelihoodCount;
 
 #ifdef SPARSE_PRODUCT

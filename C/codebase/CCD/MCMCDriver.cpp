@@ -36,10 +36,10 @@ namespace bsccs {
 MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader(inReader) {
 	MCMCFileNameRoot = MCMCFileName;
 	thinningValueForWritingToFile = 1000;
-	maxIterations = 3000;
+	maxIterations = 100;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
-	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies
+	acceptanceTuningParameter = -100; // exp(acceptanceTuningParameter) modifies
 	acceptanceRatioTarget = 0.30;
 	autoAdapt = false;
 }
@@ -140,7 +140,7 @@ int MCMCDriver::findTransitionKernelIndex(double uniformRandom, vector<double>& 
 	for (int i = 0; i < length; i++){
 		currentTotal += transitionKernelSelectionProb[i];
 		if (uniformRandom <= currentTotal){
-			cout << "\t\t Picking Kernel " << i << endl;
+			//cout << "\t\t Picking Kernel " << i << endl;
 			return(i);
 		}
 	}
@@ -165,7 +165,7 @@ void MCMCDriver::drive(
 
 	//MCMC Loop
 	for (int iterations = 0; iterations < maxIterations; iterations ++) {
-		cout << endl << "MCMC iteration " << iterations << endl;
+		//cout << endl << "MCMC iteration " << iterations << endl;
 
 #ifdef DEBUG_STATE
 		checkValidState(ccd, MHstep, Beta, Beta_Hat, SigmaSquared);
@@ -186,13 +186,13 @@ void MCMCDriver::drive(
 
 		//cout << "**********  WARNING  ************" << endl;
 		//accept = true;
-		cout << "accept = " << accept << endl;
+		//cout << "accept = " << accept << endl;
 
 		if (accept) {
-			cout << "\t\t\t\t #######Accept#################" << endl;
+			//cout << "\t\t\t\t #######Accept#################" << endl;
 			model.acceptChanges();
 		} else {
-			cout << "\t\t\t\t #######Reject#################" << endl;
+			//cout << "\t\t\t\t #######Reject#################" << endl;
 			model.restore();
 		}
 		logState(model, iterations);
