@@ -670,7 +670,7 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 		}
 
 
-		/*
+
 		cout << "in CCD blankHessian is " << endl;
 		bsccs::real maxValue = 0;
 		for (int i = 0; i < J; i ++) {
@@ -683,7 +683,7 @@ void CyclicCoordinateDescent::getHessian(vector<vector<bsccs::real> > * blankHes
 			}
 			cout << "]" << endl;
 		}
-		*/
+
 
 
 
