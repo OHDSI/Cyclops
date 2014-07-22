@@ -29,6 +29,7 @@ namespace bsccs {
 
 	 HessianMatrix = (ccd->getHessianMatrix()).cast<float>();
 
+	 cout << "HessianMatrix = " << HessianMatrix << endl;
 	 generateCholesky();
 
 	 // Beta_Hat = modes from ccd
