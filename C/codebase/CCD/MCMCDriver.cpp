@@ -39,7 +39,7 @@ MCMCDriver::MCMCDriver(InputReader * inReader, std::string MCMCFileName): reader
 	maxIterations = 100;
 	nBetaSamples = 0;
 	nSigmaSquaredSamples = 0;
-	acceptanceTuningParameter = -100; // exp(acceptanceTuningParameter) modifies
+	acceptanceTuningParameter = 0; // exp(acceptanceTuningParameter) modifies
 	acceptanceRatioTarget = 0.30;
 	autoAdapt = false;
 }

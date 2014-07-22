@@ -10,6 +10,8 @@
 #include <thrust/device_vector.h>
 #include <cusp/csr_matrix.h>
 
+#include "cublas_v2.h"
+
 
 
 
@@ -26,6 +28,8 @@ public:
 	void loadXMatrix(const std::vector<int>& offsets, const std::vector<int>& column_indices, const std::vector<float>& values, int nCols);
 
 	void computeMultiplyBeta(const float* beta, int BetaLength, float* xbeta, int xBetaLength);
+
+	void solveCholesky(float* solveVector, float* solveMatrix, int n);
 
 private:
 

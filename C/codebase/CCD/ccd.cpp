@@ -465,10 +465,10 @@ int main(int argc, char* argv[]) {
 	gettimeofday(&time1, NULL);
 
 
-	//MCMCDriver testMCMCDriver(reader, arguments.MCMCFileName);
+	MCMCDriver testMCMCDriver(reader, arguments.MCMCFileName);
 
 	cout << "betaAmount = " << arguments.betaAmount << endl;
-	//testMCMCDriver.drive(*ccd, arguments.betaAmount, arguments.seed);
+	testMCMCDriver.drive(*ccd, arguments.betaAmount, arguments.seed);
 	gettimeofday(&time2, NULL);
 	double sec1 = calculateSeconds(time1, time2);
 

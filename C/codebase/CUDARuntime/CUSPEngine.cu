@@ -72,3 +72,31 @@ void CUSPEngine::computeMultiplyBeta(const float* beta, int BetaLength, float* x
         
     //thrust::copy(thrust::raw_pointer_cast(&dXBeta[0]), thrust::raw_pointer_cast(&dXBeta[0]) + xBetaLength, xbeta);
 }
+
+void CUSPEngine::solveCholesky(float* solveVector, float* solveMatrix, int n) {
+    std::cout << "Call to solveCholesky" << std::endl;
+	
+
+	cudaError_t cudaStat; 
+	cublasStatus_t stat; 
+	cublasHandle_t handle; 
+	
+	float* d_a; 
+	float* d_x;
+	cudaStat=cudaMalloc((void**)&d_a,n*(n+1)/2*sizeof(*solveMatrix));
+	cudaStat=cudaMalloc((void**)&d_x,n*sizeof(*solveVector));
+	
+	stat = cublasCreate(&handle);
+	stat = cublasSetVector(n*(n+1)/2,sizeof(*solveMatrix),solveMatrix,1,d_a,1);
+	stat = cublasSetVector(n,sizeof(*solveVector),solveVector,1,d_x,1);
+
+	stat = cublasStpsv(handle,CUBLAS_FILL_MODE_LOWER,CUBLAS_OP_N, CUBLAS_DIAG_NON_UNIT,n,d_a,d_x,1);
+	stat=cublasGetVector(n,sizeof(*solveVector),d_x,1,solveVector,1);
+	
+	for(int j=0;j<n;j++){
+		printf("%9.6f",solveVector[j]);
+		printf("\n"); 
+		}
+	//cublasStpsv('L', 'n', 'n', n, solveMatrix, solveVector, sizeof(bsccs::real));
+
+}

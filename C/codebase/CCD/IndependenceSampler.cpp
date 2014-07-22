@@ -78,14 +78,22 @@ void IndependenceSampler::sample(Model& model, double tuningParameter, boost::mt
 #endif
 
 	((model.getCholeskyLLT()).matrixU()).solveInPlace(b);
+	/*
+	Eigen::MatrixXf LMatrix = ((model.getCholeskyLLT()).matrixL());
+	cout << LMatrix << endl;
+	float *L_data = LMatrix.data();
+	float *b_data = b.data();
+	solverEngine.solveCholesky(b_data, L_data, sizeOfSample);
+*/
 
 	// TODO Check marginal variance on b[i]
 
 
 	for (int i = 0; i < sizeOfSample; i++) {
 		Beta.set(i, b[i] + Beta_Hat.get(i));
+		cout << "b[i] = " << b[i] << endl;
 	}
-
+	exit(-1);
 	/*
 	cout << "Beta current" << endl;
 	Beta.logParameter();

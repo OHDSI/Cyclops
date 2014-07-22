@@ -23,6 +23,8 @@
 #include "TransitionKernel.h"
 #include "MHRatio.h"
 
+//#include "CUDARuntime/CUSPEngine.h"
+
 #include <boost/random.hpp>
 #include <boost/random/normal_distribution.hpp>
 
@@ -54,6 +56,8 @@ public:
 	double getTransformedTuningValue(double tuningParameter);
 
 	double evaluateLogMHRatio(Model& model);
+
+	CUSPEngine solverEngine;
 
 protected:
 

@@ -885,7 +885,7 @@ void CyclicCoordinateDescent::update(
 		//tshaddox
 
 			cout << endl;
-			//printVector(hBeta, J, cout);
+			printVector(hBeta, J, cout);
 			cout << endl;
 			cout << "log post: " << thisLogPost
 				 << " (" << thisLogLikelihood << " + " << thisLogPrior
@@ -987,12 +987,12 @@ void CyclicCoordinateDescent::update_MM(
 			double thisLogPost = thisLogLikelihood + thisLogPrior;
 
 		//tshaddox
-		//	cout << endl;
-		//	printVector(hBeta, J, cout);
-		//	cout << endl;
-		//	cout << "log post: " << thisLogPost
-		//		 << " (" << thisLogLikelihood << " + " << thisLogPrior
-		//	     << ") (iter:" << iteration << ") ";
+			cout << endl;
+			printVector(hBeta, J, cout);
+			cout << endl;
+			cout << "log post: " << thisLogPost
+				 << " (" << thisLogLikelihood << " + " << thisLogPrior
+			     << ") (iter:" << iteration << ") ";
 
 
 			if (epsilon > 0 && conv < epsilon) {
@@ -1556,7 +1556,8 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 		GPUTRSInitialized = true;
 	}
 
-
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
 	computeXBeta_GPU_TRS();
 
 #else

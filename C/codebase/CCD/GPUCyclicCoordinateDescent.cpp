@@ -22,6 +22,8 @@
 
 //#define TEST_SPARSE
 
+#define NO_BETA
+
 //#define GPU_SPARSE_PRODUCT
 
 using namespace std;
@@ -126,6 +128,8 @@ GPUCyclicCoordinateDescent::GPUCyclicCoordinateDescent(int deviceNumber, InputRe
 	gpu->MemcpyHostToDevice(dBeta, hBeta, sizeof(REAL) * J); // Beta is never actually used on GPU
 #endif
 	cerr << "Available = " << gpu->GetAvailableMemory() << endl;
+
+
 
 	dXBeta = gpu->AllocateRealMemory(K);
 	gpu->MemcpyHostToDevice(dXBeta, hXBeta, sizeof(REAL) * K);
@@ -403,10 +407,7 @@ double GPUCyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 	return CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion();
 }
 
-/*
-(0.176821, 0, 0.134246, -0.187103, 0.262053, 0.0162283, 0.0974134, 0.196335, 0.143734, 0.133817)
-log post: -178763 (-178744 + -18.8706) (iter:4) Reached convergence criterion
-*/
+
 
 void GPUCyclicCoordinateDescent::updateXBeta(double delta, int index) {
 
@@ -558,7 +559,7 @@ void GPUCyclicCoordinateDescent::computeGradientAndHessian(int index, double *og
 	bsccs::real hessian1 = 0;
 
 #ifdef GPU_SPARSE_PRODUCT
-	//cout << "sparseProduct" << endl;
+//	cout << "sparseProduct" << endl;
 	int blockUsed = kernels->computeGradientAndHessianWithReductionSparse(dNumerPid, dDenomPid, dNEvents, dNI[index],
 			dGradient, dHessian,
 			sparseIndices[index]->size(),
@@ -616,6 +617,7 @@ void GPUCyclicCoordinateDescent::computeGradientAndHessian(int index, double *og
 	kernels->reduceSum(dHessian, dHessianSum, cacheSizeGH, 1, WORK_BLOCK_SIZE);
 	gpu->MemcpyDeviceToHost(testH, dHessianSum, sizeof(bsccs::real));
 	gpu->MemcpyDeviceToHost(testG, dGradientSum, sizeof(bsccs::real));
+	gpu->Synchronize();
 
 	//cout << "?hGradient[0] = " << hGradient[0] << endl;
 	//cout << "?hHessian[0] = " << hHessian[0] << endl;

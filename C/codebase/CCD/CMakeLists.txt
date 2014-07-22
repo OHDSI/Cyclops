@@ -36,9 +36,10 @@ find_path(CUSP_INCLUDE_DIR
 #	NAMES gslcblas
 #	DOCS "Location of GSL BLAS library file")
 
-#find_library(CUBLAS_LIBRARY
-#	NAMES cublas
-#	DOCS "Location of CUBLAS library file")
+find_library(CUBLAS_LIBRARY
+	NAMES libcublas.dylib
+	DOCS "Location of CUBLAS library file"
+	PATHS "/usr/local/cuda/lib")
 	
 #if (NOT MTL_INCLUDE_DIR)
 #	message(FATAL_ERROR "MTL header file not found (and required)")
@@ -135,6 +136,7 @@ if(CUDA_FOUND)
  	target_link_libraries(ccd CUDADriver)
 	target_link_libraries(ccd ${BOOST_INCLUDE_LIBRARY})
 	target_link_libraries(ccd ${EIGEN_INCLUDE_LIBRARY})
+	target_link_libraries(ccd ${CUBLAS_LIBRARY})
 	target_link_libraries(ccd CUDARuntime)
 
 else(CUDA_FOUND)
