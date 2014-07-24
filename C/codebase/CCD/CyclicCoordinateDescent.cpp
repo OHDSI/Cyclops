@@ -846,7 +846,13 @@ void CyclicCoordinateDescent::update(
 		// Do a complete cycle
 		for(int index = 0; index < J; index++) {
 		
+			struct timeval time1, time2;
+			gettimeofday(&time1, NULL);
 			double delta = ccdUpdateBeta(index);
+
+			gettimeofday(&time2, NULL);
+						double timeToLoop = calculateSeconds(time1, time2);
+						//cout << "time = " << timeToLoop << endl;
 			//cout << "delta = " << delta << endl;
 			delta = applyBounds(delta, index);
 			if (delta != 0.0) {
@@ -949,18 +955,22 @@ void CyclicCoordinateDescent::update_MM(
 
 
 	while (!done) {
-		done = true;
+		//done = true;
 		struct timeval time1, time2;
 		gettimeofday(&time1, NULL);
 
 
 		// Do a complete cycle
 		for(int index = 0; index < J; index++) {
-
+			struct timeval time1, time2;
+			gettimeofday(&time1, NULL);
 			double delta = ccdUpdateBeta_MM(index);
 			//cout << "in update_MM delta for drug " << index << " = " << delta << endl;
 			//delta = applyBounds(delta, index);
 			deltas[index] = delta;
+			gettimeofday(&time2, NULL);
+			//double timeToLoop = calculateSeconds(time1, time2);
+			//cout << "time = " << timeToLoop << endl;
 		}
 
 		// do the updates to Beta separately.
@@ -996,7 +1006,7 @@ void CyclicCoordinateDescent::update_MM(
 
 
 			if (epsilon > 0 && conv < epsilon) {
-				cout << "Reached converfgence criterion" << endl;
+				cout << "Reached convergence criterion" << endl;
 				done = true;
 			} else if (iteration == 300) {
 				cout << "Reached maximum iterations" << endl;
@@ -1005,9 +1015,7 @@ void CyclicCoordinateDescent::update_MM(
 				cout << endl;
 			}
 		}
-		gettimeofday(&time2, NULL);
-		double timeToLoop = calculateSeconds(time1, time2);
-		cout << "time = " << timeToLoop << endl;
+
 
 	}
 	updateCount += 1;
@@ -1416,7 +1424,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta_MM(int index) {
 	double delta;
 
 	std::cerr << "Die fool!" << std::endl;
-	exit(-1);
+	//exit(-1);
 
 	// Should be the same
 	computeNumeratorForGradient(index);
