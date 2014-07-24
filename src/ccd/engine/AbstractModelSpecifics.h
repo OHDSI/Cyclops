@@ -12,6 +12,7 @@
 #include <cmath>
 #include <map>
 #include <cstddef>
+#include <memory>
 
 namespace bsccs {
 
