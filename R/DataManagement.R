@@ -178,7 +178,9 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
             y <- y[sortOrder] 
             z <- z[sortOrder] 
             time <- time[sortOrder]
-            dx <- dx[sortOrder, ] 
+            dx <- dx[sortOrder, ]
+            if (class(dx) == "numeric")
+                dx = as(dx,"dgeMatrix")
             sx <- sx[sortOrder, ]
             ix <- ix[sortOrder, ]            
         }
