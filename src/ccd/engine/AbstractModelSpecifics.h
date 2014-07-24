@@ -12,7 +12,8 @@
 #include <cmath>
 #include <map>
 #include <cstddef>
-#include <memory>
+
+#include "Types.h"
 
 namespace bsccs {
 
@@ -151,7 +152,7 @@ protected:
 	HessianSparseMap hessianSparseCrossTerms;
 };
 
-typedef std::shared_ptr<AbstractModelSpecifics> ModelSpecificsPtr;
+typedef bsccs::shared_ptr<AbstractModelSpecifics> ModelSpecificsPtr;
 
 } // namespace
 
