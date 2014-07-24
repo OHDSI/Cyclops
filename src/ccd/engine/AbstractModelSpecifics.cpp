@@ -12,8 +12,6 @@
 
 namespace bsccs {
 
-
-
 AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelType, ModelData* modelData) {
 	AbstractModelSpecifics* model = nullptr;
  	switch (modelType) {

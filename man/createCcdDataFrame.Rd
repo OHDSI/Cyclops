@@ -4,8 +4,9 @@
 \title{createCcdDataFrame}
 \usage{
 createCcdDataFrame(formula, sparseFormula, indicatorFormula, modelType, data,
-  subset, weights, offset, time = NULL, y = NULL, z = NULL, dx = NULL,
-  sx = NULL, ix = NULL, model = FALSE, method = "ccd.fit", ...)
+  subset, weights, offset, time = NULL, pid = NULL, y = NULL, z = NULL,
+  dx = NULL, sx = NULL, ix = NULL, model = FALSE, method = "ccd.fit",
+  ...)
 }
 \arguments{
 \item{modelType}{character string: Valid types are listed below.}
@@ -31,7 +32,7 @@ Currently supported model types are:
 	\verb{	"pr"} \tab Poisson regression \cr
 	\verb{	"lr"} \tab Logistic regression \cr
 	\verb{	"clr"} \tab Conditional logistic regression \cr
- \verb{  "cpr"} \tab Conditional Poisson regression \cr
+ \verb{	"cpr"} \tab Conditional Poisson regression \cr
 	\verb{	"sccs"} \tab Self-controlled case series \cr
 	\verb{	"cox"} \tab Cox proportional hazards regression \cr
 }

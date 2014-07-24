@@ -4,6 +4,10 @@ library("testthat")
 # These tests are believed to be broken; they need confirmation and fixes
 #
 
+# test_that("Data validity when loaded with (y,dx,sx,ix)" ,{})
+
+# test_that("Dimension checking on objects in createCcdModelDataFrame" ,{})
+
 # test_that("Approximations for ties in CLR and Cox" ,{})
 
 # test_that("Preclude SEs for regularized covariates", {})

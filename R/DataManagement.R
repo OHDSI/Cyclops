@@ -28,7 +28,7 @@
 #'
 #' @export
 createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelType,
-                               data, subset, weights, offset, time = NULL, y = NULL, z = NULL, dx = NULL, 
+                               data, subset, weights, offset, time = NULL, pid = NULL, y = NULL, z = NULL, dx = NULL, 
                                sx = NULL, ix = NULL, model = FALSE, method = "ccd.fit", ...) {	
     cl <- match.call() # save to return
     mf.all <- match.call(expand.dots = FALSE)
@@ -214,6 +214,10 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
         useTimeAsOffset <- TRUE
     }
     
+    if (is.null(pid)) {
+        pid <- c(1:length(y)) # TODO Should not be necessary
+    }
+    
     md <- .ccdModelData(pid, y, z, time, dx, sx, ix, modelType, useTimeAsOffset)
     result <- new.env(parent = emptyenv())
     result$ccdDataPtr <- md$data
@@ -226,7 +230,15 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
     result$ccdInterfacePtr <- NULL
     result$call <- cl
     result$coefficientNames <- colnames
-    result$rowNames <- dx@Dimnames[[1]]    
+    
+    if (!is.null(dx)) {
+        result$rowNames <- dx@Dimnames[[1]]
+    } else if (!is.null(pid)) {
+        result$rowNames <- pid
+    } else {
+        result$rowNames <- c(1:length(y))
+    }
+     
     if (identical(method, "debug")) {
         result$debug <- list()
         result$debug$dx <- dx

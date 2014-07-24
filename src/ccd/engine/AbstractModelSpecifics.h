@@ -150,6 +150,8 @@ protected:
 	HessianSparseMap hessianSparseCrossTerms;
 };
 
+typedef std::shared_ptr<AbstractModelSpecifics> ModelSpecificsPtr;
+
 } // namespace
 
 #endif /* ABSTRACTMODELSPECIFICS_H_ */

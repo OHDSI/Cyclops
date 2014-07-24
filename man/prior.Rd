@@ -23,5 +23,12 @@ A CCD prior object of class inheriting from \code{"ccdPrior"} for use with \code
 }
 \section{Prior types}{
 
+
+We specify all priors in terms of their variance parameters.
+Similar fitting tools for regularized regression often parameterize the Laplace distribution
+in terms of a rate \code{"lambda"} per observation.
+See \code{"glmnet"}, for example.
+
+variance = 2 * / (nobs * lambda)^2 or lambda = sqrt(2 / variance) / nobs
 }
 

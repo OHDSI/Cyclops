@@ -232,6 +232,13 @@ control <- function(
 #' 
 #' @section Prior types:
 #' 
+#' We specify all priors in terms of their variance parameters.
+#' Similar fitting tools for regularized regression often parameterize the Laplace distribution 
+#' in terms of a rate \code{"lambda"} per observation.  
+#' See \code{"glmnet"}, for example.  
+#' 
+#' variance = 2 * / (nobs * lambda)^2 or lambda = sqrt(2 / variance) / nobs
+#' 
 #' @return
 #' A CCD prior object of class inheriting from \code{"ccdPrior"} for use with \code{fitCcdModel}.
 #' 
@@ -323,4 +330,12 @@ confint.ccdFit <- function(object, parm, level = 0.95, control,
     qs <- c((1 - level) / 2, 1 - (1 - level) / 2) * 100    
     colnames(prof)[2:3] <- paste(sprintf("%.1f", qs), "%")
     prof
+}
+
+convertToCcdVariance <- function(lambda, nobs) {
+    2 / (nobs * lambda)^2
+}
+
+convertToGlmnetLambda <- function(variance, nobs) {
+    sqrt(2 / variance) / nobs
 }
