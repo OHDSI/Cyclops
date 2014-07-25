@@ -16,6 +16,7 @@
 
 #include "CLRInputReader.h"
 #include "io/SparseIndexer.h"
+#include "io/CmdLineProgressLogger.h"
 
 #define MAX_ENTRIES		1000000000
 #define HAS_HEADER
@@ -37,7 +38,9 @@ namespace bsccs {
 
 using namespace std;
 
-CLRInputReader::CLRInputReader() : InputReader() {
+CLRInputReader::CLRInputReader() : InputReader(
+	bsccs::make_shared<loggers::CoutLogger>(),
+	bsccs::make_shared<loggers::CerrErrorHandler>()) {
 	// Do nothing
 }
 

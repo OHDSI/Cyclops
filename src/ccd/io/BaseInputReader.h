@@ -66,11 +66,11 @@ public:
 	typedef std::vector<int> int_vector;
 	typedef std::vector<string> string_vector;
 
-	BaseInputReader() : InputReader(
-		bsccs::make_shared<loggers::CoutLogger>(),
-	 	bsccs::make_shared<loggers::CerrErrorHandler>()), innerDelimitor(":") {
-		// Do nothing		
-	}
+//	BaseInputReader() : InputReader(
+//		bsccs::make_shared<loggers::CoutLogger>(),
+//	 	bsccs::make_shared<loggers::CerrErrorHandler>()), innerDelimitor(":") {
+//		// Do nothing		
+//	}
 	
 	BaseInputReader(
 		loggers::ProgressLoggerPtr _logger,

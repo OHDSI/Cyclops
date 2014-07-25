@@ -14,6 +14,13 @@ namespace bsccs {
 
 class NewCLRInputReader : public BaseInputReader<NewCLRInputReader> {
 public:
+
+	NewCLRInputReader(
+		loggers::ProgressLoggerPtr _logger,
+		loggers::ErrorHandlerPtr _error) : BaseInputReader<NewCLRInputReader>(_logger, _error) {
+		// Do nothing	
+	}
+
 	inline void parseRow(stringstream& ss, RowInformation& rowInfo) {
 		parseSingleBBROutcomeEntry<int>(ss, rowInfo);
 		parseStratumEntry(ss, rowInfo);

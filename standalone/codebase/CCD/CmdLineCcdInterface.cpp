@@ -50,7 +50,7 @@
 // #include "drivers/ProportionSelector.h"
 // #include "drivers/BootstrapDriver.h"
 //#include "engine/ModelSpecifics.h"
-#include "io/ProgressLogger.h"
+#include "io/CmdLineProgressLogger.h"
 // 
 #include "tclap/CmdLine.h"
 // #include "utils/RZeroIn.h"
@@ -359,10 +359,12 @@ void CmdLineCcdInterface::initializeModelImpl(
 	}
 
 	InputReader* reader;
+	loggers::ProgressLoggerPtr logger = bsccs::make_shared<loggers::CoutLogger>();
+	loggers::ErrorHandlerPtr error = bsccs::make_shared<loggers::CerrErrorHandler>();
 	if (arguments.fileFormat == "sccs") {
 		reader = new SCCSInputReader();
 	} else if (arguments.fileFormat == "clr") {
-		reader = new NewCLRInputReader();
+		reader = new NewCLRInputReader(logger, error);
 	} else if (arguments.fileFormat == "csv") {
 		reader = new RTestInputReader();
 	} else if (arguments.fileFormat == "cc") {
@@ -372,9 +374,9 @@ void CmdLineCcdInterface::initializeModelImpl(
 	} else if (arguments.fileFormat == "bbr") {
 		reader = new BBRInputReader<NoImputation>();
 	} else if (arguments.fileFormat == "generic") {
-		reader = new NewGenericInputReader(modelType);
+		reader = new NewGenericInputReader(modelType, logger, error);
 	} else if (arguments.fileFormat == "new-cox") {
-		reader = new NewCoxInputReader();
+		reader = new NewCoxInputReader(logger, error);
 	} else {
 		cerr << "Invalid file format." << endl;
 		exit(-1);

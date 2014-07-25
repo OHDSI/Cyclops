@@ -40,12 +40,12 @@ namespace bsccs {
 
 using namespace std;
 
-InputReader::InputReader() :
-    logger(bsccs::make_shared<loggers::CoutLogger>()),
-    error(bsccs::make_shared<loggers::CerrErrorHandler>()),
-    modelData(new ModelData(ModelType::NONE, logger, error)),
-    deleteModelData(true)
-{}
+//InputReader::InputReader() :
+//    logger(bsccs::make_shared<loggers::CoutLogger>()),
+//    error(bsccs::make_shared<loggers::CerrErrorHandler>()),
+//    modelData(new ModelData(ModelType::NONE, logger, error)),
+//    deleteModelData(true)
+//{}
 
 InputReader::InputReader(
 	loggers::ProgressLoggerPtr _logger,

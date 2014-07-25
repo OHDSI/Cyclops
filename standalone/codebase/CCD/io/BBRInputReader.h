@@ -13,6 +13,7 @@
 #include "io/InputReader.h"
 #include "imputation/ImputationPolicy.h"
 #include "io/SparseIndexer.h"
+#include "io/CmdLineProgressLogger.h"
 
 using namespace std;
 
@@ -32,7 +33,9 @@ namespace bsccs {
 template <class ImputationPolicy>
 class BBRInputReader : public InputReader{
 public:
-	BBRInputReader():InputReader() {
+	BBRInputReader() : InputReader(
+	bsccs::make_shared<loggers::CoutLogger>(),
+	bsccs::make_shared<loggers::CerrErrorHandler>()) {
 		imputePolicy = new ImputationPolicy();
 	}
 	virtual ~BBRInputReader() {}

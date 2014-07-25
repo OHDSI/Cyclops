@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <numeric>
 #include <vector>
+#include <stdexcept>
 
 #include "CompressedDataMatrix.h"
 
@@ -33,11 +34,13 @@ CompressedDataMatrix::~CompressedDataMatrix() {
 real CompressedDataMatrix::sumColumn(int column) {
 	real sum = 0.0;
 	if (getFormatType(column) == DENSE) {
-		cerr << "Not yet implemented (DENSE)." << endl;
-		exit(-1);
+	    throw new std::invalid_argument("DENSE");
+// 		cerr << "Not yet implemented (DENSE)." << endl;
+// 		exit(-1);
 	} else if (getFormatType(column) == SPARSE) {
-		cerr << "Not yet implemented (SPARSE)." << endl;
-		exit(-1);
+	    throw new std::invalid_argument("DENSE");
+// 		cerr << "Not yet implemented (SPARSE)." << endl;
+// 		exit(-1);
 	} else { // is indiciator
 		sum = allColumns[column]->getNumberOfEntries();
 	}
@@ -64,31 +67,31 @@ int CompressedDataMatrix::getColumnIndexByName(IdType name) const {
 	}
 }
 
-void CompressedDataMatrix::printColumn(int column) {
-#if 1
-	cerr << "Not yet implemented.\n";
-	exit(-1);
-#else
-	real_vector values;
-	if (getFormatType(column) == DENSE) {
-		values.assign(data[column]->begin(), data[column]->end());
-	} else {
-		bool isSparse = getFormatType(column) == SPARSE;
-		values.assign(nRows, 0.0);
-		int* indicators = getCompressedColumnVector(column);
-		size_t n = getNumberOfEntries(column);
-		for (size_t i = 0; i < n; ++i) {
-			const int k = indicators[i];
-			if (isSparse) {
-				values[k] = data[column]->at(i);
-			} else {
-				values[k] = 1.0;
-			}
-		}
-	}
-	printVector(values.data(), values.size());
-#endif
-}
+// void CompressedDataMatrix::printColumn(int column) {
+// #if 1
+// 	cerr << "Not yet implemented.\n";
+// 	exit(-1);
+// #else
+// 	real_vector values;
+// 	if (getFormatType(column) == DENSE) {
+// 		values.assign(data[column]->begin(), data[column]->end());
+// 	} else {
+// 		bool isSparse = getFormatType(column) == SPARSE;
+// 		values.assign(nRows, 0.0);
+// 		int* indicators = getCompressedColumnVector(column);
+// 		size_t n = getNumberOfEntries(column);
+// 		for (size_t i = 0; i < n; ++i) {
+// 			const int k = indicators[i];
+// 			if (isSparse) {
+// 				values[k] = data[column]->at(i);
+// 			} else {
+// 				values[k] = 1.0;
+// 			}
+// 		}
+// 	}
+// 	printVector(values.data(), values.size());
+// #endif
+// }
 
 void CompressedDataMatrix::convertColumnToSparse(int column) {
 	allColumns[column]->convertColumnToSparse();
@@ -256,8 +259,9 @@ void CompressedDataColumn::convertColumnToSparse(void) {
 		return;
 	}
 	if (formatType == DENSE) {
-		fprintf(stderr, "Format not yet support.\n");
-		exit(-1);
+// 		fprintf(stderr, "Format not yet support.\n");
+// 		exit(-1);
+        throw new std::invalid_argument("DENSE");        
 	}
 
 	if (data == NULL) {
@@ -273,10 +277,6 @@ void CompressedDataColumn::convertColumnToDense(int nRows) {
 	if (formatType == DENSE) {
 		return;
 	}
-//	if (formatType == SPARSE) {
-//		fprintf(stderr, "Format not yet support.\n");
-//		exit(-1);
-//	}
 
 	real_vector* oldData = data;	
 	data = new real_vector();
@@ -295,9 +295,6 @@ void CompressedDataColumn::convertColumnToDense(int nRows) {
 
 		data->at(k) = value;
 	}
-//	cerr << endl;
-//	cerr << "Non-zero count: " << nonzero << endl;
-//	exit(0);
 	formatType = DENSE;
 	delete columns; columns = NULL;
 	if (oldData) {

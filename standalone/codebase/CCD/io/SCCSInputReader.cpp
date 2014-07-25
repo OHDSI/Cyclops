@@ -18,6 +18,8 @@
 #include "SCCSInputReader.h"
 #include "io/SparseIndexer.h"
 
+#include "io/CmdLineProgressLogger.h"
+
 namespace bsccs {
 
 #ifdef MY_RCPP_FLAG
@@ -47,7 +49,9 @@ stringstream& operator>> (stringstream &in, int &out) {
 
 using namespace std;
 
-SCCSInputReader::SCCSInputReader() : InputReader() {
+SCCSInputReader::SCCSInputReader() : InputReader(
+	bsccs::make_shared<loggers::CoutLogger>(),
+	bsccs::make_shared<loggers::CerrErrorHandler>()) {
 	// Do nothing
 }
 

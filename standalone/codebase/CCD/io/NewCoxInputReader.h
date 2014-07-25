@@ -16,6 +16,13 @@ namespace bsccs {
 
 class NewCoxInputReader : public BaseInputReader<NewCoxInputReader> {
 public:
+
+	NewCoxInputReader(
+		loggers::ProgressLoggerPtr _logger,
+		loggers::ErrorHandlerPtr _error) : BaseInputReader<NewCoxInputReader>(_logger, _error) {
+		// Do nothing	
+	}
+	
 	inline void parseRow(stringstream& ss, RowInformation& rowInfo) {		
 		parseNoStratumEntry(ss, rowInfo);
 		parseSingleTimeEntry<float>(ss, rowInfo);

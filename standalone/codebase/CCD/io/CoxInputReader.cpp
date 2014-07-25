@@ -16,6 +16,7 @@
 #include <numeric>
 
 #include "CoxInputReader.h"
+#include "io/CmdLineProgressLogger.h"
 
 #define MAX_ENTRIES		1000000000
 
@@ -31,7 +32,11 @@ namespace bsccs {
 
 using namespace std;
 
-CoxInputReader::CoxInputReader() : InputReader() { }
+CoxInputReader::CoxInputReader() : InputReader(
+	bsccs::make_shared<loggers::CoutLogger>(),
+	bsccs::make_shared<loggers::CerrErrorHandler>()) {
+	// Do nothing
+}
 
 CoxInputReader::~CoxInputReader() { }
 

@@ -36,23 +36,23 @@ public:
 		// Do nothing
 	}
 	
-	NewGenericInputReader(const bsccs::ModelType model) : BaseInputReader<NewGenericInputReader>()
-		, upcastToDense(false)
-		, upcastToSparse(false)
-		, useBBROutcome(false)
-		, includeIntercept(false)
-		, includeOffset(false)
-		, includeRowLabel(false)
-		, includeStratumLabel(false)
-		, includeCensoredData(false)
-	//	, includeCensoredData2(false)
-		, includeWeights(false)
-		, includeSCCSOffset(false)
-		, indicatorOnly(false)
-	//	, modelType(model)
-	{
-		setRequiredFlags(model);
-	}	
+// 	NewGenericInputReader(const bsccs::ModelType model) : BaseInputReader<NewGenericInputReader>()
+// 		, upcastToDense(false)
+// 		, upcastToSparse(false)
+// 		, useBBROutcome(false)
+// 		, includeIntercept(false)
+// 		, includeOffset(false)
+// 		, includeRowLabel(false)
+// 		, includeStratumLabel(false)
+// 		, includeCensoredData(false)
+// 	//	, includeCensoredData2(false)
+// 		, includeWeights(false)
+// 		, includeSCCSOffset(false)
+// 		, indicatorOnly(false)
+// 	//	, modelType(model)
+// 	{
+// 		setRequiredFlags(model);
+// 	}	
 
 	NewGenericInputReader(const bsccs::ModelType model, 
 			loggers::ProgressLoggerPtr logger, loggers::ErrorHandlerPtr error) : BaseInputReader<NewGenericInputReader>(logger, error)
@@ -71,8 +71,6 @@ public:
 	//	, modelType(model)
 	{
 		setRequiredFlags(model);
-		
-		//Rcpp::stop("here");
 	}
 
 	void setRequiredFlags(const bsccs::ModelType model) {

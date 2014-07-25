@@ -16,6 +16,7 @@
 #include <numeric>
 
 #include "CCTestInputReader.h"
+#include "io/CmdLineProgressLogger.h"
 
 #define MAX_ENTRIES		1000000000
 
@@ -31,7 +32,11 @@ namespace bsccs {
 
 using namespace std;
 
-CCTestInputReader::CCTestInputReader() : InputReader() { }
+CCTestInputReader::CCTestInputReader() : InputReader(
+	bsccs::make_shared<loggers::CoutLogger>(),
+	bsccs::make_shared<loggers::CerrErrorHandler>()) {
+	// Do nothing
+}
 
 CCTestInputReader::~CCTestInputReader() { }
 

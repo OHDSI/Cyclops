@@ -38,7 +38,7 @@ namespace bsccs {
 
 class InputReader {
 public:
-    InputReader();
+//     InputReader();
 
 	InputReader(
 		loggers::ProgressLoggerPtr _logger,
