@@ -39,4 +39,17 @@ coef(ccdFit)
 confint(ccdFit, c("outcome2","treatment3"))
 predict(ccdFit)
 }
+\references{
+Suchard MA, Simpson SE, Zorych I, Ryan P, Madigan D.
+Massive parallelization of serial inference algorithms for complex generalized linear models.
+ACM Transactions on Modeling and Computer Simulation, 23, 10, 2013.
+
+Simpson SE, Madigan D, Zorych I, Schuemie M, Ryan PB, Suchard MA.
+Multiple self-controlled case series for large-scale longitudinal observational databases.
+Biometrics, 69, 893-902, 2013.
+
+Mittal S, Madigan D, Burd RS, Suchard MA.
+High-dimensional, massive sample-size Cox proportional hazards regression for survival analysis.
+Biostatistics, 15, 207-221, 2014.
+}
 

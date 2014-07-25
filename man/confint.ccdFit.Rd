@@ -15,6 +15,6 @@
 A \code{data.frame} containing profile 95% confidence intervals
 }
 \description{
-\code{confinit.ccdFit} profiles the data likelihood to construct 95% confidence intervals
+\code{confinit.ccdFit} profiles the data likelihood to construct 95\% confidence intervals
 }
 

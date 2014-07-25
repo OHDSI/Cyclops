@@ -12,6 +12,19 @@
 #' @return
 #' A list that contains a CCD model fit object pointer and an operation duration
 #' 
+#' @references
+#' Suchard MA, Simpson SE, Zorych I, Ryan P, Madigan D. 
+#' Massive parallelization of serial inference algorithms for complex generalized linear models. 
+#' ACM Transactions on Modeling and Computer Simulation, 23, 10, 2013.
+#' 
+#' Simpson SE, Madigan D, Zorych I, Schuemie M, Ryan PB, Suchard MA. 
+#' Multiple self-controlled case series for large-scale longitudinal observational databases. 
+#' Biometrics, 69, 893-902, 2013.
+#' 
+#' Mittal S, Madigan D, Burd RS, Suchard MA. 
+#' High-dimensional, massive sample-size Cox proportional hazards regression for survival analysis. 
+#' Biostatistics, 15, 207-221, 2014.
+#' 
 #' @examples
 #' ## Dobson (1990) Page 93: Randomized Controlled Trial :
 #' counts <- c(18,17,15,20,10,20,25,13,12)
@@ -305,8 +318,8 @@ getSEs <- function(object, covariates) {
 #' @title confint.ccdFit
 #'
 #' @description
-#' \code{confinit.ccdFit} profiles the data likelihood to construct 95% confidence intervals
-#'
+#' \code{confinit.ccdFit} profiles the data likelihood to construct 95\% confidence intervals
+#' 
 #' @param fitted
 #' @param covariates
 #' 
@@ -332,10 +345,30 @@ confint.ccdFit <- function(object, parm, level = 0.95, control,
     prof
 }
 
+#' @title Convert to CCD Prior Variance
+#' 
+#' @description
+#' \code{convertToCcdVariance} converts the regularization parameter \code{lambda}
+#' from \code{glmnet} into a prior variance.
+#' 
+#' @param lambda    Regularization parameter from \code{glmnet}
+#' @param nobs      Number of observation rows in dataset
+#' 
+#' @return Prior variance under a Laplace() prior
 convertToCcdVariance <- function(lambda, nobs) {
     2 / (nobs * lambda)^2
 }
 
+#' @title Convert to glmnet regularization parameter
+#' 
+#' @description
+#' \code{convertToGlmnetLambda} converts a prior variance
+#' from \code{CCD} into the regularization parameter \code{lambda}.
+#' 
+#' @param variance  Prior variance
+#' @param nobs      Number of observation rows in dataset
+#' 
+#' @return \code{lambda}
 convertToGlmnetLambda <- function(variance, nobs) {
     sqrt(2 / variance) / nobs
 }
