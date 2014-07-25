@@ -616,8 +616,10 @@ void CyclicCoordinateDescent::update(
 			}
 			if (noiseLevel > QUIET) {
                 logger->writeLine(stream);
-			}			
-		}				
+			}
+			
+			logger->yield();			
+		}						
 	}
 	lastIterationCount = iteration;
 	updateCount += 1;

@@ -28,7 +28,7 @@ public:
     }    
     
     void yield() { 
-        // TODO 
+        R_CheckUserInterrupt();
     }
     
 private:
@@ -38,8 +38,7 @@ private:
 class RcppErrorHandler : public ErrorHandler {
 public:
     void throwError(const std::ostringstream& stream) {
-//        Rcpp::stop(stream.str());  // TODO Want this to work.
-		::Rf_error(stream.str().c_str());
+       Rcpp::stop(stream.str());
     }
 };
 
