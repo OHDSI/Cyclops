@@ -387,6 +387,11 @@ appendSqlCcdData <- function(object,
     if (!isInitialized(object)) {
 		stop("Object is no longer or improperly initialized.")		
 	} 
+    
+    if (is.unsorted(oStratumId) || is.unsorted(oRowId) || is.unsorted(cRowId)) {
+        stop("All columns must be sorted first by stratumId (if supplied) and then by rowId")
+    }
+    
     .appendSqlCcdData(object, 
                       oStratumId, 
                       oRowId, 
