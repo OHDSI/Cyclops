@@ -226,9 +226,9 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
     result$modelType <- modelType
     result$timeLoad <- md$timeLoad	
     result$call <- cl
-    if (exists("mf") && model == TRUE) {
-        result$mf <- mf
-    }
+#     if (exists("mf") && model == TRUE) {
+#         result$mf <- mf
+#     }
     result$ccdInterfacePtr <- NULL
     result$call <- cl
     result$coefficientNames <- colnames
@@ -494,18 +494,15 @@ isInitialized <- function(object) {
     }
 }
 
-summary.ccdData <- function(x,
-                            digits = max(3, getOptions("digiits") - 3),
-                            show.call = TRUE,
-                            ...) {
-    if (!isInitialized(x)) {
+summary.ccdData <- function(object, ...) {
+    if (!isInitialized(object)) {
         stop("OHDSI data object is no longer or improperly initialized")
     }
-    covariates <- getCovariateIds(x)
-    counts <- reduce(x, covariates, power = 0)
-    sums <- reduce(x, covariates, power = 1)
-    sumsSquared <- reduce(x, covariates, power = 2)
-    types <- getCovariateTypes(x, covariates)    
+    covariates <- getCovariateIds(object)
+    counts <- reduce(object, covariates, power = 0)
+    sums <- reduce(object, covariates, power = 1)
+    sumsSquared <- reduce(object, covariates, power = 2)
+    types <- getCovariateTypes(object, covariates)    
     
     tmean <- sums / counts;
     
@@ -515,11 +512,11 @@ summary.ccdData <- function(x,
                      nzVar = (sumsSquared -  counts * tmean * tmean) / counts,
                      type = types)
 
-    if (!is.null(x$coefficientNames)) {
+    if (!is.null(object$coefficientNames)) {
 #         if(.ccdGetHasIntercept(x)) {
 #             row.names(tdf) <- x$coefficientNames[-1]            
 #         } else {
-            row.names(tdf) <- x$coefficientNames
+            row.names(tdf) <- object$coefficientNames
 #         }
     }
     tdf

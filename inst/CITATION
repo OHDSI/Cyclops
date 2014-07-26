@@ -1,0 +1,13 @@
+bibentry(bibtype = "Article",
+        author = personList(as.person("M. A. Suchard"),
+                            as.person("S. E. Simpson"),
+                            as.person("I. Zorych"),
+                            as.person("P. Ryan"),
+                            as.person("D. Madigan")),
+        title = "Massive parallelization of serial inference algorithms for complex generalized linear models",
+        journal = "ACM Transactions on Modeling and Computer Simulation",
+        volume = "23",
+        pages = "10",
+        year = "2013",
+        url = "TO FILL IN"
+)
