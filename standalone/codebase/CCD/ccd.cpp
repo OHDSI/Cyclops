@@ -20,6 +20,7 @@
 #include "CmdLineCcdInterface.h"
 #include "CyclicCoordinateDescent.h"
 #include "drivers/ProportionSelector.h"
+#include "io/CmdLineProgressLogger.h"
 
 using std::cout;
 
@@ -47,7 +48,9 @@ int main(int argc, char* argv[]) {
 		if (arguments.doPartial) {
 		    // TODO Delegate to CcdInterface
 			ProportionSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
-					SUBJECT, arguments.seed);
+					SUBJECT, arguments.seed,
+					bsccs::make_shared<loggers::CoutLogger>(),
+					bsccs::make_shared<loggers::CerrErrorHandler>());
 			std::vector<bsccs::real> weights;
 			selector.getWeights(0, weights);
 			ccd->setWeights(&weights[0]);

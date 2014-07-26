@@ -7,6 +7,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 
 #include "ProportionSelector.h"
 
@@ -16,10 +17,14 @@ ProportionSelector::ProportionSelector(
 		int inTotal,
 		std::vector<int>* inIds,
 		SelectorType inType,
-		long inSeed) : AbstractSelector(inIds, inType, inSeed), total(inTotal) {
+		long inSeed,
+	    loggers::ProgressLoggerPtr _logger,
+		loggers::ErrorHandlerPtr _error) : AbstractSelector(inIds, inType, inSeed, _logger, _error), total(inTotal) {
 
-	std::cout << "Performing partial estimation with " << total
-		<< " data lines." << std::endl;
+    std::ostringstream stream;
+	stream << "Performing partial estimation with " << total
+		<< " data lines.";
+	logger->writeLine(stream);
 
 //	permute();
 }
@@ -36,8 +41,9 @@ void ProportionSelector::permute() {
 //			selectedSet.insert(i);
 //		}
 //	} else {
-		std::cerr << "ProportionSelector::permute is not yet implemented." << std::endl;
-		exit(-1);
+        std::ostringstream stream;
+        stream <<  "ProportionSelector::permute is not yet implemented.";
+        error->throwError(stream);	        
 //	}
 }
 
@@ -75,8 +81,9 @@ void ProportionSelector::getWeights(int batch, std::vector<real>& weights) {
 }
 
 void ProportionSelector::getComplement(std::vector<real>& weights) {
-	std::cerr << "ProportionSelector::getComplement is not yet implemented." << std::endl;
-	exit(-1);
+    std::ostringstream stream;
+    stream <<  "ProportionSelector::getComplement is not yet implemented.";
+    error->throwError(stream);	        
 }
 
 } // namespace

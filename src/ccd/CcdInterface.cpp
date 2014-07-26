@@ -408,7 +408,7 @@ double CcdInterface::runBoostrap(
 	gettimeofday(&time1, NULL);
 	
 	BootstrapSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
-			SUBJECT, arguments.seed);
+			SUBJECT, arguments.seed, logger, error);
 	BootstrapDriver driver(arguments.replicates, modelData, logger, error);
 
 	driver.drive(*ccd, selector, arguments);
@@ -420,7 +420,9 @@ double CcdInterface::runBoostrap(
 
 
 double CcdInterface::runFitMLEAtMode(CyclicCoordinateDescent* ccd) {
-	std::cout << std::endl << "Estimating MLE at posterior mode" << std::endl;
+    std::ostringstream stream;
+	stream << std::endl << "Estimating MLE at posterior mode";
+	logger->writeLine(stream);
 
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
@@ -438,7 +440,7 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData 
 	gettimeofday(&time1, NULL);
 
 	CrossValidationSelector selector(arguments.fold, modelData->getPidVectorSTL(),
-			SUBJECT, arguments.seed);
+			SUBJECT, arguments.seed, logger, error);
 			
 	AbstractCrossValidationDriver* driver;
 	if (arguments.useAutoSearchCV) {

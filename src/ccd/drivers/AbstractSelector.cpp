@@ -15,7 +15,10 @@ namespace bsccs {
 AbstractSelector::AbstractSelector(
 		std::vector<int>* inIds,
 		SelectorType inType,
-		long inSeed) : ids(inIds), type(inType), seed(inSeed), K(inIds->size()) {
+		long inSeed,
+	    loggers::ProgressLoggerPtr _logger,
+		loggers::ErrorHandlerPtr _error		
+		) : ids(inIds), type(inType), seed(inSeed), K(inIds->size()), logger(_logger), error(_error) {
 
 	// Set up number of exchangeable objects
 	if (type == SUBJECT) {
@@ -31,9 +34,13 @@ AbstractSelector::AbstractSelector(
 		deterministic = false;
 		if (seed == 0) {
 #ifdef _WIN32
+
 			seed = time_t(NULL);
+
 #else
+
 			seed = time(NULL);
+
 #endif
 		}
 		srand(seed);

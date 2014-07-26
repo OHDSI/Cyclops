@@ -57,10 +57,6 @@ printCcdRowIds <- function(x) {
     invisible(.Call('CCD_ccdPrintRowIds', PACKAGE = 'CCD', x))
 }
 
-testCcdCode <- function(position) {
-    invisible(.Call('CCD_testCcdCode', PACKAGE = 'CCD', position))
-}
-
 .isRcppPtrNull <- function(x) {
     .Call('CCD_isRcppPtrNull', PACKAGE = 'CCD', x)
 }

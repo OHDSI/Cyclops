@@ -16,9 +16,9 @@
 
 namespace bsccs {
 
-using std::cout;
-using std::cerr;
-using std::endl;
+//using std::cout;
+//using std::cerr;
+//using std::endl;
 
 CompressedDataMatrix::CompressedDataMatrix() : nRows(0), nCols(0), nEntries(0) {
 	// Do nothing
@@ -234,11 +234,11 @@ void CompressedDataMatrix::setNumberOfColumns(int nColumns) {
 }
 // End TODO
 
-void CompressedDataColumn::printColumn(int nRows) {
-	real_vector values;
-	fill(values, nRows);
-	printVector(values.data(), values.size());
-}
+//void CompressedDataColumn::printColumn(int nRows) {
+//	real_vector values;
+//	fill(values, nRows);
+//	printVector(values.data(), values.size());
+//}
 
 real CompressedDataColumn::sumColumn(int nRows) {
 	real_vector values;

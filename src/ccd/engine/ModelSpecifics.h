@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cmath>
 #include <iostream>
+#include <stdexcept>
 
 #include "AbstractModelSpecifics.h"
 
@@ -173,8 +174,9 @@ struct NoFixedLikelihoodTerms {
 	const static bool likelihoodHasFixedTerms = false;
 
 	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
-		std::cerr << "Error!" << std::endl;
-		exit(-1);
+// 		std::cerr << "Error!" << std::endl;
+// 		exit(-1);
+        throw new std::logic_error("Not model-specific");
 		return static_cast<real>(0);
 	}
 };
@@ -284,8 +286,9 @@ public:
 	const static bool likelihoodHasFixedTerms = false;
 
 	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
-		std::cerr << "Error!" << std::endl;
-		exit(-1);
+// 		std::cerr << "Error!" << std::endl;
+// 		exit(-1);
+        throw new std::logic_error("Not model-specific");
 		return static_cast<real>(0);
 	}
 #endif
@@ -481,8 +484,9 @@ public:
 	const static bool likelihoodHasFixedTerms = false;
 
 	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
-		std::cerr << "Error!" << std::endl;
-		exit(-1);
+// 		std::cerr << "Error!" << std::endl;
+// 		exit(-1);
+        throw new std::logic_error("Not model-specific");
 		return static_cast<real>(0);
 	}
 
@@ -638,8 +642,9 @@ public:
 	}
 
 	real gradientNumerator2Contrib(real x, real predictor) {
-		std::cerr << "Error!" << std::endl;
-		exit(-1);
+// 		std::cerr << "Error!" << std::endl;
+// 		exit(-1);
+        throw new std::logic_error("Not model-specific");
 		return static_cast<real>(0);
 	}
 
@@ -672,8 +677,9 @@ public:
 	}
 
 	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
-		std::cerr << "Error!" << std::endl;
-		exit(-1);
+// 		std::cerr << "Error!" << std::endl;
+// 		exit(-1);
+        throw new std::logic_error("Not model-specific");
 		return static_cast<real>(0);
 	}
 

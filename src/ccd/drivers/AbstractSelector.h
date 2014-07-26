@@ -10,6 +10,8 @@
 
 #include <vector>
 
+#include "io/ProgressLogger.h"
+
 namespace bsccs {
 
 #ifdef DOUBLE_PRECISION
@@ -28,7 +30,9 @@ public:
 	AbstractSelector(
 			std::vector<int>* inIds,
 			SelectorType inType,
-			long inSeed);
+			long inSeed,
+			loggers::ProgressLoggerPtr _logger,
+		    loggers::ErrorHandlerPtr _error);
 
 	virtual ~AbstractSelector();
 
@@ -45,6 +49,9 @@ protected:
 	size_t K;
 	size_t N;
 	bool deterministic;
+	
+    loggers::ProgressLoggerPtr logger;
+	loggers::ErrorHandlerPtr error;	
 };
 
 } // namespace

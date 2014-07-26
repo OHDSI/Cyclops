@@ -349,9 +349,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformation(int indexOne
 		double *oinfo, bool useWeights) {
 
 	if (useWeights) {
-		std::cerr << "Weights are not yet implemented in Fisher Information calculations" << std::endl;
-		exit(-1);
-
+// 		std::cerr << "Weights are not yet implemented in Fisher Information calculations" << std::endl;
+// 		exit(-1);
+		throw new std::logic_error("Weights are not yet implemented in Fisher Information calculations");
 	} else { // no weights
 		switch (hXI->getFormatType(indexOne)) {
 			case INDICATOR :
@@ -538,9 +538,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 			}
 			incrementNumeratorForGradientImpl<InterceptIterator>(index);
 			break;
-		default :
+		default : break;
 			// throw error
-			exit(-1);
+			//exit(-1);
 	}
 }
 
@@ -587,9 +587,9 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index
 		case INTERCEPT :
 			updateXBetaImpl<InterceptIterator>(realDelta, index, useWeights);
 			break;
-		default :
+		default : break;
 			// throw error
-			exit(-1);
+			//exit(-1);
 	}
 }
 

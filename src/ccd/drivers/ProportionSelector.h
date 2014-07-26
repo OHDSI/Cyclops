@@ -20,7 +20,10 @@ public:
 			int inReplicates,
 			std::vector<int>* inIds,
 			SelectorType inType,
-			long inSeed);
+			long inSeed,
+    	    loggers::ProgressLoggerPtr _logger,
+	    	loggers::ErrorHandlerPtr _error			
+			);
 
 	virtual ~ProportionSelector();
 

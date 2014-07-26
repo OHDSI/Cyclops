@@ -23,7 +23,9 @@ CrossValidationSelector::CrossValidationSelector(
 		std::vector<int>* inIds,
 		SelectorType inType,
 		long inSeed,
-		std::vector<real>* wtsExclude) : AbstractSelector(inIds, inType, inSeed), fold(inFold) {
+	    loggers::ProgressLoggerPtr _logger,
+		loggers::ErrorHandlerPtr _error,		
+		std::vector<real>* wtsExclude) : AbstractSelector(inIds, inType, inSeed, _logger, _error), fold(inFold) {
 
 	// Calculate interval starts
 	intervalStart.reserve(fold + 1);
@@ -39,13 +41,15 @@ CrossValidationSelector::CrossValidationSelector(
 	}
 	intervalStart.push_back(N);
 
-	for (int i = 0; i < fold; i++) {
-		std::cout << (intervalStart[i+1] - intervalStart[i]) << " ";
-	}
-	std::cout << std::endl;
+// 	for (int i = 0; i < fold; i++) {
+// 		std::cout << (intervalStart[i+1] - intervalStart[i]) << " ";
+// 	}
+// 	std::cout << std::endl;
 
-	std::cout << "Performing " << fold << "-fold cross-validation [seed = "
-		      << seed << "]" << std::endl;
+    std::ostringstream stream;
+	stream << "Performing " << fold << "-fold cross-validation [seed = "
+		      << seed << "]";
+	logger->writeLine(stream);
 
 	// Generate random permutation
 	permutation.reserve(N);

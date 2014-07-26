@@ -56,21 +56,20 @@ void ccdPrintRowIds(Environment x) {
 // 	std::vector<IdType>& rowsIds = data->get
 }
 
-// [[Rcpp::export("testCcdCode")]]
-void testCcdCode(int position) {
-    std::vector<int> v{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}; 
-    
-    if (position > 0 && position < static_cast<int>(v.size()))  {
-        auto reversePosition = v.size() - position - 1;
-        std::rotate(
-            v.rbegin() + reversePosition, 
-            v.rbegin() + reversePosition + 1, // rotate one element
-            v.rend());  
-        std::cout << "simple rotate right : ";
-        for (int n: v) std::cout << n << ' ';
-        std::cout << '\n';    
-    }
-}
+// void testCcdCode(int position) {
+//     std::vector<int> v{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}; 
+//     
+//     if (position > 0 && position < static_cast<int>(v.size()))  {
+//         auto reversePosition = v.size() - position - 1;
+//         std::rotate(
+//             v.rbegin() + reversePosition, 
+//             v.rbegin() + reversePosition + 1, // rotate one element
+//             v.rend());  
+//         std::cout << "simple rotate right : ";
+//         for (int n: v) std::cout << n << ' ';
+//         std::cout << '\n';    
+//     }
+// }
 
 // [[Rcpp::export(".isRcppPtrNull")]]
 bool isRcppPtrNull(SEXP x) {

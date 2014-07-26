@@ -99,10 +99,10 @@ pair<bool,double> UniModalSearch::step() //recommend: do/not next step, and the 
             ret.second = exp( log_argmax );
             //map<double,double>::const_iterator left = best; left--;
             //map<double,double>::const_iterator right = best; right++;
-            std::cout
-            //Log(6)
-            <<"\nSearch step "<<ret.second<<" stop_by_y "<<((expected_max-maxval)/fabs(maxval))
-                <<" stop_by_x "<<(fabs(log_argmax-log(best->first))) << endl;
+//            std::cout
+//            //Log(6)
+//            <<"\nSearch step "<<ret.second<<" stop_by_y "<<((expected_max-maxval)/fabs(maxval))
+//                <<" stop_by_x "<<(fabs(log_argmax-log(best->first))) << endl;
         }
     }
     return ret;

@@ -21,7 +21,9 @@ public:
 			int inFold,
 			std::vector<int>* inIds,
 			SelectorType inType,
-			long inSeed = 0,
+			long inSeed,
+    	    loggers::ProgressLoggerPtr _logger,
+	    	loggers::ErrorHandlerPtr _error,
 			std::vector<real>* wtsExclude = NULL);
 
 	virtual ~CrossValidationSelector();

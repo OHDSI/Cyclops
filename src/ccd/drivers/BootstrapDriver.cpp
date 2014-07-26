@@ -57,15 +57,16 @@ void BootstrapDriver::drive(
 		selector.getWeights(0, weights);
 		ccd.setWeights(&weights[0]);
 
-		std::cout << std::endl << "Running replicate #" << (step + 1) << std::endl;
+        std::ostringstream stream;
+		stream << std::endl << "Running replicate #" << (step + 1);
+		logger->writeLine(stream);
 		// Run CCD using a warm start
 		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 
 		// Store point estimates
 		for (int j = 0; j < J; ++j) {
 			estimates[j]->push_back(ccd.getBeta(j));
-		}
-		exit(-1); // ***
+		}		
 	}
 }
 
@@ -79,8 +80,9 @@ void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<doub
 
 	ofstream outLog(arguments.outFileName.c_str());
 	if (!outLog) {
-		cerr << "Unable to open log file: " << arguments.bsFileName << endl;
-		exit(-1);
+        std::ostringstream stream;        
+		stream << "Unable to open log file: " << arguments.bsFileName;
+		error->throwError(stream);
 	}
 
 	string sep(","); // TODO Make option

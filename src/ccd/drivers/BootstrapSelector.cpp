@@ -7,6 +7,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 
 #include "BootstrapSelector.h"
 
@@ -17,10 +18,14 @@ BootstrapSelector::BootstrapSelector(
 		std::vector<int>* inIds,
 		SelectorType inType,
 		long inSeed,
-		std::vector<real>* wtsExclude) : AbstractSelector(inIds, inType, inSeed) {
+	    loggers::ProgressLoggerPtr _logger,
+		loggers::ErrorHandlerPtr _error,		
+		std::vector<real>* wtsExclude) : AbstractSelector(inIds, inType, inSeed, _logger, _error) {
 
-	std::cout << "Performing bootstrap estimation with " << replicates
-		<< " replicates [seed = " << seed << "]" << std::endl;
+    std::ostringstream stream;
+	stream << "Performing bootstrap estimation with " << replicates
+		<< " replicates [seed = " << seed << "]";
+	logger->writeLine(stream);
 
 	if(wtsExclude){
 		for(size_t i = 0; i < wtsExclude->size(); i++){
@@ -36,8 +41,6 @@ BootstrapSelector::BootstrapSelector(
 	}
 
 	permute();
-
-//	exit(0);
 }
 
 BootstrapSelector::~BootstrapSelector() {
@@ -56,8 +59,9 @@ void BootstrapSelector::permute() {
 			selectedSet.insert(draw);
 		}
 	} else {
-		std::cerr << "BootstrapSelector::permute is not yet implemented." << std::endl;
-		exit(-1);
+        std::ostringstream stream;
+        stream << "BootstrapSelector::permute is not yet implemented.";
+        error->throwError(stream);	
 	}
 
 //	int total = 0;
@@ -86,14 +90,16 @@ void BootstrapSelector::getWeights(int batch, std::vector<real>& weights) {
 			weights[k] = static_cast<real>(count);
 		}
 	} else {
-		std::cerr << "BootstrapSelector::getWeights is not yet implemented." << std::endl;
-		exit(-1);
+        std::ostringstream stream;
+        stream << "BootstrapSelector::getWeights is not yet implemented.";
+        error->throwError(stream);     
 	}
 }
 
 void BootstrapSelector::getComplement(std::vector<real>& weights) {
-	std::cerr << "BootstrapSelector::getComplement is not yet implemented." << std::endl;
-	exit(-1);
+    std::ostringstream stream;
+    stream << "BootstrapSelector::getComplement is not yet implemented.";
+    error->throwError(stream);
 }
 
 } // namespace

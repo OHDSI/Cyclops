@@ -226,18 +226,6 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
-// testCcdCode
-void testCcdCode(int position);
-RcppExport SEXP CCD_testCcdCode(SEXP positionSEXP) {
-BEGIN_RCPP
-    {
-        Rcpp::RNGScope __rngScope;
-        Rcpp::traits::input_parameter< int >::type position(positionSEXP );
-        testCcdCode(position);
-    }
-    return R_NilValue;
-END_RCPP
-}
 // isRcppPtrNull
 bool isRcppPtrNull(SEXP x);
 RcppExport SEXP CCD_isRcppPtrNull(SEXP xSEXP) {

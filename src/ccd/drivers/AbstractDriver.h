@@ -33,7 +33,7 @@ public:
 	
 protected:
     loggers::ProgressLoggerPtr logger;
-		loggers::ErrorHandlerPtr error;
+	loggers::ErrorHandlerPtr error;
 };
 
 } // namespace

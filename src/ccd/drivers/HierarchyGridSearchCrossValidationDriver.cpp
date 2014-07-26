@@ -104,10 +104,12 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 				selector.getComplement(weights);
 				double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
 
-				std::cout << "Grid-point #" << (step + 1) << " at " << point;
-				std::cout << "\tFold #" << (fold + 1)
+                std::ostringstream stream;
+				stream << "Grid-point #" << (step + 1) << " at " << point;
+				stream << "\tFold #" << (fold + 1)
 				          << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
-				          << logLikelihood << std::endl;
+				          << logLikelihood;
+				logger->writeLine(stream);
 
 				// Store value
 				predLogLikelihood.push_back(logLikelihood);
@@ -132,7 +134,9 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 
 		if (!arguments.useNormalPrior) {
 			double lambda = convertVarianceToHyperparameter(maxPoint);
-			std::cout << "\t" << lambda << " (lambda)" << std::endl;
+			std::ostringstream stream;
+			stream << "\t" << lambda << " (lambda)";
+			logger->writeLine(stream);
 		}
 
 	}
@@ -146,9 +150,12 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 			maxPoint = innerPoints[i];
 		}
 	}
-	std::cout << std::endl;
-	std::cout << "Maximum predicted log likelihood (" << outerMaxValue << ") found at:" << std::endl;
-	std::cout << "\t" << maxPoint << " (drug variance) and at " << maxPointClass << " (class variance)" << std::endl;
+	
+	std::ostringstream stream;
+	stream << std::endl;
+	stream << "Maximum predicted log likelihood (" << outerMaxValue << ") found at:" << std::endl;
+	stream << "\t" << maxPoint << " (drug variance) and at " << maxPointClass << " (class variance)";
+	logger->writeLine(stream);
 
 }
 

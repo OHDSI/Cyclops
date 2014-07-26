@@ -17,6 +17,7 @@
 #include <sstream>
 #include <iostream>
 #include <algorithm>
+#include <stdexcept>
 
 //#define DATA_AOS
 
@@ -135,8 +136,9 @@ public:
 		} else if (formatType == INTERCEPT) {
 			// Do nothing
 		} else {
-			std::cerr << "Error" << std::endl;
-			exit(-1);
+            throw new std::invalid_argument("Unknown type");		
+// 			std::cerr << "Error" << std::endl;
+// 			exit(-1);
 		}
 		return true;
 	}
@@ -153,16 +155,16 @@ public:
 
 	real squaredSumColumn() const;
 
-	template <class T>
-	void printVector(T values, const int size) {
-	    using std::cout;
-	    using std::endl;
-		cout << "[" << values[0];
-		for (int i = 1; i < size; ++i) {
-			cout << " " << values[i];
-		}
-		cout << "]" << endl;
-	}
+// 	template <class T>
+// 	void printVector(T values, const int size) {
+// 	    using std::cout;
+// 	    using std::endl;
+// 		cout << "[" << values[0];
+// 		for (int i = 1; i < size; ++i) {
+// 			cout << " " << values[i];
+// 		}
+// 		cout << "]" << endl;
+// 	}
 
 	static bool sortNumerically(const CompressedDataColumn* i, const CompressedDataColumn* j) {
 		return i->getNumericalLabel() < j->getNumericalLabel();
@@ -264,8 +266,9 @@ public:
 		} else if (colFormat == INTERCEPT) {
 			push_back(NULL, NULL, INTERCEPT);
 		} else {
-			std::cerr << "Error" << std::endl;
-			exit(-1);
+// 			std::cerr << "Error" << std::endl;
+// 			exit(-1);
+            throw new std::invalid_argument("Unknown type");
  		}
 	}
 
@@ -283,8 +286,9 @@ public:
 		} else if (colFormat == INTERCEPT) {
 			push_back(NULL, NULL, INTERCEPT);
 		} else {
-			std::cerr << "Error" << std::endl;
-			exit(-1);
+// 			std::cerr << "Error" << std::endl;
+// 			exit(-1);
+            throw new std::invalid_argument("Unknown type");			
  		}
 	}
 	
@@ -293,8 +297,9 @@ public:
 	        real_vector* r = new real_vector();
 	        insert(allColumns.begin() + position, NULL, r, DENSE);	    
 	    } else {
-	        std::cerr << "Error" << std::endl;
-	        exit(-1); // TODO Use error handler
+            throw new std::invalid_argument("Unknown type");	    
+// 	        std::cerr << "Error" << std::endl;
+// 	        exit(-1); // TODO Use error handler
 	    }
 	}	
 	
