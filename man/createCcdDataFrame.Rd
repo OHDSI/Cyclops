@@ -11,9 +11,39 @@ createCcdDataFrame(formula, sparseFormula, indicatorFormula, modelType, data,
 \arguments{
 \item{modelType}{character string: Valid types are listed below.}
 
-\item{formula}{An R formula}
+\item{formula}{An object of class \code{"\link{formula}"} that provides a symbolic description of the numerically dense model response and terms.}
 
-\item{data}{}
+\item{sparseFormula}{An object of class \code{"\link{formula}"} that provides a symbolic description of numerically sparse model terms.}
+
+\item{indicatorFormula}{An object of class \code{"\link{formula}"} that provides a symbolic description of \{0,1\} model terms.}
+
+\item{modelType}{Character: specifies model type.  See below for available options.}
+
+\item{data}{An optional data frame, list or environment containing the variables in the model.}
+
+\item{subset}{Currently unused}
+
+\item{weights}{Currently unused}
+
+\item{offset}{Currently unused}
+
+\item{pid}{Optional vector of integer stratum identifiers. If supplied, all rows must be sorted by increasing identifiers}
+
+\item{y}{Currently undocumented}
+
+\item{time}{Currently undocumented}
+
+\item{z}{Currently unused}
+
+\item{dx}{Optional dense \code{"\link{Matrix}"} of covariates}
+
+\item{sx}{Optional sparse \code{"\link{Matrix}"} of covariates}
+
+\item{ix}{Optional \{0,1\} \code{"\link{Matrix}"} of covariates}
+
+\item{model}{Currently undocumented}
+
+\item{method}{Currently undocumented}
 }
 \value{
 A list that contains a CCD model data object pointer and an operation duration
@@ -22,7 +52,19 @@ A list that contains a CCD model data object pointer and an operation duration
 \code{createCcdDataFrame} creates a CCD model data object from an R formula
 }
 \details{
-This function creates a CCD model data object from an R formula and data.frame.
+This function creates a CCD model data object from R \code{"\link{formula}"} or directly from
+numeric vectors and matrices to define the model response and covariates.
+If specifying a model using a \code{"\link{formula}"}, then the left-hand side define the model response and the
+right-hand side defines dense covariate terms.
+Objects provided with \code{"sparseFormula"} and \code{"indicatorFormula"} must be include left-hand side responses and terms are
+coersed into sparse and indicator representations for computational efficiency.
+
+Items to discuss:
+* Only use formula or (y,dx,...)
+* stratum() in formula
+* offset() in formula
+* when \code{"stratum"} (renamed from pid) are necessary
+* when \code{"time"} are necessary
 }
 \section{Models}{
 

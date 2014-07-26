@@ -7,13 +7,15 @@ prior(priorType, variance = 1, exclude = c(), useCrossValidation = FALSE,
   forceIntercept = FALSE)
 }
 \arguments{
-\item{priorType}{}
+\item{priorType}{Character: specifies prior distribution.  See below for options}
 
-\item{variance}{}
+\item{variance}{Numeric: prior distribution variance}
 
-\item{exclude}{}
+\item{exclude}{A vector of numbers or covariateId names to exclude from prior}
 
-\item{useCrossValidation}{}
+\item{useCrossValidation}{Logical: Perform cross-validation to determine prior \code{variance}.}
+
+\item{forceIntercept}{Logical: Force intercept coefficient into prior}
 }
 \value{
 A CCD prior object of class inheriting from \code{"ccdPrior"} for use with \code{fitCcdModel}.

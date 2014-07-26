@@ -7,14 +7,24 @@
   overrideNoRegularization = FALSE, ...)
 }
 \arguments{
-\item{fitted}{}
+\item{object}{A fitted CCD model object}
 
-\item{covariates}{}
+\item{parm}{A specification of which parameters require confidence intervals,
+either a vector of numbers of covariateId names}
+
+\item{level}{Numeric: confidence level required}
+
+\item{control}{A CCD \code{\link{control}} object}
+
+\item{overrideNoRegulariation}{Logical: Enables confidence interval estimation for regularized parameters}
 }
 \value{
-A \code{data.frame} containing profile 95% confidence intervals
+A matrix with columns reporting lower and upper confidence limits for each parameter.
+These columns are labelled as (1-level) / 2 and 1 - (1 - level) / 2 in %
+(by default 2.5% and 97.5%)
 }
 \description{
-\code{confinit.ccdFit} profiles the data likelihood to construct 95\% confidence intervals
+\code{confinit.ccdFit} profiles the data likelihood to construct confidence intervals of
+arbitrary level.   TODO: Profile data likelihood or joint distribution of remaining parameters.
 }
 

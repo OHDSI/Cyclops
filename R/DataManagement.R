@@ -4,12 +4,56 @@
 #' \code{createCcdDataFrame} creates a CCD model data object from an R formula
 #'
 #' @details
-#' This function creates a CCD model data object from an R formula and data.frame.
+#' This function creates a CCD model data object from R \code{"\link{formula}"} or directly from
+#' numeric vectors and matrices to define the model response and covariates.
+#' If specifying a model using a \code{"\link{formula}"}, then the left-hand side define the model response and the
+#' right-hand side defines dense covariate terms.  
+#' Objects provided with \code{"sparseFormula"} and \code{"indicatorFormula"} must be include left-hand side responses and terms are 
+#' coersed into sparse and indicator representations for computational efficiency.
+#' 
+#' Items to discuss: 
+#' * Only use formula or (y,dx,...)
+#' * stratum() in formula
+#' * offset() in formula
+#' * when \code{"stratum"} (renamed from pid) are necessary
+#' * when \code{"time"} are necessary
 #'
 #' @template types
 #'
-#' @param formula			An R formula
+#' @param formula
+#' An object of class \code{"\link{formula}"} that provides a symbolic description of the numerically dense model response and terms. 
+#' @param sparseFormula
+#' An object of class \code{"\link{formula}"} that provides a symbolic description of numerically sparse model terms.
+#' @param indicatorFormula
+#' An object of class \code{"\link{formula}"} that provides a symbolic description of \{0,1\} model terms.
+#' @param modelType
+#' Character: specifies model type.  See below for available options.
 #' @param data
+#' An optional data frame, list or environment containing the variables in the model.
+#' @param subset
+#' Currently unused
+#' @param weights
+#' Currently unused
+#' @param offset
+#' Currently unused
+#' @param pid
+#' Optional vector of integer stratum identifiers. If supplied, all rows must be sorted by increasing identifiers
+#' @param y
+#' Currently undocumented
+#' @param time
+#' Currently undocumented
+#' @param z
+#' Currently unused
+#' @param dx
+#' Optional dense \code{"\link{Matrix}"} of covariates
+#' @param sx
+#' Optional sparse \code{"\link{Matrix}"} of covariates
+#' @param ix
+#' Optional \{0,1\} \code{"\link{Matrix}"} of covariates
+#' @param model
+#' Currently undocumented
+#' @param method 
+#' Currently undocumented
 #' 
 #' @return
 #' A list that contains a CCD model data object pointer and an operation duration

@@ -239,10 +239,11 @@ control <- function(
 #' @description
 #' \code{prior} builds a CCD prior object
 #'
-#' @param priorType
-#' @param variance
-#' @param exclude
-#' @param useCrossValidation
+#' @param priorType     Character: specifies prior distribution.  See below for options
+#' @param variance      Numeric: prior distribution variance
+#' @param exclude       A vector of numbers or covariateId names to exclude from prior
+#' @param useCrossValidation    Logical: Perform cross-validation to determine prior \code{variance}.
+#' @param forceIntercept  Logical: Force intercept coefficient into prior
 #' 
 #' @section Prior types:
 #' 
@@ -279,9 +280,9 @@ prior <- function(priorType,
               class = "ccdPrior")
 }
 
-clear <- function() {
-    cat("\014")  
-}
+# clear <- function() {
+#     cat("\014")  
+# }
 
 predict.ccdFit <- function(object, ...) {
 	.checkInterface(object, testOnly = TRUE)
@@ -319,13 +320,20 @@ getSEs <- function(object, covariates) {
 #' @title confint.ccdFit
 #'
 #' @description
-#' \code{confinit.ccdFit} profiles the data likelihood to construct 95\% confidence intervals
+#' \code{confinit.ccdFit} profiles the data likelihood to construct confidence intervals of
+#' arbitrary level.   TODO: Profile data likelihood or joint distribution of remaining parameters.
 #' 
-#' @param fitted
-#' @param covariates
+#' @param object    A fitted CCD model object
+#' @param parm      A specification of which parameters require confidence intervals,
+#'                  either a vector of numbers of covariateId names
+#' @param level     Numeric: confidence level required
+#' @param control   A CCD \code{\link{control}} object
+#' @param overrideNoRegulariation   Logical: Enables confidence interval estimation for regularized parameters
 #' 
 #' @return
-#' A \code{data.frame} containing profile 95% confidence intervals
+#' A matrix with columns reporting lower and upper confidence limits for each parameter.
+#' These columns are labelled as (1-level) / 2 and 1 - (1 - level) / 2 in % 
+#' (by default 2.5% and 97.5%)
 #' 
 confint.ccdFit <- function(object, parm, level = 0.95, control, 
                            overrideNoRegularization = FALSE, ...) {

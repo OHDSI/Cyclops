@@ -33,7 +33,7 @@ Option \code{"grid"} selects a grid-search cross validation}
 
 \item{noiseLevel}{String: level of CCD screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})}
 
-\item{seed}{Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time()}}.}
+\item{seed}{Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.}
 }
 \value{
 A CCD convergence criteria object of class inheriting from \code{"ccdConvergence"} for use with \code{fitCcdModel}.
@@ -43,6 +43,7 @@ A CCD convergence criteria object of class inheriting from \code{"ccdConvergence
 }
 \section{Criteria}{
 
+TODO
 }
 \examples{
 \dontrun{
