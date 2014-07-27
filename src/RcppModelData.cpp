@@ -169,11 +169,6 @@ std::vector<double> ccdSum(Environment x, const std::vector<long>& covariateLabe
 	return result;
 }
 
-// [[Rcpp::export("ccdTestRcppStop")]]
-void ccdTestRcppStop() {
-    stop("Stop is now working");
-}
-
 // [[Rcpp::export(".ccdNewSqlData")]]
 List ccdNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel) {
 	using namespace bsccs;

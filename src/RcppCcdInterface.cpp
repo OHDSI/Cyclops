@@ -29,7 +29,7 @@ using namespace Rcpp;
 // 	return strings.size();
 // }
 
-// [[Rcpp::export(ccdSetBeta)]]
+// [[Rcpp::export(.ccdSetBeta)]]
 void ccdSetBeta(SEXP inRcppCcdInterface, int beta, double value) {
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);    
@@ -37,7 +37,7 @@ void ccdSetBeta(SEXP inRcppCcdInterface, int beta, double value) {
     interface->getCcd().setBeta(beta - 1, value);
 }
 
-// [[Rcpp::export(ccdSetFixedBeta)]]
+// [[Rcpp::export(.ccdSetFixedBeta)]]
 void ccdSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed) {
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);    
