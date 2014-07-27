@@ -369,17 +369,6 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
-// ccdTestRcppStop
-void ccdTestRcppStop();
-RcppExport SEXP CCD_ccdTestRcppStop() {
-BEGIN_RCPP
-    {
-        Rcpp::RNGScope __rngScope;
-        ccdTestRcppStop();
-    }
-    return R_NilValue;
-END_RCPP
-}
 // ccdNewSqlData
 List ccdNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel);
 RcppExport SEXP CCD_ccdNewSqlData(SEXP modelTypeNameSEXP, SEXP noiseLevelSEXP) {
