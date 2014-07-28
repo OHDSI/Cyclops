@@ -31,7 +31,7 @@
 
 namespace bsccs {
 
-//blah
+
 MCMCDriver::MCMCDriver(std::string MCMCFileName) {
 	MCMCFileNameRoot = MCMCFileName;
 	thinningValueForWritingToFile = 1;

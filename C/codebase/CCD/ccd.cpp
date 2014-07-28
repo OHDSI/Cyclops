@@ -788,9 +788,9 @@ double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
 
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
-	cout << "here fitmodel" << endl;
+
 	ccd->update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
-	cout << "here fitmodel2" << endl;
+
 	gettimeofday(&time2, NULL);
 
 	return calculateSeconds(time1, time2);
@@ -804,6 +804,7 @@ double runBoostrap(
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
+	cout << "arguments.replicates = " << arguments.replicates << endl;
 	BootstrapSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
 			SUBJECT, arguments.seed);
 	BootstrapDriver driver(arguments.replicates, modelData);
