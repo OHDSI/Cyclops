@@ -23,6 +23,8 @@
 #include "SparseRowVector.h"
 #include "IndependenceSampler.h"
 
+#include <omp.h>
+
 
 //#ifdef MY_RCPP_FLAG
 //	#include <R.h>
@@ -924,7 +926,8 @@ void CyclicCoordinateDescent::update_MM(
 		) {
 
 
-	cout << "/t starting UPDATE_MM in CCD " << endl;
+	cout << "\t starting UPDATE_MM in CCD " << endl;
+
 
 	// TEMP FOR MM
 		//Set up k values
@@ -942,6 +945,7 @@ void CyclicCoordinateDescent::update_MM(
 	computeXBeta();
 	computeRemainingStatistics(true, 0); // TODO Check index?
 	resetBounds();
+	computeXBeta_GPU_TRS_initialize();
 
 
 	bool done = false;
@@ -952,28 +956,57 @@ void CyclicCoordinateDescent::update_MM(
 
 	vector<double> deltas(J);
 
-
+	struct timeval time1, time2;
 
 	while (!done) {
 		//done = true;
-		struct timeval time1, time2;
+
+		double delta;
 		gettimeofday(&time1, NULL);
-
-
 		// Do a complete cycle
+#define OPENMP
+#ifdef OPENMP
+		int th_id, nthreads;
+		#pragma omp parallel private(th_id) shared(nthreads)
+			{
+				th_id = omp_get_thread_num();
+				#pragma omp for
+#endif
+				for(int index = 0; index < J; index++) {
+
+							double delta = ccdUpdateBeta_MM(index);
+							//cout << "in update_MM delta for drug " << index << " = " << delta << endl;
+							delta = applyBounds(delta, index);
+							deltas[index] = delta;
+							//gettimeofday(&time2, NULL);
+							if (deltas[index] != 0.0) {
+								sufficientStatisticsKnown = false;
+								updateSufficientStatistics(deltas[index], index);
+							}
+
+						}
+#ifdef OPENMP
+			}
+#endif
+
+/*
+
 		for(int index = 0; index < J; index++) {
-			struct timeval time1, time2;
-			gettimeofday(&time1, NULL);
-			double delta = ccdUpdateBeta_MM(index);
+
+			delta = ccdUpdateBeta_MM(index);
 			//cout << "in update_MM delta for drug " << index << " = " << delta << endl;
-			//delta = applyBounds(delta, index);
+			delta = applyBounds(delta, index);
 			deltas[index] = delta;
-			gettimeofday(&time2, NULL);
-			//double timeToLoop = calculateSeconds(time1, time2);
-			//cout << "time = " << timeToLoop << endl;
+			//gettimeofday(&time2, NULL);
+
+
 		}
 
+
+		 //exit(-1);
+
 		// do the updates to Beta separately.
+		//computeXBeta_GPU_TRS();
 
 		for(int index2 = 0; index2 < J; index2 ++) {
 			if (deltas[index2] != 0.0) {
@@ -981,6 +1014,10 @@ void CyclicCoordinateDescent::update_MM(
 				updateSufficientStatistics(deltas[index2], index2);
 			}
 		}
+*/
+		gettimeofday(&time2, NULL);
+				double timeToLoop = calculateSeconds(time1, time2);
+				cout << "time = " << timeToLoop << endl;
 
 		iteration++;
 		//bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
@@ -1008,7 +1045,7 @@ void CyclicCoordinateDescent::update_MM(
 			if (epsilon > 0 && conv < epsilon) {
 				cout << "Reached convergence criterion" << endl;
 				done = true;
-			} else if (iteration == 300) {
+			} else if (iteration == 4) {
 				cout << "Reached maximum iterations" << endl;
 				done = true;
 			} else {
@@ -1423,7 +1460,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta_MM(int index) {
 
 	double delta;
 
-	std::cerr << "Die fool!" << std::endl;
+	//std::cerr << "Die fool!" << std::endl;
 	//exit(-1);
 
 	// Should be the same
