@@ -53,32 +53,75 @@
     .Call('CCD_ccdInitializeModel', PACKAGE = 'CCD', inModelData, modelType, computeMLE)
 }
 
-printCcdRowIds <- function(x) {
-    invisible(.Call('CCD_ccdPrintRowIds', PACKAGE = 'CCD', x))
+#' @title Print row identifiers
+#' 
+#' @description
+#' \code{printCcdRowIds} return the row identifiers in an OHDSI CCD data object
+#' 
+#' @param object    An OHDSI CCD data object
+#'
+printCcdRowIds <- function(object) {
+    invisible(.Call('CCD_ccdPrintRowIds', PACKAGE = 'CCD', object))
 }
 
 .isRcppPtrNull <- function(x) {
     .Call('CCD_isRcppPtrNull', PACKAGE = 'CCD', x)
 }
 
-getNumberOfStrata <- function(x) {
-    .Call('CCD_ccdGetNumberOfStrata', PACKAGE = 'CCD', x)
+#' @title Get number of strata
+#' 
+#' @description
+#' \code{getNumberOfStrata} return the number of unique strata in an OHDSI CCD data object
+#' 
+#' @param object    An OHDSI CCD data object
+#' 
+getNumberOfStrata <- function(object) {
+    .Call('CCD_ccdGetNumberOfStrata', PACKAGE = 'CCD', object)
 }
 
-getCovariateIds <- function(x) {
-    .Call('CCD_ccdGetCovariateIds', PACKAGE = 'CCD', x)
+#' @title Get covariate identifiers
+#' 
+#' @description
+#' \code{getCovariateIds} returns a vector of integer covariate identifiers in an OHDSI CCD data object
+#' 
+#' @param object    An OHDSI CCD data object
+#' 
+getCovariateIds <- function(object) {
+    .Call('CCD_ccdGetCovariateIds', PACKAGE = 'CCD', object)
 }
 
-getCovariateTypes <- function(x, covariateLabel) {
-    .Call('CCD_ccdGetCovariateType', PACKAGE = 'CCD', x, covariateLabel)
+#' @title Get covariate types
+#' 
+#' @description
+#' \code{getCovariateTypes} returns a vector covariate types in an OHDSI CCD data object
+#' 
+#' @param object    An OHDSI CCD data object
+#' @param covariateLabel Integer vector: covariate identifiers to return
+#' 
+getCovariateTypes <- function(object, covariateLabel) {
+    .Call('CCD_ccdGetCovariateType', PACKAGE = 'CCD', object, covariateLabel)
 }
 
-getNumberOfCovariates <- function(x) {
-    .Call('CCD_ccdGetNumberOfColumns', PACKAGE = 'CCD', x)
+#' @title Get total number of covariates
+#' 
+#' @description
+#' \code{getNumberOfCovariates} returns the total number of covariates in an OHDSI CCD data object
+#' 
+#' @param object    An OHDSI CCD data object
+#'
+getNumberOfCovariates <- function(object) {
+    .Call('CCD_ccdGetNumberOfColumns', PACKAGE = 'CCD', object)
 }
 
-getNumberOfRows <- function(x) {
-    .Call('CCD_ccdGetNumberOfRows', PACKAGE = 'CCD', x)
+#' @title Get total number of rows
+#' 
+#' @description
+#' \code{getNumberOfRows} returns the total number of outcome rows in an OHDSI CCD data object
+#' 
+#' @param object    An OHDSI CCD data object
+#'
+getNumberOfRows <- function(object) {
+    .Call('CCD_ccdGetNumberOfRows', PACKAGE = 'CCD', object)
 }
 
 .ccdSumByGroup <- function(x, covariateLabel, groupByLabel, power) {

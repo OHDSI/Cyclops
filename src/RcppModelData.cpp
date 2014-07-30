@@ -49,9 +49,16 @@ XPtr<bsccs::RcppModelData> parseEnvironmentForRcppPtr(const Environment& x) {
 	return ptr;	
 }
 
+//' @title Print row identifiers
+//' 
+//' @description
+//' \code{printCcdRowIds} return the row identifiers in an OHDSI CCD data object
+//' 
+//' @param object    An OHDSI CCD data object
+//'
 // [[Rcpp::export("printCcdRowIds")]]
-void ccdPrintRowIds(Environment x) {
-	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
+void ccdPrintRowIds(Environment object) {
+	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(object);
 //	std::ostreamstring stream;
 // 	std::vector<IdType>& rowsIds = data->get
 }
@@ -80,16 +87,30 @@ bool isRcppPtrNull(SEXP x) {
 	return !ptr;
 }
 
+//' @title Get number of strata
+//' 
+//' @description
+//' \code{getNumberOfStrata} return the number of unique strata in an OHDSI CCD data object
+//' 
+//' @param object    An OHDSI CCD data object
+//' 
 // [[Rcpp::export("getNumberOfStrata")]]
-int ccdGetNumberOfStrata(Environment x) {			
-	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(x);	
+int ccdGetNumberOfStrata(Environment object) {			
+	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	
 	return static_cast<int>(data->getNumberOfPatients());
 }
 
+//' @title Get covariate identifiers
+//' 
+//' @description
+//' \code{getCovariateIds} returns a vector of integer covariate identifiers in an OHDSI CCD data object
+//' 
+//' @param object    An OHDSI CCD data object
+//' 
 // [[Rcpp::export("getCovariateIds")]]
-std::vector<int64_t> ccdGetCovariateIds(Environment x) {
+std::vector<int64_t> ccdGetCovariateIds(Environment object) {
     using namespace bsccs;
-	XPtr<ModelData> data = parseEnvironmentForPtr(x);
+	XPtr<ModelData> data = parseEnvironmentForPtr(object);
 	ProfileVector covariates;
 	size_t i = 0;
 	if (data->getHasOffsetCovariate()) i++;
@@ -100,10 +121,18 @@ std::vector<int64_t> ccdGetCovariateIds(Environment x) {
 	return covariates;
 }
 
+//' @title Get covariate types
+//' 
+//' @description
+//' \code{getCovariateTypes} returns a vector covariate types in an OHDSI CCD data object
+//' 
+//' @param object    An OHDSI CCD data object
+//' @param covariateLabel Integer vector: covariate identifiers to return
+//' 
 // [[Rcpp::export("getCovariateTypes")]]
-CharacterVector ccdGetCovariateType(Environment x, const std::vector<int64_t>& covariateLabel) {
+CharacterVector ccdGetCovariateType(Environment object, const std::vector<int64_t>& covariateLabel) {
     using namespace bsccs;
-	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
+	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(object);
 	CharacterVector types(covariateLabel.size());	
 	
 	for (size_t i = 0; i < covariateLabel.size(); ++i) {
@@ -113,15 +142,29 @@ CharacterVector ccdGetCovariateType(Environment x, const std::vector<int64_t>& c
 	return types;
 }
 
+//' @title Get total number of covariates
+//' 
+//' @description
+//' \code{getNumberOfCovariates} returns the total number of covariates in an OHDSI CCD data object
+//' 
+//' @param object    An OHDSI CCD data object
+//'
 // [[Rcpp::export("getNumberOfCovariates")]]
-int ccdGetNumberOfColumns(Environment x) {	
-	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(x);	
+int ccdGetNumberOfColumns(Environment object) {	
+	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	
 	return static_cast<int>(data->getNumberOfColumns());
 }
 
+//' @title Get total number of rows
+//' 
+//' @description
+//' \code{getNumberOfRows} returns the total number of outcome rows in an OHDSI CCD data object
+//' 
+//' @param object    An OHDSI CCD data object
+//'
 // [[Rcpp::export("getNumberOfRows")]]
-int ccdGetNumberOfRows(Environment x) {	
-	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(x);	
+int ccdGetNumberOfRows(Environment object) {	
+	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	
 	return static_cast<int>(data->getNumberOfRows());
 }
 

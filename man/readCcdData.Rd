@@ -9,10 +9,7 @@ readCcdData(fileName, modelType)
 \item{modelType}{character string: Valid types are listed below.}
 
 \item{fileName}{Name of text file to be read. If fileName does not contain an absolute path,
-the name is relative to the current working directory, \code{\link{getwd}}.}
-
-\item{modelTypeName}{character string: if non-empty, declares the specific model formatting to
-                                                 read.  Valid types are listed below.}
+                                                 the name is relative to the current working directory, \code{\link{getwd}}.}
 }
 \value{
 Returns an \code{\link{environment}} of class inheriting from \code{"ccdData"} that

@@ -16,7 +16,7 @@ finalizeSqlCcdData(object, addIntercept = FALSE, useOffsetCovariate = NULL,
 Set option to \code{"useTime"} to specify the time-to-event column,
 otherwise include a single numeric or character covariate name.}
 
-\item{logOffset}{Set to \code{TRUE} to indicate that offsets were log-transformed before importing into CCD data object.}
+\item{offsetAlreadyOnLogScale}{Set to \code{TRUE} to indicate that offsets were log-transformed before importing into CCD data object.}
 
 \item{sortCovariates}{Sort covariates in numeric-order with intercept first if it exists.}
 

@@ -10,6 +10,12 @@ fitCcdModel(ccdData, prior, control, forceColdStart = FALSE,
 \item{ccdData}{An OHDSI data object}
 
 \item{prior}{A prior object. More details are given below.}
+
+\item{control}{OHDSI control object, see \code{"\link{control}"}}
+
+\item{forceColdStart}{Logical, forces fitting algorithm to restart at regression coefficients = 0}
+
+\item{returnEstimates}{Logical, return regression coefficient estimates in CCD model fit object}
 }
 \value{
 A list that contains a CCD model fit object pointer and an operation duration

@@ -215,13 +215,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdPrintRowIds
-void ccdPrintRowIds(Environment x);
-RcppExport SEXP CCD_ccdPrintRowIds(SEXP xSEXP) {
+void ccdPrintRowIds(Environment object);
+RcppExport SEXP CCD_ccdPrintRowIds(SEXP objectSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
-        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
-        ccdPrintRowIds(x);
+        Rcpp::traits::input_parameter< Environment >::type object(objectSEXP );
+        ccdPrintRowIds(object);
     }
     return R_NilValue;
 END_RCPP
@@ -242,14 +242,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdGetNumberOfStrata
-int ccdGetNumberOfStrata(Environment x);
-RcppExport SEXP CCD_ccdGetNumberOfStrata(SEXP xSEXP) {
+int ccdGetNumberOfStrata(Environment object);
+RcppExport SEXP CCD_ccdGetNumberOfStrata(SEXP objectSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
-        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
-        int __result = ccdGetNumberOfStrata(x);
+        Rcpp::traits::input_parameter< Environment >::type object(objectSEXP );
+        int __result = ccdGetNumberOfStrata(object);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
@@ -257,14 +257,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdGetCovariateIds
-std::vector<int64_t> ccdGetCovariateIds(Environment x);
-RcppExport SEXP CCD_ccdGetCovariateIds(SEXP xSEXP) {
+std::vector<int64_t> ccdGetCovariateIds(Environment object);
+RcppExport SEXP CCD_ccdGetCovariateIds(SEXP objectSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
-        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
-        std::vector<int64_t> __result = ccdGetCovariateIds(x);
+        Rcpp::traits::input_parameter< Environment >::type object(objectSEXP );
+        std::vector<int64_t> __result = ccdGetCovariateIds(object);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
@@ -272,15 +272,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdGetCovariateType
-CharacterVector ccdGetCovariateType(Environment x, const std::vector<int64_t>& covariateLabel);
-RcppExport SEXP CCD_ccdGetCovariateType(SEXP xSEXP, SEXP covariateLabelSEXP) {
+CharacterVector ccdGetCovariateType(Environment object, const std::vector<int64_t>& covariateLabel);
+RcppExport SEXP CCD_ccdGetCovariateType(SEXP objectSEXP, SEXP covariateLabelSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
-        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
+        Rcpp::traits::input_parameter< Environment >::type object(objectSEXP );
         Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type covariateLabel(covariateLabelSEXP );
-        CharacterVector __result = ccdGetCovariateType(x, covariateLabel);
+        CharacterVector __result = ccdGetCovariateType(object, covariateLabel);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
@@ -288,14 +288,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdGetNumberOfColumns
-int ccdGetNumberOfColumns(Environment x);
-RcppExport SEXP CCD_ccdGetNumberOfColumns(SEXP xSEXP) {
+int ccdGetNumberOfColumns(Environment object);
+RcppExport SEXP CCD_ccdGetNumberOfColumns(SEXP objectSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
-        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
-        int __result = ccdGetNumberOfColumns(x);
+        Rcpp::traits::input_parameter< Environment >::type object(objectSEXP );
+        int __result = ccdGetNumberOfColumns(object);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
@@ -303,14 +303,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // ccdGetNumberOfRows
-int ccdGetNumberOfRows(Environment x);
-RcppExport SEXP CCD_ccdGetNumberOfRows(SEXP xSEXP) {
+int ccdGetNumberOfRows(Environment object);
+RcppExport SEXP CCD_ccdGetNumberOfRows(SEXP objectSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
-        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
-        int __result = ccdGetNumberOfRows(x);
+        Rcpp::traits::input_parameter< Environment >::type object(objectSEXP );
+        int __result = ccdGetNumberOfRows(object);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);

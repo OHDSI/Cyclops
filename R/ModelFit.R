@@ -8,6 +8,9 @@
 #'
 #' @param ccdData			An OHDSI data object
 #' @template prior
+#' @param control OHDSI control object, see \code{"\link{control}"}                        
+#' @param forceColdStart Logical, forces fitting algorithm to restart at regression coefficients = 0
+#' @param returnEstimates Logical, return regression coefficient estimates in CCD model fit object 
 #' 
 #' @return
 #' A list that contains a CCD model fit object pointer and an operation duration
@@ -146,6 +149,17 @@ fitCcdModel <- function(ccdData,
 	}
 }
 
+
+
+#' @title Extract model coefficients
+#' 
+#' @description
+#' \code{coef.ccdFit} extracts model coefficients from an OHDSI CCD model fit object
+#' 
+#' @param object    OHDSI CCD model fit object
+#' @param ...       Other arguments
+#' 
+#' @return Named numeric vector of model coefficients.
 coef.ccdFit <- function(object, ...) {
 	result <- object$estimation$estimate
 	if (is.null(object$coefficientNames)) {
@@ -159,15 +173,45 @@ coef.ccdFit <- function(object, ...) {
 	result
 }
 
-getHyperParameter <- function(x) {
-	x$variance
+#' @title Get hyperparameter
+#' 
+#' @description
+#' \code{getHyperParameter} returns the current hyper parameter in an OHDSI CCD model fit object
+#' 
+#' @param object    An OHDSI CCD model fit object
+#'
+getHyperParameter <- function(object) {
+    if (class(object) == "ccdFit") {
+        object$variance
+    } else {
+        NULL
+    }
 }
 
+#' @title Extract log-likelihood
+#' 
+#' @description
+#' \code{logLik} returns the current log-likelihood of the fit in an OHDSI CCD model fit object
+#' 
+#' @param object    An OHDSI CCD model fit object
+#' @param ...       Additional arguments
+#'
 logLik.ccdFit <- function(object, ...) {
     object$log_likelihood
 }
 
-print.ccdFit <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,...) {
+
+#' @method print ccdFit
+#' @title Print an OHDSI CCD model fit object
+#' 
+#' @description
+#' \code{print.ccdFit} displays information about an OHDSI CCD model fit object
+#' 
+#' @param x    An OHDSI CCD model fit object
+#' @param show.call Logical: display last call to update the OHDSI CCD model fit object
+#' @param ...   Additional arguments
+#' 
+print.ccdFit <- function(x, show.call=TRUE ,...) {
   cat("OHDSI CCD model fit object\n\n")
   
   if (show.call && !is.null(x$call)) {
@@ -328,7 +372,8 @@ getSEs <- function(object, covariates) {
 #'                  either a vector of numbers of covariateId names
 #' @param level     Numeric: confidence level required
 #' @param control   A CCD \code{\link{control}} object
-#' @param overrideNoRegulariation   Logical: Enables confidence interval estimation for regularized parameters
+#' @param overrideNoRegularization   Logical: Enables confidence interval estimation for regularized parameters
+#' @param ... Additional argument(s) for methods
 #' 
 #' @return
 #' A matrix with columns reporting lower and upper confidence limits for each parameter.

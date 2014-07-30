@@ -5,8 +5,7 @@
 \usage{
 createCcdDataFrame(formula, sparseFormula, indicatorFormula, modelType, data,
   subset, weights, offset, time = NULL, pid = NULL, y = NULL, z = NULL,
-  dx = NULL, sx = NULL, ix = NULL, model = FALSE, method = "ccd.fit",
-  ...)
+  dx = NULL, sx = NULL, ix = NULL, model = FALSE, method = "ccd.fit")
 }
 \arguments{
 \item{modelType}{character string: Valid types are listed below.}
@@ -16,8 +15,6 @@ createCcdDataFrame(formula, sparseFormula, indicatorFormula, modelType, data,
 \item{sparseFormula}{An object of class \code{"\link{formula}"} that provides a symbolic description of numerically sparse model terms.}
 
 \item{indicatorFormula}{An object of class \code{"\link{formula}"} that provides a symbolic description of \{0,1\} model terms.}
-
-\item{modelType}{Character: specifies model type.  See below for available options.}
 
 \item{data}{An optional data frame, list or environment containing the variables in the model.}
 

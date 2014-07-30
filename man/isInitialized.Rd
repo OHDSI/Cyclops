@@ -5,6 +5,9 @@
 \usage{
 isInitialized(object)
 }
+\arguments{
+\item{object}{OHDSI data object to test}
+}
 \description{
 \code{isInitialized} determines if an OHDSI data object is properly
 initialized and remains in memory.  OHSDI data objects do not

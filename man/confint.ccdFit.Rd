@@ -16,7 +16,9 @@ either a vector of numbers of covariateId names}
 
 \item{control}{A CCD \code{\link{control}} object}
 
-\item{overrideNoRegulariation}{Logical: Enables confidence interval estimation for regularized parameters}
+\item{overrideNoRegularization}{Logical: Enables confidence interval estimation for regularized parameters}
+
+\item{...}{Additional argument(s) for methods}
 }
 \value{
 A matrix with columns reporting lower and upper confidence limits for each parameter.

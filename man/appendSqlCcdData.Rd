@@ -6,7 +6,29 @@
 appendSqlCcdData(object, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId,
   cCovariateValue)
 }
+\arguments{
+\item{object}{OHDSI CCD data object to append entries}
+
+\item{oStratumId}{Integer vector (optional): non-unique stratum identifier for each row in outcomes table}
+
+\item{oRowId}{Integer vector: unique row identifier for each row in outcomes table}
+
+\item{oY}{Numeric vector: model outcome variable for each row in outcomes table}
+
+\item{oTime}{Numeric vector (optional): exposure interval or censoring time for each row in outcomes table}
+
+\item{cRowId}{Integer vector: non-unique row identifier for each row in covariates table that matches a single outcomes table entry}
+
+\item{cCovariateId}{Integer vector: covariate identifier}
+
+\item{cCovariateValue}{Numeric vector: covariate value}
+}
 \description{
 \code{appendSqlCcdData} appends data to an OHDSI data object.
+}
+\details{
+Append data using two tables.  The outcomes table is dense and contains ...  The covariates table is sparse and contains ...
+All entries in the outcome table must be sorted in increasing order by {oStratumId, oRowId}.  All entries in the covariate table
+must be sorted in increasing order by {cRowId}. Each cRowId value must match exactly one oRowId value.
 }
 

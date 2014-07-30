@@ -26,8 +26,6 @@
 #' An object of class \code{"\link{formula}"} that provides a symbolic description of numerically sparse model terms.
 #' @param indicatorFormula
 #' An object of class \code{"\link{formula}"} that provides a symbolic description of \{0,1\} model terms.
-#' @param modelType
-#' Character: specifies model type.  See below for available options.
 #' @param data
 #' An optional data frame, list or environment containing the variables in the model.
 #' @param subset
@@ -73,7 +71,7 @@
 #' @export
 createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelType,
                                data, subset, weights, offset, time = NULL, pid = NULL, y = NULL, z = NULL, dx = NULL, 
-                               sx = NULL, ix = NULL, model = FALSE, method = "ccd.fit", ...) {	
+                               sx = NULL, ix = NULL, model = FALSE, method = "ccd.fit") {	
     cl <- match.call() # save to return
     mf.all <- match.call(expand.dots = FALSE)
     
@@ -360,10 +358,8 @@ isValidModelType <- function(modelType) {
 #' @template types
 #'   	
 #' @param fileName          Name of text file to be read. If fileName does not contain an absolute path, 
-#' 												 the name is relative to the current working directory, \code{\link{getwd}}.
-#' @param modelTypeName		 character string: if non-empty, declares the specific model formatting to
-#' 												 read.  Valid types are listed below.
-#' 
+#' 												 the name is relative to the current working directory, \code{\link{getwd}}. 
+#'
 #' @template ccdData
 #' 
 #' @examples
@@ -386,6 +382,18 @@ readCcdData <- function(fileName, modelType) {
     result
 }
 
+
+#' @title Apply simple data reductions
+#' 
+#' @description \code{reduce} reports the count of non-zero elements, sum and sum-of-squares for specified covariates in an OHDSI data object.
+#' 
+#' @param object    An OHDSI CCD data object
+#' @param covariates Integer or string vector: list of covariates to report
+#' @param groupBy   Integer or string (optional): generates a segmented reduction stratified by this covariate.  Setting \code{groupBy = "stratum"} segments reduction for strataID
+#' @param power Integer: 0 = non-zero count, 1 = sum, 2 = sum-of-squares
+#' 
+#' @return Specified reduction as number or \code{data.frame} if segmented.
+#'
 reduce <- function(object, covariates, groupBy, power = 1) {
 	if (!isInitialized(object)) {
 		stop("Object is no longer or improperly initialized.")
@@ -419,6 +427,19 @@ reduce <- function(object, covariates, groupBy, power = 1) {
 #'
 #' @description
 #' \code{appendSqlCcdData} appends data to an OHDSI data object.
+#' 
+#' @details Append data using two tables.  The outcomes table is dense and contains ...  The covariates table is sparse and contains ...
+#' All entries in the outcome table must be sorted in increasing order by {oStratumId, oRowId}.  All entries in the covariate table
+#' must be sorted in increasing order by {cRowId}. Each cRowId value must match exactly one oRowId value.
+#' 
+#' @param object    OHDSI CCD data object to append entries
+#' @param oStratumId    Integer vector (optional): non-unique stratum identifier for each row in outcomes table
+#' @param oRowId        Integer vector: unique row identifier for each row in outcomes table
+#' @param oY            Numeric vector: model outcome variable for each row in outcomes table
+#' @param oTime         Numeric vector (optional): exposure interval or censoring time for each row in outcomes table 
+#' @param cRowId        Integer vector: non-unique row identifier for each row in covariates table that matches a single outcomes table entry
+#' @param cCovariateId  Integer vector: covariate identifier
+#' @param cCovariateValue   Numeric vector: covariate value
 #' 
 appendSqlCcdData <- function(object,
                              oStratumId,
@@ -456,7 +477,7 @@ appendSqlCcdData <- function(object,
 #' @param useOffsetCovariate	Specify is a covariate should be used as an offset (fixed coefficient = 1).
 #' 														Set option to \code{"useTime"} to specify the time-to-event column, 
 #' 														otherwise include a single numeric or character covariate name.
-#' @param logOffset						Set to \code{TRUE} to indicate that offsets were log-transformed before importing into CCD data object. 														
+#' @param offsetAlreadyOnLogScale						Set to \code{TRUE} to indicate that offsets were log-transformed before importing into CCD data object. 														
 #' @param sortCovariates			Sort covariates in numeric-order with intercept first if it exists.
 #' @param makeCovariatesDense List of numeric or character covariates names to densely represent in CCD data object.
 #' 														For efficiency, we suggest making atleast the intercept dense.
@@ -525,6 +546,8 @@ createSqlCcdData <- function(modelType, control) {
 #' initialized and remains in memory.  OHSDI data objects do not 
 #' serialized/deserialize their back-end memory across R sessions.
 #' 
+#' @param object    OHDSI data object to test
+#' 
 isInitialized <- function(object) {
 	return(!is.null(object$ccdDataPtr) && !.isRcppPtrNull(object$ccdDataPtr))	
 }
@@ -538,6 +561,19 @@ isInitialized <- function(object) {
     }
 }
 
+
+#' @title OHDSI CCD data object summary
+#' 
+#' @method summary ccdData
+#' 
+#' @description \code{summary.ccdData} summarizes the data held in an OHDSI CCD data object.
+#' 
+#' @param object    An OHDSI CCD data object
+#' @param ...       Additional arguments
+#' 
+#' @return
+#' Returns a \code{data.frame} that reports simply summarize statistics for each covariate in an OHDSI CCD data object.
+#' 
 summary.ccdData <- function(object, ...) {
     if (!isInitialized(object)) {
         stop("OHDSI data object is no longer or improperly initialized")
