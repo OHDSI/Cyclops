@@ -328,6 +328,16 @@ prior <- function(priorType,
 #     cat("\014")  
 # }
 
+
+#' @method predict ccdFit
+#' @title Model predictions
+#' 
+#' @description
+#' \code{predict.ccdFit} computes model response-scale predictive values for all data rows
+#' 
+#' @param object    An OHDSI CCD model fit object
+#' @param ...   Additional arguments
+#' 
 predict.ccdFit <- function(object, ...) {
 	.checkInterface(object, testOnly = TRUE)
 	pred <- .ccdPredictModel(object$ccdInterfacePtr)
@@ -352,6 +362,23 @@ predict.ccdFit <- function(object, ...) {
 	}	
 }
 
+#' @title Extract standard errors
+#' 
+#' @description
+#' \code{getSEs} extracts asymptotic standard errors for specific covariates from an OHDSI CCD model fit object.
+#' 
+#' @details This function first computes the (partial) Fisher information matrix for
+#' just the requested covariates and then returns the square root of the diagonal elements of
+#' the inverse of the Fisher information matrix.  These are the asymptotic standard errors
+#' when all possible covariates are included.
+#' When the requested covariates do not equate to all coefficients in the model,
+#' then interpretation is more challenging.
+#' 
+#' @param object    An OHDSI CCD model fit object
+#' @param covariates    Integer or string vector: list of covariates for which asymptotic standard errors are wanted
+#' 
+#' @return Vector of standard error estimates
+#'
 getSEs <- function(object, covariates) {
     .checkInterface(object, testOnly = TRUE)    
     covariates <- .checkCovariates(object$ccdData, covariates)

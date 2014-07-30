@@ -517,6 +517,14 @@ finalizeSqlCcdData <- function(object,
     }
 }
 
+#' @title Create an OHDSI CCD data object from SQL input
+#' 
+#' @description
+#' \code{createSqlCcdData} creates an empty OHDSI CCD data object into which data can be appended in chunks.
+#' 
+#' @template types
+#' @param control    An OHDSI CCD fit control object (optional)
+#' 
 createSqlCcdData <- function(modelType, control) {
 	cl <- match.call() # save to return
 	
@@ -602,7 +610,18 @@ summary.ccdData <- function(object, ...) {
     tdf
 }
 
-print.ccdData <- function(x,digits=max(3,getOption("digits")-3),show.call=TRUE,...) {
+
+#' @method print ccdData
+#' @title Print an OHDSI CCD data model object
+#' 
+#' @description
+#' \code{print.ccdData} displays information about an OHDSI CCD data model object
+#' 
+#' @param x    An OHDSI CCD data model object
+#' @param show.call Logical: display last call to construct the OHDSI CCD data model object
+#' @param ...   Additional arguments
+#' 
+print.ccdData <- function(x, show.call=TRUE ,...) {
   cat("OHDSI CCD Data Object\n\n")
   
   if (show.call && !is.null(x$call)) {
