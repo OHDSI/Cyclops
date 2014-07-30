@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <algorithm>
 #include <numeric>
+#include <math.h>
 
 #include "ModelSpecifics.h"
 #include "Iterators.h"
@@ -198,10 +199,16 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], accDenomPid[i]);
 			}
 		} else {  // TODO Unnecessary code duplication
+/*
 			for (int i = 0; i < N; i++) {
 				// Weights modified in computeNEvents()
 				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], denomPid[i]);
 			}
+			*/
+			double fakegradient = 0;
+			double fakehessian = 123456;
+			//computeGradientAndHessianImpl<DenseIterator>(0, &fakegradient, &fakehessian, unweighted);
+			logLikelihood -= fakegradient;
 		}
 	}
 
@@ -225,7 +232,6 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], denomPid, hPid, k);
 		}
 	}
-
 	return static_cast<double>(logLikelihood);
 }
 
@@ -295,64 +301,138 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 
 
 template <typename UIteratorType, typename SparseIteratorType>
-std::pair<real,real> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorType itX, int numSubjects, int numCases) {
+std::vector<double> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorType itX, int numSubjects, int numCases, bsccs::real* caseOrNo) {
 	// Recursion by Susanne Howard in Gail, Lubin and Rubinstein (1981)
 	// Rewritten as a loop since very deep recursion can be expensive
+/*
+	double caseSum = 0;
 
-	typedef std::vector<real> ScratchType;
-	struct Indexer {
-		int dim;
-		Indexer(int d) : dim(d) { }
-		int operator()(int m, int n) {
-			return m * dim + n; // row-major
+		std::vector<double> B[2];
+		std::vector<double> dB[2];
+		std::vector<double> ddB[2];
+
+		int currentB = 0;
+
+		B[0].push_back(0);
+		B[1].push_back(0);
+		dB[0].push_back(-100);
+		dB[1].push_back(-100);
+		ddB[0].push_back(-100);
+		ddB[1].push_back(-100);
+
+		for (int i=1; i<=numCases; i++) {
+			B[0].push_back(-100);
+			B[1].push_back(-100);
+			dB[0].push_back(-100);
+			dB[1].push_back(-100);
+			ddB[0].push_back(-100);
+			ddB[1].push_back(-100);
 		}
-	};
+		double maxXi = 0.0;
 
-	// TODO Reuse scratch space
-	ScratchType scratch1((numCases + 1) * (numSubjects + 1));
-	fill(scratch1.begin(), scratch1.end(), 0.0);
-	fill(scratch1.begin(), scratch1.begin() + numSubjects, 1.0); // B(0,n) = 1 for n >= 0
+		for (int n=1; n<= numSubjects; n++) {
+			for (int m=std::max(1,n+numCases-numSubjects); m<=std::min(n,numCases);m++) {
 
-	ScratchType scratch2((numCases + 1) * (numSubjects + 1));
-	fill(scratch2.begin(), scratch2.end(), 0.0); // B'(0.n) = 0 for all n
 
-	// B(m,n)  m = cases, n = subjects
-	// B(x) x = m * numSubjects + n  (row-major)
-	ScratchType& B = scratch1;
-	ScratchType& dB = scratch2;
-	Indexer index(numSubjects);
+				  B[!currentB][m] =   B[currentB][m] + log(1+exp(log(*itExpXBeta) + B[currentB][m-1] - B[currentB][m]));
+				 dB[!currentB][m] =  dB[currentB][m] + log(1+exp(log(*itExpXBeta) + dB[currentB][m-1] - dB[currentB][m])
+													 + exp(log(*itX) + log(*itExpXBeta) + B[currentB][m-1] - dB[currentB][m]));
+				ddB[!currentB][m] = ddB[currentB][m] + log(1+exp(log(*itExpXBeta) + ddB[currentB][m-1] - ddB[currentB][m])
+													 + exp(2*log(*itX) + log(*itExpXBeta) + B[currentB][m-1] - ddB[currentB][m])
+													 + exp(log(2) + log(*itX) + log(*itExpXBeta) + dB[currentB][m-1] - ddB[currentB][m]));
 
-#if 0
-	for (int m = 1; m <= numCases; ++m) {
-		UIteratorType itU = itExpXBeta;
-		SparseIteratorType itV = itX;
-		for (int n = m; n <= numSubjects /* Filling in too much */; ++n) {
-			 B[index(m,n)] =  B[index(m,n-1)] + (*itU) *  B[index(m-1,n-1)]; // Equation (3)
-			dB[index(m,n)] = dB[index(m,n-1)] + (*itU) * dB[index(m-1,n-1)] + (*itV) * (*itU) * B[index(m-1,n-1)]; // Equation (6)
-			++itU; ++itV;
+
+
+			}
+			if (caseOrNo[n-1] == 1) {
+				caseSum += (*itX);
+			}
+			//if (*itX > maxXi) {
+			//	maxXi = *itX;
+			//}
+			currentB = !currentB;
+			++itExpXBeta; ++itX;
 		}
-		++itExpXBeta;
-		++itX;
+		std::vector<double> result;
+		result.push_back(B[currentB][numCases]);
+		result.push_back(dB[currentB][numCases]);
+		result.push_back(ddB[currentB][numCases]);
+		//result.push_back(1);
+		result.push_back(caseSum);
+		result.push_back(maxXi);
+
+
+		return result;
+*/
+
+	double caseSum = 0;
+
+	std::vector<double> B[2];
+	std::vector<double> dB[2];
+	std::vector<double> ddB[2];
+
+	int currentB = 0;
+
+	B[0].push_back(1);
+	B[1].push_back(1);
+	dB[0].push_back(0);
+	dB[1].push_back(0);
+	ddB[0].push_back(0);
+	ddB[1].push_back(0);
+
+	for (int i=1; i<=numCases; i++) {
+		B[0].push_back(0);
+		B[1].push_back(0);
+		dB[0].push_back(0);
+		dB[1].push_back(0);
+		ddB[0].push_back(0);
+		ddB[1].push_back(0);
 	}
-#else
-	for (int n = 1; n <= numSubjects; ++n) {
-		for (int m = 1 /*std::min(1,n-1)*/; m <= numCases; ++m) {
-			 B[index(m,n)] =  B[index(m,n-1)] + (*itExpXBeta) *  B[index(m-1,n-1)]; // Equation (3)
-			dB[index(m,n)] = dB[index(m,n-1)] + (*itExpXBeta) * dB[index(m-1,n-1)] + (*itX) * (*itExpXBeta) * B[index(m-1,n-1)]; // Equation (6)
+	//double maxXi = 0.0;
+	//double maxSorted = 0.0;
+	std::vector<double> sortXi;
+	for (int n=1; n<= numSubjects; n++) {
+		for (int m=std::max(1,n+numCases-numSubjects); m<=std::min(n,numCases);m++) {
+			  B[!currentB][m] =   B[currentB][m] + (*itExpXBeta) *   B[currentB][m-1];
+			 dB[!currentB][m] =  dB[currentB][m] + (*itExpXBeta) *  dB[currentB][m-1] + (*itX)*(*itExpXBeta)*B[currentB][m-1];
+			ddB[!currentB][m] = ddB[currentB][m] + (*itExpXBeta) * ddB[currentB][m-1] + (*itX)*(*itX)*(*itExpXBeta)*B[currentB][m-1] + 2*(*itX)*(*itExpXBeta)*dB[currentB][m-1];
 		}
+		if (caseOrNo[n-1] == 1) {
+			caseSum += (*itX);
+		}
+		/*
+		if (*itX > maxXi) {
+			maxXi = *itX;
+		}
+		sortXi.push_back(*itX);
+		*/
+		currentB = !currentB;
 		++itExpXBeta; ++itX;
+
 	}
-#endif
-	return std::pair<real,real>(
-			dB[index(numCases, numSubjects)], // numerator
-	 		 B[index(numCases, numSubjects)]  // denominator
-		);
+/*
+	std::sort (sortXi.begin(), sortXi.end());
+	for (int i=1; i<=numCases; i++) {
+		maxSorted += sortXi[numSubjects-i];
+	}
+	maxXi = maxXi * numCases;
+	*/
+
+	std::vector<double> result;
+	result.push_back(B[currentB][numCases]);
+	result.push_back(dB[currentB][numCases]);
+	result.push_back(ddB[currentB][numCases]);
+	result.push_back(caseSum);
+	//result.push_back(maxXi);
+	//result.push_back(maxSorted);
+
+	return result;
+
 }
 
 
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
-void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
-		double *ohessian, Weights w) {
+void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient, double *ohessian, Weights w) {
 	real gradient = static_cast<real>(0);
 	real hessian = static_cast<real>(0);
 
@@ -411,9 +491,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			}
 		}
 	} else {
+
 		for (; it; ++it) {
 			const int n = it.index();
-			if (true && hNWeight[n] > 1) {
+
+			if (true && hNWeight[n] > 0) {
 				int numSubjects = hNtoK[n+1] - hNtoK[n];
 				int numCases = hNWeight[n];
 #if 0
@@ -421,15 +503,27 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 #else
 				DenseView<IteratorType> x(IteratorType(*hXI, index), hNtoK[n], hNtoK[n+1]);
 #endif
-				std::pair<real,real> value = computeHowardRecursion(offsExpXBeta + hNtoK[n], x,
-    				numSubjects, numCases);
+				std::vector<double> value = computeHowardRecursion(offsExpXBeta + hNtoK[n], x, numSubjects, numCases, hY + hNtoK[n]);
 
-				gradient += value.first / value.second;
-				//hessian += 0.0;  // linear
+				if (hessian == 123456) {
+					//gradient += log(value[0]);
+					gradient += value[0];
+				}
+				else {
+					//real apple = (real)(value[3] - value[1]/value[0]);
+					//real apple = (real) (value[3] - exp(value[1]-value[0]));
 
+					//real banana = (real)((value[1]*value[1])/(value[0]*value[0]) - value[2]/value[0]);
+					//real banana = (real)((value[1]*value[1])/(value[0]*value[0]) - value[4]*value[4]);
+					//real banana = (real) (exp(2*(value[1]-value[0])) - exp(value[2]-value[0]));
+
+					gradient += (real)(value[3] - value[1]/value[0]);
+					hessian += (real)((value[1]*value[1])/(value[0]*value[0]) - value[2]/value[0]);
+				}
 			} else {
 
 				// Compile-time delegation
+
 				BaseModel::incrementGradientAndHessian(it,
 						w, // Signature-only, for iterator-type specialization
 						&gradient, &hessian, numerPid[n], numerPid2[n],
@@ -437,14 +531,16 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			}
 		}
 	}
-
+/*
 	if (BaseModel::precomputeGradient) { // Compile-time switch
 		gradient -= hXjY[index];
 	}
 
+
 	if (BaseModel::precomputeHessian) { // Compile-time switch
 		hessian += static_cast<real>(2.0) * hXjX[index];
 	}
+	*/
 
 	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
@@ -702,6 +798,7 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index
 template <class BaseModel,typename WeightType> template <class IteratorType>
 inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta, int index, bool useWeights) {
 	IteratorType it(*hXI, index);
+
 	for (; it; ++it) {
 		const int k = it.index();
 		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept

@@ -500,7 +500,9 @@ double CyclicCoordinateDescent::getLogPrior(void) {
 // 	} else {
 // 		value -= -0.5 * log(2.0 * PI * sigma2Beta) - 0.5 * (hBeta[0] * hBeta[0]) / sigma2Beta;
 // 	}
-	return value;
+
+	//return value;
+	return 0;
 }
 
 double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
@@ -798,6 +800,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 #if 1
 		delta = - (g_d1 + (hBeta[index] / sigma2Beta)) /
 				  (g_d2 + (1.0 / sigma2Beta));
+
 #else			  
 		delta = - (g_d1 + 2*hBeta[index]*sigma2Beta) / (g_d2 + 2*sigma2Beta);
 #endif
@@ -805,9 +808,11 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 		
 	} else if (priorType == LAPLACE){
 					
-		double neg_update = - (g_d1 - lambda) / g_d2;
-		double pos_update = - (g_d1 + lambda) / g_d2;
-		
+		double neg_update = - (g_d1 - 0.0) / g_d2;
+		double pos_update = - (g_d1 + 0.0) / g_d2;
+
+		//cout << "step = " << g_d1/g_d2 << endl;
+
 		int signBetaIndex = sign(hBeta[index]);
 		
 		if (signBetaIndex == 0) {
@@ -884,6 +889,7 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
 	// Update beta
 	real realDelta = static_cast<real>(delta);
+
 	hBeta[index] += realDelta;
 
 	// Delegate

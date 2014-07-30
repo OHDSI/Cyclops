@@ -1,5 +1,5 @@
 /*
- * ccd.cpp
+  * ccd.cpp
  *
  *  Created on: July, 2010
  *      Author: msuchard
@@ -142,7 +142,7 @@ void parseCommandLine(int argc, char* argv[],
 
 void setDefaultArguments(CCDArguments &arguments) {
 	arguments.useGPU = false;
-	arguments.maxIterations = 1000;
+	arguments.maxIterations = 10000;
 	arguments.inFileName = "default_in";
 	arguments.outFileName = "default_out";
 	arguments.hyperPriorSet = false;

@@ -11,7 +11,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/CMake ${CMAKE_MODULE_PATH})
 
 #find_package(CUDA)
 
-#add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/CCD)
+add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/CCD)
 add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/CCD-DP)
 
 #if(CUDA_FOUND)
