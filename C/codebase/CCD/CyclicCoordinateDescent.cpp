@@ -839,22 +839,20 @@ void CyclicCoordinateDescent::update(
 	//Tshaddox ADDED
 
 	//maxIterations = 2;
-
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
 	while (!done) {
 		//done = true;
 		struct timeval time1, time2;
-		gettimeofday(&time1, NULL);
+
 	
 		// Do a complete cycle
 		for(int index = 0; index < J; index++) {
 		
-			struct timeval time1, time2;
+
 			gettimeofday(&time1, NULL);
 			double delta = ccdUpdateBeta(index);
 
-			gettimeofday(&time2, NULL);
-						double timeToLoop = calculateSeconds(time1, time2);
-						//cout << "time = " << timeToLoop << endl;
 			//cout << "delta = " << delta << endl;
 			delta = applyBounds(delta, index);
 			if (delta != 0.0) {
@@ -899,7 +897,7 @@ void CyclicCoordinateDescent::update(
 				 << " (" << thisLogLikelihood << " + " << thisLogPrior
 			     << ") (iter:" << iteration << ") ";
 
-			if (epsilon > 0 && conv < epsilon) {
+		if (epsilon > 0 && conv < epsilon) {
 				cout << "Reached convergence criterion" << endl;
 				done = true;
 			} else if (iteration == maxIterations) {
@@ -914,6 +912,10 @@ void CyclicCoordinateDescent::update(
 		//cout << "time = " << timeToLoop << endl;
 
 	}
+	gettimeofday(&time2, NULL);
+				double timeToLoop = calculateSeconds(time1, time2);
+				//cout << "time = " << timeToLoop << endl;
+
 	updateCount += 1;
 
 }
@@ -956,24 +958,18 @@ void CyclicCoordinateDescent::update_MM(
 
 	vector<double> deltas(J);
 
-	struct timeval time1, time2;
+	//struct timeval time1, time2;
 
 	while (!done) {
 		//done = true;
 
 		double delta;
-		gettimeofday(&time1, NULL);
-		// Do a complete cycle
-#define OPENMP
+
+//#define OPENMP
 #ifdef OPENMP
-		int th_id, nthreads;
-		#pragma omp parallel private(th_id) shared(nthreads)
-			{
-				th_id = omp_get_thread_num();
-				#pragma omp for
+		#pragma omp parallel for
 #endif
 				for(int index = 0; index < J; index++) {
-
 							double delta = ccdUpdateBeta_MM(index);
 							//cout << "in update_MM delta for drug " << index << " = " << delta << endl;
 							delta = applyBounds(delta, index);
@@ -986,8 +982,23 @@ void CyclicCoordinateDescent::update_MM(
 
 						}
 #ifdef OPENMP
-			}
 #endif
+
+
+
+#ifdef OPENMP
+		#pragma omp parallel for
+#endif
+				for(int index = 0; index < J; index++) {
+					if (deltas[index] != 0.0) {
+						sufficientStatisticsKnown = false;
+						updateSufficientStatistics(deltas[index], index);
+					}
+				}
+//#ifdef OPENMP
+			computeRemainingStatistics(true,0);
+//#endif
+
 
 /*
 
@@ -1008,6 +1019,7 @@ void CyclicCoordinateDescent::update_MM(
 		// do the updates to Beta separately.
 		//computeXBeta_GPU_TRS();
 
+
 		for(int index2 = 0; index2 < J; index2 ++) {
 			if (deltas[index2] != 0.0) {
 				sufficientStatisticsKnown = false;
@@ -1015,9 +1027,9 @@ void CyclicCoordinateDescent::update_MM(
 			}
 		}
 */
-		gettimeofday(&time2, NULL);
-				double timeToLoop = calculateSeconds(time1, time2);
-				cout << "time = " << timeToLoop << endl;
+	//	gettimeofday(&time2, NULL);
+	//			double timeToLoop = calculateSeconds(time1, time2);
+	//			cout << "time = " << timeToLoop << endl;
 
 		iteration++;
 		//bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
@@ -1045,11 +1057,11 @@ void CyclicCoordinateDescent::update_MM(
 			if (epsilon > 0 && conv < epsilon) {
 				cout << "Reached convergence criterion" << endl;
 				done = true;
-			} else if (iteration == 4) {
+			} else if (iteration == maxIterations) {
 				cout << "Reached maximum iterations" << endl;
 				done = true;
 			} else {
-				cout << endl;
+				//cout << endl;
 			}
 		}
 
@@ -1700,6 +1712,7 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 	cout << "timer = " << timer << endl;
 }
 
+//#define MM
 template <class IteratorType>
 void CyclicCoordinateDescent::updateXBetaImpl(bsccs::real realDelta, int index) {
 	IteratorType it(*hXI, index);
@@ -1707,9 +1720,11 @@ void CyclicCoordinateDescent::updateXBetaImpl(bsccs::real realDelta, int index) 
 		const int k = it.index();
 		hXBeta[k] += realDelta * it.value();
 		// Update denominators as well
+#ifndef MM
 		bsccs::real oldEntry = offsExpXBeta[k];
 		bsccs::real newEntry = offsExpXBeta[k] = hOffs[k] * exp(hXBeta[k]);
 		denomPid[hPid[k]] += (newEntry - oldEntry);
+#endif
 	}
 	//std::cerr << "E";
 }
@@ -1769,15 +1784,23 @@ void CyclicCoordinateDescent::computeRemainingStatistics_GPU_TRS() {
 void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int index) { // TODO Rename
 	// Separate function for benchmarking
 
-
 	if (allStats) {
 		//std::cerr << "cRS true" << std::endl;
 		//std::cerr << "G";
 		fillVector(denomPid, N, denomNullValue);
+#ifdef OPENMPk
+		int th_id, nthreads;
+		#pragma omp parallel for schedule(dynamic, 1000)
+#endif
 		for (int i = 0; i < K; i++) {
 			offsExpXBeta[i] = hOffs[i] * exp(hXBeta[i]);
+
+//#pragma omp critical
 			denomPid[hPid[i]] += offsExpXBeta[i];
 		}
+#ifdef OPENMPk
+
+#endif
 //		cerr << "den[0] = " << denomPid[0] << endl;
 //		exit(-1);
 

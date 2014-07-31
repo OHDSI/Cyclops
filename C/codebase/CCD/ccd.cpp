@@ -325,8 +325,12 @@ double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
+//#define MM
+#ifdef MM
 	ccd->update_MM(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
-
+#else
+	ccd->update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+#endif
 	gettimeofday(&time2, NULL);
 
 #ifndef MY_RCPP_FLAG
