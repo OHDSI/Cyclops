@@ -615,9 +615,9 @@ public:
 	}
 };
 
-//template <typename WeightType>
-//struct StratifiedCoxProportionalHazards : public CoxProportionalHazards {
-//public:
+template <typename WeightType>
+struct StratifiedCoxProportionalHazards : public CoxProportionalHazards {
+public:
 // 	const static bool precomputeHessian = false;
 // 
 // 	static real getDenomNullValue () { return static_cast<real>(0.0); }
