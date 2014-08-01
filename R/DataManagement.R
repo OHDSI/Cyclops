@@ -234,6 +234,7 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
                 result$dx <- dx
                 result$y <- y
                 result$time <- time
+                result$pid <- pid
             }
             if (exists("mf.s")) {
                 result$sparse <- mf.s

@@ -34,7 +34,8 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
  			model = new ModelSpecifics<ConditionalPoissonRegression<real>,real>(*modelData);
  			break; 			
  		case ModelType::COX :
- 			model = new ModelSpecifics<CoxProportionalHazards<real>,real>(*modelData);
+ 		    std::cout << "Using new model specifics" << std::endl;
+ 			model = new ModelSpecifics<StratifiedCoxProportionalHazards<real>,real>(*modelData);
  			break;
  		default:
  			break; 			

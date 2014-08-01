@@ -278,6 +278,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		// b) we only access numerPid and numerPid2 for non-zero entries 
 		// This may save time; should document speed-up in massive Cox manuscript
 		
+		for (int m = 0; m < 4; ++m) {
+		    std::cout << hPid[m] << std::endl;
+		}
+		exit(-1);
+		
 		for (; it; ) {
 			int k = it.index();
 			if(w.isWeighted){ //if useCrossValidation

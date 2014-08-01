@@ -616,7 +616,7 @@ public:
 };
 
 template <typename WeightType>
-struct StratifiedCoxProportionalHazards : public CoxProportionalHazards {
+struct StratifiedCoxProportionalHazards : public CoxProportionalHazards<WeightType> {
 public:
 // 	const static bool precomputeHessian = false;
 // 
