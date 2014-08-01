@@ -509,13 +509,13 @@ RcppModelData::RcppModelData(
 	
 	if (cpid.size() == 0) {
 	    for (size_t i = 0; i < nRows; ++i) {
-	        cpid.push_back(i);
+	        cpid.push_back(i); // TODO These are not necessary; remove.
 	    }
 	    nPatients = nRows;
 	} else {
     	int currentCase = 0;
     	int currentPID = cpid[0];
-    	std::cout << currentCase << " " << cpid[0] << " " << getYVectorRef()[0] << " " << getZVectorRef()[0] << std::endl;
+     	std::cout << currentCase << " " << cpid[0] << " " << getYVectorRef()[0] << " " << getTimeVectorRef()[0] << std::endl;
     	cpid[0] = currentCase;
     	for (size_t i = 1; i < pid.size(); ++i) {
     	    int nextPID = cpid[i];
@@ -523,11 +523,15 @@ RcppModelData::RcppModelData(
 	            currentCase++;
 	            currentPID = nextPID;
     	    }
-    	    std::cout << currentCase << " " << cpid[i] << " " << getYVectorRef()[i] << " " << getZVectorRef()[i] << std::endl;
+    	    std::cout << currentCase << " " << cpid[i] << " " << getYVectorRef()[i] << " " << getTimeVectorRef()[i] << std::endl;
     	    
 	        cpid[i] = currentCase;
     	}
-        nPatients = currentCase + 1;
+    	if (modelType != ModelType::COX) {
+            nPatients = currentCase + 1; // TODO change to # strata and delegate counting # unique denominators to AbstractModelSpecifics
+        } else {
+            nPatients = getYVectorRef().size(); // TODO see above note.
+        }
     }    
 }
 

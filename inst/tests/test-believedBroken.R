@@ -4,6 +4,12 @@ library("testthat")
 # These tests are believed to be broken; they need confirmation and fixes
 #
 
+# test_that("Returns correct counts" ,{
+#   Number of rows
+#   Number of unique denominators
+#   Number of strata
+# })
+
 # test_that("Returns cross-validated variance estimate" ,{})
 
 # test_that("Data validity when loaded with (y,dx,sx,ix)" ,{})

@@ -24,7 +24,7 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
  		case ModelType::LOGISTIC :
  			model = new ModelSpecifics<LogisticRegression<real>,real>(*modelData);
  			break;
- 		case ModelType::NORMAL :
+ 		case ModelType::NORMAL : 
  			model = new ModelSpecifics<LeastSquares<real>,real>(*modelData);
  			break;
  		case ModelType::POISSON :
@@ -131,6 +131,25 @@ void AbstractModelSpecifics::initialize(
 	hXjX = NULL;
 	if (allocateXjX()) {
 		hXjX = (real*) malloc(sizeof(real) * J);
+	}
+	
+	
+	if (initializeAccumulationVectors()) {
+// 	    int lastPid = -1;
+        int lastPid = hPid[0];
+	    for (int k = 1 /* 0 */; k < K; ++k) {
+	        int nextPid = hPid[k];
+	        if (nextPid != lastPid) {
+	            accReset.push_back(k);
+	            lastPid = nextPid;
+	        }	    
+	    }
+	    accReset.push_back(K);
+        std::cout << "Reset locations:";
+        std::for_each(begin(accReset), end(accReset), [](int i) {
+            std::cout << " " << i;
+        });
+        std::cout << std::endl;
 	}
 
 //#ifdef TRY_REAL

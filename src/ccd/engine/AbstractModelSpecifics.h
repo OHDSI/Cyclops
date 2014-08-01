@@ -93,6 +93,8 @@ protected:
 	virtual bool allocateXjY(void) = 0; // pure virtual
 
 	virtual bool allocateXjX(void) = 0; // pure virtual
+	
+	virtual bool initializeAccumulationVectors(void) = 0; // pure virtual
 
 	template <class T>
 	void fillVector(T* vector, const int length, const T& value) {
@@ -113,6 +115,8 @@ protected:
 	std::vector<real> accDenomPid;
 	std::vector<real> accNumerPid;
 	std::vector<real> accNumerPid2;
+	
+	std::vector<int> accReset;
 
 	// TODO Currently constructed in CyclicCoordinateDescent, but should be encapsulated here
 	CompressedDataMatrix* hXI; // K-by-J-indicator matrix

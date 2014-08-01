@@ -17,6 +17,11 @@
 #include "Iterators.h"
 
 namespace bsccs {
+    
+#ifdef DEBUG_COX
+    using std::cerr;
+    using std::endl;
+#endif
 
 //template <class BaseModel,typename WeightType>
 //ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(
@@ -45,6 +50,9 @@ bool ModelSpecifics<BaseModel,WeightType>::allocateXjX(void) { return BaseModel:
 template <class BaseModel,typename WeightType>
 bool ModelSpecifics<BaseModel,WeightType>::sortPid(void) { return BaseModel::sortPid; }
 
+template <class BaseModel,typename WeightType>
+bool ModelSpecifics<BaseModel,WeightType>::initializeAccumulationVectors(void) { return BaseModel::cumulativeGradientAndHessian; }
+   
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useCrossValidation) {
 	// Set K weights
@@ -278,13 +286,24 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		// b) we only access numerPid and numerPid2 for non-zero entries 
 		// This may save time; should document speed-up in massive Cox manuscript
 		
-		for (int m = 0; m < 4; ++m) {
-		    std::cout << hPid[m] << std::endl;
-		}
-		exit(-1);
-		
+        // find start relavent accumulator reset point
+        auto reset = begin(accReset);
+        while( *reset < it.index() ) {
+            ++reset;
+        }
+        
+        std::cout << "Will reset at " << *reset << std::endl;
+				
 		for (; it; ) {
 			int k = it.index();
+			
+// TODO CHECK		
+			if (*reset == k) {
+			    accNumerPid  = static_cast<real>(0.0);
+			    accNumerPid2 = static_cast<real>(0.0);
+			    ++reset;
+			} 			    
+						
 			if(w.isWeighted){ //if useCrossValidation
 				accNumerPid  += numerPid[BaseModel::getGroup(hPid, k)] * hKWeight[k]; // TODO Only works when X-rows are sorted as well
 				accNumerPid2 += numerPid2[BaseModel::getGroup(hPid, k)] * hKWeight[k];
@@ -312,7 +331,13 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 #ifdef DEBUG_COX
 			cerr << "q: " << k << " " << hNWeight[k] << " " << 0 << ":" <<
 					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[BaseModel::getGroup(hPid, k)];
-#endif			
+#endif	
+// TODO CHECK                   
+                    if (*reset == k) {
+			            accNumerPid  = static_cast<real>(0.0);
+        			    accNumerPid2 = static_cast<real>(0.0);
+		        	    ++reset;                   
+                   } 		
 					
 					BaseModel::incrementGradientAndHessian(it,
 							w, // Signature-only, for iterator-type specialization
@@ -409,13 +434,13 @@ SparseIterator ModelSpecifics<BaseModel, WeightType>::getSubjectSpecificHessianI
 		IteratorType itCross(*hXI, index);
 		for (; itCross;) {
 			real value = 0.0;
-			int currentPid = hPid[itCross.index()];
+			int currentPid = hPid[itCross.index()];  // TODO Need to fix for stratified Cox
 			do {
 				const int k = itCross.index();
 				value += BaseModel::gradientNumeratorContrib(itCross.value(),
 						offsExpXBeta[k], hXBeta[k], hY[k]);
 				++itCross;
-			} while (itCross && currentPid == hPid[itCross.index()]);
+			} while (itCross && currentPid == hPid[itCross.index()]); // TODO Need to fix for stratified Cox
 			indices->push_back(currentPid);
 			values->push_back(value);
 		}
@@ -657,7 +682,22 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 				real totalDenomValid = static_cast<real>(0);
 				real totalNumerValid = static_cast<real>(0);
 				real totalNumer2Valid = static_cast<real>(0);
+				
+// TODO CHECK   
+                auto reset = begin(accReset);
+				
 				for (size_t k = 0; k < K; ++k) {
+// TODO CHECK				
+                    if( *reset == k ) {
+			            totalDenomTrain = static_cast<real>(0);
+				        totalNumerTrain = static_cast<real>(0);
+				        totalNumer2Train = static_cast<real>(0);
+				        totalDenomValid = static_cast<real>(0);
+				        totalNumerValid = static_cast<real>(0);
+				        totalNumer2Valid = static_cast<real>(0);				        
+				        ++reset;
+ 				    }
+ 				    
 					if(hKWeight[k] == 1.0){
 						totalDenomTrain += denomPid[k];
 						totalNumerTrain += numerPid[k];
@@ -678,7 +718,18 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 				real totalDenom = static_cast<real>(0);
 				real totalNumer = static_cast<real>(0);
 				real totalNumer2 = static_cast<real>(0);
+				
+				auto reset = begin(accReset);
+				
 				for (size_t k = 0; k < K; ++k) {
+// TODO CHECK				
+                    if (*reset == k) {
+				        totalDenom = static_cast<real>(0);
+				        totalNumer = static_cast<real>(0);
+				        totalNumer2 = static_cast<real>(0);				    
+                        ++reset;				    
+				    }
+				    
 					totalDenom += denomPid[k];
 					totalNumer += numerPid[k];
 					totalNumer2 += numerPid2[k];

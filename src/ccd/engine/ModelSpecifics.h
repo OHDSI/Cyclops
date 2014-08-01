@@ -59,6 +59,8 @@ protected:
 	void setWeights(real* inWeights, bool useCrossValidation);
 
 	void doSortPid(bool useCrossValidation);
+	
+	bool initializeAccumulationVectors(void);
 
 private:
 	template <class IteratorType, class Weights>
@@ -119,7 +121,7 @@ public:
 		: useCrossValidation(_ucv), weight(_weight), z(_z) {
 		// Do nothing
 	}
-	bool operator()(size_t i, size_t j) { // return turn if element[i] is before element[j]
+	bool operator()(size_t i, size_t j) { // return true if element[i] is before element[j]
 		if (useCrossValidation) {
 			if (weight[i] > weight[j]) { 			// weight[i] = 1, weight[j] = 0
 				return true; // weighted first
@@ -145,7 +147,7 @@ public:
 	const static bool hasStrataCrossTerms = true;
 
 	int getGroup(int* groups, int k) {
-		return groups[k];
+		return k;
 	}
 };
 
@@ -161,13 +163,13 @@ public:
 struct FixedPid {
 	const static bool sortPid = false;
 
-	const static bool cumulativeGradientAndHessian = false;
+	const static bool cumulativeGradientAndHessian = false;		
 };
 
 struct SortedPid {
 	const static bool sortPid = true;
 
-	const static bool cumulativeGradientAndHessian = true;
+	const static bool cumulativeGradientAndHessian = true;	
 };
 
 struct NoFixedLikelihoodTerms {
@@ -574,6 +576,8 @@ public:
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
 
+    bool resetAccumulators(int* pid, int k, int currentPid) { return false; }
+
 	real observationCount(real yi) {
 		return static_cast<real>(yi);  
 	}
@@ -618,6 +622,11 @@ public:
 template <typename WeightType>
 struct StratifiedCoxProportionalHazards : public CoxProportionalHazards<WeightType> {
 public:
+    bool resetAccumulators(int* pid, int k, int currentPid) { 
+        return pid[k] != currentPid;
+    }
+
+
 // 	const static bool precomputeHessian = false;
 // 
 // 	static real getDenomNullValue () { return static_cast<real>(0.0); }

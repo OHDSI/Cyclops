@@ -18,7 +18,7 @@ test_that("Check very small Cox example", {
     test <- read.table(header=T, sep = ",", text = "
 start, length, event, x1, x2
 0, 4,  1,0,0
-0, 3.5,1,2,2
+0, 3.5,1,2,0
 0, 3,  0,0,1
 0, 2.5,1,0,1
 0, 2,  1,1,1
@@ -44,4 +44,13 @@ start, length, event, x1, x2
     
     tolerance <- 1E-4
     expect_equal(coef(ccdFitRight), coef(goldRight), tolerance = tolerance)            
+    
+    
+    goldStrat <- coxph(Surv(length, event) ~ x1 + strata(x2), test)
+    
+    dataPtrStrat <- createCcdDataFrame(Surv(length, event) ~ x1 + strata(x2),
+                                       data = test,                                      
+                                       modelType = "cox")    
+    ccdFitStrat <- fitCcdModel(dataPtrStrat)    
+#     expect_equal(coef(ccdFitStrat), coef(goldStrat))  # Names are still wrong    
 })
