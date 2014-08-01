@@ -661,7 +661,7 @@ public:
 // 	void predictEstimate(real& yi, real xBeta){
 // 		// do nothing for now
 // 	}
-};
+//};
 
 template <typename WeightType>
 struct LeastSquares : public IndependentData, FixedPid, NoFixedLikelihoodTerms {
