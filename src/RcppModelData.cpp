@@ -515,7 +515,6 @@ RcppModelData::RcppModelData(
 	} else {
     	int currentCase = 0;
     	int currentPID = cpid[0];
-     	std::cout << currentCase << " " << cpid[0] << " " << getYVectorRef()[0] << " " << getTimeVectorRef()[0] << std::endl;
     	cpid[0] = currentCase;
     	for (size_t i = 1; i < pid.size(); ++i) {
     	    int nextPID = cpid[i];
@@ -523,8 +522,6 @@ RcppModelData::RcppModelData(
 	            currentCase++;
 	            currentPID = nextPID;
     	    }
-    	    std::cout << currentCase << " " << cpid[i] << " " << getYVectorRef()[i] << " " << getTimeVectorRef()[i] << std::endl;
-    	    
 	        cpid[i] = currentCase;
     	}
     	if (modelType != ModelType::COX) {

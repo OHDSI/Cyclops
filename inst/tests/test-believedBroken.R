@@ -68,29 +68,29 @@ library("testthat")
 #     expect_equal(logLik(ccdFit), MJS values) # TODO Why are these different?
 #})
 
-test_that("Check small stratified Cox example", {
-    test <- list(time=c(4,2.9,0.9,1.1,1.9,2.1,3.1), 
-                 status=c(1,1,1,0,1,1,0), 
-                 x=c(0,2,1,1,1,0,0), 
-                 sex=c(0,0,0,0,1,1,1)) 
-    # Fit a stratified model 
-    gold <- coxph(Surv(time, status) ~ x 
-#                   + strata(sex)
-, 
-                  test) 
-    
-    dataPtr <- createCcdDataFrame(Surv(time, status) ~ x 
-#                                   + strata(sex)
-, 
-                                  data = test,                                      
-                                  modelType = "cox"
-#                                     ,method = "model.frame"
-)    
-    ccdFit <- fitCcdModel(dataPtr)
-    
-    tolerance <- 1E-4
-    expect_equal(coef(ccdFit), coef(gold), tolerance = tolerance)    
-})
+# test_that("Check small stratified Cox example", {
+#     test <- list(time=c(4,2.9,0.9,1.1,1.9,2.1,3.1), 
+#                  status=c(1,1,1,0,1,1,0), 
+#                  x=c(0,2,1,1,1,0,0), 
+#                  sex=c(0,0,0,0,1,1,1)) 
+#     # Fit a stratified model 
+#     gold <- coxph(Surv(time, status) ~ x 
+# #                   + strata(sex)
+# , 
+#                   test) 
+#     
+#     dataPtr <- createCcdDataFrame(Surv(time, status) ~ x 
+# #                                   + strata(sex)
+# , 
+#                                   data = test,                                      
+#                                   modelType = "cox"
+# #                                     ,method = "model.frame"
+# )    
+#     ccdFit <- fitCcdModel(dataPtr)
+#     
+#     tolerance <- 1E-4
+#     expect_equal(coef(ccdFit), coef(gold), tolerance = tolerance)    
+# })
 
 test_that("Set seed for cross-validation", {
     counts <- c(18,17,15,20,10,20,25,13,12)

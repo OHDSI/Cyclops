@@ -125,11 +125,9 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
             } else {
                 sortOrder <- order(pid)
             }
-        } else {
-            
+        } else {            
             if (modelType == "cox") {
                 sortOrder <- order(-time)
-#                 pid <- c(1:length(y))  
                 pid <- rep(1, length(y))
             } else {
                 pid <- c(1:length(y))                
@@ -238,7 +236,6 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
                 result$dx <- dx
                 result$y <- y
                 result$time <- time
-            #    result$pid <- pid
             }
             if (exists("mf.s")) {
                 result$sparse <- mf.s
