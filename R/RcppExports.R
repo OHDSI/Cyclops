@@ -2,55 +2,55 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 .ccdSetBeta <- function(inRcppCcdInterface, beta, value) {
-    invisible(.Call('CCD_ccdSetBeta', PACKAGE = 'CCD', inRcppCcdInterface, beta, value))
+    invisible(.Call('cyclops_ccdSetBeta', PACKAGE = 'cyclops', inRcppCcdInterface, beta, value))
 }
 
 .ccdSetFixedBeta <- function(inRcppCcdInterface, beta, fixed) {
-    invisible(.Call('CCD_ccdSetFixedBeta', PACKAGE = 'CCD', inRcppCcdInterface, beta, fixed))
+    invisible(.Call('cyclops_ccdSetFixedBeta', PACKAGE = 'cyclops', inRcppCcdInterface, beta, fixed))
 }
 
 .ccdGetIsRegularized <- function(inRcppCcdInterface, index) {
-    .Call('CCD_ccdGetIsRegularized', PACKAGE = 'CCD', inRcppCcdInterface, index)
+    .Call('cyclops_ccdGetIsRegularized', PACKAGE = 'cyclops', inRcppCcdInterface, index)
 }
 
 .ccdGetLogLikelihood <- function(inRcppCcdInterface) {
-    .Call('CCD_ccdGetLogLikelihood', PACKAGE = 'CCD', inRcppCcdInterface)
+    .Call('cyclops_ccdGetLogLikelihood', PACKAGE = 'cyclops', inRcppCcdInterface)
 }
 
 .ccdGetFisherInformation <- function(inRcppCcdInterface, sexpCovariates) {
-    .Call('CCD_ccdGetFisherInformation', PACKAGE = 'CCD', inRcppCcdInterface, sexpCovariates)
+    .Call('cyclops_ccdGetFisherInformation', PACKAGE = 'cyclops', inRcppCcdInterface, sexpCovariates)
 }
 
 .ccdSetPrior <- function(inRcppCcdInterface, priorTypeName, variance, excludeNumeric) {
-    invisible(.Call('CCD_ccdSetPrior', PACKAGE = 'CCD', inRcppCcdInterface, priorTypeName, variance, excludeNumeric))
+    invisible(.Call('cyclops_ccdSetPrior', PACKAGE = 'cyclops', inRcppCcdInterface, priorTypeName, variance, excludeNumeric))
 }
 
 .ccdProfileModel <- function(inRcppCcdInterface, sexpCovariates, threshold, override) {
-    .Call('CCD_ccdProfileModel', PACKAGE = 'CCD', inRcppCcdInterface, sexpCovariates, threshold, override)
+    .Call('cyclops_ccdProfileModel', PACKAGE = 'cyclops', inRcppCcdInterface, sexpCovariates, threshold, override)
 }
 
 .ccdPredictModel <- function(inRcppCcdInterface) {
-    .Call('CCD_ccdPredictModel', PACKAGE = 'CCD', inRcppCcdInterface)
+    .Call('cyclops_ccdPredictModel', PACKAGE = 'cyclops', inRcppCcdInterface)
 }
 
 .ccdSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, seed) {
-    invisible(.Call('CCD_ccdSetControl', PACKAGE = 'CCD', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, seed))
+    invisible(.Call('cyclops_ccdSetControl', PACKAGE = 'cyclops', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, seed))
 }
 
 .ccdRunCrossValidation <- function(inRcppCcdInterface) {
-    .Call('CCD_ccdRunCrossValidationl', PACKAGE = 'CCD', inRcppCcdInterface)
+    .Call('cyclops_ccdRunCrossValidationl', PACKAGE = 'cyclops', inRcppCcdInterface)
 }
 
 .ccdFitModel <- function(inRcppCcdInterface) {
-    .Call('CCD_ccdFitModel', PACKAGE = 'CCD', inRcppCcdInterface)
+    .Call('cyclops_ccdFitModel', PACKAGE = 'cyclops', inRcppCcdInterface)
 }
 
 .ccdLogModel <- function(inRcppCcdInterface) {
-    .Call('CCD_ccdLogModel', PACKAGE = 'CCD', inRcppCcdInterface)
+    .Call('cyclops_ccdLogModel', PACKAGE = 'cyclops', inRcppCcdInterface)
 }
 
 .ccdInitializeModel <- function(inModelData, modelType, computeMLE = FALSE) {
-    .Call('CCD_ccdInitializeModel', PACKAGE = 'CCD', inModelData, modelType, computeMLE)
+    .Call('cyclops_ccdInitializeModel', PACKAGE = 'cyclops', inModelData, modelType, computeMLE)
 }
 
 #' @title Print row identifiers
@@ -61,11 +61,11 @@
 #' @param object    An OHDSI CCD data object
 #'
 printCcdRowIds <- function(object) {
-    invisible(.Call('CCD_ccdPrintRowIds', PACKAGE = 'CCD', object))
+    invisible(.Call('cyclops_ccdPrintRowIds', PACKAGE = 'cyclops', object))
 }
 
 .isRcppPtrNull <- function(x) {
-    .Call('CCD_isRcppPtrNull', PACKAGE = 'CCD', x)
+    .Call('cyclops_isRcppPtrNull', PACKAGE = 'cyclops', x)
 }
 
 #' @title Get number of strata
@@ -76,7 +76,7 @@ printCcdRowIds <- function(object) {
 #' @param object    An OHDSI CCD data object
 #' 
 getNumberOfStrata <- function(object) {
-    .Call('CCD_ccdGetNumberOfStrata', PACKAGE = 'CCD', object)
+    .Call('cyclops_ccdGetNumberOfStrata', PACKAGE = 'cyclops', object)
 }
 
 #' @title Get covariate identifiers
@@ -87,7 +87,7 @@ getNumberOfStrata <- function(object) {
 #' @param object    An OHDSI CCD data object
 #' 
 getCovariateIds <- function(object) {
-    .Call('CCD_ccdGetCovariateIds', PACKAGE = 'CCD', object)
+    .Call('cyclops_ccdGetCovariateIds', PACKAGE = 'cyclops', object)
 }
 
 #' @title Get covariate types
@@ -99,7 +99,7 @@ getCovariateIds <- function(object) {
 #' @param covariateLabel Integer vector: covariate identifiers to return
 #' 
 getCovariateTypes <- function(object, covariateLabel) {
-    .Call('CCD_ccdGetCovariateType', PACKAGE = 'CCD', object, covariateLabel)
+    .Call('cyclops_ccdGetCovariateType', PACKAGE = 'cyclops', object, covariateLabel)
 }
 
 #' @title Get total number of covariates
@@ -110,7 +110,7 @@ getCovariateTypes <- function(object, covariateLabel) {
 #' @param object    An OHDSI CCD data object
 #'
 getNumberOfCovariates <- function(object) {
-    .Call('CCD_ccdGetNumberOfColumns', PACKAGE = 'CCD', object)
+    .Call('cyclops_ccdGetNumberOfColumns', PACKAGE = 'cyclops', object)
 }
 
 #' @title Get total number of rows
@@ -121,50 +121,50 @@ getNumberOfCovariates <- function(object) {
 #' @param object    An OHDSI CCD data object
 #'
 getNumberOfRows <- function(object) {
-    .Call('CCD_ccdGetNumberOfRows', PACKAGE = 'CCD', object)
+    .Call('cyclops_ccdGetNumberOfRows', PACKAGE = 'cyclops', object)
 }
 
 .ccdSumByGroup <- function(x, covariateLabel, groupByLabel, power) {
-    .Call('CCD_ccdSumByGroup', PACKAGE = 'CCD', x, covariateLabel, groupByLabel, power)
+    .Call('cyclops_ccdSumByGroup', PACKAGE = 'cyclops', x, covariateLabel, groupByLabel, power)
 }
 
 .ccdSumByStratum <- function(x, covariateLabel, power) {
-    .Call('CCD_ccdSumByStratum', PACKAGE = 'CCD', x, covariateLabel, power)
+    .Call('cyclops_ccdSumByStratum', PACKAGE = 'cyclops', x, covariateLabel, power)
 }
 
 .ccdSum <- function(x, covariateLabel, power) {
-    .Call('CCD_ccdSum', PACKAGE = 'CCD', x, covariateLabel, power)
+    .Call('cyclops_ccdSum', PACKAGE = 'cyclops', x, covariateLabel, power)
 }
 
 .ccdNewSqlData <- function(modelTypeName, noiseLevel) {
-    .Call('CCD_ccdNewSqlData', PACKAGE = 'CCD', modelTypeName, noiseLevel)
+    .Call('cyclops_ccdNewSqlData', PACKAGE = 'cyclops', modelTypeName, noiseLevel)
 }
 
 .ccdSetHasIntercept <- function(x, hasIntercept) {
-    invisible(.Call('CCD_ccdSetHasIntercept', PACKAGE = 'CCD', x, hasIntercept))
+    invisible(.Call('cyclops_ccdSetHasIntercept', PACKAGE = 'cyclops', x, hasIntercept))
 }
 
 .ccdGetHasIntercept <- function(x) {
-    .Call('CCD_ccdGetHasIntercept', PACKAGE = 'CCD', x)
+    .Call('cyclops_ccdGetHasIntercept', PACKAGE = 'cyclops', x)
 }
 
 .ccdFinalizeData <- function(x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag = FALSE) {
-    invisible(.Call('CCD_ccdFinalizeData', PACKAGE = 'CCD', x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag))
+    invisible(.Call('cyclops_ccdFinalizeData', PACKAGE = 'cyclops', x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag))
 }
 
 .appendSqlCcdData <- function(x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue) {
-    .Call('CCD_ccdAppendSqlData', PACKAGE = 'CCD', x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue)
+    .Call('cyclops_ccdAppendSqlData', PACKAGE = 'cyclops', x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue)
 }
 
 .ccdGetInterceptLabel <- function(x) {
-    .Call('CCD_ccdGetInterceptLabel', PACKAGE = 'CCD', x)
+    .Call('cyclops_ccdGetInterceptLabel', PACKAGE = 'cyclops', x)
 }
 
 .ccdReadData <- function(fileName, modelTypeName) {
-    .Call('CCD_ccdReadFileData', PACKAGE = 'CCD', fileName, modelTypeName)
+    .Call('cyclops_ccdReadFileData', PACKAGE = 'cyclops', fileName, modelTypeName)
 }
 
 .ccdModelData <- function(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset = FALSE) {
-    .Call('CCD_ccdModelData', PACKAGE = 'CCD', pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset)
+    .Call('cyclops_ccdModelData', PACKAGE = 'cyclops', pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset)
 }
 

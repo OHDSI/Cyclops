@@ -8,7 +8,7 @@ using namespace Rcpp;
 
 // ccdSetBeta
 void ccdSetBeta(SEXP inRcppCcdInterface, int beta, double value);
-RcppExport SEXP CCD_ccdSetBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP, SEXP valueSEXP) {
+RcppExport SEXP cyclops_ccdSetBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP, SEXP valueSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
@@ -22,7 +22,7 @@ END_RCPP
 }
 // ccdSetFixedBeta
 void ccdSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed);
-RcppExport SEXP CCD_ccdSetFixedBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP, SEXP fixedSEXP) {
+RcppExport SEXP cyclops_ccdSetFixedBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP, SEXP fixedSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
@@ -36,7 +36,7 @@ END_RCPP
 }
 // ccdGetIsRegularized
 bool ccdGetIsRegularized(SEXP inRcppCcdInterface, const int index);
-RcppExport SEXP CCD_ccdGetIsRegularized(SEXP inRcppCcdInterfaceSEXP, SEXP indexSEXP) {
+RcppExport SEXP cyclops_ccdGetIsRegularized(SEXP inRcppCcdInterfaceSEXP, SEXP indexSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -52,7 +52,7 @@ END_RCPP
 }
 // ccdGetLogLikelihood
 double ccdGetLogLikelihood(SEXP inRcppCcdInterface);
-RcppExport SEXP CCD_ccdGetLogLikelihood(SEXP inRcppCcdInterfaceSEXP) {
+RcppExport SEXP cyclops_ccdGetLogLikelihood(SEXP inRcppCcdInterfaceSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -67,7 +67,7 @@ END_RCPP
 }
 // ccdGetFisherInformation
 Eigen::MatrixXd ccdGetFisherInformation(SEXP inRcppCcdInterface, const SEXP sexpCovariates);
-RcppExport SEXP CCD_ccdGetFisherInformation(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP) {
+RcppExport SEXP cyclops_ccdGetFisherInformation(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -83,7 +83,7 @@ END_RCPP
 }
 // ccdSetPrior
 void ccdSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, double variance, SEXP excludeNumeric);
-RcppExport SEXP CCD_ccdSetPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP varianceSEXP, SEXP excludeNumericSEXP) {
+RcppExport SEXP cyclops_ccdSetPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP varianceSEXP, SEXP excludeNumericSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
@@ -98,7 +98,7 @@ END_RCPP
 }
 // ccdProfileModel
 List ccdProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, double threshold, bool override);
-RcppExport SEXP CCD_ccdProfileModel(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP, SEXP thresholdSEXP, SEXP overrideSEXP) {
+RcppExport SEXP cyclops_ccdProfileModel(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP, SEXP thresholdSEXP, SEXP overrideSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -116,7 +116,7 @@ END_RCPP
 }
 // ccdPredictModel
 List ccdPredictModel(SEXP inRcppCcdInterface);
-RcppExport SEXP CCD_ccdPredictModel(SEXP inRcppCcdInterfaceSEXP) {
+RcppExport SEXP cyclops_ccdPredictModel(SEXP inRcppCcdInterfaceSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -131,7 +131,7 @@ END_RCPP
 }
 // ccdSetControl
 void ccdSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int seed);
-RcppExport SEXP CCD_ccdSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP seedSEXP) {
+RcppExport SEXP cyclops_ccdSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP seedSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
@@ -154,7 +154,7 @@ END_RCPP
 }
 // ccdRunCrossValidationl
 List ccdRunCrossValidationl(SEXP inRcppCcdInterface);
-RcppExport SEXP CCD_ccdRunCrossValidationl(SEXP inRcppCcdInterfaceSEXP) {
+RcppExport SEXP cyclops_ccdRunCrossValidationl(SEXP inRcppCcdInterfaceSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -169,7 +169,7 @@ END_RCPP
 }
 // ccdFitModel
 List ccdFitModel(SEXP inRcppCcdInterface);
-RcppExport SEXP CCD_ccdFitModel(SEXP inRcppCcdInterfaceSEXP) {
+RcppExport SEXP cyclops_ccdFitModel(SEXP inRcppCcdInterfaceSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -184,7 +184,7 @@ END_RCPP
 }
 // ccdLogModel
 List ccdLogModel(SEXP inRcppCcdInterface);
-RcppExport SEXP CCD_ccdLogModel(SEXP inRcppCcdInterfaceSEXP) {
+RcppExport SEXP cyclops_ccdLogModel(SEXP inRcppCcdInterfaceSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -199,7 +199,7 @@ END_RCPP
 }
 // ccdInitializeModel
 List ccdInitializeModel(SEXP inModelData, const std::string& modelType, bool computeMLE = false);
-RcppExport SEXP CCD_ccdInitializeModel(SEXP inModelDataSEXP, SEXP modelTypeSEXP, SEXP computeMLESEXP) {
+RcppExport SEXP cyclops_ccdInitializeModel(SEXP inModelDataSEXP, SEXP modelTypeSEXP, SEXP computeMLESEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -216,7 +216,7 @@ END_RCPP
 }
 // ccdPrintRowIds
 void ccdPrintRowIds(Environment object);
-RcppExport SEXP CCD_ccdPrintRowIds(SEXP objectSEXP) {
+RcppExport SEXP cyclops_ccdPrintRowIds(SEXP objectSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
@@ -228,7 +228,7 @@ END_RCPP
 }
 // isRcppPtrNull
 bool isRcppPtrNull(SEXP x);
-RcppExport SEXP CCD_isRcppPtrNull(SEXP xSEXP) {
+RcppExport SEXP cyclops_isRcppPtrNull(SEXP xSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -243,7 +243,7 @@ END_RCPP
 }
 // ccdGetNumberOfStrata
 int ccdGetNumberOfStrata(Environment object);
-RcppExport SEXP CCD_ccdGetNumberOfStrata(SEXP objectSEXP) {
+RcppExport SEXP cyclops_ccdGetNumberOfStrata(SEXP objectSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -258,7 +258,7 @@ END_RCPP
 }
 // ccdGetCovariateIds
 std::vector<int64_t> ccdGetCovariateIds(Environment object);
-RcppExport SEXP CCD_ccdGetCovariateIds(SEXP objectSEXP) {
+RcppExport SEXP cyclops_ccdGetCovariateIds(SEXP objectSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -273,7 +273,7 @@ END_RCPP
 }
 // ccdGetCovariateType
 CharacterVector ccdGetCovariateType(Environment object, const std::vector<int64_t>& covariateLabel);
-RcppExport SEXP CCD_ccdGetCovariateType(SEXP objectSEXP, SEXP covariateLabelSEXP) {
+RcppExport SEXP cyclops_ccdGetCovariateType(SEXP objectSEXP, SEXP covariateLabelSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -289,7 +289,7 @@ END_RCPP
 }
 // ccdGetNumberOfColumns
 int ccdGetNumberOfColumns(Environment object);
-RcppExport SEXP CCD_ccdGetNumberOfColumns(SEXP objectSEXP) {
+RcppExport SEXP cyclops_ccdGetNumberOfColumns(SEXP objectSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -304,7 +304,7 @@ END_RCPP
 }
 // ccdGetNumberOfRows
 int ccdGetNumberOfRows(Environment object);
-RcppExport SEXP CCD_ccdGetNumberOfRows(SEXP objectSEXP) {
+RcppExport SEXP cyclops_ccdGetNumberOfRows(SEXP objectSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -319,7 +319,7 @@ END_RCPP
 }
 // ccdSumByGroup
 List ccdSumByGroup(Environment x, const std::vector<long>& covariateLabel, const long groupByLabel, const int power);
-RcppExport SEXP CCD_ccdSumByGroup(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP groupByLabelSEXP, SEXP powerSEXP) {
+RcppExport SEXP cyclops_ccdSumByGroup(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP groupByLabelSEXP, SEXP powerSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -337,7 +337,7 @@ END_RCPP
 }
 // ccdSumByStratum
 List ccdSumByStratum(Environment x, const std::vector<long>& covariateLabel, const int power);
-RcppExport SEXP CCD_ccdSumByStratum(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP powerSEXP) {
+RcppExport SEXP cyclops_ccdSumByStratum(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP powerSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -354,7 +354,7 @@ END_RCPP
 }
 // ccdSum
 std::vector<double> ccdSum(Environment x, const std::vector<long>& covariateLabel, const int power);
-RcppExport SEXP CCD_ccdSum(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP powerSEXP) {
+RcppExport SEXP cyclops_ccdSum(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP powerSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -371,7 +371,7 @@ END_RCPP
 }
 // ccdNewSqlData
 List ccdNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel);
-RcppExport SEXP CCD_ccdNewSqlData(SEXP modelTypeNameSEXP, SEXP noiseLevelSEXP) {
+RcppExport SEXP cyclops_ccdNewSqlData(SEXP modelTypeNameSEXP, SEXP noiseLevelSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -387,7 +387,7 @@ END_RCPP
 }
 // ccdSetHasIntercept
 void ccdSetHasIntercept(Environment x, bool hasIntercept);
-RcppExport SEXP CCD_ccdSetHasIntercept(SEXP xSEXP, SEXP hasInterceptSEXP) {
+RcppExport SEXP cyclops_ccdSetHasIntercept(SEXP xSEXP, SEXP hasInterceptSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
@@ -400,7 +400,7 @@ END_RCPP
 }
 // ccdGetHasIntercept
 bool ccdGetHasIntercept(Environment x);
-RcppExport SEXP CCD_ccdGetHasIntercept(SEXP xSEXP) {
+RcppExport SEXP cyclops_ccdGetHasIntercept(SEXP xSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -415,7 +415,7 @@ END_RCPP
 }
 // ccdFinalizeData
 void ccdFinalizeData(Environment x, bool addIntercept, SEXP sexpOffsetCovariate, bool offsetAlreadyOnLogScale, bool sortCovariates, SEXP sexpCovariatesDense, bool magicFlag = false);
-RcppExport SEXP CCD_ccdFinalizeData(SEXP xSEXP, SEXP addInterceptSEXP, SEXP sexpOffsetCovariateSEXP, SEXP offsetAlreadyOnLogScaleSEXP, SEXP sortCovariatesSEXP, SEXP sexpCovariatesDenseSEXP, SEXP magicFlagSEXP) {
+RcppExport SEXP cyclops_ccdFinalizeData(SEXP xSEXP, SEXP addInterceptSEXP, SEXP sexpOffsetCovariateSEXP, SEXP offsetAlreadyOnLogScaleSEXP, SEXP sortCovariatesSEXP, SEXP sexpCovariatesDenseSEXP, SEXP magicFlagSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
@@ -433,7 +433,7 @@ END_RCPP
 }
 // ccdAppendSqlData
 int ccdAppendSqlData(Environment x, const std::vector<int64_t>& oStratumId, const std::vector<int64_t>& oRowId, const std::vector<double>& oY, const std::vector<double>& oTime, const std::vector<int64_t>& cRowId, const std::vector<int64_t>& cCovariateId, const std::vector<double>& cCovariateValue);
-RcppExport SEXP CCD_ccdAppendSqlData(SEXP xSEXP, SEXP oStratumIdSEXP, SEXP oRowIdSEXP, SEXP oYSEXP, SEXP oTimeSEXP, SEXP cRowIdSEXP, SEXP cCovariateIdSEXP, SEXP cCovariateValueSEXP) {
+RcppExport SEXP cyclops_ccdAppendSqlData(SEXP xSEXP, SEXP oStratumIdSEXP, SEXP oRowIdSEXP, SEXP oYSEXP, SEXP oTimeSEXP, SEXP cRowIdSEXP, SEXP cCovariateIdSEXP, SEXP cCovariateValueSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -455,7 +455,7 @@ END_RCPP
 }
 // ccdGetInterceptLabel
 SEXP ccdGetInterceptLabel(Environment x);
-RcppExport SEXP CCD_ccdGetInterceptLabel(SEXP xSEXP) {
+RcppExport SEXP cyclops_ccdGetInterceptLabel(SEXP xSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -470,7 +470,7 @@ END_RCPP
 }
 // ccdReadFileData
 List ccdReadFileData(const std::string& fileName, const std::string& modelTypeName);
-RcppExport SEXP CCD_ccdReadFileData(SEXP fileNameSEXP, SEXP modelTypeNameSEXP) {
+RcppExport SEXP cyclops_ccdReadFileData(SEXP fileNameSEXP, SEXP modelTypeNameSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -486,7 +486,7 @@ END_RCPP
 }
 // ccdModelData
 List ccdModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix, const std::string& modelTypeName, bool useTimeAsOffset = false);
-RcppExport SEXP CCD_ccdModelData(SEXP pidSEXP, SEXP ySEXP, SEXP zSEXP, SEXP offsSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP, SEXP modelTypeNameSEXP, SEXP useTimeAsOffsetSEXP) {
+RcppExport SEXP cyclops_ccdModelData(SEXP pidSEXP, SEXP ySEXP, SEXP zSEXP, SEXP offsSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP, SEXP modelTypeNameSEXP, SEXP useTimeAsOffsetSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
