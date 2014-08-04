@@ -1,4 +1,4 @@
 library(testthat)
-library(CCD)
+library(cyclops)
 
-test_package("CCD")
+test_package("cyclops")
