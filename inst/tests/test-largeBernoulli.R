@@ -7,7 +7,7 @@ library("testthat")
 test_that("Large Bernoulli CCD data file read", {
 	tolerance <- 1E-4
 	dataPtr <- readCcdData(system.file("extdata/CCD_LOGISTIC_TEST_17var.txt", 
-																		 package="CCD"), "lr")
+																		 package="cyclops"), "lr")
 	expect_equal(getNumberOfRows(dataPtr), 22296) # Reads rows
 	expect_equal(getNumberOfStrata(dataPtr), 22296) # Generates unique ids
 	expect_equal(getNumberOfCovariates(dataPtr), 18) # Adds intercept
