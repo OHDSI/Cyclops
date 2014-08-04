@@ -1,4 +1,4 @@
-useDynLib(CCD)
+useDynLib(cyclops)
 exportPattern("^[[:alpha:]]+")
 import(
 	BH,
