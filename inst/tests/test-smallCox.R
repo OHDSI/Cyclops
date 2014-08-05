@@ -32,16 +32,16 @@ start, length, event, x1, x2
     goldRight <- coxph(Surv(length, event) ~ x1 + x2, test)
     summary(goldRight)
     
-    dataPtrRight <- createCcdDataFrame(Surv(length, event) ~ x1 + x2, data = test,                                      
+    dataPtrRight <- createCyclopsDataFrame(Surv(length, event) ~ x1 + x2, data = test,                                      
                                        modelType = "cox")    
-    ccdFitRight <- fitCcdModel(dataPtrRight)
+    cyclopsFitRight <- fitCyclopsModel(dataPtrRight)
     
-    dataPtrCounting <- createCcdDataFrame(Surv(start, length, event) ~ x1 + x2, data = test,                                      
+    dataPtrCounting <- createCyclopsDataFrame(Surv(start, length, event) ~ x1 + x2, data = test,                                      
                                           modelType = "cox")    
-    ccdFitCounting <- fitCcdModel(dataPtrCounting)
+    cyclopsFitCounting <- fitCyclopsModel(dataPtrCounting)
     
-    expect_equal(coef(ccdFitRight), coef(ccdFitCounting))
+    expect_equal(coef(cyclopsFitRight), coef(cyclopsFitCounting))
     
     tolerance <- 1E-4
-    expect_equal(coef(ccdFitRight), coef(goldRight), tolerance = tolerance)            
+    expect_equal(coef(cyclopsFitRight), coef(goldRight), tolerance = tolerance)            
 })

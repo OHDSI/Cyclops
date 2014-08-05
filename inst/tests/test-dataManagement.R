@@ -4,13 +4,13 @@ test_that("Make covariates dense", {
     treatment <- gl(3,3)
     tolerance <- 1E-4
     
-    dataPtr <- createCcdDataFrame(counts ~ outcome, indicatorFormula =  ~ treatment, 
+    dataPtr <- createCyclopsDataFrame(counts ~ outcome, indicatorFormula =  ~ treatment, 
                                   modelType = "pr")
     
     expect_equal(as.character(summary(dataPtr)["treatment2","type"]),
                  "indicator")
     
-    finalizeSqlCcdData(dataPtr, makeCovariatesDense = "treatment2")
+    finalizeSqlCyclopsData(dataPtr, makeCovariatesDense = "treatment2")
     
     expect_equal(as.character(summary(dataPtr)["treatment2","type"]),
                  "dense")    

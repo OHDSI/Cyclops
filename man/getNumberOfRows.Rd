@@ -6,9 +6,9 @@
 getNumberOfRows(object)
 }
 \arguments{
-\item{object}{An OHDSI CCD data object}
+\item{object}{An OHDSI Cyclops data object}
 }
 \description{
-\code{getNumberOfRows} returns the total number of outcome rows in an OHDSI CCD data object
+\code{getNumberOfRows} returns the total number of outcome rows in an OHDSI Cyclops data object
 }
 

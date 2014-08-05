@@ -8,13 +8,13 @@ test_that("Check simple SCCS as conditional logistic regression", {
     gold.clogit <- clogit(event ~ exgr + agegr + strata(indiv) + offset(loginterval), 
                           data = chopdat)
     
-    dataPtr <- createCcdDataFrame(event ~ exgr + agegr + strata(indiv) + offset(loginterval),
+    dataPtr <- createCyclopsDataFrame(event ~ exgr + agegr + strata(indiv) + offset(loginterval),
                                   data = chopdat,
                                   modelType = "clr")        
-    ccdFit <- fitCcdModel(dataPtr,
+    cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = prior("none"))
-    expect_equal(logLik(ccdFit), logLik(gold.clogit)[1])
-    expect_equal(coef(ccdFit), coef(gold.clogit), tolerance = tolerance)            
+    expect_equal(logLik(cyclopsFit), logLik(gold.clogit)[1])
+    expect_equal(coef(cyclopsFit), coef(gold.clogit), tolerance = tolerance)            
 })
 
 test_that("Check simple SCCS as conditional Poisson regression", {
@@ -24,14 +24,14 @@ test_that("Check simple SCCS as conditional Poisson regression", {
                    family = poisson, eliminate = indiv, 
                    data = chopdat)
     
-    dataPtr <- createCcdDataFrame(event ~ exgr + agegr + strata(indiv) + offset(loginterval),
+    dataPtr <- createCyclopsDataFrame(event ~ exgr + agegr + strata(indiv) + offset(loginterval),
                                   data = chopdat,
                                   modelType = "cpr")        
-    ccdFit <- fitCcdModel(dataPtr,
+    cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = prior("none"))
     
-    expect_equal(coef(ccdFit)[1:2], coef(gold.cp)[1:2], tolerance = tolerance)     
-    expect_equal(confint(ccdFit, c("exgr1","agegr2"))[,2:3],
+    expect_equal(coef(cyclopsFit)[1:2], coef(gold.cp)[1:2], tolerance = tolerance)     
+    expect_equal(confint(cyclopsFit, c("exgr1","agegr2"))[,2:3],
                  confint(gold.cp), tolerance = tolerance)    
 })
 
@@ -41,12 +41,12 @@ test_that("Check simple SCCS as SCCS", {
     gold.clogit <- clogit(event ~ exgr + agegr + strata(indiv) + offset(loginterval), 
                           data = chopdat)
     
-    dataPtr <- createCcdDataFrame(event ~ exgr + agegr + strata(indiv), time = chopdat$interval,
+    dataPtr <- createCyclopsDataFrame(event ~ exgr + agegr + strata(indiv), time = chopdat$interval,
                                   data = chopdat,
                                   modelType = "sccs")        
-    ccdFit <- fitCcdModel(dataPtr,
+    cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = prior("none"))
-    expect_equal(logLik(ccdFit), logLik(gold.clogit)[1])
-    expect_equal(coef(ccdFit), coef(gold.clogit), tolerance = tolerance)            
+    expect_equal(logLik(cyclopsFit), logLik(gold.clogit)[1])
+    expect_equal(coef(cyclopsFit), coef(gold.clogit), tolerance = tolerance)            
 })
 

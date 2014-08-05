@@ -6,7 +6,7 @@
 getSEs(object, covariates)
 }
 \arguments{
-\item{object}{An OHDSI CCD model fit object}
+\item{object}{An OHDSI Cyclops model fit object}
 
 \item{covariates}{Integer or string vector: list of covariates for which asymptotic standard errors are wanted}
 }
@@ -14,7 +14,7 @@ getSEs(object, covariates)
 Vector of standard error estimates
 }
 \description{
-\code{getSEs} extracts asymptotic standard errors for specific covariates from an OHDSI CCD model fit object.
+\code{getSEs} extracts asymptotic standard errors for specific covariates from an OHDSI Cyclops model fit object.
 }
 \details{
 This function first computes the (partial) Fisher information matrix for

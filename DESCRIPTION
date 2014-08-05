@@ -5,7 +5,11 @@ Version: 0.1
 Date: 2014-03-26
 Author: Marc A. Suchard
 Maintainer: Marc A. Suchard <msuchard@gmail.com>
-Description: This package incorporates cyclic coordinate descent and majorization-minimization approaches to fit a variety of regression models found in observational healthcare data.  Implementations focus on computational optimization and fine-scale parallelization to yield efficient inference in massive datasets.
+Description: This package incorporates cyclic coordinate descent and
+    majorization-minimization approaches to fit a variety of regression models
+    found in observational healthcare data.  Implementations focus on
+    computational optimization and fine-scale parallelization to yield
+    efficient inference in massive datasets.
 License: Apache License 2.0
 Depends:
     Rcpp (>= 0.10.6),
