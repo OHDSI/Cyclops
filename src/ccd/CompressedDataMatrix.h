@@ -34,6 +34,7 @@ enum FormatType {
 
 class CompressedDataColumn {
 public:
+    typedef bsccs::shared_ptr<CompressedDataColumn> Ptr;
     
 	CompressedDataColumn(int_vector* colIndices, real_vector* colData, FormatType colFormat,
 			std::string colName = "", IdType nName = 0, bool sPtrs = false) :
@@ -166,9 +167,13 @@ public:
 // 		cout << "]" << endl;
 // 	}
 
-	static bool sortNumerically(const CompressedDataColumn* i, const CompressedDataColumn* j) {
+// 	static bool sortNumerically(const CompressedDataColumn* i, const CompressedDataColumn* j) {
+// 		return i->getNumericalLabel() < j->getNumericalLabel();
+// 	}
+	
+	static bool sortNumerically(const Ptr& i, const Ptr& j) {
 		return i->getNumericalLabel() < j->getNumericalLabel();
-	}
+	}	
 		
 	void addToColumnVector(int_vector addEntries);
 	void removeFromColumnVector(int_vector removeEntries);
@@ -314,24 +319,32 @@ public:
     }
 
 	void erase(size_t column) {
-		if (allColumns[column]) {
-			delete allColumns[column];
-		}
+		//if (allColumns[column]) {
+		//	delete allColumns[column];
+		//}
 		allColumns.erase(allColumns.begin() + column);
 		nCols--;
 	}
 
 protected:
-
-    typedef std::vector<CompressedDataColumn*>  DataColumnVector;
-
+   
+    typedef CompressedDataColumn::Ptr CompressedDataColumnPtr;
+    typedef std::vector<CompressedDataColumnPtr>  DataColumnVector;
+   
 	void push_back(int_vector* colIndices, real_vector* colData, FormatType colFormat) {
-		allColumns.push_back(new CompressedDataColumn(colIndices, colData, colFormat));	
+		allColumns.push_back(
+//		new CompressedDataColumn
+		make_shared<CompressedDataColumn>(colIndices, colData, colFormat)
+		);	
 		nCols++;
 	}
 	
 	void insert(DataColumnVector::iterator position, int_vector* colIndices, real_vector* colData, FormatType colFormat) {
-	    allColumns.insert(position, new CompressedDataColumn(colIndices, colData, colFormat));
+	    allColumns.insert(position, 
+// 	    new CompressedDataColumn
+	    make_shared<CompressedDataColumn>
+	    (colIndices, colData, colFormat)
+	    );
 	    nCols++;
 	}
 	
