@@ -34,7 +34,9 @@ enum FormatType {
 
 class CompressedDataColumn {
 public:
-    typedef bsccs::shared_ptr<CompressedDataColumn> Ptr;
+
+//     typedef bsccs::shared_ptr<CompressedDataColumn> Ptr;
+    typedef bsccs::unique_ptr<CompressedDataColumn> Ptr;
     
 	CompressedDataColumn(int_vector* colIndices, real_vector* colData, FormatType colFormat,
 			std::string colName = "", IdType nName = 0, bool sPtrs = false) :
@@ -334,7 +336,9 @@ protected:
 	void push_back(int_vector* colIndices, real_vector* colData, FormatType colFormat) {
 		allColumns.push_back(
 //		new CompressedDataColumn
-		make_shared<CompressedDataColumn>(colIndices, colData, colFormat)
+// 		make_shared<CompressedDataColumn>
+        make_unique<CompressedDataColumn>
+		(colIndices, colData, colFormat)
 		);	
 		nCols++;
 	}
@@ -342,7 +346,8 @@ protected:
 	void insert(DataColumnVector::iterator position, int_vector* colIndices, real_vector* colData, FormatType colFormat) {
 	    allColumns.insert(position, 
 // 	    new CompressedDataColumn
-	    make_shared<CompressedDataColumn>
+// 	    make_shared<CompressedDataColumn>
+        make_unique<CompressedDataColumn>
 	    (colIndices, colData, colFormat)
 	    );
 	    nCols++;

@@ -189,9 +189,9 @@ real* ModelData::getOffsetVector() { // TODO deprecated
 	return &offs[0];
 }
 
-void ModelData::sortDataColumns(vector<int> sortedInds){
-	reindexVector(allColumns,sortedInds);
-}
+// void ModelData::sortDataColumns(vector<int> sortedInds){
+// 	reindexVector(allColumns,sortedInds);
+// }
 
 double ModelData::getSquaredNorm() const {
 

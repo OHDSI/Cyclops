@@ -28,13 +28,13 @@
 
 namespace bsccs {
 
-template <class T> void reindexVector(std::vector<T>& vec, std::vector<int> ind) {
-	int n = (int) vec.size();
-	std::vector<T> temp = vec;
-	for(int i = 0; i < n; i++){
-		vec[i] = temp[ind[i]];
-	}
-}
+// template <class T> void reindexVector(std::vector<T>& vec, std::vector<int> ind) {
+// 	int n = (int) vec.size();
+// 	std::vector<T> temp = vec;
+// 	for(int i = 0; i < n; i++){
+// 		vec[i] = temp[ind[i]];
+// 	}
+// }
 
 class ModelData : public CompressedDataMatrix {
 public:
