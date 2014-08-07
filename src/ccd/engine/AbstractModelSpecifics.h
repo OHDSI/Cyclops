@@ -148,7 +148,8 @@ protected:
 	typedef std::map<int, std::vector<real> > HessianMap;
 	HessianMap hessianCrossTerms;
 
-	typedef std::map<int, CompressedDataColumn* > HessianSparseMap;
+    typedef bsccs::shared_ptr<CompressedDataColumn> CDCPtr;
+	typedef std::map<int, CDCPtr> HessianSparseMap;
 	HessianSparseMap hessianSparseCrossTerms;
 };
 

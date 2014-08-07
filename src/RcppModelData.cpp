@@ -457,7 +457,8 @@ RcppModelData::RcppModelData(
 				) {
 	if (useTimeAsOffset) {
 	    // offset
-        real_vector* r = new real_vector();
+//        real_vector* r = new real_vector();
+        RealVectorPtr r = make_shared<RealVector>();
         push_back(NULL, r, DENSE);   
         r->assign(offs.begin(), offs.end()); // TODO Should not be necessary with shared_ptr
         setHasOffsetCovariate(true);

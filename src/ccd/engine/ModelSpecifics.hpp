@@ -395,11 +395,16 @@ SparseIterator ModelSpecifics<BaseModel, WeightType>::getSubjectSpecificHessianI
 
 	if (hessianSparseCrossTerms.find(index) == hessianSparseCrossTerms.end()) {
 		// Make new
-		std::vector<int>* indices = new std::vector<int>();
-		std::vector<real>* values = new std::vector<real>();
-		CompressedDataColumn* column = new CompressedDataColumn(indices, values,
-				SPARSE);
-		hessianSparseCrossTerms.insert(std::make_pair(index, column));
+//		std::vector<int>* indices = new std::vector<int>();
+        auto indices = make_shared<std::vector<int> >();
+//		std::vector<real>* values = new std::vector<real>();
+        auto values = make_shared<std::vector<real> >();      
+//		CompressedDataColumn* column = new CompressedDataColumn(indices, values,
+//				SPARSE);
+    	CDCPtr column = bsccs::make_shared<CompressedDataColumn>(indices, values, SPARSE);
+		hessianSparseCrossTerms.insert(std::make_pair(index, 
+// 		    CompressedDataColumn(indices, values, SPARSE)));
+		    column));
 
 		IteratorType itCross(*hXI, index);
 		for (; itCross;) {
