@@ -56,7 +56,31 @@ start, length, event, x1, x2
 })
 
 
-test_that("Check very small Cox example with equal times", {
+
+test_that("Check very small Cox example with time-ties, but no failure ties", {
+    test <- read.table(header=T, sep = ",", text = "
+start, length, event, x1, x2
+0, 4,  1,0,0
+0, 3,  1,2,0
+0, 3,  0,0,1
+0, 2,  1,0,1
+0, 2,  0,1,1
+0, 1,  0,1,0
+0, 1,  1,1,0                       
+")
+        
+    goldRight <- coxph(Surv(length, event) ~ x1 + x2, test)
+    summary(goldRight)
+     
+    dataPtrRight <- createCcdDataFrame(Surv(length, event) ~ x1 + x2, data = test,                                      
+                                       modelType = "cox")    
+    ccdFitRight <- fitCcdModel(dataPtrRight) 
+    
+    tolerance <- 1E-4
+    expect_equal(coef(ccdFitRight), coef(goldRight), tolerance = tolerance)      
+})
+
+test_that("Check very small Cox example with failure ties", {
     test <- read.table(header=T, sep = ",", text = "
 start, length, event, x1, x2
 0, 4,  1,0,0
