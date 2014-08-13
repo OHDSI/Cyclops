@@ -60,65 +60,96 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 	std::vector<real> weights;
 
 
-	double tryvalue = modelData.getNormalBasedDefaultVar();
+	double tryvalue = 1;//modelData.getNormalBasedDefaultVar();
 	double tryvalueClass = tryvalue; // start with same variance at the class and element level; // for hierarchy class variance
-	UniModalSearch searcher(10, 0.01, log(1.5));
-	UniModalSearch searcherClass(10, 0.01, log(1.5)); // Need a better way to do this.
+	double tryvalueStored = tryvalue;
+	double tryvalueClassStored = tryvalue; // start with same variance at the class and element level; // for hierarchy class variance
+
+	UniModalSearch searcher(100, 0.01, log(1.5));
+	UniModalSearch searcherClass(100, 0.01, log(1.5)); // Need a better way to do this.
 
 	const double eps = 0.05; //search stopper
 	std::cout << "Default var = " << tryvalue << std::endl;
 
 
 	bool finished = false;
+	bool finished2 = false;
+	bool outerFinished = false;
 	bool drugLevelFinished = false;
 	bool classLevelFinished = false;
 
 	int step = 0;
-	while (!finished) {
-
-		// More hierarchy logic
-		ccd.setHyperprior(tryvalue);
-		ccd.setClassHyperprior(tryvalueClass);
-
-		std::vector<double> predLogLikelihood;
-
-		// Newly re-located code
-		double pointEstimate = doCrossValidation(ccd, selector, arguments, step, predLogLikelihood);
-
-		double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
-
-		std::cout << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
+	ccd.setHyperprior(tryvalue);
+	ccd.setClassHyperprior(tryvalueClass);
 
 
-        // alternate adapting the class and element level, unless one is finished
-        if ((step % 2 == 0 && !drugLevelFinished) || classLevelFinished){
-        	searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
-        	pair<bool,double> next = searcher.step();
-        	tryvalue = next.second;
-            std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
-            if (!next.first) {
-               	drugLevelFinished = true;
-            }
-       	} else {
-       		searcherClass.tried(tryvalueClass, pointEstimate, stdDevEstimate);
-       		pair<bool,double> next = searcherClass.step();
-       		tryvalueClass = next.second;
-       	    std::cout << "Next Class point at " << next.second << " and " << next.first << std::endl;
-            if (!next.first) {
-               	classLevelFinished = true;
-            }
-        }
-        // if everything is finished, end.
-        if (drugLevelFinished && classLevelFinished){
-        	finished = true;
-        }
+	while (!outerFinished){
 
-        std::cout << searcher;
-        step++;
-        if (step >= maxSteps) {
-        	std::cerr << "Max steps reached!" << std::endl;
-        	finished = true;
-        }
+		while (!finished) {
+			ccd.setHyperprior(tryvalue);
+
+			std::vector<double> predLogLikelihood;
+
+			// Newly re-located code
+			double pointEstimate = doCrossValidation(ccd, selector, arguments, step, predLogLikelihood);
+
+			double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
+
+			std::cout << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
+			searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
+			pair<bool,double> next = searcher.step();
+			std::cout << "Completed at " << tryvalue << std::endl;
+			std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
+
+			tryvalue = next.second;
+			if (!next.first) {
+				finished = true;
+			}
+			std::cout << searcher;
+			step++;
+			if (step >= maxSteps) {
+				std::cerr << "Max steps reached!" << std::endl;
+				finished = true;
+			}
+		}
+		tryvalueStored = tryvalue;
+		ccd.setHyperprior(tryvalueStored);
+		cout << "tryvalueStored = " << tryvalue << endl;
+		//exit(-1);
+		while (!finished2) {
+			ccd.setClassHyperprior(tryvalueClass);
+
+			std::vector<double> predLogLikelihood;
+
+			// Newly re-located code
+			double pointEstimate = doCrossValidation(ccd, selector, arguments, step, predLogLikelihood);
+
+			double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
+
+			std::cout << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
+			searcherClass.tried(tryvalueClass, pointEstimate, stdDevEstimate);
+			pair<bool,double> next = searcherClass.step();
+			std::cout << "Completed at " << tryvalueClass << std::endl;
+			std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
+
+			tryvalueClass = next.second;
+			if (!next.first) {
+				finished2 = true;
+			}
+			std::cout << searcherClass;
+			step++;
+			if (step >= maxSteps) {
+				std::cerr << "Max steps reached!" << std::endl;
+				finished2 = true;
+			}
+		}
+		tryvalueClassStored = tryvalueClass;
+		ccd.setClassHyperprior(tryvalueClassStored);
+		if (abs(tryvalueStored - tryvalue) < 1 && abs(tryvalueClassStored - tryvalueClass) < 1){
+			outerFinished = true;
+		} else {
+			finished = false;
+		}
 	}
 
 	maxPoint = tryvalue;
