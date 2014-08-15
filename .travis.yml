@@ -16,7 +16,7 @@ script:
     - mkdir -p standalone/build && (cd standalone/build && cmake .. && make)
     - pwd
     - R CMD INSTALL .
-    - Rscript -e "require(cyclops); require(testthat); require(gnm); test_package('cyclops')"
+    - Rscript -e "require(Cyclops); require(testthat); require(gnm); test_package('Cyclops')"
     
 notifications:
   recipients:
