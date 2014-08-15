@@ -1,4 +1,4 @@
-Package: cyclops
+Package: Cyclops
 Type: Package
 Title: Cyclic coordinate descent for logistic, Poisson and survival analysis
 Version: 0.1
