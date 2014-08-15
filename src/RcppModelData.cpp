@@ -8,7 +8,7 @@
 #include "Rcpp.h"
 #include "RcppModelData.h"
 #include "Timer.h"
-#include "RcppCcdInterface.h"
+#include "RcppCyclopsInterface.h"
 #include "io/NewGenericInputReader.h"
 #include "RcppProgressLogger.h"
 #include "SqlModelData.h"
@@ -16,35 +16,35 @@
 using namespace Rcpp;
  
 XPtr<bsccs::ModelData> parseEnvironmentForPtr(const Environment& x) {
-	if (!x.inherits("ccdData")) {
-		::Rf_error("Input must be a ccdData object");	// TODO Change to "stop"
+	if (!x.inherits("cyclopsData")) {
+		stop("Input must be a cyclopsData object");
 	}
 			
-	SEXP tSexp = x["ccdDataPtr"];
+	SEXP tSexp = x["cyclopsDataPtr"];
 	if (TYPEOF(tSexp) != EXTPTRSXP) {
-		::Rf_error("Input must contain a ccdDataPtr object"); // TODO Change to "stop" (bug in Rcpp 0.11)
+		stop("Input must contain a cyclopsDataPtr object");
 	}	
 
 	XPtr<bsccs::ModelData> ptr(tSexp);
 	if (!ptr) {
-		::Rf_error("ccdData object is uninitialized"); // TODO Change to "stop"
+		stop("cyclopsData object is uninitialized");
 	}
 	return ptr;	
 }
 
 XPtr<bsccs::RcppModelData> parseEnvironmentForRcppPtr(const Environment& x) {
-	if (!x.inherits("ccdData")) {
-		::Rf_error("Input must be a ccdData object");	// TODO Change to "stop"
+	if (!x.inherits("cyclopsData")) {
+		stop("Input must be a cyclopsData object");
 	}
 			
-	SEXP tSexp = x["ccdDataPtr"];
+	SEXP tSexp = x["cyclopsDataPtr"];
 	if (TYPEOF(tSexp) != EXTPTRSXP) {
-		::Rf_error("Input must contain a ccdDataPtr object"); // TODO Change to "stop" (bug in Rcpp 0.11)
+		stop("Input must contain a cyclopsDataPtr object");
 	}	
 
 	XPtr<bsccs::RcppModelData> ptr(tSexp);
 	if (!ptr) {
-		::Rf_error("ccdData object is uninitialized"); // TODO Change to "stop"
+		stop("cyclopsData object is uninitialized");
 	}
 	return ptr;	
 }
@@ -52,12 +52,12 @@ XPtr<bsccs::RcppModelData> parseEnvironmentForRcppPtr(const Environment& x) {
 //' @title Print row identifiers
 //' 
 //' @description
-//' \code{printCcdRowIds} return the row identifiers in an OHDSI CCD data object
+//' \code{printCcdRowIds} return the row identifiers in an OHDSI Cyclops data object
 //' 
-//' @param object    An OHDSI CCD data object
+//' @param object    An OHDSI Cyclops data object
 //'
-// [[Rcpp::export("printCcdRowIds")]]
-void ccdPrintRowIds(Environment object) {
+// [[Rcpp::export("printCyclopsRowIds")]]
+void cyclopsPrintRowIds(Environment object) {
 	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(object);
 //	std::ostreamstring stream;
 // 	std::vector<IdType>& rowsIds = data->get
@@ -81,7 +81,7 @@ void ccdPrintRowIds(Environment object) {
 // [[Rcpp::export(".isRcppPtrNull")]]
 bool isRcppPtrNull(SEXP x) {
 	if (TYPEOF(x) != EXTPTRSXP) {
-		::Rf_error("Input must be an Rcpp externalptr"); // TODO Change to "stop"
+		stop("Input must be an Rcpp externalptr");
 	}
 	XPtr<int> ptr(x); 
 	return !ptr;
@@ -90,12 +90,12 @@ bool isRcppPtrNull(SEXP x) {
 //' @title Get number of strata
 //' 
 //' @description
-//' \code{getNumberOfStrata} return the number of unique strata in an OHDSI CCD data object
+//' \code{getNumberOfStrata} return the number of unique strata in an OHDSI Cyclops data object
 //' 
-//' @param object    An OHDSI CCD data object
+//' @param object    An OHDSI Cyclops data object
 //' 
 // [[Rcpp::export("getNumberOfStrata")]]
-int ccdGetNumberOfStrata(Environment object) {			
+int cyclopsGetNumberOfStrata(Environment object) {			
 	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	
 	return static_cast<int>(data->getNumberOfPatients());
 }
@@ -103,12 +103,12 @@ int ccdGetNumberOfStrata(Environment object) {
 //' @title Get covariate identifiers
 //' 
 //' @description
-//' \code{getCovariateIds} returns a vector of integer covariate identifiers in an OHDSI CCD data object
+//' \code{getCovariateIds} returns a vector of integer covariate identifiers in an OHDSI Cyclops data object
 //' 
-//' @param object    An OHDSI CCD data object
+//' @param object    An OHDSI Cyclops data object
 //' 
 // [[Rcpp::export("getCovariateIds")]]
-std::vector<int64_t> ccdGetCovariateIds(Environment object) {
+std::vector<int64_t> cyclopsGetCovariateIds(Environment object) {
     using namespace bsccs;
 	XPtr<ModelData> data = parseEnvironmentForPtr(object);
 	ProfileVector covariates;
@@ -124,13 +124,13 @@ std::vector<int64_t> ccdGetCovariateIds(Environment object) {
 //' @title Get covariate types
 //' 
 //' @description
-//' \code{getCovariateTypes} returns a vector covariate types in an OHDSI CCD data object
+//' \code{getCovariateTypes} returns a vector covariate types in an OHDSI Cyclops data object
 //' 
-//' @param object    An OHDSI CCD data object
+//' @param object    An OHDSI Cyclops data object
 //' @param covariateLabel Integer vector: covariate identifiers to return
 //' 
 // [[Rcpp::export("getCovariateTypes")]]
-CharacterVector ccdGetCovariateType(Environment object, const std::vector<int64_t>& covariateLabel) {
+CharacterVector cyclopsGetCovariateType(Environment object, const std::vector<int64_t>& covariateLabel) {
     using namespace bsccs;
 	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(object);
 	CharacterVector types(covariateLabel.size());	
@@ -145,12 +145,12 @@ CharacterVector ccdGetCovariateType(Environment object, const std::vector<int64_
 //' @title Get total number of covariates
 //' 
 //' @description
-//' \code{getNumberOfCovariates} returns the total number of covariates in an OHDSI CCD data object
+//' \code{getNumberOfCovariates} returns the total number of covariates in an OHDSI Cyclops data object
 //' 
-//' @param object    An OHDSI CCD data object
+//' @param object    An OHDSI Cyclops data object
 //'
 // [[Rcpp::export("getNumberOfCovariates")]]
-int ccdGetNumberOfColumns(Environment object) {	
+int cyclopsGetNumberOfColumns(Environment object) {	
 	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	
 	return static_cast<int>(data->getNumberOfColumns());
 }
@@ -158,18 +158,18 @@ int ccdGetNumberOfColumns(Environment object) {
 //' @title Get total number of rows
 //' 
 //' @description
-//' \code{getNumberOfRows} returns the total number of outcome rows in an OHDSI CCD data object
+//' \code{getNumberOfRows} returns the total number of outcome rows in an OHDSI Cyclops data object
 //' 
-//' @param object    An OHDSI CCD data object
+//' @param object    An OHDSI Cyclops data object
 //'
 // [[Rcpp::export("getNumberOfRows")]]
-int ccdGetNumberOfRows(Environment object) {	
+int cyclopsGetNumberOfRows(Environment object) {	
 	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	
 	return static_cast<int>(data->getNumberOfRows());
 }
 
-// [[Rcpp::export(".ccdSumByGroup")]]
-List ccdSumByGroup(Environment x, const std::vector<long>& covariateLabel, 
+// [[Rcpp::export(".cyclopsSumByGroup")]]
+List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel, 
 		const long groupByLabel, const int power) {
 	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
     List list(covariateLabel.size());
@@ -184,8 +184,8 @@ List ccdSumByGroup(Environment x, const std::vector<long>& covariateLabel,
 	return list;
 }
 
-// [[Rcpp::export(".ccdSumByStratum")]]
-List ccdSumByStratum(Environment x, const std::vector<long>& covariateLabel,
+// [[Rcpp::export(".cyclopsSumByStratum")]]
+List cyclopsSumByStratum(Environment x, const std::vector<long>& covariateLabel,
 		const int power) {
 	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
     List list(covariateLabel.size());
@@ -200,8 +200,8 @@ List ccdSumByStratum(Environment x, const std::vector<long>& covariateLabel,
 	return list;
 }
 
-// [[Rcpp::export(".ccdSum")]]
-std::vector<double> ccdSum(Environment x, const std::vector<long>& covariateLabel,
+// [[Rcpp::export(".cyclopsSum")]]
+std::vector<double> cyclopsSum(Environment x, const std::vector<long>& covariateLabel,
 		const int power) {
 	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
 	std::vector<double> result;
@@ -212,8 +212,8 @@ std::vector<double> ccdSum(Environment x, const std::vector<long>& covariateLabe
 	return result;
 }
 
-// [[Rcpp::export(".ccdNewSqlData")]]
-List ccdNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel) {
+// [[Rcpp::export(".cyclopsNewSqlData")]]
+List cyclopsNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel) {
 	using namespace bsccs;
 	
 	NoiseLevels noise = RcppCcdInterface::parseNoiseLevel(noiseLevel);
@@ -227,27 +227,27 @@ List ccdNewSqlData(const std::string& modelTypeName, const std::string& noiseLev
 	XPtr<SqlModelData> sqlModelData(ptr);
 
     List list = List::create(
-            Rcpp::Named("ccdDataPtr") = sqlModelData
+            Rcpp::Named("cyclopsDataPtr") = sqlModelData
         );
     return list;
 }
 
-// [[Rcpp::export(".ccdSetHasIntercept")]]
-void ccdSetHasIntercept(Environment x, bool hasIntercept) {
+// [[Rcpp::export(".cyclopsSetHasIntercept")]]
+void cyclopsSetHasIntercept(Environment x, bool hasIntercept) {
     using namespace bsccs;
     XPtr<ModelData> data = parseEnvironmentForPtr(x);
     data->setHasInterceptCovariate(hasIntercept);
 }
 
-// [[Rcpp::export(".ccdGetHasIntercept")]]
-bool ccdGetHasIntercept(Environment x) {
+// [[Rcpp::export(".cyclopsGetHasIntercept")]]
+bool cyclopsGetHasIntercept(Environment x) {
     using namespace bsccs;
     XPtr<ModelData> data = parseEnvironmentForPtr(x);
     return data->getHasInterceptCovariate(); 
 }
 
-// [[Rcpp::export(".ccdFinalizeData")]]
-void ccdFinalizeData(
+// [[Rcpp::export(".cyclopsFinalizeData")]]
+void cyclopsFinalizeData(
         Environment x,
         bool addIntercept, 
         SEXP sexpOffsetCovariate,
@@ -292,7 +292,7 @@ void ccdFinalizeData(
     } 
     
     if (data->getHasOffsetCovariate() && !offsetAlreadyOnLogScale) {
-        ::Rf_error("Transforming the offset is not yet implemented");
+        stop("Transforming the offset is not yet implemented");
     }
     
     if (!Rf_isNull(sexpCovariatesDense)) {
@@ -310,8 +310,8 @@ void ccdFinalizeData(
 // NOTE:  IdType does not get exported into RcppExports, so hard-coded here
 // TODO Could use SEXP signature and cast in function
 
-// [[Rcpp::export(".appendSqlCcdData")]]
-int ccdAppendSqlData(Environment x,
+// [[Rcpp::export(".appendSqlCyclopsData")]]
+int cyclopsAppendSqlData(Environment x,
         const std::vector<int64_t>& oStratumId, 
         const std::vector<int64_t>& oRowId,
         const std::vector<double>& oY,
@@ -328,8 +328,8 @@ int ccdAppendSqlData(Environment x,
 }
 
 
-// [[Rcpp::export(".ccdGetInterceptLabel")]]
-SEXP ccdGetInterceptLabel(Environment x) {
+// [[Rcpp::export(".cyclopsGetInterceptLabel")]]
+SEXP cyclopsGetInterceptLabel(Environment x) {
     using namespace bsccs;
     XPtr<ModelData> data = parseEnvironmentForPtr(x);
     if (data->getHasInterceptCovariate()) {
@@ -340,8 +340,8 @@ SEXP ccdGetInterceptLabel(Environment x) {
     }
 }
 
-// [[Rcpp::export(".ccdReadData")]]
-List ccdReadFileData(const std::string& fileName, const std::string& modelTypeName) {
+// [[Rcpp::export(".cyclopsReadData")]]
+List cyclopsReadFileData(const std::string& fileName, const std::string& modelTypeName) {
 
 		using namespace bsccs;
 		Timer timer; 
@@ -360,7 +360,7 @@ List ccdReadFileData(const std::string& fileName, const std::string& modelTypeNa
        
     double time = timer();
     List list = List::create(
-            Rcpp::Named("ccdDataPtr") = ptr,            
+            Rcpp::Named("cyclopsDataPtr") = ptr,            
             Rcpp::Named("timeLoad") = time,
             Rcpp::Named("debug") = List::create(
             		Rcpp::Named("totalY") = total
@@ -369,8 +369,8 @@ List ccdReadFileData(const std::string& fileName, const std::string& modelTypeNa
     return list;
 }
 
-// [[Rcpp::export(".ccdModelData")]]
-List ccdModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix, 
+// [[Rcpp::export(".cyclopsModelData")]]
+List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix, 
     const std::string& modelTypeName,
     bool useTimeAsOffset = false) {
 

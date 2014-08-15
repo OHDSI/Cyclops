@@ -26,37 +26,37 @@ PKG_LIBS = `$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"`
 
 CXX_STD = CXX11
 
-PKG_CPPFLAGS = -I. -Iccd -DR_BUILD -DWIN_BUILD -DDOUBLE_PRECISION
+PKG_CPPFLAGS = -I. -Icyclops -DR_BUILD -DWIN_BUILD -DDOUBLE_PRECISION
 
-SOURCES = $(wildcard *.cpp ccd/*.cpp ccd/drivers/*.cpp ccd/engine/*.cpp \
-					ccd/io/*.cpp ccd/priors/*.cpp utils/*.cpp)
+SOURCES = $(wildcard *.cpp cyclops/*.cpp cyclops/drivers/*.cpp cyclops/engine/*.cpp \
+					cyclops/io/*.cpp cyclops/priors/*.cpp utils/*.cpp)
 
-# OBJECTS.ccd = \
-#     ccd/CcdInterface.o \
-#     ccd/CompressedDataMatrix.o \
-#     ccd/CyclicCoordinateDescent.o \
-#     ccd/ModelData.o
+# OBJECTS.cyclops = \
+#     cyclops/CcdInterface.o \
+#     cyclops/CompressedDataMatrix.o \
+#     cyclops/CyclicCoordinateDescent.o \
+#     cyclops/ModelData.o
 # 
 # OBJECTS.drivers = \
-#     ccd/drivers/AbstractCrossValidationDriver.o \
-#     ccd/drivers/AbstractDriver.o \
-#     ccd/drivers/AbstractSelector.o \
-#     ccd/drivers/AutoSearchCrossValidationDriver.o \
-#     ccd/drivers/BootstrapDriver.o \
-#     ccd/drivers/BootstrapSelector.o \
-#     ccd/drivers/CrossValidationSelector.o \
-#     ccd/drivers/GridSearchCrossValidationDriver.o \
-#     ccd/drivers/HierarchyAutoSearchCrossValidationDriver.o \
-#     ccd/drivers/HierarchyGridSearchCrossValidationDriver.o \
-#     ccd/drivers/ProportionSelector.o
+#     cyclops/drivers/AbstractCrossValidationDriver.o \
+#     cyclops/drivers/AbstractDriver.o \
+#     cyclops/drivers/AbstractSelector.o \
+#     cyclops/drivers/AutoSearchCrossValidationDriver.o \
+#     cyclops/drivers/BootstrapDriver.o \
+#     cyclops/drivers/BootstrapSelector.o \
+#     cyclops/drivers/CrossValidationSelector.o \
+#     cyclops/drivers/GridSearchCrossValidationDriver.o \
+#     cyclops/drivers/HierarchyAutoSearchCrossValidationDriver.o \
+#     cyclops/drivers/HierarchyGridSearchCrossValidationDriver.o \
+#     cyclops/drivers/ProportionSelector.o
 #     
 # OBJECTS.engine = \
-#     ccd/engine/AbstractModelSpecifics.o
+#     cyclops/engine/AbstractModelSpecifics.o
 #     
 # OBJECTS.utils = \
 #     utils/HParSearch.o
 #      
-# OBJECTS = $(OBJECTS.ccd) $(OBJECTS.drivers) \
+# OBJECTS = $(OBJECTS.cyclops) $(OBJECTS.drivers) \
 #			$(OBJECTS.engine) $(OBJECTS.utils) 
 
 OBJECTS = $(SOURCES:.cpp=.o)

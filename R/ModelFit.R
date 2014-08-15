@@ -1,19 +1,19 @@
-#' @title fitCcdModel
+#' @title fitCyclopsModel
 #'
 #' @description
-#' \code{fitCcdModel} fits a CCD model data object
+#' \code{fitCyclopsModel} fits a Cyclops model data object
 #'
 #' @details
-#' This function performs numerical optimization to fit a CCD model data object.
+#' This function performs numerical optimization to fit a Cyclops model data object.
 #'
-#' @param ccdData			An OHDSI data object
+#' @param cyclopsData			An OHDSI data object
 #' @template prior
 #' @param control OHDSI control object, see \code{"\link{control}"}                        
 #' @param forceColdStart Logical, forces fitting algorithm to restart at regression coefficients = 0
-#' @param returnEstimates Logical, return regression coefficient estimates in CCD model fit object 
+#' @param returnEstimates Logical, return regression coefficient estimates in Cyclops model fit object 
 #' 
 #' @return
-#' A list that contains a CCD model fit object pointer and an operation duration
+#' A list that contains a Cyclops model fit object pointer and an operation duration
 #' 
 #' @references
 #' Suchard MA, Simpson SE, Zorych I, Ryan P, Madigan D. 
@@ -33,13 +33,13 @@
 #' counts <- c(18,17,15,20,10,20,25,13,12)
 #' outcome <- gl(3,1,9)
 #' treatment <- gl(3,3)
-#' ccdData <- createCcdDataFrame(counts ~ outcome + treatment, modelType = "pr")
-#' ccdFit <- fitCcdModel(ccdData, prior = prior("none"))
-#' coef(ccdFit)
-#' confint(ccdFit, c("outcome2","treatment3"))
-#' predict(ccdFit)
+#' cyclopsData <- createCyclopsDataFrame(counts ~ outcome + treatment, modelType = "pr")
+#' cyclopsFit <- fitCyclopsModel(cyclopsData, prior = prior("none"))
+#' coef(cyclopsFit)
+#' confint(cyclopsFit, c("outcome2","treatment3"))
+#' predict(cyclopsFit)
 #'
-fitCcdModel <- function(ccdData, 
+fitCyclopsModel <- function(cyclopsData, 
                         prior,
                         control,                        
                         forceColdStart = FALSE,
@@ -48,22 +48,22 @@ fitCcdModel <- function(ccdData,
 	cl <- match.call()
 	
 	# Check conditions
-	.checkData(ccdData)
+	.checkData(cyclopsData)
 	
-	if (getNumberOfRows(ccdData) < 1 ||
-				getNumberOfStrata(ccdData) < 1 ||
-				getNumberOfCovariates(ccdData) < 1) {
+	if (getNumberOfRows(cyclopsData) < 1 ||
+				getNumberOfStrata(cyclopsData) < 1 ||
+				getNumberOfCovariates(cyclopsData) < 1) {
 		stop("Data are incompletely loaded")
 	}
 	
-	.checkInterface(ccdData, forceColdStart)
+	.checkInterface(cyclopsData, forceColdStart)
     
 	if (!missing(prior)) { # Set up prior
-	    stopifnot(inherits(prior, "ccdPrior"))    	
-	    prior$exclude <- .checkCovariates(ccdData, prior$exclude)
+	    stopifnot(inherits(prior, "cyclopsPrior"))    	
+	    prior$exclude <- .checkCovariates(cyclopsData, prior$exclude)
         
-# 	    if (prior$priorType != "none" && .ccdGetHasIntercept(ccdData)) {           	        
-# 	        interceptId <- .ccdGetInterceptLabel(ccdData)
+# 	    if (prior$priorType != "none" && .cyclopsGetHasIntercept(cyclopsData)) {           	        
+# 	        interceptId <- .cyclopsGetInterceptLabel(cyclopsData)
 # 	        if (!(interceptId %in% prior$exclude) && !prior$forceIntercept) {	           
 # 	           warning("Excluding intercept from regularization")
 # 	           prior$exclude <- c(interceptId, prior$exclude)	         	           
@@ -71,11 +71,11 @@ fitCcdModel <- function(ccdData,
 # 	        }	        
 # 	    }
         
-	    .ccdSetPrior(ccdData$ccdInterfacePtr, prior$priorType, prior$variance, prior$exclude)    		
+	    .cyclopsSetPrior(cyclopsData$cyclopsInterfacePtr, prior$priorType, prior$variance, prior$exclude)    		
 	}
 	
     if (!missing(control)) {
-	    .setControl(ccdData$ccdInterfacePtr, control)
+	    .setControl(cyclopsData$cyclopsInterfacePtr, control)
     }
  	
 	if (!missing(prior) && prior$useCrossValidation) {
@@ -84,34 +84,34 @@ fitCcdModel <- function(ccdData,
 		} else {
 			minCVData <- control$minCVData
 		}
-		if (minCVData > getNumberOfRows(ccdData)) { # TODO Not correct; some models CV by stratum
+		if (minCVData > getNumberOfRows(cyclopsData)) { # TODO Not correct; some models CV by stratum
 			stop("Insufficient data count for cross validation")
 		}
-		fit <- .ccdRunCrossValidation(ccdData$ccdInterfacePtr)
+		fit <- .cyclopsRunCrossValidation(cyclopsData$cyclopsInterfacePtr)
 	} else {
-		fit <- .ccdFitModel(ccdData$ccdInterfacePtr)
+		fit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)
 	}
 	
 	if (returnEstimates && fit$return_flag == "SUCCESS") {
-		estimates <- .ccdLogModel(ccdData$ccdInterfacePtr)		
+		estimates <- .cyclopsLogModel(cyclopsData$cyclopsInterfacePtr)		
 		fit <- c(fit, estimates)	
 		fit$estimation <- as.data.frame(fit$estimation)
 	}	
 	fit$call <- cl
-	fit$ccdData <- ccdData
-	fit$ccdInterfacePtr <- ccdData$ccdInterfacePtr
-	fit$coefficientNames <- ccdData$coefficientNames
-	fit$rowNames <- ccdData$rowNames
-	class(fit) <- "ccdFit"
+	fit$cyclopsData <- cyclopsData
+	fit$cyclopsInterfacePtr <- cyclopsData$cyclopsInterfacePtr
+	fit$coefficientNames <- cyclopsData$coefficientNames
+	fit$rowNames <- cyclopsData$rowNames
+	class(fit) <- "cyclopsFit"
 	return(fit)
 } 
 
-.checkCovariates <- function(ccdData, covariates) {
+.checkCovariates <- function(cyclopsData, covariates) {
 	if (!is.null(covariates)) {
 		saved <- covariates
 		if (inherits(covariates, "character")) {
 			# Try to match names
-			covariates <- match(covariates, ccdData$coefficientNames)
+			covariates <- match(covariates, cyclopsData$coefficientNames)
 		}
 		covariates = as.numeric(covariates) 
 	 
@@ -124,28 +124,28 @@ fitCcdModel <- function(ccdData,
 
 .checkData <- function(x) {
 	# Check conditions
-	if (missing(x) || is.null(x$ccdDataPtr) || class(x$ccdDataPtr) != "externalptr") {
-		stop("Improperly constructed ccdData object")
+	if (missing(x) || is.null(x$cyclopsDataPtr) || class(x$cyclopsDataPtr) != "externalptr") {
+		stop("Improperly constructed cyclopsData object")
 	}	
-	if (.isRcppPtrNull(x$ccdDataPtr)) {
+	if (.isRcppPtrNull(x$cyclopsDataPtr)) {
 		stop("Data object is no longer initialized")			
 	}	
 }
 
 .checkInterface <- function(x, forceColdStart = FALSE, testOnly = FALSE) {
 	if (forceColdStart 
-			|| is.null(x$ccdInterfacePtr) 
-			|| class(x$ccdInterfacePtr) != "externalptr" 
-			|| .isRcppPtrNull(x$ccdInterfacePtr)
+			|| is.null(x$cyclopsInterfacePtr) 
+			|| class(x$cyclopsInterfacePtr) != "externalptr" 
+			|| .isRcppPtrNull(x$cyclopsInterfacePtr)
 		) {
 		
 		if (testOnly == TRUE) {
 			stop("Interface object is not initialized")
 		}
 		# Build interface
-		interface <- .ccdInitializeModel(x$ccdDataPtr, modelType = x$modelType, computeMLE = TRUE)
+		interface <- .cyclopsInitializeModel(x$cyclopsDataPtr, modelType = x$modelType, computeMLE = TRUE)
 		# TODO Check for errors
-        assign("ccdInterfacePtr", interface$interface, x)
+        assign("cyclopsInterfacePtr", interface$interface, x)
 	}
 }
 
@@ -154,13 +154,13 @@ fitCcdModel <- function(ccdData,
 #' @title Extract model coefficients
 #' 
 #' @description
-#' \code{coef.ccdFit} extracts model coefficients from an OHDSI CCD model fit object
+#' \code{coef.cyclopsFit} extracts model coefficients from an OHDSI Cyclops model fit object
 #' 
-#' @param object    OHDSI CCD model fit object
+#' @param object    OHDSI Cyclops model fit object
 #' @param ...       Other arguments
 #' 
 #' @return Named numeric vector of model coefficients.
-coef.ccdFit <- function(object, ...) {
+coef.cyclopsFit <- function(object, ...) {
 	result <- object$estimation$estimate
 	if (is.null(object$coefficientNames)) {
 		names(result) <- object$estimation$column_label
@@ -176,12 +176,12 @@ coef.ccdFit <- function(object, ...) {
 #' @title Get hyperparameter
 #' 
 #' @description
-#' \code{getHyperParameter} returns the current hyper parameter in an OHDSI CCD model fit object
+#' \code{getHyperParameter} returns the current hyper parameter in an OHDSI Cyclops model fit object
 #' 
-#' @param object    An OHDSI CCD model fit object
+#' @param object    An OHDSI Cyclops model fit object
 #'
 getHyperParameter <- function(object) {
-    if (class(object) == "ccdFit") {
+    if (class(object) == "cyclopsFit") {
         object$variance
     } else {
         NULL
@@ -191,33 +191,33 @@ getHyperParameter <- function(object) {
 #' @title Extract log-likelihood
 #' 
 #' @description
-#' \code{logLik} returns the current log-likelihood of the fit in an OHDSI CCD model fit object
+#' \code{logLik} returns the current log-likelihood of the fit in an OHDSI Cyclops model fit object
 #' 
-#' @param object    An OHDSI CCD model fit object
+#' @param object    An OHDSI Cyclops model fit object
 #' @param ...       Additional arguments
 #'
-logLik.ccdFit <- function(object, ...) {
+logLik.cyclopsFit <- function(object, ...) {
     object$log_likelihood
 }
 
 
-#' @method print ccdFit
-#' @title Print an OHDSI CCD model fit object
+#' @method print cyclopsFit
+#' @title Print an OHDSI Cyclops model fit object
 #' 
 #' @description
-#' \code{print.ccdFit} displays information about an OHDSI CCD model fit object
+#' \code{print.cyclopsFit} displays information about an OHDSI Cyclops model fit object
 #' 
-#' @param x    An OHDSI CCD model fit object
-#' @param show.call Logical: display last call to update the OHDSI CCD model fit object
+#' @param x    An OHDSI Cyclops model fit object
+#' @param show.call Logical: display last call to update the OHDSI Cyclops model fit object
 #' @param ...   Additional arguments
 #' 
-print.ccdFit <- function(x, show.call=TRUE ,...) {
-  cat("OHDSI CCD model fit object\n\n")
+print.cyclopsFit <- function(x, show.call=TRUE ,...) {
+  cat("OHDSI Cyclops model fit object\n\n")
   
   if (show.call && !is.null(x$call)) {
     cat("Call: ",paste(deparse(x$call),sep="\n",collapse="\n"),"\n\n",sep="")  
   }
-  cat("           Model: ", x$ccdData$modelType, "\n", sep="")
+  cat("           Model: ", x$cyclopsData$modelType, "\n", sep="")
   cat("           Prior: ", x$prior_info, "\n", sep="")
   cat("  Hyperparameter: ", x$variance, "\n", sep="")
   cat("     Return flag: ", x$return_flag, "\n", sep="")
@@ -231,9 +231,9 @@ print.ccdFit <- function(x, show.call=TRUE ,...) {
 #' @title control
 #'
 #' @description
-#' \code{control} builds a CCD control object
+#' \code{control} builds a Cyclops control object
 #'
-#' @param maxIterations			Integer: maximum iterations of CCD to attempt before returning a failed-to-converge error
+#' @param maxIterations			Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error
 #' @param tolerance					Numeric: maximum relative change in convergence criterion from successive iterations to achieve convergence
 #' @param convergenceType		String: name of convergence criterion to employ (described in more detail below)
 #' @param cvType						String: name of cross validation search. 
@@ -245,14 +245,14 @@ print.ccdFit <- function(x, show.call=TRUE ,...) {
 #' @param gridSteps					Numeric: Number of steps in grid-search
 #' @param cvRepetitions			Numeric: Number of repetitions of X-fold cross validation
 #' @param minCVData					Numeric: Minumim number of data for cross validation
-#' @param noiseLevel				String: level of CCD screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})
+#' @param noiseLevel				String: level of Cyclops screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})
 #' @param seed                  Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.
 #' 
 #' @section Criteria:
 #' TODO
 #' 
 #' @return
-#' A CCD convergence criteria object of class inheriting from \code{"ccdConvergence"} for use with \code{fitCcdModel}.
+#' A Cyclops convergence criteria object of class inheriting from \code{"cyclopsConvergence"} for use with \code{fitCyclopsModel}.
 #' 
 #' @examples \dontrun{
 #' # Add cross-validation example
@@ -275,13 +275,13 @@ control <- function(
 								 cvRepetitions = cvRepetitions,
 								 noiseLevel = noiseLevel,
                                  seed = seed),
-						class = "ccdControl")
+						class = "cyclopsControl")
 }
 
 #' @title prior
 #'
 #' @description
-#' \code{prior} builds a CCD prior object
+#' \code{prior} builds a Cyclops prior object
 #'
 #' @param priorType     Character: specifies prior distribution.  See below for options
 #' @param variance      Numeric: prior distribution variance
@@ -299,7 +299,7 @@ control <- function(
 #' variance = 2 * / (nobs * lambda)^2 or lambda = sqrt(2 / variance) / nobs
 #' 
 #' @return
-#' A CCD prior object of class inheriting from \code{"ccdPrior"} for use with \code{fitCcdModel}.
+#' A Cyclops prior object of class inheriting from \code{"cyclopsPrior"} for use with \code{fitCyclopsModel}.
 #' 
 prior <- function(priorType, 
                   variance = 1, 
@@ -321,7 +321,7 @@ prior <- function(priorType,
 	}
 	structure(list(priorType = priorType, variance = variance, exclude = exclude, 
 	               useCrossValidation = useCrossValidation, forceIntercept = forceIntercept), 
-              class = "ccdPrior")
+              class = "cyclopsPrior")
 }
 
 # clear <- function() {
@@ -329,18 +329,18 @@ prior <- function(priorType,
 # }
 
 
-#' @method predict ccdFit
+#' @method predict cyclopsFit
 #' @title Model predictions
 #' 
 #' @description
-#' \code{predict.ccdFit} computes model response-scale predictive values for all data rows
+#' \code{predict.cyclopsFit} computes model response-scale predictive values for all data rows
 #' 
-#' @param object    An OHDSI CCD model fit object
+#' @param object    An OHDSI Cyclops model fit object
 #' @param ...   Additional arguments
 #' 
-predict.ccdFit <- function(object, ...) {
+predict.cyclopsFit <- function(object, ...) {
 	.checkInterface(object, testOnly = TRUE)
-	pred <- .ccdPredictModel(object$ccdInterfacePtr)
+	pred <- .cyclopsPredictModel(object$cyclopsInterfacePtr)
  	values <- pred$prediction
  	if (is.null(names(values))) {
  		names(values) <- object$rowNames
@@ -348,13 +348,13 @@ predict.ccdFit <- function(object, ...) {
  	values
 }
 
-.setControl <- function(ccdInterfacePtr, control) {
+.setControl <- function(cyclopsInterfacePtr, control) {
 	if (!missing(control)) { # Set up control
-		stopifnot(inherits(control, "ccdControl"))
+		stopifnot(inherits(control, "cyclopsControl"))
         if (is.null(control$seed)) {
             control$seed <- as.integer(Sys.time())
         }
-		.ccdSetControl(ccdInterfacePtr, control$maxIterations, control$tolerance, 
+		.cyclopsSetControl(cyclopsInterfacePtr, control$maxIterations, control$tolerance, 
 									 control$convergenceType, control$autoSearch, control$fold, 
 									 (control$fold * control$cvRepetitions),
 									 control$lowerLimit, control$upperLimit, control$gridSteps, 
@@ -365,7 +365,7 @@ predict.ccdFit <- function(object, ...) {
 #' @title Extract standard errors
 #' 
 #' @description
-#' \code{getSEs} extracts asymptotic standard errors for specific covariates from an OHDSI CCD model fit object.
+#' \code{getSEs} extracts asymptotic standard errors for specific covariates from an OHDSI Cyclops model fit object.
 #' 
 #' @details This function first computes the (partial) Fisher information matrix for
 #' just the requested covariates and then returns the square root of the diagonal elements of
@@ -374,31 +374,31 @@ predict.ccdFit <- function(object, ...) {
 #' When the requested covariates do not equate to all coefficients in the model,
 #' then interpretation is more challenging.
 #' 
-#' @param object    An OHDSI CCD model fit object
+#' @param object    An OHDSI Cyclops model fit object
 #' @param covariates    Integer or string vector: list of covariates for which asymptotic standard errors are wanted
 #' 
 #' @return Vector of standard error estimates
 #'
 getSEs <- function(object, covariates) {
     .checkInterface(object, testOnly = TRUE)    
-    covariates <- .checkCovariates(object$ccdData, covariates)
-    fisherInformation <- .ccdGetFisherInformation(object$ccdInterfacePtr, covariates)
+    covariates <- .checkCovariates(object$cyclopsData, covariates)
+    fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsInterfacePtr, covariates)
     ses <- sqrt(diag(solve(fisherInformation)))
     names(ses) <- object$coefficientNames[covariates]
     ses
 }
 
-#' @title confint.ccdFit
+#' @title confint.cyclopsFit
 #'
 #' @description
-#' \code{confinit.ccdFit} profiles the data likelihood to construct confidence intervals of
+#' \code{confinit.cyclopsFit} profiles the data likelihood to construct confidence intervals of
 #' arbitrary level.   TODO: Profile data likelihood or joint distribution of remaining parameters.
 #' 
-#' @param object    A fitted CCD model object
+#' @param object    A fitted Cyclops model object
 #' @param parm      A specification of which parameters require confidence intervals,
 #'                  either a vector of numbers of covariateId names
 #' @param level     Numeric: confidence level required
-#' @param control   A CCD \code{\link{control}} object
+#' @param control   A Cyclops \code{\link{control}} object
 #' @param overrideNoRegularization   Logical: Enables confidence interval estimation for regularized parameters
 #' @param ... Additional argument(s) for methods
 #' 
@@ -407,17 +407,17 @@ getSEs <- function(object, covariates) {
 #' These columns are labelled as (1-level) / 2 and 1 - (1 - level) / 2 in % 
 #' (by default 2.5% and 97.5%)
 #' 
-confint.ccdFit <- function(object, parm, level = 0.95, control, 
+confint.cyclopsFit <- function(object, parm, level = 0.95, control, 
                            overrideNoRegularization = FALSE, ...) {
     .checkInterface(object, testOnly = TRUE)
-    .setControl(object$ccdInterfacePtr, control)
-    parm <- .checkCovariates(object$ccdData, parm)
+    .setControl(object$cyclopsInterfacePtr, control)
+    parm <- .checkCovariates(object$cyclopsData, parm)
     if (level < 0.01 || level > 0.99) {
         stop("level must be between 0 and 1")
     }
     threshold <- qchisq(level, df = 1) / 2
     
-    prof <- .ccdProfileModel(object$ccdInterfacePtr, parm, threshold,
+    prof <- .cyclopsProfileModel(object$cyclopsInterfacePtr, parm, threshold,
                              overrideNoRegularization)
     prof <- as.matrix(as.data.frame(prof))
     rownames(prof) <- object$coefficientNames[parm]
@@ -426,17 +426,17 @@ confint.ccdFit <- function(object, parm, level = 0.95, control,
     prof
 }
 
-#' @title Convert to CCD Prior Variance
+#' @title Convert to Cyclops Prior Variance
 #' 
 #' @description
-#' \code{convertToCcdVariance} converts the regularization parameter \code{lambda}
+#' \code{convertToCyclopsVariance} converts the regularization parameter \code{lambda}
 #' from \code{glmnet} into a prior variance.
 #' 
 #' @param lambda    Regularization parameter from \code{glmnet}
 #' @param nobs      Number of observation rows in dataset
 #' 
 #' @return Prior variance under a Laplace() prior
-convertToCcdVariance <- function(lambda, nobs) {
+convertToCyclopsVariance <- function(lambda, nobs) {
     2 / (nobs * lambda)^2
 }
 
@@ -444,7 +444,7 @@ convertToCcdVariance <- function(lambda, nobs) {
 #' 
 #' @description
 #' \code{convertToGlmnetLambda} converts a prior variance
-#' from \code{CCD} into the regularization parameter \code{lambda}.
+#' from \code{Cyclops} into the regularization parameter \code{lambda}.
 #' 
 #' @param variance  Prior variance
 #' @param nobs      Number of observation rows in dataset

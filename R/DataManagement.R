@@ -1,10 +1,10 @@
-#' @title createCcdDataFrame
+#' @title createCyclopsDataFrame
 #'
 #' @description
-#' \code{createCcdDataFrame} creates a CCD model data object from an R formula
+#' \code{createCyclopsDataFrame} creates a Cyclops model data object from an R formula
 #'
 #' @details
-#' This function creates a CCD model data object from R \code{"\link{formula}"} or directly from
+#' This function creates a Cyclops model data object from R \code{"\link{formula}"} or directly from
 #' numeric vectors and matrices to define the model response and covariates.
 #' If specifying a model using a \code{"\link{formula}"}, then the left-hand side define the model response and the
 #' right-hand side defines dense covariate terms.  
@@ -54,24 +54,24 @@
 #' Currently undocumented
 #' 
 #' @return
-#' A list that contains a CCD model data object pointer and an operation duration
+#' A list that contains a Cyclops model data object pointer and an operation duration
 #' 
 #' @examples
 #' ## Dobson (1990) Page 93: Randomized Controlled Trial :
 #' counts <- c(18,17,15,20,10,20,25,13,12)
 #' outcome <- gl(3,1,9)
 #' treatment <- gl(3,3)
-#' ccdData <- createCcdDataFrame(counts ~ outcome + treatment, modelType = "pr")
-#' ccdFit <- fitCcdModel(ccdData)
+#' cyclopsData <- createCyclopsDataFrame(counts ~ outcome + treatment, modelType = "pr")
+#' cyclopsFit <- fitCyclopsModel(cyclopsData)
 #'
-#' ccdData2 <- createCcdDataFrame(counts ~ outcome, indicatorFormula = ~ treatment, modelType = "pr")
-#' summary(ccdData2)
-#' ccdFit2 <- fitCcdModel(ccdData2)
+#' cyclopsData2 <- createCyclopsDataFrame(counts ~ outcome, indicatorFormula = ~ treatment, modelType = "pr")
+#' summary(cyclopsData2)
+#' cyclopsFit2 <- fitCyclopsModel(cyclopsData2)
 #'
 #' @export
-createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelType,
+createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, modelType,
                                data, subset, weights, offset, time = NULL, pid = NULL, y = NULL, z = NULL, dx = NULL, 
-                               sx = NULL, ix = NULL, model = FALSE, method = "ccd.fit") {	
+                               sx = NULL, ix = NULL, model = FALSE, method = "cyclops.fit") {	
     cl <- match.call() # save to return
     mf.all <- match.call(expand.dots = FALSE)
     
@@ -80,7 +80,7 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
     hasIntercept <- FALSE		
     colnames <- NULL
     
-    if (!missing(formula)) { # Use formula to construct CCD matrices
+    if (!missing(formula)) { # Use formula to construct Cyclops matrices
         if (missing(data)) {
             data <- environment(formula)
         }					
@@ -264,16 +264,16 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
         pid <- c(1:length(y)) # TODO Should not be necessary
     }
     
-    md <- .ccdModelData(pid, y, z, time, dx, sx, ix, modelType, useTimeAsOffset)
+    md <- .cyclopsModelData(pid, y, z, time, dx, sx, ix, modelType, useTimeAsOffset)
     result <- new.env(parent = emptyenv())
-    result$ccdDataPtr <- md$data
+    result$cyclopsDataPtr <- md$data
     result$modelType <- modelType
     result$timeLoad <- md$timeLoad	
     result$call <- cl
 #     if (exists("mf") && model == TRUE) {
 #         result$mf <- mf
 #     }
-    result$ccdInterfacePtr <- NULL
+    result$cyclopsInterfacePtr <- NULL
     result$call <- cl
     result$coefficientNames <- colnames
     
@@ -294,10 +294,10 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
         result$debug$pid <- pid
         result$debug$time <- time
     }
-    class(result) <- "ccdData"
+    class(result) <- "cyclopsData"
     
     if (hasIntercept == TRUE) {
-        .ccdSetHasIntercept(result, hasIntercept = TRUE)
+        .cyclopsSetHasIntercept(result, hasIntercept = TRUE)
     }
     
     result
@@ -306,7 +306,7 @@ createCcdDataFrame <- function(formula, sparseFormula, indicatorFormula, modelTy
 #' @title isValidModelType
 #'
 #' @description
-#' \code{isValidModelType} checks for a valid CCD model type
+#' \code{isValidModelType} checks for a valid Cyclops model type
 #'
 #' @template types
 #'
@@ -316,13 +316,13 @@ isValidModelType <- function(modelType) {
     modelType %in% types
 }
 
-#' @title readCcdData
+#' @title readCyclopsData
 #'
 #' @description
-#' \code{readCcdData} reads a CCD-formatted text file
+#' \code{readCyclopsData} reads a Cyclops-formatted text file
 #'
 #' @details
-#' This function reads a CCD-formatted text file and returns a CCD data object. The first line of the
+#' This function reads a Cyclops-formatted text file and returns a Cyclops data object. The first line of the
 #' file may start with '\samp{#}', indicating that it contains header options.  Valid header options are:
 #' 
 #'  \tabular{ll}{  
@@ -362,25 +362,25 @@ isValidModelType <- function(modelType) {
 #' @param fileName          Name of text file to be read. If fileName does not contain an absolute path, 
 #' 												 the name is relative to the current working directory, \code{\link{getwd}}. 
 #'
-#' @template ccdData
+#' @template cyclopsData
 #' 
 #' @examples
-#' dataPtr = readCcdData(system.file("extdata/infert_ccd.txt", package="CCD"), "clr")
+#' dataPtr = readCyclopsData(system.file("extdata/infert_ccd.txt", package="cyclops"), "clr")
 #'
-readCcdData <- function(fileName, modelType) {
+readCyclopsData <- function(fileName, modelType) {
     cl <- match.call() # save to return
     
     if (!isValidModelType(modelType)) stop("Invalid model type.")    
     
-    read <- .ccdReadData(fileName, modelType)
+    read <- .cyclopsReadData(fileName, modelType)
     result <- new.env(parent = emptyenv())
-    result$ccdDataPtr <- read$ccdDataPtr
+    result$cyclopsDataPtr <- read$cyclopsDataPtr
     result$modelType <- modelType
     result$timeLoad <- read$timeLoad
-    result$ccdInterfacePtr <- NULL
+    result$cyclopsInterfacePtr <- NULL
     result$call <- cl
     
-    class(result) <- "ccdData"
+    class(result) <- "cyclopsData"
     result
 }
 
@@ -389,7 +389,7 @@ readCcdData <- function(fileName, modelType) {
 #' 
 #' @description \code{reduce} reports the count of non-zero elements, sum and sum-of-squares for specified covariates in an OHDSI data object.
 #' 
-#' @param object    An OHDSI CCD data object
+#' @param object    An OHDSI Cyclops data object
 #' @param covariates Integer or string vector: list of covariates to report
 #' @param groupBy   Integer or string (optional): generates a segmented reduction stratified by this covariate.  Setting \code{groupBy = "stratum"} segments reduction for strataID
 #' @param power Integer: 0 = non-zero count, 1 = sum, 2 = sum-of-squares
@@ -407,17 +407,17 @@ reduce <- function(object, covariates, groupBy, power = 1) {
     }
     
 	if (missing(groupBy)) {
-		.ccdSum(object, covariates, power)
+		.cyclopsSum(object, covariates, power)
 	} else {
 		if (length(groupBy) != 1L) {
 			stop("Only single stratification is currently implemented")
 		}
 		if (groupBy == "stratum") {
-			as.data.frame(.ccdSumByStratum(object, covariates, power), 
+			as.data.frame(.cyclopsSumByStratum(object, covariates, power), 
 										row.names = c(1L:getNumberOfStrata(object)))			
 		} else {
 			groupBy <- .checkCovariates(object, groupBy)
-			as.data.frame(.ccdSumByGroup(object, covariates, groupBy, power), 
+			as.data.frame(.cyclopsSumByGroup(object, covariates, groupBy, power), 
 										row.names = c(0L,1L))			
 		}				
 	}
@@ -425,16 +425,16 @@ reduce <- function(object, covariates, groupBy, power = 1) {
 
 
 
-#' @title appendSqlCcdData
+#' @title appendSqlCyclopsData
 #'
 #' @description
-#' \code{appendSqlCcdData} appends data to an OHDSI data object.
+#' \code{appendSqlCyclopsData} appends data to an OHDSI data object.
 #' 
 #' @details Append data using two tables.  The outcomes table is dense and contains ...  The covariates table is sparse and contains ...
 #' All entries in the outcome table must be sorted in increasing order by {oStratumId, oRowId}.  All entries in the covariate table
 #' must be sorted in increasing order by {cRowId}. Each cRowId value must match exactly one oRowId value.
 #' 
-#' @param object    OHDSI CCD data object to append entries
+#' @param object    OHDSI Cyclops data object to append entries
 #' @param oStratumId    Integer vector (optional): non-unique stratum identifier for each row in outcomes table
 #' @param oRowId        Integer vector: unique row identifier for each row in outcomes table
 #' @param oY            Numeric vector: model outcome variable for each row in outcomes table
@@ -443,7 +443,7 @@ reduce <- function(object, covariates, groupBy, power = 1) {
 #' @param cCovariateId  Integer vector: covariate identifier
 #' @param cCovariateValue   Numeric vector: covariate value
 #' 
-appendSqlCcdData <- function(object,
+appendSqlCyclopsData <- function(object,
                              oStratumId,
                              oRowId,
                              oY,
@@ -459,7 +459,7 @@ appendSqlCcdData <- function(object,
         stop("All columns must be sorted first by stratumId (if supplied) and then by rowId")
     }
     
-    .appendSqlCcdData(object, 
+    .appendSqlCyclopsData(object, 
                       oStratumId, 
                       oRowId, 
                       oY, 
@@ -469,22 +469,22 @@ appendSqlCcdData <- function(object,
                       cCovariateValue)
 }
 
-#' @title finalizeSqlCcdData
+#' @title finalizeSqlCyclopsData
 #'
 #' @description
-#' \code{finalizeSqlCcdData} finalizes a CCD data object
+#' \code{finalizeSqlCyclopsData} finalizes a Cyclops data object
 #'
-#' @param object							CCD data object
+#' @param object							Cyclops data object
 #' @param addIntercept				Add an intercept covariate if one was not imported through SQL
 #' @param useOffsetCovariate	Specify is a covariate should be used as an offset (fixed coefficient = 1).
 #' 														Set option to \code{"useTime"} to specify the time-to-event column, 
 #' 														otherwise include a single numeric or character covariate name.
-#' @param offsetAlreadyOnLogScale						Set to \code{TRUE} to indicate that offsets were log-transformed before importing into CCD data object. 														
+#' @param offsetAlreadyOnLogScale						Set to \code{TRUE} to indicate that offsets were log-transformed before importing into Cyclops data object. 														
 #' @param sortCovariates			Sort covariates in numeric-order with intercept first if it exists.
-#' @param makeCovariatesDense List of numeric or character covariates names to densely represent in CCD data object.
+#' @param makeCovariatesDense List of numeric or character covariates names to densely represent in Cyclops data object.
 #' 														For efficiency, we suggest making atleast the intercept dense.
 #'
-finalizeSqlCcdData <- function(object,
+finalizeSqlCyclopsData <- function(object,
                                addIntercept = FALSE,
                                useOffsetCovariate = NULL,
                                offsetAlreadyOnLogScale = FALSE,
@@ -502,7 +502,7 @@ finalizeSqlCcdData <- function(object,
     
     makeCovariatesDense <- .checkCovariates(object, makeCovariatesDense)
         
-    .ccdFinalizeData(object, addIntercept, useOffsetCovariate,
+    .cyclopsFinalizeData(object, addIntercept, useOffsetCovariate,
                         offsetAlreadyOnLogScale, sortCovariates,
                         makeCovariatesDense)
     
@@ -519,33 +519,33 @@ finalizeSqlCcdData <- function(object,
     }
 }
 
-#' @title Create an OHDSI CCD data object from SQL input
+#' @title Create an OHDSI Cyclops data object from SQL input
 #' 
 #' @description
-#' \code{createSqlCcdData} creates an empty OHDSI CCD data object into which data can be appended in chunks.
+#' \code{createSqlCyclopsData} creates an empty OHDSI Cyclops data object into which data can be appended in chunks.
 #' 
 #' @template types
-#' @param control    An OHDSI CCD fit control object (optional)
+#' @param control    An OHDSI Cyclops fit control object (optional)
 #' 
-createSqlCcdData <- function(modelType, control) {
+createSqlCyclopsData <- function(modelType, control) {
 	cl <- match.call() # save to return
 	
 	if (!isValidModelType(modelType)) stop("Invalid model type.")  
     
     noiseLevel <- "silent"
 	if (!missing(control)) { # Set up control
-	    stopifnot(inherits(control, "ccdControl"))
+	    stopifnot(inherits(control, "cyclopsControl"))
         noiseLevel <- control$noiseLevel
 	}
 	
-	sql <- .ccdNewSqlData(modelType, noiseLevel)
+	sql <- .cyclopsNewSqlData(modelType, noiseLevel)
 	result <- new.env(parent = emptyenv()) # TODO Remove code duplication with two functions above
-	result$ccdDataPtr <- sql$ccdDataPtr
+	result$cyclopsDataPtr <- sql$cyclopsDataPtr
 	result$modelType <- modelType
 	result$timeLoad <- 0
-	result$ccdInterfacePtr <- NULL
+	result$cyclopsInterfacePtr <- NULL
 	result$call <- cl
-	class(result) <- "ccdData"
+	class(result) <- "cyclopsData"
 	result
 }
 
@@ -559,7 +559,7 @@ createSqlCcdData <- function(modelType, control) {
 #' @param object    OHDSI data object to test
 #' 
 isInitialized <- function(object) {
-	return(!is.null(object$ccdDataPtr) && !.isRcppPtrNull(object$ccdDataPtr))	
+	return(!is.null(object$cyclopsDataPtr) && !.isRcppPtrNull(object$cyclopsDataPtr))	
 }
 
 
@@ -572,19 +572,19 @@ isInitialized <- function(object) {
 }
 
 
-#' @title OHDSI CCD data object summary
+#' @title OHDSI Cyclops data object summary
 #' 
-#' @method summary ccdData
+#' @method summary cyclopsData
 #' 
-#' @description \code{summary.ccdData} summarizes the data held in an OHDSI CCD data object.
+#' @description \code{summary.cyclopsData} summarizes the data held in an OHDSI Cyclops data object.
 #' 
-#' @param object    An OHDSI CCD data object
+#' @param object    An OHDSI Cyclops data object
 #' @param ...       Additional arguments
 #' 
 #' @return
-#' Returns a \code{data.frame} that reports simply summarize statistics for each covariate in an OHDSI CCD data object.
+#' Returns a \code{data.frame} that reports simply summarize statistics for each covariate in an OHDSI Cyclops data object.
 #' 
-summary.ccdData <- function(object, ...) {
+summary.cyclopsData <- function(object, ...) {
     if (!isInitialized(object)) {
         stop("OHDSI data object is no longer or improperly initialized")
     }
@@ -603,7 +603,7 @@ summary.ccdData <- function(object, ...) {
                      type = types)
 
     if (!is.null(object$coefficientNames)) {
-#         if(.ccdGetHasIntercept(x)) {
+#         if(.cyclopsGetHasIntercept(x)) {
 #             row.names(tdf) <- x$coefficientNames[-1]            
 #         } else {
             row.names(tdf) <- object$coefficientNames
@@ -613,18 +613,18 @@ summary.ccdData <- function(object, ...) {
 }
 
 
-#' @method print ccdData
-#' @title Print an OHDSI CCD data model object
+#' @method print cyclopsData
+#' @title Print an OHDSI Cyclops data model object
 #' 
 #' @description
-#' \code{print.ccdData} displays information about an OHDSI CCD data model object
+#' \code{print.cyclopsData} displays information about an OHDSI Cyclops data model object
 #' 
-#' @param x    An OHDSI CCD data model object
-#' @param show.call Logical: display last call to construct the OHDSI CCD data model object
+#' @param x    An OHDSI Cyclops data model object
+#' @param show.call Logical: display last call to construct the OHDSI Cyclops data model object
 #' @param ...   Additional arguments
 #' 
-print.ccdData <- function(x, show.call=TRUE ,...) {
-  cat("OHDSI CCD Data Object\n\n")
+print.cyclopsData <- function(x, show.call=TRUE ,...) {
+  cat("OHDSI Cyclops Data Object\n\n")
   
   if (show.call && !is.null(x$call)) {
     cat("Call: ",paste(deparse(x$call),sep="\n",collapse="\n"),"\n\n",sep="")  
@@ -643,7 +643,7 @@ print.ccdData <- function(x, show.call=TRUE ,...) {
     cat("\nObject is no longer or improperly initialized.\n")
   }
   cat("\n")
-  if (!is.null(x$ccdInterfacePtr) && !.isRcppPtrNull(x$ccdInterfacePtr)) {    
+  if (!is.null(x$cyclopsInterfacePtr) && !.isRcppPtrNull(x$cyclopsInterfacePtr)) {    
     cat("Initialized interface (details coming soon).\n")
   } else {
     cat("Uninitialized interface.\n")

@@ -14,16 +14,16 @@ test_that("Small Poisson dense regression", {
     
     glmFit <- glm(counts ~ outcome + treatment, data = dobson, family = poisson()) # gold standard
     
-    dataPtrD <- createCcdDataFrame(counts ~ outcome + treatment, data = dobson,
+    dataPtrD <- createCyclopsDataFrame(counts ~ outcome + treatment, data = dobson,
                                    modelType = "pr")														
-    ccdFitD <- fitCcdModel(dataPtrD, 
+    cyclopsFitD <- fitCyclopsModel(dataPtrD, 
                            prior = prior("none"),
                            control = control(noiseLevel = "silent"))
-    expect_equal(coef(ccdFitD), coef(glmFit), tolerance = tolerance)
-    expect_equal(ccdFitD$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
-    expect_equal(confint(ccdFitD, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
-    expect_equal(predict(ccdFitD), predict(glmFit, type = "response"), tolerance = tolerance)
-    expect_equal(confint(ccdFitD, c("(Intercept)","outcome3")), confint(ccdFitD, c(1,3)))
+    expect_equal(coef(cyclopsFitD), coef(glmFit), tolerance = tolerance)
+    expect_equal(cyclopsFitD$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
+    expect_equal(confint(cyclopsFitD, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
+    expect_equal(predict(cyclopsFitD), predict(glmFit, type = "response"), tolerance = tolerance)
+    expect_equal(confint(cyclopsFitD, c("(Intercept)","outcome3")), confint(cyclopsFitD, c(1,3)))
 })
 
 test_that("Specify CI level", {
@@ -35,14 +35,14 @@ test_that("Specify CI level", {
     
     glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard    
     
-    dataPtr <- createCcdDataFrame(counts ~ outcome + treatment,
+    dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment,
                                    modelType = "pr")    													
-    ccdFit <- fitCcdModel(dataPtr, 
+    cyclopsFit <- fitCyclopsModel(dataPtr, 
                            prior = prior("none"),
                            control = control(noiseLevel = "silent"))
 
     expect_equal(
-        confint(ccdFit, c(1:3), level = 0.99)[,2:3], 
+        confint(cyclopsFit, c(1:3), level = 0.99)[,2:3], 
         confint(glmFit, c(1:3), level = 0.99), 
         tolerance = tolerance)
     
@@ -57,16 +57,16 @@ test_that("Small Poisson indicator regression", {
     
     glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard	
     
-    dataPtrI <- createCcdDataFrame(counts ~ outcome, indicatorFormula =  ~ treatment, 
+    dataPtrI <- createCyclopsDataFrame(counts ~ outcome, indicatorFormula =  ~ treatment, 
                                    modelType = "pr")
     
-    ccdFitI <- fitCcdModel(dataPtrI, 
+    cyclopsFitI <- fitCyclopsModel(dataPtrI, 
                            prior = prior("none"),
                            control = control(noiseLevel = "silent"))
-    expect_equal(coef(ccdFitI), coef(glmFit), tolerance = tolerance)
-    expect_equal(ccdFitI$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
-    expect_equal(confint(ccdFitI, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
-    expect_equal(predict(ccdFitI), predict(glmFit, type = "response"), tolerance = tolerance)
+    expect_equal(coef(cyclopsFitI), coef(glmFit), tolerance = tolerance)
+    expect_equal(cyclopsFitI$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
+    expect_equal(confint(cyclopsFitI, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
+    expect_equal(predict(cyclopsFitI), predict(glmFit, type = "response"), tolerance = tolerance)
 })
 
 test_that("Small Poisson sparse regression", {
@@ -77,15 +77,15 @@ test_that("Small Poisson sparse regression", {
     
     glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard		
     
-    dataPtrS <- createCcdDataFrame(counts ~ outcome, sparseFormula =  ~ treatment, 
+    dataPtrS <- createCyclopsDataFrame(counts ~ outcome, sparseFormula =  ~ treatment, 
                                    modelType = "pr")
-    ccdFitS <- fitCcdModel(dataPtrS, 
+    cyclopsFitS <- fitCyclopsModel(dataPtrS, 
                            prior = prior("none"),
                            control = control(noiseLevel = "silent"))
-    expect_equal(coef(ccdFitS), coef(glmFit), tolerance = tolerance)
-    expect_equal(ccdFitS$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
-    expect_equal(confint(ccdFitS, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
-    expect_equal(predict(ccdFitS), predict(glmFit, type = "response"), tolerance = tolerance)
+    expect_equal(coef(cyclopsFitS), coef(glmFit), tolerance = tolerance)
+    expect_equal(cyclopsFitS$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
+    expect_equal(confint(cyclopsFitS, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
+    expect_equal(predict(cyclopsFitS), predict(glmFit, type = "response"), tolerance = tolerance)
 })
 
 
@@ -98,12 +98,12 @@ test_that("Get SEs in small Poisson model", {
     gold <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard    
     goldSE <- summary(gold)$coefficients[,2]
     
-    dataPtr <- createCcdDataFrame(counts ~ outcome + treatment,
+    dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment,
                                   modelType = "pr")        												
-    ccdFit <- fitCcdModel(dataPtr, 
+    cyclopsFit <- fitCyclopsModel(dataPtr, 
                           prior = prior("none"))
         
-    ccdSE <- getSEs(ccdFit, c(1:5))
+    cyclopsSE <- getSEs(cyclopsFit, c(1:5))
      
-    expect_equal(goldSE, ccdSE, tolerance = tolerance)        
+    expect_equal(goldSE, cyclopsSE, tolerance = tolerance)        
 })

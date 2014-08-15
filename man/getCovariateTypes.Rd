@@ -6,11 +6,11 @@
 getCovariateTypes(object, covariateLabel)
 }
 \arguments{
-\item{object}{An OHDSI CCD data object}
+\item{object}{An OHDSI Cyclops data object}
 
 \item{covariateLabel}{Integer vector: covariate identifiers to return}
 }
 \description{
-\code{getCovariateTypes} returns a vector covariate types in an OHDSI CCD data object
+\code{getCovariateTypes} returns a vector covariate types in an OHDSI Cyclops data object
 }
 

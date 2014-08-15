@@ -6,7 +6,7 @@
 reduce(object, covariates, groupBy, power = 1)
 }
 \arguments{
-\item{object}{An OHDSI CCD data object}
+\item{object}{An OHDSI Cyclops data object}
 
 \item{covariates}{Integer or string vector: list of covariates to report}
 

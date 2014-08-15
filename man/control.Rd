@@ -9,7 +9,7 @@ control(maxIterations = 1000, tolerance = 1e-06,
   minCVData = 100, noiseLevel = "silent", seed = NULL)
 }
 \arguments{
-\item{maxIterations}{Integer: maximum iterations of CCD to attempt before returning a failed-to-converge error}
+\item{maxIterations}{Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error}
 
 \item{tolerance}{Numeric: maximum relative change in convergence criterion from successive iterations to achieve convergence}
 
@@ -31,15 +31,15 @@ Option \code{"grid"} selects a grid-search cross validation}
 
 \item{minCVData}{Numeric: Minumim number of data for cross validation}
 
-\item{noiseLevel}{String: level of CCD screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})}
+\item{noiseLevel}{String: level of Cyclops screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})}
 
 \item{seed}{Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.}
 }
 \value{
-A CCD convergence criteria object of class inheriting from \code{"ccdConvergence"} for use with \code{fitCcdModel}.
+A Cyclops convergence criteria object of class inheriting from \code{"cyclopsConvergence"} for use with \code{fitCyclopsModel}.
 }
 \description{
-\code{control} builds a CCD control object
+\code{control} builds a Cyclops control object
 }
 \section{Criteria}{
 

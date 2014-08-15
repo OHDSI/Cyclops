@@ -35,15 +35,15 @@ test_that("Test constructor and append", {
         1,3,5)
     cCovariateValue <- rep(1, 21)
     
-    dataPtr <- createSqlCcdData(modelType = "pr")
+    dataPtr <- createSqlCyclopsData(modelType = "pr")
     
     # Should have no data
     expect_equal(getNumberOfRows(dataPtr), 0)
     expect_equal(getNumberOfStrata(dataPtr), 0)
     expect_equal(getNumberOfCovariates(dataPtr), 0)    
-    expect_error(fitCcdModel(dataPtr))
+    expect_error(fitCyclopsModel(dataPtr))
     
-    count <- appendSqlCcdData(dataPtr,
+    count <- appendSqlCyclopsData(dataPtr,
                               oStratumId,
                               oRowId,
                               oY,
@@ -51,22 +51,22 @@ test_that("Test constructor and append", {
                               cRowId,
                               cCovariateId,
                               cCovariateValue)
-    finalizeSqlCcdData(dataPtr) # Not yet implemented
+    finalizeSqlCyclopsData(dataPtr) # Not yet implemented
     
     expect_equal(count, 9)
     expect_equal(getNumberOfRows(dataPtr), 9)
     expect_equal(getNumberOfStrata(dataPtr), 9)
     expect_equal(getNumberOfCovariates(dataPtr), 5)
     
-    ccdFit <- fitCcdModel(dataPtr, control = control(noiseLevel = "silent"))
+    cyclopsFit <- fitCyclopsModel(dataPtr, control = control(noiseLevel = "silent"))
     
-    dataPtrF <- createCcdDataFrame(counts ~ outcome + treatment, modelType = "pr")
-    ccdFitF <- fitCcdModel(dataPtrF, control = control(noiseLevel = "silent"))
-    expect_equivalent(coef(ccdFit), coef(ccdFitF)) # Have different coefficient names
+    dataPtrF <- createCyclopsDataFrame(counts ~ outcome + treatment, modelType = "pr")
+    cyclopsFitF <- fitCyclopsModel(dataPtrF, control = control(noiseLevel = "silent"))
+    expect_equivalent(coef(cyclopsFit), coef(cyclopsFitF)) # Have different coefficient names
     
     # Test chucked append
-    dataPtrC <- createSqlCcdData(modelType = "pr")
-    count <- appendSqlCcdData(dataPtrC,													
+    dataPtrC <- createSqlCyclopsData(modelType = "pr")
+    count <- appendSqlCyclopsData(dataPtrC,													
                               oStratumId[1:5],													
                               oRowId[1:5],													
                               oY[1:5],													
@@ -75,7 +75,7 @@ test_that("Test constructor and append", {
                               cCovariateId[1:10],													
                               cCovariateValue[1:10])
     
-    count <- appendSqlCcdData(dataPtrC,															
+    count <- appendSqlCyclopsData(dataPtrC,															
                               oStratumId[6:9],																										
                               oRowId[6:9],																										
                               oY[6:9],																										
@@ -83,15 +83,15 @@ test_that("Test constructor and append", {
                               cRowId[11:21],																										
                               cCovariateId[11:21],																										
                               cCovariateValue[11:21])
-    finalizeSqlCcdData(dataPtrC) # Not yet implemented
+    finalizeSqlCyclopsData(dataPtrC) # Not yet implemented
     
     expect_equal(count, 4)
     expect_equal(getNumberOfRows(dataPtrC), 9)
     expect_equal(getNumberOfStrata(dataPtrC), 9)
     expect_equal(getNumberOfCovariates(dataPtrC), 5)
     
-    ccdFitC <- fitCcdModel(dataPtrC, control = control(noiseLevel = "silent"))
-    expect_equal(coef(ccdFitC), coef(ccdFit))
+    cyclopsFitC <- fitCyclopsModel(dataPtrC, control = control(noiseLevel = "silent"))
+    expect_equal(coef(cyclopsFitC), coef(cyclopsFit))
 })
 
 test_that("Test bad stratum IDs", {
@@ -102,8 +102,8 @@ test_that("Test bad stratum IDs", {
    log_bid <- log(c(rep(rep(binomial_bid, binomial_n - binomial_y)), rep(binomial_bid, binomial_y)))
    y <- c(rep(0, sum(binomial_n - binomial_y)), rep(1, sum(binomial_y)))
    
-   dataPtr <- createSqlCcdData(modelType = "lr")
-   count <- appendSqlCcdData(dataPtr,
+   dataPtr <- createSqlCyclopsData(modelType = "lr")
+   count <- appendSqlCyclopsData(dataPtr,
                              rep(0, length(y)),
                              1:length(y),
                              y,
@@ -111,7 +111,7 @@ test_that("Test bad stratum IDs", {
                              1:length(y),
                              rep(0,length(y)),
                              log_bid)
-   finalizeSqlCcdData(dataPtr) # Not yet implemented
+   finalizeSqlCyclopsData(dataPtr) # Not yet implemented
    
-#     fitCcdModel(dataPtr, prior = prior("none")) #crashes R
+#     fitCyclopsModel(dataPtr, prior = prior("none")) #crashes R
 })

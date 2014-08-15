@@ -6,9 +6,9 @@
 getHyperParameter(object)
 }
 \arguments{
-\item{object}{An OHDSI CCD model fit object}
+\item{object}{An OHDSI Cyclops model fit object}
 }
 \description{
-\code{getHyperParameter} returns the current hyper parameter in an OHDSI CCD model fit object
+\code{getHyperParameter} returns the current hyper parameter in an OHDSI Cyclops model fit object
 }
 

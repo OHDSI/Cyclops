@@ -14,7 +14,7 @@ library("testthat")
 
 # test_that("Data validity when loaded with (y,dx,sx,ix)" ,{})
 
-# test_that("Dimension checking on objects in createCcdModelDataFrame" ,{})
+# test_that("Dimension checking on objects in createCyclopsModelDataFrame" ,{})
 
 # test_that("Approximations for ties in CLR and Cox" ,{})
 
@@ -48,7 +48,7 @@ library("testthat")
 
 # test_that("Standardize covariates", {})
 
-# test_that("Check correct dimensions in matrices in createCcdDataFrame", {})
+# test_that("Check correct dimensions in matrices in createCyclopsDataFrame", {})
 
 # test_that("Fail to convergence", {})
 
@@ -57,50 +57,26 @@ library("testthat")
 # test_that("Make intercept dense in SQL input", {})
 
 # test_that("Make logLike object" , {
-#expect_equal(logLik(ccdFit), logLik(gold))
+#expect_equal(logLik(cyclopsFit), logLik(gold))
 #})
 
 # test_that("SCCS as conditional Poisson regression likelihoods" ,{
-#     expect_equal(logLik(ccdFit), logLik(gold.cp)[1]) # TODO Why are these different?
+#     expect_equal(logLik(cyclopsFit), logLik(gold.cp)[1]) # TODO Why are these different?
 #})
 
 # test_that("SCCS as SCCS likelihoods" ,{
-#     expect_equal(logLik(ccdFit), MJS values) # TODO Why are these different?
+#     expect_equal(logLik(cyclopsFit), MJS values) # TODO Why are these different?
 #})
-
-# test_that("Check small stratified Cox example", {
-#     test <- list(time=c(4,2.9,0.9,1.1,1.9,2.1,3.1), 
-#                  status=c(1,1,1,0,1,1,0), 
-#                  x=c(0,2,1,1,1,0,0), 
-#                  sex=c(0,0,0,0,1,1,1)) 
-#     # Fit a stratified model 
-#     gold <- coxph(Surv(time, status) ~ x 
-# #                   + strata(sex)
-# , 
-#                   test) 
-#     
-#     dataPtr <- createCcdDataFrame(Surv(time, status) ~ x 
-# #                                   + strata(sex)
-# , 
-#                                   data = test,                                      
-#                                   modelType = "cox"
-# #                                     ,method = "model.frame"
-# )    
-#     ccdFit <- fitCcdModel(dataPtr)
-#     
-#     tolerance <- 1E-4
-#     expect_equal(coef(ccdFit), coef(gold), tolerance = tolerance)    
-# })
 
 test_that("Set seed for cross-validation", {
     counts <- c(18,17,15,20,10,20,25,13,12)
     outcome <- gl(3,1,9)
     treatment <- gl(3,3)   
     
-    dataPtr <- createCcdDataFrame(counts ~ outcome + treatment, 
+    dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment, 
                                   modelType = "pr") 
     
-    ccdFit <- fitCcdModel(dataPtr,
+    cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = prior("laplace",    																		
                                         exclude = c("(Intercept)")),
                           control = control(seed = 666))

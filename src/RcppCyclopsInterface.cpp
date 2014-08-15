@@ -7,7 +7,7 @@
 #include <sstream>
  
 #include "Rcpp.h"
-#include "RcppCcdInterface.h"
+#include "RcppCyclopsInterface.h"
 #include "RcppModelData.h"
 //#include "engine/ModelSpecifics.h"
 #include "priors/JointPrior.h"
@@ -29,39 +29,39 @@ using namespace Rcpp;
 // 	return strings.size();
 // }
 
-// [[Rcpp::export(.ccdSetBeta)]]
-void ccdSetBeta(SEXP inRcppCcdInterface, int beta, double value) {
+// [[Rcpp::export(.cyclopsSetBeta)]]
+void cyclopsSetBeta(SEXP inRcppCcdInterface, int beta, double value) {
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);    
     
     interface->getCcd().setBeta(beta - 1, value);
 }
 
-// [[Rcpp::export(.ccdSetFixedBeta)]]
-void ccdSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed) {
+// [[Rcpp::export(.cyclopsSetFixedBeta)]]
+void cyclopsSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed) {
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);    
     
     interface->getCcd().setFixedBeta(beta - 1, fixed);
 }
 
-// [[Rcpp::export(".ccdGetIsRegularized")]]
-bool ccdGetIsRegularized(SEXP inRcppCcdInterface, const int index) {
+// [[Rcpp::export(".cyclopsGetIsRegularized")]]
+bool cyclopsGetIsRegularized(SEXP inRcppCcdInterface, const int index) {
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
     return interface->getCcd().getIsRegularized(index);
 }
 
-// [[Rcpp::export(".ccdGetLogLikelihood")]]
-double ccdGetLogLikelihood(SEXP inRcppCcdInterface) {
+// [[Rcpp::export(".cyclopsGetLogLikelihood")]]
+double cyclopsGetLogLikelihood(SEXP inRcppCcdInterface) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 	
 	return interface->getCcd().getLogLikelihood();
 }
 
-// [[Rcpp::export(".ccdGetFisherInformation")]]
-Eigen::MatrixXd ccdGetFisherInformation(SEXP inRcppCcdInterface, const SEXP sexpCovariates) {
+// [[Rcpp::export(".cyclopsGetFisherInformation")]]
+Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP sexpCovariates) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 	
@@ -82,8 +82,8 @@ Eigen::MatrixXd ccdGetFisherInformation(SEXP inRcppCcdInterface, const SEXP sexp
     return interface->getCcd().computeFisherInformation(indices);
 }
 
-// [[Rcpp::export(".ccdSetPrior")]]
-void ccdSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, double variance, SEXP excludeNumeric) {
+// [[Rcpp::export(".cyclopsSetPrior")]]
+void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, double variance, SEXP excludeNumeric) {
 	using namespace bsccs;
 	
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
@@ -97,8 +97,8 @@ void ccdSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, doub
   interface->setPrior(priorTypeName, variance, exclude);
 }
 
-// [[Rcpp::export(".ccdProfileModel")]]
-List ccdProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, double threshold, bool override) {
+// [[Rcpp::export(".cyclopsProfileModel")]]
+List cyclopsProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, double threshold, bool override) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 	
@@ -132,8 +132,8 @@ List ccdProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, double thresh
 	return List::create();
 }
 
-// [[Rcpp::export(".ccdPredictModel")]]
-List ccdPredictModel(SEXP inRcppCcdInterface) {
+// [[Rcpp::export(".cyclopsPredictModel")]]
+List cyclopsPredictModel(SEXP inRcppCcdInterface) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 	double timePredict = interface->predictModel();
@@ -146,8 +146,8 @@ List ccdPredictModel(SEXP inRcppCcdInterface) {
 }
 	
 
-// [[Rcpp::export(".ccdSetControl")]]
-void ccdSetControl(SEXP inRcppCcdInterface, 
+// [[Rcpp::export(".cyclopsSetControl")]]
+void cyclopsSetControl(SEXP inRcppCcdInterface, 
 		int maxIterations, double tolerance, const std::string& convergenceType,
 		bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps,
 		const std::string& noiseLevel, int seed
@@ -173,8 +173,8 @@ void ccdSetControl(SEXP inRcppCcdInterface,
 	args.seed = seed;
 }
 
-// [[Rcpp::export(".ccdRunCrossValidation")]]
-List ccdRunCrossValidationl(SEXP inRcppCcdInterface) {	
+// [[Rcpp::export(".cyclopsRunCrossValidation")]]
+List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {	
 	using namespace bsccs;
 	
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);		
@@ -190,8 +190,8 @@ List ccdRunCrossValidationl(SEXP inRcppCcdInterface) {
 	return list;
 }
 
-// [[Rcpp::export(".ccdFitModel")]]
-List ccdFitModel(SEXP inRcppCcdInterface) {	
+// [[Rcpp::export(".cyclopsFitModel")]]
+List cyclopsFitModel(SEXP inRcppCcdInterface) {	
 	using namespace bsccs;
 	
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);		
@@ -207,8 +207,8 @@ List ccdFitModel(SEXP inRcppCcdInterface) {
 	return list;
 }
 
-// [[Rcpp::export(".ccdLogModel")]]
-List ccdLogModel(SEXP inRcppCcdInterface) {	
+// [[Rcpp::export(".cyclopsLogModel")]]
+List cyclopsLogModel(SEXP inRcppCcdInterface) {	
 	using namespace bsccs;
 	
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);	
@@ -233,8 +233,8 @@ List ccdLogModel(SEXP inRcppCcdInterface) {
 	return list;
 }
 
-// [[Rcpp::export(".ccdInitializeModel")]]
-List ccdInitializeModel(SEXP inModelData, const std::string& modelType, bool computeMLE = false) {
+// [[Rcpp::export(".cyclopsInitializeModel")]]
+List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, bool computeMLE = false) {
 	using namespace bsccs;
 
 	XPtr<RcppModelData> rcppModelData(inModelData);
