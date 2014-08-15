@@ -630,39 +630,39 @@ public:
 template <typename WeightType>
 struct EfronTiedCoxProportionalHazards : public CoxProportionalHazards<WeightType> {
 public:
-	const static bool precomputeHessian = false;
-
-	static real getDenomNullValue () { return static_cast<real>(0.0); }
-
-    bool resetAccumulators(int* pid, int k, int currentPid) { return false; }
-
-	template <class IteratorType, class Weights>
-	void incrementGradientAndHessian(
-			const IteratorType& it,
-			Weights false_signature,
-			real* gradient, real* hessian,
-			real numer, real numer2, real denom,
-			WeightType nEvents,
-			real x, real xBeta, real y) {
-
-		const real t = numer / denom;
-		const real g = nEvents * t; // Always use weights (not censured indicator)
-		*gradient += g;
-		if (IteratorType::isIndicator) {
-			*hessian += g * (static_cast<real>(1.0) - t);
-		} else {
-			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
-		}
-	}
-
-	real logLikeDenominatorContrib(WeightType ni, real accDenom) {
-		return ni*std::log(accDenom); // TODO Fix
-	}
-
-	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
-			int* groups, int i) {
-		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)])); // TODO Wrong
-	}
+// 	const static bool precomputeHessian = false;
+// 
+// 	static real getDenomNullValue () { return static_cast<real>(0.0); }
+// 
+//     bool resetAccumulators(int* pid, int k, int currentPid) { return false; }
+// 
+// 	template <class IteratorType, class Weights>
+// 	void incrementGradientAndHessian(
+// 			const IteratorType& it,
+// 			Weights false_signature,
+// 			real* gradient, real* hessian,
+// 			real numer, real numer2, real denom,
+// 			WeightType nEvents,
+// 			real x, real xBeta, real y) {
+// 
+// 		const real t = numer / denom;
+// 		const real g = nEvents * t; // Always use weights (not censured indicator)
+// 		*gradient += g;
+// 		if (IteratorType::isIndicator) {
+// 			*hessian += g * (static_cast<real>(1.0) - t);
+// 		} else {
+// 			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
+// 		}
+// 	}
+// 
+// 	real logLikeDenominatorContrib(WeightType ni, real accDenom) {
+// 		return ni*std::log(accDenom); // TODO Fix
+// 	}
+// 
+// 	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
+// 			int* groups, int i) {
+// 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)])); // TODO Wrong
+// 	}
 };
 
 template <typename WeightType>
