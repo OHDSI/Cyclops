@@ -43,16 +43,16 @@ start, length, event, x1, x2
     expect_equal(coef(cyclopsFitRight), coef(cyclopsFitCounting))
     
     tolerance <- 1E-4
-    expect_equal(coef(ccdFitRight), coef(goldRight), tolerance = tolerance)            
+    expect_equal(coef(cyclopsFitRight), coef(goldRight), tolerance = tolerance)            
     
     
     goldStrat <- coxph(Surv(length, event) ~ x1 + strata(x2), test)
     
-    dataPtrStrat <- createCcdDataFrame(Surv(length, event) ~ x1 + strata(x2),
+    dataPtrStrat <- createCyclopsDataFrame(Surv(length, event) ~ x1 + strata(x2),
                                        data = test,                                      
                                        modelType = "cox")    
-    ccdFitStrat <- fitCcdModel(dataPtrStrat)    
-#     expect_equal(coef(ccdFitStrat), coef(goldStrat))  # Names are still wrong    
+    cyclopsFitStrat <- fitCyclopsModel(dataPtrStrat)    
+#     expect_equal(coef(cyclopsFitStrat), coef(goldStrat))  # Names are still wrong    
 })
 
 
@@ -72,12 +72,12 @@ start, length, event, x1, x2
     goldRight <- coxph(Surv(length, event) ~ x1 + x2, test)
     summary(goldRight)
      
-    dataPtrRight <- createCcdDataFrame(Surv(length, event) ~ x1 + x2, data = test,                                      
+    dataPtrRight <- createCyclopsDataFrame(Surv(length, event) ~ x1 + x2, data = test,                                      
                                        modelType = "cox")    
-    ccdFitRight <- fitCcdModel(dataPtrRight) 
+    cyclopsFitRight <- fitCyclopsModel(dataPtrRight) 
     
     tolerance <- 1E-4
-    expect_equal(coef(ccdFitRight), coef(goldRight), tolerance = tolerance)      
+    expect_equal(coef(cyclopsFitRight), coef(goldRight), tolerance = tolerance)      
 })
 
 test_that("Check very small Cox example with failure ties", {
@@ -94,8 +94,8 @@ start, length, event, x1, x2
     goldRight <- coxph(Surv(length, event) ~ x1 + x2, test)
     coef(goldRight)
     
-    dataPtrRight <- createCcdDataFrame(Surv(length, event) ~ x1 + x2, data = test,                                      
+    dataPtrRight <- createCyclopsDataFrame(Surv(length, event) ~ x1 + x2, data = test,                                      
                                        modelType = "cox")    
-    ccdFitRight <- fitCcdModel(dataPtrRight)   ## BROKEN 
-    coef(ccdFitRight)
+    cyclopsFitRight <- fitCyclopsModel(dataPtrRight)   ## BROKEN 
+    coef(cyclopsFitRight)
 })

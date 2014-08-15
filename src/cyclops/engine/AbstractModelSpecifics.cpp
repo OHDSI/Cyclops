@@ -152,7 +152,7 @@ void AbstractModelSpecifics::initialize(
         std::cout << std::endl;
 	}
 	
-	if (true /* initializeTies() */) {	
+	if (false /* initializeTies() */) {	
 		real lastTime = hOffs[0];
 		real lastEvent = hY[0];
 		int startTie = 0;
