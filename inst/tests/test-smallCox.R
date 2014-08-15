@@ -91,26 +91,11 @@ start, length, event, x1, x2
 0, 1,  0,1,0
 0, 1,  1,1,0                       
 ")
-#     test <- read.table(header=T, sep = ",", text = "
-# start, length, event, x1, x2
-# 0, 4,  1,0,0
-# 0, 3.01,  1,2,0
-# 0, 3,  0,0,1
-# 0, 2.01,  1,0,1
-# 0, 2,  1,1,1
-# 0, 1.01,  0,1,0
-# 0, 1,  1,1,0                       
-# ")    
-    
-    goldCounting <-  coxph( Surv(start, length, event) ~ x1 + x2, 
-                            test,
-                            ties = "exact")    
-    summary(goldCounting)
-    
     goldRight <- coxph(Surv(length, event) ~ x1 + x2, test)
-    summary(goldRight)
+    coef(goldRight)
     
     dataPtrRight <- createCcdDataFrame(Surv(length, event) ~ x1 + x2, data = test,                                      
                                        modelType = "cox")    
     ccdFitRight <- fitCcdModel(dataPtrRight)   ## BROKEN 
+    coef(ccdFitRight)
 })

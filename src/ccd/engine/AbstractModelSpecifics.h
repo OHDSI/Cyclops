@@ -154,6 +154,12 @@ protected:
 
 	typedef std::map<int, CompressedDataColumn* > HessianSparseMap;
 	HessianSparseMap hessianSparseCrossTerms;
+	
+	typedef std::vector<int> TimeTie;
+	std::vector<TimeTie> ties;
+	
+	std::vector<int> beginTies;
+	std::vector<int> endTies;
 };
 
 typedef bsccs::shared_ptr<AbstractModelSpecifics> ModelSpecificsPtr;

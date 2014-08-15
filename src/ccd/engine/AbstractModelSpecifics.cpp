@@ -151,6 +151,56 @@ void AbstractModelSpecifics::initialize(
         });
         std::cout << std::endl;
 	}
+	
+	if (true /* initializeTies() */) {	
+		real lastTime = hOffs[0];
+		real lastEvent = hY[0];
+		int startTie = 0;
+		int endTie = 0;		
+		bool inTie = false;
+		
+		for (int k = 1; k < K; ++k) {
+			bool addTieToList = false;
+			if (lastEvent == 1.0 && lastTime == hOffs[k] && lastEvent == hY[0]) {
+				if (!inTie) {
+					startTie = k - 1;
+					inTie = true;
+				} 
+				endTie = k;		
+			} else { // not equal
+				if (inTie) {
+					endTie = k - 1;
+					inTie = false;
+					addTieToList = true;	
+				}
+			}
+			if (inTie && k == K - 1) {
+				addTieToList = true;
+			}			
+			lastTime = hOffs[k];
+			lastEvent = hY[k];
+			if (addTieToList) {
+				TimeTie tie{startTie,endTie};
+				ties.push_back(tie);
+				beginTies.push_back(startTie);
+				endTies.push_back(endTie + 1);
+			}
+		}
+		
+		std::cout << "Ties: " << ties.size() << std::endl;
+		std::for_each(begin(ties), end(ties), [](std::vector<int>& tie) {
+			std::cout << tie[0] << ":" << tie[1] << std::endl;
+		});
+		std::cout << std::endl;
+		std::for_each(begin(beginTies), end(beginTies), [](int begin) {
+			std::cout << " " << begin;
+		});
+		std::cout << std::endl;
+		std::for_each(begin(endTies), end(endTies), [](int end) {
+			std::cout << " " << end;
+		});
+		std::cout << std::endl;
+	}
 
 //#ifdef TRY_REAL
 ////	hNWeight.resize(N);

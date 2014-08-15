@@ -77,7 +77,7 @@ private:
 
 	template <class OutType, class InType>
 	void incrementByGroup(OutType* values, int* groups, int k, InType inc) {
-		values[BaseModel::getGroup(groups, k)] += inc;
+		values[BaseModel::getGroup(groups, k)] += inc; // TODO delegate to BaseModel (different in tied-models)
 	}
 
 	template <typename IteratorTypeOne, class Weights>
@@ -625,51 +625,44 @@ public:
     bool resetAccumulators(int* pid, int k, int currentPid) { 
         return pid[k] != currentPid;
     }
+};
 
+template <typename WeightType>
+struct EfronTiedCoxProportionalHazards : public CoxProportionalHazards<WeightType> {
+public:
+	const static bool precomputeHessian = false;
 
-// 	const static bool precomputeHessian = false;
-// 
-// 	static real getDenomNullValue () { return static_cast<real>(0.0); }
-// 
-// 	real observationCount(real yi) {
-// 		return static_cast<real>(yi);  
-// 	}
-// 
-// 	template <class IteratorType, class Weights>
-// 	void incrementGradientAndHessian(
-// 			const IteratorType& it,
-// 			Weights false_signature,
-// 			real* gradient, real* hessian,
-// 			real numer, real numer2, real denom,
-// 			WeightType nEvents,
-// 			real x, real xBeta, real y) {
-// 
-// 		const real t = numer / denom;
-// 		const real g = nEvents * t; // Always use weights (not censured indicator)
-// 		*gradient += g;
-// 		if (IteratorType::isIndicator) {
-// 			*hessian += g * (static_cast<real>(1.0) - t);
-// 		} else {
-// 			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
-// 		}
-// 	}
-// 
-// 	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
-// 		return std::exp(xBeta);
-// 	}
-// 
-// 	real logLikeDenominatorContrib(WeightType ni, real accDenom) {
-// 		return ni*std::log(accDenom);
-// 	}
-// 
-// 	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
-// 			int* groups, int i) {
-// 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)])); // TODO Wrong
-// 	}
-// 
-// 	void predictEstimate(real& yi, real xBeta){
-// 		// do nothing for now
-// 	}
+	static real getDenomNullValue () { return static_cast<real>(0.0); }
+
+    bool resetAccumulators(int* pid, int k, int currentPid) { return false; }
+
+	template <class IteratorType, class Weights>
+	void incrementGradientAndHessian(
+			const IteratorType& it,
+			Weights false_signature,
+			real* gradient, real* hessian,
+			real numer, real numer2, real denom,
+			WeightType nEvents,
+			real x, real xBeta, real y) {
+
+		const real t = numer / denom;
+		const real g = nEvents * t; // Always use weights (not censured indicator)
+		*gradient += g;
+		if (IteratorType::isIndicator) {
+			*hessian += g * (static_cast<real>(1.0) - t);
+		} else {
+			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
+		}
+	}
+
+	real logLikeDenominatorContrib(WeightType ni, real accDenom) {
+		return ni*std::log(accDenom); // TODO Fix
+	}
+
+	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
+			int* groups, int i) {
+		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)])); // TODO Wrong
+	}
 };
 
 template <typename WeightType>

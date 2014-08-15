@@ -292,7 +292,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
             ++reset;
         }
         
-        std::cout << "Will reset at " << *reset << std::endl;
+//        std::cout << "Will reset at " << *reset << std::endl;
 				
 		for (; it; ) {
 			int k = it.index();
