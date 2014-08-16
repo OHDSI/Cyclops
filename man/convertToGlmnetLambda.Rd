@@ -15,6 +15,6 @@ convertToGlmnetLambda(variance, nobs)
 }
 \description{
 \code{convertToGlmnetLambda} converts a prior variance
-from \code{CCD} into the regularization parameter \code{lambda}.
+from \code{Cyclops} into the regularization parameter \code{lambda}.
 }
 

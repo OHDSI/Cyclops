@@ -1,4 +1,4 @@
-# @file CCD.R
+# @file cyclops.R
 #
 # Copyright 2014 Observational Health Data Sciences and Informatics
 #
@@ -21,8 +21,8 @@
 # @author Trevor Shaddox
 
 
-#' CCD
+#' cyclops
 #' 
 #' @docType package
-#' @name CCD
+#' @name cyclops
 NULL

@@ -18,10 +18,10 @@ prior(priorType, variance = 1, exclude = c(), useCrossValidation = FALSE,
 \item{forceIntercept}{Logical: Force intercept coefficient into prior}
 }
 \value{
-A CCD prior object of class inheriting from \code{"ccdPrior"} for use with \code{fitCcdModel}.
+A Cyclops prior object of class inheriting from \code{"cyclopsPrior"} for use with \code{fitCyclopsModel}.
 }
 \description{
-\code{prior} builds a CCD prior object
+\code{prior} builds a Cyclops prior object
 }
 \section{Prior types}{
 

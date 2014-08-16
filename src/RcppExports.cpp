@@ -6,84 +6,84 @@
 
 using namespace Rcpp;
 
-// ccdSetBeta
-void ccdSetBeta(SEXP inRcppCcdInterface, int beta, double value);
-RcppExport SEXP CCD_ccdSetBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP, SEXP valueSEXP) {
+// cyclopsSetBeta
+void cyclopsSetBeta(SEXP inRcppCcdInterface, int beta, double value);
+RcppExport SEXP Cyclops_cyclopsSetBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP, SEXP valueSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
         Rcpp::traits::input_parameter< int >::type beta(betaSEXP );
         Rcpp::traits::input_parameter< double >::type value(valueSEXP );
-        ccdSetBeta(inRcppCcdInterface, beta, value);
+        cyclopsSetBeta(inRcppCcdInterface, beta, value);
     }
     return R_NilValue;
 END_RCPP
 }
-// ccdSetFixedBeta
-void ccdSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed);
-RcppExport SEXP CCD_ccdSetFixedBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP, SEXP fixedSEXP) {
+// cyclopsSetFixedBeta
+void cyclopsSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed);
+RcppExport SEXP Cyclops_cyclopsSetFixedBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP, SEXP fixedSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
         Rcpp::traits::input_parameter< int >::type beta(betaSEXP );
         Rcpp::traits::input_parameter< bool >::type fixed(fixedSEXP );
-        ccdSetFixedBeta(inRcppCcdInterface, beta, fixed);
+        cyclopsSetFixedBeta(inRcppCcdInterface, beta, fixed);
     }
     return R_NilValue;
 END_RCPP
 }
-// ccdGetIsRegularized
-bool ccdGetIsRegularized(SEXP inRcppCcdInterface, const int index);
-RcppExport SEXP CCD_ccdGetIsRegularized(SEXP inRcppCcdInterfaceSEXP, SEXP indexSEXP) {
+// cyclopsGetIsRegularized
+bool cyclopsGetIsRegularized(SEXP inRcppCcdInterface, const int index);
+RcppExport SEXP Cyclops_cyclopsGetIsRegularized(SEXP inRcppCcdInterfaceSEXP, SEXP indexSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
         Rcpp::traits::input_parameter< const int >::type index(indexSEXP );
-        bool __result = ccdGetIsRegularized(inRcppCcdInterface, index);
+        bool __result = cyclopsGetIsRegularized(inRcppCcdInterface, index);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdGetLogLikelihood
-double ccdGetLogLikelihood(SEXP inRcppCcdInterface);
-RcppExport SEXP CCD_ccdGetLogLikelihood(SEXP inRcppCcdInterfaceSEXP) {
+// cyclopsGetLogLikelihood
+double cyclopsGetLogLikelihood(SEXP inRcppCcdInterface);
+RcppExport SEXP Cyclops_cyclopsGetLogLikelihood(SEXP inRcppCcdInterfaceSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
-        double __result = ccdGetLogLikelihood(inRcppCcdInterface);
+        double __result = cyclopsGetLogLikelihood(inRcppCcdInterface);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdGetFisherInformation
-Eigen::MatrixXd ccdGetFisherInformation(SEXP inRcppCcdInterface, const SEXP sexpCovariates);
-RcppExport SEXP CCD_ccdGetFisherInformation(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP) {
+// cyclopsGetFisherInformation
+Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP sexpCovariates);
+RcppExport SEXP Cyclops_cyclopsGetFisherInformation(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
         Rcpp::traits::input_parameter< const SEXP >::type sexpCovariates(sexpCovariatesSEXP );
-        Eigen::MatrixXd __result = ccdGetFisherInformation(inRcppCcdInterface, sexpCovariates);
+        Eigen::MatrixXd __result = cyclopsGetFisherInformation(inRcppCcdInterface, sexpCovariates);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdSetPrior
-void ccdSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, double variance, SEXP excludeNumeric);
-RcppExport SEXP CCD_ccdSetPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP varianceSEXP, SEXP excludeNumericSEXP) {
+// cyclopsSetPrior
+void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, double variance, SEXP excludeNumeric);
+RcppExport SEXP Cyclops_cyclopsSetPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP varianceSEXP, SEXP excludeNumericSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
@@ -91,14 +91,14 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< const std::string& >::type priorTypeName(priorTypeNameSEXP );
         Rcpp::traits::input_parameter< double >::type variance(varianceSEXP );
         Rcpp::traits::input_parameter< SEXP >::type excludeNumeric(excludeNumericSEXP );
-        ccdSetPrior(inRcppCcdInterface, priorTypeName, variance, excludeNumeric);
+        cyclopsSetPrior(inRcppCcdInterface, priorTypeName, variance, excludeNumeric);
     }
     return R_NilValue;
 END_RCPP
 }
-// ccdProfileModel
-List ccdProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, double threshold, bool override);
-RcppExport SEXP CCD_ccdProfileModel(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP, SEXP thresholdSEXP, SEXP overrideSEXP) {
+// cyclopsProfileModel
+List cyclopsProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, double threshold, bool override);
+RcppExport SEXP Cyclops_cyclopsProfileModel(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP, SEXP thresholdSEXP, SEXP overrideSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -107,31 +107,31 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< SEXP >::type sexpCovariates(sexpCovariatesSEXP );
         Rcpp::traits::input_parameter< double >::type threshold(thresholdSEXP );
         Rcpp::traits::input_parameter< bool >::type override(overrideSEXP );
-        List __result = ccdProfileModel(inRcppCcdInterface, sexpCovariates, threshold, override);
+        List __result = cyclopsProfileModel(inRcppCcdInterface, sexpCovariates, threshold, override);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdPredictModel
-List ccdPredictModel(SEXP inRcppCcdInterface);
-RcppExport SEXP CCD_ccdPredictModel(SEXP inRcppCcdInterfaceSEXP) {
+// cyclopsPredictModel
+List cyclopsPredictModel(SEXP inRcppCcdInterface);
+RcppExport SEXP Cyclops_cyclopsPredictModel(SEXP inRcppCcdInterfaceSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
-        List __result = ccdPredictModel(inRcppCcdInterface);
+        List __result = cyclopsPredictModel(inRcppCcdInterface);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdSetControl
-void ccdSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int seed);
-RcppExport SEXP CCD_ccdSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP seedSEXP) {
+// cyclopsSetControl
+void cyclopsSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int seed);
+RcppExport SEXP Cyclops_cyclopsSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP seedSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
@@ -147,59 +147,59 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< int >::type gridSteps(gridStepsSEXP );
         Rcpp::traits::input_parameter< const std::string& >::type noiseLevel(noiseLevelSEXP );
         Rcpp::traits::input_parameter< int >::type seed(seedSEXP );
-        ccdSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, seed);
+        cyclopsSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, seed);
     }
     return R_NilValue;
 END_RCPP
 }
-// ccdRunCrossValidationl
-List ccdRunCrossValidationl(SEXP inRcppCcdInterface);
-RcppExport SEXP CCD_ccdRunCrossValidationl(SEXP inRcppCcdInterfaceSEXP) {
+// cyclopsRunCrossValidationl
+List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface);
+RcppExport SEXP Cyclops_cyclopsRunCrossValidationl(SEXP inRcppCcdInterfaceSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
-        List __result = ccdRunCrossValidationl(inRcppCcdInterface);
+        List __result = cyclopsRunCrossValidationl(inRcppCcdInterface);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdFitModel
-List ccdFitModel(SEXP inRcppCcdInterface);
-RcppExport SEXP CCD_ccdFitModel(SEXP inRcppCcdInterfaceSEXP) {
+// cyclopsFitModel
+List cyclopsFitModel(SEXP inRcppCcdInterface);
+RcppExport SEXP Cyclops_cyclopsFitModel(SEXP inRcppCcdInterfaceSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
-        List __result = ccdFitModel(inRcppCcdInterface);
+        List __result = cyclopsFitModel(inRcppCcdInterface);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdLogModel
-List ccdLogModel(SEXP inRcppCcdInterface);
-RcppExport SEXP CCD_ccdLogModel(SEXP inRcppCcdInterfaceSEXP) {
+// cyclopsLogModel
+List cyclopsLogModel(SEXP inRcppCcdInterface);
+RcppExport SEXP Cyclops_cyclopsLogModel(SEXP inRcppCcdInterfaceSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
-        List __result = ccdLogModel(inRcppCcdInterface);
+        List __result = cyclopsLogModel(inRcppCcdInterface);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdInitializeModel
-List ccdInitializeModel(SEXP inModelData, const std::string& modelType, bool computeMLE = false);
-RcppExport SEXP CCD_ccdInitializeModel(SEXP inModelDataSEXP, SEXP modelTypeSEXP, SEXP computeMLESEXP) {
+// cyclopsInitializeModel
+List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, bool computeMLE = false);
+RcppExport SEXP Cyclops_cyclopsInitializeModel(SEXP inModelDataSEXP, SEXP modelTypeSEXP, SEXP computeMLESEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -207,28 +207,28 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< SEXP >::type inModelData(inModelDataSEXP );
         Rcpp::traits::input_parameter< const std::string& >::type modelType(modelTypeSEXP );
         Rcpp::traits::input_parameter< bool >::type computeMLE(computeMLESEXP );
-        List __result = ccdInitializeModel(inModelData, modelType, computeMLE);
+        List __result = cyclopsInitializeModel(inModelData, modelType, computeMLE);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdPrintRowIds
-void ccdPrintRowIds(Environment object);
-RcppExport SEXP CCD_ccdPrintRowIds(SEXP objectSEXP) {
+// cyclopsPrintRowIds
+void cyclopsPrintRowIds(Environment object);
+RcppExport SEXP Cyclops_cyclopsPrintRowIds(SEXP objectSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< Environment >::type object(objectSEXP );
-        ccdPrintRowIds(object);
+        cyclopsPrintRowIds(object);
     }
     return R_NilValue;
 END_RCPP
 }
 // isRcppPtrNull
 bool isRcppPtrNull(SEXP x);
-RcppExport SEXP CCD_isRcppPtrNull(SEXP xSEXP) {
+RcppExport SEXP Cyclops_isRcppPtrNull(SEXP xSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -241,85 +241,85 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
-// ccdGetNumberOfStrata
-int ccdGetNumberOfStrata(Environment object);
-RcppExport SEXP CCD_ccdGetNumberOfStrata(SEXP objectSEXP) {
+// cyclopsGetNumberOfStrata
+int cyclopsGetNumberOfStrata(Environment object);
+RcppExport SEXP Cyclops_cyclopsGetNumberOfStrata(SEXP objectSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< Environment >::type object(objectSEXP );
-        int __result = ccdGetNumberOfStrata(object);
+        int __result = cyclopsGetNumberOfStrata(object);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdGetCovariateIds
-std::vector<int64_t> ccdGetCovariateIds(Environment object);
-RcppExport SEXP CCD_ccdGetCovariateIds(SEXP objectSEXP) {
+// cyclopsGetCovariateIds
+std::vector<int64_t> cyclopsGetCovariateIds(Environment object);
+RcppExport SEXP Cyclops_cyclopsGetCovariateIds(SEXP objectSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< Environment >::type object(objectSEXP );
-        std::vector<int64_t> __result = ccdGetCovariateIds(object);
+        std::vector<int64_t> __result = cyclopsGetCovariateIds(object);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdGetCovariateType
-CharacterVector ccdGetCovariateType(Environment object, const std::vector<int64_t>& covariateLabel);
-RcppExport SEXP CCD_ccdGetCovariateType(SEXP objectSEXP, SEXP covariateLabelSEXP) {
+// cyclopsGetCovariateType
+CharacterVector cyclopsGetCovariateType(Environment object, const std::vector<int64_t>& covariateLabel);
+RcppExport SEXP Cyclops_cyclopsGetCovariateType(SEXP objectSEXP, SEXP covariateLabelSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< Environment >::type object(objectSEXP );
         Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type covariateLabel(covariateLabelSEXP );
-        CharacterVector __result = ccdGetCovariateType(object, covariateLabel);
+        CharacterVector __result = cyclopsGetCovariateType(object, covariateLabel);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdGetNumberOfColumns
-int ccdGetNumberOfColumns(Environment object);
-RcppExport SEXP CCD_ccdGetNumberOfColumns(SEXP objectSEXP) {
+// cyclopsGetNumberOfColumns
+int cyclopsGetNumberOfColumns(Environment object);
+RcppExport SEXP Cyclops_cyclopsGetNumberOfColumns(SEXP objectSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< Environment >::type object(objectSEXP );
-        int __result = ccdGetNumberOfColumns(object);
+        int __result = cyclopsGetNumberOfColumns(object);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdGetNumberOfRows
-int ccdGetNumberOfRows(Environment object);
-RcppExport SEXP CCD_ccdGetNumberOfRows(SEXP objectSEXP) {
+// cyclopsGetNumberOfRows
+int cyclopsGetNumberOfRows(Environment object);
+RcppExport SEXP Cyclops_cyclopsGetNumberOfRows(SEXP objectSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< Environment >::type object(objectSEXP );
-        int __result = ccdGetNumberOfRows(object);
+        int __result = cyclopsGetNumberOfRows(object);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdSumByGroup
-List ccdSumByGroup(Environment x, const std::vector<long>& covariateLabel, const long groupByLabel, const int power);
-RcppExport SEXP CCD_ccdSumByGroup(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP groupByLabelSEXP, SEXP powerSEXP) {
+// cyclopsSumByGroup
+List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel, const long groupByLabel, const int power);
+RcppExport SEXP Cyclops_cyclopsSumByGroup(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP groupByLabelSEXP, SEXP powerSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -328,16 +328,16 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< const std::vector<long>& >::type covariateLabel(covariateLabelSEXP );
         Rcpp::traits::input_parameter< const long >::type groupByLabel(groupByLabelSEXP );
         Rcpp::traits::input_parameter< const int >::type power(powerSEXP );
-        List __result = ccdSumByGroup(x, covariateLabel, groupByLabel, power);
+        List __result = cyclopsSumByGroup(x, covariateLabel, groupByLabel, power);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdSumByStratum
-List ccdSumByStratum(Environment x, const std::vector<long>& covariateLabel, const int power);
-RcppExport SEXP CCD_ccdSumByStratum(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP powerSEXP) {
+// cyclopsSumByStratum
+List cyclopsSumByStratum(Environment x, const std::vector<long>& covariateLabel, const int power);
+RcppExport SEXP Cyclops_cyclopsSumByStratum(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP powerSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -345,16 +345,16 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
         Rcpp::traits::input_parameter< const std::vector<long>& >::type covariateLabel(covariateLabelSEXP );
         Rcpp::traits::input_parameter< const int >::type power(powerSEXP );
-        List __result = ccdSumByStratum(x, covariateLabel, power);
+        List __result = cyclopsSumByStratum(x, covariateLabel, power);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdSum
-std::vector<double> ccdSum(Environment x, const std::vector<long>& covariateLabel, const int power);
-RcppExport SEXP CCD_ccdSum(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP powerSEXP) {
+// cyclopsSum
+std::vector<double> cyclopsSum(Environment x, const std::vector<long>& covariateLabel, const int power);
+RcppExport SEXP Cyclops_cyclopsSum(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP powerSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -362,60 +362,60 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
         Rcpp::traits::input_parameter< const std::vector<long>& >::type covariateLabel(covariateLabelSEXP );
         Rcpp::traits::input_parameter< const int >::type power(powerSEXP );
-        std::vector<double> __result = ccdSum(x, covariateLabel, power);
+        std::vector<double> __result = cyclopsSum(x, covariateLabel, power);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdNewSqlData
-List ccdNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel);
-RcppExport SEXP CCD_ccdNewSqlData(SEXP modelTypeNameSEXP, SEXP noiseLevelSEXP) {
+// cyclopsNewSqlData
+List cyclopsNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel);
+RcppExport SEXP Cyclops_cyclopsNewSqlData(SEXP modelTypeNameSEXP, SEXP noiseLevelSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< const std::string& >::type modelTypeName(modelTypeNameSEXP );
         Rcpp::traits::input_parameter< const std::string& >::type noiseLevel(noiseLevelSEXP );
-        List __result = ccdNewSqlData(modelTypeName, noiseLevel);
+        List __result = cyclopsNewSqlData(modelTypeName, noiseLevel);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdSetHasIntercept
-void ccdSetHasIntercept(Environment x, bool hasIntercept);
-RcppExport SEXP CCD_ccdSetHasIntercept(SEXP xSEXP, SEXP hasInterceptSEXP) {
+// cyclopsSetHasIntercept
+void cyclopsSetHasIntercept(Environment x, bool hasIntercept);
+RcppExport SEXP Cyclops_cyclopsSetHasIntercept(SEXP xSEXP, SEXP hasInterceptSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
         Rcpp::traits::input_parameter< bool >::type hasIntercept(hasInterceptSEXP );
-        ccdSetHasIntercept(x, hasIntercept);
+        cyclopsSetHasIntercept(x, hasIntercept);
     }
     return R_NilValue;
 END_RCPP
 }
-// ccdGetHasIntercept
-bool ccdGetHasIntercept(Environment x);
-RcppExport SEXP CCD_ccdGetHasIntercept(SEXP xSEXP) {
+// cyclopsGetHasIntercept
+bool cyclopsGetHasIntercept(Environment x);
+RcppExport SEXP Cyclops_cyclopsGetHasIntercept(SEXP xSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
-        bool __result = ccdGetHasIntercept(x);
+        bool __result = cyclopsGetHasIntercept(x);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdFinalizeData
-void ccdFinalizeData(Environment x, bool addIntercept, SEXP sexpOffsetCovariate, bool offsetAlreadyOnLogScale, bool sortCovariates, SEXP sexpCovariatesDense, bool magicFlag = false);
-RcppExport SEXP CCD_ccdFinalizeData(SEXP xSEXP, SEXP addInterceptSEXP, SEXP sexpOffsetCovariateSEXP, SEXP offsetAlreadyOnLogScaleSEXP, SEXP sortCovariatesSEXP, SEXP sexpCovariatesDenseSEXP, SEXP magicFlagSEXP) {
+// cyclopsFinalizeData
+void cyclopsFinalizeData(Environment x, bool addIntercept, SEXP sexpOffsetCovariate, bool offsetAlreadyOnLogScale, bool sortCovariates, SEXP sexpCovariatesDense, bool magicFlag = false);
+RcppExport SEXP Cyclops_cyclopsFinalizeData(SEXP xSEXP, SEXP addInterceptSEXP, SEXP sexpOffsetCovariateSEXP, SEXP offsetAlreadyOnLogScaleSEXP, SEXP sortCovariatesSEXP, SEXP sexpCovariatesDenseSEXP, SEXP magicFlagSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
@@ -426,14 +426,14 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< bool >::type sortCovariates(sortCovariatesSEXP );
         Rcpp::traits::input_parameter< SEXP >::type sexpCovariatesDense(sexpCovariatesDenseSEXP );
         Rcpp::traits::input_parameter< bool >::type magicFlag(magicFlagSEXP );
-        ccdFinalizeData(x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag);
+        cyclopsFinalizeData(x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag);
     }
     return R_NilValue;
 END_RCPP
 }
-// ccdAppendSqlData
-int ccdAppendSqlData(Environment x, const std::vector<int64_t>& oStratumId, const std::vector<int64_t>& oRowId, const std::vector<double>& oY, const std::vector<double>& oTime, const std::vector<int64_t>& cRowId, const std::vector<int64_t>& cCovariateId, const std::vector<double>& cCovariateValue);
-RcppExport SEXP CCD_ccdAppendSqlData(SEXP xSEXP, SEXP oStratumIdSEXP, SEXP oRowIdSEXP, SEXP oYSEXP, SEXP oTimeSEXP, SEXP cRowIdSEXP, SEXP cCovariateIdSEXP, SEXP cCovariateValueSEXP) {
+// cyclopsAppendSqlData
+int cyclopsAppendSqlData(Environment x, const std::vector<int64_t>& oStratumId, const std::vector<int64_t>& oRowId, const std::vector<double>& oY, const std::vector<double>& oTime, const std::vector<int64_t>& cRowId, const std::vector<int64_t>& cCovariateId, const std::vector<double>& cCovariateValue);
+RcppExport SEXP Cyclops_cyclopsAppendSqlData(SEXP xSEXP, SEXP oStratumIdSEXP, SEXP oRowIdSEXP, SEXP oYSEXP, SEXP oTimeSEXP, SEXP cRowIdSEXP, SEXP cCovariateIdSEXP, SEXP cCovariateValueSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -446,47 +446,47 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type cRowId(cRowIdSEXP );
         Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type cCovariateId(cCovariateIdSEXP );
         Rcpp::traits::input_parameter< const std::vector<double>& >::type cCovariateValue(cCovariateValueSEXP );
-        int __result = ccdAppendSqlData(x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue);
+        int __result = cyclopsAppendSqlData(x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdGetInterceptLabel
-SEXP ccdGetInterceptLabel(Environment x);
-RcppExport SEXP CCD_ccdGetInterceptLabel(SEXP xSEXP) {
+// cyclopsGetInterceptLabel
+SEXP cyclopsGetInterceptLabel(Environment x);
+RcppExport SEXP Cyclops_cyclopsGetInterceptLabel(SEXP xSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
-        SEXP __result = ccdGetInterceptLabel(x);
+        SEXP __result = cyclopsGetInterceptLabel(x);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdReadFileData
-List ccdReadFileData(const std::string& fileName, const std::string& modelTypeName);
-RcppExport SEXP CCD_ccdReadFileData(SEXP fileNameSEXP, SEXP modelTypeNameSEXP) {
+// cyclopsReadFileData
+List cyclopsReadFileData(const std::string& fileName, const std::string& modelTypeName);
+RcppExport SEXP Cyclops_cyclopsReadFileData(SEXP fileNameSEXP, SEXP modelTypeNameSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< const std::string& >::type fileName(fileNameSEXP );
         Rcpp::traits::input_parameter< const std::string& >::type modelTypeName(modelTypeNameSEXP );
-        List __result = ccdReadFileData(fileName, modelTypeName);
+        List __result = cyclopsReadFileData(fileName, modelTypeName);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
     return __sexp_result;
 END_RCPP
 }
-// ccdModelData
-List ccdModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix, const std::string& modelTypeName, bool useTimeAsOffset = false);
-RcppExport SEXP CCD_ccdModelData(SEXP pidSEXP, SEXP ySEXP, SEXP zSEXP, SEXP offsSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP, SEXP modelTypeNameSEXP, SEXP useTimeAsOffsetSEXP) {
+// cyclopsModelData
+List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix, const std::string& modelTypeName, bool useTimeAsOffset = false);
+RcppExport SEXP Cyclops_cyclopsModelData(SEXP pidSEXP, SEXP ySEXP, SEXP zSEXP, SEXP offsSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP, SEXP modelTypeNameSEXP, SEXP useTimeAsOffsetSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -500,7 +500,7 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< SEXP >::type ix(ixSEXP );
         Rcpp::traits::input_parameter< const std::string& >::type modelTypeName(modelTypeNameSEXP );
         Rcpp::traits::input_parameter< bool >::type useTimeAsOffset(useTimeAsOffsetSEXP );
-        List __result = ccdModelData(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset);
+        List __result = cyclopsModelData(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);

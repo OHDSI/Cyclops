@@ -12,7 +12,7 @@ isValidModelType(modelType)
 TRUE/FALSE
 }
 \description{
-\code{isValidModelType} checks for a valid CCD model type
+\code{isValidModelType} checks for a valid Cyclops model type
 }
 \section{Models}{
 

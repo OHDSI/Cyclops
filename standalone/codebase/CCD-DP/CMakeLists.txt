@@ -3,17 +3,17 @@ set(CCD_SOURCE_DIR ${CMAKE_SOURCE_DIR}/codebase)
 
 include_directories(. 
     ${RCCD_SOURCE_DIR}
-    ${RCCD_SOURCE_DIR}/ccd
+    ${RCCD_SOURCE_DIR}/cyclops
     ${CMAKE_SOURCE_DIR}/codebase
     ${CMAKE_SOURCE_DIR}/codebase/CCD    
     )
 
 set(BASE_SOURCE_FILES	
-    ${RCCD_SOURCE_DIR}/ccd/CcdInterface.cpp	
-	${RCCD_SOURCE_DIR}/ccd/CyclicCoordinateDescent.cpp	
-	${RCCD_SOURCE_DIR}/ccd/CompressedDataMatrix.cpp
-	${RCCD_SOURCE_DIR}/ccd/ModelData.cpp
-	${RCCD_SOURCE_DIR}/ccd/io/InputReader.cpp
+    ${RCCD_SOURCE_DIR}/cyclops/CcdInterface.cpp	
+	${RCCD_SOURCE_DIR}/cyclops/CyclicCoordinateDescent.cpp	
+	${RCCD_SOURCE_DIR}/cyclops/CompressedDataMatrix.cpp
+	${RCCD_SOURCE_DIR}/cyclops/ModelData.cpp
+	${RCCD_SOURCE_DIR}/cyclops/io/InputReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/io/HierarchyReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/io/SCCSInputReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/io/CLRInputReader.cpp
@@ -21,18 +21,18 @@ set(BASE_SOURCE_FILES
 	 ${CCD_SOURCE_DIR}/CCD/io/CoxInputReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/io/CCTestInputReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/CmdLineCcdInterface.cpp
-	${RCCD_SOURCE_DIR}/ccd/engine/AbstractModelSpecifics.cpp
-	${RCCD_SOURCE_DIR}/ccd/drivers/AbstractDriver.cpp
-	${RCCD_SOURCE_DIR}/ccd/drivers/AbstractSelector.cpp
-	${RCCD_SOURCE_DIR}/ccd/drivers/AbstractCrossValidationDriver.cpp
-	${RCCD_SOURCE_DIR}/ccd/drivers/ProportionSelector.cpp
-	${RCCD_SOURCE_DIR}/ccd/drivers/CrossValidationSelector.cpp
-    ${RCCD_SOURCE_DIR}/ccd/drivers/GridSearchCrossValidationDriver.cpp
-    ${RCCD_SOURCE_DIR}/ccd/drivers/HierarchyGridSearchCrossValidationDriver.cpp
-	${RCCD_SOURCE_DIR}/ccd/drivers/AutoSearchCrossValidationDriver.cpp
-	${RCCD_SOURCE_DIR}/ccd/drivers/HierarchyAutoSearchCrossValidationDriver.cpp
-	${RCCD_SOURCE_DIR}/ccd/drivers/BootstrapSelector.cpp
-	${RCCD_SOURCE_DIR}/ccd/drivers/BootstrapDriver.cpp
+	${RCCD_SOURCE_DIR}/cyclops/engine/AbstractModelSpecifics.cpp
+	${RCCD_SOURCE_DIR}/cyclops/drivers/AbstractDriver.cpp
+	${RCCD_SOURCE_DIR}/cyclops/drivers/AbstractSelector.cpp
+	${RCCD_SOURCE_DIR}/cyclops/drivers/AbstractCrossValidationDriver.cpp
+	${RCCD_SOURCE_DIR}/cyclops/drivers/ProportionSelector.cpp
+	${RCCD_SOURCE_DIR}/cyclops/drivers/CrossValidationSelector.cpp
+    ${RCCD_SOURCE_DIR}/cyclops/drivers/GridSearchCrossValidationDriver.cpp
+    ${RCCD_SOURCE_DIR}/cyclops/drivers/HierarchyGridSearchCrossValidationDriver.cpp
+	${RCCD_SOURCE_DIR}/cyclops/drivers/AutoSearchCrossValidationDriver.cpp
+	${RCCD_SOURCE_DIR}/cyclops/drivers/HierarchyAutoSearchCrossValidationDriver.cpp
+	${RCCD_SOURCE_DIR}/cyclops/drivers/BootstrapSelector.cpp
+	${RCCD_SOURCE_DIR}/cyclops/drivers/BootstrapDriver.cpp
 	${RCCD_SOURCE_DIR}/utils/HParSearch.cpp
 	)
 	

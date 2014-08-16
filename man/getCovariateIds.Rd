@@ -6,9 +6,9 @@
 getCovariateIds(object)
 }
 \arguments{
-\item{object}{An OHDSI CCD data object}
+\item{object}{An OHDSI Cyclops data object}
 }
 \description{
-\code{getCovariateIds} returns a vector of integer covariate identifiers in an OHDSI CCD data object
+\code{getCovariateIds} returns a vector of integer covariate identifiers in an OHDSI Cyclops data object
 }
 
