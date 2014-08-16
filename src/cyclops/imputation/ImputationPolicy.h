@@ -32,7 +32,7 @@ public:
 
 	void sortColumns();
 	void resortColumns();
-	void push_back(int_vector* vecMissing,int nMissing);
+	void push_back(IntVector* vecMissing,int nMissing);
 	void push_back(int col, int indMissing);
 	void push_backY(int indMissing);
 	void includeYVector();
@@ -54,7 +54,7 @@ protected:
 	vector<int> colIndices;
 	vector<int> reverseColIndices;
 	vector<real> y_Orig;
-	vector<int_vector*> missingEntries;
+	vector<IntVector*> missingEntries;
 
 	int nCols_Orig;
 };
@@ -66,7 +66,7 @@ public:
 
 	void sortColumns() {}
 	void resortColumns() {}
-	void push_back(int_vector* vecMissing,int nMissing) {}
+	void push_back(IntVector* vecMissing,int nMissing) {}
 	void push_back(int col, int indMissing) {}
 	void push_backY(int indMissing) {}
 	void includeY() {}

@@ -80,7 +80,7 @@ void SCCSInputReader::readFile(const char* fileName) {
 		hasConditionId = false; // Original data format style
 	}
 
-	vector<int_vector*> unorderColumns = vector<int_vector*>();
+	vector<IntVector*> unorderColumns = vector<IntVector*>();
 
 	SparseIndexer indexer(*modelData);
 

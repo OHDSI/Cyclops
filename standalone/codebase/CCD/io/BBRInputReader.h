@@ -58,7 +58,7 @@ public:
 		SparseIndexer indexer(*modelData);
 
 		// Allocate a column for intercept
-//		int_vector* nullVector = new int_vector();
+//		IntVector* nullVector = new IntVector();
 //		imputePolicy->push_back(nullVector,0);
 //		indexer.addColumn(0, DENSE);
 
@@ -128,7 +128,7 @@ public:
 						DrugIdType drug = static_cast<DrugIdType>(atof(thisCovariate[0].c_str()));
 						if (!indexer.hasColumn(drug)) {
 							indexer.addColumn(drug, INDICATOR);
-							int_vector* nullVector = new int_vector();
+							IntVector* nullVector = new IntVector();
 							imputePolicy->push_back(nullVector,0);
 						}
 						int col = indexer.getIndex(drug);
