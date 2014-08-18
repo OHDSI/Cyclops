@@ -52,6 +52,9 @@ bool ModelSpecifics<BaseModel,WeightType>::sortPid(void) { return BaseModel::sor
 
 template <class BaseModel,typename WeightType>
 bool ModelSpecifics<BaseModel,WeightType>::initializeAccumulationVectors(void) { return BaseModel::cumulativeGradientAndHessian; }
+
+template <class BaseModel,typename WeightType>
+bool ModelSpecifics<BaseModel,WeightType>::hasResetableAccumulators(void) { return BaseModel::hasResetableAccumulators; }
    
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useCrossValidation) {
@@ -190,11 +193,11 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 	real logLikelihood = static_cast<real>(0.0);
 
 	if(BaseModel::cumulativeGradientAndHessian)	{
-		for (size_t k = 0; k < K; ++k) {
+		for (size_t k = 0; k < N; ++k) {
 			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], &accDenomPid[0], hPid, k);
 		}
 	} else { // TODO Unnecessary code duplication
-		for (size_t k = 0; k < K; ++k) {
+		for (size_t k = 0; k < K; ++k) { // TODO Is index of K correct?
 			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], denomPid, hPid, k);
 		}
 	}
@@ -663,14 +666,14 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 
 	if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
 		BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
-			if (accDenomPid.size() != K) {
-				accDenomPid.resize(K, static_cast<real>(0));
+			if (accDenomPid.size() != N) {
+				accDenomPid.resize(N, static_cast<real>(0));
 			}
-			if (accNumerPid.size() != K) {
-				accNumerPid.resize(K, static_cast<real>(0));
+			if (accNumerPid.size() != N) {
+				accNumerPid.resize(N, static_cast<real>(0));
 			}
-			if (accNumerPid2.size() != K) {
-				accNumerPid2.resize(K, static_cast<real>(0));
+			if (accNumerPid2.size() != N) {
+				accNumerPid2.resize(N, static_cast<real>(0));
 			}
 
 			// prefix-scan
@@ -686,7 +689,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 // TODO CHECK   
                 auto reset = begin(accReset);
 				
-				for (size_t k = 0; k < K; ++k) {
+				for (size_t k = 0; k < N; ++k) {
 // TODO CHECK				
                     if( *reset == k ) {
 			            totalDenomTrain = static_cast<real>(0);
@@ -721,7 +724,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 				
 				auto reset = begin(accReset);
 				
-				for (size_t k = 0; k < K; ++k) {
+				for (size_t k = 0; k < N; ++k) {
 // TODO CHECK				
                     if (*reset == k) {
 				        totalDenom = static_cast<real>(0);

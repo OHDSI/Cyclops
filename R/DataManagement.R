@@ -128,9 +128,13 @@ createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, mod
         } else {            
             if (modelType == "cox") {
                 sortOrder <- order(-time, y)
-                pid <- rep(1, length(y))
+                if (missing(pid)) {
+                    pid <- rep(1, length(y))
+                }
             } else {
-                pid <- c(1:length(y))                
+                if (missing(pid)) {
+                    pid <- c(1:length(y))                
+                }
             }
         }      
         

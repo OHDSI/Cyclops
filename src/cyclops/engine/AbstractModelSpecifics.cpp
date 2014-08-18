@@ -10,6 +10,8 @@
 #include "engine/ModelSpecifics.h"
 // #include "io/InputReader.h"
 
+#include "Rcpp.h"
+
 namespace bsccs {
 
 AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelType, ModelData* modelData) {
@@ -33,9 +35,13 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
 		case ModelType::CONDITIONAL_POISSON :
  			model = new ModelSpecifics<ConditionalPoissonRegression<real>,real>(*modelData);
  			break; 			
+//  		case ModelType::COX :
+//  		    std::cout << "Using new model specifics" << std::endl;
+//  			model = new ModelSpecifics<StratifiedCoxProportionalHazards<real>,real>(*modelData);
+//  			break;
  		case ModelType::COX :
- 		    std::cout << "Using new model specifics" << std::endl;
- 			model = new ModelSpecifics<StratifiedCoxProportionalHazards<real>,real>(*modelData);
+ 		    std::cout << "Using new Breslow model specifics" << std::endl;
+ 			model = new ModelSpecifics<BreslowTiedCoxProportionalHazards<real>,real>(*modelData);
  			break;
  		default:
  			break; 			
@@ -134,14 +140,17 @@ void AbstractModelSpecifics::initialize(
 	}
 	
 	
-	if (initializeAccumulationVectors()) {
+	if (initializeAccumulationVectors() //&& hasResetableAccumulators()
+	) {
 // 	    int lastPid = -1;
-        int lastPid = hPid[0];
+        int lastPid = std::abs(hPid[0]); // TODO Make pid negative to denote reset
 	    for (int k = 1 /* 0 */; k < K; ++k) {
-	        int nextPid = hPid[k];
-	        if (nextPid != lastPid) {
+	        int nextPid = std::abs(hPid[k]);
+	        if (nextPid != hPid[k]) {
+//	        if (nextPid != lastPid) {				
 	            accReset.push_back(k);
-	            lastPid = nextPid;
+//	            lastPid = nextPid;
+				hPid[k] = nextPid;
 	        }	    
 	    }
 	    accReset.push_back(K);
@@ -152,9 +161,15 @@ void AbstractModelSpecifics::initialize(
         std::cout << std::endl;
 	}
 	
-	if (false /* initializeTies() */) {	
+	if (true /* initializeTies() */) {	
 		real lastTime = hOffs[0];
 		real lastEvent = hY[0];
+	
+		std::cout << "K = " << K << std::endl;
+		std::cout << "N = " << N << std::endl;
+		
+//		Rcpp::stop("1");
+						
 		int startTie = 0;
 		int endTie = 0;		
 		bool inTie = false;
