@@ -517,23 +517,14 @@ RcppModelData::RcppModelData(
     	int currentPID = cpid[0];
     	cpid[0] = currentCase;
     	for (size_t i = 1; i < pid.size(); ++i) {
-    	    int nextPID = std::abs(cpid[i]);
-    	    bool sign = (nextPID != cpid[i]);
+    	    int nextPID = cpid[i];
     	    if (nextPID != currentPID) {
 	            currentCase++;
 	            currentPID = nextPID;
     	    }
-    	    if (sign) {
-    	    	cpid[i] = -currentCase;
-    	    } else {
-	        	cpid[i] = currentCase;
-	    	}
+	        cpid[i] = currentCase;
     	}
-    	//if (modelType != ModelType::COX) {
-            nPatients = currentCase + 1; // TODO change to # strata and delegate counting # unique denominators to AbstractModelSpecifics
-        //} else {
-           // nPatients = getYVectorRef().size(); // TODO see above note.
-        //}
+        nPatients = currentCase + 1;
     }    
 }
 

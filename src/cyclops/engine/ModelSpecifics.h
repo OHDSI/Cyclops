@@ -149,7 +149,7 @@ public:
 	const static bool hasStrataCrossTerms = true;
 
 	int getGroup(int* groups, int k) {
-		return k;
+		return k; // No ties
 	}
 	
 	const static bool hasResetableAccumulators = true;
@@ -593,7 +593,7 @@ public:
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
 
-    bool resetAccumulators(int* pid, int k, int currentPid) { return false; }
+    bool resetAccumulators(int* pid, int k, int currentPid) { return false; } // No stratification
 
 	real observationCount(real yi) {
 		return static_cast<real>(yi);  
@@ -651,8 +651,10 @@ public:
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
 
-    bool resetAccumulators(int* pid, int k, int currentPid) { return false; }
-
+    bool resetAccumulators(int* pid, int k, int currentPid) { 
+        return pid[k] != currentPid;
+    }
+    
 	real observationCount(real yi) {
 		return static_cast<real>(yi);  
 	}

@@ -35,12 +35,10 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
 		case ModelType::CONDITIONAL_POISSON :
  			model = new ModelSpecifics<ConditionalPoissonRegression<real>,real>(*modelData);
  			break; 			
-//  		case ModelType::COX :
-//  		    std::cout << "Using new model specifics" << std::endl;
-//  			model = new ModelSpecifics<StratifiedCoxProportionalHazards<real>,real>(*modelData);
-//  			break;
- 		case ModelType::COX :
- 		    std::cout << "Using new Breslow model specifics" << std::endl;
+ 		case ModelType::COX_RAW : 		   
+ 			model = new ModelSpecifics<CoxProportionalHazards<real>,real>(*modelData);
+ 			break;
+ 		case ModelType::COX : 		   
  			model = new ModelSpecifics<BreslowTiedCoxProportionalHazards<real>,real>(*modelData);
  			break;
  		default:
@@ -140,82 +138,103 @@ void AbstractModelSpecifics::initialize(
 	}
 	
 	
-	if (initializeAccumulationVectors() //&& hasResetableAccumulators()
-	) {
-// 	    int lastPid = -1;
-        int lastPid = std::abs(hPid[0]); // TODO Make pid negative to denote reset
-	    for (int k = 1 /* 0 */; k < K; ++k) {
-	        int nextPid = std::abs(hPid[k]);
-	        if (nextPid != hPid[k]) {
-//	        if (nextPid != lastPid) {				
-	            accReset.push_back(k);
-//	            lastPid = nextPid;
-				hPid[k] = nextPid;
-	        }	    
+	if (initializeAccumulationVectors()) {
+        int lastPid = hPid[0];
+        real lastTime = hOffs[0];
+        real lastEvent = hY[0];        
+        
+        int pid = hPid[0] = 0;
+        
+	    for (int k = 1; k < K; ++k) {
+		    int nextPid = hPid[k];
+		    
+		    if (nextPid != lastPid) { // start new strata
+		    	pid++;
+		    	accReset.push_back(pid);
+		    	lastPid = nextPid;		    
+		    } else {
+		    
+		    	if (lastEvent == 1.0 && lastTime == hOffs[k] && lastEvent == hY[k]) {
+		    		// In a tie, do not increment denominator
+		    	} else {
+		    		pid++;
+		    	}
+			}			  
+		 	lastTime = hOffs[k];
+ 			lastEvent = hY[k];    
+ 			
+	        hPid[k] = pid;	       	         
 	    }
-	    accReset.push_back(K);
-        std::cout << "Reset locations:";
-        std::for_each(begin(accReset), end(accReset), [](int i) {
-            std::cout << " " << i;
-        });
-        std::cout << std::endl;
+	    pid++;
+	    accReset.push_back(pid);
+	    
+	    // Save number of denominators
+	    N = pid;
+	    
+	    
+	    
+//         std::cout << "Reset locations:";
+//         std::for_each(begin(accReset), end(accReset), [](int i) {
+//             std::cout << " " << i;
+//         });
+//         std::cout << std::endl;
 	}
-	
-	if (true /* initializeTies() */) {	
-		real lastTime = hOffs[0];
-		real lastEvent = hY[0];
-	
-		std::cout << "K = " << K << std::endl;
-		std::cout << "N = " << N << std::endl;
 		
-//		Rcpp::stop("1");
-						
-		int startTie = 0;
-		int endTie = 0;		
-		bool inTie = false;
-		
-		for (int k = 1; k < K; ++k) {
-			bool addTieToList = false;
-			if (lastEvent == 1.0 && lastTime == hOffs[k] && lastEvent == hY[0]) {
-				if (!inTie) {
-					startTie = k - 1;
-					inTie = true;
-				} 
-				endTie = k;		
-			} else { // not equal
-				if (inTie) {
-					endTie = k - 1;
-					inTie = false;
-					addTieToList = true;	
-				}
-			}
-			if (inTie && k == K - 1) {
-				addTieToList = true;
-			}			
-			lastTime = hOffs[k];
-			lastEvent = hY[k];
-			if (addTieToList) {
-				TimeTie tie{startTie,endTie};
-				ties.push_back(tie);
-				beginTies.push_back(startTie);
-				endTies.push_back(endTie + 1);
-			}
-		}
-		
-		std::cout << "Ties: " << ties.size() << std::endl;
-		std::for_each(begin(ties), end(ties), [](std::vector<int>& tie) {
-			std::cout << tie[0] << ":" << tie[1] << std::endl;
-		});
-		std::cout << std::endl;
-		std::for_each(begin(beginTies), end(beginTies), [](int begin) {
-			std::cout << " " << begin;
-		});
-		std::cout << std::endl;
-		std::for_each(begin(endTies), end(endTies), [](int end) {
-			std::cout << " " << end;
-		});
-		std::cout << std::endl;
-	}
+// 	if (true /* initializeTies() */) {	
+// 		real lastTime = hOffs[0];
+// 		real lastEvent = hY[0];
+// 	
+// 		std::cout << "K = " << K << std::endl;
+// 		std::cout << "N = " << N << std::endl;
+// 		
+// //		Rcpp::stop("1");
+// 						
+// 		int startTie = 0;
+// 		int endTie = 0;		
+// 		bool inTie = false;
+// 		
+// 		for (int k = 1; k < K; ++k) {
+// 			bool addTieToList = false;
+// 			if (lastEvent == 1.0 && lastTime == hOffs[k] && lastEvent == hY[k]) {
+// 				if (!inTie) {
+// 					startTie = k - 1;
+// 					inTie = true;
+// 				} 
+// 				endTie = k;		
+// 			} else { // not equal
+// 				if (inTie) {
+// 					endTie = k - 1;
+// 					inTie = false;
+// 					addTieToList = true;	
+// 				}
+// 			}
+// 			if (inTie && k == K - 1) {
+// 				addTieToList = true;
+// 			}			
+// 			lastTime = hOffs[k];
+// 			lastEvent = hY[k];
+// 			if (addTieToList) {
+// 				TimeTie tie{startTie,endTie};
+// 				ties.push_back(tie);
+// 				beginTies.push_back(startTie);
+// 				endTies.push_back(endTie + 1);
+// 			}
+// 		}
+// 		
+// // 		std::cout << "Ties: " << ties.size() << std::endl;
+// // 		std::for_each(begin(ties), end(ties), [](std::vector<int>& tie) {
+// // 			std::cout << tie[0] << ":" << tie[1] << std::endl;
+// // 		});
+// // 		std::cout << std::endl;
+// // 		std::for_each(begin(beginTies), end(beginTies), [](int begin) {
+// // 			std::cout << " " << begin;
+// // 		});
+// // 		std::cout << std::endl;
+// // 		std::for_each(begin(endTies), end(endTies), [](int end) {
+// // 			std::cout << " " << end;
+// // 		});
+// // 		std::cout << std::endl;
+// 	}
 
 //#ifdef TRY_REAL
 ////	hNWeight.resize(N);
