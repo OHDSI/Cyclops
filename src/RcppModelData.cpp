@@ -509,7 +509,7 @@ RcppModelData::RcppModelData(
 	
 	if (cpid.size() == 0) {
 	    for (size_t i = 0; i < nRows; ++i) {
-	        cpid.push_back(i);
+	        cpid.push_back(i); // TODO These are not necessary; remove.
 	    }
 	    nPatients = nRows;
 	} else {

@@ -344,6 +344,8 @@ bsccs::ModelType RcppCcdInterface::parseModelType(const std::string& modelName) 
  		modelType = bsccs::ModelType::POISSON;
  	} else if (modelName == "cox") {
  		modelType = bsccs::ModelType::COX;
+ 	} else if (modelName == "cox_raw") {
+ 		modelType = bsccs::ModelType::COX_RAW; 		
  	} else {
  		handleError("Invalid model type."); 		
  	}	

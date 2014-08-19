@@ -94,7 +94,7 @@ createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, mod
         
         y <- model.response(mf.d)
         if (class(y) == "Surv") {
-            if (modelType != "cox") {
+            if (!.isSurvivalModelType(modelType)) {
                 stop("Censored outcomes are currently only support for Cox regression.")
             }
             if (dim(y)[2] == 3) {
@@ -120,15 +120,21 @@ createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, mod
             mt.d <- mt.d[-nterm]
             
             ## Must sort outcomes
-            if (modelType == "cox") {
-                sortOrder <- order(-time, pid)    
+            if (.isSurvivalModelType(modelType)) {
+                sortOrder <- order(pid, -time, y)    
             } else {
                 sortOrder <- order(pid)
             }
-        } else {
-            pid <- c(1:length(y))
-            if (modelType == "cox") {
-                sortOrder <- order(-time)
+        } else {            
+            if (.isSurvivalModelType(modelType)) {
+                sortOrder <- order(-time, y)
+                if (missing(pid)) {
+                    pid <- rep(1, length(y))
+                }
+            } else {
+                if (missing(pid)) {
+                    pid <- c(1:length(y))                
+                }
             }
         }      
         
@@ -136,9 +142,11 @@ createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, mod
         #             attr(mt.d, "intercept") <- FALSE
         #         }
         
-        dtmp = model.matrix(mt.d, mf.d)
+        dtmp <- model.matrix(mt.d, mf.d)
+        dlabels <- labels(dtmp)[[2]]
         if (attr(mt.d, "intercept") && .removeIntercept(modelType)) {
             dx <- Matrix(as.matrix(dtmp[,-1]), sparse = FALSE)
+            dlabels <- dlabels[-1]
         } else {
             dx <- Matrix(dtmp, sparse = FALSE)
         }
@@ -151,7 +159,8 @@ createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, mod
             time <- as.vector(off.d)
         }
         
-        colnames <- c(colnames, dx@Dimnames[[2]])
+        #colnames <- c(colnames, dx@Dimnames[[2]])
+        colnames <- c(colnames, dlabels)     
         
         if (attr(mt.d, "intercept") && !.removeIntercept(modelType)) { # Has intercept
             hasIntercept <- TRUE
@@ -254,7 +263,7 @@ createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, mod
     # TODO Check types and dimensions        
     
     useTimeAsOffset <- FALSE
-    if (!is.null(time) && modelType != "sccs" && modelType != "cox") { # TODO Generic check
+    if (!is.null(time) && !.useOffsetModelType(modelType)) {
         useTimeAsOffset <- TRUE
     }
     
@@ -310,7 +319,22 @@ createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, mod
 #'
 #' @return TRUE/FALSE
 isValidModelType <- function(modelType) {
-    types <- c("ls", "pr", "lr", "clr", "cpr", "sccs", "cox")
+    types <- c("ls", "pr", "lr", "clr", "cpr", "sccs", "cox", "cox_raw")
+    modelType %in% types
+}
+
+.removeIntercept <- function(modelType) {
+    types <- c("clr", "cpr", "sccs", "cox", "cox_raw")
+    modelType %in% types
+}
+
+.isSurvivalModelType <- function(modelType) {
+    types <- c("cox", "cox_raw")
+    modelType %in% types
+}
+
+.useOffsetModelType <- function(modelType) {
+    types <- c("sccs", "cox", "cox_raw")
     modelType %in% types
 }
 
@@ -558,15 +582,6 @@ createSqlCyclopsData <- function(modelType, control) {
 #' 
 isInitialized <- function(object) {
 	return(!is.null(object$cyclopsDataPtr) && !.isRcppPtrNull(object$cyclopsDataPtr))	
-}
-
-
-.removeIntercept <- function(modelType) {
-    if (modelType == "clr" || modelType == "cpr" || modelType == "sccs" || modelType == "cox") {
-        return(TRUE)
-    } else {
-        return(FALSE)
-    }
 }
 
 

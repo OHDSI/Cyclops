@@ -99,6 +99,10 @@ public:
 		return z;
 	}
 
+	const std::vector<real>& getTimeVectorRef() const {
+		return offs;
+	}
+
 	const std::vector<real>& getYVectorRef() const {
 		return y;
 	}
