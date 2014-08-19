@@ -524,11 +524,7 @@ RcppModelData::RcppModelData(
     	    }
 	        cpid[i] = currentCase;
     	}
-    	if (modelType != ModelType::COX) {
-            nPatients = currentCase + 1; // TODO change to # strata and delegate counting # unique denominators to AbstractModelSpecifics
-        } else {
-            nPatients = getYVectorRef().size(); // TODO see above note.
-        }
+        nPatients = currentCase + 1;
     }    
 }
 

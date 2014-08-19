@@ -96,6 +96,8 @@ protected:
 	
 	virtual bool initializeAccumulationVectors(void) = 0; // pure virtual
 
+	virtual bool hasResetableAccumulators(void) = 0; // pure virtual
+
 	template <class T>
 	void fillVector(T* vector, const int length, const T& value) {
 		for (int i = 0; i < length; i++) {

@@ -52,6 +52,9 @@ bool ModelSpecifics<BaseModel,WeightType>::sortPid(void) { return BaseModel::sor
 
 template <class BaseModel,typename WeightType>
 bool ModelSpecifics<BaseModel,WeightType>::initializeAccumulationVectors(void) { return BaseModel::cumulativeGradientAndHessian; }
+
+template <class BaseModel,typename WeightType>
+bool ModelSpecifics<BaseModel,WeightType>::hasResetableAccumulators(void) { return BaseModel::hasResetableAccumulators; }
    
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useCrossValidation) {
@@ -190,11 +193,11 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 	real logLikelihood = static_cast<real>(0.0);
 
 	if(BaseModel::cumulativeGradientAndHessian)	{
-		for (size_t k = 0; k < K; ++k) {
-			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], &accDenomPid[0], hPid, k);
+		for (size_t i = 0; i < N; ++i) {
+			logLikelihood += BaseModel::logPredLikeContrib(hY[i], weights[i], hXBeta[i], &accDenomPid[0], hPid, i); // TODO Going to crash with ties
 		}
 	} else { // TODO Unnecessary code duplication
-		for (size_t k = 0; k < K; ++k) {
+		for (size_t k = 0; k < K; ++k) { // TODO Is index of K correct?
 			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], denomPid, hPid, k);
 		}
 	}
@@ -295,31 +298,31 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 //        std::cout << "Will reset at " << *reset << std::endl;
 				
 		for (; it; ) {
-			int k = it.index();
+			int i = it.index();
 			
 // TODO CHECK		
-			if (*reset == k) {
+			if (*reset == i) {
 			    accNumerPid  = static_cast<real>(0.0);
 			    accNumerPid2 = static_cast<real>(0.0);
 			    ++reset;
 			} 			    
 						
 			if(w.isWeighted){ //if useCrossValidation
-				accNumerPid  += numerPid[BaseModel::getGroup(hPid, k)] * hKWeight[k]; // TODO Only works when X-rows are sorted as well
-				accNumerPid2 += numerPid2[BaseModel::getGroup(hPid, k)] * hKWeight[k];
+				accNumerPid  += numerPid[i] * hNWeight[i]; // TODO Only works when X-rows are sorted as well
+				accNumerPid2 += numerPid2[i] * hNWeight[i];
 			} else { // TODO Unnecessary code duplication
-				accNumerPid  += numerPid[BaseModel::getGroup(hPid, k)]; // TODO Only works when X-rows are sorted as well
-				accNumerPid2 += numerPid2[BaseModel::getGroup(hPid, k)];
+				accNumerPid  += numerPid[i]; // TODO Only works when X-rows are sorted as well
+				accNumerPid2 += numerPid2[i];
 			}
 #ifdef DEBUG_COX
-			cerr << "w: " << k << " " << hNWeight[k] << " " << numerPid[BaseModel::getGroup(hPid, k)] << ":" <<
-					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[BaseModel::getGroup(hPid, k)];
+			cerr << "w: " << i << " " << hNWeight[i] << " " << numerPid[i] << ":" <<
+					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[i];
 #endif			
 			// Compile-time delegation
 			BaseModel::incrementGradientAndHessian(it,
 					w, // Signature-only, for iterator-type specialization
 					&gradient, &hessian, accNumerPid, accNumerPid2,
-					accDenomPid[BaseModel::getGroup(hPid, k)], hNWeight[k], it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
+					accDenomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
 #ifdef DEBUG_COX		
 			cerr << " -> g:" << gradient << " h:" << hessian << endl;	
 #endif
@@ -327,13 +330,13 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			
 			if (IteratorType::isSparse) {
 				const int next = it ? it.index() : N;
-				for (++k; k < next; ++k) {
+				for (++i; i < next; ++i) {
 #ifdef DEBUG_COX
-			cerr << "q: " << k << " " << hNWeight[k] << " " << 0 << ":" <<
-					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[BaseModel::getGroup(hPid, k)];
+			cerr << "q: " << i << " " << hNWeight[i] << " " << 0 << ":" <<
+					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[i];
 #endif	
 // TODO CHECK                   
-                    if (*reset == k) {
+                    if (*reset == i) {
 			            accNumerPid  = static_cast<real>(0.0);
         			    accNumerPid2 = static_cast<real>(0.0);
 		        	    ++reset;                   
@@ -342,7 +345,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 					BaseModel::incrementGradientAndHessian(it,
 							w, // Signature-only, for iterator-type specialization
 							&gradient, &hessian, accNumerPid, accNumerPid2,
-							accDenomPid[BaseModel::getGroup(hPid, k)], hNWeight[k], static_cast<real>(0), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
+							accDenomPid[i], hNWeight[i], static_cast<real>(0), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
 #ifdef DEBUG_COX		
 			cerr << " -> g:" << gradient << " h:" << hessian << endl;	
 #endif
@@ -353,12 +356,12 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		//exit(-1);	
 	} else {
 		for (; it; ++it) {
-			const int k = it.index();
+			const int i = it.index();
 			// Compile-time delegation
 			BaseModel::incrementGradientAndHessian(it,
 					w, // Signature-only, for iterator-type specialization
-					&gradient, &hessian, numerPid[k], numerPid2[k],
-					denomPid[k], hNWeight[k], it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
+					&gradient, &hessian, numerPid[i], numerPid2[i],
+					denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
 		}
 	}
 
@@ -652,8 +655,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 #ifdef DEBUG_COX
 	cerr << "Done with initial denominators" << endl;
 
-	for (int k = 0; k < K; ++k) {
-		cerr << denomPid[k] << " " << accDenomPid[k] << " " << numerPid[k] << endl;
+	for (int i = 0; i < N; ++i) {
+		cerr << denomPid[i] << " " << accDenomPid[i] << " " << numerPid[i] << endl;
 	}
 #endif
 }
@@ -663,14 +666,14 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 
 	if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
 		BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
-			if (accDenomPid.size() != K) {
-				accDenomPid.resize(K, static_cast<real>(0));
+			if (accDenomPid.size() != N) {
+				accDenomPid.resize(N, static_cast<real>(0));
 			}
-			if (accNumerPid.size() != K) {
-				accNumerPid.resize(K, static_cast<real>(0));
+			if (accNumerPid.size() != N) {
+				accNumerPid.resize(N, static_cast<real>(0));
 			}
-			if (accNumerPid2.size() != K) {
-				accNumerPid2.resize(K, static_cast<real>(0));
+			if (accNumerPid2.size() != N) {
+				accNumerPid2.resize(N, static_cast<real>(0));
 			}
 
 			// prefix-scan
@@ -686,9 +689,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 // TODO CHECK   
                 auto reset = begin(accReset);
 				
-				for (size_t k = 0; k < K; ++k) {
+				for (size_t i = 0; i < N; ++i) {
 // TODO CHECK				
-                    if( *reset == k ) {
+                    if( *reset == i ) {
 			            totalDenomTrain = static_cast<real>(0);
 				        totalNumerTrain = static_cast<real>(0);
 				        totalNumer2Train = static_cast<real>(0);
@@ -698,20 +701,20 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 				        ++reset;
  				    }
  				    
-					if(hKWeight[k] == 1.0){
-						totalDenomTrain += denomPid[k];
-						totalNumerTrain += numerPid[k];
-						totalNumer2Train += numerPid2[k];
-						accDenomPid[k] = totalDenomTrain;
-						accNumerPid[k] = totalNumerTrain;
-						accNumerPid2[k] = totalNumer2Train;
+					if(hKWeight[i] == 1.0){
+						totalDenomTrain += denomPid[i];
+						totalNumerTrain += numerPid[i];
+						totalNumer2Train += numerPid2[i];
+						accDenomPid[i] = totalDenomTrain;
+						accNumerPid[i] = totalNumerTrain;
+						accNumerPid2[i] = totalNumer2Train;
 					} else {
-						totalDenomValid += denomPid[k];
-						totalNumerValid += numerPid[k];
-						totalNumer2Valid += numerPid2[k];
-						accDenomPid[k] = totalDenomValid;
-						accNumerPid[k] = totalNumerValid;
-						accNumerPid2[k] = totalNumer2Valid;
+						totalDenomValid += denomPid[i];
+						totalNumerValid += numerPid[i];
+						totalNumer2Valid += numerPid2[i];
+						accDenomPid[i] = totalDenomValid;
+						accNumerPid[i] = totalNumerValid;
+						accNumerPid2[i] = totalNumer2Valid;
 					}
 				}
 			} else {
@@ -721,23 +724,23 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 				
 				auto reset = begin(accReset);
 				
-				for (size_t k = 0; k < K; ++k) {
+				for (size_t i = 0; i < N; ++i) {
 // TODO CHECK				
-                    if (*reset == k) {
+                    if (*reset == i) {
 				        totalDenom = static_cast<real>(0);
 				        totalNumer = static_cast<real>(0);
 				        totalNumer2 = static_cast<real>(0);				    
                         ++reset;				    
 				    }
 				    
-					totalDenom += denomPid[k];
-					totalNumer += numerPid[k];
-					totalNumer2 += numerPid2[k];
-					accDenomPid[k] = totalDenom;
-					accNumerPid[k] = totalNumer;
-					accNumerPid2[k] = totalNumer2;
+					totalDenom += denomPid[i];
+					totalNumer += numerPid[i];
+					totalNumer2 += numerPid2[i];
+					accDenomPid[i] = totalDenom;
+					accNumerPid[i] = totalNumer;
+					accNumerPid2[i] = totalNumer2;
 #ifdef DEBUG_COX
-					cerr << denomPid[k] << " " << accDenomPid[k] << " (beta)" << endl;
+					cerr << denomPid[i] << " " << accDenomPid[i] << " (beta)" << endl;
 #endif
 				}
 

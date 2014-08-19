@@ -1,20 +1,7 @@
 library("testthat")
 library("survival")
 
-test_that("Check small Cox example", {
-    test2 <- list(start=c(1, 2, 5, 2, 1, 7, 3, 4, 8, 8),
-                  stop =c(2, 3, 6, 7, 8, 9, 9, 9,14,17),
-                  event=c(1, 1, 1, 1, 1, 1, 1, 0, 0, 0),
-                  x    =c(1, 0, 0, 1, 0, 1, 1, 1, 0, 0) )
-    
-    gold <-  coxph( Surv(start, stop, event) ~ x, test2)
-    
-    summary(gold)
-    
-    
-})
-
-test_that("Check very small Cox example", {
+test_that("Check very small Cox example with no ties, but with/without strata", {
     test <- read.table(header=T, sep = ",", text = "
 start, length, event, x1, x2
 0, 4,  1,0,0
@@ -51,8 +38,8 @@ start, length, event, x1, x2
     dataPtrStrat <- createCyclopsDataFrame(Surv(length, event) ~ x1 + strata(x2),
                                        data = test,                                      
                                        modelType = "cox")    
-    cyclopsFitStrat <- fitCyclopsModel(dataPtrStrat)    
-#     expect_equal(coef(cyclopsFitStrat), coef(goldStrat))  # Names are still wrong    
+    cyclopsFitStrat <- fitCyclopsModel(dataPtrStrat)         
+    expect_equal(coef(cyclopsFitStrat), coef(goldStrat), tolerance = tolerance)
 })
 
 
@@ -71,7 +58,7 @@ start, length, event, x1, x2
         
     goldRight <- coxph(Surv(length, event) ~ x1 + x2, test)
     summary(goldRight)
-     
+
     dataPtrRight <- createCyclopsDataFrame(Surv(length, event) ~ x1 + x2, data = test,                                      
                                        modelType = "cox")    
     cyclopsFitRight <- fitCyclopsModel(dataPtrRight) 
@@ -80,7 +67,28 @@ start, length, event, x1, x2
     expect_equal(coef(cyclopsFitRight), coef(goldRight), tolerance = tolerance)      
 })
 
-test_that("Check very small Cox example with failure ties", {
+test_that("Check very small Cox example with failure ties, no risk-set contribution after tie", {
+    test <- read.table(header=T, sep = ",", text = "
+start, length, event, x1, x2
+0, 4,  1,0,0
+0, 3,  1,2,0
+0, 3,  0,0,1
+0, 2,  1,0,1
+0, 2,  1,1,1    
+0, 2,  1,0,0
+")
+    goldRight <- coxph(Surv(length, event) ~ x1 + x2, test, ties = "breslow")
+    coef(goldRight)
+      
+    dataPtrRight <- createCyclopsDataFrame(Surv(length, event) ~ x1 + x2, data = test,                                                                
+                                       modelType = "cox")    
+    cyclopsFitRight <- fitCyclopsModel(dataPtrRight) 
+    
+    tolerance <- 1E-4
+    expect_equal(coef(cyclopsFitRight), coef(goldRight), tolerance = tolerance)     
+})
+
+test_that("Check very small Cox example with failure ties, with risk-set contribution after tie", {
     test <- read.table(header=T, sep = ",", text = "
 start, length, event, x1, x2
 0, 4,  1,0,0
@@ -89,13 +97,39 @@ start, length, event, x1, x2
 0, 2,  1,0,1
 0, 2,  1,1,1
 0, 1,  0,1,0
-0, 1,  1,1,0                       
+0, 1,  1,1,0 
 ")
-    goldRight <- coxph(Surv(length, event) ~ x1 + x2, test)
-    coef(goldRight)
     
-    dataPtrRight <- createCyclopsDataFrame(Surv(length, event) ~ x1 + x2, data = test,                                      
-                                       modelType = "cox")    
-    cyclopsFitRight <- fitCyclopsModel(dataPtrRight)   ## BROKEN 
-    coef(cyclopsFitRight)
+        # We get the correct answer when last entry is censored
+    goldRight <- coxph(Surv(length, event) ~ x1 + x2, test, ties = "breslow")
+       
+    dataPtrRight <- createCyclopsDataFrame(Surv(length, event) ~ x1 + x2, data = test,                                                                                 
+                                           modelType = "cox")    
+    cyclopsFitRight <- fitCyclopsModel(dataPtrRight) 
+    
+    tolerance <- 1E-4
+    expect_equal(coef(cyclopsFitRight), coef(goldRight), tolerance = tolerance)
+})
+
+test_that("Check very small Cox example with failure ties and strata", {
+    test <- read.table(header=T, sep = ",", text = "
+start, length, event, x1, x2
+0, 4,  1,0,0
+0, 3,  1,2,0
+0, 3,  0,0,1
+0, 2,  1,0,1
+0, 2,  1,1,1
+0, 1,  0,1,0
+0, 1,  1,1,0 
+")
+    
+    # We get the correct answer when last entry is censored
+    goldRight <- coxph(Surv(length, event) ~ x1 + strata(x2), test, ties = "breslow")
+    
+    dataPtrRight <- createCyclopsDataFrame(Surv(length, event) ~ x1 + strata(x2), data = test,                                                                                 
+                                           modelType = "cox")    
+    cyclopsFitRight <- fitCyclopsModel(dataPtrRight) 
+    
+    tolerance <- 1E-4
+    expect_equal(coef(cyclopsFitRight), coef(goldRight), tolerance = tolerance)
 })

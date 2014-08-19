@@ -61,6 +61,8 @@ protected:
 	void doSortPid(bool useCrossValidation);
 	
 	bool initializeAccumulationVectors(void);
+	
+	bool hasResetableAccumulators(void);
 
 private:
 	template <class IteratorType, class Weights>
@@ -147,8 +149,21 @@ public:
 	const static bool hasStrataCrossTerms = true;
 
 	int getGroup(int* groups, int k) {
-		return k;
+		return k; // No ties
 	}
+	
+	const static bool hasResetableAccumulators = true;
+};
+
+struct OrderedWithTiesData {
+public:
+	const static bool hasStrataCrossTerms = true;
+
+	int getGroup(int* groups, int k) {
+		return groups[k];
+	}	
+	
+	const static bool hasResetableAccumulators = false;	
 };
 
 struct IndependentData {
@@ -164,6 +179,8 @@ struct FixedPid {
 	const static bool sortPid = false;
 
 	const static bool cumulativeGradientAndHessian = false;		
+	
+	const static bool hasResetableAccumulators = false;
 };
 
 struct SortedPid {
@@ -576,7 +593,7 @@ public:
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
 
-    bool resetAccumulators(int* pid, int k, int currentPid) { return false; }
+    bool resetAccumulators(int* pid, int k, int currentPid) { return false; } // No stratification
 
 	real observationCount(real yi) {
 		return static_cast<real>(yi);  
@@ -628,41 +645,55 @@ public:
 };
 
 template <typename WeightType>
-struct EfronTiedCoxProportionalHazards : public CoxProportionalHazards<WeightType> {
+struct BreslowTiedCoxProportionalHazards : public OrderedWithTiesData, GLMProjection, SortedPid, NoFixedLikelihoodTerms, Survival<WeightType> {
 public:
-// 	const static bool precomputeHessian = false;
-// 
-// 	static real getDenomNullValue () { return static_cast<real>(0.0); }
-// 
-//     bool resetAccumulators(int* pid, int k, int currentPid) { return false; }
-// 
-// 	template <class IteratorType, class Weights>
-// 	void incrementGradientAndHessian(
-// 			const IteratorType& it,
-// 			Weights false_signature,
-// 			real* gradient, real* hessian,
-// 			real numer, real numer2, real denom,
-// 			WeightType nEvents,
-// 			real x, real xBeta, real y) {
-// 
-// 		const real t = numer / denom;
-// 		const real g = nEvents * t; // Always use weights (not censured indicator)
-// 		*gradient += g;
-// 		if (IteratorType::isIndicator) {
-// 			*hessian += g * (static_cast<real>(1.0) - t);
-// 		} else {
-// 			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
-// 		}
-// 	}
-// 
-// 	real logLikeDenominatorContrib(WeightType ni, real accDenom) {
-// 		return ni*std::log(accDenom); // TODO Fix
-// 	}
-// 
-// 	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
-// 			int* groups, int i) {
-// 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)])); // TODO Wrong
-// 	}
+	const static bool precomputeHessian = false;
+
+	static real getDenomNullValue () { return static_cast<real>(0.0); }
+
+    bool resetAccumulators(int* pid, int k, int currentPid) { 
+        return pid[k] != currentPid;
+    }
+    
+	real observationCount(real yi) {
+		return static_cast<real>(yi);  
+	}
+
+	template <class IteratorType, class Weights>
+	void incrementGradientAndHessian(
+			const IteratorType& it,
+			Weights false_signature,
+			real* gradient, real* hessian,
+			real numer, real numer2, real denom,
+			WeightType nEvents,
+			real x, real xBeta, real y) {
+
+		const real t = numer / denom;
+		const real g = nEvents * t; // Always use weights (not censured indicator)
+		*gradient += g;
+		if (IteratorType::isIndicator) {
+			*hessian += g * (static_cast<real>(1.0) - t);
+		} else {
+			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
+		}
+	}
+
+	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+		return std::exp(xBeta);
+	}
+
+	real logLikeDenominatorContrib(WeightType ni, real accDenom) {
+		return ni*std::log(accDenom);
+	}
+
+	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
+			int* groups, int i) {
+		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)])); // TODO Wrong
+	}
+
+	void predictEstimate(real& yi, real xBeta){
+		// do nothing for now
+	}
 };
 
 template <typename WeightType>
