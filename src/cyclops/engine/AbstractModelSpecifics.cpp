@@ -10,7 +10,7 @@
 #include "engine/ModelSpecifics.h"
 // #include "io/InputReader.h"
 
-#include "Rcpp.h"
+//#include "Rcpp.h"
 
 namespace bsccs {
 

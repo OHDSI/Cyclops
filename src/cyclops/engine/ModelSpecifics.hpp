@@ -655,7 +655,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 #ifdef DEBUG_COX
 	cerr << "Done with initial denominators" << endl;
 
-	for (int k = 0; k < K; ++k) {
+	for (int k = 0; k < N; ++k) {
 		cerr << denomPid[k] << " " << accDenomPid[k] << " " << numerPid[k] << endl;
 	}
 #endif

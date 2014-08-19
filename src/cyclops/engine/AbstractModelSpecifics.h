@@ -28,7 +28,7 @@ enum class ModelType; // forward declaration
 	typedef float real;
 #endif
 
-//#define DEBUG_COX // Uncomment to get output for Cox model
+#define DEBUG_COX // Uncomment to get output for Cox model
 //#define DEBUG_POISSON
 
 class AbstractModelSpecifics {
