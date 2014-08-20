@@ -160,7 +160,7 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.doCrossValidation = false;
 	arguments.useAutoSearchCV = false;
 	arguments.lowerLimit = 0.01;
-	arguments.upperLimit = 20.0;
+	arguments.upperLimit = 200000.0;
 	arguments.fold = 10;
 	arguments.gridSteps = 10;
 	arguments.cvFileName = "cv.txt";

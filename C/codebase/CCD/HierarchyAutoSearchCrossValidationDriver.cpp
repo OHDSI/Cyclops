@@ -79,13 +79,16 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 	bool classLevelFinished = false;
 
 	int step = 0;
+	int step2 = 0;
 	ccd.setHyperprior(tryvalue);
 	ccd.setClassHyperprior(tryvalueClass);
 
 
 	while (!outerFinished){
-
+		step = 0;
+		step2 = 0;
 		while (!finished) {
+			cout << "\n \n \n \t \t LOOP 1" << endl;
 			ccd.setHyperprior(tryvalue);
 
 			std::vector<double> predLogLikelihood;
@@ -112,17 +115,17 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 				finished = true;
 			}
 		}
-		tryvalueStored = tryvalue;
-		ccd.setHyperprior(tryvalueStored);
-		cout << "tryvalueStored = " << tryvalue << endl;
+
+		ccd.setHyperprior(tryvalue);
 		//exit(-1);
 		while (!finished2) {
+			cout << "\n \n \n \t \t LOOP 2" << endl;
 			ccd.setClassHyperprior(tryvalueClass);
 
 			std::vector<double> predLogLikelihood;
 
 			// Newly re-located code
-			double pointEstimate = doCrossValidation(ccd, selector, arguments, step, predLogLikelihood);
+			double pointEstimate = doCrossValidation(ccd, selector, arguments, step2, predLogLikelihood);
 
 			double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
 
@@ -134,22 +137,27 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 
 			tryvalueClass = next.second;
 			if (!next.first) {
+				cout << "tryvalueClass = " << tryvalueClass << endl;
 				finished2 = true;
 			}
 			std::cout << searcherClass;
-			step++;
-			if (step >= maxSteps) {
+			step2++;
+			if (step2 >= maxSteps) {
 				std::cerr << "Max steps reached!" << std::endl;
 				finished2 = true;
 			}
 		}
-		tryvalueClassStored = tryvalueClass;
-		ccd.setClassHyperprior(tryvalueClassStored);
-		if (abs(tryvalueStored - tryvalue) < 1 && abs(tryvalueClassStored - tryvalueClass) < 1){
+		ccd.setClassHyperprior(tryvalueClass);
+		if (abs(tryvalueStored - tryvalue)/tryvalueStored < eps && abs(tryvalueClassStored - tryvalueClass)/tryvalueClassStored < eps){
 			outerFinished = true;
 		} else {
 			finished = false;
+			finished2 = false;
 		}
+		tryvalueStored = tryvalue;
+		tryvalueClassStored = tryvalueClass;
+		cout << "\n \n \n \t \t tryvalueStored = " << tryvalue << endl;
+		cout << "\n \n \n \t \t tryvalueClassStored = " << tryvalueClassStored << endl;
 	}
 
 	maxPoint = tryvalue;
