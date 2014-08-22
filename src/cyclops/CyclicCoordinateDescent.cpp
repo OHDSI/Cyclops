@@ -775,10 +775,35 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 		error->throwError(stream);				
 	}
 	
+	if (index == 802) {
+	    std::ostringstream stream;
+	    stream << "logLike before = " << getLogLikelihood() << std::endl;
+	    if (getLogLikelihood() != getLogLikelihood()) {
+	        for (int i = 0; i < getBetaSize(); ++i) {
+	            stream << getBeta(i) << ", ";
+	        }	    	    
+	        error->throwError(stream);			
+	    } else {
+    	   logger->writeLine(stream);
+    	}
+	}
+	
 	computeNumeratorForGradient(index);
 	
 	priors::GradientHessian gh;
 	computeGradientAndHessian(index, &gh.first, &gh.second);
+	
+	if (gh.first != gh.first) {
+	    std::ostringstream stream;
+	    stream << "Gradient nan in " << index << " " << hXI->getColumn(index).getLabel();
+	    error->throwError(stream);	
+	}
+	
+	if (gh.second != gh.second) {
+	    std::ostringstream stream;
+	    stream << "Hessian nan in " << index;
+	    error->throwError(stream);	
+	}
 
 	return jointPrior->getDelta(gh, hBeta, index);
 }
