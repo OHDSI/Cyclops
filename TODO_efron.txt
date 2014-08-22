@@ -1,0 +1,3 @@
+* Need to back fill ties strata with largest normalization constant (MM) to reproduce Efron estimate (BAD idea).
+
+* Separate accumulate numerators and denominators, then adjust values, then iterator through gradient/Hessian (better idea).

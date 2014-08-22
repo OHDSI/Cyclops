@@ -113,7 +113,8 @@ enum class ModelType {
 	CONDITIONAL_LOGISTIC,
 	CONDITIONAL_POISSON,
 	SELF_CONTROLLED_MODEL,
-	COX
+	COX,
+	COX_RAW
 };
 
 namespace Models {
@@ -125,7 +126,8 @@ inline bool requiresStratumID(const ModelType modelType) {
 }
 
 inline bool requiresCensoredData(const ModelType modelType) {
-	return (modelType == ModelType::COX);
+	return (modelType == ModelType::COX ||
+			modelType == ModelType::COX_RAW);
 }
 
 inline bool requiresOffset(const ModelType modelType) {

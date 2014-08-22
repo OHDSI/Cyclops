@@ -4,6 +4,12 @@ library("testthat")
 # These tests are believed to be broken; they need confirmation and fixes
 #
 
+# test_that("Returns correct counts" ,{
+#   Number of rows
+#   Number of unique denominators
+#   Number of strata
+# })
+
 # test_that("Returns cross-validated variance estimate" ,{})
 
 # test_that("Data validity when loaded with (y,dx,sx,ix)" ,{})
@@ -61,22 +67,6 @@ library("testthat")
 # test_that("SCCS as SCCS likelihoods" ,{
 #     expect_equal(logLik(cyclopsFit), MJS values) # TODO Why are these different?
 #})
-
-# test_that("Check small stratified Cox example", {
-#     test <- list(time=c(4,3,1,1,2,2,3), 
-#                  status=c(1,1,1,0,1,1,0), 
-#                  x=c(0,2,1,1,1,0,0), 
-#                  sex=c(0,0,0,0,1,1,1)) 
-#     # Fit a stratified model 
-#     gold <- coxph(Surv(time, status) ~ x + strata(sex), test) 
-#     
-#     dataPtr <- createCyclopsDataFrame(Surv(time, status) ~ x + strata(sex), data = test,                                      
-#                                   modelType = "cox")    
-#     cyclopsFit <- fitCyclopsModel(dataPtr)
-#     
-#     tolerance <- 1E-4
-#     expect_equal(coef(cyclopsFit), coef(gold), tolerance = tolerance)    
-# })
 
 test_that("Set seed for cross-validation", {
     counts <- c(18,17,15,20,10,20,25,13,12)
