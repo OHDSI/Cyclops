@@ -362,6 +362,37 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 					w, // Signature-only, for iterator-type specialization
 					&gradient, &hessian, numerPid[i], numerPid2[i],
 					denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
+					
+					
+//#define DEBUG_CPR
+#ifdef DEBUG_CPR					
+				if (index == 92) {
+				    if (i == 38 || i == 70) {
+				        // from iGAH
+
+        real numer = numerPid[i];
+        real denom = denomPid[i];
+        auto nEvents = hNWeight[i];
+        real gradient = 0;
+        real hessian = 0;
+        
+        
+		const real t = numer / denom;
+		const real g = nEvents * t; // Always use weights (number of events)
+		gradient += g;
+// 		if (IteratorType::isIndicator) {
+			hessian += g * (static_cast<real>(1.0) - t);
+// 		} else {
+// 			hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
+// 		}				    
+				    
+				    
+				        std::cout << "\t" << numerPid[i] << " " << numerPid2[i] << " " << denomPid[i] << " " << it.value() << std::endl;
+				        std::cout << "\t" << t << " " << (1.0 - t) <<  " " << gradient << " " << hessian << " " << nEvents << std::endl;
+				    }
+				    std::cout << i << " " << gradient << " " << hessian << std::endl;				
+				}
+#endif					
 		}
 	}
 

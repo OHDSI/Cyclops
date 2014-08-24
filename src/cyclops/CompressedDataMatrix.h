@@ -60,6 +60,11 @@ public:
 		return static_cast<real*>(data->data());
 	}
 	
+	template <typename Function> 
+	void transform(Function f) {
+	    std::transform(data->begin(), data->end(), data->begin(), f);
+	}
+	
 	FormatType getFormatType() const {
 		return formatType;
 	}

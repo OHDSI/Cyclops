@@ -166,6 +166,8 @@ public:
 	size_t getNumberOfStrata() const;
 	
     size_t getColumnIndex(const IdType covariate) const;	
+    
+    void moveTimeToCovariate(bool takeLog);
 
 	const std::string& getRowLabel(size_t i) const {
 		if (i >= labels.size()) {

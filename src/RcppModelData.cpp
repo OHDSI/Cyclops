@@ -274,25 +274,37 @@ void cyclopsFinalizeData(
         for (size_t i = 0; i < numRows; ++i) {
             data->getColumn(0).add_data(i, static_cast<real>(1.0));
         }
-    }
+    } 
     
     if (!Rf_isNull(sexpOffsetCovariate)) {
-        // TODO handle offset
+        // TODO handle offset        
         IdType covariate = as<IdType>(sexpOffsetCovariate);
-        int index = data->getColumnIndexByName(covariate);         		
- 		if (index == -1) {
-            std::ostringstream stream;
- 			stream << "Variable " << covariate << " not found.";
-            ::Rf_error(stream.str().c_str());
- 			//error->throwError(stream); 
+        int index;
+        if (covariate == -1) { // TODO  Bad, magic number
+            //std::cout << "Trying to convert time to offset" << std::endl;
+            //data->push_back(NULL, NULL, offs.begin(), offs.end(), DENSE); // TODO Do not make copy
+            //data->push_back(NULL, &(data->getTimeVectorRef()), DENSE);
+            data->moveTimeToCovariate(true);
+            index = data->getNumberOfColumns() - 1;
+        } else {
+            index = data->getColumnIndexByName(covariate);         		
+ 	    	if (index == -1) {
+                std::ostringstream stream;
+     			stream << "Variable " << covariate << " not found.";
+                stop(stream.str().c_str());
+     			//error->throwError(stream); 
+            }
         }
         data->moveToFront(index);
-        data->getColumn(0).add_label(-1); // TODO Generic label for offset?
+        data->getColumn(0).add_label(-1); // TODO Generic label for offset?        
         data->setHasOffsetCovariate(true);   
     } 
     
     if (data->getHasOffsetCovariate() && !offsetAlreadyOnLogScale) {
-        stop("Transforming the offset is not yet implemented");
+        //stop("Transforming the offset is not yet implemented");        
+        data->getColumn(0).transform([](real x) {
+            return std::log(x);
+        });
     }
     
     if (!Rf_isNull(sexpCovariatesDense)) {

@@ -43,6 +43,10 @@ size_t ModelData::getColumnIndex(const IdType covariate) const {
     return index;
 }
 
+void ModelData::moveTimeToCovariate(bool takeLog) {
+    push_back(NULL, &offs, DENSE); // TODO Use smart ptr
+}
+
 //#define DEBUG_64BIT
 
 size_t ModelData::append(
@@ -73,6 +77,7 @@ size_t ModelData::append(
     // TODO Check model-specific outcome dimensions    
   //  if (requiresStratumID(
     
+    bool hasTime = oTime.size() == oY.size();
     
     const size_t nOutcomes = oStratumId.size();
     const size_t nCovariates = cCovariateId.size();
@@ -100,7 +105,10 @@ size_t ModelData::append(
         	}
         }
         pid.push_back(lastStratumMap.second);        
-        y.push_back(oY[i]);    
+        y.push_back(oY[i]);
+        if (hasTime) {
+            offs.push_back(oTime[i]);
+        }    
         
         IdType currentRowId = oRowId[i];
         // TODO Check timing on adding label as string
