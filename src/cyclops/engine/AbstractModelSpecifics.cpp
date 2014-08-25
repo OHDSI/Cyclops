@@ -95,6 +95,7 @@ AbstractModelSpecifics::AbstractModelSpecifics(const ModelData& input)
 	  modelData(input),
 	  hXI(static_cast<CompressedDataMatrix*>(const_cast<ModelData*>(&modelData))),
 	  hY(const_cast<real*>(input.getYVectorRef().data())), //hZ(const_cast<real*>(input.getZVectorRef().data())),
+	  hOffs(const_cast<real*>(input.getTimeVectorRef().data())),
 	  hPid(const_cast<int*>(input.getPidVectorRef().data()))	  
 	  {
 	// Do nothing
@@ -117,6 +118,10 @@ void AbstractModelSpecifics::makeDirty(void) {
 //			it != hessianSparseCrossTerms.end(); ++it) {
 //		delete it->second;
 //	}
+}
+
+int AbstractModelSpecifics::getAlignedLength(int N) {
+	return (N / 16) * 16 + (N % 16 == 0 ? 0 : 16);
 }
 
 void AbstractModelSpecifics::initialize(
@@ -142,17 +147,25 @@ void AbstractModelSpecifics::initialize(
 	K = iK;
 	J = iJ;
 // 	hXI = iXI;
-	numerPid = iNumerPid;
-	numerPid2 = iNumerPid2;
-	denomPid = iDenomPid;
+//	numerPid = iNumerPid;
+//	numerPid2 = iNumerPid2;
+//	denomPid = iDenomPid;	
+	
+	int alignedLength = getAlignedLength(N);
+	numerDenomPidCache.resize(3 * alignedLength);
+	numerPid = numerDenomPidCache.data();
+	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
+	numerPid2 = numerPid + 2 * alignedLength;
 
 	sparseIndices = iSparseIndices;
 
 //	hPid = iPid;
-	offsExpXBeta = iOffsExpXBeta;
+//	offsExpXBeta = iOffsExpXBeta;
+	
+	offsExpXBeta.resize(K);
 
 	hXBeta = iXBeta;
-	hOffs = iOffs;
+//	hOffs = iOffs;
 
 //	hBeta = iBeta;
 
@@ -165,7 +178,8 @@ void AbstractModelSpecifics::initialize(
 //	hPid[101] = 1;
 
 	if (allocateXjY()) {
-		hXjY = iXjY;
+//		hXjY = iXjY;
+		hXjY.resize(J);
 	}
 
 	// TODO Should allocate host memory here

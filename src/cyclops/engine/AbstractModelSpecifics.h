@@ -92,6 +92,8 @@ public:
 
 protected:
 
+	int getAlignedLength(int N);
+
 	virtual bool allocateXjY(void) = 0; // pure virtual
 
 	virtual bool allocateXjX(void) = 0; // pure virtual
@@ -116,6 +118,7 @@ private:
 	const ModelData& modelData;	
 	
 protected:	
+
 // 	const std::vector<real>& oY;
 // 	const std::vector<real>& oZ;
 // 	const std::vector<int>& oPid;
@@ -128,31 +131,34 @@ protected:
 	
 	IntVector accReset;
 
-	// TODO Currently constructed in CyclicCoordinateDescent, but should be encapsulated here
-
-	real* hOffs;  // K-vector
 	real* hY; // K-vector
 //	real* hZ; // K-vector
-
+	real* hOffs;  // K-vector
 	int* hPid; // K-vector
-	int** hXColumnRowIndicators; // J-vector
+//	int** hXColumnRowIndicators; // J-vector
 
 //	real* hBeta;
 	real* hXBeta;
 	real* hXBetaSave;
-	real* hDelta;
+//	real* hDelta;
 
 	size_t N; // Number of patients
 	size_t K; // Number of exposure levels
 	size_t J; // Number of drugs
 
-	real* expXBeta;
-	real* offsExpXBeta;
-	real* denomPid;
+//	real* expXBeta;
+//	real* offsExpXBeta;
+	RealVector offsExpXBeta;
+	
+	RealVector numerDenomPidCache;
+	real* denomPid; // all nested with a single cache
 	real* numerPid;
 	real* numerPid2;
-	real* xOffsExpXBeta;
-	real* hXjY;
+			
+	
+//	real* xOffsExpXBeta;
+//	real* hXjY;
+	RealVector hXjY;
 	RealVector hXjX;
 	real logLikelihoodFixedTerm;
 
