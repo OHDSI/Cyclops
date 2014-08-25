@@ -41,6 +41,19 @@ bsccs::unique_ptr<T> make_unique( Args&& ...args ) {
     return bsccs::unique_ptr<T>( new T( std::forward<Args>(args)... ) );
 }
 
+// Internal types
+
+
+#ifdef DOUBLE_PRECISION
+	typedef double real;
+#else
+	typedef float real;
+#endif 
+
+typedef std::vector<int> IntVector;
+typedef std::vector<real> RealVector;
+typedef bsccs::shared_ptr<IntVector> IntVectorPtr;
+typedef bsccs::shared_ptr<RealVector> RealVectorPtr;
 typedef int64_t IdType;
 
 // Output types
@@ -63,13 +76,6 @@ struct ProfileInformation {
 
 typedef std::map<IdType, ProfileInformation> ProfileInformationMap;
 typedef std::vector<ProfileInformation> ProfileInformationList;
-
-
-#ifdef DOUBLE_PRECISION
-	typedef double real;
-#else
-	typedef float real;
-#endif 
 
 namespace priors {
 

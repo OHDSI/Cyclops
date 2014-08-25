@@ -27,10 +27,10 @@ namespace bsccs {
 
 // typedef std::vector<int> int_vector;
 // typedef std::vector<real> real_vector;
-typedef std::vector<int> IntVector;
-typedef std::vector<real> RealVector;
-typedef bsccs::shared_ptr<IntVector> IntVectorPtr;
-typedef bsccs::shared_ptr<RealVector> RealVectorPtr;
+// typedef std::vector<int> IntVector;
+// typedef std::vector<real> RealVector;
+// typedef bsccs::shared_ptr<IntVector> IntVectorPtr;
+// typedef bsccs::shared_ptr<RealVector> RealVectorPtr;
 
 enum FormatType {
 	DENSE, SPARSE, INDICATOR, INTERCEPT

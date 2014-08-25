@@ -197,11 +197,11 @@ protected:
 	bool hasInterceptCovariate;
 	bool isFinalized;
 		
-	std::vector<int> pid;
-	std::vector<real> y; // TODO How to load these directly from Rcpp::NumericVector
-	std::vector<real> z;
-	std::vector<real> offs; // TODO Rename to 'time'
-	std::vector<int> nevents; // TODO Where are these used?
+	IntVector pid;
+	RealVector y;
+	RealVector z; // TODO Remove
+	RealVector offs; // TODO Rename to 'time'
+	IntVector nevents; // TODO Where are these used?
 	std::string conditionId;
 	std::vector<std::string> labels; // TODO Change back to 'long'
 	

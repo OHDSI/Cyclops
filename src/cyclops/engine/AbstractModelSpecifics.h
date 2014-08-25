@@ -86,7 +86,9 @@ public:
 
 //	virtual void sortPid(bool useCrossValidation) = 0; // pure virtual
 
-	static AbstractModelSpecifics* factory(const ModelType modelType, ModelData* modelData); // TODO return shared_ptr
+//	static bsccs::shared_ptr<AbstractModelSpecifics> factory(const ModelType modelType, const ModelData& modelData);
+	
+	static AbstractModelSpecifics* factory(const ModelType modelType, const ModelData& modelData);
 
 protected:
 
@@ -109,23 +111,28 @@ protected:
 	void zeroVector(T* vector, const int length) {
 		fillVector(vector, length, T());
 	}
-
-	const std::vector<real>& oY;
-	const std::vector<real>& oZ;
-	const std::vector<int>& oPid;
-
-	std::vector<real> accDenomPid;
-	std::vector<real> accNumerPid;
-	std::vector<real> accNumerPid2;
 	
-	std::vector<int> accReset;
+private:
+	const ModelData& modelData;	
+	
+protected:	
+// 	const std::vector<real>& oY;
+// 	const std::vector<real>& oZ;
+// 	const std::vector<int>& oPid;
+
+	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
+
+	RealVector accDenomPid;
+	RealVector accNumerPid;
+	RealVector accNumerPid2;
+	
+	IntVector accReset;
 
 	// TODO Currently constructed in CyclicCoordinateDescent, but should be encapsulated here
-	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
 	real* hOffs;  // K-vector
 	real* hY; // K-vector
-	real* hZ; // K-vector
+//	real* hZ; // K-vector
 
 	int* hPid; // K-vector
 	int** hXColumnRowIndicators; // J-vector
@@ -146,7 +153,7 @@ protected:
 	real* numerPid2;
 	real* xOffsExpXBeta;
 	real* hXjY;
-	real* hXjX;
+	RealVector hXjX;
 	real logLikelihoodFixedTerm;
 
 	std::vector<std::vector<int>* > *sparseIndices;
@@ -162,7 +169,7 @@ protected:
 	std::vector<TimeTie> ties;
 	
 	std::vector<int> beginTies;
-	std::vector<int> endTies;
+	std::vector<int> endTies;	
 };
 
 typedef bsccs::shared_ptr<AbstractModelSpecifics> ModelSpecificsPtr;
