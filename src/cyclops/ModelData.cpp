@@ -44,7 +44,7 @@ size_t ModelData::getColumnIndex(const IdType covariate) const {
 }
 
 void ModelData::moveTimeToCovariate(bool takeLog) {
-    push_back(NULL, &offs, DENSE); // TODO Use smart ptr
+    push_back(NULL, make_shared<RealVector>(offs.begin(), offs.end()), DENSE); // TODO Remove copy?
 }
 
 //#define DEBUG_64BIT
