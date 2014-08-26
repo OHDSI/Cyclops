@@ -85,14 +85,14 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 //	free(hXBetaSave);
 //	free(hDelta);
 	
-#ifdef TEST_ROW_INDEX
-	for (int j = 0; j < J; ++j) {
-		if (hXColumnRowIndicators[j]) {
-			free(hXColumnRowIndicators[j]);
-		}
-	}
-	free(hXColumnRowIndicators);
-#endif
+// #ifdef TEST_ROW_INDEX
+// 	for (int j = 0; j < J; ++j) {
+// 		if (hXColumnRowIndicators[j]) {
+// 			free(hXColumnRowIndicators[j]);
+// 		}
+// 	}
+// 	free(hXColumnRowIndicators);
+// #endif
 
 //	free(hXjY);
 //	free(offsExpXBeta);
