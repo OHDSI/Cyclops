@@ -86,9 +86,13 @@ public:
 
 //	virtual void sortPid(bool useCrossValidation) = 0; // pure virtual
 
-	static AbstractModelSpecifics* factory(const ModelType modelType, ModelData* modelData); // TODO return shared_ptr
+//	static bsccs::shared_ptr<AbstractModelSpecifics> factory(const ModelType modelType, const ModelData& modelData);
+	
+	static AbstractModelSpecifics* factory(const ModelType modelType, const ModelData& modelData);
 
 protected:
+
+	int getAlignedLength(int N);
 
 	virtual bool allocateXjY(void) = 0; // pure virtual
 
@@ -109,44 +113,53 @@ protected:
 	void zeroVector(T* vector, const int length) {
 		fillVector(vector, length, T());
 	}
-
-	const std::vector<real>& oY;
-	const std::vector<real>& oZ;
-	const std::vector<int>& oPid;
-
-	std::vector<real> accDenomPid;
-	std::vector<real> accNumerPid;
-	std::vector<real> accNumerPid2;
 	
-	std::vector<int> accReset;
+private:
+	const ModelData& modelData;	
+	
+protected:	
 
-	// TODO Currently constructed in CyclicCoordinateDescent, but should be encapsulated here
+// 	const std::vector<real>& oY;
+// 	const std::vector<real>& oZ;
+// 	const std::vector<int>& oPid;
+
 	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
-	real* hOffs;  // K-vector
-	real* hY; // K-vector
-	real* hZ; // K-vector
+	RealVector accDenomPid;
+	RealVector accNumerPid;
+	RealVector accNumerPid2;
+	
+	IntVector accReset;
 
+	real* hY; // K-vector
+//	real* hZ; // K-vector
+	real* hOffs;  // K-vector
 	int* hPid; // K-vector
-	int** hXColumnRowIndicators; // J-vector
+//	int** hXColumnRowIndicators; // J-vector
 
 //	real* hBeta;
 	real* hXBeta;
 	real* hXBetaSave;
-	real* hDelta;
+//	real* hDelta;
 
 	size_t N; // Number of patients
 	size_t K; // Number of exposure levels
 	size_t J; // Number of drugs
 
-	real* expXBeta;
-	real* offsExpXBeta;
-	real* denomPid;
+//	real* expXBeta;
+//	real* offsExpXBeta;
+	RealVector offsExpXBeta;
+	
+	RealVector numerDenomPidCache;
+	real* denomPid; // all nested with a single cache
 	real* numerPid;
 	real* numerPid2;
-	real* xOffsExpXBeta;
-	real* hXjY;
-	real* hXjX;
+			
+	
+//	real* xOffsExpXBeta;
+//	real* hXjY;
+	RealVector hXjY;
+	RealVector hXjX;
 	real logLikelihoodFixedTerm;
 
 	std::vector<std::vector<int>* > *sparseIndices;
@@ -154,14 +167,15 @@ protected:
 	typedef std::map<int, std::vector<real> > HessianMap;
 	HessianMap hessianCrossTerms;
 
-	typedef std::map<int, CompressedDataColumn* > HessianSparseMap;
+    typedef bsccs::shared_ptr<CompressedDataColumn> CDCPtr;
+	typedef std::map<int, CDCPtr> HessianSparseMap;
 	HessianSparseMap hessianSparseCrossTerms;
 	
 	typedef std::vector<int> TimeTie;
 	std::vector<TimeTie> ties;
 	
 	std::vector<int> beginTies;
-	std::vector<int> endTies;
+	std::vector<int> endTies;	
 };
 
 typedef bsccs::shared_ptr<AbstractModelSpecifics> ModelSpecificsPtr;

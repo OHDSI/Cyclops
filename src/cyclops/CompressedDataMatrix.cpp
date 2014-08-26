@@ -25,10 +25,10 @@ CompressedDataMatrix::CompressedDataMatrix() : nRows(0), nCols(0), nEntries(0) {
 }
 
 CompressedDataMatrix::~CompressedDataMatrix() {
-	typedef std::vector<CompressedDataColumn*>::iterator CIterator;
-	for (CIterator it = allColumns.begin(); it != allColumns.end(); ++it) {
-		delete *it;
-	}
+//	typedef std::vector<CompressedDataColumn*>::iterator CIterator;
+//	for (CIterator it = allColumns.begin(); it != allColumns.end(); ++it) {
+//		delete *it;
+//	}
 }
 
 real CompressedDataMatrix::sumColumn(int column) {
@@ -50,7 +50,7 @@ real CompressedDataMatrix::sumColumn(int column) {
 struct DrugIDComparator {
 	IdType id;
 	DrugIDComparator(IdType i) : id(i) { }
-	bool operator()(const CompressedDataColumn* column) {
+	bool operator()(const CompressedDataColumn::Ptr& column) {
 		return column->getNumericalLabel() == id;
 	}
 };
@@ -58,7 +58,7 @@ struct DrugIDComparator {
 int CompressedDataMatrix::getColumnIndexByName(IdType name) const {
 
 	DrugIDComparator cmp(name);
-	std::vector<CompressedDataColumn*>::const_iterator found = std::find_if(
+	auto found = std::find_if(
 			allColumns.begin(), allColumns.end(), cmp);
 	if (found != allColumns.end()) {
 		return std::distance(allColumns.begin(), found);
@@ -125,7 +125,7 @@ FormatType CompressedDataMatrix::getFormatType(int column) const {
 	return allColumns[column]->getFormatType();
 }
 
-void CompressedDataColumn::fill(real_vector& values, int nRows) {
+void CompressedDataColumn::fill(RealVector& values, int nRows) {
 	values.resize(nRows);
 	if (formatType == DENSE) {
 			values.assign(data->begin(), data->end());
@@ -200,11 +200,11 @@ CompressedDataMatrix* CompressedDataMatrix::transpose() {
 }
 
 // TODO Fix massive copying
-void CompressedDataMatrix::addToColumnVector(int column, int_vector addEntries) const{
+void CompressedDataMatrix::addToColumnVector(int column, IntVector addEntries) const{
 	allColumns[column]->addToColumnVector(addEntries);
 }
 
-void CompressedDataMatrix::removeFromColumnVector(int column, int_vector removeEntries) const{
+void CompressedDataMatrix::removeFromColumnVector(int column, IntVector removeEntries) const{
 	allColumns[column]->removeFromColumnVector(removeEntries);
 }
 
@@ -241,7 +241,7 @@ void CompressedDataMatrix::setNumberOfColumns(int nColumns) {
 //}
 
 real CompressedDataColumn::sumColumn(int nRows) {
-	real_vector values;
+	RealVector values;
 	fill(values, nRows);
 	return std::accumulate(values.begin(), values.end(), static_cast<real>(0.0));
 }
@@ -265,7 +265,8 @@ void CompressedDataColumn::convertColumnToSparse(void) {
 	}
 
 	if (data == NULL) {
-		data = new real_vector();
+//		data = new real_vector();
+        data = make_shared<RealVector>();
 	}
 
 	const real value = 1.0;
@@ -278,8 +279,10 @@ void CompressedDataColumn::convertColumnToDense(int nRows) {
 		return;
 	}
 
-	real_vector* oldData = data;	
-	data = new real_vector();
+//	real_vector* oldData = data;
+    RealVectorPtr oldData = data;
+//	data = new real_vector();
+    data = make_shared<RealVector>();
 	
 	data->resize(nRows, static_cast<real>(0));
 
@@ -296,19 +299,20 @@ void CompressedDataColumn::convertColumnToDense(int nRows) {
 		data->at(k) = value;
 	}
 	formatType = DENSE;
-	delete columns; columns = NULL;
-	if (oldData) {
-		delete oldData;
-	}
+//	delete columns; 
+    columns = NULL;
+//	if (oldData) {
+//		delete oldData;
+//	}
 }
 
 // TODO Fix massive copying
-void CompressedDataColumn::addToColumnVector(int_vector addEntries){
+void CompressedDataColumn::addToColumnVector(IntVector addEntries){
 	int lastit = 0;
 
 	for(int i = 0; i < (int)addEntries.size(); i++)
 	{
-		int_vector::iterator it = columns->begin() + lastit;
+		IntVector::iterator it = columns->begin() + lastit;
         for(; it != columns->end(); it++){
     		if(*it > addEntries[i]){
                 break;
@@ -319,10 +323,10 @@ void CompressedDataColumn::addToColumnVector(int_vector addEntries){
 	}
 }
 
-void CompressedDataColumn::removeFromColumnVector(int_vector removeEntries){
+void CompressedDataColumn::removeFromColumnVector(IntVector removeEntries){
 	int lastit = 0;
-	int_vector::iterator it1 = removeEntries.begin();
-	int_vector::iterator it2 = columns->begin();
+	IntVector::iterator it1 = removeEntries.begin();
+	IntVector::iterator it2 = columns->begin();
 	while(it1 < removeEntries.end() && it2 < columns->end()){
 		if(*it1 < *it2)
 			it1++;

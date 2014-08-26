@@ -312,8 +312,8 @@ protected:
 	typedef std::vector<real> RealVector;
 	typedef std::vector<double> DoubleVector;
 	DoubleVector hBeta;
-	real* hXBeta;
-	real* hXBetaSave;
+	RealVector hXBeta; // TODO Delegate to ModelSpecifics
+	RealVector hXBetaSave; // Delegate
 //	double* hDelta;
 	DoubleVector hDelta;
 	std::vector<bool> fixBeta;
@@ -339,16 +339,17 @@ protected:
 	bool validWeights;
 	bool useCrossValidation;
 	bool doLogisticRegression;
-	real* hWeights;
+//	real* hWeights;
+	RealVector hWeights; // Make DoubleVector and delegate to ModelSpecifics
 
 	// temporary variables
-	real* expXBeta;
-	real* offsExpXBeta;
-	real* denomPid;
-	real* numerPid;
-	real* numerPid2;
-	real* xOffsExpXBeta;
-	real* hXjY;
+//	real* expXBeta;
+//	real* offsExpXBeta;
+//	real* denomPid;
+//	real* numerPid;
+//	real* numerPid2;
+// 	real* xOffsExpXBeta;
+//	real* hXjY;
 
 	int updateCount;
 	int likelihoodCount;

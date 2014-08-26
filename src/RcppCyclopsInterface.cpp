@@ -407,50 +407,8 @@ void RcppCcdInterface::initializeModelImpl(
 	 
 	// Parse type of model 
 	ModelType modelType = parseModelType(arguments.modelName);
-// 	bsccs::Models::ModelType modelType;
-// 	if (arguments.modelName == "sccs") {
-// 		modelType = bsccs::Models::SELF_CONTROLLED_MODEL;
-// 	} else if (arguments.modelName == "clr") {
-// 		modelType = bsccs::Models::CONDITIONAL_LOGISTIC;
-// 	} else if (arguments.modelName == "lr") {
-// 		modelType = bsccs::Models::LOGISTIC;
-// 	} else if (arguments.modelName == "ls") {
-// 		modelType = bsccs::Models::NORMAL;
-// 	} else if (arguments.modelName == "pr") {
-// 		modelType = bsccs::Models::POISSON;
-// 	} else if (arguments.modelName == "cox") {
-// 		modelType = bsccs::Models::COX;
-// 	} else {
-// 		handleError("Invalid model type."); 		
-// 	}
-//  
-//  	switch (modelType) {
-//  		case bsccs::Models::SELF_CONTROLLED_MODEL :
-//  			*model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>(**modelData);
-//  			break;
-//  		case bsccs::Models::CONDITIONAL_LOGISTIC :
-//  			*model = new ModelSpecifics<ConditionalLogisticRegression<real>,real>(**modelData);
-//  			break;
-//  		case bsccs::Models::LOGISTIC :
-//  			*model = new ModelSpecifics<LogisticRegression<real>,real>(**modelData);
-//  			break;
-//  		case bsccs::Models::NORMAL :
-//  			*model = new ModelSpecifics<LeastSquares<real>,real>(**modelData);
-//  			break;
-//  		case bsccs::Models::POISSON :
-//  			*model = new ModelSpecifics<PoissonRegression<real>,real>(**modelData);
-//  			break;
-// 		case bsccs::Models::CONDITIONAL_POISSON :
-//  			*model = new ModelSpecifics<ConditionalPoissonRegression<real>,real>(**modelData);
-//  			break; 			
-//  		case bsccs::Models::COX :
-//  			*model = new ModelSpecifics<CoxProportionalHazards<real>,real>(**modelData);
-//  			break;
-//  		default:
-//  			handleError("Invalid model type."); 			
-//  	}
 
-	*model = AbstractModelSpecifics::factory(modelType, *modelData);
+	*model = AbstractModelSpecifics::factory(modelType, **modelData);
 	if (*model == nullptr) {
 		handleError("Invalid model type.");
 	}

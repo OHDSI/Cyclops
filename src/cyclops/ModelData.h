@@ -28,13 +28,13 @@
 
 namespace bsccs {
 
-template <class T> void reindexVector(std::vector<T>& vec, std::vector<int> ind) {
-	int n = (int) vec.size();
-	std::vector<T> temp = vec;
-	for(int i = 0; i < n; i++){
-		vec[i] = temp[ind[i]];
-	}
-}
+// template <class T> void reindexVector(std::vector<T>& vec, std::vector<int> ind) {
+// 	int n = (int) vec.size();
+// 	std::vector<T> temp = vec;
+// 	for(int i = 0; i < n; i++){
+// 		vec[i] = temp[ind[i]];
+// 	}
+// }
 
 class ModelData : public CompressedDataMatrix {
 public:
@@ -199,11 +199,11 @@ protected:
 	bool hasInterceptCovariate;
 	bool isFinalized;
 		
-	std::vector<int> pid;
-	std::vector<real> y; // TODO How to load these directly from Rcpp::NumericVector
-	std::vector<real> z;
-	std::vector<real> offs; // TODO Rename to 'time'
-	std::vector<int> nevents; // TODO Where are these used?
+	IntVector pid;
+	RealVector y;
+	RealVector z; // TODO Remove
+	RealVector offs; // TODO Rename to 'time'
+	IntVector nevents; // TODO Where are these used?
 	std::string conditionId;
 	std::vector<std::string> labels; // TODO Change back to 'long'
 	

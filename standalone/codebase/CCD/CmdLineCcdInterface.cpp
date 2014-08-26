@@ -359,8 +359,8 @@ void CmdLineCcdInterface::initializeModelImpl(
 	}
 
 	InputReader* reader;
-	loggers::ProgressLoggerPtr logger = bsccs::make_shared<loggers::CoutLogger>();
-	loggers::ErrorHandlerPtr error = bsccs::make_shared<loggers::CerrErrorHandler>();
+	logger = bsccs::make_shared<loggers::CoutLogger>();
+	error = bsccs::make_shared<loggers::CerrErrorHandler>();
 	if (arguments.fileFormat == "sccs") {
 		reader = new SCCSInputReader();
 	} else if (arguments.fileFormat == "clr") {
@@ -410,7 +410,7 @@ void CmdLineCcdInterface::initializeModelImpl(
 // 			exit(-1);
 // 	}
 
-	*model = AbstractModelSpecifics::factory(modelType, *modelData);
+	*model = AbstractModelSpecifics::factory(modelType, **modelData);
 	if (*model == nullptr) {
 		cerr << "Invalid model type." << endl;
 		exit(-1);
@@ -479,9 +479,7 @@ void CmdLineCcdInterface::initializeModelImpl(
 		hierarchicalPrior->setVariance(1,arguments.classHierarchyVariance);
 		prior = hierarchicalPrior;
 	}
-
-    logger = bsccs::make_shared<loggers::CoutLogger>();
-    error = bsccs::make_shared<loggers::CerrErrorHandler>();
+    
 	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model, prior, logger, error);
 
 #ifdef CUDA

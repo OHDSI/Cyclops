@@ -18,13 +18,16 @@
     namespace bsccs { 
         using std::shared_ptr;
         using std::make_shared;
+        
+        using std::unique_ptr;
     }
 #else
 // C++98 (R build)
     #include "boost/smart_ptr.hpp"
     namespace bsccs {
         using boost::shared_ptr;
-        using boost::make_shared;
+        using boost::make_shared;        
+        using boost::unique_ptr;
     }
 #endif
 
@@ -33,6 +36,24 @@
 
 namespace bsccs {
 
+template<typename T, typename ...Args>
+bsccs::unique_ptr<T> make_unique( Args&& ...args ) {
+    return bsccs::unique_ptr<T>( new T( std::forward<Args>(args)... ) );
+}
+
+// Internal types
+
+
+#ifdef DOUBLE_PRECISION
+	typedef double real;
+#else
+	typedef float real;
+#endif 
+
+typedef std::vector<int> IntVector;
+typedef std::vector<real> RealVector;
+typedef bsccs::shared_ptr<IntVector> IntVectorPtr;
+typedef bsccs::shared_ptr<RealVector> RealVectorPtr;
 typedef int64_t IdType;
 
 // Output types
@@ -55,13 +76,6 @@ struct ProfileInformation {
 
 typedef std::map<IdType, ProfileInformation> ProfileInformationMap;
 typedef std::vector<ProfileInformation> ProfileInformationList;
-
-
-#ifdef DOUBLE_PRECISION
-	typedef double real;
-#else
-	typedef float real;
-#endif 
 
 namespace priors {
 

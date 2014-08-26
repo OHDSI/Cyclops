@@ -5,6 +5,8 @@
  *      Author: msuchard
  */
 
+#include <stdexcept>
+
 #include "AbstractModelSpecifics.h"
 #include "ModelData.h"
 #include "engine/ModelSpecifics.h"
@@ -14,34 +16,68 @@
 
 namespace bsccs {
 
-AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelType, ModelData* modelData) {
+//bsccs::shared_ptr<AbstractModelSpecifics> AbstractModelSpecifics::factory(const ModelType modelType, const ModelData& modelData) {
+//	bsccs::shared_ptr<AbstractModelSpecifics> model;
+// 	switch (modelType) {
+// 		case ModelType::SELF_CONTROLLED_MODEL :
+// 			model =  bsccs::make_shared<ModelSpecifics<SelfControlledCaseSeries<real>,real> >(modelData);
+// 			break;
+// 		case ModelType::CONDITIONAL_LOGISTIC :
+// 			model =  bsccs::make_shared<ModelSpecifics<ConditionalLogisticRegression<real>,real> >(modelData);
+// 			break;
+// 		case ModelType::LOGISTIC :
+// 			model = bsccs::make_shared<ModelSpecifics<LogisticRegression<real>,real> >(modelData);
+// 			break;
+// 		case ModelType::NORMAL : 
+// 			model = bsccs::make_shared<ModelSpecifics<LeastSquares<real>,real> >(modelData);
+// 			break;
+// 		case ModelType::POISSON :
+// 			model = bsccs::make_shared<ModelSpecifics<PoissonRegression<real>,real> >(modelData);
+// 			break;
+//		case ModelType::CONDITIONAL_POISSON :
+// 			model = bsccs::make_shared<ModelSpecifics<ConditionalPoissonRegression<real>,real> >(modelData);
+// 			break; 			
+// 		case ModelType::COX_RAW : 		   
+// 			model = bsccs::make_shared<ModelSpecifics<CoxProportionalHazards<real>,real> >(modelData);
+// 			break;
+// 		case ModelType::COX : 		   
+// 			model = bsccs::make_shared<ModelSpecifics<BreslowTiedCoxProportionalHazards<real>,real> >(modelData);
+// 			break;
+// 		default:
+// 			throw std::invalid_argument("Unknown modelType");
+// 			break; 			
+// 	}
+//	return model;
+//}
+
+AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelType, const ModelData& modelData) {
 	AbstractModelSpecifics* model = nullptr;
  	switch (modelType) {
  		case ModelType::SELF_CONTROLLED_MODEL :
- 			model = new ModelSpecifics<SelfControlledCaseSeries<real>,real>(*modelData);
+ 			model =  new ModelSpecifics<SelfControlledCaseSeries<real>,real>(modelData);
  			break;
  		case ModelType::CONDITIONAL_LOGISTIC :
- 			model = new ModelSpecifics<ConditionalLogisticRegression<real>,real>(*modelData);
+ 			model =  new ModelSpecifics<ConditionalLogisticRegression<real>,real>(modelData);
  			break;
  		case ModelType::LOGISTIC :
- 			model = new ModelSpecifics<LogisticRegression<real>,real>(*modelData);
+ 			model = new ModelSpecifics<LogisticRegression<real>,real>(modelData);
  			break;
  		case ModelType::NORMAL : 
- 			model = new ModelSpecifics<LeastSquares<real>,real>(*modelData);
+ 			model = new ModelSpecifics<LeastSquares<real>,real>(modelData);
  			break;
  		case ModelType::POISSON :
- 			model = new ModelSpecifics<PoissonRegression<real>,real>(*modelData);
+ 			model = new ModelSpecifics<PoissonRegression<real>,real>(modelData);
  			break;
 		case ModelType::CONDITIONAL_POISSON :
- 			model = new ModelSpecifics<ConditionalPoissonRegression<real>,real>(*modelData);
+ 			model = new ModelSpecifics<ConditionalPoissonRegression<real>,real>(modelData);
  			break; 			
  		case ModelType::COX_RAW : 		   
- 			model = new ModelSpecifics<CoxProportionalHazards<real>,real>(*modelData);
+ 			model = new ModelSpecifics<CoxProportionalHazards<real>,real>(modelData);
  			break;
  		case ModelType::COX : 		   
- 			model = new ModelSpecifics<BreslowTiedCoxProportionalHazards<real>,real>(*modelData);
+ 			model = new ModelSpecifics<BreslowTiedCoxProportionalHazards<real>,real>(modelData);
  			break;
- 		default:
+ 		default: 			
  			break; 			
  	}
 	return model;
@@ -54,31 +90,38 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
 //}
 
 AbstractModelSpecifics::AbstractModelSpecifics(const ModelData& input)
-	: oY(input.getYVectorRef()), oZ(input.getZVectorRef()),
-	  oPid(input.getPidVectorRef()),
-	  hY(const_cast<real*>(oY.data())), hZ(const_cast<real*>(oZ.data())),
-	  hPid(const_cast<int*>(oPid.data()))
+	: //oY(input.getYVectorRef()), oZ(input.getZVectorRef()),
+	  //oPid(input.getPidVectorRef()),
+	  modelData(input),
+	  hXI(static_cast<CompressedDataMatrix*>(const_cast<ModelData*>(&modelData))),
+	  hY(const_cast<real*>(input.getYVectorRef().data())), //hZ(const_cast<real*>(input.getZVectorRef().data())),
+	  hOffs(const_cast<real*>(input.getTimeVectorRef().data())),
+	  hPid(const_cast<int*>(input.getPidVectorRef().data()))	  
 	  {
 	// Do nothing
 }
 
 AbstractModelSpecifics::~AbstractModelSpecifics() {
-	if (hXjX) {
-		free(hXjX);
-	}
-	for (HessianSparseMap::iterator it = hessianSparseCrossTerms.begin();
-			it != hessianSparseCrossTerms.end(); ++it) {
-		delete it->second;
-	}
+// 	if (hXjX) {
+// 		free(hXjX);
+// 	}
+// 	for (HessianSparseMap::iterator it = hessianSparseCrossTerms.begin();
+// 			it != hessianSparseCrossTerms.end(); ++it) {
+// 		delete it->second;
+// 	}
 }
 
 void AbstractModelSpecifics::makeDirty(void) {
 	hessianCrossTerms.erase(hessianCrossTerms.begin(), hessianCrossTerms.end());
 
-	for (HessianSparseMap::iterator it = hessianSparseCrossTerms.begin();
-			it != hessianSparseCrossTerms.end(); ++it) {
-		delete it->second;
-	}
+//	for (HessianSparseMap::iterator it = hessianSparseCrossTerms.begin();
+//			it != hessianSparseCrossTerms.end(); ++it) {
+//		delete it->second;
+//	}
+}
+
+int AbstractModelSpecifics::getAlignedLength(int N) {
+	return (N / 16) * 16 + (N % 16 == 0 ? 0 : 16);
 }
 
 void AbstractModelSpecifics::initialize(
@@ -103,18 +146,26 @@ void AbstractModelSpecifics::initialize(
 	N = iN;
 	K = iK;
 	J = iJ;
-	hXI = iXI;
-	numerPid = iNumerPid;
-	numerPid2 = iNumerPid2;
-	denomPid = iDenomPid;
+// 	hXI = iXI;
+//	numerPid = iNumerPid;
+//	numerPid2 = iNumerPid2;
+//	denomPid = iDenomPid;	
+	
+	int alignedLength = getAlignedLength(N);
+	numerDenomPidCache.resize(3 * alignedLength);
+	numerPid = numerDenomPidCache.data();
+	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
+	numerPid2 = numerPid + 2 * alignedLength;
 
 	sparseIndices = iSparseIndices;
 
 //	hPid = iPid;
-	offsExpXBeta = iOffsExpXBeta;
+//	offsExpXBeta = iOffsExpXBeta;
+	
+	offsExpXBeta.resize(K);
 
 	hXBeta = iXBeta;
-	hOffs = iOffs;
+//	hOffs = iOffs;
 
 //	hBeta = iBeta;
 
@@ -127,14 +178,16 @@ void AbstractModelSpecifics::initialize(
 //	hPid[101] = 1;
 
 	if (allocateXjY()) {
-		hXjY = iXjY;
+//		hXjY = iXjY;
+		hXjY.resize(J);
 	}
 
 	// TODO Should allocate host memory here
 
-	hXjX = NULL;
+//	hXjX = NULL;
 	if (allocateXjX()) {
-		hXjX = (real*) malloc(sizeof(real) * J);
+// 		hXjX = (real*) malloc(sizeof(real) * J);
+		hXjX.resize(J);
 	}
 	
 	

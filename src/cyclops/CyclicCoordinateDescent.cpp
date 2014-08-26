@@ -61,7 +61,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	
 	hXI = reader;
 	hY = reader->getYVector(); // TODO Delegate all data to ModelSpecifics
-	hOffs = reader->getOffsetVector();
+//	hOffs = reader->getOffsetVector();
 	hPid = reader->getPidVector();
 
 	conditionId = reader->getConditionId();
@@ -81,33 +81,33 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 //	free(hOffs);
 	
 //	free(hBeta);
-	free(hXBeta);
-	free(hXBetaSave);
+//	free(hXBeta);
+//	free(hXBetaSave);
 //	free(hDelta);
 	
-#ifdef TEST_ROW_INDEX
-	for (int j = 0; j < J; ++j) {
-		if (hXColumnRowIndicators[j]) {
-			free(hXColumnRowIndicators[j]);
-		}
-	}
-	free(hXColumnRowIndicators);
-#endif
+// #ifdef TEST_ROW_INDEX
+// 	for (int j = 0; j < J; ++j) {
+// 		if (hXColumnRowIndicators[j]) {
+// 			free(hXColumnRowIndicators[j]);
+// 		}
+// 	}
+// 	free(hXColumnRowIndicators);
+// #endif
 
-	free(hXjY);
-	free(offsExpXBeta);
-	free(xOffsExpXBeta);
+//	free(hXjY);
+//	free(offsExpXBeta);
+//	free(xOffsExpXBeta);
 //	free(denomPid);  // Nested in numerPid allocation
-	free(numerPid);
+//	free(numerPid);
 //	free(t1);
 	
-#ifdef NO_FUSE
-	free(wPid);
-#endif
+// #ifdef NO_FUSE
+// 	free(wPid);
+// #endif
 	
-	if (hWeights) {
-		free(hWeights);
-	}
+// 	if (hWeights) {
+// 		free(hWeights);
+// 	}
 
 #ifdef SPARSE_PRODUCT
 	for (std::vector<std::vector<int>* >::iterator it = sparseIndices.begin();
@@ -143,9 +143,12 @@ void CyclicCoordinateDescent::init(bool offset) {
 	hDelta.resize(J, static_cast<double>(2.0));
 	hBeta.resize(J, static_cast<double>(0.0));
 
-	hXBeta = (real*) calloc(K, sizeof(real));
-	hXBetaSave = (real*) calloc(K, sizeof(real));
-	fixBeta.resize(J);
+// 	hXBeta = (real*) calloc(K, sizeof(real));
+// 	hXBetaSave = (real*) calloc(K, sizeof(real));
+	hXBeta.resize(K, static_cast<real>(0.0));
+	hXBetaSave.resize(K, static_cast<real>(0.0));
+	
+	fixBeta.resize(J, false);
 	
 	// Recode patient ids  TODO Delegate to grouped model
 	int currentNewId = 0;
@@ -160,22 +163,22 @@ void CyclicCoordinateDescent::init(bool offset) {
 	}
 		
 	// Init temporary variables
-	offsExpXBeta = (real*) malloc(sizeof(real) * K);
-	xOffsExpXBeta = (real*) malloc(sizeof(real) * K);
+//	offsExpXBeta = (real*) malloc(sizeof(real) * K);
+//	xOffsExpXBeta = (real*) malloc(sizeof(real) * K);
 
 	// Put numer, numer2 and denom in single memory block, with first entries on 16-word boundary
-	int alignedLength = getAlignedLength(N);
-	numerPid = (real*) malloc(sizeof(real) * 3 * alignedLength);
-	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
-	numerPid2 = numerPid + 2 * alignedLength;
+// 	int alignedLength = getAlignedLength(N);
+// 	numerPid = (real*) malloc(sizeof(real) * 3 * alignedLength);
+// 	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
+// 	numerPid2 = numerPid + 2 * alignedLength;
 
 //	hNEvents = (int*) malloc(sizeof(int) * N);
-	hXjY = (real*) malloc(sizeof(real) * J);
-	hWeights = NULL;
+//	hXjY = (real*) malloc(sizeof(real) * J);
+	hWeights.resize(0);
 	
-#ifdef NO_FUSE
-	wPid = (real*) malloc(sizeof(real) * alignedLength);
-#endif
+// #ifdef NO_FUSE
+// 	wPid = (real*) malloc(sizeof(real) * alignedLength);
+// #endif
 
 	// TODO Suspect below is not necessary for non-grouped data.
 	// If true, then fill with pointers to CompressedDataColumn and do not delete in destructor
@@ -211,10 +214,10 @@ void CyclicCoordinateDescent::init(bool offset) {
 	}
 	doLogisticRegression = false;
         
-	modelSpecifics.initialize(N, K, J, hXI, numerPid, numerPid2, denomPid,
-			hXjY, &sparseIndices,
-			hPid, offsExpXBeta,
-			hXBeta, hOffs,
+	modelSpecifics.initialize(N, K, J, hXI, NULL, NULL, NULL,
+			NULL, &sparseIndices,
+			hPid, NULL,
+			hXBeta.data(), NULL,
 			NULL,
 			hY
 			);
@@ -225,7 +228,7 @@ int CyclicCoordinateDescent::getAlignedLength(int N) {
 }
 
 void CyclicCoordinateDescent::computeNEvents() {  
-	modelSpecifics.setWeights(hWeights, useCrossValidation);
+	modelSpecifics.setWeights(hWeights.data(), useCrossValidation);
 }
 
 void CyclicCoordinateDescent::resetBeta(void) {
@@ -418,9 +421,8 @@ void CyclicCoordinateDescent::setBeta(int i, double beta) {
 void CyclicCoordinateDescent::setWeights(real* iWeights) {
 
 	if (iWeights == NULL) {
-		if (hWeights) {
-			free(hWeights);
-			hWeights = NULL;
+		if (hWeights.size() != 0) {			
+			hWeights.resize(0);
 		}
 		
 		// Turn off weights
@@ -429,8 +431,8 @@ void CyclicCoordinateDescent::setWeights(real* iWeights) {
 		sufficientStatisticsKnown = false;
 	} else {
 
-		if (hWeights == NULL) {
-			hWeights = (real*) malloc(sizeof(real) * K);
+		if (hWeights.size() == 0) {
+			hWeights.resize(K); // = (real*) malloc(sizeof(real) * K);
 		}
 		for (int i = 0; i < K; ++i) {
 			hWeights[i] = iWeights[i];
@@ -490,7 +492,7 @@ double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 }
 
 void CyclicCoordinateDescent::saveXBeta(void) {
-	memcpy(hXBetaSave, hXBeta, K * sizeof(real));
+	memcpy(hXBetaSave.data(), hXBeta.data(), K * sizeof(real));
 }
 
 void CyclicCoordinateDescent::update(
@@ -801,13 +803,13 @@ void CyclicCoordinateDescent::axpyXBeta(const real beta, const int j) {
 	if (beta != static_cast<real>(0.0)) {
 		switch (hXI->getFormatType(j)) {
 		case INDICATOR:
-			axpy < IndicatorIterator > (hXBeta, beta, j);
+			axpy < IndicatorIterator > (hXBeta.data(), beta, j);
 			break;
 		case DENSE:
-			axpy < DenseIterator > (hXBeta, beta, j);
+			axpy < DenseIterator > (hXBeta.data(), beta, j);
 			break;
 		case SPARSE:
-			axpy < SparseIterator > (hXBeta, beta, j);
+			axpy < SparseIterator > (hXBeta.data(), beta, j);
 			break;
 		default:
 			// throw error
@@ -825,7 +827,7 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 
 	if (setBetaList.empty()) { // Update all
 		// clear X\beta
-		zeroVector(hXBeta, K);
+		zeroVector(hXBeta.data(), K);
 		for (int j = 0; j < J; ++j) {
 			axpyXBeta(hBeta[j], j);
 		}

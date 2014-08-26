@@ -77,7 +77,7 @@ void CLRInputReader::readFile(const char* fileName) {
 #define DAYS	-7
 
 	// Set-up fixed columns of covariates
-	int_vector* gender = new int_vector();
+	IntVector* gender = new IntVector();
 	if (useGender) {
 		indexer.addColumn(GENDER, INDICATOR);
 	}
