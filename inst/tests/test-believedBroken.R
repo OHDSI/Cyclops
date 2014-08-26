@@ -16,7 +16,7 @@ library("testthat")
 
 # test_that("Dimension checking on objects in createCyclopsModelDataFrame" ,{})
 
-# test_that("Approximations for ties in CLR and Cox" ,{})
+# test_that("Approximations for ties in CLR" ,{})
 
 # test_that("Preclude SEs for regularized covariates", {})
 
@@ -25,8 +25,6 @@ library("testthat")
 # test_that("Extract Y from data object", {})
 
 # test_that("Extract X from data object", {})
-
-# test_that("Check Cox model", {})
 
 # test_that("Predict CLR model", {})
 
@@ -51,8 +49,6 @@ library("testthat")
 # test_that("Check correct dimensions in matrices in createCyclopsDataFrame", {})
 
 # test_that("Fail to convergence", {})
-
-# test_that("Use shared_ptr to handle most data", {})
 
 # test_that("Make intercept dense in SQL input", {})
 
