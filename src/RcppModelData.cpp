@@ -489,18 +489,20 @@ RcppModelData::RcppModelData(
 					DENSE);
 			getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
 		} else {
-			std::vector<RealVector> covariates;
+			std::vector<RealVectorPtr> covariates;
 			for (int c = 0; c < numTypes; ++c) {
-				covariates.push_back(RealVector(y.size(), 0));
+				covariates.push_back(make_shared<RealVector>(y.size(), 0));
 			}
 			size_t offset = i * y.size();
 			for (int k = 0; k < y.size(); ++k) {
-				covariates[static_cast<int>(_type[k])][k] = dxv[offset + k];
+				covariates[static_cast<int>(_type[k])]->at(k) = dxv[offset + k];
 			}
 			for (int c = 0; c < numTypes; ++c) {
 				push_back(
-						static_cast<IntegerVector::iterator>(NULL),static_cast<IntegerVector::iterator>(NULL),
-						covariates[c].begin(), covariates[c].end(),
+// 						static_cast<IntegerVector::iterator>(NULL),static_cast<IntegerVector::iterator>(NULL),
+//						covariates[c].begin(), covariates[c].end(),
+                        NULL,
+                        covariates[c],
 						DENSE);
 				getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
 			}
@@ -514,13 +516,30 @@ RcppModelData::RcppModelData(
 		int begin = spv[i];
 		int end = spv[i + 1];
 		
-		if (numTypes != 1) stop("Multitypes are not yet implemented.");
-		
-		push_back(
-				siv.begin() + begin, siv.begin() + end,
-				sxv.begin() + begin, sxv.begin() + end,
-				SPARSE);
-        getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
+		if (numTypes == 1) {
+		    push_back(
+			    	siv.begin() + begin, siv.begin() + end,
+				    sxv.begin() + begin, sxv.begin() + end,
+    				SPARSE);
+            getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
+        } else {
+			std::vector<IntVectorPtr> covariatesI;
+			std::vector<RealVectorPtr> covariatesX;
+			for (int c = 0; c < numTypes; ++c) {
+				covariatesI.push_back(make_shared<IntVector>());
+				covariatesX.push_back(make_shared<RealVector>());
+				push_back(covariatesI[c], covariatesX[c], SPARSE);
+				getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
+			}
+
+            auto itI = siv.begin() + begin;
+            auto itX = sxv.begin() + begin;
+            for (; itI != siv.begin() + end; ++itI, ++itX) {
+                int type = _type[*itI];
+                covariatesI[type]->push_back(*itI);
+                covariatesX[type]->push_back(*itX);
+            }        
+        }
 	}
 
 	// Convert indicator
@@ -530,13 +549,25 @@ RcppModelData::RcppModelData(
 		int begin = ipv[i];
 		int end = ipv[i + 1];
 
-		if (numTypes != 1) stop("Multitypes are not yet implemented.");
+        if (numTypes == 1) {
+    		push_back(
+	    			iiv.begin() + begin, iiv.begin() + end,
+		    		static_cast<NumericVector::iterator>(NULL), static_cast<NumericVector::iterator>(NULL),
+			    	INDICATOR);
+            getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
+        } else {
+			std::vector<IntVectorPtr> covariates;
+			for (int c = 0; c < numTypes; ++c) {
+				covariates.push_back(make_shared<IntVector>());
+				push_back(covariates[c], NULL, INDICATOR);
+				getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
+			}
 
-		push_back(
-				iiv.begin() + begin, iiv.begin() + end,
-				static_cast<NumericVector::iterator>(NULL), static_cast<NumericVector::iterator>(NULL),
-				INDICATOR);
-        getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
+            for (auto it = iiv.begin() + begin; it != iiv.begin() + end; ++it) {
+                int type = _type[*it];
+                covariates[type]->push_back(*it);
+            }
+        }
 	}
 
 	this->nRows = y.size();

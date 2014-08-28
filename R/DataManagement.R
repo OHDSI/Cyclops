@@ -233,7 +233,9 @@ createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, mod
         if (!is.null(sortOrder)) {      
             pid <- pid[sortOrder] 
             y <- y[sortOrder] 
-            z <- z[sortOrder] 
+            if (!missing(type)) {
+                type <- type[sortOrder] 
+            }
             time <- time[sortOrder]
             dx <- dx[sortOrder, ]
             if (class(dx) == "numeric")
