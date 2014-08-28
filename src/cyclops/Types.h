@@ -147,8 +147,10 @@ inline bool requiresOffset(const ModelType modelType) {
 
 // Hierarchical prior types
 
-typedef std::map<int, int> HierarchicalParentMap;
-typedef std::map<int, std::vector<int> > HierarchicalChildMap;
+// typedef std::map<int, int> HierarchicalParentMap;
+// typedef std::map<int, std::vector<int> > HierarchicalChildMap;
+typedef std::vector<int> HierarchicalParentMap;
+typedef std::vector<std::vector<int> > HierarchicalChildMap;
 
 } // namespace bsccs
 

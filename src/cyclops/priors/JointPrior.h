@@ -134,6 +134,19 @@ public:
         // TODO getParentMap, getChildMap should be refs; no need to copy
         getParentMap = parentMap;
         getChildMap = childMap;
+        
+        std::cout << "parentMap:" << std::endl;
+        std::for_each(begin(parentMap), end(parentMap), [](int i) {
+        	std::cout << " " << i;
+        });
+        std::cout << std::endl << "childMap:" << std::endl;
+        for(auto& v : childMap) {
+        	for(auto x : v) {
+        		std::cout << " " << x;
+        	}
+        	std::cout << std::endl;
+        }
+            
     }
 
 	double getVariance() const{

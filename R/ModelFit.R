@@ -71,7 +71,17 @@ fitCyclopsModel <- function(cyclopsData,
 # 	        }	        
 # 	    }
         
-	    .cyclopsSetPrior(cyclopsData$cyclopsInterfacePtr, prior$priorType, prior$variance, prior$exclude)    		
+        if (is.null(prior$graph)) {
+            graph <- NULL
+        } else {
+            graph <- .makeHierarchyGraph(cyclopsData, prior$graph)
+            if (any(prior$priorType != "normal")) {
+                stop("Only normal-normal hierarchies are currently supported")
+            }
+        }
+
+	    .cyclopsSetPrior(cyclopsData$cyclopsInterfacePtr, prior$priorType, prior$variance, 
+                         prior$exclude, graph)    		
 	}
 	
     if (!missing(control)) {
@@ -304,9 +314,10 @@ control <- function(
 prior <- function(priorType, 
                   variance = 1, 
                   exclude = c(), 
+                  graph = NULL,
                   useCrossValidation = FALSE,
                   forceIntercept = FALSE) {
-	validNames = c("none", "laplace","normal")
+	validNames = c("none", "laplace","normal", "hierarchical")
 	stopifnot(priorType %in% validNames)	
 	if (!is.null(exclude)) {
 		if (!inherits(exclude, "character") &&
@@ -319,15 +330,14 @@ prior <- function(priorType,
 	if (priorType == "none" && useCrossValidation) {
 		stop("Cannot perform cross validation with a flat prior")
 	}
+    if (priorType == "hierarchical" && missing(graph)) {
+        stop("Must provide a graph for a hierarchical prior")
+    }
 	structure(list(priorType = priorType, variance = variance, exclude = exclude, 
+                   graph = graph,
 	               useCrossValidation = useCrossValidation, forceIntercept = forceIntercept), 
               class = "cyclopsPrior")
 }
-
-# clear <- function() {
-#     cat("\014")  
-# }
-
 
 #' @method predict cyclopsFit
 #' @title Model predictions
@@ -452,4 +462,19 @@ convertToCyclopsVariance <- function(lambda, nobs) {
 #' @return \code{lambda}
 convertToGlmnetLambda <- function(variance, nobs) {
     sqrt(2 / variance) / nobs
+}
+
+
+.makeHierarchyGraph <- function(cyclopsData, graph) {
+    nTypes <- getNumberOfTypes(cyclopsData)
+    if (nTypes < 2 || graph != "type") stop("Only multitype hierarchies are currently supported")
+    hasOffset <- .cyclopsGetHasOffset(cyclopsData)
+    if (hasOffset) stop("Hierarchies with offset covariates are currently not supported")
+    
+    # Build Multitype hierarchy
+    nChild <- getNumberOfCovariates(cyclopsData)
+    nParents <- nChild / nTypes
+    
+    graph <-  lapply(0:(nParents - 1), function(n, types) { 0:(nTypes-1) + n * nTypes }, types = nTypes)   
+    graph
 }

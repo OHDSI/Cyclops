@@ -168,6 +168,19 @@ int cyclopsGetNumberOfRows(Environment object) {
 	return static_cast<int>(data->getNumberOfRows());
 }
 
+//' @title Get total number of outcome types
+//' 
+//' @description
+//' \code{getNumberOfTypes} returns the total number of outcome types in an OHDSI Cyclops data object
+//' 
+//' @param object    An OHDSI Cyclops data object
+//'
+// [[Rcpp::export("getNumberOfTypes")]]
+int cyclopsGetNumberOfTypes(Environment object) {	
+	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	
+	return static_cast<int>(data->getNumberOfTypes());
+}
+
 // [[Rcpp::export(".cyclopsSumByGroup")]]
 List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel, 
 		const long groupByLabel, const int power) {
@@ -244,6 +257,13 @@ bool cyclopsGetHasIntercept(Environment x) {
     using namespace bsccs;
     XPtr<ModelData> data = parseEnvironmentForPtr(x);
     return data->getHasInterceptCovariate(); 
+}
+
+// [[Rcpp::export(".cyclopsGetHasOffset")]]
+bool cyclopsGetHasOffset(Environment x) {
+    using namespace bsccs;
+    XPtr<ModelData> data = parseEnvironmentForPtr(x);
+    return data->getHasOffsetCovariate(); 
 }
 
 // [[Rcpp::export(".cyclopsFinalizeData")]]
@@ -468,7 +488,7 @@ RcppModelData::RcppModelData(
 				_type,
 				_time,
 				bsccs::make_shared<loggers::RcppProgressLogger>(),
-				bsccs::make_shared<loggers::RcppErrorHandler>()
+				bsccs::make_shared<loggers::RcppErrorHandler>()				
 				) {
 	if (useTimeAsOffset) {
 	    // offset
@@ -478,6 +498,8 @@ RcppModelData::RcppModelData(
         setHasOffsetCovariate(true);
 	    getColumn(0).add_label(-1);
 	}			
+    
+    nTypes = numTypes; // TODO move into constructor
 				
 	// Convert dense
 	int nCovariates = static_cast<int>(dxv.size() / y.size());

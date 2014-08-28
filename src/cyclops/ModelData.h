@@ -163,6 +163,8 @@ public:
 
 	int getNumberOfVariableColumns() const;
 	
+	int getNumberOfTypes() const;
+	
 	size_t getNumberOfStrata() const;
 	
     size_t getColumnIndex(const IdType covariate) const;	
@@ -206,6 +208,8 @@ protected:
 	IntVector nevents; // TODO Where are these used?
 	std::string conditionId;
 	std::vector<std::string> labels; // TODO Change back to 'long'
+	
+	int nTypes;
 	
 private:
 	// Disable copy-constructors and copy-assignment

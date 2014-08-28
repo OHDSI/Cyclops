@@ -71,9 +71,10 @@ public:
     }
         
 	void setPrior(
-				const std::string& basePriorName, 
-				double baseVariance,
-				const ProfileVector& flatPrior);    
+				const std::vector<std::string>& basePriorName, 
+				const std::vector<double>& baseVariance,
+				const ProfileVector& flatPrior,
+				const HierarchicalChildMap& map);    
 				
     void setNoiseLevel(bsccs::NoiseLevels noiseLevel);				
     
@@ -93,9 +94,10 @@ protected:
 		static void handleError(const std::string& str);
 		
 		priors::JointPriorPtr makePrior(
-				const std::string& basePriorName, 
-				double baseVariance,
-				const ProfileVector& flatPrior);
+				const std::vector<std::string>& basePriorName, 
+				const std::vector<double>& baseVariance,
+				const ProfileVector& flatPrior,
+				const HierarchicalChildMap& map);
             
     void initializeModelImpl(
             ModelData** modelData,

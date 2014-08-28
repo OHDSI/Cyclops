@@ -94,22 +94,24 @@ createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, mod
         mf.d[[1L]] <- quote(stats::model.frame)			
         mf.d <- eval(mf.d, parent.frame())
         
-        y <- model.response(mf.d)
-        if (inherits(y, "Surv")) {
+        outcome <- model.response(mf.d)
+        if (inherits(outcome, "Surv")) {
             if (!.isSurvivalModelType(modelType)) {
                 stop("Censored outcomes are currently only support for Cox regression.")
             }
-            if (dim(y)[2] == 3) {
-                time <- as.numeric(y[,2] - y[,1])
-                y <- as.numeric(y[,3])
+            if (dim(outcome)[2] == 3) {
+                time <- as.numeric(outcome[,2] - outcome[,1])
+                y <- as.numeric(outcome[,3])
             } else {
-                time <- as.numeric(y[,1])
-                y <- as.numeric(y[,2])
+                time <- as.numeric(outcome[,1])
+                y <- as.numeric(outcome[,2])
             }            
-        } else if (inherits(y, "Multitype")) {
-            contrasts <- attr(y, "contrasts")
-            type <- y[,2]
-            y <- y[,1]            
+        } else if (inherits(outcome, "Multitype")) {
+            contrasts <- attr(outcome, "contrasts")
+            type <- outcome[,2]
+            y <- outcome[,1]            
+        } else {
+            y <- outcome
         }
         
         mt.d <- attr(mf.d, "terms")

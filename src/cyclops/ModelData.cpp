@@ -161,6 +161,10 @@ int ModelData::getNumberOfPatients() {
 	return nPatients;
 }
 
+int ModelData::getNumberOfTypes() const {
+	return nTypes;
+}
+
 string ModelData::getConditionId() {
 	return conditionId;
 }
