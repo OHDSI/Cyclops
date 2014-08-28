@@ -45,8 +45,8 @@ public:
 
 	int getParent(int child);
 
-	std::map<int, vector<int> > getChildMap;
-	std::map<int, int> getParentMap;
+	std::vector<vector<int> > getChildMap;
+	std::vector<int> getParentMap;
 	std::map<int, int> drugIdToIndex;
 
 private:
