@@ -34,7 +34,8 @@ public:
 			const NumericVector& sxv,
 			const IntegerVector& iiv, // indicator
 			const IntegerVector& ipv,
-            bool useTimeAsOffset = false
+            bool useTimeAsOffset = false,
+            int numTypes = 1
 			);
 
 	virtual ~RcppModelData();

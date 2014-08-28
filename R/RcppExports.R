@@ -164,7 +164,7 @@ getNumberOfRows <- function(object) {
     .Call('Cyclops_cyclopsReadFileData', PACKAGE = 'Cyclops', fileName, modelTypeName)
 }
 
-.cyclopsModelData <- function(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset = FALSE) {
-    .Call('Cyclops_cyclopsModelData', PACKAGE = 'Cyclops', pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset)
+.cyclopsModelData <- function(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset = FALSE, numTypes = 1L) {
+    .Call('Cyclops_cyclopsModelData', PACKAGE = 'Cyclops', pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset, numTypes)
 }
 

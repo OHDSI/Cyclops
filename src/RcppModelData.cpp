@@ -383,8 +383,9 @@ List cyclopsReadFileData(const std::string& fileName, const std::string& modelTy
 
 // [[Rcpp::export(".cyclopsModelData")]]
 List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix, 
-    const std::string& modelTypeName,
-    bool useTimeAsOffset = false) {
+    const std::string& modelTypeName,    
+    bool useTimeAsOffset = false,
+    int numTypes = 1) {
 
     using namespace bsccs;    
     ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName); 
@@ -432,7 +433,8 @@ List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEX
 		ipv = ixx.slot("p");
 	}
 
-    XPtr<RcppModelData> ptr(new RcppModelData(modelType, ipid, iy, iz, ioffs, dxv, siv, spv, sxv, iiv, ipv, useTimeAsOffset));
+    XPtr<RcppModelData> ptr(new RcppModelData(modelType, ipid, iy, iz, ioffs, dxv, siv, 
+    	spv, sxv, iiv, ipv, useTimeAsOffset, numTypes));
 
 	double duration = timer();
 
@@ -449,7 +451,7 @@ RcppModelData::RcppModelData(
         ModelType _modelType,
 		const IntegerVector& _pid,
 		const NumericVector& _y,
-		const NumericVector& _z,
+		const NumericVector& _type,
 		const NumericVector& _time,
 		const NumericVector& dxv, // dense
 		const IntegerVector& siv, // sparse
@@ -457,19 +459,19 @@ RcppModelData::RcppModelData(
 		const NumericVector& sxv,
 		const IntegerVector& iiv, // indicator
 		const IntegerVector& ipv,
-		bool useTimeAsOffset
+		bool useTimeAsOffset,
+		int numTypes
 		) : ModelData(
                 _modelType,
 				_pid,
 				_y,
-				_z,
+				_type,
 				_time,
 				bsccs::make_shared<loggers::RcppProgressLogger>(),
 				bsccs::make_shared<loggers::RcppErrorHandler>()
 				) {
 	if (useTimeAsOffset) {
 	    // offset
-//        real_vector* r = new real_vector();
         RealVectorPtr r = make_shared<RealVector>();
         push_back(NULL, r, DENSE);   
         r->assign(offs.begin(), offs.end()); // TODO Should not be necessary with shared_ptr
@@ -480,20 +482,40 @@ RcppModelData::RcppModelData(
 	// Convert dense
 	int nCovariates = static_cast<int>(dxv.size() / y.size());
 	for (int i = 0; i < nCovariates; ++i) {
-		push_back(
-				static_cast<IntegerVector::iterator>(NULL), static_cast<IntegerVector::iterator>(NULL),
-				dxv.begin() + i * y.size(), dxv.begin() + (i + 1) * y.size(),
-				DENSE);
-		getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
+		if (numTypes == 1) {
+			push_back(
+					static_cast<IntegerVector::iterator>(NULL), static_cast<IntegerVector::iterator>(NULL),
+					dxv.begin() + i * y.size(), dxv.begin() + (i + 1) * y.size(),
+					DENSE);
+			getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
+		} else {
+			std::vector<RealVector> covariates;
+			for (int c = 0; c < numTypes; ++c) {
+				covariates.push_back(RealVector(y.size(), 0));
+			}
+			size_t offset = i * y.size();
+			for (int k = 0; k < y.size(); ++k) {
+				covariates[static_cast<int>(_type[k])][k] = dxv[offset + k];
+			}
+			for (int c = 0; c < numTypes; ++c) {
+				push_back(
+						static_cast<IntegerVector::iterator>(NULL),static_cast<IntegerVector::iterator>(NULL),
+						covariates[c].begin(), covariates[c].end(),
+						DENSE);
+				getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
+			}
+		}
 	}
 
 	// Convert sparse
 	nCovariates = spv.size() - 1;
 	for (int i = 0; i < nCovariates; ++i) {
-
+	
 		int begin = spv[i];
 		int end = spv[i + 1];
-
+		
+		if (numTypes != 1) stop("Multitypes are not yet implemented.");
+		
 		push_back(
 				siv.begin() + begin, siv.begin() + end,
 				sxv.begin() + begin, sxv.begin() + end,
@@ -507,6 +529,8 @@ RcppModelData::RcppModelData(
 
 		int begin = ipv[i];
 		int end = ipv[i + 1];
+
+		if (numTypes != 1) stop("Multitypes are not yet implemented.");
 
 		push_back(
 				iiv.begin() + begin, iiv.begin() + end,
