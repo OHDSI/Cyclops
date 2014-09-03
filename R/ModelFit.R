@@ -75,6 +75,9 @@ fitCyclopsModel <- function(cyclopsData,
             graph <- NULL
         } else {
             graph <- .makeHierarchyGraph(cyclopsData, prior$graph)
+            if (length(prior$priorType) != length(prior$variance)){
+                stop("Prior types and variances have a dimensionality mismatch")
+            }
             if (any(prior$priorType != "normal")) {
                 stop("Only normal-normal hierarchies are currently supported")
             }
@@ -171,6 +174,9 @@ fitCyclopsModel <- function(cyclopsData,
 #' 
 #' @return Named numeric vector of model coefficients.
 coef.cyclopsFit <- function(object, ...) {
+    if (is.null(object$estimation)) {
+        stop("Cyclops estimation is null; suspect that estimation did not converge.")
+    }
 	result <- object$estimation$estimate
 	if (is.null(object$coefficientNames)) {
 		names(result) <- object$estimation$column_label

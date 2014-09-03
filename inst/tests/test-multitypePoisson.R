@@ -55,6 +55,59 @@ test_that("Small multi-type Poisson dense regression", {
     expect_equal(coef(cyclopsFitS), coef(cyclopsFitD))
 })
 
+test_that("coef throws error when not converged", {
+    dobson1 <- data.frame(
+        counts = c(18,17,15,20,10,20,25,13,12),
+        outcome = gl(3,1,9),
+        treatment = gl(3,3)
+    )
+    dobson2 <- data.frame(
+        counts = c(18,17,15,20,10,20,25,13,12)-10,
+        outcome = gl(3,1,9),
+        treatment = gl(3,3)
+    )    
+    dobson <- rbind(dobson1, dobson2)
+    dobson$type = as.factor(c(rep("A",9),rep("B",9)))
+    tolerance <- 1E-4
+        
+    dataPtrD <- createCyclopsDataFrame(Multitype(counts, type) ~ outcome + treatment, data = dobson,                                                                              
+                                       modelType = "pr")
+    
+    cyclopsFitD <- fitCyclopsModel(dataPtrD, 
+                                   prior = prior(c("normal","normal"), c(0.0001,10), graph = "type"),
+                                   control = control(noiseLevel = "silent"))
+    expect_error(coef(cyclopsFitD), "did not converge")
+})
+
+
+test_that("confirm dimension check", {
+    dobson1 <- data.frame(
+        counts = c(18,17,15,20,10,20,25,13,12),
+        outcome = gl(3,1,9),
+        treatment = gl(3,3)
+    )
+    dobson2 <- data.frame(
+        counts = c(18,17,15,20,10,20,25,13,12)-10,
+        outcome = gl(3,1,9),
+        treatment = gl(3,3)
+    )    
+    dobson <- rbind(dobson1, dobson2)
+    dobson$type = as.factor(c(rep("A",9),rep("B",9)))
+    tolerance <- 1E-4
+    
+    dataPtrD <- createCyclopsDataFrame(Multitype(counts, type) ~ outcome + treatment, data = dobson,                                                                              
+                                       modelType = "pr")
+    
+    
+    expect_error(fitCyclopsModel(dataPtrD, 
+                                 prior = prior(c("normal"), c(0.0001,10), graph = "type"),
+                                 control = control(noiseLevel = "silent")), "dimensionality mismatch")
+    expect_error(fitCyclopsModel(dataPtrD, 
+                                 prior = prior(c("normal", "normal"), c(0.0001), graph = "type"),
+                                 control = control(noiseLevel = "silent")), "dimensionality mismatch")    
+})
+
+
 test_that("Small multi-type Poisson with hierarchical prior", {
     dobson1 <- data.frame(
         counts = c(18,17,15,20,10,20,25,13,12),
@@ -78,7 +131,7 @@ test_that("Small multi-type Poisson with hierarchical prior", {
     
     cyclopsFitD <- fitCyclopsModel(dataPtrD, 
                                    prior = prior(c("normal","normal"), c(0.0001,10), graph = "type"),
-                                   control = control(noiseLevel = "silent"))
+                                   control = control(noiseLevel = "noisy", maxIterations = 2000))
     
     cyclopsFitE <- fitCyclopsModel(dataPtrD, 
                                    prior = prior(c("normal","normal"), c(0.0001,0.0001), graph = "type"),
