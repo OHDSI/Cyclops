@@ -382,6 +382,9 @@ predict.cyclopsFit <- function(object, ...) {
 getSEs <- function(object, covariates) {
     .checkInterface(object, testOnly = TRUE)    
     covariates <- .checkCovariates(object$cyclopsData, covariates)
+    if (getNumberOfCovariates(object$cyclopsData) != length(covariates)) {
+        warning("Asymptotic standard errors are only valid if computed for all covariates simultaneously")
+    }
     fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsInterfacePtr, covariates)
     ses <- sqrt(diag(solve(fisherInformation)))
     names(ses) <- object$coefficientNames[covariates]
@@ -427,6 +430,72 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, control,
     qs <- c((1 - level) / 2, 1 - (1 - level) / 2) * 100    
     colnames(prof)[2:3] <- paste(sprintf("%.1f", qs), "%")
     prof
+}
+
+#' @title Asymptotic confidence intervals for a fitted Cyclops model object
+#'
+#' @description
+#' \code{aconfinit} constructs confidence intervals of
+#' arbitrary level using asymptotic standard error estimates.
+#' 
+#' @param object    A fitted Cyclops model object
+#' @param parm      A specification of which parameters require confidence intervals,
+#'                  either a vector of numbers of covariateId names
+#' @param level     Numeric: confidence level required
+#' @param control   A Cyclops \code{\link{control}} object
+#' @param overrideNoRegularization   Logical: Enable confidence interval estimation for regularized parameters
+#' @param ... Additional argument(s) for methods
+#' 
+#' @return
+#' A matrix with columns reporting lower and upper confidence limits for each parameter.
+#' These columns are labelled as (1-level) / 2 and 1 - (1 - level) / 2 in % 
+#' (by default 2.5% and 97.5%)
+#' 
+aconfint <- function(object, parm, level = 0.95, control, 
+                               overrideNoRegularization = FALSE, ...) {
+    .checkInterface(object, testOnly = TRUE)
+    .setControl(object$cyclopsInterfacePtr, control)
+    cf <- coef(object)
+    if (missing(parm)) {
+        parm <- names(cf)
+    }
+    #parm <- .checkCovariates(object$cyclopsData, parm)
+    if (level < 0.01 || level > 0.99) {
+        stop("level must be between 0 and 1")
+    }
+    a <- (1 - level) / 2
+    a <- c(a, 1 - a)
+    pct <- paste(sprintf("%.1f", a * 100), "%")
+    fac <- qnorm(a)
+    ci <- array(NA, dim = c(length(parm), 2L), dimnames = list(parm, pct))
+    ses <- sqrt(diag(vcov(object)))[parm]
+    ci[] <- cf[parm] + ses %o% fac
+    ci
+}
+
+#' @title Calculate variance-covariance matrix for a fitted Cyclops model object
+#'
+#' @description
+#' \code{vcov.cyclopsFit} returns the variance-covariance matrix for all covariates of a Cyclops model object
+#' 
+#' @param object    A fitted Cyclops model object
+#' @param control   A Cyclops \code{\link{control}} object
+#' @param overrideNoRegularization   Logical: Enable variance-covariance estimation for regularized parameters
+#' @param ... Additional argument(s) for methods
+#' 
+#' @return
+#' A matrix of the estimates covariances between all covariate estimates.
+#' 
+vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, ...) {
+    .checkInterface(object, testOnly = TRUE)
+    .setControl(object$cyclopsInterfacePtr, control)
+    fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsInterfacePtr, NULL)    
+    vcov <- solve(fisherInformation)
+    if (!is.null(object$coefficientNames)) {
+        rownames(vcov) <- object$coefficientNames
+        colnames(vcov) <- object$coefficientNames
+    }
+    vcov
 }
 
 #' @title Convert to Cyclops Prior Variance

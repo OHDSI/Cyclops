@@ -77,6 +77,10 @@ Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP 
 	        size_t index = interface->getModelData().getColumnIndex(*it);
 	        indices.push_back(index);	        
 	    }
+	} else {
+		for (size_t index = 0; index < interface->getModelData().getNumberOfColumns(); ++index) {
+			indices.push_back(index);
+		}
 	}
 	
     return interface->getCcd().computeFisherInformation(indices);
