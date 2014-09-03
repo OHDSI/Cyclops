@@ -97,8 +97,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsProfileModel
-List cyclopsProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, double threshold, bool override);
-RcppExport SEXP Cyclops_cyclopsProfileModel(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP, SEXP thresholdSEXP, SEXP overrideSEXP) {
+List cyclopsProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, double threshold, bool override, bool includePenalty);
+RcppExport SEXP Cyclops_cyclopsProfileModel(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP, SEXP thresholdSEXP, SEXP overrideSEXP, SEXP includePenaltySEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -107,7 +107,8 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< SEXP >::type sexpCovariates(sexpCovariatesSEXP );
         Rcpp::traits::input_parameter< double >::type threshold(thresholdSEXP );
         Rcpp::traits::input_parameter< bool >::type override(overrideSEXP );
-        List __result = cyclopsProfileModel(inRcppCcdInterface, sexpCovariates, threshold, override);
+        Rcpp::traits::input_parameter< bool >::type includePenalty(includePenaltySEXP );
+        List __result = cyclopsProfileModel(inRcppCcdInterface, sexpCovariates, threshold, override, includePenalty);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);

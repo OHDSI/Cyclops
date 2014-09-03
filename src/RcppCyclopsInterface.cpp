@@ -98,7 +98,8 @@ void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, 
 }
 
 // [[Rcpp::export(".cyclopsProfileModel")]]
-List cyclopsProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, double threshold, bool override) {
+List cyclopsProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, double threshold, 
+		bool override, bool includePenalty) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 	
@@ -106,7 +107,7 @@ List cyclopsProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, double th
 		ProfileVector covariates = as<ProfileVector>(sexpCovariates);
 		
 		ProfileInformationMap profileMap;
-        interface->profileModel(covariates, profileMap, threshold, override);
+        interface->profileModel(covariates, profileMap, threshold, override, includePenalty);
                 
         std::vector<double> lower;
         std::vector<double> upper;
@@ -117,9 +118,7 @@ List cyclopsProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, double th
             ProfileInformation info = profileMap[*it];
             lower.push_back(info.lower95Bound);
             upper.push_back(info.upper95Bound);
-            evals.push_back(info.evaluations);
-            
- //           std::cout << *it << " " << info.lower95Bound << " " << info.upper95Bound << std::endl;
+            evals.push_back(info.evaluations);           
         }
         return List::create(
             Rcpp::Named("covariate") = covariates,

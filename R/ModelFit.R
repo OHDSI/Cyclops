@@ -399,7 +399,8 @@ getSEs <- function(object, covariates) {
 #'                  either a vector of numbers of covariateId names
 #' @param level     Numeric: confidence level required
 #' @param control   A Cyclops \code{\link{control}} object
-#' @param overrideNoRegularization   Logical: Enables confidence interval estimation for regularized parameters
+#' @param overrideNoRegularization   Logical: Enable confidence interval estimation for regularized parameters
+#' @param includePenalty    Logical: Include regularized covariate penalty in profile
 #' @param ... Additional argument(s) for methods
 #' 
 #' @return
@@ -408,7 +409,8 @@ getSEs <- function(object, covariates) {
 #' (by default 2.5% and 97.5%)
 #' 
 confint.cyclopsFit <- function(object, parm, level = 0.95, control, 
-                           overrideNoRegularization = FALSE, ...) {
+                               overrideNoRegularization = FALSE,
+                               includePenalty = FALSE, ...) {
     .checkInterface(object, testOnly = TRUE)
     .setControl(object$cyclopsInterfacePtr, control)
     parm <- .checkCovariates(object$cyclopsData, parm)
@@ -418,7 +420,8 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, control,
     threshold <- qchisq(level, df = 1) / 2
     
     prof <- .cyclopsProfileModel(object$cyclopsInterfacePtr, parm, threshold,
-                             overrideNoRegularization)
+                                 overrideNoRegularization,
+                                 includePenalty)
     prof <- as.matrix(as.data.frame(prof))
     rownames(prof) <- object$coefficientNames[parm]
     qs <- c((1 - level) / 2, 1 - (1 - level) / 2) * 100    

@@ -220,8 +220,9 @@ struct OptimizationProfile {
 	CCDArguments& arguments;
 
 	OptimizationProfile(CyclicCoordinateDescent& _ccd, CCDArguments& _arguments, int _index, double _max,
-			double _threshold = 1.920729) :
-			ccd(_ccd), arguments(_arguments), index(_index), max(_max), threshold(_threshold), nEvals(0) {
+			double _threshold = 1.920729, bool _includePenalty = false) :
+			ccd(_ccd), arguments(_arguments), index(_index), max(_max), threshold(_threshold), 
+			nEvals(0), includePenalty(_includePenalty) {
 	}
 
 	int getEvaluations() {
@@ -234,7 +235,11 @@ struct OptimizationProfile {
 		ccd.setFixedBeta(index, true);
 		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 		ccd.setFixedBeta(index, false);
-		return ccd.getLogLikelihood() + threshold - max;
+		double y = ccd.getLogLikelihood() + threshold - max;
+		if (includePenalty) {
+			y += ccd.getLogPrior();
+		}
+		return y;
 	}
 
 	double getMaximum() {
@@ -245,10 +250,12 @@ struct OptimizationProfile {
 	double max;
 	double threshold;
 	int nEvals;
+	bool includePenalty;
 };
 
 double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
-		const ProfileVector& profileCI, ProfileInformationMap& profileMap, double threshold, bool overrideNoRegularization) {
+		const ProfileVector& profileCI, ProfileInformationMap& profileMap, double threshold, 
+		bool overrideNoRegularization, bool includePenalty) {
 
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
@@ -290,7 +297,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *model
             double x0 = x0s[index];
 
 			// Bound edge
-			OptimizationProfile upEval(*ccd, arguments, index, mode, threshold);
+			OptimizationProfile upEval(*ccd, arguments, index, mode, threshold, includePenalty);
 			RZeroIn<OptimizationProfile> zeroInUp(upEval, 1E-3);
 			RZeroIn<OptimizationProfile> zeroInDn(upEval, 1E-3);
 

@@ -25,8 +25,8 @@
     invisible(.Call('Cyclops_cyclopsSetPrior', PACKAGE = 'Cyclops', inRcppCcdInterface, priorTypeName, variance, excludeNumeric))
 }
 
-.cyclopsProfileModel <- function(inRcppCcdInterface, sexpCovariates, threshold, override) {
-    .Call('Cyclops_cyclopsProfileModel', PACKAGE = 'Cyclops', inRcppCcdInterface, sexpCovariates, threshold, override)
+.cyclopsProfileModel <- function(inRcppCcdInterface, sexpCovariates, threshold, override, includePenalty) {
+    .Call('Cyclops_cyclopsProfileModel', PACKAGE = 'Cyclops', inRcppCcdInterface, sexpCovariates, threshold, override, includePenalty)
 }
 
 .cyclopsPredictModel <- function(inRcppCcdInterface) {

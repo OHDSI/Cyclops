@@ -42,8 +42,9 @@ public:
     }
 
     double profileModel(const ProfileVector& profileCI, ProfileInformationMap& profileMap, 
-            double threshold, bool override) {
-    	return CcdInterface::profileModel(ccd, modelData, profileCI, profileMap, threshold, override);
+            double threshold, bool override, bool includePenalty) {
+    	return CcdInterface::profileModel(ccd, modelData, profileCI, profileMap, threshold, 
+    			override, includePenalty);
     }
            
     double runCrossValidation() {
