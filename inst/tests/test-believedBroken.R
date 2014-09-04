@@ -18,8 +18,6 @@ library("testthat")
 
 # test_that("Approximations for ties in CLR" ,{})
 
-# test_that("Preclude SEs for regularized covariates", {})
-
 # test_that("getSEs() throws error when all covariates are not included", {})
 
 # test_that("Extract Y from data object", {})
@@ -34,11 +32,7 @@ library("testthat")
 
 # test_that("Throw error with more than one case in CLR" ,{})
 
-# test_that("Compute confint under CLR model", {})
-
 # test_that("Check SCCS model via SQL", {})
-
-# test_that("Check profile conditional posterior vs likelihood", {})
 
 # test_that("Check default regularization variance", {})
 
