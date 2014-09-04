@@ -64,6 +64,21 @@ library("testthat")
 #     expect_equal(logLik(cyclopsFit), MJS values) # TODO Why are these different?
 #})
 
+# test_that("Reuse data object", {
+#     
+#     dataPtr <- createCyclopsDataFrame(case ~ spontaneous + induced + strata(stratum),
+#                                       data = infert,
+#                                       modelType = "clr")
+#     
+#     cyclopsFit <- fitCyclopsModel(dataPtr, prior = prior("none"))
+#     
+#     cyclopsFitR <- fitCyclopsModel(dataPtr, 
+#                                    prior = prior("laplace", 1, exclude = 1))
+#     
+#     # Error: both cyclopsFit and cyclopsFitR share the same interface ptr
+#     confint(cyclopsFit, c(1:2), includePenalty = TRUE) # Should not throw error       
+# })
+
 test_that("Set seed for cross-validation", {
     counts <- c(18,17,15,20,10,20,25,13,12)
     outcome <- gl(3,1,9)

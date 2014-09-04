@@ -261,6 +261,9 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *model
 	gettimeofday(&time1, NULL);
 	
 	double mode = ccd->getLogLikelihood();
+	if (includePenalty) {
+	    mode += ccd->getLogPrior();
+	}
 	int J = ccd->getBetaSize();
 	std::vector<double> x0s(J);
 	for (int j = 0; j < J; ++j) {

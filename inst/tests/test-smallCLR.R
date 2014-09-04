@@ -24,6 +24,22 @@ test_that("Small conditional logistic regression", {
     
     expect_equal(aconfint(cyclopsFit), confint(gold), tolerance = tolerance)
 
+    expect_equal(confint(cyclopsFit, c(1:2), includePenalty = TRUE),
+                 confint(cyclopsFit, c(1:2), includePenalty = FALSE))
+    
+    dataPtrR <- createCyclopsDataFrame(case ~ spontaneous + induced + strata(stratum),
+                                       data = infert,
+                                       modelType = "clr")
+    
+    cyclopsFitR <- fitCyclopsModel(dataPtrR, 
+                                   prior = prior("laplace", 1, exclude = 1))
+    
+#     expect_not_equal(confint(cyclopsFitR, c(1), includePenalty = TRUE),
+#                  confint(cyclopsFitR, c(1), includePenalty = FALSE))
+#       # How to test for inequality?
 # This is broken:
 # 	expect_equal(predict(cyclopsFit), predict(gold, type = "risk"), tolerance = tolerance)
 })
+
+
+
