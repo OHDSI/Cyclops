@@ -696,7 +696,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 				
 				for (size_t i = 0; i < N; ++i) {
 // TODO CHECK				
-                    if( *reset == i ) {
+                    if (static_cast<unsigned int>(*reset) == i) {
 			            totalDenomTrain = static_cast<real>(0);
 				        totalNumerTrain = static_cast<real>(0);
 				        totalNumer2Train = static_cast<real>(0);
@@ -731,7 +731,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 				
 				for (size_t i = 0; i < N; ++i) {
 // TODO CHECK				
-                    if (*reset == i) {
+                    if (static_cast<unsigned int>(*reset) == i) {
 				        totalDenom = static_cast<real>(0);
 				        totalNumer = static_cast<real>(0);
 				        totalNumer2 = static_cast<real>(0);				    

@@ -198,7 +198,7 @@ void AbstractModelSpecifics::initialize(
         
         int pid = hPid[0] = 0;
         
-	    for (int k = 1; k < K; ++k) {
+	    for (size_t k = 1; k < K; ++k) {
 		    int nextPid = hPid[k];
 		    
 		    if (nextPid != lastPid) { // start new strata
