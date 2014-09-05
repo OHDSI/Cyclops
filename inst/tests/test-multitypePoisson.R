@@ -139,3 +139,25 @@ test_that("Small multi-type Poisson with hierarchical prior", {
     
     
 })
+
+
+test_that("Check multitype SCCS", {
+#    
+#   stratumID must be unique by type and all patient entries must be replicated by type
+#     (how to specify this in input) ???
+#    
+#     source("helper-conditionalPoisson.R")
+#     tolerance <- 1E-6    
+#     gold.clogit <- clogit(event ~ exgr + agegr + strata(indiv) + offset(loginterval), 
+#                           data = chopdat)
+#     
+#     dataPtr <- createCyclopsDataFrame(event ~ exgr + agegr + strata(indiv), time = chopdat$interval,
+#                                       data = chopdat,
+#                                       modelType = "sccs")        
+#     cyclopsFit <- fitCyclopsModel(dataPtr,
+#                                   prior = prior("none"))
+#     expect_equal(logLik(cyclopsFit), logLik(gold.clogit)[1])
+#     expect_equal(coef(cyclopsFit), coef(gold.clogit), tolerance = tolerance)            
+})
+
+
