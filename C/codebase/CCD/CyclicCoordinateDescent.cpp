@@ -178,6 +178,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 	// If true, then fill with pointers to CompressedDataColumn and do not delete in destructor
 	for (int j = 0; j < J; ++j) {
 		if (hXI->getFormatType(j) == DENSE) {
+			cout << "DENSE!" << endl;
 			sparseIndices.push_back(NULL);
 		} else {
 			std::set<int> unique;

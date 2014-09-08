@@ -193,8 +193,9 @@ void SCCSInputReader::readFile(const char* fileName) {
 
 #if 0
 	cout << "Converting all columns to dense format" << endl;
-	for (int j = 0; j < nCols; ++j) {
-		convertColumnToDense(j);
+	for (int j = 0; j < modelData->nCols; ++j) {
+		modelData->convertColumnToDense(j);
+		cout << "j = " << j << endl;
 	}
 #endif
 

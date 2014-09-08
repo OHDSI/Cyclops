@@ -135,11 +135,15 @@ public:
 	}
 
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
-		double t1 = 1/hierarchyPriors[0]->getVariance(); // this is the hyperparameter that is used in the original code
-		double t2 = 1/hierarchyPriors[1]->getVariance();
-
 		int parent = getParentMap.at(index);
 		const vector<int>& siblings = getChildMap.at(parent);
+
+		int numberOutcomesWithDrug = 1;//siblings.size();
+		double t1 = 1/hierarchyPriors[0]->getVariance(); // this is the hyperparameter that is used in the original code
+		double t2 = numberOutcomesWithDrug/hierarchyPriors[1]->getVariance(); //is this right?
+
+		//int parent = getParentMap.at(index);
+		//const vector<int>& siblings = getChildMap.at(parent);
 		double sumBetas = 0;
 		int nSiblingsOfInterest = 0; //Different from siblings length if weights used
 		for (int i = 0; i < siblings.size(); i++) {

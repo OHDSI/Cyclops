@@ -39,13 +39,16 @@
 #include "io/NewGenericInputReader.h"
 #include "io/BBRInputReader.h"
 #include "io/OutputWriter.h"
+/*
 #include "MCMC/MCMCDriver.h"
 #include "MCMC/ModelSelectionDriver.h"
+*/
 #include "CrossValidationSelector.h"
 #include "GridSearchCrossValidationDriver.h"
 #include "HierarchyGridSearchCrossValidationDriver.h"
 #include "AutoSearchCrossValidationDriver.h"
 #include "HierarchyAutoSearchCrossValidationDriver.h"
+
 #include "BootstrapSelector.h"
 #include "ProportionSelector.h"
 #include "BootstrapDriver.h"
@@ -159,10 +162,10 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.seed = 123;
 	arguments.doCrossValidation = false;
 	arguments.useAutoSearchCV = false;
-	arguments.lowerLimit = 0.01;
+	arguments.lowerLimit = 0.00001;
 	arguments.upperLimit = 200000.0;
 	arguments.fold = 10;
-	arguments.gridSteps = 10;
+	arguments.gridSteps = 100;
 	arguments.cvFileName = "cv.txt";
 	arguments.useHierarchy = false;
 	arguments.useMCMC = false;
@@ -237,7 +240,7 @@ void parseCommandLine(std::vector<std::string>& args,
 		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, arguments.upperLimit, "real");
 		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, arguments.fold, "int");
 		ValueArg<int> gridCVArg("", "gridSize", "Uniform grid size for cross-validation search", false, arguments.gridSteps, "int");
-		ValueArg<int> foldToComputeCVArg("", "computeFold", "Number of fold to iterate, default is 'fold' value", false, 10, "int");
+		ValueArg<int> foldToComputeCVArg("", "computeFold", "Number of fold to iterate, default is 'fold' value", false, 100, "int");
 		ValueArg<string> outFile2Arg("", "cvFileName", "Cross-validation output file name", false, arguments.cvFileName, "cvFileName");
 
 		// Bootstrap arguments

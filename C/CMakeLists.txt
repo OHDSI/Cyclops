@@ -15,7 +15,7 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/CCD)
 add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/CCD-DP)
 
 if(CUDA_FOUND)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/GPU)	
+#	add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/GPU)	
 #	add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/GPU-DP)
 endif(CUDA_FOUND)
 

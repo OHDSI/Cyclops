@@ -65,10 +65,10 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 	double tryvalueStored = tryvalue;
 	double tryvalueClassStored = tryvalue; // start with same variance at the class and element level; // for hierarchy class variance
 
-	UniModalSearch searcher(100, 0.01, log(1.5));
-	UniModalSearch searcherClass(100, 0.01, log(1.5)); // Need a better way to do this.
+	//UniModalSearch searcher(100, 0.01, log(1.5));
+	//UniModalSearch searcherClass(100, 0.01, log(1.5)); // Need a better way to do this.
 
-	const double eps = 0.05; //search stopper
+	const double eps = 1.00; //search stopper
 	std::cout << "Default var = " << tryvalue << std::endl;
 
 
@@ -87,7 +87,9 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 	while (!outerFinished){
 		step = 0;
 		step2 = 0;
+		UniModalSearch searcher(100, 0.01, log(1.5));
 		while (!finished) {
+
 			cout << "\n \n \n \t \t LOOP 1" << endl;
 			ccd.setHyperprior(tryvalue);
 
@@ -118,8 +120,10 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 
 		ccd.setHyperprior(tryvalue);
 		//exit(-1);
+		UniModalSearch searcherClass(100, 0.01, log(1.5));
 		while (!finished2) {
 			cout << "\n \n \n \t \t LOOP 2" << endl;
+
 			ccd.setClassHyperprior(tryvalueClass);
 
 			std::vector<double> predLogLikelihood;
