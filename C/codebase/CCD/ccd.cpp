@@ -39,10 +39,10 @@
 #include "io/NewGenericInputReader.h"
 #include "io/BBRInputReader.h"
 #include "io/OutputWriter.h"
-/*
+
 #include "MCMC/MCMCDriver.h"
 #include "MCMC/ModelSelectionDriver.h"
-*/
+
 #include "CrossValidationSelector.h"
 #include "GridSearchCrossValidationDriver.h"
 #include "HierarchyGridSearchCrossValidationDriver.h"
