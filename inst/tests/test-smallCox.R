@@ -132,4 +132,85 @@ start, length, event, x1, x2
     
     tolerance <- 1E-4
     expect_equal(coef(cyclopsFitRight), coef(goldRight), tolerance = tolerance)
+    
+    # Attempt sparse
+    dataSparse <- createCyclopsDataFrame(Surv(length, event) ~ strata(x2), 
+                                         sparseFormula = ~ x1,
+                                         data = test, modelType = "cox")
+})
+
+test_that("Check very small sparse Cox example with failure ties and strata", {
+    test <- read.table(header=T, sep = ",", text = "
+start, length, event, x1, x2
+0, 4,  1,0,0
+0, 3,  1,2,0
+0, 3,  0,0,1
+0, 2,  1,0,1
+0, 2,  1,1,1
+0, 1,  0,1,0
+0, 1,  1,1,0 
+")
+    
+    # We get the correct answer when last entry is censored
+    goldRight <- coxph(Surv(length, event) ~ x1 + strata(x2), test, ties = "breslow")
+    
+    # Attempt sparse
+    dataSparse <- createCyclopsDataFrame(Surv(length, event) ~ strata(x2), 
+                                         sparseFormula = ~ x1,
+                                         data = test, modelType = "cox")
+    
+    cyclopsSparse <- fitCyclopsModel(dataSparse)
+    expect_equal(coef(cyclopsSparse), coef(goldRight))
+})
+
+test_that("Check SQL interface for a very small Cox example with failure ties and strata", {
+    test <- read.table(header=T, sep = ",", text = "
+start, length, event, x1, x2
+0, 4,  1,0,0
+0, 3,  1,2,0
+0, 3,  0,0,1
+0, 2,  1,0,1
+0, 2,  1,1,1
+0, 1,  0,1,0
+0, 1,  1,1,0 
+")
+    
+    # We get the correct answer when last entry is censored
+    goldRight <- coxph(Surv(length, event) ~ x1 + strata(x2), test, ties = "breslow")
+    
+    dataPtrStrat <- createCyclopsDataFrame(Surv(length, event) ~ x1 + strata(x2),
+                                           data = test,                                   
+                                           modelType = "cox")    
+    
+    cyclopsFitStrat <- fitCyclopsModel(dataPtrStrat)   
+
+    data <- test    
+    data$row_id <- 1:nrow(data)
+    data$covariate_id = 1
+    
+    #order(pid, -time, y)
+    data <- data[order(data$x2, -data$length, data$event),] # Must sort by: strata, into risk set (with events before censorsed)
+    
+    dataPtr <- createSqlCyclopsData(modelType = "cox")
+    
+    count <- appendSqlCyclopsData(dataPtr,
+                                  data$x2,
+                                  data$row_id,
+                                  data$event,
+                                  data$length,
+                                  data$row_id,
+                                  data$covariate_id,
+                                  data$x1)
+    #This throws an error:
+#     finalizeSqlCyclopsData(dataPtr,useOffsetCovariate="useTime") 
+    #So does this:
+#     finalizeSqlCyclopsData(dataPtr,useOffsetCovariate=-1) 
+    #This doesn't:
+#     finalizeSqlCyclopsData(dataPtr) 
+    
+    #This crashes R:
+    finalizeSqlCyclopsData(dataPtr, makeCovariatesDense=c(1))
+    cyclopsFitStrat <- fitCyclopsModel(dataPtr, 
+#                                        control = control(noiseLevel = "noisy")
+                                       )
 })

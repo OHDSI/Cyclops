@@ -358,9 +358,9 @@ protected:
 	UpdateReturnFlags lastReturnFlag;
 	int lastIterationCount;
 
-#ifdef SPARSE_PRODUCT
-	std::vector<std::vector<int>* > sparseIndices;
-#endif
+//#ifdef SPARSE_PRODUCT
+//	std::vector<std::vector<int>* > sparseIndices;
+//#endif
 	
 #ifdef NO_FUSE
 	real* wPid;

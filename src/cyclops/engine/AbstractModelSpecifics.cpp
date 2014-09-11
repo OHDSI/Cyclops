@@ -6,6 +6,7 @@
  */
 
 #include <stdexcept>
+#include <set>
 
 #include "AbstractModelSpecifics.h"
 #include "ModelData.h"
@@ -109,6 +110,12 @@ AbstractModelSpecifics::~AbstractModelSpecifics() {
 // 			it != hessianSparseCrossTerms.end(); ++it) {
 // 		delete it->second;
 // 	}
+	for (std::vector<std::vector<int>* >::iterator it = sparseIndices.begin();
+			it != sparseIndices.end(); ++it) {
+		if (*it) {
+			delete *it;
+		}
+	}
 }
 
 void AbstractModelSpecifics::makeDirty(void) {
@@ -157,7 +164,7 @@ void AbstractModelSpecifics::initialize(
 	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
 	numerPid2 = numerPid + 2 * alignedLength;
 
-	sparseIndices = iSparseIndices;
+//	sparseIndices = iSparseIndices;
 
 //	hPid = iPid;
 //	offsExpXBeta = iOffsExpXBeta;
@@ -190,7 +197,15 @@ void AbstractModelSpecifics::initialize(
 		hXjX.resize(J);
 	}
 	
+// 	if (initializeAccumulationVectors()) {
+//     	std::cout << "Yes";
+//     } else {
+//         std::cout << "No";
+//     }
+//     std::cout << std::endl;
 	
+	//std::vector<std::vector<int>* >* iSparseIndices,
+		
 	if (initializeAccumulationVectors()) {
         int lastPid = hPid[0];
         real lastTime = hOffs[0];
@@ -231,7 +246,64 @@ void AbstractModelSpecifics::initialize(
 //             std::cout << " " << i;
 //         });
 //         std::cout << std::endl;
+        
+//         std::for_each(std::begin(hPid), std::end(hPid), [](int i) {
+//             std::cout << " " << i;
+//         });
+
+//         std::cout << "pid:";
+//         for (int k = 0; k < K; ++k) {
+//             std::cout << " " << hPid[k];
+//         }
+//         std::cout << std::endl;
+//         
+//         std::cout << "  y:";
+//         for (int k = 0; k < K; ++k) {
+//             std::cout << " " << hY[k];
+//         }
+//         std::cout << std::endl;    
+//         
+//         std::cout << "  x:";
+//         //CompressedDataColumn& x = hXI->getColumn(0);
+//         GenericIterator it(*hXI, 0);
+//         for (; it; ++it) {
+//             std::cout << " " << it.value();
+//         }
+//         std::cout << std::endl;
+            
 	}
+		
+	// TODO Suspect below is not necessary for non-grouped data.
+	// If true, then fill with pointers to CompressedDataColumn and do not delete in destructor
+	for (int j = 0; j < J; ++j) {
+		if (hXI->getFormatType(j) == DENSE) {
+			sparseIndices.push_back(NULL);
+		} else {
+			std::set<int> unique;
+			const int n = hXI->getNumberOfEntries(j);
+			const int* indicators = hXI->getCompressedColumnVector(j);
+			for (int j = 0; j < n; j++) { // Loop through non-zero entries only
+				const int k = indicators[j];
+				const int i = hPid[k]; // ERROR HERE IN STRAT-COX, ALSO CONSIDER TIES, MOVE TO ENGINE???
+				unique.insert(i);
+			}
+			std::vector<int>* indices = new std::vector<int>(unique.begin(),
+					unique.end());
+			sparseIndices.push_back(indices);
+		}
+	}	
+	
+// 	std::cout << "Sparse:" << std::endl;
+// 	std::for_each(sparseIndices.begin(), sparseIndices.end(), [](std::vector<int>* v) {
+// 	    if (v != NULL) {
+//     	    std::for_each(v->begin(), v->end(), [](int i) {
+// 	            std::cout << " " << i;
+//     	    });
+// 	    } else {
+// 	        std::cout << " dense";
+// 	    }
+// 	    std::cout << std::endl;
+// 	});
 		
 // 	if (true /* initializeTies() */) {	
 // 		real lastTime = hOffs[0];

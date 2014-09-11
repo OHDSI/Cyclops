@@ -162,7 +162,7 @@ protected:
 	RealVector hXjX;
 	real logLikelihoodFixedTerm;
 
-	std::vector<std::vector<int>* > *sparseIndices;
+	std::vector<std::vector<int>* > sparseIndices;
 
 	typedef std::map<int, std::vector<real> > HessianMap;
 	HessianMap hessianCrossTerms;
@@ -175,7 +175,7 @@ protected:
 	std::vector<TimeTie> ties;
 	
 	std::vector<int> beginTies;
-	std::vector<int> endTies;	
+	std::vector<int> endTies;
 };
 
 typedef bsccs::shared_ptr<AbstractModelSpecifics> ModelSpecificsPtr;

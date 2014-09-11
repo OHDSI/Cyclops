@@ -277,7 +277,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	real gradient = static_cast<real>(0);
 	real hessian = static_cast<real>(0);
 
-	IteratorType it(*(*sparseIndices)[index], N); // TODO How to create with different constructor signatures?
+	IteratorType it(*(sparseIndices)[index], N); // TODO How to create with different constructor signatures?
+
+//std::cout << "YOYOYO" << std::endl;
 
 	if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 		
@@ -295,13 +297,14 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
             ++reset;
         }
         
-//        std::cout << "Will reset at " << *reset << std::endl;
+//         std::cout << "Will reset at " << *reset << std::endl;
 				
 		for (; it; ) {
 			int i = it.index();
+// 			std::cout << "i = " << i << std::endl;
 			
 // TODO CHECK		
-			if (*reset == i) {
+			if (*reset <= i) {
 			    accNumerPid  = static_cast<real>(0.0);
 			    accNumerPid2 = static_cast<real>(0.0);
 			    ++reset;
@@ -336,7 +339,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[i];
 #endif	
 // TODO CHECK                   
-                    if (*reset == i) {
+                    if (*reset <= i) {
 			            accNumerPid  = static_cast<real>(0.0);
         			    accNumerPid2 = static_cast<real>(0.0);
 		        	    ++reset;                   
@@ -545,7 +548,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 	// Run-time delegation
 	switch (hXI->getFormatType(index)) {
 		case INDICATOR : {
-			IndicatorIterator it(*(*sparseIndices)[index]);
+			IndicatorIterator it(*(sparseIndices)[index]);
 			for (; it; ++it) { // Only affected entries
 				numerPid[it.index()] = static_cast<real>(0.0);
 			}
@@ -553,7 +556,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 			}
 			break;
 		case SPARSE : {
-			SparseIterator it(*(*sparseIndices)[index]);
+			SparseIterator it(*(sparseIndices)[index]);
 			for (; it; ++it) { // Only affected entries
 				numerPid[it.index()] = static_cast<real>(0.0);
 				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
@@ -696,7 +699,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 				
 				for (size_t i = 0; i < N; ++i) {
 // TODO CHECK				
-                    if (static_cast<unsigned int>(*reset) == i) {
+                    if (static_cast<unsigned int>(*reset) == i) { // TODO Check with sparse
 			            totalDenomTrain = static_cast<real>(0);
 				        totalNumerTrain = static_cast<real>(0);
 				        totalNumer2Train = static_cast<real>(0);
@@ -731,7 +734,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 				
 				for (size_t i = 0; i < N; ++i) {
 // TODO CHECK				
-                    if (static_cast<unsigned int>(*reset) == i) {
+                    if (static_cast<unsigned int>(*reset) == i) { // TODO Check with SPARSE
 				        totalDenom = static_cast<real>(0);
 				        totalNumer = static_cast<real>(0);
 				        totalNumer2 = static_cast<real>(0);				    

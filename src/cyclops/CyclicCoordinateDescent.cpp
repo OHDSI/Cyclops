@@ -110,12 +110,12 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 // 	}
 
 #ifdef SPARSE_PRODUCT
-	for (std::vector<std::vector<int>* >::iterator it = sparseIndices.begin();
-			it != sparseIndices.end(); ++it) {
-		if (*it) {
-			delete *it;
-		}
-	}
+// 	for (std::vector<std::vector<int>* >::iterator it = sparseIndices.begin();
+// 			it != sparseIndices.end(); ++it) {
+// 		if (*it) {
+// 			delete *it;
+// 		}
+// 	}
 #endif
 }
 
@@ -182,23 +182,23 @@ void CyclicCoordinateDescent::init(bool offset) {
 
 	// TODO Suspect below is not necessary for non-grouped data.
 	// If true, then fill with pointers to CompressedDataColumn and do not delete in destructor
-	for (int j = 0; j < J; ++j) {
-		if (hXI->getFormatType(j) == DENSE) {
-			sparseIndices.push_back(NULL);
-		} else {
-			std::set<int> unique;
-			const int n = hXI->getNumberOfEntries(j);
-			const int* indicators = hXI->getCompressedColumnVector(j);
-			for (int j = 0; j < n; j++) { // Loop through non-zero entries only
-				const int k = indicators[j];
-				const int i = hPid[k];
-				unique.insert(i);
-			}
-			std::vector<int>* indices = new std::vector<int>(unique.begin(),
-					unique.end());
-			sparseIndices.push_back(indices);
-		}
-	}
+// 	for (int j = 0; j < J; ++j) {
+// 		if (hXI->getFormatType(j) == DENSE) {
+// 			sparseIndices.push_back(NULL);
+// 		} else {
+// 			std::set<int> unique;
+// 			const int n = hXI->getNumberOfEntries(j);
+// 			const int* indicators = hXI->getCompressedColumnVector(j);
+// 			for (int j = 0; j < n; j++) { // Loop through non-zero entries only
+// 				const int k = indicators[j];
+// 				const int i = hPid[k]; // ERROR HERE IN STRAT-COX, ALSO CONSIDER TIES, MOVE TO ENGINE???
+// 				unique.insert(i);
+// 			}
+// 			std::vector<int>* indices = new std::vector<int>(unique.begin(),
+// 					unique.end());
+// 			sparseIndices.push_back(indices);
+// 		}
+// 	}
 
 	useCrossValidation = false;
 	validWeights = false;
@@ -215,7 +215,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 	doLogisticRegression = false;
         
 	modelSpecifics.initialize(N, K, J, hXI, NULL, NULL, NULL,
-			NULL, &sparseIndices,
+			NULL, NULL,
 			hPid, NULL,
 			hXBeta.data(), NULL,
 			NULL,

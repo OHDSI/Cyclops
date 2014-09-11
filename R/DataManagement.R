@@ -230,10 +230,17 @@ createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, mod
             z <- z[sortOrder] 
             time <- time[sortOrder]
             dx <- dx[sortOrder, ]
-            if (class(dx) == "numeric")
+            if (class(dx) == "numeric") {
                 dx = as(dx,"dgeMatrix")
+            }
             sx <- sx[sortOrder, ]
-            ix <- ix[sortOrder, ]            
+            if (class(sx) == "numeric") {
+                sx = Matrix(sx, ncol = 1, sparse = TRUE)
+            }
+            ix <- ix[sortOrder, ]
+            if (class(ix) == "numeric") {
+                ix = Matrix(ix, ncol = 1, sparse = TRUE)
+            }
         }
         
         if (identical(method, "model.frame")) {
