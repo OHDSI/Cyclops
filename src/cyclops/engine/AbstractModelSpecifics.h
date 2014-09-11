@@ -161,8 +161,11 @@ protected:
 	RealVector hXjY;
 	RealVector hXjX;
 	real logLikelihoodFixedTerm;
+	
+	typedef std::vector<int> IndexVector;
+	typedef bsccs::shared_ptr<IndexVector> IndexVectorPtr;
 
-	std::vector<std::vector<int>* > sparseIndices;
+	std::vector<IndexVectorPtr> sparseIndices; // TODO in c++11, are pointers necessary?
 
 	typedef std::map<int, std::vector<real> > HessianMap;
 	HessianMap hessianCrossTerms;

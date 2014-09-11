@@ -110,12 +110,12 @@ AbstractModelSpecifics::~AbstractModelSpecifics() {
 // 			it != hessianSparseCrossTerms.end(); ++it) {
 // 		delete it->second;
 // 	}
-	for (std::vector<std::vector<int>* >::iterator it = sparseIndices.begin();
-			it != sparseIndices.end(); ++it) {
-		if (*it) {
-			delete *it;
-		}
-	}
+// 	for (std::vector<std::vector<int>* >::iterator it = sparseIndices.begin();
+// 			it != sparseIndices.end(); ++it) {
+// 		if (*it) {
+// 			delete *it;
+// 		}
+// 	}
 }
 
 void AbstractModelSpecifics::makeDirty(void) {
@@ -284,12 +284,11 @@ void AbstractModelSpecifics::initialize(
 			const int* indicators = hXI->getCompressedColumnVector(j);
 			for (int j = 0; j < n; j++) { // Loop through non-zero entries only
 				const int k = indicators[j];
-				const int i = hPid[k]; // ERROR HERE IN STRAT-COX, ALSO CONSIDER TIES, MOVE TO ENGINE???
+				const int i = hPid[k];
 				unique.insert(i);
 			}
-			std::vector<int>* indices = new std::vector<int>(unique.begin(),
-					unique.end());
-			sparseIndices.push_back(indices);
+			auto indices = bsccs::make_shared<IndexVector>(unique.begin(), unique.end());
+            sparseIndices.push_back(indices);
 		}
 	}	
 	
