@@ -398,13 +398,13 @@ public:
 	}
 };
 template <typename UIteratorType, typename SparseIteratorType>
-//std::vector<bigNum> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorType itX, int numSubjects, int numCases, bsccs::real* caseOrNo) {
-std::vector<double> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorType itX, int numSubjects, int numCases, bsccs::real* caseOrNo) {
+std::vector<bigNum> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorType itX, int numSubjects, int numCases, bsccs::real* caseOrNo) {
+//std::vector<double> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorType itX, int numSubjects, int numCases, bsccs::real* caseOrNo) {
 
 	// Recursion by Susanne Howard in Gail, Lubin and Rubinstein (1981)
 	// Rewritten as a loop since very deep recursion can be expensive
 
-/*
+
  // bigNum code
 
 	double caseSum = 0;
@@ -479,7 +479,7 @@ std::vector<double> computeHowardRecursion(UIteratorType itExpXBeta, SparseItera
 
 	return result;
 
-	*/
+	/*
  // Normal Code
 	double caseSum = 0;
 
@@ -543,6 +543,7 @@ std::vector<double> computeHowardRecursion(UIteratorType itExpXBeta, SparseItera
 	//result.push_back(maxSorted);
 
 	return result;
+	*/
 }
 
 
@@ -618,8 +619,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 #else
 				DenseView<IteratorType> x(IteratorType(*hXI, index), hNtoK[n], hNtoK[n+1]);
 #endif
-				//std::vector<bigNum> value = computeHowardRecursion(offsExpXBeta + hNtoK[n], x, numSubjects, numCases, hY + hNtoK[n]);
-				std::vector<double> value = computeHowardRecursion(offsExpXBeta + hNtoK[n], x, numSubjects, numCases, hY + hNtoK[n]);
+				std::vector<bigNum> value = computeHowardRecursion(offsExpXBeta + hNtoK[n], x, numSubjects, numCases, hY + hNtoK[n]);
+				//std::vector<double> value = computeHowardRecursion(offsExpXBeta + hNtoK[n], x, numSubjects, numCases, hY + hNtoK[n]);
 
 				/*
 				if (hessian == 123456) {
@@ -629,16 +630,16 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 				else {
 				*/
 				//normal
-				gradient += (real)(value[3] - value[1]/value[0]);
-				hessian += (real)((value[1]*value[1])/(value[0]*value[0]) - value[2]/value[0]);
+				//gradient += (real)(value[3] - value[1]/value[0]);
+				//hessian += (real)((value[1]*value[1])/(value[0]*value[0]) - value[2]/value[0]);
 
 				//MM
 				//real banana = (real)((value[1]*value[1])/(value[0]*value[0]) - value[4]*value[4]);
 				//real banana = (real)(pow(bigNum::div(value[1],value[0]).toDouble(), 2) - pow(value[4].toDouble(),2));
 
 				//bigNum
-				//gradient += (real)(value[3].toDouble() - bigNum::div(value[1],value[0]).toDouble());
-				//hessian += (real)(pow(bigNum::div(value[1],value[0]).toDouble(), 2) - bigNum::div(value[2],value[0]).toDouble());
+				gradient += (real)(value[3].toDouble() - bigNum::div(value[1],value[0]).toDouble());
+				hessian += (real)(pow(bigNum::div(value[1],value[0]).toDouble(), 2) - bigNum::div(value[2],value[0]).toDouble());
 
 			} else {
 
