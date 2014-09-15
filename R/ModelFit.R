@@ -197,7 +197,11 @@ getHyperParameter <- function(object) {
 #' @param ...       Additional arguments
 #'
 logLik.cyclopsFit <- function(object, ...) {
-    object$log_likelihood
+    out <- object$log_likelihood
+    attr(out, 'df') <- sum(!is.na(coefficients(object)))
+    attr(out, 'nobs') <- getNumberOfRows(object$cyclopsData)
+    class(out) <- 'logLik'
+    out
 }
 
 

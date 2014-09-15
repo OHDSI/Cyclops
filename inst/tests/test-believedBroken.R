@@ -34,8 +34,6 @@ library("testthat")
 
 # test_that("Throw error with more than one case in CLR" ,{})
 
-# test_that("Compute confint under CLR model", {})
-
 # test_that("Check SCCS model via SQL", {})
 
 # test_that("Check profile conditional posterior vs likelihood", {})
@@ -52,12 +50,8 @@ library("testthat")
 
 # test_that("Make intercept dense in SQL input", {})
 
-# test_that("Make logLike object" , {
-#expect_equal(logLik(cyclopsFit), logLik(gold))
-#})
-
 # test_that("SCCS as conditional Poisson regression likelihoods" ,{
-#     expect_equal(logLik(cyclopsFit), logLik(gold.cp)[1]) # TODO Why are these different?
+#     expect_equal(logLik(cyclopsFit), logLik(gold.cp)) # TODO Why are these different?
 #})
 
 # test_that("SCCS as SCCS likelihoods" ,{

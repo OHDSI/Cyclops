@@ -65,6 +65,9 @@ test_that("Small Poisson indicator regression", {
                            control = control(noiseLevel = "silent"))
     expect_equal(coef(cyclopsFitI), coef(glmFit), tolerance = tolerance)
     expect_equal(cyclopsFitI$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
+    
+    expect_equal(logLik(cyclopsFitI), logLik(glmFit))
+    
     expect_equal(confint(cyclopsFitI, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
     expect_equal(predict(cyclopsFitI), predict(glmFit, type = "response"), tolerance = tolerance)
 })
@@ -106,4 +109,24 @@ test_that("Get SEs in small Poisson model", {
     cyclopsSE <- getSEs(cyclopsFit, c(1:5))
      
     expect_equal(goldSE, cyclopsSE, tolerance = tolerance)        
+})
+
+test_that("Playing with standardization", {   
+    counts <- c(18,17,15,20,10,20,25,13,12)
+    outcome <- gl(3,1,9)
+    treatment <- gl(3,3)
+    tolerance <- 1E-4
+        
+    dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment,
+                                      modelType = "pr")            											
+    cyclopsFit <- fitCyclopsModel(dataPtr, 
+                                  prior = prior("none"))
+    
+    dataPtrS <- createCyclopsDataFrame(counts ~ outcome + treatment,
+                                       modelType = "pr")                										
+    cyclopsFitS <- fitCyclopsModel(dataPtrS, 
+                                   prior = prior("none"))          
+    
+    coef(cyclopsFit)
+    coef(cyclopsFitS)
 })

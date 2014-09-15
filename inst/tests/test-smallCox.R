@@ -177,7 +177,7 @@ start, length, event, x1, x2
     cyclopsFitStrat <- fitCyclopsModel(dataPtr)
     
     tolerance <- 1E-4
-    # SQL interface provides different name ('1' instead of 'x1')
+    # SQL interface provides different names ('1' instead of 'x1')
     t1 <- coef(cyclopsFitStrat)
     t2 <- coef(goldRight)
     names(t1) <- NULL

@@ -13,7 +13,7 @@ test_that("Check simple SCCS as conditional logistic regression", {
                                   modelType = "clr")        
     cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = prior("none"))
-    expect_equal(logLik(cyclopsFit), logLik(gold.clogit)[1])
+    expect_equal(logLik(cyclopsFit), logLik(gold.clogit))
     expect_equal(coef(cyclopsFit), coef(gold.clogit), tolerance = tolerance)            
 })
 
@@ -46,7 +46,7 @@ test_that("Check simple SCCS as SCCS", {
                                   modelType = "sccs")        
     cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = prior("none"))
-    expect_equal(logLik(cyclopsFit), logLik(gold.clogit)[1])
+    expect_equal(logLik(cyclopsFit), logLik(gold.clogit))
     expect_equal(coef(cyclopsFit), coef(gold.clogit), tolerance = tolerance)            
 })
 
