@@ -584,7 +584,7 @@ public:
 template <typename WeightType>
 struct TiedConditionalLogisticRegression : public GroupedWithTiesData, GLMProjection, FixedPid, Survival<WeightType> {
 public:
-	const static bool precomputeGradient = false; // XjY   // TODO Until tied calculations are only used for ties
+	const static bool precomputeGradient = true; // XjY   // TODO Until tied calculations are only used for ties
 	const static bool precomputeHessian = false; // XjX
 	const static bool likelihoodHasFixedTerms = false;
 

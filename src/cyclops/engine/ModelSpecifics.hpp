@@ -107,13 +107,21 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjY(bool useCrossValidation) 
 
 		if (useCrossValidation) {
 			for (; it; ++it) {
-				const int k = it.index();
-				hXjY[j] += it.value() * hY[k] * hKWeight[k];
+				const int k = it.index();				
+				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
+					// Do not precompute
+				} else {
+					hXjY[j] += it.value() * hY[k] * hKWeight[k];
+				}
 			}
 		} else {
 			for (; it; ++it) {
 				const int k = it.index();
-				hXjY[j] += it.value() * hY[k];
+				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
+					// Do not precompute					
+				} else {							
+					hXjY[j] += it.value() * hY[k];
+				}
 			}
 		}
 #ifdef DEBUG_COX
@@ -131,12 +139,20 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjX(bool useCrossValidation) 
 		if (useCrossValidation) {
 			for (; it; ++it) {
 				const int k = it.index();
-				hXjX[j] += it.value() * it.value() * hKWeight[k];
+				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
+					// Do not precompute
+				} else {				
+					hXjX[j] += it.value() * it.value() * hKWeight[k];
+				}
 			}
 		} else {
 			for (; it; ++it) {
-//				const int k = it.index();
-				hXjX[j] += it.value() * it.value();
+				const int k = it.index();
+				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
+					// Do not precompute
+				} else {								
+					hXjX[j] += it.value() * it.value();
+				}
 			}
 		}
 	}
@@ -394,12 +410,12 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		for (; it; ++it) {
 			const int i = it.index();
 			
-			if (BaseModel::exactTies && hNWeight[i] > 0) {
+			if (BaseModel::exactTies && hNWeight[i] > 1) {
 				int numSubjects = hNtoK[i+1] - hNtoK[i];
 				int numCases = hNWeight[i];
 				DenseView<IteratorType> x(IteratorType(*hXI, index), hNtoK[i], hNtoK[i+1]);
 				
-				std::cerr << "Here " << hNtoK.size() << std::endl;			
+//				std::cerr << "Here " << hNtoK.size() << std::endl;			
 
 				std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases, hY + hNtoK[i]);
 
@@ -445,11 +461,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		}
 	}
   // TODO Figure out how to handle these ...  do NOT pre-compute for ties????
-	if (BaseModel::precomputeGradient && !BaseModel::exactTies) { // Compile-time switch
+	if (BaseModel::precomputeGradient) { // Compile-time switch
 		gradient -= hXjY[index];
 	}
 
-	if (BaseModel::precomputeHessian && !BaseModel::exactTies) { // Compile-time switch
+	if (BaseModel::precomputeHessian) { // Compile-time switch
 		hessian += static_cast<real>(2.0) * hXjX[index];
 	}
 
