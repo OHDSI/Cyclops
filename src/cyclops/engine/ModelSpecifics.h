@@ -54,6 +54,8 @@ protected:
 
 	bool allocateXjX(void);
 
+	bool allocateNtoKIndices(void);
+
 	bool sortPid(void);
 
 	void setWeights(real* inWeights, bool useCrossValidation);
@@ -95,11 +97,14 @@ private:
 
 	void computeXjX(bool useCrossValidation);
 
+	void computeNtoKIndices(bool useCrossValidation);
+
 	std::vector<WeightType> hNWeight;
 	std::vector<WeightType> hKWeight;
 
 	std::vector<int> nPid;
 	std::vector<real> nY;
+	std::vector<int> hNtoK;
 
 	struct WeightedOperation {
 		const static bool isWeighted = true;
@@ -139,6 +144,8 @@ struct GroupedData {
 public:
 	const static bool hasStrataCrossTerms = true;
 
+	const static bool hasNtoKIndices = true;
+
 	int getGroup(int* groups, int k) {
 		return groups[k];
 	}
@@ -147,6 +154,8 @@ public:
 struct OrderedData {
 public:
 	const static bool hasStrataCrossTerms = true;
+	
+	const static bool hasNtoKIndices = false;	
 
 	int getGroup(int* groups, int k) {
 		return k; // No ties
@@ -158,6 +167,8 @@ public:
 struct OrderedWithTiesData {
 public:
 	const static bool hasStrataCrossTerms = true;
+	
+	const static bool hasNtoKIndices = false;	
 
 	int getGroup(int* groups, int k) {
 		return groups[k];
@@ -169,6 +180,8 @@ public:
 struct IndependentData {
 public:
 	const static bool hasStrataCrossTerms = false;
+
+	const static bool hasNtoKIndices = false;
 
 	int getGroup(int* groups, int k) {
 		return k;

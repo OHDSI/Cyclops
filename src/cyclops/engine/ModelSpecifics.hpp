@@ -16,7 +16,22 @@
 #include "ModelSpecifics.h"
 #include "Iterators.h"
 
+#include "Recursions.hpp"
+
+//#define USE_BIGNUM
+#define USE_LONG_DOUBLE
+
 namespace bsccs {
+
+#ifdef USE_BIGNUM
+	typedef bigNum DDouble;
+#else
+	#ifdef USE_LONG_DOUBLE
+		typedef long double DDouble;
+	#else
+		typedef double DDouble;
+	#endif
+#endif
     
 #ifdef DEBUG_COX
     using std::cerr;
@@ -52,6 +67,9 @@ bool ModelSpecifics<BaseModel,WeightType>::sortPid(void) { return BaseModel::sor
 
 template <class BaseModel,typename WeightType>
 bool ModelSpecifics<BaseModel,WeightType>::initializeAccumulationVectors(void) { return BaseModel::cumulativeGradientAndHessian; }
+
+template <class BaseModel,typename WeightType>
+bool ModelSpecifics<BaseModel,WeightType>::allocateNtoKIndices(void) { return BaseModel::hasNtoKIndices; }
 
 template <class BaseModel,typename WeightType>
 bool ModelSpecifics<BaseModel,WeightType>::hasResetableAccumulators(void) { return BaseModel::hasResetableAccumulators; }
@@ -124,6 +142,22 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjX(bool useCrossValidation) 
 	}
 }
 
+template<class BaseModel, typename WeightType>
+void ModelSpecifics<BaseModel, WeightType>::computeNtoKIndices(bool useCrossValidation) {
+
+	hNtoK.resize(N+1);
+	int n = 0;
+	for (int k = 0; k < K;) {
+		hNtoK[n] = k;
+		int currentPid = hPid[k];
+		do {
+			++k;
+		} while (k < K && currentPid == hPid[k]);
+		++n;
+	}
+	hNtoK[n] = K;
+}
+
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInLogLikelihood(bool useCrossValidation) {
 	if(BaseModel::likelihoodHasFixedTerms) {
@@ -150,6 +184,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInGradientAndHessian
 	}
 	if (allocateXjX()) {
 		computeXjX(useCrossValidation);
+	}
+	if (allocateNtoKIndices()) {
+		computeNtoKIndices(useCrossValidation);
 	}
 }
 
@@ -201,7 +238,6 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], denomPid, hPid, k);
 		}
 	}
-
 	return static_cast<double>(logLikelihood);
 }
 
@@ -268,8 +304,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 		}
 	}
 }
-
-//incrementGradientAndHessian<SparseIterator>();
 
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
@@ -356,18 +390,61 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 				}						
 			}
 		}
-		//exit(-1);	
 	} else {
 		for (; it; ++it) {
 			const int i = it.index();
-			// Compile-time delegation
-			BaseModel::incrementGradientAndHessian(it,
-					w, // Signature-only, for iterator-type specialization
-					&gradient, &hessian, numerPid[i], numerPid2[i],
-					denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments		
+			
+			if (true && hNWeight[i] > 0) {
+				int numSubjects = hNtoK[i+1] - hNtoK[i];
+				int numCases = hNWeight[i];
+				DenseView<IteratorType> x(IteratorType(*hXI, index), hNtoK[i], hNtoK[i+1]);
+				
+//				std::cerr << "Here " << hNtoK.size() << std::endl;			
+
+				std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases, hY + hNtoK[i]);
+
+// 				std::cerr << i << std::endl;
+// 				std::for_each(begin(value), end(value), [](DDouble d) {
+// 					std::cerr << d << std::endl;
+// 				});
+// //				exit(-1);
+// 				std::cerr << std::endl;
+// 				
+// 				if (index == 1) {
+// 					for (; x; ++x) {
+// 						std::cerr << " " << x.value();
+// 					}
+// 					std::cerr << std::endl;
+// 					auto it = offsExpXBeta.begin() + hNtoK[i];
+// 					for (int ii = 0; ii < numCases; ++ii) {					
+// 						std::cerr << " " << *(it + ii);
+// 					}
+// 					std::cerr << std::endl;
+// 					//exit(-1);
+// 				}
+
+
+				//MM
+				//real banana = (real)((value[1]*value[1])/(value[0]*value[0]) - value[4]*value[4]);
+				//real banana = (real)(pow(bigNum::div(value[1],value[0]).toDouble(), 2) - pow(value[4].toDouble(),2));
+		
+				//normal
+				using namespace sugar;
+								
+// 				gradient += (real)(value[3] - value[1]/value[0]);				
+// 				hessian += (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);				
+				gradient += (real)(value[1]/value[0] - value[3]);	
+				hessian += (real)(value[2]/value[0] - (value[1]/value[0]) * (value[1]/value[0]));	
+			} else {			
+				// Compile-time delegation
+				BaseModel::incrementGradientAndHessian(it,
+						w, // Signature-only, for iterator-type specialization
+						&gradient, &hessian, numerPid[i], numerPid2[i],
+						denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments		
+			}
 		}
 	}
-
+/*  // TODO Figure out how to handle these ...  do NOT pre-compute for ties????
 	if (BaseModel::precomputeGradient) { // Compile-time switch
 		gradient -= hXjY[index];
 	}
@@ -375,7 +452,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	if (BaseModel::precomputeHessian) { // Compile-time switch
 		hessian += static_cast<real>(2.0) * hXjX[index];
 	}
-
+*/
 	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
 }
@@ -582,7 +659,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 		default : break;
 			// throw error
 			//exit(-1);
-	}
+	}	
 }
 
 template <class BaseModel,typename WeightType> template <class IteratorType>
@@ -631,7 +708,7 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index
 		default : break;
 			// throw error
 			//exit(-1);
-	}
+	}	
 }
 
 template <class BaseModel,typename WeightType> template <class IteratorType>
