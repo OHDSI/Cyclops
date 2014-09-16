@@ -19,6 +19,14 @@
 // #include "Combinations.h"
 
 //#define USE_BIGNUM
+#define USE_LONG_DOUBLE
+
+
+#ifdef USE_LONG_DOUBLE
+	typedef long double DDouble;
+#else
+	typedef double DDouble;
+#endif
 
 namespace bsccs {
 
@@ -488,15 +496,15 @@ std::vector<bigNum> computeHowardRecursion(UIteratorType itExpXBeta, SparseItera
 
 #else
 template <typename UIteratorType, typename SparseIteratorType>
-std::vector<double> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorType itX, int numSubjects, int numCases, bsccs::real* caseOrNo) {
+std::vector<DDouble> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorType itX, int numSubjects, int numCases, bsccs::real* caseOrNo) {
 
 	
  // Normal Code
-	double caseSum = 0;
+	DDouble caseSum = 0;
 
-	std::vector<double> B[2];
-	std::vector<double> dB[2];
-	std::vector<double> ddB[2];
+	std::vector<DDouble> B[2];
+	std::vector<DDouble> dB[2];
+	std::vector<DDouble> ddB[2];
 
 	int currentB = 0;
 
@@ -517,7 +525,7 @@ std::vector<double> computeHowardRecursion(UIteratorType itExpXBeta, SparseItera
 	}
 	//double maxXi = 0.0;
 	//double maxSorted = 0.0;
-	std::vector<double> sortXi;
+	std::vector<DDouble> sortXi;
 	for (int n=1; n<= numSubjects; n++) {
 		for (int m=std::max(1,n+numCases-numSubjects); m<=std::min(n,numCases);m++) {
 			  B[!currentB][m] =   B[currentB][m] + (*itExpXBeta) *   B[currentB][m-1];
@@ -545,7 +553,7 @@ std::vector<double> computeHowardRecursion(UIteratorType itExpXBeta, SparseItera
 	//maxXi = maxXi * numCases;
 
 
-	std::vector<double> result;
+	std::vector<DDouble> result;
 	result.push_back(B[currentB][numCases]);
 	result.push_back(dB[currentB][numCases]);
 	result.push_back(ddB[currentB][numCases]);
@@ -634,7 +642,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 #ifdef USE_BIGNUM
 				std::vector<bigNum> value = computeHowardRecursion(offsExpXBeta + hNtoK[n], x, numSubjects, numCases, hY + hNtoK[n]);
 #else
-				std::vector<double> value = computeHowardRecursion(offsExpXBeta + hNtoK[n], x, numSubjects, numCases, hY + hNtoK[n]);
+				std::vector<DDouble> value = computeHowardRecursion(offsExpXBeta + hNtoK[n], x, numSubjects, numCases, hY + hNtoK[n]);
 #endif
 
 				/*
