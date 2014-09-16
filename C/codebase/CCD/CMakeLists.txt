@@ -49,9 +49,9 @@ else(CUDA_FOUND)
 	add_executable(ccd ${CCD_SOURCE_FILES})
 endif(CUDA_FOUND)
 
-add_executable(ccdimpute ${IMPUTE_SOURCE_FILES})
+#add_executable(ccdimpute ${IMPUTE_SOURCE_FILES})
 
 target_link_libraries(ccd base_bsccs)
-target_link_libraries(ccdimpute base_bsccs)
+#target_link_libraries(ccdimpute base_bsccs)
 
 
