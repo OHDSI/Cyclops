@@ -6,6 +6,62 @@
 
 using namespace Rcpp;
 
+// cyclopsGetModelTypeNames
+std::vector<std::string> cyclopsGetModelTypeNames();
+RcppExport SEXP Cyclops_cyclopsGetModelTypeNames() {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        std::vector<std::string> __result = cyclopsGetModelTypeNames();
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
+// cyclopsGetRemoveInterceptNames
+std::vector<std::string> cyclopsGetRemoveInterceptNames();
+RcppExport SEXP Cyclops_cyclopsGetRemoveInterceptNames() {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        std::vector<std::string> __result = cyclopsGetRemoveInterceptNames();
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
+// cyclopsGetIsSurvivalNames
+std::vector<std::string> cyclopsGetIsSurvivalNames();
+RcppExport SEXP Cyclops_cyclopsGetIsSurvivalNames() {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        std::vector<std::string> __result = cyclopsGetIsSurvivalNames();
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
+// cyclopsGetUseOffsetNames
+std::vector<std::string> cyclopsGetUseOffsetNames();
+RcppExport SEXP Cyclops_cyclopsGetUseOffsetNames() {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        std::vector<std::string> __result = cyclopsGetUseOffsetNames();
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
 // cyclopsSetBeta
 void cyclopsSetBeta(SEXP inRcppCcdInterface, int beta, double value);
 RcppExport SEXP Cyclops_cyclopsSetBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP, SEXP valueSEXP) {

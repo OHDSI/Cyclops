@@ -145,10 +145,17 @@ public:
 	const static bool hasStrataCrossTerms = true;
 
 	const static bool hasNtoKIndices = true;
+	
+	const static bool exactTies = false;
 
 	int getGroup(int* groups, int k) {
 		return groups[k];
 	}
+};
+
+struct GroupedWithTiesData : GroupedData {
+public:	
+	const static bool exactTies = true;
 };
 
 struct OrderedData {
@@ -156,6 +163,8 @@ public:
 	const static bool hasStrataCrossTerms = true;
 	
 	const static bool hasNtoKIndices = false;	
+	
+	const static bool exactTies = false;	
 
 	int getGroup(int* groups, int k) {
 		return k; // No ties
@@ -169,6 +178,8 @@ public:
 	const static bool hasStrataCrossTerms = true;
 	
 	const static bool hasNtoKIndices = false;	
+	
+	const static bool exactTies = false;
 
 	int getGroup(int* groups, int k) {
 		return groups[k];
@@ -182,6 +193,8 @@ public:
 	const static bool hasStrataCrossTerms = false;
 
 	const static bool hasNtoKIndices = false;
+	
+	const static bool exactTies = false;	
 
 	int getGroup(int* groups, int k) {
 		return k;
@@ -567,6 +580,63 @@ public:
 
 };
 #endif
+
+template <typename WeightType>
+struct TiedConditionalLogisticRegression : public GroupedWithTiesData, GLMProjection, FixedPid, Survival<WeightType> {
+public:
+	const static bool precomputeGradient = false; // XjY   // TODO Until tied calculations are only used for ties
+	const static bool precomputeHessian = false; // XjX
+	const static bool likelihoodHasFixedTerms = false;
+
+	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
+        throw new std::logic_error("Not model-specific");
+		return static_cast<real>(0);
+	}
+
+	static real getDenomNullValue () { return static_cast<real>(0.0); }
+
+	real observationCount(real yi) {
+		return static_cast<real>(yi);
+	}
+
+	template <class IteratorType, class Weights>
+	void incrementGradientAndHessian(
+			const IteratorType& it,
+			Weights false_signature,
+			real* gradient, real* hessian,
+			real numer, real numer2, real denom,
+			WeightType nEvents,
+			real x, real xBeta, real y) {
+
+		const real t = numer / denom;
+		const real g = nEvents * t; // Always use weights (number of events)
+		*gradient += g;
+		if (IteratorType::isIndicator) {
+			*hessian += g * (static_cast<real>(1.0) - t);
+		} else {
+			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
+		}
+	}
+
+	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+		return std::exp(xBeta);
+	}
+
+	real logLikeDenominatorContrib(WeightType ni, real denom) {
+		return ni * std::log(denom);
+	}
+
+	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
+			int* groups, int i) {
+		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
+	}
+
+	void predictEstimate(real& yi, real xBeta){
+	    // Do nothing
+		//yi = xBeta; // Returns the linear predictor;  ###relative risk		
+	}
+
+};
 
 template <typename WeightType>
 struct LogisticRegression : public IndependentData, GLMProjection, Logistic<WeightType>, FixedPid,

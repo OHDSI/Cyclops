@@ -110,23 +110,32 @@ enum UpdateReturnFlags {
 
 typedef std::vector<IdType> ProfileVector;
 
-
 enum class ModelType {
 	NONE = 0,
 	NORMAL,
 	POISSON,
 	LOGISTIC,
 	CONDITIONAL_LOGISTIC,
+	TIED_CONDITIONAL_LOGISTIC,
 	CONDITIONAL_POISSON,
 	SELF_CONTROLLED_MODEL,
 	COX,
-	COX_RAW
+	COX_RAW,
+	SIZE_OF_ENUM // Keep at end
 };
 
 namespace Models {
 
+inline bool removeIntercept(const ModelType modelType) {
+	return (modelType == ModelType::CONDITIONAL_LOGISTIC ||
+			modelType == ModelType::TIED_CONDITIONAL_LOGISTIC ||
+			modelType == ModelType::CONDITIONAL_POISSON ||
+			modelType == ModelType::SELF_CONTROLLED_MODEL);
+}
+
 inline bool requiresStratumID(const ModelType modelType) {
 	return (modelType == ModelType::CONDITIONAL_LOGISTIC || 
+			modelType == ModelType::TIED_CONDITIONAL_LOGISTIC ||
             modelType == ModelType::CONDITIONAL_POISSON || 
             modelType == ModelType::SELF_CONTROLLED_MODEL);
 }

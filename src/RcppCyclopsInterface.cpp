@@ -5,6 +5,8 @@
  */
  
 #include <sstream>
+#include <vector>
+#include <map>
  
 #include "Rcpp.h"
 #include "RcppCyclopsInterface.h"
@@ -28,6 +30,67 @@ using namespace Rcpp;
 // 	std::vector<std::string> strings = as<std::vector<std::string> >(exp);
 // 	return strings.size();
 // }
+
+
+namespace bsccs {
+
+ static std::map<ModelType, std::string> modelTypeNames = {
+ 	{ModelType::NORMAL, "ls"},
+ 	{ModelType::POISSON, "pr"},
+ 	{ModelType::LOGISTIC, "lr"},
+ 	{ModelType::CONDITIONAL_LOGISTIC, "clr"},
+ 	{ModelType::TIED_CONDITIONAL_LOGISTIC, "clr_exact"},
+ 	{ModelType::CONDITIONAL_POISSON, "cpr"},
+ 	{ModelType::SELF_CONTROLLED_MODEL, "sccs"},
+ 	{ModelType::COX, "cox"},
+ 	{ModelType::COX_RAW, "cox_raw"}
+ };
+ 
+} // namespace bsccs
+
+// [[Rcpp::export(".cyclopsGetModelTypeNames")]]
+std::vector<std::string> cyclopsGetModelTypeNames() {
+	std::vector<std::string> names;
+	for (auto& model : bsccs::modelTypeNames) {
+		names.push_back(model.second);
+	}	
+	return names;
+}
+
+// [[Rcpp::export(".cyclopsGetRemoveInterceptNames")]]
+std::vector<std::string> cyclopsGetRemoveInterceptNames() {
+	using namespace bsccs;
+	std::vector<std::string> names = {
+		modelTypeNames[ModelType::CONDITIONAL_LOGISTIC],
+		modelTypeNames[ModelType::TIED_CONDITIONAL_LOGISTIC],
+		modelTypeNames[ModelType::CONDITIONAL_POISSON],
+		modelTypeNames[ModelType::SELF_CONTROLLED_MODEL],
+		modelTypeNames[ModelType::COX],
+		modelTypeNames[ModelType::COX_RAW]
+	};
+	return names;
+}
+
+// [[Rcpp::export(".cyclopsGetIsSurvivalNames")]]
+std::vector<std::string> cyclopsGetIsSurvivalNames() {
+	using namespace bsccs;
+	std::vector<std::string> names = {
+		modelTypeNames[ModelType::COX],
+		modelTypeNames[ModelType::COX_RAW]
+	};
+	return names;
+}
+
+// [[Rcpp::export(".cyclopsGetUseOffsetNames")]]
+std::vector<std::string> cyclopsGetUseOffsetNames() {
+	using namespace bsccs;
+	std::vector<std::string> names = {
+		modelTypeNames[ModelType::SELF_CONTROLLED_MODEL],
+		modelTypeNames[ModelType::COX],
+		modelTypeNames[ModelType::COX_RAW]
+	};
+	return names;
+}
 
 // [[Rcpp::export(.cyclopsSetBeta)]]
 void cyclopsSetBeta(SEXP inRcppCcdInterface, int beta, double value) {
@@ -330,28 +393,31 @@ bsccs::priors::PriorType RcppCcdInterface::parsePriorType(const std::string& pri
  	return priorType;
 }
 
+//  static std::map<ModelType, std::string> modelTypeNames = {
+//  	{ModelType::NORMAL, "ls"},
+//  	{ModelType::POISSON, "pr"},
+//  	{ModelType::LOGISTIC, "lr"},
+//  	{ModelType::CONDITIONAL_LOGISTIC, "clr"},
+//  	{ModelType::TIED_CONDITIONAL_LOGISTIC, "clr_exact"},
+//  	{ModelType::CONDITIONAL_POISSON, "cpr"},
+//  	{ModelType::SELF_CONTROLLED_MODEL, "sccs"},
+//  	{ModelType::COX, "cox"},
+//  	{ModelType::COX_RAW, "cox_raw"}
+//  };
+ 
 bsccs::ModelType RcppCcdInterface::parseModelType(const std::string& modelName) {
 	// Parse type of model 
- 	bsccs::ModelType modelType =  bsccs::ModelType::LOGISTIC;
- 	if (modelName == "sccs") {
- 		modelType = bsccs::ModelType::SELF_CONTROLLED_MODEL;
- 	} else if (modelName == "cpr") {
- 		modelType = bsccs::ModelType::CONDITIONAL_POISSON;
- 	} else if (modelName == "clr") {
- 		modelType = bsccs::ModelType::CONDITIONAL_LOGISTIC;
- 	} else if (modelName == "lr") {
- 		modelType = bsccs::ModelType::LOGISTIC;
- 	} else if (modelName == "ls") {
- 		modelType = bsccs::ModelType::NORMAL;
- 	} else if (modelName == "pr") {
- 		modelType = bsccs::ModelType::POISSON;
- 	} else if (modelName == "cox") {
- 		modelType = bsccs::ModelType::COX;
- 	} else if (modelName == "cox_raw") {
- 		modelType = bsccs::ModelType::COX_RAW; 		
- 	} else {
- 		handleError("Invalid model type."); 		
- 	}	
+ 	bsccs::ModelType modelType =  bsccs::ModelType::NONE;
+ 	auto model = begin(modelTypeNames);
+ 	for ( ; model != end(modelTypeNames); ++model) {
+ 		if (modelName == model->second) {
+ 			modelType = model->first;
+ 			break;
+ 		}
+ 	}
+ 	if (model == end(modelTypeNames)) {
+ 		handleError("Invalid model type.");
+ 	}
  	return modelType;
 }
 

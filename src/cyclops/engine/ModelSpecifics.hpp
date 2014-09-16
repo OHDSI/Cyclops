@@ -394,12 +394,12 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		for (; it; ++it) {
 			const int i = it.index();
 			
-			if (true && hNWeight[i] > 0) {
+			if (BaseModel::exactTies && hNWeight[i] > 0) {
 				int numSubjects = hNtoK[i+1] - hNtoK[i];
 				int numCases = hNWeight[i];
 				DenseView<IteratorType> x(IteratorType(*hXI, index), hNtoK[i], hNtoK[i+1]);
 				
-//				std::cerr << "Here " << hNtoK.size() << std::endl;			
+				std::cerr << "Here " << hNtoK.size() << std::endl;			
 
 				std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases, hY + hNtoK[i]);
 
@@ -444,15 +444,15 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			}
 		}
 	}
-/*  // TODO Figure out how to handle these ...  do NOT pre-compute for ties????
-	if (BaseModel::precomputeGradient) { // Compile-time switch
+  // TODO Figure out how to handle these ...  do NOT pre-compute for ties????
+	if (BaseModel::precomputeGradient && !BaseModel::exactTies) { // Compile-time switch
 		gradient -= hXjY[index];
 	}
 
-	if (BaseModel::precomputeHessian) { // Compile-time switch
+	if (BaseModel::precomputeHessian && !BaseModel::exactTies) { // Compile-time switch
 		hessian += static_cast<real>(2.0) * hXjX[index];
 	}
-*/
+
 	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
 }

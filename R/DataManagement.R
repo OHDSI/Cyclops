@@ -326,22 +326,22 @@ createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, mod
 #'
 #' @return TRUE/FALSE
 isValidModelType <- function(modelType) {
-    types <- c("ls", "pr", "lr", "clr", "cpr", "sccs", "cox", "cox_raw")
+    types <- .cyclopsGetModelTypeNames()
     modelType %in% types
 }
 
 .removeIntercept <- function(modelType) {
-    types <- c("clr", "cpr", "sccs", "cox", "cox_raw")
+    types <- .cyclopsGetRemoveInterceptNames()
     modelType %in% types
 }
 
 .isSurvivalModelType <- function(modelType) {
-    types <- c("cox", "cox_raw")
+    types <- .cyclopsGetIsSurvivalNames()
     modelType %in% types
 }
 
 .useOffsetModelType <- function(modelType) {
-    types <- c("sccs", "cox", "cox_raw")
+    types <- .cyclopsGetUseOffsetNames()
     modelType %in% types
 }
 

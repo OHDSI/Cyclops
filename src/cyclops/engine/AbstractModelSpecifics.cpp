@@ -60,6 +60,9 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
  		case ModelType::CONDITIONAL_LOGISTIC :
  			model =  new ModelSpecifics<ConditionalLogisticRegression<real>,real>(modelData);
  			break;
+ 		case ModelType::TIED_CONDITIONAL_LOGISTIC :
+ 			model =  new ModelSpecifics<TiedConditionalLogisticRegression<real>,real>(modelData);
+ 			break; 			
  		case ModelType::LOGISTIC :
  			model = new ModelSpecifics<LogisticRegression<real>,real>(modelData);
  			break;
