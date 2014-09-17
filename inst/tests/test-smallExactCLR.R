@@ -48,7 +48,9 @@ test_that("Small exact, conditional logistic regression with no ties", {
                                                     data = withTies,
                                                     modelType = "clr")
     
-    cyclopsFitWithTiesBreslow <- fitCyclopsModel(dataPtrWithTiesBreslow, prior = prior("none"))     
+    cyclopsFitWithTiesBreslow <- fitCyclopsModel(dataPtrWithTiesBreslow, prior = prior("none"))  
+    
+    tolerance <- 1E-4   
         
     expect_equal(coef(cyclopsFitWithTies), coef(goldWithTies), tolerance = tolerance)
     expect_equal(coef(cyclopsFitWithTiesBreslow), coef(goldWithTiesBreslow), tolerance = tolerance)    
