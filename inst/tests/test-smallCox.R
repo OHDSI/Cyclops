@@ -184,3 +184,42 @@ start, length, event, x1, x2
     names(t2) <- NULL
     expect_equal(t1, t2, tolerance = tolerance)
 })
+
+
+test_that("More SQL checks for stratified cox models", {
+    data(lung)
+    lung$status = lung$status -1
+    lung <- lung[!is.na(lung$ph.ecog),]
+    goldRight <- coxph(Surv(time, status) ~ age + ph.ecog + strata(sex), lung, ties = "breslow")
+    
+    dataPtrRight <- createCyclopsDataFrame(Surv(time, status) ~ age + ph.ecog + strata(sex),
+                                           method = "debug",                                           
+                                           data = lung, modelType = "cox")    
+    #This crashed R:
+    cyclopsFitRight <- fitCyclopsModel(dataPtrRight,
+                                       control = control(noiseLevel = "silent")) 
+    
+#     lung$row_id <- 1:nrow(lung)
+#     out <- data.frame(row_id = lung$row_id, stratum_id = lung$sex, time = lung$time, y = lung$status)
+#     covAge <- data.frame(row_id = lung$row_id, stratum_id = lung$sex, time = lung$time, y = lung$status, covariate_value = lung$age)
+#     covAge$covariate_id = 1
+#     covPhEcog <- data.frame(row_id = lung$row_id, stratum_id = lung$sex, time = lung$time, y = lung$status, covariate_value = lung$ph.ecog)
+#     covPhEcog$covariate_id = 2
+#     cov <- rbind(covAge,covPhEcog)
+#     
+#     out <- out[order(out$stratum_id, -out$time, out$y),] # Must sort by: strata, into risk set (with events before censorsed)
+#     cov <- cov[order(cov$stratum_id, -cov$time, cov$y),] # Must sort by: strata, into risk set (with events before censorsed)
+#     
+#     dataPtr <- createSqlCyclopsData(modelType = "cox")
+#     
+#     count <- appendSqlCyclopsData(dataPtr,
+#                                   out$stratum_id,
+#                                   out$row_id,
+#                                   out$y,
+#                                   out$time,
+#                                   cov$row_id,
+#                                   cov$covariate_id,
+#                                   cov$covariate_value)
+#     #This crashes R
+#     cyclopsFitStrat <- fitCyclopsModel(dataPtr)
+})

@@ -161,12 +161,6 @@ void AbstractModelSpecifics::initialize(
 //	numerPid2 = iNumerPid2;
 //	denomPid = iDenomPid;	
 	
-	int alignedLength = getAlignedLength(N);
-	numerDenomPidCache.resize(3 * alignedLength);
-	numerPid = numerDenomPidCache.data();
-	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
-	numerPid2 = numerPid + 2 * alignedLength;
-
 //	sparseIndices = iSparseIndices;
 
 //	hPid = iPid;
@@ -273,8 +267,8 @@ void AbstractModelSpecifics::initialize(
 //             std::cout << " " << it.value();
 //         }
 //         std::cout << std::endl;
-            
-	}
+             
+ 	}
 		
 	// TODO Suspect below is not necessary for non-grouped data.
 	// If true, then fill with pointers to CompressedDataColumn and do not delete in destructor
@@ -295,6 +289,12 @@ void AbstractModelSpecifics::initialize(
 		}
 	}	
 	
+	size_t alignedLength = getAlignedLength(N);
+	numerDenomPidCache.resize(3 * alignedLength, 0); 
+	numerPid = numerDenomPidCache.data();
+	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
+	numerPid2 = numerPid + 2 * alignedLength;	
+	
 // 	std::cout << "Sparse:" << std::endl;
 // 	std::for_each(sparseIndices.begin(), sparseIndices.end(), [](std::vector<int>* v) {
 // 	    if (v != NULL) {
@@ -307,6 +307,8 @@ void AbstractModelSpecifics::initialize(
 // 	    std::cout << std::endl;
 // 	});
 		
+// 	std::cout << "N = " << N << " and K = " << K << std::endl;
+	
 // 	if (true /* initializeTies() */) {	
 // 		real lastTime = hOffs[0];
 // 		real lastEvent = hY[0];
