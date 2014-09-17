@@ -1,4 +1,4 @@
-Cyclops - Cyclic coordinate descent for logistic, Poisson and survival analysis
+Cyclops - Cyclic coordinate descent for logistic, Poisson and survival analysis 
 ========================
 
 # Acknowledgements
