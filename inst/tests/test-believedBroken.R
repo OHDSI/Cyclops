@@ -1,4 +1,5 @@
 library("testthat")
+library("survival")
 
 #
 # These tests are believed to be broken; they need confirmation and fixes
@@ -31,8 +32,6 @@ library("testthat")
 # test_that("Predict SCCS model", {})
 
 # test_that("Predict Cox model", {})
-
-# test_that("Throw error with more than one case in CLR" ,{})
 
 # test_that("Check SCCS model via SQL", {})
 
@@ -72,6 +71,31 @@ library("testthat")
 #     # Error: both cyclopsFit and cyclopsFitR share the same interface ptr
 #     confint(cyclopsFit, c(1:2), includePenalty = TRUE) # Should not throw error       
 # })
+
+test_that("Check asymptotic variance in Cox example with failure ties and strata", {
+    test <- read.table(header=T, sep = ",", text = "
+start, length, event, x1, x2
+0, 4,  1,0,0
+0, 3,  1,2,0
+0, 3,  0,0,1
+0, 2,  1,0,1
+0, 2,  1,1,1
+0, 1,  0,1,0
+0, 1,  1,1,0 
+")
+    
+    # We get the correct answer when last entry is censored
+    gold <- coxph(Surv(length, event) ~ x1 + strata(x2), test, ties = "breslow")
+    
+    dataPtr <- createCyclopsDataFrame(Surv(length, event) ~ x1 + strata(x2), data = test,                                                                                 
+                                      modelType = "cox")    
+    
+    cyclopsFit <- fitCyclopsModel(dataPtr) 
+    
+    tolerance <- 1E-4
+    #     expect_equal(vcov(cyclopsFit), vcov(gold), tolerance = tolerance)
+    
+})
 
 test_that("Set seed for cross-validation", {
     counts <- c(18,17,15,20,10,20,25,13,12)
