@@ -1,7 +1,3 @@
-require("testthat")
-require("survival")
-#require("Cyclops")
-
 
 simulateData <- function(nstrata = 200, 
                          nrows = 10000, 
@@ -87,6 +83,7 @@ fitUsingClogit <- function(sim){
 }
 
 fitUsingCoxph <- function(sim){
+    require("survival")
     start <- Sys.time()    
     covariates <- sim$covariates
     ncovars <- max(covariates$covariate_id)
@@ -208,20 +205,45 @@ fitUsingCyclops <- function(sim, regularized=TRUE, model="logistic",includePenal
         lbCi95 <- rep(0,length(coefGoldStandard))
         ubCi95 <- rep(0,length(coefGoldStandard))
         for (i in 1:length(coefGoldStandard)){
+            if (model == "survival"){ # For some reason can't get confint twice on same dataPtr object, so recreate:
+                dataPtr <- createSqlCyclopsData(modelType = modelType)
+                
+                count <- appendSqlCyclopsData(dataPtr,
+                                              sim$outcomes$stratum_id,
+                                              sim$outcomes$row_id,
+                                              sim$outcomes$y,
+                                              sim$outcomes$time,
+                                              sim$covariates$row_id,
+                                              sim$covariates$covariate_id,
+                                              sim$covariates$covariate_value)
+                
+            }
             cyclopsFit <- fitCyclopsModel(dataPtr,forceColdStart=TRUE,prior = prior("laplace",0.1,exclude=i))
             coefCyclops[i] <- coef(cyclopsFit)[names(coef(cyclopsFit)) == as.character(i)]
-            ci <- confint(cyclopsFit,parm=i,includePenalty = includePenalty)
-            lbCi95[i] <- ci[2]
-            ubCi95[i] <- ci[3]
+#             if (model == "survival"){
+#                 ci <- aconfint(cyclopsFit,parm=i)
+#                 lbCi95 <- ci[,1]
+#                 ubCi95 <- ci[,2]
+#             } else {
+                ci <- confint(cyclopsFit,parm=i,includePenalty = includePenalty)
+                lbCi95[i] <- ci[,2]
+                ubCi95[i] <- ci[,3]
+#             }
         }
     } else {
         cyclopsFit <- fitCyclopsModel(dataPtr, prior = prior("none"))
         coefCyclops <- data.frame(covariate_id = as.integer(names(coef(cyclopsFit))),beta=coef(cyclopsFit))
         coefCyclops <- coefCyclops[order(coefCyclops$covariate_id),]
         coefCyclops <- coefCyclops$beta
-        ci <- confint(cyclopsFit,parm=1:length(coefCyclops),includePenalty = includePenalty)
-        lbCi95 <- ci[,2]
-        ubCi95 <- ci[,3]
+#         if (model == "survival"){
+#             ci <- aconfint(cyclopsFit,parm=1:length(coefCyclops))
+#             lbCi95 <- ci[,1]
+#             ubCi95 <- ci[,2]
+#         } else {
+            ci <- confint(cyclopsFit,parm=1:length(coefCyclops),includePenalty = includePenalty)
+            lbCi95 <- ci[,2]
+            ubCi95 <- ci[,3]
+#         }
     }
     delta <- Sys.time() - start
     writeLines(paste("Analysis took", signif(delta,3), attr(delta,"units")))
@@ -248,14 +270,14 @@ plotFit <- function(fit,goldStandard,label){
 runSimulation <- function(){
     model = "survival"      # "logistic", "survival", or "poisson"
     sim <- simulateData(nstrata=2000,
-                        ncovars=200,
+                        ncovars=100,
                         nrows=10000,
                         effectSizeSd=0.5,
                         eCovarsPerRow=2,
                         model=model)
     coefGoldStandard <- log(sim$effectSizes$rr)
     
-    fitCyclops <- fitUsingCyclops(sim,regularized=FALSE,model)
+    fitCyclops <- fitUsingCyclops(sim,regularized=TRUE,model)
     fit <- fitUsingOtherThanCyclops(sim,model)
     
     writeLines(paste("MSE Cyclops:",mse(fitCyclops$coef,coefGoldStandard)))
