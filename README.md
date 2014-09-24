@@ -13,7 +13,15 @@ Getting Started
   library(devtools)
   install_github("ohdsi/Cyclops") 
   ```
-  
+
+2. To perform a Cyclops model fit, use the following commands in R:
+
+  ```r
+  library(Cyclops)
+  cyclopsData <- createCyclopsDataFrame(formula)
+  cyclopsFit <- fitCyclopsModel(cyclopsData)
+  ```
+    
 License
 =======
 Achilles is licensed under Apache License 2.0
