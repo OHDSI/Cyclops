@@ -79,6 +79,6 @@ Currently supported model types are:
 }
 }
 \examples{
-dataPtr = readCyclopsData(system.file("extdata/infert_ccd.txt", package="cyclops"), "clr")
+dataPtr = readCyclopsData(system.file("extdata/infert_ccd.txt", package="Cyclops"), "clr")
 }
 

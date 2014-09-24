@@ -6,4 +6,4 @@ standalone
 \.o$
 \.so$
 papers
-
+.git
