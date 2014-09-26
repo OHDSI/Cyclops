@@ -272,14 +272,14 @@ void AbstractModelSpecifics::initialize(
 		
 	// TODO Suspect below is not necessary for non-grouped data.
 	// If true, then fill with pointers to CompressedDataColumn and do not delete in destructor
-	for (int j = 0; j < J; ++j) {
+	for (size_t j = 0; j < J; ++j) {
 		if (hXI->getFormatType(j) == DENSE) {
 			sparseIndices.push_back(NULL);
 		} else {
 			std::set<int> unique;
-			const int n = hXI->getNumberOfEntries(j);
+			const size_t n = hXI->getNumberOfEntries(j);
 			const int* indicators = hXI->getCompressedColumnVector(j);
-			for (int j = 0; j < n; j++) { // Loop through non-zero entries only
+			for (size_t j = 0; j < n; j++) { // Loop through non-zero entries only
 				const int k = indicators[j];
 				const int i = hPid[k];
 				unique.insert(i);

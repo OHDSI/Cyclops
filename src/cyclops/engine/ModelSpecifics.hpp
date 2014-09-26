@@ -163,7 +163,7 @@ void ModelSpecifics<BaseModel, WeightType>::computeNtoKIndices(bool useCrossVali
 
 	hNtoK.resize(N+1);
 	int n = 0;
-	for (int k = 0; k < K;) {
+	for (size_t k = 0; k < K;) {
 		hNtoK[n] = k;
 		int currentPid = hPid[k];
 		do {
