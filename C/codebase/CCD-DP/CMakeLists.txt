@@ -1,5 +1,5 @@
 include_directories(. ${CMAKE_SOURCE_DIR}/codebase ${CMAKE_SOURCE_DIR}/codebase/CCD)
-
+#// removed for IMEDS hierarchy analysis
 set(BASE_SOURCE_FILES	
 	../CCD/CyclicCoordinateDescent.cpp	
 	../CCD/CompressedDataMatrix.cpp
@@ -11,21 +11,21 @@ set(BASE_SOURCE_FILES
 	../CCD/io/RTestInputReader.cpp
 	../CCD/io/CoxInputReader.cpp
 	../CCD/io/CCTestInputReader.cpp
-	../CCD/MCMC/BetaParameter.cpp
-	../CCD/MCMC/CredibleIntervals.cpp
-	../CCD/MCMC/HyperpriorParameter.cpp
-	../CCD/MCMC/IndependenceSampler.cpp
-	../CCD/MCMC/MCMCDriver.cpp
-	../CCD/MCMC/ModelSampler.cpp
-	../CCD/MCMC/ModelSelectionDriver.cpp
-	../CCD/MCMC/ModelPrior.cpp
-	../CCD/MCMC/MHRatio.cpp
-	../CCD/MCMC/MCMCModel.cpp
-	../CCD/MCMC/OneDimensionRandomWalk.cpp
-	../CCD/MCMC/Parameter.cpp
-	../CCD/MCMC/RandomWalk.cpp
-	../CCD/MCMC/SigmaSampler.cpp
-	../CCD/MCMC/TransitionKernel.cpp
+#	../CCD/MCMC/BetaParameter.cpp
+#	../CCD/MCMC/CredibleIntervals.cpp
+#	../CCD/MCMC/HyperpriorParameter.cpp
+#	../CCD/MCMC/IndependenceSampler.cpp
+#	../CCD/MCMC/MCMCDriver.cpp
+#	../CCD/MCMC/ModelSampler.cpp
+#	../CCD/MCMC/ModelSelectionDriver.cpp
+#	../CCD/MCMC/ModelPrior.cpp
+#	../CCD/MCMC/MHRatio.cpp
+#	../CCD/MCMC/MCMCModel.cpp
+#	../CCD/MCMC/OneDimensionRandomWalk.cpp
+#	../CCD/MCMC/Parameter.cpp
+#	../CCD/MCMC/RandomWalk.cpp
+#	../CCD/MCMC/SigmaSampler.cpp
+#	../CCD/MCMC/TransitionKernel.cpp
 	../CCD/AbstractModelSpecifics.cpp
 	../CCD/AbstractDriver.cpp
 	../CCD/AbstractSelector.cpp

@@ -139,7 +139,7 @@ public:
 		const vector<int>& siblings = getChildMap.at(parent);
 
 		int numberOutcomesWithDrug = siblings.size();
-		cout << "numberOutcomesWithDrug = " << numberOutcomesWithDrug << endl;
+		//cout << "numberOutcomesWithDrug = " << numberOutcomesWithDrug << endl;
 		double t1 = numberOutcomesWithDrug/hierarchyPriors[0]->getVariance(); // this is the hyperparameter that is used in the original code
 		double t2 = 1/hierarchyPriors[1]->getVariance(); //is this right?
 

@@ -180,17 +180,20 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 template <class BaseModel,typename WeightType>
 double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* weights) {
 	real logLikelihood = static_cast<real>(0.0);
-
+int counter = 0;
 	if(BaseModel::cumulativeGradientAndHessian)	{
 		for (int k = 0; k < K; ++k) {
+
 			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], &accDenomPid[0], hPid, k);
 		}
 	} else { // TODO Unnecessary code duplication
+		//cout << "k = " << K << endl;
 		for (int k = 0; k < K; ++k) {
+			counter += weights[k];
 			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], denomPid, hPid, k);
 		}
 	}
-
+//cout << "counter = " << counter << endl;
 	return static_cast<double>(logLikelihood);
 }
 

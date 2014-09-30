@@ -70,6 +70,8 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 	std::vector<double> innerPoints;
 	std::vector<double> outerValues;
 	std::vector<double> minValues;
+	selector.permute();
+	selector.permute();
 
 	for (int outerStep = 0; outerStep < gridSize; outerStep++){
 		std::vector<double> predLogLikelihoodOuter;
@@ -83,7 +85,8 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 			ccd.setHyperprior(point);
 
 			for (int i = 0; i < arguments.foldToCompute; i++) {
-
+				//cout << "arguments.foldToCompute = " << arguments.foldToCompute << endl;
+				//cout << "arguments.fold = " << arguments.fold << endl;
 				int fold = i % arguments.fold;
 				if (fold == 0) {
 					selector.permute(); // Permute every full cross-validation rep
@@ -110,9 +113,11 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 			double value = computePointEstimate(predLogLikelihood) /
 					(double(arguments.foldToCompute) / double(arguments.fold));
 			gridPoint.push_back(point);
-			std::cout << "hyperprior point = " << point;
-			std::cout << " class hyperprior point = " << outerPoint;
-			cout << " value = " << value << endl;
+			//std::cout << "hyperprior point = " << point;
+			//std::cout << " class hyperprior point = " << outerPoint;
+			//cout << " value = " << value << endl;
+			std::cout << point << "," << outerPoint << "," << value << endl;
+
 			gridValue.push_back(value);
 		}
 

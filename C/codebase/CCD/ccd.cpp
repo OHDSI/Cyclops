@@ -40,8 +40,9 @@
 #include "io/BBRInputReader.h"
 #include "io/OutputWriter.h"
 
-#include "MCMC/MCMCDriver.h"
-#include "MCMC/ModelSelectionDriver.h"
+ // removed for IMEDS hierarchy analysis
+//#include "MCMC/MCMCDriver.h"
+//#include "MCMC/ModelSelectionDriver.h"
 
 #include "CrossValidationSelector.h"
 #include "GridSearchCrossValidationDriver.h"
@@ -162,15 +163,15 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.seed = 123;
 	arguments.doCrossValidation = false;
 	arguments.useAutoSearchCV = false;
-	arguments.lowerLimit = 0.00001;
+	arguments.lowerLimit = 0.01;
 	arguments.upperLimit = 200000.0;
 	arguments.fold = 10;
-	arguments.gridSteps = 100;
+	arguments.gridSteps = 10;
 	arguments.cvFileName = "cv.txt";
 	arguments.useHierarchy = false;
 	arguments.useMCMC = false;
 	arguments.doBootstrap = false;
-	arguments.replicates = 100;
+	arguments.replicates = 200;
 	arguments.reportRawEstimates = false;
 	arguments.modelName = "sccs";
 	arguments.fileFormat = "sccs";
@@ -423,7 +424,7 @@ void parseCommandLine(std::vector<std::string>& args,
 			if(foldToComputeCVArg.isSet()) {
 				arguments.foldToCompute = foldToComputeCVArg.getValue();
 			} else {
-				arguments.foldToCompute = arguments.fold;
+				arguments.foldToCompute = 200; //arguments.fold;
 			}
 			arguments.cvFileName = outFile2Arg.getValue();
 			arguments.doFitAtOptimal = true;
@@ -826,7 +827,7 @@ double runMCMC(
 		std::vector<real>& savedBeta) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
-
+/* Removed for IMEDS hierarchy analysis
 	ModelSelectionDriver modelSelector;
 
 	modelSelector.drive(*ccd,arguments.seed,arguments.MCMCFileName,arguments.betaAmount);
@@ -843,7 +844,7 @@ double runMCMC(
 	driver.drive(model,*ccd, arguments.betaAmount, arguments.seed, 1.0);
 
 	gettimeofday(&time2, NULL);
-
+*/
 	return calculateSeconds(time1, time2);
 }
 

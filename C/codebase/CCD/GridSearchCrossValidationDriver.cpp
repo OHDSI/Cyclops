@@ -97,7 +97,8 @@ void GridSearchCrossValidationDriver::drive(
 	// TODO Check that selector is type of CrossValidationSelector
 
 	std::vector<real> weights;
-
+	selector.permute();
+	selector.permute();
 	for (int step = 0; step < gridSize; step++) {
 
 		std::vector<double> predLogLikelihood;
@@ -119,13 +120,20 @@ void GridSearchCrossValidationDriver::drive(
 					}
 				}
 			}
+			int counterHere = 0;
+		//	cout << "weights.size() = " << weights.size() << endl;
+			for(int j = 0; j < weights.size(); j++){
+				counterHere += weights[j];
+			}
+			//cout << "counterHere = " << counterHere;
 			ccd.setWeights(&weights[0]);
-			std::cout << "Running at " << ccd.getPriorInfo() << " ";
+			//std::cout << "Running at " << ccd.getPriorInfo() << " ";
 			ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 
 			// Compute predictive loglikelihood for this fold
 			selector.getComplement(weights);
 			if(weightsExclude){
+				cout << "weightsExclude" << endl;
 				for(int j = 0; j < (int)weightsExclude->size(); j++){
 					if(weightsExclude->at(j) == 1.0){
 						weights[j] = 0.0;
@@ -135,10 +143,10 @@ void GridSearchCrossValidationDriver::drive(
 
 			double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
 
-			std::cout << "Grid-point #" << (step + 1) << " at " << point;
-			std::cout << "\tFold #" << (fold + 1)
-			          << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
-			          << logLikelihood << std::endl;
+			//std::cout << "Grid-point #" << (step + 1) << " at " << point;
+			//std::cout << "\tFold #" << (fold + 1)
+			 //         << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
+			   //       << logLikelihood << std::endl;
 
 			// Store value
 			predLogLikelihood.push_back(logLikelihood);
@@ -148,6 +156,7 @@ void GridSearchCrossValidationDriver::drive(
 				(double(arguments.foldToCompute) / double(arguments.fold));
 		gridPoint.push_back(point);
 		gridValue.push_back(value);
+		std::cout << point << "," << value << endl;
 	}
 
 	// Report results

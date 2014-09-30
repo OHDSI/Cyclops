@@ -1,6 +1,6 @@
 include_directories(. ${CMAKE_SOURCE_DIR}/codebase)
 
-	
+	#// removed for IMEDS hierarchy analysis
 set(BASE_SOURCE_FILES
 	CyclicCoordinateDescent.cpp	
 	CompressedDataMatrix.cpp
@@ -12,21 +12,21 @@ set(BASE_SOURCE_FILES
 	io/RTestInputReader.cpp
 	io/CoxInputReader.cpp
 	io/CCTestInputReader.cpp
-	MCMC/BetaParameter.cpp
-	MCMC/CredibleIntervals.cpp
-	MCMC/HyperpriorParameter.cpp
-	MCMC/IndependenceSampler.cpp
-	MCMC/MCMCDriver.cpp
-	MCMC/MHRatio.cpp
-	MCMC/ModelSampler.cpp
-	MCMC/ModelSelectionDriver.cpp
-	MCMC/ModelPrior.cpp
-	MCMC/MCMCModel.cpp
-	MCMC/OneDimensionRandomWalk.cpp
-	MCMC/Parameter.cpp
-	MCMC/RandomWalk.cpp
-	MCMC/SigmaSampler.cpp
-	MCMC/TransitionKernel.cpp
+#	MCMC/BetaParameter.cpp
+#	MCMC/CredibleIntervals.cpp
+#	MCMC/HyperpriorParameter.cpp
+#	MCMC/IndependenceSampler.cpp
+#	MCMC/MCMCDriver.cpp
+#	MCMC/MHRatio.cpp
+#	MCMC/ModelSampler.cpp
+#	MCMC/ModelSelectionDriver.cpp
+#	MCMC/ModelPrior.cpp
+#	MCMC/MCMCModel.cpp
+#	MCMC/OneDimensionRandomWalk.cpp
+#	MCMC/Parameter.cpp
+#	MCMC/RandomWalk.cpp
+#	MCMC/SigmaSampler.cpp
+#	MCMC/TransitionKernel.cpp
 	AbstractModelSpecifics.cpp
 	AbstractDriver.cpp
 	AbstractSelector.cpp
