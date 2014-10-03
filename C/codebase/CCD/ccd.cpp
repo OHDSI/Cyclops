@@ -424,7 +424,7 @@ void parseCommandLine(std::vector<std::string>& args,
 			if(foldToComputeCVArg.isSet()) {
 				arguments.foldToCompute = foldToComputeCVArg.getValue();
 			} else {
-				arguments.foldToCompute = 200; //arguments.fold;
+				arguments.foldToCompute = 2; //arguments.fold;
 			}
 			arguments.cvFileName = outFile2Arg.getValue();
 			arguments.doFitAtOptimal = true;

@@ -70,8 +70,8 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 	std::vector<double> innerPoints;
 	std::vector<double> outerValues;
 	std::vector<double> minValues;
-	selector.permute();
-	selector.permute();
+	//selector.permute();
+	//selector.permute();
 
 	for (int outerStep = 0; outerStep < gridSize; outerStep++){
 		std::vector<double> predLogLikelihoodOuter;
