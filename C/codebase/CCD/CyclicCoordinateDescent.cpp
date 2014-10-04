@@ -579,7 +579,7 @@ void CyclicCoordinateDescent::update(
 			double thisLogPrior = getLogPrior();
 			double thisLogPost = thisLogLikelihood + thisLogPrior;
 
-			//noiseLevel = SILENT;
+			noiseLevel = SILENT;
 			if (noiseLevel > QUIET) {
 				cout << endl;
 				printVector(&hBeta[0], J, cout);
