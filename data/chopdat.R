@@ -2,7 +2,7 @@
 # based on R scripts written by Heather Whitaker
 
 getOxfordData <- function() {
-    read.table(header = TRUE, text = "
+    utils::read.table(header = TRUE, text = "
 indiv    eventday    start	end	exday
 1	398	365	730	458
 2	413	365	730	392

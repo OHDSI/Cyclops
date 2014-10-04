@@ -11,6 +11,7 @@ Description: This package incorporates cyclic coordinate descent and
     computational optimization and fine-scale parallelization to yield
     efficient inference in massive datasets.
 License: Apache License 2.0
+LazyData: Yes
 Depends:
     Rcpp (>= 0.10.6),
     BH (>= 1.51.0),

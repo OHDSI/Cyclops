@@ -58,7 +58,7 @@ simulateData <- function(nstrata = 200,
     list(outcomes = outcomes, covariates = covariates, effectSizes = effectSizes, sparseness = sparseness)
 }
 
-fitUsingClogit <- function(sim){
+fitUsingClogit <- function(sim,coverage=TRUE){
     start <- Sys.time()    
     covariates <- sim$covariates
     ncovars <- max(covariates$covariate_id)
@@ -73,8 +73,12 @@ fitUsingClogit <- function(sim){
     data <- merge(data,sim$outcomes)
     data <- data[order(data$stratum_id,data$row_id),]
     formula <- as.formula(paste(c("y ~ strata(stratum_id)",paste("V",1:ncovars,sep="")),collapse=" + "))
-    fit <- clogit(formula,data=data)    
-    ci <- confint(fit)
+    fit <- clogit(formula,data=data) 
+    if (coverage) {
+        ci <- confint(fit)
+    } else {
+        ci <- matrix(0,nrow=1,ncol=2)
+    }
     
     delta <- Sys.time() - start
     writeLines(paste("Analysis took", signif(delta,3), attr(delta,"units")))
@@ -99,7 +103,11 @@ fitUsingCoxph <- function(sim){
     data <- data[order(data$stratum_id,data$row_id),]
     formula <- as.formula(paste(c("Surv(time,y) ~ strata(stratum_id)",paste("V",1:ncovars,sep="")),collapse=" + "))
     fit <- coxph(formula,data=data)    
-    ci <- confint(fit)
+    if (coverage) {
+        ci <- confint(fit)
+    } else {
+        ci <- matrix(0,nrow=1,ncol=2)
+    }
     
     delta <- Sys.time() - start
     writeLines(paste("Analysis took", signif(delta,3), attr(delta,"units")))
@@ -107,7 +115,7 @@ fitUsingCoxph <- function(sim){
     data.frame(coef = coef(fit), lbCi95 = ci[,1], ubCi95 = ci[,2])
 }
 
-fitUsingGnm <- function(sim){
+fitUsingGnm <- function(sim,coverage=TRUE){
     require(gnm)
     start <- Sys.time()    
     covariates <- sim$covariates
@@ -132,7 +140,11 @@ fitUsingGnm <- function(sim){
     
     
     fit <- coxph(formula,data=data)    
-    ci <- confint(fit)
+    if (coverage) {
+        ci <- confint(fit)
+    } else {
+        ci <- matrix(0,nrow=1,ncol=2)
+    }
     
     delta <- Sys.time() - start
     writeLines(paste("Analysis took", signif(delta,3), attr(delta,"units")))
@@ -141,21 +153,25 @@ fitUsingGnm <- function(sim){
 }
 
 
-fitUsingOtherThanCyclops <- function(sim, model="logistic"){
+fitUsingOtherThanCyclops <- function(sim, model="logistic",coverage=TRUE){
     if (model == "logistic"){
         writeLines("Fitting model using clogit")
-        fitUsingClogit(sim)   
+        fitUsingClogit(sim,coverage)   
     } else if (model == "poisson"){
         stop("Poisson not yet implemented")
     } else if (model == "survival"){
         writeLines("Fitting model using coxpht")
-        fitUsingCoxph(sim)
+        fitUsingCoxph(sim,coverage)
     } else {
         stop(paste("Unknown model:",model))
     }
 }
 
-fitUsingCyclops <- function(sim, regularized=TRUE, model="logistic",includePenalty = FALSE){
+fitUsingCyclops <- function(sim, 
+                            model = "logistic",
+                            regularized = TRUE,                                                       
+                            coverage = TRUE,
+                            includePenalty = FALSE){
     if (!regularized)
         includePenalty = FALSE
     start <- Sys.time()    
@@ -201,10 +217,10 @@ fitUsingCyclops <- function(sim, regularized=TRUE, model="logistic",includePenal
         finalizeSqlCyclopsData(dataPtr) 
     
     if (regularized){
-        coefCyclops <- rep(0,length(coefGoldStandard))
-        lbCi95 <- rep(0,length(coefGoldStandard))
-        ubCi95 <- rep(0,length(coefGoldStandard))
-        for (i in 1:length(coefGoldStandard)){
+        coefCyclops <- rep(0,length(sim$effectSizes$rr))
+        lbCi95 <- rep(0,length(sim$effectSizes$rr))
+        ubCi95 <- rep(0,length(sim$effectSizes$rr))
+        for (i in 1:length(sim$effectSizes$rr)){
             if (model == "survival"){ # For some reason can't get confint twice on same dataPtr object, so recreate:
                 dataPtr <- createSqlCyclopsData(modelType = modelType)
                 
@@ -218,37 +234,43 @@ fitUsingCyclops <- function(sim, regularized=TRUE, model="logistic",includePenal
                                               sim$covariates$covariate_value)
                 
             }
-            cyclopsFit <- fitCyclopsModel(dataPtr,forceColdStart=TRUE,prior = prior("laplace",0.1,exclude=i))
+            cyclopsFit <- fitCyclopsModel(dataPtr,forceColdStart=FALSE,prior = prior("laplace",0.1,exclude=i))
             coefCyclops[i] <- coef(cyclopsFit)[names(coef(cyclopsFit)) == as.character(i)]
-#             if (model == "survival"){
-#                 ci <- aconfint(cyclopsFit,parm=i)
-#                 lbCi95 <- ci[,1]
-#                 ubCi95 <- ci[,2]
-#             } else {
-                ci <- confint(cyclopsFit,parm=i,includePenalty = includePenalty)
-                lbCi95[i] <- ci[,2]
-                ubCi95[i] <- ci[,3]
-#             }
+            if (coverage) {
+                if (model == "survival"){
+                    ci <- confint(cyclopsFit,parm=i,includePenalty = includePenalty)
+                    lbCi95 <- ci[,2]
+                    ubCi95 <- ci[,3]
+                } else {
+                    ci <- aconfint(cyclopsFit,parm=i)
+                    lbCi95[i] <- ci[,1]
+                    ubCi95[i] <- ci[,2]
+                }
+            }
         }
     } else {
         cyclopsFit <- fitCyclopsModel(dataPtr, prior = prior("none"))
         coefCyclops <- data.frame(covariate_id = as.integer(names(coef(cyclopsFit))),beta=coef(cyclopsFit))
         coefCyclops <- coefCyclops[order(coefCyclops$covariate_id),]
         coefCyclops <- coefCyclops$beta
-#         if (model == "survival"){
-#             ci <- aconfint(cyclopsFit,parm=1:length(coefCyclops))
-#             lbCi95 <- ci[,1]
-#             ubCi95 <- ci[,2]
-#         } else {
-            ci <- confint(cyclopsFit,parm=1:length(coefCyclops),includePenalty = includePenalty)
-            lbCi95 <- ci[,2]
-            ubCi95 <- ci[,3]
-#         }
+        if (coverage) {
+            if (model == "survival"){
+                ci <- confint(cyclopsFit,parm=i,includePenalty = includePenalty)
+                lbCi95 <- ci[,2]
+                ubCi95 <- ci[,3]
+            } else {
+                ci <- aconfint(cyclopsFit,parm=i)
+                lbCi95 <- ci[,1]
+                ubCi95 <- ci[,2]
+            }
+        }
     }
     delta <- Sys.time() - start
     writeLines(paste("Analysis took", signif(delta,3), attr(delta,"units")))
     
-    data.frame(coef = coefCyclops, lbCi95 = lbCi95, ubCi95 = ubCi95)
+    df <- data.frame(coef = coefCyclops, lbCi95 = lbCi95, ubCi95 = ubCi95)
+    attr(df, "dataPtr") <- dataPtr
+    df
 }
 
 mse <- function(x,y){
@@ -267,7 +289,7 @@ plotFit <- function(fit,goldStandard,label){
         scale_y_continuous(label)
 }
 
-runSimulation <- function(){
+runSimulation1 <- function(){
     model = "survival"      # "logistic", "survival", or "poisson"
     sim <- simulateData(nstrata=2000,
                         ncovars=100,
@@ -288,4 +310,21 @@ runSimulation <- function(){
     
     writeLines(paste("Coverage Cyclops:",coverage(coefGoldStandard,fitCyclops$lbCi95, fitCyclops$ubCi95)))
     writeLines(paste("Coverage other:",coverage(coefGoldStandard,fit$lbCi95, fit$ubCi95)))
+}
+
+runSimulation2 <- function(){
+    model = "logistic"      # "logistic", "survival", or "poisson"
+    sim <- simulateData(nstrata=2000,
+                        ncovars=100,
+                        nrows=10000,
+                        effectSizeSd=0.5,
+                        eCovarsPerRow=2,
+                        model=model)
+    coefGoldStandard <- log(sim$effectSizes$rr)
+    
+    fit <- fitUsingOtherThanCyclops(sim,model,coverage=FALSE)
+    fitCyclops <- fitUsingCyclops(sim,regularized=TRUE,model,coverage=FALSE)
+        
+    writeLines(paste("MSE Cyclops:",mse(fitCyclops$coef,coefGoldStandard)))
+    writeLines(paste("MSE other:",mse(fit$coef,coefGoldStandard)))
 }
