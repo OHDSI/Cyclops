@@ -7,3 +7,4 @@ standalone
 \.so$
 papers
 .git
+data-raw
