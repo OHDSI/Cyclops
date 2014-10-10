@@ -68,9 +68,12 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 	//UniModalSearch searcher(100, 0.01, log(1.5));
 	//UniModalSearch searcherClass(100, 0.01, log(1.5)); // Need a better way to do this.
 
-	const double eps = 1.00; //search stopper
+	const double eps = 10.00; //search stopper
 	std::cout << "Default var = " << tryvalue << std::endl;
 
+	double upperLimit = 10000;
+	double toleranceY = 1;
+	double toleranceX = 1;
 
 	bool finished = false;
 	bool finished2 = false;
@@ -87,7 +90,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 	while (!outerFinished){
 		step = 0;
 		step2 = 0;
-		UniModalSearch searcher(100, 0.01, log(1.5));
+		UniModalSearch searcher(upperLimit, toleranceX, toleranceY = 1);
 		while (!finished) {
 
 			cout << "\n \n \n \t \t LOOP 1" << endl;
@@ -120,7 +123,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 
 		ccd.setHyperprior(tryvalue);
 		//exit(-1);
-		UniModalSearch searcherClass(100, 0.01, log(1.5));
+		UniModalSearch searcherClass(upperLimit, toleranceX, toleranceY = 1);
 		while (!finished2) {
 			cout << "\n \n \n \t \t LOOP 2" << endl;
 
