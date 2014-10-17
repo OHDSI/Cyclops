@@ -75,8 +75,8 @@
 #'
 #' @export
 createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, modelType,
-                               data, subset, weights, offset, time = NULL, pid = NULL, y = NULL, z = NULL, dx = NULL, 
-                               sx = NULL, ix = NULL, model = FALSE, method = "cyclops.fit") {	
+                                   data, subset, weights, offset, time = NULL, pid = NULL, y = NULL, type = NULL, dx = NULL, 
+                                   sx = NULL, ix = NULL, model = FALSE, method = "cyclops.fit") {	
     cl <- match.call() # save to return
     mf.all <- match.call(expand.dots = FALSE)
     
@@ -84,6 +84,8 @@ createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, mod
     
     hasIntercept <- FALSE		
     colnames <- NULL
+    
+    contrasts <- NULL
     
     if (!missing(formula)) { # Use formula to construct Cyclops matrices
         if (missing(data)) {
@@ -97,18 +99,24 @@ createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, mod
         mf.d[[1L]] <- quote(stats::model.frame)			
         mf.d <- eval(mf.d, parent.frame())
         
-        y <- model.response(mf.d)
-        if (class(y) == "Surv") {
+        outcome <- model.response(mf.d)
+        if (inherits(outcome, "Surv")) {
             if (!.isSurvivalModelType(modelType)) {
                 stop("Censored outcomes are currently only support for Cox regression.")
             }
-            if (dim(y)[2] == 3) {
-                time <- as.numeric(y[,2] - y[,1])
-                y <- as.numeric(y[,3])
+            if (dim(outcome)[2] == 3) {
+                time <- as.numeric(outcome[,2] - outcome[,1])
+                y <- as.numeric(outcome[,3])
             } else {
-                time <- as.numeric(y[,1])
-                y <- as.numeric(y[,2])
+                time <- as.numeric(outcome[,1])
+                y <- as.numeric(outcome[,2])
             }            
+        } else if (inherits(outcome, "Multitype")) {
+            contrasts <- attr(outcome, "contrasts")
+            type <- outcome[,2]
+            y <- outcome[,1]            
+        } else {
+            y <- outcome
         }
         
         mt.d <- attr(mf.d, "terms")
@@ -232,7 +240,9 @@ createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, mod
         if (!is.null(sortOrder)) {      
             pid <- pid[sortOrder] 
             y <- y[sortOrder] 
-            z <- z[sortOrder] 
+            if (!missing(type)) {
+                type <- type[sortOrder] 
+            }
             time <- time[sortOrder]
             dx <- dx[sortOrder, ]
             if (class(dx) == "numeric") {
@@ -272,6 +282,20 @@ createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, mod
         }	
     }
     
+    # Handle multiple outcome types
+    numTypes <- 1
+    if (!missing(type)) {
+        if (is.null(contrasts)) {
+            contrasts <- contrasts(as.factor(type))
+        }
+        numTypes <- length(contrasts)
+        type <- contrasts[type]
+        if (!is.null(colnames)) {
+            colnames <- as.vector(sapply(colnames, function(x, y) { paste(x,y,sep=":")}, 
+                                         y = dimnames(contrasts)[[1]], USE.NAMES=F))
+        }
+    }
+        
     # TODO Check types and dimensions        
     
     useTimeAsOffset <- FALSE
@@ -283,7 +307,7 @@ createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, mod
         pid <- c(1:length(y)) # TODO Should not be necessary
     }
     
-    md <- .cyclopsModelData(pid, y, z, time, dx, sx, ix, modelType, useTimeAsOffset)
+    md <- .cyclopsModelData(pid, y, type, time, dx, sx, ix, modelType, useTimeAsOffset, numTypes)
     result <- new.env(parent = emptyenv())
     result$cyclopsDataPtr <- md$data
     result$modelType <- modelType

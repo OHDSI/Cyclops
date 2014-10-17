@@ -37,8 +37,8 @@
     .Call('Cyclops_cyclopsGetFisherInformation', PACKAGE = 'Cyclops', inRcppCcdInterface, sexpCovariates)
 }
 
-.cyclopsSetPrior <- function(inRcppCcdInterface, priorTypeName, variance, excludeNumeric) {
-    invisible(.Call('Cyclops_cyclopsSetPrior', PACKAGE = 'Cyclops', inRcppCcdInterface, priorTypeName, variance, excludeNumeric))
+.cyclopsSetPrior <- function(inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph) {
+    invisible(.Call('Cyclops_cyclopsSetPrior', PACKAGE = 'Cyclops', inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph))
 }
 
 .cyclopsProfileModel <- function(inRcppCcdInterface, sexpCovariates, threshold, override, includePenalty) {
@@ -140,6 +140,17 @@ getNumberOfRows <- function(object) {
     .Call('Cyclops_cyclopsGetNumberOfRows', PACKAGE = 'Cyclops', object)
 }
 
+#' @title Get total number of outcome types
+#' 
+#' @description
+#' \code{getNumberOfTypes} returns the total number of outcome types in an OHDSI Cyclops data object
+#' 
+#' @param object    An OHDSI Cyclops data object
+#'
+getNumberOfTypes <- function(object) {
+    .Call('Cyclops_cyclopsGetNumberOfTypes', PACKAGE = 'Cyclops', object)
+}
+
 .cyclopsSumByGroup <- function(x, covariateLabel, groupByLabel, power) {
     .Call('Cyclops_cyclopsSumByGroup', PACKAGE = 'Cyclops', x, covariateLabel, groupByLabel, power)
 }
@@ -164,6 +175,10 @@ getNumberOfRows <- function(object) {
     .Call('Cyclops_cyclopsGetHasIntercept', PACKAGE = 'Cyclops', x)
 }
 
+.cyclopsGetHasOffset <- function(x) {
+    .Call('Cyclops_cyclopsGetHasOffset', PACKAGE = 'Cyclops', x)
+}
+
 .cyclopsFinalizeData <- function(x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag = FALSE) {
     invisible(.Call('Cyclops_cyclopsFinalizeData', PACKAGE = 'Cyclops', x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag))
 }
@@ -180,7 +195,7 @@ getNumberOfRows <- function(object) {
     .Call('Cyclops_cyclopsReadFileData', PACKAGE = 'Cyclops', fileName, modelTypeName)
 }
 
-.cyclopsModelData <- function(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset = FALSE) {
-    .Call('Cyclops_cyclopsModelData', PACKAGE = 'Cyclops', pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset)
+.cyclopsModelData <- function(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset = FALSE, numTypes = 1L) {
+    .Call('Cyclops_cyclopsModelData', PACKAGE = 'Cyclops', pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset, numTypes)
 }
 

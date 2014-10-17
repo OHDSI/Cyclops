@@ -168,6 +168,19 @@ int cyclopsGetNumberOfRows(Environment object) {
 	return static_cast<int>(data->getNumberOfRows());
 }
 
+//' @title Get total number of outcome types
+//' 
+//' @description
+//' \code{getNumberOfTypes} returns the total number of outcome types in an OHDSI Cyclops data object
+//' 
+//' @param object    An OHDSI Cyclops data object
+//'
+// [[Rcpp::export("getNumberOfTypes")]]
+int cyclopsGetNumberOfTypes(Environment object) {	
+	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	
+	return static_cast<int>(data->getNumberOfTypes());
+}
+
 // [[Rcpp::export(".cyclopsSumByGroup")]]
 List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel, 
 		const long groupByLabel, const int power) {
@@ -244,6 +257,13 @@ bool cyclopsGetHasIntercept(Environment x) {
     using namespace bsccs;
     XPtr<ModelData> data = parseEnvironmentForPtr(x);
     return data->getHasInterceptCovariate(); 
+}
+
+// [[Rcpp::export(".cyclopsGetHasOffset")]]
+bool cyclopsGetHasOffset(Environment x) {
+    using namespace bsccs;
+    XPtr<ModelData> data = parseEnvironmentForPtr(x);
+    return data->getHasOffsetCovariate(); 
 }
 
 // [[Rcpp::export(".cyclopsFinalizeData")]]
@@ -383,8 +403,9 @@ List cyclopsReadFileData(const std::string& fileName, const std::string& modelTy
 
 // [[Rcpp::export(".cyclopsModelData")]]
 List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix, 
-    const std::string& modelTypeName,
-    bool useTimeAsOffset = false) {
+    const std::string& modelTypeName,    
+    bool useTimeAsOffset = false,
+    int numTypes = 1) {
 
     using namespace bsccs;    
     ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName); 
@@ -432,7 +453,8 @@ List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEX
 		ipv = ixx.slot("p");
 	}
 
-    XPtr<RcppModelData> ptr(new RcppModelData(modelType, ipid, iy, iz, ioffs, dxv, siv, spv, sxv, iiv, ipv, useTimeAsOffset));
+    XPtr<RcppModelData> ptr(new RcppModelData(modelType, ipid, iy, iz, ioffs, dxv, siv, 
+    	spv, sxv, iiv, ipv, useTimeAsOffset, numTypes));
 
 	double duration = timer();
 
@@ -449,7 +471,7 @@ RcppModelData::RcppModelData(
         ModelType _modelType,
 		const IntegerVector& _pid,
 		const NumericVector& _y,
-		const NumericVector& _z,
+		const NumericVector& _type,
 		const NumericVector& _time,
 		const NumericVector& dxv, // dense
 		const IntegerVector& siv, // sparse
@@ -457,48 +479,89 @@ RcppModelData::RcppModelData(
 		const NumericVector& sxv,
 		const IntegerVector& iiv, // indicator
 		const IntegerVector& ipv,
-		bool useTimeAsOffset
+		bool useTimeAsOffset,
+		int numTypes
 		) : ModelData(
                 _modelType,
 				_pid,
 				_y,
-				_z,
+				_type,
 				_time,
 				bsccs::make_shared<loggers::RcppProgressLogger>(),
-				bsccs::make_shared<loggers::RcppErrorHandler>()
+				bsccs::make_shared<loggers::RcppErrorHandler>()				
 				) {
 	if (useTimeAsOffset) {
 	    // offset
-//        real_vector* r = new real_vector();
         RealVectorPtr r = make_shared<RealVector>();
         push_back(NULL, r, DENSE);   
         r->assign(offs.begin(), offs.end()); // TODO Should not be necessary with shared_ptr
         setHasOffsetCovariate(true);
 	    getColumn(0).add_label(-1);
 	}			
+    
+    nTypes = numTypes; // TODO move into constructor
 				
 	// Convert dense
 	int nCovariates = static_cast<int>(dxv.size() / y.size());
 	for (int i = 0; i < nCovariates; ++i) {
-		push_back(
-				static_cast<IntegerVector::iterator>(NULL), static_cast<IntegerVector::iterator>(NULL),
-				dxv.begin() + i * y.size(), dxv.begin() + (i + 1) * y.size(),
-				DENSE);
-		getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
+		if (numTypes == 1) {
+			push_back(
+					static_cast<IntegerVector::iterator>(NULL), static_cast<IntegerVector::iterator>(NULL),
+					dxv.begin() + i * y.size(), dxv.begin() + (i + 1) * y.size(),
+					DENSE);
+			getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
+		} else {
+			std::vector<RealVectorPtr> covariates;
+			for (int c = 0; c < numTypes; ++c) {
+				covariates.push_back(make_shared<RealVector>(y.size(), 0));
+			}
+			size_t offset = i * y.size();
+			for (int k = 0; k < y.size(); ++k) {
+				covariates[static_cast<int>(_type[k])]->at(k) = dxv[offset + k];
+			}
+			for (int c = 0; c < numTypes; ++c) {
+				push_back(
+// 						static_cast<IntegerVector::iterator>(NULL),static_cast<IntegerVector::iterator>(NULL),
+//						covariates[c].begin(), covariates[c].end(),
+                        NULL,
+                        covariates[c],
+						DENSE);
+				getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
+			}
+		}
 	}
 
 	// Convert sparse
 	nCovariates = spv.size() - 1;
 	for (int i = 0; i < nCovariates; ++i) {
-
+	
 		int begin = spv[i];
 		int end = spv[i + 1];
+		
+		if (numTypes == 1) {
+		    push_back(
+			    	siv.begin() + begin, siv.begin() + end,
+				    sxv.begin() + begin, sxv.begin() + end,
+    				SPARSE);
+            getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
+        } else {
+			std::vector<IntVectorPtr> covariatesI;
+			std::vector<RealVectorPtr> covariatesX;
+			for (int c = 0; c < numTypes; ++c) {
+				covariatesI.push_back(make_shared<IntVector>());
+				covariatesX.push_back(make_shared<RealVector>());
+				push_back(covariatesI[c], covariatesX[c], SPARSE);
+				getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
+			}
 
-		push_back(
-				siv.begin() + begin, siv.begin() + end,
-				sxv.begin() + begin, sxv.begin() + end,
-				SPARSE);
-        getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
+            auto itI = siv.begin() + begin;
+            auto itX = sxv.begin() + begin;
+            for (; itI != siv.begin() + end; ++itI, ++itX) {
+                int type = _type[*itI];
+                covariatesI[type]->push_back(*itI);
+                covariatesX[type]->push_back(*itX);
+            }        
+        }
 	}
 
 	// Convert indicator
@@ -508,11 +571,25 @@ RcppModelData::RcppModelData(
 		int begin = ipv[i];
 		int end = ipv[i + 1];
 
-		push_back(
-				iiv.begin() + begin, iiv.begin() + end,
-				static_cast<NumericVector::iterator>(NULL), static_cast<NumericVector::iterator>(NULL),
-				INDICATOR);
-        getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
+        if (numTypes == 1) {
+    		push_back(
+	    			iiv.begin() + begin, iiv.begin() + end,
+		    		static_cast<NumericVector::iterator>(NULL), static_cast<NumericVector::iterator>(NULL),
+			    	INDICATOR);
+            getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
+        } else {
+			std::vector<IntVectorPtr> covariates;
+			for (int c = 0; c < numTypes; ++c) {
+				covariates.push_back(make_shared<IntVector>());
+				push_back(covariates[c], NULL, INDICATOR);
+				getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
+			}
+
+            for (auto it = iiv.begin() + begin; it != iiv.begin() + end; ++it) {
+                int type = _type[*it];
+                covariates[type]->push_back(*it);
+            }
+        }
 	}
 
 	this->nRows = y.size();

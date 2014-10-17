@@ -149,8 +149,24 @@ Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP 
     return interface->getCcd().computeFisherInformation(indices);
 }
 
+// // [[Rcpp::export("test")]]
+// void cyclopsTest(std::vector<int> map, std::vector<std::vector<int> > list) {
+//     for(auto it = begin(map); it != end(map); ++it) {
+//         std::cout << *it << std::endl;
+//     }
+//     
+//     for (auto it = begin(list); it != end(list); ++it) {
+//         auto& vec = *it;
+//         for (auto in = begin(vec); in != end(vec); ++in) {
+//             std::cout << " " << *in;
+//         }
+//         std::cout << std::endl;
+//     }
+// }
+
 // [[Rcpp::export(".cyclopsSetPrior")]]
-void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, double variance, SEXP excludeNumeric) {
+void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& priorTypeName, 
+        const std::vector<double>& variance, SEXP excludeNumeric, SEXP sexpGraph) {
 	using namespace bsccs;
 	
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
@@ -160,8 +176,13 @@ void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, 
  	if (!Rf_isNull(excludeNumeric)) {
  		exclude = as<ProfileVector>(excludeNumeric);
  	}
- 	
-  interface->setPrior(priorTypeName, variance, exclude);
+ 	 	
+ 	HierarchicalChildMap map;
+ 	if (!Rf_isNull(sexpGraph)) {
+ 		map = as<HierarchicalChildMap>(sexpGraph);
+ 	} 	
+ 	 
+    interface->setPrior(priorTypeName, variance, exclude, map);
 }
 
 // [[Rcpp::export(".cyclopsProfileModel")]]
@@ -426,24 +447,47 @@ void RcppCcdInterface::setNoiseLevel(bsccs::NoiseLevels noiseLevel) {
     ccd->setNoiseLevel(noiseLevel);
 }
 
-void RcppCcdInterface::setPrior(const std::string& basePriorName, double baseVariance,
-		const ProfileVector& flatPrior) {			
+void RcppCcdInterface::setPrior(const std::vector<std::string>& basePriorName, const std::vector<double>& baseVariance,
+		const ProfileVector& flatPrior, const HierarchicalChildMap& map) {			
 	using namespace bsccs::priors;
 	
-	JointPriorPtr prior = makePrior(basePriorName, baseVariance, flatPrior);
+	JointPriorPtr prior = makePrior(basePriorName, baseVariance, flatPrior, map);
 	ccd->setPrior(prior);
 }
 
-priors::JointPriorPtr RcppCcdInterface::makePrior(const std::string& basePriorName, double baseVariance,
-		const ProfileVector& flatPrior) {
+priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>& basePriorName, const std::vector<double>& baseVariance,
+		const ProfileVector& flatPrior, const HierarchicalChildMap& map) {
 	using namespace bsccs::priors;
 	
- 	PriorPtr singlePrior = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName));
- 	singlePrior->setVariance(baseVariance);
+ 	PriorPtr singlePrior = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[0]));
+ 	singlePrior->setVariance(baseVariance[0]);
  
  	JointPriorPtr prior;
  	if (flatPrior.size() == 0) {
- 		prior = bsccs::make_shared<FullyExchangeableJointPrior>(singlePrior);
+ 		if (map.size() == 0) {
+	 		prior = bsccs::make_shared<FullyExchangeableJointPrior>(singlePrior);
+	 	} else {            
+			bsccs::shared_ptr<HierarchicalJointPrior> hPrior = 
+                std::make_shared<HierarchicalJointPrior>(singlePrior, 2); //Depth of hierarchy fixed at 2 right now
+                // TODO Check normal at top of hierarchy!
+            PriorPtr classPrior = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[1]));			
+			hPrior->changePrior(classPrior, 1);
+			
+			HierarchicalParentMap parentMap;
+			for (int parent = 0; parent < map.size(); ++parent) {
+				auto& vec = map[parent];
+				std::for_each(begin(vec), end(vec), [&](int child) {
+					parentMap.push_back(parent);
+				});
+			}			
+   		    hPrior->setHierarchy(
+                parentMap,
+                map
+            );
+			hPrior->setVariance(0, baseVariance[0]);
+			hPrior->setVariance(1, baseVariance[1]);
+            prior = hPrior;
+	 	}
  	} else {
  		const int length =  modelData->getNumberOfColumns();
  		bsccs::shared_ptr<MixtureJointPrior> mixturePrior = bsccs::make_shared<MixtureJointPrior>(
@@ -463,6 +507,9 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::string& basePriorNa
  			}
  		}
  		prior = mixturePrior;
+ 		if (map.size() != 0) {
+ 			handleError("Mixtures of flat and hierarchical priors are not yet implemented."); 		
+ 		}
  	}
  	return prior;
 }

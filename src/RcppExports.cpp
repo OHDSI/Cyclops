@@ -138,16 +138,17 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsSetPrior
-void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::string& priorTypeName, double variance, SEXP excludeNumeric);
-RcppExport SEXP Cyclops_cyclopsSetPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP varianceSEXP, SEXP excludeNumericSEXP) {
+void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& priorTypeName, const std::vector<double>& variance, SEXP excludeNumeric, SEXP sexpGraph);
+RcppExport SEXP Cyclops_cyclopsSetPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP varianceSEXP, SEXP excludeNumericSEXP, SEXP sexpGraphSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
-        Rcpp::traits::input_parameter< const std::string& >::type priorTypeName(priorTypeNameSEXP );
-        Rcpp::traits::input_parameter< double >::type variance(varianceSEXP );
+        Rcpp::traits::input_parameter< const std::vector<std::string>& >::type priorTypeName(priorTypeNameSEXP );
+        Rcpp::traits::input_parameter< const std::vector<double>& >::type variance(varianceSEXP );
         Rcpp::traits::input_parameter< SEXP >::type excludeNumeric(excludeNumericSEXP );
-        cyclopsSetPrior(inRcppCcdInterface, priorTypeName, variance, excludeNumeric);
+        Rcpp::traits::input_parameter< SEXP >::type sexpGraph(sexpGraphSEXP );
+        cyclopsSetPrior(inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph);
     }
     return R_NilValue;
 END_RCPP
@@ -374,6 +375,21 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
+// cyclopsGetNumberOfTypes
+int cyclopsGetNumberOfTypes(Environment object);
+RcppExport SEXP Cyclops_cyclopsGetNumberOfTypes(SEXP objectSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Environment >::type object(objectSEXP );
+        int __result = cyclopsGetNumberOfTypes(object);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
 // cyclopsSumByGroup
 List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel, const long groupByLabel, const int power);
 RcppExport SEXP Cyclops_cyclopsSumByGroup(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP groupByLabelSEXP, SEXP powerSEXP) {
@@ -470,6 +486,21 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
+// cyclopsGetHasOffset
+bool cyclopsGetHasOffset(Environment x);
+RcppExport SEXP Cyclops_cyclopsGetHasOffset(SEXP xSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
+        bool __result = cyclopsGetHasOffset(x);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
 // cyclopsFinalizeData
 void cyclopsFinalizeData(Environment x, bool addIntercept, SEXP sexpOffsetCovariate, bool offsetAlreadyOnLogScale, bool sortCovariates, SEXP sexpCovariatesDense, bool magicFlag = false);
 RcppExport SEXP Cyclops_cyclopsFinalizeData(SEXP xSEXP, SEXP addInterceptSEXP, SEXP sexpOffsetCovariateSEXP, SEXP offsetAlreadyOnLogScaleSEXP, SEXP sortCovariatesSEXP, SEXP sexpCovariatesDenseSEXP, SEXP magicFlagSEXP) {
@@ -542,8 +573,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsModelData
-List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix, const std::string& modelTypeName, bool useTimeAsOffset = false);
-RcppExport SEXP Cyclops_cyclopsModelData(SEXP pidSEXP, SEXP ySEXP, SEXP zSEXP, SEXP offsSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP, SEXP modelTypeNameSEXP, SEXP useTimeAsOffsetSEXP) {
+List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix, const std::string& modelTypeName, bool useTimeAsOffset = false, int numTypes = 1);
+RcppExport SEXP Cyclops_cyclopsModelData(SEXP pidSEXP, SEXP ySEXP, SEXP zSEXP, SEXP offsSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP, SEXP modelTypeNameSEXP, SEXP useTimeAsOffsetSEXP, SEXP numTypesSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -557,7 +588,8 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< SEXP >::type ix(ixSEXP );
         Rcpp::traits::input_parameter< const std::string& >::type modelTypeName(modelTypeNameSEXP );
         Rcpp::traits::input_parameter< bool >::type useTimeAsOffset(useTimeAsOffsetSEXP );
-        List __result = cyclopsModelData(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset);
+        Rcpp::traits::input_parameter< int >::type numTypes(numTypesSEXP );
+        List __result = cyclopsModelData(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset, numTypes);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
