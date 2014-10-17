@@ -131,7 +131,7 @@ test_that("Small multi-type Poisson with hierarchical prior", {
     
     cyclopsFitD <- fitCyclopsModel(dataPtrD, 
                                    prior = prior(c("normal","normal"), c(0.0001,10), graph = "type"),
-                                   control = control(noiseLevel = "noisy", maxIterations = 2000))
+                                   control = control(noiseLevel = "silent", maxIterations = 2000))
     
     cyclopsFitE <- fitCyclopsModel(dataPtrD, 
                                    prior = prior(c("normal","normal"), c(0.0001,0.0001), graph = "type"),
