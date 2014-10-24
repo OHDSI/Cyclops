@@ -54,7 +54,9 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 			priors::JointPriorPtr prior,
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error
-		) : modelSpecifics(specifics), jointPrior(prior), logger(_logger), error(_error) {
+		) : modelSpecifics(specifics), jointPrior(prior), 
+	        hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
+	        logger(_logger), error(_error) {
 	N = reader->getNumberOfPatients();
 	K = reader->getNumberOfRows();
 	J = reader->getNumberOfColumns();
@@ -62,7 +64,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	hXI = reader;
 	hY = reader->getYVector(); // TODO Delegate all data to ModelSpecifics
 //	hOffs = reader->getOffsetVector();
-	hPid = reader->getPidVector();
+	hPid = reader->getPidVector(); // TODO Delegate all data to ModelSpecifics
 
 	conditionId = reader->getConditionId();
 

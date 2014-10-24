@@ -13,10 +13,24 @@
 #include <algorithm>
 #include <numeric>
 
+#include <boost/iterator/permutation_iterator.hpp>
+#include <boost/iterator/transform_iterator.hpp>
+#include <boost/iterator/zip_iterator.hpp>
+
 #include "ModelSpecifics.h"
 #include "Iterators.h"
 
 #include "Recursions.hpp"
+
+#ifdef CYCLOPS_DEBUG_TIMING
+	#include <ctime>
+	namespace bsccs {
+		const std::string DenseIterator::name = "Den";
+		const std::string IndicatorIterator::name = "Ind";
+		const std::string SparseIterator::name = "Spa";
+		const std::string InterceptIterator::name = "Icp";
+	}
+#endif
 
 //#define USE_BIGNUM
 #define USE_LONG_DOUBLE
@@ -38,6 +52,8 @@ namespace bsccs {
     using std::endl;
 #endif
 
+#define NEW_LOOPS
+
 //template <class BaseModel,typename WeightType>
 //ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(
 //		const std::vector<real>& y,
@@ -49,11 +65,34 @@ template <class BaseModel,typename WeightType>
 ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
 	: AbstractModelSpecifics(input), BaseModel() {
 	// TODO Memory allocation here
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+	auto now = std::chrono::system_clock::now();
+	auto now_c = std::chrono::system_clock::to_time_t(now);
+	std::cout << std::endl << "Start: " << std::ctime(&now_c) << std::endl;
+#endif		
+	
+	
 }
 
 template <class BaseModel,typename WeightType>
 ModelSpecifics<BaseModel,WeightType>::~ModelSpecifics() {
 	// TODO Memory release here
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+// 	duration.resize(10);
+// 	std::fill(std::begin(duration), std::end(duration), 0.0);
+
+	std::cout << std::endl;
+	for (auto& d : duration) {
+		std::cout << d.first << " " << d.second << std::endl;	
+	}
+
+	auto now = std::chrono::system_clock::now();
+	auto now_c = std::chrono::system_clock::to_time_t(now);
+	std::cout << std::endl << "End:   " << std::ctime(&now_c) << std::endl;
+#endif			
+	
 }
 
 template <class BaseModel,typename WeightType>
@@ -287,6 +326,13 @@ void ModelSpecifics<BaseModel,WeightType>::getPredictiveEstimates(real* y, real*
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, double *ogradient,
 		double *ohessian, bool useWeights) {
+		
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = std::chrono::steady_clock::now();
+#endif		
+#endif
+		
 	// Run-time dispatch, so virtual call should not effect speed
 	if (useWeights) {
 		switch (hXI->getFormatType(index)) {
@@ -319,17 +365,88 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 				break;
 		}
 	}
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = std::chrono::steady_clock::now();	
+	///////////////////////////"
+	duration["compGradAndHess  "] += std::chrono::duration_cast<TimingUnits>(end - start).count();
+#endif	
+#endif
+	
 }
+
+#if 0
+template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
+void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
+ double *ohessian, Weights w) {
+ 
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = std::chrono::steady_clock::now();
+#endif		
+#endif	
+
+	real gradient = static_cast<real>(0);
+	real hessian = static_cast<real>(0);
+
+#ifdef NEW_LOOPS
+
+#else
+
+	IteratorType it(*(sparseIndices)[index], N);
+	
+	for (; it; ++it) {
+			const int i = it.index();
+					
+			
+			// Compile-time delegation
+				BaseModel::incrementGradientAndHessian(it,
+						w, // Signature-only, for iterator-type specialization
+						&gradient, &hessian, numerPid[i], numerPid2[i],
+						denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); 
+						// When function is in-lined, compiler will only use necessary arguments		
+			}
+#endif // NEW_LOOPS
+	
+	if (BaseModel::precomputeGradient) { // Compile-time switch
+		gradient -= hXjY[index];
+	}
+
+	if (BaseModel::precomputeHessian) { // Compile-time switch
+		hessian += static_cast<real>(2.0) * hXjX[index];
+	}	
+ 
+ 	*ogradient = static_cast<double>(gradient);
+	*ohessian = static_cast<double>(hessian);
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = std::chrono::steady_clock::now();	
+	///////////////////////////"
+	auto name = "compGradHess" + IteratorType::name + "  ";	
+	duration[name] += std::chrono::duration_cast<TimingUnits>(end - start).count();
+#endif
+#endif	
+	
+ }
+
+#else
 
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
 		double *ohessian, Weights w) {
+		
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = std::chrono::steady_clock::now();
+#endif		
+#endif		
+		
 	real gradient = static_cast<real>(0);
 	real hessian = static_cast<real>(0);
 
 	IteratorType it(*(sparseIndices)[index], N); // TODO How to create with different constructor signatures?
-
-//std::cout << "YOYOYO" << std::endl;
 
 	if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 		
@@ -375,7 +492,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			BaseModel::incrementGradientAndHessian(it,
 					w, // Signature-only, for iterator-type specialization
 					&gradient, &hessian, accNumerPid, accNumerPid2,
-					accDenomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
+					accDenomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); 
+					// When function is in-lined, compiler will only use necessary arguments
 #ifdef DEBUG_COX		
 			cerr << " -> g:" << gradient << " h:" << hessian << endl;	
 #endif
@@ -398,7 +516,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 					BaseModel::incrementGradientAndHessian(it,
 							w, // Signature-only, for iterator-type specialization
 							&gradient, &hessian, accNumerPid, accNumerPid2,
-							accDenomPid[i], hNWeight[i], static_cast<real>(0), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
+							accDenomPid[i], hNWeight[i], static_cast<real>(0), hXBeta[i], hY[i]); 
+							// When function is in-lined, compiler will only use necessary arguments
 #ifdef DEBUG_COX		
 			cerr << " -> g:" << gradient << " h:" << hessian << endl;	
 #endif
@@ -415,40 +534,10 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 				int numCases = hNWeight[i];
 				DenseView<IteratorType> x(IteratorType(*hXI, index), hNtoK[i], hNtoK[i+1]);
 				
-//				std::cerr << "Here " << hNtoK.size() << std::endl;			
+				std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], 
+													x, numSubjects, numCases, hY + hNtoK[i]);
 
-				std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases, hY + hNtoK[i]);
-
-// 				std::cerr << i << std::endl;
-// 				std::for_each(begin(value), end(value), [](DDouble d) {
-// 					std::cerr << d << std::endl;
-// 				});
-// //				exit(-1);
-// 				std::cerr << std::endl;
-// 				
-// 				if (index == 1) {
-// 					for (; x; ++x) {
-// 						std::cerr << " " << x.value();
-// 					}
-// 					std::cerr << std::endl;
-// 					auto it = offsExpXBeta.begin() + hNtoK[i];
-// 					for (int ii = 0; ii < numCases; ++ii) {					
-// 						std::cerr << " " << *(it + ii);
-// 					}
-// 					std::cerr << std::endl;
-// 					//exit(-1);
-// 				}
-
-
-				//MM
-				//real banana = (real)((value[1]*value[1])/(value[0]*value[0]) - value[4]*value[4]);
-				//real banana = (real)(pow(bigNum::div(value[1],value[0]).toDouble(), 2) - pow(value[4].toDouble(),2));
-		
-				//normal
-				using namespace sugar;
-								
-// 				gradient += (real)(value[3] - value[1]/value[0]);				
-// 				hessian += (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);				
+				using namespace sugar;											
 				gradient += (real)(value[1]/value[0] - value[3]);	
 				hessian += (real)(value[2]/value[0] - (value[1]/value[0]) * (value[1]/value[0]));	
 			} else {			
@@ -456,11 +545,12 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 				BaseModel::incrementGradientAndHessian(it,
 						w, // Signature-only, for iterator-type specialization
 						&gradient, &hessian, numerPid[i], numerPid2[i],
-						denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments		
+						denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); 
+						// When function is in-lined, compiler will only use necessary arguments		
 			}
 		}
 	}
-  // TODO Figure out how to handle these ...  do NOT pre-compute for ties????
+	
 	if (BaseModel::precomputeGradient) { // Compile-time switch
 		gradient -= hXjY[index];
 	}
@@ -471,7 +561,18 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = std::chrono::steady_clock::now();	
+	///////////////////////////"
+	auto name = "compGradHess" + IteratorType::name + "  ";	
+	duration[name] += std::chrono::duration_cast<TimingUnits>(end - start).count();
+#endif
+#endif		
+	
 }
+#endif
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeFisherInformation(int indexOne, int indexTwo,
@@ -638,6 +739,13 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = std::chrono::steady_clock::now();
+#endif
+#endif
+
 	// Run-time delegation
 	switch (hXI->getFormatType(index)) {
 		case INDICATOR : {
@@ -676,37 +784,185 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 			// throw error
 			//exit(-1);
 	}	
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = std::chrono::steady_clock::now();	
+	///////////////////////////"
+	duration["compNumForGrad   "] += std::chrono::duration_cast<TimingUnits>(end - start).count();;
+#endif
+#endif	
+	
 }
+
+namespace helper {
+    
+	template <class IteratorTag>
+    auto getRangeX(const CompressedDataMatrix& mat, const int index, IteratorTag) -> void {
+    	std::cerr << "Not yet implemented." << std::endl;
+    	std::exit(-1);
+    };
+    
+    auto getRangeX(const CompressedDataMatrix& mat, const int index, DenseTag) -> 
+            aux::zipper_range<
+	            decltype(boost::make_counting_iterator(0)),
+            	decltype(begin(mat.getDataVector(index)))            	
+            > {            	
+        
+        auto i = boost::make_counting_iterator(0); 
+        auto x = begin(mat.getDataVector(index));               
+		const size_t K = mat.getNumberOfRows();	
+        
+        return { 
+            boost::make_zip_iterator(
+                boost::make_tuple(i, x)),
+            boost::make_zip_iterator(
+                boost::make_tuple(i + K, x + K))            
+        };          
+    };   
+    
+    auto getRangeX(const CompressedDataMatrix& mat, const int index, SparseTag) -> 
+            aux::zipper_range<
+	            decltype(begin(mat.getCompressedColumnVector(index))),
+            	decltype(begin(mat.getDataVector(index)))            	
+            > {            	
+        
+        auto i = begin(mat.getCompressedColumnVector(index));  
+        auto x = begin(mat.getDataVector(index));             
+		const size_t K = mat.getNumberOfEntries(index);	
+        
+        return { 
+            boost::make_zip_iterator(
+                boost::make_tuple(i, x)),
+            boost::make_zip_iterator(
+                boost::make_tuple(i + K, x + K))            
+        };          
+    };     
+    
+    auto getRangeX(const CompressedDataMatrix& mat, const int index, IndicatorTag) -> 
+            aux::zipper_range<
+	            decltype(begin(mat.getCompressedColumnVector(index)))          	
+            > {            	
+        
+        auto i = begin(mat.getCompressedColumnVector(index));             
+		const size_t K = mat.getNumberOfEntries(index);	
+        
+        return { 
+            boost::make_zip_iterator(
+                boost::make_tuple(i)),
+            boost::make_zip_iterator(
+                boost::make_tuple(i + K))            
+        };          
+    }; 
+    
+} // namespace helper   
+
+
+namespace cyclops {
+
+	namespace detail {	
+		
+		template <typename InputIt, typename UnaryFunction, class Info>
+		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
+				Info& info) {
+				
+			const int nThreads = 4;			
+			const int minSize = 10000;			
+			
+			if (nThreads > 1 && std::distance(begin, end) >= minSize) {				  
+				std::vector<std::thread> workers(nThreads - 1);
+				size_t chuckSize = std::distance(begin, end) / nThreads;
+				size_t start = 0;
+				for (int i = 0; i < nThreads - 1; ++i, start += chuckSize) {
+					workers[i] = std::thread(
+						std::for_each<InputIt, UnaryFunction>,
+						begin + start, 
+						begin + start + chuckSize, 
+						function);
+				}
+				auto rtn = std::for_each(begin + start, end, function);
+				for (int i = 0; i < nThreads - 1; ++i) {
+					workers[i].join();
+				}
+				return rtn;
+			} else {				
+				return std::for_each(begin, end, function);
+			}
+		}
+    }
+
+	template <typename InputIt, typename UnaryFunction>
+	inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function,
+		SerialOnly) {				
+		return std::for_each(begin, end, function);
+	}
+
+	template <class InputIt, class UnaryFunction, class Info>
+	inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, Info& info) {		
+		return detail::for_each(first, last, f, info);
+	}
+	
+} // namespace cyclops
 
 template <class BaseModel,typename WeightType> template <class IteratorType>
 void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int index) {
-	IteratorType it(*hXI, index);
-	for (; it; ++it) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = std::chrono::steady_clock::now();
+#endif
+#endif
+			
+#ifdef NEW_LOOPS
+
+	auto range = helper::getRangeX(*hXI, index, typename IteratorType::tag());						
+
+	auto kernel = NumeratorForGradientKernel<BaseModel,IteratorType,real,int>(
+					begin(numerPid), begin(numerPid2), 
+					begin(offsExpXBeta), begin(hXBeta), 
+					begin(hY),
+					begin(hPid));
+					
+	cyclops::for_each(
+		range.begin(), range.end(),
+		kernel, SerialOnly());
+
+#else		
+	
+    IteratorType it(*hXI, index);
+    
+	for (; it; ++it) {	   
 		const int k = it.index();
 		incrementByGroup(numerPid, hPid, k,
 				BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
-		if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
+		if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {		
 			incrementByGroup(numerPid2, hPid, k,
 					BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]));
-		}
-		
-#ifdef DEBUG_COX			
-//			if (numerPid[BaseModel::getGroup(hPid, k)] > 0 && numerPid[BaseModel::getGroup(hPid, k)] < 1e-40) {
-				cerr << "Increment" << endl;
-				cerr << "hPid = " << hPid << ", k = " << k << ", index = " << BaseModel::getGroup(hPid, k) << endl;
-				cerr << BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]) <<  " "
-				<< it.value() << " " << offsExpXBeta[k] << " " << hXBeta[k] << " " << hY[k] << endl;
-//				exit(-1);
-//			}
-#endif		
-		
-		
-		
+		}		
 	}
+	
+#endif // NEW_LOOPS
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = std::chrono::steady_clock::now();	
+	///////////////////////////"
+	auto name = "compNumGrad" + IteratorType::name + "   ";
+	duration[name] += std::chrono::duration_cast<TimingUnits>(end - start).count();
+#endif
+#endif	
+
 }
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index, bool useWeights) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = std::chrono::steady_clock::now();
+#endif
+#endif
+
 	// Run-time dispatch to implementation depending on covariate FormatType
 	switch(hXI->getFormatType(index)) {
 		case INDICATOR :
@@ -724,11 +980,41 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index
 		default : break;
 			// throw error
 			//exit(-1);
-	}	
+	}
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = std::chrono::steady_clock::now();	
+	///////////////////////////"
+	duration["updateXBeta      "] += std::chrono::duration_cast<TimingUnits>(end - start).count();
+#endif
+#endif
+		
 }
 
 template <class BaseModel,typename WeightType> template <class IteratorType>
 inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta, int index, bool useWeights) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = std::chrono::steady_clock::now();
+#endif
+#endif
+
+#ifdef NEW_LOOPS
+
+	auto range = helper::getRangeX(*hXI, index, typename IteratorType::tag());						
+
+	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,real,int>(
+					realDelta, begin(offsExpXBeta), begin(hXBeta), begin(hY), begin(hPid),
+					begin(denomPid), begin(hOffs));
+					
+	cyclops::for_each(
+		range.begin(), range.end(),
+		kernel, info);
+		
+#else
+
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
@@ -740,11 +1026,30 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 			incrementByGroup(denomPid, hPid, k, (newEntry - oldEntry));
 		}
 	}
+
+#endif	
+	
 	computeAccumlatedNumerDenom(useWeights);
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = std::chrono::steady_clock::now();	
+	///////////////////////////"
+	auto name = "updateXBeta" + IteratorType::name + "   ";
+	duration[name] += std::chrono::duration_cast<TimingUnits>(end - start).count();
+#endif
+#endif	
+	
 }
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWeights) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+	auto start = std::chrono::steady_clock::now();
+#endif
+
+
 	if (BaseModel::likelihoodHasDenominator) {
 		fillVector(denomPid, N, BaseModel::getDenomNullValue());
 		for (size_t k = 0; k < K; ++k) {
@@ -760,6 +1065,13 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 		cerr << denomPid[i] << " " << accDenomPid[i] << " " << numerPid[i] << endl;
 	}
 #endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+	auto end = std::chrono::steady_clock::now();	
+	///////////////////////////"
+	duration["compRS           "] += std::chrono::duration_cast<TimingUnits>(end - start).count();;
+#endif
+
 }
 
 template <class BaseModel,typename WeightType>

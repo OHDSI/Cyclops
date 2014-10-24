@@ -12,10 +12,164 @@
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
+#include <thread>
+
+#define CYCLOPS_DEBUG_TIMING
+//#define CYCLOPS_DEBUG_TIMING_LOW
+
+#ifdef CYCLOPS_DEBUG_TIMING
+	#include <chrono>
+	using TimingUnits = std::chrono::nanoseconds;
+#endif
+
+#include <type_traits>
+#include <iterator>
+#include <boost/tuple/tuple.hpp>
+//#include <boost/iterator/zip_iterator.hpp>
+#include <boost/range/iterator_range.hpp>
+
+#include <boost/iterator/permutation_iterator.hpp>
+#include <boost/iterator/transform_iterator.hpp>
+#include <boost/iterator/zip_iterator.hpp>
+#include <boost/iterator/counting_iterator.hpp>
 
 #include "AbstractModelSpecifics.h"
+#include "Iterators.h"
 
 namespace bsccs {
+
+// http://liveworkspace.org/code/d52cf97bc56f5526292615659ea110c0
+// helper namespace to ensure correct functionality
+namespace aux{
+namespace adl{
+using std::begin;
+using std::end;
+
+template<class T>
+auto do_begin(T& v) -> decltype(begin(v));
+
+template<class T>
+auto do_end(T& v) -> decltype(end(v));
+
+template<class T>
+T* do_begin(T* v);
+
+template<class T>
+T* do_end(T* v);
+
+} // adl::
+
+template<class... Its>
+using zipper_it = boost::zip_iterator<boost::tuple<Its...>>;
+
+template<class... Its>
+using zipper_range = boost::iterator_range<zipper_it<Its...>>;
+
+template<class T>
+T const& as_const(T const& v){ return v; }
+
+// we don't want temporary containers
+// these are helpers to ensure that
+template<class Head, class... Tail>
+struct any_of
+  : std::integral_constant<bool, Head::value || any_of<Tail...>::value>{};
+
+template<class Head>
+struct any_of<Head> : std::integral_constant<bool, Head::value>{};
+
+template<class C>
+struct not_ : std::integral_constant<bool, !C::value>{};
+
+template<class... Conts>
+struct any_temporary : any_of<not_<std::is_reference<Conts>>...>{};
+} // aux::
+
+template <class T>
+T* begin(T* v) { return v; }
+
+template <class T>
+T* end(T* v) { return v; }
+
+template<class... Conts>
+auto zip_begin(Conts&&... conts)
+  -> aux::zipper_it<decltype(aux::adl::do_begin(conts))...>
+{
+  static_assert(!aux::any_temporary<Conts...>::value,
+      "One or more temporary containers passed to zip_begin");
+  using std::begin;
+  return {boost::make_tuple(begin(conts)...)};
+}
+
+template <class... Conts>
+auto zipper(Conts&&... conts) -> aux::zipper_it<Conts...> {
+    return { boost::make_tuple(conts...) };
+}
+
+template<class... Conts>
+auto zip_end(Conts&&... conts)
+  -> aux::zipper_it<decltype(aux::adl::do_end(conts))...>
+{
+  static_assert(!aux::any_temporary<Conts...>::value,
+      "One or more temporary containers passed to zip_end");
+  using std::end;
+  return {boost::make_tuple(end(conts)...)};
+}
+
+template<class... Conts>
+auto zip_range(Conts&&... conts)
+  -> boost::iterator_range<decltype(zip_begin(conts...))>
+{
+  static_assert(!aux::any_temporary<Conts...>::value,
+      "One or more temporary containers passed to zip_range");
+  return {zip_begin(conts...), zip_end(conts...)};
+}
+
+// for const access
+template<class... Conts>
+auto zip_cbegin(Conts&&... conts)
+  -> decltype(zip_begin(aux::as_const(conts)...))
+{
+  static_assert(!aux::any_temporary<Conts...>::value,
+      "One or more temporary containers passed to zip_cbegin");
+  using std::begin;
+  return zip_begin(aux::as_const(conts)...);
+}
+
+template<class... Conts>
+auto zip_cend(Conts&&... conts)
+  -> decltype(zip_end(aux::as_const(conts)...))
+{
+  static_assert(!aux::any_temporary<Conts...>::value,
+      "One or more temporary containers passed to zip_cend");
+  using std::end;
+  return zip_end(aux::as_const(conts)...);
+}
+
+template<class... Conts>
+auto zip_crange(Conts&&... conts)
+  -> decltype(zip_range(aux::as_const(conts)...))
+{
+  static_assert(!aux::any_temporary<Conts...>::value,
+      "One or more temporary containers passed to zip_crange");
+  return zip_range(aux::as_const(conts)...);
+}
+
+// Helper functions until we can remove raw_pointers
+	
+inline real* begin(real* x) { return x; }
+inline int* begin(int* x) {  return x; }
+
+inline real* begin(std::vector<real>& x) { return x.data(); }
+inline int* begin(std::vector<int>& x) { return x.data(); }
+
+struct OneValue { };
+	
+template <class T>
+inline T operator*(const T& lhs, const OneValue& rhs) { return lhs; }
+
+struct ParallelInfo { };
+
+struct SerialOnly { };
 
 class SparseIterator; // forward declaration
 
@@ -113,6 +267,13 @@ private:
 	struct UnweightedOperation {
 		const static bool isWeighted = false;
 	} unweighted;
+	
+	ParallelInfo info;
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+//	std::vector<double> duration;
+	std::map<std::string,long long> duration;
+#endif	
 
 };
 
@@ -226,6 +387,116 @@ struct NoFixedLikelihoodTerms {
 	}
 };
 
+template <class IteratorType, class RealType>
+struct TupleXGetter {
+	using XTuple = typename IteratorType::XTuple;	
+	using ReturnType = RealType;
+	
+	inline ReturnType operator()(XTuple& tuple) const {
+		return boost::get<1>(tuple);
+	}
+};
+
+template <class RealType>
+struct TupleXGetter<IndicatorIterator, RealType> {
+	using XTuple = IndicatorIterator::XTuple;
+	using ReturnType = OneValue;
+	
+// 	inline RealType operator()(XTuple& tuple) const {
+// 		return static_cast<RealType>(1.0);
+// 	}
+	
+	inline ReturnType operator()(XTuple& tuple) const {
+		return OneValue();
+	}
+};
+
+template <class BaseModel, class IteratorType, class RealType, class IntType>
+struct NumeratorForGradientKernel : private BaseModel {
+
+	using XTuple = typename IteratorType::XTuple;
+		
+	NumeratorForGradientKernel(RealType* _numerator, RealType* _numerator2,
+			RealType* _expXBeta, RealType* _xBeta, RealType* _y, IntType* _pid) : numerator(_numerator),
+			numerator2(_numerator2), expXBeta(_expXBeta), xBeta(_xBeta), y(_y), pid(_pid) { }	
+	
+	void operator()(XTuple tuple) {
+
+		const auto k = getK(tuple);
+		const auto x = getX(tuple);	
+						
+		numerator[BaseModel::getGroup(pid, k)] += BaseModel::gradientNumeratorContrib(x, expXBeta[k], xBeta[k], y[k]);
+		if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {		
+			numerator2[BaseModel::getGroup(pid, k)] += BaseModel::gradientNumerator2Contrib(x, expXBeta[k]);
+		}		
+	}
+		
+private:	
+	inline auto getX(XTuple& tuple) const -> typename TupleXGetter<IteratorType, RealType>::ReturnType {
+		return TupleXGetter<IteratorType, RealType>()(tuple);
+	}
+	
+	inline IntType getK(XTuple& tuple) const {
+		return boost::get<0>(tuple);
+	}	
+			
+	RealType* numerator;
+	RealType* numerator2;
+	RealType* expXBeta;
+	RealType* xBeta;
+	RealType* y;
+	IntType* pid;			
+};
+
+template <class BaseModel, class IteratorType, class RealType, class IntType>
+struct UpdateXBetaKernel : private BaseModel {
+
+	using XTuple = typename IteratorType::XTuple;
+		
+	UpdateXBetaKernel(RealType _delta,
+			RealType* _expXBeta, RealType* _xBeta, RealType* _y, IntType* _pid, 
+			RealType* _denominator, RealType* _offs) 
+			: delta(_delta), expXBeta(_expXBeta), xBeta(_xBeta), y(_y), pid(_pid), 
+			  denominator(_denominator), offs(_offs) { }	
+	
+	void operator()(XTuple tuple) {
+
+		const auto k = getK(tuple);
+		const auto x = getX(tuple);	
+						
+		xBeta[k] += delta * x;
+		
+		// Update denominators as well
+		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+			if (false) {		
+				real oldEntry = expXBeta[k];
+				real newEntry = expXBeta[k] = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
+				denominator[BaseModel::getGroup(pid, k)] += (newEntry - oldEntry);	
+			} else {			
+				denominator[k] = expXBeta[k] = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);							
+			}
+		}
+	}
+		
+private:
+	// TODO remove code duplication with struct above	
+	inline auto getX(XTuple& tuple) const -> typename TupleXGetter<IteratorType, RealType>::ReturnType {
+		return TupleXGetter<IteratorType, RealType>()(tuple);
+	}
+	
+	inline IntType getK(XTuple& tuple) const {
+		return boost::get<0>(tuple);
+	}	
+			
+	RealType delta;	
+	RealType* expXBeta;
+	RealType* xBeta;
+	RealType* y;
+	IntType* pid;	
+	RealType* denominator;
+	RealType* offs;		
+};
+
 struct GLMProjection {
 public:
 	const static bool precomputeGradient = true; // XjY
@@ -234,18 +505,21 @@ public:
 
 	const static bool hasTwoNumeratorTerms = true;
 
-	real gradientNumeratorContrib(real x, real predictor, real xBeta, real y) {
+	template <class XType>
+	real gradientNumeratorContrib(XType x, real predictor, real xBeta, real y) {
+//		using namespace indicator_sugar;
 		return predictor * x;
 	}
+	
 
 	real logLikeNumeratorContrib(int yi, real xBetai) {
 		return yi * xBetai;
 	}
 
-	real gradientNumerator2Contrib(real x, real predictor) {
+	template <class XType>
+	real gradientNumerator2Contrib(XType x, real predictor) {
 		return predictor * x * x;
 	}
-
 };
 
 template <typename WeightType>
@@ -801,16 +1075,40 @@ public:
 		return - (residual * residual);
 	}
 
-	real gradientNumeratorContrib(real x, real predictor, real xBeta, real y) {
-			return static_cast<real>(2) * x * (xBeta - y);
+	template <class XType>
+	real gradientNumeratorContrib(XType x, real predictor, real xBeta, real y) {
+			return static_cast<real>(2) * (xBeta - y) * x;
 	}
 
-	real gradientNumerator2Contrib(real x, real predictor) {
+	template <class XType>
+	real gradientNumerator2Contrib(XType x, real predictor) {
 // 		std::cerr << "Error!" << std::endl;
 // 		exit(-1);
         throw new std::logic_error("Not model-specific");
 		return static_cast<real>(0);
 	}
+	
+// 	struct kernelNumeratorForGradient {
+// 	
+// 	    void operator()(GenericIterators::NumeratorForGradientTuple x) {				
+// 			using boost::get;
+// 						
+// 			get<4>(x) += gradientNumeratorContrib (get<0>(x), get<1>(x), 
+// 			                    get<2>(x), get<3>(x));		
+// 			get<5>(x) += gradientNumerator2Contrib(get<0>(x), get<1>(x));
+// 			// TODO
+// 		}	
+// 				
+// // 	    void operator()(GenericIterators::NumeratorForGradientTupleIndicator x) {				
+// // 			using boost::get;
+// // 						
+// // 			get<3>(x) += gradientNumeratorContrib (1.0, get<0>(x), 
+// // 			                    get<1>(x), get<2>(x));		
+// // 			get<4>(x) += gradientNumerator2Contrib(1.0, get<0>(x));
+// // 			// TODO
+// // 		}					
+// 	};	
+	
 
 	template <class IteratorType, class Weights>
 	void incrementFisherInformation(

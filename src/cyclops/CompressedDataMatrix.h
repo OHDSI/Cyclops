@@ -67,6 +67,10 @@ public:
 		return static_cast<real*>(data->data());
 	}
 	
+	std::vector<real>& getDataVector() const {
+		return *data;
+	}
+	
 	template <typename Function> 
 	void transform(Function f) {
 	    std::transform(data->begin(), data->end(), data->begin(), f);
@@ -226,6 +230,8 @@ public:
 	void addToColumnVector(int column, IntVector addEntries) const;
 
 	real* getDataVector(int column) const;
+	
+	std::vector<real>& getDataVectorSTL(int column) const;
 
 	void getDataRow(int row, real* x) const;
 	CompressedDataMatrix* transpose();

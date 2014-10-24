@@ -89,6 +89,11 @@ public:
 //	static bsccs::shared_ptr<AbstractModelSpecifics> factory(const ModelType modelType, const ModelData& modelData);
 	
 	static AbstractModelSpecifics* factory(const ModelType modelType, const ModelData& modelData);
+	
+	// TODO Remove the following
+	RealVector& getXBeta() { return hXBeta; }
+	
+	RealVector& getXBetaSave() {  return hXBetaSave; }
 
 protected:
 
@@ -138,8 +143,12 @@ protected:
 //	int** hXColumnRowIndicators; // J-vector
 
 //	real* hBeta;
-	real* hXBeta;
-	real* hXBetaSave;
+// 	real* hXBeta;
+// 	real* hXBetaSave;
+	
+	RealVector hXBeta; // TODO Delegate to ModelSpecifics
+	RealVector hXBetaSave; // Delegate	
+	
 //	real* hDelta;
 
 	size_t N; // Number of patients

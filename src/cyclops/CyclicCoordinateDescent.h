@@ -312,8 +312,9 @@ protected:
 	typedef std::vector<real> RealVector;
 	typedef std::vector<double> DoubleVector;
 	DoubleVector hBeta;
-	RealVector hXBeta; // TODO Delegate to ModelSpecifics
-	RealVector hXBetaSave; // Delegate
+	
+	RealVector& hXBeta; // TODO Delegate to ModelSpecifics
+	RealVector& hXBetaSave; // Delegate
 //	double* hDelta;
 	DoubleVector hDelta;
 	std::vector<bool> fixBeta;

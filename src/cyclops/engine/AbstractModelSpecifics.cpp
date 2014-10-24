@@ -168,7 +168,8 @@ void AbstractModelSpecifics::initialize(
 	
 	offsExpXBeta.resize(K);
 
-	hXBeta = iXBeta;
+// 	hXBeta = iXBeta;
+    hXBeta.resize(K);
 //	hOffs = iOffs;
 
 //	hBeta = iBeta;
