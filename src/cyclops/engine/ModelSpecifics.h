@@ -409,6 +409,41 @@ struct TupleXGetter<IndicatorIterator, RealType> {
 	inline ReturnType operator()(XTuple& tuple) const {
 		return OneValue();
 	}
+}; 
+
+// template <class RealType>
+// std::pair<RealType, RealType> operator+(
+//         const std::pair<RealType, RealType>& lhs,
+//         const std::pair<RealType, RealType>& rhs) {
+//         
+//     return { lhs.first + rhs.first, lhs.second + rhs.second };
+// }
+
+template <class BaseModel, //class IteratorType, 
+class RealType, class IntType>
+struct GradientAndHessianKernel : 
+public std::unary_function<const IntType&, std::complex<RealType> >,
+
+private BaseModel {
+
+  //  typedef std::complex<RealType> type;
+
+    GradientAndHessianKernel(RealType* _numerator, RealType* _numerator2,
+            RealType* _denominator, RealType* _weight, RealType* _xBeta, RealType* _y) 
+            : numerator(_numerator), numerator2(_numerator2), denominator(_denominator),
+              weight(_weight), xBeta(_xBeta), y(_y) { }
+    
+    std::complex<RealType> operator()(const IntType& i) {
+        return std::complex<RealType>(1.0, 1.0);        
+    }
+    
+private:
+    RealType* numerator;
+    RealType* numerator2;
+    RealType* denominator;
+    RealType* weight;
+    RealType* xBeta;
+    RealType* y;
 };
 
 template <class BaseModel, class IteratorType, class RealType, class IntType>

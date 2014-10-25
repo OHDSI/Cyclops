@@ -54,6 +54,144 @@ namespace bsccs {
 
 #define NEW_LOOPS
 
+namespace helper {
+
+    template <class IteratorTag>
+    auto getRangeDenominator(const IntVectorPtr& mat, const int N, IteratorTag) ->            
+            boost::iterator_range<
+                decltype(boost::make_counting_iterator(0))
+            > {
+        return {
+            boost::make_counting_iterator(0),
+            boost::make_counting_iterator(N)        
+        };  
+    }
+    
+    auto getRangeDenominator(const IntVectorPtr& mat, const int N, DenseTag) ->
+            boost::iterator_range<      
+                decltype(boost::make_counting_iterator(0))
+            > {
+        return {
+            boost::make_counting_iterator(0),
+            boost::make_counting_iterator(N)        
+        };            
+    }
+    
+    
+	template <class IteratorTag>
+    auto getRangeX(const CompressedDataMatrix& mat, const int index, IteratorTag) -> void {
+    	std::cerr << "Not yet implemented." << std::endl;
+    	std::exit(-1);
+    };
+        
+    auto getRangeX(const CompressedDataMatrix& mat, const int index, DenseTag) -> 
+            aux::zipper_range<
+	            decltype(boost::make_counting_iterator(0)),
+            	decltype(begin(mat.getDataVector(index)))            	
+            > {            	
+        
+        auto i = boost::make_counting_iterator(0); 
+        auto x = begin(mat.getDataVector(index));               
+		const size_t K = mat.getNumberOfRows();	
+        
+        return { 
+            boost::make_zip_iterator(
+                boost::make_tuple(i, x)),
+            boost::make_zip_iterator(
+                boost::make_tuple(i + K, x + K))            
+        };          
+    };   
+    
+    auto getRangeX(const CompressedDataMatrix& mat, const int index, SparseTag) -> 
+            aux::zipper_range<
+	            decltype(begin(mat.getCompressedColumnVector(index))),
+            	decltype(begin(mat.getDataVector(index)))            	
+            > {            	
+        
+        auto i = begin(mat.getCompressedColumnVector(index));  
+        auto x = begin(mat.getDataVector(index));             
+		const size_t K = mat.getNumberOfEntries(index);	
+        
+        return { 
+            boost::make_zip_iterator(
+                boost::make_tuple(i, x)),
+            boost::make_zip_iterator(
+                boost::make_tuple(i + K, x + K))            
+        };          
+    };     
+    
+    auto getRangeX(const CompressedDataMatrix& mat, const int index, IndicatorTag) -> 
+            aux::zipper_range<
+	            decltype(begin(mat.getCompressedColumnVector(index)))          	
+            > {            	
+        
+        auto i = begin(mat.getCompressedColumnVector(index));             
+		const size_t K = mat.getNumberOfEntries(index);	
+        
+        return { 
+            boost::make_zip_iterator(
+                boost::make_tuple(i)),
+            boost::make_zip_iterator(
+                boost::make_tuple(i + K))            
+        };          
+    }; 
+    
+} // namespace helper   
+
+
+namespace cyclops {
+
+	namespace detail {	
+		
+		template <typename InputIt, typename UnaryFunction, class Info>
+		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
+				Info& info) {
+				
+			const int nThreads = 4;			
+			const int minSize = 10000;			
+			
+			if (nThreads > 1 && std::distance(begin, end) >= minSize) {				  
+				std::vector<std::thread> workers(nThreads - 1);
+				size_t chuckSize = std::distance(begin, end) / nThreads;
+				size_t start = 0;
+				for (int i = 0; i < nThreads - 1; ++i, start += chuckSize) {
+					workers[i] = std::thread(
+						std::for_each<InputIt, UnaryFunction>,
+						begin + start, 
+						begin + start + chuckSize, 
+						function);
+				}
+				auto rtn = std::for_each(begin + start, end, function);
+				for (int i = 0; i < nThreads - 1; ++i) {
+					workers[i].join();
+				}
+				return rtn;
+			} else {				
+				return std::for_each(begin, end, function);
+			}
+		}
+    }
+
+	template <typename InputIt, typename UnaryFunction>
+	inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function,
+		SerialOnly) {				
+		return std::for_each(begin, end, function);
+	}
+		
+	template <class InputIt, class UnaryFunction, class Info>
+	inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, Info& info) {		
+		return detail::for_each(first, last, f, info);
+	}
+	
+	template <class InputIt, class ResultType>
+	inline ResultType reduce(InputIt begin, InputIt end, 
+	        ResultType result, SerialOnly) {
+	    return std::accumulate(begin, end, result);
+	}
+	
+} // namespace cyclops
+
+
 //template <class BaseModel,typename WeightType>
 //ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(
 //		const std::vector<real>& y,
@@ -376,7 +514,16 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 	
 }
 
-#if 0
+
+template <class RealType>
+std::pair<RealType, RealType> operator+(
+        const std::pair<RealType, RealType>& lhs,
+        const std::pair<RealType, RealType>& rhs) {
+        
+    return { lhs.first + rhs.first, lhs.second + rhs.second };
+}
+
+#if 1
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
  double *ohessian, Weights w) {
@@ -391,6 +538,44 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	real hessian = static_cast<real>(0);
 
 #ifdef NEW_LOOPS
+
+//     if (*(sparseIndices)[index] == nullptr) {
+//         std::cout << "null" << std::endl;
+//     } else {
+//         if (IteratorType::isSparse || IteratorType::isIndicator) {
+//         const std::vector<int> i = *(sparseIndices)[index];
+//         std::cout << "l = " << i.size() << std::endl;
+//     }
+
+    auto range = helper::getRangeDenominator(sparseIndices[index], N, typename IteratorType::tag());
+    
+    auto kernel = GradientAndHessianKernel<BaseModel, 
+    //IteratorType, 
+    real, int>(
+                        begin(numerPid), begin(numerPid2), begin(denomPid), 
+                        begin(hNWeight), begin(hXBeta), begin(hY));
+    
+//     std::pair<real, real> result = cyclops::accumulate(
+//         range.begin(), range.end(), 
+//         kernel, std::pair<real,real>(0.0, 0.0), SerialOnly());  
+
+
+    auto k = [&](const int i) {
+        return std::complex<double>(1.0,1.0);
+    };
+
+    auto b = boost::make_transform_iterator(range.begin(), kernel);
+    auto e = boost::make_transform_iterator(range.end(), kernel);
+
+    cyclops::reduce(
+//         boost::make_transform_iterator(range.begin(), kernel),
+//         boost::make_transform_iterator(range.end(), kernel),
+        b, e,
+//         0.0,
+        std::complex<real>(0,0),         
+        SerialOnly());  
+           
+    std::cout << std::distance(range.begin(), range.end());
 
 #else
 
@@ -794,115 +979,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 #endif	
 	
 }
-
-namespace helper {
-    
-	template <class IteratorTag>
-    auto getRangeX(const CompressedDataMatrix& mat, const int index, IteratorTag) -> void {
-    	std::cerr << "Not yet implemented." << std::endl;
-    	std::exit(-1);
-    };
-    
-    auto getRangeX(const CompressedDataMatrix& mat, const int index, DenseTag) -> 
-            aux::zipper_range<
-	            decltype(boost::make_counting_iterator(0)),
-            	decltype(begin(mat.getDataVector(index)))            	
-            > {            	
-        
-        auto i = boost::make_counting_iterator(0); 
-        auto x = begin(mat.getDataVector(index));               
-		const size_t K = mat.getNumberOfRows();	
-        
-        return { 
-            boost::make_zip_iterator(
-                boost::make_tuple(i, x)),
-            boost::make_zip_iterator(
-                boost::make_tuple(i + K, x + K))            
-        };          
-    };   
-    
-    auto getRangeX(const CompressedDataMatrix& mat, const int index, SparseTag) -> 
-            aux::zipper_range<
-	            decltype(begin(mat.getCompressedColumnVector(index))),
-            	decltype(begin(mat.getDataVector(index)))            	
-            > {            	
-        
-        auto i = begin(mat.getCompressedColumnVector(index));  
-        auto x = begin(mat.getDataVector(index));             
-		const size_t K = mat.getNumberOfEntries(index);	
-        
-        return { 
-            boost::make_zip_iterator(
-                boost::make_tuple(i, x)),
-            boost::make_zip_iterator(
-                boost::make_tuple(i + K, x + K))            
-        };          
-    };     
-    
-    auto getRangeX(const CompressedDataMatrix& mat, const int index, IndicatorTag) -> 
-            aux::zipper_range<
-	            decltype(begin(mat.getCompressedColumnVector(index)))          	
-            > {            	
-        
-        auto i = begin(mat.getCompressedColumnVector(index));             
-		const size_t K = mat.getNumberOfEntries(index);	
-        
-        return { 
-            boost::make_zip_iterator(
-                boost::make_tuple(i)),
-            boost::make_zip_iterator(
-                boost::make_tuple(i + K))            
-        };          
-    }; 
-    
-} // namespace helper   
-
-
-namespace cyclops {
-
-	namespace detail {	
-		
-		template <typename InputIt, typename UnaryFunction, class Info>
-		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
-				Info& info) {
-				
-			const int nThreads = 4;			
-			const int minSize = 10000;			
-			
-			if (nThreads > 1 && std::distance(begin, end) >= minSize) {				  
-				std::vector<std::thread> workers(nThreads - 1);
-				size_t chuckSize = std::distance(begin, end) / nThreads;
-				size_t start = 0;
-				for (int i = 0; i < nThreads - 1; ++i, start += chuckSize) {
-					workers[i] = std::thread(
-						std::for_each<InputIt, UnaryFunction>,
-						begin + start, 
-						begin + start + chuckSize, 
-						function);
-				}
-				auto rtn = std::for_each(begin + start, end, function);
-				for (int i = 0; i < nThreads - 1; ++i) {
-					workers[i].join();
-				}
-				return rtn;
-			} else {				
-				return std::for_each(begin, end, function);
-			}
-		}
-    }
-
-	template <typename InputIt, typename UnaryFunction>
-	inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function,
-		SerialOnly) {				
-		return std::for_each(begin, end, function);
-	}
-
-	template <class InputIt, class UnaryFunction, class Info>
-	inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, Info& info) {		
-		return detail::for_each(first, last, f, info);
-	}
-	
-} // namespace cyclops
 
 template <class BaseModel,typename WeightType> template <class IteratorType>
 void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int index) {
