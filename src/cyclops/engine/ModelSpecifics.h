@@ -219,6 +219,8 @@ protected:
 	bool initializeAccumulationVectors(void);
 	
 	bool hasResetableAccumulators(void);
+	
+	void printTiming(void);
 
 private:
 	template <class IteratorType, class Weights>

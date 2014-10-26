@@ -627,6 +627,8 @@ void CyclicCoordinateDescent::update(
 	}
 	lastIterationCount = iteration;
 	updateCount += 1;
+	
+	modelSpecifics.printTiming();
 
 	fisherInformationKnown = false;
 	varianceKnown = false;

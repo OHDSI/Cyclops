@@ -213,18 +213,26 @@ ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
 	
 }
 
-template <class BaseModel,typename WeightType>
-ModelSpecifics<BaseModel,WeightType>::~ModelSpecifics() {
-	// TODO Memory release here
-	
+template <class BaseModel, typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::printTiming() {
+
 #ifdef CYCLOPS_DEBUG_TIMING
-// 	duration.resize(10);
-// 	std::fill(std::begin(duration), std::end(duration), 0.0);
 
 	std::cout << std::endl;
 	for (auto& d : duration) {
 		std::cout << d.first << " " << d.second << std::endl;	
 	}
+	
+#endif
+}
+
+template <class BaseModel,typename WeightType>
+ModelSpecifics<BaseModel,WeightType>::~ModelSpecifics() {
+	// TODO Memory release here
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+
+    printTiming();
 
 	auto now = std::chrono::system_clock::now();
 	auto now_c = std::chrono::system_clock::to_time_t(now);
@@ -523,7 +531,7 @@ std::pair<RealType, RealType> operator+(
     return { lhs.first + rhs.first, lhs.second + rhs.second };
 }
 
-#if 1
+#if 0
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
  double *ohessian, Weights w) {
