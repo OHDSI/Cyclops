@@ -419,23 +419,60 @@ struct TupleXGetter<IndicatorIterator, RealType> {
 //     return { lhs.first + rhs.first, lhs.second + rhs.second };
 // }
 
-template <class BaseModel, //class IteratorType, 
-class RealType, class IntType>
-struct GradientAndHessianKernel : 
-public std::unary_function<const IntType&, std::complex<RealType> >,
+template <typename T>
+using Fraction = std::complex<T>;
 
-private BaseModel {
+template <class BaseModel, class IteratorType, class WeightOperationType,
+class RealType, class IntType>
+struct AccumulateGradientAndHessianKernel : private BaseModel {
 
   //  typedef std::complex<RealType> type;
 
-    GradientAndHessianKernel(RealType* _numerator, RealType* _numerator2,
+    AccumulateGradientAndHessianKernel(RealType* _numerator, RealType* _numerator2,
             RealType* _denominator, RealType* _weight, RealType* _xBeta, RealType* _y) 
             : numerator(_numerator), numerator2(_numerator2), denominator(_denominator),
               weight(_weight), xBeta(_xBeta), y(_y) { }
     
-    std::complex<RealType> operator()(const IntType& i) {
-        return std::complex<RealType>(1.0, 1.0);        
+    Fraction<RealType> operator()(Fraction<RealType>& lhs, const IntType& i) {
+    
+        const RealType g = numerator[i] / denominator[i];
+        
+        const RealType gradient = 
+            (WeightOperationType::isWeighted) ? weight[i] * g : g;
+        
+        const RealType hessian =         
+            (IteratorType::isIndicator) ?
+                (WeightOperationType::isWeighted) ?
+                    weight[i] * g * (static_cast<RealType>(1.0) - g) :
+                    g * (static_cast<RealType>(1.0) - g) 
+                :
+                (WeightOperationType::isWeighted) ?
+                    weight[i] * (numerator2[i] / denominator[i] - g * g) :
+                    (numerator2[i] / denominator[i] - g * g);
+                                                    
+        return { lhs.real() + gradient, lhs.imag() + hessian };        
     }
+    
+// 		const real g = numer / denom;
+// 		if (Weights::isWeighted) {
+// 			*gradient += weight * g;
+// 		} else {
+// 			*gradient += g;
+// 		}
+// 		if (IteratorType::isIndicator) {
+// 			if (Weights::isWeighted) {
+// 				*hessian += weight * g * (static_cast<real>(1.0) - g);
+// 			} else {
+// 				*hessian += g * (static_cast<real>(1.0) - g);
+// 			}
+// 		} else {
+// 			if (Weights::isWeighted) {
+// 				*hessian += weight * (numer2 / denom - g * g); // Bounded by x_j^2
+// 			} else {
+// 				*hessian += (numer2 / denom - g * g); // Bounded by x_j^2
+// 			}
+// 		}
+// 	}      
     
 private:
     RealType* numerator;

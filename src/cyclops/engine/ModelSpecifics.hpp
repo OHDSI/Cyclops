@@ -548,34 +548,27 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 //     }
 
     auto range = helper::getRangeDenominator(sparseIndices[index], N, typename IteratorType::tag());
-    
-    auto kernel = GradientAndHessianKernel<BaseModel, 
-    //IteratorType, 
-    real, int>(
+                        
+    auto kernel = AccumulateGradientAndHessianKernel<BaseModel, 
+    IteratorType, Weights,
+                    real, int>(
                         begin(numerPid), begin(numerPid2), begin(denomPid), 
                         begin(hNWeight), begin(hXBeta), begin(hY));
-    
-//     std::pair<real, real> result = cyclops::accumulate(
-//         range.begin(), range.end(), 
-//         kernel, std::pair<real,real>(0.0, 0.0), SerialOnly());  
+                            
+    Fraction<real> result = std::accumulate(range.begin(), range.end(), Fraction<real>(0,0), kernel);
 
-
-    auto k = [&](const int i) {
-        return std::complex<double>(1.0,1.0);
-    };
-
-    auto b = boost::make_transform_iterator(range.begin(), kernel);
-    auto e = boost::make_transform_iterator(range.end(), kernel);
-
-    cyclops::reduce(
-//         boost::make_transform_iterator(range.begin(), kernel),
-//         boost::make_transform_iterator(range.end(), kernel),
-        b, e,
-//         0.0,
-        std::complex<real>(0,0),         
-        SerialOnly());  
+    gradient = result.real();
+    hessian = result.imag();
+// 
+//     cyclops::reduce(
+// //         boost::make_transform_iterator(range.begin(), kernel),
+// //         boost::make_transform_iterator(range.end(), kernel),
+//         b, e,
+// //         0.0,
+//         std::complex<real>(0,0),         
+//         SerialOnly());  
            
-    std::cout << std::distance(range.begin(), range.end());
+    std::cout << std::distance(range.begin(), range.end()) << " " << result << std::endl;
 
 #else
 
