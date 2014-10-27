@@ -14,13 +14,14 @@ find_path(BOOST_INCLUDE_DIR
 	NAMES boost
 	DOCS "Location of boost header file"
 	PATHS "/Users/tshaddox/Desktop/workspace/boost_1_55_0"
-	PATHS "/Users/trevorshaddox/Desktop/workspace/boost_1_51_0")
+	PATHS "/Users/trevorshaddox2/Desktop/workspace/boost_1_51_0")
 	
 find_path(EIGEN_INCLUDE_DIR
 	NAMES Eigen
 	DOCS "Location of boost header files"
 	PATHS "/Users/msuchard/Dropbox/Projects/eigen"
-	PATHS "/Users/tshaddox/Desktop/workspace/eigen")
+	PATHS "/Users/tshaddox/Desktop/workspace/eigen"
+	PATHS "/Users/trevorshaddox2/Desktop/workspace/Eigen")
 
 find_path(CUSP_INCLUDE_DIR
 	NAMES cusp
@@ -98,18 +99,19 @@ set(SOURCE_FILES
 	BootstrapSelector.cpp
 	BootstrapDriver.cpp
 	SparseRowVector.cpp
-	MCMCDriver.cpp
-	GeneralizedDirectSampler.cpp
-	IndependenceSampler.cpp
-	MHRatio.cpp
-	SigmaSampler.cpp
-	CredibleIntervals.cpp
-	Parameter.cpp
-	ModelLikelihood.cpp
-	TransitionKernel.cpp
-	RandomWalk.cpp
-	OneDimensionRandomWalk.cpp
-	Model.cpp)
+	#MCMCDriver.cpp
+	#GeneralizedDirectSampler.cpp
+	#IndependenceSampler.cpp
+	#MHRatio.cpp
+	#SigmaSampler.cpp
+	#CredibleIntervals.cpp
+	#Parameter.cpp
+	#ModelLikelihood.cpp
+	#TransitionKernel.cpp
+	#RandomWalk.cpp
+	#OneDimensionRandomWalk.cpp
+	#Model.cpp
+	)
 	
 if(CUDA_FOUND)
 	include_directories(${GSL_INCLUDE_DIR} 
@@ -133,11 +135,11 @@ if(CUDA_FOUND)
 
 #	cuda_add_library(ccd-lib ${SOURCE_FILES})
  	cuda_add_executable(ccd ${SOURCE_FILES})
- 	target_link_libraries(ccd CUDADriver)
+ #	target_link_libraries(ccd CUDADriver)
 	target_link_libraries(ccd ${BOOST_INCLUDE_LIBRARY})
 	target_link_libraries(ccd ${EIGEN_INCLUDE_LIBRARY})
 	target_link_libraries(ccd ${CUBLAS_LIBRARY})
-	target_link_libraries(ccd CUDARuntime)
+#	target_link_libraries(ccd CUDARuntime)
 
 else(CUDA_FOUND)
 	include_directories(${GSL_INCLUDE_DIR} 

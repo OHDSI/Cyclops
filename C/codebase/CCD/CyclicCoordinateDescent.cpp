@@ -1800,19 +1800,14 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 		//std::cerr << "cRS true" << std::endl;
 		//std::cerr << "G";
 		fillVector(denomPid, N, denomNullValue);
-#ifdef OPENMPk
-		int th_id, nthreads;
-		#pragma omp parallel for schedule(dynamic, 1000)
-#endif
+
 		for (int i = 0; i < K; i++) {
 			offsExpXBeta[i] = hOffs[i] * exp(hXBeta[i]);
 
 //#pragma omp critical
 			denomPid[hPid[i]] += offsExpXBeta[i];
 		}
-#ifdef OPENMPk
 
-#endif
 //		cerr << "den[0] = " << denomPid[0] << endl;
 //		exit(-1);
 
