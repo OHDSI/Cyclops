@@ -3,17 +3,18 @@ include_directories(. ${CMAKE_SOURCE_DIR}/codebase ${CMAKE_SOURCE_DIR}/codebase/
 find_path(BOOST_INCLUDE_DIR
 	NAMES boost
 	DOCS "Location of boost header file"
-	PATHS "/Users/trevorshaddox/Desktop/workspace/boost_1_51_0")
+	PATHS "/Users/trevorshaddox2/Desktop/workspace/boost_1_51_0")
 		
 find_path(EIGEN_INCLUDE_DIR
 	NAMES Eigen
 	DOCS "Location of boost header files"
-	PATHS "/Users/tshaddox/Desktop/workspace/eigen")
+	PATHS "/Users/tshaddox/Desktop/workspace/eigen"
+	PATHS "/Users/trevorshaddox2/Desktop/workspace")
 	
 	
 include_directories(${BOOST_INCLUDE_DIR})
 include_directories(${EIGEN_INCLUDE_DIR})
-include_directories(${CUSP_INCLUDE_DIR})
+#include_directories(${CUSP_INCLUDE_DIR})
 
 
 
@@ -33,17 +34,18 @@ set(SOURCE_FILES
 	../CCD/BootstrapSelector.cpp
 	../CCD/BootstrapDriver.cpp
 	../CCD/SparseRowVector.cpp
-	../CCD/MCMCDriver.cpp
-	../CCD/GeneralizedDirectSampler.cpp
-	../CCD/IndependenceSampler.cpp
-	../CCD/MHRatio.cpp
-	../CCD/SigmaSampler.cpp
-	../CCD/CredibleIntervals.cpp
-	../CCD/Parameter.cpp
-	../CCD/ModelLikelihood.cpp
-	../CCD/Model.cpp
-	../CCD/RandomWalk.cpp
-	../CCD/TransitionKernel.cpp)
+	#../CCD/MCMCDriver.cpp
+	#../CCD/GeneralizedDirectSampler.cpp
+	#../CCD/IndependenceSampler.cpp
+	#../CCD/MHRatio.cpp
+	#../CCD/SigmaSampler.cpp
+	#../CCD/CredibleIntervals.cpp
+	#../CCD/Parameter.cpp
+	#../CCD/ModelLikelihood.cpp
+	#../CCD/Model.cpp
+	#../CCD/RandomWalk.cpp
+	#../CCD/TransitionKernel.cpp
+	)
 	
 set(DOUBLE_PRECISION true)	
 
@@ -67,7 +69,7 @@ if(CUDA_FOUND)
  	target_link_libraries(ccd-dp CUDADriver)
 	target_link_libraries(ccd-dp ${BOOST_INCLUDE_LIBRARY})
 	target_link_libraries(ccd-dp ${EIGEN_INCLUDE_LIBRARY})
-	target_link_libraries(ccd-dp CUDARuntime)
+#	target_link_libraries(ccd-dp CUDARuntime)
  	
 else(CUDA_FOUND)
 	add_definitions(-DDOUBLE_PRECISION)	

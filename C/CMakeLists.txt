@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 2.6)
 project(SCCS)
 
-set(CMAKE_CXX_COMPILER "/usr/local/bin/g++")
-set(CMAKE_C_COMPILER "/usr/local/bin/gcc")
+#set(CMAKE_CXX_COMPILER "/usr/local/bin/g++")
+#set(CMAKE_C_COMPILER "/usr/local/bin/gcc")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -g -pg")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -g -pg")
@@ -10,7 +10,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -g -pg")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
 
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -g -pg")

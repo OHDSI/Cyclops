@@ -31,19 +31,22 @@
 #include "BootstrapSelector.h"
 #include "BootstrapDriver.h"
 #include "SparseRowVector.h"
-#include "MCMCDriver.h"
-#include "GeneralizedDirectSampler.h"
+//#include "MCMCDriver.h"
+//#include "GeneralizedDirectSampler.h"
 
 #include "tclap/CmdLine.h"
 
 //#include <R.h>
 
-#define CUDA_TRS
+//#define CUDA_TRS
 //#define Debug_TRS
 
+
+#define MM
+
 //#ifdef CUDA
-	#include "GPUCyclicCoordinateDescent.h"
-	#include "BetterGPU.h"
+	//#include "GPUCyclicCoordinateDescent.h"
+	//#include "BetterGPU.h"
 //#endif
 
 
@@ -325,7 +328,6 @@ double fitModel(CyclicCoordinateDescent *ccd, CCDArguments &arguments) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-//#define MM
 #ifdef MM
 	ccd->update_MM(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 #else

@@ -21,9 +21,11 @@
 #include "InputReader.h"
 #include "Iterators.h"
 #include "SparseRowVector.h"
-#include "IndependenceSampler.h"
+//#include "IndependenceSampler.h"
 
-#include <omp.h>
+#include "ccd.h"
+
+//#include <omp.h>
 
 
 //#ifdef MY_RCPP_FLAG
@@ -35,6 +37,10 @@
 //#endif
 
 //#define Debug_TRS
+
+//#define MM
+
+//#define OPENMP
 
 #ifndef MY_RCPP_FLAG
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
@@ -777,10 +783,14 @@ double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 		}
 	} else {
 		for (int i = 0; i < K; i++) {
-			sumAbsDiffs += abs(hXBeta[i] - hXBetaSave[i]) * hEta[i];
-			sumAbsResiduals += abs(hXBeta[i]) * hEta[i];
+			//cout << "sumAbsResiduals = " << sumAbsResiduals << endl;
+			//cout << "sumAbsDiffs = " << hXBeta[i] - hXBetaSave[i]<< endl;
+			//cout << "sumAbsDiffs = " << abs(hXBeta[i] - hXBetaSave[i])<< endl;
+			sumAbsDiffs += sqrt((hXBeta[i] - hXBetaSave[i])*(hXBeta[i] - hXBetaSave[i]))* hEta[i];//abs(hXBeta[i] - hXBetaSave[i]) * hEta[i];
+			sumAbsResiduals += sqrt((hXBeta[i])*(hXBeta[i])) * hEta[i];//abs(hXBeta[i]) * hEta[i];
 		}
 	}
+	cout << "?? = " << sumAbsDiffs << endl;
 	return sumAbsDiffs / (1.0 + sumAbsResiduals);
 }
 
@@ -947,7 +957,7 @@ void CyclicCoordinateDescent::update_MM(
 	computeXBeta();
 	computeRemainingStatistics(true, 0); // TODO Check index?
 	resetBounds();
-	computeXBeta_GPU_TRS_initialize();
+	//computeXBeta_GPU_TRS_initialize();
 
 
 	bool done = false;
@@ -965,7 +975,7 @@ void CyclicCoordinateDescent::update_MM(
 
 		double delta;
 
-//#define OPENMP
+
 #ifdef OPENMP
 		#pragma omp parallel for
 #endif
@@ -989,12 +999,12 @@ void CyclicCoordinateDescent::update_MM(
 #ifdef OPENMP
 		#pragma omp parallel for
 #endif
-				for(int index = 0; index < J; index++) {
-					if (deltas[index] != 0.0) {
-						sufficientStatisticsKnown = false;
-						updateSufficientStatistics(deltas[index], index);
-					}
-				}
+			//	for(int index = 0; index < J; index++) {
+			//		if (deltas[index] != 0.0) {
+			//			sufficientStatisticsKnown = false;
+			//			updateSufficientStatistics(deltas[index], index);
+			//		}
+			//	}
 //#ifdef OPENMP
 			computeRemainingStatistics(true,0);
 //#endif
@@ -1013,7 +1023,7 @@ void CyclicCoordinateDescent::update_MM(
 
 		}
 
-
+*/
 		 //exit(-1);
 
 		// do the updates to Beta separately.
@@ -1026,7 +1036,7 @@ void CyclicCoordinateDescent::update_MM(
 				updateSufficientStatistics(deltas[index2], index2);
 			}
 		}
-*/
+
 	//	gettimeofday(&time2, NULL);
 	//			double timeToLoop = calculateSeconds(time1, time2);
 	//			cout << "time = " << timeToLoop << endl;
@@ -1053,7 +1063,9 @@ void CyclicCoordinateDescent::update_MM(
 				 << " (" << thisLogLikelihood << " + " << thisLogPrior
 			     << ") (iter:" << iteration << ") ";
 
+			cout << "conv = " << conv << endl;
 
+			cout << "epsilon = " << epsilon << endl;
 			if (epsilon > 0 && conv < epsilon) {
 				cout << "Reached convergence criterion" << endl;
 				done = true;
@@ -1576,12 +1588,12 @@ void CyclicCoordinateDescent::axpy(bsccs::real* y, const bsccs::real alpha, cons
 void CyclicCoordinateDescent::computeXBeta_GPU_TRS_initialize() {
 
 
-	runCuspTest.loadXMatrix(hXI_Transpose.offsets, hXI_Transpose.columns, hXI_Transpose.values, J);
+	//runCuspTest.loadXMatrix(hXI_Transpose.offsets, hXI_Transpose.columns, hXI_Transpose.values, J);
 }
 
 void CyclicCoordinateDescent::computeXBeta_GPU_TRS(void) {
 
-	runCuspTest.computeMultiplyBeta((float*) hBeta, J, (float*) hXBeta, K);
+//	runCuspTest.computeMultiplyBeta((float*) hBeta, J, (float*) hXBeta, K);
 
 	//cout << "Print hXBeta in GPU = ";
 	//printVector(hXBeta, 8, cout);
@@ -1712,7 +1724,7 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 	cout << "timer = " << timer << endl;
 }
 
-//#define MM
+
 template <class IteratorType>
 void CyclicCoordinateDescent::updateXBetaImpl(bsccs::real realDelta, int index) {
 	IteratorType it(*hXI, index);
