@@ -52,7 +52,7 @@ namespace bsccs {
     using std::endl;
 #endif
 
-//#define NEW_LOOPS
+#define NEW_LOOPS
 
 namespace helper {
 
@@ -76,6 +76,24 @@ namespace helper {
             boost::make_counting_iterator(N)        
         };            
     }
+    
+    auto getRangeDenominator(const IntVectorPtr& mat, const int N, SparseTag) ->
+            boost::iterator_range<      
+                decltype(mat->begin())
+            > {
+        return {
+            std::begin(*mat), std::end(*mat)             
+        };            
+    }    
+    
+    auto getRangeDenominator(const IntVectorPtr& mat, const int N, IndicatorTag) ->
+            boost::iterator_range<      
+                decltype(mat->begin())
+            > {
+        return {
+            std::begin(*mat), std::end(*mat)
+        };            
+    }     
     
     
 	template <class IteratorTag>
@@ -531,7 +549,7 @@ std::pair<RealType, RealType> operator+(
     return { lhs.first + rhs.first, lhs.second + rhs.second };
 }
 
-#if 0
+#if 1
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
  double *ohessian, Weights w) {
@@ -576,7 +594,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 //         std::complex<real>(0,0),         
 //         SerialOnly());  
            
-    std::cout << std::distance(range.begin(), range.end()) << " " << result << std::endl;
+//     std::cout << std::distance(range.begin(), range.end()) << " " << result << std::endl;
 
 #else
 
@@ -610,7 +628,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
 	auto end = std::chrono::steady_clock::now();	
 	///////////////////////////"
-	auto name = "compGradHess" + IteratorType::name + "  ";	
+	auto name = "NcompGradHess" + IteratorType::name + "  ";	
 	duration[name] += std::chrono::duration_cast<TimingUnits>(end - start).count();
 #endif
 #endif	
