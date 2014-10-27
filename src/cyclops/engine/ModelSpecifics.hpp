@@ -57,15 +57,10 @@ namespace bsccs {
 namespace helper {
 
     template <class IteratorTag>
-    auto getRangeDenominator(const IntVectorPtr& mat, const int N, IteratorTag) ->            
-            boost::iterator_range<
-                decltype(boost::make_counting_iterator(0))
-            > {
-        return {
-            boost::make_counting_iterator(0),
-            boost::make_counting_iterator(N)        
-        };  
-    }
+    auto getRangeDenominator(const IntVectorPtr& mat, const int N, IteratorTag) ->  void {
+    	std::cerr << "Not yet implemented." << std::endl;
+    	std::exit(-1);
+    }          
     
     auto getRangeDenominator(const IntVectorPtr& mat, const int N, DenseTag) ->
             boost::iterator_range<      
@@ -94,8 +89,7 @@ namespace helper {
             std::begin(*mat), std::end(*mat)
         };            
     }     
-    
-    
+        
 	template <class IteratorTag>
     auto getRangeX(const CompressedDataMatrix& mat, const int index, IteratorTag) -> void {
     	std::cerr << "Not yet implemented." << std::endl;
@@ -160,23 +154,67 @@ namespace helper {
 namespace cyclops {
 
 	namespace detail {	
+	
+	    const int nThreads = 2;			
+		const int minSize = 10000;
+		
+		template <class InputIt, class ResultType, class BinaryFunction>
+		struct Reducer {
+		    void operator()(InputIt begin, InputIt end, ResultType x0, BinaryFunction function,
+		            ResultType& result) {
+		        result = std::accumulate(begin, end, x0, function);       
+		    }
+		};
+	
+    	template <class InputIt, class ResultType, class BinaryFunction, class Info>
+	    inline ResultType reduce(InputIt begin, InputIt end,
+	            ResultType result, BinaryFunction function, Info& info) {	
+	        if (nThreads > 1 && std::distance(begin, end) >= minSize) {
+// 	            std::cout << "PR" << std::endl;
+	            
+	            std::vector<std::thread> workers(nThreads - 1);
+	            std::vector<Fraction<real>> fractions(nThreads - 1);
+	            	            
+	            size_t chunkSize = std::distance(begin, end) / nThreads;
+	            size_t start = 0;
+	            for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
+	                workers[i] = std::thread(
+	                    Reducer<InputIt, ResultType, BinaryFunction>(), 
+	                    begin + start,
+	                    begin + start + chunkSize,
+	                    Fraction<real>(0,0), function,
+	                    std::ref(fractions[i])
+	                    );	    
+// 	                std::cout << std::distance(begin + start, begin + start + chunkSize) << " ";            
+	            }
+	            
+	            result = std::accumulate(begin + start, end, result, function);
+// 	            std::cout << std::distance(begin + start, end) << std::endl;
+	            for (int i = 0; i < nThreads - 1; ++i) {
+	                workers[i].join();
+	                result += fractions[i];
+	            }
+	            	            	            
+	            return result;
+                
+	        } else {	      
+	            return std::accumulate(begin, end, result, function);
+	        }        	            
+	    }
 		
 		template <typename InputIt, typename UnaryFunction, class Info>
 		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
 				Info& info) {
-				
-			const int nThreads = 4;			
-			const int minSize = 10000;			
-			
+										
 			if (nThreads > 1 && std::distance(begin, end) >= minSize) {				  
 				std::vector<std::thread> workers(nThreads - 1);
-				size_t chuckSize = std::distance(begin, end) / nThreads;
+				size_t chunkSize = std::distance(begin, end) / nThreads;
 				size_t start = 0;
-				for (int i = 0; i < nThreads - 1; ++i, start += chuckSize) {
+				for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
 					workers[i] = std::thread(
 						std::for_each<InputIt, UnaryFunction>,
 						begin + start, 
-						begin + start + chuckSize, 
+						begin + start + chunkSize, 
 						function);
 				}
 				auto rtn = std::for_each(begin + start, end, function);
@@ -201,10 +239,16 @@ namespace cyclops {
 		return detail::for_each(first, last, f, info);
 	}
 	
-	template <class InputIt, class ResultType>
+	template <class InputIt, class ResultType, class BinaryFunction, class Info>
+	inline ResultType reduce(InputIt begin, InputIt end,
+	        ResultType result, BinaryFunction function, Info& info) {
+	    return detail::reduce(begin, end, result, function, info);        
+	}
+	
+	template <class InputIt, class ResultType, class BinaryFunction>
 	inline ResultType reduce(InputIt begin, InputIt end, 
-	        ResultType result, SerialOnly) {
-	    return std::accumulate(begin, end, result);
+	        ResultType result, BinaryFunction function, SerialOnly) {
+	    return std::accumulate(begin, end, result, function);
 	}
 	
 } // namespace cyclops
@@ -565,36 +609,19 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 #ifdef NEW_LOOPS
 
-//     if (*(sparseIndices)[index] == nullptr) {
-//         std::cout << "null" << std::endl;
-//     } else {
-//         if (IteratorType::isSparse || IteratorType::isIndicator) {
-//         const std::vector<int> i = *(sparseIndices)[index];
-//         std::cout << "l = " << i.size() << std::endl;
-//     }
-
     auto range = helper::getRangeDenominator(sparseIndices[index], N, typename IteratorType::tag());
                         
-    auto kernel = AccumulateGradientAndHessianKernel<BaseModel, 
-    IteratorType, Weights,
-                    real, int>(
+    auto kernel = AccumulateGradientAndHessianKernel<BaseModel,IteratorType, Weights, real, int>(
                         begin(numerPid), begin(numerPid2), begin(denomPid), 
                         begin(hNWeight), begin(hXBeta), begin(hY));
                             
-    Fraction<real> result = std::accumulate(range.begin(), range.end(), Fraction<real>(0,0), kernel);
+    Fraction<real> result = cyclops::reduce(range.begin(), range.end(), Fraction<real>(0,0), kernel,
+//      SerialOnly()
+    info
+    );
 
     gradient = result.real();
     hessian = result.imag();
-// 
-//     cyclops::reduce(
-// //         boost::make_transform_iterator(range.begin(), kernel),
-// //         boost::make_transform_iterator(range.end(), kernel),
-//         b, e,
-// //         0.0,
-//         std::complex<real>(0,0),         
-//         SerialOnly());  
-           
-//     std::cout << std::distance(range.begin(), range.end()) << " " << result << std::endl;
 
 #else
 
@@ -602,7 +629,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	
 	for (; it; ++it) {
 			const int i = it.index();
-					
 			
 			// Compile-time delegation
 				BaseModel::incrementGradientAndHessian(it,
@@ -610,7 +636,14 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 						&gradient, &hessian, numerPid[i], numerPid2[i],
 						denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); 
 						// When function is in-lined, compiler will only use necessary arguments		
+// 								 std::cout << std::endl << gradient << ":" << hessian;
+// 								 std::cout << ":" << numerPid[i];
+// 								 std::cout << ":" << numerPid2[i];
+// 								 std::cout << ":" << denomPid[i];
+								
+	
 			}
+			
 #endif // NEW_LOOPS
 	
 	if (BaseModel::precomputeGradient) { // Compile-time switch
@@ -628,7 +661,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
 	auto end = std::chrono::steady_clock::now();	
 	///////////////////////////"
-	auto name = "NcompGradHess" + IteratorType::name + "  ";	
+	auto name = "compGradHess" + IteratorType::name + "  ";	
 	duration[name] += std::chrono::duration_cast<TimingUnits>(end - start).count();
 #endif
 #endif	
@@ -1308,3 +1341,4 @@ void ModelSpecifics<BaseModel,WeightType>::doSortPid(bool useCrossValidation) {
 } // namespace
 
 #endif /* MODELSPECIFICS_HPP_ */
+// 
