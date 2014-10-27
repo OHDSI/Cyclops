@@ -15,7 +15,7 @@
 #include <thread>
 
 #define CYCLOPS_DEBUG_TIMING
-//#define CYCLOPS_DEBUG_TIMING_LOW
+#define CYCLOPS_DEBUG_TIMING_LOW
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	#include <chrono>
@@ -547,7 +547,10 @@ struct UpdateXBetaKernel : private BaseModel {
 				real newEntry = expXBeta[k] = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
 				denominator[BaseModel::getGroup(pid, k)] += (newEntry - oldEntry);	
 			} else {			
-				denominator[k] = expXBeta[k] = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);							
+			    const real t = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);	
+			    expXBeta[k] = t;
+			    denominator[k] = static_cast<real>(1.0) + t;
+// 				denominator[k] = expXBeta[k] = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);							
 			}
 		}
 	}

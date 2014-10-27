@@ -52,7 +52,7 @@ namespace bsccs {
     using std::endl;
 #endif
 
-#define NEW_LOOPS
+//#define NEW_LOOPS
 
 namespace helper {
 
