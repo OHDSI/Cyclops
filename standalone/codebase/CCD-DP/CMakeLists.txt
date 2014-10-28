@@ -5,7 +5,8 @@ include_directories(.
     ${RCCD_SOURCE_DIR}
     ${RCCD_SOURCE_DIR}/cyclops
     ${CMAKE_SOURCE_DIR}/codebase
-    ${CMAKE_SOURCE_DIR}/codebase/CCD    
+    ${CMAKE_SOURCE_DIR}/codebase/CCD   
+     /Library/Frameworks/R.framework/Versions/3.1/Resources/library/BH/include  
     )
 
 set(BASE_SOURCE_FILES	

@@ -317,6 +317,7 @@ protected:
 //	double* hDelta;
 	DoubleVector hDelta;
 	std::vector<bool> fixBeta;
+	DoubleVector hUpdates;
 
 	int N; // Number of patients
 	int K; // Number of exposure levels
@@ -379,6 +380,10 @@ protected:
 	
 	loggers::ProgressLoggerPtr logger;
 	loggers::ErrorHandlerPtr error;
+	
+	friend struct AbstractVariant;
+	friend struct CCDVariant;
+	friend struct MMVariant;
 };
 
 double convertVarianceToHyperparameter(double variance);

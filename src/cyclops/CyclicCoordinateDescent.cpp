@@ -15,6 +15,11 @@
 #include <time.h>
 #include <set>
 
+// #include <boost/iterator/permutation_iterator.hpp>
+// #include <boost/iterator/transform_iterator.hpp>
+// #include <boost/iterator/zip_iterator.hpp>
+#include <boost/iterator/counting_iterator.hpp>
+
 #include "CyclicCoordinateDescent.h"
 // #include "io/InputReader.h"
 #include "Iterators.h"
@@ -495,6 +500,109 @@ void CyclicCoordinateDescent::saveXBeta(void) {
 	memcpy(hXBetaSave.data(), hXBeta.data(), K * sizeof(real));
 }
 
+struct SerialOnly { };
+struct OpenMP { };
+struct Vanilla { };
+
+namespace variants {
+
+    template <class InputIt, class UnaryFunction, class Specifics>
+    inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, Specifics) {
+        return std::for_each(first, last, f);    
+    }
+    
+    template <class UnaryFunction, class Specifics>
+    inline UnaryFunction for_each(int first, int last, UnaryFunction f, Specifics) {
+        for (; first != last; ++first) {
+            f(first);        
+        }
+        return f;
+    }
+    
+#ifdef OPENMP    
+    template <class UnaryFunction, class Specifics>
+    inline UnaryFunction for_each(int first, int last, UnaryFunction f, OpenMP) {
+        std::cout << "Parallel ";
+        #pragma omp parallel for
+        for (; first != last; ++first) {
+            f(first);        
+        }
+        return f;
+    }        
+#endif     
+}
+
+struct AbstractVariant {
+
+    AbstractVariant(CyclicCoordinateDescent& ccd, std::vector<bool>& fixBeta, 
+            std::vector<double>& updates, NoiseLevels noiseLevel) 
+            : ccd(ccd), fixBeta(fixBeta), updates(updates), noiseLevel(noiseLevel) { }
+                  
+protected:
+    CyclicCoordinateDescent& ccd;
+    std::vector<bool>& fixBeta;  
+    std::vector<double>& updates;
+    NoiseLevels noiseLevel;   
+};
+
+
+struct CCDVariant : public AbstractVariant {
+
+    using AbstractVariant::AbstractVariant;
+    
+    void operator()(int index) {
+
+        if (!fixBeta[index]) {
+            double delta = ccd.ccdUpdateBeta(index);
+            delta = ccd.applyBounds(delta, index);
+            if (delta != 0.0) {
+                ccd.sufficientStatisticsKnown = false;
+                ccd.updateSufficientStatistics(delta, index);
+            }
+        }
+        
+        if((noiseLevel > QUIET) && ((index+1) % 100 == 0)) {
+            std::ostringstream stream;
+            stream << "Finished variable " << (index+1);
+            ccd.logger->writeLine(stream);
+        }
+	} 
+		
+	void finalizeUpdate() { } // Do nothing                      
+};
+
+struct MMVariant : public AbstractVariant {
+    
+    MMVariant(CyclicCoordinateDescent& ccd, std::vector<bool>& fixBeta, 
+            std::vector<double>& updates, NoiseLevels noiseLevel) 
+            : AbstractVariant(ccd, fixBeta, updates, noiseLevel), J(ccd.J) {
+        if (updates.size() != J) {
+            updates.resize(J);
+        }    
+    }
+        
+    void operator()(int index) {
+	    if (!fixBeta[index]) {
+			double delta = ccd.ccdUpdateBeta(index);
+			delta = ccd.applyBounds(delta, index);
+			updates[index] = delta;
+		}			
+	}  
+		
+    void finalizeUpdate() {    
+		for(int index2 = 0; index2 < J; index2 ++) {
+			if (updates[index2] != 0.0) {
+				ccd.sufficientStatisticsKnown = false;
+				ccd.updateSufficientStatistics(updates[index2], index2);
+			}
+		}    
+        ccd.computeRemainingStatistics(true,0);       
+    } 
+    
+private:
+    size_t J;                          
+};
+
 void CyclicCoordinateDescent::update(
 		int maxIterations,
 		int convergenceType,
@@ -539,26 +647,12 @@ void CyclicCoordinateDescent::update(
 	
 	while (!done) {
 	
-		// Do a complete cycle
-		for(int index = 0; index < J; index++) {
-		
-			if (!fixBeta[index]) {
-				double delta = ccdUpdateBeta(index);
-				delta = applyBounds(delta, index);
-				if (delta != 0.0) {
-					sufficientStatisticsKnown = false;
-					updateSufficientStatistics(delta, index);
-				}
-			}
-			
-			if ( (noiseLevel > QUIET) && ((index+1) % 100 == 0)) {
-			    std::ostringstream stream;
-			    stream << "Finished variable " << (index+1);
-			    logger->writeLine(stream);
-			}
-			
-		}
+        auto variant = CCDVariant(*this, fixBeta, hUpdates, noiseLevel);    
 
+	    variants::for_each(0, J, variant, Vanilla());
+	    
+	    variant.finalizeUpdate();
+	    
 		iteration++;
 //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
 		bool checkConvergence = true; // Check after each complete cycle
