@@ -669,7 +669,7 @@ protected:
     void computeNumeratorForGradient(int index) { }      
     
     void computeGradientAndHessian(int index, double* ogradient, double* ohessian) {    
-        modelSpecifics.computeGradientAndHessian(index, ogradient, ohessian, 
+        modelSpecifics.computeMMGradientAndHessian(index, ogradient, ohessian, 
             ccd.useCrossValidation);          
     }    
     

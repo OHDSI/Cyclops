@@ -62,6 +62,9 @@ public:
 
 	virtual void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian, bool useWeights) = 0; // pure virtual
+			
+	virtual void computeMMGradientAndHessian(int index, double *ogradient,
+			double *ohessian, bool useWeights) = 0; // pure virtual			
 
 	virtual void computeNumeratorForGradient(int index) = 0; // pure virtual
 

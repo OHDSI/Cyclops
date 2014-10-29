@@ -321,6 +321,63 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 	}
 }
 
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessian(int index, double *ogradient,
+		double *ohessian, bool useWeights) {
+	// Run-time dispatch, so virtual call should not effect speed
+	if (useWeights) {
+		switch (hXI->getFormatType(index)) {
+			case INDICATOR :
+				computeMMGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, weighted);
+				break;
+			case SPARSE :
+				computeMMGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, weighted);
+				break;
+			case DENSE :
+				computeMMGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, weighted);
+				break;
+			case INTERCEPT :
+				computeMMGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, weighted);
+				break;
+		}
+	} else {
+		switch (hXI->getFormatType(index)) {
+			case INDICATOR :
+				computeMMGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, unweighted);
+				break;
+			case SPARSE :
+				computeMMGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, unweighted);
+				break;
+			case DENSE :
+				computeMMGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, unweighted);
+				break;
+			case INTERCEPT :
+				computeMMGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, unweighted);
+				break;
+		}
+	}
+}
+
+template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
+void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int index, double *ogradient,
+		double *ohessian, Weights w) {
+	real gradient = static_cast<real>(0);
+	real hessian = static_cast<real>(0);
+
+	// TODO
+	
+	if (BaseModel::precomputeGradient) { // Compile-time switch
+		gradient -= hXjY[index];
+	}
+
+	if (BaseModel::precomputeHessian) { // Compile-time switch
+		hessian += static_cast<real>(2.0) * hXjX[index];
+	}
+
+	*ogradient = static_cast<double>(gradient);
+	*ohessian = static_cast<double>(hessian);
+}
+
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
 		double *ohessian, Weights w) {

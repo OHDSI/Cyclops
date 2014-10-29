@@ -28,6 +28,9 @@ public:
 
 	void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian,  bool useWeights);
+			
+	void computeMMGradientAndHessian(int index, double *ogradient,
+			double *ohessian,  bool useWeights);			
 
 protected:
 	void computeNumeratorForGradient(int index);
@@ -72,6 +75,12 @@ private:
 			int index,
 			double *gradient,
 			double *hessian, Weights w);
+			
+	template <class IteratorType, class Weights>
+	void computeMMGradientAndHessianImpl(
+			int index,
+			double *gradient,
+			double *hessian, Weights w);			
 
 	template <class IteratorType>
 	void incrementNumeratorForGradientImpl(int index);
