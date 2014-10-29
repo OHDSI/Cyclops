@@ -534,17 +534,65 @@ namespace variants {
 
 struct AbstractVariant {
 
-    AbstractVariant(CyclicCoordinateDescent& ccd, std::vector<bool>& fixBeta, 
-            std::vector<double>& updates, NoiseLevels noiseLevel) 
-            : ccd(ccd), fixBeta(fixBeta), updates(updates), noiseLevel(noiseLevel) { }
+    AbstractVariant(CyclicCoordinateDescent& ccd, 
+            AbstractModelSpecifics& modelSpecifics,
+            priors::JointPriorPtr& jointPrior,
+            std::vector<double>& hBeta,
+            std::vector<bool>& fixBeta, 
+            std::vector<double>& updates, 
+            std::vector<double>& hDelta,
+            NoiseLevels noiseLevel) 
+            : ccd(ccd), modelSpecifics(modelSpecifics), jointPrior(jointPrior), 
+              hBeta(hBeta), fixBeta(fixBeta), updates(updates), hDelta(hDelta), 
+              noiseLevel(noiseLevel) { }
                   
 protected:
+
+    double updateSingleBeta(int index) {
+
+        if (!ccd.sufficientStatisticsKnown) {
+            std::ostringstream stream;
+            stream << "Error in state synchronization.";
+            ccd.error->throwError(stream);				
+        }
+        
+        computeNumeratorForGradient(index);
+    
+        priors::GradientHessian gh;
+        computeGradientAndHessian(index, &gh.first, &gh.second);
+    
+        if (gh.second < 0.0) {
+            gh.first = 0.0;	
+            gh.second = 0.0;
+        }
+    
+        return jointPrior->getDelta(gh, hBeta, index);
+    }
+    
+    double applyBounds(double inDelta, int index) {
+        double delta = inDelta;
+        if (delta < -hDelta[index]) {
+            delta = -hDelta[index];
+        } else if (delta > hDelta[index]) {
+            delta = hDelta[index];
+        }
+
+        hDelta[index] = max(2.0 * abs(delta), 0.5 * hDelta[index]);
+        return delta;
+    }    
+
+    virtual void computeNumeratorForGradient(int index) = 0;
+    virtual void computeGradientAndHessian(int index, double* gradient, double* hessian) = 0;
+
     CyclicCoordinateDescent& ccd;
+    AbstractModelSpecifics& modelSpecifics;    
+    priors::JointPriorPtr& jointPrior;
+    std::vector<double>& hBeta;
     std::vector<bool>& fixBeta;  
     std::vector<double>& updates;
+    std::vector<double>& hDelta;
     NoiseLevels noiseLevel;   
 };
-
 
 struct CCDVariant : public AbstractVariant {
 
@@ -553,8 +601,8 @@ struct CCDVariant : public AbstractVariant {
     void operator()(int index) {
 
         if (!fixBeta[index]) {
-            double delta = ccd.ccdUpdateBeta(index);
-            delta = ccd.applyBounds(delta, index);
+            double delta = updateSingleBeta(index);
+            delta = applyBounds(delta, index);
             if (delta != 0.0) {
                 ccd.sufficientStatisticsKnown = false;
                 ccd.updateSufficientStatistics(delta, index);
@@ -568,14 +616,31 @@ struct CCDVariant : public AbstractVariant {
         }
 	} 
 		
-	void finalizeUpdate() { } // Do nothing                      
+	void finalizeUpdate() { } // Do nothing     
+	
+protected:
+    void computeNumeratorForGradient(int index) {
+    	modelSpecifics.computeNumeratorForGradient(index);
+    }      
+    
+    void computeGradientAndHessian(int index, double* ogradient, double* ohessian) {    
+        modelSpecifics.computeGradientAndHessian(index, ogradient, ohessian, 
+            ccd.useCrossValidation);          
+    }
 };
 
 struct MMVariant : public AbstractVariant {
     
-    MMVariant(CyclicCoordinateDescent& ccd, std::vector<bool>& fixBeta, 
-            std::vector<double>& updates, NoiseLevels noiseLevel) 
-            : AbstractVariant(ccd, fixBeta, updates, noiseLevel), J(ccd.J) {
+    MMVariant(CyclicCoordinateDescent& ccd,  
+            priors::JointPriorPtr& jointPrior, 
+            AbstractModelSpecifics& modelSpecifics,
+            std::vector<double>& hBeta,
+            std::vector<bool>& fixBeta, 
+            std::vector<double>& updates, 
+            std::vector<double>& hDelta,
+            NoiseLevels noiseLevel) 
+            : AbstractVariant(ccd, modelSpecifics, jointPrior, hBeta, fixBeta, updates, 
+                    hDelta, noiseLevel), J(ccd.J) {
         if (updates.size() != J) {
             updates.resize(J);
         }    
@@ -583,8 +648,8 @@ struct MMVariant : public AbstractVariant {
         
     void operator()(int index) {
 	    if (!fixBeta[index]) {
-			double delta = ccd.ccdUpdateBeta(index);
-			delta = ccd.applyBounds(delta, index);
+			double delta = updateSingleBeta(index);
+			delta = applyBounds(delta, index);
 			updates[index] = delta;
 		}			
 	}  
@@ -598,6 +663,15 @@ struct MMVariant : public AbstractVariant {
 		}    
         ccd.computeRemainingStatistics(true,0);       
     } 
+    
+protected: 
+
+    void computeNumeratorForGradient(int index) { }      
+    
+    void computeGradientAndHessian(int index, double* ogradient, double* ohessian) {    
+        modelSpecifics.computeGradientAndHessian(index, ogradient, ohessian, 
+            ccd.useCrossValidation);          
+    }    
     
 private:
     size_t J;                          
@@ -645,13 +719,16 @@ void CyclicCoordinateDescent::update(
 		saveXBeta();
 	}
 	
+    auto betaUpdater = CCDVariant(*this, modelSpecifics, jointPrior, hBeta, fixBeta, 
+                            hUpdates, hDelta, noiseLevel);
+                            
+    auto parallelScheme = Vanilla();   	
+		
 	while (!done) {
 	
-        auto variant = CCDVariant(*this, fixBeta, hUpdates, noiseLevel);    
-
-	    variants::for_each(0, J, variant, Vanilla());
+	    variants::for_each(0, J, betaUpdater, parallelScheme);
 	    
-	    variant.finalizeUpdate();
+	    betaUpdater.finalizeUpdate();
 	    
 		iteration++;
 //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
@@ -863,26 +940,26 @@ void CyclicCoordinateDescent::computeAsymptoticVarianceMatrix(void) {
 // 	cout << varianceMatrix << endl;
 }
 
-double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
-
-	if (!sufficientStatisticsKnown) {
-	    std::ostringstream stream;
-		stream << "Error in state synchronization.";
-		error->throwError(stream);				
-	}
-		
-	computeNumeratorForGradient(index);
-	
-	priors::GradientHessian gh;
-	computeGradientAndHessian(index, &gh.first, &gh.second);
-	
-	if (gh.second < 0.0) {
-	    gh.first = 0.0;	
-	    gh.second = 0.0;
-	}
-	
-    return jointPrior->getDelta(gh, hBeta, index);
-}
+// double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
+// 
+// 	if (!sufficientStatisticsKnown) {
+// 	    std::ostringstream stream;
+// 		stream << "Error in state synchronization.";
+// 		error->throwError(stream);				
+// 	}
+// 		
+// 	computeNumeratorForGradient(index);
+// 	
+// 	priors::GradientHessian gh;
+// 	computeGradientAndHessian(index, &gh.first, &gh.second);
+// 	
+// 	if (gh.second < 0.0) {
+// 	    gh.first = 0.0;	
+// 	    gh.second = 0.0;
+// 	}
+// 	
+//     return jointPrior->getDelta(gh, hBeta, index);
+// }
 
 template <class IteratorType>
 void CyclicCoordinateDescent::axpy(real* y, const real alpha, const int index) {
@@ -965,17 +1042,17 @@ double CyclicCoordinateDescent::computeConvergenceCriterion(double newObjFxn, do
 	return abs(newObjFxn - oldObjFxn) / (abs(newObjFxn) + 1.0);
 }
 
-double CyclicCoordinateDescent::applyBounds(double inDelta, int index) {
-	double delta = inDelta;
-	if (delta < -hDelta[index]) {
-		delta = -hDelta[index];
-	} else if (delta > hDelta[index]) {
-		delta = hDelta[index];
-	}
-
-	hDelta[index] = max(2.0 * abs(delta), 0.5 * hDelta[index]);
-	return delta;
-}
+// double CyclicCoordinateDescent::applyBounds(double inDelta, int index) {
+// 	double delta = inDelta;
+// 	if (delta < -hDelta[index]) {
+// 		delta = -hDelta[index];
+// 	} else if (delta > hDelta[index]) {
+// 		delta = hDelta[index];
+// 	}
+// 
+// 	hDelta[index] = max(2.0 * abs(delta), 0.5 * hDelta[index]);
+// 	return delta;
+// }
 
 /**
  * Utility functions
