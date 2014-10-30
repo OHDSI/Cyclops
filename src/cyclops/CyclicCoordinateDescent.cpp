@@ -65,6 +65,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	J = reader->getNumberOfColumns();
 	
 	hXI = reader;
+
 	hY = reader->getYVector(); // TODO Delegate all data to ModelSpecifics
 //	hOffs = reader->getOffsetVector();
 	hPid = reader->getPidVector();
@@ -631,9 +632,9 @@ protected:
 
 struct MMVariant : public AbstractVariant {
     
-    MMVariant(CyclicCoordinateDescent& ccd,  
-            priors::JointPriorPtr& jointPrior, 
+    MMVariant(CyclicCoordinateDescent& ccd,   
             AbstractModelSpecifics& modelSpecifics,
+            priors::JointPriorPtr& jointPrior,
             std::vector<double>& hBeta,
             std::vector<bool>& fixBeta, 
             std::vector<double>& updates, 
@@ -645,22 +646,33 @@ struct MMVariant : public AbstractVariant {
             updates.resize(J);
         }    
     }
+    
+#define NEW_XBETA
         
     void operator()(int index) {
 	    if (!fixBeta[index]) {
 			double delta = updateSingleBeta(index);
 			delta = applyBounds(delta, index);
+#ifndef NEW_XBETA			
 			updates[index] = delta;
+#else
+//             updates[index] = hBeta[index] + delta;
+            hBeta[index] += delta;
+#endif			
 		}			
 	}  
 		
-    void finalizeUpdate() {    
+    void finalizeUpdate() {   
+#ifndef NEW_XBETA     
 		for(int index2 = 0; index2 < J; index2 ++) {
 			if (updates[index2] != 0.0) {
 				ccd.sufficientStatisticsKnown = false;
 				ccd.updateSufficientStatistics(updates[index2], index2);
 			}
 		}    
+#else
+        modelSpecifics.computeXBeta(&hBeta[0]);
+#endif
         ccd.computeRemainingStatistics(true,0);       
     } 
     
@@ -719,8 +731,13 @@ void CyclicCoordinateDescent::update(
 		saveXBeta();
 	}
 	
+#if 0
     auto betaUpdater = CCDVariant(*this, modelSpecifics, jointPrior, hBeta, fixBeta, 
                             hUpdates, hDelta, noiseLevel);
+#else                            
+    auto betaUpdater = MMVariant(*this, modelSpecifics, jointPrior, hBeta, fixBeta, 
+                            hUpdates, hDelta, noiseLevel);                            
+#endif
                             
     auto parallelScheme = Vanilla();   	
 		

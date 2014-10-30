@@ -72,6 +72,8 @@ public:
 			double *oinfo, bool useWeights) = 0; // pure virtual
 
 	virtual void updateXBeta(real realDelta, int index, bool useWeights) = 0; // pure virtual
+	
+	virtual void computeXBeta(double* beta) = 0; // pure virtual
 
 	virtual void computeRemainingStatistics(bool useWeights) = 0; // pure virtual
 
@@ -126,7 +128,9 @@ protected:
 // 	const std::vector<real>& oZ;
 // 	const std::vector<int>& oPid;
 
-	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
+	CompressedDataMatrix* hXI; // K-by-J-matrix in column-major
+	
+	bsccs::shared_ptr<CompressedDataMatrix> hXt; // J-by-K matrix in column-major
 
 	RealVector accDenomPid;
 	RealVector accNumerPid;

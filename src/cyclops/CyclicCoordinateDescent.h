@@ -299,7 +299,7 @@ protected:
 	ofstream outLog;
 	bool hasLog;
 
-	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
+	CompressedDataMatrix* hXI; // K-by-J-indicator matrix	
 
 	real* hOffs;  // K-vector
 	real* hY; // K-vector

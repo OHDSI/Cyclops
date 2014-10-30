@@ -38,7 +38,9 @@ protected:
 	void computeFisherInformation(int indexOne, int indexTwo, double *oinfo, bool useWeights);
 
 	void updateXBeta(real realDelta, int index, bool useWeights);
-
+	
+	void computeXBeta(double* beta); 
+	
 	void computeRemainingStatistics(bool useWeights);
 
 	void computeAccumlatedNumerDenom(bool useWeights);
@@ -87,6 +89,9 @@ private:
 
 	template <class IteratorType>
 	void updateXBetaImpl(real delta, int index, bool useWeights);
+	
+	template <class IteratorType>
+	void computeXBetaImpl(double *beta);
 
 	template <class OutType, class InType>
 	void incrementByGroup(OutType* values, int* groups, int k, InType inc) {
@@ -107,6 +112,11 @@ private:
 	void computeXjX(bool useCrossValidation);
 
 	void computeNtoKIndices(bool useCrossValidation);
+	
+	void computeNorms(void);
+	
+	template <class InteratorType>
+	void incrementNormsImpl(int index);
 
 	std::vector<WeightType> hNWeight;
 	std::vector<WeightType> hKWeight;
@@ -114,6 +124,8 @@ private:
 	std::vector<int> nPid;
 	std::vector<real> nY;
 	std::vector<int> hNtoK;
+	
+	std::vector<real> norm;
 
 	struct WeightedOperation {
 		const static bool isWeighted = true;
