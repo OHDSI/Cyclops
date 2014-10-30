@@ -6,6 +6,8 @@
 #include <thread>
 #include <boost/iterator/counting_iterator.hpp>
 
+#include "engine/ThreadPool.h"
+
 namespace bsccs {
 
 struct SerialOnly { };
@@ -18,16 +20,27 @@ struct C11Threads {
 	
 	int nThreads;
 	size_t minSize;
-	
+};
+ 
+ struct C11ThreadPool {
+ 
+ 	C11ThreadPool(int poolSize, int threads, size_t size = 100) : pool(poolSize), nThreads(threads), minSize(size) { }
+ 	virtual ~C11ThreadPool() { };
+ 	
+ 	ThreadPool pool;
+ 	
+ 	int nThreads;
+ 	size_t minSize;
  };
+ 	
 
 namespace variants {
 
 	namespace impl {
 
-		template <typename InputIt, typename UnaryFunction, class Info>
+		template <typename InputIt, typename UnaryFunction>
 		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
-				Info& info) {
+				C11Threads& info) {
 			
 			const int nThreads = info.nThreads;
 			const size_t minSize = info.minSize;	
@@ -52,6 +65,54 @@ namespace variants {
 				return std::for_each(begin, end, function);
 			}
 		}	
+		
+		template <typename InputIt, typename UnaryFunction>
+		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
+				C11ThreadPool& tpool) {
+			
+			const int nThreads = tpool.nThreads;
+			const size_t minSize = tpool.minSize;	
+										
+// 			if (nThreads > 1 && std::distance(begin, end) >= minSize) {				  
+			
+				std::vector< std::future<void> > results;
+			
+				size_t chunkSize = std::distance(begin, end) / nThreads;
+				size_t start = 0;
+				
+// 				std::cout << "Start!" << std::endl;
+
+
+				
+				for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
+					results.emplace_back(
+						tpool.pool.enqueue([=] {
+							std::for_each(
+								begin + start, 
+								begin + start + chunkSize,
+								function);					
+						})
+					);
+				}
+				results.emplace_back(
+					tpool.pool.enqueue([=] {
+						std::for_each(begin + start, end, function);
+					})
+				);
+// 				auto rtn = std::for_each(begin + start, end, function);
+
+// 				for (int i = 0; i < nThreads - 1; ++i) {
+// 					workers[i].join();					
+// 				}
+				for (auto&& result: results) result.get();
+				
+// 				std::cout << "Done!" << std::endl;				
+				
+				return function;
+// 			} else {				
+// 				return std::for_each(begin, end, function);
+// 			}
+		}
 	
 	} // namespace impl
 
@@ -72,6 +133,11 @@ namespace variants {
     inline UnaryFunction for_each(int first, int last, UnaryFunction f, C11Threads& x) {
     	return impl::for_each(boost::make_counting_iterator(first), boost::make_counting_iterator(last), f, x);
     }
+    
+    template <class UnaryFunction>
+    inline UnaryFunction for_each(int first, int last, UnaryFunction f, C11ThreadPool& x) {
+    	return impl::for_each(boost::make_counting_iterator(first), boost::make_counting_iterator(last), f, x);
+    }    
     
 #ifdef OPENMP    
     template <class UnaryFunction, class Specifics>

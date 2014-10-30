@@ -792,9 +792,8 @@ void CyclicCoordinateDescent::update(
     auto betaUpdater = MMVariant(*this, modelSpecifics, jointPrior, hBeta, fixBeta, 
                             hUpdates, hDelta, noiseLevel);    
     betaUpdater.setScale(2.0);          
-    auto parallelScheme = 
-//    Vanilla(); 
-     C11Threads(3);   	              
+    auto parallelScheme = C11Threads(8);
+// 	C11ThreadPool parallelScheme(8,8);
 #endif
                                		
 	while (!done) {
