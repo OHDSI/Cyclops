@@ -14,6 +14,7 @@
 #include <map>
 #include <time.h>
 #include <set>
+#include <thread>
 
 // #include <boost/iterator/permutation_iterator.hpp>
 // #include <boost/iterator/transform_iterator.hpp>
@@ -23,6 +24,7 @@
 #include "CyclicCoordinateDescent.h"
 // #include "io/InputReader.h"
 #include "Iterators.h"
+#include "engine/ParallelLoops.h"
 // #include "io/ProgressLogger.h"
 
 //#ifdef MY_RCPP_FLAG
@@ -501,37 +503,83 @@ void CyclicCoordinateDescent::saveXBeta(void) {
 	memcpy(hXBetaSave.data(), hXBeta.data(), K * sizeof(real));
 }
 
-struct SerialOnly { };
-struct OpenMP { };
-struct Vanilla { };
-
-namespace variants {
-
-    template <class InputIt, class UnaryFunction, class Specifics>
-    inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, Specifics) {
-        return std::for_each(first, last, f);    
-    }
-    
-    template <class UnaryFunction, class Specifics>
-    inline UnaryFunction for_each(int first, int last, UnaryFunction f, Specifics) {
-        for (; first != last; ++first) {
-            f(first);        
-        }
-        return f;
-    }
-    
-#ifdef OPENMP    
-    template <class UnaryFunction, class Specifics>
-    inline UnaryFunction for_each(int first, int last, UnaryFunction f, OpenMP) {
-        std::cout << "Parallel ";
-        #pragma omp parallel for
-        for (; first != last; ++first) {
-            f(first);        
-        }
-        return f;
-    }        
-#endif     
-}
+// struct SerialOnly { };
+// struct OpenMP { };
+// struct Vanilla { };
+// 
+// struct C11Threads {
+// 	
+// 	C11Threads(int threads, size_t size = 100) : nThreads(threads), minSize(size) { }
+// 	
+// 	int nThreads;
+// 	size_t minSize;
+// 	
+//  };
+// 
+// namespace variants {
+// 
+// 	namespace impl {
+// 
+// 		template <typename InputIt, typename UnaryFunction, class Info>
+// 		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
+// 				Info& info) {
+// 			
+// 			const int nThreads = info.nThreads;
+// 			const size_t minSize = info.minSize;	
+// 										
+// 			if (nThreads > 1 && std::distance(begin, end) >= minSize) {				  
+// 				std::vector<std::thread> workers(nThreads - 1);
+// 				size_t chunkSize = std::distance(begin, end) / nThreads;
+// 				size_t start = 0;
+// 				for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
+// 					workers[i] = std::thread(
+// 						std::for_each<InputIt, UnaryFunction>,
+// 						begin + start, 
+// 						begin + start + chunkSize, 
+// 						function);
+// 				}
+// 				auto rtn = std::for_each(begin + start, end, function);
+// 				for (int i = 0; i < nThreads - 1; ++i) {
+// 					workers[i].join();
+// 				}
+// 				return rtn;
+// 			} else {				
+// 				return std::for_each(begin, end, function);
+// 			}
+// 		}	
+// 	
+// 	}
+// 
+//     template <class InputIt, class UnaryFunction, class Specifics>
+//     inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, Specifics) {
+//         return std::for_each(first, last, f);    
+//     }
+//     
+//     template <class UnaryFunction, class Specifics>
+//     inline UnaryFunction for_each(int first, int last, UnaryFunction f, Specifics) {
+//         for (; first != last; ++first) {
+//             f(first);        
+//         }
+//         return f;
+//     }
+//     
+//     template <class UnaryFunction>
+//     inline UnaryFunction for_each(int first, int last, UnaryFunction f, C11Threads& x) {
+//     	return impl::for_each(boost::make_counting_iterator(first), boost::make_counting_iterator(last), f, x);
+//     }
+//     
+// #ifdef OPENMP    
+//     template <class UnaryFunction, class Specifics>
+//     inline UnaryFunction for_each(int first, int last, UnaryFunction f, OpenMP) {
+//         std::cout << "Parallel ";
+//         #pragma omp parallel for
+//         for (; first != last; ++first) {
+//             f(first);        
+//         }
+//         return f;
+//     }        
+// #endif     
+// }
 
 struct AbstractVariant {
 
@@ -641,10 +689,12 @@ struct MMVariant : public AbstractVariant {
             std::vector<double>& hDelta,
             NoiseLevels noiseLevel) 
             : AbstractVariant(ccd, modelSpecifics, jointPrior, hBeta, fixBeta, updates, 
-                    hDelta, noiseLevel), J(ccd.J) {
+                    hDelta, noiseLevel), J(ccd.J), scale(1.0) {
         if (updates.size() != J) {
             updates.resize(J);
         }    
+        
+      	modelSpecifics.initializeMM();
     }
     
 #define NEW_XBETA
@@ -676,17 +726,20 @@ struct MMVariant : public AbstractVariant {
         ccd.computeRemainingStatistics(true,0);       
     } 
     
+    void setScale(double s) { scale = s; }
+    
 protected: 
 
     void computeNumeratorForGradient(int index) { }      
     
     void computeGradientAndHessian(int index, double* ogradient, double* ohessian) {    
-        modelSpecifics.computeMMGradientAndHessian(index, ogradient, ohessian, 
+        modelSpecifics.computeMMGradientAndHessian(index, ogradient, ohessian,  scale,
             ccd.useCrossValidation);          
     }    
     
 private:
-    size_t J;                          
+    size_t J;     
+    double scale;                     
 };
 
 void CyclicCoordinateDescent::update(
@@ -734,13 +787,16 @@ void CyclicCoordinateDescent::update(
 #if 0
     auto betaUpdater = CCDVariant(*this, modelSpecifics, jointPrior, hBeta, fixBeta, 
                             hUpdates, hDelta, noiseLevel);
+    auto parallelScheme = Vanilla();
 #else                            
     auto betaUpdater = MMVariant(*this, modelSpecifics, jointPrior, hBeta, fixBeta, 
-                            hUpdates, hDelta, noiseLevel);                            
+                            hUpdates, hDelta, noiseLevel);    
+    betaUpdater.setScale(2.0);          
+    auto parallelScheme = 
+//    Vanilla(); 
+     C11Threads(3);   	              
 #endif
-                            
-    auto parallelScheme = Vanilla();   	
-		
+                               		
 	while (!done) {
 	
 	    variants::for_each(0, J, betaUpdater, parallelScheme);

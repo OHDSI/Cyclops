@@ -113,9 +113,9 @@ size_t CompressedDataMatrix::getNumberOfEntries(int column) const {
 	return allColumns[column]->getNumberOfEntries();
 }
 
-int* CompressedDataMatrix::getCompressedColumnVector(int column) const {
-	return allColumns[column]->getColumns();
-}
+// inline int* CompressedDataMatrix::getCompressedColumnVector(int column) const {
+// 	return allColumns[column]->getColumns();
+// }
 
 real* CompressedDataMatrix::getDataVector(int column) const {
 	return allColumns[column]->getData();
@@ -153,7 +153,7 @@ CompressedDataMatrix* CompressedDataMatrix::transpose() {
 
 	bool flagDense = false;
 	bool flagIndicator = false;
-//	bool flagSparse = false;
+
 	for (size_t i = 0; i < nCols; i++) {
 		FormatType thisFormatType = this->allColumns[i]->getFormatType();
 		if (thisFormatType == DENSE)
@@ -163,9 +163,9 @@ CompressedDataMatrix* CompressedDataMatrix::transpose() {
 	}
 
 	if (flagIndicator && flagDense) {
-//		flagSparse = true;
 		flagIndicator = flagDense = false;
 	}
+	
 	for (int k = 0; k < numCols; k++) {
 		if (flagIndicator) {
 			matTranspose->push_back(INDICATOR);

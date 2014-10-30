@@ -30,7 +30,7 @@ public:
 			double *ohessian,  bool useWeights);
 			
 	void computeMMGradientAndHessian(int index, double *ogradient,
-			double *ohessian,  bool useWeights);			
+			double *ohessian,  double scale, bool useWeights);			
 
 protected:
 	void computeNumeratorForGradient(int index);
@@ -82,7 +82,7 @@ private:
 	void computeMMGradientAndHessianImpl(
 			int index,
 			double *gradient,
-			double *hessian, Weights w);			
+			double *hessian, double scale, Weights w);			
 
 	template <class IteratorType>
 	void incrementNumeratorForGradientImpl(int index);
@@ -112,6 +112,8 @@ private:
 	void computeXjX(bool useCrossValidation);
 
 	void computeNtoKIndices(bool useCrossValidation);
+	
+	void initializeMM(void);
 	
 	void computeNorms(void);
 	

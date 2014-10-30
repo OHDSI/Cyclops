@@ -57,6 +57,8 @@ public:
 			real* iOffs,
 			real* iBeta,
 			real* iY);
+			
+	virtual void initializeMM() = 0; // pure virtual
 
 	virtual void setWeights(real* inWeights, bool useCrossValidation) = 0; // pure virtual
 
@@ -64,7 +66,7 @@ public:
 			double *ohessian, bool useWeights) = 0; // pure virtual
 			
 	virtual void computeMMGradientAndHessian(int index, double *ogradient,
-			double *ohessian, bool useWeights) = 0; // pure virtual			
+			double *ohessian, double scale, bool useWeights) = 0; // pure virtual			
 
 	virtual void computeNumeratorForGradient(int index) = 0; // pure virtual
 

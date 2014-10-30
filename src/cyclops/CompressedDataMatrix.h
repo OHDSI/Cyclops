@@ -220,7 +220,9 @@ public:
 
 	size_t getNumberOfEntries(int column) const;
 
-	int* getCompressedColumnVector(int column) const;
+	inline int* getCompressedColumnVector(int column) const {
+		return allColumns[column]->getColumns();
+	}
 
 	void removeFromColumnVector(int column, IntVector removeEntries) const;
 	void addToColumnVector(int column, IntVector addEntries) const;
