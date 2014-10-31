@@ -562,7 +562,7 @@ void CyclicCoordinateDescent::update(
 			if (convergenceType < ZHANG_OLES) {
  				double thisObjFunc = getObjectiveFunction(convergenceType);
 				if (thisObjFunc != thisObjFunc) {
-					cout << endl << "Warning! problem is ill-conditioned for this choice of hyperparameter. Enforcing convergence!" << endl;
+				  //			cout << endl << "Warning! problem is ill-conditioned for this choice of hyperparameter. Enforcing convergence!" << endl;
 					conv = 0.0;
 					illconditioned = true;
 				} else {
