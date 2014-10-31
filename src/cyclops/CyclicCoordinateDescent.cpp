@@ -55,6 +55,13 @@ using namespace std;
 // 	}
 // }
 
+
+std::string getEnvironment( const string & var ) {
+     const char * val = std::getenv( var.c_str() );
+     return val == 0 ? "" : val;
+}
+
+
 CyclicCoordinateDescent::CyclicCoordinateDescent(
 			ModelData* reader,
 			AbstractModelSpecifics& specifics,
@@ -791,7 +798,8 @@ void CyclicCoordinateDescent::update(
 #else                            
     auto betaUpdater = MMVariant(*this, modelSpecifics, jointPrior, hBeta, fixBeta, 
                             hUpdates, hDelta, noiseLevel);    
-    betaUpdater.setScale(2.0);          
+    betaUpdater.setScale(6.0);          
+//     auto parallelScheme = Vanilla();
     auto parallelScheme = C11Threads(8);
 // 	C11ThreadPool parallelScheme(8,8);
 #endif

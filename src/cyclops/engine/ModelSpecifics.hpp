@@ -12,12 +12,20 @@
 #include <cstdlib>
 #include <algorithm>
 #include <numeric>
+#include <time.h>
+
+#ifndef _MSC_VER
+	#include <sys/time.h>
+#endif
 
 #include "ModelSpecifics.h"
 #include "Iterators.h"
 
 #include "Recursions.hpp"
 #include "ParallelLoops.h"
+
+#include "engine/COOIterator.h"
+#include "engine/tupleit.hh"
 
 //#define USE_BIGNUM
 #define USE_LONG_DOUBLE
@@ -348,20 +356,74 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 //     }
 // }
 
-template <class BaseModel, typename WeightType> template <class IteratorType>
+template <class BaseModel, typename WeightType> template <class IteratorType> 
 void ModelSpecifics<BaseModel,WeightType>::incrementNormsImpl(int index) {
-
+    
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
 		const real x = it.value();
 		
 		norm[k] += std::abs(x);		
-	}
+	}	
 }
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::initializeMM(void) {
+
+// 	std::vector<double> nums0 = {3, 2, 1, 0};
+// 	std::vector<char> nums1 = {'D', 'C', 'B', 'A'};
+// 	std::vector<int> nums2 = {5, 6, 7, 8};
+// 	
+// 	auto beginIt = make_iter(nums0.begin(), nums1.begin(), nums2.begin());
+// 	auto endIt = beginIt + 4;
+// 	auto comp = coo_make_comp(nums0.begin(), nums1.begin(), nums2.begin());
+// 	
+// // 	std::sort(beginIt, endIt, comp);
+// 	
+// 	print(nums0);
+// 	print(nums1);
+// 	print(nums2);
+
+	
+	
+
+
+
+  vector<double> nums1 = {3, 2, 1, 0};
+  vector<char> nums2 = {'D','C', 'B', 'A'};
+  sort(make_iter(nums1.begin(), nums2.begin()), 
+       make_iter(nums1.end(), nums2.end()), 
+       make_comp(nums1.begin(), nums2.begin()));
+  print(nums1);
+  print(nums2);
+
+//   typedef boost::tuple<int&,double&,long&> tup_t;
+// 
+//   std::vector<int>    a = {   1,   2,   3,   4 };
+//   std::vector<double> b = {  11,  22,  33,  44 };
+//   std::vector<long>   c = { 111, 222, 333, 444 };
+//   
+//   auto beginIt = iterators::makeTupleIterator(begin(a), begin(b), begin(c));
+//   auto endIt   = iterators::makeTupleIterator(end(a), end(b), end(c));
+// 
+// // 	sort(iterators::makeTupleIterator(begin(a), begin(b), begin(c)),
+// // 		iterators::makeTupleIterator(end(a), end(b), end(c)
+// //   
+// //  boost::sort( zip(a, b, c), [](tup_t i, tup_t j){ return i.get<0>() > j.get<0>(); });
+// 
+// 	sort(beginIt, endIt, [](tup_t i, tup_t j) {
+// 		return i.get<0>() > j.get<0>();
+// 	});
+// 	
+//  auto print = [](tup_t t){ std::cout << t.get<0>() << " " << t.get<1>() << " " << t.get<2>() << std::endl; };
+// 
+// //   boost::for_each( zip(a, b, c), print);
+// 	std::for_each(beginIt, endIt, print);
+// 	
+// 
+// 
+// 	std::exit(-1);  
 
 	//computeNorms();
 	
@@ -386,10 +448,185 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(void) {
         }
     }	
 
+	struct timeval time1, time2;
+	gettimeofday(&time1, NULL);
+	
     std::cout << "Constructing Xt..." << std::endl;
     hXt = bsccs::shared_ptr<CompressedDataMatrix>(hXI->transpose());
     
+    gettimeofday(&time2, NULL);
+	double duration = //calculateSeconds(time1, time2);
+		time2.tv_sec - time1.tv_sec +
+			(double)(time2.tv_usec - time1.tv_usec) / 1000000.0;
+    
 	std::cout << "Done with MM initialization" << std::endl;		
+	std::cout << duration << std::endl;
+	
+	gettimeofday(&time1, NULL);
+	
+	size_t nnzero = 0;
+	for (int j = 0; j < J; ++j) {
+	    nnzero += hXI->getNumberOfEntries(j);
+	}
+	std::cout << "nnzero = " << nnzero << std::endl;
+	
+	typedef std::tuple<int, int, real> COO;
+	
+	std::vector<COO> entries;
+	entries.reserve(nnzero);
+	
+	for (int j = 0; j < J; ++j) {
+// 	    comst CompressedDataColum& column = hXI->getColumn(j);
+	    IndicatorIterator it(*hXI, j);
+	    for (; it; ++it) {
+	        entries.emplace_back(std::make_tuple(it.index(), j, it.value()));
+	    }
+	}
+	
+//    std::for_each(begin(entries), begin(entries) + 5, [](const COO& x) {
+//         std::cout << std::get<0>(x) << ":" << std::get<1>(x) << ":" << std::get<2>(x) << std::endl;
+//     });	
+	
+	sort(begin(entries), end(entries));
+	
+// 	std::vector<int> col; col.reserve(nnzero);
+// 	std::vector<real> value; value.reserve(nnzero);
+// 	std::vector<int> row; row.reserve(nnzero);
+
+    std::vector<int> col(nnzero);
+    std::vector<real> value(nnzero);
+    std::vector<int> row; row.reserve(K + 1);
+	
+// 	for (int n = 0; n < nnzero; ++n) {
+// 	    const COO& x = entries[n];
+// 	    col.push_back(
+// 	}
+
+//     std::for_each(begin(entries), end(entries), [&col,&row,&value](const COO& x) {
+//         col.push_back(std::get<0>(x));
+//         row.push_back(std::get<1>(x));
+//         value.push_back(std::get<2>(x));
+//     });
+
+    int currentRow = -1;
+    for (int n = 0; n < nnzero; ++n) {
+        const COO& x = entries[n];
+        const int r = std::get<0>(x);
+//         col.push_back(std::get<1>(x));
+//         value.push_back(std::get<2>(x));
+        col[n] = std::get<1>(x);
+        value[n] = std::get<2>(x);
+        if (r != currentRow) {
+            row.push_back(n);
+            currentRow = r;
+        }     
+    }
+    row.push_back(nnzero);
+	
+     gettimeofday(&time2, NULL);
+	 duration = //calculateSeconds(time1, time2);
+		time2.tv_sec - time1.tv_sec +
+			(double)(time2.tv_usec - time1.tv_usec) / 1000000.0;	
+			
+    std::cout << duration << std::endl;
+
+    std::for_each(begin(entries), begin(entries) + 5, [](const COO& x) {
+        std::cout << std::get<0>(x) << ":" << std::get<1>(x) << ":" << std::get<2>(x) << std::endl;
+    });
+    
+    std::cout << std::endl;
+    
+    std::for_each(begin(col), begin(col) + 5, [](int x) {
+        std::cout << " " << x;
+    });
+    
+    std::for_each(begin(row), begin(row) + 5, [](int x) {
+        std::cout << " " << x;
+    }); 
+    
+    std::for_each(begin(value), begin(value) + 5, [](real x) {
+        std::cout << " " << x;
+    });       
+    
+    
+	gettimeofday(&time1, NULL);
+	
+	nnzero = 0;
+	for (int j = 0; j < J; ++j) {
+	    nnzero += hXI->getNumberOfEntries(j);
+	}
+	std::cout << "nnzero = " << nnzero << std::endl;
+	
+// 	typedef std::tuple<int, int, real> COO;
+// 	
+// 	std::vector<COO> entries;
+// 	entries.reserve(nnzero);
+
+	std::vector<int> qrow; qrow.reserve(nnzero);
+	std::vector<int> qcol; qcol.reserve(nnzero);
+	std::vector<real> qvalue; qvalue.reserve(nnzero);
+	
+	for (int j = 0; j < J; ++j) {
+	    IndicatorIterator it(*hXI, j);
+	    for (; it; ++it) {
+	    	qrow.push_back(it.index());
+	    	qcol.push_back(j);
+	    	qvalue.push_back(it.value());
+	    }
+	}
+	
+//  	typedef boost::tuple<int&,int&,real&> tup_t;
+ 	
+//  	auto beginIt = iterators::makeTupleIterator(begin(qrow), begin(qcol), begin(qvalue));
+//  	auto endIt   = iterators::makeTupleIterator(end(qrow), end(qcol), end(qvalue));
+//  	
+//  	sort(beginIt, endIt, [](tup_t i, tup_t j) {
+//  		return i.get<0>() < j.get<0>(); 	
+//  	});
+ 	
+ 	
+ 		std:cout << qrow.size() << " " << qcol.size() << std::endl;
+ 	
+ 	  sort(make_iter(qrow.begin(), qrow.begin()), 
+       make_iter(qcol.end(), qcol.end()), 
+       make_comp(qrow.begin(), qcol.begin()));
+       
+       std::cout << "Done" << std::endl;
+ 	
+
+    std::vector<int> qqrow; qqrow.reserve(K + 1);	
+    currentRow = -1;
+    for (int n = 0; n < nnzero; ++n) {
+        const int r = qrow[n];      
+        if (r != currentRow) {
+            qqrow.push_back(n);
+            currentRow = r;
+        }     
+    }
+    qqrow.push_back(nnzero);
+    
+    gettimeofday(&time2, NULL);
+	 duration = //calculateSeconds(time1, time2);
+		time2.tv_sec - time1.tv_sec +
+			(double)(time2.tv_usec - time1.tv_usec) / 1000000.0;	
+			
+    std::cout << duration << std::endl;
+    
+        std::cout << std::endl;
+    
+    std::for_each(begin(qcol), begin(qcol) + 5, [](int x) {
+        std::cout << " " << x;
+    });
+    
+    std::for_each(begin(qqrow), begin(qqrow) + 5, [](int x) {
+        std::cout << " " << x;
+    }); 
+//     
+//     std::for_each(begin(qvalue), begin(qvalue) + 5, [](real x) {
+//         std::cout << " " << x;
+//     });       
+				
+	std::exit(-1);
 }
 
 template <class BaseModel,typename WeightType>
@@ -879,7 +1116,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeXBeta(double* beta) {
 template <class BaseModel,typename WeightType> template <class IteratorType>
 void ModelSpecifics<BaseModel,WeightType>::computeXBetaImpl(double *beta) {
 
-#if 1
+#if 0
     for (int k = 0; k < K; ++k) {
         real tmp = 0;
     	IteratorType it(*hXt, k);
