@@ -268,7 +268,20 @@ public:
 	real gradientNumerator2Contrib(real x, real predictor) {
 		return predictor * x * x;
 	}
-
+	
+	inline 
+// 	std::pair<real, real> 
+void
+	incrementMMGradientAndHessian(
+		real& gradient, real& hessian,
+		real expXBeta, real denominator, 
+		real weight, real x, real xBeta, real y, real s, real norm) {
+						
+// 		return {
+			gradient += weight * expXBeta / denominator;
+			hessian += weight * expXBeta / denominator * s * norm;
+// 		};
+	}
 };
 
 template <typename WeightType>
@@ -833,6 +846,30 @@ public:
 // 		exit(-1);
         throw new std::logic_error("Not model-specific");
 		return static_cast<real>(0);
+	}
+
+// 	inline std::pair<real, real> incrementMMGradientAndHessian(
+// 		real expXBeta, real denominator, 
+// 		real weight, real x, real xBeta, real y, real s, real norm) {
+// 						
+// 		return {
+// 			weight * expXBeta / denominator,
+// 			weight * expXBeta / denominator * s * norm
+// 		};
+// 	}
+
+	inline 
+// 	std::pair<real, real> 
+void
+	incrementMMGradientAndHessian(
+		real& gradient, real& hessian,
+		real expXBeta, real denominator, 
+		real weight, real x, real xBeta, real y, real s, real norm) {
+						
+// 		return {
+			gradient += weight * expXBeta / denominator;
+			hessian += weight * expXBeta / denominator * s * norm;
+// 		};
 	}
 
 	template <class IteratorType, class Weights>

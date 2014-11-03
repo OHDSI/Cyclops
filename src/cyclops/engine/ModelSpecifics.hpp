@@ -462,6 +462,7 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(void) {
 	std::cout << "Done with MM initialization" << std::endl;		
 	std::cout << duration << std::endl;
 	
+#if 0	
 	gettimeofday(&time1, NULL);
 	
 	size_t nnzero = 0;
@@ -575,24 +576,25 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(void) {
 	    }
 	}
 	
-//  	typedef boost::tuple<int&,int&,real&> tup_t;
+ 	typedef boost::tuple<int&,int&,real&> tup_t;
  	
-//  	auto beginIt = iterators::makeTupleIterator(begin(qrow), begin(qcol), begin(qvalue));
+ 	auto beginIt = iterators::makeTupleIterator(begin(qrow), begin(qcol), begin(qvalue));
+ 	auto endIt = beginIt + 10;
 //  	auto endIt   = iterators::makeTupleIterator(end(qrow), end(qcol), end(qvalue));
+ 	
+ 	sort(beginIt, endIt, [](tup_t i, tup_t j) {
+ 		return i.get<0>() < j.get<0>(); 	
+ 	});
+ 	
+ 	
+//  		std:cout << qrow.size() << " " << qcol.size() << std::endl;
 //  	
-//  	sort(beginIt, endIt, [](tup_t i, tup_t j) {
-//  		return i.get<0>() < j.get<0>(); 	
-//  	});
- 	
- 	
- 		std:cout << qrow.size() << " " << qcol.size() << std::endl;
- 	
- 	  sort(make_iter(qrow.begin(), qrow.begin()), 
-       make_iter(qcol.end(), qcol.end()), 
-       make_comp(qrow.begin(), qcol.begin()));
-       
-       std::cout << "Done" << std::endl;
- 	
+//  	  sort(make_iter(qrow.begin(), qrow.begin()), 
+//        make_iter(qcol.end(), qcol.end()), 
+//        make_comp(qrow.begin(), qcol.begin()));
+//        
+//        std::cout << "Done" << std::endl;
+//  	
 
     std::vector<int> qqrow; qqrow.reserve(K + 1);	
     currentRow = -1;
@@ -627,6 +629,7 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(void) {
 //     });       
 				
 	std::exit(-1);
+#endif	
 }
 
 template <class BaseModel,typename WeightType>
@@ -682,11 +685,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
 	
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
-		const int k = it.index();		
+		const int k = it.index();	
 		
-		gradient += hNWeight[hPid[k]] * offsExpXBeta[k] / denomPid[hPid[k]];
-		
-		hessian  += hNWeight[hPid[k]] * offsExpXBeta[k] / denomPid[hPid[k]] * s * norm[k];		
+		BaseModel::incrementMMGradientAndHessian(gradient, hessian,
+	    		offsExpXBeta[k], denomPid[hPid[k]], hNWeight[hPid[k]], 
+	    		it.value(), hXBeta[k], hY[k], s, norm[k]);
 	}		
 	
 	if (BaseModel::precomputeGradient) { // Compile-time switch
@@ -696,9 +699,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
 	if (BaseModel::precomputeHessian) { // Compile-time switch
 		hessian += static_cast<real>(2.0) * hXjX[index];
 	}
-	
-// 	std::cout << gradient << ":" << hessian << std::endl;
-// 	std::exit(-1);
 
 	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
@@ -711,8 +711,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	real hessian = static_cast<real>(0);
 
 	IteratorType it(*(sparseIndices)[index], N); // TODO How to create with different constructor signatures?
-
-//std::cout << "YOYOYO" << std::endl;
 
 	if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 		
