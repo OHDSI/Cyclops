@@ -608,9 +608,9 @@ void CyclicCoordinateDescent::update(
 				}
 				done = true;
 			} else if (iteration == maxIterations) {
-				if (noiseLevel > SILENT) {
+				//if (noiseLevel > SILENT) {
 					cout << "Reached maximum iterations" << endl;
-				}
+				//}
 				done = true;
 				lastReturnFlag = MAX_ITERATIONS;
 			} else {

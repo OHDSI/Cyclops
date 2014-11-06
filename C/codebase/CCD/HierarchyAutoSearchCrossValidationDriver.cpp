@@ -60,7 +60,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 	std::vector<real> weights;
 
 
-	double tryvalue = 1;//modelData.getNormalBasedDefaultVar();
+	double tryvalue = 10;//modelData.getNormalBasedDefaultVar();
 	double tryvalueClass = tryvalue; // start with same variance at the class and element level; // for hierarchy class variance
 	double tryvalueStored = tryvalue;
 	double tryvalueClassStored = tryvalue; // start with same variance at the class and element level; // for hierarchy class variance
@@ -78,16 +78,17 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 	bool drugLevelFinished = false;
 	bool classLevelFinished = false;
 
+	int stepSize = 2;
 	int step = 0;
 	int step2 = 0;
-	ccd.setHyperprior(0.1);
+	ccd.setHyperprior(1);
 	ccd.setClassHyperprior(1);
 
 
 	while (!outerFinished){
 		step = 0;
 		step2 = 0;
-		UniModalSearch searcher(10, 0.01, log(1.5));
+		UniModalSearch searcher(stepSize, 0.01, log(1.5));
 		while (!finished) {
 
 			cout << "\n \n \n \t \t LOOP 1" << endl;
@@ -100,11 +101,11 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 
 			double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
 
-			std::cout << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
+			//std::cout << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
 			searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
 			pair<bool,double> next = searcher.step();
-			std::cout << "Completed at " << tryvalue << std::endl;
-			std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
+			//std::cout << "Completed at " << tryvalue << std::endl;
+			//std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
 
 			tryvalue = next.second;
 			if (!next.first) {
@@ -120,7 +121,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 
 		ccd.setHyperprior(tryvalue);
 		//exit(-1);
-		UniModalSearch searcherClass(10, 0.01, log(1.5));
+		UniModalSearch searcherClass(stepSize, 0.01, log(1.5));
 		while (!finished2) {
 			cout << "\n \n \n \t \t LOOP 2" << endl;
 
@@ -133,15 +134,15 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 
 			double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
 
-			std::cout << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
+			//std::cout << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
 			searcherClass.tried(tryvalueClass, pointEstimate, stdDevEstimate);
 			pair<bool,double> next = searcherClass.step();
-			std::cout << "Completed at " << tryvalueClass << std::endl;
-			std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
+			//std::cout << "Completed at " << tryvalueClass << std::endl;
+			//std::cout << "Next point at " << next.second << " and " << next.first << std::endl;
 
 			tryvalueClass = next.second;
 			if (!next.first) {
-				cout << "tryvalueClass = " << tryvalueClass << endl;
+				//cout << "tryvalueClass = " << tryvalueClass << endl;
 				finished2 = true;
 			}
 			std::cout << searcherClass;
@@ -152,7 +153,16 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 			}
 		}
 		ccd.setClassHyperprior(tryvalueClass);
-		if (abs(tryvalueStored - tryvalue)/tryvalueStored < eps && abs(tryvalueClassStored - tryvalueClass)/tryvalueClassStored < eps){
+		cout << "tryvalueStored = " << tryvalueStored << endl;
+		cout << "tryvalue = " << tryvalue << endl;
+		cout << "abs(log10(abs(tryvalueStored - tryvalue)/tryvalueStored)) = " << abs(log10(abs(tryvalueStored - tryvalue)/tryvalueStored)) << endl;
+		cout << "tryvalueClassStored = " << tryvalueClassStored << endl;
+		cout << "tryvalueClass = " << tryvalueClass << endl;
+		cout << "abs(log10(abs(tryvalueClassStored - tryvalueClass)/tryvalueClassStored)) = " << abs(log10(abs(tryvalueClassStored - tryvalueClass)/tryvalueClassStored)) << endl;
+		bool tarzan = abs(log10(abs(tryvalueStored - tryvalue)/tryvalueStored)) < eps && abs(log10(abs(tryvalueClassStored - tryvalueClass)/tryvalueClassStored)) < eps;
+		cout << "abs(log10(abs(tryvalueStored - tryvalue)/tryvalueStored)) < eps && abs(log10(abs(tryvalueClassStored - tryvalueClass)/tryvalueClassStored)) = " << tarzan << endl;
+		if (abs(log10(abs(tryvalueStored - tryvalue)/tryvalueStored)) < eps && abs(log10(abs(tryvalueClassStored - tryvalueClass)/tryvalueClassStored)) < eps){
+			cout << "outerFinished = TRUE" << endl;
 			outerFinished = true;
 		} else {
 			finished = false;

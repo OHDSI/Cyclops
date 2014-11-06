@@ -46,10 +46,7 @@ HierarchyReader::HierarchyReader(const char* fileName, ModelData* modelData) {
 	string line;
 	getline(in, line); // Read header
 
-	if (line.compare(0, MATCH_LENGTH_1, FORMAT_MATCH_1) != 0) {
-		cerr << "Unrecognized file type" << endl;
-	//	exit(-1);
-	}
+
 
 	int currentEntry = 0;
 

@@ -100,7 +100,8 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 			}
 		}
 		ccd.setWeights(&weights[0]);
-		std::cout << "Running at " << ccd.getPriorInfo() << " ";
+		//std::cout << "Running at " << ccd.getPriorInfo() << " ";
+		ccd.resetBeta();
 		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 
 		// Compute predictive loglikelihood for this fold
@@ -115,10 +116,10 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 
 		double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
 
-		std::cout << "Grid-point #" << (step + 1) << " at " << ccd.getHyperprior();
-		std::cout << "\tFold #" << (fold + 1)
-				  << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
-				  << logLikelihood << std::endl;
+		//std::cout << "Grid-point #" << (step + 1) << " at " << ccd.getHyperprior();
+		//std::cout << "\tFold #" << (fold + 1)
+		//		  << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
+		//		  << logLikelihood << std::endl;
 
 		// Store value
 		predLogLikelihood.push_back(logLikelihood);
