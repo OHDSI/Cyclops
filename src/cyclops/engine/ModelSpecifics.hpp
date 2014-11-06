@@ -369,7 +369,7 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNormsImpl(int index) {
 }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::initializeMM(void) {
+void ModelSpecifics<BaseModel,WeightType>::initializeMM(std::vector<bool>& fixBeta) {
 
 // 	std::vector<double> nums0 = {3, 2, 1, 0};
 // 	std::vector<char> nums1 = {'D', 'C', 'B', 'A'};
@@ -390,13 +390,13 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(void) {
 
 
 
-  vector<double> nums1 = {3, 2, 1, 0};
-  vector<char> nums2 = {'D','C', 'B', 'A'};
-  sort(make_iter(nums1.begin(), nums2.begin()), 
-       make_iter(nums1.end(), nums2.end()), 
-       make_comp(nums1.begin(), nums2.begin()));
-  print(nums1);
-  print(nums2);
+//   vector<double> nums1 = {3, 2, 1, 0};
+//   vector<char> nums2 = {'D','C', 'B', 'A'};
+//   sort(make_iter(nums1.begin(), nums2.begin()), 
+//        make_iter(nums1.end(), nums2.end()), 
+//        make_comp(nums1.begin(), nums2.begin()));
+//   print(nums1);
+//   print(nums2);
 
 //   typedef boost::tuple<int&,double&,long&> tup_t;
 // 
@@ -432,19 +432,24 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(void) {
     zeroVector(&norm[0], K);
     
     for (int j = 0; j < J; ++j) {
-        switch(hXI->getFormatType(j)) {
-            case INDICATOR :
-                incrementNormsImpl<IndicatorIterator>(j);
-                break;
-            case SPARSE :
-                incrementNormsImpl<SparseIterator>(j);
-                break;
-            case DENSE :
-                incrementNormsImpl<DenseIterator>(j);
-                break;
-            case INTERCEPT :
-                incrementNormsImpl<InterceptIterator>(j);
-                break;                        
+    	if (
+//     	true 
+    	!fixBeta[j]    	
+    	) {
+			switch(hXI->getFormatType(j)) {
+				case INDICATOR :
+					incrementNormsImpl<IndicatorIterator>(j);
+					break;
+				case SPARSE :
+					incrementNormsImpl<SparseIterator>(j);
+					break;
+				case DENSE :
+					incrementNormsImpl<DenseIterator>(j);
+					break;
+				case INTERCEPT :
+					incrementNormsImpl<InterceptIterator>(j);
+					break;                        
+			}
         }
     }	
 
@@ -678,20 +683,18 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
 		double *ohessian, double scale, Weights w) {
 	real gradient = static_cast<real>(0);
 	real hessian = static_cast<real>(0);
-	real s = static_cast<real>(1.0) / static_cast<real>(scale);
-	
-
+		
 	// TODO for other models
 	
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();	
 		
-		BaseModel::incrementMMGradientAndHessian(gradient, hessian,
-	    		offsExpXBeta[k], denomPid[hPid[k]], hNWeight[hPid[k]], 
-	    		it.value(), hXBeta[k], hY[k], s, norm[k]);
-	}		
-	
+		BaseModel::template incrementMMGradientAndHessian<IteratorType, Weights>(gradient, hessian, offsExpXBeta[k], 
+	    		denomPid[BaseModel::getGroup(hPid, k)], hNWeight[BaseModel::getGroup(hPid, k)], 
+	    		it.value(), hXBeta[k], hY[k], norm[k]);
+	}	
+		
 	if (BaseModel::precomputeGradient) { // Compile-time switch
 		gradient -= hXjY[index];
 	}
@@ -699,9 +702,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
 	if (BaseModel::precomputeHessian) { // Compile-time switch
 		hessian += static_cast<real>(2.0) * hXjX[index];
 	}
-
+	
 	*ogradient = static_cast<double>(gradient);
-	*ohessian = static_cast<double>(hessian);
+	*ohessian = static_cast<double>(hessian) / scale;
 }
 
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>

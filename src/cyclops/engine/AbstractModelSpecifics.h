@@ -58,7 +58,7 @@ public:
 			real* iBeta,
 			real* iY);
 			
-	virtual void initializeMM() = 0; // pure virtual
+	virtual void initializeMM(std::vector<bool>& fixBeta) = 0; // pure virtual
 
 	virtual void setWeights(real* inWeights, bool useCrossValidation) = 0; // pure virtual
 

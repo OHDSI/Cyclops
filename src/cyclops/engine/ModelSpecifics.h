@@ -113,7 +113,7 @@ private:
 
 	void computeNtoKIndices(bool useCrossValidation);
 	
-	void initializeMM(void);
+	void initializeMM(std::vector<bool>& fixBeta);
 	
 	void computeNorms(void);
 	
@@ -269,18 +269,13 @@ public:
 		return predictor * x * x;
 	}
 	
-	inline 
-// 	std::pair<real, real> 
-void
-	incrementMMGradientAndHessian(
-		real& gradient, real& hessian,
-		real expXBeta, real denominator, 
-		real weight, real x, real xBeta, real y, real s, real norm) {
-						
-// 		return {
-			gradient += weight * expXBeta / denominator;
-			hessian += weight * expXBeta / denominator * s * norm;
-// 		};
+	template <class IteratorType, class Weights>	
+	inline void incrementMMGradientAndHessian(
+			real& gradient, real& hessian,
+			real expXBeta, real denominator, 
+			real weight, real x, real xBeta, real y, real norm) {
+
+        throw new std::logic_error("Not model-specific");
 	}
 };
 
@@ -398,6 +393,21 @@ public:
 			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
 		}
 	}
+	
+	template <class IteratorType, class Weights>
+	inline void incrementMMGradientAndHessian(
+			real& gradient, real& hessian,
+			real expXBeta, real denominator, 
+			real weight, real x, real xBeta, real y, real norm) {
+
+		if (IteratorType::isIndicator) {
+			gradient += weight * expXBeta / denominator;
+			hessian += weight * expXBeta / denominator * norm;
+		} else {
+			gradient += weight * expXBeta * x / denominator;
+			hessian += weight * expXBeta * x * x / denominator * norm;		
+		}
+	}	
 
 	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
 		return offs[k] * std::exp(xBeta);
@@ -842,34 +852,17 @@ public:
 	}
 
 	real gradientNumerator2Contrib(real x, real predictor) {
-// 		std::cerr << "Error!" << std::endl;
-// 		exit(-1);
         throw new std::logic_error("Not model-specific");
 		return static_cast<real>(0);
 	}
 
-// 	inline std::pair<real, real> incrementMMGradientAndHessian(
-// 		real expXBeta, real denominator, 
-// 		real weight, real x, real xBeta, real y, real s, real norm) {
-// 						
-// 		return {
-// 			weight * expXBeta / denominator,
-// 			weight * expXBeta / denominator * s * norm
-// 		};
-// 	}
-
-	inline 
-// 	std::pair<real, real> 
-void
-	incrementMMGradientAndHessian(
-		real& gradient, real& hessian,
-		real expXBeta, real denominator, 
-		real weight, real x, real xBeta, real y, real s, real norm) {
-						
-// 		return {
-			gradient += weight * expXBeta / denominator;
-			hessian += weight * expXBeta / denominator * s * norm;
-// 		};
+	template <class IteratorType, class Weights>
+	inline void incrementMMGradientAndHessian(
+			real& gradient, real& hessian,
+			real expXBeta, real denominator, 
+			real weight, real x, real xBeta, real y, real norm) {
+												
+		throw new std::logic_error("Not implemented.");			
 	}
 
 	template <class IteratorType, class Weights>
@@ -982,6 +975,31 @@ public:
 #endif
 			}
 	}
+	
+	template <class IteratorType, class Weights>
+	inline void incrementMMGradientAndHessian(
+			real& gradient, real& hessian,
+			real expXBeta, real denominator, 
+			real weight, real x, real xBeta, real y, real norm) {
+
+		if (IteratorType::isIndicator) {
+			if (Weights::isWeighted) {
+				gradient += weight * expXBeta;
+				hessian  += weight * expXBeta * norm;
+			} else {
+				gradient +=  expXBeta;
+				hessian  +=  expXBeta * norm;			
+			}
+		} else {
+			if (Weights::isWeighted) {
+				gradient += weight * expXBeta * x;
+				hessian  += weight * expXBeta * x * x * norm;		
+			} else {
+				gradient +=  expXBeta * x;
+				hessian  +=  expXBeta * x * x * norm;				
+			}
+		}
+	}	
 
 	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);

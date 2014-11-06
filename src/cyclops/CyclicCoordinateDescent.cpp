@@ -701,7 +701,7 @@ struct MMVariant : public AbstractVariant {
             updates.resize(J);
         }    
         
-      	modelSpecifics.initializeMM();
+      	modelSpecifics.initializeMM(fixBeta);
     }
     
 #define NEW_XBETA
@@ -798,7 +798,7 @@ void CyclicCoordinateDescent::update(
 #else                            
     auto betaUpdater = MMVariant(*this, modelSpecifics, jointPrior, hBeta, fixBeta, 
                             hUpdates, hDelta, noiseLevel);    
-    betaUpdater.setScale(6.0);          
+    betaUpdater.setScale(1.0);          
 //     auto parallelScheme = Vanilla();
     auto parallelScheme = C11Threads(8);
 // 	C11ThreadPool parallelScheme(8,8);
