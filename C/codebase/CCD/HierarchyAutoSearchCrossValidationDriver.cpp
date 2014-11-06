@@ -80,14 +80,14 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 
 	int step = 0;
 	int step2 = 0;
-	ccd.setHyperprior(tryvalue);
-	ccd.setClassHyperprior(tryvalueClass);
+	ccd.setHyperprior(0.1);
+	ccd.setClassHyperprior(1);
 
 
 	while (!outerFinished){
 		step = 0;
 		step2 = 0;
-		UniModalSearch searcher(100, 0.01, log(1.5));
+		UniModalSearch searcher(10, 0.01, log(1.5));
 		while (!finished) {
 
 			cout << "\n \n \n \t \t LOOP 1" << endl;
@@ -120,7 +120,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 
 		ccd.setHyperprior(tryvalue);
 		//exit(-1);
-		UniModalSearch searcherClass(100, 0.01, log(1.5));
+		UniModalSearch searcherClass(10, 0.01, log(1.5));
 		while (!finished2) {
 			cout << "\n \n \n \t \t LOOP 2" << endl;
 
