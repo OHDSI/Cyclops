@@ -153,13 +153,13 @@ void parseCommandLine(int argc, char* argv[],
 
 void setDefaultArguments(CCDArguments &arguments) {
 	arguments.useGPU = false;
-	arguments.maxIterations = 1000;
+	arguments.maxIterations = 100000000;
 	arguments.inFileName = "default_in";
 	arguments.outFileName = "default_out";
 	arguments.outDirectoryName = "";
 	arguments.hyperPriorSet = false;
 	arguments.hyperprior = 1.0;
-	arguments.tolerance = 1E-6; //5E-4;
+	arguments.tolerance = 1E-3;//1E-6; //5E-4;
 	arguments.seed = 123;
 	arguments.doCrossValidation = false;
 	arguments.useAutoSearchCV = false;

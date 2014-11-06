@@ -83,7 +83,7 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 			std::vector<double> predLogLikelihood;
 			double point = computeGridPoint(step);
 			ccd.setHyperprior(point);
-			ccd.resetBeta();
+			//ccd.resetBeta();
 			int counter = 0;
 			for (int i = 0; i < arguments.foldToCompute; i++) {
 				//cout << "arguments.foldToCompute = " << arguments.foldToCompute << endl;
@@ -97,15 +97,21 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 				selector.getWeights(fold, weights);
 				ccd.setWeights(&weights[0]);
 
+				ccd.resetBeta();
 				ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 				// Compute predictive loglikelihood for this fold
+				if (abs(log10(point/2.15443e-05)) < 1 && abs(log10(outerPoint/1.29155e-07)) < 1){
+								//	exit(-1);
+						}
 				selector.getComplement(weights);
 				double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
 
-				std::cout << "Grid-point #" << (step + 1) << " at " << point;
-				std::cout << "\tFold #" << (fold + 1)
-				          << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
-				          << logLikelihood << std::endl;
+			//	std::cout << "Grid-point #" << (step + 1) << " at " << point;
+			//	std::cout << "\tFold #" << (fold + 1)
+			//	          << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
+			//	          << logLikelihood << std::endl;
+
+
 
 				// Store value
 				if (abs(logLikelihood) > 0){
@@ -114,13 +120,15 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 				}
 			}
 
-			double value = computePointEstimate(predLogLikelihood)/ counter;// /
+			double value = computePointEstimate(predLogLikelihood); // counter;// /
 			//				(double(arguments.foldToCompute) / double(arguments.fold));
 			gridPoint.push_back(point);
 			//std::cout << "hyperprior point = " << point;
 			//std::cout << " class hyperprior point = " << outerPoint;
 			//cout << " value = " << value << endl;
 			std::cout << point << "," << outerPoint << "," << value << endl;
+
+
 
 			gridValue.push_back(value);
 		}

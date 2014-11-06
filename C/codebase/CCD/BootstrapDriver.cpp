@@ -49,12 +49,16 @@ void BootstrapDriver::drive(
 	for (int step = 0; step < replicates; step++) {
 		selector.permute();
 		selector.getWeights(0, weights);
+		cout << "weights" << endl;
+		for (int i = 0; i < weights.size(); i++){
+			cout << weights[i] << "," << endl;
+			}
+		
 		ccd.setWeights(&weights[0]);
 
 		std::cout << std::endl << "Running replicate #" << (step + 1) << std::endl;
 		// Run CCD using a warm start
 		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
-
 		// Store point estimates
 		for (int j = 0; j < J; ++j) {
 			estimates[j]->push_back(ccd.getBeta(j));

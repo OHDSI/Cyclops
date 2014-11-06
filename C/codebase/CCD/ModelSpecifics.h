@@ -316,6 +316,7 @@ public:
 	}
 
 	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+		//std::cout << "offs[" << k << "] * std::exp(xBeta) = " << offs[k] * std::exp(xBeta) << std::endl;
 		return offs[k] * std::exp(xBeta);
 	}
 

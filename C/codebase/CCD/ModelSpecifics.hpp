@@ -155,7 +155,7 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]);
 		}
 	}
-
+	//cout << "loglikelihood  numerator = " << logLikelihood << endl;
 	if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
 		if(BaseModel::cumulativeGradientAndHessian) {
 			for (int i = 0; i < N; i++) {
@@ -165,14 +165,18 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 		} else {  // TODO Unnecessary code duplication
 			for (int i = 0; i < N; i++) {
 				// Weights modified in computeNEvents()
-				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], denomPid[i]);
+				//cout << "denomPid[" << i << "] = " << denomPid[i] << endl;
+				//cout << "hNWeight[" << i << "i] = " << hNWeight[i] << endl;
+ 				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], denomPid[i]);
 			}
 		}
 	}
+	//cout << "loglikelihood  not fixed part = " << logLikelihood << endl;
 
 	if (BaseModel::likelihoodHasFixedTerms) {
 		logLikelihood += logLikelihoodFixedTerm;
 	}
+	//cout << "loglikelihood fixed part = " << logLikelihoodFixedTerm << endl;
 
 	return static_cast<double>(logLikelihood);
 }

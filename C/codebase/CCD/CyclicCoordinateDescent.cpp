@@ -347,7 +347,6 @@ double CyclicCoordinateDescent::getLogLikelihood(void) {
 
 	getDenominators();
 	likelihoodCount += 1;
-
 	return modelSpecifics.getLogLikelihood(useCrossValidation);
 }
 
@@ -550,6 +549,11 @@ void CyclicCoordinateDescent::update(
 			}
 			
 		}
+		
+		 
+		//double betaValues[] = {1.46011e-05, 0.000445475, 0.00207494, -0.000893866, 0.00571991, 0.000334021, 0.000173734, 0.00153996, -0.000571815, 0.00674577, -2.18873e-05, 0.000737979, 0.000129962, 0.000371128, 0.00131555, -3.16053e-05, -0.00028111, 0.000389548, -0.000223038, 0.00191063};
+		//std::vector<double> betaHere (betaValues, betaValues + sizeof(betaValues) / sizeof(double) );
+		//setBeta(betaHere);
 
 		iteration++;
 //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
@@ -559,10 +563,10 @@ void CyclicCoordinateDescent::update(
 
 			double conv;
 			bool illconditioned = false;
-			if (convergenceType < ZHANG_OLES) {
+			if (convergenceType > ZHANG_OLES) {
  				double thisObjFunc = getObjectiveFunction(convergenceType);
 				if (thisObjFunc != thisObjFunc) {
-				  //			cout << endl << "Warning! problem is ill-conditioned for this choice of hyperparameter. Enforcing convergence!" << endl;
+				  			cout << endl << "Warning! problem is ill-conditioned for this choice of hyperparameter. Enforcing convergence!" << endl;
 					conv = 0.0;
 					illconditioned = true;
 				} else {
@@ -570,7 +574,9 @@ void CyclicCoordinateDescent::update(
 				}
 				lastObjFunc = thisObjFunc;
 			} else { // ZHANG_OLES
+				//cout << "ZHANG_OLES" << endl;
 				conv = computeZhangOlesConvergenceCriterion();
+				//cout << "conv = " << conv << endl;
 				saveXBeta();
 			} // Necessary to call getObjFxn or computeZO before getLogLikelihood,
 			  // since these copy over XBeta
@@ -579,7 +585,7 @@ void CyclicCoordinateDescent::update(
 			double thisLogPrior = getLogPrior();
 			double thisLogPost = thisLogLikelihood + thisLogPrior;
 
-			noiseLevel = SILENT;
+			noiseLevel = QUIET;
 			if (noiseLevel > QUIET) {
 				cout << endl;
 				printVector(&hBeta[0], J, cout);
@@ -587,14 +593,16 @@ void CyclicCoordinateDescent::update(
 				cout << "log post: " << thisLogPost
 						<< " (" << thisLogLikelihood << " + " << thisLogPrior
 						<< ") (iter:" << iteration << ") ";
+//exit(-1);
 			}
+			//cout << "iteration = " << iteration << endl;
 
 			if (epsilon > 0 && conv < epsilon) {
 				if (illconditioned) {
 					lastReturnFlag = ILLCONDITIONED;
 				} else {
 					if (noiseLevel > SILENT) {
-				//		cout << "Reached convergence criterion" << endl;
+						//cout << "Reached convergence criterion" << endl;
 					}
 					lastReturnFlag = SUCCESS;
 				}
@@ -769,7 +777,6 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	
 	priors::GradientHessian gh;
 	computeGradientAndHessian(index, &gh.first, &gh.second);
-
 	return jointPrior->getDelta(gh, hBeta, index);
 }
 
