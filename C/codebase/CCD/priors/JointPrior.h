@@ -141,20 +141,19 @@ public:
 		int numberOutcomesWithDrug = siblings.size();
 		//		cout << "numberOutcomesWithDrug = " << numberOutcomesWithDrug << endl;
 		double t1 = numberOutcomesWithDrug/hierarchyPriors[0]->getVariance(); // this is the hyperparameter that is used in the original code
-		double t2 = 1/hierarchyPriors[1]->getVariance(); //is this right?
+		double t2 = 1/hierarchyPriors[1]->getVariance();
 
 		//cout << "t1 = " << t1 << "; t2 = " << t2 << endl;
 		//int parent = getParentMap.at(index);
 		//const vector<int>& siblings = getChildMap.at(parent);
+
 		double sumBetas = 0;
 		int nSiblingsOfInterest = 0; //Different from siblings length if weights used
 		for (int i = 0; i < siblings.size(); i++) {
 			sumBetas += beta[siblings[i]];
 		}
-		double hessian = t1 - t1 / (siblings.size() + t2/t1);
-
-		double gradient = t1*beta[index] - t1*t1*sumBetas / (siblings.size()*t1 + t2);
-
+		double hessian = t1 - t1 / (numberOutcomesWithDrug*t1 + t2);
+		double gradient = t1*beta[index] - t1*t1*sumBetas / (numberOutcomesWithDrug*t1 + t2);
 		return (- (gh.first + gradient)/(gh.second + hessian));
 	}
 
