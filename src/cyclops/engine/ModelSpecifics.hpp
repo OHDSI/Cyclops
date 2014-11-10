@@ -18,6 +18,16 @@
 
 #include "Recursions.hpp"
 
+#ifdef CYCLOPS_DEBUG_TIMING
+	#include <ctime>
+	namespace bsccs {
+		const std::string DenseIterator::name = "Den";
+		const std::string IndicatorIterator::name = "Ind";
+		const std::string SparseIterator::name = "Spa";
+		const std::string InterceptIterator::name = "Icp";
+	}
+#endif
+
 //#define USE_BIGNUM
 #define USE_LONG_DOUBLE
 
@@ -49,11 +59,42 @@ template <class BaseModel,typename WeightType>
 ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
 	: AbstractModelSpecifics(input), BaseModel() {
 	// TODO Memory allocation here
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+	auto now = std::chrono::system_clock::now();
+	auto now_c = std::chrono::system_clock::to_time_t(now);
+	std::cout << std::endl << "Start: " << std::ctime(&now_c) << std::endl;
+#endif		
+	
+	
+}
+
+template <class BaseModel, typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::printTiming() {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+
+	std::cout << std::endl;
+	for (auto& d : duration) {
+		std::cout << d.first << " " << d.second << std::endl;	
+	}
+	
+#endif
 }
 
 template <class BaseModel,typename WeightType>
 ModelSpecifics<BaseModel,WeightType>::~ModelSpecifics() {
 	// TODO Memory release here
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+
+    printTiming();
+
+	auto now = std::chrono::system_clock::now();
+	auto now_c = std::chrono::system_clock::to_time_t(now);
+	std::cout << std::endl << "End:   " << std::ctime(&now_c) << std::endl;
+#endif			
+	
 }
 
 template <class BaseModel,typename WeightType>
@@ -287,6 +328,13 @@ void ModelSpecifics<BaseModel,WeightType>::getPredictiveEstimates(real* y, real*
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, double *ogradient,
 		double *ohessian, bool useWeights) {
+		
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = std::chrono::steady_clock::now();
+#endif		
+#endif
+		
 	// Run-time dispatch, so virtual call should not effect speed
 	if (useWeights) {
 		switch (hXI->getFormatType(index)) {
@@ -319,11 +367,27 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 				break;
 		}
 	}
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = std::chrono::steady_clock::now();	
+	///////////////////////////"
+	duration["compGradAndHess  "] += std::chrono::duration_cast<TimingUnits>(end - start).count();
+#endif	
+#endif
+	
 }
 
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
 		double *ohessian, Weights w) {
+		
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = std::chrono::steady_clock::now();
+#endif		
+#endif		
+		
 	real gradient = static_cast<real>(0);
 	real hessian = static_cast<real>(0);
 
@@ -471,6 +535,16 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = std::chrono::steady_clock::now();	
+	///////////////////////////"
+	auto name = "compGradHess" + IteratorType::name + "  ";	
+	duration[name] += std::chrono::duration_cast<TimingUnits>(end - start).count();
+#endif
+#endif		
+	
 }
 
 template <class BaseModel,typename WeightType>
@@ -638,6 +712,13 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = std::chrono::steady_clock::now();
+#endif
+#endif
+
 	// Run-time delegation
 	switch (hXI->getFormatType(index)) {
 		case INDICATOR : {
@@ -676,10 +757,26 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 			// throw error
 			//exit(-1);
 	}	
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = std::chrono::steady_clock::now();	
+	///////////////////////////"
+	duration["compNumForGrad   "] += std::chrono::duration_cast<TimingUnits>(end - start).count();;
+#endif
+#endif	
+	
 }
 
 template <class BaseModel,typename WeightType> template <class IteratorType>
 void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int index) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = std::chrono::steady_clock::now();
+#endif
+#endif
+
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
@@ -703,10 +800,27 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 		
 		
 	}
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = std::chrono::steady_clock::now();	
+	///////////////////////////"
+	auto name = "compNumGrad" + IteratorType::name + "   ";
+	duration[name] += std::chrono::duration_cast<TimingUnits>(end - start).count();
+#endif
+#endif	
+
 }
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index, bool useWeights) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = std::chrono::steady_clock::now();
+#endif
+#endif
+
 	// Run-time dispatch to implementation depending on covariate FormatType
 	switch(hXI->getFormatType(index)) {
 		case INDICATOR :
@@ -724,11 +838,27 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index
 		default : break;
 			// throw error
 			//exit(-1);
-	}	
+	}
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = std::chrono::steady_clock::now();	
+	///////////////////////////"
+	duration["updateXBeta      "] += std::chrono::duration_cast<TimingUnits>(end - start).count();
+#endif
+#endif
+		
 }
 
 template <class BaseModel,typename WeightType> template <class IteratorType>
 inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta, int index, bool useWeights) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = std::chrono::steady_clock::now();
+#endif
+#endif
+
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
@@ -741,10 +871,26 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 		}
 	}
 	computeAccumlatedNumerDenom(useWeights);
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = std::chrono::steady_clock::now();	
+	///////////////////////////"
+	auto name = "updateXBeta" + IteratorType::name + "   ";
+	duration[name] += std::chrono::duration_cast<TimingUnits>(end - start).count();
+#endif
+#endif	
+	
 }
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWeights) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+	auto start = std::chrono::steady_clock::now();
+#endif
+
+
 	if (BaseModel::likelihoodHasDenominator) {
 		fillVector(denomPid, N, BaseModel::getDenomNullValue());
 		for (size_t k = 0; k < K; ++k) {
@@ -760,6 +906,13 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 		cerr << denomPid[i] << " " << accDenomPid[i] << " " << numerPid[i] << endl;
 	}
 #endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+	auto end = std::chrono::steady_clock::now();	
+	///////////////////////////"
+	duration["compRS           "] += std::chrono::duration_cast<TimingUnits>(end - start).count();;
+#endif
+
 }
 
 template <class BaseModel,typename WeightType>

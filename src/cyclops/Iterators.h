@@ -1,6 +1,8 @@
 #ifndef ITERATORS_H
 #define ITERATORS_H
 
+// #include <boost/tuple/tuple.hpp>
+
 #include "CompressedDataMatrix.h"
 
 namespace bsccs {
@@ -12,12 +14,24 @@ namespace bsccs {
  * single run-time determined iterator
  */
 
+
+struct IndicatorTag {};
+struct SparseTag {};
+struct DenseTag {};
+struct InterceptTag {};
+
+
+
 // Iterator for a sparse of indicators column
 class IndicatorIterator {
   public:
 
+	typedef IndicatorTag tag;
 	typedef real Scalar;
-	typedef int Index;
+	typedef int Index;	
+// 	typedef boost::tuples::tuple<Index> XTuple;
+	
+	const static std::string name;	
 
 //	static const bool isIndicator = true;
 	enum  { isIndicator = true };
@@ -59,8 +73,12 @@ class IndicatorIterator {
 class SparseIterator {
   public:
 
+	typedef SparseTag tag;
 	typedef real Scalar;
 	typedef int Index;
+// 	typedef boost::tuples::tuple<Index, Scalar> XTuple;
+	
+	const static std::string name;	
 
 //	static const bool isIndicator = false;
 	enum  { isIndicator = false };
@@ -172,8 +190,12 @@ protected:
 class DenseIterator {
   public:
 
+	typedef DenseTag tag;
 	typedef real Scalar;
 	typedef int Index;
+// 	typedef boost::tuples::tuple<Index, Scalar> XTuple;
+	
+	const static std::string name;	
 
 //	static const bool isIndicator = false;
 	enum  { isIndicator = false };
@@ -213,8 +235,12 @@ class DenseIterator {
 class InterceptIterator {
   public:
 
+	typedef DenseTag tag; // TODO Fix!!!
 	typedef real Scalar;
 	typedef int Index;
+// 	typedef boost::tuples::tuple<Index, Scalar> XTuple; // TODO Fix!!!
+	
+	const static std::string name;	
 
 	enum  { isIndicator = true };
 	enum  { isSparse = false };

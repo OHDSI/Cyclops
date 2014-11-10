@@ -13,6 +13,14 @@
 #include <iostream>
 #include <stdexcept>
 
+// #define CYCLOPS_DEBUG_TIMING
+// #define CYCLOPS_DEBUG_TIMING_LOW
+
+#ifdef CYCLOPS_DEBUG_TIMING
+	#include <chrono>
+	using TimingUnits = std::chrono::nanoseconds;
+#endif
+
 #include "AbstractModelSpecifics.h"
 
 namespace bsccs {
@@ -65,6 +73,8 @@ protected:
 	bool initializeAccumulationVectors(void);
 	
 	bool hasResetableAccumulators(void);
+	
+	void printTiming(void);
 
 private:
 	template <class IteratorType, class Weights>
@@ -113,6 +123,11 @@ private:
 	struct UnweightedOperation {
 		const static bool isWeighted = false;
 	} unweighted;
+
+#ifdef CYCLOPS_DEBUG_TIMING
+//	std::vector<double> duration;
+	std::map<std::string,long long> duration;
+#endif	
 
 };
 

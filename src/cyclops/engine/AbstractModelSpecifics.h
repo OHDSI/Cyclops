@@ -83,6 +83,8 @@ public:
     virtual void getPredictiveEstimates(real* y, real* weights) = 0; // pure virtual
 
     virtual void makeDirty();
+    
+    virtual void printTiming() = 0; // pure virtual
 
 //	virtual void sortPid(bool useCrossValidation) = 0; // pure virtual
 
