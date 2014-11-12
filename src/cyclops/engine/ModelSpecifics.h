@@ -35,6 +35,7 @@
 
 #include "AbstractModelSpecifics.h"
 #include "Iterators.h"
+#include "ParallelLoops.h"
 
 namespace bsccs {
 
@@ -167,9 +168,9 @@ struct OneValue { };
 template <class T>
 inline T operator*(const T& lhs, const OneValue& rhs) { return lhs; }
 
-struct ParallelInfo { };
-
-struct SerialOnly { };
+// struct ParallelInfo { };
+// 
+// struct SerialOnly { };
 
 class SparseIterator; // forward declaration
 
@@ -271,6 +272,8 @@ private:
 	} unweighted;
 	
 	ParallelInfo info;
+	
+	C11ThreadPool threadPool;
 	
 #ifdef CYCLOPS_DEBUG_TIMING
 //	std::vector<double> duration;
