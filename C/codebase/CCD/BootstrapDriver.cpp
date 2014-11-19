@@ -49,10 +49,6 @@ void BootstrapDriver::drive(
 	for (int step = 0; step < replicates; step++) {
 		selector.permute();
 		selector.getWeights(0, weights);
-		cout << "weights" << endl;
-		for (int i = 0; i < weights.size(); i++){
-			cout << weights[i] << "," << endl;
-			}
 		
 		ccd.setWeights(&weights[0]);
 

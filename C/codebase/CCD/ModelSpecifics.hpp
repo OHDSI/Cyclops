@@ -171,12 +171,10 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 			}
 		}
 	}
-	//cout << "loglikelihood  not fixed part = " << logLikelihood << endl;
 
 	if (BaseModel::likelihoodHasFixedTerms) {
 		logLikelihood += logLikelihoodFixedTerm;
 	}
-	//cout << "loglikelihood fixed part = " << logLikelihoodFixedTerm << endl;
 
 	return static_cast<double>(logLikelihood);
 }

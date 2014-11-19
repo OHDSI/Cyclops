@@ -163,10 +163,10 @@ void setDefaultArguments(CCDArguments &arguments) {
 	arguments.seed = 123;
 	arguments.doCrossValidation = false;
 	arguments.useAutoSearchCV = false;
-	arguments.lowerLimit = 0.000001;
-	arguments.upperLimit = 10.0;
+	arguments.lowerLimit = 0.0001;
+	arguments.upperLimit = 100000.0;
 	arguments.fold = 10;
-	arguments.gridSteps = 8;
+	arguments.gridSteps = 10;
 	arguments.cvFileName = "cv.txt";
 	arguments.useHierarchy = false;
 	arguments.useMCMC = false;
@@ -424,7 +424,7 @@ void parseCommandLine(std::vector<std::string>& args,
 			if(foldToComputeCVArg.isSet()) {
 				arguments.foldToCompute = foldToComputeCVArg.getValue();
 			} else {
-				arguments.foldToCompute = 10; //arguments.fold;
+				arguments.foldToCompute = 40; //arguments.fold;
 			}
 			arguments.cvFileName = outFile2Arg.getValue();
 			arguments.doFitAtOptimal = true;

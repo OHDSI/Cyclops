@@ -105,7 +105,6 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 						}
 				selector.getComplement(weights);
 				double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
-
 			//	std::cout << "Grid-point #" << (step + 1) << " at " << point;
 			//	std::cout << "\tFold #" << (fold + 1)
 			//	          << " Rep #" << (i / arguments.fold + 1) << " pred log like = "

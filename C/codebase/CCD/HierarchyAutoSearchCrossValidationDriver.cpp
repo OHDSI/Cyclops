@@ -60,7 +60,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 	std::vector<real> weights;
 
 
-	double tryvalue = 10;//modelData.getNormalBasedDefaultVar();
+	double tryvalue = 100;//modelData.getNormalBasedDefaultVar();
 	double tryvalueClass = tryvalue; // start with same variance at the class and element level; // for hierarchy class variance
 	double tryvalueStored = tryvalue;
 	double tryvalueClassStored = tryvalue; // start with same variance at the class and element level; // for hierarchy class variance
@@ -78,7 +78,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 	bool drugLevelFinished = false;
 	bool classLevelFinished = false;
 
-	int stepSize = 2;
+	int stepSize = 10;
 	int step = 0;
 	int step2 = 0;
 	ccd.setHyperprior(1);
@@ -155,13 +155,13 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 		ccd.setClassHyperprior(tryvalueClass);
 		cout << "tryvalueStored = " << tryvalueStored << endl;
 		cout << "tryvalue = " << tryvalue << endl;
-		cout << "abs(log10(abs(tryvalueStored - tryvalue)/tryvalueStored)) = " << abs(log10(abs(tryvalueStored - tryvalue)/tryvalueStored)) << endl;
+		cout << "abs(log10(tryvalue/tryvalueStored)) = " << abs(log10(tryvalue/tryvalueStored)) << endl;
 		cout << "tryvalueClassStored = " << tryvalueClassStored << endl;
 		cout << "tryvalueClass = " << tryvalueClass << endl;
-		cout << "abs(log10(abs(tryvalueClassStored - tryvalueClass)/tryvalueClassStored)) = " << abs(log10(abs(tryvalueClassStored - tryvalueClass)/tryvalueClassStored)) << endl;
-		bool tarzan = abs(log10(abs(tryvalueStored - tryvalue)/tryvalueStored)) < eps && abs(log10(abs(tryvalueClassStored - tryvalueClass)/tryvalueClassStored)) < eps;
-		cout << "abs(log10(abs(tryvalueStored - tryvalue)/tryvalueStored)) < eps && abs(log10(abs(tryvalueClassStored - tryvalueClass)/tryvalueClassStored)) = " << tarzan << endl;
-		if (abs(log10(abs(tryvalueStored - tryvalue)/tryvalueStored)) < eps && abs(log10(abs(tryvalueClassStored - tryvalueClass)/tryvalueClassStored)) < eps){
+		cout << "abs(log10(tryvalueClass/tryvalueClassStored)) = " << abs(log10(tryvalueClass/tryvalueClassStored)) << endl;
+		bool tarzan = abs(log10(tryvalue/tryvalueStored)) < eps && abs(log10(tryvalueClass/tryvalueClassStored)) < eps;
+		cout << "abs(log10(tryvalue/tryvalueStored)) < eps && abs(log10(tryvalueClass/tryvalueClassStored))  = " << tarzan << endl;
+		if (abs(log10(tryvalue/tryvalueStored)) < eps && abs(log10(tryvalueClass/tryvalueClassStored)) < eps){
 			cout << "outerFinished = TRUE" << endl;
 			outerFinished = true;
 		} else {

@@ -80,7 +80,6 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 			} else {
 				weights[k] = 1.0;
 			}
-			//cout << weights[k] << "," << endl;
 		}
 	} else {
 		std::fill(weights.begin(), weights.end(), 0.0);
