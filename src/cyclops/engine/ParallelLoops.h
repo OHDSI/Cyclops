@@ -76,7 +76,7 @@ namespace variants {
 				C11ThreadPool& tpool) {
 			
 			const int nThreads = tpool.nThreads;
-			const size_t minSize = tpool.minSize;	
+// 			const size_t minSize = tpool.minSize;	
 										
 // 			if (nThreads > 1 && std::distance(begin, end) >= minSize) {				  
 			

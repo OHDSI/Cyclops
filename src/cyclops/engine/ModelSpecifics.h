@@ -732,7 +732,7 @@ public:
 	    RealType xBeta, RealType y) {
 	    
 	    std::cout << "TODO" << std::endl;
-	    std:exit(-1);
+	    std::exit(-1);
 	
     	const RealType g = numerator / denominator;
 	
@@ -820,7 +820,7 @@ public:
 	    RealType xBeta, RealType y) {
 	    
 	    std::cout << "TODO" << std::endl;
-	    std:exit(-1);
+	    std::exit(-1);
 	
     	const RealType g = numerator / denominator;
 	
@@ -930,7 +930,7 @@ public:
 	    RealType xBeta, RealType y) {
 	    
 	    std::cout << "TODO" << std::endl;
-	    std:exit(-1);
+	    std::exit(-1);
 	
     	const RealType g = numerator / denominator;
 	
@@ -1008,7 +1008,7 @@ public:
 	    RealType xBeta, RealType y) {
 	    
 	    std::cout << "TODO" << std::endl;
-	    std:exit(-1);
+	    std::exit(-1);
 	
     	const RealType g = numerator / denominator;
 	
@@ -1093,7 +1093,7 @@ public:
 	    RealType xBeta, RealType y) {
 	    
 	    std::cout << "TODO" << std::endl;
-	    std:exit(-1);
+	    std::exit(-1);
 	
     	const RealType g = numerator / denominator;
 	
@@ -1202,7 +1202,7 @@ public:
 	    RealType xBeta, RealType y) {
 	    
 	    std::cout << "TODO" << std::endl;
-	    std:exit(-1);
+	    std::exit(-1);
 	
     	const RealType g = numerator / denominator;
 	
@@ -1288,7 +1288,7 @@ public:
 	    RealType xBeta, RealType y) {
 	    
 	    std::cout << "TODO" << std::endl;
-	    std:exit(-1);
+	    std::exit(-1);
 	
     	const RealType g = numerator / denominator;
 	
@@ -1417,7 +1417,7 @@ public:
 	    RealType xBeta, RealType y) {
 	    
 	    std::cout << "TODO" << std::endl;
-	    std:exit(-1);
+	    std::exit(-1);
 	
     	const RealType g = numerator / denominator;
 	
