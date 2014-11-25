@@ -6,53 +6,53 @@ simulateData <- function(nstrata = 200,
                          eCovarsPerRow = ncovars/100,
                          model="survival"){
     
-    effectSizes <- data.frame(covariate_id=1:ncovars,rr=exp(rnorm(ncovars,mean=0,sd=effectSizeSd)))
+    effectSizes <- data.frame(covariateId=1:ncovars,rr=exp(rnorm(ncovars,mean=0,sd=effectSizeSd)))
     
     covarsPerRow <- rpois(nrows,eCovarsPerRow)
     covarsPerRow[covarsPerRow > ncovars] <- ncovars
     covarsPerRow <- data.frame(covarsPerRow = covarsPerRow)
     covarRows <- sum(covarsPerRow$covarsPerRow)
-    covariates <- data.frame(row_id = rep(0,covarRows), covariate_id = rep(0,covarRows), covariate_value = rep(1,covarRows))
+    covariates <- data.frame(rowId = rep(0,covarRows), covariateId = rep(0,covarRows), covariateValue = rep(1,covarRows))
     cursor <- 1
     for (i in 1:nrow(covarsPerRow)){
         n <- covarsPerRow$covarsPerRow[i]
         if (n != 0){
-            covariates$row_id[cursor:(cursor+n-1)] <- i
-            covariates$covariate_id[cursor:(cursor+n-1)] <- sample.int(size=n,ncovars)
+            covariates$rowId[cursor:(cursor+n-1)] <- i
+            covariates$covariateId[cursor:(cursor+n-1)] <- sample.int(size=n,ncovars)
             cursor = cursor+n
         }
     }
     
-    outcomes <- data.frame(row_id = 1:nrows, stratum_id = round(runif(nrows,min=1,max=nstrata)), y=0)
-    covariates <- merge(covariates,outcomes[,c("row_id","stratum_id")])
+    outcomes <- data.frame(rowId = 1:nrows, stratumId = round(runif(nrows,min=1,max=nstrata)), y=0)
+    covariates <- merge(covariates,outcomes[,c("rowId","stratumId")])
     
-    row_id_to_rr <- aggregate(rr ~ row_id, data=merge(covariates,effectSizes),prod)
+    rowId_to_rr <- aggregate(rr ~ rowId, data=merge(covariates,effectSizes),prod)
     
-    outcomes <- merge(outcomes,row_id_to_rr,all.x=TRUE)
+    outcomes <- merge(outcomes,rowId_to_rr,all.x=TRUE)
     outcomes$rr[is.na(outcomes$rr)] <- 1
     
     if (model == "survival"){
         strataBackgroundProb <- runif(nstrata,min=0.01,max=0.03)
-        outcomes$rate <-  strataBackgroundProb[outcomes$stratum_id] * outcomes$rr
-        outcomes$time_to_outcome <- 1+round(rexp(n=nrow(outcomes),outcomes$rate))
-        outcomes$time_to_censor <- 1+round(runif(n=nrow(outcomes),min=0,max=499))
-        outcomes$time <- outcomes$time_to_outcome
-        outcomes$time[outcomes$time_to_censor < outcomes$time_to_outcome] <- outcomes$time_to_censor[outcomes$time_to_censor < outcomes$time_to_outcome]
-        outcomes$y <- as.integer(outcomes$time_to_censor > outcomes$time_to_outcome)
+        outcomes$rate <-  strataBackgroundProb[outcomes$stratumId] * outcomes$rr
+        outcomes$timeToOutcome <- 1+round(rexp(n=nrow(outcomes),outcomes$rate))
+        outcomes$timeToCensor <- 1+round(runif(n=nrow(outcomes),min=0,max=499))
+        outcomes$time <- outcomes$timeToOutcome
+        outcomes$time[outcomes$timeToCensor < outcomes$timeToOutcome] <- outcomes$timeToCensor[outcomes$timeToCensor < outcomes$timeToOutcome]
+        outcomes$y <- as.integer(outcomes$timeToCensor > outcomes$timeToOutcome)
     } else if (model == "logistic") {
         strataBackgroundProb <- runif(nstrata,min=0.1,max=0.3)    
-        outcomes$prob <-  strataBackgroundProb[outcomes$stratum_id] * outcomes$rr
+        outcomes$prob <-  strataBackgroundProb[outcomes$stratumId] * outcomes$rr
         outcomes$y <- as.integer(runif(nrows,min=0,max=1) < outcomes$prob)
     } else if (model == "poisson"){
         strataBackgroundProb <- runif(nstrata,min=0.01,max=0.03)
-        outcomes$rate <-  strataBackgroundProb[outcomes$stratum_id] * outcomes$rr
+        outcomes$rate <-  strataBackgroundProb[outcomes$stratumId] * outcomes$rr
         outcomes$time <- 1+round(runif(n=nrow(outcomes),min=0,max=499))
         outcomes$y <- rpois(nrows,outcomes$rate)
     } else
         stop(paste("Unknown model:",model))
     
-    outcomes <- outcomes[order(outcomes$stratum_id,outcomes$row_id),]
-    covariates <- covariates[order(covariates$stratum_id,covariates$row_id,covariates$covariate_id),]
+    outcomes <- outcomes[order(outcomes$stratumId,outcomes$rowId),]
+    covariates <- covariates[order(covariates$stratumId,covariates$rowId,covariates$covariateId),]
     sparseness <- 1-(nrow(covariates)/(nrows*ncovars))
     writeLines(paste("Sparseness =",sparseness*100,"%"))
     list(outcomes = outcomes, covariates = covariates, effectSizes = effectSizes, sparseness = sparseness)
@@ -61,18 +61,18 @@ simulateData <- function(nstrata = 200,
 fitUsingClogit <- function(sim,coverage=TRUE){
     start <- Sys.time()    
     covariates <- sim$covariates
-    ncovars <- max(covariates$covariate_id)
+    ncovars <- max(covariates$covariateId)
     nrows <- nrow(sim$outcomes)
     m <- matrix(0,nrows,ncovars)
     for (i in 1:nrow(covariates)){
-        m[covariates$row_id[i],covariates$covariate_id[i]] <- 1
+        m[covariates$rowId[i],covariates$covariateId[i]] <- 1
     }
     data <- as.data.frame(m)
     
-    data$row_id <- 1:nrow(data)
+    data$rowId <- 1:nrow(data)
     data <- merge(data,sim$outcomes)
-    data <- data[order(data$stratum_id,data$row_id),]
-    formula <- as.formula(paste(c("y ~ strata(stratum_id)",paste("V",1:ncovars,sep="")),collapse=" + "))
+    data <- data[order(data$stratumId,data$rowId),]
+    formula <- as.formula(paste(c("y ~ strata(stratumId)",paste("v",1:ncovars,sep="")),collapse=" + "))
     fit <- clogit(formula,data=data) 
     if (coverage) {
         ci <- confint(fit)
@@ -90,18 +90,18 @@ fitUsingCoxph <- function(sim){
     require("survival")
     start <- Sys.time()    
     covariates <- sim$covariates
-    ncovars <- max(covariates$covariate_id)
+    ncovars <- max(covariates$covariateId)
     nrows <- nrow(sim$outcomes)
     m <- matrix(0,nrows,ncovars)
     for (i in 1:nrow(covariates)){
-        m[covariates$row_id[i],covariates$covariate_id[i]] <- 1
+        m[covariates$rowId[i],covariates$covariateId[i]] <- 1
     }
     data <- as.data.frame(m)
     
-    data$row_id <- 1:nrow(data)
+    data$rowId <- 1:nrow(data)
     data <- merge(data,sim$outcomes)
-    data <- data[order(data$stratum_id,data$row_id),]
-    formula <- as.formula(paste(c("Surv(time,y) ~ strata(stratum_id)",paste("V",1:ncovars,sep="")),collapse=" + "))
+    data <- data[order(data$stratumId,data$rowId),]
+    formula <- as.formula(paste(c("Surv(time,y) ~ strata(stratumId)",paste("v",1:ncovars,sep="")),collapse=" + "))
     fit <- coxph(formula,data=data)    
     if (coverage) {
         ci <- confint(fit)
@@ -119,23 +119,23 @@ fitUsingGnm <- function(sim,coverage=TRUE){
     require(gnm)
     start <- Sys.time()    
     covariates <- sim$covariates
-    ncovars <- max(covariates$covariate_id)
+    ncovars <- max(covariates$covariateId)
     nrows <- nrow(sim$outcomes)
     m <- matrix(0,nrows,ncovars)
     for (i in 1:nrow(covariates)){
-        m[covariates$row_id[i],covariates$covariate_id[i]] <- 1
+        m[covariates$rowId[i],covariates$covariateId[i]] <- 1
     }
     data <- as.data.frame(m)
     
-    data$row_id <- 1:nrow(data)
+    data$rowId <- 1:nrow(data)
     data <- merge(data,sim$outcomes)
-    data <- data[order(data$stratum_id,data$row_id),]
-    formula <- as.formula(paste(c("y ~ V1",paste("V",2:ncovars,sep="")),collapse=" + "))
+    data <- data[order(data$stratumId,data$rowId),]
+    formula <- as.formula(paste(c("y ~ v1",paste("v",2:ncovars,sep="")),collapse=" + "))
     
-    fit = gnm(formula, family=poisson, offset=log(time), eliminate=as.factor(stratum_id), data = data)
+    fit = gnm(formula, family=poisson, offset=log(time), eliminate=as.factor(stratumId), data = data)
     #Todo: figure out how to do confidence intervals correctly
     confint(fit)
-    fit0 = gnm(y ~ 1, family=poisson, offset=log(time), eliminate=as.factor(stratum_id), data = data)
+    fit0 = gnm(y ~ 1, family=poisson, offset=log(time), eliminate=as.factor(stratumId), data = data)
     se <- abs(coef(fit)[[1]]/qnorm(1-pchisq(deviance(fit0)-deviance(fit),1)))
     
     
@@ -175,7 +175,7 @@ fitUsingCyclops <- function(sim,
     if (!regularized)
         includePenalty = FALSE
     start <- Sys.time()    
-    stratified <- max(sim$outcomes$stratum_id) > 1
+    stratified <- max(sim$outcomes$stratumId) > 1
     if (stratified){
         if (model == "logistic") modelType = "clr"
         if (model == "poisson") modelType = "cpr"
@@ -187,30 +187,30 @@ fitUsingCyclops <- function(sim,
     }
     
     if (!stratified){
-        sim$outcomes$stratum_id = sim$outcomes$row_id
-        sim$outcomes <- sim$outcomes(order(sim$outcomes$stratum_id))
-        sim$covariates$stratum_id = sim$covariates$row_id
-        sim$covariates <- sim$covariates(order(sim$covariates$stratum_id))
+        sim$outcomes$stratumId = sim$outcomes$rowId
+        sim$outcomes <- sim$outcomes(order(sim$outcomes$stratumId))
+        sim$covariates$stratumId = sim$covariates$rowId
+        sim$covariates <- sim$covariates(order(sim$covariates$stratumId))
     }
     if (model != "poisson" & model != "survival"){
         sim$outcomes$time <- 1
     }
     if (model == "survival"){
-        sim$outcomes <- sim$outcomes[order(sim$outcomes$stratum_id,-sim$outcomes$time,sim$outcomes$y,sim$outcomes$row_id),]
-        sim$covariates <- merge(sim$outcomes[,c("time","y","row_id")],sim$covariates)
-        sim$covariates <- sim$covariates[order(sim$covariates$stratum_id,-sim$covariates$time,sim$covariates$y,sim$covariates$row_id),]        
+        sim$outcomes <- sim$outcomes[order(sim$outcomes$stratumId,-sim$outcomes$time,sim$outcomes$y,sim$outcomes$rowId),]
+        sim$covariates <- merge(sim$outcomes[,c("time","y","rowId")],sim$covariates)
+        sim$covariates <- sim$covariates[order(sim$covariates$stratumId,-sim$covariates$time,sim$covariates$y,sim$covariates$rowId),]        
     }
     
     dataPtr <- createSqlCyclopsData(modelType = modelType)
     
     count <- appendSqlCyclopsData(dataPtr,
-                                  sim$outcomes$stratum_id,
-                                  sim$outcomes$row_id,
+                                  sim$outcomes$stratumId,
+                                  sim$outcomes$rowId,
                                   sim$outcomes$y,
                                   sim$outcomes$time,
-                                  sim$covariates$row_id,
-                                  sim$covariates$covariate_id,
-                                  sim$covariates$covariate_value)
+                                  sim$covariates$rowId,
+                                  sim$covariates$covariateId,
+                                  sim$covariates$covariateValue)
     if (model == "poisson")
         finalizeSqlCyclopsData(dataPtr,useOffsetCovariate=-1) 
     else if (model != "survival")
@@ -225,13 +225,13 @@ fitUsingCyclops <- function(sim,
                 dataPtr <- createSqlCyclopsData(modelType = modelType)
                 
                 count <- appendSqlCyclopsData(dataPtr,
-                                              sim$outcomes$stratum_id,
-                                              sim$outcomes$row_id,
+                                              sim$outcomes$stratumId,
+                                              sim$outcomes$rowId,
                                               sim$outcomes$y,
                                               sim$outcomes$time,
-                                              sim$covariates$row_id,
-                                              sim$covariates$covariate_id,
-                                              sim$covariates$covariate_value)
+                                              sim$covariates$rowId,
+                                              sim$covariates$covariateId,
+                                              sim$covariates$covariateValue)
                 
             }
             cyclopsFit <- fitCyclopsModel(dataPtr,forceColdStart=FALSE,prior = prior("laplace",0.1,exclude=i))
@@ -239,8 +239,8 @@ fitUsingCyclops <- function(sim,
             if (coverage) {
                 if (model == "survival"){
                     ci <- confint(cyclopsFit,parm=i,includePenalty = includePenalty)
-                    lbCi95 <- ci[,2]
-                    ubCi95 <- ci[,3]
+                    lbCi95[i] <- ci[,2]
+                    ubCi95[i] <- ci[,3]
                 } else {
                     ci <- aconfint(cyclopsFit,parm=i)
                     lbCi95[i] <- ci[,1]
@@ -250,8 +250,8 @@ fitUsingCyclops <- function(sim,
         }
     } else {
         cyclopsFit <- fitCyclopsModel(dataPtr, prior = prior("none"))
-        coefCyclops <- data.frame(covariate_id = as.integer(names(coef(cyclopsFit))),beta=coef(cyclopsFit))
-        coefCyclops <- coefCyclops[order(coefCyclops$covariate_id),]
+        coefCyclops <- data.frame(covariateId = as.integer(names(coef(cyclopsFit))),beta=coef(cyclopsFit))
+        coefCyclops <- coefCyclops[order(coefCyclops$covariateId),]
         coefCyclops <- coefCyclops$beta
         if (coverage) {
             if (model == "survival"){
