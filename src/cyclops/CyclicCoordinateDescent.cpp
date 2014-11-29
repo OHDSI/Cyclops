@@ -791,25 +791,41 @@ void CyclicCoordinateDescent::update(
 		saveXBeta();
 	}
 	
-#if 0
+	double betaUpdaterScale = 8.0; 
+	
+#define noMM
+#ifdef noMM
     auto betaUpdater = CCDVariant(*this, modelSpecifics, jointPrior, hBeta, fixBeta, 
                             hUpdates, hDelta, noiseLevel);
     auto parallelScheme = Vanilla();
 #else                            
     auto betaUpdater = MMVariant(*this, modelSpecifics, jointPrior, hBeta, fixBeta, 
-                            hUpdates, hDelta, noiseLevel);    
-    betaUpdater.setScale(1.0);          
+                            hUpdates, hDelta, noiseLevel); 
+     
+    betaUpdater.setScale(betaUpdaterScale);          
 //     auto parallelScheme = Vanilla();
     auto parallelScheme = C11Threads(8);
 // 	C11ThreadPool parallelScheme(8,8);
 #endif
-                               		
+                    
+    double thisLogPost = 0; 
+    double lastLogPost = 0;          		
 	while (!done) {
 	
 	    variants::for_each(0, J, betaUpdater, parallelScheme);
-	    
-	    betaUpdater.finalizeUpdate();
-	    
+
+		//betaUpdater.finalizeUpdate();
+		
+	    if (lastLogPost <= thisLogPost || iteration == 1){
+	    	betaUpdater.finalizeUpdate();
+	    } else {
+	    	betaUpdater.finalizeUpdate();
+#ifndef noMM
+	 		betaUpdaterScale = max(betaUpdaterScale / 2.0,1.0);
+	 		betaUpdater.setScale(betaUpdaterScale);  
+#endif
+	    }
+		
 		iteration++;
 //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
 		bool checkConvergence = true; // Check after each complete cycle
@@ -828,6 +844,7 @@ void CyclicCoordinateDescent::update(
 					illconditioned = true;
 				} else {
 					conv = computeConvergenceCriterion(thisObjFunc, lastObjFunc);
+					cout << "thisObjFunc = " << thisObjFunc << endl;
 				}
 				lastObjFunc = thisObjFunc;
 			} else { // ZHANG_OLES
@@ -836,9 +853,10 @@ void CyclicCoordinateDescent::update(
 			} // Necessary to call getObjFxn or computeZO before getLogLikelihood,
 			  // since these copy over XBeta
 
+			lastLogPost = thisLogPost;
 			double thisLogLikelihood = getLogLikelihood();
 			double thisLogPrior = getLogPrior();
-			double thisLogPost = thisLogLikelihood + thisLogPrior;
+			thisLogPost = thisLogLikelihood + thisLogPrior;
 
             std::ostringstream stream;
 			if (noiseLevel > QUIET) {			    
