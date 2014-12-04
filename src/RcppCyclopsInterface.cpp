@@ -266,7 +266,7 @@ List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {
 	
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);		
 	double timeUpdate = interface->runCrossValidation();
-		
+
 	interface->diagnoseModel(0.0, 0.0);
 	
 	List list = List::create(

@@ -154,7 +154,7 @@ void CcdInterface::setDefaultArguments(void) {
 	arguments.hyperPriorSet = false;
 	arguments.hyperprior = 1.0;
 	arguments.tolerance = 1E-6; //5E-4;
-	arguments.seed = 123;
+	arguments.seed = -99;
 	arguments.doCrossValidation = false;
 	arguments.useAutoSearchCV = false;
 	arguments.lowerLimit = 0.01;
