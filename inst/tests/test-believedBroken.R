@@ -106,6 +106,6 @@ test_that("Set seed for cross-validation", {
     cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = createPrior("laplace",    																		
                                         exclude = c("(Intercept)")),
-                          control = control(seed = 666))
+                          control = createControl(seed = 666))
     # How to check seed?
 })

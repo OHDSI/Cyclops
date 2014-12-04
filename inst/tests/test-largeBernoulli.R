@@ -13,7 +13,7 @@ test_that("Large Bernoulli CCD data file read", {
 	expect_equal(getNumberOfCovariates(dataPtr), 18) # Adds intercept
 		
 	cyclopsFit <- fitCyclopsModel(dataPtr, prior = createPrior("none"), 
-												control = control(noiseLevel = "silent"))	
+												control = createControl(noiseLevel = "silent"))	
 	expect_equal(cyclopsFit$log_likelihood * 2, -1578.046, tolerance = tolerance) # SAS fit
 	expect_named(coef(cyclopsFit)) # Reads covariate names from file
 	expect_named(predict(cyclopsFit)) # Reads row names from file	

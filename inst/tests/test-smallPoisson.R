@@ -1,4 +1,4 @@
-?library("testthat")
+library("testthat")
 
 #
 # Small Poisson MLE regression
@@ -18,7 +18,7 @@ test_that("Small Poisson dense regression", {
                                    modelType = "pr")														
     cyclopsFitD <- fitCyclopsModel(dataPtrD, 
                            prior = createPrior("none"),
-                           control = control(noiseLevel = "silent"))
+                           control = createControl(noiseLevel = "silent"))
     expect_equal(coef(cyclopsFitD), coef(glmFit), tolerance = tolerance)
     expect_equal(cyclopsFitD$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
     expect_equal(confint(cyclopsFitD, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
@@ -39,7 +39,7 @@ test_that("Specify CI level", {
                                    modelType = "pr")    													
     cyclopsFit <- fitCyclopsModel(dataPtr, 
                            prior = createPrior("none"),
-                           control = control(noiseLevel = "silent"))
+                           control = createControl(noiseLevel = "silent"))
 
     expect_equal(
         confint(cyclopsFit, c(1:3), level = 0.99)[,2:3], 
@@ -62,7 +62,7 @@ test_that("Small Poisson indicator regression", {
     
     cyclopsFitI <- fitCyclopsModel(dataPtrI, 
                            prior = createPrior("none"),
-                           control = control(noiseLevel = "silent"))
+                           control = createControl(noiseLevel = "silent"))
     expect_equal(coef(cyclopsFitI), coef(glmFit), tolerance = tolerance)
     expect_equal(cyclopsFitI$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
     
@@ -84,7 +84,7 @@ test_that("Small Poisson sparse regression", {
                                    modelType = "pr")
     cyclopsFitS <- fitCyclopsModel(dataPtrS, 
                            prior = createPrior("none"),
-                           control = control(noiseLevel = "silent"))
+                           control = createControl(noiseLevel = "silent"))
     expect_equal(coef(cyclopsFitS), coef(glmFit), tolerance = tolerance)
     expect_equal(cyclopsFitS$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
     expect_equal(confint(cyclopsFitS, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)

@@ -198,7 +198,7 @@ start, length, event, x1, x2
 #                                            data = lung, modelType = "cox")    
 #     #This crashed R:
 #     cyclopsFitRight <- fitCyclopsModel(dataPtrRight,
-#                                        control = control(noiseLevel = "silent")) 
+#                                        control = createControl(noiseLevel = "silent")) 
 #     
 #     lung$row_id <- 1:nrow(lung)
 #     out <- data.frame(row_id = lung$row_id, stratum_id = lung$sex, time = lung$time, y = lung$status)

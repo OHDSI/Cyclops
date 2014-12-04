@@ -14,7 +14,7 @@ test_that("Find covariate by name and number", {
     cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = createPrior("laplace",																			
                                         exclude = c("(Intercept)", "outcome2", "outcome3")),
-                          control = control(noiseLevel = "silent"))
+                          control = createControl(noiseLevel = "silent"))
     
     # Shrinkage on treatment-effects
     expect_less_than(coef(cyclopsFit)[4], coef(glmFit)[4])
@@ -26,7 +26,7 @@ test_that("Find covariate by name and number", {
     cyclopsFit2 <- fitCyclopsModel(dataPtr2,
                            prior = createPrior("laplace", 
                                          exclude = c(1:3)),
-                           control = control(noiseLevel = "silent"))	
+                           control = createControl(noiseLevel = "silent"))	
     # Check c(i:j) notation
     expect_equal(coef(cyclopsFit), coef(cyclopsFit2))
 })
@@ -44,7 +44,7 @@ test_that("Error when covariate not found", {
         fitCyclopsModel(dataPtr,
                     prior = createPrior("laplace", 
                                   exclude = c("BAD", "outcome2", "outcome3")),
-                    control = control(noiseLevel = "silent")))
+                    control = createControl(noiseLevel = "silent")))
     
     dataPtr2 <- createCyclopsDataFrame(counts ~ outcome + treatment, 
                                    modelType = "pr")
@@ -53,7 +53,7 @@ test_that("Error when covariate not found", {
         fitCyclopsModel(dataPtr2,
                     prior = createPrior("laplace", 
                                   exclude = c(10,1:3)),
-                    control = control(noiseLevel = "silent")))
+                    control = createControl(noiseLevel = "silent")))
 })
 
 test_that("Preclude profiling regularized coefficients", {
@@ -67,7 +67,7 @@ test_that("Preclude profiling regularized coefficients", {
     
     cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = createPrior("laplace", exclude = "(Intercept)"),
-                          control = control(noiseLevel = "silent"))
+                          control = createControl(noiseLevel = "silent"))
     
     expect_true(
         !is.null(confint(cyclopsFit, "(Intercept)")) # not regularized

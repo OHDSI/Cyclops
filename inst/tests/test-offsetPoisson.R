@@ -19,7 +19,7 @@ test_that("Check offset in model formula", {
 
     cyclopsFit <- fitCyclopsModel(dataPtr, 
                           prior = createPrior("none"),
-                          control = control(noiseLevel = "silent"))
+                          control = createControl(noiseLevel = "silent"))
     expect_equal(coef(cyclopsFit), coef(glmFit), tolerance = tolerance)
         
     dataPtr2 <- createCyclopsDataFrame(Claims ~ District + Group + Age + offset(logHolders),

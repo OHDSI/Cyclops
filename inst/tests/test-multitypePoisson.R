@@ -25,14 +25,14 @@ test_that("Small multi-type Poisson dense regression", {
     
     cyclopsFitD <- fitCyclopsModel(dataPtrD, 
                            prior = createPrior("none"),
-                           control = control(noiseLevel = "silent"))
+                           control = createControl(noiseLevel = "silent"))
     
     dataPtrE <- createCyclopsDataFrame(Multitype(counts, type) ~ outcome + treatment, data = dobson,                                      
                                        modelType = "pr", method = "debug")
     
     cyclopsFitE <- fitCyclopsModel(dataPtrE, 
                                    prior = createPrior("none"),
-                                   control = control(noiseLevel = "silent"))    
+                                   control = createControl(noiseLevel = "silent"))    
     
     expect_equal(coef(cyclopsFitD), coef(cyclopsFitE))
     
@@ -41,7 +41,7 @@ test_that("Small multi-type Poisson dense regression", {
     
     cyclopsFitI <- fitCyclopsModel(dataPtrI, 
                                    prior = createPrior("none"),
-                                   control = control(noiseLevel = "silent"))    
+                                   control = createControl(noiseLevel = "silent"))    
     
     expect_equal(coef(cyclopsFitI), coef(cyclopsFitD))
     
@@ -50,7 +50,7 @@ test_that("Small multi-type Poisson dense regression", {
     
     cyclopsFitS <- fitCyclopsModel(dataPtrS, 
                                    prior = createPrior("none"),
-                                   control = control(noiseLevel = "silent"))    
+                                   control = createControl(noiseLevel = "silent"))    
     
     expect_equal(coef(cyclopsFitS), coef(cyclopsFitD))
 })
@@ -75,7 +75,7 @@ test_that("coef throws error when not converged", {
     
     cyclopsFitD <- fitCyclopsModel(dataPtrD, 
                                    prior = createPrior(c("normal","normal"), c(0.0001,10), graph = "type"),
-                                   control = control(noiseLevel = "silent"))
+                                   control = createControl(noiseLevel = "silent"))
     expect_error(coef(cyclopsFitD), "did not converge")
 })
 
@@ -101,10 +101,10 @@ test_that("confirm dimension check", {
     
     expect_error(fitCyclopsModel(dataPtrD, 
                                  prior = createPrior(c("normal"), c(0.0001,10), graph = "type"),
-                                 control = control(noiseLevel = "silent")), "dimensionality mismatch")
+                                 control = createControl(noiseLevel = "silent")), "dimensionality mismatch")
     expect_error(fitCyclopsModel(dataPtrD, 
                                  prior = createPrior(c("normal", "normal"), c(0.0001), graph = "type"),
-                                 control = control(noiseLevel = "silent")), "dimensionality mismatch")    
+                                 control = createControl(noiseLevel = "silent")), "dimensionality mismatch")    
 })
 
 
@@ -131,11 +131,11 @@ test_that("Small multi-type Poisson with hierarchical prior", {
     
     cyclopsFitD <- fitCyclopsModel(dataPtrD, 
                                    prior = createPrior(c("normal","normal"), c(0.0001,10), graph = "type"),
-                                   control = control(noiseLevel = "silent", maxIterations = 2000))
+                                   control = createControl(noiseLevel = "silent", maxIterations = 2000))
     
     cyclopsFitE <- fitCyclopsModel(dataPtrD, 
                                    prior = createPrior(c("normal","normal"), c(0.0001,0.0001), graph = "type"),
-                                   control = control(noiseLevel = "silent"))    
+                                   control = createControl(noiseLevel = "silent"))    
     
     
 })

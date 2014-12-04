@@ -277,7 +277,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @examples \dontrun{
 #' # Add cross-validation example
 #' }
-control <- function(
+createControl <- function(
 		maxIterations = 1000, tolerance = 1E-6, convergenceType = "gradient",
 		cvType = "grid", fold = 10, lowerLimit = 0.01, upperLimit = 20.0, gridSteps = 10,
 		cvRepetitions = 1,
