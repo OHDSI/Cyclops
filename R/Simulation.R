@@ -234,7 +234,7 @@ fitUsingCyclops <- function(sim,
                                               sim$covariates$covariateValue)
                 
             }
-            cyclopsFit <- fitCyclopsModel(dataPtr,forceColdStart=FALSE,prior = prior("laplace",0.1,exclude=i))
+            cyclopsFit <- fitCyclopsModel(dataPtr,forceColdStart=FALSE,prior = createPrior("laplace",0.1,exclude=i))
             coefCyclops[i] <- coef(cyclopsFit)[names(coef(cyclopsFit)) == as.character(i)]
             if (coverage) {
                 if (model == "survival"){
@@ -249,7 +249,7 @@ fitUsingCyclops <- function(sim,
             }
         }
     } else {
-        cyclopsFit <- fitCyclopsModel(dataPtr, prior = prior("none"))
+        cyclopsFit <- fitCyclopsModel(dataPtr, prior = createPrior("none"))
         coefCyclops <- data.frame(covariateId = as.integer(names(coef(cyclopsFit))),beta=coef(cyclopsFit))
         coefCyclops <- coefCyclops[order(coefCyclops$covariateId),]
         coefCyclops <- coefCyclops$beta

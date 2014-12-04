@@ -12,7 +12,7 @@ test_that("Find covariate by name and number", {
                                   modelType = "pr")
     
     cyclopsFit <- fitCyclopsModel(dataPtr,
-                          prior = prior("laplace",																			
+                          prior = createPrior("laplace",																			
                                         exclude = c("(Intercept)", "outcome2", "outcome3")),
                           control = control(noiseLevel = "silent"))
     
@@ -24,7 +24,7 @@ test_that("Find covariate by name and number", {
                                    modelType = "pr")
     
     cyclopsFit2 <- fitCyclopsModel(dataPtr2,
-                           prior = prior("laplace", 
+                           prior = createPrior("laplace", 
                                          exclude = c(1:3)),
                            control = control(noiseLevel = "silent"))	
     # Check c(i:j) notation
@@ -42,7 +42,7 @@ test_that("Error when covariate not found", {
     
     expect_error(
         fitCyclopsModel(dataPtr,
-                    prior = prior("laplace", 
+                    prior = createPrior("laplace", 
                                   exclude = c("BAD", "outcome2", "outcome3")),
                     control = control(noiseLevel = "silent")))
     
@@ -51,7 +51,7 @@ test_that("Error when covariate not found", {
     
     expect_error(
         fitCyclopsModel(dataPtr2,
-                    prior = prior("laplace", 
+                    prior = createPrior("laplace", 
                                   exclude = c(10,1:3)),
                     control = control(noiseLevel = "silent")))
 })
@@ -66,7 +66,7 @@ test_that("Preclude profiling regularized coefficients", {
                                   modelType = "pr")
     
     cyclopsFit <- fitCyclopsModel(dataPtr,
-                          prior = prior("laplace", exclude = "(Intercept)"),
+                          prior = createPrior("laplace", exclude = "(Intercept)"),
                           control = control(noiseLevel = "silent"))
     
     expect_true(
@@ -87,19 +87,19 @@ test_that("Preclude intercept regularization by default", {
                                   modelType = "pr")
     
 #     expect_error(fitCyclopsModel(dataPtr,
-#                 prior = prior("laplace", 0.1)))
+#                 prior = createPrior("laplace", 0.1)))
     
     c1 <- fitCyclopsModel(dataPtr,
                       forceColdStart = TRUE,
-                      prior = prior("laplace", 0.1, forceIntercept = TRUE))    
+                      prior = createPrior("laplace", 0.1, forceIntercept = TRUE))    
     
     c2 <- fitCyclopsModel(dataPtr,
                       forceColdStart = TRUE,
-                      prior = prior("laplace", 0.1, exclude = "(Intercept)"))
+                      prior = createPrior("laplace", 0.1, exclude = "(Intercept)"))
     
     c3 <- fitCyclopsModel(dataPtr,
                       forceColdStart = TRUE,
-                      prior = prior("laplace", 0.1, exclude = 1))   
+                      prior = createPrior("laplace", 0.1, exclude = 1))   
     
     expect_equal(coef(c2),
                  coef(c3))
@@ -116,7 +116,7 @@ test_that("Mixture report should show full details of components", {
     dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment, 
                                   modelType = "pr")    
     cyclopsFit <- fitCyclopsModel(dataPtr,
-                          prior = prior("laplace",    																		
+                          prior = createPrior("laplace",    																		
                                         exclude = c("(Intercept)", "outcome2", "outcome3")))
     expect_equal(length(strsplit(cyclopsFit$prior_info, ' ')[[1]]),
                  4) # 4 different prior assignments    

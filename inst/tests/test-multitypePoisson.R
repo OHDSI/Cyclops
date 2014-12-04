@@ -24,14 +24,14 @@ test_that("Small multi-type Poisson dense regression", {
                                        modelType = "pr", method = "debug")
     
     cyclopsFitD <- fitCyclopsModel(dataPtrD, 
-                           prior = prior("none"),
+                           prior = createPrior("none"),
                            control = control(noiseLevel = "silent"))
     
     dataPtrE <- createCyclopsDataFrame(Multitype(counts, type) ~ outcome + treatment, data = dobson,                                      
                                        modelType = "pr", method = "debug")
     
     cyclopsFitE <- fitCyclopsModel(dataPtrE, 
-                                   prior = prior("none"),
+                                   prior = createPrior("none"),
                                    control = control(noiseLevel = "silent"))    
     
     expect_equal(coef(cyclopsFitD), coef(cyclopsFitE))
@@ -40,7 +40,7 @@ test_that("Small multi-type Poisson dense regression", {
                                        modelType = "pr", method = "debug")
     
     cyclopsFitI <- fitCyclopsModel(dataPtrI, 
-                                   prior = prior("none"),
+                                   prior = createPrior("none"),
                                    control = control(noiseLevel = "silent"))    
     
     expect_equal(coef(cyclopsFitI), coef(cyclopsFitD))
@@ -49,7 +49,7 @@ test_that("Small multi-type Poisson dense regression", {
                                        modelType = "pr", method = "debug")
     
     cyclopsFitS <- fitCyclopsModel(dataPtrS, 
-                                   prior = prior("none"),
+                                   prior = createPrior("none"),
                                    control = control(noiseLevel = "silent"))    
     
     expect_equal(coef(cyclopsFitS), coef(cyclopsFitD))
@@ -74,7 +74,7 @@ test_that("coef throws error when not converged", {
                                        modelType = "pr")
     
     cyclopsFitD <- fitCyclopsModel(dataPtrD, 
-                                   prior = prior(c("normal","normal"), c(0.0001,10), graph = "type"),
+                                   prior = createPrior(c("normal","normal"), c(0.0001,10), graph = "type"),
                                    control = control(noiseLevel = "silent"))
     expect_error(coef(cyclopsFitD), "did not converge")
 })
@@ -100,10 +100,10 @@ test_that("confirm dimension check", {
     
     
     expect_error(fitCyclopsModel(dataPtrD, 
-                                 prior = prior(c("normal"), c(0.0001,10), graph = "type"),
+                                 prior = createPrior(c("normal"), c(0.0001,10), graph = "type"),
                                  control = control(noiseLevel = "silent")), "dimensionality mismatch")
     expect_error(fitCyclopsModel(dataPtrD, 
-                                 prior = prior(c("normal", "normal"), c(0.0001), graph = "type"),
+                                 prior = createPrior(c("normal", "normal"), c(0.0001), graph = "type"),
                                  control = control(noiseLevel = "silent")), "dimensionality mismatch")    
 })
 
@@ -130,11 +130,11 @@ test_that("Small multi-type Poisson with hierarchical prior", {
                                        modelType = "pr")
     
     cyclopsFitD <- fitCyclopsModel(dataPtrD, 
-                                   prior = prior(c("normal","normal"), c(0.0001,10), graph = "type"),
+                                   prior = createPrior(c("normal","normal"), c(0.0001,10), graph = "type"),
                                    control = control(noiseLevel = "silent", maxIterations = 2000))
     
     cyclopsFitE <- fitCyclopsModel(dataPtrD, 
-                                   prior = prior(c("normal","normal"), c(0.0001,0.0001), graph = "type"),
+                                   prior = createPrior(c("normal","normal"), c(0.0001,0.0001), graph = "type"),
                                    control = control(noiseLevel = "silent"))    
     
     
@@ -155,7 +155,7 @@ test_that("Check multitype SCCS", {
 #                                       data = chopdat,
 #                                       modelType = "sccs")        
 #     cyclopsFit <- fitCyclopsModel(dataPtr,
-#                                   prior = prior("none"))
+#                                   prior = createPrior("none"))
 #     expect_equal(logLik(cyclopsFit), logLik(gold.clogit)[1])
 #     expect_equal(coef(cyclopsFit), coef(gold.clogit), tolerance = tolerance)            
 })

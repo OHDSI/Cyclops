@@ -12,7 +12,7 @@ test_that("Check simple SCCS as conditional logistic regression", {
                                   data = chopdat,
                                   modelType = "clr")        
     cyclopsFit <- fitCyclopsModel(dataPtr,
-                          prior = prior("none"))
+                          prior = createPrior("none"))
     expect_equal(logLik(cyclopsFit), logLik(gold.clogit))
     expect_equal(coef(cyclopsFit), coef(gold.clogit), tolerance = tolerance)            
 })
@@ -28,7 +28,7 @@ test_that("Check simple SCCS as conditional Poisson regression", {
                                   data = chopdat,
                                   modelType = "cpr")        
     cyclopsFit <- fitCyclopsModel(dataPtr,
-                          prior = prior("none"))
+                          prior = createPrior("none"))
     
     expect_equal(coef(cyclopsFit)[1:2], coef(gold.cp)[1:2], tolerance = tolerance)     
     expect_equal(confint(cyclopsFit, c("exgr1","agegr2"))[,2:3],
@@ -45,7 +45,7 @@ test_that("Check simple SCCS as SCCS", {
                                   data = chopdat,
                                   modelType = "sccs")        
     cyclopsFit <- fitCyclopsModel(dataPtr,
-                          prior = prior("none"))
+                          prior = createPrior("none"))
     expect_equal(logLik(cyclopsFit), logLik(gold.clogit))
     expect_equal(coef(cyclopsFit), coef(gold.clogit), tolerance = tolerance)            
 })

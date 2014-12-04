@@ -61,10 +61,10 @@ library("survival")
 #                                       data = infert,
 #                                       modelType = "clr")
 #     
-#     cyclopsFit <- fitCyclopsModel(dataPtr, prior = prior("none"))
+#     cyclopsFit <- fitCyclopsModel(dataPtr, prior = createPrior("none"))
 #     
 #     cyclopsFitR <- fitCyclopsModel(dataPtr, 
-#                                    prior = prior("laplace", 1, exclude = 1))
+#                                    prior = createPrior("laplace", 1, exclude = 1))
 #     
 #     # Error: both cyclopsFit and cyclopsFitR share the same interface ptr
 #     confint(cyclopsFit, c(1:2), includePenalty = TRUE) # Should not throw error       
@@ -104,7 +104,7 @@ test_that("Set seed for cross-validation", {
                                   modelType = "pr") 
     
     cyclopsFit <- fitCyclopsModel(dataPtr,
-                          prior = prior("laplace",    																		
+                          prior = createPrior("laplace",    																		
                                         exclude = c("(Intercept)")),
                           control = control(seed = 666))
     # How to check seed?

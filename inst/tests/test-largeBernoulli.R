@@ -12,7 +12,7 @@ test_that("Large Bernoulli CCD data file read", {
 	expect_equal(getNumberOfStrata(dataPtr), 22296) # Generates unique ids
 	expect_equal(getNumberOfCovariates(dataPtr), 18) # Adds intercept
 		
-	cyclopsFit <- fitCyclopsModel(dataPtr, prior = prior("none"), 
+	cyclopsFit <- fitCyclopsModel(dataPtr, prior = createPrior("none"), 
 												control = control(noiseLevel = "silent"))	
 	expect_equal(cyclopsFit$log_likelihood * 2, -1578.046, tolerance = tolerance) # SAS fit
 	expect_named(coef(cyclopsFit)) # Reads covariate names from file

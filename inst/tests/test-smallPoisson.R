@@ -17,7 +17,7 @@ test_that("Small Poisson dense regression", {
     dataPtrD <- createCyclopsDataFrame(counts ~ outcome + treatment, data = dobson,
                                    modelType = "pr")														
     cyclopsFitD <- fitCyclopsModel(dataPtrD, 
-                           prior = prior("none"),
+                           prior = createPrior("none"),
                            control = control(noiseLevel = "silent"))
     expect_equal(coef(cyclopsFitD), coef(glmFit), tolerance = tolerance)
     expect_equal(cyclopsFitD$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
@@ -38,7 +38,7 @@ test_that("Specify CI level", {
     dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment,
                                    modelType = "pr")    													
     cyclopsFit <- fitCyclopsModel(dataPtr, 
-                           prior = prior("none"),
+                           prior = createPrior("none"),
                            control = control(noiseLevel = "silent"))
 
     expect_equal(
@@ -61,7 +61,7 @@ test_that("Small Poisson indicator regression", {
                                    modelType = "pr")
     
     cyclopsFitI <- fitCyclopsModel(dataPtrI, 
-                           prior = prior("none"),
+                           prior = createPrior("none"),
                            control = control(noiseLevel = "silent"))
     expect_equal(coef(cyclopsFitI), coef(glmFit), tolerance = tolerance)
     expect_equal(cyclopsFitI$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
@@ -83,7 +83,7 @@ test_that("Small Poisson sparse regression", {
     dataPtrS <- createCyclopsDataFrame(counts ~ outcome, sparseFormula =  ~ treatment, 
                                    modelType = "pr")
     cyclopsFitS <- fitCyclopsModel(dataPtrS, 
-                           prior = prior("none"),
+                           prior = createPrior("none"),
                            control = control(noiseLevel = "silent"))
     expect_equal(coef(cyclopsFitS), coef(glmFit), tolerance = tolerance)
     expect_equal(cyclopsFitS$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
@@ -104,7 +104,7 @@ test_that("Get SEs in small Poisson model", {
     dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment,
                                   modelType = "pr")        												
     cyclopsFit <- fitCyclopsModel(dataPtr, 
-                          prior = prior("none"))
+                          prior = createPrior("none"))
         
     cyclopsSE <- getSEs(cyclopsFit, c(1:5))
      
@@ -120,12 +120,12 @@ test_that("Playing with standardization", {
     dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment,
                                       modelType = "pr")            											
     cyclopsFit <- fitCyclopsModel(dataPtr, 
-                                  prior = prior("none"))
+                                  prior = createPrior("none"))
     
     dataPtrS <- createCyclopsDataFrame(counts ~ outcome + treatment,
                                        modelType = "pr")                										
     cyclopsFitS <- fitCyclopsModel(dataPtrS, 
-                                   prior = prior("none"))          
+                                   prior = createPrior("none"))          
     
     coef(cyclopsFit)
     coef(cyclopsFitS)

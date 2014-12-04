@@ -17,7 +17,7 @@ test_that("Small Bernoulli dense regression", {
 	glmFit <- glm(y ~ log_bid, family = binomial()) # gold standard
 	
 	dataPtrD <- createCyclopsDataFrame(y ~ log_bid, modelType = "lr")														
-	cyclopsFitD <- fitCyclopsModel(dataPtrD, prior = prior("none"),
+	cyclopsFitD <- fitCyclopsModel(dataPtrD, prior = createPrior("none"),
 	                       control = control(noiseLevel = "silent"))
 	expect_equal(coef(cyclopsFitD), coef(glmFit), tolerance = tolerance)
 	expect_equal(cyclopsFitD$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
@@ -39,7 +39,7 @@ test_that("Add intercept via finalize", {
     
     dataPtrD <- createCyclopsDataFrame(y ~ log_bid - 1, modelType = "lr")
     finalizeSqlCyclopsData(dataPtrD, addIntercept = TRUE)
-    cyclopsFitN <- fitCyclopsModel(dataPtrD, prior = prior("none"), forceColdStart = TRUE,
+    cyclopsFitN <- fitCyclopsModel(dataPtrD, prior = createPrior("none"), forceColdStart = TRUE,
                            control = control(noiseLevel = "silent"))
     expect_equal(coef(cyclopsFitN), coef(glmFit), tolerance = tolerance) 
     
@@ -62,7 +62,7 @@ test_that("Small Bernoulli sparse regression", {
 	glmFit <- glm(y ~ log_bid, family = binomial()) # gold standard
 	
 	dataPtrS <- createCyclopsDataFrame(y ~ 1, sparseFormula = ~ log_bid, modelType = "lr")														
-	cyclopsFitS <- fitCyclopsModel(dataPtrS, prior = prior("none"),
+	cyclopsFitS <- fitCyclopsModel(dataPtrS, prior = createPrior("none"),
 												 control = control(noiseLevel = "silent"))
 	expect_equal(coef(cyclopsFitS), coef(glmFit), tolerance = tolerance)
 	expect_equal(cyclopsFitS$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)

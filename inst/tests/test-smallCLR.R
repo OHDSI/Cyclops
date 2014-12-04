@@ -13,7 +13,7 @@ test_that("Small conditional logistic regression", {
                                   data = infert,
                                   modelType = "clr")
     
-    cyclopsFit <- fitCyclopsModel(dataPtr, prior = prior("none"))
+    cyclopsFit <- fitCyclopsModel(dataPtr, prior = createPrior("none"))
     
 	tolerance <- 1E-4
 
@@ -32,7 +32,7 @@ test_that("Small conditional logistic regression", {
                                        modelType = "clr")
     
     cyclopsFitR <- fitCyclopsModel(dataPtrR, 
-                                   prior = prior("laplace", 1, exclude = 1))
+                                   prior = createPrior("laplace", 1, exclude = 1))
     
 #     expect_not_equal(confint(cyclopsFitR, c(1), includePenalty = TRUE),
 #                  confint(cyclopsFitR, c(1), includePenalty = FALSE))

@@ -19,7 +19,7 @@ test_that("Try loading cohort via SQL", {
                           useOffsetCovariate=-1, 
                           addIntercept=FALSE)
 
-   fit <- fitCyclopsModel(cd, prior=prior("laplace",0.1))   
+   fit <- fitCyclopsModel(cd, prior = createPrior("laplace",0.1))   
    coef(fit)[which(coef(fit) != 0)]
 })
 

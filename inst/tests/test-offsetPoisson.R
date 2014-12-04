@@ -18,7 +18,7 @@ test_that("Check offset in model formula", {
     ## Test new number of covariates
 
     cyclopsFit <- fitCyclopsModel(dataPtr, 
-                          prior = prior("none"),
+                          prior = createPrior("none"),
                           control = control(noiseLevel = "silent"))
     expect_equal(coef(cyclopsFit), coef(glmFit), tolerance = tolerance)
         
@@ -26,7 +26,7 @@ test_that("Check offset in model formula", {
                                    data = Insurance,
                                    modelType = "pr")   
 
-    cyclopsFit2 <- fitCyclopsModel(dataPtr2, prior = prior("none"))
+    cyclopsFit2 <- fitCyclopsModel(dataPtr2, prior = createPrior("none"))
     expect_equal(coef(cyclopsFit2), coef(glmFit), tolerance = tolerance)
     
     # Need to test now using finalize to (1) add intercept and (2) log-transform        

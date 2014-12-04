@@ -113,5 +113,5 @@ test_that("Test bad stratum IDs", {
                              log_bid)
    finalizeSqlCyclopsData(dataPtr) # Not yet implemented
    
-#     fitCyclopsModel(dataPtr, prior = prior("none")) #crashes R
+#     fitCyclopsModel(dataPtr, prior = createPrior("none")) #crashes R
 })

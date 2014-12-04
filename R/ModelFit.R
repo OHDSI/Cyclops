@@ -34,7 +34,7 @@
 #' outcome <- gl(3,1,9)
 #' treatment <- gl(3,3)
 #' cyclopsData <- createCyclopsDataFrame(counts ~ outcome + treatment, modelType = "pr")
-#' cyclopsFit <- fitCyclopsModel(cyclopsData, prior = prior("none"))
+#' cyclopsFit <- fitCyclopsModel(cyclopsData, prior = createPrior("none"))
 #' coef(cyclopsFit)
 #' confint(cyclopsFit, c("outcome2","treatment3"))
 #' predict(cyclopsFit)
@@ -321,7 +321,7 @@ control <- function(
 #' @return
 #' A Cyclops prior object of class inheriting from \code{"cyclopsPrior"} for use with \code{fitCyclopsModel}.
 #' 
-prior <- function(priorType, 
+createPrior <- function(priorType, 
                   variance = 1, 
                   exclude = c(), 
                   graph = NULL,
