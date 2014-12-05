@@ -264,7 +264,8 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {	
 	using namespace bsccs;
 	
-	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);		
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	interface->getArguments().doFitAtOptimal = true;		
 	double timeUpdate = interface->runCrossValidation();
 
 	interface->diagnoseModel(0.0, 0.0);

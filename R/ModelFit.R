@@ -93,7 +93,7 @@ fitCyclopsModel <- function(cyclopsData,
  	
 	if (!missing(prior) && prior$useCrossValidation) {
 		if (missing(control)) {
-			minCVData <- control()$minCVData		
+			minCVData <- createControl()$minCVData		
 		} else {
 			minCVData <- control$minCVData
 		}
