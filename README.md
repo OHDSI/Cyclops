@@ -8,7 +8,7 @@ Cyclops (Cyclic coordinate descent for logistic, Poisson and survival analysis) 
 
 Features
 ========
- - Regression of very large problems: millions of observations, millions of variables
+ - Regression of very large problems: up to millions of observations, millions of variables
  - Supports (conditional) logistic regression, (conditional) Poisson regression, as well as (conditional) Cox regression
  - Uses a sparse representation of the independent variables when appropriate
  - Supports using no prior or a LaPlace prior
@@ -26,7 +26,7 @@ Examples
  
 Technology
 ============
-Cyclops in an R package, with most functionality implemented in C++.
+Cyclops in an R package, with most functionality implemented in C++. Cyclops uses cyclic coordinate descent to optimize the likelihood function, which makes use of the sparse nature of the data.
 
 System Requirements
 ===================
