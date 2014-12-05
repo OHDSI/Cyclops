@@ -20,6 +20,8 @@ namespace loggers {
 class RcppProgressLogger : public ProgressLogger {
 public:
     RcppProgressLogger(bool _silent = false) : silent(_silent) { }
+    
+    void setSilent(bool _silent) { silent = _silent; }
 
     void writeLine(const std::ostringstream& stream) {
         if (!silent) {
