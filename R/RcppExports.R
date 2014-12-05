@@ -69,6 +69,10 @@
     .Call('Cyclops_cyclopsInitializeModel', PACKAGE = 'Cyclops', inModelData, modelType, computeMLE)
 }
 
+.isSorted <- function(dataFrame, indexes, ascending) {
+    .Call('Cyclops_isSorted', PACKAGE = 'Cyclops', dataFrame, indexes, ascending)
+}
+
 #' @title Print row identifiers
 #' 
 #' @description
