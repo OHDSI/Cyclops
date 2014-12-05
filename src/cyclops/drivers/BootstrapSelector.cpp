@@ -53,8 +53,9 @@ void BootstrapSelector::permute() {
 	// Get non-excluded indices
 	int N_new = indicesIncluded.size();
 	if (type == SUBJECT) {
+	    std::uniform_int_distribution<int> uniform(0, N_new - 1);
 		for (int i = 0; i < N_new; i++) {
-			int ind = rand() / (RAND_MAX / N_new + 1);
+            int ind =  uniform(prng);
 			int draw = indicesIncluded[ind];
 			selectedSet.insert(draw);
 		}
