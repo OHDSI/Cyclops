@@ -4,5 +4,6 @@ import(
 	BH,
 	Rcpp,
 	RcppEigen,
-	Matrix
+	Matrix,
+	ff
 )

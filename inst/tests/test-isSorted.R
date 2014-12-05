@@ -1,4 +1,5 @@
 library("testthat")
+library("ff")
 
 test_that("isSorted data.frame", {
   x <- data.frame(a = runif(1000),b = runif(1000))
@@ -15,7 +16,8 @@ test_that("isSorted data.frame", {
 })
 
 test_that("isSorted ffdf", {
-  x <- data.frame(a = runif(20000000),b = runif(20000000))
+#   x <- data.frame(a = runif(20000000),b = runif(20000000)) # Takes too much time for a unit-test
+  x <- data.frame(a = runif(200),b = runif(200))    
   x <- round(x,digits=2)
   x <- as.ffdf(x)
   expect_false(isSorted(x,c("a","b"),c(TRUE,FALSE)))

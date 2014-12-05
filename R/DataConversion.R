@@ -275,7 +275,7 @@ constructCyclopsDataFromBatchableSources <- function(resultSetOutcome,
 #' cyclopsData <- convertToCyclopsDataObject(outcomes,covariates,modelType = "clr",addIntercept = FALSE)
 #' 
 #' #Fit model:
-#' fit <- fitCyclopsModel(cyclopsData,prior = prior("none"))  
+#' fit <- fitCyclopsModel(cyclopsData,prior = createPrior("none"))  
 #' 
 #' @export
 convertToCyclopsDataObject <- function(outcomes, 
