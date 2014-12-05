@@ -86,7 +86,7 @@ fitUsingClogit <- function(sim,coverage=TRUE){
     data.frame(coef = coef(fit), lbCi95 = ci[,1], ubCi95 = ci[,2])
 }
 
-fitUsingCoxph <- function(sim){
+fitUsingCoxph <- function(sim, coverage = TRUE){
     require("survival")
     start <- Sys.time()    
     covariates <- sim$covariates
