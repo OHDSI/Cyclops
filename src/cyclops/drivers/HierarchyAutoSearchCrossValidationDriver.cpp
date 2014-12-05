@@ -85,6 +85,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 		// More hierarchy logic
 		ccd.setHyperprior(tryvalue);
 		ccd.setClassHyperprior(tryvalueClass);
+		selector.reseed();		
 
 		std::vector<double> predLogLikelihood;
 

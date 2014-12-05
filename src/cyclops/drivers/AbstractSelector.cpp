@@ -44,6 +44,7 @@ AbstractSelector::AbstractSelector(
 #endif
 		}
 		srand(seed);
+		prng.seed(seed);
 	}
 }
 

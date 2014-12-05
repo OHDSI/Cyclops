@@ -105,7 +105,8 @@ void CrossValidationSelector::permute() {
 
 	// Do random shuffle
 	if (!deterministic) {
-		std::random_shuffle(permutation.begin(), permutation.end());
+//     	std::cerr << "PERMUTE" << std::endl;
+		std::shuffle(permutation.begin(), permutation.end(), prng);
 	}
 
 	if(weightsExclude){

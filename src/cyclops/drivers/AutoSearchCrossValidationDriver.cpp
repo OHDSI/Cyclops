@@ -156,6 +156,7 @@ void AutoSearchCrossValidationDriver::drive(
 	int step = 0;
 	while (!finished) {
 		ccd.setHyperprior(tryvalue);
+		selector.reseed();		
 
 		std::vector<double> predLogLikelihood;
 

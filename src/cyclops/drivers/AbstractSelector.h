@@ -9,6 +9,8 @@
 #define ABSTRACTSELECTOR_H_
 
 #include <vector>
+#include <random>
+#include <iostream> // TODO REMOVE
 
 #include "io/ProgressLogger.h"
 
@@ -37,6 +39,9 @@ public:
 	virtual ~AbstractSelector();
 
 	virtual void permute() = 0; // pure virtual
+	
+	// TODO
+	virtual void reseed() { /* std::cerr << "RESEED" << std::endl;*/ } // Do nothing by default
 
 	virtual void getWeights(int batch, std::vector<real>& weights) = 0; // pure virtual
 
@@ -49,6 +54,8 @@ protected:
 	size_t K;
 	size_t N;
 	bool deterministic;
+	std::mt19937 prng;
+	
 	
     loggers::ProgressLoggerPtr logger;
 	loggers::ErrorHandlerPtr error;	

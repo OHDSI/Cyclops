@@ -87,6 +87,7 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 			std::vector<double> predLogLikelihood;
 			double point = computeGridPoint(step);
 			ccd.setHyperprior(point);
+			selector.reseed();
 
 			for (int i = 0; i < arguments.foldToCompute; i++) {
 
