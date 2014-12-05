@@ -54,11 +54,11 @@ isSorted.data.frame <- function(data,columnNames,ascending=rep(TRUE,length(colum
 isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
     require(ffbase) #Should be superfluous, since the user already has an ffdf object
     if (nrow(data)>100000){ #If data is big, first check on a small subset. If that aready fails, we're done
-        if (!isSorted(data[ri(1,1000),,drop=FALSE],columnNames,ascending))
+        if (!isSorted(data[ff::ri(1,1000),,drop=FALSE],columnNames,ascending))
             return(FALSE)
     }
-    chunks <- chunk(data)
-    for (i in chunk(data))
+#     chunks <- chunk(data)
+    for (i in chunk.ffdf(data))
         if (!isSorted(data[i,,drop=FALSE],columnNames,ascending))
             return(FALSE)
     return(TRUE)
@@ -356,22 +356,22 @@ convertToCyclopsDataObject.ffdf <- function(outcomes,
         }
     }
     if (checkRowIds){
-        mapping <- ffmatch(covariates$rowId,outcomes$rowId)
+        mapping <- ffbase::ffmatch(covariates$rowId,outcomes$rowId)
         if (any(is.na(mapping))){
             if(!quiet)
                 writeLines("Removing covariate values with rowIds that are not in outcomes")
-            covariateRowsWithMapping <- ffwhich(mapping, !is.na(mapping))
+            covariateRowsWithMapping <- ffbase::ffwhich(mapping, !is.na(mapping))
             covariates <- covariates[covariateRowsWithMapping,]
         }
     }
     
     resultSetOutcome <- new.env()
     assign("data",outcomes,envir=resultSetOutcome)
-    assign("chunks",chunk(outcomes),envir=resultSetOutcome)
+    assign("chunks",chunk.ffdf(outcomes),envir=resultSetOutcome)
     assign("cursor",1,envir=resultSetOutcome)
     resultSetCovariate <- new.env()
     assign("data",covariates,envir=resultSetCovariate)
-    assign("chunks",chunk(covariates),envir=resultSetCovariate)
+    assign("chunks",chunk.ffdf(covariates),envir=resultSetCovariate)
     assign("cursor",1,envir=resultSetCovariate)
     
     getOutcomeBatch <- function(resultSetOutcome, modelType){

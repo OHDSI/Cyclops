@@ -18,7 +18,8 @@ Depends:
     RcppEigen (>= 0.3.2),
     Matrix
 Imports: 
-    ff
+    ff,
+    ffbase
 LinkingTo: Rcpp,
     BH,
     RcppEigen
