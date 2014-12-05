@@ -8,7 +8,7 @@ before_install:
   - curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
   - chmod 755 ./travis-tool.sh
   - ./travis-tool.sh bootstrap
-  - ./travis-tool.sh install_r testthat BH RcppEigen gnm ff
+  - ./travis-tool.sh install_r testthat BH RcppEigen gnm ffbase ff
   
 script:
     - g++ -E -dM -std=c++98 -x c++ /dev/null > std1 && g++ -E -dM -std=c++0x -x c++ /dev/null > std2 && diff -u std1 std2 | grep '[+|-]^*#define' && rm std1 std2
