@@ -26,4 +26,5 @@ LinkingTo: Rcpp,
 Suggests:
     testthat,
     survival,
-    gnm
+    gnm,
+    ggplot2

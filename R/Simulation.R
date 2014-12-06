@@ -282,11 +282,14 @@ coverage <- function(goldStandard,lowerBounds,upperBounds){
 }
 
 plotFit <- function(fit,goldStandard,label){
-    require("ggplot2")
-    ggplot(fit, aes(x= goldStandard , y=coef, ymin=lbCi95, ymax=ubCi95), environment=environment()) +
-        geom_abline(intercept = 0, slope = 1) +
-        geom_pointrange(alpha=0.2) +
-        scale_y_continuous(label)
+    if (require("ggplot2")) {
+        ggplot(fit, aes(x= goldStandard , y=coef, ymin=lbCi95, ymax=ubCi95), environment=environment()) +
+            geom_abline(intercept = 0, slope = 1) +
+            geom_pointrange(alpha=0.2) +
+            scale_y_continuous(label)
+    } else {
+        stop("gglot2 package required")
+    }
 }
 
 runSimulation1 <- function(){

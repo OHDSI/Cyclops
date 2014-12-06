@@ -52,7 +52,7 @@ isSorted.data.frame <- function(data,columnNames,ascending=rep(TRUE,length(colum
 }
 
 isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
-    require(ffbase) #Should be superfluous, since the user already has an ffdf object
+#    require(ffbase) #Should be superfluous, since the user already has an ffdf object
     if (nrow(data)>100000){ #If data is big, first check on a small subset. If that aready fails, we're done
         if (!isSorted(data[ff::ri(1,1000),,drop=FALSE],columnNames,ascending))
             return(FALSE)
@@ -299,7 +299,7 @@ convertToCyclopsDataObject.ffdf <- function(outcomes,
                                             checkSorting = TRUE,
                                             checkRowIds = TRUE,
                                             quiet = FALSE){
-    require(ffbase) #Should be superfluous, since the user already has an ffdf object
+#    require(ffbase) #Should be superfluous, since the user already has an ffdf object
     if (checkSorting){
         if (modelType == "lr" | modelType == "pr"){
             if (!isSorted(outcomes,c("rowId"))){
