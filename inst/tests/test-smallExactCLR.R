@@ -9,13 +9,13 @@ test_that("Small exact, conditional logistic regression with no ties", {
     
     gold <- clogit(case ~ spontaneous + induced + strata(stratum), data=infert)  
     
-    dataPtrNoTies <- createCyclopsDataFrame(case ~ spontaneous + induced + strata(stratum),
+    dataPtrNoTies <- createCyclopsData(case ~ spontaneous + induced + strata(stratum),
                                             data = infert,
                                             modelType = "clr")
     
     cyclopsFitNoTies <- fitCyclopsModel(dataPtrNoTies, prior = createPrior("none"))    
     
-    dataPtrExact <- createCyclopsDataFrame(case ~ spontaneous + induced + strata(stratum),
+    dataPtrExact <- createCyclopsData(case ~ spontaneous + induced + strata(stratum),
                                            data = infert,
                                            modelType = "clr_exact")
     
@@ -38,13 +38,13 @@ test_that("Small exact, conditional logistic regression with no ties", {
     goldWithTiesBreslow <- clogit(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 + strata(stratum),
                                   data = withTies, method="breslow")    
     
-    dataPtrWithTies <-createCyclopsDataFrame(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 + strata(stratum),
+    dataPtrWithTies <-createCyclopsData(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 + strata(stratum),
                                              data = withTies,
                                              modelType = "clr_exact")
     
     cyclopsFitWithTies <- fitCyclopsModel(dataPtrWithTies, prior = createPrior("none"))     
     
-    dataPtrWithTiesBreslow <-createCyclopsDataFrame(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 + strata(stratum),
+    dataPtrWithTiesBreslow <-createCyclopsData(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 + strata(stratum),
                                                     data = withTies,
                                                     modelType = "clr")
     
@@ -59,13 +59,13 @@ test_that("Small exact, conditional logistic regression with no ties", {
 # test_that("Evaluate speed of exact method without ties (should be same as Breslow)", { 
 #     gold <- clogit(case ~ spontaneous + induced + strata(stratum), data=infert)  
 #     
-#     dataPtrBreslow <- createCyclopsDataFrame(case ~ spontaneous + induced + strata(stratum),
+#     dataPtrBreslow <- createCyclopsData(case ~ spontaneous + induced + strata(stratum),
 #                                              data = infert,
 #                                              modelType = "clr") 
 #     
 #     cyclopsFitBreslow <- fitCyclopsModel(dataPtrBreslow, prior = createPrior("none"), forceColdStart = TRUE)
 #     
-#     dataPtrExact <- createCyclopsDataFrame(case ~ strata(stratum), sparseFormula = ~spontaneous + induced,
+#     dataPtrExact <- createCyclopsData(case ~ strata(stratum), sparseFormula = ~spontaneous + induced,
 #                                            data = infert,
 #                                            modelType = "clr_exact")
 #     
@@ -75,7 +75,7 @@ test_that("Small exact, conditional logistic regression with no ties", {
 #     microbenchmark(
 #         clogit(case ~ spontaneous + induced + strata(stratum), data=infert),
 #         {
-#             dataPtrBreslow <- createCyclopsDataFrame(case ~ spontaneous + induced + strata(stratum),
+#             dataPtrBreslow <- createCyclopsData(case ~ spontaneous + induced + strata(stratum),
 #                                                      data = infert,
 #                                                      modelType = "clr") 
 #             fitCyclopsModel(dataPtrBreslow, prior = createPrior("none"), forceColdStart = TRUE) 

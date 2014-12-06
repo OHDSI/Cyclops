@@ -14,7 +14,7 @@ test_that("Small Poisson dense regression", {
     
     glmFit <- glm(counts ~ outcome + treatment, data = dobson, family = poisson()) # gold standard
     
-    dataPtrD <- createCyclopsDataFrame(counts ~ outcome + treatment, data = dobson,
+    dataPtrD <- createCyclopsData(counts ~ outcome + treatment, data = dobson,
                                    modelType = "pr")														
     cyclopsFitD <- fitCyclopsModel(dataPtrD, 
                            prior = createPrior("none"),
@@ -35,7 +35,7 @@ test_that("Specify CI level", {
     
     glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard    
     
-    dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment,
+    dataPtr <- createCyclopsData(counts ~ outcome + treatment,
                                    modelType = "pr")    													
     cyclopsFit <- fitCyclopsModel(dataPtr, 
                            prior = createPrior("none"),
@@ -57,7 +57,7 @@ test_that("Small Poisson indicator regression", {
     
     glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard	
     
-    dataPtrI <- createCyclopsDataFrame(counts ~ outcome, indicatorFormula =  ~ treatment, 
+    dataPtrI <- createCyclopsData(counts ~ outcome, indicatorFormula =  ~ treatment, 
                                    modelType = "pr")
     
     cyclopsFitI <- fitCyclopsModel(dataPtrI, 
@@ -80,7 +80,7 @@ test_that("Small Poisson sparse regression", {
     
     glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard		
     
-    dataPtrS <- createCyclopsDataFrame(counts ~ outcome, sparseFormula =  ~ treatment, 
+    dataPtrS <- createCyclopsData(counts ~ outcome, sparseFormula =  ~ treatment, 
                                    modelType = "pr")
     cyclopsFitS <- fitCyclopsModel(dataPtrS, 
                            prior = createPrior("none"),
@@ -101,7 +101,7 @@ test_that("Get SEs in small Poisson model", {
     gold <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard    
     goldSE <- summary(gold)$coefficients[,2]
     
-    dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment,
+    dataPtr <- createCyclopsData(counts ~ outcome + treatment,
                                   modelType = "pr")        												
     cyclopsFit <- fitCyclopsModel(dataPtr, 
                           prior = createPrior("none"))
@@ -117,12 +117,12 @@ test_that("Playing with standardization", {
     treatment <- gl(3,3)
     tolerance <- 1E-4
         
-    dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment,
+    dataPtr <- createCyclopsData(counts ~ outcome + treatment,
                                       modelType = "pr")            											
     cyclopsFit <- fitCyclopsModel(dataPtr, 
                                   prior = createPrior("none"))
     
-    dataPtrS <- createCyclopsDataFrame(counts ~ outcome + treatment,
+    dataPtrS <- createCyclopsData(counts ~ outcome + treatment,
                                        modelType = "pr")                										
     cyclopsFitS <- fitCyclopsModel(dataPtrS, 
                                    prior = createPrior("none"))          

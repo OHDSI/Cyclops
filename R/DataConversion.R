@@ -221,7 +221,7 @@ constructCyclopsDataFromBatchableSources <- function(resultSetOutcome,
 #' Convert data from two data frames or ffdf objects into a CyclopsData object
 #'
 #' @description
-#' \code{convertToCyclopsDataObject} loads data from two data frames or ffdf objects, and inserts it into a Cyclops data object.
+#' \code{convertToCyclopsData} loads data from two data frames or ffdf objects, and inserts it into a Cyclops data object.
 #' 
 #' @param outcomes    A data frame or ffdf object containing the outcomes with predefined columns (see below).
 #' @param covariates  A data frame or ffdf object containing the covariates with predefined columns (see below).
@@ -272,13 +272,13 @@ constructCyclopsDataFromBatchableSources <- function(resultSetOutcome,
 #' covariates <- covariates[covariates$covariateValue != 0,]
 #' 
 #' #Create Cyclops data object:
-#' cyclopsData <- convertToCyclopsDataObject(outcomes,covariates,modelType = "clr",addIntercept = FALSE)
+#' cyclopsData <- convertToCyclopsData(outcomes,covariates,modelType = "clr",addIntercept = FALSE)
 #' 
 #' #Fit model:
 #' fit <- fitCyclopsModel(cyclopsData,prior = createPrior("none"))  
 #' 
 #' @export
-convertToCyclopsDataObject <- function(outcomes, 
+convertToCyclopsData <- function(outcomes, 
                                        covariates,
                                        modelType = "lr", 
                                        addIntercept = TRUE,
@@ -287,10 +287,10 @@ convertToCyclopsDataObject <- function(outcomes,
                                        checkSorting = TRUE,
                                        checkRowIds = TRUE,
                                        quiet = FALSE){
-    UseMethod("convertToCyclopsDataObject") 
+    UseMethod("convertToCyclopsData") 
 }
 
-convertToCyclopsDataObject.ffdf <- function(outcomes, 
+convertToCyclopsData.ffdf <- function(outcomes, 
                                             covariates,
                                             modelType = "lr", 
                                             addIntercept = TRUE,
@@ -419,7 +419,7 @@ convertToCyclopsDataObject.ffdf <- function(outcomes,
     return(result)
 }
 
-convertToCyclopsDataObject.data.frame <- function(outcomes, 
+convertToCyclopsData.data.frame <- function(outcomes, 
                                                   covariates,
                                                   modelType = "lr", 
                                                   addIntercept = TRUE,

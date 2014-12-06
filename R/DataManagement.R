@@ -1,7 +1,7 @@
-#' @title createCyclopsDataFrame
+#' @title createCyclopsData
 #'
 #' @description
-#' \code{createCyclopsDataFrame} creates a Cyclops model data object from an R formula
+#' \code{createCyclopsData} creates a Cyclops model data object from an R formula
 #'
 #' @details
 #' This function creates a Cyclops model data object from R \code{"\link{formula}"} or directly from
@@ -61,12 +61,12 @@
 #' counts <- c(18,17,15,20,10,20,25,13,12)
 #' outcome <- gl(3,1,9)
 #' treatment <- gl(3,3)
-#' cyclopsData <- createCyclopsDataFrame(
+#' cyclopsData <- createCyclopsData(
 #'      counts ~ outcome + treatment, 
 #'      modelType = "pr")
 #' cyclopsFit <- fitCyclopsModel(cyclopsData)
 #'
-#' cyclopsData2 <- createCyclopsDataFrame(
+#' cyclopsData2 <- createCyclopsData(
 #'      counts ~ outcome, 
 #'      indicatorFormula = ~ treatment, 
 #'      modelType = "pr")
@@ -74,7 +74,7 @@
 #' cyclopsFit2 <- fitCyclopsModel(cyclopsData2)
 #'
 #' @export
-createCyclopsDataFrame <- function(formula, sparseFormula, indicatorFormula, modelType,
+createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelType,
                                    data, subset, weights, offset, time = NULL, pid = NULL, y = NULL, type = NULL, dx = NULL, 
                                    sx = NULL, ix = NULL, model = FALSE, method = "cyclops.fit") {	
     cl <- match.call() # save to return

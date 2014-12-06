@@ -19,7 +19,7 @@ test_that("Small multi-type Poisson dense regression", {
     glmFit <- glm(counts ~ outcome + treatment, data = dobson, contrasts = dobson$type, 
                   family = poisson()) # gold standard
     
-    dataPtrD <- createCyclopsDataFrame(counts ~ outcome + treatment, data = dobson,
+    dataPtrD <- createCyclopsData(counts ~ outcome + treatment, data = dobson,
                                        type = dobson$type,
                                        modelType = "pr", method = "debug")
     
@@ -27,7 +27,7 @@ test_that("Small multi-type Poisson dense regression", {
                            prior = createPrior("none"),
                            control = createControl(noiseLevel = "silent"))
     
-    dataPtrE <- createCyclopsDataFrame(Multitype(counts, type) ~ outcome + treatment, data = dobson,                                      
+    dataPtrE <- createCyclopsData(Multitype(counts, type) ~ outcome + treatment, data = dobson,                                      
                                        modelType = "pr", method = "debug")
     
     cyclopsFitE <- fitCyclopsModel(dataPtrE, 
@@ -36,7 +36,7 @@ test_that("Small multi-type Poisson dense regression", {
     
     expect_equal(coef(cyclopsFitD), coef(cyclopsFitE))
     
-    dataPtrI <- createCyclopsDataFrame(Multitype(counts, type) ~ 1, indicatorFormula = ~ outcome + treatment, data = dobson,                                      
+    dataPtrI <- createCyclopsData(Multitype(counts, type) ~ 1, indicatorFormula = ~ outcome + treatment, data = dobson,                                      
                                        modelType = "pr", method = "debug")
     
     cyclopsFitI <- fitCyclopsModel(dataPtrI, 
@@ -45,7 +45,7 @@ test_that("Small multi-type Poisson dense regression", {
     
     expect_equal(coef(cyclopsFitI), coef(cyclopsFitD))
     
-    dataPtrS <- createCyclopsDataFrame(Multitype(counts, type) ~ 1, sparseFormula = ~ outcome + treatment, data = dobson,                                      
+    dataPtrS <- createCyclopsData(Multitype(counts, type) ~ 1, sparseFormula = ~ outcome + treatment, data = dobson,                                      
                                        modelType = "pr", method = "debug")
     
     cyclopsFitS <- fitCyclopsModel(dataPtrS, 
@@ -70,7 +70,7 @@ test_that("coef throws error when not converged", {
     dobson$type = as.factor(c(rep("A",9),rep("B",9)))
     tolerance <- 1E-4
         
-    dataPtrD <- createCyclopsDataFrame(Multitype(counts, type) ~ outcome + treatment, data = dobson,                                                                              
+    dataPtrD <- createCyclopsData(Multitype(counts, type) ~ outcome + treatment, data = dobson,                                                                              
                                        modelType = "pr")
     
     cyclopsFitD <- fitCyclopsModel(dataPtrD, 
@@ -95,7 +95,7 @@ test_that("confirm dimension check", {
     dobson$type = as.factor(c(rep("A",9),rep("B",9)))
     tolerance <- 1E-4
     
-    dataPtrD <- createCyclopsDataFrame(Multitype(counts, type) ~ outcome + treatment, data = dobson,                                                                              
+    dataPtrD <- createCyclopsData(Multitype(counts, type) ~ outcome + treatment, data = dobson,                                                                              
                                        modelType = "pr")
     
     
@@ -126,7 +126,7 @@ test_that("Small multi-type Poisson with hierarchical prior", {
     glmFit <- glm(counts ~ outcome + treatment, data = dobson, contrasts = dobson$type, 
                   family = poisson()) # gold standard
     
-    dataPtrD <- createCyclopsDataFrame(Multitype(counts, type) ~ outcome + treatment, data = dobson,                                                                              
+    dataPtrD <- createCyclopsData(Multitype(counts, type) ~ outcome + treatment, data = dobson,                                                                              
                                        modelType = "pr")
     
     cyclopsFitD <- fitCyclopsModel(dataPtrD, 
@@ -151,7 +151,7 @@ test_that("Check multitype SCCS", {
 #     gold.clogit <- clogit(event ~ exgr + agegr + strata(indiv) + offset(loginterval), 
 #                           data = oxford)
 #     
-#     dataPtr <- createCyclopsDataFrame(event ~ exgr + agegr + strata(indiv), time = oxford$interval,
+#     dataPtr <- createCyclopsData(event ~ exgr + agegr + strata(indiv), time = oxford$interval,
 #                                       data = oxford,
 #                                       modelType = "sccs")        
 #     cyclopsFit <- fitCyclopsModel(dataPtr,

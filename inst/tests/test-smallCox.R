@@ -19,11 +19,11 @@ start, length, event, x1, x2
     goldRight <- coxph(Surv(length, event) ~ x1 + x2, test)
     summary(goldRight)
     
-    dataPtrRight <- createCyclopsDataFrame(Surv(length, event) ~ x1 + x2, data = test,                                      
+    dataPtrRight <- createCyclopsData(Surv(length, event) ~ x1 + x2, data = test,                                      
                                        modelType = "cox")    
     cyclopsFitRight <- fitCyclopsModel(dataPtrRight)
     
-    dataPtrCounting <- createCyclopsDataFrame(Surv(start, length, event) ~ x1 + x2, data = test,                                      
+    dataPtrCounting <- createCyclopsData(Surv(start, length, event) ~ x1 + x2, data = test,                                      
                                           modelType = "cox")    
     cyclopsFitCounting <- fitCyclopsModel(dataPtrCounting)
     
@@ -35,7 +35,7 @@ start, length, event, x1, x2
     
     goldStrat <- coxph(Surv(length, event) ~ x1 + strata(x2), test)
     
-    dataPtrStrat <- createCyclopsDataFrame(Surv(length, event) ~ x1 + strata(x2),
+    dataPtrStrat <- createCyclopsData(Surv(length, event) ~ x1 + strata(x2),
                                        data = test,                                      
                                        modelType = "cox")    
     cyclopsFitStrat <- fitCyclopsModel(dataPtrStrat)         
@@ -59,7 +59,7 @@ start, length, event, x1, x2
     goldRight <- coxph(Surv(length, event) ~ x1 + x2, test)
     summary(goldRight)
 
-    dataPtrRight <- createCyclopsDataFrame(Surv(length, event) ~ x1 + x2, data = test,                                      
+    dataPtrRight <- createCyclopsData(Surv(length, event) ~ x1 + x2, data = test,                                      
                                        modelType = "cox")    
     cyclopsFitRight <- fitCyclopsModel(dataPtrRight) 
     
@@ -80,7 +80,7 @@ start, length, event, x1, x2
     goldRight <- coxph(Surv(length, event) ~ x1 + x2, test, ties = "breslow")
     coef(goldRight)
       
-    dataPtrRight <- createCyclopsDataFrame(Surv(length, event) ~ x1 + x2, data = test,                                                                
+    dataPtrRight <- createCyclopsData(Surv(length, event) ~ x1 + x2, data = test,                                                                
                                        modelType = "cox")    
     cyclopsFitRight <- fitCyclopsModel(dataPtrRight) 
     
@@ -103,7 +103,7 @@ start, length, event, x1, x2
         # We get the correct answer when last entry is censored
     goldRight <- coxph(Surv(length, event) ~ x1 + x2, test, ties = "breslow")
        
-    dataPtrRight <- createCyclopsDataFrame(Surv(length, event) ~ x1 + x2, data = test,                                                                                 
+    dataPtrRight <- createCyclopsData(Surv(length, event) ~ x1 + x2, data = test,                                                                                 
                                            modelType = "cox")    
     cyclopsFitRight <- fitCyclopsModel(dataPtrRight) 
     
@@ -126,7 +126,7 @@ start, length, event, x1, x2
     # We get the correct answer when last entry is censored
     goldRight <- coxph(Surv(length, event) ~ x1 + strata(x2), test, ties = "breslow")
     
-    dataPtrRight <- createCyclopsDataFrame(Surv(length, event) ~ x1 + strata(x2), data = test,                                                                                 
+    dataPtrRight <- createCyclopsData(Surv(length, event) ~ x1 + strata(x2), data = test,                                                                                 
                                            modelType = "cox")    
     cyclopsFitRight <- fitCyclopsModel(dataPtrRight) 
     
@@ -134,7 +134,7 @@ start, length, event, x1, x2
     expect_equal(coef(cyclopsFitRight), coef(goldRight), tolerance = tolerance)
     
     # Attempt sparse
-    dataSparse <- createCyclopsDataFrame(Surv(length, event) ~ strata(x2), 
+    dataSparse <- createCyclopsData(Surv(length, event) ~ strata(x2), 
                                          sparseFormula = ~ x1,
                                          data = test, modelType = "cox")
     
@@ -193,7 +193,7 @@ start, length, event, x1, x2
 #     
 #     goldRight <- coxph(Surv(time, status) ~ age + ph.ecog + strata(sex), lung, ties = "breslow")
 #     
-#     dataPtrRight <- createCyclopsDataFrame(Surv(time, status) ~ age + ph.ecog + strata(sex),
+#     dataPtrRight <- createCyclopsData(Surv(time, status) ~ age + ph.ecog + strata(sex),
 #                                            method = "debug",                                           
 #                                            data = lung, modelType = "cox")    
 #     #This crashed R:

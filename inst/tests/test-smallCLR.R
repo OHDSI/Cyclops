@@ -9,7 +9,7 @@ test_that("Small conditional logistic regression", {
     
     gold <- clogit(case ~ spontaneous + induced + strata(stratum), data=infert)  
     
-    dataPtr <- createCyclopsDataFrame(case ~ spontaneous + induced + strata(stratum),
+    dataPtr <- createCyclopsData(case ~ spontaneous + induced + strata(stratum),
                                   data = infert,
                                   modelType = "clr")
     
@@ -27,7 +27,7 @@ test_that("Small conditional logistic regression", {
     expect_equal(confint(cyclopsFit, c(1:2), includePenalty = TRUE),
                  confint(cyclopsFit, c(1:2), includePenalty = FALSE))
     
-    dataPtrR <- createCyclopsDataFrame(case ~ spontaneous + induced + strata(stratum),
+    dataPtrR <- createCyclopsData(case ~ spontaneous + induced + strata(stratum),
                                        data = infert,
                                        modelType = "clr")
     

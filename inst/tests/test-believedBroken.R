@@ -15,7 +15,7 @@ library("survival")
 
 # test_that("Data validity when loaded with (y,dx,sx,ix)" ,{})
 
-# test_that("Dimension checking on objects in createCyclopsModelDataFrame" ,{})
+# test_that("Dimension checking on objects in createCyclopsModelData" ,{})
 
 # test_that("Approximations for ties in CLR" ,{})
 
@@ -41,7 +41,7 @@ library("survival")
 
 # test_that("Standardize covariates", {})
 
-# test_that("Check correct dimensions in matrices in createCyclopsDataFrame", {})
+# test_that("Check correct dimensions in matrices in createCyclopsData", {})
 
 # test_that("Fail to convergence", {})
 
@@ -57,7 +57,7 @@ library("survival")
 
 # test_that("Reuse data object", {
 #     
-#     dataPtr <- createCyclopsDataFrame(case ~ spontaneous + induced + strata(stratum),
+#     dataPtr <- createCyclopsData(case ~ spontaneous + induced + strata(stratum),
 #                                       data = infert,
 #                                       modelType = "clr")
 #     
@@ -85,7 +85,7 @@ start, length, event, x1, x2
     # We get the correct answer when last entry is censored
     gold <- coxph(Surv(length, event) ~ x1 + strata(x2), test, ties = "breslow")
     
-    dataPtr <- createCyclopsDataFrame(Surv(length, event) ~ x1 + strata(x2), data = test,                                                                                 
+    dataPtr <- createCyclopsData(Surv(length, event) ~ x1 + strata(x2), data = test,                                                                                 
                                       modelType = "cox")    
     
     cyclopsFit <- fitCyclopsModel(dataPtr) 
@@ -93,19 +93,4 @@ start, length, event, x1, x2
     tolerance <- 1E-4
     #     expect_equal(vcov(cyclopsFit), vcov(gold), tolerance = tolerance)
     
-})
-
-test_that("Set seed for cross-validation", {
-    counts <- c(18,17,15,20,10,20,25,13,12)
-    outcome <- gl(3,1,9)
-    treatment <- gl(3,3)   
-    
-    dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment, 
-                                  modelType = "pr") 
-    
-    cyclopsFit <- fitCyclopsModel(dataPtr,
-                          prior = createPrior("laplace",    																		
-                                        exclude = c("(Intercept)")),
-                          control = createControl(seed = 666))
-    # How to check seed?
 })

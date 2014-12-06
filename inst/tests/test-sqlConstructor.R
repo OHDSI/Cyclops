@@ -60,7 +60,7 @@ test_that("Test constructor and append", {
     
     cyclopsFit <- fitCyclopsModel(dataPtr, control = createControl(noiseLevel = "silent"))
     
-    dataPtrF <- createCyclopsDataFrame(counts ~ outcome + treatment, modelType = "pr")
+    dataPtrF <- createCyclopsData(counts ~ outcome + treatment, modelType = "pr")
     cyclopsFitF <- fitCyclopsModel(dataPtrF, control = createControl(noiseLevel = "silent"))
     expect_equivalent(coef(cyclopsFit), coef(cyclopsFitF)) # Have different coefficient names
     

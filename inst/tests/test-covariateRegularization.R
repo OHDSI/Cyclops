@@ -8,7 +8,7 @@ test_that("Find covariate by name and number", {
     
     glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard	
     
-    dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment, 
+    dataPtr <- createCyclopsData(counts ~ outcome + treatment, 
                                   modelType = "pr")
     
     cyclopsFit <- fitCyclopsModel(dataPtr,
@@ -20,7 +20,7 @@ test_that("Find covariate by name and number", {
     expect_less_than(coef(cyclopsFit)[4], coef(glmFit)[4])
     expect_less_than(coef(cyclopsFit)[5], coef(glmFit)[5])	
     
-    dataPtr2 <- createCyclopsDataFrame(counts ~ outcome + treatment, 
+    dataPtr2 <- createCyclopsData(counts ~ outcome + treatment, 
                                    modelType = "pr")
     
     cyclopsFit2 <- fitCyclopsModel(dataPtr2,
@@ -37,7 +37,7 @@ test_that("Error when covariate not found", {
     treatment <- gl(3,3)
     tolerance <- 1E-4
     
-    dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment, 
+    dataPtr <- createCyclopsData(counts ~ outcome + treatment, 
                                   modelType = "pr")
     
     expect_error(
@@ -46,7 +46,7 @@ test_that("Error when covariate not found", {
                                   exclude = c("BAD", "outcome2", "outcome3")),
                     control = createControl(noiseLevel = "silent")))
     
-    dataPtr2 <- createCyclopsDataFrame(counts ~ outcome + treatment, 
+    dataPtr2 <- createCyclopsData(counts ~ outcome + treatment, 
                                    modelType = "pr")
     
     expect_error(
@@ -62,7 +62,7 @@ test_that("Preclude profiling regularized coefficients", {
     treatment <- gl(3,3)
     tolerance <- 1E-4
     
-    dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment, 
+    dataPtr <- createCyclopsData(counts ~ outcome + treatment, 
                                   modelType = "pr")
     
     cyclopsFit <- fitCyclopsModel(dataPtr,
@@ -83,7 +83,7 @@ test_that("Preclude intercept regularization by default", {
     treatment <- gl(3,3)
     tolerance <- 1E-4
     
-    dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment, 
+    dataPtr <- createCyclopsData(counts ~ outcome + treatment, 
                                   modelType = "pr")
     
 #     expect_error(fitCyclopsModel(dataPtr,
@@ -113,7 +113,7 @@ test_that("Mixture report should show full details of components", {
     outcome <- gl(3,1,9)
     treatment <- gl(3,3)   
     
-    dataPtr <- createCyclopsDataFrame(counts ~ outcome + treatment, 
+    dataPtr <- createCyclopsData(counts ~ outcome + treatment, 
                                   modelType = "pr")    
     cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = createPrior("laplace",    																		

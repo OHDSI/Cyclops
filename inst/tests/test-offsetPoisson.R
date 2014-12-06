@@ -10,7 +10,7 @@ test_that("Check offset in model formula", {
                   data = Insurance,
                   family = poisson()) # gold standard    
             
-    dataPtr <- createCyclopsDataFrame(Claims ~ District + Group + Age + logHolders,
+    dataPtr <- createCyclopsData(Claims ~ District + Group + Age + logHolders,
                                   data = Insurance,
                                   modelType = "pr")	
     finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = "logHolders", offsetAlreadyOnLogScale = TRUE)    
@@ -22,7 +22,7 @@ test_that("Check offset in model formula", {
                           control = createControl(noiseLevel = "silent"))
     expect_equal(coef(cyclopsFit), coef(glmFit), tolerance = tolerance)
         
-    dataPtr2 <- createCyclopsDataFrame(Claims ~ District + Group + Age + offset(logHolders),
+    dataPtr2 <- createCyclopsData(Claims ~ District + Group + Age + offset(logHolders),
                                    data = Insurance,
                                    modelType = "pr")   
 

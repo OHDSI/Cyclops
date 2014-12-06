@@ -8,7 +8,7 @@ test_that("Check simple SCCS as conditional logistic regression", {
     gold.clogit <- clogit(event ~ exgr + agegr + strata(indiv) + offset(loginterval), 
                           data = Cyclops::oxford)
     
-    dataPtr <- createCyclopsDataFrame(event ~ exgr + agegr + strata(indiv) + offset(loginterval),
+    dataPtr <- createCyclopsData(event ~ exgr + agegr + strata(indiv) + offset(loginterval),
                                   data = Cyclops::oxford,
                                   modelType = "clr")        
     cyclopsFit <- fitCyclopsModel(dataPtr,
@@ -24,7 +24,7 @@ test_that("Check simple SCCS as conditional Poisson regression", {
                    family = poisson, eliminate = indiv, 
                    data = Cyclops::oxford)
     
-    dataPtr <- createCyclopsDataFrame(event ~ exgr + agegr + strata(indiv) + offset(loginterval),
+    dataPtr <- createCyclopsData(event ~ exgr + agegr + strata(indiv) + offset(loginterval),
                                   data = Cyclops::oxford,
                                   modelType = "cpr")        
     cyclopsFit <- fitCyclopsModel(dataPtr,
@@ -41,7 +41,7 @@ test_that("Check simple SCCS as SCCS", {
     gold.clogit <- clogit(event ~ exgr + agegr + strata(indiv) + offset(loginterval), 
                           data = Cyclops::oxford)
     
-    dataPtr <- createCyclopsDataFrame(event ~ exgr + agegr + strata(indiv), time = Cyclops::oxford$interval,
+    dataPtr <- createCyclopsData(event ~ exgr + agegr + strata(indiv), time = Cyclops::oxford$interval,
                                   data = Cyclops::oxford,
                                   modelType = "sccs")        
     cyclopsFit <- fitCyclopsModel(dataPtr,

@@ -6,7 +6,7 @@ test_that("Simple reductions", {
     treatment <- gl(3,3)
     tolerance <- 1E-4
     
-    dataPtr <- createCyclopsDataFrame(counts ~ 1, 
+    dataPtr <- createCyclopsData(counts ~ 1, 
                                   indicatorFormula = ~ outcome + treatment, 
                                   modelType = "pr")
     

@@ -18,10 +18,10 @@ test_that("Test data.frame to data for lr", {
   # covariates <- covariates[order(covariates$rowId,covariates$covariateId),]
   # outcomes <- outcomes[order(outcomes$rowId),]
   
-  cyclopsDataFfdf <- convertToCyclopsDataObject(as.ffdf(outcomes),as.ffdf(covariates),modelType = "lr",addIntercept = TRUE)
+  cyclopsDataFfdf <- convertToCyclopsData(as.ffdf(outcomes),as.ffdf(covariates),modelType = "lr",addIntercept = TRUE)
   fitFfdf <- fitCyclopsModel(cyclopsDataFfdf,prior = createPrior("none"))  
   
-  cyclopsData <- convertToCyclopsDataObject(outcomes,covariates,modelType = "lr",addIntercept = TRUE)
+  cyclopsData <- convertToCyclopsData(outcomes,covariates,modelType = "lr",addIntercept = TRUE)
   fit <- fitCyclopsModel(cyclopsData,prior = createPrior("none"))  
   
   
@@ -36,7 +36,7 @@ test_that("Test data.frame to data for lr", {
 #   
 #   gold <- coxph(Surv(time, status) ~ age + ph.ecog + ph.karno + pat.karno + meal.cal + wt.loss, test, method="breslow")
 #   
-#   cyclopsDataFormula <- createCyclopsDataFrame(Surv(time, status) ~ age + ph.ecog + ph.karno + pat.karno + meal.cal + wt.loss, data=test,modelType="cox")
+#   cyclopsDataFormula <- createCyclopsData(Surv(time, status) ~ age + ph.ecog + ph.karno + pat.karno + meal.cal + wt.loss, data=test,modelType="cox")
 #   fitFormula <- fitCyclopsModel(cyclopsDataFormula)
 #   
 #   #Convert to data.frames for Cyclops:
@@ -59,10 +59,10 @@ test_that("Test data.frame to data for lr", {
 #   # covariates <- covariates[order(covariates$stratumId,-covariates$time,covariates$y,covariates$rowId),]
 #   # outcomes <- outcomes[order(outcomes$stratumId,-outcomes$time,outcomes$y,outcomes$rowId),]
 #   
-#   cyclopsDataFfdf <- convertToCyclopsDataObject(as.ffdf(outcomes),as.ffdf(covariates),modelType = "cox")
+#   cyclopsDataFfdf <- convertToCyclopsData(as.ffdf(outcomes),as.ffdf(covariates),modelType = "cox")
 #   fitFfdf <- fitCyclopsModel(cyclopsDataFfdf,prior = createPrior("none"))  
 #   
-#   cyclopsData <- convertToCyclopsDataObject(outcomes,covariates,modelType = "cox")
+#   cyclopsData <- convertToCyclopsData(outcomes,covariates,modelType = "cox")
 #   fit <- fitCyclopsModel(cyclopsData,prior = createPrior("none"))  
 #   
 #   tolerance <- 1E-4
@@ -93,17 +93,17 @@ test_that("Test poisson regression", {
   
   gold <- gnm(formula, family=poisson, offset=log(time), data = data)
   
-  cyclopsDataFormula <- createCyclopsDataFrame(formula, offset=log(time), data=data,modelType="pr")
+  cyclopsDataFormula <- createCyclopsData(formula, offset=log(time), data=data,modelType="pr")
   fitFormula <- fitCyclopsModel(cyclopsDataFormula)
   
   #Sort:
   # covariates <- covariates[order(covariates$rowId),]
   # outcomes <- outcomes[order(outcomes$rowId),]
   
-  cyclopsDataFfdf <- convertToCyclopsDataObject(as.ffdf(outcomes),as.ffdf(covariates),modelType = "pr",addIntercept = TRUE)
+  cyclopsDataFfdf <- convertToCyclopsData(as.ffdf(outcomes),as.ffdf(covariates),modelType = "pr",addIntercept = TRUE)
   fitFfdf <- fitCyclopsModel(cyclopsDataFfdf,prior = createPrior("none"))  
   
-  cyclopsData <- convertToCyclopsDataObject(outcomes,covariates,modelType = "pr",addIntercept = TRUE)
+  cyclopsData <- convertToCyclopsData(outcomes,covariates,modelType = "pr",addIntercept = TRUE)
   fit <- fitCyclopsModel(cyclopsData,prior = createPrior("none"))  
   
   tolerance <- 1E-4
