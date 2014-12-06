@@ -58,7 +58,7 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
             return(FALSE)
     }
 #     chunks <- chunk(data)
-    for (i in chunk.ffdf(data))
+    for (i in ff::chunk.ffdf(data))
         if (!isSorted(data[i,,drop=FALSE],columnNames,ascending))
             return(FALSE)
     return(TRUE)
@@ -306,13 +306,13 @@ convertToCyclopsDataObject.ffdf <- function(outcomes,
                 if(!quiet)
                     writeLines("Sorting outcomes by rowId")
                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
-                outcomes <- outcomes[ffdforder(outcomes[c("rowId")]),]
+                outcomes <- outcomes[ff::ffdforder(outcomes[c("rowId")]),]
             }
             if (!isSorted(covariates,c("rowId"))){
                 if(!quiet)
                     writeLines("Sorting covariates by rowId")
                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
-                covariates <- covariates[ffdforder(covariates[c("rowId")]),]
+                covariates <- covariates[ff::ffdforder(covariates[c("rowId")]),]
             }  
         }
         if (modelType == "clr" | modelType == "cpr"){
@@ -320,13 +320,13 @@ convertToCyclopsDataObject.ffdf <- function(outcomes,
                 if(!quiet)
                     writeLines("Sorting outcomes by stratumId and rowId")
                 rownames(outcomes) <- NULL #Needs to be null or the ordering of ffdf will fail
-                outcomes <- outcomes[ffdforder(outcomes[c("stratumId","rowId")]),]
+                outcomes <- outcomes[ff::ffdforder(outcomes[c("stratumId","rowId")]),]
             }
             if (!isSorted(covariates,c("stratumId","rowId"))){
                 if(!quiet)
                     writeLines("Sorting covariates by stratumId and rowId")
                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
-                covariates <- covariates[ffdforder(covariates[c("stratumId","rowId")]),]
+                covariates <- covariates[ff::ffdforder(covariates[c("stratumId","rowId")]),]
             }      
         }
         if (modelType == "cox"){
@@ -339,7 +339,7 @@ convertToCyclopsDataObject.ffdf <- function(outcomes,
                     writeLines("Sorting outcomes by stratumId, time (descending), y, and rowId")
                 rownames(outcomes) <- NULL #Needs to be null or the ordering of ffdf will fail
                 outcomes$minTime = 0-outcomes$time
-                outcomes <- outcomes[ffdforder(outcomes[c("stratumId","minTime","y","rowId")]),]
+                outcomes <- outcomes[ff::ffdforder(outcomes[c("stratumId","minTime","y","rowId")]),]
             }
             if (is.null(covariates$time) | is.null(covariates$y)){ # If time or y not present, add to check if sorted
                 covariates$time = NULL
@@ -351,7 +351,7 @@ convertToCyclopsDataObject.ffdf <- function(outcomes,
                     writeLines("Sorting covariates by stratumId, time (descending), y, and rowId")
                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
                 covariates$minTime = 0-covariates$time
-                covariates <- covariates[ffdforder(covariates[c("stratumId","minTime","y","rowId")]),]
+                covariates <- covariates[ff::ffdforder(covariates[c("stratumId","minTime","y","rowId")]),]
             }      
         }
     }
@@ -367,11 +367,11 @@ convertToCyclopsDataObject.ffdf <- function(outcomes,
     
     resultSetOutcome <- new.env()
     assign("data",outcomes,envir=resultSetOutcome)
-    assign("chunks",chunk.ffdf(outcomes),envir=resultSetOutcome)
+    assign("chunks",ff::chunk.ffdf(outcomes),envir=resultSetOutcome)
     assign("cursor",1,envir=resultSetOutcome)
     resultSetCovariate <- new.env()
     assign("data",covariates,envir=resultSetCovariate)
-    assign("chunks",chunk.ffdf(covariates),envir=resultSetCovariate)
+    assign("chunks",ff::chunk.ffdf(covariates),envir=resultSetCovariate)
     assign("cursor",1,envir=resultSetCovariate)
     
     getOutcomeBatch <- function(resultSetOutcome, modelType){
