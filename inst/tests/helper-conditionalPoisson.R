@@ -65,4 +65,4 @@ constructOxfordDataFrame <- function() {
                loginterval = log(interval[interval!=0]))        
 }
 
-chopdat <- constructOxfordDataFrame()
+oxford <- constructOxfordDataFrame()
