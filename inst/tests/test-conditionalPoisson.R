@@ -3,13 +3,13 @@ library("survival")
 library("gnm")
 
 test_that("Check simple SCCS as conditional logistic regression", {
-    source("helper-conditionalPoisson.R")
+#     source("helper-conditionalPoisson.R")
     tolerance <- 1E-6    
     gold.clogit <- clogit(event ~ exgr + agegr + strata(indiv) + offset(loginterval), 
-                          data = oxford)
+                          data = Cyclops::oxford)
     
     dataPtr <- createCyclopsDataFrame(event ~ exgr + agegr + strata(indiv) + offset(loginterval),
-                                  data = oxford,
+                                  data = Cyclops::oxford,
                                   modelType = "clr")        
     cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = createPrior("none"))
@@ -18,14 +18,14 @@ test_that("Check simple SCCS as conditional logistic regression", {
 })
 
 test_that("Check simple SCCS as conditional Poisson regression", {
-    source("helper-conditionalPoisson.R")
+#     source("helper-conditionalPoisson.R")
     tolerance <- 1E-3    
     gold.cp <- gnm(event ~ exgr + agegr + offset(loginterval), 
                    family = poisson, eliminate = indiv, 
-                   data = oxford)
+                   data = Cyclops::oxford)
     
     dataPtr <- createCyclopsDataFrame(event ~ exgr + agegr + strata(indiv) + offset(loginterval),
-                                  data = oxford,
+                                  data = Cyclops::oxford,
                                   modelType = "cpr")        
     cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = createPrior("none"))
@@ -36,13 +36,13 @@ test_that("Check simple SCCS as conditional Poisson regression", {
 })
 
 test_that("Check simple SCCS as SCCS", {
-    source("helper-conditionalPoisson.R")
+#     source("helper-conditionalPoisson.R")
     tolerance <- 1E-6    
     gold.clogit <- clogit(event ~ exgr + agegr + strata(indiv) + offset(loginterval), 
-                          data = oxford)
+                          data = Cyclops::oxford)
     
-    dataPtr <- createCyclopsDataFrame(event ~ exgr + agegr + strata(indiv), time = oxford$interval,
-                                  data = oxford,
+    dataPtr <- createCyclopsDataFrame(event ~ exgr + agegr + strata(indiv), time = Cyclops::oxford$interval,
+                                  data = Cyclops::oxford,
                                   modelType = "sccs")        
     cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = createPrior("none"))
