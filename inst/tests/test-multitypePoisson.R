@@ -149,10 +149,10 @@ test_that("Check multitype SCCS", {
 #     source("helper-conditionalPoisson.R")
 #     tolerance <- 1E-6    
 #     gold.clogit <- clogit(event ~ exgr + agegr + strata(indiv) + offset(loginterval), 
-#                           data = chopdat)
+#                           data = oxford)
 #     
-#     dataPtr <- createCyclopsDataFrame(event ~ exgr + agegr + strata(indiv), time = chopdat$interval,
-#                                       data = chopdat,
+#     dataPtr <- createCyclopsDataFrame(event ~ exgr + agegr + strata(indiv), time = oxford$interval,
+#                                       data = oxford,
 #                                       modelType = "sccs")        
 #     cyclopsFit <- fitCyclopsModel(dataPtr,
 #                                   prior = createPrior("none"))
