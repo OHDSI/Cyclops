@@ -306,6 +306,7 @@ createControl <- function(
 #' @param priorType     Character: specifies prior distribution.  See below for options
 #' @param variance      Numeric: prior distribution variance
 #' @param exclude       A vector of numbers or covariateId names to exclude from prior
+#' @param graph         Child-to-parent mapping for a hierarchical prior
 #' @param useCrossValidation    Logical: Perform cross-validation to determine prior \code{variance}.
 #' @param forceIntercept  Logical: Force intercept coefficient into prior
 #' 

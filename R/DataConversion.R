@@ -227,9 +227,9 @@ constructCyclopsDataFromBatchableSources <- function(resultSetOutcome,
 #' @param covariates  A data frame or ffdf object containing the covariates with predefined columns (see below).
 #' @param modelType  	  Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"
 #' @param addIntercept  Add an intercept to the model?
-#' @param useOffsetCovariate  Use the time variable in the model as an offset?
+## @param useOffsetCovariate  Use the time variable in the model as an offset?
 #' @param offsetAlreadyOnLogScale Is the time variable already on a log scale?
-#' @param checkSorting  Check if the data is sorted appropriately, and if not, sort. 
+#' @param checkSorting  Check if the data are sorted appropriately, and if not, sort. 
 #' @param checkRowIds   Check if all rowIds in the covariates appear in the outcomes.
 #' @param quiet         If true, (warning) messages are surpressed.
 #'
@@ -279,14 +279,14 @@ constructCyclopsDataFromBatchableSources <- function(resultSetOutcome,
 #' 
 #' @export
 convertToCyclopsData <- function(outcomes, 
-                                       covariates,
-                                       modelType = "lr", 
-                                       addIntercept = TRUE,
-                                       offsetAlreadyOnLogScale = FALSE,
-                                       makeCovariatesDense = NULL,
-                                       checkSorting = TRUE,
-                                       checkRowIds = TRUE,
-                                       quiet = FALSE){
+                                 covariates,
+                                 modelType = "lr", 
+                                 addIntercept = TRUE,
+                                 offsetAlreadyOnLogScale = FALSE,
+                                 makeCovariatesDense = NULL,
+                                 checkSorting = TRUE,
+                                 checkRowIds = TRUE,
+                                 quiet = FALSE) {
     UseMethod("convertToCyclopsData") 
 }
 

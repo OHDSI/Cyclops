@@ -38,10 +38,10 @@
 #' Optional vector of integer stratum identifiers. If supplied, all rows must be sorted by increasing identifiers
 #' @param y
 #' Currently undocumented
+#' @param type
+#' Currently undocumented
 #' @param time
 #' Currently undocumented
-#' @param z
-#' Currently unused
 #' @param dx
 #' Optional dense \code{"\link{Matrix}"} of covariates
 #' @param sx

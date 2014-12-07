@@ -17,11 +17,9 @@ convertToCyclopsData(outcomes, covariates, modelType = "lr",
 
 \item{addIntercept}{Add an intercept to the model?}
 
-\item{useOffsetCovariate}{Use the time variable in the model as an offset?}
-
 \item{offsetAlreadyOnLogScale}{Is the time variable already on a log scale?}
 
-\item{checkSorting}{Check if the data is sorted appropriately, and if not, sort.}
+\item{checkSorting}{Check if the data are sorted appropriately, and if not, sort.}
 
 \item{checkRowIds}{Check if all rowIds in the covariates appear in the outcomes.}
 

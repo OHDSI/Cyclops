@@ -29,9 +29,9 @@ createCyclopsData(formula, sparseFormula, indicatorFormula, modelType, data,
 
 \item{y}{Currently undocumented}
 
-\item{time}{Currently undocumented}
+\item{type}{Currently undocumented}
 
-\item{z}{Currently unused}
+\item{time}{Currently undocumented}
 
 \item{dx}{Optional dense \code{"\link{Matrix}"} of covariates}
 
