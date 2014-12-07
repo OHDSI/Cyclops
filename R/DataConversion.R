@@ -229,6 +229,7 @@ constructCyclopsDataFromBatchableSources <- function(resultSetOutcome,
 #' @param addIntercept  Add an intercept to the model?
 ## @param useOffsetCovariate  Use the time variable in the model as an offset?
 #' @param offsetAlreadyOnLogScale Is the time variable already on a log scale?
+#' @param makeCovariatesDense  Force a dense computational representation for all covariates?
 #' @param checkSorting  Check if the data are sorted appropriately, and if not, sort. 
 #' @param checkRowIds   Check if all rowIds in the covariates appear in the outcomes.
 #' @param quiet         If true, (warning) messages are surpressed.

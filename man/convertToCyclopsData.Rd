@@ -19,6 +19,8 @@ convertToCyclopsData(outcomes, covariates, modelType = "lr",
 
 \item{offsetAlreadyOnLogScale}{Is the time variable already on a log scale?}
 
+\item{makeCovariatesDense}{Force a dense computational representation for all covariates?}
+
 \item{checkSorting}{Check if the data are sorted appropriately, and if not, sort.}
 
 \item{checkRowIds}{Check if all rowIds in the covariates appear in the outcomes.}
