@@ -6,6 +6,7 @@ include_directories(.
     ${RCCD_SOURCE_DIR}/cyclops
     ${CMAKE_SOURCE_DIR}/codebase
     ${CMAKE_SOURCE_DIR}/codebase/CCD   
+    /home/ec2-user/R/x86_64-redhat-linux-gnu-library/3.1/BH/include
      /Library/Frameworks/R.framework/Versions/3.1/Resources/library/BH/include  
     )
 

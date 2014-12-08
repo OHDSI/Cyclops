@@ -19,7 +19,7 @@
 // #include <boost/iterator/permutation_iterator.hpp>
 // #include <boost/iterator/transform_iterator.hpp>
 // #include <boost/iterator/zip_iterator.hpp>
-#include <boost/iterator/counting_iterator.hpp>
+//#include <boost/iterator/counting_iterator.hpp>
 
 #include "CyclicCoordinateDescent.h"
 // #include "io/InputReader.h"
@@ -792,19 +792,28 @@ void CyclicCoordinateDescent::update(
 	}
 	
 	double betaUpdaterScale = 8.0; 
+	int nThreads = 8;
 	
-#define noMM
+//#define noMM
 #ifdef noMM
     auto betaUpdater = CCDVariant(*this, modelSpecifics, jointPrior, hBeta, fixBeta, 
                             hUpdates, hDelta, noiseLevel);
     auto parallelScheme = Vanilla();
+    cout << "noMM" << endl;
+    cout << "betaUpdaterScale = " << betaUpdaterScale << endl;
+    cout << "nThreads = " << nThreads << endl;
 #else                            
     auto betaUpdater = MMVariant(*this, modelSpecifics, jointPrior, hBeta, fixBeta, 
                             hUpdates, hDelta, noiseLevel); 
      
     betaUpdater.setScale(betaUpdaterScale);          
 //     auto parallelScheme = Vanilla();
-    auto parallelScheme = C11Threads(8);
+    auto parallelScheme = C11Threads(nThreads);
+    cout << "MM" << endl;
+    cout << "betaUpdaterScale = " << betaUpdaterScale << endl;
+    cout << "nThreads = " << nThreads << endl;
+
+
 // 	C11ThreadPool parallelScheme(8,8);
 #endif
                     
@@ -844,7 +853,6 @@ void CyclicCoordinateDescent::update(
 					illconditioned = true;
 				} else {
 					conv = computeConvergenceCriterion(thisObjFunc, lastObjFunc);
-					cout << "thisObjFunc = " << thisObjFunc << endl;
 				}
 				lastObjFunc = thisObjFunc;
 			} else { // ZHANG_OLES
