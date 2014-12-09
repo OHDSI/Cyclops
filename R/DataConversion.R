@@ -332,14 +332,32 @@ convertToCyclopsData.ffdf <- function(outcomes,
         }
         if (modelType == "cox"){
             if (is.null(outcomes$stratumId)){
-                outcomes$stratumId = 0  
-                covariates$stratumId = 0
+                # This does not work without adding ffbase to search path:
+                # outcomes$stratumId = 0  
+                # covariates$stratumId = 0
+                # So we do:
+                outcomes$stratumId <- ff::ff(vmode="double", length=nrow(outcomes))
+                for (i in bit::chunk(outcomes$stratumId)){
+                    outcomes$stratumId[i] <- 0
+                }
+                covariates$stratumId <- ff::ff(vmode="double", length=nrow(covariates))
+                for (i in bit::chunk(covariates$stratumId)){
+                    covariates$stratumId[i] <- 0
+                }
+                
             }
             if (!isSorted(outcomes,c("stratumId","time","y","rowId"),c(TRUE,FALSE,TRUE,TRUE))){
                 if(!quiet)
                     writeLines("Sorting outcomes by stratumId, time (descending), y, and rowId")
                 rownames(outcomes) <- NULL #Needs to be null or the ordering of ffdf will fail
-                outcomes$minTime = 0-outcomes$time
+                # This does not work without adding ffbase to search path:
+                # outcomes$minTime = 0-outcomes$time
+                # Therefore, we do:
+                outcomes$minTime <- ff::ff(vmode="double", length=length(outcomes$time))
+                for (i in bit::chunk(outcomes$time)){
+                    outcomes$minTime[i] <- 0-outcomes$time[i]
+                }
+
                 outcomes <- outcomes[ff::ffdforder(outcomes[c("stratumId","minTime","y","rowId")]),]
             }
             if (is.null(covariates$time) | is.null(covariates$y)){ # If time or y not present, add to check if sorted
@@ -437,8 +455,10 @@ convertToCyclopsData.data.frame <- function(outcomes,
     if (modelType == "pr" | modelType == "cpr") 
         if (any(outcomes$time <= 0))
             stop("time cannot be non-positive",call.=FALSE)
-    if (modelType == "cox" & is.null(outcomes$stratumId))
-        outcomes$stratumId = 0	
+    if (modelType == "cox" & is.null(outcomes$stratumId)){
+        outcomes$stratumId = 0
+        covariates$stratumId = 0
+    }
     if (modelType == "lr" | modelType == "clr")
         outcomes$time = 0
     
@@ -469,6 +489,10 @@ convertToCyclopsData.data.frame <- function(outcomes,
             }      
         }
         if (modelType == "cox"){
+            if (is.null(outcomes$stratumId)){
+                outcomes$stratumId = 0  
+                covariates$stratumId = 0
+            }
             if (!isSorted(outcomes,c("stratumId","time","y","rowId"),c(TRUE,FALSE,TRUE,TRUE))){
                 if(!quiet)
                     writeLines("Sorting outcomes by stratumId, time (descending), y, and rowId")

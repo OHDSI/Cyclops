@@ -61,7 +61,7 @@ test_that("Test stratified cox", {
   #Sort:
   #covariates <- covariates[order(covariates$stratumId,-covariates$time,covariates$y,covariates$rowId),]
   # outcomes <- outcomes[order(outcomes$stratumId,-outcomes$time,outcomes$y,outcomes$rowId),]
-  
+ 
   cyclopsDataFfdf <- convertToCyclopsData(as.ffdf(outcomes),as.ffdf(covariates),modelType = "cox")
   fitFfdf <- fitCyclopsModel(cyclopsDataFfdf,prior = createPrior("none"))  
   
