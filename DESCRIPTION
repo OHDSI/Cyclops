@@ -15,15 +15,13 @@ LazyData: Yes
 Depends:
     Matrix
 Imports:
-    Rcpp (>= 0.10.6),
-    RcppEigen (>= 0.3.2),
-    BH (>= 1.51.0),
+    Rcpp (>= 0.11.0),
     bit,
     ff,
     ffbase
 LinkingTo: Rcpp,
-    BH,
-    RcppEigen
+    BH (>= 1.51.0),
+    RcppEigen (>= 0.3.2)
 Suggests:
     testthat,
     survival,
