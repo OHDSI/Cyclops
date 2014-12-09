@@ -13,11 +13,11 @@ Description: This package incorporates cyclic coordinate descent and
 License: Apache License 2.0
 LazyData: Yes
 Depends:
-    Rcpp (>= 0.10.6),
-    BH (>= 1.51.0),
-    RcppEigen (>= 0.3.2),
     Matrix
 Imports:
+    Rcpp (>= 0.10.6),
+    RcppEigen (>= 0.3.2),
+    BH (>= 1.51.0),
     bit,
     ff,
     ffbase
