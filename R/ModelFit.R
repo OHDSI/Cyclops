@@ -62,14 +62,25 @@ fitCyclopsModel <- function(cyclopsData,
 	    stopifnot(inherits(prior, "cyclopsPrior"))    	
 	    prior$exclude <- .checkCovariates(cyclopsData, prior$exclude)
         
-# 	    if (prior$priorType != "none" && .cyclopsGetHasIntercept(cyclopsData)) {           	        
-# 	        interceptId <- .cyclopsGetInterceptLabel(cyclopsData)
-# 	        if (!(interceptId %in% prior$exclude) && !prior$forceIntercept) {	           
-# 	           warning("Excluding intercept from regularization")
-# 	           prior$exclude <- c(interceptId, prior$exclude)	         	           
-#                browser()
-# 	        }	        
-# 	    }
+	    if (prior$priorType != "none" &&
+                is.null(prior$graph) && # TODO Ignore hierarchical models for now 
+                .cyclopsGetHasIntercept(cyclopsData) && 
+                !prior$forceIntercept) {           	        
+	        interceptId <- .cyclopsGetInterceptLabel(cyclopsData)   
+            warn <- FALSE
+            if (is.null(prior$exclude)) {
+                prior$exclude <- c(interceptId)                
+                warn <- TRUE
+            } else {
+                if (!(interceptId %in% prior$exclude)) {
+                    prior$exclude <- c(interceptId, prior$exclude)
+                    warn <- TRUE
+                }                                   
+            }
+            if (warn) {
+                warning("Excluding intercept from regularization")
+            }
+	    }
         
         if (is.null(prior$graph)) {
             graph <- NULL
