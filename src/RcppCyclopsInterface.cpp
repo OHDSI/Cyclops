@@ -446,9 +446,7 @@ bsccs::ModelType RcppCcdInterface::parseModelType(const std::string& modelName) 
 void RcppCcdInterface::setNoiseLevel(bsccs::NoiseLevels noiseLevel) {
     using namespace bsccs;
     ccd->setNoiseLevel(noiseLevel);
-    if (noiseLevel == SILENT) {
-        logger->setSilent(true);
-    }
+    logger->setSilent(noiseLevel == bsccs::NoiseLevels::SILENT);   
 }
 
 void RcppCcdInterface::setPrior(const std::vector<std::string>& basePriorName, const std::vector<double>& baseVariance,
