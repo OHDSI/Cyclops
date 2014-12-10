@@ -29,6 +29,8 @@ public:
 	virtual ~CrossValidationSelector();
 
 	void permute();
+	
+ 	void reseed();
 
 	void getWeights(int batch, std::vector<real>& weights);
 

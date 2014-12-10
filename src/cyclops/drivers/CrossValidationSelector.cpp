@@ -52,12 +52,20 @@ CrossValidationSelector::CrossValidationSelector(
 	logger->writeLine(stream);
 
 	// Generate random permutation
-	permutation.reserve(N);
-	for (size_t i = 0; i < N; ++i) {
-		permutation.push_back(i);
-	}
+// 	permutation.reserve(N);
+// 	for (size_t i = 0; i < N; ++i) {
+// 		permutation.push_back(i);
+// 	}
+	permutation.resize(N);
+
 	weightsExclude = wtsExclude;
 }
+
+void CrossValidationSelector::reseed() { 
+	for (size_t i = 0; i < N; ++i) {
+		permutation[i] = i;
+	}
+} 
 
 CrossValidationSelector::~CrossValidationSelector() {
 	// Do nothing
