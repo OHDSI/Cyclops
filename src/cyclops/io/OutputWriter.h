@@ -8,6 +8,8 @@
 #ifndef OUTPUTWRITER_H_
 #define OUTPUTWRITER_H_
 
+#include <iterator>
+
 #include "CyclicCoordinateDescent.h"
 #include "ModelData.h"
 

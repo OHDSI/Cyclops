@@ -250,7 +250,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
   }
   cat("           Model: ", x$cyclopsData$modelType, "\n", sep="")
   cat("           Prior: ", x$prior_info, "\n", sep="")
-  cat("  Hyperparameter: ", x$variance, "\n", sep="")
+  cat("  Hyperparameter: ", paste(x$variance, collapse=" "), "\n", sep="")
   cat("     Return flag: ", x$return_flag, "\n", sep="")
   if (x$return_flag == "SUCCESS") {  	
   	cat("Log likelikehood: ", x$log_likelihood, "\n", sep="")

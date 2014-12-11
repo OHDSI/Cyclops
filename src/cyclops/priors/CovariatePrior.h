@@ -68,7 +68,7 @@ public:
 	}
 
 	double getVariance() const {
-		return 0.0;
+		return std::numeric_limits<double>::infinity();
 	}
 
 	void setVariance(double x) {
