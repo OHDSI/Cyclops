@@ -374,7 +374,7 @@ void CyclicCoordinateDescent::setClassHyperprior(double value) {
 	jointPrior->setVariance(1,value);
 }
 
-double CyclicCoordinateDescent::getHyperprior(void) const {
+std::vector<double> CyclicCoordinateDescent::getHyperprior(void) const {
 	return jointPrior->getVariance();
 }
 

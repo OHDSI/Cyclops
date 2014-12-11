@@ -137,7 +137,7 @@ public:
 
 	// Getters
 
-	double getHyperprior(void) const;
+	std::vector<double> getHyperprior(void) const;
 
 	string getPriorInfo();
 

@@ -57,6 +57,13 @@ public:
 		*this << t;
 		return *this;
 	}
+	
+	template <typename T>
+	OFStream& addText(const std::vector<T>& v) {
+	    std::copy(v.begin(), v.end(),
+	        std::ostream_iterator<T>(*this, " "));
+	    return *this;
+	}	
 		
 	OFStream& addDelimitor() { return addText(delimitor); }
 	
@@ -94,6 +101,13 @@ public:
 	CoutStream& addText(const T& t) {
 		std::cout << t;
 		return *this;
+	}
+	
+	template <typename T>
+	CoutStream& addText(const std::vector<T>& v) {
+	    std::copy(v.begin(), v.end(),
+	        std::ostream_iterator<T>(std::cout, " "));
+	    return *this;
 	}
 		
 	CoutStream& addDelimitor() { return addText(delimitor); }
@@ -239,7 +253,7 @@ public:
 	template <typename Stream>
 	void writeMetaData(Stream& out) {
 		// Do work
-		double hyperParameter = ccd.getHyperprior();
+		std::vector<double> hyperParameter = ccd.getHyperprior();
 		double logLikelihood = ccd.getLogLikelihood();
 		double logPrior = ccd.getLogPrior();
 		UpdateReturnFlags returnFlag = ccd.getUpdateReturnFlag();

@@ -15,7 +15,7 @@ LazyData: Yes
 Depends:
     Matrix
 Imports:
-    Rcpp (>= 0.11.0),
+    Rcpp (>= 0.11.3),
     bit,
     ff,
     ffbase

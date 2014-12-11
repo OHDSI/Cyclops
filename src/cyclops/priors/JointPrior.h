@@ -25,7 +25,7 @@ public:
 
 	virtual void setVariance(int level, double x) {}; // only works if of type HierarchicalPrior
 
-	virtual double getVariance() const = 0; // pure virtual
+	virtual std::vector<double> getVariance() const = 0; // pure virtual
 
 	virtual double logDensity(const DoubleVector& beta) const = 0; // pure virtual
 
@@ -66,8 +66,12 @@ public:
 		}
 	}
 
-	double getVariance() const {
-		return 0.0;
+	std::vector<double> getVariance() const {
+	    std::vector<double> variances;
+	    for (PriorPtr prior : uniquePriors) {
+	        variances.push_back(prior->getVariance());
+	    }
+		return std::move(variances);
 	}
 
 	double logDensity(const DoubleVector& beta) const {
@@ -148,8 +152,11 @@ public:
 //         }            
     }
 
-	double getVariance() const{
-		return getVariance(0);
+	std::vector<double> getVariance() const{
+		return std::vector<double> {
+		    getVariance(0),
+		    getVariance(1)
+		};
 	}
 
 	double getVariance(int level) const {
@@ -204,8 +211,10 @@ public:
 		singlePrior->setVariance(x);
 	}
 
-	double getVariance() const {
-		return singlePrior->getVariance();
+	std::vector<double> getVariance() const {
+		return std::vector<double> {
+		    singlePrior->getVariance()
+		};
 	}
 
 	double logDensity(const DoubleVector& beta) const {

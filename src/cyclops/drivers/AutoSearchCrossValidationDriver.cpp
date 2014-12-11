@@ -120,7 +120,11 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 
 		double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
 
-		stream << "Grid-point #" << (step + 1) << " at " << ccd.getHyperprior();
+		stream << "Grid-point #" << (step + 1) << " at "; // << ccd.getHyperprior();
+		std::vector<double> hyperprior = ccd.getHyperprior();
+		std::copy(hyperprior.begin(), hyperprior.end(),
+		    std::ostream_iterator<double>(stream, " "));
+		
 		stream << "\tFold #" << (fold + 1)
 				  << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
 				  << logLikelihood;
