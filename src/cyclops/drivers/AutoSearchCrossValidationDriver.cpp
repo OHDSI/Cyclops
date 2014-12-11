@@ -13,6 +13,7 @@
 #include <numeric>
 #include <math.h>
 #include <cstdlib>
+#include <iterator>
 
 #include "AutoSearchCrossValidationDriver.h"
 #include "CyclicCoordinateDescent.h"
