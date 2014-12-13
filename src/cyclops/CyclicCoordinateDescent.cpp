@@ -792,7 +792,7 @@ void CyclicCoordinateDescent::update(
 	}
 	
 	double betaUpdaterScale = 8.0; 
-	int nThreads = 8;
+	int nThreads = 2;
 	
 //#define noMM
 #ifdef noMM
@@ -807,7 +807,7 @@ void CyclicCoordinateDescent::update(
                             hUpdates, hDelta, noiseLevel); 
      
     betaUpdater.setScale(betaUpdaterScale);          
-//     auto parallelScheme = Vanilla();
+ //    auto parallelScheme = Vanilla();
     auto parallelScheme = C11Threads(nThreads);
     cout << "MM" << endl;
     cout << "betaUpdaterScale = " << betaUpdaterScale << endl;
