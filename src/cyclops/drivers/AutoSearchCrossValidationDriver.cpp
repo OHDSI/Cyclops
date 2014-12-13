@@ -89,14 +89,14 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 
 	/* start code duplication */
 	//std::vector<double> predLogLikelihood;
-	for (int i = 0; i < arguments.foldToCompute; i++) {
+	for (int i = 0; i < arguments.foldToCompute; i++) { // TODO PARALLEL
 		int fold = i % arguments.fold;
 		if (fold == 0) {
 			selector.permute(); // Permute every full cross-validation rep
 		}
 
 		// Get this fold and update
-		selector.getWeights(fold, weights);
+		selector.getWeights(fold, weights); // TODO THREAD-SAFE
 		if(weightsExclude){
 			for(int j = 0; j < (int)weightsExclude->size(); j++){
 				if(weightsExclude->at(j) == 1.0){
@@ -104,13 +104,14 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 				}
 			}
 		}
-		ccd.setWeights(&weights[0]);
+		ccd.setWeights(&weights[0]); // TODO THREAD-SPECIFIC
 		std::ostringstream stream;
 		stream << "Running at " << ccd.getPriorInfo() << " ";
+		 // TODO THREAD-SPECIFIC
 		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 
 		// Compute predictive loglikelihood for this fold
-		selector.getComplement(weights);
+		selector.getComplement(weights);  // TODO THREAD_SAFE
 		if(weightsExclude){
 			for(int j = 0; j < (int)weightsExclude->size(); j++){
 				if(weightsExclude->at(j) == 1.0){
@@ -119,7 +120,7 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 			}
 		}
 
-		double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
+		double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);  // TODO THREAD-SPECIFIC
 
 		stream << "Grid-point #" << (step + 1) << " at "; // << ccd.getHyperprior();
 		std::vector<double> hyperprior = ccd.getHyperprior();
@@ -132,7 +133,7 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
         logger->writeLine(stream);				  
 
 		// Store value
-		predLogLikelihood.push_back(logLikelihood);
+		predLogLikelihood.push_back(logLikelihood); // TODO THREAD-SAFE
 	}
 
 	double pointEstimate = computePointEstimate(predLogLikelihood);
