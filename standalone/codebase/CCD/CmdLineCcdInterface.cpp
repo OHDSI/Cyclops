@@ -480,7 +480,10 @@ void CmdLineCcdInterface::initializeModelImpl(
 		prior = hierarchicalPrior;
 	}
     
-	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model, prior, logger, error);
+	*ccd = new CyclicCoordinateDescent(
+ 		**modelData /* TODO Change to ref */, 
+// 					bsccs::shared_ptr<ModelData>(*modelData),
+					**model, prior, logger, error);
 
 #ifdef CUDA
 	}

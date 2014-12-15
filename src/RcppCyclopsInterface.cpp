@@ -599,7 +599,10 @@ void RcppCcdInterface::initializeModelImpl(
   logger = bsccs::make_shared<loggers::RcppProgressLogger>();
   error = bsccs::make_shared<loggers::RcppErrorHandler>();
  
- 	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model, prior, logger, error);
+ 	*ccd = new CyclicCoordinateDescent(
+         **modelData /* TODO Change to ref */, 
+         //bsccs::shared_ptr<ModelData>(*modelData),
+         **model, prior, logger, error);
  
  #ifdef CUDA
  	}

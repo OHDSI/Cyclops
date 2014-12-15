@@ -60,7 +60,7 @@ public:
 // 		);
 // 	
 	CyclicCoordinateDescent(
-			ModelData* modelData,
+			ModelData& modelData,
 			AbstractModelSpecifics& specifics,
 			priors::JointPriorPtr prior,
 			loggers::ProgressLoggerPtr logger,
@@ -76,6 +76,8 @@ public:
 			int* inNEvents,
 			int* inPid
 		);
+				
+	CyclicCoordinateDescent(const CyclicCoordinateDescent& copy) = delete;	
 	
 	void logResults(const char* fileName, bool withASE);
 
@@ -171,6 +173,7 @@ protected:
 	
 	AbstractModelSpecifics& modelSpecifics;
 	priors::JointPriorPtr jointPrior;
+	CompressedDataMatrix& hXI;	
 //	ModelSpecifics<DefaultModel>& modelSpecifics;
 //private:
 	
@@ -299,11 +302,11 @@ protected:
 	ofstream outLog;
 	bool hasLog;
 
-	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
+// 	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
-	real* hOffs;  // K-vector
-	real* hY; // K-vector
-	int* hNEvents; // K-vector
+// 	real* hOffs;  // K-vector
+ 	real* hY; // K-vector
+// 	int* hNEvents; // K-vector
 //	int* hPid; // N-vector
 	int* hPid;
 	int** hXColumnRowIndicators; // J-vector

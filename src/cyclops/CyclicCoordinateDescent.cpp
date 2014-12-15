@@ -49,28 +49,29 @@ using namespace std;
 // }
 
 CyclicCoordinateDescent::CyclicCoordinateDescent(
-			ModelData* reader,
+			//ModelData* reader,
+			ModelData& reader,			
 			AbstractModelSpecifics& specifics,
 			priors::JointPriorPtr prior,
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error
-		) : modelSpecifics(specifics), jointPrior(prior), logger(_logger), error(_error) {
-	N = reader->getNumberOfPatients();
-	K = reader->getNumberOfRows();
-	J = reader->getNumberOfColumns();
+		) : modelSpecifics(specifics), jointPrior(prior), hXI(reader), logger(_logger), error(_error) {
+	N = reader.getNumberOfPatients();
+	K = reader.getNumberOfRows();
+	J = reader.getNumberOfColumns();
 	
-	hXI = reader;
-	hY = reader->getYVector(); // TODO Delegate all data to ModelSpecifics
+// 	hXI = reader;
+	hY = reader.getYVector(); // TODO Delegate all data to ModelSpecifics
 //	hOffs = reader->getOffsetVector();
-	hPid = reader->getPidVector();
+	hPid = reader.getPidVector();
 
-	conditionId = reader->getConditionId();
+	conditionId = reader.getConditionId();
 
 	updateCount = 0;
 	likelihoodCount = 0;
 	noiseLevel = NOISY;
 
-	init(reader->getHasOffsetCovariate());
+	init(reader.getHasOffsetCovariate());
 }
 
 CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
@@ -214,7 +215,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 	}
 	doLogisticRegression = false;
         
-	modelSpecifics.initialize(N, K, J, hXI, NULL, NULL, NULL,
+	modelSpecifics.initialize(N, K, J, &hXI, NULL, NULL, NULL,
 			NULL, NULL,
 			hPid, NULL,
 			hXBeta.data(), NULL,
@@ -261,7 +262,7 @@ void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
 	outLog << endl;
 
 	for (int i = 0; i < J; i++) {		
-		outLog << hXI->getColumn(i).getLabel()
+		outLog << hXI.getColumn(i).getLabel()
 //				<< sep << conditionId
 				<< sep << hBeta[i];
 		if (withASE) {
@@ -792,7 +793,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 
 template <class IteratorType>
 void CyclicCoordinateDescent::axpy(real* y, const real alpha, const int index) {
-	IteratorType it(*hXI, index);
+	IteratorType it(hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
 		y[k] += alpha * it.value();
@@ -801,7 +802,7 @@ void CyclicCoordinateDescent::axpy(real* y, const real alpha, const int index) {
 
 void CyclicCoordinateDescent::axpyXBeta(const real beta, const int j) {
 	if (beta != static_cast<real>(0.0)) {
-		switch (hXI->getFormatType(j)) {
+		switch (hXI.getFormatType(j)) {
 		case INDICATOR:
 			axpy < IndicatorIterator > (hXBeta.data(), beta, j);
 			break;
