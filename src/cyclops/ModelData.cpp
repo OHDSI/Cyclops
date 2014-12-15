@@ -154,7 +154,7 @@ size_t ModelData::append(
     return nOutcomes;   
 }
 
-int ModelData::getNumberOfPatients() {
+int ModelData::getNumberOfPatients() const {
     if (nPatients == 0) {
         nPatients = getNumberOfStrata();
     }
@@ -165,7 +165,7 @@ int ModelData::getNumberOfTypes() const {
 	return nTypes;
 }
 
-string ModelData::getConditionId() {
+const string ModelData::getConditionId() const {
 	return conditionId;
 }
 
@@ -173,7 +173,7 @@ ModelData::~ModelData() {
 	// Do nothing
 }
 
-int* ModelData::getPidVector() { // TODO deprecated
+const int* ModelData::getPidVector() const { // TODO deprecated
 //	return makeDeepCopy(&pid[0], pid.size());
 	return &pid[0];
 }
@@ -182,7 +182,7 @@ std::vector<int>* ModelData::getPidVectorSTL() { // TODO deprecated
 	return new std::vector<int>(pid);
 }
 
-real* ModelData::getYVector() { // TODO deprecated
+const real* ModelData::getYVector() const { // TODO deprecated
 //	return makeDeepCopy(&y[0], y.size());
 	return &y[0];
 }

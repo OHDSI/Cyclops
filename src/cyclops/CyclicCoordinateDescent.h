@@ -60,7 +60,7 @@ public:
 // 		);
 // 	
 	CyclicCoordinateDescent(
-			ModelData& modelData,
+			const ModelData& modelData,
 			AbstractModelSpecifics& specifics,
 			priors::JointPriorPtr prior,
 			loggers::ProgressLoggerPtr logger,
@@ -173,7 +173,7 @@ protected:
 	
 	AbstractModelSpecifics& modelSpecifics;
 	priors::JointPriorPtr jointPrior;
-	CompressedDataMatrix& hXI;	
+	const CompressedDataMatrix& hXI;	
 //	ModelSpecifics<DefaultModel>& modelSpecifics;
 //private:
 	
@@ -305,10 +305,10 @@ protected:
 // 	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
 // 	real* hOffs;  // K-vector
- 	real* hY; // K-vector
+ 	const real* hY; // K-vector
 // 	int* hNEvents; // K-vector
 //	int* hPid; // N-vector
-	int* hPid;
+	const int* hPid;
 	int** hXColumnRowIndicators; // J-vector
  	
 //	real* hBeta;

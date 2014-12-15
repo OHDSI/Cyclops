@@ -45,18 +45,18 @@ public:
 			int iN,
 			int iK,
 			int iJ,
-			CompressedDataMatrix* iXI,
+			const CompressedDataMatrix* iXI, // TODO Change to const&
 			real* iNumerPid,
 			real* iNumerPid2,
 			real* iDenomPid,
 			real* iXjY,
 			std::vector<std::vector<int>* >* iSparseIndices,
-			int* iPid,
+			const int* iPid,
 			real* iOffsExpXBeta,
 			real* iXBeta,
 			real* iOffs,
 			real* iBeta,
-			real* iY);
+			const real* iY);
 
 	virtual void setWeights(real* inWeights, bool useCrossValidation) = 0; // pure virtual
 
@@ -125,7 +125,8 @@ protected:
 // 	const std::vector<real>& oZ;
 // 	const std::vector<int>& oPid;
 
-	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
+	// TODO Change to const& (is never nullptr)
+	const CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
 	RealVector accDenomPid;
 	RealVector accNumerPid;

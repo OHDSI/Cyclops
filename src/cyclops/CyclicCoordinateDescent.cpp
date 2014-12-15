@@ -50,7 +50,7 @@ using namespace std;
 
 CyclicCoordinateDescent::CyclicCoordinateDescent(
 			//ModelData* reader,
-			ModelData& reader,			
+			const ModelData& reader,			
 			AbstractModelSpecifics& specifics,
 			priors::JointPriorPtr prior,
 			loggers::ProgressLoggerPtr _logger,
@@ -151,17 +151,18 @@ void CyclicCoordinateDescent::init(bool offset) {
 	
 	fixBeta.resize(J, false);
 	
-	// Recode patient ids  TODO Delegate to grouped model
-	int currentNewId = 0;
-	int currentOldId = hPid[0];
-	
-	for(int i = 0; i < K; i++) {
-		if (hPid[i] != currentOldId) {			
-			currentOldId = hPid[i];
-			currentNewId++;
-		}
-		hPid[i] = currentNewId;
-	}
+	// SHOULD BE HANDLED IN MODELDATA CONSTRUCTORS
+// 	//Recode patient ids  TODO Delegate to grouped model
+// 	int currentNewId = 0;
+// 	int currentOldId = hPid[0];
+// 	
+// 	for(int i = 0; i < K; i++) {
+// 		if (hPid[i] != currentOldId) {			
+// 			currentOldId = hPid[i];
+// 			currentNewId++;
+// 		}
+// 		hPid[i] = currentNewId;
+// 	}
 		
 	// Init temporary variables
 //	offsExpXBeta = (real*) malloc(sizeof(real) * K);

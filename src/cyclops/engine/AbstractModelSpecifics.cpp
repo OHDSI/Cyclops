@@ -138,19 +138,19 @@ void AbstractModelSpecifics::initialize(
 		int iN,
 		int iK,
 		int iJ,
-		CompressedDataMatrix* iXI,
+		const CompressedDataMatrix* iXI,
 		real* iNumerPid,
 		real* iNumerPid2,
 		real* iDenomPid,
 //		int* iNEvents,
 		real* iXjY,
 		std::vector<std::vector<int>* >* iSparseIndices,
-		int* iPid_unused,
+		const int* iPid_unused,
 		real* iOffsExpXBeta,
 		real* iXBeta,
 		real* iOffs,
 		real* iBeta,
-		real* iY_unused//,
+		const real* iY_unused//,
 //		real* iWeights
 		) {
 	N = iN;
