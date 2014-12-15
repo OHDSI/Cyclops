@@ -34,6 +34,8 @@ public:
 	virtual const std::string getDescription() const = 0; // pure virtual
 	
 	virtual bool getIsRegularized(const int index) const = 0; // pure virtual
+	
+ 	virtual JointPrior* clone() const = 0; // pure virtual
 };
 
 class MixtureJointPrior : public JointPrior {
@@ -60,9 +62,8 @@ public:
 	}
 
 	void setVariance(double x) {
-		for (PriorList::iterator it = listPriors.begin(); it != listPriors.end(); ++it) {
-			(*it)->setVariance(x);
-			// TODO Should only update unique pointers
+		for (PriorList::iterator it = uniquePriors.begin(); it != uniquePriors.end(); ++it) {
+			(*it)->setVariance(x);			
 		}
 	}
 
@@ -91,8 +92,41 @@ public:
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
 		return listPriors[index]->getDelta(gh, beta[index]);
 	}
+	
+	JointPrior* clone() const {
+		PriorList newListPriors(listPriors.size());
+																
+		PriorList newUniquePriors;				
+		for (auto& prior : uniquePriors) {
+			PriorPtr newPriorPtr = PriorPtr(prior->clone());
+			newUniquePriors.push_back(newPriorPtr);			
+			for(auto i = 0; i < listPriors.size(); ++i) {
+				if (listPriors[i] == prior) {
+					newListPriors[i] = newPriorPtr;
+				}
+			}			
+		}
+		
+		// CovariatePrior* oldPtr = nullptr;
+// 		for (auto& prior : listPriors) {
+// 			PriorPtr newPriorPtr; 
+// 			if (oldPtr == nullptr || oldPtr != &*prior) {
+// 				oldPtr = &*prior;
+// 				newPriorPtr = = PriorPtr(prior->clone());
+// 				newUniquePriors.push_back(newPriorPtr);
+// 			}
+// 			newListPriors.push_back(newPriorPtr);
+// 			std::cerr << "cloned " << &*prior* << " -> " << &*newPriorPtr << std::endl;
+// 		}
+				
+		return new MixtureJointPrior(newListPriors, newUniquePriors);
+	}
 
 private:
+
+	MixtureJointPrior(PriorList listPriors, PriorList uniquePriors) : 
+		listPriors(listPriors), uniquePriors(uniquePriors) { }
+		
 	PriorList listPriors;
 	PriorList uniquePriors;
 
@@ -192,8 +226,25 @@ public:
 
 		return (- (gh.first + gradient)/(gh.second + hessian));
 	}
+	
+	JointPrior* clone() const {
+		PriorList newHierarchyPriors;	
+		
+		for (auto& prior : hierarchyPriors) {
+			newHierarchyPriors.push_back(PriorPtr(prior->clone()));
+		}	
+	
+		return new HierarchicalJointPrior(newHierarchyPriors, hierarchyDepth, getParentMap, 
+			getChildMap);
+	}	
 
 private:
+
+	HierarchicalJointPrior(PriorList hierarchyPriors, int hierarchyDepth, 
+		HierarchicalParentMap getParentMap,
+		HierarchicalChildMap getChildMap) : hierarchyPriors(hierarchyPriors),
+		hierarchyDepth(hierarchyDepth), getParentMap(getParentMap), getChildMap(getChildMap) { }
+
 	PriorList hierarchyPriors;
 	int hierarchyDepth;
 	HierarchicalParentMap getParentMap;
@@ -236,6 +287,10 @@ public:
 	const std::string getDescription() const {
 		return singlePrior->getDescription();
 	}
+	
+	JointPrior* clone() const {
+		return new FullyExchangeableJointPrior(PriorPtr(singlePrior->clone()));
+	}		
 
 private:
 	PriorPtr singlePrior;

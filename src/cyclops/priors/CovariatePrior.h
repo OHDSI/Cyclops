@@ -53,6 +53,8 @@ public:
 	
 	virtual bool getIsRegularized() const = 0; // pure virtual
 	
+	virtual CovariatePrior* clone() const = 0; // pure virtual
+	
 	static PriorPtr makePrior(PriorType priorType);	    
 };
 
@@ -94,6 +96,10 @@ public:
 
 	double getDelta(GradientHessian gh, double beta) const {
 		return -(gh.first / gh.second); // No regularization
+	}
+	
+	CovariatePrior* clone() const {
+		return new NoPrior(*this);
 	}
 };
 
@@ -165,6 +171,10 @@ public:
 		}
 		return delta;
 	}
+	
+	CovariatePrior* clone() const {
+		return new LaplacePrior(*this);
+	}	
 
 private:
 
@@ -243,6 +253,10 @@ public:
 		return - (gh.first + (beta / sigma2Beta)) /
 				  (gh.second + (1.0 / sigma2Beta));
 	}
+	
+	CovariatePrior* clone() const {
+		return new NormalPrior(*this);
+	}	
 
 private:
 	double sigma2Beta;
