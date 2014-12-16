@@ -2,6 +2,7 @@
 #ifndef PARALLELLOOPS_H_
 #define PARALLELLOOPS_H_
 
+#include <future>
 #include <vector>
 #include <thread>
 #include <boost/iterator/counting_iterator.hpp>
@@ -37,7 +38,7 @@ struct C11Threads {
 namespace variants {
 
 	namespace impl {
-
+	
 		template <typename InputIt, typename UnaryFunction>
 		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
 				C11Threads& info) {
@@ -46,25 +47,53 @@ namespace variants {
 			const size_t minSize = info.minSize;	
 										
 			if (nThreads > 1 && std::distance(begin, end) >= minSize) {				  
-				std::vector<std::thread> workers(nThreads - 1);
+				std::vector<std::future<UnaryFunction>> workers;
 				size_t chunkSize = std::distance(begin, end) / nThreads;
 				size_t start = 0;
 				for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
-					workers[i] = std::thread(
+					workers.push_back(std::async(
 						std::for_each<InputIt, UnaryFunction>,
 						begin + start, 
 						begin + start + chunkSize, 
-						function);
+						function));
 				}
 				auto rtn = std::for_each(begin + start, end, function);
 				for (int i = 0; i < nThreads - 1; ++i) {
-					workers[i].join();
+					workers[i].get();
 				}
 				return rtn;
 			} else {				
 				return std::for_each(begin, end, function);
 			}
 		}	
+
+// 		template <typename InputIt, typename UnaryFunction>
+// 		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
+// 				C11Threads& info) {
+// 			
+// 			const int nThreads = info.nThreads;
+// 			const size_t minSize = info.minSize;	
+// 										
+// 			if (nThreads > 1 && std::distance(begin, end) >= minSize) {				  
+// 				std::vector<std::thread> workers(nThreads - 1);
+// 				size_t chunkSize = std::distance(begin, end) / nThreads;
+// 				size_t start = 0;
+// 				for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
+// 					workers[i] = std::thread(
+// 						std::for_each<InputIt, UnaryFunction>,
+// 						begin + start, 
+// 						begin + start + chunkSize, 
+// 						function);
+// 				}
+// 				auto rtn = std::for_each(begin + start, end, function);
+// 				for (int i = 0; i < nThreads - 1; ++i) {
+// 					workers[i].join();
+// 				}
+// 				return rtn;
+// 			} else {				
+// 				return std::for_each(begin, end, function);
+// 			}
+// 		}	
 		
 		template <typename InputIt, typename UnaryFunction>
 		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 

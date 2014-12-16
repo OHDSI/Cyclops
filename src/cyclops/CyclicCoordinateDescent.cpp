@@ -715,7 +715,8 @@ struct MMVariant : public AbstractVariant {
 #else
 //             updates[index] = hBeta[index] + delta;
             hBeta[index] += delta;
-#endif			
+#endif		
+		printf("index is %d", index);	
 		}			
 	}  
 		
