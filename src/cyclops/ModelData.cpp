@@ -178,8 +178,12 @@ const int* ModelData::getPidVector() const { // TODO deprecated
 	return &pid[0];
 }
 
-std::vector<int>* ModelData::getPidVectorSTL() { // TODO deprecated
-	return new std::vector<int>(pid);
+// std::vector<int>* ModelData::getPidVectorSTL() { // TODO deprecated
+// 	return new std::vector<int>(pid);
+// }
+
+std::vector<int> ModelData::getPidVectorSTL() const {
+	return pid;
 }
 
 const real* ModelData::getYVector() const { // TODO deprecated

@@ -97,10 +97,13 @@ AbstractModelSpecifics::AbstractModelSpecifics(const ModelData& input)
 	: //oY(input.getYVectorRef()), oZ(input.getZVectorRef()),
 	  //oPid(input.getPidVectorRef()),
 	  modelData(input),
-	  hXI(static_cast<CompressedDataMatrix*>(const_cast<ModelData*>(&modelData))),
-	  hY(const_cast<real*>(input.getYVectorRef().data())), //hZ(const_cast<real*>(input.getZVectorRef().data())),
-	  hOffs(const_cast<real*>(input.getTimeVectorRef().data())),
+//	  hXI(static_cast<CompressedDataMatrix*>(const_cast<ModelData*>(&modelData))),
+// 	  hY(const_cast<real*>(input.getYVectorRef().data())), //hZ(const_cast<real*>(input.getZVectorRef().data())),
+	  hY(input.getYVectorRef()),
+// 	  hOffs(const_cast<real*>(input.getTimeVectorRef().data())),
+	  hOffs(input.getTimeVectorRef()),
 	  hPid(const_cast<int*>(input.getPidVectorRef().data()))	  
+// 	  hPid(input.getPidVectorRef())
 	  {
 	// Do nothing
 }
@@ -138,7 +141,7 @@ void AbstractModelSpecifics::initialize(
 		int iN,
 		int iK,
 		int iJ,
-		const CompressedDataMatrix* iXI,
+		const CompressedDataMatrix*,
 		real* iNumerPid,
 		real* iNumerPid2,
 		real* iDenomPid,
@@ -204,6 +207,7 @@ void AbstractModelSpecifics::initialize(
 	//std::vector<std::vector<int>* >* iSparseIndices,
 		
 	if (initializeAccumulationVectors()) {
+		std::cerr << "In IAV" << std::endl;
         int lastPid = hPid[0];
         real lastTime = hOffs[0];
         real lastEvent = hY[0];        
@@ -273,12 +277,12 @@ void AbstractModelSpecifics::initialize(
 	// TODO Suspect below is not necessary for non-grouped data.
 	// If true, then fill with pointers to CompressedDataColumn and do not delete in destructor
 	for (size_t j = 0; j < J; ++j) {
-		if (hXI->getFormatType(j) == DENSE) {
+		if (modelData.getFormatType(j) == DENSE) {
 			sparseIndices.push_back(NULL);
 		} else {
 			std::set<int> unique;
-			const size_t n = hXI->getNumberOfEntries(j);
-			const int* indicators = hXI->getCompressedColumnVector(j);
+			const size_t n = modelData.getNumberOfEntries(j);
+			const int* indicators = modelData.getCompressedColumnVector(j);
 			for (size_t j = 0; j < n; j++) { // Loop through non-zero entries only
 				const int k = indicators[j];
 				const int i = hPid[k];
@@ -374,6 +378,8 @@ void AbstractModelSpecifics::initialize(
 //#else
 //	hNEvents = iNEvents;
 //#endif
+
+		std::cerr << "Init: this @ " << this << " data @ " << &modelData << std::endl;
 
 }
 

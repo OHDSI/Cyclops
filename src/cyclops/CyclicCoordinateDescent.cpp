@@ -18,6 +18,7 @@
 #include "CyclicCoordinateDescent.h"
 // #include "io/InputReader.h"
 #include "Iterators.h"
+//#include "priors/JointPrior.h"
 // #include "io/ProgressLogger.h"
 
 //#ifdef MY_RCPP_FLAG
@@ -56,22 +57,58 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error
 		) : modelSpecifics(specifics), jointPrior(prior), hXI(reader), logger(_logger), error(_error) {
-	N = reader.getNumberOfPatients();
-	K = reader.getNumberOfRows();
-	J = reader.getNumberOfColumns();
+	N = hXI.getNumberOfPatients();
+	K = hXI.getNumberOfRows();
+	J = hXI.getNumberOfColumns();
 	
 // 	hXI = reader;
-	hY = reader.getYVector(); // TODO Delegate all data to ModelSpecifics
+	hY = hXI.getYVector(); // TODO Delegate all data to ModelSpecifics
 //	hOffs = reader->getOffsetVector();
-	hPid = reader.getPidVector();
+	hPid = hXI.getPidVector();
 
-	conditionId = reader.getConditionId();
+	conditionId = hXI.getConditionId();
 
 	updateCount = 0;
 	likelihoodCount = 0;
 	noiseLevel = NOISY;
 
-	init(reader.getHasOffsetCovariate());
+	init(hXI.getHasOffsetCovariate());
+}
+
+CyclicCoordinateDescent
+CyclicCoordinateDescent::clone() {
+	std::cerr << "In CCD clone" << std::endl;
+	return CyclicCoordinateDescent(hXI, modelSpecifics, jointPrior, logger, error);
+} 
+
+//template <typename T>
+//struct GetType<T>; 
+
+CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& copy)
+	: privateModelSpecifics(
+			bsccs::unique_ptr<AbstractModelSpecifics>(
+				copy.modelSpecifics.clone())), // deep copy
+	  modelSpecifics(*privateModelSpecifics), 
+	  jointPrior(priors::JointPriorPtr(copy.jointPrior->clone())), // deep copy
+	  hXI(copy.hXI), // swallow
+	  logger(copy.logger), error(copy.error) {
+	        
+	std::cerr << "In CCD copy-ctor" << std::endl;	
+		
+	N = hXI.getNumberOfPatients();
+	K = hXI.getNumberOfRows();
+	J = hXI.getNumberOfColumns();	
+	
+	hY = hXI.getYVector(); // TODO Delegate all data to ModelSpecifics
+	hPid = hXI.getPidVector();
+
+	conditionId = hXI.getConditionId();
+
+	updateCount = 0;
+	likelihoodCount = 0;
+	noiseLevel = copy.noiseLevel;
+
+	init(hXI.getHasOffsetCovariate());			
 }
 
 CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
@@ -139,7 +176,7 @@ void CyclicCoordinateDescent::resetBounds() {
 }
 
 void CyclicCoordinateDescent::init(bool offset) {
-	
+		
 	// Set parameters and statistics space
 	hDelta.resize(J, static_cast<double>(2.0));
 	hBeta.resize(J, static_cast<double>(0.0));
@@ -215,7 +252,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 		xBetaKnown = true; // all beta = 0 => xBeta = 0
 	}
 	doLogisticRegression = false;
-        
+	        
 	modelSpecifics.initialize(N, K, J, &hXI, NULL, NULL, NULL,
 			NULL, NULL,
 			hPid, NULL,
@@ -526,7 +563,7 @@ void CyclicCoordinateDescent::update(
 		computeRemainingStatistics(true, 0); // TODO Check index?
 		sufficientStatisticsKnown = true;
 	}
-
+	
 	resetBounds();
 
 	bool done = false;
@@ -560,7 +597,7 @@ void CyclicCoordinateDescent::update(
 			}
 			
 		}
-
+		
 		iteration++;
 //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
 		bool checkConvergence = true; // Check after each complete cycle
@@ -621,8 +658,8 @@ void CyclicCoordinateDescent::update(
 			if (noiseLevel > QUIET) {
                 logger->writeLine(stream);
 			}
-			
-			logger->yield();			
+						
+			// logger->yield();			// This is not re-entrant safe
 		}						
 	}
 	lastIterationCount = iteration;

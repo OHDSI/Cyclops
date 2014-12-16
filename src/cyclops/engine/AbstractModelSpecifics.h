@@ -89,6 +89,8 @@ public:
 //	virtual void sortPid(bool useCrossValidation) = 0; // pure virtual
 
 //	static bsccs::shared_ptr<AbstractModelSpecifics> factory(const ModelType modelType, const ModelData& modelData);
+
+	virtual AbstractModelSpecifics* clone() const = 0; // pure virtual
 	
 	static AbstractModelSpecifics* factory(const ModelType modelType, const ModelData& modelData);
 
@@ -116,27 +118,31 @@ protected:
 		fillVector(vector, length, T());
 	}
 	
-private:
+protected:
 	const ModelData& modelData;	
-	
-protected:	
-
+		
 // 	const std::vector<real>& oY;
 // 	const std::vector<real>& oZ;
 // 	const std::vector<int>& oPid;
 
 	// TODO Change to const& (is never nullptr)
-	const CompressedDataMatrix* hXI; // K-by-J-indicator matrix
+// 	const CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
 	RealVector accDenomPid;
 	RealVector accNumerPid;
 	RealVector accNumerPid2;
 	
 	IntVector accReset;
+	
+	const std::vector<real>& hY;
+	const std::vector<real>& hOffs;
+// 	const std::vector<int>& hPid;
 
-	real* hY; // K-vector
+// 	real* hY; // K-vector
 //	real* hZ; // K-vector
-	real* hOffs;  // K-vector
+// 	real* hOffs;  // K-vector
+	
+	
 	int* hPid; // K-vector
 //	int** hXColumnRowIndicators; // J-vector
 

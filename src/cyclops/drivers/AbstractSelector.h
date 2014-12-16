@@ -30,7 +30,7 @@ enum SelectorType {
 class AbstractSelector {
 public:
 	AbstractSelector(
-			std::vector<int>* inIds,
+			std::vector<int> inIds,
 			SelectorType inType,
 			long inSeed,
 			loggers::ProgressLoggerPtr _logger,
@@ -46,9 +46,11 @@ public:
 	virtual void getWeights(int batch, std::vector<real>& weights) = 0; // pure virtual
 
 	virtual void getComplement(std::vector<real>& weights) = 0; // pure virtual
+	
+	virtual AbstractSelector* clone() const = 0; // pure virtual
 
 protected:
-	std::vector<int>* ids;
+	const std::vector<int> ids;
 	SelectorType type;
 	long seed;
 	size_t K;

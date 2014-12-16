@@ -93,7 +93,7 @@ public:
 //	map<int, IdType> getDrugNameMap();
 	int getNumberOfPatients() const;
 	const std::string getConditionId() const;
-	std::vector<int>* getPidVectorSTL();
+	std::vector<int> getPidVectorSTL() const;
 
 	const std::vector<real>& getZVectorRef() const {
 		return z;

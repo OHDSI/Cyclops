@@ -19,7 +19,7 @@ class CrossValidationSelector : public AbstractSelector {
 public:
 	CrossValidationSelector(
 			int inFold,
-			std::vector<int>* inIds,
+			std::vector<int> inIds,
 			SelectorType inType,
 			long inSeed,
     	    loggers::ProgressLoggerPtr _logger,
@@ -35,6 +35,8 @@ public:
 	void getWeights(int batch, std::vector<real>& weights);
 
 	void getComplement(std::vector<real>& weights);
+	
+	AbstractSelector* clone() const;
 
 private:
 	int fold;

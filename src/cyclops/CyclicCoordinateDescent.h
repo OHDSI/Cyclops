@@ -77,7 +77,9 @@ public:
 			int* inPid
 		);
 				
-	CyclicCoordinateDescent(const CyclicCoordinateDescent& copy) = delete;	
+	CyclicCoordinateDescent(const CyclicCoordinateDescent& copy);
+	
+	CyclicCoordinateDescent clone();	
 	
 	void logResults(const char* fileName, bool withASE);
 
@@ -170,10 +172,12 @@ public:
 	Matrix computeFisherInformation(const std::vector<size_t>& indices) const;
 		
 protected:
+
+	bsccs::unique_ptr<AbstractModelSpecifics> privateModelSpecifics = nullptr;
 	
 	AbstractModelSpecifics& modelSpecifics;
 	priors::JointPriorPtr jointPrior;
-	const CompressedDataMatrix& hXI;	
+	const ModelData& hXI;	
 //	ModelSpecifics<DefaultModel>& modelSpecifics;
 //private:
 	

@@ -15,7 +15,7 @@ namespace bsccs {
 
 ProportionSelector::ProportionSelector(
 		int inTotal,
-		std::vector<int>* inIds,
+		std::vector<int> inIds,
 		SelectorType inType,
 		long inSeed,
 	    loggers::ProgressLoggerPtr _logger,

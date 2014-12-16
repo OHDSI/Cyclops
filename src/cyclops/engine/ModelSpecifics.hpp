@@ -70,6 +70,12 @@ ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
 }
 
 template <class BaseModel, typename WeightType>
+AbstractModelSpecifics* ModelSpecifics<BaseModel,WeightType>::clone() const {
+	std::cerr << "MS clone" << std::endl;
+	return new ModelSpecifics<BaseModel,WeightType>(modelData);
+}
+
+template <class BaseModel, typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::printTiming() {
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -144,7 +150,7 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjY(bool useCrossValidation) 
 	for (size_t j = 0; j < J; ++j) {
 		hXjY[j] = 0;
 				
-		GenericIterator it(*hXI, j);
+		GenericIterator it(modelData, j);
 
 		if (useCrossValidation) {
 			for (; it; ++it) {
@@ -175,7 +181,7 @@ template<class BaseModel, typename WeightType>
 void ModelSpecifics<BaseModel, WeightType>::computeXjX(bool useCrossValidation) {
 	for (size_t j = 0; j < J; ++j) {
 		hXjX[j] = 0;
-		GenericIterator it(*hXI, j);
+		GenericIterator it(modelData, j);
 
 		if (useCrossValidation) {
 			for (; it; ++it) {
@@ -304,7 +310,7 @@ void ModelSpecifics<BaseModel,WeightType>::getPredictiveEstimates(real* y, real*
 	// TODO Check with SM: the following code appears to recompute hXBeta at large expense
 //	std::vector<real> xBeta(K,0.0);
 //	for(int j = 0; j < J; j++){
-//		GenericIterator it(*hXI, j);
+//		GenericIterator it(modelData, j);
 //		for(; it; ++it){
 //			const int k = it.index();
 //			xBeta[k] += it.value() * hBeta[j] * weights[k];
@@ -337,7 +343,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 		
 	// Run-time dispatch, so virtual call should not effect speed
 	if (useWeights) {
-		switch (hXI->getFormatType(index)) {
+		switch (modelData.getFormatType(index)) {
 			case INDICATOR :
 				computeGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, weighted);
 				break;
@@ -352,7 +358,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 				break;
 		}
 	} else {
-		switch (hXI->getFormatType(index)) {
+		switch (modelData.getFormatType(index)) {
 			case INDICATOR :
 				computeGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, unweighted);
 				break;
@@ -477,11 +483,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			if (BaseModel::exactTies && hNWeight[i] > 1) {
 				int numSubjects = hNtoK[i+1] - hNtoK[i];
 				int numCases = hNWeight[i];
-				DenseView<IteratorType> x(IteratorType(*hXI, index), hNtoK[i], hNtoK[i+1]);
+				DenseView<IteratorType> x(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
 				
 //				std::cerr << "Here " << hNtoK.size() << std::endl;			
 
-				std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases, hY + hNtoK[i]);
+				std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases, hY.begin() + hNtoK[i]);
 
 // 				std::cerr << i << std::endl;
 // 				std::for_each(begin(value), end(value), [](DDouble d) {
@@ -556,7 +562,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformation(int indexOne
 // 		exit(-1);
 		throw new std::logic_error("Weights are not yet implemented in Fisher Information calculations");
 	} else { // no weights
-		switch (hXI->getFormatType(indexOne)) {
+		switch (modelData.getFormatType(indexOne)) {
 			case INDICATOR :
 				dispatchFisherInformation<IndicatorIterator>(indexOne, indexTwo, oinfo, weighted);
 				break;
@@ -575,7 +581,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformation(int indexOne
 
 template <class BaseModel, typename WeightType> template <typename IteratorTypeOne, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::dispatchFisherInformation(int indexOne, int indexTwo, double *oinfo, Weights w) {
-	switch (hXI->getFormatType(indexTwo)) {
+	switch (modelData.getFormatType(indexTwo)) {
 		case INDICATOR :
 			computeFisherInformationImpl<IteratorTypeOne,IndicatorIterator>(indexOne, indexTwo, oinfo, w);
 			break;
@@ -609,7 +615,7 @@ SparseIterator ModelSpecifics<BaseModel, WeightType>::getSubjectSpecificHessianI
 // 		    CompressedDataColumn(indices, values, SPARSE)));
 		    column));
 
-		IteratorType itCross(*hXI, index);
+		IteratorType itCross(modelData, index);
 		for (; itCross;) {
 			real value = 0.0;
 			int currentPid = hPid[itCross.index()];  // TODO Need to fix for stratified Cox
@@ -631,8 +637,8 @@ SparseIterator ModelSpecifics<BaseModel, WeightType>::getSubjectSpecificHessianI
 template <class BaseModel, typename WeightType> template <class IteratorTypeOne, class IteratorTypeTwo, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int indexOne, int indexTwo, double *oinfo, Weights w) {
 
-	IteratorTypeOne itOne(*hXI, indexOne);
-	IteratorTypeTwo itTwo(*hXI, indexTwo);
+	IteratorTypeOne itOne(modelData, indexOne);
+	IteratorTypeTwo itTwo(modelData, indexTwo);
 	PairProductIterator<IteratorTypeOne,IteratorTypeTwo> it(itOne, itTwo);
 
 	real information = static_cast<real>(0);
@@ -657,7 +663,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 		if (hessianCrossTerms.find(indexOne) == hessianCrossTerms.end()) {
 			// Make new
 			std::vector<real> crossOneTerms(N);
-			IteratorTypeOne crossOne(*hXI, indexOne);
+			IteratorTypeOne crossOne(modelData, indexOne);
 			for (; crossOne; ++crossOne) {
 				const int k = crossOne.index();
 				incrementByGroup(crossOneTerms.data(), hPid, k,
@@ -672,7 +678,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 		// TODO Remove code duplication
 		if (hessianCrossTerms.find(indexTwo) == hessianCrossTerms.end()) {
 			std::vector<real> crossTwoTerms(N);
-			IteratorTypeTwo crossTwo(*hXI, indexTwo);
+			IteratorTypeTwo crossTwo(modelData, indexTwo);
 			for (; crossTwo; ++crossTwo) {
 				const int k = crossTwo.index();
 				incrementByGroup(crossTwoTerms.data(), hPid, k,
@@ -720,7 +726,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 #endif
 
 	// Run-time delegation
-	switch (hXI->getFormatType(index)) {
+	switch (modelData.getFormatType(index)) {
 		case INDICATOR : {
 			IndicatorIterator it(*(sparseIndices)[index]);
 			for (; it; ++it) { // Only affected entries
@@ -777,7 +783,7 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 #endif
 #endif
 
-	IteratorType it(*hXI, index);
+	IteratorType it(modelData, index);
 	for (; it; ++it) {
 		const int k = it.index();
 		incrementByGroup(numerPid, hPid, k,
@@ -822,7 +828,7 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index
 #endif
 
 	// Run-time dispatch to implementation depending on covariate FormatType
-	switch(hXI->getFormatType(index)) {
+	switch(modelData.getFormatType(index)) {
 		case INDICATOR :
 			updateXBetaImpl<IndicatorIterator>(realDelta, index, useWeights);
 			break;
@@ -859,14 +865,14 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 #endif
 #endif
 
-	IteratorType it(*hXI, index);
+	IteratorType it(modelData, index);
 	for (; it; ++it) {
 		const int k = it.index();
 		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
 		// Update denominators as well
 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
 			real oldEntry = offsExpXBeta[k];
-			real newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
+			real newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
 			incrementByGroup(denomPid, hPid, k, (newEntry - oldEntry));
 		}
 	}
@@ -894,7 +900,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 	if (BaseModel::likelihoodHasDenominator) {
 		fillVector(denomPid, N, BaseModel::getDenomNullValue());
 		for (size_t k = 0; k < K; ++k) {
-			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
+			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
 			incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
 		}
 		computeAccumlatedNumerDenom(useWeights);

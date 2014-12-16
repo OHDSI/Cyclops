@@ -36,6 +36,8 @@ public:
 
 	void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian,  bool useWeights);
+			
+	AbstractModelSpecifics* clone() const;
 
 protected:
 	void computeNumeratorForGradient(int index);
@@ -112,8 +114,8 @@ private:
 	std::vector<WeightType> hNWeight;
 	std::vector<WeightType> hKWeight;
 
-	std::vector<int> nPid;
-	std::vector<real> nY;
+//	std::vector<int> nPid;
+//	std::vector<real> nY;
 	std::vector<int> hNtoK;
 
 	struct WeightedOperation {
@@ -378,7 +380,7 @@ public:
 		}
 	}
 
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return offs[k] * std::exp(xBeta);
 	}
 
@@ -440,7 +442,7 @@ public:
 		}
 	}
 
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -472,7 +474,7 @@ public:
 		return static_cast<real>(yi);
 	}
 
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -575,7 +577,7 @@ public:
 		}
 	}
 
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -633,7 +635,7 @@ public:
 		}
 	}
 
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -665,7 +667,7 @@ public:
 		return static_cast<real>(1);
 	}
 
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -716,7 +718,7 @@ public:
 		}
 	}
 
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -776,7 +778,7 @@ public:
 		}
 	}
 
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -855,7 +857,7 @@ public:
 		}
 	}
 
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 // 		std::cerr << "Error!" << std::endl;
 // 		exit(-1);
         throw new std::logic_error("Not model-specific");
@@ -938,7 +940,7 @@ public:
 			}
 	}
 
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 

@@ -83,6 +83,8 @@ struct CCDArguments {
 
 	ProfileVector profileCI;
 	ProfileVector flatPrior;
+	
+	int threads;	
 };
 
 

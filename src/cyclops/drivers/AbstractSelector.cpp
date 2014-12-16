@@ -13,18 +13,18 @@
 namespace bsccs {
 
 AbstractSelector::AbstractSelector(
-		std::vector<int>* inIds,
+		std::vector<int> inIds,
 		SelectorType inType,
 		long inSeed,
 	    loggers::ProgressLoggerPtr _logger,
 		loggers::ErrorHandlerPtr _error		
-		) : ids(inIds), type(inType), seed(inSeed), K(inIds->size()), logger(_logger), error(_error) {
+		) : ids(inIds), type(inType), seed(inSeed), K(ids.size()), logger(_logger), error(_error) {
 
 	// Set up number of exchangeable objects
 	if (type == SUBJECT) {
-		N = *(std::max_element(ids->begin(), ids->end())) + 1;
+		N = *(std::max_element(ids.begin(), ids.end())) + 1;
 	} else {
-		N = ids->size();
+		N = ids.size();
 	}
 
 	// Set up seed
@@ -48,9 +48,9 @@ AbstractSelector::AbstractSelector(
 }
 
 AbstractSelector::~AbstractSelector() {
-	if (ids) {
-		delete ids;
-	}
+// 	if (ids) {
+// 		delete ids;
+// 	}
 }
 
 } // namespace
