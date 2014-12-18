@@ -5,7 +5,8 @@ include_directories(.
     ${RCCD_SOURCE_DIR}
     ${RCCD_SOURCE_DIR}/cyclops
     ${CMAKE_SOURCE_DIR}/codebase
-    ${CMAKE_SOURCE_DIR}/codebase/CCD    
+    ${CMAKE_SOURCE_DIR}/codebase/CCD  
+    ${Boost_INCLUDE_DIR}          
     )
 
 set(BASE_SOURCE_FILES	

@@ -173,7 +173,7 @@ public:
 		
 protected:
 
-	bsccs::unique_ptr<AbstractModelSpecifics> privateModelSpecifics = nullptr;
+	bsccs::unique_ptr<AbstractModelSpecifics> privateModelSpecifics;
 	
 	AbstractModelSpecifics& modelSpecifics;
 	priors::JointPriorPtr jointPrior;

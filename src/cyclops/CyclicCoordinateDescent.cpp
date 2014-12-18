@@ -56,7 +56,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 			priors::JointPriorPtr prior,
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error
-		) : modelSpecifics(specifics), jointPrior(prior), hXI(reader), logger(_logger), error(_error) {
+		) : privateModelSpecifics(nullptr), modelSpecifics(specifics), jointPrior(prior), hXI(reader), logger(_logger), error(_error) {
 	N = hXI.getNumberOfPatients();
 	K = hXI.getNumberOfRows();
 	J = hXI.getNumberOfColumns();
