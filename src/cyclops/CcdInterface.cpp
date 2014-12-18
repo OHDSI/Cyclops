@@ -178,6 +178,7 @@ void CcdInterface::setDefaultArguments(void) {
 	arguments.doPartial = false;
 	arguments.noiseLevel = NOISY;
 	arguments.threads = -1;
+	arguments.resetCoefficients = false;
 }
 
 double CcdInterface::initializeModel(

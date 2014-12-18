@@ -106,16 +106,8 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 }
 
 AbstractSelector* CrossValidationSelector::clone() const {
-// 	return new CrossValidationSelector(*this);
-	return new CrossValidationSelector(fold, ids, type, seed, logger, error, weightsExclude);
-	
-// 		int inFold,
-// 		std::vector<int> inIds,
-// 		SelectorType inType,
-// 		long inSeed,
-// 	    loggers::ProgressLoggerPtr _logger,
-// 		loggers::ErrorHandlerPtr _error,		
-// 		std::vector<real>* wtsExclude
+	return new CrossValidationSelector(*this); // default copy constructor
+// 	return new CrossValidationSelector(fold, ids, type, seed, logger, error, weightsExclude);
 }
 
 void CrossValidationSelector::getComplement(std::vector<real>& weights) {

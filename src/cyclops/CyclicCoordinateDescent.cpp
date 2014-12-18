@@ -91,11 +91,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 	  jointPrior(copy.jointPrior), // swallow
 	  hXI(copy.hXI), // swallow
 	  logger(copy.logger), error(copy.error) {
-	        
-	        
-	std::cerr << "CCD clone" << std::endl;	        
-	        
-	        
+	        	        
 	N = hXI.getNumberOfPatients();
 	K = hXI.getNumberOfRows();
 	J = hXI.getNumberOfColumns();	

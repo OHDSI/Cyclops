@@ -84,7 +84,8 @@ struct CCDArguments {
 	ProfileVector profileCI;
 	ProfileVector flatPrior;
 	
-	int threads;	
+	int threads;
+	bool resetCoefficients;	
 };
 
 

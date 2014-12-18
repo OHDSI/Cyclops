@@ -63,13 +63,13 @@ test_that("Small exact, conditional logistic regression with no ties", {
 #                                              data = infert,
 #                                              modelType = "clr") 
 #     
-#     cyclopsFitBreslow <- fitCyclopsModel(dataPtrBreslow, prior = createPrior("none"), forceColdStart = TRUE)
+#     cyclopsFitBreslow <- fitCyclopsModel(dataPtrBreslow, prior = createPrior("none"), forceNewObject = TRUE)
 #     
 #     dataPtrExact <- createCyclopsData(case ~ strata(stratum), sparseFormula = ~spontaneous + induced,
 #                                            data = infert,
 #                                            modelType = "clr_exact")
 #     
-#     cyclopsFitExact <- fitCyclopsModel(dataPtrExact, prior = createPrior("none"), forceColdStart = TRUE)
+#     cyclopsFitExact <- fitCyclopsModel(dataPtrExact, prior = createPrior("none"), forceNewObject = TRUE)
 #     
 #     library(microbenchmark)    
 #     microbenchmark(
@@ -78,9 +78,9 @@ test_that("Small exact, conditional logistic regression with no ties", {
 #             dataPtrBreslow <- createCyclopsData(case ~ spontaneous + induced + strata(stratum),
 #                                                      data = infert,
 #                                                      modelType = "clr") 
-#             fitCyclopsModel(dataPtrBreslow, prior = createPrior("none"), forceColdStart = TRUE) 
+#             fitCyclopsModel(dataPtrBreslow, prior = createPrior("none"), forceNewObject = TRUE) 
 #         },
-#         fitCyclopsModel(dataPtrExact, prior = createPrior("none"), forceColdStart = TRUE),
+#         fitCyclopsModel(dataPtrExact, prior = createPrior("none"), forceNewObject = TRUE),
 #         times = 100L
 #     )    
 # })

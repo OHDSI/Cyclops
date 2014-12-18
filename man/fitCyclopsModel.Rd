@@ -3,7 +3,7 @@
 \alias{fitCyclopsModel}
 \title{fitCyclopsModel}
 \usage{
-fitCyclopsModel(cyclopsData, prior, control, forceColdStart = FALSE,
+fitCyclopsModel(cyclopsData, prior, control, forceNewObject = FALSE,
   returnEstimates = TRUE)
 }
 \arguments{
@@ -13,7 +13,7 @@ fitCyclopsModel(cyclopsData, prior, control, forceColdStart = FALSE,
 
 \item{control}{OHDSI control object, see \code{"\link{control}"}}
 
-\item{forceColdStart}{Logical, forces fitting algorithm to restart at regression coefficients = 0}
+\item{forceNewObject}{Logical, forces the construction of a new Cyclops model fit object}
 
 \item{returnEstimates}{Logical, return regression coefficient estimates in Cyclops model fit object}
 }

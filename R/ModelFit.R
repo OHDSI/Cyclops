@@ -9,7 +9,7 @@
 #' @param cyclopsData			An OHDSI data object
 #' @template prior
 #' @param control OHDSI control object, see \code{"\link{control}"}                        
-#' @param forceColdStart Logical, forces fitting algorithm to restart at regression coefficients = 0
+#' @param forceNewObject Logical, forces the construction of a new Cyclops model fit object
 #' @param returnEstimates Logical, return regression coefficient estimates in Cyclops model fit object 
 #' 
 #' @return
@@ -42,7 +42,7 @@
 fitCyclopsModel <- function(cyclopsData, 
                         prior,
                         control,                        
-                        forceColdStart = FALSE,
+                        forceNewObject = FALSE,
                         returnEstimates = TRUE) {
 		
 	cl <- match.call()
@@ -56,7 +56,7 @@ fitCyclopsModel <- function(cyclopsData,
 		stop("Data are incompletely loaded")
 	}
 	
-	.checkInterface(cyclopsData, forceColdStart)
+	.checkInterface(cyclopsData, forceNewObject)
     
 	if (!missing(prior)) { # Set up prior
 	    stopifnot(inherits(prior, "cyclopsPrior"))    	
@@ -99,7 +99,7 @@ fitCyclopsModel <- function(cyclopsData,
 	}
 	
     if (!missing(control)) {
-	    .setControl(cyclopsData$cyclopsInterfacePtr, control)
+        .setControl(cyclopsData$cyclopsInterfacePtr, control)
     }
  	
 	if (!missing(prior) && prior$useCrossValidation) {
@@ -156,8 +156,8 @@ fitCyclopsModel <- function(cyclopsData,
 	}	
 }
 
-.checkInterface <- function(x, forceColdStart = FALSE, testOnly = FALSE) {
-	if (forceColdStart 
+.checkInterface <- function(x, forceNewObject = FALSE, testOnly = FALSE) {
+	if (forceNewObject 
 			|| is.null(x$cyclopsInterfacePtr) 
 			|| class(x$cyclopsInterfacePtr) != "externalptr" 
 			|| .isRcppPtrNull(x$cyclopsInterfacePtr)
@@ -279,6 +279,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param noiseLevel				String: level of Cyclops screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})
 #' @param threads               Numeric: Specify number of CPU threads to employ in cross-validation; default = -1 (auto)
 #' @param seed                  Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.
+#' @param resetCoefficients     Logical: Reset all coefficients to 0 between model fits under cross-validation
 #' 
 #' @section Criteria:
 #' TODO
@@ -295,7 +296,8 @@ createControl <- function(
 		cvRepetitions = 1,
 		minCVData = 100, noiseLevel = "silent",
         threads = -1,
-        seed = NULL) {
+        seed = NULL,
+        resetCoefficients = FALSE) {
 	
 	validCVNames = c("grid", "auto")
 	stopifnot(cvType %in% validCVNames)
@@ -309,7 +311,8 @@ createControl <- function(
 								 cvRepetitions = cvRepetitions,
 								 noiseLevel = noiseLevel,
                                  threads = threads,
-                                 seed = seed),
+                                 seed = seed,
+								 resetCoefficients = resetCoefficients),
 						class = "cyclopsControl")
 }
 
@@ -394,7 +397,7 @@ predict.cyclopsFit <- function(object, ...) {
 									 control$convergenceType, control$autoSearch, control$fold, 
 									 (control$fold * control$cvRepetitions),
 									 control$lowerLimit, control$upperLimit, control$gridSteps, 
-                                     control$noiseLevel, control$threads, control$seed)		
+                                     control$noiseLevel, control$threads, control$seed, control$resetCoefficients)		
 	}	
 }
 

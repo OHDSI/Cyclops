@@ -25,8 +25,6 @@
 
 #include "boost/iterator/counting_iterator.hpp"
 
-#include <Rcpp.h>
-
 namespace bsccs {
 
 const static int MAX_STEPS = 50;
@@ -136,9 +134,11 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 
 	predLogLikelihood.resize(arguments.foldToCompute);
 
-#if 1		
-
-	auto start1 = std::chrono::steady_clock::now();
+// #define NEW_LOOP
+// 
+// #ifdef NEW_LOOP	
+//     std::cerr << "NEW_LOOP" << std::endl;	
+// 	auto start1 = std::chrono::steady_clock::now();
 				
 	auto& weightsExclude = this->weightsExclude;
 	auto& logger = this->logger;
@@ -160,8 +160,11 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 				auto selectorTask = selectorPool[scheduler.getThreadIndex(task)];
 																			
 				// Bring selector up-to-date
-				selectorTask->reseed();
-				for (int i = 0; i <= task; ++i) {
+				if (task == 0 || nThreads > 1) {
+    				selectorTask->reseed();				
+    			}
+    			int i = (nThreads == 1) ? task : 0;    			
+				for ( ; i <= task; ++i) {
 					int fold = i % arguments.fold;
 					if (fold == 0) {
 						selectorTask->permute();
@@ -217,93 +220,89 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 				predLogLikelihood[task] = logLikelihood;				    				    				    				    				    				    
 			};	
 			
-	// Run all tasks in parallel			
-	ccd.getLogger().setConcurrent(true);
+	// Run all tasks in parallel	
+	if (nThreads > 1) {		
+    	ccd.getLogger().setConcurrent(true);
+    }
 	scheduler.execute(oneTask);
-	ccd.getLogger().setConcurrent(false);
- 	ccd.getLogger().flush();		
+	if (nThreads > 1) {
+    	ccd.getLogger().setConcurrent(false);
+     	ccd.getLogger().flush();		
+     }
 	
-	auto end1 = std::chrono::steady_clock::now();	
-	
-	std::cerr << "time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end1 - start1).count()	
-			  << std::endl;
-					
-#endif	
-
-	auto start2 = std::chrono::steady_clock::now();	
-
-	std::vector<real> weights;
-
-	selector.reseed();
-	
-	/* start code duplication */
-	//std::vector<double> predLogLikelihood;
-	for (int i = 0; i < arguments.foldToCompute; i++) {
-		int fold = i % arguments.fold;
-		if (fold == 0) {
-			selector.permute(); // Permute every full cross-validation rep
-		}
-
-		// Get this fold and update
-		selector.getWeights(fold, weights);
-		if(weightsExclude){
-			for(int j = 0; j < (int)weightsExclude->size(); j++){
-				if(weightsExclude->at(j) == 1.0){
-					weights[j] = 0.0;
-				}
-			}
-		}
-		ccd.setWeights(&weights[0]);
-		std::ostringstream stream;
-		stream << "Running at " << ccd.getPriorInfo() << " ";
-				
-		if (coldStart) ccd.resetBeta();
-		
-		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
-
-		// Compute predictive loglikelihood for this fold
-		selector.getComplement(weights); 
-		if(weightsExclude){
-			for(int j = 0; j < (int)weightsExclude->size(); j++){
-				if(weightsExclude->at(j) == 1.0){
-					weights[j] = 0.0;
-				}
-			}
-		}
-
-		double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]); 
-
-		stream << "Grid-point #" << (step + 1) << " at "; // << ccd.getHyperprior();
-		std::vector<double> hyperprior = ccd.getHyperprior();
-		std::copy(hyperprior.begin(), hyperprior.end(),
-		    std::ostream_iterator<double>(stream, " "));
-		
-		stream << "\tFold #" << (fold + 1)
-				  << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
-				  << logLikelihood;
-        logger->writeLine(stream);				  
-
-		// Store value
-// 		predLogLikelihood.push_back(logLikelihood); // TODO THREAD-SAFE
- 		predLogLikelihood[i]; // TODO THREAD-SAFE
-	}
-	
-	auto end2 = std::chrono::steady_clock::now();	
-	
-	std::cerr << "time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end2 - start2).count()	
-			  << std::endl;	
+// 	auto end1 = std::chrono::steady_clock::now();	
+// 	
+// 	std::cerr << "time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end1 - start1).count()	
+// 			  << std::endl;
+// 					
+// #else // NEW_LOOP	
+//     std::cerr << "OLD_LOOP" << std::endl;
+// 	auto start2 = std::chrono::steady_clock::now();	
+// 
+// 	std::vector<real> weights;
+// 
+// 	selector.reseed();
+// 	
+// 	/* start code duplication */
+// 	//std::vector<double> predLogLikelihood;
+// 	for (int i = 0; i < arguments.foldToCompute; i++) {
+// 		int fold = i % arguments.fold;
+// 		if (fold == 0) {
+// 			selector.permute(); // Permute every full cross-validation rep
+// 		}
+// 
+// 		// Get this fold and update
+// 		selector.getWeights(fold, weights);
+// 		if(weightsExclude){
+// 			for(int j = 0; j < (int)weightsExclude->size(); j++){
+// 				if(weightsExclude->at(j) == 1.0){
+// 					weights[j] = 0.0;
+// 				}
+// 			}
+// 		}
+// 		ccd.setWeights(&weights[0]);
+// 		std::ostringstream stream;
+// 		stream << "Running at " << ccd.getPriorInfo() << " ";
+// 				
+// 		if (coldStart) ccd.resetBeta();
+// 		
+// 		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+// 
+// 		// Compute predictive loglikelihood for this fold
+// 		selector.getComplement(weights); 
+// 		if(weightsExclude){
+// 			for(int j = 0; j < (int)weightsExclude->size(); j++){
+// 				if(weightsExclude->at(j) == 1.0){
+// 					weights[j] = 0.0;
+// 				}
+// 			}
+// 		}
+// 
+// 		double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]); 
+// 
+// 		stream << "Grid-point #" << (step + 1) << " at "; // << ccd.getHyperprior();
+// 		std::vector<double> hyperprior = ccd.getHyperprior();
+// 		std::copy(hyperprior.begin(), hyperprior.end(),
+// 		    std::ostream_iterator<double>(stream, " "));
+// 		
+// 		stream << "\tFold #" << (fold + 1)
+// 				  << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
+// 				  << logLikelihood;
+//         logger->writeLine(stream);				  
+// 
+// 		// Store value
+//  		predLogLikelihood[i] = logLikelihood;
+// 	}
+// 	
+// 	auto end2 = std::chrono::steady_clock::now();	
+// 	
+// 	std::cerr << "time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end2 - start2).count()	
+// 			  << std::endl;	
+// #endif // NEW_LOOP			  
 
 	double pointEstimate = computePointEstimate(predLogLikelihood);
-	/* end code duplication */
 	
-	static int count = 0;
-	
-	count++;
-	
-//	if (count > 6) ::Rf_error("c++ exception (unknown reason)"); 		
-
 	return(pointEstimate);
-
 }
 
 void AutoSearchCrossValidationDriver::drive(
@@ -319,12 +318,17 @@ void AutoSearchCrossValidationDriver::drive(
 	std::ostringstream stream;
 	stream << "Default var = " << tryvalue;
 	logger->writeLine(stream);
-
-	bool finished = false;
 	
-	bool coldStart = true; // TODO Pass value
+	bool coldStart = arguments.resetCoefficients;
 	
-	int nThreads = 4;
+    // Start of new multi-thread set-up
+	int nThreads = (arguments.threads == -1) ? 
+	    std::thread::hardware_concurrency() :
+	    arguments.threads;
+	    
+	std::ostringstream stream2;
+	stream2 << "Using " << nThreads << " thread(s)";
+	logger->writeLine(stream2);    	
 	
 	std::vector<CyclicCoordinateDescent*> ccdPool;
 	std::vector<AbstractSelector*> selectorPool;
@@ -336,8 +340,11 @@ void AutoSearchCrossValidationDriver::drive(
 		ccdPool.push_back(ccd.clone());
 		selectorPool.push_back(selector.clone());
 	}	
+	// End of multi-thread set-up
 
 	int step = 0;
+	bool finished = false;
+	
 	while (!finished) {
 		ccd.setHyperprior(tryvalue);
 		selector.reseed();		

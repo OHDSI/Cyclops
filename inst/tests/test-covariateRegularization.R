@@ -90,15 +90,15 @@ test_that("Preclude intercept regularization by default", {
 #                 prior = createPrior("laplace", 0.1)))
     
     c1 <- fitCyclopsModel(dataPtr,
-                      forceColdStart = TRUE,
+                      forceNewObject = TRUE,
                       prior = createPrior("laplace", 0.1, forceIntercept = TRUE))    
     
     c2 <- fitCyclopsModel(dataPtr,
-                      forceColdStart = TRUE,
+                      forceNewObject = TRUE,
                       prior = createPrior("laplace", 0.1, exclude = "(Intercept)"))
     
     c3 <- fitCyclopsModel(dataPtr,
-                      forceColdStart = TRUE,
+                      forceNewObject = TRUE,
                       prior = createPrior("laplace", 0.1, exclude = 1))   
     
     expect_equal(coef(c2),

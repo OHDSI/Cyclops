@@ -39,7 +39,7 @@ test_that("Add intercept via finalize", {
     
     dataPtrD <- createCyclopsData(y ~ log_bid - 1, modelType = "lr")
     finalizeSqlCyclopsData(dataPtrD, addIntercept = TRUE)
-    cyclopsFitN <- fitCyclopsModel(dataPtrD, prior = createPrior("none"), forceColdStart = TRUE,
+    cyclopsFitN <- fitCyclopsModel(dataPtrD, prior = createPrior("none"), forceNewObject = TRUE,
                            control = createControl(noiseLevel = "silent"))
     expect_equal(coef(cyclopsFitN), coef(glmFit), tolerance = tolerance) 
     

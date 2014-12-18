@@ -237,7 +237,7 @@ List cyclopsPredictModel(SEXP inRcppCcdInterface) {
 void cyclopsSetControl(SEXP inRcppCcdInterface, 
 		int maxIterations, double tolerance, const std::string& convergenceType,
 		bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps,
-		const std::string& noiseLevel, int threads, int seed
+		const std::string& noiseLevel, int threads, int seed, bool resetCoefficients
 		) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
@@ -259,6 +259,7 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 	interface->setNoiseLevel(noise);
 	args.threads = threads;
 	args.seed = seed;
+	args.resetCoefficients = resetCoefficients;
 }
 
 // [[Rcpp::export(".cyclopsRunCrossValidation")]]
