@@ -18,8 +18,6 @@ endif(APPLE)
 set(BOOST_ROOT 
 	 ~/Dropbox/Projects)
 	 
-set(Boost_DEBUG 1)
-
 find_package(Boost)
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/CCD)
