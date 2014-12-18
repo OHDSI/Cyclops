@@ -32,6 +32,8 @@ public:
 	virtual void getWeights(int batch, std::vector<real>& weights);
 
 	virtual void getComplement(std::vector<real>& weights);
+	
+	AbstractSelector* clone() const;
 
 private:
 	std::multiset<int> selectedSet;

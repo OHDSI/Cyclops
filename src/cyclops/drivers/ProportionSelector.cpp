@@ -33,6 +33,11 @@ ProportionSelector::~ProportionSelector() {
 	// Nothing to do
 }
 
+
+AbstractSelector* ProportionSelector::clone() const {
+	return new ProportionSelector(*this); // default copy constructor
+}
+
 void ProportionSelector::permute() {
 //	selectedSet.clear();
 //

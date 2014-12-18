@@ -10,6 +10,9 @@ before_install:
   - ./travis-tool.sh bootstrap
   - ./travis-tool.sh install_r testthat BH RcppEigen gnm ffbase ff
   
+before_script:
+  - sudo apt-get install libboost-dev  
+  
 script:
     - g++ -E -dM -std=c++98 -x c++ /dev/null > std1 && g++ -E -dM -std=c++0x -x c++ /dev/null > std2 && diff -u std1 std2 | grep '[+|-]^*#define' && rm std1 std2
     - mkdir -p standalone/build && (cd standalone/build && cmake .. && make)
