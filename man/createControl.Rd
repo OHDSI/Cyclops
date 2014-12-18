@@ -6,7 +6,7 @@
 createControl(maxIterations = 1000, tolerance = 1e-06,
   convergenceType = "gradient", cvType = "grid", fold = 10,
   lowerLimit = 0.01, upperLimit = 20, gridSteps = 10, cvRepetitions = 1,
-  minCVData = 100, noiseLevel = "silent", threads = -1, seed = NULL,
+  minCVData = 100, noiseLevel = "silent", threads = 1, seed = NULL,
   resetCoefficients = FALSE)
 }
 \arguments{
@@ -34,7 +34,7 @@ Option \code{"grid"} selects a grid-search cross validation}
 
 \item{noiseLevel}{String: level of Cyclops screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})}
 
-\item{threads}{Numeric: Specify number of CPU threads to employ in cross-validation; default = -1 (auto)}
+\item{threads}{Numeric: Specify number of CPU threads to employ in cross-validation; default = 1 (auto = -1)}
 
 \item{seed}{Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.}
 

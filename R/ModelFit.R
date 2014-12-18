@@ -277,7 +277,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param cvRepetitions			Numeric: Number of repetitions of X-fold cross validation
 #' @param minCVData					Numeric: Minumim number of data for cross validation
 #' @param noiseLevel				String: level of Cyclops screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})
-#' @param threads               Numeric: Specify number of CPU threads to employ in cross-validation; default = -1 (auto)
+#' @param threads               Numeric: Specify number of CPU threads to employ in cross-validation; default = 1 (auto = -1)
 #' @param seed                  Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.
 #' @param resetCoefficients     Logical: Reset all coefficients to 0 between model fits under cross-validation
 #' 
@@ -295,7 +295,7 @@ createControl <- function(
 		cvType = "grid", fold = 10, lowerLimit = 0.01, upperLimit = 20.0, gridSteps = 10,
 		cvRepetitions = 1,
 		minCVData = 100, noiseLevel = "silent",
-        threads = -1,
+        threads = 1,
         seed = NULL,
         resetCoefficients = FALSE) {
 	
