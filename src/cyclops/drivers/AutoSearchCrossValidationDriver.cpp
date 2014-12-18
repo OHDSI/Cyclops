@@ -21,7 +21,6 @@
 #include "AbstractSelector.h"
 //#include "ccd.h"
 #include "../utils/HParSearch.h"
-#include "engine/ThreadPool.h"
 
 #include "boost/iterator/counting_iterator.hpp"
 
