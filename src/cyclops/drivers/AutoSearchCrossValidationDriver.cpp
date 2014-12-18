@@ -14,6 +14,7 @@
 #include <math.h>
 #include <cstdlib>
 #include <iterator>
+#include <thread>
 
 #include "AutoSearchCrossValidationDriver.h"
 #include "CyclicCoordinateDescent.h"
