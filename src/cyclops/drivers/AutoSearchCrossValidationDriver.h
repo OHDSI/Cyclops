@@ -65,6 +65,10 @@ protected:
 			AbstractSelector& selector,
 			const CCDArguments& arguments,
 			int step,
+			bool coldStart,
+			int nThreads,
+			std::vector<CyclicCoordinateDescent*>& ccdPool,
+			std::vector<AbstractSelector*>& selectorPool,						
 			std::vector<double> & predLogLikelihood);
 
 };

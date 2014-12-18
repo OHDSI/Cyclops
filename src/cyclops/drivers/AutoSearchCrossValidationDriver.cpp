@@ -81,196 +81,158 @@ void AutoSearchCrossValidationDriver::resetForOptimal(
 	ccd.resetBeta(); // Cold-start
 }
 
-template <typename InputIt, typename UnaryFunction>
-inline UnaryFunction for_each_thread(InputIt begin, InputIt end, UnaryFunction function, 
-		const int nThreads) {	
-	std::vector<std::thread> workers(nThreads - 1);
-	size_t chunkSize = std::distance(begin, end) / nThreads;
-	size_t start = 0;
-	for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
-		workers[i] = std::thread(
-			std::for_each<InputIt, UnaryFunction>,
-			begin + start, 
-			begin + start + chunkSize, 
-			function);
-	}
-	auto rtn = std::for_each(begin + start, end, function);
-	for (int i = 0; i < nThreads - 1; ++i) {
-		workers[i].join();
-	}
-	return rtn;	
-}
+template <typename InputIt>
+struct TaskScheduler {
+
+	TaskScheduler(InputIt begin, InputIt end, int nThreads) 
+	   : begin(begin), end(end), nThreads(nThreads), 
+	     chunkSize(
+	     	std::distance(begin, end) / nThreads + (std::distance(begin, end) % nThreads != 0)
+	     ) { }
+	     
+	template <typename UnaryFunction>
+	UnaryFunction execute(UnaryFunction function) {	
+		
+		std::vector<std::thread> workers(nThreads - 1);		
+		size_t start = 0;
+		for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
+			workers[i] = std::thread(
+				std::for_each<InputIt, UnaryFunction>,
+				begin + start, 
+				begin + start + chunkSize, 
+				function);				
+		}
+		
+		auto rtn = std::for_each(begin + start, end, function);
+		for (int i = 0; i < nThreads - 1; ++i) {
+			workers[i].join();
+		}
+		return rtn;	
+	}	
+	
+	size_t getThreadIndex(size_t i) {
+		return nThreads == 1 ? 0 :
+			i / chunkSize;
+	}	
+	
+private:
+	const InputIt begin;
+	const InputIt end;
+	const int nThreads;
+	const size_t chunkSize;
+};
 
 double AutoSearchCrossValidationDriver::doCrossValidation(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
 		const CCDArguments& arguments,
 		int step,
-		std::vector<double> & predLogLikelihood){
+		bool coldStart,
+		int nThreads,
+		std::vector<CyclicCoordinateDescent*>& ccdPool,
+		std::vector<AbstractSelector*>& selectorPool,		
+		std::vector<double>& predLogLikelihood){
 
-
-	std::vector<real> weights;
 
 	predLogLikelihood.resize(arguments.foldToCompute);
 
 #if 1		
-	
-	std::cerr << "Threads = " << arguments.threads << std::endl;
-	int threads = (arguments.threads > 1) ? arguments.threads : 2;
-	std::cerr << "Threads = " << threads << std::endl;
-	
-	auto start1 = std::chrono::steady_clock::now();
-		
-	
-	std::vector<CyclicCoordinateDescent*> ccdPool;
-	std::vector<AbstractSelector*> selectorPool;
-	
-// 	ccdPool.push_back(&ccd);
-// 	selectorPool.push_back(&selector);
-		
-	for (int i = 0 /* 1 */; i < arguments.foldToCompute; ++i) {
-		ccdPool.push_back(new CyclicCoordinateDescent(ccd));
-		selectorPool.push_back(selector.clone());
-	}
-		    
-#define PARA    
 
+	auto start1 = std::chrono::steady_clock::now();
+				
 	auto& weightsExclude = this->weightsExclude;
 	auto& logger = this->logger;
-    
-#ifdef PARA    
-
-//#define POOL
-#ifdef POOL
-	ThreadPool pool(1);	
-    std::vector< std::future<void> > results; 
-	for (int task = 0; task < arguments.foldToCompute; ++task) {	    
-        results.emplace_back(
-		    pool.enqueue(
-#else // POOL
 	
-	std::mutex lock;
+	auto scheduler = TaskScheduler<decltype(boost::make_counting_iterator(0))>(
+		boost::make_counting_iterator(0), 
+		boost::make_counting_iterator(arguments.foldToCompute),		
+		nThreads);	
+			
+	auto oneTask =
+		[step, coldStart, nThreads, &ccdPool, &selectorPool, 
+		&arguments, &predLogLikelihood, 
+			&weightsExclude, &logger //, &lock
+		 //    ,&ccd, &selector
+		 		, &scheduler
+			](int task) {
+			
+				auto ccdTask = ccdPool[scheduler.getThreadIndex(task)];
+				auto selectorTask = selectorPool[scheduler.getThreadIndex(task)];
+																			
+				// Bring selector up-to-date
+				selectorTask->reseed();
+				for (int i = 0; i <= task; ++i) {
+					int fold = i % arguments.fold;
+					if (fold == 0) {
+						selectorTask->permute();
+					}
+				}
+				
+				int fold = task % arguments.fold;
+									
+				// Get this fold and update
+				std::vector<real> weights; // Task-specific
+				selectorTask->getWeights(fold, weights);
+				if (weightsExclude){
+					for(auto j = 0; j < weightsExclude->size(); j++){
+						if (weightsExclude->at(j) == 1.0){
+							weights[j] = 0.0;
+						}
+					}
+				}
+				ccdTask->setWeights(&weights[0]);
+				std::ostringstream stream;
+				stream << "Running at " << ccdTask->getPriorInfo() << " ";
+				
+				if (coldStart) ccdTask->resetBeta();
+
+				ccdTask->update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+				
+				// Compute predictive loglikelihood for this fold
+				selectorTask->getComplement(weights);  // TODO THREAD_SAFE
+				if (weightsExclude){
+					for(int j = 0; j < (int)weightsExclude->size(); j++){
+						if(weightsExclude->at(j) == 1.0){
+							weights[j] = 0.0;
+						}
+					}
+				}
+
+				double logLikelihood = ccdTask->getPredictiveLogLikelihood(&weights[0]);
+
+				stream << "Grid-point #" << (step + 1) << " at "; // << ccd.getHyperprior();
+				std::vector<double> hyperprior = ccdTask->getHyperprior();
+				std::copy(hyperprior.begin(), hyperprior.end(),
+					std::ostream_iterator<double>(stream, " "));
 	
-	int nThreads = 2;
-		
-	for_each_thread(boost::make_counting_iterator(0), boost::make_counting_iterator(arguments.foldToCompute),
+				stream << "\tFold #" << (fold + 1)
+						  << " Rep #" << (task / arguments.fold + 1) << " pred log like = "
+						  << logLikelihood;
+						  
+                bool write = true;						  
+						  
+				if (write) logger->writeLine(stream);				  
 
-#endif // POOL
-#else // PARA
-	std::for_each(boost::make_counting_iterator(0), boost::make_counting_iterator(arguments.foldToCompute),
-#endif // PARA		    
-
-            [step, &ccdPool, &selectorPool, 
-            &arguments, &predLogLikelihood, 
-            	&weightsExclude, &logger , &lock
-			 //    ,&ccd, &selector
-			    ](int task) {
+				// Store value
+				predLogLikelihood[task] = logLikelihood;				    				    				    				    				    				    
+			};	
+			
+	// Run all tasks in parallel			
+	ccd.getLogger().setConcurrent(true);
+	scheduler.execute(oneTask);
+	ccd.getLogger().setConcurrent(false);
+ 	ccd.getLogger().flush();		
 	
-					auto uniqueId = int{0};
-					    
-//				    std::cerr << "Running #" << task << " with id " << uniqueId << std::endl;
-				    auto& ccdTask = *ccdPool[task]; // Task-specific // TODO MAKE THREAD-SPECIFIC
-				    auto& selectorTask = *selectorPool[task]; // Task-specific // TODO MAKE THREAD-SPECIFIC
-
-// 					auto ccdTaskPtr = bsccs::unique_ptr<CyclicCoordinateDescent>(new CyclicCoordinateDescent(ccd));
-// 					auto selectorTaskPtr = bsccs::unique_ptr<AbstractSelector>(selector.clone());
-// 					auto& ccdTask = *ccdTaskPtr;
-// 					auto& selectorTask = *selectorTaskPtr;
-//   				    				     				    				    
-// 				    // Bring selector up-to-date
-// 				    selectorTask.reseed();
-// 				    for (int i = 0; i <= task; ++i) {
-// 				    	int fold = i % arguments.fold;
-// 				    	if (fold == 0) {
-// 				    		selectorTask.permute();
-// 				    	}
-// 				    }
-// 				    
-// 				    int fold = task % arguments.fold;
-// 				    				    
-// 					// Get this fold and update
-// 					std::vector<real> weights; // Task-specific
-// 					selectorTask.getWeights(fold, weights);
-// 					if (weightsExclude){
-// 						for(auto j = 0; j < weightsExclude->size(); j++){
-// 							if (weightsExclude->at(j) == 1.0){
-// 								weights[j] = 0.0;
-// 							}
-// 						}
-// 					}
-// 					ccdTask.setWeights(&weights[0]);
-// 					std::ostringstream stream;
-// 					stream << "Running at " << ccdTask.getPriorInfo() << " ";
-
-					ccdTask.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
-					
-					lock.lock();
-					std::cerr << "ccd " << task << " @ " << &ccdTask << std::endl;
-					lock.unlock();
-					
-					
- 					
-				//	lock.unlock();
-
-					// Compute predictive loglikelihood for this fold
-// 					selectorTask.getComplement(weights);  // TODO THREAD_SAFE
-// 					if (weightsExclude){
-// 						for(int j = 0; j < (int)weightsExclude->size(); j++){
-// 							if(weightsExclude->at(j) == 1.0){
-// 								weights[j] = 0.0;
-// 							}
-// 						}
-// 					}
-// 
-// 					double logLikelihood = ccdTask.getPredictiveLogLikelihood(&weights[0]);
-// 
-// 					stream << "Grid-point #" << (step + 1) << " at "; // << ccd.getHyperprior();
-// 					std::vector<double> hyperprior = ccdTask.getHyperprior();
-// 					std::copy(hyperprior.begin(), hyperprior.end(),
-// 						std::ostream_iterator<double>(stream, " "));
-// 		
-// 					stream << "\tFold #" << (fold + 1)
-// 							  << " Rep #" << (task / arguments.fold + 1) << " pred log like = "
-// 							  << logLikelihood;
-// 					logger->writeLine(stream);				  
-// 
-// 					// Store value
-// 					predLogLikelihood[task] = logLikelihood;				    				    				    				    				    				    
-			    }
-		    
-#ifdef PARA		   
-#ifdef POOL 
-		    )
-		);
-	}
-	for (auto&& result: results) result.get();	
-#else // POOL
-
-#endif // POOL
-	, nThreads);
-#else // PARA
-	);
-#endif // PARA
-
 	auto end1 = std::chrono::steady_clock::now();	
 	
 	std::cerr << "time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end1 - start1).count()	
 			  << std::endl;
-	
-	
-	
-	// Clean up
-// 	for (int i = 1; i < arguments.foldToCompute; ++i) {
-// 		std::cerr << "Deleting extra copies at " << i << std::endl;
-// 		delete ccdPool[i];
-// 		delete selectorPool[i];		
-// 	}	
-	
-// 	std::cerr << &ccd.getHyperprior() << std::endl;
-// 	std::cerr << &ccdCopy.getHyperprior() << std::endl;
+					
 #endif	
 
 	auto start2 = std::chrono::steady_clock::now();	
+
+	std::vector<real> weights;
 
 	selector.reseed();
 	
@@ -294,10 +256,9 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 		ccd.setWeights(&weights[0]);
 		std::ostringstream stream;
 		stream << "Running at " << ccd.getPriorInfo() << " ";
+				
+		if (coldStart) ccd.resetBeta();
 		
-		
-		ccd.resetBeta(); // TODO REMOVE
-		 // TODO THREAD-SPECIFIC
 		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
 
 		// Compute predictive loglikelihood for this fold
@@ -323,7 +284,8 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
         logger->writeLine(stream);				  
 
 		// Store value
-		predLogLikelihood.push_back(logLikelihood); // TODO THREAD-SAFE
+// 		predLogLikelihood.push_back(logLikelihood); // TODO THREAD-SAFE
+ 		predLogLikelihood[i]; // TODO THREAD-SAFE
 	}
 	
 	auto end2 = std::chrono::steady_clock::now();	
@@ -334,7 +296,11 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 	double pointEstimate = computePointEstimate(predLogLikelihood);
 	/* end code duplication */
 	
-	::Rf_error("c++ exception (unknown reason)"); 		
+	static int count = 0;
+	
+	count++;
+	
+//	if (count > 6) ::Rf_error("c++ exception (unknown reason)"); 		
 
 	return(pointEstimate);
 
@@ -355,6 +321,21 @@ void AutoSearchCrossValidationDriver::drive(
 	logger->writeLine(stream);
 
 	bool finished = false;
+	
+	bool coldStart = true; // TODO Pass value
+	
+	int nThreads = 4;
+	
+	std::vector<CyclicCoordinateDescent*> ccdPool;
+	std::vector<AbstractSelector*> selectorPool;
+	
+	ccdPool.push_back(&ccd);
+	selectorPool.push_back(&selector);
+		
+	for (int i = 1; i < nThreads; ++i) {
+		ccdPool.push_back(ccd.clone());
+		selectorPool.push_back(selector.clone());
+	}	
 
 	int step = 0;
 	while (!finished) {
@@ -364,7 +345,9 @@ void AutoSearchCrossValidationDriver::drive(
 		std::vector<double> predLogLikelihood;
 
 		// Newly re-located code
-		double pointEstimate = doCrossValidation(ccd, selector, arguments, step, predLogLikelihood);
+		double pointEstimate = doCrossValidation(ccd, selector, arguments, step, coldStart, 
+			nThreads, ccdPool, selectorPool,
+			predLogLikelihood);
 
 		double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
 
@@ -391,6 +374,12 @@ void AutoSearchCrossValidationDriver::drive(
         	finished = true;
         }
 	}
+	
+	// Clean up
+	for (int i = 1; i < nThreads; ++i) {
+		delete ccdPool[i];
+		delete selectorPool[i];		
+	}	
 
 	maxPoint = tryvalue;
 

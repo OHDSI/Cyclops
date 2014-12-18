@@ -78,6 +78,8 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 	bool finished = false;
 	bool drugLevelFinished = false;
 	bool classLevelFinished = false;
+    
+    bool coldStart = false;
 
 	int step = 0;
 	while (!finished) {
@@ -90,7 +92,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 		std::vector<double> predLogLikelihood;
 
 		// Newly re-located code
-		double pointEstimate = doCrossValidation(ccd, selector, arguments, step, predLogLikelihood);
+		double pointEstimate = 0.0; //TODO BROKEN doCrossValidation(ccd, selector, arguments, step, coldStart, predLogLikelihood);
 
 		double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
 

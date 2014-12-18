@@ -62,7 +62,7 @@ CrossValidationSelector::CrossValidationSelector(
 }
 
 void CrossValidationSelector::reseed() { 
-	std::cerr << "RESEEDING"  << std::endl;
+//	std::cerr << "RESEEDING"  << std::endl;
 	prng.seed(seed);
 	for (size_t i = 0; i < N; ++i) {
 		permutation[i] = i;
@@ -106,7 +106,16 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 }
 
 AbstractSelector* CrossValidationSelector::clone() const {
-	return new CrossValidationSelector(*this);
+// 	return new CrossValidationSelector(*this);
+	return new CrossValidationSelector(fold, ids, type, seed, logger, error, weightsExclude);
+	
+// 		int inFold,
+// 		std::vector<int> inIds,
+// 		SelectorType inType,
+// 		long inSeed,
+// 	    loggers::ProgressLoggerPtr _logger,
+// 		loggers::ErrorHandlerPtr _error,		
+// 		std::vector<real>* wtsExclude
 }
 
 void CrossValidationSelector::getComplement(std::vector<real>& weights) {
@@ -119,7 +128,7 @@ void CrossValidationSelector::permute() {
 
 	// Do random shuffle
 	if (!deterministic) {
-     	std::cerr << "PERMUTE" << std::endl;
+//      	std::cerr << "PERMUTE" << std::endl;
 		std::shuffle(permutation.begin(), permutation.end(), prng);
 	}
 

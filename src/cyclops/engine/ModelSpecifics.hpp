@@ -70,8 +70,8 @@ ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
 }
 
 template <class BaseModel, typename WeightType>
-AbstractModelSpecifics* ModelSpecifics<BaseModel,WeightType>::clone() const {
-	std::cerr << "MS clone" << std::endl;
+AbstractModelSpecifics* ModelSpecifics<BaseModel,WeightType>::clone() const {	
+	std::cerr << "MS clone" << std::endl; 
 	return new ModelSpecifics<BaseModel,WeightType>(modelData);
 }
 

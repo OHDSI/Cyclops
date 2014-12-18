@@ -206,8 +206,7 @@ void AbstractModelSpecifics::initialize(
 	
 	//std::vector<std::vector<int>* >* iSparseIndices,
 		
-	if (initializeAccumulationVectors()) {
-		std::cerr << "In IAV" << std::endl;
+	if (initializeAccumulationVectors()) {		
         int lastPid = hPid[0];
         real lastTime = hOffs[0];
         real lastEvent = hY[0];        
@@ -378,9 +377,6 @@ void AbstractModelSpecifics::initialize(
 //#else
 //	hNEvents = iNEvents;
 //#endif
-
-		std::cerr << "Init: this @ " << this << " data @ " << &modelData << std::endl;
-
 }
 
 } // namespace

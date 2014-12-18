@@ -75,10 +75,8 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	init(hXI.getHasOffsetCovariate());
 }
 
-CyclicCoordinateDescent
-CyclicCoordinateDescent::clone() {
-	std::cerr << "In CCD clone" << std::endl;
-	return CyclicCoordinateDescent(hXI, modelSpecifics, jointPrior, logger, error);
+CyclicCoordinateDescent* CyclicCoordinateDescent::clone() {	
+	return new CyclicCoordinateDescent(*this);
 } 
 
 //template <typename T>
@@ -89,12 +87,15 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 			bsccs::unique_ptr<AbstractModelSpecifics>(
 				copy.modelSpecifics.clone())), // deep copy
 	  modelSpecifics(*privateModelSpecifics), 
-	  jointPrior(priors::JointPriorPtr(copy.jointPrior->clone())), // deep copy
+// 	  jointPrior(priors::JointPriorPtr(copy.jointPrior->clone())), // deep copy
+	  jointPrior(copy.jointPrior), // swallow
 	  hXI(copy.hXI), // swallow
 	  logger(copy.logger), error(copy.error) {
 	        
-	std::cerr << "In CCD copy-ctor" << std::endl;	
-		
+	        
+	std::cerr << "CCD clone" << std::endl;	        
+	        
+	        
 	N = hXI.getNumberOfPatients();
 	K = hXI.getNumberOfRows();
 	J = hXI.getNumberOfColumns();	
@@ -659,7 +660,7 @@ void CyclicCoordinateDescent::update(
                 logger->writeLine(stream);
 			}
 						
-			// logger->yield();			// This is not re-entrant safe
+			logger->yield();			// This is not re-entrant safe
 		}						
 	}
 	lastIterationCount = iteration;

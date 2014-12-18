@@ -49,8 +49,8 @@
     .Call('Cyclops_cyclopsPredictModel', PACKAGE = 'Cyclops', inRcppCcdInterface)
 }
 
-.cyclopsSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, seed) {
-    invisible(.Call('Cyclops_cyclopsSetControl', PACKAGE = 'Cyclops', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, seed))
+.cyclopsSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed) {
+    invisible(.Call('Cyclops_cyclopsSetControl', PACKAGE = 'Cyclops', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed))
 }
 
 .cyclopsRunCrossValidation <- function(inRcppCcdInterface) {

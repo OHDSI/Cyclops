@@ -76,10 +76,8 @@ public:
 			int* inNEvents,
 			int* inPid
 		);
-				
-	CyclicCoordinateDescent(const CyclicCoordinateDescent& copy);
-	
-	CyclicCoordinateDescent clone();	
+					
+	CyclicCoordinateDescent* clone();	
 	
 	void logResults(const char* fileName, bool withASE);
 
@@ -170,6 +168,8 @@ public:
 	void makeDirty(void);
 	
 	Matrix computeFisherInformation(const std::vector<size_t>& indices) const;
+	
+	loggers::ProgressLogger& getLogger() const { return *logger; }
 		
 protected:
 
@@ -180,6 +180,8 @@ protected:
 	const ModelData& hXI;	
 //	ModelSpecifics<DefaultModel>& modelSpecifics;
 //private:
+
+	CyclicCoordinateDescent(const CyclicCoordinateDescent& copy);
 	
 	void init(bool offset);
 	

@@ -277,6 +277,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param cvRepetitions			Numeric: Number of repetitions of X-fold cross validation
 #' @param minCVData					Numeric: Minumim number of data for cross validation
 #' @param noiseLevel				String: level of Cyclops screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})
+#' @param threads               Numeric: Specify number of CPU threads to employ in cross-validation; default = -1 (auto)
 #' @param seed                  Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.
 #' 
 #' @section Criteria:
@@ -293,6 +294,7 @@ createControl <- function(
 		cvType = "grid", fold = 10, lowerLimit = 0.01, upperLimit = 20.0, gridSteps = 10,
 		cvRepetitions = 1,
 		minCVData = 100, noiseLevel = "silent",
+        threads = -1,
         seed = NULL) {
 	
 	validCVNames = c("grid", "auto")
@@ -300,11 +302,13 @@ createControl <- function(
 	
 	validNLNames = c("silent", "quiet", "noisy")
 	stopifnot(noiseLevel %in% validNLNames)
+    stopifnot(threads == -1 || threads >= 1)
 	structure(list(maxIterations = maxIterations, tolerance = tolerance, convergenceType = convergenceType,
 								 autoSearch = (cvType == "auto"), fold = fold, lowerLimit = lowerLimit, 
 								 upperLimit = upperLimit, gridSteps = gridSteps, minCVData = minCVData, 
 								 cvRepetitions = cvRepetitions,
 								 noiseLevel = noiseLevel,
+                                 threads = threads,
                                  seed = seed),
 						class = "cyclopsControl")
 }
@@ -390,7 +394,7 @@ predict.cyclopsFit <- function(object, ...) {
 									 control$convergenceType, control$autoSearch, control$fold, 
 									 (control$fold * control$cvRepetitions),
 									 control$lowerLimit, control$upperLimit, control$gridSteps, 
-                                     control$noiseLevel, control$seed)		
+                                     control$noiseLevel, control$threads, control$seed)		
 	}	
 }
 
