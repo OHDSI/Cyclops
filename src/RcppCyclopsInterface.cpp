@@ -478,7 +478,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
 			hPrior->changePrior(classPrior, 1);
 			
 			HierarchicalParentMap parentMap;
-			for (int parent = 0; parent < map.size(); ++parent) {
+			for (size_t parent = 0; parent < map.size(); ++parent) {
 				auto& vec = map[parent];
 				std::for_each(begin(vec), end(vec), [&](int child) {
 					parentMap.push_back(parent);

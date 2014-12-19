@@ -237,7 +237,7 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 				std::vector<real> weights; // Task-specific
 				selectorTask->getWeights(fold, weights);
 				if (weightsExclude){
-					for(auto j = 0; j < weightsExclude->size(); j++){
+					for(size_t j = 0; j < weightsExclude->size(); j++){
 						if (weightsExclude->at(j) == 1.0){
 							weights[j] = 0.0;
 						}

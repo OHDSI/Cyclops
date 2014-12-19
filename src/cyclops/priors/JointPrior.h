@@ -100,7 +100,7 @@ public:
 		for (auto& prior : uniquePriors) {
 			PriorPtr newPriorPtr = PriorPtr(prior->clone());
 			newUniquePriors.push_back(newPriorPtr);			
-			for(auto i = 0; i < listPriors.size(); ++i) {
+			for(size_t i = 0; i < listPriors.size(); ++i) {
 				if (listPriors[i] == prior) {
 					newListPriors[i] = newPriorPtr;
 				}

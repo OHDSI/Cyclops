@@ -516,7 +516,7 @@ RcppModelData::RcppModelData(
 				covariates.push_back(make_shared<RealVector>(y.size(), 0));
 			}
 			size_t offset = i * y.size();
-			for (int k = 0; k < y.size(); ++k) {
+			for (size_t k = 0; k < y.size(); ++k) {
 				covariates[static_cast<int>(_type[k])]->at(k) = dxv[offset + k];
 			}
 			for (int c = 0; c < numTypes; ++c) {
