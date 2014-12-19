@@ -128,6 +128,8 @@ struct TaskScheduler {
 	}	
 	
 private:
+
+#if defined(_WIN32) || defined(__WIN32__) || defined(__WINDOWS__) || defined(WIN_BUILD)
 	template <typename UnaryFunction>
 	UnaryFunction execute(UnaryFunction function, threading::tthread_thread) {	
 //         std::cerr << "TTHREAD THREADS" << std::endl;
@@ -150,7 +152,7 @@ private:
 		
 		return rtn;	
 	}	
-    
+#else
     template <typename UnaryFunction>
 	UnaryFunction execute(UnaryFunction function, threading::std_thread) {	
 // 		std::cerr << "STD THREADS" << std::endl;
@@ -169,7 +171,8 @@ private:
 			workers[i].join();
 		}				
 		return rtn;	
-	}	
+	}
+#endif    
 
 	const InputIt begin;
 	const InputIt end;
