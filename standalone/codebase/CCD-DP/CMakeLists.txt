@@ -35,6 +35,7 @@ set(BASE_SOURCE_FILES
 	${RCCD_SOURCE_DIR}/cyclops/drivers/BootstrapSelector.cpp
 	${RCCD_SOURCE_DIR}/cyclops/drivers/BootstrapDriver.cpp
 	${RCCD_SOURCE_DIR}/utils/HParSearch.cpp
+	${RCCD_SOURCE_DIR}/tinythread/tinythread.cpp
 	)
 	
 set(CCD_SOURCE_FILES
