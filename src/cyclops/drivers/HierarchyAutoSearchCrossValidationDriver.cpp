@@ -79,8 +79,6 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 	bool drugLevelFinished = false;
 	bool classLevelFinished = false;
     
-    bool coldStart = false;
-
 	int step = 0;
 	while (!finished) {
 
