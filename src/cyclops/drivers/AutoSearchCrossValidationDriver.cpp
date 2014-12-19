@@ -14,9 +14,9 @@
 #include <math.h>
 #include <cstdlib>
 #include <iterator>
-#include <thread> 
-#include "tinythread/tinythread.h"
 
+#include "Types.h"
+#include "Thread.h"
 #include "AutoSearchCrossValidationDriver.h"
 #include "CyclicCoordinateDescent.h"
 #include "CrossValidationSelector.h"
@@ -27,8 +27,6 @@
 #include "boost/iterator/counting_iterator.hpp"
 
 namespace bsccs {
-
-using thread = tthread::thread;
 
 const static int MAX_STEPS = 50;
 
@@ -82,46 +80,33 @@ void AutoSearchCrossValidationDriver::resetForOptimal(
 	ccd.resetBeta(); // Cold-start
 }
 
-//extern "C" inline 
-void test(void *) {
-    try {
-        std::cerr << "Z" << std::endl;
-    } catch (...) {
-    }
-}
-
-template <typename ItType, typename Function>
-struct for_each_arguments {
-    ItType begin;
-    ItType end;
-    Function function;
+namespace threading {   
+namespace tthread {
     
-    for_each_arguments(ItType begin, ItType end, Function function) 
-        : begin(begin), end(end), function(function) { }
-        
-    ~for_each_arguments() { std::cerr << "dtor" << std::endl; }
-};
+    template <typename ItType, typename Function>
+    struct for_each_arguments {
+        ItType begin;
+        ItType end;
+        Function function;
+    
+        for_each_arguments(ItType begin, ItType end, Function function) 
+            : begin(begin), end(end), function(function) { }           
+    };
 
-template <typename ItType, typename Function>
-void for_each_tthread(void *a) {
+    template <typename ItType, typename Function>
+    void for_each(void *a) {
        try {
-            auto args = static_cast<for_each_arguments<ItType, Function>*>(a);
+           typedef for_each_arguments<ItType,Function> ArgType;
+           auto args = bsccs::unique_ptr<ArgType>( // To avoid leaks
+                static_cast<ArgType*>(a)
+            );
+            
             std::for_each(args->begin, args->end, args->function);
        } catch (...) {
        }
+    }
 }
-
-// extern "C" inline void workerThread(void* data) {
-//    try
-//    {
-//       Work* pWork = static_cast<Work*>(data);
-//       pWork->worker(pWork->range.begin(), pWork->range.end());
-//       delete pWork;
-//    }
-//    catch(...)
-//    {
-//    }
-// }
+}
 
 template <typename InputIt>
 struct TaskScheduler {
@@ -131,11 +116,44 @@ struct TaskScheduler {
 	     chunkSize(
 	     	std::distance(begin, end) / nThreads + (std::distance(begin, end) % nThreads != 0)
 	     ) { }
-	     
+         
+    template <typename UnaryFunction>
+    UnaryFunction execute(UnaryFunction function) {
+        return execute(function, DefaultThreadType());   
+    }
+	     	
+	size_t getThreadIndex(size_t i) {
+		return nThreads == 1 ? 0 :
+			i / chunkSize;
+	}	
+	
+private:
 	template <typename UnaryFunction>
-	UnaryFunction execute(UnaryFunction function) {	
-
-#if 0		
+	UnaryFunction execute(UnaryFunction function, threading::tthread_thread) {	
+//         std::cerr << "TTHREAD THREADS" << std::endl;
+		std::vector<tthread::thread*> workers(nThreads - 1);		
+		size_t start = 0;
+		for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
+        	workers[i] = new tthread::thread(
+                threading::tthread::for_each<InputIt,UnaryFunction>, 
+                new threading::tthread::for_each_arguments<InputIt, UnaryFunction>(
+                begin + start, 
+                begin + start + chunkSize, 
+                function));			            
+		}
+				
+		auto rtn = std::for_each(begin + start, end, function);
+		for (int i = 0; i < nThreads - 1; ++i) {
+			workers[i]->join();
+			delete workers[i];
+		}
+		
+		return rtn;	
+	}	
+    
+    template <typename UnaryFunction>
+	UnaryFunction execute(UnaryFunction function, threading::std_thread) {	
+// 		std::cerr << "STD THREADS" << std::endl;
 		std::vector<std::thread> workers(nThreads - 1);		
 		size_t start = 0;
 		for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
@@ -149,69 +167,10 @@ struct TaskScheduler {
 		auto rtn = std::for_each(begin + start, end, function);
 		for (int i = 0; i < nThreads - 1; ++i) {
 			workers[i].join();
-		}		
-#else
-// 		std::vector<bsccs::thread> workers(nThreads - 1);		
-// 		size_t start = 0;
-// 		for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
-// 			workers[i] = bsccs::thread(
-// 				std::for_each<InputIt, UnaryFunction>,
-// 				begin + start, 
-// 				begin + start + chunkSize, 
-// 				function);				
-// 		}
-// 		
-// 		auto rtn = std::for_each(begin + start, end, function);
-// 		for (int i = 0; i < nThreads - 1; ++i) {
-// 			workers[i].join();
-// 		}
-		std::vector<bsccs::thread*> workers(nThreads - 1);		
-		size_t start = 0;
-		for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
-//            auto begin = this->begin;            
-//            auto chunkSize = this->chunkSize;
-
-            auto args = new for_each_arguments<InputIt, UnaryFunction>(
-                begin + start, 
-                begin + start + chunkSize, 
-                function);
-
-			workers[i] = new bsccs::thread( 
-//				std::bind(std::for_each<InputIt, UnaryFunction>,
-//				begin + start, 
-//				begin + start + chunkSize, 
-//				function), 
-//                 [begin, start, chunkSize, function](void *) {
-//                     std::for_each(begin + start, begin + start + chunkSize, function);
-//                 },
-//                 nullptr);	
-
-// 				std::for_each<InputIt, UnaryFunction>,
-// 				begin + start, 
-// 				begin + start + chunkSize, 
-// 				function
-// 				test, nullptr
-                for_each_tthread<InputIt,UnaryFunction>, args
-				
-				);			            
-		}
-				
-		auto rtn = std::for_each(begin + start, end, function);
-		for (int i = 0; i < nThreads - 1; ++i) {
-			workers[i]->join();
-			delete workers[i];
-		}
-#endif
-		
+		}				
 		return rtn;	
 	}	
-	
-	size_t getThreadIndex(size_t i) {
-		return nThreads == 1 ? 0 :
-			i / chunkSize;
-	}	
-	
-private:
+
 	const InputIt begin;
 	const InputIt end;
 	const int nThreads;

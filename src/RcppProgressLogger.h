@@ -9,16 +9,13 @@
 #define RCPPPROGRESSLOGGER_H_
 
 #include <sstream>
-#include <mutex>
-#include "tinythread/tinythread.h"
 #include <deque>
 
 #include "Rcpp.h"
+#include "Thread.h"
 #include "io/ProgressLogger.h"
 
 namespace bsccs {
-
-using mutex = tthread::mutex; // THREAD
 
 namespace loggers {
 
