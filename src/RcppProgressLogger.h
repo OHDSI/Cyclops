@@ -10,12 +10,15 @@
 
 #include <sstream>
 #include <mutex>
+#include "tinythread/tinythread.h"
 #include <deque>
 
 #include "Rcpp.h"
 #include "io/ProgressLogger.h"
 
 namespace bsccs {
+
+using mutex = tthread::mutex; // THREAD
 
 namespace loggers {
 
@@ -61,7 +64,7 @@ private:
     bool silent;
     bool concurrent;
     
-    std::mutex lock;    
+    bsccs::mutex lock;    
     std::deque<std::string> buffer;        
 };
 

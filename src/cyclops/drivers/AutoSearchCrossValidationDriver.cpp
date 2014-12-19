@@ -14,7 +14,8 @@
 #include <math.h>
 #include <cstdlib>
 #include <iterator>
-#include <thread>
+#include <thread> 
+#include "tinythread/tinythread.h"
 
 #include "AutoSearchCrossValidationDriver.h"
 #include "CyclicCoordinateDescent.h"
@@ -26,6 +27,8 @@
 #include "boost/iterator/counting_iterator.hpp"
 
 namespace bsccs {
+
+using thread = tthread::thread;
 
 const static int MAX_STEPS = 50;
 
@@ -79,6 +82,47 @@ void AutoSearchCrossValidationDriver::resetForOptimal(
 	ccd.resetBeta(); // Cold-start
 }
 
+//extern "C" inline 
+void test(void *) {
+    try {
+        std::cerr << "Z" << std::endl;
+    } catch (...) {
+    }
+}
+
+template <typename ItType, typename Function>
+struct for_each_arguments {
+    ItType begin;
+    ItType end;
+    Function function;
+    
+    for_each_arguments(ItType begin, ItType end, Function function) 
+        : begin(begin), end(end), function(function) { }
+        
+    ~for_each_arguments() { std::cerr << "dtor" << std::endl; }
+};
+
+template <typename ItType, typename Function>
+void for_each_tthread(void *a) {
+       try {
+            auto args = static_cast<for_each_arguments<ItType, Function>*>(a);
+            std::for_each(args->begin, args->end, args->function);
+       } catch (...) {
+       }
+}
+
+// extern "C" inline void workerThread(void* data) {
+//    try
+//    {
+//       Work* pWork = static_cast<Work*>(data);
+//       pWork->worker(pWork->range.begin(), pWork->range.end());
+//       delete pWork;
+//    }
+//    catch(...)
+//    {
+//    }
+// }
+
 template <typename InputIt>
 struct TaskScheduler {
 
@@ -90,7 +134,8 @@ struct TaskScheduler {
 	     
 	template <typename UnaryFunction>
 	UnaryFunction execute(UnaryFunction function) {	
-		
+
+#if 0		
 		std::vector<std::thread> workers(nThreads - 1);		
 		size_t start = 0;
 		for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
@@ -104,7 +149,60 @@ struct TaskScheduler {
 		auto rtn = std::for_each(begin + start, end, function);
 		for (int i = 0; i < nThreads - 1; ++i) {
 			workers[i].join();
+		}		
+#else
+// 		std::vector<bsccs::thread> workers(nThreads - 1);		
+// 		size_t start = 0;
+// 		for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
+// 			workers[i] = bsccs::thread(
+// 				std::for_each<InputIt, UnaryFunction>,
+// 				begin + start, 
+// 				begin + start + chunkSize, 
+// 				function);				
+// 		}
+// 		
+// 		auto rtn = std::for_each(begin + start, end, function);
+// 		for (int i = 0; i < nThreads - 1; ++i) {
+// 			workers[i].join();
+// 		}
+		std::vector<bsccs::thread*> workers(nThreads - 1);		
+		size_t start = 0;
+		for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
+//            auto begin = this->begin;            
+//            auto chunkSize = this->chunkSize;
+
+            auto args = new for_each_arguments<InputIt, UnaryFunction>(
+                begin + start, 
+                begin + start + chunkSize, 
+                function);
+
+			workers[i] = new bsccs::thread( 
+//				std::bind(std::for_each<InputIt, UnaryFunction>,
+//				begin + start, 
+//				begin + start + chunkSize, 
+//				function), 
+//                 [begin, start, chunkSize, function](void *) {
+//                     std::for_each(begin + start, begin + start + chunkSize, function);
+//                 },
+//                 nullptr);	
+
+// 				std::for_each<InputIt, UnaryFunction>,
+// 				begin + start, 
+// 				begin + start + chunkSize, 
+// 				function
+// 				test, nullptr
+                for_each_tthread<InputIt,UnaryFunction>, args
+				
+				);			            
 		}
+				
+		auto rtn = std::for_each(begin + start, end, function);
+		for (int i = 0; i < nThreads - 1; ++i) {
+			workers[i]->join();
+			delete workers[i];
+		}
+#endif
+		
 		return rtn;	
 	}	
 	
@@ -323,7 +421,7 @@ void AutoSearchCrossValidationDriver::drive(
 	
     // Start of new multi-thread set-up
 	int nThreads = (arguments.threads == -1) ? 
-	    std::thread::hardware_concurrency() :
+        bsccs::thread::hardware_concurrency() :
 	    arguments.threads;
 	    
 	std::ostringstream stream2;
