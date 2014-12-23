@@ -112,9 +112,11 @@ template <typename InputIt>
 struct TaskScheduler {
 
 	TaskScheduler(InputIt begin, InputIt end, int nThreads) 
-	   : begin(begin), end(end), nThreads(nThreads), 
+	   : begin(begin), end(end), 
+	     taskCount(std::distance(begin, end)),
+	     nThreads(std::min(nThreads, taskCount)), 
 	     chunkSize(
-	     	std::distance(begin, end) / nThreads + (std::distance(begin, end) % nThreads != 0)
+	     	taskCount / nThreads + (taskCount % nThreads != 0)
 	     ) { }
          
     template <typename UnaryFunction>
@@ -127,7 +129,9 @@ struct TaskScheduler {
 			i / chunkSize;
 	}	
 	
-	size_t getChunkSize() { return chunkSize; }
+	size_t getChunkSize() const { return chunkSize; }
+	
+	int getThreadCount() const { return nThreads; }
 	
 private:
 
@@ -176,11 +180,12 @@ private:
 			workers[i].join();
 		}				
 		return rtn;	
-	}
+	}  // TODO Remove code-duplication between std::thread and tthread::thread versions
 #endif    
 
 	const InputIt begin;
 	const InputIt end;
+	const size_t taskCount;
 	const int nThreads;
 	const size_t chunkSize;
 };
