@@ -11,9 +11,9 @@ Features
  - Regression of very large problems: up to millions of observations, millions of variables
  - Supports (conditional) logistic regression, (conditional) Poisson regression, as well as (conditional) Cox regression
  - Uses a sparse representation of the independent variables when appropriate
- - Supports using no prior or a LaPlace prior
+ - Supports using no prior, a normal prior or a Laplace prior
  - Supports automatic selection of hyperparameter through cross-validation
- - Efficient estimation of confidence intervals for a single variable by turning of regularization for that variable
+ - Efficient estimation of confidence intervals for a single variable using a profile-likelihood for that variable
 
 Examples
 ========
