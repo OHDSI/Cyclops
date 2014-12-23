@@ -14,6 +14,7 @@
 #include <math.h>
 #include <cstdlib>
 #include <iterator>
+#include <algorithm>
 
 #include "Types.h"
 #include "Thread.h"
@@ -111,7 +112,7 @@ namespace tthread {
 template <typename InputIt>
 struct TaskScheduler {
 
-	TaskScheduler(InputIt begin, InputIt end, int nThreads) 
+	TaskScheduler(InputIt begin, InputIt end, const size_t nThreads) 
 	   : begin(begin), end(end), 
 	     taskCount(std::distance(begin, end)),
 	     nThreads(std::min(nThreads, taskCount)), 
@@ -186,7 +187,7 @@ private:
 	const InputIt begin;
 	const InputIt end;
 	const size_t taskCount;
-	const int nThreads;
+	const size_t nThreads;
 	const size_t chunkSize;
 };
 
