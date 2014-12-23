@@ -127,25 +127,29 @@ struct TaskScheduler {
 			i / chunkSize;
 	}	
 	
+	size_t getChunkSize() { return chunkSize; }
+	
 private:
 
 #if defined(_WIN32) || defined(__WIN32__) || defined(__WINDOWS__) || defined(WIN_BUILD)
 	template <typename UnaryFunction>
 	UnaryFunction execute(UnaryFunction function, threading::tthread_thread) {	
 //         std::cerr << "TTHREAD THREADS" << std::endl;
-		std::vector<tthread::thread*> workers(nThreads - 1);		
+// 		std::vector<tthread::thread*> workers(nThreads - 1);		
+        std::vector<tthread::thread*> workers;
 		size_t start = 0;
-		for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
-        	workers[i] = new tthread::thread(
+		for (int i = 0; i < nThreads - 1 && begin + start + chunkSize < end; ++i, start += chunkSize) {
+//         	workers[i] = new tthread::thread(
+            workers.emplace_back(new tthread::thread(
                 threading::tthread::for_each<InputIt,UnaryFunction>, 
                 new threading::tthread::for_each_arguments<InputIt, UnaryFunction>(
                 begin + start, 
                 begin + start + chunkSize, 
-                function));			            
+                function)));			            
 		}
 				
 		auto rtn = std::for_each(begin + start, end, function);
-		for (int i = 0; i < nThreads - 1; ++i) {
+		for (int i = 0; i < workers.size(); ++i) {
 			workers[i]->join();
 			delete workers[i];
 		}
@@ -156,18 +160,19 @@ private:
     template <typename UnaryFunction>
 	UnaryFunction execute(UnaryFunction function, threading::std_thread) {	
 // 		std::cerr << "STD THREADS" << std::endl;
-		std::vector<std::thread> workers(nThreads - 1);		
+		std::vector<std::thread> workers;		
 		size_t start = 0;
-		for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
-			workers[i] = std::thread(
+		for (int i = 0; i < nThreads - 1 && begin + start + chunkSize < end; ++i, start += chunkSize) {
+//			workers[i] = std::thread(
+            workers.emplace_back(std::thread(
 				std::for_each<InputIt, UnaryFunction>,
 				begin + start, 
 				begin + start + chunkSize, 
-				function);				
+				function));				
 		}
 		
 		auto rtn = std::for_each(begin + start, end, function);
-		for (int i = 0; i < nThreads - 1; ++i) {
+		for (int i = 0; i < workers.size(); ++i) {
 			workers[i].join();
 		}				
 		return rtn;	
@@ -207,7 +212,7 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 		boost::make_counting_iterator(0), 
 		boost::make_counting_iterator(arguments.foldToCompute),		
 		nThreads);	
-			
+		
 	auto oneTask =
 		[step, coldStart, nThreads, &ccdPool, &selectorPool, 
 		&arguments, &predLogLikelihood, 
@@ -216,8 +221,9 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 		 		, &scheduler
 			](int task) {
 			
-				auto ccdTask = ccdPool[scheduler.getThreadIndex(task)];
-				auto selectorTask = selectorPool[scheduler.getThreadIndex(task)];
+			    const auto uniqueId = scheduler.getThreadIndex(task);					    			   			
+				auto ccdTask = ccdPool[uniqueId];
+				auto selectorTask = selectorPool[uniqueId];
 																			
 				// Bring selector up-to-date
 				if (task == 0 || nThreads > 1) {
