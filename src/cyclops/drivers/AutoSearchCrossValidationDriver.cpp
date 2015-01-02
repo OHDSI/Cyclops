@@ -276,7 +276,7 @@ void AutoSearchCrossValidationDriver::drive(
 
 	// TODO Check that selector is type of CrossValidationSelector
 
-    const auto& arguments = allArguments.crossValidation;
+//     const auto& arguments = allArguments.crossValidation;
 
 	double tryvalue = modelData.getNormalBasedDefaultVar();
 	UniModalSearch searcher(10, 0.01, log(1.5));

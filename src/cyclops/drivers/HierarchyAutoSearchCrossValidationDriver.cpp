@@ -56,7 +56,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 		AbstractSelector& selector,
 		const CCDArguments& allArguments) {
 
-    const auto& arguments = allArguments.crossValidation;
+//     const auto& arguments = allArguments.crossValidation;
 	// TODO Check that selector is type of CrossValidationSelector
 	std::vector<real> weights;
 
