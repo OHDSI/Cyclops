@@ -276,13 +276,19 @@ void AutoSearchCrossValidationDriver::drive(
 
 	// TODO Check that selector is type of CrossValidationSelector
 
-//     const auto& arguments = allArguments.crossValidation;
+    const auto& arguments = allArguments.crossValidation;
 
-	double tryvalue = modelData.getNormalBasedDefaultVar();
+	double tryvalue = (arguments.startingVariance > 0) ?
+	    arguments.startingVariance : 
+		modelData.getNormalBasedDefaultVar();
+		
 	UniModalSearch searcher(10, 0.01, log(1.5));
 //	const double eps = 0.05; //search stopper
 	std::ostringstream stream;
-	stream << "Default var = " << tryvalue;
+	stream << "Starting var = " << tryvalue;
+	if (arguments.startingVariance == -1) {
+	    stream << " (default)";   
+	}
 	logger->writeLine(stream);
 	
 	bool coldStart = allArguments.resetCoefficients;

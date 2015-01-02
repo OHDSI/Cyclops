@@ -56,19 +56,25 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 		AbstractSelector& selector,
 		const CCDArguments& allArguments) {
 
-//     const auto& arguments = allArguments.crossValidation;
 	// TODO Check that selector is type of CrossValidationSelector
 	std::vector<real> weights;
 
+    const auto& arguments = allArguments.crossValidation;
 
-	double tryvalue = modelData.getNormalBasedDefaultVar();
+	double tryvalue = (arguments.startingVariance > 0) ?
+	    arguments.startingVariance : 
+		modelData.getNormalBasedDefaultVar();
+
 	double tryvalueClass = tryvalue; // start with same variance at the class and element level; // for hierarchy class variance
 	UniModalSearch searcher(10, 0.01, log(1.5));
 	UniModalSearch searcherClass(10, 0.01, log(1.5)); // Need a better way to do this.
 
 //	const double eps = 0.05; //search stopper
     std::ostringstream stream;
-	stream << "Default var = " << tryvalue;
+	stream << "Starting var = " << tryvalue;
+	if (arguments.startingVariance == -1) {
+	    stream << " (default)";   
+	}	
 	logger->writeLine(stream);
 
 

@@ -188,8 +188,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsSetControl
-void cyclopsSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int threads, int seed, bool resetCoefficients);
-RcppExport SEXP Cyclops_cyclopsSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP threadsSEXP, SEXP seedSEXP, SEXP resetCoefficientsSEXP) {
+void cyclopsSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance);
+RcppExport SEXP Cyclops_cyclopsSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP threadsSEXP, SEXP seedSEXP, SEXP resetCoefficientsSEXP, SEXP startingVarianceSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
@@ -207,7 +207,8 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< int >::type threads(threadsSEXP );
         Rcpp::traits::input_parameter< int >::type seed(seedSEXP );
         Rcpp::traits::input_parameter< bool >::type resetCoefficients(resetCoefficientsSEXP );
-        cyclopsSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients);
+        Rcpp::traits::input_parameter< double >::type startingVariance(startingVarianceSEXP );
+        cyclopsSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance);
     }
     return R_NilValue;
 END_RCPP

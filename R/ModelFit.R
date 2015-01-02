@@ -280,6 +280,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param threads               Numeric: Specify number of CPU threads to employ in cross-validation; default = 1 (auto = -1)
 #' @param seed                  Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.
 #' @param resetCoefficients     Logical: Reset all coefficients to 0 between model fits under cross-validation
+#' @param startingVariance      Numeric: Starting variance for auto-search cross-validation; default = -1 (use estimate based on data)
 #' 
 #' @section Criteria:
 #' TODO
@@ -297,7 +298,8 @@ createControl <- function(
 		minCVData = 100, noiseLevel = "silent",
         threads = 1,
         seed = NULL,
-        resetCoefficients = FALSE) {
+        resetCoefficients = FALSE,
+        startingVariance = -1) {
 	
 	validCVNames = c("grid", "auto")
 	stopifnot(cvType %in% validCVNames)
@@ -305,6 +307,7 @@ createControl <- function(
 	validNLNames = c("silent", "quiet", "noisy")
 	stopifnot(noiseLevel %in% validNLNames)
     stopifnot(threads == -1 || threads >= 1)
+    stopifnot(startingVariance == -1 || startingVariance > 0)
 	structure(list(maxIterations = maxIterations, tolerance = tolerance, convergenceType = convergenceType,
 								 autoSearch = (cvType == "auto"), fold = fold, lowerLimit = lowerLimit, 
 								 upperLimit = upperLimit, gridSteps = gridSteps, minCVData = minCVData, 
@@ -312,7 +315,8 @@ createControl <- function(
 								 noiseLevel = noiseLevel,
                                  threads = threads,
                                  seed = seed,
-								 resetCoefficients = resetCoefficients),
+								 resetCoefficients = resetCoefficients,
+                                 startingVariance = startingVariance),
 						class = "cyclopsControl")
 }
 
@@ -397,7 +401,8 @@ predict.cyclopsFit <- function(object, ...) {
 									 control$convergenceType, control$autoSearch, control$fold, 
 									 (control$fold * control$cvRepetitions),
 									 control$lowerLimit, control$upperLimit, control$gridSteps, 
-                                     control$noiseLevel, control$threads, control$seed, control$resetCoefficients)		
+                                     control$noiseLevel, control$threads, control$seed, control$resetCoefficients,
+                                     control$startingVariance)		
 	}	
 }
 
