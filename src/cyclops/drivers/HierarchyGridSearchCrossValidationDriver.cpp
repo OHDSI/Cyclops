@@ -21,14 +21,11 @@ namespace bsccs {
 using std::vector;
 
 HierarchyGridSearchCrossValidationDriver::HierarchyGridSearchCrossValidationDriver(
-			int iGridSize,
-			double iLowerLimit,
-			double iUpperLimit,
+			const CCDArguments& arguments,
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error,			
-			vector<real>* wtsExclude) : GridSearchCrossValidationDriver(iGridSize,
-					iLowerLimit,
-					iUpperLimit,
+			vector<real>* wtsExclude) : GridSearchCrossValidationDriver(
+			        arguments,
 					_logger,
 					_error,
 					wtsExclude)
@@ -69,7 +66,9 @@ void HierarchyGridSearchCrossValidationDriver::changeParameter(CyclicCoordinateD
 
 void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
-		const CCDArguments& arguments) {
+		const CCDArguments& allArguments) {
+
+    const auto& arguments = allArguments.crossValidation;
 
 	std::vector<bsccs::real> weights;
 	std::vector<double> outerPoints;
@@ -100,7 +99,7 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 				selector.getWeights(fold, weights);
 				ccd.setWeights(&weights[0]);
 
-				ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+				ccd.update(allArguments.maxIterations, allArguments.convergenceType, allArguments.tolerance);
 				// Compute predictive loglikelihood for this fold
 				selector.getComplement(weights);
 				double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
@@ -133,7 +132,7 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 		outerPoints.push_back(outerPoint);
 		outerValues.push_back(maxValue);
 
-		if (!arguments.useNormalPrior) {
+		if (!allArguments.useNormalPrior) {
 			double lambda = convertVarianceToHyperparameter(maxPoint);
 			std::ostringstream stream;
 			stream << "\t" << lambda << " (lambda)";

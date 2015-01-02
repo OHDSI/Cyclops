@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
 	double timeInitialize = interface.initializeModel(&modelData, &ccd, &model);
 
 	double timeUpdate;
-	if (arguments.doCrossValidation) {
+	if (arguments.crossValidation.doCrossValidation) {
 		timeUpdate = interface.runCrossValidation(ccd, modelData);
 	} else {
 		if (arguments.doPartial) {

@@ -14,6 +14,7 @@
 #include <math.h>
 #include <cstdlib>
 #include <iterator>
+#include <algorithm>
 
 #include "Types.h"
 #include "Thread.h"
@@ -32,14 +33,15 @@ const static int MAX_STEPS = 50;
 
 AutoSearchCrossValidationDriver::AutoSearchCrossValidationDriver(
 			const ModelData& _modelData,
-			int iGridSize,
-			double iLowerLimit,
-			double iUpperLimit,			
+			const CCDArguments& arguments,		
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error,			
             vector<real>* wtsExclude			
-			) : AbstractCrossValidationDriver(_logger, _error), modelData(_modelData), maxPoint(0), gridSize(iGridSize),
-			lowerLimit(iLowerLimit), upperLimit(iUpperLimit), weightsExclude(wtsExclude),
+			) : AbstractCrossValidationDriver(_logger, _error), modelData(_modelData), maxPoint(0), 
+			gridSize(arguments.crossValidation.gridSteps),
+			lowerLimit(arguments.crossValidation.lowerLimit), 
+			upperLimit(arguments.crossValidation.upperLimit), 
+			weightsExclude(wtsExclude),
 			maxSteps(MAX_STEPS) {
 
 	// Do anything???
@@ -58,8 +60,8 @@ double AutoSearchCrossValidationDriver::computeGridPoint(int step) {
 	return exp(log(lowerLimit) + step * stepSize);
 }
 
-void AutoSearchCrossValidationDriver::logResults(const CCDArguments& arguments) {
-
+void AutoSearchCrossValidationDriver::logResults(const CCDArguments& allArguments) {
+    const auto& arguments = allArguments.crossValidation;
 	ofstream outLog(arguments.cvFileName.c_str());
 	if (!outLog) {
 	    std::ostringstream stream;
@@ -80,115 +82,10 @@ void AutoSearchCrossValidationDriver::resetForOptimal(
 	ccd.resetBeta(); // Cold-start
 }
 
-namespace threading {   
-namespace tthread {
-    
-    template <typename ItType, typename Function>
-    struct for_each_arguments {
-        ItType begin;
-        ItType end;
-        Function function;
-    
-        for_each_arguments(ItType begin, ItType end, Function function) 
-            : begin(begin), end(end), function(function) { }           
-    };
-
-    template <typename ItType, typename Function>
-    void for_each(void *a) {
-       try {
-           typedef for_each_arguments<ItType,Function> ArgType;
-           auto args = bsccs::unique_ptr<ArgType>( // To avoid leaks
-                static_cast<ArgType*>(a)
-            );
-            
-            std::for_each(args->begin, args->end, args->function);
-       } catch (...) {
-       }
-    }
-}
-}
-
-template <typename InputIt>
-struct TaskScheduler {
-
-	TaskScheduler(InputIt begin, InputIt end, int nThreads) 
-	   : begin(begin), end(end), nThreads(nThreads), 
-	     chunkSize(
-	     	std::distance(begin, end) / nThreads + (std::distance(begin, end) % nThreads != 0)
-	     ) { }
-         
-    template <typename UnaryFunction>
-    UnaryFunction execute(UnaryFunction function) {
-        return execute(function, DefaultThreadType());   
-    }
-	     	
-	size_t getThreadIndex(size_t i) {
-		return nThreads == 1 ? 0 :
-			i / chunkSize;
-	}	
-	
-	size_t getChunkSize() { return chunkSize; }
-	
-private:
-
-#if defined(_WIN32) || defined(__WIN32__) || defined(__WINDOWS__) || defined(WIN_BUILD)
-	template <typename UnaryFunction>
-	UnaryFunction execute(UnaryFunction function, threading::tthread_thread) {	
-//         std::cerr << "TTHREAD THREADS" << std::endl;
-// 		std::vector<tthread::thread*> workers(nThreads - 1);		
-        std::vector<tthread::thread*> workers;
-		size_t start = 0;
-		for (int i = 0; i < nThreads - 1 && begin + start + chunkSize < end; ++i, start += chunkSize) {
-//         	workers[i] = new tthread::thread(
-            workers.emplace_back(new tthread::thread(
-                threading::tthread::for_each<InputIt,UnaryFunction>, 
-                new threading::tthread::for_each_arguments<InputIt, UnaryFunction>(
-                begin + start, 
-                begin + start + chunkSize, 
-                function)));			            
-		}
-				
-		auto rtn = std::for_each(begin + start, end, function);
-		for (int i = 0; i < workers.size(); ++i) {
-			workers[i]->join();
-			delete workers[i];
-		}
-		
-		return rtn;	
-	}	
-#else
-    template <typename UnaryFunction>
-	UnaryFunction execute(UnaryFunction function, threading::std_thread) {	
-// 		std::cerr << "STD THREADS" << std::endl;
-		std::vector<std::thread> workers;		
-		size_t start = 0;
-		for (int i = 0; i < nThreads - 1 && begin + start + chunkSize < end; ++i, start += chunkSize) {
-//			workers[i] = std::thread(
-            workers.emplace_back(std::thread(
-				std::for_each<InputIt, UnaryFunction>,
-				begin + start, 
-				begin + start + chunkSize, 
-				function));				
-		}
-		
-		auto rtn = std::for_each(begin + start, end, function);
-		for (int i = 0; i < workers.size(); ++i) {
-			workers[i].join();
-		}				
-		return rtn;	
-	}
-#endif    
-
-	const InputIt begin;
-	const InputIt end;
-	const int nThreads;
-	const size_t chunkSize;
-};
-
 double AutoSearchCrossValidationDriver::doCrossValidation(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
-		const CCDArguments& arguments,
+		const CCDArguments& allArguments,
 		int step,
 		bool coldStart,
 		int nThreads,
@@ -196,6 +93,7 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 		std::vector<AbstractSelector*>& selectorPool,		
 		std::vector<double>& predLogLikelihood){
 
+    const auto& arguments = allArguments.crossValidation;
 
 	predLogLikelihood.resize(arguments.foldToCompute);
 
@@ -215,7 +113,7 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 		
 	auto oneTask =
 		[step, coldStart, nThreads, &ccdPool, &selectorPool, 
-		&arguments, &predLogLikelihood, 
+		&arguments, &allArguments, &predLogLikelihood, 
 			&weightsExclude, &logger //, &lock
 		 //    ,&ccd, &selector
 		 		, &scheduler
@@ -255,7 +153,7 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 				
 				if (coldStart) ccdTask->resetBeta();
 
-				ccdTask->update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+				ccdTask->update(allArguments.maxIterations, allArguments.convergenceType, allArguments.tolerance);
 				
 				// Compute predictive loglikelihood for this fold
 				selectorTask->getComplement(weights);  // TODO THREAD_SAFE
@@ -374,23 +272,31 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 void AutoSearchCrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
-		const CCDArguments& arguments) {
+		const CCDArguments& allArguments) {
 
 	// TODO Check that selector is type of CrossValidationSelector
 
-	double tryvalue = modelData.getNormalBasedDefaultVar();
+    const auto& arguments = allArguments.crossValidation;
+
+	double tryvalue = (arguments.startingVariance > 0) ?
+	    arguments.startingVariance : 
+		modelData.getNormalBasedDefaultVar();
+		
 	UniModalSearch searcher(10, 0.01, log(1.5));
 //	const double eps = 0.05; //search stopper
 	std::ostringstream stream;
-	stream << "Default var = " << tryvalue;
+	stream << "Starting var = " << tryvalue;
+	if (arguments.startingVariance == -1) {
+	    stream << " (default)";   
+	}
 	logger->writeLine(stream);
 	
-	bool coldStart = arguments.resetCoefficients;
+	bool coldStart = allArguments.resetCoefficients;
 	
     // Start of new multi-thread set-up
-	int nThreads = (arguments.threads == -1) ? 
+	int nThreads = (allArguments.threads == -1) ? 
         bsccs::thread::hardware_concurrency() :
-	    arguments.threads;
+	    allArguments.threads;
 	    
 	std::ostringstream stream2;
 	stream2 << "Using " << nThreads << " thread(s)";
@@ -418,7 +324,7 @@ void AutoSearchCrossValidationDriver::drive(
 		std::vector<double> predLogLikelihood;
 
 		// Newly re-located code
-		double pointEstimate = doCrossValidation(ccd, selector, arguments, step, coldStart, 
+		double pointEstimate = doCrossValidation(ccd, selector, allArguments, step, coldStart, 
 			nThreads, ccdPool, selectorPool,
 			predLogLikelihood);
 
@@ -461,7 +367,7 @@ void AutoSearchCrossValidationDriver::drive(
 	stream1 << std::endl;
 	stream1 << "Maximum predicted log likelihood estimated at:" << std::endl;
 	stream1 << "\t" << maxPoint << " (variance)" << std::endl;
-	if (!arguments.useNormalPrior) {
+	if (!allArguments.useNormalPrior) {
 		double lambda = convertVarianceToHyperparameter(maxPoint);
 		stream1 << "\t" << lambda << " (lambda)" << std::endl;
 	}	

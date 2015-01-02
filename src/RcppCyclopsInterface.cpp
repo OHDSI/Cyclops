@@ -237,7 +237,7 @@ List cyclopsPredictModel(SEXP inRcppCcdInterface) {
 void cyclopsSetControl(SEXP inRcppCcdInterface, 
 		int maxIterations, double tolerance, const std::string& convergenceType,
 		bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps,
-		const std::string& noiseLevel, int threads, int seed, bool resetCoefficients
+		const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance
 		) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
@@ -248,12 +248,14 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 	interface->getArguments().convergenceType = RcppCcdInterface::parseConvergenceType(convergenceType);
 	
 	// Cross validation control
-	args.useAutoSearchCV = useAutoSearch;
-	args.fold = fold;
-	args.foldToCompute = foldToCompute;
-	args.lowerLimit = lowerLimit;
-	args.upperLimit = upperLimit;
-	args.gridSteps = gridSteps;
+	args.crossValidation.useAutoSearchCV = useAutoSearch;
+	args.crossValidation.fold = fold;
+	args.crossValidation.foldToCompute = foldToCompute;
+	args.crossValidation.lowerLimit = lowerLimit;
+	args.crossValidation.upperLimit = upperLimit;
+	args.crossValidation.gridSteps = gridSteps;
+	args.crossValidation.startingVariance = startingVariance;	
+	
 	NoiseLevels noise = RcppCcdInterface::parseNoiseLevel(noiseLevel);
 	args.noiseLevel = noise;
 	interface->setNoiseLevel(noise);
@@ -267,7 +269,7 @@ List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {
 	using namespace bsccs;
 	
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
-	interface->getArguments().doFitAtOptimal = true;		
+	interface->getArguments().crossValidation.doFitAtOptimal = true;		
 	double timeUpdate = interface->runCrossValidation();
 
 	interface->diagnoseModel(0.0, 0.0);

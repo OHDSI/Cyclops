@@ -18,13 +18,14 @@ namespace bsccs {
 using std::vector;
 
 GridSearchCrossValidationDriver::GridSearchCrossValidationDriver(
-			int iGridSize,
-			double iLowerLimit,
-			double iUpperLimit,
+            const CCDArguments& arguments,
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error,			
-			vector<real>* wtsExclude) : AbstractCrossValidationDriver(_logger, _error), gridSize(iGridSize),
-			lowerLimit(iLowerLimit), upperLimit(iUpperLimit), weightsExclude(wtsExclude) {
+			vector<real>* wtsExclude) : AbstractCrossValidationDriver(_logger, _error), 
+			gridSize(arguments.crossValidation.gridSteps),
+			lowerLimit(arguments.crossValidation.lowerLimit), 
+			upperLimit(arguments.crossValidation.upperLimit), 
+			weightsExclude(wtsExclude) {
 
 	// Do anything???
 }
@@ -50,8 +51,9 @@ double GridSearchCrossValidationDriver::computeGridPoint(int step) {
 //}
 
 
-void GridSearchCrossValidationDriver::logResults(const CCDArguments& arguments) {
+void GridSearchCrossValidationDriver::logResults(const CCDArguments& allArguments) {
 
+    const auto& arguments = allArguments.crossValidation;
 	ofstream outLog(arguments.cvFileName.c_str());
 	if (!outLog) {
 	    std::ostringstream stream;
@@ -67,7 +69,7 @@ void GridSearchCrossValidationDriver::logResults(const CCDArguments& arguments) 
 
 	for (size_t i = 0; i < gridPoint.size(); i++) {
 		outLog << std::setw(5) << std::setprecision(4) << std::fixed << gridPoint[i] << sep;
-		if (!arguments.useNormalPrior) {
+		if (!allArguments.useNormalPrior) {
 			outLog << convertVarianceToHyperparameter(gridPoint[i]) << sep;
 		}
 		outLog << std::scientific << gridValue[i] << sep;
@@ -80,8 +82,10 @@ void GridSearchCrossValidationDriver::logResults(const CCDArguments& arguments) 
 void GridSearchCrossValidationDriver::resetForOptimal(
 		CyclicCoordinateDescent& ccd,
 		CrossValidationSelector& selector,
-		const CCDArguments& arguments) {
+		const CCDArguments& allArguments) {
 
+    const auto& arguments = allArguments.crossValidation;
+    
 	ccd.setWeights(NULL);
 
 	double maxPoint;
@@ -94,9 +98,11 @@ void GridSearchCrossValidationDriver::resetForOptimal(
 void GridSearchCrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
-		const CCDArguments& arguments) {
+		const CCDArguments& allArguments) {
 
 	// TODO Check that selector is type of CrossValidationSelector
+	
+	const auto& arguments = allArguments.crossValidation;
 
 	std::vector<real> weights;
 
@@ -125,7 +131,7 @@ void GridSearchCrossValidationDriver::drive(
 			ccd.setWeights(&weights[0]);
 			std::ostringstream stream;
 			stream << "Running at " << ccd.getPriorInfo() << " ";
-			ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+			ccd.update(allArguments.maxIterations, allArguments.convergenceType, allArguments.tolerance);
 
 			// Compute predictive loglikelihood for this fold
 			selector.getComplement(weights);
@@ -164,7 +170,7 @@ void GridSearchCrossValidationDriver::drive(
 	stream << std::endl;
 	stream << "Maximum predicted log likelihood (" << maxValue << ") found at:" << std::endl;
 	stream << "\t" << maxPoint << " (variance)" << std::endl;
-	if (!arguments.useNormalPrior) {
+	if (!allArguments.useNormalPrior) {
 		double lambda = convertVarianceToHyperparameter(maxPoint);
 		stream << "\t" << lambda << " (lambda)" << std::endl;
 	}

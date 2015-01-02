@@ -41,8 +41,9 @@ public:
     }
     pair<bool,double> step(); // recommend: do/not next step, the next x value
     //ctor
-    UniModalSearch( double stdstep=100, double stop_by_y=.01, double stop_by_x=log(1.5) ) 
-        : m_stdstep(stdstep), m_stop_by_y(stop_by_y), m_stop_by_x(stop_by_x) {}
+    UniModalSearch( double stdstep=100, double stop_by_y=.01, double stop_by_x=log(1.5),
+        double firstCut=1.0 ) 
+        : m_stdstep(stdstep), m_stop_by_y(stop_by_y), m_stop_by_x(stop_by_x), m_first_cut(firstCut) {}
 
     friend std::ostream& operator<< (std::ostream& stream, const UniModalSearch& search);
 
@@ -51,6 +52,7 @@ public:
 private:
     const double m_stdstep;
     const double m_stop_by_y, m_stop_by_x;
+    const double m_first_cut;
     std::map<double,MS> y_by_x;
     std::map<double,MS>::const_iterator best;
 };
