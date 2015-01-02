@@ -15,9 +15,7 @@ namespace bsccs {
 class GridSearchCrossValidationDriver : public AbstractCrossValidationDriver {
 public:
 	GridSearchCrossValidationDriver(
-			int iGridSize,
-			double iLowerLimit,
-			double iUpperLimit,
+            const CCDArguments& arguments,
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error,			
 			std::vector<real>* wtsExclude = NULL);

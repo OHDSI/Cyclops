@@ -24,16 +24,12 @@ namespace bsccs {
 //const static int MAX_STEPS = 50;
 
 HierarchyAutoSearchCrossValidationDriver::HierarchyAutoSearchCrossValidationDriver(const ModelData& _modelData,
-		int iGridSize,
-		double iLowerLimit,
-		double iUpperLimit,
+		const CCDArguments& arguments,
 		loggers::ProgressLoggerPtr _logger,
 		loggers::ErrorHandlerPtr _error,		
 		vector<real>* wtsExclude) : AutoSearchCrossValidationDriver(
 				_modelData,
-				iGridSize,
-				iLowerLimit,
-				iUpperLimit,
+				arguments,
 				_logger,
 				_error,
 				wtsExclude)
@@ -58,8 +54,9 @@ void HierarchyAutoSearchCrossValidationDriver::resetForOptimal(
 void HierarchyAutoSearchCrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
-		const CCDArguments& arguments) {
+		const CCDArguments& allArguments) {
 
+    const auto& arguments = allArguments.crossValidation;
 	// TODO Check that selector is type of CrossValidationSelector
 	std::vector<real> weights;
 
@@ -150,7 +147,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 	logger->writeLine(stream2);
 
 
-	if (!arguments.useNormalPrior) {
+	if (!allArguments.useNormalPrior) {
 		double lambda = convertVarianceToHyperparameter(maxPoint);
 		std::ostringstream stream;
 		stream << "\t" << lambda << " (lambda)";

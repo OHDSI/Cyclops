@@ -28,6 +28,34 @@ namespace bsccs {
     class CyclicCoordinateDescent; // forward declaration
     class ModelData;
     class AbstractModelSpecifics;
+    
+struct CrossValidationArguments {
+
+    // All options related to cross-validation should (TODO) go here
+	bool doCrossValidation;
+	bool useAutoSearchCV;
+	double lowerLimit;
+	double upperLimit;
+	int fold;
+	int foldToCompute;
+	int gridSteps;
+	std::string cvFileName;
+	bool doFitAtOptimal;    
+    double startingVariance;
+    
+    CrossValidationArguments() :
+        doCrossValidation(false),
+        useAutoSearchCV(false),
+        lowerLimit(0.01),
+        upperLimit(20.0),
+        fold(10),
+        foldToCompute(10),
+        gridSteps(10),
+        cvFileName("cv.txt"),
+        doFitAtOptimal(true),
+        startingVariance(-1)   // Use default from Genkins et al.
+        { }
+};
 
 struct CCDArguments {
 
@@ -53,15 +81,15 @@ struct CCDArguments {
 	long seed;
 
 	// Needed for cross-validation
-	bool doCrossValidation;
-	bool useAutoSearchCV;
-	double lowerLimit;
-	double upperLimit;
-	int fold;
-	int foldToCompute;
-	int gridSteps;
-	std::string cvFileName;
-	bool doFitAtOptimal;
+// 	bool doCrossValidation;
+// 	bool useAutoSearchCV;
+// 	double lowerLimit;
+// 	double upperLimit;
+// 	int fold;
+// 	int foldToCompute;
+// 	int gridSteps;
+// 	std::string cvFileName;
+// 	bool doFitAtOptimal;
 
 	//Needed for Hierarchy
 	bool useHierarchy;
@@ -86,6 +114,8 @@ struct CCDArguments {
 	
 	int threads;
 	bool resetCoefficients;	
+	
+	CrossValidationArguments crossValidation;
 };
 
 

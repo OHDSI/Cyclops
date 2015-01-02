@@ -33,14 +33,15 @@ const static int MAX_STEPS = 50;
 
 AutoSearchCrossValidationDriver::AutoSearchCrossValidationDriver(
 			const ModelData& _modelData,
-			int iGridSize,
-			double iLowerLimit,
-			double iUpperLimit,			
+			const CCDArguments& arguments,		
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error,			
             vector<real>* wtsExclude			
-			) : AbstractCrossValidationDriver(_logger, _error), modelData(_modelData), maxPoint(0), gridSize(iGridSize),
-			lowerLimit(iLowerLimit), upperLimit(iUpperLimit), weightsExclude(wtsExclude),
+			) : AbstractCrossValidationDriver(_logger, _error), modelData(_modelData), maxPoint(0), 
+			gridSize(arguments.crossValidation.gridSteps),
+			lowerLimit(arguments.crossValidation.lowerLimit), 
+			upperLimit(arguments.crossValidation.upperLimit), 
+			weightsExclude(wtsExclude),
 			maxSteps(MAX_STEPS) {
 
 	// Do anything???
@@ -59,8 +60,8 @@ double AutoSearchCrossValidationDriver::computeGridPoint(int step) {
 	return exp(log(lowerLimit) + step * stepSize);
 }
 
-void AutoSearchCrossValidationDriver::logResults(const CCDArguments& arguments) {
-
+void AutoSearchCrossValidationDriver::logResults(const CCDArguments& allArguments) {
+    const auto& arguments = allArguments.crossValidation;
 	ofstream outLog(arguments.cvFileName.c_str());
 	if (!outLog) {
 	    std::ostringstream stream;
@@ -84,7 +85,7 @@ void AutoSearchCrossValidationDriver::resetForOptimal(
 double AutoSearchCrossValidationDriver::doCrossValidation(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
-		const CCDArguments& arguments,
+		const CCDArguments& allArguments,
 		int step,
 		bool coldStart,
 		int nThreads,
@@ -92,6 +93,7 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 		std::vector<AbstractSelector*>& selectorPool,		
 		std::vector<double>& predLogLikelihood){
 
+    const auto& arguments = allArguments.crossValidation;
 
 	predLogLikelihood.resize(arguments.foldToCompute);
 
@@ -111,7 +113,7 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 		
 	auto oneTask =
 		[step, coldStart, nThreads, &ccdPool, &selectorPool, 
-		&arguments, &predLogLikelihood, 
+		&arguments, &allArguments, &predLogLikelihood, 
 			&weightsExclude, &logger //, &lock
 		 //    ,&ccd, &selector
 		 		, &scheduler
@@ -151,7 +153,7 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 				
 				if (coldStart) ccdTask->resetBeta();
 
-				ccdTask->update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+				ccdTask->update(allArguments.maxIterations, allArguments.convergenceType, allArguments.tolerance);
 				
 				// Compute predictive loglikelihood for this fold
 				selectorTask->getComplement(weights);  // TODO THREAD_SAFE
@@ -270,9 +272,11 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 void AutoSearchCrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
-		const CCDArguments& arguments) {
+		const CCDArguments& allArguments) {
 
 	// TODO Check that selector is type of CrossValidationSelector
+
+    const auto& arguments = allArguments.crossValidation;
 
 	double tryvalue = modelData.getNormalBasedDefaultVar();
 	UniModalSearch searcher(10, 0.01, log(1.5));
@@ -281,12 +285,12 @@ void AutoSearchCrossValidationDriver::drive(
 	stream << "Default var = " << tryvalue;
 	logger->writeLine(stream);
 	
-	bool coldStart = arguments.resetCoefficients;
+	bool coldStart = allArguments.resetCoefficients;
 	
     // Start of new multi-thread set-up
-	int nThreads = (arguments.threads == -1) ? 
+	int nThreads = (allArguments.threads == -1) ? 
         bsccs::thread::hardware_concurrency() :
-	    arguments.threads;
+	    allArguments.threads;
 	    
 	std::ostringstream stream2;
 	stream2 << "Using " << nThreads << " thread(s)";
@@ -314,7 +318,7 @@ void AutoSearchCrossValidationDriver::drive(
 		std::vector<double> predLogLikelihood;
 
 		// Newly re-located code
-		double pointEstimate = doCrossValidation(ccd, selector, arguments, step, coldStart, 
+		double pointEstimate = doCrossValidation(ccd, selector, allArguments, step, coldStart, 
 			nThreads, ccdPool, selectorPool,
 			predLogLikelihood);
 
@@ -357,7 +361,7 @@ void AutoSearchCrossValidationDriver::drive(
 	stream1 << std::endl;
 	stream1 << "Maximum predicted log likelihood estimated at:" << std::endl;
 	stream1 << "\t" << maxPoint << " (variance)" << std::endl;
-	if (!arguments.useNormalPrior) {
+	if (!allArguments.useNormalPrior) {
 		double lambda = convertVarianceToHyperparameter(maxPoint);
 		stream1 << "\t" << lambda << " (lambda)" << std::endl;
 	}	

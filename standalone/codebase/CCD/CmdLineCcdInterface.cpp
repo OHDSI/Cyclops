@@ -109,14 +109,14 @@ void CmdLineCcdInterface::parseCommandLine(std::vector<std::string>& args) {
 		ValueArg<long> seedArg("s", "seed", "Random number generator seed", false, arguments.seed, "long");
 
 		// Cross-validation arguments
-		SwitchArg doCVArg("c", "cv", "Perform cross-validation selection of hyperprior variance", arguments.doCrossValidation);
-		SwitchArg useAutoSearchCVArg("", "auto", "Use an auto-search when performing cross-validation", arguments.useAutoSearchCV);
-		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, arguments.lowerLimit, "real");
-		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, arguments.upperLimit, "real");
-		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, arguments.fold, "int");
-		ValueArg<int> gridCVArg("", "gridSize", "Uniform grid size for cross-validation search", false, arguments.gridSteps, "int");
-		ValueArg<int> foldToComputeCVArg("", "computeFold", "Number of fold to iterate, default is 'fold' value", false, 10, "int");
-		ValueArg<string> outFile2Arg("", "cvFileName", "Cross-validation output file name", false, arguments.cvFileName, "cvFileName");
+		SwitchArg doCVArg("c", "cv", "Perform cross-validation selection of hyperprior variance", arguments.crossValidation.doCrossValidation);
+		SwitchArg useAutoSearchCVArg("", "auto", "Use an auto-search when performing cross-validation", arguments.crossValidation.useAutoSearchCV);
+		ValueArg<double> lowerCVArg("l", "lower", "Lower limit for cross-validation search", false, arguments.crossValidation.lowerLimit, "real");
+		ValueArg<double> upperCVArg("u", "upper", "Upper limit for cross-validation search", false, arguments.crossValidation.upperLimit, "real");
+		ValueArg<int> foldCVArg("f", "fold", "Fold level for cross-validation", false, arguments.crossValidation.fold, "int");
+		ValueArg<int> gridCVArg("", "gridSize", "Uniform grid size for cross-validation search", false, arguments.crossValidation.gridSteps, "int");
+		ValueArg<int> foldToComputeCVArg("", "computeFold", "Number of fold to iterate, default is 'fold' value", false, arguments.crossValidation.foldToCompute, "int");
+		ValueArg<string> outFile2Arg("", "cvFileName", "Cross-validation output file name", false, arguments.crossValidation.cvFileName, "cvFileName");
 
 		// Bootstrap arguments
 		SwitchArg doBootstrapArg("b", "bs", "Perform bootstrap estimation", arguments.doBootstrap);
@@ -279,20 +279,20 @@ void CmdLineCcdInterface::parseCommandLine(std::vector<std::string>& args) {
 		}
 
 		// Cross-validation
-		arguments.doCrossValidation = doCVArg.isSet();
-		if (arguments.doCrossValidation) {
-			arguments.useAutoSearchCV = useAutoSearchCVArg.isSet();
-			arguments.lowerLimit = lowerCVArg.getValue();
-			arguments.upperLimit = upperCVArg.getValue();
-			arguments.fold = foldCVArg.getValue();
-			arguments.gridSteps = gridCVArg.getValue();
+		arguments.crossValidation.doCrossValidation = doCVArg.isSet();
+		if (arguments.crossValidation.doCrossValidation) {
+			arguments.crossValidation.useAutoSearchCV = useAutoSearchCVArg.isSet();
+			arguments.crossValidation.lowerLimit = lowerCVArg.getValue();
+			arguments.crossValidation.upperLimit = upperCVArg.getValue();
+			arguments.crossValidation.fold = foldCVArg.getValue();
+			arguments.crossValidation.gridSteps = gridCVArg.getValue();
 			if(foldToComputeCVArg.isSet()) {
-				arguments.foldToCompute = foldToComputeCVArg.getValue();
+				arguments.crossValidation.foldToCompute = foldToComputeCVArg.getValue();
 			} else {
-				arguments.foldToCompute = arguments.fold;
+				arguments.crossValidation.foldToCompute = arguments.crossValidation.fold;
 			}
-			arguments.cvFileName = outFile2Arg.getValue();
-			arguments.doFitAtOptimal = true;
+			arguments.crossValidation.cvFileName = outFile2Arg.getValue();
+			arguments.crossValidation.doFitAtOptimal = true;
 		}
 
 		// Bootstrap

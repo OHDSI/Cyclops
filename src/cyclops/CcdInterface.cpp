@@ -155,13 +155,13 @@ void CcdInterface::setDefaultArguments(void) {
 	arguments.hyperprior = 1.0;
 	arguments.tolerance = 1E-6; //5E-4;
 	arguments.seed = -99;
-	arguments.doCrossValidation = false;
-	arguments.useAutoSearchCV = false;
-	arguments.lowerLimit = 0.01;
-	arguments.upperLimit = 20.0;
-	arguments.fold = 10;
-	arguments.gridSteps = 10;
-	arguments.cvFileName = "cv.txt";
+// 	arguments.doCrossValidation = false;
+// 	arguments.useAutoSearchCV = false;
+// 	arguments.lowerLimit = 0.01;
+// 	arguments.upperLimit = 20.0;
+// 	arguments.fold = 10;
+// 	arguments.gridSteps = 10;
+// 	arguments.cvFileName = "cv.txt";
 	arguments.useHierarchy = false;
 	arguments.doBootstrap = false;
 	arguments.replicates = 100;
@@ -451,22 +451,21 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData 
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	CrossValidationSelector selector(arguments.fold, modelData->getPidVectorSTL(),
+	CrossValidationSelector selector(arguments.crossValidation.fold, modelData->getPidVectorSTL(),
 			SUBJECT, arguments.seed, logger, error);
 			
 	AbstractCrossValidationDriver* driver;
-	if (arguments.useAutoSearchCV) {
+	if (arguments.crossValidation.useAutoSearchCV) {
 		if (arguments.useHierarchy) {
-			driver = new HierarchyAutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, 
-			    arguments.upperLimit, logger, error);
+			driver = new HierarchyAutoSearchCrossValidationDriver(*modelData, arguments, logger, error);
 		} else {
-			driver = new AutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit, logger, error);
+			driver = new AutoSearchCrossValidationDriver(*modelData, arguments, logger, error);
 		}
 	} else {
 		if (arguments.useHierarchy) {
-			driver = new HierarchyGridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit, logger, error);
+			driver = new HierarchyGridSearchCrossValidationDriver(arguments, logger, error);
 		} else {
-			driver = new GridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit, logger, error);
+			driver = new GridSearchCrossValidationDriver(arguments, logger, error);
 		}
 	}
 
@@ -476,7 +475,7 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData 
 
 	driver->logResults(arguments);
 
-	if (arguments.doFitAtOptimal) {
+	if (arguments.crossValidation.doFitAtOptimal) {
 	    if (arguments.noiseLevel > SILENT) {
 	        std::ostringstream stream;
 	        stream << "Fitting model at optimal hyperparameter";

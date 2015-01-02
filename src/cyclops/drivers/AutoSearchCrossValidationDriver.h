@@ -16,9 +16,7 @@ class AutoSearchCrossValidationDriver : public AbstractCrossValidationDriver {
 public:
 	AutoSearchCrossValidationDriver(
 			const ModelData& modelData,
-			int iGridSize,
-			double iLowerLimit,
-			double iUpperLimit,
+			const CCDArguments& arguments,
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error,
 			std::vector<real>* wtsExclude = NULL);
