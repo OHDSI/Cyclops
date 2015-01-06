@@ -63,15 +63,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsSetBeta
-void cyclopsSetBeta(SEXP inRcppCcdInterface, int beta, double value);
-RcppExport SEXP Cyclops_cyclopsSetBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP, SEXP valueSEXP) {
+void cyclopsSetBeta(SEXP inRcppCcdInterface, const std::vector<double>& beta);
+RcppExport SEXP Cyclops_cyclopsSetBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
-        Rcpp::traits::input_parameter< int >::type beta(betaSEXP );
-        Rcpp::traits::input_parameter< double >::type value(valueSEXP );
-        cyclopsSetBeta(inRcppCcdInterface, beta, value);
+        Rcpp::traits::input_parameter< const std::vector<double>& >::type beta(betaSEXP );
+        cyclopsSetBeta(inRcppCcdInterface, beta);
     }
     return R_NilValue;
 END_RCPP

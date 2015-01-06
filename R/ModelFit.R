@@ -12,6 +12,7 @@
 #' @param weights Vector of 0/1 weights for each data row             
 #' @param forceNewObject Logical, forces the construction of a new Cyclops model fit object
 #' @param returnEstimates Logical, return regression coefficient estimates in Cyclops model fit object 
+#' @param startingCoefficients Vector of starting values for optimization
 #' 
 #' @return
 #' A list that contains a Cyclops model fit object pointer and an operation duration
@@ -45,7 +46,8 @@ fitCyclopsModel <- function(cyclopsData,
                         control,      
                         weights = NULL,                  
                         forceNewObject = FALSE,
-                        returnEstimates = TRUE) {
+                        returnEstimates = TRUE,
+                        startingCoefficients = NULL) {
 		
 	cl <- match.call()
 	
@@ -102,6 +104,19 @@ fitCyclopsModel <- function(cyclopsData,
 	
     if (!missing(control)) {
         .setControl(cyclopsData$cyclopsInterfacePtr, control)
+    }
+    
+    if (!missing(startingCoefficients)) {
+        
+        if (length(startingCoefficients) != getNumberOfCovariates(cyclopsData)) {
+            stop("Must provide a value for each coefficient")
+        }
+        
+        if (.cyclopsGetHasOffset(cyclopsData)) {
+            startingCoefficients <- c(1.0, startingCoefficients)
+        }
+        
+        .cyclopsSetBeta(cyclopsData$cyclopsInterfacePtr, startingCoefficients)                 
     }
     
     if (!is.null(weights)) {
@@ -410,6 +425,20 @@ predict.cyclopsFit <- function(object, ...) {
  	}
  	values
 }
+
+# .cyclopsSetCoefficients <- function(object, coefficients) {
+#     .checkInterface(object, testOnly = TRUE)
+#     
+#     if (length(coefficients) != getNumberOfCovariates(object$cyclopsData)) {
+#         stop("Must provide a value for each coefficient")
+#     }
+#     
+#     if (.cyclopsGetHasOffset(object$cyclopsData)) {
+#         coefficients <- c(1.0, coefficients)
+#     }
+#        
+#     .cyclopsSetBeta(object$cyclopsInterfacePtr, coefficients)         
+# }
 
 getCyclopsPredictiveLogLikelihood <- function(object, weights) {
     .checkInterface(object, testOnly = TRUE)

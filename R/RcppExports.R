@@ -17,8 +17,8 @@
     .Call('Cyclops_cyclopsGetUseOffsetNames', PACKAGE = 'Cyclops')
 }
 
-.cyclopsSetBeta <- function(inRcppCcdInterface, beta, value) {
-    invisible(.Call('Cyclops_cyclopsSetBeta', PACKAGE = 'Cyclops', inRcppCcdInterface, beta, value))
+.cyclopsSetBeta <- function(inRcppCcdInterface, beta) {
+    invisible(.Call('Cyclops_cyclopsSetBeta', PACKAGE = 'Cyclops', inRcppCcdInterface, beta))
 }
 
 .cyclopsSetFixedBeta <- function(inRcppCcdInterface, beta, fixed) {

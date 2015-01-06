@@ -26,7 +26,10 @@ test_that("Check offset in model formula", {
                                    data = Insurance,
                                    modelType = "pr")   
 
-    cyclopsFit2 <- fitCyclopsModel(dataPtr2, prior = createPrior("none"))
+    cyclopsFit2 <- fitCyclopsModel(dataPtr2, 
+                                   startingCoefficients = rep(0.5,10),
+                                   prior = createPrior("none"))
+      
     expect_equal(coef(cyclopsFit2), coef(glmFit), tolerance = tolerance)
     
     # Need to test now using finalize to (1) add intercept and (2) log-transform        

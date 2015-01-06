@@ -93,11 +93,10 @@ std::vector<std::string> cyclopsGetUseOffsetNames() {
 }
 
 // [[Rcpp::export(.cyclopsSetBeta)]]
-void cyclopsSetBeta(SEXP inRcppCcdInterface, int beta, double value) {
+void cyclopsSetBeta(SEXP inRcppCcdInterface, const std::vector<double>& beta) {
     using namespace bsccs;
-    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);    
-    
-    interface->getCcd().setBeta(beta - 1, value);
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);        
+    interface->getCcd().setBeta(beta);
 }
 
 // [[Rcpp::export(.cyclopsSetFixedBeta)]]
