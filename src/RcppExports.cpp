@@ -106,6 +106,35 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
+// cyclopsSetWeights
+void cyclopsSetWeights(SEXP inRcppCcdInterface, NumericVector& weights);
+RcppExport SEXP Cyclops_cyclopsSetWeights(SEXP inRcppCcdInterfaceSEXP, SEXP weightsSEXP) {
+BEGIN_RCPP
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
+        Rcpp::traits::input_parameter< NumericVector& >::type weights(weightsSEXP );
+        cyclopsSetWeights(inRcppCcdInterface, weights);
+    }
+    return R_NilValue;
+END_RCPP
+}
+// cyclopsGetPredictiveLogLikelihood
+double cyclopsGetPredictiveLogLikelihood(SEXP inRcppCcdInterface, NumericVector& weights);
+RcppExport SEXP Cyclops_cyclopsGetPredictiveLogLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP weightsSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
+        Rcpp::traits::input_parameter< NumericVector& >::type weights(weightsSEXP );
+        double __result = cyclopsGetPredictiveLogLikelihood(inRcppCcdInterface, weights);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
 // cyclopsGetLogLikelihood
 double cyclopsGetLogLikelihood(SEXP inRcppCcdInterface);
 RcppExport SEXP Cyclops_cyclopsGetLogLikelihood(SEXP inRcppCcdInterfaceSEXP) {

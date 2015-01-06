@@ -28,8 +28,9 @@ enum class ModelType; // forward declaration
 	typedef float real;
 #endif
 
-//#define DEBUG_COX // Uncomment to get output for Cox model
-//#define DEBUG_POISSON
+// #define DEBUG_COX // Uncomment to get output for Cox model
+// #define DEBUG_COX_MIN
+// #define DEBUG_POISSON
 
 class AbstractModelSpecifics {
 public:
@@ -97,6 +98,8 @@ public:
 protected:
 
 	int getAlignedLength(int N);
+	
+	void setPidForAccumulation(real *weights);
 
 	virtual bool allocateXjY(void) = 0; // pure virtual
 
@@ -141,9 +144,11 @@ protected:
 // 	real* hY; // K-vector
 //	real* hZ; // K-vector
 // 	real* hOffs;  // K-vector
+		
+	const std::vector<int>& hPidOriginal;
+	int* hPid;	
+	std::vector<int> hPidInternal;
 	
-	
-	int* hPid; // K-vector
 //	int** hXColumnRowIndicators; // J-vector
 
 //	real* hBeta;

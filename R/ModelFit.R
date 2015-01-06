@@ -8,7 +8,8 @@
 #'
 #' @param cyclopsData			An OHDSI data object
 #' @template prior
-#' @param control OHDSI control object, see \code{"\link{control}"}                        
+#' @param control OHDSI control object, see \code{"\link{control}"}             
+#' @param weights Vector of 0/1 weights for each data row             
 #' @param forceNewObject Logical, forces the construction of a new Cyclops model fit object
 #' @param returnEstimates Logical, return regression coefficient estimates in Cyclops model fit object 
 #' 
@@ -41,7 +42,8 @@
 #'
 fitCyclopsModel <- function(cyclopsData, 
                         prior,
-                        control,                        
+                        control,      
+                        weights = NULL,                  
                         forceNewObject = FALSE,
                         returnEstimates = TRUE) {
 		
@@ -101,6 +103,24 @@ fitCyclopsModel <- function(cyclopsData,
     if (!missing(control)) {
         .setControl(cyclopsData$cyclopsInterfacePtr, control)
     }
+    
+    if (!is.null(weights)) {
+        if (!missing(prior) && prior$useCrossValidation) {
+            stop("Can not set data weights and use cross-validation simultaneously")
+        }
+        if (length(weights) != getNumberOfRows(cyclopsData)) {
+            stop("Must provide a weight for each data row")
+        }
+        if (!all(weights %in% c(0,1))) {
+            stop("Only 0/1 weights are currently supported")
+        }
+        
+        if(!is.null(cyclopsData$sortOrder)) {
+            weights <- weights[cyclopsData$sortOrder]
+        }
+        
+        .cyclopsSetWeights(cyclopsData$cyclopsInterfacePtr, weights)
+    }    
  	
 	if (!missing(prior) && prior$useCrossValidation) {
 		if (missing(control)) {
@@ -389,6 +409,24 @@ predict.cyclopsFit <- function(object, ...) {
  		names(values) <- object$rowNames
  	}
  	values
+}
+
+getCyclopsPredictiveLogLikelihood <- function(object, weights) {
+    .checkInterface(object, testOnly = TRUE)
+    
+    if (length(weights) != getNumberOfRows(object$cyclopsData)) {
+        stop("Must provide a weight for each data row")
+    }
+    if (!all(weights %in% c(0,1))) {
+        stop("Only 0/1 weights are currently supported")
+    }   
+    
+    if(!is.null(object$cyclopsData$sortOrder)) {
+        weights <- weights[object$cyclopsData$sortOrder]
+    }   
+    # TODO Remove code duplication with weights section of fitCyclopsModel
+   
+    .cyclopsGetPredictiveLogLikelihood(object$cyclopsInterfacePtr, weights)
 }
 
 .setControl <- function(cyclopsInterfacePtr, control) {

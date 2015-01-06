@@ -29,6 +29,14 @@
     .Call('Cyclops_cyclopsGetIsRegularized', PACKAGE = 'Cyclops', inRcppCcdInterface, index)
 }
 
+.cyclopsSetWeights <- function(inRcppCcdInterface, weights) {
+    invisible(.Call('Cyclops_cyclopsSetWeights', PACKAGE = 'Cyclops', inRcppCcdInterface, weights))
+}
+
+.cyclopsGetPredictiveLogLikelihood <- function(inRcppCcdInterface, weights) {
+    .Call('Cyclops_cyclopsGetPredictiveLogLikelihood', PACKAGE = 'Cyclops', inRcppCcdInterface, weights)
+}
+
 .cyclopsGetLogLikelihood <- function(inRcppCcdInterface) {
     .Call('Cyclops_cyclopsGetLogLikelihood', PACKAGE = 'Cyclops', inRcppCcdInterface)
 }

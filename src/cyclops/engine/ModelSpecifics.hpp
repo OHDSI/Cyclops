@@ -43,7 +43,7 @@ namespace bsccs {
 	#endif
 #endif
     
-#ifdef DEBUG_COX
+#if defined(DEBUG_COX) || defined(DEBUG_COX_MIN)
     using std::cerr;
     using std::endl;
 #endif
@@ -134,14 +134,24 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useC
 		std::fill(hKWeight.begin(), hKWeight.end(), static_cast<WeightType>(1));
 	}
 	// Set N weights (these are the same for independent data models
-	if (hNWeight.size() != N) {
-		hNWeight.resize(N);
+	if (hNWeight.size() != N + 1) { // Add +1 for extra (zero-weight stratum)
+		hNWeight.resize(N + 1);
 	}
+	
+	if (useCrossValidation) {
+		setPidForAccumulation(inWeights);
+	}
+	
 	std::fill(hNWeight.begin(), hNWeight.end(), static_cast<WeightType>(0));
 	for (size_t k = 0; k < K; ++k) {
 		WeightType event = BaseModel::observationCount(hY[k])*hKWeight[k];
 		incrementByGroup(hNWeight.data(), hPid, k, event);
 	}
+	
+#ifdef DEBUG_COX	
+	cerr << "Done with set weights" << endl;
+#endif
+	
 }
 
 template<class BaseModel, typename WeightType>
@@ -292,9 +302,20 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 	real logLikelihood = static_cast<real>(0.0);
 
 	if(BaseModel::cumulativeGradientAndHessian)	{
-		for (size_t i = 0; i < N; ++i) {
-			logLikelihood += BaseModel::logPredLikeContrib(hY[i], weights[i], hXBeta[i], &accDenomPid[0], hPid, i); // TODO Going to crash with ties
+				
+		std::vector<int> savedPid = hPidInternal; // make copy
+		std::vector<int> saveAccReset = accReset; // make copy
+		setPidForAccumulation(weights);		
+		computeRemainingStatistics(true); // compute accDenomPid
+				
+		for (size_t k = 0; k < K; ++k) { // TODO Is index of K correct?
+			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], accDenomPid.data(), hPid, k);
 		}
+		
+		hPidInternal = savedPid; // make copy; TODO swap
+		accReset = saveAccReset; // make copy; TODO swap
+		computeRemainingStatistics(true);
+
 	} else { // TODO Unnecessary code duplication
 		for (size_t k = 0; k < K; ++k) { // TODO Is index of K correct?
 			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], denomPid, hPid, k);
@@ -430,8 +451,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			} 			    
 						
 			if(w.isWeighted){ //if useCrossValidation
-				accNumerPid  += numerPid[i] * hNWeight[i]; // TODO Only works when X-rows are sorted as well
-				accNumerPid2 += numerPid2[i] * hNWeight[i];
+				accNumerPid  += numerPid[i]; // * hNWeight[i]; // TODO Only works when X-rows are sorted as well
+				accNumerPid2 += numerPid2[i]; // * hNWeight[i];
 			} else { // TODO Unnecessary code duplication
 				accNumerPid  += numerPid[i]; // TODO Only works when X-rows are sorted as well
 				accNumerPid2 += numerPid2[i];
@@ -795,7 +816,9 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 #ifdef DEBUG_COX			
 //			if (numerPid[BaseModel::getGroup(hPid, k)] > 0 && numerPid[BaseModel::getGroup(hPid, k)] < 1e-40) {
 				cerr << "Increment" << endl;
-				cerr << "hPid = " << hPid << ", k = " << k << ", index = " << BaseModel::getGroup(hPid, k) << endl;
+				cerr << "hPid = " 
+				//<< hPid << 
+				", k = " << k << ", index = " << BaseModel::getGroup(hPid, k) << endl;
 				cerr << BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]) <<  " "
 				<< it.value() << " " << offsExpXBeta[k] << " " << hXBeta[k] << " " << hY[k] << endl;
 //				exit(-1);
@@ -935,74 +958,31 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 				accNumerPid2.resize(N, static_cast<real>(0));
 			}
 
-			// prefix-scan
-			if(useWeights) { 
-				//accumulating separately over train and validation sets
-				real totalDenomTrain = static_cast<real>(0);
-				real totalNumerTrain = static_cast<real>(0);
-				real totalNumer2Train = static_cast<real>(0);
-				real totalDenomValid = static_cast<real>(0);
-				real totalNumerValid = static_cast<real>(0);
-				real totalNumer2Valid = static_cast<real>(0);
-				
-// TODO CHECK   
-                auto reset = begin(accReset);
-				
-				for (size_t i = 0; i < N; ++i) {
+			// prefix-scan			
+			real totalDenom = static_cast<real>(0);
+			real totalNumer = static_cast<real>(0);
+			real totalNumer2 = static_cast<real>(0);
+			
+			auto reset = begin(accReset);
+			
+			for (size_t i = 0; i < N; ++i) {
 // TODO CHECK				
-                    if (static_cast<unsigned int>(*reset) == i) { // TODO Check with sparse
-			            totalDenomTrain = static_cast<real>(0);
-				        totalNumerTrain = static_cast<real>(0);
-				        totalNumer2Train = static_cast<real>(0);
-				        totalDenomValid = static_cast<real>(0);
-				        totalNumerValid = static_cast<real>(0);
-				        totalNumer2Valid = static_cast<real>(0);				        
-				        ++reset;
- 				    }
- 				    
-					if(hKWeight[i] == 1.0){
-						totalDenomTrain += denomPid[i];
-						totalNumerTrain += numerPid[i];
-						totalNumer2Train += numerPid2[i];
-						accDenomPid[i] = totalDenomTrain;
-						accNumerPid[i] = totalNumerTrain;
-						accNumerPid2[i] = totalNumer2Train;
-					} else {
-						totalDenomValid += denomPid[i];
-						totalNumerValid += numerPid[i];
-						totalNumer2Valid += numerPid2[i];
-						accDenomPid[i] = totalDenomValid;
-						accNumerPid[i] = totalNumerValid;
-						accNumerPid2[i] = totalNumer2Valid;
-					}
+				if (static_cast<unsigned int>(*reset) == i) { // TODO Check with SPARSE
+					totalDenom = static_cast<real>(0);
+					totalNumer = static_cast<real>(0);
+					totalNumer2 = static_cast<real>(0);				    
+					++reset;				    
 				}
-			} else {
-				real totalDenom = static_cast<real>(0);
-				real totalNumer = static_cast<real>(0);
-				real totalNumer2 = static_cast<real>(0);
 				
-				auto reset = begin(accReset);
-				
-				for (size_t i = 0; i < N; ++i) {
-// TODO CHECK				
-                    if (static_cast<unsigned int>(*reset) == i) { // TODO Check with SPARSE
-				        totalDenom = static_cast<real>(0);
-				        totalNumer = static_cast<real>(0);
-				        totalNumer2 = static_cast<real>(0);				    
-                        ++reset;				    
-				    }
-				    
-					totalDenom += denomPid[i];
-					totalNumer += numerPid[i];
-					totalNumer2 += numerPid2[i];
-					accDenomPid[i] = totalDenom;
-					accNumerPid[i] = totalNumer;
-					accNumerPid2[i] = totalNumer2;
-#ifdef DEBUG_COX
-					cerr << denomPid[i] << " " << accDenomPid[i] << " (beta)" << endl;
+				totalDenom += denomPid[i];
+				totalNumer += numerPid[i];
+				totalNumer2 += numerPid2[i];
+				accDenomPid[i] = totalDenom;
+				accNumerPid[i] = totalNumer;
+				accNumerPid2[i] = totalNumer2;
+#if defined(DEBUG_COX) || defined(DEBUG_COX_MIN)
+				cerr << denomPid[i] << " " << accDenomPid[i] << " (beta)" << endl;
 #endif
-				}
-
 			}
 	}
 }

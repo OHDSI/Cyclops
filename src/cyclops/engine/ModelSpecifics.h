@@ -728,7 +728,8 @@ public:
 
 	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
 			int* groups, int i) {
-		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)])); // TODO Wrong
+		return weighti == 0.0 ? 0.0 :
+		    ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
 	void predictEstimate(real& yi, real xBeta){
@@ -788,7 +789,8 @@ public:
 
 	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
 			int* groups, int i) {
-		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)])); // TODO Wrong
+		return weighti == 0.0 ? 0.0 :
+		    ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
 	void predictEstimate(real& yi, real xBeta){

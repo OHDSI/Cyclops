@@ -115,6 +115,24 @@ bool cyclopsGetIsRegularized(SEXP inRcppCcdInterface, const int index) {
     return interface->getCcd().getIsRegularized(index);
 }
 
+// [[Rcpp::export(".cyclopsSetWeights")]]
+void cyclopsSetWeights(SEXP inRcppCcdInterface,
+    NumericVector& weights) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    
+    interface->getCcd().setWeights(&weights[0]);    
+}
+
+// [[Rcpp::export(".cyclopsGetPredictiveLogLikelihood")]]
+double cyclopsGetPredictiveLogLikelihood(SEXP inRcppCcdInterface, 
+    NumericVector& weights) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    
+    return interface->getCcd().getPredictiveLogLikelihood(&weights[0]);
+}
+
 // [[Rcpp::export(".cyclopsGetLogLikelihood")]]
 double cyclopsGetLogLikelihood(SEXP inRcppCcdInterface) {
 	using namespace bsccs;

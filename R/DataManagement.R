@@ -86,6 +86,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
     colnames <- NULL
     
     contrasts <- NULL
+    sortOrder <- NULL
     
     if (!missing(formula)) { # Use formula to construct Cyclops matrices
         if (missing(data)) {
@@ -126,7 +127,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
         special <- attr(specialTerms, "special")
         hasStrata <- !is.null(special$strata)
         strata <- NULL
-        sortOrder <- NULL
+ 
         if (hasStrata) {
             pid <- as.numeric(strata(mf.d[ , special$strata], shortlabel = TRUE))
             nterm <- untangle.specials(specialTerms, "strata")$terms
@@ -327,6 +328,8 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
     } else {
         result$rowNames <- c(1:length(y))
     }
+
+    result$sortOrder <- sortOrder
      
     if (identical(method, "debug")) {
         result$debug <- list()
