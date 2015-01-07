@@ -545,15 +545,6 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	}
 }
 
-
-// using ScoreTuple = std::tuple<
-// 		int, // index
-// 		double, // score
-// 		bool // conditions satisfied
-// 	>;
-
-using ScoreTuple = std::tuple<int, double>;
-
 template <typename Iterator>
 void CyclicCoordinateDescent::findMode(Iterator begin, Iterator end,
 		const int maxIterations, const int convergenceType, const double epsilon) {

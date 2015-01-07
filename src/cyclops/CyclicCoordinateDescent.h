@@ -40,9 +40,9 @@ using std::string;
 #define SPARSE_PRODUCT
 
 #define USE_ITER
-
-
 //#define NO_FUSE
+
+using ScoreTuple = std::tuple<int, double>;
 
 class CyclicCoordinateDescent {
 	
