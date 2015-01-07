@@ -254,15 +254,17 @@ List cyclopsPredictModel(SEXP inRcppCcdInterface) {
 void cyclopsSetControl(SEXP inRcppCcdInterface, 
 		int maxIterations, double tolerance, const std::string& convergenceType,
 		bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps,
-		const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance
+		const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance,
+        bool useKKTSwindle
 		) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 	// Convergence control
 	CCDArguments& args = interface->getArguments();
-	interface->getArguments().maxIterations = maxIterations;
-	interface->getArguments().tolerance = tolerance;
-	interface->getArguments().convergenceType = RcppCcdInterface::parseConvergenceType(convergenceType);
+	args.modeFinding.maxIterations = maxIterations;
+	args.modeFinding.tolerance = tolerance;
+	args.modeFinding.convergenceType = RcppCcdInterface::parseConvergenceType(convergenceType);
+    args.modeFinding.useKktSwindle = useKKTSwindle;
 	
 	// Cross validation control
 	args.crossValidation.useAutoSearchCV = useAutoSearch;

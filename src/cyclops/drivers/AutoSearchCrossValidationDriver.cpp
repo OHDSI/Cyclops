@@ -153,7 +153,7 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 				
 				if (coldStart) ccdTask->resetBeta();
 
-				ccdTask->update(allArguments.maxIterations, allArguments.convergenceType, allArguments.tolerance);
+				ccdTask->update(allArguments.modeFinding);
 				
 				// Compute predictive loglikelihood for this fold
 				selectorTask->getComplement(weights);  // TODO THREAD_SAFE

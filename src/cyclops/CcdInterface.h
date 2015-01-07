@@ -31,7 +31,7 @@ namespace bsccs {
     
 struct CrossValidationArguments {
 
-    // All options related to cross-validation should (TODO) go here
+    // All options related to cross-validation go here
 	bool doCrossValidation;
 	bool useAutoSearchCV;
 	double lowerLimit;
@@ -57,6 +57,23 @@ struct CrossValidationArguments {
         { }
 };
 
+struct ModeFindingArguments {
+	
+	// All options related to mode-finding should (TODO) go here
+	double tolerance;
+	int maxIterations;
+    std::string convergenceTypeString;
+	int convergenceType;
+	bool useKktSwindle;
+	
+	ModeFindingArguments() :
+		tolerance(1E-6),
+		maxIterations(1000),
+		convergenceTypeString("gradient"),
+		convergenceType(GRADIENT),
+		useKktSwindle(false) { }
+};
+
 struct CCDArguments {
 
 	// Needed for fitting
@@ -68,28 +85,17 @@ struct CCDArguments {
 	bool useGPU;
 	bool useBetterGPU;
 	int deviceNumber;
-	double tolerance;
+// 	double tolerance;
 	double hyperprior;
 	bool computeMLE;
 	bool fitMLEAtMode;
 	bool reportASE;
 	bool useNormalPrior;
 	bool hyperPriorSet;
-	int maxIterations;
-	std::string convergenceTypeString;
-	int convergenceType;
+// 	int maxIterations;
+// 	std::string convergenceTypeString;
+// 	int convergenceType;
 	long seed;
-
-	// Needed for cross-validation
-// 	bool doCrossValidation;
-// 	bool useAutoSearchCV;
-// 	double lowerLimit;
-// 	double upperLimit;
-// 	int fold;
-// 	int foldToCompute;
-// 	int gridSteps;
-// 	std::string cvFileName;
-// 	bool doFitAtOptimal;
 
 	//Needed for Hierarchy
 	bool useHierarchy;
@@ -114,7 +120,8 @@ struct CCDArguments {
 	
 	int threads;
 	bool resetCoefficients;	
-	
+		
+	ModeFindingArguments modeFinding;
 	CrossValidationArguments crossValidation;
 };
 

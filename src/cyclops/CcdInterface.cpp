@@ -147,13 +147,13 @@ double CcdInterface::calculateSeconds(const timeval &time1, const timeval &time2
 
 void CcdInterface::setDefaultArguments(void) {
 	arguments.useGPU = false;
-	arguments.maxIterations = 1000;
+// 	arguments.maxIterations = 1000;
 	arguments.inFileName = "default_in";
 	arguments.outFileName = "default_out";
 	arguments.outDirectoryName = "";
 	arguments.hyperPriorSet = false;
 	arguments.hyperprior = 1.0;
-	arguments.tolerance = 1E-6; //5E-4;
+// 	arguments.tolerance = 1E-6; //5E-4;
 	arguments.seed = -99;
 // 	arguments.doCrossValidation = false;
 // 	arguments.useAutoSearchCV = false;
@@ -173,8 +173,8 @@ void CcdInterface::setDefaultArguments(void) {
 	arguments.fitMLEAtMode = false;
 	arguments.reportASE = false;
 	arguments.useNormalPrior = false;
-	arguments.convergenceType = GRADIENT;
-	arguments.convergenceTypeString = "gradient";
+// 	arguments.convergenceType = GRADIENT;
+// 	arguments.convergenceTypeString = "gradient";
 	arguments.doPartial = false;
 	arguments.noiseLevel = NOISY;
 	arguments.threads = -1;
@@ -235,7 +235,7 @@ struct OptimizationProfile {
 		++nEvals;
 		ccd.setBeta(index, x);
 		ccd.setFixedBeta(index, true);
-		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+		ccd.update(arguments.modeFinding);
 		ccd.setFixedBeta(index, false);
 		double y = ccd.getLogLikelihood() + threshold - max;
 		if (includePenalty) {
@@ -405,7 +405,7 @@ double CcdInterface::fitModel(CyclicCoordinateDescent *ccd) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	ccd->update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+	ccd->update(arguments.modeFinding);
 
 	gettimeofday(&time2, NULL);
 

@@ -76,7 +76,7 @@ void CmdLineCcdInterface::parseCommandLine(std::vector<std::string>& args) {
 		CmdLine cmd("Cyclic coordinate descent algorithm for self-controlled case studies", ' ', "0.1");
 		ValueArg<int> gpuArg("g","GPU","Use GPU device", arguments.useGPU, -1, "device #");
 //		SwitchArg betterGPUArg("1","better", "Use better GPU implementation", false);
-		ValueArg<int> maxIterationsArg("", "maxIterations", "Maximum iterations", false, arguments.maxIterations, "int");
+		ValueArg<int> maxIterationsArg("", "maxIterations", "Maximum iterations", false, arguments.modeFinding.maxIterations, "int");
 		UnlabeledValueArg<string> inFileArg("inFileName","Input file name", true, arguments.inFileName, "inFileName");
 		UnlabeledValueArg<string> outFileArg("outFileName","Output file name", true, arguments.outFileName, "outFileName");
 		ValueArg<string> outDirectoryNameArg("", "outDirectoryName", "Output directory name", false, arguments.outDirectoryName, "outDirectoryName");
@@ -96,7 +96,7 @@ void CmdLineCcdInterface::parseCommandLine(std::vector<std::string>& args) {
 
 
 		// Convergence criterion arguments
-		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, arguments.tolerance, "real");
+		ValueArg<double> toleranceArg("t", "tolerance", "Convergence criterion tolerance", false, arguments.modeFinding.tolerance, "real");
 //		SwitchArg zhangOlesConvergenceArg("z", "zhangOles", "Use Zhange-Oles convergence criterion, default is true", true);
 		std::vector<std::string> allowedConvergence;
 		allowedConvergence.push_back("gradient");
@@ -104,7 +104,7 @@ void CmdLineCcdInterface::parseCommandLine(std::vector<std::string>& args) {
 		allowedConvergence.push_back("Lange");
 		allowedConvergence.push_back("Mittal");
 		ValuesConstraint<std::string> allowedConvergenceValues(allowedConvergence);
-		ValueArg<string> convergenceArg("", "convergence", "Convergence criterion", false, arguments.convergenceTypeString, &allowedConvergenceValues);
+		ValueArg<string> convergenceArg("", "convergence", "Convergence criterion", false, arguments.modeFinding.convergenceTypeString, &allowedConvergenceValues);
 
 		ValueArg<long> seedArg("s", "seed", "Random number generator seed", false, arguments.seed, "long");
 
@@ -223,8 +223,8 @@ void CmdLineCcdInterface::parseCommandLine(std::vector<std::string>& args) {
 		arguments.inFileName = inFileArg.getValue();
 		arguments.outFileName = outFileArg.getValue();
 		arguments.outDirectoryName = outDirectoryNameArg.getValue();
-		arguments.tolerance = toleranceArg.getValue();
-		arguments.maxIterations = maxIterationsArg.getValue();
+		arguments.modeFinding.tolerance = toleranceArg.getValue();
+		arguments.modeFinding.maxIterations = maxIterationsArg.getValue();
 		arguments.hyperprior = hyperPriorArg.getValue();
 		arguments.useNormalPrior = normalPriorArg.getValue();
 		arguments.computeMLE = computeMLEArg.getValue();
@@ -252,7 +252,7 @@ void CmdLineCcdInterface::parseCommandLine(std::vector<std::string>& args) {
 		    arguments.flatPrior.push_back(flatPriorArg.getValue()[i]);
 		}		
 
-		arguments.convergenceTypeString = convergenceArg.getValue();
+		arguments.modeFinding.convergenceTypeString = convergenceArg.getValue();
 
 		if (hyperPriorArg.isSet()) {
 			arguments.hyperPriorSet = true;
@@ -265,16 +265,16 @@ void CmdLineCcdInterface::parseCommandLine(std::vector<std::string>& args) {
 //		} else {
 //			arguments.convergenceType = LANGE;
 //		}
-		if (arguments.convergenceTypeString == "ZhangOles") {
-			arguments.convergenceType = ZHANG_OLES;
-		} else if (arguments.convergenceTypeString == "Lange") {
-			arguments.convergenceType = LANGE;
-		} else if (arguments.convergenceTypeString == "Mittal") {
-			arguments.convergenceType = MITTAL;
-		} else if (arguments.convergenceTypeString == "gradient") {
-			arguments.convergenceType = GRADIENT;
+		if (arguments.modeFinding.convergenceTypeString == "ZhangOles") {
+			arguments.modeFinding.convergenceType = ZHANG_OLES;
+		} else if (arguments.modeFinding.convergenceTypeString == "Lange") {
+			arguments.modeFinding.convergenceType = LANGE;
+		} else if (arguments.modeFinding.convergenceTypeString == "Mittal") {
+			arguments.modeFinding.convergenceType = MITTAL;
+		} else if (arguments.modeFinding.convergenceTypeString == "gradient") {
+			arguments.modeFinding.convergenceType = GRADIENT;
 		} else {
-			cerr << "Unknown convergence type: " << convergenceArg.getValue() << " " << arguments.convergenceTypeString << endl;
+			cerr << "Unknown convergence type: " << convergenceArg.getValue() << " " << arguments.modeFinding.convergenceTypeString << endl;
 			exit(-1);
 		}
 

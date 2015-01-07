@@ -8,6 +8,7 @@
 #ifndef CYCLICCOORDINATEDESCENT_H_
 #define CYCLICCOORDINATEDESCENT_H_
 
+#include "CcdInterface.h"
 #include "CompressedDataMatrix.h"
 #include "ModelData.h"
 #include "engine/AbstractModelSpecifics.h"
@@ -113,7 +114,7 @@ public:
 
 //	void setZeroBetaFixed(void);
 		
-	void update(int maxIterations, int convergenceType, double epsilon);
+	void update(const ModeFindingArguments& arguments);
 
 	virtual void resetBeta(void);
 
@@ -196,6 +197,10 @@ protected:
 	void computeFixedTermsInGradientAndHessian(void);
 
 //	void computeXjY(void);
+
+	void findMode(int maxIterations, int convergenceType, double epsilon);
+	
+	void kktSwindle(int maxIterations, int convergenceType, double epsilon);
 
 	void computeSufficientStatistics(void);
 

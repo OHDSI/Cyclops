@@ -99,7 +99,7 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 				selector.getWeights(fold, weights);
 				ccd.setWeights(&weights[0]);
 
-				ccd.update(allArguments.maxIterations, allArguments.convergenceType, allArguments.tolerance);
+				ccd.update(allArguments.modeFinding);
 				// Compute predictive loglikelihood for this fold
 				selector.getComplement(weights);
 				double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);

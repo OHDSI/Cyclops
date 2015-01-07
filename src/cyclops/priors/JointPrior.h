@@ -35,6 +35,10 @@ public:
 	
 	virtual bool getIsRegularized(const int index) const = 0; // pure virtual
 	
+	virtual bool getSupportsKktSwindle(const int index) const = 0; // pure virtual
+	
+	virtual bool getSupportsKktSwindle(void) const = 0; // pure virtual
+	
  	virtual JointPrior* clone() const = 0; // pure virtual
 };
 
@@ -91,6 +95,20 @@ public:
 
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
 		return listPriors[index]->getDelta(gh, beta[index]);
+	}
+	
+	bool getSupportsKktSwindle(const int index) const {
+		return listPriors[index]->getSupportsKktSwindle();
+	}
+	
+	bool getSupportsKktSwindle(void) const {
+		// Return true if *any* prior supports swindle
+		for (auto&prior : uniquePriors) {
+			if (prior->getSupportsKktSwindle()) {
+				return true;
+			}
+		}
+		return false;	
 	}
 	
 	JointPrior* clone() const {
@@ -208,6 +226,14 @@ public:
 	bool getIsRegularized(const int index) const {
 	    return true;
 	}
+	
+	bool getSupportsKktSwindle(const int index) const {
+		return false; // TODO fix
+	}	
+	
+	bool getSupportsKktSwindle(void) const {		
+		return false; // TODO fix	
+	}	
 
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
 		double t1 = 1/hierarchyPriors[0]->getVariance(); // this is the hyperparameter that is used in the original code
@@ -288,6 +314,14 @@ public:
 		return singlePrior->getDescription();
 	}
 	
+	bool getSupportsKktSwindle(const int index) const {
+		return singlePrior->getSupportsKktSwindle();
+	}
+	
+	bool getSupportsKktSwindle(void) const {
+		return singlePrior->getSupportsKktSwindle();
+	}	
+		
 	JointPrior* clone() const {
 		return new FullyExchangeableJointPrior(PriorPtr(singlePrior->clone()));
 	}		

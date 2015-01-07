@@ -531,7 +531,27 @@ void CyclicCoordinateDescent::saveXBeta(void) {
 	memcpy(hXBetaSave.data(), hXBeta.data(), K * sizeof(real));
 }
 
-void CyclicCoordinateDescent::update(
+void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
+	
+	const auto maxIterations = arguments.maxIterations;
+	const auto convergenceType = arguments.convergenceType;
+	const auto epsilon = arguments.tolerance;	
+		
+ 	if (arguments.useKktSwindle && jointPrior->getSupportsKktSwindle()) {
+		kktSwindle(maxIterations, convergenceType, epsilon);		
+	} else {
+		findMode(maxIterations, convergenceType, epsilon);
+	}
+}
+
+void CyclicCoordinateDescent::kktSwindle(int maxIterations, int convergenceType, 
+		double epsilon) {
+	// TODO
+	findMode(maxIterations, convergenceType, epsilon);		
+}
+
+
+void CyclicCoordinateDescent::findMode(
 		int maxIterations,
 		int convergenceType,
 		double epsilon

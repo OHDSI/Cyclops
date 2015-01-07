@@ -131,7 +131,7 @@ void GridSearchCrossValidationDriver::drive(
 			ccd.setWeights(&weights[0]);
 			std::ostringstream stream;
 			stream << "Running at " << ccd.getPriorInfo() << " ";
-			ccd.update(allArguments.maxIterations, allArguments.convergenceType, allArguments.tolerance);
+			ccd.update(allArguments.modeFinding);
 
 			// Compute predictive loglikelihood for this fold
 			selector.getComplement(weights);

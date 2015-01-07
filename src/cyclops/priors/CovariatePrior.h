@@ -55,6 +55,8 @@ public:
 	
 	virtual CovariatePrior* clone() const = 0; // pure virtual
 	
+	virtual bool getSupportsKktSwindle() const = 0; // pure virtual
+	
 	static PriorPtr makePrior(PriorType priorType);	    
 };
 
@@ -98,6 +100,10 @@ public:
 		return -(gh.first / gh.second); // No regularization
 	}
 	
+	bool getSupportsKktSwindle() const { 
+		return false; 
+	}
+	
 	CovariatePrior* clone() const {
 		return new NoPrior(*this);
 	}
@@ -137,7 +143,11 @@ public:
 	
 	bool getIsRegularized() const {
 	    return true;
-	}	
+	}
+	
+	bool getSupportsKktSwindle() const {
+		return true; 
+	}		
 
 	double getDelta(GradientHessian gh, double beta) const {
 
@@ -240,7 +250,11 @@ public:
 	bool getIsRegularized() const {
 	    return true;
 	}	
-
+	
+	bool getSupportsKktSwindle() const {
+		return false;
+	}
+	
 	double logDensity(double x) const {
 		return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
 	}

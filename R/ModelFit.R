@@ -316,6 +316,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param seed                  Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.
 #' @param resetCoefficients     Logical: Reset all coefficients to 0 between model fits under cross-validation
 #' @param startingVariance      Numeric: Starting variance for auto-search cross-validation; default = -1 (use estimate based on data)
+#' @param useKKTSwindle Logical: Use the Karush-Kuhn-Tucker conditions to limit search
 #' 
 #' @section Criteria:
 #' TODO
@@ -334,7 +335,8 @@ createControl <- function(
         threads = 1,
         seed = NULL,
         resetCoefficients = FALSE,
-        startingVariance = -1) {
+        startingVariance = -1,
+		useKKTSwindle = FALSE) {
 	
 	validCVNames = c("grid", "auto")
 	stopifnot(cvType %in% validCVNames)
@@ -351,7 +353,8 @@ createControl <- function(
                                  threads = threads,
                                  seed = seed,
 								 resetCoefficients = resetCoefficients,
-                                 startingVariance = startingVariance),
+                                 startingVariance = startingVariance,
+								 useKKTSwindle = useKKTSwindle),
 						class = "cyclopsControl")
 }
 
@@ -469,7 +472,7 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
 									 (control$fold * control$cvRepetitions),
 									 control$lowerLimit, control$upperLimit, control$gridSteps, 
                                      control$noiseLevel, control$threads, control$seed, control$resetCoefficients,
-                                     control$startingVariance)		
+                                     control$startingVariance, control$useKKTSwindle)		
 	}	
 }
 
