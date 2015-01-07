@@ -65,13 +65,15 @@ struct ModeFindingArguments {
     std::string convergenceTypeString;
 	int convergenceType;
 	bool useKktSwindle;
+	int swindleMultipler;
 	
 	ModeFindingArguments() :
 		tolerance(1E-6),
 		maxIterations(1000),
 		convergenceTypeString("gradient"),
 		convergenceType(GRADIENT),
-		useKktSwindle(false) { }
+		useKktSwindle(false),
+		swindleMultipler(10) { }
 };
 
 struct CCDArguments {

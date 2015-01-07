@@ -255,7 +255,7 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 		int maxIterations, double tolerance, const std::string& convergenceType,
 		bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps,
 		const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance,
-        bool useKKTSwindle
+        bool useKKTSwindle, int swindleMultipler
 		) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
@@ -265,6 +265,7 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 	args.modeFinding.tolerance = tolerance;
 	args.modeFinding.convergenceType = RcppCcdInterface::parseConvergenceType(convergenceType);
     args.modeFinding.useKktSwindle = useKKTSwindle;
+    args.modeFinding.swindleMultipler = swindleMultipler;
 	
 	// Cross validation control
 	args.crossValidation.useAutoSearchCV = useAutoSearch;

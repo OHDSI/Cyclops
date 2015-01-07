@@ -39,6 +39,8 @@ public:
 	
 	virtual bool getSupportsKktSwindle(void) const = 0; // pure virtual
 	
+	virtual double getKktBoundary(const int index) const = 0; // pure virtual
+	
  	virtual JointPrior* clone() const = 0; // pure virtual
 };
 
@@ -99,6 +101,10 @@ public:
 	
 	bool getSupportsKktSwindle(const int index) const {
 		return listPriors[index]->getSupportsKktSwindle();
+	}
+	
+	double getKktBoundary(const int index) const {
+		return listPriors[index]->getKktBoundary();
 	}
 	
 	bool getSupportsKktSwindle(void) const {
@@ -234,6 +240,10 @@ public:
 	bool getSupportsKktSwindle(void) const {		
 		return false; // TODO fix	
 	}	
+	
+	double getKktBoundary(const int index) const {
+		return 0.0; // TODO fix
+	}	
 
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
 		double t1 = 1/hierarchyPriors[0]->getVariance(); // this is the hyperparameter that is used in the original code
@@ -320,6 +330,10 @@ public:
 	
 	bool getSupportsKktSwindle(void) const {
 		return singlePrior->getSupportsKktSwindle();
+	}	
+	
+	double getKktBoundary(const int index) const {
+		return singlePrior->getKktBoundary();
 	}	
 		
 	JointPrior* clone() const {

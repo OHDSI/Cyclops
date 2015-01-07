@@ -199,8 +199,15 @@ protected:
 //	void computeXjY(void);
 
 	void findMode(int maxIterations, int convergenceType, double epsilon);
+		
+	template <typename Iterator>
+	void findMode(Iterator begin, Iterator end,
+		const int maxIterations, const int convergenceType, const double epsilon);
+		
+	template <typename Container>
+	void computeKktConditions(Container& set);
 	
-	void kktSwindle(int maxIterations, int convergenceType, double epsilon);
+	void kktSwindle(const ModeFindingArguments& arguments);
 
 	void computeSufficientStatistics(void);
 

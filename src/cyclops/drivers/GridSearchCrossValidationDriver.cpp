@@ -83,8 +83,6 @@ void GridSearchCrossValidationDriver::resetForOptimal(
 		CyclicCoordinateDescent& ccd,
 		CrossValidationSelector& selector,
 		const CCDArguments& allArguments) {
-
-    const auto& arguments = allArguments.crossValidation;
     
 	ccd.setWeights(NULL);
 

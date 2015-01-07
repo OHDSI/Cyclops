@@ -34,3 +34,21 @@ test_that("Check offset in model formula", {
     
     # Need to test now using finalize to (1) add intercept and (2) log-transform        
 })
+
+test_that("Check active set", {
+    
+    tolerance <- 1E-4
+    Insurance$logHolders <- log(Insurance$Holders)
+            
+    dataPtr2 <- createCyclopsData(Claims ~ District + Group + Age + offset(logHolders),
+                                  data = Insurance,
+                                  modelType = "pr")   
+    
+    out <- capture.output(cyclopsFit2 <- fitCyclopsModel(dataPtr2,          
+                                   control = createControl(useKKTSwindle = TRUE,
+                                                           noiseLevel = "quiet",
+                                                            tuneSwindle = 4),
+                                   prior = createPrior("laplace", exclude=c(1,3))))
+    
+    expect_equal(length(out), 4) # Should have 3 (+ prior line) swindle sets      
+})

@@ -14,6 +14,7 @@
 #include <map>
 #include <time.h>
 #include <set>
+#include <list>
 
 #include "CyclicCoordinateDescent.h"
 // #include "io/InputReader.h"
@@ -538,17 +539,153 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const auto epsilon = arguments.tolerance;	
 		
  	if (arguments.useKktSwindle && jointPrior->getSupportsKktSwindle()) {
-		kktSwindle(maxIterations, convergenceType, epsilon);		
+		kktSwindle(arguments);		
 	} else {
 		findMode(maxIterations, convergenceType, epsilon);
 	}
 }
 
-void CyclicCoordinateDescent::kktSwindle(int maxIterations, int convergenceType, 
-		double epsilon) {
-	// TODO
-	findMode(maxIterations, convergenceType, epsilon);		
+
+// using ScoreTuple = std::tuple<
+// 		int, // index
+// 		double, // score
+// 		bool // conditions satisfied
+// 	>;
+
+using ScoreTuple = std::tuple<int, double>;
+
+template <typename Iterator>
+void CyclicCoordinateDescent::findMode(Iterator begin, Iterator end,
+		const int maxIterations, const int convergenceType, const double epsilon) {
+		
+	std::fill(fixBeta.begin(), fixBeta.end(), true);
+ 	std::for_each(begin, end, [this] (int index) {
+ 		fixBeta[index] = false;
+ 	});
+	findMode(maxIterations, convergenceType, epsilon);
+    // fixBeta is no longer valid
 }
+
+void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) {
+
+	const auto maxIterations = arguments.maxIterations;
+	const auto convergenceType = arguments.convergenceType;
+	const auto epsilon = arguments.tolerance;
+	
+	// Make sure internal state is up-to-date	
+	checkAllLazyFlags();	
+	
+		
+	std::list<int> activeSet;
+	std::list<ScoreTuple> inactiveSet;
+	std::list<int> excludeSet;		
+				
+	// Initialize sets
+	int intercept = -1;
+	if (hXI.getHasInterceptCovariate()) {
+		intercept = hXI.getHasOffsetCovariate() ? 1 : 0;
+	}
+	
+	for (int index = 0; index < J; ++index) {
+		if (fixBeta[index]) {
+			excludeSet.push_back(index);
+		} else {
+			if (index == intercept || // Always place intercept into active set
+                !jointPrior->getSupportsKktSwindle(index)) {
+				activeSet.push_back(index);
+			} else {
+				inactiveSet.push_back(std::make_tuple(index,0.0));
+			}
+		}
+	}
+	
+	bool done = false;
+	int swindleCount = 1;
+	
+	int initialActiveSize = activeSet.size();
+	int perPassSize = arguments.swindleMultipler;
+	
+	while (!done) {
+	
+		if (noiseLevel >= QUIET) {
+			std::ostringstream stream;
+			stream << "KKT Swindle count " << swindleCount << ", activeSet size =  " << activeSet.size();
+			logger->writeLine(stream);
+		}
+	
+		lastReturnFlag = SUCCESS;
+		if (activeSet.size() > 0) { // find initial mode
+			findMode(begin(activeSet), end(activeSet), maxIterations, convergenceType, epsilon);
+		}
+		
+		if (inactiveSet.size() == 0 || lastReturnFlag != SUCCESS) { // Computed global mode, nothing more to do, or failed
+		
+			done = true;		
+			
+		} else { // still inactive covariates
+								
+			
+			if (swindleCount == maxIterations) {
+				lastReturnFlag = MAX_ITERATIONS;		
+				done = true;
+				if (noiseLevel > SILENT) {
+					std::ostringstream stream;	
+					stream << "Reached maximum swindle iterations";
+					logger->writeLine(stream);
+				}
+			} else {
+		
+				auto checkConditions = [this] (const ScoreTuple& score) {
+					return (std::get<1>(score) <= jointPrior->getKktBoundary(std::get<0>(score)));
+				};
+		
+				// Check KKT conditions
+									
+				computeKktConditions(inactiveSet);				
+			
+				bool satisfied = std::all_of(begin(inactiveSet), end(inactiveSet), checkConditions);
+			
+				if (satisfied) {
+					done = true;				
+				} else {
+					auto newActiveSize = initialActiveSize + swindleCount * perPassSize;
+				
+					while (activeSet.size() < newActiveSize && inactiveSet.size() > 0) {
+						activeSet.push_back(std::get<0>(inactiveSet.front()));
+						inactiveSet.pop_front();
+					}				
+				}			
+			}									
+		}
+		++swindleCount;
+		
+		logger->yield();			// This is not re-entrant safe	
+	}
+						
+	// restore fixBeta
+	std::fill(fixBeta.begin(), fixBeta.end(), false);
+	for (auto index : excludeSet) {
+		fixBeta[index] = true;
+	}
+}
+
+template <typename Container>
+void CyclicCoordinateDescent::computeKktConditions(Container& scoreSet) {
+
+    for (auto& score : scoreSet) {    
+        const auto index = std::get<0>(score);        
+		computeNumeratorForGradient(index);
+	
+		priors::GradientHessian gh;
+		computeGradientAndHessian(index, &gh.first, &gh.second);
+		
+		std::get<1>(score) = std::abs(gh.first);
+    }
+    
+    scoreSet.sort([] (ScoreTuple& lhs, ScoreTuple& rhs) {
+    	return (std::get<1>(rhs) < std::get<1>(lhs));
+    });    
+}	
 
 
 void CyclicCoordinateDescent::findMode(

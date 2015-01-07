@@ -57,6 +57,8 @@ public:
 	
 	virtual bool getSupportsKktSwindle() const = 0; // pure virtual
 	
+	virtual double getKktBoundary() const = 0; // pure virtual
+	
 	static PriorPtr makePrior(PriorType priorType);	    
 };
 
@@ -104,6 +106,10 @@ public:
 		return false; 
 	}
 	
+	double getKktBoundary() const {
+		return 0.0;
+	}
+	
 	CovariatePrior* clone() const {
 		return new NoPrior(*this);
 	}
@@ -148,6 +154,10 @@ public:
 	bool getSupportsKktSwindle() const {
 		return true; 
 	}		
+	
+	double getKktBoundary() const {
+		return lambda;
+	}
 
 	double getDelta(GradientHessian gh, double beta) const {
 
@@ -253,6 +263,10 @@ public:
 	
 	bool getSupportsKktSwindle() const {
 		return false;
+	}
+	
+	double getKktBoundary() const {
+		return 0.0;
 	}
 	
 	double logDensity(double x) const {
