@@ -313,6 +313,8 @@ void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
 
 double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
 
+	xBetaKnown = false;
+
 	if (!xBetaKnown) {
 		computeXBeta();
 		xBetaKnown = true;

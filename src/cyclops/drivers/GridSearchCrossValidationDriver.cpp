@@ -127,6 +127,11 @@ void GridSearchCrossValidationDriver::drive(
 				}
 			}
 			ccd.setWeights(&weights[0]);
+			
+			double t1 = std::accumulate(weights.begin(), weights.end(), 0.0);
+			std::cerr << "A = " << t1 << std::endl;
+			
+			
 			std::ostringstream stream;
 			stream << "Running at " << ccd.getPriorInfo() << " ";
 			ccd.update(allArguments.modeFinding);

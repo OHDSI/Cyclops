@@ -420,7 +420,7 @@ double CcdInterface::runBoostrap(
 	gettimeofday(&time1, NULL);
 	
 	BootstrapSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
-			SUBJECT, arguments.seed, logger, error);
+			SelectorType::BY_PID, arguments.seed, logger, error);
 	BootstrapDriver driver(arguments.replicates, modelData, logger, error);
 
 	driver.drive(*ccd, selector, arguments);
@@ -452,7 +452,7 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData 
 	gettimeofday(&time1, NULL);
 
 	CrossValidationSelector selector(arguments.crossValidation.fold, modelData->getPidVectorSTL(),
-			SUBJECT, arguments.seed, logger, error);
+			SelectorType::BY_PID, arguments.seed, logger, error); // TODO ERROR HERE!  NOT ALL MODELS ARE SUBJECT
 			
 	AbstractCrossValidationDriver* driver;
 	if (arguments.crossValidation.useAutoSearchCV) {

@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
 		if (arguments.doPartial) {
 		    // TODO Delegate to CcdInterface
 			ProportionSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
-					SUBJECT, arguments.seed,
+					SelectorType::BY_PID, arguments.seed,
 					bsccs::make_shared<loggers::CoutLogger>(),
 					bsccs::make_shared<loggers::CerrErrorHandler>());
 			std::vector<bsccs::real> weights;

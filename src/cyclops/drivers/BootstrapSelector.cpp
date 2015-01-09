@@ -56,7 +56,7 @@ void BootstrapSelector::permute() {
 
 	// Get non-excluded indices
 	int N_new = indicesIncluded.size();
-	if (type == SUBJECT) {
+	if (type == SelectorType::BY_PID) {
 	    std::uniform_int_distribution<int> uniform(0, N_new - 1);
 		for (int i = 0; i < N_new; i++) {
             int ind =  uniform(prng);
@@ -89,7 +89,7 @@ void BootstrapSelector::getWeights(int batch, std::vector<real>& weights) {
 		return;
 	}
 
-	if (type == SUBJECT) {
+	if (type == SelectorType::BY_PID) {
 		for (size_t k = 0; k < K; k++) {
 			int count = selectedSet.count(ids.at(k));
 			weights[k] = static_cast<real>(count);

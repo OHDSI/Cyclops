@@ -125,7 +125,7 @@ int AbstractModelSpecifics::getAlignedLength(int N) {
 }
 
 
-void AbstractModelSpecifics::setPidForAccumulation(real* weights) {
+void AbstractModelSpecifics::setPidForAccumulation(const real* weights) {
 
 	hPidInternal =  hPidOriginal; // Make copy
 	hPid = hPidInternal.data(); // Point to copy

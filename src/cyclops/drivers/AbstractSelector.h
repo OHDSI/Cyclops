@@ -22,9 +22,9 @@ namespace bsccs {
 	typedef float real;
 #endif
 
-enum SelectorType {
-	SUBJECT = 0,
-	ENTRY  = 1
+enum class SelectorType {
+	BY_PID,
+	BY_ENTRY
 };
 
 class AbstractSelector {

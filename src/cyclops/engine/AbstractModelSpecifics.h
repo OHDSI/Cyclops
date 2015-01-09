@@ -99,7 +99,7 @@ protected:
 
 	int getAlignedLength(int N);
 	
-	void setPidForAccumulation(real *weights);
+	void setPidForAccumulation(const real *weights);
 
 	virtual bool allocateXjY(void) = 0; // pure virtual
 

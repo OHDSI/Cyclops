@@ -84,7 +84,7 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 		return;
 	}
 
-	if (type == SUBJECT) {
+// 	if (type == SUBJECT) {
 		std::set<int> excludeSet;
 		std::copy(
 				permutation.begin() + intervalStart[batch],
@@ -99,10 +99,10 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 				weights[k] = 1.0;
 			}
 		}
-	} else {
-		std::fill(weights.begin(), weights.end(), 0.0);
-		std::fill(weights.begin(), weights.begin() + 100, 1.0);
-	}
+// 	} else {
+// 		std::fill(weights.begin(), weights.end(), 0.0);
+// 		std::fill(weights.begin(), weights.begin() + 100, 1.0);
+// 	}
 }
 
 AbstractSelector* CrossValidationSelector::clone() const {

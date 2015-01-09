@@ -21,7 +21,7 @@ AbstractSelector::AbstractSelector(
 		) : ids(inIds), type(inType), seed(inSeed), K(ids.size()), logger(_logger), error(_error) {
 
 	// Set up number of exchangeable objects
-	if (type == SUBJECT) {
+	if (type == SelectorType::BY_PID) {
 		N = *(std::max_element(ids.begin(), ids.end())) + 1;
 	} else {
 		N = ids.size();

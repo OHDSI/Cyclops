@@ -297,15 +297,25 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 	return static_cast<double>(logLikelihood);
 }
 
+static int count = 0;
+
 template <class BaseModel,typename WeightType>
 double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* weights) {
 	real logLikelihood = static_cast<real>(0.0);
 
 	if(BaseModel::cumulativeGradientAndHessian)	{
+	
+			double total1 = 0.0;
+			for (size_t k = 0; k < K; ++k) {
+				total1 += weights[k];
+			}
+			std::cerr << "Total before wegith = " << total1 << std::endl;	
 				
 		std::vector<int> savedPid = hPidInternal; // make copy
 		std::vector<int> saveAccReset = accReset; // make copy
 		setPidForAccumulation(weights);		
+		
+		std::vector<real> saveKWeight = hKWeight; // make copy
 		computeRemainingStatistics(true); // compute accDenomPid
 				
 		for (size_t k = 0; k < K; ++k) { // TODO Is index of K correct?
@@ -314,12 +324,33 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 		
 		hPidInternal = savedPid; // make copy; TODO swap
 		accReset = saveAccReset; // make copy; TODO swap
+		
+// 		setPidForAccumulation(&saveKWeight[0]);
+		
 		computeRemainingStatistics(true);
+		
+		count++;
+		
+		std::cerr << "C: " << count << " = " << logLikelihood << " via " << K << std::endl;
+		
+// 		if (logLikelihood == 0) {
+			double total = 0.0;
+			for (size_t k = 0; k < K; ++k) {
+				total += weights[k];
+			}
+			std::cerr << "Total after wegith = " << total << std::endl;
+// 		}
 
 	} else { // TODO Unnecessary code duplication
 		for (size_t k = 0; k < K; ++k) { // TODO Is index of K correct?
 			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], denomPid, hPid, k);
 		}
+		double total = 0.0;
+		for (size_t k = 0; k < K; ++k) {
+			total += weights[k];
+		}
+		std::cerr << "Total wegith (no cox) = " << total << std::endl;			
+		
 	}
 	return static_cast<double>(logLikelihood);
 }
