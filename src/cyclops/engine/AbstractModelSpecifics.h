@@ -100,6 +100,8 @@ protected:
 	int getAlignedLength(int N);
 	
 	void setPidForAccumulation(const real *weights);
+	
+	void setupSparseIndices(const int max);	
 
 	virtual bool allocateXjY(void) = 0; // pure virtual
 

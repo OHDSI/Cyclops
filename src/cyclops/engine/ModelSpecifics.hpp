@@ -128,7 +128,7 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useC
 	}
 	if (useCrossValidation) {
 		for (size_t k = 0; k < K; ++k) {
-			hKWeight[k] = inWeights[k];
+			hKWeight[k] = inWeights[k];	
 		}
 	} else {
 		std::fill(hKWeight.begin(), hKWeight.end(), static_cast<WeightType>(1));
@@ -138,7 +138,8 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useC
 		hNWeight.resize(N + 1);
 	}
 	
-	if (useCrossValidation) {
+//	if (useCrossValidation) {
+	if (initializeAccumulationVectors()) {
 		setPidForAccumulation(inWeights);
 	}
 	

@@ -154,6 +154,7 @@ void GridSearchCrossValidationDriver::drive(
 				predLogLikelihood.push_back(logLikelihood);
 			} else {							
 				stream << "Not computed";
+				predLogLikelihood.push_back(std::numeric_limits<double>::quiet_NaN());
 			}
 
 			logger->writeLine(stream);

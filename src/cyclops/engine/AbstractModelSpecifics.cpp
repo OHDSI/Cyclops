@@ -180,9 +180,32 @@ void AbstractModelSpecifics::setPidForAccumulation(const real* weights) {
 		for (size_t i = 0; i < K; ++i) {
 			if (hPid[i] == ignore) hPid[i] = N; // do NOT accumulate, since loops use: i < N
 		}
-	}
+	}	
+	setupSparseIndices(N); // ignore pid == N (pointing to removed data strata)
 }
 
+void AbstractModelSpecifics::setupSparseIndices(const int max) {
+	sparseIndices.clear(); // empty if full!
+	
+	for (size_t j = 0; j < J; ++j) {
+		if (modelData.getFormatType(j) == DENSE) {
+			sparseIndices.push_back(NULL);
+		} else {
+			std::set<int> unique;
+			const size_t n = modelData.getNumberOfEntries(j);
+			const int* indicators = modelData.getCompressedColumnVector(j);
+			for (size_t j = 0; j < n; j++) { // Loop through non-zero entries only
+				const int k = indicators[j];
+				const int i = hPid[k];
+				if (i < max) {
+					unique.insert(i);
+				}
+			}
+			auto indices = bsccs::make_shared<IndexVector>(unique.begin(), unique.end());
+            sparseIndices.push_back(indices);
+		}
+	}
+}
 
 void AbstractModelSpecifics::initialize(
 		int iN,
@@ -219,27 +242,14 @@ void AbstractModelSpecifics::initialize(
 	}
 			
 	if (initializeAccumulationVectors()) {	
-		setPidForAccumulation(nullptr);    	                 
- 	}
-		
-	// TODO Suspect below is not necessary for non-grouped data.
-	// If true, then fill with pointers to CompressedDataColumn and do not delete in destructor
-	for (size_t j = 0; j < J; ++j) {
-		if (modelData.getFormatType(j) == DENSE) {
-			sparseIndices.push_back(NULL);
-		} else {
-			std::set<int> unique;
-			const size_t n = modelData.getNumberOfEntries(j);
-			const int* indicators = modelData.getCompressedColumnVector(j);
-			for (size_t j = 0; j < n; j++) { // Loop through non-zero entries only
-				const int k = indicators[j];
-				const int i = hPid[k];
-				unique.insert(i);
-			}
-			auto indices = bsccs::make_shared<IndexVector>(unique.begin(), unique.end());
-            sparseIndices.push_back(indices);
-		}
-	}	
+		setPidForAccumulation(nullptr); // calls setupSparseIndices() before returning    	                 
+ 	} else {		
+		// TODO Suspect below is not necessary for non-grouped data.
+		// If true, then fill with pointers to CompressedDataColumn and do not delete in destructor
+		setupSparseIndices(N); // Need to be recomputed when hPid change!
+	}
+	
+	
 	
 	size_t alignedLength = getAlignedLength(N);
 	numerDenomPidCache.resize(3 * alignedLength, 0); 
