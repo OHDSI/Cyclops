@@ -165,6 +165,8 @@ public:
 	
 	int getNumberOfTypes() const;
 	
+	ModelType getModelType() const { return modelType; }
+	
 	size_t getNumberOfStrata() const;
 	
     size_t getColumnIndex(const IdType covariate) const;	

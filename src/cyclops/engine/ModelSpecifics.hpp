@@ -305,11 +305,11 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 
 	if(BaseModel::cumulativeGradientAndHessian)	{
 	
-			double total1 = 0.0;
-			for (size_t k = 0; k < K; ++k) {
-				total1 += weights[k];
-			}
-			std::cerr << "Total before wegith = " << total1 << std::endl;	
+// 			double total1 = 0.0;
+// 			for (size_t k = 0; k < K; ++k) {
+// 				total1 += weights[k];
+// 			}
+// 			std::cerr << "Total before wegith = " << total1 << std::endl;	
 				
 		std::vector<int> savedPid = hPidInternal; // make copy
 		std::vector<int> saveAccReset = accReset; // make copy
@@ -331,14 +331,14 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 		
 		count++;
 		
-		std::cerr << "C: " << count << " = " << logLikelihood << " via " << K << std::endl;
+// 		std::cerr << "C: " << count << " = " << logLikelihood << " via " << K << std::endl;
 		
 // 		if (logLikelihood == 0) {
-			double total = 0.0;
-			for (size_t k = 0; k < K; ++k) {
-				total += weights[k];
-			}
-			std::cerr << "Total after wegith = " << total << std::endl;
+// 			double total = 0.0;
+// 			for (size_t k = 0; k < K; ++k) {
+// 				total += weights[k];
+// 			}
+// 			std::cerr << "Total after wegith = " << total << std::endl;
 // 		}
 
 	} else { // TODO Unnecessary code duplication
@@ -349,7 +349,7 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 		for (size_t k = 0; k < K; ++k) {
 			total += weights[k];
 		}
-		std::cerr << "Total wegith (no cox) = " << total << std::endl;			
+// 		std::cerr << "Total wegith (no cox) = " << total << std::endl;			
 		
 	}
 	return static_cast<double>(logLikelihood);

@@ -122,6 +122,13 @@ enum class ModelType {
 	SIZE_OF_ENUM // Keep at end
 };
 
+enum class SelectorType {
+	DEFAULT,
+	BY_PID,
+	BY_ROW,
+	SIZE_OF_ENUM // Keep at end
+};
+
 namespace Models {
 
 inline bool removeIntercept(const ModelType modelType) {

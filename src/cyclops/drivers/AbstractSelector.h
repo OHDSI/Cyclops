@@ -12,6 +12,7 @@
 #include <random>
 #include <iostream> // TODO REMOVE
 
+#include "Types.h"
 #include "io/ProgressLogger.h"
 
 namespace bsccs {
@@ -21,11 +22,6 @@ namespace bsccs {
 #else
 	typedef float real;
 #endif
-
-enum class SelectorType {
-	BY_PID,
-	BY_ENTRY
-};
 
 class AbstractSelector {
 public:

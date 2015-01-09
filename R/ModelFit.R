@@ -318,6 +318,9 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param startingVariance      Numeric: Starting variance for auto-search cross-validation; default = -1 (use estimate based on data)
 #' @param useKKTSwindle Logical: Use the Karush-Kuhn-Tucker conditions to limit search
 #' @param tuneSwindle    Numeric: Size multiplier for active set
+#' @param selectorType  String: name of exchangeable sampling unit. If missing, then default for model is used.
+#'                              Option \code{"byPid"} selects entire strata 
+#'                              Option \code{"byRow"} selects single rows
 #' 
 #' @section Criteria:
 #' TODO
@@ -338,7 +341,8 @@ createControl <- function(
         resetCoefficients = FALSE,
         startingVariance = -1,
 		useKKTSwindle = FALSE,
-        tuneSwindle = 10) {
+        tuneSwindle = 10,
+        selectorType = "default") {
 	
 	validCVNames = c("grid", "auto")
 	stopifnot(cvType %in% validCVNames)
@@ -346,7 +350,9 @@ createControl <- function(
 	validNLNames = c("silent", "quiet", "noisy")
 	stopifnot(noiseLevel %in% validNLNames)
     stopifnot(threads == -1 || threads >= 1)
-    stopifnot(startingVariance == -1 || startingVariance > 0)
+    stopifnot(startingVariance == -1 || startingVariance > 0)       
+    stopifnot(selectorType %in% c("default","byPid", "byRow"))
+    
 	structure(list(maxIterations = maxIterations, tolerance = tolerance, convergenceType = convergenceType,
 								 autoSearch = (cvType == "auto"), fold = fold, lowerLimit = lowerLimit, 
 								 upperLimit = upperLimit, gridSteps = gridSteps, minCVData = minCVData, 
@@ -357,7 +363,8 @@ createControl <- function(
 								 resetCoefficients = resetCoefficients,
                                  startingVariance = startingVariance,
 								 useKKTSwindle = useKKTSwindle,
-                                 tuneSwindle = tuneSwindle),
+                                 tuneSwindle = tuneSwindle,
+                                 selectorType = selectorType),
 						class = "cyclopsControl")
 }
 
@@ -467,15 +474,18 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
 .setControl <- function(cyclopsInterfacePtr, control) {
 	if (!missing(control)) { # Set up control
 		stopifnot(inherits(control, "cyclopsControl"))
+        
         if (is.null(control$seed)) {
             control$seed <- as.integer(Sys.time())
         }
+                
 		.cyclopsSetControl(cyclopsInterfacePtr, control$maxIterations, control$tolerance, 
 									 control$convergenceType, control$autoSearch, control$fold, 
 									 (control$fold * control$cvRepetitions),
 									 control$lowerLimit, control$upperLimit, control$gridSteps, 
                                      control$noiseLevel, control$threads, control$seed, control$resetCoefficients,
-                                     control$startingVariance, control$useKKTSwindle, control$tuneSwindle)		
+                                     control$startingVariance, control$useKKTSwindle, control$tuneSwindle,
+                                     control$selectorType)		
 	}	
 }
 

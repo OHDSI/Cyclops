@@ -412,6 +412,25 @@ double CcdInterface::fitModel(CyclicCoordinateDescent *ccd) {
 	return calculateSeconds(time1, time2);
 }
 
+
+SelectorType CcdInterface::getDefaultSelectorTypeOrOverride(SelectorType selectorType, ModelType modelType) {
+	if (selectorType == SelectorType::DEFAULT) {
+		selectorType = (modelType == ModelType::COX || 
+                        modelType == ModelType::COX_RAW) // TODO Fix for Normal, logistic, POISSON
+			? SelectorType::BY_ROW : SelectorType::BY_PID;								
+// 				NORMAL,
+// 				POISSON,
+// 				LOGISTIC,
+// 				CONDITIONAL_LOGISTIC,
+// 				TIED_CONDITIONAL_LOGISTIC,
+// 				CONDITIONAL_POISSON,
+// 				SELF_CONTROLLED_MODEL,
+// 				COX,
+// 				COX_RAW,		
+	}
+	return selectorType;
+}
+
 double CcdInterface::runBoostrap(
 		CyclicCoordinateDescent *ccd,
 		ModelData *modelData,
@@ -419,8 +438,11 @@ double CcdInterface::runBoostrap(
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 	
+	auto selectorType = getDefaultSelectorTypeOrOverride(
+		arguments.crossValidation.selectorType, modelData->getModelType());
+		
 	BootstrapSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
-			SelectorType::BY_PID, arguments.seed, logger, error);
+			selectorType, arguments.seed, logger, error);
 	BootstrapDriver driver(arguments.replicates, modelData, logger, error);
 
 	driver.drive(*ccd, selector, arguments);
@@ -450,9 +472,12 @@ double CcdInterface::runFitMLEAtMode(CyclicCoordinateDescent* ccd) {
 double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
+	
+	auto selectorType = getDefaultSelectorTypeOrOverride(
+		arguments.crossValidation.selectorType, modelData->getModelType());	
 
 	CrossValidationSelector selector(arguments.crossValidation.fold, modelData->getPidVectorSTL(),
-			SelectorType::BY_PID, arguments.seed, logger, error); // TODO ERROR HERE!  NOT ALL MODELS ARE SUBJECT
+			selectorType, arguments.seed, logger, error); // TODO ERROR HERE!  NOT ALL MODELS ARE SUBJECT
 			
 	AbstractCrossValidationDriver* driver;
 	if (arguments.crossValidation.useAutoSearchCV) {

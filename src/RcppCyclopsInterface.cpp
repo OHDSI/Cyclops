@@ -255,7 +255,7 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 		int maxIterations, double tolerance, const std::string& convergenceType,
 		bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps,
 		const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance,
-        bool useKKTSwindle, int swindleMultipler
+        bool useKKTSwindle, int swindleMultipler, const std::string& selectorType
 		) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
@@ -274,7 +274,8 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 	args.crossValidation.lowerLimit = lowerLimit;
 	args.crossValidation.upperLimit = upperLimit;
 	args.crossValidation.gridSteps = gridSteps;
-	args.crossValidation.startingVariance = startingVariance;	
+	args.crossValidation.startingVariance = startingVariance;
+	args.crossValidation.selectorType = RcppCcdInterface::parseSelectorType(selectorType);	
 	
 	NoiseLevels noise = RcppCcdInterface::parseNoiseLevel(noiseLevel);
 	args.noiseLevel = noise;
@@ -437,6 +438,21 @@ bsccs::priors::PriorType RcppCcdInterface::parsePriorType(const std::string& pri
  		handleError("Invalid prior type."); 		
  	}	
  	return priorType;
+}
+
+bsccs::SelectorType RcppCcdInterface::parseSelectorType(const std::string& selectorName) {
+    using namespace bsccs;
+	SelectorType selectorType = SelectorType::DEFAULT;
+	if (selectorName == "default") {
+		selectorType = SelectorType::DEFAULT;
+	} else if (selectorName == "byPid") {
+		selectorType = SelectorType::BY_PID;
+	} else if (selectorName == "byRow") {
+		selectorType = SelectorType::BY_ROW;
+	} else {
+		handleError("Invalid selector type.");
+	}	
+	 return selectorType; 	
 }
 
 //  static std::map<ModelType, std::string> modelTypeNames = {

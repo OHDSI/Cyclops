@@ -42,6 +42,7 @@ struct CrossValidationArguments {
 	std::string cvFileName;
 	bool doFitAtOptimal;    
     double startingVariance;
+    SelectorType selectorType;
     
     CrossValidationArguments() :
         doCrossValidation(false),
@@ -53,7 +54,8 @@ struct CrossValidationArguments {
         gridSteps(10),
         cvFileName("cv.txt"),
         doFitAtOptimal(true),
-        startingVariance(-1)   // Use default from Genkins et al.
+        startingVariance(-1),   // Use default from Genkins et al.
+        selectorType(SelectorType::BY_PID)
         { }
 };
 
@@ -197,6 +199,8 @@ public:
 protected:
     std::string getPathAndFileName(const CCDArguments& arguments, std::string stem);
     bool includesOption(const std::string& line, const std::string& option);
+    
+	static SelectorType getDefaultSelectorTypeOrOverride(SelectorType selectorType, ModelType modelType);    
     
     CCDArguments arguments;
 		

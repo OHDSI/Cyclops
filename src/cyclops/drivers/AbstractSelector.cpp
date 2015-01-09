@@ -22,7 +22,8 @@ AbstractSelector::AbstractSelector(
 
 	// Set up number of exchangeable objects
 	if (type == SelectorType::BY_PID) {
-		N = *(std::max_element(ids.begin(), ids.end())) + 1;
+		N = *(std::max_element(ids.begin(), ids.end())) + 1; 
+		// Assumes that smallest ids == 0 and they are consecutive
 	} else {
 		N = ids.size();
 	}

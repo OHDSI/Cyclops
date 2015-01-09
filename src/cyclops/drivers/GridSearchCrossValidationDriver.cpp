@@ -127,35 +127,36 @@ void GridSearchCrossValidationDriver::drive(
 				}
 			}
 			ccd.setWeights(&weights[0]);
-			
-			double t1 = std::accumulate(weights.begin(), weights.end(), 0.0);
-			std::cerr << "A = " << t1 << std::endl;
-			
-			
+						
 			std::ostringstream stream;
 			stream << "Running at " << ccd.getPriorInfo() << " ";
-			ccd.update(allArguments.modeFinding);
-
-			// Compute predictive loglikelihood for this fold
-			selector.getComplement(weights);
-			if(weightsExclude){
-				for(int j = 0; j < (int)weightsExclude->size(); j++){
-					if(weightsExclude->at(j) == 1.0){
-						weights[j] = 0.0;
-					}
-				}
-			}
-
-			double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
-
 			stream << "Grid-point #" << (step + 1) << " at " << point;
 			stream << "\tFold #" << (fold + 1)
-			          << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
-			          << logLikelihood;
-            logger->writeLine(stream);			          
+					  << " Rep #" << (i / arguments.fold + 1) << " pred log like = ";						
+			
+			ccd.update(allArguments.modeFinding);
+											
+			if (ccd.getUpdateReturnFlag() == SUCCESS) {
 
-			// Store value
-			predLogLikelihood.push_back(logLikelihood);
+				// Compute predictive loglikelihood for this fold
+				selector.getComplement(weights);
+				if(weightsExclude){
+					for(int j = 0; j < (int)weightsExclude->size(); j++){
+						if(weightsExclude->at(j) == 1.0){
+							weights[j] = 0.0;
+						}
+					}
+				}
+				
+				double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
+				
+				stream << logLikelihood;				
+				predLogLikelihood.push_back(logLikelihood);
+			} else {							
+				stream << "Not computed";
+			}
+
+			logger->writeLine(stream);
 		}
 
 		double value = computePointEstimate(predLogLikelihood) /
