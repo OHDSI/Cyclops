@@ -967,18 +967,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	
 	priors::GradientHessian gh;
 	computeGradientAndHessian(index, &gh.first, &gh.second);
-	
-	
-	if (gh.first != gh.first || gh.second != gh.second) {
-		std::cerr << index << ": " << gh.first << " " << gh.second << std::endl;
-	
-		std::ostringstream stream;
-		stream << "nan";
-		error->throwError(stream);
-		gh.first = 0.0;
-		gh.second = 0.0;
-	}
-		
+			
 	if (gh.second < 0.0) {
 	    gh.first = 0.0;	
 	    gh.second = 0.0;
