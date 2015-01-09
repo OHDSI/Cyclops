@@ -152,7 +152,8 @@ void GridSearchCrossValidationDriver::drive(
 				
 				stream << logLikelihood;				
 				predLogLikelihood.push_back(logLikelihood);
-			} else {							
+			} else {				
+				ccd.resetBeta(); // cold start for stability			
 				stream << "Not computed";
 				predLogLikelihood.push_back(std::numeric_limits<double>::quiet_NaN());
 			}

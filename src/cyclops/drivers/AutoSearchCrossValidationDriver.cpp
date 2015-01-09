@@ -96,12 +96,6 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
     const auto& arguments = allArguments.crossValidation;
 
 	predLogLikelihood.resize(arguments.foldToCompute);
-
-// #define NEW_LOOP
-// 
-// #ifdef NEW_LOOP	
-//     std::cerr << "NEW_LOOP" << std::endl;	
-// 	auto start1 = std::chrono::steady_clock::now();
 				
 	auto& weightsExclude = this->weightsExclude;
 	auto& logger = this->logger;
@@ -136,7 +130,7 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 				}
 				
 				int fold = task % arguments.fold;
-									
+												
 				// Get this fold and update
 				std::vector<real> weights; // Task-specific
 				selectorTask->getWeights(fold, weights);
@@ -148,40 +142,46 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
 					}
 				}
 				ccdTask->setWeights(&weights[0]);
+				
 				std::ostringstream stream;
 				stream << "Running at " << ccdTask->getPriorInfo() << " ";
+				stream << "Grid-point #" << (step + 1) << " at ";
+				std::vector<double> hyperprior = ccdTask->getHyperprior();
+				std::copy(hyperprior.begin(), hyperprior.end(),
+					std::ostream_iterator<double>(stream, " "));	
+				stream << "\tFold #" << (fold + 1)
+						  << " Rep #" << (task / arguments.fold + 1) << " pred log like = ";								
 				
 				if (coldStart) ccdTask->resetBeta();
 
 				ccdTask->update(allArguments.modeFinding);
 				
-				// Compute predictive loglikelihood for this fold
-				selectorTask->getComplement(weights);  // TODO THREAD_SAFE
-				if (weightsExclude){
-					for(int j = 0; j < (int)weightsExclude->size(); j++){
-						if(weightsExclude->at(j) == 1.0){
-							weights[j] = 0.0;
+				if (ccdTask->getUpdateReturnFlag() == SUCCESS) {
+				
+					// Compute predictive loglikelihood for this fold
+					selectorTask->getComplement(weights);  // TODO THREAD_SAFE
+					if (weightsExclude){
+						for(int j = 0; j < (int)weightsExclude->size(); j++){
+							if(weightsExclude->at(j) == 1.0){
+								weights[j] = 0.0;
+							}
 						}
 					}
+
+					double logLikelihood = ccdTask->getPredictiveLogLikelihood(&weights[0]);
+					
+					// Store value
+					stream << logLikelihood;
+					predLogLikelihood[task] = logLikelihood;	
+				} else {
+					ccdTask->resetBeta(); // cold start for stability
+					stream << "Not computed";
+					predLogLikelihood[task] = std::numeric_limits<double>::quiet_NaN();
 				}
-
-				double logLikelihood = ccdTask->getPredictiveLogLikelihood(&weights[0]);
-
-				stream << "Grid-point #" << (step + 1) << " at "; // << ccd.getHyperprior();
-				std::vector<double> hyperprior = ccdTask->getHyperprior();
-				std::copy(hyperprior.begin(), hyperprior.end(),
-					std::ostream_iterator<double>(stream, " "));
-	
-				stream << "\tFold #" << (fold + 1)
-						  << " Rep #" << (task / arguments.fold + 1) << " pred log like = "
-						  << logLikelihood;
 						  
                 bool write = true;						  
 						  
-				if (write) logger->writeLine(stream);				  
-
-				// Store value
-				predLogLikelihood[task] = logLikelihood;				    				    				    				    				    				    
+				if (write) logger->writeLine(stream);																	    				    				    				    				    				    
 			};	
 			
 	// Run all tasks in parallel	
@@ -194,76 +194,6 @@ double AutoSearchCrossValidationDriver::doCrossValidation(
      	ccd.getLogger().flush();		
      }
 	
-// 	auto end1 = std::chrono::steady_clock::now();	
-// 	
-// 	std::cerr << "time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end1 - start1).count()	
-// 			  << std::endl;
-// 					
-// #else // NEW_LOOP	
-//     std::cerr << "OLD_LOOP" << std::endl;
-// 	auto start2 = std::chrono::steady_clock::now();	
-// 
-// 	std::vector<real> weights;
-// 
-// 	selector.reseed();
-// 	
-// 	/* start code duplication */
-// 	//std::vector<double> predLogLikelihood;
-// 	for (int i = 0; i < arguments.foldToCompute; i++) {
-// 		int fold = i % arguments.fold;
-// 		if (fold == 0) {
-// 			selector.permute(); // Permute every full cross-validation rep
-// 		}
-// 
-// 		// Get this fold and update
-// 		selector.getWeights(fold, weights);
-// 		if(weightsExclude){
-// 			for(int j = 0; j < (int)weightsExclude->size(); j++){
-// 				if(weightsExclude->at(j) == 1.0){
-// 					weights[j] = 0.0;
-// 				}
-// 			}
-// 		}
-// 		ccd.setWeights(&weights[0]);
-// 		std::ostringstream stream;
-// 		stream << "Running at " << ccd.getPriorInfo() << " ";
-// 				
-// 		if (coldStart) ccd.resetBeta();
-// 		
-// 		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
-// 
-// 		// Compute predictive loglikelihood for this fold
-// 		selector.getComplement(weights); 
-// 		if(weightsExclude){
-// 			for(int j = 0; j < (int)weightsExclude->size(); j++){
-// 				if(weightsExclude->at(j) == 1.0){
-// 					weights[j] = 0.0;
-// 				}
-// 			}
-// 		}
-// 
-// 		double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]); 
-// 
-// 		stream << "Grid-point #" << (step + 1) << " at "; // << ccd.getHyperprior();
-// 		std::vector<double> hyperprior = ccd.getHyperprior();
-// 		std::copy(hyperprior.begin(), hyperprior.end(),
-// 		    std::ostream_iterator<double>(stream, " "));
-// 		
-// 		stream << "\tFold #" << (fold + 1)
-// 				  << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
-// 				  << logLikelihood;
-//         logger->writeLine(stream);				  
-// 
-// 		// Store value
-//  		predLogLikelihood[i] = logLikelihood;
-// 	}
-// 	
-// 	auto end2 = std::chrono::steady_clock::now();	
-// 	
-// 	std::cerr << "time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end2 - start2).count()	
-// 			  << std::endl;	
-// #endif // NEW_LOOP			  
-
 	double pointEstimate = computePointEstimate(predLogLikelihood);
 	
 	return(pointEstimate);
