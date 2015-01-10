@@ -158,7 +158,9 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 				stream << "\tFold #" << (fold + 1)
 						  << " Rep #" << (task / arguments.fold + 1) << " pred log like = ";								
 				
-				if (coldStart) ccdTask->resetBeta();
+				if (coldStart) {				   
+			        ccdTask->resetBeta();
+			    }
 
 				ccdTask->update(allArguments.modeFinding);
 				
