@@ -22,21 +22,40 @@ public:
 
 	virtual ~GridSearchCrossValidationDriver();
 
-	virtual void drive(
-			CyclicCoordinateDescent& ccd,
-			AbstractSelector& selector,
-			const CCDArguments& arguments);
-
-	virtual void resetForOptimal(
-			CyclicCoordinateDescent& ccd,
-			CrossValidationSelector& selector,
-			const CCDArguments& arguments);
+// 	virtual void drive(
+// 			CyclicCoordinateDescent& ccd,
+// 			AbstractSelector& selector,
+// 			const CCDArguments& arguments);
+// 
+// 	virtual void resetForOptimal(
+// 			CyclicCoordinateDescent& ccd,
+// 			CrossValidationSelector& selector,
+// 			const CCDArguments& arguments);
 
 	virtual void logResults(const CCDArguments& arguments);
 
 protected:
 
 	double computeGridPoint(int step);
+	
+	virtual double doCrossValidationLoop(
+			CyclicCoordinateDescent& ccd,
+			AbstractSelector& selector,
+			const CCDArguments& arguments,			
+			int nThreads,
+			std::vector<CyclicCoordinateDescent*>& ccdPool,
+			std::vector<AbstractSelector*>& selectorPool);
+			
+// 	double doCrossValidationStep(
+// 			CyclicCoordinateDescent& ccd,
+// 			AbstractSelector& selector,
+// 			const CCDArguments& arguments,
+// 			int step,
+// 			bool coldStart,
+// 			int nThreads,
+// 			std::vector<CyclicCoordinateDescent*>& ccdPool,
+// 			std::vector<AbstractSelector*>& selectorPool,						
+// 			std::vector<double> & predLogLikelihood);				
 
 //	double computePointEstimate(const std::vector<double>& value);
 
@@ -48,7 +67,7 @@ protected:
 	int gridSize;
 	double lowerLimit;
 	double upperLimit;
-	std::vector<real>* weightsExclude;
+// 	std::vector<real>* weightsExclude;
 };
 
 } // namespace
