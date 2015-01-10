@@ -1,6 +1,7 @@
 #ifndef THREAD_TYPES_H_
 #define THREAD_TYPES_H_
 
+#include <algorithm>
 #include <thread>
 #include <mutex>
 #include "tinythread/tinythread.h" 
