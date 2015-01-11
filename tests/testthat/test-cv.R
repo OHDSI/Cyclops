@@ -32,6 +32,8 @@ library("testthat")
 # fit <- fitCyclopsModel(cyclopsData,prior=prior,control=control)
 
 test_that("Specify starting variance with auto-search", {
+    skip_on_cran() # Do not run on CRAN
+
     seed <- 666
     set.seed(seed)
     ntrain <- 100
@@ -68,6 +70,7 @@ test_that("Specify starting variance with auto-search", {
 })
 
 test_that("Using multi-core CV", {
+    skip_on_cran() # Do not run on CRAN
 
     ntest <- 1000
     ntrain <- 1000
