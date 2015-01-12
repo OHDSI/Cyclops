@@ -16,10 +16,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#' Check if data is sorted by one or more columns
+#' Check if data are sorted by one or more columns
 #'
 #' @description
-#' \code{isSorted} checks wether data is sorted by one or more specified columns.
+#' \code{isSorted} checks wether data are sorted by one or more specified columns.
 #' 
 #' @param data            Either a data.frame of ffdf object.
 #' @param columnNames     Vector of one or more column names.
@@ -47,10 +47,12 @@ isSorted <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
     UseMethod("isSorted") 
 }
 
+#' @describeIn isSorted Check if a \code{data.frame} is sorted by one or more columns
 isSorted.data.frame <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
     return(.isSorted(data,columnNames,ascending))
 }
 
+#' @describeIn isSorted Check if a \code{ffdf} is sorted by one or more columns
 isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
 #    require(ffbase) #Should be superfluous, since the user already has an ffdf object
     if (nrow(data)>100000){ #If data is big, first check on a small subset. If that aready fails, we're done

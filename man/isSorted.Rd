@@ -2,9 +2,17 @@
 % Please edit documentation in R/DataConversion.R
 \name{isSorted}
 \alias{isSorted}
-\title{Check if data is sorted by one or more columns}
+\alias{isSorted.data.frame}
+\alias{isSorted.ffdf}
+\title{Check if data are sorted by one or more columns}
 \usage{
 isSorted(data, columnNames, ascending = rep(TRUE, length(columnNames)))
+
+\method{isSorted}{data.frame}(data, columnNames, ascending = rep(TRUE,
+  length(columnNames)))
+
+\method{isSorted}{ffdf}(data, columnNames, ascending = rep(TRUE,
+  length(columnNames)))
 }
 \arguments{
 \item{data}{Either a data.frame of ffdf object.}
@@ -18,11 +26,17 @@ according the specified columns.}
 True or false
 }
 \description{
-\code{isSorted} checks wether data is sorted by one or more specified columns.
+\code{isSorted} checks wether data are sorted by one or more specified columns.
 }
 \details{
 This function currently only supports checking for sorting on numeric values.
 }
+\section{Methods (by class)}{
+\itemize{
+\item \code{data.frame}: Check if a \code{data.frame} is sorted by one or more columns
+
+\item \code{ffdf}: Check if a \code{ffdf} is sorted by one or more columns
+}}
 \examples{
 x <- data.frame(a = runif(1000),b = runif(1000))
 x <- round(x,digits=2)
