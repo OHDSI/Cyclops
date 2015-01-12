@@ -19,7 +19,7 @@ script:
 #    - pwd
 #    - R CMD INSTALL .
 #    - Rscript -e "require(Cyclops); require(testthat); require(gnm); test_package('Cyclops')"
-    - ./travis-tools.sh run_tests
+    - ./travis-tool.sh run_tests
     
 after_failure:
     - ./travis-tool.sh dump_logs
