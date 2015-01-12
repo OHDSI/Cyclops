@@ -73,7 +73,7 @@ fitUsingClogit <- function(sim,coverage=TRUE){
     data <- merge(data,sim$outcomes)
     data <- data[order(data$stratumId,data$rowId),]
     formula <- as.formula(paste(c("y ~ strata(stratumId)",paste("v",1:ncovars,sep="")),collapse=" + "))
-    fit <- clogit(formula,data=data) 
+    fit <- survival::clogit(formula,data=data) 
     if (coverage) {
         ci <- confint(fit)
     } else {
@@ -102,7 +102,7 @@ fitUsingCoxph <- function(sim, coverage = TRUE){
     data <- merge(data,sim$outcomes)
     data <- data[order(data$stratumId,data$rowId),]
     formula <- as.formula(paste(c("Surv(time,y) ~ strata(stratumId)",paste("v",1:ncovars,sep="")),collapse=" + "))
-    fit <- coxph(formula,data=data)    
+    fit <- survival::coxph(formula,data=data)    
     if (coverage) {
         ci <- confint(fit)
     } else {
@@ -283,10 +283,10 @@ coverage <- function(goldStandard,lowerBounds,upperBounds){
 
 plotFit <- function(fit,goldStandard,label){
     if (require("ggplot2")) {
-        ggplot(fit, aes(x= goldStandard , y=coef, ymin=fit$lbCi95, ymax=fit$ubCi95), environment=environment()) +
-            geom_abline(intercept = 0, slope = 1) +
-            geom_pointrange(alpha=0.2) +
-            scale_y_continuous(label)
+        ggplot2::ggplot(fit, aes(x= goldStandard , y=coef, ymin=fit$lbCi95, ymax=fit$ubCi95), environment=environment()) +
+            ggplot2::geom_abline(intercept = 0, slope = 1) +
+            ggplot2::geom_pointrange(alpha=0.2) +
+            ggplot2::scale_y_continuous(label)
     } else {
         stop("gglot2 package required")
     }
