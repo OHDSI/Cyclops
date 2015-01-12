@@ -139,7 +139,7 @@ fitUsingGnm <- function(sim,coverage=TRUE){
     se <- abs(coef(fit)[[1]]/qnorm(1-pchisq(deviance(fit0)-deviance(fit),1)))
     
     
-    fit <- coxph(formula,data=data)    
+    fit <- survival::coxph(formula,data=data)    
     if (coverage) {
         ci <- confint(fit)
     } else {
