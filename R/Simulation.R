@@ -1,5 +1,5 @@
 
-simulateData <- function(nstrata = 200, 
+simulateCyclopsData <- function(nstrata = 200, 
                          nrows = 10000, 
                          ncovars = 20,
                          effectSizeSd = 1,
@@ -58,7 +58,7 @@ simulateData <- function(nstrata = 200,
     list(outcomes = outcomes, covariates = covariates, effectSizes = effectSizes, sparseness = sparseness)
 }
 
-fitUsingClogit <- function(sim,coverage=TRUE){
+.fitUsingClogit <- function(sim,coverage=TRUE){
     start <- Sys.time()    
     covariates <- sim$covariates
     ncovars <- max(covariates$covariateId)
@@ -86,7 +86,7 @@ fitUsingClogit <- function(sim,coverage=TRUE){
     data.frame(coef = coef(fit), lbCi95 = ci[,1], ubCi95 = ci[,2])
 }
 
-fitUsingCoxph <- function(sim, coverage = TRUE){
+.fitUsingCoxph <- function(sim, coverage = TRUE){
     require("survival")
     start <- Sys.time()    
     covariates <- sim$covariates
@@ -115,7 +115,7 @@ fitUsingCoxph <- function(sim, coverage = TRUE){
     data.frame(coef = coef(fit), lbCi95 = ci[,1], ubCi95 = ci[,2])
 }
 
-fitUsingGnm <- function(sim,coverage=TRUE){
+.fitUsingGnm <- function(sim,coverage=TRUE){
     require(gnm)
     start <- Sys.time()    
     covariates <- sim$covariates
@@ -153,21 +153,46 @@ fitUsingGnm <- function(sim,coverage=TRUE){
 }
 
 
-fitUsingOtherThanCyclops <- function(sim, model="logistic",coverage=TRUE){
+#' @title Fit simulated data
+#' 
+#' @description
+#' \code{fitCyclopsSimulation} fits simulated Cyclops data using Cyclops or a standard routine.  
+#' This function is useful for simulation studies comparing the performance of Cyclops when considering
+#' large, sparse datasets.
+#' 
+#' @param sim    A simulated Cyclops dataset generated via \code{simulateCyclopsData}
+#' @param useCyclops    Logical: use Cyclops or a standard routine
+#' @param model  String: Fitted regression model type
+#' @param coverage Logical: report coverage statistics
+#' @param includePenalty   Logical: include regularized regression penalty in computing profile likelihood based confidence intervals
+#' 
+fitCyclopsSimulation <- function(sim, 
+                                 useCyclops = TRUE,
+                                 model = "logistic",
+                                 coverage = TRUE,
+                                 includePenalty = FALSE) {
+    if (useCyclops) {
+        .fitCyclopsSimulationUsingCyclops(sim, model, coverage, includePenalty)
+    } else {
+        .fitCyclopsSimulationUsingOtherThanCyclops(sim, model, coverage)
+    }
+}
+
+.fitCyclopsSimulationUsingOtherThanCyclops <- function(sim, model="logistic",coverage=TRUE){
     if (model == "logistic"){
         writeLines("Fitting model using clogit")
-        fitUsingClogit(sim,coverage)   
+        .fitUsingClogit(sim,coverage)   
     } else if (model == "poisson"){
         stop("Poisson not yet implemented")
     } else if (model == "survival"){
         writeLines("Fitting model using coxpht")
-        fitUsingCoxph(sim,coverage)
+        .fitUsingCoxph(sim,coverage)
     } else {
         stop(paste("Unknown model:",model))
     }
 }
 
-fitUsingCyclops <- function(sim, 
+.fitCyclopsSimulationUsingCyclops <- function(sim, 
                             model = "logistic",
                             regularized = TRUE,                                                       
                             coverage = TRUE,
@@ -273,11 +298,11 @@ fitUsingCyclops <- function(sim,
     df
 }
 
-mse <- function(x,y){
+.mse <- function(x,y){
     mean((x-y)^2)
 }
 
-coverage <- function(goldStandard,lowerBounds,upperBounds){
+.coverage <- function(goldStandard,lowerBounds,upperBounds){
     sum(goldStandard >= lowerBounds & goldStandard <= upperBounds) / length(goldStandard)
 }
 
@@ -292,42 +317,44 @@ plotFit <- function(fit,goldStandard,label){
     }
 }
 
-runSimulation1 <- function(){
-    model = "survival"      # "logistic", "survival", or "poisson"
-    sim <- simulateData(nstrata=2000,
-                        ncovars=100,
-                        nrows=10000,
-                        effectSizeSd=0.5,
-                        eCovarsPerRow=2,
-                        model=model)
-    coefGoldStandard <- log(sim$effectSizes$rr)
-    
-    fitCyclops <- fitUsingCyclops(sim,regularized=TRUE,model)
-    fit <- fitUsingOtherThanCyclops(sim,model)
-    
-    writeLines(paste("MSE Cyclops:",mse(fitCyclops$coef,coefGoldStandard)))
-    writeLines(paste("MSE other:",mse(fit$coef,coefGoldStandard)))
-    
-    plotFit(fitCyclops,coefGoldStandard,"Cyclops")  
-    plotFit(fit,coefGoldStandard,"Other")
-    
-    writeLines(paste("Coverage Cyclops:",coverage(coefGoldStandard,fitCyclops$lbCi95, fitCyclops$ubCi95)))
-    writeLines(paste("Coverage other:",coverage(coefGoldStandard,fit$lbCi95, fit$ubCi95)))
-}
-
-runSimulation2 <- function(){
-    model = "logistic"      # "logistic", "survival", or "poisson"
-    sim <- simulateData(nstrata=2000,
-                        ncovars=100,
-                        nrows=10000,
-                        effectSizeSd=0.5,
-                        eCovarsPerRow=2,
-                        model=model)
-    coefGoldStandard <- log(sim$effectSizes$rr)
-    
-    fit <- fitUsingOtherThanCyclops(sim,model,coverage=FALSE)
-    fitCyclops <- fitUsingCyclops(sim,regularized=TRUE,model,coverage=FALSE)
-        
-    writeLines(paste("MSE Cyclops:",mse(fitCyclops$coef,coefGoldStandard)))
-    writeLines(paste("MSE other:",mse(fit$coef,coefGoldStandard)))
-}
+# TODO Move to vignette
+#
+# runSimulation1 <- function(){
+#     model = "survival"      # "logistic", "survival", or "poisson"
+#     sim <- simulateCyclopsData(nstrata=2000,
+#                         ncovars=100,
+#                         nrows=10000,
+#                         effectSizeSd=0.5,
+#                         eCovarsPerRow=2,
+#                         model=model)
+#     coefGoldStandard <- log(sim$effectSizes$rr)
+#     
+#     fitCyclops <- fitCyclopsSimulation(sim, useCyclops = TRUE, regularized=TRUE,model)
+#     fit <- fitCyclopsSimulation(sim, useCyclops = FALSE, model)
+#     
+#     writeLines(paste("MSE Cyclops:",.mse(fitCyclops$coef,coefGoldStandard)))
+#     writeLines(paste("MSE other:",.mse(fit$coef,coefGoldStandard)))
+#     
+#     plotFit(fitCyclops,coefGoldStandard,"Cyclops")  
+#     plotFit(fit,coefGoldStandard,"Other")
+#     
+#     writeLines(paste("Coverage Cyclops:",.coverage(coefGoldStandard,fitCyclops$lbCi95, fitCyclops$ubCi95)))
+#     writeLines(paste("Coverage other:",.coverage(coefGoldStandard,fit$lbCi95, fit$ubCi95)))
+# }
+# 
+# runSimulation2 <- function(){
+#     model = "logistic"      # "logistic", "survival", or "poisson"
+#     sim <- simulateCyclopsData(nstrata=2000,
+#                         ncovars=100,
+#                         nrows=10000,
+#                         effectSizeSd=0.5,
+#                         eCovarsPerRow=2,
+#                         model=model)
+#     coefGoldStandard <- log(sim$effectSizes$rr)
+#     
+#     fit <- fitCyclopsSimulation(sim, useCyclops = FALSE, model,coverage=FALSE)
+#     fitCyclops <- fitCyclopsSimulation(sim, useCyclops = TRUE, regularized=TRUE,model,coverage=FALSE)
+#         
+#     writeLines(paste("MSE Cyclops:",.mse(fitCyclops$coef,coefGoldStandard)))
+#     writeLines(paste("MSE other:",.mse(fit$coef,coefGoldStandard)))
+# }

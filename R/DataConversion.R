@@ -64,7 +64,7 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
     return(TRUE)
 }
 
-lastRowNotHavingThisValue <- function(column, value){
+.lastRowNotHavingThisValue <- function(column, value){
     if (column[1] == value)
         return(0)
     for (i in length(column):1){
@@ -100,7 +100,7 @@ constructCyclopsDataFromBatchableSources <- function(resultSetOutcome,
         #Get covars:
         batchCovars <- getCovariateBatch(resultSetCovariate,modelType)
         lastRowId <- batchCovars$rowId[nrow(batchCovars)]
-        endCompleteRow <- lastRowNotHavingThisValue(batchCovars$rowId,lastRowId)
+        endCompleteRow <- .lastRowNotHavingThisValue(batchCovars$rowId,lastRowId)
         
         if (endCompleteRow == 0){ #Entire batch is about 1 row
             if (!is.null(spillOverCovars)){

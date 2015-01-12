@@ -73,7 +73,7 @@ test_that("Test unstratified cox using lung dataset ", {
 
 
 test_that("Test poisson regression", { 
-  sim <- simulateData(nstrata = 1, nrows = 10000, ncovars = 2, eCovarsPerRow = 0.5, effectSizeSd = 1,model = "poisson")
+  sim <- simulateCyclopsData(nstrata = 1, nrows = 10000, ncovars = 2, eCovarsPerRow = 0.5, effectSizeSd = 1,model = "poisson")
   covariates <- sim$covariates
   outcomes <- sim$outcomes
   

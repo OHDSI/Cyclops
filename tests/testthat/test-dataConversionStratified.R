@@ -117,7 +117,7 @@ test_that("Test stratified cox using lung dataset ", {
 
 
 test_that("Test conditional poisson regression", { 
-  sim <- simulateData(nstrata = 2, nrows = 10000, ncovars = 2, eCovarsPerRow = 0.5, effectSizeSd = 1,model = "poisson")
+  sim <- simulateCyclopsData(nstrata = 2, nrows = 10000, ncovars = 2, eCovarsPerRow = 0.5, effectSizeSd = 1,model = "poisson")
   covariates <- sim$covariates
   outcomes <- sim$outcomes
   

@@ -5,7 +5,7 @@ library("testthat")
 # 
 # library(Cyclops)
 # set.seed(100)
-# data <- simulateData(nstrata=1,nrows=1000,ncovars=200,model="survival")
+# data <- simulateCyclopsData(nstrata=1,nrows=1000,ncovars=200,model="survival")
 # cyclopsData <- convertToCyclopsData(data$outcomes,data$covariates,modelType = "cox")
 # 
 # prior <- createPrior("laplace", useCrossValidation = TRUE)
@@ -23,7 +23,7 @@ library("testthat")
 # # This generates nan on first eval
 # library(Cyclops)
 # set.seed(100)
-# data <- simulateData(nstrata=1,nrows=1000,ncovars=200,model="survival")
+# data <- simulateCyclopsData(nstrata=1,nrows=1000,ncovars=200,model="survival")
 # cyclopsData <- convertToCyclopsData(data$outcomes,data$covariates,modelType = "cox")
 # prior <- createPrior("laplace", useCrossValidation = TRUE)
 # control <- createControl(noiseLevel = "quiet",lowerLimit = 0.0464159,upperLimit = 0.0464159,gridSteps=1,
@@ -37,7 +37,7 @@ test_that("Specify starting variance with auto-search", {
     seed <- 666
     set.seed(seed)
     ntrain <- 100
-    data <- simulateData(nstrata = 1,
+    data <- simulateCyclopsData(nstrata = 1,
                          nrows = ntrain,
                          ncovars = 2000,
                          model = "logistic")    
@@ -77,7 +77,7 @@ test_that("Using multi-core CV", {
     
     set.seed(666)
     
-    data <- simulateData(nstrata=1,nrows=ntest+ntrain,ncovars=2000,model="logistic")
+    data <- simulateCyclopsData(nstrata=1,nrows=ntest+ntrain,ncovars=2000,model="logistic")
     test <- list(outcomes = data$outcomes[1:ntest,], covariates = data$covariates[data$covariates$rowId %in% data$outcomes$rowId[1:ntest],])
     train <- list(outcomes = data$outcomes[(ntest+1):(ntest+ntrain),], covariates = data$covariates[data$covariates$rowId %in% data$outcomes$rowId[(ntest+1):(ntest+ntrain)],])
     cyclopsData <- convertToCyclopsData(train$outcomes,train$covariates,modelType = "lr",addIntercept = TRUE)
