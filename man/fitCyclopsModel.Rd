@@ -3,8 +3,9 @@
 \alias{fitCyclopsModel}
 \title{fitCyclopsModel}
 \usage{
-fitCyclopsModel(cyclopsData, prior, control, forceNewObject = FALSE,
-  returnEstimates = TRUE)
+fitCyclopsModel(cyclopsData, prior, control, weights = NULL,
+  forceNewObject = FALSE, returnEstimates = TRUE,
+  startingCoefficients = NULL)
 }
 \arguments{
 \item{cyclopsData}{An OHDSI data object}
@@ -13,9 +14,13 @@ fitCyclopsModel(cyclopsData, prior, control, forceNewObject = FALSE,
 
 \item{control}{OHDSI control object, see \code{"\link{control}"}}
 
+\item{weights}{Vector of 0/1 weights for each data row}
+
 \item{forceNewObject}{Logical, forces the construction of a new Cyclops model fit object}
 
 \item{returnEstimates}{Logical, return regression coefficient estimates in Cyclops model fit object}
+
+\item{startingCoefficients}{Vector of starting values for optimization}
 }
 \value{
 A list that contains a Cyclops model fit object pointer and an operation duration
