@@ -130,7 +130,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
  
         if (hasStrata) {
             pid <- as.numeric(strata(mf.d[ , special$strata], shortlabel = TRUE))
-            nterm <- untangle.specials(specialTerms, "strata")$terms
+            nterm <- survival::untangle.specials(specialTerms, "strata")$terms
             mt.d <- mt.d[-nterm]
             
             ## Must sort outcomes
