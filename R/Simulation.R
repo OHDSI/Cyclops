@@ -132,10 +132,10 @@ fitUsingGnm <- function(sim,coverage=TRUE){
     data <- data[order(data$stratumId,data$rowId),]
     formula <- as.formula(paste(c("y ~ v1",paste("v",2:ncovars,sep="")),collapse=" + "))
     
-    fit = gnm(formula, family=poisson, offset=log(time), eliminate=as.factor(data$stratumId), data = data)
+    fit = gnm::gnm(formula, family=poisson, offset=log(time), eliminate=as.factor(data$stratumId), data = data)
     #Todo: figure out how to do confidence intervals correctly
     confint(fit)
-    fit0 = gnm(y ~ 1, family=poisson, offset=log(time), eliminate=as.factor(data$stratumId), data = data)
+    fit0 = gnm::gnm(y ~ 1, family=poisson, offset=log(time), eliminate=as.factor(data$stratumId), data = data)
     se <- abs(coef(fit)[[1]]/qnorm(1-pchisq(deviance(fit0)-deviance(fit),1)))
     
     
