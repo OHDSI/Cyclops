@@ -5,7 +5,8 @@
 \title{Simulation Cyclops dataset}
 \usage{
 simulateCyclopsData(nstrata = 200, nrows = 10000, ncovars = 20,
-  effectSizeSd = 1, eCovarsPerRow = ncovars/100, model = "survival")
+  effectSizeSd = 1, zeroEffectSizeProp = 0.9, eCovarsPerRow = ncovars/100,
+  model = "survival")
 }
 \arguments{
 \item{nstrata}{Numeric: Number of strata}
@@ -14,7 +15,9 @@ simulateCyclopsData(nstrata = 200, nrows = 10000, ncovars = 20,
 
 \item{ncovars}{Numeric: Number of covariates}
 
-\item{effectSizeSd}{Numeric: Standard derivation of the simulated regression coefficients}
+\item{effectSizeSd}{Numeric: Standard derivation of the non-zero simulated regression coefficients}
+
+\item{zeroEffectSizeProp}{Numeric: Expected proportion of zero effect size}
 
 \item{eCovarsPerRow}{Number: Effective number of non-zero covariates per data row}
 

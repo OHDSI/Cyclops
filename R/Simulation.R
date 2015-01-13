@@ -6,7 +6,8 @@
 #' @param nstrata   Numeric: Number of strata
 #' @param nrows Numeric: Number of observation rows
 #' @param ncovars Numeric: Number of covariates
-#' @param effectSizeSd Numeric: Standard derivation of the simulated regression coefficients
+#' @param effectSizeSd Numeric: Standard derivation of the non-zero simulated regression coefficients
+#' @param zeroEffectSizeProp Numeric: Expected proportion of zero effect size
 #' @param eCovarsPerRow Number: Effective number of non-zero covariates per data row
 #' @param model String: Simulation model. Choices are: \code{logistic}, \code{poisson} or \code{survival}
 #' 
@@ -15,10 +16,12 @@ simulateCyclopsData <- function(nstrata = 200,
                          nrows = 10000, 
                          ncovars = 20,
                          effectSizeSd = 1,
+                         zeroEffectSizeProp = 0.9,
                          eCovarsPerRow = ncovars/100,
                          model="survival"){
     
-    effectSizes <- data.frame(covariateId=1:ncovars,rr=exp(rnorm(ncovars,mean=0,sd=effectSizeSd)))
+    sd <- rep(effectSizeSd, ncovars) * rbinom(ncovars, 1, 1 - zeroEffectSizeProp)
+    effectSizes <- data.frame(covariateId=1:ncovars,rr=exp(rnorm(ncovars,mean=0,sd=sd)))
     
     covarsPerRow <- rpois(nrows,eCovarsPerRow)
     covarsPerRow[covarsPerRow > ncovars] <- ncovars
