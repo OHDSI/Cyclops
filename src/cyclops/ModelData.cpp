@@ -242,7 +242,9 @@ size_t ModelData::getNumberOfStrata() const {
 }
 
 double ModelData::getNormalBasedDefaultVar() const {
-	return getNumberOfVariableColumns() * getNumberOfRows() / getSquaredNorm();
+// 	return getNumberOfVariableColumns() * getNumberOfRows() / getSquaredNorm();
+	// Reciprocal of what is reported in Genkins et al.
+	return getSquaredNorm() / getNumberOfVariableColumns() / getNumberOfRows(); 
 }
 
 int ModelData::getNumberOfVariableColumns() const {
