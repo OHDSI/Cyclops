@@ -593,7 +593,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 	}
 	
 	bool done = false;
-	int swindleCount = 1;
+	int swindleIterationCount = 1;
 	
 	int initialActiveSize = activeSet.size();
 	int perPassSize = arguments.swindleMultipler;
@@ -602,7 +602,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 	
 		if (noiseLevel >= QUIET) {
 			std::ostringstream stream;
-			stream << "KKT Swindle count " << swindleCount << ", activeSet size =  " << activeSet.size();
+			stream << "KKT Swindle count " << swindleIterationCount << ", activeSet size =  " << activeSet.size();
 			logger->writeLine(stream);
 		}
 	
@@ -618,7 +618,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 		} else { // still inactive covariates
 								
 			
-			if (swindleCount == maxIterations) {
+			if (swindleIterationCount == maxIterations) {
 				lastReturnFlag = MAX_ITERATIONS;		
 				done = true;
 				if (noiseLevel > SILENT) {
@@ -641,7 +641,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 				if (satisfied) {
 					done = true;				
 				} else {
-					auto newActiveSize = initialActiveSize + swindleCount * perPassSize;
+					auto newActiveSize = initialActiveSize + perPassSize;
 				
 					while (activeSet.size() < newActiveSize && inactiveSet.size() > 0) {
 						activeSet.push_back(std::get<0>(inactiveSet.front()));
@@ -650,7 +650,8 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 				}			
 			}									
 		}
-		++swindleCount;
+		++swindleIterationCount;
+		perPassSize *= 2;
 		
 		logger->yield();			// This is not re-entrant safe	
 	}
