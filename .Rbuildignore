@@ -8,4 +8,6 @@ standalone
 papers
 .git
 data-raw
+notes
+man-roxygen
 man/Cyclops.pdf
