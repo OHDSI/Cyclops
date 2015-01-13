@@ -76,7 +76,7 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
     return(0)
 }
 
-constructCyclopsDataFromBatchableSources <- function(resultSetOutcome,
+.constructCyclopsDataFromBatchableSources <- function(resultSetOutcome,
                                                      resultSetCovariate,
                                                      getOutcomeBatch,
                                                      getCovariateBatch,
@@ -293,6 +293,7 @@ convertToCyclopsData <- function(outcomes,
     UseMethod("convertToCyclopsData") 
 }
 
+#' @describeIn convertToCyclopsData Convert data from two \code{ffdf}
 convertToCyclopsData.ffdf <- function(outcomes, 
                                             covariates,
                                             modelType = "lr", 
@@ -428,7 +429,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
         cursor > length(chunks)
     }
     
-    result <- constructCyclopsDataFromBatchableSources(resultSetOutcome,
+    result <- .constructCyclopsDataFromBatchableSources(resultSetOutcome,
                                                        resultSetCovariate,
                                                        getOutcomeBatch,
                                                        getCovariateBatch,
@@ -440,6 +441,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
     return(result)
 }
 
+#' @describeIn convertToCyclopsData Convert data from two \code{data.frame}
 convertToCyclopsData.data.frame <- function(outcomes, 
                                                   covariates,
                                                   modelType = "lr", 

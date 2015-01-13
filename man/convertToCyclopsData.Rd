@@ -2,10 +2,22 @@
 % Please edit documentation in R/DataConversion.R
 \name{convertToCyclopsData}
 \alias{convertToCyclopsData}
+\alias{convertToCyclopsData.data.frame}
+\alias{convertToCyclopsData.ffdf}
 \title{Convert data from two data frames or ffdf objects into a CyclopsData object}
 \usage{
 convertToCyclopsData(outcomes, covariates, modelType = "lr",
   addIntercept = TRUE, offsetAlreadyOnLogScale = FALSE,
+  makeCovariatesDense = NULL, checkSorting = TRUE, checkRowIds = TRUE,
+  quiet = FALSE)
+
+\method{convertToCyclopsData}{ffdf}(outcomes, covariates, modelType = "lr",
+  addIntercept = TRUE, offsetAlreadyOnLogScale = FALSE,
+  makeCovariatesDense = NULL, checkSorting = TRUE, checkRowIds = TRUE,
+  quiet = FALSE)
+
+\method{convertToCyclopsData}{data.frame}(outcomes, covariates,
+  modelType = "lr", addIntercept = TRUE, offsetAlreadyOnLogScale = FALSE,
   makeCovariatesDense = NULL, checkSorting = TRUE, checkRowIds = TRUE,
   quiet = FALSE)
 }
@@ -57,6 +69,12 @@ stratumId (if present), -time, y, and rowId. The covariate table should be sorte
 (if present), rowId and covariateId except for Cox regression when the table should be sorted by
 stratumId (if present), -time, y, and rowId.
 }
+\section{Methods (by class)}{
+\itemize{
+\item \code{ffdf}: Convert data from two \code{ffdf}
+
+\item \code{data.frame}: Convert data from two \code{data.frame}
+}}
 \examples{
 #Convert infert dataset to Cyclops format:
 covariates <- data.frame(stratumId = rep(infert$stratum,2),

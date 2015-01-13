@@ -453,6 +453,14 @@ predict.cyclopsFit <- function(object, ...) {
 #     .cyclopsSetBeta(object$cyclopsInterfacePtr, coefficients)         
 # }
 
+#' @title Compute predictive log-likelihood from a Cyclops model fit
+#' 
+#' @description
+#' \code{getCyclopsPredictiveLogLikelihood} returns the log-likelihood of a subset of the data in a Cyclops model fit object.
+#' 
+#' @param object    A Cyclops model fit object
+#' @param weights   Numeric vector: vector of 0/1 identifying subset (=1) of rows from \code{object} to use in computing the log-likelihood
+#' @return The predictive log-likelihood
 getCyclopsPredictiveLogLikelihood <- function(object, weights) {
     .checkInterface(object, testOnly = TRUE)
     
