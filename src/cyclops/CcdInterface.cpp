@@ -498,7 +498,7 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData 
 
 	gettimeofday(&time2, NULL);
 
-	driver->logResults(arguments);
+// 	driver->logResults(arguments);
 
 	if (arguments.crossValidation.doFitAtOptimal) {
 	    if (arguments.noiseLevel > SILENT) {
