@@ -605,6 +605,11 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 			stream << "KKT Swindle count " << swindleIterationCount << ", activeSet size =  " << activeSet.size();
 			logger->writeLine(stream);
 		}
+		
+		// Enforce all beta[inactiveSet] = 0
+		for (auto& inactive : inactiveSet) {
+			setBeta(std::get<0>(inactive), 0.0);
+		}
 	
 		lastReturnFlag = SUCCESS;
 		if (activeSet.size() > 0) { // find initial mode
