@@ -608,7 +608,9 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 		
 		// Enforce all beta[inactiveSet] = 0
 		for (auto& inactive : inactiveSet) {
-			setBeta(std::get<0>(inactive), 0.0);
+			if (getBeta(std::get<0>(inactive)) != 0.0) { // Touch only if necessary
+				setBeta(std::get<0>(inactive), 0.0);
+			}
 		}
 	
 		lastReturnFlag = SUCCESS;
