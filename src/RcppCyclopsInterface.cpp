@@ -7,6 +7,7 @@
 #include <sstream>
 #include <vector>
 #include <map>
+#include <chrono>
  
 #include "Rcpp.h"
 #include "RcppCyclopsInterface.h"
@@ -324,14 +325,13 @@ List cyclopsFitModel(SEXP inRcppCcdInterface) {
 List cyclopsLogModel(SEXP inRcppCcdInterface) {	
 	using namespace bsccs;
 	
-	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);	
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);		
+	
+#if 0
 	bool withASE = false;
-	//return List::create(interface);
-	
 	double timeLogModel = interface->logModel(withASE);
-	//std::cout << "getResult " << interface->getResult() << std::endl;
 	
-	CharacterVector names;
+    CharacterVector names;
 	names.push_back("interface");
 	names.push_back("timeLog");
 	CharacterVector oldNames = interface->getResult().attr("names");
@@ -340,10 +340,53 @@ List cyclopsLogModel(SEXP inRcppCcdInterface) {
 		list.push_back(interface->getResult()[i]);
 		names.push_back(oldNames[i]);
 	}
-	list.attr("names") = names;
+	list.attr("names") = names;	
+#else	  
+    auto start = std::chrono::steady_clock::now();  
+	    
+	auto& ccd = interface->getCcd();
+	auto& data = interface->getModelData();
+		
+	std::vector<double> labels;
+	std::vector<double> values;	    	    
+    auto index = data.getHasOffsetCovariate() ? 1 : 0;
+    for ( ; index < ccd.getBetaSize(); ++index) {
+        labels.push_back(data.getColumn(index).getNumericalLabel());
+        values.push_back(ccd.getBeta(index));
+    }
+    
+	auto end = std::chrono::steady_clock::now();		
+	std::chrono::duration<double> elapsed_seconds = end-start;	
+	double timeLog = elapsed_seconds.count();    
 	
-	//, interface->getResult());	
+//	gettimeofday(&time2, NULL);
+//	auto timeLog = CcdInterface::calculateSeconds(time1, time2); 
+//    double timeLog = 0.0;
+        
+    List estimates = List::create(
+        Named("column_label") = labels, 
+        Named("estimate") = values);
+    
+    List list = List::create(
+        Named("interface") = interface,
+        Named("timeLog") = timeLog,
+        Named("estimation") = estimates    
+    );		
+#endif	
+		
+	
+	
 	return list;
+	
+	// TODO Rewrite as single loop over getBeta()
+	
+	// names(estimates) = c("interface", "timeLog", "estimation")
+	// names(estimates$estimation) = c("column_label", "estimate")
+	
+//         if (rowInfo.currentRow > 0 || !data.getHasOffsetCovariate()) {	
+//             out.addValue(data.getColumn(rowInfo.currentRow).getNumericalLabel()).addDelimitor();
+//             out.addValue(ccd.getBeta(rowInfo.currentRow));
+	
 }
 
 // [[Rcpp::export(".cyclopsInitializeModel")]]
