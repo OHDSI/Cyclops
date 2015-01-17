@@ -42,13 +42,13 @@ int main(int argc, char* argv[]) {
 	double timeInitialize = interface.initializeModel(&modelData, &ccd, &model);
 
 	double timeUpdate;
-	if (arguments.doCrossValidation) {
+	if (arguments.crossValidation.doCrossValidation) {
 		timeUpdate = interface.runCrossValidation(ccd, modelData);
 	} else {
 		if (arguments.doPartial) {
 		    // TODO Delegate to CcdInterface
 			ProportionSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
-					SUBJECT, arguments.seed,
+					SelectorType::BY_PID, arguments.seed,
 					bsccs::make_shared<loggers::CoutLogger>(),
 					bsccs::make_shared<loggers::CerrErrorHandler>());
 			std::vector<bsccs::real> weights;

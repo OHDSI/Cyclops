@@ -1,5 +1,6 @@
 // 2.62     Nov 10, 05  hyperparameter autosearch: observations weighted by inverse stddev
 // 3.02     Sep 01, 11  watch for denormal or infinite limits during autosearch
+// MAS      Jan 02, 15  changed first step direction if hyperparameter is very small
 
 #define  _USE_MATH_DEFINES
 #include <cmath>
@@ -66,8 +67,12 @@ pair<bool,double> UniModalSearch::step() //recommend: do/not next step, and the 
     pair<bool,double> ret(true,0);
     switch( y_by_x.size() ) {
     case 0: ret.second = 1; break;
-    case 1: ret.second = y_by_x.begin()->first / m_stdstep;
-        //we divide here because step with more penalty is safer numerically
+    case 1: 
+        if (y_by_x.begin()->first < m_first_cut)
+            ret.second = y_by_x.begin()->first * m_stdstep;
+        else
+            ret.second = y_by_x.begin()->first / m_stdstep;
+            //we divide here because step with more penalty is safer numerically
         break; 
     case 2: 
         if( y_by_x.begin()->second.m > y_by_x.rbegin()->second.m )

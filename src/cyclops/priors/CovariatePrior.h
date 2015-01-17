@@ -12,6 +12,7 @@
 #include <string>
 #include <cmath>
 #include <sstream>
+#include <limits>
 
 #ifndef PI
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
@@ -52,6 +53,12 @@ public:
 	
 	virtual bool getIsRegularized() const = 0; // pure virtual
 	
+	virtual CovariatePrior* clone() const = 0; // pure virtual
+	
+	virtual bool getSupportsKktSwindle() const = 0; // pure virtual
+	
+	virtual double getKktBoundary() const = 0; // pure virtual
+	
 	static PriorPtr makePrior(PriorType priorType);	    
 };
 
@@ -68,7 +75,7 @@ public:
 	}
 
 	double getVariance() const {
-		return 0.0;
+		return std::numeric_limits<double>::infinity();
 	}
 
 	void setVariance(double x) {
@@ -93,6 +100,18 @@ public:
 
 	double getDelta(GradientHessian gh, double beta) const {
 		return -(gh.first / gh.second); // No regularization
+	}
+	
+	bool getSupportsKktSwindle() const { 
+		return false; 
+	}
+	
+	double getKktBoundary() const {
+		return 0.0;
+	}
+	
+	CovariatePrior* clone() const {
+		return new NoPrior(*this);
 	}
 };
 
@@ -130,7 +149,15 @@ public:
 	
 	bool getIsRegularized() const {
 	    return true;
-	}	
+	}
+	
+	bool getSupportsKktSwindle() const {
+		return true; 
+	}		
+	
+	double getKktBoundary() const {
+		return lambda;
+	}
 
 	double getDelta(GradientHessian gh, double beta) const {
 
@@ -164,6 +191,10 @@ public:
 		}
 		return delta;
 	}
+	
+	CovariatePrior* clone() const {
+		return new LaplacePrior(*this);
+	}	
 
 private:
 
@@ -229,7 +260,15 @@ public:
 	bool getIsRegularized() const {
 	    return true;
 	}	
-
+	
+	bool getSupportsKktSwindle() const {
+		return false;
+	}
+	
+	double getKktBoundary() const {
+		return 0.0;
+	}
+	
 	double logDensity(double x) const {
 		return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
 	}
@@ -242,6 +281,10 @@ public:
 		return - (gh.first + (beta / sigma2Beta)) /
 				  (gh.second + (1.0 / sigma2Beta));
 	}
+	
+	CovariatePrior* clone() const {
+		return new NormalPrior(*this);
+	}	
 
 private:
 	double sigma2Beta;

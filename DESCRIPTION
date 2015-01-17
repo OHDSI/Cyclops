@@ -12,15 +12,21 @@ Description: This package incorporates cyclic coordinate descent and
     efficient inference in massive datasets.
 License: Apache License 2.0
 LazyData: Yes
+URL: https://github.com/ohdsi/cyclops
+BugReports: https://github.com/ohdsi/cyclops/issues
 Depends:
-    Rcpp (>= 0.10.6),
-    BH (>= 1.51.0),
-    RcppEigen (>= 0.3.2),
+    R (>= 3.1.0),
     Matrix
+Imports:
+    Rcpp (>= 0.11.3),
+    bit,
+    ff,
+    ffbase
 LinkingTo: Rcpp,
-    BH,
-    RcppEigen
+    BH (>= 1.51.0),
+    RcppEigen (>= 0.3.2)
 Suggests:
     testthat,
     survival,
-    gnm
+    gnm,
+    ggplot2

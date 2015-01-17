@@ -7,6 +7,7 @@
 #include <sstream>
 #include <vector>
 #include <map>
+#include <chrono>
  
 #include "Rcpp.h"
 #include "RcppCyclopsInterface.h"
@@ -93,11 +94,10 @@ std::vector<std::string> cyclopsGetUseOffsetNames() {
 }
 
 // [[Rcpp::export(.cyclopsSetBeta)]]
-void cyclopsSetBeta(SEXP inRcppCcdInterface, int beta, double value) {
+void cyclopsSetBeta(SEXP inRcppCcdInterface, const std::vector<double>& beta) {
     using namespace bsccs;
-    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);    
-    
-    interface->getCcd().setBeta(beta - 1, value);
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);        
+    interface->getCcd().setBeta(beta);
 }
 
 // [[Rcpp::export(.cyclopsSetFixedBeta)]]
@@ -113,6 +113,24 @@ bool cyclopsGetIsRegularized(SEXP inRcppCcdInterface, const int index) {
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
     return interface->getCcd().getIsRegularized(index);
+}
+
+// [[Rcpp::export(".cyclopsSetWeights")]]
+void cyclopsSetWeights(SEXP inRcppCcdInterface,
+    NumericVector& weights) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    
+    interface->getCcd().setWeights(&weights[0]);    
+}
+
+// [[Rcpp::export(".cyclopsGetPredictiveLogLikelihood")]]
+double cyclopsGetPredictiveLogLikelihood(SEXP inRcppCcdInterface, 
+    NumericVector& weights) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    
+    return interface->getCcd().getPredictiveLogLikelihood(&weights[0]);
 }
 
 // [[Rcpp::export(".cyclopsGetLogLikelihood")]]
@@ -237,36 +255,45 @@ List cyclopsPredictModel(SEXP inRcppCcdInterface) {
 void cyclopsSetControl(SEXP inRcppCcdInterface, 
 		int maxIterations, double tolerance, const std::string& convergenceType,
 		bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps,
-		const std::string& noiseLevel, int seed
+		const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance,
+        bool useKKTSwindle, int swindleMultipler, const std::string& selectorType
 		) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 	// Convergence control
 	CCDArguments& args = interface->getArguments();
-	interface->getArguments().maxIterations = maxIterations;
-	interface->getArguments().tolerance = tolerance;
-	interface->getArguments().convergenceType = RcppCcdInterface::parseConvergenceType(convergenceType);
+	args.modeFinding.maxIterations = maxIterations;
+	args.modeFinding.tolerance = tolerance;
+	args.modeFinding.convergenceType = RcppCcdInterface::parseConvergenceType(convergenceType);
+    args.modeFinding.useKktSwindle = useKKTSwindle;
+    args.modeFinding.swindleMultipler = swindleMultipler;
 	
 	// Cross validation control
-	args.useAutoSearchCV = useAutoSearch;
-	args.fold = fold;
-	args.foldToCompute = foldToCompute;
-	args.lowerLimit = lowerLimit;
-	args.upperLimit = upperLimit;
-	args.gridSteps = gridSteps;
+	args.crossValidation.useAutoSearchCV = useAutoSearch;
+	args.crossValidation.fold = fold;
+	args.crossValidation.foldToCompute = foldToCompute;
+	args.crossValidation.lowerLimit = lowerLimit;
+	args.crossValidation.upperLimit = upperLimit;
+	args.crossValidation.gridSteps = gridSteps;
+	args.crossValidation.startingVariance = startingVariance;
+	args.crossValidation.selectorType = RcppCcdInterface::parseSelectorType(selectorType);	
+	
 	NoiseLevels noise = RcppCcdInterface::parseNoiseLevel(noiseLevel);
 	args.noiseLevel = noise;
 	interface->setNoiseLevel(noise);
+	args.threads = threads;
 	args.seed = seed;
+	args.resetCoefficients = resetCoefficients;
 }
 
 // [[Rcpp::export(".cyclopsRunCrossValidation")]]
 List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {	
 	using namespace bsccs;
 	
-	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);		
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	interface->getArguments().crossValidation.doFitAtOptimal = true;		
 	double timeUpdate = interface->runCrossValidation();
-		
+
 	interface->diagnoseModel(0.0, 0.0);
 	
 	List list = List::create(
@@ -298,14 +325,13 @@ List cyclopsFitModel(SEXP inRcppCcdInterface) {
 List cyclopsLogModel(SEXP inRcppCcdInterface) {	
 	using namespace bsccs;
 	
-	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);	
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);		
+	
+#if 0
 	bool withASE = false;
-	//return List::create(interface);
-	
 	double timeLogModel = interface->logModel(withASE);
-	//std::cout << "getResult " << interface->getResult() << std::endl;
 	
-	CharacterVector names;
+    CharacterVector names;
 	names.push_back("interface");
 	names.push_back("timeLog");
 	CharacterVector oldNames = interface->getResult().attr("names");
@@ -314,10 +340,53 @@ List cyclopsLogModel(SEXP inRcppCcdInterface) {
 		list.push_back(interface->getResult()[i]);
 		names.push_back(oldNames[i]);
 	}
-	list.attr("names") = names;
+	list.attr("names") = names;	
+#else	  
+    auto start = std::chrono::high_resolution_clock::now();  
+	    
+	auto& ccd = interface->getCcd();
+	auto& data = interface->getModelData();
+		
+	std::vector<double> labels;
+	std::vector<double> values;	    	    
+    auto index = data.getHasOffsetCovariate() ? 1 : 0;
+    for ( ; index < ccd.getBetaSize(); ++index) {
+        labels.push_back(data.getColumn(index).getNumericalLabel());
+        values.push_back(ccd.getBeta(index));
+    }
+    
+	auto end = std::chrono::high_resolution_clock::now();		
+	std::chrono::duration<double> elapsed_seconds = end-start;	
+	double timeLog = elapsed_seconds.count();    
 	
-	//, interface->getResult());	
+//	gettimeofday(&time2, NULL);
+//	auto timeLog = CcdInterface::calculateSeconds(time1, time2); 
+//    double timeLog = 0.0;
+        
+    List estimates = List::create(
+        Named("column_label") = labels, 
+        Named("estimate") = values);
+    
+    List list = List::create(
+        Named("interface") = interface,
+        Named("timeLog") = timeLog,
+        Named("estimation") = estimates    
+    );		
+#endif	
+		
+	
+	
 	return list;
+	
+	// TODO Rewrite as single loop over getBeta()
+	
+	// names(estimates) = c("interface", "timeLog", "estimation")
+	// names(estimates$estimation) = c("column_label", "estimate")
+	
+//         if (rowInfo.currentRow > 0 || !data.getHasOffsetCovariate()) {	
+//             out.addValue(data.getColumn(rowInfo.currentRow).getNumericalLabel()).addDelimitor();
+//             out.addValue(ccd.getBeta(rowInfo.currentRow));
+	
 }
 
 // [[Rcpp::export(".cyclopsInitializeModel")]]
@@ -414,6 +483,21 @@ bsccs::priors::PriorType RcppCcdInterface::parsePriorType(const std::string& pri
  	return priorType;
 }
 
+bsccs::SelectorType RcppCcdInterface::parseSelectorType(const std::string& selectorName) {
+    using namespace bsccs;
+	SelectorType selectorType = SelectorType::DEFAULT;
+	if (selectorName == "default") {
+		selectorType = SelectorType::DEFAULT;
+	} else if (selectorName == "byPid") {
+		selectorType = SelectorType::BY_PID;
+	} else if (selectorName == "byRow") {
+		selectorType = SelectorType::BY_ROW;
+	} else {
+		handleError("Invalid selector type.");
+	}	
+	 return selectorType; 	
+}
+
 //  static std::map<ModelType, std::string> modelTypeNames = {
 //  	{ModelType::NORMAL, "ls"},
 //  	{ModelType::POISSON, "pr"},
@@ -445,6 +529,7 @@ bsccs::ModelType RcppCcdInterface::parseModelType(const std::string& modelName) 
 void RcppCcdInterface::setNoiseLevel(bsccs::NoiseLevels noiseLevel) {
     using namespace bsccs;
     ccd->setNoiseLevel(noiseLevel);
+    logger->setSilent(noiseLevel == bsccs::NoiseLevels::SILENT);   
 }
 
 void RcppCcdInterface::setPrior(const std::vector<std::string>& basePriorName, const std::vector<double>& baseVariance,
@@ -474,7 +559,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
 			hPrior->changePrior(classPrior, 1);
 			
 			HierarchicalParentMap parentMap;
-			for (int parent = 0; parent < map.size(); ++parent) {
+			for (size_t parent = 0; parent < map.size(); ++parent) {
 				auto& vec = map[parent];
 				std::for_each(begin(vec), end(vec), [&](int child) {
 					parentMap.push_back(parent);
@@ -597,7 +682,10 @@ void RcppCcdInterface::initializeModelImpl(
   logger = bsccs::make_shared<loggers::RcppProgressLogger>();
   error = bsccs::make_shared<loggers::RcppErrorHandler>();
  
- 	*ccd = new CyclicCoordinateDescent(*modelData /* TODO Change to ref */, **model, prior, logger, error);
+ 	*ccd = new CyclicCoordinateDescent(
+         **modelData /* TODO Change to ref */, 
+         //bsccs::shared_ptr<ModelData>(*modelData),
+         **model, prior, logger, error);
  
  #ifdef CUDA
  	}

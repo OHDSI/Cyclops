@@ -15,7 +15,7 @@ namespace bsccs {
 
 ProportionSelector::ProportionSelector(
 		int inTotal,
-		std::vector<int>* inIds,
+		std::vector<int> inIds,
 		SelectorType inType,
 		long inSeed,
 	    loggers::ProgressLoggerPtr _logger,
@@ -31,6 +31,11 @@ ProportionSelector::ProportionSelector(
 
 ProportionSelector::~ProportionSelector() {
 	// Nothing to do
+}
+
+
+AbstractSelector* ProportionSelector::clone() const {
+	return new ProportionSelector(*this); // default copy constructor
 }
 
 void ProportionSelector::permute() {

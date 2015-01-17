@@ -191,6 +191,8 @@ public:
 
 	void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian,  bool useWeights);
+			
+	AbstractModelSpecifics* clone() const;
 
 protected:
 	void computeNumeratorForGradient(int index);
@@ -267,8 +269,8 @@ private:
 	std::vector<WeightType> hNWeight;
 	std::vector<WeightType> hKWeight;
 
-	std::vector<int> nPid;
-	std::vector<real> nY;
+//	std::vector<int> nPid;
+//	std::vector<real> nY;
 	std::vector<int> hNtoK;
 
 	struct WeightedOperation {
@@ -442,7 +444,7 @@ struct AccumulateGradientAndHessianKernel : private BaseModel {
   //  typedef std::complex<RealType> type;
 
     AccumulateGradientAndHessianKernel(RealType* _numerator, RealType* _numerator2,
-            RealType* _denominator, RealType* _weight, RealType* _xBeta, RealType* _y) 
+            RealType* _denominator, RealType* _weight, RealType* _xBeta, const RealType* _y) 
             : numerator(_numerator), numerator2(_numerator2), denominator(_denominator),
               weight(_weight), xBeta(_xBeta), y(_y) { }
     
@@ -476,7 +478,7 @@ protected:
     RealType* denominator;
     RealType* weight;
     RealType* xBeta;
-    RealType* y;
+    const RealType* y;
 };
 
 template <class BaseModel, class IteratorType, class RealType, class IntType>
@@ -485,7 +487,7 @@ struct NumeratorForGradientKernel : private BaseModel {
 	using XTuple = typename IteratorType::XTuple;
 		
 	NumeratorForGradientKernel(RealType* _numerator, RealType* _numerator2,
-			RealType* _expXBeta, RealType* _xBeta, RealType* _y, IntType* _pid) : numerator(_numerator),
+			RealType* _expXBeta, RealType* _xBeta, const RealType* _y, IntType* _pid) : numerator(_numerator),
 			numerator2(_numerator2), expXBeta(_expXBeta), xBeta(_xBeta), y(_y), pid(_pid) { }	
 	
 	void operator()(XTuple tuple) {
@@ -512,7 +514,7 @@ private:
 	RealType* numerator2;
 	RealType* expXBeta;
 	RealType* xBeta;
-	RealType* y;
+	const RealType* y;
 	IntType* pid;			
 };
 
@@ -522,8 +524,8 @@ struct UpdateXBetaKernel : private BaseModel {
 	using XTuple = typename IteratorType::XTuple;
 		
 	UpdateXBetaKernel(RealType _delta,
-			RealType* _expXBeta, RealType* _xBeta, RealType* _y, IntType* _pid, 
-			RealType* _denominator, RealType* _offs) 
+			RealType* _expXBeta, RealType* _xBeta, const RealType* _y, IntType* _pid, 
+			RealType* _denominator, const RealType* _offs) 
 			: delta(_delta), expXBeta(_expXBeta), xBeta(_xBeta), y(_y), pid(_pid), 
 			  denominator(_denominator), offs(_offs) { }	
 	
@@ -565,10 +567,10 @@ private:
 	RealType delta;	
 	RealType* expXBeta;
 	RealType* xBeta;
-	RealType* y;
+	const RealType* y;
 	IntType* pid;	
 	RealType* denominator;
-	RealType* offs;		
+	const RealType* offs;		
 };
 
 struct GLMProjection {
@@ -760,7 +762,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
 
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return offs[k] * std::exp(xBeta);
 	}
 
@@ -821,7 +823,7 @@ public:
 			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
 		}
 	}
-	
+
 	template <class IteratorType, class WeightOperationType, class RealType>
 	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
@@ -848,7 +850,8 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
 		
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
+
 		return std::exp(xBeta);
 	}
 
@@ -880,7 +883,7 @@ public:
 		return static_cast<real>(yi);
 	}
 
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -1037,7 +1040,7 @@ public:
     }	
 	
 
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -1121,7 +1124,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
 		
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -1153,7 +1156,7 @@ public:
 		return static_cast<real>(1);
 	}
 
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -1230,7 +1233,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
 	
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -1240,7 +1243,8 @@ public:
 
 	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
 			int* groups, int i) {
-		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)])); // TODO Wrong
+		return weighti == 0.0 ? 0.0 :
+		    ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
 	void predictEstimate(real& yi, real xBeta){
@@ -1316,7 +1320,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
 	
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 
@@ -1326,7 +1330,8 @@ public:
 
 	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
 			int* groups, int i) {
-		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)])); // TODO Wrong
+		return weighti == 0.0 ? 0.0 :
+		    ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
 	void predictEstimate(real& yi, real xBeta){
@@ -1445,7 +1450,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
 	
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const  real* offs, real xBeta, real y, int k) {
 // 		std::cerr << "Error!" << std::endl;
 // 		exit(-1);
         throw new std::logic_error("Not model-specific");
@@ -1546,7 +1551,7 @@ public:
 	
 	
 
-	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
+	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
 

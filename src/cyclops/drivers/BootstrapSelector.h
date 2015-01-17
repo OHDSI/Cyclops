@@ -18,7 +18,7 @@ class BootstrapSelector : public AbstractSelector {
 public:
 	BootstrapSelector(
 			int inReplicates,
-			std::vector<int>* inIds,
+			std::vector<int> inIds,
 			SelectorType inType,
 			long inSeed,
     	    loggers::ProgressLoggerPtr _logger,
@@ -32,6 +32,8 @@ public:
 	virtual void getWeights(int batch, std::vector<real>& weights);
 
 	virtual void getComplement(std::vector<real>& weights);
+	
+	AbstractSelector* clone() const;
 
 private:
 	std::multiset<int> selectedSet;

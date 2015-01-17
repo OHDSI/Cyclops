@@ -28,8 +28,9 @@ enum class ModelType; // forward declaration
 	typedef float real;
 #endif
 
-//#define DEBUG_COX // Uncomment to get output for Cox model
-//#define DEBUG_POISSON
+// #define DEBUG_COX // Uncomment to get output for Cox model
+// #define DEBUG_COX_MIN
+// #define DEBUG_POISSON
 
 class AbstractModelSpecifics {
 public:
@@ -45,18 +46,18 @@ public:
 			int iN,
 			int iK,
 			int iJ,
-			CompressedDataMatrix* iXI,
+			const CompressedDataMatrix* iXI, // TODO Change to const&
 			real* iNumerPid,
 			real* iNumerPid2,
 			real* iDenomPid,
 			real* iXjY,
 			std::vector<std::vector<int>* >* iSparseIndices,
-			int* iPid,
+			const int* iPid,
 			real* iOffsExpXBeta,
 			real* iXBeta,
 			real* iOffs,
 			real* iBeta,
-			real* iY);
+			const real* iY);
 
 	virtual void setWeights(real* inWeights, bool useCrossValidation) = 0; // pure virtual
 
@@ -89,6 +90,8 @@ public:
 //	virtual void sortPid(bool useCrossValidation) = 0; // pure virtual
 
 //	static bsccs::shared_ptr<AbstractModelSpecifics> factory(const ModelType modelType, const ModelData& modelData);
+
+	virtual AbstractModelSpecifics* clone() const = 0; // pure virtual
 	
 	static AbstractModelSpecifics* factory(const ModelType modelType, const ModelData& modelData);
 	
@@ -100,6 +103,10 @@ public:
 protected:
 
 	int getAlignedLength(int N);
+	
+	void setPidForAccumulation(const real *weights);
+	
+	void setupSparseIndices(const int max);	
 
 	virtual bool allocateXjY(void) = 0; // pure virtual
 
@@ -121,27 +128,34 @@ protected:
 		fillVector(vector, length, T());
 	}
 	
-private:
+protected:
 	const ModelData& modelData;	
-	
-protected:	
-
+		
 // 	const std::vector<real>& oY;
 // 	const std::vector<real>& oZ;
 // 	const std::vector<int>& oPid;
 
-	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
+	// TODO Change to const& (is never nullptr)
+// 	const CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
 	RealVector accDenomPid;
 	RealVector accNumerPid;
 	RealVector accNumerPid2;
 	
 	IntVector accReset;
+	
+	const std::vector<real>& hY;
+	const std::vector<real>& hOffs;
+// 	const std::vector<int>& hPid;
 
-	real* hY; // K-vector
+// 	real* hY; // K-vector
 //	real* hZ; // K-vector
-	real* hOffs;  // K-vector
-	int* hPid; // K-vector
+// 	real* hOffs;  // K-vector
+		
+	const std::vector<int>& hPidOriginal;
+	int* hPid;	
+	std::vector<int> hPidInternal;
+	
 //	int** hXColumnRowIndicators; // J-vector
 
 //	real* hBeta;

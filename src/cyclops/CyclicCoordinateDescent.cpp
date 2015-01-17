@@ -14,10 +14,12 @@
 #include <map>
 #include <time.h>
 #include <set>
+#include <list>
 
 #include "CyclicCoordinateDescent.h"
 // #include "io/InputReader.h"
 #include "Iterators.h"
+//#include "priors/JointPrior.h"
 // #include "io/ProgressLogger.h"
 
 //#ifdef MY_RCPP_FLAG
@@ -49,30 +51,65 @@ using namespace std;
 // }
 
 CyclicCoordinateDescent::CyclicCoordinateDescent(
-			ModelData* reader,
+			//ModelData* reader,
+			const ModelData& reader,			
 			AbstractModelSpecifics& specifics,
 			priors::JointPriorPtr prior,
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error
-		) : modelSpecifics(specifics), jointPrior(prior), 
-	        hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
-	        logger(_logger), error(_error) {
-	N = reader->getNumberOfPatients();
-	K = reader->getNumberOfRows();
-	J = reader->getNumberOfColumns();
+		) : privateModelSpecifics(nullptr), modelSpecifics(specifics), jointPrior(prior), 
+		 hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
+		hXI(reader), logger(_logger), error(_error) {
+	N = hXI.getNumberOfPatients();
+	K = hXI.getNumberOfRows();
+	J = hXI.getNumberOfColumns();
 	
-	hXI = reader;
-	hY = reader->getYVector(); // TODO Delegate all data to ModelSpecifics
+// 	hXI = reader;
+	hY = hXI.getYVector(); // TODO Delegate all data to ModelSpecifics
 //	hOffs = reader->getOffsetVector();
-	hPid = reader->getPidVector(); // TODO Delegate all data to ModelSpecifics
+	hPid = hXI.getPidVector();
 
-	conditionId = reader->getConditionId();
+	conditionId = hXI.getConditionId();
 
 	updateCount = 0;
 	likelihoodCount = 0;
 	noiseLevel = NOISY;
 
-	init(reader->getHasOffsetCovariate());
+	init(hXI.getHasOffsetCovariate());
+}
+
+CyclicCoordinateDescent* CyclicCoordinateDescent::clone() {	
+	return new CyclicCoordinateDescent(*this);
+} 
+
+//template <typename T>
+//struct GetType<T>; 
+
+CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& copy)
+	: privateModelSpecifics(
+			bsccs::unique_ptr<AbstractModelSpecifics>(
+				copy.modelSpecifics.clone())), // deep copy
+	  modelSpecifics(*privateModelSpecifics),  
+	  hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
+// 	  jointPrior(priors::JointPriorPtr(copy.jointPrior->clone())), // deep copy
+	  jointPrior(copy.jointPrior), // swallow
+	  hXI(copy.hXI), // swallow
+	  logger(copy.logger), error(copy.error) {
+	        	        
+	N = hXI.getNumberOfPatients();
+	K = hXI.getNumberOfRows();
+	J = hXI.getNumberOfColumns();	
+	
+	hY = hXI.getYVector(); // TODO Delegate all data to ModelSpecifics
+	hPid = hXI.getPidVector();
+
+	conditionId = hXI.getConditionId();
+
+	updateCount = 0;
+	likelihoodCount = 0;
+	noiseLevel = copy.noiseLevel;
+
+	init(hXI.getHasOffsetCovariate());			
 }
 
 CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
@@ -140,7 +177,7 @@ void CyclicCoordinateDescent::resetBounds() {
 }
 
 void CyclicCoordinateDescent::init(bool offset) {
-	
+		
 	// Set parameters and statistics space
 	hDelta.resize(J, static_cast<double>(2.0));
 	hBeta.resize(J, static_cast<double>(0.0));
@@ -152,17 +189,18 @@ void CyclicCoordinateDescent::init(bool offset) {
 	
 	fixBeta.resize(J, false);
 	
-	// Recode patient ids  TODO Delegate to grouped model
-	int currentNewId = 0;
-	int currentOldId = hPid[0];
-	
-	for(int i = 0; i < K; i++) {
-		if (hPid[i] != currentOldId) {			
-			currentOldId = hPid[i];
-			currentNewId++;
-		}
-		hPid[i] = currentNewId;
-	}
+	// SHOULD BE HANDLED IN MODELDATA CONSTRUCTORS
+// 	//Recode patient ids  TODO Delegate to grouped model
+// 	int currentNewId = 0;
+// 	int currentOldId = hPid[0];
+// 	
+// 	for(int i = 0; i < K; i++) {
+// 		if (hPid[i] != currentOldId) {			
+// 			currentOldId = hPid[i];
+// 			currentNewId++;
+// 		}
+// 		hPid[i] = currentNewId;
+// 	}
 		
 	// Init temporary variables
 //	offsExpXBeta = (real*) malloc(sizeof(real) * K);
@@ -215,8 +253,8 @@ void CyclicCoordinateDescent::init(bool offset) {
 		xBetaKnown = true; // all beta = 0 => xBeta = 0
 	}
 	doLogisticRegression = false;
-        
-	modelSpecifics.initialize(N, K, J, hXI, NULL, NULL, NULL,
+	        
+	modelSpecifics.initialize(N, K, J, &hXI, NULL, NULL, NULL,
 			NULL, NULL,
 			hPid, NULL,
 			hXBeta.data(), NULL,
@@ -263,7 +301,7 @@ void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
 	outLog << endl;
 
 	for (int i = 0; i < J; i++) {		
-		outLog << hXI->getColumn(i).getLabel()
+		outLog << hXI.getColumn(i).getLabel()
 //				<< sep << conditionId
 				<< sep << hBeta[i];
 		if (withASE) {
@@ -277,6 +315,8 @@ void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
 }
 
 double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
+
+	xBetaKnown = false;
 
 	if (!xBetaKnown) {
 		computeXBeta();
@@ -376,7 +416,7 @@ void CyclicCoordinateDescent::setClassHyperprior(double value) {
 	jointPrior->setVariance(1,value);
 }
 
-double CyclicCoordinateDescent::getHyperprior(void) const {
+std::vector<double> CyclicCoordinateDescent::getHyperprior(void) const {
 	return jointPrior->getVariance();
 }
 
@@ -497,7 +537,239 @@ void CyclicCoordinateDescent::saveXBeta(void) {
 	memcpy(hXBetaSave.data(), hXBeta.data(), K * sizeof(real));
 }
 
-void CyclicCoordinateDescent::update(
+void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
+	
+	const auto maxIterations = arguments.maxIterations;
+	const auto convergenceType = arguments.convergenceType;
+	const auto epsilon = arguments.tolerance;	
+		
+ 	if (arguments.useKktSwindle && jointPrior->getSupportsKktSwindle()) {
+		kktSwindle(arguments);		
+	} else {
+		findMode(maxIterations, convergenceType, epsilon);
+	}
+}
+
+typedef std::tuple<
+	int,    // index	
+	double, // gradient
+	bool    // force active
+> ScoreTuple;
+
+template <typename Iterator>
+void CyclicCoordinateDescent::findMode(Iterator begin, Iterator end,
+		const int maxIterations, const int convergenceType, const double epsilon) {
+		
+	std::fill(fixBeta.begin(), fixBeta.end(), true);
+ 	std::for_each(begin, end, [this] (ScoreTuple& tuple) {
+ 		fixBeta[std::get<0>(tuple)] = false;
+ 	});
+	findMode(maxIterations, convergenceType, epsilon);
+    // fixBeta is no longer valid
+}
+
+void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) {
+
+	const auto maxIterations = arguments.maxIterations;
+	const auto convergenceType = arguments.convergenceType;
+	const auto epsilon = arguments.tolerance;
+	
+	// Make sure internal state is up-to-date	
+	checkAllLazyFlags();	
+	
+		
+	std::list<ScoreTuple> activeSet;
+	std::list<ScoreTuple> inactiveSet;
+	std::list<int> excludeSet;		
+				
+	// Initialize sets
+	int intercept = -1;
+	if (hXI.getHasInterceptCovariate()) {
+		intercept = hXI.getHasOffsetCovariate() ? 1 : 0;
+	}
+	
+	for (int index = 0; index < J; ++index) {
+		if (fixBeta[index]) {
+			excludeSet.push_back(index);
+		} else {
+			if (index == intercept || // Always place intercept into active set
+                !jointPrior->getSupportsKktSwindle(index)) {
+// 				activeSet.push_back(index);
+				activeSet.push_back(std::make_tuple(index, 0.0, true));
+			} else {
+				inactiveSet.push_back(std::make_tuple(index, 0.0, false));
+			}
+		}
+	}
+	
+	bool done = false;
+	int swindleIterationCount = 1;
+	
+	int initialActiveSize = activeSet.size();
+	int perPassSize = arguments.swindleMultipler;
+	
+	while (!done) {
+	
+		if (noiseLevel >= QUIET) {
+			std::ostringstream stream;
+			stream << "\nKKT Swindle count " << swindleIterationCount << ", activeSet size =  " << activeSet.size();
+			logger->writeLine(stream);
+		}
+		
+		// Enforce all beta[inactiveSet] = 0
+		for (auto& inactive : inactiveSet) {
+			if (getBeta(std::get<0>(inactive)) != 0.0) { // Touch only if necessary
+				setBeta(std::get<0>(inactive), 0.0);
+			}
+		}
+	
+		double updateTime = 0.0;
+		lastReturnFlag = SUCCESS;
+		if (activeSet.size() > 0) { // find initial mode
+			auto start = std::chrono::high_resolution_clock::now();
+			  		
+			findMode(begin(activeSet), end(activeSet), maxIterations, convergenceType, epsilon);
+			
+			auto end = std::chrono::high_resolution_clock::now();
+			std::chrono::duration<double> elapsed_seconds = end-start;	
+			updateTime = elapsed_seconds.count();    			
+		}
+		
+		if (noiseLevel >= QUIET) {
+			std::ostringstream stream;
+			stream << "update time: " << updateTime << " in " << lastIterationCount << " iterations.";
+			logger->writeLine(stream);
+		}
+		
+		if (inactiveSet.size() == 0 || lastReturnFlag != SUCCESS) { // Computed global mode, nothing more to do, or failed
+		
+			done = true;		
+			
+		} else { // still inactive covariates
+								
+			
+			if (swindleIterationCount == maxIterations) {
+				lastReturnFlag = MAX_ITERATIONS;		
+				done = true;
+				if (noiseLevel > SILENT) {
+					std::ostringstream stream;	
+					stream << "Reached maximum swindle iterations";
+					logger->writeLine(stream);
+				}
+			} else {
+		
+				auto checkConditions = [this] (const ScoreTuple& score) {
+					return (std::get<1>(score) <= jointPrior->getKktBoundary(std::get<0>(score)));
+				};
+				
+				auto checkAlmostConditions = [this] (const ScoreTuple& score) {
+					return (std::get<1>(score) < 0.9 * jointPrior->getKktBoundary(std::get<0>(score)));
+				};				
+		
+				// Check KKT conditions
+									
+				computeKktConditions(inactiveSet);				
+			
+				bool satisfied = std::all_of(begin(inactiveSet), end(inactiveSet), checkConditions);
+			
+				if (satisfied) {
+					done = true;				
+				} else {
+					auto newActiveSize = initialActiveSize + perPassSize;
+					
+					auto count1 = std::distance(begin(inactiveSet), end(inactiveSet));
+					auto count2 = std::count_if(begin(inactiveSet), end(inactiveSet), checkConditions);
+					
+					
+					// Remove elements from activeSet if less than 90% of boundary
+// 					computeKktConditions(activeSet); // TODO Already computed in findMode		
+// 					
+// // 					for (auto& active : activeSet) {
+// // 						std::ostringstream stream;
+// // 						stream << "Active: " << std::get<0>(active) << " : " << std::get<1>(active) << " : " << std::get<2>(active);
+// // 						logger->writeLine(stream);																						
+// // 					}		
+// 					
+// 					int countActiveViolations = 0;
+// 					while(activeSet.size() > 0 &&
+// 						checkAlmostConditions(activeSet.back())
+// 					) {
+// 						auto& back = activeSet.back();
+// 						
+// // 						std::ostringstream stream;
+// // 						stream << "Remove: " << std::get<0>(back) << ":" << std::get<1>(back) 
+// // 						       << " cut @ " << jointPrior->getKktBoundary(std::get<0>(back))
+// // 						       << " diff = " << (std::get<1>(back) - jointPrior->getKktBoundary(std::get<0>(back)));
+// // 						logger->writeLine(stream);						
+// 						
+// 						inactiveSet.push_back(back);
+// 						activeSet.pop_back();		
+// 						++countActiveViolations;									
+// 					}
+					// end
+																			
+					// Move inactive elements into active if KKT conditions are not met
+					while (inactiveSet.size() > 0
+							&& !checkConditions(inactiveSet.front())
+//  							&& activeSet.size() < newActiveSize
+					) {
+						auto& front = inactiveSet.front();
+						
+// 						std::ostringstream stream;
+// 						stream << std::get<0>(front) << ":" << std::get<1>(front);
+// 						logger->writeLine(stream);
+						
+						activeSet.push_back(front);
+						inactiveSet.pop_front();
+					}	
+										
+					if (noiseLevel >= QUIET) {
+						std::ostringstream stream;
+// 						stream << "  Active set violations: " << countActiveViolations << std::endl;  
+						stream << "Inactive set violations: " << (count1 - count2);
+						logger->writeLine(stream);
+					}													
+				}			
+			}									
+		}
+		++swindleIterationCount;
+		perPassSize *= 2;
+		
+		logger->yield();			// This is not re-entrant safe	
+	}
+						
+	// restore fixBeta
+	std::fill(fixBeta.begin(), fixBeta.end(), false);
+	for (auto index : excludeSet) {
+		fixBeta[index] = true;
+	}
+}
+
+template <typename Container>
+void CyclicCoordinateDescent::computeKktConditions(Container& scoreSet) {
+
+    for (auto& score : scoreSet) {    
+        const auto index = std::get<0>(score);     
+           
+		computeNumeratorForGradient(index);
+	
+		priors::GradientHessian gh;
+		computeGradientAndHessian(index, &gh.first, &gh.second);
+		
+		std::get<1>(score) = std::abs(gh.first);
+    }
+    
+    scoreSet.sort([] (ScoreTuple& lhs, ScoreTuple& rhs) {
+    	if (std::get<2>(rhs) == std::get<2>(lhs)) {
+			return (std::get<1>(rhs) < std::get<1>(lhs));    	    	
+    	} else {
+    		return(std::get<2>(lhs));
+    	}
+    });    
+}	
+
+
+void CyclicCoordinateDescent::findMode(
 		int maxIterations,
 		int convergenceType,
 		double epsilon
@@ -526,7 +798,7 @@ void CyclicCoordinateDescent::update(
 		computeRemainingStatistics(true, 0); // TODO Check index?
 		sufficientStatisticsKnown = true;
 	}
-
+	
 	resetBounds();
 
 	bool done = false;
@@ -560,7 +832,7 @@ void CyclicCoordinateDescent::update(
 			}
 			
 		}
-
+		
 		iteration++;
 //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
 		bool checkConvergence = true; // Check after each complete cycle
@@ -621,8 +893,8 @@ void CyclicCoordinateDescent::update(
 			if (noiseLevel > QUIET) {
                 logger->writeLine(stream);
 			}
-			
-			logger->yield();			
+						
+			logger->yield();			// This is not re-entrant safe
 		}						
 	}
 	lastIterationCount = iteration;
@@ -785,7 +1057,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	
 	priors::GradientHessian gh;
 	computeGradientAndHessian(index, &gh.first, &gh.second);
-	
+			
 	if (gh.second < 0.0) {
 	    gh.first = 0.0;	
 	    gh.second = 0.0;
@@ -796,7 +1068,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 
 template <class IteratorType>
 void CyclicCoordinateDescent::axpy(real* y, const real alpha, const int index) {
-	IteratorType it(*hXI, index);
+	IteratorType it(hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
 		y[k] += alpha * it.value();
@@ -805,7 +1077,7 @@ void CyclicCoordinateDescent::axpy(real* y, const real alpha, const int index) {
 
 void CyclicCoordinateDescent::axpyXBeta(const real beta, const int j) {
 	if (beta != static_cast<real>(0.0)) {
-		switch (hXI->getFormatType(j)) {
+		switch (hXI.getFormatType(j)) {
 		case INDICATOR:
 			axpy < IndicatorIterator > (hXBeta.data(), beta, j);
 			break;

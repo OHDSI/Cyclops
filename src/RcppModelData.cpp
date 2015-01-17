@@ -152,7 +152,11 @@ CharacterVector cyclopsGetCovariateType(Environment object, const std::vector<in
 // [[Rcpp::export("getNumberOfCovariates")]]
 int cyclopsGetNumberOfColumns(Environment object) {	
 	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	
-	return static_cast<int>(data->getNumberOfColumns());
+	auto count = data->getNumberOfColumns();
+	if (data->getHasOffsetCovariate()) {
+	    --count;
+	}
+	return static_cast<int>(count);
 }
 
 //' @title Get total number of rows
@@ -516,7 +520,7 @@ RcppModelData::RcppModelData(
 				covariates.push_back(make_shared<RealVector>(y.size(), 0));
 			}
 			size_t offset = i * y.size();
-			for (int k = 0; k < y.size(); ++k) {
+			for (size_t k = 0; k < y.size(); ++k) {
 				covariates[static_cast<int>(_type[k])]->at(k) = dxv[offset + k];
 			}
 			for (int c = 0; c < numTypes; ++c) {

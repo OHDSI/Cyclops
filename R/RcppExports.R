@@ -17,8 +17,8 @@
     .Call('Cyclops2_cyclopsGetUseOffsetNames', PACKAGE = 'Cyclops2')
 }
 
-.cyclopsSetBeta <- function(inRcppCcdInterface, beta, value) {
-    invisible(.Call('Cyclops2_cyclopsSetBeta', PACKAGE = 'Cyclops2', inRcppCcdInterface, beta, value))
+.cyclopsSetBeta <- function(inRcppCcdInterface, beta) {
+    invisible(.Call('Cyclops2_cyclopsSetBeta', PACKAGE = 'Cyclops2', inRcppCcdInterface, beta))
 }
 
 .cyclopsSetFixedBeta <- function(inRcppCcdInterface, beta, fixed) {
@@ -27,6 +27,14 @@
 
 .cyclopsGetIsRegularized <- function(inRcppCcdInterface, index) {
     .Call('Cyclops2_cyclopsGetIsRegularized', PACKAGE = 'Cyclops2', inRcppCcdInterface, index)
+}
+
+.cyclopsSetWeights <- function(inRcppCcdInterface, weights) {
+    invisible(.Call('Cyclops2_cyclopsSetWeights', PACKAGE = 'Cyclops2', inRcppCcdInterface, weights))
+}
+
+.cyclopsGetPredictiveLogLikelihood <- function(inRcppCcdInterface, weights) {
+    .Call('Cyclops2_cyclopsGetPredictiveLogLikelihood', PACKAGE = 'Cyclops2', inRcppCcdInterface, weights)
 }
 
 .cyclopsGetLogLikelihood <- function(inRcppCcdInterface) {
@@ -49,8 +57,8 @@
     .Call('Cyclops2_cyclopsPredictModel', PACKAGE = 'Cyclops2', inRcppCcdInterface)
 }
 
-.cyclopsSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, seed) {
-    invisible(.Call('Cyclops2_cyclopsSetControl', PACKAGE = 'Cyclops2', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, seed))
+.cyclopsSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType) {
+    invisible(.Call('Cyclops2_cyclopsSetControl', PACKAGE = 'Cyclops2', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType))
 }
 
 .cyclopsRunCrossValidation <- function(inRcppCcdInterface) {
@@ -67,6 +75,10 @@
 
 .cyclopsInitializeModel <- function(inModelData, modelType, computeMLE = FALSE) {
     .Call('Cyclops2_cyclopsInitializeModel', PACKAGE = 'Cyclops2', inModelData, modelType, computeMLE)
+}
+
+.isSorted <- function(dataFrame, indexes, ascending) {
+    .Call('Cyclops2_isSorted', PACKAGE = 'Cyclops2', dataFrame, indexes, ascending)
 }
 
 #' @title Print row identifiers

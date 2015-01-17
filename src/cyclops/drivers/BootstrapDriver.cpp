@@ -61,7 +61,7 @@ void BootstrapDriver::drive(
 		stream << std::endl << "Running replicate #" << (step + 1);
 		logger->writeLine(stream);
 		// Run CCD using a warm start
-		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+		ccd.update(arguments.modeFinding);
 
 		// Store point estimates
 		for (int j = 0; j < J; ++j) {

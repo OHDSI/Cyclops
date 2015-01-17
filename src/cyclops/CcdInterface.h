@@ -28,6 +28,55 @@ namespace bsccs {
     class CyclicCoordinateDescent; // forward declaration
     class ModelData;
     class AbstractModelSpecifics;
+    
+struct CrossValidationArguments {
+
+    // All options related to cross-validation go here
+	bool doCrossValidation;
+	bool useAutoSearchCV;
+	double lowerLimit;
+	double upperLimit;
+	int fold;
+	int foldToCompute;
+	int gridSteps;
+	std::string cvFileName;
+	bool doFitAtOptimal;    
+    double startingVariance;
+    SelectorType selectorType;
+    
+    CrossValidationArguments() :
+        doCrossValidation(false),
+        useAutoSearchCV(false),
+        lowerLimit(0.01),
+        upperLimit(20.0),
+        fold(10),
+        foldToCompute(10),
+        gridSteps(10),
+        cvFileName("cv.txt"),
+        doFitAtOptimal(true),
+        startingVariance(-1),   // Use default from Genkins et al.
+        selectorType(SelectorType::BY_PID)
+        { }
+};
+
+struct ModeFindingArguments {
+	
+	// All options related to mode-finding should (TODO) go here
+	double tolerance;
+	int maxIterations;
+    std::string convergenceTypeString;
+	int convergenceType;
+	bool useKktSwindle;
+	int swindleMultipler;
+	
+	ModeFindingArguments() :
+		tolerance(1E-6),
+		maxIterations(1000),
+		convergenceTypeString("gradient"),
+		convergenceType(GRADIENT),
+		useKktSwindle(false),
+		swindleMultipler(10) { }
+};
 
 struct CCDArguments {
 
@@ -40,28 +89,17 @@ struct CCDArguments {
 	bool useGPU;
 	bool useBetterGPU;
 	int deviceNumber;
-	double tolerance;
+// 	double tolerance;
 	double hyperprior;
 	bool computeMLE;
 	bool fitMLEAtMode;
 	bool reportASE;
 	bool useNormalPrior;
 	bool hyperPriorSet;
-	int maxIterations;
-	std::string convergenceTypeString;
-	int convergenceType;
+// 	int maxIterations;
+// 	std::string convergenceTypeString;
+// 	int convergenceType;
 	long seed;
-
-	// Needed for cross-validation
-	bool doCrossValidation;
-	bool useAutoSearchCV;
-	double lowerLimit;
-	double upperLimit;
-	int fold;
-	int foldToCompute;
-	int gridSteps;
-	std::string cvFileName;
-	bool doFitAtOptimal;
 
 	//Needed for Hierarchy
 	bool useHierarchy;
@@ -83,6 +121,12 @@ struct CCDArguments {
 
 	ProfileVector profileCI;
 	ProfileVector flatPrior;
+	
+	int threads;
+	bool resetCoefficients;	
+		
+	ModeFindingArguments modeFinding;
+	CrossValidationArguments crossValidation;
 };
 
 
@@ -155,6 +199,8 @@ public:
 protected:
     std::string getPathAndFileName(const CCDArguments& arguments, std::string stem);
     bool includesOption(const std::string& line, const std::string& option);
+    
+	static SelectorType getDefaultSelectorTypeOrOverride(SelectorType selectorType, ModelType modelType);    
     
     CCDArguments arguments;
 		

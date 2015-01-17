@@ -13,18 +13,19 @@
 namespace bsccs {
 
 AbstractSelector::AbstractSelector(
-		std::vector<int>* inIds,
+		std::vector<int> inIds,
 		SelectorType inType,
 		long inSeed,
 	    loggers::ProgressLoggerPtr _logger,
 		loggers::ErrorHandlerPtr _error		
-		) : ids(inIds), type(inType), seed(inSeed), K(inIds->size()), logger(_logger), error(_error) {
+		) : ids(inIds), type(inType), seed(inSeed), K(ids.size()), logger(_logger), error(_error) {
 
 	// Set up number of exchangeable objects
-	if (type == SUBJECT) {
-		N = *(std::max_element(ids->begin(), ids->end())) + 1;
+	if (type == SelectorType::BY_PID) {
+		N = *(std::max_element(ids.begin(), ids.end())) + 1; 
+		// Assumes that smallest ids == 0 and they are consecutive
 	} else {
-		N = ids->size();
+		N = ids.size();
 	}
 
 	// Set up seed
@@ -32,7 +33,7 @@ AbstractSelector::AbstractSelector(
 		deterministic = true;
 	} else {
 		deterministic = false;
-		if (seed == 0) {
+		if (seed == -99) {
 #ifdef _WIN32
 
 			seed = time_t(NULL);
@@ -43,14 +44,14 @@ AbstractSelector::AbstractSelector(
 
 #endif
 		}
-		srand(seed);
+		prng.seed(seed);
 	}
 }
 
 AbstractSelector::~AbstractSelector() {
-	if (ids) {
-		delete ids;
-	}
+// 	if (ids) {
+// 		delete ids;
+// 	}
 }
 
 } // namespace

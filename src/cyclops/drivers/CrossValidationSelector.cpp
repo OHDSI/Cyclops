@@ -20,7 +20,7 @@ using std::insert_iterator;
 
 CrossValidationSelector::CrossValidationSelector(
 		int inFold,
-		std::vector<int>* inIds,
+		std::vector<int> inIds,
 		SelectorType inType,
 		long inSeed,
 	    loggers::ProgressLoggerPtr _logger,
@@ -41,23 +41,27 @@ CrossValidationSelector::CrossValidationSelector(
 	}
 	intervalStart.push_back(N);
 
-// 	for (int i = 0; i < fold; i++) {
-// 		std::cout << (intervalStart[i+1] - intervalStart[i]) << " ";
-// 	}
-// 	std::cout << std::endl;
-
     std::ostringstream stream;
 	stream << "Performing " << fold << "-fold cross-validation [seed = "
-		      << seed << "]";
+		      << seed << "] with data partitions of sizes";
+		      
+	for (int i = 0; i < fold; ++i) {
+		stream << " " << (intervalStart[i+1] - intervalStart[i]);
+	}		      
 	logger->writeLine(stream);
 
-	// Generate random permutation
-	permutation.reserve(N);
-	for (size_t i = 0; i < N; ++i) {
-		permutation.push_back(i);
-	}
+	permutation.resize(N);
+
 	weightsExclude = wtsExclude;
 }
+
+void CrossValidationSelector::reseed() { 
+//	std::cerr << "RESEEDING"  << std::endl;
+	prng.seed(seed);
+	for (size_t i = 0; i < N; ++i) {
+		permutation[i] = i;
+	}
+} 
 
 CrossValidationSelector::~CrossValidationSelector() {
 	// Do nothing
@@ -74,7 +78,7 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 		return;
 	}
 
-	if (type == SUBJECT) {
+	if (type == SelectorType::BY_PID) {
 		std::set<int> excludeSet;
 		std::copy(
 				permutation.begin() + intervalStart[batch],
@@ -83,16 +87,26 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 				);
 
 		for (size_t k = 0; k < K; k++) {
-			if (excludeSet.find(ids->at(k)) != excludeSet.end()) { // found
+			if (excludeSet.find(ids.at(k)) != excludeSet.end()) { // found
 				weights[k] = 0.0;
 			} else {
-				weights[k] = 1.0;
+				weights[k] = 1.0; // TODO Is this necessary?
 			}
-		}
-	} else {
-		std::fill(weights.begin(), weights.end(), 0.0);
-		std::fill(weights.begin(), weights.begin() + 100, 1.0);
+		}		
+	} else { // SelectorType::BY_ROW
+// 		std::fill(weights.begin(), weights.end(), 0.0);
+// 		std::fill(weights.begin(), weights.begin() + 100, 1.0);
+		std::for_each(
+			permutation.begin() + intervalStart[batch],
+			permutation.begin() + intervalStart[batch + 1],
+			[&weights](const int excludeIndex) {
+				weights[excludeIndex] = 0.0;
+		});
 	}
+}
+
+AbstractSelector* CrossValidationSelector::clone() const {
+	return new CrossValidationSelector(*this); // default copy constructor
 }
 
 void CrossValidationSelector::getComplement(std::vector<real>& weights) {
@@ -105,7 +119,8 @@ void CrossValidationSelector::permute() {
 
 	// Do random shuffle
 	if (!deterministic) {
-		std::random_shuffle(permutation.begin(), permutation.end());
+//      	std::cerr << "PERMUTE" << std::endl;
+		std::shuffle(permutation.begin(), permutation.end(), prng);
 	}
 
 	if(weightsExclude){

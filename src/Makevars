@@ -29,7 +29,8 @@ CXX_STD = CXX11
 PKG_CPPFLAGS = -I. -Icyclops -DR_BUILD -DDOUBLE_PRECISION
 
 SOURCES = $(wildcard *.cpp cyclops/*.cpp cyclops/drivers/*.cpp cyclops/engine/*.cpp \
-					cyclops/io/*.cpp cyclops/priors/*.cpp utils/*.cpp)
+					cyclops/io/*.cpp cyclops/priors/*.cpp utils/*.cpp \
+                    tinythread/*.cpp)
 
 # OBJECTS.cyclops = \
 #     cyclops/CcdInterface.o \

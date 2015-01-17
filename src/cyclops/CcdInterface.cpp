@@ -147,21 +147,21 @@ double CcdInterface::calculateSeconds(const timeval &time1, const timeval &time2
 
 void CcdInterface::setDefaultArguments(void) {
 	arguments.useGPU = false;
-	arguments.maxIterations = 1000;
+// 	arguments.maxIterations = 1000;
 	arguments.inFileName = "default_in";
 	arguments.outFileName = "default_out";
 	arguments.outDirectoryName = "";
 	arguments.hyperPriorSet = false;
 	arguments.hyperprior = 1.0;
-	arguments.tolerance = 1E-6; //5E-4;
-	arguments.seed = 123;
-	arguments.doCrossValidation = false;
-	arguments.useAutoSearchCV = false;
-	arguments.lowerLimit = 0.01;
-	arguments.upperLimit = 20.0;
-	arguments.fold = 10;
-	arguments.gridSteps = 10;
-	arguments.cvFileName = "cv.txt";
+// 	arguments.tolerance = 1E-6; //5E-4;
+	arguments.seed = -99;
+// 	arguments.doCrossValidation = false;
+// 	arguments.useAutoSearchCV = false;
+// 	arguments.lowerLimit = 0.01;
+// 	arguments.upperLimit = 20.0;
+// 	arguments.fold = 10;
+// 	arguments.gridSteps = 10;
+// 	arguments.cvFileName = "cv.txt";
 	arguments.useHierarchy = false;
 	arguments.doBootstrap = false;
 	arguments.replicates = 100;
@@ -173,10 +173,12 @@ void CcdInterface::setDefaultArguments(void) {
 	arguments.fitMLEAtMode = false;
 	arguments.reportASE = false;
 	arguments.useNormalPrior = false;
-	arguments.convergenceType = GRADIENT;
-	arguments.convergenceTypeString = "gradient";
+// 	arguments.convergenceType = GRADIENT;
+// 	arguments.convergenceTypeString = "gradient";
 	arguments.doPartial = false;
 	arguments.noiseLevel = NOISY;
+	arguments.threads = -1;
+	arguments.resetCoefficients = false;
 }
 
 double CcdInterface::initializeModel(
@@ -233,7 +235,7 @@ struct OptimizationProfile {
 		++nEvals;
 		ccd.setBeta(index, x);
 		ccd.setFixedBeta(index, true);
-		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+		ccd.update(arguments.modeFinding);
 		ccd.setFixedBeta(index, false);
 		double y = ccd.getLogLikelihood() + threshold - max;
 		if (includePenalty) {
@@ -403,11 +405,30 @@ double CcdInterface::fitModel(CyclicCoordinateDescent *ccd) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	ccd->update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
+	ccd->update(arguments.modeFinding);
 
 	gettimeofday(&time2, NULL);
 
 	return calculateSeconds(time1, time2);
+}
+
+
+SelectorType CcdInterface::getDefaultSelectorTypeOrOverride(SelectorType selectorType, ModelType modelType) {
+	if (selectorType == SelectorType::DEFAULT) {
+		selectorType = (modelType == ModelType::COX || 
+                        modelType == ModelType::COX_RAW) // TODO Fix for Normal, logistic, POISSON
+			? SelectorType::BY_ROW : SelectorType::BY_PID;								
+// 				NORMAL,
+// 				POISSON,
+// 				LOGISTIC,
+// 				CONDITIONAL_LOGISTIC,
+// 				TIED_CONDITIONAL_LOGISTIC,
+// 				CONDITIONAL_POISSON,
+// 				SELF_CONTROLLED_MODEL,
+// 				COX,
+// 				COX_RAW,		
+	}
+	return selectorType;
 }
 
 double CcdInterface::runBoostrap(
@@ -417,8 +438,11 @@ double CcdInterface::runBoostrap(
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 	
+	auto selectorType = getDefaultSelectorTypeOrOverride(
+		arguments.crossValidation.selectorType, modelData->getModelType());
+		
 	BootstrapSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
-			SUBJECT, arguments.seed, logger, error);
+			selectorType, arguments.seed, logger, error);
 	BootstrapDriver driver(arguments.replicates, modelData, logger, error);
 
 	driver.drive(*ccd, selector, arguments);
@@ -448,23 +472,25 @@ double CcdInterface::runFitMLEAtMode(CyclicCoordinateDescent* ccd) {
 double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
+	
+	auto selectorType = getDefaultSelectorTypeOrOverride(
+		arguments.crossValidation.selectorType, modelData->getModelType());	
 
-	CrossValidationSelector selector(arguments.fold, modelData->getPidVectorSTL(),
-			SUBJECT, arguments.seed, logger, error);
+	CrossValidationSelector selector(arguments.crossValidation.fold, modelData->getPidVectorSTL(),
+			selectorType, arguments.seed, logger, error); // TODO ERROR HERE!  NOT ALL MODELS ARE SUBJECT
 			
 	AbstractCrossValidationDriver* driver;
-	if (arguments.useAutoSearchCV) {
+	if (arguments.crossValidation.useAutoSearchCV) {
 		if (arguments.useHierarchy) {
-			driver = new HierarchyAutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, 
-			    arguments.upperLimit, logger, error);
+			driver = new HierarchyAutoSearchCrossValidationDriver(*modelData, arguments, logger, error);
 		} else {
-			driver = new AutoSearchCrossValidationDriver(*modelData, arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit, logger, error);
+			driver = new AutoSearchCrossValidationDriver(*modelData, arguments, logger, error);
 		}
 	} else {
 		if (arguments.useHierarchy) {
-			driver = new HierarchyGridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit, logger, error);
+			driver = new HierarchyGridSearchCrossValidationDriver(arguments, logger, error);
 		} else {
-			driver = new GridSearchCrossValidationDriver(arguments.gridSteps, arguments.lowerLimit, arguments.upperLimit, logger, error);
+			driver = new GridSearchCrossValidationDriver(arguments, logger, error);
 		}
 	}
 
@@ -472,9 +498,9 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData 
 
 	gettimeofday(&time2, NULL);
 
-	driver->logResults(arguments);
+// 	driver->logResults(arguments);
 
-	if (arguments.doFitAtOptimal) {
+	if (arguments.crossValidation.doFitAtOptimal) {
 	    if (arguments.noiseLevel > SILENT) {
 	        std::ostringstream stream;
 	        stream << "Fitting model at optimal hyperparameter";

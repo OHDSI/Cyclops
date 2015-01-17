@@ -5,7 +5,8 @@ include_directories(.
     ${RCCD_SOURCE_DIR}
     ${RCCD_SOURCE_DIR}/cyclops
     ${CMAKE_SOURCE_DIR}/codebase
-    ${CMAKE_SOURCE_DIR}/codebase/CCD    
+    ${CMAKE_SOURCE_DIR}/codebase/CCD
+    ${Boost_INCLUDE_DIR}    
     )
 
 set(BASE_SOURCE_FILES	
@@ -34,6 +35,7 @@ set(BASE_SOURCE_FILES
 	${RCCD_SOURCE_DIR}/cyclops/drivers/BootstrapSelector.cpp
 	${RCCD_SOURCE_DIR}/cyclops/drivers/BootstrapDriver.cpp
 	${RCCD_SOURCE_DIR}/utils/HParSearch.cpp
+	${RCCD_SOURCE_DIR}/tinythread/tinythread.cpp
 	)
 	
 set(CCD_SOURCE_FILES

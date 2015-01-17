@@ -24,9 +24,11 @@ public:
 	typedef std::pair<double, double> Coordinate;
 
 	RZeroIn(Obj& _obj, double _tol = 1E-6, int _maxIt = 1000, 
-		double _multiplier = 0.1, double _factor = 2.0) :
+		double _multiplier = 0.1, double _factor = 2.0,
+		double _min_displacement = 0.01) :
 		obj(_obj), tol(_tol), maxIt(_maxIt), it(maxIt), 
-		multiplier(_multiplier), factor(_factor) {
+		multiplier(_multiplier), factor(_factor),
+		min_displacement(_min_displacement) {
 		// Do nothing
 	}
 
@@ -47,8 +49,8 @@ public:
 
 	// Assumes that objective() > 0 at x0
 	Coordinate bracketSignChange(double x0, double obj0, double direction) {
-		double displacement = std::abs(x0);
-
+		double displacement = std::max(std::abs(x0), min_displacement);
+		
 		double x1 = x0;
 		double obj1 = obj0;
 
@@ -77,6 +79,7 @@ private:
 	int it;
 	double multiplier;
 	double factor;
+	double min_displacement;
 
 	/*
 	 *  R : A Computer Language for Statistical Data Analysis

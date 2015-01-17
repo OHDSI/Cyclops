@@ -8,6 +8,7 @@
 #ifndef CYCLICCOORDINATEDESCENT_H_
 #define CYCLICCOORDINATEDESCENT_H_
 
+#include "CcdInterface.h"
 #include "CompressedDataMatrix.h"
 #include "ModelData.h"
 #include "engine/AbstractModelSpecifics.h"
@@ -39,8 +40,6 @@ using std::string;
 #define SPARSE_PRODUCT
 
 #define USE_ITER
-
-
 //#define NO_FUSE
 
 class CyclicCoordinateDescent {
@@ -60,7 +59,7 @@ public:
 // 		);
 // 	
 	CyclicCoordinateDescent(
-			ModelData* modelData,
+			const ModelData& modelData,
 			AbstractModelSpecifics& specifics,
 			priors::JointPriorPtr prior,
 			loggers::ProgressLoggerPtr logger,
@@ -76,6 +75,8 @@ public:
 			int* inNEvents,
 			int* inPid
 		);
+					
+	CyclicCoordinateDescent* clone();	
 	
 	void logResults(const char* fileName, bool withASE);
 
@@ -111,7 +112,7 @@ public:
 
 //	void setZeroBetaFixed(void);
 		
-	void update(int maxIterations, int convergenceType, double epsilon);
+	void update(const ModeFindingArguments& arguments);
 
 	virtual void resetBeta(void);
 
@@ -137,7 +138,7 @@ public:
 
 	// Getters
 
-	double getHyperprior(void) const;
+	std::vector<double> getHyperprior(void) const;
 
 	string getPriorInfo();
 
@@ -166,13 +167,20 @@ public:
 	void makeDirty(void);
 	
 	Matrix computeFisherInformation(const std::vector<size_t>& indices) const;
+	
+	loggers::ProgressLogger& getLogger() const { return *logger; }
 		
 protected:
+
+	bsccs::unique_ptr<AbstractModelSpecifics> privateModelSpecifics;
 	
 	AbstractModelSpecifics& modelSpecifics;
 	priors::JointPriorPtr jointPrior;
+	const ModelData& hXI;	
 //	ModelSpecifics<DefaultModel>& modelSpecifics;
 //private:
+
+	CyclicCoordinateDescent(const CyclicCoordinateDescent& copy);
 	
 	void init(bool offset);
 	
@@ -187,6 +195,17 @@ protected:
 	void computeFixedTermsInGradientAndHessian(void);
 
 //	void computeXjY(void);
+
+	void findMode(int maxIterations, int convergenceType, double epsilon);
+		
+	template <typename Iterator>
+	void findMode(Iterator begin, Iterator end,
+		const int maxIterations, const int convergenceType, const double epsilon);
+		
+	template <typename Container>
+	void computeKktConditions(Container& set);
+	
+	void kktSwindle(const ModeFindingArguments& arguments);
 
 	void computeSufficientStatistics(void);
 
@@ -299,13 +318,13 @@ protected:
 	ofstream outLog;
 	bool hasLog;
 
-	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
+// 	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
-	real* hOffs;  // K-vector
-	real* hY; // K-vector
-	int* hNEvents; // K-vector
+// 	real* hOffs;  // K-vector
+ 	const real* hY; // K-vector
+// 	int* hNEvents; // K-vector
 //	int* hPid; // N-vector
-	int* hPid;
+	const int* hPid;
 	int** hXColumnRowIndicators; // J-vector
  	
 //	real* hBeta;

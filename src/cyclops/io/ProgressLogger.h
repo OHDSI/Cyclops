@@ -22,6 +22,9 @@ class ProgressLogger {
 public:	
 	virtual void writeLine(const std::ostringstream& stream) = 0; // pure virtual	
 	virtual void yield() = 0; // pure virtual	
+	virtual void setSilent(bool) { /* Do nothing */ }
+	virtual void setConcurrent(bool) { /* Do nothing */ }
+	virtual void flush() { /* Do nothing */ }
 };
 
 typedef bsccs::shared_ptr<ProgressLogger> ProgressLoggerPtr;

@@ -1,8 +1,6 @@
 useDynLib(Cyclops2)
 exportPattern("^[[:alpha:]]+")
 import(
-	BH,
 	Rcpp,
-	RcppEigen,
 	Matrix
 )

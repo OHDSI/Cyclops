@@ -17,8 +17,7 @@
     #include <memory>
     namespace bsccs { 
         using std::shared_ptr;
-        using std::make_shared;
-        
+        using std::make_shared;        
         using std::unique_ptr;
     }
 #else
@@ -42,7 +41,6 @@ bsccs::unique_ptr<T> make_unique( Args&& ...args ) {
 }
 
 // Internal types
-
 
 #ifdef DOUBLE_PRECISION
 	typedef double real;
@@ -121,6 +119,13 @@ enum class ModelType {
 	SELF_CONTROLLED_MODEL,
 	COX,
 	COX_RAW,
+	SIZE_OF_ENUM // Keep at end
+};
+
+enum class SelectorType {
+	DEFAULT,
+	BY_PID,
+	BY_ROW,
 	SIZE_OF_ENUM // Keep at end
 };
 

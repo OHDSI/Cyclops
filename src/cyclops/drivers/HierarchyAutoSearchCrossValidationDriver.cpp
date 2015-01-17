@@ -24,16 +24,12 @@ namespace bsccs {
 //const static int MAX_STEPS = 50;
 
 HierarchyAutoSearchCrossValidationDriver::HierarchyAutoSearchCrossValidationDriver(const ModelData& _modelData,
-		int iGridSize,
-		double iLowerLimit,
-		double iUpperLimit,
+		const CCDArguments& arguments,
 		loggers::ProgressLoggerPtr _logger,
 		loggers::ErrorHandlerPtr _error,		
 		vector<real>* wtsExclude) : AutoSearchCrossValidationDriver(
 				_modelData,
-				iGridSize,
-				iLowerLimit,
-				iUpperLimit,
+				arguments,
 				_logger,
 				_error,
 				wtsExclude)
@@ -58,38 +54,46 @@ void HierarchyAutoSearchCrossValidationDriver::resetForOptimal(
 void HierarchyAutoSearchCrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
-		const CCDArguments& arguments) {
+		const CCDArguments& allArguments) {
 
 	// TODO Check that selector is type of CrossValidationSelector
 	std::vector<real> weights;
 
+    const auto& arguments = allArguments.crossValidation;
 
-	double tryvalue = modelData.getNormalBasedDefaultVar();
+	double tryvalue = (arguments.startingVariance > 0) ?
+	    arguments.startingVariance : 
+		modelData.getNormalBasedDefaultVar();
+
 	double tryvalueClass = tryvalue; // start with same variance at the class and element level; // for hierarchy class variance
 	UniModalSearch searcher(10, 0.01, log(1.5));
 	UniModalSearch searcherClass(10, 0.01, log(1.5)); // Need a better way to do this.
 
 //	const double eps = 0.05; //search stopper
     std::ostringstream stream;
-	stream << "Default var = " << tryvalue;
+	stream << "Starting var = " << tryvalue;
+	if (arguments.startingVariance == -1) {
+	    stream << " (default)";   
+	}	
 	logger->writeLine(stream);
 
 
 	bool finished = false;
 	bool drugLevelFinished = false;
 	bool classLevelFinished = false;
-
+    
 	int step = 0;
 	while (!finished) {
 
 		// More hierarchy logic
 		ccd.setHyperprior(tryvalue);
 		ccd.setClassHyperprior(tryvalueClass);
+		selector.reseed();		
 
 		std::vector<double> predLogLikelihood;
 
 		// Newly re-located code
-		double pointEstimate = doCrossValidation(ccd, selector, arguments, step, predLogLikelihood);
+		double pointEstimate = 0.0; //TODO BROKEN doCrossValidation(ccd, selector, arguments, step, coldStart, predLogLikelihood);
 
 		double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
 
@@ -149,7 +153,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 	logger->writeLine(stream2);
 
 
-	if (!arguments.useNormalPrior) {
+	if (!allArguments.useNormalPrior) {
 		double lambda = convertVarianceToHyperparameter(maxPoint);
 		std::ostringstream stream;
 		stream << "\t" << lambda << " (lambda)";

@@ -8,6 +8,8 @@
 #ifndef CMDLINEPROGRESSLOGGER_H_
 #define CMDLINEPROGRESSLOGGER_H_
 
+#include <mutex>
+
 #include "io/ProgressLogger.h"
 
 namespace bsccs {
@@ -17,10 +19,15 @@ namespace loggers {
 class CoutLogger : public ProgressLogger {
 public:
     void writeLine(const std::ostringstream& stream) {
+        lock.lock();
         std::cout << stream.str() << std::endl;
+        lock.unlock();
     }    
     
     void yield() { } // Do nothing
+    
+private:
+    std::mutex lock;    
 };
 
 class CerrErrorHandler : public ErrorHandler {

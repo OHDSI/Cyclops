@@ -63,15 +63,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsSetBeta
-void cyclopsSetBeta(SEXP inRcppCcdInterface, int beta, double value);
-RcppExport SEXP Cyclops2_cyclopsSetBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP, SEXP valueSEXP) {
+void cyclopsSetBeta(SEXP inRcppCcdInterface, const std::vector<double>& beta);
+RcppExport SEXP Cyclops2_cyclopsSetBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
-        Rcpp::traits::input_parameter< int >::type beta(betaSEXP );
-        Rcpp::traits::input_parameter< double >::type value(valueSEXP );
-        cyclopsSetBeta(inRcppCcdInterface, beta, value);
+        Rcpp::traits::input_parameter< const std::vector<double>& >::type beta(betaSEXP );
+        cyclopsSetBeta(inRcppCcdInterface, beta);
     }
     return R_NilValue;
 END_RCPP
@@ -100,6 +99,35 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
         Rcpp::traits::input_parameter< const int >::type index(indexSEXP );
         bool __result = cyclopsGetIsRegularized(inRcppCcdInterface, index);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
+// cyclopsSetWeights
+void cyclopsSetWeights(SEXP inRcppCcdInterface, NumericVector& weights);
+RcppExport SEXP Cyclops2_cyclopsSetWeights(SEXP inRcppCcdInterfaceSEXP, SEXP weightsSEXP) {
+BEGIN_RCPP
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
+        Rcpp::traits::input_parameter< NumericVector& >::type weights(weightsSEXP );
+        cyclopsSetWeights(inRcppCcdInterface, weights);
+    }
+    return R_NilValue;
+END_RCPP
+}
+// cyclopsGetPredictiveLogLikelihood
+double cyclopsGetPredictiveLogLikelihood(SEXP inRcppCcdInterface, NumericVector& weights);
+RcppExport SEXP Cyclops2_cyclopsGetPredictiveLogLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP weightsSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP );
+        Rcpp::traits::input_parameter< NumericVector& >::type weights(weightsSEXP );
+        double __result = cyclopsGetPredictiveLogLikelihood(inRcppCcdInterface, weights);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
@@ -188,8 +216,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsSetControl
-void cyclopsSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int seed);
-RcppExport SEXP Cyclops2_cyclopsSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP seedSEXP) {
+void cyclopsSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance, bool useKKTSwindle, int swindleMultipler, const std::string& selectorType);
+RcppExport SEXP Cyclops2_cyclopsSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP threadsSEXP, SEXP seedSEXP, SEXP resetCoefficientsSEXP, SEXP startingVarianceSEXP, SEXP useKKTSwindleSEXP, SEXP swindleMultiplerSEXP, SEXP selectorTypeSEXP) {
 BEGIN_RCPP
     {
         Rcpp::RNGScope __rngScope;
@@ -204,8 +232,14 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< double >::type upperLimit(upperLimitSEXP );
         Rcpp::traits::input_parameter< int >::type gridSteps(gridStepsSEXP );
         Rcpp::traits::input_parameter< const std::string& >::type noiseLevel(noiseLevelSEXP );
+        Rcpp::traits::input_parameter< int >::type threads(threadsSEXP );
         Rcpp::traits::input_parameter< int >::type seed(seedSEXP );
-        cyclopsSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, seed);
+        Rcpp::traits::input_parameter< bool >::type resetCoefficients(resetCoefficientsSEXP );
+        Rcpp::traits::input_parameter< double >::type startingVariance(startingVarianceSEXP );
+        Rcpp::traits::input_parameter< bool >::type useKKTSwindle(useKKTSwindleSEXP );
+        Rcpp::traits::input_parameter< int >::type swindleMultipler(swindleMultiplerSEXP );
+        Rcpp::traits::input_parameter< const std::string& >::type selectorType(selectorTypeSEXP );
+        cyclopsSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType);
     }
     return R_NilValue;
 END_RCPP
@@ -266,6 +300,23 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< const std::string& >::type modelType(modelTypeSEXP );
         Rcpp::traits::input_parameter< bool >::type computeMLE(computeMLESEXP );
         List __result = cyclopsInitializeModel(inModelData, modelType, computeMLE);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
+// isSorted
+bool isSorted(const DataFrame& dataFrame, const std::vector<std::string>& indexes, const std::vector<bool>& ascending);
+RcppExport SEXP Cyclops2_isSorted(SEXP dataFrameSEXP, SEXP indexesSEXP, SEXP ascendingSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< const DataFrame& >::type dataFrame(dataFrameSEXP );
+        Rcpp::traits::input_parameter< const std::vector<std::string>& >::type indexes(indexesSEXP );
+        Rcpp::traits::input_parameter< const std::vector<bool>& >::type ascending(ascendingSEXP );
+        bool __result = isSorted(dataFrame, indexes, ascending);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);

@@ -25,7 +25,7 @@ public:
 
 	virtual void setVariance(int level, double x) {}; // only works if of type HierarchicalPrior
 
-	virtual double getVariance() const = 0; // pure virtual
+	virtual std::vector<double> getVariance() const = 0; // pure virtual
 
 	virtual double logDensity(const DoubleVector& beta) const = 0; // pure virtual
 
@@ -34,6 +34,14 @@ public:
 	virtual const std::string getDescription() const = 0; // pure virtual
 	
 	virtual bool getIsRegularized(const int index) const = 0; // pure virtual
+	
+	virtual bool getSupportsKktSwindle(const int index) const = 0; // pure virtual
+	
+	virtual bool getSupportsKktSwindle(void) const = 0; // pure virtual
+	
+	virtual double getKktBoundary(const int index) const = 0; // pure virtual
+	
+ 	virtual JointPrior* clone() const = 0; // pure virtual
 };
 
 class MixtureJointPrior : public JointPrior {
@@ -60,14 +68,17 @@ public:
 	}
 
 	void setVariance(double x) {
-		for (PriorList::iterator it = listPriors.begin(); it != listPriors.end(); ++it) {
-			(*it)->setVariance(x);
-			// TODO Should only update unique pointers
+		for (PriorList::iterator it = uniquePriors.begin(); it != uniquePriors.end(); ++it) {
+			(*it)->setVariance(x);			
 		}
 	}
 
-	double getVariance() const {
-		return 0.0;
+	std::vector<double> getVariance() const {
+	    std::vector<double> variances;
+	    for (PriorPtr prior : uniquePriors) {
+	        variances.push_back(prior->getVariance());
+	    }
+		return std::move(variances);
 	}
 
 	double logDensity(const DoubleVector& beta) const {
@@ -87,8 +98,59 @@ public:
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
 		return listPriors[index]->getDelta(gh, beta[index]);
 	}
+	
+	bool getSupportsKktSwindle(const int index) const {
+		return listPriors[index]->getSupportsKktSwindle();
+	}
+	
+	double getKktBoundary(const int index) const {
+		return listPriors[index]->getKktBoundary();
+	}
+	
+	bool getSupportsKktSwindle(void) const {
+		// Return true if *any* prior supports swindle
+		for (auto&prior : uniquePriors) {
+			if (prior->getSupportsKktSwindle()) {
+				return true;
+			}
+		}
+		return false;	
+	}
+	
+	JointPrior* clone() const {
+		PriorList newListPriors(listPriors.size());
+																
+		PriorList newUniquePriors;				
+		for (auto& prior : uniquePriors) {
+			PriorPtr newPriorPtr = PriorPtr(prior->clone());
+			newUniquePriors.push_back(newPriorPtr);			
+			for(size_t i = 0; i < listPriors.size(); ++i) {
+				if (listPriors[i] == prior) {
+					newListPriors[i] = newPriorPtr;
+				}
+			}			
+		}
+		
+		// CovariatePrior* oldPtr = nullptr;
+// 		for (auto& prior : listPriors) {
+// 			PriorPtr newPriorPtr; 
+// 			if (oldPtr == nullptr || oldPtr != &*prior) {
+// 				oldPtr = &*prior;
+// 				newPriorPtr = = PriorPtr(prior->clone());
+// 				newUniquePriors.push_back(newPriorPtr);
+// 			}
+// 			newListPriors.push_back(newPriorPtr);
+// 			std::cerr << "cloned " << &*prior* << " -> " << &*newPriorPtr << std::endl;
+// 		}
+				
+		return new MixtureJointPrior(newListPriors, newUniquePriors);
+	}
 
 private:
+
+	MixtureJointPrior(PriorList listPriors, PriorList uniquePriors) : 
+		listPriors(listPriors), uniquePriors(uniquePriors) { }
+		
 	PriorList listPriors;
 	PriorList uniquePriors;
 
@@ -148,8 +210,11 @@ public:
 //         }            
     }
 
-	double getVariance() const{
-		return getVariance(0);
+	std::vector<double> getVariance() const{
+		return std::vector<double> {
+		    getVariance(0),
+		    getVariance(1)
+		};
 	}
 
 	double getVariance(int level) const {
@@ -167,6 +232,18 @@ public:
 	bool getIsRegularized(const int index) const {
 	    return true;
 	}
+	
+	bool getSupportsKktSwindle(const int index) const {
+		return false; // TODO fix
+	}	
+	
+	bool getSupportsKktSwindle(void) const {		
+		return false; // TODO fix	
+	}	
+	
+	double getKktBoundary(const int index) const {
+		return 0.0; // TODO fix
+	}	
 
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
 		double t1 = 1/hierarchyPriors[0]->getVariance(); // this is the hyperparameter that is used in the original code
@@ -185,8 +262,25 @@ public:
 
 		return (- (gh.first + gradient)/(gh.second + hessian));
 	}
+	
+	JointPrior* clone() const {
+		PriorList newHierarchyPriors;	
+		
+		for (auto& prior : hierarchyPriors) {
+			newHierarchyPriors.push_back(PriorPtr(prior->clone()));
+		}	
+	
+		return new HierarchicalJointPrior(newHierarchyPriors, hierarchyDepth, getParentMap, 
+			getChildMap);
+	}	
 
 private:
+
+	HierarchicalJointPrior(PriorList hierarchyPriors, int hierarchyDepth, 
+		HierarchicalParentMap getParentMap,
+		HierarchicalChildMap getChildMap) : hierarchyPriors(hierarchyPriors),
+		hierarchyDepth(hierarchyDepth), getParentMap(getParentMap), getChildMap(getChildMap) { }
+
 	PriorList hierarchyPriors;
 	int hierarchyDepth;
 	HierarchicalParentMap getParentMap;
@@ -204,8 +298,10 @@ public:
 		singlePrior->setVariance(x);
 	}
 
-	double getVariance() const {
-		return singlePrior->getVariance();
+	std::vector<double> getVariance() const {
+		return std::vector<double> {
+		    singlePrior->getVariance()
+		};
 	}
 
 	double logDensity(const DoubleVector& beta) const {
@@ -227,6 +323,22 @@ public:
 	const std::string getDescription() const {
 		return singlePrior->getDescription();
 	}
+	
+	bool getSupportsKktSwindle(const int index) const {
+		return singlePrior->getSupportsKktSwindle();
+	}
+	
+	bool getSupportsKktSwindle(void) const {
+		return singlePrior->getSupportsKktSwindle();
+	}	
+	
+	double getKktBoundary(const int index) const {
+		return singlePrior->getKktBoundary();
+	}	
+		
+	JointPrior* clone() const {
+		return new FullyExchangeableJointPrior(PriorPtr(singlePrior->clone()));
+	}		
 
 private:
 	PriorPtr singlePrior;

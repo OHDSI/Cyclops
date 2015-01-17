@@ -89,6 +89,7 @@ public:
     static priors::PriorType parsePriorType(const std::string& priorName);
     static ConvergenceType parseConvergenceType(const std::string& convergenceName);
     static NoiseLevels parseNoiseLevel(const std::string& noiseName);
+  	static SelectorType parseSelectorType(const std::string& selectorName); 
                         
 protected:            
 		

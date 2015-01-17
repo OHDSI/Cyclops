@@ -15,7 +15,7 @@ namespace bsccs {
 
 BootstrapSelector::BootstrapSelector(
 		int replicates,
-		std::vector<int>* inIds,
+		std::vector<int> inIds,
 		SelectorType inType,
 		long inSeed,
 	    loggers::ProgressLoggerPtr _logger,
@@ -47,14 +47,19 @@ BootstrapSelector::~BootstrapSelector() {
 	// Nothing to do
 }
 
+AbstractSelector* BootstrapSelector::clone() const {
+	return new BootstrapSelector(*this);
+}
+
 void BootstrapSelector::permute() {
 	selectedSet.clear();
 
 	// Get non-excluded indices
 	int N_new = indicesIncluded.size();
-	if (type == SUBJECT) {
+	if (type == SelectorType::BY_PID) {
+	    std::uniform_int_distribution<int> uniform(0, N_new - 1);
 		for (int i = 0; i < N_new; i++) {
-			int ind = rand() / (RAND_MAX / N_new + 1);
+            int ind =  uniform(prng);
 			int draw = indicesIncluded[ind];
 			selectedSet.insert(draw);
 		}
@@ -84,9 +89,9 @@ void BootstrapSelector::getWeights(int batch, std::vector<real>& weights) {
 		return;
 	}
 
-	if (type == SUBJECT) {
+	if (type == SelectorType::BY_PID) {
 		for (size_t k = 0; k < K; k++) {
-			int count = selectedSet.count(ids->at(k));
+			int count = selectedSet.count(ids.at(k));
 			weights[k] = static_cast<real>(count);
 		}
 	} else {

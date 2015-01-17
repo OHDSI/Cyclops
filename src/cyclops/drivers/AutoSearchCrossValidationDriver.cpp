@@ -5,21 +5,23 @@
  *      Author: msuchard
  */
 
-
-// TODO Change from fixed grid to adaptive approach in BBR
-
 #include <iostream>
 #include <iomanip>
 #include <numeric>
 #include <math.h>
 #include <cstdlib>
+#include <iterator>
+#include <algorithm>
 
+#include "Types.h"
+#include "Thread.h"
 #include "AutoSearchCrossValidationDriver.h"
 #include "CyclicCoordinateDescent.h"
 #include "CrossValidationSelector.h"
 #include "AbstractSelector.h"
-//#include "ccd.h"
 #include "../utils/HParSearch.h"
+
+#include "boost/iterator/counting_iterator.hpp"
 
 namespace bsccs {
 
@@ -27,14 +29,11 @@ const static int MAX_STEPS = 50;
 
 AutoSearchCrossValidationDriver::AutoSearchCrossValidationDriver(
 			const ModelData& _modelData,
-			int iGridSize,
-			double iLowerLimit,
-			double iUpperLimit,			
+			const CCDArguments& arguments,		
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error,			
             vector<real>* wtsExclude			
-			) : AbstractCrossValidationDriver(_logger, _error), modelData(_modelData), maxPoint(0), gridSize(iGridSize),
-			lowerLimit(iLowerLimit), upperLimit(iUpperLimit), weightsExclude(wtsExclude),
+			) : AbstractCrossValidationDriver(_logger, _error, wtsExclude), modelData(_modelData),
 			maxSteps(MAX_STEPS) {
 
 	// Do anything???
@@ -44,17 +43,8 @@ AutoSearchCrossValidationDriver::~AutoSearchCrossValidationDriver() {
 	// Do nothing
 }
 
-double AutoSearchCrossValidationDriver::computeGridPoint(int step) {
-	if (gridSize == 1) {
-		return upperLimit;
-	}
-	// Log uniform grid
-	double stepSize = (log(upperLimit) - log(lowerLimit)) / (gridSize - 1);
-	return exp(log(lowerLimit) + step * stepSize);
-}
-
-void AutoSearchCrossValidationDriver::logResults(const CCDArguments& arguments) {
-
+void AutoSearchCrossValidationDriver::logResults(const CCDArguments& allArguments) {
+    const auto& arguments = allArguments.crossValidation;
 	ofstream outLog(arguments.cvFileName.c_str());
 	if (!outLog) {
 	    std::ostringstream stream;
@@ -65,102 +55,43 @@ void AutoSearchCrossValidationDriver::logResults(const CCDArguments& arguments) 
 	outLog.close();
 }
 
-void AutoSearchCrossValidationDriver::resetForOptimal(
-		CyclicCoordinateDescent& ccd,
-		CrossValidationSelector& selector,
-		const CCDArguments& arguments) {
-
-	ccd.setWeights(NULL);
-	ccd.setHyperprior(maxPoint);
-	ccd.resetBeta(); // Cold-start
-}
-
-
-double AutoSearchCrossValidationDriver::doCrossValidation(
-		CyclicCoordinateDescent& ccd,
-		AbstractSelector& selector,
-		const CCDArguments& arguments,
-		int step,
-		std::vector<double> & predLogLikelihood){
-
-
-	std::vector<real> weights;
-
-	/* start code duplication */
-	//std::vector<double> predLogLikelihood;
-	for (int i = 0; i < arguments.foldToCompute; i++) {
-		int fold = i % arguments.fold;
-		if (fold == 0) {
-			selector.permute(); // Permute every full cross-validation rep
-		}
-
-		// Get this fold and update
-		selector.getWeights(fold, weights);
-		if(weightsExclude){
-			for(int j = 0; j < (int)weightsExclude->size(); j++){
-				if(weightsExclude->at(j) == 1.0){
-					weights[j] = 0.0;
-				}
-			}
-		}
-		ccd.setWeights(&weights[0]);
-		std::ostringstream stream;
-		stream << "Running at " << ccd.getPriorInfo() << " ";
-		ccd.update(arguments.maxIterations, arguments.convergenceType, arguments.tolerance);
-
-		// Compute predictive loglikelihood for this fold
-		selector.getComplement(weights);
-		if(weightsExclude){
-			for(int j = 0; j < (int)weightsExclude->size(); j++){
-				if(weightsExclude->at(j) == 1.0){
-					weights[j] = 0.0;
-				}
-			}
-		}
-
-		double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
-
-		stream << "Grid-point #" << (step + 1) << " at " << ccd.getHyperprior();
-		stream << "\tFold #" << (fold + 1)
-				  << " Rep #" << (i / arguments.fold + 1) << " pred log like = "
-				  << logLikelihood;
-        logger->writeLine(stream);				  
-
-		// Store value
-		predLogLikelihood.push_back(logLikelihood);
-	}
-
-	double pointEstimate = computePointEstimate(predLogLikelihood);
-	/* end code duplication */
-
-	return(pointEstimate);
-
-}
-
-void AutoSearchCrossValidationDriver::drive(
-		CyclicCoordinateDescent& ccd,
-		AbstractSelector& selector,
-		const CCDArguments& arguments) {
-
-	// TODO Check that selector is type of CrossValidationSelector
-
-	double tryvalue = modelData.getNormalBasedDefaultVar();
+// This is specific to auto-search
+double AutoSearchCrossValidationDriver::doCrossValidationLoop(
+			CyclicCoordinateDescent& ccd,
+			AbstractSelector& selector,
+			const CCDArguments& allArguments,			
+			int nThreads,
+			std::vector<CyclicCoordinateDescent*>& ccdPool,
+			std::vector<AbstractSelector*>& selectorPool) {
+			
+    const auto& arguments = allArguments.crossValidation;
+						
+	double tryvalue = (arguments.startingVariance > 0) ?
+	    arguments.startingVariance : 
+		modelData.getNormalBasedDefaultVar();
+		
 	UniModalSearch searcher(10, 0.01, log(1.5));
-//	const double eps = 0.05; //search stopper
+
 	std::ostringstream stream;
-	stream << "Default var = " << tryvalue;
+	stream << "Starting var = " << tryvalue;
+	if (arguments.startingVariance == -1) {
+	    stream << " (default)";   
+	}
 	logger->writeLine(stream);
-
-	bool finished = false;
-
+	
 	int step = 0;
+	bool finished = false;
+	
 	while (!finished) {
 		ccd.setHyperprior(tryvalue);
+		selector.reseed();		
 
 		std::vector<double> predLogLikelihood;
 
 		// Newly re-located code
-		double pointEstimate = doCrossValidation(ccd, selector, arguments, step, predLogLikelihood);
+		double pointEstimate = doCrossValidationStep(ccd, selector, allArguments, step, 
+			nThreads, ccdPool, selectorPool,
+			predLogLikelihood);
 
 		double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
 
@@ -187,19 +118,7 @@ void AutoSearchCrossValidationDriver::drive(
         	finished = true;
         }
 	}
-
-	maxPoint = tryvalue;
-
-	// Report results
-	std::ostringstream stream1;
-	stream1 << std::endl;
-	stream1 << "Maximum predicted log likelihood estimated at:" << std::endl;
-	stream1 << "\t" << maxPoint << " (variance)" << std::endl;
-	if (!arguments.useNormalPrior) {
-		double lambda = convertVarianceToHyperparameter(maxPoint);
-		stream1 << "\t" << lambda << " (lambda)" << std::endl;
-	}	
-	logger->writeLine(stream1);
+	return tryvalue;
 }
 
 } // namespace

@@ -15,9 +15,7 @@ namespace bsccs {
 class HierarchyAutoSearchCrossValidationDriver : public AutoSearchCrossValidationDriver {
 public:
 	HierarchyAutoSearchCrossValidationDriver(const ModelData& _modelData,
-			int iGridSize,
-			double iLowerLimit,
-			double iUpperLimit,
+			const CCDArguments& arguments,
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error,			
 			std::vector<real>* wtsExclude = NULL);

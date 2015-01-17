@@ -150,9 +150,9 @@ namespace sugar {
 } // namespace sugar
 
 
-template <typename T, typename UIteratorType, typename SparseIteratorType>
+template <typename T, typename UIteratorType, typename W, typename SparseIteratorType>
 std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorType itX, 
-	int numSubjects, int numCases, bsccs::real* caseOrNo) {
+	int numSubjects, int numCases, /*bsccs::real*  */ W caseOrNo) {
 
 	using namespace sugar;
 

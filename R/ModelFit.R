@@ -8,9 +8,11 @@
 #'
 #' @param cyclopsData			An OHDSI data object
 #' @template prior
-#' @param control OHDSI control object, see \code{"\link{control}"}                        
-#' @param forceColdStart Logical, forces fitting algorithm to restart at regression coefficients = 0
+#' @param control OHDSI control object, see \code{"\link{control}"}             
+#' @param weights Vector of 0/1 weights for each data row             
+#' @param forceNewObject Logical, forces the construction of a new Cyclops model fit object
 #' @param returnEstimates Logical, return regression coefficient estimates in Cyclops model fit object 
+#' @param startingCoefficients Vector of starting values for optimization
 #' 
 #' @return
 #' A list that contains a Cyclops model fit object pointer and an operation duration
@@ -33,17 +35,19 @@
 #' counts <- c(18,17,15,20,10,20,25,13,12)
 #' outcome <- gl(3,1,9)
 #' treatment <- gl(3,3)
-#' cyclopsData <- createCyclopsDataFrame(counts ~ outcome + treatment, modelType = "pr")
-#' cyclopsFit <- fitCyclopsModel(cyclopsData, prior = prior("none"))
+#' cyclopsData <- createCyclopsData(counts ~ outcome + treatment, modelType = "pr")
+#' cyclopsFit <- fitCyclopsModel(cyclopsData, prior = createPrior("none"))
 #' coef(cyclopsFit)
 #' confint(cyclopsFit, c("outcome2","treatment3"))
 #' predict(cyclopsFit)
 #'
 fitCyclopsModel <- function(cyclopsData, 
                         prior,
-                        control,                        
-                        forceColdStart = FALSE,
-                        returnEstimates = TRUE) {
+                        control,      
+                        weights = NULL,                  
+                        forceNewObject = FALSE,
+                        returnEstimates = TRUE,
+                        startingCoefficients = NULL) {
 		
 	cl <- match.call()
 	
@@ -56,20 +60,31 @@ fitCyclopsModel <- function(cyclopsData,
 		stop("Data are incompletely loaded")
 	}
 	
-	.checkInterface(cyclopsData, forceColdStart)
+	.checkInterface(cyclopsData, forceNewObject)
     
 	if (!missing(prior)) { # Set up prior
 	    stopifnot(inherits(prior, "cyclopsPrior"))    	
 	    prior$exclude <- .checkCovariates(cyclopsData, prior$exclude)
         
-# 	    if (prior$priorType != "none" && .cyclopsGetHasIntercept(cyclopsData)) {           	        
-# 	        interceptId <- .cyclopsGetInterceptLabel(cyclopsData)
-# 	        if (!(interceptId %in% prior$exclude) && !prior$forceIntercept) {	           
-# 	           warning("Excluding intercept from regularization")
-# 	           prior$exclude <- c(interceptId, prior$exclude)	         	           
-#                browser()
-# 	        }	        
-# 	    }
+	    if (prior$priorType != "none" &&
+                is.null(prior$graph) && # TODO Ignore hierarchical models for now 
+                .cyclopsGetHasIntercept(cyclopsData) && 
+                !prior$forceIntercept) {           	        
+	        interceptId <- .cyclopsGetInterceptLabel(cyclopsData)   
+            warn <- FALSE
+            if (is.null(prior$exclude)) {
+                prior$exclude <- c(interceptId)                
+                warn <- TRUE
+            } else {
+                if (!(interceptId %in% prior$exclude)) {
+                    prior$exclude <- c(interceptId, prior$exclude)
+                    warn <- TRUE
+                }                                   
+            }
+            if (warn) {
+                warning("Excluding intercept from regularization")
+            }
+	    }
         
         if (is.null(prior$graph)) {
             graph <- NULL
@@ -88,12 +103,43 @@ fitCyclopsModel <- function(cyclopsData,
 	}
 	
     if (!missing(control)) {
-	    .setControl(cyclopsData$cyclopsInterfacePtr, control)
+        .setControl(cyclopsData$cyclopsInterfacePtr, control)
     }
+    
+    if (!missing(startingCoefficients)) {
+        
+        if (length(startingCoefficients) != getNumberOfCovariates(cyclopsData)) {
+            stop("Must provide a value for each coefficient")
+        }
+        
+        if (.cyclopsGetHasOffset(cyclopsData)) {
+            startingCoefficients <- c(1.0, startingCoefficients)
+        }
+        
+        .cyclopsSetBeta(cyclopsData$cyclopsInterfacePtr, startingCoefficients)                 
+    }
+    
+    if (!is.null(weights)) {
+        if (!missing(prior) && prior$useCrossValidation) {
+            stop("Can not set data weights and use cross-validation simultaneously")
+        }
+        if (length(weights) != getNumberOfRows(cyclopsData)) {
+            stop("Must provide a weight for each data row")
+        }
+        if (!all(weights %in% c(0,1))) {
+            stop("Only 0/1 weights are currently supported")
+        }
+        
+        if(!is.null(cyclopsData$sortOrder)) {
+            weights <- weights[cyclopsData$sortOrder]
+        }
+        
+        .cyclopsSetWeights(cyclopsData$cyclopsInterfacePtr, weights)
+    }    
  	
 	if (!missing(prior) && prior$useCrossValidation) {
 		if (missing(control)) {
-			minCVData <- control()$minCVData		
+			minCVData <- createControl()$minCVData		
 		} else {
 			minCVData <- control$minCVData
 		}
@@ -145,8 +191,8 @@ fitCyclopsModel <- function(cyclopsData,
 	}	
 }
 
-.checkInterface <- function(x, forceColdStart = FALSE, testOnly = FALSE) {
-	if (forceColdStart 
+.checkInterface <- function(x, forceNewObject = FALSE, testOnly = FALSE) {
+	if (forceNewObject 
 			|| is.null(x$cyclopsInterfacePtr) 
 			|| class(x$cyclopsInterfacePtr) != "externalptr" 
 			|| .isRcppPtrNull(x$cyclopsInterfacePtr)
@@ -239,7 +285,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
   }
   cat("           Model: ", x$cyclopsData$modelType, "\n", sep="")
   cat("           Prior: ", x$prior_info, "\n", sep="")
-  cat("  Hyperparameter: ", x$variance, "\n", sep="")
+  cat("  Hyperparameter: ", paste(x$variance, collapse=" "), "\n", sep="")
   cat("     Return flag: ", x$return_flag, "\n", sep="")
   if (x$return_flag == "SUCCESS") {  	
   	cat("Log likelikehood: ", x$log_likelihood, "\n", sep="")
@@ -266,7 +312,15 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param cvRepetitions			Numeric: Number of repetitions of X-fold cross validation
 #' @param minCVData					Numeric: Minumim number of data for cross validation
 #' @param noiseLevel				String: level of Cyclops screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})
+#' @param threads               Numeric: Specify number of CPU threads to employ in cross-validation; default = 1 (auto = -1)
 #' @param seed                  Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.
+#' @param resetCoefficients     Logical: Reset all coefficients to 0 between model fits under cross-validation
+#' @param startingVariance      Numeric: Starting variance for auto-search cross-validation; default = -1 (use estimate based on data)
+#' @param useKKTSwindle Logical: Use the Karush-Kuhn-Tucker conditions to limit search
+#' @param tuneSwindle    Numeric: Size multiplier for active set
+#' @param selectorType  String: name of exchangeable sampling unit. If missing, then default for model is used.
+#'                              Option \code{"byPid"} selects entire strata 
+#'                              Option \code{"byRow"} selects single rows
 #' 
 #' @section Criteria:
 #' TODO
@@ -277,24 +331,40 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @examples \dontrun{
 #' # Add cross-validation example
 #' }
-control <- function(
+createControl <- function(
 		maxIterations = 1000, tolerance = 1E-6, convergenceType = "gradient",
 		cvType = "grid", fold = 10, lowerLimit = 0.01, upperLimit = 20.0, gridSteps = 10,
 		cvRepetitions = 1,
 		minCVData = 100, noiseLevel = "silent",
-        seed = NULL) {
+        threads = 1,
+        seed = NULL,
+        resetCoefficients = FALSE,
+        startingVariance = -1,
+		useKKTSwindle = FALSE,
+        tuneSwindle = 10,
+        selectorType = "default") {
 	
 	validCVNames = c("grid", "auto")
 	stopifnot(cvType %in% validCVNames)
 	
 	validNLNames = c("silent", "quiet", "noisy")
 	stopifnot(noiseLevel %in% validNLNames)
+    stopifnot(threads == -1 || threads >= 1)
+    stopifnot(startingVariance == -1 || startingVariance > 0)       
+    stopifnot(selectorType %in% c("default","byPid", "byRow"))
+    
 	structure(list(maxIterations = maxIterations, tolerance = tolerance, convergenceType = convergenceType,
 								 autoSearch = (cvType == "auto"), fold = fold, lowerLimit = lowerLimit, 
 								 upperLimit = upperLimit, gridSteps = gridSteps, minCVData = minCVData, 
 								 cvRepetitions = cvRepetitions,
 								 noiseLevel = noiseLevel,
-                                 seed = seed),
+                                 threads = threads,
+                                 seed = seed,
+								 resetCoefficients = resetCoefficients,
+                                 startingVariance = startingVariance,
+								 useKKTSwindle = useKKTSwindle,
+                                 tuneSwindle = tuneSwindle,
+                                 selectorType = selectorType),
 						class = "cyclopsControl")
 }
 
@@ -306,6 +376,7 @@ control <- function(
 #' @param priorType     Character: specifies prior distribution.  See below for options
 #' @param variance      Numeric: prior distribution variance
 #' @param exclude       A vector of numbers or covariateId names to exclude from prior
+#' @param graph         Child-to-parent mapping for a hierarchical prior
 #' @param useCrossValidation    Logical: Perform cross-validation to determine prior \code{variance}.
 #' @param forceIntercept  Logical: Force intercept coefficient into prior
 #' 
@@ -321,7 +392,7 @@ control <- function(
 #' @return
 #' A Cyclops prior object of class inheriting from \code{"cyclopsPrior"} for use with \code{fitCyclopsModel}.
 #' 
-prior <- function(priorType, 
+createPrior <- function(priorType, 
                   variance = 1, 
                   exclude = c(), 
                   graph = NULL,
@@ -368,17 +439,61 @@ predict.cyclopsFit <- function(object, ...) {
  	values
 }
 
+# .cyclopsSetCoefficients <- function(object, coefficients) {
+#     .checkInterface(object, testOnly = TRUE)
+#     
+#     if (length(coefficients) != getNumberOfCovariates(object$cyclopsData)) {
+#         stop("Must provide a value for each coefficient")
+#     }
+#     
+#     if (.cyclopsGetHasOffset(object$cyclopsData)) {
+#         coefficients <- c(1.0, coefficients)
+#     }
+#        
+#     .cyclopsSetBeta(object$cyclopsInterfacePtr, coefficients)         
+# }
+
+#' @title Compute predictive log-likelihood from a Cyclops model fit
+#' 
+#' @description
+#' \code{getCyclopsPredictiveLogLikelihood} returns the log-likelihood of a subset of the data in a Cyclops model fit object.
+#' 
+#' @param object    A Cyclops model fit object
+#' @param weights   Numeric vector: vector of 0/1 identifying subset (=1) of rows from \code{object} to use in computing the log-likelihood
+#' @return The predictive log-likelihood
+getCyclopsPredictiveLogLikelihood <- function(object, weights) {
+    .checkInterface(object, testOnly = TRUE)
+    
+    if (length(weights) != getNumberOfRows(object$cyclopsData)) {
+        stop("Must provide a weight for each data row")
+    }
+    if (!all(weights %in% c(0,1))) {
+        stop("Only 0/1 weights are currently supported")
+    }   
+    
+    if(!is.null(object$cyclopsData$sortOrder)) {
+        weights <- weights[object$cyclopsData$sortOrder]
+    }   
+    # TODO Remove code duplication with weights section of fitCyclopsModel
+   
+    .cyclopsGetPredictiveLogLikelihood(object$cyclopsInterfacePtr, weights)
+}
+
 .setControl <- function(cyclopsInterfacePtr, control) {
 	if (!missing(control)) { # Set up control
 		stopifnot(inherits(control, "cyclopsControl"))
+        
         if (is.null(control$seed)) {
             control$seed <- as.integer(Sys.time())
         }
+                
 		.cyclopsSetControl(cyclopsInterfacePtr, control$maxIterations, control$tolerance, 
 									 control$convergenceType, control$autoSearch, control$fold, 
 									 (control$fold * control$cvRepetitions),
 									 control$lowerLimit, control$upperLimit, control$gridSteps, 
-                                     control$noiseLevel, control$seed)		
+                                     control$noiseLevel, control$threads, control$seed, control$resetCoefficients,
+                                     control$startingVariance, control$useKKTSwindle, control$tuneSwindle,
+                                     control$selectorType)		
 	}	
 }
 

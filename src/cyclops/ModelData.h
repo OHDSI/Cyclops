@@ -85,15 +85,15 @@ public:
         const std::vector<double>& cCovariateValue        
     );		
 
-	int* getPidVector();
-	real* getYVector();
+	const int* getPidVector() const;
+	const real* getYVector() const;
 	void setYVector(std::vector<real> y_);
 	int* getNEventVector();
 	real* getOffsetVector();
 //	map<int, IdType> getDrugNameMap();
-	int getNumberOfPatients();
-	std::string getConditionId();
-	std::vector<int>* getPidVectorSTL();
+	int getNumberOfPatients() const;
+	const std::string getConditionId() const;
+	std::vector<int> getPidVectorSTL() const;
 
 	const std::vector<real>& getZVectorRef() const {
 		return z;
@@ -164,6 +164,8 @@ public:
 	int getNumberOfVariableColumns() const;
 	
 	int getNumberOfTypes() const;
+	
+	ModelType getModelType() const { return modelType; }
 	
 	size_t getNumberOfStrata() const;
 	
