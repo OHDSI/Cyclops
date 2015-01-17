@@ -152,119 +152,12 @@ namespace helper {
 } // namespace helper   
 
 
-// namespace cyclops {
-// 
-// 	namespace detail {	
-// 	
-// 	    const int nThreads = 1;			
-// 		const int minSize = 10000;
-// 		
-// 		template <class InputIt, class ResultType, class BinaryFunction>
-// 		struct Reducer {
-// 		    void operator()(InputIt begin, InputIt end, ResultType x0, BinaryFunction function,
-// 		            ResultType& result) {
-// 		        result = std::accumulate(begin, end, x0, function);       
-// 		    }
-// 		};
-// 	
-//     	template <class InputIt, class ResultType, class BinaryFunction, class Info>
-// 	    inline ResultType reduce(InputIt begin, InputIt end,
-// 	            ResultType result, BinaryFunction function, Info& info) {	
-// 	        if (nThreads > 1 && std::distance(begin, end) >= minSize) {
-// // 	            std::cout << "PR" << std::endl;
-// 	            
-// 	            std::vector<std::thread> workers(nThreads - 1);
-// 	            std::vector<Fraction<real>> fractions(nThreads - 1);
-// 	            	            
-// 	            size_t chunkSize = std::distance(begin, end) / nThreads;
-// 	            size_t start = 0;
-// 	            for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
-// 	                workers[i] = std::thread(
-// 	                    Reducer<InputIt, ResultType, BinaryFunction>(), 
-// 	                    begin + start,
-// 	                    begin + start + chunkSize,
-// 	                    Fraction<real>(0,0), function,
-// 	                    std::ref(fractions[i])
-// 	                    );	    
-// // 	                std::cout << std::distance(begin + start, begin + start + chunkSize) << " ";            
-// 	            }
-// 	            
-// 	            result = std::accumulate(begin + start, end, result, function);
-// // 	            std::cout << std::distance(begin + start, end) << std::endl;
-// 	            for (int i = 0; i < nThreads - 1; ++i) {
-// 	                workers[i].join();
-// 	                result += fractions[i];
-// 	            }
-// 	            	            	            
-// 	            return result;
-//                 
-// 	        } else {	      
-// 	            return std::accumulate(begin, end, result, function);
-// 	        }        	            
-// 	    }
-// 		
-// 		template <typename InputIt, typename UnaryFunction, class Info>
-// 		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
-// 				Info& info) {
-// 										
-// 			if (nThreads > 1 && std::distance(begin, end) >= minSize) {				  
-// 				std::vector<std::thread> workers(nThreads - 1);
-// 				size_t chunkSize = std::distance(begin, end) / nThreads;
-// 				size_t start = 0;
-// 				for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
-// 					workers[i] = std::thread(
-// 						std::for_each<InputIt, UnaryFunction>,
-// 						begin + start, 
-// 						begin + start + chunkSize, 
-// 						function);
-// 				}
-// 				auto rtn = std::for_each(begin + start, end, function);
-// 				for (int i = 0; i < nThreads - 1; ++i) {
-// 					workers[i].join();
-// 				}
-// 				return rtn;
-// 			} else {				
-// 				return std::for_each(begin, end, function);
-// 			}
-// 		}
-//     }
-// 
-// 	template <typename InputIt, typename UnaryFunction>
-// 	inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function,
-// 		SerialOnly) {				
-// 		return std::for_each(begin, end, function);
-// 	}
-// 		
-// 	template <class InputIt, class UnaryFunction, class Info>
-// 	inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, Info& info) {		
-// 		return detail::for_each(first, last, f, info);
-// 	}
-// 	
-// 	template <class InputIt, class ResultType, class BinaryFunction, class Info>
-// 	inline ResultType reduce(InputIt begin, InputIt end,
-// 	        ResultType result, BinaryFunction function, Info& info) {
-// 	    return detail::reduce(begin, end, result, function, info);        
-// 	}
-// 	
-// 	template <class InputIt, class ResultType, class BinaryFunction>
-// 	inline ResultType reduce(InputIt begin, InputIt end, 
-// 	        ResultType result, BinaryFunction function, SerialOnly) {
-// 	    return std::accumulate(begin, end, result, function);
-// 	}
-// 	
-// } // namespace cyclops
-
-
-//template <class BaseModel,typename WeightType>
-//ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(
-//		const std::vector<real>& y,
-//		const std::vector<real>& z) : AbstractModelSpecifics(y, z), BaseModel() {
-//	// TODO Memory allocation here
-//}
-
 template <class BaseModel,typename WeightType>
 ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
-	: AbstractModelSpecifics(input), BaseModel(), threadPool(2,2,10) {
+	: AbstractModelSpecifics(input), BaseModel(), 
+// 	threadPool(2,2,10) 
+    threadPool(0,0,10)
+	{
 	// TODO Memory allocation here
 	
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -675,8 +568,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
                         begin(hNWeight), begin(hXBeta), &hY[0]);
                             
     Fraction<real> result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), kernel,
-//      SerialOnly()
-    info
+     SerialOnly()
+//     info
     );
 
     gradient = result.real();
@@ -1114,8 +1007,8 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 	variants::for_each(
 		range.begin(), range.end(),
 		kernel, 
-		threadPool
-// 		SerialOnly()
+// 		threadPool
+ 		SerialOnly()
 		);
 
 #else		
@@ -1226,7 +1119,8 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 		range.begin(), range.end(),
 		kernel, 
 // 		info
-        threadPool
+//         threadPool
+        SerialOnly()
 		);
 		
 #else

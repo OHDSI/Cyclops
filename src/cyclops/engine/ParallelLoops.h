@@ -168,6 +168,12 @@ namespace variants {
 		        result = std::accumulate(begin, end, x0, function);       
 		    }
 		};
+
+    	template <class InputIt, class ResultType, class BinaryFunction>
+	    inline ResultType reduce(InputIt begin, InputIt end,
+	            ResultType result, BinaryFunction function, SerialOnly) {
+	        return std::accumulate(begin, end, result, function);       	            
+	    }	
 	
     	template <class InputIt, class ResultType, class BinaryFunction, class Info>
 	    inline ResultType reduce(InputIt begin, InputIt end,
