@@ -2,71 +2,71 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 .cyclopsGetModelTypeNames <- function() {
-    .Call('Cyclops_cyclopsGetModelTypeNames', PACKAGE = 'Cyclops')
+    .Call('Cyclops2_cyclopsGetModelTypeNames', PACKAGE = 'Cyclops2')
 }
 
 .cyclopsGetRemoveInterceptNames <- function() {
-    .Call('Cyclops_cyclopsGetRemoveInterceptNames', PACKAGE = 'Cyclops')
+    .Call('Cyclops2_cyclopsGetRemoveInterceptNames', PACKAGE = 'Cyclops2')
 }
 
 .cyclopsGetIsSurvivalNames <- function() {
-    .Call('Cyclops_cyclopsGetIsSurvivalNames', PACKAGE = 'Cyclops')
+    .Call('Cyclops2_cyclopsGetIsSurvivalNames', PACKAGE = 'Cyclops2')
 }
 
 .cyclopsGetUseOffsetNames <- function() {
-    .Call('Cyclops_cyclopsGetUseOffsetNames', PACKAGE = 'Cyclops')
+    .Call('Cyclops2_cyclopsGetUseOffsetNames', PACKAGE = 'Cyclops2')
 }
 
 .cyclopsSetBeta <- function(inRcppCcdInterface, beta, value) {
-    invisible(.Call('Cyclops_cyclopsSetBeta', PACKAGE = 'Cyclops', inRcppCcdInterface, beta, value))
+    invisible(.Call('Cyclops2_cyclopsSetBeta', PACKAGE = 'Cyclops2', inRcppCcdInterface, beta, value))
 }
 
 .cyclopsSetFixedBeta <- function(inRcppCcdInterface, beta, fixed) {
-    invisible(.Call('Cyclops_cyclopsSetFixedBeta', PACKAGE = 'Cyclops', inRcppCcdInterface, beta, fixed))
+    invisible(.Call('Cyclops2_cyclopsSetFixedBeta', PACKAGE = 'Cyclops2', inRcppCcdInterface, beta, fixed))
 }
 
 .cyclopsGetIsRegularized <- function(inRcppCcdInterface, index) {
-    .Call('Cyclops_cyclopsGetIsRegularized', PACKAGE = 'Cyclops', inRcppCcdInterface, index)
+    .Call('Cyclops2_cyclopsGetIsRegularized', PACKAGE = 'Cyclops2', inRcppCcdInterface, index)
 }
 
 .cyclopsGetLogLikelihood <- function(inRcppCcdInterface) {
-    .Call('Cyclops_cyclopsGetLogLikelihood', PACKAGE = 'Cyclops', inRcppCcdInterface)
+    .Call('Cyclops2_cyclopsGetLogLikelihood', PACKAGE = 'Cyclops2', inRcppCcdInterface)
 }
 
 .cyclopsGetFisherInformation <- function(inRcppCcdInterface, sexpCovariates) {
-    .Call('Cyclops_cyclopsGetFisherInformation', PACKAGE = 'Cyclops', inRcppCcdInterface, sexpCovariates)
+    .Call('Cyclops2_cyclopsGetFisherInformation', PACKAGE = 'Cyclops2', inRcppCcdInterface, sexpCovariates)
 }
 
 .cyclopsSetPrior <- function(inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph) {
-    invisible(.Call('Cyclops_cyclopsSetPrior', PACKAGE = 'Cyclops', inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph))
+    invisible(.Call('Cyclops2_cyclopsSetPrior', PACKAGE = 'Cyclops2', inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph))
 }
 
 .cyclopsProfileModel <- function(inRcppCcdInterface, sexpCovariates, threshold, override, includePenalty) {
-    .Call('Cyclops_cyclopsProfileModel', PACKAGE = 'Cyclops', inRcppCcdInterface, sexpCovariates, threshold, override, includePenalty)
+    .Call('Cyclops2_cyclopsProfileModel', PACKAGE = 'Cyclops2', inRcppCcdInterface, sexpCovariates, threshold, override, includePenalty)
 }
 
 .cyclopsPredictModel <- function(inRcppCcdInterface) {
-    .Call('Cyclops_cyclopsPredictModel', PACKAGE = 'Cyclops', inRcppCcdInterface)
+    .Call('Cyclops2_cyclopsPredictModel', PACKAGE = 'Cyclops2', inRcppCcdInterface)
 }
 
 .cyclopsSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, seed) {
-    invisible(.Call('Cyclops_cyclopsSetControl', PACKAGE = 'Cyclops', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, seed))
+    invisible(.Call('Cyclops2_cyclopsSetControl', PACKAGE = 'Cyclops2', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, seed))
 }
 
 .cyclopsRunCrossValidation <- function(inRcppCcdInterface) {
-    .Call('Cyclops_cyclopsRunCrossValidationl', PACKAGE = 'Cyclops', inRcppCcdInterface)
+    .Call('Cyclops2_cyclopsRunCrossValidationl', PACKAGE = 'Cyclops2', inRcppCcdInterface)
 }
 
 .cyclopsFitModel <- function(inRcppCcdInterface) {
-    .Call('Cyclops_cyclopsFitModel', PACKAGE = 'Cyclops', inRcppCcdInterface)
+    .Call('Cyclops2_cyclopsFitModel', PACKAGE = 'Cyclops2', inRcppCcdInterface)
 }
 
 .cyclopsLogModel <- function(inRcppCcdInterface) {
-    .Call('Cyclops_cyclopsLogModel', PACKAGE = 'Cyclops', inRcppCcdInterface)
+    .Call('Cyclops2_cyclopsLogModel', PACKAGE = 'Cyclops2', inRcppCcdInterface)
 }
 
 .cyclopsInitializeModel <- function(inModelData, modelType, computeMLE = FALSE) {
-    .Call('Cyclops_cyclopsInitializeModel', PACKAGE = 'Cyclops', inModelData, modelType, computeMLE)
+    .Call('Cyclops2_cyclopsInitializeModel', PACKAGE = 'Cyclops2', inModelData, modelType, computeMLE)
 }
 
 #' @title Print row identifiers
@@ -77,11 +77,11 @@
 #' @param object    An OHDSI Cyclops data object
 #'
 printCyclopsRowIds <- function(object) {
-    invisible(.Call('Cyclops_cyclopsPrintRowIds', PACKAGE = 'Cyclops', object))
+    invisible(.Call('Cyclops2_cyclopsPrintRowIds', PACKAGE = 'Cyclops2', object))
 }
 
 .isRcppPtrNull <- function(x) {
-    .Call('Cyclops_isRcppPtrNull', PACKAGE = 'Cyclops', x)
+    .Call('Cyclops2_isRcppPtrNull', PACKAGE = 'Cyclops2', x)
 }
 
 #' @title Get number of strata
@@ -92,7 +92,7 @@ printCyclopsRowIds <- function(object) {
 #' @param object    An OHDSI Cyclops data object
 #' 
 getNumberOfStrata <- function(object) {
-    .Call('Cyclops_cyclopsGetNumberOfStrata', PACKAGE = 'Cyclops', object)
+    .Call('Cyclops2_cyclopsGetNumberOfStrata', PACKAGE = 'Cyclops2', object)
 }
 
 #' @title Get covariate identifiers
@@ -103,7 +103,7 @@ getNumberOfStrata <- function(object) {
 #' @param object    An OHDSI Cyclops data object
 #' 
 getCovariateIds <- function(object) {
-    .Call('Cyclops_cyclopsGetCovariateIds', PACKAGE = 'Cyclops', object)
+    .Call('Cyclops2_cyclopsGetCovariateIds', PACKAGE = 'Cyclops2', object)
 }
 
 #' @title Get covariate types
@@ -115,7 +115,7 @@ getCovariateIds <- function(object) {
 #' @param covariateLabel Integer vector: covariate identifiers to return
 #' 
 getCovariateTypes <- function(object, covariateLabel) {
-    .Call('Cyclops_cyclopsGetCovariateType', PACKAGE = 'Cyclops', object, covariateLabel)
+    .Call('Cyclops2_cyclopsGetCovariateType', PACKAGE = 'Cyclops2', object, covariateLabel)
 }
 
 #' @title Get total number of covariates
@@ -126,7 +126,7 @@ getCovariateTypes <- function(object, covariateLabel) {
 #' @param object    An OHDSI Cyclops data object
 #'
 getNumberOfCovariates <- function(object) {
-    .Call('Cyclops_cyclopsGetNumberOfColumns', PACKAGE = 'Cyclops', object)
+    .Call('Cyclops2_cyclopsGetNumberOfColumns', PACKAGE = 'Cyclops2', object)
 }
 
 #' @title Get total number of rows
@@ -137,7 +137,7 @@ getNumberOfCovariates <- function(object) {
 #' @param object    An OHDSI Cyclops data object
 #'
 getNumberOfRows <- function(object) {
-    .Call('Cyclops_cyclopsGetNumberOfRows', PACKAGE = 'Cyclops', object)
+    .Call('Cyclops2_cyclopsGetNumberOfRows', PACKAGE = 'Cyclops2', object)
 }
 
 #' @title Get total number of outcome types
@@ -148,54 +148,54 @@ getNumberOfRows <- function(object) {
 #' @param object    An OHDSI Cyclops data object
 #'
 getNumberOfTypes <- function(object) {
-    .Call('Cyclops_cyclopsGetNumberOfTypes', PACKAGE = 'Cyclops', object)
+    .Call('Cyclops2_cyclopsGetNumberOfTypes', PACKAGE = 'Cyclops2', object)
 }
 
 .cyclopsSumByGroup <- function(x, covariateLabel, groupByLabel, power) {
-    .Call('Cyclops_cyclopsSumByGroup', PACKAGE = 'Cyclops', x, covariateLabel, groupByLabel, power)
+    .Call('Cyclops2_cyclopsSumByGroup', PACKAGE = 'Cyclops2', x, covariateLabel, groupByLabel, power)
 }
 
 .cyclopsSumByStratum <- function(x, covariateLabel, power) {
-    .Call('Cyclops_cyclopsSumByStratum', PACKAGE = 'Cyclops', x, covariateLabel, power)
+    .Call('Cyclops2_cyclopsSumByStratum', PACKAGE = 'Cyclops2', x, covariateLabel, power)
 }
 
 .cyclopsSum <- function(x, covariateLabel, power) {
-    .Call('Cyclops_cyclopsSum', PACKAGE = 'Cyclops', x, covariateLabel, power)
+    .Call('Cyclops2_cyclopsSum', PACKAGE = 'Cyclops2', x, covariateLabel, power)
 }
 
 .cyclopsNewSqlData <- function(modelTypeName, noiseLevel) {
-    .Call('Cyclops_cyclopsNewSqlData', PACKAGE = 'Cyclops', modelTypeName, noiseLevel)
+    .Call('Cyclops2_cyclopsNewSqlData', PACKAGE = 'Cyclops2', modelTypeName, noiseLevel)
 }
 
 .cyclopsSetHasIntercept <- function(x, hasIntercept) {
-    invisible(.Call('Cyclops_cyclopsSetHasIntercept', PACKAGE = 'Cyclops', x, hasIntercept))
+    invisible(.Call('Cyclops2_cyclopsSetHasIntercept', PACKAGE = 'Cyclops2', x, hasIntercept))
 }
 
 .cyclopsGetHasIntercept <- function(x) {
-    .Call('Cyclops_cyclopsGetHasIntercept', PACKAGE = 'Cyclops', x)
+    .Call('Cyclops2_cyclopsGetHasIntercept', PACKAGE = 'Cyclops2', x)
 }
 
 .cyclopsGetHasOffset <- function(x) {
-    .Call('Cyclops_cyclopsGetHasOffset', PACKAGE = 'Cyclops', x)
+    .Call('Cyclops2_cyclopsGetHasOffset', PACKAGE = 'Cyclops2', x)
 }
 
 .cyclopsFinalizeData <- function(x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag = FALSE) {
-    invisible(.Call('Cyclops_cyclopsFinalizeData', PACKAGE = 'Cyclops', x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag))
+    invisible(.Call('Cyclops2_cyclopsFinalizeData', PACKAGE = 'Cyclops2', x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag))
 }
 
 .appendSqlCyclopsData <- function(x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue) {
-    .Call('Cyclops_cyclopsAppendSqlData', PACKAGE = 'Cyclops', x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue)
+    .Call('Cyclops2_cyclopsAppendSqlData', PACKAGE = 'Cyclops2', x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue)
 }
 
 .cyclopsGetInterceptLabel <- function(x) {
-    .Call('Cyclops_cyclopsGetInterceptLabel', PACKAGE = 'Cyclops', x)
+    .Call('Cyclops2_cyclopsGetInterceptLabel', PACKAGE = 'Cyclops2', x)
 }
 
 .cyclopsReadData <- function(fileName, modelTypeName) {
-    .Call('Cyclops_cyclopsReadFileData', PACKAGE = 'Cyclops', fileName, modelTypeName)
+    .Call('Cyclops2_cyclopsReadFileData', PACKAGE = 'Cyclops2', fileName, modelTypeName)
 }
 
 .cyclopsModelData <- function(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset = FALSE, numTypes = 1L) {
-    .Call('Cyclops_cyclopsModelData', PACKAGE = 'Cyclops', pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset, numTypes)
+    .Call('Cyclops2_cyclopsModelData', PACKAGE = 'Cyclops2', pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset, numTypes)
 }
 
