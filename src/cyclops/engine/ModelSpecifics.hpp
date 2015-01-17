@@ -33,6 +33,16 @@
 	}
 #endif
 
+#ifdef CYCLOPS_DEBUG_TIMING
+	#include <ctime>
+	namespace bsccs {
+		const std::string DenseIterator::name = "Den";
+		const std::string IndicatorIterator::name = "Ind";
+		const std::string SparseIterator::name = "Spa";
+		const std::string InterceptIterator::name = "Icp";
+	}
+#endif
+
 //#define USE_BIGNUM
 #define USE_LONG_DOUBLE
 
@@ -1064,6 +1074,7 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
     IteratorType it(*hXI, index);
     
 	for (; it; ++it) {	   
+
 		const int k = it.index();
 		incrementByGroup(numerPid, hPid, k,
 				BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
@@ -1074,6 +1085,7 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 	}
 	
 #endif // NEW_LOOPS
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW

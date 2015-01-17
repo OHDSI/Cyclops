@@ -33,6 +33,14 @@
 #include <boost/iterator/zip_iterator.hpp>
 #include <boost/iterator/counting_iterator.hpp>
 
+// #define CYCLOPS_DEBUG_TIMING
+// #define CYCLOPS_DEBUG_TIMING_LOW
+
+#ifdef CYCLOPS_DEBUG_TIMING
+	#include <chrono>
+	using TimingUnits = std::chrono::nanoseconds;
+#endif
+
 #include "AbstractModelSpecifics.h"
 #include "Iterators.h"
 #include "ParallelLoops.h"
@@ -275,6 +283,11 @@ private:
 	
 	C11ThreadPool threadPool;
 	
+#ifdef CYCLOPS_DEBUG_TIMING
+//	std::vector<double> duration;
+	std::map<std::string,long long> duration;
+#endif	
+
 #ifdef CYCLOPS_DEBUG_TIMING
 //	std::vector<double> duration;
 	std::map<std::string,long long> duration;
