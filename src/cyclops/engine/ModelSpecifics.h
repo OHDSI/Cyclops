@@ -395,9 +395,7 @@ struct NoFixedLikelihoodTerms {
 	const static bool likelihoodHasFixedTerms = false;
 
 	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
-// 		std::cerr << "Error!" << std::endl;
-// 		exit(-1);
-        throw new std::logic_error("Not model-specific");
+   	throw new std::logic_error("Not model-specific");
 		return static_cast<real>(0);
 	}
 };
@@ -441,33 +439,12 @@ template <class BaseModel, class IteratorType, class WeightOperationType,
 class RealType, class IntType>
 struct AccumulateGradientAndHessianKernel : private BaseModel {
 
-  //  typedef std::complex<RealType> type;
-
-    AccumulateGradientAndHessianKernel(RealType* _numerator, RealType* _numerator2,
+     AccumulateGradientAndHessianKernel(RealType* _numerator, RealType* _numerator2,
             RealType* _denominator, RealType* _weight, RealType* _xBeta, const RealType* _y) 
             : numerator(_numerator), numerator2(_numerator2), denominator(_denominator),
               weight(_weight), xBeta(_xBeta), y(_y) { }
     
     Fraction<RealType> operator()(Fraction<RealType>& lhs, const IntType& i) {
-
-//         const RealType g = numerator[i] / denominator[i];
-//            
-//         const RealType gradient = 
-//             (WeightOperationType::isWeighted) ? weight[i] * g : g;
-//         
-//         const RealType hessian =         
-//             (IteratorType::isIndicator) ?
-//                 (WeightOperationType::isWeighted) ?
-//                     weight[i] * g * (static_cast<RealType>(1.0) - g) :
-//                     g * (static_cast<RealType>(1.0) - g) 
-//                 :
-//                 (WeightOperationType::isWeighted) ?
-//                     weight[i] * (numerator2[i] / denominator[i] - g * g) :
-//                     (numerator2[i] / denominator[i] - g * g);
-//                                                     
-//         return { lhs.real() + gradient, lhs.imag() + hessian }; 
-        
-//         return typename BaseModel::incrementGradientAndHessian<IteratorType, WeightOperationType>(
         return BaseModel::template incrementGradientAndHessian<IteratorType, WeightOperationType, RealType>( // ***
             lhs, numerator[i], numerator2[i], denominator[i], weight[i], xBeta[i], y[i]);       
     }
@@ -538,7 +515,7 @@ struct UpdateXBetaKernel : private BaseModel {
 		
 		// Update denominators as well
 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-			if (false) {		
+			if (true) {	// Old method	
 				real oldEntry = expXBeta[k];
 				real newEntry = expXBeta[k] = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
 				denominator[BaseModel::getGroup(pid, k)] += (newEntry - oldEntry);	
@@ -548,7 +525,7 @@ struct UpdateXBetaKernel : private BaseModel {
 			    expXBeta[k] = t;
 			    denominator[k] = static_cast<real>(1.0) + t;
 			#else 
-				denominator[k] = expXBeta[k] = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);							
+				denominator[k] = expXBeta[k] = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k); // For fast Poisson							
             #endif
 			}
 		}
@@ -704,8 +681,6 @@ public:
 	const static bool likelihoodHasFixedTerms = false;
 
 	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
-// 		std::cerr << "Error!" << std::endl;
-// 		exit(-1);
         throw new std::logic_error("Not model-specific");
 		return static_cast<real>(0);
 	}
@@ -741,24 +716,16 @@ public:
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 	    
-	    std::cout << "TODO" << std::endl;
-	    std::exit(-1);
-	
+        // Same as CLR and CPR, TODO Remove code-duplication
+	    
     	const RealType g = numerator / denominator;
-	
-        const RealType gradient = 
-            (WeightOperationType::isWeighted) ? weight * g : g;
-        
+    	const RealType gradient = weight * g; // Always use weights (number of events)
+	        
         const RealType hessian =         
             (IteratorType::isIndicator) ?
-                (WeightOperationType::isWeighted) ?
-                    weight * g * (static_cast<RealType>(1.0) - g) :
-                    g * (static_cast<RealType>(1.0) - g) 
-                :
-                (WeightOperationType::isWeighted) ?
-                    weight * (numerator2 / denominator - g * g) :
-                    (numerator2 / denominator - g * g);
-                                                    
+                gradient * (static_cast<RealType>(1.0) - g) :
+                weight * (numerator2 / denominator - g * g);
+                                                                    
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
 
@@ -829,29 +796,20 @@ public:
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 	    
-	    std::cout << "TODO" << std::endl;
-	    std::exit(-1);
-	
+        // Same as CLR, TODO Remove code-duplication
+	    
     	const RealType g = numerator / denominator;
-	
-        const RealType gradient = 
-            (WeightOperationType::isWeighted) ? weight * g : g;
-        
+    	const RealType gradient = weight * g; // Always use weights (number of events)
+	        
         const RealType hessian =         
             (IteratorType::isIndicator) ?
-                (WeightOperationType::isWeighted) ?
-                    weight * g * (static_cast<RealType>(1.0) - g) :
-                    g * (static_cast<RealType>(1.0) - g) 
-                :
-                (WeightOperationType::isWeighted) ?
-                    weight * (numerator2 / denominator - g * g) :
-                    (numerator2 / denominator - g * g);
-                                                    
+                gradient * (static_cast<RealType>(1.0) - g) :
+                weight * (numerator2 / denominator - g * g);
+                	                                                        
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
 		
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
-
 		return std::exp(xBeta);
 	}
 
@@ -870,111 +828,6 @@ public:
 
 };
 
-#if 0
-template <typename WeightType>
-struct ConditionalLogisticRegression : public GroupedData, GLMProjection, Logistic<WeightType>, FixedPid,
-	NoFixedLikelihoodTerms { // TODO Implement likelihood terms
-public:
-	const static bool precomputeHessian = false; // XjX
-
-	static real getDenomNullValue () { return static_cast<real>(0.0); }
-
-	real observationCount(real yi) {
-		return static_cast<real>(yi);
-	}
-
-	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
-		return std::exp(xBeta);
-	}
-
-//	real logLikeDenominatorContrib(WeightType ni, real denom) {
-//		return std::log(denom);
-//	}
-
-	real logLikeDenominatorContrib(WeightType ni, real denom) {
-		return ni * std::log(denom);
-	}
-
-	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
-			int* groups, int i) {
-		 // TODO Can this be optimized for CLR?
-		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
-	}
-
-	void predictEstimate(real& yi, real xBeta){
-		// do nothing for now
-	}
-
-	template <class IteratorType, class Weights> // TODO Code duplication with LR
-	void incrementGradientAndHessian(
-			const IteratorType& it,
-			Weights w,
-			real* gradient, real* hessian,
-			real numer, real numer2, real denom,
-			WeightType weight,
-			real x, real xBeta, real y) {
-
-		const real g = numer / denom;
-//		if (Weights::isWeighted) {
-			*gradient += weight * g;
-//		} else {
-//			*gradient += g;
-//		}
-		if (IteratorType::isIndicator) {
-//			if (Weights::isWeighted) {
-				*hessian += weight * g * (static_cast<real>(1.0) - g);
-//			} else {
-//				*hessian += g * (static_cast<real>(1.0) - g);
-//			}
-		} else {
-//			if (Weights::isWeighted) {
-				*hessian += weight * (numer2 / denom - g * g); // Bounded by x_j^2
-//			} else {
-//				*hessian += (numer2 / denom - g * g); // Bounded by x_j^2
-//			}
-		}
-	}
-		
-	template <class IteratorType, class WeightOperationType, class RealType>
-	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
-	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
-	    RealType xBeta, RealType y) {
-	    
-	    std::cout << "TODO" << std::endl;
-	    std::exit(-1);
-	
-    	const RealType g = numerator / denominator;
-	
-        const RealType gradient = 
-            (WeightOperationType::isWeighted) ? weight * g : g;
-        
-        const RealType hessian =         
-            (IteratorType::isIndicator) ?
-                (WeightOperationType::isWeighted) ?
-                    weight * g * (static_cast<RealType>(1.0) - g) :
-                    g * (static_cast<RealType>(1.0) - g) 
-                :
-                (WeightOperationType::isWeighted) ?
-                    weight * (numerator2 / denominator - g * g) :
-                    (numerator2 / denominator - g * g);
-                                                    
-        return { lhs.real() + gradient, lhs.imag() + hessian }; 
-    }	
-	
-
-	template <class IteratorType, class Weights>
-	void incrementFisherInformation(
-			const IteratorType& it,
-			Weights false_signature,
-			real* information,
-			real predictor,
-			real numer, real numer2, real denom,
-			WeightType weight,
-			real x, real xBeta, real y) {
-		*information += weight * predictor / denom * it.value();
-	}
-};
-#else
 template <typename WeightType>
 struct ConditionalLogisticRegression : public GroupedData, GLMProjection, FixedPid, Survival<WeightType> {
 public:
@@ -982,8 +835,6 @@ public:
 	const static bool likelihoodHasFixedTerms = false;
 
 	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
-// 		std::cerr << "Error!" << std::endl;
-// 		exit(-1);
         throw new std::logic_error("Not model-specific");
 		return static_cast<real>(0);
 	}
@@ -1013,33 +864,22 @@ public:
 		}
 	}
 	
-	template <class IteratorType, class WeightOperationType, class RealType>
+	template <class IteratorType, class WeightOerationType, class RealType>
 	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
-	    
-	    std::cout << "TODO" << std::endl;
-	    std::exit(-1);
-	
+	    	
     	const RealType g = numerator / denominator;
-	
-        const RealType gradient = 
-            (WeightOperationType::isWeighted) ? weight * g : g;
-        
+    	const RealType gradient = weight * g; // Always use weights (number of events)
+	        
         const RealType hessian =         
             (IteratorType::isIndicator) ?
-                (WeightOperationType::isWeighted) ?
-                    weight * g * (static_cast<RealType>(1.0) - g) :
-                    g * (static_cast<RealType>(1.0) - g) 
-                :
-                (WeightOperationType::isWeighted) ?
-                    weight * (numerator2 / denominator - g * g) :
-                    (numerator2 / denominator - g * g);
-                                                    
+                gradient * (static_cast<RealType>(1.0) - g) :
+                weight * (numerator2 / denominator - g * g);
+                                                                               
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
 	
-
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
@@ -1059,7 +899,6 @@ public:
 	}
 
 };
-#endif
 
 template <typename WeightType>
 struct TiedConditionalLogisticRegression : public GroupedWithTiesData, GLMProjection, FixedPid, Survival<WeightType> {
@@ -1104,7 +943,7 @@ public:
 	    RealType xBeta, RealType y) {
 	    
 	    std::cout << "TODO" << std::endl;
-	    std::exit(-1);
+	    std::exit(-1);  // tied clr
 	
     	const RealType g = numerator / denominator;
 	
@@ -1213,7 +1052,7 @@ public:
 	    RealType xBeta, RealType y) {
 	    
 	    std::cout << "TODO" << std::endl;
-	    std::exit(-1);
+	    std::exit(-1); // cox
 	
     	const RealType g = numerator / denominator;
 	
@@ -1300,7 +1139,7 @@ public:
 	    RealType xBeta, RealType y) {
 	    
 	    std::cout << "TODO" << std::endl;
-	    std::exit(-1);
+	    std::exit(-1); // breslow cox
 	
     	const RealType g = numerator / denominator;
 	
@@ -1368,8 +1207,6 @@ public:
 
 	template <class XType>
 	real gradientNumerator2Contrib(XType x, real predictor) {
-// 		std::cerr << "Error!" << std::endl;
-// 		exit(-1);
         throw new std::logic_error("Not model-specific");
 		return static_cast<real>(0);
 	}
@@ -1430,7 +1267,7 @@ public:
 	    RealType xBeta, RealType y) {
 	    
 	    std::cout << "TODO" << std::endl;
-	    std::exit(-1);
+	    std::exit(-1); // ls
 	
     	const RealType g = numerator / denominator;
 	
@@ -1451,8 +1288,6 @@ public:
     }	
 	
 	real getOffsExpXBeta(const  real* offs, real xBeta, real y, int k) {
-// 		std::cerr << "Error!" << std::endl;
-// 		exit(-1);
         throw new std::logic_error("Not model-specific");
 		return static_cast<real>(0);
 	}
