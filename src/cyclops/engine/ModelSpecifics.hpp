@@ -33,16 +33,6 @@
 	}
 #endif
 
-#ifdef CYCLOPS_DEBUG_TIMING
-	#include <ctime>
-	namespace bsccs {
-		const std::string DenseIterator::name = "Den";
-		const std::string IndicatorIterator::name = "Ind";
-		const std::string SparseIterator::name = "Spa";
-		const std::string InterceptIterator::name = "Icp";
-	}
-#endif
-
 //#define USE_BIGNUM
 #define USE_LONG_DOUBLE
 

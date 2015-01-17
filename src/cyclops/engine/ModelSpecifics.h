@@ -288,11 +288,6 @@ private:
 	std::map<std::string,long long> duration;
 #endif	
 
-#ifdef CYCLOPS_DEBUG_TIMING
-//	std::vector<double> duration;
-	std::map<std::string,long long> duration;
-#endif	
-
 };
 
 template <typename WeightType>
