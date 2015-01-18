@@ -11,6 +11,7 @@
 // Set-up C++11 clock profiling support since Travis-CI does not yet have std::chrono::steady_clock
 
 #include <ctime>
+#include <chrono>
 
 namespace bsccs {
     namespace chrono {

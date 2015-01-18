@@ -7,7 +7,7 @@
 #include <sstream>
 #include <vector>
 #include <map>
-#include <chrono>
+#include "Timing.h"
  
 #include "Rcpp.h"
 #include "RcppCyclopsInterface.h"
@@ -342,7 +342,7 @@ List cyclopsLogModel(SEXP inRcppCcdInterface) {
 	}
 	list.attr("names") = names;	
 #else	  
-    auto start = std::chrono::high_resolution_clock::now();  
+    auto start = bsccs::chrono::steady_clock::now();  
 	    
 	auto& ccd = interface->getCcd();
 	auto& data = interface->getModelData();
@@ -355,8 +355,8 @@ List cyclopsLogModel(SEXP inRcppCcdInterface) {
         values.push_back(ccd.getBeta(index));
     }
     
-	auto end = std::chrono::high_resolution_clock::now();		
-	std::chrono::duration<double> elapsed_seconds = end-start;	
+	auto end = bsccs::chrono::steady_clock::now();		
+	bsccs::chrono::duration<double> elapsed_seconds = end-start;	
 	double timeLog = elapsed_seconds.count();    
 	
 //	gettimeofday(&time2, NULL);
