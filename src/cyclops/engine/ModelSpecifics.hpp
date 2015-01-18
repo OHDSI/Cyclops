@@ -530,7 +530,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 #ifndef CYCLOPS_DEBUG_TIMING_LOW
 	auto end = bsccs::chrono::steady_clock::now();	
 	///////////////////////////"
-	duration["compGradAndHess  "] += bsccs::chrono::duration_cast<TimingUnits>(end - start).count();
+	duration["compGradAndHess  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif	
 #endif
 	
@@ -614,7 +614,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	auto end = bsccs::chrono::steady_clock::now();	
 	///////////////////////////"
 	auto name = "compGradHess" + IteratorType::name + "  ";	
-	duration[name] += bsccs::chrono::duration_cast<TimingUnits>(end - start).count();
+	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 #endif	
 	
@@ -756,7 +756,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	auto end = bsccs::chrono::steady_clock::now();	
 	///////////////////////////"
 	auto name = "compGradHess" + IteratorType::name + "  ";	
-	duration[name] += bsccs::chrono::duration_cast<TimingUnits>(end - start).count();
+	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 #endif		
 	
@@ -978,7 +978,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 #ifndef CYCLOPS_DEBUG_TIMING_LOW
 	auto end = bsccs::chrono::steady_clock::now();	
 	///////////////////////////"
-	duration["compNumForGrad   "] += bsccs::chrono::duration_cast<TimingUnits>(end - start).count();;
+	duration["compNumForGrad   "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
 #endif
 #endif	
 	
@@ -1048,7 +1048,7 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 	auto end = bsccs::chrono::steady_clock::now();	
 	///////////////////////////"
 	auto name = "compNumGrad" + IteratorType::name + "   ";
-	duration[name] += bsccs::chrono::duration_cast<TimingUnits>(end - start).count();
+	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 #endif	
 
@@ -1086,7 +1086,7 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index
 #ifndef CYCLOPS_DEBUG_TIMING_LOW
 	auto end = bsccs::chrono::steady_clock::now();	
 	///////////////////////////"
-	duration["updateXBeta      "] += bsccs::chrono::duration_cast<TimingUnits>(end - start).count();
+	duration["updateXBeta      "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 #endif
 		
@@ -1145,7 +1145,7 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 	auto end = bsccs::chrono::steady_clock::now();	
 	///////////////////////////"
 	auto name = "updateXBeta" + IteratorType::name + "   ";
-	duration[name] += bsccs::chrono::duration_cast<TimingUnits>(end - start).count();
+	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 #endif	
 	
@@ -1178,7 +1178,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();	
 	///////////////////////////"
-	duration["compRS           "] += bsccs::chrono::duration_cast<TimingUnits>(end - start).count();;
+	duration["compRS           "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
 #endif
 
 }
