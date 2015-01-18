@@ -19,6 +19,7 @@
 #include "CyclicCoordinateDescent.h"
 // #include "io/InputReader.h"
 #include "Iterators.h"
+#include "Timing.h"
 //#include "priors/JointPrior.h"
 // #include "io/ProgressLogger.h"
 
@@ -626,12 +627,12 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 		double updateTime = 0.0;
 		lastReturnFlag = SUCCESS;
 		if (activeSet.size() > 0) { // find initial mode
-			auto start = std::chrono::high_resolution_clock::now();
+			auto start = bsccs::chrono::steady_clock::now();
 			  		
 			findMode(begin(activeSet), end(activeSet), maxIterations, convergenceType, epsilon);
 			
-			auto end = std::chrono::high_resolution_clock::now();
-			std::chrono::duration<double> elapsed_seconds = end-start;	
+			auto end = bsccs::chrono::steady_clock::now();
+			bsccs::chrono::duration<double> elapsed_seconds = end-start;	
 			updateTime = elapsed_seconds.count();    			
 		}
 		

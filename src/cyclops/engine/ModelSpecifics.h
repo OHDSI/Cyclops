@@ -18,8 +18,7 @@
 #define CYCLOPS_DEBUG_TIMING_LOW
 
 #ifdef CYCLOPS_DEBUG_TIMING
-	#include <chrono>
-	using TimingUnits = std::chrono::nanoseconds;
+    #include "Timing.h"	
 #endif
 
 #include <type_traits>
