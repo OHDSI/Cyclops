@@ -38,6 +38,8 @@
 
 namespace bsccs {
 
+#if 0
+
 // http://liveworkspace.org/code/d52cf97bc56f5526292615659ea110c0
 // helper namespace to ensure correct functionality
 namespace aux{
@@ -154,6 +156,8 @@ auto zip_crange(Conts&&... conts)
   return zip_range(aux::as_const(conts)...);
 }
 
+#endif
+
 // Helper functions until we can remove raw_pointers
 	
 inline real* begin(real* x) { return x; }
@@ -161,6 +165,9 @@ inline int* begin(int* x) {  return x; }
 
 inline real* begin(std::vector<real>& x) { return x.data(); }
 inline int* begin(std::vector<int>& x) { return x.data(); }
+
+inline const real* begin(const std::vector<real>& x) { return x.data(); }
+inline const int* begin(const std::vector<int>& x) { return x.data(); }
 
 struct OneValue { };
 	
@@ -393,8 +400,10 @@ struct NoFixedLikelihoodTerms {
 
 template <class IteratorType, class RealType>
 struct TupleXGetter {
-	using XTuple = typename IteratorType::XTuple;	
-	using ReturnType = RealType;
+// 	using XTuple = typename IteratorType::XTuple;	
+// 	using ReturnType = RealType;
+    typedef typename IteratorType::XTuple XTuple;
+    typedef RealType ReturnType;
 	
 	inline ReturnType operator()(XTuple& tuple) const {
 		return boost::get<1>(tuple);
@@ -403,8 +412,10 @@ struct TupleXGetter {
 
 template <class RealType>
 struct TupleXGetter<IndicatorIterator, RealType> {
-	using XTuple = IndicatorIterator::XTuple;
-	using ReturnType = OneValue;
+// 	using XTuple = IndicatorIterator::XTuple;
+// 	using ReturnType = OneValue;
+    typedef typename IndicatorIterator::XTuple XTuple;
+    typedef OneValue ReturnType;	
 	
 // 	inline RealType operator()(XTuple& tuple) const {
 // 		return static_cast<RealType>(1.0);
@@ -453,7 +464,8 @@ protected:
 template <class BaseModel, class IteratorType, class RealType, class IntType>
 struct NumeratorForGradientKernel : private BaseModel {
 
-	using XTuple = typename IteratorType::XTuple;
+// 	using XTuple = typename IteratorType::XTuple;
+    typedef typename IteratorType::XTuple XTuple;
 		
 	NumeratorForGradientKernel(RealType* _numerator, RealType* _numerator2,
 			RealType* _expXBeta, RealType* _xBeta, const RealType* _y, IntType* _pid) : numerator(_numerator),
@@ -490,7 +502,8 @@ private:
 template <class BaseModel, class IteratorType, class RealType, class IntType>
 struct UpdateXBetaKernel : private BaseModel {
 
-	using XTuple = typename IteratorType::XTuple;
+// 	using XTuple = typename IteratorType::XTuple;
+    typedef typename IteratorType::XTuple XTuple;
 		
 	UpdateXBetaKernel(RealType _delta,
 			RealType* _expXBeta, RealType* _xBeta, const RealType* _y, IntType* _pid, 

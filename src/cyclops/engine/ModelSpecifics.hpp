@@ -98,9 +98,14 @@ namespace helper {
     };
         
     auto getRangeX(const CompressedDataMatrix& mat, const int index, DenseTag) -> 
-            aux::zipper_range<
+//            aux::zipper_range<
+ 						boost::iterator_range<
+ 						boost::zip_iterator<
+ 						boost::tuple<
 	            decltype(boost::make_counting_iterator(0)),
             	decltype(begin(mat.getDataVector(index)))            	
+            >
+            >
             > {            	
         
         auto i = boost::make_counting_iterator(0); 
@@ -116,9 +121,14 @@ namespace helper {
     };   
     
     auto getRangeX(const CompressedDataMatrix& mat, const int index, SparseTag) -> 
-            aux::zipper_range<
+//            aux::zipper_range<
+						boost::iterator_range<
+ 						boost::zip_iterator<
+ 						boost::tuple<						 
 	            decltype(begin(mat.getCompressedColumnVector(index))),
             	decltype(begin(mat.getDataVector(index)))            	
+            >
+            >
             > {            	
         
         auto i = begin(mat.getCompressedColumnVector(index));  
@@ -134,8 +144,13 @@ namespace helper {
     };     
     
     auto getRangeX(const CompressedDataMatrix& mat, const int index, IndicatorTag) -> 
-            aux::zipper_range<
+//            aux::zipper_range<
+						boost::iterator_range<
+ 						boost::zip_iterator<
+ 						boost::tuple<	            
 	            decltype(begin(mat.getCompressedColumnVector(index)))          	
+	          >
+	          >
             > {            	
         
         auto i = begin(mat.getCompressedColumnVector(index));             
