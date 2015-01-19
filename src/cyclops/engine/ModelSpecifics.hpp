@@ -95,7 +95,7 @@ namespace helper {
     auto getRangeX(const CompressedDataMatrix& mat, const int index, IteratorTag) -> void {
     	std::cerr << "Not yet implemented." << std::endl;
     	std::exit(-1);
-    };
+    }
         
     auto getRangeX(const CompressedDataMatrix& mat, const int index, DenseTag) -> 
 //            aux::zipper_range<
@@ -118,7 +118,7 @@ namespace helper {
             boost::make_zip_iterator(
                 boost::make_tuple(i + K, x + K))            
         };          
-    };   
+    }
     
     auto getRangeX(const CompressedDataMatrix& mat, const int index, SparseTag) -> 
 //            aux::zipper_range<
@@ -141,7 +141,7 @@ namespace helper {
             boost::make_zip_iterator(
                 boost::make_tuple(i + K, x + K))            
         };          
-    };     
+    }
     
     auto getRangeX(const CompressedDataMatrix& mat, const int index, IndicatorTag) -> 
 //            aux::zipper_range<
@@ -162,7 +162,7 @@ namespace helper {
             boost::make_zip_iterator(
                 boost::make_tuple(i + K))            
         };          
-    }; 
+    }
     
 } // namespace helper   
 
