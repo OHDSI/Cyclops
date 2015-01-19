@@ -760,7 +760,7 @@ void CyclicCoordinateDescent::computeKktConditions(Container& scoreSet) {
 		std::get<1>(score) = std::abs(gh.first);
     }
     
-    scoreSet.sort([] (ScoreTuple& lhs, ScoreTuple& rhs) {
+    scoreSet.sort([] (ScoreTuple& lhs, ScoreTuple& rhs) -> bool {
     	if (std::get<2>(rhs) == std::get<2>(lhs)) {
 			return (std::get<1>(rhs) < std::get<1>(lhs));    	    	
     	} else {

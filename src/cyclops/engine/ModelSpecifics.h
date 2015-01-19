@@ -437,6 +437,10 @@ struct TupleXGetter<IndicatorIterator, RealType> {
 // template <typename T>
 // using Fraction = std::complex<T>; // gcc 4.6.3 does not support template aliases
 #define Fraction std::complex
+// template <typename T>
+// struct Fraction {
+//     typedef typename std::complex<T> type;
+// };
 
 template <class BaseModel, class IteratorType, class WeightOperationType,
 class RealType, class IntType>
