@@ -951,8 +951,10 @@ public:
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 	    
-	    std::cout << "TODO" << std::endl;
-	    std::exit(-1);  // tied clr
+// 	    std::cout << "TODO" << std::endl;
+// 	    std::exit(-1);  // tied clr
+	    
+        throw new std::logic_error("tied clr model not yet support");		    
 	
     	const RealType g = numerator / denominator;
 	
@@ -1059,9 +1061,11 @@ public:
 	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
+// 	    
+// 	    std::cout << "TODO" << std::endl;
+// 	    std::exit(-1); // cox
 	    
-	    std::cout << "TODO" << std::endl;
-	    std::exit(-1); // cox
+        throw new std::logic_error("cox model not yet support");		    
 	
     	const RealType g = numerator / denominator;
 	
@@ -1147,8 +1151,10 @@ public:
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 	    
-	    std::cout << "TODO" << std::endl;
-	    std::exit(-1); // breslow cox
+// 	    std::cout << "TODO" << std::endl;
+// 	    std::exit(-1); // breslow cox
+	    
+        throw new std::logic_error("breslow cox model not yet support");		    
 	
     	const RealType g = numerator / denominator;
 	
@@ -1275,8 +1281,10 @@ public:
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 	    
-	    std::cout << "TODO" << std::endl;
-	    std::exit(-1); // ls
+// 	    std::cout << "TODO" << std::endl;
+// 	    std::exit(-1); // ls
+	    
+        throw new std::logic_error("ls model not yet support");	    
 	
     	const RealType g = numerator / denominator;
 	

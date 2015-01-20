@@ -426,7 +426,7 @@ isValidModelType <- function(modelType) {
 #' @template cyclopsData
 #' 
 #' @examples
-#' dataPtr = readCyclopsData(system.file("extdata/infert_ccd.txt", package="Cyclops"), "clr")
+#' dataPtr = readCyclopsData(system.file("extdata/infert_ccd.txt", package="Cyclops2"), "clr")
 #'
 readCyclopsData <- function(fileName, modelType) {
     cl <- match.call() # save to return
