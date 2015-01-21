@@ -83,6 +83,7 @@ void ModelSpecifics<BaseModel,WeightType>::printTiming() {
 	for (auto& d : duration) {
 		std::cout << d.first << " " << d.second << std::endl;	
 	}
+	std::cout << "OLD LOOPS" << std::endl;
 	
 #endif
 }
@@ -448,8 +449,12 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		
 	real gradient = static_cast<real>(0);
 	real hessian = static_cast<real>(0);
+	
+	auto& indices = *(sparseIndices)[index];
+	
+	if (indices.size() > 0) {
 
-	IteratorType it(*(sparseIndices)[index], N); // TODO How to create with different constructor signatures?
+	IteratorType it(indices, N); // TODO How to create with different constructor signatures?
 
 //std::cout << "YOYOYO" << std::endl;
 
@@ -462,6 +467,13 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		// a) the view below starts at the first non-zero entry
 		// b) we only access numerPid and numerPid2 for non-zero entries 
 		// This may save time; should document speed-up in massive Cox manuscript
+		
+// 		std::cout << sparseIndices[index]->size() << std::endl;
+// 		std::cout << "it: " << it.index() << " =";
+// 		for (auto& r : accReset) {
+// 			std::cout << " " << r;
+// 		}
+// 		std::cout << std::endl;
 		
         // find start relavent accumulator reset point
         auto reset = begin(accReset);
@@ -582,6 +594,10 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			}
 		}
 	}
+	
+	} // (indices.size() > 0)
+	
+	
   // TODO Figure out how to handle these ...  do NOT pre-compute for ties????
 	if (BaseModel::precomputeGradient) { // Compile-time switch
 		gradient -= hXjY[index];

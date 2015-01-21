@@ -42,8 +42,6 @@ using std::string;
 #define USE_ITER
 //#define NO_FUSE
 
-typedef std::tuple<int, double> ScoreTuple;
-
 class CyclicCoordinateDescent {
 	
 public:
