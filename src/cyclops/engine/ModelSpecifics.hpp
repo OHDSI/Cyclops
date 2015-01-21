@@ -452,9 +452,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	
 	auto& indices = *(sparseIndices)[index];
 	
-	if (indices.size() > 0) {
+	if (sparseIndices[index] == nullptr || sparseIndices[index]->size() > 0) {
 
-	IteratorType it(indices, N); // TODO How to create with different constructor signatures?
+	IteratorType it(*(sparseIndices)[index], N); // TODO How to create with different constructor signatures?
 
 //std::cout << "YOYOYO" << std::endl;
 

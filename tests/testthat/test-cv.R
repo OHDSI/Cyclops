@@ -33,7 +33,7 @@ library("testthat")
 
 test_that("Specify starting variance with auto-search", {
     skip_on_cran() # Do not run on CRAN
-
+    skip("Do not run")
     seed <- 666
     set.seed(seed)
     ntrain <- 100
@@ -71,7 +71,7 @@ test_that("Specify starting variance with auto-search", {
 
 test_that("Using multi-core CV", {
     skip_on_cran() # Do not run on CRAN
-
+    skip("Do not run")
     ntest <- 1000
     ntrain <- 1000
     
