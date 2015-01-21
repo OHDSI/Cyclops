@@ -132,18 +132,18 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useC
 			hKWeight[k] = inWeights[k];	
 		}
 	} else {
-		std::fill(hKWeight.begin(), hKWeight.end(), static_cast<WeightType>(1));
+		std::fill(hKWeight.begin(), hKWeight.end(), static_cast<WeightType>(1));		
 	}
+	
+	if (initializeAccumulationVectors()) {
+		setPidForAccumulation(inWeights);				
+	}
+		
 	// Set N weights (these are the same for independent data models
-	if (hNWeight.size() != N + 1) { // Add +1 for extra (zero-weight stratum)
+	if (hNWeight.size() < N + 1) { // Add +1 for extra (zero-weight stratum)
 		hNWeight.resize(N + 1);
 	}
-	
-//	if (useCrossValidation) {
-	if (initializeAccumulationVectors()) {
-		setPidForAccumulation(inWeights);
-	}
-	
+		
 	std::fill(hNWeight.begin(), hNWeight.end(), static_cast<WeightType>(0));
 	for (size_t k = 0; k < K; ++k) {
 		WeightType event = BaseModel::observationCount(hY[k])*hKWeight[k];
@@ -312,24 +312,25 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 // 				total1 += weights[k];
 // 			}
 // 			std::cerr << "Total before wegith = " << total1 << std::endl;	
+
+ 		std::vector<real> saveKWeight = hKWeight; // make copy
 				
-		std::vector<int> savedPid = hPidInternal; // make copy
-		std::vector<int> saveAccReset = accReset; // make copy
-		setPidForAccumulation(weights);		
-		
-		std::vector<real> saveKWeight = hKWeight; // make copy
+// 		std::vector<int> savedPid = hPidInternal; // make copy
+// 		std::vector<int> saveAccReset = accReset; // make copy
+		setPidForAccumulation(weights);					
 		computeRemainingStatistics(true); // compute accDenomPid
 				
 		for (size_t k = 0; k < K; ++k) { // TODO Is index of K correct?
 			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], accDenomPid.data(), hPid, k);
 		}
 		
-		hPidInternal = savedPid; // make copy; TODO swap
-		accReset = saveAccReset; // make copy; TODO swap
+// 		hPidInternal = savedPid; // make copy; TODO swap
+// 		accReset = saveAccReset; // make copy; TODO swap
 		
-// 		setPidForAccumulation(&saveKWeight[0]);
-		
+ 		setPidForAccumulation(&saveKWeight[0]); // Appears to be necessary. TODO: Why?		
 		computeRemainingStatistics(true);
+		
+// 		hKWeight = saveKWeight; // TODO Is this necessary?
 		
 		count++;
 		
@@ -347,10 +348,10 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 		for (size_t k = 0; k < K; ++k) { // TODO Is index of K correct?
 			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], denomPid, hPid, k);
 		}
-		double total = 0.0;
-		for (size_t k = 0; k < K; ++k) {
-			total += weights[k];
-		}
+// 		double total = 0.0;
+// 		for (size_t k = 0; k < K; ++k) {
+// 			total += weights[k];
+// 		}
 // 		std::cerr << "Total wegith (no cox) = " << total << std::endl;			
 		
 	}
@@ -450,7 +451,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	real gradient = static_cast<real>(0);
 	real hessian = static_cast<real>(0);
 	
-	auto& indices = *(sparseIndices)[index];
+// 	auto& indices = *(sparseIndices)[index];
 	
 	if (sparseIndices[index] == nullptr || sparseIndices[index]->size() > 0) {
 

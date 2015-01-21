@@ -266,7 +266,9 @@ int CyclicCoordinateDescent::getAlignedLength(int N) {
 }
 
 void CyclicCoordinateDescent::computeNEvents() {  
-	modelSpecifics.setWeights(hWeights.data(), useCrossValidation);
+	modelSpecifics.setWeights(
+		hWeights.size() > 0 ? hWeights.data() : nullptr,
+		useCrossValidation);
 }
 
 void CyclicCoordinateDescent::resetBeta(void) {
@@ -471,7 +473,7 @@ void CyclicCoordinateDescent::setWeights(real* iWeights) {
 		sufficientStatisticsKnown = false;
 	} else {
 
-		if (hWeights.size() == 0) {
+		if (hWeights.size() != K) {
 			hWeights.resize(K); // = (real*) malloc(sizeof(real) * K);
 		}
 		for (int i = 0; i < K; ++i) {
@@ -778,12 +780,12 @@ void CyclicCoordinateDescent::findMode(
 		stream << "Unknown convergence criterion: " << convergenceType;
 		error->throwError(stream);				
 	}
-
+	
 	if (!validWeights) {    	   	
 		computeNEvents();
 		computeFixedTermsInLogLikelihood();
 		computeFixedTermsInGradientAndHessian();
-		validWeights = true;
+		validWeights = true;		
 	}
 
 	if (!xBetaKnown) {
@@ -1055,7 +1057,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	
 	priors::GradientHessian gh;
 	computeGradientAndHessian(index, &gh.first, &gh.second);
-			
+				
 	if (gh.second < 0.0) {
 	    gh.first = 0.0;	
 	    gh.second = 0.0;
