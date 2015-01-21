@@ -299,40 +299,31 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 	return static_cast<double>(logLikelihood);
 }
 
-static int count = 0;
-
 template <class BaseModel,typename WeightType>
 double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* weights) {
 	real logLikelihood = static_cast<real>(0.0);
 
 	if(BaseModel::cumulativeGradientAndHessian)	{
 	
-// 			double total1 = 0.0;
-// 			for (size_t k = 0; k < K; ++k) {
-// 				total1 += weights[k];
-// 			}
-// 			std::cerr << "Total before wegith = " << total1 << std::endl;	
-
  		std::vector<real> saveKWeight = hKWeight; // make copy
 				
 // 		std::vector<int> savedPid = hPidInternal; // make copy
 // 		std::vector<int> saveAccReset = accReset; // make copy
-		setPidForAccumulation(weights);					
+
+		setPidForAccumulation(weights);							
 		computeRemainingStatistics(true); // compute accDenomPid
 				
 		for (size_t k = 0; k < K; ++k) { // TODO Is index of K correct?
 			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], accDenomPid.data(), hPid, k);
+			
+// 			std::cout << logLikelihood << "\t" << hY[k] << " " << weights[k] << " " << hXBeta[k] << " " << accDenomPid[hPid[k]] << std::endl;
 		}
 		
 // 		hPidInternal = savedPid; // make copy; TODO swap
 // 		accReset = saveAccReset; // make copy; TODO swap
 		
  		setPidForAccumulation(&saveKWeight[0]); // Appears to be necessary. TODO: Why?		
-		computeRemainingStatistics(true);
-		
-// 		hKWeight = saveKWeight; // TODO Is this necessary?
-		
-		count++;
+		computeRemainingStatistics(true); // Restore accDenomPid		
 		
 // 		std::cerr << "C: " << count << " = " << logLikelihood << " via " << K << std::endl;
 		
@@ -347,13 +338,7 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 	} else { // TODO Unnecessary code duplication
 		for (size_t k = 0; k < K; ++k) { // TODO Is index of K correct?
 			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], denomPid, hPid, k);
-		}
-// 		double total = 0.0;
-// 		for (size_t k = 0; k < K; ++k) {
-// 			total += weights[k];
-// 		}
-// 		std::cerr << "Total wegith (no cox) = " << total << std::endl;			
-		
+		}		
 	}
 	return static_cast<double>(logLikelihood);
 }
