@@ -985,17 +985,17 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 			if (accDenomPid.size() != N) {
 				accDenomPid.resize(N, static_cast<real>(0));
 			}
-			if (accNumerPid.size() != N) {
-				accNumerPid.resize(N, static_cast<real>(0));
-			}
-			if (accNumerPid2.size() != N) {
-				accNumerPid2.resize(N, static_cast<real>(0));
-			}
+// 			if (accNumerPid.size() != N) {
+// 				accNumerPid.resize(N, static_cast<real>(0));
+// 			}
+// 			if (accNumerPid2.size() != N) {
+// 				accNumerPid2.resize(N, static_cast<real>(0));
+// 			}
 
 			// prefix-scan			
 			real totalDenom = static_cast<real>(0);
-			real totalNumer = static_cast<real>(0);
-			real totalNumer2 = static_cast<real>(0);
+// 			real totalNumer = static_cast<real>(0);
+// 			real totalNumer2 = static_cast<real>(0);
 			
 			auto reset = begin(accReset);
 			
@@ -1003,17 +1003,17 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 // TODO CHECK				
 				if (static_cast<unsigned int>(*reset) == i) { // TODO Check with SPARSE
 					totalDenom = static_cast<real>(0);
-					totalNumer = static_cast<real>(0);
-					totalNumer2 = static_cast<real>(0);				    
+// 					totalNumer = static_cast<real>(0);
+// 					totalNumer2 = static_cast<real>(0);				    
 					++reset;				    
 				}
 				
 				totalDenom += denomPid[i];
-				totalNumer += numerPid[i];
-				totalNumer2 += numerPid2[i];
+// 				totalNumer += numerPid[i];
+// 				totalNumer2 += numerPid2[i];
 				accDenomPid[i] = totalDenom;
-				accNumerPid[i] = totalNumer;
-				accNumerPid2[i] = totalNumer2;
+// 				accNumerPid[i] = totalNumer;
+// 				accNumerPid2[i] = totalNumer2;
 #if defined(DEBUG_COX) || defined(DEBUG_COX_MIN)
 				cerr << denomPid[i] << " " << accDenomPid[i] << " (beta)" << endl;
 #endif
