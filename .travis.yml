@@ -16,11 +16,7 @@ before_script:
   - sudo apt-get install libboost-dev  
   
 script:
-#    - g++ -E -dM -std=c++98 -x c++ /dev/null > std1 && g++ -E -dM -std=c++0x -x c++ /dev/null > std2 && diff -u std1 std2 | grep '[+|-]^*#define' && rm std1 std2
-    - mkdir -p standalone/build && (cd standalone/build && cmake .. && make)
-#    - pwd
-#    - R CMD INSTALL .
-#    - Rscript -e "require(Cyclops); require(testthat); require(gnm); test_package('Cyclops')"
+#    - mkdir -p standalone/build && (cd standalone/build && cmake .. && make)
     - ./travis-tool.sh run_tests
     
 after_failure:
