@@ -7,6 +7,7 @@
 #include <thread>
 #include <boost/iterator/counting_iterator.hpp>
 
+#include "RcppParallel.h"
 #include "engine/ThreadPool.h"
 
 namespace bsccs {
@@ -15,6 +16,7 @@ struct SerialOnly { };
 struct ParallelInfo { };
 struct OpenMP { };
 struct Vanilla { };
+struct RcppParallel { };
 
 struct C11Threads {
 	
@@ -38,10 +40,36 @@ struct C11Threads {
 
 namespace variants {
 
-    const int nThreads = 1;			
-	const int minSize = 10000;	
+    const int nThreads = 4;			
+	const int minSize = 100000;	
 
 	namespace impl {
+	
+		template <typename InputIt, typename UnaryFunction>
+		struct WrapWorker : public ::RcppParallel::Worker {
+			
+			WrapWorker(InputIt begin, InputIt end, UnaryFunction function) :
+					begin(begin), end(end), function(function) { }
+			
+			void operator()(std::size_t i, std::size_t j) {
+				std::for_each(begin + i, begin + j, function);
+			}
+		
+			InputIt begin;
+			InputIt end;
+			UnaryFunction function;		
+		};
+	
+		template <typename InputIt, typename UnaryFunction>
+		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
+				RcppParallel& tbb) {
+				
+			auto worker = WrapWorker<InputIt, UnaryFunction>(begin, end, function);	
+					
+			::RcppParallel::parallelFor(0, std::distance(begin, end), worker);
+			
+			return function;			
+		}	
 	
 		template <typename InputIt, typename UnaryFunction>
 		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
@@ -49,6 +77,8 @@ namespace variants {
 			
 // 			const int nThreads = info.nThreads;
 // 			const size_t minSize = info.minSize;	
+
+// 			std::cout << "I";
 										
 			if (nThreads > 1 && std::distance(begin, end) >= minSize) {				  
 				std::vector<std::thread> workers(nThreads - 1);
@@ -65,8 +95,10 @@ namespace variants {
 				for (int i = 0; i < nThreads - 1; ++i) {
 					workers[i].join();
 				}
-				return rtn;
-			} else {				
+// 				std::cout << "P";
+				return rtn;				
+			} else {		
+// 				std::cout << "N";		
 				return std::for_each(begin, end, function);
 			}
 		}	
@@ -76,16 +108,16 @@ namespace variants {
 				C11ThreadPool& tpool) {
 			
 			const int nThreads = tpool.nThreads;
-// 			const size_t minSize = tpool.minSize;	
+ 			const size_t minSize = tpool.minSize;	
 										
-// 			if (nThreads > 1 && std::distance(begin, end) >= minSize) {				  
+ 			if (nThreads > 1 && std::distance(begin, end) >= minSize) {				  
 			
 				std::vector< std::future<void> > results;
 			
 				size_t chunkSize = std::distance(begin, end) / nThreads;
 				size_t start = 0;
 				
-//  				std::cout << "Start!" << std::endl;
+//   				std::cout << "Start!" << std::endl;
 
 
 				
@@ -111,43 +143,58 @@ namespace variants {
 // 				}
 				for (auto&& result: results) result.get();
 				
-// 				std::cout << "Done!" << std::endl;				
+//  				std::cout << "Done!" << std::endl;				
 				
 				return function;
-// 			} else {				
-// 				return std::for_each(begin, end, function);
-// 			}
+			} else {				
+				return std::for_each(begin, end, function);
+			}
 		}
 	
 	} // namespace impl
+ 
+//     template <class InputIt, class UnaryFunction, class Specifics>
+//     inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, Specifics) {    	
+//         return std::for_each(first, last, f);    
+//     }
 
-    template <class InputIt, class UnaryFunction, class Specifics>
-    inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, Specifics) {
+    template <class InputIt, class UnaryFunction>
+    inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, SerialOnly x) {    	
         return std::for_each(first, last, f);    
     }
     
-    template <class UnaryFunction, class Specifics>
-    inline UnaryFunction for_each(int first, int last, UnaryFunction f, Specifics) {
-        for (; first != last; ++first) {
-            f(first);        
-        }
-        return f;
-    }
+//     template <class UnaryFunction, class Specifics>
+//     inline UnaryFunction for_each(int first, int last, UnaryFunction f, Specifics) {
+//         for (; first != last; ++first) {
+//             f(first);        
+//         }
+//         return f;
+//     }
+    
+    template <class InputIt, class UnaryFunction>
+    inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, C11Threads& x) {
+        return impl::for_each(first, last, f, x);
+    }    
     
     template <class InputIt, class UnaryFunction>
     inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, C11ThreadPool& x) {
         return impl::for_each(first, last, f, x);
     }
     
-    template <class UnaryFunction>
-    inline UnaryFunction for_each(int first, int last, UnaryFunction f, C11Threads& x) {
-    	return impl::for_each(boost::make_counting_iterator(first), boost::make_counting_iterator(last), f, x);
-    }
-    
-    template <class UnaryFunction>
-    inline UnaryFunction for_each(int first, int last, UnaryFunction f, C11ThreadPool& x) {
-    	return impl::for_each(boost::make_counting_iterator(first), boost::make_counting_iterator(last), f, x);
+    template <class InputIt, class UnaryFunction>
+    inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, RcppParallel x) {
+        return impl::for_each(first, last, f, x);
     }    
+//     
+//     template <class UnaryFunction>
+//     inline UnaryFunction for_each(int first, int last, UnaryFunction f, C11Threads& x) {
+//     	return impl::for_each(boost::make_counting_iterator(first), boost::make_counting_iterator(last), f, x);
+//     }
+//     
+//     template <class UnaryFunction>
+//     inline UnaryFunction for_each(int first, int last, UnaryFunction f, C11ThreadPool& x) {
+//     	return impl::for_each(boost::make_counting_iterator(first), boost::make_counting_iterator(last), f, x);
+//     }    
     
 #ifdef OPENMP    
     template <class UnaryFunction, class Specifics>

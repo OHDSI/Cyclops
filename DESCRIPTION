@@ -21,10 +21,12 @@ Imports:
     Rcpp (>= 0.11.3),
     bit,
     ff,
-    ffbase
+    ffbase,
+    RcppParallel
 LinkingTo: Rcpp,
     BH (>= 1.51.0),
-    RcppEigen (>= 0.3.2)
+    RcppEigen (>= 0.3.2),
+    RcppParallel
 Suggests:
     testthat,
     survival,

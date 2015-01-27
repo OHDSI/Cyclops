@@ -200,8 +200,10 @@ protected:
 	void updateXBeta(real realDelta, int index, bool useWeights);
 
 	void computeRemainingStatistics(bool useWeights);
-
-	void computeAccumlatedNumerDenom(bool useWeights);
+	
+	void computeAccumlatedNumerator(bool useWeights);
+	
+	void computeAccumlatedDenominator(bool useWeights);		
 
 	void computeFixedTermsInLogLikelihood(bool useCrossValidation);
 
@@ -322,7 +324,7 @@ public:
 	
 	const static bool exactTies = false;
 
-	int getGroup(int* groups, int k) {
+	int getGroup(const int* groups, int k) {
 		return groups[k];
 	}
 };
@@ -340,7 +342,7 @@ public:
 	
 	const static bool exactTies = false;	
 
-	int getGroup(int* groups, int k) {
+	int getGroup(const int* groups, int k) {
 		return k; // No ties
 	}
 	
@@ -355,7 +357,7 @@ public:
 	
 	const static bool exactTies = false;
 
-	int getGroup(int* groups, int k) {
+	int getGroup(const int* groups, int k) {
 		return groups[k];
 	}	
 	
@@ -370,7 +372,7 @@ public:
 	
 	const static bool exactTies = false;	
 
-	int getGroup(int* groups, int k) {
+	int getGroup(const int* groups, int k) {
 		return k;
 	}
 };
@@ -441,6 +443,61 @@ struct TupleXGetter<IndicatorIterator, RealType> {
 // struct Fraction {
 //     typedef typename std::complex<T> type;
 // };
+
+
+template <class BaseModel, class RealType, class IntType>
+struct PredLikeKernel : private BaseModel {
+    
+    PredLikeKernel(const RealType* y, const RealType* weights, const RealType* xBeta,
+            const RealType* denominator, const IntType* pid) : y(y), weights(weights), 
+            xBeta(xBeta), denominator(denominator), pid(pid) { }
+
+    RealType operator()(const RealType lhs, const IntType i) {
+        return lhs + BaseModel::logPredLikeContrib(y[i], weights[i], xBeta[i], denominator, pid, i);
+    }
+    
+private:
+    const RealType* y;
+    const RealType* weights;
+    const RealType* xBeta;
+    const RealType* denominator;
+    const IntType* pid;
+};
+
+template <class BaseModel, class RealType, class IntType, bool weighted>
+struct AccumulateLikeNumeratorKernel : private BaseModel {
+
+    AccumulateLikeNumeratorKernel(const RealType* y, const RealType* xBeta, const RealType* kWeight) 
+            : y(y), xBeta(xBeta), kWeight(kWeight) { } 
+
+    RealType operator()(const RealType lhs, const IntType i) {
+        RealType rhs = BaseModel::logLikeNumeratorContrib(y[i], xBeta[i]);
+        if (weighted) {
+            rhs *= kWeight[i];
+        }
+        return lhs + rhs;    
+    }
+
+protected:
+    const RealType* y;
+    const RealType* xBeta;
+    const RealType* kWeight;
+};
+
+template <class BaseModel, class RealType, class IntType>
+struct AccumulateLikeDenominatorKernel : private BaseModel {
+
+    AccumulateLikeDenominatorKernel(const RealType* nWeight, const RealType* denominator) 
+            : nWeight(nWeight), denominator(denominator) { }
+
+    RealType operator()(const RealType lhs, const IntType i) {
+        return lhs + BaseModel::logLikeDenominatorContrib(nWeight[i], denominator[i]);
+    }
+
+protected:
+    const RealType* nWeight;
+    const RealType* denominator;   
+};
 
 template <class BaseModel, class IteratorType, class WeightOperationType,
 class RealType, class IntType>
@@ -746,8 +803,8 @@ public:
 		return ni * std::log(denom);
 	}
 
-	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
-			int* groups, int i) {
+	real logPredLikeContrib(int ji, real weighti, real xBetai, const real* denoms,
+			const int* groups, int i) {
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
@@ -826,8 +883,8 @@ public:
 		return ni * std::log(denom);
 	}
 
-	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
-			int* groups, int i) {
+	real logPredLikeContrib(int ji, real weighti, real xBetai, const real* denoms,
+			const int* groups, int i) {
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
@@ -897,8 +954,8 @@ public:
 		return ni * std::log(denom);
 	}
 
-	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
-			int* groups, int i) {
+	real logPredLikeContrib(int ji, real weighti, real xBetai, const real* denoms,
+			const int* groups, int i) {
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
@@ -951,25 +1008,16 @@ public:
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 	    
-// 	    std::cout << "TODO" << std::endl;
-// 	    std::exit(-1);  // tied clr
-	    
-        throw new std::logic_error("tied clr model not yet support");		    
+//         throw new std::logic_error("tied clr model not yet support");		    
 	
     	const RealType g = numerator / denominator;
 	
-        const RealType gradient = 
-            (WeightOperationType::isWeighted) ? weight * g : g;
+        const RealType gradient = weight * g;
         
         const RealType hessian =         
             (IteratorType::isIndicator) ?
-                (WeightOperationType::isWeighted) ?
-                    weight * g * (static_cast<RealType>(1.0) - g) :
-                    g * (static_cast<RealType>(1.0) - g) 
-                :
-                (WeightOperationType::isWeighted) ?
-                    weight * (numerator2 / denominator - g * g) :
-                    (numerator2 / denominator - g * g);
+            	gradient * (static_cast<RealType>(1.0) - g) :             
+                weight * (numerator2 / denominator - g * g);
                                                     
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
@@ -982,8 +1030,8 @@ public:
 		return ni * std::log(denom);
 	}
 
-	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
-			int* groups, int i) {
+	real logPredLikeContrib(int ji, real weighti, real xBetai, const real* denoms,
+			const int* groups, int i) {
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
@@ -1014,8 +1062,8 @@ public:
 		return std::log(denom);
 	}
 
-	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
-			int* groups, int i) {
+	real logPredLikeContrib(int ji, real weighti, real xBetai, const real* denoms,
+			const int* groups, int i) {
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
@@ -1093,8 +1141,8 @@ public:
 		return ni*std::log(accDenom);
 	}
 
-	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
-			int* groups, int i) {
+	real logPredLikeContrib(int ji, real weighti, real xBetai, const real* denoms,
+			const int* groups, int i) {
 		return weighti == 0.0 ? 0.0 :
 		    ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
@@ -1182,8 +1230,8 @@ public:
 		return ni*std::log(accDenom);
 	}
 
-	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
-			int* groups, int i) {
+	real logPredLikeContrib(int ji, real weighti, real xBetai, const real* denoms,
+			const int* groups, int i) {
 		return weighti == 0.0 ? 0.0 :
 		    ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
@@ -1313,8 +1361,8 @@ public:
 		return std::log(denom);
 	}
 
-	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
-			int* groups, int i) {
+	real logPredLikeContrib(int ji, real weighti, real xBetai, const real* denoms,
+			const int* groups, int i) {
 		real residual = ji - xBetai;
 		return - (residual * residual * weighti);
 	}
@@ -1411,8 +1459,8 @@ public:
 		return denom;
 	}
 
-	real logPredLikeContrib(int ji, real weighti, real xBetai, real* denoms,
-		int* groups, int i) {
+	real logPredLikeContrib(int ji, real weighti, real xBetai, const real* denoms,
+		const int* groups, int i) {
 			return (ji*xBetai - exp(xBetai))*weighti;
 	}
 

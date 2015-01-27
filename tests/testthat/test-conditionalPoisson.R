@@ -6,10 +6,10 @@ test_that("Check simple SCCS as conditional logistic regression", {
 #     source("helper-conditionalPoisson.R")
     tolerance <- 1E-6    
     gold.clogit <- clogit(event ~ exgr + agegr + strata(indiv) + offset(loginterval), 
-                          data = Cyclops::oxford)
+                          data = Cyclops2::oxford)
     
     dataPtr <- createCyclopsData(event ~ exgr + agegr + strata(indiv) + offset(loginterval),
-                                  data = Cyclops::oxford,
+                                  data = Cyclops2::oxford,
                                   modelType = "clr")        
     cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = createPrior("none"))
@@ -22,10 +22,10 @@ test_that("Check simple SCCS as conditional Poisson regression", {
     tolerance <- 1E-3    
     gold.cp <- gnm(event ~ exgr + agegr + offset(loginterval), 
                    family = poisson, eliminate = indiv, 
-                   data = Cyclops::oxford)
+                   data = Cyclops2::oxford)
     
     dataPtr <- createCyclopsData(event ~ exgr + agegr + strata(indiv) + offset(loginterval),
-                                  data = Cyclops::oxford,
+                                  data = Cyclops2::oxford,
                                   modelType = "cpr")        
     cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = createPrior("none"))
@@ -39,10 +39,10 @@ test_that("Check simple SCCS as SCCS", {
 #     source("helper-conditionalPoisson.R")
     tolerance <- 1E-6    
     gold.clogit <- clogit(event ~ exgr + agegr + strata(indiv) + offset(loginterval), 
-                          data = Cyclops::oxford)
+                          data = Cyclops2::oxford)
     
-    dataPtr <- createCyclopsData(event ~ exgr + agegr + strata(indiv), time = Cyclops::oxford$interval,
-                                  data = Cyclops::oxford,
+    dataPtr <- createCyclopsData(event ~ exgr + agegr + strata(indiv), time = Cyclops2::oxford$interval,
+                                  data = Cyclops2::oxford,
                                   modelType = "sccs")        
     cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = createPrior("none"))

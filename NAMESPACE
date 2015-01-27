@@ -2,5 +2,6 @@ useDynLib(Cyclops2)
 exportPattern("^[[:alpha:]]+")
 import(
 	Rcpp,
-	Matrix
+	Matrix,
+	RcppParallel
 )

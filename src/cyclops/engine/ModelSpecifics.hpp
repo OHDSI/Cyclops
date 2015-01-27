@@ -57,6 +57,16 @@ namespace bsccs {
 
 namespace helper {
 
+    auto getRangeAll(const int length) ->
+            boost::iterator_range<
+                decltype(boost::make_counting_iterator(0))
+            > {
+        return  {
+            boost::make_counting_iterator(0),
+            boost::make_counting_iterator(length)
+        };        
+    }
+
     template <class IteratorTag>
     auto getRangeDenominator(const IntVectorPtr& mat, const int N, IteratorTag) ->  void {
     	std::cerr << "Not yet implemented." << std::endl;
@@ -170,8 +180,8 @@ namespace helper {
 template <class BaseModel,typename WeightType>
 ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
 	: AbstractModelSpecifics(input), BaseModel(), 
-// 	threadPool(2,2,10) 
-    threadPool(0,0,10)
+//  	threadPool(4,4,1000) 
+ threadPool(0,0,10)
 	{
 	// TODO Memory allocation here
 	
@@ -198,6 +208,7 @@ void ModelSpecifics<BaseModel,WeightType>::printTiming() {
 	for (auto& d : duration) {
 		std::cout << d.first << " " << d.second << std::endl;	
 	}
+	std::cout << "NEW LOOPS" << std::endl;
 	
 #endif
 }
@@ -381,7 +392,46 @@ void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInGradientAndHessian
 template <class BaseModel,typename WeightType>
 double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValidation) {
 
-	real logLikelihood = static_cast<real>(0.0);
+#ifdef CYCLOPS_DEBUG_TIMING
+	auto start = bsccs::chrono::steady_clock::now();	
+#endif	
+
+#ifdef NEW_LOOPS
+
+    auto rangeNumerator = helper::getRangeAll(K);
+      
+    real logLikelihood = useCrossValidation ?
+    		variants::reduce(
+                rangeNumerator.begin(), rangeNumerator.end(), static_cast<real>(0.0),
+                AccumulateLikeNumeratorKernel<BaseModel,real,int,true>(begin(hY), begin(hXBeta), begin(hKWeight)),
+                SerialOnly()
+    		) :
+    		variants::reduce(
+                rangeNumerator.begin(), rangeNumerator.end(), static_cast<real>(0.0),
+                AccumulateLikeNumeratorKernel<BaseModel,real,int,false>(begin(hY), begin(hXBeta), begin(hKWeight)),
+                SerialOnly()
+    		);
+
+    if (BaseModel::likelihoodHasDenominator) {
+    
+        auto rangeDenominator = helper::getRangeAll(N);
+                       
+        auto kernelDenominator = (BaseModel::cumulativeGradientAndHessian) ?
+                AccumulateLikeDenominatorKernel<BaseModel,real,int>(begin(hNWeight), begin(accDenomPid)) :
+                AccumulateLikeDenominatorKernel<BaseModel,real,int>(begin(hNWeight), begin(denomPid));
+    
+        logLikelihood -= variants::reduce(
+                rangeDenominator.begin(), rangeDenominator.end(),
+                static_cast<real>(0.0),
+                kernelDenominator,
+                SerialOnly()        
+        );
+    }
+
+#else
+
+    real logLikelihood = static_cast<real>(0.0);
+
 	if (useCrossValidation) {
 		for (size_t i = 0; i < K; i++) {
 			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]) * hKWeight[i];
@@ -405,69 +455,62 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 			}
 		}
 	}
+#endif // NEW_LOOPS	
 
 	if (BaseModel::likelihoodHasFixedTerms) {
 		logLikelihood += logLikelihoodFixedTerm;
 	}
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+	auto end = bsccs::chrono::steady_clock::now();	
+	///////////////////////////"
+	duration["compLogLike      "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif	
 
 	return static_cast<double>(logLikelihood);
 }
 
-static int count = 0;
-
 template <class BaseModel,typename WeightType>
 double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* weights) {
-	real logLikelihood = static_cast<real>(0.0);
 
-	if(BaseModel::cumulativeGradientAndHessian)	{
-	
-// 			double total1 = 0.0;
-// 			for (size_t k = 0; k < K; ++k) {
-// 				total1 += weights[k];
-// 			}
-// 			std::cerr << "Total before wegith = " << total1 << std::endl;	
-				
-		std::vector<int> savedPid = hPidInternal; // make copy
-		std::vector<int> saveAccReset = accReset; // make copy
+	std::vector<int> savedPid;
+	std::vector<int> saveAccReset;
+
+	if (BaseModel::cumulativeGradientAndHessian)	{
+	 				
+		savedPid = hPidInternal; // make copy
+		saveAccReset = accReset; // make copy
 		setPidForAccumulation(weights);		
 		
 		std::vector<real> saveKWeight = hKWeight; // make copy
 		computeRemainingStatistics(true); // compute accDenomPid
-				
-		for (size_t k = 0; k < K; ++k) { // TODO Is index of K correct?
-			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], accDenomPid.data(), hPid, k);
-		}
-		
+	}
+
+    auto range = helper::getRangeAll(K);
+    
+    auto kernel = (BaseModel::cumulativeGradientAndHessian) ?
+            PredLikeKernel<BaseModel,real,int>(
+                begin(hY), begin(weights), begin(hXBeta), begin(accDenomPid), begin(hPid)
+            ) :
+            PredLikeKernel<BaseModel,real,int>(
+                begin(hY), begin(weights), begin(hXBeta), begin(denomPid), begin(hPid)
+            );
+            
+    real logLikelihood = variants::reduce(
+            range.begin(), range.end(), static_cast<real>(0.0),
+            kernel,
+            SerialOnly()        
+        );       
+	
+	if (BaseModel::cumulativeGradientAndHessian) {	
+	
 		hPidInternal = savedPid; // make copy; TODO swap
-		accReset = saveAccReset; // make copy; TODO swap
-		
+		accReset = saveAccReset; // make copy; TODO swap		
 // 		setPidForAccumulation(&saveKWeight[0]);
 		
 		computeRemainingStatistics(true);
-		
-		count++;
-		
-// 		std::cerr << "C: " << count << " = " << logLikelihood << " via " << K << std::endl;
-		
-// 		if (logLikelihood == 0) {
-// 			double total = 0.0;
-// 			for (size_t k = 0; k < K; ++k) {
-// 				total += weights[k];
-// 			}
-// 			std::cerr << "Total after wegith = " << total << std::endl;
-// 		}
-
-	} else { // TODO Unnecessary code duplication
-		for (size_t k = 0; k < K; ++k) { // TODO Is index of K correct?
-			logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], denomPid, hPid, k);
-		}
-		double total = 0.0;
-		for (size_t k = 0; k < K; ++k) {
-			total += weights[k];
-		}
-// 		std::cerr << "Total wegith (no cox) = " << total << std::endl;			
-		
 	}
+		
 	return static_cast<double>(logLikelihood);
 }
 
@@ -576,11 +619,78 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 #ifdef NEW_LOOPS
 
+	if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
+		
+		IteratorType it(*(sparseIndices)[index], N);
+		
+		real accNumerPid  = static_cast<real>(0);
+		real accNumerPid2 = static_cast<real>(0);
+
+        // find start relavent accumulator reset point
+        auto reset = begin(accReset);
+        while( *reset < it.index() ) {
+            ++reset;
+        }
+        				
+		for (; it; ) {
+			int i = it.index();
+
+			if (*reset <= i) {
+			    accNumerPid  = static_cast<real>(0.0);
+			    accNumerPid2 = static_cast<real>(0.0);
+			    ++reset;
+			} 			    
+						
+			accNumerPid  += numerPid[i]; 
+			accNumerPid2 += numerPid2[i];
+			
+#ifdef DEBUG_COX
+			cerr << "w: " << i << " " << hNWeight[i] << " " << numerPid[i] << ":" <<
+					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[i];
+#endif			
+			// Compile-time delegation
+			BaseModel::incrementGradientAndHessian(it,
+					w, // Signature-only, for iterator-type specialization
+					&gradient, &hessian, accNumerPid, accNumerPid2,
+					accDenomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); 
+					// When function is in-lined, compiler will only use necessary arguments
+#ifdef DEBUG_COX		
+			cerr << " -> g:" << gradient << " h:" << hessian << endl;	
+#endif
+			++it;
+			
+			if (IteratorType::isSparse) {
+				const int next = it ? it.index() : N;
+				for (++i; i < next; ++i) {
+#ifdef DEBUG_COX
+			cerr << "q: " << i << " " << hNWeight[i] << " " << 0 << ":" <<
+					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[i];
+#endif	                 
+                    if (*reset <= i) {
+			            accNumerPid  = static_cast<real>(0.0);
+        			    accNumerPid2 = static_cast<real>(0.0);
+		        	    ++reset;                   
+                   } 		
+					
+					BaseModel::incrementGradientAndHessian(it,
+							w, // Signature-only, for iterator-type specialization
+							&gradient, &hessian, accNumerPid, accNumerPid2,
+							accDenomPid[i], hNWeight[i], static_cast<real>(0), hXBeta[i], hY[i]); 
+							// When function is in-lined, compiler will only use necessary arguments
+#ifdef DEBUG_COX		
+			cerr << " -> g:" << gradient << " h:" << hessian << endl;	
+#endif
+					
+				}						
+			}
+		}
+	} else {
+
     auto range = helper::getRangeDenominator(sparseIndices[index], N, typename IteratorType::tag());
                         
     auto kernel = AccumulateGradientAndHessianKernel<BaseModel,IteratorType, Weights, real, int>(
                         begin(numerPid), begin(numerPid2), begin(denomPid), 
-                        begin(hNWeight), begin(hXBeta), &hY[0]);
+                        begin(hNWeight), begin(hXBeta), begin(hY));
                             
     Fraction<real> result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), kernel,
      SerialOnly()
@@ -589,6 +699,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
     gradient = result.real();
     hessian = result.imag();
+    
+    } // not Cox
 
 #else
 
@@ -1019,11 +1131,15 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 				  &hY[0], // TODO Fix
 					begin(hPid));
 					
+//	auto info = C11Threads(4, 100);
+					
 	variants::for_each(
 		range.begin(), range.end(),
 		kernel, 
-// 		threadPool
- 		SerialOnly()
+// 		info
+//   		threadPool
+// 		SerialOnly()
+		RcppParallel()
 		);
 
 #else		
@@ -1051,8 +1167,7 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 #endif		
 		
 		
-		
->>>>>>> master
+	
 	}
 	
 #endif // NEW_LOOPS
@@ -1130,12 +1245,15 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 					&hOffs[0] // TODO Fix
 					);
 					
+//	auto info = C11Threads(4, 100);
+						
 	variants::for_each(
 		range.begin(), range.end(),
 		kernel, 
 // 		info
-//         threadPool
-        SerialOnly()
+//          threadPool
+		RcppParallel()
+//          SerialOnly()
 		);
 		
 #else
@@ -1153,7 +1271,7 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 
 #endif	
 	
-	computeAccumlatedNumerDenom(useWeights);
+	computeAccumlatedDenominator(useWeights);
 	
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
@@ -1180,7 +1298,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
 			incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
 		}
-		computeAccumlatedNumerDenom(useWeights);
+		computeAccumlatedDenominator(useWeights);
 	} 
 #ifdef DEBUG_COX
 	cerr << "Done with initial denominators" << endl;
@@ -1199,24 +1317,58 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useWeights) {
+void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerator(bool useWeights) {
+
+	if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
+			BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
+		if (accNumerPid.size() != N) {
+			accNumerPid.resize(N, static_cast<real>(0));
+		}
+		if (accNumerPid2.size() != N) {
+			accNumerPid2.resize(N, static_cast<real>(0));
+		}
+
+		// segmented prefix-scan			
+		real totalNumer = static_cast<real>(0);
+		real totalNumer2 = static_cast<real>(0);
+		
+		auto reset = begin(accReset);
+		
+		for (size_t i = 0; i < N; ++i) {
+			
+			if (static_cast<unsigned int>(*reset) == i) {
+				totalNumer = static_cast<real>(0);
+				totalNumer2 = static_cast<real>(0);				    
+				++reset;				    
+			}
+				
+			totalNumer += numerPid[i];
+			totalNumer2 += numerPid2[i];
+			accNumerPid[i] = totalNumer;
+			accNumerPid2[i] = totalNumer2;
+		}
+	}
+}
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedDenominator(bool useWeights) {
 
 	if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
 		BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 			if (accDenomPid.size() != N) {
 				accDenomPid.resize(N, static_cast<real>(0));
 			}
-			if (accNumerPid.size() != N) {
-				accNumerPid.resize(N, static_cast<real>(0));
-			}
-			if (accNumerPid2.size() != N) {
-				accNumerPid2.resize(N, static_cast<real>(0));
-			}
+// 			if (accNumerPid.size() != N) {
+// 				accNumerPid.resize(N, static_cast<real>(0));
+// 			}
+// 			if (accNumerPid2.size() != N) {
+// 				accNumerPid2.resize(N, static_cast<real>(0));
+// 			}
 
-			// prefix-scan			
+			// segmented prefix-scan			
 			real totalDenom = static_cast<real>(0);
-			real totalNumer = static_cast<real>(0);
-			real totalNumer2 = static_cast<real>(0);
+// 			real totalNumer = static_cast<real>(0);
+// 			real totalNumer2 = static_cast<real>(0);
 			
 			auto reset = begin(accReset);
 			
@@ -1224,17 +1376,17 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerDenom(bool useW
 // TODO CHECK				
 				if (static_cast<unsigned int>(*reset) == i) { // TODO Check with SPARSE
 					totalDenom = static_cast<real>(0);
-					totalNumer = static_cast<real>(0);
-					totalNumer2 = static_cast<real>(0);				    
+// 					totalNumer = static_cast<real>(0);
+// 					totalNumer2 = static_cast<real>(0);				    
 					++reset;				    
 				}
 				
 				totalDenom += denomPid[i];
-				totalNumer += numerPid[i];
-				totalNumer2 += numerPid2[i];
+// 				totalNumer += numerPid[i];
+// 				totalNumer2 += numerPid2[i];
 				accDenomPid[i] = totalDenom;
-				accNumerPid[i] = totalNumer;
-				accNumerPid2[i] = totalNumer2;
+// 				accNumerPid[i] = totalNumer;
+// 				accNumerPid2[i] = totalNumer2;
 #if defined(DEBUG_COX) || defined(DEBUG_COX_MIN)
 				cerr << denomPid[i] << " " << accDenomPid[i] << " (beta)" << endl;
 #endif
@@ -1249,46 +1401,6 @@ void ModelSpecifics<BaseModel,WeightType>::doSortPid(bool useCrossValidation) {
  * We currently assume that hZ[k] are sorted in decreasing order by k.
  *
  */
-
-//	cerr << "Copying Y" << endl;
-//	// Copy y; only necessary if non-unique values in oY
-//	nY.reserve(oY.size());
-//	std::copy(oY.begin(),oY.end(),back_inserter(nY));
-//	hY = const_cast<real*>(nY.data());
-
-//	cerr << "Sorting PIDs" << endl;
-//
-//	std::vector<int> inverse_ranks;
-//	inverse_ranks.reserve(K);
-//	for (int i = 0; i < K; ++i) {
-//		inverse_ranks.push_back(i);
-//	}
-//
-//	std::sort(inverse_ranks.begin(), inverse_ranks.end(),
-//			CompareSurvivalTuples<WeightType>(useCrossValidation, hKWeight, oZ));
-//
-//	nPid.resize(K, 0);
-//	for (int i = 0; i < K; ++i) {
-//		nPid[inverse_ranks[i]] = i;
-//	}
-//	hPid = const_cast<int*>(nPid.data());
-
-//	for (int i = 0; i < K; ++i) {
-//		cerr << oZ[inverse_ranks[i]] << endl;
-//	}
-//
-//	cerr << endl;
-//
-//	for (int i = 0; i < K; ++i) {
-//		cerr << oZ[i] << "\t" << hPid[i] << endl;
-//	}
-//
-//	cerr << endl;
-//
-//	for (int i = 0; i < K; ++i) {
-//		cerr << i << " -> " << hPid[i] << endl;
-//	}
-//
 }
 
 } // namespace
