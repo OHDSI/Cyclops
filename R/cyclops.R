@@ -25,6 +25,9 @@
 #' 
 #' @docType package
 #' @name cyclops
+#' @import Rcpp Matrix
+#' @useDynLib Cyclops
+NULL
 
 # .onLoad <- function(libname, pkgname) {     
 #     packageStartupMessage("Cyclops: written by Marc A. Suchard, Trevor Shaddox, Martijn J. Schuemie, Patrick Ryan and David Madigan")
