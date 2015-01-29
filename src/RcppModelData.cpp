@@ -52,10 +52,11 @@ XPtr<bsccs::RcppModelData> parseEnvironmentForRcppPtr(const Environment& x) {
 //' @title Print row identifiers
 //' 
 //' @description
-//' \code{printCcdRowIds} return the row identifiers in an OHDSI Cyclops data object
+//' \code{printCcdRowIds} return the row identifiers in a Cyclops data object
 //' 
-//' @param object    An OHDSI Cyclops data object
-//'
+//' @param object    A Cyclops data object
+//' 
+//' @keywords internal
 // [[Rcpp::export("printCyclopsRowIds")]]
 void cyclopsPrintRowIds(Environment object) {
 	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(object);
@@ -90,10 +91,11 @@ bool isRcppPtrNull(SEXP x) {
 //' @title Get number of strata
 //' 
 //' @description
-//' \code{getNumberOfStrata} return the number of unique strata in an OHDSI Cyclops data object
+//' \code{getNumberOfStrata} return the number of unique strata in a Cyclops data object
 //' 
-//' @param object    An OHDSI Cyclops data object
+//' @param object    A Cyclops data object
 //' 
+//' @export
 // [[Rcpp::export("getNumberOfStrata")]]
 int cyclopsGetNumberOfStrata(Environment object) {			
 	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	
@@ -103,10 +105,11 @@ int cyclopsGetNumberOfStrata(Environment object) {
 //' @title Get covariate identifiers
 //' 
 //' @description
-//' \code{getCovariateIds} returns a vector of integer covariate identifiers in an OHDSI Cyclops data object
+//' \code{getCovariateIds} returns a vector of integer covariate identifiers in a Cyclops data object
 //' 
-//' @param object    An OHDSI Cyclops data object
+//' @param object    A Cyclops data object
 //' 
+//' @export
 // [[Rcpp::export("getCovariateIds")]]
 std::vector<int64_t> cyclopsGetCovariateIds(Environment object) {
     using namespace bsccs;
@@ -124,11 +127,12 @@ std::vector<int64_t> cyclopsGetCovariateIds(Environment object) {
 //' @title Get covariate types
 //' 
 //' @description
-//' \code{getCovariateTypes} returns a vector covariate types in an OHDSI Cyclops data object
+//' \code{getCovariateTypes} returns a vector covariate types in a Cyclops data object
 //' 
-//' @param object    An OHDSI Cyclops data object
+//' @param object    A Cyclops data object
 //' @param covariateLabel Integer vector: covariate identifiers to return
 //' 
+//' @export
 // [[Rcpp::export("getCovariateTypes")]]
 CharacterVector cyclopsGetCovariateType(Environment object, const std::vector<int64_t>& covariateLabel) {
     using namespace bsccs;
@@ -145,10 +149,11 @@ CharacterVector cyclopsGetCovariateType(Environment object, const std::vector<in
 //' @title Get total number of covariates
 //' 
 //' @description
-//' \code{getNumberOfCovariates} returns the total number of covariates in an OHDSI Cyclops data object
+//' \code{getNumberOfCovariates} returns the total number of covariates in a Cyclops data object
 //' 
-//' @param object    An OHDSI Cyclops data object
+//' @param object    A Cyclops data object
 //'
+//' @export
 // [[Rcpp::export("getNumberOfCovariates")]]
 int cyclopsGetNumberOfColumns(Environment object) {	
 	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	
@@ -162,10 +167,11 @@ int cyclopsGetNumberOfColumns(Environment object) {
 //' @title Get total number of rows
 //' 
 //' @description
-//' \code{getNumberOfRows} returns the total number of outcome rows in an OHDSI Cyclops data object
+//' \code{getNumberOfRows} returns the total number of outcome rows in a Cyclops data object
 //' 
-//' @param object    An OHDSI Cyclops data object
+//' @param object    A Cyclops data object
 //'
+//' @export
 // [[Rcpp::export("getNumberOfRows")]]
 int cyclopsGetNumberOfRows(Environment object) {	
 	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	
@@ -175,10 +181,11 @@ int cyclopsGetNumberOfRows(Environment object) {
 //' @title Get total number of outcome types
 //' 
 //' @description
-//' \code{getNumberOfTypes} returns the total number of outcome types in an OHDSI Cyclops data object
+//' \code{getNumberOfTypes} returns the total number of outcome types in a Cyclops data object
 //' 
-//' @param object    An OHDSI Cyclops data object
+//' @param object    A Cyclops data object
 //'
+//' @keywords internal
 // [[Rcpp::export("getNumberOfTypes")]]
 int cyclopsGetNumberOfTypes(Environment object) {	
 	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	

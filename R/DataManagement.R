@@ -1,3 +1,21 @@
+# @file DataManagement.R
+#
+# Copyright 2014 Observational Health Data Sciences and Informatics
+#
+# This file is part of cyclops
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#     http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 #' @title createCyclopsData
 #'
 #' @description
@@ -58,9 +76,9 @@
 #' 
 #' @examples
 #' ## Dobson (1990) Page 93: Randomized Controlled Trial :
-#' counts <- c(18,17,15,20,10,20,25,13,12)
-#' outcome <- gl(3,1,9)
-#' treatment <- gl(3,3)
+#' counts <- c(18, 17, 15, 20, 10, 20, 25, 13, 12)
+#' outcome <- gl(3, 1, 9)
+#' treatment <- gl(3, 3)
 #' cyclopsData <- createCyclopsData(
 #'      counts ~ outcome + treatment, 
 #'      modelType = "pr")
@@ -75,8 +93,8 @@
 #'
 #' @export
 createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelType,
-                                   data, subset, weights, offset, time = NULL, pid = NULL, y = NULL, type = NULL, dx = NULL, 
-                                   sx = NULL, ix = NULL, model = FALSE, method = "cyclops.fit") {	
+                              data, subset, weights, offset, time = NULL, pid = NULL, y = NULL, type = NULL, dx = NULL, 
+                              sx = NULL, ix = NULL, model = FALSE, method = "cyclops.fit") {	
     cl <- match.call() # save to return
     mf.all <- match.call(expand.dots = FALSE)
     
@@ -127,7 +145,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
         special <- attr(specialTerms, "special")
         hasStrata <- !is.null(special$strata)
         strata <- NULL
- 
+        
         if (hasStrata) {
             pid <- as.numeric(strata(mf.d[ , special$strata], shortlabel = TRUE))
             nterm <- survival::untangle.specials(specialTerms, "strata")$terms
@@ -296,7 +314,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
                                          y = dimnames(contrasts)[[1]], USE.NAMES=F))
         }
     }
-        
+    
     # TODO Check types and dimensions        
     
     useTimeAsOffset <- FALSE
@@ -314,9 +332,9 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
     result$modelType <- modelType
     result$timeLoad <- md$timeLoad	
     result$call <- cl
-#     if (exists("mf") && model == TRUE) {
-#         result$mf <- mf
-#     }
+    #     if (exists("mf") && model == TRUE) {
+    #         result$mf <- mf
+    #     }
     result$cyclopsInterfacePtr <- NULL
     result$call <- cl
     result$coefficientNames <- colnames
@@ -328,9 +346,9 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
     } else {
         result$rowNames <- c(1:length(y))
     }
-
+    
     result$sortOrder <- sortOrder
-     
+    
     if (identical(method, "debug")) {
         result$debug <- list()
         result$debug$dx <- dx
@@ -349,6 +367,8 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
     result
 }
 
+
+
 #' @title isValidModelType
 #'
 #' @description
@@ -357,6 +377,15 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
 #' @template types
 #'
 #' @return TRUE/FALSE
+#' 
+#' @examples
+#' isValidModelType("pr")
+#' #TRUE
+#' 
+#' isValidModelType("abc")
+#' #FALSE
+#' 
+#' @export
 isValidModelType <- function(modelType) {
     types <- .cyclopsGetModelTypeNames()
     modelType %in% types
@@ -387,16 +416,18 @@ isValidModelType <- function(modelType) {
 #' file may start with '\samp{#}', indicating that it contains header options.  Valid header options are:
 #' 
 #'  \tabular{ll}{  
-#'   \verb{	row_label}		\tab (assume file contains a numeric column of unique row identifiers) \cr
-#'   \verb{	stratum_label}\tab (assume file contains a numeric column of stratum identifiers) \cr
-#'   \verb{	weight}				\tab (assume file contains a column of row-specific model weights, currently unused) \cr
+#'  \verb{	row_label}		\tab (assume file contains a numeric column of unique row identifiers) \cr
+#'  \verb{	stratum_label}\tab (assume file contains a numeric column of stratum identifiers) \cr
+#'  \verb{	weight}				\tab (assume file contains a column of row-specific model weights, currently unused) \cr
 #' 	\verb{	offset}				\tab (assume file contains a dense column of linear predictor offsets) \cr
 #' 	\verb{	bbr_outcome}	\tab (assume logistic outcomes are encoded -1/+1 following BBR) \cr
 #' 	\verb{	log_offset}		\tab (assume file contains a dense column of values x_i for which log(x_i) is the offset) \cr
 #' 	\verb{	add_intercept}\tab (automatically include an intercept column of all 1s for each entry) \cr
 #' 	\verb{	indicator_only}\tab(assume all covariates 0/1-valued and only covariate name is given) \cr
-#' 	\verb{	sparse}				\tab (force all BBR formatted covariates to be represented as sparse, instead of sparse-indicator, columns .. really only for debugging) \cr
-#' 	\verb{	dense}				\tab (force all BBR formatted covariates to be represented as dense columns .. really only for debugging) \cr
+#' 	\verb{	sparse}				\tab (force all BBR formatted covariates to be represented as sparse, instead of \cr
+#'                              \tab sparse-indicator, columns .. really only for debugging) \cr
+#' 	\verb{	dense}				\tab (force all BBR formatted covariates to be represented as dense columns.. really\cr
+#'                              \tab only for debugging) \cr
 #' }
 #' 
 #' Successive lines of the file are white-space delimited and follow the format:
@@ -423,11 +454,13 @@ isValidModelType <- function(modelType) {
 #' @param fileName          Name of text file to be read. If fileName does not contain an absolute path, 
 #' 												 the name is relative to the current working directory, \code{\link{getwd}}. 
 #'
-#' @template cyclopsData
+#' @return
+#' A list that contains a Cyclops model data object pointer and an operation duration
 #' 
 #' @examples
-#' dataPtr = readCyclopsData(system.file("extdata/infert_ccd.txt", package="Cyclops"), "clr")
+#' dataPtr = readCyclopsData(system.file("extdata/infert_ccd.txt", package = "Cyclops"), "clr")
 #'
+#' @export
 readCyclopsData <- function(fileName, modelType) {
     cl <- match.call() # save to return
     
@@ -448,43 +481,42 @@ readCyclopsData <- function(fileName, modelType) {
 
 #' @title Apply simple data reductions
 #' 
-#' @description \code{reduce} reports the count of non-zero elements, sum and sum-of-squares for specified covariates in an OHDSI data object.
+#' @description \code{reduce} reports the count of non-zero elements, sum and sum-of-squares for specified covariates in a Cyclops data object.
 #' 
-#' @param object    An OHDSI Cyclops data object
+#' @param object    A Cyclops data object
 #' @param covariates Integer or string vector: list of covariates to report
 #' @param groupBy   Integer or string (optional): generates a segmented reduction stratified by this covariate.  Setting \code{groupBy = "stratum"} segments reduction for strataID
 #' @param power Integer: 0 = non-zero count, 1 = sum, 2 = sum-of-squares
 #' 
 #' @return Specified reduction as number or \code{data.frame} if segmented.
 #'
+#' @keywords internal
 reduce <- function(object, covariates, groupBy, power = 1) {
-	if (!isInitialized(object)) {
-		stop("Object is no longer or improperly initialized.")
-	}
-	covariates <- .checkCovariates(object, covariates)
-	
+    if (!isInitialized(object)) {
+        stop("Object is no longer or improperly initialized.")
+    }
+    covariates <- .checkCovariates(object, covariates)
+    
     if (!(power %in% c(0,1,2))) {
         stop("Only powers 0, 1 and 2 are allowed.")
     }
     
-	if (missing(groupBy)) {
-		.cyclopsSum(object, covariates, power)
-	} else {
-		if (length(groupBy) != 1L) {
-			stop("Only single stratification is currently implemented")
-		}
-		if (groupBy == "stratum") {
-			as.data.frame(.cyclopsSumByStratum(object, covariates, power), 
-										row.names = c(1L:getNumberOfStrata(object)))			
-		} else {
-			groupBy <- .checkCovariates(object, groupBy)
-			as.data.frame(.cyclopsSumByGroup(object, covariates, groupBy, power), 
-										row.names = c(0L,1L))			
-		}				
-	}
+    if (missing(groupBy)) {
+        .cyclopsSum(object, covariates, power)
+    } else {
+        if (length(groupBy) != 1L) {
+            stop("Only single stratification is currently implemented")
+        }
+        if (groupBy == "stratum") {
+            as.data.frame(.cyclopsSumByStratum(object, covariates, power), 
+                          row.names = c(1L:getNumberOfStrata(object)))			
+        } else {
+            groupBy <- .checkCovariates(object, groupBy)
+            as.data.frame(.cyclopsSumByGroup(object, covariates, groupBy, power), 
+                          row.names = c(0L,1L))			
+        }				
+    }
 }
-
-
 
 #' @title appendSqlCyclopsData
 #'
@@ -504,33 +536,35 @@ reduce <- function(object, covariates, groupBy, power = 1) {
 #' @param cCovariateId  Integer vector: covariate identifier
 #' @param cCovariateValue   Numeric vector: covariate value
 #' 
+#' @keywords internal
 appendSqlCyclopsData <- function(object,
-                             oStratumId,
-                             oRowId,
-                             oY,
-                             oTime,
-                             cRowId,
-                             cCovariateId,
-                             cCovariateValue) {
+                                 oStratumId,
+                                 oRowId,
+                                 oY,
+                                 oTime,
+                                 cRowId,
+                                 cCovariateId,
+                                 cCovariateValue) {
     if (!isInitialized(object)) {
-		stop("Object is no longer or improperly initialized.")		
-	} 
+        stop("Object is no longer or improperly initialized.")		
+    } 
     
     if (is.unsorted(oStratumId)
         #|| is.unsorted(oRowId) || is.unsorted(cRowId)
-        ) {
+    ) {
         stop("All columns must be sorted first by stratumId (if supplied) and then by rowId")
     }
     
     .appendSqlCyclopsData(object, 
-                      oStratumId, 
-                      oRowId, 
-                      oY, 
-                      oTime, 
-                      cRowId, 
-                      cCovariateId, 
-                      cCovariateValue)
+                          oStratumId, 
+                          oRowId, 
+                          oY, 
+                          oTime, 
+                          cRowId, 
+                          cCovariateId, 
+                          cCovariateValue)
 }
+
 
 #' @title finalizeSqlCyclopsData
 #'
@@ -546,13 +580,13 @@ appendSqlCyclopsData <- function(object,
 #' @param sortCovariates			Sort covariates in numeric-order with intercept first if it exists.
 #' @param makeCovariatesDense List of numeric or character covariates names to densely represent in Cyclops data object.
 #' 														For efficiency, we suggest making atleast the intercept dense.
-#'
+#' @keywords internal
 finalizeSqlCyclopsData <- function(object,
-                               addIntercept = FALSE,
-                               useOffsetCovariate = NULL,
-                               offsetAlreadyOnLogScale = FALSE,
-                               sortCovariates = FALSE,
-                               makeCovariatesDense = NULL) {
+                                   addIntercept = FALSE,
+                                   useOffsetCovariate = NULL,
+                                   offsetAlreadyOnLogScale = FALSE,
+                                   sortCovariates = FALSE,
+                                   makeCovariatesDense = NULL) {
     if (!isInitialized(object)) {
         stop("Object is no longer or improperly initialized.")		
     }
@@ -564,10 +598,10 @@ finalizeSqlCyclopsData <- function(object,
     }
     
     makeCovariatesDense <- .checkCovariates(object, makeCovariatesDense)
-        
+    
     .cyclopsFinalizeData(object, addIntercept, useOffsetCovariate,
-                        offsetAlreadyOnLogScale, sortCovariates,
-                        makeCovariatesDense)
+                         offsetAlreadyOnLogScale, sortCovariates,
+                         makeCovariatesDense)
     
     if (addIntercept == TRUE) {
         if (!is.null(object$coefficientNames)) {
@@ -582,65 +616,68 @@ finalizeSqlCyclopsData <- function(object,
     }
 }
 
-#' @title Create an OHDSI Cyclops data object from SQL input
+#' @title Create an Cyclops data object from SQL input
 #' 
 #' @description
-#' \code{createSqlCyclopsData} creates an empty OHDSI Cyclops data object into which data can be appended in chunks.
+#' \code{createSqlCyclopsData} creates an empty Cyclops data object into which data can be appended in chunks.
 #' 
 #' @template types
-#' @param control    An OHDSI Cyclops fit control object (optional)
+#' @param control    An Cyclops fit control object (optional)
 #' 
+#' @keywords internal
 createSqlCyclopsData <- function(modelType, control) {
-	cl <- match.call() # save to return
-	
-	if (!isValidModelType(modelType)) stop("Invalid model type.")  
+    cl <- match.call() # save to return
+    
+    if (!isValidModelType(modelType)) stop("Invalid model type.")  
     
     noiseLevel <- "silent"
-	if (!missing(control)) { # Set up control
-	    stopifnot(inherits(control, "cyclopsControl"))
+    if (!missing(control)) { # Set up control
+        stopifnot(inherits(control, "cyclopsControl"))
         noiseLevel <- control$noiseLevel
-	}
-	
-	sql <- .cyclopsNewSqlData(modelType, noiseLevel)
-	result <- new.env(parent = emptyenv()) # TODO Remove code duplication with two functions above
-	result$cyclopsDataPtr <- sql$cyclopsDataPtr
-	result$modelType <- modelType
-	result$timeLoad <- 0
-	result$cyclopsInterfacePtr <- NULL
-	result$call <- cl
-	class(result) <- "cyclopsData"
-	result
+    }
+    
+    sql <- .cyclopsNewSqlData(modelType, noiseLevel)
+    result <- new.env(parent = emptyenv()) # TODO Remove code duplication with two functions above
+    result$cyclopsDataPtr <- sql$cyclopsDataPtr
+    result$modelType <- modelType
+    result$timeLoad <- 0
+    result$cyclopsInterfacePtr <- NULL
+    result$call <- cl
+    class(result) <- "cyclopsData"
+    result
 }
 
 #' @title isInitialized
 #'
 #' @description
-#' \code{isInitialized} determines if an OHDSI data object is properly 
-#' initialized and remains in memory.  OHSDI data objects do not 
+#' \code{isInitialized} determines if an Cyclops data object is properly 
+#' initialized and remains in memory.  Cyclops data objects do not 
 #' serialized/deserialize their back-end memory across R sessions.
 #' 
-#' @param object    OHDSI data object to test
+#' @param object    Cyclops data object to test
 #' 
+#' @export
 isInitialized <- function(object) {
-	return(!is.null(object$cyclopsDataPtr) && !.isRcppPtrNull(object$cyclopsDataPtr))	
+    return(!is.null(object$cyclopsDataPtr) && !.isRcppPtrNull(object$cyclopsDataPtr))	
 }
 
 
-#' @title OHDSI Cyclops data object summary
+#' @title Cyclops data object summary
 #' 
 #' @method summary cyclopsData
 #' 
-#' @description \code{summary.cyclopsData} summarizes the data held in an OHDSI Cyclops data object.
+#' @description \code{summary.cyclopsData} summarizes the data held in an Cyclops data object.
 #' 
-#' @param object    An OHDSI Cyclops data object
+#' @param object    A Cyclops data object
 #' @param ...       Additional arguments
 #' 
 #' @return
-#' Returns a \code{data.frame} that reports simply summarize statistics for each covariate in an OHDSI Cyclops data object.
+#' Returns a \code{data.frame} that reports simply summarize statistics for each covariate in a Cyclops data object.
 #' 
+#' @export
 summary.cyclopsData <- function(object, ...) {
     if (!isInitialized(object)) {
-        stop("OHDSI data object is no longer or improperly initialized")
+        stop("Cyclops data object is no longer or improperly initialized")
     }
     covariates <- getCovariateIds(object)
     counts <- reduce(object, covariates, power = 0)
@@ -652,55 +689,56 @@ summary.cyclopsData <- function(object, ...) {
     
     tdf <- data.frame(covariateId = covariates,
                       nzCount = counts,
-                     nzMean = tmean,
-                     nzVar = (sumsSquared -  counts * tmean * tmean) / counts,
-                     type = types)
-
+                      nzMean = tmean,
+                      nzVar = (sumsSquared -  counts * tmean * tmean) / counts,
+                      type = types)
+    
     if (!is.null(object$coefficientNames)) {
-#         if(.cyclopsGetHasIntercept(x)) {
-#             row.names(tdf) <- x$coefficientNames[-1]            
-#         } else {
-            row.names(tdf) <- object$coefficientNames
-#         }
+        #         if(.cyclopsGetHasIntercept(x)) {
+        #             row.names(tdf) <- x$coefficientNames[-1]            
+        #         } else {
+        row.names(tdf) <- object$coefficientNames
+        #         }
     }
     tdf
 }
 
 
 #' @method print cyclopsData
-#' @title Print an OHDSI Cyclops data model object
+#' @title Print a Cyclops data model object
 #' 
 #' @description
-#' \code{print.cyclopsData} displays information about an OHDSI Cyclops data model object
+#' \code{print.cyclopsData} displays information about a Cyclops data model object
 #' 
-#' @param x    An OHDSI Cyclops data model object
-#' @param show.call Logical: display last call to construct the OHDSI Cyclops data model object
+#' @param x    A Cyclops data model object
+#' @param show.call Logical: display last call to construct the Cyclops data model object
 #' @param ...   Additional arguments
 #' 
+#' @export
 print.cyclopsData <- function(x, show.call=TRUE ,...) {
-  cat("OHDSI Cyclops Data Object\n\n")
-  
-  if (show.call && !is.null(x$call)) {
-    cat("Call: ",paste(deparse(x$call),sep="\n",collapse="\n"),"\n\n",sep="")  
-  }
-  cat("     Model: ", x$modelType, "\n", sep="")
-  
-  if (isInitialized(x)) {
-      nRows <- getNumberOfRows(x)
-      cat("      Rows: ", nRows, "\n", sep="")
-      cat("Covariates: ", getNumberOfCovariates(x), "\n", sep="")
-      nStrata <- getNumberOfStrata(x)
-      if (nRows != nStrata) {
-        cat("    Strata: ", nStrata, "\n", sep="")
-      }
-  } else {
-    cat("\nObject is no longer or improperly initialized.\n")
-  }
-  cat("\n")
-  if (!is.null(x$cyclopsInterfacePtr) && !.isRcppPtrNull(x$cyclopsInterfacePtr)) {    
-    cat("Initialized interface (details coming soon).\n")
-  } else {
-    cat("Uninitialized interface.\n")
-  }
-  invisible(x)
+    cat("Cyclops Data Object\n\n")
+    
+    if (show.call && !is.null(x$call)) {
+        cat("Call: ",paste(deparse(x$call),sep="\n",collapse="\n"),"\n\n",sep="")  
+    }
+    cat("     Model: ", x$modelType, "\n", sep="")
+    
+    if (isInitialized(x)) {
+        nRows <- getNumberOfRows(x)
+        cat("      Rows: ", nRows, "\n", sep="")
+        cat("Covariates: ", getNumberOfCovariates(x), "\n", sep="")
+        nStrata <- getNumberOfStrata(x)
+        if (nRows != nStrata) {
+            cat("    Strata: ", nStrata, "\n", sep="")
+        }
+    } else {
+        cat("\nObject is no longer or improperly initialized.\n")
+    }
+    cat("\n")
+    if (!is.null(x$cyclopsInterfacePtr) && !.isRcppPtrNull(x$cyclopsInterfacePtr)) {    
+        cat("Initialized interface (details coming soon).\n")
+    } else {
+        cat("Uninitialized interface.\n")
+    }
+    invisible(x)
 }

@@ -84,10 +84,11 @@
 #' @title Print row identifiers
 #' 
 #' @description
-#' \code{printCcdRowIds} return the row identifiers in an OHDSI Cyclops data object
+#' \code{printCcdRowIds} return the row identifiers in a Cyclops data object
 #' 
-#' @param object    An OHDSI Cyclops data object
-#'
+#' @param object    A Cyclops data object
+#' 
+#' @keywords internal
 printCyclopsRowIds <- function(object) {
     invisible(.Call('Cyclops_cyclopsPrintRowIds', PACKAGE = 'Cyclops', object))
 }
@@ -99,10 +100,11 @@ printCyclopsRowIds <- function(object) {
 #' @title Get number of strata
 #' 
 #' @description
-#' \code{getNumberOfStrata} return the number of unique strata in an OHDSI Cyclops data object
+#' \code{getNumberOfStrata} return the number of unique strata in a Cyclops data object
 #' 
-#' @param object    An OHDSI Cyclops data object
+#' @param object    A Cyclops data object
 #' 
+#' @export
 getNumberOfStrata <- function(object) {
     .Call('Cyclops_cyclopsGetNumberOfStrata', PACKAGE = 'Cyclops', object)
 }
@@ -110,10 +112,11 @@ getNumberOfStrata <- function(object) {
 #' @title Get covariate identifiers
 #' 
 #' @description
-#' \code{getCovariateIds} returns a vector of integer covariate identifiers in an OHDSI Cyclops data object
+#' \code{getCovariateIds} returns a vector of integer covariate identifiers in a Cyclops data object
 #' 
-#' @param object    An OHDSI Cyclops data object
+#' @param object    A Cyclops data object
 #' 
+#' @export
 getCovariateIds <- function(object) {
     .Call('Cyclops_cyclopsGetCovariateIds', PACKAGE = 'Cyclops', object)
 }
@@ -121,11 +124,12 @@ getCovariateIds <- function(object) {
 #' @title Get covariate types
 #' 
 #' @description
-#' \code{getCovariateTypes} returns a vector covariate types in an OHDSI Cyclops data object
+#' \code{getCovariateTypes} returns a vector covariate types in a Cyclops data object
 #' 
-#' @param object    An OHDSI Cyclops data object
+#' @param object    A Cyclops data object
 #' @param covariateLabel Integer vector: covariate identifiers to return
 #' 
+#' @export
 getCovariateTypes <- function(object, covariateLabel) {
     .Call('Cyclops_cyclopsGetCovariateType', PACKAGE = 'Cyclops', object, covariateLabel)
 }
@@ -133,10 +137,11 @@ getCovariateTypes <- function(object, covariateLabel) {
 #' @title Get total number of covariates
 #' 
 #' @description
-#' \code{getNumberOfCovariates} returns the total number of covariates in an OHDSI Cyclops data object
+#' \code{getNumberOfCovariates} returns the total number of covariates in a Cyclops data object
 #' 
-#' @param object    An OHDSI Cyclops data object
+#' @param object    A Cyclops data object
 #'
+#' @export
 getNumberOfCovariates <- function(object) {
     .Call('Cyclops_cyclopsGetNumberOfColumns', PACKAGE = 'Cyclops', object)
 }
@@ -144,10 +149,11 @@ getNumberOfCovariates <- function(object) {
 #' @title Get total number of rows
 #' 
 #' @description
-#' \code{getNumberOfRows} returns the total number of outcome rows in an OHDSI Cyclops data object
+#' \code{getNumberOfRows} returns the total number of outcome rows in a Cyclops data object
 #' 
-#' @param object    An OHDSI Cyclops data object
+#' @param object    A Cyclops data object
 #'
+#' @export
 getNumberOfRows <- function(object) {
     .Call('Cyclops_cyclopsGetNumberOfRows', PACKAGE = 'Cyclops', object)
 }
@@ -155,10 +161,11 @@ getNumberOfRows <- function(object) {
 #' @title Get total number of outcome types
 #' 
 #' @description
-#' \code{getNumberOfTypes} returns the total number of outcome types in an OHDSI Cyclops data object
+#' \code{getNumberOfTypes} returns the total number of outcome types in a Cyclops data object
 #' 
-#' @param object    An OHDSI Cyclops data object
+#' @param object    A Cyclops data object
 #'
+#' @keywords internal
 getNumberOfTypes <- function(object) {
     .Call('Cyclops_cyclopsGetNumberOfTypes', PACKAGE = 'Cyclops', object)
 }
