@@ -582,7 +582,7 @@ getSEs <- function(object, covariates) {
 #' @param parm      A specification of which parameters require confidence intervals,
 #'                  either a vector of numbers of covariateId names
 #' @param level     Numeric: confidence level required
-#' @param control   A Cyclops \code{\link{control}} object
+## @param control   A Cyclops \code{\link{control}} object
 #' @param overrideNoRegularization   Logical: Enable confidence interval estimation for regularized parameters
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
 #' @param ... Additional argument(s) for methods
@@ -595,11 +595,11 @@ getSEs <- function(object, covariates) {
 #' @template elaborateExample
 #' 
 #' @export
-confint.cyclopsFit <- function(object, parm, level = 0.95, control, 
+confint.cyclopsFit <- function(object, parm, level = 0.95, #control, 
                                overrideNoRegularization = FALSE,
-                               includePenalty = FALSE, ...) {
+                               includePenalty = TRUE, ...) {
     .checkInterface(object, testOnly = TRUE)
-    .setControl(object$cyclopsInterfacePtr, control)
+    #.setControl(object$cyclopsInterfacePtr, control)
     parm <- .checkCovariates(object$cyclopsData, parm)
     if (level < 0.01 || level > 0.99) {
         stop("level must be between 0 and 1")
