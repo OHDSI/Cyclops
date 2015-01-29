@@ -238,6 +238,8 @@ fitCyclopsModel <- function(cyclopsData,
 #' @param ...       Other arguments
 #' 
 #' @return Named numeric vector of model coefficients.
+#' 
+#' @export
 coef.cyclopsFit <- function(object, ...) {
     if (is.null(object$estimation)) {
         stop("Cyclops estimation is null; suspect that estimation did not converge.")
