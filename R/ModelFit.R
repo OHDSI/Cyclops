@@ -294,10 +294,10 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
   invisible(x)
 }
 
-#' @title control
+#' @title Create a Cyclops control object
 #'
 #' @description
-#' \code{control} builds a Cyclops control object
+#' \code{createControl} creates a Cyclops control object for use with \code{\link{fitCyclopsModel}}.
 #'
 #' @param maxIterations			Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error
 #' @param tolerance					Numeric: maximum relative change in convergence criterion from successive iterations to achieve convergence
@@ -319,14 +319,14 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param useKKTSwindle Logical: Use the Karush-Kuhn-Tucker conditions to limit search
 #' @param tuneSwindle    Numeric: Size multiplier for active set
 #' @param selectorType  String: name of exchangeable sampling unit. If missing, then default for model is used.
-#'                              Option \code{"byPid"} selects entire strata 
+#'                              Option \code{"byPid"} selects entire strata. 
 #'                              Option \code{"byRow"} selects single rows
 #' 
 #' @section Criteria:
 #' TODO
 #' 
 #' @return
-#' A Cyclops convergence criteria object of class inheriting from \code{"cyclopsConvergence"} for use with \code{fitCyclopsModel}.
+#' A Cyclops control object of class inheriting from \code{"cyclopsControl"} for use with \code{\link{fitCyclopsModel}}.
 #' 
 #' @examples \dontrun{
 #' # Add cross-validation example
