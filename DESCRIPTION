@@ -2,9 +2,11 @@ Package: Cyclops
 Type: Package
 Title: Cyclic coordinate descent for logistic, Poisson and survival analysis
 Version: 1.0.0
-Authors@R: c(person("Marc A.", "Suchard", email = "msuchard@ucla.edu", role = c("aut", "cre")),
-    person("Martijn J.", "Schuemie", email = "mschuemie@ohdsi.org", role = "aut"),
-    person("Trevor R.", "Shaddox", email = "tshaddox@ucla.edu", role = "aut"))
+Author:
+    Marc A. Suchard [aut, cre], 
+    Martijn J. Schuemie [aut], 
+    Trevor R. Shaddox [aut]
+Maintainer:    Marc A. Suchard <msuchard@ucla.edu>    
 Description: This package incorporates cyclic coordinate descent and
     majorization-minimization approaches to fit a variety of regression models
     found in large-scale observational healthcare data.  Implementations focus
