@@ -109,7 +109,7 @@ simulateCyclopsData <- function(nstrata = 200,
     data$rowId <- 1:nrow(data)
     data <- merge(data,sim$outcomes)
     data <- data[order(data$stratumId,data$rowId),]
-    formula <- as.formula(paste(c("y ~ strata(stratumId)",paste("v",1:ncovars,sep="")),collapse=" + "))
+    formula <- as.formula(paste(c("y ~ strata(stratumId)",paste("V",1:ncovars,sep="")),collapse=" + "))
     fit <- survival::clogit(formula,data=data) 
     if (coverage) {
         ci <- confint(fit)
@@ -210,7 +210,7 @@ fitCyclopsSimulation <- function(sim,
                                  coverage = TRUE,
                                  includePenalty = FALSE) {
     if (useCyclops) {
-        .fitCyclopsSimulationUsingCyclops(sim, model, coverage, includePenalty)
+        .fitCyclopsSimulationUsingCyclops(sim, model, coverage = coverage, includePenalty = includePenalty)
     } else {
         .fitCyclopsSimulationUsingOtherThanCyclops(sim, model, coverage)
     }
@@ -249,35 +249,7 @@ fitCyclopsSimulation <- function(sim,
         if (model == "survival") modelType = "cox"        
     }
     
-    if (!stratified){
-        sim$outcomes$stratumId = sim$outcomes$rowId
-        sim$outcomes <- sim$outcomes(order(sim$outcomes$stratumId))
-        sim$covariates$stratumId = sim$covariates$rowId
-        sim$covariates <- sim$covariates(order(sim$covariates$stratumId))
-    }
-    if (model != "poisson" & model != "survival"){
-        sim$outcomes$time <- 1
-    }
-    if (model == "survival"){
-        sim$outcomes <- sim$outcomes[order(sim$outcomes$stratumId,-sim$outcomes$time,sim$outcomes$y,sim$outcomes$rowId),]
-        sim$covariates <- merge(sim$outcomes[,c("time","y","rowId")],sim$covariates)
-        sim$covariates <- sim$covariates[order(sim$covariates$stratumId,-sim$covariates$time,sim$covariates$y,sim$covariates$rowId),]        
-    }
-    
-    dataPtr <- createSqlCyclopsData(modelType = modelType)
-    
-    count <- appendSqlCyclopsData(dataPtr,
-                                  sim$outcomes$stratumId,
-                                  sim$outcomes$rowId,
-                                  sim$outcomes$y,
-                                  sim$outcomes$time,
-                                  sim$covariates$rowId,
-                                  sim$covariates$covariateId,
-                                  sim$covariates$covariateValue)
-    if (model == "poisson")
-        finalizeSqlCyclopsData(dataPtr,useOffsetCovariate=-1) 
-    else if (model != "survival")
-        finalizeSqlCyclopsData(dataPtr) 
+    dataPtr <- convertToCyclopsData(sim$outcomes,sim$covariates,modelType = modelType,addIntercept = !stratified)
     
     if (regularized){
         coefCyclops <- rep(0,length(sim$effectSizes$rr))
@@ -285,17 +257,7 @@ fitCyclopsSimulation <- function(sim,
         ubCi95 <- rep(0,length(sim$effectSizes$rr))
         for (i in 1:length(sim$effectSizes$rr)){
             if (model == "survival"){ # For some reason can't get confint twice on same dataPtr object, so recreate:
-                dataPtr <- createSqlCyclopsData(modelType = modelType)
-                
-                count <- appendSqlCyclopsData(dataPtr,
-                                              sim$outcomes$stratumId,
-                                              sim$outcomes$rowId,
-                                              sim$outcomes$y,
-                                              sim$outcomes$time,
-                                              sim$covariates$rowId,
-                                              sim$covariates$covariateId,
-                                              sim$covariates$covariateValue)
-                
+                dataPtr <- convertToCyclopsData(sim$outcomes,sim$covariates,modelType = modelType,addIntercept = !stratified)
             }
             cyclopsFit <- fitCyclopsModel(dataPtr,prior = createPrior("laplace",0.1,exclude=i))
             coefCyclops[i] <- coef(cyclopsFit)[names(coef(cyclopsFit)) == as.character(i)]
@@ -305,9 +267,9 @@ fitCyclopsSimulation <- function(sim,
                     lbCi95[i] <- ci[,2]
                     ubCi95[i] <- ci[,3]
                 } else {
-                    ci <- aconfint(cyclopsFit,parm=i)
-                    lbCi95[i] <- ci[,1]
-                    ubCi95[i] <- ci[,2]
+                    ci <- confint(cyclopsFit,parm=i,includePenalty = includePenalty)
+                    lbCi95[i] <- ci[,2]
+                    ubCi95[i] <- ci[,3]
                 }
             }
         }
@@ -322,9 +284,9 @@ fitCyclopsSimulation <- function(sim,
                 lbCi95 <- ci[,2]
                 ubCi95 <- ci[,3]
             } else {
-                ci <- aconfint(cyclopsFit,parm=i)
-                lbCi95 <- ci[,1]
-                ubCi95 <- ci[,2]
+                ci <- confint(cyclopsFit,parm=i,includePenalty = includePenalty)
+                lbCi95 <- ci[,2]
+                ubCi95 <- ci[,3]
             }
         }
     }
@@ -388,6 +350,7 @@ plotCyclopsSimulationFit <- function(fit,goldStandard,label){
         stop("gglot2 package required")
     }
 }
+
 
 # TODO Move to vignette
 #
