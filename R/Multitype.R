@@ -28,7 +28,7 @@
 #' @examples
 #' #Multitype(c(0,1,0), as.factor(c("A","A","B")))
 #' 
-#' @keywords internal
+#' @keywords export
 Multitype <- function(y, type) {
     if (missing(y) || !is.numeric(y)) stop("Must have outcome counts")
     if (missing(type)) stop("Must have outcome types")

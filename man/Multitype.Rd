@@ -21,5 +21,5 @@ hierarchical Cyclops model fit.
 \examples{
 #Multitype(c(0,1,0), as.factor(c("A","A","B")))
 }
-\keyword{internal}
+\keyword{export}
 
