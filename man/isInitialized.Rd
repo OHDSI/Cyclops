@@ -2,7 +2,7 @@
 % Please edit documentation in R/DataManagement.R
 \name{isInitialized}
 \alias{isInitialized}
-\title{isInitialized}
+\title{Check if a Cyclops data object is initialized}
 \usage{
 isInitialized(object)
 }

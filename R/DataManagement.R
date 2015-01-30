@@ -98,7 +98,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
     cl <- match.call() # save to return
     mf.all <- match.call(expand.dots = FALSE)
     
-    if (!isValidModelType(modelType)) stop("Invalid model type.")
+    if (!.isValidModelType(modelType)) stop("Invalid model type.")
     
     hasIntercept <- FALSE		
     colnames <- NULL
@@ -369,24 +369,24 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
 
 
 
-#' @title isValidModelType
-#'
-#' @description
-#' \code{isValidModelType} checks for a valid Cyclops model type
-#'
-#' @template types
-#'
-#' @return TRUE/FALSE
-#' 
-#' @examples
-#' isValidModelType("pr")
-#' #TRUE
-#' 
-#' isValidModelType("abc")
-#' #FALSE
-#' 
-#' @export
-isValidModelType <- function(modelType) {
+# @title isValidModelType
+#
+# @description
+# \code{isValidModelType} checks for a valid Cyclops model type
+#
+# @template types
+#
+# @return TRUE/FALSE
+# 
+# @examples
+# isValidModelType("pr")
+# #TRUE
+# 
+# isValidModelType("abc")
+# #FALSE
+# 
+# @export
+.isValidModelType <- function(modelType) {
     types <- .cyclopsGetModelTypeNames()
     modelType %in% types
 }
@@ -464,7 +464,7 @@ isValidModelType <- function(modelType) {
 readCyclopsData <- function(fileName, modelType) {
     cl <- match.call() # save to return
     
-    if (!isValidModelType(modelType)) stop("Invalid model type.")    
+    if (!.isValidModelType(modelType)) stop("Invalid model type.")    
     
     read <- .cyclopsReadData(fileName, modelType)
     result <- new.env(parent = emptyenv())
@@ -628,7 +628,7 @@ finalizeSqlCyclopsData <- function(object,
 createSqlCyclopsData <- function(modelType, control) {
     cl <- match.call() # save to return
     
-    if (!isValidModelType(modelType)) stop("Invalid model type.")  
+    if (!.isValidModelType(modelType)) stop("Invalid model type.")  
     
     noiseLevel <- "silent"
     if (!missing(control)) { # Set up control
@@ -647,7 +647,7 @@ createSqlCyclopsData <- function(modelType, control) {
     result
 }
 
-#' @title isInitialized
+#' @title Check if a Cyclops data object is initialized
 #'
 #' @description
 #' \code{isInitialized} determines if an Cyclops data object is properly 
