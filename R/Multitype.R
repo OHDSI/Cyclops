@@ -26,9 +26,9 @@
 #' 
 #' @return An object of class \code{Multitype} with length equal to the length of \code{y} and \code{type}.
 #' @examples
-#' #Multitype(c(0,1,0), as.factor(c("A","A","B")))
+#' Multitype(c(0,1,0), as.factor(c("A","A","B")))
 #' 
-#' @keywords export
+#' @export
 Multitype <- function(y, type) {
     if (missing(y) || !is.numeric(y)) stop("Must have outcome counts")
     if (missing(type)) stop("Must have outcome types")

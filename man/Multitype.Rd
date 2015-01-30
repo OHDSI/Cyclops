@@ -19,7 +19,6 @@ An object of class \code{Multitype} with length equal to the length of \code{y} 
 hierarchical Cyclops model fit.
 }
 \examples{
-#Multitype(c(0,1,0), as.factor(c("A","A","B")))
+Multitype(c(0,1,0), as.factor(c("A","A","B")))
 }
-\keyword{export}
 
