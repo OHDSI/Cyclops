@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#' @title fitCyclopsModel
+#' @title Fit a Cyclops model
 #'
 #' @description
 #' \code{fitCyclopsModel} fits a Cyclops model data object
@@ -406,10 +406,10 @@ createControl <- function(maxIterations = 1000,
               class = "cyclopsControl")
 }
 
-#' @title prior
+#' @title Create a Cyclops prior object
 #'
 #' @description
-#' \code{prior} builds a Cyclops prior object
+#' \code{createPrior} creates a Cyclops prior object for use with \code{\link{fitCyclopsModel}}.
 #'
 #' @param priorType     Character: specifies prior distribution.  See below for options
 #' @param variance      Numeric: prior distribution variance
@@ -571,7 +571,7 @@ getSEs <- function(object, covariates) {
     ses
 }
 
-#' @title confint.cyclopsFit
+#' @title Confidence intervals for Cyclops model parameters
 #'
 #' @description
 #' \code{confinit.cyclopsFit} profiles the data likelihood to construct confidence intervals of

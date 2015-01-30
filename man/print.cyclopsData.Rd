@@ -2,7 +2,7 @@
 % Please edit documentation in R/DataManagement.R
 \name{print.cyclopsData}
 \alias{print.cyclopsData}
-\title{Print a Cyclops data model object}
+\title{Print a Cyclops data object}
 \usage{
 \method{print}{cyclopsData}(x, show.call = TRUE, ...)
 }
@@ -14,6 +14,6 @@
 \item{...}{Additional arguments}
 }
 \description{
-\code{print.cyclopsData} displays information about a Cyclops data model object
+\code{print.cyclopsData} displays information about a Cyclops data model object.
 }
 

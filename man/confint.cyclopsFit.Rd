@@ -2,7 +2,7 @@
 % Please edit documentation in R/ModelFit.R
 \name{confint.cyclopsFit}
 \alias{confint.cyclopsFit}
-\title{confint.cyclopsFit}
+\title{Confidence intervals for Cyclops model parameters}
 \usage{
 \method{confint}{cyclopsFit}(object, parm, level = 0.95,
   overrideNoRegularization = FALSE, includePenalty = TRUE, ...)

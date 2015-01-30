@@ -2,7 +2,7 @@
 % Please edit documentation in R/DataManagement.R
 \name{createCyclopsData}
 \alias{createCyclopsData}
-\title{createCyclopsData}
+\title{Create a Cyclops data object}
 \usage{
 createCyclopsData(formula, sparseFormula, indicatorFormula, modelType, data,
   subset, weights, offset, time = NULL, pid = NULL, y = NULL,
@@ -48,7 +48,7 @@ createCyclopsData(formula, sparseFormula, indicatorFormula, modelType, data,
 A list that contains a Cyclops model data object pointer and an operation duration
 }
 \description{
-\code{createCyclopsData} creates a Cyclops model data object from an R formula
+\code{createCyclopsData} creates a Cyclops data object from an R formula or data matrices.
 }
 \details{
 This function creates a Cyclops model data object from R \code{"\link{formula}"} or directly from

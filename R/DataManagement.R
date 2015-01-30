@@ -16,10 +16,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#' @title createCyclopsData
+#' @title Create a Cyclops data object
 #'
 #' @description
-#' \code{createCyclopsData} creates a Cyclops model data object from an R formula
+#' \code{createCyclopsData} creates a Cyclops data object from an R formula or data matrices.
 #'
 #' @details
 #' This function creates a Cyclops model data object from R \code{"\link{formula}"} or directly from
@@ -406,10 +406,10 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
     modelType %in% types
 }
 
-#' @title readCyclopsData
+#' @title Read Cyclops data from file
 #'
 #' @description
-#' \code{readCyclopsData} reads a Cyclops-formatted text file
+#' \code{readCyclopsData} reads a Cyclops-formatted text file.
 #'
 #' @details
 #' This function reads a Cyclops-formatted text file and returns a Cyclops data object. The first line of the
@@ -705,10 +705,10 @@ summary.cyclopsData <- function(object, ...) {
 
 
 #' @method print cyclopsData
-#' @title Print a Cyclops data model object
+#' @title Print a Cyclops data object
 #' 
 #' @description
-#' \code{print.cyclopsData} displays information about a Cyclops data model object
+#' \code{print.cyclopsData} displays information about a Cyclops data model object.
 #' 
 #' @param x    A Cyclops data model object
 #' @param show.call Logical: display last call to construct the Cyclops data model object

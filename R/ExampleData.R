@@ -2,7 +2,7 @@
 #
 # Copyright 2014 Observational Health Data Sciences and Informatics
 #
-# This file is part of cyclops
+# This file is part of Cyclops
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#' Oxford
+#' Oxford self-controlled case series data
 #'
 #' A dataset containing the MMR vaccination / meningitis in Oxford example from
 #' Farrington and Whitaker.  There are 10 patients comprising 38 unique exposure intervals.

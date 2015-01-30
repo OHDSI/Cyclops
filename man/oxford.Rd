@@ -3,7 +3,7 @@
 \docType{data}
 \name{oxford}
 \alias{oxford}
-\title{Oxford}
+\title{Oxford self-controlled case series data}
 \format{A data frame with 38 rows and 6 variables:
 \describe{
   \item{indiv}{patient identifier}

@@ -2,7 +2,7 @@
 % Please edit documentation in R/ModelFit.R
 \name{fitCyclopsModel}
 \alias{fitCyclopsModel}
-\title{fitCyclopsModel}
+\title{Fit a Cyclops model}
 \usage{
 fitCyclopsModel(cyclopsData, prior, control, weights = NULL,
   forceNewObject = FALSE, returnEstimates = TRUE,

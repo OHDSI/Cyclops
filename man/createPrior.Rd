@@ -2,7 +2,7 @@
 % Please edit documentation in R/ModelFit.R
 \name{createPrior}
 \alias{createPrior}
-\title{prior}
+\title{Create a Cyclops prior object}
 \usage{
 createPrior(priorType, variance = 1, exclude = c(), graph = NULL,
   useCrossValidation = FALSE, forceIntercept = FALSE)
@@ -24,7 +24,7 @@ createPrior(priorType, variance = 1, exclude = c(), graph = NULL,
 A Cyclops prior object of class inheriting from \code{"cyclopsPrior"} for use with \code{fitCyclopsModel}.
 }
 \description{
-\code{prior} builds a Cyclops prior object
+\code{createPrior} creates a Cyclops prior object for use with \code{\link{fitCyclopsModel}}.
 }
 \section{Prior types}{
 

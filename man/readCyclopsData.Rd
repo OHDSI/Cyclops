@@ -2,7 +2,7 @@
 % Please edit documentation in R/DataManagement.R
 \name{readCyclopsData}
 \alias{readCyclopsData}
-\title{readCyclopsData}
+\title{Read Cyclops data from file}
 \usage{
 readCyclopsData(fileName, modelType)
 }
@@ -16,7 +16,7 @@ readCyclopsData(fileName, modelType)
 A list that contains a Cyclops model data object pointer and an operation duration
 }
 \description{
-\code{readCyclopsData} reads a Cyclops-formatted text file
+\code{readCyclopsData} reads a Cyclops-formatted text file.
 }
 \details{
 This function reads a Cyclops-formatted text file and returns a Cyclops data object. The first line of the
