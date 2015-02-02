@@ -74,10 +74,12 @@ Cyclops is being developed in R Studio.
 
 ###Development status
 
-Alpha
+[![Build Status](https://travis-ci.org/OHDSI/Cyclops.svg?branch=master)](https://travis-ci.org/OHDSI/Cyclops)
+
+Beta
 
 Acknowledgements
 ================
 - This project is supported in part through the National Science Foundation grants IIS 1251151 and DMS 1264153.
 
-[![Build Status](https://travis-ci.org/OHDSI/Cyclops.svg?branch=master)](https://travis-ci.org/OHDSI/Cyclops)
+
