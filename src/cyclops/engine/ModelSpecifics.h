@@ -523,6 +523,25 @@ protected:
 };
 
 template <class BaseModel, class IteratorType, class RealType, class IntType>
+struct ZeroOutNumerator : private BaseModel {
+
+	ZeroOutNumerator(RealType* _numerator, RealType* _numerator2) :
+		numerator(_numerator), numerator2(_numerator2) { }
+		
+	void operator()(const IntType& i) {
+		numerator[i] = static_cast<RealType>(0.0);
+		if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
+			numerator2[i] = static_cast<RealType>(0.0);
+		}		
+	}
+	
+private:
+	RealType* numerator;
+	RealType* numerator2;
+};
+
+
+template <class BaseModel, class IteratorType, class RealType, class IntType>
 struct NumeratorForGradientKernel : private BaseModel {
 
 // 	using XTuple = typename IteratorType::XTuple;

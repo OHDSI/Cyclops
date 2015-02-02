@@ -99,7 +99,43 @@ namespace helper {
         return {
             std::begin(*mat), std::end(*mat)
         };            
+    }    
+    
+    template <class IteratorTag>
+    auto getRangeNumerator(const IntVectorPtr& mat, const int N, IteratorTag) ->  void {
+    	std::cerr << "Not yet implemented." << std::endl;
+    	std::exit(-1);
+    }          
+    
+    auto getRangeNumerator(const IntVectorPtr& mat, const int N, DenseTag) ->
+            boost::iterator_range<      
+                decltype(boost::make_counting_iterator(0))
+            > {
+        return {
+            boost::make_counting_iterator(0),
+            boost::make_counting_iterator(N)        
+        };            
+    }
+    
+    auto getRangeNumerator(const IntVectorPtr& mat, const int N, SparseTag) ->
+            boost::iterator_range<      
+                decltype(mat->begin())
+            > {
+        return {
+            std::begin(*mat), std::end(*mat)             
+        };            
+    }    
+    
+    auto getRangeNumerator(const IntVectorPtr& mat, const int N, IndicatorTag) ->
+            boost::iterator_range<      
+                decltype(mat->begin())
+            > {
+        return {
+            std::begin(*mat), std::end(*mat)
+        };            
     }     
+    
+     
         
 	template <class IteratorTag>
     auto getRangeX(const CompressedDataMatrix& mat, const int index, IteratorTag) -> void {
@@ -621,6 +657,12 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 		
+		// TODO
+		// x. Fill numerators <- 0
+		// x. Compute non-zero numerators
+		// x. Segmented scan of numerators
+		// x. Transformation/reduction of [begin,end)		
+		
 		IteratorType it(*(sparseIndices)[index], N);
 		
 		real accNumerPid  = static_cast<real>(0);
@@ -1064,41 +1106,20 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 
 	// Run-time delegation
 	switch (modelData.getFormatType(index)) {
-		case INDICATOR : {
-			IndicatorIterator it(*(sparseIndices)[index]);
-			for (; it; ++it) { // Only affected entries
-				numerPid[it.index()] = static_cast<real>(0.0);
-			}
-			incrementNumeratorForGradientImpl<IndicatorIterator>(index);
-			}
+		case INDICATOR : 
+			incrementNumeratorForGradientImpl<IndicatorIterator>(index);			
 			break;
-		case SPARSE : {
-			SparseIterator it(*(sparseIndices)[index]);
-			for (; it; ++it) { // Only affected entries
-				numerPid[it.index()] = static_cast<real>(0.0);
-				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
-					numerPid2[it.index()] = static_cast<real>(0.0); // TODO Does this invalid the cache line too much?
-				}
-			}
-			incrementNumeratorForGradientImpl<SparseIterator>(index); }
+		case SPARSE : 
+			incrementNumeratorForGradientImpl<SparseIterator>(index); 
 			break;
 		case DENSE :
-			zeroVector(numerPid, N);
-			if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
-				zeroVector(numerPid2, N);
-			}
 			incrementNumeratorForGradientImpl<DenseIterator>(index);
 			break;
 		case INTERCEPT :
-			zeroVector(numerPid, N);
-			if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
-				zeroVector(numerPid2, N);
-			}
 			incrementNumeratorForGradientImpl<InterceptIterator>(index);
 			break;
 		default : break;
 			// throw error
-			//exit(-1);
 	}	
 	
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -1122,20 +1143,36 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 			
 #ifdef NEW_LOOPS
 
-	auto range = helper::getRangeX(modelData, index, typename IteratorType::tag());						
+	auto zeroRange = helper::getRangeNumerator(sparseIndices[index], N, typename IteratorType::tag());
+		
+	auto zeroKernel = ZeroOutNumerator<BaseModel,IteratorType,real,int>(
+			begin(numerPid), begin(numerPid2)	
+	);
+	
+	variants::for_each( // TODO Rewrite as variants::fill if rate-limiting
+		zeroRange.begin(), zeroRange.end(),
+		zeroKernel,
+// 		info
+// 		threadPool
+		SerialOnly()
+// 		RcppParallel()
+	);
+				
+	// TODO Fuse, when ranges are equal (no PIDs?)	
 
-	auto kernel = NumeratorForGradientKernel<BaseModel,IteratorType,real,int>(
+	auto computeRange = helper::getRangeX(modelData, index, typename IteratorType::tag());		
+
+	auto computeKernel = NumeratorForGradientKernel<BaseModel,IteratorType,real,int>(
 					begin(numerPid), begin(numerPid2), 
 					begin(offsExpXBeta), begin(hXBeta), 
-				//	begin(hY), 
-				  &hY[0], // TODO Fix
+					begin(hY), 				  
 					begin(hPid));
 					
 //	auto info = C11Threads(4, 100);
 					
 	variants::for_each(
-		range.begin(), range.end(),
-		kernel, 
+		computeRange.begin(), computeRange.end(),
+		computeKernel, 
 // 		info
 //   		threadPool
 // 		SerialOnly()
