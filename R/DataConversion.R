@@ -384,12 +384,15 @@ convertToCyclopsData.ffdf <- function(outcomes,
         }
     }
     if (checkRowIds){
-        mapping <- ffbase::ffmatch(covariates$rowId,outcomes$rowId)
-        if (any(is.na(mapping))){
+        mapped <- ffbase::ffmatch(x = covariates$rowId, table=outcomes$rowId, nomatch = 0L) > 0L
+        minValue <- min(sapply(bit::chunk(mapped), function(i) {
+            min(mapped[i])
+        }))
+        if (minValue == 0){ 
             if(!quiet)
                 writeLines("Removing covariate values with rowIds that are not in outcomes")
-            covariateRowsWithMapping <- ffbase::ffwhich(mapping, !is.na(mapping))
-            covariates <- covariates[covariateRowsWithMapping,]
+            row.names(covariates) <- NULL #Needed or else next line fails
+            covariates <- covariates[ffbase::ffwhich(mapped, mapped == TRUE),]
         }
     }
     
