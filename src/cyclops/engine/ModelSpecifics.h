@@ -14,8 +14,8 @@
 #include <stdexcept>
 #include <thread>
 
-#define CYCLOPS_DEBUG_TIMING
-#define CYCLOPS_DEBUG_TIMING_LOW
+// #define CYCLOPS_DEBUG_TIMING
+// #define CYCLOPS_DEBUG_TIMING_LOW
 
 #ifdef CYCLOPS_DEBUG_TIMING
     #include "Timing.h"	
@@ -327,6 +327,8 @@ public:
 	int getGroup(const int* groups, int k) {
 		return groups[k];
 	}
+	
+	const static bool hasIndependentRows = false;
 };
 
 struct GroupedWithTiesData : GroupedData {
@@ -347,6 +349,8 @@ public:
 	}
 	
 	const static bool hasResetableAccumulators = true;
+	
+	const static bool hasIndependentRows = false;	
 };
 
 struct OrderedWithTiesData {
@@ -362,6 +366,8 @@ public:
 	}	
 	
 	const static bool hasResetableAccumulators = false;	
+	
+	const static bool hasIndependentRows = false;	
 };
 
 struct IndependentData {
@@ -375,6 +381,8 @@ public:
 	int getGroup(const int* groups, int k) {
 		return k;
 	}
+	
+	const static bool hasIndependentRows = true;
 };
 
 struct FixedPid {
@@ -499,6 +507,61 @@ protected:
     const RealType* denominator;   
 };
 
+
+template <class BaseModel, class IteratorType, class WeightOperationType,
+class RealType, class IntType>
+struct TransformAndAccumulateGradientAndHessianKernel : private BaseModel {
+	
+    typedef typename IteratorType::XTuple XTuple;	
+
+     TransformAndAccumulateGradientAndHessianKernel(
+     	      //RealType* _numerator, RealType* _numerator2,
+     	      RealType* _expXBeta, RealType* _xBeta, const RealType* _y,
+            RealType* _denominator, RealType* _weight//, RealType* _xBeta, const RealType* _y
+            ) 
+            : //numerator(_numerator), numerator2(_numerator2), 
+            expXBeta(_expXBeta), xBeta(_xBeta), y(_y),
+            denominator(_denominator),
+              weight(_weight)  { }
+    
+    Fraction<RealType> operator()(Fraction<RealType>& lhs, XTuple tuple) {
+    
+		const auto k = getK(tuple);
+		const auto x = getX(tuple);	    
+    
+		RealType numerator = BaseModel::gradientNumeratorContrib(x, expXBeta[k], xBeta[k], y[k]);
+		RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?	
+				BaseModel::gradientNumerator2Contrib(x, expXBeta[k]) :
+				static_cast<RealType>(0);
+    
+        return BaseModel::template incrementGradientAndHessian<IteratorType, WeightOperationType, RealType>(
+            lhs, 
+            numerator, numerator2,
+//             numerator[i],
+//             numerator2[i], 
+            denominator[k], weight[k], xBeta[k], y[k]);       
+    }
+            
+protected:
+//    RealType* numerator;
+//    RealType* numerator2;
+	  RealType* expXBeta;
+    RealType* xBeta;
+    const RealType* y;    
+    RealType* denominator;
+    RealType* weight;
+
+    
+private:	 // TODO Code duplication; remove
+	inline auto getX(XTuple& tuple) const -> typename TupleXGetter<IteratorType, RealType>::ReturnType {
+		return TupleXGetter<IteratorType, RealType>()(tuple);
+	}
+	
+	inline IntType getK(XTuple& tuple) const {
+		return boost::get<0>(tuple);
+	}	        
+};
+
 template <class BaseModel, class IteratorType, class WeightOperationType,
 class RealType, class IntType>
 struct AccumulateGradientAndHessianKernel : private BaseModel {
@@ -509,7 +572,7 @@ struct AccumulateGradientAndHessianKernel : private BaseModel {
               weight(_weight), xBeta(_xBeta), y(_y) { }
     
     Fraction<RealType> operator()(Fraction<RealType>& lhs, const IntType& i) {
-        return BaseModel::template incrementGradientAndHessian<IteratorType, WeightOperationType, RealType>( // ***
+        return BaseModel::template incrementGradientAndHessian<IteratorType, WeightOperationType, RealType>(
             lhs, numerator[i], numerator2[i], denominator[i], weight[i], xBeta[i], y[i]);       
     }
             
@@ -1066,6 +1129,8 @@ struct LogisticRegression : public IndependentData, GLMProjection, Logistic<Weig
 	NoFixedLikelihoodTerms {
 public:
 	const static bool precomputeHessian = false;
+	
+// 	const static bool 
 
 	static real getDenomNullValue () { return static_cast<real>(1.0); }
 

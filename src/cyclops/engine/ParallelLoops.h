@@ -261,6 +261,37 @@ namespace variants {
 	            return std::accumulate(begin, end, result, function);
 	        }        	            
 	    }  
+	    	    
+	    template <class IndexIt, class OutputIt, class Transform>
+	    inline void transform_segmented_reduce(IndexIt i, IndexIt end, 
+	            IndexIt j, 
+	            Transform transform,
+	            const OutputIt x, 	            
+	            OutputIt y, SerialOnly info) {
+	    	for (; i != end; ++i, ++j) {
+	    		y[i] += transform(x[j], j);	    	
+	    	}	    	    
+	    }	    
+	    
+	    
+// spmv_coo_serial_kernel(const unsigned int * I,
+//                        const unsigned int * J,
+// #ifndef IS_INDICATOR_MATRIX
+//                        const REAL * V,
+// #endif
+//                        const REAL * x,
+//                              REAL * y,
+//                        const unsigned int num_nonzeros)
+// {
+//     for(unsigned int n = 0; n < num_nonzeros; n++){
+// #ifdef IS_INDICATOR_MATRIX
+//     	y[I[n]] += x[J[n]];
+// #else
+//     	y[I[n]] += V[n] * x[J[n]];
+// #endif
+//     }
+// }	    
+	    
 
 } // namespace variants
 
