@@ -436,6 +436,39 @@ struct TupleXGetter<IndicatorIterator, RealType> {
 	}
 }; 
 
+template <class IteratorType, class RealType, int index>
+struct TupleXGetterNew {
+
+    typedef RealType ReturnType;
+    
+    template <class TupleType>
+    inline ReturnType operator()(TupleType& tuple) const {
+        return boost::get<index>(tuple);
+    }
+};
+
+template <class RealType, int index>
+struct TupleXGetterNew<IndicatorIterator, RealType, index> {
+
+    typedef OneValue ReturnType;
+    
+    template <class TupleType>
+    inline ReturnType operator()(TupleType& tuple) const {
+        return OneValue();
+    }
+};
+
+template <class RealType, int index>
+struct TupleXGetterNew<InterceptIterator, RealType, index> {
+
+    typedef OneValue ReturnType;
+    
+    template <class TupleType>
+    inline ReturnType operator()(TupleType& tuple) const {
+        return OneValue();
+    }
+};
+
 // template <class RealType>
 // std::pair<RealType, RealType> operator+(
 //         const std::pair<RealType, RealType>& lhs,
@@ -507,6 +540,109 @@ protected:
     const RealType* denominator;   
 };
 
+template <class BaseModel, class IteratorType, class WeightOperationType,
+class RealType, class IntType>
+struct TransformAndAccumulateGradientAndHessianKernelIndependent : private BaseModel {
+	
+//     typedef typename IteratorType::XTuple XTuple;	
+
+//      TransformAndAccumulateGradientAndHessianKernelNew(
+//      	      //RealType* _numerator, RealType* _numerator2,
+//      	      RealType* _expXBeta, RealType* _xBeta, const RealType* _y,
+//             RealType* _denominator, RealType* _weight//, RealType* _xBeta, const RealType* _y
+//             ) 
+//             : //numerator(_numerator), numerator2(_numerator2), 
+//             expXBeta(_expXBeta), xBeta(_xBeta), y(_y),
+//             denominator(_denominator),
+//               weight(_weight)  { }
+    
+    template <class TupleType>
+    Fraction<RealType> operator()(Fraction<RealType>& lhs, TupleType tuple) {
+    
+// 		const auto k = getK(tuple);
+ 		const auto x = getX(tuple);	  
+		
+// 		const auto x = (IteratorType::isIndicatorStatic) ? 
+// 				OneValue()
+// 				// static_cast<RealType>(1)
+// 				: boost::get<0>(tuple);
+		const auto expXBeta = boost::get<0>(tuple);
+		const auto xBeta = boost::get<1>(tuple);
+		const auto y = boost::get<2>(tuple);
+		const auto denominator = boost::get<3>(tuple);
+		const auto weight = boost::get<4>(tuple);	
+    
+		RealType numerator = BaseModel::gradientNumeratorContrib(x, expXBeta, xBeta, y);
+		RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?	
+				BaseModel::gradientNumerator2Contrib(x, expXBeta) :
+				static_cast<RealType>(0);
+    
+        return BaseModel::template incrementGradientAndHessian<IteratorType, WeightOperationType, RealType>(
+            lhs, 
+            numerator, numerator2,
+//             numerator[i],
+//             numerator2[i], 
+            denominator, weight, xBeta, y);       
+    }
+            
+// protected:
+// 
+//     RealType* expXBeta;
+//     RealType* xBeta;
+//     const RealType* y;    
+//     RealType* denominator;
+//     RealType* weight;
+
+    
+private:	 // TODO Code duplication; remove
+    template <class TupleType>
+	inline auto getX(TupleType& tuple) const -> typename TupleXGetterNew<IteratorType, RealType, 5>::ReturnType {
+		return TupleXGetterNew<IteratorType, RealType, 5>()(tuple);
+	}        
+};
+
+template <class BaseModel, class IteratorType, class WeightOperationType,
+class RealType, class IntType>
+struct TransformAndAccumulateGradientAndHessianKernelDependent : private BaseModel {
+	    
+    template <class TupleType>
+    Fraction<RealType> operator()(Fraction<RealType>& lhs, TupleType tuple) {
+    
+ 		const auto x = getX(tuple);	  
+		const auto expXBeta = boost::get<0>(tuple);
+		const auto xBeta = boost::get<1>(tuple);
+		const auto y = boost::get<2>(tuple);
+		const auto denominator = boost::get<3>(tuple);
+		const auto weight = boost::get<4>(tuple);	
+    
+		RealType numerator = BaseModel::gradientNumeratorContrib(x, expXBeta, xBeta, y);
+		RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?	
+				BaseModel::gradientNumerator2Contrib(x, expXBeta) :
+				static_cast<RealType>(0);
+    
+    
+        return BaseModel::template incrementGradientAndHessian<IteratorType, WeightOperationType, RealType>(
+            lhs, 
+            numerator, numerator2,
+            denominator, weight, xBeta, y);       
+    }
+            
+// protected:
+// 
+//     RealType* expXBeta;
+//     RealType* xBeta;
+//     const RealType* y;    
+//     RealType* denominator;
+//     RealType* weight;
+
+    
+private:	 // TODO Code duplication; remove
+    template <class TupleType>
+	inline auto getX(TupleType& tuple) const -> typename TupleXGetterNew<IteratorType, RealType, 5>::ReturnType {
+		return TupleXGetterNew<IteratorType, RealType, 5>()(tuple);
+	}        
+};
+
 
 template <class BaseModel, class IteratorType, class WeightOperationType,
 class RealType, class IntType>
@@ -562,6 +698,52 @@ private:	 // TODO Code duplication; remove
 	}	        
 };
 
+
+template <class BaseModel, class IteratorType, class RealType>
+struct TestNumeratorKernel : private BaseModel {
+
+    template <class NumeratorType, class TupleType>
+    NumeratorType operator()(const NumeratorType lhs, const TupleType tuple) {
+        
+        const auto expXBeta = boost::get<0>(tuple);
+        const auto x = getX(tuple); //boost::get<1>(tuple);
+        
+        return {
+            lhs.first + BaseModel::gradientNumeratorContrib(x, expXBeta, 0.0, 0.0),
+            (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+                lhs.second +  BaseModel::gradientNumerator2Contrib(x, expXBeta) :
+                0.0        
+        };    
+    }
+    
+private:	 // TODO Code duplication; remove
+    template <class TupleType>
+	inline auto getX(TupleType tuple) const -> typename TupleXGetterNew<IteratorType, RealType, 5>::ReturnType {
+		return TupleXGetterNew<IteratorType, RealType, 1>()(tuple);
+	}     
+
+};
+
+template <class BaseModel, class IteratorType, class WeightType, class RealType>
+struct TestGradientKernel : private BaseModel {
+
+    template <class GradientType, class NumeratorType, class TupleType>
+    GradientType operator()(const GradientType lhs, const NumeratorType numerator, const TupleType tuple) {
+        const auto denominator = boost::get<0>(tuple);
+        const auto weight = boost::get<1>(tuple);
+         
+                std::cerr << "N n1: " << numerator.first << " n2: " << numerator.second 
+                    << " d: " << denominator << " w: " << weight <<  std::endl;	        
+         
+        return BaseModel::template incrementGradientAndHessian<IteratorType, 
+                            WeightType, RealType>(
+                        lhs, 
+                        numerator.first, numerator.second,
+                        denominator, weight, 0.0, 0.0
+        );              
+    }
+};
+
 template <class BaseModel, class IteratorType, class WeightOperationType,
 class RealType, class IntType>
 struct AccumulateGradientAndHessianKernel : private BaseModel {
@@ -572,6 +754,10 @@ struct AccumulateGradientAndHessianKernel : private BaseModel {
               weight(_weight), xBeta(_xBeta), y(_y) { }
     
     Fraction<RealType> operator()(Fraction<RealType>& lhs, const IntType& i) {
+    
+        std::cerr << "O n1: " << numerator[i] << " n2: " << numerator2[i]             
+            << " d: " << denominator[i] << " w: " << weight[i] << std::endl;
+        
         return BaseModel::template incrementGradientAndHessian<IteratorType, WeightOperationType, RealType>(
             lhs, numerator[i], numerator2[i], denominator[i], weight[i], xBeta[i], y[i]);       
     }

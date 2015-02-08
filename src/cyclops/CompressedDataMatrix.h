@@ -66,7 +66,11 @@ public:
 	real* getData() const {
 		return static_cast<real*>(data->data());
 	}
-	
+
+	std::vector<int>& getColumnsVector() const {
+		return *columns;
+	}
+		
 	std::vector<real>& getDataVector() const {
 		return *data;
 	}
@@ -224,12 +228,13 @@ public:
 
 	size_t getNumberOfEntries(int column) const;
 
-	int* getCompressedColumnVector(int column) const;
+	int* getCompressedColumnVector(int column) const; // TODO depreciate
+	std::vector<int>& getCompressedColumnVectorSTL(int column) const;
 
 	void removeFromColumnVector(int column, IntVector removeEntries) const;
 	void addToColumnVector(int column, IntVector addEntries) const;
 
-	real* getDataVector(int column) const;
+ 	real* getDataVector(int column) const;  // TODO depreciate
 	
 	std::vector<real>& getDataVectorSTL(int column) const;
 

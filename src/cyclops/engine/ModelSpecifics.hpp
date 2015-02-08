@@ -22,6 +22,9 @@
 
 #include "Recursions.hpp"
 #include "ParallelLoops.h"
+#include "Ranges.h"
+
+#include "R.h"
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	#include "Timing.h"
@@ -32,6 +35,10 @@
 		const std::string InterceptIterator::name = "Icp";
 	}
 #endif
+
+#define OLD_WAY
+//#define NEW_WAY1
+#define NEW_WAY2
 
 //#define USE_BIGNUM
 #define USE_LONG_DOUBLE
@@ -164,70 +171,7 @@ namespace helper {
                 boost::make_tuple(i + K, j + K, x + K))        
         };                   
     }
-    
-    
-	template <class IteratorTag, class ExpXBetaType, class XBetaType, class YType, class DenominatorType,
-	class WeightType>
-    auto getRangeXNew(const CompressedDataMatrix& mat, const int index, 
-    ExpXBetaType&, XBetaType&, YType&, DenominatorType&, WeightType&,    
-    IteratorTag) -> void {
-    	throw std::logic_error("Not yet implemented");
-    }
-    
-    
-// 		RealType numerator = BaseModel::gradientNumeratorContrib(x, expXBeta[k], xBeta[k], y[k]);
-// 		RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?	
-// 				BaseModel::gradientNumerator2Contrib(x, expXBeta[k]) :
-// 				static_cast<RealType>(0);
-//     
-//         return BaseModel::template incrementGradientAndHessian<IteratorType, WeightOperationType, RealType>(
-//             lhs, 
-//             numerator, numerator2,
-// //             numerator[i],
-// //             numerator2[i], 
-//             denominator[k], weight[k], xBeta[k], y[k]);           
-    
-    
-	template <class ExpXBetaType, class XBetaType, class YType, class DenominatorType,
-	class WeightType>    
-    auto getRangeXNew(const CompressedDataMatrix& mat, const int index, 
-    			ExpXBetaType& expXBeta, XBetaType& xBeta, YType& y, DenominatorType& denominator, WeightType& weight,
-    			DenseTag) -> 
-
- 			boost::iterator_range<
- 				boost::zip_iterator<
- 					boost::tuple<
-	            		decltype(boost::make_counting_iterator(0)),
-		            	decltype(begin(mat.getDataVector(index))),
-		            	decltype(begin(expXBeta)),
-		            	decltype(begin(xBeta)),
-		            	decltype(begin(y)),
-		            	decltype(begin(weight))            	
-        		    >
-            	>
-            > {            	
-        
-        auto i = boost::make_counting_iterator(0); 
-        auto x0 = begin(mat.getDataVector(index)); 
-        auto x1 = begin(expXBeta);
-        auto x2 = begin(xBeta);
-        auto x3 = begin(y);
-        auto x4 = begin(weight);              
-		const size_t K = mat.getNumberOfRows();	
-        
-        return { 
-            boost::make_zip_iterator(
-                boost::make_tuple(
-                	i, x0, x1, x2, x3, x4
-                )),
-            boost::make_zip_iterator(
-                boost::make_tuple(
-                	i + K, x0 + K, x1 + K, x2 + K, x3 + K, x4 + K
-                ))            
-        };          
-    }                          
-           
-                 
+                                                        
 	template <class IteratorTag>
     auto getRangeX(const CompressedDataMatrix& mat, const int index, IteratorTag) -> void {
     	std::cerr << "Not yet implemented." << std::endl;
@@ -819,24 +763,21 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		}
 	} else if (BaseModel::hasIndependentRows) {
 	
-// 		auto range = helper::getRangeDenominator(sparseIndices[index], N, typename IteratorType::tag());
-		
-		auto range = helper::getRangeX(modelData, index, typename IteratorType::tag());				
-		
-		auto kernel = TransformAndAccumulateGradientAndHessianKernel<BaseModel,IteratorType, Weights, real, int>(
-							begin(offsExpXBeta), begin(hXBeta), begin(hY),
-							//begin(numerPid), begin(numerPid2), 
-							begin(denomPid), 
-							begin(hNWeight));
-							
-		Fraction<real> result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), kernel,
+		auto range = helper::getRangeXIndependent(modelData, index, 
+		        offsExpXBeta, hXBeta, hY, denomPid, hNWeight,
+		        typename IteratorType::tag());	
+		        							
+		Fraction<real> result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), 
+		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
 			SerialOnly()
 		);	
 		
 		gradient = result.real();
-		hessian = result.imag();						
+		hessian = result.imag();								
 	
 	} else {
+	
+#ifdef OLD_WAY	
 
 		auto range = helper::getRangeDenominator(sparseIndices[index], N, typename IteratorType::tag());
 						
@@ -851,6 +792,133 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 		gradient = result.real();
 		hessian = result.imag();
+		
+#endif		
+		
+#ifdef NEW_WAY1 
+		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid, DenseTag());
+
+        auto rangeXNumerator = helper::dependent::getRangeX(modelData, index, offsExpXBeta, DenseTag());		
+        
+        auto rangeGradient = helper::dependent::getRangeGradient(modelData, index, denomPid, hNWeight, hPid, DenseTag()); 
+                
+        auto itKey = rangeKey.begin();
+        auto endKey = rangeKey.end();
+        
+        auto itInner = rangeXNumerator.begin();
+        auto itOuter = rangeGradient.begin();
+        
+		// Accumulators for loops
+		Fraction<real> result2 = Fraction<real>{0,0};
+		std::pair<double,double> numerator{0.0, 0.0};		
+                                
+        auto lastKey = *itKey;
+        
+        for (; itKey != endKey; ++itKey, ++itInner) {
+        
+            // Perform inner action
+            const auto expXBeta = boost::get<0>(*itInner);
+            const auto x = boost::get<1>(*itInner);
+            
+			numerator.first = numerator.first + BaseModel::gradientNumeratorContrib(x, expXBeta, 0.0, 0.0);
+			if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
+			    numerator.second = numerator.second + BaseModel::gradientNumerator2Contrib(x, expXBeta);
+			}            
+            
+            const auto key = *itKey;
+            if (key != lastKey) {
+            
+                // Perform outer action            
+                const auto denominator = boost::get<0>(*itOuter);
+                const auto weight = boost::get<1>(*itOuter);
+                
+//                 std::cerr << "N n1: " << numerator1 << " n2: " << numerator2 
+//                     << " d: " << denominator <<  " w: " << weight << std::endl;	                
+                
+                result2 = BaseModel::template incrementGradientAndHessian<IteratorType, 
+                                    Weights, real>(
+                                result2, 
+                                numerator.first, numerator.second,
+                                denominator, weight, 0.0, 0.0
+                            );
+                
+                // reset and increment
+                numerator = {0, 0};            
+                lastKey = key;                
+                ++itOuter;
+            }        
+        }        
+        
+        // Perform last outer action
+        const auto denominator = boost::get<0>(*itOuter);
+        const auto weight = boost::get<1>(*itOuter);
+        
+//                 std::cerr << "N n1: " << numerator1 << " n2: " << numerator2 
+//                     << " d: " << denominator << " w: " << weight <<  std::endl;	        
+        
+        result2 = BaseModel::template incrementGradientAndHessian<IteratorType, 
+                            Weights, real>(
+                        result2, 
+                        numerator.first, numerator.second,
+                        denominator, weight, 0.0, 0.0
+                    );        
+                                
+								
+		gradient = result2.real();
+		hessian = result2.imag();
+		
+#endif
+
+#ifdef NEW_WAY2	
+
+		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid, 
+		//DenseTag()
+		//IndicatorTag()
+		typename IteratorType::tag()
+		);
+
+        auto rangeXNumerator = helper::dependent::getRangeX(modelData, index, offsExpXBeta, 
+        //DenseTag()
+        //IndicatorTag()
+        typename IteratorType::tag()
+        );		
+        
+        auto rangeGradient = helper::dependent::getRangeGradient(
+        *sparseIndices[index], N,
+        //modelData, index, 
+        denomPid, hNWeight, //hPid,
+        //DenseTag()
+        //IndicatorTag()
+        typename IteratorType::tag()
+        ); 
+        
+        std::cerr << "ln = " << std::distance(rangeKey.begin(), rangeKey.end()) << " "
+            << "lg = " << std::distance(rangeGradient.begin(), rangeGradient.end()) << std::endl;
+			
+		auto result3 = variants::trial::nested_reduce(
+		        rangeKey.begin(), rangeKey.end(),
+		        rangeXNumerator.begin(), rangeGradient.begin(),
+		        std::pair<real,real>{0,0}, Fraction<real>{0,0},
+                TestNumeratorKernel<BaseModel,
+                IteratorType
+                //IndicatorIterator
+                ,real>(),
+		       	TestGradientKernel<BaseModel,
+		       	IteratorType
+		       	//IndicatorIterator
+		       	,Weights,real>()
+		);
+		
+		gradient = result3.real();
+		hessian = result3.imag();	
+#endif			
+		
+       std::cerr << std::endl
+           << result.real() << " " << result.imag() << std::endl
+//            << result2.real() << " " << result2.imag() << std::endl			
+		   		 << result3.real() << " " << result3.imag() << std::endl;
+    
+//  		::Rf_error("break");	    
     
     } // not Cox
 
@@ -1216,6 +1284,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 
 	if (!BaseModel::hasIndependentRows) {
 
+
+#ifdef OLD_WAY
 		// Run-time delegation
 		switch (modelData.getFormatType(index)) {
 			case INDICATOR : 
@@ -1232,7 +1302,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 				break;
 			default : break;
 				// throw error
-		}
+		}		
+#endif	
+	
 	}
 	
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -1270,9 +1342,9 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 		SerialOnly()
 // 		RcppParallel()
 	);
+	
+	if (true) {
 				
-	// TODO Fuse, when ranges are equal (no PIDs?)	
-
 	auto computeRange = helper::getRangeX(modelData, index, typename IteratorType::tag());		
 
 	auto computeKernel = NumeratorForGradientKernel<BaseModel,IteratorType,real,int>(
@@ -1281,6 +1353,22 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 					begin(hY), 				  
 					begin(hPid));
 					
+	variants::for_each(
+		computeRange.begin(), computeRange.end(),
+		computeKernel, 
+// 		info
+//   		threadPool
+ 		SerialOnly()
+//		RcppParallel() //  TODO Not thread-safe
+		);					
+					
+	} else {	
+//	auto computeRange = helper::getRangeXDependent(modelData, index,
+//		numerPid, numerPid2, offsExpXBeta, hXBeta, hY, hPid,
+//// 		typename IteratorType::tag()
+//		DenseTag()
+//		);
+//					
 //	auto info = C11Threads(4, 100);
 
     // Let computeRange -> tuple<i, j, x>
@@ -1293,15 +1381,8 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 //    
 //    );
 					
-	variants::for_each(
-		computeRange.begin(), computeRange.end(),
-		computeKernel, 
-// 		info
-//   		threadPool
- 		SerialOnly()
-//		RcppParallel() //  TODO Not thread-safe
-		);
-
+	}
+	
 #else		
 	
 	IteratorType it(modelData, index);

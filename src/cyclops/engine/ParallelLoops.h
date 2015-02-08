@@ -40,6 +40,43 @@ struct C11Threads {
 
 namespace variants {
 
+
+    namespace trial {
+        
+        template <typename OuterResultType, typename InnerResultType, 
+                  typename OuterFunction, typename InnerFunction,                  
+                  typename KeyIterator, typename InnerIterator, typename OuterIterator>
+        inline OuterResultType nested_reduce(KeyIterator key, KeyIterator end, 
+                    InnerIterator inner, OuterIterator outer,
+                    InnerResultType reset_in, OuterResultType result_out,
+                    InnerFunction f_in, OuterFunction f_out) {
+            
+            const auto stop = end - 1;
+            
+            InnerResultType result_in = reset_in;
+            
+            for (; key != stop; ++key, ++inner) {
+            
+                result_in = f_in(result_in, *inner);
+                
+                if (*key != *(key + 1)) {                    
+                
+                    result_out = f_out(result_out, result_in, *outer);
+                    
+                    result_in = reset_in;                   
+                    ++outer;
+                }                                        
+            }
+            
+            result_in = f_in(result_in, *inner);
+            
+            return f_out(result_out, result_in, *outer);                        
+        }    
+    
+    
+    
+    } // namespace trial
+
     const int nThreads = 4;			
 	const int minSize = 100000;	
 

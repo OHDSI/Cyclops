@@ -33,7 +33,7 @@ class IndicatorIterator {
 	
 	const static std::string name;	
 
-//	static const bool isIndicator = true;
+	static const bool isIndicatorStatic = true;
 	enum  { isIndicator = true };
 	enum  { isSparse = true };
 	
@@ -80,7 +80,7 @@ class SparseIterator {
 	
 	const static std::string name;	
 
-//	static const bool isIndicator = false;
+	static const bool isIndicatorStatic = false;
 	enum  { isIndicator = false };
 	enum  { isSparse = true };
 

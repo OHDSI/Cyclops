@@ -17,6 +17,38 @@ test_that("Check simple SCCS as conditional logistic regression", {
     expect_equal(coef(cyclopsFit), coef(gold.clogit), tolerance = tolerance)            
 })
 
+test_that("Check simple SCCS as indicator conditional logistic regression", {
+	#     source("helper-conditionalPoisson.R")
+	tolerance <- 1E-6    
+	gold.clogit <- clogit(event ~ exgr + agegr + strata(indiv) + offset(loginterval), 
+												data = Cyclops2::oxford)
+	
+	dataPtr <- createCyclopsData(event ~ strata(indiv) + offset(loginterval),
+															 indicatorFormula = ~ exgr + agegr,
+															 data = Cyclops2::oxford,
+															 modelType = "clr")        
+	cyclopsFit <- fitCyclopsModel(dataPtr,
+																prior = createPrior("none"))
+	expect_equal(logLik(cyclopsFit), logLik(gold.clogit))
+	expect_equal(coef(cyclopsFit), coef(gold.clogit), tolerance = tolerance)            
+})
+
+test_that("Check simple SCCS as sparse conditional logistic regression", {
+	#     source("helper-conditionalPoisson.R")
+	tolerance <- 1E-6    
+	gold.clogit <- clogit(event ~ exgr + agegr + strata(indiv) + offset(loginterval), 
+												data = Cyclops2::oxford)
+	
+	dataPtr <- createCyclopsData(event ~ strata(indiv) + offset(loginterval),
+															 sparseFormula = ~ exgr + agegr,
+															 data = Cyclops2::oxford,
+															 modelType = "clr")        
+	cyclopsFit <- fitCyclopsModel(dataPtr,
+																prior = createPrior("none"))
+	expect_equal(logLik(cyclopsFit), logLik(gold.clogit))
+	expect_equal(coef(cyclopsFit), coef(gold.clogit), tolerance = tolerance)            
+})
+
 test_that("Check simple SCCS as conditional Poisson regression", {
 #     source("helper-conditionalPoisson.R")
     tolerance <- 1E-3    
