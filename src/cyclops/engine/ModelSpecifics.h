@@ -732,8 +732,8 @@ struct TestGradientKernel : private BaseModel {
         const auto denominator = boost::get<0>(tuple);
         const auto weight = boost::get<1>(tuple);
          
-                std::cerr << "N n1: " << numerator.first << " n2: " << numerator.second 
-                    << " d: " << denominator << " w: " << weight <<  std::endl;	        
+//                 std::cerr << "N n1: " << numerator.first << " n2: " << numerator.second 
+//                     << " d: " << denominator << " w: " << weight <<  std::endl;	        
          
         return BaseModel::template incrementGradientAndHessian<IteratorType, 
                             WeightType, RealType>(

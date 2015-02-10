@@ -36,7 +36,7 @@
 	}
 #endif
 
-#define OLD_WAY
+//#define OLD_WAY
 //#define NEW_WAY1
 #define NEW_WAY2
 
@@ -665,7 +665,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 	
 }
 
-
 template <class RealType>
 std::pair<RealType, RealType> operator+(
         const std::pair<RealType, RealType>& lhs,
@@ -674,7 +673,6 @@ std::pair<RealType, RealType> operator+(
     return { lhs.first + rhs.first, lhs.second + rhs.second };
 }
 
-// #if 1
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
  double *ohessian, Weights w) {
@@ -687,8 +685,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	real gradient = static_cast<real>(0);
 	real hessian = static_cast<real>(0);
-
-#ifdef NEW_LOOPS
 
 	if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 		
@@ -717,12 +713,19 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			    accNumerPid2 = static_cast<real>(0.0);
 			    ++reset;
 			} 			    
+			
+			const real x = 0.0; // ***
 						
-			accNumerPid  += numerPid[i]; 
-			accNumerPid2 += numerPid2[i];
+// 			accNumerPid  += numerPid[i]; 
+// 			accNumerPid2 += numerPid2[i];
+
+    		const real numerator1 = BaseModel::gradientNumeratorContrib(x, offsExpXBeta[i], hXBeta[i], hY[i]);
+    		const real numerator2 = BaseModel::gradientNumerator2Contrib(x, offsExpXBeta[i]);    		
+    		accNumerPid += numerator1;
+    		accNumerPid2 += numerator2;
 			
 #ifdef DEBUG_COX
-			cerr << "w: " << i << " " << hNWeight[i] << " " << numerPid[i] << ":" <<
+			cerr << "w: " << i << " " << hNWeight[i] << " " << numerator1 << ":" <<
 					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[i];
 #endif			
 			// Compile-time delegation
@@ -763,11 +766,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		}
 	} else if (BaseModel::hasIndependentRows) {
 	
-		auto range = helper::getRangeXIndependent(modelData, index, 
+		auto range = helper::independent::getRangeX(modelData, index, 
 		        offsExpXBeta, hXBeta, hY, denomPid, hNWeight,
 		        typename IteratorType::tag());	
 		        							
-		Fraction<real> result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), 
+		const auto result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), 
 		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
 			SerialOnly()
 		);	
@@ -795,155 +798,39 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		
 #endif		
 		
-#ifdef NEW_WAY1 
-		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid, DenseTag());
-
-        auto rangeXNumerator = helper::dependent::getRangeX(modelData, index, offsExpXBeta, DenseTag());		
-        
-        auto rangeGradient = helper::dependent::getRangeGradient(modelData, index, denomPid, hNWeight, hPid, DenseTag()); 
-                
-        auto itKey = rangeKey.begin();
-        auto endKey = rangeKey.end();
-        
-        auto itInner = rangeXNumerator.begin();
-        auto itOuter = rangeGradient.begin();
-        
-		// Accumulators for loops
-		Fraction<real> result2 = Fraction<real>{0,0};
-		std::pair<double,double> numerator{0.0, 0.0};		
-                                
-        auto lastKey = *itKey;
-        
-        for (; itKey != endKey; ++itKey, ++itInner) {
-        
-            // Perform inner action
-            const auto expXBeta = boost::get<0>(*itInner);
-            const auto x = boost::get<1>(*itInner);
-            
-			numerator.first = numerator.first + BaseModel::gradientNumeratorContrib(x, expXBeta, 0.0, 0.0);
-			if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
-			    numerator.second = numerator.second + BaseModel::gradientNumerator2Contrib(x, expXBeta);
-			}            
-            
-            const auto key = *itKey;
-            if (key != lastKey) {
-            
-                // Perform outer action            
-                const auto denominator = boost::get<0>(*itOuter);
-                const auto weight = boost::get<1>(*itOuter);
-                
-//                 std::cerr << "N n1: " << numerator1 << " n2: " << numerator2 
-//                     << " d: " << denominator <<  " w: " << weight << std::endl;	                
-                
-                result2 = BaseModel::template incrementGradientAndHessian<IteratorType, 
-                                    Weights, real>(
-                                result2, 
-                                numerator.first, numerator.second,
-                                denominator, weight, 0.0, 0.0
-                            );
-                
-                // reset and increment
-                numerator = {0, 0};            
-                lastKey = key;                
-                ++itOuter;
-            }        
-        }        
-        
-        // Perform last outer action
-        const auto denominator = boost::get<0>(*itOuter);
-        const auto weight = boost::get<1>(*itOuter);
-        
-//                 std::cerr << "N n1: " << numerator1 << " n2: " << numerator2 
-//                     << " d: " << denominator << " w: " << weight <<  std::endl;	        
-        
-        result2 = BaseModel::template incrementGradientAndHessian<IteratorType, 
-                            Weights, real>(
-                        result2, 
-                        numerator.first, numerator.second,
-                        denominator, weight, 0.0, 0.0
-                    );        
-                                
-								
-		gradient = result2.real();
-		hessian = result2.imag();
-		
-#endif
-
 #ifdef NEW_WAY2	
 
 		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid, 
-		//DenseTag()
-		//IndicatorTag()
-		typename IteratorType::tag()
-		);
+		        typename IteratorType::tag());
 
         auto rangeXNumerator = helper::dependent::getRangeX(modelData, index, offsExpXBeta, 
-        //DenseTag()
-        //IndicatorTag()
-        typename IteratorType::tag()
-        );		
+                typename IteratorType::tag());		
         
-        auto rangeGradient = helper::dependent::getRangeGradient(
-        *sparseIndices[index], N,
-        //modelData, index, 
-        denomPid, hNWeight, //hPid,
-        //DenseTag()
-        //IndicatorTag()
-        typename IteratorType::tag()
-        ); 
+        auto rangeGradient = helper::dependent::getRangeGradient(*sparseIndices[index], N,
+                denomPid, hNWeight, typename IteratorType::tag()); 
         
-        std::cerr << "ln = " << std::distance(rangeKey.begin(), rangeKey.end()) << " "
-            << "lg = " << std::distance(rangeGradient.begin(), rangeGradient.end()) << std::endl;
+//         std::cerr << "ln = " << std::distance(rangeKey.begin(), rangeKey.end()) << " "
+//             << "lg = " << std::distance(rangeGradient.begin(), rangeGradient.end()) << std::endl;
 			
-		auto result3 = variants::trial::nested_reduce(
+		const auto result3 = variants::trial::nested_reduce(
 		        rangeKey.begin(), rangeKey.end(),
 		        rangeXNumerator.begin(), rangeGradient.begin(),
 		        std::pair<real,real>{0,0}, Fraction<real>{0,0},
-                TestNumeratorKernel<BaseModel,
-                IteratorType
-                //IndicatorIterator
-                ,real>(),
-		       	TestGradientKernel<BaseModel,
-		       	IteratorType
-		       	//IndicatorIterator
-		       	,Weights,real>()
-		);
+                TestNumeratorKernel<BaseModel,IteratorType,real>(), // Inner transform-reduce
+		       	TestGradientKernel<BaseModel,IteratorType,Weights,real>()); // Outer transform-reduce
 		
 		gradient = result3.real();
 		hessian = result3.imag();	
 #endif			
 		
-       std::cerr << std::endl
-           << result.real() << " " << result.imag() << std::endl
+//       std::cerr << std::endl
+//            << result.real() << " " << result.imag() << std::endl
 //            << result2.real() << " " << result2.imag() << std::endl			
-		   		 << result3.real() << " " << result3.imag() << std::endl;
+// 		   		 << result3.real() << " " << result3.imag() << std::endl;
     
 //  		::Rf_error("break");	    
     
     } // not Cox
-
-#else
-
-	IteratorType it(*(sparseIndices)[index], N);
-	
-	for (; it; ++it) {
-			const int i = it.index();
-			
-			// Compile-time delegation
-				BaseModel::incrementGradientAndHessian(it,
-						w, // Signature-only, for iterator-type specialization
-						&gradient, &hessian, numerPid[i], numerPid2[i],
-						denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); 
-						// When function is in-lined, compiler will only use necessary arguments		
-// 								 std::cout << std::endl << gradient << ":" << hessian;
-// 								 std::cout << ":" << numerPid[i];
-// 								 std::cout << ":" << numerPid2[i];
-// 								 std::cout << ":" << denomPid[i];
-								
-	
-			}
-			
-#endif // NEW_LOOPS
 	
 	if (BaseModel::precomputeGradient) { // Compile-time switch
 		gradient -= hXjY[index];
@@ -966,149 +853,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 #endif	
 	
  }
-
-// #else
-// 
-// template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
-// void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
-// 		double *ohessian, Weights w) {
-// 		
-// #ifdef CYCLOPS_DEBUG_TIMING
-// #ifdef CYCLOPS_DEBUG_TIMING_LOW
-// 	auto start = bsccs::chrono::steady_clock::now();
-// #endif		
-// #endif		
-// 		
-// 	real gradient = static_cast<real>(0);
-// 	real hessian = static_cast<real>(0);
-// 
-// 	IteratorType it(*(sparseIndices)[index], N); // TODO How to create with different constructor signatures?
-// 
-// 	if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
-// 		
-// 		real accNumerPid  = static_cast<real>(0);
-// 		real accNumerPid2 = static_cast<real>(0);
-// 
-// 		// This is an optimization point compared to iterating over a completely dense view:  
-// 		// a) the view below starts at the first non-zero entry
-// 		// b) we only access numerPid and numerPid2 for non-zero entries 
-// 		// This may save time; should document speed-up in massive Cox manuscript
-// 		
-//         // find start relavent accumulator reset point
-//         auto reset = begin(accReset);
-//         while( *reset < it.index() ) {
-//             ++reset;
-//         }
-//         
-// //         std::cout << "Will reset at " << *reset << std::endl;
-// 				
-// 		for (; it; ) {
-// 			int i = it.index();
-// // 			std::cout << "i = " << i << std::endl;
-// 			
-// // TODO CHECK		
-// 			if (*reset <= i) {
-// 			    accNumerPid  = static_cast<real>(0.0);
-// 			    accNumerPid2 = static_cast<real>(0.0);
-// 			    ++reset;
-// 			} 			    
-// 						
-// 			if(w.isWeighted){ //if useCrossValidation
-// 				accNumerPid  += numerPid[i]; // * hNWeight[i]; // TODO Only works when X-rows are sorted as well
-// 				accNumerPid2 += numerPid2[i]; // * hNWeight[i];
-// 			} else { // TODO Unnecessary code duplication
-// 				accNumerPid  += numerPid[i]; // TODO Only works when X-rows are sorted as well
-// 				accNumerPid2 += numerPid2[i];
-// 			}
-// #ifdef DEBUG_COX
-// 			cerr << "w: " << i << " " << hNWeight[i] << " " << numerPid[i] << ":" <<
-// 					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[i];
-// #endif			
-// 			// Compile-time delegation
-// 			BaseModel::incrementGradientAndHessian(it,
-// 					w, // Signature-only, for iterator-type specialization
-// 					&gradient, &hessian, accNumerPid, accNumerPid2,
-// 					accDenomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); 
-// 					// When function is in-lined, compiler will only use necessary arguments
-// #ifdef DEBUG_COX		
-// 			cerr << " -> g:" << gradient << " h:" << hessian << endl;	
-// #endif
-// 			++it;
-// 			
-// 			if (IteratorType::isSparse) {
-// 				const int next = it ? it.index() : N;
-// 				for (++i; i < next; ++i) {
-// #ifdef DEBUG_COX
-// 			cerr << "q: " << i << " " << hNWeight[i] << " " << 0 << ":" <<
-// 					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[i];
-// #endif	
-// // TODO CHECK                   
-//                     if (*reset <= i) {
-// 			            accNumerPid  = static_cast<real>(0.0);
-//         			    accNumerPid2 = static_cast<real>(0.0);
-// 		        	    ++reset;                   
-//                    } 		
-// 					
-// 					BaseModel::incrementGradientAndHessian(it,
-// 							w, // Signature-only, for iterator-type specialization
-// 							&gradient, &hessian, accNumerPid, accNumerPid2,
-// 							accDenomPid[i], hNWeight[i], static_cast<real>(0), hXBeta[i], hY[i]); 
-// 							// When function is in-lined, compiler will only use necessary arguments
-// #ifdef DEBUG_COX		
-// 			cerr << " -> g:" << gradient << " h:" << hessian << endl;	
-// #endif
-// 					
-// 				}						
-// 			}
-// 		}
-// 	} else {
-// 		for (; it; ++it) {
-// 			const int i = it.index();
-// 			
-// 			if (BaseModel::exactTies && hNWeight[i] > 1) {
-// 				int numSubjects = hNtoK[i+1] - hNtoK[i];
-// 				int numCases = hNWeight[i];
-// 				DenseView<IteratorType> x(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
-// 				
-// 				std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], 
-// 													x, numSubjects, numCases, hY + hNtoK[i]);
-// 
-// 				using namespace sugar;											
-// 				gradient += (real)(value[1]/value[0] - value[3]);	
-// 				hessian += (real)(value[2]/value[0] - (value[1]/value[0]) * (value[1]/value[0]));	
-// 			} else {			
-// 				// Compile-time delegation
-// 				BaseModel::incrementGradientAndHessian(it,
-// 						w, // Signature-only, for iterator-type specialization
-// 						&gradient, &hessian, numerPid[i], numerPid2[i],
-// 						denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); 
-// 						// When function is in-lined, compiler will only use necessary arguments		
-// 			}
-// 		}
-// 	}
-// 	
-// 	if (BaseModel::precomputeGradient) { // Compile-time switch
-// 		gradient -= hXjY[index];
-// 	}
-// 
-// 	if (BaseModel::precomputeHessian) { // Compile-time switch
-// 		hessian += static_cast<real>(2.0) * hXjX[index];
-// 	}
-// 
-// 	*ogradient = static_cast<double>(gradient);
-// 	*ohessian = static_cast<double>(hessian);
-// 	
-// #ifdef CYCLOPS_DEBUG_TIMING
-// #ifdef CYCLOPS_DEBUG_TIMING_LOW
-// 	auto end = bsccs::chrono::steady_clock::now();	
-// 	///////////////////////////"
-// 	auto name = "compGradHess" + IteratorType::name + "  ";	
-// 	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-// #endif
-// #endif		
-// 	
-// }
-// #endif
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeFisherInformation(int indexOne, int indexTwo,
@@ -1190,7 +934,6 @@ SparseIterator ModelSpecifics<BaseModel, WeightType>::getSubjectSpecificHessianI
 
 }
 
-
 template <class BaseModel, typename WeightType> template <class IteratorTypeOne, class IteratorTypeTwo, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int indexOne, int indexTwo, double *oinfo, Weights w) {
 
@@ -1270,8 +1013,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 
 	*oinfo = static_cast<double>(information);
 }
-
-
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index) {
