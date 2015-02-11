@@ -100,10 +100,13 @@ namespace helper {
 
 namespace independent {    
     
-    template <class ExpXBetaType, class XBetaType, class YType, class DenominatorType, class WeightType>
+//    template <class ExpXBetaType, class XBetaType, class YType, class DenominatorType, class WeightType>
     auto getRangeX(const CompressedDataMatrix& mat, const int index, 
-    			ExpXBetaType& expXBeta, XBetaType& xBeta, YType& y, DenominatorType& denominator, WeightType& weight,
-    			IndicatorTag) ->    			    		
+//    			ExpXBetaType& expXBeta, XBetaType& xBeta, YType& y, DenominatorType& denominator, WeightType& weight,
+  					RealVector& expXBeta, RealVector& xBeta, const RealVector& y,
+  					real* denominator,
+  					RealVector& weight,
+  					IndicatorIterator::tag) ->    			    		
     		
  			boost::iterator_range<
  				boost::zip_iterator<
@@ -184,10 +187,13 @@ namespace independent {
         }; 	
  	}    	
  	
-    template <class ExpXBetaType, class XBetaType, class YType, class DenominatorType, class WeightType>
+//    template <class ExpXBetaType, class XBetaType, class YType, class DenominatorType, class WeightType>
     auto getRangeX(const CompressedDataMatrix& mat, const int index, 
-    			ExpXBetaType& expXBeta, XBetaType& xBeta, YType& y, DenominatorType& denominator, WeightType& weight,
-    			SparseTag) ->
+//    			ExpXBetaType& expXBeta, XBetaType& xBeta, YType& y, DenominatorType& denominator, WeightType& weight,
+  					RealVector& expXBeta, RealVector& xBeta, const RealVector& y,
+  					real* denominator,
+  					RealVector& weight,
+  					SparseIterator::tag) ->
     			
  			boost::iterator_range<
  				boost::zip_iterator<
@@ -272,10 +278,13 @@ namespace independent {
         };      			 				
  	}  	
         
-	template <class ExpXBetaType, class XBetaType, class YType, class DenominatorType, class WeightType>
+//	template <class ExpXBetaType, class XBetaType, class YType, class DenominatorType, class WeightType>
     auto getRangeX(const CompressedDataMatrix& mat, const int index, 
-    			ExpXBetaType& expXBeta, XBetaType& xBeta, YType& y, DenominatorType& denominator, WeightType& weight,
-    			DenseTag) -> 
+//    			ExpXBetaType& expXBeta, XBetaType& xBeta, YType& y, DenominatorType& denominator, WeightType& weight,
+  					RealVector& expXBeta, RealVector& xBeta, const RealVector& y,
+  					real* denominator,
+  					RealVector& weight,
+  					DenseIterator::tag) -> 
 
  			boost::iterator_range<
  				boost::zip_iterator<
@@ -322,9 +331,35 @@ namespace independent {
      	
 // START DEPENDENT 		
 namespace dependent {
+	
+//    template <class KeyType, class IteratorType> // For sparse 
+    auto getRangeKey(const CompressedDataMatrix& mat, const int index, 
+    		//KeyType& pid, IteratorType
+    		int* pid,
+    		SparseIterator::tag
+    		) ->
+            boost::iterator_range<               
+                decltype(boost::make_permutation_iterator(
+                    begin(pid),
+                    std::begin(mat.getCompressedColumnVectorSTL(index))))                                 
+            > {            
+        const size_t K = mat.getNumberOfRows();        
+        return {
+    	    boost::make_permutation_iterator(
+			    begin(pid),
+				std::begin(mat.getCompressedColumnVectorSTL(index))),
+    	    boost::make_permutation_iterator(
+			    begin(pid),
+				std::end(mat.getCompressedColumnVectorSTL(index)))				
+        };             
+    }	
 
-    template <class KeyType, class IteratorType> // For sparse and indicator
-    auto getRangeKey(const CompressedDataMatrix& mat, const int index, KeyType& pid, IteratorType) ->
+//    template <class KeyType, class IteratorType> // For indicator
+    auto getRangeKey(const CompressedDataMatrix& mat, const int index, 
+    		//KeyType& pid, IteratorType
+    		int* pid, 
+    		IndicatorIterator::tag
+    		) ->
             boost::iterator_range<               
                 decltype(boost::make_permutation_iterator(
                     begin(pid),
@@ -341,8 +376,11 @@ namespace dependent {
         };             
     }
 
-    template <class KeyType> // For dense
-    auto getRangeKey(const CompressedDataMatrix& mat, const int index, KeyType& pid, DenseTag) ->
+//    template <class KeyType> // For dense
+    auto getRangeKey(const CompressedDataMatrix& mat, const int index, 
+    		//KeyType& pid, 
+    		int* pid,
+    		DenseTag) ->
             boost::iterator_range<
                 decltype(begin(pid))
             > {            
@@ -352,10 +390,13 @@ namespace dependent {
             begin(pid) + K
         };             
     }
+    
    
-    template <class ExpXBeta> // For dense
+//    template <class ExpXBeta> // For dense
     auto getRangeX(const CompressedDataMatrix& mat, const int index,
-                ExpXBeta& expXBeta, DenseTag) ->
+                //ExpXBeta&
+                RealVector&
+                expXBeta, DenseIterator::tag) ->
             boost::iterator_range<
                 boost::zip_iterator<
                     boost::tuple<
@@ -378,9 +419,11 @@ namespace dependent {
         };             
     }
     
-    template <class ExpXBeta> // For sparse
+//    template <class ExpXBeta> // For sparse
     auto getRangeX(const CompressedDataMatrix& mat, const int index,
-                ExpXBeta& expXBeta, SparseTag) ->
+                //ExpXBeta&
+                RealVector&
+                expXBeta, SparseIterator::tag) ->
             boost::iterator_range<
                 boost::zip_iterator<
                     boost::tuple<
@@ -409,9 +452,11 @@ namespace dependent {
         };             
     }     
     
-    template <class ExpXBeta> // For indicator
+//    template <class ExpXBeta> // For indicator
     auto getRangeX(const CompressedDataMatrix& mat, const int index,
-                ExpXBeta& expXBeta, IndicatorTag) ->
+                //ExpXBeta&
+                RealVector&
+                expXBeta, IndicatorIterator::tag) ->
             boost::iterator_range<
                 boost::zip_iterator<
                     boost::tuple<
