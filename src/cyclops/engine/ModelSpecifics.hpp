@@ -555,38 +555,38 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 		computeRemainingStatistics(true); // compute accDenomPid
 	}
 
-    auto range = helper::getRangeAll(K);
-    
-    auto kernel = (BaseModel::cumulativeGradientAndHessian) ?
-            PredLikeKernel<BaseModel,real,int>(
-                begin(hY), begin(weights), begin(hXBeta), begin(accDenomPid), begin(hPid)
-            ) :
-            PredLikeKernel<BaseModel,real,int>(
-                begin(hY), begin(weights), begin(hXBeta), begin(denomPid), begin(hPid)
-            );
-            
-    real logLikelihood = variants::reduce(
-            range.begin(), range.end(), static_cast<real>(0.0),
-            kernel,
-            SerialOnly()        
-        );      
+//     auto range = helper::getRangeAll(K);
+//     
+//     auto kernel = (BaseModel::cumulativeGradientAndHessian) ?
+//             PredLikeKernel<BaseModel,real,int>(
+//                 begin(hY), begin(weights), begin(hXBeta), begin(accDenomPid), begin(hPid)
+//             ) :
+//             PredLikeKernel<BaseModel,real,int>(
+//                 begin(hY), begin(weights), begin(hXBeta), begin(denomPid), begin(hPid)
+//             );
+//             
+//     real logLikelihood = variants::reduce(
+//             range.begin(), range.end(), static_cast<real>(0.0),
+//             kernel,
+//             SerialOnly()        
+//         );      
         
         
-    auto range2 = helper::getRangeAllPredictiveLikelihood(K, hY, hXBeta,
+    auto range = helper::getRangeAllPredictiveLikelihood(K, hY, hXBeta,
         (BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
         weights, hPid);
     
  //   hXBeta, );
     
-    auto kernel2 = TestPredLikeKernel<BaseModel,real>();            
+    auto kernel = TestPredLikeKernel<BaseModel,real>();            
             
-    real logLikelihood2 = variants::reduce(
-            range2.begin(), range2.end(), static_cast<real>(0.0),
-            kernel2,
+    real logLikelihood = variants::reduce(
+            range.begin(), range.end(), static_cast<real>(0.0),
+            kernel,
             SerialOnly()        
         );  
         
-    std::cerr << logLikelihood << " == " << logLikelihood2 << std::endl;          
+//     std::cerr << logLikelihood << " == " << logLikelihood2 << std::endl;          
 	
 	if (BaseModel::cumulativeGradientAndHessian) {	
 	
