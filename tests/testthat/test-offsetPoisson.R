@@ -50,5 +50,5 @@ test_that("Check active set", {
                                                             tuneSwindle = 4),
                                    prior = createPrior("laplace", exclude=c(1,3))))
     
-    expect_equal(length(out), 4) # Should have 3 (+ prior line) swindle sets      
+    expect_equal(length(out), 8) # Should have 3 (+ prior line) swindle sets      
 })
