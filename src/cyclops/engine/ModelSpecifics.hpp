@@ -63,115 +63,115 @@ namespace bsccs {
 #define NEW_LOOPS
 
 namespace helper {
-
-    auto getRangeAll(const int length) ->
-            boost::iterator_range<
-                decltype(boost::make_counting_iterator(0))
-            > {
-        return  {
-            boost::make_counting_iterator(0),
-            boost::make_counting_iterator(length)
-        };        
-    }
-
-    template <class IteratorTag>
-    auto getRangeDenominator(const IntVectorPtr& mat, const int N, IteratorTag) ->  void {
-    	std::cerr << "Not yet implemented." << std::endl;
-    	std::exit(-1);
-    }          
-    
-    auto getRangeDenominator(const IntVectorPtr& mat, const int N, DenseTag) ->
-            boost::iterator_range<      
-                decltype(boost::make_counting_iterator(0))
-            > {
-        return {
-            boost::make_counting_iterator(0),
-            boost::make_counting_iterator(N)        
-        };            
-    }
-    
-    auto getRangeDenominator(const IntVectorPtr& mat, const int N, SparseTag) ->
-            boost::iterator_range<      
-                decltype(mat->begin())
-            > {
-        return {
-            std::begin(*mat), std::end(*mat)             
-        };            
-    }    
-    
-    auto getRangeDenominator(const IntVectorPtr& mat, const int N, IndicatorTag) ->
-            boost::iterator_range<      
-                decltype(mat->begin())
-            > {
-        return {
-            std::begin(*mat), std::end(*mat)
-        };            
-    }    
-    
-    template <class IteratorTag>
-    auto getRangeNumerator(const IntVectorPtr& mat, const int N, IteratorTag) ->  void {
-    	std::cerr << "Not yet implemented." << std::endl;
-    	std::exit(-1);
-    }          
-    
-    auto getRangeNumerator(const IntVectorPtr& mat, const int N, DenseTag) ->
-            boost::iterator_range<      
-                decltype(boost::make_counting_iterator(0))
-            > {
-        return {
-            boost::make_counting_iterator(0),
-            boost::make_counting_iterator(N)        
-        };            
-    }
-    
-    auto getRangeNumerator(const IntVectorPtr& mat, const int N, SparseTag) ->
-            boost::iterator_range<      
-                decltype(mat->begin())
-            > {
-        return {
-            std::begin(*mat), std::end(*mat)             
-        };            
-    }    
-    
-    auto getRangeNumerator(const IntVectorPtr& mat, const int N, IndicatorTag) ->
-            boost::iterator_range<      
-                decltype(mat->begin())
-            > {
-        return {
-            std::begin(*mat), std::end(*mat)
-        };            
-    }    
-    
-    template <class IteratorTag>
-    auto getRangeCOOX(const CompressedDataMatrix& mat, const int index, IteratorTag) -> void {        
-    	std::cerr << "Not yet implemented." << std::endl;
-    	std::exit(-1);    
-    } 
-    
-    auto getRangeCOOX(const CompressedDataMatrix& mat, const int index, DenseTag) ->
-            boost::iterator_range<
-                boost::zip_iterator<
-                    boost::tuple<
-                        decltype(boost::make_counting_iterator(0)), // TODO Not quite right
-                        decltype(boost::make_counting_iterator(0)), 
-                        decltype(begin(mat.getDataVector(index)))
-                    >
-                >                
-            > {
-        auto i = boost::make_counting_iterator(0); // TODO Not quite right
-        auto j = boost::make_counting_iterator(0);
-        auto x = begin(mat.getDataVector(index));
-        
-        const size_t K = mat.getNumberOfRows();
-        
-        return {
-            boost::make_zip_iterator(
-                boost::make_tuple(i, j, x)),
-            boost::make_zip_iterator(
-                boost::make_tuple(i + K, j + K, x + K))        
-        };                   
-    }
-                                                        
+// 
+//     auto getRangeAll(const int length) ->
+//             boost::iterator_range<
+//                 decltype(boost::make_counting_iterator(0))
+//             > {
+//         return  {
+//             boost::make_counting_iterator(0),
+//             boost::make_counting_iterator(length)
+//         };        
+//     }
+// 
+//     template <class IteratorTag>
+//     auto getRangeDenominator(const IntVectorPtr& mat, const int N, IteratorTag) ->  void {
+//     	std::cerr << "Not yet implemented." << std::endl;
+//     	std::exit(-1);
+//     }          
+//     
+//     auto getRangeDenominator(const IntVectorPtr& mat, const int N, DenseTag) ->
+//             boost::iterator_range<      
+//                 decltype(boost::make_counting_iterator(0))
+//             > {
+//         return {
+//             boost::make_counting_iterator(0),
+//             boost::make_counting_iterator(N)        
+//         };            
+//     }
+//     
+//     auto getRangeDenominator(const IntVectorPtr& mat, const int N, SparseTag) ->
+//             boost::iterator_range<      
+//                 decltype(mat->begin())
+//             > {
+//         return {
+//             std::begin(*mat), std::end(*mat)             
+//         };            
+//     }    
+//     
+//     auto getRangeDenominator(const IntVectorPtr& mat, const int N, IndicatorTag) ->
+//             boost::iterator_range<      
+//                 decltype(mat->begin())
+//             > {
+//         return {
+//             std::begin(*mat), std::end(*mat)
+//         };            
+//     }    
+//     
+//     template <class IteratorTag>
+//     auto getRangeNumerator(const IntVectorPtr& mat, const int N, IteratorTag) ->  void {
+//     	std::cerr << "Not yet implemented." << std::endl;
+//     	std::exit(-1);
+//     }          
+//     
+//     auto getRangeNumerator(const IntVectorPtr& mat, const int N, DenseTag) ->
+//             boost::iterator_range<      
+//                 decltype(boost::make_counting_iterator(0))
+//             > {
+//         return {
+//             boost::make_counting_iterator(0),
+//             boost::make_counting_iterator(N)        
+//         };            
+//     }
+//     
+//     auto getRangeNumerator(const IntVectorPtr& mat, const int N, SparseTag) ->
+//             boost::iterator_range<      
+//                 decltype(mat->begin())
+//             > {
+//         return {
+//             std::begin(*mat), std::end(*mat)             
+//         };            
+//     }    
+//     
+//     auto getRangeNumerator(const IntVectorPtr& mat, const int N, IndicatorTag) ->
+//             boost::iterator_range<      
+//                 decltype(mat->begin())
+//             > {
+//         return {
+//             std::begin(*mat), std::end(*mat)
+//         };            
+//     }    
+//     
+//     template <class IteratorTag>
+//     auto getRangeCOOX(const CompressedDataMatrix& mat, const int index, IteratorTag) -> void {        
+//     	std::cerr << "Not yet implemented." << std::endl;
+//     	std::exit(-1);    
+//     } 
+//     
+//     auto getRangeCOOX(const CompressedDataMatrix& mat, const int index, DenseTag) ->
+//             boost::iterator_range<
+//                 boost::zip_iterator<
+//                     boost::tuple<
+//                         decltype(boost::make_counting_iterator(0)), // TODO Not quite right
+//                         decltype(boost::make_counting_iterator(0)), 
+//                         decltype(begin(mat.getDataVector(index)))
+//                     >
+//                 >                
+//             > {
+//         auto i = boost::make_counting_iterator(0); // TODO Not quite right
+//         auto j = boost::make_counting_iterator(0);
+//         auto x = begin(mat.getDataVector(index));
+//         
+//         const size_t K = mat.getNumberOfRows();
+//         
+//         return {
+//             boost::make_zip_iterator(
+//                 boost::make_tuple(i, j, x)),
+//             boost::make_zip_iterator(
+//                 boost::make_tuple(i + K, j + K, x + K))        
+//         };                   
+//     }
+//                                                         
 	template <class IteratorTag>
     auto getRangeX(const CompressedDataMatrix& mat, const int index, IteratorTag) -> void {
     	std::cerr << "Not yet implemented." << std::endl;
@@ -467,66 +467,64 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 	auto start = bsccs::chrono::steady_clock::now();	
 #endif	
 
-#ifdef NEW_LOOPS
-
-    auto rangeNumerator = helper::getRangeAll(K);
-      
+//     auto rangeNumerator = helper::getRangeAll(K);
+//       
+//     real logLikelihood = useCrossValidation ?
+//     		variants::reduce(
+//                 rangeNumerator.begin(), rangeNumerator.end(), static_cast<real>(0.0),
+//                 AccumulateLikeNumeratorKernel<BaseModel,real,int,true>(begin(hY), begin(hXBeta), begin(hKWeight)),
+//                 SerialOnly()
+//     		) :
+//     		variants::reduce(
+//                 rangeNumerator.begin(), rangeNumerator.end(), static_cast<real>(0.0),
+//                 AccumulateLikeNumeratorKernel<BaseModel,real,int,false>(begin(hY), begin(hXBeta), begin(hKWeight)),
+//                 SerialOnly()
+//     		);
+    		
+    auto rangeNumerator = helper::getRangeAllNumerators(K, hY, hXBeta, hKWeight);
+    
     real logLikelihood = useCrossValidation ?
     		variants::reduce(
                 rangeNumerator.begin(), rangeNumerator.end(), static_cast<real>(0.0),
-                AccumulateLikeNumeratorKernel<BaseModel,real,int,true>(begin(hY), begin(hXBeta), begin(hKWeight)),
+                TestAccumulateLikeNumeratorKernel<BaseModel,real,true>(),
                 SerialOnly()
     		) :
     		variants::reduce(
                 rangeNumerator.begin(), rangeNumerator.end(), static_cast<real>(0.0),
-                AccumulateLikeNumeratorKernel<BaseModel,real,int,false>(begin(hY), begin(hXBeta), begin(hKWeight)),
+                TestAccumulateLikeNumeratorKernel<BaseModel,real,false>(),
                 SerialOnly()
     		);
+    		
+//     std::cerr << logLikelihood << " == " << logLikelihood2 << std::endl;
 
     if (BaseModel::likelihoodHasDenominator) {
     
-        auto rangeDenominator = helper::getRangeAll(N);
-                       
-        auto kernelDenominator = (BaseModel::cumulativeGradientAndHessian) ?
-                AccumulateLikeDenominatorKernel<BaseModel,real,int>(begin(hNWeight), begin(accDenomPid)) :
-                AccumulateLikeDenominatorKernel<BaseModel,real,int>(begin(hNWeight), begin(denomPid));
-    
-        logLikelihood -= variants::reduce(
-                rangeDenominator.begin(), rangeDenominator.end(),
-                static_cast<real>(0.0),
-                kernelDenominator,
-                SerialOnly()        
-        );
+//         auto rangeDenominator = helper::getRangeAll(N);
+//                        
+//         auto kernelDenominator = (BaseModel::cumulativeGradientAndHessian) ?
+//                 AccumulateLikeDenominatorKernel<BaseModel,real,int>(begin(hNWeight), begin(accDenomPid)) :
+//                 AccumulateLikeDenominatorKernel<BaseModel,real,int>(begin(hNWeight), begin(denomPid));
+//     
+//         logLikelihood -= variants::reduce(
+//                 rangeDenominator.begin(), rangeDenominator.end(),
+//                 static_cast<real>(0.0),
+//                 kernelDenominator,
+//                 SerialOnly()        
+//         );        
+		
+		auto rangeDenominator = (BaseModel::cumulativeGradientAndHessian) ? 
+				helper::getRangeAllDenominators(N, accDenomPid, hNWeight) :
+				helper::getRangeAllDenominators(N, denomPid, hNWeight);
+		
+		logLikelihood -= variants::reduce(
+				rangeDenominator.begin(), rangeDenominator.end(),
+				static_cast<real>(0.0),
+				TestAccumulateLikeDenominatorKernel<BaseModel,real>(),
+				SerialOnly()        
+		); 		    
+        
+//         std::cerr << logLikelihood << " == " << logLikelihood2 << std::endl;        
     }
-
-#else
-
-    real logLikelihood = static_cast<real>(0.0);
-
-	if (useCrossValidation) {
-		for (size_t i = 0; i < K; i++) {
-			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]) * hKWeight[i];
-		}
-	} else {
-		for (size_t i = 0; i < K; i++) {
-			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]);
-		}
-	}
-
-	if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-		if(BaseModel::cumulativeGradientAndHessian) {
-			for (size_t i = 0; i < N; i++) {
-				// Weights modified in computeNEvents()
-				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], accDenomPid[i]);
-			}
-		} else {  // TODO Unnecessary code duplication
-			for (size_t i = 0; i < N; i++) {
-				// Weights modified in computeNEvents()
-				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], denomPid[i]);
-			}
-		}
-	}
-#endif // NEW_LOOPS	
 
 	if (BaseModel::likelihoodHasFixedTerms) {
 		logLikelihood += logLikelihoodFixedTerm;
@@ -571,7 +569,24 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
             range.begin(), range.end(), static_cast<real>(0.0),
             kernel,
             SerialOnly()        
-        );       
+        );      
+        
+        
+    auto range2 = helper::getRangeAllPredictiveLikelihood(K, hY, hXBeta,
+        (BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
+        weights, hPid);
+    
+ //   hXBeta, );
+    
+    auto kernel2 = TestPredLikeKernel<BaseModel,real>();            
+            
+    real logLikelihood2 = variants::reduce(
+            range2.begin(), range2.end(), static_cast<real>(0.0),
+            kernel2,
+            SerialOnly()        
+        );  
+        
+    std::cerr << logLikelihood << " == " << logLikelihood2 << std::endl;          
 	
 	if (BaseModel::cumulativeGradientAndHessian) {	
 	
@@ -696,8 +711,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		
 		IteratorType it(*(sparseIndices)[index], N);
 		
+		
 		real accNumerPid  = static_cast<real>(0);
 		real accNumerPid2 = static_cast<real>(0);
+		
+		const real* data = modelData.getDataVector(index);	
 
         // find start relavent accumulator reset point
         auto reset = begin(accReset);
@@ -714,15 +732,21 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			    ++reset;
 			} 			    
 			
-			const real x = 0.0; // ***
-						
-// 			accNumerPid  += numerPid[i]; 
-// 			accNumerPid2 += numerPid2[i];
+			
+//			const real x = it.value();
 
-    		const real numerator1 = BaseModel::gradientNumeratorContrib(x, offsExpXBeta[i], hXBeta[i], hY[i]);
-    		const real numerator2 = BaseModel::gradientNumerator2Contrib(x, offsExpXBeta[i]);    		
-    		accNumerPid += numerator1;
-    		accNumerPid2 += numerator2;
+			const real x = (IteratorType::isIndicator) ? 1.0 :
+				(IteratorType::isSparse) ? *data : data[i];
+// 			const real x = 1.0;
+						
+			const auto numerator1 = numerPid[i];
+			const auto numerator2 = numerPid2[i];
+			
+//     		const real numerator1 = BaseModel::gradientNumeratorContrib(x, offsExpXBeta[i], hXBeta[i], hY[i]);
+//     		const real numerator2 = BaseModel::gradientNumerator2Contrib(x, offsExpXBeta[i]);  
+
+     		accNumerPid += numerator1;
+     		accNumerPid2 += numerator2;
 			
 #ifdef DEBUG_COX
 			cerr << "w: " << i << " " << hNWeight[i] << " " << numerator1 << ":" <<
@@ -740,6 +764,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			++it;
 			
 			if (IteratorType::isSparse) {
+				++data;	
 				const int next = it ? it.index() : N;
 				for (++i; i < next; ++i) {
 #ifdef DEBUG_COX
@@ -780,25 +805,25 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	
 	} else {
 	
-#ifdef OLD_WAY	
-
-		auto range = helper::getRangeDenominator(sparseIndices[index], N, typename IteratorType::tag());
-						
-		auto kernel = AccumulateGradientAndHessianKernel<BaseModel,IteratorType, Weights, real, int>(
-							begin(numerPid), begin(numerPid2), begin(denomPid), 
-							begin(hNWeight), begin(hXBeta), begin(hY));
-							
-		Fraction<real> result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), kernel,
-		 SerialOnly()
-	//     info
-		);
-
-		gradient = result.real();
-		hessian = result.imag();
-		
-#endif		
-		
-#ifdef NEW_WAY2	
+// #ifdef OLD_WAY	
+//
+// 		auto range = helper::getRangeDenominator(sparseIndices[index], N, typename IteratorType::tag());
+// 						
+// 		auto kernel = AccumulateGradientAndHessianKernel<BaseModel,IteratorType, Weights, real, int>(
+// 							begin(numerPid), begin(numerPid2), begin(denomPid), 
+// 							begin(hNWeight), begin(hXBeta), begin(hY));
+// 							
+// 		Fraction<real> result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), kernel,
+// 		 SerialOnly()
+// 	//     info
+// 		);
+// 
+// 		gradient = result.real();
+// 		hessian = result.imag();
+// 		
+// #endif		
+// 		
+// #ifdef NEW_WAY2	
 
 		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid, 
 		        typename IteratorType::tag());
@@ -807,21 +832,19 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
                 typename IteratorType::tag());		
         
         auto rangeGradient = helper::dependent::getRangeGradient(*sparseIndices[index], N,
-                denomPid, hNWeight, typename IteratorType::tag()); 
-        
-//         std::cerr << "ln = " << std::distance(rangeKey.begin(), rangeKey.end()) << " "
-//             << "lg = " << std::distance(rangeGradient.begin(), rangeGradient.end()) << std::endl;
+                denomPid, hNWeight, 
+                typename IteratorType::tag());         
 			
-		const auto result3 = variants::trial::nested_reduce(
+		const auto result = variants::trial::nested_reduce(
 		        rangeKey.begin(), rangeKey.end(),
 		        rangeXNumerator.begin(), rangeGradient.begin(),
 		        std::pair<real,real>{0,0}, Fraction<real>{0,0},
                 TestNumeratorKernel<BaseModel,IteratorType,real>(), // Inner transform-reduce
 		       	TestGradientKernel<BaseModel,IteratorType,Weights,real>()); // Outer transform-reduce
 		
-		gradient = result3.real();
-		hessian = result3.imag();	
-#endif			
+		gradient = result.real();
+		hessian = result.imag();	
+// #endif			
 		
 //       std::cerr << std::endl
 //            << result.real() << " " << result.imag() << std::endl
@@ -1023,29 +1046,62 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 #endif
 #endif
 
-	if (!BaseModel::hasIndependentRows) {
-
-
-#ifdef OLD_WAY
-		// Run-time delegation
+	if (BaseModel::cumulativeGradientAndHessian) {
+// 
+// 		// Run-time delegation
+// 		switch (modelData.getFormatType(index)) {
+// 			case INDICATOR : 
+// 				incrementNumeratorForGradientImpl<IndicatorIterator>(index);			
+// 				break;
+// 			case SPARSE : 
+// 				incrementNumeratorForGradientImpl<SparseIterator>(index); 
+// 				break;
+// 			case DENSE :
+// 				incrementNumeratorForGradientImpl<DenseIterator>(index);
+// 				break;
+// 			case INTERCEPT :
+// 				incrementNumeratorForGradientImpl<InterceptIterator>(index);
+// 				break;
+// 			default : break;
+// 				// throw error
+// 		}		
 		switch (modelData.getFormatType(index)) {
-			case INDICATOR : 
-				incrementNumeratorForGradientImpl<IndicatorIterator>(index);			
+			case INDICATOR : {
+				IndicatorIterator it(*(sparseIndices)[index]);
+				for (; it; ++it) { // Only affected entries
+					numerPid[it.index()] = static_cast<real>(0.0);
+				}
+				incrementNumeratorForGradientImpl<IndicatorIterator>(index);
+				}
 				break;
-			case SPARSE : 
-				incrementNumeratorForGradientImpl<SparseIterator>(index); 
+			case SPARSE : {
+				SparseIterator it(*(sparseIndices)[index]);
+				for (; it; ++it) { // Only affected entries
+					numerPid[it.index()] = static_cast<real>(0.0);
+					if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
+						numerPid2[it.index()] = static_cast<real>(0.0); // TODO Does this invalid the cache line too much?
+					}
+				}
+				incrementNumeratorForGradientImpl<SparseIterator>(index); }
 				break;
 			case DENSE :
+				zeroVector(numerPid.data(), N);
+				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
+					zeroVector(numerPid2.data(), N);
+				}
 				incrementNumeratorForGradientImpl<DenseIterator>(index);
 				break;
 			case INTERCEPT :
+				zeroVector(numerPid.data(), N);
+				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
+					zeroVector(numerPid2.data(), N);
+				}
 				incrementNumeratorForGradientImpl<InterceptIterator>(index);
 				break;
 			default : break;
 				// throw error
+				//exit(-1);
 		}		
-#endif	
-	
 	}
 	
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -1067,72 +1123,72 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 #endif
 #endif
 			
-#ifdef NEW_LOOPS
+// #ifdef NEW_LOOPS
 
-	auto zeroRange = helper::getRangeNumerator(sparseIndices[index], N, typename IteratorType::tag());
-		
-	auto zeroKernel = ZeroOutNumerator<BaseModel,IteratorType,real,int>(
-			begin(numerPid), begin(numerPid2)	
-	);
-	
-	variants::for_each( // TODO Rewrite as variants::fill if rate-limiting
-		zeroRange.begin(), zeroRange.end(),
-		zeroKernel,
-// 		info
-// 		threadPool
-		SerialOnly()
-// 		RcppParallel()
-	);
-	
-	if (true) {
-				
-	auto computeRange = helper::getRangeX(modelData, index, typename IteratorType::tag());		
-
-	auto computeKernel = NumeratorForGradientKernel<BaseModel,IteratorType,real,int>(
-					begin(numerPid), begin(numerPid2), 
-					begin(offsExpXBeta), begin(hXBeta), 
-					begin(hY), 				  
-					begin(hPid));
-					
-	variants::for_each(
-		computeRange.begin(), computeRange.end(),
-		computeKernel, 
-// 		info
-//   		threadPool
- 		SerialOnly()
-//		RcppParallel() //  TODO Not thread-safe
-		);					
-					
-	} else {	
-//	auto computeRange = helper::getRangeXDependent(modelData, index,
-//		numerPid, numerPid2, offsExpXBeta, hXBeta, hY, hPid,
-//// 		typename IteratorType::tag()
-//		DenseTag()
-//		);
+// 	auto zeroRange = helper::getRangeNumerator(sparseIndices[index], N, typename IteratorType::tag());
+// 		
+// 	auto zeroKernel = ZeroOutNumerator<BaseModel,IteratorType,real,int>(
+// 			begin(numerPid), begin(numerPid2)	
+// 	);
+// 	
+// 	variants::for_each( // TODO Rewrite as variants::fill if rate-limiting
+// 		zeroRange.begin(), zeroRange.end(),
+// 		zeroKernel,
+// // 		info
+// // 		threadPool
+// 		SerialOnly()
+// // 		RcppParallel()
+// 	);
+// 	
+// 	if (true) {
+// 				
+// 	auto computeRange = helper::getRangeX(modelData, index, typename IteratorType::tag());		
+// 
+// 	auto computeKernel = NumeratorForGradientKernel<BaseModel,IteratorType,real,int>(
+// 					begin(numerPid), begin(numerPid2), 
+// 					begin(offsExpXBeta), begin(hXBeta), 
+// 					begin(hY), 				  
+// 					begin(hPid));
+// 					
+// 	variants::for_each(
+// 		computeRange.begin(), computeRange.end(),
+// 		computeKernel, 
+// // 		info
+// //   		threadPool
+//  		SerialOnly()
+// //		RcppParallel() //  TODO Not thread-safe
+// 		);					
+// 					
+// 	} else {	
+// //	auto computeRange = helper::getRangeXDependent(modelData, index,
+// //		numerPid, numerPid2, offsExpXBeta, hXBeta, hY, hPid,
+// //// 		typename IteratorType::tag()
+// //		DenseTag()
+// //		);
+// //					
+// //	auto info = C11Threads(4, 100);
+// 
+//     // Let computeRange -> tuple<i, j, x>
+//     
+// //    auto computeRangeCOO = helper::getRangeCOOX(modelData, index, 
+// //        typename IteratorType::tag());
+// //
+// //    variants::transform_segmented_reduce(
+// //        computeRangeCOO.begin(), computeRangeCOO.end()
+// //    
+// //    );
 //					
-//	auto info = C11Threads(4, 100);
-
-    // Let computeRange -> tuple<i, j, x>
-    
-//    auto computeRangeCOO = helper::getRangeCOOX(modelData, index, 
-//        typename IteratorType::tag());
-//
-//    variants::transform_segmented_reduce(
-//        computeRangeCOO.begin(), computeRangeCOO.end()
-//    
-//    );
-					
-	}
+// 	}
 	
-#else		
+// #else		
 	
 	IteratorType it(modelData, index);
 	for (; it; ++it) {
 		const int k = it.index();
-		incrementByGroup(numerPid, hPid, k,
+		incrementByGroup(numerPid.data(), hPid, k,
 				BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
-		if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {		
-			incrementByGroup(numerPid2, hPid, k,
+		if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
+			incrementByGroup(numerPid2.data(), hPid, k,
 					BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]));
 		}
 		
@@ -1152,7 +1208,7 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 	
 	}
 	
-#endif // NEW_LOOPS
+// #endif // NEW_LOOPS
 
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -1275,10 +1331,10 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 
 
 	if (BaseModel::likelihoodHasDenominator) {
-		fillVector(denomPid, N, BaseModel::getDenomNullValue());
+		fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
 		for (size_t k = 0; k < K; ++k) {
 			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
-			incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
+			incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
 		}
 		computeAccumlatedDenominator(useWeights);
 	} 

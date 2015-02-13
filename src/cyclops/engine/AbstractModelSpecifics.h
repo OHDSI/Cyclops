@@ -175,10 +175,14 @@ protected:
 //	real* offsExpXBeta;
 	RealVector offsExpXBeta;
 	
-	RealVector numerDenomPidCache;
-	real* denomPid; // all nested with a single cache
-	real* numerPid;
-	real* numerPid2;
+// 	RealVector numerDenomPidCache;
+// 	real* denomPid; // all nested with a single cache
+// 	real* numerPid;
+// 	real* numerPid2;
+
+	RealVector denomPid;
+	RealVector numerPid;
+	RealVector numerPid2;
 			
 	
 //	real* xOffsExpXBeta;
