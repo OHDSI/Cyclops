@@ -272,7 +272,7 @@ private:
 	
 	ParallelInfo info;
 	
-	C11ThreadPool threadPool;
+//	C11ThreadPool threadPool;
 	
 #ifdef CYCLOPS_DEBUG_TIMING
 //	std::vector<double> duration;

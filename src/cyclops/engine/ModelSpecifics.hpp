@@ -250,9 +250,9 @@ namespace helper {
 
 template <class BaseModel,typename WeightType>
 ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
-	: AbstractModelSpecifics(input), BaseModel(), 
+	: AbstractModelSpecifics(input), BaseModel()//, 
 //  	threadPool(4,4,1000) 
- threadPool(0,0,10)
+// threadPool(0,0,10)
 	{
 	// TODO Memory allocation here
 	
@@ -735,8 +735,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			
 //			const real x = it.value();
 
-			const real x = (IteratorType::isIndicator) ? 1.0 :
-				(IteratorType::isSparse) ? *data : data[i];
+//			const real x = (IteratorType::isIndicator) ? 1.0 :
+//				(IteratorType::isSparse) ? *data : data[i];
 // 			const real x = 1.0;
 						
 			const auto numerator1 = numerPid[i];

@@ -8,7 +8,7 @@
 #include <boost/iterator/counting_iterator.hpp>
 
 #include "RcppParallel.h"
-#include "engine/ThreadPool.h"
+//#include "engine/ThreadPool.h"
 
 namespace bsccs {
 
@@ -26,16 +26,16 @@ struct C11Threads {
 	size_t minSize;
 };
  
- struct C11ThreadPool {
- 
- 	C11ThreadPool(int poolSize, int threads, size_t size = 100) : pool(poolSize), nThreads(threads), minSize(size) { }
- 	virtual ~C11ThreadPool() { };
- 	
- 	ThreadPool pool;
- 	
- 	int nThreads;
- 	size_t minSize;
- };
+// struct C11ThreadPool {
+// 
+// 	C11ThreadPool(int poolSize, int threads, size_t size = 100) : pool(poolSize), nThreads(threads), minSize(size) { }
+// 	virtual ~C11ThreadPool() { };
+// 	
+// 	ThreadPool pool;
+// 	
+// 	int nThreads;
+// 	size_t minSize;
+// };
  	
 
 namespace variants {
@@ -139,7 +139,8 @@ namespace variants {
 // 				return std::for_each(begin, end, function);
 // 			}
 // 		}	
-		
+
+#if 0
 		template <typename InputIt, typename UnaryFunction>
 		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
 				C11ThreadPool& tpool) {
@@ -187,9 +188,12 @@ namespace variants {
 				return std::for_each(begin, end, function);
 			}
 		}
-	
+#endif 
+
+
 	} // namespace impl
- 
+
+
 //     template <class InputIt, class UnaryFunction, class Specifics>
 //     inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, Specifics) {    	
 //         return std::for_each(first, last, f);    
@@ -213,10 +217,10 @@ namespace variants {
         return impl::for_each(first, last, f, x);
     }    
     
-    template <class InputIt, class UnaryFunction>
-    inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, C11ThreadPool& x) {
-        return impl::for_each(first, last, f, x);
-    }
+//    template <class InputIt, class UnaryFunction>
+//    inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, C11ThreadPool& x) {
+//        return impl::for_each(first, last, f, x);
+//    }
     
     template <class InputIt, class UnaryFunction>
     inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, RcppParallel x) {
