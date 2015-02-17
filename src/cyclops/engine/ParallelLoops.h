@@ -108,37 +108,37 @@ namespace variants {
 			return function;			
 		}	
 	
-		template <typename InputIt, typename UnaryFunction>
-		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
-				C11Threads& info) {
-			
-// 			const int nThreads = info.nThreads;
-// 			const size_t minSize = info.minSize;	
-
-// 			std::cout << "I";
-										
-			if (nThreads > 1 && std::distance(begin, end) >= minSize) {				  
-				std::vector<std::thread> workers(nThreads - 1);
-				size_t chunkSize = std::distance(begin, end) / nThreads;
-				size_t start = 0;
-				for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
-					workers[i] = std::thread(
-						std::for_each<InputIt, UnaryFunction>,
-						begin + start, 
-						begin + start + chunkSize, 
-						function);
-				}
-				auto rtn = std::for_each(begin + start, end, function);
-				for (int i = 0; i < nThreads - 1; ++i) {
-					workers[i].join();
-				}
-// 				std::cout << "P";
-				return rtn;				
-			} else {		
-// 				std::cout << "N";		
-				return std::for_each(begin, end, function);
-			}
-		}	
+// 		template <typename InputIt, typename UnaryFunction>
+// 		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
+// 				C11Threads& info) {
+// 			
+// // 			const int nThreads = info.nThreads;
+// // 			const size_t minSize = info.minSize;	
+// 
+// // 			std::cout << "I";
+// 										
+// 			if (nThreads > 1 && std::distance(begin, end) >= minSize) {				  
+// 				std::vector<std::thread> workers(nThreads - 1);
+// 				size_t chunkSize = std::distance(begin, end) / nThreads;
+// 				size_t start = 0;
+// 				for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
+// 					workers[i] = std::thread(
+// 						std::for_each<InputIt, UnaryFunction>,
+// 						begin + start, 
+// 						begin + start + chunkSize, 
+// 						function);
+// 				}
+// 				auto rtn = std::for_each(begin + start, end, function);
+// 				for (int i = 0; i < nThreads - 1; ++i) {
+// 					workers[i].join();
+// 				}
+// // 				std::cout << "P";
+// 				return rtn;				
+// 			} else {		
+// // 				std::cout << "N";		
+// 				return std::for_each(begin, end, function);
+// 			}
+// 		}	
 		
 		template <typename InputIt, typename UnaryFunction>
 		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
@@ -259,45 +259,45 @@ namespace variants {
 	        return std::accumulate(begin, end, result, function);       	            
 	    }	
 	
-    	template <class InputIt, class ResultType, class BinaryFunction, class Info>
-	    inline ResultType reduce(InputIt begin, InputIt end,
-	            ResultType result, BinaryFunction function, Info& info) {	
-	        
-// 	        const int nThreads = info.nThreads;
-// 	        const size_t minSize = info.minSize;	            
-	            
-	        if (nThreads > 1 && std::distance(begin, end) >= minSize) {
-// 	            std::cout << "PR" << std::endl;
-	            
-	            std::vector<std::thread> workers(nThreads - 1);
-	            std::vector<ResultType> fractions(nThreads - 1);
-	            	            
-	            size_t chunkSize = std::distance(begin, end) / nThreads;
-	            size_t start = 0;
-	            for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
-	                workers[i] = std::thread(
-	                    Reducer<InputIt, ResultType, BinaryFunction>(), 
-	                    begin + start,
-	                    begin + start + chunkSize,
-	                    ResultType(), function,
-	                    std::ref(fractions[i])
-	                    );	    
-// 	                std::cout << std::distance(begin + start, begin + start + chunkSize) << " ";            
-	            }
-	            
-	            result = std::accumulate(begin + start, end, result, function);
-// 	            std::cout << std::distance(begin + start, end) << std::endl;
-	            for (int i = 0; i < nThreads - 1; ++i) {
-	                workers[i].join();
-	                result += fractions[i];
-	            }
-	            	            	            
-	            return result;
-                
-	        } else {	      
-	            return std::accumulate(begin, end, result, function);
-	        }        	            
-	    }  
+//     	template <class InputIt, class ResultType, class BinaryFunction, class Info>
+// 	    inline ResultType reduce(InputIt begin, InputIt end,
+// 	            ResultType result, BinaryFunction function, Info& info) {	
+// 	        
+// // 	        const int nThreads = info.nThreads;
+// // 	        const size_t minSize = info.minSize;	            
+// 	            
+// 	        if (nThreads > 1 && std::distance(begin, end) >= minSize) {
+// // 	            std::cout << "PR" << std::endl;
+// 	            
+// 	            std::vector<std::thread> workers(nThreads - 1);
+// 	            std::vector<ResultType> fractions(nThreads - 1);
+// 	            	            
+// 	            size_t chunkSize = std::distance(begin, end) / nThreads;
+// 	            size_t start = 0;
+// 	            for (int i = 0; i < nThreads - 1; ++i, start += chunkSize) {
+// 	                workers[i] = std::thread(
+// 	                    Reducer<InputIt, ResultType, BinaryFunction>(), 
+// 	                    begin + start,
+// 	                    begin + start + chunkSize,
+// 	                    ResultType(), function,
+// 	                    std::ref(fractions[i])
+// 	                    );	    
+// // 	                std::cout << std::distance(begin + start, begin + start + chunkSize) << " ";            
+// 	            }
+// 	            
+// 	            result = std::accumulate(begin + start, end, result, function);
+// // 	            std::cout << std::distance(begin + start, end) << std::endl;
+// 	            for (int i = 0; i < nThreads - 1; ++i) {
+// 	                workers[i].join();
+// 	                result += fractions[i];
+// 	            }
+// 	            	            	            
+// 	            return result;
+//                 
+// 	        } else {	      
+// 	            return std::accumulate(begin, end, result, function);
+// 	        }        	            
+// 	    }  
 	    	    
 	    template <class IndexIt, class OutputIt, class Transform>
 	    inline void transform_segmented_reduce(IndexIt i, IndexIt end, 
