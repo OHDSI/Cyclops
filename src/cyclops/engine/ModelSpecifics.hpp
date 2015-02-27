@@ -797,8 +797,20 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		        							
 		const auto result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), 
 		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
-			SerialOnly()
+ 	        SerialOnly()
+// 		RcppParallel()
 		);	
+		
+		
+// 		const auto result2 = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), 
+// 		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
+// // 			SerialOnly()
+// 			RcppParallel()
+// 		);	
+		
+		
+// 		std::cerr << result.real() << " " << result.imag()	<< std::endl;
+// 		std::cerr << result2.real() << " " << result2.imag()	<< std::endl << std::endl;
 		
 		gradient = result.real();
 		hessian = result.imag();								
@@ -1269,21 +1281,19 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 #endif
 #endif
 
-#ifdef NEW_LOOPS
+// #ifdef NEW_LOOPS
 
+#if 0
 	auto range = helper::getRangeX(modelData, index, typename IteratorType::tag());						
 
 	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,real,int>(
 					realDelta, begin(offsExpXBeta), begin(hXBeta), 
-//					begin(hY), 
-					&hY[0], // TODO Fix
+					begin(hY), 
 					begin(hPid),
 					begin(denomPid), 
-//					begin(hOffs)
-					&hOffs[0] // TODO Fix
+					begin(hOffs)
 					);
 					
-//	auto info = C11Threads(4, 100);
 						
 	variants::for_each(
 		range.begin(), range.end(),
@@ -1295,19 +1305,83 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 		);
 		
 #else
-	IteratorType it(modelData, index);
-	for (; it; ++it) {
-		const int k = it.index();
-		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
-		// Update denominators as well
-		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-			real oldEntry = offsExpXBeta[k];
-			real newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
-			incrementByGroup(denomPid, hPid, k, (newEntry - oldEntry));
-		}
-	}
 
+    if (BaseModel::hasIndependentRows) {
+
+        auto range = helper::independent::getRangeXBeta(modelData, index,
+                offsExpXBeta, hXBeta, denomPid,
+                typename IteratorType::tag());	        
+
+        auto kernel = TestUpdateXBetaKernel<BaseModel,IteratorType,real>(realDelta);
+        variants::for_each(
+            range.begin(), range.end(),
+            kernel,
+            SerialOnly()
+        );
+        
+    } else {
+    
+        auto rangeXBeta = helper::independent::getRangeXBeta(modelData, index,
+            offsExpXBeta, hXBeta, denomPid, // denom not used here
+            typename IteratorType::tag());
+    
+ 		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid, 
+		        typename IteratorType::tag());
+	        		        
+		auto rangeDenominator = helper::dependent::getRangeDenominator(*sparseIndices[index], N,
+		        denomPid, typename IteratorType::tag());
+        
+        auto kernel = TestUpdateXBetaKernelDependent<BaseModel,IteratorType,real>(realDelta);
+        
+        auto key = rangeKey.begin();
+        auto end = rangeKey.end();
+        auto inner = rangeXBeta.begin();
+        auto outer = rangeDenominator.begin();
+        
+        const auto stop = end - 1;   
+        
+        real result = 0;     
+        
+        for (; key != stop; ++key, ++inner) {
+                
+            result = kernel(result, *inner);   
+                                                                                              
+            if (*key != *(key + 1)) {            
+            
+                *outer = result + *outer;
+                
+                result = 0;
+                ++outer;
+            }        
+        } 
+        
+        result = kernel(result, *inner);                       
+        
+        *outer = result + *outer;                     		                      
+    }
+        
 #endif	
+	
+// 	std::cerr << std::endl << realDelta << std::endl;
+// 	
+// 	::Rf_error("return");
+		
+	
+		
+// #else
+// 	IteratorType it(modelData, index);
+// 	for (; it; ++it) {
+// 		const int k = it.index();
+// 		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
+// 		// Update denominators as well
+// 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+// 			real oldEntry = offsExpXBeta[k];
+// 			real newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
+// 			incrementByGroup(denomPid, hPid, k, (newEntry - oldEntry));
+// 		}
+// 	}
+// 
+// #endif	
 	
 	computeAccumlatedDenominator(useWeights);
 	

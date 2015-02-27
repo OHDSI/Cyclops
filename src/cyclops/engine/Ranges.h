@@ -422,6 +422,173 @@ namespace independent {
         };          
     }   
     
+    auto getRangeXBeta(const CompressedDataMatrix& mat, const int index, 
+  					RealVector& expXBeta, RealVector& xBeta,
+  					RealVector& denominator,  					
+  					IndicatorIterator::tag) ->    			    		
+    		
+ 			boost::iterator_range<
+ 				boost::zip_iterator<
+ 					boost::tuple<	
+ 					    decltype(boost::make_permutation_iterator(
+ 					        std::begin(expXBeta),
+ 					        std::begin(mat.getCompressedColumnVectorSTL(index)))
+ 					    ), 
+ 					    decltype(boost::make_permutation_iterator(
+ 					        std::begin(xBeta),
+ 					        std::begin(mat.getCompressedColumnVectorSTL(index)))
+ 					    ),					    
+ 					    decltype(boost::make_permutation_iterator(
+ 					        std::begin(denominator),
+ 					        std::begin(mat.getCompressedColumnVectorSTL(index)))
+ 					    )		    				    					        
+ 					>
+ 				>
+ 			> {
+ 			
+ 		auto x0 = boost::make_permutation_iterator(
+ 					        std::begin(expXBeta),
+ 					        std::begin(mat.getCompressedColumnVectorSTL(index)));
+ 					     					    
+        auto x1 = boost::make_permutation_iterator(
+ 					        std::begin(xBeta),
+ 					        std::begin(mat.getCompressedColumnVectorSTL(index)));
+ 					     					    					     					     					    
+        auto x3 = boost::make_permutation_iterator(
+ 					        std::begin(denominator),
+ 					        std::begin(mat.getCompressedColumnVectorSTL(index)));
+ 					     					     					     					     	
+		auto y0 = boost::make_permutation_iterator(
+					        std::begin(expXBeta),
+					        std::end(mat.getCompressedColumnVectorSTL(index)));
+					     					    
+    	auto y1 = boost::make_permutation_iterator(
+					        std::begin(xBeta),
+					        std::end(mat.getCompressedColumnVectorSTL(index)));
+					     					    					    					     					    
+    	auto y3 = boost::make_permutation_iterator(
+					        std::begin(denominator),
+					        std::end(mat.getCompressedColumnVectorSTL(index)));
+					     					    
+ 		return {
+            boost::make_zip_iterator(
+                boost::make_tuple(
+                	x0, x1, x3
+                )),
+            boost::make_zip_iterator(
+                boost::make_tuple( 
+                	y0, y1, y3
+                ))            
+        }; 	
+ 	}    	
+ 	
+    auto getRangeXBeta(const CompressedDataMatrix& mat, const int index, 
+  					RealVector& expXBeta, RealVector& xBeta,
+  					RealVector& denominator,  				
+  					SparseIterator::tag) ->
+    			
+ 			boost::iterator_range<
+ 				boost::zip_iterator<
+ 					boost::tuple<	
+ 					    decltype(boost::make_permutation_iterator(
+ 					        std::begin(expXBeta),
+ 					        std::begin(mat.getCompressedColumnVectorSTL(index)))
+ 					    ), 
+ 					    decltype(boost::make_permutation_iterator(
+ 					        std::begin(xBeta),
+ 					        std::begin(mat.getCompressedColumnVectorSTL(index)))
+ 					    ),					     					   
+ 					    decltype(boost::make_permutation_iterator(
+ 					        std::begin(denominator),
+ 					        std::begin(mat.getCompressedColumnVectorSTL(index)))
+ 					    ),
+						decltype(std::begin(mat.getDataVectorSTL(index))) // Never deferenced 	 					    			 				    				    					        
+ 					>
+ 				>
+ 			> {
+		 			
+ 		auto x0 = boost::make_permutation_iterator(
+ 					        std::begin(expXBeta),
+ 					        std::begin(mat.getCompressedColumnVectorSTL(index)));
+ 					     					    
+        auto x1 = boost::make_permutation_iterator(
+ 					        std::begin(xBeta),
+ 					        std::begin(mat.getCompressedColumnVectorSTL(index)));
+ 					     					    					     					     					    
+        auto x3 = boost::make_permutation_iterator(
+ 					        std::begin(denominator),
+ 					        std::begin(mat.getCompressedColumnVectorSTL(index)));
+ 					     					    
+ 		auto x5 = std::begin(mat.getDataVectorSTL(index));
+ 					     					     	
+		auto y0 = boost::make_permutation_iterator(
+					        std::begin(expXBeta),
+					        std::end(mat.getCompressedColumnVectorSTL(index)));
+					     					    
+    	auto y1 = boost::make_permutation_iterator(
+					        std::begin(xBeta),
+					        std::end(mat.getCompressedColumnVectorSTL(index)));
+					     					    					    					     					    
+    	auto y3 = boost::make_permutation_iterator(
+					        std::begin(denominator),
+					        std::end(mat.getCompressedColumnVectorSTL(index)));
+					     					    
+ 	  	auto y5 = std::end(mat.getDataVectorSTL(index));			     					    
+
+ 		return {
+            boost::make_zip_iterator(
+                boost::make_tuple(
+                	x0, x1, x3, x5
+                )),
+            boost::make_zip_iterator(
+                boost::make_tuple( 
+                	y0, y1, y3, y5
+                ))            
+        };      			 				
+ 	}  	
+        
+    auto getRangeXBeta(const CompressedDataMatrix& mat, const int index, 
+  					RealVector& expXBeta, RealVector& xBeta,
+  					RealVector& denominator,  					
+  					DenseIterator::tag) -> 
+
+ 			boost::iterator_range<
+ 				boost::zip_iterator<
+ 					boost::tuple<	            	
+		            	decltype(std::begin(expXBeta)),
+		            	decltype(std::begin(xBeta)),		            	
+		            	decltype(std::begin(denominator)),		            	
+		                decltype(std::begin(mat.getDataVectorSTL(index)))            
+        		    >
+            	>
+            > {            	
+        
+		const size_t K = mat.getNumberOfRows();	        
+        
+        auto x0 = std::begin(expXBeta);
+        auto x1 = std::begin(xBeta);
+        auto x3 = std::begin(denominator);             
+        auto x5 = std::begin(mat.getDataVectorSTL(index)); 
+        
+        auto y0 = std::end(expXBeta);
+        auto y1 = std::end(xBeta);
+        auto y3 = x3 + K;           
+        auto y5 = std::end(mat.getDataVectorSTL(index));         
+        				                		       
+        return { 
+            boost::make_zip_iterator(
+                boost::make_tuple(
+                	x0, x1, x3, x5
+                )),
+            boost::make_zip_iterator(
+                boost::make_tuple(
+					y0, y1, y3, y5
+                ))            
+        };          
+    }      
+    
+    
+    
 } // namespace independent
      	
 // START DEPENDENT 		
@@ -575,7 +742,42 @@ namespace dependent {
                         std::end(mat.getCompressedColumnVectorSTL(index)))                                                         
             ))                    
         };             
-    }    
+    }   
+    
+	template <class DenominatorType, class SubsetType, class IteratorType>
+    auto getRangeDenominator(SubsetType& subset, const size_t N, 
+                DenominatorType& denominator, 
+                IteratorType) ->  // For indicator and sparse
+ 			boost::iterator_range<				
+                        decltype(boost::make_permutation_iterator(
+                            begin(denominator),
+                            std::begin(subset)))					 	                   
+            > {                				                		       
+        return { 
+                    boost::make_permutation_iterator(
+                        begin(denominator),
+                        std::begin(subset)),
+
+                    boost::make_permutation_iterator(
+                        begin(denominator),
+                        std::end(subset))                           
+        };          
+    }      
+
+
+	template <class DenominatorType, class SubsetType>
+    auto getRangeDenominator(SubsetType& subset, const size_t N, 
+                DenominatorType& denominator, 
+                DenseTag) ->  // For dense
+ 			boost::iterator_range<				
+                        decltype(
+                            begin(denominator))					 	                   
+            > {       
+            auto b0 = begin(denominator);
+                     				                		       
+        return {  b0, b0 + N };                                                                             
+    }     
+     
     
 	template <class DenominatorType, class WeightType, class SubsetType, class IteratorType>
     auto getRangeGradient(SubsetType& subset, const size_t N, 

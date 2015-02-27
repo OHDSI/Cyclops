@@ -82,6 +82,28 @@ namespace variants {
 
 	namespace impl {
 	
+	
+	    template <typename InputIt, typename ResultType, typename BinaryFunction>
+	    struct Reducer : public ::RcppParallel::Worker {
+	        
+	        Reducer(InputIt begin, InputIt end, ResultType result, BinaryFunction function) : begin(begin), end(end), result(result), function(function) {}
+	        Reducer(const Reducer& rhs, ::RcppParallel::Split) : begin(rhs.begin), end(rhs.end), result(0), function(rhs.function) { }
+	        
+	        void operator()(std::size_t i, std::size_t j) {
+	            result = std::accumulate(begin + i, begin + j, result, function);
+	        }
+	        
+	        void join(const Reducer& rhs) {
+	            result += rhs.result;
+	        }
+	        	        
+	        InputIt begin;
+	        InputIt end;
+	        ResultType result;
+	        BinaryFunction function;	      
+	    
+	    };
+	
 		template <typename InputIt, typename UnaryFunction>
 		struct WrapWorker : public ::RcppParallel::Worker {
 			
@@ -96,6 +118,16 @@ namespace variants {
 			InputIt end;
 			UnaryFunction function;		
 		};
+		
+		template <typename InputIt, typename ResultType, typename BinaryFunction>
+		inline ResultType reduce(InputIt begin, InputIt end, ResultType result, BinaryFunction function, RcppParallel& tbb) {
+		
+		Reducer<InputIt,ResultType,BinaryFunction> reducer(begin, end, result, function);
+		
+		::RcppParallel::parallelReduce(0, std::distance(begin,end), reducer);
+		
+		return reducer.result;
+		}
 	
 		template <typename InputIt, typename UnaryFunction>
 		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function, 
@@ -256,6 +288,18 @@ namespace variants {
 		        result = std::accumulate(begin, end, x0, function);       
 		    }
 		};
+		
+		
+		template <class InputIt, class ResultType, class BinaryFunction>
+		inline ResultType reduce(InputIt begin, InputIt end,
+		    ResultType result, BinaryFunction function,
+		    RcppParallel tbb) {
+		
+		
+				return impl::reduce(begin, end, result, function, tbb);
+	
+		  
+		}
 
     	template <class InputIt, class ResultType, class BinaryFunction>
 	    inline ResultType reduce(InputIt begin, InputIt end,
