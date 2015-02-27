@@ -846,12 +846,14 @@ struct TestUpdateXBetaKernelDependent : private BaseModel {
         const auto x = getX(tuple);	  
         auto& expXBeta = boost::get<0>(tuple);
         auto& xBeta = boost::get<1>(tuple);
-// 		    auto& denominator = boost::get<2>(tuple); 
+        const auto off = boost::get<3>(tuple);
     
         xBeta += delta * x; // action
 
         RealType oldEntry = expXBeta;
-        RealType newEntry = expXBeta = std::exp(xBeta);
+        RealType newEntry = expXBeta = 
+            BaseModel::getOffsExpXBeta(off, xBeta);                
+//             std::exp(xBeta);
 
         return lhs + (newEntry - oldEntry);                
     }
@@ -862,7 +864,7 @@ private:
 private:	 // TODO Code duplication; remove
     template <class TupleType>
 	inline auto getX(TupleType& tuple) const -> typename TupleXGetterNew<IteratorType, RealType, 5>::ReturnType {
-		return TupleXGetterNew<IteratorType, RealType, 3>()(tuple);
+		return TupleXGetterNew<IteratorType, RealType, 4>()(tuple);
 	}          
 };
 
@@ -882,34 +884,9 @@ struct TestUpdateXBetaKernel : private BaseModel {
         xBeta += delta * x;
     
         if (BaseModel::likelihoodHasDenominator) {
-
-//             if (BaseModel::hasIndependentRows) {
-                expXBeta = std::exp(xBeta);
-                denominator = BaseModel::getDenomNullValue() + expXBeta;               
-//             } else {
-//                 real oldEntry = expXBeta;
-//                 real newEntry = expXBeta = std::exp(xBeta);
-//                 denominator += (newEntry - oldEntry);            
-//                 std::cerr << "B";
-//             }
-        }   
-        
-        
-// 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-// 			if (true) {	// Old method	
-// 				real oldEntry = expXBeta[k];
-// 				real newEntry = expXBeta[k] = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
-// 				denominator[BaseModel::getGroup(pid, k)] += (newEntry - oldEntry);	
-// 			} else {
-// 			#if 0  // logistic			
-// 			    const real t = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);	
-// 			    expXBeta[k] = t;
-// 			    denominator[k] = static_cast<real>(1.0) + t;
-// 			#else 
-// 				denominator[k] = expXBeta[k] = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k); // For fast Poisson							
-//             #endif
-// 			}
-// 		}         
+            expXBeta = std::exp(xBeta);
+            denominator = BaseModel::getDenomNullValue() + expXBeta;               
+        }                  
     }
 
 private:
@@ -918,7 +895,7 @@ private:
 private:	 // TODO Code duplication; remove
     template <class TupleType>
 	inline auto getX(TupleType& tuple) const -> typename TupleXGetterNew<IteratorType, RealType, 5>::ReturnType {
-		return TupleXGetterNew<IteratorType, RealType, 3>()(tuple);
+		return TupleXGetterNew<IteratorType, RealType, 4>()(tuple);
 	}          
 };
 
@@ -1157,7 +1134,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
     
-    real getOffsExpXBeta(const real offs, const real xBeta, const real y) {
+    real getOffsExpXBeta(const real offs, const real xBeta) {
         return offs * std::exp(xBeta);
     }
 
@@ -1245,7 +1222,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
     
-    real getOffsExpXBeta(const real offs, const real xBeta, const real y) {
+    real getOffsExpXBeta(const real offs, const real xBeta) {
         return std::exp(xBeta);
     }    
 		
@@ -1324,7 +1301,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
     
-    real getOffsExpXBeta(const real offs, const real xBeta, const real y) {
+    real getOffsExpXBeta(const real offs, const real xBeta) {
         return std::exp(xBeta);
     }      
 	
@@ -1408,7 +1385,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
     
-    real getOffsExpXBeta(const real offs, const real xBeta, const real y) {
+    real getOffsExpXBeta(const real offs, const real xBeta) {
         return std::exp(xBeta);
     }      
 		
@@ -1454,7 +1431,7 @@ public:
 	    return static_cast<real>(1) + expXBeta;
 	}
 	
-    real getOffsExpXBeta(const real offs, const real xBeta, const real y) {
+    real getOffsExpXBeta(const real offs, const real xBeta) {
         return std::exp(xBeta);
     }  	
 
@@ -1545,7 +1522,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
     
-    real getOffsExpXBeta(const real offs, const real xBeta, const real y) {
+    real getOffsExpXBeta(const real offs, const real xBeta) {
         return std::exp(xBeta);
     }      
 	
@@ -1643,7 +1620,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
     
-    real getOffsExpXBeta(const real offs, const real xBeta, const real y) {
+    real getOffsExpXBeta(const real offs, const real xBeta) {
         return std::exp(xBeta);
     }      
 	
@@ -1782,7 +1759,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian }; 
     }	
     
-    real getOffsExpXBeta(const real offs, const real xBeta, const real y) {
+    real getOffsExpXBeta(const real offs, const real xBeta) {
         throw new std::logic_error("Not model-specific");
 		return static_cast<real>(0);
     }      
@@ -1890,7 +1867,7 @@ public:
     }	
 	
 
-	real getOffsExpXBeta(const real offs, const real xBeta, real y) {
+	real getOffsExpXBeta(const real offs, const real xBeta) {
 		return std::exp(xBeta);
 	}	
 

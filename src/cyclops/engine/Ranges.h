@@ -424,7 +424,8 @@ namespace independent {
     
     auto getRangeXBeta(const CompressedDataMatrix& mat, const int index, 
   					RealVector& expXBeta, RealVector& xBeta,
-  					RealVector& denominator,  					
+  					RealVector& denominator,  	
+  					const RealVector& offs,				
   					IndicatorIterator::tag) ->    			    		
     		
  			boost::iterator_range<
@@ -441,7 +442,11 @@ namespace independent {
  					    decltype(boost::make_permutation_iterator(
  					        std::begin(denominator),
  					        std::begin(mat.getCompressedColumnVectorSTL(index)))
- 					    )		    				    					        
+ 					    ),					    
+ 					    decltype(boost::make_permutation_iterator(
+ 					        std::begin(offs),
+ 					        std::begin(mat.getCompressedColumnVectorSTL(index)))
+ 					    ) 					    		    				    					        
  					>
  				>
  			> {
@@ -457,6 +462,10 @@ namespace independent {
         auto x3 = boost::make_permutation_iterator(
  					        std::begin(denominator),
  					        std::begin(mat.getCompressedColumnVectorSTL(index)));
+ 					     					     					     		
+        auto x4 = boost::make_permutation_iterator(
+ 					        std::begin(offs),
+ 					        std::begin(mat.getCompressedColumnVectorSTL(index))); 					     					     					     		
  					     					     					     					     	
 		auto y0 = boost::make_permutation_iterator(
 					        std::begin(expXBeta),
@@ -469,22 +478,27 @@ namespace independent {
     	auto y3 = boost::make_permutation_iterator(
 					        std::begin(denominator),
 					        std::end(mat.getCompressedColumnVectorSTL(index)));
+					        
+    	auto y4 = boost::make_permutation_iterator(
+					        std::begin(offs),
+					        std::end(mat.getCompressedColumnVectorSTL(index)));					        
 					     					    
  		return {
             boost::make_zip_iterator(
                 boost::make_tuple(
-                	x0, x1, x3
+                	x0, x1, x3, x4
                 )),
             boost::make_zip_iterator(
                 boost::make_tuple( 
-                	y0, y1, y3
+                	y0, y1, y3, y4
                 ))            
         }; 	
  	}    	
  	
     auto getRangeXBeta(const CompressedDataMatrix& mat, const int index, 
   					RealVector& expXBeta, RealVector& xBeta,
-  					RealVector& denominator,  				
+  					RealVector& denominator,  		
+  					const RealVector& offs,		
   					SparseIterator::tag) ->
     			
  			boost::iterator_range<
@@ -502,6 +516,10 @@ namespace independent {
  					        std::begin(denominator),
  					        std::begin(mat.getCompressedColumnVectorSTL(index)))
  					    ),
+ 					    decltype(boost::make_permutation_iterator(
+ 					        std::begin(offs),
+ 					        std::begin(mat.getCompressedColumnVectorSTL(index)))
+ 					    ), 					    
 						decltype(std::begin(mat.getDataVectorSTL(index))) // Never deferenced 	 					    			 				    				    					        
  					>
  				>
@@ -518,6 +536,10 @@ namespace independent {
         auto x3 = boost::make_permutation_iterator(
  					        std::begin(denominator),
  					        std::begin(mat.getCompressedColumnVectorSTL(index)));
+ 					        
+        auto x4 = boost::make_permutation_iterator(
+ 					        std::begin(offs),
+ 					        std::begin(mat.getCompressedColumnVectorSTL(index))); 	 					        
  					     					    
  		auto x5 = std::begin(mat.getDataVectorSTL(index));
  					     					     	
@@ -532,24 +554,29 @@ namespace independent {
     	auto y3 = boost::make_permutation_iterator(
 					        std::begin(denominator),
 					        std::end(mat.getCompressedColumnVectorSTL(index)));
+					        
+    	auto y4 = boost::make_permutation_iterator(
+					        std::begin(offs),
+					        std::end(mat.getCompressedColumnVectorSTL(index)));						        
 					     					    
  	  	auto y5 = std::end(mat.getDataVectorSTL(index));			     					    
 
  		return {
             boost::make_zip_iterator(
                 boost::make_tuple(
-                	x0, x1, x3, x5
+                	x0, x1, x3, x4, x5
                 )),
             boost::make_zip_iterator(
                 boost::make_tuple( 
-                	y0, y1, y3, y5
+                	y0, y1, y3, y4, y5
                 ))            
         };      			 				
  	}  	
         
     auto getRangeXBeta(const CompressedDataMatrix& mat, const int index, 
   					RealVector& expXBeta, RealVector& xBeta,
-  					RealVector& denominator,  					
+  					RealVector& denominator,  		
+  					const RealVector& offs,			
   					DenseIterator::tag) -> 
 
  			boost::iterator_range<
@@ -557,7 +584,8 @@ namespace independent {
  					boost::tuple<	            	
 		            	decltype(std::begin(expXBeta)),
 		            	decltype(std::begin(xBeta)),		            	
-		            	decltype(std::begin(denominator)),		            	
+		            	decltype(std::begin(denominator)),	
+		            	decltype(std::begin(offs)),	            	
 		                decltype(std::begin(mat.getDataVectorSTL(index)))            
         		    >
             	>
@@ -567,22 +595,24 @@ namespace independent {
         
         auto x0 = std::begin(expXBeta);
         auto x1 = std::begin(xBeta);
-        auto x3 = std::begin(denominator);             
+        auto x3 = std::begin(denominator);   
+        auto x4 = std::begin(offs);          
         auto x5 = std::begin(mat.getDataVectorSTL(index)); 
         
         auto y0 = std::end(expXBeta);
         auto y1 = std::end(xBeta);
-        auto y3 = x3 + K;           
+        auto y3 = x3 + K;          
+        auto y4 = std::end(offs); 
         auto y5 = std::end(mat.getDataVectorSTL(index));         
         				                		       
         return { 
             boost::make_zip_iterator(
                 boost::make_tuple(
-                	x0, x1, x3, x5
+                	x0, x1, x3, x4, x5
                 )),
             boost::make_zip_iterator(
                 boost::make_tuple(
-					y0, y1, y3, y5
+					y0, y1, y3, y4, y5
                 ))            
         };          
     }      

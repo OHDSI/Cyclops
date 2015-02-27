@@ -1309,7 +1309,7 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
     if (BaseModel::hasIndependentRows) {
 
         auto range = helper::independent::getRangeXBeta(modelData, index,
-                offsExpXBeta, hXBeta, denomPid,
+                offsExpXBeta, hXBeta, denomPid, hOffs,
                 typename IteratorType::tag());	        
 
         auto kernel = TestUpdateXBetaKernel<BaseModel,IteratorType,real>(realDelta);
@@ -1322,7 +1322,7 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
     } else {
     
         auto rangeXBeta = helper::independent::getRangeXBeta(modelData, index,
-            offsExpXBeta, hXBeta, denomPid, // denom not used here
+            offsExpXBeta, hXBeta, denomPid, /* denom not used here */ hOffs,
             typename IteratorType::tag());
     
  		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid, 
