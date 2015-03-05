@@ -764,7 +764,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			++it;
 			
 			if (IteratorType::isSparse) {
-				++data;	
+// 				++data;	
 				const int next = it ? it.index() : N;
 				for (++i; i < next; ++i) {
 #ifdef DEBUG_COX
