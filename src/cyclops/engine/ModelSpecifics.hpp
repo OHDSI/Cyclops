@@ -1283,7 +1283,7 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 
 // #ifdef NEW_LOOPS
 
-#if 0
+#if 1
 	auto range = helper::getRangeX(modelData, index, typename IteratorType::tag());						
 
 	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,real,int>(
