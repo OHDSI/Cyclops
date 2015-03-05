@@ -715,7 +715,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		real accNumerPid  = static_cast<real>(0);
 		real accNumerPid2 = static_cast<real>(0);
 		
-		const real* data = modelData.getDataVector(index);	
+// 		const real* data = modelData.getDataVector(index);	
 
         // find start relavent accumulator reset point
         auto reset = begin(accReset);
