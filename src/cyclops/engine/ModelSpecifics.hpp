@@ -328,18 +328,18 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useC
 			hKWeight[k] = inWeights[k];	
 		}
 	} else {
-		std::fill(hKWeight.begin(), hKWeight.end(), static_cast<WeightType>(1));
+		std::fill(hKWeight.begin(), hKWeight.end(), static_cast<WeightType>(1));		
 	}
+	
+	if (initializeAccumulationVectors()) {
+		setPidForAccumulation(inWeights);				
+	}
+		
 	// Set N weights (these are the same for independent data models
-	if (hNWeight.size() != N + 1) { // Add +1 for extra (zero-weight stratum)
+	if (hNWeight.size() < N + 1) { // Add +1 for extra (zero-weight stratum)
 		hNWeight.resize(N + 1);
 	}
-	
-//	if (useCrossValidation) {
-	if (initializeAccumulationVectors()) {
-		setPidForAccumulation(inWeights);
-	}
-	
+		
 	std::fill(hNWeight.begin(), hNWeight.end(), static_cast<WeightType>(0));
 	for (size_t k = 0; k < K; ++k) {
 		WeightType event = BaseModel::observationCount(hY[k])*hKWeight[k];
@@ -542,41 +542,22 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 template <class BaseModel,typename WeightType>
 double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* weights) {
 
-	std::vector<int> savedPid;
-	std::vector<int> saveAccReset;
+    std::vector<real> saveKWeight;
+	if(BaseModel::cumulativeGradientAndHessian)	{
+	
+ 		saveKWeight = hKWeight; // make copy
+				
+// 		std::vector<int> savedPid = hPidInternal; // make copy
+// 		std::vector<int> saveAccReset = accReset; // make copy
 
-	if (BaseModel::cumulativeGradientAndHessian)	{
-	 				
-		savedPid = hPidInternal; // make copy
-		saveAccReset = accReset; // make copy
-		setPidForAccumulation(weights);		
-		
-		std::vector<real> saveKWeight = hKWeight; // make copy
+		setPidForAccumulation(weights);							
 		computeRemainingStatistics(true); // compute accDenomPid
-	}
 
-//     auto range = helper::getRangeAll(K);
-//     
-//     auto kernel = (BaseModel::cumulativeGradientAndHessian) ?
-//             PredLikeKernel<BaseModel,real,int>(
-//                 begin(hY), begin(weights), begin(hXBeta), begin(accDenomPid), begin(hPid)
-//             ) :
-//             PredLikeKernel<BaseModel,real,int>(
-//                 begin(hY), begin(weights), begin(hXBeta), begin(denomPid), begin(hPid)
-//             );
-//             
-//     real logLikelihood = variants::reduce(
-//             range.begin(), range.end(), static_cast<real>(0.0),
-//             kernel,
-//             SerialOnly()        
-//         );      
-        
+    }          
         
     auto range = helper::getRangeAllPredictiveLikelihood(K, hY, hXBeta,
         (BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
         weights, hPid);
-    
- //   hXBeta, );
     
     auto kernel = TestPredLikeKernel<BaseModel,real>();            
             
@@ -590,15 +571,14 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 	
 	if (BaseModel::cumulativeGradientAndHessian) {	
 	
-		hPidInternal = savedPid; // make copy; TODO swap
-		accReset = saveAccReset; // make copy; TODO swap		
-// 		setPidForAccumulation(&saveKWeight[0]);
-		
+// 		hPidInternal = savedPid; // make copy; TODO swap
+// 		accReset = saveAccReset; // make copy; TODO swap		
+		setPidForAccumulation(&saveKWeight[0]);		
 		computeRemainingStatistics(true);
 	}
 		
 	return static_cast<double>(logLikelihood);
-}
+}   // END OF DIFF
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::getPredictiveEstimates(real* y, real* weights){
@@ -690,8 +670,8 @@ std::pair<RealType, RealType> operator+(
 
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
- double *ohessian, Weights w) {
- 
+		double *ohessian, Weights w) {
+		
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
 	auto start = bsccs::chrono::steady_clock::now();
@@ -1413,7 +1393,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
 			incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
 		}
-		computeAccumlatedDenominator(useWeights);
+		computeAccumlatedDenominator(useWeights); // WAS computeAccumlatedNumerDenom
 	} 
 #ifdef DEBUG_COX
 	cerr << "Done with initial denominators" << endl;

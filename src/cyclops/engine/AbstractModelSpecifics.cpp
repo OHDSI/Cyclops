@@ -230,7 +230,7 @@ void AbstractModelSpecifics::initialize(
 	K = iK;
 	J = iJ;	
 	offsExpXBeta.resize(K);
-	hXBeta.resize(K);
+	hXBeta.resize(K); // PT OF DIFFERENCE
 
 	if (allocateXjY()) {
 		hXjY.resize(J);
