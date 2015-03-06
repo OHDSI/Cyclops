@@ -702,6 +702,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	real hessian = static_cast<real>(0);
 
 	if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
+	
+    	if (sparseIndices[index] == nullptr || sparseIndices[index]->size() > 0) { 
 		
 		// TODO
 		// x. Fill numerators <- 0
@@ -788,6 +790,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 					
 				}						
 			}
+		}
 		}
 	} else if (BaseModel::hasIndependentRows) {
 	
