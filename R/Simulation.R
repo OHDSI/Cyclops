@@ -203,7 +203,7 @@ simulateCyclopsData <- function(nstrata = 200,
 #' @param coverage Logical: report coverage statistics
 #' @param includePenalty   Logical: include regularized regression penalty in computing profile likelihood based confidence intervals
 #' 
-#' @keywords internal
+#' @export
 fitCyclopsSimulation <- function(sim, 
                                  useCyclops = TRUE,
                                  model = "logistic",
