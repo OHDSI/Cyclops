@@ -95,6 +95,45 @@ simulateCyclopsData <- function(nstrata = 200,
     list(outcomes = outcomes, covariates = covariates, effectSizes = effectSizes, sparseness = sparseness)
 }
 
+.figureOutGlmnetComparison <- function() {
+    
+    sim <-simulateCyclopsData(1, 100000, 1000, 0.5,
+                              zeroEffectSizeProp = 0.9, model = "logistic")
+    
+    convertCyclopsSimulationToGlmnet <- function(sim) {
+        mat <- Matrix(data = 0, 
+                      nrow = nrow(sim$outcomes), 
+                      ncol = max(sim$covariates$covariateId),
+                      sparse = TRUE)
+        nnz <- length(sim$covariates$rowId)
+        for (i in 1:nnz) {
+            mat[sim$covariates$rowId[i], 
+                sim$covariates$covariateId[i]] <- sim$covariates$covariateValue[i]
+        }
+        mat
+    }
+    
+    mat <- convertCyclopsSimulationToGlmnet(sim)
+    
+    mat <- sparseX
+    y <- y
+    
+    start <- Sys.time()
+    f <- glmnet(y = y, x = mat, 
+                family = "binomial",
+                lambda = sqrt(2 / 0.1) / nrow(mat), 
+                intercept = FALSE, standardize = FALSE)
+    delta <- Sys.time() - start
+    writeLines(paste("Analysis took", signif(delta,3), attr(delta,"units")))
+    
+    start <- Sys.time()
+    cd <- createCyclopsData(y = y, ix = mat, modelType = "lr")
+    ff <- fitCyclopsModel(cd, prior = createPrior("laplace", 0.1))
+    delta <- Sys.time() - start
+    writeLines(paste("Analysis took", signif(delta,3), attr(delta,"units")))
+
+}
+
 .fitUsingClogit <- function(sim,coverage=TRUE){
     start <- Sys.time()    
     covariates <- sim$covariates
@@ -291,7 +330,10 @@ fitCyclopsSimulation <- function(sim,
         }
     }
     delta <- Sys.time() - start
-    writeLines(paste("Analysis took", signif(delta,3), attr(delta,"units")))
+    writeLines(paste("Analysis took", signif(delta,3), attr(delta,"units"),
+                     "(",
+                     signif(cyclopsFit$timeFit,3), attr(cyclopsFit$timeFit,"units"),
+                     ")"))
     
     df <- data.frame(coef = coefCyclops, lbCi95 = lbCi95, ubCi95 = ubCi95)
     attr(df, "dataPtr") <- dataPtr
