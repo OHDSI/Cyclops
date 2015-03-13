@@ -269,7 +269,9 @@ int CyclicCoordinateDescent::getAlignedLength(int N) {
 }
 
 void CyclicCoordinateDescent::computeNEvents() {  
-	modelSpecifics.setWeights(hWeights.data(), useCrossValidation);
+	modelSpecifics.setWeights(
+		hWeights.size() > 0 ? hWeights.data() : nullptr,
+		useCrossValidation);
 }
 
 void CyclicCoordinateDescent::resetBeta(void) {
@@ -474,7 +476,7 @@ void CyclicCoordinateDescent::setWeights(real* iWeights) {
 		sufficientStatisticsKnown = false;
 	} else {
 
-		if (hWeights.size() == 0) {
+		if (hWeights.size() != K) {
 			hWeights.resize(K); // = (real*) malloc(sizeof(real) * K);
 		}
 		for (int i = 0; i < K; ++i) {

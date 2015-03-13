@@ -229,22 +229,43 @@ start, length, event, x1, x2
     expect_equal(t1, t2, tolerance = tolerance)
 })
 
-# test_that("Check very small Cox example with cross-validation", {   
-# 	data(lung)
-# 	lung$status = lung$status -1
-# 	lung <- lung[!is.na(lung$ph.ecog),]
-# 	
-# # 	gold <- coxph(Surv(time, status) ~ age + ph.ecog + strata(sex), lung, ties = "breslow")
-# 				
-# 	dataObject <- createCyclopsData(Surv(time, status) ~ age + ph.ecog + strata(sex),																                                          
-# 																		data = lung, modelType = "cox")
-# 	
-# 	fit <- fitCyclopsModel(dataObject,
-# 												 prior = createPrior("laplace", 
-# 												 										useCrossValidation = TRUE),
-# 												 control = createControl(cvType = "auto",
-# 												 												startingVariance = 0.1,
-# 												 												noiseLevel = "quiet",
-# 												 												selectorType = "byRow"))	
+# 
+# test_that("More SQL checks for stratified cox models", {
+#     data(lung)
+#     lung$status = lung$status -1
+#     lung <- lung[!is.na(lung$ph.ecog),]
+#     
+#     goldRight <- coxph(Surv(time, status) ~ age + ph.ecog + strata(sex), lung, ties = "breslow")
+#     
+#     dataPtrRight <- createCyclopsData(Surv(time, status) ~ age + ph.ecog + strata(sex),
+#                                            method = "debug",                                           
+#                                            data = lung, modelType = "cox")    
+#     #This crashed R:
+#     cyclopsFitRight <- fitCyclopsModel(dataPtrRight,
+#                                        control = createControl(noiseLevel = "silent")) 
+#     
+#     lung$row_id <- 1:nrow(lung)
+#     out <- data.frame(row_id = lung$row_id, stratum_id = lung$sex, time = lung$time, y = lung$status)
+#     covAge <- data.frame(row_id = lung$row_id, stratum_id = lung$sex, time = lung$time, y = lung$status, covariate_value = lung$age)
+#     covAge$covariate_id = 1
+#     covPhEcog <- data.frame(row_id = lung$row_id, stratum_id = lung$sex, time = lung$time, y = lung$status, covariate_value = lung$ph.ecog)
+#     covPhEcog$covariate_id = 2
+#     cov <- rbind(covAge,covPhEcog)
+#     
+#     # Sometimes, rows match on all (stratum, time, outcome): in which case sort may differ between out/cov
+#     out <- out[order(out$stratum_id, -out$time, out$y, out$row_id),] # Must sort by: strata, into risk set (with events before censorsed)
+#     cov <- cov[order(cov$stratum_id, -cov$time, cov$y, cov$row_id),] # Must sort by: strata, into risk set (with events before censorsed)
+#     
+#     dataPtr <- createSqlCyclopsData(modelType = "cox")
+#     
+#     count <- appendSqlCyclopsData(dataPtr,
+#                                   out$stratum_id,
+#                                   out$row_id,
+#                                   out$y,
+#                                   out$time,
+#                                   cov$row_id,
+#                                   cov$covariate_id,
+#                                   cov$covariate_value)
+#     #This crashes R
+#     cyclopsFitStrat <- fitCyclopsModel(dataPtr)
 # })
-
