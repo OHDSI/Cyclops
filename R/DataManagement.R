@@ -458,8 +458,9 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
 #' A list that contains a Cyclops model data object pointer and an operation duration
 #' 
 #' @examples
+#' \dontrun{
 #' dataPtr = readCyclopsData(system.file("extdata/infert_ccd.txt", package="Cyclops2"), "clr")
-#'
+#' }
 #' @export
 readCyclopsData <- function(fileName, modelType) {
     cl <- match.call() # save to return

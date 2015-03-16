@@ -31,10 +31,10 @@
 #' 
 #' @docType package
 #' @name cyclops
-#' @import Rcpp Matrix
-#' @useDynLib Cyclops
+#' @import Rcpp Matrix RcppParallel
+#' @useDynLib Cyclops2
 NULL
 
 .onUnload <- function (libpath) {
-  library.dynam.unload("Cyclops", libpath)
+  library.dynam.unload("Cyclops2", libpath)
 }
