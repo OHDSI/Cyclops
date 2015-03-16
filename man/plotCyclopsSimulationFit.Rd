@@ -17,4 +17,5 @@ plotCyclopsSimulationFit(fit, goldStandard, label)
 \code{plotCyclopsSimulationFit} generates a plot that compares \code{goldStandard} coefficients to their
 Cyclops model \code{fit}.
 }
+\keyword{internal}
 

@@ -1,3 +1,21 @@
+# @file Simulation.R
+#
+# Copyright 2014 Observational Health Data Sciences and Informatics
+#
+# This file is part of cyclops
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#     http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 #' @title Simulation Cyclops dataset
 #' 
 #' @description
@@ -12,13 +30,17 @@
 #' @param model String: Simulation model. Choices are: \code{logistic}, \code{poisson} or \code{survival}
 #' 
 #' @return A simulated data set
+#' 
+#' @template elaborateExample
+#' 
+#' @export
 simulateCyclopsData <- function(nstrata = 200, 
-                         nrows = 10000, 
-                         ncovars = 20,
-                         effectSizeSd = 1,
-                         zeroEffectSizeProp = 0.9,
-                         eCovarsPerRow = ncovars/100,
-                         model="survival"){
+                                nrows = 10000, 
+                                ncovars = 20,
+                                effectSizeSd = 1,
+                                zeroEffectSizeProp = 0.9,
+                                eCovarsPerRow = ncovars/100,
+                                model="survival"){
     
     sd <- rep(effectSizeSd, ncovars) * rbinom(ncovars, 1, 1 - zeroEffectSizeProp)
     effectSizes <- data.frame(covariateId=1:ncovars,rr=exp(rnorm(ncovars,mean=0,sd=sd)))
@@ -73,6 +95,45 @@ simulateCyclopsData <- function(nstrata = 200,
     list(outcomes = outcomes, covariates = covariates, effectSizes = effectSizes, sparseness = sparseness)
 }
 
+.figureOutGlmnetComparison <- function() {
+    
+    sim <-simulateCyclopsData(1, 100000, 1000, 0.5,
+                              zeroEffectSizeProp = 0.9, model = "logistic")
+    
+    convertCyclopsSimulationToGlmnet <- function(sim) {
+        mat <- Matrix(data = 0, 
+                      nrow = nrow(sim$outcomes), 
+                      ncol = max(sim$covariates$covariateId),
+                      sparse = TRUE)
+        nnz <- length(sim$covariates$rowId)
+        for (i in 1:nnz) {
+            mat[sim$covariates$rowId[i], 
+                sim$covariates$covariateId[i]] <- sim$covariates$covariateValue[i]
+        }
+        mat
+    }
+    
+    mat <- convertCyclopsSimulationToGlmnet(sim)
+    
+    mat <- sparseX
+    y <- y
+    
+    start <- Sys.time()
+    f <- glmnet(y = y, x = mat, 
+                family = "binomial",
+                lambda = sqrt(2 / 0.1) / nrow(mat), 
+                intercept = FALSE, standardize = FALSE)
+    delta <- Sys.time() - start
+    writeLines(paste("Analysis took", signif(delta,3), attr(delta,"units")))
+    
+    start <- Sys.time()
+    cd <- createCyclopsData(y = y, ix = mat, modelType = "lr")
+    ff <- fitCyclopsModel(cd, prior = createPrior("laplace", 0.1))
+    delta <- Sys.time() - start
+    writeLines(paste("Analysis took", signif(delta,3), attr(delta,"units")))
+
+}
+
 .fitUsingClogit <- function(sim,coverage=TRUE){
     start <- Sys.time()    
     covariates <- sim$covariates
@@ -87,7 +148,7 @@ simulateCyclopsData <- function(nstrata = 200,
     data$rowId <- 1:nrow(data)
     data <- merge(data,sim$outcomes)
     data <- data[order(data$stratumId,data$rowId),]
-    formula <- as.formula(paste(c("y ~ strata(stratumId)",paste("v",1:ncovars,sep="")),collapse=" + "))
+    formula <- as.formula(paste(c("y ~ strata(stratumId)",paste("V",1:ncovars,sep="")),collapse=" + "))
     fit <- survival::clogit(formula,data=data) 
     if (coverage) {
         ci <- confint(fit)
@@ -181,13 +242,14 @@ simulateCyclopsData <- function(nstrata = 200,
 #' @param coverage Logical: report coverage statistics
 #' @param includePenalty   Logical: include regularized regression penalty in computing profile likelihood based confidence intervals
 #' 
+#' @export
 fitCyclopsSimulation <- function(sim, 
                                  useCyclops = TRUE,
                                  model = "logistic",
                                  coverage = TRUE,
                                  includePenalty = FALSE) {
     if (useCyclops) {
-        .fitCyclopsSimulationUsingCyclops(sim, model, coverage, includePenalty)
+        .fitCyclopsSimulationUsingCyclops(sim, model, coverage = coverage, includePenalty = includePenalty)
     } else {
         .fitCyclopsSimulationUsingOtherThanCyclops(sim, model, coverage)
     }
@@ -208,10 +270,10 @@ fitCyclopsSimulation <- function(sim,
 }
 
 .fitCyclopsSimulationUsingCyclops <- function(sim, 
-                            model = "logistic",
-                            regularized = TRUE,                                                       
-                            coverage = TRUE,
-                            includePenalty = FALSE){
+                                              model = "logistic",
+                                              regularized = TRUE,                                                       
+                                              coverage = TRUE,
+                                              includePenalty = FALSE){
     if (!regularized)
         includePenalty = FALSE
     start <- Sys.time()    
@@ -226,35 +288,7 @@ fitCyclopsSimulation <- function(sim,
         if (model == "survival") modelType = "cox"        
     }
     
-    if (!stratified){
-        sim$outcomes$stratumId = sim$outcomes$rowId
-        sim$outcomes <- sim$outcomes(order(sim$outcomes$stratumId))
-        sim$covariates$stratumId = sim$covariates$rowId
-        sim$covariates <- sim$covariates(order(sim$covariates$stratumId))
-    }
-    if (model != "poisson" & model != "survival"){
-        sim$outcomes$time <- 1
-    }
-    if (model == "survival"){
-        sim$outcomes <- sim$outcomes[order(sim$outcomes$stratumId,-sim$outcomes$time,sim$outcomes$y,sim$outcomes$rowId),]
-        sim$covariates <- merge(sim$outcomes[,c("time","y","rowId")],sim$covariates)
-        sim$covariates <- sim$covariates[order(sim$covariates$stratumId,-sim$covariates$time,sim$covariates$y,sim$covariates$rowId),]        
-    }
-    
-    dataPtr <- createSqlCyclopsData(modelType = modelType)
-    
-    count <- appendSqlCyclopsData(dataPtr,
-                                  sim$outcomes$stratumId,
-                                  sim$outcomes$rowId,
-                                  sim$outcomes$y,
-                                  sim$outcomes$time,
-                                  sim$covariates$rowId,
-                                  sim$covariates$covariateId,
-                                  sim$covariates$covariateValue)
-    if (model == "poisson")
-        finalizeSqlCyclopsData(dataPtr,useOffsetCovariate=-1) 
-    else if (model != "survival")
-        finalizeSqlCyclopsData(dataPtr) 
+    dataPtr <- convertToCyclopsData(sim$outcomes,sim$covariates,modelType = modelType,addIntercept = !stratified)
     
     if (regularized){
         coefCyclops <- rep(0,length(sim$effectSizes$rr))
@@ -262,17 +296,7 @@ fitCyclopsSimulation <- function(sim,
         ubCi95 <- rep(0,length(sim$effectSizes$rr))
         for (i in 1:length(sim$effectSizes$rr)){
             if (model == "survival"){ # For some reason can't get confint twice on same dataPtr object, so recreate:
-                dataPtr <- createSqlCyclopsData(modelType = modelType)
-                
-                count <- appendSqlCyclopsData(dataPtr,
-                                              sim$outcomes$stratumId,
-                                              sim$outcomes$rowId,
-                                              sim$outcomes$y,
-                                              sim$outcomes$time,
-                                              sim$covariates$rowId,
-                                              sim$covariates$covariateId,
-                                              sim$covariates$covariateValue)
-                
+                dataPtr <- convertToCyclopsData(sim$outcomes,sim$covariates,modelType = modelType,addIntercept = !stratified)
             }
             cyclopsFit <- fitCyclopsModel(dataPtr,prior = createPrior("laplace",0.1,exclude=i))
             coefCyclops[i] <- coef(cyclopsFit)[names(coef(cyclopsFit)) == as.character(i)]
@@ -282,9 +306,9 @@ fitCyclopsSimulation <- function(sim,
                     lbCi95[i] <- ci[,2]
                     ubCi95[i] <- ci[,3]
                 } else {
-                    ci <- aconfint(cyclopsFit,parm=i)
-                    lbCi95[i] <- ci[,1]
-                    ubCi95[i] <- ci[,2]
+                    ci <- confint(cyclopsFit,parm=i,includePenalty = includePenalty)
+                    lbCi95[i] <- ci[,2]
+                    ubCi95[i] <- ci[,3]
                 }
             }
         }
@@ -299,14 +323,17 @@ fitCyclopsSimulation <- function(sim,
                 lbCi95 <- ci[,2]
                 ubCi95 <- ci[,3]
             } else {
-                ci <- aconfint(cyclopsFit,parm=i)
-                lbCi95 <- ci[,1]
-                ubCi95 <- ci[,2]
+                ci <- confint(cyclopsFit,parm=i,includePenalty = includePenalty)
+                lbCi95 <- ci[,2]
+                ubCi95 <- ci[,3]
             }
         }
     }
     delta <- Sys.time() - start
-    writeLines(paste("Analysis took", signif(delta,3), attr(delta,"units")))
+    writeLines(paste("Analysis took", signif(delta,3), attr(delta,"units"),
+                     "(",
+                     signif(cyclopsFit$timeFit,3), attr(cyclopsFit$timeFit,"units"),
+                     ")"))
     
     df <- data.frame(coef = coefCyclops, lbCi95 = lbCi95, ubCi95 = ubCi95)
     attr(df, "dataPtr") <- dataPtr
@@ -322,6 +349,8 @@ fitCyclopsSimulation <- function(sim,
 #' @param estimates  Numeric vector
 #' 
 #' @return MSE(\code{goldStandard}, \code{estimates})
+#' 
+#' @keywords internal
 mse <- function(goldStandard, estimates){
     mean((goldStandard - estimates)^2)
 }
@@ -336,6 +365,8 @@ mse <- function(goldStandard, estimates){
 #' @param upperBounds  Numeric vector. Upper bound of the confidence intervals
 #' 
 #' @return The proportion of times \code{goldStandard} falls between \code{lowerBound} and \code{upperBound}
+#' 
+#' @keywords internal
 coverage <- function(goldStandard, lowerBounds, upperBounds){
     sum(goldStandard >= lowerBounds & goldStandard <= upperBounds) / length(goldStandard)
 }
@@ -349,6 +380,8 @@ coverage <- function(goldStandard, lowerBounds, upperBounds){
 #' @param fit   A Cyclops simulation fit generated by \code{fitCyclopsSimulation}
 #' @param goldStandard Numeric vector.  True relative risks.
 #' @param label String. Name of estimate type.
+#' 
+#' @keywords internal
 plotCyclopsSimulationFit <- function(fit,goldStandard,label){
     if (require("ggplot2")) {
         ggplot2::ggplot(fit, ggplot2::aes(x= goldStandard , y=coef, ymin=fit$lbCi95, ymax=fit$ubCi95), environment=environment()) +
@@ -359,6 +392,7 @@ plotCyclopsSimulationFit <- function(fit,goldStandard,label){
         stop("gglot2 package required")
     }
 }
+
 
 # TODO Move to vignette
 #

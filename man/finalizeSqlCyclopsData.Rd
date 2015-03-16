@@ -27,4 +27,5 @@ For efficiency, we suggest making atleast the intercept dense.}
 \description{
 \code{finalizeSqlCyclopsData} finalizes a Cyclops data object
 }
+\keyword{internal}
 

@@ -2,10 +2,10 @@
 % Please edit documentation in R/ModelFit.R
 \name{confint.cyclopsFit}
 \alias{confint.cyclopsFit}
-\title{confint.cyclopsFit}
+\title{Confidence intervals for Cyclops model parameters}
 \usage{
-\method{confint}{cyclopsFit}(object, parm, level = 0.95, control,
-  overrideNoRegularization = FALSE, includePenalty = FALSE, ...)
+\method{confint}{cyclopsFit}(object, parm, level = 0.95,
+  overrideNoRegularization = FALSE, includePenalty = TRUE, ...)
 }
 \arguments{
 \item{object}{A fitted Cyclops model object}
@@ -15,8 +15,6 @@ either a vector of numbers of covariateId names}
 
 \item{level}{Numeric: confidence level required}
 
-\item{control}{A Cyclops \code{\link{control}} object}
-
 \item{overrideNoRegularization}{Logical: Enable confidence interval estimation for regularized parameters}
 
 \item{includePenalty}{Logical: Include regularized covariate penalty in profile}
@@ -25,11 +23,37 @@ either a vector of numbers of covariateId names}
 }
 \value{
 A matrix with columns reporting lower and upper confidence limits for each parameter.
-These columns are labelled as (1-level) / 2 and 1 - (1 - level) / 2 in %
-(by default 2.5% and 97.5%)
+These columns are labelled as (1-level) / 2 and 1 - (1 - level) / 2 in percent
+(by default 2.5 percent and 97.5 percent)
 }
 \description{
 \code{confinit.cyclopsFit} profiles the data likelihood to construct confidence intervals of
-arbitrary level.   TODO: Profile data likelihood or joint distribution of remaining parameters.
+arbitrary level. Usually it only makes sense to do this for variables that have not been regularized
+TODO: Profile data likelihood or joint distribution of remaining parameters.
+}
+\examples{
+#Generate some simulated data:
+sim <- simulateCyclopsData(nstrata = 1, nrows = 1000, ncovars = 2, eCovarsPerRow = 0.5,
+                           model = "poisson")
+cyclopsData <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "pr",
+                                    addIntercept = TRUE)
+
+#Define the prior and control objects to use cross-validation for finding the
+#optimal hyperparameter:
+prior <- createPrior("laplace", exclude = 0, useCrossValidation = TRUE)
+control <- createControl(cvType = "auto", noiseLevel = "quiet")
+
+#Fit the model
+fit <- fitCyclopsModel(cyclopsData,prior = prior, control = control)
+
+#Find out what the optimal hyperparameter was:
+getHyperParameter(fit)
+
+#Extract the current log-likelihood, and coefficients
+logLik(fit)
+coef(fit)
+
+#We can only retrieve the confidence interval for unregularized coefficients:
+confint(fit, c(0))
 }
 

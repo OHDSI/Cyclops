@@ -2,19 +2,19 @@
 % Please edit documentation in R/DataManagement.R
 \name{summary.cyclopsData}
 \alias{summary.cyclopsData}
-\title{OHDSI Cyclops data object summary}
+\title{Cyclops data object summary}
 \usage{
 \method{summary}{cyclopsData}(object, ...)
 }
 \arguments{
-\item{object}{An OHDSI Cyclops data object}
+\item{object}{A Cyclops data object}
 
 \item{...}{Additional arguments}
 }
 \value{
-Returns a \code{data.frame} that reports simply summarize statistics for each covariate in an OHDSI Cyclops data object.
+Returns a \code{data.frame} that reports simply summarize statistics for each covariate in a Cyclops data object.
 }
 \description{
-\code{summary.cyclopsData} summarizes the data held in an OHDSI Cyclops data object.
+\code{summary.cyclopsData} summarizes the data held in an Cyclops data object.
 }
 

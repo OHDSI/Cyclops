@@ -18,10 +18,10 @@
 
 
 .createManualAndVignettes <- function(){
-  shell("rm man/Cyclops.pdf")
-  shell("R CMD Rd2pdf ./ --output=man/Cyclops.pdf")
-
-  #No vignettes yet
-  #require(rmarkdown)
-  #render("vignettes/SingleStudies.Rmd", pdf_document(latex_engine = "pdflatex",toc = TRUE,number_sections = TRUE))
+    shell("rm man/Cyclops.pdf")
+    shell("R CMD Rd2pdf ./ --output=man/Cyclops.pdf")
+    
+    #No vignettes yet
+    #require(rmarkdown)
+    #render("vignettes/SingleStudies.Rmd", pdf_document(latex_engine = "pdflatex",toc = TRUE,number_sections = TRUE))
 }

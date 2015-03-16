@@ -783,12 +783,12 @@ void CyclicCoordinateDescent::findMode(
 		stream << "Unknown convergence criterion: " << convergenceType;
 		error->throwError(stream);				
 	}
-
+	
 	if (!validWeights) {    	   	
 		computeNEvents();
 		computeFixedTermsInLogLikelihood();
 		computeFixedTermsInGradientAndHessian();
-		validWeights = true;
+		validWeights = true;		
 	}
 
 	if (!xBetaKnown) {
@@ -1060,7 +1060,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	
 	priors::GradientHessian gh;
 	computeGradientAndHessian(index, &gh.first, &gh.second);
-			
+				
 	if (gh.second < 0.0) {
 	    gh.first = 0.0;	
 	    gh.second = 0.0;

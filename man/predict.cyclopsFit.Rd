@@ -7,7 +7,7 @@
 \method{predict}{cyclopsFit}(object, ...)
 }
 \arguments{
-\item{object}{An OHDSI Cyclops model fit object}
+\item{object}{A Cyclops model fit object}
 
 \item{...}{Additional arguments}
 }

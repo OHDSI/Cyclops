@@ -2,7 +2,7 @@
 #
 # Copyright 2014 Observational Health Data Sciences and Informatics
 #
-# This file is part of SqlRender
+# This file is part of Cyclops
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,11 +21,20 @@
 # @author Trevor Shaddox
 
 
-#' cyclops
+#' Cyclops: Cyclic coordinate descent for logistic, Poisson and survival analysis
+#'
+#' The Cyclops package incorporates cyclic coordinate descent and
+#' majorization-minimization approaches to fit a variety of regression models
+#' found in large-scale observational healthcare data.  Implementations focus
+#' on computational optimization and fine-scale parallelization to yield
+#' efficient inference in massive datasets.
 #' 
 #' @docType package
 #' @name cyclops
+#' @import Rcpp Matrix
+#' @useDynLib Cyclops
+NULL
 
-# .onLoad <- function(libname, pkgname) {     
-#     packageStartupMessage("Cyclops: written by Marc A. Suchard, Trevor Shaddox, Martijn J. Schuemie, Patrick Ryan and David Madigan")
-# }
+.onUnload <- function (libpath) {
+  library.dynam.unload("Cyclops", libpath)
+}

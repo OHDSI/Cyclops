@@ -2,17 +2,17 @@
 % Please edit documentation in R/DataManagement.R
 \name{createSqlCyclopsData}
 \alias{createSqlCyclopsData}
-\title{Create an OHDSI Cyclops data object from SQL input}
+\title{Create an Cyclops data object from SQL input}
 \usage{
 createSqlCyclopsData(modelType, control)
 }
 \arguments{
 \item{modelType}{character string: Valid types are listed below.}
 
-\item{control}{An OHDSI Cyclops fit control object (optional)}
+\item{control}{An Cyclops fit control object (optional)}
 }
 \description{
-\code{createSqlCyclopsData} creates an empty OHDSI Cyclops data object into which data can be appended in chunks.
+\code{createSqlCyclopsData} creates an empty Cyclops data object into which data can be appended in chunks.
 }
 \section{Models}{
 
@@ -27,4 +27,5 @@ Currently supported model types are:
 	\verb{	"cox"} \tab Cox proportional hazards regression \cr
 }
 }
+\keyword{internal}
 

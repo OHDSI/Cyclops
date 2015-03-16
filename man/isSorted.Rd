@@ -38,14 +38,14 @@ This function currently only supports checking for sorting on numeric values.
 \item \code{ffdf}: Check if a \code{ffdf} is sorted by one or more columns
 }}
 \examples{
-x <- data.frame(a = runif(1000),b = runif(1000))
-x <- round(x,digits=2)
-isSorted(x,c("a","b"))
+x <- data.frame(a = runif(1000), b = runif(1000))
+x <- round(x, digits=2)
+isSorted(x, c("a", "b"))
 
-x <- x[order(x$a,x$b),]
-isSorted(x,c("a","b"))
+x <- x[order(x$a, x$b),]
+isSorted(x, c("a", "b"))
 
 x <- x[order(x$a,-x$b),]
-isSorted(x,c("a","b"),c(TRUE,FALSE))
+isSorted(x, c("a", "b"), c(TRUE, FALSE))
 }
 

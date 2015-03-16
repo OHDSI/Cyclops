@@ -7,7 +7,7 @@
 reduce(object, covariates, groupBy, power = 1)
 }
 \arguments{
-\item{object}{An OHDSI Cyclops data object}
+\item{object}{A Cyclops data object}
 
 \item{covariates}{Integer or string vector: list of covariates to report}
 
@@ -19,6 +19,7 @@ reduce(object, covariates, groupBy, power = 1)
 Specified reduction as number or \code{data.frame} if segmented.
 }
 \description{
-\code{reduce} reports the count of non-zero elements, sum and sum-of-squares for specified covariates in an OHDSI data object.
+\code{reduce} reports the count of non-zero elements, sum and sum-of-squares for specified covariates in a Cyclops data object.
 }
+\keyword{internal}
 

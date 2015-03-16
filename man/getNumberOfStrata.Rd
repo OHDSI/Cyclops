@@ -7,9 +7,9 @@
 getNumberOfStrata(object)
 }
 \arguments{
-\item{object}{An OHDSI Cyclops data object}
+\item{object}{A Cyclops data object}
 }
 \description{
-\code{getNumberOfStrata} return the number of unique strata in an OHDSI Cyclops data object
+\code{getNumberOfStrata} return the number of unique strata in a Cyclops data object
 }
 

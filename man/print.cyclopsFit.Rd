@@ -2,18 +2,18 @@
 % Please edit documentation in R/ModelFit.R
 \name{print.cyclopsFit}
 \alias{print.cyclopsFit}
-\title{Print an OHDSI Cyclops model fit object}
+\title{Print a Cyclops model fit object}
 \usage{
 \method{print}{cyclopsFit}(x, show.call = TRUE, ...)
 }
 \arguments{
-\item{x}{An OHDSI Cyclops model fit object}
+\item{x}{A Cyclops model fit object}
 
-\item{show.call}{Logical: display last call to update the OHDSI Cyclops model fit object}
+\item{show.call}{Logical: display last call to update the Cyclops model fit object}
 
 \item{...}{Additional arguments}
 }
 \description{
-\code{print.cyclopsFit} displays information about an OHDSI Cyclops model fit object
+\code{print.cyclopsFit} displays information about a Cyclops model fit object
 }
 

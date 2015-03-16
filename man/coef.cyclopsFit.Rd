@@ -7,7 +7,7 @@
 \method{coef}{cyclopsFit}(object, ...)
 }
 \arguments{
-\item{object}{OHDSI Cyclops model fit object}
+\item{object}{Cyclops model fit object}
 
 \item{...}{Other arguments}
 }
@@ -15,6 +15,6 @@
 Named numeric vector of model coefficients.
 }
 \description{
-\code{coef.cyclopsFit} extracts model coefficients from an OHDSI Cyclops model fit object
+\code{coef.cyclopsFit} extracts model coefficients from an Cyclops model fit object
 }
 

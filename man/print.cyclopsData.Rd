@@ -2,18 +2,18 @@
 % Please edit documentation in R/DataManagement.R
 \name{print.cyclopsData}
 \alias{print.cyclopsData}
-\title{Print an OHDSI Cyclops data model object}
+\title{Print a Cyclops data object}
 \usage{
 \method{print}{cyclopsData}(x, show.call = TRUE, ...)
 }
 \arguments{
-\item{x}{An OHDSI Cyclops data model object}
+\item{x}{A Cyclops data model object}
 
-\item{show.call}{Logical: display last call to construct the OHDSI Cyclops data model object}
+\item{show.call}{Logical: display last call to construct the Cyclops data model object}
 
 \item{...}{Additional arguments}
 }
 \description{
-\code{print.cyclopsData} displays information about an OHDSI Cyclops data model object
+\code{print.cyclopsData} displays information about a Cyclops data model object.
 }
 

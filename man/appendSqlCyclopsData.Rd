@@ -32,4 +32,5 @@ Append data using two tables.  The outcomes table is dense and contains ...  The
 All entries in the outcome table must be sorted in increasing order by {oStratumId, oRowId}.  All entries in the covariate table
 must be sorted in increasing order by {cRowId}. Each cRowId value must match exactly one oRowId value.
 }
+\keyword{internal}
 

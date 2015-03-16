@@ -7,9 +7,10 @@
 printCyclopsRowIds(object)
 }
 \arguments{
-\item{object}{An OHDSI Cyclops data object}
+\item{object}{A Cyclops data object}
 }
 \description{
-\code{printCcdRowIds} return the row identifiers in an OHDSI Cyclops data object
+\code{printCcdRowIds} return the row identifiers in a Cyclops data object
 }
+\keyword{internal}
 

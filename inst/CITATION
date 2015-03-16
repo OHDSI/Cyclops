@@ -1,3 +1,5 @@
+citHeader("To cite Cyclops in publications use:")
+
 bibentry(bibtype = "Article",
         author = personList(as.person("M. A. Suchard"),
                             as.person("S. E. Simpson"),

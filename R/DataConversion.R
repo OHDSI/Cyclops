@@ -33,33 +33,36 @@
 #' True or false
 #' 
 #' @examples 
-#' x <- data.frame(a = runif(1000),b = runif(1000))
-#' x <- round(x,digits=2)
-#' isSorted(x,c("a","b"))
+#' x <- data.frame(a = runif(1000), b = runif(1000))
+#' x <- round(x, digits=2)
+#' isSorted(x, c("a", "b"))
 #'  
-#' x <- x[order(x$a,x$b),]
-#' isSorted(x,c("a","b"))
+#' x <- x[order(x$a, x$b),]
+#' isSorted(x, c("a", "b"))
 #'  
 #' x <- x[order(x$a,-x$b),]
-#' isSorted(x,c("a","b"),c(TRUE,FALSE))
+#' isSorted(x, c("a", "b"), c(TRUE, FALSE))
+#' 
 #' @export
 isSorted <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
     UseMethod("isSorted") 
 }
 
 #' @describeIn isSorted Check if a \code{data.frame} is sorted by one or more columns
+#' @export
 isSorted.data.frame <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
     return(.isSorted(data,columnNames,ascending))
 }
 
 #' @describeIn isSorted Check if a \code{ffdf} is sorted by one or more columns
+#' @export
 isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
-#    require(ffbase) #Should be superfluous, since the user already has an ffdf object
+    #    require(ffbase) #Should be superfluous, since the user already has an ffdf object
     if (nrow(data)>100000){ #If data is big, first check on a small subset. If that aready fails, we're done
         if (!isSorted(data[bit::ri(1,1000),,drop=FALSE],columnNames,ascending))
             return(FALSE)
     }
-#     chunks <- chunk(data)
+    #     chunks <- chunk(data)
     for (i in ff::chunk.ffdf(data))
         if (!isSorted(data[i,,drop=FALSE],columnNames,ascending))
             return(FALSE)
@@ -77,14 +80,14 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
 }
 
 .constructCyclopsDataFromBatchableSources <- function(resultSetOutcome,
-                                                     resultSetCovariate,
-                                                     getOutcomeBatch,
-                                                     getCovariateBatch,
-                                                     isDone,
-                                                     modelType = "lr", 
-                                                     addIntercept = TRUE,
-                                                     offsetAlreadyOnLogScale = FALSE,
-                                                     makeCovariatesDense = NULL){
+                                                      resultSetCovariate,
+                                                      getOutcomeBatch,
+                                                      getCovariateBatch,
+                                                      isDone,
+                                                      modelType = "lr", 
+                                                      addIntercept = TRUE,
+                                                      offsetAlreadyOnLogScale = FALSE,
+                                                      makeCovariatesDense = NULL){
     if ((modelType == "clr" | modelType == "cpr") & addIntercept){
         warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)
         addIntercept = FALSE
@@ -242,7 +245,8 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
 #'   \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
 #'   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
 #'   \verb{y}    \tab(real) \tab The outcome variable \cr
-#'   \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time (e.g. number of days) \cr
+#'   \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
+#'                  \tab        \tab(e.g. number of days) \cr
 #' }
 #' 
 #' These columns are expected in the covariates object:
@@ -264,21 +268,22 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
 #' 
 #' @examples 
 #' #Convert infert dataset to Cyclops format:
-#' covariates <- data.frame(stratumId = rep(infert$stratum,2),
-#'                          rowId = rep(1:nrow(infert),2),
-#'                          covariateId = rep(1:2,each=nrow(infert)),
-#'                          covariateValue = c(infert$spontaneous,infert$induced))
+#' covariates <- data.frame(stratumId = rep(infert$stratum, 2),
+#'                          rowId = rep(1:nrow(infert), 2),
+#'                          covariateId = rep(1:2, each = nrow(infert)),
+#'                          covariateValue = c(infert$spontaneous, infert$induced))
 #' outcomes <- data.frame(stratumId = infert$stratum,
 #'                        rowId = 1:nrow(infert),
 #'                        y = infert$case)
 #' #Make sparse:
-#' covariates <- covariates[covariates$covariateValue != 0,]
+#' covariates <- covariates[covariates$covariateValue != 0, ]
 #' 
 #' #Create Cyclops data object:
-#' cyclopsData <- convertToCyclopsData(outcomes,covariates,modelType = "clr",addIntercept = FALSE)
+#' cyclopsData <- convertToCyclopsData(outcomes, covariates, modelType = "clr", 
+#'                                     addIntercept = FALSE)
 #' 
 #' #Fit model:
-#' fit <- fitCyclopsModel(cyclopsData,prior = createPrior("none"))  
+#' fit <- fitCyclopsModel(cyclopsData, prior = createPrior("none"))  
 #' 
 #' @export
 convertToCyclopsData <- function(outcomes, 
@@ -294,16 +299,17 @@ convertToCyclopsData <- function(outcomes,
 }
 
 #' @describeIn convertToCyclopsData Convert data from two \code{ffdf}
+#' @export
 convertToCyclopsData.ffdf <- function(outcomes, 
-                                            covariates,
-                                            modelType = "lr", 
-                                            addIntercept = TRUE,
-                                            offsetAlreadyOnLogScale = FALSE,
-                                            makeCovariatesDense = NULL,
-                                            checkSorting = TRUE,
-                                            checkRowIds = TRUE,
-                                            quiet = FALSE){
-#    require(ffbase) #Should be superfluous, since the user already has an ffdf object
+                                      covariates,
+                                      modelType = "lr", 
+                                      addIntercept = TRUE,
+                                      offsetAlreadyOnLogScale = FALSE,
+                                      makeCovariatesDense = NULL,
+                                      checkSorting = TRUE,
+                                      checkRowIds = TRUE,
+                                      quiet = FALSE){
+    #    require(ffbase) #Should be superfluous, since the user already has an ffdf object
     if (checkSorting){
         if (modelType == "lr" | modelType == "pr"){
             if (!isSorted(outcomes,c("rowId"))){
@@ -360,7 +366,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
                 for (i in bit::chunk(outcomes$time)){
                     outcomes$minTime[i] <- 0-outcomes$time[i]
                 }
-
+                
                 outcomes <- outcomes[ff::ffdforder(outcomes[c("stratumId","minTime","y","rowId")]),]
             }
             if (is.null(covariates$time) | is.null(covariates$y)){ # If time or y not present, add to check if sorted
@@ -378,12 +384,15 @@ convertToCyclopsData.ffdf <- function(outcomes,
         }
     }
     if (checkRowIds){
-        mapping <- ffbase::ffmatch(covariates$rowId,outcomes$rowId)
-        if (any(is.na(mapping))){
+        mapped <- ffbase::ffmatch(x = covariates$rowId, table=outcomes$rowId, nomatch = 0L) > 0L
+        minValue <- min(sapply(bit::chunk(mapped), function(i) {
+            min(mapped[i])
+        }))
+        if (minValue == 0){ 
             if(!quiet)
                 writeLines("Removing covariate values with rowIds that are not in outcomes")
-            covariateRowsWithMapping <- ffbase::ffwhich(mapping, !is.na(mapping))
-            covariates <- covariates[covariateRowsWithMapping,]
+            row.names(covariates) <- NULL #Needed or else next line fails
+            covariates <- covariates[ffbase::ffwhich(mapped, mapped == TRUE),]
         }
     }
     
@@ -430,27 +439,28 @@ convertToCyclopsData.ffdf <- function(outcomes,
     }
     
     result <- .constructCyclopsDataFromBatchableSources(resultSetOutcome,
-                                                       resultSetCovariate,
-                                                       getOutcomeBatch,
-                                                       getCovariateBatch,
-                                                       isDone,
-                                                       modelType, 
-                                                       addIntercept,
-                                                       offsetAlreadyOnLogScale,
-                                                       makeCovariatesDense)
+                                                        resultSetCovariate,
+                                                        getOutcomeBatch,
+                                                        getCovariateBatch,
+                                                        isDone,
+                                                        modelType, 
+                                                        addIntercept,
+                                                        offsetAlreadyOnLogScale,
+                                                        makeCovariatesDense)
     return(result)
 }
 
 #' @describeIn convertToCyclopsData Convert data from two \code{data.frame}
+#' @export
 convertToCyclopsData.data.frame <- function(outcomes, 
-                                                  covariates,
-                                                  modelType = "lr", 
-                                                  addIntercept = TRUE,
-                                                  offsetAlreadyOnLogScale = FALSE,
-                                                  makeCovariatesDense = NULL,
-                                                  checkSorting = TRUE,
-                                                  checkRowIds = TRUE,
-                                                  quiet = FALSE){
+                                            covariates,
+                                            modelType = "lr", 
+                                            addIntercept = TRUE,
+                                            offsetAlreadyOnLogScale = FALSE,
+                                            makeCovariatesDense = NULL,
+                                            checkSorting = TRUE,
+                                            checkRowIds = TRUE,
+                                            quiet = FALSE){
     if ((modelType == "clr" | modelType == "cpr") & addIntercept){
         if(!quiet)
             warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)

@@ -7,9 +7,9 @@
 getNumberOfCovariates(object)
 }
 \arguments{
-\item{object}{An OHDSI Cyclops data object}
+\item{object}{A Cyclops data object}
 }
 \description{
-\code{getNumberOfCovariates} returns the total number of covariates in an OHDSI Cyclops data object
+\code{getNumberOfCovariates} returns the total number of covariates in a Cyclops data object
 }
 

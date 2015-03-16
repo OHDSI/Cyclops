@@ -2,18 +2,18 @@
 % Please edit documentation in R/ModelFit.R
 \name{fitCyclopsModel}
 \alias{fitCyclopsModel}
-\title{fitCyclopsModel}
+\title{Fit a Cyclops model}
 \usage{
 fitCyclopsModel(cyclopsData, prior, control, weights = NULL,
   forceNewObject = FALSE, returnEstimates = TRUE,
   startingCoefficients = NULL)
 }
 \arguments{
-\item{cyclopsData}{An OHDSI data object}
+\item{cyclopsData}{A Cyclops data object}
 
 \item{prior}{A prior object. More details are given below.}
 
-\item{control}{OHDSI control object, see \code{"\link{control}"}}
+\item{control}{Cyclops control object, see \code{"\link{control}"}}
 
 \item{weights}{Vector of 0/1 weights for each data row}
 

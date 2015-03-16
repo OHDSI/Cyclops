@@ -18,4 +18,5 @@ Prior variance under a Laplace() prior
 \code{convertToCyclopsVariance} converts the regularization parameter \code{lambda}
 from \code{glmnet} into a prior variance.
 }
+\keyword{internal}
 

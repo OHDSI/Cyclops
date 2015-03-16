@@ -7,9 +7,10 @@
 getNumberOfTypes(object)
 }
 \arguments{
-\item{object}{An OHDSI Cyclops data object}
+\item{object}{A Cyclops data object}
 }
 \description{
-\code{getNumberOfTypes} returns the total number of outcome types in an OHDSI Cyclops data object
+\code{getNumberOfTypes} returns the total number of outcome types in a Cyclops data object
 }
+\keyword{internal}
 

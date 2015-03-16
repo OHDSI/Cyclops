@@ -30,4 +30,5 @@ These columns are labelled as (1-level) / 2 and 1 - (1 - level) / 2 in %
 \code{aconfinit} constructs confidence intervals of
 arbitrary level using asymptotic standard error estimates.
 }
+\keyword{internal}
 

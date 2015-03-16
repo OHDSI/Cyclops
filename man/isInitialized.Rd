@@ -2,16 +2,16 @@
 % Please edit documentation in R/DataManagement.R
 \name{isInitialized}
 \alias{isInitialized}
-\title{isInitialized}
+\title{Check if a Cyclops data object is initialized}
 \usage{
 isInitialized(object)
 }
 \arguments{
-\item{object}{OHDSI data object to test}
+\item{object}{Cyclops data object to test}
 }
 \description{
-\code{isInitialized} determines if an OHDSI data object is properly
-initialized and remains in memory.  OHSDI data objects do not
+\code{isInitialized} determines if an Cyclops data object is properly
+initialized and remains in memory.  Cyclops data objects do not
 serialized/deserialize their back-end memory across R sessions.
 }
 
