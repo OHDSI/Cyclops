@@ -84,7 +84,7 @@ simulateCyclopsData <- function(nstrata = 200,
         strataBackgroundProb <- runif(nstrata,min=0.01,max=0.03)
         outcomes$rate <-  strataBackgroundProb[outcomes$stratumId] * outcomes$rr
         outcomes$time <- 1+round(runif(n=nrow(outcomes),min=0,max=499))
-        outcomes$y <- rpois(nrows,outcomes$rate)
+        outcomes$y <- rpois(nrows,outcomes$rate * outcomes$time)
     } else
         stop(paste("Unknown model:",model))
     
@@ -131,7 +131,7 @@ simulateCyclopsData <- function(nstrata = 200,
     ff <- fitCyclopsModel(cd, prior = createPrior("laplace", 0.1))
     delta <- Sys.time() - start
     writeLines(paste("Analysis took", signif(delta,3), attr(delta,"units")))
-
+    
 }
 
 .fitUsingClogit <- function(sim,coverage=TRUE){
@@ -350,7 +350,7 @@ fitCyclopsSimulation <- function(sim,
 #' 
 #' @return MSE(\code{goldStandard}, \code{estimates})
 #' 
-#' @keywords internal
+#' @export
 mse <- function(goldStandard, estimates){
     mean((goldStandard - estimates)^2)
 }
@@ -366,7 +366,7 @@ mse <- function(goldStandard, estimates){
 #' 
 #' @return The proportion of times \code{goldStandard} falls between \code{lowerBound} and \code{upperBound}
 #' 
-#' @keywords internal
+#' @export
 coverage <- function(goldStandard, lowerBounds, upperBounds){
     sum(goldStandard >= lowerBounds & goldStandard <= upperBounds) / length(goldStandard)
 }
