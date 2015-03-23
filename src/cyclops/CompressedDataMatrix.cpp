@@ -117,9 +117,18 @@ int* CompressedDataMatrix::getCompressedColumnVector(int column) const {
 	return allColumns[column]->getColumns();
 }
 
+std::vector<int>& CompressedDataMatrix::getCompressedColumnVectorSTL(int column) const {
+	return allColumns[column]->getColumnsVector();
+}
+
 real* CompressedDataMatrix::getDataVector(int column) const {
 	return allColumns[column]->getData();
 }
+
+std::vector<real>& CompressedDataMatrix::getDataVectorSTL(int column) const {
+	return allColumns[column]->getDataVector();
+}
+
 
 FormatType CompressedDataMatrix::getFormatType(int column) const {
 	return allColumns[column]->getFormatType();

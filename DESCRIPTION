@@ -1,7 +1,7 @@
 Package: Cyclops
 Type: Package
 Title: Cyclic coordinate descent for logistic, Poisson and survival analysis
-Version: 1.0.0
+Version: 1.1.0
 Author:
     Marc A. Suchard [aut, cre], 
     Martijn J. Schuemie [aut], 
@@ -23,10 +23,12 @@ Imports:
     Rcpp (>= 0.11.3),
     bit,
     ff,
-    ffbase
+    ffbase,
+    RcppParallel
 LinkingTo: Rcpp,
     BH (>= 1.51.0),
-    RcppEigen (>= 0.3.2)
+    RcppEigen (>= 0.3.2),
+    RcppParallel
 Suggests:
     testthat,
     survival,

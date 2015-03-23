@@ -1,7 +1,7 @@
 #ifndef ITERATORS_H
 #define ITERATORS_H
 
-// #include <boost/tuple/tuple.hpp>
+#include <boost/tuple/tuple.hpp>
 
 #include "CompressedDataMatrix.h"
 
@@ -29,11 +29,11 @@ class IndicatorIterator {
 	typedef IndicatorTag tag;
 	typedef real Scalar;
 	typedef int Index;	
-// 	typedef boost::tuples::tuple<Index> XTuple;
+	typedef boost::tuples::tuple<Index> XTuple;
 	
 	const static std::string name;	
 
-//	static const bool isIndicator = true;
+	static const bool isIndicatorStatic = true;
 	enum  { isIndicator = true };
 	enum  { isSparse = true };
 	
@@ -62,7 +62,7 @@ class IndicatorIterator {
 
     inline Index index() const { return mIndices[mId]; }
     inline operator bool() const { return (mId < mEnd); }
-
+    
   protected:
     const Index* mIndices;
     Index mId;
@@ -76,11 +76,11 @@ class SparseIterator {
 	typedef SparseTag tag;
 	typedef real Scalar;
 	typedef int Index;
-// 	typedef boost::tuples::tuple<Index, Scalar> XTuple;
+	typedef boost::tuples::tuple<Index, Scalar> XTuple;
 	
 	const static std::string name;	
 
-//	static const bool isIndicator = false;
+	static const bool isIndicatorStatic = false;
 	enum  { isIndicator = false };
 	enum  { isSparse = true };
 
@@ -193,7 +193,7 @@ class DenseIterator {
 	typedef DenseTag tag;
 	typedef real Scalar;
 	typedef int Index;
-// 	typedef boost::tuples::tuple<Index, Scalar> XTuple;
+	typedef boost::tuples::tuple<Index, Scalar> XTuple;
 	
 	const static std::string name;	
 
@@ -238,7 +238,7 @@ class InterceptIterator {
 	typedef DenseTag tag; // TODO Fix!!!
 	typedef real Scalar;
 	typedef int Index;
-// 	typedef boost::tuples::tuple<Index, Scalar> XTuple; // TODO Fix!!!
+	typedef boost::tuples::tuple<Index, Scalar> XTuple; // TODO Fix!!!
 	
 	const static std::string name;	
 
@@ -472,6 +472,12 @@ class PairProductIterator {
     IteratorOneType& iteratorOne;
     IteratorTwoType& iteratorTwo;
 };
+
+// const std::string DenseIterator::name = "Den";
+// const std::string IndicatorIterator::name = "Ind";
+// const std::string SparseIterator::name = "Spa";
+// const std::string InterceptIterator::name = "Icp";
+
 
 } // namespace
 

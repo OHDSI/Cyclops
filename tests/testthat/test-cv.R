@@ -1,4 +1,3 @@
-library("Cyclops")
 library("testthat")
 
 # ### COX ERROR

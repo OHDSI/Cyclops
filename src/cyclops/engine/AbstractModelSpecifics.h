@@ -94,6 +94,11 @@ public:
 	virtual AbstractModelSpecifics* clone() const = 0; // pure virtual
 	
 	static AbstractModelSpecifics* factory(const ModelType modelType, const ModelData& modelData);
+	
+	// TODO Remove the following
+	RealVector& getXBeta() { return hXBeta; }
+	
+	RealVector& getXBetaSave() {  return hXBetaSave; }
 
 protected:
 
@@ -154,8 +159,12 @@ protected:
 //	int** hXColumnRowIndicators; // J-vector
 
 //	real* hBeta;
-	real* hXBeta;
-	real* hXBetaSave;
+// 	real* hXBeta;
+// 	real* hXBetaSave;
+	
+	RealVector hXBeta; // TODO Delegate to ModelSpecifics
+	RealVector hXBetaSave; // Delegate	
+	
 //	real* hDelta;
 
 	size_t N; // Number of patients
@@ -166,10 +175,14 @@ protected:
 //	real* offsExpXBeta;
 	RealVector offsExpXBeta;
 	
-	RealVector numerDenomPidCache;
-	real* denomPid; // all nested with a single cache
-	real* numerPid;
-	real* numerPid2;
+// 	RealVector numerDenomPidCache;
+// 	real* denomPid; // all nested with a single cache
+// 	real* numerPid;
+// 	real* numerPid2;
+
+	RealVector denomPid;
+	RealVector numerPid;
+	RealVector numerPid2;
 			
 	
 //	real* xOffsExpXBeta;

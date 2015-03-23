@@ -230,8 +230,7 @@ void AbstractModelSpecifics::initialize(
 	K = iK;
 	J = iJ;	
 	offsExpXBeta.resize(K);
-
-	hXBeta = iXBeta;
+	hXBeta.resize(K); // PT OF DIFFERENCE
 
 	if (allocateXjY()) {
 		hXjY.resize(J);
@@ -252,10 +251,13 @@ void AbstractModelSpecifics::initialize(
 	
 	
 	size_t alignedLength = getAlignedLength(N);
-	numerDenomPidCache.resize(3 * alignedLength, 0); 
-	numerPid = numerDenomPidCache.data();
-	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
-	numerPid2 = numerPid + 2 * alignedLength;	
+// 	numerDenomPidCache.resize(3 * alignedLength, 0); 
+// 	numerPid = numerDenomPidCache.data();
+// 	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
+// 	numerPid2 = numerPid + 2 * alignedLength;	
+	denomPid.resize(alignedLength);
+	numerPid.resize(alignedLength);
+	numerPid2.resize(alignedLength);
 	
 }
 

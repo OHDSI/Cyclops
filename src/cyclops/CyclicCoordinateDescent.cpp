@@ -58,7 +58,9 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 			priors::JointPriorPtr prior,
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error
-		) : privateModelSpecifics(nullptr), modelSpecifics(specifics), jointPrior(prior), hXI(reader), logger(_logger), error(_error) {
+		) : privateModelSpecifics(nullptr), modelSpecifics(specifics), jointPrior(prior), 
+		 hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
+		hXI(reader), logger(_logger), error(_error) {
 	N = hXI.getNumberOfPatients();
 	K = hXI.getNumberOfRows();
 	J = hXI.getNumberOfColumns();
@@ -88,7 +90,8 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 	: privateModelSpecifics(
 			bsccs::unique_ptr<AbstractModelSpecifics>(
 				copy.modelSpecifics.clone())), // deep copy
-	  modelSpecifics(*privateModelSpecifics), 
+	  modelSpecifics(*privateModelSpecifics),  
+	  hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
 // 	  jointPrior(priors::JointPriorPtr(copy.jointPrior->clone())), // deep copy
 	  jointPrior(copy.jointPrior), // swallow
 	  hXI(copy.hXI), // swallow
