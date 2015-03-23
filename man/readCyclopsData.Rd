@@ -71,7 +71,7 @@ Currently supported model types are:
 }
 \examples{
 \dontrun{
-dataPtr = readCyclopsData(system.file("extdata/infert_ccd.txt", package="Cyclops2"), "clr")
+dataPtr = readCyclopsData(system.file("extdata/infert_ccd.txt", package="Cyclops"), "clr")
 }
 }
 
