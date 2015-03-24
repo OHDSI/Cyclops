@@ -566,6 +566,47 @@ appendSqlCyclopsData <- function(object,
                           cCovariateValue)
 }
 
+#' @export
+loadNewSqlCyclopsDataX <- function(object,  
+                                   cvariateId, # Scalar
+                                 rowId, # Vector                                 
+                                 covariateValue, # Vector
+                                 append = FALSE) {
+    if (!isInitialized(object)) {
+        stop("Object is no longer or improperly initialized.")    	
+    } 
+        
+    # throws error is covariateId already exists and append == FALSE
+    .loadNewSqlCyclopsDataX(object,    
+                            covariateId,
+                          rowId,                           
+                          covariateValue,
+                          append)
+}
+
+#' @export
+loadNewSqlCyclopsDataY <- function(object,
+                                    oStratumId,
+                                    oRowId,
+                                    oY,
+                                    oTime) {
+    if (!isInitialized(object)) {
+        stop("Object is no longer or improperly initialized.")    	
+    }
+        
+    if (is.unsorted(oStratumId)
+        #|| is.unsorted(oRowId) || is.unsorted(cRowId)
+    ) {
+        stop("All columns must be sorted first by stratumId (if supplied) and then by rowId")
+    }
+    
+    .loadNewSqlCyclopsDataY(object, 
+                          oStratumId, 
+                          oRowId, 
+                          oY, 
+                          oTime)
+}
+    
 
 #' @title finalizeSqlCyclopsData
 #'
