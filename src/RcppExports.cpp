@@ -442,6 +442,36 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsLoadDataY
+int cyclopsLoadDataY(Environment x, const std::vector<int64_t>& stratumId, const std::vector<int64_t>& rowId, const std::vector<double>& y, const std::vector<double>& time);
+RcppExport SEXP Cyclops_cyclopsLoadDataY(SEXP xSEXP, SEXP stratumIdSEXP, SEXP rowIdSEXP, SEXP ySEXP, SEXP timeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type stratumId(stratumIdSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type rowId(rowIdSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type y(ySEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type time(timeSEXP);
+    __result = Rcpp::wrap(cyclopsLoadDataY(x, stratumId, rowId, y, time));
+    return __result;
+END_RCPP
+}
+// cyclopsLoadDataX
+int cyclopsLoadDataX(Environment x, const int64_t covariateId, const std::vector<int64_t>& rowId, const std::vector<int64_t>& covariateValue, const bool append);
+RcppExport SEXP Cyclops_cyclopsLoadDataX(SEXP xSEXP, SEXP covariateIdSEXP, SEXP rowIdSEXP, SEXP covariateValueSEXP, SEXP appendSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const int64_t >::type covariateId(covariateIdSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type rowId(rowIdSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type covariateValue(covariateValueSEXP);
+    Rcpp::traits::input_parameter< const bool >::type append(appendSEXP);
+    __result = Rcpp::wrap(cyclopsLoadDataX(x, covariateId, rowId, covariateValue, append));
+    return __result;
+END_RCPP
+}
 // cyclopsAppendSqlData
 int cyclopsAppendSqlData(Environment x, const std::vector<int64_t>& oStratumId, const std::vector<int64_t>& oRowId, const std::vector<double>& oY, const std::vector<double>& oTime, const std::vector<int64_t>& cRowId, const std::vector<int64_t>& cCovariateId, const std::vector<double>& cCovariateValue);
 RcppExport SEXP Cyclops_cyclopsAppendSqlData(SEXP xSEXP, SEXP oStratumIdSEXP, SEXP oRowIdSEXP, SEXP oYSEXP, SEXP oTimeSEXP, SEXP cRowIdSEXP, SEXP cCovariateIdSEXP, SEXP cCovariateValueSEXP) {

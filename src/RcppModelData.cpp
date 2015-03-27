@@ -350,6 +350,30 @@ void cyclopsFinalizeData(
     data->setIsFinalized(true);
 }                        
 
+
+// [[Rcpp::export(".loadCyclopsDataY")]]
+int cyclopsLoadDataY(Environment x,
+        const std::vector<int64_t>& stratumId,
+        const std::vector<int64_t>& rowId,
+        const std::vector<double>& y,
+        const std::vector<double>& time) {
+        
+    return 0;        
+}
+
+// [[Rcpp::export(".loadCyclopsDataX")]]
+int cyclopsLoadDataX(Environment x, 
+        const int64_t covariateId,
+        const std::vector<int64_t>& rowId,
+        const std::vector<int64_t>& covariateValue,
+        const bool append) {
+        
+    // rowId.size() == 0 -> dense
+    // covariateValue.size() == 0 -> indicator
+ 
+    return 0;       
+}
+   
 // NOTE:  IdType does not get exported into RcppExports, so hard-coded here
 // TODO Could use SEXP signature and cast in function
 
