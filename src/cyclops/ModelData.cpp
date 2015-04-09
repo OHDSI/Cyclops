@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <numeric>
 #include <list>
+#include <functional>
 
 #include <boost/iterator/permutation_iterator.hpp>
 #include <boost/iterator/transform_iterator.hpp>
@@ -133,7 +134,11 @@ void ModelData::loadX(
             (covariateValue.size() == 0 ? INTERCEPT : DENSE) :
             (covariateValue.size() == 0 ? INDICATOR : SPARSE);
 
-    auto xform = [this](IdType id) -> size_t {
+
+
+	std::function<size_t(IdType)>
+    //auto 
+    xform = [this](IdType id) {
         return rowIdMap[id];
     };
 
