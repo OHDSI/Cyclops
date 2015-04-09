@@ -208,7 +208,10 @@ class DenseIterator {
 
 	inline DenseIterator(const CompressedDataMatrix& mat, Index column)
 	  : mValues(mat.getDataVector(column)),
-	    mId(0), mEnd(mat.getNumberOfRows()){
+	    mId(0), 
+	    //mEnd(mat.getNumberOfRows()) 
+	    mEnd(mat.getDataVectorSTL(column).size())
+	    {
 		// Do nothing
 	}
 

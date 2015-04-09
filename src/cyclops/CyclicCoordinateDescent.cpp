@@ -59,8 +59,8 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error
 		) : privateModelSpecifics(nullptr), modelSpecifics(specifics), jointPrior(prior), 
-		 hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
-		hXI(reader), logger(_logger), error(_error) {
+		 hXI(reader), hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
+		 logger(_logger), error(_error) {
 	N = hXI.getNumberOfPatients();
 	K = hXI.getNumberOfRows();
 	J = hXI.getNumberOfColumns();
@@ -91,10 +91,10 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 			bsccs::unique_ptr<AbstractModelSpecifics>(
 				copy.modelSpecifics.clone())), // deep copy
 	  modelSpecifics(*privateModelSpecifics),  
+      jointPrior(copy.jointPrior), // swallow
+      hXI(copy.hXI), // swallow      
 	  hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
-// 	  jointPrior(priors::JointPriorPtr(copy.jointPrior->clone())), // deep copy
-	  jointPrior(copy.jointPrior), // swallow
-	  hXI(copy.hXI), // swallow
+// 	  jointPrior(priors::JointPriorPtr(copy.jointPrior->clone())), // deep copy	 
 	  logger(copy.logger), error(copy.error) {
 	        	        
 	N = hXI.getNumberOfPatients();
@@ -608,7 +608,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 	bool done = false;
 	int swindleIterationCount = 1;
 	
-	int initialActiveSize = activeSet.size();
+//	int initialActiveSize = activeSet.size();
 	int perPassSize = arguments.swindleMultipler;
 	
 	while (!done) {
@@ -665,9 +665,9 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 					return (std::get<1>(score) <= jointPrior->getKktBoundary(std::get<0>(score)));
 				};
 				
-				auto checkAlmostConditions = [this] (const ScoreTuple& score) {
-					return (std::get<1>(score) < 0.9 * jointPrior->getKktBoundary(std::get<0>(score)));
-				};				
+//				auto checkAlmostConditions = [this] (const ScoreTuple& score) {
+//					return (std::get<1>(score) < 0.9 * jointPrior->getKktBoundary(std::get<0>(score)));
+//				};				
 		
 				// Check KKT conditions
 									
@@ -678,7 +678,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 				if (satisfied) {
 					done = true;				
 				} else {
-					auto newActiveSize = initialActiveSize + perPassSize;
+//					auto newActiveSize = initialActiveSize + perPassSize;
 					
 					auto count1 = std::distance(begin(inactiveSet), end(inactiveSet));
 					auto count2 = std::count_if(begin(inactiveSet), end(inactiveSet), checkConditions);

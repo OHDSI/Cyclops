@@ -571,6 +571,7 @@ loadNewSqlCyclopsDataX <- function(object,
                                    covariateId, # Scalar
                                    rowId, # Vector                                 
                                    covariateValue, # Vector
+                                   reload = FALSE,
                                    append = FALSE) {
     if (!isInitialized(object)) {
         stop("Object is no longer or improperly initialized.")    	
@@ -581,6 +582,7 @@ loadNewSqlCyclopsDataX <- function(object,
                       covariateId,
                       rowId,                           
                       covariateValue,
+                      reload,
                       append)
 }
 
@@ -665,8 +667,7 @@ finalizeSqlCyclopsData <- function(object,
 #' 
 #' @template types
 #' @param control    An Cyclops fit control object (optional)
-#' 
-#' @keywords internal
+#' @export
 createSqlCyclopsData <- function(modelType, control) {
     cl <- match.call() # save to return
     

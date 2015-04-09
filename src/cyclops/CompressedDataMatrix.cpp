@@ -16,10 +16,6 @@
 
 namespace bsccs {
 
-//using std::cout;
-//using std::cerr;
-//using std::endl;
-
 CompressedDataMatrix::CompressedDataMatrix() : nRows(0), nCols(0), nEntries(0) {
 	// Do nothing
 }

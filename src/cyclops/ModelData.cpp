@@ -16,6 +16,9 @@
 #include <numeric>
 #include <list>
 
+#include <boost/iterator/permutation_iterator.hpp>
+#include <boost/iterator/transform_iterator.hpp>
+
 #include "ModelData.h"
 
 namespace bsccs {
@@ -47,7 +50,140 @@ void ModelData::moveTimeToCovariate(bool takeLog) {
     push_back(NULL, make_shared<RealVector>(offs.begin(), offs.end()), DENSE); // TODO Remove copy?
 }
 
-//#define DEBUG_64BIT
+void ModelData::loadY(
+		const std::vector<IdType>& oStratumId,
+		const std::vector<IdType>& oRowId,
+		const std::vector<double>& oY,
+		const std::vector<double>& oTime) {
+
+    bool previouslyLoaded = y.size() > 0;
+
+    if (   (oStratumId.size() > 0 && oStratumId.size() != oY.size())
+        || (oRowId.size() > 0 && oRowId.size() != oY.size())
+        || (oTime.size() > 0 && oTime.size() != oY.size())
+        || (previouslyLoaded && y.size() != oY.size())
+    ) {
+        std::ostringstream stream;
+        stream << "Mismatched outcome column dimensions";
+        error->throwError(stream);
+    }
+
+	y =  oY; // copy assignment
+	if (oTime.size() == oY.size()) {
+		offs = oTime; // copy assignment
+	}
+
+	if (!previouslyLoaded) { // Load stratum and row IDs
+		std::ostringstream stream;
+		stream << "Load stratum and row IDs";
+		//error->throwError(stream);
+		std::cerr << stream.str() << std::endl;
+				
+		pid.reserve(oRowId.size());
+		
+		bool processStrata = oStratumId.size() > 0;
+		
+		for (size_t i = 0; i < oRowId.size(); ++i) { // ignored if oRowId.size() == 0
+			IdType currentRowId = oRowId[i];
+			rowIdMap[currentRowId] = i;
+			
+			// Begin code duplication			
+			if (processStrata) {			
+				IdType cInStratum = oStratumId[i];
+				if (nRows == 0) {
+					lastStratumMap.first = cInStratum;
+					lastStratumMap.second = 0;
+					nPatients++;
+				} else {
+					if (cInStratum != lastStratumMap.first) {
+						lastStratumMap.first = cInStratum;
+						lastStratumMap.second++;
+						nPatients++;
+					}
+				}
+				pid.push_back(lastStratumMap.second);
+			}
+						
+			// TODO Check timing on adding label as string
+			std::stringstream ss;
+			ss << currentRowId;
+			labels.push_back(ss.str());
+			// End code duplication
+		}
+		
+		nRows = y.size();		
+		if (!processStrata) nPatients = nRows;				
+	}
+
+	std::cerr << "Row ID map:" << std::endl;;
+	for (const auto& pair : rowIdMap) {
+		std::cerr << "\t" << pair.first << " -> " << pair.second << std::endl;
+	}
+}
+
+void ModelData::loadX(
+		const IdType covariateId,
+		const std::vector<IdType>& rowId,
+		const std::vector<double>& covariateValue,
+		bool reload,
+		bool append) {
+
+    // Determine covariate type
+    FormatType newType = rowId.size() == 0 ?
+            (covariateValue.size() == 0 ? INTERCEPT : DENSE) :
+            (covariateValue.size() == 0 ? INDICATOR : SPARSE);
+
+    auto xform = [this](IdType id) {
+        return rowIdMap[id];
+    };
+
+    // Determine if covariate already exists
+    int index = getColumnIndexByName(covariateId);
+    if (index >= 0) {
+        // already exists
+        if (!reload) {
+            std::ostringstream stream;
+            stream << "Variable " << covariateId << " already exists";
+            error->throwError(stream);
+        }
+        if (append) {
+            // TODO Check that new and old type are compatible
+            std::ostringstream stream;
+            stream << "Variable appending is not yet supported";
+            error->throwError(stream);
+        }
+        if (rowIdMap.size() > 0) {
+        	// make deep copy and destruct old column
+  			replace(index,
+  				boost::make_transform_iterator(begin(rowId), xform),
+  				boost::make_transform_iterator(end(rowId), xform),
+  				begin(covariateValue), end(covariateValue),
+  				newType);
+        } else {
+	        replace(index,
+    	        begin(rowId), end(rowId),
+	            begin(covariateValue), end(covariateValue),
+    	        newType);
+    	}
+    } else {
+        // brand new, make deep copy
+        if (rowIdMap.size() > 0) {
+	        push_back(
+		        boost::make_transform_iterator(begin(rowId), xform),
+		        boost::make_transform_iterator(end(rowId), xform),
+    	        begin(covariateValue), end(covariateValue),
+        	    newType);
+        } else {
+	        push_back(begin(rowId), end(rowId),
+    	        begin(covariateValue), end(covariateValue),
+        	    newType);
+        }
+        index = getNumberOfColumns() - 1;
+        getColumn(index).add_label(covariateId);
+    }
+
+//     CompressedDataColumn& column = getColumn(index);
+}
 
 size_t ModelData::append(
         const std::vector<IdType>& oStratumId,
@@ -57,7 +193,7 @@ size_t ModelData::append(
         const std::vector<IdType>& cRowId,
         const std::vector<IdType>& cCovariateId,
         const std::vector<double>& cCovariateValue) {
-        
+
     // Check covariate dimensions
     if ((cRowId.size() != cCovariateId.size()) ||
         (cRowId.size() != cCovariateValue.size())) {
@@ -65,7 +201,7 @@ size_t ModelData::append(
         stream << "Mismatched covariate column dimensions";
         error->throwError(stream);
     }
-    
+
     // TODO Check model-specific outcome dimensions
     if ((oStratumId.size() != oY.size()) ||   // Causing crashes
         (oStratumId.size() != oRowId.size())) {
@@ -73,25 +209,27 @@ size_t ModelData::append(
         stream << "Mismatched outcome column dimensions";
         error->throwError(stream);
     }
-    
-    // TODO Check model-specific outcome dimensions    
+
+    // TODO Check model-specific outcome dimensions
   //  if (requiresStratumID(
-    
+
     bool hasTime = oTime.size() == oY.size();
-    
+
     const size_t nOutcomes = oStratumId.size();
     const size_t nCovariates = cCovariateId.size();
-    
-//#define DEBUG_64BIT    
-#ifdef DEBUG_64BIT    
+
+//#define DEBUG_64BIT
+#ifdef DEBUG_64BIT
     std::cout << "sizeof(long) = " << sizeof(long) << std::endl;
     std::cout << "sizeof(int64_t) = " << sizeof(uint64_t) << std::endl;
     std::cout << "sizeof(long long) = " << sizeof(long long) << std::endl;
 #endif
 
-    size_t cOffset = 0;  
+    size_t cOffset = 0;
 
     for (size_t i = 0; i < nOutcomes; ++i) {
+    
+    	// TODO Begin code duplication with 'loadY'
         IdType cInStratum = oStratumId[i];
         if (nRows == 0) {
         	lastStratumMap.first = cInStratum;
@@ -104,28 +242,29 @@ size_t ModelData::append(
             	nPatients++;
         	}
         }
-        pid.push_back(lastStratumMap.second);        
+        pid.push_back(lastStratumMap.second);
         y.push_back(oY[i]);
         if (hasTime) {
             offs.push_back(oTime[i]);
-        }    
-        
+        }
+
         IdType currentRowId = oRowId[i];
         // TODO Check timing on adding label as string
         std::stringstream ss;
         ss << currentRowId;
         labels.push_back(ss.str());
+        // TODO End code duplication with 'loadY;        
 
 #ifdef DEBUG_64BIT
-        std::cout << currentRowId << std::endl;        
-#endif        
-        while (cOffset < nCovariates && cRowId[cOffset] == currentRowId) {          
+        std::cout << currentRowId << std::endl;
+#endif
+        while (cOffset < nCovariates && cRowId[cOffset] == currentRowId) {
             IdType covariate = cCovariateId[cOffset];
             real value = cCovariateValue[cOffset];
-            
+
 			if (!sparseIndexer.hasColumn(covariate)) {
 				// Add new column
-				sparseIndexer.addColumn(covariate, INDICATOR);			
+				sparseIndexer.addColumn(covariate, INDICATOR);
 			}
 
 			CompressedDataColumn& column = sparseIndexer.getColumn(covariate);
@@ -147,11 +286,11 @@ size_t ModelData::append(
 						<< ", column: " << column.getLabel();
 				log->writeLine(stream);
 			}
-			++cOffset;		                        
+			++cOffset;
         }
         ++nRows;
-    }        
-    return nOutcomes;   
+    }
+    return nOutcomes;
 }
 
 int ModelData::getNumberOfPatients() const {
@@ -224,7 +363,7 @@ double ModelData::getSquaredNorm() const {
 	return std::accumulate(squaredNorm.begin(), squaredNorm.end(), 0.0);
 }
 
-size_t ModelData::getNumberOfStrata() const {     
+size_t ModelData::getNumberOfStrata() const {
     if (nRows == 0) {
         return 0;
     }
@@ -236,7 +375,7 @@ size_t ModelData::getNumberOfStrata() const {
                 cLabel = pid[i];
                 nStrata++;
             }
-        }       
+        }
     }
     return nStrata;
 }
@@ -244,7 +383,7 @@ size_t ModelData::getNumberOfStrata() const {
 double ModelData::getNormalBasedDefaultVar() const {
 // 	return getNumberOfVariableColumns() * getNumberOfRows() / getSquaredNorm();
 	// Reciprocal of what is reported in Genkins et al.
-	return getSquaredNorm() / getNumberOfVariableColumns() / getNumberOfRows(); 
+	return getSquaredNorm() / getNumberOfVariableColumns() / getNumberOfRows();
 }
 
 int ModelData::getNumberOfVariableColumns() const {

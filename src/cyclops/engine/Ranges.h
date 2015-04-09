@@ -635,7 +635,7 @@ namespace dependent {
                     begin(pid),
                     std::begin(mat.getCompressedColumnVectorSTL(index))))                                 
             > {            
-        const size_t K = mat.getNumberOfRows();        
+//        const size_t K = mat.getNumberOfRows();        
         return {
     	    boost::make_permutation_iterator(
 			    begin(pid),
@@ -657,7 +657,7 @@ namespace dependent {
                     begin(pid),
                     std::begin(mat.getCompressedColumnVectorSTL(index))))                                 
             > {            
-        const size_t K = mat.getNumberOfRows();        
+//        const size_t K = mat.getNumberOfRows();        
         return {
     	    boost::make_permutation_iterator(
 			    begin(pid),

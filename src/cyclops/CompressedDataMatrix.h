@@ -156,9 +156,7 @@ public:
 		} else if (formatType == INTERCEPT) {
 			// Do nothing
 		} else {
-            throw new std::invalid_argument("Unknown type");		
-// 			std::cerr << "Error" << std::endl;
-// 			exit(-1);
+            throw new std::invalid_argument("Unknown type");
 		}
 		return true;
 	}
@@ -282,7 +280,7 @@ public:
 			FormatType colFormat) {
 		if (colFormat == DENSE) {
 // 			real_vector* r = new real_vector(real_begin, real_end);
-            RealVectorPtr r = make_shared<RealVector>(real_begin, real_end);
+            RealVectorPtr r = make_shared<RealVector>(real_begin, real_end);           
 			push_back(NULL, r, DENSE);
 		} else if (colFormat == SPARSE) {
 // 			real_vector* r = new real_vector(real_begin, real_end);
@@ -296,6 +294,28 @@ public:
 			push_back(i, NULL, INDICATOR);
 		} else if (colFormat == INTERCEPT) {
 			push_back(NULL, NULL, INTERCEPT);
+		} else {
+            throw new std::invalid_argument("Unknown type");
+ 		}
+	}
+	
+	template <typename IntVectorItr, typename RealVectorItr>
+	void replace(int index,
+			const IntVectorItr int_begin, const IntVectorItr int_end,
+			const RealVectorItr real_begin, const RealVectorItr real_end,
+			FormatType colFormat) {
+		if (colFormat == DENSE) {
+            RealVectorPtr r = make_shared<RealVector>(real_begin, real_end);
+			replace(index, NULL, r, DENSE);
+		} else if (colFormat == SPARSE) {
+            RealVectorPtr r = make_shared<RealVector>(real_begin, real_end);			
+            IntVectorPtr i = make_shared<IntVector>(int_begin, int_end);
+			replace(index, i, r, SPARSE);
+		} else if (colFormat == INDICATOR) {
+            IntVectorPtr i = make_shared<IntVector>(int_begin, int_end);			
+			replace(index, i, NULL, INDICATOR);
+		} else if (colFormat == INTERCEPT) {
+			replace(index, NULL, NULL, INTERCEPT);
 		} else {
             throw new std::invalid_argument("Unknown type");
  		}
@@ -364,6 +384,10 @@ protected:
 		(colIndices, colData, colFormat)
 		);	
 		nCols++;
+	}
+	
+	void replace(int position, IntVectorPtr colIndices, RealVectorPtr colData, FormatType colFormat) {
+	    allColumns[position] = make_unique<CompressedDataColumn>(colIndices, colData, colFormat);	
 	}
 	
 	void insert(DataColumnVector::iterator position, IntVectorPtr colIndices, RealVectorPtr colData, FormatType colFormat) {

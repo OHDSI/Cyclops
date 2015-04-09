@@ -27,5 +27,4 @@ Currently supported model types are:
 	\verb{	"cox"} \tab Cox proportional hazards regression \cr
 }
 }
-\keyword{internal}
 

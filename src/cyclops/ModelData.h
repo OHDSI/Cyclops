@@ -14,6 +14,7 @@
 
 #include <vector>
 #include <map>
+#include <unordered_map>
 
 // using std::map;
 // using std::string;
@@ -39,9 +40,9 @@ namespace bsccs {
 class ModelData : public CompressedDataMatrix {
 public:
 //	ModelData();
-	
+
 	ModelData(
-    	ModelType modelType, 
+    	ModelType modelType,
         loggers::ProgressLoggerPtr log,
         loggers::ErrorHandlerPtr error
     );
@@ -60,7 +61,7 @@ public:
 			const RealVector& _z,
 			const RealVector& _offs,
             loggers::ProgressLoggerPtr _log,
-            loggers::ErrorHandlerPtr _error			
+            loggers::ErrorHandlerPtr _error
 			) :
 		modelType(_modelType), nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false), isFinalized(false)
 		, pid(_pid.begin(), _pid.end()) // copy
@@ -74,7 +75,7 @@ public:
 	}
 
 	virtual ~ModelData();
-	
+
 	size_t append(
         const std::vector<IdType>& oStratumId,
         const std::vector<IdType>& oRowId,
@@ -82,8 +83,24 @@ public:
         const std::vector<double>& oTime,
         const std::vector<IdType>& cRowId,
         const std::vector<IdType>& cCovariateId,
-        const std::vector<double>& cCovariateValue        
-    );		
+        const std::vector<double>& cCovariateValue
+    );
+
+
+	void loadY(
+		const std::vector<IdType>& stratumId,
+		const std::vector<IdType>& rowId,
+		const std::vector<double>& y,
+		const std::vector<double>& time
+	);
+
+	void loadX(
+		const IdType covariateId,
+		const std::vector<IdType>& rowId,
+		const std::vector<double>& covariateValue,
+		bool reload,
+		bool append
+	);
 
 	const int* getPidVector() const;
 	const real* getYVector() const;
@@ -110,7 +127,7 @@ public:
 	const std::vector<int>& getPidVectorRef() const { // Not const because PIDs can get renumbered
 		return pid;
 	}
-	
+
 	std::vector<real>& getZVectorRef() {
 		return z;
 	}
@@ -146,31 +163,31 @@ public:
 	bool getHasRowLabels() const {
 		return (labels.size() == getNumberOfRows());
 	}
-	
+
 	bool getIsFinalized() const {
 	    return isFinalized;
 	}
-	
+
 	void setIsFinalized(bool b) {
 	    isFinalized = b;
 	}
 
 	void sortDataColumns(std::vector<int> sortedInds);
-	
+
 	double getSquaredNorm() const;
 
 	double getNormalBasedDefaultVar() const;
 
 	int getNumberOfVariableColumns() const;
-	
+
 	int getNumberOfTypes() const;
-	
+
 	ModelType getModelType() const { return modelType; }
-	
+
 	size_t getNumberOfStrata() const;
-	
-    size_t getColumnIndex(const IdType covariate) const;	
-    
+
+    size_t getColumnIndex(const IdType covariate) const;
+
     void moveTimeToCovariate(bool takeLog);
 
 	const std::string& getRowLabel(size_t i) const {
@@ -192,17 +209,17 @@ public:
 	template <class FormatType, class MissingPolicy> friend class BaseInputReader;
 	template <class ImputationPolicy> friend class BBRInputReader;
 	template <class ImputationPolicy> friend class CSVInputReader;
-	
+
 protected:
     ModelType modelType;
-    
+
 	mutable int nPatients;
 	mutable size_t nStrata;
-	
+
 	bool hasOffsetCovariate;
 	bool hasInterceptCovariate;
 	bool isFinalized;
-		
+
 	IntVector pid;
 	RealVector y;
 	RealVector z; // TODO Remove
@@ -210,24 +227,27 @@ protected:
 	IntVector nevents; // TODO Where are these used?
 	std::string conditionId;
 	std::vector<std::string> labels; // TODO Change back to 'long'
-	
+
 	int nTypes;
-	
+
 private:
 	// Disable copy-constructors and copy-assignment
 	ModelData(const ModelData&);
 	ModelData& operator = (const ModelData&);
-			
+
 	static const std::string missing;
-		
+
     std::pair<IdType,int> lastStratumMap;
-    
+
     SparseIndexer sparseIndexer;
-	
+
 	protected:
     loggers::ProgressLoggerPtr log;
     loggers::ErrorHandlerPtr error;
-        
+
+    typedef std::unordered_map<IdType,size_t> RowIdMap;
+    RowIdMap rowIdMap;
+
 };
 
 } // namespace

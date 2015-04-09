@@ -358,6 +358,10 @@ int cyclopsLoadDataY(Environment x,
         const std::vector<double>& y,
         const std::vector<double>& time) {
         
+    using namespace bsccs;
+    XPtr<ModelData> data = parseEnvironmentForPtr(x);       
+    data->loadY(stratumId, rowId, y, time);
+    
     return 0;        
 }
 
@@ -365,12 +369,17 @@ int cyclopsLoadDataY(Environment x,
 int cyclopsLoadDataX(Environment x, 
         const int64_t covariateId,
         const std::vector<int64_t>& rowId,
-        const std::vector<int64_t>& covariateValue,
+        const std::vector<double>& covariateValue,
+        const bool reload,
         const bool append) {
-        
+
+    using namespace bsccs;        
+    XPtr<ModelData> data = parseEnvironmentForPtr(x); 
+
     // rowId.size() == 0 -> dense
     // covariateValue.size() == 0 -> indicator
- 
+     
+    data->loadX(covariateId, rowId, covariateValue, reload, append); 
     return 0;       
 }
    
@@ -678,6 +687,7 @@ struct SecondPower {
 };
 
 double RcppModelData::sum(const IdType covariate, int power) {
+
     size_t index = getColumnIndex(covariate); 
     if (power == 0) {  
 		return reduce(index, ZeroPower());
