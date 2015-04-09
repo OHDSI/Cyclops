@@ -133,7 +133,7 @@ void ModelData::loadX(
             (covariateValue.size() == 0 ? INTERCEPT : DENSE) :
             (covariateValue.size() == 0 ? INDICATOR : SPARSE);
 
-    auto xform = [this](IdType id) {
+    auto xform = [this](IdType id) -> size_t {
         return rowIdMap[id];
     };
 
