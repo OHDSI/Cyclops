@@ -78,7 +78,7 @@ void ModelData::loadY(
 		std::ostringstream stream;
 		stream << "Load stratum and row IDs";
 		//error->throwError(stream);
-		std::cerr << stream.str() << std::endl;
+// 		std::cerr << stream.str() << std::endl;
 				
 		pid.reserve(oRowId.size());
 		
@@ -116,10 +116,10 @@ void ModelData::loadY(
 		if (!processStrata) nPatients = nRows;				
 	}
 
-	std::cerr << "Row ID map:" << std::endl;;
-	for (const auto& pair : rowIdMap) {
-		std::cerr << "\t" << pair.first << " -> " << pair.second << std::endl;
-	}
+// 	std::cerr << "Row ID map:" << std::endl;;
+// 	for (const auto& pair : rowIdMap) {
+// 		std::cerr << "\t" << pair.first << " -> " << pair.second << std::endl;
+// 	}
 }
 
 void ModelData::loadX(
