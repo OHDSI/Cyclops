@@ -53,18 +53,18 @@ using namespace std;
 
 CyclicCoordinateDescent::CyclicCoordinateDescent(
 			//ModelData* reader,
-			const ModelData& reader,			
+			const ModelData& reader,
 			AbstractModelSpecifics& specifics,
 			priors::JointPriorPtr prior,
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error
-		) : privateModelSpecifics(nullptr), modelSpecifics(specifics), jointPrior(prior), 
+		) : privateModelSpecifics(nullptr), modelSpecifics(specifics), jointPrior(prior),
 		 hXI(reader), hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
 		 logger(_logger), error(_error) {
 	N = hXI.getNumberOfPatients();
 	K = hXI.getNumberOfRows();
 	J = hXI.getNumberOfColumns();
-	
+
 // 	hXI = reader;
 	hY = hXI.getYVector(); // TODO Delegate all data to ModelSpecifics
 //	hOffs = reader->getOffsetVector();
@@ -79,28 +79,28 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	init(hXI.getHasOffsetCovariate());
 }
 
-CyclicCoordinateDescent* CyclicCoordinateDescent::clone() {	
+CyclicCoordinateDescent* CyclicCoordinateDescent::clone() {
 	return new CyclicCoordinateDescent(*this);
-} 
+}
 
 //template <typename T>
-//struct GetType<T>; 
+//struct GetType<T>;
 
 CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& copy)
 	: privateModelSpecifics(
 			bsccs::unique_ptr<AbstractModelSpecifics>(
 				copy.modelSpecifics.clone())), // deep copy
-	  modelSpecifics(*privateModelSpecifics),  
+	  modelSpecifics(*privateModelSpecifics),
       jointPrior(copy.jointPrior), // swallow
-      hXI(copy.hXI), // swallow      
+      hXI(copy.hXI), // swallow
 	  hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
-// 	  jointPrior(priors::JointPriorPtr(copy.jointPrior->clone())), // deep copy	 
+// 	  jointPrior(priors::JointPriorPtr(copy.jointPrior->clone())), // deep copy
 	  logger(copy.logger), error(copy.error) {
-	        	        
+
 	N = hXI.getNumberOfPatients();
 	K = hXI.getNumberOfRows();
-	J = hXI.getNumberOfColumns();	
-	
+	J = hXI.getNumberOfColumns();
+
 	hY = hXI.getYVector(); // TODO Delegate all data to ModelSpecifics
 	hPid = hXI.getPidVector();
 
@@ -110,7 +110,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 	likelihoodCount = 0;
 	noiseLevel = copy.noiseLevel;
 
-	init(hXI.getHasOffsetCovariate());			
+	init(hXI.getHasOffsetCovariate());
 }
 
 CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
@@ -119,12 +119,12 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 //	free(hNEvents);
 //	free(hY);
 //	free(hOffs);
-	
+
 //	free(hBeta);
 //	free(hXBeta);
 //	free(hXBetaSave);
 //	free(hDelta);
-	
+
 // #ifdef TEST_ROW_INDEX
 // 	for (int j = 0; j < J; ++j) {
 // 		if (hXColumnRowIndicators[j]) {
@@ -140,11 +140,11 @@ CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
 //	free(denomPid);  // Nested in numerPid allocation
 //	free(numerPid);
 //	free(t1);
-	
+
 // #ifdef NO_FUSE
 // 	free(wPid);
 // #endif
-	
+
 // 	if (hWeights) {
 // 		free(hWeights);
 // 	}
@@ -178,7 +178,7 @@ void CyclicCoordinateDescent::resetBounds() {
 }
 
 void CyclicCoordinateDescent::init(bool offset) {
-		
+
 	// Set parameters and statistics space
 	hDelta.resize(J, static_cast<double>(2.0));
 	hBeta.resize(J, static_cast<double>(0.0));
@@ -187,22 +187,22 @@ void CyclicCoordinateDescent::init(bool offset) {
 // 	hXBetaSave = (real*) calloc(K, sizeof(real));
 	hXBeta.resize(K, static_cast<real>(0.0));
 	hXBetaSave.resize(K, static_cast<real>(0.0));
-	
+
 	fixBeta.resize(J, false);
-	
+
 	// SHOULD BE HANDLED IN MODELDATA CONSTRUCTORS
 // 	//Recode patient ids  TODO Delegate to grouped model
 // 	int currentNewId = 0;
 // 	int currentOldId = hPid[0];
-// 	
+//
 // 	for(int i = 0; i < K; i++) {
-// 		if (hPid[i] != currentOldId) {			
+// 		if (hPid[i] != currentOldId) {
 // 			currentOldId = hPid[i];
 // 			currentNewId++;
 // 		}
 // 		hPid[i] = currentNewId;
 // 	}
-		
+
 	// Init temporary variables
 //	offsExpXBeta = (real*) malloc(sizeof(real) * K);
 //	xOffsExpXBeta = (real*) malloc(sizeof(real) * K);
@@ -216,7 +216,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 //	hNEvents = (int*) malloc(sizeof(int) * N);
 //	hXjY = (real*) malloc(sizeof(real) * J);
 	hWeights.resize(0);
-	
+
 // #ifdef NO_FUSE
 // 	wPid = (real*) malloc(sizeof(real) * alignedLength);
 // #endif
@@ -254,7 +254,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 		xBetaKnown = true; // all beta = 0 => xBeta = 0
 	}
 	doLogisticRegression = false;
-	        
+
 	modelSpecifics.initialize(N, K, J, &hXI, NULL, NULL, NULL,
 			NULL, NULL,
 			hPid, NULL,
@@ -268,7 +268,7 @@ int CyclicCoordinateDescent::getAlignedLength(int N) {
 	return (N / 16) * 16 + (N % 16 == 0 ? 0 : 16);
 }
 
-void CyclicCoordinateDescent::computeNEvents() {  
+void CyclicCoordinateDescent::computeNEvents() {
 	modelSpecifics.setWeights(
 		hWeights.size() > 0 ? hWeights.data() : nullptr,
 		useCrossValidation);
@@ -290,7 +290,7 @@ void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
 	if (!outLog) {
 	    std::ostringstream stream;
 		stream << "Unable to open log file: " << fileName;
-		error->throwError(stream);		
+		error->throwError(stream);
 	}
 	string sep(","); // TODO Make option
 
@@ -303,7 +303,7 @@ void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
 	}
 	outLog << endl;
 
-	for (int i = 0; i < J; i++) {		
+	for (int i = 0; i < J; i++) {
 		outLog << hXI.getColumn(i).getLabel()
 //				<< sep << conditionId
 				<< sep << hBeta[i];
@@ -350,7 +350,7 @@ int CyclicCoordinateDescent::getPredictionSize(void) const {
 }
 
 bool CyclicCoordinateDescent::getIsRegularized(int i) const {
-    return jointPrior->getIsRegularized(i);    
+    return jointPrior->getIsRegularized(i);
 }
 
 double CyclicCoordinateDescent::getBeta(int i) {
@@ -433,7 +433,7 @@ void CyclicCoordinateDescent::setPriorType(int iPriorType) {
 	if (iPriorType < priors::NONE || iPriorType > priors::NORMAL) {
 	    std::ostringstream stream;
 		stream << "Unknown prior type";
-		error->throwError(stream);		
+		error->throwError(stream);
 	}
 	priorType = iPriorType;
 }
@@ -466,10 +466,10 @@ void CyclicCoordinateDescent::setBeta(int i, double beta) {
 void CyclicCoordinateDescent::setWeights(real* iWeights) {
 
 	if (iWeights == NULL) {
-		if (hWeights.size() != 0) {			
+		if (hWeights.size() != 0) {
 			hWeights.resize(0);
 		}
-		
+
 		// Turn off weights
 		useCrossValidation = false;
 		validWeights = false;
@@ -487,7 +487,7 @@ void CyclicCoordinateDescent::setWeights(real* iWeights) {
 		sufficientStatisticsKnown = false;
 	}
 }
-	
+
 double CyclicCoordinateDescent::getLogPrior(void) {
 	return jointPrior->logDensity(hBeta);
 }
@@ -514,7 +514,7 @@ double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
 	} else {
     	std::ostringstream stream;
     	stream << "Invalid convergence type: " << convergenceType;
-    	error->throwError(stream);	
+    	error->throwError(stream);
     }
     return 0.0;
 }
@@ -541,20 +541,20 @@ void CyclicCoordinateDescent::saveXBeta(void) {
 }
 
 void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
-	
+
 	const auto maxIterations = arguments.maxIterations;
 	const auto convergenceType = arguments.convergenceType;
-	const auto epsilon = arguments.tolerance;	
-		
+	const auto epsilon = arguments.tolerance;
+
  	if (arguments.useKktSwindle && jointPrior->getSupportsKktSwindle()) {
-		kktSwindle(arguments);		
+		kktSwindle(arguments);
 	} else {
 		findMode(maxIterations, convergenceType, epsilon);
 	}
 }
 
 typedef std::tuple<
-	int,    // index	
+	int,    // index
 	double, // gradient
 	bool    // force active
 > ScoreTuple;
@@ -562,7 +562,7 @@ typedef std::tuple<
 template <typename Iterator>
 void CyclicCoordinateDescent::findMode(Iterator begin, Iterator end,
 		const int maxIterations, const int convergenceType, const double epsilon) {
-		
+
 	std::fill(fixBeta.begin(), fixBeta.end(), true);
  	std::for_each(begin, end, [this] (ScoreTuple& tuple) {
  		fixBeta[std::get<0>(tuple)] = false;
@@ -576,21 +576,21 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 	const auto maxIterations = arguments.maxIterations;
 	const auto convergenceType = arguments.convergenceType;
 	const auto epsilon = arguments.tolerance;
-	
-	// Make sure internal state is up-to-date	
-	checkAllLazyFlags();	
-	
-		
+
+	// Make sure internal state is up-to-date
+	checkAllLazyFlags();
+
+
 	std::list<ScoreTuple> activeSet;
 	std::list<ScoreTuple> inactiveSet;
-	std::list<int> excludeSet;		
-				
+	std::list<int> excludeSet;
+
 	// Initialize sets
 	int intercept = -1;
 	if (hXI.getHasInterceptCovariate()) {
 		intercept = hXI.getHasOffsetCovariate() ? 1 : 0;
 	}
-	
+
 	for (int index = 0; index < J; ++index) {
 		if (fixBeta[index]) {
 			excludeSet.push_back(index);
@@ -604,143 +604,143 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 			}
 		}
 	}
-	
+
 	bool done = false;
 	int swindleIterationCount = 1;
-	
+
 //	int initialActiveSize = activeSet.size();
 	int perPassSize = arguments.swindleMultipler;
-	
+
 	while (!done) {
-	
+
 		if (noiseLevel >= QUIET) {
 			std::ostringstream stream;
 			stream << "\nKKT Swindle count " << swindleIterationCount << ", activeSet size =  " << activeSet.size();
 			logger->writeLine(stream);
 		}
-		
+
 		// Enforce all beta[inactiveSet] = 0
 		for (auto& inactive : inactiveSet) {
 			if (getBeta(std::get<0>(inactive)) != 0.0) { // Touch only if necessary
 				setBeta(std::get<0>(inactive), 0.0);
 			}
 		}
-	
+
 		double updateTime = 0.0;
 		lastReturnFlag = SUCCESS;
 		if (activeSet.size() > 0) { // find initial mode
 			auto start = bsccs::chrono::steady_clock::now();
-			  		
+
 			findMode(begin(activeSet), end(activeSet), maxIterations, convergenceType, epsilon);
-			
+
 			auto end = bsccs::chrono::steady_clock::now();
-			bsccs::chrono::duration<double> elapsed_seconds = end-start;	
-			updateTime = elapsed_seconds.count();    			
+			bsccs::chrono::duration<double> elapsed_seconds = end-start;
+			updateTime = elapsed_seconds.count();
 		}
-		
+
 		if (noiseLevel >= QUIET) {
 			std::ostringstream stream;
 			stream << "update time: " << updateTime << " in " << lastIterationCount << " iterations.";
 			logger->writeLine(stream);
 		}
-		
+
 		if (inactiveSet.size() == 0 || lastReturnFlag != SUCCESS) { // Computed global mode, nothing more to do, or failed
-		
-			done = true;		
-			
+
+			done = true;
+
 		} else { // still inactive covariates
-								
-			
+
+
 			if (swindleIterationCount == maxIterations) {
-				lastReturnFlag = MAX_ITERATIONS;		
+				lastReturnFlag = MAX_ITERATIONS;
 				done = true;
 				if (noiseLevel > SILENT) {
-					std::ostringstream stream;	
+					std::ostringstream stream;
 					stream << "Reached maximum swindle iterations";
 					logger->writeLine(stream);
 				}
 			} else {
-		
+
 				auto checkConditions = [this] (const ScoreTuple& score) {
 					return (std::get<1>(score) <= jointPrior->getKktBoundary(std::get<0>(score)));
 				};
-				
+
 //				auto checkAlmostConditions = [this] (const ScoreTuple& score) {
 //					return (std::get<1>(score) < 0.9 * jointPrior->getKktBoundary(std::get<0>(score)));
-//				};				
-		
+//				};
+
 				// Check KKT conditions
-									
-				computeKktConditions(inactiveSet);				
-			
+
+				computeKktConditions(inactiveSet);
+
 				bool satisfied = std::all_of(begin(inactiveSet), end(inactiveSet), checkConditions);
-			
+
 				if (satisfied) {
-					done = true;				
+					done = true;
 				} else {
 //					auto newActiveSize = initialActiveSize + perPassSize;
-					
+
 					auto count1 = std::distance(begin(inactiveSet), end(inactiveSet));
 					auto count2 = std::count_if(begin(inactiveSet), end(inactiveSet), checkConditions);
-					
-					
+
+
 					// Remove elements from activeSet if less than 90% of boundary
-// 					computeKktConditions(activeSet); // TODO Already computed in findMode		
-// 					
+// 					computeKktConditions(activeSet); // TODO Already computed in findMode
+//
 // // 					for (auto& active : activeSet) {
 // // 						std::ostringstream stream;
 // // 						stream << "Active: " << std::get<0>(active) << " : " << std::get<1>(active) << " : " << std::get<2>(active);
-// // 						logger->writeLine(stream);																						
-// // 					}		
-// 					
+// // 						logger->writeLine(stream);
+// // 					}
+//
 // 					int countActiveViolations = 0;
 // 					while(activeSet.size() > 0 &&
 // 						checkAlmostConditions(activeSet.back())
 // 					) {
 // 						auto& back = activeSet.back();
-// 						
+//
 // // 						std::ostringstream stream;
-// // 						stream << "Remove: " << std::get<0>(back) << ":" << std::get<1>(back) 
+// // 						stream << "Remove: " << std::get<0>(back) << ":" << std::get<1>(back)
 // // 						       << " cut @ " << jointPrior->getKktBoundary(std::get<0>(back))
 // // 						       << " diff = " << (std::get<1>(back) - jointPrior->getKktBoundary(std::get<0>(back)));
-// // 						logger->writeLine(stream);						
-// 						
+// // 						logger->writeLine(stream);
+//
 // 						inactiveSet.push_back(back);
-// 						activeSet.pop_back();		
-// 						++countActiveViolations;									
+// 						activeSet.pop_back();
+// 						++countActiveViolations;
 // 					}
 					// end
-																			
+
 					// Move inactive elements into active if KKT conditions are not met
 					while (inactiveSet.size() > 0
 							&& !checkConditions(inactiveSet.front())
 //  							&& activeSet.size() < newActiveSize
 					) {
 						auto& front = inactiveSet.front();
-						
+
 // 						std::ostringstream stream;
 // 						stream << std::get<0>(front) << ":" << std::get<1>(front);
 // 						logger->writeLine(stream);
-						
+
 						activeSet.push_back(front);
 						inactiveSet.pop_front();
-					}	
-										
+					}
+
 					if (noiseLevel >= QUIET) {
 						std::ostringstream stream;
-// 						stream << "  Active set violations: " << countActiveViolations << std::endl;  
+// 						stream << "  Active set violations: " << countActiveViolations << std::endl;
 						stream << "Inactive set violations: " << (count1 - count2);
 						logger->writeLine(stream);
-					}													
-				}			
-			}									
+					}
+				}
+			}
 		}
 		++swindleIterationCount;
 		perPassSize *= 2;
-		
-		logger->yield();			// This is not re-entrant safe	
+
+		logger->yield();			// This is not re-entrant safe
 	}
-						
+
 	// restore fixBeta
 	std::fill(fixBeta.begin(), fixBeta.end(), false);
 	for (auto index : excludeSet) {
@@ -751,25 +751,25 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 template <typename Container>
 void CyclicCoordinateDescent::computeKktConditions(Container& scoreSet) {
 
-    for (auto& score : scoreSet) {    
-        const auto index = std::get<0>(score);     
-           
+    for (auto& score : scoreSet) {
+        const auto index = std::get<0>(score);
+
 		computeNumeratorForGradient(index);
-	
+
 		priors::GradientHessian gh;
 		computeGradientAndHessian(index, &gh.first, &gh.second);
-		
+
 		std::get<1>(score) = std::abs(gh.first);
     }
-    
+
     scoreSet.sort([] (ScoreTuple& lhs, ScoreTuple& rhs) -> bool {
     	if (std::get<2>(rhs) == std::get<2>(lhs)) {
-			return (std::get<1>(rhs) < std::get<1>(lhs));    	    	
+			return (std::get<1>(rhs) < std::get<1>(lhs));
     	} else {
     		return(std::get<2>(lhs));
     	}
-    });    
-}	
+    });
+}
 
 
 void CyclicCoordinateDescent::findMode(
@@ -781,14 +781,16 @@ void CyclicCoordinateDescent::findMode(
 	if (convergenceType < GRADIENT || convergenceType > ZHANG_OLES) {
 	    std::ostringstream stream;
 		stream << "Unknown convergence criterion: " << convergenceType;
-		error->throwError(stream);				
+		error->throwError(stream);
 	}
-	
-	if (!validWeights) {    	   	
+
+	if (!validWeights || hXI.getTouchedY() // || hXI.getTouchedX()
+		) {
 		computeNEvents();
 		computeFixedTermsInLogLikelihood();
 		computeFixedTermsInGradientAndHessian();
-		validWeights = true;		
+		validWeights = true;
+		hXI.clean();
 	}
 
 	if (!xBetaKnown) {
@@ -801,7 +803,7 @@ void CyclicCoordinateDescent::findMode(
 		computeRemainingStatistics(true, 0); // TODO Check index?
 		sufficientStatisticsKnown = true;
 	}
-	
+
 	resetBounds();
 
 	bool done = false;
@@ -813,12 +815,12 @@ void CyclicCoordinateDescent::findMode(
 	} else { // ZHANG_OLES
 		saveXBeta();
 	}
-	
+
 	while (!done) {
-	
+
 		// Do a complete cycle
 		for(int index = 0; index < J; index++) {
-		
+
 			if (!fixBeta[index]) {
 				double delta = ccdUpdateBeta(index);
 				delta = applyBounds(delta, index);
@@ -827,15 +829,15 @@ void CyclicCoordinateDescent::findMode(
 					updateSufficientStatistics(delta, index);
 				}
 			}
-			
+
 			if ( (noiseLevel > QUIET) && ((index+1) % 100 == 0)) {
 			    std::ostringstream stream;
 			    stream << "Finished variable " << (index+1);
 			    logger->writeLine(stream);
 			}
-			
+
 		}
-		
+
 		iteration++;
 //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
 		bool checkConvergence = true; // Check after each complete cycle
@@ -867,8 +869,8 @@ void CyclicCoordinateDescent::findMode(
 			double thisLogPost = thisLogLikelihood + thisLogPrior;
 
             std::ostringstream stream;
-			if (noiseLevel > QUIET) {			    
-			    stream << "\n";				
+			if (noiseLevel > QUIET) {
+			    stream << "\n";
 				printVector(&hBeta[0], J, stream);
 				stream << "\n";
 				stream << "log post: " << thisLogPost
@@ -896,13 +898,13 @@ void CyclicCoordinateDescent::findMode(
 			if (noiseLevel > QUIET) {
                 logger->writeLine(stream);
 			}
-						
+
 			logger->yield();			// This is not re-entrant safe
-		}						
+		}
 	}
 	lastIterationCount = iteration;
 	updateCount += 1;
-	
+
 	modelSpecifics.printTiming();
 
 	fisherInformationKnown = false;
@@ -985,7 +987,7 @@ CyclicCoordinateDescent::Matrix CyclicCoordinateDescent::computeFisherInformatio
         const int i = indices[ii];
         for (size_t jj = ii; jj < indices.size(); ++jj) {
             const int j = indices[jj];
-            double element = 0.0;            
+            double element = 0.0;
              modelSpecifics.computeFisherInformation(i, j, &element, useCrossValidation);
             fisherInformation(jj, ii) = fisherInformation(ii, jj) = element;
         }
@@ -1053,19 +1055,19 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	if (!sufficientStatisticsKnown) {
 	    std::ostringstream stream;
 		stream << "Error in state synchronization.";
-		error->throwError(stream);				
+		error->throwError(stream);
 	}
-		
+
 	computeNumeratorForGradient(index);
-	
+
 	priors::GradientHessian gh;
 	computeGradientAndHessian(index, &gh.first, &gh.second);
-				
+
 	if (gh.second < 0.0) {
-	    gh.first = 0.0;	
+	    gh.first = 0.0;
 	    gh.second = 0.0;
 	}
-	
+
     return jointPrior->getDelta(gh, hBeta, index);
 }
 
@@ -1145,7 +1147,7 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
  * Updating and convergence functions
  */
 
-double CyclicCoordinateDescent::computeConvergenceCriterion(double newObjFxn, double oldObjFxn) {	
+double CyclicCoordinateDescent::computeConvergenceCriterion(double newObjFxn, double oldObjFxn) {
 	// This is the stopping criterion that Ken Lange generally uses
 	return abs(newObjFxn - oldObjFxn) / (abs(newObjFxn) + 1.0);
 }
@@ -1181,10 +1183,10 @@ void CyclicCoordinateDescent::printVector(T* vector, int length, ostream &os) {
 	for (int i = 1; i < length; i++) {
 		os << ", " << vector[i];
 	}
-	os << ")";			
+	os << ")";
 }
 
-template <class T> 
+template <class T>
 T* CyclicCoordinateDescent::readVector(
 		const char *fileName,
 		int *length) {
@@ -1192,16 +1194,16 @@ T* CyclicCoordinateDescent::readVector(
 	ifstream fin(fileName);
 	T d;
 	std::vector<T> v;
-	
+
 	while (fin >> d) {
 		v.push_back(d);
 	}
-	
+
 	T* ptr = (T*) malloc(sizeof(T) * v.size());
 	for (int i = 0; i < v.size(); i++) {
 		ptr[i] = v[i];
 	}
-		
+
 	*length = v.size();
 	return ptr;
 }
@@ -1210,9 +1212,9 @@ void CyclicCoordinateDescent::testDimension(int givenValue, int trueValue, const
 	if (givenValue != trueValue) {
 	    std::ostringstream stream;
 		stream << "Wrong dimension in " << parameterName << " vector.";
-		error->throwError(stream);		
+		error->throwError(stream);
 	}
-}	
+}
 
 inline int CyclicCoordinateDescent::sign(double x) {
 	if (x == 0) {

@@ -571,10 +571,9 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsLoadDataY
-int cyclopsLoadDataY(Environment x, const std::vector<int64_t>& stratumId, const std::vector<int64_t>& rowId, const std::vector<double>& y, const std::vector<double>& time);
+void cyclopsLoadDataY(Environment x, const std::vector<int64_t>& stratumId, const std::vector<int64_t>& rowId, const std::vector<double>& y, const std::vector<double>& time);
 RcppExport SEXP Cyclops_cyclopsLoadDataY(SEXP xSEXP, SEXP stratumIdSEXP, SEXP rowIdSEXP, SEXP ySEXP, SEXP timeSEXP) {
 BEGIN_RCPP
-    SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< Environment >::type x(xSEXP );
@@ -582,16 +581,14 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type rowId(rowIdSEXP );
         Rcpp::traits::input_parameter< const std::vector<double>& >::type y(ySEXP );
         Rcpp::traits::input_parameter< const std::vector<double>& >::type time(timeSEXP );
-        int __result = cyclopsLoadDataY(x, stratumId, rowId, y, time);
-        PROTECT(__sexp_result = Rcpp::wrap(__result));
+        cyclopsLoadDataY(x, stratumId, rowId, y, time);
     }
-    UNPROTECT(1);
-    return __sexp_result;
+    return R_NilValue;
 END_RCPP
 }
 // cyclopsLoadDataX
-int cyclopsLoadDataX(Environment x, const int64_t covariateId, const std::vector<int64_t>& rowId, const std::vector<double>& covariateValue, const bool reload, const bool append);
-RcppExport SEXP Cyclops_cyclopsLoadDataX(SEXP xSEXP, SEXP covariateIdSEXP, SEXP rowIdSEXP, SEXP covariateValueSEXP, SEXP reloadSEXP, SEXP appendSEXP) {
+int cyclopsLoadDataX(Environment x, const int64_t covariateId, const std::vector<int64_t>& rowId, const std::vector<double>& covariateValue, const bool replace, const bool append);
+RcppExport SEXP Cyclops_cyclopsLoadDataX(SEXP xSEXP, SEXP covariateIdSEXP, SEXP rowIdSEXP, SEXP covariateValueSEXP, SEXP replaceSEXP, SEXP appendSEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
@@ -600,9 +597,9 @@ BEGIN_RCPP
         Rcpp::traits::input_parameter< const int64_t >::type covariateId(covariateIdSEXP );
         Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type rowId(rowIdSEXP );
         Rcpp::traits::input_parameter< const std::vector<double>& >::type covariateValue(covariateValueSEXP );
-        Rcpp::traits::input_parameter< const bool >::type reload(reloadSEXP );
+        Rcpp::traits::input_parameter< const bool >::type replace(replaceSEXP );
         Rcpp::traits::input_parameter< const bool >::type append(appendSEXP );
-        int __result = cyclopsLoadDataX(x, covariateId, rowId, covariateValue, reload, append);
+        int __result = cyclopsLoadDataX(x, covariateId, rowId, covariateValue, replace, append);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);

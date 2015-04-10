@@ -203,11 +203,11 @@ getNumberOfTypes <- function(object) {
 }
 
 .loadCyclopsDataY <- function(x, stratumId, rowId, y, time) {
-    .Call('Cyclops_cyclopsLoadDataY', PACKAGE = 'Cyclops', x, stratumId, rowId, y, time)
+    invisible(.Call('Cyclops_cyclopsLoadDataY', PACKAGE = 'Cyclops', x, stratumId, rowId, y, time))
 }
 
-.loadCyclopsDataX <- function(x, covariateId, rowId, covariateValue, reload, append) {
-    .Call('Cyclops_cyclopsLoadDataX', PACKAGE = 'Cyclops', x, covariateId, rowId, covariateValue, reload, append)
+.loadCyclopsDataX <- function(x, covariateId, rowId, covariateValue, replace, append) {
+    .Call('Cyclops_cyclopsLoadDataX', PACKAGE = 'Cyclops', x, covariateId, rowId, covariateValue, replace, append)
 }
 
 .appendSqlCyclopsData <- function(x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue) {

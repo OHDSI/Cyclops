@@ -70,6 +70,7 @@ public:
 		, offs(_offs.begin(), _offs.end()) // copy
 		, sparseIndexer(*this)
 		, log(_log), error(_error)
+		, touchedY(true), touchedX(true)
 		{
 
 	}
@@ -94,7 +95,7 @@ public:
 		const std::vector<double>& time
 	);
 
-	void loadX(
+	int loadX(
 		const IdType covariateId,
 		const std::vector<IdType>& rowId,
 		const std::vector<double>& covariateValue,
@@ -197,6 +198,12 @@ public:
 			return labels[i];
 		}
 	}
+	
+	void clean() const { touchedY = false; touchedX = false; }
+	
+	const bool getTouchedY() const { return touchedY; }
+	
+	const bool getTouchedX() const { return touchedX; }
 
 	// TODO Improve encapsulation
 	friend class SCCSInputReader;
@@ -241,12 +248,16 @@ private:
 
     SparseIndexer sparseIndexer;
 
-	protected:
+protected:
     loggers::ProgressLoggerPtr log;
     loggers::ErrorHandlerPtr error;
 
     typedef std::unordered_map<IdType,size_t> RowIdMap;
     RowIdMap rowIdMap;
+    
+    
+    mutable bool touchedY;
+    mutable bool touchedX;
 
 };
 

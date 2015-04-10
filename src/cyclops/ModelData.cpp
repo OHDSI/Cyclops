@@ -32,7 +32,7 @@ ModelData::ModelData(
     loggers::ProgressLoggerPtr _log,
     loggers::ErrorHandlerPtr _error
     ) : modelType(_modelType), nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false), isFinalized(false),
-        lastStratumMap(0,0), sparseIndexer(*this), log(_log), error(_error) {
+        lastStratumMap(0,0), sparseIndexer(*this), log(_log), error(_error), touchedY(true), touchedX(true) {
 	// Do nothing
 }
 
@@ -73,23 +73,24 @@ void ModelData::loadY(
 	if (oTime.size() == oY.size()) {
 		offs = oTime; // copy assignment
 	}
+	touchedY = true;
 
 	if (!previouslyLoaded) { // Load stratum and row IDs
-		std::ostringstream stream;
-		stream << "Load stratum and row IDs";
+// 		std::ostringstream stream;
+// 		stream << "Load stratum and row IDs";
 		//error->throwError(stream);
 // 		std::cerr << stream.str() << std::endl;
-				
+
 		pid.reserve(oRowId.size());
-		
+
 		bool processStrata = oStratumId.size() > 0;
-		
+
 		for (size_t i = 0; i < oRowId.size(); ++i) { // ignored if oRowId.size() == 0
 			IdType currentRowId = oRowId[i];
 			rowIdMap[currentRowId] = i;
-			
-			// Begin code duplication			
-			if (processStrata) {			
+
+			// Begin code duplication
+			if (processStrata) {
 				IdType cInStratum = oStratumId[i];
 				if (nRows == 0) {
 					lastStratumMap.first = cInStratum;
@@ -104,16 +105,22 @@ void ModelData::loadY(
 				}
 				pid.push_back(lastStratumMap.second);
 			}
-						
+
 			// TODO Check timing on adding label as string
 			std::stringstream ss;
 			ss << currentRowId;
 			labels.push_back(ss.str());
 			// End code duplication
 		}
-		
-		nRows = y.size();		
-		if (!processStrata) nPatients = nRows;				
+
+		nRows = y.size();
+		if (!processStrata) nPatients = nRows;
+	} else {
+		if (oStratumId.size() > 0 || oRowId.size() > 0) {
+			std::ostringstream stream;
+			stream << "Strata or row IDs are already loaded";
+			error->throwError(stream);
+		}
 	}
 
 // 	std::cerr << "Row ID map:" << std::endl;;
@@ -122,7 +129,7 @@ void ModelData::loadY(
 // 	}
 }
 
-void ModelData::loadX(
+int ModelData::loadX(
 		const IdType covariateId,
 		const std::vector<IdType>& rowId,
 		const std::vector<double>& covariateValue,
@@ -134,10 +141,8 @@ void ModelData::loadX(
             (covariateValue.size() == 0 ? INTERCEPT : DENSE) :
             (covariateValue.size() == 0 ? INDICATOR : SPARSE);
 
-
-
 	std::function<size_t(IdType)>
-    //auto 
+    //auto
     xform = [this](IdType id) {
         return rowIdMap[id];
     };
@@ -165,11 +170,17 @@ void ModelData::loadX(
   				begin(covariateValue), end(covariateValue),
   				newType);
         } else {
+            if (newType == SPARSE || newType == INDICATOR) {
+                std::ostringstream stream;
+                stream << "Must use row IDs with sparse/indicator columns";
+                error->throwError(stream);
+            }
 	        replace(index,
     	        begin(rowId), end(rowId),
 	            begin(covariateValue), end(covariateValue),
     	        newType);
     	}
+    	getColumn(index).add_label(covariateId);
     } else {
         // brand new, make deep copy
         if (rowIdMap.size() > 0) {
@@ -179,6 +190,11 @@ void ModelData::loadX(
     	        begin(covariateValue), end(covariateValue),
         	    newType);
         } else {
+            if (newType == SPARSE || newType == INDICATOR) {
+                std::ostringstream stream;
+                stream << "Must use row IDs with sparse/indicator columns";
+                error->throwError(stream);
+            }
 	        push_back(begin(rowId), end(rowId),
     	        begin(covariateValue), end(covariateValue),
         	    newType);
@@ -187,7 +203,13 @@ void ModelData::loadX(
         getColumn(index).add_label(covariateId);
     }
 
-//     CompressedDataColumn& column = getColumn(index);
+    if (newType == INTERCEPT) {
+        std::cerr << "Added intercept" << std::endl;
+    }
+    
+    touchedX = true;
+
+    return index;
 }
 
 size_t ModelData::append(
@@ -233,7 +255,7 @@ size_t ModelData::append(
     size_t cOffset = 0;
 
     for (size_t i = 0; i < nOutcomes; ++i) {
-    
+
     	// TODO Begin code duplication with 'loadY'
         IdType cInStratum = oStratumId[i];
         if (nRows == 0) {
@@ -258,7 +280,7 @@ size_t ModelData::append(
         std::stringstream ss;
         ss << currentRowId;
         labels.push_back(ss.str());
-        // TODO End code duplication with 'loadY;        
+        // TODO End code duplication with 'loadY;
 
 #ifdef DEBUG_64BIT
         std::cout << currentRowId << std::endl;

@@ -352,7 +352,7 @@ void cyclopsFinalizeData(
 
 
 // [[Rcpp::export(".loadCyclopsDataY")]]
-int cyclopsLoadDataY(Environment x,
+void cyclopsLoadDataY(Environment x,
         const std::vector<int64_t>& stratumId,
         const std::vector<int64_t>& rowId,
         const std::vector<double>& y,
@@ -361,8 +361,6 @@ int cyclopsLoadDataY(Environment x,
     using namespace bsccs;
     XPtr<ModelData> data = parseEnvironmentForPtr(x);       
     data->loadY(stratumId, rowId, y, time);
-    
-    return 0;        
 }
 
 // [[Rcpp::export(".loadCyclopsDataX")]]
@@ -370,7 +368,7 @@ int cyclopsLoadDataX(Environment x,
         const int64_t covariateId,
         const std::vector<int64_t>& rowId,
         const std::vector<double>& covariateValue,
-        const bool reload,
+        const bool replace,
         const bool append) {
 
     using namespace bsccs;        
@@ -379,8 +377,7 @@ int cyclopsLoadDataX(Environment x,
     // rowId.size() == 0 -> dense
     // covariateValue.size() == 0 -> indicator
      
-    data->loadX(covariateId, rowId, covariateValue, reload, append); 
-    return 0;       
+    return data->loadX(covariateId, rowId, covariateValue, replace, append);   
 }
    
 // NOTE:  IdType does not get exported into RcppExports, so hard-coded here

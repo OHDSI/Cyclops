@@ -29,7 +29,7 @@ namespace bsccs {
 // 		case ModelType::LOGISTIC :
 // 			model = bsccs::make_shared<ModelSpecifics<LogisticRegression<real>,real> >(modelData);
 // 			break;
-// 		case ModelType::NORMAL : 
+// 		case ModelType::NORMAL :
 // 			model = bsccs::make_shared<ModelSpecifics<LeastSquares<real>,real> >(modelData);
 // 			break;
 // 		case ModelType::POISSON :
@@ -37,16 +37,16 @@ namespace bsccs {
 // 			break;
 //		case ModelType::CONDITIONAL_POISSON :
 // 			model = bsccs::make_shared<ModelSpecifics<ConditionalPoissonRegression<real>,real> >(modelData);
-// 			break; 			
-// 		case ModelType::COX_RAW : 		   
+// 			break;
+// 		case ModelType::COX_RAW :
 // 			model = bsccs::make_shared<ModelSpecifics<CoxProportionalHazards<real>,real> >(modelData);
 // 			break;
-// 		case ModelType::COX : 		   
+// 		case ModelType::COX :
 // 			model = bsccs::make_shared<ModelSpecifics<BreslowTiedCoxProportionalHazards<real>,real> >(modelData);
 // 			break;
 // 		default:
 // 			throw std::invalid_argument("Unknown modelType");
-// 			break; 			
+// 			break;
 // 	}
 //	return model;
 //}
@@ -62,11 +62,11 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
  			break;
  		case ModelType::TIED_CONDITIONAL_LOGISTIC :
  			model =  new ModelSpecifics<TiedConditionalLogisticRegression<real>,real>(modelData);
- 			break; 			
+ 			break;
  		case ModelType::LOGISTIC :
  			model = new ModelSpecifics<LogisticRegression<real>,real>(modelData);
  			break;
- 		case ModelType::NORMAL : 
+ 		case ModelType::NORMAL :
  			model = new ModelSpecifics<LeastSquares<real>,real>(modelData);
  			break;
  		case ModelType::POISSON :
@@ -74,15 +74,15 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
  			break;
 		case ModelType::CONDITIONAL_POISSON :
  			model = new ModelSpecifics<ConditionalPoissonRegression<real>,real>(modelData);
- 			break; 			
- 		case ModelType::COX_RAW : 		   
+ 			break;
+ 		case ModelType::COX_RAW :
  			model = new ModelSpecifics<CoxProportionalHazards<real>,real>(modelData);
  			break;
- 		case ModelType::COX : 		   
+ 		case ModelType::COX :
  			model = new ModelSpecifics<BreslowTiedCoxProportionalHazards<real>,real>(modelData);
  			break;
- 		default: 			
- 			break; 			
+ 		default:
+ 			break;
  	}
 	return model;
 }
@@ -102,7 +102,7 @@ AbstractModelSpecifics::AbstractModelSpecifics(const ModelData& input)
 	  hY(input.getYVectorRef()),
 // 	  hOffs(const_cast<real*>(input.getTimeVectorRef().data())),
 	  hOffs(input.getTimeVectorRef()),
-// 	  hPid(const_cast<int*>(input.getPidVectorRef().data()))	  
+// 	  hPid(const_cast<int*>(input.getPidVectorRef().data()))
 // 	  hPid(input.getPidVectorRef())
       hPidOriginal(input.getPidVectorRef()), hPid(const_cast<int*>(hPidOriginal.data()))
 	  {
@@ -130,9 +130,9 @@ void AbstractModelSpecifics::setPidForAccumulation(const real* weights) {
 	hPidInternal =  hPidOriginal; // Make copy
 	hPid = hPidInternal.data(); // Point to copy
 	accReset.clear();
-	
+
 	const int ignore = -1;
-	
+
 	// Find first non-zero weight
 	int index = 0;
 	while(weights != nullptr && weights[index] == 0.0 && index < K) {
@@ -142,53 +142,53 @@ void AbstractModelSpecifics::setPidForAccumulation(const real* weights) {
 
 	int lastPid = hPid[index];
 	real lastTime = hOffs[index];
-	real lastEvent = hY[index];        
-	
+	real lastEvent = hY[index];
+
 	int pid = hPid[index] = 0;
-	
+
 	for (size_t k = index + 1; k < K; ++k) {
 		if (weights == nullptr || weights[k] != 0.0) {
 			int nextPid = hPid[k];
-		
+
 			if (nextPid != lastPid) { // start new strata
 				pid++;
 				accReset.push_back(pid);
-				lastPid = nextPid;		    
+				lastPid = nextPid;
 			} else {
-		
+
 				if (lastEvent == 1.0 && lastTime == hOffs[k] && lastEvent == hY[k]) {
 					// In a tie, do not increment denominator
 				} else {
 					pid++;
 				}
-			}			  
+			}
 			lastTime = hOffs[k];
-			lastEvent = hY[k];    
-		
-			hPid[k] = pid;	     
+			lastEvent = hY[k];
+
+			hPid[k] = pid;
 		} else {
 			hPid[k] = ignore;
-		}  	         
+		}
 	}
 	pid++;
 	accReset.push_back(pid);
-	
+
 	// Save number of denominators
 	N = pid;
-	
+
 	if (weights != nullptr) {
 		for (size_t i = 0; i < K; ++i) {
 			if (hPid[i] == ignore) hPid[i] = N; // do NOT accumulate, since loops use: i < N
 		}
-	}	
+	}
 	setupSparseIndices(N); // ignore pid == N (pointing to removed data strata)
 }
 
 void AbstractModelSpecifics::setupSparseIndices(const int max) {
 	sparseIndices.clear(); // empty if full!
-	
+
 	for (size_t j = 0; j < J; ++j) {
-		if (modelData.getFormatType(j) == DENSE) {
+		if (modelData.getFormatType(j) == DENSE || modelData.getFormatType(j) == INTERCEPT) {
 			sparseIndices.push_back(NULL);
 		} else {
 			std::set<int> unique;
@@ -228,7 +228,7 @@ void AbstractModelSpecifics::initialize(
 		) {
 	N = iN;
 	K = iK;
-	J = iJ;	
+	J = iJ;
 	offsExpXBeta.resize(K);
 	hXBeta.resize(K); // PT OF DIFFERENCE
 
@@ -239,26 +239,26 @@ void AbstractModelSpecifics::initialize(
 	if (allocateXjX()) {
 		hXjX.resize(J);
 	}
-			
-	if (initializeAccumulationVectors()) {	
-		setPidForAccumulation(nullptr); // calls setupSparseIndices() before returning    	                 
- 	} else {		
+
+	if (initializeAccumulationVectors()) {
+		setPidForAccumulation(nullptr); // calls setupSparseIndices() before returning
+ 	} else {
 		// TODO Suspect below is not necessary for non-grouped data.
 		// If true, then fill with pointers to CompressedDataColumn and do not delete in destructor
 		setupSparseIndices(N); // Need to be recomputed when hPid change!
 	}
-	
-	
-	
+
+
+
 	size_t alignedLength = getAlignedLength(N);
-// 	numerDenomPidCache.resize(3 * alignedLength, 0); 
+// 	numerDenomPidCache.resize(3 * alignedLength, 0);
 // 	numerPid = numerDenomPidCache.data();
 // 	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
-// 	numerPid2 = numerPid + 2 * alignedLength;	
+// 	numerPid2 = numerPid + 2 * alignedLength;
 	denomPid.resize(alignedLength);
 	numerPid.resize(alignedLength);
 	numerPid2.resize(alignedLength);
-	
+
 }
 
 } // namespace

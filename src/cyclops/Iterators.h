@@ -28,15 +28,15 @@ class IndicatorIterator {
 
 	typedef IndicatorTag tag;
 	typedef real Scalar;
-	typedef int Index;	
+	typedef int Index;
 	typedef boost::tuples::tuple<Index> XTuple;
-	
-	const static std::string name;	
+
+	const static std::string name;
 
 	static const bool isIndicatorStatic = true;
 	enum  { isIndicator = true };
 	enum  { isSparse = true };
-	
+
 // 	inline IndicatorIterator(const CompressedDataColumn& col)
 // 	  : mIndices(col.getColumns()),
 // 	    mId(0), mEnd(
@@ -62,7 +62,7 @@ class IndicatorIterator {
 
     inline Index index() const { return mIndices[mId]; }
     inline operator bool() const { return (mId < mEnd); }
-    
+
   protected:
     const Index* mIndices;
     Index mId;
@@ -77,8 +77,8 @@ class SparseIterator {
 	typedef real Scalar;
 	typedef int Index;
 	typedef boost::tuples::tuple<Index, Scalar> XTuple;
-	
-	const static std::string name;	
+
+	const static std::string name;
 
 	static const bool isIndicatorStatic = false;
 	enum  { isIndicator = false };
@@ -194,22 +194,22 @@ class DenseIterator {
 	typedef real Scalar;
 	typedef int Index;
 	typedef boost::tuples::tuple<Index, Scalar> XTuple;
-	
-	const static std::string name;	
+
+	const static std::string name;
 
 //	static const bool isIndicator = false;
 	enum  { isIndicator = false };
 	enum  { isSparse = false };
-	
+
 	inline DenseIterator(const int& start, const int& end)
 		: mId(start), mEnd(end) {
-		
+
 	}
 
 	inline DenseIterator(const CompressedDataMatrix& mat, Index column)
 	  : mValues(mat.getDataVector(column)),
-	    mId(0), 
-	    //mEnd(mat.getNumberOfRows()) 
+	    mId(0),
+	    //mEnd(mat.getNumberOfRows())
 	    mEnd(mat.getDataVectorSTL(column).size())
 	    {
 		// Do nothing
@@ -242,8 +242,8 @@ class InterceptIterator {
 	typedef real Scalar;
 	typedef int Index;
 	typedef boost::tuples::tuple<Index, Scalar> XTuple; // TODO Fix!!!
-	
-	const static std::string name;	
+
+	const static std::string name;
 
 	enum  { isIndicator = true };
 	enum  { isSparse = false };
@@ -286,7 +286,7 @@ class DenseViewIterator {
 
 	enum  { isIndicator = false };
 	enum  { isSparse = false };
-	
+
 	inline DenseViewIterator(const CompressedDataMatrix& mat, Index column)
 	  : mValues(mat.getDataVector(column)),
 	    mId(0), mEnd(mat.getNumberOfRows()){
@@ -321,6 +321,10 @@ class GenericIterator {
 			mValues = mat.getDataVector(column);
 			mIndices = NULL;
 			mEnd = mat.getNumberOfRows();
+		} else if (mFormatType == INTERCEPT) {
+		    mValues = NULL;
+		    mIndices = NULL;
+		    mEnd = mat.getNumberOfRows();
 		} else {
 			if (mFormatType == SPARSE) {
 				mValues = mat.getDataVector(column);
@@ -329,13 +333,13 @@ class GenericIterator {
 			}
 			mIndices = mat.getCompressedColumnVector(column);
 			mEnd = mat.getNumberOfEntries(column);
-		}		
+		}
 	}
 
     inline GenericIterator& operator++() { ++mId; return *this; }
 
     inline const Scalar value() const {
-    	if (mFormatType == INDICATOR) {
+    	if (mFormatType == INDICATOR || mFormatType == INTERCEPT) {
     		return static_cast<Scalar>(1);
     	} else {
     		return mValues[mId];
@@ -344,7 +348,7 @@ class GenericIterator {
 //    inline Scalar& valueRef() { return const_cast<Scalar&>(mValues[mId]); }
 
     inline Index index() const {
-    	if (mFormatType == DENSE) {
+    	if (mFormatType == DENSE || mFormatType == INTERCEPT) {
     		return mId;
     	} else {
     		return mIndices[mId];
@@ -364,38 +368,38 @@ class GenericIterator {
 template <class IteratorType>
 class GroupByIterator {
 public:
-    
+
     typedef real Scalar;
     typedef int Index;
-    
+
     inline GroupByIterator(IteratorType& itMain, IndicatorIterator& _groupBy)
         : iterator(itMain), groupBy(_groupBy) {
-        // Find start   
+        // Find start
         advance();
     }
-    
-    inline GroupByIterator& operator++() {        
+
+    inline GroupByIterator& operator++() {
         ++iterator;
-        advance();        
+        advance();
         return *this;
     }
-    
+
     inline Scalar value() const {
         return iterator.value();
     }
-    
+
     inline Index index() const {
         return iterator.index();
     }
-    
-    inline Index group() const {        
+
+    inline Index group() const {
         return static_cast<Index>(groupBy && iterator.index() == groupBy.index());
     }
-    
+
     inline operator bool() const {
-        return iterator;    
+        return iterator;
     }
-                
+
 private:
 	inline void advance() {
 	    while(groupBy && groupBy.index() < iterator.index()) {
@@ -409,7 +413,7 @@ private:
 //     		}
 // 		}
 	}
-        
+
     IteratorType& iterator;
     IndicatorIterator& groupBy;
 };
