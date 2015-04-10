@@ -205,12 +205,7 @@ int ModelData::loadX(
         getColumn(index).add_label(covariateId);
     }
 
-    if (newType == INTERCEPT) {
-        std::cerr << "Added intercept" << std::endl;
-    }
-
     touchedX = true;
-
     return index;
 }
 
