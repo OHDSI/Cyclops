@@ -114,6 +114,8 @@ void ModelData::loadY(
 			// End code duplication
 		}
 
+		if (oRowId.size() == 0) nRows = y.size();
+
 		if (!processStrata) nPatients = nRows;
 	} else {
 		if (oStratumId.size() > 0 || oRowId.size() > 0) {
