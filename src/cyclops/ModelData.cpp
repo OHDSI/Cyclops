@@ -105,6 +105,7 @@ void ModelData::loadY(
 				}
 				pid.push_back(lastStratumMap.second);
 			}
+			++nRows;
 
 			// TODO Check timing on adding label as string
 			std::stringstream ss;
@@ -113,7 +114,6 @@ void ModelData::loadY(
 			// End code duplication
 		}
 
-		nRows = y.size();
 		if (!processStrata) nPatients = nRows;
 	} else {
 		if (oStratumId.size() > 0 || oRowId.size() > 0) {
@@ -206,7 +206,7 @@ int ModelData::loadX(
     if (newType == INTERCEPT) {
         std::cerr << "Added intercept" << std::endl;
     }
-    
+
     touchedX = true;
 
     return index;

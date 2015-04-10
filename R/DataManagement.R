@@ -613,10 +613,14 @@ loadNewSqlCyclopsDataY <- function(object,
 
     if (is.null(stratumId)) stratumId <- as.integer(c())
     if (is.null(rowId)) rowId <- as.integer(c())
-    if (is.null(time)) time <- as.numeric(c())
 
     if (is.unsorted(stratumId)) {
         stop("All columns must be sorted first by stratumId (if supplied) and then by rowId")
+    }
+
+    if (is.null(time)) {
+        if (.isSurvivalModelType(object$modelType)) stop("Must provide time for survival model")
+        time <- as.numeric(c())
     }
 
     .loadCyclopsDataY(object,

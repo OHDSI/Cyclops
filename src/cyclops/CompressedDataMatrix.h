@@ -57,7 +57,6 @@ public:
 //		if (data && !sharedPtrs) {
 //			delete data;
 //		}
-		std::cerr << "CDC dtor" << std::endl;
 	}
 
 	int* getColumns() const {
