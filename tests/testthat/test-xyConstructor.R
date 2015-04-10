@@ -128,13 +128,25 @@ start, length, event, x1, x2
 #     expect_equal(coef(fitCyclopsModel(dataPtrS)), coef(glmFit), tolerance = tolerance)
 # })
 
-# test_that("Intercept covariate", {
-#     # TODO Fix crash; need to write Range.h for InterceptTag
-#     counts <- c(18,17,15,20,10,20,25,13,12)
-#     dataPtr <- createSqlCyclopsData(modelType = "pr")
-#     loadNewSqlCyclopsDataY(dataPtr, NULL, NULL, counts, NULL)
-#     loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL)
-#     fitCyclopsModel(dataPtr)
-# })
+test_that("Intercept covariate", {
+    counts <- c(18,17,15,20,10,20,25,13,12)
+    outcome <- gl(3,1,9)
+    treatment <- gl(3,3)
+
+    # gold standard
+    tolerance <- 1E-4
+    glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard
+
+    # Dense interface
+    dataPtrD <- createSqlCyclopsData(modelType = "pr")
+    loadNewSqlCyclopsDataY(dataPtrD, NULL, NULL, counts, NULL)
+    loadNewSqlCyclopsDataX(dataPtrD, 0, NULL, NULL, name = "(Intercept)")
+    loadNewSqlCyclopsDataX(dataPtrD, 1, NULL, rep(c(0,1,0),3), name = "outcome2")
+    loadNewSqlCyclopsDataX(dataPtrD, 2, NULL, rep(c(0,0,1),3), name = "outcome3")
+    loadNewSqlCyclopsDataX(dataPtrD, 3, NULL, c(0,0,0,1,1,1,0,0,0), name = "treatment2")
+    loadNewSqlCyclopsDataX(dataPtrD, 4, NULL, c(0,0,0,0,0,0,1,1,1), name = "treatment3")
+    expect_equal(as.character(summary(dataPtrD)[1,"type"]), "intercept")
+    expect_equal(coef(fitCyclopsModel(dataPtrD)), coef(glmFit), tolerance = tolerance)
+})
 
 

@@ -238,10 +238,10 @@ class DenseIterator {
 class InterceptIterator {
   public:
 
-	typedef DenseTag tag; // TODO Fix!!!
+	typedef InterceptTag tag; // TODO Fix!!!
 	typedef real Scalar;
 	typedef int Index;
-	typedef boost::tuples::tuple<Index, Scalar> XTuple; // TODO Fix!!!
+	typedef boost::tuples::tuple<Index> XTuple;
 
 	const static std::string name;
 
