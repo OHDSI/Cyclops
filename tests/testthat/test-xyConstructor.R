@@ -149,7 +149,7 @@ test_that("Intercept covariate", {
     expect_equal(coef(fitCyclopsModel(dataPtrD)), coef(glmFit), tolerance = tolerance)
 })
 
-test_that("Test COO-constructor") {
+test_that("Test COO-constructor", {
     counts <- c(18,17,15,20,10,20,25,13,12)
     outcome <- gl(3,1,9)
     treatment <- gl(3,3)
@@ -194,6 +194,4 @@ test_that("Test COO-constructor") {
     loadNewSeqlCyclopsDataMultipleX(dataPtrM, covariateId[10:21], rowId[10:21], NULL,
                                     name = c("outcome2","outcome3","treatment2","treatment3"))
     expect_equal(coef(fitCyclopsModel(dataPtrM)), coef(glmFit), tolerance = tolerance)
-}
-
-
+})
