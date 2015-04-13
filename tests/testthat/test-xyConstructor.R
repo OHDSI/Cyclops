@@ -194,4 +194,14 @@ test_that("Test COO-constructor", {
     loadNewSeqlCyclopsDataMultipleX(dataPtrM, covariateId[10:21], rowId[10:21], NULL,
                                     name = c("outcome2","outcome3","treatment2","treatment3"))
     expect_equal(coef(fitCyclopsModel(dataPtrM)), coef(glmFit), tolerance = tolerance)
+
+    # Multiple adds
+    dataPtrA <- createSqlCyclopsData(modelType = "pr")
+    loadNewSqlCyclopsDataY(dataPtrA, NULL, c(1:9), counts, NULL)  # TODO Crashes without row IDs
+    loadNewSeqlCyclopsDataMultipleX(dataPtrA, covariateId[1:11], rowId[1:11], NULL)
+    loadNewSeqlCyclopsDataMultipleX(dataPtrA, covariateId[12:21], rowId[12:21], NULL, append = TRUE)
+    expect_equal(summary(dataPtrA)[,"type"], as.factor(rep("indicator",5)))
+    cf <- coef(fitCyclopsModel(dataPtrA))
+    names(cf) <- c("(Intercept)","outcome2","outcome3","treatment2","treatment3")
+    expect_equal(cf, coef(glmFit), tolerance = tolerance)
 })
