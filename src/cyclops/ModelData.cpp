@@ -131,6 +131,19 @@ void ModelData::loadY(
 // 	}
 }
 
+
+int ModelData::loadMultipleX(
+		const std::vector<int64_t>& covariateId,
+		const std::vector<int64_t>& rowId,
+		const std::vector<double>& covariateValue,
+		const bool checkCovariateIds,
+		const bool checkCovariateBounds) {
+
+	// TODO
+
+	return 0;
+}
+
 int ModelData::loadX(
 		const IdType covariateId,
 		const std::vector<IdType>& rowId,

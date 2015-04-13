@@ -567,6 +567,34 @@ appendSqlCyclopsData <- function(object,
 }
 
 #' @export
+loadNewSeqlCyclopsDataMultipleX <- function(object,
+                                            covariateId, # Vector
+                                            rowId, # Vector
+                                            covariateValue = NULL, # Vector
+                                            checkCovariateIds = FALSE,
+                                            checkCovariateBounds = FALSE) {
+    if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
+
+    if (is.null(covariateValue)) covariateValue <- as.numeric(c())
+
+    index <- .loadCyclopsDataMultipleX(object,
+                                       covariateId,
+                                       rowId,
+                                       covariateValue,
+                                       checkCovariateIds,
+                                       checkCovariateBounds)
+
+    if (!missing(name)) {
+        if(is.null(object$coefficientNames)) {
+            object$coefficientNames <- as.character(c())
+        }
+        start <- index + 1
+        end <- index + 1 + length(name)
+        object$coefficientNames[start:end] <- name
+    }
+}
+
+#' @export
 loadNewSqlCyclopsDataX <- function(object,
                                    covariateId, # Scalar
                                    rowId = NULL, # Vector

@@ -103,6 +103,15 @@ public:
 		bool append
 	);
 
+
+	int loadMultipleX(
+		const std::vector<int64_t>& covariateId,
+		const std::vector<int64_t>& rowId,
+		const std::vector<double>& covariateValue,
+		const bool checkCovariateIds,
+		const bool checkCovariateBounds
+	);
+
 	const int* getPidVector() const;
 	const real* getYVector() const;
 	void setYVector(std::vector<real> y_);
@@ -198,11 +207,11 @@ public:
 			return labels[i];
 		}
 	}
-	
+
 	void clean() const { touchedY = false; touchedX = false; }
-	
+
 	const bool getTouchedY() const { return touchedY; }
-	
+
 	const bool getTouchedX() const { return touchedX; }
 
 	// TODO Improve encapsulation
@@ -254,8 +263,8 @@ protected:
 
     typedef std::unordered_map<IdType,size_t> RowIdMap;
     RowIdMap rowIdMap;
-    
-    
+
+
     mutable bool touchedY;
     mutable bool touchedX;
 

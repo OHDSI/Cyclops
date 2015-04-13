@@ -14,48 +14,48 @@
 #include "SqlModelData.h"
 
 using namespace Rcpp;
- 
+
 XPtr<bsccs::ModelData> parseEnvironmentForPtr(const Environment& x) {
 	if (!x.inherits("cyclopsData")) {
 		stop("Input must be a cyclopsData object");
 	}
-			
+
 	SEXP tSexp = x["cyclopsDataPtr"];
 	if (TYPEOF(tSexp) != EXTPTRSXP) {
 		stop("Input must contain a cyclopsDataPtr object");
-	}	
+	}
 
 	XPtr<bsccs::ModelData> ptr(tSexp);
 	if (!ptr) {
 		stop("cyclopsData object is uninitialized");
 	}
-	return ptr;	
+	return ptr;
 }
 
 XPtr<bsccs::RcppModelData> parseEnvironmentForRcppPtr(const Environment& x) {
 	if (!x.inherits("cyclopsData")) {
 		stop("Input must be a cyclopsData object");
 	}
-			
+
 	SEXP tSexp = x["cyclopsDataPtr"];
 	if (TYPEOF(tSexp) != EXTPTRSXP) {
 		stop("Input must contain a cyclopsDataPtr object");
-	}	
+	}
 
 	XPtr<bsccs::RcppModelData> ptr(tSexp);
 	if (!ptr) {
 		stop("cyclopsData object is uninitialized");
 	}
-	return ptr;	
+	return ptr;
 }
 
 //' @title Print row identifiers
-//' 
+//'
 //' @description
 //' \code{printCcdRowIds} return the row identifiers in a Cyclops data object
-//' 
+//'
 //' @param object    A Cyclops data object
-//' 
+//'
 //' @keywords internal
 // [[Rcpp::export("printCyclopsRowIds")]]
 void cyclopsPrintRowIds(Environment object) {
@@ -65,17 +65,17 @@ void cyclopsPrintRowIds(Environment object) {
 }
 
 // void testCcdCode(int position) {
-//     std::vector<int> v{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}; 
-//     
+//     std::vector<int> v{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+//
 //     if (position > 0 && position < static_cast<int>(v.size()))  {
 //         auto reversePosition = v.size() - position - 1;
 //         std::rotate(
-//             v.rbegin() + reversePosition, 
+//             v.rbegin() + reversePosition,
 //             v.rbegin() + reversePosition + 1, // rotate one element
-//             v.rend());  
+//             v.rend());
 //         std::cout << "simple rotate right : ";
 //         for (int n: v) std::cout << n << ' ';
-//         std::cout << '\n';    
+//         std::cout << '\n';
 //     }
 // }
 
@@ -84,31 +84,31 @@ bool isRcppPtrNull(SEXP x) {
 	if (TYPEOF(x) != EXTPTRSXP) {
 		stop("Input must be an Rcpp externalptr");
 	}
-	XPtr<int> ptr(x); 
+	XPtr<int> ptr(x);
 	return !ptr;
 }
 
 //' @title Get number of strata
-//' 
+//'
 //' @description
 //' \code{getNumberOfStrata} return the number of unique strata in a Cyclops data object
-//' 
+//'
 //' @param object    A Cyclops data object
-//' 
+//'
 //' @export
 // [[Rcpp::export("getNumberOfStrata")]]
-int cyclopsGetNumberOfStrata(Environment object) {			
-	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	
+int cyclopsGetNumberOfStrata(Environment object) {
+	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);
 	return static_cast<int>(data->getNumberOfPatients());
 }
 
 //' @title Get covariate identifiers
-//' 
+//'
 //' @description
 //' \code{getCovariateIds} returns a vector of integer covariate identifiers in a Cyclops data object
-//' 
+//'
 //' @param object    A Cyclops data object
-//' 
+//'
 //' @export
 // [[Rcpp::export("getCovariateIds")]]
 std::vector<int64_t> cyclopsGetCovariateIds(Environment object) {
@@ -125,38 +125,38 @@ std::vector<int64_t> cyclopsGetCovariateIds(Environment object) {
 }
 
 //' @title Get covariate types
-//' 
+//'
 //' @description
 //' \code{getCovariateTypes} returns a vector covariate types in a Cyclops data object
-//' 
+//'
 //' @param object    A Cyclops data object
 //' @param covariateLabel Integer vector: covariate identifiers to return
-//' 
+//'
 //' @export
 // [[Rcpp::export("getCovariateTypes")]]
 CharacterVector cyclopsGetCovariateType(Environment object, const std::vector<int64_t>& covariateLabel) {
     using namespace bsccs;
 	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(object);
-	CharacterVector types(covariateLabel.size());	
-	
+	CharacterVector types(covariateLabel.size());
+
 	for (size_t i = 0; i < covariateLabel.size(); ++i) {
-		size_t index = data->getColumnIndex(covariateLabel[i]);		
+		size_t index = data->getColumnIndex(covariateLabel[i]);
 		types[i] = data->getColumn(index).getTypeString();
 	}
 	return types;
 }
 
 //' @title Get total number of covariates
-//' 
+//'
 //' @description
 //' \code{getNumberOfCovariates} returns the total number of covariates in a Cyclops data object
-//' 
+//'
 //' @param object    A Cyclops data object
 //'
 //' @export
 // [[Rcpp::export("getNumberOfCovariates")]]
-int cyclopsGetNumberOfColumns(Environment object) {	
-	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	
+int cyclopsGetNumberOfColumns(Environment object) {
+	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);
 	auto count = data->getNumberOfColumns();
 	if (data->getHasOffsetCovariate()) {
 	    --count;
@@ -165,35 +165,35 @@ int cyclopsGetNumberOfColumns(Environment object) {
 }
 
 //' @title Get total number of rows
-//' 
+//'
 //' @description
 //' \code{getNumberOfRows} returns the total number of outcome rows in a Cyclops data object
-//' 
+//'
 //' @param object    A Cyclops data object
 //'
 //' @export
 // [[Rcpp::export("getNumberOfRows")]]
-int cyclopsGetNumberOfRows(Environment object) {	
-	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	
+int cyclopsGetNumberOfRows(Environment object) {
+	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);
 	return static_cast<int>(data->getNumberOfRows());
 }
 
 //' @title Get total number of outcome types
-//' 
+//'
 //' @description
 //' \code{getNumberOfTypes} returns the total number of outcome types in a Cyclops data object
-//' 
+//'
 //' @param object    A Cyclops data object
 //'
 //' @keywords internal
 // [[Rcpp::export("getNumberOfTypes")]]
-int cyclopsGetNumberOfTypes(Environment object) {	
-	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);	
+int cyclopsGetNumberOfTypes(Environment object) {
+	XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);
 	return static_cast<int>(data->getNumberOfTypes());
 }
 
 // [[Rcpp::export(".cyclopsSumByGroup")]]
-List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel, 
+List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel,
 		const long groupByLabel, const int power) {
 	XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
     List list(covariateLabel.size());
@@ -203,7 +203,7 @@ List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel,
         data->sumByGroup(result, covariateLabel[i], groupByLabel, power);
         list[i] = result;
         names[i] = covariateLabel[i];
-    }    
+    }
 	list.attr("names") = names;
 	return list;
 }
@@ -239,7 +239,7 @@ std::vector<double> cyclopsSum(Environment x, const std::vector<long>& covariate
 // [[Rcpp::export(".cyclopsNewSqlData")]]
 List cyclopsNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel) {
 	using namespace bsccs;
-	
+
 	NoiseLevels noise = RcppCcdInterface::parseNoiseLevel(noiseLevel);
 	bool silent = (noise == SILENT);
 
@@ -247,7 +247,7 @@ List cyclopsNewSqlData(const std::string& modelTypeName, const std::string& nois
 	SqlModelData* ptr = new SqlModelData(modelType,
         bsccs::make_shared<loggers::RcppProgressLogger>(silent),
         bsccs::make_shared<loggers::RcppErrorHandler>());
-        
+
 	XPtr<SqlModelData> sqlModelData(ptr);
 
     List list = List::create(
@@ -267,32 +267,32 @@ void cyclopsSetHasIntercept(Environment x, bool hasIntercept) {
 bool cyclopsGetHasIntercept(Environment x) {
     using namespace bsccs;
     XPtr<ModelData> data = parseEnvironmentForPtr(x);
-    return data->getHasInterceptCovariate(); 
+    return data->getHasInterceptCovariate();
 }
 
 // [[Rcpp::export(".cyclopsGetHasOffset")]]
 bool cyclopsGetHasOffset(Environment x) {
     using namespace bsccs;
     XPtr<ModelData> data = parseEnvironmentForPtr(x);
-    return data->getHasOffsetCovariate(); 
+    return data->getHasOffsetCovariate();
 }
 
 // [[Rcpp::export(".cyclopsFinalizeData")]]
 void cyclopsFinalizeData(
         Environment x,
-        bool addIntercept, 
+        bool addIntercept,
         SEXP sexpOffsetCovariate,
-        bool offsetAlreadyOnLogScale, 
+        bool offsetAlreadyOnLogScale,
         bool sortCovariates,
         SEXP sexpCovariatesDense,
         bool magicFlag = false) {
     using namespace bsccs;
     XPtr<ModelData> data = parseEnvironmentForPtr(x);
-    
+
     if (data->getIsFinalized()) {
         ::Rf_error("OHDSI data object is already finalized");
     }
-    
+
     if (addIntercept) {
         if (data->getHasInterceptCovariate()) {
             ::Rf_error("OHDSI data object already has an intercept");
@@ -305,10 +305,10 @@ void cyclopsFinalizeData(
         for (size_t i = 0; i < numRows; ++i) {
             data->getColumn(0).add_data(i, static_cast<real>(1.0));
         }
-    } 
-    
+    }
+
     if (!Rf_isNull(sexpOffsetCovariate)) {
-        // TODO handle offset        
+        // TODO handle offset
         IdType covariate = as<IdType>(sexpOffsetCovariate);
         int index;
         if (covariate == -1) { // TODO  Bad, magic number
@@ -318,37 +318,37 @@ void cyclopsFinalizeData(
             data->moveTimeToCovariate(true);
             index = data->getNumberOfColumns() - 1;
         } else {
-            index = data->getColumnIndexByName(covariate);         		
+            index = data->getColumnIndexByName(covariate);
  	    	if (index == -1) {
                 std::ostringstream stream;
      			stream << "Variable " << covariate << " not found.";
                 stop(stream.str().c_str());
-     			//error->throwError(stream); 
+     			//error->throwError(stream);
             }
         }
         data->moveToFront(index);
-        data->getColumn(0).add_label(-1); // TODO Generic label for offset?        
-        data->setHasOffsetCovariate(true);   
-    } 
-    
+        data->getColumn(0).add_label(-1); // TODO Generic label for offset?
+        data->setHasOffsetCovariate(true);
+    }
+
     if (data->getHasOffsetCovariate() && !offsetAlreadyOnLogScale) {
-        //stop("Transforming the offset is not yet implemented");        
+        //stop("Transforming the offset is not yet implemented");
         data->getColumn(0).transform([](real x) {
             return std::log(x);
         });
     }
-    
+
     if (!Rf_isNull(sexpCovariatesDense)) {
         // TODO handle dense conversion
         ProfileVector covariates = as<ProfileVector>(sexpCovariatesDense);
         for (auto it = covariates.begin(); it != covariates.end(); ++it) {
         	IdType index = data->getColumnIndex(*it);
-        	data->getColumn(index).convertColumnToDense(data->getNumberOfRows());      
-        }             
+        	data->getColumn(index).convertColumnToDense(data->getNumberOfRows());
+        }
     }
-                        
+
     data->setIsFinalized(true);
-}                        
+}
 
 
 // [[Rcpp::export(".loadCyclopsDataY")]]
@@ -357,35 +357,49 @@ void cyclopsLoadDataY(Environment x,
         const std::vector<int64_t>& rowId,
         const std::vector<double>& y,
         const std::vector<double>& time) {
-        
+
     using namespace bsccs;
-    XPtr<ModelData> data = parseEnvironmentForPtr(x);       
+    XPtr<ModelData> data = parseEnvironmentForPtr(x);
     data->loadY(stratumId, rowId, y, time);
 }
 
+// [[Rcpp::export(".loasdCyclopsDataMultipleX")]]
+int cyclopsLoadDataMultipleX(Environment x,
+		const std::vector<int64_t>& covariateId,
+		const std::vector<int64_t>& rowId,
+		const std::vector<double>& covariateValue,
+		const bool checkCovariateIds,
+		const bool checkCovariateBounds) {
+
+	using namespace bsccs;
+	XPtr<ModelData> data = parseEnvironmentForPtr(x);
+
+	return data->loadMultipleX(covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds);
+}
+
 // [[Rcpp::export(".loadCyclopsDataX")]]
-int cyclopsLoadDataX(Environment x, 
+int cyclopsLoadDataX(Environment x,
         const int64_t covariateId,
         const std::vector<int64_t>& rowId,
         const std::vector<double>& covariateValue,
         const bool replace,
         const bool append) {
 
-    using namespace bsccs;        
-    XPtr<ModelData> data = parseEnvironmentForPtr(x); 
+    using namespace bsccs;
+    XPtr<ModelData> data = parseEnvironmentForPtr(x);
 
     // rowId.size() == 0 -> dense
     // covariateValue.size() == 0 -> indicator
-     
-    return data->loadX(covariateId, rowId, covariateValue, replace, append);   
+
+    return data->loadX(covariateId, rowId, covariateValue, replace, append);
 }
-   
+
 // NOTE:  IdType does not get exported into RcppExports, so hard-coded here
 // TODO Could use SEXP signature and cast in function
 
 // [[Rcpp::export(".appendSqlCyclopsData")]]
 int cyclopsAppendSqlData(Environment x,
-        const std::vector<int64_t>& oStratumId, 
+        const std::vector<int64_t>& oStratumId,
         const std::vector<int64_t>& oRowId,
         const std::vector<double>& oY,
         const std::vector<double>& oTime,
@@ -417,23 +431,23 @@ SEXP cyclopsGetInterceptLabel(Environment x) {
 List cyclopsReadFileData(const std::string& fileName, const std::string& modelTypeName) {
 
 		using namespace bsccs;
-		Timer timer; 
-    ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName);        		
+		Timer timer;
+    ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName);
     InputReader* reader = new NewGenericInputReader(modelType,
     	bsccs::make_shared<loggers::RcppProgressLogger>(true), // make silent
-    	bsccs::make_shared<loggers::RcppErrorHandler>());	
+    	bsccs::make_shared<loggers::RcppErrorHandler>());
 		reader->readFile(fileName.c_str()); // TODO Check for error
 
     XPtr<ModelData> ptr(reader->getModelData());
-    
-    
+
+
     const std::vector<double>& y = ptr->getYVectorRef();
     double total = std::accumulate(y.begin(), y.end(), 0.0);
     // delete reader; // TODO Test
-       
+
     double time = timer();
     List list = List::create(
-            Rcpp::Named("cyclopsDataPtr") = ptr,            
+            Rcpp::Named("cyclopsDataPtr") = ptr,
             Rcpp::Named("timeLoad") = time,
             Rcpp::Named("debug") = List::create(
             		Rcpp::Named("totalY") = total
@@ -443,14 +457,14 @@ List cyclopsReadFileData(const std::string& fileName, const std::string& modelTy
 }
 
 // [[Rcpp::export(".cyclopsModelData")]]
-List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix, 
-    const std::string& modelTypeName,    
+List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix,
+    const std::string& modelTypeName,
     bool useTimeAsOffset = false,
     int numTypes = 1) {
 
-    using namespace bsccs;    
-    ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName); 
-    
+    using namespace bsccs;
+    ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName);
+
 	Timer timer;
 
 	IntegerVector ipid;
@@ -494,7 +508,7 @@ List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEX
 		ipv = ixx.slot("p");
 	}
 
-    XPtr<RcppModelData> ptr(new RcppModelData(modelType, ipid, iy, iz, ioffs, dxv, siv, 
+    XPtr<RcppModelData> ptr(new RcppModelData(modelType, ipid, iy, iz, ioffs, dxv, siv,
     	spv, sxv, iiv, ipv, useTimeAsOffset, numTypes));
 
 	double duration = timer();
@@ -529,19 +543,19 @@ RcppModelData::RcppModelData(
 				_type,
 				_time,
 				bsccs::make_shared<loggers::RcppProgressLogger>(),
-				bsccs::make_shared<loggers::RcppErrorHandler>()				
+				bsccs::make_shared<loggers::RcppErrorHandler>()
 				) {
 	if (useTimeAsOffset) {
 	    // offset
         RealVectorPtr r = make_shared<RealVector>();
-        push_back(NULL, r, DENSE);   
+        push_back(NULL, r, DENSE);
         r->assign(offs.begin(), offs.end()); // TODO Should not be necessary with shared_ptr
         setHasOffsetCovariate(true);
 	    getColumn(0).add_label(-1);
-	}			
-    
+	}
+
     nTypes = numTypes; // TODO move into constructor
-				
+
 	// Convert dense
 	int nCovariates = static_cast<int>(dxv.size() / y.size());
 	for (int i = 0; i < nCovariates; ++i) {
@@ -575,16 +589,16 @@ RcppModelData::RcppModelData(
 	// Convert sparse
 	nCovariates = spv.size() - 1;
 	for (int i = 0; i < nCovariates; ++i) {
-	
+
 		int begin = spv[i];
 		int end = spv[i + 1];
-		
+
 		if (numTypes == 1) {
 		    push_back(
 			    	siv.begin() + begin, siv.begin() + end,
 				    sxv.begin() + begin, sxv.begin() + end,
     				SPARSE);
-            getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
+            getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
         } else {
 			std::vector<IntVectorPtr> covariatesI;
 			std::vector<RealVectorPtr> covariatesX;
@@ -592,7 +606,7 @@ RcppModelData::RcppModelData(
 				covariatesI.push_back(make_shared<IntVector>());
 				covariatesX.push_back(make_shared<RealVector>());
 				push_back(covariatesI[c], covariatesX[c], SPARSE);
-				getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
+				getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
 			}
 
             auto itI = siv.begin() + begin;
@@ -601,7 +615,7 @@ RcppModelData::RcppModelData(
                 int type = _type[*itI];
                 covariatesI[type]->push_back(*itI);
                 covariatesX[type]->push_back(*itX);
-            }        
+            }
         }
 	}
 
@@ -617,13 +631,13 @@ RcppModelData::RcppModelData(
 	    			iiv.begin() + begin, iiv.begin() + end,
 		    		static_cast<NumericVector::iterator>(NULL), static_cast<NumericVector::iterator>(NULL),
 			    	INDICATOR);
-            getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
+            getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
         } else {
 			std::vector<IntVectorPtr> covariates;
 			for (int c = 0; c < numTypes; ++c) {
 				covariates.push_back(make_shared<IntVector>());
 				push_back(covariates[c], NULL, INDICATOR);
-				getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));				
+				getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
 			}
 
             for (auto it = iiv.begin() + begin; it != iiv.begin() + end; ++it) {
@@ -634,10 +648,10 @@ RcppModelData::RcppModelData(
 	}
 
 	this->nRows = y.size();
-	
+
 	// Clean out PIDs
 	std::vector<int>& cpid = getPidVectorRef();
-	
+
 	if (cpid.size() == 0) {
 	    for (size_t i = 0; i < nRows; ++i) {
 	        cpid.push_back(i); // TODO These are not necessary; remove.
@@ -656,13 +670,13 @@ RcppModelData::RcppModelData(
 	        cpid[i] = currentCase;
     	}
         nPatients = currentCase + 1;
-    }    
+    }
 }
 
 struct Sum {
 	inline double operator()(double x, double y) {
 	    return x + y;
-    }       
+    }
 };
 
 struct ZeroPower {
@@ -685,13 +699,13 @@ struct SecondPower {
 
 double RcppModelData::sum(const IdType covariate, int power) {
 
-    size_t index = getColumnIndex(covariate); 
-    if (power == 0) {  
+    size_t index = getColumnIndex(covariate);
+    if (power == 0) {
 		return reduce(index, ZeroPower());
 	} else if (power == 1) {
 		return reduce(index, FirstPower());
 	} else {
-		return reduce(index, SecondPower());	
+		return reduce(index, SecondPower());
 	}
 }
 
@@ -702,10 +716,10 @@ void RcppModelData::sumByGroup(std::vector<double>& out, const IdType covariate,
     if (power == 0) {
     	reduceByGroup(out, covariateIndex, groupByIndex, ZeroPower());
     } else if (power == 1) {
-  		reduceByGroup(out, covariateIndex, groupByIndex, FirstPower());  
+  		reduceByGroup(out, covariateIndex, groupByIndex, FirstPower());
     } else {
-    	reduceByGroup(out, covariateIndex, groupByIndex, SecondPower());    
-    }   
+    	reduceByGroup(out, covariateIndex, groupByIndex, SecondPower());
+    }
 }
 
 void RcppModelData::sumByGroup(std::vector<double>& out, const IdType covariate, int power) {
@@ -714,10 +728,10 @@ void RcppModelData::sumByGroup(std::vector<double>& out, const IdType covariate,
     if (power == 0) {
     	reduceByGroup(out, covariateIndex, pid, ZeroPower());
     } else if (power == 1) {
-  		reduceByGroup(out, covariateIndex, pid, FirstPower());  
+  		reduceByGroup(out, covariateIndex, pid, FirstPower());
     } else {
-    	reduceByGroup(out, covariateIndex, pid, SecondPower());    
-    }    
+    	reduceByGroup(out, covariateIndex, pid, SecondPower());
+    }
 }
 
 
