@@ -149,4 +149,51 @@ test_that("Intercept covariate", {
     expect_equal(coef(fitCyclopsModel(dataPtrD)), coef(glmFit), tolerance = tolerance)
 })
 
+test_that("Test COO-constructor") {
+    counts <- c(18,17,15,20,10,20,25,13,12)
+    outcome <- gl(3,1,9)
+    treatment <- gl(3,3)
+
+    # gold standard
+    tolerance <- 1E-4
+    glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard
+
+    rowId <- c(
+        1,2,3,4,5,6,7,8,9,
+        2,5,8,
+        3,6,9,
+        4,5,6,
+        7,8,9)
+    covariateId <- c(
+        1,1,1,1,1,1,1,1,1,
+        2,2,2,
+        3,3,3,
+        4,4,4,
+        5,5,5)
+
+    # Indicator interface
+    dataPtrI <- createSqlCyclopsData(modelType = "pr")
+    loadNewSqlCyclopsDataY(dataPtrI, NULL, c(1:9), counts, NULL)  # TODO Crashes without row IDs
+    loadNewSeqlCyclopsDataMultipleX(dataPtrI, covariateId, rowId, NULL,
+                                    name = c("(Intercept)","outcome2","outcome3","treatment2","treatment3"))
+    expect_equal(summary(dataPtrI)[,"type"], as.factor(rep("indicator",5)))
+    expect_equal(coef(fitCyclopsModel(dataPtrI)), coef(glmFit), tolerance = tolerance)
+
+    # Sparse interface
+    dataPtrS <- createSqlCyclopsData(modelType = "pr")
+    loadNewSqlCyclopsDataY(dataPtrS, NULL, c(1:9), counts, NULL)  # TODO Crashes without row IDs
+    loadNewSeqlCyclopsDataMultipleX(dataPtrS, covariateId, rowId, rep(1,length(covariateId)),
+                                    name = c("(Intercept)","outcome2","outcome3","treatment2","treatment3"))
+    expect_equal(summary(dataPtrS)[,"type"], as.factor(rep("sparse",5)))
+    expect_equal(coef(fitCyclopsModel(dataPtrS)), coef(glmFit), tolerance = tolerance)
+
+    # Mixed interface (should use in practice)
+    dataPtrM <- createSqlCyclopsData(modelType = "pr")
+    loadNewSqlCyclopsDataY(dataPtrM, NULL, c(1:9), counts, NULL)  # TODO Crashes without row IDs
+    loadNewSqlCyclopsDataX(dataPtrM, 0, NULL, NULL, name = "(Intercept)")
+    loadNewSeqlCyclopsDataMultipleX(dataPtrM, covariateId[10:21], rowId[10:21], NULL,
+                                    name = c("outcome2","outcome3","treatment2","treatment3"))
+    expect_equal(coef(fitCyclopsModel(dataPtrM)), coef(glmFit), tolerance = tolerance)
+}
+
 

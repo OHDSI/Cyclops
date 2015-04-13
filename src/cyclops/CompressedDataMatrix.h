@@ -67,11 +67,19 @@ public:
 		return static_cast<real*>(data->data());
 	}
 
-	std::vector<int>& getColumnsVector() const {
+	const std::vector<int>& getColumnsVector() const {
 		return *columns;
 	}
 
-	std::vector<real>& getDataVector() const {
+	const std::vector<real>& getDataVector() const {
+		return *data;
+	}
+
+	std::vector<int>& getColumnsVector() {
+		return *columns;
+	}
+
+	std::vector<real>& getDataVector() {
 		return *data;
 	}
 

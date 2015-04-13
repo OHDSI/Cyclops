@@ -109,7 +109,8 @@ public:
 		const std::vector<int64_t>& rowId,
 		const std::vector<double>& covariateValue,
 		const bool checkCovariateIds,
-		const bool checkCovariateBounds
+		const bool checkCovariateBounds,
+		const bool append
 	);
 
 	const int* getPidVector() const;

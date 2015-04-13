@@ -82,12 +82,12 @@
 }
 
 #' @title Print row identifiers
-#' 
+#'
 #' @description
 #' \code{printCcdRowIds} return the row identifiers in a Cyclops data object
-#' 
+#'
 #' @param object    A Cyclops data object
-#' 
+#'
 #' @keywords internal
 printCyclopsRowIds <- function(object) {
     invisible(.Call('Cyclops_cyclopsPrintRowIds', PACKAGE = 'Cyclops', object))
@@ -98,47 +98,47 @@ printCyclopsRowIds <- function(object) {
 }
 
 #' @title Get number of strata
-#' 
+#'
 #' @description
 #' \code{getNumberOfStrata} return the number of unique strata in a Cyclops data object
-#' 
+#'
 #' @param object    A Cyclops data object
-#' 
+#'
 #' @export
 getNumberOfStrata <- function(object) {
     .Call('Cyclops_cyclopsGetNumberOfStrata', PACKAGE = 'Cyclops', object)
 }
 
 #' @title Get covariate identifiers
-#' 
+#'
 #' @description
 #' \code{getCovariateIds} returns a vector of integer covariate identifiers in a Cyclops data object
-#' 
+#'
 #' @param object    A Cyclops data object
-#' 
+#'
 #' @export
 getCovariateIds <- function(object) {
     .Call('Cyclops_cyclopsGetCovariateIds', PACKAGE = 'Cyclops', object)
 }
 
 #' @title Get covariate types
-#' 
+#'
 #' @description
 #' \code{getCovariateTypes} returns a vector covariate types in a Cyclops data object
-#' 
+#'
 #' @param object    A Cyclops data object
 #' @param covariateLabel Integer vector: covariate identifiers to return
-#' 
+#'
 #' @export
 getCovariateTypes <- function(object, covariateLabel) {
     .Call('Cyclops_cyclopsGetCovariateType', PACKAGE = 'Cyclops', object, covariateLabel)
 }
 
 #' @title Get total number of covariates
-#' 
+#'
 #' @description
 #' \code{getNumberOfCovariates} returns the total number of covariates in a Cyclops data object
-#' 
+#'
 #' @param object    A Cyclops data object
 #'
 #' @export
@@ -147,10 +147,10 @@ getNumberOfCovariates <- function(object) {
 }
 
 #' @title Get total number of rows
-#' 
+#'
 #' @description
 #' \code{getNumberOfRows} returns the total number of outcome rows in a Cyclops data object
-#' 
+#'
 #' @param object    A Cyclops data object
 #'
 #' @export
@@ -159,10 +159,10 @@ getNumberOfRows <- function(object) {
 }
 
 #' @title Get total number of outcome types
-#' 
+#'
 #' @description
 #' \code{getNumberOfTypes} returns the total number of outcome types in a Cyclops data object
-#' 
+#'
 #' @param object    A Cyclops data object
 #'
 #' @keywords internal
@@ -204,6 +204,10 @@ getNumberOfTypes <- function(object) {
 
 .loadCyclopsDataY <- function(x, stratumId, rowId, y, time) {
     invisible(.Call('Cyclops_cyclopsLoadDataY', PACKAGE = 'Cyclops', x, stratumId, rowId, y, time))
+}
+
+.loadCyclopsDataMultipleX <- function(x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append) {
+    .Call('Cyclops_cyclopsLoadDataMultipleX', PACKAGE = 'Cyclops', x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append)
 }
 
 .loadCyclopsDataX <- function(x, covariateId, rowId, covariateValue, replace, append) {

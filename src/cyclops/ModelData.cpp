@@ -133,15 +133,97 @@ void ModelData::loadY(
 
 
 int ModelData::loadMultipleX(
-		const std::vector<int64_t>& covariateId,
-		const std::vector<int64_t>& rowId,
-		const std::vector<double>& covariateValue,
+		const std::vector<int64_t>& covariateIds,
+		const std::vector<int64_t>& rowIds,
+		const std::vector<double>& covariateValues,
 		const bool checkCovariateIds,
-		const bool checkCovariateBounds) {
+		const bool checkCovariateBounds,
+		const bool append) {
 
-	// TODO
+	FormatType type = (covariateValues.size() == 0 ? INDICATOR : SPARSE);
 
-	return 0;
+	auto columnIdItr = std::begin(covariateIds);
+	const auto columnIdEnd = std::end(covariateIds);
+	auto rowIdItr = std::begin(rowIds);
+	auto covariateValueItr = std::begin(covariateValues);
+
+	int firstColumnIndex = getNumberOfColumns();
+
+	auto previousColumnId = *columnIdItr;
+
+	auto index = getColumnIndexByName(previousColumnId);
+	if (index >= 0) {
+		if (!append) {
+            std::ostringstream stream;
+            stream << "Variable " << previousColumnId << " already exists";
+            error->throwError(stream);
+		}
+		firstColumnIndex = index;
+	} else {
+		--previousColumnId; // not found
+	}
+
+
+	std::function<size_t(IdType)>
+    xform = [this](IdType id) {
+        return rowIdMap[id];
+    };
+
+	while (columnIdItr != columnIdEnd) {
+
+		FormatType format =
+			(covariateValues.size() == 0 ? INDICATOR :
+// 				(index >= 0 ? getFormatType(index) :
+// 					(*covariateValueItr == 1.0 ? INDICATOR : SPARSE)
+// 				)
+				SPARSE
+			);
+
+		if (index < 0) { // Create new column
+	        push_back(format);
+	        index = getNumberOfColumns() - 1;
+	        getColumn(index).add_label(*columnIdItr);
+        }
+
+		// Grab whole column
+		const auto columnId = *columnIdItr;
+		auto columnBegin = columnIdItr;
+
+		while (columnIdItr != columnIdEnd) { // Same as std::find_if
+			if (*columnIdItr != columnId) break;
+			++columnIdItr;
+		}
+		auto length = std::distance(columnBegin, columnIdItr);
+
+		// Append data into CompressedDataColumn
+		CompressedDataColumn& column = getColumn(index);
+		if (rowIds.size() > 0) {
+			std::copy(
+				boost::make_transform_iterator(rowIdItr, xform),
+				boost::make_transform_iterator(rowIdItr + length, xform),
+				std::back_inserter(column.getColumnsVector())
+			);
+		} else {
+			std::copy(
+				rowIdItr, rowIdItr + length,
+				std::back_inserter(column.getColumnsVector())
+			);
+		}
+		rowIdItr += length;
+
+		if (format == SPARSE) {
+			std::copy(
+				covariateValueItr, covariateValueItr + length,
+				std::back_inserter(column.getDataVector())
+			);
+			covariateValueItr += length;
+		}
+
+		index = -1;
+	}
+
+	touchedX = true;
+	return firstColumnIndex;
 }
 
 int ModelData::loadX(

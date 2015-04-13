@@ -571,25 +571,39 @@ loadNewSeqlCyclopsDataMultipleX <- function(object,
                                             covariateId, # Vector
                                             rowId, # Vector
                                             covariateValue = NULL, # Vector
+                                            name,
+                                            append = FALSE,
+                                            checkSorting = FALSE,
                                             checkCovariateIds = FALSE,
                                             checkCovariateBounds = FALSE) {
     if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
 
+    if (length(covariateId) != length(rowId)) stop("Vector length mismatch")
+
     if (is.null(covariateValue)) covariateValue <- as.numeric(c())
+    else {
+        if (length(covariateId) != length(covariateValue)) stop ("Vector length mismatch")
+    }
+
+    if (checkSorting) {
+        # TODO: Check sorted by (1) covariateId, (2) rowId
+        stop("Not yet implemented")
+    }
 
     index <- .loadCyclopsDataMultipleX(object,
                                        covariateId,
                                        rowId,
                                        covariateValue,
                                        checkCovariateIds,
-                                       checkCovariateBounds)
+                                       checkCovariateBounds,
+                                       append)
 
     if (!missing(name)) {
         if(is.null(object$coefficientNames)) {
             object$coefficientNames <- as.character(c())
         }
         start <- index + 1
-        end <- index + 1 + length(name)
+        end <- index + length(name)
         object$coefficientNames[start:end] <- name
     }
 }

@@ -363,18 +363,19 @@ void cyclopsLoadDataY(Environment x,
     data->loadY(stratumId, rowId, y, time);
 }
 
-// [[Rcpp::export(".loasdCyclopsDataMultipleX")]]
+// [[Rcpp::export(".loadCyclopsDataMultipleX")]]
 int cyclopsLoadDataMultipleX(Environment x,
 		const std::vector<int64_t>& covariateId,
 		const std::vector<int64_t>& rowId,
 		const std::vector<double>& covariateValue,
 		const bool checkCovariateIds,
-		const bool checkCovariateBounds) {
+		const bool checkCovariateBounds,
+		const bool append) {
 
 	using namespace bsccs;
 	XPtr<ModelData> data = parseEnvironmentForPtr(x);
 
-	return data->loadMultipleX(covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds);
+	return data->loadMultipleX(covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append);
 }
 
 // [[Rcpp::export(".loadCyclopsDataX")]]
