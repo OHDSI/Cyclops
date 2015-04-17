@@ -206,7 +206,7 @@ test_that("Test COO-constructor", {
     expect_equal(cf, coef(glmFit), tolerance = tolerance)
 })
 
-testthat("Poisson xy-construction with offset", {
+test_that("Poisson xy-construction with offset", {
     set.seed(666)
     sim <- simulateCyclopsData(nstrata = 1, nrows = 1000, ncovars = 10,
                                model = "poisson")
