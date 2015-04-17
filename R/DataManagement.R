@@ -681,13 +681,14 @@ loadNewSqlCyclopsDataY <- function(object,
 #' @param object							Cyclops data object
 #' @param addIntercept				Add an intercept covariate if one was not imported through SQL
 #' @param useOffsetCovariate	Specify is a covariate should be used as an offset (fixed coefficient = 1).
-#' 														Set option to \code{"useTime"} to specify the time-to-event column,
+#' 														Set option to \code{-1} to specify the time-to-event column,
 #' 														otherwise include a single numeric or character covariate name.
 #' @param offsetAlreadyOnLogScale						Set to \code{TRUE} to indicate that offsets were log-transformed before importing into Cyclops data object.
 #' @param sortCovariates			Sort covariates in numeric-order with intercept first if it exists.
 #' @param makeCovariatesDense List of numeric or character covariates names to densely represent in Cyclops data object.
 #' 														For efficiency, we suggest making atleast the intercept dense.
-#' @keywords internal
+##' @keywords internal
+#' @export
 finalizeSqlCyclopsData <- function(object,
                                    addIntercept = FALSE,
                                    useOffsetCovariate = NULL,
@@ -716,7 +717,7 @@ finalizeSqlCyclopsData <- function(object,
                                         object$coefficientNames)
         }
     }
-    if (!is.null(useOffsetCovariate)) {
+    if (!is.null(useOffsetCovariate) && useOffsetCovariate != -1) {
         if (!is.null(object$coefficientNames)) {
             object$coefficientNames = object$coefficientNames[-useOffsetCovariate]
         }

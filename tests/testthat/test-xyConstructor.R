@@ -205,3 +205,37 @@ test_that("Test COO-constructor", {
     names(cf) <- c("(Intercept)","outcome2","outcome3","treatment2","treatment3")
     expect_equal(cf, coef(glmFit), tolerance = tolerance)
 })
+
+testthat("Poisson xy-construction with offset", {
+    set.seed(666)
+    sim <- simulateCyclopsData(nstrata = 1, nrows = 1000, ncovars = 10,
+                               model = "poisson")
+
+    cyclopsData1 <- convertToCyclopsData(outcomes = sim$outcomes,
+                                         covariates = sim$covariates,
+                                         modelType = "pr", checkSorting = FALSE,
+                                         checkRowIds = FALSE)
+
+    sim$covariates <- sim$covariates[order(sim$covariates$covariateId,
+                                           sim$covariates$rowId),]
+    cyclopsData2 <- createSqlCyclopsData(modelType = "pr")
+    loadNewSqlCyclopsDataY(cyclopsData2, NULL, sim$outcomes$rowId,
+                           sim$outcomes$y, sim$outcomes$time)
+    loadNewSqlCyclopsDataX(cyclopsData2, 0, NULL, NULL,
+                           name = "(Intercept)") # names are not necessary
+    covarNames <- unique(sim$covariates$covariateId)
+    loadNewSeqlCyclopsDataMultipleX(cyclopsData2, sim$covariates$covariateId,
+                                    sim$covariates$rowId,
+                                    #sim$covariates$covariateValue,
+                                    NULL, # pass NULL if you want indicators instead of sparse
+                                    name = covarNames) # names are not necessary
+
+    finalizeSqlCyclopsData(cyclopsData2, addIntercept = FALSE,
+                           useOffsetCovariate = -1)
+
+    fit1 <- fitCyclopsModel(cyclopsData1)
+    fit2 <- fitCyclopsModel(cyclopsData2)
+
+    tolerance <- 1E-6
+    expect_equal(coef(fit2)[1], coef(fit1)[1], tolerance = tolerance)
+})
