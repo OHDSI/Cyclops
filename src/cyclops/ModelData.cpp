@@ -140,7 +140,7 @@ int ModelData::loadMultipleX(
 		const bool checkCovariateBounds,
 		const bool append) {
 
-	FormatType type = (covariateValues.size() == 0 ? INDICATOR : SPARSE);
+//	FormatType type = (covariateValues.size() == 0 ? INDICATOR : SPARSE);
 
 	auto columnIdItr = std::begin(covariateIds);
 	const auto columnIdEnd = std::end(covariateIds);

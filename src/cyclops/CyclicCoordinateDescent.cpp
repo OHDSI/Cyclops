@@ -476,7 +476,7 @@ void CyclicCoordinateDescent::setWeights(real* iWeights) {
 		sufficientStatisticsKnown = false;
 	} else {
 
-		if (hWeights.size() != K) {
+		if (hWeights.size() != static_cast<size_t>(K)) {
 			hWeights.resize(K); // = (real*) malloc(sizeof(real) * K);
 		}
 		for (int i = 0; i < K; ++i) {

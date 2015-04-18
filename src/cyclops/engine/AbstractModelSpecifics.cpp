@@ -134,7 +134,7 @@ void AbstractModelSpecifics::setPidForAccumulation(const real* weights) {
 	const int ignore = -1;
 
 	// Find first non-zero weight
-	int index = 0;
+	size_t index = 0;
 	while(weights != nullptr && weights[index] == 0.0 && index < K) {
 		hPid[index] = ignore;
 		index++;
