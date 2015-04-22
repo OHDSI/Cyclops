@@ -127,6 +127,8 @@ public:
 
 	void setWeights(real* weights);
 
+	void getWeights(std::vector<real>& weights);
+
 	void setLogisticRegression(bool idoLR);
 
 //	template <typename T>
