@@ -29,7 +29,8 @@ public:
 
 	virtual void permute();
 
-	virtual void getWeights(int batch, std::vector<real>& weights);
+	virtual void getWeights(int batch, std::vector<real>& weights,
+							std::vector<real>& base_weights);
 
 	virtual void getComplement(std::vector<real>& weights);
 	

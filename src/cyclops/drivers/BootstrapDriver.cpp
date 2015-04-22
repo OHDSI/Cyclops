@@ -54,7 +54,11 @@ void BootstrapDriver::drive(
 
 	for (int step = 0; step < replicates; step++) {
 		selector.permute();
-		selector.getWeights(0, weights);
+
+		std::vector<real> base_weights;
+		ccd.getWeights(base_weights);
+		selector.getWeights(0, weights, base_weights);
+
 		ccd.setWeights(&weights[0]);
 
         std::ostringstream stream;
@@ -67,6 +71,9 @@ void BootstrapDriver::drive(
 		for (int j = 0; j < J; ++j) {
 			estimates[j]->push_back(ccd.getBeta(j));
 		}		
+
+		// Restore weights as they were before run.
+		ccd.setWeights(&base_weights[0]);
 	}
 }
 

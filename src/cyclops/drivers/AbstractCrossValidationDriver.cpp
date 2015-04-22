@@ -115,7 +115,7 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 		[step, coldStart, nThreads, &ccdPool, &selectorPool, 
 		&arguments, &allArguments, &predLogLikelihood, 
 			&weightsExclude, &logger //, &lock
-		 //    ,&ccd, &selector
+		     ,&ccd //, &selector
 		 		, &scheduler
 			](int task) {
 			
@@ -138,8 +138,11 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 				int fold = task % arguments.fold;
 												
 				// Get this fold and update
+				std::vector<real> base_weights; // Task-specific
+				ccd.getWeights(base_weights);
+
 				std::vector<real> weights; // Task-specific
-				selectorTask->getWeights(fold, weights);
+				selectorTask->getWeights(fold, weights, base_weights);
 				if (weightsExclude){
 					for(size_t j = 0; j < weightsExclude->size(); j++){
 						if (weightsExclude->at(j) == 1.0){
@@ -189,7 +192,10 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 						  
                 bool write = true;						  
 						  
-				if (write) logger->writeLine(stream);																	    				    				    				    				    				    
+				if (write) logger->writeLine(stream);
+
+				// Restore original weights.
+				ccd.setWeights(&weights[0]);
 			};	
 			
 	// Run all tasks in parallel	

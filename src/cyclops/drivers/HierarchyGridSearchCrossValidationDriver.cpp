@@ -96,7 +96,9 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 				}
 
 				// Get this fold and update
-				selector.getWeights(fold, weights);
+				std::vector<bsccs::real> base_weights;
+				ccd.getWeights(base_weights);
+				selector.getWeights(fold, weights, base_weights);
 				ccd.setWeights(&weights[0]);
 
 				ccd.update(allArguments.modeFinding);
@@ -113,6 +115,9 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 
 				// Store value
 				predLogLikelihood.push_back(logLikelihood);
+
+				// Restore original weights.
+				ccd.setWeights(&base_weights[0]);
 			}
 
 			double value = computePointEstimate(predLogLikelihood) /

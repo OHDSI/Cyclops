@@ -67,12 +67,13 @@ CrossValidationSelector::~CrossValidationSelector() {
 	// Do nothing
 }
 
-void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) {
+void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights,
+										 std::vector<real>& base_weights) {
 	if (weights.size() != K) {
 		weights.resize(K);
 	}
 
-	std::fill(weights.begin(), weights.end(), 1.0);
+	std::copy(base_weights.begin(), base_weights.end(), weights.begin());
 
 	if (batch == -1) {
 		return;
@@ -89,8 +90,6 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 		for (size_t k = 0; k < K; k++) {
 			if (excludeSet.find(ids.at(k)) != excludeSet.end()) { // found
 				weights[k] = 0.0;
-			} else {
-				weights[k] = 1.0; // TODO Is this necessary?
 			}
 		}		
 	} else { // SelectorType::BY_ROW

@@ -31,7 +31,9 @@ public:
 	
  	void reseed();
 
-	void getWeights(int batch, std::vector<real>& weights);
+	void getWeights(int batch, std::vector<real>& weights,
+					std::vector<real>& base_weights);
+
 
 	void getComplement(std::vector<real>& weights);
 	

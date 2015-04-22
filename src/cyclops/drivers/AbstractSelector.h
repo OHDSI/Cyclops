@@ -39,7 +39,9 @@ public:
 	// TODO
 	virtual void reseed() { /* std::cerr << "RESEED" << std::endl;*/ } // Do nothing by default
 
-	virtual void getWeights(int batch, std::vector<real>& weights) = 0; // pure virtual
+	virtual void getWeights(int batch, std::vector<real>& weights,
+							std::vector<real>& base_weights) = 0; // pure virtual
+
 
 	virtual void getComplement(std::vector<real>& weights) = 0; // pure virtual
 	

@@ -79,12 +79,13 @@ void BootstrapSelector::permute() {
 //	exit(0);
 }
 
-void BootstrapSelector::getWeights(int batch, std::vector<real>& weights) {
+void BootstrapSelector::getWeights(int batch, std::vector<real>& weights,
+								   std::vector<real>& base_weights) {
 	if (weights.size() != K) {
 		weights.resize(K);
 	}
 
-	std::fill(weights.begin(), weights.end(), 0.0);
+	std::copy(weights.begin(), weights.end(), base_weights.begin());
 	if (batch == -1) {
 		return;
 	}

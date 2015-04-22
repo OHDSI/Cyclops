@@ -52,7 +52,8 @@ void ProportionSelector::permute() {
 //	}
 }
 
-void ProportionSelector::getWeights(int batch, std::vector<real>& weights) {
+void ProportionSelector::getWeights(int batch, std::vector<real>& weights,
+									std::vector<real>& base_weights) {
 	if (weights.size() != K) {
 		weights.resize(K);
 	}
