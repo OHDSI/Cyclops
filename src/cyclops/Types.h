@@ -27,6 +27,18 @@
         using boost::shared_ptr;
         using boost::make_shared;        
         using boost::unique_ptr;
+    }   
+#endif
+
+#ifdef WIN_BUILD
+    #include <tr1/unordered_map>
+    namespace bsccs {
+        using std::tr1::unordered_map;
+    }
+#else
+    #include <unordered_map>
+    namespace bsccs {
+        using std::unordered_map;
     }
 #endif
 

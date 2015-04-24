@@ -14,7 +14,6 @@
 
 #include <vector>
 #include <map>
-#include <unordered_map>
 
 // using std::map;
 // using std::string;
@@ -262,7 +261,7 @@ protected:
     loggers::ProgressLoggerPtr log;
     loggers::ErrorHandlerPtr error;
 
-    typedef std::unordered_map<IdType,size_t> RowIdMap;
+    typedef bsccs::unordered_map<IdType,size_t> RowIdMap;
     RowIdMap rowIdMap;
 
 
