@@ -23,7 +23,8 @@ public:
 			long inSeed,
     	    loggers::ProgressLoggerPtr _logger,
 	    	loggers::ErrorHandlerPtr _error,
-			std::vector<real>* wtsExclude = NULL);
+			std::vector<real>* wtsExclude = NULL,
+			std::vector<double>* base_weights = NULL);
 
 	virtual ~CrossValidationSelector();
 

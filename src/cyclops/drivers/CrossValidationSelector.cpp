@@ -25,7 +25,8 @@ CrossValidationSelector::CrossValidationSelector(
 		long inSeed,
 	    loggers::ProgressLoggerPtr _logger,
 		loggers::ErrorHandlerPtr _error,		
-		std::vector<real>* wtsExclude) : AbstractSelector(inIds, inType, inSeed, _logger, _error), fold(inFold) {
+		std::vector<real>* wtsExclude,
+		std::vector<double>* base_weights) : AbstractSelector(inIds, inType, inSeed, _logger, _error), fold(inFold) {
 
 	// Calculate interval starts
 	intervalStart.reserve(fold + 1);
