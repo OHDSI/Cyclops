@@ -149,9 +149,10 @@ fitCyclopsModel <- function(cyclopsData,
         if(!is.null(cyclopsData$sortOrder)) {
             weights <- weights[cyclopsData$sortOrder]
         }
-        
-        .cyclopsSetWeights(cyclopsData$cyclopsInterfacePtr, weights)
-    }    
+    } else {
+		weights <- rep(1, getNumberOfRows(cyclopsData))
+	}
+	.cyclopsSetWeights(cyclopsData$cyclopsInterfacePtr, weights)
     
     if (!missing(prior) && prior$useCrossValidation) {
         if (missing(control)) {

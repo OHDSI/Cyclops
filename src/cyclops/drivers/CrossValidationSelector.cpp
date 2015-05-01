@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <iterator>
 #include <set>
+#include <numeric>
 
 #include "CrossValidationSelector.h"
 
@@ -25,24 +26,32 @@ CrossValidationSelector::CrossValidationSelector(
 		long inSeed,
 	    loggers::ProgressLoggerPtr _logger,
 		loggers::ErrorHandlerPtr _error,		
-		std::vector<real>* wtsExclude,
-		std::vector<double>* base_weights) : AbstractSelector(inIds, inType, inSeed, _logger, _error), fold(inFold) {
+		std::vector<double> const* baseweights,
+		std::vector<real>* wtsExclude) : AbstractSelector(inIds, inType, inSeed, _logger, _error), fold(inFold) {
+	base_weights = baseweights;
 
 	// Calculate interval starts
 	intervalStart.reserve(fold + 1);
+	int total_weight = std::accumulate(base_weights->begin(), base_weights->end(), 0);
+	int fraction = total_weight / fold;
+	int extra = total_weight - fraction * fold;
+
 	int index = 0;
-	int fraction = N / fold;
-	int extra = N - fraction * fold;
-	for (int i = 0; i < fold; i++) {
+	for (int i = 0; i < fold; ++i) {
 		intervalStart.push_back(index);
-		index += fraction;
+		for (int count = 0; count < fraction; ) {
+			count += (*base_weights)[index];
+			index += 1;
+		}
 		if (i < extra) {
-			index++;
+			do {
+				index++;
+			} while ((*base_weights)[index] == 0);
 		}
 	}
 	intervalStart.push_back(N);
 
-    std::ostringstream stream;
+	std::ostringstream stream;
 	stream << "Performing " << fold << "-fold cross-validation [seed = "
 		      << seed << "] with data partitions of sizes";
 		      
@@ -73,11 +82,12 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 		weights.resize(K);
 	}
 
-	std::fill(weights.begin(), weights.end(), 1.0);
+	std::copy((*base_weights).begin(), (*base_weights).end(), weights.begin());
 
 	if (batch == -1) {
 		return;
 	}
+
 
 	if (type == SelectorType::BY_PID) {
 		std::set<int> excludeSet;
@@ -87,11 +97,10 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 				insert_iterator< std::set<int> >(excludeSet, excludeSet.begin())
 				);
 
+
 		for (size_t k = 0; k < K; k++) {
 			if (excludeSet.find(ids.at(k)) != excludeSet.end()) { // found
 				weights[k] = 0.0;
-			} else {
-				weights[k] = 1.0; // TODO Is this necessary?
 			}
 		}		
 	} else { // SelectorType::BY_ROW
