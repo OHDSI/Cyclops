@@ -155,11 +155,11 @@ newConvertToCyclopsData.ffdf <- function(outcomes,
             for (i in bit::chunk(outcomes$time)){
                 outcomes$minTime[i] <- 0-outcomes$time[i]
             }
-            if (!isSorted(outcomes,c("stratumId", "time", "rowId"),c(TRUE, FALSE,TRUE))){
+            if (!isSorted(outcomes,c("stratumId", "time", "y", "rowId"),c(TRUE, FALSE, TRUE, TRUE))){
                 if(!quiet)
-                    writeLines("Sorting outcomes by stratumId, time (descending) and rowId")
+                    writeLines("Sorting outcomes by stratumId, time (descending), y, and rowId")
                 rownames(outcomes) <- NULL #Needs to be null or the ordering of ffdf will fail
-                outcomes <- outcomes[ff::ffdforder(outcomes[c("stratumId","minTime","rowId")]),]
+                outcomes <- outcomes[ff::ffdforder(outcomes[c("stratumId","minTime", "y", "rowId")]),]
             }
             if (is.null(covariates$minTime)){ # If time not present, add to check if sorted
                 covariates$minTime <- NULL
@@ -167,11 +167,11 @@ newConvertToCyclopsData.ffdf <- function(outcomes,
                 covariates$y <- NULL
                 covariates <- merge(covariates, outcomes, by = c("stratumId", "rowId"))
             }
-            if (!isSorted(covariates, c("covariateId", "stratumId", "time", "rowId"), c(TRUE, TRUE, FALSE, TRUE))){
+            if (!isSorted(covariates, c("covariateId", "stratumId", "time", "y", "rowId"), c(TRUE, TRUE, FALSE, TRUE, TRUE))){
                 if(!quiet)
-                    writeLines("Sorting covariates by covariateId, stratumId, time (descending), and rowId")
+                    writeLines("Sorting covariates by covariateId, stratumId, time (descending), y, and rowId")
                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
-                covariates <- covariates[ff::ffdforder(covariates[c("covariateId", "stratumId", "minTime", "rowId")]),]
+                covariates <- covariates[ff::ffdforder(covariates[c("covariateId", "stratumId", "minTime", "y", "rowId")]),]
             }
         }
     }
@@ -268,10 +268,10 @@ newConvertToCyclopsData.data.frame <- function(outcomes,
             }
         }
         if (modelType == "cox"){
-            if (!isSorted(outcomes,c("stratumId", "time", "rowId"),c(TRUE, FALSE,TRUE))){
+            if (!isSorted(outcomes,c("stratumId", "time", "y", "rowId"),c(TRUE, FALSE, TRUE, TRUE))){
                 if(!quiet)
-                    writeLines("Sorting outcomes by stratumId, time (descending) and rowId")
-                outcomes <- outcomes[order(outcomes$stratumId, -outcomes$time, outcomes$rowId),]
+                    writeLines("Sorting outcomes by stratumId, time (descending), y and rowId")
+                outcomes <- outcomes[order(outcomes$stratumId, -outcomes$time, outcomes$y, outcomes$rowId),]
             }
             if (is.null(covariates$time)) {
                 covariates$time <- NULL
@@ -279,10 +279,10 @@ newConvertToCyclopsData.data.frame <- function(outcomes,
                 covariates$stratumId <- NULL
                 covariates <- merge(covariates, outcomes, by = c("rowId"))
             }
-            if (!isSorted(covariates, c("covariateId", "stratumId", "time", "rowId"), c(TRUE, TRUE, FALSE, TRUE))){
+            if (!isSorted(covariates, c("covariateId", "stratumId", "time", "y", "rowId"), c(TRUE, TRUE, FALSE, TRUE, TRUE))){
                 if(!quiet)
-                    writeLines("Sorting covariates by covariateId, stratumId, time (descending), and rowId")
-                covariates <- covariates[order(covariates$covariateId, covariates$stratumId, -covariates$time, covariates$rowId),]
+                    writeLines("Sorting covariates by covariateId, stratumId, time (descending), y, and rowId")
+                covariates <- covariates[order(covariates$covariateId, covariates$stratumId, -covariates$time, covariates$y, covariates$rowId),]
             }
         }
     }
