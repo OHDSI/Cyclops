@@ -493,8 +493,11 @@ void CyclicCoordinateDescent::getWeights(std::vector<real>& weights) {
 		weights.resize(K);
 	}
 
-	for (int i = 0; i < K; ++i) {
-		weights[i] = hWeights[i];
+	if (hWeights.size() != K) {
+		// If no weights have been set, return default weights.
+		std::fill(weights.begin(), weights.end(), 1.0);
+	} else {
+		std::copy(hWeights.begin(), hWeights.end(), weights.begin());
 	}
 }
 
