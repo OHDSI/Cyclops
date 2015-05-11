@@ -200,12 +200,12 @@ newConvertToCyclopsData.ffdf <- function(outcomes,
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
 
     for (i in bit::chunk(covariates)){
-        covariatesChunk <- covariates[i,]
-        covarNames <- unique(covariatesChunk$covariateId)
+        #covariatesChunk <- covariates[i,]
+        covarNames <- unique(covariates$covariateId[i,])
         loadNewSeqlCyclopsDataMultipleX(dataPtr,
-                                        covariatesChunk$covariateId,
-                                        covariatesChunk$rowId,
-                                        covariatesChunk$covariateValue,
+                                        covariates$covariateId[i,],
+                                        covariates$rowId[i,],
+                                        covariates$covariateValue[i,],
                                         name = covarNames,
                                         append = TRUE)
     }
