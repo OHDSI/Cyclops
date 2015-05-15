@@ -42,6 +42,8 @@ private:
 	std::vector<int> permutation;
 	std::vector<int> intervalStart;
 	std::vector<double> const* base_weights;
+	std::vector<int> weight_map;
+	int num_base_weights;
 };
 
 } // namespace

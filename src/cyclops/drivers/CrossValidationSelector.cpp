@@ -29,26 +29,27 @@ CrossValidationSelector::CrossValidationSelector(
 		std::vector<double> const* baseweights) : AbstractSelector(inIds, inType, inSeed, _logger, _error), fold(inFold) {
 	base_weights = baseweights;
 
-	// Calculate interval starts
-	intervalStart.reserve(fold + 1);
-	int total_weight = std::accumulate(base_weights->begin(), base_weights->end(), 0);
-	int fraction = total_weight / fold;
-	int extra = total_weight - fraction * fold;
-
-	int index = 0;
-	for (int i = 0; i < fold; ++i) {
-		intervalStart.push_back(index);
-		for (int count = 0; count < fraction; ) {
-			count += (*base_weights)[index];
-			index += 1;
-		}
-		if (i < extra) {
-			do {
-				index++;
-			} while ((*base_weights)[index] == 0);
+	for (int i = 0; i < base_weights->size(); ++i) {
+		if (base_weights->at(i) != 0) {
+			weight_map.push_back(i);
 		}
 	}
-	intervalStart.push_back(N);
+
+	num_base_weights = weight_map.size();
+
+	// Calculate interval starts
+	intervalStart.reserve(fold + 1);
+	int index = 0;
+	int fraction = num_base_weights / fold;
+	int extra = num_base_weights - fraction * fold;
+	for (int i = 0; i < fold; i++) {
+		intervalStart.push_back(index);
+		index += fraction;
+		if (i < extra) {
+			index++;
+		}
+	}
+	intervalStart.push_back(num_base_weights);
 
 	std::ostringstream stream;
 	stream << "Performing " << fold << "-fold cross-validation [seed = "
@@ -59,13 +60,13 @@ CrossValidationSelector::CrossValidationSelector(
 	}		      
 	logger->writeLine(stream);
 
-	permutation.resize(N);
+	permutation.resize(num_base_weights);
 }
 
 void CrossValidationSelector::reseed() { 
 //	std::cerr << "RESEEDING"  << std::endl;
 	prng.seed(seed);
-	for (size_t i = 0; i < N; ++i) {
+	for (size_t i = 0; i < num_base_weights; ++i) {
 		permutation[i] = i;
 	}
 } 
@@ -95,19 +96,20 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 				);
 
 
-		for (size_t k = 0; k < K; k++) {
+		for (size_t k = 0; k < num_base_weights; k++) {
 			if (excludeSet.find(ids.at(k)) != excludeSet.end()) { // found
-				weights[k] = 0.0;
+				weights[weight_map[k]] = 0.0;
 			}
 		}		
 	} else { // SelectorType::BY_ROW
 // 		std::fill(weights.begin(), weights.end(), 0.0);
 // 		std::fill(weights.begin(), weights.begin() + 100, 1.0);
+		auto local_weight_map = weight_map;
 		std::for_each(
 			permutation.begin() + intervalStart[batch],
 			permutation.begin() + intervalStart[batch + 1],
-			[&weights](const int excludeIndex) {
-				weights[excludeIndex] = 0.0;
+			[&weights, &local_weight_map](const int excludeIndex) {
+				weights[local_weight_map[excludeIndex]] = 0.0;
 		});
 	}
 }
