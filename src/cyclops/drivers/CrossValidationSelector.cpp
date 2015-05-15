@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <iterator>
 #include <set>
+#include <numeric>
 
 #include "CrossValidationSelector.h"
 
@@ -25,13 +26,22 @@ CrossValidationSelector::CrossValidationSelector(
 		long inSeed,
 	    loggers::ProgressLoggerPtr _logger,
 		loggers::ErrorHandlerPtr _error,		
-		std::vector<real>* wtsExclude) : AbstractSelector(inIds, inType, inSeed, _logger, _error), fold(inFold) {
+		std::vector<double> const* baseweights) : AbstractSelector(inIds, inType, inSeed, _logger, _error), fold(inFold) {
+	base_weights = baseweights;
+
+	for (int i = 0; i < base_weights->size(); ++i) {
+		if (base_weights->at(i) != 0) {
+			weight_map.push_back(i);
+		}
+	}
+
+	num_base_weights = weight_map.size();
 
 	// Calculate interval starts
 	intervalStart.reserve(fold + 1);
 	int index = 0;
-	int fraction = N / fold;
-	int extra = N - fraction * fold;
+	int fraction = num_base_weights / fold;
+	int extra = num_base_weights - fraction * fold;
 	for (int i = 0; i < fold; i++) {
 		intervalStart.push_back(index);
 		index += fraction;
@@ -39,9 +49,9 @@ CrossValidationSelector::CrossValidationSelector(
 			index++;
 		}
 	}
-	intervalStart.push_back(N);
+	intervalStart.push_back(num_base_weights);
 
-    std::ostringstream stream;
+	std::ostringstream stream;
 	stream << "Performing " << fold << "-fold cross-validation [seed = "
 		      << seed << "] with data partitions of sizes";
 		      
@@ -50,15 +60,13 @@ CrossValidationSelector::CrossValidationSelector(
 	}		      
 	logger->writeLine(stream);
 
-	permutation.resize(N);
-
-	weightsExclude = wtsExclude;
+	permutation.resize(num_base_weights);
 }
 
 void CrossValidationSelector::reseed() { 
 //	std::cerr << "RESEEDING"  << std::endl;
 	prng.seed(seed);
-	for (size_t i = 0; i < N; ++i) {
+	for (size_t i = 0; i < num_base_weights; ++i) {
 		permutation[i] = i;
 	}
 } 
@@ -72,11 +80,12 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 		weights.resize(K);
 	}
 
-	std::fill(weights.begin(), weights.end(), 1.0);
+	std::copy((*base_weights).begin(), (*base_weights).end(), weights.begin());
 
 	if (batch == -1) {
 		return;
 	}
+
 
 	if (type == SelectorType::BY_PID) {
 		std::set<int> excludeSet;
@@ -86,21 +95,21 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 				insert_iterator< std::set<int> >(excludeSet, excludeSet.begin())
 				);
 
-		for (size_t k = 0; k < K; k++) {
+
+		for (size_t k = 0; k < num_base_weights; k++) {
 			if (excludeSet.find(ids.at(k)) != excludeSet.end()) { // found
-				weights[k] = 0.0;
-			} else {
-				weights[k] = 1.0; // TODO Is this necessary?
+				weights[weight_map[k]] = 0.0;
 			}
 		}		
 	} else { // SelectorType::BY_ROW
 // 		std::fill(weights.begin(), weights.end(), 0.0);
 // 		std::fill(weights.begin(), weights.begin() + 100, 1.0);
+		auto local_weight_map = weight_map;
 		std::for_each(
 			permutation.begin() + intervalStart[batch],
 			permutation.begin() + intervalStart[batch + 1],
-			[&weights](const int excludeIndex) {
-				weights[excludeIndex] = 0.0;
+			[&weights, &local_weight_map](const int excludeIndex) {
+				weights[local_weight_map[excludeIndex]] = 0.0;
 		});
 	}
 }
@@ -121,50 +130,6 @@ void CrossValidationSelector::permute() {
 	if (!deterministic) {
 //      	std::cerr << "PERMUTE" << std::endl;
 		std::shuffle(permutation.begin(), permutation.end(), prng);
-	}
-
-	if(weightsExclude){
-		vector<int> permutationCopy = permutation;
-		int nExcluded = 0;
-		for(int i = 0; i < (int)weightsExclude->size(); i++){
-			if(weightsExclude->at(i) != 0.0){
-				nExcluded++;
-			}
-		}
-		int fraction = nExcluded / fold;
-		int extra = nExcluded - fraction * fold;
-
-		vector<int> nExcludedPerFold;
-		for(int i = 0; i < fold; i++){
-			if(i < extra){
-				nExcludedPerFold.push_back(fraction + 1);
-			}
-			else{
-				nExcludedPerFold.push_back(fraction);
-			}
-		}
-		int foldIncluded = 0;
-		int foldExcluded = 0;
-		int nextExcluded = intervalStart[0];
-		int nextIncluded = intervalStart[0] + nExcludedPerFold[0];
-		for(size_t i = 0; i < permutationCopy.size(); i++){
-			if(weightsExclude->at(permutationCopy[i]) == 0.0){
-				permutation[nextIncluded] = permutationCopy[i];
-				nextIncluded++;
-				if(nextIncluded == intervalStart[foldIncluded + 1]){
-					nextIncluded = intervalStart[foldIncluded + 1] + nExcludedPerFold[foldIncluded + 1];
-					foldIncluded++;
-				}
-			}
-			else{
-				permutation[nextExcluded] = permutationCopy[i];
-				nextExcluded++;
-				if(nextExcluded == intervalStart[foldExcluded] + nExcludedPerFold[foldExcluded]){
-					nextExcluded = intervalStart[foldExcluded + 1];
-					foldExcluded++;
-				}
-			}
-		}
 	}
 }
 

@@ -476,8 +476,11 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData 
 	auto selectorType = getDefaultSelectorTypeOrOverride(
 		arguments.crossValidation.selectorType, modelData->getModelType());	
 
+	std::vector<double> base_weights;
+	ccd->getWeights(base_weights);
+
 	CrossValidationSelector selector(arguments.crossValidation.fold, modelData->getPidVectorSTL(),
-			selectorType, arguments.seed, logger, error); // TODO ERROR HERE!  NOT ALL MODELS ARE SUBJECT
+			selectorType, arguments.seed, logger, error, &base_weights); // TODO ERROR HERE!  NOT ALL MODELS ARE SUBJECT
 			
 	AbstractCrossValidationDriver* driver;
 	if (arguments.crossValidation.useAutoSearchCV) {

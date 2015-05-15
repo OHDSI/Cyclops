@@ -487,7 +487,20 @@ void CyclicCoordinateDescent::setWeights(real* iWeights) {
 		sufficientStatisticsKnown = false;
 	}
 }
-	
+
+void CyclicCoordinateDescent::getWeights(std::vector<real>& weights) {
+	if (weights.size() != K) {
+		weights.resize(K);
+	}
+
+	if (hWeights.size() != K) {
+		// If no weights have been set, return default weights.
+		std::fill(weights.begin(), weights.end(), 1.0);
+	} else {
+		std::copy(hWeights.begin(), hWeights.end(), weights.begin());
+	}
+}
+
 double CyclicCoordinateDescent::getLogPrior(void) {
 	return jointPrior->logDensity(hBeta);
 }

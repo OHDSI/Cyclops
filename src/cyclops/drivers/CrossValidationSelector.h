@@ -23,7 +23,7 @@ public:
 			long inSeed,
     	    loggers::ProgressLoggerPtr _logger,
 	    	loggers::ErrorHandlerPtr _error,
-			std::vector<real>* wtsExclude = NULL);
+			std::vector<double> const* base_weights);
 
 	virtual ~CrossValidationSelector();
 
@@ -41,7 +41,9 @@ private:
 	int fold;
 	std::vector<int> permutation;
 	std::vector<int> intervalStart;
-	std::vector<real>* weightsExclude;
+	std::vector<double> const* base_weights;
+	std::vector<int> weight_map;
+	int num_base_weights;
 };
 
 } // namespace
