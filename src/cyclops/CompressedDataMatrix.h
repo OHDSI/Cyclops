@@ -179,7 +179,7 @@ public:
 
 	real sumColumn(int nRows);
 
-	real squaredSumColumn() const;
+	real squaredSumColumn(size_t n) const;
 
 // 	template <class T>
 // 	void printVector(T values, const int size) {

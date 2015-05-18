@@ -1086,6 +1086,9 @@ void CyclicCoordinateDescent::axpyXBeta(const real beta, const int j) {
 		case INDICATOR:
 			axpy < IndicatorIterator > (hXBeta.data(), beta, j);
 			break;
+		case INTERCEPT:
+		    axpy < InterceptIterator > (hXBeta.data(), beta, j);
+		    break;
 		case DENSE:
 			axpy < DenseIterator > (hXBeta.data(), beta, j);
 			break;

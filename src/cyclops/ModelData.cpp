@@ -238,6 +238,14 @@ int ModelData::loadX(
             (covariateValue.size() == 0 ? INTERCEPT : DENSE) :
             (covariateValue.size() == 0 ? INDICATOR : SPARSE);
 
+//         if (data->getHasInterceptCovariate()) {
+//             ::Rf_error("OHDSI data object already has an intercept");
+//         }
+//         // TODO add intercept as INTERCEPT_TYPE if magicFlag ==  true
+//         data->insert(0, DENSE); // add to front, TODO fix if offset
+//         data->setHasInterceptCovariate(true);
+
+
 	std::function<size_t(IdType)>
     //auto
     xform = [this](IdType id) {
@@ -253,6 +261,11 @@ int ModelData::loadX(
             stream << "Variable " << covariateId << " already exists";
             error->throwError(stream);
         }
+//        if (newType == INTERCEPT && getHasInterceptCovariate()) {
+//            std::ostringstream stream;
+//            stream << "Cyclops data object already has an intercept";
+//            error->throwError(stream);
+//        }
         if (append) {
             // TODO Check that new and old type are compatible
             std::ostringstream stream;
@@ -300,6 +313,12 @@ int ModelData::loadX(
         getColumn(index).add_label(covariateId);
     }
 
+    if (newType == INTERCEPT) {
+        setHasInterceptCovariate(true);
+        if (index != 0) {
+            moveToFront(index);
+        }
+    }
     touchedX = true;
     return index;
 }
@@ -441,7 +460,13 @@ const int* ModelData::getPidVector() const { // TODO deprecated
 // }
 
 std::vector<int> ModelData::getPidVectorSTL() const {
-	return pid;
+    if (pid.size() == 0) {
+        std::vector<int> tPid(getNumberOfRows());
+        std::iota (std::begin(tPid), std::end(tPid), 0);
+        return tPid;
+    } else {
+    	return pid;
+    }
 }
 
 const real* ModelData::getYVector() const { // TODO deprecated
@@ -476,7 +501,7 @@ double ModelData::getSquaredNorm() const {
 	std::vector<double> squaredNorm;
 
 	for (size_t index = startIndex; index < getNumberOfColumns(); ++index) {
-		squaredNorm.push_back(getColumn(index).squaredSumColumn());
+		squaredNorm.push_back(getColumn(index).squaredSumColumn(getNumberOfRows()));
 	}
 
 	return std::accumulate(squaredNorm.begin(), squaredNorm.end(), 0.0);
