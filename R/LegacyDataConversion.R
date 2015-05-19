@@ -3,71 +3,18 @@
 # Copyright 2014 Observational Health Data Sciences and Informatics
 #
 # This file is part of cyclops
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-#' Check if data are sorted by one or more columns
-#'
-#' @description
-#' \code{isSorted} checks wether data are sorted by one or more specified columns.
-#' 
-#' @param data            Either a data.frame of ffdf object.
-#' @param columnNames     Vector of one or more column names.
-#' @param ascending       Logical vector indicating the data should be sorted ascending or descending 
-#' according the specified columns.
-#'
-#' @details
-#' This function currently only supports checking for sorting on numeric values.
-#' 
-#' @return              
-#' True or false
-#' 
-#' @examples 
-#' x <- data.frame(a = runif(1000), b = runif(1000))
-#' x <- round(x, digits=2)
-#' isSorted(x, c("a", "b"))
-#'  
-#' x <- x[order(x$a, x$b),]
-#' isSorted(x, c("a", "b"))
-#'  
-#' x <- x[order(x$a,-x$b),]
-#' isSorted(x, c("a", "b"), c(TRUE, FALSE))
-#' 
-#' @export
-isSorted <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
-    UseMethod("isSorted") 
-}
-
-#' @describeIn isSorted Check if a \code{data.frame} is sorted by one or more columns
-#' @export
-isSorted.data.frame <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
-    return(.isSorted(data,columnNames,ascending))
-}
-
-#' @describeIn isSorted Check if a \code{ffdf} is sorted by one or more columns
-#' @export
-isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
-    #    require(ffbase) #Should be superfluous, since the user already has an ffdf object
-    if (nrow(data)>100000){ #If data is big, first check on a small subset. If that aready fails, we're done
-        if (!isSorted(data[bit::ri(1,1000),,drop=FALSE],columnNames,ascending))
-            return(FALSE)
-    }
-    #     chunks <- chunk(data)
-    for (i in ff::chunk.ffdf(data))
-        if (!isSorted(data[i,,drop=FALSE],columnNames,ascending))
-            return(FALSE)
-    return(TRUE)
-}
 
 .lastRowNotHavingThisValue <- function(column, value){
     if (column[1] == value)
@@ -84,7 +31,7 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
                                                       getOutcomeBatch,
                                                       getCovariateBatch,
                                                       isDone,
-                                                      modelType = "lr", 
+                                                      modelType = "lr",
                                                       addIntercept = TRUE,
                                                       offsetAlreadyOnLogScale = FALSE,
                                                       makeCovariatesDense = NULL){
@@ -92,13 +39,13 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
         warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)
         addIntercept = FALSE
     }
-    
+
     # Construct empty Cyclops data object:
     dataPtr <- createSqlCyclopsData(modelType = modelType)
-    
+
     #Fetch data in batches:
     batchOutcome <- getOutcomeBatch(resultSetOutcome,modelType)
-    
+
     lastUsedOutcome <- 0
     spillOverCovars <- NULL
     while (!isDone(resultSetCovariate)){
@@ -106,7 +53,7 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
         batchCovars <- getCovariateBatch(resultSetCovariate,modelType)
         lastRowId <- batchCovars$rowId[nrow(batchCovars)]
         endCompleteRow <- .lastRowNotHavingThisValue(batchCovars$rowId,lastRowId)
-        
+
         if (endCompleteRow == 0){ #Entire batch is about 1 row
             if (!is.null(spillOverCovars)){
                 if (spillOverCovars$rowId[1] == batchCovars$rowId[1]){ #SpilloverCovars contains info on same row
@@ -121,13 +68,13 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
             }
         } else { #Batch is about different rows (so at least one is complete)
             if (!is.null(spillOverCovars)){
-                covarsToCyclops <- rbind(spillOverCovars,batchCovars[1:endCompleteRow,])      
+                covarsToCyclops <- rbind(spillOverCovars,batchCovars[1:endCompleteRow,])
             } else {
                 covarsToCyclops <- batchCovars[1:endCompleteRow,]
             }
             spillOverCovars <- batchCovars[(endCompleteRow+1):nrow(batchCovars),]
-        }    
-        
+        }
+
         #Get matching outcomes:
         if (!is.null(covarsToCyclops)){ # There is a complete row
             completeRowId = covarsToCyclops$rowId[nrow(covarsToCyclops)]
@@ -135,9 +82,9 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
             while (length(endCompleteRowInOutcome) == 0 & !isDone(resultSetOutcome)){
                 if (lastUsedOutcome == nrow(batchOutcome)){
                     batchOutcome <- getOutcomeBatch(resultSetOutcome,modelType)
-                } else {      
+                } else {
                     newBatchOutcome <- getOutcomeBatch(resultSetOutcome,modelType)
-                    batchOutcome <- rbind(batchOutcome[(lastUsedOutcome+1):nrow(batchOutcome),],newBatchOutcome)          
+                    batchOutcome <- rbind(batchOutcome[(lastUsedOutcome+1):nrow(batchOutcome),],newBatchOutcome)
                 }
                 lastUsedOutcome = 0
                 endCompleteRowInOutcome <- which(batchOutcome$rowId == completeRowId)
@@ -152,26 +99,26 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
                                  covarsToCyclops$covariateId,
                                  covarsToCyclops$covariateValue
             )
-            
+
             lastUsedOutcome = endCompleteRowInOutcome
         }
     }
     #End of covar batches, add spillover to Cyclops:
     covarsToCyclops <- spillOverCovars
-    
+
     completeRowId = covarsToCyclops$rowId[nrow(covarsToCyclops)]
     endCompleteRowInOutcome <- which(batchOutcome$rowId == completeRowId)
     while (length(endCompleteRowInOutcome) == 0 & !isDone(resultSetOutcome)){
         if (lastUsedOutcome == nrow(batchOutcome)){
             batchOutcome <- getOutcomeBatch(resultSetOutcome,modelType)
-        } else {      
+        } else {
             batchOutcome <- getOutcomeBatch(resultSetOutcome,modelType)
-            batchOutcome <- rbind(batchOutcome[(lastUsedOutcome+1):nrow(batchOutcome),],newBatchOutcome)          
+            batchOutcome <- rbind(batchOutcome[(lastUsedOutcome+1):nrow(batchOutcome),],newBatchOutcome)
         }
         lastUsedOutcome = 0
         endCompleteRowInOutcome <- which(batchOutcome$rowId == completeRowId)
     }
-    
+
     #Append to Cyclops:
     appendSqlCyclopsData(dataPtr,
                          batchOutcome$stratumId[(lastUsedOutcome+1):endCompleteRowInOutcome],
@@ -182,9 +129,9 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
                          covarsToCyclops$covariateId,
                          covarsToCyclops$covariateValue
     )
-    
+
     lastUsedOutcome = endCompleteRowInOutcome
-    
+
     #Add any outcomes that are left (without matching covar information):
     if (lastUsedOutcome < nrow(batchOutcome)){
         appendSqlCyclopsData(dataPtr,
@@ -198,7 +145,7 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
     }
     while (!isDone(resultSetOutcome)){
         batchOutcome <- getOutcomeBatch(resultSetOutcome,modelType)
-        
+
         appendSqlCyclopsData(dataPtr,
                              batchOutcome$stratumId,
                              batchOutcome$rowId,
@@ -208,11 +155,11 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
                              as.numeric(c()),
                              as.numeric(c()))
     }
-    if (modelType == "pr" | modelType == "cpr") 
-        useOffsetCovariate = -1 
-    else 
+    if (modelType == "pr" | modelType == "cpr")
+        useOffsetCovariate = -1
+    else
         useOffsetCovariate = NULL
-    
+
     if (modelType != "cox"){
         finalizeSqlCyclopsData(dataPtr,
                                addIntercept = addIntercept,
@@ -226,8 +173,8 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
 #' Convert data from two data frames or ffdf objects into a CyclopsData object
 #'
 #' @description
-#' \code{convertToCyclopsData} loads data from two data frames or ffdf objects, and inserts it into a Cyclops data object.
-#' 
+#' \code{legacyConvertToCyclopsData} loads data from two data frames or ffdf objects, and inserts it into a Cyclops data object.
+#'
 #' @param outcomes    A data frame or ffdf object containing the outcomes with predefined columns (see below).
 #' @param covariates  A data frame or ffdf object containing the covariates with predefined columns (see below).
 #' @param modelType  	  Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"
@@ -235,38 +182,38 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
 ## @param useOffsetCovariate  Use the time variable in the model as an offset?
 #' @param offsetAlreadyOnLogScale Is the time variable already on a log scale?
 #' @param makeCovariatesDense  Force a dense computational representation for all covariates?
-#' @param checkSorting  Check if the data are sorted appropriately, and if not, sort. 
+#' @param checkSorting  Check if the data are sorted appropriately, and if not, sort.
 #' @param checkRowIds   Check if all rowIds in the covariates appear in the outcomes.
 #' @param quiet         If true, (warning) messages are surpressed.
 #'
 #' @details
 #' These columns are expected in the outcome object:
-#' \tabular{lll}{  
+#' \tabular{lll}{
 #'   \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
 #'   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
 #'   \verb{y}    \tab(real) \tab The outcome variable \cr
 #'   \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
 #'                  \tab        \tab(e.g. number of days) \cr
 #' }
-#' 
+#'
 #' These columns are expected in the covariates object:
-#' \tabular{lll}{  
+#' \tabular{lll}{
 #'   \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
 #'   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
 #'   \verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
 #'   \verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
 #' }
-#' 
-#' Note: If checkSorting is turned off, the outcome table should be sorted by stratumId (if present) 
-#' and then rowId except for Cox regression when the table should be sorted by 
-#' stratumId (if present), -time, y, and rowId. The covariate table should be sorted by stratumId 
-#' (if present), rowId and covariateId except for Cox regression when the table should be sorted by 
+#'
+#' Note: If checkSorting is turned off, the outcome table should be sorted by stratumId (if present)
+#' and then rowId except for Cox regression when the table should be sorted by
+#' stratumId (if present), -time, y, and rowId. The covariate table should be sorted by stratumId
+#' (if present), rowId and covariateId except for Cox regression when the table should be sorted by
 #' stratumId (if present), -time, y, and rowId.
-#'  
-#' @return              
+#'
+#' @return
 #' An object of type cyclopsData
-#' 
-#' @examples 
+#'
+#' @examples
 #' #Convert infert dataset to Cyclops format:
 #' covariates <- data.frame(stratumId = rep(infert$stratum, 2),
 #'                          rowId = rep(1:nrow(infert), 2),
@@ -277,32 +224,32 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
 #'                        y = infert$case)
 #' #Make sparse:
 #' covariates <- covariates[covariates$covariateValue != 0, ]
-#' 
+#'
 #' #Create Cyclops data object:
-#' cyclopsData <- convertToCyclopsData(outcomes, covariates, modelType = "clr", 
+#' cyclopsData <- legacyConvertToCyclopsData(outcomes, covariates, modelType = "clr",
 #'                                     addIntercept = FALSE)
-#' 
+#'
 #' #Fit model:
-#' fit <- fitCyclopsModel(cyclopsData, prior = createPrior("none"))  
-#' 
+#' fit <- fitCyclopsModel(cyclopsData, prior = createPrior("none"))
+#'
 #' @export
-convertToCyclopsData <- function(outcomes, 
+legacyConvertToCyclopsData <- function(outcomes,
                                  covariates,
-                                 modelType = "lr", 
+                                 modelType = "lr",
                                  addIntercept = TRUE,
                                  offsetAlreadyOnLogScale = FALSE,
                                  makeCovariatesDense = NULL,
                                  checkSorting = TRUE,
                                  checkRowIds = TRUE,
                                  quiet = FALSE) {
-    UseMethod("convertToCyclopsData") 
+    UseMethod("legacyConvertToCyclopsData")
 }
 
-#' @describeIn convertToCyclopsData Convert data from two \code{ffdf}
+#' @describeIn legacyConvertToCyclopsData Convert data from two \code{ffdf}
 #' @export
-convertToCyclopsData.ffdf <- function(outcomes, 
+legacyConvertToCyclopsData.ffdf <- function(outcomes,
                                       covariates,
-                                      modelType = "lr", 
+                                      modelType = "lr",
                                       addIntercept = TRUE,
                                       offsetAlreadyOnLogScale = FALSE,
                                       makeCovariatesDense = NULL,
@@ -323,7 +270,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
                     writeLines("Sorting covariates by rowId")
                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
                 covariates <- covariates[ff::ffdforder(covariates[c("rowId")]),]
-            }  
+            }
         }
         if (modelType == "clr" | modelType == "cpr"){
             if (!isSorted(outcomes,c("stratumId","rowId"))){
@@ -337,12 +284,12 @@ convertToCyclopsData.ffdf <- function(outcomes,
                     writeLines("Sorting covariates by stratumId and rowId")
                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
                 covariates <- covariates[ff::ffdforder(covariates[c("stratumId","rowId")]),]
-            }      
+            }
         }
         if (modelType == "cox"){
             if (is.null(outcomes$stratumId)){
                 # This does not work without adding ffbase to search path:
-                # outcomes$stratumId = 0  
+                # outcomes$stratumId = 0
                 # covariates$stratumId = 0
                 # So we do:
                 outcomes$stratumId <- ff::ff(vmode="double", length=nrow(outcomes))
@@ -353,7 +300,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
                 for (i in bit::chunk(covariates$stratumId)){
                     covariates$stratumId[i] <- 0
                 }
-                
+
             }
             if (!isSorted(outcomes,c("stratumId","time","y","rowId"),c(TRUE,FALSE,TRUE,TRUE))){
                 if(!quiet)
@@ -366,7 +313,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
                 for (i in bit::chunk(outcomes$time)){
                     outcomes$minTime[i] <- 0-outcomes$time[i]
                 }
-                
+
                 outcomes <- outcomes[ff::ffdforder(outcomes[c("stratumId","minTime","y","rowId")]),]
             }
             if (is.null(covariates$time) | is.null(covariates$y)){ # If time or y not present, add to check if sorted
@@ -380,7 +327,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
                 covariates$minTime = 0-covariates$time
                 covariates <- covariates[ff::ffdforder(covariates[c("stratumId","minTime","y","rowId")]),]
-            }      
+            }
         }
     }
     if (checkRowIds){
@@ -388,14 +335,14 @@ convertToCyclopsData.ffdf <- function(outcomes,
         minValue <- min(sapply(bit::chunk(mapped), function(i) {
             min(mapped[i])
         }))
-        if (minValue == 0){ 
+        if (minValue == 0){
             if(!quiet)
                 writeLines("Removing covariate values with rowIds that are not in outcomes")
             row.names(covariates) <- NULL #Needed or else next line fails
             covariates <- covariates[ffbase::ffwhich(mapped, mapped == TRUE),]
         }
     }
-    
+
     resultSetOutcome <- new.env()
     assign("data",outcomes,envir=resultSetOutcome)
     assign("chunks",ff::chunk.ffdf(outcomes),envir=resultSetOutcome)
@@ -404,7 +351,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
     assign("data",covariates,envir=resultSetCovariate)
     assign("chunks",ff::chunk.ffdf(covariates),envir=resultSetCovariate)
     assign("cursor",1,envir=resultSetCovariate)
-    
+
     getOutcomeBatch <- function(resultSetOutcome, modelType){
         data <- get("data",envir=resultSetOutcome)
         chunks <- get("chunks",envir=resultSetOutcome)
@@ -422,7 +369,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
             batchOutcome$time = 0
         batchOutcome
     }
-    
+
     getCovariateBatch <- function(resultSetCovariate, modelType){
         data <- get("data",envir=resultSetCovariate)
         chunks <- get("chunks",envir=resultSetCovariate)
@@ -431,30 +378,30 @@ convertToCyclopsData.ffdf <- function(outcomes,
         assign("cursor",cursor+1,envir=resultSetCovariate)
         batchCovariate
     }
-    
+
     isDone <- function(resultSet){
         chunks <- get("chunks",envir=resultSet)
         cursor <- get("cursor",envir=resultSet)
         cursor > length(chunks)
     }
-    
+
     result <- .constructCyclopsDataFromBatchableSources(resultSetOutcome,
                                                         resultSetCovariate,
                                                         getOutcomeBatch,
                                                         getCovariateBatch,
                                                         isDone,
-                                                        modelType, 
+                                                        modelType,
                                                         addIntercept,
                                                         offsetAlreadyOnLogScale,
                                                         makeCovariatesDense)
     return(result)
 }
 
-#' @describeIn convertToCyclopsData Convert data from two \code{data.frame}
+#' @describeIn legacyConvertToCyclopsData Convert data from two \code{data.frame}
 #' @export
-convertToCyclopsData.data.frame <- function(outcomes, 
+legacyConvertToCyclopsData.data.frame <- function(outcomes,
                                             covariates,
-                                            modelType = "lr", 
+                                            modelType = "lr",
                                             addIntercept = TRUE,
                                             offsetAlreadyOnLogScale = FALSE,
                                             makeCovariatesDense = NULL,
@@ -466,7 +413,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
             warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)
         addIntercept = FALSE
     }
-    if (modelType == "pr" | modelType == "cpr") 
+    if (modelType == "pr" | modelType == "cpr")
         if (any(outcomes$time <= 0))
             stop("time cannot be non-positive",call.=FALSE)
     if (modelType == "cox" & is.null(outcomes$stratumId)){
@@ -475,7 +422,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
     }
     if (modelType == "lr" | modelType == "clr")
         outcomes$time = 0
-    
+
     if (checkSorting){
         if (modelType == "lr" | modelType == "pr"){
             if (!isSorted(outcomes,c("rowId"))){
@@ -487,9 +434,9 @@ convertToCyclopsData.data.frame <- function(outcomes,
                 if(!quiet)
                     writeLines("Sorting covariates by rowId")
                 covariates <- covariates[order(covariates$rowId),]
-            }   
+            }
         }
-        
+
         if (modelType == "clr" | modelType == "cpr"){
             if (!isSorted(outcomes,c("stratumId","rowId"))){
                 if(!quiet)
@@ -500,11 +447,11 @@ convertToCyclopsData.data.frame <- function(outcomes,
                 if(!quiet)
                     writeLines("Sorting covariates by stratumId and rowId")
                 covariates <- covariates[order(covariates$stratumId,covariates$rowId),]
-            }      
+            }
         }
         if (modelType == "cox"){
             if (is.null(outcomes$stratumId)){
-                outcomes$stratumId = 0  
+                outcomes$stratumId = 0
                 covariates$stratumId = 0
             }
             if (!isSorted(outcomes,c("stratumId","time","y","rowId"),c(TRUE,FALSE,TRUE,TRUE))){
@@ -521,7 +468,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
                 if(!quiet)
                     writeLines("Sorting covariates by stratumId, time (descending), y, and rowId")
                 covariates <- covariates[order(covariates$stratumId,-covariates$time,covariates$y,covariates$rowId),]
-            }      
+            }
         }
     }
     if (checkRowIds){
@@ -534,7 +481,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
         }
     }
     dataPtr <- createSqlCyclopsData(modelType = modelType)
-    
+
     if (modelType == "lr" | modelType == "pr"){
         appendSqlCyclopsData(dataPtr,
                              outcomes$rowId,
@@ -556,13 +503,13 @@ convertToCyclopsData.data.frame <- function(outcomes,
                              covariates$covariateValue
         )
     }
-    
-    
-    if (modelType == "pr" | modelType == "cpr") 
-        useOffsetCovariate = -1 
-    else 
+
+
+    if (modelType == "pr" | modelType == "cpr")
+        useOffsetCovariate = -1
+    else
         useOffsetCovariate = NULL
-    
+
     if (modelType != "cox"){
         finalizeSqlCyclopsData(dataPtr,
                                addIntercept = addIntercept,

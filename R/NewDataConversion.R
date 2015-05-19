@@ -16,6 +16,59 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+#' Check if data are sorted by one or more columns
+#'
+#' @description
+#' \code{isSorted} checks wether data are sorted by one or more specified columns.
+#'
+#' @param data            Either a data.frame of ffdf object.
+#' @param columnNames     Vector of one or more column names.
+#' @param ascending       Logical vector indicating the data should be sorted ascending or descending
+#' according the specified columns.
+#'
+#' @details
+#' This function currently only supports checking for sorting on numeric values.
+#'
+#' @return
+#' True or false
+#'
+#' @examples
+#' x <- data.frame(a = runif(1000), b = runif(1000))
+#' x <- round(x, digits=2)
+#' isSorted(x, c("a", "b"))
+#'
+#' x <- x[order(x$a, x$b),]
+#' isSorted(x, c("a", "b"))
+#'
+#' x <- x[order(x$a,-x$b),]
+#' isSorted(x, c("a", "b"), c(TRUE, FALSE))
+#'
+#' @export
+isSorted <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
+    UseMethod("isSorted")
+}
+
+#' @describeIn isSorted Check if a \code{data.frame} is sorted by one or more columns
+#' @export
+isSorted.data.frame <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
+    return(.isSorted(data,columnNames,ascending))
+}
+
+#' @describeIn isSorted Check if a \code{ffdf} is sorted by one or more columns
+#' @export
+isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
+    #    require(ffbase) #Should be superfluous, since the user already has an ffdf object
+    if (nrow(data)>100000){ #If data is big, first check on a small subset. If that aready fails, we're done
+        if (!isSorted(data[bit::ri(1,1000),,drop=FALSE],columnNames,ascending))
+            return(FALSE)
+    }
+    #     chunks <- chunk(data)
+    for (i in ff::chunk.ffdf(data))
+        if (!isSorted(data[i,,drop=FALSE],columnNames,ascending))
+            return(FALSE)
+    return(TRUE)
+}
+
 #' Convert data from two data frames or ffdf objects into a CyclopsData object
 #'
 #' @description
@@ -69,26 +122,26 @@
 #' covariates <- covariates[covariates$covariateValue != 0, ]
 #'
 #' #Create Cyclops data object:
-#' cyclopsData <- newConvertToCyclopsData(outcomes, covariates, modelType = "clr",
+#' cyclopsData <- convertToCyclopsData(outcomes, covariates, modelType = "clr",
 #'                                     addIntercept = FALSE)
 #'
 #' #Fit model:
 #' fit <- fitCyclopsModel(cyclopsData, prior = createPrior("none"))
 #'
 #' @export
-newConvertToCyclopsData <- function(outcomes,
+convertToCyclopsData <- function(outcomes,
                                     covariates,
                                     modelType = "lr",
                                     addIntercept = TRUE,
                                     checkSorting = TRUE,
                                     checkRowIds = TRUE,
                                     quiet = FALSE) {
-    UseMethod("newConvertToCyclopsData")
+    UseMethod("convertToCyclopsData")
 }
 
-#' @describeIn newConvertToCyclopsData Convert data from two \code{ffdf}
+#' @describeIn convertToCyclopsData Convert data from two \code{ffdf}
 #' @export
-newConvertToCyclopsData.ffdf <- function(outcomes,
+convertToCyclopsData.ffdf <- function(outcomes,
                                          covariates,
                                          modelType = "lr",
                                          addIntercept = TRUE,
@@ -147,7 +200,7 @@ newConvertToCyclopsData.ffdf <- function(outcomes,
                 if(!quiet)
                     writeLines("Sorting covariates by covariateId, stratumId and rowId")
                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
-                covariates <- covariates[ff::ffdforder(covariates[c("stratumId","rowId")]),]
+                covariates <- covariates[ff::ffdforder(covariates[c("covariateId", "stratumId","rowId")]),]
             }
         }
         if (modelType == "cox"){
@@ -215,9 +268,9 @@ newConvertToCyclopsData.ffdf <- function(outcomes,
 
 }
 
-#' @describeIn newConvertToCyclopsData Convert data from two \code{data.frame}
+#' @describeIn convertToCyclopsData Convert data from two \code{data.frame}
 #' @export
-newConvertToCyclopsData.data.frame <- function(outcomes,
+convertToCyclopsData.data.frame <- function(outcomes,
                                                covariates,
                                                modelType = "lr",
                                                addIntercept = TRUE,

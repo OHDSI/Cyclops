@@ -213,7 +213,7 @@ test_that("Poisson xy-construction with offset", {
 
     cyclopsData1 <- convertToCyclopsData(outcomes = sim$outcomes,
                                          covariates = sim$covariates,
-                                         modelType = "pr", checkSorting = FALSE,
+                                         modelType = "pr", checkSorting = TRUE,
                                          checkRowIds = FALSE)
 
     sim$covariates <- sim$covariates[order(sim$covariates$covariateId,
@@ -226,8 +226,8 @@ test_that("Poisson xy-construction with offset", {
     covarNames <- unique(sim$covariates$covariateId)
     loadNewSeqlCyclopsDataMultipleX(cyclopsData2, sim$covariates$covariateId,
                                     sim$covariates$rowId,
-                                    #sim$covariates$covariateValue,
-                                    NULL, # pass NULL if you want indicators instead of sparse
+                                    sim$covariates$covariateValue,
+                                    #NULL, # pass NULL if you want indicators instead of sparse
                                     name = covarNames) # names are not necessary
 
     finalizeSqlCyclopsData(cyclopsData2, addIntercept = FALSE,
