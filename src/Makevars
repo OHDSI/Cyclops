@@ -28,36 +28,41 @@ CXX_STD = CXX11
 
 PKG_CPPFLAGS = -I. -Icyclops -DR_BUILD -DDOUBLE_PRECISION
 
-SOURCES = $(wildcard *.cpp cyclops/*.cpp cyclops/drivers/*.cpp cyclops/engine/*.cpp \
-					cyclops/io/*.cpp cyclops/priors/*.cpp utils/*.cpp \
-                    tinythread/*.cpp)
+# SOURCES = $(wildcard *.cpp cyclops/*.cpp cyclops/drivers/*.cpp cyclops/engine/*.cpp \
+# 					cyclops/io/*.cpp cyclops/priors/*.cpp utils/*.cpp \
+#                     tinythread/*.cpp)
 
-# OBJECTS.cyclops = \
-#     cyclops/CcdInterface.o \
-#     cyclops/CompressedDataMatrix.o \
-#     cyclops/CyclicCoordinateDescent.o \
-#     cyclops/ModelData.o
-# 
-# OBJECTS.drivers = \
-#     cyclops/drivers/AbstractCrossValidationDriver.o \
-#     cyclops/drivers/AbstractDriver.o \
-#     cyclops/drivers/AbstractSelector.o \
-#     cyclops/drivers/AutoSearchCrossValidationDriver.o \
-#     cyclops/drivers/BootstrapDriver.o \
-#     cyclops/drivers/BootstrapSelector.o \
-#     cyclops/drivers/CrossValidationSelector.o \
-#     cyclops/drivers/GridSearchCrossValidationDriver.o \
-#     cyclops/drivers/HierarchyAutoSearchCrossValidationDriver.o \
-#     cyclops/drivers/HierarchyGridSearchCrossValidationDriver.o \
-#     cyclops/drivers/ProportionSelector.o
-#     
-# OBJECTS.engine = \
-#     cyclops/engine/AbstractModelSpecifics.o
-#     
-# OBJECTS.utils = \
-#     utils/HParSearch.o
-#      
-# OBJECTS = $(OBJECTS.cyclops) $(OBJECTS.drivers) \
-#			$(OBJECTS.engine) $(OBJECTS.utils) 
+OBJECTS.cyclops = \
+    cyclops/CcdInterface.o \
+    cyclops/CompressedDataMatrix.o \
+    cyclops/CyclicCoordinateDescent.o \
+    cyclops/ModelData.o \
+    cyclops/Timer.o
 
-OBJECTS = $(SOURCES:.cpp=.o)
+OBJECTS.drivers = \
+    cyclops/drivers/AbstractCrossValidationDriver.o \
+    cyclops/drivers/AbstractDriver.o \
+    cyclops/drivers/AbstractSelector.o \
+    cyclops/drivers/AutoSearchCrossValidationDriver.o \
+    cyclops/drivers/BootstrapDriver.o \
+    cyclops/drivers/BootstrapSelector.o \
+    cyclops/drivers/CrossValidationSelector.o \
+    cyclops/drivers/GridSearchCrossValidationDriver.o \
+    cyclops/drivers/HierarchyAutoSearchCrossValidationDriver.o \
+    cyclops/drivers/HierarchyGridSearchCrossValidationDriver.o \
+    cyclops/drivers/ProportionSelector.o
+    
+OBJECTS.engine = \
+    cyclops/engine/AbstractModelSpecifics.o
+    
+OBJECTS.utils = \
+    utils/HParSearch.o
+
+OBJECTS.thread = \
+    tinythread/tinythread.o
+     
+OBJECTS = $(OBJECTS.cyclops) $(OBJECTS.drivers) \
+          $(OBJECTS.engine) $(OBJECTS.utils) \
+          $(OBJECTS.threads)
+
+# OBJECTS = $(SOURCES:.cpp=.o)
