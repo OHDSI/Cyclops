@@ -395,15 +395,15 @@ protected:
 	}
 
 	void replace(int position, IntVectorPtr colIndices, RealVectorPtr colData, FormatType colFormat) {
-		std::cerr << "Replacement at position: " << position << std::endl;
-		std::cerr << "Ind: " << (colFormat == INDICATOR ? "true" : "false") << std::endl;
-		std::cerr << (colIndices == nullptr ? "null" : "notnull") << std::endl;
-		std::cerr << (colData == nullptr ? "null" : "notnull") << std::endl;
+// 		std::cerr << "Replacement at position: " << position << std::endl;
+// 		std::cerr << "Ind: " << (colFormat == INDICATOR ? "true" : "false") << std::endl;
+// 		std::cerr << (colIndices == nullptr ? "null" : "notnull") << std::endl;
+// 		std::cerr << (colData == nullptr ? "null" : "notnull") << std::endl;
 		auto newColumn = make_unique<CompressedDataColumn>(colIndices, colData, colFormat);
-		std::cerr << "New at " << newColumn.get() << std::endl;
+// 		std::cerr << "New at " << newColumn.get() << std::endl;
 	    allColumns[position] = std::move(newColumn);
-	    std::cerr << "allColumns[" << position << "] = " << allColumns[position].get() << std::endl;
-	    std::cerr << "allColumns[0] = " << allColumns[0].get() << std::endl;
+// 	    std::cerr << "allColumns[" << position << "] = " << allColumns[position].get() << std::endl;
+// 	    std::cerr << "allColumns[0] = " << allColumns[0].get() << std::endl;
 	}
 
 	void insert(DataColumnVector::iterator position, IntVectorPtr colIndices, RealVectorPtr colData, FormatType colFormat) {
