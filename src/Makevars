@@ -63,7 +63,7 @@ OBJECTS.utils = \
 OBJECTS.thread = \
     tinythread/tinythread.o
     
-OBJECT.R = \
+OBJECTS.R = \
     IsSorted.o \
     RcppExports.o \
     RcppModelData.o \
