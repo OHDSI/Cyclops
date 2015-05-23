@@ -163,7 +163,9 @@ simulateCyclopsData <- function(nstrata = 200,
 }
 
 .fitUsingCoxph <- function(sim, coverage = TRUE){
-    require("survival")
+    if (!requireNamespace("survival")) {
+        stop("survival library required")
+    }
     start <- Sys.time()
     covariates <- sim$covariates
     ncovars <- max(covariates$covariateId)
@@ -192,7 +194,9 @@ simulateCyclopsData <- function(nstrata = 200,
 }
 
 .fitUsingGnm <- function(sim,coverage=TRUE){
-    require(gnm)
+    if (!requireNamespace(gnm)) {
+        stop("gnm library required")
+    }
     start <- Sys.time()
     covariates <- sim$covariates
     ncovars <- max(covariates$covariateId)
@@ -383,7 +387,7 @@ coverage <- function(goldStandard, lowerBounds, upperBounds){
 #'
 #' @keywords internal
 plotCyclopsSimulationFit <- function(fit,goldStandard,label){
-    if (require("ggplot2")) {
+    if (requireNamespace("ggplot2")) {
         ggplot2::ggplot(fit, ggplot2::aes(x= goldStandard , y=coef, ymin=fit$lbCi95, ymax=fit$ubCi95), environment=environment()) +
             ggplot2::geom_abline(intercept = 0, slope = 1) +
             ggplot2::geom_pointrange(alpha=0.2) +

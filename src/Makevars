@@ -28,10 +28,6 @@ CXX_STD = CXX11
 
 PKG_CPPFLAGS = -I. -Icyclops -DR_BUILD -DDOUBLE_PRECISION
 
-# SOURCES = $(wildcard *.cpp cyclops/*.cpp cyclops/drivers/*.cpp cyclops/engine/*.cpp \
-# 					cyclops/io/*.cpp cyclops/priors/*.cpp utils/*.cpp \
-#                     tinythread/*.cpp)
-
 OBJECTS.cyclops = \
     cyclops/CcdInterface.o \
     cyclops/CompressedDataMatrix.o \
@@ -52,6 +48,12 @@ OBJECTS.drivers = \
     cyclops/drivers/HierarchyGridSearchCrossValidationDriver.o \
     cyclops/drivers/ProportionSelector.o
     
+OBJECTS.priors = \
+    cyclops/priors/CovariatePrior.o
+    
+OBJECTS.io = \
+    cyclops/io/InputReader.o
+    
 OBJECTS.engine = \
     cyclops/engine/AbstractModelSpecifics.o
     
@@ -60,9 +62,15 @@ OBJECTS.utils = \
 
 OBJECTS.thread = \
     tinythread/tinythread.o
+    
+OBJECT.R = \
+    IsSorted.o \
+    RcppExports.o \
+    RcppModelData.o \
+    RcppCyclopsInterface.o \
+    RcppIsSorted.o
      
 OBJECTS = $(OBJECTS.cyclops) $(OBJECTS.drivers) \
           $(OBJECTS.engine) $(OBJECTS.utils) \
-          $(OBJECTS.threads)
-
-# OBJECTS = $(SOURCES:.cpp=.o)
+          $(OBJECTS.threads) $(OBJECTS.R) \
+          $(OBJECTS.priors) $(OBJECTS.io)
