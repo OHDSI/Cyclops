@@ -194,7 +194,7 @@ simulateCyclopsData <- function(nstrata = 200,
 }
 
 .fitUsingGnm <- function(sim,coverage=TRUE){
-    if (!requireNamespace(gnm)) {
+    if (!requireNamespace("gnm")) {
         stop("gnm library required")
     }
     start <- Sys.time()
