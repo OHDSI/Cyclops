@@ -7,7 +7,7 @@ compiler:
 before_install:
   - curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
   - chmod 755 ./travis-tool.sh
-  - echo "CXXFLAGS=-O2" .R/Makevars
+  - sed 's/-g//' /etc/R/Makeconf > /etc/R/Makeconf
   - ./travis-tool.sh bootstrap
   - ./travis-tool.sh install_devtools
   - ./travis-tool.sh install_deps
