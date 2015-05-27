@@ -18,7 +18,7 @@ before_script:
 script:
 #    - mkdir -p standalone/build && (cd standalone/build && cmake .. && make)
     - ./travis-tool.sh run_tests
-    - ls -l Cyclops.Rcheck
+    - ls -l Cyclops.Rcheck/Cyclops
     
 after_failure:
     - ./travis-tool.sh dump_logs
