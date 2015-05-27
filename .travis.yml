@@ -10,7 +10,7 @@ before_install:
   - curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
   - chmod 755 ./travis-tool.sh
   - ./travis-tool.sh bootstrap
-  - sudo sed 's/-g//' /etc/R/Makeconf > tmp
+  - sudo sed 's/-g//g' /etc/R/Makeconf > tmp
   - sudo cp tmp /etc/R/Makeconf  
   - ./travis-tool.sh install_devtools
   - ./travis-tool.sh install_deps
@@ -23,7 +23,6 @@ script:
 #    - mkdir -p standalone/build && (cd standalone/build && cmake .. && make)
     - ./travis-tool.sh run_tests
     - ls -l Cyclops.Rcheck/Cyclops/libs
-    - less /etc/R/Makeconf
     
 after_failure:
     - ./travis-tool.sh dump_logs
