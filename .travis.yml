@@ -10,7 +10,8 @@ before_install:
   - curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
   - chmod 755 ./travis-tool.sh
   - ./travis-tool.sh bootstrap
-  - sed 's/-g//' /etc/R/Makeconf > /etc/R/Makeconf  
+  - sudo sed 's/-g//' /etc/R/Makeconf > tmp
+  - sudo cp tmp /etc/R/Makeconf  
   - ./travis-tool.sh install_devtools
   - ./travis-tool.sh install_deps
 #  - ./travis-tool.sh install_r testthat BH RcppEigen gnm ffbase ff gglot2
