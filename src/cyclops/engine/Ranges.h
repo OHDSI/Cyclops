@@ -155,7 +155,39 @@ namespace helper {
 //     }
 
     auto getRangeAllPredictiveLikelihood(const int length, const RealVector& y, const RealVector& xBeta,
-            const RealVector& denominator, const real* weights, const int* pid) ->
+            const RealVector& denominator, const real* weights, const int* pid, std::true_type) ->
+
+        boost::iterator_range<
+            boost::zip_iterator<
+                boost::tuple<
+                    decltype(std::begin(y)),  // 0
+                    decltype(std::begin(xBeta)), // 1
+                    decltype(std::begin(denominator)), // 2
+                    decltype(begin(weights))
+                >
+            >
+        > {
+
+        auto x0 = std::begin(y);
+        auto x1 = std::begin(xBeta);
+        auto x2 = std::begin(denominator);
+        auto x3 = begin(weights);
+
+ 		return {
+            boost::make_zip_iterator(
+                boost::make_tuple(
+                	x0, x1, x2, x3
+                )),
+            boost::make_zip_iterator(
+                boost::make_tuple(
+                	x0 + length, x1 + length, x2 + length, x3 + length
+                )
+            )
+        };
+    }
+
+    auto getRangeAllPredictiveLikelihood(const int length, const RealVector& y, const RealVector& xBeta,
+            const RealVector& denominator, const real* weights, const int* pid, std::false_type) ->
 
         boost::iterator_range<
             boost::zip_iterator<
