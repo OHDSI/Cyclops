@@ -80,6 +80,7 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
 #' @param addIntercept  Add an intercept to the model?
 #' @param checkSorting  Check if the data are sorted appropriately, and if not, sort.
 #' @param checkRowIds   Check if all rowIds in the covariates appear in the outcomes.
+#' @param loadSequentially Load covariates sequentially, checking each for sparse vs. indicator optimization
 #' @param quiet         If true, (warning) messages are surpressed.
 #'
 #' @details
@@ -102,9 +103,9 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
 #'
 #' Note: If checkSorting is turned off, the outcome table should be sorted by stratumId (if present)
 #' and then rowId except for Cox regression when the table should be sorted by
-#' stratumId (if present), -time, and rowId. The covariate table should be sorted by covariateId, stratumId
+#' stratumId (if present), -time, y, and rowId. The covariate table should be sorted by covariateId, stratumId
 #' (if present), rowId except for Cox regression when the table should be sorted by covariateId,
-#' stratumId (if present), -time, and rowId.
+#' stratumId (if present), -time, y, and rowId.
 #'
 #' @return
 #' An object of type cyclopsData
@@ -135,6 +136,7 @@ convertToCyclopsData <- function(outcomes,
                                     addIntercept = TRUE,
                                     checkSorting = TRUE,
                                     checkRowIds = TRUE,
+                                 loadSequentially = FALSE,
                                     quiet = FALSE) {
     UseMethod("convertToCyclopsData")
 }
@@ -147,6 +149,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
                                          addIntercept = TRUE,
                                          checkSorting = TRUE,
                                          checkRowIds = TRUE,
+                                      loadSequentially = FALSE,
                                          quiet = FALSE){
     if ((modelType == "clr" | modelType == "cpr") & addIntercept){
         if(!quiet)
@@ -252,16 +255,34 @@ convertToCyclopsData.ffdf <- function(outcomes,
     if (addIntercept & modelType != "cox")
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
 
-    for (i in bit::chunk(covariates)){
-        #covariatesChunk <- covariates[i,]
-        covarNames <- unique(covariates$covariateId[i,])
-        loadNewSeqlCyclopsDataMultipleX(dataPtr,
-                                        covariates$covariateId[i,],
-                                        covariates$rowId[i,],
-                                        covariates$covariateValue[i,],
-                                        name = covarNames,
-                                        append = TRUE)
+    # Remove zero-entries and duplicates
+    covariates <- unique(covariates[covariates$covariateValue != 0,])
+
+    if (loadSequentially) {
+        lapply(X = split(covariates, covariates$covariateId), FUN = function(x) {
+            if (any(x$covariateValue != 1)) { # Sparse
+                loadNewSqlCyclopsDataX(dataPtr, x$covariateId[1], x$rowId, x$covariateValue, name = x$covariateId[1])
+            } else { # Indicator
+                loadNewSqlCyclopsDataX(dataPtr, x$covariateId[1], x$rowId, NULL, name = x$covariateId[1])
+            }
+        })
+    } else {
+        sparse <- any(covariates$covariateValue != 1)
+        for (i in bit::chunk(covariates)){
+            covarNames <- unique(covariates$covariateId[i,])
+            loadNewSeqlCyclopsDataMultipleX(dataPtr,
+                                            covariates$covariateId[i,],
+                                            covariates$rowId[i,],
+                                            if (sparse) {
+                                                covariates$covariateValue[i,]
+                                            } else {
+                                                NULL
+                                            },
+                                            name = covarNames, # TODO Does this really work?
+                                            append = TRUE)
+        }
     }
+
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
     return(dataPtr)
@@ -276,6 +297,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                                addIntercept = TRUE,
                                                checkSorting = TRUE,
                                                checkRowIds = TRUE,
+                                            loadSequentially = FALSE,
                                                quiet = FALSE){
     if ((modelType == "clr" | modelType == "cpr") & addIntercept){
         if(!quiet)
@@ -292,6 +314,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
     }
     if (modelType == "cox" & is.null(outcomes$stratumId)){
         outcomes$stratumId <- 0
+        covariates$stratumId <- 0 # MAS: Added
     }
 
     if (checkSorting){
@@ -356,8 +379,27 @@ convertToCyclopsData.data.frame <- function(outcomes,
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
 
     covarNames <- unique(covariates$covariateId)
-    loadNewSeqlCyclopsDataMultipleX(dataPtr, covariates$covariateId, covariates$rowId, covariates$covariateValue, name = covarNames)
 
+    # Remove zero-entries and duplicates
+    covariates <- unique(covariates[covariates$covariateValue != 0,])
+
+    if (loadSequentially) {
+        lapply(X = split(covariates, covariates$covariateId), FUN = function(x) {
+            if (any(x$covariateValue != 1)) { # Sparse
+                loadNewSqlCyclopsDataX(dataPtr, x$covariateId[1], x$rowId, x$covariateValue, name = x$covariateId[1])
+            } else { # Indicator
+                loadNewSqlCyclopsDataX(dataPtr, x$covariateId[1], x$rowId, NULL, name = x$covariateId[1])
+            }
+        })
+    } else {
+        if (any(covariates$covariateValue != 1)) {
+            # Load all as sparse
+            loadNewSeqlCyclopsDataMultipleX(dataPtr, covariates$covariateId, covariates$rowId, covariates$covariateValue, name = covarNames)
+        } else {
+            # Load all as indicator
+            loadNewSeqlCyclopsDataMultipleX(dataPtr, covariates$covariateId, covariates$rowId, NULL, name = covarNames)
+        }
+    }
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
 
