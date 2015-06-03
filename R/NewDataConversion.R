@@ -256,7 +256,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
 
     # Remove zero-entries and duplicates
-    covariates <- unique(covariates[covariates$covariateValue != 0,])
+#    covariates <- unique(covariates[covariates$covariateValue != 0,]) # Necessary ???? Throws error!
 
     if (loadSequentially) {
         lapply(X = split(covariates, covariates$covariateId), FUN = function(x) {
