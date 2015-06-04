@@ -84,9 +84,9 @@ public:
 	
 	double getLogLikelihood(void);
 
-	double getPredictiveLogLikelihood(real* weights);
+	double getPredictiveLogLikelihood(double* weights);
 
-	void getPredictiveEstimates(real* y, real* weights) const;
+	void getPredictiveEstimates(double* y, double* weights) const;
 
 	double getLogPrior(void);
 	
@@ -125,7 +125,7 @@ public:
 
 	void setPriorType(int priorType);
 
-	void setWeights(real* weights);
+	void setWeights(double* weights);
 
 	void setLogisticRegression(bool idoLR);
 
@@ -225,7 +225,7 @@ protected:
 	virtual void updateXBeta(double delta, int index);
 
 	template <class IteratorType>
-	void updateXBetaImpl(real delta, int index);
+	void updateXBetaImpl(double delta, int index);
 
 	virtual void computeRemainingStatistics(bool skip, int index);
 	
@@ -247,21 +247,21 @@ protected:
 						double *gradient,
 						double *hessian);
 
-	template <class IteratorType>
-	inline real computeHessian(
-			real numer, real numer2, real denom,
-			real g, real t);
+// 	template <class IteratorType>
+// 	inline real computeHessian(
+// 			real numer, real numer2, real denom,
+// 			real g, real t);
+// 
+// 	template <class IteratorType>
+// 	inline void incrementGradientAndHessian(
+// 			real* gradient, real* hessian,
+// 			real numer, real numer2, real denom, int nEvents);
+
 
 	template <class IteratorType>
-	inline void incrementGradientAndHessian(
-			real* gradient, real* hessian,
-			real numer, real numer2, real denom, int nEvents);
+	void axpy(double* y, const double alpha, const int index);
 
-
-	template <class IteratorType>
-	void axpy(real* y, const real alpha, const int index);
-
-	void axpyXBeta(const real beta, const int index);
+	void axpyXBeta(const double beta, const int index);
 
 	virtual void getDenominators(void);
 
@@ -320,20 +320,18 @@ protected:
 
 // 	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
-// 	real* hOffs;  // K-vector
- 	const real* hY; // K-vector
+ 	const double* hY; // K-vector
 // 	int* hNEvents; // K-vector
 //	int* hPid; // N-vector
 	const int* hPid;
 	int** hXColumnRowIndicators; // J-vector
  	
-//	real* hBeta;
-	typedef std::vector<real> RealVector;
+	//typedef std::vector<real> RealVector;
 	typedef std::vector<double> DoubleVector;
 	DoubleVector hBeta;
 	
-	RealVector& hXBeta; // TODO Delegate to ModelSpecifics
-	RealVector& hXBetaSave; // Delegate
+	DoubleVector& hXBeta; // TODO Delegate to ModelSpecifics
+	DoubleVector& hXBetaSave; // Delegate
 //	double* hDelta;
 	DoubleVector hDelta;
 	std::vector<bool> fixBeta;
@@ -349,8 +347,6 @@ protected:
 //	double sigma2Beta;
 //	double lambda;
 
-//	real denomNullValue;
-
 	bool sufficientStatisticsKnown;
 	bool xBetaKnown;
 	bool fisherInformationKnown;
@@ -359,17 +355,7 @@ protected:
 	bool validWeights;
 	bool useCrossValidation;
 	bool doLogisticRegression;
-//	real* hWeights;
-	RealVector hWeights; // Make DoubleVector and delegate to ModelSpecifics
-
-	// temporary variables
-//	real* expXBeta;
-//	real* offsExpXBeta;
-//	real* denomPid;
-//	real* numerPid;
-//	real* numerPid2;
-// 	real* xOffsExpXBeta;
-//	real* hXjY;
+	DoubleVector hWeights; // Make DoubleVector and delegate to ModelSpecifics
 
 	int updateCount;
 	int likelihoodCount;
@@ -382,17 +368,13 @@ protected:
 //	std::vector<std::vector<int>* > sparseIndices;
 //#endif
 	
-#ifdef NO_FUSE
-	real* wPid;
-#endif
-
 	Matrix hessianMatrix;
 	Matrix varianceMatrix;
 
 	typedef std::map<int, int> IndexMap;
 	IndexMap hessianIndexMap;
 
-	typedef std::pair<int, real> SetBetaEntry;
+	typedef std::pair<int, double> SetBetaEntry;
 	typedef std::deque<SetBetaEntry> SetBetaContainer;
 
 	SetBetaContainer setBetaList;

@@ -17,39 +17,12 @@
 #include <list>
 
 #include "CyclicCoordinateDescent.h"
-// #include "io/InputReader.h"
 #include "Iterators.h"
 #include "Timing.h"
-//#include "priors/JointPrior.h"
-// #include "io/ProgressLogger.h"
-
-//#ifdef MY_RCPP_FLAG
-//	#include <R.h>
-//#else
-//	void Rprintf(...) {
-//		// Do nothing
-//	}
-//#endif
-
-#ifndef MY_RCPP_FLAG
-#define PI	3.14159265358979323851280895940618620443274267017841339111328125
-#else
-//#include "Rcpp.h"
-#endif
 
 namespace bsccs {
 
-using namespace std;
-
-// void compareIntVector(int* vec0, int* vec1, int dim, const char* name) {
-// 	for (int i = 0; i < dim; i++) {
-// 		if (vec0[i] != vec1[i]) {
-// 			cerr << "Error at " << name << "[" << i << "]: ";
-// 			cerr << vec0[i] << " != " << vec1[i] << endl;
-// 			exit(0);
-// 		}
-// 	}
-// }
+using namespace std; // TODO Bad form
 
 CyclicCoordinateDescent::CyclicCoordinateDescent(
 			//ModelData* reader,
@@ -183,63 +156,11 @@ void CyclicCoordinateDescent::init(bool offset) {
 	hDelta.resize(J, static_cast<double>(2.0));
 	hBeta.resize(J, static_cast<double>(0.0));
 
-// 	hXBeta = (real*) calloc(K, sizeof(real));
-// 	hXBetaSave = (real*) calloc(K, sizeof(real));
-	hXBeta.resize(K, static_cast<real>(0.0));
-	hXBetaSave.resize(K, static_cast<real>(0.0));
+	hXBeta.resize(K, static_cast<double>(0.0));
+	hXBetaSave.resize(K, static_cast<double>(0.0));
 
 	fixBeta.resize(J, false);
-
-	// SHOULD BE HANDLED IN MODELDATA CONSTRUCTORS
-// 	//Recode patient ids  TODO Delegate to grouped model
-// 	int currentNewId = 0;
-// 	int currentOldId = hPid[0];
-//
-// 	for(int i = 0; i < K; i++) {
-// 		if (hPid[i] != currentOldId) {
-// 			currentOldId = hPid[i];
-// 			currentNewId++;
-// 		}
-// 		hPid[i] = currentNewId;
-// 	}
-
-	// Init temporary variables
-//	offsExpXBeta = (real*) malloc(sizeof(real) * K);
-//	xOffsExpXBeta = (real*) malloc(sizeof(real) * K);
-
-	// Put numer, numer2 and denom in single memory block, with first entries on 16-word boundary
-// 	int alignedLength = getAlignedLength(N);
-// 	numerPid = (real*) malloc(sizeof(real) * 3 * alignedLength);
-// 	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
-// 	numerPid2 = numerPid + 2 * alignedLength;
-
-//	hNEvents = (int*) malloc(sizeof(int) * N);
-//	hXjY = (real*) malloc(sizeof(real) * J);
 	hWeights.resize(0);
-
-// #ifdef NO_FUSE
-// 	wPid = (real*) malloc(sizeof(real) * alignedLength);
-// #endif
-
-	// TODO Suspect below is not necessary for non-grouped data.
-	// If true, then fill with pointers to CompressedDataColumn and do not delete in destructor
-// 	for (int j = 0; j < J; ++j) {
-// 		if (hXI->getFormatType(j) == DENSE) {
-// 			sparseIndices.push_back(NULL);
-// 		} else {
-// 			std::set<int> unique;
-// 			const int n = hXI->getNumberOfEntries(j);
-// 			const int* indicators = hXI->getCompressedColumnVector(j);
-// 			for (int j = 0; j < n; j++) { // Loop through non-zero entries only
-// 				const int k = indicators[j];
-// 				const int i = hPid[k]; // ERROR HERE IN STRAT-COX, ALSO CONSIDER TIES, MOVE TO ENGINE???
-// 				unique.insert(i);
-// 			}
-// 			std::vector<int>* indices = new std::vector<int>(unique.begin(),
-// 					unique.end());
-// 			sparseIndices.push_back(indices);
-// 		}
-// 	}
 
 	useCrossValidation = false;
 	validWeights = false;
@@ -317,7 +238,7 @@ void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
 	outLog.close();
 }
 
-double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
+double CyclicCoordinateDescent::getPredictiveLogLikelihood(double* weights) {
 
 	xBetaKnown = false;
 
@@ -337,7 +258,7 @@ double CyclicCoordinateDescent::getPredictiveLogLikelihood(real* weights) {
 	return modelSpecifics.getPredictiveLogLikelihood(weights); // TODO Pass double
 }
 
-void CyclicCoordinateDescent::getPredictiveEstimates(real* y, real* weights) const {
+void CyclicCoordinateDescent::getPredictiveEstimates(double* y, double* weights) const {
 	modelSpecifics.getPredictiveEstimates(y, weights);
 }
 
@@ -463,7 +384,7 @@ void CyclicCoordinateDescent::setBeta(int i, double beta) {
 	varianceKnown = false;
 }
 
-void CyclicCoordinateDescent::setWeights(real* iWeights) {
+void CyclicCoordinateDescent::setWeights(double* iWeights) {
 
 	if (iWeights == NULL) {
 		if (hWeights.size() != 0) {
@@ -477,7 +398,7 @@ void CyclicCoordinateDescent::setWeights(real* iWeights) {
 	} else {
 
 		if (hWeights.size() != static_cast<size_t>(K)) {
-			hWeights.resize(K); // = (real*) malloc(sizeof(real) * K);
+			hWeights.resize(K); // = (double*) malloc(sizeof(double) * K);
 		}
 		for (int i = 0; i < K; ++i) {
 			hWeights[i] = iWeights[i];
@@ -494,7 +415,7 @@ double CyclicCoordinateDescent::getLogPrior(void) {
 
 double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
 	if (convergenceType == GRADIENT) {
-		real criterion = 0;
+		double criterion = 0;
 		if (useCrossValidation) {
 			for (int i = 0; i < K; i++) {
 				criterion += hXBeta[i] * hY[i] * hWeights[i];
@@ -537,7 +458,7 @@ double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 }
 
 void CyclicCoordinateDescent::saveXBeta(void) {
-	memcpy(hXBetaSave.data(), hXBeta.data(), K * sizeof(real));
+	memcpy(hXBetaSave.data(), hXBeta.data(), K * sizeof(double));
 }
 
 void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
@@ -899,7 +820,7 @@ void CyclicCoordinateDescent::findMode(
                 logger->writeLine(stream);
 			}
 
-			logger->yield();			// This is not re-entrant safe
+			logger->yield();
 		}
 	}
 	lastIterationCount = iteration;
@@ -1072,7 +993,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 }
 
 template <class IteratorType>
-void CyclicCoordinateDescent::axpy(real* y, const real alpha, const int index) {
+void CyclicCoordinateDescent::axpy(double* y, const double alpha, const int index) {
 	IteratorType it(hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();
@@ -1080,8 +1001,8 @@ void CyclicCoordinateDescent::axpy(real* y, const real alpha, const int index) {
 	}
 }
 
-void CyclicCoordinateDescent::axpyXBeta(const real beta, const int j) {
-	if (beta != static_cast<real>(0.0)) {
+void CyclicCoordinateDescent::axpyXBeta(const double beta, const int j) {
+	if (beta != static_cast<double>(0.0)) {
 		switch (hXI.getFormatType(j)) {
 		case INDICATOR:
 			axpy < IndicatorIterator > (hXBeta.data(), beta, j);
@@ -1126,7 +1047,7 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 
 void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
 	// Update beta
-	real realDelta = static_cast<real>(delta);
+	double realDelta = static_cast<double>(delta);
 	hBeta[index] += delta;
 
 	// Delegate
