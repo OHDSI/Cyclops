@@ -370,12 +370,14 @@ int cyclopsLoadDataMultipleX(Environment x,
 		const std::vector<double>& covariateValue,
 		const bool checkCovariateIds,
 		const bool checkCovariateBounds,
-		const bool append) {
+		const bool append,
+		const bool forceSparse) {
 
 	using namespace bsccs;
 	XPtr<ModelData> data = parseEnvironmentForPtr(x);
 
-	return data->loadMultipleX(covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append);
+	return data->loadMultipleX(covariateId, rowId, covariateValue, checkCovariateIds,
+                            checkCovariateBounds, append, forceSparse);
 }
 
 // [[Rcpp::export(".loadCyclopsDataX")]]

@@ -457,8 +457,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsLoadDataMultipleX
-int cyclopsLoadDataMultipleX(Environment x, const std::vector<int64_t>& covariateId, const std::vector<int64_t>& rowId, const std::vector<double>& covariateValue, const bool checkCovariateIds, const bool checkCovariateBounds, const bool append);
-RcppExport SEXP Cyclops_cyclopsLoadDataMultipleX(SEXP xSEXP, SEXP covariateIdSEXP, SEXP rowIdSEXP, SEXP covariateValueSEXP, SEXP checkCovariateIdsSEXP, SEXP checkCovariateBoundsSEXP, SEXP appendSEXP) {
+int cyclopsLoadDataMultipleX(Environment x, const std::vector<int64_t>& covariateId, const std::vector<int64_t>& rowId, const std::vector<double>& covariateValue, const bool checkCovariateIds, const bool checkCovariateBounds, const bool append, const bool forceSparse);
+RcppExport SEXP Cyclops_cyclopsLoadDataMultipleX(SEXP xSEXP, SEXP covariateIdSEXP, SEXP rowIdSEXP, SEXP covariateValueSEXP, SEXP checkCovariateIdsSEXP, SEXP checkCovariateBoundsSEXP, SEXP appendSEXP, SEXP forceSparseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
@@ -469,7 +469,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const bool >::type checkCovariateIds(checkCovariateIdsSEXP);
     Rcpp::traits::input_parameter< const bool >::type checkCovariateBounds(checkCovariateBoundsSEXP);
     Rcpp::traits::input_parameter< const bool >::type append(appendSEXP);
-    __result = Rcpp::wrap(cyclopsLoadDataMultipleX(x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append));
+    Rcpp::traits::input_parameter< const bool >::type forceSparse(forceSparseSEXP);
+    __result = Rcpp::wrap(cyclopsLoadDataMultipleX(x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append, forceSparse));
     return __result;
 END_RCPP
 }

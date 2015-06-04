@@ -183,7 +183,8 @@ test_that("Test COO-constructor", {
     dataPtrS <- createSqlCyclopsData(modelType = "pr")
     loadNewSqlCyclopsDataY(dataPtrS, NULL, c(1:9), counts, NULL)  # TODO Crashes without row IDs
     loadNewSeqlCyclopsDataMultipleX(dataPtrS, covariateId, rowId, rep(1,length(covariateId)),
-                                    name = c("(Intercept)","outcome2","outcome3","treatment2","treatment3"))
+                                    name = c("(Intercept)","outcome2","outcome3","treatment2","treatment3"),
+                                    forceSparse = TRUE)
     expect_equal(summary(dataPtrS)[,"type"], as.factor(rep("sparse",5)))
     expect_equal(coef(fitCyclopsModel(dataPtrS)), coef(glmFit), tolerance = tolerance)
 
@@ -204,6 +205,20 @@ test_that("Test COO-constructor", {
     cf <- coef(fitCyclopsModel(dataPtrA))
     names(cf) <- c("(Intercept)","outcome2","outcome3","treatment2","treatment3")
     expect_equal(cf, coef(glmFit), tolerance = tolerance)
+})
+
+test_that("Data errors and casting in COO-constructor", {
+    dataPtr <- createSqlCyclopsData(modelType = "lr")
+    expect_error(loadNewSeqlCyclopsDataMultipleX(dataPtr, c(1,1), c(1,1), NULL), "1 - 1")
+
+    loadNewSeqlCyclopsDataMultipleX(dataPtr, c(2,2), c(1,2), c(1,1))
+    expect_equal(as.character(summary(dataPtr)[2,"type"]), "indicator")
+
+    loadNewSeqlCyclopsDataMultipleX(dataPtr, c(3,3), c(1,2), c(1,2))
+    expect_equal(as.character(summary(dataPtr)[3,"type"]), "sparse")
+
+    loadNewSeqlCyclopsDataMultipleX(dataPtr, c(4,4), c(1,2), c(0,1))
+    expect_equal(as.character(summary(dataPtr)[4,"type"]), "indicator")
 })
 
 test_that("Poisson xy-construction with offset", {

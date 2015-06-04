@@ -575,12 +575,16 @@ loadNewSeqlCyclopsDataMultipleX <- function(object,
                                             append = FALSE,
                                             checkSorting = FALSE,
                                             checkCovariateIds = FALSE,
-                                            checkCovariateBounds = FALSE) {
+                                            checkCovariateBounds = FALSE,
+                                            forceSparse = FALSE) {
     if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
 
     if (length(covariateId) != length(rowId)) stop("Vector length mismatch")
 
-    if (is.null(covariateValue)) covariateValue <- as.numeric(c())
+    if (is.null(covariateValue)) {
+        if (forceSparse) stop("Must provide covariate values when forcing sparse")
+        covariateValue <- as.numeric(c())
+    }
     else {
         if (length(covariateId) != length(covariateValue)) stop ("Vector length mismatch")
     }
@@ -596,7 +600,8 @@ loadNewSeqlCyclopsDataMultipleX <- function(object,
                                        covariateValue,
                                        checkCovariateIds,
                                        checkCovariateBounds,
-                                       append)
+                                       append,
+                                       forceSparse)
 
     if (!missing(name)) {
         if(is.null(object$coefficientNames)) {

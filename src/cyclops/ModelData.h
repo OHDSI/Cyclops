@@ -109,7 +109,8 @@ public:
 		const std::vector<double>& covariateValue,
 		const bool checkCovariateIds,
 		const bool checkCovariateBounds,
-		const bool append
+		const bool append,
+		const bool forceSparse
 	);
 
 	const int* getPidVector() const;
