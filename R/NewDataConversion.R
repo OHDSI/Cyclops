@@ -260,24 +260,16 @@ convertToCyclopsData.ffdf <- function(outcomes,
 
     if (loadSequentially) {
         lapply(X = split(covariates, covariates$covariateId), FUN = function(x) {
-            if (any(x$covariateValue != 1)) { # Sparse
-                loadNewSqlCyclopsDataX(dataPtr, x$covariateId[1], x$rowId, x$covariateValue, name = x$covariateId[1])
-            } else { # Indicator
-                loadNewSqlCyclopsDataX(dataPtr, x$covariateId[1], x$rowId, NULL, name = x$covariateId[1])
-            }
+            # Sparse vs indicator determined inside Cyclops
+            loadNewSqlCyclopsDataX(dataPtr, x$covariateId[1], x$rowId, x$covariateValue, name = x$covariateId[1])
         })
     } else {
-        sparse <- any(covariates$covariateValue != 1)
         for (i in bit::chunk(covariates)){
             covarNames <- unique(covariates$covariateId[i,])
             loadNewSeqlCyclopsDataMultipleX(dataPtr,
                                             covariates$covariateId[i,],
                                             covariates$rowId[i,],
-                                            if (sparse) {
-                                                covariates$covariateValue[i,]
-                                            } else {
-                                                NULL
-                                            },
+                                            covariates$covariateValue[i,],
                                             name = covarNames, # TODO Does this really work?
                                             append = TRUE)
         }
@@ -380,25 +372,13 @@ convertToCyclopsData.data.frame <- function(outcomes,
 
     covarNames <- unique(covariates$covariateId)
 
-    # Remove zero-entries and duplicates
-    covariates <- unique(covariates[covariates$covariateValue != 0,])
-
     if (loadSequentially) {
         lapply(X = split(covariates, covariates$covariateId), FUN = function(x) {
-            if (any(x$covariateValue != 1)) { # Sparse
-                loadNewSqlCyclopsDataX(dataPtr, x$covariateId[1], x$rowId, x$covariateValue, name = x$covariateId[1])
-            } else { # Indicator
-                loadNewSqlCyclopsDataX(dataPtr, x$covariateId[1], x$rowId, NULL, name = x$covariateId[1])
-            }
+            # Sparse vs indicator determined inside Cyclops
+            loadNewSqlCyclopsDataX(dataPtr, x$covariateId[1], x$rowId, x$covariateValue, name = x$covariateId[1])
         })
     } else {
-        if (any(covariates$covariateValue != 1)) {
-            # Load all as sparse
-            loadNewSeqlCyclopsDataMultipleX(dataPtr, covariates$covariateId, covariates$rowId, covariates$covariateValue, name = covarNames)
-        } else {
-            # Load all as indicator
-            loadNewSeqlCyclopsDataMultipleX(dataPtr, covariates$covariateId, covariates$rowId, NULL, name = covarNames)
-        }
+        loadNewSeqlCyclopsDataMultipleX(dataPtr, covariates$covariateId, covariates$rowId, covariates$covariateValue, name = covarNames)
     }
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)

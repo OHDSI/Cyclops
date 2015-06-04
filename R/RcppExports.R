@@ -206,8 +206,8 @@ getNumberOfTypes <- function(object) {
     invisible(.Call('Cyclops_cyclopsLoadDataY', PACKAGE = 'Cyclops', x, stratumId, rowId, y, time))
 }
 
-.loadCyclopsDataMultipleX <- function(x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append) {
-    .Call('Cyclops_cyclopsLoadDataMultipleX', PACKAGE = 'Cyclops', x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append)
+.loadCyclopsDataMultipleX <- function(x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append, forceSparse) {
+    .Call('Cyclops_cyclopsLoadDataMultipleX', PACKAGE = 'Cyclops', x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append, forceSparse)
 }
 
 .loadCyclopsDataX <- function(x, covariateId, rowId, covariateValue, replace, append) {

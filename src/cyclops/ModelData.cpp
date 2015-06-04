@@ -138,9 +138,8 @@ int ModelData::loadMultipleX(
 		const std::vector<double>& covariateValues,
 		const bool checkCovariateIds,
 		const bool checkCovariateBounds,
-		const bool append) {
-
-//	FormatType type = (covariateValues.size() == 0 ? INDICATOR : SPARSE);
+		const bool append,
+		const bool forceSparse) {
 
 	auto columnIdItr = std::begin(covariateIds);
 	const auto columnIdEnd = std::end(covariateIds);
@@ -163,63 +162,67 @@ int ModelData::loadMultipleX(
 		--previousColumnId; // not found
 	}
 
+	const bool hasCovariateValues = covariateValues.size() > 0;
+	const bool useRowMap = rowIds.size() > 0;
 
-	std::function<size_t(IdType)>
-    xform = [this](IdType id) {
-        return rowIdMap[id];
-    };
+// 	std::function<size_t(IdType)>
+//     xform = [this](IdType id) {
+//         return rowIdMap[id];
+//     };
+
 
 	while (columnIdItr != columnIdEnd) {
 
-		FormatType format =
-			(covariateValues.size() == 0 ? INDICATOR :
-// 				(index >= 0 ? getFormatType(index) :
-// 					(*covariateValueItr == 1.0 ? INDICATOR : SPARSE)
-// 				)
-				SPARSE
-			);
-
-		if (index < 0) { // Create new column
+		if (index < 0) { // Create new column if necessary
+		    const auto format =
+		        (hasCovariateValues &&
+		            (!(*covariateValueItr == 1.0 || *covariateValueItr == 0.0) // not 0 or 1
+                    || forceSparse)) ?
+		                SPARSE : INDICATOR;
 	        push_back(format);
 	        index = getNumberOfColumns() - 1;
 	        getColumn(index).add_label(*columnIdItr);
         }
 
-		// Grab whole column
-		const auto columnId = *columnIdItr;
-		auto columnBegin = columnIdItr;
-
-		while (columnIdItr != columnIdEnd) { // Same as std::find_if
-			if (*columnIdItr != columnId) break;
-			++columnIdItr;
-		}
-		auto length = std::distance(columnBegin, columnIdItr);
-
 		// Append data into CompressedDataColumn
 		CompressedDataColumn& column = getColumn(index);
-		if (rowIds.size() > 0) {
-			std::copy(
-				boost::make_transform_iterator(rowIdItr, xform),
-				boost::make_transform_iterator(rowIdItr + length, xform),
-				std::back_inserter(column.getColumnsVector())
-			);
-		} else {
-			std::copy(
-				rowIdItr, rowIdItr + length,
-				std::back_inserter(column.getColumnsVector())
-			);
-		}
-		rowIdItr += length;
+		FormatType format = column.getFormatType();
 
-		if (format == SPARSE) {
-			std::copy(
-				covariateValueItr, covariateValueItr + length,
-				std::back_inserter(column.getDataVector())
-			);
-			covariateValueItr += length;
-		}
+		// Grab whole column worth of data
+		const auto columnId = *columnIdItr;
+		auto lastRowId = *rowIdItr - 1;
 
-		index = -1;
+		while (columnIdItr != columnIdEnd && *columnIdItr == columnId) {
+		    if (*rowIdItr == lastRowId) {
+		        std::ostringstream stream;
+		        stream << "Repeated row-column entry at ";
+		        stream << *rowIdItr << " - " << *columnIdItr;
+		        throw std::range_error(stream.str());
+		    }
+		    const auto mappedRow = (useRowMap) ? rowIdMap[*rowIdItr] : *rowIdItr;
+		    if (hasCovariateValues) {
+                if (*covariateValueItr != 0.0) {
+                    if (format == INDICATOR && *covariateValueItr != 1.0) {
+                        // Upcast
+                        column.convertColumnToSparse();
+                        format = SPARSE;
+                    }
+                    if (format == SPARSE) {
+                        column.getDataVector().push_back(*covariateValueItr);
+                    }
+                    column.getColumnsVector().push_back(mappedRow);
+                }
+		        ++covariateValueItr;
+		    } else {
+		        column.getColumnsVector().push_back(mappedRow);
+		    }
+
+		    lastRowId = *rowIdItr;
+
+			++columnIdItr;
+			++rowIdItr;
+		}
+		index = -1; // new column
 	}
 
 	touchedX = true;
