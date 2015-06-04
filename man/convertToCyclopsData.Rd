@@ -8,15 +8,15 @@
 \usage{
 convertToCyclopsData(outcomes, covariates, modelType = "lr",
   addIntercept = TRUE, checkSorting = TRUE, checkRowIds = TRUE,
-  quiet = FALSE)
+  loadSequentially = FALSE, quiet = FALSE)
 
 \method{convertToCyclopsData}{ffdf}(outcomes, covariates, modelType = "lr",
   addIntercept = TRUE, checkSorting = TRUE, checkRowIds = TRUE,
-  quiet = FALSE)
+  loadSequentially = FALSE, quiet = FALSE)
 
 \method{convertToCyclopsData}{data.frame}(outcomes, covariates,
   modelType = "lr", addIntercept = TRUE, checkSorting = TRUE,
-  checkRowIds = TRUE, quiet = FALSE)
+  checkRowIds = TRUE, loadSequentially = FALSE, quiet = FALSE)
 }
 \arguments{
 \item{outcomes}{A data frame or ffdf object containing the outcomes with predefined columns (see below).}
@@ -30,6 +30,8 @@ convertToCyclopsData(outcomes, covariates, modelType = "lr",
 \item{checkSorting}{Check if the data are sorted appropriately, and if not, sort.}
 
 \item{checkRowIds}{Check if all rowIds in the covariates appear in the outcomes.}
+
+\item{loadSequentially}{Load covariates sequentially, checking each for sparse vs. indicator optimization}
 
 \item{quiet}{If true, (warning) messages are surpressed.}
 }
@@ -59,9 +61,9 @@ These columns are expected in the covariates object:
 
 Note: If checkSorting is turned off, the outcome table should be sorted by stratumId (if present)
 and then rowId except for Cox regression when the table should be sorted by
-stratumId (if present), -time, and rowId. The covariate table should be sorted by covariateId, stratumId
+stratumId (if present), -time, y, and rowId. The covariate table should be sorted by covariateId, stratumId
 (if present), rowId except for Cox regression when the table should be sorted by covariateId,
-stratumId (if present), -time, and rowId.
+stratumId (if present), -time, y, and rowId.
 }
 \section{Methods (by class)}{
 \itemize{

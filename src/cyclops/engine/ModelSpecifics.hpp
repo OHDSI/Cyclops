@@ -576,37 +576,18 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 
     }
 
-#if 0 // IDed on June 1, 2015; reason unknown why broken
-    auto range = helper::getRangeAllPredictiveLikelihood(K, hY, hXBeta,
-        (BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
-        weights, hPid);
+	// Compile-time switch for models with / with-out PID (hasIndependentRows)
+	auto range = helper::getRangeAllPredictiveLikelihood(K, hY, hXBeta,
+		(BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
+		weights, hPid, std::integral_constant<bool, BaseModel::hasIndependentRows>());
 
-    auto kernel = TestPredLikeKernel<BaseModel,real>();
+	auto kernel = TestPredLikeKernel<BaseModel,real>();
 
-    real logLikelihood = variants::reduce(
-            range.begin(), range.end(), static_cast<real>(0.0),
-            kernel,
-            SerialOnly()
-        );
-#else
-    auto range = helper::getRangeAll(K);
-
-    auto kernel = (BaseModel::cumulativeGradientAndHessian) ?
-    PredLikeKernel<BaseModel,real,int>(
-            begin(hY), begin(weights), begin(hXBeta), begin(accDenomPid), begin(hPid)
-    ) :
-        PredLikeKernel<BaseModel,real,int>(
-                begin(hY), begin(weights), begin(hXBeta), begin(denomPid), begin(hPid)
-        );
-
-    real logLikelihood = variants::reduce(
-        range.begin(), range.end(), static_cast<real>(0.0),
-        kernel,
-        SerialOnly()
-    );
-#endif
-
-//     std::cerr << logLikelihood << " == " << logLikelihood2 << std::endl;
+	real logLikelihood = variants::reduce(
+			range.begin(), range.end(), static_cast<real>(0.0),
+			kernel,
+			SerialOnly()
+		);
 
 	if (BaseModel::cumulativeGradientAndHessian) {
 
