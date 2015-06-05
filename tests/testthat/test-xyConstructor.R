@@ -40,11 +40,11 @@ test_that("Test basic XY constructor", {
     # Sparse interface
     dataPtrS <- createSqlCyclopsData(modelType = "pr")
     loadNewSqlCyclopsDataY(dataPtrS, NULL, rowId, counts, NULL)
-    loadNewSqlCyclopsDataX(dataPtrS, 0, c(1:9), rep(1,9), name = "(Intercept)")
-    loadNewSqlCyclopsDataX(dataPtrS, 1, c(2,5,8), rep(1,3), name = "outcome2")
-    loadNewSqlCyclopsDataX(dataPtrS, 2, c(3,6,9), rep(1,3), name = "outcome3")
-    loadNewSqlCyclopsDataX(dataPtrS, 3, c(4:6), rep(1,3), name = "treatment2")
-    loadNewSqlCyclopsDataX(dataPtrS, 4, c(7:9), rep(1,3), name = "treatment3")
+    loadNewSqlCyclopsDataX(dataPtrS, 0, c(1:9), rep(1,9), name = "(Intercept)", forceSparse = TRUE)
+    loadNewSqlCyclopsDataX(dataPtrS, 1, c(2,5,8), rep(1,3), name = "outcome2", forceSparse = TRUE)
+    loadNewSqlCyclopsDataX(dataPtrS, 2, c(3,6,9), rep(1,3), name = "outcome3", forceSparse = TRUE)
+    loadNewSqlCyclopsDataX(dataPtrS, 3, c(4:6), rep(1,3), name = "treatment2", forceSparse = TRUE)
+    loadNewSqlCyclopsDataX(dataPtrS, 4, c(7:9), rep(1,3), name = "treatment3", forceSparse = TRUE)
     expect_equal(summary(dataPtrS)[,"type"], as.factor(rep("sparse",5)))
     expect_equal(coef(fitCyclopsModel(dataPtrS)), coef(glmFit), tolerance = tolerance)
 })
@@ -219,6 +219,8 @@ test_that("Data errors and casting in COO-constructor", {
 
     loadNewSeqlCyclopsDataMultipleX(dataPtr, c(4,4), c(1,2), c(0,1))
     expect_equal(as.character(summary(dataPtr)[4,"type"]), "indicator")
+
+    expect_error(loadNewSqlCyclopsDataX(dataPtr, 5, c(1,1)))
 })
 
 test_that("Poisson xy-construction with offset", {

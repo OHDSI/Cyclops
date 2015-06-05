@@ -163,7 +163,7 @@ int ModelData::loadMultipleX(
 	}
 
 	const bool hasCovariateValues = covariateValues.size() > 0;
-	const bool useRowMap = rowIds.size() > 0;
+	const bool useRowMap = rowIdMap.size() > 0;
 
 // 	std::function<size_t(IdType)>
 //     xform = [this](IdType id) {
@@ -233,27 +233,25 @@ int ModelData::loadX(
 		const IdType covariateId,
 		const std::vector<IdType>& rowId,
 		const std::vector<double>& covariateValue,
-		bool reload,
-		bool append) {
+		const bool reload,
+		const bool append,
+		const bool forceSparse) {
+
+    const bool hasCovariateValues = covariateValue.size() > 0;
+    const bool useRowMap = rowIdMap.size() > 0;
 
     // Determine covariate type
     FormatType newType = rowId.size() == 0 ?
-            (covariateValue.size() == 0 ? INTERCEPT : DENSE) :
-            (covariateValue.size() == 0 ? INDICATOR : SPARSE);
+            (hasCovariateValues ? DENSE : INTERCEPT) :
+            (hasCovariateValues &&
+                (!(covariateValue[0] == 1.0 || covariateValue[0] == 0.0) || forceSparse) ?
+                SPARSE : INDICATOR
+            );
 
-//         if (data->getHasInterceptCovariate()) {
-//             ::Rf_error("OHDSI data object already has an intercept");
-//         }
-//         // TODO add intercept as INTERCEPT_TYPE if magicFlag ==  true
-//         data->insert(0, DENSE); // add to front, TODO fix if offset
-//         data->setHasInterceptCovariate(true);
-
-
-	std::function<size_t(IdType)>
-    //auto
-    xform = [this](IdType id) {
-        return rowIdMap[id];
-    };
+// 	std::function<size_t(IdType)>
+//     xform = [this](IdType id) {
+//         return rowIdMap[id];
+//     };
 
     // Determine if covariate already exists
     int index = getColumnIndexByName(covariateId);
@@ -275,43 +273,74 @@ int ModelData::loadX(
             stream << "Variable appending is not yet supported";
             error->throwError(stream);
         }
-        if (rowIdMap.size() > 0) {
-        	// make deep copy and destruct old column
-  			replace(index,
-  				boost::make_transform_iterator(begin(rowId), xform),
-  				boost::make_transform_iterator(end(rowId), xform),
-  				begin(covariateValue), end(covariateValue),
-  				newType);
-        } else {
-            if (newType == SPARSE || newType == INDICATOR) {
-                std::ostringstream stream;
-                stream << "Must use row IDs with sparse/indicator columns";
-                error->throwError(stream);
-            }
-	        replace(index,
-    	        begin(rowId), end(rowId),
-	            begin(covariateValue), end(covariateValue),
-    	        newType);
-    	}
-    	getColumn(index).add_label(covariateId);
+//         if (rowIdMap.size() > 0) {
+//         	// make deep copy and destruct old column
+//   			replace(index,
+//   				boost::make_transform_iterator(begin(rowId), xform),
+//   				boost::make_transform_iterator(end(rowId), xform),
+//   				begin(covariateValue), end(covariateValue),
+//   				newType);
+//         } else {
+//             if (newType == SPARSE || newType == INDICATOR) {
+//                 std::ostringstream stream;
+//                 stream << "Must use row IDs with sparse/indicator columns";
+//                 error->throwError(stream);
+//             }
+// 	        replace(index,
+//     	        begin(rowId), end(rowId),
+// 	            begin(covariateValue), end(covariateValue),
+//     	        newType);
+//     	}
+//     	getColumn(index).add_label(covariateId);
+        std::ostringstream stream;
+        stream << "Replacng variables is not yet supported";
+        error->throwError(stream);
     } else {
+
         // brand new, make deep copy
-        if (rowIdMap.size() > 0) {
-	        push_back(
-		        boost::make_transform_iterator(begin(rowId), xform),
-		        boost::make_transform_iterator(end(rowId), xform),
-    	        begin(covariateValue), end(covariateValue),
-        	    newType);
-        } else {
-            if (newType == SPARSE || newType == INDICATOR) {
-                std::ostringstream stream;
-                stream << "Must use row IDs with sparse/indicator columns";
-                error->throwError(stream);
+        if (newType == DENSE || newType == INTERCEPT) {
+            push_back(begin(rowId), end(rowId),
+                      begin(covariateValue), end(covariateValue),
+                      newType);
+        } else { // SPARSE or INDICATOR
+            push_back(newType);
+            CompressedDataColumn& column = getColumn(getNumberOfColumns() - 1);
+
+            auto rowIdItr = std::begin(rowId);
+            auto covariateValueItr = std::begin(covariateValue);
+            const auto rowIdEnd = std::end(rowId);
+
+            auto lastRowId = *rowIdItr - 1;
+
+            while (rowIdItr != rowIdEnd) {
+                if (*rowIdItr == lastRowId) {
+                    std::ostringstream stream;
+                    stream << "Repeated row-column entry at";
+                    stream << *rowIdItr << " - " << covariateId;
+                    throw std::range_error(stream.str());
+                }
+                const auto mappedRow = (useRowMap) ? rowIdMap[*rowIdItr] : *rowIdItr;
+                if (hasCovariateValues) {
+                    if (*covariateValueItr != 0.0) {
+                        if (newType == INDICATOR && *covariateValueItr != 1.0) {
+                            // Upcast
+                            column.convertColumnToSparse();
+                            newType = SPARSE;
+                        }
+                        if (newType == SPARSE) {
+                            column.getDataVector().push_back(*covariateValueItr);
+                        }
+                        column.getColumnsVector().push_back(mappedRow);
+                    }
+                    ++covariateValueItr;
+                } else {
+                    column.getColumnsVector().push_back(mappedRow);
+                }
+                lastRowId = *rowIdItr;
+                ++rowIdItr;
             }
-	        push_back(begin(rowId), end(rowId),
-    	        begin(covariateValue), end(covariateValue),
-        	    newType);
         }
+
         index = getNumberOfColumns() - 1;
         getColumn(index).add_label(covariateId);
     }

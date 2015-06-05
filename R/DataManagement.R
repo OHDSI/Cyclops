@@ -620,7 +620,8 @@ loadNewSqlCyclopsDataX <- function(object,
                                    covariateValue = NULL, # Vector
                                    name,
                                    replace = FALSE,
-                                   append = FALSE) {
+                                   append = FALSE,
+                                   forceSparse = FALSE) {
     if (!isInitialized(object)) {
         stop("Object is no longer or improperly initialized.")
     }
@@ -630,15 +631,19 @@ loadNewSqlCyclopsDataX <- function(object,
     }
 
     if (is.null(rowId)) rowId <- as.integer(c())
-    if (is.null(covariateValue)) covariateValue <- as.numeric(c())
+    if (is.null(covariateValue)) {
+        if (forceSparse) stop("Must provide covariate values when forcing sparse")
+        covariateValue <- as.numeric(c())
+    }
 
-    # throws error is covariateId already exists and append == FALSE
+    # throws error if covariateId already exists and append == FALSE
     index <- .loadCyclopsDataX(object,
                                covariateId,
                                rowId,
                                covariateValue,
                                replace,
-                               append)
+                               append,
+                               forceSparse)
 
     if (!missing(name)) {
         if(is.null(object$coefficientNames)) {

@@ -386,7 +386,8 @@ int cyclopsLoadDataX(Environment x,
         const std::vector<int64_t>& rowId,
         const std::vector<double>& covariateValue,
         const bool replace,
-        const bool append) {
+        const bool append,
+        const bool forceSparse) {
 
     using namespace bsccs;
     XPtr<ModelData> data = parseEnvironmentForPtr(x);
@@ -394,7 +395,7 @@ int cyclopsLoadDataX(Environment x,
     // rowId.size() == 0 -> dense
     // covariateValue.size() == 0 -> indicator
 
-    return data->loadX(covariateId, rowId, covariateValue, replace, append);
+    return data->loadX(covariateId, rowId, covariateValue, replace, append, forceSparse);
 }
 
 // NOTE:  IdType does not get exported into RcppExports, so hard-coded here

@@ -98,8 +98,9 @@ public:
 		const IdType covariateId,
 		const std::vector<IdType>& rowId,
 		const std::vector<double>& covariateValue,
-		bool reload,
-		bool append
+		const bool reload,
+		const bool append,
+		const bool forceSparse
 	);
 
 

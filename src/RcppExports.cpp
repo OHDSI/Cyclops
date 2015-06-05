@@ -475,8 +475,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsLoadDataX
-int cyclopsLoadDataX(Environment x, const int64_t covariateId, const std::vector<int64_t>& rowId, const std::vector<double>& covariateValue, const bool replace, const bool append);
-RcppExport SEXP Cyclops_cyclopsLoadDataX(SEXP xSEXP, SEXP covariateIdSEXP, SEXP rowIdSEXP, SEXP covariateValueSEXP, SEXP replaceSEXP, SEXP appendSEXP) {
+int cyclopsLoadDataX(Environment x, const int64_t covariateId, const std::vector<int64_t>& rowId, const std::vector<double>& covariateValue, const bool replace, const bool append, const bool forceSparse);
+RcppExport SEXP Cyclops_cyclopsLoadDataX(SEXP xSEXP, SEXP covariateIdSEXP, SEXP rowIdSEXP, SEXP covariateValueSEXP, SEXP replaceSEXP, SEXP appendSEXP, SEXP forceSparseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
@@ -486,7 +486,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::vector<double>& >::type covariateValue(covariateValueSEXP);
     Rcpp::traits::input_parameter< const bool >::type replace(replaceSEXP);
     Rcpp::traits::input_parameter< const bool >::type append(appendSEXP);
-    __result = Rcpp::wrap(cyclopsLoadDataX(x, covariateId, rowId, covariateValue, replace, append));
+    Rcpp::traits::input_parameter< const bool >::type forceSparse(forceSparseSEXP);
+    __result = Rcpp::wrap(cyclopsLoadDataX(x, covariateId, rowId, covariateValue, replace, append, forceSparse));
     return __result;
 END_RCPP
 }
