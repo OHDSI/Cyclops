@@ -37,6 +37,7 @@ namespace ohdsi {
 		struct IsSorted {
 		public:
 			static bool isSorted(const DataFrame& dataFrame,const std::vector<std::string>& indexes,const std::vector<bool>& ascending);
+            static bool isSorted(const List& vectorList, const std::vector<bool>& ascending);
 		};
 	}
 }

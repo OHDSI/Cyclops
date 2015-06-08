@@ -55,14 +55,13 @@ isSorted.data.frame <- function(data,columnNames,ascending=rep(TRUE,length(colum
 }
 
 .quickFfdfSubset <- function(data, index, columnNames) {
-  # This function does the same thing as default ffdf subsetting, but outputs a list of columns instead of a
+  # This function does the same thing as default ffdf subsetting, but outputs a list of vectors instead of a
   # data.frame, so a rownames vector does not have to be created. This saves a LOT of time.
   dataSubset <- vector("list", length(columnNames))
   for (i in 1:length(columnNames)){
       dataSubset[[i]] <- data[index,columnNames[i]]
   }
   names(dataSubset) <- columnNames
-  class(dataSubset) <- "data.frame" #Note: this creates an illegal data.frame because it has no rownames.
   return(dataSubset)
 }
 
@@ -70,11 +69,11 @@ isSorted.data.frame <- function(data,columnNames,ascending=rep(TRUE,length(colum
 #' @export
 isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
     if (nrow(data)>100000){ #If data is big, first check on a small subset. If that aready fails, we're done
-        if (!isSorted(.quickFfdfSubset(data, bit::ri(1,1000),columnNames),columnNames,ascending))
+        if (!.isSortedVectorList(.quickFfdfSubset(data, bit::ri(1,1000),columnNames),ascending))
             return(FALSE)
     }
     for (i in ff::chunk.ffdf(data))
-        if (!isSorted(.quickFfdfSubset(data, i,columnNames),columnNames,ascending))
+        if (!.isSortedVectorList(.quickFfdfSubset(data, i,columnNames),ascending))
             return(FALSE)
     return(TRUE)
 }
@@ -266,10 +265,15 @@ convertToCyclopsData.ffdf <- function(outcomes,
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
 
     if (loadSequentially) {
-        lapply(X = split(covariates, covariates$covariateId), FUN = function(x) {
-            # Sparse vs indicator determined inside Cyclops
-            loadNewSqlCyclopsDataX(dataPtr, x$covariateId[1], x$rowId, x$covariateValue, name = x$covariateId[1])
-        })
+        functionOnChunk <- function(x, dataPtr){
+            lapply(X = split(x, x$covariateId), function(x, dataPtr) {
+                # Sparse vs indicator determined inside Cyclops
+                loadNewSqlCyclopsDataX(dataPtr, x$covariateId[1], x$rowId, x$covariateValue, name = x$covariateId[1])
+            }, dataPtr)
+            return(data.frame(x = 1)) # need to return something or ffdfdply will fail
+        }
+        # Slow but no easy way to make this faster (subsets ffdf into data.frames, doesn't use fact that data is sorted):
+        ffbase::ffdfdply(covariates, as.character(covariates$covariateId), functionOnChunk, trace = FALSE, dataPtr = dataPtr)
     } else {
         for (i in bit::chunk(covariates)){
             covarNames <- unique(covariates$covariateId[i,])

@@ -81,6 +81,10 @@
     .Call('Cyclops_isSorted', PACKAGE = 'Cyclops', dataFrame, indexes, ascending)
 }
 
+.isSortedVectorList <- function(vectorList, ascending) {
+    .Call('Cyclops_isSortedVectorList', PACKAGE = 'Cyclops', vectorList, ascending)
+}
+
 #' @title Print row identifiers
 #'
 #' @description

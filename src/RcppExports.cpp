@@ -253,6 +253,18 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// isSortedVectorList
+bool isSortedVectorList(const List& vectorList, const std::vector<bool>& ascending);
+RcppExport SEXP Cyclops_isSortedVectorList(SEXP vectorListSEXP, SEXP ascendingSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< const List& >::type vectorList(vectorListSEXP);
+    Rcpp::traits::input_parameter< const std::vector<bool>& >::type ascending(ascendingSEXP);
+    __result = Rcpp::wrap(isSortedVectorList(vectorList, ascending));
+    return __result;
+END_RCPP
+}
 // cyclopsPrintRowIds
 void cyclopsPrintRowIds(Environment object);
 RcppExport SEXP Cyclops_cyclopsPrintRowIds(SEXP objectSEXP) {
