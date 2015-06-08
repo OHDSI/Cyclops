@@ -54,17 +54,27 @@ isSorted.data.frame <- function(data,columnNames,ascending=rep(TRUE,length(colum
     return(.isSorted(data,columnNames,ascending))
 }
 
+.quickFfdfSubset <- function(data, index, columnNames) {
+  # This function does the same thing as default ffdf subsetting, but outputs a list of columns instead of a
+  # data.frame, so a rownames vector does not have to be created. This saves a LOT of time.
+  dataSubset <- vector("list", length(columnNames))
+  for (i in 1:length(columnNames)){
+      dataSubset[[i]] <- data[index,columnNames[i]]
+  }
+  names(dataSubset) <- columnNames
+  class(dataSubset) <- "data.frame" #Note: this creates an illegal data.frame because it has no rownames.
+  return(dataSubset)
+}
+
 #' @describeIn isSorted Check if a \code{ffdf} is sorted by one or more columns
 #' @export
 isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
-    #    require(ffbase) #Should be superfluous, since the user already has an ffdf object
     if (nrow(data)>100000){ #If data is big, first check on a small subset. If that aready fails, we're done
-        if (!isSorted(data[bit::ri(1,1000),,drop=FALSE],columnNames,ascending))
+        if (!isSorted(.quickFfdfSubset(data, bit::ri(1,1000),columnNames),columnNames,ascending))
             return(FALSE)
     }
-    #     chunks <- chunk(data)
     for (i in ff::chunk.ffdf(data))
-        if (!isSorted(data[i,,drop=FALSE],columnNames,ascending))
+        if (!isSorted(.quickFfdfSubset(data, i,columnNames),columnNames,ascending))
             return(FALSE)
     return(TRUE)
 }
@@ -254,9 +264,6 @@ convertToCyclopsData.ffdf <- function(outcomes,
 
     if (addIntercept & modelType != "cox")
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
-
-    # Remove zero-entries and duplicates
-#    covariates <- unique(covariates[covariates$covariateValue != 0,]) # Necessary ???? Throws error!
 
     if (loadSequentially) {
         lapply(X = split(covariates, covariates$covariateId), FUN = function(x) {
