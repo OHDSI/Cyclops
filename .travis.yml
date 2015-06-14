@@ -5,7 +5,7 @@ compiler:
 #    - clang
 
 sudo: required
-    
+
 before_install:
   - curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
   - chmod 755 ./travis-tool.sh
@@ -15,21 +15,24 @@ before_install:
   - ./travis-tool.sh install_devtools
   - ./travis-tool.sh install_deps
 #  - ./travis-tool.sh install_r testthat BH RcppEigen gnm ffbase ff gglot2
-  
+
 before_script:
-  - sudo apt-get install libboost-dev  
-  
+  - sudo apt-get install libboost-dev
+
 script:
 #    - mkdir -p standalone/build && (cd standalone/build && cmake .. && make)
     - ./travis-tool.sh run_tests
     - ls -l Cyclops.Rcheck/Cyclops/libs # Print out size of library
-    
+
 after_failure:
     - ./travis-tool.sh dump_logs
-    
+
 notifications:
   recipients:
     - msuchard@gmail.com
   email:
     on_success: change
     on_failure: always
+
+after_success:
+  - Rscript -e 'library(covr);codecov()'
