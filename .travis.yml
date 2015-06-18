@@ -6,9 +6,6 @@ compiler:
 
 sudo: required
 
-r_github_packages:
-  - jimhester/covr
-
 before_install:
   - curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
   - chmod 755 ./travis-tool.sh
@@ -17,6 +14,7 @@ before_install:
   - sudo mv tmp /etc/R/Makeconf
   - ./travis-tool.sh install_devtools
   - ./travis-tool.sh install_deps
+  - ./travis-tool.sh install_github jimhester/covr
 #  - ./travis-tool.sh install_r testthat BH RcppEigen gnm ffbase ff gglot2
 
 before_script:
@@ -38,5 +36,4 @@ notifications:
     on_failure: always
 
 after_success:
-  - bash <(curl -s https://codecov.io/bash) -vd
-  - bash <(curl -s https://codecov.io/bash)
+  - Rscript -e 'library(covr);codecov()'
