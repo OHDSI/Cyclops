@@ -38,4 +38,5 @@ notifications:
     on_failure: always
 
 after_success:
-  - Rscript -e 'library(covr);codecov()'
+  - bash <(curl -s https://codecov.io/bash) -vd
+  - bash <(curl -s https://codecov.io/bash)
