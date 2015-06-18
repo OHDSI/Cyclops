@@ -8,15 +8,15 @@
 \usage{
 convertToCyclopsData(outcomes, covariates, modelType = "lr",
   addIntercept = TRUE, checkSorting = TRUE, checkRowIds = TRUE,
-  loadSequentially = FALSE, quiet = FALSE)
+  quiet = FALSE)
 
 \method{convertToCyclopsData}{ffdf}(outcomes, covariates, modelType = "lr",
   addIntercept = TRUE, checkSorting = TRUE, checkRowIds = TRUE,
-  loadSequentially = FALSE, quiet = FALSE)
+  quiet = FALSE)
 
 \method{convertToCyclopsData}{data.frame}(outcomes, covariates,
   modelType = "lr", addIntercept = TRUE, checkSorting = TRUE,
-  checkRowIds = TRUE, loadSequentially = FALSE, quiet = FALSE)
+  checkRowIds = TRUE, quiet = FALSE)
 }
 \arguments{
 \item{outcomes}{A data frame or ffdf object containing the outcomes with predefined columns (see below).}
@@ -30,8 +30,6 @@ convertToCyclopsData(outcomes, covariates, modelType = "lr",
 \item{checkSorting}{Check if the data are sorted appropriately, and if not, sort.}
 
 \item{checkRowIds}{Check if all rowIds in the covariates appear in the outcomes.}
-
-\item{loadSequentially}{Load covariates sequentially, checking each for sparse vs. indicator optimization}
 
 \item{quiet}{If true, (warning) messages are surpressed.}
 }

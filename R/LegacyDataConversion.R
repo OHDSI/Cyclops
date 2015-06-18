@@ -170,69 +170,7 @@
     return(dataPtr)
 }
 
-#' Convert data from two data frames or ffdf objects into a CyclopsData object
-#'
-#' @description
-#' \code{legacyConvertToCyclopsData} loads data from two data frames or ffdf objects, and inserts it into a Cyclops data object.
-#'
-#' @param outcomes    A data frame or ffdf object containing the outcomes with predefined columns (see below).
-#' @param covariates  A data frame or ffdf object containing the covariates with predefined columns (see below).
-#' @param modelType  	  Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"
-#' @param addIntercept  Add an intercept to the model?
-## @param useOffsetCovariate  Use the time variable in the model as an offset?
-#' @param offsetAlreadyOnLogScale Is the time variable already on a log scale?
-#' @param makeCovariatesDense  Force a dense computational representation for all covariates?
-#' @param checkSorting  Check if the data are sorted appropriately, and if not, sort.
-#' @param checkRowIds   Check if all rowIds in the covariates appear in the outcomes.
-#' @param quiet         If true, (warning) messages are surpressed.
-#'
-#' @details
-#' These columns are expected in the outcome object:
-#' \tabular{lll}{
-#'   \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
-#'   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-#'   \verb{y}    \tab(real) \tab The outcome variable \cr
-#'   \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
-#'                  \tab        \tab(e.g. number of days) \cr
-#' }
-#'
-#' These columns are expected in the covariates object:
-#' \tabular{lll}{
-#'   \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
-#'   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-#'   \verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
-#'   \verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
-#' }
-#'
-#' Note: If checkSorting is turned off, the outcome table should be sorted by stratumId (if present)
-#' and then rowId except for Cox regression when the table should be sorted by
-#' stratumId (if present), -time, y, and rowId. The covariate table should be sorted by stratumId
-#' (if present), rowId and covariateId except for Cox regression when the table should be sorted by
-#' stratumId (if present), -time, y, and rowId.
-#'
-#' @return
-#' An object of type cyclopsData
-#'
-#' @examples
-#' #Convert infert dataset to Cyclops format:
-#' covariates <- data.frame(stratumId = rep(infert$stratum, 2),
-#'                          rowId = rep(1:nrow(infert), 2),
-#'                          covariateId = rep(1:2, each = nrow(infert)),
-#'                          covariateValue = c(infert$spontaneous, infert$induced))
-#' outcomes <- data.frame(stratumId = infert$stratum,
-#'                        rowId = 1:nrow(infert),
-#'                        y = infert$case)
-#' #Make sparse:
-#' covariates <- covariates[covariates$covariateValue != 0, ]
-#'
-#' #Create Cyclops data object:
-#' cyclopsData <- legacyConvertToCyclopsData(outcomes, covariates, modelType = "clr",
-#'                                     addIntercept = FALSE)
-#'
-#' #Fit model:
-#' fit <- fitCyclopsModel(cyclopsData, prior = createPrior("none"))
-#'
-#' @export
+#' @keywords internal
 legacyConvertToCyclopsData <- function(outcomes,
                                  covariates,
                                  modelType = "lr",
@@ -245,8 +183,7 @@ legacyConvertToCyclopsData <- function(outcomes,
     UseMethod("legacyConvertToCyclopsData")
 }
 
-#' @describeIn legacyConvertToCyclopsData Convert data from two \code{ffdf}
-#' @export
+#' @keywords internal
 legacyConvertToCyclopsData.ffdf <- function(outcomes,
                                       covariates,
                                       modelType = "lr",
@@ -397,8 +334,7 @@ legacyConvertToCyclopsData.ffdf <- function(outcomes,
     return(result)
 }
 
-#' @describeIn legacyConvertToCyclopsData Convert data from two \code{data.frame}
-#' @export
+#' @keywords internal
 legacyConvertToCyclopsData.data.frame <- function(outcomes,
                                             covariates,
                                             modelType = "lr",

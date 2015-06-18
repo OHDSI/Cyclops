@@ -55,14 +55,14 @@ isSorted.data.frame <- function(data,columnNames,ascending=rep(TRUE,length(colum
 }
 
 .quickFfdfSubset <- function(data, index, columnNames) {
-  # This function does the same thing as default ffdf subsetting, but outputs a list of vectors instead of a
-  # data.frame, so a rownames vector does not have to be created. This saves a LOT of time.
-  dataSubset <- vector("list", length(columnNames))
-  for (i in 1:length(columnNames)){
-      dataSubset[[i]] <- data[index,columnNames[i]]
-  }
-  names(dataSubset) <- columnNames
-  return(dataSubset)
+    # This function does the same thing as default ffdf subsetting, but outputs a list of vectors instead of a
+    # data.frame, so a rownames vector does not have to be created. This saves a LOT of time.
+    dataSubset <- vector("list", length(columnNames))
+    for (i in 1:length(columnNames)){
+        dataSubset[[i]] <- data[index,columnNames[i]]
+    }
+    names(dataSubset) <- columnNames
+    return(dataSubset)
 }
 
 #' @describeIn isSorted Check if a \code{ffdf} is sorted by one or more columns
@@ -89,7 +89,6 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
 #' @param addIntercept  Add an intercept to the model?
 #' @param checkSorting  Check if the data are sorted appropriately, and if not, sort.
 #' @param checkRowIds   Check if all rowIds in the covariates appear in the outcomes.
-#' @param loadSequentially Load covariates sequentially, checking each for sparse vs. indicator optimization
 #' @param quiet         If true, (warning) messages are surpressed.
 #'
 #' @details
@@ -140,26 +139,24 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
 #'
 #' @export
 convertToCyclopsData <- function(outcomes,
-                                    covariates,
-                                    modelType = "lr",
-                                    addIntercept = TRUE,
-                                    checkSorting = TRUE,
-                                    checkRowIds = TRUE,
-                                 loadSequentially = FALSE,
-                                    quiet = FALSE) {
+                                 covariates,
+                                 modelType = "lr",
+                                 addIntercept = TRUE,
+                                 checkSorting = TRUE,
+                                 checkRowIds = TRUE,
+                                 quiet = FALSE) {
     UseMethod("convertToCyclopsData")
 }
 
 #' @describeIn convertToCyclopsData Convert data from two \code{ffdf}
 #' @export
 convertToCyclopsData.ffdf <- function(outcomes,
-                                         covariates,
-                                         modelType = "lr",
-                                         addIntercept = TRUE,
-                                         checkSorting = TRUE,
-                                         checkRowIds = TRUE,
-                                      loadSequentially = FALSE,
-                                         quiet = FALSE){
+                                      covariates,
+                                      modelType = "lr",
+                                      addIntercept = TRUE,
+                                      checkSorting = TRUE,
+                                      checkRowIds = TRUE,
+                                      quiet = FALSE){
     if ((modelType == "clr" | modelType == "cpr") & addIntercept){
         if(!quiet)
             warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)
@@ -263,29 +260,15 @@ convertToCyclopsData.ffdf <- function(outcomes,
 
     if (addIntercept & modelType != "cox")
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
-
-    if (loadSequentially) {
-        functionOnChunk <- function(x, dataPtr){
-            lapply(X = split(x, x$covariateId), function(x, dataPtr) {
-                # Sparse vs indicator determined inside Cyclops
-                loadNewSqlCyclopsDataX(dataPtr, x$covariateId[1], x$rowId, x$covariateValue, name = x$covariateId[1])
-            }, dataPtr)
-            return(data.frame(x = 1)) # need to return something or ffdfdply will fail
-        }
-        # Slow but no easy way to make this faster (subsets ffdf into data.frames, doesn't use fact that data is sorted):
-        ffbase::ffdfdply(covariates, as.character(covariates$covariateId), functionOnChunk, trace = FALSE, dataPtr = dataPtr)
-    } else {
-        for (i in bit::chunk(covariates)){
-            covarNames <- unique(covariates$covariateId[i,])
-            loadNewSeqlCyclopsDataMultipleX(dataPtr,
-                                            covariates$covariateId[i,],
-                                            covariates$rowId[i,],
-                                            covariates$covariateValue[i,],
-                                            name = covarNames, # TODO Does this really work?
-                                            append = TRUE)
-        }
+    for (i in bit::chunk(covariates)){
+        covarNames <- unique(covariates$covariateId[i,])
+        loadNewSeqlCyclopsDataMultipleX(dataPtr,
+                                        covariates$covariateId[i,],
+                                        covariates$rowId[i,],
+                                        covariates$covariateValue[i,],
+                                        name = covarNames, # TODO Does this really work?
+                                        append = TRUE)
     }
-
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
     return(dataPtr)
@@ -295,13 +278,12 @@ convertToCyclopsData.ffdf <- function(outcomes,
 #' @describeIn convertToCyclopsData Convert data from two \code{data.frame}
 #' @export
 convertToCyclopsData.data.frame <- function(outcomes,
-                                               covariates,
-                                               modelType = "lr",
-                                               addIntercept = TRUE,
-                                               checkSorting = TRUE,
-                                               checkRowIds = TRUE,
-                                            loadSequentially = FALSE,
-                                               quiet = FALSE){
+                                            covariates,
+                                            modelType = "lr",
+                                            addIntercept = TRUE,
+                                            checkSorting = TRUE,
+                                            checkRowIds = TRUE,
+                                            quiet = FALSE){
     if ((modelType == "clr" | modelType == "cpr") & addIntercept){
         if(!quiet)
             warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)
@@ -382,15 +364,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
 
     covarNames <- unique(covariates$covariateId)
-
-    if (loadSequentially) {
-        lapply(X = split(covariates, covariates$covariateId), FUN = function(x) {
-            # Sparse vs indicator determined inside Cyclops
-            loadNewSqlCyclopsDataX(dataPtr, x$covariateId[1], x$rowId, x$covariateValue, name = x$covariateId[1])
-        })
-    } else {
-        loadNewSeqlCyclopsDataMultipleX(dataPtr, covariates$covariateId, covariates$rowId, covariates$covariateValue, name = covarNames)
-    }
+    loadNewSeqlCyclopsDataMultipleX(dataPtr, covariates$covariateId, covariates$rowId, covariates$covariateValue, name = covarNames)
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
 

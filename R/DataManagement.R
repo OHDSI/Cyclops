@@ -566,7 +566,7 @@ appendSqlCyclopsData <- function(object,
                           cCovariateValue)
 }
 
-#' @export
+#' @keywords internal
 loadNewSeqlCyclopsDataMultipleX <- function(object,
                                             covariateId, # Vector
                                             rowId, # Vector
@@ -613,7 +613,7 @@ loadNewSeqlCyclopsDataMultipleX <- function(object,
     }
 }
 
-#' @export
+#' @keywords internal
 loadNewSqlCyclopsDataX <- function(object,
                                    covariateId, # Scalar
                                    rowId = NULL, # Vector
@@ -653,7 +653,7 @@ loadNewSqlCyclopsDataX <- function(object,
     }
 }
 
-#' @export
+#' @keywords internal
 loadNewSqlCyclopsDataY <- function(object,
                                    stratumId = NULL,
                                    rowId = NULL,
@@ -734,14 +734,7 @@ finalizeSqlCyclopsData <- function(object,
     }
 }
 
-#' @title Create an Cyclops data object from SQL input
-#'
-#' @description
-#' \code{createSqlCyclopsData} creates an empty Cyclops data object into which data can be appended in chunks.
-#'
-#' @template types
-#' @param control    An Cyclops fit control object (optional)
-#' @export
+#' @keywords internal
 createSqlCyclopsData <- function(modelType, control) {
     cl <- match.call() # save to return
 
