@@ -277,6 +277,15 @@ bool cyclopsGetHasOffset(Environment x) {
     return data->getHasOffsetCovariate();
 }
 
+// [[Rcpp::export(".cyclopsGetMeanOffset")]]
+double cyclopsGetMeanOffset(Environment x) {
+    using namespace bsccs;
+    XPtr<RcppModelData> data = parseEnvironmentForRcppPtr(x);
+    return (data->getHasOffsetCovariate()) ?
+        data->sum(-1, 1) / data->getNumberOfRows() :
+        0.0;
+}
+
 // [[Rcpp::export(".cyclopsFinalizeData")]]
 void cyclopsFinalizeData(
         Environment x,

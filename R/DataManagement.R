@@ -835,11 +835,14 @@ print.cyclopsData <- function(x, show.call=TRUE ,...) {
 
     if (isInitialized(x)) {
         nRows <- getNumberOfRows(x)
-        cat("      Rows: ", nRows, "\n", sep="")
-        cat("Covariates: ", getNumberOfCovariates(x), "\n", sep="")
+        cat("      Rows: ", nRows, "\n", sep = "")
+        cat("Covariates: ", getNumberOfCovariates(x), "\n", sep = "")
         nStrata <- getNumberOfStrata(x)
         if (nRows != nStrata) {
-            cat("    Strata: ", nStrata, "\n", sep="")
+            cat("    Strata: ", nStrata, "\n", sep = "")
+        }
+        if (.cyclopsGetHasOffset(x)) {
+            cat("    Offset: ", .cyclopsGetMeanOffset(x), " (mean)\n", sep = "")
         }
     } else {
         cat("\nObject is no longer or improperly initialized.\n")

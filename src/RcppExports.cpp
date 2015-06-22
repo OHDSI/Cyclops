@@ -438,6 +438,17 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// cyclopsGetMeanOffset
+double cyclopsGetMeanOffset(Environment x);
+RcppExport SEXP Cyclops_cyclopsGetMeanOffset(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    __result = Rcpp::wrap(cyclopsGetMeanOffset(x));
+    return __result;
+END_RCPP
+}
 // cyclopsFinalizeData
 void cyclopsFinalizeData(Environment x, bool addIntercept, SEXP sexpOffsetCovariate, bool offsetAlreadyOnLogScale, bool sortCovariates, SEXP sexpCovariatesDense, bool magicFlag);
 RcppExport SEXP Cyclops_cyclopsFinalizeData(SEXP xSEXP, SEXP addInterceptSEXP, SEXP sexpOffsetCovariateSEXP, SEXP offsetAlreadyOnLogScaleSEXP, SEXP sortCovariatesSEXP, SEXP sexpCovariatesDenseSEXP, SEXP magicFlagSEXP) {
