@@ -156,6 +156,12 @@ private:
 
 };
 
+class LaplaceFusedJointPrior : public HierarchicalJointPrior {
+
+// TODO Implement
+
+};
+
 class HierarchicalJointPrior : public JointPrior {
 public:
 	typedef std::vector<PriorPtr> PriorList;
