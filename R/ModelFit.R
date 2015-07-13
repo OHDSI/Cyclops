@@ -81,9 +81,21 @@ fitCyclopsModel <- function(cyclopsData,
 
     .checkInterface(cyclopsData, forceNewObject)
 
+    if (missing(prior)) {
+        prior <- createPrior("none")
+    }
+
     if (!missing(prior)) { # Set up prior
         stopifnot(inherits(prior, "cyclopsPrior"))
         prior$exclude <- .checkCovariates(cyclopsData, prior$exclude)
+
+        if (!is.null(prior$neighborhood)) {
+            prior$neighborhood <- lapply(prior$neighborhood,
+                                         function(element) {
+                                             list(.checkCovariates(cyclopsData, element[[1]]),
+                                                  .checkCovariates(cyclopsData, element[[2]]))
+                                         })
+        }
 
         if (prior$priorType != "none" &&
                 is.null(prior$graph) && # TODO Ignore hierarchical models for now
@@ -117,8 +129,20 @@ fitCyclopsModel <- function(cyclopsData,
             }
         }
 
+        if (is.null(prior$neighborhood)) {
+            neighborhood <- NULL
+        } else {
+            neighborhood <- prior$neighborhood
+            if (length(prior$priorType) != length(prior$variance)) {
+                stop("Prior types and variances have a dimensionality mismatch");
+            }
+            if (any(prior$priorType  != "laplace")) {
+                stop("Only Laplace-Laplace fused neighborhoods are currently supported")
+            }
+        }
+
         .cyclopsSetPrior(cyclopsData$cyclopsInterfacePtr, prior$priorType, prior$variance,
-                         prior$exclude, graph)
+                         prior$exclude, graph, neighborhood)
     }
 
     if (!missing(control)) {
@@ -437,6 +461,7 @@ createPrior <- function(priorType,
                         variance = 1,
                         exclude = c(),
                         graph = NULL,
+                        neighborhood = NULL,
                         useCrossValidation = FALSE,
                         forceIntercept = FALSE) {
     validNames = c("none", "laplace","normal", "hierarchical")
@@ -455,8 +480,17 @@ createPrior <- function(priorType,
     if (priorType == "hierarchical" && missing(graph)) {
         stop("Must provide a graph for a hierarchical prior")
     }
+    if (!is.null(neighborhood)) {
+        allNames <- unlist(neighborhood)
+        if (!inherits(allNames, "character") &&
+            !inherits(allNames, "numeric") &&
+            !inherits(allNames, "integer")) {
+            stop(cat("Unable to parse neighborhood covariates:"), allNames)
+        }
+    }
     structure(list(priorType = priorType, variance = variance, exclude = exclude,
                    graph = graph,
+                   neighborhood = neighborhood,
                    useCrossValidation = useCrossValidation, forceIntercept = forceIntercept),
               class = "cyclopsPrior")
 }
@@ -716,7 +750,6 @@ convertToGlmnetLambda <- function(variance, nobs) {
     sqrt(2 / variance) / nobs
 }
 
-
 .makeHierarchyGraph <- function(cyclopsData, graph) {
     nTypes <- getNumberOfTypes(cyclopsData)
     if (nTypes < 2 || graph != "type") stop("Only multitype hierarchies are currently supported")
@@ -727,6 +760,6 @@ convertToGlmnetLambda <- function(variance, nobs) {
     nChild <- getNumberOfCovariates(cyclopsData)
     nParents <- nChild / nTypes
 
-    graph <-  lapply(0:(nParents - 1), function(n, types) { 0:(nTypes-1) + n * nTypes }, types = nTypes)
+    graph <-  lapply(0:(nParents - 1), function(n, types) { 0:(nTypes - 1) + n * nTypes }, types = nTypes)
     graph
 }

@@ -128,8 +128,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsSetPrior
-void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& priorTypeName, const std::vector<double>& variance, SEXP excludeNumeric, SEXP sexpGraph);
-RcppExport SEXP Cyclops_cyclopsSetPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP varianceSEXP, SEXP excludeNumericSEXP, SEXP sexpGraphSEXP) {
+void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& priorTypeName, const std::vector<double>& variance, SEXP excludeNumeric, SEXP sexpGraph, Rcpp::List sexpNeighborhood);
+RcppExport SEXP Cyclops_cyclopsSetPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP varianceSEXP, SEXP excludeNumericSEXP, SEXP sexpGraphSEXP, SEXP sexpNeighborhoodSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope __rngScope;
     Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
@@ -137,7 +137,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::vector<double>& >::type variance(varianceSEXP);
     Rcpp::traits::input_parameter< SEXP >::type excludeNumeric(excludeNumericSEXP);
     Rcpp::traits::input_parameter< SEXP >::type sexpGraph(sexpGraphSEXP);
-    cyclopsSetPrior(inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph);
+    Rcpp::traits::input_parameter< Rcpp::List >::type sexpNeighborhood(sexpNeighborhoodSEXP);
+    cyclopsSetPrior(inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph, sexpNeighborhood);
     return R_NilValue;
 END_RCPP
 }

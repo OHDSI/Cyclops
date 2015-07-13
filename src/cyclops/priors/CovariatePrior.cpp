@@ -2,20 +2,20 @@
 
 namespace bsccs {
 	namespace priors {
-		
-   PriorPtr CovariatePrior::makePrior(PriorType priorType) {
+
+   PriorPtr CovariatePrior::makePrior(PriorType priorType, double variance) {
         PriorPtr prior;
         switch (priorType) {
             case NONE :
                 prior = bsccs::make_shared<NoPrior>();
                 break;
             case LAPLACE :
-                prior = bsccs::make_shared<LaplacePrior>();
+                prior = bsccs::make_shared<LaplacePrior>(variance);
                 break;
             case NORMAL :
-                prior = bsccs::make_shared<NormalPrior>();
+                prior = bsccs::make_shared<NormalPrior>(variance);
                 break;
-            default : break;    
+            default : break;
         }
         return prior;
     }

@@ -332,7 +332,7 @@ double convertHyperparameterToVariance(double value) {
 }
 
 void CyclicCoordinateDescent::setHyperprior(double value) {
-	jointPrior->setVariance(value);
+	jointPrior->setVariance(0, value);
 }
 
 //Hierarchical Support

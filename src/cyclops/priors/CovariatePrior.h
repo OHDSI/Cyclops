@@ -27,6 +27,8 @@ namespace priors {
 typedef std::pair<double, double> GradientHessian;
 typedef std::vector<double> DoubleVector;
 
+typedef bsccs::shared_ptr<double> VariancePtr;
+
 class CovariatePrior; // forward declaration
 typedef bsccs::shared_ptr<CovariatePrior> PriorPtr;
 
@@ -39,27 +41,33 @@ public:
 		// Do nothing
 	}
 
-	virtual void setVariance(double x) = 0; // pure virtual
+// 	virtual void setVariance(double x) = 0; // pure virtual
 
-	virtual double getVariance() const = 0; // pure virtual
+// 	virtual void setVariance(int level, double x) = 0; // pure virtual
+
+// 	virtual double getVariance(int level) const = 0; // pure virtual
 
 	virtual const std::string getDescription() const = 0; // pure virtual
 
 	virtual double logDensity(double x) const = 0; // pure virtual
 
-	virtual double getDelta(GradientHessian gh, double beta) const = 0; // pure virtual
+	virtual double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const = 0; // pure virtual
 
 	virtual double logDensity(const DoubleVector& vector) const = 0; // pure virtual
-	
+
 	virtual bool getIsRegularized() const = 0; // pure virtual
-	
+
 	virtual CovariatePrior* clone() const = 0; // pure virtual
-	
+
 	virtual bool getSupportsKktSwindle() const = 0; // pure virtual
-	
+
 	virtual double getKktBoundary() const = 0; // pure virtual
-	
-	static PriorPtr makePrior(PriorType priorType);	    
+
+	virtual std::vector<VariancePtr> getVarianceParameters() const = 0 ; // pure virtual
+
+// 	virtual int getNumberVarianceParameters() const { return 1; }
+
+	static PriorPtr makePrior(PriorType priorType, double variance);
 };
 
 
@@ -74,12 +82,16 @@ public:
 		// Do nothing
 	}
 
-	double getVariance() const {
-		return std::numeric_limits<double>::infinity();
-	}
+// 	double getVariance(int level) const {
+// 		return std::numeric_limits<double>::infinity();
+// 	}
 
-	void setVariance(double x) {
-		// Do nothing
+// 	void setVariance(int level, double x) {
+// 		// Do nothing
+// 	}
+
+	std::vector<VariancePtr> getVarianceParameters() const {
+		return std::vector<VariancePtr>();
 	}
 
 	const std::string getDescription() const {
@@ -93,31 +105,43 @@ public:
 	double logDensity(const DoubleVector& vector) const {
 		return 0.0;
 	}
-	
-	bool getIsRegularized() const {    
+
+	bool getIsRegularized() const {
 	    return false;
 	}
 
-	double getDelta(GradientHessian gh, double beta) const {
+	double getDelta(GradientHessian gh,const DoubleVector& beta, const int index) const {
 		return -(gh.first / gh.second); // No regularization
 	}
-	
-	bool getSupportsKktSwindle() const { 
-		return false; 
+
+	bool getSupportsKktSwindle() const {
+		return false;
 	}
-	
+
 	double getKktBoundary() const {
 		return 0.0;
 	}
-	
+
 	CovariatePrior* clone() const {
 		return new NoPrior(*this);
 	}
 };
 
+
+// class FusedLaplacePrior : public CovariatePrior {
+// public:
+// 	FusedLaplacePrior() : CovariatePrior() { }
+//
+// };
+
 class LaplacePrior : public CovariatePrior {
 public:
-	LaplacePrior() : CovariatePrior(), lambda(1) {
+
+	LaplacePrior(double variance) : LaplacePrior(bsccs::make_shared<double>(variance)) {
+		// Do nothing
+	}
+
+	LaplacePrior(VariancePtr ptr) : CovariatePrior(), variance(ptr) {
 		// Do nothing
 	}
 
@@ -125,42 +149,53 @@ public:
 		// Do nothing
 	}
 
-	double getVariance() const {
-		return convertHyperparameterToVariance(lambda);
-	}
+// 	double getVariance(int level) const {
+// 		if (level == 0) {
+// 			return convertHyperparameterToVariance(lambda);
+// 		} else {
+// 			return std::numeric_limits<double>::infinity();
+// 		}
+// 	}
 
 	const std::string getDescription() const {
+	    double lambda = getLambda();
 		std::stringstream info;
 		info << "Laplace(" << lambda << ")";
 		return info.str();
 	}
 
-	void setVariance(double x) {
-		lambda = convertVarianceToHyperparameter(x);
-	}
+// 	void setVariance(int level, double x) {
+// 		if (level == 0) {
+// 			lambda = convertVarianceToHyperparameter(x);
+// 		}
+// 	}
 
 	double logDensity(double x) const {
+	    double lambda = getLambda();
 		return std::log(0.5 * lambda) - lambda * std::abs(x);
 	}
 
 	double logDensity(const DoubleVector& vector) const {
 		return logIndependentDensity(vector);
 	}
-	
+
 	bool getIsRegularized() const {
 	    return true;
 	}
-	
+
 	bool getSupportsKktSwindle() const {
-		return true; 
-	}		
-	
+		return true;
+	}
+
 	double getKktBoundary() const {
+	    double lambda = getLambda();
 		return lambda;
 	}
 
-	double getDelta(GradientHessian gh, double beta) const {
+	double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const {
 
+		double beta = betaVector[index];
+		double lambda = getLambda();
 		double delta = 0.0;
 
 		double neg_update = - (gh.first - lambda) / gh.second;
@@ -191,15 +226,22 @@ public:
 		}
 		return delta;
 	}
-	
+
+	std::vector<VariancePtr> getVarianceParameters() const {
+	    auto tmp = std::vector<VariancePtr>();
+	    tmp.push_back(variance);
+		return std::move(tmp);
+	}
+
 	CovariatePrior* clone() const {
 		return new LaplacePrior(*this);
-	}	
+	}
 
 private:
 
 	template <typename Vector>
 	typename Vector::value_type logIndependentDensity(const Vector& vector) const {
+	    double lambda = getLambda();
 		return vector.size() * std::log(0.5 * lambda) - lambda * oneNorm(vector);
 	}
 
@@ -220,6 +262,10 @@ private:
 		return 2.0 / (value * value);
 	}
 
+	double getLambda() const {
+		return convertVarianceToHyperparameter(*variance);
+	}
+
 	int sign(double x) const {
 		if (x == 0) {
 			return 0;
@@ -230,12 +276,18 @@ private:
 		return 1;
 	}
 
-	double lambda;
+	VariancePtr variance;
+// 	double lambda;
 };
 
 class NormalPrior : public CovariatePrior {
 public:
-	NormalPrior() : CovariatePrior(), sigma2Beta(1) {
+
+	NormalPrior(double variance) : NormalPrior(bsccs::make_shared<double>(variance)) {
+		// Do nothing
+	}
+
+	NormalPrior(VariancePtr ptr) : CovariatePrior(), variance(ptr) {
 		// Do nothing
 	}
 
@@ -243,33 +295,41 @@ public:
 		// Do nothing
 	}
 
-	double getVariance() const {
-		return sigma2Beta;
-	}
+// 	double getVariance(int level) const {
+// 		if (level == 0) {
+// 			return sigma2Beta;
+// 		} else {
+// 			return std::numeric_limits<double>::infinity();
+// 		}
+// 	}
 
 	const std::string getDescription() const {
+	    double sigma2Beta = getVariance();
 		std::stringstream info;
 		info << "Normal(" << sigma2Beta << ")";
 		return info.str();
 	}
 
-	void setVariance(double x) {
-		sigma2Beta = x;
-	}
-	
+// 	void setVariance(int level, double x) {
+// 		if (level == 0) {
+// 			sigma2Beta = x;
+// 		}
+// 	}
+
 	bool getIsRegularized() const {
 	    return true;
-	}	
-	
+	}
+
 	bool getSupportsKktSwindle() const {
 		return false;
 	}
-	
+
 	double getKktBoundary() const {
 		return 0.0;
 	}
-	
+
 	double logDensity(double x) const {
+		double sigma2Beta = getVariance();
 		return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
 	}
 
@@ -277,20 +337,33 @@ public:
 		return logIndependentDensity(vector);
 	}
 
-	double getDelta(GradientHessian gh, double beta) const {
+	double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const {
+		double sigma2Beta = getVariance();
+		double beta = betaVector[index];
 		return - (gh.first + (beta / sigma2Beta)) /
 				  (gh.second + (1.0 / sigma2Beta));
 	}
-	
+
+	std::vector<VariancePtr> getVarianceParameters() const {
+	    auto tmp = std::vector<VariancePtr>();
+	    tmp.push_back(variance);
+		return std::move(tmp);
+	}
+
 	CovariatePrior* clone() const {
 		return new NormalPrior(*this);
-	}	
+	}
 
 private:
-	double sigma2Beta;
+// 	double sigma2Beta;
+
+	double getVariance() const {
+		return *variance;
+	}
 
 	template <typename Vector>
 	typename Vector::value_type logIndependentDensity(const Vector& vector) const {
+	    double sigma2Beta = getVariance();
 		return -0.5 * vector.size() * std::log(2.0 * PI * sigma2Beta)
 				- 0.5 * twoNormSquared(vector) / sigma2Beta;
 	}
@@ -304,6 +377,8 @@ private:
 		}
 		return norm;
 	}
+
+	VariancePtr variance;
 };
 
 } /* namespace priors */

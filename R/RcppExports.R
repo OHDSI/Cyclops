@@ -45,8 +45,8 @@
     .Call('Cyclops_cyclopsGetFisherInformation', PACKAGE = 'Cyclops', inRcppCcdInterface, sexpCovariates)
 }
 
-.cyclopsSetPrior <- function(inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph) {
-    invisible(.Call('Cyclops_cyclopsSetPrior', PACKAGE = 'Cyclops', inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph))
+.cyclopsSetPrior <- function(inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph, sexpNeighborhood) {
+    invisible(.Call('Cyclops_cyclopsSetPrior', PACKAGE = 'Cyclops', inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph, sexpNeighborhood))
 }
 
 .cyclopsProfileModel <- function(inRcppCcdInterface, sexpCovariates, threshold, override, includePenalty) {
