@@ -57,7 +57,7 @@ public:
 
 	virtual bool getIsRegularized() const = 0; // pure virtual
 
-	virtual CovariatePrior* clone() const = 0; // pure virtual
+// 	virtual CovariatePrior* clone() const = 0; // pure virtual
 
 	virtual bool getSupportsKktSwindle() const = 0; // pure virtual
 
@@ -122,9 +122,9 @@ public:
 		return 0.0;
 	}
 
-	CovariatePrior* clone() const {
-		return new NoPrior(*this);
-	}
+// 	CovariatePrior* clone() const {
+// 		return new NoPrior(*this);
+// 	}
 };
 
 
@@ -233,12 +233,24 @@ public:
 		return std::move(tmp);
 	}
 
-	CovariatePrior* clone() const {
-		return new LaplacePrior(*this);
+// 	CovariatePrior* clone() const {
+// 		return new LaplacePrior(*this);
+// 	}
+
+protected:
+	double convertVarianceToHyperparameter(double value) const {
+		return std::sqrt(2.0 / value);
+	}
+
+	double convertHyperparameterToVariance(double value) const {
+		return 2.0 / (value * value);
+	}
+
+	double getLambda() const {
+		return convertVarianceToHyperparameter(*variance);
 	}
 
 private:
-
 	template <typename Vector>
 	typename Vector::value_type logIndependentDensity(const Vector& vector) const {
 	    double lambda = getLambda();
@@ -254,18 +266,6 @@ private:
 		return result;
 	}
 
-	double convertVarianceToHyperparameter(double value) const {
-		return std::sqrt(2.0 / value);
-	}
-
-	double convertHyperparameterToVariance(double value) const {
-		return 2.0 / (value * value);
-	}
-
-	double getLambda() const {
-		return convertVarianceToHyperparameter(*variance);
-	}
-
 	int sign(double x) const {
 		if (x == 0) {
 			return 0;
@@ -278,6 +278,124 @@ private:
 
 	VariancePtr variance;
 // 	double lambda;
+};
+
+class FusedLaplacePrior : public LaplacePrior {
+public:
+
+	typedef std::vector<int> NeighborList;
+
+	FusedLaplacePrior(double variance1, double variance2,
+				NeighborList neighborList) : FusedLaplacePrior(
+			bsccs::make_shared<double>(variance1),
+			bsccs::make_shared<double>(variance2),
+			neighborList) {
+		// Do nothing
+	}
+
+	FusedLaplacePrior(VariancePtr ptr1, VariancePtr ptr2,
+				NeighborList neighborList) : LaplacePrior(ptr1), variance2(ptr2),
+						neighborList(neighborList) {
+		// Do nothing
+	}
+
+	virtual ~FusedLaplacePrior() {
+		// Do nothing
+	}
+
+	const std::string getDescription() const {
+		std::stringstream info;
+		info << "Fused(" << getLambda() << ", " << getEpisoln() << ":";
+		for (auto i : neighborList) {
+			info << " " << i;
+		}
+		info << ")";
+		return info.str();
+	}
+
+
+	double getDelta(const GradientHessian gh, const DoubleVector& betaVector, const int index) const {
+		double t1 = getLambda();
+		double t2 = getEpisoln();
+
+		const double beta = betaVector[index];
+
+		typedef std::pair<double,double> PointWeightPair;
+
+		// Get attraction points
+		std::vector<PointWeightPair> attractionPoints;
+		attractionPoints.push_back(std::make_pair(0.0, t1));
+
+		for (const auto i : neighborList) {
+		    attractionPoints.push_back(std::make_pair(betaVector[i], t2));
+		}
+		std::sort(std::begin(attractionPoints), std::end(attractionPoints));
+
+		// Compact to unique points
+		std::vector<PointWeightPair> uniqueAttractionPoints;
+		uniqueAttractionPoints.push_back(attractionPoints[0]);
+		for (auto it = std::begin(attractionPoints) + 1; it != std::end(attractionPoints); ++it) {
+		    if (uniqueAttractionPoints.back().first == (*it).first) {
+		        uniqueAttractionPoints.back().second += (*it).second;
+		    } else {
+		        uniqueAttractionPoints.push_back(*it);
+		    }
+		}
+
+		bool onAttractionPoint = false;
+		int pointsToLeft = 0;
+
+		for (; pointsToLeft < uniqueAttractionPoints.size(); ++pointsToLeft) {
+		    if (beta <= attractionPoints[pointsToLeft].first) {
+		        if (beta == attractionPoints[pointsToLeft].first) {
+		            onAttractionPoint = true;
+		        }
+		        break;
+		    }
+		}
+
+	    double leftWeight = 0.0;
+	    double rightWeight = 0.0;
+
+	    for (int i = 0; i < pointsToLeft; ++i) {
+	        leftWeight += uniqueAttractionPoints[i].second;
+	    }
+
+	    for (int i = pointsToLeft; i < uniqueAttractionPoints.size(); ++i) {
+	        rightWeight += uniqueAttractionPoints[i].second;
+	    }
+
+		if (onAttractionPoint) {
+		    // Can we leave point?
+
+		} else {
+		    // Move
+
+		}
+
+// 		int parent = getParentMap.at(index);
+// 		const std::vector<int>& siblings = getChildMap.at(parent);
+// 		double sumBetas = 0;
+// //		int nSiblingsOfInterest = 0; //Different from siblings length if weights used
+// 		for (size_t i = 0; i < siblings.size(); i++) {
+// 			sumBetas += betaVector[siblings[i]];
+// 		}
+// 		double hessian = t1 - t1 / (siblings.size() + t2/t1);
+// //
+// 		double gradient = t1*betaVector[index] - t1*t1*sumBetas / (siblings.size()*t1 + t2);
+// //
+// 		return (- (gh.first + gradient)/(gh.second + hessian));
+		return 0.0;
+	}
+//
+
+private:
+	double getEpisoln() const {
+		return convertVarianceToHyperparameter(*variance2);
+	}
+
+	VariancePtr variance2;
+	NeighborList neighborList;
 };
 
 class NormalPrior : public CovariatePrior {
@@ -350,9 +468,9 @@ public:
 		return std::move(tmp);
 	}
 
-	CovariatePrior* clone() const {
-		return new NormalPrior(*this);
-	}
+// 	CovariatePrior* clone() const {
+// 		return new NormalPrior(*this);
+// 	}
 
 private:
 // 	double sigma2Beta;

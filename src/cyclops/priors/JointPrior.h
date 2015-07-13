@@ -43,7 +43,7 @@ public:
 
 	virtual double getKktBoundary(const int index) const = 0; // pure virtual
 
- 	virtual JointPrior* clone() const = 0; // pure virtual
+//  	virtual JointPrior* clone() const = 0; // pure virtual
 
 	void addVarianceParameters(const std::vector<VariancePtr>& ptrs) {
 	    for (auto ptr : ptrs) {
@@ -67,7 +67,10 @@ public:
 
 protected:
 
-	std::vector<VariancePtr> variance;
+    std::vector<VariancePtr> variance;
+	// std::vector<double> variance;
+	// std::vector<std::vector<int>> varianceMap;
+
 };
 
 class MixtureJointPrior : public JointPrior {
@@ -147,19 +150,30 @@ public:
 		return false;
 	}
 
-	JointPrior* clone() const {
-		PriorList newListPriors(listPriors.size());
-
-		PriorList newUniquePriors;
-		for (auto& prior : uniquePriors) {
-			PriorPtr newPriorPtr = PriorPtr(prior->clone());
-			newUniquePriors.push_back(newPriorPtr);
-			for(size_t i = 0; i < listPriors.size(); ++i) {
-				if (listPriors[i] == prior) {
-					newListPriors[i] = newPriorPtr;
-				}
-			}
-		}
+// 	JointPrior* clone() const {
+// 		PriorList newListPriors(listPriors.size());
+//
+// 	    // Deep copy of variances
+// 	    std::vector<VariancePtr> nVariance;
+// 	    for (auto x : variance) {
+// 	        nVariance.push_back(bsccs::make_shared<double>(*x));
+// 	    }
+//
+// 		PriorList newUniquePriors;
+// 		for (auto& prior : uniquePriors) {
+//
+//             // prior connects to which variances?
+//             auto varianceForPrior = prior->getVarianceParameters();
+//
+//
+// 			PriorPtr newPriorPtr = PriorPtr(prior->clone());
+// 			newUniquePriors.push_back(newPriorPtr);
+// 			for(size_t i = 0; i < listPriors.size(); ++i) {
+// 				if (listPriors[i] == prior) {
+// 					newListPriors[i] = newPriorPtr;
+// 				}
+// 			}
+// 		}
 
 		// CovariatePrior* oldPtr = nullptr;
 // 		for (auto& prior : listPriors) {
@@ -172,9 +186,9 @@ public:
 // 			newListPriors.push_back(newPriorPtr);
 // 			std::cerr << "cloned " << &*prior* << " -> " << &*newPriorPtr << std::endl;
 // 		}
-
-		return new MixtureJointPrior(newListPriors, newUniquePriors);
-	}
+//
+// 		return new MixtureJointPrior(newListPriors, newUniquePriors);
+// 	}
 
 private:
 
@@ -531,16 +545,22 @@ public:
 		return (- (gh.first + gradient)/(gh.second + hessian));
 	}
 
-	JointPrior* clone() const {
-		PriorList newHierarchyPriors;
-
-		for (auto& prior : hierarchyPriors) {
-			newHierarchyPriors.push_back(PriorPtr(prior->clone()));
-		}
-
-		return new HierarchicalJointPrior(newHierarchyPriors, hierarchyDepth, getParentMap,
-			getChildMap);
-	}
+// 	JointPrior* clone() const {
+// 		PriorList newHierarchyPriors;
+//
+// 		for (auto& prior : hierarchyPriors) {
+//
+// 		    std::vector<VariancePtr> newPtrs;
+// 		    for (auto x : prior->getVarianceParameters()) {
+// 		        newPtrs.push_back(bsccs::make_shared<double>(*x)); // deep copy of variances
+// 		    }
+//
+// 			newHierarchyPriors.push_back(PriorPtr(prior->clone(newPtrs)));
+// 		}
+//
+// 		return new HierarchicalJointPrior(newHierarchyPriors, hierarchyDepth, getParentMap,
+// 			getChildMap);
+// 	}
 
 private:
 
@@ -556,11 +576,11 @@ private:
 
 };
 
-class LaplaceFusedJointPrior2 : public HierarchicalJointPrior {
-
-    // TODO Implement
-
-};
+// class LaplaceFusedJointPrior2 : public HierarchicalJointPrior {
+//
+//     // TODO Implement
+//
+// };
 
 class FullyExchangeableJointPrior : public JointPrior {
 public:
@@ -609,14 +629,18 @@ public:
 		return singlePrior->getKktBoundary();
 	}
 
-	JointPrior* clone() const {
-		return new FullyExchangeableJointPrior(PriorPtr(singlePrior->clone()));
-	}
+// 	JointPrior* clone() const {
+// 	    std::vector<VariancePtr> newPtrs;
+// 	    for (auto x : variance) {
+// 	        newPtrs.push_back(bsccs::make_shared<double>(*x)); // deep copy of variances
+// 	    }
+//
+// 		return new FullyExchangeableJointPrior(PriorPtr(singlePrior->clone(newPtrs)));
+// 	}
 
 private:
+
 	PriorPtr singlePrior;
-	// int nVarianceParameters;
-	// std::vector<double> variances;
 };
 
 typedef bsccs::shared_ptr<JointPrior> JointPriorPtr;
