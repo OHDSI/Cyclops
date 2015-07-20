@@ -439,6 +439,7 @@ createControl <- function(maxIterations = 1000,
 #' @param variance      Numeric: prior distribution variance
 #' @param exclude       A vector of numbers or covariateId names to exclude from prior
 #' @param graph         Child-to-parent mapping for a hierarchical prior
+#' @param neighborhood  A list of first-order neighborhoods for a partially fused prior
 #' @param useCrossValidation    Logical: Perform cross-validation to determine prior \code{variance}.
 #' @param forceIntercept  Logical: Force intercept coefficient into prior
 #'

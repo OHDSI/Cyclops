@@ -5,7 +5,7 @@
 \title{Create a Cyclops prior object}
 \usage{
 createPrior(priorType, variance = 1, exclude = c(), graph = NULL,
-  useCrossValidation = FALSE, forceIntercept = FALSE)
+  neighborhood = NULL, useCrossValidation = FALSE, forceIntercept = FALSE)
 }
 \arguments{
 \item{priorType}{Character: specifies prior distribution.  See below for options}
@@ -15,6 +15,8 @@ createPrior(priorType, variance = 1, exclude = c(), graph = NULL,
 \item{exclude}{A vector of numbers or covariateId names to exclude from prior}
 
 \item{graph}{Child-to-parent mapping for a hierarchical prior}
+
+\item{neighborhood}{A list of first-order neighborhoods for a partially fused prior}
 
 \item{useCrossValidation}{Logical: Perform cross-validation to determine prior \code{variance}.}
 
