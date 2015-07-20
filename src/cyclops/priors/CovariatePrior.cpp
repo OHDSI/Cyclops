@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "priors/CovariatePrior.h"
 
 namespace bsccs {
