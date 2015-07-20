@@ -147,7 +147,8 @@ public:
 class LaplacePrior : public CovariatePrior {
 public:
 
-	LaplacePrior(double variance) : LaplacePrior(makeVariance(variance)) {
+	LaplacePrior(double variance) : CovariatePrior(), variance(makeVariance(variance)) {
+    //LaplacePrior(makeVariance(variance)) { // Not for gcc 4.6.3
 		// Do nothing
 	}
 
@@ -302,9 +303,12 @@ public:
 	typedef std::vector<int> NeighborList;
 
 	FusedLaplacePrior(double variance1, double variance2,
-				NeighborList neighborList) : FusedLaplacePrior(
-			makeVariance(variance1), makeVariance(variance2),
-			neighborList) {
+				NeighborList neighborList) :
+	        //FusedLaplacePrior(
+		    //	makeVariance(variance1), makeVariance(variance2),
+			//   neighborList)  // Not with gcc 4.6.3
+			LaplacePrior(makeVariance(variance1)), variance2(makeVariance(variance2)),
+			neighborList(neighborList) {
 		// Do nothing
 	}
 
@@ -344,7 +348,8 @@ private:
 class NormalPrior : public CovariatePrior {
 public:
 
-	NormalPrior(double variance) : NormalPrior(makeVariance(variance)) {
+	NormalPrior(double variance) : CovariatePrior(), variance(makeVariance(variance)) {
+     //NormalPrior(makeVariance(variance)) { // Not with gcc 4.6.3
 		// Do nothing
 	}
 
