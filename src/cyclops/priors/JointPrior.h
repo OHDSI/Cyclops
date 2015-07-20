@@ -45,11 +45,14 @@ public:
 
 //  	virtual JointPrior* clone() const = 0; // pure virtual
 
+    void addVarianceParameter(const VariancePtr& ptr) {
+        variance.push_back(ptr); // TODO Check for uniqueness
+    }
+
 	void addVarianceParameters(const std::vector<VariancePtr>& ptrs) {
 	    for (auto ptr : ptrs) {
-		    variance.push_back(ptr);
+		    addVarianceParameter(ptr);
 	    }
-		// TODO Check for uniqueness
 	}
 
 	void setVariance(int index, double x) {
@@ -119,7 +122,7 @@ public:
 		// TODO assert(beta.size() == listPriors.size());
 		double result = 0.0;
 		for (size_t i = 0; i < beta.size(); ++i) {
-			result += listPriors[i]->logDensity(beta[i]);
+			result += listPriors[i]->logDensity(beta, i);
 		}
 		return result;
 	}
@@ -502,8 +505,9 @@ public:
 
 	double logDensity(const DoubleVector& beta) const {
 		double result = 0.0;
-		for (DoubleVector::const_iterator it = beta.begin(); it != beta.end(); ++it) {
-			result += hierarchyPriors[0]->logDensity(*it);
+		// for (DoubleVector::const_iterator it = beta.begin(); it != beta.end(); ++it) {
+	    for (size_t i = 0; i < beta.size(); ++i) {
+			result += hierarchyPriors[0]->logDensity(beta, i);
 		}
 		return result;
 	}
@@ -599,8 +603,9 @@ public:
 
 	double logDensity(const DoubleVector& beta) const {
 		double result = 0.0;
-		for (DoubleVector::const_iterator it = beta.begin(); it != beta.end(); ++it) {
-			result += singlePrior->logDensity(*it);
+		// for (DoubleVector::const_iterator it = beta.begin(); it != beta.end(); ++it) {
+	    for (size_t i = 0; i < beta.size(); ++i) {
+			result += singlePrior->logDensity(beta, i);
 		}
 		return result;
 	}

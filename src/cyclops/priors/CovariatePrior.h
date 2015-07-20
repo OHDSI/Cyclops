@@ -14,6 +14,8 @@
 #include <sstream>
 #include <limits>
 
+#include <iostream> // TODO Remove
+
 #ifndef PI
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
 #endif
@@ -49,11 +51,13 @@ public:
 
 	virtual const std::string getDescription() const = 0; // pure virtual
 
-	virtual double logDensity(double x) const = 0; // pure virtual
+	// virtual double logDensity(double x) const = 0; // pure virtual
+
+	virtual double logDensity(const DoubleVector& beta, const int index) const = 0; // pure virtual
 
 	virtual double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const = 0; // pure virtual
 
-	virtual double logDensity(const DoubleVector& vector) const = 0; // pure virtual
+//	virtual double logDensity(const DoubleVector& vector) const = 0; // pure virtual
 
 	virtual bool getIsRegularized() const = 0; // pure virtual
 
@@ -68,9 +72,11 @@ public:
 // 	virtual int getNumberVarianceParameters() const { return 1; }
 
 	static PriorPtr makePrior(PriorType priorType, double variance);
+
+	static VariancePtr makeVariance(double variance) {
+	    return bsccs::make_shared<double>(variance);
+	}
 };
-
-
 
 class NoPrior : public CovariatePrior {
 public:
@@ -98,13 +104,17 @@ public:
 		return "None";
 	}
 
-	double logDensity(double x) const {
-		return 0.0;
-	}
+    double logDensity(const DoubleVector& beta, const int index) const {
+        return 0.0;
+    }
 
-	double logDensity(const DoubleVector& vector) const {
-		return 0.0;
-	}
+// 	double logDensity(double x) const {
+// 		return 0.0;
+// 	}
+//
+// 	double logDensity(const DoubleVector& vector) const {
+// 		return 0.0;
+// 	}
 
 	bool getIsRegularized() const {
 	    return false;
@@ -137,7 +147,7 @@ public:
 class LaplacePrior : public CovariatePrior {
 public:
 
-	LaplacePrior(double variance) : LaplacePrior(bsccs::make_shared<double>(variance)) {
+	LaplacePrior(double variance) : LaplacePrior(makeVariance(variance)) {
 		// Do nothing
 	}
 
@@ -170,14 +180,20 @@ public:
 // 		}
 // 	}
 
-	double logDensity(double x) const {
-	    double lambda = getLambda();
-		return std::log(0.5 * lambda) - lambda * std::abs(x);
-	}
+    double logDensity(const DoubleVector& beta, const int index) const {
+        auto x = beta[index];
+        auto lambda = getLambda();
+        return std::log(0.5 * lambda) - lambda * std::abs(x);
+    }
 
-	double logDensity(const DoubleVector& vector) const {
-		return logIndependentDensity(vector);
-	}
+// 	double logDensity(double x) const {
+// 	    double lambda = getLambda();
+// 		return std::log(0.5 * lambda) - lambda * std::abs(x);
+// 	}
+//
+// 	double logDensity(const DoubleVector& vector) const {
+// 		return logIndependentDensity(vector);
+// 	}
 
 	bool getIsRegularized() const {
 	    return true;
@@ -287,8 +303,7 @@ public:
 
 	FusedLaplacePrior(double variance1, double variance2,
 				NeighborList neighborList) : FusedLaplacePrior(
-			bsccs::make_shared<double>(variance1),
-			bsccs::make_shared<double>(variance2),
+			makeVariance(variance1), makeVariance(variance2),
 			neighborList) {
 		// Do nothing
 	}
@@ -305,92 +320,20 @@ public:
 
 	const std::string getDescription() const {
 		std::stringstream info;
-		info << "Fused(" << getLambda() << ", " << getEpisoln() << ":";
+		info << "Fused(" << getLambda() << "," << getEpsilon() << ":";
 		for (auto i : neighborList) {
-			info << " " << i;
+			info << "-" << i;
 		}
 		info << ")";
 		return info.str();
 	}
 
+	double logDensity(const DoubleVector& beta, const int index) const;
 
-	double getDelta(const GradientHessian gh, const DoubleVector& betaVector, const int index) const {
-		double t1 = getLambda();
-		double t2 = getEpisoln();
-
-		const double beta = betaVector[index];
-
-		typedef std::pair<double,double> PointWeightPair;
-
-		// Get attraction points
-		std::vector<PointWeightPair> attractionPoints;
-		attractionPoints.push_back(std::make_pair(0.0, t1));
-
-		for (const auto i : neighborList) {
-		    attractionPoints.push_back(std::make_pair(betaVector[i], t2));
-		}
-		std::sort(std::begin(attractionPoints), std::end(attractionPoints));
-
-		// Compact to unique points
-		std::vector<PointWeightPair> uniqueAttractionPoints;
-		uniqueAttractionPoints.push_back(attractionPoints[0]);
-		for (auto it = std::begin(attractionPoints) + 1; it != std::end(attractionPoints); ++it) {
-		    if (uniqueAttractionPoints.back().first == (*it).first) {
-		        uniqueAttractionPoints.back().second += (*it).second;
-		    } else {
-		        uniqueAttractionPoints.push_back(*it);
-		    }
-		}
-
-		bool onAttractionPoint = false;
-		int pointsToLeft = 0;
-
-		for (; pointsToLeft < uniqueAttractionPoints.size(); ++pointsToLeft) {
-		    if (beta <= attractionPoints[pointsToLeft].first) {
-		        if (beta == attractionPoints[pointsToLeft].first) {
-		            onAttractionPoint = true;
-		        }
-		        break;
-		    }
-		}
-
-	    double leftWeight = 0.0;
-	    double rightWeight = 0.0;
-
-	    for (int i = 0; i < pointsToLeft; ++i) {
-	        leftWeight += uniqueAttractionPoints[i].second;
-	    }
-
-	    for (int i = pointsToLeft; i < uniqueAttractionPoints.size(); ++i) {
-	        rightWeight += uniqueAttractionPoints[i].second;
-	    }
-
-		if (onAttractionPoint) {
-		    // Can we leave point?
-
-		} else {
-		    // Move
-
-		}
-
-// 		int parent = getParentMap.at(index);
-// 		const std::vector<int>& siblings = getChildMap.at(parent);
-// 		double sumBetas = 0;
-// //		int nSiblingsOfInterest = 0; //Different from siblings length if weights used
-// 		for (size_t i = 0; i < siblings.size(); i++) {
-// 			sumBetas += betaVector[siblings[i]];
-// 		}
-// 		double hessian = t1 - t1 / (siblings.size() + t2/t1);
-// //
-// 		double gradient = t1*betaVector[index] - t1*t1*sumBetas / (siblings.size()*t1 + t2);
-// //
-// 		return (- (gh.first + gradient)/(gh.second + hessian));
-		return 0.0;
-	}
-//
+	double getDelta(const GradientHessian gh, const DoubleVector& betaVector, const int index) const;
 
 private:
-	double getEpisoln() const {
+	double getEpsilon() const {
 		return convertVarianceToHyperparameter(*variance2);
 	}
 
@@ -401,7 +344,7 @@ private:
 class NormalPrior : public CovariatePrior {
 public:
 
-	NormalPrior(double variance) : NormalPrior(bsccs::make_shared<double>(variance)) {
+	NormalPrior(double variance) : NormalPrior(makeVariance(variance)) {
 		// Do nothing
 	}
 
@@ -446,14 +389,20 @@ public:
 		return 0.0;
 	}
 
-	double logDensity(double x) const {
-		double sigma2Beta = getVariance();
-		return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
-	}
+// 	double logDensity(double x) const {
+// 		double sigma2Beta = getVariance();
+// 		return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
+// 	}
 
-	double logDensity(const DoubleVector& vector) const {
-		return logIndependentDensity(vector);
-	}
+    double logDensity(const DoubleVector& beta, const int index) const {
+        auto x = beta[index];
+        double sigma2Beta = getVariance();
+        return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
+    }
+
+// 	double logDensity(const DoubleVector& vector) const {
+// 		return logIndependentDensity(vector);
+// 	}
 
 	double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const {
 		double sigma2Beta = getVariance();

@@ -204,7 +204,6 @@ void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& pr
  	NeighborhoodMap neighborhood;
  	if (!Rf_isNull(sexpNeighborhood)) {
  		for (int i = 0; i < sexpNeighborhood.size(); ++i) {
- 			std::cerr << i << std::endl;
  			Rcpp::List element = sexpNeighborhood[i];
  			neighborhood[as<IdType>(element[0])] = as<ProfileVector>(element[1]);
  		}
@@ -608,7 +607,11 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
  		if (neighborhood.size() > 0) {
 
 			// shared across all index covariates
- 			PriorPtr classPrior = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[1]), baseVariance[1]);
+ 			// PriorPtr classPrior = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[1]), baseVariance[1]);
+
+ 			VariancePtr baseVariance0 = singlePrior->getVarianceParameters()[0];
+ 		    VariancePtr baseVariance1 = CovariatePrior::makeVariance(baseVariance[1]);
+ 		    mixturePrior->addVarianceParameter(baseVariance1);
 
  			for (const auto& element : neighborhood) {
  				int index = modelData->getColumnIndexByName(element.first);
@@ -629,9 +632,10 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
  						}
  					}
 
-//  					auto hPrior = bsccs::make_shared<LaplaceFusedJointPrior>(singlePrior, neighbors);
-//  					hPrior->changePrior(classPrior, 1);
-//  					mixturePrior->changePrior(hPrior, index);
+ 					PriorPtr fusedPrior = bsccs::make_shared<FusedLaplacePrior>(
+ 					    baseVariance0, baseVariance1, neighbors
+ 					);
+ 					mixturePrior->changePrior(fusedPrior, index);
  				}
  			}
  		}

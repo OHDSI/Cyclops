@@ -129,11 +129,32 @@ test_that("Random-walk fusion prior", {
 
     dataPtr <- createCyclopsData(counts ~ outcome + treatment,
                                  modelType = "pr")
-    cyclopsFit <- fitCyclopsModel(dataPtr,
-                                  prior = createPrior(c("laplace", "laplace"),
-                                                      c(1.0, 10.0),
-                                                      exclude = c("(Intercept)"),
-                                                      neighborhood = list(list("outcome2", c("outcome3")),
-                                                                          list("outcome3", c("outcome2")))
-                                                      ))
+
+    cyclopsFit0 <- fitCyclopsModel(dataPtr,
+                                   prior = createPrior("laplace",
+                                                       1.0,
+                                                       exclude = c("(Intercept)")),
+                                   startingCoefficients = c(1,2,3,4,5))
+
+    cyclopsFit1 <- fitCyclopsModel(dataPtr,
+                                   prior = createPrior(c("laplace", "laplace"),
+                                                       c(1.0, 1E20), # Effectively no fused regularization
+                                                       exclude = c("(Intercept)"),
+                                                       neighborhood = list(list("outcome2", c("outcome3")),
+                                                                           list("outcome3", c("outcome2")))
+                                   ),
+                                   startingCoefficients = c(1,2,3,4,5))
+
+    expect_equal(coef(cyclopsFit0), coef(cyclopsFit1))
+
+    cyclopsFit2 <- fitCyclopsModel(dataPtr,
+                                   prior = createPrior(c("laplace", "laplace"),
+                                                       c(1.0, 0.1), # Strong fused regularization
+                                                       exclude = c("(Intercept)"),
+                                                       neighborhood = list(list("outcome2", c("outcome3")),
+                                                                           list("outcome3", c("outcome2")))
+                                   ),
+                                   startingCoefficients = c(1,2,3,4,5))
+
+    expect_equivalent(coef(cyclopsFit2)[2], coef(cyclopsFit2)[3]) # Have different names
 })
