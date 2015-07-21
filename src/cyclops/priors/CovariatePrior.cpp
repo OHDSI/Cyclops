@@ -19,49 +19,92 @@ namespace bsccs {
 	    return logDensity;
 	}
 
+
+	void processAttractionPoint(const double x, const double x0, const double weight,
+                                double& lambda, double& leftWeight, double& rightWeight, bool& onAttractionPoint,
+                                double& leftClosestAttractionPoint, double& rightClosestAttractionPoint) {
+	    if (x > x0) {
+	        lambda += weight;
+	        if (x0 > leftClosestAttractionPoint) {
+	            leftClosestAttractionPoint = x0;
+	        }
+	    } else if (x < x0) {
+	        lambda -= weight;
+	        if (x0 < rightClosestAttractionPoint) {
+	            rightClosestAttractionPoint = x0;
+	        }
+	    } else {
+	        onAttractionPoint = true;
+	        leftWeight  = -weight;
+	        rightWeight =  weight;
+	    }
+	}
+
 	double FusedLaplacePrior::getDelta(const GradientHessian gh, const DoubleVector& betaVector, const int index) const {
-	    double t1 = getLambda();
-	    double t2 = getEpsilon();
+	    const auto t1 = getLambda();
+	    const auto t2 = getEpsilon();
+	    const auto beta = betaVector[index];
 
-	    const double beta = betaVector[index];
+// 	    typedef std::pair<double,double> PointWeightPair;
+//
+// 	    // Get attraction points
+// 	    std::vector<PointWeightPair> allAttractionPoints;
+// 	    allAttractionPoints.push_back(std::make_pair(0.0, t1));
+//
+// 	    for (const auto i : neighborList) {
+// 	        allAttractionPoints.push_back(std::make_pair(betaVector[i], t2));
+// 	    }
+// 	    std::sort(std::begin(allAttractionPoints), std::end(allAttractionPoints));
+//
+// 	    // Compact to unique points
+// 	    std::vector<PointWeightPair> uniqueAttractionPoints;
+// 	    uniqueAttractionPoints.push_back(allAttractionPoints[0]);
+// 	    for (auto it = std::begin(allAttractionPoints) + 1; it != std::end(allAttractionPoints); ++it) {
+// 	        if (uniqueAttractionPoints.back().first == (*it).first) {
+// 	            uniqueAttractionPoints.back().second += (*it).second;
+// 	        } else {
+// 	            uniqueAttractionPoints.push_back(*it);
+// 	        }
+// 	    }
+//
+// 	    bool onAttractionPoint = false;
+// 	    int pointsToLeft = 0;
+// 	    double lambda = 0.0;
+// 	    // double rightWeight = 0.0;
+//
+// 	    for (int i = 0; i < uniqueAttractionPoints.size(); ++i) {
+// 	        if (beta > uniqueAttractionPoints[i].first) {
+// 	            lambda += uniqueAttractionPoints[i].second;
+// 	            ++pointsToLeft;
+// 	        } else if (beta == uniqueAttractionPoints[i].first) {
+// 	            onAttractionPoint = true;
+// 	        } else { // smaller
+// 	            lambda -= uniqueAttractionPoints[i].second;
+// 	        }
+// 	    }
 
-	    typedef std::pair<double,double> PointWeightPair;
+	    double lambda2 = 0.0;
+	    double leftWeight2 = 0.0;
+	    double rightWeight2 = 0.0;
 
-	    // Get attraction points
-	    std::vector<PointWeightPair> allAttractionPoints;
-	    allAttractionPoints.push_back(std::make_pair(0.0, t1));
+	    bool onAttractionPoint2 = false;
+	    double leftClosestAttractionPoint  = -std::numeric_limits<double>::max();
+	    double rightClosestAttractionPoint =  std::numeric_limits<double>::max();
 
+	    // Handle lasso @ 0
+	    processAttractionPoint(beta, 0.0, t1,
+                               lambda2, leftWeight2, rightWeight2, onAttractionPoint2,
+                               leftClosestAttractionPoint, rightClosestAttractionPoint);
+
+	    // Handle fused lasso @ neighbors
 	    for (const auto i : neighborList) {
-	        allAttractionPoints.push_back(std::make_pair(betaVector[i], t2));
-	    }
-	    std::sort(std::begin(allAttractionPoints), std::end(allAttractionPoints));
-
-	    // Compact to unique points
-	    std::vector<PointWeightPair> uniqueAttractionPoints;
-	    uniqueAttractionPoints.push_back(allAttractionPoints[0]);
-	    for (auto it = std::begin(allAttractionPoints) + 1; it != std::end(allAttractionPoints); ++it) {
-	        if (uniqueAttractionPoints.back().first == (*it).first) {
-	            uniqueAttractionPoints.back().second += (*it).second;
-	        } else {
-	            uniqueAttractionPoints.push_back(*it);
-	        }
+	        processAttractionPoint(beta, betaVector[i], t2,
+                                   lambda2, leftWeight2, rightWeight2, onAttractionPoint2,
+                                   leftClosestAttractionPoint, rightClosestAttractionPoint);
 	    }
 
-	    bool onAttractionPoint = false;
-	    int pointsToLeft = 0;
-	    double lambda = 0.0;
-	    // double rightWeight = 0.0;
-
-	    for (int i = 0; i < uniqueAttractionPoints.size(); ++i) {
-	        if (beta > uniqueAttractionPoints[i].first) {
-	            lambda += uniqueAttractionPoints[i].second;
-	            ++pointsToLeft;
-	        } else if (beta == uniqueAttractionPoints[i].first) {
-	            onAttractionPoint = true;
-	        } else { // smaller
-	            lambda -= uniqueAttractionPoints[i].second;
-	        }
-	    }
+	    leftWeight2 += lambda2;
+	    rightWeight2 += lambda2;
 
 // 	    std::cerr << "Attraction points for variable " << index << " at " << beta << ":";
 // 	    for (auto x : uniqueAttractionPoints) {
@@ -72,17 +115,31 @@ namespace bsccs {
 // 	    std::cerr << "lambda: " << lambda << std::endl;
 // 	    std::cerr << "Gradient: " << gh.first << std::endl;
 
+//         if (lambda != lambda2) {
+//             std::cerr << "Unequal lambda" << std::endl;
+//         }
+//
+//         if (onAttractionPoint != onAttractionPoint2) {
+//             std::cerr << "Unequal attraction point" << std::endl;
+//         }
+
+
 	    double delta = 0;
-	    if (onAttractionPoint) {
+	    if (onAttractionPoint2) {
 	        // Can we leave point?
 
-// 	        std::cerr << "On point" << std::endl;
-	        auto leftWeight = lambda - uniqueAttractionPoints[pointsToLeft].second;
-	        auto rightWeight = lambda + uniqueAttractionPoints[pointsToLeft].second;
-// 	        std::cerr << "lw: " << leftWeight << " rw: " << rightWeight << " gh: " << gh.first << std::endl;
+// 	        auto leftWeight = lambda - uniqueAttractionPoints[pointsToLeft].second;
+// 	        auto rightWeight = lambda + uniqueAttractionPoints[pointsToLeft].second;
+//
+// 	        if (leftWeight != leftWeight2) {
+// 	            std::cerr << "Unequal left weight" << std::endl;
+// 	        }
+// 	        if (rightWeight != rightWeight2) {
+// 	            std::cerr << "Unequal right weight" << std::endl;
+// 	        }
 
-	        double neg_update = - (gh.first + leftWeight) / gh.second;
-	        double pos_update = - (gh.first + rightWeight) / gh.second;
+	        double neg_update = - (gh.first + leftWeight2) / gh.second;
+	        double pos_update = - (gh.first + rightWeight2) / gh.second;
 
 	        if (neg_update < 0) {
 	            delta = neg_update;
@@ -94,19 +151,43 @@ namespace bsccs {
 
 	    } else {
 	        // Move
-	        delta = - (gh.first + lambda) / gh.second;
+	        delta = - (gh.first + lambda2) / gh.second;
 // 	        std::cerr << "Not on point: " << delta << std::endl;
 	    }
 
+// 	    if (pointsToLeft > 0) {
+// 	        if (uniqueAttractionPoints[pointsToLeft - 1].first != leftClosestAttractionPoint) {
+// 	            std::cerr << "Unequal left attraction points" << std::endl;
+// 	        }
+// 	    }
+
+// 	    if (pointsToLeft < uniqueAttractionPoints.size()) {
+// 	        if (uniqueAttractionPoints[pointsToLeft].first != rightClosestAttractionPoint) {
+// 	            std::cerr << "Unequal right attraction points" << std::endl;
+// 	            std::cerr << uniqueAttractionPoints[pointsToLeft].first
+//                        << " " << rightClosestAttractionPoint << " : " << beta << std::endl;
+//
+// 	            for (const auto x : uniqueAttractionPoints) {
+// 	                std::cerr << " " << x.first;
+// 	            }
+// 	            std::cerr << " : " << pointsToLeft << std::endl << std::endl;
+// 	        }
+// 	    }
+
 	    // Go no further than next point
-	    if (pointsToLeft > 0 && beta + delta < uniqueAttractionPoints[pointsToLeft - 1].first) {
-	        delta = uniqueAttractionPoints[pointsToLeft - 1].first - beta;
-// 	        std::cerr << "Truncate to left" << std::endl;
-	    } else if (pointsToLeft + 1 < uniqueAttractionPoints.size()
-                    && beta + delta > uniqueAttractionPoints[pointsToLeft + 1].first) {
-	        delta = uniqueAttractionPoints[pointsToLeft + 1].first - beta;
-// 	        std::cerr << "Truncate to right" << std::endl;
-	    }
+// 	    if (pointsToLeft > 0 && beta + delta < uniqueAttractionPoints[pointsToLeft - 1].first) {
+// 	        delta = uniqueAttractionPoints[pointsToLeft - 1].first - beta;
+// // 	        std::cerr << "Truncate to left" << std::endl;
+// 	    } else if (pointsToLeft < uniqueAttractionPoints.size()
+//                     && beta + delta > uniqueAttractionPoints[pointsToLeft].first) {
+// 	        delta = uniqueAttractionPoints[pointsToLeft].first - beta;
+// // 	        std::cerr << "Truncate to right" << std::endl;
+// 	    }
+        if (beta + delta < leftClosestAttractionPoint) {
+            delta = leftClosestAttractionPoint - beta;
+        } else if (beta + delta > rightClosestAttractionPoint) {
+            delta = rightClosestAttractionPoint - beta;
+        }
 
 // 	    std::cerr << std::endl;
 
