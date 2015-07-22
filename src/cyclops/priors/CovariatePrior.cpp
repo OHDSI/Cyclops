@@ -221,19 +221,6 @@ namespace bsccs {
 // 	    }
 // 	}
 
-    double HierarchicalNormalPrior::logDensity(const DoubleVector& beta, const int index) const {
-        auto x = beta[index];
-        double sigma2Beta = getVariance();
-        return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
-    }
-
-	double HierarchicalNormalPrior::getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const {
-	    double sigma2Beta = getVariance();
-	    double beta = betaVector[index];
-	    return - (gh.first + (beta / sigma2Beta)) /
-	    (gh.second + (1.0 / sigma2Beta));
-	}
-
    PriorPtr CovariatePrior::makePrior(PriorType priorType, double variance) {
         PriorPtr prior;
         switch (priorType) {
