@@ -312,13 +312,11 @@ public:
 		// Do nothing
 	}
 
+	virtual ~FusedLaplacePrior() { }
+
 	FusedLaplacePrior(VariancePtr ptr1, VariancePtr ptr2,
 				NeighborList neighborList) : LaplacePrior(ptr1), variance2(ptr2),
 						neighborList(neighborList) {
-		// Do nothing
-	}
-
-	virtual ~FusedLaplacePrior() {
 		// Do nothing
 	}
 
@@ -426,12 +424,13 @@ public:
 // 		return new NormalPrior(*this);
 // 	}
 
+protected:
+    double getVariance() const {
+        return *variance;
+    }
+
 private:
 // 	double sigma2Beta;
-
-	double getVariance() const {
-		return *variance;
-	}
 
 	template <typename Vector>
 	typename Vector::value_type logIndependentDensity(const Vector& vector) const {
@@ -451,6 +450,33 @@ private:
 	}
 
 	VariancePtr variance;
+};
+
+class HierarchicalNormalPrior : public NormalPrior {
+public:
+    typedef std::vector<int> NeighborList;
+
+    HierarchicalNormalPrior(VariancePtr ptr1, VariancePtr ptr2, NeighborList neighborList) :
+        NormalPrior(ptr1), variance2(ptr2), neighborList(neighborList) { }
+
+    virtual ~HierarchicalNormalPrior() { }
+
+    double logDensity(const DoubleVector& beta, const int index) const;
+
+    double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const;
+
+    std::vector<VariancePtr> getVarianceParameters() const {
+        auto tmp = NormalPrior::getVarianceParameters();
+        tmp.push_back(variance2);
+        return std::move(tmp);
+    }
+
+protected:
+    double getVariance2() const { return *variance2; }
+
+private:
+    VariancePtr variance2;
+    NeighborList neighborList;
 };
 
 } /* namespace priors */
