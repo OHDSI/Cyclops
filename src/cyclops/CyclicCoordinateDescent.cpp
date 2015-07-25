@@ -331,6 +331,11 @@ double convertHyperparameterToVariance(double value) {
 	return 2.0 / (value * value);
 }
 
+void CyclicCoordinateDescent::setHyperprior(int index, double value) {
+    jointPrior->setVariance(index, value);
+}
+
+// TODO Depricate
 void CyclicCoordinateDescent::setHyperprior(double value) {
 	jointPrior->setVariance(0, value);
 }

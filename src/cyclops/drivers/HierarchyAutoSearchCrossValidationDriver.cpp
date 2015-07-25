@@ -26,7 +26,7 @@ namespace bsccs {
 HierarchyAutoSearchCrossValidationDriver::HierarchyAutoSearchCrossValidationDriver(const ModelData& _modelData,
 		const CCDArguments& arguments,
 		loggers::ProgressLoggerPtr _logger,
-		loggers::ErrorHandlerPtr _error,		
+		loggers::ErrorHandlerPtr _error,
 		vector<real>* wtsExclude) : AutoSearchCrossValidationDriver(
 				_modelData,
 				arguments,
@@ -45,7 +45,7 @@ void HierarchyAutoSearchCrossValidationDriver::resetForOptimal(
 		const CCDArguments& arguments) {
 
 	ccd.setWeights(NULL);
-	ccd.setHyperprior(maxPoint);
+	ccd.setHyperprior(maxPoint[0]);
 	ccd.setClassHyperprior(maxPointClass);
 	ccd.resetBeta(); // Cold-start
 }
@@ -62,7 +62,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
     const auto& arguments = allArguments.crossValidation;
 
 	double tryvalue = (arguments.startingVariance > 0) ?
-	    arguments.startingVariance : 
+	    arguments.startingVariance :
 		modelData.getNormalBasedDefaultVar();
 
 	double tryvalueClass = tryvalue; // start with same variance at the class and element level; // for hierarchy class variance
@@ -73,22 +73,22 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
     std::ostringstream stream;
 	stream << "Starting var = " << tryvalue;
 	if (arguments.startingVariance == -1) {
-	    stream << " (default)";   
-	}	
+	    stream << " (default)";
+	}
 	logger->writeLine(stream);
 
 
 	bool finished = false;
 	bool drugLevelFinished = false;
 	bool classLevelFinished = false;
-    
+
 	int step = 0;
 	while (!finished) {
 
 		// More hierarchy logic
 		ccd.setHyperprior(tryvalue);
 		ccd.setClassHyperprior(tryvalueClass);
-		selector.reseed();		
+		selector.reseed();
 
 		std::vector<double> predLogLikelihood;
 
@@ -107,7 +107,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
         	searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
         	pair<bool,double> next = searcher.step();
         	tryvalue = next.second;
-        	std::ostringstream stream;        	
+        	std::ostringstream stream;
             stream << "Next point at " << next.second << " and " << next.first;
             logger->writeLine(stream);
             if (!next.first) {
@@ -141,27 +141,27 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
         }
 	}
 
-	maxPoint = tryvalue;
+	maxPoint[0] = tryvalue;
 	maxPointClass = tryvalueClass;
 
 	// Report results
 	std::ostringstream stream2;
 	stream2 << std::endl;
 	stream2 << "Maximum predicted log likelihood estimated at:" << std::endl;
-	stream2 << "\t" << maxPoint << " (variance)" << std::endl;
+	stream2 << "\t" << maxPoint[0] << " (variance)" << std::endl;
 	stream2 << "class level = " << maxPointClass;
 	logger->writeLine(stream2);
 
 
 	if (!allArguments.useNormalPrior) {
-		double lambda = convertVarianceToHyperparameter(maxPoint);
+		double lambda = convertVarianceToHyperparameter(maxPoint[0]);
 		std::ostringstream stream;
 		stream << "\t" << lambda << " (lambda)";
 		logger->writeLine(stream);
 	}
-	
+
     std::ostringstream stream3;
-	logger->writeLine(stream3);	
+	logger->writeLine(stream3);
 }
 
 

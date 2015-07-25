@@ -17,7 +17,7 @@ public:
 	GridSearchCrossValidationDriver(
             const CCDArguments& arguments,
 			loggers::ProgressLoggerPtr _logger,
-			loggers::ErrorHandlerPtr _error,			
+			loggers::ErrorHandlerPtr _error,
 			std::vector<real>* wtsExclude = NULL);
 
 	virtual ~GridSearchCrossValidationDriver();
@@ -26,7 +26,7 @@ public:
 // 			CyclicCoordinateDescent& ccd,
 // 			AbstractSelector& selector,
 // 			const CCDArguments& arguments);
-// 
+//
 // 	virtual void resetForOptimal(
 // 			CyclicCoordinateDescent& ccd,
 // 			CrossValidationSelector& selector,
@@ -37,15 +37,15 @@ public:
 protected:
 
 	double computeGridPoint(int step);
-	
-	virtual double doCrossValidationLoop(
+
+	virtual std::vector<double> doCrossValidationLoop(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
-			const CCDArguments& arguments,			
+			const CCDArguments& arguments,
 			int nThreads,
 			std::vector<CyclicCoordinateDescent*>& ccdPool,
 			std::vector<AbstractSelector*>& selectorPool);
-			
+
 // 	double doCrossValidationStep(
 // 			CyclicCoordinateDescent& ccd,
 // 			AbstractSelector& selector,
@@ -54,8 +54,8 @@ protected:
 // 			bool coldStart,
 // 			int nThreads,
 // 			std::vector<CyclicCoordinateDescent*>& ccdPool,
-// 			std::vector<AbstractSelector*>& selectorPool,						
-// 			std::vector<double> & predLogLikelihood);				
+// 			std::vector<AbstractSelector*>& selectorPool,
+// 			std::vector<double> & predLogLikelihood);
 
 //	double computePointEstimate(const std::vector<double>& value);
 
