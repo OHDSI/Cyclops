@@ -19,8 +19,8 @@ namespace bsccs {
 	    return logDensity;
 	}
 
-
-	void processAttractionPoint(const double x, const double x0, const double weight,
+	namespace details {
+	inline void processAttractionPoint(const double x, const double x0, const double weight,
                                 double& lambda, double& leftWeight, double& rightWeight, bool& onAttractionPoint,
                                 double& leftClosestAttractionPoint, double& rightClosestAttractionPoint) {
 	    if (x > x0) {
@@ -39,6 +39,7 @@ namespace bsccs {
 	        rightWeight =  weight;
 	    }
 	}
+	}; // namespace details
 
 	double FusedLaplacePrior::getDelta(const GradientHessian gh, const DoubleVector& betaVector, const int index) const {
 	    const auto t1 = getLambda();
@@ -92,13 +93,13 @@ namespace bsccs {
 	    double rightClosestAttractionPoint =  std::numeric_limits<double>::max();
 
 	    // Handle lasso @ 0
-	    processAttractionPoint(beta, 0.0, t1,
+	    details::processAttractionPoint(beta, 0.0, t1,
                                lambda2, leftWeight2, rightWeight2, onAttractionPoint2,
                                leftClosestAttractionPoint, rightClosestAttractionPoint);
 
 	    // Handle fused lasso @ neighbors
 	    for (const auto i : neighborList) {
-	        processAttractionPoint(beta, betaVector[i], t2,
+	        details::processAttractionPoint(beta, betaVector[i], t2,
                                    lambda2, leftWeight2, rightWeight2, onAttractionPoint2,
                                    leftClosestAttractionPoint, rightClosestAttractionPoint);
 	    }
@@ -220,6 +221,19 @@ namespace bsccs {
 // 	        delta = - beta;
 // 	    }
 // 	}
+
+    double HierarchicalNormalPrior::logDensity(const DoubleVector& beta, const int index) const {
+        auto x = beta[index];
+        double sigma2Beta = getVariance();
+        return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
+    }
+
+	double HierarchicalNormalPrior::getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const {
+	    double sigma2Beta = getVariance();
+	    double beta = betaVector[index];
+	    return - (gh.first + (beta / sigma2Beta)) /
+	    (gh.second + (1.0 / sigma2Beta));
+	}
 
    PriorPtr CovariatePrior::makePrior(PriorType priorType, double variance) {
         PriorPtr prior;
