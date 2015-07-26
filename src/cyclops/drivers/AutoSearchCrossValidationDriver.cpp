@@ -85,7 +85,13 @@ std::vector<double> AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	std::vector<double> currentOptimal(nDim, tryvalue);
 
 	bool globalFinished = false;
+	std::vector<double> savedOptimal;
+
 	while (!globalFinished) {
+
+	    if (nDim > 1) {
+	        savedOptimal = currentOptimal; // make copy
+	    }
 
 	    for (int dim = 0; dim < nDim; ++dim) {
 
@@ -111,9 +117,9 @@ std::vector<double> AutoSearchCrossValidationDriver::doCrossValidationLoop(
 
 	            std::ostringstream stream;
 	            stream << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
-	            searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
+	            searcher.tried(currentOptimal[dim], pointEstimate, stdDevEstimate);
 	            pair<bool,double> next = searcher.step();
-	            stream << "Completed at " << tryvalue << std::endl;
+	            stream << "Completed at " << currentOptimal[dim] << std::endl;
 	            stream << "Next point at " << next.second << " and " << next.first;
 	            logger->writeLine(stream);
 
