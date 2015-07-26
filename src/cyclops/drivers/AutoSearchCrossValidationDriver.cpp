@@ -81,6 +81,8 @@ std::vector<double> AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	}
 	logger->writeLine(stream);
 
+	const double tolerance = 1E-2; // TODO Make Cyclops argument
+
 	int nDim = ccd.getHyperprior().size();
 	std::vector<double> currentOptimal(nDim, tryvalue);
 
@@ -143,7 +145,15 @@ std::vector<double> AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	    if (nDim == 1) {
 	        globalFinished = true;
 	    } else {
-	        std::cerr << "What criteria to use?" << std::endl;
+
+	        double diff = 0.0;
+	        for (int i = 0; i < nDim; ++i) {
+	            diff += std::abs(currentOptimal[i] - savedOptimal[i]);
+	        }
+	        std::ostringstream stream;
+	        stream << "Absolute difference in cycle: " << diff << std::endl;
+
+	        globalFinished = (diff < tolerance);
 	    }
 	}
 	return currentOptimal;
