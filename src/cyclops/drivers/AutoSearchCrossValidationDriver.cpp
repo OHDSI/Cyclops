@@ -148,10 +148,10 @@ std::vector<double> AutoSearchCrossValidationDriver::doCrossValidationLoop(
 
 	        double diff = 0.0;
 	        for (int i = 0; i < nDim; ++i) {
-	            diff += std::abs(currentOptimal[i] - savedOptimal[i]);
+	            diff += std::abs((currentOptimal[i] - savedOptimal[i]) / savedOptimal[i]);
 	        }
 	        std::ostringstream stream;
-	        stream << "Absolute difference in cycle: " << diff << std::endl;
+	        stream << "Absolute percent difference in cycle: " << diff << std::endl;
 
 	        globalFinished = (diff < tolerance);
 	    }
