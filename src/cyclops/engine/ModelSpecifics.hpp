@@ -26,6 +26,10 @@
 
 #include "R.h"
 
+#include "Rcpp.h"
+
+#include "vexcl/vexcl.hpp"
+
 #ifdef CYCLOPS_DEBUG_TIMING
 	#include "Timing.h"
 	namespace bsccs {
@@ -688,6 +692,10 @@ std::pair<RealType, RealType> operator+(
     return { lhs.first + rhs.first, lhs.second + rhs.second };
 }
 
+int loopCount = 0;
+double totalTime = 0.0;
+
+
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
 		double *ohessian, Weights w) {
@@ -793,14 +801,180 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		}
 		}
 	} else if (BaseModel::hasIndependentRows) {
-
 		auto range = helper::independent::getRangeX(modelData, index,
 		        offsExpXBeta, hXBeta, hY, denomPid, hNWeight,
 		        typename IteratorType::tag());
 
+
+        // -DVEXCL_SHOW_KERNELS to show kernels
+        bool iamstupid = true;
+        double gradienttest = 0.0;
+        double hessiantest = 0.0;
+
+
+		const size_t n = K; //modelData.getNumberOfPatients();
+		 vex::Context ctx( vex::Filter::Type(CL_DEVICE_TYPE_GPU) && vex::Filter::DoublePrecision);
+        std::cout << ctx << std::endl;
+
+
+		vex::Reductor<double, vex::SUM> sum(ctx);
+		vex::vector<double> vex_offsExpXBeta(ctx, n);  // Device vector.
+		vex::vector<double> vex_denominator(ctx, n);  // Device vector.
+		vex::vector<double> vex_DataVector(ctx, n);  // Device vector.
+		vex::vector<double> vex_numerator(ctx, n);  // Device vector.
+		vex::vector<double> vex_numerator2(ctx, n);  // Device vector.
+		vex::vector<double> vex_gradient(ctx, n);  // Device vector.
+		vex::vector<double> vex_hessian(ctx, n);  // Device vector.
+        vex::vector<double> vex_results(ctx, n);
+        vex::vector<double> vex_test(ctx, n);
+
+        std::vector<double> std_gradient(n, 0.0);
+        vex::copy(std_gradient,vex_results);
+     	vex::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), vex_offsExpXBeta.begin()); // Copy data from host to device.
+		vex::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), vex_offsExpXBeta.begin()); // Copy data from host to device.
+		vex::copy(std::begin(denomPid), std::end(denomPid), vex_denominator.begin()); // Copy data from host to device.
+		vex::copy(std::begin(modelData.getDataVectorSTL(index)), std::end(modelData.getDataVectorSTL(index)), vex_DataVector.begin()); // Copy data from host to device.
+
+        if (iamstupid){
+//
+            auto start = std::chrono::steady_clock::now();
+
+
+               std::vector<vex::backend::kernel> kernel;
+                // Compile and store the kernels for later use.
+                for(uint d = 0; d < ctx.size(); d++) {
+                    kernel.emplace_back(ctx.queue(d),
+                    VEX_STRINGIZE_SOURCE(
+                        double SUM_double
+                        (
+                            double prm1,
+                            double prm2
+                            )
+                            {
+                                return prm1 + prm2;
+                            }
+                        kernel void dummy(ulong n, global double *x, global double *y, global double *z, global double *w) {
+                            double num1;
+                            double num2;
+                            double gradient;
+                            double hessian;
+                            size_t tid = get_local_id(0);
+                            size_t block_size = get_local_size(0);
+                            for(tid = get_global_id(0); i < n; i += get_global_size(0)){
+                                num1 = (y[tid]*z[tid]);
+                                num2 = num1*y[tid];
+                                gradient = num1/w[tid];
+                                hessian = num2/w[tid] - gradient*gradient;
+                                x[0] = SUM_double(x[0], gradient);
+                                printf("gradient = %f\n", gradient);
+                                printf("x[0] = %f\n", x[0]);
+                                x[1] = x[1] + hessian;
+                            }
+                        }
+                        ),
+                        "dummy"
+                        );
+                }
+                // Apply the kernels to the vector partitions on each device.
+                for(int d = 0; d < ctx.size(); d++) {
+                    kernel[d].push_arg<cl_ulong>(vex_numerator.part_size(d));
+                    kernel[d].push_arg(vex_results(d));
+                    kernel[d].push_arg(vex_DataVector(d));
+                    kernel[d].push_arg(vex_offsExpXBeta(d));
+                    kernel[d].push_arg(vex_denominator(d));
+                    kernel[d](ctx.queue(d));
+                }
+
+                vex::copy(vex_results,std_gradient);
+
+
+                gradienttest = std_gradient[0];
+                hessiantest = std_gradient[1];
+
+
+//                std::vector<vex::backend::kernel> kernel;
+//                // Compile and store the kernels for later use.
+//                for(uint d = 0; d < ctx.size(); d++) {
+//                    kernel.emplace_back(ctx.queue(d),
+//                    VEX_STRINGIZE_SOURCE(
+//                        double SUM_double
+//                        (
+//                            double prm1,
+//                            double prm2
+//                            )
+//                            {
+//                                return prm1 + prm2;
+//                            }
+//                        kernel void dummy(ulong n, global double *x, global double *y, global double *z, global double *w) {
+//                            double num1;
+//                            double num2;
+//                            double gradient;
+//                            double hessian;
+//                            for(size_t i = get_global_id(0); i < n; i += get_global_size(0)){
+//                                num1 = (y[i]*z[i]);
+//                                num2 = num1*y[i];
+//                                gradient = num1/w[i];
+//                                hessian = num2/w[i] - gradient*gradient;
+//                                x[0] = SUM_double(x[0], gradient);
+//                                printf("gradient = %f\n", gradient);
+//                                printf("x[0] = %f\n", x[0]);
+//                                x[1] = x[1] + hessian;
+//                            }
+//                        }
+//                        ),
+//                        "dummy"
+//                        );
+//                }
+//                // Apply the kernels to the vector partitions on each device.
+//                for(int d = 0; d < ctx.size(); d++) {
+//                    kernel[d].push_arg<cl_ulong>(vex_numerator.part_size(d));
+//                    kernel[d].push_arg(vex_results(d));
+//                    kernel[d].push_arg(vex_DataVector(d));
+//                    kernel[d].push_arg(vex_offsExpXBeta(d));
+//                    kernel[d].push_arg(vex_denominator(d));
+//                    kernel[d](ctx.queue(d));
+//                }
+//
+//                vex::copy(vex_results,std_gradient);
+//
+//
+//                gradienttest = std_gradient[0];
+//                hessiantest = std_gradient[1];
+
+///////////////////////// Slow way
+//    		vex_numerator = vex_DataVector * vex_offsExpXBeta;
+//			vex_numerator2 = vex_DataVector * vex_offsExpXBeta * vex_DataVector;
+//			vex_gradient = vex_numerator / vex_denominator;
+//			vex_hessian = vex_numerator2 / vex_denominator - vex_gradient * vex_gradient;
+//            gradienttest = sum(vex_gradient);
+//            hessiantest = sum(vex_hessian);
+
+////////////////////////
+
+
+            if (loopCount > 0) {
+                // stop timer;
+                auto duration = std::chrono::steady_clock::now() - start;
+                totalTime += std::chrono::duration<double, std::milli>(duration).count();
+            }
+
+            std::cout << "gradienttest = " << gradienttest << std::endl;
+            std::cout << "hessiantest = " << hessiantest << std::endl;
+
+
+
+           if (loopCount > 10) {
+               std::ostringstream stream;
+               stream << "Time: " << totalTime;
+               Rcpp::stop(stream.str());
+           }
+            ++loopCount;
+        }
+
 		const auto result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
 		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
  	        SerialOnly()
+
 // 		RcppParallel()
 		);
 
@@ -817,6 +991,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 		gradient = result.real();
 		hessian = result.imag();
+		std::cout << "gradient = " << gradient << std::endl;
+        std::cout << "hessian = " << hessian << std::endl;
+
 
 	} else {
 

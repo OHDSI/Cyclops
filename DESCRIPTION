@@ -3,10 +3,10 @@ Type: Package
 Title: Cyclic coordinate descent for logistic, Poisson and survival analysis
 Version: 1.1.0
 Author:
-    Marc A. Suchard [aut, cre], 
-    Martijn J. Schuemie [aut], 
+    Marc A. Suchard [aut, cre],
+    Martijn J. Schuemie [aut],
     Trevor R. Shaddox [aut]
-Maintainer:    Marc A. Suchard <msuchard@ucla.edu>    
+Maintainer:    Marc A. Suchard <msuchard@ucla.edu>
 Description: This package incorporates cyclic coordinate descent and
     majorization-minimization approaches to fit a variety of regression models
     found in large-scale observational healthcare data.  Implementations focus
@@ -27,12 +27,13 @@ Imports:
     ff,
     ffbase,
     RcppParallel
-LinkingTo: 
+LinkingTo:
 	Rcpp,
     RcppEigen (>= 0.3.2),
     RcppParallel,
   	BH,
-  	BoostCompiledLibraries
+  	BoostCompiledLibraries,
+    RcppVexCL
 Suggests:
     testthat,
     survival,

@@ -233,43 +233,7 @@ void AbstractModelSpecifics::initialize(
 	offsExpXBeta.resize(K);
 	hXBeta.resize(K); // PT OF DIFFERENCE
 
-    auto dev = vex::backend::device_list(vex::Filter::Any);
-    
-        std::cout << "OpenCL devices:" << std::endl << std::endl;
-    for (auto d = dev.begin(); d != dev.end(); d++) {
-        std::cout << "  " << d->getInfo<CL_DEVICE_NAME>() << std::endl
-             << "    " << std::left << "CL_PLATFORM_NAME" << " = "
-             << cl::Platform(d->getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()
-             << std::endl;
-}
-
-const size_t n = 1024 * 1024;
-vex::Context ctx( vex::Filter::Any );
-
-std::vector<double> a(n, 1.0);
-std::vector<double> b(n, 1.0);
-std::vector<double> c(n, 1.0);
-vex::vector<double> A(ctx, a);
-vex::vector<double> B(ctx, a);
-
-
-vex::copy(a, A);    // Copy data from host to device.
-vex::copy(A, a);    // Copy data from device to host.
-
-B = A + 2;
-vex::copy(B, c);    // Copy data from device to host.
-
-// STL-like form:
-vex::copy(a.begin(), a.end(), A.begin()); // Copy data from host to device.
-vex::copy(A.begin(), A.end(), a.begin()); // Copy data from device to host.
-
-std::cout << "a[1] = " << a[1] << std::endl;
-std::cout << "A[1] = " << A[1] << std::endl;
-std::cout << "B[1] = " << B[1] << std::endl;
-std::cout << "b[1] = " << b[1] << std::endl;
-std::cout << "c[1] = " << b[1] << std::endl;
-
-
+ 
 	if (allocateXjY()) {
 		hXjY.resize(J);
 	}
