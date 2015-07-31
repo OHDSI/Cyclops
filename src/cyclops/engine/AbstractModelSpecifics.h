@@ -14,6 +14,9 @@
 #include <cstddef>
 
 #include "Types.h"
+#include <Rcpp.h>
+#include "vexcl/vexcl.hpp"
+
 
 namespace bsccs {
 

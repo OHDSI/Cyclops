@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <set>
 
+
 #include "AbstractModelSpecifics.h"
 #include "ModelData.h"
 #include "engine/ModelSpecifics.h"
@@ -232,6 +233,7 @@ void AbstractModelSpecifics::initialize(
 	offsExpXBeta.resize(K);
 	hXBeta.resize(K); // PT OF DIFFERENCE
 
+ 
 	if (allocateXjY()) {
 		hXjY.resize(J);
 	}

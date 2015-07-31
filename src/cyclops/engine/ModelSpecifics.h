@@ -1078,7 +1078,8 @@ public:
                 (WeightOperationType::isWeighted) ?
                     weight * (numerator2 / denominator - g * g) :
                     (numerator2 / denominator - g * g);
-
+        std::cout <<"increment gradient = " << gradient << std::endl;
+//      std::cout <<"hessian = " << hessian << std::endl;
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
 };

@@ -3,10 +3,10 @@ Type: Package
 Title: Cyclic coordinate descent for logistic, Poisson and survival analysis
 Version: 1.1.0
 Author:
-    Marc A. Suchard [aut, cre], 
-    Martijn J. Schuemie [aut], 
+    Marc A. Suchard [aut, cre],
+    Martijn J. Schuemie [aut],
     Trevor R. Shaddox [aut]
-Maintainer:    Marc A. Suchard <msuchard@ucla.edu>    
+Maintainer:    Marc A. Suchard <msuchard@ucla.edu>
 Description: This package incorporates cyclic coordinate descent and
     majorization-minimization approaches to fit a variety of regression models
     found in large-scale observational healthcare data.  Implementations focus
@@ -17,7 +17,9 @@ LazyData: Yes
 URL: https://github.com/ohdsi/cyclops
 BugReports: https://github.com/ohdsi/cyclops/issues
 Depends:
-    R (>= 3.1.0)
+    R (>= 3.1.0),
+    BH (>= 1.54.0),
+  	BoostCompiledLibraries (>= 1.54.0)
 Imports:
     Matrix,
     Rcpp (>= 0.11.3),
@@ -25,10 +27,13 @@ Imports:
     ff,
     ffbase,
     RcppParallel
-LinkingTo: Rcpp,
-    BH (>= 1.51.0),
+LinkingTo:
+	Rcpp,
     RcppEigen (>= 0.3.2),
-    RcppParallel
+    RcppParallel,
+  	BH,
+  	BoostCompiledLibraries,
+    RcppVexCL
 Suggests:
     testthat,
     survival,
