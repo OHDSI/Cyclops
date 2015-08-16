@@ -806,232 +806,270 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		}
 		}
 	} else if (BaseModel::hasIndependentRows) {
-		auto range = helper::independent::getRangeX(modelData, index,
-		        offsExpXBeta, hXBeta, hY, denomPid, hNWeight,
-		        typename IteratorType::tag());
+	    auto range = helper::independent::getRangeX(modelData, index,
+	    offsExpXBeta, hXBeta, hY, denomPid, hNWeight,
+	    typename IteratorType::tag());
 
 
 
-        // -DVEXCL_SHOW_KERNELS to show kernels
-        bool iamstupid = true;
-        double gradienttest = 0.0;
-        double hessiantest = 0.0;
+	    // -DVEXCL_SHOW_KERNELS to show kernels
+	    bool iamstupid = true;
+	    double gradienttest = 0.0;
+	    double hessiantest = 0.0;
 
 
 
-		if (iamstupid){
+	    if (iamstupid){
+	        //start timer
+	        auto start = std::chrono::steady_clock::now();
 
-            vex::Context ctx( vex::Filter::Type(CL_DEVICE_TYPE_GPU) && vex::Filter::DoublePrecision);
-            std::vector<vex::backend::kernel> kernel;
-
-		    auto start = std::chrono::steady_clock::now();
-            const size_t n = K;
-            vex::vector<double> vex_gradient(ctx, n);  // Device vector.
-            vex::vector<double> vex_hessian(ctx, n);  // Device vector.
-            std::vector<double> std_gradient(n, 0.0);
-            std::vector<double> std_hessian(n, 0.0);
-            vex::vector<double> vex_DataVector(ctx, n);  // Device vector.
-            vex::vector<double> vex_offsExpXBeta(ctx, n);  // Device vector.
-            vex::vector<double> vex_denominator(ctx, n);  // Device vector.
-
-            vex::copy(std_gradient,vex_gradient);
-            vex::copy(std_hessian,vex_hessian);
-            vex::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), vex_offsExpXBeta.begin()); // Copy data from host to device.
-            vex::copy(std::begin(denomPid), std::end(denomPid), vex_denominator.begin()); // Copy data from host to device.
-            vex::copy(std::begin(modelData.getDataVectorSTL(index)), std::end(modelData.getDataVectorSTL(index)), vex_DataVector.begin()); // Copy data from host to device.
+	        //Set context
+	        vex::Context ctx( vex::Filter::Type(CL_DEVICE_TYPE_GPU) && vex::Filter::DoublePrecision);
+	        const size_t n = K;
+	        //copy data to device
+	        vex::vector<double> vex_DataVector(ctx, n);  // Device vector.
+	        vex::vector<double> vex_offsExpXBeta(ctx, n);  // Device vector.
+	        vex::vector<double> vex_denominator(ctx, n);  // Device vector.
+	        vex::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), vex_offsExpXBeta.begin()); // Copy data from host to device.
+	        vex::copy(std::begin(denomPid), std::end(denomPid), vex_denominator.begin()); // Copy data from host to device.
+	        vex::copy(std::begin(modelData.getDataVectorSTL(index)), std::end(modelData.getDataVectorSTL(index)), vex_DataVector.begin()); // Copy data from host to device.
 
 
-////////////////////  Custom Kernal Way
-/*
-            for(uint d = 0; d < ctx.size(); d++) {
-                kernel.emplace_back(ctx.queue(d),
-                VEX_STRINGIZE_SOURCE(
-                    double2 TRANSFORMSUM_double
-                    (
-                        double2 prm1,
-                        double prm2,
-                        double prm3,
-                        double prm4
-                        )
-                        {
-                            double2 temp;
-                            temp.x = prm2*prm3;
-                            temp.y = prm2*temp.x;
-                            temp.x = temp.x/prm4;
-                            temp.y = temp.y/prm4;
-                            temp.y = temp.y - temp.x*temp.x;
-                            temp.x = prm1.x + temp.x;
-                            temp.y = prm1.y + temp.y;
-                            return(temp);
-                        }
-
-                        double2 SUM_double
-                        (
-                            double2 prm1,
-                            double2 prm2
-                            )
-                            {
-                                double2 temp;
-                                temp.x = prm1.x + prm2.x;
-                                temp.y = prm1.y + prm2.y;
-                                return temp;
-                            }
-                            kernel void testkernel(  ulong n,
-                            global double * prm_1,
-                            global double * prm_2,
-                            global double * prm_3,
-                            global double * gradientout,
-                            global double * hessianout,
-                            local double2 * smem
-                            )
-                            {
-                                local double2 * sdata = smem;
-                                size_t tid = get_local_id(0);
-                                size_t block_size = get_local_size(0);
-                                double2 mySum;
-                                mySum.x = 0.0;
-                                mySum.y = 0.0;
-                                for(ulong idx = get_global_id(0); idx < n; idx += get_global_size(0))
-                                {
-                                    mySum = TRANSFORMSUM_double(mySum, prm_1[idx], prm_2[idx],prm_3[idx]);
-                                }
-                                sdata[tid] = mySum;
-                                barrier(CLK_LOCAL_MEM_FENCE);
-                                if (block_size >= 1024)
-                                {
-                                    if (tid < 512) { sdata[tid] = mySum = SUM_double(mySum, sdata[tid + 512]); }
-                                    barrier(CLK_LOCAL_MEM_FENCE);
-                                }
-                                if (block_size >= 512)
-                                {
-                                    if (tid < 256) { sdata[tid] = mySum = SUM_double(mySum, sdata[tid + 256]); }
-                                    barrier(CLK_LOCAL_MEM_FENCE);
-                                }
-                                if (block_size >= 256)
-                                {
-                                    if (tid < 128) { sdata[tid] = mySum = SUM_double(mySum, sdata[tid + 128]); }
-                                    barrier(CLK_LOCAL_MEM_FENCE);
-                                }
-                                if (block_size >= 128)
-                                {
-                                    if (tid < 64) { sdata[tid] = mySum = SUM_double(mySum, sdata[tid + 64]); }
-                                    barrier(CLK_LOCAL_MEM_FENCE);
-                                }
-                                if (tid < 32)
-                                {
-                                    volatile local double2 * smem = sdata;
-                                    if (block_size >= 64) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 32]); }
-                                    if (block_size >= 32) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 16]); }
-                                    if (block_size >= 16) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 8]); }
-                                    if (block_size >= 8) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 4]); }
-                                    if (block_size >= 4) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 2]); }
-                                    if (block_size >= 2) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 1]); }
-                                }
-                                double gradient = sdata[0].x;
-                                double hessian = sdata[0].y;
-                                if (tid == 0) {
-                                    gradientout[get_group_id(0)] = gradient;
-                                    hessianout[get_group_id(0)] = hessian;
-                                }
-
-                            }
-                            ),
-                            "testkernel"
-                            );
-            }
-            for(int d = 0; d < ctx.size(); d++) {
-                kernel[d].push_arg<cl_ulong>(vex_denominator.part_size(d));
-                kernel[d].push_arg(vex_DataVector(d));
-                kernel[d].push_arg(vex_offsExpXBeta(d));
-                kernel[d].push_arg(vex_denominator(d));
-                kernel[d].push_arg(vex_gradient(d));
-                kernel[d].push_arg(vex_hessian(d));
-                kernel[d].set_smem([](size_t wgs){ return wgs * 2 * sizeof(real); });
-                kernel[d](ctx.queue(d));
-            }
+	        ////////////////////  Custom Kernal Way
+	        /*
+	        // define a vector of kernels for evaluating
+	        std::vector<vex::backend::kernel> kernel;
 
 
-            vex::copy(vex_gradient,std_gradient);
-            vex::copy(vex_hessian,std_hessian);
+	        vex::vector<double> vex_gradient(ctx, n);  // Device vector.
+	        vex::vector<double> vex_hessian(ctx, n);  // Device vector.
+	        std::vector<double> std_gradient(n, 0.0);
+	        std::vector<double> std_hessian(n, 0.0);
 
-            gradienttest = std_gradient[0];
-            hessiantest = std_hessian[0];
-*/
-////////////////////////////////
-
-            ////////////////////////  VexCL transformation reduction
-
-            VEX_FUNCTION(double, getgradient, (double, dataVector)(double, offsExpXBeta)(double, denominator),
-                return dataVector*offsExpXBeta/denominator;
-            );
-            VEX_FUNCTION(double, gethessian, (double, dataVector)(double, offsExpXBeta)(double, denominator),
-                return (dataVector*dataVector*offsExpXBeta)/denominator - (dataVector*offsExpXBeta/denominator)*(dataVector*offsExpXBeta/denominator);
-            );
-
-            vex::Reductor<double, vex::SUM> sum(ctx);
-            gradienttest = sum(getgradient(vex_DataVector, vex_offsExpXBeta, vex_denominator));
-            hessiantest = sum(gethessian(vex_DataVector, vex_offsExpXBeta, vex_denominator));
+	        vex::copy(std_gradient,vex_gradient);
+	        vex::copy(std_hessian,vex_hessian);
 
 
-/////////////////////
+	        // define and place the transformation reduction kernel into the queue
+	        for(uint d = 0; d < ctx.size(); d++) {
+	        kernel.emplace_back(ctx.queue(d),
+	        VEX_STRINGIZE_SOURCE(
+	        double2 TRANSFORMSUM_double
+	        (
+	        double2 prm1,
+	        double prm2,
+	        double prm3,
+	        double prm4
+	        )
+	        {
+	        double2 temp;
+	        temp.x = prm2*prm3;
+	        temp.y = prm2*temp.x;
+	        temp.x = temp.x/prm4;
+	        temp.y = temp.y/prm4;
+	        temp.y = temp.y - temp.x*temp.x;
+	        temp.x = prm1.x + temp.x;
+	        temp.y = prm1.y + temp.y;
+	        return(temp);
+	        }
 
-            ///////////////////////// Slow way
+	        double2 SUM_double
+	        (
+	        double2 prm1,
+	        double2 prm2
+	        )
+	        {
+	        double2 temp;
+	        temp.x = prm1.x + prm2.x;
+	        temp.y = prm1.y + prm2.y;
+	        return temp;
+	        }
+	        kernel void testkernel(  ulong n,
+	        global double * prm_1,
+	        global double * prm_2,
+	        global double * prm_3,
+	        global double * gradientout,
+	        global double * hessianout,
+	        local double2 * smem
+	        )
+	        {
+	        local double2 * sdata = smem;
+	        size_t tid = get_local_id(0);
+	        size_t block_size = get_local_size(0);
+	        double2 mySum;
+	        mySum.x = 0.0;
+	        mySum.y = 0.0;
+	        for(ulong idx = get_global_id(0); idx < n; idx += get_global_size(0))
+	        {
+	        mySum = TRANSFORMSUM_double(mySum, prm_1[idx], prm_2[idx],prm_3[idx]);
+	        }
+	        sdata[tid] = mySum;
+	        barrier(CLK_LOCAL_MEM_FENCE);
+	        if (block_size >= 1024)
+	        {
+	        if (tid < 512) { sdata[tid] = mySum = SUM_double(mySum, sdata[tid + 512]); }
+	        barrier(CLK_LOCAL_MEM_FENCE);
+	        }
+	        if (block_size >= 512)
+	        {
+	        if (tid < 256) { sdata[tid] = mySum = SUM_double(mySum, sdata[tid + 256]); }
+	        barrier(CLK_LOCAL_MEM_FENCE);
+	        }
+	        if (block_size >= 256)
+	        {
+	        if (tid < 128) { sdata[tid] = mySum = SUM_double(mySum, sdata[tid + 128]); }
+	        barrier(CLK_LOCAL_MEM_FENCE);
+	        }
+	        if (block_size >= 128)
+	        {
+	        if (tid < 64) { sdata[tid] = mySum = SUM_double(mySum, sdata[tid + 64]); }
+	        barrier(CLK_LOCAL_MEM_FENCE);
+	        }
+	        if (tid < 32)
+	        {
+	        volatile local double2 * smem = sdata;
+	        if (block_size >= 64) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 32]); }
+	        if (block_size >= 32) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 16]); }
+	        if (block_size >= 16) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 8]); }
+	        if (block_size >= 8) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 4]); }
+	        if (block_size >= 4) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 2]); }
+	        if (block_size >= 2) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 1]); }
+	        }
+	        double gradient = sdata[0].x;
+	        double hessian = sdata[0].y;
+	        if (tid == 0) {
+	        gradientout[get_group_id(0)] = gradient;
+	        hessianout[get_group_id(0)] = hessian;
+	        }
+
+	        }
+	        ),
+	        "testkernel"
+	        );
+	        }
+
+	        //push arguments onto the queue, run the kernel
+	        for(int d = 0; d < ctx.size(); d++) {
+	        kernel[d].push_arg<cl_ulong>(vex_denominator.part_size(d));
+	        kernel[d].push_arg(vex_DataVector(d));
+	        kernel[d].push_arg(vex_offsExpXBeta(d));
+	        kernel[d].push_arg(vex_denominator(d));
+	        kernel[d].push_arg(vex_gradient(d));
+	        kernel[d].push_arg(vex_hessian(d));
+	        kernel[d].set_smem([](size_t wgs){ return wgs * 2 * sizeof(real); });
+	        kernel[d](ctx.queue(d));
+	        }
+
+
+	        vex::copy(vex_gradient,std_gradient);
+	        vex::copy(vex_hessian,std_hessian);
+
+	        gradienttest = std_gradient[0];
+	        hessiantest = std_hessian[0];
+	        */
+	        ////////////////////////////////
+
+	        ////////////////////////  VexCL transformation reduction with complex: 336.679
             /*
-            vex::Reductor<double, vex::SUM> sum(ctx);
-            vex::vector<double> vex_numerator(ctx, n);  // Device vector.
-            vex::vector<double> vex_numerator2(ctx, n);  // Device vector.
+	        // define custom transformation function
+	        VEX_FUNCTION(cl_double2, getgradientandhessian, (double, dataVector)(double, offsExpXBeta)(double, denominator),
+	        double2 temp;
+	        temp.x = (dataVector*offsExpXBeta)/denominator;
+	        temp.y = dataVector*(temp.x) - (temp.x)*(temp.x);
+	        return(temp);
+	        );
 
-            vex_numerator = vex_DataVector * vex_offsExpXBeta;
-            vex_numerator2 = vex_DataVector * vex_offsExpXBeta * vex_DataVector;
-            vex_gradient = vex_numerator / vex_denominator;
-            vex_hessian = vex_numerator2 / vex_denominator - vex_gradient * vex_gradient;
-            gradienttest = sum(vex_gradient);
-            hessiantest = sum(vex_hessian);
+	        std::vector< std::complex<double> > gradientandhessian(1);
+	        vex::vector<cl_double2> vex_gradientandhessian(ctx, 1);  // Device vector.
+
+            // use double2 reductor
+	        vex::Reductor<cl_double2, vex::SUM> sum2(ctx);
+
+	        vex_gradientandhessian = sum2(getgradientandhessian(vex_DataVector, vex_offsExpXBeta, vex_denominator));
+	        vex::copy(vex_gradientandhessian.begin(), vex_gradientandhessian.end(), reinterpret_cast<cl_double2*>(gradientandhessian.data()));
+
+	        gradienttest = gradientandhessian[0].real();
+	        hessiantest = gradientandhessian[0].imag();//sum(gethessian(vex_DataVector, vex_offsExpXBeta, vex_denominator));
+
             */
-            ////////////////////////
+	        /////////////////////////
+
+	        ///////////////////////// VexCL transformation reduction not complex: 322.495
+            /*
+	        VEX_FUNCTION(double, getgradient, (double, dataVector)(double, offsExpXBeta)(double, denominator),
+	        return (dataVector*offsExpXBeta/denominator);
+	        );
+	        VEX_FUNCTION(double, gethessian, (double, dataVector)(double, offsExpXBeta)(double, denominator),
+	        return (dataVector*dataVector*offsExpXBeta)/denominator - (dataVector*offsExpXBeta/denominator)*(dataVector*offsExpXBeta/denominator);
+	        );
+	        vex::Reductor<double, vex::SUM> sum(ctx);
+	        gradienttest = sum(getgradient(vex_DataVector, vex_offsExpXBeta, vex_denominator));
+	        hessiantest = sum(gethessian(vex_DataVector, vex_offsExpXBeta, vex_denominator));
+            */
+	        ////////////////////////
+
+	        ///////////////////////// Slow way
+            vex::vector<double> vex_gradient(ctx, n);  // Device vector.
+	        vex::vector<double> vex_hessian(ctx, n);  // Device vector.
+
+	        vex::Reductor<double, vex::SUM> sum(ctx);
+	        vex::vector<double> vex_numerator(ctx, n);  // Device vector.
+	        vex::vector<double> vex_numerator2(ctx, n);  // Device vector.
+
+	        vex_numerator = vex_DataVector * vex_offsExpXBeta;
+	        vex_numerator2 = vex_DataVector * vex_offsExpXBeta * vex_DataVector;
+	        vex_gradient = vex_numerator / vex_denominator;
+	        vex_hessian = vex_numerator2 / vex_denominator - vex_gradient * vex_gradient;
+	        gradienttest = sum(vex_gradient);
+	        hessiantest = sum(vex_hessian);
+
+	        ////////////////////////
 
 
-            if (loopCount > 0) {
-                // stop timer;
-                auto duration = std::chrono::steady_clock::now() - start;
-                totalTime += std::chrono::duration<double, std::milli>(duration).count();
-            }
+	        if (loopCount > 0) {
+	            // stop timer;
+	            auto duration = std::chrono::steady_clock::now() - start;
+	            totalTime += std::chrono::duration<double, std::milli>(duration).count();
+	        }
 
-            std::cout << "gradienttest = " << gradienttest << std::endl;
-            std::cout << "hessiantest = " << hessiantest << std::endl;
+	        std::cout << "gradienttest = " << gradienttest << std::endl;
+	        std::cout << "hessiantest = " << hessiantest << std::endl;
 
 
 
-           if (loopCount > 20) {
-               std::ostringstream stream;
-               stream << "Time: " << totalTime;
-               Rcpp::stop(stream.str());
-           }
-            ++loopCount;
+	        if (loopCount > 20) {
+	            std::ostringstream stream;
+	            stream << "Time: " << totalTime;
+	            Rcpp::stop(stream.str());
+	        }
+	        ++loopCount;
+	    }
+
+	    const auto result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
+	    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
+	    SerialOnly()
+
+	    // 		RcppParallel()
+	    );
+
+
+	    // 		const auto result2 = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
+	    // 		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
+	    // // 			SerialOnly()
+	    // 			RcppParallel()
+	    // 		);
+
+
+	    // 		std::cerr << result.real() << " " << result.imag()	<< std::endl;
+	    // 		std::cerr << result2.real() << " " << result2.imag()	<< std::endl << std::endl;
+
+	    gradient = result.real();
+	    hessian = result.imag();
+	    std::cout << "gradient = " << gradient << std::endl;
+	    std::cout << "hessian = " << hessian << std::endl;
+        if ((gradienttest - gradient)*(gradienttest - gradient) > 0.0001 || (hessiantest - hessian)*(hessiantest - hessian) > 0.0001){
+            Rcpp::stop("WRONG VALUES");
         }
-
-		const auto result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
-		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
- 	        SerialOnly()
-
-// 		RcppParallel()
-		);
-
-
-// 		const auto result2 = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
-// 		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
-// // 			SerialOnly()
-// 			RcppParallel()
-// 		);
-
-
-// 		std::cerr << result.real() << " " << result.imag()	<< std::endl;
-// 		std::cerr << result2.real() << " " << result2.imag()	<< std::endl << std::endl;
-
-		gradient = result.real();
-		hessian = result.imag();
-		std::cout << "gradient = " << gradient << std::endl;
-        std::cout << "hessian = " << hessian << std::endl;
 
 
 	} else {
