@@ -824,7 +824,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 
 	        //Set context
-	        vex::Context ctx( vex::Filter::Type(CL_DEVICE_TYPE_GPU) && vex::Filter::DoublePrecision);
+	        vex::Context ctx(vex::Filter::DoublePrecision);
 	        const size_t n = K;
 	        //copy data to device
 	        vex::vector<double> vex_DataVector(ctx, n);  // Device vector.
@@ -836,7 +836,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
             auto start = std::chrono::steady_clock::now();
 	        ////////////////////  Custom Kernal Way: (100) 116.317
-
+            /*
 	        // define a vector of kernels for evaluating
 	        std::vector<vex::backend::kernel> kernel;
 
@@ -952,10 +952,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	        gradienttest = gradientandhessian[0].real();
 	        hessiantest = gradientandhessian[0].imag();
 
+*/
 	        ////////////////////////////////
 
 	        ////////////////////////  VexCL transformation reduction with complex: (100) 222.607
-/*
+
 	        // define custom transformation function
 	        VEX_FUNCTION(cl_double2, getgradientandhessian, (double, dataVector)(double, offsExpXBeta)(double, denominator),
 	        double2 temp;
@@ -975,7 +976,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	        gradienttest = gradientandhessian[0].real();
 	        hessiantest = gradientandhessian[0].imag();
-*/
+
 
 	        /////////////////////////
 
