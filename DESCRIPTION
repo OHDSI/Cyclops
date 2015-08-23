@@ -33,7 +33,8 @@ LinkingTo:
     RcppParallel,
   	BH,
   	BoostCompiledLibraries,
-    RcppVexCL (>= 1.0.0)
+    RcppVexCL (>= 1.0.0),
+    RcppBoostCompute
 Suggests:
     testthat,
     survival,

@@ -29,6 +29,19 @@
 #include "Rcpp.h"
 
 #include "vexcl/vexcl.hpp"
+#include "boost/compute.hpp"
+#include "boost/compute/core.hpp"
+#include "boost/compute/algorithm/copy.hpp"
+#include "boost/compute/container/vector.hpp"
+#include "boost/compute/kernel.hpp"
+#include "boost/compute/system.hpp"
+#include "boost/compute/program.hpp"
+#include "boost/compute/types.hpp"
+#include "boost/compute/algorithm/transform.hpp"
+#include "boost/compute/function.hpp"
+//  #include "boost/compute/utility/source.hpp"
+
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	#include "Timing.h"
@@ -821,20 +834,74 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	    if (iamstupid){
 
+//            // Boost::compute
+//            // get the default device
+            boost::compute::device device2 = boost::compute::system::default_device();
+            std::cout << "default device: " << device2.name() << std::endl;
+            for(const auto &device : boost::compute::system::devices()){
+                std::cout << device.name() << std::endl;
+            }
+//
+            boost::compute::device device = boost::compute::system::find_device("Intel(R) Core(TM) i7-3770 CPU @ 3.40GHz");
+            std::cout << device.name() << std::endl;
+            boost::compute::context context{device};
+            boost::compute::command_queue queue{context, device, boost::compute::command_queue::enable_profiling};
+
+           // create vector on device
+          //boost::compute::vector<double> bcDataVector(K, context);  // Device vector.
+          boost::compute::vector<double> bcoffsExpXBeta(K, context); // Device vector.
+	       // boost::compute::vector<double> bcDenominator(K, context);  // Device vector.
+//
+//            // copy from host to device
+           boost::compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), bcoffsExpXBeta.begin(),queue);
+////            boost::compute::copy(std::begin(denomPid), std::end(denomPid), bcDenominator.begin(),queue);
+////            boost::compute::copy(std::begin(modelData.getDataVectorSTL(index)), std::end(modelData.getDataVectorSTL(index)), bcDataVector.begin(),queue);
+//
+//            // create vector on host
+            std::vector<double> host_vector(K);
+            const char kernel_source[] = "__kernel void square_kernel(__global double *x){ x[0] = 1.314;}";
+//
+            boost::compute::program square_program = boost::compute::program::create_with_source(kernel_source, context);
+            square_program.build();
+            boost::compute::kernel square_kernel = boost::compute::kernel(square_program, "square_kernel");
+//
+		    std::cerr << square_kernel.get_program().source() << std::endl;
+            square_kernel.set_arg(0, bcoffsExpXBeta); // TODO Must update
+            for(int i = 0; i<K; i++){
+                std::cout << offsExpXBeta[i] << ",";
+            }
+            std::cout << "" << std::endl;
+
+            queue.enqueue_1d_range_kernel(square_kernel, 0, host_vector.size(), 9);
+            boost::compute::copy(bcoffsExpXBeta.begin(), bcoffsExpXBeta.end(), host_vector.begin(), queue);
+            square_kernel.set_arg(0, bcoffsExpXBeta); // TODO Must update
+            for(int i = 0; i<K; i++){
+                std::cout << host_vector[i] << ",";
+            }
+            std::cout << "" << std::endl;
 
 
-	        //Set context
-	        vex::Context ctx(vex::Filter::DoublePrecision);
-	        const size_t n = K;
-	        //copy data to device
-	        vex::vector<double> vex_DataVector(ctx, n);  // Device vector.
-	        vex::vector<double> vex_offsExpXBeta(ctx, n);  // Device vector.
-	        vex::vector<double> vex_denominator(ctx, n);  // Device vector.
-	        vex::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), vex_offsExpXBeta.begin()); // Copy data from host to device (will only need to do this once).
-	        vex::copy(std::begin(denomPid), std::end(denomPid), vex_denominator.begin()); // Copy data from host to device.
-	        vex::copy(std::begin(modelData.getDataVectorSTL(index)), std::end(modelData.getDataVectorSTL(index)), vex_DataVector.begin()); // Copy data from host to device.
 
-            auto start = std::chrono::steady_clock::now();
+//
+//
+//            // copy data back to host
+//            boost::compute::copy(bcoffsExpXBeta.begin(), bcoffsExpXBeta.end(), host_vector.begin(), queue);
+//            std::cout << host_vector[0] << std::endl;
+            Rcpp::stop("stupid");
+
+//
+//            //Set context
+//            vex::Context ctx(vex::Filter::Type(CL_DEVICE_TYPE_CPU) && vex::Filter::DoublePrecision);
+//            const size_t n = K;
+//            //copy data to device
+//	        vex::vector<double> vex_DataVector(ctx, n);  // Device vector.
+//	        vex::vector<double> vex_offsExpXBeta(ctx, n);  // Device vector.
+//	        vex::vector<double> vex_denominator(ctx, n);  // Device vector.
+//	        vex::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), vex_offsExpXBeta.begin()); // Copy data from host to device (will only need to do this once).
+//	        vex::copy(std::begin(denomPid), std::end(denomPid), vex_denominator.begin()); // Copy data from host to device.
+//	        vex::copy(std::begin(modelData.getDataVectorSTL(index)), std::end(modelData.getDataVectorSTL(index)), vex_DataVector.begin()); // Copy data from host to device.
+//
+//            auto start = std::chrono::steady_clock::now();
 	        ////////////////////  Custom Kernal Way: (100) 116.317
             /*
 	        // define a vector of kernels for evaluating
@@ -958,24 +1025,24 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	        ////////////////////////  VexCL transformation reduction with complex: (100) 222.607
 
 	        // define custom transformation function
-	        VEX_FUNCTION(cl_double2, getgradientandhessian, (double, dataVector)(double, offsExpXBeta)(double, denominator),
-	        double2 temp;
-	        temp.x = (dataVector*offsExpXBeta)/denominator;
-	        temp.y = dataVector*(temp.x) - (temp.x)*(temp.x);
-	        return(temp);
-	        );
-
-	        std::vector< std::complex<double> > gradientandhessian(1);
-	        vex::vector<cl_double2> vex_gradientandhessian(ctx, 1);  // Device vector.
-
-            // use double2 reductor
-	        vex::Reductor<cl_double2, vex::SUM> sum2(ctx);
-
-	        vex_gradientandhessian = sum2(getgradientandhessian(vex_DataVector, vex_offsExpXBeta, vex_denominator));
-	        vex::copy(vex_gradientandhessian.begin(), vex_gradientandhessian.end(), reinterpret_cast<cl_double2*>(gradientandhessian.data()));
-
-	        gradienttest = gradientandhessian[0].real();
-	        hessiantest = gradientandhessian[0].imag();
+//	        VEX_FUNCTION(cl_double2, getgradientandhessian, (double, dataVector)(double, offsExpXBeta)(double, denominator),
+//	        double2 temp;
+//	        temp.x = (dataVector*offsExpXBeta)/denominator;
+//	        temp.y = dataVector*(temp.x) - (temp.x)*(temp.x);
+//	        return(temp);
+//	        );
+//
+//	        std::vector< std::complex<double> > gradientandhessian(1);
+//	        vex::vector<cl_double2> vex_gradientandhessian(ctx, 1);  // Device vector.
+//
+//            // use double2 reductor
+//	        vex::Reductor<cl_double2, vex::SUM> sum2(ctx);
+//
+//	        vex_gradientandhessian = sum2(getgradientandhessian(vex_DataVector, vex_offsExpXBeta, vex_denominator));
+//	        vex::copy(vex_gradientandhessian.begin(), vex_gradientandhessian.end(), reinterpret_cast<cl_double2*>(gradientandhessian.data()));
+//
+//	        gradienttest = gradientandhessian[0].real();
+//	        hessiantest = gradientandhessian[0].imag();
 
 
 	        /////////////////////////
@@ -1011,25 +1078,25 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	        hessiantest = sum(vex_hessian);
 */
 	        ////////////////////////
-
-
-	        if (loopCount > 0) {
-	            // stop timer;
-	            auto duration = std::chrono::steady_clock::now() - start;
-	            totalTime += std::chrono::duration<double, std::milli>(duration).count();
-	        }
-
-	        std::cout << "gradienttest = " << gradienttest << std::endl;
-	        std::cout << "hessiantest = " << hessiantest << std::endl;
-
-
-
-	        if (loopCount > 100) {
-	            std::ostringstream stream;
-	            stream << "Time: " << totalTime;
-	            Rcpp::stop(stream.str());
-	        }
-	        ++loopCount;
+//
+//
+//	        if (loopCount > 0) {
+//	            // stop timer;
+//	            auto duration = std::chrono::steady_clock::now() - start;
+//	            totalTime += std::chrono::duration<double, std::milli>(duration).count();
+//	        }
+//
+//	        std::cout << "gradienttest = " << gradienttest << std::endl;
+//	        std::cout << "hessiantest = " << hessiantest << std::endl;
+//
+//
+//
+//	        if (loopCount > 2) {
+//	            std::ostringstream stream;
+//	            stream << "Time: " << totalTime;
+//	            Rcpp::stop(stream.str());
+//	        }
+//	        ++loopCount;
 	    }
 
 	    const auto result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
@@ -1052,11 +1119,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	    gradient = result.real();
 	    hessian = result.imag();
-	    std::cout << "gradient = " << gradient << std::endl;
-	    std::cout << "hessian = " << hessian << std::endl;
-        if ((gradienttest - gradient)*(gradienttest - gradient) > 0.0001 || (hessiantest - hessian)*(hessiantest - hessian) > 0.0001){
-            Rcpp::stop("WRONG VALUES");
-        }
+//	    std::cout << "gradient = " << gradient << std::endl;
+//	    std::cout << "hessian = " << hessian << std::endl;
+//        if ((gradienttest - gradient)*(gradienttest - gradient) > 0.0001 || (hessiantest - hessian)*(hessiantest - hessian) > 0.0001){
+//            Rcpp::stop("WRONG VALUES");
+//        }
 
 
 	} else {
