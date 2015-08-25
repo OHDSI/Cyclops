@@ -18,6 +18,7 @@ before_install:
   - ./travis-tool.sh install_deps
   - ./travis-tool.sh install_r ggplot2
   - ./travis-tool.sh install_github ohdsi/BoostCompiledLibraries OHDSI/RcppVexCL
+  - ./travis-tool.sh install_github OHDSI/RcppBoostCompute
 #  - ./travis-tool.sh install_r testthat BH RcppEigen gnm ffbase ff gglot2
 
 before_script:
@@ -34,7 +35,7 @@ after_failure:
 notifications:
   recipients:
     - msuchard@gmail.com
-    - tshaddox@ucla.edu
+    - trevor.shaddox@gmail.com
   email:
     on_success: change
     on_failure: always

@@ -39,7 +39,7 @@
 #include "boost/compute/types.hpp"
 #include "boost/compute/algorithm/transform.hpp"
 #include "boost/compute/function.hpp"
-#include "boost/compute/utility/source.hpp"
+//#include "boost/compute/utility/source.hpp"
 #include "Timing.h"
 #include "CcdInterface.h"
 
@@ -850,7 +850,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 
 	    if (iamstupid){
-
+/*
 	       using boost::compute::uint_;
 //            // Boost::compute
 //
@@ -863,6 +863,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
             boost::compute::vector<double> bcDataVector(K, context);  // Device vector.
             boost::compute::vector<double> bcoffsExpXBeta(K, context); // Device vector.
 	        boost::compute::vector<double> bcDenominator(K, context);  // Device vector.
+            boost::compute::vector<double> gradientAndHessian(1, context);  // Device vector.
 //
 //
 
@@ -870,6 +871,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
             std::cout << "Copy to device" << std::endl;
             boost::compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), bcoffsExpXBeta.begin(),queue);
             boost::compute::copy(std::begin(modelData.getDataVectorSTL(index)), std::end(modelData.getDataVectorSTL(index)), bcDenominator.begin(),queue);
+            //boost::compute::copy(std::begin(denomPid), std::end(denomPid), bcDenominator.begin(),queue);
             boost::compute::copy(std::begin(modelData.getDataVectorSTL(index)), std::end(modelData.getDataVectorSTL(index)), bcDataVector.begin(),queue);
 //
 //          // create vector on host
@@ -883,16 +885,13 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
                                 global double * prm_1,
                                 global double * prm_2,
                                 global double * prm_3,
-                                global double2 * gradientandhessian,
-                                local double2 * smem
+                                global double * gradientandhessian
                                 )
                                 {
                                     local double2 * sdata = smem;
                                     size_t tid = get_local_id(0);
                                     size_t block_size = get_local_size(0);
-                                    double2 mySum;
-                                    mySum.x = 0.0;
-                                    mySum.y = 0.0;
+                                    double mySum = 0.0;
                                     for(ulong idx = get_global_id(0); idx < n; idx += get_global_size(0))
                                     {
                                         mySum = mySum + prm_1[idx] + prm_2[idx] + prm_3[idx];
@@ -961,6 +960,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
             std::cout << kernelSource.str() << std::endl;
             */
 //
+/*
             boost::compute::program testProgram = boost::compute::program::create_with_source(source, context);
             testProgram.build();
             boost::compute::kernel testKernel = boost::compute::kernel(testProgram, "transformationReductionKernel");
@@ -968,17 +968,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
             testKernel.set_arg(0, uint_(K)); // TODO Must update
             testKernel.set_arg(1, bcoffsExpXBeta); // TODO Must update
-            testKernel.set_arg(2, bcDataVector); // TODO Must update
-            for(int i = 0; i<K; i++){
-                std::cout << offsExpXBeta[i] << ",";
-            }
-            std::cout << "" << std::endl;
-            std::cout << "denomPid " << std::endl;
-            for(int i = 0; i<K; i++){
-                std::cout << denomPid[i] << ",";
-            }
-            std::cout << "" << std::endl;
-            std::cout << "hostVector.size() = " << hostVector.size() << std::endl;
+            testKernel.set_arg(2, bcDenominator); // TODO Must update
+            testKernel.set_arg(3, bcDataVector); // TODO Must update gradientAndHessian
+            testKernel.set_arg(4, gradientAndHessian);
 
             //uint_ vpt = VPT_DEF;
             queue.enqueue_1d_range_kernel(testKernel, 0, 20*hostVector.size(), 1);
@@ -988,14 +980,14 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
             }
             std::cout << "" << std::endl;
 
-
+*/
 
 //
 //
 //            // copy data back to host
 //            boost::compute::copy(bcoffsExpXBeta.begin(), bcoffsExpXBeta.end(), host_vector.begin(), queue);
 //            std::cout << host_vector[0] << std::endl;
-            Rcpp::stop("stupid");
+            //Rcpp::stop("stupid");
 
 
 
@@ -1003,8 +995,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	        vex::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), vex_offsExpXBeta.begin());
             vex::copy(std::begin(denomPid), std::end(denomPid), vex_denominator.begin());
 
-            struct timeval time1, time2;
-	        gettimeofday(&time1, NULL);
+//            struct timeval time1, time2;
+//	        gettimeofday(&time1, NULL);
 
             std::vector< std::complex<double> > gradientandhessian(1);
             vex::vector<cl_double2> vex_gradientandhessian(ctx, 1);  // Device vector.
@@ -1128,9 +1120,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	        if (loopCount > 0) {
 	            // stop timer;
-                gettimeofday(&time2, NULL);
-	            double time = CcdInterface::calculateSeconds(time1, time2);
-	            totalTime += time;
+//                gettimeofday(&time2, NULL);
+//	            double time = Timer::calculateSeconds(time1, time2);
+//	            totalTime += time;
 	        }
 
 	        std::cout << "gradienttest = " << gradienttest << std::endl;
