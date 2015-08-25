@@ -31,7 +31,7 @@ LinkingTo:
 	Rcpp,
     RcppEigen (>= 0.3.2),
     RcppParallel,
-    RcppVexCL (>= 1.0.0)
+    RcppVexCL (>= 1.0.0),
   	BH,
   	BoostCompiledLibraries    
 Suggests:
