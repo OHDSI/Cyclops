@@ -9,7 +9,7 @@ createControl(maxIterations = 1000, tolerance = 1e-06,
   lowerLimit = 0.01, upperLimit = 20, gridSteps = 10, cvRepetitions = 1,
   minCVData = 100, noiseLevel = "silent", threads = 1, seed = NULL,
   resetCoefficients = FALSE, startingVariance = -1, useKKTSwindle = FALSE,
-  tuneSwindle = 10, selectorType = "default")
+  tuneSwindle = 10, gpu = "Use GPU", selectorType = "default")
 }
 \arguments{
 \item{maxIterations}{Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error}
@@ -47,6 +47,8 @@ Option \code{"grid"} selects a grid-search cross validation}
 \item{useKKTSwindle}{Logical: Use the Karush-Kuhn-Tucker conditions to limit search}
 
 \item{tuneSwindle}{Numeric: Size multiplier for active set}
+
+\item{gpu}{String: GPU use flag}
 
 \item{selectorType}{String: name of exchangeable sampling unit. If missing, then default for model is used.
                              Option \code{"byPid"} selects entire strata.

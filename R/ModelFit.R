@@ -346,6 +346,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param startingVariance      Numeric: Starting variance for auto-search cross-validation; default = -1 (use estimate based on data)
 #' @param useKKTSwindle Logical: Use the Karush-Kuhn-Tucker conditions to limit search
 #' @param tuneSwindle    Numeric: Size multiplier for active set
+#' @param gpu    String: GPU use flag
 #' @param selectorType  String: name of exchangeable sampling unit. If missing, then default for model is used.
 #'                              Option \code{"byPid"} selects entire strata.
 #'                              Option \code{"byRow"} selects single rows
@@ -375,6 +376,7 @@ createControl <- function(maxIterations = 1000,
                           startingVariance = -1,
                           useKKTSwindle = FALSE,
                           tuneSwindle = 10,
+                          gpu = "Use GPU",
                           selectorType = "default") {
     validCVNames = c("grid", "auto")
     stopifnot(cvType %in% validCVNames)
@@ -402,6 +404,7 @@ createControl <- function(maxIterations = 1000,
                    startingVariance = startingVariance,
                    useKKTSwindle = useKKTSwindle,
                    tuneSwindle = tuneSwindle,
+                   gpu = gpu,
                    selectorType = selectorType),
               class = "cyclopsControl")
 }
@@ -536,7 +539,7 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
                            (control$fold * control$cvRepetitions),
                            control$lowerLimit, control$upperLimit, control$gridSteps,
                            control$noiseLevel, control$threads, control$seed, control$resetCoefficients,
-                           control$startingVariance, control$useKKTSwindle, control$tuneSwindle,
+                           control$startingVariance, control$useKKTSwindle, control$tuneSwindle,control$gpu,
                            control$selectorType)
     }
 }

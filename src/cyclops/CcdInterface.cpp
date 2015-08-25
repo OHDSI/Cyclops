@@ -179,6 +179,7 @@ void CcdInterface::setDefaultArguments(void) {
 	arguments.noiseLevel = NOISY;
 	arguments.threads = -1;
 	arguments.resetCoefficients = false;
+	arguments.gpu = "silly test";
 }
 
 double CcdInterface::initializeModel(
@@ -406,7 +407,7 @@ double CcdInterface::fitModel(CyclicCoordinateDescent *ccd) {
 	gettimeofday(&time1, NULL);
 
 	ccd->update(arguments.modeFinding);
-
+	
 	gettimeofday(&time2, NULL);
 
 	return calculateSeconds(time1, time2);

@@ -98,6 +98,9 @@ public:
 	
 	static AbstractModelSpecifics* factory(const ModelType modelType, const ModelData& modelData);
 	
+	static AbstractModelSpecifics* factoryGPU(const ModelType modelType, const ModelData& modelData);
+
+	
 	// TODO Remove the following
 	RealVector& getXBeta() { return hXBeta; }
 	

@@ -68,6 +68,7 @@ struct ModeFindingArguments {
 	int convergenceType;
 	bool useKktSwindle;
 	int swindleMultipler;
+
 	
 	ModeFindingArguments() :
 		tolerance(1E-6),
@@ -105,6 +106,10 @@ struct CCDArguments {
 	bool useHierarchy;
 	std::string hierarchyFileName; //tshaddox
 	double classHierarchyVariance; //tshaddox
+	
+	//Needed for GPU
+	std::string gpu;
+
 
 	// Needed for boot-strapping
 	bool doBootstrap;

@@ -11,7 +11,10 @@
 
 #include "AbstractModelSpecifics.h"
 #include "ModelData.h"
+
+
 #include "engine/ModelSpecifics.h"
+
 // #include "io/InputReader.h"
 
 //#include "Rcpp.h"
@@ -87,6 +90,43 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
  	}
 	return model;
 }
+
+AbstractModelSpecifics* AbstractModelSpecifics::factoryGPU(const ModelType modelType, const ModelData& modelData) {
+	AbstractModelSpecifics* model = nullptr;
+ 	switch (modelType) {
+ 		case ModelType::SELF_CONTROLLED_MODEL :
+ 			model =  new ModelSpecifics<SelfControlledCaseSeries<real>,real>(modelData);
+ 			break;
+ 		case ModelType::CONDITIONAL_LOGISTIC :
+ 			model =  new ModelSpecifics<ConditionalLogisticRegression<real>,real>(modelData);
+ 			break;
+ 		case ModelType::TIED_CONDITIONAL_LOGISTIC :
+ 			model =  new ModelSpecifics<TiedConditionalLogisticRegression<real>,real>(modelData);
+ 			break;
+ 		case ModelType::LOGISTIC :
+ 			model = new ModelSpecifics<LogisticRegression<real>,real>(modelData);
+ 			break;
+ 		case ModelType::NORMAL :
+ 			model = new ModelSpecifics<LeastSquares<real>,real>(modelData);
+ 			break;
+ 		case ModelType::POISSON :
+ 			model = new ModelSpecifics<PoissonRegression<real>,real>(modelData);
+ 			break;
+		case ModelType::CONDITIONAL_POISSON :
+ 			model = new ModelSpecifics<ConditionalPoissonRegression<real>,real>(modelData);
+ 			break;
+ 		case ModelType::COX_RAW :
+ 			model = new ModelSpecifics<CoxProportionalHazards<real>,real>(modelData);
+ 			break;
+ 		case ModelType::COX :
+ 			model = new ModelSpecifics<BreslowTiedCoxProportionalHazards<real>,real>(modelData);
+ 			break;
+ 		default:
+ 			break;
+ 	}
+	return model;
+}
+
 
 //AbstractModelSpecifics::AbstractModelSpecifics(
 //		const std::vector<real>& y,
@@ -233,7 +273,7 @@ void AbstractModelSpecifics::initialize(
 	offsExpXBeta.resize(K);
 	hXBeta.resize(K); // PT OF DIFFERENCE
 
- 
+
 	if (allocateXjY()) {
 		hXjY.resize(J);
 	}

@@ -28,7 +28,7 @@
 
 #include "Rcpp.h"
 
-#include "vexcl/vexcl.hpp"
+
 #include "boost/compute.hpp"
 #include "boost/compute/core.hpp"
 #include "boost/compute/algorithm/copy.hpp"
@@ -39,8 +39,9 @@
 #include "boost/compute/types.hpp"
 #include "boost/compute/algorithm/transform.hpp"
 #include "boost/compute/function.hpp"
-//  #include "boost/compute/utility/source.hpp"
-
+#include "boost/compute/utility/source.hpp"
+#include "Timing.h"
+#include "CcdInterface.h"
 
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -286,6 +287,18 @@ namespace helper {
 } // namespace helper
 
 
+    int loopCount = 0;
+    double totalTime = 0.0;
+    int vectorLength = 9;
+    vex::Context ctx(vex::Filter::Type(CL_DEVICE_TYPE_GPU) && vex::Filter::DoublePrecision);
+    vex::vector<double> vex_DataVector0(ctx, vectorLength);  // Device vector.
+    vex::vector<double> vex_DataVector1(ctx, vectorLength);  // Device vector.
+    vex::vector<double> vex_DataVector2(ctx, vectorLength);  // Device vector.
+    vex::vector<double> vex_offsExpXBeta(ctx, vectorLength);  // Device vector.
+    vex::vector<double> vex_denominator(ctx, vectorLength);  // Device vector.
+    std::vector<vex::backend::kernel> kernel;
+
+
 template <class BaseModel,typename WeightType>
 ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
 	: AbstractModelSpecifics(input), BaseModel()//,
@@ -293,6 +306,12 @@ ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
 // threadPool(0,0,10)
 	{
 	// TODO Memory allocation here
+
+     vex::copy(std::begin(modelData.getDataVectorSTL(0)), std::end(modelData.getDataVectorSTL(0)), vex_DataVector0.begin()); // only need to do once.
+     vex::copy(std::begin(modelData.getDataVectorSTL(1)), std::end(modelData.getDataVectorSTL(1)), vex_DataVector1.begin()); // only need to do once.
+     vex::copy(std::begin(modelData.getDataVectorSTL(2)), std::end(modelData.getDataVectorSTL(2)), vex_DataVector2.begin()); // only need to do once.
+
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto now = bsccs::chrono::system_clock::now();
@@ -707,8 +726,6 @@ std::pair<RealType, RealType> operator+(
 
 
 
-int loopCount = 0;
-double totalTime = 0.0;
 
 
 
@@ -834,49 +851,140 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	    if (iamstupid){
 
+	       using boost::compute::uint_;
 //            // Boost::compute
-//            // get the default device
-            boost::compute::device device2 = boost::compute::system::default_device();
-            std::cout << "default device: " << device2.name() << std::endl;
-            for(const auto &device : boost::compute::system::devices()){
-                std::cout << device.name() << std::endl;
-            }
 //
-            boost::compute::device device = boost::compute::system::find_device("Intel(R) Core(TM) i7-3770 CPU @ 3.40GHz");
+            boost::compute::device device = boost::compute::system::find_device("Intel(R) Core(TM) i7-3770 CPU @ 3.40GHz");//boost::compute::system::default_device(); //
             std::cout << device.name() << std::endl;
             boost::compute::context context{device};
             boost::compute::command_queue queue{context, device, boost::compute::command_queue::enable_profiling};
 
            // create vector on device
-          //boost::compute::vector<double> bcDataVector(K, context);  // Device vector.
-          boost::compute::vector<double> bcoffsExpXBeta(K, context); // Device vector.
-	       // boost::compute::vector<double> bcDenominator(K, context);  // Device vector.
+            boost::compute::vector<double> bcDataVector(K, context);  // Device vector.
+            boost::compute::vector<double> bcoffsExpXBeta(K, context); // Device vector.
+	        boost::compute::vector<double> bcDenominator(K, context);  // Device vector.
 //
-//            // copy from host to device
-           boost::compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), bcoffsExpXBeta.begin(),queue);
-////            boost::compute::copy(std::begin(denomPid), std::end(denomPid), bcDenominator.begin(),queue);
-////            boost::compute::copy(std::begin(modelData.getDataVectorSTL(index)), std::end(modelData.getDataVectorSTL(index)), bcDataVector.begin(),queue);
 //
-//            // create vector on host
-            std::vector<double> host_vector(K);
-            const char kernel_source[] = "__kernel void square_kernel(__global double *x){ x[0] = 1.314;}";
+
+            // copy from host to device
+            std::cout << "Copy to device" << std::endl;
+            boost::compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), bcoffsExpXBeta.begin(),queue);
+            boost::compute::copy(std::begin(modelData.getDataVectorSTL(index)), std::end(modelData.getDataVectorSTL(index)), bcDenominator.begin(),queue);
+            boost::compute::copy(std::begin(modelData.getDataVectorSTL(index)), std::end(modelData.getDataVectorSTL(index)), bcDataVector.begin(),queue);
 //
-            boost::compute::program square_program = boost::compute::program::create_with_source(kernel_source, context);
-            square_program.build();
-            boost::compute::kernel square_kernel = boost::compute::kernel(square_program, "square_kernel");
+//          // create vector on host
+            std::vector<double> hostVector(K);
+
+            // Load kernel
+            std::cout << "Load kernel" << std::endl;
+
+            const char source[] = BOOST_COMPUTE_STRINGIZE_SOURCE(
+                        __kernel void transformationReductionKernel(  ulong n,
+                                global double * prm_1,
+                                global double * prm_2,
+                                global double * prm_3,
+                                global double2 * gradientandhessian,
+                                local double2 * smem
+                                )
+                                {
+                                    local double2 * sdata = smem;
+                                    size_t tid = get_local_id(0);
+                                    size_t block_size = get_local_size(0);
+                                    double2 mySum;
+                                    mySum.x = 0.0;
+                                    mySum.y = 0.0;
+                                    for(ulong idx = get_global_id(0); idx < n; idx += get_global_size(0))
+                                    {
+                                        mySum = mySum + prm_1[idx] + prm_2[idx] + prm_3[idx];
+                                    }
+                                    sdata[tid] = mySum;
+                                    barrier(CLK_LOCAL_MEM_FENCE);
+                                    if (block_size >= 1024)
+                                    {
+                                        if (tid < 512) { sdata[tid] = mySum = mySum + sdata[tid + 512]; }
+                                        barrier(CLK_LOCAL_MEM_FENCE);
+                                    }
+                                    if (block_size >= 512)
+                                    {
+                                        if (tid < 256) { sdata[tid] = mySum = mySum + sdata[tid + 256]; }
+                                        barrier(CLK_LOCAL_MEM_FENCE);
+                                    }
+                                    if (block_size >= 256)
+                                    {
+                                        if (tid < 128) { sdata[tid] = mySum = mySum + sdata[tid + 128]; }
+                                        barrier(CLK_LOCAL_MEM_FENCE);
+                                    }
+                                    if (block_size >= 128)
+                                    {
+                                        if (tid < 64) { sdata[tid] = mySum = mySum + sdata[tid + 64]; }
+                                        barrier(CLK_LOCAL_MEM_FENCE);
+                                    }
+                                    if (tid < 32)
+                                    {
+                                        volatile local double2 * smem = sdata;
+                                        if (block_size >= 64) { smem[tid] = mySum = mySum + sdata[tid + 32]; }
+                                        if (block_size >= 32) { smem[tid] = mySum = mySum + sdata[tid + 16]; }
+                                        if (block_size >= 16) { smem[tid] = mySum = mySum + sdata[tid + 8]; }
+                                        if (block_size >= 8) { smem[tid] = mySum = mySum + sdata[tid + 4]; }
+                                        if (block_size >= 4) { smem[tid] = mySum = mySum + sdata[tid + 2]; }
+                                        if (block_size >= 2) { smem[tid] = mySum = mySum + sdata[tid + 1]; }
+                                    }
+                                    if (tid == 0) {
+                                        gradientandhessian[get_group_id(0)] = smem[tid];
+                                    }
+
+                                }
+	            );
+                /*
+            std::stringstream kernelSource;
+            kernelSource << " __kernel void testKernel(uint n, __global double *offsExpXBeta, __global double * dataVector, __global double * gradientandhessian)\n";
+            kernelSource << "{\n const uint block_offset = get_group_id(0);\n";
+            kernelSource << " size_t block_size = get_local_size(0);\n const uint lid = get_local_id(0); \n";
+            kernelSource << "__local float scratch[block_size]; \n";
+            kernelSource << "for(uint idx = get_global_id(0); idx < n; idx += get_global_size(0))\n";
+            kernelSource << " {sum = sum + dataVector[idx]+offsExpXBeta[idx]; \n";
+            kernelSource << " barrier(CLK_LOCAL_MEM_FENCE); \n";
+            kernelSource << " if (block_size >= 1024){if (lid < 512) { sum += scratch[lid + 512]; scratch[lid] = sum; }barrier(CLK_LOCAL_MEM_FENCE);}";
+            kernelSource << " if (block_size >= 512){if (lid < 256) { sum += scratch[lid + 256]; scratch[lid] = sum; }barrier(CLK_LOCAL_MEM_FENCE);}";
+            kernelSource << " if (block_size >= 256){if (lid < 128) { sum += scratch[lid + 128]; scratch[lid] = sum; }barrier(CLK_LOCAL_MEM_FENCE);}";
+            kernelSource << " if (block_size >= 128){if (lid < 64) { sum += scratch[lid + 64]; scratch[lid] = sum; }barrier(CLK_LOCAL_MEM_FENCE);}";
+            kernelSource << "if (lid < 32){volatile __local float *lmem = scratch;";
+            kernelSource << "if (block_size >= 64) { lmem[lid] = sum = sum + lmem[lid+32]; }";
+            kernelSource << "if (block_size >= 32) { lmem[lid] = sum = sum + lmem[lid+16]; }";
+            kernelSource << "if (block_size >= 16) { lmem[lid] = sum = sum + lmem[lid+8]; }";
+            kernelSource << "if (block_size >= 8) { lmem[lid] = sum = sum + lmem[lid+4]; }";
+            kernelSource << "if (block_size >= 4) { lmem[lid] = sum = sum + lmem[lid+2]; }";
+            kernelSource << "if (block_size >= 2) { lmem[lid] = sum = sum + lmem[lid+1]; }";
+            kernelSource << "}\n";
+            kernelSource << "if (lid == 0) {gradientandhessian[get_group_id(0)] = scratch[0];}}";
+
+            std::cout << kernelSource.str() << std::endl;
+            */
 //
-		    std::cerr << square_kernel.get_program().source() << std::endl;
-            square_kernel.set_arg(0, bcoffsExpXBeta); // TODO Must update
+            boost::compute::program testProgram = boost::compute::program::create_with_source(source, context);
+            testProgram.build();
+            boost::compute::kernel testKernel = boost::compute::kernel(testProgram, "transformationReductionKernel");
+//
+
+            testKernel.set_arg(0, uint_(K)); // TODO Must update
+            testKernel.set_arg(1, bcoffsExpXBeta); // TODO Must update
+            testKernel.set_arg(2, bcDataVector); // TODO Must update
             for(int i = 0; i<K; i++){
                 std::cout << offsExpXBeta[i] << ",";
             }
             std::cout << "" << std::endl;
-
-            queue.enqueue_1d_range_kernel(square_kernel, 0, host_vector.size(), 9);
-            boost::compute::copy(bcoffsExpXBeta.begin(), bcoffsExpXBeta.end(), host_vector.begin(), queue);
-            square_kernel.set_arg(0, bcoffsExpXBeta); // TODO Must update
+            std::cout << "denomPid " << std::endl;
             for(int i = 0; i<K; i++){
-                std::cout << host_vector[i] << ",";
+                std::cout << denomPid[i] << ",";
+            }
+            std::cout << "" << std::endl;
+            std::cout << "hostVector.size() = " << hostVector.size() << std::endl;
+
+            //uint_ vpt = VPT_DEF;
+            queue.enqueue_1d_range_kernel(testKernel, 0, 20*hostVector.size(), 1);
+            boost::compute::copy(bcoffsExpXBeta.begin(), bcoffsExpXBeta.end(), hostVector.begin(), queue);
+            for(int i = 0; i<K; i++){
+                std::cout << hostVector[i] << ",";
             }
             std::cout << "" << std::endl;
 
@@ -889,129 +997,128 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 //            std::cout << host_vector[0] << std::endl;
             Rcpp::stop("stupid");
 
-//
-//            //Set context
-//            vex::Context ctx(vex::Filter::Type(CL_DEVICE_TYPE_CPU) && vex::Filter::DoublePrecision);
-//            const size_t n = K;
-//            //copy data to device
-//	        vex::vector<double> vex_DataVector(ctx, n);  // Device vector.
-//	        vex::vector<double> vex_offsExpXBeta(ctx, n);  // Device vector.
-//	        vex::vector<double> vex_denominator(ctx, n);  // Device vector.
-//	        vex::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), vex_offsExpXBeta.begin()); // Copy data from host to device (will only need to do this once).
-//	        vex::copy(std::begin(denomPid), std::end(denomPid), vex_denominator.begin()); // Copy data from host to device.
-//	        vex::copy(std::begin(modelData.getDataVectorSTL(index)), std::end(modelData.getDataVectorSTL(index)), vex_DataVector.begin()); // Copy data from host to device.
-//
-//            auto start = std::chrono::steady_clock::now();
-	        ////////////////////  Custom Kernal Way: (100) 116.317
-            /*
-	        // define a vector of kernels for evaluating
-	        std::vector<vex::backend::kernel> kernel;
 
+
+            // Some things need to be copied each time
+	        vex::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), vex_offsExpXBeta.begin());
+            vex::copy(std::begin(denomPid), std::end(denomPid), vex_denominator.begin());
+
+            struct timeval time1, time2;
+	        gettimeofday(&time1, NULL);
 
             std::vector< std::complex<double> > gradientandhessian(1);
             vex::vector<cl_double2> vex_gradientandhessian(ctx, 1);  // Device vector.
 
 
             // define and place the transformation reduction kernel into the queue
-	        for(uint d = 0; d < ctx.size(); d++) {
-	        kernel.emplace_back(ctx.queue(d),
-	        VEX_STRINGIZE_SOURCE(
-	            double2 TRANSFORMSUM_double
-	            (
-	                double2 prm1,
-	                double prm2,
-	                double prm3,
-	                double prm4
-	                )
-	                {
-	                    double2 temp;
-                        temp.x = (prm2*prm3)/prm4;
-	                    temp.y = prm2*(temp.x) - (temp.x)*(temp.x);
-                        temp.x += prm1.x;
-	                    temp.y += prm1.y;
-	                    return(temp);
-	                }
-
-	                double2 SUM_double
-	                (
-	                    double2 prm1,
-	                    double2 prm2
-	                    )
-	                    {
-	                        double2 temp;
-	                        temp.x = prm1.x + prm2.x;
-	                        temp.y = prm1.y + prm2.y;
-	                        return temp;
-	                    }
-	                    kernel void testkernel(  ulong n,
-	                    global double * prm_1,
-	                    global double * prm_2,
-	                    global double * prm_3,
-                        global double2 * gradientandhessian,
-	                    local double2 * smem
-	                    )
-	                    {
-	                        local double2 * sdata = smem;
-	                        size_t tid = get_local_id(0);
-	                        size_t block_size = get_local_size(0);
-	                        double2 mySum;
-	                        mySum.x = 0.0;
-	                        mySum.y = 0.0;
-	                        for(ulong idx = get_global_id(0); idx < n; idx += get_global_size(0))
-	                        {
-	                            mySum = TRANSFORMSUM_double(mySum, prm_1[idx], prm_2[idx],prm_3[idx]);
-	                        }
-	                        sdata[tid] = mySum;
-	                        barrier(CLK_LOCAL_MEM_FENCE);
-	                        if (block_size >= 1024)
-	                        {
-	                            if (tid < 512) { sdata[tid] = mySum = SUM_double(mySum, sdata[tid + 512]); }
-	                            barrier(CLK_LOCAL_MEM_FENCE);
-	                        }
-	                        if (block_size >= 512)
-	                        {
-	                            if (tid < 256) { sdata[tid] = mySum = SUM_double(mySum, sdata[tid + 256]); }
-	                            barrier(CLK_LOCAL_MEM_FENCE);
-	                        }
-	                        if (block_size >= 256)
-	                        {
-	                            if (tid < 128) { sdata[tid] = mySum = SUM_double(mySum, sdata[tid + 128]); }
-	                            barrier(CLK_LOCAL_MEM_FENCE);
-	                        }
-	                        if (block_size >= 128)
-	                        {
-	                            if (tid < 64) { sdata[tid] = mySum = SUM_double(mySum, sdata[tid + 64]); }
-	                            barrier(CLK_LOCAL_MEM_FENCE);
-	                        }
-	                        if (tid < 32)
-	                        {
-	                            volatile local double2 * smem = sdata;
-	                            if (block_size >= 64) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 32]); }
-	                            if (block_size >= 32) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 16]); }
-	                            if (block_size >= 16) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 8]); }
-	                            if (block_size >= 8) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 4]); }
-	                            if (block_size >= 4) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 2]); }
-	                            if (block_size >= 2) { smem[tid] = mySum = SUM_double(mySum, smem[tid + 1]); }
-	                        }
-	                        if (tid == 0) {
-                                gradientandhessian[get_group_id(0)] = smem[tid];
+            if (loopCount == 0){
+                for(uint d = 0; d < ctx.size(); d++) {
+                    kernel.emplace_back(ctx.queue(d),
+                    VEX_STRINGIZE_SOURCE(
+                        double2 transformSumKernel
+                        (
+                            double2 prm1,
+                            double prm2,
+                            double prm3,
+                            double prm4
+                            )
+                            {
+                                double2 temp;
+                                temp.x = (prm2*prm3)/prm4;
+                                temp.y = prm2*(temp.x) - (temp.x)*(temp.x);
+                                temp.x += prm1.x;
+                                temp.y += prm1.y;
+                                return(temp);
                             }
 
-	                    }
-	        ),
-	        "testkernel"
-	        );
-	        }
+                            double2 sumDouble2
+                            (
+                                double2 prm1,
+                                double2 prm2
+                                )
+                                {
+                                    double2 temp;
+                                    temp.x = prm1.x + prm2.x;
+                                    temp.y = prm1.y + prm2.y;
+                                    return temp;
+                                }
+                                kernel void transformationReductionKernel(  ulong n,
+                                global double * prm_1,
+                                global double * prm_2,
+                                global double * prm_3,
+                                global double2 * gradientandhessian,
+                                local double2 * smem
+                                )
+                                {
+                                    local double2 * sdata = smem;
+                                    size_t tid = get_local_id(0);
+                                    size_t block_size = get_local_size(0);
+                                    double2 mySum;
+                                    mySum.x = 0.0;
+                                    mySum.y = 0.0;
+                                    for(ulong idx = get_global_id(0); idx < n; idx += get_global_size(0))
+                                    {
+                                        mySum = transformSumKernel(mySum, prm_1[idx], prm_2[idx],prm_3[idx]);
+                                    }
+                                    sdata[tid] = mySum;
+                                    barrier(CLK_LOCAL_MEM_FENCE);
+                                    if (block_size >= 1024)
+                                    {
+                                        if (tid < 512) { sdata[tid] = mySum = sumDouble2(mySum, sdata[tid + 512]); }
+                                        barrier(CLK_LOCAL_MEM_FENCE);
+                                    }
+                                    if (block_size >= 512)
+                                    {
+                                        if (tid < 256) { sdata[tid] = mySum = sumDouble2(mySum, sdata[tid + 256]); }
+                                        barrier(CLK_LOCAL_MEM_FENCE);
+                                    }
+                                    if (block_size >= 256)
+                                    {
+                                        if (tid < 128) { sdata[tid] = mySum = sumDouble2(mySum, sdata[tid + 128]); }
+                                        barrier(CLK_LOCAL_MEM_FENCE);
+                                    }
+                                    if (block_size >= 128)
+                                    {
+                                        if (tid < 64) { sdata[tid] = mySum = sumDouble2(mySum, sdata[tid + 64]); }
+                                        barrier(CLK_LOCAL_MEM_FENCE);
+                                    }
+                                    if (tid < 32)
+                                    {
+                                        volatile local double2 * smem = sdata;
+                                        if (block_size >= 64) { smem[tid] = mySum = sumDouble2(mySum, smem[tid + 32]); }
+                                        if (block_size >= 32) { smem[tid] = mySum = sumDouble2(mySum, smem[tid + 16]); }
+                                        if (block_size >= 16) { smem[tid] = mySum = sumDouble2(mySum, smem[tid + 8]); }
+                                        if (block_size >= 8) { smem[tid] = mySum = sumDouble2(mySum, smem[tid + 4]); }
+                                        if (block_size >= 4) { smem[tid] = mySum = sumDouble2(mySum, smem[tid + 2]); }
+                                        if (block_size >= 2) { smem[tid] = mySum = sumDouble2(mySum, smem[tid + 1]); }
+                                    }
+                                    if (tid == 0) {
+                                        gradientandhessian[get_group_id(0)] = smem[tid];
+                                    }
+
+                                }
+                                ),
+                                "transformationReductionKernel"
+                                );
+                }
+            }
 
 	        //push arguments onto the queue, run the kernel
 	        for(int d = 0; d < ctx.size(); d++) {
-	        kernel[d].push_arg<cl_ulong>(vex_denominator.part_size(d));
-	        kernel[d].push_arg(vex_DataVector(d));
-	        kernel[d].push_arg(vex_offsExpXBeta(d));
-	        kernel[d].push_arg(vex_denominator(d));
-            kernel[d].push_arg(vex_gradientandhessian(d));
-	        kernel[d].set_smem([](size_t wgs){ return wgs * 2 * sizeof(real); });
-	        kernel[d](ctx.queue(d));
+	            kernel[d].push_arg<cl_ulong>(vex_denominator.part_size(d));
+                if (index == 0){
+                    kernel[d].push_arg(vex_DataVector0(d));
+                } else if (index == 1){
+                    kernel[d].push_arg(vex_DataVector1(d));
+                } else{
+                    kernel[d].push_arg(vex_DataVector2(d));
+                }
+
+	            kernel[d].push_arg(vex_offsExpXBeta(d));
+	            kernel[d].push_arg(vex_denominator(d));
+	            kernel[d].push_arg(vex_gradientandhessian(d));
+	            kernel[d].set_smem([](size_t wgs){ return wgs * 2 * sizeof(real); });
+	            kernel[d](ctx.queue(d));
 	        }
 
             vex::copy(vex_gradientandhessian.begin(), vex_gradientandhessian.end(), reinterpret_cast<cl_double2*>(gradientandhessian.data()));
@@ -1019,84 +1126,24 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	        gradienttest = gradientandhessian[0].real();
 	        hessiantest = gradientandhessian[0].imag();
 
-*/
-	        ////////////////////////////////
+	        if (loopCount > 0) {
+	            // stop timer;
+                gettimeofday(&time2, NULL);
+	            double time = CcdInterface::calculateSeconds(time1, time2);
+	            totalTime += time;
+	        }
 
-	        ////////////////////////  VexCL transformation reduction with complex: (100) 222.607
-
-	        // define custom transformation function
-//	        VEX_FUNCTION(cl_double2, getgradientandhessian, (double, dataVector)(double, offsExpXBeta)(double, denominator),
-//	        double2 temp;
-//	        temp.x = (dataVector*offsExpXBeta)/denominator;
-//	        temp.y = dataVector*(temp.x) - (temp.x)*(temp.x);
-//	        return(temp);
-//	        );
-//
-//	        std::vector< std::complex<double> > gradientandhessian(1);
-//	        vex::vector<cl_double2> vex_gradientandhessian(ctx, 1);  // Device vector.
-//
-//            // use double2 reductor
-//	        vex::Reductor<cl_double2, vex::SUM> sum2(ctx);
-//
-//	        vex_gradientandhessian = sum2(getgradientandhessian(vex_DataVector, vex_offsExpXBeta, vex_denominator));
-//	        vex::copy(vex_gradientandhessian.begin(), vex_gradientandhessian.end(), reinterpret_cast<cl_double2*>(gradientandhessian.data()));
-//
-//	        gradienttest = gradientandhessian[0].real();
-//	        hessiantest = gradientandhessian[0].imag();
+	        std::cout << "gradienttest = " << gradienttest << std::endl;
+	        std::cout << "hessiantest = " << hessiantest << std::endl;
 
 
-	        /////////////////////////
 
-	        ///////////////////////// VexCL transformation reduction not complex: 100 (205.588 )
-/*
-	        VEX_FUNCTION(double, getgradient, (double, dataVector)(double, offsExpXBeta)(double, denominator),
-	        return (dataVector*offsExpXBeta/denominator);
-	        );
-	        VEX_FUNCTION(double, gethessian, (double, dataVector)(double, offsExpXBeta)(double, denominator),
-	        return (dataVector*dataVector*offsExpXBeta)/denominator - (dataVector*offsExpXBeta/denominator)*(dataVector*offsExpXBeta/denominator);
-	        );
-	        vex::Reductor<double, vex::SUM> sum(ctx);
-	        gradienttest = sum(getgradient(vex_DataVector, vex_offsExpXBeta, vex_denominator));
-	        hessiantest = sum(gethessian(vex_DataVector, vex_offsExpXBeta, vex_denominator));
-*/
-	        ////////////////////////
-
-	        ///////////////////////// Slow way: (100) 371.233
-/*
-            vex::vector<double> vex_gradient(ctx, n);  // Device vector.
-	        vex::vector<double> vex_hessian(ctx, n);  // Device vector.
-
-	        vex::Reductor<double, vex::SUM> sum(ctx);
-	        vex::vector<double> vex_numerator(ctx, n);  // Device vector.
-	        vex::vector<double> vex_numerator2(ctx, n);  // Device vector.
-
-	        vex_numerator = vex_DataVector * vex_offsExpXBeta;
-	        vex_numerator2 = vex_DataVector * vex_offsExpXBeta * vex_DataVector;
-	        vex_gradient = vex_numerator / vex_denominator;
-	        vex_hessian = vex_numerator2 / vex_denominator - vex_gradient * vex_gradient;
-	        gradienttest = sum(vex_gradient);
-	        hessiantest = sum(vex_hessian);
-*/
-	        ////////////////////////
-//
-//
-//	        if (loopCount > 0) {
-//	            // stop timer;
-//	            auto duration = std::chrono::steady_clock::now() - start;
-//	            totalTime += std::chrono::duration<double, std::milli>(duration).count();
-//	        }
-//
-//	        std::cout << "gradienttest = " << gradienttest << std::endl;
-//	        std::cout << "hessiantest = " << hessiantest << std::endl;
-//
-//
-//
-//	        if (loopCount > 2) {
-//	            std::ostringstream stream;
-//	            stream << "Time: " << totalTime;
-//	            Rcpp::stop(stream.str());
-//	        }
-//	        ++loopCount;
+	        if (loopCount > 2) {
+	            std::ostringstream stream;
+	            stream << "Time: " << totalTime;
+	            Rcpp::stop(stream.str());
+	        }
+	        ++loopCount;
 	    }
 
 	    const auto result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
@@ -1119,11 +1166,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	    gradient = result.real();
 	    hessian = result.imag();
-//	    std::cout << "gradient = " << gradient << std::endl;
-//	    std::cout << "hessian = " << hessian << std::endl;
-//        if ((gradienttest - gradient)*(gradienttest - gradient) > 0.0001 || (hessiantest - hessian)*(hessiantest - hessian) > 0.0001){
-//            Rcpp::stop("WRONG VALUES");
-//        }
+	    std::cout << "gradient = " << gradient << std::endl;
+	    std::cout << "hessian = " << hessian << std::endl;
+        if ((gradienttest - gradient)*(gradienttest - gradient) > 0.0001 || (hessiantest - hessian)*(hessiantest - hessian) > 0.0001){
+            Rcpp::stop("WRONG VALUES");
+        }
 
 
 	} else {
