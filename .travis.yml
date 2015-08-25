@@ -17,7 +17,8 @@ before_install:
   - ./travis-tool.sh install_devtools
   - ./travis-tool.sh install_deps
   - ./travis-tool.sh install_r ggplot2
-  - ./travis-tool.sh install_github ohdsi/BoostCompiledLibraries OHDSI/RcppVexCL OHDSI/RcppBoostCompute
+  - ./travis-tool.sh install_github ohdsi/BoostCompiledLibraries OHDSI/RcppVexCL
+  - ./travis-tool.sh install_github OHDSI/RcppBoostCompute
 #  - ./travis-tool.sh install_r testthat BH RcppEigen gnm ffbase ff gglot2
 
 before_script:
