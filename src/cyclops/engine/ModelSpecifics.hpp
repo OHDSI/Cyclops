@@ -296,6 +296,7 @@ namespace helper {
     vex::vector<double> vex_DataVector2(ctx, vectorLength);  // Device vector.
     vex::vector<double> vex_offsExpXBeta(ctx, vectorLength);  // Device vector.
     vex::vector<double> vex_denominator(ctx, vectorLength);  // Device vector.
+    vex::vector<int> vex_length(ctx, 2);  // Device vector.
     std::vector<vex::backend::kernel> kernel;
 
 
@@ -307,6 +308,8 @@ ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
 	{
 	// TODO Memory allocation here
 
+    std::vector<int> vectorLengthVector = {vectorLength,vectorLength};
+    vex::copy(std::begin(vectorLengthVector), std::end(vectorLengthVector), vex_length.begin()); // only need to do once.
      vex::copy(std::begin(modelData.getDataVectorSTL(0)), std::end(modelData.getDataVectorSTL(0)), vex_DataVector0.begin()); // only need to do once.
      vex::copy(std::begin(modelData.getDataVectorSTL(1)), std::end(modelData.getDataVectorSTL(1)), vex_DataVector1.begin()); // only need to do once.
      vex::copy(std::begin(modelData.getDataVectorSTL(2)), std::end(modelData.getDataVectorSTL(2)), vex_DataVector2.begin()); // only need to do once.
@@ -934,7 +937,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
                                 }
 	            );
-                /*
+
             std::stringstream kernelSource;
             kernelSource << " __kernel void testKernel(uint n, __global double *offsExpXBeta, __global double * dataVector, __global double * gradientandhessian)\n";
             kernelSource << "{\n const uint block_offset = get_group_id(0);\n";
@@ -958,9 +961,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
             kernelSource << "if (lid == 0) {gradientandhessian[get_group_id(0)] = scratch[0];}}";
 
             std::cout << kernelSource.str() << std::endl;
-            */
+
 //
-/*
+
             boost::compute::program testProgram = boost::compute::program::create_with_source(source, context);
             testProgram.build();
             boost::compute::kernel testKernel = boost::compute::kernel(testProgram, "transformationReductionKernel");
@@ -1034,7 +1037,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
                                     temp.y = prm1.y + prm2.y;
                                     return temp;
                                 }
-                                kernel void transformationReductionKernel(  ulong n,
+                                kernel void transformationReductionKernel( global int * n,
                                 global double * prm_1,
                                 global double * prm_2,
                                 global double * prm_3,
@@ -1048,7 +1051,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
                                     double2 mySum;
                                     mySum.x = 0.0;
                                     mySum.y = 0.0;
-                                    for(ulong idx = get_global_id(0); idx < n; idx += get_global_size(0))
+                                    for(int idx = get_global_id(0); idx < n[0]; idx += get_global_size(0))
                                     {
                                         mySum = transformSumKernel(mySum, prm_1[idx], prm_2[idx],prm_3[idx]);
                                     }
@@ -1097,7 +1100,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	        //push arguments onto the queue, run the kernel
 	        for(int d = 0; d < ctx.size(); d++) {
-	            kernel[d].push_arg<cl_ulong>(vex_denominator.part_size(d));
+	            kernel[d].push_arg(vex_length(d)); //kernel[d].push_arg<int>(vex_denominator.part_size(d));
                 if (index == 0){
                     kernel[d].push_arg(vex_DataVector0(d));
                 } else if (index == 1){
@@ -1105,7 +1108,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
                 } else{
                     kernel[d].push_arg(vex_DataVector2(d));
                 }
-
 	            kernel[d].push_arg(vex_offsExpXBeta(d));
 	            kernel[d].push_arg(vex_denominator(d));
 	            kernel[d].push_arg(vex_gradientandhessian(d));
