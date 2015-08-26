@@ -8,7 +8,7 @@ sudo: required
 
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -qq opencl-headers opencl-dev libboost-dev
+  - sudo apt-get install -qq opencl-headers opencl-dev libboost-dev fglrx
   - curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
   - chmod 755 ./travis-tool.sh
   - ./travis-tool.sh bootstrap
