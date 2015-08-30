@@ -612,7 +612,6 @@ void RcppCcdInterface::initializeModelImpl(
 	
 	// Not the way to do this.
 	if (arguments.gpu.length() > 1){
-		std::cout << "arguments.gpu = " << arguments.gpu << std::endl;
 		*model = AbstractModelSpecifics::factoryGPU(modelType, **modelData);
 	} else {
 		*model = AbstractModelSpecifics::factory(modelType, **modelData);

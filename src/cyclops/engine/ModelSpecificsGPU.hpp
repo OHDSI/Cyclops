@@ -1,13 +1,13 @@
 /*
- * ModelSpecifics.hpp
+ * ModelSpecificsGPU.hpp
  *
  *  Created on: Jul 13, 2012
  *      Author: msuchard
  */
 
 
-#ifndef MODELSPECIFICS_HPP_
-#define MODELSPECIFICS_HPP_
+#ifndef ModelSpecificsGPU_HPP_
+#define ModelSpecificsGPU_HPP_
 
 #include <cmath>
 #include <cstdlib>
@@ -18,7 +18,7 @@
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/iterator/zip_iterator.hpp>
 
-#include "ModelSpecifics.h"
+#include "ModelSpecificsGPU.h"
 #include "Iterators.h"
 
 #include "Recursions.hpp"
@@ -29,12 +29,24 @@
 
 #include "Rcpp.h"
 
+
+#include "boost/compute.hpp"
+#include "boost/compute/core.hpp"
+#include "boost/compute/algorithm/copy.hpp"
+#include "boost/compute/container/vector.hpp"
+#include "boost/compute/kernel.hpp"
+#include "boost/compute/system.hpp"
+#include "boost/compute/program.hpp"
+#include "boost/compute/types.hpp"
+#include "boost/compute/algorithm/transform.hpp"
+#include "boost/compute/function.hpp"
+//#include "boost/compute/utility/source.hpp"
 #include "Timing.h"
 #include "CcdInterface.h"
 
 
 #ifdef CYCLOPS_DEBUG_TIMING
-	#include "Timing.h"
+    #include "Timing.h"
 	namespace bsccs {
 		const std::string DenseIterator::name = "Den";
 		const std::string IndicatorIterator::name = "Ind";
@@ -185,105 +197,39 @@ namespace helper {
 //     	std::exit(-1);
 //     }
 
-	auto getRangeX(const CompressedDataMatrix& mat, const int index, InterceptTag) ->
-	    //            aux::zipper_range<
-	    boost::iterator_range<
-	        boost::zip_iterator<
-	            boost::tuple<
-	                decltype(boost::make_counting_iterator(0))
-	            >
-	        >
-	    > {
-
-	    auto i = boost::make_counting_iterator(0);
-	        const size_t K = mat.getNumberOfRows();
-
-	        return {
-	            boost::make_zip_iterator(
-	                boost::make_tuple(i)),
-	                boost::make_zip_iterator(
-	                    boost::make_tuple(i + K))
-	        };
-	    }
-
-    auto getRangeX(const CompressedDataMatrix& mat, const int index, DenseTag) ->
-//            aux::zipper_range<
- 						boost::iterator_range<
- 						boost::zip_iterator<
- 						boost::tuple<
-	            decltype(boost::make_counting_iterator(0)),
-            	decltype(begin(mat.getDataVector(index)))
-            >
-            >
-            > {
-
-        auto i = boost::make_counting_iterator(0);
-        auto x = begin(mat.getDataVector(index));
-		const size_t K = mat.getNumberOfRows();
-
-        return {
-            boost::make_zip_iterator(
-                boost::make_tuple(i, x)),
-            boost::make_zip_iterator(
-                boost::make_tuple(i + K, x + K))
-        };
-    }
-
-    auto getRangeX(const CompressedDataMatrix& mat, const int index, SparseTag) ->
-//            aux::zipper_range<
-						boost::iterator_range<
- 						boost::zip_iterator<
- 						boost::tuple<
-	            decltype(begin(mat.getCompressedColumnVector(index))),
-            	decltype(begin(mat.getDataVector(index)))
-            >
-            >
-            > {
-
-        auto i = begin(mat.getCompressedColumnVector(index));
-        auto x = begin(mat.getDataVector(index));
-		const size_t K = mat.getNumberOfEntries(index);
-
-        return {
-            boost::make_zip_iterator(
-                boost::make_tuple(i, x)),
-            boost::make_zip_iterator(
-                boost::make_tuple(i + K, x + K))
-        };
-    }
-
-    auto getRangeX(const CompressedDataMatrix& mat, const int index, IndicatorTag) ->
-//            aux::zipper_range<
-						boost::iterator_range<
- 						boost::zip_iterator<
- 						boost::tuple<
-	            decltype(begin(mat.getCompressedColumnVector(index)))
-	          >
-	          >
-            > {
-
-        auto i = begin(mat.getCompressedColumnVector(index));
-		const size_t K = mat.getNumberOfEntries(index);
-
-        return {
-            boost::make_zip_iterator(
-                boost::make_tuple(i)),
-            boost::make_zip_iterator(
-                boost::make_tuple(i + K))
-        };
-    }
 
 } // namespace helper
 
 
+#ifdef opencl
+    int loopCount = 0;
+    double totalTime = 0.0;
+    int vectorLength = 9;
+    vex::Context ctx(vex::Filter::Type(CL_DEVICE_TYPE_GPU) && vex::Filter::DoublePrecision);
+    vex::vector<double> vex_DataVector0(ctx, vectorLength);  // Device vector.
+    vex::vector<double> vex_DataVector1(ctx, vectorLength);  // Device vector.
+    vex::vector<double> vex_DataVector2(ctx, vectorLength);  // Device vector.
+    vex::vector<double> vex_offsExpXBeta(ctx, vectorLength);  // Device vector.
+    vex::vector<double> vex_denominator(ctx, vectorLength);  // Device vector.
+    vex::vector<int> vex_length(ctx, 2);  // Device vector.
+    std::vector<vex::backend::kernel> kernel;
+#endif
 
 template <class BaseModel,typename WeightType>
-ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
+ModelSpecificsGPU<BaseModel,WeightType>::ModelSpecificsGPU(const ModelData& input)
 	: AbstractModelSpecifics(input), BaseModel()//,
 //  	threadPool(4,4,1000)
 // threadPool(0,0,10)
 	{
 	// TODO Memory allocation here
+
+#ifdef opencl
+    std::vector<int> vectorLengthVector = {vectorLength,vectorLength};
+    vex::copy(std::begin(vectorLengthVector), std::end(vectorLengthVector), vex_length.begin()); // only need to do once.
+     vex::copy(std::begin(modelData.getDataVectorSTL(0)), std::end(modelData.getDataVectorSTL(0)), vex_DataVector0.begin()); // only need to do once.
+     vex::copy(std::begin(modelData.getDataVectorSTL(1)), std::end(modelData.getDataVectorSTL(1)), vex_DataVector1.begin()); // only need to do once.
+     vex::copy(std::begin(modelData.getDataVectorSTL(2)), std::end(modelData.getDataVectorSTL(2)), vex_DataVector2.begin()); // only need to do once.
+#endif
 
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -296,12 +242,12 @@ ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
 }
 
 template <class BaseModel, typename WeightType>
-AbstractModelSpecifics* ModelSpecifics<BaseModel,WeightType>::clone() const {
-	return new ModelSpecifics<BaseModel,WeightType>(modelData);
+AbstractModelSpecifics* ModelSpecificsGPU<BaseModel,WeightType>::clone() const {
+	return new ModelSpecificsGPU<BaseModel,WeightType>(modelData);
 }
 
 template <class BaseModel, typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::printTiming() {
+void ModelSpecificsGPU<BaseModel,WeightType>::printTiming() {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 
@@ -315,7 +261,7 @@ void ModelSpecifics<BaseModel,WeightType>::printTiming() {
 }
 
 template <class BaseModel,typename WeightType>
-ModelSpecifics<BaseModel,WeightType>::~ModelSpecifics() {
+ModelSpecificsGPU<BaseModel,WeightType>::~ModelSpecificsGPU() {
 	// TODO Memory release here
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -330,25 +276,25 @@ ModelSpecifics<BaseModel,WeightType>::~ModelSpecifics() {
 }
 
 template <class BaseModel,typename WeightType>
-bool ModelSpecifics<BaseModel,WeightType>::allocateXjY(void) { return BaseModel::precomputeGradient; }
+bool ModelSpecificsGPU<BaseModel,WeightType>::allocateXjY(void) { return BaseModel::precomputeGradient; }
 
 template <class BaseModel,typename WeightType>
-bool ModelSpecifics<BaseModel,WeightType>::allocateXjX(void) { return BaseModel::precomputeHessian; }
+bool ModelSpecificsGPU<BaseModel,WeightType>::allocateXjX(void) { return BaseModel::precomputeHessian; }
 
 template <class BaseModel,typename WeightType>
-bool ModelSpecifics<BaseModel,WeightType>::sortPid(void) { return BaseModel::sortPid; }
+bool ModelSpecificsGPU<BaseModel,WeightType>::sortPid(void) { return BaseModel::sortPid; }
 
 template <class BaseModel,typename WeightType>
-bool ModelSpecifics<BaseModel,WeightType>::initializeAccumulationVectors(void) { return BaseModel::cumulativeGradientAndHessian; }
+bool ModelSpecificsGPU<BaseModel,WeightType>::initializeAccumulationVectors(void) { return BaseModel::cumulativeGradientAndHessian; }
 
 template <class BaseModel,typename WeightType>
-bool ModelSpecifics<BaseModel,WeightType>::allocateNtoKIndices(void) { return BaseModel::hasNtoKIndices; }
+bool ModelSpecificsGPU<BaseModel,WeightType>::allocateNtoKIndices(void) { return BaseModel::hasNtoKIndices; }
 
 template <class BaseModel,typename WeightType>
-bool ModelSpecifics<BaseModel,WeightType>::hasResetableAccumulators(void) { return BaseModel::hasResetableAccumulators; }
+bool ModelSpecificsGPU<BaseModel,WeightType>::hasResetableAccumulators(void) { return BaseModel::hasResetableAccumulators; }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useCrossValidation) {
+void ModelSpecificsGPU<BaseModel,WeightType>::setWeights(real* inWeights, bool useCrossValidation) {
 	// Set K weights
 	if (hKWeight.size() != K) {
 		hKWeight.resize(K);
@@ -383,7 +329,7 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useC
 }
 
 template<class BaseModel, typename WeightType>
-void ModelSpecifics<BaseModel, WeightType>::computeXjY(bool useCrossValidation) {
+void ModelSpecificsGPU<BaseModel, WeightType>::computeXjY(bool useCrossValidation) {
 	for (size_t j = 0; j < J; ++j) {
 		hXjY[j] = 0;
 
@@ -415,7 +361,7 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjY(bool useCrossValidation) 
 }
 
 template<class BaseModel, typename WeightType>
-void ModelSpecifics<BaseModel, WeightType>::computeXjX(bool useCrossValidation) {
+void ModelSpecificsGPU<BaseModel, WeightType>::computeXjX(bool useCrossValidation) {
 	for (size_t j = 0; j < J; ++j) {
 		hXjX[j] = 0;
 		GenericIterator it(modelData, j);
@@ -443,7 +389,7 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjX(bool useCrossValidation) 
 }
 
 template<class BaseModel, typename WeightType>
-void ModelSpecifics<BaseModel, WeightType>::computeNtoKIndices(bool useCrossValidation) {
+void ModelSpecificsGPU<BaseModel, WeightType>::computeNtoKIndices(bool useCrossValidation) {
 
 	hNtoK.resize(N+1);
 	int n = 0;
@@ -459,7 +405,7 @@ void ModelSpecifics<BaseModel, WeightType>::computeNtoKIndices(bool useCrossVali
 }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInLogLikelihood(bool useCrossValidation) {
+void ModelSpecificsGPU<BaseModel,WeightType>::computeFixedTermsInLogLikelihood(bool useCrossValidation) {
 	if(BaseModel::likelihoodHasFixedTerms) {
 		logLikelihoodFixedTerm = 0.0;
 		if(useCrossValidation) {
@@ -475,7 +421,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInLogLikelihood(bool
 }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
+void ModelSpecificsGPU<BaseModel,WeightType>::computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
 	if (sortPid()) {
 		doSortPid(useCrossValidation);
 	}
@@ -491,7 +437,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInGradientAndHessian
 }
 
 template <class BaseModel,typename WeightType>
-double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValidation) {
+double ModelSpecificsGPU<BaseModel,WeightType>::getLogLikelihood(bool useCrossValidation) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto start = bsccs::chrono::steady_clock::now();
@@ -570,7 +516,7 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 }
 
 template <class BaseModel,typename WeightType>
-double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* weights) {
+double ModelSpecificsGPU<BaseModel,WeightType>::getPredictiveLogLikelihood(real* weights) {
 
     std::vector<real> saveKWeight;
 	if(BaseModel::cumulativeGradientAndHessian)	{
@@ -610,7 +556,7 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 }   // END OF DIFF
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::getPredictiveEstimates(real* y, real* weights){
+void ModelSpecificsGPU<BaseModel,WeightType>::getPredictiveEstimates(real* y, real* weights){
 
 	// TODO Check with SM: the following code appears to recompute hXBeta at large expense
 //	std::vector<real> xBeta(K,0.0);
@@ -637,7 +583,7 @@ void ModelSpecifics<BaseModel,WeightType>::getPredictiveEstimates(real* y, real*
 
 // TODO The following function is an example of a double-dispatch, rewrite without need for virtual function
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, double *ogradient,
+void ModelSpecificsGPU<BaseModel,WeightType>::computeGradientAndHessian(int index, double *ogradient,
 		double *ohessian, bool useWeights) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -689,23 +635,10 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 
 }
 
-template <class RealType>
-std::pair<RealType, RealType> operator+(
-        const std::pair<RealType, RealType>& lhs,
-        const std::pair<RealType, RealType>& rhs) {
-
-    return { lhs.first + rhs.first, lhs.second + rhs.second };
-}
-
-
-
-
-
-
 
 
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
-void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
+void ModelSpecificsGPU<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
 		double *ohessian, Weights w) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -713,7 +646,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 #endif
-
+    std::cout << "GPU HERE" << std::endl;
 	real gradient = static_cast<real>(0);
 	real hessian = static_cast<real>(0);
 
@@ -814,6 +747,304 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	    typename IteratorType::tag());
 
 
+
+	    // -DVEXCL_SHOW_KERNELS to show kernels
+	    bool iamstupid = false;
+	    double gradienttest = 0.0;
+	    double hessiantest = 0.0;
+
+
+#ifdef opencl
+	    if (iamstupid){
+/*
+	       using boost::compute::uint_;
+//            // Boost::compute
+//
+            boost::compute::device device = boost::compute::system::find_device("Intel(R) Core(TM) i7-3770 CPU @ 3.40GHz");//boost::compute::system::default_device(); //
+            std::cout << device.name() << std::endl;
+            boost::compute::context context{device};
+            boost::compute::command_queue queue{context, device, boost::compute::command_queue::enable_profiling};
+
+           // create vector on device
+            boost::compute::vector<double> bcDataVector(K, context);  // Device vector.
+            boost::compute::vector<double> bcoffsExpXBeta(K, context); // Device vector.
+	        boost::compute::vector<double> bcDenominator(K, context);  // Device vector.
+            boost::compute::vector<double> gradientAndHessian(1, context);  // Device vector.
+//
+//
+
+            // copy from host to device
+            std::cout << "Copy to device" << std::endl;
+            boost::compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), bcoffsExpXBeta.begin(),queue);
+            boost::compute::copy(std::begin(modelData.getDataVectorSTL(index)), std::end(modelData.getDataVectorSTL(index)), bcDenominator.begin(),queue);
+            //boost::compute::copy(std::begin(denomPid), std::end(denomPid), bcDenominator.begin(),queue);
+            boost::compute::copy(std::begin(modelData.getDataVectorSTL(index)), std::end(modelData.getDataVectorSTL(index)), bcDataVector.begin(),queue);
+//
+//          // create vector on host
+            std::vector<double> hostVector(K);
+
+            // Load kernel
+            std::cout << "Load kernel" << std::endl;
+
+            const char source[] = BOOST_COMPUTE_STRINGIZE_SOURCE(
+                        __kernel void transformationReductionKernel(  ulong n,
+                                global double * prm_1,
+                                global double * prm_2,
+                                global double * prm_3,
+                                global double * gradientandhessian
+                                )
+                                {
+                                    local double2 * sdata = smem;
+                                    size_t tid = get_local_id(0);
+                                    size_t block_size = get_local_size(0);
+                                    double mySum = 0.0;
+                                    for(ulong idx = get_global_id(0); idx < n; idx += get_global_size(0))
+                                    {
+                                        mySum = mySum + prm_1[idx] + prm_2[idx] + prm_3[idx];
+                                    }
+                                    sdata[tid] = mySum;
+                                    barrier(CLK_LOCAL_MEM_FENCE);
+                                    if (block_size >= 1024)
+                                    {
+                                        if (tid < 512) { sdata[tid] = mySum = mySum + sdata[tid + 512]; }
+                                        barrier(CLK_LOCAL_MEM_FENCE);
+                                    }
+                                    if (block_size >= 512)
+                                    {
+                                        if (tid < 256) { sdata[tid] = mySum = mySum + sdata[tid + 256]; }
+                                        barrier(CLK_LOCAL_MEM_FENCE);
+                                    }
+                                    if (block_size >= 256)
+                                    {
+                                        if (tid < 128) { sdata[tid] = mySum = mySum + sdata[tid + 128]; }
+                                        barrier(CLK_LOCAL_MEM_FENCE);
+                                    }
+                                    if (block_size >= 128)
+                                    {
+                                        if (tid < 64) { sdata[tid] = mySum = mySum + sdata[tid + 64]; }
+                                        barrier(CLK_LOCAL_MEM_FENCE);
+                                    }
+                                    if (tid < 32)
+                                    {
+                                        volatile local double2 * smem = sdata;
+                                        if (block_size >= 64) { smem[tid] = mySum = mySum + sdata[tid + 32]; }
+                                        if (block_size >= 32) { smem[tid] = mySum = mySum + sdata[tid + 16]; }
+                                        if (block_size >= 16) { smem[tid] = mySum = mySum + sdata[tid + 8]; }
+                                        if (block_size >= 8) { smem[tid] = mySum = mySum + sdata[tid + 4]; }
+                                        if (block_size >= 4) { smem[tid] = mySum = mySum + sdata[tid + 2]; }
+                                        if (block_size >= 2) { smem[tid] = mySum = mySum + sdata[tid + 1]; }
+                                    }
+                                    if (tid == 0) {
+                                        gradientandhessian[get_group_id(0)] = smem[tid];
+                                    }
+
+                                }
+	            );
+
+            std::stringstream kernelSource;
+            kernelSource << " __kernel void testKernel(uint n, __global double *offsExpXBeta, __global double * dataVector, __global double * gradientandhessian)\n";
+            kernelSource << "{\n const uint block_offset = get_group_id(0);\n";
+            kernelSource << " size_t block_size = get_local_size(0);\n const uint lid = get_local_id(0); \n";
+            kernelSource << "__local float scratch[block_size]; \n";
+            kernelSource << "for(uint idx = get_global_id(0); idx < n; idx += get_global_size(0))\n";
+            kernelSource << " {sum = sum + dataVector[idx]+offsExpXBeta[idx]; \n";
+            kernelSource << " barrier(CLK_LOCAL_MEM_FENCE); \n";
+            kernelSource << " if (block_size >= 1024){if (lid < 512) { sum += scratch[lid + 512]; scratch[lid] = sum; }barrier(CLK_LOCAL_MEM_FENCE);}";
+            kernelSource << " if (block_size >= 512){if (lid < 256) { sum += scratch[lid + 256]; scratch[lid] = sum; }barrier(CLK_LOCAL_MEM_FENCE);}";
+            kernelSource << " if (block_size >= 256){if (lid < 128) { sum += scratch[lid + 128]; scratch[lid] = sum; }barrier(CLK_LOCAL_MEM_FENCE);}";
+            kernelSource << " if (block_size >= 128){if (lid < 64) { sum += scratch[lid + 64]; scratch[lid] = sum; }barrier(CLK_LOCAL_MEM_FENCE);}";
+            kernelSource << "if (lid < 32){volatile __local float *lmem = scratch;";
+            kernelSource << "if (block_size >= 64) { lmem[lid] = sum = sum + lmem[lid+32]; }";
+            kernelSource << "if (block_size >= 32) { lmem[lid] = sum = sum + lmem[lid+16]; }";
+            kernelSource << "if (block_size >= 16) { lmem[lid] = sum = sum + lmem[lid+8]; }";
+            kernelSource << "if (block_size >= 8) { lmem[lid] = sum = sum + lmem[lid+4]; }";
+            kernelSource << "if (block_size >= 4) { lmem[lid] = sum = sum + lmem[lid+2]; }";
+            kernelSource << "if (block_size >= 2) { lmem[lid] = sum = sum + lmem[lid+1]; }";
+            kernelSource << "}\n";
+            kernelSource << "if (lid == 0) {gradientandhessian[get_group_id(0)] = scratch[0];}}";
+
+            std::cout << kernelSource.str() << std::endl;
+
+//
+
+            boost::compute::program testProgram = boost::compute::program::create_with_source(source, context);
+            testProgram.build();
+            boost::compute::kernel testKernel = boost::compute::kernel(testProgram, "transformationReductionKernel");
+//
+
+            testKernel.set_arg(0, uint_(K)); // TODO Must update
+            testKernel.set_arg(1, bcoffsExpXBeta); // TODO Must update
+            testKernel.set_arg(2, bcDenominator); // TODO Must update
+            testKernel.set_arg(3, bcDataVector); // TODO Must update gradientAndHessian
+            testKernel.set_arg(4, gradientAndHessian);
+
+            //uint_ vpt = VPT_DEF;
+            queue.enqueue_1d_range_kernel(testKernel, 0, 20*hostVector.size(), 1);
+            boost::compute::copy(bcoffsExpXBeta.begin(), bcoffsExpXBeta.end(), hostVector.begin(), queue);
+            for(int i = 0; i<K; i++){
+                std::cout << hostVector[i] << ",";
+            }
+            std::cout << "" << std::endl;
+
+*/
+
+//
+//
+//            // copy data back to host
+//            boost::compute::copy(bcoffsExpXBeta.begin(), bcoffsExpXBeta.end(), host_vector.begin(), queue);
+//            std::cout << host_vector[0] << std::endl;
+            //Rcpp::stop("stupid");
+
+
+
+            // Some things need to be copied each time
+	        vex::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), vex_offsExpXBeta.begin());
+            vex::copy(std::begin(denomPid), std::end(denomPid), vex_denominator.begin());
+
+//            struct timeval time1, time2;
+//	        gettimeofday(&time1, NULL);
+
+            std::vector< std::complex<double> > gradientandhessian(1);
+            vex::vector<cl_double2> vex_gradientandhessian(ctx, 1);  // Device vector.
+
+
+            // define and place the transformation reduction kernel into the queue
+            if (loopCount == 0){
+                for(uint d = 0; d < ctx.size(); d++) {
+                    kernel.emplace_back(ctx.queue(d),
+                    VEX_STRINGIZE_SOURCE(
+                        double2 transformSumKernel
+                        (
+                            double2 prm1,
+                            double prm2,
+                            double prm3,
+                            double prm4
+                            )
+                            {
+                                double2 temp;
+                                temp.x = (prm2*prm3)/prm4;
+                                temp.y = prm2*(temp.x) - (temp.x)*(temp.x);
+                                temp.x += prm1.x;
+                                temp.y += prm1.y;
+                                return(temp);
+                            }
+
+                            double2 sumDouble2
+                            (
+                                double2 prm1,
+                                double2 prm2
+                                )
+                                {
+                                    double2 temp;
+                                    temp.x = prm1.x + prm2.x;
+                                    temp.y = prm1.y + prm2.y;
+                                    return temp;
+                                }
+                                kernel void transformationReductionKernel( global int * n,
+                                global double * prm_1,
+                                global double * prm_2,
+                                global double * prm_3,
+                                global double2 * gradientandhessian,
+                                local double2 * smem
+                                )
+                                {
+                                    local double2 * sdata = smem;
+                                    size_t tid = get_local_id(0);
+                                    size_t block_size = get_local_size(0);
+                                    double2 mySum;
+                                    mySum.x = 0.0;
+                                    mySum.y = 0.0;
+                                    for(int idx = get_global_id(0); idx < n[0]; idx += get_global_size(0))
+                                    {
+                                        mySum = transformSumKernel(mySum, prm_1[idx], prm_2[idx],prm_3[idx]);
+                                    }
+                                    sdata[tid] = mySum;
+                                    barrier(CLK_LOCAL_MEM_FENCE);
+                                    if (block_size >= 1024)
+                                    {
+                                        if (tid < 512) { sdata[tid] = mySum = sumDouble2(mySum, sdata[tid + 512]); }
+                                        barrier(CLK_LOCAL_MEM_FENCE);
+                                    }
+                                    if (block_size >= 512)
+                                    {
+                                        if (tid < 256) { sdata[tid] = mySum = sumDouble2(mySum, sdata[tid + 256]); }
+                                        barrier(CLK_LOCAL_MEM_FENCE);
+                                    }
+                                    if (block_size >= 256)
+                                    {
+                                        if (tid < 128) { sdata[tid] = mySum = sumDouble2(mySum, sdata[tid + 128]); }
+                                        barrier(CLK_LOCAL_MEM_FENCE);
+                                    }
+                                    if (block_size >= 128)
+                                    {
+                                        if (tid < 64) { sdata[tid] = mySum = sumDouble2(mySum, sdata[tid + 64]); }
+                                        barrier(CLK_LOCAL_MEM_FENCE);
+                                    }
+                                    if (tid < 32)
+                                    {
+                                        volatile local double2 * smem = sdata;
+                                        if (block_size >= 64) { smem[tid] = mySum = sumDouble2(mySum, smem[tid + 32]); }
+                                        if (block_size >= 32) { smem[tid] = mySum = sumDouble2(mySum, smem[tid + 16]); }
+                                        if (block_size >= 16) { smem[tid] = mySum = sumDouble2(mySum, smem[tid + 8]); }
+                                        if (block_size >= 8) { smem[tid] = mySum = sumDouble2(mySum, smem[tid + 4]); }
+                                        if (block_size >= 4) { smem[tid] = mySum = sumDouble2(mySum, smem[tid + 2]); }
+                                        if (block_size >= 2) { smem[tid] = mySum = sumDouble2(mySum, smem[tid + 1]); }
+                                    }
+                                    if (tid == 0) {
+                                        gradientandhessian[get_group_id(0)] = smem[tid];
+                                    }
+
+                                }
+                                ),
+                                "transformationReductionKernel"
+                                );
+                }
+            }
+
+	        //push arguments onto the queue, run the kernel
+	        for(int d = 0; d < ctx.size(); d++) {
+	            kernel[d].push_arg(vex_length(d)); //kernel[d].push_arg<int>(vex_denominator.part_size(d));
+                if (index == 0){
+                    kernel[d].push_arg(vex_DataVector0(d));
+                } else if (index == 1){
+                    kernel[d].push_arg(vex_DataVector1(d));
+                } else{
+                    kernel[d].push_arg(vex_DataVector2(d));
+                }
+	            kernel[d].push_arg(vex_offsExpXBeta(d));
+	            kernel[d].push_arg(vex_denominator(d));
+	            kernel[d].push_arg(vex_gradientandhessian(d));
+	            kernel[d].set_smem([](size_t wgs){ return wgs * 2 * sizeof(real); });
+	            kernel[d](ctx.queue(d));
+	        }
+
+            vex::copy(vex_gradientandhessian.begin(), vex_gradientandhessian.end(), reinterpret_cast<cl_double2*>(gradientandhessian.data()));
+
+	        gradienttest = gradientandhessian[0].real();
+	        hessiantest = gradientandhessian[0].imag();
+
+	        if (loopCount > 0) {
+	            // stop timer;
+//                gettimeofday(&time2, NULL);
+//	            double time = Timer::calculateSeconds(time1, time2);
+//	            totalTime += time;
+	        }
+
+	        std::cout << "gradienttest = " << gradienttest << std::endl;
+	        std::cout << "hessiantest = " << hessiantest << std::endl;
+
+
+            /*
+	        if (loopCount > 2) {
+	            std::ostringstream stream;
+	            stream << "Time: " << totalTime;
+	            Rcpp::stop(stream.str());
+	        }
+            */
+	        ++loopCount;
+	    }
+        #endif
+
 	    const auto result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
 	    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
 	    SerialOnly()
@@ -911,7 +1142,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
  }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeFisherInformation(int indexOne, int indexTwo,
+void ModelSpecificsGPU<BaseModel,WeightType>::computeFisherInformation(int indexOne, int indexTwo,
 		double *oinfo, bool useWeights) {
 
 	if (useWeights) {
@@ -937,7 +1168,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformation(int indexOne
 }
 
 template <class BaseModel, typename WeightType> template <typename IteratorTypeOne, class Weights>
-void ModelSpecifics<BaseModel,WeightType>::dispatchFisherInformation(int indexOne, int indexTwo, double *oinfo, Weights w) {
+void ModelSpecificsGPU<BaseModel,WeightType>::dispatchFisherInformation(int indexOne, int indexTwo, double *oinfo, Weights w) {
 	switch (modelData.getFormatType(indexTwo)) {
 		case INDICATOR :
 			computeFisherInformationImpl<IteratorTypeOne,IndicatorIterator>(indexOne, indexTwo, oinfo, w);
@@ -957,7 +1188,7 @@ void ModelSpecifics<BaseModel,WeightType>::dispatchFisherInformation(int indexOn
 
 
 template<class BaseModel, typename WeightType> template<class IteratorType>
-SparseIterator ModelSpecifics<BaseModel, WeightType>::getSubjectSpecificHessianIterator(int index) {
+SparseIterator ModelSpecificsGPU<BaseModel, WeightType>::getSubjectSpecificHessianIterator(int index) {
 
 	if (hessianSparseCrossTerms.find(index) == hessianSparseCrossTerms.end()) {
 		// Make new
@@ -991,7 +1222,7 @@ SparseIterator ModelSpecifics<BaseModel, WeightType>::getSubjectSpecificHessianI
 }
 
 template <class BaseModel, typename WeightType> template <class IteratorTypeOne, class IteratorTypeTwo, class Weights>
-void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int indexOne, int indexTwo, double *oinfo, Weights w) {
+void ModelSpecificsGPU<BaseModel,WeightType>::computeFisherInformationImpl(int indexOne, int indexTwo, double *oinfo, Weights w) {
 
 	IteratorTypeOne itOne(modelData, indexOne);
 	IteratorTypeTwo itTwo(modelData, indexTwo);
@@ -1071,7 +1302,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int inde
 }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index) {
+void ModelSpecificsGPU<BaseModel,WeightType>::computeNumeratorForGradient(int index) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifndef CYCLOPS_DEBUG_TIMING_LOW
@@ -1148,7 +1379,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 }
 
 template <class BaseModel,typename WeightType> template <class IteratorType>
-void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int index) {
+void ModelSpecificsGPU<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int index) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
@@ -1256,7 +1487,7 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index, bool useWeights) {
+void ModelSpecificsGPU<BaseModel,WeightType>::updateXBeta(real realDelta, int index, bool useWeights) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifndef CYCLOPS_DEBUG_TIMING_LOW
@@ -1294,7 +1525,7 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index
 }
 
 template <class BaseModel,typename WeightType> template <class IteratorType>
-inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta, int index, bool useWeights) {
+inline void ModelSpecificsGPU<BaseModel,WeightType>::updateXBetaImpl(real realDelta, int index, bool useWeights) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
@@ -1418,7 +1649,7 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWeights) {
+void ModelSpecificsGPU<BaseModel,WeightType>::computeRemainingStatistics(bool useWeights) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto start = bsccs::chrono::steady_clock::now();
@@ -1450,7 +1681,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerator(bool useWeights) {
+void ModelSpecificsGPU<BaseModel,WeightType>::computeAccumlatedNumerator(bool useWeights) {
 
 	if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
 			BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
@@ -1484,7 +1715,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerator(bool useWe
 }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedDenominator(bool useWeights) {
+void ModelSpecificsGPU<BaseModel,WeightType>::computeAccumlatedDenominator(bool useWeights) {
 
 	if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
 		BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
@@ -1528,7 +1759,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedDenominator(bool use
 }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::doSortPid(bool useCrossValidation) {
+void ModelSpecificsGPU<BaseModel,WeightType>::doSortPid(bool useCrossValidation) {
 /* For Cox model:
  *
  * We currently assume that hZ[k] are sorted in decreasing order by k.
@@ -1538,5 +1769,6 @@ void ModelSpecifics<BaseModel,WeightType>::doSortPid(bool useCrossValidation) {
 
 } // namespace
 
-#endif /* MODELSPECIFICS_HPP_ */
+#endif /* ModelSpecificsGPU_HPP_ */
 //
+

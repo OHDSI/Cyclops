@@ -179,7 +179,7 @@ void CcdInterface::setDefaultArguments(void) {
 	arguments.noiseLevel = NOISY;
 	arguments.threads = -1;
 	arguments.resetCoefficients = false;
-	arguments.gpu = "silly test";
+	arguments.gpu = "";
 }
 
 double CcdInterface::initializeModel(

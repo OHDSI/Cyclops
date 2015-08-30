@@ -5,6 +5,7 @@
  *      Author: msuchard
  */
 
+
 #ifndef MODELSPECIFICS_H_
 #define MODELSPECIFICS_H_
 
@@ -31,7 +32,6 @@
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/iterator/zip_iterator.hpp>
 #include <boost/iterator/counting_iterator.hpp>
-#include "vexcl/vexcl.hpp"
 #include "AbstractModelSpecifics.h"
 #include "Iterators.h"
 #include "ParallelLoops.h"
@@ -257,9 +257,6 @@ private:
 
 	std::vector<WeightType> hNWeight;
 	std::vector<WeightType> hKWeight;
-
-
-    std::vector< std::complex<double> > gradientandhessian;
 
 //	std::vector<int> nPid;
 //	std::vector<real> nY;
