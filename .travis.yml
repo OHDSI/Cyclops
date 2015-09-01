@@ -22,8 +22,7 @@ cache:
   directories:
     - ~/Rlib
 
-
-before_install:
+# before_install:
 #  - sudo sed 's/-g//g' /etc/R/Makeconf > tmp # Turn off debug symbols
 #  - sudo mv tmp /etc/R/Makeconf
 
@@ -40,6 +39,8 @@ install:
   - mkdir -p ~/Rlib
   - echo 'R_LIBS=~/Rlib' > .Renviron
   - echo 'options(repos = "http://cran.rstudio.com")' > .Rprofile
+  - mkdir -p ~/.R
+  - sed 's/-g//g' /etc/R/Makeconf > ~/.R/Makeconf # Turn off debug symbols
   - Rscript -e 'if(!"devtools" %in% rownames(installed.packages())) { install.packages("devtools", dependencies = TRUE) }'
   - Rscript -e 'if(!"covr" %in% rownames(installed.packages())) { install.packages("covr", dependencies = TRUE) }'
   - Rscript -e 'if(!"ggplot2" %in% rownames(installed.packages())) { install.packages("ggplot2", dependencies = TRUE) }'
@@ -55,7 +56,7 @@ script:
 
 # report coverage rate to coveralls
 after_success:
-  - Rscript -e 'covr::coveralls(exclusions = "src/RcppExports.cpp")'
+#  - Rscript -e 'covr::coveralls(exclusions = "src/RcppExports.cpp")'
   # Rebuild docker container
   - curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/development/trigger/e51f720d-c4e7-45df-b042-5d8a362bd7e0/
 
