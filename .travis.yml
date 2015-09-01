@@ -1,41 +1,68 @@
-language: cpp
+# .travis.yml using container-based infrastructure
+# from: https://github.com/jtilly/R-travis-container-example/blob/master/.travis.yml
 
-compiler:
-    - gcc
-#    - clang
+language: c
 
-sudo: required
+# use containers
+sudo: false
+
+# install R: use r-packages-precise (https://cran.r-project.org/bin/linux/ubuntu/precise/)
+# as source which is white listed (https://github.com/travis-ci/apt-source-whitelist/)
+addons:
+  apt:
+    sources:
+    - r-packages-precise
+    packages:
+    - r-base-dev
+    - r-recommended
+    - pandoc
+
+# cache local R libraries directory:
+cache:
+  directories:
+    - ~/Rlib
+
 
 before_install:
-  - curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
-  - chmod 755 ./travis-tool.sh
-  - ./travis-tool.sh bootstrap
-  - sudo sed 's/-g//g' /etc/R/Makeconf > tmp # Turn off debug symbols
-  - sudo mv tmp /etc/R/Makeconf
-  - ./travis-tool.sh install_devtools
-  - ./travis-tool.sh install_deps
-  - ./travis-tool.sh install_github jimhester/covr
-#  - ./travis-tool.sh install_r testthat BH RcppEigen gnm ffbase ff gglot2
+#  - sudo sed 's/-g//g' /etc/R/Makeconf > tmp # Turn off debug symbols
+#  - sudo mv tmp /etc/R/Makeconf
 
-before_script:
-  - sudo apt-get install libboost-dev
+# install the package and dependencies:
+# - create directory for R libraries (if not already exists)
+# - create .Renviron with location of R libraries
+# - define R repository in .Rprofile
+# - add .travis.yml to .Rbuildignore
+# - install devtools if not already installed
+# - install covr if not already installed
+# - update all installed packages
+# - install package with dependencies
+install:
+  - mkdir -p ~/Rlib
+  - echo 'R_LIBS=~/Rlib' > .Renviron
+  - echo 'options(repos = "http://cran.rstudio.com")' > .Rprofile
+  - echo '.travis.yml' > .Rbuildignore
+  - Rscript -e 'if(!"devtools" %in% rownames(installed.packages())) { install.packages("devtools", dependencies = TRUE) }'
+  - Rscript -e 'if(!"covr" %in% rownames(installed.packages())) { install.packages("covr", dependencies = TRUE) }'
+  - Rscript -e 'update.packages(ask = FALSE, instlib = "~/Rlib")'
+  - Rscript -e 'devtools::install_deps(pkg = ".", dependencies = TRUE)'
 
+# Build and check package
 script:
-#    - mkdir -p standalone/build && (cd standalone/build && cmake .. && make)
-    - ./travis-tool.sh run_tests
-    - ls -l Cyclops.Rcheck/Cyclops/libs # Print out size of library
+  - R CMD build . --no-build-vignettes --no-manual
+  - PKG_FILE_NAME=$(ls -1t *.tar.gz | head -n 1)
+  - R CMD check "${PKG_FILE_NAME}" --no-build-vignettes --no-manual --as-cran
+  - ls -l Cyclops.Rcheck/Cyclops/libs # Print out size of library
 
-after_failure:
-    - ./travis-tool.sh dump_logs
+# report coverage rate to coveralls
+after_success:
+  - Rscript -e 'covr::coveralls(exclusions = "src/RcppExports.cpp")'
+  # Rebuild docker container
+  - curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/development/trigger/e51f720d-c4e7-45df-b042-5d8a362bd7e0/
 
+# send e-mails if stuff changes
 notifications:
   recipients:
     - msuchard@gmail.com
   email:
     on_success: change
     on_failure: always
-
-after_success:
-  - Rscript -e 'library(covr);codecov()'
-  # Rebuild docker container
-  - curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/development/trigger/e51f720d-c4e7-45df-b042-5d8a362bd7e0/
