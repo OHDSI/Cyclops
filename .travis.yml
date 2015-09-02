@@ -44,6 +44,7 @@ install:
 #  - cp tmp ~/.R/Makevars
 #  - find / -name "Makeconf"
   - grep ' -g '  /etc/R/Makeconf | sed 's/ -g / /g' > ~/.R/Makevars # Turn off debug symbols
+  - cat ~/.R/Makevars
   - Rscript -e 'if(!"devtools" %in% rownames(installed.packages())) { install.packages("devtools", dependencies = TRUE) }'
   - Rscript -e 'if(!"covr" %in% rownames(installed.packages())) { install.packages("covr", dependencies = TRUE) }'
   - Rscript -e 'if(!"ggplot2" %in% rownames(installed.packages())) { install.packages("ggplot2", dependencies = TRUE) }'
