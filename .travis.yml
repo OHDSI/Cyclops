@@ -40,9 +40,10 @@ install:
   - echo 'R_LIBS=~/Rlib' > .Renviron
   - echo 'options(repos = "http://cran.rstudio.com")' > .Rprofile
   - mkdir -p ~/.R
-  - sed 's/-g//g' /etc/R/Makeconf > tmp # Turn off debug symbols
-  - cp tmp ~/.R/Makevars
+#  - sed 's/-g//g' /etc/R/Makeconf > tmp # Turn off debug symbols
+#  - cp tmp ~/.R/Makevars
 #  - find / -name "Makeconf"
+  - grep ' -g '  /etc/R/Makeconf | sed 's/ -g / /g' > ~/.R/Makevars # Turn off debug symbols
   - Rscript -e 'if(!"devtools" %in% rownames(installed.packages())) { install.packages("devtools", dependencies = TRUE) }'
   - Rscript -e 'if(!"covr" %in% rownames(installed.packages())) { install.packages("covr", dependencies = TRUE) }'
   - Rscript -e 'if(!"ggplot2" %in% rownames(installed.packages())) { install.packages("ggplot2", dependencies = TRUE) }'
@@ -57,7 +58,6 @@ script:
   - _R_CHECK_CRAN_INCOMING_=FALSE R CMD check "${PKG_FILE_NAME}" --no-build-vignettes --no-manual --as-cran
   - ls -l ${PKG_NAME}.Rcheck/${PKG_NAME}/libs # Print out size of library
   - cat ${PKG_NAME}.Rcheck/00install.out # Print out install / compile log
-  - cat /etc/R/Makeconf
 
 # report coverage rate to coveralls
 after_success:
