@@ -41,7 +41,7 @@ install:
   - echo 'options(repos = "http://cran.rstudio.com")' > .Rprofile
   - mkdir -p ~/.R
   - sed 's/-g//g' /etc/R/Makeconf > tmp # Turn off debug symbols
-  - cp tmp /usr/lib/R/Makeconf
+  - cp tmp ~/.R/Makevars
 #  - find / -name "Makeconf"
   - Rscript -e 'if(!"devtools" %in% rownames(installed.packages())) { install.packages("devtools", dependencies = TRUE) }'
   - Rscript -e 'if(!"covr" %in% rownames(installed.packages())) { install.packages("covr", dependencies = TRUE) }'
