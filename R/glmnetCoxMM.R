@@ -1,4 +1,3 @@
-library(glmnet)
 glmnetCoxMM <- function(N, p, c, e, lambda = -1) {
     # N = number of patients
     # p = number of covariates
