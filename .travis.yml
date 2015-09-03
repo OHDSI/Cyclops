@@ -22,19 +22,7 @@ cache:
   directories:
     - ~/Rlib
 
-# before_install:
-#  - sudo sed 's/-g//g' /etc/R/Makeconf > tmp # Turn off debug symbols
-#  - sudo mv tmp /etc/R/Makeconf
-
 # install the package and dependencies:
-# - create directory for R libraries (if not already exists)
-# - create .Renviron with location of R libraries
-# - define R repository in .Rprofile
-# - add .travis.yml to .Rbuildignore
-# - install devtools if not already installed
-# - install covr if not already installed
-# - update all installed packages
-# - install package with dependencies
 install:
   - mkdir -p ~/Rlib
   - echo 'R_LIBS=~/Rlib' > .Renviron
