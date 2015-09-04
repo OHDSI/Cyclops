@@ -14,8 +14,9 @@ before_install:
   - sudo mv tmp /etc/R/Makeconf
   - ./travis-tool.sh install_devtools
   - ./travis-tool.sh install_deps
+  - ./travis-tool.sh install_r ggplot2
   - ./travis-tool.sh install_github jimhester/covr
-  - ./travis-tool.sh install_r testthat BH RcppEigen gnm ffbase ff gglot2
+#  - ./travis-tool.sh install_r testthat BH RcppEigen gnm ffbase ff ggplot2
 
 before_script:
   - sudo apt-get install libboost-dev
