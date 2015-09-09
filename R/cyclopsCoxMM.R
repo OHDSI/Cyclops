@@ -34,13 +34,13 @@ cyclopsCoxMM <- function(N, p, c, e, intercept = TRUE, beta = NA) {
     tcens=1 - rbinom(n=N,prob=c,size=1)# censoring indicator
     y=cbind(time=ty,status=tcens) # y=Surv(ty,1-tcens) with library(survival)
 
-    goldCox = coxph(Surv(y[,1],y[,2]) ~ x)
-    cyclopsCoxData = createCyclopsData(Surv(y[,1],y[,2]) ~ x, modelType = "cox")
+    goldCox = survival::coxph(survival::Surv(y[,1],y[,2]) ~ x)
+    cyclopsCoxData = createCyclopsData(survival::Surv(y[,1],y[,2]) ~ x, modelType = "cox")
     cyclopsCox = fitCyclopsModel(cyclopsCoxData)
 
     x = x[order(y[,1]),]
     y = y[order(y[,1]),]
-    ci = y[,2]
+    di = y[,2]
     i = if(intercept) 1 else 0
 
     goldIterCounts = c()
@@ -59,21 +59,17 @@ cyclopsCoxMM <- function(N, p, c, e, intercept = TRUE, beta = NA) {
         goldIterPoisson = goldIterPoisson + 1
         goldBetaLast = goldBetaNext
         tj = exp(x %*% goldBetaLast[(1+i):(p+i)])
-        si = sapply(1:length(tj), FUN = function(k){return(sum(tj[k:length(tj)]))})
-        ki = sapply(1:length(tj), FUN = function(k){return(sum(ci[1:k] / si[1:k]))})
-        wi = ci * ki
+        si = sapply(1:N, FUN = function(k){return(sum(tj[k:N]))})
+        ki = sapply(1:N, FUN = function(k){return(sum(di[1:k] / si[1:k]))})
 
-        kZero = which(ki==0)
-        wZero = wi[kZero]
-        if (!all(wZero==0)) stop("ki zero but wi not zero")
-        ki[kZero] = 0.01
-
-        counts = 1/ki
+        counts = di/ki
+        if (!all(di[ki==0]==0)) stop("ki 0 but di not 0")
+        counts[ki==0] = 0
 
         if (i == 0) {
-            fitPoisson = glm(counts ~ x - 1, family = poisson(), weights = wi, start = goldBetaLast)
+            fitPoisson = glm(counts ~ x - 1, family = poisson(), weights = ki, start = goldBetaLast)
         } else {
-            fitPoisson = glm(counts ~ x, family = poisson(), weights = wi, start = goldBetaLast)
+            fitPoisson = glm(counts ~ x, family = poisson(), weights = ki, start = goldBetaLast)
         }
 
         goldBetaNext = fitPoisson$coefficients
@@ -86,23 +82,19 @@ cyclopsCoxMM <- function(N, p, c, e, intercept = TRUE, beta = NA) {
         cyclopsIterPoisson = cyclopsIterPoisson + 1
         cyclopsBetaLast = cyclopsBetaNext
         tj = exp(x %*% cyclopsBetaLast[(1+i):(p+i)])
-        si = sapply(1:length(tj), FUN = function(k){return(sum(tj[k:length(tj)]))})
-        ki = sapply(1:length(tj), FUN = function(k){return(sum(ci[1:k] / si[1:k]))})
-        wi = ci * ki
+        si = sapply(1:N, FUN = function(k){return(sum(tj[k:N]))})
+        ki = sapply(1:N, FUN = function(k){return(sum(di[1:k] / si[1:k]))})
 
-        kZero = which(ki==0)
-        wZero = wi[kZero]
-        if (!all(wZero==0)) stop("ki zero but wi not zero")
-        ki[kZero] = 0.01
-
-        counts = 1/ki
+        counts = di/ki
+        if (!all(di[ki==0]==0)) stop("ki 0 but di not 0")
+        counts[ki==0] = 0
 
         if (i == 0) {
             data = createCyclopsData(counts ~ x - 1, modelType = "pr")
         } else {
             data = createCyclopsData(counts ~ x, modelType = "pr")
         }
-        fitPoisson = fitCyclopsModel(data, startingCoefficients = cyclopsBetaLast, weights = wi,
+        fitPoisson = fitCyclopsModel(data, startingCoefficients = cyclopsBetaLast, weights = ki,
                                      prior = createPrior("none"), control = createControl(noiseLevel = "silent"))
 
         cyclopsBetaNext = coef(fitPoisson)
@@ -110,7 +102,6 @@ cyclopsCoxMM <- function(N, p, c, e, intercept = TRUE, beta = NA) {
 
         cyclopsIterCounts = c(cyclopsIterCounts, fitPoisson$iterations)
     }
-
 
     colnames(goldIterBeta) = 0:goldIterPoisson
     colnames(cyclopsIterBeta) = 0:cyclopsIterPoisson
