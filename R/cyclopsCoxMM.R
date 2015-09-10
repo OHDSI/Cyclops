@@ -19,7 +19,7 @@
 #' \item{cyclopsPoisson}{Cox MM poisson model from using cyclops} }
 #'
 #' @export
-cyclopsCoxMM <- function(N, p, c, e, intercept = TRUE, beta = NA) {
+cyclopsCoxMM <- function(N, p, c, e, intercept = TRUE, beta = NA, simulateTies = FALSE) {
     # N = number of patients
     # p = number of covariates
     # c = censoring probability
@@ -31,17 +31,34 @@ cyclopsCoxMM <- function(N, p, c, e, intercept = TRUE, beta = NA) {
     fx=x%*%beta
     hx=exp(fx)
     ty=rexp(N,hx)
+    if(simulateTies) ty=ceiling(ty*100)
     tcens=1 - rbinom(n=N,prob=c,size=1)# censoring indicator
     y=cbind(time=ty,status=tcens) # y=Surv(ty,1-tcens) with library(survival)
 
-    goldCox = survival::coxph(survival::Surv(y[,1],y[,2]) ~ x)
+    goldCox = survival::coxph(survival::Surv(y[,1],y[,2]) ~ x, ties = "breslow")
     cyclopsCoxData = createCyclopsData(survival::Surv(y[,1],y[,2]) ~ x, modelType = "cox")
     cyclopsCox = fitCyclopsModel(cyclopsCoxData)
 
-    x = x[order(y[,1]),]
-    y = y[order(y[,1]),]
-    di = y[,2]
+    x = x[order(y[,1],-y[,2]),]
+    y = y[order(y[,1],-y[,2]),]
+    ci = y[,2]
     i = if(intercept) 1 else 0
+
+    # find di
+    t1 = rep(0, N)
+    t1[2:N] = apply(y[1:(N-1),]==y[2:N,], MARGIN = 1, FUN = function(a){if (all(a)) 1 else 0})
+    for (j in 2:N) {
+        t1[j] = (t1[j-1] + t1[j]) * t1[j]
+    }
+    t2 = t1
+    for (j in 1:N) {
+        if ((t2[j]>0) & (j==N | t2[j+1]==0)) {
+            t2[(j-t2[j]):j] = t2[(j-t2[j]):j] + (t2[j]+1):1
+        }
+    }
+    di = t2-t1
+    di[di==0]=1
+    di = di-1
 
     goldIterCounts = c()
     goldIterBeta = rep(0, dim(x)[2] + i)
@@ -60,10 +77,10 @@ cyclopsCoxMM <- function(N, p, c, e, intercept = TRUE, beta = NA) {
         goldBetaLast = goldBetaNext
         tj = exp(x %*% goldBetaLast[(1+i):(p+i)])
         si = sapply(1:N, FUN = function(k){return(sum(tj[k:N]))})
-        ki = sapply(1:N, FUN = function(k){return(sum(di[1:k] / si[1:k]))})
+        ki = sapply(1:N, FUN = function(k){return(sum(ci[1:(k+di[k])] / si[1:(k+di[k])]))})
 
-        counts = di/ki
-        if (!all(di[ki==0]==0)) stop("ki 0 but di not 0")
+        counts = ci/ki
+        if (!all(ci[ki==0]==0)) stop("ki 0 but ci not 0")
         counts[ki==0] = 0
 
         if (i == 0) {
@@ -83,10 +100,10 @@ cyclopsCoxMM <- function(N, p, c, e, intercept = TRUE, beta = NA) {
         cyclopsBetaLast = cyclopsBetaNext
         tj = exp(x %*% cyclopsBetaLast[(1+i):(p+i)])
         si = sapply(1:N, FUN = function(k){return(sum(tj[k:N]))})
-        ki = sapply(1:N, FUN = function(k){return(sum(di[1:k] / si[1:k]))})
+        ki = sapply(1:N, FUN = function(k){return(sum(ci[1:(k+di[k])] / si[1:(k+di[k])]))})
 
-        counts = di/ki
-        if (!all(di[ki==0]==0)) stop("ki 0 but di not 0")
+        counts = ci/ki
+        if (!all(ci[ki==0]==0)) stop("ki 0 but ci not 0")
         counts[ki==0] = 0
 
         if (i == 0) {
