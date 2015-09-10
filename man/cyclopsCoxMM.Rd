@@ -4,7 +4,8 @@
 \alias{cyclopsCoxMM}
 \title{Simulates data to test cox MM}
 \usage{
-cyclopsCoxMM(N, p, c, e, intercept = TRUE, beta = NA)
+cyclopsCoxMM(N, p, c, e, intercept = TRUE, beta = NA,
+  simulateTies = FALSE)
 }
 \arguments{
 \item{N}{number of patients}
@@ -18,6 +19,8 @@ cyclopsCoxMM(N, p, c, e, intercept = TRUE, beta = NA)
 \item{intercept}{whether to include intercept in model, default = TRUE}
 
 \item{beta}{vector to generate data from}
+
+\item{simulateTies}{whether to simulate ties}
 }
 \value{
 Returns a lit with the following: \describe{

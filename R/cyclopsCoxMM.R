@@ -9,6 +9,7 @@
 #' @param e distance between Poisson regressions to stop
 #' @param intercept whether to include intercept in model, default = TRUE
 #' @param beta vector to generate data from
+#' @param simulateTies whether to simulate ties
 #'
 #' @return
 #' Returns a lit with the following: \describe{
@@ -44,21 +45,25 @@ cyclopsCoxMM <- function(N, p, c, e, intercept = TRUE, beta = NA, simulateTies =
     ci = y[,2]
     i = if(intercept) 1 else 0
 
-    # find di
-    t1 = rep(0, N)
-    t1[2:N] = apply(y[1:(N-1),]==y[2:N,], MARGIN = 1, FUN = function(a){if (all(a)) 1 else 0})
+    # find adjustments for ties
+    # di = number of values at tie
+    # tf = index within tie (minus 1)
+    # tb = reverse index within tie (minus 1)
+    tf = rep(0, N)
+    tf[2:N] = apply(y[1:(N-1),]==y[2:N,], MARGIN = 1, FUN = function(a){if (all(a)) 1 else 0})
+    tf = tf * ci
     for (j in 2:N) {
-        t1[j] = (t1[j-1] + t1[j]) * t1[j]
+        tf[j] = (tf[j-1] + tf[j]) * tf[j]
     }
-    t2 = t1
+    di = tf
     for (j in 1:N) {
-        if ((t2[j]>0) & (j==N | t2[j+1]==0)) {
-            t2[(j-t2[j]):j] = t2[(j-t2[j]):j] + (t2[j]+1):1
+        if ((di[j]>0) & (j==N | di[j+1]==0)) {
+            di[(j-di[j]):j] = di[(j-di[j]):j] + (di[j]+1):1
         }
     }
-    di = t2-t1
-    di[di==0]=1
-    di = di-1
+    tb = di-tf
+    tb[tb==0]=1
+    tb = tb-1
 
     goldIterCounts = c()
     goldIterBeta = rep(0, dim(x)[2] + i)
@@ -76,8 +81,8 @@ cyclopsCoxMM <- function(N, p, c, e, intercept = TRUE, beta = NA, simulateTies =
         goldIterPoisson = goldIterPoisson + 1
         goldBetaLast = goldBetaNext
         tj = exp(x %*% goldBetaLast[(1+i):(p+i)])
-        si = sapply(1:N, FUN = function(k){return(sum(tj[k:N]))})
-        ki = sapply(1:N, FUN = function(k){return(sum(ci[1:(k+di[k])] / si[1:(k+di[k])]))})
+        si = sapply(1:N, FUN = function(k){return(sum(tj[(k-tf[k]):N]))})
+        ki = sapply(1:N, FUN = function(k){return(sum(ci[1:(k+tb[k])] / si[1:(k+tb[k])]))})
 
         counts = ci/ki
         if (!all(ci[ki==0]==0)) stop("ki 0 but ci not 0")
@@ -99,8 +104,8 @@ cyclopsCoxMM <- function(N, p, c, e, intercept = TRUE, beta = NA, simulateTies =
         cyclopsIterPoisson = cyclopsIterPoisson + 1
         cyclopsBetaLast = cyclopsBetaNext
         tj = exp(x %*% cyclopsBetaLast[(1+i):(p+i)])
-        si = sapply(1:N, FUN = function(k){return(sum(tj[k:N]))})
-        ki = sapply(1:N, FUN = function(k){return(sum(ci[1:(k+di[k])] / si[1:(k+di[k])]))})
+        si = sapply(1:N, FUN = function(k){return(sum(tj[(k-tf[k]):N]))})
+        ki = sapply(1:N, FUN = function(k){return(sum(ci[1:(k+tb[k])] / si[1:(k+tb[k])]))})
 
         counts = ci/ki
         if (!all(ci[ki==0]==0)) stop("ki 0 but ci not 0")
