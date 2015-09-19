@@ -13,10 +13,10 @@ test_that("univariable correlation", {
     tolerance <- 1E-4
 
     dataPtrD <- createCyclopsData(counts ~ outcome + treatment, data = dobson,
-                                   modelType = "pr")
+                                  modelType = "pr")
 
     allCorrelations <- univariableCorrelation(dataPtrD)
-    expect_equal(length(allCorrelations, 5))
+    expect_equal(length(allCorrelations), 5)
 
     gold <- sapply(1:5, function(i) {
         with(dobson, cor(counts, model.matrix(~outcome + treatment)[,i]))
@@ -25,7 +25,6 @@ test_that("univariable correlation", {
 
     someCorrelations <- univariableCorrelation(dataPtrD, c("outcome2","outcome3"))
     expect_equal(length(someCorrelations), 2)
-
 })
 
 test_that("Playing with standardization", {

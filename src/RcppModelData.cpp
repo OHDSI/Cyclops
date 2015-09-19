@@ -240,7 +240,8 @@ std::vector<double> cyclopsUnivariableCorrelation(Environment x,
 
         const double Vx = Ex2 - Ex1 * Ex1;
         const double cov = Exy - Ex1 * Ey1;
-        const double cor = cov / std::sqrt(Vx) / std::sqrt(Vy);
+        const double cor = (Vx > 0.0 && Vy > 0.0) ?
+                           cov / std::sqrt(Vx) / std::sqrt(Vy) : NA_REAL;
 
         // Rcpp::Rcout << index << " " << Ey1 << " " << Ey2 << " " << Ex1 << " " << Ex2 << std::endl;
         // Rcpp::Rcout << index << " " << ySquared << " " << xSquared <<  " " << crossProduct << std::endl;
