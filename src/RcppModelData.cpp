@@ -223,17 +223,41 @@ int cyclopsGetNumberOfTypes(Environment object) {
 }
 
 // [[Rcpp::export(.cyclopsUnivariableCorrelation)]]
-std::vector<double> cyclopsUnivariableCorrelation(Environment x) {
+std::vector<double> cyclopsUnivariableCorrelation(Environment x,
+                                                  const std::vector<long>& covariateLabel) {
     XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
 
-    std::vector<double> result;
-    double ySquared = data->reduce(-1, SecondPower());
+    const double Ey1 = data->reduce(-1, FirstPower()) / data->getNumberOfRows();
+    const double Ey2 = data->reduce(-1, SecondPower()) / data->getNumberOfRows();
+    const double Vy = Ey2 - Ey1 * Ey1;
 
-    size_t index = (data->getHasInterceptCovariate()) ? 1 : 0;
-    for (; index <  data->getNumberOfColumns(); ++index) {
-        double xSquared = data->reduce(index, SecondPower());
-        double crossProduct = data->innerProductWithOutcome(index, InnerProduct());
-        result.push_back(crossProduct / std::sqrt(ySquared) / std::sqrt(xSquared));
+    std::vector<double> result;
+
+    auto oneVariable = [&data, &result, Ey1, Vy](const size_t index) {
+        const double Ex1 = data->reduce(index, FirstPower()) / data->getNumberOfRows();
+        const double Ex2 = data->reduce(index, SecondPower()) / data->getNumberOfRows();
+        const double Exy = data->innerProductWithOutcome(index, InnerProduct()) / data->getNumberOfRows();
+
+        const double Vx = Ex2 - Ex1 * Ex1;
+        const double cov = Exy - Ex1 * Ey1;
+        const double cor = cov / std::sqrt(Vx) / std::sqrt(Vy);
+
+        // Rcpp::Rcout << index << " " << Ey1 << " " << Ey2 << " " << Ex1 << " " << Ex2 << std::endl;
+        // Rcpp::Rcout << index << " " << ySquared << " " << xSquared <<  " " << crossProduct << std::endl;
+        result.push_back(cor);
+    };
+
+    if (covariateLabel.size() == 0) {
+        result.reserve(data->getNumberOfColumns());
+        size_t index = (data->getHasOffsetCovariate()) ? 1 : 0;
+        for (; index <  data->getNumberOfColumns(); ++index) {
+            oneVariable(index);
+        }
+    } else {
+        result.reserve(covariateLabel.size());
+        for(auto it = covariateLabel.begin(); it != covariateLabel.end(); ++it) {
+            oneVariable(data->getColumnIndex(*it));
+        }
     }
 
     return std::move(result);

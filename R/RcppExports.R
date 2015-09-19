@@ -174,8 +174,8 @@ getNumberOfTypes <- function(object) {
     .Call('Cyclops_cyclopsGetNumberOfTypes', PACKAGE = 'Cyclops', object)
 }
 
-.cyclopsUnivariableCorrelation <- function(x) {
-    .Call('Cyclops_cyclopsUnivariableCorrelation', PACKAGE = 'Cyclops', x)
+.cyclopsUnivariableCorrelation <- function(x, covariateLabel) {
+    .Call('Cyclops_cyclopsUnivariableCorrelation', PACKAGE = 'Cyclops', x, covariateLabel)
 }
 
 .cyclopsSumByGroup <- function(x, covariateLabel, groupByLabel, power) {

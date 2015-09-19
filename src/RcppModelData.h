@@ -91,7 +91,7 @@ public:
 
 	template <typename F>
 	double innerProductWithOutcome(const size_t index, F func) {
-	    double sum = 0.0;
+	    double sum = 0.0;	    
 	    switch (getFormatType(index)) {
 	    case INDICATOR :
 	        sum = innerProductWithOutcomeImpl<IndicatorIterator>(index, func);
@@ -207,6 +207,7 @@ protected:
 		for (; it; ++it) {
 			sum += func(y[it.index()], it.value());
 		}
+		return sum;
 	}
 
 private:

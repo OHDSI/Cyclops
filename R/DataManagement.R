@@ -484,22 +484,28 @@ readCyclopsData <- function(fileName, modelType) {
 #' @description \code{univariableCorrelation} reports covariates that have high correlation with the outcome
 #'
 #' @param cyclopsData    A Cyclops data object
+#' @param covariates Integer or string vector: list of covariates to report; default (NULL) implies all covariates
 #' @param threshold Correlation threshold for reporting
 #'
 #' @return A list of covariates whose absolute correlation with the outcome is greater than the threshold
 #'
 #' @export
-univariableCorrelation <- function(cyclopsData, threshold = 0.9) {
+univariableCorrelation <- function(cyclopsData, covariates = NULL, threshold = 0.9) {
     # Check for valid arguments
     .checkData(cyclopsData)
     if (.isSurvivalModelType(cyclopsData$modelType)) {
         stop("Univariable correlation for time-to-events model is not yet implemented.")
     }
 
-    allCorrelation <- .cyclopsUnivariableCorrelation(cyclopsData)
-    thresholdedCorrelation <- allCorrelation[abs(allCorrelation) >= threshold]
+    covariates <- .checkCovariates(cyclopsData, covariates)
+    if (is.null(covariates)) {
+        covariates <- integer() # zero-length vector
+    }
 
-    return(thresholdedCorrelation)
+    allCorrelation <- .cyclopsUnivariableCorrelation(cyclopsData, covariates)
+    # thresholdedCorrelation <- allCorrelation[abs(allCorrelation) >= threshold]
+
+    return(allCorrelation)
 }
 
 #' @title Apply simple data reductions
