@@ -174,16 +174,16 @@ getNumberOfTypes <- function(object) {
     .Call('Cyclops_cyclopsGetNumberOfTypes', PACKAGE = 'Cyclops', object)
 }
 
+.cyclopsUnivariableCorrelation <- function(x) {
+    .Call('Cyclops_cyclopsUnivariableCorrelation', PACKAGE = 'Cyclops', x)
+}
+
 .cyclopsSumByGroup <- function(x, covariateLabel, groupByLabel, power) {
     .Call('Cyclops_cyclopsSumByGroup', PACKAGE = 'Cyclops', x, covariateLabel, groupByLabel, power)
 }
 
 .cyclopsSumByStratum <- function(x, covariateLabel, power) {
     .Call('Cyclops_cyclopsSumByStratum', PACKAGE = 'Cyclops', x, covariateLabel, power)
-}
-
-.cyclopsUnivariableCorrelation <- function(x) {
-    .Call('Cyclops_cyclopsUnivariableCorrelation', PACKAGE = 'Cyclops', x)
 }
 
 .cyclopsSum <- function(x, covariateLabel, power) {

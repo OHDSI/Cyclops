@@ -353,6 +353,17 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// cyclopsUnivariableCorrelation
+std::vector<double> cyclopsUnivariableCorrelation(Environment x);
+RcppExport SEXP Cyclops_cyclopsUnivariableCorrelation(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    __result = Rcpp::wrap(cyclopsUnivariableCorrelation(x));
+    return __result;
+END_RCPP
+}
 // cyclopsSumByGroup
 List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel, const long groupByLabel, const int power);
 RcppExport SEXP Cyclops_cyclopsSumByGroup(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP groupByLabelSEXP, SEXP powerSEXP) {
@@ -377,17 +388,6 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::vector<long>& >::type covariateLabel(covariateLabelSEXP);
     Rcpp::traits::input_parameter< const int >::type power(powerSEXP);
     __result = Rcpp::wrap(cyclopsSumByStratum(x, covariateLabel, power));
-    return __result;
-END_RCPP
-}
-// cyclopsUnivariableCorrelation
-std::vector<double> cyclopsUnivariableCorrelation(Environment x);
-RcppExport SEXP Cyclops_cyclopsUnivariableCorrelation(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject __result;
-    Rcpp::RNGScope __rngScope;
-    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
-    __result = Rcpp::wrap(cyclopsUnivariableCorrelation(x));
     return __result;
 END_RCPP
 }

@@ -15,6 +15,36 @@
 
 using namespace Rcpp;
 
+struct Sum {
+    inline double operator()(double x, double y) {
+        return x + y;
+    }
+};
+
+struct ZeroPower {
+    inline double operator()(double x) {
+        return x == 0.0 ? 0.0 : 1.0;
+    }
+};
+
+struct FirstPower {
+    inline double operator()(double x) {
+        return x;
+    }
+};
+
+struct SecondPower {
+    inline double operator()(double x) {
+        return x * x;
+    }
+};
+
+struct InnerProduct {
+    inline double operator()(double x, double y) {
+        return x * y;
+    }
+};
+
 XPtr<bsccs::ModelData> parseEnvironmentForPtr(const Environment& x) {
 	if (!x.inherits("cyclopsData")) {
 		stop("Input must be a cyclopsData object");
@@ -192,6 +222,23 @@ int cyclopsGetNumberOfTypes(Environment object) {
 	return static_cast<int>(data->getNumberOfTypes());
 }
 
+// [[Rcpp::export(.cyclopsUnivariableCorrelation)]]
+std::vector<double> cyclopsUnivariableCorrelation(Environment x) {
+    XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
+
+    std::vector<double> result;
+    double ySquared = data->reduce(-1, SecondPower());
+
+    size_t index = (data->getHasInterceptCovariate()) ? 1 : 0;
+    for (; index <  data->getNumberOfColumns(); ++index) {
+        double xSquared = data->reduce(index, SecondPower());
+        double crossProduct = data->innerProductWithOutcome(index, InnerProduct());
+        result.push_back(crossProduct / std::sqrt(ySquared) / std::sqrt(xSquared));
+    }
+
+    return std::move(result);
+}
+
 // [[Rcpp::export(".cyclopsSumByGroup")]]
 List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel,
 		const long groupByLabel, const int power) {
@@ -224,17 +271,6 @@ List cyclopsSumByStratum(Environment x, const std::vector<long>& covariateLabel,
 	return list;
 }
 
-// [[Rcpp::export(.cyclopsUnivariableCorrelation)]]
-std::vector<double> cyclopsUnivariableCorrelation(Environment x) {
-    XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
-
-    std::vector<double> result;
-
-    result.push_back(0.5);
-
-    return result;
-}
-
 // [[Rcpp::export(".cyclopsSum")]]
 std::vector<double> cyclopsSum(Environment x, const std::vector<long>& covariateLabel,
 		const int power) {
@@ -246,6 +282,8 @@ std::vector<double> cyclopsSum(Environment x, const std::vector<long>& covariate
 	}
 	return result;
 }
+
+
 
 // [[Rcpp::export(".cyclopsNewSqlData")]]
 List cyclopsNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel) {
@@ -697,30 +735,6 @@ RcppModelData::RcppModelData(
     }
 }
 
-struct Sum {
-	inline double operator()(double x, double y) {
-	    return x + y;
-    }
-};
-
-struct ZeroPower {
-    inline double operator()(double x) {
-        return x == 0.0 ? 0.0 : 1.0;
-    }
-};
-
-struct FirstPower {
-    inline double operator()(double x) {
-        return x;
-    }
-};
-
-struct SecondPower {
-    inline double operator()(double x) {
-        return x * x;
-    }
-};
-
 double RcppModelData::sum(const IdType covariate, int power) {
 
     size_t index = getColumnIndex(covariate);
@@ -757,7 +771,6 @@ void RcppModelData::sumByGroup(std::vector<double>& out, const IdType covariate,
     	reduceByGroup(out, covariateIndex, pid, SecondPower());
     }
 }
-
 
 RcppModelData::~RcppModelData() {
 //	std::cout << "~RcppModelData() called." << std::endl;
