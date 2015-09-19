@@ -224,6 +224,17 @@ List cyclopsSumByStratum(Environment x, const std::vector<long>& covariateLabel,
 	return list;
 }
 
+// [[Rcpp::export(.cyclopsUnivariableCorrelation)]]
+std::vector<double> cyclopsUnivariableCorrelation(Environment x) {
+    XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
+
+    std::vector<double> result;
+
+    result.push_back(0.5);
+
+    return result;
+}
+
 // [[Rcpp::export(".cyclopsSum")]]
 std::vector<double> cyclopsSum(Environment x, const std::vector<long>& covariateLabel,
 		const int power) {

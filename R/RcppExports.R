@@ -182,6 +182,10 @@ getNumberOfTypes <- function(object) {
     .Call('Cyclops_cyclopsSumByStratum', PACKAGE = 'Cyclops', x, covariateLabel, power)
 }
 
+.cyclopsUnivariableCorrelation <- function(x) {
+    .Call('Cyclops_cyclopsUnivariableCorrelation', PACKAGE = 'Cyclops', x)
+}
+
 .cyclopsSum <- function(x, covariateLabel, power) {
     .Call('Cyclops_cyclopsSum', PACKAGE = 'Cyclops', x, covariateLabel, power)
 }

@@ -380,6 +380,17 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// cyclopsUnivariableCorrelation
+std::vector<double> cyclopsUnivariableCorrelation(Environment x);
+RcppExport SEXP Cyclops_cyclopsUnivariableCorrelation(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    __result = Rcpp::wrap(cyclopsUnivariableCorrelation(x));
+    return __result;
+END_RCPP
+}
 // cyclopsSum
 std::vector<double> cyclopsSum(Environment x, const std::vector<long>& covariateLabel, const int power);
 RcppExport SEXP Cyclops_cyclopsSum(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP powerSEXP) {
