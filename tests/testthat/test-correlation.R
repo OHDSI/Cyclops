@@ -1,4 +1,5 @@
 library("testthat")
+library("survival")
 
 #
 # Small Poisson MLE regression
@@ -21,10 +22,30 @@ test_that("univariable correlation", {
     gold <- sapply(1:5, function(i) {
         with(dobson, cor(counts, model.matrix(~outcome + treatment)[,i]))
     })
-    expect_equal(gold, allCorrelations, tolerance)
+    expect_equivalent(gold, allCorrelations, tolerance)
 
     someCorrelations <- univariableCorrelation(dataPtrD, c("outcome2","outcome3"))
     expect_equal(length(someCorrelations), 2)
+
+    someCorrelations <- univariableCorrelation(dataPtrD, c("outcome2","outcome3"),
+                                               threshold = 0.5)
+    expect_equal(length(someCorrelations), 1)
+
+    # Try SQL data constructor
+    covariates <- data.frame(stratumId = rep(infert$stratum, 2),
+                             rowId = rep(1:nrow(infert), 2),
+                             covariateId = rep(4:5, each = nrow(infert)),
+                             covariateValue = c(infert$spontaneous, infert$induced))
+    outcomes <- data.frame(stratumId = infert$stratum,
+                           rowId = 1:nrow(infert),
+                           y = infert$case)
+    covariates <- covariates[covariates$covariateValue != 0, ]
+
+    cyclopsData <- convertToCyclopsData(outcomes, covariates, modelType = "clr",
+                                        addIntercept = FALSE)
+
+    allCorrelations <- univariableCorrelation(cyclopsData, threshold = 0.3)
+    expect_equal(names(allCorrelations), c("4"))
 })
 
 test_that("Playing with standardization", {
