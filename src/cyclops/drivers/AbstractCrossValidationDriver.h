@@ -35,36 +35,36 @@ public:
 	virtual void resetForOptimal(
 			CyclicCoordinateDescent& ccd,
 			CrossValidationSelector& selector,
-			const CCDArguments& arguments); 
+			const CCDArguments& arguments);
 
 	virtual void logResults(const CCDArguments& arguments) = 0; // pure virtual
 
 protected:
-    
+
     // Derived classes use different optimization loops
-	virtual double doCrossValidationLoop(
+	virtual std::vector<double> doCrossValidationLoop(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
-			const CCDArguments& arguments,			
+			const CCDArguments& arguments,
 			int nThreads,
 			std::vector<CyclicCoordinateDescent*>& ccdPool,
 			std::vector<AbstractSelector*>& selectorPool) = 0; // pure virtual
-			
+
 	double doCrossValidationStep(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
 			const CCDArguments& arguments,
-			int step,			
+			int step,
 			int nThreads,
 			std::vector<CyclicCoordinateDescent*>& ccdPool,
-			std::vector<AbstractSelector*>& selectorPool,						
-			std::vector<double> & predLogLikelihood);			
+			std::vector<AbstractSelector*>& selectorPool,
+			std::vector<double> & predLogLikelihood);
 
 	double computePointEstimate(const std::vector<double>& value);
 
 	double computeStDev(const std::vector<double>& value, double mean);
-	
-	double maxPoint;	
+
+	std::vector<double> maxPoint;
 	std::vector<real>* weightsExclude;
 };
 
