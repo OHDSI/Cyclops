@@ -4,7 +4,7 @@
 \alias{univariableCorrelation}
 \title{Check univariable correlation}
 \usage{
-univariableCorrelation(cyclopsData, covariates = NULL, threshold = 0.9)
+univariableCorrelation(cyclopsData, covariates = NULL, threshold = 0)
 }
 \arguments{
 \item{cyclopsData}{A Cyclops data object}
@@ -14,7 +14,7 @@ univariableCorrelation(cyclopsData, covariates = NULL, threshold = 0.9)
 \item{threshold}{Correlation threshold for reporting}
 }
 \value{
-A list of covariates whose absolute correlation with the outcome is greater than the threshold
+A list of covariates whose absolute correlation with the outcome is greater than or equal to the threshold
 }
 \description{
 \code{univariableCorrelation} reports covariates that have high correlation with the outcome

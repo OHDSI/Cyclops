@@ -19,9 +19,9 @@ test_that("univariable correlation", {
     allCorrelations <- univariableCorrelation(dataPtrD)
     expect_equal(length(allCorrelations), 5)
 
-    gold <- sapply(1:5, function(i) {
+    gold <- c(NA, sapply(2:5, function(i) {
         with(dobson, cor(counts, model.matrix(~outcome + treatment)[,i]))
-    })
+    }))
     expect_equivalent(gold, allCorrelations, tolerance)
 
     someCorrelations <- univariableCorrelation(dataPtrD, c("outcome2","outcome3"))

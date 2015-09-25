@@ -4,10 +4,12 @@
 \alias{coef.cyclopsFit}
 \title{Extract model coefficients}
 \usage{
-\method{coef}{cyclopsFit}(object, ...)
+\method{coef}{cyclopsFit}(object, rescale = FALSE, ...)
 }
 \arguments{
 \item{object}{Cyclops model fit object}
+
+\item{rescale}{Boolean: rescale coefficients for unnormalized covariate values}
 
 \item{...}{Other arguments}
 }

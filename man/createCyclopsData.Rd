@@ -7,7 +7,7 @@
 createCyclopsData(formula, sparseFormula, indicatorFormula, modelType, data,
   subset, weights, offset, time = NULL, pid = NULL, y = NULL,
   type = NULL, dx = NULL, sx = NULL, ix = NULL, model = FALSE,
-  method = "cyclops.fit")
+  normalize = FALSE, method = "cyclops.fit")
 }
 \arguments{
 \item{formula}{An object of class \code{"\link{formula}"} that provides a symbolic description of the numerically dense model response and terms.}
@@ -41,6 +41,8 @@ createCyclopsData(formula, sparseFormula, indicatorFormula, modelType, data,
 \item{ix}{Optional \{0,1\} \code{"\link{Matrix}"} of covariates}
 
 \item{model}{Currently undocumented}
+
+\item{normalize}{Boolean: normalize all non-indicator covariates}
 
 \item{method}{Currently undocumented}
 }

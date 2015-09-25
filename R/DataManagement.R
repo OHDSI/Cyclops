@@ -367,24 +367,24 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
     }
 
     if (normalize) {
-        result$coefficientNormalizations <- .cyclopsNormalizeCovariates(result)
+        .normalizeCovariates(result)
     }
 
     result
 }
 
 .normalizeCovariates <- function(cyclopsData) {
-    scales <- .cyclopsNormalizeCovariates(cyclopsData)
+    scale <- .cyclopsNormalizeCovariates(cyclopsData)
 
-    if (is.null(cyclopsData$scales)) {
-        cyclopsData$scales <- scales
+    if (is.null(cyclopsData$scale)) {
+        cyclopsData$scale <- scale
     } else {
-        cyclopsData$scales <- cyclopsData$scales * scales # Can call function multiple times without bad effects
+        cyclopsData$scale <- cyclopsData$scale * scale # Can call function multiple times without bad effects
     }
 
     cyclopsData$cyclopsInterfacePtr <- NULL # Force new engine for next fit
 
-    invisible(scales)
+    invisible(scale)
 }
 
 # @title isValidModelType
@@ -852,7 +852,7 @@ summary.cyclopsData <- function(object, ...) {
     tvar <- (sumsSquared -  counts * tmean * tmean) / counts
     tvar[tvar < 0] <- 0
 
-    if (is.null(object$scales)) {
+    if (is.null(object$scale)) {
         tdf <- data.frame(covariateId = covariates,
                           nzCount = counts,
                           nzMean = tmean,
@@ -864,7 +864,7 @@ summary.cyclopsData <- function(object, ...) {
                           nzMean = tmean,
                           nzVar = tvar,
                           type = types,
-                          scale = object$scales)
+                          scale = object$scale)
     }
 
     if (!is.null(object$coefficientNames)) {

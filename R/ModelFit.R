@@ -201,10 +201,9 @@ fitCyclopsModel <- function(cyclopsData,
     }
     fit$call <- cl
     fit$cyclopsData <- cyclopsData
-    fit$cyclopsInterfacePtr <- cyclopsData$cyclopsInterfacePtr
     fit$coefficientNames <- cyclopsData$coefficientNames
     fit$rowNames <- cyclopsData$rowNames
-    fit$scales <- cyclopsData$scales
+    fit$scale <- cyclopsData$scale
     class(fit) <- "cyclopsFit"
     return(fit)
 }
@@ -266,7 +265,7 @@ fitCyclopsModel <- function(cyclopsData,
 #' @return Named numeric vector of model coefficients.
 #'
 #' @export
-coef.cyclopsFit <- function(object, rescale = TRUE, ...) {
+coef.cyclopsFit <- function(object, rescale = FALSE, ...) {
     if (is.null(object$estimation)) {
         stop("Cyclops estimation is null; suspect that estimation did not converge.")
     }
@@ -280,8 +279,8 @@ coef.cyclopsFit <- function(object, rescale = TRUE, ...) {
         names(result) <- object$coefficientNames
     }
 
-    if (!is.null(object$scales) && rescale) {
-        result <- result * object$scales
+    if (!is.null(object$scale) && rescale) {
+        result <- result * object$scale
     }
     result
 }
@@ -513,8 +512,8 @@ createPrior <- function(priorType,
 #'
 #' @export
 predict.cyclopsFit <- function(object, ...) {
-    .checkInterface(object, testOnly = TRUE)
-    pred <- .cyclopsPredictModel(object$cyclopsInterfacePtr)
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+    pred <- .cyclopsPredictModel(object$cyclopsData$cyclopsInterfacePtr)
     values <- pred$prediction
     if (is.null(names(values))) {
         names(values) <- object$rowNames
@@ -523,7 +522,7 @@ predict.cyclopsFit <- function(object, ...) {
 }
 
 # .cyclopsSetCoefficients <- function(object, coefficients) {
-#     .checkInterface(object, testOnly = TRUE)
+#     .checkInterface(object$cyclopsData, testOnly = TRUE)
 #
 #     if (length(coefficients) != getNumberOfCovariates(object$cyclopsData)) {
 #         stop("Must provide a value for each coefficient")
@@ -533,7 +532,7 @@ predict.cyclopsFit <- function(object, ...) {
 #         coefficients <- c(1.0, coefficients)
 #     }
 #
-#     .cyclopsSetBeta(object$cyclopsInterfacePtr, coefficients)
+#     .cyclopsSetBeta(object$cyclopsData$cyclopsInterfacePtr, coefficients)
 # }
 
 #' @title Compute predictive log-likelihood from a Cyclops model fit
@@ -547,7 +546,7 @@ predict.cyclopsFit <- function(object, ...) {
 #'
 #' @keywords internal
 getCyclopsPredictiveLogLikelihood <- function(object, weights) {
-    .checkInterface(object, testOnly = TRUE)
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
 
     if (length(weights) != getNumberOfRows(object$cyclopsData)) {
         stop("Must provide a weight for each data row")
@@ -561,7 +560,7 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
     }
     # TODO Remove code duplication with weights section of fitCyclopsModel
 
-    .cyclopsGetPredictiveLogLikelihood(object$cyclopsInterfacePtr, weights)
+    .cyclopsGetPredictiveLogLikelihood(object$cyclopsData$cyclopsInterfacePtr, weights)
 }
 
 .setControl <- function(cyclopsInterfacePtr, control) {
@@ -601,12 +600,12 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
 #'
 #' @keywords internal
 getSEs <- function(object, covariates) {
-    .checkInterface(object, testOnly = TRUE)
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
     covariates <- .checkCovariates(object$cyclopsData, covariates)
     if (getNumberOfCovariates(object$cyclopsData) != length(covariates)) {
         warning("Asymptotic standard errors are only valid if computed for all covariates simultaneously")
     }
-    fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsInterfacePtr, covariates)
+    fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsData$cyclopsInterfacePtr, covariates)
     ses <- sqrt(diag(solve(fisherInformation)))
     names(ses) <- object$coefficientNames[covariates]
     ses
@@ -626,6 +625,7 @@ getSEs <- function(object, covariates) {
 ## @param control   A Cyclops \code{\link{control}} object
 #' @param overrideNoRegularization   Logical: Enable confidence interval estimation for regularized parameters
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
+#' @param rescale   Boolean: rescale coefficients for unnormalized covariate values
 #' @param ... Additional argument(s) for methods
 #'
 #' @return
@@ -638,18 +638,23 @@ getSEs <- function(object, covariates) {
 #' @export
 confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
                                overrideNoRegularization = FALSE,
-                               includePenalty = TRUE, ...) {
-    .checkInterface(object, testOnly = TRUE)
-    #.setControl(object$cyclopsInterfacePtr, control)
+                               includePenalty = TRUE,
+                               rescale = FALSE, ...) {
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+    #.setControl(object$cyclopsData$cyclopsInterfacePtr, control)
     parm <- .checkCovariates(object$cyclopsData, parm)
     if (level < 0.01 || level > 0.99) {
         stop("level must be between 0 and 1")
     }
     threshold <- qchisq(level, df = 1) / 2
 
-    prof <- .cyclopsProfileModel(object$cyclopsInterfacePtr, parm, threshold,
+    prof <- .cyclopsProfileModel(object$cyclopsData$cyclopsInterfacePtr, parm, threshold,
                                  overrideNoRegularization,
                                  includePenalty)
+    if (!is.null(object$scale) && rescale) {
+        prof$lower <- prof$lower * object$scale[parm]
+        prof$upper <- prof$upper * object$scale[parm]
+    }
     prof <- as.matrix(as.data.frame(prof))
     rownames(prof) <- object$coefficientNames[parm]
     qs <- c((1 - level) / 2, 1 - (1 - level) / 2) * 100
@@ -679,8 +684,8 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #' @keywords internal
 aconfint <- function(object, parm, level = 0.95, control,
                      overrideNoRegularization = FALSE, ...) {
-    .checkInterface(object, testOnly = TRUE)
-    .setControl(object$cyclopsInterfacePtr, control)
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+    .setControl(object$cyclopsData$cyclopsInterfacePtr, control)
     cf <- coef(object)
     if (missing(parm)) {
         parm <- names(cf)
@@ -714,9 +719,9 @@ aconfint <- function(object, parm, level = 0.95, control,
 #'
 #' @export
 vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, ...) {
-    .checkInterface(object, testOnly = TRUE)
-    .setControl(object$cyclopsInterfacePtr, control)
-    fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsInterfacePtr, NULL)
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+    .setControl(object$cyclopsData$cyclopsInterfacePtr, control)
+    fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsData$cyclopsInterfacePtr, NULL)
     vcov <- solve(fisherInformation)
     if (!is.null(object$coefficientNames)) {
         rownames(vcov) <- object$coefficientNames
