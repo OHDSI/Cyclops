@@ -70,6 +70,8 @@
 #' Currently undocumented
 #' @param method
 #' Currently undocumented
+#' @param normalize
+#' Boolean: normalize all non-indicator covariates
 #'
 #' @return
 #' A list that contains a Cyclops model data object pointer and an operation duration
@@ -94,7 +96,7 @@
 #' @export
 createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelType,
                               data, subset, weights, offset, time = NULL, pid = NULL, y = NULL, type = NULL, dx = NULL,
-                              sx = NULL, ix = NULL, model = FALSE, method = "cyclops.fit") {
+                              sx = NULL, ix = NULL, model = FALSE, normalize = FALSE, method = "cyclops.fit") {
     cl <- match.call() # save to return
     mf.all <- match.call(expand.dots = FALSE)
 
@@ -364,10 +366,26 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
         .cyclopsSetHasIntercept(result, hasIntercept = TRUE)
     }
 
+    if (normalize) {
+        result$coefficientNormalizations <- .cyclopsNormalizeCovariates(result)
+    }
+
     result
 }
 
+.normalizeCovariates <- function(cyclopsData) {
+    scales <- .cyclopsNormalizeCovariates(cyclopsData)
 
+    if (is.null(cyclopsData$scales)) {
+        cyclopsData$scales <- scales
+    } else {
+        cyclopsData$scales <- cyclopsData$scales * scales # Can call function multiple times without bad effects
+    }
+
+    cyclopsData$cyclopsInterfacePtr <- NULL # Force new engine for next fit
+
+    invisible(scales)
+}
 
 # @title isValidModelType
 #
@@ -831,12 +849,23 @@ summary.cyclopsData <- function(object, ...) {
     types <- getCovariateTypes(object, covariates)
 
     tmean <- sums / counts;
+    tvar <- (sumsSquared -  counts * tmean * tmean) / counts
+    tvar[tvar < 0] <- 0
 
-    tdf <- data.frame(covariateId = covariates,
-                      nzCount = counts,
-                      nzMean = tmean,
-                      nzVar = (sumsSquared -  counts * tmean * tmean) / counts,
-                      type = types)
+    if (is.null(object$scales)) {
+        tdf <- data.frame(covariateId = covariates,
+                          nzCount = counts,
+                          nzMean = tmean,
+                          nzVar = tvar,
+                          type = types)
+    } else {
+        tdf <- data.frame(covariateId = covariates,
+                          nzCount = counts,
+                          nzMean = tmean,
+                          nzVar = tvar,
+                          type = types,
+                          scale = object$scales)
+    }
 
     if (!is.null(object$coefficientNames)) {
         #         if(.cyclopsGetHasIntercept(x)) {

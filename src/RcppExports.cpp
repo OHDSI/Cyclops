@@ -418,6 +418,17 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// cyclopsNormalizeCovariates
+std::vector<double> cyclopsNormalizeCovariates(Environment x);
+RcppExport SEXP Cyclops_cyclopsNormalizeCovariates(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    __result = Rcpp::wrap(cyclopsNormalizeCovariates(x));
+    return __result;
+END_RCPP
+}
 // cyclopsSetHasIntercept
 void cyclopsSetHasIntercept(Environment x, bool hasIntercept);
 RcppExport SEXP Cyclops_cyclopsSetHasIntercept(SEXP xSEXP, SEXP hasInterceptSEXP) {

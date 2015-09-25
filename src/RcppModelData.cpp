@@ -330,6 +330,13 @@ List cyclopsNewSqlData(const std::string& modelTypeName, const std::string& nois
     return list;
 }
 
+// [[Rcpp::export(".cyclopsNormalizeCovariates")]]
+std::vector<double> cyclopsNormalizeCovariates(Environment x) {
+    using namespace bsccs;
+    XPtr<ModelData> data = parseEnvironmentForPtr(x);
+    return data->normalizeCovariates();
+}
+
 // [[Rcpp::export(".cyclopsSetHasIntercept")]]
 void cyclopsSetHasIntercept(Environment x, bool hasIntercept) {
     using namespace bsccs;

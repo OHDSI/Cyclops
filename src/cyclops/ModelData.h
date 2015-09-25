@@ -202,6 +202,8 @@ public:
 
     void moveTimeToCovariate(bool takeLog);
 
+    std::vector<double> normalizeCovariates();
+
 	const std::string& getRowLabel(size_t i) const {
 		if (i >= labels.size()) {
 			return missing;

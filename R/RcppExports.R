@@ -194,6 +194,10 @@ getNumberOfTypes <- function(object) {
     .Call('Cyclops_cyclopsNewSqlData', PACKAGE = 'Cyclops', modelTypeName, noiseLevel)
 }
 
+.cyclopsNormalizeCovariates <- function(x) {
+    .Call('Cyclops_cyclopsNormalizeCovariates', PACKAGE = 'Cyclops', x)
+}
+
 .cyclopsSetHasIntercept <- function(x, hasIntercept) {
     invisible(.Call('Cyclops_cyclopsSetHasIntercept', PACKAGE = 'Cyclops', x, hasIntercept))
 }

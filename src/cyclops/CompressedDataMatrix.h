@@ -17,6 +17,7 @@
 #include <sstream>
 #include <iostream>
 #include <algorithm>
+#include <numeric>
 #include <stdexcept>
 
 //#define DATA_AOS
@@ -86,6 +87,11 @@ public:
 	template <typename Function>
 	void transform(Function f) {
 	    std::transform(data->begin(), data->end(), data->begin(), f);
+	}
+
+	template <typename Function, typename ValueType>
+	ValueType accumulate(Function f, ValueType x) {
+	    return std::accumulate(data->begin(), data->end(), x, f);
 	}
 
 	FormatType getFormatType() const {

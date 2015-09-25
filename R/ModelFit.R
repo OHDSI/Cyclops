@@ -204,6 +204,7 @@ fitCyclopsModel <- function(cyclopsData,
     fit$cyclopsInterfacePtr <- cyclopsData$cyclopsInterfacePtr
     fit$coefficientNames <- cyclopsData$coefficientNames
     fit$rowNames <- cyclopsData$rowNames
+    fit$scales <- cyclopsData$scales
     class(fit) <- "cyclopsFit"
     return(fit)
 }
@@ -259,12 +260,13 @@ fitCyclopsModel <- function(cyclopsData,
 #' \code{coef.cyclopsFit} extracts model coefficients from an Cyclops model fit object
 #'
 #' @param object    Cyclops model fit object
+#' @param rescale   Boolean: rescale coefficients for unnormalized covariate values
 #' @param ...       Other arguments
 #'
 #' @return Named numeric vector of model coefficients.
 #'
 #' @export
-coef.cyclopsFit <- function(object, ...) {
+coef.cyclopsFit <- function(object, rescale = TRUE, ...) {
     if (is.null(object$estimation)) {
         stop("Cyclops estimation is null; suspect that estimation did not converge.")
     }
@@ -276,6 +278,10 @@ coef.cyclopsFit <- function(object, ...) {
         }
     } else {
         names(result) <- object$coefficientNames
+    }
+
+    if (!is.null(object$scales) && rescale) {
+        result <- result * object$scales
     }
     result
 }
