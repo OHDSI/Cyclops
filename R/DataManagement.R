@@ -497,9 +497,9 @@ readCyclopsData <- function(fileName, modelType) {
     result
 }
 
-#' @title Check univariable correlation
+#' @title Get univariable correlation
 #'
-#' @description \code{univariableCorrelation} reports covariates that have high correlation with the outcome
+#' @description \code{getUnivariableCorrelation} reports covariates that have high correlation with the outcome
 #'
 #' @param cyclopsData    A Cyclops data object
 #' @param covariates Integer or string vector: list of covariates to report; default (NULL) implies all covariates
@@ -508,7 +508,7 @@ readCyclopsData <- function(fileName, modelType) {
 #' @return A list of covariates whose absolute correlation with the outcome is greater than or equal to the threshold
 #'
 #' @export
-univariableCorrelation <- function(cyclopsData, covariates = NULL, threshold = 0.0) {
+getUnivariableCorrelation <- function(cyclopsData, covariates = NULL, threshold = 0.0) {
     # Check for valid arguments
     .checkData(cyclopsData)
     if (.isSurvivalModelType(cyclopsData$modelType)) {

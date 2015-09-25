@@ -16,7 +16,7 @@ test_that("univariable correlation", {
     dataPtrD <- createCyclopsData(counts ~ outcome + treatment, data = dobson,
                                   modelType = "pr")
 
-    allCorrelations <- univariableCorrelation(dataPtrD)
+    allCorrelations <- getUnivariableCorrelation(dataPtrD)
     expect_equal(length(allCorrelations), 5)
 
     gold <- c(NA, sapply(2:5, function(i) {
@@ -24,10 +24,10 @@ test_that("univariable correlation", {
     }))
     expect_equivalent(gold, allCorrelations, tolerance)
 
-    someCorrelations <- univariableCorrelation(dataPtrD, c("outcome2","outcome3"))
+    someCorrelations <- getUnivariableCorrelation(dataPtrD, c("outcome2","outcome3"))
     expect_equal(length(someCorrelations), 2)
 
-    someCorrelations <- univariableCorrelation(dataPtrD, c("outcome2","outcome3"),
+    someCorrelations <- getUnivariableCorrelation(dataPtrD, c("outcome2","outcome3"),
                                                threshold = 0.5)
     expect_equal(length(someCorrelations), 1)
 
@@ -44,26 +44,6 @@ test_that("univariable correlation", {
     cyclopsData <- convertToCyclopsData(outcomes, covariates, modelType = "clr",
                                         addIntercept = FALSE)
 
-    allCorrelations <- univariableCorrelation(cyclopsData, threshold = 0.3)
+    allCorrelations <- getUnivariableCorrelation(cyclopsData, threshold = 0.3)
     expect_equal(names(allCorrelations), c("4"))
-})
-
-test_that("Playing with standardization", {
-    counts <- c(18,17,15,20,10,20,25,13,12)
-    outcome <- gl(3,1,9)
-    treatment <- gl(3,3)
-    tolerance <- 1E-4
-
-    dataPtr <- createCyclopsData(counts ~ outcome + treatment,
-                                      modelType = "pr")
-    cyclopsFit <- fitCyclopsModel(dataPtr,
-                                  prior = createPrior("none"))
-
-    dataPtrS <- createCyclopsData(counts ~ outcome + treatment,
-                                       modelType = "pr")
-    cyclopsFitS <- fitCyclopsModel(dataPtrS,
-                                   prior = createPrior("none"))
-
-    coef(cyclopsFit)
-    coef(cyclopsFitS)
 })
