@@ -168,6 +168,8 @@ public:
 
 	void makeDirty(void);
 
+	void setInitialBound(double bound);
+
 	Matrix computeFisherInformation(const std::vector<size_t>& indices) const;
 
 	loggers::ProgressLogger& getLogger() const { return *logger; }
@@ -346,6 +348,8 @@ protected:
 
 	bool computeMLE;
 	int priorType;
+
+	double initialBound;
 //	double sigma2Beta;
 //	double lambda;
 

@@ -48,6 +48,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	updateCount = 0;
 	likelihoodCount = 0;
 	noiseLevel = NOISY;
+	initialBound = 2.0;
 
 	init(hXI.getHasOffsetCovariate());
 }
@@ -82,6 +83,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 	updateCount = 0;
 	likelihoodCount = 0;
 	noiseLevel = copy.noiseLevel;
+	initialBound = copy.initialBound;
 
 	init(hXI.getHasOffsetCovariate());
 }
@@ -144,16 +146,20 @@ void CyclicCoordinateDescent::setPrior(priors::JointPriorPtr newPrior) {
     jointPrior = newPrior;
 }
 
+void CyclicCoordinateDescent::setInitialBound(double bound) {
+    initialBound = bound;
+}
+
 void CyclicCoordinateDescent::resetBounds() {
 	for (int j = 0; j < J; j++) {
-		hDelta[j] = 2.0;
+		hDelta[j] = initialBound;
 	}
 }
 
 void CyclicCoordinateDescent::init(bool offset) {
 
 	// Set parameters and statistics space
-	hDelta.resize(J, static_cast<double>(2.0));
+	hDelta.resize(J, static_cast<double>(initialBound));
 	hBeta.resize(J, static_cast<double>(0.0));
 
 	hXBeta.resize(K, static_cast<double>(0.0));
@@ -471,6 +477,8 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const auto maxIterations = arguments.maxIterations;
 	const auto convergenceType = arguments.convergenceType;
 	const auto epsilon = arguments.tolerance;
+
+	initialBound = arguments.initialBound;
 
  	if (arguments.useKktSwindle && jointPrior->getSupportsKktSwindle()) {
 		kktSwindle(arguments);

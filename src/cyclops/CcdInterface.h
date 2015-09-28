@@ -28,7 +28,7 @@ namespace bsccs {
     class CyclicCoordinateDescent; // forward declaration
     class ModelData;
     class AbstractModelSpecifics;
-    
+
 struct CrossValidationArguments {
 
     // All options related to cross-validation go here
@@ -40,10 +40,10 @@ struct CrossValidationArguments {
 	int foldToCompute;
 	int gridSteps;
 	std::string cvFileName;
-	bool doFitAtOptimal;    
+	bool doFitAtOptimal;
     double startingVariance;
     SelectorType selectorType;
-    
+
     CrossValidationArguments() :
         doCrossValidation(false),
         useAutoSearchCV(false),
@@ -60,7 +60,7 @@ struct CrossValidationArguments {
 };
 
 struct ModeFindingArguments {
-	
+
 	// All options related to mode-finding should (TODO) go here
 	double tolerance;
 	int maxIterations;
@@ -68,14 +68,17 @@ struct ModeFindingArguments {
 	int convergenceType;
 	bool useKktSwindle;
 	int swindleMultipler;
-	
+	double initialBound;
+
 	ModeFindingArguments() :
 		tolerance(1E-6),
 		maxIterations(1000),
 		convergenceTypeString("gradient"),
 		convergenceType(GRADIENT),
 		useKktSwindle(false),
-		swindleMultipler(10) { }
+		swindleMultipler(10),
+		initialBound(2.0)
+	    { }
 };
 
 struct CCDArguments {
@@ -121,10 +124,10 @@ struct CCDArguments {
 
 	ProfileVector profileCI;
 	ProfileVector flatPrior;
-	
+
 	int threads;
-	bool resetCoefficients;	
-		
+	bool resetCoefficients;
+
 	ModeFindingArguments modeFinding;
 	CrossValidationArguments crossValidation;
 };
@@ -144,7 +147,7 @@ public:
 
     double fitModel(
             CyclicCoordinateDescent *ccd);
-        
+
     double runFitMLEAtMode(
             CyclicCoordinateDescent* ccd);
 
@@ -155,7 +158,7 @@ public:
     double profileModel(
             CyclicCoordinateDescent *ccd,
             ModelData *modelData,
-            const ProfileVector& profileCI,          
+            const ProfileVector& profileCI,
             ProfileInformationMap &profileMap,
             double threshold = 1.920729,
             bool overrideNoRegularization = false,
@@ -164,30 +167,30 @@ public:
     double runCrossValidation(
             CyclicCoordinateDescent *ccd,
             ModelData *modelData);
-        
+
     double runBoostrap(
             CyclicCoordinateDescent *ccd,
-            ModelData *modelData,     
-            std::vector<double>& savedBeta);		
+            ModelData *modelData,
+            std::vector<double>& savedBeta);
 
     void setDefaultArguments();
 
     void setZeroBetaAsFixed(
             CyclicCoordinateDescent *ccd);
-        
-    double logModel(CyclicCoordinateDescent *ccd, ModelData *modelData,        
+
+    double logModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
             ProfileInformationMap &profileMap,
             bool withProfileBounds);
-        
+
     double diagnoseModel(
-            CyclicCoordinateDescent *ccd, 
-            ModelData *modelData,  
+            CyclicCoordinateDescent *ccd,
+            ModelData *modelData,
             double loadTime,
             double updateTime);
-		
+
 //     void parseCommandLine(
 //             std::vector<std::string>& argcpp);
-            
+
     CCDArguments& getArguments() {
         return arguments;  // TODO To depricate
     }
@@ -195,41 +198,41 @@ public:
     static double calculateSeconds(
 		const struct timeval &time1,
 		const struct timeval &time2);
-    		
+
 protected:
     std::string getPathAndFileName(const CCDArguments& arguments, std::string stem);
     bool includesOption(const std::string& line, const std::string& option);
-    
-	static SelectorType getDefaultSelectorTypeOrOverride(SelectorType selectorType, ModelType modelType);    
-    
+
+	static SelectorType getDefaultSelectorTypeOrOverride(SelectorType selectorType, ModelType modelType);
+
     CCDArguments arguments;
-		
+
     virtual void initializeModelImpl(
             ModelData** modelData,
             CyclicCoordinateDescent** ccd,
             AbstractModelSpecifics** model) = 0;
-            
+
     virtual void predictModelImpl(
             CyclicCoordinateDescent *ccd,
-            ModelData *modelData) = 0;  
-            
-    virtual void logModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,        
+            ModelData *modelData) = 0;
+
+    virtual void logModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,
             ProfileInformationMap &profileMap,
-            bool withProfileBounds) = 0;  
-            
+            bool withProfileBounds) = 0;
+
     virtual void diagnoseModelImpl(
-            CyclicCoordinateDescent *ccd, 
-            ModelData *modelData,	
+            CyclicCoordinateDescent *ccd,
+            ModelData *modelData,
     		double loadTime,
-    		double updateTime) = 0;     
-    		
-    loggers::ProgressLoggerPtr logger;  
-    loggers::ErrorHandlerPtr error;                          		
+    		double updateTime) = 0;
+
+    loggers::ProgressLoggerPtr logger;
+    loggers::ErrorHandlerPtr error;
 
 }; // class CcdInterface
 
 // class RCcdInterface: public CcdInterface {
-// 
+//
 // }; // class RCcdInterface
 
 } // namespace
