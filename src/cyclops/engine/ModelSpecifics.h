@@ -163,6 +163,11 @@ struct OneValue { };
 template <class T>
 inline T operator*(const T& lhs, const OneValue& rhs) { return lhs; }
 
+inline std::ostream& operator<<(std::ostream& stream, const OneValue& rhs) {
+    stream << "1";
+    return stream;
+}
+
 // struct ParallelInfo { };
 //
 // struct SerialOnly { };
