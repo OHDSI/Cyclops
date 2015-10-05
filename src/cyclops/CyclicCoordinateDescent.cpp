@@ -480,10 +480,25 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 
 	initialBound = arguments.initialBound;
 
- 	if (arguments.useKktSwindle && jointPrior->getSupportsKktSwindle()) {
-		kktSwindle(arguments);
-	} else {
-		findMode(maxIterations, convergenceType, epsilon);
+	const int maxCount = 2;
+
+	int count = 0;
+	bool done = false;
+	while (!done) {
+ 	    if (arguments.useKktSwindle && jointPrior->getSupportsKktSwindle()) {
+		    kktSwindle(arguments);
+	    } else {
+		    findMode(maxIterations, convergenceType, epsilon);
+	    }
+	    ++count;
+
+	    if (lastReturnFlag == ILLCONDITIONED && count < maxCount) {
+	        // Reset beta and shrink bounding box
+	        initialBound /= 10.0;
+            resetBeta();
+	    } else {
+	        done = true;
+	    }
 	}
 }
 
@@ -785,7 +800,7 @@ void CyclicCoordinateDescent::findMode(
 				if (thisObjFunc != thisObjFunc) {
 				    std::ostringstream stream;
 					stream << "\nWarning! Problem is ill-conditioned for this choice of"
-                           << "\t hyperparameter (" << jointPrior->getDescription() << ") or\n"
+                           << "\t prior (" << jointPrior->getDescription() << ") or\n"
                            << "\t initial bounding box (" << initialBound << ")\n"
                            << "Enforcing convergence!";
 					logger->writeLine(stream);
