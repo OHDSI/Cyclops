@@ -69,6 +69,7 @@ struct ModeFindingArguments {
 	bool useKktSwindle;
 	int swindleMultipler;
 	double initialBound;
+	int maxBoundCount;
 
 	ModeFindingArguments() :
 		tolerance(1E-6),
@@ -77,7 +78,8 @@ struct ModeFindingArguments {
 		convergenceType(GRADIENT),
 		useKktSwindle(false),
 		swindleMultipler(10),
-		initialBound(2.0)
+		initialBound(2.0),
+		maxBoundCount(3)
 	    { }
 };
 

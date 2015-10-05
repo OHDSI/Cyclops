@@ -477,10 +477,9 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const auto maxIterations = arguments.maxIterations;
 	const auto convergenceType = arguments.convergenceType;
 	const auto epsilon = arguments.tolerance;
+	const int maxCount = arguments.maxBoundCount;
 
 	initialBound = arguments.initialBound;
-
-	const int maxCount = 2;
 
 	int count = 0;
 	bool done = false;
