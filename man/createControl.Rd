@@ -9,7 +9,8 @@ createControl(maxIterations = 1000, tolerance = 1e-06,
   lowerLimit = 0.01, upperLimit = 20, gridSteps = 10, cvRepetitions = 1,
   minCVData = 100, noiseLevel = "silent", threads = 1, seed = NULL,
   resetCoefficients = FALSE, startingVariance = -1, useKKTSwindle = FALSE,
-  tuneSwindle = 10, selectorType = "default", initialBound = 2)
+  tuneSwindle = 10, selectorType = "default", initialBound = 2,
+  maxBoundCount = 5)
 }
 \arguments{
 \item{maxIterations}{Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error}
@@ -52,7 +53,9 @@ Option \code{"grid"} selects a grid-search cross validation}
 Option \code{"byPid"} selects entire strata.
 Option \code{"byRow"} selects single rows}
 
-\item{initialBound}{Numeric: Starting trust-region size
+\item{initialBound}{Numeric: Starting trust-region size}
+
+\item{maxBoundCount}{Numeric: Maximum number of tries to decrease initial trust-region size
 
 Todo: Describe convegence types}
 }

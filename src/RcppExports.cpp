@@ -169,8 +169,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsSetControl
-void cyclopsSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance, bool useKKTSwindle, int swindleMultipler, const std::string& selectorType, double initialBound);
-RcppExport SEXP Cyclops_cyclopsSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP threadsSEXP, SEXP seedSEXP, SEXP resetCoefficientsSEXP, SEXP startingVarianceSEXP, SEXP useKKTSwindleSEXP, SEXP swindleMultiplerSEXP, SEXP selectorTypeSEXP, SEXP initialBoundSEXP) {
+void cyclopsSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance, bool useKKTSwindle, int swindleMultipler, const std::string& selectorType, double initialBound, int maxBoundCount);
+RcppExport SEXP Cyclops_cyclopsSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP threadsSEXP, SEXP seedSEXP, SEXP resetCoefficientsSEXP, SEXP startingVarianceSEXP, SEXP useKKTSwindleSEXP, SEXP swindleMultiplerSEXP, SEXP selectorTypeSEXP, SEXP initialBoundSEXP, SEXP maxBoundCountSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope __rngScope;
     Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
@@ -192,7 +192,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type swindleMultipler(swindleMultiplerSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type selectorType(selectorTypeSEXP);
     Rcpp::traits::input_parameter< double >::type initialBound(initialBoundSEXP);
-    cyclopsSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound);
+    Rcpp::traits::input_parameter< int >::type maxBoundCount(maxBoundCountSEXP);
+    cyclopsSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount);
     return R_NilValue;
 END_RCPP
 }

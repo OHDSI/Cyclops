@@ -79,7 +79,7 @@ struct ModeFindingArguments {
 		useKktSwindle(false),
 		swindleMultipler(10),
 		initialBound(2.0),
-		maxBoundCount(3)
+		maxBoundCount(5)
 	    { }
 };
 

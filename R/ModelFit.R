@@ -379,6 +379,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              Option \code{"byPid"} selects entire strata.
 #'                              Option \code{"byRow"} selects single rows
 #' @param initialBound          Numeric: Starting trust-region size
+#' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
 #'
 #' Todo: Describe convegence types
 #'
@@ -406,7 +407,8 @@ createControl <- function(maxIterations = 1000,
                           useKKTSwindle = FALSE,
                           tuneSwindle = 10,
                           selectorType = "default",
-                          initialBound = 2.0) {
+                          initialBound = 2.0,
+                          maxBoundCount = 5) {
     validCVNames = c("grid", "auto")
     stopifnot(cvType %in% validCVNames)
 
@@ -434,7 +436,8 @@ createControl <- function(maxIterations = 1000,
                    useKKTSwindle = useKKTSwindle,
                    tuneSwindle = tuneSwindle,
                    selectorType = selectorType,
-                   initialBound = initialBound),
+                   initialBound = initialBound,
+                   maxBoundCount = maxBoundCount),
               class = "cyclopsControl")
 }
 
@@ -580,7 +583,7 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
                            control$lowerLimit, control$upperLimit, control$gridSteps,
                            control$noiseLevel, control$threads, control$seed, control$resetCoefficients,
                            control$startingVariance, control$useKKTSwindle, control$tuneSwindle,
-                           control$selectorType, control$initialBound)
+                           control$selectorType, control$initialBound, control$maxBoundCount)
     }
 }
 

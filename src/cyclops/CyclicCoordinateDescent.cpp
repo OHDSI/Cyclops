@@ -798,7 +798,7 @@ void CyclicCoordinateDescent::findMode(
  				double thisObjFunc = getObjectiveFunction(convergenceType);
 				if (thisObjFunc != thisObjFunc) {
 				    std::ostringstream stream;
-					stream << "\nWarning! Problem is ill-conditioned for this choice of"
+					stream << "\nWarning: problem is ill-conditioned for this choice of\n"
                            << "\t prior (" << jointPrior->getDescription() << ") or\n"
                            << "\t initial bounding box (" << initialBound << ")\n"
                            << "Enforcing convergence!";
