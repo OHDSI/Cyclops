@@ -463,7 +463,7 @@ size_t ModelData::append(
     return nOutcomes;
 }
 
-std::vector<double> ModelData::normalizeCovariates() {
+std::vector<double> ModelData::normalizeCovariates(const NormalizationType type) {
     std::vector<double> normalizations;
     normalizations.reserve(getNumberOfColumns());
 
@@ -478,18 +478,35 @@ std::vector<double> ModelData::normalizeCovariates() {
         FormatType format = column.getFormatType();
         if (format == DENSE || format == SPARSE) {
 
-            auto sumOp = [](double x, double y) {
-                return x + y;
-            };
+            double scale = 1.0;
+            if (type == NormalizationType::STANDARD_DEVIATION) {
+                auto sumOp = [](double x, double y) {
+                    return x + y;
+                };
 
-            auto squaredSumOp = [](double x, double y) {
-                return x + y * y;
-            };
+                auto squaredSumOp = [](double x, double y) {
+                    return x + y * y;
+                };
 
-            auto mean = column.accumulate(sumOp, 0.0) / nRows;
-            auto SS = column.accumulate(squaredSumOp, 0.0);
-            auto variance = (SS - (mean * mean * nRows)) / nRows;
-            auto scale = 1.0 / std::sqrt(variance);
+                auto mean = column.accumulate(sumOp, 0.0) / nRows;
+                auto SS = column.accumulate(squaredSumOp, 0.0);
+                auto variance = (SS - (mean * mean * nRows)) / nRows;
+                scale = 1.0 / std::sqrt(variance);
+
+            } else if (type == NormalizationType::MAX) {
+                auto maxOp = [](double max, double x) {
+                    auto abs = std::abs(x);
+                    if (abs > max) {
+                        max = abs;
+                    }
+                    return max;
+                };
+                scale = 1.0 / column.accumulate(maxOp, 0.0);
+
+            } else { // type == NormalizationType::MEDIAN
+                auto data = column.copyData();
+                scale = 1.0 / median(data.begin(), data.end());
+            }
 
             auto scaleOp = [scale](double x) {
                 return x * scale;

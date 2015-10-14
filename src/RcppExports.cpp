@@ -420,15 +420,26 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// cyclopsMedian
+double cyclopsMedian(const NumericVector& vector);
+RcppExport SEXP Cyclops_cyclopsMedian(SEXP vectorSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< const NumericVector& >::type vector(vectorSEXP);
+    __result = Rcpp::wrap(cyclopsMedian(vector));
+    return __result;
+END_RCPP
+}
 // cyclopsNormalizeCovariates
-std::vector<double> cyclopsNormalizeCovariates(Environment x, const std::string& normalizationType);
-RcppExport SEXP Cyclops_cyclopsNormalizeCovariates(SEXP xSEXP, SEXP normalizationTypeSEXP) {
+std::vector<double> cyclopsNormalizeCovariates(Environment x, const std::string& normalizationName);
+RcppExport SEXP Cyclops_cyclopsNormalizeCovariates(SEXP xSEXP, SEXP normalizationNameSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
     Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
-    Rcpp::traits::input_parameter< const std::string& >::type normalizationType(normalizationTypeSEXP);
-    __result = Rcpp::wrap(cyclopsNormalizeCovariates(x, normalizationType));
+    Rcpp::traits::input_parameter< const std::string& >::type normalizationName(normalizationNameSEXP);
+    __result = Rcpp::wrap(cyclopsNormalizeCovariates(x, normalizationName));
     return __result;
 END_RCPP
 }

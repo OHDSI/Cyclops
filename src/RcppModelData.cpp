@@ -330,11 +330,19 @@ List cyclopsNewSqlData(const std::string& modelTypeName, const std::string& nois
     return list;
 }
 
+// [[Rcpp::export(".cyclopsMedian")]]
+double cyclopsMedian(const NumericVector& vector) {
+    // Make copy
+    std::vector<double> data(vector.begin(), vector.end());
+    return bsccs::median(data.begin(), data.end());
+}
+
 // [[Rcpp::export(".cyclopsNormalizeCovariates")]]
-std::vector<double> cyclopsNormalizeCovariates(Environment x, const std::string& normalizationType) {
+std::vector<double> cyclopsNormalizeCovariates(Environment x, const std::string& normalizationName) {
     using namespace bsccs;
     XPtr<ModelData> data = parseEnvironmentForPtr(x);
-    return data->normalizeCovariates();
+    NormalizationType type = RcppCcdInterface::parseNormalizationType(normalizationName);
+    return data->normalizeCovariates(type);
 }
 
 // [[Rcpp::export(".cyclopsSetHasIntercept")]]
