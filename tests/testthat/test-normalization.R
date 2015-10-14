@@ -16,7 +16,7 @@ test_that("Simple normalization", {
     fit1 <- fitCyclopsModel(dataPtr, prior = createPrior("none"))
 
     # Normalize
-    Cyclops:::.normalizeCovariates(dataPtr)
+    Cyclops:::.normalizeCovariates(dataPtr, type = "stdev")
 
     expect_error(confint(fit1, parm = "outcome2")) # Data are now invalid for fit1
 
@@ -25,7 +25,7 @@ test_that("Simple normalization", {
     fit2 <- fitCyclopsModel(dataPtr, prior = createPrior("none"))
 
     # Normalizing again should not change values
-    Cyclops:::.normalizeCovariates(dataPtr)
+    Cyclops:::.normalizeCovariates(dataPtr, type = "stdev")
     sum3 <- summary(dataPtr)
     expect_equal(sum2$scale, sum3$scale, tolerance = tolerance * tolerance)
     fit3 <- fitCyclopsModel(dataPtr, prior = createPrior("none"))
@@ -42,7 +42,7 @@ test_that("Simple normalization", {
     dataPtr2 <- createCyclopsData(counts ~ 1,
                                  sparseFormula = ~outcome,
                                  indicatorFormula = ~treatment,
-                                 modelType = "pr", normalize = TRUE)
+                                 modelType = "pr", normalize = "stdev")
 
     fit4 <- fitCyclopsModel(dataPtr2, prior = createPrior("none"))
     expect_equal(coef(fit2), coef(fit4))
