@@ -421,13 +421,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsNormalizeCovariates
-std::vector<double> cyclopsNormalizeCovariates(Environment x);
-RcppExport SEXP Cyclops_cyclopsNormalizeCovariates(SEXP xSEXP) {
+std::vector<double> cyclopsNormalizeCovariates(Environment x, const std::string& normalizationType);
+RcppExport SEXP Cyclops_cyclopsNormalizeCovariates(SEXP xSEXP, SEXP normalizationTypeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
     Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
-    __result = Rcpp::wrap(cyclopsNormalizeCovariates(x));
+    Rcpp::traits::input_parameter< const std::string& >::type normalizationType(normalizationTypeSEXP);
+    __result = Rcpp::wrap(cyclopsNormalizeCovariates(x, normalizationType));
     return __result;
 END_RCPP
 }

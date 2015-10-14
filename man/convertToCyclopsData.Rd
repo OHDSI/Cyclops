@@ -8,15 +8,15 @@
 \usage{
 convertToCyclopsData(outcomes, covariates, modelType = "lr",
   addIntercept = TRUE, checkSorting = TRUE, checkRowIds = TRUE,
-  normalize = FALSE, quiet = FALSE)
+  normalize = NULL, quiet = FALSE)
 
 \method{convertToCyclopsData}{ffdf}(outcomes, covariates, modelType = "lr",
   addIntercept = TRUE, checkSorting = TRUE, checkRowIds = TRUE,
-  normalize = FALSE, quiet = FALSE)
+  normalize = NULL, quiet = FALSE)
 
 \method{convertToCyclopsData}{data.frame}(outcomes, covariates,
   modelType = "lr", addIntercept = TRUE, checkSorting = TRUE,
-  checkRowIds = TRUE, normalize = FALSE, quiet = FALSE)
+  checkRowIds = TRUE, normalize = NULL, quiet = FALSE)
 }
 \arguments{
 \item{outcomes}{A data frame or ffdf object containing the outcomes with predefined columns (see below).}
@@ -31,7 +31,7 @@ convertToCyclopsData(outcomes, covariates, modelType = "lr",
 
 \item{checkRowIds}{Check if all rowIds in the covariates appear in the outcomes.}
 
-\item{normalize}{Boolean: normalize all non-indicator covariates}
+\item{normalize}{String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)}
 
 \item{quiet}{If true, (warning) messages are surpressed.}
 }

@@ -331,7 +331,7 @@ List cyclopsNewSqlData(const std::string& modelTypeName, const std::string& nois
 }
 
 // [[Rcpp::export(".cyclopsNormalizeCovariates")]]
-std::vector<double> cyclopsNormalizeCovariates(Environment x) {
+std::vector<double> cyclopsNormalizeCovariates(Environment x, const std::string& normalizationType) {
     using namespace bsccs;
     XPtr<ModelData> data = parseEnvironmentForPtr(x);
     return data->normalizeCovariates();
