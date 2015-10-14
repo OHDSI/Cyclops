@@ -337,6 +337,14 @@ double cyclopsMedian(const NumericVector& vector) {
     return bsccs::median(data.begin(), data.end());
 }
 
+// [[Rcpp::export(".cyclopsQuantile")]]
+double cyclopsQuantile(const NumericVector& vector, double q) {
+    if (q < 0.0 || q > 1.0) Rcpp::stop("Invalid quantile");
+    // Make copy
+    std::vector<double> data(vector.begin(), vector.end());
+    return bsccs::quantile(data.begin(), data.end(), q);
+}
+
 // [[Rcpp::export(".cyclopsNormalizeCovariates")]]
 std::vector<double> cyclopsNormalizeCovariates(Environment x, const std::string& normalizationName) {
     using namespace bsccs;

@@ -431,6 +431,18 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// cyclopsQuantile
+double cyclopsQuantile(const NumericVector& vector, double q);
+RcppExport SEXP Cyclops_cyclopsQuantile(SEXP vectorSEXP, SEXP qSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< const NumericVector& >::type vector(vectorSEXP);
+    Rcpp::traits::input_parameter< double >::type q(qSEXP);
+    __result = Rcpp::wrap(cyclopsQuantile(vector, q));
+    return __result;
+END_RCPP
+}
 // cyclopsNormalizeCovariates
 std::vector<double> cyclopsNormalizeCovariates(Environment x, const std::string& normalizationName);
 RcppExport SEXP Cyclops_cyclopsNormalizeCovariates(SEXP xSEXP, SEXP normalizationNameSEXP) {

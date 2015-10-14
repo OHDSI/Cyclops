@@ -503,12 +503,18 @@ std::vector<double> ModelData::normalizeCovariates(const NormalizationType type)
                 };
                 scale = 1.0 / column.accumulate(maxOp, 0.0);
 
-            } else { // type == NormalizationType::MEDIAN
+            } else if ( type == NormalizationType::MEDIAN) {
                 auto data = column.copyData();
                 std::transform(data.begin(), data.end(), data.begin(), [](double x) {
                     return std::abs(x);
                 }); // TODO Copy and transform in single loop
                 scale = 1.0 / median(data.begin(), data.end());
+            } else {  // type == NormalizationType::Q95
+                auto data = column.copyData();
+                std::transform(data.begin(), data.end(), data.begin(), [](double x) {
+                    return std::abs(x);
+                }); // TODO Copy and transform in single loop
+                scale = 1.0 / quantile(data.begin(), data.end(), 0.95);
             }
 
             auto scaleOp = [scale](double x) {

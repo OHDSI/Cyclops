@@ -519,6 +519,8 @@ bsccs::NormalizationType RcppCcdInterface::parseNormalizationType(const std::str
         normalizationType = NormalizationType::MAX;
     } else if (normalizationName == "median") {
         normalizationType = NormalizationType::MEDIAN;
+    } else if (normalizationName == "q95") {
+        normalizationType = NormalizationType::Q95;
     } else {
         handleError("Invalid normalization type.");
     }

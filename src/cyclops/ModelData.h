@@ -289,6 +289,26 @@ auto median(Itr begin, Itr end) -> typename Itr::value_type {
     }
 }
 
+template <typename Itr>
+auto quantile(Itr begin, Itr end, double q) -> typename Itr::value_type {
+    const auto size = std::distance(begin, end);
+
+    auto fraction = (size - 1) * q;
+    const auto lo = std::floor(fraction);
+    const auto hi = std::ceil(fraction);
+    fraction -= lo;
+
+    auto high = begin + hi;
+    std::nth_element(begin, high, end);
+
+    if (hi == lo) { // whole number
+        return *high;
+    } else {
+        auto low = std::max_element(begin, high);
+        return (1.0 - fraction) * (*low) + fraction * (*high);
+    }
+}
+
 } // namespace
 
 #endif /* MODELDATA_H_ */

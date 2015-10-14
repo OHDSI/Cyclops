@@ -198,6 +198,10 @@ getNumberOfTypes <- function(object) {
     .Call('Cyclops_cyclopsMedian', PACKAGE = 'Cyclops', vector)
 }
 
+.cyclopsQuantile <- function(vector, q) {
+    .Call('Cyclops_cyclopsQuantile', PACKAGE = 'Cyclops', vector, q)
+}
+
 .cyclopsNormalizeCovariates <- function(x, normalizationName) {
     .Call('Cyclops_cyclopsNormalizeCovariates', PACKAGE = 'Cyclops', x, normalizationName)
 }

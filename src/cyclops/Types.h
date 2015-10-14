@@ -145,6 +145,7 @@ enum class NormalizationType {
     STANDARD_DEVIATION,
     MAX,
     MEDIAN,
+    Q95,
     SIZE_OF_ENUM // Keep at end
 };
 
