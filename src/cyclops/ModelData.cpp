@@ -505,6 +505,9 @@ std::vector<double> ModelData::normalizeCovariates(const NormalizationType type)
 
             } else { // type == NormalizationType::MEDIAN
                 auto data = column.copyData();
+                std::transform(data.begin(), data.end(), data.begin(), [](double x) {
+                    return std::abs(x);
+                }); // TODO Copy and transform in single loop
                 scale = 1.0 / median(data.begin(), data.end());
             }
 

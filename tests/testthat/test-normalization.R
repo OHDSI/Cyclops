@@ -47,4 +47,20 @@ test_that("Simple normalization", {
     fit4 <- fitCyclopsModel(dataPtr2, prior = createPrior("none"))
     expect_equal(coef(fit2), coef(fit4))
 
+    # Normalize via max
+    covariate <- c(1:length(counts))
+    dataPtr3 <- createCyclopsData(counts ~ 1,
+                                  sparseFormula = ~covariate,
+                                  indicatorFormula = ~treatment,
+                                  modelType = "pr", normalize = "max")
+    sum4 <- summary(dataPtr3)
+    expect_equal(sum4$scale[2], 1 / max(covariate))
+
+    # Normalize via median
+    dataPtr4 <- createCyclopsData(counts ~ 1,
+                                  sparseFormula = ~covariate,
+                                  indicatorFormula = ~treatment,
+                                  modelType = "pr", normalize = "median")
+    sum5 <- summary(dataPtr4)
+    expect_equal(sum5$scale[2], 1 / median(covariate))
 })
