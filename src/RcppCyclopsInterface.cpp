@@ -510,6 +510,23 @@ bsccs::SelectorType RcppCcdInterface::parseSelectorType(const std::string& selec
 	 return selectorType;
 }
 
+bsccs::NormalizationType RcppCcdInterface::parseNormalizationType(const std::string& normalizationName) {
+    using namespace bsccs;
+    NormalizationType normalizationType = NormalizationType::STANDARD_DEVIATION;
+    if (normalizationName == "stdev") {
+        normalizationType = NormalizationType::STANDARD_DEVIATION;
+    } else if (normalizationName == "max") {
+        normalizationType = NormalizationType::MAX;
+    } else if (normalizationName == "median") {
+        normalizationType = NormalizationType::MEDIAN;
+    } else if (normalizationName == "q95") {
+        normalizationType = NormalizationType::Q95;
+    } else {
+        handleError("Invalid normalization type.");
+    }
+    return normalizationType;
+}
+
 //  static std::map<ModelType, std::string> modelTypeNames = {
 //  	{ModelType::NORMAL, "ls"},
 //  	{ModelType::POISSON, "pr"},

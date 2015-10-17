@@ -141,6 +141,14 @@ enum class SelectorType {
 	SIZE_OF_ENUM // Keep at end
 };
 
+enum class NormalizationType {
+    STANDARD_DEVIATION,
+    MAX,
+    MEDIAN,
+    Q95,
+    SIZE_OF_ENUM // Keep at end
+};
+
 namespace Models {
 
 inline bool removeIntercept(const ModelType modelType) {

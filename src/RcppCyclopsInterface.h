@@ -94,6 +94,7 @@ public:
     static ConvergenceType parseConvergenceType(const std::string& convergenceName);
     static NoiseLevels parseNoiseLevel(const std::string& noiseName);
   	static SelectorType parseSelectorType(const std::string& selectorName);
+  	static NormalizationType parseNormalizationType(const std::string& normalizationName);
 
 protected:
 

@@ -92,7 +92,7 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
 #' @param addIntercept  Add an intercept to the model?
 #' @param checkSorting  Check if the data are sorted appropriately, and if not, sort.
 #' @param checkRowIds   Check if all rowIds in the covariates appear in the outcomes.
-#' @param normalize     Boolean: normalize all non-indicator covariates
+#' @param normalize     String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)
 #' @param quiet         If true, (warning) messages are surpressed.
 #'
 #' @details
@@ -148,7 +148,7 @@ convertToCyclopsData <- function(outcomes,
                                  addIntercept = TRUE,
                                  checkSorting = TRUE,
                                  checkRowIds = TRUE,
-                                 normalize = FALSE,
+                                 normalize = NULL,
                                  quiet = FALSE) {
     UseMethod("convertToCyclopsData")
 }
@@ -161,7 +161,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
                                       addIntercept = TRUE,
                                       checkSorting = TRUE,
                                       checkRowIds = TRUE,
-                                      normalize = FALSE,
+                                      normalize = NULL,
                                       quiet = FALSE){
     if ((modelType == "clr" | modelType == "cpr") & addIntercept){
         if(!quiet) {
@@ -273,8 +273,8 @@ convertToCyclopsData.ffdf <- function(outcomes,
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
 
-    if (normalize) {
-        .normalizeCovariates(dataPtr)
+    if (!is.null(normalize)) {
+        .normalizeCovariates(dataPtr, normalize)
     }
 
     return(dataPtr)
@@ -289,7 +289,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                             addIntercept = TRUE,
                                             checkSorting = TRUE,
                                             checkRowIds = TRUE,
-                                            normalize = FALSE,
+                                            normalize = NULL,
                                             quiet = FALSE){
     if ((modelType == "clr" | modelType == "cpr") & addIntercept){
         if(!quiet)
@@ -375,8 +375,8 @@ convertToCyclopsData.data.frame <- function(outcomes,
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
 
-    if (normalize) {
-        .normalizeCovariates(dataPtr)
+    if (!is.null(normalize)) {
+        .normalizeCovariates(dataPtr, normalize)
     }
 
     return(dataPtr)

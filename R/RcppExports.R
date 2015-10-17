@@ -194,8 +194,16 @@ getNumberOfTypes <- function(object) {
     .Call('Cyclops_cyclopsNewSqlData', PACKAGE = 'Cyclops', modelTypeName, noiseLevel)
 }
 
-.cyclopsNormalizeCovariates <- function(x) {
-    .Call('Cyclops_cyclopsNormalizeCovariates', PACKAGE = 'Cyclops', x)
+.cyclopsMedian <- function(vector) {
+    .Call('Cyclops_cyclopsMedian', PACKAGE = 'Cyclops', vector)
+}
+
+.cyclopsQuantile <- function(vector, q) {
+    .Call('Cyclops_cyclopsQuantile', PACKAGE = 'Cyclops', vector, q)
+}
+
+.cyclopsNormalizeCovariates <- function(x, normalizationName) {
+    .Call('Cyclops_cyclopsNormalizeCovariates', PACKAGE = 'Cyclops', x, normalizationName)
 }
 
 .cyclopsSetHasIntercept <- function(x, hasIntercept) {

@@ -84,6 +84,12 @@ public:
 		return *data;
 	}
 
+	std::vector<real> copyData() {
+// 		std::vector copy(std::begin(data), std::end(data));
+// 		return std::move(copy);
+		return std::vector<real>(*data);
+	}
+
 	template <typename Function>
 	void transform(Function f) {
 	    std::transform(data->begin(), data->end(), data->begin(), f);

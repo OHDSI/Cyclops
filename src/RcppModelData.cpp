@@ -330,11 +330,27 @@ List cyclopsNewSqlData(const std::string& modelTypeName, const std::string& nois
     return list;
 }
 
+// [[Rcpp::export(".cyclopsMedian")]]
+double cyclopsMedian(const NumericVector& vector) {
+    // Make copy
+    std::vector<double> data(vector.begin(), vector.end());
+    return bsccs::median(data.begin(), data.end());
+}
+
+// [[Rcpp::export(".cyclopsQuantile")]]
+double cyclopsQuantile(const NumericVector& vector, double q) {
+    if (q < 0.0 || q > 1.0) Rcpp::stop("Invalid quantile");
+    // Make copy
+    std::vector<double> data(vector.begin(), vector.end());
+    return bsccs::quantile(data.begin(), data.end(), q);
+}
+
 // [[Rcpp::export(".cyclopsNormalizeCovariates")]]
-std::vector<double> cyclopsNormalizeCovariates(Environment x) {
+std::vector<double> cyclopsNormalizeCovariates(Environment x, const std::string& normalizationName) {
     using namespace bsccs;
     XPtr<ModelData> data = parseEnvironmentForPtr(x);
-    return data->normalizeCovariates();
+    NormalizationType type = RcppCcdInterface::parseNormalizationType(normalizationName);
+    return data->normalizeCovariates(type);
 }
 
 // [[Rcpp::export(".cyclopsSetHasIntercept")]]
