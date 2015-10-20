@@ -202,12 +202,12 @@ void CyclicCoordinateDescent::computeNEvents() {
 }
 
 void CyclicCoordinateDescent::resetBeta(void) {
-	for (int j = 0; j < J; j++) {
+
+    auto start = hXI.getHasOffsetCovariate() ? 1 : 0;
+    for (auto j = start; j < J; j++) {
 		hBeta[j] = 0.0;
 	}
-	for (int k = 0; k < K; k++) {
-		hXBeta[k] = 0.0;
-	}
+	computeXBeta();
 	sufficientStatisticsKnown = false;
 }
 
