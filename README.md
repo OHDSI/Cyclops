@@ -57,7 +57,7 @@ Getting Started
  
 Getting Involved
 ================
-* Package manual: [Cyclops manual](https://raw.githubusercontent.com/OHDSI/Cyclops/master/man/Cyclops.pdf) 
+* Package manual: [Cyclops manual](https://raw.githubusercontent.com/OHDSI/Cyclops/master/extras/Cyclops.pdf) 
 * Developer questions/comments/feedback: <a href="http://forums.ohdsi.org/c/developers">OHDSI Forum</a>
 * We use the <a href="../../issues">GitHub issue tracker</a> for all bugs/issues/enhancements
  
