@@ -5,7 +5,8 @@
 \title{Confidence intervals for Cyclops model parameters}
 \usage{
 \method{confint}{cyclopsFit}(object, parm, level = 0.95,
-  overrideNoRegularization = FALSE, includePenalty = TRUE, ...)
+  overrideNoRegularization = FALSE, includePenalty = TRUE,
+  rescale = FALSE, ...)
 }
 \arguments{
 \item{object}{A fitted Cyclops model object}
@@ -18,6 +19,8 @@ either a vector of numbers of covariateId names}
 \item{overrideNoRegularization}{Logical: Enable confidence interval estimation for regularized parameters}
 
 \item{includePenalty}{Logical: Include regularized covariate penalty in profile}
+
+\item{rescale}{Boolean: rescale coefficients for unnormalized covariate values}
 
 \item{...}{Additional argument(s) for methods}
 }

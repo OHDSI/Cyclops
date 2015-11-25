@@ -43,21 +43,21 @@ using std::string;
 //#define NO_FUSE
 
 class CyclicCoordinateDescent {
-	
+
 public:
-	
+
 	typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
-		
+
 // 	CyclicCoordinateDescent(void);
-// 	
-// 	CyclicCoordinateDescent(			
+//
+// 	CyclicCoordinateDescent(
 // 			const char* fileNameX,
 // 			const char* fileNameEta,
 // 			const char* fileNameOffs,
 // 			const char* fileNameNEvents,
-// 			const char* fileNamePid			
+// 			const char* fileNamePid
 // 		);
-// 	
+//
 	CyclicCoordinateDescent(
 			const ModelData& modelData,
 			AbstractModelSpecifics& specifics,
@@ -70,18 +70,18 @@ public:
 	CyclicCoordinateDescent(
 			int inN,
 			CompressedDataMatrix* inX,
-			int* inEta, 
-			int* inOffs, 
+			int* inEta,
+			int* inOffs,
 			int* inNEvents,
 			int* inPid
 		);
-					
-	CyclicCoordinateDescent* clone();	
-	
+
+	CyclicCoordinateDescent* clone();
+
 	void logResults(const char* fileName, bool withASE);
 
 	virtual ~CyclicCoordinateDescent();
-	
+
 	double getLogLikelihood(void);
 
 	double getPredictiveLogLikelihood(double* weights);
@@ -89,14 +89,14 @@ public:
 	void getPredictiveEstimates(double* y, double* weights) const;
 
 	double getLogPrior(void);
-	
+
 	virtual double getObjectiveFunction(int convergenceType);
 
 	double getBeta(int i);
 
 	int getBetaSize(void);
-	
-    bool getIsRegularized(int i) const;	
+
+    bool getIsRegularized(int i) const;
 
 	int getPredictionSize(void) const;
 
@@ -111,15 +111,17 @@ public:
 	double getAsymptoticPrecision(int i, int j);
 
 //	void setZeroBetaFixed(void);
-		
+
 	void update(const ModeFindingArguments& arguments);
 
 	virtual void resetBeta(void);
 
 	// Setters
 	void setPrior(priors::JointPriorPtr newPrior);
-	
-	void setHyperprior(double value);
+
+	void setHyperprior(double value); // TODO depricate
+
+	void setHyperprior(int index, double value);
 
 	void setClassHyperprior(double value);
 
@@ -165,25 +167,27 @@ public:
 	void setNoiseLevel(NoiseLevels);
 
 	void makeDirty(void);
-	
+
+	void setInitialBound(double bound);
+
 	Matrix computeFisherInformation(const std::vector<size_t>& indices) const;
-	
+
 	loggers::ProgressLogger& getLogger() const { return *logger; }
-		
+
 protected:
 
 	bsccs::unique_ptr<AbstractModelSpecifics> privateModelSpecifics;
-	
+
 	AbstractModelSpecifics& modelSpecifics;
 	priors::JointPriorPtr jointPrior;
-	const ModelData& hXI;	
+	const ModelData& hXI;
 //	ModelSpecifics<DefaultModel>& modelSpecifics;
 //private:
 
 	CyclicCoordinateDescent(const CyclicCoordinateDescent& copy);
-	
+
 	void init(bool offset);
-	
+
 	void resetBounds(void);
 
 	void computeXBeta(void);
@@ -191,20 +195,20 @@ protected:
 	void saveXBeta(void);
 
 	void computeFixedTermsInLogLikelihood(void);
-	
+
 	void computeFixedTermsInGradientAndHessian(void);
 
 //	void computeXjY(void);
 
 	void findMode(int maxIterations, int convergenceType, double epsilon);
-		
+
 	template <typename Iterator>
 	void findMode(Iterator begin, Iterator end,
 		const int maxIterations, const int convergenceType, const double epsilon);
-		
+
 	template <typename Container>
 	void computeKktConditions(Container& set);
-	
+
 	void kktSwindle(const ModeFindingArguments& arguments);
 
 	void computeSufficientStatistics(void);
@@ -228,7 +232,7 @@ protected:
 	void updateXBetaImpl(double delta, int index);
 
 	virtual void computeRemainingStatistics(bool skip, int index);
-	
+
 	virtual void computeRatiosForGradientAndHessian(int index);
 
 	virtual void computeGradientAndHessian(
@@ -251,7 +255,7 @@ protected:
 // 	inline real computeHessian(
 // 			real numer, real numer2, real denom,
 // 			real g, real t);
-// 
+//
 // 	template <class IteratorType>
 // 	inline void incrementGradientAndHessian(
 // 			real* gradient, real* hessian,
@@ -270,13 +274,13 @@ protected:
 	void checkAllLazyFlags(void);
 
 	double ccdUpdateBeta(int index);
-	
+
 	double applyBounds(
 			double inDelta,
 			int index);
-	
+
 	double computeConvergenceCriterion(double newObjFxn, double oldObjFxn);
-	
+
 	virtual double computeZhangOlesConvergenceCriterion(void);
 
 	template <class T>
@@ -294,27 +298,27 @@ protected:
 	}
 
 	int getAlignedLength(int N);
-		
+
 	void testDimension(int givenValue, int trueValue, const char *parameterName);
-	
+
 	template <class T>
 	void printVector(T* vector, const int length, ostream &os);
-	
+
 	template <typename Real>
 	double oneNorm(Real* vector, const int length);
-	
+
 	template <typename Real>
 	double twoNormSquared(Real * vector, const int length);
-	
-	int sign(double x); 
-	
-	template <class T> 
-	T* readVector(const char *fileName, int *length); 
-			
+
+	int sign(double x);
+
+	template <class T>
+	T* readVector(const char *fileName, int *length);
+
 	// Local variables
-	
+
 	//InputReader* hReader;
-	
+
 	ofstream outLog;
 	bool hasLog;
 
@@ -325,11 +329,11 @@ protected:
 //	int* hPid; // N-vector
 	const int* hPid;
 	int** hXColumnRowIndicators; // J-vector
- 	
+
 	//typedef std::vector<real> RealVector;
 	typedef std::vector<double> DoubleVector;
 	DoubleVector hBeta;
-	
+
 	DoubleVector& hXBeta; // TODO Delegate to ModelSpecifics
 	DoubleVector& hXBetaSave; // Delegate
 //	double* hDelta;
@@ -339,11 +343,13 @@ protected:
 	int N; // Number of patients
 	int K; // Number of exposure levels
 	int J; // Number of drugs
-	
+
 	string conditionId;
 
 	bool computeMLE;
 	int priorType;
+
+	double initialBound;
 //	double sigma2Beta;
 //	double lambda;
 
@@ -367,7 +373,7 @@ protected:
 //#ifdef SPARSE_PRODUCT
 //	std::vector<std::vector<int>* > sparseIndices;
 //#endif
-	
+
 	Matrix hessianMatrix;
 	Matrix varianceMatrix;
 
@@ -378,7 +384,7 @@ protected:
 	typedef std::deque<SetBetaEntry> SetBetaContainer;
 
 	SetBetaContainer setBetaList;
-	
+
 	loggers::ProgressLoggerPtr logger;
 	loggers::ErrorHandlerPtr error;
 };

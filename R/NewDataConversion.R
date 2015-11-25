@@ -69,12 +69,15 @@ isSorted.data.frame <- function(data,columnNames,ascending=rep(TRUE,length(colum
 #' @export
 isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames))){
     if (nrow(data)>100000){ #If data is big, first check on a small subset. If that aready fails, we're done
-        if (!.isSortedVectorList(.quickFfdfSubset(data, bit::ri(1,1000),columnNames),ascending))
+        if (!.isSortedVectorList(.quickFfdfSubset(data, bit::ri(1,1000),columnNames),ascending)) {
             return(FALSE)
+        }
     }
-    for (i in ff::chunk.ffdf(data))
-        if (!.isSortedVectorList(.quickFfdfSubset(data, i,columnNames),ascending))
+    for (i in ff::chunk.ffdf(data)) {
+        if (!.isSortedVectorList(.quickFfdfSubset(data, i,columnNames),ascending)) {
             return(FALSE)
+        }
+    }
     return(TRUE)
 }
 
@@ -89,6 +92,7 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
 #' @param addIntercept  Add an intercept to the model?
 #' @param checkSorting  Check if the data are sorted appropriately, and if not, sort.
 #' @param checkRowIds   Check if all rowIds in the covariates appear in the outcomes.
+#' @param normalize     String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)
 #' @param quiet         If true, (warning) messages are surpressed.
 #'
 #' @details
@@ -144,6 +148,7 @@ convertToCyclopsData <- function(outcomes,
                                  addIntercept = TRUE,
                                  checkSorting = TRUE,
                                  checkRowIds = TRUE,
+                                 normalize = NULL,
                                  quiet = FALSE) {
     UseMethod("convertToCyclopsData")
 }
@@ -156,58 +161,56 @@ convertToCyclopsData.ffdf <- function(outcomes,
                                       addIntercept = TRUE,
                                       checkSorting = TRUE,
                                       checkRowIds = TRUE,
+                                      normalize = NULL,
                                       quiet = FALSE){
     if ((modelType == "clr" | modelType == "cpr") & addIntercept){
-        if(!quiet)
+        if(!quiet) {
             warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)
+        }
         addIntercept = FALSE
     }
-    if (modelType == "pr" | modelType == "cpr")
-        if (any(outcomes$time <= 0))
+    if (modelType == "pr" | modelType == "cpr") {
+        if (any(outcomes$time <= 0)) {
             stop("time cannot be non-positive",call.=FALSE)
+        }
+    }
 
     if (modelType == "cox"){
         if (is.null(outcomes$stratumId)){
-            # This does not work without adding ffbase to search path:
-            # outcomes$stratumId = 0
-            # covariates$stratumId = 0
-            # So we do:
-            outcomes$stratumId <- ff::ff(vmode="double", length=nrow(outcomes))
-            for (i in bit::chunk(outcomes$stratumId)){
-                outcomes$stratumId[i] <- 0
-            }
-            covariates$stratumId <- ff::ff(vmode="double", length=nrow(covariates))
-            for (i in bit::chunk(covariates$stratumId)){
-                covariates$stratumId[i] <- 0
-            }
+            outcomes$stratumId <- ff::ff(1, vmode="double", length=nrow(outcomes))
+            covariates$stratumId <- ff::ff(1, vmode="double", length=nrow(covariates))
         }
     }
 
     if (checkSorting){
         if (modelType == "lr" | modelType == "pr"){
             if (!isSorted(outcomes,c("rowId"))){
-                if(!quiet)
+                if(!quiet) {
                     writeLines("Sorting outcomes by rowId")
+                }
                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
                 outcomes <- outcomes[ff::ffdforder(outcomes[c("rowId")]),]
             }
             if (!isSorted(covariates,c("covariateId","rowId"))){
-                if(!quiet)
+                if(!quiet) {
                     writeLines("Sorting covariates by covariateId, rowId")
+                }
                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
                 covariates <- covariates[ff::ffdforder(covariates[c("covariateId","rowId")]),]
             }
         }
         if (modelType == "clr" | modelType == "cpr"){
             if (!isSorted(outcomes,c("stratumId","rowId"))){
-                if(!quiet)
+                if(!quiet) {
                     writeLines("Sorting outcomes by stratumId and rowId")
+                }
                 rownames(outcomes) <- NULL #Needs to be null or the ordering of ffdf will fail
                 outcomes <- outcomes[ff::ffdforder(outcomes[c("stratumId","rowId")]),]
             }
             if (!isSorted(covariates,c("covariateId", "stratumId","rowId"))){
-                if(!quiet)
+                if(!quiet) {
                     writeLines("Sorting covariates by covariateId, stratumId and rowId")
+                }
                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
                 covariates <- covariates[ff::ffdforder(covariates[c("covariateId", "stratumId","rowId")]),]
             }
@@ -218,35 +221,33 @@ convertToCyclopsData.ffdf <- function(outcomes,
                 outcomes$minTime[i] <- 0-outcomes$time[i]
             }
             if (!isSorted(outcomes,c("stratumId", "time", "y", "rowId"),c(TRUE, FALSE, TRUE, TRUE))){
-                if(!quiet)
+                if(!quiet) {
                     writeLines("Sorting outcomes by stratumId, time (descending), y, and rowId")
+                }
                 rownames(outcomes) <- NULL #Needs to be null or the ordering of ffdf will fail
                 outcomes <- outcomes[ff::ffdforder(outcomes[c("stratumId","minTime", "y", "rowId")]),]
             }
-            if (is.null(covariates$minTime)){ # If time not present, add to check if sorted
-                covariates$minTime <- NULL
-                covariates$time <- NULL
-                covariates$y <- NULL
-                covariates <- merge(covariates, outcomes, by = c("stratumId", "rowId"))
-            }
+            covariates$minTime <- NULL
+            covariates$time <- NULL
+            covariates$y <- NULL
+            covariates <- ffbase::merge.ffdf(covariates, outcomes, by = c("stratumId", "rowId"))
             if (!isSorted(covariates, c("covariateId", "stratumId", "time", "y", "rowId"), c(TRUE, TRUE, FALSE, TRUE, TRUE))){
-                if(!quiet)
+                if(!quiet) {
                     writeLines("Sorting covariates by covariateId, stratumId, time (descending), y, and rowId")
+                }
                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
                 covariates <- covariates[ff::ffdforder(covariates[c("covariateId", "stratumId", "minTime", "y", "rowId")]),]
             }
         }
     }
     if (checkRowIds){
-        mapped <- ffbase::ffmatch(x = covariates$rowId, table=outcomes$rowId, nomatch = 0L) > 0L
-        minValue <- min(sapply(bit::chunk(mapped), function(i) {
-            min(mapped[i])
-        }))
-        if (minValue == 0){
-            if(!quiet)
+        mapped <- ffbase::ffmatch(x = covariates$rowId, table = outcomes$rowId)
+        if (ffbase::any.ff(ffbase::is.na.ff(mapped))){
+            if(!quiet) {
                 writeLines("Removing covariate values with rowIds that are not in outcomes")
-            row.names(covariates) <- NULL #Needed or else next line fails
-            covariates <- covariates[ffbase::ffwhich(mapped, mapped == TRUE),]
+            }
+            rownames(covariates) <- NULL
+            covariates <- covariates[ffbase::ffwhich(mapped, is.na(mapped) == FALSE),]
         }
     }
 
@@ -271,6 +272,11 @@ convertToCyclopsData.ffdf <- function(outcomes,
     }
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
+
+    if (!is.null(normalize)) {
+        .normalizeCovariates(dataPtr, normalize)
+    }
+
     return(dataPtr)
 
 }
@@ -283,6 +289,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                             addIntercept = TRUE,
                                             checkSorting = TRUE,
                                             checkRowIds = TRUE,
+                                            normalize = NULL,
                                             quiet = FALSE){
     if ((modelType == "clr" | modelType == "cpr") & addIntercept){
         if(!quiet)
@@ -367,6 +374,10 @@ convertToCyclopsData.data.frame <- function(outcomes,
     loadNewSeqlCyclopsDataMultipleX(dataPtr, covariates$covariateId, covariates$rowId, covariates$covariateValue, name = covarNames)
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
+
+    if (!is.null(normalize)) {
+        .normalizeCovariates(dataPtr, normalize)
+    }
 
     return(dataPtr)
 }

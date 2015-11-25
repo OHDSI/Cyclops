@@ -27,7 +27,7 @@ public:
 // 			CyclicCoordinateDescent& ccd,
 // 			AbstractSelector& selector,
 // 			const CCDArguments& arguments);
-// 
+//
 // 	virtual void resetForOptimal(
 // 			CyclicCoordinateDescent& ccd,
 // 			CrossValidationSelector& selector,
@@ -57,23 +57,23 @@ protected:
 // 	double upperLimit;
 // 	std::vector<real>* weightsExclude;
 	double maxSteps;
-	
-	virtual double doCrossValidationLoop(
+
+	virtual std::vector<double> doCrossValidationLoop(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
-			const CCDArguments& arguments,			
+			const CCDArguments& arguments,
 			int nThreads,
 			std::vector<CyclicCoordinateDescent*>& ccdPool,
-			std::vector<AbstractSelector*>& selectorPool);	
+			std::vector<AbstractSelector*>& selectorPool);
 
 // 	double doCrossValidationStep(
 // 			CyclicCoordinateDescent& ccd,
 // 			AbstractSelector& selector,
 // 			const CCDArguments& arguments,
-// 			int step,			
+// 			int step,
 // 			int nThreads,
 // 			std::vector<CyclicCoordinateDescent*>& ccdPool,
-// 			std::vector<AbstractSelector*>& selectorPool,						
+// 			std::vector<AbstractSelector*>& selectorPool,
 // 			std::vector<double> & predLogLikelihood);
 
 };

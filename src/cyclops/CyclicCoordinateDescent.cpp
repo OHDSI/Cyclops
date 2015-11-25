@@ -48,6 +48,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	updateCount = 0;
 	likelihoodCount = 0;
 	noiseLevel = NOISY;
+	initialBound = 2.0;
 
 	init(hXI.getHasOffsetCovariate());
 }
@@ -82,6 +83,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 	updateCount = 0;
 	likelihoodCount = 0;
 	noiseLevel = copy.noiseLevel;
+	initialBound = copy.initialBound;
 
 	init(hXI.getHasOffsetCovariate());
 }
@@ -144,16 +146,20 @@ void CyclicCoordinateDescent::setPrior(priors::JointPriorPtr newPrior) {
     jointPrior = newPrior;
 }
 
+void CyclicCoordinateDescent::setInitialBound(double bound) {
+    initialBound = bound;
+}
+
 void CyclicCoordinateDescent::resetBounds() {
 	for (int j = 0; j < J; j++) {
-		hDelta[j] = 2.0;
+		hDelta[j] = initialBound;
 	}
 }
 
 void CyclicCoordinateDescent::init(bool offset) {
 
 	// Set parameters and statistics space
-	hDelta.resize(J, static_cast<double>(2.0));
+	hDelta.resize(J, static_cast<double>(initialBound));
 	hBeta.resize(J, static_cast<double>(0.0));
 
 	hXBeta.resize(K, static_cast<double>(0.0));
@@ -196,12 +202,12 @@ void CyclicCoordinateDescent::computeNEvents() {
 }
 
 void CyclicCoordinateDescent::resetBeta(void) {
-	for (int j = 0; j < J; j++) {
+
+    auto start = hXI.getHasOffsetCovariate() ? 1 : 0;
+    for (auto j = start; j < J; j++) {
 		hBeta[j] = 0.0;
 	}
-	for (int k = 0; k < K; k++) {
-		hXBeta[k] = 0.0;
-	}
+	computeXBeta();
 	sufficientStatisticsKnown = false;
 }
 
@@ -331,8 +337,13 @@ double convertHyperparameterToVariance(double value) {
 	return 2.0 / (value * value);
 }
 
+void CyclicCoordinateDescent::setHyperprior(int index, double value) {
+    jointPrior->setVariance(index, value);
+}
+
+// TODO Depricate
 void CyclicCoordinateDescent::setHyperprior(double value) {
-	jointPrior->setVariance(value);
+	jointPrior->setVariance(0, value);
 }
 
 //Hierarchical Support
@@ -466,11 +477,27 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const auto maxIterations = arguments.maxIterations;
 	const auto convergenceType = arguments.convergenceType;
 	const auto epsilon = arguments.tolerance;
+	const int maxCount = arguments.maxBoundCount;
 
- 	if (arguments.useKktSwindle && jointPrior->getSupportsKktSwindle()) {
-		kktSwindle(arguments);
-	} else {
-		findMode(maxIterations, convergenceType, epsilon);
+	initialBound = arguments.initialBound;
+
+	int count = 0;
+	bool done = false;
+	while (!done) {
+ 	    if (arguments.useKktSwindle && jointPrior->getSupportsKktSwindle()) {
+		    kktSwindle(arguments);
+	    } else {
+		    findMode(maxIterations, convergenceType, epsilon);
+	    }
+	    ++count;
+
+	    if (lastReturnFlag == ILLCONDITIONED && count < maxCount) {
+	        // Reset beta and shrink bounding box
+	        initialBound /= 10.0;
+            resetBeta();
+	    } else {
+	        done = true;
+	    }
 	}
 }
 
@@ -771,7 +798,10 @@ void CyclicCoordinateDescent::findMode(
  				double thisObjFunc = getObjectiveFunction(convergenceType);
 				if (thisObjFunc != thisObjFunc) {
 				    std::ostringstream stream;
-					stream << "\nWarning! problem is ill-conditioned for this choice of hyperparameter. Enforcing convergence!";
+					stream << "\nWarning: problem is ill-conditioned for this choice of\n"
+                           << "\t prior (" << jointPrior->getDescription() << ") or\n"
+                           << "\t initial bounding box (" << initialBound << ")\n"
+                           << "Enforcing convergence!";
 					logger->writeLine(stream);
 					conv = 0.0;
 					illconditioned = true;

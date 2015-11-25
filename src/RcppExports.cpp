@@ -128,8 +128,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsSetPrior
-void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& priorTypeName, const std::vector<double>& variance, SEXP excludeNumeric, SEXP sexpGraph);
-RcppExport SEXP Cyclops_cyclopsSetPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP varianceSEXP, SEXP excludeNumericSEXP, SEXP sexpGraphSEXP) {
+void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& priorTypeName, const std::vector<double>& variance, SEXP excludeNumeric, SEXP sexpGraph, Rcpp::List sexpNeighborhood);
+RcppExport SEXP Cyclops_cyclopsSetPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP varianceSEXP, SEXP excludeNumericSEXP, SEXP sexpGraphSEXP, SEXP sexpNeighborhoodSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope __rngScope;
     Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
@@ -137,7 +137,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::vector<double>& >::type variance(varianceSEXP);
     Rcpp::traits::input_parameter< SEXP >::type excludeNumeric(excludeNumericSEXP);
     Rcpp::traits::input_parameter< SEXP >::type sexpGraph(sexpGraphSEXP);
-    cyclopsSetPrior(inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph);
+    Rcpp::traits::input_parameter< Rcpp::List >::type sexpNeighborhood(sexpNeighborhoodSEXP);
+    cyclopsSetPrior(inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph, sexpNeighborhood);
     return R_NilValue;
 END_RCPP
 }
@@ -168,8 +169,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsSetControl
-void cyclopsSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance, bool useKKTSwindle, int swindleMultipler, const std::string& selectorType);
-RcppExport SEXP Cyclops_cyclopsSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP threadsSEXP, SEXP seedSEXP, SEXP resetCoefficientsSEXP, SEXP startingVarianceSEXP, SEXP useKKTSwindleSEXP, SEXP swindleMultiplerSEXP, SEXP selectorTypeSEXP) {
+void cyclopsSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance, bool useKKTSwindle, int swindleMultipler, const std::string& selectorType, double initialBound, int maxBoundCount);
+RcppExport SEXP Cyclops_cyclopsSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP threadsSEXP, SEXP seedSEXP, SEXP resetCoefficientsSEXP, SEXP startingVarianceSEXP, SEXP useKKTSwindleSEXP, SEXP swindleMultiplerSEXP, SEXP selectorTypeSEXP, SEXP initialBoundSEXP, SEXP maxBoundCountSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope __rngScope;
     Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
@@ -190,7 +191,9 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type useKKTSwindle(useKKTSwindleSEXP);
     Rcpp::traits::input_parameter< int >::type swindleMultipler(swindleMultiplerSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type selectorType(selectorTypeSEXP);
-    cyclopsSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType);
+    Rcpp::traits::input_parameter< double >::type initialBound(initialBoundSEXP);
+    Rcpp::traits::input_parameter< int >::type maxBoundCount(maxBoundCountSEXP);
+    cyclopsSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount);
     return R_NilValue;
 END_RCPP
 }
@@ -353,6 +356,18 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// cyclopsUnivariableCorrelation
+std::vector<double> cyclopsUnivariableCorrelation(Environment x, const std::vector<long>& covariateLabel);
+RcppExport SEXP Cyclops_cyclopsUnivariableCorrelation(SEXP xSEXP, SEXP covariateLabelSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::vector<long>& >::type covariateLabel(covariateLabelSEXP);
+    __result = Rcpp::wrap(cyclopsUnivariableCorrelation(x, covariateLabel));
+    return __result;
+END_RCPP
+}
 // cyclopsSumByGroup
 List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel, const long groupByLabel, const int power);
 RcppExport SEXP Cyclops_cyclopsSumByGroup(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP groupByLabelSEXP, SEXP powerSEXP) {
@@ -402,6 +417,41 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::string& >::type modelTypeName(modelTypeNameSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type noiseLevel(noiseLevelSEXP);
     __result = Rcpp::wrap(cyclopsNewSqlData(modelTypeName, noiseLevel));
+    return __result;
+END_RCPP
+}
+// cyclopsMedian
+double cyclopsMedian(const NumericVector& vector);
+RcppExport SEXP Cyclops_cyclopsMedian(SEXP vectorSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< const NumericVector& >::type vector(vectorSEXP);
+    __result = Rcpp::wrap(cyclopsMedian(vector));
+    return __result;
+END_RCPP
+}
+// cyclopsQuantile
+double cyclopsQuantile(const NumericVector& vector, double q);
+RcppExport SEXP Cyclops_cyclopsQuantile(SEXP vectorSEXP, SEXP qSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< const NumericVector& >::type vector(vectorSEXP);
+    Rcpp::traits::input_parameter< double >::type q(qSEXP);
+    __result = Rcpp::wrap(cyclopsQuantile(vector, q));
+    return __result;
+END_RCPP
+}
+// cyclopsNormalizeCovariates
+std::vector<double> cyclopsNormalizeCovariates(Environment x, const std::string& normalizationName);
+RcppExport SEXP Cyclops_cyclopsNormalizeCovariates(SEXP xSEXP, SEXP normalizationNameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type normalizationName(normalizationNameSEXP);
+    __result = Rcpp::wrap(cyclopsNormalizeCovariates(x, normalizationName));
     return __result;
 END_RCPP
 }

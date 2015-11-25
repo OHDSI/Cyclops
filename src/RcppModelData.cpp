@@ -15,6 +15,36 @@
 
 using namespace Rcpp;
 
+struct Sum {
+    inline double operator()(double x, double y) {
+        return x + y;
+    }
+};
+
+struct ZeroPower {
+    inline double operator()(double x) {
+        return x == 0.0 ? 0.0 : 1.0;
+    }
+};
+
+struct FirstPower {
+    inline double operator()(double x) {
+        return x;
+    }
+};
+
+struct SecondPower {
+    inline double operator()(double x) {
+        return x * x;
+    }
+};
+
+struct InnerProduct {
+    inline double operator()(double x, double y) {
+        return x * y;
+    }
+};
+
 XPtr<bsccs::ModelData> parseEnvironmentForPtr(const Environment& x) {
 	if (!x.inherits("cyclopsData")) {
 		stop("Input must be a cyclopsData object");
@@ -192,6 +222,48 @@ int cyclopsGetNumberOfTypes(Environment object) {
 	return static_cast<int>(data->getNumberOfTypes());
 }
 
+// [[Rcpp::export(.cyclopsUnivariableCorrelation)]]
+std::vector<double> cyclopsUnivariableCorrelation(Environment x,
+                                                  const std::vector<long>& covariateLabel) {
+    XPtr<bsccs::RcppModelData> data = parseEnvironmentForRcppPtr(x);
+
+    const double Ey1 = data->reduce(-1, FirstPower()) / data->getNumberOfRows();
+    const double Ey2 = data->reduce(-1, SecondPower()) / data->getNumberOfRows();
+    const double Vy = Ey2 - Ey1 * Ey1;
+
+    std::vector<double> result;
+
+    auto oneVariable = [&data, &result, Ey1, Vy](const size_t index) {
+        const double Ex1 = data->reduce(index, FirstPower()) / data->getNumberOfRows();
+        const double Ex2 = data->reduce(index, SecondPower()) / data->getNumberOfRows();
+        const double Exy = data->innerProductWithOutcome(index, InnerProduct()) / data->getNumberOfRows();
+
+        const double Vx = Ex2 - Ex1 * Ex1;
+        const double cov = Exy - Ex1 * Ey1;
+        const double cor = (Vx > 0.0 && Vy > 0.0) ?
+                           cov / std::sqrt(Vx) / std::sqrt(Vy) : NA_REAL;
+
+        // Rcpp::Rcout << index << " " << Ey1 << " " << Ey2 << " " << Ex1 << " " << Ex2 << std::endl;
+        // Rcpp::Rcout << index << " " << ySquared << " " << xSquared <<  " " << crossProduct << std::endl;
+        result.push_back(cor);
+    };
+
+    if (covariateLabel.size() == 0) {
+        result.reserve(data->getNumberOfColumns());
+        size_t index = (data->getHasOffsetCovariate()) ? 1 : 0;
+        for (; index <  data->getNumberOfColumns(); ++index) {
+            oneVariable(index);
+        }
+    } else {
+        result.reserve(covariateLabel.size());
+        for(auto it = covariateLabel.begin(); it != covariateLabel.end(); ++it) {
+            oneVariable(data->getColumnIndex(*it));
+        }
+    }
+
+    return std::move(result);
+}
+
 // [[Rcpp::export(".cyclopsSumByGroup")]]
 List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel,
 		const long groupByLabel, const int power) {
@@ -236,6 +308,8 @@ std::vector<double> cyclopsSum(Environment x, const std::vector<long>& covariate
 	return result;
 }
 
+
+
 // [[Rcpp::export(".cyclopsNewSqlData")]]
 List cyclopsNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel) {
 	using namespace bsccs;
@@ -254,6 +328,29 @@ List cyclopsNewSqlData(const std::string& modelTypeName, const std::string& nois
             Rcpp::Named("cyclopsDataPtr") = sqlModelData
         );
     return list;
+}
+
+// [[Rcpp::export(".cyclopsMedian")]]
+double cyclopsMedian(const NumericVector& vector) {
+    // Make copy
+    std::vector<double> data(vector.begin(), vector.end());
+    return bsccs::median(data.begin(), data.end());
+}
+
+// [[Rcpp::export(".cyclopsQuantile")]]
+double cyclopsQuantile(const NumericVector& vector, double q) {
+    if (q < 0.0 || q > 1.0) Rcpp::stop("Invalid quantile");
+    // Make copy
+    std::vector<double> data(vector.begin(), vector.end());
+    return bsccs::quantile(data.begin(), data.end(), q);
+}
+
+// [[Rcpp::export(".cyclopsNormalizeCovariates")]]
+std::vector<double> cyclopsNormalizeCovariates(Environment x, const std::string& normalizationName) {
+    using namespace bsccs;
+    XPtr<ModelData> data = parseEnvironmentForPtr(x);
+    NormalizationType type = RcppCcdInterface::parseNormalizationType(normalizationName);
+    return data->normalizeCovariates(type);
 }
 
 // [[Rcpp::export(".cyclopsSetHasIntercept")]]
@@ -686,30 +783,6 @@ RcppModelData::RcppModelData(
     }
 }
 
-struct Sum {
-	inline double operator()(double x, double y) {
-	    return x + y;
-    }
-};
-
-struct ZeroPower {
-    inline double operator()(double x) {
-        return x == 0.0 ? 0.0 : 1.0;
-    }
-};
-
-struct FirstPower {
-    inline double operator()(double x) {
-        return x;
-    }
-};
-
-struct SecondPower {
-    inline double operator()(double x) {
-        return x * x;
-    }
-};
-
 double RcppModelData::sum(const IdType covariate, int power) {
 
     size_t index = getColumnIndex(covariate);
@@ -746,7 +819,6 @@ void RcppModelData::sumByGroup(std::vector<double>& out, const IdType covariate,
     	reduceByGroup(out, covariateIndex, pid, SecondPower());
     }
 }
-
 
 RcppModelData::~RcppModelData() {
 //	std::cout << "~RcppModelData() called." << std::endl;

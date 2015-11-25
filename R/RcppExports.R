@@ -45,8 +45,8 @@
     .Call('Cyclops_cyclopsGetFisherInformation', PACKAGE = 'Cyclops', inRcppCcdInterface, sexpCovariates)
 }
 
-.cyclopsSetPrior <- function(inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph) {
-    invisible(.Call('Cyclops_cyclopsSetPrior', PACKAGE = 'Cyclops', inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph))
+.cyclopsSetPrior <- function(inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph, sexpNeighborhood) {
+    invisible(.Call('Cyclops_cyclopsSetPrior', PACKAGE = 'Cyclops', inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph, sexpNeighborhood))
 }
 
 .cyclopsProfileModel <- function(inRcppCcdInterface, sexpCovariates, threshold, override, includePenalty) {
@@ -57,8 +57,8 @@
     .Call('Cyclops_cyclopsPredictModel', PACKAGE = 'Cyclops', inRcppCcdInterface)
 }
 
-.cyclopsSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType) {
-    invisible(.Call('Cyclops_cyclopsSetControl', PACKAGE = 'Cyclops', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType))
+.cyclopsSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount) {
+    invisible(.Call('Cyclops_cyclopsSetControl', PACKAGE = 'Cyclops', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount))
 }
 
 .cyclopsRunCrossValidation <- function(inRcppCcdInterface) {
@@ -174,6 +174,10 @@ getNumberOfTypes <- function(object) {
     .Call('Cyclops_cyclopsGetNumberOfTypes', PACKAGE = 'Cyclops', object)
 }
 
+.cyclopsUnivariableCorrelation <- function(x, covariateLabel) {
+    .Call('Cyclops_cyclopsUnivariableCorrelation', PACKAGE = 'Cyclops', x, covariateLabel)
+}
+
 .cyclopsSumByGroup <- function(x, covariateLabel, groupByLabel, power) {
     .Call('Cyclops_cyclopsSumByGroup', PACKAGE = 'Cyclops', x, covariateLabel, groupByLabel, power)
 }
@@ -188,6 +192,18 @@ getNumberOfTypes <- function(object) {
 
 .cyclopsNewSqlData <- function(modelTypeName, noiseLevel) {
     .Call('Cyclops_cyclopsNewSqlData', PACKAGE = 'Cyclops', modelTypeName, noiseLevel)
+}
+
+.cyclopsMedian <- function(vector) {
+    .Call('Cyclops_cyclopsMedian', PACKAGE = 'Cyclops', vector)
+}
+
+.cyclopsQuantile <- function(vector, q) {
+    .Call('Cyclops_cyclopsQuantile', PACKAGE = 'Cyclops', vector, q)
+}
+
+.cyclopsNormalizeCovariates <- function(x, normalizationName) {
+    .Call('Cyclops_cyclopsNormalizeCovariates', PACKAGE = 'Cyclops', x, normalizationName)
 }
 
 .cyclopsSetHasIntercept <- function(x, hasIntercept) {

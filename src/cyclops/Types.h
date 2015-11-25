@@ -15,9 +15,9 @@
 #if defined(__GXX_EXPERIMENTAL_CXX0X__) || __cplusplus >= 201103L
 // C++11
     #include <memory>
-    namespace bsccs { 
+    namespace bsccs {
         using std::shared_ptr;
-        using std::make_shared;        
+        using std::make_shared;
         using std::unique_ptr;
     }
 #else
@@ -25,9 +25,9 @@
     #include "boost/smart_ptr.hpp"
     namespace bsccs {
         using boost::shared_ptr;
-        using boost::make_shared;        
+        using boost::make_shared;
         using boost::unique_ptr;
-    }   
+    }
 #endif
 
 #ifdef WIN_BUILD
@@ -58,7 +58,7 @@ bsccs::unique_ptr<T> make_unique( Args&& ...args ) {
 	typedef double real;
 #else
 	typedef float real;
-#endif 
+#endif
 
 typedef std::vector<int> IntVector;
 typedef std::vector<real> RealVector;
@@ -81,7 +81,7 @@ struct ProfileInformation {
 	ProfileInformation(double lower, double upper) : defined(true), lower95Bound(lower),
 			upper95Bound(upper), evaluations(0) { }
 	ProfileInformation(double lower, double upper, int evals) : defined(true), lower95Bound(lower),
-			upper95Bound(upper), evaluations(evals) { } 
+			upper95Bound(upper), evaluations(evals) { }
 };
 
 typedef std::map<IdType, ProfileInformation> ProfileInformationMap;
@@ -141,6 +141,14 @@ enum class SelectorType {
 	SIZE_OF_ENUM // Keep at end
 };
 
+enum class NormalizationType {
+    STANDARD_DEVIATION,
+    MAX,
+    MEDIAN,
+    Q95,
+    SIZE_OF_ENUM // Keep at end
+};
+
 namespace Models {
 
 inline bool removeIntercept(const ModelType modelType) {
@@ -151,9 +159,9 @@ inline bool removeIntercept(const ModelType modelType) {
 }
 
 inline bool requiresStratumID(const ModelType modelType) {
-	return (modelType == ModelType::CONDITIONAL_LOGISTIC || 
+	return (modelType == ModelType::CONDITIONAL_LOGISTIC ||
 			modelType == ModelType::TIED_CONDITIONAL_LOGISTIC ||
-            modelType == ModelType::CONDITIONAL_POISSON || 
+            modelType == ModelType::CONDITIONAL_POISSON ||
             modelType == ModelType::SELF_CONTROLLED_MODEL);
 }
 
@@ -177,6 +185,7 @@ inline bool requiresOffset(const ModelType modelType) {
 // typedef std::map<int, std::vector<int> > HierarchicalChildMap;
 typedef std::vector<int> HierarchicalParentMap;
 typedef std::vector<std::vector<int> > HierarchicalChildMap;
+typedef std::map<IdType, ProfileVector> NeighborhoodMap;
 
 } // namespace bsccs
 

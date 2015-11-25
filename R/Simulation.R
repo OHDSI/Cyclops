@@ -91,8 +91,13 @@ simulateCyclopsData <- function(nstrata = 200,
     outcomes <- outcomes[order(outcomes$stratumId,outcomes$rowId),]
     covariates <- covariates[order(covariates$stratumId,covariates$rowId,covariates$covariateId),]
     sparseness <- 1-(nrow(covariates)/(nrows*ncovars))
+    intercepts <- data.frame(stratumId = 1:nstrata, prob = strataBackgroundProb, logProb = log(strataBackgroundProb))
     writeLines(paste("Sparseness =",sparseness*100,"%"))
-    list(outcomes = outcomes, covariates = covariates, effectSizes = effectSizes, sparseness = sparseness)
+    list(outcomes = outcomes,
+         covariates = covariates,
+         effectSizes = effectSizes,
+         sparseness = sparseness,
+         intercepts = intercepts)
 }
 
 # .figureOutGlmnetComparison <- function() {

@@ -463,6 +463,73 @@ size_t ModelData::append(
     return nOutcomes;
 }
 
+std::vector<double> ModelData::normalizeCovariates(const NormalizationType type) {
+    std::vector<double> normalizations;
+    normalizations.reserve(getNumberOfColumns());
+
+    size_t index = hasOffsetCovariate ? 1 : 0;
+    if (hasInterceptCovariate) {
+        normalizations.push_back(1.0);
+        ++index;
+    }
+
+    for ( ; index < getNumberOfColumns(); ++index) {
+        CompressedDataColumn& column = getColumn(index);
+        FormatType format = column.getFormatType();
+        if (format == DENSE || format == SPARSE) {
+
+            double scale = 1.0;
+            if (type == NormalizationType::STANDARD_DEVIATION) {
+                auto sumOp = [](double x, double y) {
+                    return x + y;
+                };
+
+                auto squaredSumOp = [](double x, double y) {
+                    return x + y * y;
+                };
+
+                auto mean = column.accumulate(sumOp, 0.0) / nRows;
+                auto SS = column.accumulate(squaredSumOp, 0.0);
+                auto variance = (SS - (mean * mean * nRows)) / nRows;
+                scale = 1.0 / std::sqrt(variance);
+
+            } else if (type == NormalizationType::MAX) {
+                auto maxOp = [](double max, double x) {
+                    auto abs = std::abs(x);
+                    if (abs > max) {
+                        max = abs;
+                    }
+                    return max;
+                };
+                scale = 1.0 / column.accumulate(maxOp, 0.0);
+
+            } else if ( type == NormalizationType::MEDIAN) {
+                auto data = column.copyData();
+                std::transform(data.begin(), data.end(), data.begin(), [](double x) {
+                    return std::abs(x);
+                }); // TODO Copy and transform in single loop
+                scale = 1.0 / median(data.begin(), data.end());
+            } else {  // type == NormalizationType::Q95
+                auto data = column.copyData();
+                std::transform(data.begin(), data.end(), data.begin(), [](double x) {
+                    return std::abs(x);
+                }); // TODO Copy and transform in single loop
+                scale = 1.0 / quantile(data.begin(), data.end(), 0.95);
+            }
+
+            auto scaleOp = [scale](double x) {
+                return x * scale;
+            };
+
+            column.transform(scaleOp);
+            normalizations.push_back(scale);
+        } else {
+            normalizations.push_back(1.0);
+        }
+    }
+    return std::move(normalizations);
+}
+
 int ModelData::getNumberOfPatients() const {
     if (nPatients == 0) {
         nPatients = getNumberOfStrata();

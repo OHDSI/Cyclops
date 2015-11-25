@@ -81,9 +81,21 @@ fitCyclopsModel <- function(cyclopsData,
 
     .checkInterface(cyclopsData, forceNewObject)
 
+    if (missing(prior)) {
+        prior <- createPrior("none")
+    }
+
     if (!missing(prior)) { # Set up prior
         stopifnot(inherits(prior, "cyclopsPrior"))
         prior$exclude <- .checkCovariates(cyclopsData, prior$exclude)
+
+        if (!is.null(prior$neighborhood)) {
+            prior$neighborhood <- lapply(prior$neighborhood,
+                                         function(element) {
+                                             list(.checkCovariates(cyclopsData, element[[1]]),
+                                                  .checkCovariates(cyclopsData, element[[2]]))
+                                         })
+        }
 
         if (prior$priorType != "none" &&
                 is.null(prior$graph) && # TODO Ignore hierarchical models for now
@@ -117,8 +129,20 @@ fitCyclopsModel <- function(cyclopsData,
             }
         }
 
+        if (is.null(prior$neighborhood)) {
+            neighborhood <- NULL
+        } else {
+            neighborhood <- prior$neighborhood
+            if (length(prior$priorType) != length(prior$variance)) {
+                stop("Prior types and variances have a dimensionality mismatch");
+            }
+            if (any(prior$priorType  != "laplace")) {
+                stop("Only Laplace-Laplace fused neighborhoods are currently supported")
+            }
+        }
+
         .cyclopsSetPrior(cyclopsData$cyclopsInterfacePtr, prior$priorType, prior$variance,
-                         prior$exclude, graph)
+                         prior$exclude, graph, neighborhood)
     }
 
     if (!missing(control)) {
@@ -177,9 +201,9 @@ fitCyclopsModel <- function(cyclopsData,
     }
     fit$call <- cl
     fit$cyclopsData <- cyclopsData
-    fit$cyclopsInterfacePtr <- cyclopsData$cyclopsInterfacePtr
     fit$coefficientNames <- cyclopsData$coefficientNames
     fit$rowNames <- cyclopsData$rowNames
+    fit$scale <- cyclopsData$scale
     class(fit) <- "cyclopsFit"
     return(fit)
 }
@@ -235,12 +259,13 @@ fitCyclopsModel <- function(cyclopsData,
 #' \code{coef.cyclopsFit} extracts model coefficients from an Cyclops model fit object
 #'
 #' @param object    Cyclops model fit object
+#' @param rescale   Boolean: rescale coefficients for unnormalized covariate values
 #' @param ...       Other arguments
 #'
 #' @return Named numeric vector of model coefficients.
 #'
 #' @export
-coef.cyclopsFit <- function(object, ...) {
+coef.cyclopsFit <- function(object, rescale = FALSE, ...) {
     if (is.null(object$estimation)) {
         stop("Cyclops estimation is null; suspect that estimation did not converge.")
     }
@@ -252,6 +277,10 @@ coef.cyclopsFit <- function(object, ...) {
         }
     } else {
         names(result) <- object$coefficientNames
+    }
+
+    if (!is.null(object$scale) && rescale) {
+        result <- result * object$scale
     }
     result
 }
@@ -349,6 +378,8 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param selectorType  String: name of exchangeable sampling unit. If missing, then default for model is used.
 #'                              Option \code{"byPid"} selects entire strata.
 #'                              Option \code{"byRow"} selects single rows
+#' @param initialBound          Numeric: Starting trust-region size
+#' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
 #'
 #' Todo: Describe convegence types
 #'
@@ -375,7 +406,9 @@ createControl <- function(maxIterations = 1000,
                           startingVariance = -1,
                           useKKTSwindle = FALSE,
                           tuneSwindle = 10,
-                          selectorType = "default") {
+                          selectorType = "default",
+                          initialBound = 2.0,
+                          maxBoundCount = 5) {
     validCVNames = c("grid", "auto")
     stopifnot(cvType %in% validCVNames)
 
@@ -402,7 +435,9 @@ createControl <- function(maxIterations = 1000,
                    startingVariance = startingVariance,
                    useKKTSwindle = useKKTSwindle,
                    tuneSwindle = tuneSwindle,
-                   selectorType = selectorType),
+                   selectorType = selectorType,
+                   initialBound = initialBound,
+                   maxBoundCount = maxBoundCount),
               class = "cyclopsControl")
 }
 
@@ -415,6 +450,7 @@ createControl <- function(maxIterations = 1000,
 #' @param variance      Numeric: prior distribution variance
 #' @param exclude       A vector of numbers or covariateId names to exclude from prior
 #' @param graph         Child-to-parent mapping for a hierarchical prior
+#' @param neighborhood  A list of first-order neighborhoods for a partially fused prior
 #' @param useCrossValidation    Logical: Perform cross-validation to determine prior \code{variance}.
 #' @param forceIntercept  Logical: Force intercept coefficient into prior
 #'
@@ -437,6 +473,7 @@ createPrior <- function(priorType,
                         variance = 1,
                         exclude = c(),
                         graph = NULL,
+                        neighborhood = NULL,
                         useCrossValidation = FALSE,
                         forceIntercept = FALSE) {
     validNames = c("none", "laplace","normal", "hierarchical")
@@ -455,8 +492,17 @@ createPrior <- function(priorType,
     if (priorType == "hierarchical" && missing(graph)) {
         stop("Must provide a graph for a hierarchical prior")
     }
+    if (!is.null(neighborhood)) {
+        allNames <- unlist(neighborhood)
+        if (!inherits(allNames, "character") &&
+            !inherits(allNames, "numeric") &&
+            !inherits(allNames, "integer")) {
+            stop(cat("Unable to parse neighborhood covariates:"), allNames)
+        }
+    }
     structure(list(priorType = priorType, variance = variance, exclude = exclude,
                    graph = graph,
+                   neighborhood = neighborhood,
                    useCrossValidation = useCrossValidation, forceIntercept = forceIntercept),
               class = "cyclopsPrior")
 }
@@ -472,8 +518,8 @@ createPrior <- function(priorType,
 #'
 #' @export
 predict.cyclopsFit <- function(object, ...) {
-    .checkInterface(object, testOnly = TRUE)
-    pred <- .cyclopsPredictModel(object$cyclopsInterfacePtr)
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+    pred <- .cyclopsPredictModel(object$cyclopsData$cyclopsInterfacePtr)
     values <- pred$prediction
     if (is.null(names(values))) {
         names(values) <- object$rowNames
@@ -482,7 +528,7 @@ predict.cyclopsFit <- function(object, ...) {
 }
 
 # .cyclopsSetCoefficients <- function(object, coefficients) {
-#     .checkInterface(object, testOnly = TRUE)
+#     .checkInterface(object$cyclopsData, testOnly = TRUE)
 #
 #     if (length(coefficients) != getNumberOfCovariates(object$cyclopsData)) {
 #         stop("Must provide a value for each coefficient")
@@ -492,7 +538,7 @@ predict.cyclopsFit <- function(object, ...) {
 #         coefficients <- c(1.0, coefficients)
 #     }
 #
-#     .cyclopsSetBeta(object$cyclopsInterfacePtr, coefficients)
+#     .cyclopsSetBeta(object$cyclopsData$cyclopsInterfacePtr, coefficients)
 # }
 
 #' @title Compute predictive log-likelihood from a Cyclops model fit
@@ -506,7 +552,7 @@ predict.cyclopsFit <- function(object, ...) {
 #'
 #' @keywords internal
 getCyclopsPredictiveLogLikelihood <- function(object, weights) {
-    .checkInterface(object, testOnly = TRUE)
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
 
     if (length(weights) != getNumberOfRows(object$cyclopsData)) {
         stop("Must provide a weight for each data row")
@@ -520,7 +566,7 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
     }
     # TODO Remove code duplication with weights section of fitCyclopsModel
 
-    .cyclopsGetPredictiveLogLikelihood(object$cyclopsInterfacePtr, weights)
+    .cyclopsGetPredictiveLogLikelihood(object$cyclopsData$cyclopsInterfacePtr, weights)
 }
 
 .setControl <- function(cyclopsInterfacePtr, control) {
@@ -537,7 +583,7 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
                            control$lowerLimit, control$upperLimit, control$gridSteps,
                            control$noiseLevel, control$threads, control$seed, control$resetCoefficients,
                            control$startingVariance, control$useKKTSwindle, control$tuneSwindle,
-                           control$selectorType)
+                           control$selectorType, control$initialBound, control$maxBoundCount)
     }
 }
 
@@ -560,12 +606,12 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
 #'
 #' @keywords internal
 getSEs <- function(object, covariates) {
-    .checkInterface(object, testOnly = TRUE)
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
     covariates <- .checkCovariates(object$cyclopsData, covariates)
     if (getNumberOfCovariates(object$cyclopsData) != length(covariates)) {
         warning("Asymptotic standard errors are only valid if computed for all covariates simultaneously")
     }
-    fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsInterfacePtr, covariates)
+    fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsData$cyclopsInterfacePtr, covariates)
     ses <- sqrt(diag(solve(fisherInformation)))
     names(ses) <- object$coefficientNames[covariates]
     ses
@@ -585,6 +631,7 @@ getSEs <- function(object, covariates) {
 ## @param control   A Cyclops \code{\link{control}} object
 #' @param overrideNoRegularization   Logical: Enable confidence interval estimation for regularized parameters
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
+#' @param rescale   Boolean: rescale coefficients for unnormalized covariate values
 #' @param ... Additional argument(s) for methods
 #'
 #' @return
@@ -597,18 +644,23 @@ getSEs <- function(object, covariates) {
 #' @export
 confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
                                overrideNoRegularization = FALSE,
-                               includePenalty = TRUE, ...) {
-    .checkInterface(object, testOnly = TRUE)
-    #.setControl(object$cyclopsInterfacePtr, control)
+                               includePenalty = TRUE,
+                               rescale = FALSE, ...) {
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+    #.setControl(object$cyclopsData$cyclopsInterfacePtr, control)
     parm <- .checkCovariates(object$cyclopsData, parm)
     if (level < 0.01 || level > 0.99) {
         stop("level must be between 0 and 1")
     }
     threshold <- qchisq(level, df = 1) / 2
 
-    prof <- .cyclopsProfileModel(object$cyclopsInterfacePtr, parm, threshold,
+    prof <- .cyclopsProfileModel(object$cyclopsData$cyclopsInterfacePtr, parm, threshold,
                                  overrideNoRegularization,
                                  includePenalty)
+    if (!is.null(object$scale) && rescale) {
+        prof$lower <- prof$lower * object$scale[parm]
+        prof$upper <- prof$upper * object$scale[parm]
+    }
     prof <- as.matrix(as.data.frame(prof))
     rownames(prof) <- object$coefficientNames[parm]
     qs <- c((1 - level) / 2, 1 - (1 - level) / 2) * 100
@@ -638,8 +690,8 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #' @keywords internal
 aconfint <- function(object, parm, level = 0.95, control,
                      overrideNoRegularization = FALSE, ...) {
-    .checkInterface(object, testOnly = TRUE)
-    .setControl(object$cyclopsInterfacePtr, control)
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+    .setControl(object$cyclopsData$cyclopsInterfacePtr, control)
     cf <- coef(object)
     if (missing(parm)) {
         parm <- names(cf)
@@ -673,9 +725,9 @@ aconfint <- function(object, parm, level = 0.95, control,
 #'
 #' @export
 vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, ...) {
-    .checkInterface(object, testOnly = TRUE)
-    .setControl(object$cyclopsInterfacePtr, control)
-    fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsInterfacePtr, NULL)
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+    .setControl(object$cyclopsData$cyclopsInterfacePtr, control)
+    fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsData$cyclopsInterfacePtr, NULL)
     vcov <- solve(fisherInformation)
     if (!is.null(object$coefficientNames)) {
         rownames(vcov) <- object$coefficientNames
@@ -716,7 +768,6 @@ convertToGlmnetLambda <- function(variance, nobs) {
     sqrt(2 / variance) / nobs
 }
 
-
 .makeHierarchyGraph <- function(cyclopsData, graph) {
     nTypes <- getNumberOfTypes(cyclopsData)
     if (nTypes < 2 || graph != "type") stop("Only multitype hierarchies are currently supported")
@@ -727,6 +778,6 @@ convertToGlmnetLambda <- function(variance, nobs) {
     nChild <- getNumberOfCovariates(cyclopsData)
     nParents <- nChild / nTypes
 
-    graph <-  lapply(0:(nParents - 1), function(n, types) { 0:(nTypes-1) + n * nTypes }, types = nTypes)
+    graph <-  lapply(0:(nParents - 1), function(n, types) { 0:(nTypes - 1) + n * nTypes }, types = nTypes)
     graph
 }

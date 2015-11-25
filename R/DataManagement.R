@@ -70,6 +70,8 @@
 #' Currently undocumented
 #' @param method
 #' Currently undocumented
+#' @param normalize
+#' String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)
 #'
 #' @return
 #' A list that contains a Cyclops model data object pointer and an operation duration
@@ -94,7 +96,7 @@
 #' @export
 createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelType,
                               data, subset, weights, offset, time = NULL, pid = NULL, y = NULL, type = NULL, dx = NULL,
-                              sx = NULL, ix = NULL, model = FALSE, method = "cyclops.fit") {
+                              sx = NULL, ix = NULL, model = FALSE, normalize = NULL, method = "cyclops.fit") {
     cl <- match.call() # save to return
     mf.all <- match.call(expand.dots = FALSE)
 
@@ -364,10 +366,26 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
         .cyclopsSetHasIntercept(result, hasIntercept = TRUE)
     }
 
+    if (!is.null(normalize)) {
+        .normalizeCovariates(result, normalize)
+    }
+
     result
 }
 
+.normalizeCovariates <- function(cyclopsData, type) {
+    scale <- .cyclopsNormalizeCovariates(cyclopsData, type)
 
+    if (is.null(cyclopsData$scale)) {
+        cyclopsData$scale <- scale
+    } else {
+        cyclopsData$scale <- cyclopsData$scale * scale # Can call function multiple times without bad effects
+    }
+
+    cyclopsData$cyclopsInterfacePtr <- NULL # Force new engine for next fit
+
+    invisible(scale)
+}
 
 # @title isValidModelType
 #
@@ -479,6 +497,41 @@ readCyclopsData <- function(fileName, modelType) {
     result
 }
 
+#' @title Get univariable correlation
+#'
+#' @description \code{getUnivariableCorrelation} reports covariates that have high correlation with the outcome
+#'
+#' @param cyclopsData    A Cyclops data object
+#' @param covariates Integer or string vector: list of covariates to report; default (NULL) implies all covariates
+#' @param threshold Correlation threshold for reporting
+#'
+#' @return A list of covariates whose absolute correlation with the outcome is greater than or equal to the threshold
+#'
+#' @export
+getUnivariableCorrelation <- function(cyclopsData, covariates = NULL, threshold = 0.0) {
+    # Check for valid arguments
+    .checkData(cyclopsData)
+    if (.isSurvivalModelType(cyclopsData$modelType)) {
+        stop("Univariable correlation for time-to-events model is not yet implemented.")
+    }
+
+    labels <- covariates
+    covariates <- .checkCovariates(cyclopsData, covariates)
+    if (is.null(covariates)) {
+        covariates <- integer() # zero-length vector
+        labels <- cyclopsData$coefficientNames
+    }
+
+    correlations <- .cyclopsUnivariableCorrelation(cyclopsData, covariates)
+    if (threshold > 0.0) {
+        select <- abs(correlations) >= threshold
+        correlations <- correlations[select]
+        labels <- labels[select]
+    }
+
+    names(correlations) <- labels
+    return(correlations)
+}
 
 #' @title Apply simple data reductions
 #'
@@ -796,12 +849,23 @@ summary.cyclopsData <- function(object, ...) {
     types <- getCovariateTypes(object, covariates)
 
     tmean <- sums / counts;
+    tvar <- (sumsSquared -  counts * tmean * tmean) / counts
+    tvar[tvar < 0] <- 0
 
-    tdf <- data.frame(covariateId = covariates,
-                      nzCount = counts,
-                      nzMean = tmean,
-                      nzVar = (sumsSquared -  counts * tmean * tmean) / counts,
-                      type = types)
+    if (is.null(object$scale)) {
+        tdf <- data.frame(covariateId = covariates,
+                          nzCount = counts,
+                          nzMean = tmean,
+                          nzVar = tvar,
+                          type = types)
+    } else {
+        tdf <- data.frame(covariateId = covariates,
+                          nzCount = counts,
+                          nzMean = tmean,
+                          nzVar = tvar,
+                          type = types,
+                          scale = object$scale)
+    }
 
     if (!is.null(object$coefficientNames)) {
         #         if(.cyclopsGetHasIntercept(x)) {
