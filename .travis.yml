@@ -16,10 +16,13 @@ before_install:
   - ./travis-tool.sh install_deps
   - ./travis-tool.sh install_r ggplot2
   - ./travis-tool.sh install_github jimhester/covr
+  - ./travis-tool.sh install_github eddelbuettel/drat  
 #  - ./travis-tool.sh install_r testthat BH RcppEigen gnm ffbase ff gglot2
 
 before_script:
   - sudo apt-get install libboost-dev
+  - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
+  - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')
 
 script:
 #    - mkdir -p standalone/build && (cd standalone/build && cmake .. && make)
@@ -40,3 +43,8 @@ after_success:
   - Rscript -e 'library(covr);codecov()'
   # Rebuild docker container
   - curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/development/trigger/e51f720d-c4e7-45df-b042-5d8a362bd7e0/
+  - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && bash deploy.sh
+  
+env:
+  global:
+    secure: pEhWT0SZmEpxcK0iclaqIro0HfU9gI555/dxaGm4h6lbJnZOJLTv19o65EV52HJRpTXtuv612bR7jf5+eOIqIkcrzO9XdbLMigp/R/YHkp22RFEZBnnGX9xH/3D6QbeeUaHn0h8goBildzX5q1ZyCVNBIpA7kP418b2pG3rWgaA=
