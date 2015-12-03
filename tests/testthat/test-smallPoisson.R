@@ -11,12 +11,12 @@ test_that("Small Poisson dense regression", {
         treatment = gl(3,3)
     )
     tolerance <- 1E-4
-    
+
     glmFit <- glm(counts ~ outcome + treatment, data = dobson, family = poisson()) # gold standard
-    
+
     dataPtrD <- createCyclopsData(counts ~ outcome + treatment, data = dobson,
-                                   modelType = "pr")														
-    cyclopsFitD <- fitCyclopsModel(dataPtrD, 
+                                   modelType = "pr")
+    cyclopsFitD <- fitCyclopsModel(dataPtrD,
                            prior = createPrior("none"),
                            control = createControl(noiseLevel = "silent"))
     expect_equal(coef(cyclopsFitD), coef(glmFit), tolerance = tolerance)
@@ -26,27 +26,54 @@ test_that("Small Poisson dense regression", {
     expect_equal(confint(cyclopsFitD, c("(Intercept)","outcome3")), confint(cyclopsFitD, c(1,3)))
 })
 
+test_that("Parallel confint", {
+    library(testthat)
+    dobson <- data.frame(
+        counts = c(18,17,15,20,10,20,25,13,12),
+        outcome = gl(3,1,9),
+        treatment = gl(3,3)
+    )
+    tolerance <- 1E-4
+
+    glmFit <- glm(counts ~ outcome + treatment, data = dobson, family = poisson()) # gold standard
+
+    dataPtrD <- createCyclopsData(counts ~ outcome + treatment, data = dobson,
+                                  modelType = "pr")
+    cyclopsFit1 <- fitCyclopsModel(dataPtrD,
+                                   prior = createPrior("none"),
+                                   control = createControl(noiseLevel = "silent",
+                                                           threads = 1))
+    cyclopsFit2 <- fitCyclopsModel(dataPtrD,
+                                   prior = createPrior("none"),
+                                   control = createControl(noiseLevel = "silent",
+                                                           threads = 2))
+
+    expect_equal(confint(cyclopsFit1, c(1:3)), confint(cyclopsFit2, c(1:3)))
+    ## TODO Check output of confint for "Using 2 thread(s)"
+})
+
+
 test_that("Specify CI level", {
 ###function(object, parm, level, ...)
     counts <- c(18,17,15,20,10,20,25,13,12)
     outcome <- gl(3,1,9)
     treatment <- gl(3,3)
     tolerance <- 1E-4
-    
-    glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard    
-    
+
+    glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard
+
     dataPtr <- createCyclopsData(counts ~ outcome + treatment,
-                                   modelType = "pr")    													
-    cyclopsFit <- fitCyclopsModel(dataPtr, 
+                                   modelType = "pr")
+    cyclopsFit <- fitCyclopsModel(dataPtr,
                            prior = createPrior("none"),
                            control = createControl(noiseLevel = "silent"))
 
     expect_equal(
-        confint(cyclopsFit, c(1:3), level = 0.99)[,2:3], 
-        confint(glmFit, c(1:3), level = 0.99), 
+        confint(cyclopsFit, c(1:3), level = 0.99)[,2:3],
+        confint(glmFit, c(1:3), level = 0.99),
         tolerance = tolerance)
-    
-    
+
+
 })
 
 test_that("Small Poisson indicator regression", {
@@ -54,20 +81,20 @@ test_that("Small Poisson indicator regression", {
     outcome <- gl(3,1,9)
     treatment <- gl(3,3)
     tolerance <- 1E-4
-    
-    glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard	
-    
-    dataPtrI <- createCyclopsData(counts ~ outcome, indicatorFormula =  ~ treatment, 
+
+    glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard
+
+    dataPtrI <- createCyclopsData(counts ~ outcome, indicatorFormula =  ~ treatment,
                                    modelType = "pr")
-    
-    cyclopsFitI <- fitCyclopsModel(dataPtrI, 
+
+    cyclopsFitI <- fitCyclopsModel(dataPtrI,
                            prior = createPrior("none"),
                            control = createControl(noiseLevel = "silent"))
     expect_equal(coef(cyclopsFitI), coef(glmFit), tolerance = tolerance)
     expect_equal(cyclopsFitI$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
-    
+
     expect_equal(logLik(cyclopsFitI), logLik(glmFit))
-    
+
     expect_equal(confint(cyclopsFitI, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
     expect_equal(predict(cyclopsFitI), predict(glmFit, type = "response"), tolerance = tolerance)
 })
@@ -77,12 +104,12 @@ test_that("Small Poisson sparse regression", {
     outcome <- gl(3,1,9)
     treatment <- gl(3,3)
     tolerance <- 1E-4
-    
-    glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard		
-    
-    dataPtrS <- createCyclopsData(counts ~ outcome, sparseFormula =  ~ treatment, 
+
+    glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard
+
+    dataPtrS <- createCyclopsData(counts ~ outcome, sparseFormula =  ~ treatment,
                                    modelType = "pr")
-    cyclopsFitS <- fitCyclopsModel(dataPtrS, 
+    cyclopsFitS <- fitCyclopsModel(dataPtrS,
                            prior = createPrior("none"),
                            control = createControl(noiseLevel = "silent"))
     expect_equal(coef(cyclopsFitS), coef(glmFit), tolerance = tolerance)
@@ -92,41 +119,41 @@ test_that("Small Poisson sparse regression", {
 })
 
 
-test_that("Get SEs in small Poisson model", {   
+test_that("Get SEs in small Poisson model", {
     counts <- c(18,17,15,20,10,20,25,13,12)
     outcome <- gl(3,1,9)
     treatment <- gl(3,3)
     tolerance <- 1E-4
-    
-    gold <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard    
+
+    gold <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard
     goldSE <- summary(gold)$coefficients[,2]
-    
+
     dataPtr <- createCyclopsData(counts ~ outcome + treatment,
-                                  modelType = "pr")        												
-    cyclopsFit <- fitCyclopsModel(dataPtr, 
+                                  modelType = "pr")
+    cyclopsFit <- fitCyclopsModel(dataPtr,
                           prior = createPrior("none"))
-        
+
     cyclopsSE <- getSEs(cyclopsFit, c(1:5))
-     
-    expect_equal(goldSE, cyclopsSE, tolerance = tolerance)        
+
+    expect_equal(goldSE, cyclopsSE, tolerance = tolerance)
 })
 
-test_that("Playing with standardization", {   
+test_that("Playing with standardization", {
     counts <- c(18,17,15,20,10,20,25,13,12)
     outcome <- gl(3,1,9)
     treatment <- gl(3,3)
     tolerance <- 1E-4
-        
+
     dataPtr <- createCyclopsData(counts ~ outcome + treatment,
-                                      modelType = "pr")            											
-    cyclopsFit <- fitCyclopsModel(dataPtr, 
+                                      modelType = "pr")
+    cyclopsFit <- fitCyclopsModel(dataPtr,
                                   prior = createPrior("none"))
-    
+
     dataPtrS <- createCyclopsData(counts ~ outcome + treatment,
-                                       modelType = "pr")                										
-    cyclopsFitS <- fitCyclopsModel(dataPtrS, 
-                                   prior = createPrior("none"))          
-    
+                                       modelType = "pr")
+    cyclopsFitS <- fitCyclopsModel(dataPtrS,
+                                   prior = createPrior("none"))
+
     coef(cyclopsFit)
     coef(cyclopsFitS)
 })

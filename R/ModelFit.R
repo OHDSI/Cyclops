@@ -145,8 +145,10 @@ fitCyclopsModel <- function(cyclopsData,
                          prior$exclude, graph, neighborhood)
     }
 
+    threads <- 1
     if (!missing(control)) {
         .setControl(cyclopsData$cyclopsInterfacePtr, control)
+        threads <- control$threads
     }
 
     if (!missing(startingCoefficients)) {
@@ -204,6 +206,7 @@ fitCyclopsModel <- function(cyclopsData,
     fit$coefficientNames <- cyclopsData$coefficientNames
     fit$rowNames <- cyclopsData$rowNames
     fit$scale <- cyclopsData$scale
+    fit$threads <- threads
     class(fit) <- "cyclopsFit"
     return(fit)
 }
@@ -653,8 +656,10 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
         stop("level must be between 0 and 1")
     }
     threshold <- qchisq(level, df = 1) / 2
+    threads <- object$threads
 
-    prof <- .cyclopsProfileModel(object$cyclopsData$cyclopsInterfacePtr, parm, threshold,
+    prof <- .cyclopsProfileModel(object$cyclopsData$cyclopsInterfacePtr, parm,
+                                 threads, threshold,
                                  overrideNoRegularization,
                                  includePenalty)
     if (!is.null(object$scale) && rescale) {

@@ -2,11 +2,10 @@ Package: Cyclops
 Type: Package
 Title: Cyclic Coordinate Descent for Logistic, Poisson and Survival Analysis
 Version: 1.2.0
-Author:
-    Marc A. Suchard [aut, cre],
+Author: Marc A. Suchard [aut, cre],
     Martijn J. Schuemie [aut],
     Trevor R. Shaddox [aut]
-Maintainer:    Marc A. Suchard <msuchard@ucla.edu>
+Maintainer: Marc A. Suchard <msuchard@ucla.edu>
 Description: This model fitting tool incorporates cyclic coordinate descent and
     majorization-minimization approaches to fit a variety of regression models
     found in large-scale observational healthcare data.  Implementations focus
@@ -34,3 +33,4 @@ Suggests:
     survival,
     gnm,
     ggplot2
+RoxygenNote: 5.0.0

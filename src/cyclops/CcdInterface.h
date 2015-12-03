@@ -162,6 +162,7 @@ public:
             ModelData *modelData,
             const ProfileVector& profileCI,
             ProfileInformationMap &profileMap,
+            int threads,
             double threshold = 1.920729,
             bool overrideNoRegularization = false,
             bool includePenalty = false);
