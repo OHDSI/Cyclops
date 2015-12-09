@@ -381,9 +381,9 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *model
                       }
                     );
     } else {
-        auto scheduler = TaskScheduler<decltype(boost::make_counting_iterator((int)bounds.size()))>(
-            boost::make_counting_iterator((int)0),
-            boost::make_counting_iterator((int)bounds.size()),
+        auto scheduler = TaskScheduler<boost::counting_iterator<int> >(
+            boost::make_counting_iterator(0),
+            boost::make_counting_iterator(static_cast<int>(bounds.size())),
             nThreads);
 
         auto oneTask = [&getBound, &scheduler, &ccdPool, &bounds](unsigned long task) {
