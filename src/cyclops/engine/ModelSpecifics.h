@@ -227,6 +227,22 @@ protected:
 
 	void printTiming(void);
 
+	RealVector getSurvivalCurve();
+
+	void recalculateAccumulatedDenominator(bool useWeights);
+
+	RealVector getAccDenom();
+
+	RealVector getOffs();
+
+	RealVector getDenom();
+
+	RealVector getY();
+
+	RealVector getOffsExpXBeta();
+
+	int getAccDenomSize();
+
 private:
 	template <class IteratorType, class Weights>
 	void computeGradientAndHessianImpl(

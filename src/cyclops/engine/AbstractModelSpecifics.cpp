@@ -56,30 +56,39 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
  	switch (modelType) {
  		case ModelType::SELF_CONTROLLED_MODEL :
  			model =  new ModelSpecifics<SelfControlledCaseSeries<real>,real>(modelData);
+ 			std::cout << "Model: Self Controlled Case Series" << std::endl;
  			break;
  		case ModelType::CONDITIONAL_LOGISTIC :
  			model =  new ModelSpecifics<ConditionalLogisticRegression<real>,real>(modelData);
+ 			std::cout << "Model: Conditional Logistic Regression" << std::endl;
  			break;
  		case ModelType::TIED_CONDITIONAL_LOGISTIC :
  			model =  new ModelSpecifics<TiedConditionalLogisticRegression<real>,real>(modelData);
+ 			std::cout << "Model: Conditional Logistic Regression" << std::endl;
  			break;
  		case ModelType::LOGISTIC :
  			model = new ModelSpecifics<LogisticRegression<real>,real>(modelData);
+ 			std::cout << "Model: Logistic Regression" << std::endl;
  			break;
  		case ModelType::NORMAL :
  			model = new ModelSpecifics<LeastSquares<real>,real>(modelData);
+ 			std::cout << "Model: Least Squares" << std::endl;
  			break;
  		case ModelType::POISSON :
  			model = new ModelSpecifics<PoissonRegression<real>,real>(modelData);
+ 			std::cout << "Model: Poisson Regression" << std::endl;
  			break;
 		case ModelType::CONDITIONAL_POISSON :
  			model = new ModelSpecifics<ConditionalPoissonRegression<real>,real>(modelData);
+ 			std::cout << "Model: Conditional Poisson" << std::endl;
  			break;
  		case ModelType::COX_RAW :
  			model = new ModelSpecifics<CoxProportionalHazards<real>,real>(modelData);
+ 			std::cout << "Model: Cox Proportional Hazards" << std::endl;
  			break;
  		case ModelType::COX :
  			model = new ModelSpecifics<BreslowTiedCoxProportionalHazards<real>,real>(modelData);
+ 			std::cout << "Model: Breslow Tied Cox Proportional Hazards" << std::endl;
  			break;
  		default:
  			break;

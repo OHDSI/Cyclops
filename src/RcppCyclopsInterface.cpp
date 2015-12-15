@@ -430,6 +430,47 @@ List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, bool
 	return list;
 }
 
+// [[Rcpp::export(".cyclopsGetAccDenom")]]
+std::vector<double> cyclopsGetAccDenom(SEXP inRcppCcdInterface) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    auto& ccd = interface->getCcd();
+    return ccd.getAccDenom();
+}
+
+// [[Rcpp::export(".cyclopsGetTimes")]]
+std::vector<double> cyclopsGetTimes(SEXP inRcppCcdInterface) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    auto& ccd = interface->getCcd();
+    return ccd.getTimes();
+}
+
+// [[Rcpp::export(".cyclopsGetDenom")]]
+std::vector<double> cyclopsGetDenom(SEXP inRcppCcdInterface) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    auto& ccd = interface->getCcd();
+    return ccd.getDenom();
+}
+
+// [[Rcpp::export(".cyclopsGetY")]]
+std::vector<double> cyclopsGetY(SEXP inRcppCcdInterface) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    auto& ccd = interface->getCcd();
+    return ccd.getY();
+}
+
+// [[Rcpp::export(".cyclopsGetOffsExpXBeta")]]
+std::vector<double> cyclopsGetOffsExpXBeta(SEXP inRcppCcdInterface) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    auto& ccd = interface->getCcd();
+    return ccd.getOffsExpXBeta();
+}
+
+
 namespace bsccs {
 
 void RcppCcdInterface::appendRList(Rcpp::List& list, const Rcpp::List& append) {

@@ -444,3 +444,29 @@ plotCyclopsSimulationFit <- function(fit,goldStandard,label){
 #     writeLines(paste("MSE Cyclops:", mse(fitCyclops$coef,coefGoldStandard)))
 #     writeLines(paste("MSE other:", mse(fit$coef,coefGoldStandard)))
 # }
+
+#' @export
+getAccDenom <- function(ptr) {
+    return(.cyclopsGetAccDenom(ptr))
+}
+
+#' @export
+getTimes <- function(ptr) {
+    return(.cyclopsGetTimes(ptr))
+}
+
+#' @export
+getDenom <- function(ptr) {
+    return(.cyclopsGetDenom(ptr))
+}
+
+#' @export
+getY <- function(ptr) {
+    return(.cyclopsGetY(ptr))
+}
+
+#' @export
+getOffsExpXBeta <- function(ptr) {
+    return(.cyclopsGetOffsExpXBeta(ptr))
+}
+

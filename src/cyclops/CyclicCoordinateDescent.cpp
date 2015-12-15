@@ -1180,4 +1180,86 @@ inline int CyclicCoordinateDescent::sign(double x) {
 	return 1;
 }
 
+int CyclicCoordinateDescent::getPatientSize(void) const {
+    return N;
+}
+
+int CyclicCoordinateDescent::getAccDenomSize() {
+    return modelSpecifics.getAccDenomSize();
+}
+
+RealVector CyclicCoordinateDescent::getSurvivalCurve1() {
+
+    cout << "N : " << N << " K : " << K << " J : " << J << '\n';
+
+    /*
+    cout << "number of patients: " << hXI.getNumberOfPatients() << '\n';
+    cout << "number of types: " << hXI.getNumberOfTypes() << '\n';
+    cout << "number of strata: " << hXI.getNumberOfStrata() << '\n';
+
+    cout << "size of Y Vector in ModelData : " << sizeof(hXI.getYVector()) << '\n';
+    cout << "size of Pid Vector in ModelData : " << sizeof(hXI.getPidVector()) << '\n';
+    cout << "number of rows : " << hXI.getNumberOfRows() << '\n';
+    cout << "number of columns : " << hXI.getNumberOfColumns() << '\n';
+    */
+
+    RealVector x = modelSpecifics.getSurvivalCurve();
+
+    /*
+    IndicatorIterator it(hXI, 1000);
+    for (;it;++it) {
+    cout << it.value() << " ";
+    cout << it.index() << " ";
+    }
+    cout << '\n';
+
+    CompressedDataColumn x = hXI.getColumn(1000);
+    cout << x.getLabel() << '\n';
+    */
+
+    //updateSufficientStatistics(1, 0);
+
+    //modelSpecifics.recalculateAccumulatedDenominator(useCrossValidation);
+    //modelSpecifics.getSurvivalCurve();
+
+
+    /*
+     CompressedDataColumn x = hXI.getColumn(0);
+     vector<double> data = x.getDataVector();
+     for (int i = 0; i < K; i++) {
+     cout << data[i];
+     }
+     cout << '\n';
+     */
+    return x;
+}
+
+RealVector CyclicCoordinateDescent::getAccDenom() {
+	return (modelSpecifics.getAccDenom());
+}
+
+RealVector CyclicCoordinateDescent::getTimes() {
+	return (modelSpecifics.getOffs());
+}
+
+RealVector CyclicCoordinateDescent::getDenom() {
+	return (modelSpecifics.getDenom());
+}
+
+RealVector CyclicCoordinateDescent::getY() {
+	return (modelSpecifics.getY());
+}
+
+RealVector CyclicCoordinateDescent::getOffsExpXBeta() {
+	return (modelSpecifics.getOffsExpXBeta());
+}
+
+double CyclicCoordinateDescent::gethY(int i) {
+    return hY[i];
+}
+
+double CyclicCoordinateDescent::gethYSize(void) {
+    return sizeof(hY)/sizeof(hY[0]);
+}
+
 } // namespace

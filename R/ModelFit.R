@@ -204,6 +204,10 @@ fitCyclopsModel <- function(cyclopsData,
     fit$coefficientNames <- cyclopsData$coefficientNames
     fit$rowNames <- cyclopsData$rowNames
     fit$scale <- cyclopsData$scale
+#   fit$testFunction <- .cyclopsTestFunction(cyclopsData$cyclopsInterfacePtr)
+#     if (cyclopsData$modelType == "cox") {
+#         fit$testFunction <- .cyclopsTestFunction1(cyclopsData$cyclopsInterfacePtr)
+#     }
     class(fit) <- "cyclopsFit"
     return(fit)
 }

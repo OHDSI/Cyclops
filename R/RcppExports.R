@@ -77,6 +77,26 @@
     .Call('Cyclops_cyclopsInitializeModel', PACKAGE = 'Cyclops', inModelData, modelType, computeMLE)
 }
 
+.cyclopsGetAccDenom <- function(inRcppCcdInterface) {
+    .Call('Cyclops_cyclopsGetAccDenom', PACKAGE = 'Cyclops', inRcppCcdInterface)
+}
+
+.cyclopsGetTimes <- function(inRcppCcdInterface) {
+    .Call('Cyclops_cyclopsGetTimes', PACKAGE = 'Cyclops', inRcppCcdInterface)
+}
+
+.cyclopsGetDenom <- function(inRcppCcdInterface) {
+    .Call('Cyclops_cyclopsGetDenom', PACKAGE = 'Cyclops', inRcppCcdInterface)
+}
+
+.cyclopsGetY <- function(inRcppCcdInterface) {
+    .Call('Cyclops_cyclopsGetY', PACKAGE = 'Cyclops', inRcppCcdInterface)
+}
+
+.cyclopsGetOffsExpXBeta <- function(inRcppCcdInterface) {
+    .Call('Cyclops_cyclopsGetOffsExpXBeta', PACKAGE = 'Cyclops', inRcppCcdInterface)
+}
+
 .isSorted <- function(dataFrame, indexes, ascending) {
     .Call('Cyclops_isSorted', PACKAGE = 'Cyclops', dataFrame, indexes, ascending)
 }

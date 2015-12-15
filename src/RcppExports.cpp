@@ -243,6 +243,61 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// cyclopsGetAccDenom
+std::vector<double> cyclopsGetAccDenom(SEXP inRcppCcdInterface);
+RcppExport SEXP Cyclops_cyclopsGetAccDenom(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    __result = Rcpp::wrap(cyclopsGetAccDenom(inRcppCcdInterface));
+    return __result;
+END_RCPP
+}
+// cyclopsGetTimes
+std::vector<double> cyclopsGetTimes(SEXP inRcppCcdInterface);
+RcppExport SEXP Cyclops_cyclopsGetTimes(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    __result = Rcpp::wrap(cyclopsGetTimes(inRcppCcdInterface));
+    return __result;
+END_RCPP
+}
+// cyclopsGetDenom
+std::vector<double> cyclopsGetDenom(SEXP inRcppCcdInterface);
+RcppExport SEXP Cyclops_cyclopsGetDenom(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    __result = Rcpp::wrap(cyclopsGetDenom(inRcppCcdInterface));
+    return __result;
+END_RCPP
+}
+// cyclopsGetY
+std::vector<double> cyclopsGetY(SEXP inRcppCcdInterface);
+RcppExport SEXP Cyclops_cyclopsGetY(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    __result = Rcpp::wrap(cyclopsGetY(inRcppCcdInterface));
+    return __result;
+END_RCPP
+}
+// cyclopsGetOffsExpXBeta
+std::vector<double> cyclopsGetOffsExpXBeta(SEXP inRcppCcdInterface);
+RcppExport SEXP Cyclops_cyclopsGetOffsExpXBeta(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    __result = Rcpp::wrap(cyclopsGetOffsExpXBeta(inRcppCcdInterface));
+    return __result;
+END_RCPP
+}
 // isSorted
 bool isSorted(const DataFrame& dataFrame, const std::vector<std::string>& indexes, const std::vector<bool>& ascending);
 RcppExport SEXP Cyclops_isSorted(SEXP dataFrameSEXP, SEXP indexesSEXP, SEXP ascendingSEXP) {

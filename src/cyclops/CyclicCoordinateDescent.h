@@ -174,6 +174,26 @@ public:
 
 	loggers::ProgressLogger& getLogger() const { return *logger; }
 
+	double gethY(int i);
+
+	RealVector getAccDenom();
+
+	RealVector getTimes();
+
+	RealVector getDenom();
+
+	RealVector getY();
+
+	RealVector getOffsExpXBeta();
+
+	int getAccDenomSize();
+
+	RealVector getSurvivalCurve1();
+
+	double gethYSize();
+
+	int getPatientSize(void) const;
+
 protected:
 
 	bsccs::unique_ptr<AbstractModelSpecifics> privateModelSpecifics;
