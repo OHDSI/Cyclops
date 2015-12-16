@@ -100,10 +100,6 @@ public:
 
 	RealVector& getXBetaSave() {  return hXBetaSave; }
 
-	virtual RealVector getSurvivalCurve() = 0;
-
-	virtual void recalculateAccumulatedDenominator(bool useWeights) = 0;
-
 	virtual RealVector getAccDenom() = 0;
 
 	virtual RealVector getOffs() = 0;

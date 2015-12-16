@@ -470,3 +470,8 @@ getOffsExpXBeta <- function(ptr) {
     return(.cyclopsGetOffsExpXBeta(ptr))
 }
 
+#' @export
+setExposureBeta <- function(ptr, beta) {
+    .cyclopsSetExposureBeta(ptr, beta)
+}
+

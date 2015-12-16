@@ -227,10 +227,6 @@ protected:
 
 	void printTiming(void);
 
-	RealVector getSurvivalCurve();
-
-	void recalculateAccumulatedDenominator(bool useWeights);
-
 	RealVector getAccDenom();
 
 	RealVector getOffs();

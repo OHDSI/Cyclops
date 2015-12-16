@@ -13,3 +13,4 @@ CMakefiles/**
 Makefile
 cmake_install.cmake
 codebase/**
+.RData

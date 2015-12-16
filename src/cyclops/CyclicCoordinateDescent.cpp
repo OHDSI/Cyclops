@@ -1180,9 +1180,6 @@ inline int CyclicCoordinateDescent::sign(double x) {
 	return 1;
 }
 
-int CyclicCoordinateDescent::getPatientSize(void) const {
-    return N;
-}
 
 int CyclicCoordinateDescent::getAccDenomSize() {
     return modelSpecifics.getAccDenomSize();
@@ -1203,7 +1200,7 @@ RealVector CyclicCoordinateDescent::getSurvivalCurve1() {
     cout << "number of columns : " << hXI.getNumberOfColumns() << '\n';
     */
 
-    RealVector x = modelSpecifics.getSurvivalCurve();
+    RealVector x;
 
     /*
     IndicatorIterator it(hXI, 1000);
@@ -1218,9 +1215,6 @@ RealVector CyclicCoordinateDescent::getSurvivalCurve1() {
     */
 
     //updateSufficientStatistics(1, 0);
-
-    //modelSpecifics.recalculateAccumulatedDenominator(useCrossValidation);
-    //modelSpecifics.getSurvivalCurve();
 
 
     /*

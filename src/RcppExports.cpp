@@ -298,6 +298,17 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// cyclopsSetExposureBeta
+void cyclopsSetExposureBeta(SEXP inRcppCcdInterface, double beta);
+RcppExport SEXP Cyclops_cyclopsSetExposureBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< double >::type beta(betaSEXP);
+    cyclopsSetExposureBeta(inRcppCcdInterface, beta);
+    return R_NilValue;
+END_RCPP
+}
 // isSorted
 bool isSorted(const DataFrame& dataFrame, const std::vector<std::string>& indexes, const std::vector<bool>& ascending);
 RcppExport SEXP Cyclops_isSorted(SEXP dataFrameSEXP, SEXP indexesSEXP, SEXP ascendingSEXP) {

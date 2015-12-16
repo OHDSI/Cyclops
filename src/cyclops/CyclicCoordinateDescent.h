@@ -192,8 +192,6 @@ public:
 
 	double gethYSize();
 
-	int getPatientSize(void) const;
-
 protected:
 
 	bsccs::unique_ptr<AbstractModelSpecifics> privateModelSpecifics;

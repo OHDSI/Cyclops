@@ -470,6 +470,14 @@ std::vector<double> cyclopsGetOffsExpXBeta(SEXP inRcppCcdInterface) {
     return ccd.getOffsExpXBeta();
 }
 
+// [[Rcpp::export(".cyclopsSetExposureBeta")]]
+void cyclopsSetExposureBeta(SEXP inRcppCcdInterface, double beta) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    auto& ccd = interface->getCcd();
+    ccd.setBeta(0, beta);
+}
+
 
 namespace bsccs {
 

@@ -1518,34 +1518,6 @@ void ModelSpecifics<BaseModel,WeightType>::doSortPid(bool useCrossValidation) {
  */
 }
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::recalculateAccumulatedDenominator(bool useWeights) {
-    computeAccumlatedDenominator(useWeights);
-}
-
-template <class BaseModel,typename WeightType>
-RealVector ModelSpecifics<BaseModel,WeightType>::getSurvivalCurve() {
-
-	/*
-    int x = accDenomPid.size();
-    //std::cout << "accDenomPid size = " << x << '\n';
-
-
-    for (int i=0; i<x; i++) {
-        std::cout << accDenomPid[i] << " ";
-    }
-    std::cout << '\n';
-    */
-
-	/*
-	for (int i=0; i<K; i++) {
-		std::cout << hOffs[i] << " ";
-	}
-	*/
-	//std::cout << '\n';
-	return accDenomPid;
-}
-
 template <class BaseModel, typename WeightType>
 RealVector ModelSpecifics<BaseModel,WeightType>::getAccDenom() {
     return accDenomPid;

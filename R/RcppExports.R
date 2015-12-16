@@ -97,6 +97,10 @@
     .Call('Cyclops_cyclopsGetOffsExpXBeta', PACKAGE = 'Cyclops', inRcppCcdInterface)
 }
 
+.cyclopsSetExposureBeta <- function(inRcppCcdInterface, beta) {
+    invisible(.Call('Cyclops_cyclopsSetExposureBeta', PACKAGE = 'Cyclops', inRcppCcdInterface, beta))
+}
+
 .isSorted <- function(dataFrame, indexes, ascending) {
     .Call('Cyclops_isSorted', PACKAGE = 'Cyclops', dataFrame, indexes, ascending)
 }
