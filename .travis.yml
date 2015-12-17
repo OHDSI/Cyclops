@@ -10,7 +10,7 @@ before_install:
 - sudo mv tmp /etc/R/Makeconf
 - ./travis-tool.sh install_devtools
 - ./travis-tool.sh install_deps
-- ./travis-tool.sh install_r ggplot2
+- ./travis-tool.sh install_r ggplot2 ff ffbase
 - ./travis-tool.sh install_github jimhester/covr
 - ./travis-tool.sh install_github eddelbuettel/drat
 before_script:
