@@ -67,7 +67,7 @@ private:
 
 class RcppErrorHandler : public ErrorHandler {
 public:
-	RccpErrorHandler(bool _concurrent = false)
+	RcppErrorHandler(bool _concurrent = false)
 		: concurrent(_concurrent) { }
 		
 	void setConcurrent(bool _concurrent) { concurrent = _concurrent; }		
