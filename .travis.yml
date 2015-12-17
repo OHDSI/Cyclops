@@ -1,42 +1,38 @@
 language: cpp
-
 compiler:
-    - gcc
-#    - clang
-
+- gcc
 sudo: required
-
 before_install:
-  - curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
-  - chmod 755 ./travis-tool.sh
-  - ./travis-tool.sh bootstrap
-  - sudo sed 's/-g//g' /etc/R/Makeconf > tmp # Turn off debug symbols
-  - sudo mv tmp /etc/R/Makeconf
-  - ./travis-tool.sh install_devtools
-  - ./travis-tool.sh install_deps
-  - ./travis-tool.sh install_r ggplot2
-  - ./travis-tool.sh install_github jimhester/covr
-#  - ./travis-tool.sh install_r testthat BH RcppEigen gnm ffbase ff gglot2
-
+- curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
+- chmod 755 ./travis-tool.sh
+- ./travis-tool.sh bootstrap
+- sudo sed 's/-g//g' /etc/R/Makeconf > tmp
+- sudo mv tmp /etc/R/Makeconf
+- ./travis-tool.sh install_devtools
+- ./travis-tool.sh install_deps
+- ./travis-tool.sh install_r ggplot2
+- ./travis-tool.sh install_github jimhester/covr
+- ./travis-tool.sh install_github eddelbuettel/drat
 before_script:
-  - sudo apt-get install libboost-dev
-
+- sudo apt-get install libboost-dev
+- export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
+- export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')
 script:
-#    - mkdir -p standalone/build && (cd standalone/build && cmake .. && make)
-    - ./travis-tool.sh run_tests
-    - ls -l Cyclops.Rcheck/Cyclops/libs # Print out size of library
-
+- ./travis-tool.sh run_tests
+- ls -l Cyclops.Rcheck/Cyclops/libs
 after_failure:
-    - ./travis-tool.sh dump_logs
-
+- ./travis-tool.sh dump_logs
 notifications:
   recipients:
-    - msuchard@gmail.com
+  - msuchard@gmail.com
   email:
     on_success: change
     on_failure: always
-
 after_success:
-  - Rscript -e 'library(covr);codecov()'
-  # Rebuild docker container
-  - curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/development/trigger/e51f720d-c4e7-45df-b042-5d8a362bd7e0/
+- Rscript -e 'library(covr);codecov()'
+- curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/development/trigger/e51f720d-c4e7-45df-b042-5d8a362bd7e0/
+- test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && bash
+  deploy.sh
+env:
+  global:
+  - secure: OqWkvryQHJ8TCDu++1fjNNfd+ECuPH+og++cXgfpQ3QcTjReD0cc3dGP+tD3GX18H9jJa+MQzNXyBCHn8+o1b1MRiUGAKuxD0vsZ2iQ/1nZYiL2cKJbei36vJPVg82D68zOsE/G5rESKFOQKUC+OqNHcneyk1+cwsU7zvQTtBhU=
