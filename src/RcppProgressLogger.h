@@ -76,7 +76,7 @@ public:
 		if (concurrent) {
 			lock.lock();
 			buffer.push_back(stream.str());
-			lock.unclock();			
+			lock.unlock();			
 		} else {
 			Rcpp::stop(stream.str());
 		}
@@ -86,7 +86,7 @@ public:
     	if (!concurrent) {
     		lock.lock();
     		std::stringstream stream;
-    		while (!buffer.empty) {
+    		while (!buffer.empty()) {
     			stream << buffer.front() << std::endl;
     			buffer.pop_front();
     		}
