@@ -83,15 +83,13 @@ public:
     }
     
     void flush() {
-    	if (!concurrent) {
-    		lock.lock();
-    		std::stringstream stream;
+    	if (!concurrent && !buffer.empty()) {    		
+    		std::stringstream stream;    		
     		while (!buffer.empty()) {
     			stream << buffer.front() << std::endl;
     			buffer.pop_front();
     		}
-    		lock.unlock();
-    		Rcpp::stop(stream.str());    	
+    		Rcpp::stop(stream.str());    		
     	}    
     }
     
