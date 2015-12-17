@@ -391,10 +391,13 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *model
         };
 
         // Run all tasks in parallel
-        ccd->getLogger().setConcurrent(true);
+        ccd->getProgressLogger().setConcurrent(true);
+        ccd->getErrorHandler().setConcurrent(true);
         scheduler.execute(oneTask);
-        ccd->getLogger().setConcurrent(false);
-        ccd->getLogger().flush();
+        ccd->getProgressLogger().setConcurrent(false);
+        ccd->getErrorHandler().setConcurrent(false);
+        ccd->getProgressLogger().flush();
+        ccd->getErrorHandler().flush();
     }
 
     // Clean up copies

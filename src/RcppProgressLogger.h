@@ -67,9 +67,38 @@ private:
 
 class RcppErrorHandler : public ErrorHandler {
 public:
+	RccpErrorHandler(bool _concurrent = false)
+		: concurrent(_concurrent) { }
+		
+	void setConcurrent(bool _concurrent) { concurrent = _concurrent; }		
+
     void throwError(const std::ostringstream& stream) {
-       Rcpp::stop(stream.str());
+		if (concurrent) {
+			lock.lock();
+			buffer.push_back(stream.str());
+			lock.unclock();			
+		} else {
+			Rcpp::stop(stream.str());
+		}
     }
+    
+    void flush() {
+    	if (!concurrent) {
+    		lock.lock();
+    		std::stringstream stream;
+    		while (!buffer.empty) {
+    			stream << buffer.front() << std::endl;
+    			buffer.pop_front();
+    		}
+    		lock.unlock();
+    		Rcpp::stop(stream.str());    	
+    	}    
+    }
+    
+private: 
+	bool concurrent;
+	bsccs::mutex lock; 
+	std::deque<std::string> buffer;
 };
 
 } // namespace loggers

@@ -172,7 +172,9 @@ public:
 
 	Matrix computeFisherInformation(const std::vector<size_t>& indices) const;
 
-	loggers::ProgressLogger& getLogger() const { return *logger; }
+	loggers::ProgressLogger& getProgressLogger() const { return *logger; }
+	
+	loggers::ErrorHandler& getErrorHandler() const { return *error; }
 
 protected:
 
