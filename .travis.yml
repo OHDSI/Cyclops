@@ -9,7 +9,8 @@ before_install:
 - sudo sed 's/-g//g' /etc/R/Makeconf > tmp
 - sudo mv tmp /etc/R/Makeconf
 - ./travis-tool.sh install_devtools
-- Rscript -e 'install.packages("versions");versions::install.versions("BH", "1.58.0-1")'
+- ./travis-tool.sh install_r versions
+- Rscript -e 'versions::install.versions("BH", "1.58.0-1")'
 - ./travis-tool.sh install_deps
 - ./travis-tool.sh install_r ggplot2
 - ./travis-tool.sh install_github jimhester/covr
