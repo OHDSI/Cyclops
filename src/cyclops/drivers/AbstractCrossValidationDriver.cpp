@@ -233,21 +233,15 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 	    // Set # of threads
 	    tbb::task_scheduler_init init(nThreads);
 
-// 	    tbb::parallel_for_each(
-// 	        boost::make_counting_iterator(0),
-// 	        boost::make_counting_iterator(arguments.foldToCompute),
-// 	        oneTask
-// 	    );
+	    tbb::parallel_for_each(
+	        boost::make_counting_iterator(0),
+	        boost::make_counting_iterator(arguments.foldToCompute),
+	        oneTask
+	    );
 
-        tbb::parallel_for(
-//           tbb::blocked_range<int>(0, arguments.foldToCompute),
-//           [oneTask](const tbb::blocked_range<int>& range) {
-//               for (int i = range.begin(); i != range.end(); ++i) {
-//                   oneTask(i);
-//               }
-//           }
-            0, arguments.foldToCompute, oneTask
-        );
+//         tbb::parallel_for(
+//             0, arguments.foldToCompute, oneTask
+//         );
 
 	    ccd.getProgressLogger().setConcurrent(false);
 	    ccd.getProgressLogger().flush();
