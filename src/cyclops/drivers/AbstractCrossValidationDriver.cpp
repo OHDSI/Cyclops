@@ -14,6 +14,12 @@
 #include "Thread.h"
 #include "AbstractCrossValidationDriver.h"
 
+#include "tbb/concurrent_queue.h"
+#include "tbb/parallel_for_each.h"
+#include "tbb/parallel_for.h"
+#include "tbb/blocked_range.h"
+#include "tbb/task_scheduler_init.h"
+
 namespace bsccs {
 
 AbstractCrossValidationDriver::AbstractCrossValidationDriver(
@@ -117,22 +123,36 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 	auto& weightsExclude = this->weightsExclude;
 	auto& logger = this->logger;
 
-	auto scheduler = TaskScheduler<decltype(boost::make_counting_iterator(0))>(
-		boost::make_counting_iterator(0),
-		boost::make_counting_iterator(arguments.foldToCompute),
-		nThreads);
+	auto ccdQueue = tbb::concurrent_queue<CyclicCoordinateDescent*>();
+	auto selectorQueue = tbb::concurrent_queue<AbstractSelector*>();
+
+	// TODO assert(selectorPool.size() == ccdPool.size())
+	for (int i = 0; i < ccdPool.size(); ++i) {
+	    ccdQueue.push(ccdPool[i]);
+	    selectorQueue.push(selectorPool[i]);
+	}
 
 	auto oneTask =
-		[step, coldStart, nThreads, &ccdPool, &selectorPool,
+		[step, coldStart, nThreads, &ccdQueue, &selectorQueue,
 		&arguments, &allArguments, &predLogLikelihood,
 			&weightsExclude, &logger //, &lock
 		 //    ,&ccd, &selector
-		 		, &scheduler
+		 //		, &scheduler
 			](int task) {
 
-			    const auto uniqueId = scheduler.getThreadIndex(task);
-				auto ccdTask = ccdPool[uniqueId];
-				auto selectorTask = selectorPool[uniqueId];
+			    // const auto uniqueId = scheduler.getThreadIndex(task);
+				// auto ccdTask = ccdPool[uniqueId];
+				// auto selectorTask = selectorPool[uniqueId];
+				CyclicCoordinateDescent* ccdTask;
+				AbstractSelector* selectorTask;
+
+				while (!ccdQueue.try_pop(ccdTask)) {
+				    // Wait until available
+				}
+
+				while (!selectorQueue.try_pop(selectorTask)) {
+				    // Wait until available
+				}
 
 				// Bring selector up-to-date
 				if (task == 0 || nThreads > 1) {
@@ -198,6 +218,9 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 					predLogLikelihood[task] = std::numeric_limits<double>::quiet_NaN();
 				}
 
+				ccdQueue.push(ccdTask); // Return to queue
+				selectorQueue.push(selectorTask); // Return to queue
+
                 bool write = true;
 
 				if (write) logger->writeLine(stream);
@@ -206,12 +229,41 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 	// Run all tasks in parallel
 	if (nThreads > 1) {
     	ccd.getProgressLogger().setConcurrent(true);
-    }
-	scheduler.execute(oneTask);
-	if (nThreads > 1) {
-    	ccd.getProgressLogger().setConcurrent(false);
-     	ccd.getProgressLogger().flush();
-     }
+
+	    // Set # of threads
+	    tbb::task_scheduler_init init(nThreads);
+
+// 	    tbb::parallel_for_each(
+// 	        boost::make_counting_iterator(0),
+// 	        boost::make_counting_iterator(arguments.foldToCompute),
+// 	        oneTask
+// 	    );
+
+        tbb::parallel_for(
+//           tbb::blocked_range<int>(0, arguments.foldToCompute),
+//           [oneTask](const tbb::blocked_range<int>& range) {
+//               for (int i = range.begin(); i != range.end(); ++i) {
+//                   oneTask(i);
+//               }
+//           }
+            0, arguments.foldToCompute, oneTask
+        );
+
+	    ccd.getProgressLogger().setConcurrent(false);
+	    ccd.getProgressLogger().flush();
+	} else {
+	    std::for_each(
+	        boost::make_counting_iterator(0),
+	        boost::make_counting_iterator(arguments.foldToCompute),
+	        oneTask
+	    );
+	}
+
+
+// 	auto scheduler = TaskScheduler<decltype(boost::make_counting_iterator(0))>(
+// 	    boost::make_counting_iterator(0),
+// 	    boost::make_counting_iterator(arguments.foldToCompute),
+// 	    nThreads);
 
 	double pointEstimate = computePointEstimate(predLogLikelihood);
 
