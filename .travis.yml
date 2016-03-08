@@ -1,38 +1,99 @@
-language: cpp
-compiler:
-- gcc
-sudo: required
-before_install:
-- curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
-- chmod 755 ./travis-tool.sh
-- ./travis-tool.sh bootstrap
-- sudo sed 's/-g//g' /etc/R/Makeconf > tmp
-- sudo mv tmp /etc/R/Makeconf
-- ./travis-tool.sh install_devtools
-- ./travis-tool.sh install_deps
-- ./travis-tool.sh install_r ggplot2 ff ffbase
-- ./travis-tool.sh install_github jimhester/covr
-- ./travis-tool.sh install_github eddelbuettel/drat
+#language: cpp
+#compiler:
+#- gcc
+#sudo: required
+#before_install:
+#- curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
+#- chmod 755 ./travis-tool.sh
+#- ./travis-tool.sh bootstrap
+#- sudo sed 's/-g//g' /etc/R/Makeconf > tmp
+#- sudo mv tmp /etc/R/Makeconf
+#- ./travis-tool.sh install_devtools
+#- ./travis-tool.sh install_deps
+#- ./travis-tool.sh install_r ggplot2 ff ffbase
+#- ./travis-tool.sh install_github jimhester/covr
+#- ./travis-tool.sh install_github eddelbuettel/drat
+#before_script:
+#- sudo apt-get install libboost-dev
+#- export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
+#- export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')
+#script:
+#- ./travis-tool.sh run_tests
+#- ls -l Cyclops.Rcheck/Cyclops/libs
+#after_failure:
+#- ./travis-tool.sh dump_logs
+#notifications:
+#  recipients:
+#  - msuchard@gmail.com
+#  email:
+#    on_success: change
+#    on_failure: always
+#after_success:
+#- Rscript -e 'library(covr);codecov()'
+#- curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/development/trigger/e51f720d-c4e7-45df-b042-5d8a362bd7e0/
+#- test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && bash
+#  deploy.sh
+
+languague: c
+sudo: false
+
+addons:
+  apt:
+    sources:
+    - r-packages-precise
+    packages:
+    - r-base-dev
+    - r-recommended
+    - texinfo
+    - qpdf
+    
+cache:
+  directories:
+    - ~/Rlib     # R libraries
+    - ~/texlive  # LaTex 
+    - ~/bin      # pandoc 
+
+# install dependencies
+install:
+  # Save R packages in Rlib
+  - mkdir -p ~/Rlib
+  - echo 'R_LIBS=~/Rlib' > .Renviron
+  - echo 'options(repos = "http://cran.rstudio.com")' > .Rprofile
+  - mkdir -p ~/.R
+  - grep '\-g'  /etc/R/Makeconf | sed 's/-g//g' > ~/.R/Makevars # Turn off debug symbols
+  # Build LaTex and pandoc
+  - mkdir -p ~/bin
+  - wget -q -O - https://github.com/yihui/crandalf/raw/master/inst/scripts/install-texlive | bash
+  - wget -q -O - https://github.com/yihui/crandalf/raw/master/inst/scripts/install-pandoc | bash
+  - PATH=$HOME/texlive/bin/x86_64-linux:$PATH  
+  # Install R packages
+  - Rscript -e "if (!require('devtools')) install.packages('devtools')"    
+  - Rscript -e "if (!require('covr')) devtools::install_github('jimhester/covr')"  
+  - Rscript -e "if (!require('rmarkdown')) install.packages('rmarkdown')"
+  - Rscript -e "if (!require('knitr')) install.packages('knitr')"  
+  - Rscript -e "if (!require('drat')) install.packages('drat')"      
+  - Rscript -e "if (!require('ff')) install.packages('ff')"
+  - Rscript -e "if (!require('ffbase')) install.packages('ffbase')"
+  - Rscript -e "if (!require('ggplot2')) install.packages('ggplot2')" 
+  
 before_script:
-- sudo apt-get install libboost-dev
-- export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
-- export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')
+  - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
+  - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')
+  
+ # Build and check package
 script:
-- ./travis-tool.sh run_tests
-- ls -l Cyclops.Rcheck/Cyclops/libs
-after_failure:
-- ./travis-tool.sh dump_logs
-notifications:
-  recipients:
-  - msuchard@gmail.com
-  email:
-    on_success: change
-    on_failure: always
+  - R CMD build .
+  - _R_CHECK_CRAN_INCOMING_=FALSE R CMD check "${PKG_TARBALL}" --as-cran
+  - cat ${PKG_NAME}.Rcheck/00install.out # Print out install / compile log 
+
 after_success:
-- Rscript -e 'library(covr);codecov()'
-- curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/development/trigger/e51f720d-c4e7-45df-b042-5d8a362bd7e0/
-- test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && bash
-  deploy.sh
+  - Rscript -e 'covr::codecov()'
+  # Rebuild docker container
+  - curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/development/trigger/e51f720d-c4e7-45df-b042-5d8a362bd7e0/
+  # Rebuild drat repo   
+  - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')    
+  - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && bash deploy.sh
+  
 env:
   global:
   - secure: OqWkvryQHJ8TCDu++1fjNNfd+ECuPH+og++cXgfpQ3QcTjReD0cc3dGP+tD3GX18H9jJa+MQzNXyBCHn8+o1b1MRiUGAKuxD0vsZ2iQ/1nZYiL2cKJbei36vJPVg82D68zOsE/G5rESKFOQKUC+OqNHcneyk1+cwsU7zvQTtBhU=
