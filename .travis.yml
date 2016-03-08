@@ -74,7 +74,12 @@ install:
   - Rscript -e "if (!require('drat')) install.packages('drat')"      
   - Rscript -e "if (!require('ff')) install.packages('ff')"
   - Rscript -e "if (!require('ffbase')) install.packages('ffbase')"
-  - Rscript -e "if (!require('ggplot2')) install.packages('ggplot2')" 
+  - Rscript -e "if (!require('ggplot2')) install.packages('ggplot2')"
+  - Rscript -e "if (!require('RcppParallel')) install.packages('RcppParallel')"
+  - Rscript -e "if (!require('BH')) install.packages('BH')"
+  - Rscript -e "if (!require('RcppEigen')) install.packages('RcppEigen')"
+  - Rscript -e "if (!require('testthat')) install.packages('testthat')"
+  - Rscript -e "if (!require('gnm')) install.packages('gnm')"
   
 before_script:
   - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
