@@ -173,7 +173,7 @@ public:
 	Matrix computeFisherInformation(const std::vector<size_t>& indices) const;
 
 	loggers::ProgressLogger& getProgressLogger() const { return *logger; }
-	
+
 	loggers::ErrorHandler& getErrorHandler() const { return *error; }
 
 protected:
@@ -280,6 +280,12 @@ protected:
 	double applyBounds(
 			double inDelta,
 			int index);
+
+	bool performCheckConvergence(int convergenceType,
+                                 double epsilon,
+                                 int maxIterations,
+                                 int iteration,
+                                 double* lastObjFunc);
 
 	double computeConvergenceCriterion(double newObjFxn, double oldObjFxn);
 

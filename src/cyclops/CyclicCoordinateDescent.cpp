@@ -719,6 +719,74 @@ void CyclicCoordinateDescent::computeKktConditions(Container& scoreSet) {
     });
 }
 
+bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
+                                                      double epsilon,
+                                                      int maxIterations,
+                                                      int iteration,
+                                                      double* lastObjFunc) {
+    bool done = false;
+    double conv;
+    bool illconditioned = false;
+    if (convergenceType < ZHANG_OLES) {
+        double thisObjFunc = getObjectiveFunction(convergenceType);
+        if (thisObjFunc != thisObjFunc) {
+            std::ostringstream stream;
+            stream << "\nWarning: problem is ill-conditioned for this choice of\n"
+                   << "\t prior (" << jointPrior->getDescription() << ") or\n"
+                   << "\t initial bounding box (" << initialBound << ")\n"
+                   << "Enforcing convergence!";
+            logger->writeLine(stream);
+            conv = 0.0;
+            illconditioned = true;
+        } else {
+            conv = computeConvergenceCriterion(thisObjFunc, *lastObjFunc);
+        }
+        *lastObjFunc = thisObjFunc;
+    } else { // ZHANG_OLES
+        conv = computeZhangOlesConvergenceCriterion();
+        saveXBeta();
+    } // Necessary to call getObjFxn or computeZO before getLogLikelihood,
+    // since these copy over XBeta
+
+    double thisLogLikelihood = getLogLikelihood();
+    double thisLogPrior = getLogPrior();
+    double thisLogPost = thisLogLikelihood + thisLogPrior;
+
+    std::ostringstream stream;
+    if (noiseLevel > QUIET) {
+        stream << "\n";
+        printVector(&hBeta[0], J, stream);
+        stream << "\n";
+        stream << "log post: " << thisLogPost
+               << " (" << thisLogLikelihood << " + " << thisLogPrior
+               << ") (iter:" << iteration << ") ";
+    }
+
+    if (epsilon > 0 && conv < epsilon) {
+        if (illconditioned) {
+            lastReturnFlag = ILLCONDITIONED;
+        } else {
+            if (noiseLevel > SILENT) {
+                stream << "Reached convergence criterion";
+            }
+            lastReturnFlag = SUCCESS;
+        }
+        done = true;
+    } else if (iteration == maxIterations) {
+        if (noiseLevel > SILENT) {
+            stream << "Reached maximum iterations";
+        }
+        done = true;
+        lastReturnFlag = MAX_ITERATIONS;
+    }
+    if (noiseLevel > QUIET) {
+        logger->writeLine(stream);
+    }
+
+    logger->yield();
+
+    return done;
+}
 
 void CyclicCoordinateDescent::findMode(
 		int maxIterations,
@@ -791,66 +859,7 @@ void CyclicCoordinateDescent::findMode(
 		bool checkConvergence = true; // Check after each complete cycle
 
 		if (checkConvergence) {
-
-			double conv;
-			bool illconditioned = false;
-			if (convergenceType < ZHANG_OLES) {
- 				double thisObjFunc = getObjectiveFunction(convergenceType);
-				if (thisObjFunc != thisObjFunc) {
-				    std::ostringstream stream;
-					stream << "\nWarning: problem is ill-conditioned for this choice of\n"
-                           << "\t prior (" << jointPrior->getDescription() << ") or\n"
-                           << "\t initial bounding box (" << initialBound << ")\n"
-                           << "Enforcing convergence!";
-					logger->writeLine(stream);
-					conv = 0.0;
-					illconditioned = true;
-				} else {
-					conv = computeConvergenceCriterion(thisObjFunc, lastObjFunc);
-				}
-				lastObjFunc = thisObjFunc;
-			} else { // ZHANG_OLES
-				conv = computeZhangOlesConvergenceCriterion();
-				saveXBeta();
-			} // Necessary to call getObjFxn or computeZO before getLogLikelihood,
-			  // since these copy over XBeta
-
-			double thisLogLikelihood = getLogLikelihood();
-			double thisLogPrior = getLogPrior();
-			double thisLogPost = thisLogLikelihood + thisLogPrior;
-
-            std::ostringstream stream;
-			if (noiseLevel > QUIET) {
-			    stream << "\n";
-				printVector(&hBeta[0], J, stream);
-				stream << "\n";
-				stream << "log post: " << thisLogPost
-						<< " (" << thisLogLikelihood << " + " << thisLogPrior
-						<< ") (iter:" << iteration << ") ";
-			}
-
-			if (epsilon > 0 && conv < epsilon) {
-				if (illconditioned) {
-					lastReturnFlag = ILLCONDITIONED;
-				} else {
-					if (noiseLevel > SILENT) {
-						stream << "Reached convergence criterion";
-					}
-					lastReturnFlag = SUCCESS;
-				}
-				done = true;
-			} else if (iteration == maxIterations) {
-				if (noiseLevel > SILENT) {
-					stream << "Reached maximum iterations";
-				}
-				done = true;
-				lastReturnFlag = MAX_ITERATIONS;
-			}
-			if (noiseLevel > QUIET) {
-                logger->writeLine(stream);
-			}
-
-			logger->yield();
+		    done = performCheckConvergence(convergenceType, epsilon, maxIterations, iteration, &lastObjFunc);
 		}
 	}
 	lastIterationCount = iteration;
