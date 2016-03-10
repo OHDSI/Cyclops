@@ -838,12 +838,10 @@ void CyclicCoordinateDescent::findMode(
 	std::vector<double> secants;
 	int secantOffset = 0;
 	if (qnQ > 0) {
-	    secants.resize((qnQ + 1) * hBeta.size());
+	    secants.resize((qnQ + 2) * J); // change 2 to 1
 	    std::copy(std::begin(hBeta), std::end(hBeta), std::begin(secants)); // Copy x^{(n)}
 	    secantOffset = 1;
 	}
-
-	std::cerr << "qnQ = " << qnQ << std::endl;
 
 	while (!done) {
 
@@ -878,9 +876,9 @@ void CyclicCoordinateDescent::findMode(
 
 		        // Take step
                 // Compute c
-                auto itXn = std::begin(secants) + 0 * hBeta.size();
-                auto itF1 = std::begin(secants) + 1 * hBeta.size();
-                auto itF2 = std::begin(secants) + 2 * hBeta.size();
+                auto itXn = std::begin(secants) + 0 * J;
+                auto itF1 = std::begin(secants) + 1 * J;
+                auto itF2 = std::begin(secants) + 2 * J;
 
                 double numerator = 0.0;
                 double denominator = 0.0;
@@ -905,7 +903,7 @@ void CyclicCoordinateDescent::findMode(
                 itF2 = std::begin(secants) + 2 * hBeta.size();
 
                 for (int j = 0; j < J; ++j, ++itF1, ++itF2) {
-                    const auto beta = notc * *itF1 + c * *itF2;
+                    const auto beta = notc * (*itF1) + c * (*itF2);
                     // std::cerr << beta << " ";
                     hBeta[j] = beta;
                 }
