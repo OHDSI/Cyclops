@@ -202,11 +202,11 @@ protected:
 
 //	void computeXjY(void);
 
-	void findMode(int maxIterations, int convergenceType, double epsilon);
+	void findMode(int maxIterations, int convergenceType, double epsilon, int qnQ);
 
 	template <typename Iterator>
 	void findMode(Iterator begin, Iterator end,
-		const int maxIterations, const int convergenceType, const double epsilon);
+		const int maxIterations, const int convergenceType, const double epsilon, const int qnQ);
 
 	template <typename Container>
 	void computeKktConditions(Container& set);

@@ -478,6 +478,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const auto convergenceType = arguments.convergenceType;
 	const auto epsilon = arguments.tolerance;
 	const int maxCount = arguments.maxBoundCount;
+	const auto qnQ = arguments.qnQ;
 
 	initialBound = arguments.initialBound;
 
@@ -487,7 +488,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
  	    if (arguments.useKktSwindle && jointPrior->getSupportsKktSwindle()) {
 		    kktSwindle(arguments);
 	    } else {
-		    findMode(maxIterations, convergenceType, epsilon);
+		    findMode(maxIterations, convergenceType, epsilon, qnQ);
 	    }
 	    ++count;
 
@@ -509,13 +510,13 @@ typedef std::tuple<
 
 template <typename Iterator>
 void CyclicCoordinateDescent::findMode(Iterator begin, Iterator end,
-		const int maxIterations, const int convergenceType, const double epsilon) {
+		const int maxIterations, const int convergenceType, const double epsilon, const int qnQ) {
 
 	std::fill(fixBeta.begin(), fixBeta.end(), true);
  	std::for_each(begin, end, [this] (ScoreTuple& tuple) {
  		fixBeta[std::get<0>(tuple)] = false;
  	});
-	findMode(maxIterations, convergenceType, epsilon);
+	findMode(maxIterations, convergenceType, epsilon, qnQ);
     // fixBeta is no longer valid
 }
 
@@ -524,6 +525,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 	const auto maxIterations = arguments.maxIterations;
 	const auto convergenceType = arguments.convergenceType;
 	const auto epsilon = arguments.tolerance;
+	const auto qnQ = arguments.qnQ;
 
 	// Make sure internal state is up-to-date
 	checkAllLazyFlags();
@@ -579,7 +581,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 		if (activeSet.size() > 0) { // find initial mode
 			auto start = bsccs::chrono::steady_clock::now();
 
-			findMode(begin(activeSet), end(activeSet), maxIterations, convergenceType, epsilon);
+			findMode(begin(activeSet), end(activeSet), maxIterations, convergenceType, epsilon, qnQ);
 
 			auto end = bsccs::chrono::steady_clock::now();
 			bsccs::chrono::duration<double> elapsed_seconds = end-start;
@@ -791,7 +793,8 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
 void CyclicCoordinateDescent::findMode(
 		int maxIterations,
 		int convergenceType,
-		double epsilon
+		double epsilon,
+		int qnQ
 		) {
 
 	if (convergenceType < GRADIENT || convergenceType > ZHANG_OLES) {
@@ -832,6 +835,16 @@ void CyclicCoordinateDescent::findMode(
 		saveXBeta();
 	}
 
+	std::vector<double> secants;
+	int secantOffset = 0;
+	if (qnQ > 0) {
+	    secants.resize((qnQ + 1) * hBeta.size());
+	    std::copy(std::begin(hBeta), std::end(hBeta), std::begin(secants)); // Copy x^{(n)}
+	    secantOffset = 1;
+	}
+
+	std::cerr << "qnQ = " << qnQ << std::endl;
+
 	while (!done) {
 
 		// Do a complete cycle
@@ -852,6 +865,58 @@ void CyclicCoordinateDescent::findMode(
 			    logger->writeLine(stream);
 			}
 
+		}
+
+		if (qnQ > 0) {
+            std::copy(std::begin(hBeta), std::end(hBeta), std::begin(secants) + secantOffset * hBeta.size());
+		    ++secantOffset;
+
+		    if (secantOffset > (qnQ + 1)) {
+//                 std::ostringstream stream;
+// 		        stream << "Recorded " << secantOffset << " offsets; taking QN step at iteration " << iteration;
+// 		        logger->writeLine(stream);
+
+		        // Take step
+                // Compute c
+                auto itXn = std::begin(secants) + 0 * hBeta.size();
+                auto itF1 = std::begin(secants) + 1 * hBeta.size();
+                auto itF2 = std::begin(secants) + 2 * hBeta.size();
+
+                double numerator = 0.0;
+                double denominator = 0.0;
+
+                // std::cerr << J << " " << hBeta.size() << std::endl;
+
+                for (int j = 0; j < J; ++j, ++itXn, ++itF1, ++itF2) {
+                    numerator += (*itF1 - *itXn) * (*itF1 - *itXn);
+                    denominator += (*itF2 - 2 * *itF1 + *itXn) * (*itF1 - *itXn);
+                }
+
+                const auto c = - numerator / denominator;
+                const auto notc = 1.0 - c;
+
+//                 std::cerr << std::endl;
+//                 for (int j = 0; j < J; ++j) {
+//                     std::cerr << hBeta[j] << " ";
+//                 }
+//                 std::cerr << (getLogLikelihood() + getLogPrior()) << std::endl;
+
+                itF1 = std::begin(secants) + 1 * hBeta.size();
+                itF2 = std::begin(secants) + 2 * hBeta.size();
+
+                for (int j = 0; j < J; ++j, ++itF1, ++itF2) {
+                    const auto beta = notc * *itF1 + c * *itF2;
+                    // std::cerr << beta << " ";
+                    hBeta[j] = beta;
+                }
+                xBetaKnown = false;
+                checkAllLazyFlags();
+                // std::cerr << (getLogLikelihood() + getLogPrior()) << std::endl;
+
+		        // place current iterate into queue
+		        std::copy(std::begin(hBeta), std::end(hBeta), std::begin(secants)); // Copy x^{(n)}
+		        secantOffset = 1;
+		    }
 		}
 
 		iteration++;
