@@ -835,96 +835,140 @@ void CyclicCoordinateDescent::findMode(
 		saveXBeta();
 	}
 
-	std::vector<double> secants;
-	int secantOffset = 0;
-	if (qnQ > 0) {
-	    secants.resize((qnQ + 2) * J); // change 2 to 1
-	    std::copy(std::begin(hBeta), std::end(hBeta), std::begin(secants)); // Copy x^{(n)}
-	    secantOffset = 1;
-	}
+	auto cycle = [this] {
+	    // Do a complete cycle
+	    for(int index = 0; index < J; index++) {
 
-	while (!done) {
+	        if (!fixBeta[index]) {
+	            double delta = ccdUpdateBeta(index);
+	            delta = applyBounds(delta, index);
+	            if (delta != 0.0) {
+	                sufficientStatisticsKnown = false;
+	                updateSufficientStatistics(delta, index);
+	            }
+	        }
 
-		// Do a complete cycle
-		for(int index = 0; index < J; index++) {
+	        if ( (noiseLevel > QUIET) && ((index+1) % 100 == 0)) {
+	            std::ostringstream stream;
+	            stream << "Finished variable " << (index+1);
+	            logger->writeLine(stream);
+	        }
+	    }
+	};
 
-			if (!fixBeta[index]) {
-				double delta = ccdUpdateBeta(index);
-				delta = applyBounds(delta, index);
-				if (delta != 0.0) {
-					sufficientStatisticsKnown = false;
-					updateSufficientStatistics(delta, index);
-				}
-			}
+	auto check = [this,&iteration,&lastObjFunc,
+               convergenceType, epsilon,maxIterations] {
+	    iteration++;
 
-			if ( (noiseLevel > QUIET) && ((index+1) % 100 == 0)) {
-			    std::ostringstream stream;
-			    stream << "Finished variable " << (index+1);
-			    logger->writeLine(stream);
-			}
+        bool done = false;
+	    //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
+	    bool checkConvergence = true; // Check after each complete cycle
 
-		}
+	    if (checkConvergence) {
+	        done = performCheckConvergence(convergenceType, epsilon, maxIterations, iteration, &lastObjFunc);
+	    }
+	    return done;
+	};
 
-		if (qnQ > 0) {
-            std::copy(std::begin(hBeta), std::end(hBeta), std::begin(secants) + secantOffset * hBeta.size());
-		    ++secantOffset;
+	if (qnQ > 0) { // Use quasi-Newton
+        using namespace Eigen;
 
-		    if (secantOffset > (qnQ + 1)) {
-//                 std::ostringstream stream;
-// 		        stream << "Recorded " << secantOffset << " offsets; taking QN step at iteration " << iteration;
-// 		        logger->writeLine(stream);
+	    Eigen::MatrixXd secantsU(J, qnQ);
+	    Eigen::MatrixXd secantsV(J, qnQ);
 
-		        // Take step
-                // Compute c
-                auto itXn = std::begin(secants) + 0 * J;
-                auto itF1 = std::begin(secants) + 1 * J;
-                auto itF2 = std::begin(secants) + 2 * J;
+	    VectorXd x(J);
 
-                double numerator = 0.0;
-                double denominator = 0.0;
+	    // Fill initial secants
+	    int countU = 0;
+	    int countV = 0;
 
-                // std::cerr << J << " " << hBeta.size() << std::endl;
+	    for (int q = 0; q < qnQ; ++q) {
+	        x = Map<const VectorXd>(hBeta.data(), J); // Make copy
 
-                for (int j = 0; j < J; ++j, ++itXn, ++itF1, ++itF2) {
-                    numerator += (*itF1 - *itXn) * (*itF1 - *itXn);
-                    denominator += (*itF2 - 2 * *itF1 + *itXn) * (*itF1 - *itXn);
-                }
+	        cycle();
+            done = check();
+            if (done) break;
 
-                const auto c = - numerator / denominator;
-                const auto notc = 1.0 - c;
+            if (countU == 0) { // First time through
+                secantsU.col(countU) = Map<const VectorXd>(hBeta.data(), J) - x;
+                ++countU;
+            } else if (countU < qnQ - 1) { // Middle case
+                secantsU.col(countU) = Map<const VectorXd>(hBeta.data(), J) - x;
+                secantsV.col(countV) = secantsU.col(countU);
+                ++countU;
+                ++countV;
+            } else { // Last time through
+                secantsV.col(countV) = Map<const VectorXd>(hBeta.data(), J) - x;
+                ++countV;
+            }
+	    }
 
-//                 std::cerr << std::endl;
-//                 for (int j = 0; j < J; ++j) {
-//                     std::cerr << hBeta[j] << " ";
-//                 }
-//                 std::cerr << (getLogLikelihood() + getLogPrior()) << std::endl;
+// 	    std::cerr << secantsU << std::endl << std::endl;
+// 	    std::cerr << secantsV << std::endl;
 
-                itF1 = std::begin(secants) + 1 * hBeta.size();
-                itF2 = std::begin(secants) + 2 * hBeta.size();
+	    int newestSecant = qnQ - 1;
 
-                for (int j = 0; j < J; ++j, ++itF1, ++itF2) {
-                    const auto beta = notc * (*itF1) + c * (*itF2);
-                    // std::cerr << beta << " ";
-                    hBeta[j] = beta;
-                }
+	    while (!done) {
+
+	        // 2 cycles for each QN step
+	        x = Map<const VectorXd>(hBeta.data(), J); // Make copy
+	        cycle();
+	        done = check();
+	        if (done) break;
+
+	        secantsU.col(newestSecant) = Map<const VectorXd>(hBeta.data(), J) - x;
+
+	        x = Map<const VectorXd>(hBeta.data(), J);
+	        cycle();
+	        done = check();
+	        if (done) break;
+
+	        secantsV.col(newestSecant) = Map<const VectorXd>(hBeta.data(), J) - x;
+
+            // Do QN step here
+            auto M = secantsU.transpose() * (secantsU - secantsV);
+            auto Minv = M.inverse();
+
+            auto A = secantsU.transpose() * secantsV.col(newestSecant);
+            auto B = Minv * A;
+            auto C = secantsV * B;
+
+            auto xqn = Map<const VectorXd>(hBeta.data(), J) + C;
+
+            // Save CCD solution
+            x = Map<const VectorXd>(hBeta.data(), J);
+            double ccdObjective = getLogLikelihood() + getLogPrior();
+
+            Map<VectorXd>(hBeta.data(), J) = xqn; // Set QN solution
+            xBetaKnown = false;
+            checkAllLazyFlags();
+            double qnObjective = getLogLikelihood() + getLogPrior();
+
+            if (ccdObjective > qnObjective) { // Revert
+                Map<VectorXd>(hBeta.data(), J) = x; // Set CCD solution
                 xBetaKnown = false;
                 checkAllLazyFlags();
-                // std::cerr << (getLogLikelihood() + getLogPrior()) << std::endl;
+                double ccd2Objective = getLogLikelihood() + getLogPrior();
+                if (ccdObjective != ccd2Objective) {
+                    std::cerr << "Poor revert: " << ccdObjective << " != " << ccd2Objective << std::endl;
+                }
+                std::cerr << "revert" << std::endl;
+            } else {
+                std::cerr << "accept" << std::endl;
+                done = check();
+                if (done) break;
+            }
 
-		        // place current iterate into queue
-		        std::copy(std::begin(hBeta), std::end(hBeta), std::begin(secants)); // Copy x^{(n)}
-		        secantOffset = 1;
-		    }
-		}
-
-		iteration++;
-//		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
-		bool checkConvergence = true; // Check after each complete cycle
-
-		if (checkConvergence) {
-		    done = performCheckConvergence(convergenceType, epsilon, maxIterations, iteration, &lastObjFunc);
-		}
+            // Get ready for next secant-pair
+            newestSecant = (newestSecant + 1) % qnQ;
+	    }
+	} else { // No QN
+	    while (!done) {
+	        cycle();
+	        done = check();
+	    }
 	}
+
 	lastIterationCount = iteration;
 	updateCount += 1;
 
