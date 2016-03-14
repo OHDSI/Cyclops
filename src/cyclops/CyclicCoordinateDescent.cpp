@@ -157,6 +157,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 	// Set parameters and statistics space
 	hDelta.resize(J, static_cast<double>(2.0));
 	hBeta.resize(J, static_cast<double>(0.0));
+	hBetaMM.resize(J, static_cast<double>(0.0));
 
 // 	hXBeta = (real*) calloc(K, sizeof(real));
 // 	hXBetaSave = (real*) calloc(K, sizeof(real));
@@ -611,7 +612,6 @@ protected:
             stream << "Error in state synchronization.";
             ccd.error->throwError(stream);				
         }
-        
         computeNumeratorForGradient(index);
     
         priors::GradientHessian gh;
@@ -691,17 +691,17 @@ struct MMVariant : public AbstractVariant {
             AbstractModelSpecifics& modelSpecifics,
             priors::JointPriorPtr& jointPrior,
             std::vector<double>& hBeta,
+            std::vector<double>& hBetaMM,
             std::vector<bool>& fixBeta, 
             std::vector<double>& updates, 
             std::vector<double>& hDelta,
             NoiseLevels noiseLevel) 
             : AbstractVariant(ccd, modelSpecifics, jointPrior, hBeta, fixBeta, updates, 
-                    hDelta, noiseLevel), J(ccd.J), scale(1.0) {
+                    hDelta, noiseLevel), J(ccd.J), scale(1.0), hBetaMM(hBetaMM){
         if (updates.size() != J) {
             updates.resize(J);
         }    
-        
-      	modelSpecifics.initializeMM(fixBeta);
+      	modelSpecifics.initializeMM(fixBeta, hBeta, hBetaMM);
     }
     
 #define NEW_XBETA
@@ -713,21 +713,24 @@ struct MMVariant : public AbstractVariant {
 #ifndef NEW_XBETA			
 			updates[index] = delta;
 #else
-//             updates[index] = hBeta[index] + delta;
-            hBeta[index] += delta;
+//          updates[index] = hBeta[index] + delta;
+			hBetaMM[index] += delta;
+            //hBeta[index] += delta;
 #endif		
-		printf("index is %d", index);	
 		}			
+		
+		//cout << "mmbeta[" << index << "] = " << hBetaMM[index] << endl;
 	}  
 		
     void finalizeUpdate() {   
+    	for (int indexCopy = 0; indexCopy < J; indexCopy++) {hBeta[indexCopy] = hBetaMM[indexCopy];}
 #ifndef NEW_XBETA     
 		for(int index2 = 0; index2 < J; index2 ++) {
 			if (updates[index2] != 0.0) {
 				ccd.sufficientStatisticsKnown = false;
 				ccd.updateSufficientStatistics(updates[index2], index2);
 			}
-		}    
+		}  
 #else
         modelSpecifics.computeXBeta(&hBeta[0]);
 #endif
@@ -747,7 +750,8 @@ protected:
     
 private:
     size_t J;     
-    double scale;                     
+    double scale;    
+    std::vector<double>& hBetaMM;              
 };
 
 void CyclicCoordinateDescent::update(
@@ -792,8 +796,8 @@ void CyclicCoordinateDescent::update(
 		saveXBeta();
 	}
 	
-	double betaUpdaterScale = 8.0; 
-	int nThreads = 2;
+	double betaUpdaterScale = 1.0; 
+	int nThreads = 4;
 	
 //#define noMM
 #ifdef noMM
@@ -804,7 +808,9 @@ void CyclicCoordinateDescent::update(
     cout << "betaUpdaterScale = " << betaUpdaterScale << endl;
     cout << "nThreads = " << nThreads << endl;
 #else                            
-    auto betaUpdater = MMVariant(*this, modelSpecifics, jointPrior, hBeta, fixBeta, 
+	int mmIndex1Limit = 1;
+	int mmIndex2Limit = 1;
+    auto betaUpdater = MMVariant(*this, modelSpecifics, jointPrior, hBeta, hBetaMM, fixBeta, 
                             hUpdates, hDelta, noiseLevel); 
      
     betaUpdater.setScale(betaUpdaterScale);          
@@ -822,19 +828,33 @@ void CyclicCoordinateDescent::update(
     double lastLogPost = 0;          		
 	while (!done) {
 	
-	    variants::for_each(0, J, betaUpdater, parallelScheme);
+	#ifndef noMM
 
-		//betaUpdater.finalizeUpdate();
+	for (int mmIndex1 = 0; mmIndex1 < mmIndex1Limit; mmIndex1++){
+		variants::for_each(0, J, betaUpdater, parallelScheme);
+		//cout << mmIndex1 << endl;
+		//cout << "(" << hBetaMM[0] << "," << hBetaMM[1] << ")" << endl;
+	}
+	//cout << "--------------------------" << hBetaMM[0] << "," << hBetaMM[1] << "" << endl;
+	
+	#else
+	//	variants::for_each(0, J, betaUpdater, parallelScheme);
+	//	cout << "" << hBeta[0] << "," << hBeta[1] << "" << endl;
+	#endif
+	
+		if (iteration == 2){
+			//exit(-1);
+		}
+	    
+		betaUpdater.finalizeUpdate();
 		
-	    if (lastLogPost <= thisLogPost || iteration == 1){
-	    	betaUpdater.finalizeUpdate();
-	    } else {
-	    	betaUpdater.finalizeUpdate();
+		
 #ifndef noMM
-	 		betaUpdaterScale = max(betaUpdaterScale / 2.0,1.0);
+	    if (lastLogPost > thisLogPost && iteration != 1){
+	 		betaUpdaterScale = max(betaUpdaterScale / 1.0,1.0) + 8*iteration*iteration;
 	 		betaUpdater.setScale(betaUpdaterScale);  
-#endif
 	    }
+#endif
 		
 		iteration++;
 //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
@@ -866,10 +886,10 @@ void CyclicCoordinateDescent::update(
 			double thisLogLikelihood = getLogLikelihood();
 			double thisLogPrior = getLogPrior();
 			thisLogPost = thisLogLikelihood + thisLogPrior;
-
             std::ostringstream stream;
+            
 			if (noiseLevel > QUIET) {			    
-			    stream << "\n";				
+				stream << "\n";				
 				printVector(&hBeta[0], J, stream);
 				stream << "\n";
 				stream << "log post: " << thisLogPost
@@ -895,9 +915,8 @@ void CyclicCoordinateDescent::update(
 				lastReturnFlag = MAX_ITERATIONS;
 			}
 			if (noiseLevel > QUIET) {
-                logger->writeLine(stream);
+                //logger->writeLine(stream);
 			}
-			
 			logger->yield();			
 		}						
 	}

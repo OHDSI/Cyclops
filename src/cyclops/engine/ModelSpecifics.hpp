@@ -228,7 +228,7 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]);
 		}
 	}
-
+	
 	if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
 		if(BaseModel::cumulativeGradientAndHessian) {
 			for (size_t i = 0; i < N; i++) {
@@ -242,7 +242,8 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 			}
 		}
 	}
-
+	//std::cout<<"denominator = " << logLikelihood << std::endl;
+	//std::cout<<"fixed = " << logLikelihoodFixedTerm << std::endl;
 	if (BaseModel::likelihoodHasFixedTerms) {
 		logLikelihood += logLikelihoodFixedTerm;
 	}
@@ -369,7 +370,15 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNormsImpl(int index) {
 }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::initializeMM(std::vector<bool>& fixBeta) {
+void ModelSpecifics<BaseModel,WeightType>::initializeMM(std::vector<bool>& fixBeta, std::vector<double>& ccdBeta, std::vector<double>& mmBeta) {
+
+// 	std::vector<double> nums0 = {3, 2, 1, 0};
+// 	std::vector<char> nums1 = {'D', 'C', 'B', 'A'};
+// 	std::vector<int> nums2 = {5, 6, 7, 8}; ) {
+
+// 	std::vector<double> nums0 = {3, 2, 1, 0};
+// 	std::vector<char> nums1 = {'D', 'C', 'B', 'A'};
+// 	std::vector<int> nums2 = {5, 6, 7, 8}; ) {
 
 // 	std::vector<double> nums0 = {3, 2, 1, 0};
 // 	std::vector<char> nums1 = {'D', 'C', 'B', 'A'};
@@ -430,6 +439,10 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(std::vector<bool>& fixBe
     std::cout << "Computing norms..." << std::endl;	
     norm.resize(K);
     zeroVector(&norm[0], K);
+    
+    hBetaMM = &mmBeta;
+    hBetaCCD = &ccdBeta;
+    
     
     for (int j = 0; j < J; ++j) {
     	if (
@@ -638,6 +651,11 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(std::vector<bool>& fixBe
 }
 
 template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::copyBetaMM(std::vector<bool> ccdBeta) {
+	hBetaMM = ccdBeta;
+}
+
+template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessian(int index, double *ogradient,
 		double *ohessian, double scale, bool useWeights) {
 		
@@ -689,10 +707,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
 	IteratorType it(*hXI, index);
 	for (; it; ++it) {
 		const int k = it.index();	
-		
 		BaseModel::template incrementMMGradientAndHessian<IteratorType, Weights>(gradient, hessian, offsExpXBeta[k], 
 	    		denomPid[BaseModel::getGroup(hPid, k)], hNWeight[BaseModel::getGroup(hPid, k)], 
-	    		it.value(), hXBeta[k], hY[k], norm[k]);
+	    		it.value(), hXBeta[k], hY[k], norm[k], (*hBetaCCD)[index], (*hBetaMM)[index]);
 	}	
 		
 	if (BaseModel::precomputeGradient) { // Compile-time switch
@@ -702,7 +719,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
 	if (BaseModel::precomputeHessian) { // Compile-time switch
 		hessian += static_cast<real>(2.0) * hXjX[index];
 	}
-	
+	//cout << "index = " << index << " gradient = " << gradient << endl;
+	//cout << "index = " << index << " hessian = " << hessian << endl;
 	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian) / scale;
 }

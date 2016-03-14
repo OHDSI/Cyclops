@@ -323,7 +323,7 @@ List cyclopsLogModel(SEXP inRcppCcdInterface) {
 // [[Rcpp::export(".cyclopsInitializeModel")]]
 List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, bool computeMLE = false) {
 	using namespace bsccs;
-
+    cout <<"here?" << std::endl;
 	XPtr<RcppModelData> rcppModelData(inModelData);
 	XPtr<RcppCcdInterface> interface(
 		new RcppCcdInterface(*rcppModelData));

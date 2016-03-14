@@ -46,6 +46,7 @@ fitCyclopsModel <- function(cyclopsData,
                         returnEstimates = TRUE) {
 		
 	cl <- match.call()
+    
 	
 	# Check conditions
 	.checkData(cyclopsData)
@@ -56,8 +57,13 @@ fitCyclopsModel <- function(cyclopsData,
 		stop("Data are incompletely loaded")
 	}
 	
+	print("here 3")
 	.checkInterface(cyclopsData, forceColdStart)
     
+	print("here 4")
+	
+	
+	
 	if (!missing(prior)) { # Set up prior
 	    stopifnot(inherits(prior, "cyclopsPrior"))    	
 	    prior$exclude <- .checkCovariates(cyclopsData, prior$exclude)
@@ -156,8 +162,12 @@ fitCyclopsModel <- function(cyclopsData,
 			stop("Interface object is not initialized")
 		}
 		# Build interface
+		print("here3.1")
+        
 		interface <- .cyclopsInitializeModel(x$cyclopsDataPtr, modelType = x$modelType, computeMLE = TRUE)
-		# TODO Check for errors
+		print("here3.2")
+		
+        # TODO Check for errors
         assign("cyclopsInterfacePtr", interface$interface, x)
 	}
 }

@@ -113,7 +113,9 @@ private:
 
 	void computeNtoKIndices(bool useCrossValidation);
 	
-	void initializeMM(std::vector<bool>& fixBeta);
+	void initializeMM(std::vector<bool>& fixBeta, std::vector<double>& ccdBeta, std::vector<double>& mmBeta);
+	
+	void copyBetaMM(std::vector<bool> ccdBeta);
 	
 	void computeNorms(void);
 	
@@ -126,6 +128,10 @@ private:
 	std::vector<int> nPid;
 	std::vector<real> nY;
 	std::vector<int> hNtoK;
+	
+	std::vector<double> *hBetaCCD;
+	std::vector<double> *hBetaMM;
+
 	
 	std::vector<real> norm;
 
@@ -273,7 +279,7 @@ public:
 	inline void incrementMMGradientAndHessian(
 			real& gradient, real& hessian,
 			real expXBeta, real denominator, 
-			real weight, real x, real xBeta, real y, real norm) {
+			real weight, real x, real xBeta, real y, real norm, real oldBeta, real newBeta) {
 
         throw new std::logic_error("Not model-specific");
 	}
@@ -398,11 +404,11 @@ public:
 	inline void incrementMMGradientAndHessian(
 			real& gradient, real& hessian,
 			real expXBeta, real denominator, 
-			real weight, real x, real xBeta, real y, real norm) {
-
+			real weight, real x, real xBeta, real y, real norm, real oldBeta, real newBeta) {
+		
 		if (IteratorType::isIndicator) {
-			gradient += weight * expXBeta / denominator;
-			hessian += weight * expXBeta / denominator * norm;
+			gradient += exp(norm*(newBeta - oldBeta)) *weight * expXBeta / denominator; //exp(norm*(newBeta - oldBeta)) *
+			hessian += exp(norm*(newBeta - oldBeta)) *weight * expXBeta / denominator * norm; //exp(norm*(newBeta - oldBeta)) * 
 		} else {
 			gradient += weight * expXBeta * x / denominator;
 			hessian += weight * expXBeta * x * x / denominator * norm;		
@@ -423,6 +429,10 @@ public:
 	}
 
 	void predictEstimate(real& yi, real xBeta){
+		//do nothing for now
+	}
+	
+	void copyBetaToMM(real& yi, real xBeta){
 		//do nothing for now
 	}
 
@@ -860,7 +870,7 @@ public:
 	inline void incrementMMGradientAndHessian(
 			real& gradient, real& hessian,
 			real expXBeta, real denominator, 
-			real weight, real x, real xBeta, real y, real norm) {
+			real weight, real x, real xBeta, real y, real norm, real oldBeta, real newBeta) {
 												
 		throw new std::logic_error("Not implemented.");			
 	}
@@ -980,7 +990,7 @@ public:
 	inline void incrementMMGradientAndHessian(
 			real& gradient, real& hessian,
 			real expXBeta, real denominator, 
-			real weight, real x, real xBeta, real y, real norm) {
+			real weight, real x, real xBeta, real y, real norm, real oldBeta, real newBeta) {
 
 		if (IteratorType::isIndicator) {
 			if (Weights::isWeighted) {

@@ -58,7 +58,7 @@ public:
 			real* iBeta,
 			real* iY);
 			
-	virtual void initializeMM(std::vector<bool>& fixBeta) = 0; // pure virtual
+	virtual void initializeMM(std::vector<bool>& fixBeta, std::vector<double>& ccdBeta, std::vector<double>& mmBeta) = 0; // pure virtual
 
 	virtual void setWeights(real* inWeights, bool useCrossValidation) = 0; // pure virtual
 
@@ -146,7 +146,6 @@ protected:
 	int* hPid; // K-vector
 //	int** hXColumnRowIndicators; // J-vector
 
-//	real* hBeta;
 	real* hXBeta;
 	real* hXBetaSave;
 //	real* hDelta;
