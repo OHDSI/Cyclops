@@ -70,6 +70,16 @@ void AbstractCrossValidationDriver::drive(
 	}
 	// End of multi-thread set-up
 
+	for (int i = 0; i < nThreads; ++i) {
+	    std::ostringstream streamBeta;
+	    streamBeta << "pool " << i << " :";
+	    for (int j = 0; j < 20; ++j) {
+	        streamBeta << " " << ccdPool[i]->getBeta(j);
+	    }
+	    //logger->writeLine(stream2);
+	    std::cerr << streamBeta.str() << std::endl;
+	}
+
 	// Delegate to auto or grid loop
     maxPoint = doCrossValidationLoop(ccd, selector, allArguments, nThreads, ccdPool, selectorPool);
 

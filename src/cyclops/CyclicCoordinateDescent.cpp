@@ -86,6 +86,14 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 	initialBound = copy.initialBound;
 
 	init(hXI.getHasOffsetCovariate());
+
+	// Copy over exisiting beta;
+	bool allBetaZero = true;
+	for (int j = 0; j < J; ++j) {
+	    hBeta[j] = copy.hBeta[j];
+	    if (copy.hBeta[j] != 0.0) allBetaZero = false;
+	}
+	xBetaKnown = allBetaZero;
 }
 
 CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
@@ -426,6 +434,7 @@ double CyclicCoordinateDescent::getLogPrior(void) {
 
 double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
 	if (convergenceType == GRADIENT) {
+	    std::cerr << "Check grad" << std::endl;
 		double criterion = 0;
 		if (useCrossValidation) {
 			for (int i = 0; i < K; i++) {
@@ -442,6 +451,7 @@ double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
 		return getLogLikelihood();
 	} else
 	if (convergenceType == LANGE) {
+	    std::cerr << "Check post" << std::endl;
 		return getLogLikelihood() + getLogPrior();
 	} else {
     	std::ostringstream stream;
@@ -835,7 +845,7 @@ void CyclicCoordinateDescent::findMode(
 		saveXBeta();
 	}
 
-	auto cycle = [this] {
+	auto cycle = [this,&iteration] {
 	    // Do a complete cycle
 	    for(int index = 0; index < J; index++) {
 
@@ -854,12 +864,11 @@ void CyclicCoordinateDescent::findMode(
 	            logger->writeLine(stream);
 	        }
 	    }
+	    iteration++;
 	};
 
 	auto check = [this,&iteration,&lastObjFunc,
                convergenceType, epsilon,maxIterations] {
-	    iteration++;
-
         bool done = false;
 	    //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
 	    bool checkConvergence = true; // Check after each complete cycle
@@ -907,59 +916,106 @@ void CyclicCoordinateDescent::findMode(
 // 	    std::cerr << secantsV << std::endl;
 
 	    int newestSecant = qnQ - 1;
+	    int previousSecant = newestSecant - 1;
 
 	    while (!done) {
 
 	        // 2 cycles for each QN step
 	        x = Map<const VectorXd>(hBeta.data(), J); // Make copy
 	        cycle();
-	        done = check();
-	        if (done) break;
+// 	        done = check();
+// 	        if (done) {
+// 	            std::cerr << "break A" << std::endl;
+// 	            break;
+// 	        }
 
 	        secantsU.col(newestSecant) = Map<const VectorXd>(hBeta.data(), J) - x;
 
+	        VectorXd Fx = Map<const VectorXd>(hBeta.data(), J); // TODO Can remove?
+
 	        x = Map<const VectorXd>(hBeta.data(), J);
 	        cycle();
-	        done = check();
-	        if (done) break;
+// 	        done = check();
+// 	        if (done) {
+// 	            std::cerr << "break B" << std::endl;
+// 	            break;
+// 	        }
 
 	        secantsV.col(newestSecant) = Map<const VectorXd>(hBeta.data(), J) - x;
 
             // Do QN step here
+
+//             MatrixXd UtU = secantsU.transpose() * secantsU;
+//             MatrixXd UtV = secantsU.transpose() * secantsV;
+//             MatrixXd M = UtU - UtV;
+
             auto M = secantsU.transpose() * (secantsU - secantsV);
+
             auto Minv = M.inverse();
 
-            auto A = secantsU.transpose() * secantsV.col(newestSecant);
+            auto A = secantsU.transpose() * secantsU.col(newestSecant);
             auto B = Minv * A;
             auto C = secantsV * B;
 
-            auto xqn = Map<const VectorXd>(hBeta.data(), J) + C;
+            // MatrixXd A = secantsV * Minv;
+            // MatrixXd B = A * secantsU.transpose();
+            // MatrixXd C = B * secantsV.col(newestSecant); // - (x - Fx)
+            // MatrixXd C = B * secantsU.col(newestSecant); // TODO Can remove?
+
+       //     VectorXd xqn = Map<const VectorXd>(hBeta.data(), J) + C;
+            VectorXd xqn = Fx + C; // TODO Can remove?
 
             // Save CCD solution
             x = Map<const VectorXd>(hBeta.data(), J);
             double ccdObjective = getLogLikelihood() + getLogPrior();
+            // double savedLastObjFunc = lastObjFunc;
 
             Map<VectorXd>(hBeta.data(), J) = xqn; // Set QN solution
+//             for (int j = 0; j < J; ++j) {
+//                 if (sign(hBeta[j]) == xqn(j)) {
+//                     hBeta[j] = xqn(j);
+//                 } else {
+//                     hBeta[j] = 0.0;
+//                 }
+//             }
+
             xBetaKnown = false;
             checkAllLazyFlags();
+//             done = check();
+//             if (done) {
+//                 std::cerr << "break B" << std::endl;
+//                 break;
+//             }
+
             double qnObjective = getLogLikelihood() + getLogPrior();
 
             if (ccdObjective > qnObjective) { // Revert
                 Map<VectorXd>(hBeta.data(), J) = x; // Set CCD solution
                 xBetaKnown = false;
                 checkAllLazyFlags();
+
                 double ccd2Objective = getLogLikelihood() + getLogPrior();
+
                 if (ccdObjective != ccd2Objective) {
-                    std::cerr << "Poor revert: " << ccdObjective << " != " << ccd2Objective << std::endl;
+                    std::cerr << "Poor revert: " << ccdObjective << " != " << ccd2Objective << " diff: "<< (ccdObjective - ccd2Objective) << std::endl;
                 }
+                // lastObjFunc = savedLastObjFunc;
                 std::cerr << "revert" << std::endl;
             } else {
                 std::cerr << "accept" << std::endl;
-                done = check();
-                if (done) break;
+//                 done = check();
+//                 if (done) {
+//                     std::cerr << "break C" << std::endl;
+//                     break;
+//                 }
             }
 
+            done = check();
+
+            // lastObjFunc = getLogLikelihood() + getLogPrior();
+
             // Get ready for next secant-pair
+            previousSecant = newestSecant;
             newestSecant = (newestSecant + 1) % qnQ;
 	    }
 	} else { // No QN
@@ -971,6 +1027,13 @@ void CyclicCoordinateDescent::findMode(
 
 	lastIterationCount = iteration;
 	updateCount += 1;
+
+	// std::ostringstream stream;
+	// stream
+	std::cerr
+	    << "cycles count: " << lastIterationCount
+     << std::endl;
+	// ; logger->writeLine(stream);
 
 	modelSpecifics.printTiming();
 
