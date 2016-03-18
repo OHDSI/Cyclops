@@ -798,8 +798,9 @@ void CyclicCoordinateDescent::update(
 	
 	double betaUpdaterScale = 1.0; 
 	int nThreads = 4;
-	
+
 //#define noMM
+#define quasiNewton
 #ifdef noMM
     auto betaUpdater = CCDVariant(*this, modelSpecifics, jointPrior, hBeta, fixBeta, 
                             hUpdates, hDelta, noiseLevel);
@@ -825,8 +826,122 @@ void CyclicCoordinateDescent::update(
 #endif
                     
     double thisLogPost = 0; 
-    double lastLogPost = 0;          		
+    double lastLogPost = 0; 
+             		
+             		
+    		int qnQ = 2;
+	    using namespace Eigen;
+
+	    Eigen::MatrixXd secantsU(J, qnQ);
+	    Eigen::MatrixXd secantsV(J, qnQ);
+
+	    VectorXd x(J);
+
+	    // Fill initial secants
+	    int countU = 0;
+	    int countV = 0;
+
+	    for (int q = 0; q < qnQ; ++q) {
+	        x = Map<const VectorXd>(hBeta.data(), J); // Make copy
+
+	        //cycle();
+//	        for (int mmIndex1 = 0; mmIndex1 < mmIndex1Limit; mmIndex1++){
+			variants::for_each(0, J, betaUpdater, parallelScheme);
+			cout << "(" << hBetaMM[0] << "," << hBetaMM[1] << ")" << endl;
+			
+			//betaUpdater.finalizeUpdate();
+            //done = check();
+            //if (done) break;
+
+            if (countU == 0) { // First time through
+                //secantsU.col(countU) = Map<const VectorXd>(hBeta.data(), J) - x;
+                secantsU.col(countU) = Map<const VectorXd>(hBetaMM.data(), J) - x;
+                ++countU;
+            } else if (countU < qnQ - 1) { // Middle case
+                //secantsU.col(countU) = Map<const VectorXd>(hBeta.data(), J) - x;
+                secantsU.col(countU) = Map<const VectorXd>(hBetaMM.data(), J) - x;
+                secantsV.col(countV) = secantsU.col(countU);
+                ++countU;
+                ++countV;
+            } else { // Last time through
+            	secantsV.col(countV) = Map<const VectorXd>(hBetaMM.data(), J) - x;
+                //secantsV.col(countV) = Map<const VectorXd>(hBeta.data(), J) - x;
+                ++countV;
+            }
+            std::cout << "secantsU" << endl;
+            std::cout << secantsU << endl;
+            std::cout << "secantsV" << endl;
+            std::cout << secantsV << endl;
+
+	    }         		
 	while (!done) {
+	
+	#ifdef quasiNewton
+
+	    
+	    int newestSecant = qnQ - 1;
+	    int previousSecant = newestSecant - 1;
+			        // 2 cycles for each QN step
+	    //x = Map<const VectorXd>(hBeta.data(), J); // Make copy
+	    x = Map<const VectorXd>(hBetaMM.data(), J); // Make copy
+		variants::for_each(0, J, betaUpdater, parallelScheme);
+		
+	    //secantsU.col(newestSecant) = Map<const VectorXd>(hBeta.data(), J) - x;
+	    secantsU.col(newestSecant) = Map<const VectorXd>(hBetaMM.data(), J) - x;
+
+        //VectorXd Fx = Map<const VectorXd>(hBeta.data(), J); // TODO Can remove?
+        VectorXd Fx = Map<const VectorXd>(hBetaMM.data(), J); // TODO Can remove?
+
+        //x = Map<const VectorXd>(hBeta.data(), J);
+        x = Map<const VectorXd>(hBetaMM.data(), J); // Make copy
+        //cycle();
+        variants::for_each(0, J, betaUpdater, parallelScheme);
+        //secantsV.col(newestSecant) = Map<const VectorXd>(hBeta.data(), J) - x;
+        secantsV.col(newestSecant) = Map<const VectorXd>(hBetaMM.data(), J) - x;
+        auto M = secantsU.transpose() * (secantsU - secantsV);
+
+        auto Minv = M.inverse();
+
+        auto A = secantsU.transpose() * secantsU.col(newestSecant);
+        auto B = Minv * A;
+        auto C = secantsV * B;
+     	VectorXd xqn = Fx + C; // TODO Can remove?
+
+        // Save CCD solution
+        //x = Map<const VectorXd>(hBeta.data(), J);
+        x = Map<const VectorXd>(hBetaMM.data(), J);
+        betaUpdater.finalizeUpdate(); // set to two MM steps
+        double ccdObjective = getLogLikelihood() + getLogPrior();
+        // double savedLastObjFunc = lastObjFunc;
+		std::cout << "2 MM ccdObjective = " << ccdObjective << endl;
+		
+        Map<VectorXd>(hBeta.data(), J) = xqn; // Set QN solution
+        xBetaKnown = false;
+        checkAllLazyFlags();
+        double qnObjective = getLogLikelihood() + getLogPrior();
+		std::cout << "secant ccdObjective = " << qnObjective << endl;
+
+    	if (ccdObjective > qnObjective) { // Revert
+            Map<VectorXd>(hBeta.data(), J) = x; // Set CCD solution
+            xBetaKnown = false;
+            checkAllLazyFlags();
+
+        	double ccd2Objective = getLogLikelihood() + getLogPrior();
+
+            if (ccdObjective != ccd2Objective) {
+                std::cerr << "Poor revert: " << ccdObjective << " != " << ccd2Objective << " diff: "<< (ccdObjective - ccd2Objective) << std::endl;
+            }
+            // lastObjFunc = savedLastObjFunc;
+            std::cerr << "revert" << std::endl;
+        } else {
+            std::cerr << "accept" << std::endl;
+        }
+
+        //done = check();
+        previousSecant = newestSecant;
+        newestSecant = (newestSecant + 1) % qnQ;
+#endif
+
 	
 	#ifndef noMM
 
