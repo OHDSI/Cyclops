@@ -718,8 +718,6 @@ struct MMVariant : public AbstractVariant {
             //hBeta[index] += delta;
 #endif		
 		}			
-		
-		//cout << "mmbeta[" << index << "] = " << hBetaMM[index] << endl;
 	}  
 		
     void finalizeUpdate() {   
@@ -731,6 +729,7 @@ struct MMVariant : public AbstractVariant {
 				ccd.updateSufficientStatistics(updates[index2], index2);
 			}
 		}  
+		cout << "AH NO?!" << endl;
 #else
         modelSpecifics.computeXBeta(&hBeta[0]);
 #endif
@@ -798,6 +797,10 @@ void CyclicCoordinateDescent::update(
 	
 	double betaUpdaterScale = 1.0; 
 	int nThreads = 4;
+	int mmIndex1Limit = 1;
+	int mmIndex2Limit = 1;
+	int qnQ = 4;
+
 
 //#define noMM
 #define quasiNewton
@@ -809,8 +812,6 @@ void CyclicCoordinateDescent::update(
     cout << "betaUpdaterScale = " << betaUpdaterScale << endl;
     cout << "nThreads = " << nThreads << endl;
 #else                            
-	int mmIndex1Limit = 1;
-	int mmIndex2Limit = 1;
     auto betaUpdater = MMVariant(*this, modelSpecifics, jointPrior, hBeta, hBetaMM, fixBeta, 
                             hUpdates, hDelta, noiseLevel); 
      
@@ -828,8 +829,8 @@ void CyclicCoordinateDescent::update(
     double thisLogPost = 0; 
     double lastLogPost = 0; 
              		
-             		
-    		int qnQ = 2;
+#ifdef quasiNewton
+    	
 	    using namespace Eigen;
 
 	    Eigen::MatrixXd secantsU(J, qnQ);
@@ -844,60 +845,68 @@ void CyclicCoordinateDescent::update(
 	    for (int q = 0; q < qnQ; ++q) {
 	        x = Map<const VectorXd>(hBeta.data(), J); // Make copy
 
-	        //cycle();
-//	        for (int mmIndex1 = 0; mmIndex1 < mmIndex1Limit; mmIndex1++){
-			variants::for_each(0, J, betaUpdater, parallelScheme);
-			cout << "(" << hBetaMM[0] << "," << hBetaMM[1] << ")" << endl;
-			
-			//betaUpdater.finalizeUpdate();
-            //done = check();
-            //if (done) break;
+			variants::for_each(0, J, betaUpdater, parallelScheme);		
+			betaUpdater.finalizeUpdate();
 
             if (countU == 0) { // First time through
-                //secantsU.col(countU) = Map<const VectorXd>(hBeta.data(), J) - x;
-                secantsU.col(countU) = Map<const VectorXd>(hBetaMM.data(), J) - x;
+                secantsU.col(countU) = Map<const VectorXd>(hBeta.data(), J) - x;
                 ++countU;
             } else if (countU < qnQ - 1) { // Middle case
-                //secantsU.col(countU) = Map<const VectorXd>(hBeta.data(), J) - x;
-                secantsU.col(countU) = Map<const VectorXd>(hBetaMM.data(), J) - x;
+                secantsU.col(countU) = Map<const VectorXd>(hBeta.data(), J) - x;
                 secantsV.col(countV) = secantsU.col(countU);
                 ++countU;
                 ++countV;
             } else { // Last time through
-            	secantsV.col(countV) = Map<const VectorXd>(hBetaMM.data(), J) - x;
-                //secantsV.col(countV) = Map<const VectorXd>(hBeta.data(), J) - x;
+                secantsV.col(countV) = Map<const VectorXd>(hBeta.data(), J) - x;
                 ++countV;
             }
-            std::cout << "secantsU" << endl;
-            std::cout << secantsU << endl;
-            std::cout << "secantsV" << endl;
-            std::cout << secantsV << endl;
-
-	    }         		
+	    }  
+	    cout << "qnQ = " << qnQ << endl;
+	    cout << "secantsU = " << endl;
+	    cout << secantsU << endl;
+	    cout << "secantsV = " << endl;
+	    cout << secantsV << endl; 
+	    //exit(-1);     
+#endif  		
 	while (!done) {
 	
 	#ifdef quasiNewton
 
-	    
+		//cout << "start" << endl;
+		//cout << "beta[0] = " << hBeta[0] << endl;
+		//cout << "beta[1] = " << hBeta[1] << endl;
+		//cout << "loglikelihood = " << getLogLikelihood() + getLogPrior() << endl;
 	    int newestSecant = qnQ - 1;
 	    int previousSecant = newestSecant - 1;
-			        // 2 cycles for each QN step
-	    //x = Map<const VectorXd>(hBeta.data(), J); // Make copy
-	    x = Map<const VectorXd>(hBetaMM.data(), J); // Make copy
+		// 2 cycles for each QN step
+	    
+	    x = Map<const VectorXd>(hBeta.data(), J); // Make copy
+	    
+	    // cycle
 		variants::for_each(0, J, betaUpdater, parallelScheme);
+		betaUpdater.finalizeUpdate();
+		//cout << "after first cycle" << endl;
+		//cout << "beta[0] = " << hBeta[0] << endl;
+	    //cout << "beta[1] = " << hBeta[1] << endl;
+	    //cout << "loglikelihood = " << getLogLikelihood() + getLogPrior() << endl;
+
 		
-	    //secantsU.col(newestSecant) = Map<const VectorXd>(hBeta.data(), J) - x;
-	    secantsU.col(newestSecant) = Map<const VectorXd>(hBetaMM.data(), J) - x;
+		VectorXd Fx = Map<const VectorXd>(hBeta.data(), J); // TODO Can remove?   
+	    
+	    secantsU.col(newestSecant) = Fx - x;
 
-        //VectorXd Fx = Map<const VectorXd>(hBeta.data(), J); // TODO Can remove?
-        VectorXd Fx = Map<const VectorXd>(hBetaMM.data(), J); // TODO Can remove?
-
-        //x = Map<const VectorXd>(hBeta.data(), J);
-        x = Map<const VectorXd>(hBetaMM.data(), J); // Make copy
-        //cycle();
+        // cycle
         variants::for_each(0, J, betaUpdater, parallelScheme);
-        //secantsV.col(newestSecant) = Map<const VectorXd>(hBeta.data(), J) - x;
-        secantsV.col(newestSecant) = Map<const VectorXd>(hBetaMM.data(), J) - x;
+        betaUpdater.finalizeUpdate();
+        
+        //cout << "after second cycle" << endl;
+		//cout << "beta[0] = " << hBeta[0] << endl;
+	    //cout << "beta[1] = " << hBeta[1] << endl;
+	    //cout << "loglikelihood = " << getLogLikelihood() + getLogPrior() << endl;
+
+        
+        secantsV.col(newestSecant) = Map<const VectorXd>(hBeta.data(), J) - Fx;
+    
         auto M = secantsU.transpose() * (secantsU - secantsV);
 
         auto Minv = M.inverse();
@@ -908,23 +917,28 @@ void CyclicCoordinateDescent::update(
      	VectorXd xqn = Fx + C; // TODO Can remove?
 
         // Save CCD solution
-        //x = Map<const VectorXd>(hBeta.data(), J);
-        x = Map<const VectorXd>(hBetaMM.data(), J);
-        betaUpdater.finalizeUpdate(); // set to two MM steps
+        x = Map<const VectorXd>(hBeta.data(), J);
+        
         double ccdObjective = getLogLikelihood() + getLogPrior();
-        // double savedLastObjFunc = lastObjFunc;
-		std::cout << "2 MM ccdObjective = " << ccdObjective << endl;
+        
+		std::cout << "2 steps ccdObjective = " << ccdObjective << endl;
 		
         Map<VectorXd>(hBeta.data(), J) = xqn; // Set QN solution
-        xBetaKnown = false;
-        checkAllLazyFlags();
+        modelSpecifics.computeXBeta(&hBeta[0]);
+		computeRemainingStatistics(true,0);
+		
+		//cout << "after set to secant" << endl;
+		//cout << "beta[0] = " << hBeta[0] << endl;
+	    //cout << "beta[1] = " << hBeta[1] << endl;
+	    //cout << "loglikelihood = " << getLogLikelihood() + getLogPrior() << endl;
+
         double qnObjective = getLogLikelihood() + getLogPrior();
 		std::cout << "secant ccdObjective = " << qnObjective << endl;
 
     	if (ccdObjective > qnObjective) { // Revert
             Map<VectorXd>(hBeta.data(), J) = x; // Set CCD solution
-            xBetaKnown = false;
-            checkAllLazyFlags();
+        	modelSpecifics.computeXBeta(&hBeta[0]);
+			computeRemainingStatistics(true,0);
 
         	double ccd2Objective = getLogLikelihood() + getLogPrior();
 
@@ -936,33 +950,28 @@ void CyclicCoordinateDescent::update(
         } else {
             std::cerr << "accept" << std::endl;
         }
+        cout << "at end" << endl;
+		cout << "beta[0] = " << hBeta[0] << endl;
+	    cout << "beta[1] = " << hBeta[1] << endl;
+	    cout << "loglikelihood = " << getLogLikelihood() << endl;
+
 
         //done = check();
         previousSecant = newestSecant;
         newestSecant = (newestSecant + 1) % qnQ;
 #endif
 
-	
+	#ifndef quasiNewton
 	#ifndef noMM
 
 	for (int mmIndex1 = 0; mmIndex1 < mmIndex1Limit; mmIndex1++){
 		variants::for_each(0, J, betaUpdater, parallelScheme);
-		//cout << mmIndex1 << endl;
-		//cout << "(" << hBetaMM[0] << "," << hBetaMM[1] << ")" << endl;
 	}
-	//cout << "--------------------------" << hBetaMM[0] << "," << hBetaMM[1] << "" << endl;
 	
-	#else
-	//	variants::for_each(0, J, betaUpdater, parallelScheme);
-	//	cout << "" << hBeta[0] << "," << hBeta[1] << "" << endl;
 	#endif
 	
-		if (iteration == 2){
-			//exit(-1);
-		}
-	    
-		betaUpdater.finalizeUpdate();
-		
+	betaUpdater.finalizeUpdate();
+	cout << "don't see this" << endl;
 		
 #ifndef noMM
 	    if (lastLogPost > thisLogPost && iteration != 1){
@@ -970,7 +979,11 @@ void CyclicCoordinateDescent::update(
 	 		betaUpdater.setScale(betaUpdaterScale);  
 	    }
 #endif
-		
+#endif
+		if (iteration == 1){
+			//exit(-1); 
+		}
+
 		iteration++;
 //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
 		bool checkConvergence = true; // Check after each complete cycle
@@ -1002,7 +1015,6 @@ void CyclicCoordinateDescent::update(
 			double thisLogPrior = getLogPrior();
 			thisLogPost = thisLogLikelihood + thisLogPrior;
             std::ostringstream stream;
-            
 			if (noiseLevel > QUIET) {			    
 				stream << "\n";				
 				printVector(&hBeta[0], J, stream);
@@ -1030,7 +1042,7 @@ void CyclicCoordinateDescent::update(
 				lastReturnFlag = MAX_ITERATIONS;
 			}
 			if (noiseLevel > QUIET) {
-                //logger->writeLine(stream);
+                logger->writeLine(stream);
 			}
 			logger->yield();			
 		}						
