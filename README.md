@@ -15,6 +15,10 @@ Features
  - Supports automatic selection of hyperparameter through cross-validation
  - Efficient estimation of confidence intervals for a single variable using a profile-likelihood for that variable
 
+Massive Parallelization
+========
+  - Preliminary implementation using `OpenCL` via `boost::compute` provided in the `BoostCompute` package
+
 Examples
 ========
 
