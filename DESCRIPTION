@@ -28,7 +28,8 @@ LinkingTo: Rcpp,
     BH (>= 1.51.0),
     RcppEigen (>= 0.3.2),
     RcppParallel,
-    BoostCompiledLibraries
+    BoostCompiledLibraries,
+    RcppBoostCompute
 Suggests:
     testthat,
     survival,
