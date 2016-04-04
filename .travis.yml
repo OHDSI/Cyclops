@@ -99,13 +99,11 @@ install:
   - Rscript -e "if (!require('RcppEigen')) install.packages('RcppEigen')"
   - Rscript -e "if (!require('testthat')) install.packages('testthat')"
   - Rscript -e "if (!require('gnm')) install.packages('gnm')"
-  - find ${AMDAPPSDKROOT}
   - export CPLUS_INCLUDE_PATH=${AMDAPPSDKROOT}/include
-  - echo ${CPLUS_INCLUDE_PATH}
   - export LD_LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64:${LD_LIBRARY_PATH}
   - export LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64:${LIBRARY_PATH}  
   - Rscript -e "if (!require('BoostCompiledLibraries')) { devtools::install_github('OHDSI/BoostCompiledLibraries') }"
-#  - Rscript -e "if (!require('RcppBoostCompute')) { devtools::install_github('OHDSI/RcppBoostCompute') }"
+  - Rscript -e "if (!require('RcppBoostCompute')) { devtools::install_github('OHDSI/RcppBoostCompute') }"
   
 before_script:
   - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
