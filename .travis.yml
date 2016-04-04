@@ -102,7 +102,7 @@ install:
   - export CPLUS_INCLUDE_PATH=${AMDAPPSDKROOT}/include:${CPLUS_INCLUDE_PATH}
   - export LD_LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64:${LD_LIBRARY_PATH}
   - export LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64:${LIBRARY_PATH}  
-#  - Rscript -e "if (!require('BoostCompiledLibraries')) { devtools::install_github('OHDSI/BoostCompiledLibraries') }"
+  - Rscript -e "if (!require('BoostCompiledLibraries')) { devtools::install_github('OHDSI/BoostCompiledLibraries') }"
 #  - Rscript -e "if (!require('RcppBoostCompute')) { devtools::install_github('OHDSI/RcppBoostCompute') }"
   
 before_script:

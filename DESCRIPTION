@@ -27,7 +27,8 @@ Imports:
 LinkingTo: Rcpp,
     BH (>= 1.51.0),
     RcppEigen (>= 0.3.2),
-    RcppParallel
+    RcppParallel,
+    BoostCompiledLibraries
 Suggests:
     testthat,
     survival,
