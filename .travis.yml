@@ -52,6 +52,24 @@ cache:
     - ~/Rlib     # R libraries
     - ~/texlive  # LaTex 
     - ~/bin      # pandoc 
+    
+before_install:
+  - |
+    if [[ "linux" == "linux" ]]; then    
+      mkdir -p ${OPENCL_ROOT}
+      bash .travis/amd_sdk.sh ${AMDAPPSDK_VERSION}
+      tar -xjf AMD-SDK.tar.bz2
+      export OPENCL_VENDOR_PATH=${AMDAPPSDKROOT}/etc/OpenCL/vendors
+      mkdir -p ${OPENCL_VENDOR_PATH}
+      sh AMD-APP-SDK*.sh --tar -xf -C ${AMDAPPSDKROOT}
+      echo libamdocl64.so > ${OPENCL_VENDOR_PATH}/amdocl64.icd
+      export LD_LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64:${LD_LIBRARY_PATH}
+      export CMAKE_LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64;      
+      chmod +x ${AMDAPPSDKROOT}/bin/x86_64/clinfo
+      ${AMDAPPSDKROOT}/bin/x86_64/clinfo
+      rm AMD-APP-SDK*.sh
+      rm AMD-SDK.tar.bz2
+    fi    
 
 # install dependencies
 install:
@@ -80,6 +98,8 @@ install:
   - Rscript -e "if (!require('RcppEigen')) install.packages('RcppEigen')"
   - Rscript -e "if (!require('testthat')) install.packages('testthat')"
   - Rscript -e "if (!require('gnm')) install.packages('gnm')"
+  - Rscript -e "if (!require('BoostCompiledLibraries')) devtools::install_github('OHDSI/BoostCompiledLibraries')"  
+  - Rscript -e "if (!require('RcppBoostCompute')) devtools::install_github('OHDSI/RcppBoostCompute')"  
   
 before_script:
   - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
@@ -102,3 +122,8 @@ after_success:
 env:
   global:
   - secure: OqWkvryQHJ8TCDu++1fjNNfd+ECuPH+og++cXgfpQ3QcTjReD0cc3dGP+tD3GX18H9jJa+MQzNXyBCHn8+o1b1MRiUGAKuxD0vsZ2iQ/1nZYiL2cKJbei36vJPVg82D68zOsE/G5rESKFOQKUC+OqNHcneyk1+cwsU7zvQTtBhU=
+  - OPENCL_ROOT=$HOME/opencl
+  - OPENCL_LIB=amdappsdk
+  - OPENCL_VERSION="12"
+  - AMDAPPSDK_VERSION=291 # OpenCL 1.2   
+  - AMDAPPSDKROOT=${OPENCL_ROOT}/AMDAPPSDK     

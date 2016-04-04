@@ -16,3 +16,4 @@ Untitled.R
 \.txt$
 extras
 deploy.sh
+.travis
