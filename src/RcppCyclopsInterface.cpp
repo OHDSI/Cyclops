@@ -678,16 +678,12 @@ void RcppCcdInterface::initializeModelImpl(
 	// Parse type of model
 	ModelType modelType = parseModelType(arguments.modelName);
 
-	*model = AbstractModelSpecifics::factory(modelType, **modelData);
+	DeviceType deviceType = DeviceType::GPU;
+
+	*model = AbstractModelSpecifics::factory(modelType, **modelData, deviceType);
 	if (*model == nullptr) {
 		handleError("Invalid model type.");
 	}
-
- #ifdef CUDA
- 	if (arguments.useGPU) {
- 		*ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, *reader, **model);
- 	} else {
- #endif
 
  // Hierarchy management
 // 	HierarchyReader* hierarchyData;
@@ -755,10 +751,6 @@ void RcppCcdInterface::initializeModelImpl(
          **modelData /* TODO Change to ref */,
          //bsccs::shared_ptr<ModelData>(*modelData),
          **model, prior, logger, error);
-
- #ifdef CUDA
- 	}
- #endif
 
  	(*ccd)->setNoiseLevel(arguments.noiseLevel);
 

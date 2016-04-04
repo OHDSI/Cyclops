@@ -134,6 +134,12 @@ enum class ModelType {
 	SIZE_OF_ENUM // Keep at end
 };
 
+enum class DeviceType {
+    CPU = 0,
+    GPU,
+    SIZE_OF_ENUM // Keep at end
+};
+
 enum class SelectorType {
 	DEFAULT,
 	BY_PID,
