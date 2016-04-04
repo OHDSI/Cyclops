@@ -54,22 +54,23 @@ cache:
     - ~/bin      # pandoc 
     
 before_install:
-  - |
-    if [[ "linux" == "linux" ]]; then    
-      mkdir -p ${OPENCL_ROOT}
-      bash .travis/amd_sdk.sh ${AMDAPPSDK_VERSION}
-      tar -xjf AMD-SDK.tar.bz2
-      export OPENCL_VENDOR_PATH=${AMDAPPSDKROOT}/etc/OpenCL/vendors
-      mkdir -p ${OPENCL_VENDOR_PATH}
-      sh AMD-APP-SDK*.sh --tar -xf -C ${AMDAPPSDKROOT}
-      echo libamdocl64.so > ${OPENCL_VENDOR_PATH}/amdocl64.icd
-      export LD_LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64:${LD_LIBRARY_PATH}
-      export CMAKE_LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64;      
-      chmod +x ${AMDAPPSDKROOT}/bin/x86_64/clinfo
-      ${AMDAPPSDKROOT}/bin/x86_64/clinfo
-      rm AMD-APP-SDK*.sh
-      rm AMD-SDK.tar.bz2
-    fi    
+    rm -rf ~/Rlib
+#  - |
+#    if [[ "linux" == "linux" ]]; then    
+#      mkdir -p ${OPENCL_ROOT}
+#      bash .travis/amd_sdk.sh ${AMDAPPSDK_VERSION}
+#      tar -xjf AMD-SDK.tar.bz2
+#      export OPENCL_VENDOR_PATH=${AMDAPPSDKROOT}/etc/OpenCL/vendors
+#      mkdir -p ${OPENCL_VENDOR_PATH}
+#      sh AMD-APP-SDK*.sh --tar -xf -C ${AMDAPPSDKROOT}
+#      echo libamdocl64.so > ${OPENCL_VENDOR_PATH}/amdocl64.icd
+#      export LD_LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64:${LD_LIBRARY_PATH}
+#      export CMAKE_LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64;      
+#      chmod +x ${AMDAPPSDKROOT}/bin/x86_64/clinfo
+#      ${AMDAPPSDKROOT}/bin/x86_64/clinfo
+#      rm AMD-APP-SDK*.sh
+#      rm AMD-SDK.tar.bz2
+#    fi    
 
 # install dependencies
 install:
@@ -98,11 +99,11 @@ install:
   - Rscript -e "if (!require('RcppEigen')) install.packages('RcppEigen')"
   - Rscript -e "if (!require('testthat')) install.packages('testthat')"
   - Rscript -e "if (!require('gnm')) install.packages('gnm')"
-  - export CPLUS_INCLUDE_PATH=${AMDAPPSDKROOT}/include:${CPLUS_INCLUDE_PATH}
-  - export LD_LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64:${LD_LIBRARY_PATH}
-  - export LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64:${LIBRARY_PATH}  
-  - Rscript -e "if (!require('BoostCompiledLibraries')) { devtools::install_github('OHDSI/BoostCompiledLibraries') }"
-  - Rscript -e "if (!require('RcppBoostCompute')) { devtools::install_github('OHDSI/RcppBoostCompute') }"
+#  - export CPLUS_INCLUDE_PATH=${AMDAPPSDKROOT}/include:${CPLUS_INCLUDE_PATH}
+#  - export LD_LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64:${LD_LIBRARY_PATH}
+#  - export LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64:${LIBRARY_PATH}  
+#  - Rscript -e "if (!require('BoostCompiledLibraries')) { devtools::install_github('OHDSI/BoostCompiledLibraries') }"
+#  - Rscript -e "if (!require('RcppBoostCompute')) { devtools::install_github('OHDSI/RcppBoostCompute') }"
   
 before_script:
   - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
