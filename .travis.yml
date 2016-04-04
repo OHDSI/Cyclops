@@ -98,12 +98,15 @@ install:
   - Rscript -e "if (!require('RcppEigen')) install.packages('RcppEigen')"
   - Rscript -e "if (!require('testthat')) install.packages('testthat')"
   - Rscript -e "if (!require('gnm')) install.packages('gnm')"
-  - Rscript -e "if (!require('BoostCompiledLibraries')) devtools::install_github('OHDSI/BoostCompiledLibraries')"  
-  - Rscript -e "if (!require('RcppBoostCompute')) devtools::install_github('OHDSI/RcppBoostCompute')"  
+  - Rscript -e "if (!require('BoostCompiledLibraries')) { devtools::install_github('OHDSI/BoostCompiledLibraries') }"
+  - Rscript -e "if (!require('RcppBoostCompute')) { devtools::install_github('OHDSI/RcppBoostCompute') }"
   
 before_script:
   - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
   - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')
+  - export CPLUS_INCLUDE_PATH=${AMDAPPSDKROOT}/include:${CPLUS_INCLUDE_PATH}
+  - export LD_LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64:${LD_LIBRARY_PATH}
+  - export LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64:${LIBRARY_PATH}
   
  # Build and check package
 script:
@@ -116,7 +119,6 @@ after_success:
   # Rebuild docker container
   - curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/development/trigger/e51f720d-c4e7-45df-b042-5d8a362bd7e0/
   # Rebuild drat repo   
-  - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')    
   - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && bash deploy.sh
   
 env:
