@@ -1,5 +1,5 @@
 /*
- * RcppOpenGpuInterface.cpp
+ * RcppGpuInterface.cpp
  *
  * @author Marc Suchard
  */
@@ -14,7 +14,7 @@ Rcpp::CharacterVector listOpenCLDevices() {
 	using namespace Rcpp;
 
 	CharacterVector devices;
-    for(const auto &device : boost::compute::system::devices()) {
+    for (const auto &device : boost::compute::system::devices()) {
 		devices.push_back(device.name());
 	}
 

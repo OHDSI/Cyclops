@@ -13,6 +13,3 @@ CMakefiles/**
 Makefile
 cmake_install.cmake
 codebase/**
-/config.*
-src/Makevars
-autom4te.cache
