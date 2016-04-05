@@ -14,5 +14,5 @@ Makefile
 cmake_install.cmake
 codebase/**
 /config.*
-#src/Makevars
+src/Makevars
 autom4te.cache
