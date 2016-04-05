@@ -99,7 +99,8 @@ public:
 
 	static AbstractModelSpecifics* factory(const ModelType modelType,
                                            const ModelData& modelData,
-                                           const DeviceType deviceType);
+                                           const DeviceType deviceType,
+                                           const std::string& deviceName);
 
 	// TODO Remove the following
 	RealVector& getXBeta() { return hXBeta; }
@@ -108,13 +109,14 @@ public:
 
 protected:
 
-    template <class Engine>
-    static AbstractModelSpecifics* modelFactory(const ModelType modelType,
-                                           const ModelData& modelData);
+//     template <class Engine>
+//     static AbstractModelSpecifics* modelFactory(const ModelType modelType,
+//                                            const ModelData& modelData);
 
-    template <class Model>
+    template <class Model, typename RealType>
     static AbstractModelSpecifics* deviceFactory(const ModelData& modelData,
-                                                 const DeviceType deviceType);
+                                                 const DeviceType deviceType,
+                                                 const std::string& deviceName);
 
 	int getAlignedLength(int N);
 

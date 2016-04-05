@@ -46,6 +46,17 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// cyclopsGetComputeDevice
+std::string cyclopsGetComputeDevice(SEXP inRcppCcdInterface);
+RcppExport SEXP Cyclops_cyclopsGetComputeDevice(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    __result = Rcpp::wrap(cyclopsGetComputeDevice(inRcppCcdInterface));
+    return __result;
+END_RCPP
+}
 // cyclopsSetBeta
 void cyclopsSetBeta(SEXP inRcppCcdInterface, const std::vector<double>& beta);
 RcppExport SEXP Cyclops_cyclopsSetBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP) {
@@ -232,15 +243,36 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsInitializeModel
-List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, bool computeMLE);
-RcppExport SEXP Cyclops_cyclopsInitializeModel(SEXP inModelDataSEXP, SEXP modelTypeSEXP, SEXP computeMLESEXP) {
+List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, const std::string& computeDevice, bool computeMLE);
+RcppExport SEXP Cyclops_cyclopsInitializeModel(SEXP inModelDataSEXP, SEXP modelTypeSEXP, SEXP computeDeviceSEXP, SEXP computeMLESEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
     Rcpp::traits::input_parameter< SEXP >::type inModelData(inModelDataSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type modelType(modelTypeSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type computeDevice(computeDeviceSEXP);
     Rcpp::traits::input_parameter< bool >::type computeMLE(computeMLESEXP);
-    __result = Rcpp::wrap(cyclopsInitializeModel(inModelData, modelType, computeMLE));
+    __result = Rcpp::wrap(cyclopsInitializeModel(inModelData, modelType, computeDevice, computeMLE));
+    return __result;
+END_RCPP
+}
+// listOpenCLDevices
+Rcpp::CharacterVector listOpenCLDevices();
+RcppExport SEXP Cyclops_listOpenCLDevices() {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    __result = Rcpp::wrap(listOpenCLDevices());
+    return __result;
+END_RCPP
+}
+// getDefaultOpenCLDevice
+std::string getDefaultOpenCLDevice();
+RcppExport SEXP Cyclops_getDefaultOpenCLDevice() {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    __result = Rcpp::wrap(getDefaultOpenCLDevice());
     return __result;
 END_RCPP
 }

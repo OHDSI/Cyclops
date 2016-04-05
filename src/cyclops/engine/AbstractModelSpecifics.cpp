@@ -58,18 +58,19 @@ namespace bsccs {
 // }
 
 
-template <class Model>
+template <class Model, typename RealType>
 AbstractModelSpecifics* AbstractModelSpecifics::deviceFactory(
         const ModelData& modelData,
-        const DeviceType deviceType) {
+        const DeviceType deviceType,
+        const std::string& deviceName) {
     AbstractModelSpecifics* model = nullptr;
 
     switch (deviceType) {
     case DeviceType::CPU :
-        model = new ModelSpecifics<Model,real>(modelData);
+        model = new ModelSpecifics<Model,RealType>(modelData);
         break;
     case DeviceType::GPU :
-        model = new GpuModelSpecifics<Model,real>(modelData);
+        model = new GpuModelSpecifics<Model,RealType>(modelData, deviceName);
         break;
     default:
         break; // nullptr
@@ -120,35 +121,41 @@ AbstractModelSpecifics* AbstractModelSpecifics::deviceFactory(
 
 AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelType,
                                                         const ModelData& modelData,
-                                                        const DeviceType deviceType) {
+                                                        const DeviceType deviceType,
+                                                        const std::string& deviceName) {
     AbstractModelSpecifics* model = nullptr;
+
+    if (modelType != ModelType::LOGISTIC && deviceType == DeviceType::GPU) {
+        return model; // Implementing lr first on GPU.
+    }
+
     switch (modelType) {
     case ModelType::SELF_CONTROLLED_MODEL :
-        model =  deviceFactory<SelfControlledCaseSeries<real> >(modelData, deviceType);
+        model =  deviceFactory<SelfControlledCaseSeries<real>,real>(modelData, deviceType, deviceName);
         break;
     case ModelType::CONDITIONAL_LOGISTIC :
-        model =  deviceFactory<ConditionalLogisticRegression<real> >(modelData, deviceType);
+        model =  deviceFactory<ConditionalLogisticRegression<real>,real>(modelData, deviceType, deviceName);
         break;
     case ModelType::TIED_CONDITIONAL_LOGISTIC :
-        model =  deviceFactory<TiedConditionalLogisticRegression<real> >(modelData, deviceType);
+        model =  deviceFactory<TiedConditionalLogisticRegression<real>,real>(modelData, deviceType, deviceName);
         break;
     case ModelType::LOGISTIC :
-        model = deviceFactory<LogisticRegression<real> >(modelData, deviceType);
+        model = deviceFactory<LogisticRegression<real>,real>(modelData, deviceType, deviceName);
         break;
     case ModelType::NORMAL :
-        model = deviceFactory<LeastSquares<real> >(modelData, deviceType);
+        model = deviceFactory<LeastSquares<real>,real>(modelData, deviceType, deviceName);
         break;
     case ModelType::POISSON :
-        model = deviceFactory<PoissonRegression<real> >(modelData, deviceType);
+        model = deviceFactory<PoissonRegression<real>,real>(modelData, deviceType, deviceName);
         break;
     case ModelType::CONDITIONAL_POISSON :
-        model = deviceFactory<ConditionalPoissonRegression<real> >(modelData, deviceType);
+        model = deviceFactory<ConditionalPoissonRegression<real>,real>(modelData, deviceType, deviceName);
         break;
     case ModelType::COX_RAW :
-        model = deviceFactory<CoxProportionalHazards<real> >(modelData, deviceType);
+        model = deviceFactory<CoxProportionalHazards<real>,real>(modelData, deviceType, deviceName);
         break;
     case ModelType::COX :
-        model = deviceFactory<BreslowTiedCoxProportionalHazards<real> >(modelData, deviceType);
+        model = deviceFactory<BreslowTiedCoxProportionalHazards<real>,real>(modelData, deviceType, deviceName);
         break;
     default:
         break;

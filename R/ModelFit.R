@@ -31,6 +31,7 @@
 #' @param forceNewObject Logical, forces the construction of a new Cyclops model fit object
 #' @param returnEstimates Logical, return regression coefficient estimates in Cyclops model fit object
 #' @param startingCoefficients Vector of starting values for optimization
+#' @param computeDevice String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU
 #'
 #' @return
 #' A list that contains a Cyclops model fit object pointer and an operation duration
@@ -66,7 +67,8 @@ fitCyclopsModel <- function(cyclopsData,
                             weights = NULL,
                             forceNewObject = FALSE,
                             returnEstimates = TRUE,
-                            startingCoefficients = NULL) {
+                            startingCoefficients = NULL,
+                            computeDevice = "native") {
 
     cl <- match.call()
 
@@ -79,7 +81,7 @@ fitCyclopsModel <- function(cyclopsData,
         stop("Data are incompletely loaded")
     }
 
-    .checkInterface(cyclopsData, forceNewObject)
+    .checkInterface(cyclopsData, computeDevice =  computeDevice, forceNewObject = forceNewObject)
 
     if (missing(prior)) {
         prior <- createPrior("none")
@@ -146,6 +148,7 @@ fitCyclopsModel <- function(cyclopsData,
     }
 
     threads <- 1
+
     if (!missing(control)) {
         .setControl(cyclopsData$cyclopsInterfacePtr, control)
         threads <- control$threads
@@ -237,18 +240,24 @@ fitCyclopsModel <- function(cyclopsData,
     }
 }
 
-.checkInterface <- function(x, forceNewObject = FALSE, testOnly = FALSE) {
+.checkInterface <- function(x, computeDevice = "native", forceNewObject = FALSE, testOnly = FALSE) {
     if (forceNewObject
         || is.null(x$cyclopsInterfacePtr)
         || class(x$cyclopsInterfacePtr) != "externalptr"
         || .isRcppPtrNull(x$cyclopsInterfacePtr)
+        || .cyclopsGetComputeDevice(x$cyclopsInterfacePtr) != computeDevice
     ) {
 
         if (testOnly == TRUE) {
             stop("Interface object is not initialized")
         }
+
+        if (computeDevice != "native") {
+            stopifnot(computeDevice %in% listOpenCLDevices())
+        }
+
         # Build interface
-        interface <- .cyclopsInitializeModel(x$cyclopsDataPtr, modelType = x$modelType, computeMLE = TRUE)
+        interface <- .cyclopsInitializeModel(x$cyclopsDataPtr, modelType = x$modelType, computeDevice, computeMLE = TRUE)
         # TODO Check for errors
         assign("cyclopsInterfacePtr", interface$interface, x)
     }
@@ -580,7 +589,7 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
             control$seed <- as.integer(Sys.time())
         }
 
-        .cyclopsSetControl(cyclopsInterfacePtr, control$maxIterations, control$tolerance,
+       .cyclopsSetControl(cyclopsInterfacePtr, control$maxIterations, control$tolerance,
                            control$convergenceType, control$autoSearch, control$fold,
                            (control$fold * control$cvRepetitions),
                            control$lowerLimit, control$upperLimit, control$gridSteps,

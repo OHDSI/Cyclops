@@ -59,6 +59,14 @@ struct CrossValidationArguments {
         { }
 };
 
+struct ComputeDeviceArguments {
+    std::string name;
+
+    ComputeDeviceArguments() :
+        name("native")
+    { }
+};
+
 struct ModeFindingArguments {
 
 	// All options related to mode-finding should (TODO) go here
@@ -132,6 +140,7 @@ struct CCDArguments {
 
 	ModeFindingArguments modeFinding;
 	CrossValidationArguments crossValidation;
+	ComputeDeviceArguments computeDevice;
 };
 
 

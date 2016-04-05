@@ -93,6 +93,13 @@ std::vector<std::string> cyclopsGetUseOffsetNames() {
 	return names;
 }
 
+// [[Rcpp::export(.cyclopsGetComputeDevice)]]
+std::string cyclopsGetComputeDevice(SEXP inRcppCcdInterface) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    return interface->getArguments().computeDevice.name;
+}
+
 // [[Rcpp::export(.cyclopsSetBeta)]]
 void cyclopsSetBeta(SEXP inRcppCcdInterface, const std::vector<double>& beta) {
     using namespace bsccs;
@@ -402,15 +409,16 @@ List cyclopsLogModel(SEXP inRcppCcdInterface) {
 }
 
 // [[Rcpp::export(".cyclopsInitializeModel")]]
-List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, bool computeMLE = false) {
+List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, const std::string& computeDevice,
+                            bool computeMLE = false) {
 	using namespace bsccs;
 
 	XPtr<RcppModelData> rcppModelData(inModelData);
 	XPtr<RcppCcdInterface> interface(
 		new RcppCcdInterface(*rcppModelData));
 
-//	interface->getArguments().modelName = "ls"; // TODO Pass as argument
 	interface->getArguments().modelName = modelType;
+	interface->getArguments().computeDevice.name = computeDevice;
 	if (computeMLE) {
 		interface->getArguments().computeMLE = true;
 	}
@@ -678,9 +686,12 @@ void RcppCcdInterface::initializeModelImpl(
 	// Parse type of model
 	ModelType modelType = parseModelType(arguments.modelName);
 
-	DeviceType deviceType = DeviceType::GPU;
+	const std::string& deviceName = arguments.computeDevice.name;
+	DeviceType deviceType = (deviceName == "native")
+	    ? DeviceType::CPU : DeviceType::GPU;
 
-	*model = AbstractModelSpecifics::factory(modelType, **modelData, deviceType);
+	*model = AbstractModelSpecifics::factory(modelType, **modelData,
+                                          deviceType, deviceName);
 	if (*model == nullptr) {
 		handleError("Invalid model type.");
 	}

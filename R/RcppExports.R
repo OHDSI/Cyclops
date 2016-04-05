@@ -17,6 +17,10 @@
     .Call('Cyclops_cyclopsGetUseOffsetNames', PACKAGE = 'Cyclops')
 }
 
+.cyclopsGetComputeDevice <- function(inRcppCcdInterface) {
+    .Call('Cyclops_cyclopsGetComputeDevice', PACKAGE = 'Cyclops', inRcppCcdInterface)
+}
+
 .cyclopsSetBeta <- function(inRcppCcdInterface, beta) {
     invisible(.Call('Cyclops_cyclopsSetBeta', PACKAGE = 'Cyclops', inRcppCcdInterface, beta))
 }
@@ -73,8 +77,17 @@
     .Call('Cyclops_cyclopsLogModel', PACKAGE = 'Cyclops', inRcppCcdInterface)
 }
 
-.cyclopsInitializeModel <- function(inModelData, modelType, computeMLE = FALSE) {
-    .Call('Cyclops_cyclopsInitializeModel', PACKAGE = 'Cyclops', inModelData, modelType, computeMLE)
+.cyclopsInitializeModel <- function(inModelData, modelType, computeDevice, computeMLE = FALSE) {
+    .Call('Cyclops_cyclopsInitializeModel', PACKAGE = 'Cyclops', inModelData, modelType, computeDevice, computeMLE)
+}
+
+#' @export
+listOpenCLDevices <- function() {
+    .Call('Cyclops_listOpenCLDevices', PACKAGE = 'Cyclops')
+}
+
+.getDefaultOpenCLDevice <- function() {
+    .Call('Cyclops_getDefaultOpenCLDevice', PACKAGE = 'Cyclops')
 }
 
 .isSorted <- function(dataFrame, indexes, ascending) {
