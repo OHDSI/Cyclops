@@ -54,7 +54,7 @@ cache:
     - ~/bin      # pandoc 
     
 before_install:
-  - rm -rf ~/Rlib # Reinstall all packages
+#  - rm -rf ~/Rlib # Reinstall all packages
   - |
     if [[ "linux" == "linux" ]]; then    
       mkdir -p ${OPENCL_ROOT}
