@@ -11,10 +11,10 @@
 #include "AbstractModelSpecifics.h"
 #include "ModelData.h"
 #include "engine/ModelSpecifics.h"
-#include "engine/GpuModelSpecifics.hpp"
-// #include "io/InputReader.h"
 
-//#include "Rcpp.h"
+#ifdef HAVE_OPENCL
+#include "engine/GpuModelSpecifics.hpp"
+#endif // HAVE_OPENCL
 
 namespace bsccs {
 
@@ -69,9 +69,11 @@ AbstractModelSpecifics* AbstractModelSpecifics::deviceFactory(
     case DeviceType::CPU :
         model = new ModelSpecifics<Model,RealType>(modelData);
         break;
+#ifdef HAVE_OPENCL
     case DeviceType::GPU :
         model = new GpuModelSpecifics<Model,RealType>(modelData, deviceName);
         break;
+#endif // HAVE_OPENCL
     default:
         break; // nullptr
     }
