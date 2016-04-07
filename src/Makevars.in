@@ -54,3 +54,13 @@ OBJECTS = $(OBJECTS.cyclops) $(OBJECTS.drivers) \
           $(OBJECTS.engine) $(OBJECTS.utils) \
           $(OBJECTS.threads) $(OBJECTS.R) \
           $(OBJECTS.priors) $(OBJECTS.io)
+
+all : $(SHLIB)
+          
+cyclops/engine/AbstractModelSpecifics.o : cyclops/engine/ModelSpecifics.h cyclops/engine/ModelSpecifics.hpp cyclops/engine/GPUModelSpecifics.hpp
+
+%.h :
+
+%.hpp :
+
+
