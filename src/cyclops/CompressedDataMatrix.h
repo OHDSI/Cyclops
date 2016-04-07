@@ -368,6 +368,8 @@ public:
 //	        real_vector* r = new real_vector();
             RealVectorPtr r = make_shared<RealVector>();
 	        insert(allColumns.begin() + position, NULL, r, DENSE);
+	    } else if (colFormat == INTERCEPT) {
+	        insert(allColumns.begin() + position, NULL, NULL, INTERCEPT);
 	    } else {
             throw new std::invalid_argument("Unknown type");
 	    }
