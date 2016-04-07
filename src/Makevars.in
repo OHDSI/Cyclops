@@ -59,8 +59,8 @@ all : $(SHLIB)
           
 cyclops/engine/AbstractModelSpecifics.o : cyclops/engine/ModelSpecifics.h cyclops/engine/ModelSpecifics.hpp cyclops/engine/GPUModelSpecifics.hpp
 
-%.h :
+cyclops/engine/ModelSpecifics.h :
 
-%.hpp :
+cyclops/engine/ModelSpecifics.hpp :
 
-
+cyclops/engine/GPUModelSpecifics.hpp :
