@@ -227,6 +227,11 @@ protected:
 
 	void printTiming(void);
 
+#ifdef CYCLOPS_DEBUG_TIMING
+	//	std::vector<double> duration;
+	std::map<std::string,long long> duration;
+#endif
+
 private:
 	template <class IteratorType, class Weights>
 	void computeGradientAndHessianImpl(
@@ -278,12 +283,6 @@ private:
 	ParallelInfo info;
 
 //	C11ThreadPool threadPool;
-
-#ifdef CYCLOPS_DEBUG_TIMING
-//	std::vector<double> duration;
-	std::map<std::string,long long> duration;
-#endif
-
 };
 
 template <typename WeightType>

@@ -118,6 +118,8 @@ protected:
                                                  const DeviceType deviceType,
                                                  const std::string& deviceName);
 
+    virtual void deviceInitialization();
+
 	int getAlignedLength(int N);
 
 	void setPidForAccumulation(const real *weights);

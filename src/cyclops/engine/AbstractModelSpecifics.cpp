@@ -323,6 +323,10 @@ void AbstractModelSpecifics::setupSparseIndices(const int max) {
 	}
 }
 
+void AbstractModelSpecifics::deviceInitialization() {
+    // Do nothing
+}
+
 void AbstractModelSpecifics::initialize(
 		int iN,
 		int iK,
@@ -374,6 +378,8 @@ void AbstractModelSpecifics::initialize(
 	denomPid.resize(alignedLength);
 	numerPid.resize(alignedLength);
 	numerPid2.resize(alignedLength);
+
+	deviceInitialization();
 
 }
 
