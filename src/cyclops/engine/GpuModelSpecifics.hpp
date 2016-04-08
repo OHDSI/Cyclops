@@ -8,6 +8,8 @@
 #ifndef GPUMODELSPECIFICS_HPP_
 #define GPUMODELSPECIFICS_HPP_
 
+#include <Rcpp.h>
+
 #include "ModelSpecifics.h"
 
 #include <boost/compute/algorithm/reduce.hpp>
@@ -48,7 +50,9 @@ void compare(const HostVec& host, const DeviceVec& device, const std::string& er
         }
     }
     if (!valid) {
-        throw new std::logic_error(error);
+        //forward_exception_to_r(error);
+        Rcpp::stop(error);
+        // throw new std::logic_error(error);
     }
 }
 
@@ -175,9 +179,6 @@ public:
         detail::resizeAndCopyToDevice(offsExpXBeta, dExpXBeta, queue);
         detail::resizeAndCopyToDevice(denomPid, dDenominator, queue);
         detail::resizeAndCopyToDevice(hPidInternal, dId, queue);
-//         dXBeta = detail::allocateAndCopyToDevice<compute::vector<real> >(hXBeta, ctx, queue);
-//         dExpXBeta = detail::allocateAndCopyToDevice<compute::vector<real> >(offsExpXBeta, ctx, queue);
-//         dDenominator = detail::allocateAndCopyToDevice<compute::vector<real> >(denomPid, ctx, queue);
 
         std::cerr << "Format types required: " << need << std::endl;
 
@@ -186,12 +187,31 @@ public:
         printAllKernels();
     }
 
+    virtual void computeRemainingStatistics(bool useWeights) {
+
+        ModelSpecifics<BaseModel, WeightType>::computeRemainingStatistics(useWeights);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+        compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta), queue); // TODO is this necessary?
+        compute::copy(std::begin(denomPid), std::end(denomPid), std::begin(dDenominator), queue);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        duration["compRSG          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+#endif
+
+    }
+
     virtual void updateXBeta(real realDelta, int index, bool useWeights) {
 
         // Modifies: xBeta, expXBeta, denominator
-        compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
-        compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta), queue);
-        compute::copy(std::begin(denomPid), std::end(denomPid), std::begin(dDenominator), queue);
+//         compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
+//         compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta), queue);
+//         compute::copy(std::begin(denomPid), std::end(denomPid), std::begin(dDenominator), queue);
         //
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -241,7 +261,7 @@ public:
         detail::compare(offsExpXBeta, dExpXBeta, "expXBeta not equal");
         detail::compare(denomPid, dDenominator, "denominator not equal");
 
-        std::cerr << "done compare" << std::endl;
+        // std::cerr << "done compare" << std::endl;
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifndef CYCLOPS_DEBUG_TIMING_LOW
