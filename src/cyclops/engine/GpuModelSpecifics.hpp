@@ -117,18 +117,17 @@ template <class BaseModel, typename WeightType>
 class GpuModelSpecifics : public ModelSpecifics<BaseModel, WeightType> {
 public:
 
-    using AbstractModelSpecifics::modelData;
-    using AbstractModelSpecifics::offsExpXBeta;
-    using AbstractModelSpecifics::hXBeta;
-    using AbstractModelSpecifics::hY;
-    using AbstractModelSpecifics::hPid;
-    using AbstractModelSpecifics::hPidInternal;
-    using AbstractModelSpecifics::hOffs;
-    using AbstractModelSpecifics::denomPid;
-    using AbstractModelSpecifics::K;
-    using AbstractModelSpecifics::J;
-    using AbstractModelSpecifics::N;
-
+    using ModelSpecifics<BaseModel, WeightType>::modelData;
+    using ModelSpecifics<BaseModel, WeightType>::offsExpXBeta;
+    using ModelSpecifics<BaseModel, WeightType>::hXBeta;
+    using ModelSpecifics<BaseModel, WeightType>::hY;
+    using ModelSpecifics<BaseModel, WeightType>::hPid;
+    using ModelSpecifics<BaseModel, WeightType>::hPidInternal;
+    using ModelSpecifics<BaseModel, WeightType>::hOffs;
+    using ModelSpecifics<BaseModel, WeightType>::denomPid;
+    using ModelSpecifics<BaseModel, WeightType>::K;
+    using ModelSpecifics<BaseModel, WeightType>::J;
+    using ModelSpecifics<BaseModel, WeightType>::N;
     using ModelSpecifics<BaseModel, WeightType>::duration;
 
     GpuModelSpecifics(const ModelData& input,
