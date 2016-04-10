@@ -125,6 +125,7 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::offsExpXBeta;
     using ModelSpecifics<BaseModel, WeightType>::hXBeta;
     using ModelSpecifics<BaseModel, WeightType>::hY;
+    using ModelSpecifics<BaseModel, WeightType>::hKWeight;
     using ModelSpecifics<BaseModel, WeightType>::hPid;
     using ModelSpecifics<BaseModel, WeightType>::hPidInternal;
     using ModelSpecifics<BaseModel, WeightType>::hOffs;
@@ -142,7 +143,8 @@ public:
       queue(ctx, device
           , compute::command_queue::enable_profiling
       ),
-      dY(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dId(ctx) {
+      dY(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dKWeight(ctx),
+      dId(ctx) {
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
 
@@ -195,13 +197,43 @@ public:
         auto start = bsccs::chrono::steady_clock::now();
 #endif
 
-        compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta), queue); // TODO is this necessary?
-        compute::copy(std::begin(denomPid), std::end(denomPid), std::begin(dDenominator), queue);
+        if (BaseModel::likelihoodHasDenominator) {
+            compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta), queue);
+            compute::copy(std::begin(denomPid), std::end(denomPid), std::begin(dDenominator), queue);
+        }
 
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
         ///////////////////////////"
         duration["compRSG          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+#endif
+
+    }
+
+
+    virtual void computeGradientAndHessian(int index, double *ogradient,
+                                           double *ohessian, bool useWeights) {
+
+        ModelSpecifics<BaseModel, WeightType>::computeGradientAndHessian(index, ogradient, ohessian, useWeights);
+
+        double gradient;
+        double hessian;
+
+        FormatType formatType = modelData.getFormatType(index);
+        auto& kernel = (useWeights) ? // Double-dispatch
+                            kernelGradientHessianWeighted[formatType] :
+                            kernelGradientHessianNoWeight[formatType];
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        auto name = "compGradHessG" + getFormatTypeExtension(formatType) + " ";
+        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
     }
@@ -214,27 +246,12 @@ public:
 //         compute::copy(std::begin(denomPid), std::end(denomPid), std::begin(dDenominator), queue);
         //
 
+        // TODO Remove
+        ModelSpecifics<BaseModel, WeightType>::updateXBeta(realDelta, index, useWeights);
+
 #ifdef CYCLOPS_DEBUG_TIMING
-#ifndef CYCLOPS_DEBUG_TIMING_LOW
         auto start = bsccs::chrono::steady_clock::now();
 #endif
-#endif
-
-        // Run-time dispatch to implementation depending on covariate FormatType
-        switch(modelData.getFormatType(index)) {
-        case INDICATOR :
-            updateXBetaImpl<IndicatorIterator>(realDelta, index, useWeights);
-            break;
-        case SPARSE :
-            updateXBetaImpl<SparseIterator>(realDelta, index, useWeights);
-            break;
-        case DENSE :
-            updateXBetaImpl<DenseIterator>(realDelta, index, useWeights);
-            break;
-        case INTERCEPT :
-            updateXBetaImpl<InterceptIterator>(realDelta, index, useWeights);
-            break;
-        }
 
         auto& kernel = kernelUpdateXBeta[modelData.getFormatType(index)];
         auto& column = columns[index];
@@ -254,61 +271,23 @@ public:
         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
         queue.finish();
 
-        // std::cerr << "executed: " << getFormatTypeExtension(modelData.getFormatType(index)) << std::endl;
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        auto name = "updateXBetaG" + getFormatTypeExtension(modelData.getFormatType(index)) + "  ";
+        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
 
         // Compare results:
         detail::compare(hXBeta, dXBeta, "xBeta not equal");
         detail::compare(offsExpXBeta, dExpXBeta, "expXBeta not equal");
         detail::compare(denomPid, dDenominator, "denominator not equal");
-
-        // std::cerr << "done compare" << std::endl;
-
-#ifdef CYCLOPS_DEBUG_TIMING
-#ifndef CYCLOPS_DEBUG_TIMING_LOW
-        auto end = bsccs::chrono::steady_clock::now();
-        ///////////////////////////"
-        duration["updateXBetaG     "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
-#endif
-
     }
 
-    template <class IteratorType>
-    inline void updateXBetaImpl(real realDelta, int index, bool useWeights) {
+    virtual void setWeights(real* inWeights, bool useCrossValidation) {
+        ModelSpecifics<BaseModel, WeightType>::setWeights(inWeights, useCrossValidation);
 
-#ifdef CYCLOPS_DEBUG_TIMING
-#ifdef CYCLOPS_DEBUG_TIMING_LOW
-        auto start = bsccs::chrono::steady_clock::now();
-#endif
-#endif
-
-        auto range = helper::getRangeX(modelData, index, typename IteratorType::tag());
-
-        auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,real,int>(
-            realDelta, begin(offsExpXBeta), begin(hXBeta),
-            begin(hY),
-            begin(hPid),
-            begin(denomPid),
-            begin(hOffs)
-        );
-
-        variants::for_each(
-            range.begin(), range.end(),
-            kernel,
-            SerialOnly()
-        );
-
-       // computeAccumlatedDenominator(useWeights);
-
-#ifdef CYCLOPS_DEBUG_TIMING
-#ifdef CYCLOPS_DEBUG_TIMING_LOW
-        auto end = bsccs::chrono::steady_clock::now();
-        ///////////////////////////"
-        auto name = "updateXBetaG" + IteratorType::name + "  ";
-        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
-#endif
-
+        detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
     }
 
 private:
@@ -320,29 +299,12 @@ private:
     }
 
     void buildAllGradientHessianKernels(const std::vector<FormatType>& neededFormatTypes) {
+        int b = 0;
         for (FormatType formatType : neededFormatTypes) {
-            buildGradientHessianKernel(formatType);
+            buildGradientHessianKernel(formatType, true); ++b;
+            buildGradientHessianKernel(formatType, false); ++b;
         }
-    }
-
-    void buildGradientHessianKernel(FormatType formatType) {
-
-        std::stringstream options;
-        options << "-DTILE_DIM=" << 16 << " -DREAL_VECTOR=float -DREAL=float";
-
-        std::stringstream code;
-        // code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
-
-        code <<
-            " __kernel void computeSSR(__global const REAL_VECTOR *locations,  \n" <<
-            "  						   __global const REAL *observations,      \n" <<
-            "						   __global REAL *squaredResiduals,        \n" <<
-            "						   const uint locationCount) {             \n" <<
-            " }                                                                \n";
-
-        compute::program program = compute::program::build_with_source(code.str(), ctx, options.str());
-        kernelGradientHessian[formatType] = compute::kernel(program, "computeSSR");
-
+        std::cerr << "Built = " << b << std::endl;
     }
 
     std::string getFormatTypeExtension(FormatType formatType) {
@@ -359,63 +321,106 @@ private:
         }
     }
 
-    SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType) {
+    SourceCode writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights);
 
-        std::string name = "updateXBeta" + getFormatTypeExtension(formatType);
+    SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType);
 
-        std::stringstream code;
-        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+    void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
 
-        code << "__kernel void " << name << "(     \n" <<
-                "       __global const REAL* X,    \n" <<
-                "       __global const int* K,     \n" <<
-                "       const uint N,              \n" <<
-                "       const REAL delta,          \n" <<
-                "       __global const REAL* Y,    \n" <<
-                "       __global REAL* xBeta,      \n" <<
-                "       __global REAL* expXBeta,   \n" <<
-                "       __global REAL* denominator,\n" <<
-                "       __global const int* id) {  \n" <<
-                "   const uint task = get_global_id(0); \n";
+        const int tpb = 32; // threads-per-block
+        const int wgs = 4;  // work-group-size
 
-        if (formatType == INDICATOR || formatType == SPARSE) {
-            code << "   const uint k = K[task];         \n";
-        } else { // DENSE, INTERCEPT
-            code << "   const uint k = task;            \n";
+        const int globalWorkSize = tpb * wgs;
+
+        std::stringstream options;
+        options << "-DREAL=float -DTPB=" << tpb;
+
+        auto source = writeCodeForGradientHessianKernel(formatType, useWeights);
+
+        std::cerr << source.body << std::endl;
+
+        auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        auto kernel = compute::kernel(program, source.name);
+
+        // Run-time constant arguments.
+        kernel.set_arg(4, dY);
+        kernel.set_arg(5, dXBeta);
+        kernel.set_arg(6, dExpXBeta);
+        kernel.set_arg(7, dDenominator);
+        kernel.set_arg(8, dId);
+        kernel.set_arg(9, dKWeight);
+
+        const size_t n = dXBeta.size();
+        std::vector<float> tmp(n);
+        std::vector<int> indices(n);
+        double sum = 0.0;
+        for (int i = 0; i < n; ++i) {
+            tmp[i] = i;
+            indices[i] = i;
+            sum += i;
         }
 
-        if (formatType == SPARSE || formatType == DENSE) {
-            code << "   const REAL inc = delta * X[task]; \n";
-        } else { // INDICATOR, INTERCEPT
-            code << "   const REAL inc = delta;           \n";
+        compute::vector<float> y(ctx);
+        compute::vector<float> x(ctx);
+        compute::vector<int> k(ctx);
+        x.resize(n); y.resize(n); k.resize(n);
+
+        compute::copy(std::begin(tmp), std::end(tmp), std::begin(x), queue);
+        compute::copy(std::begin(indices), std::end(indices), std::begin(k), queue);
+
+        // ceiling(237 / (2 * 16)) = 8
+
+        size_t loops = n / globalWorkSize;
+        if (n % globalWorkSize != 0) {
+            ++loops;
         }
 
-        code << "   if (task < N) {      \n" <<
-                "       xBeta[k] += inc; \n";
+        std::cerr << "loop= " << loops << std::endl;
+        std::cerr << "n   = " << n << std::endl;
+        std::cerr << "gWS = " << globalWorkSize << std::endl;
+        std::cerr << "tpb = " << tpb << std::endl;
 
-        if (BaseModel::likelihoodHasDenominator) {
-            // TODO: The following is not YET thread-safe for multi-row observations
+        kernel.set_arg(0, x);
+        kernel.set_arg(1, k);
+        kernel.set_arg(2, static_cast<float>(1.0));
+        kernel.set_arg(3, static_cast<compute::uint_>(n));
+        kernel.set_arg(4, y);
 
-            //                     real oldEntry = expXBeta[k];
-            //                     real newEntry = expXBeta[k] = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
-            //                     denominator[BaseModel::getGroup(pid, k)] += (newEntry - oldEntry);
-            code << "       const REAL oldEntry = expXBeta[k];                 \n" <<
-                    "       const REAL newEntry = expXBeta[k] = exp(xBeta[k]); \n" <<
-                    "       denominator[k] += (newEntry - oldEntry);           \n";
+//         for (int i = 0; i < n; ++i) {
+//             std::cerr << " " << y[i];
+//         }
+//         std::cerr << std::endl << std::endl;
 
-            // LOGISTIC MODEL ONLY
-            //                     const real t = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
-            //                     expXBeta[k] = t;
-            //                     denominator[k] = static_cast<real>(1.0) + t;
-            //             code << "    const REAL t = 0.0;               \n" <<
-            //                     "   expXBeta[k] = exp(xBeta[k]);      \n" <<
-            //                     "   denominator[k] = REAL(1.0) + tmp; \n";
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
+        queue.finish();
+
+        double dSum = 0.0;
+        for (int i = 0; i < wgs; ++i) {
+            dSum += y[i];
         }
 
-        code << "   } \n";
-        code << "}    \n";
+        std::cerr << sum << " == " << dSum << std::endl;
 
-        return SourceCode(code.str(), name);
+//         for (int i = 0; i < n; ++i) {
+//             std::cerr << " " << y[i];
+//         }
+//         std::cerr << std::endl;
+//
+//         for (int i = 0; i < n; ++i) {
+//             std::cerr << " " << x[i];
+//         }
+//         std::cerr << std::endl;
+
+
+
+
+        Rcpp::stop("out");
+
+        if (useWeights) {
+            kernelGradientHessianWeighted[formatType] = std::move(kernel);
+        } else {
+            kernelGradientHessianNoWeight[formatType] = std::move(kernel);
+        }
     }
 
     void buildUpdateXBetaKernel(FormatType formatType) {
@@ -448,12 +453,16 @@ private:
     }
 
     void buildAllKernels(const std::vector<FormatType>& neededFormatTypes) {
-        // buildAllGradientHessianKernels(neededFormatTypes);
+        buildAllGradientHessianKernels(neededFormatTypes);
         buildAllUpdateXBetaKernels(neededFormatTypes);
     }
 
     void printAllKernels() {
-        for (auto& entry : kernelGradientHessian) {
+        for (auto& entry : kernelGradientHessianWeighted) {
+            printKernel(entry.second);
+        }
+
+        for (auto& entry : kernelGradientHessianNoWeight) {
             printKernel(entry.second);
         }
 
@@ -468,7 +477,8 @@ private:
     compute::command_queue queue;
     compute::program program;
 
-    std::map<FormatType, compute::kernel> kernelGradientHessian;
+    std::map<FormatType, compute::kernel> kernelGradientHessianWeighted;
+    std::map<FormatType, compute::kernel> kernelGradientHessianNoWeight;
     std::map<FormatType, compute::kernel> kernelUpdateXBeta;
 
     // vectors of columns
@@ -479,9 +489,13 @@ private:
     compute::vector<real> dXBeta;
     compute::vector<real> dExpXBeta;
     compute::vector<real> dDenominator;
+    compute::vector<real> dKWeight;
     compute::vector<int> dId;
 };
 
 } // namespace bsccs
+
+
+#include "Kernels.hpp"
 
 #endif /* GPUMODELSPECIFICS_HPP_ */

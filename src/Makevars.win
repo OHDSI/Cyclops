@@ -64,8 +64,13 @@ OBJECTS = $(SOURCES:.cpp=.o)
 
 all : $(SHLIB)
 
-cyclops/engine/AbstractModelSpecifics.o : cyclops/engine/ModelSpecifics.h cyclops/engine/ModelSpecifics.hpp cyclops/engine/GPUModelSpecifics.hpp
+cyclops/engine/AbstractModelSpecifics.o : cyclops/engine/ModelSpecifics.h cyclops/engine/ModelSpecifics.hpp cyclops/engine/GPUModelSpecifics.hpp cyclops/engine/Kernels.hpp
 
-%.h :
+cyclops/engine/ModelSpecifics.h :
 
-%.hpp :
+cyclops/engine/ModelSpecifics.hpp :
+
+cyclops/engine/GPUModelSpecifics.hpp :
+
+cyclops/engine/Kernels.hpp :
+

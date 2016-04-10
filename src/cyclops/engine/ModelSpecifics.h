@@ -227,6 +227,9 @@ protected:
 
 	void printTiming(void);
 
+	std::vector<WeightType> hNWeight;
+	std::vector<WeightType> hKWeight;
+
 #ifdef CYCLOPS_DEBUG_TIMING
 	//	std::vector<double> duration;
 	std::map<std::string,long long> duration;
@@ -264,9 +267,6 @@ private:
 	void computeXjX(bool useCrossValidation);
 
 	void computeNtoKIndices(bool useCrossValidation);
-
-	std::vector<WeightType> hNWeight;
-	std::vector<WeightType> hKWeight;
 
 //	std::vector<int> nPid;
 //	std::vector<real> nY;
