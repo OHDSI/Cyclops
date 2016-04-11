@@ -137,8 +137,8 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::N;
     using ModelSpecifics<BaseModel, WeightType>::duration;
 
-    const int tpb = 32; // threads-per-block
-    const int wgs = 4;  // work-group-size
+    const static int tpb = 32; // threads-per-block
+    const static int wgs = 4;  // work-group-size
 
     const int globalWorkSize = tpb * wgs;
 
@@ -218,7 +218,7 @@ public:
     }
 
 
-    int count = 0;
+    static int count = 0;
 
     virtual void computeGradientAndHessian(int index, double *ogradient,
                                            double *ohessian, bool useWeights) {
