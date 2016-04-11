@@ -8,6 +8,8 @@
 #ifndef KERNELS_HPP_
 #define KERNELS_HPP_
 
+#include <boost/compute/type_traits/type_name.hpp>
+
 namespace bsccs {
 
 
@@ -62,7 +64,7 @@ struct ReduceBody1<T,true>
         // warp reduction
             "   if (lid < 32) { \n" <<
         // volatile this way we don't need any barrier
-            "       volatile __local REAL *lmem = scratch;                  \n" <<
+            "       volatile __local TMP_REAL *lmem = scratch;                  \n" <<
             "       if (TPB >= 64) { lmem[lid] = sum = sum + lmem[lid+32]; } \n" <<
             "       if (TPB >= 32) { lmem[lid] = sum = sum + lmem[lid+16]; } \n" <<
             "       if (TPB >= 16) { lmem[lid] = sum = sum + lmem[lid+ 8]; } \n" <<
@@ -88,8 +90,8 @@ struct ReduceBody2<T,true>
         // warp reduction
             "   if (lid < 32) { \n" <<
         // volatile this way we don't need any barrier
-            "       volatile __local REAL *lmem0 = scratch0; \n" <<
-            "       volatile __local REAL *lmem1 = scratch1; \n" <<
+            "       volatile __local TMP_REAL *lmem0 = scratch0; \n" <<
+            "       volatile __local TMP_REAL *lmem1 = scratch1; \n" <<
             "       if (TPB >= 64) { lmem0[lid] = sum0 = sum0 + lmem0[lid+32]; lmem1[lid] = sum1 = sum1 + lmem1[lid+32]; } \n" <<
             "       if (TPB >= 32) { lmem0[lid] = sum0 = sum0 + lmem0[lid+16]; lmem1[lid] = sum1 = sum1 + lmem1[lid+16]; } \n" <<
             "       if (TPB >= 16) { lmem0[lid] = sum0 = sum0 + lmem0[lid+ 8]; lmem1[lid] = sum1 = sum1 + lmem1[lid+ 8]; } \n" <<
@@ -127,12 +129,13 @@ struct ReduceBody2<T,true>
         code << "__kernel void " << name << "(            \n" <<
                 "       __global REAL* X,                 \n" <<
                 "       __global const int* K,            \n" <<
-                "       const REAL beta,                  \n" <<
                 "       const uint N,                     \n" <<
-                "       __global REAL* Y,                 \n" <<
+                "       const REAL beta,                  \n" << // TODO Remove
+                "       __global const REAL* Y,           \n" <<
                 "       __global const REAL* xBeta,       \n" <<
                 "       __global const REAL* expXBeta,    \n" <<
                 "       __global const REAL* denominator, \n" <<
+                "       __global REAL* buffer,            \n" <<
                 "       __global const int* id,           \n" <<  // TODO Make id optional
                 "       __global const REAL* weight) {    \n";    // TODO Make weight optional
 
@@ -163,7 +166,7 @@ struct ReduceBody2<T,true>
             // Do nothing
         }
 
-        code << "       const REAL numer = " << timesX("beta", formatType) << ";\n" <<
+        code << "       const REAL numer = " << timesX("expXBeta[k]", formatType) << ";\n" <<
                 "       const REAL denom = denominator[k]; \n" <<
                 "       const REAL g = numer / denom;      \n";
 
@@ -179,29 +182,8 @@ struct ReduceBody2<T,true>
                     "       const REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
         }
 
-
-
-
         code << "       sum0 += gradient; \n" <<
                 "       sum1 += hessian;  \n";
-
-        // numerator1 = \beta * x
-        // numerator2 = \beta * x * x
-        // denominator (argument)
-//         const RealType g = numerator / denominator;
-//
-//         const RealType gradient =
-//             (WeightOperationType::isWeighted) ? weight * g : g;
-//
-//         const RealType hessian =
-//             (IteratorType::isIndicator) ?
-//             (WeightOperationType::isWeighted) ?
-//             weight * g * (static_cast<RealType>(1.0) - g) :
-//             g * (static_cast<RealType>(1.0) - g)
-//                 :
-//                 (WeightOperationType::isWeighted) ?
-//         weight * (numerator2 / denominator - g * g) :
-//             (numerator2 / denominator - g * g);
 
         // Bookkeeping
         code << "       task += loopSize; \n" <<
@@ -213,7 +195,8 @@ struct ReduceBody2<T,true>
         code << ReduceBody2<real,false>::body();
 
         code << "   if (lid == 0) { \n" <<
-                "       Y[get_group_id(0)] = scratch0[0] + scratch1[0]; \n" <<
+                "       buffer[get_group_id(0)] = scratch0[0]; \n" <<
+                "       buffer[get_group_id(0) + get_num_groups(0)] = scratch1[0]; \n" <<
                 "   } \n";
 
         code << "}  \n"; // End of kernel

@@ -38,13 +38,13 @@ void resizeAndCopyToDevice(const HostVec& hostVec, DeviceVec& deviceVec, compute
 }
 
 template <typename HostVec, typename DeviceVec>
-void compare(const HostVec& host, const DeviceVec& device, const std::string& error) {
+void compare(const HostVec& host, const DeviceVec& device, const std::string& error, double tolerance = 1E-10) {
     bool valid = true;
 
     for (size_t i = 0; i < host.size(); ++i) {
         auto h = host[i];
         auto d = device[i];
-        if (h != d) {
+        if (std::abs(h - d) > tolerance) {
             std::cerr << "@ " << i << " : " << h << " - " << d << " = " << (h - d) << std::endl;
             valid = false;
         }
@@ -130,10 +130,17 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::hPidInternal;
     using ModelSpecifics<BaseModel, WeightType>::hOffs;
     using ModelSpecifics<BaseModel, WeightType>::denomPid;
+    using ModelSpecifics<BaseModel, WeightType>::hXjY;
+    using ModelSpecifics<BaseModel, WeightType>::hXjX;
     using ModelSpecifics<BaseModel, WeightType>::K;
     using ModelSpecifics<BaseModel, WeightType>::J;
     using ModelSpecifics<BaseModel, WeightType>::N;
     using ModelSpecifics<BaseModel, WeightType>::duration;
+
+    const int tpb = 32; // threads-per-block
+    const int wgs = 4;  // work-group-size
+
+    const int globalWorkSize = tpb * wgs;
 
     GpuModelSpecifics(const ModelData& input,
                       const std::string& deviceName)
@@ -143,7 +150,7 @@ public:
       queue(ctx, device
           , compute::command_queue::enable_profiling
       ),
-      dY(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dKWeight(ctx),
+      dY(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dBuffer(ctx), dKWeight(ctx),
       dId(ctx) {
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
@@ -186,7 +193,7 @@ public:
 
         buildAllKernels(neededFormatTypes);
 
-        printAllKernels();
+        // printAllKernels();
     }
 
     virtual void computeRemainingStatistics(bool useWeights) {
@@ -211,18 +218,102 @@ public:
     }
 
 
+    int count = 0;
+
     virtual void computeGradientAndHessian(int index, double *ogradient,
                                            double *ohessian, bool useWeights) {
 
         ModelSpecifics<BaseModel, WeightType>::computeGradientAndHessian(index, ogradient, ohessian, useWeights);
 
-        double gradient;
-        double hessian;
-
         FormatType formatType = modelData.getFormatType(index);
         auto& kernel = (useWeights) ? // Double-dispatch
                             kernelGradientHessianWeighted[formatType] :
                             kernelGradientHessianNoWeight[formatType];
+
+        auto& column = columns[index];
+        const auto taskCount = column.getTaskCount();
+
+        size_t loops = taskCount / globalWorkSize;
+        if (taskCount % globalWorkSize != 0) {
+            ++loops;
+        }
+
+        // std::cerr << dBuffer.get_buffer() << std::endl;
+
+        if (dBuffer.size() < 2 * wgs) {
+            dBuffer.resize(2 * wgs, queue);
+            //compute::fill(std::begin(dBuffer), std::end(dBuffer), 0.0, queue); // TODO Not needed
+            kernel.set_arg(8, dBuffer); // Can get reallocated.
+            hBuffer.resize(2 * wgs);
+        }
+
+        // std::cerr << dBuffer.get_buffer() << std::endl << std::endl;
+
+        if (dKWeight.size() == 0) {
+            kernel.set_arg(10, 0);
+        } else {
+            kernel.set_arg(10, dKWeight);
+        }
+
+        kernel.set_arg(0, column.getDataVector());
+        kernel.set_arg(1, column.getIndicesVector());
+        kernel.set_arg(2, taskCount);
+        kernel.set_arg(3, 0.0); // TODO remove
+
+        std::cerr << "loop= " << loops << std::endl;
+        std::cerr << "n   = " << taskCount << std::endl;
+        std::cerr << "gWS = " << globalWorkSize << std::endl;
+        std::cerr << "tpb = " << tpb << std::endl;
+//
+        std::cerr << kernel.get_program().source() << std::endl;
+
+
+//         compute::vector<real> tmpR(taskCount, ctx);
+//         compute::vector<int> tmpI(taskCount, ctx);
+
+        // kernel.set_arg(0, tmpR);
+        // kernel.set_arg(1, tmpI);
+
+//         kernel.set_arg(4, tmpR);
+//         kernel.set_arg(5, tmpR);
+//         kernel.set_arg(6, tmpR);
+//         kernel.set_arg(7, tmpR);
+        // kernel.set_arg(8, tmpR);
+        kernel.set_arg(8, dBuffer);
+//         kernel.set_arg(9, tmpI);
+//         kernel.set_arg(10, tmpR);
+
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
+        queue.finish();
+
+//         ++count;
+//         if (count >= 2) Rcpp::stop("out");
+
+//         for (int i = 0; i < wgs; ++i) {
+//             std::cerr << ", " << dBuffer[i];
+//         }
+//         std::cerr << std::endl;
+
+        // Get result
+        compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+        double gradient = 0.0;
+        double hessian = 0.0;
+
+        for (int i = 0; i < wgs; ++i) {
+            gradient += hBuffer[i];
+            hessian  += hBuffer[i + wgs];
+        }
+
+        if (BaseModel::precomputeGradient) { // Compile-time switch
+            gradient -= hXjY[index];
+        }
+
+        if (BaseModel::precomputeHessian) { // Compile-time switch
+            hessian += static_cast<real>(2.0) * hXjX[index];
+        }
+
+        std::cerr << *ogradient << " & " << *ohessian << std::endl;
+        std::cerr << gradient << " & " << hessian << std::endl << std::endl;
 
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
@@ -327,17 +418,12 @@ private:
 
     void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
 
-        const int tpb = 32; // threads-per-block
-        const int wgs = 4;  // work-group-size
-
-        const int globalWorkSize = tpb * wgs;
-
         std::stringstream options;
-        options << "-DREAL=float -DTPB=" << tpb;
+        options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
 
         auto source = writeCodeForGradientHessianKernel(formatType, useWeights);
 
-        std::cerr << source.body << std::endl;
+        // std::cerr << source.body << std::endl;
 
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         auto kernel = compute::kernel(program, source.name);
@@ -347,74 +433,79 @@ private:
         kernel.set_arg(5, dXBeta);
         kernel.set_arg(6, dExpXBeta);
         kernel.set_arg(7, dDenominator);
-        kernel.set_arg(8, dId);
-        kernel.set_arg(9, dKWeight);
+        kernel.set_arg(8, dBuffer);
+        kernel.set_arg(9, dId);
+        kernel.set_arg(10, dKWeight);
 
-        const size_t n = dXBeta.size();
-        std::vector<float> tmp(n);
-        std::vector<int> indices(n);
-        double sum = 0.0;
-        for (int i = 0; i < n; ++i) {
-            tmp[i] = i;
-            indices[i] = i;
-            sum += i;
-        }
-
-        compute::vector<float> y(ctx);
-        compute::vector<float> x(ctx);
-        compute::vector<int> k(ctx);
-        x.resize(n); y.resize(n); k.resize(n);
-
-        compute::copy(std::begin(tmp), std::end(tmp), std::begin(x), queue);
-        compute::copy(std::begin(indices), std::end(indices), std::begin(k), queue);
+//         const size_t n = dXBeta.size();
+//         std::vector<float> tmp(n);
+//         std::vector<int> indices(n);
+//         double sum = 0.0;
+//         for (int i = 0; i < n; ++i) {
+//             tmp[i] = i;
+//             indices[i] = i;
+//             sum += i;
+//         }
+//
+//         compute::vector<float> y(ctx);
+//         compute::vector<float> x(ctx);
+//         compute::vector<int> k(ctx);
+//         x.resize(n); y.resize(n); k.resize(n);
+//
+//         compute::copy(std::begin(tmp), std::end(tmp), std::begin(x), queue);
+//         compute::copy(std::begin(indices), std::end(indices), std::begin(k), queue);
 
         // ceiling(237 / (2 * 16)) = 8
 
-        size_t loops = n / globalWorkSize;
-        if (n % globalWorkSize != 0) {
-            ++loops;
-        }
-
-        std::cerr << "loop= " << loops << std::endl;
-        std::cerr << "n   = " << n << std::endl;
-        std::cerr << "gWS = " << globalWorkSize << std::endl;
-        std::cerr << "tpb = " << tpb << std::endl;
-
-        kernel.set_arg(0, x);
-        kernel.set_arg(1, k);
-        kernel.set_arg(2, static_cast<float>(1.0));
-        kernel.set_arg(3, static_cast<compute::uint_>(n));
-        kernel.set_arg(4, y);
-
-//         for (int i = 0; i < n; ++i) {
-//             std::cerr << " " << y[i];
+//         size_t loops = n / globalWorkSize;
+//         if (n % globalWorkSize != 0) {
+//             ++loops;
 //         }
-//         std::cerr << std::endl << std::endl;
-
-        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
-        queue.finish();
-
-        double dSum = 0.0;
-        for (int i = 0; i < wgs; ++i) {
-            dSum += y[i];
-        }
-
-        std::cerr << sum << " == " << dSum << std::endl;
-
-//         for (int i = 0; i < n; ++i) {
-//             std::cerr << " " << y[i];
-//         }
-//         std::cerr << std::endl;
 //
-//         for (int i = 0; i < n; ++i) {
-//             std::cerr << " " << x[i];
+//         if (dBuffer.size() < 2 * globalWorkSize) {
+//             dbuffer.resize(2 * globalWorkSize);
 //         }
-//         std::cerr << std::endl;
+//
+//         std::cerr << "loop= " << loops << std::endl;
+//         std::cerr << "n   = " << n << std::endl;
+//         std::cerr << "gWS = " << globalWorkSize << std::endl;
+//         std::cerr << "tpb = " << tpb << std::endl;
+//
+//         kernel.set_arg(0, x);
+//         kernel.set_arg(1, k);
+//         kernel.set_arg(2, static_cast<float>(1.0));
+//         kernel.set_arg(3, static_cast<compute::uint_>(n));
+//         kernel.set_arg(4, y);
 
-
-
-
-        Rcpp::stop("out");
+// //         for (int i = 0; i < n; ++i) {
+// //             std::cerr << " " << y[i];
+// //         }
+// //         std::cerr << std::endl << std::endl;
+//
+//         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
+//         queue.finish();
+//
+//         double dSum = 0.0;
+//         for (int i = 0; i < wgs; ++i) {
+//             dSum += y[i];
+//         }
+//
+//         std::cerr << sum << " == " << dSum << std::endl;
+//
+// //         for (int i = 0; i < n; ++i) {
+// //             std::cerr << " " << y[i];
+// //         }
+// //         std::cerr << std::endl;
+// //
+// //         for (int i = 0; i < n; ++i) {
+// //             std::cerr << " " << x[i];
+// //         }
+// //         std::cerr << std::endl;
+//
+//
+//
+//
+//         Rcpp::stop("out");
 
         if (useWeights) {
             kernelGradientHessianWeighted[formatType] = std::move(kernel);
@@ -484,11 +575,14 @@ private:
     // vectors of columns
     std::vector<GpuColumn<real> > columns;
 
+    std::vector<real> hBuffer;
+
     // Internal storage
     compute::vector<real> dY;
     compute::vector<real> dXBeta;
     compute::vector<real> dExpXBeta;
     compute::vector<real> dDenominator;
+    compute::vector<real> dBuffer;
     compute::vector<real> dKWeight;
     compute::vector<int> dId;
 };

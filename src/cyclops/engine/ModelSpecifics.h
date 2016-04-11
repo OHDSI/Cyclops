@@ -1082,7 +1082,7 @@ public:
                 (WeightOperationType::isWeighted) ?
                     weight * (numerator2 / denominator - g * g) :
                     (numerator2 / denominator - g * g);
-
+                    
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
 };
