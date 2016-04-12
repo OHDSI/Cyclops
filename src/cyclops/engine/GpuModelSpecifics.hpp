@@ -140,7 +140,7 @@ public:
     const static int tpb = 32; // threads-per-block
     const static int wgs = 4;  // work-group-size
 
-    const int globalWorkSize = tpb * wgs;
+    const static int globalWorkSize = tpb * wgs;
 
     GpuModelSpecifics(const ModelData& input,
                       const std::string& deviceName)
@@ -217,9 +217,6 @@ public:
 
     }
 
-
-    static int count = 0;
-
     virtual void computeGradientAndHessian(int index, double *ogradient,
                                            double *ohessian, bool useWeights) {
 
@@ -285,9 +282,6 @@ public:
 
         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
         queue.finish();
-
-//         ++count;
-//         if (count >= 2) Rcpp::stop("out");
 
 //         for (int i = 0; i < wgs; ++i) {
 //             std::cerr << ", " << dBuffer[i];
