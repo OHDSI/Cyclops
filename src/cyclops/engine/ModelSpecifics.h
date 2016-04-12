@@ -185,8 +185,22 @@ public:
 			double *ohessian,  bool useWeights);
 
 	AbstractModelSpecifics* clone() const;
+	
+	virtual const RealVector& getXBeta() const;
+	
+	virtual const RealVector& getXBetaSave() const;
+	
+	virtual void saveXBeta();
+	
+	virtual void zeroXBeta();
+	
+	virtual void axpyXBeta(const double beta, const int j);	
 
 protected:
+
+	template <typename IteratorType>
+	void axpy(double* y, const double alpha, const int index);
+	
 	void computeNumeratorForGradient(int index);
 
 	void computeFisherInformation(int indexOne, int indexTwo, double *oinfo, bool useWeights);

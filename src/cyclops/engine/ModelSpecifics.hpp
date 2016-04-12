@@ -321,6 +321,25 @@ ModelSpecifics<BaseModel,WeightType>::~ModelSpecifics() {
 }
 
 template <class BaseModel,typename WeightType>
+const RealVector& ModelSpecifics<BaseModel,WeightType>::getXBeta() const { return hXBeta; }
+
+template <class BaseModel,typename WeightType>
+const RealVector& ModelSpecifics<BaseModel,WeightType>::getXBetaSave() const {  return hXBetaSave; }
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::zeroXBeta() {
+	std::fill(std::begin(hXBeta), std::end(hXBeta), 0.0);
+}
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::saveXBeta() {
+	if (hXBetaSave.size() < hXBeta.size()) {
+		hXBetaSave.resize(hXBeta.size());
+	}
+	std::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(hXBetaSave));
+}
+
+template <class BaseModel,typename WeightType>
 bool ModelSpecifics<BaseModel,WeightType>::allocateXjY(void) { return BaseModel::precomputeGradient; }
 
 template <class BaseModel,typename WeightType>
@@ -337,6 +356,35 @@ bool ModelSpecifics<BaseModel,WeightType>::allocateNtoKIndices(void) { return Ba
 
 template <class BaseModel,typename WeightType>
 bool ModelSpecifics<BaseModel,WeightType>::hasResetableAccumulators(void) { return BaseModel::hasResetableAccumulators; }
+
+template <class BaseModel,typename WeightType> template <class IteratorType>
+void ModelSpecifics<BaseModel,WeightType>::axpy(double* y, const double alpha, const int index) {
+	IteratorType it(modelData, index);
+	for (; it; ++it) {
+		const int k = it.index();
+		y[k] += alpha * it.value();
+	}
+}
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::axpyXBeta(const double beta, const int j) {
+	if (beta != static_cast<double>(0.0)) {
+		switch (modelData.getFormatType(j)) {
+		case INDICATOR:
+			axpy < IndicatorIterator > (hXBeta.data(), beta, j);
+			break;
+		case INTERCEPT:
+		    axpy < InterceptIterator > (hXBeta.data(), beta, j);
+		    break;
+		case DENSE:
+			axpy < DenseIterator > (hXBeta.data(), beta, j);
+			break;
+		case SPARSE:
+			axpy < SparseIterator > (hXBeta.data(), beta, j);
+			break;
+		}
+	}
+}
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useCrossValidation) {

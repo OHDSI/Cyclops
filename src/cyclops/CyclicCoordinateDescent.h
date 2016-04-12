@@ -336,8 +336,8 @@ protected:
 	typedef std::vector<double> DoubleVector;
 	DoubleVector hBeta;
 
-	DoubleVector& hXBeta; // TODO Delegate to ModelSpecifics
-	DoubleVector& hXBetaSave; // Delegate
+// 	DoubleVector& hXBeta; // TODO Delegate to ModelSpecifics
+// 	DoubleVector& hXBetaSave; // Delegate
 //	double* hDelta;
 	DoubleVector hDelta;
 	std::vector<bool> fixBeta;

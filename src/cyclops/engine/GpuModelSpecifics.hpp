@@ -8,6 +8,10 @@
 #ifndef GPUMODELSPECIFICS_HPP_
 #define GPUMODELSPECIFICS_HPP_
 
+
+// #define GPU_DEBUG
+#undef GPU_DEBUG
+
 #include <Rcpp.h>
 
 #include "ModelSpecifics.h"
@@ -193,11 +197,12 @@ public:
 
         buildAllKernels(neededFormatTypes);
 
-        printAllKernels();
+        printAllKernels(std::cerr);
     }
 
     virtual void computeRemainingStatistics(bool useWeights) {
 
+        // Currently RS only computed on CPU and then copied
         ModelSpecifics<BaseModel, WeightType>::computeRemainingStatistics(useWeights);
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -220,7 +225,14 @@ public:
     virtual void computeGradientAndHessian(int index, double *ogradient,
                                            double *ohessian, bool useWeights) {
 
+#ifdef GPU_DEBUG
         ModelSpecifics<BaseModel, WeightType>::computeGradientAndHessian(index, ogradient, ohessian, useWeights);
+        std::cerr << *ogradient << " & " << *ohessian << std::endl;
+#endif // GPU_DEBUG
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
 
         FormatType formatType = modelData.getFormatType(index);
         auto& kernel = (useWeights) ? // Double-dispatch
@@ -249,7 +261,7 @@ public:
         if (dKWeight.size() == 0) {
             kernel.set_arg(10, 0);
         } else {
-            kernel.set_arg(10, dKWeight);
+            kernel.set_arg(10, dKWeight); // TODO Only when dKWeight gets reallocated
         }
 
         kernel.set_arg(0, column.getDataVector());
@@ -276,7 +288,7 @@ public:
 //         kernel.set_arg(6, tmpR);
 //         kernel.set_arg(7, tmpR);
         // kernel.set_arg(8, tmpR);
-        kernel.set_arg(8, dBuffer);
+        kernel.set_arg(8, dBuffer); // TODO Why is this necessary?
 //         kernel.set_arg(9, tmpI);
 //         kernel.set_arg(10, tmpR);
 
@@ -293,7 +305,7 @@ public:
         double gradient = 0.0;
         double hessian = 0.0;
 
-        for (int i = 0; i < wgs; ++i) {
+        for (int i = 0; i < wgs; ++i) { // TODO Use SSE
             gradient += hBuffer[i];
             hessian  += hBuffer[i + wgs];
         }
@@ -306,13 +318,12 @@ public:
             hessian += static_cast<real>(2.0) * hXjX[index];
         }
 
-        std::cerr << *ogradient << " & " << *ohessian << std::endl;
+#ifdef GPU_DEBUG
         std::cerr << gradient << " & " << hessian << std::endl << std::endl;
+#endif // GPU_DEBUG
 
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto start = bsccs::chrono::steady_clock::now();
-#endif
-
+        *ogradient = gradient;
+        *ohessian = hessian;
 
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
@@ -325,14 +336,9 @@ public:
 
     virtual void updateXBeta(real realDelta, int index, bool useWeights) {
 
-        // Modifies: xBeta, expXBeta, denominator
-//         compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
-//         compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta), queue);
-//         compute::copy(std::begin(denomPid), std::end(denomPid), std::begin(dDenominator), queue);
-        //
-
-        // TODO Remove
+#ifdef GPU_DEBUG
         ModelSpecifics<BaseModel, WeightType>::updateXBeta(realDelta, index, useWeights);
+#endif // GPU_DEBUG
 
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
@@ -363,13 +369,16 @@ public:
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
+#ifdef GPU_DEBUG
         // Compare results:
         detail::compare(hXBeta, dXBeta, "xBeta not equal");
         detail::compare(offsExpXBeta, dExpXBeta, "expXBeta not equal");
         detail::compare(denomPid, dDenominator, "denominator not equal");
+#endif // GPU_DEBUG
     }
 
     virtual void setWeights(real* inWeights, bool useCrossValidation) {
+        // Currently only computed on CPU and then copied to GPU
         ModelSpecifics<BaseModel, WeightType>::setWeights(inWeights, useCrossValidation);
 
         detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
@@ -389,7 +398,6 @@ private:
             buildGradientHessianKernel(formatType, true); ++b;
             buildGradientHessianKernel(formatType, false); ++b;
         }
-        std::cerr << "Built = " << b << std::endl;
     }
 
     std::string getFormatTypeExtension(FormatType formatType) {
@@ -417,8 +425,6 @@ private:
 
         auto source = writeCodeForGradientHessianKernel(formatType, useWeights);
 
-        // std::cerr << source.body << std::endl;
-
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         auto kernel = compute::kernel(program, source.name);
 
@@ -427,79 +433,9 @@ private:
         kernel.set_arg(5, dXBeta);
         kernel.set_arg(6, dExpXBeta);
         kernel.set_arg(7, dDenominator);
-        kernel.set_arg(8, dBuffer);
+        kernel.set_arg(8, dBuffer);  // TODO Does not seem to stick
         kernel.set_arg(9, dId);
-        kernel.set_arg(10, dKWeight);
-
-//         const size_t n = dXBeta.size();
-//         std::vector<float> tmp(n);
-//         std::vector<int> indices(n);
-//         double sum = 0.0;
-//         for (int i = 0; i < n; ++i) {
-//             tmp[i] = i;
-//             indices[i] = i;
-//             sum += i;
-//         }
-//
-//         compute::vector<float> y(ctx);
-//         compute::vector<float> x(ctx);
-//         compute::vector<int> k(ctx);
-//         x.resize(n); y.resize(n); k.resize(n);
-//
-//         compute::copy(std::begin(tmp), std::end(tmp), std::begin(x), queue);
-//         compute::copy(std::begin(indices), std::end(indices), std::begin(k), queue);
-
-        // ceiling(237 / (2 * 16)) = 8
-
-//         size_t loops = n / globalWorkSize;
-//         if (n % globalWorkSize != 0) {
-//             ++loops;
-//         }
-//
-//         if (dBuffer.size() < 2 * globalWorkSize) {
-//             dbuffer.resize(2 * globalWorkSize);
-//         }
-//
-//         std::cerr << "loop= " << loops << std::endl;
-//         std::cerr << "n   = " << n << std::endl;
-//         std::cerr << "gWS = " << globalWorkSize << std::endl;
-//         std::cerr << "tpb = " << tpb << std::endl;
-//
-//         kernel.set_arg(0, x);
-//         kernel.set_arg(1, k);
-//         kernel.set_arg(2, static_cast<float>(1.0));
-//         kernel.set_arg(3, static_cast<compute::uint_>(n));
-//         kernel.set_arg(4, y);
-
-// //         for (int i = 0; i < n; ++i) {
-// //             std::cerr << " " << y[i];
-// //         }
-// //         std::cerr << std::endl << std::endl;
-//
-//         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
-//         queue.finish();
-//
-//         double dSum = 0.0;
-//         for (int i = 0; i < wgs; ++i) {
-//             dSum += y[i];
-//         }
-//
-//         std::cerr << sum << " == " << dSum << std::endl;
-//
-// //         for (int i = 0; i < n; ++i) {
-// //             std::cerr << " " << y[i];
-// //         }
-// //         std::cerr << std::endl;
-// //
-// //         for (int i = 0; i < n; ++i) {
-// //             std::cerr << " " << x[i];
-// //         }
-// //         std::cerr << std::endl;
-//
-//
-//
-//
-//         Rcpp::stop("out");
+        kernel.set_arg(10, dKWeight); // TODO Does not seem to stick
 
         if (useWeights) {
             kernelGradientHessianWeighted[formatType] = std::move(kernel);
@@ -527,11 +463,12 @@ private:
         kernelUpdateXBeta[formatType] = std::move(kernel);
     }
 
-    void printKernel(compute::kernel& kernel) {
+    void printKernel(compute::kernel& kernel, std::ostream& stream) {
+
         auto program = kernel.get_program();
         auto buildOptions = program.get_build_info<std::string>(CL_PROGRAM_BUILD_OPTIONS, device);
 
-        std::cerr // TODO Change to R
+        stream // TODO Change to R
             << "Options: " << buildOptions << std::endl
             << program.source()
             << std::endl;
@@ -542,17 +479,17 @@ private:
         buildAllUpdateXBetaKernels(neededFormatTypes);
     }
 
-    void printAllKernels() {
+    void printAllKernels(std::ostream& stream) {
         for (auto& entry : kernelGradientHessianWeighted) {
-            printKernel(entry.second);
+            printKernel(entry.second, stream);
         }
 
         for (auto& entry : kernelGradientHessianNoWeight) {
-            printKernel(entry.second);
+            printKernel(entry.second, stream);
         }
 
         for (auto& entry : kernelUpdateXBeta) {
-            printKernel(entry.second);
+            printKernel(entry.second, stream);
         }
     }
 

@@ -32,7 +32,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error
 		) : privateModelSpecifics(nullptr), modelSpecifics(specifics), jointPrior(prior),
-		 hXI(reader), hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
+		 hXI(reader), // hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
 		 logger(_logger), error(_error) {
 	N = hXI.getNumberOfPatients();
 	K = hXI.getNumberOfRows();
@@ -67,7 +67,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 	  modelSpecifics(*privateModelSpecifics),
       jointPrior(copy.jointPrior), // swallow
       hXI(copy.hXI), // swallow
-	  hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
+// 	  hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
 // 	  jointPrior(priors::JointPriorPtr(copy.jointPrior->clone())), // deep copy
 	  logger(copy.logger), error(copy.error) {
 
@@ -170,8 +170,8 @@ void CyclicCoordinateDescent::init(bool offset) {
 	hDelta.resize(J, static_cast<double>(initialBound));
 	hBeta.resize(J, static_cast<double>(0.0));
 
-	hXBeta.resize(K, static_cast<double>(0.0));
-	hXBetaSave.resize(K, static_cast<double>(0.0));
+// 	hXBeta.resize(K, static_cast<double>(0.0));
+// 	hXBetaSave.resize(K, static_cast<double>(0.0));
 
 	fixBeta.resize(J, false);
 	hWeights.resize(0);
@@ -193,7 +193,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 	modelSpecifics.initialize(N, K, J, &hXI, NULL, NULL, NULL,
 			NULL, NULL,
 			hPid, NULL,
-			hXBeta.data(), NULL,
+			NULL, NULL,
 			NULL,
 			hY
 			);
@@ -434,6 +434,7 @@ double CyclicCoordinateDescent::getLogPrior(void) {
 
 double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
 	if (convergenceType == GRADIENT) {
+		auto& hXBeta = modelSpecifics.getXBeta();
 		double criterion = 0;
 		if (useCrossValidation) {
 			for (int i = 0; i < K; i++) {
@@ -462,6 +463,10 @@ double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
 double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 	double sumAbsDiffs = 0;
 	double sumAbsResiduals = 0;
+
+	auto& hXBeta = modelSpecifics.getXBeta();
+	auto& hXBetaSave = modelSpecifics.getXBetaSave();
+
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
 			sumAbsDiffs += abs(hXBeta[i] - hXBetaSave[i]) * hWeights[i];
@@ -477,7 +482,8 @@ double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 }
 
 void CyclicCoordinateDescent::saveXBeta(void) {
-	memcpy(hXBetaSave.data(), hXBeta.data(), K * sizeof(double));
+    modelSpecifics.saveXBeta();
+	// memcpy(hXBetaSave.data(), hXBeta.data(), K * sizeof(double));
 }
 
 void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
@@ -1030,47 +1036,54 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
     return jointPrior->getDelta(gh, hBeta, index);
 }
 
-template <class IteratorType>
-void CyclicCoordinateDescent::axpy(double* y, const double alpha, const int index) {
-	IteratorType it(hXI, index);
-	for (; it; ++it) {
-		const int k = it.index();
-		y[k] += alpha * it.value();
-	}
-}
-
 void CyclicCoordinateDescent::axpyXBeta(const double beta, const int j) {
-	if (beta != static_cast<double>(0.0)) {
-		switch (hXI.getFormatType(j)) {
-		case INDICATOR:
-			axpy < IndicatorIterator > (hXBeta.data(), beta, j);
-			break;
-		case INTERCEPT:
-		    axpy < InterceptIterator > (hXBeta.data(), beta, j);
-		    break;
-		case DENSE:
-			axpy < DenseIterator > (hXBeta.data(), beta, j);
-			break;
-		case SPARSE:
-			axpy < SparseIterator > (hXBeta.data(), beta, j);
-			break;
-		default:
-			// throw error
-			std::ostringstream stream;
-			stream << "Unknown vector type.";
-			error->throwError(stream);
-		}
-	}
+    modelSpecifics.axpyXBeta(beta, j);
 }
 
-void CyclicCoordinateDescent::computeXBeta(void) {
+// template <class IteratorType>
+// void CyclicCoordinateDescent::axpy(double* y, const double alpha, const int index) {
+// 	IteratorType it(hXI, index);
+// 	for (; it; ++it) {
+// 		const int k = it.index();
+// 		y[k] += alpha * it.value();
+// 	}
+// }
+//
+// void CyclicCoordinateDescent::axpyXBeta(const double beta, const int j) {
+// 	if (beta != static_cast<double>(0.0)) {
+// 		switch (hXI.getFormatType(j)) {
+// 		case INDICATOR:
+// 			axpy < IndicatorIterator > (hXBeta.data(), beta, j);
+// 			break;
+// 		case INTERCEPT:
+// 		    axpy < InterceptIterator > (hXBeta.data(), beta, j);
+// 		    break;
+// 		case DENSE:
+// 			axpy < DenseIterator > (hXBeta.data(), beta, j);
+// 			break;
+// 		case SPARSE:
+// 			axpy < SparseIterator > (hXBeta.data(), beta, j);
+// 			break;
+// 		default:
+// 			// throw error
+// 			std::ostringstream stream;
+// 			stream << "Unknown vector type.";
+// 			error->throwError(stream);
+// 		}
+// 	}
+// }
+
+void CyclicCoordinateDescent::computeXBeta(void) { // TODO Delegate to ModelSpecifics?
 	// Note: X is current stored in (sparse) column-major format, which is
 	// inefficient for forming X\beta.
 	// TODO Make row-major version of X
 
+	auto& hXBeta = modelSpecifics.getXBeta();
+
 	if (setBetaList.empty()) { // Update all
 		// clear X\beta
-		zeroVector(hXBeta.data(), K);
+		//zeroVector(hXBeta.data(), K); // TODO Delegate to ModelSpecifics?  Yes!
+		modelSpecifics.zeroXBeta();
 		for (int j = 0; j < J; ++j) {
 			axpyXBeta(hBeta[j], j);
 		}

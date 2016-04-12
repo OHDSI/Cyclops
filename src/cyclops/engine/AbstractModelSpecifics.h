@@ -102,11 +102,16 @@ public:
                                            const DeviceType deviceType,
                                            const std::string& deviceName);
 
-	// TODO Remove the following
-	RealVector& getXBeta() { return hXBeta; }
-
-	RealVector& getXBetaSave() {  return hXBetaSave; }
-
+	virtual const RealVector& getXBeta() const = 0;
+	
+	virtual const RealVector& getXBetaSave() const = 0;
+	
+	virtual void saveXBeta() = 0;
+	
+	virtual void zeroXBeta() = 0;
+	
+	virtual void axpyXBeta(const double beta, const int j) = 0;
+	
 protected:
 
 //     template <class Engine>
