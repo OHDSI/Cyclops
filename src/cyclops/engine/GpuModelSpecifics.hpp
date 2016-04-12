@@ -193,7 +193,7 @@ public:
 
         buildAllKernels(neededFormatTypes);
 
-        // printAllKernels();
+        printAllKernels();
     }
 
     virtual void computeRemainingStatistics(bool useWeights) {
@@ -257,12 +257,12 @@ public:
         kernel.set_arg(2, taskCount);
         kernel.set_arg(3, 0.0); // TODO remove
 
-        std::cerr << "loop= " << loops << std::endl;
-        std::cerr << "n   = " << taskCount << std::endl;
-        std::cerr << "gWS = " << globalWorkSize << std::endl;
-        std::cerr << "tpb = " << tpb << std::endl;
+//         std::cerr << "loop= " << loops << std::endl;
+//         std::cerr << "n   = " << taskCount << std::endl;
+//         std::cerr << "gWS = " << globalWorkSize << std::endl;
+//         std::cerr << "tpb = " << tpb << std::endl;
 //
-        std::cerr << kernel.get_program().source() << std::endl;
+        // std::cerr << kernel.get_program().source() << std::endl;
 
 
 //         compute::vector<real> tmpR(taskCount, ctx);

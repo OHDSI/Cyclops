@@ -103,14 +103,26 @@ struct ReduceBody2<T,true>
     }
 };
 
-    static std::string timesX(const std::string arg, const FormatType formatType) {
-        return (formatType == INDICATOR || formatType == INTERCEPT) ?
-            arg : arg + " * x";
-    }
+template <class BaseModel> // if BaseModel derives from IndependentData
+typename std::enable_if<std::is_base_of<IndependentData,BaseModel>::value, std::string>::type
+static group(const std::string& id, const std::string& k) {
+    return k;
+};
 
-    static std::string weight(const std::string arg, bool useWeights) {
-        return useWeights ? "w * " + arg : arg;
-    }
+template <class BaseModel> // if BaseModel does not derive from IndependentData
+typename std::enable_if<!std::is_base_of<IndependentData,BaseModel>::value, std::string>::type
+static group(const std::string& id, const std::string& k) {
+    return id + "[" + k + "]";
+};
+
+static std::string timesX(const std::string arg, const FormatType formatType) {
+    return (formatType == INDICATOR || formatType == INTERCEPT) ?
+        arg : arg + " * x";
+}
+
+static std::string weight(const std::string arg, bool useWeights) {
+    return useWeights ? "w * " + arg : arg;
+}
 
 }; // anonymous namespace
 
@@ -122,9 +134,6 @@ struct ReduceBody2<T,true>
 
         std::stringstream code;
         code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
-
-//         code << "#define GROUP(id, k) " <<
-//             (BaseModel::hasIndependentRows ? "k" : "id[k]") << "\n";
 
         code << "__kernel void " << name << "(            \n" <<
                 "       __global REAL* X,                 \n" <<
@@ -213,12 +222,6 @@ struct ReduceBody2<T,true>
         std::stringstream code;
         code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
 
-        if (BaseModel::hasIndependentRows) {
-            code << "#define GROUP(id, k) k     \n";
-        } else {
-            code << "#define GROUP(id, k) id[k] \n";
-        }
-
         code << "__kernel void " << name << "(     \n" <<
                 "       __global const REAL* X,    \n" <<
                 "       __global const int* K,     \n" <<
@@ -250,7 +253,7 @@ struct ReduceBody2<T,true>
             // TODO: The following is not YET thread-safe for multi-row observations
             code << "       const REAL oldEntry = expXBeta[k];                 \n" <<
                     "       const REAL newEntry = expXBeta[k] = exp(xBeta[k]); \n" <<
-                    "       denominator[GROUP(id,k)] += (newEntry - oldEntry); \n";
+                    "       denominator[" << group<BaseModel>("id","k") << "] += (newEntry - oldEntry); \n";
 
             // LOGISTIC MODEL ONLY
             //                     const real t = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
