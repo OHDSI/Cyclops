@@ -173,7 +173,7 @@ public:
 	Matrix computeFisherInformation(const std::vector<size_t>& indices) const;
 
 	loggers::ProgressLogger& getProgressLogger() const { return *logger; }
-	
+
 	loggers::ErrorHandler& getErrorHandler() const { return *error; }
 
 protected:
@@ -326,10 +326,10 @@ protected:
 
 // 	CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
- 	const double* hY; // K-vector
+ 	// const double* hY; // K-vector
 // 	int* hNEvents; // K-vector
 //	int* hPid; // N-vector
-	const int* hPid;
+	// const int* hPid;
 	int** hXColumnRowIndicators; // J-vector
 
 	//typedef std::vector<real> RealVector;

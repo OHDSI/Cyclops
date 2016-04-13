@@ -39,9 +39,9 @@ public:
 	// TODO
 	virtual void reseed() { /* std::cerr << "RESEED" << std::endl;*/ } // Do nothing by default
 
-	virtual void getWeights(int batch, std::vector<real>& weights) = 0; // pure virtual
+	virtual void getWeights(int batch, std::vector<double>& weights) = 0; // pure virtual
 
-	virtual void getComplement(std::vector<real>& weights) = 0; // pure virtual
+	virtual void getComplement(std::vector<double>& weights) = 0; // pure virtual
 	
 	virtual AbstractSelector* clone() const = 0; // pure virtual
 

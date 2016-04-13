@@ -385,7 +385,7 @@ public:
 #endif // GPU_DEBUG
     }
 
-    virtual void setWeights(real* inWeights, bool useCrossValidation) {
+    virtual void setWeights(double* inWeights, bool useCrossValidation) {
         // Currently only computed on CPU and then copied to GPU
         ModelSpecifics<BaseModel, WeightType>::setWeights(inWeights, useCrossValidation);
 

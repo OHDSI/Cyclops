@@ -39,9 +39,9 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	J = hXI.getNumberOfColumns();
 
 // 	hXI = reader;
-	hY = hXI.getYVector(); // TODO Delegate all data to ModelSpecifics
+	// hY = hXI.getYVector(); // TODO Delegate all data to ModelSpecifics
 //	hOffs = reader->getOffsetVector();
-	hPid = hXI.getPidVector();
+	// hPid = hXI.getPidVector();
 
 	conditionId = hXI.getConditionId();
 
@@ -75,8 +75,8 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 	K = hXI.getNumberOfRows();
 	J = hXI.getNumberOfColumns();
 
-	hY = hXI.getYVector(); // TODO Delegate all data to ModelSpecifics
-	hPid = hXI.getPidVector();
+	// hY = hXI.getYVector(); // TODO Delegate all data to ModelSpecifics
+	// hPid = hXI.getPidVector();
 
 	conditionId = hXI.getConditionId();
 
@@ -192,10 +192,12 @@ void CyclicCoordinateDescent::init(bool offset) {
 
 	modelSpecifics.initialize(N, K, J, &hXI, NULL, NULL, NULL,
 			NULL, NULL,
-			hPid, NULL,
+			NULL, // hPid,
+			NULL,
 			NULL, NULL,
 			NULL,
-			hY
+			NULL
+		//	hY
 			);
 }
 
@@ -435,18 +437,6 @@ double CyclicCoordinateDescent::getLogPrior(void) {
 double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
 	if (convergenceType == GRADIENT) {
 	    return modelSpecifics.getGradientObjective(useCrossValidation);
-// 		auto& hXBeta = modelSpecifics.getXBeta();
-// 		double criterion = 0;
-// 		if (useCrossValidation) {
-// 			for (int i = 0; i < K; i++) {
-// 				criterion += hXBeta[i] * hY[i] * hWeights[i];
-// 			}
-// 		} else {
-// 			for (int i = 0; i < K; i++) {
-// 				criterion += hXBeta[i] * hY[i];
-// 			}
-// 		}
-// 		return static_cast<double> (criterion);
 	} else
 	if (convergenceType == MITTAL) {
 		return getLogLikelihood();

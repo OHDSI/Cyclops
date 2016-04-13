@@ -241,7 +241,8 @@ int AbstractModelSpecifics::getAlignedLength(int N) {
 }
 
 
-void AbstractModelSpecifics::setPidForAccumulation(const real* weights) {
+template <typename RealType>
+void AbstractModelSpecifics::setPidForAccumulation(const RealType* weights) {
 
 	hPidInternal =  hPidOriginal; // Make copy
 	hPid = hPidInternal.data(); // Point to copy
@@ -350,7 +351,7 @@ void AbstractModelSpecifics::initialize(
 	K = iK;
 	J = iJ;
 	offsExpXBeta.resize(K);
-	hXBeta.resize(K);	
+	hXBeta.resize(K);
 
 	if (allocateXjY()) {
 		hXjY.resize(J);
@@ -361,7 +362,7 @@ void AbstractModelSpecifics::initialize(
 	}
 
 	if (initializeAccumulationVectors()) {
-		setPidForAccumulation(nullptr); // calls setupSparseIndices() before returning
+		setPidForAccumulation(static_cast<double*>(nullptr)); // calls setupSparseIndices() before returning
  	} else {
 		// TODO Suspect below is not necessary for non-grouped data.
 		// If true, then fill with pointers to CompressedDataColumn and do not delete in destructor

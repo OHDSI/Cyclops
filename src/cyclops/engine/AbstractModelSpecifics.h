@@ -82,7 +82,7 @@ public:
 	virtual double getPredictiveLogLikelihood(double* weights) = 0; // pure virtual
 
     virtual void getPredictiveEstimates(double* y, double* weights) = 0; // pure virtual
-    
+
     virtual double getGradientObjective(bool useCrossValidation) = 0; // pure virtual
 
     virtual void makeDirty();
@@ -129,7 +129,8 @@ protected:
 
 	int getAlignedLength(int N);
 
-	void setPidForAccumulation(const double *weights);
+	template <typename RealType>
+	void setPidForAccumulation(const RealType *weights);
 
 	void setupSparseIndices(const int max);
 

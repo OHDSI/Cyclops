@@ -185,24 +185,24 @@ public:
 			double *ohessian,  bool useWeights);
 
 	AbstractModelSpecifics* clone() const;
-	
+
 	virtual const RealVector& getXBeta();
-	
+
 	virtual const RealVector& getXBetaSave();
-	
+
 	virtual void saveXBeta();
-	
+
 	virtual void zeroXBeta();
-	
-	virtual void axpyXBeta(const double beta, const int j);	
-	
+
+	virtual void axpyXBeta(const double beta, const int j);
+
 	//virtual double getGradientObjective();
 
 protected:
 
 	template <typename IteratorType>
-	void axpy(double* y, const double alpha, const int index);
-	
+	void axpy(real* y, const real alpha, const int index);
+
 	void computeNumeratorForGradient(int index);
 
 	void computeFisherInformation(int indexOne, int indexTwo, double *oinfo, bool useWeights);
@@ -221,11 +221,11 @@ protected:
 
 	double getLogLikelihood(bool useCrossValidation);
 
-	double getPredictiveLogLikelihood(real* weights);
-	
+	double getPredictiveLogLikelihood(double* weights);
+
 	double getGradientObjective(bool useCrossValidation);
 
-	void getPredictiveEstimates(real* y, real* weights);
+	void getPredictiveEstimates(double* y, double* weights);
 
 	bool allocateXjY(void);
 
@@ -235,7 +235,7 @@ protected:
 
 	bool sortPid(void);
 
-	void setWeights(real* inWeights, bool useCrossValidation);
+	void setWeights(double* inWeights, bool useCrossValidation);
 
 	void doSortPid(bool useCrossValidation);
 
@@ -1100,7 +1100,7 @@ public:
                 (WeightOperationType::isWeighted) ?
                     weight * (numerator2 / denominator - g * g) :
                     (numerator2 / denominator - g * g);
-                    
+
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
 };
@@ -1190,8 +1190,9 @@ public:
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
-	void predictEstimate(real& yi, real xBeta){
+	real predictEstimate(real xBeta){
 		//do nothing for now
+		return 0.0;
 	}
 
 };
@@ -1278,8 +1279,9 @@ public:
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
-	void predictEstimate(real& yi, real xBeta){
+	real predictEstimate(real xBeta){
 		//do nothing for now
+		return 0.0;
 	}
 
 };
@@ -1357,9 +1359,10 @@ public:
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
-	void predictEstimate(real& yi, real xBeta){
+	real predictEstimate(real xBeta){
 	    // Do nothing
 		//yi = xBeta; // Returns the linear predictor;  ###relative risk
+		return 0.0;
 	}
 
 };
@@ -1441,9 +1444,10 @@ public:
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
-	void predictEstimate(real& yi, real xBeta){
+	real predictEstimate(real xBeta){
 	    // Do nothing
 		//yi = xBeta; // Returns the linear predictor;  ###relative risk
+		return 0.0;
 	}
 
 };
@@ -1487,9 +1491,9 @@ public:
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
-	void predictEstimate(real& yi, real xBeta){
+	real predictEstimate(real xBeta){
 		real t = exp(xBeta);
-		yi = t/(t+1);
+		return t / (t + static_cast<real>(1));
 	}
 };
 
@@ -1580,8 +1584,9 @@ public:
 		    ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
-	void predictEstimate(real& yi, real xBeta){
+	real predictEstimate(real xBeta){
 		// do nothing for now
+		return 0.0;
 	}
 };
 
@@ -1678,8 +1683,9 @@ public:
 		    ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
-	void predictEstimate(real& yi, real xBeta){
+	real predictEstimate(real xBeta){
 		// do nothing for now
+		return 0.0;
 	}
 };
 
@@ -1819,8 +1825,8 @@ public:
 		return - (residual * residual * weighti);
 	}
 
-	void predictEstimate(real& yi, real xBeta){
-		yi = xBeta;
+	real predictEstimate(real xBeta){
+		return xBeta;
 	}
 };
 
@@ -1923,8 +1929,8 @@ public:
 			return (ji*xBetai - exp(xBetai))*weighti;
 	}
 
-	void predictEstimate(real& yi, real xBeta){
-		yi = exp(xBeta);
+	real predictEstimate(real xBeta){
+		return exp(xBeta);
 	}
 
 	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {

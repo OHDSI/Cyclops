@@ -15,18 +15,27 @@
 namespace bsccs {
 
 // Helper functions until we can remove raw_pointers
+namespace { // anonymous
 
-inline real* begin(real* x) { return x; }
-inline int* begin(int* x) {  return x; }
+template <typename T>
+inline T* begin(T* x) { return x; }
 
-inline const real* begin(const real* x) { return x; }
-inline const int* begin(const int* x) {  return x; }
+template <typename T>
+inline const T* begin(const T* x) { return x; }
+
+// inline real* begin(real* x) { return x; }
+// inline int* begin(int* x) {  return x; }
+//
+// inline const real* begin(const real* x) { return x; }
+// inline const int* begin(const int* x) {  return x; }
 
 inline real* begin(std::vector<real>& x) { return x.data(); }
 inline int* begin(std::vector<int>& x) { return x.data(); }
 
 inline const real* begin(const std::vector<real>& x) { return x.data(); }
 inline const int* begin(const std::vector<int>& x) { return x.data(); }
+
+}; // namespace anonymous
 
 namespace helper {
 
@@ -155,7 +164,7 @@ namespace helper {
 //     }
 
     auto getRangeAllPredictiveLikelihood(const int length, const RealVector& y, const RealVector& xBeta,
-            const RealVector& denominator, const real* weights, const int* pid, std::true_type) ->
+            const RealVector& denominator, const double* weights, const int* pid, std::true_type) ->
 
         boost::iterator_range<
             boost::zip_iterator<
@@ -187,7 +196,7 @@ namespace helper {
     }
 
     auto getRangeAllPredictiveLikelihood(const int length, const RealVector& y, const RealVector& xBeta,
-            const RealVector& denominator, const real* weights, const int* pid, std::false_type) ->
+            const RealVector& denominator, const double* weights, const int* pid, std::false_type) ->
 
         boost::iterator_range<
             boost::zip_iterator<

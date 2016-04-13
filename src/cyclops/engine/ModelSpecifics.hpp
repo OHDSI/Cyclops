@@ -373,7 +373,7 @@ template <class BaseModel,typename WeightType>
 bool ModelSpecifics<BaseModel,WeightType>::hasResetableAccumulators(void) { return BaseModel::hasResetableAccumulators; }
 
 template <class BaseModel,typename WeightType> template <class IteratorType>
-void ModelSpecifics<BaseModel,WeightType>::axpy(double* y, const double alpha, const int index) {
+void ModelSpecifics<BaseModel,WeightType>::axpy(real* y, const real alpha, const int index) {
 	IteratorType it(modelData, index);
 	for (; it; ++it) {
 		const int k = it.index();
@@ -402,7 +402,7 @@ void ModelSpecifics<BaseModel,WeightType>::axpyXBeta(const double beta, const in
 }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::setWeights(real* inWeights, bool useCrossValidation) {
+void ModelSpecifics<BaseModel,WeightType>::setWeights(double* inWeights, bool useCrossValidation) {
 	// Set K weights
 	if (hKWeight.size() != K) {
 		hKWeight.resize(K);
@@ -624,7 +624,7 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 }
 
 template <class BaseModel,typename WeightType>
-double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* weights) {
+double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(double* weights) {
 
     std::vector<real> saveKWeight;
 	if(BaseModel::cumulativeGradientAndHessian)	{
@@ -664,7 +664,7 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 }   // END OF DIFF
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::getPredictiveEstimates(real* y, real* weights){
+void ModelSpecifics<BaseModel,WeightType>::getPredictiveEstimates(double* y, double* weights){
 
 	// TODO Check with SM: the following code appears to recompute hXBeta at large expense
 //	std::vector<real> xBeta(K,0.0);
@@ -678,12 +678,12 @@ void ModelSpecifics<BaseModel,WeightType>::getPredictiveEstimates(real* y, real*
 	if (weights) {
 		for (size_t k = 0; k < K; ++k) {
 			if (weights[k]) {
-				BaseModel::predictEstimate(y[k], hXBeta[k]);
+				y[k] = BaseModel::predictEstimate(hXBeta[k]);
 			}
 		}
 	} else {
 		for (size_t k = 0; k < K; ++k) {
-			BaseModel::predictEstimate(y[k], hXBeta[k]);
+			y[k] = BaseModel::predictEstimate(hXBeta[k]);
 		}
 	}
 	// TODO How to remove code duplication above?

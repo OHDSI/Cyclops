@@ -25,7 +25,7 @@ CrossValidationSelector::CrossValidationSelector(
 		long inSeed,
 	    loggers::ProgressLoggerPtr _logger,
 		loggers::ErrorHandlerPtr _error,		
-		std::vector<real>* wtsExclude) : AbstractSelector(inIds, inType, inSeed, _logger, _error), fold(inFold) {
+		std::vector<double>* wtsExclude) : AbstractSelector(inIds, inType, inSeed, _logger, _error), fold(inFold) {
 
 	// Calculate interval starts
 	intervalStart.reserve(fold + 1);
@@ -67,7 +67,7 @@ CrossValidationSelector::~CrossValidationSelector() {
 	// Do nothing
 }
 
-void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) {
+void CrossValidationSelector::getWeights(int batch, std::vector<double>& weights) {
 	if (weights.size() != K) {
 		weights.resize(K);
 	}
@@ -109,8 +109,8 @@ AbstractSelector* CrossValidationSelector::clone() const {
 	return new CrossValidationSelector(*this); // default copy constructor
 }
 
-void CrossValidationSelector::getComplement(std::vector<real>& weights) {
-	for(std::vector<real>::iterator it = weights.begin(); it != weights.end(); it++) {
+void CrossValidationSelector::getComplement(std::vector<double>& weights) {
+	for(auto it = weights.begin(); it != weights.end(); it++) {
 		*it = 1 - *it;
 	}
 }

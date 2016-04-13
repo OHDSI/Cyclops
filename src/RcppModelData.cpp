@@ -554,7 +554,7 @@ List cyclopsReadFileData(const std::string& fileName, const std::string& modelTy
     XPtr<ModelData> ptr(reader->getModelData());
 
 
-    const std::vector<double>& y = ptr->getYVectorRef();
+    const auto& y = ptr->getYVectorRef();
     double total = std::accumulate(y.begin(), y.end(), 0.0);
     // delete reader; // TODO Test
 

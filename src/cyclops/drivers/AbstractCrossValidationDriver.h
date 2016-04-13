@@ -22,7 +22,7 @@ public:
 	AbstractCrossValidationDriver(
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error,
-			std::vector<real>* wtsExclude = nullptr
+			std::vector<double>* wtsExclude = nullptr
 	);
 
 	virtual ~AbstractCrossValidationDriver();
@@ -65,7 +65,7 @@ protected:
 	double computeStDev(const std::vector<double>& value, double mean);
 
 	std::vector<double> maxPoint;
-	std::vector<real>* weightsExclude;
+	std::vector<double>* weightsExclude;
 };
 
 } // namespace

@@ -79,7 +79,7 @@ void BootstrapSelector::permute() {
 //	exit(0);
 }
 
-void BootstrapSelector::getWeights(int batch, std::vector<real>& weights) {
+void BootstrapSelector::getWeights(int batch, std::vector<double>& weights) {
 	if (weights.size() != K) {
 		weights.resize(K);
 	}
@@ -101,7 +101,7 @@ void BootstrapSelector::getWeights(int batch, std::vector<real>& weights) {
 	}
 }
 
-void BootstrapSelector::getComplement(std::vector<real>& weights) {
+void BootstrapSelector::getComplement(std::vector<double>& weights) {
     std::ostringstream stream;
     stream << "BootstrapSelector::getComplement is not yet implemented.";
     error->throwError(stream);

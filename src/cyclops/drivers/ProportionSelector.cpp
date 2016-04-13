@@ -48,11 +48,11 @@ void ProportionSelector::permute() {
 //	} else {
         std::ostringstream stream;
         stream <<  "ProportionSelector::permute is not yet implemented.";
-        error->throwError(stream);	        
+        error->throwError(stream);
 //	}
 }
 
-void ProportionSelector::getWeights(int batch, std::vector<real>& weights) {
+void ProportionSelector::getWeights(int batch, std::vector<double>& weights) {
 	if (weights.size() != K) {
 		weights.resize(K);
 	}
@@ -85,10 +85,10 @@ void ProportionSelector::getWeights(int batch, std::vector<real>& weights) {
 ////	exit(-1);
 }
 
-void ProportionSelector::getComplement(std::vector<real>& weights) {
+void ProportionSelector::getComplement(std::vector<double>& weights) {
     std::ostringstream stream;
     stream <<  "ProportionSelector::getComplement is not yet implemented.";
-    error->throwError(stream);	        
+    error->throwError(stream);
 }
 
 } // namespace
