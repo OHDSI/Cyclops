@@ -9,8 +9,8 @@
 #define GPUMODELSPECIFICS_HPP_
 
 
-// #define GPU_DEBUG
-#undef GPU_DEBUG
+#define GPU_DEBUG
+// #undef GPU_DEBUG
 
 #include <Rcpp.h>
 
@@ -155,7 +155,8 @@ public:
           , compute::command_queue::enable_profiling
       ),
       dY(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dBuffer(ctx), dKWeight(ctx),
-      dId(ctx) {
+      dId(ctx),
+      dXBetaKnown(false), hXBetaKnown(false) {
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
 
@@ -188,7 +189,7 @@ public:
         detail::resizeAndCopyToDevice(inputY, dY, queue);
 
         // Internal buffers
-        detail::resizeAndCopyToDevice(hXBeta, dXBeta, queue);
+        detail::resizeAndCopyToDevice(hXBeta, dXBeta, queue);  hXBetaKnown = true; dXBetaKnown = true;
         detail::resizeAndCopyToDevice(offsExpXBeta, dExpXBeta, queue);
         detail::resizeAndCopyToDevice(denomPid, dDenominator, queue);
         detail::resizeAndCopyToDevice(hPidInternal, dId, queue);
@@ -233,6 +234,11 @@ public:
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
+
+        if (!dXBetaKnown) {
+            compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
+            dXBetaKnown = true;
+        }
 
         FormatType formatType = modelData.getFormatType(index);
         auto& kernel = (useWeights) ? // Double-dispatch
@@ -362,6 +368,8 @@ public:
         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
         queue.finish();
 
+        hXBetaKnown = false; // dXBeta was just updated
+
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
         ///////////////////////////"
@@ -382,6 +390,36 @@ public:
         ModelSpecifics<BaseModel, WeightType>::setWeights(inWeights, useCrossValidation);
 
         detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
+    }
+
+    virtual const RealVector& getXBeta() {
+        if (!hXBetaKnown) {
+            compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
+            hXBetaKnown = true;
+        }
+        return ModelSpecifics<BaseModel,WeightType>::getXBeta();
+    }
+
+    virtual const RealVector& getXBetaSave() {
+        return ModelSpecifics<BaseModel,WeightType>::getXBetaSave();
+    }
+
+    virtual void saveXBeta() {
+        if (!hXBetaKnown) {
+            compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
+            hXBetaKnown = true;
+        }
+        ModelSpecifics<BaseModel,WeightType>::saveXBeta();
+    }
+
+    virtual void zeroXBeta() {
+        ModelSpecifics<BaseModel,WeightType>::zeroXBeta(); // touches hXBeta
+        dXBetaKnown = false;
+    }
+
+    virtual void axpyXBeta(const double beta, const int j) {
+        ModelSpecifics<BaseModel,WeightType>::axpyXBeta(beta, j); // touches hXBeta
+        dXBetaKnown = false;
     }
 
 private:
@@ -516,6 +554,9 @@ private:
     compute::vector<real> dBuffer;
     compute::vector<real> dKWeight;
     compute::vector<int> dId;
+
+    bool dXBetaKnown;
+    bool hXBetaKnown;
 };
 
 } // namespace bsccs

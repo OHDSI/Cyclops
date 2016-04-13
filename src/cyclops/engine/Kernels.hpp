@@ -115,12 +115,12 @@ static group(const std::string& id, const std::string& k) {
     return id + "[" + k + "]";
 };
 
-static std::string timesX(const std::string arg, const FormatType formatType) {
+static std::string timesX(const std::string& arg, const FormatType formatType) {
     return (formatType == INDICATOR || formatType == INTERCEPT) ?
         arg : arg + " * x";
 }
 
-static std::string weight(const std::string arg, bool useWeights) {
+static std::string weight(const std::string& arg, bool useWeights) {
     return useWeights ? "w * " + arg : arg;
 }
 
@@ -136,7 +136,7 @@ static std::string weight(const std::string arg, bool useWeights) {
         code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
 
         code << "__kernel void " << name << "(            \n" <<
-                "       __global REAL* X,                 \n" <<
+                "       __global const REAL* X,                 \n" <<
                 "       __global const int* K,            \n" <<
                 "       const uint N,                     \n" <<
                 "       const REAL beta,                  \n" << // TODO Remove

@@ -434,18 +434,19 @@ double CyclicCoordinateDescent::getLogPrior(void) {
 
 double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
 	if (convergenceType == GRADIENT) {
-		auto& hXBeta = modelSpecifics.getXBeta();
-		double criterion = 0;
-		if (useCrossValidation) {
-			for (int i = 0; i < K; i++) {
-				criterion += hXBeta[i] * hY[i] * hWeights[i];
-			}
-		} else {
-			for (int i = 0; i < K; i++) {
-				criterion += hXBeta[i] * hY[i];
-			}
-		}
-		return static_cast<double> (criterion);
+	    return modelSpecifics.getGradientObjective(useCrossValidation);
+// 		auto& hXBeta = modelSpecifics.getXBeta();
+// 		double criterion = 0;
+// 		if (useCrossValidation) {
+// 			for (int i = 0; i < K; i++) {
+// 				criterion += hXBeta[i] * hY[i] * hWeights[i];
+// 			}
+// 		} else {
+// 			for (int i = 0; i < K; i++) {
+// 				criterion += hXBeta[i] * hY[i];
+// 			}
+// 		}
+// 		return static_cast<double> (criterion);
 	} else
 	if (convergenceType == MITTAL) {
 		return getLogLikelihood();
@@ -1073,16 +1074,13 @@ void CyclicCoordinateDescent::axpyXBeta(const double beta, const int j) {
 // 	}
 // }
 
-void CyclicCoordinateDescent::computeXBeta(void) { // TODO Delegate to ModelSpecifics?
+void CyclicCoordinateDescent::computeXBeta(void) {
 	// Note: X is current stored in (sparse) column-major format, which is
 	// inefficient for forming X\beta.
 	// TODO Make row-major version of X
 
-	auto& hXBeta = modelSpecifics.getXBeta();
-
 	if (setBetaList.empty()) { // Update all
 		// clear X\beta
-		//zeroVector(hXBeta.data(), K); // TODO Delegate to ModelSpecifics?  Yes!
 		modelSpecifics.zeroXBeta();
 		for (int j = 0; j < J; ++j) {
 			axpyXBeta(hBeta[j], j);

@@ -59,7 +59,7 @@ public:
 			real* iBeta,
 			const real* iY);
 
-	virtual void setWeights(real* inWeights, bool useCrossValidation) = 0; // pure virtual
+	virtual void setWeights(double* inWeights, bool useCrossValidation) = 0; // pure virtual
 
 	virtual void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian, bool useWeights) = 0; // pure virtual
@@ -79,9 +79,11 @@ public:
 
 	virtual double getLogLikelihood(bool useCrossValidation) = 0; // pure virtual
 
-	virtual double getPredictiveLogLikelihood(real* weights) = 0; // pure virtual
+	virtual double getPredictiveLogLikelihood(double* weights) = 0; // pure virtual
 
-    virtual void getPredictiveEstimates(real* y, real* weights) = 0; // pure virtual
+    virtual void getPredictiveEstimates(double* y, double* weights) = 0; // pure virtual
+    
+    virtual double getGradientObjective(bool useCrossValidation) = 0; // pure virtual
 
     virtual void makeDirty();
 
@@ -102,16 +104,16 @@ public:
                                            const DeviceType deviceType,
                                            const std::string& deviceName);
 
-	virtual const RealVector& getXBeta() const = 0;
-	
-	virtual const RealVector& getXBetaSave() const = 0;
-	
+	virtual const RealVector& getXBeta() = 0;
+
+	virtual const RealVector& getXBetaSave() = 0;
+
 	virtual void saveXBeta() = 0;
-	
+
 	virtual void zeroXBeta() = 0;
-	
+
 	virtual void axpyXBeta(const double beta, const int j) = 0;
-	
+
 protected:
 
 //     template <class Engine>
@@ -127,7 +129,7 @@ protected:
 
 	int getAlignedLength(int N);
 
-	void setPidForAccumulation(const real *weights);
+	void setPidForAccumulation(const double *weights);
 
 	void setupSparseIndices(const int max);
 

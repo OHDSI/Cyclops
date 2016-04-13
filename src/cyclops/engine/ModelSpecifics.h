@@ -186,15 +186,17 @@ public:
 
 	AbstractModelSpecifics* clone() const;
 	
-	virtual const RealVector& getXBeta() const;
+	virtual const RealVector& getXBeta();
 	
-	virtual const RealVector& getXBetaSave() const;
+	virtual const RealVector& getXBetaSave();
 	
 	virtual void saveXBeta();
 	
 	virtual void zeroXBeta();
 	
 	virtual void axpyXBeta(const double beta, const int j);	
+	
+	//virtual double getGradientObjective();
 
 protected:
 
@@ -220,6 +222,8 @@ protected:
 	double getLogLikelihood(bool useCrossValidation);
 
 	double getPredictiveLogLikelihood(real* weights);
+	
+	double getGradientObjective(bool useCrossValidation);
 
 	void getPredictiveEstimates(real* y, real* weights);
 

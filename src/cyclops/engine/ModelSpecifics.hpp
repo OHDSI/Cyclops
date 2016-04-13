@@ -292,6 +292,21 @@ AbstractModelSpecifics* ModelSpecifics<BaseModel,WeightType>::clone() const {
 }
 
 template <class BaseModel, typename WeightType>
+double ModelSpecifics<BaseModel,WeightType>::getGradientObjective(bool useCrossValidation) {
+		real criterion = 0;
+		if (useCrossValidation) {
+			for (int i = 0; i < K; i++) {
+				criterion += hXBeta[i] * hY[i] * hKWeight[i];
+			}
+		} else {
+			for (int i = 0; i < K; i++) {
+				criterion += hXBeta[i] * hY[i];
+			}
+		}
+		return static_cast<double> (criterion);
+	}
+
+template <class BaseModel, typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::printTiming() {
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -321,10 +336,10 @@ ModelSpecifics<BaseModel,WeightType>::~ModelSpecifics() {
 }
 
 template <class BaseModel,typename WeightType>
-const RealVector& ModelSpecifics<BaseModel,WeightType>::getXBeta() const { return hXBeta; }
+const RealVector& ModelSpecifics<BaseModel,WeightType>::getXBeta() { return hXBeta; }
 
 template <class BaseModel,typename WeightType>
-const RealVector& ModelSpecifics<BaseModel,WeightType>::getXBetaSave() const {  return hXBetaSave; }
+const RealVector& ModelSpecifics<BaseModel,WeightType>::getXBetaSave() {  return hXBetaSave; }
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::zeroXBeta() {

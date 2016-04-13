@@ -3,7 +3,7 @@ PKG_LIBS = `$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"` @OPENCL_LIB@
 
 CXX_STD = CXX11
 
-PKG_CPPFLAGS = -I. -Icyclops -DR_BUILD -DDOUBLE_PRECISION @HAVE_OPENCL@
+PKG_CPPFLAGS = -I. -Icyclops -DR_BUILD @HAVE_OPENCL@ -DDOUBLE_PRECISION
 PKG_CXXFLAGS = -s
 
 OBJECTS.cyclops = \
@@ -56,7 +56,7 @@ OBJECTS = $(OBJECTS.cyclops) $(OBJECTS.drivers) \
           $(OBJECTS.priors) $(OBJECTS.io)
 
 all : $(SHLIB)
-          
+
 cyclops/engine/AbstractModelSpecifics.o : cyclops/engine/ModelSpecifics.h cyclops/engine/ModelSpecifics.hpp cyclops/engine/GPUModelSpecifics.hpp cyclops/engine/Kernels.hpp
 
 cyclops/engine/ModelSpecifics.h :
