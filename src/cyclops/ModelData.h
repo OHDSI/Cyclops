@@ -53,6 +53,8 @@ public:
 //	offs.begin(), offs.end(),
 //	xip.begin(), xii.end()
 
+	typedef real RealType;
+
 	template <typename IntegerVector, typename RealVector>
 	ModelData(
 	        ModelType _modelType,

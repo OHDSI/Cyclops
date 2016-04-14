@@ -136,10 +136,11 @@ static std::string weight(const std::string& arg, bool useWeights) {
         code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
 
         code << "__kernel void " << name << "(            \n" <<
-                "       __global const REAL* X,                 \n" <<
-                "       __global const int* K,            \n" <<
+                "       const uint offX,                  \n" <<
+                "       const uint offK,                  \n" <<
                 "       const uint N,                     \n" <<
-                "       const REAL beta,                  \n" << // TODO Remove
+                "       __global const REAL* X,           \n" <<
+                "       __global const int* K,            \n" <<
                 "       __global const REAL* Y,           \n" <<
                 "       __global const REAL* xBeta,       \n" <<
                 "       __global const REAL* expXBeta,    \n" <<
@@ -164,13 +165,13 @@ static std::string weight(const std::string& arg, bool useWeights) {
         // Fused transformation-reduction
 
         if (formatType == INDICATOR || formatType == SPARSE) {
-            code << "       const uint k = K[task];         \n";
+            code << "       const uint k = K[offK + task];         \n";
         } else { // DENSE, INTERCEPT
             code << "       const uint k = task;            \n";
         }
 
         if (formatType == SPARSE || formatType == DENSE) {
-            code << "       const REAL x = X[task]; \n";
+            code << "       const REAL x = X[offX + task]; \n";
         } else { // INDICATOR, INTERCEPT
             // Do nothing
         }
@@ -223,10 +224,12 @@ static std::string weight(const std::string& arg, bool useWeights) {
         code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
 
         code << "__kernel void " << name << "(     \n" <<
-                "       __global const REAL* X,    \n" <<
-                "       __global const int* K,     \n" <<
+                "       const uint offX,           \n" <<
+                "       const uint offK,           \n" <<
                 "       const uint N,              \n" <<
                 "       const REAL delta,          \n" <<
+                "       __global const REAL* X,    \n" <<
+                "       __global const int* K,     \n" <<
                 "       __global const REAL* Y,    \n" <<
                 "       __global REAL* xBeta,      \n" <<
                 "       __global REAL* expXBeta,   \n" <<
@@ -235,13 +238,13 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "   const uint task = get_global_id(0); \n";
 
         if (formatType == INDICATOR || formatType == SPARSE) {
-            code << "   const uint k = K[task];         \n";
+            code << "   const uint k = K[offK + task];         \n";
         } else { // DENSE, INTERCEPT
             code << "   const uint k = task;            \n";
         }
 
         if (formatType == SPARSE || formatType == DENSE) {
-            code << "   const REAL inc = delta * X[task]; \n";
+            code << "   const REAL inc = delta * X[offX + task]; \n";
         } else { // INDICATOR, INTERCEPT
             code << "   const REAL inc = delta;           \n";
         }

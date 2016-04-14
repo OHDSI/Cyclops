@@ -133,31 +133,31 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
 
     switch (modelType) {
     case ModelType::SELF_CONTROLLED_MODEL :
-        model =  deviceFactory<SelfControlledCaseSeries<real>,real>(modelData, deviceType, deviceName);
+        model =  deviceFactory<SelfControlledCaseSeries<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
         break;
     case ModelType::CONDITIONAL_LOGISTIC :
-        model =  deviceFactory<ConditionalLogisticRegression<real>,real>(modelData, deviceType, deviceName);
+        model =  deviceFactory<ConditionalLogisticRegression<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
         break;
     case ModelType::TIED_CONDITIONAL_LOGISTIC :
-        model =  deviceFactory<TiedConditionalLogisticRegression<real>,real>(modelData, deviceType, deviceName);
+        model =  deviceFactory<TiedConditionalLogisticRegression<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
         break;
     case ModelType::LOGISTIC :
-        model = deviceFactory<LogisticRegression<real>,real>(modelData, deviceType, deviceName);
+        model = deviceFactory<LogisticRegression<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
         break;
     case ModelType::NORMAL :
-        model = deviceFactory<LeastSquares<real>,real>(modelData, deviceType, deviceName);
+        model = deviceFactory<LeastSquares<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
         break;
     case ModelType::POISSON :
-        model = deviceFactory<PoissonRegression<real>,real>(modelData, deviceType, deviceName);
+        model = deviceFactory<PoissonRegression<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
         break;
     case ModelType::CONDITIONAL_POISSON :
-        model = deviceFactory<ConditionalPoissonRegression<real>,real>(modelData, deviceType, deviceName);
+        model = deviceFactory<ConditionalPoissonRegression<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
         break;
     case ModelType::COX_RAW :
-        model = deviceFactory<CoxProportionalHazards<real>,real>(modelData, deviceType, deviceName);
+        model = deviceFactory<CoxProportionalHazards<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
         break;
     case ModelType::COX :
-        model = deviceFactory<BreslowTiedCoxProportionalHazards<real>,real>(modelData, deviceType, deviceName);
+        model = deviceFactory<BreslowTiedCoxProportionalHazards<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
         break;
     default:
         break;

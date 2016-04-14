@@ -293,14 +293,17 @@ AbstractModelSpecifics* ModelSpecifics<BaseModel,WeightType>::clone() const {
 
 template <class BaseModel, typename WeightType>
 double ModelSpecifics<BaseModel,WeightType>::getGradientObjective(bool useCrossValidation) {
+
+		auto& xBeta = getXBeta();
+
 		real criterion = 0;
 		if (useCrossValidation) {
 			for (int i = 0; i < K; i++) {
-				criterion += hXBeta[i] * hY[i] * hKWeight[i];
+				criterion += xBeta[i] * hY[i] * hKWeight[i];
 			}
 		} else {
 			for (int i = 0; i < K; i++) {
-				criterion += hXBeta[i] * hY[i];
+				criterion += xBeta[i] * hY[i];
 			}
 		}
 		return static_cast<double> (criterion);
@@ -348,10 +351,11 @@ void ModelSpecifics<BaseModel,WeightType>::zeroXBeta() {
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::saveXBeta() {
-	if (hXBetaSave.size() < hXBeta.size()) {
-		hXBetaSave.resize(hXBeta.size());
+	auto& xBeta = getXBeta();
+	if (hXBetaSave.size() < xBeta.size()) {
+		hXBetaSave.resize(xBeta.size());
 	}
-	std::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(hXBetaSave));
+	std::copy(std::begin(xBeta), std::end(xBeta), std::begin(hXBetaSave));
 }
 
 template <class BaseModel,typename WeightType>
@@ -1469,11 +1473,12 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 
+	auto& xBeta = getXBeta();
 
 	if (BaseModel::likelihoodHasDenominator) {
 		fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
 		for (size_t k = 0; k < K; ++k) {
-			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
+			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
 			incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
 		}
 		computeAccumlatedDenominator(useWeights); // WAS computeAccumlatedNumerDenom

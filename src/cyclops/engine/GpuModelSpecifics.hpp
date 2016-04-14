@@ -9,8 +9,10 @@
 #define GPUMODELSPECIFICS_HPP_
 
 
-#define GPU_DEBUG
-// #undef GPU_DEBUG
+// #define GPU_DEBUG
+#undef GPU_DEBUG
+
+#define TIME_DEBUG
 
 #include <Rcpp.h>
 
@@ -60,6 +62,23 @@ void compare(const HostVec& host, const DeviceVec& device, const std::string& er
     }
 }
 
+
+
+// template <class T>
+// cl_mem addressOf(const T& t, size_t offset) {
+//     return t.get_buffer().get() + offset;
+// }
+
+// // set_kernel_arg specialization for vector<T>
+// template<class T, class Alloc>
+// struct set_kernel_arg<vector<T, Alloc> >
+// {
+//     void operator()(kernel &kernel_, size_t index, const vector<T, Alloc> &vector)
+//     {
+//         kernel_.set_arg(index, vector.get_buffer());
+//     }
+// };
+
 }; // namespace detail
 
 struct SourceCode {
@@ -67,6 +86,81 @@ struct SourceCode {
     std::string name;
 
     SourceCode(std::string body, std::string name) : body(body), name(name) { }
+};
+
+template <typename RealType>
+class AllGpuColumns {
+public:
+    typedef compute::vector<RealType> DataVector;
+    typedef compute::vector<int> IndicesVector;
+    typedef compute::uint_ UInt;
+
+    AllGpuColumns(const CompressedDataMatrix& mat,
+                  const compute::context& context,
+                  compute::command_queue& queue,
+                  size_t K) : indices(context), data(context) {
+        std::vector<RealType> flatData;
+        std::vector<int> flatIndices;
+
+        std::cerr << "start" << std::endl;
+
+        UInt dataStart = 0;
+        UInt indicesStart = 0;
+
+        for (int j = 0; j < mat.getNumberOfColumns(); ++j) {
+            const auto& column = mat.getColumn(j);
+            const auto format = column.getFormatType();
+            // Data vector
+            if (format == FormatType::SPARSE ||
+                format == FormatType::DENSE) {
+                const auto& columnData = column.getDataVector();
+                for (auto x : columnData) {
+                    flatData.push_back(x);
+                }
+                dataStart += columnData.size();
+            }
+
+            // Indices vector
+            if (format == FormatType::INDICATOR ||
+                format == FormatType::SPARSE) {
+                const auto& columnIndices = column.getColumnsVector();
+                for (auto i : columnIndices) {
+                    flatIndices.push_back(i);
+                }
+                indicesStart += columnIndices.size();
+            }
+
+            // Task count
+            if (format == FormatType::DENSE ||
+                format == FormatType::INTERCEPT) {
+                taskCounts.push_back(K);
+            } else { // INDICATOR, SPARSE
+                taskCounts.push_back(column.getNumberOfEntries());
+            }
+
+            dataStarts.push_back(dataStart);
+            indicesStarts.push_back(indicesStart);
+            formats.push_back(format);
+        }
+
+        detail::resizeAndCopyToDevice(flatData, data, queue);
+        detail::resizeAndCopyToDevice(flatIndices, indices, queue);
+
+    	std::cerr << "end " << flatData.size() << " " << flatIndices.size() << std::endl;
+    }
+
+    const UInt getTaskCount(int column) {
+    	return taskCounts[column];
+    }
+
+private:
+    IndicesVector indices;
+    DataVector data;
+
+	std::vector<UInt> taskCounts;
+    std::vector<UInt> dataStarts;
+    std::vector<UInt> indicesStarts;
+    std::vector<FormatType> formats;
 };
 
 template <typename RealType>
@@ -169,15 +263,31 @@ public:
     }
 
     virtual void deviceInitialization() {
+#ifdef TIME_DEBUG
+        std::cerr << "start dI" << std::endl;
+#endif
 
         int need = 0;
 
+        auto allColumns = AllGpuColumns<real>(modelData, ctx, queue, K);
+
         // Copy data
         for (size_t j = 0; j < J /*modelData.getNumberOfColumns()*/; ++j) {
+
+#ifdef TIME_DEBUG
+            std::cerr << "dI " << j << std::endl;
+#endif
+
             const auto& column = modelData.getColumn(j);
             columns.emplace_back(GpuColumn<real>(column, ctx, queue, K));
             need |= (1 << column.getFormatType());
+
+            if (j > 10) {
+                Rcpp::stop("done");
+            }
+
         }
+
         std::vector<FormatType> neededFormatTypes;
         for (int t = 0; t < 4; ++t) {
             if (need & (1 << t)) {
@@ -198,10 +308,12 @@ public:
 
         buildAllKernels(neededFormatTypes);
 
-        printAllKernels(std::cerr);
+        // printAllKernels(std::cerr);
     }
 
     virtual void computeRemainingStatistics(bool useWeights) {
+
+        std::cerr << "GPU::cRS called" << std::endl;
 
         // Currently RS only computed on CPU and then copied
         ModelSpecifics<BaseModel, WeightType>::computeRemainingStatistics(useWeights);
@@ -236,6 +348,7 @@ public:
 #endif
 
         if (!dXBetaKnown) {
+            std::cerr << "dXB not know in cGH" << std::endl;
             compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
             dXBetaKnown = true;
         }
@@ -258,22 +371,25 @@ public:
         if (dBuffer.size() < 2 * wgs) {
             dBuffer.resize(2 * wgs, queue);
             //compute::fill(std::begin(dBuffer), std::end(dBuffer), 0.0, queue); // TODO Not needed
-            kernel.set_arg(8, dBuffer); // Can get reallocated.
+            kernel.set_arg(9, dBuffer); // Can get reallocated.
             hBuffer.resize(2 * wgs);
         }
 
         // std::cerr << dBuffer.get_buffer() << std::endl << std::endl;
 
         if (dKWeight.size() == 0) {
-            kernel.set_arg(10, 0);
+            kernel.set_arg(11, 0);
         } else {
-            kernel.set_arg(10, dKWeight); // TODO Only when dKWeight gets reallocated
+            kernel.set_arg(11, dKWeight); // TODO Only when dKWeight gets reallocated
         }
 
-        kernel.set_arg(0, column.getDataVector());
-        kernel.set_arg(1, column.getIndicesVector());
+        kernel.set_arg(0, 0);
+        kernel.set_arg(1, 0);
         kernel.set_arg(2, taskCount);
-        kernel.set_arg(3, 0.0); // TODO remove
+
+        kernel.set_arg(3, column.getDataVector());
+        kernel.set_arg(4, column.getIndicesVector());
+
 
 //         std::cerr << "loop= " << loops << std::endl;
 //         std::cerr << "n   = " << taskCount << std::endl;
@@ -294,7 +410,7 @@ public:
 //         kernel.set_arg(6, tmpR);
 //         kernel.set_arg(7, tmpR);
         // kernel.set_arg(8, tmpR);
-        kernel.set_arg(8, dBuffer); // TODO Why is this necessary?
+        kernel.set_arg(9, dBuffer); // TODO Why is this necessary?
 //         kernel.set_arg(9, tmpI);
 //         kernel.set_arg(10, tmpR);
 
@@ -354,10 +470,12 @@ public:
         auto& column = columns[index];
         const auto taskCount = column.getTaskCount();
 
-        kernel.set_arg(0, column.getDataVector());
-        kernel.set_arg(1, column.getIndicesVector());
+        kernel.set_arg(0, 0);
+        kernel.set_arg(1, 0);
         kernel.set_arg(2, taskCount);
         kernel.set_arg(3, realDelta);
+        kernel.set_arg(4, column.getDataVector());
+        kernel.set_arg(5, column.getIndicesVector());
 
         size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
         if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
@@ -394,7 +512,7 @@ public:
 
     virtual const RealVector& getXBeta() {
         if (!hXBetaKnown) {
-            compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
+            compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
             hXBetaKnown = true;
         }
         return ModelSpecifics<BaseModel,WeightType>::getXBeta();
@@ -406,19 +524,27 @@ public:
 
     virtual void saveXBeta() {
         if (!hXBetaKnown) {
-            compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
+            compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
             hXBetaKnown = true;
         }
         ModelSpecifics<BaseModel,WeightType>::saveXBeta();
     }
 
     virtual void zeroXBeta() {
+
+        std::cerr << "GPU::zXB called" << std::endl;
+
         ModelSpecifics<BaseModel,WeightType>::zeroXBeta(); // touches hXBeta
+
         dXBetaKnown = false;
     }
 
     virtual void axpyXBeta(const double beta, const int j) {
+
+        std::cerr << "GPU::aXB called" << std::endl;
+
         ModelSpecifics<BaseModel,WeightType>::axpyXBeta(beta, j); // touches hXBeta
+
         dXBetaKnown = false;
     }
 
@@ -467,13 +593,13 @@ private:
         auto kernel = compute::kernel(program, source.name);
 
         // Run-time constant arguments.
-        kernel.set_arg(4, dY);
-        kernel.set_arg(5, dXBeta);
-        kernel.set_arg(6, dExpXBeta);
-        kernel.set_arg(7, dDenominator);
-        kernel.set_arg(8, dBuffer);  // TODO Does not seem to stick
-        kernel.set_arg(9, dId);
-        kernel.set_arg(10, dKWeight); // TODO Does not seem to stick
+        kernel.set_arg(5, dY);
+        kernel.set_arg(6, dXBeta);
+        kernel.set_arg(7, dExpXBeta);
+        kernel.set_arg(8, dDenominator);
+        kernel.set_arg(9, dBuffer);  // TODO Does not seem to stick
+        kernel.set_arg(10, dId);
+        kernel.set_arg(11, dKWeight); // TODO Does not seem to stick
 
         if (useWeights) {
             kernelGradientHessianWeighted[formatType] = std::move(kernel);
@@ -492,11 +618,11 @@ private:
         auto kernel = compute::kernel(program, source.name);
 
         // Run-time constant arguments.
-        kernel.set_arg(4, dY);
-        kernel.set_arg(5, dXBeta);
-        kernel.set_arg(6, dExpXBeta);
-        kernel.set_arg(7, dDenominator);
-        kernel.set_arg(8, dId);
+        kernel.set_arg(6, dY);
+        kernel.set_arg(7, dXBeta);
+        kernel.set_arg(8, dExpXBeta);
+        kernel.set_arg(9, dDenominator);
+        kernel.set_arg(10, dId);
 
         kernelUpdateXBeta[formatType] = std::move(kernel);
     }
