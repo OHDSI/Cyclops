@@ -64,13 +64,13 @@ struct ReduceBody1<T,true>
         // warp reduction
             "   if (lid < 32) { \n" <<
         // volatile this way we don't need any barrier
-            "       volatile __local TMP_REAL *lmem = scratch;                  \n" <<
-            "       if (TPB >= 64) { lmem[lid] = sum = sum + lmem[lid+32]; } \n" <<
-            "       if (TPB >= 32) { lmem[lid] = sum = sum + lmem[lid+16]; } \n" <<
-            "       if (TPB >= 16) { lmem[lid] = sum = sum + lmem[lid+ 8]; } \n" <<
-            "       if (TPB >=  8) { lmem[lid] = sum = sum + lmem[lid+ 4]; } \n" <<
-            "       if (TPB >=  4) { lmem[lid] = sum = sum + lmem[lid+ 2]; } \n" <<
-            "       if (TPB >=  2) { lmem[lid] = sum = sum + lmem[lid+ 1]; } \n" <<
+            "       volatile __local TMP_REAL *lmem = scratch;                 \n" <<
+            "       if (TPB >= 64) { lmem[lid] = sum = sum + lmem[lid + 32]; } \n" <<
+            "       if (TPB >= 32) { lmem[lid] = sum = sum + lmem[lid + 16]; } \n" <<
+            "       if (TPB >= 16) { lmem[lid] = sum = sum + lmem[lid +  8]; } \n" <<
+            "       if (TPB >=  8) { lmem[lid] = sum = sum + lmem[lid +  4]; } \n" <<
+            "       if (TPB >=  4) { lmem[lid] = sum = sum + lmem[lid +  2]; } \n" <<
+            "       if (TPB >=  2) { lmem[lid] = sum = sum + lmem[lid +  1]; } \n" <<
             "   }                                                            \n";
         return k.str();
     }
@@ -128,7 +128,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 	template <class BaseModel, typename WeightType>
     SourceCode
-    GpuModelSpecifics<BaseModel, WeightType>::writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights) {
+    GpuModelSpecifics<BaseModel, WeightType>::writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia) {
 
         std::string name = "computeGradHess" + getFormatTypeExtension(formatType) + (useWeights ? "W" : "N");
 
@@ -145,7 +145,11 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "       __global const REAL* xBeta,       \n" <<
                 "       __global const REAL* expXBeta,    \n" <<
                 "       __global const REAL* denominator, \n" <<
+#ifdef USE_VECTOR
+                "       __global TMP_REAL* buffer,     \n" <<
+#else
                 "       __global REAL* buffer,            \n" <<
+#endif // USE_VECTOR
                 "       __global const int* id,           \n" <<  // TODO Make id optional
                 "       __global const REAL* weight) {    \n";    // TODO Make weight optional
 
@@ -153,12 +157,16 @@ static std::string weight(const std::string& arg, bool useWeights) {
         code << "   const uint lid = get_local_id(0); \n" <<
                 "   const uint loopSize = get_global_size(0); \n" <<
                 "   uint task = get_global_id(0);  \n" <<
-                    // Local storage
+                    // Local and thread storage
+#ifdef USE_VECTOR
+                "   __local TMP_REAL scratch[TPB]; \n" <<
+                "   TMP_REAL sum = 0.0;            \n" <<
+#else
                 "   __local REAL scratch0[TPB];  \n" <<
                 "   __local REAL scratch1[TPB];  \n" <<
-                    // Thread storage
                 "   REAL sum0 = 0.0; \n" <<
                 "   REAL sum1 = 0.0; \n" <<
+#endif // USE_VECTOR
                     //
                 "   while (task < N) { \n";
 
@@ -192,21 +200,37 @@ static std::string weight(const std::string& arg, bool useWeights) {
                     "       const REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
         }
 
+#ifdef USE_VECTOR
+        code << "       sum += (TMP_REAL)(gradient, hessian); \n";
+#else
         code << "       sum0 += gradient; \n" <<
                 "       sum1 += hessian;  \n";
+#endif // USE_VECTOR
 
         // Bookkeeping
         code << "       task += loopSize; \n" <<
                 "   } \n" <<
                     // Thread -> local
+#ifdef USE_VECTOR
+                "   scratch[lid] = sum; \n";
+#else
                 "   scratch0[lid] = sum0; \n" <<
                 "   scratch1[lid] = sum1; \n";
+#endif // USE_VECTOR
 
-        code << ReduceBody2<real,false>::body();
+#ifdef USE_VECTOR
+        code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
+#else
+        code << (isNvidia ? ReduceBody2<real,true>::body() : ReduceBody2<real,false>::body());
+#endif
 
         code << "   if (lid == 0) { \n" <<
+#ifdef USE_VECTOR
+                "       buffer[get_group_id(0)] = scratch[0]; \n" <<
+#else
                 "       buffer[get_group_id(0)] = scratch0[0]; \n" <<
                 "       buffer[get_group_id(0) + get_num_groups(0)] = scratch1[0]; \n" <<
+#endif // USE_VECTOR
                 "   } \n";
 
         code << "}  \n"; // End of kernel

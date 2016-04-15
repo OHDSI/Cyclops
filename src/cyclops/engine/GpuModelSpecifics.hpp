@@ -9,6 +9,9 @@
 #define GPUMODELSPECIFICS_HPP_
 
 
+// #define USE_VECTOR
+#undef USE_VECTOR
+
 // #define GPU_DEBUG
 #undef GPU_DEBUG
 
@@ -27,7 +30,7 @@ namespace compute = boost::compute;
 namespace detail {
 
 namespace constant {
-    static const int updateXBetaBlockSize = 256;
+    static const int updateXBetaBlockSize = 512; // Appears best on K40
 }; // namespace constant
 
 template <typename DeviceVec, typename HostVec>
@@ -256,9 +259,9 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::duration;
 
     const static int tpb = 128; // threads-per-block
-    const static int wgs = 16;  // work-group-size
+    const static int maxWgs = 2;  // work-group-size
 
-    const static int globalWorkSize = tpb * wgs;
+    // const static int globalWorkSize = tpb * wgs;
 
     GpuModelSpecifics(const ModelData& input,
                       const std::string& deviceName)
@@ -382,6 +385,9 @@ public:
 
         const auto taskCount = dColumns.getTaskCount(index);
 
+        const auto wgs = maxWgs;
+        const auto globalWorkSize = tpb * wgs;
+
         size_t loops = taskCount / globalWorkSize;
         if (taskCount % globalWorkSize != 0) {
             ++loops;
@@ -389,12 +395,21 @@ public:
 
         // std::cerr << dBuffer.get_buffer() << std::endl;
 
-        if (dBuffer.size() < 2 * wgs) {
-            dBuffer.resize(2 * wgs, queue);
+#ifdef USE_VECTOR
+        if (dBuffer.size() < maxWgs) {
+            dBuffer.resize(maxWgs, queue);
             //compute::fill(std::begin(dBuffer), std::end(dBuffer), 0.0, queue); // TODO Not needed
             kernel.set_arg(9, dBuffer); // Can get reallocated.
-            hBuffer.resize(2 * wgs);
+            hBuffer.resize(2 * maxWgs);
         }
+#else
+        if (dBuffer.size() < 2 * maxWgs) {
+            dBuffer.resize(2 * maxWgs, queue);
+            //compute::fill(std::begin(dBuffer), std::end(dBuffer), 0.0, queue); // TODO Not needed
+            kernel.set_arg(9, dBuffer); // Can get reallocated.
+            hBuffer.resize(2 * maxWgs);
+        }
+#endif
 
         // std::cerr << dBuffer.get_buffer() << std::endl << std::endl;
 
@@ -451,7 +466,30 @@ public:
 //         std::cerr << std::endl;
 
         // Get result
+#ifdef USE_VECTOR
+        compute::copy(std::begin(dBuffer), std::end(dBuffer), reinterpret_cast<compute::double2_ *>(hBuffer.data()), queue);
+
+        double gradient = 0.0;
+        double hessian = 0.0;
+
+        for (int i = 0; i < 2 * wgs; i += 2) { // TODO Use SSE
+            gradient += hBuffer[i + 0];
+            hessian  += hBuffer[i + 1];
+        }
+
+        if (BaseModel::precomputeGradient) { // Compile-time switch
+            gradient -= hXjY[index];
+        }
+
+        if (BaseModel::precomputeHessian) { // Compile-time switch
+            hessian += static_cast<real>(2.0) * hXjX[index];
+        }
+
+        *ogradient = gradient;
+        *ohessian = hessian;
+#else
         compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+
         double gradient = 0.0;
         double hessian = 0.0;
 
@@ -468,12 +506,24 @@ public:
             hessian += static_cast<real>(2.0) * hXjX[index];
         }
 
+        *ogradient = gradient;
+        *ohessian = hessian;
+#endif
+
 #ifdef GPU_DEBUG
         std::cerr << gradient << " & " << hessian << std::endl << std::endl;
 #endif // GPU_DEBUG
 
-        *ogradient = gradient;
-        *ohessian = hessian;
+//         for (auto x : dBuffer) {
+//             std::cerr << x << std::endl;
+//         }
+// //         for(int i = 0; i < wgs; ++i) {
+// //             std::cerr << dBuffer[i] << std::endl;
+// //         }
+//         std::cerr << (-hXjY[index]) << "  " << "0.0" << std::endl;
+//
+//
+//         Rcpp::stop("out");
 
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
@@ -607,19 +657,55 @@ private:
         }
     }
 
-    SourceCode writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights);
+    SourceCode writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
     SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType);
 
     void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
 
         std::stringstream options;
+#ifdef USE_VECTOR
+        options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+#else
         options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+#endif // USE_VECTOR
 
-        auto source = writeCodeForGradientHessianKernel(formatType, useWeights);
+//         compute::vector<compute::double2_> buf(10, ctx);
+//
+//         compute::double2_ sum = compute::double2_{0.0, 0.0};
+//         compute::reduce(buf.begin(), buf.end(), &sum, queue);
+//
+//         std::cerr << sum << std::endl;
+//
+//         auto cache = compute::program_cache::get_global_cache(ctx);
+//         auto list = cache->get_keys();
+//         std::cerr << "list size = " << list.size() << std::endl;
+//         for (auto a : list) {
+//             std::cerr << a.first << ":" << a.second << std::endl;
+//             auto p = cache->get(a.first, a.second);
+//             if (p) {
+//                 std::cerr << p->source() << std::endl;
+//             }
+//         }
+//
+//         Rcpp::stop("out");
+
+        const auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+
+//         std::cerr << queue.get_device().name() << " " << queue.get_device().vendor() << std::endl;
+//         std::cerr << "isNvidia = " << isNvidia << std::endl;
+//         Rcpp::stop("out");
+
+        auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
+
+//         std::cerr << options.str() << std::endl;
+//         std::cerr << source.body << std::endl;
 
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         auto kernel = compute::kernel(program, source.name);
+
+        // Rcpp::stop("end");
+
 
         // Run-time constant arguments.
         kernel.set_arg(5, dY);
@@ -707,7 +793,11 @@ private:
     compute::vector<real> dXBeta;
     compute::vector<real> dExpXBeta;
     compute::vector<real> dDenominator;
+#ifdef USE_VECTOR
+    compute::vector<compute::double2_> dBuffer;
+#else
     compute::vector<real> dBuffer;
+#endif // USE_VECTOR
     compute::vector<real> dKWeight;
     compute::vector<int> dId;
 
