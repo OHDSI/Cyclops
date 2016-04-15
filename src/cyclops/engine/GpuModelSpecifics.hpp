@@ -27,7 +27,7 @@ namespace compute = boost::compute;
 namespace detail {
 
 namespace constant {
-    static const int updateXBetaBlockSize = 16;
+    static const int updateXBetaBlockSize = 256;
 }; // namespace constant
 
 template <typename DeviceVec, typename HostVec>
@@ -62,22 +62,10 @@ void compare(const HostVec& host, const DeviceVec& device, const std::string& er
     }
 }
 
-
-
-// template <class T>
-// cl_mem addressOf(const T& t, size_t offset) {
-//     return t.get_buffer().get() + offset;
-// }
-
-// // set_kernel_arg specialization for vector<T>
-// template<class T, class Alloc>
-// struct set_kernel_arg<vector<T, Alloc> >
-// {
-//     void operator()(kernel &kernel_, size_t index, const vector<T, Alloc> &vector)
-//     {
-//         kernel_.set_arg(index, vector.get_buffer());
-//     }
-// };
+template <int D, class T>
+int getAlignedLength(T n) {
+    return (n / D) * D + (n % D == 0 ? 0 : D);
+}
 
 }; // namespace detail
 
@@ -95,14 +83,19 @@ public:
     typedef compute::vector<int> IndicesVector;
     typedef compute::uint_ UInt;
 
-    AllGpuColumns(const CompressedDataMatrix& mat,
-                  const compute::context& context,
-                  compute::command_queue& queue,
-                  size_t K) : indices(context), data(context) {
+    AllGpuColumns(const compute::context& context) : indices(context), data(context) {
+        // Do nothing
+    }
+
+    virtual ~AllGpuColumns() { }
+
+    void initialize(const CompressedDataMatrix& mat,
+                    compute::command_queue& queue,
+                    size_t K, bool pad) {
         std::vector<RealType> flatData;
         std::vector<int> flatIndices;
 
-        std::cerr << "start" << std::endl;
+        std::cerr << "AGC start" << std::endl;
 
         UInt dataStart = 0;
         UInt indicesStart = 0;
@@ -110,24 +103,21 @@ public:
         for (int j = 0; j < mat.getNumberOfColumns(); ++j) {
             const auto& column = mat.getColumn(j);
             const auto format = column.getFormatType();
+
+            dataStarts.push_back(dataStart);
+            indicesStarts.push_back(indicesStart);
+            formats.push_back(format);
+
             // Data vector
             if (format == FormatType::SPARSE ||
                 format == FormatType::DENSE) {
-                const auto& columnData = column.getDataVector();
-                for (auto x : columnData) {
-                    flatData.push_back(x);
-                }
-                dataStart += columnData.size();
+                appendAndPad(column.getDataVector(), flatData, dataStart, pad);
             }
 
             // Indices vector
             if (format == FormatType::INDICATOR ||
                 format == FormatType::SPARSE) {
-                const auto& columnIndices = column.getColumnsVector();
-                for (auto i : columnIndices) {
-                    flatIndices.push_back(i);
-                }
-                indicesStart += columnIndices.size();
+                appendAndPad(column.getColumnsVector(), flatIndices, indicesStart, pad);
             }
 
             // Task count
@@ -137,23 +127,53 @@ public:
             } else { // INDICATOR, SPARSE
                 taskCounts.push_back(column.getNumberOfEntries());
             }
-
-            dataStarts.push_back(dataStart);
-            indicesStarts.push_back(indicesStart);
-            formats.push_back(format);
         }
 
         detail::resizeAndCopyToDevice(flatData, data, queue);
         detail::resizeAndCopyToDevice(flatIndices, indices, queue);
 
-    	std::cerr << "end " << flatData.size() << " " << flatIndices.size() << std::endl;
+    	std::cerr << "AGC end " << flatData.size() << " " << flatIndices.size() << std::endl;
     }
 
-    const UInt getTaskCount(int column) {
+    UInt getDataOffset(int column) const {
+        return dataStarts[column];
+    }
+
+    UInt getIndicesOffset(int column) const {
+        return indicesStarts[column];
+    }
+
+    UInt getTaskCount(int column) const {
     	return taskCounts[column];
     }
 
+    const DataVector& getData() const {
+        return data;
+    }
+
+    const IndicesVector& getIndices() const {
+        return indices;
+    }
+
 private:
+
+    template <class T>
+    void appendAndPad(const T& source, T& destination, UInt& length, bool pad) {
+        for (auto x : source) {
+            destination.push_back(x);
+        }
+        if (pad) {
+            auto i = source.size();
+            const auto end = detail::getAlignedLength<16>(i);
+            for (; i < end; ++i) {
+                destination.push_back(typename T::value_type());
+            }
+            length += end;
+        } else {
+            length += source.size();
+        }
+    }
+
     IndicesVector indices;
     DataVector data;
 
@@ -235,8 +255,8 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::N;
     using ModelSpecifics<BaseModel, WeightType>::duration;
 
-    const static int tpb = 32; // threads-per-block
-    const static int wgs = 4;  // work-group-size
+    const static int tpb = 128; // threads-per-block
+    const static int wgs = 16;  // work-group-size
 
     const static int globalWorkSize = tpb * wgs;
 
@@ -248,6 +268,7 @@ public:
       queue(ctx, device
           , compute::command_queue::enable_profiling
       ),
+      dColumns(ctx),
       dY(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dBuffer(ctx), dKWeight(ctx),
       dId(ctx),
       dXBetaKnown(false), hXBetaKnown(false) {
@@ -269,24 +290,23 @@ public:
 
         int need = 0;
 
-        auto allColumns = AllGpuColumns<real>(modelData, ctx, queue, K);
-
         // Copy data
+        dColumns.initialize(modelData, queue, K, true);
+
         for (size_t j = 0; j < J /*modelData.getNumberOfColumns()*/; ++j) {
 
 #ifdef TIME_DEBUG
-            std::cerr << "dI " << j << std::endl;
+          //  std::cerr << "dI " << j << std::endl;
 #endif
 
             const auto& column = modelData.getColumn(j);
-            columns.emplace_back(GpuColumn<real>(column, ctx, queue, K));
+            // columns.emplace_back(GpuColumn<real>(column, ctx, queue, K));
             need |= (1 << column.getFormatType());
-
-            if (j > 10) {
-                Rcpp::stop("done");
-            }
-
         }
+
+
+            // Rcpp::stop("done");
+
 
         std::vector<FormatType> neededFormatTypes;
         for (int t = 0; t < 4; ++t) {
@@ -308,7 +328,7 @@ public:
 
         buildAllKernels(neededFormatTypes);
 
-        // printAllKernels(std::cerr);
+        printAllKernels(std::cerr);
     }
 
     virtual void computeRemainingStatistics(bool useWeights) {
@@ -348,7 +368,6 @@ public:
 #endif
 
         if (!dXBetaKnown) {
-            std::cerr << "dXB not know in cGH" << std::endl;
             compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
             dXBetaKnown = true;
         }
@@ -358,8 +377,10 @@ public:
                             kernelGradientHessianWeighted[formatType] :
                             kernelGradientHessianNoWeight[formatType];
 
-        auto& column = columns[index];
-        const auto taskCount = column.getTaskCount();
+        // auto& column = columns[index];
+        // const auto taskCount = column.getTaskCount();
+
+        const auto taskCount = dColumns.getTaskCount(index);
 
         size_t loops = taskCount / globalWorkSize;
         if (taskCount % globalWorkSize != 0) {
@@ -383,12 +404,19 @@ public:
             kernel.set_arg(11, dKWeight); // TODO Only when dKWeight gets reallocated
         }
 
-        kernel.set_arg(0, 0);
-        kernel.set_arg(1, 0);
+//         kernel.set_arg(0, 0);
+//         kernel.set_arg(1, 0);
+//         kernel.set_arg(2, taskCount);
+//
+//         kernel.set_arg(3, column.getDataVector());
+//         kernel.set_arg(4, column.getIndicesVector());
+
+        kernel.set_arg(0, dColumns.getDataOffset(index));
+        kernel.set_arg(1, dColumns.getIndicesOffset(index));
         kernel.set_arg(2, taskCount);
 
-        kernel.set_arg(3, column.getDataVector());
-        kernel.set_arg(4, column.getIndicesVector());
+        kernel.set_arg(3, dColumns.getData());
+        kernel.set_arg(4, dColumns.getIndices());
 
 
 //         std::cerr << "loop= " << loops << std::endl;
@@ -467,15 +495,16 @@ public:
 #endif
 
         auto& kernel = kernelUpdateXBeta[modelData.getFormatType(index)];
-        auto& column = columns[index];
-        const auto taskCount = column.getTaskCount();
+//         auto& column = columns[index];
+//         const auto taskCount = column.getTaskCount();
+        const auto taskCount = dColumns.getTaskCount(index);
 
-        kernel.set_arg(0, 0);
-        kernel.set_arg(1, 0);
+        kernel.set_arg(0, dColumns.getDataOffset(index));
+        kernel.set_arg(1, dColumns.getIndicesOffset(index));
         kernel.set_arg(2, taskCount);
         kernel.set_arg(3, realDelta);
-        kernel.set_arg(4, column.getDataVector());
-        kernel.set_arg(5, column.getIndicesVector());
+        kernel.set_arg(4, dColumns.getData());
+        kernel.set_arg(5, dColumns.getIndices());
 
         size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
         if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
@@ -668,7 +697,8 @@ private:
     std::map<FormatType, compute::kernel> kernelUpdateXBeta;
 
     // vectors of columns
-    std::vector<GpuColumn<real> > columns;
+    // std::vector<GpuColumn<real> > columns;
+    AllGpuColumns<real> dColumns;
 
     std::vector<real> hBuffer;
 
