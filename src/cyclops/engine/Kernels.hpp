@@ -219,7 +219,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 #endif // USE_VECTOR
 
 #ifdef USE_VECTOR
-        code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
+        // code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
+        code << ReduceBody1<real,false>::body();
 #else
         code << (isNvidia ? ReduceBody2<real,true>::body() : ReduceBody2<real,false>::body());
 #endif
