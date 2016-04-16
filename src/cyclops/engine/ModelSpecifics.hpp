@@ -36,6 +36,8 @@
 	}
 #endif
 
+#define TEST_FASTER_LR
+
 //#define OLD_WAY
 //#define NEW_WAY1
 #define NEW_WAY2
@@ -794,51 +796,32 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		}
 	} else if (BaseModel::hasIndependentRows) {
 
-		auto range = helper::independent::getRangeX(modelData, index,
-		        offsExpXBeta, hXBeta, hY, denomPid, hNWeight,
-		        typename IteratorType::tag());
+
+	    // TODO faster_lr
+
+#ifdef TEST_FASTER_LR
+	    auto range = helper::newindependent::getRangeX(modelData, index,
+                                                 offsExpXBeta, hXBeta, hY, // denomPid,
+                                                 hNWeight,
+                                                 typename IteratorType::tag());
+
+	    const auto result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
+                                          NewTransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
+                                          SerialOnly());
+#else
+	    auto range = helper::independent::getRangeX(modelData, index,
+                                                 offsExpXBeta, hXBeta, hY, denomPid, hNWeight,
+                                                 typename IteratorType::tag());
 
 		const auto result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
 		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
- 	        SerialOnly()
-// 		RcppParallel()
-		);
-
-
-// 		const auto result2 = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
-// 		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
-// // 			SerialOnly()
-// 			RcppParallel()
-// 		);
-
-
-// 		std::cerr << result.real() << " " << result.imag()	<< std::endl;
-// 		std::cerr << result2.real() << " " << result2.imag()	<< std::endl << std::endl;
+ 	        SerialOnly());
+#endif
 
 		gradient = result.real();
 		hessian = result.imag();
 
 	} else {
-
-// #ifdef OLD_WAY
-//
-// 		auto range = helper::getRangeDenominator(sparseIndices[index], N, typename IteratorType::tag());
-//
-// 		auto kernel = AccumulateGradientAndHessianKernel<BaseModel,IteratorType, Weights, real, int>(
-// 							begin(numerPid), begin(numerPid2), begin(denomPid),
-// 							begin(hNWeight), begin(hXBeta), begin(hY));
-//
-// 		Fraction<real> result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), kernel,
-// 		 SerialOnly()
-// 	//     info
-// 		);
-//
-// 		gradient = result.real();
-// 		hessian = result.imag();
-//
-// #endif
-//
-// #ifdef NEW_WAY2
 
 		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid,
 		        typename IteratorType::tag());
@@ -859,14 +842,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 		gradient = result.real();
 		hessian = result.imag();
-// #endif
-
-//       std::cerr << std::endl
-//            << result.real() << " " << result.imag() << std::endl
-//            << result2.real() << " " << result2.imag() << std::endl
-// 		   		 << result3.real() << " " << result3.imag() << std::endl;
-
-//  		::Rf_error("break");
 
     } // not Cox
 

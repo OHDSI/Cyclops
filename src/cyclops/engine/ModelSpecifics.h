@@ -625,6 +625,37 @@ private:	 // TODO Code duplication; remove
 	}
 };
 
+template <class BaseModel, class IteratorType, class WeightOperationType,
+          class RealType, class IntType>
+struct NewTransformAndAccumulateGradientAndHessianKernelIndependent : private BaseModel {
+
+    template <class TupleType>
+    Fraction<RealType> operator()(Fraction<RealType>& lhs, TupleType tuple) {
+
+        const auto x = getX(tuple);
+        const auto expXBeta = boost::get<0>(tuple);
+        const auto xBeta = boost::get<1>(tuple);
+        const auto y = boost::get<2>(tuple);
+        const auto weight = boost::get<3>(tuple);
+
+        RealType numerator = BaseModel::gradientNumeratorContrib(x, expXBeta, xBeta, y);
+        RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+        BaseModel::gradientNumerator2Contrib(x, expXBeta) :
+            static_cast<RealType>(0);
+
+        return BaseModel::template incrementGradientAndHessian<IteratorType, WeightOperationType, RealType>(
+                lhs, numerator, numerator2,
+                numerator / (RealType(1.0) + numerator), // Computed without loading denominator
+                weight, xBeta, y);
+    }
+
+    private:	 // TODO Code duplication; remove
+        template <class TupleType>
+        inline auto getX(TupleType& tuple) const -> typename TupleXGetterNew<IteratorType, RealType, 5>::ReturnType {
+            return TupleXGetterNew<IteratorType, RealType, 4>()(tuple);
+        }
+};
+
 // template <class BaseModel, class IteratorType, class WeightOperationType,
 // class RealType, class IntType>
 // struct TransformAndAccumulateGradientAndHessianKernelDependent : private BaseModel {
