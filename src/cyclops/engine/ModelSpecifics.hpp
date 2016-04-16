@@ -26,6 +26,8 @@
 
 #include "R.h"
 
+#include "Rcpp.h"
+
 #ifdef CYCLOPS_DEBUG_TIMING
 	#include "Timing.h"
 	namespace bsccs {
@@ -796,9 +798,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		}
 	} else if (BaseModel::hasIndependentRows) {
 
-
-	    // TODO faster_lr
-
 #ifdef TEST_FASTER_LR
 	    auto range = helper::newindependent::getRangeX(modelData, index,
                                                  offsExpXBeta, hXBeta, hY, // denomPid,
@@ -1260,6 +1259,8 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 #endif
 
 // #ifdef NEW_LOOPS
+
+// TODO TEST_FASTER_LR
 
 #if 1
 	auto range = helper::getRangeX(modelData, index, typename IteratorType::tag());

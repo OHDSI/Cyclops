@@ -643,7 +643,7 @@ struct NewTransformAndAccumulateGradientAndHessianKernelIndependent : private Ba
         BaseModel::gradientNumerator2Contrib(x, expXBeta) :
             static_cast<RealType>(0);
 
-        RealType denominator = expXBeta / (RealType(1.0) + expXBeta);
+        RealType denominator = RealType(1.0) + expXBeta;
 
         return BaseModel::template incrementGradientAndHessian<IteratorType, WeightOperationType, RealType>(
                 lhs, numerator, numerator2,
