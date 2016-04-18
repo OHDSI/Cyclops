@@ -14,8 +14,10 @@
 #include <stdexcept>
 #include <thread>
 
-// #define CYCLOPS_DEBUG_TIMING
-// #define CYCLOPS_DEBUG_TIMING_LOW
+#include "Rcpp.h"
+
+#define CYCLOPS_DEBUG_TIMING
+#define CYCLOPS_DEBUG_TIMING_LOW
 
 #ifdef CYCLOPS_DEBUG_TIMING
     #include "Timing.h"
@@ -948,62 +950,6 @@ private:	 // TODO Code duplication; remove
 	inline auto getX(TupleType& tuple) const -> typename TupleXGetterNew<IteratorType, RealType, 5>::ReturnType {
 		return TupleXGetterNew<IteratorType, RealType, 4>()(tuple);
 	}
-};
-
-template <class BaseModel, class IteratorType, class RealType, class IntType>
-struct UpdateXBetaKernel : private BaseModel {
-
-// 	using XTuple = typename IteratorType::XTuple;
-    typedef typename IteratorType::XTuple XTuple;
-
-	UpdateXBetaKernel(RealType _delta,
-			RealType* _expXBeta, RealType* _xBeta, const RealType* _y, IntType* _pid,
-			RealType* _denominator, const RealType* _offs)
-			: delta(_delta), expXBeta(_expXBeta), xBeta(_xBeta), y(_y), pid(_pid),
-			  denominator(_denominator), offs(_offs) { }
-
-	void operator()(XTuple tuple) {
-
-		const auto k = getK(tuple);
-		const auto x = getX(tuple);
-
-		xBeta[k] += delta * x;
-
-		// Update denominators as well
-		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-			if (true) {	// Old method
-				real oldEntry = expXBeta[k];
-				real newEntry = expXBeta[k] = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
-				denominator[BaseModel::getGroup(pid, k)] += (newEntry - oldEntry);
-			} else {
-			#if 0  // logistic
-			    const real t = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
-			    expXBeta[k] = t;
-			    denominator[k] = static_cast<real>(1.0) + t;
-			#else
-				denominator[k] = expXBeta[k] = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k); // For fast Poisson
-            #endif
-			}
-		}
-	}
-
-private:
-	// TODO remove code duplication with struct above
-	inline auto getX(XTuple& tuple) const -> typename TupleXGetter<IteratorType, RealType>::ReturnType {
-		return TupleXGetter<IteratorType, RealType>()(tuple);
-	}
-
-	inline IntType getK(XTuple& tuple) const {
-		return boost::get<0>(tuple);
-	}
-
-	RealType delta;
-	RealType* expXBeta;
-	RealType* xBeta;
-	const RealType* y;
-	IntType* pid;
-	RealType* denominator;
-	const RealType* offs;
 };
 
 struct GLMProjection {
@@ -1950,6 +1896,58 @@ public:
 		return logLikeFixedTerm;
 	}
 
+};
+
+template <class BaseModel, class IteratorType, class RealType, class IntType>
+struct UpdateXBetaKernel : private BaseModel {
+
+    // 	using XTuple = typename IteratorType::XTuple;
+    typedef typename IteratorType::XTuple XTuple;
+
+    UpdateXBetaKernel(RealType _delta,
+                      RealType* _expXBeta, RealType* _xBeta, const RealType* _y, IntType* _pid,
+                      RealType* _denominator, const RealType* _offs)
+        : delta(_delta), expXBeta(_expXBeta), xBeta(_xBeta), y(_y), pid(_pid),
+          denominator(_denominator), offs(_offs) { }
+
+    void operator()(XTuple tuple) {
+
+        const auto k = getK(tuple);
+        const auto x = getX(tuple);
+
+        xBeta[k] += delta * x;
+
+#ifdef TEST_FASTER_LR
+        if (std::is_base_of<LogisticRegression<RealType>, BaseModel>::value) {
+            expXBeta[k] = std::exp(xBeta[k]); // TODO Is this necessary? Or compute on fly
+        } else
+#endif // TEST_FASTER_LR
+
+            // Update denominators as well
+            if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+                real oldEntry = expXBeta[k];
+                real newEntry = expXBeta[k] = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
+                denominator[BaseModel::getGroup(pid, k)] += (newEntry - oldEntry);
+            }
+    }
+
+private:
+    // TODO remove code duplication with struct above
+    inline auto getX(XTuple& tuple) const -> typename TupleXGetter<IteratorType, RealType>::ReturnType {
+        return TupleXGetter<IteratorType, RealType>()(tuple);
+    }
+
+    inline IntType getK(XTuple& tuple) const {
+        return boost::get<0>(tuple);
+    }
+
+    RealType delta;
+    RealType* expXBeta;
+    RealType* xBeta;
+    const RealType* y;
+    IntType* pid;
+    RealType* denominator;
+    const RealType* offs;
 };
 
 } // namespace

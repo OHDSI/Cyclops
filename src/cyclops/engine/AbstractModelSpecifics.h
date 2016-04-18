@@ -28,6 +28,9 @@ enum class ModelType; // forward declaration
 	typedef float real;
 #endif
 
+
+#define TEST_FASTER_LR
+
 // #define DEBUG_COX // Uncomment to get output for Cox model
 // #define DEBUG_COX_MIN
 // #define DEBUG_POISSON
@@ -84,7 +87,7 @@ public:
     virtual void getPredictiveEstimates(real* y, real* weights) = 0; // pure virtual
 
     virtual void makeDirty();
-    
+
     virtual void printTiming() = 0; // pure virtual
 
 //	virtual void sortPid(bool useCrossValidation) = 0; // pure virtual
@@ -92,26 +95,26 @@ public:
 //	static bsccs::shared_ptr<AbstractModelSpecifics> factory(const ModelType modelType, const ModelData& modelData);
 
 	virtual AbstractModelSpecifics* clone() const = 0; // pure virtual
-	
+
 	static AbstractModelSpecifics* factory(const ModelType modelType, const ModelData& modelData);
-	
+
 	// TODO Remove the following
 	RealVector& getXBeta() { return hXBeta; }
-	
+
 	RealVector& getXBetaSave() {  return hXBetaSave; }
 
 protected:
 
 	int getAlignedLength(int N);
-	
+
 	void setPidForAccumulation(const real *weights);
-	
-	void setupSparseIndices(const int max);	
+
+	void setupSparseIndices(const int max);
 
 	virtual bool allocateXjY(void) = 0; // pure virtual
 
 	virtual bool allocateXjX(void) = 0; // pure virtual
-	
+
 	virtual bool initializeAccumulationVectors(void) = 0; // pure virtual
 
 	virtual bool hasResetableAccumulators(void) = 0; // pure virtual
@@ -127,10 +130,10 @@ protected:
 	void zeroVector(T* vector, const int length) {
 		fillVector(vector, length, T());
 	}
-	
+
 protected:
-	const ModelData& modelData;	
-		
+	const ModelData& modelData;
+
 // 	const std::vector<real>& oY;
 // 	const std::vector<real>& oZ;
 // 	const std::vector<int>& oPid;
@@ -141,9 +144,9 @@ protected:
 	RealVector accDenomPid;
 	RealVector accNumerPid;
 	RealVector accNumerPid2;
-	
+
 	IntVector accReset;
-	
+
 	const std::vector<real>& hY;
 	const std::vector<real>& hOffs;
 // 	const std::vector<int>& hPid;
@@ -151,20 +154,20 @@ protected:
 // 	real* hY; // K-vector
 //	real* hZ; // K-vector
 // 	real* hOffs;  // K-vector
-		
+
 	const std::vector<int>& hPidOriginal;
-	int* hPid;	
+	int* hPid;
 	std::vector<int> hPidInternal;
-	
+
 //	int** hXColumnRowIndicators; // J-vector
 
 //	real* hBeta;
 // 	real* hXBeta;
 // 	real* hXBetaSave;
-	
+
 	RealVector hXBeta; // TODO Delegate to ModelSpecifics
-	RealVector hXBetaSave; // Delegate	
-	
+	RealVector hXBetaSave; // Delegate
+
 //	real* hDelta;
 
 	size_t N; // Number of patients
@@ -174,7 +177,7 @@ protected:
 //	real* expXBeta;
 //	real* offsExpXBeta;
 	RealVector offsExpXBeta;
-	
+
 // 	RealVector numerDenomPidCache;
 // 	real* denomPid; // all nested with a single cache
 // 	real* numerPid;
@@ -183,14 +186,14 @@ protected:
 	RealVector denomPid;
 	RealVector numerPid;
 	RealVector numerPid2;
-			
-	
+
+
 //	real* xOffsExpXBeta;
 //	real* hXjY;
 	RealVector hXjY;
 	RealVector hXjX;
 	real logLikelihoodFixedTerm;
-	
+
 	typedef std::vector<int> IndexVector;
 	typedef bsccs::shared_ptr<IndexVector> IndexVectorPtr;
 
@@ -202,10 +205,10 @@ protected:
     typedef bsccs::shared_ptr<CompressedDataColumn> CDCPtr;
 	typedef std::map<int, CDCPtr> HessianSparseMap;
 	HessianSparseMap hessianSparseCrossTerms;
-	
+
 	typedef std::vector<int> TimeTie;
 	std::vector<TimeTie> ties;
-	
+
 	std::vector<int> beginTies;
 	std::vector<int> endTies;
 };

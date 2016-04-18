@@ -17,6 +17,7 @@
 
 namespace bsccs {
 
+
 //bsccs::shared_ptr<AbstractModelSpecifics> AbstractModelSpecifics::factory(const ModelType modelType, const ModelData& modelData) {
 //	bsccs::shared_ptr<AbstractModelSpecifics> model;
 // 	switch (modelType) {
@@ -50,6 +51,7 @@ namespace bsccs {
 // 	}
 //	return model;
 //}
+
 
 AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelType, const ModelData& modelData) {
 	AbstractModelSpecifics* model = nullptr;

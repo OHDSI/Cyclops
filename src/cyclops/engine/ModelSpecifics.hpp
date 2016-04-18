@@ -38,8 +38,6 @@
 	}
 #endif
 
-#define TEST_FASTER_LR
-
 //#define OLD_WAY
 //#define NEW_WAY1
 #define NEW_WAY2
@@ -304,7 +302,12 @@ void ModelSpecifics<BaseModel,WeightType>::printTiming() {
 	for (auto& d : duration) {
 		std::cout << d.first << " " << d.second << std::endl;
 	}
-	std::cout << "NEW LOOPS" << std::endl;
+
+#ifdef TEST_FASTER_LR
+	std::cout << "TEST_FASTER_LF" << std::endl;
+#else
+	std::cout << "NO TEST" << std::endl;
+#endif
 
 #endif
 }
@@ -1263,8 +1266,19 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 // TODO TEST_FASTER_LR
 
 #if 1
+
+
 	auto range = helper::getRangeX(modelData, index, typename IteratorType::tag());
 
+#ifdef TEST_FASTER_LR
+	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,real,int>(
+	    realDelta, begin(offsExpXBeta), begin(hXBeta),
+	    begin(hY),
+	    begin(hPid),
+	    begin(denomPid),
+	    begin(hOffs)
+	);
+#else
 	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,real,int>(
 					realDelta, begin(offsExpXBeta), begin(hXBeta),
 					begin(hY),
@@ -1272,16 +1286,12 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 					begin(denomPid),
 					begin(hOffs)
 					);
-
+#endif // TEST_FASTER_LR
 
 	variants::for_each(
 		range.begin(), range.end(),
 		kernel,
-// 		info
-//          threadPool
-// 		RcppParallel() // TODO Currently *not* thread-safe
-          SerialOnly()
-		);
+        SerialOnly());
 
 #else
 
