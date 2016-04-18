@@ -28,9 +28,9 @@ public:
 
 	void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian,  bool useWeights);
-			
+
 	void computeMMGradientAndHessian(int index, double *ogradient,
-			double *ohessian,  double scale, bool useWeights);			
+			double *ohessian,  double scale, bool useWeights);
 
 protected:
 	void computeNumeratorForGradient(int index);
@@ -38,9 +38,9 @@ protected:
 	void computeFisherInformation(int indexOne, int indexTwo, double *oinfo, bool useWeights);
 
 	void updateXBeta(real realDelta, int index, bool useWeights);
-	
-	void computeXBeta(double* beta); 
-	
+
+	void computeXBeta(double* beta);
+
 	void computeRemainingStatistics(bool useWeights);
 
 	void computeAccumlatedNumerDenom(bool useWeights);
@@ -66,9 +66,9 @@ protected:
 	void setWeights(real* inWeights, bool useCrossValidation);
 
 	void doSortPid(bool useCrossValidation);
-	
+
 	bool initializeAccumulationVectors(void);
-	
+
 	bool hasResetableAccumulators(void);
 
 private:
@@ -77,19 +77,19 @@ private:
 			int index,
 			double *gradient,
 			double *hessian, Weights w);
-			
+
 	template <class IteratorType, class Weights>
 	void computeMMGradientAndHessianImpl(
 			int index,
 			double *gradient,
-			double *hessian, double scale, Weights w);			
+			double *hessian, double scale, Weights w);
 
 	template <class IteratorType>
 	void incrementNumeratorForGradientImpl(int index);
 
 	template <class IteratorType>
 	void updateXBetaImpl(real delta, int index, bool useWeights);
-	
+
 	template <class IteratorType>
 	void computeXBetaImpl(double *beta);
 
@@ -112,11 +112,11 @@ private:
 	void computeXjX(bool useCrossValidation);
 
 	void computeNtoKIndices(bool useCrossValidation);
-	
+
 	void initializeMM(std::vector<bool>& fixBeta);
-	
+
 	void computeNorms(void);
-	
+
 	template <class InteratorType>
 	void incrementNormsImpl(int index);
 
@@ -126,7 +126,7 @@ private:
 	std::vector<int> nPid;
 	std::vector<real> nY;
 	std::vector<int> hNtoK;
-	
+
 	std::vector<real> norm;
 
 	struct WeightedOperation {
@@ -168,7 +168,7 @@ public:
 	const static bool hasStrataCrossTerms = true;
 
 	const static bool hasNtoKIndices = true;
-	
+
 	const static bool exactTies = false;
 
 	int getGroup(int* groups, int k) {
@@ -177,38 +177,38 @@ public:
 };
 
 struct GroupedWithTiesData : GroupedData {
-public:	
+public:
 	const static bool exactTies = true;
 };
 
 struct OrderedData {
 public:
 	const static bool hasStrataCrossTerms = true;
-	
-	const static bool hasNtoKIndices = false;	
-	
-	const static bool exactTies = false;	
+
+	const static bool hasNtoKIndices = false;
+
+	const static bool exactTies = false;
 
 	int getGroup(int* groups, int k) {
 		return k; // No ties
 	}
-	
+
 	const static bool hasResetableAccumulators = true;
 };
 
 struct OrderedWithTiesData {
 public:
 	const static bool hasStrataCrossTerms = true;
-	
-	const static bool hasNtoKIndices = false;	
-	
+
+	const static bool hasNtoKIndices = false;
+
 	const static bool exactTies = false;
 
 	int getGroup(int* groups, int k) {
 		return groups[k];
-	}	
-	
-	const static bool hasResetableAccumulators = false;	
+	}
+
+	const static bool hasResetableAccumulators = false;
 };
 
 struct IndependentData {
@@ -216,8 +216,8 @@ public:
 	const static bool hasStrataCrossTerms = false;
 
 	const static bool hasNtoKIndices = false;
-	
-	const static bool exactTies = false;	
+
+	const static bool exactTies = false;
 
 	int getGroup(int* groups, int k) {
 		return k;
@@ -227,15 +227,15 @@ public:
 struct FixedPid {
 	const static bool sortPid = false;
 
-	const static bool cumulativeGradientAndHessian = false;		
-	
+	const static bool cumulativeGradientAndHessian = false;
+
 	const static bool hasResetableAccumulators = false;
 };
 
 struct SortedPid {
 	const static bool sortPid = true;
 
-	const static bool cumulativeGradientAndHessian = true;	
+	const static bool cumulativeGradientAndHessian = true;
 };
 
 struct NoFixedLikelihoodTerms {
@@ -268,15 +268,6 @@ public:
 	real gradientNumerator2Contrib(real x, real predictor) {
 		return predictor * x * x;
 	}
-	
-	template <class IteratorType, class Weights>	
-	inline void incrementMMGradientAndHessian(
-			real& gradient, real& hessian,
-			real expXBeta, real denominator, 
-			real weight, real x, real xBeta, real y, real norm) {
-
-        throw new std::logic_error("Not model-specific");
-	}
 };
 
 template <typename WeightType>
@@ -292,6 +283,15 @@ public: /***/
 			WeightType weight,
 			real x, real xBeta, real y) {
 		*information += weight * predictor / denom * it.value();
+	}
+
+	template <class IteratorType, class Weights>
+	inline void incrementMMGradientAndHessian(
+	        real& gradient, real& hessian,
+	        real expXBeta, real denominator,
+	        real weight, real x, real xBeta, real y, real norm) {
+
+	    throw new std::logic_error("Not model-specific");
 	}
 };
 
@@ -344,6 +344,21 @@ public:
 			}
 		}
 	}
+
+	template <class IteratorType, class Weights>
+	inline void incrementMMGradientAndHessian(
+	        real& gradient, real& hessian,
+	        real expXBeta, real denominator,
+	        real weight, real x, real xBeta, real y, real norm) {
+
+	    if (IteratorType::isIndicator) {
+	        gradient += weight * expXBeta / denominator;
+	        hessian += weight * expXBeta / denominator * norm;
+	    } else {
+	        gradient += weight * expXBeta * x / denominator;
+	        hessian += weight * expXBeta * x * x / denominator * norm;
+	    }
+	}
 };
 
 template <typename WeightType>
@@ -393,11 +408,11 @@ public:
 			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
 		}
 	}
-	
+
 	template <class IteratorType, class Weights>
 	inline void incrementMMGradientAndHessian(
 			real& gradient, real& hessian,
-			real expXBeta, real denominator, 
+			real expXBeta, real denominator,
 			real weight, real x, real xBeta, real y, real norm) {
 
 		if (IteratorType::isIndicator) {
@@ -405,9 +420,9 @@ public:
 			hessian += weight * expXBeta / denominator * norm;
 		} else {
 			gradient += weight * expXBeta * x / denominator;
-			hessian += weight * expXBeta * x * x / denominator * norm;		
+			hessian += weight * expXBeta * x * x / denominator * norm;
 		}
-	}	
+	}
 
 	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
 		return offs[k] * std::exp(xBeta);
@@ -432,19 +447,19 @@ template <typename WeightType>
 struct ConditionalPoissonRegression : public GroupedData, GLMProjection, FixedPid, Survival<WeightType> {
 public:
 	const static bool precomputeHessian = false; // XjX
-	
+
 	const static bool likelihoodHasFixedTerms = true;
-		
+
 // 	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
 // 		return yi * std::log(offseti);
 // 	}
-	
+
 	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
 		real logLikeFixedTerm = 0.0;
 		for(int i = 2; i <= (int)yi; i++)
 			logLikeFixedTerm += -log((real)i);
 		return logLikeFixedTerm;
-	}	
+	}
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
 
@@ -621,7 +636,7 @@ public:
 
 	void predictEstimate(real& yi, real xBeta){
 	    // Do nothing
-		//yi = xBeta; // Returns the linear predictor;  ###relative risk		
+		//yi = xBeta; // Returns the linear predictor;  ###relative risk
 	}
 
 };
@@ -679,7 +694,7 @@ public:
 
 	void predictEstimate(real& yi, real xBeta){
 	    // Do nothing
-		//yi = xBeta; // Returns the linear predictor;  ###relative risk		
+		//yi = xBeta; // Returns the linear predictor;  ###relative risk
 	}
 
 };
@@ -725,7 +740,7 @@ public:
     bool resetAccumulators(int* pid, int k, int currentPid) { return false; } // No stratification
 
 	real observationCount(real yi) {
-		return static_cast<real>(yi);  
+		return static_cast<real>(yi);
 	}
 
 	template <class IteratorType, class Weights>
@@ -768,7 +783,7 @@ public:
 template <typename WeightType>
 struct StratifiedCoxProportionalHazards : public CoxProportionalHazards<WeightType> {
 public:
-    bool resetAccumulators(int* pid, int k, int currentPid) { 
+    bool resetAccumulators(int* pid, int k, int currentPid) {
         return pid[k] != currentPid;
     }
 };
@@ -780,12 +795,12 @@ public:
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
 
-    bool resetAccumulators(int* pid, int k, int currentPid) { 
+    bool resetAccumulators(int* pid, int k, int currentPid) {
         return pid[k] != currentPid;
     }
-    
+
 	real observationCount(real yi) {
-		return static_cast<real>(yi);  
+		return static_cast<real>(yi);
 	}
 
 	template <class IteratorType, class Weights>
@@ -859,10 +874,10 @@ public:
 	template <class IteratorType, class Weights>
 	inline void incrementMMGradientAndHessian(
 			real& gradient, real& hessian,
-			real expXBeta, real denominator, 
+			real expXBeta, real denominator,
 			real weight, real x, real xBeta, real y, real norm) {
-												
-		throw new std::logic_error("Not implemented.");			
+
+		throw new std::logic_error("Not implemented.");
 	}
 
 	template <class IteratorType, class Weights>
@@ -975,11 +990,11 @@ public:
 #endif
 			}
 	}
-	
+
 	template <class IteratorType, class Weights>
 	inline void incrementMMGradientAndHessian(
 			real& gradient, real& hessian,
-			real expXBeta, real denominator, 
+			real expXBeta, real denominator,
 			real weight, real x, real xBeta, real y, real norm) {
 
 		if (IteratorType::isIndicator) {
@@ -988,18 +1003,18 @@ public:
 				hessian  += weight * expXBeta * norm;
 			} else {
 				gradient +=  expXBeta;
-				hessian  +=  expXBeta * norm;			
+				hessian  +=  expXBeta * norm;
 			}
 		} else {
 			if (Weights::isWeighted) {
 				gradient += weight * expXBeta * x;
-				hessian  += weight * expXBeta * x * x * norm;		
+				hessian  += weight * expXBeta * x * x * norm;
 			} else {
 				gradient +=  expXBeta * x;
-				hessian  +=  expXBeta * x * x * norm;				
+				hessian  +=  expXBeta * x * x * norm;
 			}
 		}
-	}	
+	}
 
 	real getOffsExpXBeta(real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
