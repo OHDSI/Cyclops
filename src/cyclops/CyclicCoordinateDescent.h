@@ -202,11 +202,13 @@ protected:
 
 //	void computeXjY(void);
 
-	void findMode(int maxIterations, int convergenceType, double epsilon);
+	void findMode(const int maxIterations, const int convergenceType, const double epsilon,
+               const AlgorithmType algorithmType, const int qQN);
 
 	template <typename Iterator>
 	void findMode(Iterator begin, Iterator end,
-		const int maxIterations, const int convergenceType, const double epsilon);
+		const int maxIterations, const int convergenceType, const double epsilon,
+		const AlgorithmType algorithmType, const int qQN);
 
 	template <typename Container>
 	void computeKktConditions(Container& set);
@@ -277,9 +279,20 @@ protected:
 
 	double ccdUpdateBeta(int index);
 
+
+	void mmUpdateAllBeta(std::vector<double>& allDelta,
+                         const std::vector<bool>& fixedBeta);
+
+
 	double applyBounds(
 			double inDelta,
 			int index);
+
+	bool performCheckConvergence(int convergenceType,
+                              double epsilon,
+                              int maxIterations,
+                              int iteration,
+                              double* lastObjFunc);
 
 	double computeConvergenceCriterion(double newObjFxn, double oldObjFxn);
 

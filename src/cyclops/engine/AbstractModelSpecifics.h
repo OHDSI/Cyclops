@@ -17,6 +17,8 @@
 
 namespace bsccs {
 
+typedef std::pair<double, double> GradientHessian;
+
 class CompressedDataMatrix;  // forward declaration
 class CompressedDataColumn; // forward declaration
 class ModelData; // forward declaration
@@ -64,12 +66,16 @@ public:
 	virtual void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian, bool useWeights) = 0; // pure virtual
 
+	virtual void computeMMGradientAndHessian(std::vector<GradientHessian>& gh, const std::vector<bool>& fixBeta, bool useWeights) = 0; // pure virtual
+
 	virtual void computeNumeratorForGradient(int index) = 0; // pure virtual
 
 	virtual void computeFisherInformation(int indexOne, int indexTwo,
 			double *oinfo, bool useWeights) = 0; // pure virtual
 
 	virtual void updateXBeta(real realDelta, int index, bool useWeights) = 0; // pure virtual
+
+	virtual void computeXBeta(double* beta, bool useWeights) = 0; // pure virtual
 
 	virtual void computeRemainingStatistics(bool useWeights) = 0; // pure virtual
 
@@ -234,6 +240,11 @@ protected:
 
 	std::vector<int> beginTies;
 	std::vector<int> endTies;
+	
+	typedef bsccs::shared_ptr<CompressedDataMatrix> CdmPtr;
+	
+	CdmPtr hXt;
+	
 };
 
 typedef bsccs::shared_ptr<AbstractModelSpecifics> ModelSpecificsPtr;

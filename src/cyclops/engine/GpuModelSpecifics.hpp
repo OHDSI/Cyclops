@@ -533,6 +533,13 @@ public:
 #endif
 
     }
+    
+	virtual void computeMMGradientAndHessian(
+			std::vector<GradientHessian>& gh, 
+			const std::vector<bool>& fixBeta, 
+			bool useWeights) {
+			// Do nothing		
+	}    
 
     virtual void updateXBeta(real realDelta, int index, bool useWeights) {
 

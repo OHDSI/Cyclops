@@ -150,8 +150,9 @@ void CompressedDataColumn::fill(RealVector& values, int nRows) {
 		}
 }
 
-CompressedDataMatrix* CompressedDataMatrix::transpose() {
-	CompressedDataMatrix* matTranspose = new CompressedDataMatrix();
+bsccs::shared_ptr<CompressedDataMatrix> CompressedDataMatrix::transpose() const {
+	auto matTranspose = bsccs::make_shared<CompressedDataMatrix>();
+// 	CompressedDataMatrix* matTranspose = new CompressedDataMatrix();
 
 	matTranspose->nRows = this->getNumberOfColumns();
 	int numCols = this->getNumberOfRows();
@@ -192,6 +193,11 @@ CompressedDataMatrix* CompressedDataMatrix::transpose() {
 				else
 					matTranspose->allColumns[this->getCompressedColumnVector(i)[j]]->add_data(
 							i, 1.0);
+			}
+		} else if (thisFormatType == INTERCEPT) {
+			int rows = getNumberOfRows();
+			for (int j = 0; j < rows; ++j) {
+				matTranspose->getColumn(j).add_data(i, 1.0);			
 			}
 		} else {
 			for (size_t j = 0; j < nRows; j++) {

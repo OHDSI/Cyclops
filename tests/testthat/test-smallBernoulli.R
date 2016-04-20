@@ -19,6 +19,13 @@ test_that("Small Bernoulli dense regression", {
 	dataPtrD <- createCyclopsData(y ~ log_bid, modelType = "lr")
 	cyclopsFitD <- fitCyclopsModel(dataPtrD, prior = createPrior("none"),
 	                       control = createControl(noiseLevel = "silent"))
+
+	cf <- fitCyclopsModel(dataPtrD, prior = createPrior("none"), forceNewObject = TRUE,
+	                      control = createControl(algorithm = "mm", noiseLevel = "noisy"))
+
+
+
+
 	expect_equal(coef(cyclopsFitD), coef(glmFit), tolerance = tolerance)
 	expect_equal(cyclopsFitD$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
 	expect_equal(confint(cyclopsFitD, c(1:2))[,2:3], confint(glmFit, c(1:2)), tolerance = tolerance)

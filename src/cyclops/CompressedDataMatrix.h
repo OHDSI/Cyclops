@@ -257,7 +257,7 @@ public:
 	std::vector<real>& getDataVectorSTL(int column) const;
 
 	void getDataRow(int row, real* x) const;
-	CompressedDataMatrix* transpose();
+	bsccs::shared_ptr<CompressedDataMatrix> transpose() const; 
 
 	FormatType getFormatType(int column) const;
 

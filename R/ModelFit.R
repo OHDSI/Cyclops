@@ -392,6 +392,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              Option \code{"byRow"} selects single rows
 #' @param initialBound          Numeric: Starting trust-region size
 #' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
+#' @param algorithm             String: name of fitting algorithm to employ; default is `ccd`
 #'
 #' Todo: Describe convegence types
 #'
@@ -420,7 +421,8 @@ createControl <- function(maxIterations = 1000,
                           tuneSwindle = 10,
                           selectorType = "default",
                           initialBound = 2.0,
-                          maxBoundCount = 5) {
+                          maxBoundCount = 5,
+                          algorithm = "ccd") {
     validCVNames = c("grid", "auto")
     stopifnot(cvType %in% validCVNames)
 
@@ -429,6 +431,9 @@ createControl <- function(maxIterations = 1000,
     stopifnot(threads == -1 || threads >= 1)
     stopifnot(startingVariance == -1 || startingVariance > 0)
     stopifnot(selectorType %in% c("default","byPid", "byRow"))
+
+    validAlgorithmNames = c("ccd", "mm")
+    stopifnot(algorithm %in% validAlgorithmNames)
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -449,7 +454,8 @@ createControl <- function(maxIterations = 1000,
                    tuneSwindle = tuneSwindle,
                    selectorType = selectorType,
                    initialBound = initialBound,
-                   maxBoundCount = maxBoundCount),
+                   maxBoundCount = maxBoundCount,
+                   algorithm = algorithm),
               class = "cyclopsControl")
 }
 
@@ -595,7 +601,9 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
                            control$lowerLimit, control$upperLimit, control$gridSteps,
                            control$noiseLevel, control$threads, control$seed, control$resetCoefficients,
                            control$startingVariance, control$useKKTSwindle, control$tuneSwindle,
-                           control$selectorType, control$initialBound, control$maxBoundCount)
+                           control$selectorType, control$initialBound, control$maxBoundCount,
+                           control$algorithm
+                          )
     }
 }
 

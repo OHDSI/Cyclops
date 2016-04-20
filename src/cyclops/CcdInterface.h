@@ -78,6 +78,7 @@ struct ModeFindingArguments {
 	int swindleMultipler;
 	double initialBound;
 	int maxBoundCount;
+	AlgorithmType algorithmType;
 
 	ModeFindingArguments() :
 		tolerance(1E-6),
@@ -87,7 +88,8 @@ struct ModeFindingArguments {
 		useKktSwindle(false),
 		swindleMultipler(10),
 		initialBound(2.0),
-		maxBoundCount(5)
+		maxBoundCount(5),
+		algorithmType(AlgorithmType::CCD)
 	    { }
 };
 
