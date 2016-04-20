@@ -411,7 +411,8 @@ createControl <- function(maxIterations = 1000,
                           tuneSwindle = 10,
                           selectorType = "default",
                           initialBound = 2.0,
-                          maxBoundCount = 5) {
+                          maxBoundCount = 5,
+                          specialCode = 0) {
     validCVNames = c("grid", "auto")
     stopifnot(cvType %in% validCVNames)
 
@@ -440,7 +441,8 @@ createControl <- function(maxIterations = 1000,
                    tuneSwindle = tuneSwindle,
                    selectorType = selectorType,
                    initialBound = initialBound,
-                   maxBoundCount = maxBoundCount),
+                   maxBoundCount = maxBoundCount,
+                   specialCode = specialCode),
               class = "cyclopsControl")
 }
 
@@ -586,7 +588,8 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
                            control$lowerLimit, control$upperLimit, control$gridSteps,
                            control$noiseLevel, control$threads, control$seed, control$resetCoefficients,
                            control$startingVariance, control$useKKTSwindle, control$tuneSwindle,
-                           control$selectorType, control$initialBound, control$maxBoundCount)
+                           control$selectorType, control$initialBound, control$maxBoundCount,
+                           control$specialCode)
     }
 }
 

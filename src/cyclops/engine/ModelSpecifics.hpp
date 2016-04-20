@@ -303,11 +303,13 @@ void ModelSpecifics<BaseModel,WeightType>::printTiming() {
 		std::cout << d.first << " " << d.second << std::endl;
 	}
 
-#ifdef TEST_FASTER_LR
-	std::cout << "TEST_FASTER_LF" << std::endl;
-#else
+if (specialCode == 1) {
+	std::cout << "TEST_FASTER_LF1" << std::endl;
+} else if (specialCode == 2) {
+    std::cout << "TEST_FASTER_LF2" << std::endl;
+} else {
 	std::cout << "NO TEST" << std::endl;
-#endif
+}
 
 #endif
 }
@@ -318,7 +320,7 @@ ModelSpecifics<BaseModel,WeightType>::~ModelSpecifics() {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 
-    printTiming();
+   // printTiming();
 
 	auto now = bsccs::chrono::system_clock::now();
 	auto now_c = bsccs::chrono::system_clock::to_time_t(now);
@@ -801,7 +803,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		}
 	} else if (BaseModel::hasIndependentRows) {
 
-#ifdef TEST_FASTER_LR
+if (specialCode == 1) {
 	    auto range = helper::newindependent::getRangeX(modelData, index,
                                                  offsExpXBeta, hXBeta, hY, // denomPid,
                                                  hNWeight,
@@ -810,7 +812,23 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	    const auto result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
                                           NewTransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
                                           SerialOnly());
-#else
+
+	    gradient = result.real();
+	    hessian = result.imag();
+} else if (specialCode == 2) {
+    auto range = helper::newindependent::getRangeX(modelData, index,
+                                                   offsExpXBeta,
+                                                   hXBeta, hY, // denomPid,
+                                                   hNWeight,
+                                                   typename IteratorType::tag());
+
+    const auto result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
+                                         New2TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
+                                         SerialOnly());
+
+    gradient = result.real();
+    hessian = result.imag();
+} else {
 	    auto range = helper::independent::getRangeX(modelData, index,
                                                  offsExpXBeta, hXBeta, hY, denomPid, hNWeight,
                                                  typename IteratorType::tag());
@@ -818,10 +836,12 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		const auto result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
 		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
  	        SerialOnly());
-#endif
 
 		gradient = result.real();
 		hessian = result.imag();
+}
+
+
 
 	} else {
 
@@ -1263,22 +1283,38 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 
 // #ifdef NEW_LOOPS
 
-// TODO TEST_FASTER_LR
 
 #if 1
 
 
 	auto range = helper::getRangeX(modelData, index, typename IteratorType::tag());
 
-#ifdef TEST_FASTER_LR
-	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,real,int>(
+if (specialCode == 1) {
+	auto kernel = LRUpdateXBetaKernel<BaseModel,IteratorType,real,int>(
 	    realDelta, begin(offsExpXBeta), begin(hXBeta),
 	    begin(hY),
 	    begin(hPid),
-	    begin(denomPid),
 	    begin(hOffs)
 	);
-#else
+
+	variants::for_each(
+	    range.begin(), range.end(),
+	    kernel,
+	    SerialOnly());
+} else if (specialCode == 2) {
+    auto kernel = LR2UpdateXBetaKernel<BaseModel,IteratorType,real,int>(
+        realDelta, //begin(offsExpXBeta),
+        begin(hXBeta),
+        begin(hY),
+        begin(hPid),
+        begin(hOffs)
+    );
+
+    variants::for_each(
+        range.begin(), range.end(),
+        kernel,
+        SerialOnly());
+} else {
 	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,real,int>(
 					realDelta, begin(offsExpXBeta), begin(hXBeta),
 					begin(hY),
@@ -1286,13 +1322,12 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 					begin(denomPid),
 					begin(hOffs)
 					);
-#endif // TEST_FASTER_LR
 
 	variants::for_each(
 		range.begin(), range.end(),
 		kernel,
         SerialOnly());
-
+}
 #else
 
     if (BaseModel::hasIndependentRows) {

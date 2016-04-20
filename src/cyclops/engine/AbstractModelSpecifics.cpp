@@ -225,8 +225,7 @@ void AbstractModelSpecifics::initialize(
 		real* iXBeta,
 		real* iOffs,
 		real* iBeta,
-		const real* iY_unused//,
-//		real* iWeights
+		const real* iY_unused//		real* iWeights
 		) {
 	N = iN;
 	K = iK;
@@ -261,6 +260,8 @@ void AbstractModelSpecifics::initialize(
 	numerPid.resize(alignedLength);
 	numerPid2.resize(alignedLength);
 
+
+	specialCode = 0;
 }
 
 } // namespace

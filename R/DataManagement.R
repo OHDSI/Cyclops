@@ -749,7 +749,8 @@ loadNewSqlCyclopsDataY <- function(object,
 #' @param offsetAlreadyOnLogScale						Set to \code{TRUE} to indicate that offsets were log-transformed before importing into Cyclops data object.
 #' @param sortCovariates			Sort covariates in numeric-order with intercept first if it exists.
 #' @param makeCovariatesDense List of numeric or character covariates names to densely represent in Cyclops data object.
-#' 														For efficiency, we suggest making atleast the intercept dense.
+#' 														For efficiency, we suggest making at least the intercept dense.
+#' @param magicFlag   Experimental and undocumented.
 ##' @keywords internal
 #' @export
 finalizeSqlCyclopsData <- function(object,
@@ -757,7 +758,8 @@ finalizeSqlCyclopsData <- function(object,
                                    useOffsetCovariate = NULL,
                                    offsetAlreadyOnLogScale = FALSE,
                                    sortCovariates = FALSE,
-                                   makeCovariatesDense = NULL) {
+                                   makeCovariatesDense = NULL,
+                                   magicFlag = FALSE) {
     if (!isInitialized(object)) {
         stop("Object is no longer or improperly initialized.")
     }
@@ -772,7 +774,7 @@ finalizeSqlCyclopsData <- function(object,
 
     .cyclopsFinalizeData(object, addIntercept, useOffsetCovariate,
                          offsetAlreadyOnLogScale, sortCovariates,
-                         makeCovariatesDense)
+                         makeCovariatesDense, magicFlag)
 
     if (addIntercept == TRUE) {
         if (!is.null(object$coefficientNames)) {

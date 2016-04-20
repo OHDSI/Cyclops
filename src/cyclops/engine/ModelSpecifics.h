@@ -660,6 +660,41 @@ struct NewTransformAndAccumulateGradientAndHessianKernelIndependent : private Ba
         }
 };
 
+template <class BaseModel, class IteratorType, class WeightOperationType,
+          class RealType, class IntType>
+struct New2TransformAndAccumulateGradientAndHessianKernelIndependent : private BaseModel {
+
+    template <class TupleType>
+    Fraction<RealType> operator()(Fraction<RealType>& lhs, TupleType tuple) {
+
+        const auto x = getX(tuple);
+        // const auto expXBeta = boost::get<0>(tuple);
+        const auto xBeta = boost::get<1>(tuple);
+        const auto y = boost::get<2>(tuple);
+        const auto weight = boost::get<3>(tuple);
+
+        RealType expXBeta = std::exp(xBeta);
+
+        RealType numerator = BaseModel::gradientNumeratorContrib(x, expXBeta, xBeta, y);
+        RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+        BaseModel::gradientNumerator2Contrib(x, expXBeta) :
+            static_cast<RealType>(0);
+
+        RealType denominator = RealType(1.0) + expXBeta;
+
+        return BaseModel::template incrementGradientAndHessian<IteratorType, WeightOperationType, RealType>(
+                lhs, numerator, numerator2,
+                denominator, // Computed without loading denominator
+                weight, xBeta, y);
+    }
+
+    private:	 // TODO Code duplication; remove
+        template <class TupleType>
+        inline auto getX(TupleType& tuple) const -> typename TupleXGetterNew<IteratorType, RealType, 5>::ReturnType {
+            return TupleXGetterNew<IteratorType, RealType, 4>()(tuple);
+        }
+};
+
 // template <class BaseModel, class IteratorType, class WeightOperationType,
 // class RealType, class IntType>
 // struct TransformAndAccumulateGradientAndHessianKernelDependent : private BaseModel {
@@ -1897,6 +1932,88 @@ public:
 	}
 
 };
+
+template <class BaseModel, class IteratorType, class RealType, class IntType>
+struct LR2UpdateXBetaKernel : private BaseModel {
+
+    // 	using XTuple = typename IteratorType::XTuple;
+    typedef typename IteratorType::XTuple XTuple;
+
+    LR2UpdateXBetaKernel(RealType _delta,
+                         RealType* _xBeta, const RealType* _y, IntType* _pid,
+                        const RealType* _offs)
+        : delta(_delta), xBeta(_xBeta), y(_y), pid(_pid),
+          offs(_offs) { }
+
+    void operator()(XTuple tuple) {
+
+        const auto k = getK(tuple);
+        const auto x = getX(tuple);
+
+        xBeta[k] += delta * x;
+    }
+
+private:
+    // TODO remove code duplication with struct above
+    inline auto getX(XTuple& tuple) const -> typename TupleXGetter<IteratorType, RealType>::ReturnType {
+        return TupleXGetter<IteratorType, RealType>()(tuple);
+    }
+
+    inline IntType getK(XTuple& tuple) const {
+        return boost::get<0>(tuple);
+    }
+
+    RealType delta;
+    RealType* expXBeta;
+    RealType* xBeta;
+    const RealType* y;
+    IntType* pid;
+    RealType* denominator;
+    const RealType* offs;
+};
+
+template <class BaseModel, class IteratorType, class RealType, class IntType>
+struct LRUpdateXBetaKernel : private BaseModel {
+
+    // 	using XTuple = typename IteratorType::XTuple;
+    typedef typename IteratorType::XTuple XTuple;
+
+    LRUpdateXBetaKernel(RealType _delta,
+                      RealType* _expXBeta, RealType* _xBeta, const RealType* _y, IntType* _pid,
+                      const RealType* _offs)
+        : delta(_delta), expXBeta(_expXBeta), xBeta(_xBeta), y(_y), pid(_pid),
+          offs(_offs) { }
+
+    void operator()(XTuple tuple) {
+
+        const auto k = getK(tuple);
+        const auto x = getX(tuple);
+
+        const auto tmp = xBeta[k] + delta * x;
+        xBeta[k] = tmp;
+        expXBeta[k] = std::exp(tmp); // TODO Is this necessary? Or compute on fly
+
+    }
+
+private:
+    // TODO remove code duplication with struct above
+    inline auto getX(XTuple& tuple) const -> typename TupleXGetter<IteratorType, RealType>::ReturnType {
+        return TupleXGetter<IteratorType, RealType>()(tuple);
+    }
+
+    inline IntType getK(XTuple& tuple) const {
+        return boost::get<0>(tuple);
+    }
+
+    RealType delta;
+    RealType* expXBeta;
+    RealType* xBeta;
+    const RealType* y;
+    IntType* pid;
+    RealType* denominator;
+    const RealType* offs;
+};
+
 
 template <class BaseModel, class IteratorType, class RealType, class IntType>
 struct UpdateXBetaKernel : private BaseModel {

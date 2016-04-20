@@ -487,6 +487,8 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const auto epsilon = arguments.tolerance;
 	const int maxCount = arguments.maxBoundCount;
 
+	modelSpecifics.setSpecialCode(arguments.specialCode);
+
 	initialBound = arguments.initialBound;
 
 	int count = 0;

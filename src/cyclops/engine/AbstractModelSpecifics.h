@@ -28,9 +28,6 @@ enum class ModelType; // forward declaration
 	typedef float real;
 #endif
 
-
-#define TEST_FASTER_LR
-
 // #define DEBUG_COX // Uncomment to get output for Cox model
 // #define DEBUG_COX_MIN
 // #define DEBUG_POISSON
@@ -102,6 +99,8 @@ public:
 	RealVector& getXBeta() { return hXBeta; }
 
 	RealVector& getXBetaSave() {  return hXBetaSave; }
+
+	void setSpecialCode(int code) { specialCode = code; }
 
 protected:
 
@@ -211,6 +210,8 @@ protected:
 
 	std::vector<int> beginTies;
 	std::vector<int> endTies;
+
+	int specialCode;
 };
 
 typedef bsccs::shared_ptr<AbstractModelSpecifics> ModelSpecificsPtr;

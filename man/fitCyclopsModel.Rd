@@ -6,7 +6,7 @@
 \usage{
 fitCyclopsModel(cyclopsData, prior, control, weights = NULL,
   forceNewObject = FALSE, returnEstimates = TRUE,
-  startingCoefficients = NULL)
+  startingCoefficients = NULL, computeDevice = "native")
 }
 \arguments{
 \item{cyclopsData}{A Cyclops data object}
@@ -22,6 +22,8 @@ fitCyclopsModel(cyclopsData, prior, control, weights = NULL,
 \item{returnEstimates}{Logical, return regression coefficient estimates in Cyclops model fit object}
 
 \item{startingCoefficients}{Vector of starting values for optimization}
+
+\item{computeDevice}{String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU}
 }
 \value{
 A list that contains a Cyclops model fit object pointer and an operation duration
