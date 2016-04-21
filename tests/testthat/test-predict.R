@@ -13,11 +13,11 @@ test_that("Test predict for Poisson regression", {
 
     # Test using data frames
     predictNew <- predict(fit, outcomes, covariates)
-    expect_less_than(max(abs(predictOriginal - predictNew)), 1e-08)
+    expect_lt(max(abs(predictOriginal - predictNew)), 1e-08)
 
     # Test using ffdf
     predictNew <- predict(fit, as.ffdf(outcomes),as.ffdf(covariates))
-    expect_less_than(max(abs(predictOriginal - predictNew)), 1e-08)
+    expect_lt(max(abs(predictOriginal - predictNew)), 1e-08)
 })
 
 test_that("Test predict for logistic regression", {
@@ -31,9 +31,9 @@ test_that("Test predict for logistic regression", {
 
     # Test using data frames
     predictNew <- predict(fit, outcomes, covariates)
-    expect_less_than(max(abs(predictOriginal - predictNew)), 1e-08)
+    expect_lt(max(abs(predictOriginal - predictNew)), 1e-08)
 
     # Test using ffdf
     predictNew <- predict(fit, as.ffdf(outcomes),as.ffdf(covariates))
-    expect_less_than(max(abs(predictOriginal - predictNew)), 1e-08)
+    expect_lt(max(abs(predictOriginal - predictNew)), 1e-08)
 })
