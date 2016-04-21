@@ -30,7 +30,7 @@ namespace compute = boost::compute;
 namespace detail {
 
 namespace constant {
-    static const int updateXBetaBlockSize = 512; // Appears best on K40
+    static const int updateXBetaBlockSize = 256; // 512; // Appears best on K40
 }; // namespace constant
 
 template <typename DeviceVec, typename HostVec>
@@ -671,11 +671,20 @@ private:
     void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
 
         std::stringstream options;
+
+        if (sizeof(real) == 8) {
 #ifdef USE_VECTOR
         options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
 #else
         options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
 #endif // USE_VECTOR
+        } else {
+#ifdef USE_VECTOR
+            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+#else
+            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+#endif // USE_VECTOR
+        }
         options << " -cl-mad-enable -cl-fast-relaxed-math";
 
 //         compute::vector<compute::double2_> buf(10, ctx);
@@ -712,7 +721,7 @@ private:
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         auto kernel = compute::kernel(program, source.name);
 
-        //Rcpp::stop("end");
+        // Rcpp::stop("cGH");
 
 
         // Run-time constant arguments.
