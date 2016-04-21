@@ -15,6 +15,8 @@
 
 #include "Types.h"
 
+#include "ParallelLoops.h"
+
 namespace bsccs {
 
 class CompressedDataMatrix;  // forward declaration
@@ -76,6 +78,10 @@ public:
 	virtual void updateXBeta(real realDelta, int index, bool useWeights) = 0; // pure virtual
 	
 	virtual void computeXBeta(double* beta) = 0; // pure virtual
+	
+	virtual void computeXBeta(double* beta, C11ThreadPool &test) = 0; // pure virtual
+	virtual void computeXBeta(double* beta, C11Threads &test) = 0; // pure virtual
+
 
 	virtual void computeRemainingStatistics(bool useWeights) = 0; // pure virtual
 
@@ -162,7 +168,6 @@ protected:
 	real* denomPid; // all nested with a single cache
 	real* numerPid;
 	real* numerPid2;
-			
 	
 //	real* xOffsExpXBeta;
 //	real* hXjY;

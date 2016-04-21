@@ -14,6 +14,8 @@
 #include <stdexcept>
 
 #include "AbstractModelSpecifics.h"
+#include "ParallelLoops.h"
+
 
 namespace bsccs {
 
@@ -40,6 +42,8 @@ protected:
 	void updateXBeta(real realDelta, int index, bool useWeights);
 	
 	void computeXBeta(double* beta); 
+	void computeXBeta(double* beta, C11ThreadPool &test);
+	void computeXBeta(double* beta, C11Threads &test);
 	
 	void computeRemainingStatistics(bool useWeights);
 
@@ -92,6 +96,13 @@ private:
 	
 	template <class IteratorType>
 	void computeXBetaImpl(double *beta);
+	
+	template <class IteratorType>
+	void computeXBetaImpl(double *beta, C11ThreadPool &test);
+
+	template <class IteratorType>
+	void computeXBetaImpl(double *beta, C11Threads &test);
+
 
 	template <class OutType, class InType>
 	void incrementByGroup(OutType* values, int* groups, int k, InType inc) {
@@ -131,6 +142,7 @@ private:
 	
 	std::vector<double> *hBetaCCD;
 	std::vector<double> *hBetaMM;
+	
 
 	
 	std::vector<real> norm;

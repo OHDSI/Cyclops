@@ -27,6 +27,8 @@
 #include "engine/COOIterator.h"
 #include "engine/tupleit.hh"
 
+#include "tbb/parallel_for.h"
+
 //#define USE_BIGNUM
 #define USE_LONG_DOUBLE
 
@@ -46,6 +48,10 @@ namespace bsccs {
     using std::cerr;
     using std::endl;
 #endif
+
+	
+	
+
 
 //template <class BaseModel,typename WeightType>
 //ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(
@@ -1107,6 +1113,7 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 	}
 }
 
+
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeXBeta(double* beta) {
 
@@ -1116,21 +1123,73 @@ void ModelSpecifics<BaseModel,WeightType>::computeXBeta(double* beta) {
 //     }
     
     FormatType format = hXt->getFormatType(0); // either SPARSE or INDICATOR
-
+	C11ThreadPool parallelScheme(4,4);
     switch(hXt->getFormatType(0)) {
         case INDICATOR :
-            computeXBetaImpl<IndicatorIterator>(beta);
+            computeXBetaImpl<IndicatorIterator>(beta, parallelScheme);
             break;
         case SPARSE :
-            computeXBetaImpl<SparseIterator>(beta);
+            computeXBetaImpl<SparseIterator>(beta, parallelScheme);
             break;
         case DENSE :
-            computeXBetaImpl<DenseIterator>(beta);
+            computeXBetaImpl<DenseIterator>(beta, parallelScheme);
             break;  
         case INTERCEPT: 
             break;                  
     }
 }
+
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeXBeta(double* beta, C11ThreadPool &test) {
+
+//     if (hXt == nullptr) {
+//         std::cout << "Constructing Xt..." << std::endl;
+//         hXt = bsccs::shared_ptr<CompressedDataMatrix>(hXI->transpose());
+//     }
+    
+    FormatType format = hXt->getFormatType(0); // either SPARSE or INDICATOR
+	//C11ThreadPool parallelScheme(4,4);
+    switch(hXt->getFormatType(0)) {
+        case INDICATOR :
+            computeXBetaImpl<IndicatorIterator>(beta, test);
+            break;
+        case SPARSE :
+            computeXBetaImpl<SparseIterator>(beta, test);
+            break;
+        case DENSE :
+            computeXBetaImpl<DenseIterator>(beta, test);
+            break;  
+        case INTERCEPT: 
+            break;                  
+    }
+}
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeXBeta(double* beta, C11Threads &test) {
+
+//     if (hXt == nullptr) {
+//         std::cout << "Constructing Xt..." << std::endl;
+//         hXt = bsccs::shared_ptr<CompressedDataMatrix>(hXI->transpose());
+//     }
+    
+    FormatType format = hXt->getFormatType(0); // either SPARSE or INDICATOR
+	//C11ThreadPool parallelScheme(4,4);
+    switch(hXt->getFormatType(0)) {
+        case INDICATOR :
+            computeXBetaImpl<IndicatorIterator>(beta, test);
+            break;
+        case SPARSE :
+            computeXBetaImpl<SparseIterator>(beta, test);
+            break;
+        case DENSE :
+            computeXBetaImpl<DenseIterator>(beta, test);
+            break;  
+        case INTERCEPT: 
+            break;                  
+    }
+}
+
 
 template <class BaseModel,typename WeightType> template <class IteratorType>
 void ModelSpecifics<BaseModel,WeightType>::computeXBetaImpl(double *beta) {
@@ -1145,7 +1204,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeXBetaImpl(double *beta) {
         }
         hXBeta[k] = tmp;
     }
-#else    
+#else  
+	/*  
     variants::for_each(0, K, [&](const int k) {
     	real tmp = 0;
     	IteratorType it(*hXt, k);
@@ -1154,9 +1214,54 @@ void ModelSpecifics<BaseModel,WeightType>::computeXBetaImpl(double *beta) {
     		tmp += it.value() * beta[j];
     	}
     	hXBeta[k] = tmp;
-    }, C11Threads(4));
+    }, C11Threads(2));
+    */
+    
+    tbb::parallel_for(0, K, 1, [&](const int k) {
+    	real tmp = 0;
+    	IteratorType it(*hXt, k);
+    	for (; it; ++it) {
+    		const int j = it.index();
+    		tmp += it.value() * beta[j];
+    	}
+    	hXBeta[k] = tmp;
+    });
+  
 #endif
 }
+
+template <class BaseModel,typename WeightType> template <class IteratorType>
+void ModelSpecifics<BaseModel,WeightType>::computeXBetaImpl(double *beta, C11ThreadPool &test) {
+
+        variants::for_each(0, K, [&](const int k) {
+    	real tmp = 0;
+    	IteratorType it(*hXt, k);
+    	for (; it; ++it) {
+    		const int j = it.index();
+    		tmp += it.value() * beta[j];
+    	}
+    	hXBeta[k] = tmp;
+    }, test);
+ 
+}
+
+
+template <class BaseModel,typename WeightType> template <class IteratorType>
+void ModelSpecifics<BaseModel,WeightType>::computeXBetaImpl(double *beta, C11Threads &test) {
+
+        variants::for_each(0, K, [&](const int k) {
+    	real tmp = 0;
+    	IteratorType it(*hXt, k);
+    	for (; it; ++it) {
+    		const int j = it.index();
+    		tmp += it.value() * beta[j];
+    	}
+    	hXBeta[k] = tmp;
+    }, test);
+    
+}
+
+
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index, bool useWeights) {
