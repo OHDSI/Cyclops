@@ -8,6 +8,7 @@ include_directories(.
     ${CMAKE_SOURCE_DIR}/codebase/CCD   
     /home/ec2-user/R/x86_64-redhat-linux-gnu-library/3.1/BH/include
      /Library/Frameworks/R.framework/Versions/3.1/Resources/library/BH/include  
+     /Users/trevorshaddox2/Desktop/tbb44_20160128oss/include
     )
 
 set(BASE_SOURCE_FILES	
@@ -68,6 +69,7 @@ add_definitions(-DDOUBLE_PRECISION)
     add_library(base_bsccs-dp ${BASE_SOURCE_FILES})
 	add_executable(ccd-dp ${CCD_SOURCE_FILES})
 	target_link_libraries(ccd-dp base_bsccs-dp)
+	target_link_libraries(ccd-dp /Users/trevorshaddox2/Desktop/tbb44_20160128oss/lib/libtbb.dylib)
 #endif(CUDA_FOUND)
 
 

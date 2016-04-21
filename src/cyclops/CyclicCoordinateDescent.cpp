@@ -27,6 +27,9 @@
 #include "engine/ParallelLoops.h"
 // #include "io/ProgressLogger.h"
 
+#include <sys/time.h>
+#include "tbb/parallel_for.h"
+
 //#ifdef MY_RCPP_FLAG
 //	#include <R.h>
 //#else
@@ -654,7 +657,7 @@ struct CCDVariant : public AbstractVariant {
 
     using AbstractVariant::AbstractVariant;
     
-    void operator()(int index) {
+    void operator()(int index){
 
         if (!fixBeta[index]) {
             double delta = updateSingleBeta(index);
@@ -702,7 +705,9 @@ struct MMVariant : public AbstractVariant {
             updates.resize(J);
         }    
       	modelSpecifics.initializeMM(fixBeta, hBeta, hBetaMM);
+      	xbetaduration = 0;
     }
+    
     
 #define NEW_XBETA
         
@@ -719,8 +724,22 @@ struct MMVariant : public AbstractVariant {
 #endif		
 		}			
 	}  
+	
+	void updateTBB(int index) {
+	    if (!fixBeta[index]) {
+			double delta = updateSingleBeta(index);
+			delta = applyBounds(delta, index);
+#ifndef NEW_XBETA			
+			updates[index] = delta;
+#else
+//          updates[index] = hBeta[index] + delta;
+			hBetaMM[index] += delta;
+            //hBeta[index] += delta;
+#endif		
+		}			
+	}  
 		
-    void finalizeUpdate() {   
+    const void finalizeUpdate() {   
     	for (int indexCopy = 0; indexCopy < J; indexCopy++) {hBeta[indexCopy] = hBetaMM[indexCopy];}
 #ifndef NEW_XBETA     
 		for(int index2 = 0; index2 < J; index2 ++) {
@@ -729,14 +748,47 @@ struct MMVariant : public AbstractVariant {
 				ccd.updateSufficientStatistics(updates[index2], index2);
 			}
 		}  
-		cout << "AH NO?!" << endl;
 #else
-        modelSpecifics.computeXBeta(&hBeta[0]);
+       modelSpecifics.computeXBeta(&hBeta[0]);		 
+
 #endif
         ccd.computeRemainingStatistics(true,0);       
     } 
     
+    void finalizeUpdateParallel(){
+        for (int indexCopy = 0; indexCopy < J; indexCopy++) {hBeta[indexCopy] = hBetaMM[indexCopy];}
+		gettimeofday(&time1, NULL);
+        modelSpecifics.computeXBeta(&hBeta[0]);
+    	gettimeofday(&time2, NULL);
+		xbetaduration += time2.tv_sec - time1.tv_sec + (double)(time2.tv_usec - time1.tv_usec) / 1000000.0;	
+        ccd.computeRemainingStatistics(true,0);       
+    }
+
+    
+    void finalizeUpdateParallel(C11Threads & parallelScheme){
+        for (int indexCopy = 0; indexCopy < J; indexCopy++) {hBeta[indexCopy] = hBetaMM[indexCopy];}
+		gettimeofday(&time1, NULL);
+        modelSpecifics.computeXBeta(&hBeta[0], parallelScheme);
+    	gettimeofday(&time2, NULL);
+		xbetaduration += time2.tv_sec - time1.tv_sec + (double)(time2.tv_usec - time1.tv_usec) / 1000000.0;	
+        ccd.computeRemainingStatistics(true,0);       
+    }
+
+    
+    void finalizeUpdateParallel(C11ThreadPool & parallelScheme){
+        for (int indexCopy = 0; indexCopy < J; indexCopy++) {hBeta[indexCopy] = hBetaMM[indexCopy];}
+		gettimeofday(&time1, NULL);
+        modelSpecifics.computeXBeta(&hBeta[0], parallelScheme);
+    	gettimeofday(&time2, NULL);
+		xbetaduration += time2.tv_sec - time1.tv_sec + (double)(time2.tv_usec - time1.tv_usec) / 1000000.0;	
+        ccd.computeRemainingStatistics(true,0);       
+    }
+    
     void setScale(double s) { scale = s; }
+    
+    void mmTime(){
+    std::cout << "xbeta time = " << xbetaduration << std::endl;
+    }
     
 protected: 
 
@@ -750,7 +802,9 @@ protected:
 private:
     size_t J;     
     double scale;    
-    std::vector<double>& hBetaMM;              
+    std::vector<double>& hBetaMM;      
+    struct timeval time1, time2;  
+    double xbetaduration;      
 };
 
 void CyclicCoordinateDescent::update(
@@ -803,7 +857,7 @@ void CyclicCoordinateDescent::update(
 
 
 //#define noMM
-#define quasiNewton
+//#define quasiNewton
 #ifdef noMM
     auto betaUpdater = CCDVariant(*this, modelSpecifics, jointPrior, hBeta, fixBeta, 
                             hUpdates, hDelta, noiseLevel);
@@ -816,18 +870,25 @@ void CyclicCoordinateDescent::update(
                             hUpdates, hDelta, noiseLevel); 
      
     betaUpdater.setScale(betaUpdaterScale);          
- //    auto parallelScheme = Vanilla();
-    auto parallelScheme = C11Threads(nThreads);
+    //auto parallelScheme = Vanilla();
+    
     cout << "MM" << endl;
     cout << "betaUpdaterScale = " << betaUpdaterScale << endl;
     cout << "nThreads = " << nThreads << endl;
 
-
-// 	C11ThreadPool parallelScheme(8,8);
+	//auto parallelScheme = C11Threads(nThreads);
+	//auto parallelSchemeXBeta = C11Threads(nThreads);
+ 	C11ThreadPool parallelScheme(nThreads,nThreads);
+ 	C11ThreadPool parallelSchemeXBeta(nThreads,nThreads);
 #endif
+
+    struct timeval time1, time2;  
+    double parallelforduration;      
+
                     
     double thisLogPost = 0; 
     double lastLogPost = 0; 
+    
              		
 #ifdef quasiNewton
     	
@@ -845,8 +906,13 @@ void CyclicCoordinateDescent::update(
 	    for (int q = 0; q < qnQ; ++q) {
 	        x = Map<const VectorXd>(hBeta.data(), J); // Make copy
 
-			variants::for_each(0, J, betaUpdater, parallelScheme);		
-			betaUpdater.finalizeUpdate();
+			gettimeofday(&time1, NULL);
+			variants::for_each(0, J, betaUpdater, parallelScheme);	
+			gettimeofday(&time2, NULL);
+			parallelforduration += time2.tv_sec - time1.tv_sec + (double)(time2.tv_usec - time1.tv_usec) / 1000000.0;	
+	
+			//betaUpdater.finalizeUpdateParallel(parallelSchemeXBeta);
+			betaUpdater.finalizeUpdateParallel(parallelSchemeXBeta);
 
             if (countU == 0) { // First time through
                 secantsU.col(countU) = Map<const VectorXd>(hBeta.data(), J) - x;
@@ -861,21 +927,12 @@ void CyclicCoordinateDescent::update(
                 ++countV;
             }
 	    }  
-	    cout << "qnQ = " << qnQ << endl;
-	    cout << "secantsU = " << endl;
-	    cout << secantsU << endl;
-	    cout << "secantsV = " << endl;
-	    cout << secantsV << endl; 
 	    //exit(-1);     
 #endif  		
 	while (!done) {
 	
-	#ifdef quasiNewton
+#ifdef quasiNewton
 
-		//cout << "start" << endl;
-		//cout << "beta[0] = " << hBeta[0] << endl;
-		//cout << "beta[1] = " << hBeta[1] << endl;
-		//cout << "loglikelihood = " << getLogLikelihood() + getLogPrior() << endl;
 	    int newestSecant = qnQ - 1;
 	    int previousSecant = newestSecant - 1;
 		// 2 cycles for each QN step
@@ -883,27 +940,28 @@ void CyclicCoordinateDescent::update(
 	    x = Map<const VectorXd>(hBeta.data(), J); // Make copy
 	    
 	    // cycle
+	    gettimeofday(&time1, NULL);
 		variants::for_each(0, J, betaUpdater, parallelScheme);
-		betaUpdater.finalizeUpdate();
-		//cout << "after first cycle" << endl;
-		//cout << "beta[0] = " << hBeta[0] << endl;
-	    //cout << "beta[1] = " << hBeta[1] << endl;
-	    //cout << "loglikelihood = " << getLogLikelihood() + getLogPrior() << endl;
-
+		
+		gettimeofday(&time2, NULL);
+		parallelforduration += time2.tv_sec - time1.tv_sec + (double)(time2.tv_usec - time1.tv_usec) / 1000000.0;	
+		
+		
+		//betaUpdater.finalizeUpdateParallel(parallelSchemeXBeta);
+		betaUpdater.finalizeUpdateParallel();
 		
 		VectorXd Fx = Map<const VectorXd>(hBeta.data(), J); // TODO Can remove?   
 	    
 	    secantsU.col(newestSecant) = Fx - x;
 
         // cycle
-        variants::for_each(0, J, betaUpdater, parallelScheme);
-        betaUpdater.finalizeUpdate();
-        
-        //cout << "after second cycle" << endl;
-		//cout << "beta[0] = " << hBeta[0] << endl;
-	    //cout << "beta[1] = " << hBeta[1] << endl;
-	    //cout << "loglikelihood = " << getLogLikelihood() + getLogPrior() << endl;
+	    gettimeofday(&time1, NULL);
+		variants::for_each(0, J, betaUpdater, parallelScheme);
+		gettimeofday(&time2, NULL);
+		parallelforduration += time2.tv_sec - time1.tv_sec + (double)(time2.tv_usec - time1.tv_usec) / 1000000.0;	
 
+        //betaUpdater.finalizeUpdateParallel(parallelSchemeXBeta);
+        betaUpdater.finalizeUpdateParallel();
         
         secantsV.col(newestSecant) = Map<const VectorXd>(hBeta.data(), J) - Fx;
     
@@ -924,20 +982,15 @@ void CyclicCoordinateDescent::update(
 		std::cout << "2 steps ccdObjective = " << ccdObjective << endl;
 		
         Map<VectorXd>(hBeta.data(), J) = xqn; // Set QN solution
-        modelSpecifics.computeXBeta(&hBeta[0]);
+        modelSpecifics.computeXBeta(&hBeta[0], parallelScheme);
 		computeRemainingStatistics(true,0);
-		
-		//cout << "after set to secant" << endl;
-		//cout << "beta[0] = " << hBeta[0] << endl;
-	    //cout << "beta[1] = " << hBeta[1] << endl;
-	    //cout << "loglikelihood = " << getLogLikelihood() + getLogPrior() << endl;
 
         double qnObjective = getLogLikelihood() + getLogPrior();
 		std::cout << "secant ccdObjective = " << qnObjective << endl;
 
     	if (ccdObjective > qnObjective) { // Revert
             Map<VectorXd>(hBeta.data(), J) = x; // Set CCD solution
-        	modelSpecifics.computeXBeta(&hBeta[0]);
+        	modelSpecifics.computeXBeta(&hBeta[0], parallelScheme);
 			computeRemainingStatistics(true,0);
 
         	double ccd2Objective = getLogLikelihood() + getLogPrior();
@@ -950,28 +1003,33 @@ void CyclicCoordinateDescent::update(
         } else {
             std::cerr << "accept" << std::endl;
         }
-        cout << "at end" << endl;
-		cout << "beta[0] = " << hBeta[0] << endl;
-	    cout << "beta[1] = " << hBeta[1] << endl;
-	    cout << "loglikelihood = " << getLogLikelihood() << endl;
-
 
         //done = check();
         previousSecant = newestSecant;
         newestSecant = (newestSecant + 1) % qnQ;
 #endif
 
-	#ifndef quasiNewton
-	#ifndef noMM
+#ifndef quasiNewton
 
+ 	gettimeofday(&time1, NULL);
+	tbb::parallel_for(0, J, 1, [=](int i) {const_cast<MMVariant*>(&betaUpdater)->updateTBB(i);});
+	gettimeofday(&time2, NULL);
+	parallelforduration += time2.tv_sec - time1.tv_sec + (double)(time2.tv_usec - time1.tv_usec) / 1000000.0;	
+
+/*   
 	for (int mmIndex1 = 0; mmIndex1 < mmIndex1Limit; mmIndex1++){
+	    gettimeofday(&time1, NULL);
 		variants::for_each(0, J, betaUpdater, parallelScheme);
+		gettimeofday(&time2, NULL);
+		parallelforduration += time2.tv_sec - time1.tv_sec + (double)(time2.tv_usec - time1.tv_usec) / 1000000.0;	
+
 	}
-	
-	#endif
-	
-	betaUpdater.finalizeUpdate();
-	cout << "don't see this" << endl;
+*/	
+
+#endif
+	 
+	//betaUpdater.finalizeUpdateParallel(parallelSchemeXBeta);
+	betaUpdater.finalizeUpdateParallel();
 		
 #ifndef noMM
 	    if (lastLogPost > thisLogPost && iteration != 1){
@@ -979,7 +1037,7 @@ void CyclicCoordinateDescent::update(
 	 		betaUpdater.setScale(betaUpdaterScale);  
 	    }
 #endif
-#endif
+
 		if (iteration == 1){
 			//exit(-1); 
 		}
@@ -1049,6 +1107,9 @@ void CyclicCoordinateDescent::update(
 	}
 	lastIterationCount = iteration;
 	updateCount += 1;
+	
+	betaUpdater.mmTime();
+	cout << "parallel for time = " << parallelforduration << std::endl;
 
 	fisherInformationKnown = false;
 	varianceKnown = false;
