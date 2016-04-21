@@ -676,6 +676,7 @@ private:
 #else
         options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
 #endif // USE_VECTOR
+        options << " -cl-mad-enable -cl-fast-relaxed-math";
 
 //         compute::vector<compute::double2_> buf(10, ctx);
 //

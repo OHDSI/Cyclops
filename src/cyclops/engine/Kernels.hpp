@@ -42,8 +42,8 @@ struct ReduceBody2 {
             "       barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
             "       uint mask = (j << 1) - 1;               \n" <<
             "       if ((lid & mask) == 0) {                \n" <<
-            "           scratch0[lid] += scratch0[lid + j]; \n" <<
-            "           scratch1[lid] += scratch1[lid + j]; \n" <<
+            "           scratch[0][lid] += scratch[0][lid + j]; \n" <<
+            "           scratch[1][lid] += scratch[1][lid + j]; \n" <<
             "       }                                       \n" <<
             "   }                                           \n";
         return k.str();
@@ -83,21 +83,21 @@ struct ReduceBody2<T,true>
         std::stringstream k;
         k <<
             "   barrier(CLK_LOCAL_MEM_FENCE); \n" <<
-            "   if (TPB >= 1024) { if (lid < 512) { sum0 += scratch0[lid + 512]; scratch0[lid] = sum0; sum1 += scratch1[lid + 512]; scratch1[lid] = sum1; } barrier(CLK_LOCAL_MEM_FENCE); } \n" <<
-            "   if (TPB >=  512) { if (lid < 256) { sum0 += scratch0[lid + 256]; scratch0[lid] = sum0; sum1 += scratch1[lid + 256]; scratch1[lid] = sum1; } barrier(CLK_LOCAL_MEM_FENCE); } \n" <<
-            "   if (TPB >=  256) { if (lid < 128) { sum0 += scratch0[lid + 128]; scratch0[lid] = sum0; sum1 += scratch1[lid + 128]; scratch1[lid] = sum1; } barrier(CLK_LOCAL_MEM_FENCE); } \n" <<
-            "   if (TPB >=  128) { if (lid <  64) { sum0 += scratch0[lid +  64]; scratch0[lid] = sum0; sum1 += scratch1[lid +  64]; scratch1[lid] = sum1; } barrier(CLK_LOCAL_MEM_FENCE); } \n" <<
+            "   if (TPB >= 1024) { if (lid < 512) { sum0 += scratch[0][lid + 512]; scratch[0][lid] = sum0; sum1 += scratch[1][lid + 512]; scratch[1][lid] = sum1; } barrier(CLK_LOCAL_MEM_FENCE); } \n" <<
+            "   if (TPB >=  512) { if (lid < 256) { sum0 += scratch[0][lid + 256]; scratch[0][lid] = sum0; sum1 += scratch[1][lid + 256]; scratch[1][lid] = sum1; } barrier(CLK_LOCAL_MEM_FENCE); } \n" <<
+            "   if (TPB >=  256) { if (lid < 128) { sum0 += scratch[0][lid + 128]; scratch[0][lid] = sum0; sum1 += scratch[1][lid + 128]; scratch[1][lid] = sum1; } barrier(CLK_LOCAL_MEM_FENCE); } \n" <<
+            "   if (TPB >=  128) { if (lid <  64) { sum0 += scratch[0][lid +  64]; scratch[0][lid] = sum0; sum1 += scratch[1][lid +  64]; scratch[1][lid] = sum1; } barrier(CLK_LOCAL_MEM_FENCE); } \n" <<
         // warp reduction
             "   if (lid < 32) { \n" <<
         // volatile this way we don't need any barrier
-            "       volatile __local TMP_REAL *lmem0 = scratch0; \n" <<
-            "       volatile __local TMP_REAL *lmem1 = scratch1; \n" <<
-            "       if (TPB >= 64) { lmem0[lid] = sum0 = sum0 + lmem0[lid+32]; lmem1[lid] = sum1 = sum1 + lmem1[lid+32]; } \n" <<
-            "       if (TPB >= 32) { lmem0[lid] = sum0 = sum0 + lmem0[lid+16]; lmem1[lid] = sum1 = sum1 + lmem1[lid+16]; } \n" <<
-            "       if (TPB >= 16) { lmem0[lid] = sum0 = sum0 + lmem0[lid+ 8]; lmem1[lid] = sum1 = sum1 + lmem1[lid+ 8]; } \n" <<
-            "       if (TPB >=  8) { lmem0[lid] = sum0 = sum0 + lmem0[lid+ 4]; lmem1[lid] = sum1 = sum1 + lmem1[lid+ 4]; } \n" <<
-            "       if (TPB >=  4) { lmem0[lid] = sum0 = sum0 + lmem0[lid+ 2]; lmem1[lid] = sum1 = sum1 + lmem1[lid+ 2]; } \n" <<
-            "       if (TPB >=  2) { lmem0[lid] = sum0 = sum0 + lmem0[lid+ 1]; lmem1[lid] = sum1 = sum1 + lmem1[lid+ 1]; } \n" <<
+            "       volatile __local TMP_REAL *lmem = scratch; \n" <<
+            //"       volatile __local TMP_REAL *lmem1 = scratch1; \n" <<
+            "       if (TPB >= 64) { lmem[0][lid] = sum0 = sum0 + lmem[0][lid+32]; lmem[1][lid] = sum1 = sum1 + lmem[1][lid+32]; } \n" <<
+            "       if (TPB >= 32) { lmem[0][lid] = sum0 = sum0 + lmem[0][lid+16]; lmem[1][lid] = sum1 = sum1 + lmem[1][lid+16]; } \n" <<
+            "       if (TPB >= 16) { lmem[0][lid] = sum0 = sum0 + lmem[0][lid+ 8]; lmem[1][lid] = sum1 = sum1 + lmem[1][lid+ 8]; } \n" <<
+            "       if (TPB >=  8) { lmem[0][lid] = sum0 = sum0 + lmem[0][lid+ 4]; lmem[1][lid] = sum1 = sum1 + lmem[1][lid+ 4]; } \n" <<
+            "       if (TPB >=  4) { lmem[0][lid] = sum0 = sum0 + lmem[0][lid+ 2]; lmem[1][lid] = sum1 = sum1 + lmem[1][lid+ 2]; } \n" <<
+            "       if (TPB >=  2) { lmem[0][lid] = sum0 = sum0 + lmem[0][lid+ 1]; lmem[1][lid] = sum1 = sum1 + lmem[1][lid+ 1]; } \n" <<
             "   }                                            \n";
         return k.str();
     }
@@ -162,8 +162,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "   __local TMP_REAL scratch[TPB]; \n" <<
                 "   TMP_REAL sum = 0.0;            \n" <<
 #else
-                "   __local REAL scratch0[TPB];  \n" <<
-                "   __local REAL scratch1[TPB];  \n" <<
+                "   __local REAL scratch[2][TPB + 1];  \n" <<
+               // "   __local REAL scratch1[TPB];  \n" <<
                 "   REAL sum0 = 0.0; \n" <<
                 "   REAL sum1 = 0.0; \n" <<
 #endif // USE_VECTOR
@@ -216,8 +216,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 #ifdef USE_VECTOR
                 "   scratch[lid] = sum; \n";
 #else
-                "   scratch0[lid] = sum0; \n" <<
-                "   scratch1[lid] = sum1; \n";
+                "   scratch[0][lid] = sum0; \n" <<
+                "   scratch[1][lid] = sum1; \n";
 #endif // USE_VECTOR
 
 #ifdef USE_VECTOR
@@ -231,8 +231,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 #ifdef USE_VECTOR
                 "       buffer[get_group_id(0)] = scratch[0]; \n" <<
 #else
-                "       buffer[get_group_id(0)] = scratch0[0]; \n" <<
-                "       buffer[get_group_id(0) + get_num_groups(0)] = scratch1[0]; \n" <<
+                "       buffer[get_group_id(0)] = scratch[0][0]; \n" <<
+                "       buffer[get_group_id(0) + get_num_groups(0)] = scratch[1][0]; \n" <<
 #endif // USE_VECTOR
                 "   } \n";
 
