@@ -184,8 +184,10 @@ static std::string weight(const std::string& arg, bool useWeights) {
             // Do nothing
         }
 
-        code << "       const REAL numer = " << timesX("expXBeta[k]", formatType) << ";\n" <<
-                "       const REAL denom = denominator[k]; \n" <<
+        code << "       const REAL exb = expXBeta[k];     \n" <<
+                "       const REAL numer = " << timesX("exb", formatType) << ";\n" <<
+                "       const REAL denom = 1.0 + exb;      \n" <<
+        //denominator[k]; \n" <<
                 "       const REAL g = numer / denom;      \n";
 
         if (useWeights) {
@@ -274,14 +276,19 @@ static std::string weight(const std::string& arg, bool useWeights) {
             code << "   const REAL inc = delta;           \n";
         }
 
-        code << "   if (task < N) {      \n" <<
-                "       xBeta[k] += inc; \n";
+        code << "   if (task < N) {      \n";
+        code << "       REAL xb = xBeta[k] + inc; \n" <<
+                "       xBeta[k] = xb;                  \n";
 
         if (BaseModel::likelihoodHasDenominator) {
             // TODO: The following is not YET thread-safe for multi-row observations
-            code << "       const REAL oldEntry = expXBeta[k];                 \n" <<
-                    "       const REAL newEntry = expXBeta[k] = exp(xBeta[k]); \n" <<
-                    "       denominator[" << group<BaseModel>("id","k") << "] += (newEntry - oldEntry); \n";
+            // code << "       const REAL oldEntry = expXBeta[k];                 \n" <<
+            //         "       const REAL newEntry = expXBeta[k] = exp(xBeta[k]); \n" <<
+            //         "       denominator[" << group<BaseModel>("id","k") << "] += (newEntry - oldEntry); \n";
+
+
+            code << "       const REAL exb = exp(xb); \n" <<
+                    "       expXBeta[k] = exb;        \n";
 
             // LOGISTIC MODEL ONLY
             //                     const real t = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);

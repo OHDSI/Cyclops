@@ -258,7 +258,7 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::N;
     using ModelSpecifics<BaseModel, WeightType>::duration;
 
-    const static int tpb = 128; // threads-per-block
+    const static int tpb = 128; // threads-per-block  // Appears best on K40
     const static int maxWgs = 2;  // work-group-size
 
     // const static int globalWorkSize = tpb * wgs;
@@ -533,13 +533,13 @@ public:
 #endif
 
     }
-    
+
 	virtual void computeMMGradientAndHessian(
-			std::vector<GradientHessian>& gh, 
-			const std::vector<bool>& fixBeta, 
+			std::vector<GradientHessian>& gh,
+			const std::vector<bool>& fixBeta,
 			bool useWeights) {
-			// Do nothing		
-	}    
+			// Do nothing
+	}
 
     virtual void updateXBeta(real realDelta, int index, bool useWeights) {
 
@@ -705,13 +705,13 @@ private:
 
         auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
 
-//         std::cerr << options.str() << std::endl;
-//         std::cerr << source.body << std::endl;
+         // std::cerr << options.str() << std::endl;
+         // std::cerr << source.body << std::endl;
 
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         auto kernel = compute::kernel(program, source.name);
 
-        // Rcpp::stop("end");
+        //Rcpp::stop("end");
 
 
         // Run-time constant arguments.
@@ -733,11 +733,16 @@ private:
     void buildUpdateXBetaKernel(FormatType formatType) {
 
         std::stringstream options;
-        options << "-DREAL=double";
+        options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
         auto source = writeCodeForUpdateXBetaKernel(formatType);
+
+        // std::cerr << source.body << std::endl;
+
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         auto kernel = compute::kernel(program, source.name);
+
+        // Rcpp::stop("uXB");
 
         // Run-time constant arguments.
         kernel.set_arg(6, dY);
