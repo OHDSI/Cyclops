@@ -510,26 +510,6 @@ createPrior <- function(priorType,
               class = "cyclopsPrior")
 }
 
-#' @method predict cyclopsFit
-#' @title Model predictions
-#'
-#' @description
-#' \code{predict.cyclopsFit} computes model response-scale predictive values for all data rows
-#'
-#' @param object    A Cyclops model fit object
-#' @param ...   Additional arguments
-#'
-#' @export
-predict.cyclopsFit <- function(object, ...) {
-    .checkInterface(object$cyclopsData, testOnly = TRUE)
-    pred <- .cyclopsPredictModel(object$cyclopsData$cyclopsInterfacePtr)
-    values <- pred$prediction
-    if (is.null(names(values))) {
-        names(values) <- object$rowNames
-    }
-    values
-}
-
 # .cyclopsSetCoefficients <- function(object, coefficients) {
 #     .checkInterface(object$cyclopsData, testOnly = TRUE)
 #
