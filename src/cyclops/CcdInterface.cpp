@@ -176,7 +176,7 @@ void CcdInterface::setDefaultArguments(void) {
 	arguments.convergenceType = GRADIENT;
 	arguments.convergenceTypeString = "gradient";
 	arguments.doPartial = false;
-	arguments.noiseLevel = NOISY;
+	arguments.noiseLevel = QUIET;
 }
 
 double CcdInterface::initializeModel(
