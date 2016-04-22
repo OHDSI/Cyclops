@@ -71,7 +71,8 @@ OBJECTS.R = \
     RcppExports.o \
     RcppModelData.o \
     RcppCyclopsInterface.o \
-    RcppIsSorted.o
+    RcppIsSorted.o \
+    RcppBySum.cpp
 
 OBJECTS = $(OBJECTS.cyclops) $(OBJECTS.drivers) \
           $(OBJECTS.engine) $(OBJECTS.utils) \
