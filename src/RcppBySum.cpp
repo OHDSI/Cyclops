@@ -23,7 +23,7 @@
 
 
 #include <Rcpp.h>
-#include "Bysum.h"
+#include "BySum.h"
 
 using namespace Rcpp;
 
