@@ -18,7 +18,6 @@
  * limitations under the License.
  */
 
-#include "Rcpp.h"
 #include "BySum.h"
 
 namespace ohdsi {

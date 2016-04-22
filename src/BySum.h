@@ -23,7 +23,7 @@
 
 #include <vector>
 #include <map>
-#include "Rcpp.h"
+#include <Rcpp.h>
 
 using namespace Rcpp;
 
