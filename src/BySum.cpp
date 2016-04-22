@@ -3,7 +3,7 @@
  *
  * This file is part of Cyclops
  *
- * Copyright 2015 Observational Health Data Sciences and Informatics
+ * Copyright 2016 Observational Health Data Sciences and Informatics
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,8 @@
  * limitations under the License.
  */
 
-#ifndef __BySum_cpp__
-#define __BySum_cpp__
-
+#include "Rcpp.h"
 #include "BySum.h"
-
 
 namespace ohdsi {
 namespace cyclops {
@@ -45,5 +42,3 @@ std::map<double, double> BySum::bySum(const List &ffValues, const List &ffBins){
 }
 }
 }
-
-#endif // __BySum_cpp__

@@ -1,6 +1,6 @@
 # @file Predict.R
 #
-# Copyright 2014 Observational Health Data Sciences and Informatics
+# Copyright 2016 Observational Health Data Sciences and Informatics
 #
 # This file is part of cyclops
 #
@@ -87,6 +87,10 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
         } else if (modelType == "pr") {
             prediction$value <- exp(prediction$value) * prediction$time
         }
+
+        result <- prediction$value
+        names(result) <- prediction$rowId
+        return(result)
     }
 
 }

@@ -3,7 +3,7 @@
  *
  * This file is part of Cyclops
  *
- * Copyright 2015 Observational Health Data Sciences and Informatics
+ * Copyright 2016 Observational Health Data Sciences and Informatics
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 
 #include <vector>
 #include <map>
-#include <Rcpp.h>
+#include "Rcpp.h"
 
 using namespace Rcpp;
 
