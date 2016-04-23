@@ -715,7 +715,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
 		const int k = it.index();	
 		BaseModel::template incrementMMGradientAndHessian<IteratorType, Weights>(gradient, hessian, offsExpXBeta[k], 
 	    		denomPid[BaseModel::getGroup(hPid, k)], hNWeight[BaseModel::getGroup(hPid, k)], 
-	    		it.value(), hXBeta[k], hY[k], norm[k], (*hBetaCCD)[index], (*hBetaMM)[index]);
+	    		it.value(), hXBeta[k], hY[k], norm[k]); //, (*hBetaCCD)[index], (*hBetaMM)[index]);
 	}	
 		
 	if (BaseModel::precomputeGradient) { // Compile-time switch

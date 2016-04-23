@@ -16,6 +16,8 @@
 #include "AbstractModelSpecifics.h"
 #include "ParallelLoops.h"
 
+#include "tbb/atomic.h"
+
 
 namespace bsccs {
 
@@ -109,6 +111,12 @@ private:
 	void incrementByGroup(OutType* values, int* groups, int k, InType inc) {
 		values[BaseModel::getGroup(groups, k)] += inc; // TODO delegate to BaseModel (different in tied-models)
 	}
+	
+	template <class OutType, class InType>
+	void incrementByGroupAtomic(OutType* values, int* groups, int k, InType inc) {
+		values[BaseModel::getGroup(groups, k)] += inc; // TODO delegate to BaseModel (different in tied-models)
+	}
+
 
 	template <typename IteratorTypeOne, class Weights>
 	void dispatchFisherInformation(int indexOne, int indexTwo, double *oinfo, Weights w);
@@ -290,10 +298,12 @@ public:
 	inline void incrementMMGradientAndHessian(
 			real& gradient, real& hessian,
 			real expXBeta, real denominator, 
-			real weight, real x, real xBeta, real y, real norm, real oldBeta, real newBeta) {
+			real weight, real x, real xBeta, real y, real norm) {
 
         throw new std::logic_error("Not model-specific");
 	}
+	
+	
 };
 
 template <typename WeightType>
@@ -310,15 +320,16 @@ public: /***/
 			real x, real xBeta, real y) {
 		*information += weight * predictor / denom * it.value();
 	}
-
+/*
 	template <class IteratorType, class Weights>
-	inline void incrementMMGradientAndHessian(
+	void incrementMMGradientAndHessian(
 	        real& gradient, real& hessian,
 	        real expXBeta, real denominator,
-	        real weight, real x, real xBeta, real y, real norm) {
+	        real weight, real x, real xBeta, real y, real norm, real oldBeta, real newBeta) {
 
 	    throw new std::logic_error("Not model-specific");
 	}
+	*/
 };
 
 template <typename WeightType>
@@ -371,11 +382,12 @@ public:
 		}
 	}
 
+	/*
 	template <class IteratorType, class Weights>
-	inline void incrementMMGradientAndHessian(
+	void incrementMMGradientAndHessian(
 	        real& gradient, real& hessian,
 	        real expXBeta, real denominator,
-	        real weight, real x, real xBeta, real y, real norm) {
+	        real weight, real x, real xBeta, real y, real norm, real oldBeta, real newBeta) {
 
 	    if (IteratorType::isIndicator) {
 	        gradient += weight * expXBeta / denominator;
@@ -385,6 +397,7 @@ public:
 	        hessian += weight * expXBeta * x * x / denominator * norm;
 	    }
 	}
+	*/
 };
 
 template <typename WeightType>
@@ -439,11 +452,12 @@ public:
 	inline void incrementMMGradientAndHessian(
 			real& gradient, real& hessian,
 			real expXBeta, real denominator, 
-			real weight, real x, real xBeta, real y, real norm, real oldBeta, real newBeta) {
-		
+			real weight, real x, real xBeta, real y, real norm) {
+			//, real oldBeta, real newBeta) {
+
 		if (IteratorType::isIndicator) {
-			gradient += exp(norm*(newBeta - oldBeta)) *weight * expXBeta / denominator; //exp(norm*(newBeta - oldBeta)) *
-			hessian += exp(norm*(newBeta - oldBeta)) *weight * expXBeta / denominator * norm; //exp(norm*(newBeta - oldBeta)) * 
+			gradient += weight * expXBeta / denominator; //exp(norm*(newBeta - oldBeta)) *weight * expXBeta / denominator; 
+			hessian += weight * expXBeta / denominator * norm; //exp(norm*(newBeta - oldBeta)) *weight * expXBeta / denominator * norm; 
 		} else {
 			gradient += weight * expXBeta * x / denominator;
 			hessian += weight * expXBeta * x * x / denominator * norm;
@@ -905,7 +919,7 @@ public:
 	inline void incrementMMGradientAndHessian(
 			real& gradient, real& hessian,
 			real expXBeta, real denominator, 
-			real weight, real x, real xBeta, real y, real norm, real oldBeta, real newBeta) {
+			real weight, real x, real xBeta, real y, real norm) {
 												
 		throw new std::logic_error("Not implemented.");			
 	}
@@ -1025,7 +1039,7 @@ public:
 	inline void incrementMMGradientAndHessian(
 			real& gradient, real& hessian,
 			real expXBeta, real denominator, 
-			real weight, real x, real xBeta, real y, real norm, real oldBeta, real newBeta) {
+			real weight, real x, real xBeta, real y, real norm) {
 
 		if (IteratorType::isIndicator) {
 			if (Weights::isWeighted) {
