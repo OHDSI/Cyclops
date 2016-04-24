@@ -17,7 +17,7 @@
 #include "ParallelLoops.h"
 
 #include "tbb/atomic.h"
-
+#include <tbb/mutex.h>
 
 namespace bsccs {
 
@@ -49,6 +49,8 @@ protected:
 	void computeXBeta(double* beta, C11Threads &test);
 	
 	void computeRemainingStatistics(bool useWeights);
+	void computeRemainingStatisticsBody(int k);
+
 
 	void computeAccumlatedNumerDenom(bool useWeights);
 
@@ -114,7 +116,13 @@ private:
 	
 	template <class OutType, class InType>
 	void incrementByGroupAtomic(OutType* values, int* groups, int k, InType inc) {
-		values[BaseModel::getGroup(groups, k)] += inc; // TODO delegate to BaseModel (different in tied-models)
+		tbb::mutex countMutex;
+		countMutex.lock();
+		int group = BaseModel::getGroup(groups, k);
+		double value = values[group];
+		value += inc;
+		values[group] = value; // += inc; // TODO delegate to BaseModel (different in tied-models)
+		countMutex.unlock();
 	}
 
 

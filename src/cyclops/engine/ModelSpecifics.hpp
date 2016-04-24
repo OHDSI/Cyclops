@@ -1302,14 +1302,30 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 }
 
 template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatisticsBody(int k){
+	offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
+	incrementByGroupAtomic(denomPid, hPid, k, offsExpXBeta[k]);	
+}
+
+template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWeights) {
 	if (BaseModel::likelihoodHasDenominator) {
 		fillVector(denomPid, N, BaseModel::getDenomNullValue());
+		/*
+		for (size_t k = 0; k < K; ++k) {
+			computeRemainingStatisticsBody(k);
+		}
+*/
+		/*
 		for (size_t k = 0; k < K; ++k) {
 			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
-			incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);
+			incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);	
 		}
+		*/
+		//tbb::parallel_for(0, J, 1, [=](int i) {const_cast<MMVariant*>(&betaUpdater)->updateTBB(i);});
+		tbb::parallel_for(0, (int) K, 1, [=](int k) {computeRemainingStatisticsBody(k);});
 		computeAccumlatedNumerDenom(useWeights);
+		
 	} 
 #ifdef DEBUG_COX
 	cerr << "Done with initial denominators" << endl;
