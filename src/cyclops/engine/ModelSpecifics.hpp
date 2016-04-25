@@ -28,6 +28,8 @@
 #include "engine/tupleit.hh"
 
 #include "tbb/parallel_for.h"
+#include "tbb/mutex.h"
+#include "tbb/concurrent_vector.h"
 
 //#define USE_BIGNUM
 #define USE_LONG_DOUBLE
@@ -448,6 +450,12 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(std::vector<bool>& fixBe
     
     hBetaMM = &mmBeta;
     hBetaCCD = &ccdBeta;
+    crsduration = 0;
+    crsduration2 = 0;
+   	//test.grow_by((int) N);
+	//std::cout <<"test.size() = " << test.size() << std::endl;
+	//std::cout <<test[N-1] << std::endl;
+
     
     
     for (int j = 0; j < J; ++j) {
@@ -1304,26 +1312,49 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatisticsBody(int k){
 	offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
-	incrementByGroupAtomic(denomPid, hPid, k, offsExpXBeta[k]);	
+	incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);	
 }
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatisticsBodyAtomic(int k){
+	//typedef tbb::mutex myMutex;
+	//static myMutex sm;
+    //myMutex::scoped_lock lock;//create a lock
+    //lock.acquire(sm);//Method acquire waits until it can acquire a lock on the mutex
+	offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
+	test[BaseModel::getGroup(hPid, k)] += offsExpXBeta[k]; 
+	//incrementByGroupAtomic(test, hPid, k, offsExpXBeta[k]);	
+	//lock.release();//releases the lock (duh!)
+	//
+}
+
+
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWeights) {
 	if (BaseModel::likelihoodHasDenominator) {
 		fillVector(denomPid, N, BaseModel::getDenomNullValue());
-		/*
-		for (size_t k = 0; k < K; ++k) {
-			computeRemainingStatisticsBody(k);
-		}
-*/
-		/*
+		//if (test.size() < N) {
+		//	test.grow_by(N);
+		//} else {
+		//	for (int w = 0; w < N; w++){test[w] = 0;};
+		//}
+		//gettimeofday(&time1, NULL);
 		for (size_t k = 0; k < K; ++k) {
 			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs, hXBeta[k], hY[k], k);
 			incrementByGroup(denomPid, hPid, k, offsExpXBeta[k]);	
 		}
-		*/
-		//tbb::parallel_for(0, J, 1, [=](int i) {const_cast<MMVariant*>(&betaUpdater)->updateTBB(i);});
-		tbb::parallel_for(0, (int) K, 1, [=](int k) {computeRemainingStatisticsBody(k);});
+		//gettimeofday(&time2, NULL);
+		
+		//int intK = K;
+		//gettimeofday(&time1, NULL);
+		//tbb::parallel_for(0, (int) K, 1, [=](int k) {computeRemainingStatisticsBodyAtomic(k);});
+		//gettimeofday(&time2, NULL);
+		
+		//crsduration += time2.tv_sec - time1.tv_sec + (double)(time2.tv_usec - time1.tv_usec) / 1000000.0;	
+
+		// std::cout << "crsduration = " << crsduration << std::endl;
+		
 		computeAccumlatedNumerDenom(useWeights);
 		
 	} 

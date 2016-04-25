@@ -17,6 +17,7 @@
 #include "ParallelLoops.h"
 
 #include "tbb/atomic.h"
+#include "tbb/concurrent_vector.h"
 #include <tbb/mutex.h>
 
 namespace bsccs {
@@ -50,6 +51,7 @@ protected:
 	
 	void computeRemainingStatistics(bool useWeights);
 	void computeRemainingStatisticsBody(int k);
+	void computeRemainingStatisticsBodyAtomic(int k);
 
 
 	void computeAccumlatedNumerDenom(bool useWeights);
@@ -114,15 +116,17 @@ private:
 		values[BaseModel::getGroup(groups, k)] += inc; // TODO delegate to BaseModel (different in tied-models)
 	}
 	
-	template <class OutType, class InType>
-	void incrementByGroupAtomic(OutType* values, int* groups, int k, InType inc) {
-		tbb::mutex countMutex;
-		countMutex.lock();
+	template <class InType>
+	void incrementByGroupAtomic(tbb::concurrent_vector<double> & values, int* groups, int k, InType inc) {
+		//typedef tbb::mutex myMutex;
+		//static myMutex sm;
+    	//tbb::mutex::scoped_lock lock;
+    	//lock.acquire(sm);//Method acquire waits until it can acquire a lock on the mutex
 		int group = BaseModel::getGroup(groups, k);
-		double value = values[group];
+		double value = test[group];
 		value += inc;
-		values[group] = value; // += inc; // TODO delegate to BaseModel (different in tied-models)
-		countMutex.unlock();
+		test[group] = value; // += inc; // TODO delegate to BaseModel (different in tied-models)
+		//lock.release();//releases the lock (duh!)
 	}
 
 
@@ -161,6 +165,15 @@ private:
 	std::vector<double> *hBetaMM;
 	
 	std::vector<real> norm;
+	
+	struct timeval time1, time2, time3, time4;  
+	double crsduration;
+	double crsduration2;
+	
+	tbb::mutex sm;
+	tbb::mutex::scoped_lock lock;//create a lock
+	tbb::concurrent_vector<double> test;
+
 
 	struct WeightedOperation {
 		const static bool isWeighted = true;
