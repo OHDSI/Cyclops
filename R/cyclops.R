@@ -32,6 +32,7 @@
 #' @docType package
 #' @name cyclops
 #' @import Rcpp Matrix
+#' @importFrom RcppParallel setThreadOptions
 #' @useDynLib Cyclops
 NULL
 
