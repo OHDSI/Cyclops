@@ -650,6 +650,11 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     rownames(prof) <- object$coefficientNames[parm]
     qs <- c((1 - level) / 2, 1 - (1 - level) / 2) * 100
     colnames(prof)[2:3] <- paste(sprintf("%.1f", qs), "%")
+
+    # Change NaN to NA
+    prof[which(is.nan(prof[, 2])), 2] <- NA
+    prof[which(is.nan(prof[, 3])), 3] <- NA
+
     prof
 }
 

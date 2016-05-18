@@ -350,14 +350,9 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *model
 	    //		std::cout << "BEGIN UP bracket" << std::endl;
 	    RZeroIn<OptimizationProfile>::Coordinate bracket =
 	        zeroIn.bracketSignChange(x0, obj0, direction);
-	    // 		std::cout << "END UP bracket " << bracket.first << " " << bracket.second << std::endl;
-	    if (std::isnan(bracket.second) == true) {
-	        std::ostringstream stream;
-	        stream << "Unable to bracket sign change in profile.";
-	        error->throwError(stream);
-	    }
+	     //		std::cout << "END UP bracket " << bracket.first << " " << bracket.second << std::endl;
 
-	    double pt = zeroIn.getRoot(x0, bracket.first, obj0, bracket.second);
+	    double pt = std::isnan(bracket.second) ? NAN : zeroIn.getRoot(x0, bracket.first, obj0, bracket.second);
 
 	    if (direction == 1.0) {
 	        upperPts[id] = pt;
