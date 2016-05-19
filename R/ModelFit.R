@@ -61,8 +61,8 @@
 #'
 #' @export
 fitCyclopsModel <- function(cyclopsData,
-                            prior,
-                            control,
+                            prior = createPrior("none"),
+                            control = createControl(),
                             weights = NULL,
                             forceNewObject = FALSE,
                             returnEstimates = TRUE,
@@ -81,75 +81,81 @@ fitCyclopsModel <- function(cyclopsData,
 
     .checkInterface(cyclopsData, forceNewObject)
 
-    if (missing(prior)) {
-        prior <- createPrior("none")
+    # Set up prior
+    stopifnot(inherits(prior, "cyclopsPrior"))
+    prior$exclude <- .checkCovariates(cyclopsData, prior$exclude)
+
+    if (!is.null(prior$neighborhood)) {
+        prior$neighborhood <- lapply(prior$neighborhood,
+                                     function(element) {
+                                         list(.checkCovariates(cyclopsData, element[[1]]),
+                                              .checkCovariates(cyclopsData, element[[2]]))
+                                     })
     }
 
-    if (!missing(prior)) { # Set up prior
-        stopifnot(inherits(prior, "cyclopsPrior"))
-        prior$exclude <- .checkCovariates(cyclopsData, prior$exclude)
-
-        if (!is.null(prior$neighborhood)) {
-            prior$neighborhood <- lapply(prior$neighborhood,
-                                         function(element) {
-                                             list(.checkCovariates(cyclopsData, element[[1]]),
-                                                  .checkCovariates(cyclopsData, element[[2]]))
-                                         })
-        }
-
-        if (prior$priorType != "none" &&
-                is.null(prior$graph) && # TODO Ignore hierarchical models for now
-                .cyclopsGetHasIntercept(cyclopsData) &&
-                !prior$forceIntercept) {
-            interceptId <- .cyclopsGetInterceptLabel(cyclopsData)
-            warn <- FALSE
-            if (is.null(prior$exclude)) {
-                prior$exclude <- c(interceptId)
+    if (prior$priorType != "none" &&
+        is.null(prior$graph) && # TODO Ignore hierarchical models for now
+        .cyclopsGetHasIntercept(cyclopsData) &&
+        !prior$forceIntercept) {
+        interceptId <- .cyclopsGetInterceptLabel(cyclopsData)
+        warn <- FALSE
+        if (is.null(prior$exclude)) {
+            prior$exclude <- c(interceptId)
+            warn <- TRUE
+        } else {
+            if (!(interceptId %in% prior$exclude)) {
+                prior$exclude <- c(interceptId, prior$exclude)
                 warn <- TRUE
+            }
+        }
+        if (warn) {
+            warning("Excluding intercept from regularization")
+        }
+    }
+
+    if (is.null(prior$graph)) {
+        graph <- NULL
+    } else {
+        graph <- .makeHierarchyGraph(cyclopsData, prior$graph)
+        if (length(prior$priorType) != length(prior$variance)){
+            stop("Prior types and variances have a dimensionality mismatch")
+        }
+        if (any(prior$priorType != "normal")) {
+            stop("Only normal-normal hierarchies are currently supported")
+        }
+    }
+
+    if (is.null(prior$neighborhood)) {
+        neighborhood <- NULL
+    } else {
+        neighborhood <- prior$neighborhood
+        if (length(prior$priorType) != length(prior$variance)) {
+            stop("Prior types and variances have a dimensionality mismatch");
+        }
+        if (any(prior$priorType  != "laplace")) {
+            stop("Only Laplace-Laplace fused neighborhoods are currently supported")
+        }
+    }
+    .cyclopsSetPrior(cyclopsData$cyclopsInterfacePtr, prior$priorType, prior$variance,
+                     prior$exclude, graph, neighborhood)
+
+    if (control$selectorType == "auto") {
+        if (cyclopsData$modelType %in% c("pr", "lr")) {
+            control$selectorType <- "byRow"
+        } else {
+            rowsPerStratum <- (getNumberOfRows(cyclopsData) / getNumberOfStrata(cyclopsData))
+            if (rowsPerStratum < getNumberOfStrata(cyclopsData)) {
+                control$selectorType <- "byPid"
             } else {
-                if (!(interceptId %in% prior$exclude)) {
-                    prior$exclude <- c(interceptId, prior$exclude)
-                    warn <- TRUE
-                }
-            }
-            if (warn) {
-                warning("Excluding intercept from regularization")
+                control$selectorType <- "byRow"
             }
         }
-
-        if (is.null(prior$graph)) {
-            graph <- NULL
-        } else {
-            graph <- .makeHierarchyGraph(cyclopsData, prior$graph)
-            if (length(prior$priorType) != length(prior$variance)){
-                stop("Prior types and variances have a dimensionality mismatch")
-            }
-            if (any(prior$priorType != "normal")) {
-                stop("Only normal-normal hierarchies are currently supported")
-            }
+        if (prior$useCrossValidation && control$noiseLevel != "silent") {
+            writeLines(paste("Using cross-validation selector type", control$selectorType))
         }
-
-        if (is.null(prior$neighborhood)) {
-            neighborhood <- NULL
-        } else {
-            neighborhood <- prior$neighborhood
-            if (length(prior$priorType) != length(prior$variance)) {
-                stop("Prior types and variances have a dimensionality mismatch");
-            }
-            if (any(prior$priorType  != "laplace")) {
-                stop("Only Laplace-Laplace fused neighborhoods are currently supported")
-            }
-        }
-
-        .cyclopsSetPrior(cyclopsData$cyclopsInterfacePtr, prior$priorType, prior$variance,
-                         prior$exclude, graph, neighborhood)
     }
-
-    threads <- 1
-    if (!missing(control)) {
-        .setControl(cyclopsData$cyclopsInterfacePtr, control)
-        threads <- control$threads
-    }
+    .setControl(cyclopsData$cyclopsInterfacePtr, control)
+    threads <- control$threads
 
     if (!missing(startingCoefficients)) {
 
@@ -165,7 +171,7 @@ fitCyclopsModel <- function(cyclopsData,
     }
 
     if (!is.null(weights)) {
-        if (!missing(prior) && prior$useCrossValidation) {
+        if (prior$useCrossValidation) {
             stop("Can not set data weights and use cross-validation simultaneously")
         }
         if (length(weights) != getNumberOfRows(cyclopsData)) {
@@ -182,13 +188,12 @@ fitCyclopsModel <- function(cyclopsData,
         .cyclopsSetWeights(cyclopsData$cyclopsInterfacePtr, weights)
     }
 
-    if (!missing(prior) && prior$useCrossValidation) {
-        if (missing(control)) {
-            minCVData <- createControl()$minCVData
-        } else {
-            minCVData <- control$minCVData
+    if (prior$useCrossValidation) {
+        minCVData <- control$minCVData
+        if (control$selectorType == "byRow" && minCVData > getNumberOfRows(cyclopsData)) {
+            stop("Insufficient data count for cross validation")
         }
-        if (minCVData > getNumberOfRows(cyclopsData)) { # TODO Not correct; some models CV by stratum
+        if (control$selectorType == "byPid" && minCVData > getNumberOfStrata(cyclopsData)) {
             stop("Insufficient data count for cross validation")
         }
         fit <- .cyclopsRunCrossValidation(cyclopsData$cyclopsInterfacePtr)
@@ -378,9 +383,11 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param startingVariance      Numeric: Starting variance for auto-search cross-validation; default = -1 (use estimate based on data)
 #' @param useKKTSwindle Logical: Use the Karush-Kuhn-Tucker conditions to limit search
 #' @param tuneSwindle    Numeric: Size multiplier for active set
-#' @param selectorType  String: name of exchangeable sampling unit. If missing, then default for model is used.
+#' @param selectorType  String: name of exchangeable sampling unit.
 #'                              Option \code{"byPid"} selects entire strata.
-#'                              Option \code{"byRow"} selects single rows
+#'                              Option \code{"byRow"} selects single rows.
+#'                              If set to \code{"auto"}, \code{"byRow"} will be used for all models except conditional models where
+#'                              the average number of rows per stratum is smaller than the number of strata.
 #' @param initialBound          Numeric: Starting trust-region size
 #' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
 #'
@@ -395,7 +402,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 createControl <- function(maxIterations = 1000,
                           tolerance = 1E-6,
                           convergenceType = "gradient",
-                          cvType = "grid",
+                          cvType = "auto",
                           fold = 10,
                           lowerLimit = 0.01,
                           upperLimit = 20.0,
@@ -409,7 +416,7 @@ createControl <- function(maxIterations = 1000,
                           startingVariance = -1,
                           useKKTSwindle = FALSE,
                           tuneSwindle = 10,
-                          selectorType = "default",
+                          selectorType = "auto",
                           initialBound = 2.0,
                           maxBoundCount = 5) {
     validCVNames = c("grid", "auto")
@@ -419,7 +426,7 @@ createControl <- function(maxIterations = 1000,
     stopifnot(noiseLevel %in% validNLNames)
     stopifnot(threads == -1 || threads >= 1)
     stopifnot(startingVariance == -1 || startingVariance > 0)
-    stopifnot(selectorType %in% c("default","byPid", "byRow"))
+    stopifnot(selectorType %in% c("auto","byPid", "byRow"))
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -553,7 +560,7 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
 }
 
 .setControl <- function(cyclopsInterfacePtr, control) {
-    if (!missing(control)) { # Set up control
+    if (!missing(control)) {
         stopifnot(inherits(control, "cyclopsControl"))
 
         if (is.null(control$seed)) {

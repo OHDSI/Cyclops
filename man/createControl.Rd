@@ -5,11 +5,11 @@
 \title{Create a Cyclops control object}
 \usage{
 createControl(maxIterations = 1000, tolerance = 1e-06,
-  convergenceType = "gradient", cvType = "grid", fold = 10,
+  convergenceType = "gradient", cvType = "auto", fold = 10,
   lowerLimit = 0.01, upperLimit = 20, gridSteps = 10, cvRepetitions = 1,
   minCVData = 100, noiseLevel = "silent", threads = 1, seed = NULL,
   resetCoefficients = FALSE, startingVariance = -1, useKKTSwindle = FALSE,
-  tuneSwindle = 10, selectorType = "default", initialBound = 2,
+  tuneSwindle = 10, selectorType = "auto", initialBound = 2,
   maxBoundCount = 5)
 }
 \arguments{
@@ -49,9 +49,11 @@ Option \code{"grid"} selects a grid-search cross validation}
 
 \item{tuneSwindle}{Numeric: Size multiplier for active set}
 
-\item{selectorType}{String: name of exchangeable sampling unit. If missing, then default for model is used.
+\item{selectorType}{String: name of exchangeable sampling unit.
 Option \code{"byPid"} selects entire strata.
-Option \code{"byRow"} selects single rows}
+Option \code{"byRow"} selects single rows.
+If set to \code{"auto"}, \code{"byRow"} will be used for all models except conditional models where
+the average number of rows per stratum is smaller than the number of strata.}
 
 \item{initialBound}{Numeric: Starting trust-region size}
 
