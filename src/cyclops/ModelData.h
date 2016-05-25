@@ -15,6 +15,7 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+#include <cmath>
 
 // using std::map;
 // using std::string;
