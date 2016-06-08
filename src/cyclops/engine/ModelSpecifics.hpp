@@ -26,6 +26,8 @@
 
 #include "R.h"
 
+//#include "Rcpp.h"
+
 #ifdef CYCLOPS_DEBUG_TIMING
 	#include "Timing.h"
 	namespace bsccs {
@@ -703,6 +705,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 
+	    real lastG = gradient;
+	    real lastH = hessian;
+
     	if (sparseIndices[index] == nullptr || sparseIndices[index]->size() > 0) {
 
 		// TODO
@@ -750,9 +755,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
      		accNumerPid += numerator1;
      		accNumerPid2 += numerator2;
 
-#ifdef DEBUG_COX
-			cerr << "w: " << i << " " << hNWeight[i] << " " << numerator1 << ":" <<
-					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[i];
+//#define DEBUG_COX2
+
+#ifdef DEBUG_COX2
 #endif
 			// Compile-time delegation
 			BaseModel::incrementGradientAndHessian(it,
@@ -760,8 +765,18 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 					&gradient, &hessian, accNumerPid, accNumerPid2,
 					accDenomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]);
 					// When function is in-lined, compiler will only use necessary arguments
-#ifdef DEBUG_COX
+#ifdef DEBUG_COX2
+			using namespace std;
+
+			if (lastG != gradient || lastH != hessian) {
+
+			cerr << "w: " << i << " " << hNWeight[i] << " " << numerator1 << ":" <<
+				    accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[i];
+
 			cerr << " -> g:" << gradient << " h:" << hessian << endl;
+			}
+
+			lastG = gradient; lastH = hessian;
 #endif
 			++it;
 
@@ -792,6 +807,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			}
 		}
 		}
+
+#ifdef DEBUG_COX2
+    Rcpp::stop("out");
+#endif
+
 	} else if (BaseModel::hasIndependentRows) {
 
 		auto range = helper::independent::getRangeX(modelData, index,
@@ -1208,6 +1228,7 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 		}
 
 #ifdef DEBUG_COX
+using namespace std;
 //			if (numerPid[BaseModel::getGroup(hPid, k)] > 0 && numerPid[BaseModel::getGroup(hPid, k)] < 1e-40) {
 				cerr << "Increment" << endl;
 				cerr << "hPid = "
@@ -1416,6 +1437,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 		computeAccumlatedDenominator(useWeights); // WAS computeAccumlatedNumerDenom
 	}
 #ifdef DEBUG_COX
+	using namespace std;
 	cerr << "Done with initial denominators" << endl;
 
 	for (int i = 0; i < N; ++i) {
@@ -1503,6 +1525,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedDenominator(bool use
 // 				accNumerPid[i] = totalNumer;
 // 				accNumerPid2[i] = totalNumer2;
 #if defined(DEBUG_COX) || defined(DEBUG_COX_MIN)
+                using namespace std;
 				cerr << denomPid[i] << " " << accDenomPid[i] << " (beta)" << endl;
 #endif
 			}
