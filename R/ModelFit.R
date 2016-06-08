@@ -117,7 +117,7 @@ fitCyclopsModel <- function(cyclopsData,
         graph <- NULL
     } else {
         graph <- .makeHierarchyGraph(cyclopsData, prior$graph)
-        if (length(prior$priorType) != length(prior$variance)){
+        if (length(prior$priorType) != length(prior$variance)) {
             stop("Prior types and variances have a dimensionality mismatch")
         }
         if (any(prior$priorType != "normal")) {
@@ -136,6 +136,13 @@ fitCyclopsModel <- function(cyclopsData,
             stop("Only Laplace-Laplace fused neighborhoods are currently supported")
         }
     }
+
+    if (is.null(graph) && is.null(neighborhood) && length(prior$priorType) > 1) {
+        if (length(prior$priorType) != getNumberOfCovariates(cyclopsData)) {
+            stop("Length of priors must equal the number of covariates")
+        }
+    }
+
     .cyclopsSetPrior(cyclopsData$cyclopsInterfacePtr, prior$priorType, prior$variance,
                      prior$exclude, graph, neighborhood)
 
@@ -496,6 +503,11 @@ createPrior <- function(priorType,
             stop(cat("Unable to parse excluded covariates:"), exclude)
         }
     }
+
+    if (length(priorType) != length(variance)) {
+        stop("Prior types and variances have a dimensionality mismatch")
+    }
+
     if (priorType == "none" && useCrossValidation) {
         stop("Cannot perform cross validation with a flat prior")
     }
