@@ -30,7 +30,7 @@ Cyclops in an R package, with most functionality implemented in C++. Cyclops use
 
 System Requirements
 ===================
-Requires R (version 3.1.0 or higher). Installation on Windows requires [RTools](http://cran.r-project.org/bin/windows/Rtools/).
+Requires R (version 3.1.0 or higher). Installation on Windows requires [RTools33](http://cran.r-project.org/bin/windows/Rtools/).
 
 Dependencies
 ============
