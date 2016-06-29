@@ -639,6 +639,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 #endif
 #endif
 
+	if (modelData.getNumberOfNonZeroEntries(index) == 0) {
+	    *ogradient = 0.0; *ohessian = 0.0;
+	    return;
+	}
+
 	// Run-time dispatch, so virtual call should not effect speed
 	if (useWeights) {
 		switch (modelData.getFormatType(index)) {
