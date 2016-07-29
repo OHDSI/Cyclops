@@ -11,8 +11,7 @@ data-raw
 notes
 man-roxygen
 man/Cyclops.pdf
-crash
-Untitled.R
-\.txt$
 extras
 deploy.sh
+debug
+logo

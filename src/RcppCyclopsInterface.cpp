@@ -589,7 +589,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
             prior->changePrior(columnPrior, i);
         }
 
-        std::cerr << "Constructed variable prior per column" << std::endl;
+//         std::cerr << "Constructed variable prior per column" << std::endl;
 
         return prior;
     }

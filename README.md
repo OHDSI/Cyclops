@@ -65,7 +65,7 @@ License
 =======
 Cyclops is licensed under Apache License 2.0.   Cyclops contains the TinyThread libray.
 
-The TinyThread library is licensed under the [zlib/libpng](http://www.opensource.org/licenses/zlib-license.php) license as described [here](https://gitorious.org/tinythread/tinythreadpp/source/master:README.txt).
+The TinyThread library is licensed under the [zlib/libpng](http://www.opensource.org/licenses/zlib-license.php) license as described [here](http://tinythreadpp.bitsnbites.eu).
 
 
 Development
