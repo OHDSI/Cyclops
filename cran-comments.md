@@ -1,3 +1,8 @@
+## Resubmission
+This is a resubmission. In this version I have:
+
+* Deleted `Cyclops-Ex.R` at top level.  My apologies here! I was testing with `valgrind` in between `build_win()` and `release()`.
+
 ## Test environments
 * local OS X install, R 3.2.2
 * ubuntu 12.04 (on travis-ci), R 3.2.5
@@ -23,8 +28,3 @@ There was 1 NOTE:
 
 ## Downstream dependencies
 There are currently no downstream dependencies.
-
-## Resubmission
-This is a resubmission. In this version I have:
-
-* Deleted `Cyclops-Ex.R` at top level.  My apologies here! I was testing with `valgrind` in between `build_win()` and `release()`.
