@@ -13,5 +13,13 @@ There was 1 NOTE:
 
   New submission
 
+  Possibly mis-spelled words in DESCRIPTION:
+    datasets (14:36)
+    healthcare (12:40)
+    majorization (11:5)
+    parallelization (13:50)
+    
+- These words are spelled correctly, albeit the latter two in American English 
+
 ## Downstream dependencies
 There are currently no downstream dependencies.
