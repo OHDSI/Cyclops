@@ -1063,6 +1063,16 @@ public: /***/
 	        real expXBeta, real denominator,
 	        real weight, real x, real xBeta, real y, real norm) {
 
+		std::cerr << "GOT HERE!" << std::endl;
+		
+	    if (IteratorType::isIndicator) {
+	        gradient += weight * expXBeta / denominator;
+	        hessian += weight * expXBeta / denominator * norm;
+	    } else {
+	        gradient += weight * expXBeta * x / denominator;
+	        hessian += weight * expXBeta * x * x / denominator * norm;
+	    }				
+
 	    throw new std::logic_error("Not model-specific");
 	}	
 };
