@@ -710,8 +710,10 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 
+#ifdef DEBUG_COX2
 	    real lastG = gradient;
 	    real lastH = hessian;
+#endif
 
     	if (sparseIndices[index] == nullptr || sparseIndices[index]->size() > 0) {
 
