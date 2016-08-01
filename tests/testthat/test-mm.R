@@ -19,9 +19,9 @@ test_that("Small CLR using MM", {
   expect_equal(coef(cyclopsFit), coef(gold.clogit), tolerance = tolerance)
 
 
-  d <- getXY(dataPtr)
-  fit1 <- mm(d$y, d$x, d$stratum)
-  fit2 <- mm(d$y, d$x, d$stratum, method = "2")
+#   d <- getXY(dataPtr)
+#   fit1 <- mm(d$y, d$x, d$stratum)
+#   fit2 <- mm(d$y, d$x, d$stratum, method = "2")
 
   cyclopsMM <- fitCyclopsModel(dataPtr,
                                prior = createPrior("none"),

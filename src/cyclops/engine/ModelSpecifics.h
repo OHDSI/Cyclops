@@ -183,12 +183,12 @@ public:
 
 	void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian,  bool useWeights);
-			
+
 	virtual void computeMMGradientAndHessian(
-			std::vector<GradientHessian>& gh, 
-			const std::vector<bool>& fixBeta, 
-			bool useWeights); 
-			
+			std::vector<GradientHessian>& gh,
+			const std::vector<bool>& fixBeta,
+			bool useWeights);
+
 	AbstractModelSpecifics* clone() const;
 
 	virtual const RealVector& getXBeta();
@@ -264,18 +264,18 @@ private:
 
 	template <class IteratorType>
 	void computeXBetaImpl(double *beta);
-	
+
 	template <class IteratorType, class Weights>
 	void computeGradientAndHessianImpl(
 			int index,
 			double *gradient,
 			double *hessian, Weights w);
-			
+
 	template <class IteratorType, class Weights>
 	void computeMMGradientAndHessianImpl(
 			int index, double *ogradient,
             double *ohessian, Weights w);
-            
+
 	template <class IteratorType>
 	void incrementNumeratorForGradientImpl(int index);
 
@@ -1056,25 +1056,27 @@ public: /***/
 			real x, real xBeta, real y) {
 		*information += weight * predictor / denom * it.value();
 	}
-	
+
 	template <class IteratorType, class Weights>
 	inline void incrementMMGradientAndHessian(
 	        real& gradient, real& hessian,
 	        real expXBeta, real denominator,
 	        real weight, real x, real xBeta, real y, real norm) {
 
-		std::cerr << "GOT HERE!" << std::endl;
-		
+		// std::cerr << "GOT HERE!" << std::endl;
+
 	    if (IteratorType::isIndicator) {
 	        gradient += weight * expXBeta / denominator;
-	        hessian += weight * expXBeta / denominator * norm;
+	        //hessian += weight * expXBeta / denominator * norm;
 	    } else {
 	        gradient += weight * expXBeta * x / denominator;
-	        hessian += weight * expXBeta * x * x / denominator * norm;
-	    }				
+	        //hessian += weight * expXBeta * x * x / denominator * norm;
+	    }
 
-	    throw new std::logic_error("Not model-specific");
-	}	
+	    // std::cerr << gradient << std::endl;
+
+	    // throw new std::logic_error("Not model-specific");
+	}
 };
 
 template <typename WeightType>
@@ -1126,7 +1128,7 @@ public:
 			}
 		}
 	}
-	
+
 	template <class IteratorType, class Weights>
 	inline void incrementMMGradientAndHessian(
 	        real& gradient, real& hessian,
@@ -1140,7 +1142,7 @@ public:
 	        gradient += weight * expXBeta * x / denominator;
 	        hessian += weight * expXBeta * x * x / denominator * norm;
 	    }
-	}	
+	}
 
 	template <class IteratorType, class WeightOperationType, class RealType>
 	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
@@ -1211,7 +1213,7 @@ public:
 			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
 		}
 	}
-	
+
 	template <class IteratorType, class Weights>
 	inline void incrementMMGradientAndHessian(
 			real& gradient, real& hessian,
@@ -1225,7 +1227,7 @@ public:
 			gradient += weight * expXBeta * x / denominator;
 			hessian += weight * expXBeta * x * x / denominator * norm;
 		}
-	}	
+	}
 
 	template <class IteratorType, class WeightOperationType, class RealType>
 	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
@@ -1847,7 +1849,7 @@ public:
 			*gradient += numer;
 		}
 	}
-	
+
 	template <class IteratorType, class Weights>
 	inline void incrementMMGradientAndHessian(
 	        real& gradient, real& hessian,
@@ -1855,7 +1857,7 @@ public:
 	        real weight, real x, real xBeta, real y, real norm) {
 
 	    throw new std::logic_error("Not model-specific");
-	}		
+	}
 
 	template <class IteratorType, class WeightOperationType, class RealType>
 	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
@@ -1975,7 +1977,7 @@ public:
 #endif
 			}
 	}
-	
+
 	template <class IteratorType, class Weights>
 	inline void incrementMMGradientAndHessian(
 	        real& gradient, real& hessian,
@@ -1983,7 +1985,7 @@ public:
 	        real weight, real x, real xBeta, real y, real norm) {
 
 	    throw new std::logic_error("Not model-specific");
-	}		
+	}
 
 	template <class IteratorType, class WeightOperationType, class RealType>
 	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,

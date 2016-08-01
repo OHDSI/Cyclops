@@ -1003,6 +1003,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
     *ogradient = static_cast<double>(gradient);
     *ohessian = static_cast<double>(hessian);
 
+    std::cerr << gradient << " " << hessian << std::endl;
+    throw new std::logic_error("Not model-specific");
+
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
     auto end = bsccs::chrono::steady_clock::now();
