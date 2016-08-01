@@ -23,3 +23,8 @@ There was 1 NOTE:
 
 ## Downstream dependencies
 There are currently no downstream dependencies.
+
+## Resubmission
+This is a resubmission. In this version I have:
+
+* Deleted `Cyclops-Ex.R` at top level.  My apologies here! I was testing with `valgrind` in between `build_win()` and `release()`.
