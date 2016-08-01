@@ -16,3 +16,4 @@ extras
 deploy.sh
 debug
 logo
+autom4te.cache/
