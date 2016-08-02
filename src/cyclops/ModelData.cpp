@@ -489,8 +489,8 @@ std::vector<double> ModelData::normalizeCovariates(const NormalizationType type)
                 };
 
                 auto mean = column.accumulate(sumOp, 0.0) / nRows;
-                auto SS = column.accumulate(squaredSumOp, 0.0);
-                auto variance = (SS - (mean * mean * nRows)) / nRows;
+                auto newSS = column.accumulate(squaredSumOp, 0.0);
+                auto variance = (newSS - (mean * mean * nRows)) / nRows;
                 scale = 1.0 / std::sqrt(variance);
 
             } else if (type == NormalizationType::MAX) {

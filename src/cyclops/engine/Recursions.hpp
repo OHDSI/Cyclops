@@ -110,7 +110,7 @@ public:
 
 
 	double toDouble() const {
-		return frac*pow(2,exp);
+		return frac * std::pow(2.0, static_cast<double>(exp)); // TODO Use shift operator
 	}
 };
     
