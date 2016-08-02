@@ -69,10 +69,10 @@ matrix:
         - CXX=g++-6
         - CXXFLAGS="-std=c++14 -Wall -Wextra -pedantic"
       before_script:
-        - echo 'CC=gcc-6' > .R/Makevars
-        - echo 'CXX=g++-6' >> .R/Makevars
-        - echo 'CXX1X=g++-6' >> .R/Makevars
-        - echo 'PKG_CXXFLAGS= -std=c++14 -Wall -Wextra -pedantic' >> .R/Makevars
+        - echo 'CC=gcc-6' > ~/.R/Makevars
+        - echo 'CXX=g++-6' >> ~/.R/Makevars
+        - echo 'CXX1X=g++-6' >> ~/.R/Makevars
+        - echo 'PKG_CXXFLAGS= -std=c++14 -Wall -Wextra -pedantic' >> ~/.R/Makevars
 
 #addons:
 #  apt:
