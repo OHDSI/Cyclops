@@ -1,21 +1,16 @@
-## ASAP patch requested by Ripley for `solaris`
-This is a patch of 1.2.0 (from yesterday). In this version I have:
+## Resubmission
+This is a resubmission. In this version I have:
 
-* Fixed a build ERROR under `solaris`.  The error was:
-    cyclops/engine/Recursions.hpp:113:24: error: call of overloaded ‘pow(int, const int&)’ is ambiguous
-  - Solution: ints are now explicitly cast to doubles.
-
-* Fixed a build ERROR under `solaris`.  The error was:
-    cyclops/ModelData.cpp:492:22: error: expected unqualified-id before numeric constant auto SS = column.accumulate(squaredSumOp, 0.0);
-  - Solution: SS is a pre-defined macro; changed variable name.
-
-* Decreased compiled library size on `linux`.  
-  On these systems, `-g` is default and generates large binaries. Package code is highly templated C++ to generate computationally efficient code for five regression models using dense, sparse and binary covariate matrices (and all combinations).
-  - Solution: add `-g1` to `Makevars` (works on travis-ci)
+* Fixed a build ERROR under c++14 via g++-6.  The error was:
+    cyclops/CompressedDataMatrix.h:406:34: error: call of overloaded ‘make_unique(bsccs::IntVectorPtr&, bsccs::RealVectorPtr&, bsccs::FormatType&)’ is ambiguous
+  - Solution: 
+    1. I have if-guarded my c++11 work-around for `make_unique()`
+    2. I have added a travis-ci build that compiles under c++14 to check that there are no standing forward-compatibility issues and to help limit future errors.
+    3. I thank Brian Ripley for taking the time to find this issue; I am a big fan of c++14 and hope to see more use of it in R. 
 
 ## Test environments
 * local OS X install, R 3.2.2
-* ubuntu 12.04 (on travis-ci), R 3.2.5
+* ubuntu 12.04 (on travis-ci), R 3.2.5, gcc 4.6.3 and gcc 6.0
 * win-builder (devel and release)
 
 ## R CMD check results
@@ -27,8 +22,6 @@ There were 1 NOTE:
 Maintainer: 'Marc A. Suchard <msuchard@ucla.edu>'
 
 Days since last update: 1
-
- - Brian Ripley emailed me to ask for a `solaris` build fix ASAP
 
 Possibly mis-spelled words in DESCRIPTION:
   datasets (14:36)
