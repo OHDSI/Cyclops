@@ -42,28 +42,42 @@ matrix:
   include:
     # gcc default
     - compiler: gcc
+      addons:
+        apt:
+          sources:
+          - r-packages-precise
+          packages:
+          - r-base-dev
+          - r-recommended
+          - texinfo
+          - qpdf
     # gcc 6
     - compiler: gcc
       addons:
         apt:
           sources:
-            - ubuntu-toolchain-r-test
+          - r-packages-precise
+          - ubuntu-toolchain-r-test
           packages:
-            - g++-6
+          - r-base-dev
+          - r-recommended
+          - texinfo
+          - qpdf
+          - g++-6
       env:
         - CC=gcc-6
         - CXX=g++-6
         - CXXFLAGS="-std=c++14 -Wall -Wextra -pedantic"
 
-addons:
-  apt:
-    sources:
-    - r-packages-precise
-    packages:
-    - r-base-dev
-    - r-recommended
-    - texinfo
-    - qpdf
+#addons:
+#  apt:
+#    sources:
+#    - r-packages-precise
+#    packages:
+#    - r-base-dev
+#    - r-recommended
+#    - texinfo
+#    - qpdf
     
 cache:
   directories:
