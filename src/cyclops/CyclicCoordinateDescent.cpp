@@ -893,8 +893,9 @@ void CyclicCoordinateDescent::findMode(
 
             // sufficientStatisticsKnown = false;
             modelSpecifics.computeXBeta(hBeta.data(), useCrossValidation);
+            computeRemainingStatistics(true, 0);
             sufficientStatisticsKnown = true;
-	        //computeRemainingStatistics(true, 0);
+
 
 	    } else {
 

@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <algorithm>
 #include <numeric>
+#include <limits>
 
 #include <boost/iterator/permutation_iterator.hpp>
 #include <boost/iterator/transform_iterator.hpp>
@@ -353,8 +354,25 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNormsImpl(int index) {
 }
 
 template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::initializeMmXt() {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+    hXt = modelData.transpose();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+auto end = bsccs::chrono::steady_clock::now();
+///////////////////////////"
+duration["transpose        "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+}
+
+template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::initializeMM(
-        // std::vector<bool>& fixBeta
+        MmBoundType boundType,
+        const std::vector<bool>& fixBeta
     ) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -387,6 +405,50 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(
         }
     }
 
+    if (boundType == MmBoundType::METHOD_1) {
+        std::cerr << "boundType: METHOD_1" << std::endl;
+
+
+    } else if (boundType == MmBoundType::METHOD_2) {
+        std::cerr << "boundType: METHOD_2" << std::endl;
+
+        double total = 0;
+
+        for (int j = 0; j < J; ++j) {
+            if (!fixBeta[j]) {
+                typedef std::pair<double,double> Range;
+
+                std::vector<Range> range(modelData.getNumberOfPatients(), Range(
+                        -std::numeric_limits<double>::max(),
+                        std::numeric_limits<double>::max()
+                ));
+
+                modelData.binaryReductionByStratum(range, j, [](Range& r, double x) {
+                    return Range(
+                        std::max(x, r.first),
+                        std::min(x, r.second)
+                    );
+                });
+
+                double curvature = 0.0;
+                for (Range r : range) {
+                    curvature += r.first - r.second;
+                }
+                curvature /= 4;
+
+                total += curvature;
+            }
+        }
+
+        if (curvature.size() == 0) {
+            curvature.resize(J);
+        }
+
+        for (int j = 0; j < J; ++j) {
+            curvature[j] = total;
+        }
+    }
+
 #ifdef CYCLOPS_DEBUG_TIMING
     auto end = bsccs::chrono::steady_clock::now();
     ///////////////////////////"
@@ -398,17 +460,9 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(
 //
 //     std::cout << "Constructing Xt..." << std::endl;
 
-#ifdef CYCLOPS_DEBUG_TIMING
-    auto start2 = bsccs::chrono::steady_clock::now();
-#endif
-
-    hXt = modelData.transpose();
-
-#ifdef CYCLOPS_DEBUG_TIMING
-    auto end2 = bsccs::chrono::steady_clock::now();
-    ///////////////////////////"
-    duration["transpose        "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
-#endif
+//     if (!hXt) {
+//         initializeMmXt();
+//     }
 
 //     gettimeofday(&time2, NULL);
 // 	double duration = //calculateSeconds(time1, time2);
@@ -446,15 +500,13 @@ void ModelSpecifics<BaseModel,WeightType>::saveXBeta() {
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeXBeta(double* beta, bool useWeights) {
 
+    if (!hXt) {
+        initializeMmXt();
+    }
+
 #ifdef CYCLOPS_DEBUG_TIMING
     auto start = bsccs::chrono::steady_clock::now();
 #endif
-
-    if (norm.size() == 0 || !hXt) {
-        initializeMM();
-    }
-
-FormatType format = hXt->getFormatType(0); // either SPARSE, INDICATOR or DENSE for whole matrix
 
     switch(hXt->getFormatType(0)) {
     case INDICATOR :
@@ -490,10 +542,13 @@ void ModelSpecifics<BaseModel,WeightType>::computeXBetaImpl(double *beta) {
             sum += it.value() * beta[j];
         }
         hXBeta[k] = sum;
-        const auto exb = std::exp(sum);
-        offsExpXBeta[k] = exb;
-        denomPid[k] = 1.0 + exb;
+        // TODO Add back in for fastest LR
+//         const auto exb = std::exp(sum);
+//         offsExpXBeta[k] = exb;
+//         denomPid[k] = 1.0 + exb;
     }
+
+    // std::cerr << "did weird stuff to denomPid" << std::endl;
 }
 
 template <class BaseModel,typename WeightType>
@@ -911,8 +966,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessian(
         const std::vector<bool>& fixBeta,
         bool useWeights) {
 
-    if (norm.size() == 0 || !hXt) {
-        initializeMM();
+    if (norm.size() == 0) {
+        initializeMM(boundType, fixBeta);
     }
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -924,6 +979,10 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessian(
     for (int index = 0; index < J; ++index) {
         double *ogradient = &(gh[index].first);
         double *ohessian  = &(gh[index].second);
+
+        if (fixBeta[index]) {
+            *ogradient = 0.0; *ohessian = 0.0;
+        } else {
 
         // Run-time dispatch, so virtual call should not effect speed
         if (useWeights) {
@@ -956,6 +1015,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessian(
                 computeMMGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, unweighted);
                 break;
             }
+        }
         }
     }
 
@@ -992,9 +1052,15 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
                 it.value(), hXBeta[k], hY[k], norm[k]);
     }
 
+    //hessian = 40 * modelData.getNumberOfStrata() * modelData.getNumberOfColumns() / 4.0; // curvature[index];
+
+    std::cerr << "g: " << gradient << " h: " << hessian << " f: " << hXjY[index] << std::endl;
+
     if (BaseModel::precomputeGradient) { // Compile-time switch
         gradient -= hXjY[index];
     }
+
+//    std::cerr << hXjY[index] << std::endl;
 
     if (BaseModel::precomputeHessian) { // Compile-time switch
         hessian += static_cast<real>(2.0) * hXjX[index];
@@ -1003,8 +1069,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
     *ogradient = static_cast<double>(gradient);
     *ohessian = static_cast<double>(hessian);
 
-    std::cerr << gradient << " " << hessian << std::endl;
-    throw new std::logic_error("Not model-specific");
+    // std::cerr << index << " " << gradient << " " << hessian << std::endl;
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
@@ -1197,6 +1262,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 //  		::Rf_error("break");
 
     } // not Cox
+
+	std::cerr << "g: " << gradient << " h: " << hessian << " f: " << hXjY[index] << std::endl;
 
 	if (BaseModel::precomputeGradient) { // Compile-time switch
 		gradient -= hXjY[index];
@@ -1744,6 +1811,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 		}
 		computeAccumlatedDenominator(useWeights); // WAS computeAccumlatedNumerDenom
 	}
+
+	// std::cerr << "finished MS.cRS" << std::endl;
+
 #ifdef DEBUG_COX
 	cerr << "Done with initial denominators" << endl;
 

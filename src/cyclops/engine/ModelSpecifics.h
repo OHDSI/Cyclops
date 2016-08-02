@@ -302,8 +302,11 @@ private:
 
 	void computeNtoKIndices(bool useCrossValidation);
 
+	void initializeMmXt();
+
 	void initializeMM(
-// 		std::vector<bool>& fixBeta
+	    MmBoundType boundType,
+		const std::vector<bool>& fixBeta
 	);
 
 	void computeNorms(void);
@@ -1067,13 +1070,13 @@ public: /***/
 
 	    if (IteratorType::isIndicator) {
 	        gradient += weight * expXBeta / denominator;
+	        hessian += weight * expXBeta / denominator;
 	        //hessian += weight * expXBeta / denominator * norm;
 	    } else {
 	        gradient += weight * expXBeta * x / denominator;
+	        hessian += weight * expXBeta * x * x;
 	        //hessian += weight * expXBeta * x * x / denominator * norm;
 	    }
-
-	    // std::cerr << gradient << std::endl;
 
 	    // throw new std::logic_error("Not model-specific");
 	}

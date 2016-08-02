@@ -220,7 +220,8 @@ AbstractModelSpecifics::AbstractModelSpecifics(const ModelData& input)
 	  hOffs(input.getTimeVectorRef()),
 // 	  hPid(const_cast<int*>(input.getPidVectorRef().data()))
 // 	  hPid(input.getPidVectorRef())
-      hPidOriginal(input.getPidVectorRef()), hPid(const_cast<int*>(hPidOriginal.data()))
+      hPidOriginal(input.getPidVectorRef()), hPid(const_cast<int*>(hPidOriginal.data())),
+      boundType(MmBoundType::METHOD_2)
 	  {
 	// Do nothing
 }

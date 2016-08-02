@@ -22,6 +22,7 @@
 // using std::stringstream;
 
 #include "CompressedDataMatrix.h"
+#include "Iterators.h"
 #include "io/ProgressLogger.h"
 #include "io/SparseIndexer.h"
 
@@ -221,6 +222,11 @@ public:
 
 	const bool getTouchedX() const { return touchedX; }
 
+	template <typename T, typename F>
+	void binaryReductionByStratum(T& out, const size_t reductionIndex, F func) const {
+	    binaryReductionByGroup(out, reductionIndex, pid, func);
+	}
+
 	// TODO Improve encapsulation
 	friend class SCCSInputReader;
 	friend class CLRInputReader;
@@ -234,6 +240,35 @@ public:
 	template <class ImputationPolicy> friend class CSVInputReader;
 
 protected:
+
+    template <typename T, typename F>
+    void binaryReductionByGroup(T& out, const size_t reductionIndex, const std::vector<int>& groups, F func) const {
+        switch (getFormatType(reductionIndex)) {
+        case INDICATOR :
+            binaryReductionByGroup<IndicatorIterator>(out, reductionIndex, groups, func);
+            break;
+        case SPARSE :
+            binaryReductionByGroup<SparseIterator>(out, reductionIndex, groups, func);
+            break;
+        case DENSE :
+            binaryReductionByGroup<DenseIterator>(out, reductionIndex, groups, func);
+            break;
+        case INTERCEPT :
+            binaryReductionByGroup<InterceptIterator>(out, reductionIndex, groups, func);
+            break;
+
+        }
+    }
+
+    template <typename IteratorType, typename T, typename F>
+    void binaryReductionByGroup(T& out, const size_t reductionIndex, const std::vector<int>& groups, F func) const {
+        IteratorType it(*this, reductionIndex);
+
+        for (; it; ++it) {
+            out[groups[it.index()]] = func(out[groups[it.index()]], it.value());
+        }
+    }
+
     ModelType modelType;
 
 	mutable int nPatients;

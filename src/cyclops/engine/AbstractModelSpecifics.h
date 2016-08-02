@@ -240,11 +240,12 @@ protected:
 
 	std::vector<int> beginTies;
 	std::vector<int> endTies;
-	
+
 	typedef bsccs::shared_ptr<CompressedDataMatrix> CdmPtr;
-	
+
 	CdmPtr hXt;
-	
+	const MmBoundType boundType;
+	std::vector<double> curvature;
 };
 
 typedef bsccs::shared_ptr<AbstractModelSpecifics> ModelSpecificsPtr;

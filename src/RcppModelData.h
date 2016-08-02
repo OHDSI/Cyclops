@@ -91,7 +91,7 @@ public:
 
 	template <typename F>
 	double innerProductWithOutcome(const size_t index, F func) {
-	    double sum = 0.0;	    
+	    double sum = 0.0;
 	    switch (getFormatType(index)) {
 	    case INDICATOR :
 	        sum = innerProductWithOutcomeImpl<IndicatorIterator>(index, func);
@@ -131,6 +131,9 @@ public:
 				break;
 		}
 	}
+
+// 	template <typename T, typename F>
+// 	void applyByStratum(T& out, const )
 
 protected:
 
