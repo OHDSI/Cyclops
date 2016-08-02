@@ -38,6 +38,23 @@
 languague: c
 sudo: false
 
+matrix:
+  include:
+    # gcc default
+    - compiler: gcc
+    # gcc 6
+    - compiler: gcc
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-6
+      env:
+        - CC=gcc-6
+        - CXX=g++-6
+        - CXXFLAGS="-std=c++14 -Wall -Wextra -pedantic"
+
 addons:
   apt:
     sources:
