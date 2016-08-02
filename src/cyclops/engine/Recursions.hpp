@@ -76,7 +76,7 @@ public:
 			return a;
 		}
 		int e;
-		double f = frexp(a.frac * pow(2, a.exp-b.exp) + b.frac, &e);
+		double f = frexp(a.frac * pow(2.0, static_cast<double>(a.exp-b.exp)) + b.frac, &e);
 		e = e + b.exp;
 
 		printf("%f \n", bigNum(f,e).toDouble());
