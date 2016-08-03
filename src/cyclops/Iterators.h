@@ -103,7 +103,7 @@ class SparseIterator {
 
     inline SparseIterator& operator++() { ++mId; return *this; }
 
-    inline const Scalar& value() const {
+    inline const Scalar value() const {
 //    	cerr << "Oh yes!" << endl;
 //    	exit(-1);
     	return mValues[mId]; }
@@ -222,7 +222,7 @@ class DenseIterator {
 
     inline DenseIterator& operator++() { ++mId; return *this; }
 
-    inline const Scalar& value() const { return mValues[mId]; }
+    inline const Scalar value() const { return mValues[mId]; }
     inline Scalar& valueRef() { return const_cast<Scalar&>(mValues[mId]); }
 
     inline Index index() const { return mId; }
@@ -295,7 +295,7 @@ class DenseViewIterator {
 
     inline DenseViewIterator& operator++() { ++mId; return *this; }
 
-    inline const Scalar& value() const { return mValues[mId]; }
+    inline const Scalar value() const { return mValues[mId]; }
     inline Scalar& valueRef() { return const_cast<Scalar&>(mValues[mId]); }
 
     inline Index index() const { return mId; }

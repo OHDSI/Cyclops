@@ -81,7 +81,7 @@ void ModelData::loadY(
 		//error->throwError(stream);
 // 		std::cerr << stream.str() << std::endl;
 
-		pid.reserve(oRowId.size());
+		pid.reserve(oRowId.size()); // TODO ASAN error here
 
 		bool processStrata = oStratumId.size() > 0;
 

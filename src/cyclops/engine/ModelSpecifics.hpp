@@ -461,7 +461,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInLogLikelihood(bool
 			}
 		} else {
 			for(size_t i = 0; i < K; i++) {
-				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], hOffs[i], hOffs[i]);
+				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], hOffs[i], hOffs[i]); // TODO SEGV in Poisson model
 			}
 		}
 	}
@@ -873,7 +873,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
         auto rangeXNumerator = helper::dependent::getRangeX(modelData, index, offsExpXBeta,
                 typename IteratorType::tag());
 
-        auto rangeGradient = helper::dependent::getRangeGradient(*sparseIndices[index], N,
+        auto rangeGradient = helper::dependent::getRangeGradient(*sparseIndices[index], N, // runtime error: reference binding to null pointer of type 'struct vector'
                 denomPid, hNWeight,
                 typename IteratorType::tag());
 

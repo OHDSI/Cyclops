@@ -196,7 +196,7 @@ void AbstractModelSpecifics::setupSparseIndices(const int max) {
 			const int* indicators = modelData.getCompressedColumnVector(j);
 			for (size_t j = 0; j < n; j++) { // Loop through non-zero entries only
 				const int k = indicators[j];
-				const int i = hPid[k];
+				const int i = hPid[k];  // TODO container-overflow #Generate some simulated data: #Fit the model
 				if (i < max) {
 					unique.insert(i);
 				}
