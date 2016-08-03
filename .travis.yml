@@ -64,17 +64,13 @@ matrix:
           - texinfo
           - qpdf
           - g++-6
-      env:
-        - CC=gcc-6
-        - CXX=g++-6
-        - CXXFLAGS="-std=c++14"
       before_script:
         - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
         - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')      
         - echo 'CC=gcc-6' > ~/.R/Makevars
         - echo 'CXX=g++-6' >> ~/.R/Makevars
         - echo 'CXX1X=g++-6' >> ~/.R/Makevars
-        - echo 'PKG_CXXFLAGS= -std=c++14 -Wall -Wextra -pedantic' >> ~/.R/Makevars
+        - echo 'PKG_CXXFLAGS= -std=c++14 -s -g1' >> ~/.R/Makevars
 
 #addons:
 #  apt:
