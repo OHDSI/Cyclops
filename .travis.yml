@@ -70,8 +70,7 @@ matrix:
         - echo 'CC=gcc-6' > ~/.R/Makevars
         - echo 'CXX=g++-6' >> ~/.R/Makevars
         - echo 'CXX1X=g++-6' >> ~/.R/Makevars
-        - echo 'PKG_CXXFLAGS= -std=c++14 -s -g1' >> ~/.R/Makevars
-        - g++-6 -dM -E -x c++ /dev/null
+        - echo 'PKG_CXXFLAGS= -std=c++14 -s -g1 -Wignored-attributes -Wdeprecated-declarations' >> ~/.R/Makevars
 
 #addons:
 #  apt:
@@ -119,7 +118,6 @@ install:
 before_script:
   - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
   - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')
-  - g++ -dM -E -x c++ /dev/null
   
  # Build and check package
 script:
