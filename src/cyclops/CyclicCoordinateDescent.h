@@ -15,7 +15,11 @@
 #include "priors/JointPrior.h"
 #include "io/ProgressLogger.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
 #include <Eigen/Dense>
+#pragma GCC diagnostic pop
+
 #include <deque>
 
 #include "Types.h"
@@ -173,7 +177,7 @@ public:
 	Matrix computeFisherInformation(const std::vector<size_t>& indices) const;
 
 	loggers::ProgressLogger& getProgressLogger() const { return *logger; }
-	
+
 	loggers::ErrorHandler& getErrorHandler() const { return *error; }
 
 protected:
