@@ -402,7 +402,7 @@ public:
 
 private:
 	inline void advance() {
-	    while(groupBy && groupBy.index() < iterator.index()) {
+	    while(groupBy && iterator && groupBy.index() < iterator.index()) {
 	        ++groupBy;
 	    }
 		// while (valid() && iteratorOne.index() != iteratorTwo.index()) {
