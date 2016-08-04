@@ -9,7 +9,7 @@
 #include <iostream>
 
 #pragma GCC diagnostic push
-#if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 7)
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
 #pragma GCC diagnostic ignored "-Wpragmas"
 #endif
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
