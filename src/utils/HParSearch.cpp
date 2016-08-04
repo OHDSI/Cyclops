@@ -8,13 +8,13 @@
 #include <limits>
 #include <iostream>
 
-//#pragma GCC diagnostic push
-//#pragma GCC diagnostic ignored "-Wpragmas"            // To keep gcc4.6 quiet
-//#pragma GCC diagnostic ignored "-Wignored-attributes" // To keep C++14 quiet
-//#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"            // To keep gcc4.6 quiet
+#pragma GCC diagnostic ignored "-Wignored-attributes" // To keep C++14 quiet
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <Eigen/Dense>
 #include <Eigen/LU>
-//#pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
 
 //#include "tnt_array2d.h"
 //#include "tnt_array2d_utils.h"
