@@ -551,7 +551,7 @@ ModelData::~ModelData() {
 
 const int* ModelData::getPidVector() const { // TODO deprecated
 //	return makeDeepCopy(&pid[0], pid.size());
-	return &pid[0];
+    return (pid.size() == 0) ? nullptr : pid.data();
 }
 
 // std::vector<int>* ModelData::getPidVectorSTL() { // TODO deprecated
