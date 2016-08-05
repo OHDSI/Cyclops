@@ -928,7 +928,7 @@ namespace dependent {
 
 
 	template <class DenominatorType, class WeightType, class SubsetType, class IteratorType>
-    auto getRangeGradient(SubsetType& subset, const size_t N,
+    auto getRangeGradient(SubsetType* subset, const size_t N,
                 DenominatorType& denominator, WeightType& weight,
                 IteratorType) ->  // For indicator and sparse
  			boost::iterator_range<
@@ -936,10 +936,10 @@ namespace dependent {
  					boost::tuple<
                         decltype(boost::make_permutation_iterator(
                             begin(denominator),
-                            std::begin(subset))),
+                            std::begin(*subset))),
  	                    decltype(boost::make_permutation_iterator(
                             std::begin(weight),
-                            std::begin(subset)))
+                            std::begin(*subset)))
         		    >
             	>
             > {
@@ -948,25 +948,25 @@ namespace dependent {
                 boost::make_tuple(
                     boost::make_permutation_iterator(
                         begin(denominator),
-                        std::begin(subset)),
+                        std::begin(*subset)),
                     boost::make_permutation_iterator(
                         std::begin(weight),
-                        std::begin(subset))
+                        std::begin(*subset))
                 )),
             boost::make_zip_iterator(
             		boost::make_tuple(
                     boost::make_permutation_iterator(
                         begin(denominator),
-                        std::end(subset)),
+                        std::end(*subset)),
                     boost::make_permutation_iterator(
                         std::begin(weight),
-                        std::end(subset))
+                        std::end(*subset))
                 ))
         };
     }
 
 	template <class DenominatorType, class WeightType, class SubsetType> // For dense
-    auto getRangeGradient(SubsetType& mat, const size_t N,
+    auto getRangeGradient(SubsetType* mat, const size_t N,
                 DenominatorType& denominator, WeightType& weight,
                 DenseTag) ->
  			boost::iterator_range<

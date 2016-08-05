@@ -455,13 +455,16 @@ template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInLogLikelihood(bool useCrossValidation) {
 	if(BaseModel::likelihoodHasFixedTerms) {
 		logLikelihoodFixedTerm = 0.0;
+	    bool hasOffs = hOffs.size() > 0;
 		if(useCrossValidation) {
 			for(size_t i = 0; i < K; i++) {
-				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], hOffs[i], hOffs[i]) * hKWeight[i];
+			    auto offs = hasOffs ? hOffs[i] : 0.0;
+				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], offs, offs) * hKWeight[i];
 			}
 		} else {
 			for(size_t i = 0; i < K; i++) {
-				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], hOffs[i], hOffs[i]); // TODO SEGV in Poisson model
+			    auto offs = hasOffs ? hOffs[i] : 0.0;
+				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], offs, offs); // TODO SEGV in Poisson model
 			}
 		}
 	}
@@ -872,7 +875,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
         auto rangeXNumerator = helper::dependent::getRangeX(modelData, index, offsExpXBeta,
                 typename IteratorType::tag());
 
-        auto rangeGradient = helper::dependent::getRangeGradient(*sparseIndices[index], N, // runtime error: reference binding to null pointer of type 'struct vector'
+        auto rangeGradient = helper::dependent::getRangeGradient(sparseIndices[index].get(), N, // runtime error: reference binding to null pointer of type 'struct vector'
                 denomPid, hNWeight,
                 typename IteratorType::tag());
 
@@ -1358,7 +1361,7 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
  		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid,
 		        typename IteratorType::tag());
 
-		auto rangeDenominator = helper::dependent::getRangeDenominator(*sparseIndices[index], N,
+		auto rangeDenominator = helper::dependent::getRangeDenominator(sparseIndices[index].get(), N,
 		        denomPid, typename IteratorType::tag());
 
         auto kernel = TestUpdateXBetaKernelDependent<BaseModel,IteratorType,real>(realDelta);
