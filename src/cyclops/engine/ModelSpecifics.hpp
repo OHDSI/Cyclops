@@ -772,7 +772,10 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			BaseModel::incrementGradientAndHessian(it,
 					w, // Signature-only, for iterator-type specialization
 					&gradient, &hessian, accNumerPid, accNumerPid2,
-					accDenomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]);
+					accDenomPid[i], hNWeight[i],
+                             0.0,
+                             //it.value(),
+                             hXBeta[i], hY[i]);
 					// When function is in-lined, compiler will only use necessary arguments
 #ifdef DEBUG_COX2
 			using namespace std;
