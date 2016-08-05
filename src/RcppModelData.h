@@ -37,6 +37,12 @@ public:
             bool useTimeAsOffset = false,
             int numTypes = 1
 			);
+			
+	RcppModelData(
+			ModelType modelType,
+	        loggers::ProgressLoggerPtr log,
+    	    loggers::ErrorHandlerPtr error       
+        );			
 
 	virtual ~RcppModelData();
 

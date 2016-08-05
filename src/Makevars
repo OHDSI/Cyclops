@@ -34,7 +34,6 @@ OBJECTS.cyclops = \
     cyclops/CompressedDataMatrix.o \
     cyclops/CyclicCoordinateDescent.o \
     cyclops/ModelData.o \
-    cyclops/SqlModelData.o \
     cyclops/Timer.o
 
 OBJECTS.drivers = \

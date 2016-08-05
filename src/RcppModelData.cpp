@@ -11,7 +11,6 @@
 #include "RcppCyclopsInterface.h"
 #include "io/NewGenericInputReader.h"
 #include "RcppProgressLogger.h"
-#include "SqlModelData.h"
 
 using namespace Rcpp;
 
@@ -318,11 +317,11 @@ List cyclopsNewSqlData(const std::string& modelTypeName, const std::string& nois
 	bool silent = (noise == SILENT);
 
     ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName);
-	SqlModelData* ptr = new SqlModelData(modelType,
+	RcppModelData* ptr = new RcppModelData(modelType,
         bsccs::make_shared<loggers::RcppProgressLogger>(silent),
         bsccs::make_shared<loggers::RcppErrorHandler>());
 
-	XPtr<SqlModelData> sqlModelData(ptr);
+	XPtr<RcppModelData> sqlModelData(ptr);
 
     List list = List::create(
             Rcpp::Named("cyclopsDataPtr") = sqlModelData
@@ -631,6 +630,12 @@ List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEX
 }
 
 namespace bsccs {
+
+RcppModelData::RcppModelData(
+			ModelType modelType,
+	        loggers::ProgressLoggerPtr log,
+    	    loggers::ErrorHandlerPtr error
+        ) : ModelData(modelType, log, error) { }
 
 RcppModelData::RcppModelData(
         ModelType _modelType,
