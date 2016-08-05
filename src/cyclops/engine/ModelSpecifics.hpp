@@ -572,7 +572,6 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 
 // 		std::vector<int> savedPid = hPidInternal; // make copy
 // 		std::vector<int> saveAccReset = accReset; // make copy
-
 		setPidForAccumulation(weights);
 		computeRemainingStatistics(true); // compute accDenomPid
 
@@ -1499,8 +1498,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedDenominator(bool use
 
 	if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
 		BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
-			if (accDenomPid.size() != N) {
-				accDenomPid.resize(N, static_cast<real>(0));
+			if (accDenomPid.size() != (N + 1)) {
+				accDenomPid.resize(N + 1, static_cast<real>(0));
 			}
 // 			if (accNumerPid.size() != N) {
 // 				accNumerPid.resize(N, static_cast<real>(0));

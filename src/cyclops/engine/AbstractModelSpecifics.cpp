@@ -250,7 +250,7 @@ void AbstractModelSpecifics::initialize(
 
 
 
-	size_t alignedLength = getAlignedLength(N);
+	size_t alignedLength = getAlignedLength(N + 1);
 // 	numerDenomPidCache.resize(3 * alignedLength, 0);
 // 	numerPid = numerDenomPidCache.data();
 // 	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
