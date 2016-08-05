@@ -722,7 +722,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		// x. Segmented scan of numerators
 		// x. Transformation/reduction of [begin,end)
 
-		IteratorType it(*(sparseIndices)[index], N);
+		IteratorType it(sparseIndices[index].get(), N);
 
 
 		real accNumerPid  = static_cast<real>(0);

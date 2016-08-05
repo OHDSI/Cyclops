@@ -52,6 +52,11 @@ class IndicatorIterator {
 		// Do nothing
 	}
 
+	inline IndicatorIterator(const std::vector<int>* vec, Index max = 0)
+	    : mIndices(vec->data()), mId(0), mEnd(vec->size()) {
+	    // Do nothing
+	}
+
 //	inline IndicatorIterator(const std::vector<int>& vec, Index column, Index max)
 //	: mIndices(vec.data()), mId(0), mEnd(vec.size()) {
 //		// Do nothing
@@ -99,6 +104,11 @@ class SparseIterator {
 	inline SparseIterator(const std::vector<int>& vec, Index max = 0)
 	: mIndices(vec.data()), mId(0), mEnd(vec.size()) {
 		// Do nothing
+	}
+
+	inline SparseIterator(const std::vector<int>* vec, Index max = 0)
+	    : mIndices(vec->data()), mId(0), mEnd(vec->size()) {
+	    // Do nothing
 	}
 
     inline SparseIterator& operator++() { ++mId; return *this; }
@@ -177,6 +187,11 @@ public:
 		// Do nothing
 	}
 
+	inline CountingIterator(const std::vector<int>* vec, Index end)
+	    : mId(0), mEnd(end) {
+	    // Do nothing
+	}
+
 	inline CountingIterator& operator++() { ++mId; return *this; }
 	inline Index index() const  { return mId; }
 	inline operator bool() const { return (mId < mEnd); }
@@ -220,6 +235,11 @@ class DenseIterator {
 		// Do nothing
 	}
 
+	inline DenseIterator(const std::vector<int>* vec, Index end)
+	    : mId(0), mEnd(end) {
+	    // Do nothing
+	}
+
     inline DenseIterator& operator++() { ++mId; return *this; }
 
     inline const Scalar value() const { return mValues[mId]; }
@@ -261,6 +281,11 @@ class InterceptIterator {
 	inline InterceptIterator(const std::vector<int>& vec, Index end)
 	: mId(0), mEnd(end) {
 		// Do nothing
+	}
+
+	inline InterceptIterator(const std::vector<int>* vec, Index end)
+	    : mId(0), mEnd(end) {
+	    // Do nothing
 	}
 
     inline InterceptIterator& operator++() { ++mId; return *this; }
