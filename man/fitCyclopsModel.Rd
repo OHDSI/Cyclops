@@ -6,7 +6,8 @@
 \usage{
 fitCyclopsModel(cyclopsData, prior = createPrior("none"),
   control = createControl(), weights = NULL, forceNewObject = FALSE,
-  returnEstimates = TRUE, startingCoefficients = NULL)
+  returnEstimates = TRUE, startingCoefficients = NULL,
+  fixedCoefficients = NULL)
 }
 \arguments{
 \item{cyclopsData}{A Cyclops data object}
@@ -22,6 +23,8 @@ fitCyclopsModel(cyclopsData, prior = createPrior("none"),
 \item{returnEstimates}{Logical, return regression coefficient estimates in Cyclops model fit object}
 
 \item{startingCoefficients}{Vector of starting values for optimization}
+
+\item{fixedCoefficients}{Vector of booleans indicating if coefficient should be fix}
 }
 \value{
 A list that contains a Cyclops model fit object pointer and an operation duration

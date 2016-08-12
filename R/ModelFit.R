@@ -31,6 +31,7 @@
 #' @param forceNewObject Logical, forces the construction of a new Cyclops model fit object
 #' @param returnEstimates Logical, return regression coefficient estimates in Cyclops model fit object
 #' @param startingCoefficients Vector of starting values for optimization
+#' @param fixedCoefficients Vector of booleans indicating if coefficient should be fix
 #'
 #' @return
 #' A list that contains a Cyclops model fit object pointer and an operation duration
@@ -66,7 +67,8 @@ fitCyclopsModel <- function(cyclopsData,
                             weights = NULL,
                             forceNewObject = FALSE,
                             returnEstimates = TRUE,
-                            startingCoefficients = NULL) {
+                            startingCoefficients = NULL,
+                            fixedCoefficients = NULL) {
 
     cl <- match.call()
 
@@ -175,6 +177,17 @@ fitCyclopsModel <- function(cyclopsData,
         }
 
         .cyclopsSetBeta(cyclopsData$cyclopsInterfacePtr, startingCoefficients)
+    }
+
+    if (!missing(fixedCoefficients)) {
+        if (length(fixedCoefficients) != getNumberOfCovariates(cyclopsData)) {
+            stop("Must provide a boolean for each coefficient")
+        }
+
+        offset <- ifelse(.cyclopsGetHasOffset(cyclopsData), 1, 0)
+        for (i in 1:length(fixedCoefficients)) {
+            .cyclopsSetFixedBeta(cyclopsData$cyclopsInterfacePtr, offset + i, fixedCoefficients[i] == TRUE)
+        }
     }
 
     if (!is.null(weights)) {
