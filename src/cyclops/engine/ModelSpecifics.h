@@ -1074,7 +1074,7 @@ public: /***/
 	        //hessian += weight * expXBeta / denominator * norm;
 	    } else {
 	        gradient += weight * expXBeta * x / denominator;
-	        hessian += weight * expXBeta * x * x;
+	        hessian += weight * expXBeta * x * x / denominator;
 	        //hessian += weight * expXBeta * x * x / denominator * norm;
 	    }
 
@@ -1140,10 +1140,10 @@ public:
 
 	    if (IteratorType::isIndicator) {
 	        gradient += weight * expXBeta / denominator;
-	        hessian += weight * expXBeta / denominator * norm;
+	        hessian += weight * expXBeta / denominator; // * norm;
 	    } else {
 	        gradient += weight * expXBeta * x / denominator;
-	        hessian += weight * expXBeta * x * x / denominator * norm;
+	        hessian += weight * expXBeta * x * x / denominator; // * norm;
 	    }
 	}
 
@@ -1225,10 +1225,10 @@ public:
 
 		if (IteratorType::isIndicator) {
 			gradient += weight * expXBeta / denominator;
-			hessian += weight * expXBeta / denominator * norm;
+			hessian += weight * expXBeta / denominator; // * norm;
 		} else {
 			gradient += weight * expXBeta * x / denominator;
-			hessian += weight * expXBeta * x * x / denominator * norm;
+			hessian += weight * expXBeta * x * x / denominator; // * norm;
 		}
 	}
 

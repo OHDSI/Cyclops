@@ -878,15 +878,17 @@ void CyclicCoordinateDescent::findMode(
 	        //Rcpp::stop("A");
 
             for (int index = 0; index < J; ++index) {
-                double delta = allDelta[index];
-                delta = applyBounds(delta, index);
-                if (delta != 0.0) {
-                    sufficientStatisticsKnown = false;
-                    hBeta[index] += delta;
+                if (!fixBeta[index]) {
+                    double delta = allDelta[index];
+                   // delta = applyBounds(delta, index);
+                    if (delta != 0.0) {
+                        sufficientStatisticsKnown = false;
+                        hBeta[index] += delta;
 
-                    // std::cerr << " : " << index << " " << hBeta[index] << " " << delta;
+                        // std::cerr << " : " << index << " " << hBeta[index] << " " << delta;
 
-                   // modelSpecifics.axpyXBeta(delta, index); // TODO Do single spMV
+                    // modelSpecifics.axpyXBeta(delta, index); // TODO Do single spMV
+                    }
                 }
             }
             // std::cerr << "\n";

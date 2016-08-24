@@ -1054,7 +1054,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
 
     //hessian = 40 * modelData.getNumberOfStrata() * modelData.getNumberOfColumns() / 4.0; // curvature[index];
 
-    std::cerr << "g: " << gradient << " h: " << hessian << " f: " << hXjY[index] << std::endl;
+    // hessian *= curvature[index];
+
+    //std::cerr << "g: " << gradient << " h: " << hessian << " f: " << hXjY[index] << std::endl;
 
     if (BaseModel::precomputeGradient) { // Compile-time switch
         gradient -= hXjY[index];
@@ -1263,7 +1265,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
     } // not Cox
 
-	std::cerr << "g: " << gradient << " h: " << hessian << " f: " << hXjY[index] << std::endl;
+	//std::cerr << "g: " << gradient << " h: " << hessian << " f: " << hXjY[index] << std::endl;
 
 	if (BaseModel::precomputeGradient) { // Compile-time switch
 		gradient -= hXjY[index];
