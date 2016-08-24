@@ -79,15 +79,15 @@ fitAbridge <- function(cyclopsData,
     while (continue) {
         count <- count + 1
 
-        pre_coef <- ifelse(abs(pre_coef) < cutoff, 0.0, pre_coef)
-        fixed <- pre_coef == 0.0
-        variance <- (as.numeric(pre_coef)) ^ 2 / penalty
+        working_coef <- ifelse(abs(pre_coef) < cutoff, 0.0, pre_coef)
+        fixed <- working_coef == 0.0
+        variance <- (working_coef) ^ 2 / penalty
 
         prior <- createPrior(ridge, variance = variance)
         fit <- fitCyclopsModel(cyclopsData,
                                prior = prior,
                                control, weights, forceNewObject,
-                               startingCoefficients = pre_coef,
+                               startingCoefficients = working_coef,
                                fixedCoefficients = fixed)
 
         coef <- coef(fit)
