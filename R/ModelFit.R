@@ -70,6 +70,13 @@ fitCyclopsModel <- function(cyclopsData,
                             startingCoefficients = NULL,
                             fixedCoefficients = NULL) {
 
+    # Delegate to ABRIDGE if selected
+    if (inherits(prior, "cyclopsAbridgePrior")) {
+        return(fitAbridge(cyclopsData, prior, control,
+                          weights, forceNewObject, returnEstimates,
+                          startingCoefficients, fixedCoefficients))
+    }
+
     cl <- match.call()
 
     # Check conditions
@@ -166,7 +173,7 @@ fitCyclopsModel <- function(cyclopsData,
     .setControl(cyclopsData$cyclopsInterfacePtr, control)
     threads <- control$threads
 
-    if (!missing(startingCoefficients)) {
+    if (!is.null(startingCoefficients)) {
 
         if (length(startingCoefficients) != getNumberOfCovariates(cyclopsData)) {
             stop("Must provide a value for each coefficient")
@@ -179,7 +186,7 @@ fitCyclopsModel <- function(cyclopsData,
         .cyclopsSetBeta(cyclopsData$cyclopsInterfacePtr, startingCoefficients)
     }
 
-    if (!missing(fixedCoefficients)) {
+    if (!is.null(fixedCoefficients)) {
         if (length(fixedCoefficients) != getNumberOfCovariates(cyclopsData)) {
             stop("Must provide a boolean for each coefficient")
         }
