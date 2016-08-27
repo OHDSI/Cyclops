@@ -36,6 +36,16 @@ public:
         	    lock.unlock();
         	} else {
                 Rcpp::Rcout << stream.str() << std::endl;
+                // Or: futile.logger::flog.warn()
+                // flog.
+                //	trace, debug, info, warn, error, fatal
+                
+/*
+	Environment stats("package:stats");
+	Function rnorm = stats["rnorm"];
+	return rnorm(10,
+    	         Named("sd", 100.0));
+*/                
             }            
         }
     }    
