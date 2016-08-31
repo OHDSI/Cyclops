@@ -174,6 +174,11 @@ getNumberOfCovariates <- function(object) {
     .Call('Cyclops_cyclopsGetNumberOfColumns', PACKAGE = 'Cyclops', object)
 }
 
+#' @export
+getTurkey <- function(object) {
+    .Call('Cyclops_cyclopsTurkey', PACKAGE = 'Cyclops', object)
+}
+
 #' @title Get total number of rows
 #'
 #' @description

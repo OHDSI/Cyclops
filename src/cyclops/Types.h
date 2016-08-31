@@ -12,7 +12,8 @@
 #include <vector>
 #include <map>
 
-#if defined(__GXX_EXPERIMENTAL_CXX0X__) || __cplusplus >= 201103L
+//#if defined(__GXX_EXPERIMENTAL_CXX0X__) || __cplusplus >= 201103L
+#if 1
 // C++11
     #include <memory>
     namespace bsccs {
@@ -54,11 +55,13 @@ bsccs::unique_ptr<T> make_unique( Args&& ...args ) {
 
 // Internal types
 
-#ifdef DOUBLE_PRECISION
+//#ifdef DOUBLE_PRECISION
 	typedef double real;
+	/*
 #else
 	typedef float real;
 #endif
+*/
 
 typedef std::vector<int> IntVector;
 typedef std::vector<real> RealVector;

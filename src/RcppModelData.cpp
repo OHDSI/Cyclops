@@ -194,6 +194,21 @@ int cyclopsGetNumberOfColumns(Environment object) {
 	return static_cast<int>(count);
 }
 
+//' @export
+// [[Rcpp::export("getTurkey")]]
+std::vector<double> cyclopsTurkey(Environment object) {
+    XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);
+    /*
+    int cols = data->getNumberOfColumns();
+    double x[cols];
+    data->getDataRow(1,x);
+    std::vector<double> result;
+    result.push_back(x[0]);
+    return (result);
+     */
+    return(data->turkey(0));
+}
+
 //' @title Get total number of rows
 //'
 //' @description

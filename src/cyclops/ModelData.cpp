@@ -22,6 +22,8 @@
 
 #include "ModelData.h"
 
+#include "Iterators.h"
+
 namespace bsccs {
 
 using std::string;
@@ -635,6 +637,21 @@ int ModelData::getNumberOfVariableColumns() const {
 	if (hasOffsetCovariate) --dim;
 	return dim;
 }
+
+/*
+RealVector ModelData::turkey(int index) {
+	IndicatorIterator it(this, 1);
+	for (;it;++it) {
+		std::cout << it.value() << " ";
+		std::cout << it.index() << " ";
+	}
+	std::vector<double> result;
+	result.push_back(1);
+	return(result);
+}
+*/
+
+
 
 const string ModelData::missing = "NA";
 

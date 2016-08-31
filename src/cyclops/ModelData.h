@@ -231,6 +231,8 @@ public:
 	template <class ImputationPolicy> friend class BBRInputReader;
 	template <class ImputationPolicy> friend class CSVInputReader;
 
+	//RealVector turkey(int index);
+
 protected:
     ModelType modelType;
 

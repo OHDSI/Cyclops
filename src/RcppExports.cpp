@@ -400,6 +400,17 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// cyclopsTurkey
+std::vector<double> cyclopsTurkey(Environment object);
+RcppExport SEXP Cyclops_cyclopsTurkey(SEXP objectSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< Environment >::type object(objectSEXP);
+    __result = Rcpp::wrap(cyclopsTurkey(object));
+    return __result;
+END_RCPP
+}
 // cyclopsGetNumberOfRows
 int cyclopsGetNumberOfRows(Environment object);
 RcppExport SEXP Cyclops_cyclopsGetNumberOfRows(SEXP objectSEXP) {

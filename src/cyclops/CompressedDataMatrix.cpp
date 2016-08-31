@@ -13,6 +13,7 @@
 #include <stdexcept>
 
 #include "CompressedDataMatrix.h"
+#include "Iterators.h"
 
 namespace bsccs {
 
@@ -346,5 +347,38 @@ void CompressedDataColumn::removeFromColumnVector(IntVector removeEntries){
 		}
 	}
 }
+
+
+RealVector CompressedDataMatrix::turkey(int index) {
+	switch (getFormatType(index)) {
+	case INDICATOR :
+		turkeyImpl<IndicatorIterator>(index);
+		break;
+	case SPARSE :
+		turkeyImpl<SparseIterator>(index);
+		break;
+	case DENSE :
+		turkeyImpl<DenseIterator>(index);
+		break;
+	case INTERCEPT :
+		turkeyImpl<InterceptIterator>(index);
+		break;
+	}
+	std::vector<double> result;
+	result.push_back(getFormatType(0));
+	result.push_back(getFormatType(1));
+	return(result);
+}
+
+template <class IteratorType>
+void CompressedDataMatrix::turkeyImpl(int index) {
+	IteratorType it(*this, index);
+	for (;it;++it) {
+		std::cout << it.value() << " ";
+		std::cout << it.index() << " ";
+	}
+
+}
+
 
 } // namespace

@@ -214,10 +214,11 @@ public:
 
 	void addToColumnVector(IntVector addEntries);
 	void removeFromColumnVector(IntVector removeEntries);
-private:
-	// Disable copy-constructors and assignment constructors
 	CompressedDataColumn();
 	CompressedDataColumn(const CompressedDataColumn&);
+
+private:
+	// Disable copy-constructors and assignment constructors
 	CompressedDataColumn& operator = (const CompressedDataColumn&);
 
 	IntVectorPtr columns;
@@ -390,6 +391,11 @@ public:
 		allColumns.erase(allColumns.begin() + column);
 		nCols--;
 	}
+
+	RealVector turkey(int index);
+
+	template <class IteratorType>
+	void turkeyImpl(int index);
 
 protected:
 
