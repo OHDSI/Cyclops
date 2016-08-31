@@ -83,7 +83,7 @@ void ModelData::loadY(
 		//error->throwError(stream);
 // 		std::cerr << stream.str() << std::endl;
 
-		pid.reserve(oRowId.size());
+		pid.reserve(oRowId.size()); // TODO ASAN error here
 
 		bool processStrata = oStratumId.size() > 0;
 
@@ -491,8 +491,8 @@ std::vector<double> ModelData::normalizeCovariates(const NormalizationType type)
                 };
 
                 auto mean = column.accumulate(sumOp, 0.0) / nRows;
-                auto SS = column.accumulate(squaredSumOp, 0.0);
-                auto variance = (SS - (mean * mean * nRows)) / nRows;
+                auto newSS = column.accumulate(squaredSumOp, 0.0);
+                auto variance = (newSS - (mean * mean * nRows)) / nRows;
                 scale = 1.0 / std::sqrt(variance);
 
             } else if (type == NormalizationType::MAX) {
@@ -553,7 +553,7 @@ ModelData::~ModelData() {
 
 const int* ModelData::getPidVector() const { // TODO deprecated
 //	return makeDeepCopy(&pid[0], pid.size());
-	return &pid[0];
+    return (pid.size() == 0) ? nullptr : pid.data();
 }
 
 // std::vector<int>* ModelData::getPidVectorSTL() { // TODO deprecated

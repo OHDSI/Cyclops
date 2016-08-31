@@ -95,7 +95,7 @@
 #'
 #' @export
 createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelType,
-                              data, subset, weights, offset, time = NULL, pid = NULL, y = NULL, type = NULL, dx = NULL,
+                              data, subset = NULL, weights = NULL, offset = NULL, time = NULL, pid = NULL, y = NULL, type = NULL, dx = NULL,
                               sx = NULL, ix = NULL, model = FALSE, normalize = NULL, method = "cyclops.fit") {
     cl <- match.call() # save to return
     mf.all <- match.call(expand.dots = FALSE)

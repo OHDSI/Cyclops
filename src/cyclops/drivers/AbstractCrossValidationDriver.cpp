@@ -205,12 +205,12 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 
 	// Run all tasks in parallel
 	if (nThreads > 1) {
-    	ccd.getLogger().setConcurrent(true);
+    	ccd.getProgressLogger().setConcurrent(true);
     }
 	scheduler.execute(oneTask);
 	if (nThreads > 1) {
-    	ccd.getLogger().setConcurrent(false);
-     	ccd.getLogger().flush();
+    	ccd.getProgressLogger().setConcurrent(false);
+     	ccd.getProgressLogger().flush();
      }
 
 	double pointEstimate = computePointEstimate(predLogLikelihood);

@@ -188,7 +188,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
                 if(!quiet) {
                     writeLines("Sorting outcomes by rowId")
                 }
-                rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
+                rownames(outcomes) <- NULL #Needs to be null or the ordering of ffdf will fail
                 outcomes <- outcomes[ff::ffdforder(outcomes[c("rowId")]),]
             }
             if (!isSorted(covariates,c("covariateId","rowId"))){

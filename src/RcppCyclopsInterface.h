@@ -45,8 +45,9 @@ public:
     }
 
     double profileModel(const ProfileVector& profileCI, ProfileInformationMap& profileMap,
+            int threads,
             double threshold, bool override, bool includePenalty) {
-    	return CcdInterface::profileModel(ccd, modelData, profileCI, profileMap, threshold,
+    	return CcdInterface::profileModel(ccd, modelData, profileCI, profileMap, threads, threshold,
     			override, includePenalty);
     }
 

@@ -1,0 +1,10 @@
+Cyclops v1.2.1 (Release date: 2016-08-02)
+
+Changes: 1. fixed `solaris` build errors
+         2. added compatibility for C++14 (make_unique)
+
+
+Cyclops v1.2.0 (Release date: 2016-08-01)
+==============
+
+Changes: initial submission to CRAN

@@ -213,7 +213,7 @@ void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& pr
 }
 
 // [[Rcpp::export(".cyclopsProfileModel")]]
-List cyclopsProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, double threshold,
+List cyclopsProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, int threads, double threshold,
 		bool override, bool includePenalty) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
@@ -222,7 +222,7 @@ List cyclopsProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, double th
 		ProfileVector covariates = as<ProfileVector>(sexpCovariates);
 
 		ProfileInformationMap profileMap;
-        interface->profileModel(covariates, profileMap, threshold, override, includePenalty);
+        interface->profileModel(covariates, profileMap, threads, threshold, override, includePenalty);
 
         std::vector<double> lower;
         std::vector<double> upper;
@@ -622,10 +622,31 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
 		const ProfileVector& flatPrior, const HierarchicalChildMap& hierarchyMap, const NeighborhoodMap& neighborhood) {
 	using namespace bsccs::priors;
 
- 	PriorPtr singlePrior = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[0]), baseVariance[0]);
- 	// singlePrior->setVariance(0, baseVariance[0]);
+    const int length = modelData->getNumberOfColumns();
 
- 	JointPriorPtr prior;
+ 	if (   flatPrior.size() == 0
+ 	    && hierarchyMap.size() == 0
+        && neighborhood.size() == 0
+        && basePriorName.size() == length
+        && baseVariance.size() == length) {
+
+        auto first = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[0]), baseVariance[0]);
+        auto prior = bsccs::make_shared<MixtureJointPrior>(first, length);
+
+        for (int i = 1; i < length; ++i) {
+            auto columnPrior = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[i]), baseVariance[i]);
+            prior->changePrior(columnPrior, i);
+        }
+
+//         std::cerr << "Constructed variable prior per column" << std::endl;
+
+        return prior;
+    }
+
+    PriorPtr singlePrior = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[0]), baseVariance[0]);
+    // singlePrior->setVariance(0, baseVariance[0]);
+
+    JointPriorPtr prior;
 
  	if (flatPrior.size() == 0 && neighborhood.size() == 0) {
  		if (hierarchyMap.size() == 0) {
@@ -671,7 +692,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
 					mixturePrior->changePrior(noPrior, index);
 				}
 			}
- 		}
+		}
 
  		if (neighborhood.size() > 0) {
 

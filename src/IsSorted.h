@@ -1,7 +1,7 @@
 /**
  * @file IsSorted.h
  *
- * This file is part of CohortMethod
+ * This file is part of Cyclops
  *
  * Copyright 2014 Observational Health Data Sciences and Informatics
  *
@@ -32,7 +32,7 @@
 using namespace Rcpp ;
 
 namespace ohdsi {
-	namespace cohortMethod {
+	namespace cyclops {
 
 		struct IsSorted {
 		public:

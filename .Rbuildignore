@@ -7,12 +7,14 @@ standalone
 \.so$
 papers
 .git
+cran-comments.md
 data-raw
 notes
 man-roxygen
 man/Cyclops.pdf
-crash
-Untitled.R
-\.txt$
 extras
 deploy.sh
+debug
+logo
+autom4te.cache/
+docker

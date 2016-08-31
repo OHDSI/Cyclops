@@ -86,6 +86,14 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 	initialBound = copy.initialBound;
 
 	init(hXI.getHasOffsetCovariate());
+
+	// Copy over exisiting beta;
+	bool allBetaZero = true;
+	for (int j = 0; j < J; ++j) {
+	    hBeta[j] = copy.hBeta[j];
+	    if (copy.hBeta[j] != 0.0) allBetaZero = false;
+	}
+	xBetaKnown = allBetaZero;
 }
 
 CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {

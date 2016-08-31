@@ -37,6 +37,12 @@ public:
             bool useTimeAsOffset = false,
             int numTypes = 1
 			);
+			
+	RcppModelData(
+			ModelType modelType,
+	        loggers::ProgressLoggerPtr log,
+    	    loggers::ErrorHandlerPtr error       
+        );			
 
 	virtual ~RcppModelData();
 
@@ -91,7 +97,7 @@ public:
 
 	template <typename F>
 	double innerProductWithOutcome(const size_t index, F func) {
-	    double sum = 0.0;	    
+	    double sum = 0.0;
 	    switch (getFormatType(index)) {
 	    case INDICATOR :
 	        sum = innerProductWithOutcomeImpl<IndicatorIterator>(index, func);

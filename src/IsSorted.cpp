@@ -1,7 +1,7 @@
 /**
  * * * * @file IsSorted.cpp
  * * * *
- * * * * This file is part of CohortMethod
+ * * * * This file is part of Cyclops
  * * * *
  * * * * Copyright 2014 Observational Health Data Sciences and Informatics
  * * * *
@@ -33,7 +33,7 @@
  using namespace Rcpp ;
 
  namespace ohdsi {
-     namespace cohortMethod {
+     namespace cyclops {
 
          bool IsSorted::isSorted(const DataFrame& dataFrame,const std::vector<std::string>& indexes,const std::vector<bool>& ascending){
              unsigned int nrows = dataFrame.nrows();
