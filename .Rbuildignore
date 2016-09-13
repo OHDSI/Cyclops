@@ -18,3 +18,4 @@ debug
 logo
 autom4te.cache/
 docker
+^appveyor\.yml$
