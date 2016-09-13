@@ -851,10 +851,12 @@ void CyclicCoordinateDescent::findMode(
 	}
 
 	std::vector<double> allDelta;
+    double lastLogPosterior; // = getLogLikelihood() + getLogPrior();
 
 	if (algorithmType == AlgorithmType::MM) {
 	    // Any further initialization necessary?
 	    if (allDelta.size() < J) allDelta.resize(J);
+	    lastLogPosterior = -10E10;
 	}
 
 	auto cycle = [this,&iteration,algorithmType,&allDelta] {
@@ -919,15 +921,34 @@ void CyclicCoordinateDescent::findMode(
 	    iteration++;
 	};
 
-	auto check = [this,&iteration,&lastObjFunc,
+	auto check = [this,&iteration,&lastObjFunc,algorithmType,&lastLogPosterior,
                convergenceType, epsilon,maxIterations] {
                    bool done = false;
                    //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
                    bool checkConvergence = true; // Check after each complete cycle
 
+
+                   if (algorithmType == AlgorithmType::MM) {
+                       double thisLogPosterior = getLogLikelihood() + getLogPrior();
+                       if (iteration > 1) {
+                           double change = thisLogPosterior - lastLogPosterior;
+                           Rcpp::Rcout << lastLogPosterior << " -> " << thisLogPosterior << " == " << change;
+
+                           if (change < 0.0) {
+                               std::ostringstream stream;
+                               stream << "Non-increasing!";
+                               error->throwError(stream);
+                           }
+                       }
+                       lastLogPosterior = thisLogPosterior;
+                   }
+
+
                    if (checkConvergence) {
                        done = performCheckConvergence(convergenceType, epsilon, maxIterations, iteration, &lastObjFunc);
                    }
+
+
                    return done;
                };
 
@@ -1257,6 +1278,7 @@ void CyclicCoordinateDescent::mmUpdateAllBeta(std::vector<double>& delta,
             if (gh[j].second < 0.0) {
                 gh[j].first = 0.0;
                 gh[j].second = 0.0;
+                Rcpp::stop("Bad hessian");
             }
 
             gh[j].second /= scale;

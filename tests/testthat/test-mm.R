@@ -55,3 +55,29 @@ test_that("Simulated SCCS using MM", {
     mm$iterations
 
 })
+
+test_that("Bigger simulated SCCS using MM", {
+    library(survival)
+    set.seed(666)
+    s <- simulateCyclopsData(nstrata = 1000, nrows = 10000, ncovars = 2000, eCovarsPerRow = 10)
+    dataPtr <- convertToCyclopsData(s$outcomes, s$covariates, modelType = "clr", addIntercept = FALSE)
+    cyclopsFit <- fitCyclopsModel(dataPtr, forceNewObject = TRUE,
+                                  # prior = createPrior("none")
+                                  prior = createPrior("laplace", variance = 0.1)
+    )
+
+    mm <- fitCyclopsModel(dataPtr, forceNewObject = TRUE,
+                          control = createControl(algorithm = "mm",
+                                                  maxIterations = 100,
+                                                  noiseLevel = "noisy"),
+                          # prior = createPrior("none")
+                          prior = createPrior("laplace", variance = 0.1)
+    )
+    sum(coef(cyclopsFit))
+    sum(coef(cyclopsFit) != 0)
+    cyclopsFit$iterations
+    sum(coef(mm))
+    sum(coef(mm) != 0)
+    mm$iterations
+
+})
