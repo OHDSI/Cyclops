@@ -31,8 +31,8 @@ test_that("ABRIDGE simulated logistic regression", {
     #expect_equivalent(coef(abridge)[which(coef(abridge) != 0.0)], coef(glm)) # ERROR; this should be true
 })
 
-test_that("ABRIDGE using internal simulation", {
-    sim <- simulateCyclopsData(nstrata = 200, nrows = 10000, ncovars = 20,
-                               effectSizeSd = 1, zeroEffectSizeProp = 0.9, eCovarsPerRow = ncovars/100,
-                               model = "survival")
-})
+# test_that("ABRIDGE using internal simulation", {
+#     sim <- simulateCyclopsData(nstrata = 200, nrows = 10000, ncovars = 20,
+#                                effectSizeSd = 1, zeroEffectSizeProp = 0.9, eCovarsPerRow = ncovars/100,
+#                                model = "survival")
+# })
