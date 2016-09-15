@@ -1754,27 +1754,8 @@ public:
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 
-// 	    std::cout << "TODO" << std::endl;
-// 	    std::exit(-1); // ls
-
-        throw new std::logic_error("ls model not yet support");
-
-    	const RealType g = numerator / denominator;
-
-        const RealType gradient =
-            (WeightOperationType::isWeighted) ? weight * g : g;
-
-        const RealType hessian =
-            (IteratorType::isIndicator) ?
-                (WeightOperationType::isWeighted) ?
-                    weight * g * (static_cast<RealType>(1.0) - g) :
-                    g * (static_cast<RealType>(1.0) - g)
-                :
-                (WeightOperationType::isWeighted) ?
-                    weight * (numerator2 / denominator - g * g) :
-                    (numerator2 / denominator - g * g);
-
-        return { lhs.real() + gradient, lhs.imag() + hessian };
+ 	    const RealType gradient = WeightOperationType::isWeighted ? weight * numerator : numerator;
+        return { lhs.real() + gradient, lhs.imag() };
     }
 
     real getOffsExpXBeta(const real offs, const real xBeta) {
