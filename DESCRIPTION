@@ -1,7 +1,7 @@
 Package: Cyclops
 Type: Package
 Title: Cyclic Coordinate Descent for Logistic, Poisson and Survival Analysis
-Version: 1.2.1-1
+Version: 1.2.1-2
 Author: Marc A. Suchard [aut, cre],
     Martijn J. Schuemie [aut],
     Trevor R. Shaddox [aut]
