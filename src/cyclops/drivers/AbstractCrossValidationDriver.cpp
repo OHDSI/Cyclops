@@ -54,6 +54,10 @@ void AbstractCrossValidationDriver::drive(
         bsccs::thread::hardware_concurrency() :
 	    allArguments.threads;
 
+    if (nThreads < 1) {
+        nThreads = 1;
+    }
+
 	std::ostringstream stream2;
 	stream2 << "Using " << nThreads << " thread(s)";
 	logger->writeLine(stream2);
