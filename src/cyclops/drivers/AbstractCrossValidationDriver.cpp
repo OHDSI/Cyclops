@@ -68,6 +68,26 @@ void AbstractCrossValidationDriver::drive(
 		ccdPool.push_back(ccd.clone());
 		selectorPool.push_back(selector.clone());
 	}
+
+	// Check of poor allocation
+	bool allocationError = false;
+	for (auto element : ccdPool) {
+	    if (element == nullptr) {
+	        allocationError = true;
+	    }
+	}
+
+    for (auto element : selectorPool) {
+        if (element == nullptr) {
+            allocationError = true;
+        }
+    }
+
+    if (allocationError) {
+        std::ostringstream errorStream;
+        errorStream << "Memory allocation error in multi-threaded cross validation driver";
+        error->throwError(errorStream);
+    }
 	// End of multi-thread set-up
 
 	// Delegate to auto or grid loop
