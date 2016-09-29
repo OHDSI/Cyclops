@@ -54,7 +54,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 }
 
 CyclicCoordinateDescent* CyclicCoordinateDescent::clone() {
-	return new CyclicCoordinateDescent(*this);
+	return new (std::nothrow) CyclicCoordinateDescent(*this);
 }
 
 //template <typename T>
