@@ -1,7 +1,7 @@
 Cyclops
 =======
 
-[![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/Cyclops)](http://cran.r-project.org/package=Cyclops)
+[![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/Cyclops)](https://CRAN.R-project.org/package=Cyclops)
 
 Introduction
 ============
