@@ -19,3 +19,6 @@ logo
 autom4te.cache/
 docker
 ^appveyor\.yml$
+config.logo
+config.status
+autom4te.cache/
