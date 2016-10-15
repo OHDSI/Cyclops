@@ -24,10 +24,6 @@
 #include "ParallelLoops.h"
 #include "Ranges.h"
 
-#include "R.h"
-
-//#include "Rcpp.h"
-
 #ifdef CYCLOPS_DEBUG_TIMING
 	#include "Timing.h"
 	namespace bsccs {
