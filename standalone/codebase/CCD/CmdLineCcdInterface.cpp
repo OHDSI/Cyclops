@@ -410,7 +410,8 @@ void CmdLineCcdInterface::initializeModelImpl(
 // 			exit(-1);
 // 	}
 
-	*model = AbstractModelSpecifics::factory(modelType, **modelData);
+	*model = AbstractModelSpecifics::factory(modelType, **modelData,
+			DeviceType::CPU, "");
 	if (*model == nullptr) {
 		cerr << "Invalid model type." << endl;
 		exit(-1);

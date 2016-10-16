@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
 					SelectorType::BY_PID, arguments.seed,
 					bsccs::make_shared<loggers::CoutLogger>(),
 					bsccs::make_shared<loggers::CerrErrorHandler>());
-			std::vector<bsccs::real> weights;
+			std::vector<double> weights;
 			selector.getWeights(0, weights);
 			ccd->setWeights(&weights[0]);
 		}

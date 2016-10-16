@@ -51,6 +51,17 @@ void ModelData::moveTimeToCovariate(bool takeLog) {
     push_back(NULL, make_shared<RealVector>(offs.begin(), offs.end()), DENSE); // TODO Remove copy?
 }
 
+namespace { // anonymous
+
+void copyAssign(std::vector<real>& destination, const std::vector<double>& source) {
+    if (destination.size() != source.size()) {
+        destination.resize(source.size());
+    }
+    std::copy(std::begin(source), std::end(source), std::begin(destination));
+}
+
+}; // namespace anonymous
+
 void ModelData::loadY(
 		const std::vector<IdType>& oStratumId,
 		const std::vector<IdType>& oRowId,
@@ -69,9 +80,9 @@ void ModelData::loadY(
         error->throwError(stream);
     }
 
-	y =  oY; // copy assignment
+    copyAssign(y, oY); // y = oY; // copy assignment
 	if (oTime.size() == oY.size()) {
-		offs = oTime; // copy assignment
+		copyAssign(offs, oTime); // offs = oTime; // copy assignment
 	}
 	touchedY = true;
 

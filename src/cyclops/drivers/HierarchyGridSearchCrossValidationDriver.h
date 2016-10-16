@@ -18,7 +18,7 @@ public:
 			const CCDArguments& arguments,
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error,			
-			std::vector<real>* wtsExclude = NULL);
+			std::vector<double>* wtsExclude = NULL);
 
 	virtual ~HierarchyGridSearchCrossValidationDriver();
 

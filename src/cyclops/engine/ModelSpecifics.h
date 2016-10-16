@@ -14,8 +14,8 @@
 #include <stdexcept>
 #include <thread>
 
-// #define CYCLOPS_DEBUG_TIMING
-// #define CYCLOPS_DEBUG_TIMING_LOW
+#define CYCLOPS_DEBUG_TIMING
+#define CYCLOPS_DEBUG_TIMING_LOW
 
 #ifdef CYCLOPS_DEBUG_TIMING
     #include "Timing.h"
@@ -184,9 +184,32 @@ public:
 	void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian,  bool useWeights);
 
+	virtual void computeMMGradientAndHessian(
+			std::vector<GradientHessian>& gh,
+			const std::vector<bool>& fixBeta,
+			bool useWeights);
+
 	AbstractModelSpecifics* clone() const;
 
+	virtual const RealVector& getXBeta();
+
+	virtual const RealVector& getXBetaSave();
+
+	virtual void saveXBeta();
+
+	virtual void zeroXBeta();
+
+	virtual void axpyXBeta(const double beta, const int j);
+
+	virtual void computeXBeta(double* beta, bool useWeights);
+
+	//virtual double getGradientObjective();
+
 protected:
+
+	template <typename IteratorType>
+	void axpy(real* y, const real alpha, const int index);
+
 	void computeNumeratorForGradient(int index);
 
 	void computeFisherInformation(int indexOne, int indexTwo, double *oinfo, bool useWeights);
@@ -205,9 +228,11 @@ protected:
 
 	double getLogLikelihood(bool useCrossValidation);
 
-	double getPredictiveLogLikelihood(real* weights);
+	double getPredictiveLogLikelihood(double* weights);
 
-	void getPredictiveEstimates(real* y, real* weights);
+	double getGradientObjective(bool useCrossValidation);
+
+	void getPredictiveEstimates(double* y, double* weights);
 
 	bool allocateXjY(void);
 
@@ -217,7 +242,7 @@ protected:
 
 	bool sortPid(void);
 
-	void setWeights(real* inWeights, bool useCrossValidation);
+	void setWeights(double* inWeights, bool useCrossValidation);
 
 	void doSortPid(bool useCrossValidation);
 
@@ -227,12 +252,29 @@ protected:
 
 	void printTiming(void);
 
+	std::vector<WeightType> hNWeight;
+	std::vector<WeightType> hKWeight;
+
+#ifdef CYCLOPS_DEBUG_TIMING
+	//	std::vector<double> duration;
+	std::map<std::string,long long> duration;
+#endif
+
 private:
+
+	template <class IteratorType>
+	void computeXBetaImpl(double *beta);
+
 	template <class IteratorType, class Weights>
 	void computeGradientAndHessianImpl(
 			int index,
 			double *gradient,
 			double *hessian, Weights w);
+
+	template <class IteratorType, class Weights>
+	void computeMMGradientAndHessianImpl(
+			int index, double *ogradient,
+            double *ohessian, Weights w);
 
 	template <class IteratorType>
 	void incrementNumeratorForGradientImpl(int index);
@@ -260,12 +302,23 @@ private:
 
 	void computeNtoKIndices(bool useCrossValidation);
 
-	std::vector<WeightType> hNWeight;
-	std::vector<WeightType> hKWeight;
+	void initializeMmXt();
+
+	void initializeMM(
+	    MmBoundType boundType,
+		const std::vector<bool>& fixBeta
+	);
+
+	void computeNorms(void);
+
+	template <class InteratorType>
+	void incrementNormsImpl(int index);
 
 //	std::vector<int> nPid;
 //	std::vector<real> nY;
 	std::vector<int> hNtoK;
+
+	std::vector<real> norm;
 
 	struct WeightedOperation {
 		const static bool isWeighted = true;
@@ -278,12 +331,6 @@ private:
 	ParallelInfo info;
 
 //	C11ThreadPool threadPool;
-
-#ifdef CYCLOPS_DEBUG_TIMING
-//	std::vector<double> duration;
-	std::map<std::string,long long> duration;
-#endif
-
 };
 
 template <typename WeightType>
@@ -1012,6 +1059,27 @@ public: /***/
 			real x, real xBeta, real y) {
 		*information += weight * predictor / denom * it.value();
 	}
+
+	template <class IteratorType, class Weights>
+	inline void incrementMMGradientAndHessian(
+	        real& gradient, real& hessian,
+	        real expXBeta, real denominator,
+	        real weight, real x, real xBeta, real y, real norm) {
+
+		// std::cerr << "GOT HERE!" << std::endl;
+
+	    if (IteratorType::isIndicator) {
+	        gradient += weight * expXBeta / denominator;
+	        hessian += weight * expXBeta / denominator;
+	        //hessian += weight * expXBeta / denominator * norm;
+	    } else {
+	        gradient += weight * expXBeta * x / denominator;
+	        hessian += weight * expXBeta * x * x / denominator;
+	        //hessian += weight * expXBeta * x * x / denominator * norm;
+	    }
+
+	    // throw new std::logic_error("Not model-specific");
+	}
 };
 
 template <typename WeightType>
@@ -1062,6 +1130,21 @@ public:
 				*hessian += (numer2 / denom - g * g); // Bounded by x_j^2
 			}
 		}
+	}
+
+	template <class IteratorType, class Weights>
+	inline void incrementMMGradientAndHessian(
+	        real& gradient, real& hessian,
+	        real expXBeta, real denominator,
+	        real weight, real x, real xBeta, real y, real norm) {
+
+	    if (IteratorType::isIndicator) {
+	        gradient += weight * expXBeta / denominator;
+	        hessian += weight * expXBeta / denominator; // * norm;
+	    } else {
+	        gradient += weight * expXBeta * x / denominator;
+	        hessian += weight * expXBeta * x * x / denominator; // * norm;
+	    }
 	}
 
 	template <class IteratorType, class WeightOperationType, class RealType>
@@ -1134,6 +1217,21 @@ public:
 		}
 	}
 
+	template <class IteratorType, class Weights>
+	inline void incrementMMGradientAndHessian(
+			real& gradient, real& hessian,
+			real expXBeta, real denominator,
+			real weight, real x, real xBeta, real y, real norm) {
+
+		if (IteratorType::isIndicator) {
+			gradient += weight * expXBeta / denominator;
+			hessian += weight * expXBeta / denominator; // * norm;
+		} else {
+			gradient += weight * expXBeta * x / denominator;
+			hessian += weight * expXBeta * x * x / denominator; // * norm;
+		}
+	}
+
 	template <class IteratorType, class WeightOperationType, class RealType>
 	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
@@ -1173,8 +1271,9 @@ public:
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
-	void predictEstimate(real& yi, real xBeta){
+	real predictEstimate(real xBeta){
 		//do nothing for now
+		return 0.0;
 	}
 
 };
@@ -1261,8 +1360,9 @@ public:
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
-	void predictEstimate(real& yi, real xBeta){
+	real predictEstimate(real xBeta){
 		//do nothing for now
+		return 0.0;
 	}
 
 };
@@ -1340,9 +1440,10 @@ public:
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
-	void predictEstimate(real& yi, real xBeta){
+	real predictEstimate(real xBeta){
 	    // Do nothing
 		//yi = xBeta; // Returns the linear predictor;  ###relative risk
+		return 0.0;
 	}
 
 };
@@ -1424,9 +1525,10 @@ public:
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
-	void predictEstimate(real& yi, real xBeta){
+	real predictEstimate(real xBeta){
 	    // Do nothing
 		//yi = xBeta; // Returns the linear predictor;  ###relative risk
+		return 0.0;
 	}
 
 };
@@ -1470,9 +1572,9 @@ public:
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
-	void predictEstimate(real& yi, real xBeta){
+	real predictEstimate(real xBeta){
 		real t = exp(xBeta);
-		yi = t/(t+1);
+		return t / (t + static_cast<real>(1));
 	}
 };
 
@@ -1563,8 +1665,9 @@ public:
 		    ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
-	void predictEstimate(real& yi, real xBeta){
+	real predictEstimate(real xBeta){
 		// do nothing for now
+		return 0.0;
 	}
 };
 
@@ -1661,8 +1764,9 @@ public:
 		    ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
 
-	void predictEstimate(real& yi, real xBeta){
+	real predictEstimate(real xBeta){
 		// do nothing for now
+		return 0.0;
 	}
 };
 
@@ -1749,6 +1853,15 @@ public:
 		}
 	}
 
+	template <class IteratorType, class Weights>
+	inline void incrementMMGradientAndHessian(
+	        real& gradient, real& hessian,
+	        real expXBeta, real denominator,
+	        real weight, real x, real xBeta, real y, real norm) {
+
+	    throw new std::logic_error("Not model-specific");
+	}
+
 	template <class IteratorType, class WeightOperationType, class RealType>
 	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
@@ -1783,8 +1896,8 @@ public:
 		return - (residual * residual * weighti);
 	}
 
-	void predictEstimate(real& yi, real xBeta){
-		yi = xBeta;
+	real predictEstimate(real xBeta){
+		return xBeta;
 	}
 };
 
@@ -1849,6 +1962,15 @@ public:
 			}
 	}
 
+	template <class IteratorType, class Weights>
+	inline void incrementMMGradientAndHessian(
+	        real& gradient, real& hessian,
+	        real expXBeta, real denominator,
+	        real weight, real x, real xBeta, real y, real norm) {
+
+	    throw new std::logic_error("Not model-specific");
+	}
+
 	template <class IteratorType, class WeightOperationType, class RealType>
 	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
@@ -1887,8 +2009,8 @@ public:
 			return (ji*xBetai - exp(xBetai))*weighti;
 	}
 
-	void predictEstimate(real& yi, real xBeta){
-		yi = exp(xBeta);
+	real predictEstimate(real xBeta){
+		return exp(xBeta);
 	}
 
 	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {

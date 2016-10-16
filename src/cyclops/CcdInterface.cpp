@@ -363,12 +363,6 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *model
 	    }
 	};
 
-
-//         for (auto it = bounds.begin(); it != bounds.end(); ++it) {
-//
-//
-//         }
-
     if (nThreads == 1) {
         std::for_each(std::begin(bounds), std::end(bounds),
                       [&getBound, ccd](const BoundType bound) {

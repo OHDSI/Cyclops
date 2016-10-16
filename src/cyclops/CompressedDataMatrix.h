@@ -259,7 +259,7 @@ public:
 	std::vector<real>& getDataVectorSTL(int column) const;
 
 	void getDataRow(int row, real* x) const;
-	CompressedDataMatrix* transpose();
+	bsccs::shared_ptr<CompressedDataMatrix> transpose() const; 
 
 	FormatType getFormatType(int column) const;
 
@@ -370,6 +370,8 @@ public:
 //	        real_vector* r = new real_vector();
             RealVectorPtr r = make_shared<RealVector>();
 	        insert(allColumns.begin() + position, NULL, r, DENSE);
+	    } else if (colFormat == INTERCEPT) {
+	        insert(allColumns.begin() + position, NULL, NULL, INTERCEPT);
 	    } else {
             throw new std::invalid_argument("Unknown type");
 	    }

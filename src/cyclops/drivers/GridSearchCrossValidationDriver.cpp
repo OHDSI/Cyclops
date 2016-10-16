@@ -21,7 +21,7 @@ GridSearchCrossValidationDriver::GridSearchCrossValidationDriver(
             const CCDArguments& arguments,
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error,
-			vector<real>* wtsExclude) : AbstractCrossValidationDriver(_logger, _error, wtsExclude),
+			vector<double>* wtsExclude) : AbstractCrossValidationDriver(_logger, _error, wtsExclude),
 			gridSize(arguments.crossValidation.gridSteps),
 			lowerLimit(arguments.crossValidation.lowerLimit),
 			upperLimit(arguments.crossValidation.upperLimit)
@@ -103,7 +103,7 @@ std::vector<double> GridSearchCrossValidationDriver::doCrossValidationLoop(
 
     const auto& arguments = allArguments.crossValidation;
 
-// 	std::vector<real> weights;
+// 	std::vector<double> weights;
 	for (int step = 0; step < gridSize; step++) {
 
 		std::vector<double> predLogLikelihood;
@@ -147,7 +147,7 @@ std::vector<double> GridSearchCrossValidationDriver::doCrossValidationLoop(
 //
 // 	const auto& arguments = allArguments.crossValidation;
 //
-// 	std::vector<real> weights;
+// 	std::vector<double> weights;
 //
 // 	for (int step = 0; step < gridSize; step++) {
 //

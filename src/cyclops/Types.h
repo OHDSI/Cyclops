@@ -139,6 +139,25 @@ enum class ModelType {
 	SIZE_OF_ENUM // Keep at end
 };
 
+enum class AlgorithmType {
+	CCD = 0,
+	MM,
+	SIZE_OF_ENUM // Keep at end
+};
+
+enum class MmBoundType {
+	SHADDOX = 0,
+	METHOD_1,
+	METHOD_2,
+	SIZE_OF_ENUM // Keep at end
+};
+
+enum class DeviceType {
+    CPU = 0,
+    GPU,
+    SIZE_OF_ENUM // Keep at end
+};
+
 enum class SelectorType {
 	DEFAULT,
 	BY_PID,

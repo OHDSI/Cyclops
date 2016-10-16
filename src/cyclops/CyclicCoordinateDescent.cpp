@@ -16,9 +16,13 @@
 #include <set>
 #include <list>
 
+//#include "Rcpp.h"
+
 #include "CyclicCoordinateDescent.h"
 #include "Iterators.h"
 #include "Timing.h"
+
+#include "priors/CovariatePrior.h"
 
 namespace bsccs {
 
@@ -32,16 +36,16 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error
 		) : privateModelSpecifics(nullptr), modelSpecifics(specifics), jointPrior(prior),
-		 hXI(reader), hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
+		 hXI(reader), // hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
 		 logger(_logger), error(_error) {
 	N = hXI.getNumberOfPatients();
 	K = hXI.getNumberOfRows();
 	J = hXI.getNumberOfColumns();
 
 // 	hXI = reader;
-	hY = hXI.getYVector(); // TODO Delegate all data to ModelSpecifics
+	// hY = hXI.getYVector(); // TODO Delegate all data to ModelSpecifics
 //	hOffs = reader->getOffsetVector();
-	hPid = hXI.getPidVector();
+	// hPid = hXI.getPidVector();
 
 	conditionId = hXI.getConditionId();
 
@@ -67,7 +71,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 	  modelSpecifics(*privateModelSpecifics),
       jointPrior(copy.jointPrior), // swallow
       hXI(copy.hXI), // swallow
-	  hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
+// 	  hXBeta(modelSpecifics.getXBeta()), hXBetaSave(modelSpecifics.getXBetaSave()), // TODO Remove
 // 	  jointPrior(priors::JointPriorPtr(copy.jointPrior->clone())), // deep copy
 	  logger(copy.logger), error(copy.error) {
 
@@ -75,8 +79,8 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 	K = hXI.getNumberOfRows();
 	J = hXI.getNumberOfColumns();
 
-	hY = hXI.getYVector(); // TODO Delegate all data to ModelSpecifics
-	hPid = hXI.getPidVector();
+	// hY = hXI.getYVector(); // TODO Delegate all data to ModelSpecifics
+	// hPid = hXI.getPidVector();
 
 	conditionId = hXI.getConditionId();
 
@@ -170,8 +174,8 @@ void CyclicCoordinateDescent::init(bool offset) {
 	hDelta.resize(J, static_cast<double>(initialBound));
 	hBeta.resize(J, static_cast<double>(0.0));
 
-	hXBeta.resize(K, static_cast<double>(0.0));
-	hXBetaSave.resize(K, static_cast<double>(0.0));
+// 	hXBeta.resize(K, static_cast<double>(0.0));
+// 	hXBetaSave.resize(K, static_cast<double>(0.0));
 
 	fixBeta.resize(J, false);
 	hWeights.resize(0);
@@ -192,10 +196,12 @@ void CyclicCoordinateDescent::init(bool offset) {
 
 	modelSpecifics.initialize(N, K, J, &hXI, NULL, NULL, NULL,
 			NULL, NULL,
-			hPid, NULL,
-			hXBeta.data(), NULL,
+			NULL, // hPid,
 			NULL,
-			hY
+			NULL, NULL,
+			NULL,
+			NULL
+		//	hY
 			);
 }
 
@@ -434,17 +440,7 @@ double CyclicCoordinateDescent::getLogPrior(void) {
 
 double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
 	if (convergenceType == GRADIENT) {
-		double criterion = 0;
-		if (useCrossValidation) {
-			for (int i = 0; i < K; i++) {
-				criterion += hXBeta[i] * hY[i] * hWeights[i];
-			}
-		} else {
-			for (int i = 0; i < K; i++) {
-				criterion += hXBeta[i] * hY[i];
-			}
-		}
-		return static_cast<double> (criterion);
+	    return modelSpecifics.getGradientObjective(useCrossValidation);
 	} else
 	if (convergenceType == MITTAL) {
 		return getLogLikelihood();
@@ -462,6 +458,10 @@ double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
 double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 	double sumAbsDiffs = 0;
 	double sumAbsResiduals = 0;
+
+	auto& hXBeta = modelSpecifics.getXBeta();
+	auto& hXBetaSave = modelSpecifics.getXBetaSave();
+
 	if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
 			sumAbsDiffs += abs(hXBeta[i] - hXBetaSave[i]) * hWeights[i];
@@ -477,7 +477,8 @@ double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 }
 
 void CyclicCoordinateDescent::saveXBeta(void) {
-	memcpy(hXBetaSave.data(), hXBeta.data(), K * sizeof(double));
+    modelSpecifics.saveXBeta();
+	// memcpy(hXBetaSave.data(), hXBeta.data(), K * sizeof(double));
 }
 
 void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
@@ -486,6 +487,8 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const auto convergenceType = arguments.convergenceType;
 	const auto epsilon = arguments.tolerance;
 	const int maxCount = arguments.maxBoundCount;
+	const auto algorthmType = arguments.algorithmType;
+	const int qnQ = 0;
 
 	initialBound = arguments.initialBound;
 
@@ -495,7 +498,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
  	    if (arguments.useKktSwindle && jointPrior->getSupportsKktSwindle()) {
 		    kktSwindle(arguments);
 	    } else {
-		    findMode(maxIterations, convergenceType, epsilon);
+		    findMode(maxIterations, convergenceType, epsilon, algorthmType, qnQ);
 	    }
 	    ++count;
 
@@ -517,13 +520,14 @@ typedef std::tuple<
 
 template <typename Iterator>
 void CyclicCoordinateDescent::findMode(Iterator begin, Iterator end,
-		const int maxIterations, const int convergenceType, const double epsilon) {
+		const int maxIterations, const int convergenceType, const double epsilon,
+		const AlgorithmType algorithmType, const int qnQ) {
 
 	std::fill(fixBeta.begin(), fixBeta.end(), true);
  	std::for_each(begin, end, [this] (ScoreTuple& tuple) {
  		fixBeta[std::get<0>(tuple)] = false;
  	});
-	findMode(maxIterations, convergenceType, epsilon);
+	findMode(maxIterations, convergenceType, epsilon, algorithmType, qnQ);
     // fixBeta is no longer valid
 }
 
@@ -532,6 +536,8 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 	const auto maxIterations = arguments.maxIterations;
 	const auto convergenceType = arguments.convergenceType;
 	const auto epsilon = arguments.tolerance;
+	const auto algorithmType = arguments.algorithmType;
+	const int qnQ = 0;
 
 	// Make sure internal state is up-to-date
 	checkAllLazyFlags();
@@ -587,7 +593,8 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 		if (activeSet.size() > 0) { // find initial mode
 			auto start = bsccs::chrono::steady_clock::now();
 
-			findMode(begin(activeSet), end(activeSet), maxIterations, convergenceType, epsilon);
+			findMode(begin(activeSet), end(activeSet), maxIterations, convergenceType, epsilon,
+            algorithmType, qnQ);
 
 			auto end = bsccs::chrono::steady_clock::now();
 			bsccs::chrono::duration<double> elapsed_seconds = end-start;
@@ -727,11 +734,82 @@ void CyclicCoordinateDescent::computeKktConditions(Container& scoreSet) {
     });
 }
 
+bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
+                                                      double epsilon,
+                                                      int maxIterations,
+                                                      int iteration,
+                                                      double* lastObjFunc) {
+    bool done = false;
+    double conv;
+    bool illconditioned = false;
+    if (convergenceType < ZHANG_OLES) {
+        double thisObjFunc = getObjectiveFunction(convergenceType);
+        if (thisObjFunc != thisObjFunc) {
+            std::ostringstream stream;
+            stream << "\nWarning: problem is ill-conditioned for this choice of\n"
+                   << "\t prior (" << jointPrior->getDescription() << ") or\n"
+                   << "\t initial bounding box (" << initialBound << ")\n"
+                   << "Enforcing convergence!";
+            logger->writeLine(stream);
+            conv = 0.0;
+            illconditioned = true;
+        } else {
+            conv = computeConvergenceCriterion(thisObjFunc, *lastObjFunc);
+        }
+        *lastObjFunc = thisObjFunc;
+    } else { // ZHANG_OLES
+        conv = computeZhangOlesConvergenceCriterion();
+        saveXBeta();
+    } // Necessary to call getObjFxn or computeZO before getLogLikelihood,
+    // since these copy over XBeta
+
+    double thisLogLikelihood = getLogLikelihood();
+    double thisLogPrior = getLogPrior();
+    double thisLogPost = thisLogLikelihood + thisLogPrior;
+
+    std::ostringstream stream;
+    if (noiseLevel > QUIET) {
+        // stream << "\n";
+        // printVector(&hBeta[0], J, stream);
+        stream << "\n";
+        stream << "log post: " << thisLogPost
+               << " (" << thisLogLikelihood << " + " << thisLogPrior
+               << ") (iter:" << iteration << ", conv: " << conv << ") ";
+    }
+
+    if (epsilon > 0 && conv < epsilon) {
+        if (illconditioned) {
+            lastReturnFlag = ILLCONDITIONED;
+        } else {
+            if (noiseLevel > SILENT) {
+                stream << "Reached convergence criterion";
+            }
+            lastReturnFlag = SUCCESS;
+        }
+        done = true;
+    } else if (iteration == maxIterations) {
+        if (noiseLevel > SILENT) {
+            stream << "Reached maximum iterations";
+        }
+        done = true;
+        lastReturnFlag = MAX_ITERATIONS;
+    }
+    if (noiseLevel > QUIET) {
+        logger->writeLine(stream);
+    }
+
+    logger->yield();
+
+    return done;
+}
+
 
 void CyclicCoordinateDescent::findMode(
 		int maxIterations,
 		int convergenceType,
-		double epsilon
+		double epsilon,
+		AlgorithmType algorithmType,
+		int qnQ
 		) {
 
 	if (convergenceType < GRADIENT || convergenceType > ZHANG_OLES) {
@@ -772,95 +850,260 @@ void CyclicCoordinateDescent::findMode(
 		saveXBeta();
 	}
 
-	while (!done) {
+	std::vector<double> allDelta;
+    double lastLogPosterior; // = getLogLikelihood() + getLogPrior();
 
-		// Do a complete cycle
-		for(int index = 0; index < J; index++) {
-
-			if (!fixBeta[index]) {
-				double delta = ccdUpdateBeta(index);
-				delta = applyBounds(delta, index);
-				if (delta != 0.0) {
-					sufficientStatisticsKnown = false;
-					updateSufficientStatistics(delta, index);
-				}
-			}
-
-			if ( (noiseLevel > QUIET) && ((index+1) % 100 == 0)) {
-			    std::ostringstream stream;
-			    stream << "Finished variable " << (index+1);
-			    logger->writeLine(stream);
-			}
-
-		}
-
-		iteration++;
-//		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
-		bool checkConvergence = true; // Check after each complete cycle
-
-		if (checkConvergence) {
-
-			double conv;
-			bool illconditioned = false;
-			if (convergenceType < ZHANG_OLES) {
- 				double thisObjFunc = getObjectiveFunction(convergenceType);
-				if (thisObjFunc != thisObjFunc) {
-				    std::ostringstream stream;
-					stream << "\nWarning: problem is ill-conditioned for this choice of\n"
-                           << "\t prior (" << jointPrior->getDescription() << ") or\n"
-                           << "\t initial bounding box (" << initialBound << ")\n"
-                           << "Enforcing convergence!";
-					logger->writeLine(stream);
-					conv = 0.0;
-					illconditioned = true;
-				} else {
-					conv = computeConvergenceCriterion(thisObjFunc, lastObjFunc);
-				}
-				lastObjFunc = thisObjFunc;
-			} else { // ZHANG_OLES
-				conv = computeZhangOlesConvergenceCriterion();
-				saveXBeta();
-			} // Necessary to call getObjFxn or computeZO before getLogLikelihood,
-			  // since these copy over XBeta
-
-			double thisLogLikelihood = getLogLikelihood();
-			double thisLogPrior = getLogPrior();
-			double thisLogPost = thisLogLikelihood + thisLogPrior;
-
-            std::ostringstream stream;
-			if (noiseLevel > QUIET) {
-			    stream << "\n";
-				printVector(&hBeta[0], J, stream);
-				stream << "\n";
-				stream << "log post: " << thisLogPost
-						<< " (" << thisLogLikelihood << " + " << thisLogPrior
-						<< ") (iter:" << iteration << ") ";
-			}
-
-			if (epsilon > 0 && conv < epsilon) {
-				if (illconditioned) {
-					lastReturnFlag = ILLCONDITIONED;
-				} else {
-					if (noiseLevel > SILENT) {
-						stream << "Reached convergence criterion";
-					}
-					lastReturnFlag = SUCCESS;
-				}
-				done = true;
-			} else if (iteration == maxIterations) {
-				if (noiseLevel > SILENT) {
-					stream << "Reached maximum iterations";
-				}
-				done = true;
-				lastReturnFlag = MAX_ITERATIONS;
-			}
-			if (noiseLevel > QUIET) {
-                logger->writeLine(stream);
-			}
-
-			logger->yield();
-		}
+	if (algorithmType == AlgorithmType::MM) {
+	    // Any further initialization necessary?
+	    if (allDelta.size() < J) allDelta.resize(J);
+	    lastLogPosterior = -10E10;
 	}
+
+	auto cycle = [this,&iteration,algorithmType,&allDelta] {
+
+	    auto log = [this](const int index) {
+	        if ( (noiseLevel > QUIET) && ((index+1) % 100 == 0)) {
+	            std::ostringstream stream;
+	            stream << "Finished variable " << (index+1);
+	            logger->writeLine(stream);
+	        }
+	    };
+
+	    if (algorithmType == AlgorithmType::MM) {
+            // Do delta computation in parallel
+            mmUpdateAllBeta(allDelta, fixBeta);
+
+	        // for (auto x : allDelta) {
+	        //     std::cerr << " " << x;
+	        // }
+	        // std::cerr << "\n";
+	        //Rcpp::stop("A");
+
+            for (int index = 0; index < J; ++index) {
+                if (!fixBeta[index]) {
+                    double delta = allDelta[index];
+                   // delta = applyBounds(delta, index);
+                    if (delta != 0.0) {
+                        sufficientStatisticsKnown = false;
+                        hBeta[index] += delta;
+
+                        // std::cerr << " : " << index << " " << hBeta[index] << " " << delta;
+
+                    // modelSpecifics.axpyXBeta(delta, index); // TODO Do single spMV
+                    }
+                }
+            }
+            // std::cerr << "\n";
+
+            // sufficientStatisticsKnown = false;
+            modelSpecifics.computeXBeta(hBeta.data(), useCrossValidation);
+            computeRemainingStatistics(true, 0);
+            sufficientStatisticsKnown = true;
+
+
+	    } else {
+
+	        // Do a complete cycle in serial
+	        for(int index = 0; index < J; index++) {
+
+	            if (!fixBeta[index]) {
+	                double delta = ccdUpdateBeta(index);
+	                delta = applyBounds(delta, index);
+	                if (delta != 0.0) {
+	                    sufficientStatisticsKnown = false;
+	                    updateSufficientStatistics(delta, index);
+	                }
+	            }
+
+	            log(index);
+	        }
+	    }
+	    iteration++;
+	};
+
+	auto check = [this,&iteration,&lastObjFunc,algorithmType,&lastLogPosterior,
+               convergenceType, epsilon,maxIterations] {
+                   bool done = false;
+                   //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
+                   bool checkConvergence = true; // Check after each complete cycle
+
+
+                   if (algorithmType == AlgorithmType::MM) {
+                       double thisLogPosterior = getLogLikelihood() + getLogPrior();
+                       if (iteration > 1) {
+                           double change = thisLogPosterior - lastLogPosterior;
+                           //Rcpp::Rcout << lastLogPosterior << " -> " << thisLogPosterior << " == " << change;
+
+                           if (change < 0.0) {
+                               std::ostringstream stream;
+                               stream << "Non-increasing!";
+                               error->throwError(stream);
+                           }
+                       }
+                       lastLogPosterior = thisLogPosterior;
+                   }
+
+
+                   if (checkConvergence) {
+                       done = performCheckConvergence(convergenceType, epsilon, maxIterations, iteration, &lastObjFunc);
+                   }
+
+
+                   return done;
+               };
+
+	qnQ = 0;
+
+	if (qnQ > 0) { // Use quasi-Newton
+	    using namespace Eigen;
+
+	    Eigen::MatrixXd secantsU(J, qnQ);
+	    Eigen::MatrixXd secantsV(J, qnQ);
+
+	    VectorXd x(J);
+
+	    // Fill initial secants
+	    int countU = 0;
+	    int countV = 0;
+
+	    for (int q = 0; q < qnQ; ++q) {
+	        x = Map<const VectorXd>(hBeta.data(), J); // Make copy
+
+	        cycle();
+	        done = check();
+	        if (done) break;
+
+	        if (countU == 0) { // First time through
+	            secantsU.col(countU) = Map<const VectorXd>(hBeta.data(), J) - x;
+	            ++countU;
+	        } else if (countU < qnQ - 1) { // Middle case
+	            secantsU.col(countU) = Map<const VectorXd>(hBeta.data(), J) - x;
+	            secantsV.col(countV) = secantsU.col(countU);
+	            ++countU;
+	            ++countV;
+	        } else { // Last time through
+	            secantsV.col(countV) = Map<const VectorXd>(hBeta.data(), J) - x;
+	            ++countV;
+	        }
+	    }
+
+	    // 	    std::cerr << secantsU << std::endl << std::endl;
+	    // 	    std::cerr << secantsV << std::endl;
+
+	    int newestSecant = qnQ - 1;
+	    int previousSecant = newestSecant - 1;
+
+	    while (!done) {
+
+	        // 2 cycles for each QN step
+	        x = Map<const VectorXd>(hBeta.data(), J); // Make copy
+	        cycle();
+	        // 	        done = check();
+	        // 	        if (done) {
+	        // 	            std::cerr << "break A" << std::endl;
+	        // 	            break;
+	        // 	        }
+
+	        secantsU.col(newestSecant) = Map<const VectorXd>(hBeta.data(), J) - x;
+
+	        VectorXd Fx = Map<const VectorXd>(hBeta.data(), J); // TODO Can remove?
+
+	        x = Map<const VectorXd>(hBeta.data(), J);
+	        cycle();
+	        // 	        done = check();
+	        // 	        if (done) {
+	        // 	            std::cerr << "break B" << std::endl;
+	        // 	            break;
+	        // 	        }
+
+	        secantsV.col(newestSecant) = Map<const VectorXd>(hBeta.data(), J) - x;
+
+	        // Do QN step here
+
+	        //             MatrixXd UtU = secantsU.transpose() * secantsU;
+	        //             MatrixXd UtV = secantsU.transpose() * secantsV;
+	        //             MatrixXd M = UtU - UtV;
+
+	        auto M = secantsU.transpose() * (secantsU - secantsV);
+
+	        auto Minv = M.inverse();
+
+	        auto A = secantsU.transpose() * secantsU.col(newestSecant);
+	        auto B = Minv * A;
+	        auto C = secantsV * B;
+
+	        // MatrixXd A = secantsV * Minv;
+	        // MatrixXd B = A * secantsU.transpose();
+	        // MatrixXd C = B * secantsV.col(newestSecant); // - (x - Fx)
+	        // MatrixXd C = B * secantsU.col(newestSecant); // TODO Can remove?
+
+	        //     VectorXd xqn = Map<const VectorXd>(hBeta.data(), J) + C;
+	        VectorXd xqn = Fx + C; // TODO Can remove?
+
+	        // Save CCD solution
+	        x = Map<const VectorXd>(hBeta.data(), J);
+	        double ccdObjective = getLogLikelihood() + getLogPrior();
+	        // double savedLastObjFunc = lastObjFunc;
+
+	        Map<VectorXd>(hBeta.data(), J) = xqn; // Set QN solution
+	        //             for (int j = 0; j < J; ++j) {
+	        //                 if (sign(hBeta[j]) == xqn(j)) {
+	        //                     hBeta[j] = xqn(j);
+	        //                 } else {
+	        //                     hBeta[j] = 0.0;
+	        //                 }
+	        //             }
+
+	        // xBetaKnown = false;
+	        // checkAllLazyFlags();
+	        modelSpecifics.computeXBeta(hBeta.data(), useCrossValidation);
+
+
+	        //             done = check();
+	        //             if (done) {
+	        //                 std::cerr << "break B" << std::endl;
+	        //                 break;
+	        //             }
+
+	        double qnObjective = getLogLikelihood() + getLogPrior();
+
+	        if (ccdObjective > qnObjective) { // Revert
+	            Map<VectorXd>(hBeta.data(), J) = x; // Set CCD solution
+	            modelSpecifics.computeXBeta(hBeta.data(), useCrossValidation);
+	            // xBetaKnown = false;
+	            // checkAllLazyFlags();
+
+	            double ccd2Objective = getLogLikelihood() + getLogPrior();
+
+	            if (ccdObjective != ccd2Objective) {
+	                std::cerr << "Poor revert: " << ccdObjective << " != " << ccd2Objective << " diff: "<< (ccdObjective - ccd2Objective) << std::endl;
+	            }
+	            // lastObjFunc = savedLastObjFunc;
+	            std::cerr << "revert" << std::endl;
+	        } else {
+	            std::cerr << "accept" << std::endl;
+	            //                 done = check();
+	            //                 if (done) {
+	            //                     std::cerr << "break C" << std::endl;
+	            //                     break;
+	            //                 }
+	        }
+
+	        done = check();
+
+	        // lastObjFunc = getLogLikelihood() + getLogPrior();
+
+	        // Get ready for next secant-pair
+	        previousSecant = newestSecant;
+	        newestSecant = (newestSecant + 1) % qnQ;
+	    }
+    } else { // No QN
+        while (!done) {
+            cycle();
+            done = check();
+        }
+    }
+
 	lastIterationCount = iteration;
 	updateCount += 1;
 
@@ -1009,6 +1252,46 @@ void CyclicCoordinateDescent::computeAsymptoticVarianceMatrix(void) {
 // 	cout << varianceMatrix << endl;
 }
 
+void CyclicCoordinateDescent::mmUpdateAllBeta(std::vector<double>& delta,
+                                                const std::vector<bool>& fixedBeta) {
+
+    if (!sufficientStatisticsKnown) {
+        std::ostringstream stream;
+        stream << "Error in state synchronization.";
+        error->throwError(stream);
+    }
+
+    std::vector<priors::GradientHessian> gh(J); // TODO make once
+
+    // computeNumeratorForGradient(index);
+
+    // priors::GradientHessian gh;
+    // computeGradientAndHessian(index, &gh.first, &gh.second);
+
+    modelSpecifics.computeMMGradientAndHessian(gh, fixedBeta,
+                                               useCrossValidation);
+
+    double scale = 1.0; // TODO Tune, somehow?
+
+    for (int j = 0; j < J; ++j) {
+        if (!fixedBeta[j]) {
+            if (gh[j].second < 0.0) {
+                gh[j].first = 0.0;
+                gh[j].second = 0.0;
+                //Rcpp::stop("Bad hessian");
+            }
+
+            gh[j].second /= scale;
+
+            delta[j] = jointPrior->getDelta(gh[j], hBeta, j);
+            // TODO this is only correct when joints are independent across dimensions
+        } else {
+            delta[j] = 0.0;
+        }
+    }
+}
+
+
 double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 
 	if (!sufficientStatisticsKnown) {
@@ -1030,38 +1313,42 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	return jointPrior->getDelta(gh, hBeta, index);
 }
 
-template <class IteratorType>
-void CyclicCoordinateDescent::axpy(double* y, const double alpha, const int index) {
-	IteratorType it(hXI, index);
-	for (; it; ++it) {
-		const int k = it.index();
-		y[k] += alpha * it.value();
-	}
+void CyclicCoordinateDescent::axpyXBeta(const double beta, const int j) {
+    modelSpecifics.axpyXBeta(beta, j);
 }
 
-void CyclicCoordinateDescent::axpyXBeta(const double beta, const int j) {
-	if (beta != static_cast<double>(0.0)) {
-		switch (hXI.getFormatType(j)) {
-		case INDICATOR:
-			axpy < IndicatorIterator > (hXBeta.data(), beta, j);
-			break;
-		case INTERCEPT:
-		    axpy < InterceptIterator > (hXBeta.data(), beta, j);
-		    break;
-		case DENSE:
-			axpy < DenseIterator > (hXBeta.data(), beta, j);
-			break;
-		case SPARSE:
-			axpy < SparseIterator > (hXBeta.data(), beta, j);
-			break;
-		default:
-			// throw error
-			std::ostringstream stream;
-			stream << "Unknown vector type.";
-			error->throwError(stream);
-		}
-	}
-}
+// template <class IteratorType>
+// void CyclicCoordinateDescent::axpy(double* y, const double alpha, const int index) {
+// 	IteratorType it(hXI, index);
+// 	for (; it; ++it) {
+// 		const int k = it.index();
+// 		y[k] += alpha * it.value();
+// 	}
+// }
+//
+// void CyclicCoordinateDescent::axpyXBeta(const double beta, const int j) {
+// 	if (beta != static_cast<double>(0.0)) {
+// 		switch (hXI.getFormatType(j)) {
+// 		case INDICATOR:
+// 			axpy < IndicatorIterator > (hXBeta.data(), beta, j);
+// 			break;
+// 		case INTERCEPT:
+// 		    axpy < InterceptIterator > (hXBeta.data(), beta, j);
+// 		    break;
+// 		case DENSE:
+// 			axpy < DenseIterator > (hXBeta.data(), beta, j);
+// 			break;
+// 		case SPARSE:
+// 			axpy < SparseIterator > (hXBeta.data(), beta, j);
+// 			break;
+// 		default:
+// 			// throw error
+// 			std::ostringstream stream;
+// 			stream << "Unknown vector type.";
+// 			error->throwError(stream);
+// 		}
+// 	}
+// }
 
 void CyclicCoordinateDescent::computeXBeta(void) {
 	// Note: X is current stored in (sparse) column-major format, which is
@@ -1070,7 +1357,7 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 
 	if (setBetaList.empty()) { // Update all
 		// clear X\beta
-		zeroVector(hXBeta.data(), K);
+		modelSpecifics.zeroXBeta();
 		for (int j = 0; j < J; ++j) {
 			axpyXBeta(hBeta[j], j);
 		}

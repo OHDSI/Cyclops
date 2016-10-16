@@ -23,8 +23,8 @@ using std::vector;
 HierarchyGridSearchCrossValidationDriver::HierarchyGridSearchCrossValidationDriver(
 			const CCDArguments& arguments,
 			loggers::ProgressLoggerPtr _logger,
-			loggers::ErrorHandlerPtr _error,			
-			vector<real>* wtsExclude) : GridSearchCrossValidationDriver(
+			loggers::ErrorHandlerPtr _error,
+			vector<double>* wtsExclude) : GridSearchCrossValidationDriver(
 			        arguments,
 					_logger,
 					_error,
@@ -70,7 +70,7 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 
     const auto& arguments = allArguments.crossValidation;
 
-	std::vector<bsccs::real> weights;
+	std::vector<double> weights;
 	std::vector<double> outerPoints;
 	std::vector<double> innerPoints;
 	std::vector<double> outerValues;
@@ -150,7 +150,7 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 			maxPoint = innerPoints[i];
 		}
 	}
-	
+
 	std::ostringstream stream;
 	stream << std::endl;
 	stream << "Maximum predicted log likelihood (" << outerMaxValue << ") found at:" << std::endl;
