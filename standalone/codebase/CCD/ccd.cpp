@@ -66,7 +66,8 @@ int main(int argc, char* argv[]) {
 	bsccs::ProfileInformationMap profileMap;
 	if (arguments.profileCI.size() > 0) {
 		doProfile = true;
-		timeProfile = interface.profileModel(ccd, modelData, arguments.profileCI, profileMap);
+		timeProfile = interface.profileModel(ccd, modelData, arguments.profileCI, profileMap,
+			1 /* threads */);
 	}	
 
 	if (std::find(arguments.outputFormat.begin(),arguments.outputFormat.end(), "estimates")

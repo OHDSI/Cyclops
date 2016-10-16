@@ -33,19 +33,54 @@
 #- curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/development/trigger/e51f720d-c4e7-45df-b042-5d8a362bd7e0/
 #- test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && bash
 #  deploy.sh
+#  - grep '\-g'  /etc/R/Makeconf | sed 's/-g//g' > ~/.R/Makevars # Turn off debug symbols
 
 languague: c
 sudo: false
 
-addons:
-  apt:
-    sources:
-    - r-packages-precise
-    packages:
-    - r-base-dev
-    - r-recommended
-    - texinfo
-    - qpdf
+matrix:
+  include:
+    # gcc default
+    - compiler: gcc
+      addons:
+        apt:
+          sources:
+          - r-packages-precise
+          packages:
+          - r-base-dev
+          - r-recommended
+          - texinfo
+          - qpdf
+    # gcc 6
+    - compiler: gcc
+      addons:
+        apt:
+          sources:
+          - r-packages-precise
+          - ubuntu-toolchain-r-test
+          packages:
+          - r-base-dev
+          - r-recommended
+          - texinfo
+          - qpdf
+          - g++-6
+      before_script:
+        - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
+        - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')      
+        - echo 'CC=gcc-6' > ~/.R/Makevars
+        - echo 'CXX=g++-6' >> ~/.R/Makevars
+        - echo 'CXX1X=g++-6' >> ~/.R/Makevars
+        - echo 'PKG_CXXFLAGS= -std=c++14 -s -g1 -Wno-ignored-attributes -Wno-deprecated-declarations' >> ~/.R/Makevars
+
+#addons:
+#  apt:
+#    sources:
+#    - r-packages-precise
+#    packages:
+#    - r-base-dev
+#    - r-recommended
+#    - texinfo
+#    - qpdf
     
 cache:
   directories:
@@ -79,7 +114,6 @@ install:
   - echo 'R_LIBS=~/Rlib' > .Renviron
   - echo 'options(repos = "http://cran.rstudio.com")' > .Rprofile
   - mkdir -p ~/.R
-  - grep '\-g'  /etc/R/Makeconf | sed 's/-g//g' > ~/.R/Makevars # Turn off debug symbols
   # Build LaTex and pandoc
   - mkdir -p ~/bin
   - wget -q -O - https://github.com/yihui/crandalf/raw/master/inst/scripts/install-texlive | bash
@@ -118,7 +152,7 @@ script:
 after_success:
   - Rscript -e 'covr::codecov()'
   # Rebuild docker container
-  - curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/development/trigger/e51f720d-c4e7-45df-b042-5d8a362bd7e0/
+  - curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/broadsea-methodslibrary/trigger/f0b51cec-4027-4781-9383-4b38b42dd4f5/
   # Rebuild drat repo   
   - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && bash deploy.sh
   

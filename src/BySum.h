@@ -1,9 +1,9 @@
 /**
- * @file IsSorted.h
+ * @file BySum.h
  *
  * This file is part of Cyclops
  *
- * Copyright 2014 Observational Health Data Sciences and Informatics
+ * Copyright 2016 Observational Health Data Sciences and Informatics
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,30 +16,25 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
- * @author Observational Health Data Sciences and Informatics
- * @author Martijn Schuemie
- * @author Marc Suchard
  */
 
-#ifndef __IsSorted_h__
-#define __IsSorted_h__
+#ifndef __BySum_h__
+#define __BySum_h__
 
-#include <Rcpp.h>
 #include <vector>
-#include <cstdint>
+#include <map>
+#include <Rcpp.h>
 
-using namespace Rcpp ;
+using namespace Rcpp;
 
 namespace ohdsi {
 	namespace cyclops {
 
-		struct IsSorted {
+		struct BySum {
 		public:
-			static bool isSorted(const DataFrame& dataFrame,const std::vector<std::string>& indexes,const std::vector<bool>& ascending);
-            static bool isSorted(const List& vectorList, const std::vector<bool>& ascending);
+			static std::map<double, double> bySum(const List &ffValues, const List &ffBins);
 		};
 	}
 }
 
-#endif // __IsSorted_h__
+#endif // __BySum_h__

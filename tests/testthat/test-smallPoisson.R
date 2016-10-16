@@ -26,6 +26,25 @@ test_that("Small Poisson dense regression", {
     expect_equal(confint(cyclopsFitD, c("(Intercept)","outcome3")), confint(cyclopsFitD, c(1,3)))
 })
 
+test_that("Small Poisson fixed beta", {
+    dobson <- data.frame(
+        counts = c(18,17,15,20,10,20,25,13,12),
+        outcome = gl(3,1,9),
+        treatment = gl(3,3)
+    )
+
+    dataPtrD <- createCyclopsData(counts ~ outcome + treatment, data = dobson,
+                                  modelType = "pr")
+
+    cyclopsFitD <- fitCyclopsModel(dataPtrD,
+                                   startingCoefficients = rep(0, 5),
+                                   fixedCoefficients = c(FALSE, TRUE, FALSE, TRUE, FALSE),
+                                   prior = createPrior("none"),
+                                   control = createControl(noiseLevel = "silent"))
+    expect_equivalent(coef(cyclopsFitD)[2], 0)
+    expect_equivalent(coef(cyclopsFitD)[4], 0)
+})
+
 test_that("Parallel confint", {
     library(testthat)
     dobson <- data.frame(

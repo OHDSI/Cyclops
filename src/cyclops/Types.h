@@ -47,10 +47,15 @@
 
 namespace bsccs {
 
-template<typename T, typename ...Args>
-bsccs::unique_ptr<T> make_unique( Args&& ...args ) {
-    return bsccs::unique_ptr<T>( new T( std::forward<Args>(args)... ) );
-}
+#if __cplusplus >= 201402L
+	using std::make_unique; // Use C++14 version
+#else
+	// Emulate 
+	template<typename T, typename ...Args>
+	bsccs::unique_ptr<T> make_unique( Args&& ...args ) {
+    	return bsccs::unique_ptr<T>( new T( std::forward<Args>(args)... ) );
+	}
+#endif
 
 // Internal types
 

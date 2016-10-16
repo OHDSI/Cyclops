@@ -52,6 +52,11 @@ class IndicatorIterator {
 		// Do nothing
 	}
 
+	inline IndicatorIterator(const std::vector<int>* vec, Index max = 0)
+	    : mIndices(vec->data()), mId(0), mEnd(vec->size()) {
+	    // Do nothing
+	}
+
 //	inline IndicatorIterator(const std::vector<int>& vec, Index column, Index max)
 //	: mIndices(vec.data()), mId(0), mEnd(vec.size()) {
 //		// Do nothing
@@ -101,9 +106,14 @@ class SparseIterator {
 		// Do nothing
 	}
 
+	inline SparseIterator(const std::vector<int>* vec, Index max = 0)
+	    : mIndices(vec->data()), mId(0), mEnd(vec->size()) {
+	    // Do nothing
+	}
+
     inline SparseIterator& operator++() { ++mId; return *this; }
 
-    inline const Scalar& value() const {
+    inline const Scalar value() const {
 //    	cerr << "Oh yes!" << endl;
 //    	exit(-1);
     	return mValues[mId]; }
@@ -177,6 +187,11 @@ public:
 		// Do nothing
 	}
 
+	inline CountingIterator(const std::vector<int>* vec, Index end)
+	    : mId(0), mEnd(end) {
+	    // Do nothing
+	}
+
 	inline CountingIterator& operator++() { ++mId; return *this; }
 	inline Index index() const  { return mId; }
 	inline operator bool() const { return (mId < mEnd); }
@@ -220,9 +235,14 @@ class DenseIterator {
 		// Do nothing
 	}
 
+	inline DenseIterator(const std::vector<int>* vec, Index end)
+	    : mId(0), mEnd(end) {
+	    // Do nothing
+	}
+
     inline DenseIterator& operator++() { ++mId; return *this; }
 
-    inline const Scalar& value() const { return mValues[mId]; }
+    inline const Scalar value() const { return mValues[mId]; }
     inline Scalar& valueRef() { return const_cast<Scalar&>(mValues[mId]); }
 
     inline Index index() const { return mId; }
@@ -263,6 +283,11 @@ class InterceptIterator {
 		// Do nothing
 	}
 
+	inline InterceptIterator(const std::vector<int>* vec, Index end)
+	    : mId(0), mEnd(end) {
+	    // Do nothing
+	}
+
     inline InterceptIterator& operator++() { ++mId; return *this; }
 
     inline const int value() const { return 1; }
@@ -295,7 +320,7 @@ class DenseViewIterator {
 
     inline DenseViewIterator& operator++() { ++mId; return *this; }
 
-    inline const Scalar& value() const { return mValues[mId]; }
+    inline const Scalar value() const { return mValues[mId]; }
     inline Scalar& valueRef() { return const_cast<Scalar&>(mValues[mId]); }
 
     inline Index index() const { return mId; }
@@ -402,7 +427,7 @@ public:
 
 private:
 	inline void advance() {
-	    while(groupBy && groupBy.index() < iterator.index()) {
+	    while(groupBy && iterator && groupBy.index() < iterator.index()) {
 	        ++groupBy;
 	    }
 		// while (valid() && iteratorOne.index() != iteratorTwo.index()) {

@@ -1,6 +1,8 @@
 Cyclops
 =======
 
+[![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/Cyclops)](https://CRAN.R-project.org/package=Cyclops)
+
 Introduction
 ============
 
@@ -34,7 +36,7 @@ Cyclops in an R package, with most functionality implemented in C++. Cyclops use
 
 System Requirements
 ===================
-Requires R (version 3.1.0 or higher). Installation on Windows requires [RTools](http://cran.r-project.org/bin/windows/Rtools/).
+Requires R (version 3.1.0 or higher). Installation on Windows requires [RTools]( https://CRAN.R-project.org/bin/windows/Rtools/) (`devtools >= 1.12` required for RTools34, otherwise RTools33 works fine).
 
 Dependencies
 ============
@@ -42,7 +44,7 @@ Dependencies
 
 Getting Started
 ===============
-1. On Windows, make sure [RTools](http://cran.r-project.org/bin/windows/Rtools/) is installed.
+1. On Windows, make sure [RTools](https://CRAN.R-project.org/bin/windows/Rtools/) is installed.
 2. In R, use the following commands to download and install Cyclops:
 
   ```r
@@ -69,7 +71,7 @@ License
 =======
 Cyclops is licensed under Apache License 2.0.   Cyclops contains the TinyThread libray.
 
-The TinyThread library is licensed under the [zlib/libpng](http://www.opensource.org/licenses/zlib-license.php) license as described [here](https://gitorious.org/tinythread/tinythreadpp/source/master:README.txt).
+The TinyThread library is licensed under the [zlib/libpng](https://opensource.org/licenses/Zlib) license as described [here](http://tinythreadpp.bitsnbites.eu).
 
 
 Development

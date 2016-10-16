@@ -4,9 +4,10 @@
 \alias{fitCyclopsModel}
 \title{Fit a Cyclops model}
 \usage{
-fitCyclopsModel(cyclopsData, prior, control, weights = NULL,
-  forceNewObject = FALSE, returnEstimates = TRUE,
-  startingCoefficients = NULL, computeDevice = "native")
+fitCyclopsModel(cyclopsData, prior = createPrior("none"),
+  control = createControl(), weights = NULL, forceNewObject = FALSE,
+  returnEstimates = TRUE, startingCoefficients = NULL,
+  computeDevice = "native", fixedCoefficients = NULL)
 }
 \arguments{
 \item{cyclopsData}{A Cyclops data object}
@@ -24,6 +25,8 @@ fitCyclopsModel(cyclopsData, prior, control, weights = NULL,
 \item{startingCoefficients}{Vector of starting values for optimization}
 
 \item{computeDevice}{String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU}
+
+\item{fixedCoefficients}{Vector of booleans indicating if coefficient should be fix}
 }
 \value{
 A list that contains a Cyclops model fit object pointer and an operation duration

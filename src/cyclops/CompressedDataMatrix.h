@@ -246,6 +246,8 @@ public:
 
 	size_t getNumberOfEntries(int column) const;
 
+	size_t getNumberOfNonZeroEntries(int column) const;
+
 	int* getCompressedColumnVector(int column) const; // TODO depreciate
 	std::vector<int>& getCompressedColumnVectorSTL(int column) const;
 

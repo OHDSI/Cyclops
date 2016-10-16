@@ -39,7 +39,7 @@ namespace bsccs {
 	        rightWeight =  weight;
 	    }
 	}
-	}; // namespace details
+    } // namespace details
 
 	double FusedLaplacePrior::getDelta(const GradientHessian gh, const DoubleVector& betaVector, const int index) const {
 	    const auto t1 = getLambda();

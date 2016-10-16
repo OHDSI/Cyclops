@@ -30,7 +30,7 @@ using namespace Rcpp;
 // [[Rcpp::export(".isSorted")]]
 bool isSorted(const DataFrame& dataFrame,const std::vector<std::string>& indexes,const std::vector<bool>& ascending){
 
-  using namespace ohdsi::cohortMethod;
+  using namespace ohdsi::cyclops;
 
   return IsSorted::isSorted(dataFrame,indexes,ascending);
 }
@@ -38,7 +38,7 @@ bool isSorted(const DataFrame& dataFrame,const std::vector<std::string>& indexes
 // [[Rcpp::export(".isSortedVectorList")]]
 bool isSortedVectorList(const List& vectorList,const std::vector<bool>& ascending){
 
-  using namespace ohdsi::cohortMethod;
+  using namespace ohdsi::cyclops;
 
   return IsSorted::isSorted(vectorList, ascending);
 }

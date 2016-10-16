@@ -11,7 +11,6 @@ OBJECTS.cyclops = \
     cyclops/CompressedDataMatrix.o \
     cyclops/CyclicCoordinateDescent.o \
     cyclops/ModelData.o \
-    cyclops/SqlModelData.o \
     cyclops/Timer.o
 
 OBJECTS.drivers = \
@@ -43,12 +42,14 @@ OBJECTS.thread = \
     tinythread/tinythread.o
 
 OBJECTS.R = \
+	BySum.o \
     IsSorted.o \
     RcppExports.o \
     RcppModelData.o \
     RcppCyclopsInterface.o \
     RcppGpuInterface.o \
-    RcppIsSorted.o
+    RcppIsSorted.o \
+    RcppBySum.o
 
 OBJECTS = $(OBJECTS.cyclops) $(OBJECTS.drivers) \
           $(OBJECTS.engine) $(OBJECTS.utils) \

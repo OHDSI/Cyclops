@@ -109,6 +109,15 @@ size_t CompressedDataMatrix::getNumberOfEntries(int column) const {
 	return allColumns[column]->getNumberOfEntries();
 }
 
+size_t CompressedDataMatrix::getNumberOfNonZeroEntries(int column) const {
+    const auto type = getFormatType(column);
+    if (type == INTERCEPT || type == DENSE) {
+        return getNumberOfRows();
+    } else {
+        return getNumberOfEntries(column);
+    }
+}
+
 int* CompressedDataMatrix::getCompressedColumnVector(int column) const {
 	return allColumns[column]->getColumns();
 }
@@ -274,7 +283,7 @@ void CompressedDataColumn::convertColumnToSparse(void) {
 	if (formatType == DENSE) {
 // 		fprintf(stderr, "Format not yet support.\n");
 // 		exit(-1);
-        throw new std::invalid_argument("DENSE");        
+        throw new std::invalid_argument("DENSE");
 	}
 
 	if (data == NULL) {
@@ -296,7 +305,7 @@ void CompressedDataColumn::convertColumnToDense(int nRows) {
     RealVectorPtr oldData = data;
 //	data = new real_vector();
     data = make_shared<RealVector>();
-	
+
 	data->resize(nRows, static_cast<real>(0));
 
 	int* indicators = getColumns();
@@ -307,12 +316,12 @@ void CompressedDataColumn::convertColumnToDense(int nRows) {
 //		cerr << " " << k;
 //		nonzero++;
 
-		real value = (formatType == SPARSE) ? oldData->at(i) : 1.0;	
+		real value = (formatType == SPARSE) ? oldData->at(i) : 1.0;
 
 		data->at(k) = value;
 	}
 	formatType = DENSE;
-//	delete columns; 
+//	delete columns;
     columns = NULL;
 //	if (oldData) {
 //		delete oldData;

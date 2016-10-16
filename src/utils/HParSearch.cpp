@@ -8,8 +8,17 @@
 #include <limits>
 #include <iostream>
 
-#include <Eigen/Core>
+#pragma GCC diagnostic push
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
+#pragma GCC diagnostic ignored "-Wpragmas"
+#endif
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
+#pragma GCC diagnostic ignored "-Wignored-attributes" // To keep C++14 quiet
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#include <Eigen/Dense>
 #include <Eigen/LU>
+#pragma GCC diagnostic pop
+
 //#include "tnt_array2d.h"
 //#include "tnt_array2d_utils.h"
 //#include "jama_lu.h"
@@ -19,7 +28,7 @@
 #include "HParSearch.h"
 
 //observations weighted by inverse stddev
-QuadrCoefs QuadrLogFit( const map<double,UniModalSearch::MS> & y_by_x ) 
+QuadrCoefs QuadrLogFit( const map<double,UniModalSearch::MS> & y_by_x )
 {
     unsigned n = y_by_x.size();
 
@@ -67,14 +76,14 @@ pair<bool,double> UniModalSearch::step() //recommend: do/not next step, and the 
     pair<bool,double> ret(true,0);
     switch( y_by_x.size() ) {
     case 0: ret.second = 1; break;
-    case 1: 
+    case 1:
         if (y_by_x.begin()->first < m_first_cut)
             ret.second = y_by_x.begin()->first * m_stdstep;
         else
             ret.second = y_by_x.begin()->first / m_stdstep;
             //we divide here because step with more penalty is safer numerically
-        break; 
-    case 2: 
+        break;
+    case 2:
         if( y_by_x.begin()->second.m > y_by_x.rbegin()->second.m )
             ret.second = y_by_x.begin()->first / m_stdstep;
         else
@@ -151,10 +160,10 @@ void main() {
     y_by_x[ 2.002884e-05 ] = -183.208;
     QuadrCoefs c = QuadrLogFit( y_by_x );
     //R results:
-    // (Intercept)     logvar2      logvar 
-    // -171.030466   -1.186039  -12.662184 
+    // (Intercept)     logvar2      logvar
+    // -171.030466   -1.186039  -12.662184
     cout<<"c0="<<c.c0<<"  c1="<<c.c1<<"  c2="<<c.c2<<endl;
-    
+
     UniModalSearch s;
     for( map<double,double>::const_iterator itr=y_by_x.begin(); itr!=y_by_x.end(); itr++ )
         s.tried( itr->first, itr->second );
