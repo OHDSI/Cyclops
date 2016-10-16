@@ -93,6 +93,13 @@ std::vector<std::string> cyclopsGetUseOffsetNames() {
 	return names;
 }
 
+// [[Rcpp::export(.cyclopsGetComputeDevice)]]
+std::string cyclopsGetComputeDevice(SEXP inRcppCcdInterface) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    return interface->getArguments().computeDevice.name;
+}
+
 // [[Rcpp::export(.cyclopsSetBeta)]]
 void cyclopsSetBeta(SEXP inRcppCcdInterface, const std::vector<double>& beta) {
     using namespace bsccs;
@@ -266,7 +273,7 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 		bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps,
 		const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance,
         bool useKKTSwindle, int swindleMultipler, const std::string& selectorType, double initialBound,
-        int maxBoundCount
+        int maxBoundCount, const std::string& algorithm
 		) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
@@ -279,6 +286,9 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
     args.modeFinding.swindleMultipler = swindleMultipler;
     args.modeFinding.initialBound = initialBound;
     args.modeFinding.maxBoundCount = maxBoundCount;
+    if (algorithm == "mm") {
+        args.modeFinding.algorithmType = AlgorithmType::MM;
+    }
 
 	// Cross validation control
 	args.crossValidation.useAutoSearchCV = useAutoSearch;
@@ -402,15 +412,16 @@ List cyclopsLogModel(SEXP inRcppCcdInterface) {
 }
 
 // [[Rcpp::export(".cyclopsInitializeModel")]]
-List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, bool computeMLE = false) {
+List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, const std::string& computeDevice,
+                            bool computeMLE = false) {
 	using namespace bsccs;
 
 	XPtr<RcppModelData> rcppModelData(inModelData);
 	XPtr<RcppCcdInterface> interface(
 		new RcppCcdInterface(*rcppModelData));
 
-//	interface->getArguments().modelName = "ls"; // TODO Pass as argument
 	interface->getArguments().modelName = modelType;
+	interface->getArguments().computeDevice.name = computeDevice;
 	if (computeMLE) {
 		interface->getArguments().computeMLE = true;
 	}
@@ -699,16 +710,15 @@ void RcppCcdInterface::initializeModelImpl(
 	// Parse type of model
 	ModelType modelType = parseModelType(arguments.modelName);
 
-	*model = AbstractModelSpecifics::factory(modelType, **modelData);
+	const std::string& deviceName = arguments.computeDevice.name;
+	DeviceType deviceType = (deviceName == "native")
+	    ? DeviceType::CPU : DeviceType::GPU;
+
+	*model = AbstractModelSpecifics::factory(modelType, **modelData,
+                                          deviceType, deviceName);
 	if (*model == nullptr) {
 		handleError("Invalid model type.");
 	}
-
- #ifdef CUDA
- 	if (arguments.useGPU) {
- 		*ccd = new GPUCyclicCoordinateDescent(arguments.deviceNumber, *reader, **model);
- 	} else {
- #endif
 
  // Hierarchy management
 // 	HierarchyReader* hierarchyData;
@@ -776,10 +786,6 @@ void RcppCcdInterface::initializeModelImpl(
          **modelData /* TODO Change to ref */,
          //bsccs::shared_ptr<ModelData>(*modelData),
          **model, prior, logger, error);
-
- #ifdef CUDA
- 	}
- #endif
 
  	(*ccd)->setNoiseLevel(arguments.noiseLevel);
 

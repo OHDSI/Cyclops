@@ -21,6 +21,10 @@
     .Call('Cyclops_cyclopsGetUseOffsetNames', PACKAGE = 'Cyclops')
 }
 
+.cyclopsGetComputeDevice <- function(inRcppCcdInterface) {
+    .Call('Cyclops_cyclopsGetComputeDevice', PACKAGE = 'Cyclops', inRcppCcdInterface)
+}
+
 .cyclopsSetBeta <- function(inRcppCcdInterface, beta) {
     invisible(.Call('Cyclops_cyclopsSetBeta', PACKAGE = 'Cyclops', inRcppCcdInterface, beta))
 }
@@ -61,8 +65,8 @@
     .Call('Cyclops_cyclopsPredictModel', PACKAGE = 'Cyclops', inRcppCcdInterface)
 }
 
-.cyclopsSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount) {
-    invisible(.Call('Cyclops_cyclopsSetControl', PACKAGE = 'Cyclops', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount))
+.cyclopsSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm) {
+    invisible(.Call('Cyclops_cyclopsSetControl', PACKAGE = 'Cyclops', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm))
 }
 
 .cyclopsRunCrossValidation <- function(inRcppCcdInterface) {
@@ -77,8 +81,8 @@
     .Call('Cyclops_cyclopsLogModel', PACKAGE = 'Cyclops', inRcppCcdInterface)
 }
 
-.cyclopsInitializeModel <- function(inModelData, modelType, computeMLE = FALSE) {
-    .Call('Cyclops_cyclopsInitializeModel', PACKAGE = 'Cyclops', inModelData, modelType, computeMLE)
+.cyclopsInitializeModel <- function(inModelData, modelType, computeDevice, computeMLE = FALSE) {
+    .Call('Cyclops_cyclopsInitializeModel', PACKAGE = 'Cyclops', inModelData, modelType, computeDevice, computeMLE)
 }
 
 .isSorted <- function(dataFrame, indexes, ascending) {
