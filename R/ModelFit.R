@@ -32,6 +32,7 @@
 #' @param returnEstimates Logical, return regression coefficient estimates in Cyclops model fit object
 #' @param startingCoefficients Vector of starting values for optimization
 #' @param fixedCoefficients Vector of booleans indicating if coefficient should be fix
+#' @param computeDevice String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU
 #'
 #' @return
 #' A list that contains a Cyclops model fit object pointer and an operation duration
@@ -68,7 +69,8 @@ fitCyclopsModel <- function(cyclopsData,
                             forceNewObject = FALSE,
                             returnEstimates = TRUE,
                             startingCoefficients = NULL,
-                            fixedCoefficients = NULL) {
+                            fixedCoefficients = NULL,
+							computeDevice = "native") {
 
     # Delegate to ABRIDGE if selected
     if (inherits(prior, "cyclopsAbridgePrior")) {
@@ -88,7 +90,7 @@ fitCyclopsModel <- function(cyclopsData,
         stop("Data are incompletely loaded")
     }
 
-    .checkInterface(cyclopsData, forceNewObject)
+    .checkInterface(cyclopsData, computeDevice =  computeDevice, forceNewObject = forceNewObject)
 
     # Set up prior
     stopifnot(inherits(prior, "cyclopsPrior"))
@@ -269,18 +271,24 @@ fitCyclopsModel <- function(cyclopsData,
     }
 }
 
-.checkInterface <- function(x, forceNewObject = FALSE, testOnly = FALSE) {
+.checkInterface <- function(x, computeDevice = "native", forceNewObject = FALSE, testOnly = FALSE) {
     if (forceNewObject
         || is.null(x$cyclopsInterfacePtr)
         || class(x$cyclopsInterfacePtr) != "externalptr"
         || .isRcppPtrNull(x$cyclopsInterfacePtr)
+        || .cyclopsGetComputeDevice(x$cyclopsInterfacePtr) != computeDevice
     ) {
 
         if (testOnly == TRUE) {
             stop("Interface object is not initialized")
         }
+
+        if (computeDevice != "native") {
+            stopifnot(computeDevice %in% listOpenCLDevices())
+        }
+
         # Build interface
-        interface <- .cyclopsInitializeModel(x$cyclopsDataPtr, modelType = x$modelType, computeMLE = TRUE)
+        interface <- .cyclopsInitializeModel(x$cyclopsDataPtr, modelType = x$modelType, computeDevice, computeMLE = TRUE)
         # TODO Check for errors
         assign("cyclopsInterfacePtr", interface$interface, x)
     }
@@ -417,6 +425,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              the average number of rows per stratum is smaller than the number of strata.
 #' @param initialBound          Numeric: Starting trust-region size
 #' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
+#' @param algorithm             String: name of fitting algorithm to employ; default is `ccd`
 #'
 #' Todo: Describe convegence types
 #'
@@ -445,7 +454,8 @@ createControl <- function(maxIterations = 1000,
                           tuneSwindle = 10,
                           selectorType = "auto",
                           initialBound = 2.0,
-                          maxBoundCount = 5) {
+                          maxBoundCount = 5,
+                          algorithm = "ccd") {
     validCVNames = c("grid", "auto")
     stopifnot(cvType %in% validCVNames)
 
@@ -454,6 +464,9 @@ createControl <- function(maxIterations = 1000,
     stopifnot(threads == -1 || threads >= 1)
     stopifnot(startingVariance == -1 || startingVariance > 0)
     stopifnot(selectorType %in% c("auto","byPid", "byRow"))
+    
+    validAlgorithmNames = c("ccd", "mm")
+    stopifnot(algorithm %in% validAlgorithmNames)
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -474,7 +487,8 @@ createControl <- function(maxIterations = 1000,
                    tuneSwindle = tuneSwindle,
                    selectorType = selectorType,
                    initialBound = initialBound,
-                   maxBoundCount = maxBoundCount),
+                   maxBoundCount = maxBoundCount,
+                   algorithm = algorithm),
               class = "cyclopsControl")
 }
 
@@ -605,7 +619,9 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
                            control$lowerLimit, control$upperLimit, control$gridSteps,
                            control$noiseLevel, control$threads, control$seed, control$resetCoefficients,
                            control$startingVariance, control$useKKTSwindle, control$tuneSwindle,
-                           control$selectorType, control$initialBound, control$maxBoundCount)
+                           control$selectorType, control$initialBound, control$maxBoundCount,
+                           control$algorithm
+                          )
     }
 }
 

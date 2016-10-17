@@ -14,8 +14,8 @@
 #include <stdexcept>
 #include <thread>
 
-#define CYCLOPS_DEBUG_TIMING
-#define CYCLOPS_DEBUG_TIMING_LOW
+// #define CYCLOPS_DEBUG_TIMING
+// #define CYCLOPS_DEBUG_TIMING_LOW
 
 #ifdef CYCLOPS_DEBUG_TIMING
     #include "Timing.h"
