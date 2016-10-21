@@ -44,7 +44,12 @@ public:
 //     typedef bsccs::shared_ptr<CompressedDataColumn> Ptr;
     typedef bsccs::unique_ptr<CompressedDataColumn> Ptr;
 
-	CompressedDataColumn(VectorPtr<int> colIndices, VectorPtr<RealType> colData, FormatType colFormat,
+    // typedef std::vector<int> IntVector;
+    typedef typename std::vector<RealType> RealVector;
+    // typedef bsccs::shared_ptr<IntVector> IntVectorPtr;
+    typedef bsccs::shared_ptr<RealVector> RealVectorPtr;
+
+	CompressedDataColumn(IntVectorPtr colIndices, RealVectorPtr colData, FormatType colFormat,
 			std::string colName = "", IdType nName = 0, bool sPtrs = false) :
 		 columns(colIndices), data(colData), formatType(colFormat), stringName(colName),
 		 numericalName(nName), sharedPtrs(sPtrs) {
@@ -69,26 +74,26 @@ public:
 		return static_cast<RealType*>(data->data());
 	}
 
-	const Vector<int>& getColumnsVector() const {
+	const IntVector& getColumnsVector() const {
 		return *columns;
 	}
 
-	const Vector<RealType>& getDataVector() const {
+	const RealVector& getDataVector() const {
 		return *data;
 	}
 
-	Vector<int>& getColumnsVector() {
+	IntVector& getColumnsVector() {
 		return *columns;
 	}
 
-	Vector<RealType>& getDataVector() {
+	RealVector& getDataVector() {
 		return *data;
 	}
 
-	Vector<RealType> copyData() {
+	RealVector copyData() {
 // 		std::vector copy(std::begin(data), std::end(data));
 // 		return std::move(copy);
-		return Vector<RealType>(*data);
+		return RealVector(*data);
 	}
 
 	template <typename Function>
@@ -187,7 +192,7 @@ public:
 
 	void convertColumnToSparse(void);
 
-	void fill(Vector<RealType>& values, int nRows) const;
+	void fill(RealVector& values, int nRows) const;
 
 	void printColumn(int nRows);
 
@@ -214,16 +219,18 @@ public:
 		return i->getNumericalLabel() < j->getNumericalLabel();
 	}
 
-	void addToColumnVector(Vector<int> addEntries);
-	void removeFromColumnVector(Vector<int> removeEntries);
+	void addToColumnVector(IntVector addEntries);
+
+	void removeFromColumnVector(IntVector removeEntries);
+
 private:
 	// Disable copy-constructors and assignment constructors
 	CompressedDataColumn();
 	CompressedDataColumn(const CompressedDataColumn&);
 	CompressedDataColumn& operator = (const CompressedDataColumn&);
 
-	VectorPtr<int> columns;
-	VectorPtr<RealType> data;
+	IntVectorPtr columns;
+	RealVectorPtr data;
 
 	FormatType formatType;
 	mutable std::string stringName;
@@ -235,6 +242,11 @@ template <typename RealType>
 class CompressedDataMatrix {
 
 public:
+
+    // typedef typename CompressedDataColumn<RealType>::IntVector IntVector;
+    typedef typename CompressedDataColumn<RealType>::RealVector RealVector;
+    // typedef typename CompressedDataColumn<RealType>::IntVectorPtr IntVectorPtr;
+    typedef typename CompressedDataColumn<RealType>::RealVectorPtr RealVectorPtr;
 
 	CompressedDataMatrix();
 
@@ -255,12 +267,13 @@ public:
 	int* getCompressedColumnVector(int column) const; // TODO depreciate
 	std::vector<int>& getCompressedColumnVectorSTL(int column) const;
 
-	void removeFromColumnVector(int column, Vector<int> removeEntries) const;
-	void addToColumnVector(int column, Vector<int> addEntries) const;
+	void removeFromColumnVector(int column, IntVector removeEntries) const;
+
+	void addToColumnVector(int column, IntVector addEntries) const;
 
  	RealType* getDataVector(int column) const;  // TODO depreciate
 
-	Vector<RealType>& getDataVectorSTL(int column) const;
+	RealVector& getDataVectorSTL(int column) const;
 
 	void getDataRow(int row, RealType* x) const;
 	bsccs::shared_ptr<CompressedDataMatrix> transpose() const;
@@ -306,17 +319,17 @@ public:
 			FormatType colFormat) {
 		if (colFormat == DENSE) {
 // 			real_vector* r = new real_vector(real_begin, real_end);
-            VectorPtr<RealType> r = make_shared<Vector<RealType>>(real_begin, real_end);
+            RealVectorPtr r = make_shared<RealVector>(real_begin, real_end);
 			push_back(NULL, r, DENSE);
 		} else if (colFormat == SPARSE) {
 // 			real_vector* r = new real_vector(real_begin, real_end);
-            VectorPtr<RealType> r = make_shared<Vector<RealType>>(real_begin, real_end);
+            RealVectorPtr r = make_shared<RealVector>(real_begin, real_end);
 // 			int_vector* i = new int_vector(int_begin, int_end);
-            VectorPtr<int> i = make_shared<Vector<int>>(int_begin, int_end);
+            IntVectorPtr i = make_shared<IntVector>(int_begin, int_end);
 			push_back(i, r, SPARSE);
 		} else if (colFormat == INDICATOR) {
 // 			int_vector* i = new int_vector(int_begin, int_end);
-            VectorPtr<int> i = make_shared<Vector<int>>(int_begin, int_end);
+            IntVectorPtr i = make_shared<IntVector>(int_begin, int_end);
 			push_back(i, NULL, INDICATOR);
 		} else if (colFormat == INTERCEPT) {
 			push_back(NULL, NULL, INTERCEPT);
@@ -331,14 +344,14 @@ public:
 			const RealVectorItr real_begin, const RealVectorItr real_end,
 			FormatType colFormat) {
 		if (colFormat == DENSE) {
-            VectorPtr<RealType> r = make_shared<Vector<RealType>>(real_begin, real_end);
+            RealVectorPtr r = make_shared<RealVector>(real_begin, real_end);
 			replace(index, NULL, r, DENSE);
 		} else if (colFormat == SPARSE) {
-            VectorPtr<RealType> r = make_shared<Vector<RealType>>(real_begin, real_end);
-            VectorPtr<int> i = make_shared<Vector<int>>(int_begin, int_end);
+            RealVectorPtr r = make_shared<RealVector>(real_begin, real_end);
+            IntVectorPtr i = make_shared<IntVector>(int_begin, int_end);
 			replace(index, i, r, SPARSE);
 		} else if (colFormat == INDICATOR) {
-            VectorPtr<int> i = make_shared<Vector<int>>(int_begin, int_end);
+            IntVectorPtr i = make_shared<IntVector>(int_begin, int_end);
 			replace(index, i, NULL, INDICATOR);
 		} else if (colFormat == INTERCEPT) {
 			replace(index, NULL, NULL, INTERCEPT);
@@ -349,18 +362,14 @@ public:
 
 	void push_back(FormatType colFormat) {
 		if (colFormat == DENSE) {
-// 			real_vector* r = new real_vector();
-            VectorPtr<RealType> r = make_shared<Vector<RealType>>();
+            RealVectorPtr r = make_shared<RealVector>();
 			push_back(NULL, r, DENSE);
 		} else if (colFormat == SPARSE) {
-// 			real_vector* r = new real_vector();
-			VectorPtr<RealType> r = make_shared<Vector<RealType>>();
-// 			int_vector* i = new int_vector();
-			VectorPtr<int> i = make_shared<Vector<int>>();
+			RealVectorPtr r = make_shared<RealVector>();
+			IntVectorPtr i = make_shared<IntVector>();
 			push_back(i, r, SPARSE);
 		} else if (colFormat == INDICATOR) {
-// 			int_vector* i = new int_vector();
-            VectorPtr<int> i = make_shared<Vector<int>>();
+            IntVectorPtr i = make_shared<IntVector>();
 			push_back(i, NULL, INDICATOR);
 		} else if (colFormat == INTERCEPT) {
 			push_back(NULL, NULL, INTERCEPT);
@@ -371,8 +380,7 @@ public:
 
 	void insert(size_t position, FormatType colFormat) {
 	    if (colFormat == DENSE) {
-//	        real_vector* r = new real_vector();
-            VectorPtr<RealType> r = make_shared<Vector<RealType>>();
+            RealVectorPtr r = make_shared<RealVector>();
 	        insert(allColumns.begin() + position, NULL, r, DENSE);
 	    } else if (colFormat == INTERCEPT) {
 	        insert(allColumns.begin() + position, NULL, NULL, INTERCEPT);
@@ -399,10 +407,8 @@ public:
 		nCols--;
 	}
 
-	void push_back(VectorPtr<int> colIndices, VectorPtr<RealType> colData, FormatType colFormat) {
+	void push_back(IntVectorPtr colIndices, RealVectorPtr colData, FormatType colFormat) {
 	    allColumns.push_back(
-	        //		new CompressedDataColumn
-	        // 		make_shared<CompressedDataColumn>
 	        make_unique<CompressedDataColumn<RealType>>
 	            (colIndices, colData, colFormat)
 	    );
@@ -416,14 +422,14 @@ public:
 protected:
 
     typedef typename CompressedDataColumn<RealType>::Ptr CompressedDataColumnPtr;
-    typedef Vector<CompressedDataColumnPtr>  DataColumnVector;
+    typedef std::vector<CompressedDataColumnPtr>  DataColumnVector;
 
-	void replace(int position, VectorPtr<int> colIndices, VectorPtr<RealType> colData, FormatType colFormat) {
+	void replace(int position, IntVectorPtr colIndices, RealVectorPtr colData, FormatType colFormat) {
 		auto newColumn = make_unique<CompressedDataColumn<RealType>>(colIndices, colData, colFormat);
 	    allColumns[position] = std::move(newColumn);
 	}
 
-	void insert(typename DataColumnVector::iterator position, VectorPtr<int> colIndices, VectorPtr<RealType> colData, FormatType colFormat) {
+	void insert(typename DataColumnVector::iterator position, IntVectorPtr colIndices, RealVectorPtr colData, FormatType colFormat) {
 	    allColumns.insert(position,
 // 	    new CompressedDataColumn
 // 	    make_shared<CompressedDataColumn>

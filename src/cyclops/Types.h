@@ -65,11 +65,14 @@ namespace bsccs {
 // 	typedef float real;
 // #endif
 
-template <typename T>
-using Vector = std::vector<T>;
+// template <typename T>
+// using Vector = std::vector<T>;
 
-template <typename T>
-using VectorPtr = bsccs::shared_ptr<Vector<T> >;
+// template <typename T>
+// using VectorPtr = bsccs::shared_ptr<Vector<T> >;
+
+typedef std::vector<int> IntVector;
+typedef bsccs::shared_ptr<IntVector> IntVectorPtr;
 
 typedef int64_t IdType;
 typedef double Fp64Type;

@@ -679,7 +679,7 @@ RcppModelData<RealType>::RcppModelData(
 				) {
 	if (useTimeAsOffset) {
 	    // offset
-        VectorPtr<RealType> r = make_shared<Vector<RealType>>();
+        RealVectorPtr r = make_shared<RealVector>();
         X.push_back(NULL, r, DENSE);
         r->assign(offs.begin(), offs.end()); // TODO Should not be necessary with shared_ptr
         setHasOffsetCovariate(true);
@@ -698,9 +698,9 @@ RcppModelData<RealType>::RcppModelData(
 					DENSE);
 			X.getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
 		} else {
-			std::vector<VectorPtr<RealType>> covariates;
+			std::vector<RealVectorPtr> covariates;
 			for (int c = 0; c < numTypes; ++c) {
-				covariates.push_back(make_shared<Vector<RealType>>(y.size(), 0));
+				covariates.push_back(make_shared<RealVector>(y.size(), 0));
 			}
 			size_t offset = i * y.size();
 			for (size_t k = 0; k < y.size(); ++k) {
@@ -732,11 +732,11 @@ RcppModelData<RealType>::RcppModelData(
     				SPARSE);
             X.getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
         } else {
-			std::vector<VectorPtr<int>> covariatesI;
-			std::vector<VectorPtr<RealType>> covariatesX;
+			std::vector<IntVectorPtr> covariatesI;
+			std::vector<RealVectorPtr> covariatesX;
 			for (int c = 0; c < numTypes; ++c) {
-				covariatesI.push_back(make_shared<Vector<int>>());
-				covariatesX.push_back(make_shared<Vector<RealType>>());
+				covariatesI.push_back(make_shared<IntVector>());
+				covariatesX.push_back(make_shared<RealVector>());
 				X.push_back(covariatesI[c], covariatesX[c], SPARSE);
 				X.getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
 			}
@@ -765,9 +765,9 @@ RcppModelData<RealType>::RcppModelData(
 			    	INDICATOR);
             X.getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
         } else {
-			std::vector<VectorPtr<int>> covariates;
+			std::vector<IntVectorPtr> covariates;
 			for (int c = 0; c < numTypes; ++c) {
-				covariates.push_back(make_shared<Vector<int>>());
+				covariates.push_back(make_shared<IntVector>());
 				X.push_back(covariates[c], NULL, INDICATOR);
 				X.getColumn(getNumberOfColumns() - 1).add_label(getNumberOfColumns() - (getHasOffsetCovariate() ? 1 : 0));
 			}

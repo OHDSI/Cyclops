@@ -90,7 +90,7 @@ namespace helper {
     }
 
     template <typename RealType>
-    auto getRangeAllNumerators(const int length, const Vector<RealType>& y, const Vector<RealType>& xBeta, const Vector<RealType>& weight) ->
+    auto getRangeAllNumerators(const int length, const std::vector<RealType>& y, const std::vector<RealType>& xBeta, const std::vector<RealType>& weight) ->
     		boost::iterator_range<
     			boost::zip_iterator<
     				boost::tuple<
@@ -118,7 +118,7 @@ namespace helper {
     }
 
     template <typename RealType>
-    auto getRangeAllDenominators(const int length, const Vector<RealType>& denominator, const Vector<RealType>& weight) ->
+    auto getRangeAllDenominators(const int length, const std::vector<RealType>& denominator, const std::vector<RealType>& weight) ->
     		boost::iterator_range<
     			boost::zip_iterator<
     				boost::tuple<
@@ -144,7 +144,7 @@ namespace helper {
     }
 
 // // TODO Remove code duplication with immediately above
-//     auto getRangeAllDenominators(const int length, const real* denominator, const Vector<RealType>& weight) ->
+//     auto getRangeAllDenominators(const int length, const real* denominator, const std::vector<RealType>& weight) ->
 //     		boost::iterator_range<
 //     			boost::zip_iterator<
 //     				boost::tuple<
@@ -170,8 +170,8 @@ namespace helper {
 //     }
 
     template <typename RealType>
-    auto getRangeAllPredictiveLikelihood(const int length, const Vector<RealType>& y, const Vector<RealType>& xBeta,
-            const Vector<RealType>& denominator, const double* weights, const int* pid, std::true_type) ->
+    auto getRangeAllPredictiveLikelihood(const int length, const std::vector<RealType>& y, const std::vector<RealType>& xBeta,
+            const std::vector<RealType>& denominator, const double* weights, const int* pid, std::true_type) ->
 
         boost::iterator_range<
             boost::zip_iterator<
@@ -203,8 +203,8 @@ namespace helper {
     }
 
     template <typename RealType>
-    auto getRangeAllPredictiveLikelihood(const int length, const Vector<RealType>& y, const Vector<RealType>& xBeta,
-            const Vector<RealType>& denominator, const double* weights, const int* pid, std::false_type) ->
+    auto getRangeAllPredictiveLikelihood(const int length, const std::vector<RealType>& y, const std::vector<RealType>& xBeta,
+            const std::vector<RealType>& denominator, const double* weights, const int* pid, std::false_type) ->
 
         boost::iterator_range<
             boost::zip_iterator<
@@ -248,9 +248,9 @@ namespace independent {
     template <typename RealType>
     auto getRangeX(const CompressedDataMatrix<RealType>& mat, const int index,
 //    			ExpXBetaType& expXBeta, XBetaType& xBeta, YType& y, DenominatorType& denominator, WeightType& weight,
-  					Vector<RealType>& expXBeta, Vector<RealType>& xBeta, const Vector<RealType>& y,
-  					Vector<RealType>& denominator,
-  					Vector<RealType>& weight,
+  					std::vector<RealType>& expXBeta, std::vector<RealType>& xBeta, const std::vector<RealType>& y,
+  					std::vector<RealType>& denominator,
+  					std::vector<RealType>& weight,
   					typename IndicatorIterator<RealType>::tag) ->
 
  			boost::iterator_range<
@@ -336,9 +336,9 @@ namespace independent {
     template <typename RealType>
     auto getRangeX(const CompressedDataMatrix<RealType>& mat, const int index,
 //    			ExpXBetaType& expXBeta, XBetaType& xBeta, YType& y, DenominatorType& denominator, WeightType& weight,
-  					Vector<RealType>& expXBeta, Vector<RealType>& xBeta, const Vector<RealType>& y,
-  					Vector<RealType>& denominator,
-  					Vector<RealType>& weight,
+  					std::vector<RealType>& expXBeta, std::vector<RealType>& xBeta, const std::vector<RealType>& y,
+  					std::vector<RealType>& denominator,
+  					std::vector<RealType>& weight,
   					typename SparseIterator<RealType>::tag) ->
 
  			boost::iterator_range<
@@ -428,9 +428,9 @@ namespace independent {
     template <typename RealType>
     auto getRangeX(const CompressedDataMatrix<RealType>& mat, const int index,
 //    			ExpXBetaType& expXBeta, XBetaType& xBeta, YType& y, DenominatorType& denominator, WeightType& weight,
-  					Vector<RealType>& expXBeta, Vector<RealType>& xBeta, const Vector<RealType>& y,
-  					Vector<RealType>& denominator,
-  					Vector<RealType>& weight,
+  					std::vector<RealType>& expXBeta, std::vector<RealType>& xBeta, const std::vector<RealType>& y,
+  					std::vector<RealType>& denominator,
+  					std::vector<RealType>& weight,
   					typename DenseIterator<RealType>::tag) ->
 
  			boost::iterator_range<
@@ -478,9 +478,9 @@ namespace independent {
     template <typename RealType>
     auto getRangeX(const CompressedDataMatrix<RealType>& mat, const int index,
 //    			ExpXBetaType& expXBeta, XBetaType& xBeta, YType& y, DenominatorType& denominator, WeightType& weight,
-  					Vector<RealType>& expXBeta, Vector<RealType>& xBeta, const Vector<RealType>& y,
-  					Vector<RealType>& denominator,
-  					Vector<RealType>& weight,
+  					std::vector<RealType>& expXBeta, std::vector<RealType>& xBeta, const std::vector<RealType>& y,
+  					std::vector<RealType>& denominator,
+  					std::vector<RealType>& weight,
   					typename InterceptIterator<RealType>::tag) ->
 
  			boost::iterator_range<
@@ -525,9 +525,9 @@ namespace independent {
 
     template <typename RealType>
     auto getRangeXBeta(const CompressedDataMatrix<RealType>& mat, const int index,
-  					Vector<RealType>& expXBeta, Vector<RealType>& xBeta,
-  					Vector<RealType>& denominator,
-  					const Vector<RealType>& offs,
+  					std::vector<RealType>& expXBeta, std::vector<RealType>& xBeta,
+  					std::vector<RealType>& denominator,
+  					const std::vector<RealType>& offs,
   					typename IndicatorIterator<RealType>::tag) ->
 
  			boost::iterator_range<
@@ -599,9 +599,9 @@ namespace independent {
 
     template <typename RealType>
     auto getRangeXBeta(const CompressedDataMatrix<RealType>& mat, const int index,
-  					Vector<RealType>& expXBeta, Vector<RealType>& xBeta,
-  					Vector<RealType>& denominator,
-  					const Vector<RealType>& offs,
+  					std::vector<RealType>& expXBeta, std::vector<RealType>& xBeta,
+  					std::vector<RealType>& denominator,
+  					const std::vector<RealType>& offs,
   					typename SparseIterator<RealType>::tag) ->
 
  			boost::iterator_range<
@@ -678,9 +678,9 @@ namespace independent {
 
     template <typename RealType>
     auto getRangeXBeta(const CompressedDataMatrix<RealType>& mat, const int index,
-  					Vector<RealType>& expXBeta, Vector<RealType>& xBeta,
-  					Vector<RealType>& denominator,
-  					const Vector<RealType>& offs,
+  					std::vector<RealType>& expXBeta, std::vector<RealType>& xBeta,
+  					std::vector<RealType>& denominator,
+  					const std::vector<RealType>& offs,
   					typename DenseIterator<RealType>::tag) ->
 
  			boost::iterator_range<
@@ -810,7 +810,7 @@ namespace dependent {
     template <typename RealType>
     auto getRangeX(const CompressedDataMatrix<RealType>& mat, const int index,
                 //ExpXBeta&
-                Vector<RealType>&
+                std::vector<RealType>&
                 expXBeta, typename DenseIterator<RealType>::tag) ->
             boost::iterator_range<
                 boost::zip_iterator<
@@ -838,7 +838,7 @@ namespace dependent {
     template <typename RealType>
     auto getRangeX(const CompressedDataMatrix<RealType>& mat, const int index,
                 //ExpXBeta&
-                Vector<RealType>&
+                std::vector<RealType>&
                 expXBeta, typename SparseIterator<RealType>::tag) ->
             boost::iterator_range<
                 boost::zip_iterator<
@@ -872,7 +872,7 @@ namespace dependent {
     template <typename RealType>
     auto getRangeX(const CompressedDataMatrix<RealType>& mat, const int index,
                 //ExpXBeta&
-                Vector<RealType>&
+                std::vector<RealType>&
                 expXBeta, typename IndicatorIterator<RealType>::tag) ->
             boost::iterator_range<
                 boost::zip_iterator<
@@ -903,7 +903,7 @@ namespace dependent {
     template <typename RealType>
     auto getRangeX(const CompressedDataMatrix<RealType>& mat, const int index,
                 //ExpXBeta&
-                Vector<RealType>&
+                std::vector<RealType>&
                 expXBeta, typename InterceptIterator<RealType>::tag) ->
             boost::iterator_range<
                 boost::zip_iterator<

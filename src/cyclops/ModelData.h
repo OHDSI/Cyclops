@@ -43,6 +43,7 @@ namespace bsccs {
 class AbstractModelData {
     // fp-agnostic interface to model data
 public:
+
     virtual PrecisionType getPrecisionType() const = 0;
 
     virtual void clean() const = 0;
@@ -59,9 +60,9 @@ public:
 
     virtual ModelType getModelType() const = 0;
 
-    virtual const Vector<int>& getPidVectorRef() const = 0;
+    virtual const IntVector& getPidVectorRef() const = 0;
 
-    virtual Vector<int> getPidVectorSTL() const = 0;
+    virtual IntVector getPidVectorSTL() const = 0;
 
     virtual size_t getNumberOfPatients() const = 0;
 
@@ -85,19 +86,19 @@ public:
 
     virtual int getNumberOfTypes() const = 0;
 
-    virtual Vector<double> univariableCorrelation(
-            const Vector<long>& covariateLabel) const = 0;
+    virtual std::vector<double> univariableCorrelation(
+            const std::vector<long>& covariateLabel) const = 0;
 
     virtual void sumByPid(
-            Vector<double>& result, const IdType covariate, const int power) const = 0;
+            std::vector<double>& result, const IdType covariate, const int power) const = 0;
 
     virtual void sumByGroup(
-            Vector<double>& result, const IdType covariate, const IdType groupBy,
+            std::vector<double>& result, const IdType covariate, const IdType groupBy,
             const int power = 1) const = 0;
 
     virtual double sum(const IdType covariate, const int power) const = 0;
 
-    virtual Vector<double> normalizeCovariates(NormalizationType normalizationType) = 0;
+    virtual std::vector<double> normalizeCovariates(NormalizationType normalizationType) = 0;
 
     virtual void setHasInterceptCovariate(bool hasIntercept) = 0;
 
@@ -162,6 +163,9 @@ template <typename RealType>
 class ModelData : public AbstractModelData {
 public:
 //	ModelData();
+
+    typedef typename CompressedDataColumn<RealType>::RealVector RealVector;
+    typedef typename CompressedDataColumn<RealType>::RealVectorPtr RealVectorPtr;
 
     size_t getNumberOfColumns() const { return X.getNumberOfColumns(); }
 
@@ -282,33 +286,33 @@ public:
 //	map<int, IdType> getDrugNameMap();
 	size_t getNumberOfPatients() const;
 	const std::string getConditionId() const;
-	Vector<int> getPidVectorSTL() const;
+	IntVector getPidVectorSTL() const;
 
-	const Vector<RealType>& getZVectorRef() const {
+	const RealVector& getZVectorRef() const {
 		return z;
 	}
 
-	const Vector<RealType>& getTimeVectorRef() const {
+	const RealVector& getTimeVectorRef() const {
 		return offs;
 	}
 
-	const Vector<RealType>& getYVectorRef() const {
+	const RealVector& getYVectorRef() const {
 		return y;
 	}
 
-	const Vector<int>& getPidVectorRef() const { // Not const because PIDs can get renumbered
+	const IntVector& getPidVectorRef() const { // Not const because PIDs can get renumbered
 		return pid;
 	}
 
-	Vector<RealType>& getZVectorRef() {
+	RealVector& getZVectorRef() {
 		return z;
 	}
 
-    Vector<RealType>& getYVectorRef() {
+    RealVector& getYVectorRef() {
 		return y;
 	}
 
-	Vector<int>& getPidVectorRef() { // Not const because PIDs can get renumbered
+	IntVector& getPidVectorRef() { // Not const because PIDs can get renumbered
 		return pid;
 	}
 
@@ -374,7 +378,7 @@ public:
 
     void moveTimeToCovariate(bool takeLog);
 
-    Vector<double> normalizeCovariates(const NormalizationType type);
+    std::vector<double> normalizeCovariates(const NormalizationType type);
 
 	const std::string& getRowLabel(const size_t i) const {
 		if (i >= labels.size()) {
@@ -513,7 +517,7 @@ public:
 	};
 
 
-	Vector<double> univariableCorrelation(const Vector<long>& covariateLabel) const {
+	std::vector<double> univariableCorrelation(const std::vector<long>& covariateLabel) const {
 
 	    const double Ey1 = reduce(-1, FirstPower()) / getNumberOfRows();
 	    const double Ey2 = reduce(-1, SecondPower()) / getNumberOfRows();
@@ -573,7 +577,7 @@ public:
 protected:
 
     template <typename T, typename F>
-    void binaryReductionByGroup(T& out, const size_t reductionIndex, const Vector<int>& groups, F func) const {
+    void binaryReductionByGroup(T& out, const size_t reductionIndex, const std::vector<int>& groups, F func) const {
         switch (X.getFormatType(reductionIndex)) {
         case INDICATOR :
             binaryReductionByGroup<IndicatorIterator<RealType>>(out, reductionIndex, groups, func);
@@ -592,7 +596,7 @@ protected:
     }
 
     template <typename IteratorType, typename T, typename F>
-    void binaryReductionByGroup(T& out, const size_t reductionIndex, const Vector<int>& groups, F func) const {
+    void binaryReductionByGroup(T& out, const size_t reductionIndex, const std::vector<int>& groups, F func) const {
         IteratorType it(X, reductionIndex);
 
         for (; it; ++it) {
@@ -685,11 +689,11 @@ protected:
 	bool hasInterceptCovariate;
 	bool isFinalized;
 
-	Vector<int> pid;
-	Vector<RealType> y;
-	Vector<RealType> z; // TODO Remove
-	Vector<RealType> offs; // TODO Rename to 'time'
-	Vector<int> nevents; // TODO Where are these used?
+	IntVector pid;
+	RealVector y;
+	RealVector z; // TODO Remove
+	RealVector offs; // TODO Rename to 'time'
+	IntVector nevents; // TODO Where are these used?
 	std::string conditionId;
 	std::vector<std::string> labels; // TODO Change back to 'long'
 

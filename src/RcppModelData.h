@@ -21,6 +21,9 @@ template <typename RealType>
 class RcppModelData : public ModelData<RealType> {
 public:
 
+    typedef typename CompressedDataColumn<RealType>::RealVector RealVector;
+    typedef typename CompressedDataColumn<RealType>::RealVectorPtr RealVectorPtr;
+
     using ModelData<RealType>::X;
     // using ModelData<RealType>::getFormatType;
     using ModelData<RealType>::y;

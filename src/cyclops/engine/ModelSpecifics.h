@@ -178,7 +178,7 @@ template <class BaseModel, typename RealType>
 class ModelSpecifics : public AbstractModelSpecifics, BaseModel {
 public:
 
-    typedef Vector<RealType> RealVector;
+    typedef typename CompressedDataMatrix<RealType>::RealVector RealVector;
 
 	ModelSpecifics(const ModelData<RealType>& input);
 
@@ -194,9 +194,9 @@ public:
 
 	AbstractModelSpecifics* clone() const;
 
-	virtual const Vector<double> getXBeta();
+	virtual const std::vector<double> getXBeta();
 
-	virtual const Vector<double> getXBetaSave();
+	virtual const std::vector<double> getXBetaSave();
 
 	virtual void saveXBeta();
 

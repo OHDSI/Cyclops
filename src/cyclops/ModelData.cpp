@@ -50,13 +50,13 @@ size_t ModelData<RealType>::getColumnIndex(const IdType covariate) const {
 
 template <typename RealType>
 void ModelData<RealType>::moveTimeToCovariate(bool takeLog) {
-    X.push_back(NULL, make_shared<Vector<RealType>>(offs.begin(), offs.end()), DENSE); // TODO Remove copy?
+    X.push_back(NULL, make_shared<RealVector>(offs.begin(), offs.end()), DENSE); // TODO Remove copy?
 }
 
 namespace { // anonymous
 
 template <typename RealType>
-void copyAssign(Vector<RealType>& destination, const Vector<double>& source) {
+void copyAssign(std::vector<RealType>& destination, const std::vector<double>& source) {
     if (destination.size() != source.size()) {
         destination.resize(source.size());
     }
@@ -481,8 +481,8 @@ size_t ModelData<RealType>::append(
 }
 
 template <typename RealType>
-Vector<double> ModelData<RealType>::normalizeCovariates(const NormalizationType type) {
-    Vector<double> normalizations;
+std::vector<double> ModelData<RealType>::normalizeCovariates(const NormalizationType type) {
+    std::vector<double> normalizations;
     normalizations.reserve(getNumberOfColumns());
 
     const auto nRows = getNumberOfRows();
@@ -597,7 +597,7 @@ const int*  ModelData<RealType>::getPidVector() const { // TODO deprecated
 // }
 
 template <typename RealType>
-Vector<int> ModelData<RealType>::getPidVectorSTL() const {
+IntVector ModelData<RealType>::getPidVectorSTL() const {
     if (pid.size() == 0) {
         std::vector<int> tPid(getNumberOfRows());
         std::iota (std::begin(tPid), std::end(tPid), 0);
@@ -678,7 +678,7 @@ double ModelData<RealType>::getSquaredNorm() const {
 	if (hasInterceptCovariate) ++startIndex;
 	if (hasOffsetCovariate) ++startIndex;
 
-	Vector<double> squaredNorm;
+	std::vector<double> squaredNorm;
 
 	for (size_t index = startIndex; index < getNumberOfColumns(); ++index) {
 		squaredNorm.push_back(X.getColumn(index).squaredSumColumn(getNumberOfRows()));

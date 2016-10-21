@@ -145,7 +145,8 @@ RealType* CompressedDataMatrix<RealType>::getDataVector(int column) const {
 }
 
 template <typename RealType>
-Vector<RealType>& CompressedDataMatrix<RealType>::getDataVectorSTL(int column) const {
+typename CompressedDataMatrix<RealType>::RealVector&
+CompressedDataMatrix<RealType>::getDataVectorSTL(int column) const {
 	return allColumns[column]->getDataVector();
 }
 
@@ -155,7 +156,7 @@ FormatType CompressedDataMatrix<RealType>::getFormatType(int column) const {
 }
 
 template <typename RealType>
-void CompressedDataColumn<RealType>::fill(Vector<RealType>& values, int nRows) const {
+void CompressedDataColumn<RealType>::fill(RealVector& values, int nRows) const {
 	values.resize(nRows);
 	if (formatType == DENSE) {
 			values.assign(data->begin(), data->end());
@@ -239,12 +240,12 @@ CompressedDataMatrix<RealType>::transpose() const {
 
 // TODO Fix massive copying
 template <typename RealType>
-void CompressedDataMatrix<RealType>::addToColumnVector(int column, Vector<int> addEntries) const{
+void CompressedDataMatrix<RealType>::addToColumnVector(int column, IntVector addEntries) const{
 	allColumns[column]->addToColumnVector(addEntries);
 }
 
 template <typename RealType>
-void CompressedDataMatrix<RealType>::removeFromColumnVector(int column, Vector<int> removeEntries) const{
+void CompressedDataMatrix<RealType>::removeFromColumnVector(int column, IntVector removeEntries) const{
 	allColumns[column]->removeFromColumnVector(removeEntries);
 }
 
@@ -283,7 +284,7 @@ void CompressedDataMatrix<RealType>::setNumberOfColumns(int nColumns) { // TODO 
 
 template <typename RealType>
 RealType CompressedDataColumn<RealType>::sumColumn(int nRows) { // TODO Depricate
-	Vector<RealType> values;
+	RealVector values;
 	fill(values, nRows);
 	return std::accumulate(values.begin(), values.end(), static_cast<RealType>(0.0));
 }
@@ -306,14 +307,11 @@ void CompressedDataColumn<RealType>::convertColumnToSparse(void) {
 		return;
 	}
 	if (formatType == DENSE) {
-// 		fprintf(stderr, "Format not yet support.\n");
-// 		exit(-1);
         throw new std::invalid_argument("DENSE");
 	}
 
 	if (data == NULL) {
-//		data = new real_vector();
-        data = make_shared<Vector<RealType>>();
+        data = make_shared<RealVector>();
 	}
 
 	const RealType value = static_cast<RealType>(1);
@@ -327,10 +325,8 @@ void CompressedDataColumn<RealType>::convertColumnToDense(int nRows) {
 		return;
 	}
 
-//	real_vector* oldData = data;
-    VectorPtr<RealType> oldData = data;
-//	data = new real_vector();
-    data = make_shared<Vector<RealType>>();
+    RealVectorPtr oldData = data;
+    data = make_shared<RealVector>();
 
 	data->resize(nRows, static_cast<RealType>(0));
 
@@ -356,12 +352,12 @@ void CompressedDataColumn<RealType>::convertColumnToDense(int nRows) {
 
 // TODO Fix massive copying
 template <typename RealType>
-void CompressedDataColumn<RealType>::addToColumnVector(Vector<int> addEntries){
+void CompressedDataColumn<RealType>::addToColumnVector(IntVector addEntries){
 	int lastit = 0;
 
 	for(int i = 0; i < (int)addEntries.size(); i++)
 	{
-		Vector<int>::iterator it = columns->begin() + lastit;
+		IntVector::iterator it = columns->begin() + lastit;
         for(; it != columns->end(); it++){
     		if(*it > addEntries[i]){
                 break;
@@ -373,10 +369,10 @@ void CompressedDataColumn<RealType>::addToColumnVector(Vector<int> addEntries){
 }
 
 template <typename RealType>
-void CompressedDataColumn<RealType>::removeFromColumnVector(Vector<int> removeEntries){
+void CompressedDataColumn<RealType>::removeFromColumnVector(IntVector removeEntries){
 	int lastit = 0;
-	Vector<int>::iterator it1 = removeEntries.begin();
-	Vector<int>::iterator it2 = columns->begin();
+	IntVector::iterator it1 = removeEntries.begin();
+	IntVector::iterator it2 = columns->begin();
 	while(it1 < removeEntries.end() && it2 < columns->end()){
 		if(*it1 < *it2)
 			it1++;

@@ -487,13 +487,13 @@ void ModelSpecifics<BaseModel,RealType>::initializeMM(
 }
 
 template <class BaseModel,typename RealType>
-const Vector<double> ModelSpecifics<BaseModel,RealType>::getXBeta() {
-    return Vector<double>(std::begin(hXBeta), std::end(hXBeta));
+const std::vector<double> ModelSpecifics<BaseModel,RealType>::getXBeta() {
+    return std::vector<double>(std::begin(hXBeta), std::end(hXBeta));
 }
 
 template <class BaseModel,typename RealType>
-const Vector<double> ModelSpecifics<BaseModel,RealType>::getXBetaSave() {
-    return Vector<double>(std::begin(hXBetaSave), std::end(hXBetaSave));
+const std::vector<double> ModelSpecifics<BaseModel,RealType>::getXBetaSave() {
+    return std::vector<double>(std::begin(hXBetaSave), std::end(hXBetaSave));
 }
 
 template <class BaseModel,typename RealType>

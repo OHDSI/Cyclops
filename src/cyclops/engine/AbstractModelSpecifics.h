@@ -110,9 +110,9 @@ public:
                                            const DeviceType deviceType,
                                            const std::string& deviceName);
 
-	virtual const Vector<double> getXBeta() = 0;
+	virtual const std::vector<double> getXBeta() = 0;
 
-	virtual const Vector<double> getXBetaSave() = 0;
+	virtual const std::vector<double> getXBetaSave() = 0;
 
 	virtual void saveXBeta() = 0;
 
@@ -174,7 +174,7 @@ protected:
 	// RealVector accNumerPid;
 	// RealVector accNumerPid2;
 
-	Vector<int> accReset;
+	std::vector<int> accReset;
 
 // 	const std::vector<real>& hY;
 // 	const std::vector<real>& hOffs;
