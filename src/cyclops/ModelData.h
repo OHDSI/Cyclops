@@ -526,9 +526,9 @@ public:
 	    std::vector<double> result;
 
 	    auto oneVariable = [this, &result, Ey1, Vy](const size_t index) {
-	        const double Ex1 = reduce(index, FirstPower()) / getNumberOfRows();
-	        const double Ex2 = reduce(index, SecondPower()) / getNumberOfRows();
-	        const double Exy = innerProductWithOutcome(index, InnerProduct()) / getNumberOfRows();
+	        const double Ex1 = this->reduce(index, FirstPower()) / this->getNumberOfRows();
+	        const double Ex2 = this->reduce(index, SecondPower()) / this->getNumberOfRows();
+	        const double Exy = this->innerProductWithOutcome(index, InnerProduct()) / this->getNumberOfRows();
 
 	        const double Vx = Ex2 - Ex1 * Ex1;
 	        const double cov = Exy - Ex1 * Ey1;
