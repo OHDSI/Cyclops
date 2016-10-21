@@ -50,7 +50,7 @@ namespace bsccs {
 #if __cplusplus >= 201402L
 	using std::make_unique; // Use C++14 version
 #else
-	// Emulate 
+	// Emulate
 	template<typename T, typename ...Args>
 	bsccs::unique_ptr<T> make_unique( Args&& ...args ) {
     	return bsccs::unique_ptr<T>( new T( std::forward<Args>(args)... ) );
@@ -59,17 +59,21 @@ namespace bsccs {
 
 // Internal types
 
-#ifdef DOUBLE_PRECISION
-	typedef double real;
-#else
-	typedef float real;
-#endif
+// #ifdef DOUBLE_PRECISION
+// 	typedef double real;
+// #else
+// 	typedef float real;
+// #endif
 
-typedef std::vector<int> IntVector;
-typedef std::vector<real> RealVector;
-typedef bsccs::shared_ptr<IntVector> IntVectorPtr;
-typedef bsccs::shared_ptr<RealVector> RealVectorPtr;
+template <typename T>
+using Vector = std::vector<T>;
+
+template <typename T>
+using VectorPtr = bsccs::shared_ptr<Vector<T> >;
+
 typedef int64_t IdType;
+typedef double Fp64Type;
+typedef float Fp32Type;
 
 // Output types
 
@@ -142,6 +146,13 @@ enum class ModelType {
 enum class AlgorithmType {
 	CCD = 0,
 	MM,
+	SIZE_OF_ENUM // Keep at end
+};
+
+enum class PrecisionType {
+	FP64 = 0,
+	FP32,
+	FP16,
 	SIZE_OF_ENUM // Keep at end
 };
 

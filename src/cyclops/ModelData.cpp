@@ -27,17 +27,18 @@ namespace bsccs {
 using std::string;
 using std::vector;
 
-ModelData::ModelData(
+template <typename RealType>
+ModelData<RealType>::ModelData(
     ModelType _modelType,
     loggers::ProgressLoggerPtr _log,
     loggers::ErrorHandlerPtr _error
     ) : modelType(_modelType), nPatients(0), nStrata(0), hasOffsetCovariate(false), hasInterceptCovariate(false), isFinalized(false),
-        lastStratumMap(0,0), sparseIndexer(*this), log(_log), error(_error), touchedY(true), touchedX(true) {
+        lastStratumMap(0,0), sparseIndexer(X), log(_log), error(_error), touchedY(true), touchedX(true) {
 	// Do nothing
 }
 
-
-size_t ModelData::getColumnIndex(const IdType covariate) const {
+template <typename RealType>
+size_t ModelData<RealType>::getColumnIndex(const IdType covariate) const {
     int index = getColumnIndexByName(covariate);
     if (index == -1) {
         std::ostringstream stream;
@@ -47,13 +48,15 @@ size_t ModelData::getColumnIndex(const IdType covariate) const {
     return index;
 }
 
-void ModelData::moveTimeToCovariate(bool takeLog) {
-    push_back(NULL, make_shared<RealVector>(offs.begin(), offs.end()), DENSE); // TODO Remove copy?
+template <typename RealType>
+void ModelData<RealType>::moveTimeToCovariate(bool takeLog) {
+    X.push_back(NULL, make_shared<Vector<RealType>>(offs.begin(), offs.end()), DENSE); // TODO Remove copy?
 }
 
 namespace { // anonymous
 
-void copyAssign(std::vector<real>& destination, const std::vector<double>& source) {
+template <typename RealType>
+void copyAssign(Vector<RealType>& destination, const Vector<double>& source) {
     if (destination.size() != source.size()) {
         destination.resize(source.size());
     }
@@ -62,7 +65,8 @@ void copyAssign(std::vector<real>& destination, const std::vector<double>& sourc
 
 }; // namespace anonymous
 
-void ModelData::loadY(
+template <typename RealType>
+void ModelData<RealType>::loadY(
 		const std::vector<IdType>& oStratumId,
 		const std::vector<IdType>& oRowId,
 		const std::vector<double>& oY,
@@ -85,6 +89,8 @@ void ModelData::loadY(
 		copyAssign(offs, oTime); // offs = oTime; // copy assignment
 	}
 	touchedY = true;
+
+	auto nRows = getNumberOfRows();
 
 	if (!previouslyLoaded) { // Load stratum and row IDs
 // 		std::ostringstream stream;
@@ -142,8 +148,8 @@ void ModelData::loadY(
 // 	}
 }
 
-
-int ModelData::loadMultipleX(
+template <typename RealType>
+int ModelData<RealType>::loadMultipleX(
 		const std::vector<int64_t>& covariateIds,
 		const std::vector<int64_t>& rowIds,
 		const std::vector<double>& covariateValues,
@@ -190,13 +196,13 @@ int ModelData::loadMultipleX(
 		            (!(*covariateValueItr == 1.0 || *covariateValueItr == 0.0) // not 0 or 1
                     || forceSparse)) ?
 		                SPARSE : INDICATOR;
-	        push_back(format);
+	        X.push_back(format);
 	        index = getNumberOfColumns() - 1;
-	        getColumn(index).add_label(*columnIdItr);
+	        X.getColumn(index).add_label(*columnIdItr);
         }
 
 		// Append data into CompressedDataColumn
-		CompressedDataColumn& column = getColumn(index);
+		CompressedDataColumn<RealType>& column = X.getColumn(index);
 		FormatType format = column.getFormatType();
 
 		// Grab whole column worth of data
@@ -240,7 +246,8 @@ int ModelData::loadMultipleX(
 	return firstColumnIndex;
 }
 
-int ModelData::loadX(
+template <typename RealType>
+int ModelData<RealType>::loadX(
 		const IdType covariateId,
 		const std::vector<IdType>& rowId,
 		const std::vector<double>& covariateValue,
@@ -310,12 +317,12 @@ int ModelData::loadX(
 
         // brand new, make deep copy
         if (newType == DENSE || newType == INTERCEPT) {
-            push_back(begin(rowId), end(rowId),
+            X.push_back(begin(rowId), end(rowId),
                       begin(covariateValue), end(covariateValue),
                       newType);
         } else { // SPARSE or INDICATOR
-            push_back(newType);
-            CompressedDataColumn& column = getColumn(getNumberOfColumns() - 1);
+            X.push_back(newType);
+            CompressedDataColumn<RealType>& column = X.getColumn(getNumberOfColumns() - 1);
 
             auto rowIdItr = std::begin(rowId);
             auto covariateValueItr = std::begin(covariateValue);
@@ -353,20 +360,21 @@ int ModelData::loadX(
         }
 
         index = getNumberOfColumns() - 1;
-        getColumn(index).add_label(covariateId);
+        X.getColumn(index).add_label(covariateId);
     }
 
     if (newType == INTERCEPT) {
         setHasInterceptCovariate(true);
         if (index != 0) {
-            moveToFront(index);
+            X.moveToFront(index);
         }
     }
     touchedX = true;
     return index;
 }
 
-size_t ModelData::append(
+template <typename RealType>
+size_t ModelData<RealType>::append(
         const std::vector<IdType>& oStratumId,
         const std::vector<IdType>& oRowId,
         const std::vector<double>& oY,
@@ -412,7 +420,7 @@ size_t ModelData::append(
 
     	// TODO Begin code duplication with 'loadY'
         IdType cInStratum = oStratumId[i];
-        if (nRows == 0) {
+        if (X.nRows == 0) {
         	lastStratumMap.first = cInStratum;
         	lastStratumMap.second = 0;
         	nPatients++;
@@ -440,16 +448,16 @@ size_t ModelData::append(
         std::cout << currentRowId << std::endl;
 #endif
         while (cOffset < nCovariates && cRowId[cOffset] == currentRowId) {
-            IdType covariate = cCovariateId[cOffset];
-            real value = cCovariateValue[cOffset];
+            auto covariate = cCovariateId[cOffset];
+            auto value = cCovariateValue[cOffset];
 
 			if (!sparseIndexer.hasColumn(covariate)) {
 				// Add new column
 				sparseIndexer.addColumn(covariate, INDICATOR);
 			}
 
-			CompressedDataColumn& column = sparseIndexer.getColumn(covariate);
-			if (value != static_cast<real>(1) && value != static_cast<real>(0)) {
+			auto& column = sparseIndexer.getColumn(covariate);
+			if (value != static_cast<RealType>(1) && value != static_cast<RealType>(0)) {
 				if (column.getFormatType() == INDICATOR) {
 					std::ostringstream stream;
 					stream << "Up-casting covariate " << column.getLabel() << " to sparse!";
@@ -459,7 +467,7 @@ size_t ModelData::append(
 			}
 
 			// Add to storage
-			bool valid = column.add_data(nRows, value);
+			bool valid = column.add_data(X.nRows, value);
 			if (!valid) {
 				std::ostringstream stream;
 				stream << "Warning: repeated sparse entries in data row: "
@@ -469,13 +477,14 @@ size_t ModelData::append(
 			}
 			++cOffset;
         }
-        ++nRows;
+        ++X.nRows;
     }
     return nOutcomes;
 }
 
-std::vector<double> ModelData::normalizeCovariates(const NormalizationType type) {
-    std::vector<double> normalizations;
+template <typename RealType>
+Vector<double> ModelData<RealType>::normalizeCovariates(const NormalizationType type) {
+    Vector<double> normalizations;
     normalizations.reserve(getNumberOfColumns());
 
     size_t index = hasOffsetCovariate ? 1 : 0;
@@ -484,8 +493,10 @@ std::vector<double> ModelData::normalizeCovariates(const NormalizationType type)
         ++index;
     }
 
+    const auto nRows = getNumberOfRows();
+
     for ( ; index < getNumberOfColumns(); ++index) {
-        CompressedDataColumn& column = getColumn(index);
+        auto& column = X.getColumn(index);
         FormatType format = column.getFormatType();
         if (format == DENSE || format == SPARSE) {
 
@@ -541,26 +552,44 @@ std::vector<double> ModelData::normalizeCovariates(const NormalizationType type)
     return std::move(normalizations);
 }
 
-int ModelData::getNumberOfPatients() const {
+template <typename RealType>
+size_t ModelData<RealType>::getNumberOfPatients() const {
     if (nPatients == 0) {
         nPatients = getNumberOfStrata();
     }
 	return nPatients;
 }
 
-int ModelData::getNumberOfTypes() const {
+template <typename RealType>
+int ModelData<RealType>::getNumberOfTypes() const {
 	return nTypes;
 }
 
-const string ModelData::getConditionId() const {
+template <typename RealType>
+const std::string ModelData<RealType>::getConditionId() const {
 	return conditionId;
 }
 
-ModelData::~ModelData() {
+template <typename RealType>
+ModelData<RealType>::~ModelData() {
 	// Do nothing
 }
 
-const int* ModelData::getPidVector() const { // TODO deprecated
+// template <typename RealType>
+// ModelData<RealType>::getPrecisionType() const;
+
+template <>
+PrecisionType ModelData<double>::getPrecisionType() const {
+    return PrecisionType::FP64;
+}
+
+template <>
+PrecisionType ModelData<float>::getPrecisionType() const {
+    return PrecisionType::FP32;
+}
+
+template <typename RealType>
+const int*  ModelData<RealType>::getPidVector() const { // TODO deprecated
 //	return makeDeepCopy(&pid[0], pid.size());
     return (pid.size() == 0) ? nullptr : pid.data();
 }
@@ -569,7 +598,8 @@ const int* ModelData::getPidVector() const { // TODO deprecated
 // 	return new std::vector<int>(pid);
 // }
 
-std::vector<int> ModelData::getPidVectorSTL() const {
+template <typename RealType>
+Vector<int> ModelData<RealType>::getPidVectorSTL() const {
     if (pid.size() == 0) {
         std::vector<int> tPid(getNumberOfRows());
         std::iota (std::begin(tPid), std::end(tPid), 0);
@@ -579,21 +609,62 @@ std::vector<int> ModelData::getPidVectorSTL() const {
     }
 }
 
-const real* ModelData::getYVector() const { // TODO deprecated
+template <typename RealType>
+void ModelData<RealType>::addIntercept() {
+    // TODO Use INTERCEPT
+    X.insert(0, DENSE); // add to front, TODO fix if offset
+    setHasInterceptCovariate(true);
+    const size_t numRows = getNumberOfRows();
+    for (size_t i = 0; i < numRows; ++i) {
+        X.getColumn(0).add_data(i, static_cast<RealType>(1));
+    }
+}
+
+template <typename RealType>
+void ModelData<RealType>::logTransformCovariate(const IdType covariate) {
+    X.getColumn(covariate).transform([](RealType x) {
+        return std::log(x);
+    });
+}
+
+template <typename RealType>
+void ModelData<RealType>::convertCovariateToDense(const IdType covariate) {
+    IdType index = getColumnIndex(covariate);
+    X.getColumn(index).convertColumnToDense(getNumberOfRows());
+}
+
+template <typename RealType>
+void ModelData<RealType>::setOffsetCovariate(const IdType covariate) {
+    int index;
+    if (covariate == -1) { // TODO  Bad, magic number
+        moveTimeToCovariate(true);
+        index = getNumberOfCovariates() - 1;
+    } else {
+        index = getColumnIndexByName(covariate);
+    }
+    X.moveToFront(index);
+    X.getColumn(0).add_label(-1); // TODO Generic label for offset?
+    setHasOffsetCovariate(true);
+}
+
+template <typename RealType>
+const RealType* ModelData<RealType>::getYVector() const { // TODO deprecated
 //	return makeDeepCopy(&y[0], y.size());
 	return &y[0];
 }
 
-void ModelData::setYVector(vector<real> y_){
-	y = y_;
-}
+// template <typename RealType>
+// void ModelData<RealType>::setYVector(Vector<RealType> y_){
+// 	y = y_;
+// }
 
 //int* ModelData::getNEventVector() { // TODO deprecated
 ////	return makeDeepCopy(&nevents[0], nevents.size());
 //	return &nevents[0];
 //}
 
-real* ModelData::getOffsetVector() { // TODO deprecated
+template <typename RealType>
+RealType* ModelData<RealType>::getOffsetVector() { // TODO deprecated
 //	return makeDeepCopy(&offs[0], offs.size());
 	return &offs[0];
 }
@@ -602,25 +673,29 @@ real* ModelData::getOffsetVector() { // TODO deprecated
 // 	reindexVector(allColumns,sortedInds);
 // }
 
-double ModelData::getSquaredNorm() const {
+template <typename RealType>
+double ModelData<RealType>::getSquaredNorm() const {
 
 	int startIndex = 0;
 	if (hasInterceptCovariate) ++startIndex;
 	if (hasOffsetCovariate) ++startIndex;
 
-	std::vector<double> squaredNorm;
+	Vector<double> squaredNorm;
 
 	for (size_t index = startIndex; index < getNumberOfColumns(); ++index) {
-		squaredNorm.push_back(getColumn(index).squaredSumColumn(getNumberOfRows()));
+		squaredNorm.push_back(X.getColumn(index).squaredSumColumn(getNumberOfRows()));
 	}
 
 	return std::accumulate(squaredNorm.begin(), squaredNorm.end(), 0.0);
 }
 
-size_t ModelData::getNumberOfStrata() const {
+template <typename RealType>
+size_t ModelData<RealType>::getNumberOfStrata() const {
+    const auto nRows = getNumberOfRows();
     if (nRows == 0) {
         return 0;
     }
+
     if (nStrata == 0) {
         nStrata = 1;
         int cLabel = pid[0];
@@ -634,19 +709,66 @@ size_t ModelData::getNumberOfStrata() const {
     return nStrata;
 }
 
-double ModelData::getNormalBasedDefaultVar() const {
+template <typename RealType>
+double ModelData<RealType>::getNormalBasedDefaultVar() const {
 // 	return getNumberOfVariableColumns() * getNumberOfRows() / getSquaredNorm();
 	// Reciprocal of what is reported in Genkins et al.
 	return getSquaredNorm() / getNumberOfVariableColumns() / getNumberOfRows();
 }
 
-int ModelData::getNumberOfVariableColumns() const {
+template <typename RealType>
+int ModelData<RealType>::getNumberOfVariableColumns() const {
 	int dim = getNumberOfColumns();
 	if (hasInterceptCovariate) --dim;
 	if (hasOffsetCovariate) --dim;
 	return dim;
 }
 
-const string ModelData::missing = "NA";
+template <typename RealType>
+double ModelData<RealType>::sum(const IdType covariate, const int power) const {
+
+    size_t index = getColumnIndex(covariate);
+    if (power == 0) {
+		return reduce(index, ZeroPower());
+	} else if (power == 1) {
+		return reduce(index, FirstPower());
+	} else {
+		return reduce(index, SecondPower());
+	}
+}
+
+template <typename RealType>
+void ModelData<RealType>::sumByGroup(std::vector<double>& out, const IdType covariate, const IdType groupBy, const int power) const {
+    size_t covariateIndex = getColumnIndex(covariate);
+    size_t groupByIndex = getColumnIndex(groupBy);
+    out.resize(2);
+    if (power == 0) {
+        reduceByGroup(out, covariateIndex, groupByIndex, ZeroPower());
+    } else if (power == 1) {
+        reduceByGroup(out, covariateIndex, groupByIndex, FirstPower());
+    } else {
+        reduceByGroup(out, covariateIndex, groupByIndex, SecondPower());
+    }
+}
+
+template <typename RealType>
+void ModelData<RealType>::sumByPid(std::vector<double>& out, const IdType covariate, const int power) const {
+    size_t covariateIndex = getColumnIndex(covariate);
+    out.resize(nPatients);
+    if (power == 0) {
+        reduceByGroup(out, covariateIndex, pid, ZeroPower());
+    } else if (power == 1) {
+        reduceByGroup(out, covariateIndex, pid, FirstPower());
+    } else {
+        reduceByGroup(out, covariateIndex, pid, SecondPower());
+    }
+}
+
+template <typename RealType>
+const std::string ModelData<RealType>::missing = "NA";
+
+// Instantiate classes
+template class ModelData<double>;
+template class ModelData<float>;
 
 } // namespace

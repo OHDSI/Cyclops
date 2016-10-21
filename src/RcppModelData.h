@@ -17,9 +17,30 @@ namespace bsccs {
 using Rcpp::NumericVector;
 using Rcpp::IntegerVector;
 
-class RcppModelData : public ModelData {
-
+template <typename RealType>
+class RcppModelData : public ModelData<RealType> {
 public:
+
+    using ModelData<RealType>::X;
+    // using ModelData<RealType>::getFormatType;
+    using ModelData<RealType>::y;
+    using ModelData<RealType>::error;
+    using ModelData<RealType>::offs;
+    using ModelData<RealType>::setHasOffsetCovariate;
+    using ModelData<RealType>::getHasOffsetCovariate;
+    // using ModelData<RealType>::getColumn;
+    using ModelData<RealType>::nTypes;
+    using ModelData<RealType>::getNumberOfColumns;
+    // using ModelData<RealType>::push_back;
+    using ModelData<RealType>::getPidVectorRef;
+    // using ModelData<RealType>::nRows;
+    using ModelData<RealType>::nPatients;
+    using ModelData<RealType>::pid;
+    using ModelData<RealType>::getColumnIndex;
+    using ModelData<RealType>::getColumnIndexByName;
+    using ModelData<RealType>::getNumberOfRows;
+    using ModelData<RealType>::addIntercept;
+
 	RcppModelData();
 
 	RcppModelData(
@@ -37,26 +58,26 @@ public:
             bool useTimeAsOffset = false,
             int numTypes = 1
 			);
-			
+
 	RcppModelData(
 			ModelType modelType,
 	        loggers::ProgressLoggerPtr log,
-    	    loggers::ErrorHandlerPtr error       
-        );			
+    	    loggers::ErrorHandlerPtr error
+        );
 
 	virtual ~RcppModelData();
 
-	double sum(const IdType covariate, int power = 1);
+	//double sum(const IdType covariate, int power = 1);
 
 	void standardize(const IdType covariate);
 
-	void sumByGroup(std::vector<double>& out, const IdType covariate, const IdType groupBy, int power = 1);
+	//void sumByGroup(std::vector<double>& out, const IdType covariate, const IdType groupBy, int power = 1);
 
-	void sumByGroup(std::vector<double>& out, const IdType covariate, int power = 1);
+	//void sumByGroup(std::vector<double>& out, const IdType covariate, int power = 1);
 
     template <typename F>
     void transform(const size_t index, F func) {
-		switch (getFormatType(index)) {
+		switch (X.getFormatType(index)) {
 			case INDICATOR :
 				transformImpl<IndicatorIterator>(index, func);
 				break;
@@ -78,7 +99,7 @@ public:
 			return reduceOutcomeImpl(func);
 		}
 	    double sum = 0.0;
-		switch (getFormatType(index)) {
+		switch (X.getFormatType(index)) {
 			case INDICATOR :
 				sum = reduceImpl<IndicatorIterator>(index, func);
 				break;
@@ -98,7 +119,7 @@ public:
 	template <typename F>
 	double innerProductWithOutcome(const size_t index, F func) {
 	    double sum = 0.0;
-	    switch (getFormatType(index)) {
+	    switch (X.getFormatType(index)) {
 	    case INDICATOR :
 	        sum = innerProductWithOutcomeImpl<IndicatorIterator>(index, func);
 	        break;
@@ -117,12 +138,12 @@ public:
 
 	template <typename T, typename F>
 	void reduceByGroup(T& out, const size_t reductionIndex, const size_t groupByIndex, F func) {
-	    if (getFormatType(groupByIndex) != INDICATOR) {
+	    if (X.getFormatType(groupByIndex) != INDICATOR) {
 	        std::ostringstream stream;
 	        stream << "Grouping by non-indicators is not yet supported.";
 	        error->throwError(stream);
 	    }
-		switch (getFormatType(reductionIndex)) {
+		switch (X.getFormatType(reductionIndex)) {
 			case INDICATOR :
                 reduceByGroupImpl<IndicatorIterator>(out, reductionIndex, groupByIndex, func);
 				break;
@@ -142,7 +163,7 @@ protected:
 
 	template <typename T, typename F>
 	void reduceByGroup(T& out, const size_t reductionIndex, const std::vector<int>& groups, F func) {
-		switch (getFormatType(reductionIndex)) {
+		switch (X.getFormatType(reductionIndex)) {
 			case INDICATOR :
 				reduceByGroupImpl<IndicatorIterator>(out, reductionIndex, groups, func);
 				break;
@@ -162,9 +183,9 @@ protected:
 	template <typename IteratorType, typename T, typename F>
 	void reduceByGroupImpl(T& out, const size_t reductionIndex, const size_t groupByIndex, F func) {
 	    IteratorType reduceIt(*this, reductionIndex);
-	    IndicatorIterator groupByIt(*this, groupByIndex);
+	    IndicatorIterator<RealType> groupByIt(*this, groupByIndex);
 
-	    GroupByIterator<IteratorType> it(reduceIt, groupByIt);
+	    GroupByIterator<IteratorType,RealType> it(reduceIt, groupByIt);
 	    for (; it; ++it) {
 	        out[it.group()] += func(it.value()); // TODO compute reduction in registers
 	    }
@@ -218,7 +239,7 @@ protected:
 
 private:
 	// Disable copy-constructors and copy-assignment
-	RcppModelData(const ModelData&);
+	RcppModelData(const ModelData<RealType>&);
 	RcppModelData& operator = (const RcppModelData&);
 };
 

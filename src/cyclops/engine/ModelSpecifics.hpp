@@ -180,7 +180,8 @@ namespace helper {
 //     	std::exit(-1);
 //     }
 
-	auto getRangeX(const CompressedDataMatrix& mat, const int index, InterceptTag) ->
+    template <typename RealType>
+	auto getRangeX(const CompressedDataMatrix<RealType>& mat, const int index, InterceptTag) ->
 	    //            aux::zipper_range<
 	    boost::iterator_range<
 	        boost::zip_iterator<
@@ -201,7 +202,8 @@ namespace helper {
 	        };
 	    }
 
-    auto getRangeX(const CompressedDataMatrix& mat, const int index, DenseTag) ->
+    template <typename RealType>
+    auto getRangeX(const CompressedDataMatrix<RealType>& mat, const int index, DenseTag) ->
 //            aux::zipper_range<
  						boost::iterator_range<
  						boost::zip_iterator<
@@ -224,7 +226,8 @@ namespace helper {
         };
     }
 
-    auto getRangeX(const CompressedDataMatrix& mat, const int index, SparseTag) ->
+    template <typename RealType>
+    auto getRangeX(const CompressedDataMatrix<RealType>& mat, const int index, SparseTag) ->
 //            aux::zipper_range<
 						boost::iterator_range<
  						boost::zip_iterator<
@@ -247,7 +250,8 @@ namespace helper {
         };
     }
 
-    auto getRangeX(const CompressedDataMatrix& mat, const int index, IndicatorTag) ->
+    template <typename RealType>
+    auto getRangeX(const CompressedDataMatrix<RealType>& mat, const int index, IndicatorTag) ->
 //            aux::zipper_range<
 						boost::iterator_range<
  						boost::zip_iterator<
@@ -271,12 +275,19 @@ namespace helper {
 } // namespace helper
 
 
-template <class BaseModel,typename WeightType>
-ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
-	: AbstractModelSpecifics(input), BaseModel()//,
+template <class BaseModel,typename RealType>
+ModelSpecifics<BaseModel,RealType>::ModelSpecifics(const ModelData<RealType>& input)
+	: AbstractModelSpecifics(input), BaseModel(),
+   modelData(input),
+   hX(modelData.getX()),
+   hY(input.getYVectorRef()),
+   hOffs(input.getTimeVectorRef())
+ //  hPidOriginal(input.getPidVectorRef()), hPid(const_cast<int*>(hPidOriginal.data())),
+ //  boundType(MmBoundType::METHOD_2)
 //  	threadPool(4,4,1000)
 // threadPool(0,0,10)
 	{
+    	// Do nothing
 	// TODO Memory allocation here
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -288,17 +299,17 @@ ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
 
 }
 
-template <class BaseModel, typename WeightType>
-AbstractModelSpecifics* ModelSpecifics<BaseModel,WeightType>::clone() const {
-	return new ModelSpecifics<BaseModel,WeightType>(modelData);
+template <class BaseModel, typename RealType>
+AbstractModelSpecifics* ModelSpecifics<BaseModel,RealType>::clone() const {
+	return new ModelSpecifics<BaseModel,RealType>(modelData);
 }
 
-template <class BaseModel, typename WeightType>
-double ModelSpecifics<BaseModel,WeightType>::getGradientObjective(bool useCrossValidation) {
+template <class BaseModel, typename RealType>
+double ModelSpecifics<BaseModel,RealType>::getGradientObjective(bool useCrossValidation) {
 
 		auto& xBeta = getXBeta();
 
-		real criterion = 0;
+		RealType criterion = 0;
 		if (useCrossValidation) {
 			for (int i = 0; i < K; i++) {
 				criterion += xBeta[i] * hY[i] * hKWeight[i];
@@ -311,8 +322,8 @@ double ModelSpecifics<BaseModel,WeightType>::getGradientObjective(bool useCrossV
 		return static_cast<double> (criterion);
 	}
 
-template <class BaseModel, typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::printTiming() {
+template <class BaseModel, typename RealType>
+void ModelSpecifics<BaseModel,RealType>::printTiming() {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 
@@ -325,8 +336,8 @@ void ModelSpecifics<BaseModel,WeightType>::printTiming() {
 #endif
 }
 
-template <class BaseModel,typename WeightType>
-ModelSpecifics<BaseModel,WeightType>::~ModelSpecifics() {
+template <class BaseModel,typename RealType>
+ModelSpecifics<BaseModel,RealType>::~ModelSpecifics() {
 	// TODO Memory release here
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -340,27 +351,27 @@ ModelSpecifics<BaseModel,WeightType>::~ModelSpecifics() {
 
 }
 
-template <class BaseModel, typename WeightType> template <class IteratorType>
-void ModelSpecifics<BaseModel,WeightType>::incrementNormsImpl(int index) {
+template <class BaseModel, typename RealType> template <class IteratorType>
+void ModelSpecifics<BaseModel,RealType>::incrementNormsImpl(int index) {
 
     // TODO should use row-access
-	IteratorType it(modelData, index);
+	IteratorType it(hX, index);
 	for (; it; ++it) {
 		const int k = it.index();
-		const real x = it.value();
+		const RealType x = it.value();
 
 		norm[k] += std::abs(x);
 	}
 }
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::initializeMmXt() {
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::initializeMmXt() {
 
 #ifdef CYCLOPS_DEBUG_TIMING
     auto start = bsccs::chrono::steady_clock::now();
 #endif
 
-    hXt = modelData.transpose();
+    hXt = hX.transpose();
 
 #ifdef CYCLOPS_DEBUG_TIMING
 auto end = bsccs::chrono::steady_clock::now();
@@ -369,8 +380,8 @@ duration["transpose        "] += bsccs::chrono::duration_cast<chrono::TimingUnit
 #endif
 }
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::initializeMM(
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::initializeMM(
         MmBoundType boundType,
         const std::vector<bool>& fixBeta
     ) {
@@ -388,18 +399,18 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(
     	true
     	// !fixBeta[j]
     	) {
-			switch(modelData.getFormatType(j)) {
+			switch(hX.getFormatType(j)) {
 				case INDICATOR :
-					incrementNormsImpl<IndicatorIterator>(j);
+					incrementNormsImpl<IndicatorIterator<RealType>>(j);
 					break;
 				case SPARSE :
-					incrementNormsImpl<SparseIterator>(j);
+					incrementNormsImpl<SparseIterator<RealType>>(j);
 					break;
 				case DENSE :
-					incrementNormsImpl<DenseIterator>(j);
+					incrementNormsImpl<DenseIterator<RealType>>(j);
 					break;
 				case INTERCEPT :
-					incrementNormsImpl<InterceptIterator>(j);
+					incrementNormsImpl<InterceptIterator<RealType>>(j);
 					break;
 			}
         }
@@ -475,19 +486,23 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(
 
 }
 
-template <class BaseModel,typename WeightType>
-const RealVector& ModelSpecifics<BaseModel,WeightType>::getXBeta() { return hXBeta; }
+template <class BaseModel,typename RealType>
+const Vector<double> ModelSpecifics<BaseModel,RealType>::getXBeta() {
+    return Vector<double>(std::begin(hXBeta), std::end(hXBeta));
+}
 
-template <class BaseModel,typename WeightType>
-const RealVector& ModelSpecifics<BaseModel,WeightType>::getXBetaSave() {  return hXBetaSave; }
+template <class BaseModel,typename RealType>
+const Vector<double> ModelSpecifics<BaseModel,RealType>::getXBetaSave() {
+    return Vector<double>(std::begin(hXBetaSave), std::end(hXBetaSave));
+}
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::zeroXBeta() {
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::zeroXBeta() {
 	std::fill(std::begin(hXBeta), std::end(hXBeta), 0.0);
 }
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::saveXBeta() {
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::saveXBeta() {
 	auto& xBeta = getXBeta();
 	if (hXBetaSave.size() < xBeta.size()) {
 		hXBetaSave.resize(xBeta.size());
@@ -497,8 +512,8 @@ void ModelSpecifics<BaseModel,WeightType>::saveXBeta() {
 
 
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeXBeta(double* beta, bool useWeights) {
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeXBeta(double* beta, bool useWeights) {
 
     if (!hXt) {
         initializeMmXt();
@@ -510,13 +525,13 @@ void ModelSpecifics<BaseModel,WeightType>::computeXBeta(double* beta, bool useWe
 
     switch(hXt->getFormatType(0)) {
     case INDICATOR :
-        computeXBetaImpl<IndicatorIterator>(beta);
+        computeXBetaImpl<IndicatorIterator<RealType>>(beta);
         break;
     case SPARSE :
-        computeXBetaImpl<SparseIterator>(beta);
+        computeXBetaImpl<SparseIterator<RealType>>(beta);
         break;
     case DENSE :
-        computeXBetaImpl<DenseIterator>(beta);
+        computeXBetaImpl<DenseIterator<RealType>>(beta);
         break;
     case INTERCEPT:
         break;
@@ -531,11 +546,11 @@ duration["computeXBeta     "] += bsccs::chrono::duration_cast<chrono::TimingUnit
 
 }
 
-template <class BaseModel,typename WeightType> template <class IteratorType>
-void ModelSpecifics<BaseModel,WeightType>::computeXBetaImpl(double *beta) {
+template <class BaseModel,typename RealType> template <class IteratorType>
+void ModelSpecifics<BaseModel,RealType>::computeXBetaImpl(double *beta) {
 
     for (int k = 0; k < K; ++k) {
-        real sum = 0.0;
+        RealType sum = 0.0;
         IteratorType it(*hXt, k);
         for (; it; ++it) {
             const auto j = it.index();
@@ -551,53 +566,53 @@ void ModelSpecifics<BaseModel,WeightType>::computeXBetaImpl(double *beta) {
     // std::cerr << "did weird stuff to denomPid" << std::endl;
 }
 
-template <class BaseModel,typename WeightType>
-bool ModelSpecifics<BaseModel,WeightType>::allocateXjY(void) { return BaseModel::precomputeGradient; }
+template <class BaseModel,typename RealType>
+bool ModelSpecifics<BaseModel,RealType>::allocateXjY(void) { return BaseModel::precomputeGradient; }
 
-template <class BaseModel,typename WeightType>
-bool ModelSpecifics<BaseModel,WeightType>::allocateXjX(void) { return BaseModel::precomputeHessian; }
+template <class BaseModel,typename RealType>
+bool ModelSpecifics<BaseModel,RealType>::allocateXjX(void) { return BaseModel::precomputeHessian; }
 
-template <class BaseModel,typename WeightType>
-bool ModelSpecifics<BaseModel,WeightType>::sortPid(void) { return BaseModel::sortPid; }
+template <class BaseModel,typename RealType>
+bool ModelSpecifics<BaseModel,RealType>::sortPid(void) { return BaseModel::sortPid; }
 
-template <class BaseModel,typename WeightType>
-bool ModelSpecifics<BaseModel,WeightType>::initializeAccumulationVectors(void) { return BaseModel::cumulativeGradientAndHessian; }
+template <class BaseModel,typename RealType>
+bool ModelSpecifics<BaseModel,RealType>::initializeAccumulationVectors(void) { return BaseModel::cumulativeGradientAndHessian; }
 
-template <class BaseModel,typename WeightType>
-bool ModelSpecifics<BaseModel,WeightType>::allocateNtoKIndices(void) { return BaseModel::hasNtoKIndices; }
+template <class BaseModel,typename RealType>
+bool ModelSpecifics<BaseModel,RealType>::allocateNtoKIndices(void) { return BaseModel::hasNtoKIndices; }
 
-template <class BaseModel,typename WeightType>
-bool ModelSpecifics<BaseModel,WeightType>::hasResetableAccumulators(void) { return BaseModel::hasResetableAccumulators; }
+template <class BaseModel,typename RealType>
+bool ModelSpecifics<BaseModel,RealType>::hasResetableAccumulators(void) { return BaseModel::hasResetableAccumulators; }
 
-template <class BaseModel,typename WeightType> template <class IteratorType>
-void ModelSpecifics<BaseModel,WeightType>::axpy(real* y, const real alpha, const int index) {
-	IteratorType it(modelData, index);
+template <class BaseModel,typename RealType> template <class IteratorType>
+void ModelSpecifics<BaseModel,RealType>::axpy(RealType* y, const RealType alpha, const int index) {
+	IteratorType it(hX, index);
 	for (; it; ++it) {
 		const int k = it.index();
 		y[k] += alpha * it.value();
 	}
 }
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::axpyXBeta(const double beta, const int j) {
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::axpyXBeta(const double beta, const int j) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
     auto start = bsccs::chrono::steady_clock::now();
 #endif
 
-	if (beta != static_cast<double>(0.0)) {
-		switch (modelData.getFormatType(j)) {
+	if (beta != 0.0) {
+		switch (hX.getFormatType(j)) {
 		case INDICATOR:
-			axpy < IndicatorIterator > (hXBeta.data(), beta, j);
+			axpy < IndicatorIterator<RealType> > (hXBeta.data(), beta, j);
 			break;
 		case INTERCEPT:
-		    axpy < InterceptIterator > (hXBeta.data(), beta, j);
+		    axpy < InterceptIterator<RealType> > (hXBeta.data(), beta, j);
 		    break;
 		case DENSE:
-			axpy < DenseIterator > (hXBeta.data(), beta, j);
+			axpy < DenseIterator<RealType> > (hXBeta.data(), beta, j);
 			break;
 		case SPARSE:
-			axpy < SparseIterator > (hXBeta.data(), beta, j);
+			axpy < SparseIterator<RealType> > (hXBeta.data(), beta, j);
 			break;
 		}
 	}
@@ -610,8 +625,8 @@ void ModelSpecifics<BaseModel,WeightType>::axpyXBeta(const double beta, const in
 
 }
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::setWeights(double* inWeights, bool useCrossValidation) {
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, bool useCrossValidation) {
 	// Set K weights
 	if (hKWeight.size() != K) {
 		hKWeight.resize(K);
@@ -621,7 +636,7 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(double* inWeights, bool us
 			hKWeight[k] = inWeights[k];
 		}
 	} else {
-		std::fill(hKWeight.begin(), hKWeight.end(), static_cast<WeightType>(1));
+		std::fill(hKWeight.begin(), hKWeight.end(), static_cast<RealType>(1));
 	}
 
 	if (initializeAccumulationVectors()) {
@@ -633,9 +648,9 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(double* inWeights, bool us
 		hNWeight.resize(N + 1);
 	}
 
-	std::fill(hNWeight.begin(), hNWeight.end(), static_cast<WeightType>(0));
+	std::fill(hNWeight.begin(), hNWeight.end(), static_cast<RealType>(0));
 	for (size_t k = 0; k < K; ++k) {
-		WeightType event = BaseModel::observationCount(hY[k])*hKWeight[k];
+		RealType event = BaseModel::observationCount(hY[k])*hKWeight[k];
 		incrementByGroup(hNWeight.data(), hPid, k, event);
 	}
 
@@ -645,12 +660,12 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(double* inWeights, bool us
 
 }
 
-template<class BaseModel, typename WeightType>
-void ModelSpecifics<BaseModel, WeightType>::computeXjY(bool useCrossValidation) {
+template<class BaseModel, typename RealType>
+void ModelSpecifics<BaseModel, RealType>::computeXjY(bool useCrossValidation) {
 	for (size_t j = 0; j < J; ++j) {
 		hXjY[j] = 0;
 
-		GenericIterator it(modelData, j);
+		GenericIterator<RealType> it(hX, j);
 
 		if (useCrossValidation) {
 			for (; it; ++it) {
@@ -677,11 +692,11 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjY(bool useCrossValidation) 
 	}
 }
 
-template<class BaseModel, typename WeightType>
-void ModelSpecifics<BaseModel, WeightType>::computeXjX(bool useCrossValidation) {
+template<class BaseModel, typename RealType>
+void ModelSpecifics<BaseModel, RealType>::computeXjX(bool useCrossValidation) {
 	for (size_t j = 0; j < J; ++j) {
 		hXjX[j] = 0;
-		GenericIterator it(modelData, j);
+		GenericIterator<RealType> it(hX, j);
 
 		if (useCrossValidation) {
 			for (; it; ++it) {
@@ -705,8 +720,8 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjX(bool useCrossValidation) 
 	}
 }
 
-template<class BaseModel, typename WeightType>
-void ModelSpecifics<BaseModel, WeightType>::computeNtoKIndices(bool useCrossValidation) {
+template<class BaseModel, typename RealType>
+void ModelSpecifics<BaseModel, RealType>::computeNtoKIndices(bool useCrossValidation) {
 
 	hNtoK.resize(N+1);
 	int n = 0;
@@ -721,27 +736,27 @@ void ModelSpecifics<BaseModel, WeightType>::computeNtoKIndices(bool useCrossVali
 	hNtoK[n] = K;
 }
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInLogLikelihood(bool useCrossValidation) {
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeFixedTermsInLogLikelihood(bool useCrossValidation) {
 	if(BaseModel::likelihoodHasFixedTerms) {
-		logLikelihoodFixedTerm = 0.0;
+		logLikelihoodFixedTerm = static_cast<RealType>(0);
 	    bool hasOffs = hOffs.size() > 0;
 		if(useCrossValidation) {
 			for(size_t i = 0; i < K; i++) {
-			    auto offs = hasOffs ? hOffs[i] : 0.0;
+			    auto offs = hasOffs ? hOffs[i] : static_cast<RealType>(0);
 				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], offs, offs) * hKWeight[i];
 			}
 		} else {
 			for(size_t i = 0; i < K; i++) {
-			    auto offs = hasOffs ? hOffs[i] : 0.0;
+			    auto offs = hasOffs ? hOffs[i] : static_cast<RealType>(0);
 				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], offs, offs); // TODO SEGV in Poisson model
 			}
 		}
 	}
 }
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
 	if (sortPid()) {
 		doSortPid(useCrossValidation);
 	}
@@ -756,8 +771,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInGradientAndHessian
 	}
 }
 
-template <class BaseModel,typename WeightType>
-double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValidation) {
+template <class BaseModel,typename RealType>
+double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidation) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto start = bsccs::chrono::steady_clock::now();
@@ -765,29 +780,29 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 
 //     auto rangeNumerator = helper::getRangeAll(K);
 //
-//     real logLikelihood = useCrossValidation ?
+//     RealType logLikelihood = useCrossValidation ?
 //     		variants::reduce(
-//                 rangeNumerator.begin(), rangeNumerator.end(), static_cast<real>(0.0),
-//                 AccumulateLikeNumeratorKernel<BaseModel,real,int,true>(begin(hY), begin(hXBeta), begin(hKWeight)),
+//                 rangeNumerator.begin(), rangeNumerator.end(), static_cast<RealType>(0.0),
+//                 AccumulateLikeNumeratorKernel<BaseModel,RealType,int,true>(begin(hY), begin(hXBeta), begin(hKWeight)),
 //                 SerialOnly()
 //     		) :
 //     		variants::reduce(
-//                 rangeNumerator.begin(), rangeNumerator.end(), static_cast<real>(0.0),
-//                 AccumulateLikeNumeratorKernel<BaseModel,real,int,false>(begin(hY), begin(hXBeta), begin(hKWeight)),
+//                 rangeNumerator.begin(), rangeNumerator.end(), static_cast<RealType>(0.0),
+//                 AccumulateLikeNumeratorKernel<BaseModel,RealType,int,false>(begin(hY), begin(hXBeta), begin(hKWeight)),
 //                 SerialOnly()
 //     		);
 
     auto rangeNumerator = helper::getRangeAllNumerators(K, hY, hXBeta, hKWeight);
 
-    real logLikelihood = useCrossValidation ?
+    RealType logLikelihood = useCrossValidation ?
     		variants::reduce(
-                rangeNumerator.begin(), rangeNumerator.end(), static_cast<real>(0.0),
-                TestAccumulateLikeNumeratorKernel<BaseModel,real,true>(),
+                rangeNumerator.begin(), rangeNumerator.end(), static_cast<RealType>(0.0),
+                TestAccumulateLikeNumeratorKernel<BaseModel,RealType,true>(),
                 SerialOnly()
     		) :
     		variants::reduce(
-                rangeNumerator.begin(), rangeNumerator.end(), static_cast<real>(0.0),
-                TestAccumulateLikeNumeratorKernel<BaseModel,real,false>(),
+                rangeNumerator.begin(), rangeNumerator.end(), static_cast<RealType>(0.0),
+                TestAccumulateLikeNumeratorKernel<BaseModel,RealType,false>(),
                 SerialOnly()
     		);
 
@@ -798,12 +813,12 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 //         auto rangeDenominator = helper::getRangeAll(N);
 //
 //         auto kernelDenominator = (BaseModel::cumulativeGradientAndHessian) ?
-//                 AccumulateLikeDenominatorKernel<BaseModel,real,int>(begin(hNWeight), begin(accDenomPid)) :
-//                 AccumulateLikeDenominatorKernel<BaseModel,real,int>(begin(hNWeight), begin(denomPid));
+//                 AccumulateLikeDenominatorKernel<BaseModel,RealType,int>(begin(hNWeight), begin(accDenomPid)) :
+//                 AccumulateLikeDenominatorKernel<BaseModel,RealType,int>(begin(hNWeight), begin(denomPid));
 //
 //         logLikelihood -= variants::reduce(
 //                 rangeDenominator.begin(), rangeDenominator.end(),
-//                 static_cast<real>(0.0),
+//                 static_cast<RealType>(0.0),
 //                 kernelDenominator,
 //                 SerialOnly()
 //         );
@@ -814,8 +829,8 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 
 		logLikelihood -= variants::reduce(
 				rangeDenominator.begin(), rangeDenominator.end(),
-				static_cast<real>(0.0),
-				TestAccumulateLikeDenominatorKernel<BaseModel,real>(),
+				static_cast<RealType>(0.0),
+				TestAccumulateLikeDenominatorKernel<BaseModel,RealType>(),
 				SerialOnly()
 		);
 
@@ -835,10 +850,10 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 	return static_cast<double>(logLikelihood);
 }
 
-template <class BaseModel,typename WeightType>
-double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(double* weights) {
+template <class BaseModel,typename RealType>
+double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* weights) {
 
-    std::vector<real> saveKWeight;
+    std::vector<RealType> saveKWeight;
 	if(BaseModel::cumulativeGradientAndHessian)	{
 
  		saveKWeight = hKWeight; // make copy
@@ -855,10 +870,10 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(double* 
 		(BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
 		weights, hPid, std::integral_constant<bool, BaseModel::hasIndependentRows>());
 
-	auto kernel = TestPredLikeKernel<BaseModel,real>();
+	auto kernel = TestPredLikeKernel<BaseModel,RealType>();
 
-	real logLikelihood = variants::reduce(
-			range.begin(), range.end(), static_cast<real>(0.0),
+	RealType logLikelihood = variants::reduce(
+			range.begin(), range.end(), static_cast<RealType>(0.0),
 			kernel,
 			SerialOnly()
 		);
@@ -874,11 +889,11 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(double* 
 	return static_cast<double>(logLikelihood);
 }   // END OF DIFF
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::getPredictiveEstimates(double* y, double* weights){
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::getPredictiveEstimates(double* y, double* weights){
 
 	// TODO Check with SM: the following code appears to recompute hXBeta at large expense
-//	std::vector<real> xBeta(K,0.0);
+//	std::vector<RealType> xBeta(K,0.0);
 //	for(int j = 0; j < J; j++){
 //		GenericIterator it(modelData, j);
 //		for(; it; ++it){
@@ -901,8 +916,8 @@ void ModelSpecifics<BaseModel,WeightType>::getPredictiveEstimates(double* y, dou
 }
 
 // TODO The following function is an example of a double-dispatch, rewrite without need for virtual function
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, double *ogradient,
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessian(int index, double *ogradient,
 		double *ohessian, bool useWeights) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -911,40 +926,40 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 #endif
 #endif
 
-	if (modelData.getNumberOfNonZeroEntries(index) == 0) {
+	if (hX.getNumberOfNonZeroEntries(index) == 0) {
 	    *ogradient = 0.0; *ohessian = 0.0;
 	    return;
 	}
 
 	// Run-time dispatch, so virtual call should not effect speed
 	if (useWeights) {
-		switch (modelData.getFormatType(index)) {
+		switch (hX.getFormatType(index)) {
 			case INDICATOR :
-				computeGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, weighted);
+				computeGradientAndHessianImpl<IndicatorIterator<RealType>>(index, ogradient, ohessian, weighted);
 				break;
 			case SPARSE :
-				computeGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, weighted);
+				computeGradientAndHessianImpl<SparseIterator<RealType>>(index, ogradient, ohessian, weighted);
 				break;
 			case DENSE :
-				computeGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, weighted);
+				computeGradientAndHessianImpl<DenseIterator<RealType>>(index, ogradient, ohessian, weighted);
 				break;
 			case INTERCEPT :
-				computeGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, weighted);
+				computeGradientAndHessianImpl<InterceptIterator<RealType>>(index, ogradient, ohessian, weighted);
 				break;
 		}
 	} else {
-		switch (modelData.getFormatType(index)) {
+		switch (hX.getFormatType(index)) {
 			case INDICATOR :
-				computeGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, unweighted);
+				computeGradientAndHessianImpl<IndicatorIterator<RealType>>(index, ogradient, ohessian, unweighted);
 				break;
 			case SPARSE :
-				computeGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, unweighted);
+				computeGradientAndHessianImpl<SparseIterator<RealType>>(index, ogradient, ohessian, unweighted);
 				break;
 			case DENSE :
-				computeGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, unweighted);
+				computeGradientAndHessianImpl<DenseIterator<RealType>>(index, ogradient, ohessian, unweighted);
 				break;
 			case INTERCEPT :
-				computeGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, unweighted);
+				computeGradientAndHessianImpl<InterceptIterator<RealType>>(index, ogradient, ohessian, unweighted);
 				break;
 		}
 	}
@@ -967,8 +982,8 @@ std::pair<RealType, RealType> operator+(
     return { lhs.first + rhs.first, lhs.second + rhs.second };
 }
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessian(
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeMMGradientAndHessian(
         std::vector<GradientHessian>& gh,
         const std::vector<bool>& fixBeta,
         bool useWeights) {
@@ -993,33 +1008,33 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessian(
 
         // Run-time dispatch, so virtual call should not effect speed
         if (useWeights) {
-            switch (modelData.getFormatType(index)) {
+            switch (hX.getFormatType(index)) {
             case INDICATOR :
-                computeMMGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, weighted);
+                computeMMGradientAndHessianImpl<IndicatorIterator<RealType>>(index, ogradient, ohessian, weighted);
                 break;
             case SPARSE :
-                computeMMGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, weighted);
+                computeMMGradientAndHessianImpl<SparseIterator<RealType>>(index, ogradient, ohessian, weighted);
                 break;
             case DENSE :
-                computeMMGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, weighted);
+                computeMMGradientAndHessianImpl<DenseIterator<RealType>>(index, ogradient, ohessian, weighted);
                 break;
             case INTERCEPT :
-                computeMMGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, weighted);
+                computeMMGradientAndHessianImpl<InterceptIterator<RealType>>(index, ogradient, ohessian, weighted);
                 break;
             }
         } else {
-            switch (modelData.getFormatType(index)) {
+            switch (hX.getFormatType(index)) {
             case INDICATOR :
-                computeMMGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, unweighted);
+                computeMMGradientAndHessianImpl<IndicatorIterator<RealType>>(index, ogradient, ohessian, unweighted);
                 break;
             case SPARSE :
-                computeMMGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, unweighted);
+                computeMMGradientAndHessianImpl<SparseIterator<RealType>>(index, ogradient, ohessian, unweighted);
                 break;
             case DENSE :
-                computeMMGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, unweighted);
+                computeMMGradientAndHessianImpl<DenseIterator<RealType>>(index, ogradient, ohessian, unweighted);
                 break;
             case INTERCEPT :
-                computeMMGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, unweighted);
+                computeMMGradientAndHessianImpl<InterceptIterator<RealType>>(index, ogradient, ohessian, unweighted);
                 break;
             }
         }
@@ -1036,8 +1051,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessian(
 
 }
 
-template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
-void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int index, double *ogradient,
+template <class BaseModel,typename RealType> template <class IteratorType, class Weights>
+void ModelSpecifics<BaseModel,RealType>::computeMMGradientAndHessianImpl(int index, double *ogradient,
                                                                            double *ohessian, Weights w) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -1046,10 +1061,10 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
 #endif
 #endif
 
-    real gradient = static_cast<real>(0);
-    real hessian = static_cast<real>(0);
+    RealType gradient = static_cast<RealType>(0);
+    RealType hessian = static_cast<RealType>(0);
 
-    IteratorType it(modelData, index);
+    IteratorType it(hX, index);
     for (; it; ++it) {
         const int k = it.index();
 
@@ -1072,7 +1087,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
 //    std::cerr << hXjY[index] << std::endl;
 
     if (BaseModel::precomputeHessian) { // Compile-time switch
-        hessian += static_cast<real>(2.0) * hXjX[index];
+        hessian += static_cast<RealType>(2.0) * hXjX[index];
     }
 
     *ogradient = static_cast<double>(gradient);
@@ -1090,8 +1105,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
 #endif
 }
 
-template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
-void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double *ogradient,
+template <class BaseModel,typename RealType> template <class IteratorType, class Weights>
+void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index, double *ogradient,
 		double *ohessian, Weights w) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -1100,14 +1115,14 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 #endif
 #endif
 
-	real gradient = static_cast<real>(0);
-	real hessian = static_cast<real>(0);
+	RealType gradient = static_cast<RealType>(0);
+	RealType hessian = static_cast<RealType>(0);
 
 	if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 
 #ifdef DEBUG_COX2
-	    real lastG = gradient;
-	    real lastH = hessian;
+	    RealType lastG = gradient;
+	    RealType lastH = hessian;
 #endif
 
     	if (sparseIndices[index] == nullptr || sparseIndices[index]->size() > 0) {
@@ -1121,10 +1136,10 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		IteratorType it(sparseIndices[index].get(), N);
 
 
-		real accNumerPid  = static_cast<real>(0);
-		real accNumerPid2 = static_cast<real>(0);
+		RealType accNumerPid  = static_cast<RealType>(0);
+		RealType accNumerPid2 = static_cast<RealType>(0);
 
-// 		const real* data = modelData.getDataVector(index);
+// 		const RealType* data = modelData.getDataVector(index);
 
         // find start relavent accumulator reset point
         auto reset = begin(accReset);
@@ -1136,23 +1151,23 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			int i = it.index();
 
 			if (*reset <= i) {
-			    accNumerPid  = static_cast<real>(0.0);
-			    accNumerPid2 = static_cast<real>(0.0);
+			    accNumerPid  = static_cast<RealType>(0.0);
+			    accNumerPid2 = static_cast<RealType>(0.0);
 			    ++reset;
 			}
 
 
-//			const real x = it.value();
+//			const RealType x = it.value();
 
-//			const real x = (IteratorType::isIndicator) ? 1.0 :
+//			const RealType x = (IteratorType::isIndicator) ? 1.0 :
 //				(IteratorType::isSparse) ? *data : data[i];
-// 			const real x = 1.0;
+// 			const RealType x = 1.0;
 
 			const auto numerator1 = numerPid[i];
 			const auto numerator2 = numerPid2[i];
 
-//     		const real numerator1 = BaseModel::gradientNumeratorContrib(x, offsExpXBeta[i], hXBeta[i], hY[i]);
-//     		const real numerator2 = BaseModel::gradientNumerator2Contrib(x, offsExpXBeta[i]);
+//     		const RealType numerator1 = BaseModel::gradientNumeratorContrib(x, offsExpXBeta[i], hXBeta[i], hY[i]);
+//     		const RealType numerator2 = BaseModel::gradientNumerator2Contrib(x, offsExpXBeta[i]);
 
      		accNumerPid += numerator1;
      		accNumerPid2 += numerator2;
@@ -1194,15 +1209,15 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[i];
 #endif
                     if (*reset <= i) {
-			            accNumerPid  = static_cast<real>(0.0);
-        			    accNumerPid2 = static_cast<real>(0.0);
+			            accNumerPid  = static_cast<RealType>(0.0);
+        			    accNumerPid2 = static_cast<RealType>(0.0);
 		        	    ++reset;
                    }
 
 					BaseModel::incrementGradientAndHessian(it,
 							w, // Signature-only, for iterator-type specialization
 							&gradient, &hessian, accNumerPid, accNumerPid2,
-							accDenomPid[i], hNWeight[i], static_cast<real>(0), hXBeta[i], hY[i]);
+							accDenomPid[i], hNWeight[i], static_cast<RealType>(0), hXBeta[i], hY[i]);
 							// When function is in-lined, compiler will only use necessary arguments
 #ifdef DEBUG_COX
 			cerr << " -> g:" << gradient << " h:" << hessian << endl;
@@ -1219,19 +1234,19 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	} else if (BaseModel::hasIndependentRows) {
 
-		auto range = helper::independent::getRangeX(modelData, index,
+		auto range = helper::independent::getRangeX(hX, index,
 		        offsExpXBeta, hXBeta, hY, denomPid, hNWeight,
 		        typename IteratorType::tag());
 
-		const auto result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
-		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
+		const auto result = variants::reduce(range.begin(), range.end(), Fraction<RealType>(0,0),
+		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, RealType, int>(),
  	        SerialOnly()
 // 		RcppParallel()
 		);
 
 
-// 		const auto result2 = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
-// 		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
+// 		const auto result2 = variants::reduce(range.begin(), range.end(), Fraction<RealType>(0,0),
+// 		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, RealType, int>(),
 // // 			SerialOnly()
 // 			RcppParallel()
 // 		);
@@ -1265,10 +1280,10 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 //
 // #ifdef NEW_WAY2
 
-		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid,
+		auto rangeKey = helper::dependent::getRangeKey(hX, index, hPid,
 		        typename IteratorType::tag());
 
-        auto rangeXNumerator = helper::dependent::getRangeX(modelData, index, offsExpXBeta,
+        auto rangeXNumerator = helper::dependent::getRangeX(hX, index, offsExpXBeta,
                 typename IteratorType::tag());
 
         auto rangeGradient = helper::dependent::getRangeGradient(sparseIndices[index].get(), N, // runtime error: reference binding to null pointer of type 'struct vector'
@@ -1278,9 +1293,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		const auto result = variants::trial::nested_reduce(
 		        rangeKey.begin(), rangeKey.end(),
 		        rangeXNumerator.begin(), rangeGradient.begin(),
-		        std::pair<real,real>{0,0}, Fraction<real>{0,0},
-                TestNumeratorKernel<BaseModel,IteratorType,real>(), // Inner transform-reduce
-		       	TestGradientKernel<BaseModel,IteratorType,Weights,real>()); // Outer transform-reduce
+		        std::pair<RealType,RealType>{0,0}, Fraction<RealType>{0,0},
+                TestNumeratorKernel<BaseModel,IteratorType,RealType>(), // Inner transform-reduce
+		       	TestGradientKernel<BaseModel,IteratorType,Weights>()); // Outer transform-reduce
 
 		gradient = result.real();
 		hessian = result.imag();
@@ -1302,7 +1317,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	}
 
 	if (BaseModel::precomputeHessian) { // Compile-time switch
-		hessian += static_cast<real>(2.0) * hXjX[index];
+		hessian += static_cast<RealType>(2.0) * hXjX[index];
 	}
 
  	*ogradient = static_cast<double>(gradient);
@@ -1319,8 +1334,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
  }
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeFisherInformation(int indexOne, int indexTwo,
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeFisherInformation(int indexOne, int indexTwo,
 		double *oinfo, bool useWeights) {
 
 	if (useWeights) {
@@ -1328,159 +1343,159 @@ void ModelSpecifics<BaseModel,WeightType>::computeFisherInformation(int indexOne
 // 		exit(-1);
 		throw new std::logic_error("Weights are not yet implemented in Fisher Information calculations");
 	} else { // no weights
-		switch (modelData.getFormatType(indexOne)) {
+		switch (hX.getFormatType(indexOne)) {
 			case INDICATOR :
-				dispatchFisherInformation<IndicatorIterator>(indexOne, indexTwo, oinfo, weighted);
+				dispatchFisherInformation<IndicatorIterator<RealType>>(indexOne, indexTwo, oinfo, weighted);
 				break;
 			case SPARSE :
-				dispatchFisherInformation<SparseIterator>(indexOne, indexTwo, oinfo, weighted);
+				dispatchFisherInformation<SparseIterator<RealType>>(indexOne, indexTwo, oinfo, weighted);
 				break;
 			case DENSE :
-				dispatchFisherInformation<DenseIterator>(indexOne, indexTwo, oinfo, weighted);
+				dispatchFisherInformation<DenseIterator<RealType>>(indexOne, indexTwo, oinfo, weighted);
 				break;
 			case INTERCEPT :
-				dispatchFisherInformation<InterceptIterator>(indexOne, indexTwo, oinfo, weighted);
+				dispatchFisherInformation<InterceptIterator<RealType>>(indexOne, indexTwo, oinfo, weighted);
 				break;
 		}
 	}
 }
 
-template <class BaseModel, typename WeightType> template <typename IteratorTypeOne, class Weights>
-void ModelSpecifics<BaseModel,WeightType>::dispatchFisherInformation(int indexOne, int indexTwo, double *oinfo, Weights w) {
-	switch (modelData.getFormatType(indexTwo)) {
-		case INDICATOR :
-			computeFisherInformationImpl<IteratorTypeOne,IndicatorIterator>(indexOne, indexTwo, oinfo, w);
-			break;
-		case SPARSE :
-			computeFisherInformationImpl<IteratorTypeOne,SparseIterator>(indexOne, indexTwo, oinfo, w);
-			break;
-		case DENSE :
-			computeFisherInformationImpl<IteratorTypeOne,DenseIterator>(indexOne, indexTwo, oinfo, w);
-			break;
-		case INTERCEPT :
-			computeFisherInformationImpl<IteratorTypeOne,InterceptIterator>(indexOne, indexTwo, oinfo, w);
-			break;
-	}
+template <class BaseModel, typename RealType> template <typename IteratorTypeOne, class Weights>
+void ModelSpecifics<BaseModel,RealType>::dispatchFisherInformation(int indexOne, int indexTwo, double *oinfo, Weights w) {
+	// switch (modelData.getFormatType(indexTwo)) {
+	// 	case INDICATOR :
+	// 		computeFisherInformationImpl<IteratorTypeOne,IndicatorIterator>(indexOne, indexTwo, oinfo, w);
+	// 		break;
+	// 	case SPARSE :
+	// 		computeFisherInformationImpl<IteratorTypeOne,SparseIterator>(indexOne, indexTwo, oinfo, w);
+	// 		break;
+	// 	case DENSE :
+	// 		computeFisherInformationImpl<IteratorTypeOne,DenseIterator>(indexOne, indexTwo, oinfo, w);
+	// 		break;
+	// 	case INTERCEPT :
+	// 		computeFisherInformationImpl<IteratorTypeOne,InterceptIterator>(indexOne, indexTwo, oinfo, w);
+	// 		break;
+	// }
 //	std::cerr << "End of dispatch" << std::endl;
 }
 
 
-template<class BaseModel, typename WeightType> template<class IteratorType>
-SparseIterator ModelSpecifics<BaseModel, WeightType>::getSubjectSpecificHessianIterator(int index) {
+// template<class BaseModel, typename RealType> template<class IteratorType>
+// SparseIterator<RealType> ModelSpecifics<BaseModel, RealType>::getSubjectSpecificHessianIterator(int index) {
+//
+// 	if (hessianSparseCrossTerms.find(index) == hessianSparseCrossTerms.end()) {
+// 		// Make new
+// //		std::vector<int>* indices = new std::vector<int>();
+//         auto indices = make_shared<std::vector<int> >();
+// //		std::vector<real>* values = new std::vector<real>();
+//         auto values = make_shared<std::vector<real> >();
+// //		CompressedDataColumn* column = new CompressedDataColumn(indices, values,
+// //				SPARSE);
+//     	CDCPtr column = bsccs::make_shared<CompressedDataColumn>(indices, values, SPARSE);
+// 		hessianSparseCrossTerms.insert(std::make_pair(index,
+// // 		    CompressedDataColumn(indices, values, SPARSE)));
+// 		    column));
+//
+// 		IteratorType itCross(modelData, index);
+// 		for (; itCross;) {
+// 			real value = 0.0;
+// 			int currentPid = hPid[itCross.index()];  // TODO Need to fix for stratified Cox
+// 			do {
+// 				const int k = itCross.index();
+// 				value += BaseModel::gradientNumeratorContrib(itCross.value(),
+// 						offsExpXBeta[k], hXBeta[k], hY[k]);
+// 				++itCross;
+// 			} while (itCross && currentPid == hPid[itCross.index()]); // TODO Need to fix for stratified Cox
+// 			indices->push_back(currentPid);
+// 			values->push_back(value);
+// 		}
+// 	}
+// 	return SparseIterator(*hessianSparseCrossTerms[index]);
+//
+// }
 
-	if (hessianSparseCrossTerms.find(index) == hessianSparseCrossTerms.end()) {
-		// Make new
-//		std::vector<int>* indices = new std::vector<int>();
-        auto indices = make_shared<std::vector<int> >();
-//		std::vector<real>* values = new std::vector<real>();
-        auto values = make_shared<std::vector<real> >();
-//		CompressedDataColumn* column = new CompressedDataColumn(indices, values,
-//				SPARSE);
-    	CDCPtr column = bsccs::make_shared<CompressedDataColumn>(indices, values, SPARSE);
-		hessianSparseCrossTerms.insert(std::make_pair(index,
-// 		    CompressedDataColumn(indices, values, SPARSE)));
-		    column));
-
-		IteratorType itCross(modelData, index);
-		for (; itCross;) {
-			real value = 0.0;
-			int currentPid = hPid[itCross.index()];  // TODO Need to fix for stratified Cox
-			do {
-				const int k = itCross.index();
-				value += BaseModel::gradientNumeratorContrib(itCross.value(),
-						offsExpXBeta[k], hXBeta[k], hY[k]);
-				++itCross;
-			} while (itCross && currentPid == hPid[itCross.index()]); // TODO Need to fix for stratified Cox
-			indices->push_back(currentPid);
-			values->push_back(value);
-		}
-	}
-	return SparseIterator(*hessianSparseCrossTerms[index]);
-
+template <class BaseModel, typename RealType> template <class IteratorTypeOne, class IteratorTypeTwo, class Weights>
+void ModelSpecifics<BaseModel,RealType>::computeFisherInformationImpl(int indexOne, int indexTwo, double *oinfo, Weights w) {
+//
+// 	IteratorTypeOne itOne(modelData, indexOne);
+// 	IteratorTypeTwo itTwo(modelData, indexTwo);
+// 	PairProductIterator<IteratorTypeOne,IteratorTypeTwo,RealType> it(itOne, itTwo);
+//
+// 	RealType information = static_cast<RealType>(0);
+// 	for (; it.valid(); ++it) {
+// 		const int k = it.index();
+// 		// Compile-time delegation
+//
+// 		BaseModel::incrementFisherInformation(it,
+// 				w, // Signature-only, for iterator-type specialization
+// 				&information,
+// 				offsExpXBeta[k],
+// 				0.0, 0.0, // numerPid[k], numerPid2[k], // remove
+// 				denomPid[BaseModel::getGroup(hPid, k)],
+// 				hKWeight[k], it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
+// 	}
+//
+// 	if (BaseModel::hasStrataCrossTerms) {
+//
+// 		// Check if index is pre-computed
+// //#define USE_DENSE
+// #ifdef USE_DENSE
+// 		if (hessianCrossTerms.find(indexOne) == hessianCrossTerms.end()) {
+// 			// Make new
+// 			std::vector<real> crossOneTerms(N);
+// 			IteratorTypeOne crossOne(modelData, indexOne);
+// 			for (; crossOne; ++crossOne) {
+// 				const int k = crossOne.index();
+// 				incrementByGroup(crossOneTerms.data(), hPid, k,
+// 						BaseModel::gradientNumeratorContrib(crossOne.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
+// 			}
+// 			hessianCrossTerms[indexOne];
+// //			std::cerr << std::accumulate(crossOneTerms.begin(), crossOneTerms.end(), 0.0) << std::endl;
+// 			hessianCrossTerms[indexOne].swap(crossOneTerms);
+// 		}
+// 		std::vector<real>& crossOneTerms = hessianCrossTerms[indexOne];
+//
+// 		// TODO Remove code duplication
+// 		if (hessianCrossTerms.find(indexTwo) == hessianCrossTerms.end()) {
+// 			std::vector<real> crossTwoTerms(N);
+// 			IteratorTypeTwo crossTwo(modelData, indexTwo);
+// 			for (; crossTwo; ++crossTwo) {
+// 				const int k = crossTwo.index();
+// 				incrementByGroup(crossTwoTerms.data(), hPid, k,
+// 						BaseModel::gradientNumeratorContrib(crossTwo.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
+// 			}
+// 			hessianCrossTerms[indexTwo];
+// //			std::cerr << std::accumulate(crossTwoTerms.begin(), crossTwoTerms.end(), 0.0) << std::endl;
+// 			hessianCrossTerms[indexTwo].swap(crossTwoTerms);
+// 		}
+// 		std::vector<real>& crossTwoTerms = hessianCrossTerms[indexTwo];
+//
+// 		// TODO Sparse loop
+// 		real cross = 0.0;
+// 		for (int n = 0; n < N; ++n) {
+// 			cross += crossOneTerms[n] * crossTwoTerms[n] / (denomPid[n] * denomPid[n]);
+// 		}
+// //		std::cerr << cross << std::endl;
+// 		information -= cross;
+// #else
+// 		SparseIterator sparseCrossOneTerms = getSubjectSpecificHessianIterator<IteratorTypeOne>(indexOne);
+// 		SparseIterator sparseCrossTwoTerms = getSubjectSpecificHessianIterator<IteratorTypeTwo>(indexTwo);
+// 		PairProductIterator<SparseIterator,SparseIterator> itSparseCross(sparseCrossOneTerms, sparseCrossTwoTerms);
+//
+// 		real sparseCross = 0.0;
+// 		for (; itSparseCross.valid(); ++itSparseCross) {
+// 			const int n = itSparseCross.index();
+// 			sparseCross += itSparseCross.value() / (denomPid[n] * denomPid[n]);
+// 		}
+// 		information -= sparseCross;
+// #endif
+// 	}
+//
+// 	*oinfo = static_cast<double>(information);
 }
 
-template <class BaseModel, typename WeightType> template <class IteratorTypeOne, class IteratorTypeTwo, class Weights>
-void ModelSpecifics<BaseModel,WeightType>::computeFisherInformationImpl(int indexOne, int indexTwo, double *oinfo, Weights w) {
-
-	IteratorTypeOne itOne(modelData, indexOne);
-	IteratorTypeTwo itTwo(modelData, indexTwo);
-	PairProductIterator<IteratorTypeOne,IteratorTypeTwo> it(itOne, itTwo);
-
-	real information = static_cast<real>(0);
-	for (; it.valid(); ++it) {
-		const int k = it.index();
-		// Compile-time delegation
-
-		BaseModel::incrementFisherInformation(it,
-				w, // Signature-only, for iterator-type specialization
-				&information,
-				offsExpXBeta[k],
-				0.0, 0.0, // numerPid[k], numerPid2[k], // remove
-				denomPid[BaseModel::getGroup(hPid, k)],
-				hKWeight[k], it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
-	}
-
-	if (BaseModel::hasStrataCrossTerms) {
-
-		// Check if index is pre-computed
-//#define USE_DENSE
-#ifdef USE_DENSE
-		if (hessianCrossTerms.find(indexOne) == hessianCrossTerms.end()) {
-			// Make new
-			std::vector<real> crossOneTerms(N);
-			IteratorTypeOne crossOne(modelData, indexOne);
-			for (; crossOne; ++crossOne) {
-				const int k = crossOne.index();
-				incrementByGroup(crossOneTerms.data(), hPid, k,
-						BaseModel::gradientNumeratorContrib(crossOne.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
-			}
-			hessianCrossTerms[indexOne];
-//			std::cerr << std::accumulate(crossOneTerms.begin(), crossOneTerms.end(), 0.0) << std::endl;
-			hessianCrossTerms[indexOne].swap(crossOneTerms);
-		}
-		std::vector<real>& crossOneTerms = hessianCrossTerms[indexOne];
-
-		// TODO Remove code duplication
-		if (hessianCrossTerms.find(indexTwo) == hessianCrossTerms.end()) {
-			std::vector<real> crossTwoTerms(N);
-			IteratorTypeTwo crossTwo(modelData, indexTwo);
-			for (; crossTwo; ++crossTwo) {
-				const int k = crossTwo.index();
-				incrementByGroup(crossTwoTerms.data(), hPid, k,
-						BaseModel::gradientNumeratorContrib(crossTwo.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
-			}
-			hessianCrossTerms[indexTwo];
-//			std::cerr << std::accumulate(crossTwoTerms.begin(), crossTwoTerms.end(), 0.0) << std::endl;
-			hessianCrossTerms[indexTwo].swap(crossTwoTerms);
-		}
-		std::vector<real>& crossTwoTerms = hessianCrossTerms[indexTwo];
-
-		// TODO Sparse loop
-		real cross = 0.0;
-		for (int n = 0; n < N; ++n) {
-			cross += crossOneTerms[n] * crossTwoTerms[n] / (denomPid[n] * denomPid[n]);
-		}
-//		std::cerr << cross << std::endl;
-		information -= cross;
-#else
-		SparseIterator sparseCrossOneTerms = getSubjectSpecificHessianIterator<IteratorTypeOne>(indexOne);
-		SparseIterator sparseCrossTwoTerms = getSubjectSpecificHessianIterator<IteratorTypeTwo>(indexTwo);
-		PairProductIterator<SparseIterator,SparseIterator> itSparseCross(sparseCrossOneTerms, sparseCrossTwoTerms);
-
-		real sparseCross = 0.0;
-		for (; itSparseCross.valid(); ++itSparseCross) {
-			const int n = itSparseCross.index();
-			sparseCross += itSparseCross.value() / (denomPid[n] * denomPid[n]);
-		}
-		information -= sparseCross;
-#endif
-	}
-
-	*oinfo = static_cast<double>(information);
-}
-
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index) {
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifndef CYCLOPS_DEBUG_TIMING_LOW
@@ -1507,38 +1522,38 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 // 			default : break;
 // 				// throw error
 // 		}
-		switch (modelData.getFormatType(index)) {
+		switch (hX.getFormatType(index)) {
 			case INDICATOR : {
-				IndicatorIterator it(*(sparseIndices)[index]);
+				IndicatorIterator<RealType> it(*(sparseIndices)[index]);
 				for (; it; ++it) { // Only affected entries
-					numerPid[it.index()] = static_cast<real>(0.0);
+					numerPid[it.index()] = static_cast<RealType>(0.0);
 				}
-				incrementNumeratorForGradientImpl<IndicatorIterator>(index);
+				incrementNumeratorForGradientImpl<IndicatorIterator<RealType>>(index);
 				}
 				break;
 			case SPARSE : {
-				SparseIterator it(*(sparseIndices)[index]);
+				SparseIterator<RealType> it(*(sparseIndices)[index]);
 				for (; it; ++it) { // Only affected entries
-					numerPid[it.index()] = static_cast<real>(0.0);
+					numerPid[it.index()] = static_cast<RealType>(0.0);
 					if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
-						numerPid2[it.index()] = static_cast<real>(0.0); // TODO Does this invalid the cache line too much?
+						numerPid2[it.index()] = static_cast<RealType>(0.0); // TODO Does this invalid the cache line too much?
 					}
 				}
-				incrementNumeratorForGradientImpl<SparseIterator>(index); }
+				incrementNumeratorForGradientImpl<SparseIterator<RealType>>(index); }
 				break;
 			case DENSE :
 				zeroVector(numerPid.data(), N);
 				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
 					zeroVector(numerPid2.data(), N);
 				}
-				incrementNumeratorForGradientImpl<DenseIterator>(index);
+				incrementNumeratorForGradientImpl<DenseIterator<RealType>>(index);
 				break;
 			case INTERCEPT :
 				zeroVector(numerPid.data(), N);
 				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
 					zeroVector(numerPid2.data(), N);
 				}
-				incrementNumeratorForGradientImpl<InterceptIterator>(index);
+				incrementNumeratorForGradientImpl<InterceptIterator<RealType>>(index);
 				break;
 			default : break;
 				// throw error
@@ -1556,8 +1571,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 
 }
 
-template <class BaseModel,typename WeightType> template <class IteratorType>
-void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int index) {
+template <class BaseModel,typename RealType> template <class IteratorType>
+void ModelSpecifics<BaseModel,RealType>::incrementNumeratorForGradientImpl(int index) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
@@ -1624,7 +1639,7 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 
 // #else
 
-	IteratorType it(modelData, index);
+	IteratorType it(hX, index);
 	for (; it; ++it) {
 		const int k = it.index();
 		incrementByGroup(numerPid.data(), hPid, k,
@@ -1665,8 +1680,8 @@ using namespace std;
 
 }
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index, bool useWeights) {
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::updateXBeta(double delta, int index, bool useWeights) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifndef CYCLOPS_DEBUG_TIMING_LOW
@@ -1674,19 +1689,21 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index
 #endif
 #endif
 
+	RealType realDelta = static_cast<RealType>(delta);
+
 	// Run-time dispatch to implementation depending on covariate FormatType
-	switch(modelData.getFormatType(index)) {
+	switch(hX.getFormatType(index)) {
 		case INDICATOR :
-			updateXBetaImpl<IndicatorIterator>(realDelta, index, useWeights);
+			updateXBetaImpl<IndicatorIterator<RealType>>(realDelta, index, useWeights);
 			break;
 		case SPARSE :
-			updateXBetaImpl<SparseIterator>(realDelta, index, useWeights);
+			updateXBetaImpl<SparseIterator<RealType>>(realDelta, index, useWeights);
 			break;
 		case DENSE :
-			updateXBetaImpl<DenseIterator>(realDelta, index, useWeights);
+			updateXBetaImpl<DenseIterator<RealType>>(realDelta, index, useWeights);
 			break;
 		case INTERCEPT :
-			updateXBetaImpl<InterceptIterator>(realDelta, index, useWeights);
+			updateXBetaImpl<InterceptIterator<RealType>>(realDelta, index, useWeights);
 			break;
 		default : break;
 			// throw error
@@ -1703,8 +1720,8 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index
 
 }
 
-template <class BaseModel,typename WeightType> template <class IteratorType>
-inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta, int index, bool useWeights) {
+template <class BaseModel,typename RealType> template <class IteratorType>
+inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDelta, int index, bool useWeights) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
@@ -1715,9 +1732,9 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 // #ifdef NEW_LOOPS
 
 #if 1
-	auto range = helper::getRangeX(modelData, index, typename IteratorType::tag());
+	auto range = helper::getRangeX(hX, index, typename IteratorType::tag());
 
-	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,real,int>(
+	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,RealType,int>(
 					realDelta, begin(offsExpXBeta), begin(hXBeta),
 					begin(hY),
 					begin(hPid),
@@ -1743,7 +1760,7 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
                 offsExpXBeta, hXBeta, denomPid, hOffs,
                 typename IteratorType::tag());
 
-        auto kernel = TestUpdateXBetaKernel<BaseModel,IteratorType,real>(realDelta);
+        auto kernel = TestUpdateXBetaKernel<BaseModel,IteratorType,RealType>(realDelta);
         variants::for_each(
             range.begin(), range.end(),
             kernel,
@@ -1827,8 +1844,8 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 
 }
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWeights) {
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeRemainingStatistics(bool useWeights) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto start = bsccs::chrono::steady_clock::now();
@@ -1864,29 +1881,29 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 
 }
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerator(bool useWeights) {
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeAccumlatedNumerator(bool useWeights) {
 
 	if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
 			BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 		if (accNumerPid.size() != N) {
-			accNumerPid.resize(N, static_cast<real>(0));
+			accNumerPid.resize(N, static_cast<RealType>(0));
 		}
 		if (accNumerPid2.size() != N) {
-			accNumerPid2.resize(N, static_cast<real>(0));
+			accNumerPid2.resize(N, static_cast<RealType>(0));
 		}
 
 		// segmented prefix-scan
-		real totalNumer = static_cast<real>(0);
-		real totalNumer2 = static_cast<real>(0);
+		RealType totalNumer = static_cast<RealType>(0);
+		RealType totalNumer2 = static_cast<RealType>(0);
 
 		auto reset = begin(accReset);
 
 		for (size_t i = 0; i < N; ++i) {
 
 			if (static_cast<unsigned int>(*reset) == i) {
-				totalNumer = static_cast<real>(0);
-				totalNumer2 = static_cast<real>(0);
+				totalNumer = static_cast<RealType>(0);
+				totalNumer2 = static_cast<RealType>(0);
 				++reset;
 			}
 
@@ -1898,34 +1915,34 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerator(bool useWe
 	}
 }
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedDenominator(bool useWeights) {
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeAccumlatedDenominator(bool useWeights) {
 
 	if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
 		BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 			if (accDenomPid.size() != (N + 1)) {
-				accDenomPid.resize(N + 1, static_cast<real>(0));
+				accDenomPid.resize(N + 1, static_cast<RealType>(0));
 			}
 // 			if (accNumerPid.size() != N) {
-// 				accNumerPid.resize(N, static_cast<real>(0));
+// 				accNumerPid.resize(N, static_cast<RealType>(0));
 // 			}
 // 			if (accNumerPid2.size() != N) {
-// 				accNumerPid2.resize(N, static_cast<real>(0));
+// 				accNumerPid2.resize(N, static_cast<RealType>(0));
 // 			}
 
 			// segmented prefix-scan
-			real totalDenom = static_cast<real>(0);
-// 			real totalNumer = static_cast<real>(0);
-// 			real totalNumer2 = static_cast<real>(0);
+			RealType totalDenom = static_cast<RealType>(0);
+// 			RealType totalNumer = static_cast<RealType>(0);
+// 			RealType totalNumer2 = static_cast<RealType>(0);
 
 			auto reset = begin(accReset);
 
 			for (size_t i = 0; i < N; ++i) {
 // TODO CHECK
 				if (static_cast<unsigned int>(*reset) == i) { // TODO Check with SPARSE
-					totalDenom = static_cast<real>(0);
-// 					totalNumer = static_cast<real>(0);
-// 					totalNumer2 = static_cast<real>(0);
+					totalDenom = static_cast<RealType>(0);
+// 					totalNumer = static_cast<RealType>(0);
+// 					totalNumer2 = static_cast<RealType>(0);
 					++reset;
 				}
 
@@ -1943,13 +1960,160 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedDenominator(bool use
 	}
 }
 
-template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::doSortPid(bool useCrossValidation) {
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::doSortPid(bool useCrossValidation) {
 /* For Cox model:
  *
  * We currently assume that hZ[k] are sorted in decreasing order by k.
  *
  */
+}
+
+
+template <class BaseModel,typename RealType> template <typename AnyRealType>
+void ModelSpecifics<BaseModel,RealType>::setPidForAccumulation(const AnyRealType* weights) {
+
+    hPidInternal =  hPidOriginal; // Make copy
+    hPid = hPidInternal.data(); // Point to copy
+    accReset.clear();
+
+    const int ignore = -1;
+
+    // Find first non-zero weight
+    size_t index = 0;
+    while(weights != nullptr && weights[index] == 0.0 && index < K) {
+        hPid[index] = ignore;
+        index++;
+    }
+
+    int lastPid = hPid[index];
+    AnyRealType lastTime = hOffs[index];
+    AnyRealType lastEvent = hY[index];
+
+    int pid = hPid[index] = 0;
+
+    for (size_t k = index + 1; k < K; ++k) {
+        if (weights == nullptr || weights[k] != 0.0) {
+            int nextPid = hPid[k];
+
+            if (nextPid != lastPid) { // start new strata
+                pid++;
+                accReset.push_back(pid);
+                lastPid = nextPid;
+            } else {
+
+                if (lastEvent == 1.0 && lastTime == hOffs[k] && lastEvent == hY[k]) {
+                    // In a tie, do not increment denominator
+                } else {
+                    pid++;
+                }
+            }
+            lastTime = hOffs[k];
+            lastEvent = hY[k];
+
+            hPid[k] = pid;
+        } else {
+            hPid[k] = ignore;
+        }
+    }
+    pid++;
+    accReset.push_back(pid);
+
+    // Save number of denominators
+    N = pid;
+
+    if (weights != nullptr) {
+        for (size_t i = 0; i < K; ++i) {
+            if (hPid[i] == ignore) hPid[i] = N; // do NOT accumulate, since loops use: i < N
+        }
+    }
+    setupSparseIndices(N); // ignore pid == N (pointing to removed data strata)
+}
+
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::setupSparseIndices(const int max) {
+    sparseIndices.clear(); // empty if full!
+
+    for (size_t j = 0; j < J; ++j) {
+        if (hX.getFormatType(j) == DENSE || hX.getFormatType(j) == INTERCEPT) {
+            sparseIndices.push_back(NULL);
+        } else {
+            std::set<int> unique;
+            const size_t n = hX.getNumberOfEntries(j);
+            const int* indicators = hX.getCompressedColumnVector(j);
+            for (size_t j = 0; j < n; j++) { // Loop through non-zero entries only
+                const int k = indicators[j];
+                const int i = hPid[k];  // TODO container-overflow #Generate some simulated data: #Fit the model
+                if (i < max) {
+                    unique.insert(i);
+                }
+            }
+            auto indices = bsccs::make_shared<IndexVector>(unique.begin(), unique.end());
+            sparseIndices.push_back(indices);
+        }
+    }
+}
+
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::deviceInitialization() {
+    // Do nothing
+}
+
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::initialize(
+        int iN,
+        int iK,
+        int iJ,
+        const void*,
+        double* iNumerPid,
+        double* iNumerPid2,
+        double* iDenomPid,
+        //		int* iNEvents,
+        double* iXjY,
+        std::vector<std::vector<int>* >* iSparseIndices,
+        const int* iPid_unused,
+        double* iOffsExpXBeta,
+        double* iXBeta,
+        double* iOffs,
+        double* iBeta,
+        const double* iY_unused//,
+    //		real* iWeights
+) {
+    N = iN;
+    K = iK;
+    J = iJ;
+    offsExpXBeta.resize(K);
+    hXBeta.resize(K);
+
+    if (allocateXjY()) {
+        hXjY.resize(J);
+    }
+
+    if (allocateXjX()) {
+        hXjX.resize(J);
+    }
+
+    if (initializeAccumulationVectors()) {
+        setPidForAccumulation(static_cast<double*>(nullptr)); // calls setupSparseIndices() before returning
+    } else {
+        // TODO Suspect below is not necessary for non-grouped data.
+        // If true, then fill with pointers to CompressedDataColumn and do not delete in destructor
+        setupSparseIndices(N); // Need to be recomputed when hPid change!
+    }
+
+
+
+    size_t alignedLength = getAlignedLength(N + 1);
+    // 	numerDenomPidCache.resize(3 * alignedLength, 0);
+    // 	numerPid = numerDenomPidCache.data();
+    // 	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
+    // 	numerPid2 = numerPid + 2 * alignedLength;
+    denomPid.resize(alignedLength);
+    numerPid.resize(alignedLength);
+    numerPid2.resize(alignedLength);
+
+    deviceInitialization();
+
 }
 
 } // namespace

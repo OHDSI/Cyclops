@@ -58,21 +58,21 @@ public:
 	typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 
 	CyclicCoordinateDescent(
-			const ModelData& modelData,
+			const AbstractModelData& modelData,
 			AbstractModelSpecifics& specifics,
 			priors::JointPriorPtr prior,
 			loggers::ProgressLoggerPtr logger,
 			loggers::ErrorHandlerPtr error
 		);
 
-	CyclicCoordinateDescent(
-			int inN,
-			CompressedDataMatrix* inX,
-			int* inEta,
-			int* inOffs,
-			int* inNEvents,
-			int* inPid
-		);
+	// CyclicCoordinateDescent(
+	// 		int inN,
+	// 		CompressedDataMatrix* inX,
+	// 		int* inEta,
+	// 		int* inOffs,
+	// 		int* inNEvents,
+	// 		int* inPid
+	// 	);
 
 	CyclicCoordinateDescent* clone();
 
@@ -180,7 +180,7 @@ protected:
 
 	AbstractModelSpecifics& modelSpecifics;
 	priors::JointPriorPtr jointPrior;
-	const ModelData& hXI;
+	const AbstractModelData& hXI;
 
 	CyclicCoordinateDescent(const CyclicCoordinateDescent& copy);
 
@@ -322,7 +322,7 @@ protected:
 	const int* hPid;
 
 	int** hXColumnRowIndicators; // J-vector
-	
+
 	typedef std::vector<double> DoubleVector;
 	DoubleVector hBeta;
 

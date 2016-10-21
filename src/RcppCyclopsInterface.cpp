@@ -166,7 +166,7 @@ Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP 
 	        indices.push_back(index);
 	    }
 	} else {
-		for (size_t index = 0; index < interface->getModelData().getNumberOfColumns(); ++index) {
+		for (size_t index = 0; index < interface->getModelData().getNumberOfCovariates(); ++index) {
 			indices.push_back(index);
 		}
 	}
@@ -373,7 +373,7 @@ List cyclopsLogModel(SEXP inRcppCcdInterface) {
 	std::vector<double> values;
     auto index = data.getHasOffsetCovariate() ? 1 : 0;
     for ( ; index < ccd.getBetaSize(); ++index) {
-        labels.push_back(data.getColumn(index).getNumericalLabel());
+        labels.push_back(data.getColumnNumericalLabel(index));
         values.push_back(ccd.getBeta(index));
     }
 
@@ -416,7 +416,7 @@ List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, cons
                             bool computeMLE = false) {
 	using namespace bsccs;
 
-	XPtr<RcppModelData> rcppModelData(inModelData);
+	XPtr<AbstractModelData> rcppModelData(inModelData);
 	XPtr<RcppCcdInterface> interface(
 		new RcppCcdInterface(*rcppModelData));
 
@@ -584,7 +584,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
 		const ProfileVector& flatPrior, const HierarchicalChildMap& hierarchyMap, const NeighborhoodMap& neighborhood) {
 	using namespace bsccs::priors;
 
-    const int length = modelData->getNumberOfColumns();
+    const int length = modelData->getNumberOfCovariates();
 
  	if (   flatPrior.size() == 0
  	    && hierarchyMap.size() == 0
@@ -636,7 +636,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
             prior = hPrior;
 	 	}
  	} else {
- 		const int length =  modelData->getNumberOfColumns();
+ 		const int length =  modelData->getNumberOfCovariates();
  		bsccs::shared_ptr<MixtureJointPrior> mixturePrior = bsccs::make_shared<MixtureJointPrior>(
  						singlePrior, length
  				);
@@ -701,7 +701,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
 }
 // TODO Massive code duplicate (to remove) with CmdLineCcdInterface
 void RcppCcdInterface::initializeModelImpl(
-		ModelData** modelData,
+		AbstractModelData** modelData,
 		CyclicCoordinateDescent** ccd,
 		AbstractModelSpecifics** model) {
 
@@ -791,7 +791,7 @@ void RcppCcdInterface::initializeModelImpl(
 
 }
 
-void RcppCcdInterface::predictModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData) {
+void RcppCcdInterface::predictModelImpl(CyclicCoordinateDescent *ccd, AbstractModelData *modelData) {
 
 // 	bsccs::PredictionOutputWriter predictor(*ccd, *modelData);
 //
@@ -820,7 +820,7 @@ void RcppCcdInterface::predictModelImpl(CyclicCoordinateDescent *ccd, ModelData 
 
 }
 
-void RcppCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,
+void RcppCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, AbstractModelData *modelData,
 	    ProfileInformationMap& profileMap, bool withASE) {
 
  		// TODO Move into super-class
@@ -833,7 +833,7 @@ void RcppCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, ModelData *mod
   	estimates.writeStream(out);
 }
 
-void RcppCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,
+void RcppCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, AbstractModelData *modelData,
 		double loadTime,
 		double updateTime) {
 
@@ -843,7 +843,7 @@ void RcppCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, ModelData
   	diagnostics.writeStream(test);
 }
 
-RcppCcdInterface::RcppCcdInterface(RcppModelData& _rcppModelData)
+RcppCcdInterface::RcppCcdInterface(AbstractModelData& _rcppModelData)
 	: rcppModelData(_rcppModelData), modelData(NULL), ccd(NULL), modelSpecifics(NULL) {
 	arguments.noiseLevel = SILENT; // Change default value from command-line version
 }

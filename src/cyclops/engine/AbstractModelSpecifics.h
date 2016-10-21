@@ -14,21 +14,20 @@
 #include <cstddef>
 
 #include "Types.h"
+#include "ModelData.h"
 
 namespace bsccs {
 
 typedef std::pair<double, double> GradientHessian;
 
-class CompressedDataMatrix;  // forward declaration
-class CompressedDataColumn; // forward declaration
-class ModelData; // forward declaration
+//class AbstractModelData; // forward declaration
 enum class ModelType; // forward declaration
 
-#ifdef DOUBLE_PRECISION
-	typedef double real;
-#else
-	typedef float real;
-#endif
+// #ifdef DOUBLE_PRECISION
+// 	typedef double real;
+// #else
+// 	typedef float real;
+// #endif
 
 // #define DEBUG_COX // Uncomment to get output for Cox model
 // #define DEBUG_COX_MIN
@@ -40,26 +39,27 @@ public:
 //			const std::vector<real>& y,
 //			const std::vector<real>& z);
 
-	AbstractModelSpecifics(const ModelData& intput);
+	AbstractModelSpecifics(const AbstractModelData& intput);
 
 	virtual ~AbstractModelSpecifics();
 
-	void initialize(
+	virtual void initialize(
 			int iN,
 			int iK,
 			int iJ,
-			const CompressedDataMatrix* iXI, // TODO Change to const&
-			real* iNumerPid,
-			real* iNumerPid2,
-			real* iDenomPid,
-			real* iXjY,
+			const void* iXi,
+			// const CompressedDataMatrix<double>* iXI, // TODO Change to const&
+			double* iNumerPid,
+			double* iNumerPid2,
+			double* iDenomPid,
+			double* iXjY,
 			std::vector<std::vector<int>* >* iSparseIndices,
 			const int* iPid,
-			real* iOffsExpXBeta,
-			real* iXBeta,
-			real* iOffs,
-			real* iBeta,
-			const real* iY);
+			double* iOffsExpXBeta,
+			double* iXBeta,
+			double* iOffs,
+			double* iBeta,
+			const double* iY) = 0; // pure virtual
 
 	virtual void setWeights(double* inWeights, bool useCrossValidation) = 0; // pure virtual
 
@@ -73,7 +73,7 @@ public:
 	virtual void computeFisherInformation(int indexOne, int indexTwo,
 			double *oinfo, bool useWeights) = 0; // pure virtual
 
-	virtual void updateXBeta(real realDelta, int index, bool useWeights) = 0; // pure virtual
+	virtual void updateXBeta(double realDelta, int index, bool useWeights) = 0; // pure virtual
 
 	virtual void computeXBeta(double* beta, bool useWeights) = 0; // pure virtual
 
@@ -106,13 +106,13 @@ public:
 //                                                            const DeviceType deviceType);
 
 	static AbstractModelSpecifics* factory(const ModelType modelType,
-                                           const ModelData& modelData,
+                                           const AbstractModelData& modelData,
                                            const DeviceType deviceType,
                                            const std::string& deviceName);
 
-	virtual const RealVector& getXBeta() = 0;
+	virtual const Vector<double> getXBeta() = 0;
 
-	virtual const RealVector& getXBetaSave() = 0;
+	virtual const Vector<double> getXBetaSave() = 0;
 
 	virtual void saveXBeta() = 0;
 
@@ -127,11 +127,11 @@ protected:
 //                                            const ModelData& modelData);
 
     template <class Model, typename RealType>
-    static AbstractModelSpecifics* deviceFactory(const ModelData& modelData,
+    static AbstractModelSpecifics* deviceFactory(const ModelData<RealType>& modelData,
                                                  const DeviceType deviceType,
                                                  const std::string& deviceName);
 
-    virtual void deviceInitialization();
+    virtual void deviceInitialization() = 0;
 
 	int getAlignedLength(int N);
 
@@ -161,7 +161,7 @@ protected:
 	}
 
 protected:
-	const ModelData& modelData;
+//	const AbstractModelData& modelData;
 
 // 	const std::vector<real>& oY;
 // 	const std::vector<real>& oZ;
@@ -170,70 +170,47 @@ protected:
 	// TODO Change to const& (is never nullptr)
 // 	const CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
-	RealVector accDenomPid;
-	RealVector accNumerPid;
-	RealVector accNumerPid2;
+	// RealVector accDenomPid;
+	// RealVector accNumerPid;
+	// RealVector accNumerPid2;
 
-	IntVector accReset;
+	Vector<int> accReset;
 
-	const std::vector<real>& hY;
-	const std::vector<real>& hOffs;
-// 	const std::vector<int>& hPid;
-
-// 	real* hY; // K-vector
-//	real* hZ; // K-vector
-// 	real* hOffs;  // K-vector
+// 	const std::vector<real>& hY;
+// 	const std::vector<real>& hOffs;
+// // 	const std::vector<int>& hPid;
 
 	const std::vector<int>& hPidOriginal;
 	int* hPid;
 	std::vector<int> hPidInternal;
 
-//	int** hXColumnRowIndicators; // J-vector
-
-//	real* hBeta;
-// 	real* hXBeta;
-// 	real* hXBetaSave;
-
-	RealVector hXBeta; // TODO Delegate to ModelSpecifics
-	RealVector hXBetaSave; // Delegate
-
-//	real* hDelta;
+	// RealVector hXBeta; // TODO Delegate to ModelSpecifics
+	// RealVector hXBetaSave; // Delegate
 
 	size_t N; // Number of patients
 	size_t K; // Number of exposure levels
 	size_t J; // Number of drugs
 
-//	real* expXBeta;
-//	real* offsExpXBeta;
-	RealVector offsExpXBeta;
-
-// 	RealVector numerDenomPidCache;
-// 	real* denomPid; // all nested with a single cache
-// 	real* numerPid;
-// 	real* numerPid2;
-
-	RealVector denomPid;
-	RealVector numerPid;
-	RealVector numerPid2;
-
-
-//	real* xOffsExpXBeta;
-//	real* hXjY;
-	RealVector hXjY;
-	RealVector hXjX;
-	real logLikelihoodFixedTerm;
+	// RealVector offsExpXBeta;
+	// RealVector denomPid;
+	// RealVector numerPid;
+	// RealVector numerPid2;
+	//
+	// RealVector hXjY;
+	// RealVector hXjX;
+	// RealType logLikelihoodFixedTerm;
 
 	typedef std::vector<int> IndexVector;
 	typedef bsccs::shared_ptr<IndexVector> IndexVectorPtr;
 
 	std::vector<IndexVectorPtr> sparseIndices; // TODO in c++11, are pointers necessary?
 
-	typedef std::map<int, std::vector<real> > HessianMap;
+	typedef std::map<int, std::vector<double> > HessianMap;
 	HessianMap hessianCrossTerms;
 
-    typedef bsccs::shared_ptr<CompressedDataColumn> CDCPtr;
-	typedef std::map<int, CDCPtr> HessianSparseMap;
-	HessianSparseMap hessianSparseCrossTerms;
+    // typedef bsccs::shared_ptr<CompressedDataColumn> CDCPtr;
+	// typedef std::map<int, CDCPtr> HessianSparseMap;
+	// HessianSparseMap hessianSparseCrossTerms;
 
 	typedef std::vector<int> TimeTie;
 	std::vector<TimeTie> ties;
@@ -241,9 +218,9 @@ protected:
 	std::vector<int> beginTies;
 	std::vector<int> endTies;
 
-	typedef bsccs::shared_ptr<CompressedDataMatrix> CdmPtr;
+	// typedef bsccs::shared_ptr<CompressedDataMatrix> CdmPtr;
 
-	CdmPtr hXt;
+	// CdmPtr hXt;
 	const MmBoundType boundType;
 	std::vector<double> curvature;
 };

@@ -30,7 +30,7 @@ using namespace std; // TODO Bad form
 
 CyclicCoordinateDescent::CyclicCoordinateDescent(
 			//ModelData* reader,
-			const ModelData& reader,
+			const AbstractModelData& reader,
 			AbstractModelSpecifics& specifics,
 			priors::JointPriorPtr prior,
 			loggers::ProgressLoggerPtr _logger,
@@ -40,14 +40,14 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 		 logger(_logger), error(_error) {
 	N = hXI.getNumberOfPatients();
 	K = hXI.getNumberOfRows();
-	J = hXI.getNumberOfColumns();
+	J = hXI.getNumberOfCovariates();
 
 // 	hXI = reader;
 	// hY = hXI.getYVector(); // TODO Delegate all data to ModelSpecifics
 //	hOffs = reader->getOffsetVector();
 	// hPid = hXI.getPidVector();
 
-	conditionId = hXI.getConditionId();
+	//conditionId = hXI.getConditionId();
 
 	updateCount = 0;
 	likelihoodCount = 0;
@@ -77,12 +77,12 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 
 	N = hXI.getNumberOfPatients();
 	K = hXI.getNumberOfRows();
-	J = hXI.getNumberOfColumns();
+	J = hXI.getNumberOfCovariates();
 
 	// hY = hXI.getYVector(); // TODO Delegate all data to ModelSpecifics
 	// hPid = hXI.getPidVector();
 
-	conditionId = hXI.getConditionId();
+	// conditionId = hXI.getConditionId();
 
 	updateCount = 0;
 	likelihoodCount = 0;
@@ -194,7 +194,10 @@ void CyclicCoordinateDescent::init(bool offset) {
 	}
 	doLogisticRegression = false;
 
-	modelSpecifics.initialize(N, K, J, &hXI, NULL, NULL, NULL,
+	modelSpecifics.initialize(N, K, J,
+                           //&hXI,
+                           nullptr,
+                           NULL, NULL, NULL,
 			NULL, NULL,
 			NULL, // hPid,
 			NULL,
@@ -245,7 +248,7 @@ void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
 	outLog << endl;
 
 	for (int i = 0; i < J; i++) {
-		outLog << hXI.getColumn(i).getLabel()
+		outLog << hXI.getColumnLabel(i)
 //				<< sep << conditionId
 				<< sep << hBeta[i];
 		if (withASE) {

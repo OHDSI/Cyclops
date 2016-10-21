@@ -16,6 +16,7 @@
 #include <map>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 // using std::map;
 // using std::string;
@@ -39,9 +40,144 @@ namespace bsccs {
 // 	}
 // }
 
-class ModelData : public CompressedDataMatrix {
+class AbstractModelData {
+    // fp-agnostic interface to model data
+public:
+    virtual PrecisionType getPrecisionType() const = 0;
+
+    virtual void clean() const = 0;
+
+    virtual int getColumnIndexByName(IdType name) const = 0;
+
+    virtual std::string getColumnLabel(const IdType& covariate) const = 0;
+
+    virtual IdType getColumnNumericalLabel(const IdType& covariate) const = 0;
+
+    virtual size_t getColumnIndex(const IdType covariate) const = 0;
+
+    virtual std::string getColumnTypeString(const IdType& covariate) const = 0;
+
+    virtual ModelType getModelType() const = 0;
+
+    virtual const Vector<int>& getPidVectorRef() const = 0;
+
+    virtual Vector<int> getPidVectorSTL() const = 0;
+
+    virtual size_t getNumberOfPatients() const = 0;
+
+    virtual size_t getNumberOfRows() const = 0;
+
+    virtual size_t getNumberOfCovariates() const = 0;
+
+    virtual bool getHasOffsetCovariate() const = 0;
+
+    virtual bool getHasInterceptCovariate() const = 0;
+
+    virtual bool getHasRowLabels() const = 0;
+
+    virtual const std::string& getRowLabel(const size_t covariate) const = 0;
+
+    virtual bool getTouchedY() const = 0;
+
+    virtual bool getTouchedX() const = 0;
+
+    virtual double getNormalBasedDefaultVar() const = 0;
+
+    virtual int getNumberOfTypes() const = 0;
+
+    virtual Vector<double> univariableCorrelation(
+            const Vector<long>& covariateLabel) const = 0;
+
+    virtual void sumByPid(
+            Vector<double>& result, const IdType covariate, const int power) const = 0;
+
+    virtual void sumByGroup(
+            Vector<double>& result, const IdType covariate, const IdType groupBy,
+            const int power = 1) const = 0;
+
+    virtual double sum(const IdType covariate, const int power) const = 0;
+
+    virtual Vector<double> normalizeCovariates(NormalizationType normalizationType) = 0;
+
+    virtual void setHasInterceptCovariate(bool hasIntercept) = 0;
+
+    virtual bool getIsFinalized() const = 0;
+
+    virtual void setIsFinalized(bool finalized) = 0;
+
+    virtual void addIntercept() = 0;
+
+    virtual void setOffsetCovariate(const IdType covariate) = 0;
+
+    virtual void logTransformCovariate(const IdType covariate) = 0;
+
+    virtual void convertCovariateToDense(const IdType covariate) = 0;
+
+    virtual void loadY(
+            const std::vector<IdType>& stratumId,
+            const std::vector<IdType>& rowId,
+            const std::vector<double>& y,
+            const std::vector<double>& time
+    ) = 0;
+
+    virtual int loadX(
+            const IdType covariateId,
+            const std::vector<IdType>& rowId,
+            const std::vector<double>& covariateValue,
+            const bool reload,
+            const bool append,
+            const bool forceSparse
+    ) = 0;
+
+    virtual int loadMultipleX(
+            const std::vector<int64_t>& covariateId,
+            const std::vector<int64_t>& rowId,
+            const std::vector<double>& covariateValue,
+            const bool checkCovariateIds,
+            const bool checkCovariateBounds,
+            const bool append,
+            const bool forceSparse
+    ) = 0;
+
+    virtual size_t append(
+            const std::vector<IdType>& oStratumId,
+            const std::vector<IdType>& oRowId,
+            const std::vector<double>& oY,
+            const std::vector<double>& oTime,
+            const std::vector<IdType>& cRowId,
+            const std::vector<IdType>& cCovariateId,
+            const std::vector<double>& cCovariateValue
+    ) = 0;
+
+    virtual ~AbstractModelData() { }
+
+// private:
+//     AbstractModelData(const AbstractModelData&);
+//     AbstractModelData& operator = (const AbstractModelData&);
+
+};
+
+
+template <typename RealType>
+class ModelData : public AbstractModelData {
 public:
 //	ModelData();
+
+    size_t getNumberOfColumns() const { return X.getNumberOfColumns(); }
+
+    size_t getNumberOfRows() const { return X.getNumberOfRows(); }
+
+    int getColumnIndexByName(IdType name) const { return X.getColumnIndexByName(name); }
+
+    // using CompressedDataMatrix<RealType>::getNumberOfColumns;
+    // using CompressedDataMatrix<RealType>::getNumberOfRows;
+    // using CompressedDataMatrix<RealType>::getFormatType;
+    // using CompressedDataMatrix<RealType>::getColumn;
+    // using CompressedDataMatrix<RealType>::push_back;
+    // using CompressedDataMatrix<RealType>::moveToFront;
+    // using CompressedDataMatrix<RealType>::insert;
+
+    CompressedDataMatrix<RealType> X;
 
 	ModelData(
     	ModelType modelType,
@@ -55,15 +191,13 @@ public:
 //	offs.begin(), offs.end(),
 //	xip.begin(), xii.end()
 
-	typedef real RealType;
-
-	template <typename IntegerVector, typename RealVector>
+	template <typename InputIntegerVector, typename InputRealVector>
 	ModelData(
 	        ModelType _modelType,
-			const IntegerVector& _pid,
-			const RealVector& _y,
-			const RealVector& _z,
-			const RealVector& _offs,
+			const InputIntegerVector& _pid,
+			const InputRealVector& _y,
+			const InputRealVector& _z,
+			const InputRealVector& _offs,
             loggers::ProgressLoggerPtr _log,
             loggers::ErrorHandlerPtr _error
 			) :
@@ -72,7 +206,7 @@ public:
 		, y(_y.begin(), _y.end()) // copy
 		, z(_z.begin(), _z.end()) // copy
 		, offs(_offs.begin(), _offs.end()) // copy
-		, sparseIndexer(*this)
+		, sparseIndexer(X)
 		, log(_log), error(_error)
 		, touchedY(true), touchedX(true)
 		{
@@ -80,6 +214,28 @@ public:
 	}
 
 	virtual ~ModelData();
+
+	const CompressedDataMatrix<RealType>& getX() const {
+	    return X;
+	}
+
+	CompressedDataMatrix<RealType>& getX() {
+	    return X;
+	}
+
+	PrecisionType getPrecisionType() const;
+
+	std::string getColumnLabel(const IdType& covariate) const {
+	    return X.getColumn(covariate).getLabel();
+	}
+
+	std::string getColumnTypeString(const IdType& covariate) const {
+	    return X.getColumn(covariate).getTypeString();
+	}
+
+	IdType getColumnNumericalLabel(const IdType& covariate) const {
+	    return X.getColumn(covariate).getNumericalLabel();
+	}
 
 	size_t append(
         const std::vector<IdType>& oStratumId,
@@ -108,7 +264,6 @@ public:
 		const bool forceSparse
 	);
 
-
 	int loadMultipleX(
 		const std::vector<int64_t>& covariateId,
 		const std::vector<int64_t>& rowId,
@@ -120,46 +275,58 @@ public:
 	);
 
 	const int* getPidVector() const;
-	const real* getYVector() const;
-	void setYVector(std::vector<real> y_);
+	const RealType* getYVector() const;
+	void setYVector(std::vector<double> y_);
 	int* getNEventVector();
-	real* getOffsetVector();
+	RealType* getOffsetVector();
 //	map<int, IdType> getDrugNameMap();
-	int getNumberOfPatients() const;
+	size_t getNumberOfPatients() const;
 	const std::string getConditionId() const;
-	std::vector<int> getPidVectorSTL() const;
+	Vector<int> getPidVectorSTL() const;
 
-	const std::vector<real>& getZVectorRef() const {
+	const Vector<RealType>& getZVectorRef() const {
 		return z;
 	}
 
-	const std::vector<real>& getTimeVectorRef() const {
+	const Vector<RealType>& getTimeVectorRef() const {
 		return offs;
 	}
 
-	const std::vector<real>& getYVectorRef() const {
+	const Vector<RealType>& getYVectorRef() const {
 		return y;
 	}
 
-	const std::vector<int>& getPidVectorRef() const { // Not const because PIDs can get renumbered
+	const Vector<int>& getPidVectorRef() const { // Not const because PIDs can get renumbered
 		return pid;
 	}
 
-	std::vector<real>& getZVectorRef() {
+	Vector<RealType>& getZVectorRef() {
 		return z;
 	}
 
-	std::vector<real>& getYVectorRef() {
+    Vector<RealType>& getYVectorRef() {
 		return y;
 	}
 
-	std::vector<int>& getPidVectorRef() { // Not const because PIDs can get renumbered
+	Vector<int>& getPidVectorRef() { // Not const because PIDs can get renumbered
 		return pid;
 	}
 
 //	const std::vector<int>& getNEventsVectorRef() const {
 //		return nevents;
 //	}
+
+    void addIntercept();
+
+	void setOffsetCovariate(const IdType covariate);
+
+	void logTransformCovariate(const IdType covariate);
+
+	void convertCovariateToDense(const IdType covariate);
+
+    size_t getNumberOfCovariates() const {
+        return getNumberOfColumns();
+    }
 
 	bool getHasOffsetCovariate() const {
 		return hasOffsetCovariate;
@@ -207,9 +374,9 @@ public:
 
     void moveTimeToCovariate(bool takeLog);
 
-    std::vector<double> normalizeCovariates(const NormalizationType type);
+    Vector<double> normalizeCovariates(const NormalizationType type);
 
-	const std::string& getRowLabel(size_t i) const {
+	const std::string& getRowLabel(const size_t i) const {
 		if (i >= labels.size()) {
 			return missing;
 		} else {
@@ -219,9 +386,172 @@ public:
 
 	void clean() const { touchedY = false; touchedX = false; }
 
-	const bool getTouchedY() const { return touchedY; }
+	bool getTouchedY() const { return touchedY; }
 
-	const bool getTouchedX() const { return touchedX; }
+	bool getTouchedX() const { return touchedX; }
+
+	double sum(const IdType covariate, const int power = 1) const;
+
+	void standardize(const IdType covariate);
+
+	void sumByGroup(std::vector<double>& out, const IdType covariate, const IdType groupBy, const int power = 1) const;
+
+	void sumByPid(std::vector<double>& out, const IdType covariate, const int power = 1) const;
+
+	template <typename F>
+	void transform(const size_t index, F func) {
+	    switch (X.getFormatType(index)) {
+	    case INDICATOR :
+	        transformImpl<IndicatorIterator<RealType>>(index, func);
+	        break;
+	    case SPARSE :
+	        transformImpl<SparseIterator<RealType>>(index, func);
+	        break;
+	    case DENSE :
+	        transformImpl<DenseIterator<RealType>>(index, func);
+	        break;
+	    case INTERCEPT :
+	        transformImpl<InterceptIterator<RealType>>(index, func);
+	        break;
+	    }
+	}
+
+	template <typename F>
+	double reduce(const long index, F func) const {
+	    if (index < 0) { // reduce outcome
+	        return reduceOutcomeImpl(func);
+	    }
+	    double sum = 0.0;
+	    switch (X.getFormatType(index)) {
+	    case INDICATOR :
+	        sum = reduceImpl<IndicatorIterator<RealType>>(index, func);
+	        break;
+	    case SPARSE :
+	        sum = reduceImpl<SparseIterator<RealType>>(index, func);
+	        break;
+	    case DENSE :
+	        sum = reduceImpl<DenseIterator<RealType>>(index, func);
+	        break;
+	    case INTERCEPT :
+	        sum = reduceImpl<InterceptIterator<RealType>>(index, func);
+	        break;
+	    }
+	    return sum;
+	}
+
+	template <typename F>
+	double innerProductWithOutcome(const size_t index, F func) const {
+	    double sum = 0.0;
+	    switch (X.getFormatType(index)) {
+	    case INDICATOR :
+	        sum = innerProductWithOutcomeImpl<IndicatorIterator<RealType>>(index, func);
+	        break;
+	    case SPARSE :
+	        sum = innerProductWithOutcomeImpl<SparseIterator<RealType>>(index, func);
+	        break;
+	    case DENSE :
+	        sum = innerProductWithOutcomeImpl<DenseIterator<RealType>>(index, func);
+	        break;
+	    case INTERCEPT :
+	        sum = innerProductWithOutcomeImpl<InterceptIterator<RealType>>(index, func);
+	        break;
+	    }
+	    return sum;
+	}
+
+	template <typename T, typename F>
+	void reduceByGroup(T& out, const size_t reductionIndex, const size_t groupByIndex, F func) const {
+	    if (X.getFormatType(groupByIndex) != INDICATOR) {
+	        std::ostringstream stream;
+	        stream << "Grouping by non-indicators is not yet supported.";
+	        error->throwError(stream);
+	    }
+	    switch (X.getFormatType(reductionIndex)) {
+	    case INDICATOR :
+	        reduceByGroupImpl<IndicatorIterator<RealType>>(out, reductionIndex, groupByIndex, func);
+	        break;
+	    case SPARSE :
+	        reduceByGroupImpl<SparseIterator<RealType>>(out, reductionIndex, groupByIndex, func);
+	        break;
+	    case DENSE :
+	        reduceByGroupImpl<DenseIterator<RealType>>(out, reductionIndex, groupByIndex, func);
+	        break;
+	    case INTERCEPT :
+	        reduceByGroupImpl<InterceptIterator<RealType>>(out, reductionIndex, groupByIndex, func);
+	        break;
+	    }
+	}
+
+	struct Sum {
+	    inline RealType operator()(RealType x, RealType y) {
+	        return x + y;
+	    }
+	};
+
+	struct ZeroPower {
+	    inline RealType operator()(RealType x) {
+	        return x == 0.0 ? 0.0 : 1.0;
+	    }
+	};
+
+	struct FirstPower {
+	    inline RealType operator()(RealType x) {
+	        return x;
+	    }
+	};
+
+	struct SecondPower {
+	    inline RealType operator()(RealType x) {
+	        return x * x;
+	    }
+	};
+
+	struct InnerProduct {
+	    inline RealType operator()(RealType x, RealType y) {
+	        return x * y;
+	    }
+	};
+
+
+	Vector<double> univariableCorrelation(const Vector<long>& covariateLabel) const {
+
+	    const double Ey1 = reduce(-1, FirstPower()) / getNumberOfRows();
+	    const double Ey2 = reduce(-1, SecondPower()) / getNumberOfRows();
+	    const double Vy = Ey2 - Ey1 * Ey1;
+
+	    std::vector<double> result;
+
+	    auto oneVariable = [this, &result, Ey1, Vy](const size_t index) {
+	        const double Ex1 = reduce(index, FirstPower()) / getNumberOfRows();
+	        const double Ex2 = reduce(index, SecondPower()) / getNumberOfRows();
+	        const double Exy = innerProductWithOutcome(index, InnerProduct()) / getNumberOfRows();
+
+	        const double Vx = Ex2 - Ex1 * Ex1;
+	        const double cov = Exy - Ex1 * Ey1;
+	        const double cor = (Vx > 0.0 && Vy > 0.0) ?
+	        cov / std::sqrt(Vx) / std::sqrt(Vy) : std::numeric_limits<double>::quiet_NaN();
+
+	        // Rcpp::Rcout << index << " " << Ey1 << " " << Ey2 << " " << Ex1 << " " << Ex2 << std::endl;
+	        // Rcpp::Rcout << index << " " << ySquared << " " << xSquared <<  " " << crossProduct << std::endl;
+	        result.push_back(cor);
+	    };
+
+	    if (covariateLabel.size() == 0) {
+	        result.reserve(getNumberOfCovariates());
+	        size_t index = (getHasOffsetCovariate()) ? 1 : 0;
+	        for (; index <  getNumberOfCovariates(); ++index) {
+	            oneVariable(index);
+	        }
+	    } else {
+	        result.reserve(covariateLabel.size());
+	        for(auto it = covariateLabel.begin(); it != covariateLabel.end(); ++it) {
+	            oneVariable(getColumnIndex(*it));
+	        }
+	    }
+
+	    return std::move(result);
+	}
+
 
 	template <typename T, typename F>
 	void binaryReductionByStratum(T& out, const size_t reductionIndex, F func) const {
@@ -243,31 +573,107 @@ public:
 protected:
 
     template <typename T, typename F>
-    void binaryReductionByGroup(T& out, const size_t reductionIndex, const std::vector<int>& groups, F func) const {
-        switch (getFormatType(reductionIndex)) {
+    void binaryReductionByGroup(T& out, const size_t reductionIndex, const Vector<int>& groups, F func) const {
+        switch (X.getFormatType(reductionIndex)) {
         case INDICATOR :
-            binaryReductionByGroup<IndicatorIterator>(out, reductionIndex, groups, func);
+            binaryReductionByGroup<IndicatorIterator<RealType>>(out, reductionIndex, groups, func);
             break;
         case SPARSE :
-            binaryReductionByGroup<SparseIterator>(out, reductionIndex, groups, func);
+            binaryReductionByGroup<SparseIterator<RealType>>(out, reductionIndex, groups, func);
             break;
         case DENSE :
-            binaryReductionByGroup<DenseIterator>(out, reductionIndex, groups, func);
+            binaryReductionByGroup<DenseIterator<RealType>>(out, reductionIndex, groups, func);
             break;
         case INTERCEPT :
-            binaryReductionByGroup<InterceptIterator>(out, reductionIndex, groups, func);
+            binaryReductionByGroup<InterceptIterator<RealType>>(out, reductionIndex, groups, func);
             break;
 
         }
     }
 
     template <typename IteratorType, typename T, typename F>
-    void binaryReductionByGroup(T& out, const size_t reductionIndex, const std::vector<int>& groups, F func) const {
-        IteratorType it(*this, reductionIndex);
+    void binaryReductionByGroup(T& out, const size_t reductionIndex, const Vector<int>& groups, F func) const {
+        IteratorType it(X, reductionIndex);
 
         for (; it; ++it) {
             out[groups[it.index()]] = func(out[groups[it.index()]], it.value());
         }
+    }
+
+    template <typename T, typename F>
+    void reduceByGroup(T& out, const size_t reductionIndex, const std::vector<int>& groups, F func) const {
+        switch (X.getFormatType(reductionIndex)) {
+        case INDICATOR :
+            reduceByGroupImpl<IndicatorIterator<RealType>>(out, reductionIndex, groups, func);
+            break;
+        case SPARSE :
+            reduceByGroupImpl<SparseIterator<RealType>>(out, reductionIndex, groups, func);
+            break;
+        case DENSE :
+            reduceByGroupImpl<DenseIterator<RealType>>(out, reductionIndex, groups, func);
+            break;
+        case INTERCEPT :
+            reduceByGroupImpl<InterceptIterator<RealType>>(out, reductionIndex, groups, func);
+            break;
+
+        }
+    }
+
+    template <typename IteratorType, typename T, typename F>
+    void reduceByGroupImpl(T& out, const size_t reductionIndex, const size_t groupByIndex, F func) const {
+        IteratorType reduceIt(X, reductionIndex);
+        IndicatorIterator<RealType> groupByIt(X, groupByIndex);
+
+        GroupByIterator<IteratorType,RealType> it(reduceIt, groupByIt);
+        for (; it; ++it) {
+            out[it.group()] += func(it.value()); // TODO compute reduction in registers
+        }
+    }
+
+    template <typename IteratorType, typename T, typename F>
+    void reduceByGroupImpl(T& out, const size_t reductionIndex, const std::vector<int>& groups, F func) const {
+        IteratorType it(X, reductionIndex);
+
+        for (; it; ++it) {
+            out[groups[it.index()]] += func(it.value()); // TODO compute reduction in registers
+        }
+    }
+
+    template <typename IteratorType, typename F>
+    void transformImpl(const size_t index, F func) {
+        IteratorType it(X, index);
+        for (; it; ++it) {
+            it.ref() = func(it.value()); // TODO No yet implemented
+        }
+    }
+
+    template <typename F>
+    double reduceOutcomeImpl(F func) const {
+        double sum = 0.0;
+        for(auto it = std::begin(y); it != std::end(y); ++it) {
+            sum += func(*it);
+        }
+        return sum;
+    }
+
+    template <typename IteratorType, typename F>
+    double reduceImpl(const size_t index, F func) const {
+        double sum = 0.0;
+        IteratorType it(X, index);
+        for (; it; ++it) {
+            sum += func(it.value());
+        }
+        return sum;
+    }
+
+    template <typename IteratorType, typename F>
+    double innerProductWithOutcomeImpl(const size_t index, F func) const {
+        double sum = 0.0;
+        IteratorType it(X, index);
+        for (; it; ++it) {
+            sum += func(y[it.index()], it.value());
+        }
+        return sum;
     }
 
     ModelType modelType;
@@ -279,11 +685,11 @@ protected:
 	bool hasInterceptCovariate;
 	bool isFinalized;
 
-	IntVector pid;
-	RealVector y;
-	RealVector z; // TODO Remove
-	RealVector offs; // TODO Rename to 'time'
-	IntVector nevents; // TODO Where are these used?
+	Vector<int> pid;
+	Vector<RealType> y;
+	Vector<RealType> z; // TODO Remove
+	Vector<RealType> offs; // TODO Rename to 'time'
+	Vector<int> nevents; // TODO Where are these used?
 	std::string conditionId;
 	std::vector<std::string> labels; // TODO Change back to 'long'
 
@@ -298,7 +704,7 @@ private:
 
     std::pair<IdType,int> lastStratumMap;
 
-    SparseIndexer sparseIndexer;
+    SparseIndexer<RealType> sparseIndexer;
 
 protected:
     loggers::ProgressLoggerPtr log;
@@ -348,5 +754,7 @@ auto quantile(Itr begin, Itr end, double q) -> typename Itr::value_type {
 }
 
 } // namespace
+
+// #include "ModelData.cpp"
 
 #endif /* MODELDATA_H_ */

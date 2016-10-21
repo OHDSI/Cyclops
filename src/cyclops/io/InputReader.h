@@ -44,12 +44,12 @@ public:
 		loggers::ProgressLoggerPtr _logger,
 	    loggers::ErrorHandlerPtr _error
 	);
-	
+
 	virtual ~InputReader();
 
 	virtual void readFile(const char* fileName) = 0;
 
-	ModelData* getModelData() {
+	AbstractModelData* getModelData() {
 		// TODO Use smart pointer
 		deleteModelData = false;
 		return modelData;
@@ -104,7 +104,7 @@ protected:
 	loggers::ProgressLoggerPtr logger;
 	loggers::ErrorHandlerPtr error;
 
-	ModelData* modelData;
+	ModelData<double>* modelData;
 	bool deleteModelData;
 };
 

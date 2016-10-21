@@ -13,7 +13,7 @@
 #include "InputReader.h"
 #include "SparseIndexer.h"
 #include "io/ProgressLogger.h"
- 
+
 #define MAX_ENTRIES		1000000000
 #define MISSING_STRING	"NA"
 
@@ -33,12 +33,12 @@ struct RowInformation {
 	int numEvents;
 	string outcomeId;
 	string currentPid;
-	SparseIndexer indexer;
+	SparseIndexer<double> indexer;
 	string_vector scratch;
 
 	RowInformation(int _currentRow, int _numCases, int _numEvents,
 			string _outcomeId, string _currentPid,
-			SparseIndexer _indexer) : currentRow(_currentRow), numCases(_numCases),
+			SparseIndexer<double> _indexer) : currentRow(_currentRow), numCases(_numCases),
 			numEvents(_numEvents), outcomeId(_outcomeId), currentPid(_currentPid),
 			indexer(_indexer) {
 		// Do nothing
@@ -47,7 +47,7 @@ struct RowInformation {
 
 struct NoMissingPolicy {
 	// No API at moment
-	bool isMissing(real value) {
+	bool isMissing(double value) {
 		return false;
 	}
 
@@ -69,13 +69,13 @@ public:
 //	BaseInputReader() : InputReader(
 //		bsccs::make_shared<loggers::CoutLogger>(),
 //	 	bsccs::make_shared<loggers::CerrErrorHandler>()), innerDelimitor(":") {
-//		// Do nothing		
+//		// Do nothing
 //	}
-	
+
 	BaseInputReader(
 		loggers::ProgressLoggerPtr _logger,
 		loggers::ErrorHandlerPtr _error) : InputReader(_logger, _error), innerDelimitor(":") {
-		// Do nothing	
+		// Do nothing
 	}
 
 	virtual ~BaseInputReader() {
@@ -85,17 +85,17 @@ public:
 	virtual void readFile(const char* fileName) {
 
 		ifstream in(fileName);
-		if (!in) {		
+		if (!in) {
 			std::ostringstream stream;
-			stream << "Unable to open " << fileName;			
+			stream << "Unable to open " << fileName;
 			error->throwError(stream);
 		}
-		
+
 // 		in.close();
 // 		return;
 
 		// Initial values
-		RowInformation rowInfo(0,0,0, MISSING_STRING, MISSING_STRING, *modelData);
+		RowInformation rowInfo(0,0,0, MISSING_STRING, MISSING_STRING, modelData->getX());
 		string line;
 
 		try {
@@ -116,9 +116,9 @@ public:
 			std::ostringstream stream;
 			stream << "Exception while trying to read " << fileName;
 			in.close();
-			error->throwError(stream);			
+			error->throwError(stream);
 		}
-		
+
 		static_cast<DerivedFormat*>(this)->upcastColumns(modelData, rowInfo);
 
 		doSort(); // Override for sort criterion or no sorting
@@ -130,19 +130,19 @@ public:
 		logger->writeLine(stream);
 
 		modelData->nPatients = rowInfo.numCases;
-		modelData->nRows = rowInfo.currentRow;
+		modelData->getX().nRows = rowInfo.currentRow;
 		modelData->conditionId = rowInfo.outcomeId;
-		
+
 		in.close();
-	}	 
-	
+	}
+
 protected:
 	void parseHeader(ifstream& in) {
 		string line;
 		getline(in, line); // Read header
 	}
-	
-	void upcastColumns(ModelData* modelData, RowInformation& rowInfo) {
+
+	void upcastColumns(ModelData<double>* modelData, RowInformation& rowInfo) {
 		// Do nothing
 	}
 
@@ -152,10 +152,10 @@ protected:
 		while (ss >> entry) {
 			rowInfo.scratch.clear();
 			IdType drug;
-			real value;
+			double value;
 			if (indicatorOnly) {
 				drug = atoi(entry.c_str());
-				value = static_cast<real>(1);
+				value = static_cast<double>(1);
 			} else {
 				split(rowInfo.scratch, entry, getInnerDelimitor());
 				drug = atoi(rowInfo.scratch[0].c_str());
@@ -167,8 +167,8 @@ protected:
 				Missing::hook1(); // Handle allocation if necessary
 			}
 
-			CompressedDataColumn& column = rowInfo.indexer.getColumn(drug);
-			if (value != static_cast<real>(1) && value != static_cast<real>(0)) {
+			CompressedDataColumn<double>& column = rowInfo.indexer.getColumn(drug);
+			if (value != static_cast<double>(1) && value != static_cast<double>(0)) {
 				if (column.getFormatType() == INDICATOR) {
 					std::ostringstream stream;
 					stream << "Up-casting covariate " << column.getLabel() << " to sparse!";
@@ -192,11 +192,11 @@ protected:
 				}
 			}
 		}
-	}		
+	}
 
 	void doSort() {
 		// Easy to sort columns now in AOS format
-		modelData->sortColumns(CompressedDataColumn::sortNumerically);
+		modelData->getX().sortColumns(CompressedDataColumn<double>::sortNumerically);
 	}
 
 	void addFixedCovariateColumns(void) {
@@ -212,7 +212,7 @@ protected:
 		} else if (currentOutcomeId != rowInfo.outcomeId) {
 			std::ostringstream stream;
 			stream << "More than one condition ID in input file";
-			error->throwError(stream);			
+			error->throwError(stream);
 		}
 	}
 
@@ -249,13 +249,13 @@ protected:
 		rowInfo.numEvents += thisY;
 		modelData->y.push_back(thisY);
 	}
-	
+
 	template <typename T>
 	void parseSingleTimeEntry(stringstream& ss, RowInformation& rowInfo) {
 		T thisY;
-		ss >> thisY;		
+		ss >> thisY;
 		modelData->z.push_back(thisY);
-	}	
+	}
 
 	template <typename T>
 	void parseSingleBBROutcomeEntry(stringstream& ss, RowInformation& rowInfo) {
@@ -269,16 +269,16 @@ protected:
 	}
 
 	void parseOffsetCovariateEntry(stringstream& ss, RowInformation& rowInfo, bool inLogSpace) {
-		real thisOffset;
+		double thisOffset;
 		ss >> thisOffset;
 		if (!inLogSpace) {
 			thisOffset = std::log(thisOffset);
 		}
-		modelData->getColumn(0).add_data(rowInfo.currentRow, thisOffset);
+		modelData->getX().getColumn(0).add_data(rowInfo.currentRow, thisOffset);
 	}
 
 	void parseOffsetEntry(stringstream& ss, RowInformation&) {
-		real thisOffs;
+		double thisOffs;
 		ss >> thisOffs;
 		modelData->offs.push_back(thisOffs);
 	}
@@ -298,7 +298,7 @@ protected:
 			}
 		}
 	}
-	
+
 	// Inlined functions
 	const string& getInnerDelimitor() {
 		return innerDelimitor;
@@ -309,7 +309,7 @@ protected:
 	void addEventEntry(int numEvents) {
 		modelData->nevents.push_back(numEvents);
 	}
-	
+
 // 	loggers::ProgressLoggerPtr logger;
 // 	loggers::ErrorHandlerPtr error;
 
