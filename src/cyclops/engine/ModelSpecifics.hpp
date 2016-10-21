@@ -1362,136 +1362,136 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformation(int indexOne, 
 
 template <class BaseModel, typename RealType> template <typename IteratorTypeOne, class Weights>
 void ModelSpecifics<BaseModel,RealType>::dispatchFisherInformation(int indexOne, int indexTwo, double *oinfo, Weights w) {
-	// switch (modelData.getFormatType(indexTwo)) {
-	// 	case INDICATOR :
-	// 		computeFisherInformationImpl<IteratorTypeOne,IndicatorIterator>(indexOne, indexTwo, oinfo, w);
-	// 		break;
-	// 	case SPARSE :
-	// 		computeFisherInformationImpl<IteratorTypeOne,SparseIterator>(indexOne, indexTwo, oinfo, w);
-	// 		break;
-	// 	case DENSE :
-	// 		computeFisherInformationImpl<IteratorTypeOne,DenseIterator>(indexOne, indexTwo, oinfo, w);
-	// 		break;
-	// 	case INTERCEPT :
-	// 		computeFisherInformationImpl<IteratorTypeOne,InterceptIterator>(indexOne, indexTwo, oinfo, w);
-	// 		break;
-	// }
+	switch (hX.getFormatType(indexTwo)) {
+		case INDICATOR :
+			computeFisherInformationImpl<IteratorTypeOne,IndicatorIterator<RealType>>(indexOne, indexTwo, oinfo, w);
+			break;
+		case SPARSE :
+			computeFisherInformationImpl<IteratorTypeOne,SparseIterator<RealType>>(indexOne, indexTwo, oinfo, w);
+			break;
+		case DENSE :
+			computeFisherInformationImpl<IteratorTypeOne,DenseIterator<RealType>>(indexOne, indexTwo, oinfo, w);
+			break;
+		case INTERCEPT :
+			computeFisherInformationImpl<IteratorTypeOne,InterceptIterator<RealType>>(indexOne, indexTwo, oinfo, w);
+			break;
+	}
 //	std::cerr << "End of dispatch" << std::endl;
 }
 
 
-// template<class BaseModel, typename RealType> template<class IteratorType>
-// SparseIterator<RealType> ModelSpecifics<BaseModel, RealType>::getSubjectSpecificHessianIterator(int index) {
-//
-// 	if (hessianSparseCrossTerms.find(index) == hessianSparseCrossTerms.end()) {
-// 		// Make new
-// //		std::vector<int>* indices = new std::vector<int>();
-//         auto indices = make_shared<std::vector<int> >();
-// //		std::vector<real>* values = new std::vector<real>();
-//         auto values = make_shared<std::vector<real> >();
-// //		CompressedDataColumn* column = new CompressedDataColumn(indices, values,
-// //				SPARSE);
-//     	CDCPtr column = bsccs::make_shared<CompressedDataColumn>(indices, values, SPARSE);
-// 		hessianSparseCrossTerms.insert(std::make_pair(index,
-// // 		    CompressedDataColumn(indices, values, SPARSE)));
-// 		    column));
-//
-// 		IteratorType itCross(modelData, index);
-// 		for (; itCross;) {
-// 			real value = 0.0;
-// 			int currentPid = hPid[itCross.index()];  // TODO Need to fix for stratified Cox
-// 			do {
-// 				const int k = itCross.index();
-// 				value += BaseModel::gradientNumeratorContrib(itCross.value(),
-// 						offsExpXBeta[k], hXBeta[k], hY[k]);
-// 				++itCross;
-// 			} while (itCross && currentPid == hPid[itCross.index()]); // TODO Need to fix for stratified Cox
-// 			indices->push_back(currentPid);
-// 			values->push_back(value);
-// 		}
-// 	}
-// 	return SparseIterator(*hessianSparseCrossTerms[index]);
-//
-// }
+template<class BaseModel, typename RealType> template<class IteratorType>
+SparseIterator<RealType> ModelSpecifics<BaseModel, RealType>::getSubjectSpecificHessianIterator(int index) {
+
+	if (hessianSparseCrossTerms.find(index) == hessianSparseCrossTerms.end()) {
+		// Make new
+//		std::vector<int>* indices = new std::vector<int>();
+        auto indices = make_shared<std::vector<int> >();
+//		std::vector<real>* values = new std::vector<real>();
+        auto values = make_shared<std::vector<RealType> >();
+//		CompressedDataColumn* column = new CompressedDataColumn(indices, values,
+//				SPARSE);
+    	CDCPtr column = bsccs::make_shared<CompressedDataColumn<RealType>>(indices, values, SPARSE);
+		hessianSparseCrossTerms.insert(std::make_pair(index,
+// 		    CompressedDataColumn(indices, values, SPARSE)));
+		    column));
+
+		IteratorType itCross(hX, index);
+		for (; itCross;) {
+			RealType value = 0.0;
+			int currentPid = hPid[itCross.index()];  // TODO Need to fix for stratified Cox
+			do {
+				const int k = itCross.index();
+				value += BaseModel::gradientNumeratorContrib(itCross.value(),
+						offsExpXBeta[k], hXBeta[k], hY[k]);
+				++itCross;
+			} while (itCross && currentPid == hPid[itCross.index()]); // TODO Need to fix for stratified Cox
+			indices->push_back(currentPid);
+			values->push_back(value);
+		}
+	}
+	return SparseIterator<RealType>(*hessianSparseCrossTerms[index]);
+
+}
 
 template <class BaseModel, typename RealType> template <class IteratorTypeOne, class IteratorTypeTwo, class Weights>
 void ModelSpecifics<BaseModel,RealType>::computeFisherInformationImpl(int indexOne, int indexTwo, double *oinfo, Weights w) {
-//
-// 	IteratorTypeOne itOne(modelData, indexOne);
-// 	IteratorTypeTwo itTwo(modelData, indexTwo);
-// 	PairProductIterator<IteratorTypeOne,IteratorTypeTwo,RealType> it(itOne, itTwo);
-//
-// 	RealType information = static_cast<RealType>(0);
-// 	for (; it.valid(); ++it) {
-// 		const int k = it.index();
-// 		// Compile-time delegation
-//
-// 		BaseModel::incrementFisherInformation(it,
-// 				w, // Signature-only, for iterator-type specialization
-// 				&information,
-// 				offsExpXBeta[k],
-// 				0.0, 0.0, // numerPid[k], numerPid2[k], // remove
-// 				denomPid[BaseModel::getGroup(hPid, k)],
-// 				hKWeight[k], it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
-// 	}
-//
-// 	if (BaseModel::hasStrataCrossTerms) {
-//
-// 		// Check if index is pre-computed
-// //#define USE_DENSE
-// #ifdef USE_DENSE
-// 		if (hessianCrossTerms.find(indexOne) == hessianCrossTerms.end()) {
-// 			// Make new
-// 			std::vector<real> crossOneTerms(N);
-// 			IteratorTypeOne crossOne(modelData, indexOne);
-// 			for (; crossOne; ++crossOne) {
-// 				const int k = crossOne.index();
-// 				incrementByGroup(crossOneTerms.data(), hPid, k,
-// 						BaseModel::gradientNumeratorContrib(crossOne.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
-// 			}
-// 			hessianCrossTerms[indexOne];
-// //			std::cerr << std::accumulate(crossOneTerms.begin(), crossOneTerms.end(), 0.0) << std::endl;
-// 			hessianCrossTerms[indexOne].swap(crossOneTerms);
-// 		}
-// 		std::vector<real>& crossOneTerms = hessianCrossTerms[indexOne];
-//
-// 		// TODO Remove code duplication
-// 		if (hessianCrossTerms.find(indexTwo) == hessianCrossTerms.end()) {
-// 			std::vector<real> crossTwoTerms(N);
-// 			IteratorTypeTwo crossTwo(modelData, indexTwo);
-// 			for (; crossTwo; ++crossTwo) {
-// 				const int k = crossTwo.index();
-// 				incrementByGroup(crossTwoTerms.data(), hPid, k,
-// 						BaseModel::gradientNumeratorContrib(crossTwo.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
-// 			}
-// 			hessianCrossTerms[indexTwo];
-// //			std::cerr << std::accumulate(crossTwoTerms.begin(), crossTwoTerms.end(), 0.0) << std::endl;
-// 			hessianCrossTerms[indexTwo].swap(crossTwoTerms);
-// 		}
-// 		std::vector<real>& crossTwoTerms = hessianCrossTerms[indexTwo];
-//
-// 		// TODO Sparse loop
-// 		real cross = 0.0;
-// 		for (int n = 0; n < N; ++n) {
-// 			cross += crossOneTerms[n] * crossTwoTerms[n] / (denomPid[n] * denomPid[n]);
-// 		}
-// //		std::cerr << cross << std::endl;
-// 		information -= cross;
-// #else
-// 		SparseIterator sparseCrossOneTerms = getSubjectSpecificHessianIterator<IteratorTypeOne>(indexOne);
-// 		SparseIterator sparseCrossTwoTerms = getSubjectSpecificHessianIterator<IteratorTypeTwo>(indexTwo);
-// 		PairProductIterator<SparseIterator,SparseIterator> itSparseCross(sparseCrossOneTerms, sparseCrossTwoTerms);
-//
-// 		real sparseCross = 0.0;
-// 		for (; itSparseCross.valid(); ++itSparseCross) {
-// 			const int n = itSparseCross.index();
-// 			sparseCross += itSparseCross.value() / (denomPid[n] * denomPid[n]);
-// 		}
-// 		information -= sparseCross;
-// #endif
-// 	}
-//
-// 	*oinfo = static_cast<double>(information);
+
+	IteratorTypeOne itOne(hX, indexOne);
+	IteratorTypeTwo itTwo(hX, indexTwo);
+	PairProductIterator<IteratorTypeOne,IteratorTypeTwo,RealType> it(itOne, itTwo);
+
+	RealType information = static_cast<RealType>(0);
+	for (; it.valid(); ++it) {
+		const int k = it.index();
+		// Compile-time delegation
+
+		BaseModel::incrementFisherInformation(it,
+				w, // Signature-only, for iterator-type specialization
+				&information,
+				offsExpXBeta[k],
+				0.0, 0.0, // numerPid[k], numerPid2[k], // remove
+				denomPid[BaseModel::getGroup(hPid, k)],
+				hKWeight[k], it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
+	}
+
+	if (BaseModel::hasStrataCrossTerms) {
+
+		// Check if index is pre-computed
+//#define USE_DENSE
+#ifdef USE_DENSE
+		if (hessianCrossTerms.find(indexOne) == hessianCrossTerms.end()) {
+			// Make new
+			std::vector<real> crossOneTerms(N);
+			IteratorTypeOne crossOne(modelData, indexOne);
+			for (; crossOne; ++crossOne) {
+				const int k = crossOne.index();
+				incrementByGroup(crossOneTerms.data(), hPid, k,
+						BaseModel::gradientNumeratorContrib(crossOne.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
+			}
+			hessianCrossTerms[indexOne];
+//			std::cerr << std::accumulate(crossOneTerms.begin(), crossOneTerms.end(), 0.0) << std::endl;
+			hessianCrossTerms[indexOne].swap(crossOneTerms);
+		}
+		std::vector<real>& crossOneTerms = hessianCrossTerms[indexOne];
+
+		// TODO Remove code duplication
+		if (hessianCrossTerms.find(indexTwo) == hessianCrossTerms.end()) {
+			std::vector<real> crossTwoTerms(N);
+			IteratorTypeTwo crossTwo(modelData, indexTwo);
+			for (; crossTwo; ++crossTwo) {
+				const int k = crossTwo.index();
+				incrementByGroup(crossTwoTerms.data(), hPid, k,
+						BaseModel::gradientNumeratorContrib(crossTwo.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
+			}
+			hessianCrossTerms[indexTwo];
+//			std::cerr << std::accumulate(crossTwoTerms.begin(), crossTwoTerms.end(), 0.0) << std::endl;
+			hessianCrossTerms[indexTwo].swap(crossTwoTerms);
+		}
+		std::vector<real>& crossTwoTerms = hessianCrossTerms[indexTwo];
+
+		// TODO Sparse loop
+		real cross = 0.0;
+		for (int n = 0; n < N; ++n) {
+			cross += crossOneTerms[n] * crossTwoTerms[n] / (denomPid[n] * denomPid[n]);
+		}
+//		std::cerr << cross << std::endl;
+		information -= cross;
+#else
+		SparseIterator<RealType> sparseCrossOneTerms = getSubjectSpecificHessianIterator<IteratorTypeOne>(indexOne);
+		SparseIterator<RealType> sparseCrossTwoTerms = getSubjectSpecificHessianIterator<IteratorTypeTwo>(indexTwo);
+		PairProductIterator<SparseIterator<RealType>,SparseIterator<RealType>,RealType> itSparseCross(sparseCrossOneTerms, sparseCrossTwoTerms);
+
+		RealType sparseCross = static_cast<RealType>(0);
+		for (; itSparseCross.valid(); ++itSparseCross) {
+			const int n = itSparseCross.index();
+			sparseCross += itSparseCross.value() / (denomPid[n] * denomPid[n]);
+		}
+		information -= sparseCross;
+#endif
+	}
+
+	*oinfo = static_cast<double>(information);
 }
 
 template <class BaseModel,typename RealType>

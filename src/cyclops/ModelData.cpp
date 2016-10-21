@@ -90,8 +90,6 @@ void ModelData<RealType>::loadY(
 	}
 	touchedY = true;
 
-	auto nRows = getNumberOfRows();
-
 	if (!previouslyLoaded) { // Load stratum and row IDs
 // 		std::ostringstream stream;
 // 		stream << "Load stratum and row IDs";
@@ -109,7 +107,7 @@ void ModelData<RealType>::loadY(
 			// Begin code duplication
 			if (processStrata) {
 				IdType cInStratum = oStratumId[i];
-				if (nRows == 0) {
+				if (getX().nRows == 0) {
 					lastStratumMap.first = cInStratum;
 					lastStratumMap.second = 0;
 					nPatients++;
@@ -122,7 +120,7 @@ void ModelData<RealType>::loadY(
 				}
 				pid.push_back(lastStratumMap.second);
 			}
-			++nRows;
+			++getX().nRows;
 
 			// TODO Check timing on adding label as string
 			std::stringstream ss;
@@ -131,9 +129,9 @@ void ModelData<RealType>::loadY(
 			// End code duplication
 		}
 
-		if (oRowId.size() == 0) nRows = y.size();
+		if (oRowId.size() == 0) getX().nRows = y.size();
 
-		if (!processStrata) nPatients = nRows;
+		if (!processStrata) nPatients = getX().nRows;
 	} else {
 		if (oStratumId.size() > 0 || oRowId.size() > 0) {
 			std::ostringstream stream;
@@ -487,13 +485,13 @@ Vector<double> ModelData<RealType>::normalizeCovariates(const NormalizationType 
     Vector<double> normalizations;
     normalizations.reserve(getNumberOfColumns());
 
+    const auto nRows = getNumberOfRows();
+
     size_t index = hasOffsetCovariate ? 1 : 0;
     if (hasInterceptCovariate) {
         normalizations.push_back(1.0);
         ++index;
     }
-
-    const auto nRows = getNumberOfRows();
 
     for ( ; index < getNumberOfColumns(); ++index) {
         auto& column = X.getColumn(index);

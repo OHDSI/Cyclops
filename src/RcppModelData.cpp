@@ -289,7 +289,7 @@ List cyclopsSumByStratum(Environment x, const std::vector<long>& covariateLabel,
     IntegerVector names(covariateLabel.size());
     for (size_t i = 0; i < covariateLabel.size(); ++i) {
         std::vector<double> result;
-        data->sumByGroup(result, covariateLabel[i], power);
+        data->sumByPid(result, covariateLabel[i], power);
         list[i] = result;
         names[i] = covariateLabel[i];
     }

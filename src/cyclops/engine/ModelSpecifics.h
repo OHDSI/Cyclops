@@ -257,6 +257,10 @@ protected:
     RealVector hXjX;
     RealType logLikelihoodFixedTerm;
 
+    typedef bsccs::shared_ptr<CompressedDataColumn<RealType>> CDCPtr;
+    typedef std::map<int, CDCPtr> HessianSparseMap;
+    HessianSparseMap hessianSparseCrossTerms;
+
     // End of AMS move
 
 	template <typename IteratorType>
