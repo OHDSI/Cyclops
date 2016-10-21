@@ -792,7 +792,7 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 //                 SerialOnly()
 //     		);
 
-    auto rangeNumerator = helper::getRangeAllNumerators(K, hY, hXBeta, hKWeight);
+    auto rangeNumerator = helper::getRangeAllNumerators<RealType>(K, hY, hXBeta, hKWeight);
 
     RealType logLikelihood = useCrossValidation ?
     		variants::reduce(
@@ -824,8 +824,8 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 //         );
 
 		auto rangeDenominator = (BaseModel::cumulativeGradientAndHessian) ?
-				helper::getRangeAllDenominators(N, accDenomPid, hNWeight) :
-				helper::getRangeAllDenominators(N, denomPid, hNWeight);
+				helper::getRangeAllDenominators<RealType>(N, accDenomPid, hNWeight) :
+				helper::getRangeAllDenominators<RealType>(N, denomPid, hNWeight);
 
 		logLikelihood -= variants::reduce(
 				rangeDenominator.begin(), rangeDenominator.end(),
@@ -866,7 +866,7 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
     }
 
 	// Compile-time switch for models with / with-out PID (hasIndependentRows)
-	auto range = helper::getRangeAllPredictiveLikelihood(K, hY, hXBeta,
+	auto range = helper::getRangeAllPredictiveLikelihood<RealType>(K, hY, hXBeta,
 		(BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
 		weights, hPid, std::integral_constant<bool, BaseModel::hasIndependentRows>());
 
