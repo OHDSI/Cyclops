@@ -568,19 +568,26 @@ public:
 	}
 
 	// TODO Improve encapsulation
-	friend class SCCSInputReader;
-	friend class CLRInputReader;
-	friend class RTestInputReader;
-	friend class CoxInputReader;
-	friend class CCTestInputReader;
-	friend class GenericSparseReader;
-	friend class InputReader;
+	// friend class SCCSInputReader;
+	// friend class CLRInputReader;
+	// friend class RTestInputReader;
+	// friend class CoxInputReader;
+	// friend class CCTestInputReader;
+	// friend class GenericSparseReader;
+	// friend class InputReader;
+	//
+	// template <class FormatType, class MissingPolicy> friend class BaseInputReader;
+	// template <class ImputationPolicy> friend class BBRInputReader;
+	// template <class ImputationPolicy> friend class CSVInputReader;
 
-	template <class FormatType, class MissingPolicy> friend class BaseInputReader;
-	template <class ImputationPolicy> friend class BBRInputReader;
-	template <class ImputationPolicy> friend class CSVInputReader;
-
-	friend void push_back_label(ModelData<RealType>& modeData, const std::string& label);
+	friend void push_back_label(ModelData<double>& modeData, const std::string& label);
+	friend void push_back_pid(ModelData<double>& modeData, const int cases);
+	friend void push_back_y(ModelData<double>& modelData, const double value);
+	friend void push_back_nevents(ModelData<double>& modelData, const int num);
+	friend void push_back_z(ModelData<double>& modelData, const double value);
+	friend void push_back_offs(ModelData<double>& modelData, const double value);
+	friend void setConditionId(ModelData<double>& modelData, const std::string& id);
+	friend void setNumberPatients(ModelData<double>& modelData, const int cases);
 
 protected:
 

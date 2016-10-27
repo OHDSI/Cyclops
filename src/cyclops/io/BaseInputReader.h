@@ -25,6 +25,34 @@ void push_back_label(ModelData<double>& modelData, const std::string& label) {
     modelData.labels.push_back(label);
 }
 
+void push_back_pid(ModelData<double>& modelData, const int cases) {
+    modelData.pid.push_back(cases);
+}
+
+void push_back_y(ModelData<double>& modelData, const double value) {
+    modelData.y.push_back(value);
+}
+
+void push_back_nevents(ModelData<double>& modelData, const int num) {
+    modelData.nevents.push_back(num);
+}
+
+void push_back_z(ModelData<double>& modelData, const double value) {
+    modelData.z.push_back(value);
+}
+
+void push_back_offs(ModelData<double>& modelData, const double value) {
+    modelData.offs.push_back(value);
+}
+
+void setConditionId(ModelData<double>& modelData, const std::string& id) {
+    modelData.conditionId = id;
+}
+
+void setNumberPatients(ModelData<double>& modelData, const int cases) {
+    modelData.nPatients = cases;
+}
+
 
 using std::string;
 //using std::cerr;
@@ -138,9 +166,11 @@ public:
 		stream << "Number of covariates: " <<  modelData->getNumberOfColumns();
 		logger->writeLine(stream);
 
-		modelData->nPatients = rowInfo.numCases;
+		setNumberPatients(*modelData, rowInfo.numCases);
+		//modelData->nPatients = rowInfo.numCases;
 		modelData->getX().nRows = rowInfo.currentRow;
-		modelData->conditionId = rowInfo.outcomeId;
+		setConditionId(*modelData, rowInfo.outcomeId);
+		//modelData->conditionId = rowInfo.outcomeId;
 
 		in.close();
 	}
@@ -227,7 +257,8 @@ protected:
 
 	void parseNoStratumEntry(stringstream& ss, RowInformation& rowInfo) {
 		addEventEntry(1);
-		modelData->pid.push_back(rowInfo.numCases);
+	    push_back_pid(*modelData, rowInfo.numCases);
+		//modelData->pid.push_back(rowInfo.numCases);
 		rowInfo.numCases++;
 	}
 
@@ -249,7 +280,8 @@ protected:
 			rowInfo.currentPid = unmappedPid;
 			rowInfo.numCases++;
 		}
-		modelData->pid.push_back(rowInfo.numCases - 1);
+		push_back_pid(*modelData, rowInfo.numCases - 1);
+		//modelData->pid.push_back(rowInfo.numCases - 1);
 	}
 
 	template <typename T>
@@ -257,14 +289,16 @@ protected:
 		T thisY;
 		ss >> thisY;
 		rowInfo.numEvents += thisY;
-		modelData->y.push_back(thisY);
+		push_back_y(*modelData, thisY);
+		//modelData->y.push_back(thisY);
 	}
 
 	template <typename T>
 	void parseSingleTimeEntry(stringstream& ss, RowInformation& rowInfo) {
 		T thisY;
 		ss >> thisY;
-		modelData->z.push_back(thisY);
+		push_back_z(*modelData, thisY);
+		//modelData->z.push_back(thisY);
 	}
 
 	template <typename T>
@@ -275,7 +309,8 @@ protected:
 			thisY = static_cast<T>(0);
 		}
 		rowInfo.numEvents += thisY;
-		modelData->y.push_back(thisY);
+		push_back_y(*modelData, thisY);
+		//modelData->y.push_back(thisY);
 	}
 
 	void parseOffsetCovariateEntry(stringstream& ss, RowInformation& rowInfo, bool inLogSpace) {
@@ -290,7 +325,8 @@ protected:
 	void parseOffsetEntry(stringstream& ss, RowInformation&) {
 		double thisOffs;
 		ss >> thisOffs;
-		modelData->offs.push_back(thisOffs);
+		push_back_offs(*modelData, thisOffs);
+		//modelData->offs.push_back(thisOffs);
 	}
 
 	void parseAllIndicatorCovariatesEntry(stringstream& ss, RowInformation& rowInfo) {
@@ -317,7 +353,8 @@ protected:
 	void setInnerDelimitor(const string& d) { innerDelimitor = d; }
 
 	void addEventEntry(int numEvents) {
-		modelData->nevents.push_back(numEvents);
+	    push_back_nevents(*modelData, numEvents);
+		//modelData->nevents.push_back(numEvents);
 	}
 
 // 	loggers::ProgressLoggerPtr logger;
