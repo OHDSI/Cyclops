@@ -66,6 +66,8 @@ public:
 	typedef std::vector<int> int_vector;
 	typedef std::vector<string> string_vector;
 
+	using InputReader::modelData;
+
 //	BaseInputReader() : InputReader(
 //		bsccs::make_shared<loggers::CoutLogger>(),
 //	 	bsccs::make_shared<loggers::CerrErrorHandler>()), innerDelimitor(":") {
