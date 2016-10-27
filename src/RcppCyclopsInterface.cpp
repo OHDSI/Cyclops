@@ -584,7 +584,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
 		const ProfileVector& flatPrior, const HierarchicalChildMap& hierarchyMap, const NeighborhoodMap& neighborhood) {
 	using namespace bsccs::priors;
 
-    const int length = modelData->getNumberOfCovariates();
+    const size_t length = modelData->getNumberOfCovariates();
 
  	if (   flatPrior.size() == 0
  	    && hierarchyMap.size() == 0
@@ -595,7 +595,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
         auto first = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[0]), baseVariance[0]);
         auto prior = bsccs::make_shared<MixtureJointPrior>(first, length);
 
-        for (int i = 1; i < length; ++i) {
+        for (size_t i = 1; i < length; ++i) {
             auto columnPrior = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[i]), baseVariance[i]);
             prior->changePrior(columnPrior, i);
         }

@@ -23,7 +23,7 @@
 
 #include "Recursions.hpp"
 #include "ParallelLoops.h"
-#include "Ranges.h"
+// #include "Ranges.h"
 
 //#include "R.h"
 //#include "Rcpp.h" // TODO Remove
@@ -37,7 +37,19 @@
 		const std::string InterceptIterator::name = "Icp";
 	}
 #endif
+	namespace bsccs {
+	    template <typename RealType>
+	    const std::string DenseIterator<RealType>::name = "Den";
 
+	    template <typename RealType>
+	    const std::string IndicatorIterator<RealType>::name = "Ind";
+
+	    template <typename RealType>
+	    const std::string SparseIterator<RealType>::name = "Spa";
+
+	    template <typename RealType>
+	    const std::string InterceptIterator<RealType>::name = "Icp";
+	}
 //#define OLD_WAY
 //#define NEW_WAY1
 #define NEW_WAY2
@@ -778,64 +790,60 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 
-//     auto rangeNumerator = helper::getRangeAll(K);
+// RANGE
+//     auto rangeNumerator = helper::getRangeAllNumerators<RealType>(K, hY, hXBeta, hKWeight);
 //
 //     RealType logLikelihood = useCrossValidation ?
 //     		variants::reduce(
 //                 rangeNumerator.begin(), rangeNumerator.end(), static_cast<RealType>(0.0),
-//                 AccumulateLikeNumeratorKernel<BaseModel,RealType,int,true>(begin(hY), begin(hXBeta), begin(hKWeight)),
+//                 TestAccumulateLikeNumeratorKernel<BaseModel,RealType,true>(),
 //                 SerialOnly()
 //     		) :
 //     		variants::reduce(
 //                 rangeNumerator.begin(), rangeNumerator.end(), static_cast<RealType>(0.0),
-//                 AccumulateLikeNumeratorKernel<BaseModel,RealType,int,false>(begin(hY), begin(hXBeta), begin(hKWeight)),
+//                 TestAccumulateLikeNumeratorKernel<BaseModel,RealType,false>(),
 //                 SerialOnly()
 //     		);
-
-    auto rangeNumerator = helper::getRangeAllNumerators<RealType>(K, hY, hXBeta, hKWeight);
-
-    RealType logLikelihood = useCrossValidation ?
-    		variants::reduce(
-                rangeNumerator.begin(), rangeNumerator.end(), static_cast<RealType>(0.0),
-                TestAccumulateLikeNumeratorKernel<BaseModel,RealType,true>(),
-                SerialOnly()
-    		) :
-    		variants::reduce(
-                rangeNumerator.begin(), rangeNumerator.end(), static_cast<RealType>(0.0),
-                TestAccumulateLikeNumeratorKernel<BaseModel,RealType,false>(),
-                SerialOnly()
-    		);
-
-//     std::cerr << logLikelihood << " == " << logLikelihood2 << std::endl;
-
-    if (BaseModel::likelihoodHasDenominator) {
-
-//         auto rangeDenominator = helper::getRangeAll(N);
 //
-//         auto kernelDenominator = (BaseModel::cumulativeGradientAndHessian) ?
-//                 AccumulateLikeDenominatorKernel<BaseModel,RealType,int>(begin(hNWeight), begin(accDenomPid)) :
-//                 AccumulateLikeDenominatorKernel<BaseModel,RealType,int>(begin(hNWeight), begin(denomPid));
+//     if (BaseModel::likelihoodHasDenominator) {
 //
-//         logLikelihood -= variants::reduce(
-//                 rangeDenominator.begin(), rangeDenominator.end(),
-//                 static_cast<RealType>(0.0),
-//                 kernelDenominator,
-//                 SerialOnly()
-//         );
+// 		auto rangeDenominator = (BaseModel::cumulativeGradientAndHessian) ?
+// 				helper::getRangeAllDenominators<RealType>(N, accDenomPid, hNWeight) :
+// 				helper::getRangeAllDenominators<RealType>(N, denomPid, hNWeight);
+//
+// 		logLikelihood -= variants::reduce(
+// 				rangeDenominator.begin(), rangeDenominator.end(),
+// 				static_cast<RealType>(0.0),
+// 				TestAccumulateLikeDenominatorKernel<BaseModel,RealType>(),
+// 				SerialOnly()
+// 		);
+//     }
 
-		auto rangeDenominator = (BaseModel::cumulativeGradientAndHessian) ?
-				helper::getRangeAllDenominators<RealType>(N, accDenomPid, hNWeight) :
-				helper::getRangeAllDenominators<RealType>(N, denomPid, hNWeight);
+	RealType logLikelihood = static_cast<RealType>(0.0);
+	if (useCrossValidation) {
+		for (size_t i = 0; i < K; i++) {
+			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]) * hKWeight[i];
+		}
+	} else {
+		for (size_t i = 0; i < K; i++) {
+			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]);
+		}
+	}
 
-		logLikelihood -= variants::reduce(
-				rangeDenominator.begin(), rangeDenominator.end(),
-				static_cast<RealType>(0.0),
-				TestAccumulateLikeDenominatorKernel<BaseModel,RealType>(),
-				SerialOnly()
-		);
-
-//         std::cerr << logLikelihood << " == " << logLikelihood2 << std::endl;
-    }
+	if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+		if(BaseModel::cumulativeGradientAndHessian) {
+			for (size_t i = 0; i < N; i++) {
+				// Weights modified in computeNEvents()
+				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], accDenomPid[i]);
+			}
+		} else {  // TODO Unnecessary code duplication
+			for (size_t i = 0; i < N; i++) {
+				// Weights modified in computeNEvents()
+				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], denomPid[i]);
+			}
+		}
+	}
+	// RANGE
 
 	if (BaseModel::likelihoodHasFixedTerms) {
 		logLikelihood += logLikelihoodFixedTerm;
@@ -858,36 +866,46 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 
  		saveKWeight = hKWeight; // make copy
 
-// 		std::vector<int> savedPid = hPidInternal; // make copy
-// 		std::vector<int> saveAccReset = accReset; // make copy
 		setPidForAccumulation(weights);
 		computeRemainingStatistics(true); // compute accDenomPid
 
     }
 
 	// Compile-time switch for models with / with-out PID (hasIndependentRows)
-	auto range = helper::getRangeAllPredictiveLikelihood<RealType>(K, hY, hXBeta,
-		(BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
-		weights, hPid, std::integral_constant<bool, BaseModel::hasIndependentRows>());
+// RANGE
+// 	auto range = helper::getRangeAllPredictiveLikelihood<RealType>(K, hY, hXBeta,
+// 		(BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
+// 		weights, hPid, std::integral_constant<bool, BaseModel::hasIndependentRows>());
+//
+// 	auto kernel = TestPredLikeKernel<BaseModel,RealType>();
+//
+// 	RealType logLikelihood = variants::reduce(
+// 			range.begin(), range.end(), static_cast<RealType>(0.0),
+// 			kernel,
+// 			SerialOnly()
+// 		);
 
-	auto kernel = TestPredLikeKernel<BaseModel,RealType>();
+	RealType logLikelihood = static_cast<RealType>(0.0);
 
-	RealType logLikelihood = variants::reduce(
-			range.begin(), range.end(), static_cast<RealType>(0.0),
-			kernel,
-			SerialOnly()
-		);
+	if(BaseModel::cumulativeGradientAndHessian)	{
+	    for (size_t i = 0; i < N; ++i) {
+	        logLikelihood += BaseModel::logPredLikeContrib(hY[i], weights[i], hXBeta[i], &accDenomPid[0], hPid, i); // TODO Going to crash with ties
+	    }
+	} else { // TODO Unnecessary code duplication
+	    for (size_t k = 0; k < K; ++k) { // TODO Is index of K correct?
+	        logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], &denomPid[0], hPid, k);
+	    }
+	}
+// RANGE
 
 	if (BaseModel::cumulativeGradientAndHessian) {
 
-// 		hPidInternal = savedPid; // make copy; TODO swap
-// 		accReset = saveAccReset; // make copy; TODO swap
 		setPidForAccumulation(&saveKWeight[0]);
 		computeRemainingStatistics(true);
 	}
 
 	return static_cast<double>(logLikelihood);
-}   // END OF DIFF
+}
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::getPredictiveEstimates(double* y, double* weights){
@@ -1232,83 +1250,160 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
     Rcpp::stop("out");
 #endif
 
-	} else if (BaseModel::hasIndependentRows) {
-
-		auto range = helper::independent::getRangeX(hX, index,
-		        offsExpXBeta, hXBeta, hY, denomPid, hNWeight,
-		        typename IteratorType::tag());
-
-		const auto result = variants::reduce(range.begin(), range.end(), Fraction<RealType>(0,0),
-		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, RealType, int>(),
- 	        SerialOnly()
-// 		RcppParallel()
-		);
-
-
-// 		const auto result2 = variants::reduce(range.begin(), range.end(), Fraction<RealType>(0,0),
+// RANGE
+// 	} else if (BaseModel::hasIndependentRows) {
+//
+// 		auto range = helper::independent::getRangeX(hX, index,
+// 		        offsExpXBeta, hXBeta, hY, denomPid, hNWeight,
+// 		        typename IteratorType::tag());
+//
+// 		const auto result = variants::reduce(range.begin(), range.end(), Fraction<RealType>(0,0),
 // 		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, RealType, int>(),
-// // 			SerialOnly()
-// 			RcppParallel()
-// 		);
-
-
-// 		std::cerr << result.real() << " " << result.imag()	<< std::endl;
-// 		std::cerr << result2.real() << " " << result2.imag()	<< std::endl << std::endl;
-
-		gradient = result.real();
-		hessian = result.imag();
-
-	} else {
-
-// #ifdef OLD_WAY
-//
-// 		auto range = helper::getRangeDenominator(sparseIndices[index], N, typename IteratorType::tag());
-//
-// 		auto kernel = AccumulateGradientAndHessianKernel<BaseModel,IteratorType, Weights, real, int>(
-// 							begin(numerPid), begin(numerPid2), begin(denomPid),
-// 							begin(hNWeight), begin(hXBeta), begin(hY));
-//
-// 		Fraction<real> result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), kernel,
-// 		 SerialOnly()
-// 	//     info
+//  	        SerialOnly()
 // 		);
 //
 // 		gradient = result.real();
 // 		hessian = result.imag();
 //
-// #endif
+// 	} else {
 //
-// #ifdef NEW_WAY2
+// 		auto rangeKey = helper::dependent::getRangeKey(hX, index, hPid,
+// 		        typename IteratorType::tag());
+//
+//         auto rangeXNumerator = helper::dependent::getRangeX(hX, index, offsExpXBeta,
+//                 typename IteratorType::tag());
+//
+//         auto rangeGradient = helper::dependent::getRangeGradient(sparseIndices[index].get(), N, // runtime error: reference binding to null pointer of type 'struct vector'
+//                 denomPid, hNWeight,
+//                 typename IteratorType::tag());
+//
+// 		const auto result = variants::trial::nested_reduce(
+// 		        rangeKey.begin(), rangeKey.end(),
+// 		        rangeXNumerator.begin(), rangeGradient.begin(),
+// 		        std::pair<RealType,RealType>{0,0}, Fraction<RealType>{0,0},
+//                 TestNumeratorKernel<BaseModel,IteratorType,RealType>(), // Inner transform-reduce
+// 		       	TestGradientKernel<BaseModel,IteratorType,Weights>()); // Outer transform-reduce
+//
+// 		gradient = result.real();
+// 		hessian = result.imag();
+//
+//     } // not Cox
 
-		auto rangeKey = helper::dependent::getRangeKey(hX, index, hPid,
-		        typename IteratorType::tag());
+	} else if (BaseModel::hasIndependentRows) {
 
-        auto rangeXNumerator = helper::dependent::getRangeX(hX, index, offsExpXBeta,
-                typename IteratorType::tag());
+	    IteratorType it(hX, index);
 
-        auto rangeGradient = helper::dependent::getRangeGradient(sparseIndices[index].get(), N, // runtime error: reference binding to null pointer of type 'struct vector'
-                denomPid, hNWeight,
-                typename IteratorType::tag());
+	    for (; it; ++it) {
+	        const int i = it.index();
 
-		const auto result = variants::trial::nested_reduce(
-		        rangeKey.begin(), rangeKey.end(),
-		        rangeXNumerator.begin(), rangeGradient.begin(),
-		        std::pair<RealType,RealType>{0,0}, Fraction<RealType>{0,0},
-                TestNumeratorKernel<BaseModel,IteratorType,RealType>(), // Inner transform-reduce
-		       	TestGradientKernel<BaseModel,IteratorType,Weights>()); // Outer transform-reduce
+	        //offsExpXBeta, hXBeta, hY, denomPid, hNWeight,
 
-		gradient = result.real();
-		hessian = result.imag();
-// #endif
+	        RealType numerator = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], hXBeta[i], hY[i]);
+	        RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+	            BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
 
-//       std::cerr << std::endl
-//            << result.real() << " " << result.imag() << std::endl
-//            << result2.real() << " " << result2.imag() << std::endl
-// 		   		 << result3.real() << " " << result3.imag() << std::endl;
+	        // Compile-time delegation
+	        BaseModel::incrementGradientAndHessian(it,
+                    w, // Signature-only, for iterator-type specialization
+                    &gradient, &hessian, numerator, numerator2,
+                    denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
+	    }
 
-//  		::Rf_error("break");
+	} else {
 
-    } // not Cox
+// 	    template <typename OuterResultType, typename InnerResultType,
+//                typename OuterFunction, typename InnerFunction,
+//                typename KeyIterator, typename InnerIterator, typename OuterIterator>
+// 	    inline OuterResultType nested_reduce(KeyIterator key, KeyIterator end,
+//                                           InnerIterator inner, OuterIterator outer,
+//                                           InnerResultType reset_in, OuterResultType result_out,
+//                                           InnerFunction f_in, OuterFunction f_out) {
+//
+// 	        const auto stop = end - 1;
+//
+// 	        InnerResultType result_in = reset_in;
+//
+// 	        for (; key != stop; ++key, ++inner) {
+//
+// 	            result_in = f_in(result_in, *inner);
+//
+// 	            if (*key != *(key + 1)) {
+//
+// 	                result_out = f_out(result_out, result_in, *outer);
+//
+// 	                result_in = reset_in;
+// 	                ++outer;
+// 	            }
+// 	        }
+//
+// 	        result_in = f_in(result_in, *inner);
+//
+// 	        return f_out(result_out, result_in, *outer);
+// 	    }
+// 		auto rangeKey = helper::dependent::getRangeKey(hX, index, hPid,
+// 		        typename IteratorType::tag());
+//
+//         auto rangeXNumerator = helper::dependent::getRangeX(hX, index, offsExpXBeta,
+//                 typename IteratorType::tag());
+//
+//         auto rangeGradient = helper::dependent::getRangeGradient(sparseIndices[index].get(), N, // runtime error: reference binding to null pointer of type 'struct vector'
+//                 denomPid, hNWeight,
+//                 typename IteratorType::tag());
+//
+// 		const auto result = variants::trial::nested_reduce(
+// 		        rangeKey.begin(), rangeKey.end(),
+// 		        rangeXNumerator.begin(), rangeGradient.begin(),
+// 		        std::pair<RealType,RealType>{0,0}, Fraction<RealType>{0,0},
+//                 TestNumeratorKernel<BaseModel,IteratorType,RealType>(), // Inner transform-reduce
+// 		       	TestGradientKernel<BaseModel,IteratorType,Weights>()); // Outer transform-reduce
+
+	    IteratorType numeratorIt(hX, index);
+	    IteratorType gradientIt(sparseIndices[index].get(), N);
+
+	    //std::pair<RealType> gh{0,0};
+	    std::pair<RealType,RealType> numerator{0,0};
+
+	    // nested transformation_reduction
+	    const auto end = numeratorIt.size() - 1;
+	    for (int key = 0; key < end; ++key, ++numeratorIt) {
+
+	        //numerator = f_in(numerator, *numeratorsIt);
+	        const int i = numeratorIt.index();
+	        numerator.first  += BaseModel::gradientNumeratorContrib(numeratorIt.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
+	        numerator.second += (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+	                BaseModel::gradientNumerator2Contrib(numeratorIt.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
+
+	        if (hPid[key] != hPid[key + 1]) {
+
+	            // gh = f_out(gh, numerators, *gradientIt);
+	            const int j = gradientIt.index();
+	            BaseModel::incrementGradientAndHessian(gradientIt,
+                    w, // Signature-only, for iterator-type specialization
+                    &gradient, &hessian, numerator.first, numerator.second,
+                    denomPid[j], hNWeight[j], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
+
+	            // Reset
+	            numerator = std::pair<RealType,RealType>{0,0};
+	            ++gradientIt;
+	        }
+	    }
+
+	    // Handle tail
+
+	    //numerator = f_in(numerator, *numeratorsIt);
+	    const int i = numeratorIt.index();
+	    numerator.first  += BaseModel::gradientNumeratorContrib(numeratorIt.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
+	    numerator.second += (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+	            BaseModel::gradientNumerator2Contrib(numeratorIt.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
+
+	    // gh = f_out(gh, numerators, *gradientIt);
+	    const int j = gradientIt.index();
+	    BaseModel::incrementGradientAndHessian(gradientIt,
+            w, // Signature-only, for iterator-type specialization
+            &gradient, &hessian, numerator.first, numerator.second,
+            denomPid[j], hNWeight[j], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
+	}
+// RANGE
 
 	//std::cerr << "g: " << gradient << " h: " << hessian << " f: " << hXjY[index] << std::endl;
 
@@ -1729,107 +1824,95 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 #endif
 #endif
 
-// #ifdef NEW_LOOPS
-
-#if 1
-	auto range = helper::getRangeX(hX, index, typename IteratorType::tag());
-
-	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,RealType,int>(
-					realDelta, begin(offsExpXBeta), begin(hXBeta),
-					begin(hY),
-					begin(hPid),
-					begin(denomPid),
-					begin(hOffs)
-					);
-
-
-	variants::for_each(
-		range.begin(), range.end(),
-		kernel,
-// 		info
-//          threadPool
-// 		RcppParallel() // TODO Currently *not* thread-safe
-          SerialOnly()
-		);
-
-#else
-
-    if (BaseModel::hasIndependentRows) {
-
-        auto range = helper::independent::getRangeXBeta(modelData, index,
-                offsExpXBeta, hXBeta, denomPid, hOffs,
-                typename IteratorType::tag());
-
-        auto kernel = TestUpdateXBetaKernel<BaseModel,IteratorType,RealType>(realDelta);
-        variants::for_each(
-            range.begin(), range.end(),
-            kernel,
-            SerialOnly()
-        );
-
-    } else {
-
-        auto rangeXBeta = helper::independent::getRangeXBeta(modelData, index,
-            offsExpXBeta, hXBeta, denomPid, /* denom not used here */ hOffs,
-            typename IteratorType::tag());
-
- 		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid,
-		        typename IteratorType::tag());
-
-		auto rangeDenominator = helper::dependent::getRangeDenominator(sparseIndices[index].get(), N,
-		        denomPid, typename IteratorType::tag());
-
-        auto kernel = TestUpdateXBetaKernelDependent<BaseModel,IteratorType,real>(realDelta);
-
-        auto key = rangeKey.begin();
-        auto end = rangeKey.end();
-        auto inner = rangeXBeta.begin();
-        auto outer = rangeDenominator.begin();
-
-        const auto stop = end - 1;
-
-        real result = 0;
-
-        for (; key != stop; ++key, ++inner) {
-
-            result = kernel(result, *inner);
-
-            if (*key != *(key + 1)) {
-
-                *outer = result + *outer;
-
-                result = 0;
-                ++outer;
-            }
-        }
-
-        result = kernel(result, *inner);
-
-        *outer = result + *outer;
-    }
-
-#endif
-
-// 	std::cerr << std::endl << realDelta << std::endl;
+// RANGE
+// #if 1
+// 	auto range = helper::getRangeX(hX, index, typename IteratorType::tag());
 //
-// 	::Rf_error("return");
-
-
-
+// 	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,RealType,int>(
+// 					realDelta, begin(offsExpXBeta), begin(hXBeta),
+// 					begin(hY),
+// 					begin(hPid),
+// 					begin(denomPid),
+// 					begin(hOffs)
+// 					);
+//
+//
+// 	variants::for_each(
+// 		range.begin(), range.end(),
+// 		kernel,
+//           SerialOnly()
+// 		);
+//
 // #else
-// 	IteratorType it(modelData, index);
-// 	for (; it; ++it) {
-// 		const int k = it.index();
-// 		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
-// 		// Update denominators as well
-// 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-// 			real oldEntry = offsExpXBeta[k];
-// 			real newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
-// 			incrementByGroup(denomPid, hPid, k, (newEntry - oldEntry));
-// 		}
-// 	}
+//
+//     if (BaseModel::hasIndependentRows) {
+//
+//         auto range = helper::independent::getRangeXBeta(modelData, index,
+//                 offsExpXBeta, hXBeta, denomPid, hOffs,
+//                 typename IteratorType::tag());
+//
+//         auto kernel = TestUpdateXBetaKernel<BaseModel,IteratorType,RealType>(realDelta);
+//         variants::for_each(
+//             range.begin(), range.end(),
+//             kernel,
+//             SerialOnly()
+//         );
+//
+//     } else {
+//
+//         auto rangeXBeta = helper::independent::getRangeXBeta(modelData, index,
+//             offsExpXBeta, hXBeta, denomPid, /* denom not used here */ hOffs,
+//             typename IteratorType::tag());
+//
+//  		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid,
+// 		        typename IteratorType::tag());
+//
+// 		auto rangeDenominator = helper::dependent::getRangeDenominator(sparseIndices[index].get(), N,
+// 		        denomPid, typename IteratorType::tag());
+//
+//         auto kernel = TestUpdateXBetaKernelDependent<BaseModel,IteratorType,real>(realDelta);
+//
+//         auto key = rangeKey.begin();
+//         auto end = rangeKey.end();
+//         auto inner = rangeXBeta.begin();
+//         auto outer = rangeDenominator.begin();
+//
+//         const auto stop = end - 1;
+//
+//         real result = 0;
+//
+//         for (; key != stop; ++key, ++inner) {
+//
+//             result = kernel(result, *inner);
+//
+//             if (*key != *(key + 1)) {
+//
+//                 *outer = result + *outer;
+//
+//                 result = 0;
+//                 ++outer;
+//             }
+//         }
+//
+//         result = kernel(result, *inner);
+//
+//         *outer = result + *outer;
+//     }
 //
 // #endif
+
+	IteratorType it(hX, index);
+	for (; it; ++it) {
+		const int k = it.index();
+		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
+		// Update denominators as well
+		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+			RealType oldEntry = offsExpXBeta[k];
+		    RealType newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
+			incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry));
+		}
+	}
+// RANGE
 
 	computeAccumlatedDenominator(useWeights);
 

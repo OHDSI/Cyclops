@@ -150,6 +150,8 @@ public:
             const std::vector<double>& cCovariateValue
     ) = 0;
 
+    virtual void printMatrixMarketFormat(std::ostream& stream) const = 0;
+
     virtual ~AbstractModelData() { }
 
 // private:
@@ -172,6 +174,9 @@ public:
     size_t getNumberOfRows() const { return X.getNumberOfRows(); }
 
     int getColumnIndexByName(IdType name) const { return X.getColumnIndexByName(name); }
+
+    void printMatrixMarketFormat(std::ostream& stream) const { X.printMatrixMarketFormat(stream); }
+
 
     // using CompressedDataMatrix<RealType>::getNumberOfColumns;
     // using CompressedDataMatrix<RealType>::getNumberOfRows;

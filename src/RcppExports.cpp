@@ -360,6 +360,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsPrintMatrixMarket
+void cyclopsPrintMatrixMarket(Environment object, const std::string& file);
+RcppExport SEXP Cyclops_cyclopsPrintMatrixMarket(SEXP objectSEXP, SEXP fileSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type object(objectSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type file(fileSEXP);
+    cyclopsPrintMatrixMarket(object, file);
+    return R_NilValue;
+END_RCPP
+}
 // cyclopsGetNumberOfRows
 int cyclopsGetNumberOfRows(Environment object);
 RcppExport SEXP Cyclops_cyclopsGetNumberOfRows(SEXP objectSEXP) {

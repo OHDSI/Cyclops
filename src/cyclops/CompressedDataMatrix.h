@@ -223,6 +223,8 @@ public:
 
 	void removeFromColumnVector(IntVector removeEntries);
 
+	void printMatrixMarketFormat(std::ostream& stream, const int rows, const int columnNumber) const;
+
 private:
 	// Disable copy-constructors and assignment constructors
 	CompressedDataColumn();
@@ -418,6 +420,8 @@ public:
 	size_t nRows;
 	size_t nCols;
 	size_t nEntries;
+
+	void printMatrixMarketFormat(std::ostream& stream) const;
 
 protected:
 

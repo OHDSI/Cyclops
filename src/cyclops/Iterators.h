@@ -66,7 +66,8 @@ class IndicatorIterator {
     inline const Scalar value() const { return static_cast<Scalar>(1); }
 
     inline Index index() const { return mIndices[mId]; }
-    inline operator bool() const { return (mId < mEnd); }
+    inline operator bool() const { return (mId < mEnd); }    
+    inline Index size() const { return mEnd; }
 
   protected:
     const Index* mIndices;
@@ -121,6 +122,7 @@ class SparseIterator {
 
     inline Index index() const { return mIndices[mId]; }
     inline operator bool() const { return (mId < mEnd); }
+    inline Index size() const { return mEnd; }    
 
   protected:
     const Scalar* mValues;
@@ -166,6 +168,7 @@ public:
 
     inline Index index() const { return mId; }
     inline operator bool() const { return (mId < mEnd); }
+    inline Index size() const { return mEnd; }
 
 protected:
 	IteratorType mIterator;
@@ -194,6 +197,7 @@ public:
 	inline CountingIterator& operator++() { ++mId; return *this; }
 	inline Index index() const  { return mId; }
 	inline operator bool() const { return (mId < mEnd); }
+    inline Index size() const { return mEnd; }	
 
 protected:
 	Index mId;
@@ -246,7 +250,8 @@ class DenseIterator {
 
     inline Index index() const { return mId; }
     inline operator bool() const { return (mId < mEnd); }
-
+    inline Index size() const { return mEnd; }
+    
   protected:
     const Scalar* mValues;
     Index mId;
@@ -295,7 +300,8 @@ class InterceptIterator {
 
     inline Index index() const { return mId; }
     inline operator bool() const { return (mId < mEnd); }
-
+    inline Index size() const { return mEnd; }
+    
   protected:
     Index mId;
     const Index mEnd;
@@ -324,7 +330,8 @@ class DenseViewIterator {
 
     inline Index index() const { return mId; }
     inline operator bool() const { return (mId < mEnd); }
-
+    inline Index size() const { return mEnd; }
+    
   protected:
     const Scalar* mValues;
     Index mId;
@@ -379,7 +386,8 @@ class GenericIterator {
     	}
     }
     inline operator bool() const { return (mId < mEnd); }
-
+    inline Index size() const { return mEnd; }
+    
   protected:
     const FormatType mFormatType;
     Scalar* mValues;
