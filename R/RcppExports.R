@@ -154,6 +154,19 @@ getNumberOfCovariates <- function(object) {
     .Call('Cyclops_cyclopsGetNumberOfColumns', PACKAGE = 'Cyclops', object)
 }
 
+#' @title Print Cyclops data matrix to file
+#'
+#' @description
+#' \code{printMatrixMarket} prints the data matrix to a file
+#'
+#' @param object      A Cyclops data object
+#' @param file        Filename
+#'
+#' @export
+printMatrixMarket <- function(object, file) {
+    invisible(.Call('Cyclops_cyclopsPrintMatrixMarket', PACKAGE = 'Cyclops', object, file))
+}
+
 #' @title Get total number of rows
 #'
 #' @description

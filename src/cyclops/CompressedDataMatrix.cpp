@@ -356,4 +356,39 @@ void CompressedDataColumn::removeFromColumnVector(IntVector removeEntries){
 	}
 }
 
+void CompressedDataColumn::printMatrixMarketFormat(std::ostream& stream, const int rows, const int columnNumber) const {
+
+    if (formatType == DENSE || formatType == INTERCEPT) {
+        for (int row = 0; row < rows; ++row) {
+            double value = (formatType == DENSE) ? getDataVector()[row] : 1.0;
+            stream << (row + 1) << " " << (columnNumber + 1) << " " << value << "\n";
+        }
+    } else if (formatType == SPARSE || formatType == INDICATOR) {
+        const auto columns = getColumnsVector();
+
+        for (int i = 0; i < columns.size(); ++i) {
+            double value = (formatType == SPARSE) ? getDataVector()[i] : 1.0;
+            stream << (columns[i] + 1) << " " << (columnNumber + 1) <<  " " << value << "\n";
+        }
+    } else {
+        throw new std::invalid_argument("Unknon type");
+    }
+}
+
+void CompressedDataMatrix::printMatrixMarketFormat(std::ostream& stream) const {
+
+    size_t nnz = 0;
+    for (int i = 0; i < getNumberOfColumns(); ++i) {
+        nnz += getNumberOfNonZeroEntries(i);
+    }
+
+    stream << "%%MatrixMarket matrix coordinate real general\n";
+    stream << "%\n";
+    stream << getNumberOfRows() << " " << getNumberOfColumns() << " " << nnz << "\n";
+
+    for (int col = 0; col < getNumberOfColumns(); ++col) {
+        getColumn(col).printMatrixMarketFormat(stream, getNumberOfRows(), col);
+    }
+}
+
 } // namespace
