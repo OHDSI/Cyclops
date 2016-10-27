@@ -19,6 +19,13 @@
 
 namespace bsccs {
 
+
+//template <typename RealType>
+void push_back_label(ModelData<double>& modelData, const std::string& label) {
+    modelData.labels.push_back(label);
+}
+
+
 using std::string;
 //using std::cerr;
 //using std::cout;
@@ -227,7 +234,8 @@ protected:
 	void parseRowLabel(stringstream& ss, RowInformation& rowInfo) {
 		string label;
 		ss >> label;
-		modelData->labels.push_back(label);
+		push_back_label(*modelData, label);
+		//modelData->labels.push_back(label);
 	}
 
 	void parseStratumEntry(stringstream& ss, RowInformation& rowInfo) {

@@ -580,6 +580,8 @@ public:
 	template <class ImputationPolicy> friend class BBRInputReader;
 	template <class ImputationPolicy> friend class CSVInputReader;
 
+	friend void push_back_label(ModelData<RealType>& modeData, const std::string& label);
+
 protected:
 
     template <typename T, typename F>
