@@ -566,9 +566,12 @@ SEXP cyclopsGetInterceptLabel(Environment x) {
     }
 }
 
+template class bsccs::ModelData<double>;
+template class bsccs::ModelData<float>;
+
+
 // [[Rcpp::export(".cyclopsReadData")]]
 List cyclopsReadFileData(const std::string& fileName, const std::string& modelTypeName) {
-
 		using namespace bsccs;
 		Timer timer;
     ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName);
