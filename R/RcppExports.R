@@ -166,7 +166,7 @@ getNumberOfCovariates <- function(object) {
 #' @param object      A Cyclops data object
 #' @param file        Filename
 #'
-#' @export
+#' @keywords internal
 printMatrixMarket <- function(object, file) {
     invisible(.Call('Cyclops_cyclopsPrintMatrixMarket', PACKAGE = 'Cyclops', object, file))
 }

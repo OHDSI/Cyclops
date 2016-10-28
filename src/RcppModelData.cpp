@@ -201,7 +201,7 @@ int cyclopsGetNumberOfColumns(Environment object) {
 //' @param object      A Cyclops data object
 //' @param file        Filename
 //'
-//' @export
+//' @keywords internal
 // [[Rcpp::export(printMatrixMarket)]]
 void cyclopsPrintMatrixMarket(Environment object, const std::string& file) {
     XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);

@@ -23,7 +23,7 @@
 
 #include "Recursions.hpp"
 #include "ParallelLoops.h"
-// #include "Ranges.h"
+#include "Ranges.h"
 
 //#include "R.h"
 //#include "Rcpp.h" // TODO Remove
@@ -862,13 +862,12 @@ template <class BaseModel,typename RealType>
 double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* weights) {
 
     std::vector<RealType> saveKWeight;
-	if(BaseModel::cumulativeGradientAndHessian)	{
+	if (BaseModel::cumulativeGradientAndHessian)	{
 
  		saveKWeight = hKWeight; // make copy
 
 		setPidForAccumulation(weights);
 		computeRemainingStatistics(true); // compute accDenomPid
-
     }
 
 	// Compile-time switch for models with / with-out PID (hasIndependentRows)
@@ -887,9 +886,9 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 
 	RealType logLikelihood = static_cast<RealType>(0.0);
 
-	if(BaseModel::cumulativeGradientAndHessian)	{
-	    for (size_t i = 0; i < N; ++i) {
-	        logLikelihood += BaseModel::logPredLikeContrib(hY[i], weights[i], hXBeta[i], &accDenomPid[0], hPid, i); // TODO Going to crash with ties
+	if (BaseModel::cumulativeGradientAndHessian)	{
+	    for (size_t k = 0; k < K; ++k) {
+	        logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], &accDenomPid[0], hPid, k); // TODO Going to crash with ties
 	    }
 	} else { // TODO Unnecessary code duplication
 	    for (size_t k = 0; k < K; ++k) { // TODO Is index of K correct?
@@ -1174,18 +1173,12 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 			    ++reset;
 			}
 
-
-//			const RealType x = it.value();
-
-//			const RealType x = (IteratorType::isIndicator) ? 1.0 :
-//				(IteratorType::isSparse) ? *data : data[i];
-// 			const RealType x = 1.0;
-
 			const auto numerator1 = numerPid[i];
 			const auto numerator2 = numerPid2[i];
 
-//     		const RealType numerator1 = BaseModel::gradientNumeratorContrib(x, offsExpXBeta[i], hXBeta[i], hY[i]);
-//     		const RealType numerator2 = BaseModel::gradientNumerator2Contrib(x, offsExpXBeta[i]);
+//     		const RealType numerator1 = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], hXBeta[i], hY[i]);
+//     		const RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+//                    BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
 
      		accNumerPid += numerator1;
      		accNumerPid2 += numerator2;
@@ -1296,116 +1289,86 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	    for (; it; ++it) {
 	        const int i = it.index();
 
-	        //offsExpXBeta, hXBeta, hY, denomPid, hNWeight,
-
-	        RealType numerator = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], hXBeta[i], hY[i]);
+	        RealType numerator1 = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], hXBeta[i], hY[i]);
 	        RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-	            BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
+	                BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
 
 	        // Compile-time delegation
 	        BaseModel::incrementGradientAndHessian(it,
                     w, // Signature-only, for iterator-type specialization
-                    &gradient, &hessian, numerator, numerator2,
+                    &gradient, &hessian, numerator1, numerator2,
                     denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
 	    }
 
 	} else {
 
-// 	    template <typename OuterResultType, typename InnerResultType,
-//                typename OuterFunction, typename InnerFunction,
-//                typename KeyIterator, typename InnerIterator, typename OuterIterator>
-// 	    inline OuterResultType nested_reduce(KeyIterator key, KeyIterator end,
-//                                           InnerIterator inner, OuterIterator outer,
-//                                           InnerResultType reset_in, OuterResultType result_out,
-//                                           InnerFunction f_in, OuterFunction f_out) {
-//
-// 	        const auto stop = end - 1;
-//
-// 	        InnerResultType result_in = reset_in;
-//
-// 	        for (; key != stop; ++key, ++inner) {
-//
-// 	            result_in = f_in(result_in, *inner);
-//
-// 	            if (*key != *(key + 1)) {
-//
-// 	                result_out = f_out(result_out, result_in, *outer);
-//
-// 	                result_in = reset_in;
-// 	                ++outer;
-// 	            }
-// 	        }
-//
-// 	        result_in = f_in(result_in, *inner);
-//
-// 	        return f_out(result_out, result_in, *outer);
-// 	    }
-// 		auto rangeKey = helper::dependent::getRangeKey(hX, index, hPid,
-// 		        typename IteratorType::tag());
-//
-//         auto rangeXNumerator = helper::dependent::getRangeX(hX, index, offsExpXBeta,
-//                 typename IteratorType::tag());
-//
-//         auto rangeGradient = helper::dependent::getRangeGradient(sparseIndices[index].get(), N, // runtime error: reference binding to null pointer of type 'struct vector'
-//                 denomPid, hNWeight,
-//                 typename IteratorType::tag());
-//
-// 		const auto result = variants::trial::nested_reduce(
-// 		        rangeKey.begin(), rangeKey.end(),
-// 		        rangeXNumerator.begin(), rangeGradient.begin(),
-// 		        std::pair<RealType,RealType>{0,0}, Fraction<RealType>{0,0},
-//                 TestNumeratorKernel<BaseModel,IteratorType,RealType>(), // Inner transform-reduce
-// 		       	TestGradientKernel<BaseModel,IteratorType,Weights>()); // Outer transform-reduce
+	    IteratorType it(hX, index);
 
-	    IteratorType numeratorIt(hX, index);
-	    IteratorType gradientIt(sparseIndices[index].get(), N);
+	    for (; it; ++it) {
+	        const int i = it.index();
 
-	    //std::pair<RealType> gh{0,0};
-	    std::pair<RealType,RealType> numerator{0,0};
+	        RealType numerator1 = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
+	        RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+	                BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
 
-	    // nested transformation_reduction
-	    const auto end = numeratorIt.size() - 1;
-	    for (int key = 0; key < end; ++key, ++numeratorIt) {
-
-	        //numerator = f_in(numerator, *numeratorsIt);
-	        const int i = numeratorIt.index();
-	        numerator.first  += BaseModel::gradientNumeratorContrib(numeratorIt.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
-	        numerator.second += (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-	                BaseModel::gradientNumerator2Contrib(numeratorIt.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
-
-	        if (hPid[key] != hPid[key + 1]) {
-
-	            // gh = f_out(gh, numerators, *gradientIt);
-	            const int j = gradientIt.index();
-	            BaseModel::incrementGradientAndHessian(gradientIt,
+	        BaseModel::incrementGradientAndHessian(it,
                     w, // Signature-only, for iterator-type specialization
-                    &gradient, &hessian, numerator.first, numerator.second,
-                    denomPid[j], hNWeight[j], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
-
-	            // Reset
-	            numerator = std::pair<RealType,RealType>{0,0};
-	            ++gradientIt;
-	        }
+                    &gradient, &hessian, numerator1, numerator2,
+                    denomPid[hPid[i]], hNWeight[hPid[i]], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
 	    }
 
-	    // Handle tail
 
-	    //numerator = f_in(numerator, *numeratorsIt);
-	    const int i = numeratorIt.index();
-	    numerator.first  += BaseModel::gradientNumeratorContrib(numeratorIt.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
-	    numerator.second += (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-	            BaseModel::gradientNumerator2Contrib(numeratorIt.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
-
-	    // gh = f_out(gh, numerators, *gradientIt);
-	    const int j = gradientIt.index();
-	    BaseModel::incrementGradientAndHessian(gradientIt,
-            w, // Signature-only, for iterator-type specialization
-            &gradient, &hessian, numerator.first, numerator.second,
-            denomPid[j], hNWeight[j], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
+//
+// 	    // IteratorType gradientIt(sparseIndices[index].get(), N);
+//
+// 	    //std::pair<RealType> gh{0,0};
+// 	    std::pair<RealType,RealType> numerator{0,0};
+//
+// 	    // nested transformation_reduction
+// 	    const auto end = it.size() - 1;
+// 	    for (int key = 0; key < end; ++key, ++it) {
+//
+// 	        //numerator = f_in(numerator, *numeratorsIt);
+// 	        const int i = it.index();
+// 	        numerator.first  += BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
+// 	        numerator.second += (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+// 	                BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
+//
+// 	        if (hPid[i] != hPid[i + 1]) {
+//
+// 	            // gh = f_out(gh, numerators, *gradientIt);
+// 	            // const int j = gradientIt.index();
+// 	            BaseModel::incrementGradientAndHessian(it,
+//                     w, // Signature-only, for iterator-type specialization
+//                     &gradient, &hessian, numerator.first, numerator.second,
+//                     denomPid[hPid[i]], hNWeight[hPid[i]], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
+//
+// 	           // denomPid[BaseModel::getGroup(hPid, k)], hNWeight[BaseModel::getGroup(hPid, k)]
+//
+// 	            // Reset
+// 	            numerator = std::pair<RealType,RealType>{0,0};
+// 	            // ++gradientIt;
+// 	        }
+// 	    }
+//
+// 	    // Handle tail
+//
+// 	    //numerator = f_in(numerator, *numeratorsIt);
+// 	    const int i = it.index();
+// 	    numerator.first  += BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
+// 	    numerator.second += (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+// 	            BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
+//
+// 	    // gh = f_out(gh, numerators, *gradientIt);
+// 	    // const int j = gradientIt.index();
+// 	    BaseModel::incrementGradientAndHessian(it,
+//             w, // Signature-only, for iterator-type specialization
+//             &gradient, &hessian, numerator.first, numerator.second,
+//             denomPid[hPid[i]], hNWeight[hPid[i]], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
 	}
 // RANGE
 
-	//std::cerr << "g: " << gradient << " h: " << hessian << " f: " << hXjY[index] << std::endl;
+	// std::cerr << "it g: " << gradient << " h: " << hessian << " f: " << hXjY[index] << std::endl;
 
 	if (BaseModel::precomputeGradient) { // Compile-time switch
 		gradient -= hXjY[index];

@@ -1331,7 +1331,7 @@ public:
 	    return y * weight * (xBeta - std::log(denominator));
 	}
 
-	RealType logPredLikeContrib(int ji, RealType weighti, RealType xBetai, const RealType* denoms,
+	RealType logPredLikeContrib(RealType ji, RealType weighti, RealType xBetai, const RealType* denoms,
 			const int* groups, int i) {
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
@@ -1420,7 +1420,7 @@ RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoff
 	    return y * weight * (xBeta - std::log(denominator));
 	}
 
-	RealType logPredLikeContrib(int ji, RealType weighti, RealType xBetai, const RealType* denoms,
+	RealType logPredLikeContrib(RealType ji, RealType weighti, RealType xBetai, const RealType* denoms,
 			const int* groups, int i) {
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
@@ -1500,7 +1500,7 @@ public:
 	    return y * weight * (xBeta - std::log(denominator));
 	}
 
-	RealType logPredLikeContrib(int ji, RealType weighti, RealType xBetai, const RealType* denoms,
+	RealType logPredLikeContrib(RealType ji, RealType weighti, RealType xBetai, const RealType* denoms,
 			const int* groups, int i) {
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
@@ -1585,7 +1585,7 @@ public:
 	    return y * weight * (xBeta - std::log(denominator));
 	}
 
-	RealType logPredLikeContrib(int ji, RealType weighti, RealType xBetai, const RealType* denoms,
+	RealType logPredLikeContrib(RealType ji, RealType weighti, RealType xBetai, const RealType* denoms,
 			const int* groups, int i) {
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
@@ -1632,7 +1632,7 @@ public:
 	    return y * weight * (xBeta - std::log(denominator));
 	}
 
-	RealType logPredLikeContrib(int ji, RealType weighti, RealType xBetai, const RealType* denoms,
+	RealType logPredLikeContrib(RealType ji, RealType weighti, RealType xBetai, const RealType* denoms,
 			const int* groups, int i) {
 		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
 	}
@@ -1724,7 +1724,7 @@ public:
 	        y * weight * (xBeta - std::log(denominator));
 	}
 
-	RealType logPredLikeContrib(int ji, RealType weighti, RealType xBetai, const RealType* denoms,
+	RealType logPredLikeContrib(RealType ji, RealType weighti, RealType xBetai, const RealType* denoms,
 			const int* groups, int i) {
 		return weighti == static_cast<RealType>(0) ? static_cast<RealType>(0) :
 		    ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
@@ -1823,7 +1823,7 @@ public:
 	        y * weight * (xBeta - std::log(denominator));
 	}
 
-	RealType logPredLikeContrib(int ji, RealType weighti, RealType xBetai, const RealType* denoms,
+	RealType logPredLikeContrib(RealType ji, RealType weighti, RealType xBetai, const RealType* denoms,
 			const int* groups, int i) {
 		return weighti == 0.0 ? 0.0 :
 		    ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
@@ -1956,7 +1956,7 @@ public:
 	    return - (residual * residual * weight);
 	}
 
-	RealType logPredLikeContrib(int ji, RealType weighti, RealType xBetai, const RealType* denoms,
+	RealType logPredLikeContrib(RealType ji, RealType weighti, RealType xBetai, const RealType* denoms,
 			const int* groups, int i) {
 	    RealType residual = ji - xBetai;
 		return - (residual * residual * weighti);
@@ -2070,7 +2070,7 @@ public:
 	    return (y *  xBeta - std::exp(xBeta)) * weight;
 	}
 
-	RealType logPredLikeContrib(int ji, RealType weighti, RealType xBetai, const RealType* denoms,
+	RealType logPredLikeContrib(RealType ji, RealType weighti, RealType xBetai, const RealType* denoms,
 		const int* groups, int i) {
 			return (ji*xBetai - std::exp(xBetai))*weighti;
 	}
