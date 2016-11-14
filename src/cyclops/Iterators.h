@@ -20,8 +20,6 @@ struct SparseTag {};
 struct DenseTag {};
 struct InterceptTag {};
 
-
-
 // Iterator for a sparse of indicators column
 template <typename Scalar>
 class IndicatorIterator {
@@ -66,8 +64,10 @@ class IndicatorIterator {
     inline const Scalar value() const { return static_cast<Scalar>(1); }
 
     inline Index index() const { return mIndices[mId]; }
-    inline operator bool() const { return (mId < mEnd); }    
+    inline operator bool() const { return (mId < mEnd); }
     inline Index size() const { return mEnd; }
+	inline Scalar multiply(const Scalar x) const { return x; }
+	inline Scalar multiply(const Scalar x, const Index index) { return x; }
 
   protected:
     const Index* mIndices;
@@ -122,7 +122,9 @@ class SparseIterator {
 
     inline Index index() const { return mIndices[mId]; }
     inline operator bool() const { return (mId < mEnd); }
-    inline Index size() const { return mEnd; }    
+    inline Index size() const { return mEnd; }
+	inline Scalar multiply(const Scalar x) const { return x * mValues[mId]; }
+	inline Scalar multiply(const Scalar x, const Index index) const { return x * mValues[index]; }
 
   protected:
     const Scalar* mValues;
@@ -169,6 +171,8 @@ public:
     inline Index index() const { return mId; }
     inline operator bool() const { return (mId < mEnd); }
     inline Index size() const { return mEnd; }
+	inline Scalar multiply(const Scalar x) const { return x * value(); }
+
 
 protected:
 	IteratorType mIterator;
@@ -197,7 +201,7 @@ public:
 	inline CountingIterator& operator++() { ++mId; return *this; }
 	inline Index index() const  { return mId; }
 	inline operator bool() const { return (mId < mEnd); }
-    inline Index size() const { return mEnd; }	
+    inline Index size() const { return mEnd; }
 
 protected:
 	Index mId;
@@ -251,7 +255,9 @@ class DenseIterator {
     inline Index index() const { return mId; }
     inline operator bool() const { return (mId < mEnd); }
     inline Index size() const { return mEnd; }
-    
+	inline Scalar multiply(const Scalar x) const { return x * mValues[mId]; }
+	inline Scalar multiply(const Scalar x, const Index index) const { return x * mValues[index]; }
+
   protected:
     const Scalar* mValues;
     Index mId;
@@ -301,7 +307,9 @@ class InterceptIterator {
     inline Index index() const { return mId; }
     inline operator bool() const { return (mId < mEnd); }
     inline Index size() const { return mEnd; }
-    
+	inline Scalar multiply(const Scalar x) const { return x; }
+	inline Scalar multiply(const Scalar x, const Index index) const { return x; }
+
   protected:
     Index mId;
     const Index mEnd;
@@ -331,7 +339,10 @@ class DenseViewIterator {
     inline Index index() const { return mId; }
     inline operator bool() const { return (mId < mEnd); }
     inline Index size() const { return mEnd; }
-    
+	inline Scalar multiply(const Scalar x) const { return x * mValues[mId]; }
+	inline Scalar multiply(const Scalar x, const Index index) const { return x * mValues[index]; }
+
+
   protected:
     const Scalar* mValues;
     Index mId;
@@ -387,7 +398,8 @@ class GenericIterator {
     }
     inline operator bool() const { return (mId < mEnd); }
     inline Index size() const { return mEnd; }
-    
+	inline Scalar multiply(const Scalar x) const { return x * value(); }
+
   protected:
     const FormatType mFormatType;
     Scalar* mValues;
@@ -509,6 +521,9 @@ class PairProductIterator {
     IteratorOneType& iteratorOne;
     IteratorTwoType& iteratorTwo;
 };
+
+// template <typename RealType>
+// inline RealType multiply()
 
 // const std::string DenseIterator::name = "Den";
 // const std::string IndicatorIterator::name = "Ind";

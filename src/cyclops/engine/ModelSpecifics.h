@@ -14,8 +14,8 @@
 #include <stdexcept>
 #include <thread>
 
-// #define CYCLOPS_DEBUG_TIMING
-// #define CYCLOPS_DEBUG_TIMING_LOW
+#define CYCLOPS_DEBUG_TIMING
+#define CYCLOPS_DEBUG_TIMING_LOW
 
 #ifdef CYCLOPS_DEBUG_TIMING
     #include "Timing.h"
@@ -23,156 +23,43 @@
 
 #include <type_traits>
 #include <iterator>
-#include <boost/tuple/tuple.hpp>
+//#include <boost/tuple/tuple.hpp>
 //#include <boost/iterator/zip_iterator.hpp>
-#include <boost/range/iterator_range.hpp>
+//#include <boost/range/iterator_range.hpp>
 
-#include <boost/iterator/permutation_iterator.hpp>
-#include <boost/iterator/transform_iterator.hpp>
-#include <boost/iterator/zip_iterator.hpp>
-#include <boost/iterator/counting_iterator.hpp>
+//#include <boost/iterator/permutation_iterator.hpp>
+//#include <boost/iterator/transform_iterator.hpp>
+//#include <boost/iterator/zip_iterator.hpp>
+//#include <boost/iterator/counting_iterator.hpp>
 
 #include "AbstractModelSpecifics.h"
 #include "Iterators.h"
 #include "ParallelLoops.h"
 
+#define Fraction std::complex
+
 namespace bsccs {
 
-#if 0
+template <typename RealType>
+class Storage {
+public:
+    typedef typename CompressedDataMatrix<RealType>::RealVector RealVector;
 
-// http://liveworkspace.org/code/d52cf97bc56f5526292615659ea110c0
-// helper namespace to ensure correct functionality
-namespace aux{
-namespace adl{
-using std::begin;
-using std::end;
+    Storage(const RealVector& y, const RealVector& offs) : hY(y), hOffs(offs) { }
 
-template<class T>
-auto do_begin(T& v) -> decltype(begin(v));
+protected:
+    const RealVector& hY;
+    const RealVector& hOffs;
 
-template<class T>
-auto do_end(T& v) -> decltype(end(v));
+    RealVector hXBeta;
+    RealVector offsExpXBeta;
+    RealVector denomPid;
+    RealVector numerPid;
+    RealVector numerPid2;
 
-template<class T>
-T* do_begin(T* v);
-
-template<class T>
-T* do_end(T* v);
-
-} // adl::
-
-template<class... Its>
-using zipper_it = boost::zip_iterator<boost::tuple<Its...>>;
-
-template<class... Its>
-using zipper_range = boost::iterator_range<zipper_it<Its...>>;
-
-template<class T>
-T const& as_const(T const& v){ return v; }
-
-// we don't want temporary containers
-// these are helpers to ensure that
-template<class Head, class... Tail>
-struct any_of
-  : std::integral_constant<bool, Head::value || any_of<Tail...>::value>{};
-
-template<class Head>
-struct any_of<Head> : std::integral_constant<bool, Head::value>{};
-
-template<class C>
-struct not_ : std::integral_constant<bool, !C::value>{};
-
-template<class... Conts>
-struct any_temporary : any_of<not_<std::is_reference<Conts>>...>{};
-} // aux::
-
-template <class T>
-T* begin(T* v) { return v; }
-
-template <class T>
-T* end(T* v) { return v; }
-
-template<class... Conts>
-auto zip_begin(Conts&&... conts)
-  -> aux::zipper_it<decltype(aux::adl::do_begin(conts))...>
-{
-  static_assert(!aux::any_temporary<Conts...>::value,
-      "One or more temporary containers passed to zip_begin");
-  using std::begin;
-  return {boost::make_tuple(begin(conts)...)};
-}
-
-template <class... Conts>
-auto zipper(Conts&&... conts) -> aux::zipper_it<Conts...> {
-    return { boost::make_tuple(conts...) };
-}
-
-template<class... Conts>
-auto zip_end(Conts&&... conts)
-  -> aux::zipper_it<decltype(aux::adl::do_end(conts))...>
-{
-  static_assert(!aux::any_temporary<Conts...>::value,
-      "One or more temporary containers passed to zip_end");
-  using std::end;
-  return {boost::make_tuple(end(conts)...)};
-}
-
-template<class... Conts>
-auto zip_range(Conts&&... conts)
-  -> boost::iterator_range<decltype(zip_begin(conts...))>
-{
-  static_assert(!aux::any_temporary<Conts...>::value,
-      "One or more temporary containers passed to zip_range");
-  return {zip_begin(conts...), zip_end(conts...)};
-}
-
-// for const access
-template<class... Conts>
-auto zip_cbegin(Conts&&... conts)
-  -> decltype(zip_begin(aux::as_const(conts)...))
-{
-  static_assert(!aux::any_temporary<Conts...>::value,
-      "One or more temporary containers passed to zip_cbegin");
-  using std::begin;
-  return zip_begin(aux::as_const(conts)...);
-}
-
-template<class... Conts>
-auto zip_cend(Conts&&... conts)
-  -> decltype(zip_end(aux::as_const(conts)...))
-{
-  static_assert(!aux::any_temporary<Conts...>::value,
-      "One or more temporary containers passed to zip_cend");
-  using std::end;
-  return zip_end(aux::as_const(conts)...);
-}
-
-template<class... Conts>
-auto zip_crange(Conts&&... conts)
-  -> decltype(zip_range(aux::as_const(conts)...))
-{
-  static_assert(!aux::any_temporary<Conts...>::value,
-      "One or more temporary containers passed to zip_crange");
-  return zip_range(aux::as_const(conts)...);
-}
-
-#endif
-
-struct OneValue { };
-
-template <class T>
-inline T operator*(const T& lhs, const OneValue& rhs) { return lhs; }
-
-inline std::ostream& operator<<(std::ostream& stream, const OneValue& rhs) {
-    stream << "1";
-    return stream;
-}
-
-// struct ParallelInfo { };
-//
-// struct SerialOnly { };
-
-// class SparseIterator; // forward declaration
+    RealVector hNWeight;
+    RealVector hKWeight;
+};
 
 template <class BaseModel, typename RealType>
 class ModelSpecifics : public AbstractModelSpecifics, BaseModel {
@@ -227,7 +114,6 @@ public:
 	        double* iOffs,
 	        double* iBeta,
 	        const double* iY);
-
 protected:
 
     const ModelData<RealType>& modelData;
@@ -241,17 +127,25 @@ protected:
     RealVector accNumerPid;
     RealVector accNumerPid2;
 
-    const RealVector& hY;
-    const RealVector& hOffs;
+    // const RealVector& hY;
+    // const RealVector& hOffs;
     // 	const std::vector<int>& hPid;
+    using BaseModel::hY;
+    using BaseModel::hOffs;
+    using BaseModel::hXBeta;
 
-    RealVector hXBeta; // TODO Delegate to ModelSpecifics
+ //   RealVector hXBeta; // TODO Delegate to ModelSpecifics
     RealVector hXBetaSave; // Delegate
 
-    RealVector offsExpXBeta;
-    RealVector denomPid;
-    RealVector numerPid;
-    RealVector numerPid2;
+    using BaseModel::offsExpXBeta;
+    using BaseModel::denomPid;
+    using BaseModel::numerPid;
+    using BaseModel::numerPid2;
+
+    // RealVector offsExpXBeta;
+    // RealVector denomPid;
+    // RealVector numerPid;
+    // RealVector numerPid2;
 
     RealVector hXjY;
     RealVector hXjX;
@@ -313,8 +207,11 @@ protected:
 
 	void printTiming(void);
 
-	std::vector<RealType> hNWeight;
-	std::vector<RealType> hKWeight;
+	using Storage<RealType>::hNWeight;
+	using Storage<RealType>::hKWeight;
+
+	// std::vector<RealType> hNWeight;
+	// std::vector<RealType> hKWeight;
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	//	std::vector<double> duration;
@@ -375,8 +272,6 @@ private:
 	template <class InteratorType>
 	void incrementNormsImpl(int index);
 
-//	std::vector<int> nPid;
-//	std::vector<real> nY;
 	std::vector<int> hNtoK;
 
 	RealVector norm;
@@ -390,8 +285,6 @@ private:
 	} unweighted;
 
 	ParallelInfo info;
-
-//	C11ThreadPool threadPool;
 };
 
 template <typename RealType>
@@ -511,577 +404,6 @@ struct NoFixedLikelihoodTerms {
 	}
 };
 
-template <class IteratorType, class RealType>
-struct TupleXGetter {
-// 	using XTuple = typename IteratorType::XTuple;
-// 	using ReturnType = RealType;
-    typedef typename IteratorType::XTuple XTuple;
-    typedef RealType ReturnType;
-
-	inline ReturnType operator()(XTuple& tuple) const {
-		return boost::get<1>(tuple);
-	}
-};
-
-
-template <class RealType>
-struct TupleXGetter<InterceptIterator<RealType>, RealType> {
-// 	using XTuple = IndicatorIterator::XTuple;
-// 	using ReturnType = OneValue;
-    typedef typename InterceptIterator<RealType>::XTuple XTuple;
-    typedef OneValue ReturnType;
-
-	inline ReturnType operator()(XTuple& tuple) const {
-		return OneValue();
-	}
-};
-
-template <class RealType>
-struct TupleXGetter<IndicatorIterator<RealType>, RealType> {
-// 	using XTuple = IndicatorIterator::XTuple;
-// 	using ReturnType = OneValue;
-    typedef typename IndicatorIterator<RealType>::XTuple XTuple;
-    typedef OneValue ReturnType;
-
-// 	inline RealType operator()(XTuple& tuple) const {
-// 		return static_cast<RealType>(1.0);
-// 	}
-
-	inline ReturnType operator()(XTuple& tuple) const {
-		return OneValue();
-	}
-};
-
-template <class IteratorType, class RealType, int index>
-struct TupleXGetterNew {
-
-    typedef RealType ReturnType;
-
-    template <class TupleType>
-    inline ReturnType operator()(TupleType& tuple) const {
-        return boost::get<index>(tuple);
-    }
-};
-
-template <class RealType, int index>
-struct TupleXGetterNew<IndicatorIterator<RealType>, RealType, index> {
-
-    typedef OneValue ReturnType;
-
-    template <class TupleType>
-    inline ReturnType operator()(TupleType& tuple) const {
-        return OneValue();
-    }
-};
-
-template <class RealType, int index>
-struct TupleXGetterNew<InterceptIterator<RealType>, RealType, index> {
-
-    typedef OneValue ReturnType;
-
-    template <class TupleType>
-    inline ReturnType operator()(TupleType& tuple) const {
-        return OneValue();
-    }
-};
-
-// template <class RealType>
-// std::pair<RealType, RealType> operator+(
-//         const std::pair<RealType, RealType>& lhs,
-//         const std::pair<RealType, RealType>& rhs) {
-//
-//     return { lhs.first + rhs.first, lhs.second + rhs.second };
-// }
-
-// template <typename T>
-// using Fraction = std::complex<T>; // gcc 4.6.3 does not support template aliases
-#define Fraction std::complex
-// template <typename T>
-// struct Fraction {
-//     typedef typename std::complex<T> type;
-// };
-
-template <class BaseModel, class RealType>
-struct TestPredLikeKernel : private BaseModel {
-
-    template <class Tuple>
-    RealType operator()(const RealType lhs, const Tuple tuple) {
-        const auto y = boost::get<0>(tuple);
-        const auto xBeta = boost::get<1>(tuple);
-        const auto denominator = boost::get<2>(tuple);
-        const auto weight = boost::get<3>(tuple);
-
-        return lhs + BaseModel::logPredLikeContrib(y, weight, xBeta, denominator);
-    }
-};
-
-template <class BaseModel, class RealType, class IntType>
-struct PredLikeKernel : private BaseModel {
-
-    PredLikeKernel(const RealType* y, const RealType* weights, const RealType* xBeta,
-            const RealType* denominator, const IntType* pid) : y(y), weights(weights),
-            xBeta(xBeta), denominator(denominator), pid(pid) { }
-
-    RealType operator()(const RealType lhs, const IntType i) {
-        return lhs + BaseModel::logPredLikeContrib(y[i], weights[i], xBeta[i], denominator, pid, i);
-    }
-
-private:
-    const RealType* y;
-    const RealType* weights;
-    const RealType* xBeta;
-    const RealType* denominator;
-    const IntType* pid;
-};
-
-// template <class BaseModel, class RealType, class IntType, bool weighted>
-// struct AccumulateLikeNumeratorKernel : private BaseModel {
-//
-//     AccumulateLikeNumeratorKernel(const RealType* y, const RealType* xBeta, const RealType* kWeight)
-//             : y(y), xBeta(xBeta), kWeight(kWeight) { }
-//
-//     RealType operator()(const RealType lhs, const IntType i) {
-//         RealType rhs = BaseModel::logLikeNumeratorContrib(y[i], xBeta[i]);
-//         if (weighted) {
-//             rhs *= kWeight[i];
-//         }
-//         return lhs + rhs;
-//     }
-//
-// protected:
-//     const RealType* y;
-//     const RealType* xBeta;
-//     const RealType* kWeight;
-// };
-
-
-template <class BaseModel, class RealType, bool weighted>
-struct TestAccumulateLikeNumeratorKernel : private BaseModel {
-
-	template <class Tuple>
-    RealType operator()(const RealType lhs, const Tuple tuple) {
-    	const auto y = boost::get<0>(tuple);
-    	const auto xBeta = boost::get<1>(tuple);
-
-        RealType rhs = BaseModel::logLikeNumeratorContrib(y, xBeta);
-        if (weighted) {
-        	const auto weight = boost::get<2>(tuple);
-            rhs *= weight;
-        }
-        return lhs + rhs;
-    }
-};
-
-template <class BaseModel, class RealType>
-struct TestAccumulateLikeDenominatorKernel : private BaseModel {
-
-	template <class Tuple>
-    RealType operator()(const RealType lhs, const Tuple tuple) {
-		const auto denominator = boost::get<0>(tuple);
-		const auto weight = boost::get<1>(tuple);
-
-        return lhs + BaseModel::logLikeDenominatorContrib(weight, denominator);
-    }
-
-protected:
-    const RealType* nWeight;
-    const RealType* denominator;
-};
-
-
-template <class BaseModel, class RealType, class IntType>
-struct AccumulateLikeDenominatorKernel : private BaseModel {
-
-    AccumulateLikeDenominatorKernel(const RealType* nWeight, const RealType* denominator)
-            : nWeight(nWeight), denominator(denominator) { }
-
-    RealType operator()(const RealType lhs, const IntType i) {
-        return lhs + BaseModel::logLikeDenominatorContrib(nWeight[i], denominator[i]);
-    }
-
-protected:
-    const RealType* nWeight;
-    const RealType* denominator;
-};
-
-template <class BaseModel, class IteratorType, class WeightOperationType,
-class RealType, class IntType>
-struct TransformAndAccumulateGradientAndHessianKernelIndependent : private BaseModel {
-
-    template <class TupleType>
-    Fraction<RealType> operator()(Fraction<RealType>& lhs, TupleType tuple) {
-
- 		const auto x = getX(tuple);
-		const auto expXBeta = boost::get<0>(tuple);
-		const auto xBeta = boost::get<1>(tuple);
-		const auto y = boost::get<2>(tuple);
-		const auto denominator = boost::get<3>(tuple);
-		const auto weight = boost::get<4>(tuple);
-
-		RealType numerator = BaseModel::gradientNumeratorContrib(x, expXBeta, xBeta, y);
-		RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-				BaseModel::gradientNumerator2Contrib(x, expXBeta) :
-				static_cast<RealType>(0);
-
-        return BaseModel::template incrementGradientAndHessian<IteratorType, WeightOperationType>(
-            lhs, numerator, numerator2, denominator, weight, xBeta, y);
-    }
-
-private:	 // TODO Code duplication; remove
-    template <class TupleType>
-	inline auto getX(TupleType& tuple) const -> typename TupleXGetterNew<IteratorType, RealType, 5>::ReturnType {
-		return TupleXGetterNew<IteratorType, RealType, 5>()(tuple);
-	}
-};
-
-// template <class BaseModel, class IteratorType, class WeightOperationType,
-// class RealType, class IntType>
-// struct TransformAndAccumulateGradientAndHessianKernelDependent : private BaseModel {
-//
-//     template <class TupleType>
-//     Fraction<RealType> operator()(Fraction<RealType>& lhs, TupleType tuple) {
-//
-//  		const auto x = getX(tuple);
-// 		const auto expXBeta = boost::get<0>(tuple);
-// 		const auto xBeta = boost::get<1>(tuple);
-// 		const auto y = boost::get<2>(tuple);
-// 		const auto denominator = boost::get<3>(tuple);
-// 		const auto weight = boost::get<4>(tuple);
-//
-// 		RealType numerator = BaseModel::gradientNumeratorContrib(x, expXBeta, xBeta, y);
-// 		RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-// 				BaseModel::gradientNumerator2Contrib(x, expXBeta) :
-// 				static_cast<RealType>(0);
-//
-//
-//         return BaseModel::template incrementGradientAndHessian<IteratorType, WeightOperationType>(
-//             lhs,
-//             numerator, numerator2,
-//             denominator, weight, xBeta, y);
-//     }
-//
-// // protected:
-// //
-// //     RealType* expXBeta;
-// //     RealType* xBeta;
-// //     const RealType* y;
-// //     RealType* denominator;
-// //     RealType* weight;
-//
-//
-// private:	 // TODO Code duplication; remove
-//     template <class TupleType>
-// 	inline auto getX(TupleType& tuple) const -> typename TupleXGetterNew<IteratorType, RealType, 5>::ReturnType {
-// 		return TupleXGetterNew<IteratorType, RealType, 5>()(tuple);
-// 	}
-// };
-
-
-// template <class BaseModel, class IteratorType, class WeightOperationType,
-// class RealType, class IntType>
-// struct TransformAndAccumulateGradientAndHessianKernel : private BaseModel {
-//
-//     typedef typename IteratorType::XTuple XTuple;
-//
-//      TransformAndAccumulateGradientAndHessianKernel(
-//      	      //RealType* _numerator, RealType* _numerator2,
-//      	      RealType* _expXBeta, RealType* _xBeta, const RealType* _y,
-//             RealType* _denominator, RealType* _weight//, RealType* _xBeta, const RealType* _y
-//             )
-//             : //numerator(_numerator), numerator2(_numerator2),
-//             expXBeta(_expXBeta), xBeta(_xBeta), y(_y),
-//             denominator(_denominator),
-//               weight(_weight)  { }
-//
-//     Fraction<RealType> operator()(Fraction<RealType>& lhs, XTuple tuple) {
-//
-// 		const auto k = getK(tuple);
-// 		const auto x = getX(tuple);
-//
-// 		RealType numerator = BaseModel::gradientNumeratorContrib(x, expXBeta[k], xBeta[k], y[k]);
-// 		RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-// 				BaseModel::gradientNumerator2Contrib(x, expXBeta[k]) :
-// 				static_cast<RealType>(0);
-//
-//         return BaseModel::template incrementGradientAndHessian<IteratorType, WeightOperationType>(
-//             lhs,
-//             numerator, numerator2,
-// //             numerator[i],
-// //             numerator2[i],
-//             denominator[k], weight[k], xBeta[k], y[k]);
-//     }
-//
-// protected:
-// //    RealType* numerator;
-// //    RealType* numerator2;
-// 	  RealType* expXBeta;
-//     RealType* xBeta;
-//     const RealType* y;
-//     RealType* denominator;
-//     RealType* weight;
-//
-//
-// private:	 // TODO Code duplication; remove
-// 	inline auto getX(XTuple& tuple) const -> typename TupleXGetter<IteratorType, RealType>::ReturnType {
-// 		return TupleXGetter<IteratorType, RealType>()(tuple);
-// 	}
-//
-// 	inline IntType getK(XTuple& tuple) const {
-// 		return boost::get<0>(tuple);
-// 	}
-// };
-
-
-template <class BaseModel, class IteratorType, class RealType>
-struct TestNumeratorKernel : private BaseModel {
-
-    template <class NumeratorType, class TupleType>
-    NumeratorType operator()(const NumeratorType lhs, const TupleType tuple) {
-
-        const auto expXBeta = boost::get<0>(tuple);
-        const auto x = getX(tuple); //boost::get<1>(tuple);
-
-        return {
-            lhs.first + BaseModel::gradientNumeratorContrib(x, expXBeta, static_cast<RealType>(0), static_cast<RealType>(0)),
-            (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-                lhs.second +  BaseModel::gradientNumerator2Contrib(x, expXBeta) :
-                0.0
-        };
-    }
-
-private:	 // TODO Code duplication; remove
-    template <class TupleType>
-	inline auto getX(TupleType tuple) const -> typename TupleXGetterNew<IteratorType, RealType, 5>::ReturnType {
-		return TupleXGetterNew<IteratorType, RealType, 1>()(tuple);
-	}
-
-};
-
-template <class BaseModel, class IteratorType, class RealType>
-struct TestGradientKernel : private BaseModel {
-
-    template <class GradientType, class NumeratorType, class TupleType>
-    GradientType operator()(const GradientType lhs, const NumeratorType numerator, const TupleType tuple) {
-        const auto denominator = boost::get<0>(tuple);
-        const auto weight = boost::get<1>(tuple);
-
-//                 std::cerr << "N n1: " << numerator.first << " n2: " << numerator.second
-//                     << " d: " << denominator << " w: " << weight <<  std::endl;
-
-        return BaseModel::template incrementGradientAndHessian<IteratorType,
-                            RealType>(
-                        lhs,
-                        numerator.first, numerator.second,
-                        denominator, weight, 0.0, 0.0
-        );
-    }
-};
-
-// template <class BaseModel, class IteratorType, class WeightOperationType,
-// class RealType, class IntType>
-// struct AccumulateGradientAndHessianKernel : private BaseModel {
-//
-//      AccumulateGradientAndHessianKernel(RealType* _numerator, RealType* _numerator2,
-//             RealType* _denominator, RealType* _weight, RealType* _xBeta, const RealType* _y)
-//             : numerator(_numerator), numerator2(_numerator2), denominator(_denominator),
-//               weight(_weight), xBeta(_xBeta), y(_y) { }
-//
-//     Fraction<RealType> operator()(Fraction<RealType>& lhs, const IntType& i) {
-//
-//         std::cerr << "O n1: " << numerator[i] << " n2: " << numerator2[i]
-//             << " d: " << denominator[i] << " w: " << weight[i] << std::endl;
-//
-//         return BaseModel::template incrementGradientAndHessian<IteratorType, WeightOperationType>(
-//             lhs, numerator[i], numerator2[i], denominator[i], weight[i], xBeta[i], y[i]);
-//     }
-//
-// protected:
-//     RealType* numerator;
-//     RealType* numerator2;
-//     RealType* denominator;
-//     RealType* weight;
-//     RealType* xBeta;
-//     const RealType* y;
-// };
-
-// template <class BaseModel, class IteratorType, class RealType, class IntType>
-// struct ZeroOutNumerator : private BaseModel {
-//
-// 	ZeroOutNumerator(RealType* _numerator, RealType* _numerator2) :
-// 		numerator(_numerator), numerator2(_numerator2) { }
-//
-// 	void operator()(const IntType& i) {
-// 		numerator[i] = static_cast<RealType>(0.0);
-// 		if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
-// 			numerator2[i] = static_cast<RealType>(0.0);
-// 		}
-// 	}
-//
-// private:
-// 	RealType* numerator;
-// 	RealType* numerator2;
-// };
-
-
-// template <class BaseModel, class IteratorType, class RealType, class IntType>
-// struct NumeratorForGradientKernel : private BaseModel {
-//
-// // 	using XTuple = typename IteratorType::XTuple;
-//     typedef typename IteratorType::XTuple XTuple;
-//
-// 	NumeratorForGradientKernel(RealType* _numerator, RealType* _numerator2,
-// 			RealType* _expXBeta, RealType* _xBeta, const RealType* _y, IntType* _pid) : numerator(_numerator),
-// 			numerator2(_numerator2), expXBeta(_expXBeta), xBeta(_xBeta), y(_y), pid(_pid) { }
-//
-// 	void operator()(XTuple tuple) {
-//
-// 		const auto k = getK(tuple);
-// 		const auto x = getX(tuple);
-//
-// 		numerator[BaseModel::getGroup(pid, k)] += BaseModel::gradientNumeratorContrib(x, expXBeta[k], xBeta[k], y[k]);
-// 		if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
-// 			numerator2[BaseModel::getGroup(pid, k)] += BaseModel::gradientNumerator2Contrib(x, expXBeta[k]);
-// 		}
-// 	}
-//
-// private:
-// 	inline auto getX(XTuple& tuple) const -> typename TupleXGetter<IteratorType, RealType>::ReturnType {
-// 		return TupleXGetter<IteratorType, RealType>()(tuple);
-// 	}
-//
-// 	inline IntType getK(XTuple& tuple) const {
-// 		return boost::get<0>(tuple);
-// 	}
-//
-// 	RealType* numerator;
-// 	RealType* numerator2;
-// 	RealType* expXBeta;
-// 	RealType* xBeta;
-// 	const RealType* y;
-// 	IntType* pid;
-// };
-
-
-template <class BaseModel, class IteratorType, class RealType>
-struct TestUpdateXBetaKernelDependent : private BaseModel {
-
-    TestUpdateXBetaKernelDependent(RealType delta) : delta(delta) { }
-
-    template <class Tuple>
-    RealType operator()(RealType lhs, Tuple tuple) {
-
-        const auto x = getX(tuple);
-        auto& expXBeta = boost::get<0>(tuple);
-        auto& xBeta = boost::get<1>(tuple);
-        const auto off = boost::get<3>(tuple);
-
-        xBeta += delta * x; // action
-
-        RealType oldEntry = expXBeta;
-        RealType newEntry = expXBeta =
-            BaseModel::getOffsExpXBeta(off, xBeta);
-//             std::exp(xBeta);
-
-        return lhs + (newEntry - oldEntry);
-    }
-
-private:
-    RealType delta;
-
-private:	 // TODO Code duplication; remove
-    template <class TupleType>
-	inline auto getX(TupleType& tuple) const -> typename TupleXGetterNew<IteratorType, RealType, 5>::ReturnType {
-		return TupleXGetterNew<IteratorType, RealType, 4>()(tuple);
-	}
-};
-
-template <class BaseModel, class IteratorType, class RealType>
-struct TestUpdateXBetaKernel : private BaseModel {
-
-    TestUpdateXBetaKernel(RealType delta) : delta(delta) { }
-
-    template <class Tuple>
-    void operator()(Tuple tuple) {
-
- 		const auto x = getX(tuple);
-		auto& expXBeta = boost::get<0>(tuple);
-		auto& xBeta = boost::get<1>(tuple);
-		auto& denominator = boost::get<2>(tuple);
-
-        xBeta += delta * x;
-
-        if (BaseModel::likelihoodHasDenominator) {
-            expXBeta = std::exp(xBeta);
-            denominator = BaseModel::getDenomNullValue() + expXBeta;
-        }
-    }
-
-private:
-    RealType delta;
-
-private:	 // TODO Code duplication; remove
-    template <class TupleType>
-	inline auto getX(TupleType& tuple) const -> typename TupleXGetterNew<IteratorType, RealType, 5>::ReturnType {
-		return TupleXGetterNew<IteratorType, RealType, 4>()(tuple);
-	}
-};
-
-template <class BaseModel, class IteratorType, class RealType, class IntType>
-struct UpdateXBetaKernel : private BaseModel {
-
-// 	using XTuple = typename IteratorType::XTuple;
-    typedef typename IteratorType::XTuple XTuple;
-
-	UpdateXBetaKernel(RealType _delta,
-			RealType* _expXBeta, RealType* _xBeta, const RealType* _y, IntType* _pid,
-			RealType* _denominator, const RealType* _offs)
-			: delta(_delta), expXBeta(_expXBeta), xBeta(_xBeta), y(_y), pid(_pid),
-			  denominator(_denominator), offs(_offs) { }
-
-	void operator()(XTuple tuple) {
-
-		const auto k = getK(tuple);
-		const auto x = getX(tuple);
-
-		xBeta[k] += delta * x;
-
-		// Update denominators as well
-		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-			if (true) {	// Old method
-				RealType oldEntry = expXBeta[k];
-				RealType newEntry = expXBeta[k] = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
-				denominator[BaseModel::getGroup(pid, k)] += (newEntry - oldEntry);
-			} else {
-			#if 0  // logistic
-			    const RealType t = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
-			    expXBeta[k] = t;
-			    denominator[k] = static_cast<real>(1.0) + t;
-			#else
-				denominator[k] = expXBeta[k] = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k); // For fast Poisson
-            #endif
-			}
-		}
-	}
-
-private:
-	// TODO remove code duplication with struct above
-	inline auto getX(XTuple& tuple) const -> typename TupleXGetter<IteratorType, RealType>::ReturnType {
-		return TupleXGetter<IteratorType, RealType>()(tuple);
-	}
-
-	inline IntType getK(XTuple& tuple) const {
-		return boost::get<0>(tuple);
-	}
-
-	RealType delta;
-	RealType* expXBeta;
-	RealType* xBeta;
-	const RealType* y;
-	IntType* pid;
-	RealType* denominator;
-	const RealType* offs;
-};
-
 struct GLMProjection {
 public:
 	const static bool precomputeGradient = true; // XjY
@@ -1109,7 +431,7 @@ public:
 
 template <typename RealType>
 struct Survival {
-public: /***/
+public:
 	template <class IteratorType, class Weights>
 	void incrementFisherInformation(
 			const IteratorType& it,
@@ -1128,8 +450,6 @@ public: /***/
 	        RealType expXBeta, RealType denominator,
 	        RealType weight, RealType x, RealType xBeta,
 	        RealType y, RealType norm) {
-
-		// std::cerr << "GOT HERE!" << std::endl;
 
 	    if (IteratorType::isIndicator) {
 	        gradient += weight * expXBeta / denominator;
@@ -1236,25 +556,19 @@ public:
 };
 
 template <typename RealType>
-struct SelfControlledCaseSeries : public GroupedData, GLMProjection, FixedPid, Survival<RealType> {
+struct SelfControlledCaseSeries : public Storage<RealType>, GroupedData, GLMProjection, FixedPid, Survival<RealType> {
 public:
+    typedef typename Storage<RealType>::RealVector RealVector;
+    SelfControlledCaseSeries(const RealVector& y, const RealVector& offs)
+        : Storage<RealType>(y, offs) { }
+
 	const static bool precomputeHessian = false; // XjX
 
-#define TEST_CONSTANT_SCCS
-#ifdef TEST_CONSTANT_SCCS
 	const static bool likelihoodHasFixedTerms = true;
 
 	RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoffseti) {
 		return yi * std::log(offseti);
 	}
-#else
-	const static bool likelihoodHasFixedTerms = false;
-
-	RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoffseti) {
-        throw new std::logic_error("Not model-specific");
-		return static_cast<RealType>(0);
-	}
-#endif
 
 	static RealType getDenomNullValue () { return static_cast<RealType>(0); }
 
@@ -1344,17 +658,17 @@ public:
 };
 
 template <typename RealType>
-struct ConditionalPoissonRegression : public GroupedData, GLMProjection, FixedPid, Survival<RealType> {
+struct ConditionalPoissonRegression : public Storage<RealType>, GroupedData, GLMProjection, FixedPid, Survival<RealType> {
 public:
+    typedef typename Storage<RealType>::RealVector RealVector;
+    ConditionalPoissonRegression(const RealVector& y, const RealVector& offs)
+        : Storage<RealType>(y, offs) { }
+
 	const static bool precomputeHessian = false; // XjX
 
 	const static bool likelihoodHasFixedTerms = true;
 
-// 	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
-// 		return yi * std::log(offseti);
-// 	}
-
-RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoffseti) {
+    RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoffseti) {
 	    RealType logLikeFixedTerm = static_cast<RealType>(0);
 		for(int i = 2; i <= (int)yi; i++)
 			logLikeFixedTerm -= std::log(static_cast<RealType>(i));
@@ -1433,8 +747,12 @@ RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoff
 };
 
 template <typename RealType>
-struct ConditionalLogisticRegression : public GroupedData, GLMProjection, FixedPid, Survival<RealType> {
+struct ConditionalLogisticRegression : public Storage<RealType>, GroupedData, GLMProjection, FixedPid, Survival<RealType> {
 public:
+    typedef typename Storage<RealType>::RealVector RealVector;
+    ConditionalLogisticRegression(const RealVector& y, const RealVector& offs)
+        : Storage<RealType>(y, offs) { }
+
 	const static bool precomputeHessian = false; // XjX
 	const static bool likelihoodHasFixedTerms = false;
 
@@ -1514,8 +832,12 @@ public:
 };
 
 template <typename RealType>
-struct TiedConditionalLogisticRegression : public GroupedWithTiesData, GLMProjection, FixedPid, Survival<RealType> {
+struct TiedConditionalLogisticRegression : public Storage<RealType>, GroupedWithTiesData, GLMProjection, FixedPid, Survival<RealType> {
 public:
+    typedef typename Storage<RealType>::RealVector RealVector;
+    TiedConditionalLogisticRegression(const RealVector& y, const RealVector& offs)
+        : Storage<RealType>(y, offs) { }
+
 	const static bool precomputeGradient = true; // XjY   // TODO Until tied calculations are only used for ties
 	const static bool precomputeHessian = false; // XjX
 	const static bool likelihoodHasFixedTerms = false;
@@ -1599,12 +921,14 @@ public:
 };
 
 template <typename RealType>
-struct LogisticRegression : public IndependentData, GLMProjection, Logistic<RealType>, FixedPid,
+struct LogisticRegression : public Storage<RealType>, IndependentData, GLMProjection, Logistic<RealType>, FixedPid,
 	NoFixedLikelihoodTerms {
 public:
-	const static bool precomputeHessian = false;
+    typedef typename Storage<RealType>::RealVector RealVector;
+    LogisticRegression(const RealVector& y, const RealVector& offs)
+        : Storage<RealType>(y, offs) { }
 
-// 	const static bool
+	const static bool precomputeHessian = false;
 
 	static RealType getDenomNullValue () { return static_cast<RealType>(1); }
 
@@ -1641,11 +965,56 @@ public:
 	    RealType t = std::exp(xBeta);
 		return t / (t + static_cast<RealType>(1));
 	}
+
+	using Storage<RealType>::offsExpXBeta;
+	using Storage<RealType>::denomPid;
+	using Storage<RealType>::hKWeight;
+
+	template <class IteratorType, class Weights, typename Index>
+	void incrementGradientAndHessian2(
+	        RealType& gradient, RealType& hessian,
+	        const IteratorType& it,
+	        const Index index) {
+
+	    const auto i = it.index();
+
+	    const auto numerator1 = it.multiple(offsExpXBeta[i], index); // expXBeta * x
+	    const auto denominator = denomPid[i];
+
+	    const auto g = numerator1 / denominator;
+	    if (Weights::isWeighted) {
+	        gradient += hKWeight[i] * g;
+	    } else {
+	        gradient += g;
+	    }
+
+	    if (IteratorType::isIndicator) {
+	        const auto h = g * (RealType(1) - g);
+	        if (Weights::isWeighted) {
+	            hessian += hKWeight[i] * h;
+	        } else {
+	            hessian += h;
+	        }
+	    } else {
+	        const auto numerator2 = it.multiple(numerator1, index); // expXBeta * x * x
+
+	        const auto h = (numerator2 / denominator - g * g);
+	        if (Weights::isWeighted) {
+	            hessian += hKWeight[i] * h;
+	        } else {
+	            hessian += h;
+	        }
+	    }
+	}
 };
 
 template <typename RealType>
-struct CoxProportionalHazards : public OrderedData, GLMProjection, SortedPid, NoFixedLikelihoodTerms, Survival<RealType> {
+struct CoxProportionalHazards : public Storage<RealType>, OrderedData, GLMProjection, SortedPid, NoFixedLikelihoodTerms, Survival<RealType> {
 public:
+    typedef typename Storage<RealType>::RealVector RealVector;
+    CoxProportionalHazards(const RealVector& y, const RealVector& offs)
+        : Storage<RealType>(y, offs) { }
+
 	const static bool precomputeHessian = false;
 
 	static RealType getDenomNullValue () { return static_cast<RealType>(0); }
@@ -1683,9 +1052,6 @@ public:
 	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
-//
-// 	    std::cout << "TODO" << std::endl;
-// 	    std::exit(-1); // cox
 
         throw new std::logic_error("cox model not yet support");
 
@@ -1715,7 +1081,7 @@ public:
 		return std::exp(xBeta);
 	}
 
-	RealType logLikeDenominatorContrib(RealType ni, RealType accDenom) { // TODO *** CHECK HERE
+	RealType logLikeDenominatorContrib(RealType ni, RealType accDenom) {
 		return ni*std::log(accDenom);
 	}
 
@@ -1745,8 +1111,12 @@ public:
 };
 
 template <typename RealType>
-struct BreslowTiedCoxProportionalHazards : public OrderedWithTiesData, GLMProjection, SortedPid, NoFixedLikelihoodTerms, Survival<RealType> {
+struct BreslowTiedCoxProportionalHazards : public Storage<RealType>, OrderedWithTiesData, GLMProjection, SortedPid, NoFixedLikelihoodTerms, Survival<RealType> {
 public:
+    typedef typename Storage<RealType>::RealVector RealVector;
+    BreslowTiedCoxProportionalHazards(const RealVector& y, const RealVector& offs)
+        : Storage<RealType>(y, offs) { }
+
 	const static bool precomputeHessian = false;
 
 	static RealType getDenomNullValue () { return static_cast<RealType>(0); }
@@ -1836,8 +1206,14 @@ public:
 };
 
 template <typename RealType>
-struct LeastSquares : public IndependentData, FixedPid, NoFixedLikelihoodTerms {
+struct LeastSquares : public Storage<RealType>, IndependentData, FixedPid, NoFixedLikelihoodTerms {
 public:
+    typedef typename Storage<RealType>::RealVector RealVector;
+    LeastSquares(const RealVector& y, const RealVector& offs)
+        : Storage<RealType>(y, offs) { }
+
+    using Storage<RealType>::hXBeta;
+
 	const static bool precomputeGradient = false; // XjY
 
 	const static bool precomputeHessian = true; // XjX
@@ -1867,28 +1243,6 @@ public:
         throw new std::logic_error("Not model-specific");
 		return static_cast<RealType>(0);
 	}
-
-// 	struct kernelNumeratorForGradient {
-//
-// 	    void operator()(GenericIterators::NumeratorForGradientTuple x) {
-// 			using boost::get;
-//
-// 			get<4>(x) += gradientNumeratorContrib (get<0>(x), get<1>(x),
-// 			                    get<2>(x), get<3>(x));
-// 			get<5>(x) += gradientNumerator2Contrib(get<0>(x), get<1>(x));
-// 			// TODO
-// 		}
-//
-// // 	    void operator()(GenericIterators::NumeratorForGradientTupleIndicator x) {
-// // 			using boost::get;
-// //
-// // 			get<3>(x) += gradientNumeratorContrib (1.0, get<0>(x),
-// // 			                    get<1>(x), get<2>(x));
-// // 			get<4>(x) += gradientNumerator2Contrib(1.0, get<0>(x));
-// // 			// TODO
-// // 		}
-// 	};
-
 
 	template <class IteratorType, class Weights>
 	void incrementFisherInformation(
@@ -1968,8 +1322,11 @@ public:
 };
 
 template <typename RealType>
-struct PoissonRegression : public IndependentData, GLMProjection, FixedPid {
+struct PoissonRegression : public Storage<RealType>, IndependentData, GLMProjection, FixedPid {
 public:
+    typedef typename Storage<RealType>::RealVector RealVector;
+    PoissonRegression(const RealVector& y, const RealVector& offs)
+        : Storage<RealType>(y, offs) { }
 
 	const static bool precomputeHessian = false; // XjX
 
@@ -2011,9 +1368,6 @@ public:
 					*gradient += numer;
 					*hessian += numer;
 				}
-#ifdef DEBUG_POISSON
-				std::cerr << (*gradient) << std::endl;
-#endif
 			} else {
 				if (Weights::isWeighted) {
 					*gradient += weight * numer;
@@ -2022,9 +1376,6 @@ public:
 					*gradient += numer;
 					*hessian += numer2;
 				}
-#ifdef DEBUG_POISSON
-				std::cerr << (*gradient) << std::endl;
-#endif
 			}
 	}
 

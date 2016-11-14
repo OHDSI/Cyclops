@@ -53,6 +53,10 @@ void setNumberPatients(ModelData<double>& modelData, const int cases) {
     modelData.nPatients = cases;
 }
 
+void setNumberRows(ModelData<double>& modelData, const int nrows) {
+	modelData.getX().nRows = nrows;
+}
+
 
 using std::string;
 //using std::cerr;
@@ -103,11 +107,11 @@ public:
 
 	using InputReader::modelData;
 
-//	BaseInputReader() : InputReader(
-//		bsccs::make_shared<loggers::CoutLogger>(),
-//	 	bsccs::make_shared<loggers::CerrErrorHandler>()), innerDelimitor(":") {
-//		// Do nothing
-//	}
+// 	BaseInputReader() : InputReader(
+// 		bsccs::make_shared<loggers::CoutLogger>(),
+// 	 	bsccs::make_shared<loggers::CerrErrorHandler>()), innerDelimitor(":") {
+// 		// Do nothing
+// 	}
 
 	BaseInputReader(
 		loggers::ProgressLoggerPtr _logger,

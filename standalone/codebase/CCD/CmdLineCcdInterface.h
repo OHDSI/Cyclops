@@ -29,23 +29,23 @@ public:
 protected:            
             
     void initializeModelImpl(
-            ModelData** modelData,
+            AbstractModelData** modelData,
             CyclicCoordinateDescent** ccd,
             AbstractModelSpecifics** model);
             
     void predictModelImpl(
             CyclicCoordinateDescent *ccd,
-            ModelData *modelData); 
+            AbstractModelData *modelData); 
             
     void logModelImpl(
             CyclicCoordinateDescent *ccd,
-            ModelData *modelData,
+            AbstractModelData *modelData,
             ProfileInformationMap& profileMap,
             bool withASE); 
             
      void diagnoseModelImpl(
             CyclicCoordinateDescent *ccd, 
-            ModelData *modelData,	
+            AbstractModelData *modelData,	
     		double loadTime,
     		double updateTime);                                   
 

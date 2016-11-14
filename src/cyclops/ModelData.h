@@ -577,7 +577,7 @@ public:
 	// friend class InputReader;
 	//
 	// template <class FormatType, class MissingPolicy> friend class BaseInputReader;
-	// template <class ImputationPolicy> friend class BBRInputReader;
+	template <class ImputationPolicy> friend class BBRInputReader;
 	// template <class ImputationPolicy> friend class CSVInputReader;
 
 	friend void push_back_label(ModelData<double>& modeData, const std::string& label);
@@ -588,6 +588,7 @@ public:
 	friend void push_back_offs(ModelData<double>& modelData, const double value);
 	friend void setConditionId(ModelData<double>& modelData, const std::string& id);
 	friend void setNumberPatients(ModelData<double>& modelData, const int cases);
+	friend void setNumberRows(ModelData<double>& modelData, const int nrows);
 
 protected:
 

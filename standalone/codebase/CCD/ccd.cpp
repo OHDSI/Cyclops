@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
 
 	CyclicCoordinateDescent* ccd = NULL;
 	AbstractModelSpecifics* model = NULL;
-	ModelData* modelData = NULL;
+	AbstractModelData* modelData = NULL;
 // 	CCDArguments arguments;
 	
 	CmdLineCcdInterface interface(argc, argv);

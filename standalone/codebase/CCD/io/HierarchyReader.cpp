@@ -35,7 +35,7 @@ using namespace std;
 
 namespace bsccs {
 
-HierarchyReader::HierarchyReader(const char* fileName, ModelData* modelData) {
+HierarchyReader::HierarchyReader(const char* fileName, AbstractModelData* modelData) {
 	//cout << "fileName = " << fileName << endl;
 	ifstream in(fileName);
 	if (!in) {

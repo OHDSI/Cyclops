@@ -14,28 +14,17 @@
 #include <numeric>
 #include <limits>
 
-#include <boost/iterator/permutation_iterator.hpp>
-#include <boost/iterator/transform_iterator.hpp>
-#include <boost/iterator/zip_iterator.hpp>
-
 #include "ModelSpecifics.h"
 #include "Iterators.h"
 
 #include "Recursions.hpp"
 #include "ParallelLoops.h"
-#include "Ranges.h"
 
 //#include "R.h"
 //#include "Rcpp.h" // TODO Remove
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	#include "Timing.h"
-	namespace bsccs {
-		const std::string DenseIterator::name = "Den";
-		const std::string IndicatorIterator::name = "Ind";
-		const std::string SparseIterator::name = "Spa";
-		const std::string InterceptIterator::name = "Icp";
-	}
 #endif
 	namespace bsccs {
 	    template <typename RealType>
@@ -76,224 +65,13 @@ namespace bsccs {
 
 #define NEW_LOOPS
 
-namespace helper {
-//
-//     auto getRangeAll(const int length) ->
-//             boost::iterator_range<
-//                 decltype(boost::make_counting_iterator(0))
-//             > {
-//         return  {
-//             boost::make_counting_iterator(0),
-//             boost::make_counting_iterator(length)
-//         };
-//     }
-//
-//     template <class IteratorTag>
-//     auto getRangeDenominator(const IntVectorPtr& mat, const int N, IteratorTag) ->  void {
-//     	std::cerr << "Not yet implemented." << std::endl;
-//     	std::exit(-1);
-//     }
-//
-//     auto getRangeDenominator(const IntVectorPtr& mat, const int N, DenseTag) ->
-//             boost::iterator_range<
-//                 decltype(boost::make_counting_iterator(0))
-//             > {
-//         return {
-//             boost::make_counting_iterator(0),
-//             boost::make_counting_iterator(N)
-//         };
-//     }
-//
-//     auto getRangeDenominator(const IntVectorPtr& mat, const int N, SparseTag) ->
-//             boost::iterator_range<
-//                 decltype(mat->begin())
-//             > {
-//         return {
-//             std::begin(*mat), std::end(*mat)
-//         };
-//     }
-//
-//     auto getRangeDenominator(const IntVectorPtr& mat, const int N, IndicatorTag) ->
-//             boost::iterator_range<
-//                 decltype(mat->begin())
-//             > {
-//         return {
-//             std::begin(*mat), std::end(*mat)
-//         };
-//     }
-//
-//     template <class IteratorTag>
-//     auto getRangeNumerator(const IntVectorPtr& mat, const int N, IteratorTag) ->  void {
-//     	std::cerr << "Not yet implemented." << std::endl;
-//     	std::exit(-1);
-//     }
-//
-//     auto getRangeNumerator(const IntVectorPtr& mat, const int N, DenseTag) ->
-//             boost::iterator_range<
-//                 decltype(boost::make_counting_iterator(0))
-//             > {
-//         return {
-//             boost::make_counting_iterator(0),
-//             boost::make_counting_iterator(N)
-//         };
-//     }
-//
-//     auto getRangeNumerator(const IntVectorPtr& mat, const int N, SparseTag) ->
-//             boost::iterator_range<
-//                 decltype(mat->begin())
-//             > {
-//         return {
-//             std::begin(*mat), std::end(*mat)
-//         };
-//     }
-//
-//     auto getRangeNumerator(const IntVectorPtr& mat, const int N, IndicatorTag) ->
-//             boost::iterator_range<
-//                 decltype(mat->begin())
-//             > {
-//         return {
-//             std::begin(*mat), std::end(*mat)
-//         };
-//     }
-//
-//     template <class IteratorTag>
-//     auto getRangeCOOX(const CompressedDataMatrix& mat, const int index, IteratorTag) -> void {
-//     	std::cerr << "Not yet implemented." << std::endl;
-//     	std::exit(-1);
-//     }
-//
-//     auto getRangeCOOX(const CompressedDataMatrix& mat, const int index, DenseTag) ->
-//             boost::iterator_range<
-//                 boost::zip_iterator<
-//                     boost::tuple<
-//                         decltype(boost::make_counting_iterator(0)), // TODO Not quite right
-//                         decltype(boost::make_counting_iterator(0)),
-//                         decltype(begin(mat.getDataVector(index)))
-//                     >
-//                 >
-//             > {
-//         auto i = boost::make_counting_iterator(0); // TODO Not quite right
-//         auto j = boost::make_counting_iterator(0);
-//         auto x = begin(mat.getDataVector(index));
-//
-//         const size_t K = mat.getNumberOfRows();
-//
-//         return {
-//             boost::make_zip_iterator(
-//                 boost::make_tuple(i, j, x)),
-//             boost::make_zip_iterator(
-//                 boost::make_tuple(i + K, j + K, x + K))
-//         };
-//     }
-//
-// 	template <class IteratorTag>
-//     auto getRangeX(const CompressedDataMatrix& mat, const int index, IteratorTag) -> void {
-//     	std::cerr << "Not yet implemented." << std::endl;
-//     	std::exit(-1);
-//     }
-
-    template <typename RealType>
-	auto getRangeX(const CompressedDataMatrix<RealType>& mat, const int index, InterceptTag) ->
-	    //            aux::zipper_range<
-	    boost::iterator_range<
-	        boost::zip_iterator<
-	            boost::tuple<
-	                decltype(boost::make_counting_iterator(0))
-	            >
-	        >
-	    > {
-
-	    auto i = boost::make_counting_iterator(0);
-	        const size_t K = mat.getNumberOfRows();
-
-	        return {
-	            boost::make_zip_iterator(
-	                boost::make_tuple(i)),
-	                boost::make_zip_iterator(
-	                    boost::make_tuple(i + K))
-	        };
-	    }
-
-    template <typename RealType>
-    auto getRangeX(const CompressedDataMatrix<RealType>& mat, const int index, DenseTag) ->
-//            aux::zipper_range<
- 						boost::iterator_range<
- 						boost::zip_iterator<
- 						boost::tuple<
-	            decltype(boost::make_counting_iterator(0)),
-            	decltype(begin(mat.getDataVector(index)))
-            >
-            >
-            > {
-
-        auto i = boost::make_counting_iterator(0);
-        auto x = begin(mat.getDataVector(index));
-		const size_t K = mat.getNumberOfRows();
-
-        return {
-            boost::make_zip_iterator(
-                boost::make_tuple(i, x)),
-            boost::make_zip_iterator(
-                boost::make_tuple(i + K, x + K))
-        };
-    }
-
-    template <typename RealType>
-    auto getRangeX(const CompressedDataMatrix<RealType>& mat, const int index, SparseTag) ->
-//            aux::zipper_range<
-						boost::iterator_range<
- 						boost::zip_iterator<
- 						boost::tuple<
-	            decltype(begin(mat.getCompressedColumnVector(index))),
-            	decltype(begin(mat.getDataVector(index)))
-            >
-            >
-            > {
-
-        auto i = begin(mat.getCompressedColumnVector(index));
-        auto x = begin(mat.getDataVector(index));
-		const size_t K = mat.getNumberOfEntries(index);
-
-        return {
-            boost::make_zip_iterator(
-                boost::make_tuple(i, x)),
-            boost::make_zip_iterator(
-                boost::make_tuple(i + K, x + K))
-        };
-    }
-
-    template <typename RealType>
-    auto getRangeX(const CompressedDataMatrix<RealType>& mat, const int index, IndicatorTag) ->
-//            aux::zipper_range<
-						boost::iterator_range<
- 						boost::zip_iterator<
- 						boost::tuple<
-	            decltype(begin(mat.getCompressedColumnVector(index)))
-	          >
-	          >
-            > {
-
-        auto i = begin(mat.getCompressedColumnVector(index));
-		const size_t K = mat.getNumberOfEntries(index);
-
-        return {
-            boost::make_zip_iterator(
-                boost::make_tuple(i)),
-            boost::make_zip_iterator(
-                boost::make_tuple(i + K))
-        };
-    }
-
-} // namespace helper
-
-
 template <class BaseModel,typename RealType>
 ModelSpecifics<BaseModel,RealType>::ModelSpecifics(const ModelData<RealType>& input)
-	: AbstractModelSpecifics(input), BaseModel(),
+	: AbstractModelSpecifics(input), BaseModel(input.getYVectorRef(), input.getTimeVectorRef()),
    modelData(input),
-   hX(modelData.getX()),
-   hY(input.getYVectorRef()),
-   hOffs(input.getTimeVectorRef())
+   hX(modelData.getX())
+   // hY(input.getYVectorRef()),
+   // hOffs(input.getTimeVectorRef())
  //  hPidOriginal(input.getPidVectorRef()), hPid(const_cast<int*>(hPidOriginal.data())),
  //  boundType(MmBoundType::METHOD_2)
 //  	threadPool(4,4,1000)
