@@ -40,6 +40,8 @@ createAbridgePrior <- function(penalty = "bic",
                                exclude = c(),
                                forceIntercept = FALSE) {
 
+    # TODO Change name to `bar`
+
     # TODO Check that penalty is valid
 
     structure(list(penalty = penalty,
