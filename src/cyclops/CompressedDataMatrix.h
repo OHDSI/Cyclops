@@ -214,6 +214,10 @@ public:
 
 	void addToColumnVector(IntVector addEntries);
 	void removeFromColumnVector(IntVector removeEntries);
+	void printMatrixMarketFormat(std::ostream& stream, const int rows, const int columnNumber) const;
+
+private:
+	// Disable copy-constructors and assignment constructors
 	CompressedDataColumn();
 	CompressedDataColumn(const CompressedDataColumn&);
 
@@ -398,6 +402,7 @@ public:
 
 	template <class IteratorType>
 	void turkeyImpl(int index);
+	void printMatrixMarketFormat(std::ostream& stream) const;
 
 protected:
 

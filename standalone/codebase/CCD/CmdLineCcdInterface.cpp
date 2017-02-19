@@ -432,7 +432,7 @@ void CmdLineCcdInterface::initializeModelImpl(
 	using namespace bsccs::priors;
 	PriorPtr singlePrior;
 	if (arguments.useNormalPrior) {
-		singlePrior = std::make_shared<NormalPrior>();
+		singlePrior = std::make_shared<NormalPrior>(arguments.hyperprior);
 	} else if (arguments.computeMLE) {
 		if (arguments.fitMLEAtMode) {
 			cerr << "Unable to compute MLE at posterior mode, if mode is not first explored." << endl;
@@ -440,9 +440,9 @@ void CmdLineCcdInterface::initializeModelImpl(
 		}
 		singlePrior = std::make_shared<NoPrior>();
 	} else {
-		singlePrior = std::make_shared<LaplacePrior>();
+		singlePrior = std::make_shared<LaplacePrior>(arguments.hyperprior);
 	}
-	singlePrior->setVariance(arguments.hyperprior);
+	//singlePrior->setVariance(arguments.hyperprior);
 
 	JointPriorPtr prior;
 	if (arguments.flatPrior.size() == 0) {
@@ -469,7 +469,7 @@ void CmdLineCcdInterface::initializeModelImpl(
 	//Hierarchy prior
 	if (arguments.useHierarchy) {
 		std::shared_ptr<HierarchicalJointPrior> hierarchicalPrior = std::make_shared<HierarchicalJointPrior>(singlePrior, 2); //Depth of hierarchy fixed at 2 right now
-		PriorPtr classPrior = std::make_shared<NormalPrior>();
+		PriorPtr classPrior = std::make_shared<NormalPrior>(arguments.hyperprior);
 		hierarchicalPrior->changePrior(classPrior,1);
         hierarchicalPrior->setHierarchy(
                 hierarchyData->returnGetParentMap(),

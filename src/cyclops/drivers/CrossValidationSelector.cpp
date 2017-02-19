@@ -24,7 +24,7 @@ CrossValidationSelector::CrossValidationSelector(
 		SelectorType inType,
 		long inSeed,
 	    loggers::ProgressLoggerPtr _logger,
-		loggers::ErrorHandlerPtr _error,		
+		loggers::ErrorHandlerPtr _error,
 		std::vector<real>* wtsExclude) : AbstractSelector(inIds, inType, inSeed, _logger, _error), fold(inFold) {
 
 	// Calculate interval starts
@@ -44,10 +44,10 @@ CrossValidationSelector::CrossValidationSelector(
     std::ostringstream stream;
 	stream << "Performing " << fold << "-fold cross-validation [seed = "
 		      << seed << "] with data partitions of sizes";
-		      
+
 	for (int i = 0; i < fold; ++i) {
 		stream << " " << (intervalStart[i+1] - intervalStart[i]);
-	}		      
+	}
 	logger->writeLine(stream);
 
 	permutation.resize(N);
@@ -55,13 +55,13 @@ CrossValidationSelector::CrossValidationSelector(
 	weightsExclude = wtsExclude;
 }
 
-void CrossValidationSelector::reseed() { 
+void CrossValidationSelector::reseed() {
 //	std::cerr << "RESEEDING"  << std::endl;
 	prng.seed(seed);
 	for (size_t i = 0; i < N; ++i) {
 		permutation[i] = i;
 	}
-} 
+}
 
 CrossValidationSelector::~CrossValidationSelector() {
 	// Do nothing
@@ -92,7 +92,7 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 			} else {
 				weights[k] = 1.0; // TODO Is this necessary?
 			}
-		}		
+		}
 	} else { // SelectorType::BY_ROW
 // 		std::fill(weights.begin(), weights.end(), 0.0);
 // 		std::fill(weights.begin(), weights.begin() + 100, 1.0);
@@ -106,7 +106,7 @@ void CrossValidationSelector::getWeights(int batch, std::vector<real>& weights) 
 }
 
 AbstractSelector* CrossValidationSelector::clone() const {
-	return new CrossValidationSelector(*this); // default copy constructor
+	return new (std::nothrow) CrossValidationSelector(*this); // default copy constructor
 }
 
 void CrossValidationSelector::getComplement(std::vector<real>& weights) {

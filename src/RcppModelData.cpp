@@ -208,6 +208,23 @@ std::vector<double> cyclopsTurkey(Environment object) {
     return(data->turkey(0));
 }
 
+//' @title Print Cyclops data matrix to file
+//'
+//' @description
+//' \code{printMatrixMarket} prints the data matrix to a file
+//'
+//' @param object      A Cyclops data object
+//' @param file        Filename
+//'
+//' @export
+// [[Rcpp::export(printMatrixMarket)]]
+void cyclopsPrintMatrixMarket(Environment object, const std::string& file) {
+    XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);
+    std::ofstream stream(file);
+
+    data->printMatrixMarketFormat(stream);
+}
+
 //' @title Get total number of rows
 //'
 //' @description

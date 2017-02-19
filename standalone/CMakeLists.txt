@@ -15,12 +15,22 @@ endif(APPLE)
 
 #find_package(CUDA)
 
-set(BOOST_ROOT 
-	 ~/Dropbox/Projects)
-	 
+
+	
+if(DEFINED R_LIBRARIES)
+	set(BOOST_ROOT
+		${R_LIBRARIES}/BH/include)
+	set(RCPP_PARALLEL_ROOT
+		${R_LIBRARIES}/RcppParallel)
+else()
+	message(FATAL_ERROR "RCPP_PARALLEL_ROOT is not defined")
+endif()	
+			 
+include_directories(${RCPP_PARALLEL_ROOT}/include)			 
+			 
 find_package(Boost)
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/CCD)
+#add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/CCD)
 add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/CCD-DP)
 
 #if(CUDA_FOUND)

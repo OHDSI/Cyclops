@@ -54,7 +54,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 }
 
 CyclicCoordinateDescent* CyclicCoordinateDescent::clone() {
-	return new CyclicCoordinateDescent(*this);
+	return new (std::nothrow) CyclicCoordinateDescent(*this);
 }
 
 //template <typename T>
@@ -1027,7 +1027,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	    gh.second = 0.0;
 	}
 
-    return jointPrior->getDelta(gh, hBeta, index);
+	return jointPrior->getDelta(gh, hBeta, index);
 }
 
 template <class IteratorType>
@@ -1114,15 +1114,22 @@ double CyclicCoordinateDescent::computeConvergenceCriterion(double newObjFxn, do
 	return abs(newObjFxn - oldObjFxn) / (abs(newObjFxn) + 1.0);
 }
 
-double CyclicCoordinateDescent::applyBounds(double inDelta, int index) {
-	double delta = inDelta;
-	if (delta < -hDelta[index]) {
-		delta = -hDelta[index];
-	} else if (delta > hDelta[index]) {
-		delta = hDelta[index];
-	}
+double CyclicCoordinateDescent::applyBounds(double delta, int index) {
 
-	hDelta[index] = max(2.0 * abs(delta), 0.5 * hDelta[index]);
+    auto doBound = true;
+    if (doBound) {
+	    if (delta < -hDelta[index]) {
+		    delta = -hDelta[index];
+	    } else if (delta > hDelta[index]) {
+		    delta = hDelta[index];
+	    }
+
+	    // TODO Remove magic numbers
+	    auto intermediate = std::max(std::abs(delta) * 2, hDelta[index] / 2);
+	    intermediate = std::max(intermediate, 1E-3);
+	    hDelta[index] = intermediate;
+    }
+
 	return delta;
 }
 

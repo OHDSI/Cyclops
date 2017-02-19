@@ -1,15 +1,16 @@
 ## Resubmission
-This is a resubmission. In this version I have:
+This is a resubmission of version 1.2.2 (original submission in August as 1.2.1). In this version I have:
 
 * Fixed a build ERROR under c++14 via g++-6.  The error was:
     cyclops/CompressedDataMatrix.h:406:34: error: call of overloaded ‘make_unique(bsccs::IntVectorPtr&, bsccs::RealVectorPtr&, bsccs::FormatType&)’ is ambiguous
   - Solution: 
     1. I have if-guarded my c++11 work-around for `make_unique()`
     2. I have added a travis-ci build that compiles under c++14 to check that there are no standing forward-compatibility issues and to help limit future errors.
-    3. I thank Brian Ripley for taking the time to find this issue; I am a big fan of c++14 and hope to see more use of it in R. 
+    3. I thank Brian Ripley for taking the time to find this issue; I am a big fan of c++14 and hope to see more use of it in R.    
+* Fixed multiple ASan and UBSan warnings
 
 ## Test environments
-* local OS X install, R 3.2.2
+* local OS X install, R 3.3.1
 * ubuntu 12.04 (on travis-ci), R 3.2.5, gcc 4.6.3 and gcc 6.0
 * win-builder (devel and release)
 
@@ -20,8 +21,6 @@ There were 1 NOTE:
 
 * checking CRAN incoming feasibility ... NOTE
 Maintainer: 'Marc A. Suchard <msuchard@ucla.edu>'
-
-Days since last update: 1
 
 Possibly mis-spelled words in DESCRIPTION:
   datasets (14:36)
