@@ -70,11 +70,11 @@ fitCyclopsModel <- function(cyclopsData,
                             startingCoefficients = NULL,
                             fixedCoefficients = NULL) {
 
-    # Delegate to ABRIDGE if selected
-    if (inherits(prior, "cyclopsAbridgePrior")) {
-        return(fitAbridge(cyclopsData, prior, control,
-                          weights, forceNewObject, returnEstimates,
-                          startingCoefficients, fixedCoefficients))
+    # Delegate to prior$fitHook if exists
+    if (!is.null(prior$fitHook)) {
+        return(prior$fitHook(cyclopsData, prior, control,
+                             weights, forceNewObject, returnEstimates,
+                             startingCoefficients, fixedCoefficients))
     }
 
     cl <- match.call()
