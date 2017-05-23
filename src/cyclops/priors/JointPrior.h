@@ -1,5 +1,5 @@
 /*
- * JointPrior.h
+ * PriorFunction.h
  *
  *  Created on: Nov 11, 2013
  *      Author: msuchard
@@ -65,7 +65,7 @@ public:
 	    for (auto v : variance) {
 	        tmp.push_back(*v);
 	    }
-		return std::move(tmp);
+		return tmp;
 	}
 
 protected:

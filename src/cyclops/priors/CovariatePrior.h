@@ -182,7 +182,7 @@ public:
 	std::vector<VariancePtr> getVarianceParameters() const {
 	    auto tmp = std::vector<VariancePtr>();
 	    tmp.push_back(variance);
-		return std::move(tmp);
+		return tmp;
 	}
 
 protected:
@@ -324,7 +324,7 @@ public:
 	std::vector<VariancePtr> getVarianceParameters() const {
 	    auto tmp = std::vector<VariancePtr>();
 	    tmp.push_back(variance);
-		return std::move(tmp);
+		return tmp;
 	}
 
 protected:
