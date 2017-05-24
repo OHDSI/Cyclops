@@ -132,7 +132,3 @@ after_success:
   # Rebuild drat repo   
   - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')    
   - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && bash deploy.sh
-  
-env:
-  global:
-  - secure: OqWkvryQHJ8TCDu++1fjNNfd+ECuPH+og++cXgfpQ3QcTjReD0cc3dGP+tD3GX18H9jJa+MQzNXyBCHn8+o1b1MRiUGAKuxD0vsZ2iQ/1nZYiL2cKJbei36vJPVg82D68zOsE/G5rESKFOQKUC+OqNHcneyk1+cwsU7zvQTtBhU=
