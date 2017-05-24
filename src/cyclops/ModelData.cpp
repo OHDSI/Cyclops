@@ -527,7 +527,7 @@ std::vector<double> ModelData::normalizeCovariates(const NormalizationType type)
             normalizations.push_back(1.0);
         }
     }
-    return std::move(normalizations);
+    return normalizations;
 }
 
 int ModelData::getNumberOfPatients() const {

@@ -14,4 +14,3 @@ isInitialized(object)
 initialized and remains in memory.  Cyclops data objects do not
 serialized/deserialize their back-end memory across R sessions.
 }
-

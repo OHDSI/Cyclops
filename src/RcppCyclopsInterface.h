@@ -9,6 +9,7 @@
 
 #include "CcdInterface.h"
 #include "priors/JointPrior.h"
+#include "priors/PriorFunction.h"
 
 namespace bsccs {
 
@@ -75,6 +76,10 @@ public:
     	return result;
     }
 
+    void setFunctionalPrior(const std::vector<std::string>& priorName,
+                            std::vector<bsccs::priors::PriorFunctionPtr>& priorFunctionPtr,
+                            const ProfileVector& flatPrior);
+
 	void setPrior(
 				const std::vector<std::string>& basePriorName,
 				const std::vector<double>& baseVariance,
@@ -100,6 +105,11 @@ public:
 protected:
 
 		static void handleError(const std::string& str);
+
+    priors::JointPriorPtr makePrior(
+            const std::vector<std::string>& priorName,
+            std::vector<bsccs::priors::PriorFunctionPtr>& priorFunctionPtr,
+            const ProfileVector& flatPrior);
 
 		priors::JointPriorPtr makePrior(
 				const std::vector<std::string>& basePriorName,
@@ -132,10 +142,6 @@ protected:
 private:
 
 			RcppModelData& rcppModelData; // TODO Make const?
-
-//      Rcpp::XPtr<RcppModelData> data;
-//      Rcpp::XPtr<CyclicCoordinateDescent> ccd;
-//      Rcpp::XPtr<AbstractModelSpecifics> model;
 
 	 		ModelData* modelData;
 			CyclicCoordinateDescent* ccd;

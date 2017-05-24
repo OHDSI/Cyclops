@@ -29,7 +29,10 @@ namespace priors {
 class NewLaplacePrior : public CovariatePrior {
 public:
 
-    NewLaplacePrior(AbstractPriorFunction& priorFunction) : CovariatePrior(), priorFunction(priorFunction) {
+    // typedef std::unique_ptr<PriorFunction> InternalPriorFunctionPtr;
+
+    NewLaplacePrior(PriorFunctionPtr priorFunction) : CovariatePrior(),
+        priorFunction(std::move(priorFunction)) {
         // Do nothing
     }
 
@@ -44,9 +47,11 @@ public:
 		return info.str();
 	}
     double logDensity(const DoubleVector& beta, const int index) const {
-        auto x = beta[index];
-        auto lambda = getLambda();
-        return std::log(0.5 * lambda) - lambda * std::abs(x);
+        const auto x = beta[index];
+        const auto locationLambda = getLocationLambda();
+        const auto location = locationLambda.first;
+        const auto lambda = locationLambda.second;
+        return std::log(0.5 * lambda) - lambda * std::abs(x - location);
     }
 
 	bool getIsRegularized() const {
@@ -58,7 +63,8 @@ public:
 	}
 
 	double getKktBoundary() const {
-	    double lambda = getLambda();
+	    const auto locationLambda = getLocationLambda();
+	    const auto lambda = locationLambda.second;
 		return lambda;
 	}
 
@@ -101,11 +107,11 @@ public:
 		return delta;
 	}
 
-	// std::vector<VariancePtr> getVarianceParameters() const {
-	//     auto tmp = std::vector<VariancePtr>();
-	//     tmp.push_back(variance);
-	// 	return tmp;
-	// }
+	std::vector<VariancePtr> getVarianceParameters() const {
+	    auto tmp = std::vector<VariancePtr>();
+	    // tmp.push_back(variance);
+		return tmp;
+	}
 
 protected:
 	double convertVarianceToHyperparameter(double value) const {
@@ -116,9 +122,9 @@ protected:
 		return 2.0 / (value * value);
 	}
 
-    LocationScale getLocationLambda() const {
-        const auto locationScale = priorFunction();
-        return LocationScale(locationScale.first,
+    PriorFunction::LocationScale getLocationLambda() const {
+        const auto locationScale = (*priorFunction)();
+        return PriorFunction::LocationScale(locationScale.first,
                              convertHyperparameterToVariance(locationScale.second));
     }
 
@@ -128,7 +134,7 @@ protected:
 
 private:
 
-    AbstractPriorFunction& priorFunction;
+    PriorFunctionPtr priorFunction;
 
 	template <typename Vector>
 	typename Vector::value_type logIndependentDensity(const Vector& vector) const {
@@ -161,6 +167,23 @@ private:
 
 	// VariancePtr variance;
 };
+
+static PriorPtr makePrior(PriorType priorType, PriorFunctionPtr&& priorFunction) {
+    PriorPtr prior;
+    switch (priorType) {
+    case NONE :
+        prior = bsccs::make_shared<NoPrior>();
+        break;
+    case LAPLACE :
+        prior = bsccs::make_shared<NewLaplacePrior>(std::move(priorFunction));
+        break;
+    case NORMAL :
+        prior = bsccs::make_shared<NormalPrior>(1.0);
+        break;
+    default : break;
+    }
+    return prior;
+}
 
 } /* namespace priors */
 } /* namespace bsccs */

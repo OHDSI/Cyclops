@@ -92,68 +92,75 @@ fitCyclopsModel <- function(cyclopsData,
 
     # Set up prior
     stopifnot(inherits(prior, "cyclopsPrior"))
-    prior$exclude <- .checkCovariates(cyclopsData, prior$exclude)
 
-    if (!is.null(prior$neighborhood)) {
-        prior$neighborhood <- lapply(prior$neighborhood,
-                                     function(element) {
-                                         list(.checkCovariates(cyclopsData, element[[1]]),
-                                              .checkCovariates(cyclopsData, element[[2]]))
-                                     })
-    }
+    if (!is.null(prior$setHook)) {
 
-    if (prior$priorType != "none" &&
-        is.null(prior$graph) && # TODO Ignore hierarchical models for now
-        .cyclopsGetHasIntercept(cyclopsData) &&
-        !prior$forceIntercept) {
-        interceptId <- .cyclopsGetInterceptLabel(cyclopsData)
-        warn <- FALSE
-        if (is.null(prior$exclude)) {
-            prior$exclude <- c(interceptId)
-            warn <- TRUE
-        } else {
-            if (!(interceptId %in% prior$exclude)) {
-                prior$exclude <- c(interceptId, prior$exclude)
+        prior$setHook(cyclopsData) # Call-back
+
+    } else {
+        prior$exclude <- .checkCovariates(cyclopsData, prior$exclude)
+
+        if (!is.null(prior$neighborhood)) {
+            prior$neighborhood <- lapply(prior$neighborhood,
+                                         function(element) {
+                                             list(.checkCovariates(cyclopsData, element[[1]]),
+                                                  .checkCovariates(cyclopsData, element[[2]]))
+                                         })
+        }
+
+        if (prior$priorType != "none" &&
+            is.null(prior$graph) && # TODO Ignore hierarchical models for now
+            .cyclopsGetHasIntercept(cyclopsData) &&
+            !prior$forceIntercept) {
+            interceptId <- .cyclopsGetInterceptLabel(cyclopsData)
+            warn <- FALSE
+            if (is.null(prior$exclude)) {
+                prior$exclude <- c(interceptId)
                 warn <- TRUE
+            } else {
+                if (!(interceptId %in% prior$exclude)) {
+                    prior$exclude <- c(interceptId, prior$exclude)
+                    warn <- TRUE
+                }
+            }
+            if (warn) {
+                warning("Excluding intercept from regularization")
             }
         }
-        if (warn) {
-            warning("Excluding intercept from regularization")
-        }
-    }
 
-    if (is.null(prior$graph)) {
-        graph <- NULL
-    } else {
-        graph <- .makeHierarchyGraph(cyclopsData, prior$graph)
-        if (length(prior$priorType) != length(prior$variance)) {
-            stop("Prior types and variances have a dimensionality mismatch")
+        if (is.null(prior$graph)) {
+            graph <- NULL
+        } else {
+            graph <- .makeHierarchyGraph(cyclopsData, prior$graph)
+            if (length(prior$priorType) != length(prior$variance)) {
+                stop("Prior types and variances have a dimensionality mismatch")
+            }
+            if (any(prior$priorType != "normal")) {
+                stop("Only normal-normal hierarchies are currently supported")
+            }
         }
-        if (any(prior$priorType != "normal")) {
-            stop("Only normal-normal hierarchies are currently supported")
-        }
-    }
 
-    if (is.null(prior$neighborhood)) {
-        neighborhood <- NULL
-    } else {
-        neighborhood <- prior$neighborhood
-        if (length(prior$priorType) != length(prior$variance)) {
-            stop("Prior types and variances have a dimensionality mismatch");
+        if (is.null(prior$neighborhood)) {
+            neighborhood <- NULL
+        } else {
+            neighborhood <- prior$neighborhood
+            if (length(prior$priorType) != length(prior$variance)) {
+                stop("Prior types and variances have a dimensionality mismatch");
+            }
+            if (any(prior$priorType  != "laplace")) {
+                stop("Only Laplace-Laplace fused neighborhoods are currently supported")
+            }
         }
-        if (any(prior$priorType  != "laplace")) {
-            stop("Only Laplace-Laplace fused neighborhoods are currently supported")
-        }
-    }
 
-    if (is.null(graph) && is.null(neighborhood) && length(prior$priorType) > 1) {
-        if (length(prior$priorType) != getNumberOfCovariates(cyclopsData)) {
-            stop("Length of priors must equal the number of covariates")
+        if (is.null(graph) && is.null(neighborhood) && length(prior$priorType) > 1) {
+            if (length(prior$priorType) != getNumberOfCovariates(cyclopsData)) {
+                stop("Length of priors must equal the number of covariates")
+            }
         }
-    }
 
-    .cyclopsSetPrior(cyclopsData$cyclopsInterfacePtr, prior$priorType, prior$variance,
-                     prior$exclude, graph, neighborhood)
+        .cyclopsSetPrior(cyclopsData$cyclopsInterfacePtr, prior$priorType, prior$variance,
+                         prior$exclude, graph, neighborhood)
+    }
 
     if (control$selectorType == "auto") {
         if (cyclopsData$modelType %in% c("pr", "lr")) {

@@ -369,7 +369,7 @@ public:
     std::vector<VariancePtr> getVarianceParameters() const {
         auto tmp = NormalPrior::getVarianceParameters();
         tmp.push_back(variance2);
-        return std::move(tmp);
+        return tmp;
     }
 
 protected:

@@ -39,4 +39,3 @@ coef(fit)
 #We can only retrieve the confidence interval for unregularized coefficients:
 confint(fit, c(0))
 }
-

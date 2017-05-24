@@ -154,6 +154,20 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsSetFunctionalPrior
+void cyclopsSetFunctionalPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& priorTypeName, const Rcpp::List& priorFunctionList, const std::vector<double> startingParameters, SEXP excludeNumeric);
+RcppExport SEXP Cyclops_cyclopsSetFunctionalPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP priorFunctionListSEXP, SEXP startingParametersSEXP, SEXP excludeNumericSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const std::vector<std::string>& >::type priorTypeName(priorTypeNameSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type priorFunctionList(priorFunctionListSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double> >::type startingParameters(startingParametersSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type excludeNumeric(excludeNumericSEXP);
+    cyclopsSetFunctionalPrior(inRcppCcdInterface, priorTypeName, priorFunctionList, startingParameters, excludeNumeric);
+    return R_NilValue;
+END_RCPP
+}
 // cyclopsProfileModel
 List cyclopsProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, int threads, double threshold, bool override, bool includePenalty);
 RcppExport SEXP Cyclops_cyclopsProfileModel(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP, SEXP threadsSEXP, SEXP thresholdSEXP, SEXP overrideSEXP, SEXP includePenaltySEXP) {

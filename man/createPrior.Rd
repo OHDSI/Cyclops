@@ -38,6 +38,7 @@ See \code{"glmnet"}, for example.
 
 variance = 2 * / (nobs * lambda)^2 or lambda = sqrt(2 / variance) / nobs
 }
+
 \examples{
 #Generate some simulated data:
 sim <- simulateCyclopsData(nstrata = 1, nrows = 1000, ncovars = 2, eCovarsPerRow = 0.5, 
@@ -63,4 +64,3 @@ coef(fit)
 #We can only retrieve the confidence interval for unregularized coefficients:
 confint(fit, c(0))
 }
-

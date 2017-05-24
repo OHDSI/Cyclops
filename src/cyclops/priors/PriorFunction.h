@@ -10,20 +10,23 @@
 #ifndef PRIORFUNCTION_H_
 #define PRIORFUNCTION_H_
 
+#include "Types.h"
+
 namespace bsccs {
 namespace priors {
 
-class AbstractPriorFunction {
+class PriorFunction {
 public:
 
     typedef std::pair<double,double> LocationScale;
     typedef std::vector<double> Arguments;
+    typedef bsccs::shared_ptr<Arguments> ArgumentsPtr;
 
-    AbstractPriorFunction(Arguments& arguments) : arguments(arguments) { }
-    virtual ~AbstractPriorFunction() { }
+    PriorFunction(ArgumentsPtr arguments) : arguments(arguments) { }
+    virtual ~PriorFunction() { }
 
     LocationScale operator()() const {
-        return execute(arguments);
+        return execute(*arguments);
     }
 
     // LocationScale operator()(Arguments& arguments) const {
@@ -36,27 +39,33 @@ public:
     //
     // unsigned int getArity() const { return arity; }
 
-protected:
-    virtual LocationScale execute(const Arguments& arguments) const;
-
-private:
-    const Arguments& arguments;
-};
-
-template <typename Func>
-class PriorFunction : public AbstractPriorFunction {
-public:
-    PriorFunction(Func& function, Arguments& arguments) : AbstractPriorFunction(arguments) { }
-    virtual ~PriorFunction() { }
+    Arguments& getArguments() { return *arguments; }
 
 protected:
-    LocationScale execute(const Arguments& arguments) const {
-        return function(arguments);
-    }
+    virtual LocationScale execute(const Arguments& arguments) const = 0;
 
 private:
-    const Func& function;
+    const ArgumentsPtr arguments;
 };
+
+// typedef bsccs::shared_ptr<PriorFunction> PriorFunctionPtr;
+typedef std::unique_ptr<PriorFunction> PriorFunctionPtr;
+typedef bsccs::shared_ptr<std::vector<double>> PriorFunctionParameterPtr;
+
+// template <typename Func>
+// class PriorFunction : public AbstractPriorFunction {
+// public:
+//     PriorFunction(Func& function, Arguments& arguments) : AbstractPriorFunction(arguments) { }
+//     virtual ~PriorFunction() { }
+//
+// protected:
+//     LocationScale execute(const Arguments& arguments) const {
+//         return function(arguments);
+//     }
+//
+// private:
+//     const Func& function;
+// };
 
 } /* namespace priors */
 } /* namespace bsccs */

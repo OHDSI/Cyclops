@@ -17,4 +17,3 @@ Returns a \code{data.frame} that reports simply summarize statistics for each co
 \description{
 \code{summary.cyclopsData} summarizes the data held in an Cyclops data object.
 }
-

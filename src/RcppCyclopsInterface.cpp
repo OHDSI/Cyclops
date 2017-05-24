@@ -18,6 +18,7 @@
 #include "io/OutputWriter.h"
 #include "RcppOutputHelper.h"
 #include "RcppProgressLogger.h"
+#include "priors/NewCovariatePrior.h"
 
 // Rcpp export code
 
@@ -210,6 +211,55 @@ void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& pr
  	}
 
     interface->setPrior(priorTypeName, variance, exclude, map, neighborhood);
+}
+
+#include "priors/PriorFunction.h"
+
+class RcppPriorFunction : public bsccs::priors::PriorFunction {
+public:
+    RcppPriorFunction(Rcpp::Function function, ArgumentsPtr arguments) :
+        PriorFunction(arguments), function(function) {
+        // Do nothing
+    }
+
+protected:
+    LocationScale execute(const Arguments& arguments) const {
+        const Rcpp::NumericVector locationScale = function(arguments);
+        return std::make_pair(locationScale[0], locationScale[1]);
+    }
+
+private:
+    Rcpp::Function function;
+};
+
+// [[Rcpp::export(".cyclopsSetFunctionalPrior")]]
+void cyclopsSetFunctionalPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& priorTypeName,
+                               const Rcpp::List& priorFunctionList, const std::vector<double> startingParameters,
+                               SEXP excludeNumeric) {
+    using namespace bsccs;
+    using namespace bsccs::priors;
+
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    ProfileVector exclude;
+    if (!Rf_isNull(excludeNumeric)) {
+        exclude = as<ProfileVector>(excludeNumeric);
+    }
+
+    std::vector<PriorFunctionPtr> abstractPriorFunction;
+    auto arguments = make_shared<PriorFunction::Arguments>(
+        std::begin(startingParameters), std::end(startingParameters)
+    );
+
+    for (int i = 0; i < priorFunctionList.size(); ++i) {
+        auto rcppFunc = as<Function>(priorFunctionList[i]);
+        abstractPriorFunction.emplace_back(
+            make_unique<RcppPriorFunction>(rcppFunc, arguments)
+            // bsccs::make_shared<RcppPriorFunction>(rcppFunc, arguments)
+        );
+
+    }
+    interface->setFunctionalPrior(priorTypeName, abstractPriorFunction, exclude);
 }
 
 // [[Rcpp::export(".cyclopsProfileModel")]]
@@ -559,6 +609,37 @@ void RcppCcdInterface::setNoiseLevel(bsccs::NoiseLevels noiseLevel) {
     using namespace bsccs;
     ccd->setNoiseLevel(noiseLevel);
     logger->setSilent(noiseLevel == bsccs::NoiseLevels::SILENT);
+}
+
+void RcppCcdInterface::setFunctionalPrior(const std::vector<std::string>& priorName,
+                             std::vector<bsccs::priors::PriorFunctionPtr>& priorFunctionPtr,
+                             const ProfileVector& flatPrior) {
+    auto prior = makePrior(priorName, priorFunctionPtr, flatPrior);
+    ccd->setPrior(prior);
+}
+
+priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>& priorName,
+                                                  std::vector<bsccs::priors::PriorFunctionPtr>& priorFunctionPtr,
+                                                  const ProfileVector& flatPrior) {
+
+    const auto length = modelData->getNumberOfColumns();
+
+    if ((priorName.size() != priorFunctionPtr.size()) ||
+        (priorName.size() != 1 && priorName.size() != length)) {
+        Rcpp::stop("Wrong prior dimensions");
+    }
+
+    auto first = bsccs::priors::makePrior(parsePriorType(priorName[0]),
+                                          std::move(priorFunctionPtr[0]));
+    auto prior = bsccs::make_shared<bsccs::priors::MixtureJointPrior>(first, length);
+
+    for (size_t i = 1; i < length; ++i) {
+        auto columnPrior = bsccs::priors::makePrior(parsePriorType(priorName[i]),
+                                                    std::move(priorFunctionPtr[i]));
+        prior->changePrior(columnPrior, i);
+    }
+
+    return prior;
 }
 
 void RcppCcdInterface::setPrior(const std::vector<std::string>& basePriorName, const std::vector<double>& baseVariance,

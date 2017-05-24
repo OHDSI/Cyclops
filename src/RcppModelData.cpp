@@ -277,7 +277,7 @@ std::vector<double> cyclopsUnivariableCorrelation(Environment x,
         }
     }
 
-    return std::move(result);
+    return result;
 }
 
 // [[Rcpp::export(".cyclopsSumByGroup")]]

@@ -27,7 +27,7 @@ PKG_LIBS = `$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"`
 CXX_STD = CXX11
 
 PKG_CPPFLAGS = -I. -Icyclops -DR_BUILD -DDOUBLE_PRECISION
-PKG_CXXFLAGS = -s -g1
+PKG_CXXFLAGS = -g1
 
 OBJECTS.cyclops = \
     cyclops/CcdInterface.o \
