@@ -77,7 +77,7 @@ public:
     }
 
     void setFunctionalPrior(const std::vector<std::string>& priorName,
-                            std::vector<bsccs::priors::PriorFunctionPtr>& priorFunctionPtr,
+                            bsccs::priors::PriorFunctionPtr& priorFunctionPtr,
                             const ProfileVector& flatPrior);
 
 	void setPrior(
@@ -108,7 +108,7 @@ protected:
 
     priors::JointPriorPtr makePrior(
             const std::vector<std::string>& priorName,
-            std::vector<bsccs::priors::PriorFunctionPtr>& priorFunctionPtr,
+            bsccs::priors::PriorFunctionPtr& priorFunctionPtr,
             const ProfileVector& flatPrior);
 
 		priors::JointPriorPtr makePrior(

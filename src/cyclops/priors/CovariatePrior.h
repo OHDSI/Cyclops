@@ -29,7 +29,82 @@ namespace priors {
 typedef std::pair<double, double> GradientHessian;
 typedef std::vector<double> DoubleVector;
 
-typedef bsccs::shared_ptr<double> VariancePtr;
+//typedef bsccs::shared_ptr<double> VariancePtr;
+
+template <typename T, typename C>
+class CallbackSharedPtr {
+public:
+    typedef  bsccs::shared_ptr<T> SharedPtr;
+
+public:
+    CallbackSharedPtr(T* t) : ptr(t), callback(nullptr) { }
+
+    CallbackSharedPtr(T* t, C* c) : ptr(t), callback(c) { }
+
+    // CallbackSharedPtr(const CallbackSharedPtr& refptr) :  ptr(refptr),
+    //     callback(refptr.callback) { }
+
+    CallbackSharedPtr(const SharedPtr& refptr) : ptr(refptr), callback(nullptr) { }
+
+    const T& operator*() const { return *ptr; }
+
+    T& operator*() {
+        signal();
+        return *ptr;
+    }
+
+    const T* operator->() const { return ptr.operator->(); }
+
+    T* operator->() {
+        signal();
+        return ptr.operator->();
+    }
+
+    void setCallback(C* c) {
+        callback = c;
+    }
+
+private:
+    void signal() {
+        if (callback != nullptr) {
+            callback->callback();
+        }
+    }
+
+    SharedPtr ptr;
+    C* callback;
+};
+
+struct Cachable {
+
+    Cachable() : valid(false) { }
+
+    bool isValid() const { return valid; }
+
+protected:
+    void setValid(bool v) { valid = v; }
+
+private:
+    bool valid;
+};
+
+struct CacheCallback : public Cachable {
+
+    CacheCallback() : Cachable() {
+        std::cerr <<"ctor Cachable" << std::endl;
+    }
+
+    void callback() {
+        std::cerr << "callback()" << std::endl;
+        setValid(false);
+    }
+};
+
+struct NoCallback { // TODO Use enable_if
+    void callback() { }
+};
+
+typedef CallbackSharedPtr<double,CacheCallback> VariancePtr;
 
 class CovariatePrior; // forward declaration
 typedef bsccs::shared_ptr<CovariatePrior> PriorPtr;

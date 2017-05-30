@@ -31,8 +31,9 @@ public:
 
     // typedef std::unique_ptr<PriorFunction> InternalPriorFunctionPtr;
 
-    NewLaplacePrior(PriorFunctionPtr priorFunction) : CovariatePrior(),
-        priorFunction(std::move(priorFunction)) {
+    NewLaplacePrior(PriorFunctionPtr priorFunction, unsigned int functionIndex) : CovariatePrior(),
+        priorFunction(priorFunction),
+        functionIndex(functionIndex) {
         // Do nothing
     }
 
@@ -123,9 +124,9 @@ protected:
 	}
 
     PriorFunction::LocationScale getLocationLambda() const {
-        const auto locationScale = (*priorFunction)();
-        return PriorFunction::LocationScale(locationScale.first,
-                             convertHyperparameterToVariance(locationScale.second));
+        const auto locationScale = (*priorFunction)(functionIndex);
+        return PriorFunction::LocationScale(locationScale[0],
+                                            convertVarianceToHyperparameter(locationScale[1]));
     }
 
 	// double getLambda() const {
@@ -135,6 +136,7 @@ protected:
 private:
 
     PriorFunctionPtr priorFunction;
+    unsigned int functionIndex;
 
 	template <typename Vector>
 	typename Vector::value_type logIndependentDensity(const Vector& vector) const {
@@ -168,14 +170,15 @@ private:
 	// VariancePtr variance;
 };
 
-static PriorPtr makePrior(PriorType priorType, PriorFunctionPtr&& priorFunction) {
+static PriorPtr makePrior(PriorType priorType, PriorFunctionPtr& priorFunction,
+                          unsigned int index) {
     PriorPtr prior;
     switch (priorType) {
     case NONE :
         prior = bsccs::make_shared<NoPrior>();
         break;
     case LAPLACE :
-        prior = bsccs::make_shared<NewLaplacePrior>(std::move(priorFunction));
+        prior = bsccs::make_shared<NewLaplacePrior>(priorFunction, index);
         break;
     case NORMAL :
         prior = bsccs::make_shared<NormalPrior>(1.0);

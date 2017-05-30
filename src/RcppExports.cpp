@@ -155,16 +155,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsSetFunctionalPrior
-void cyclopsSetFunctionalPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& priorTypeName, const Rcpp::List& priorFunctionList, const std::vector<double> startingParameters, SEXP excludeNumeric);
-RcppExport SEXP Cyclops_cyclopsSetFunctionalPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP priorFunctionListSEXP, SEXP startingParametersSEXP, SEXP excludeNumericSEXP) {
+void cyclopsSetFunctionalPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& priorTypeName, Rcpp::Function& priorFunction, const std::vector<double>& startingParameters, SEXP excludeNumeric);
+RcppExport SEXP Cyclops_cyclopsSetFunctionalPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP priorFunctionSEXP, SEXP startingParametersSEXP, SEXP excludeNumericSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
     Rcpp::traits::input_parameter< const std::vector<std::string>& >::type priorTypeName(priorTypeNameSEXP);
-    Rcpp::traits::input_parameter< const Rcpp::List& >::type priorFunctionList(priorFunctionListSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double> >::type startingParameters(startingParametersSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Function& >::type priorFunction(priorFunctionSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type startingParameters(startingParametersSEXP);
     Rcpp::traits::input_parameter< SEXP >::type excludeNumeric(excludeNumericSEXP);
-    cyclopsSetFunctionalPrior(inRcppCcdInterface, priorTypeName, priorFunctionList, startingParameters, excludeNumeric);
+    cyclopsSetFunctionalPrior(inRcppCcdInterface, priorTypeName, priorFunction, startingParameters, excludeNumeric);
     return R_NilValue;
 END_RCPP
 }

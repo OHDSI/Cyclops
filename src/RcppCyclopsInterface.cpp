@@ -217,15 +217,26 @@ void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& pr
 
 class RcppPriorFunction : public bsccs::priors::PriorFunction {
 public:
-    RcppPriorFunction(Rcpp::Function function, ArgumentsPtr arguments) :
-        PriorFunction(arguments), function(function) {
+    using bsccs::priors::PriorFunction::ResultSet;
+    using bsccs::priors::PriorFunction::Evaluation;
+
+    RcppPriorFunction(Rcpp::Function function, std::vector<double>& startingParameters) :
+        PriorFunction(startingParameters), function(function) {
         // Do nothing
     }
 
 protected:
-    LocationScale execute(const Arguments& arguments) const {
-        const Rcpp::NumericVector locationScale = function(arguments);
-        return std::make_pair(locationScale[0], locationScale[1]);
+
+    ResultSet execute(const Arguments& arguments) const {
+        std::cerr << "execute()" << std::endl;
+        ResultSet results;
+        const auto list = as<List>(function(arguments));
+
+        for (int i = 0; i < list.size(); ++i) {
+            results.emplace_back(as<Evaluation>(list[i]));
+        }
+
+        return results;
     }
 
 private:
@@ -233,8 +244,10 @@ private:
 };
 
 // [[Rcpp::export(".cyclopsSetFunctionalPrior")]]
-void cyclopsSetFunctionalPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& priorTypeName,
-                               const Rcpp::List& priorFunctionList, const std::vector<double> startingParameters,
+void cyclopsSetFunctionalPrior(SEXP inRcppCcdInterface,
+                               const std::vector<std::string>& priorTypeName,
+                               Rcpp::Function& priorFunction,
+                               const std::vector<double>& startingParameters,
                                SEXP excludeNumeric) {
     using namespace bsccs;
     using namespace bsccs::priors;
@@ -246,20 +259,27 @@ void cyclopsSetFunctionalPrior(SEXP inRcppCcdInterface, const std::vector<std::s
         exclude = as<ProfileVector>(excludeNumeric);
     }
 
-    std::vector<PriorFunctionPtr> abstractPriorFunction;
-    auto arguments = make_shared<PriorFunction::Arguments>(
-        std::begin(startingParameters), std::end(startingParameters)
-    );
+    // auto arguments = make_shared<PriorFunction::Arguments>(
+    //     std::begin(startingParameters), std::end(startingParameters)
+    // );
 
-    for (int i = 0; i < priorFunctionList.size(); ++i) {
-        auto rcppFunc = as<Function>(priorFunctionList[i]);
-        abstractPriorFunction.emplace_back(
-            make_unique<RcppPriorFunction>(rcppFunc, arguments)
-            // bsccs::make_shared<RcppPriorFunction>(rcppFunc, arguments)
-        );
+    // std::vector<VariancePtr> variancePtrs;
+    // for (unsigned int i = 0; startingParameters.size(); ++i) {
+    //     variancePtrs.push_back(bsccs::make_shared<double>(startingParameters[i]));
+    // }
 
-    }
-    interface->setFunctionalPrior(priorTypeName, abstractPriorFunction, exclude);
+    PriorFunctionPtr abstractFunc = bsccs::make_shared<RcppPriorFunction>(
+        as<Function>(priorFunction), startingParameters);
+
+    // for (int i = 0; i < priorFunctionList.size(); ++i) {
+    //     auto rcppFunc = as<Function>(priorFunctionList[i]);
+    //     abstractPriorFunction.emplace_back(
+    //         make_unique<RcppPriorFunction>(rcppFunc, arguments)
+    //         // bsccs::make_shared<RcppPriorFunction>(rcppFunc, arguments)
+    //     );
+    //
+    // }
+    interface->setFunctionalPrior(priorTypeName, abstractFunc, exclude);
 }
 
 // [[Rcpp::export(".cyclopsProfileModel")]]
@@ -612,32 +632,45 @@ void RcppCcdInterface::setNoiseLevel(bsccs::NoiseLevels noiseLevel) {
 }
 
 void RcppCcdInterface::setFunctionalPrior(const std::vector<std::string>& priorName,
-                             std::vector<bsccs::priors::PriorFunctionPtr>& priorFunctionPtr,
+                             bsccs::priors::PriorFunctionPtr& priorFunctionPtr,
                              const ProfileVector& flatPrior) {
     auto prior = makePrior(priorName, priorFunctionPtr, flatPrior);
     ccd->setPrior(prior);
 }
 
 priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>& priorName,
-                                                  std::vector<bsccs::priors::PriorFunctionPtr>& priorFunctionPtr,
+                                                  bsccs::priors::PriorFunctionPtr& priorFunctionPtr,
                                                   const ProfileVector& flatPrior) {
 
-    const auto length = modelData->getNumberOfColumns();
+    const auto dataLength = modelData->getNumberOfColumns();
 
-    if ((priorName.size() != priorFunctionPtr.size()) ||
-        (priorName.size() != 1 && priorName.size() != length)) {
+    const auto resultsLength = priorFunctionPtr->getMaxIndex();
+
+    if ((dataLength != resultsLength) ||
+        (priorName.size() != 1 && priorName.size() != dataLength)) {
         Rcpp::stop("Wrong prior dimensions");
     }
 
     auto first = bsccs::priors::makePrior(parsePriorType(priorName[0]),
-                                          std::move(priorFunctionPtr[0]));
-    auto prior = bsccs::make_shared<bsccs::priors::MixtureJointPrior>(first, length);
+                                          priorFunctionPtr, 0);
+    auto prior = bsccs::make_shared<bsccs::priors::MixtureJointPrior>(first, dataLength);
 
-    for (size_t i = 1; i < length; ++i) {
+    for (size_t i = 1; i < dataLength; ++i) {
         auto columnPrior = bsccs::priors::makePrior(parsePriorType(priorName[i]),
-                                                    std::move(priorFunctionPtr[i]));
+                                                    priorFunctionPtr, i);
         prior->changePrior(columnPrior, i);
     }
+
+    // Set-up call back
+
+    // getDelta(const GradientHessian gh, const DoubleVector& beta, const int index)
+
+    // priors::GradientHessian gh;
+    // std::vector<double> beta(dataLength);
+    // prior->getDelta(gh, beta, 0);
+    // prior->getDelta(gh, beta, 2);
+    //
+    // Rcpp::stop("out");
 
     return prior;
 }

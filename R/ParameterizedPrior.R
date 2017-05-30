@@ -29,7 +29,16 @@ createParameterizedPrior <- function(priorType,
     validNames = c("none", "laplace","normal")
     stopifnot(priorType %in% validNames)
 
-    if (length(priorType) != length(parameterize)) {
+    if (missing(values)) {
+        stop("Must provide parameter values")
+    }
+
+    parameterizationEval <- parameterize(values)
+    if (!inherits(parameterizationEval, "list")) {
+        stop("Parameterization function should return a list")
+    }
+
+    if (length(priorType) != length(parameterizationEval)) {
         stop("Prior types and functions have a dimensionality mismatch")
     }
 
@@ -54,7 +63,7 @@ createParameterizedPrior <- function(priorType,
                                    priorType,
                                    parameterize,
                                    values,
-                                   excludeNumerics = NULL)
+                                   excludeNumeric = NULL)
     }
 
     structure(list(priorType = priorType,
