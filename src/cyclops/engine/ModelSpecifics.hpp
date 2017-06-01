@@ -601,7 +601,7 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(real* we
 }   // END OF DIFF
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::getPredictiveEstimates(real* y, real* weights){
+void ModelSpecifics<BaseModel,WeightType>::getPredictiveEstimates(real* y, real* weights){//}, const PredictionType type){
 
 	// TODO Check with SM: the following code appears to recompute hXBeta at large expense
 //	std::vector<real> xBeta(K,0.0);
@@ -612,17 +612,40 @@ void ModelSpecifics<BaseModel,WeightType>::getPredictiveEstimates(real* y, real*
 //			xBeta[k] += it.value() * hBeta[j] * weights[k];
 //		}
 //	}
+
+/*
+    struct Arg {
+        Vector& xBeta;
+        Vector& denom;
+        Vector& accDenom;
+    };
+
+    Arg arg{hXbeta, denomPid, accDenomPid};
+
 	if (weights) {
 		for (size_t k = 0; k < K; ++k) {
 			if (weights[k]) {
-				BaseModel::predictEstimate(y[k], hXBeta[k]);
+				BaseModel::predictEstimate(y[k], k, arg, type
+                                   );
 			}
 		}
 	} else {
 		for (size_t k = 0; k < K; ++k) {
 			BaseModel::predictEstimate(y[k], hXBeta[k]);
 		}
-	}
+	}*/
+if (weights) {
+    for (size_t k = 0; k < K; ++k) {
+        if (weights[k]) {
+            BaseModel::predictEstimate(y[k], hXBeta[k]);
+        }
+    }
+} else {
+    for (size_t k = 0; k < K; ++k) {
+        BaseModel::predictEstimate(y[k], hXBeta[k]);
+    }
+}
+
 	// TODO How to remove code duplication above?
 }
 

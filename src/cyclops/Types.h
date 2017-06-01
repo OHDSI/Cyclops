@@ -51,7 +51,7 @@ namespace bsccs {
 #if __cplusplus >= 201402L
 	using std::make_unique; // Use C++14 version
 #else
-	// Emulate 
+	// Emulate
 	template<typename T, typename ...Args>
 	bsccs::unique_ptr<T> make_unique( Args&& ...args ) {
     	return bsccs::unique_ptr<T>( new T( std::forward<Args>(args)... ) );
@@ -127,6 +127,13 @@ enum UpdateReturnFlags {
 };
 
 typedef std::vector<IdType> ProfileVector;
+
+/*enum class PredictionType {
+    LINEAR_PREDICTOR = 0,
+    SURVIVAL_PROBABILITY,
+    SIZE_OF_ENUM // Keep at end
+};
+ */
 
 enum class ModelType {
 	NONE = 0,
