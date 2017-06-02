@@ -25,11 +25,13 @@ public:
     typedef std::vector<Evaluation> ResultSet;
 
 
-    PriorFunction(std::vector<double>& startingParameters) : CacheCallback()//,
+    PriorFunction(const std::vector<double>& startingParameters) : CacheCallback()//,
            // variancePtrs(variancePtrs)
         {
         for (unsigned int i = 0; i < startingParameters.size(); ++i) {
-            variancePtrs.emplace_back(bsccs::make_shared<double>(startingParameters[i]));
+            VariancePtr ptr(bsccs::make_shared<double>(startingParameters[i]), this);
+            variancePtrs.emplace_back(ptr);
+           // variancePtrs[i]->setCallback(this);
         }
 
     }
@@ -45,12 +47,12 @@ public:
             makeValid();
         }
         const auto length = results.size();
-        std::cerr << "maxindex = " << length << std::endl;
+        // std::cerr << "maxindex = " << length << std::endl;
         return length;
     }
 
     const Evaluation& operator()(unsigned int index) {
-        std::cerr << "operator()(usigned int)" << std::endl;
+        // std::cerr << "operator()(usigned int)" << std::endl;
         if (!isValid()) {
             makeValid();
         }
@@ -78,11 +80,13 @@ protected:
 
 private:
     void makeValid() {
-        std::cerr << "makeValid()" << std::endl;
+        // std::cerr << "makeValid()" << std::endl;
 
         Arguments arguments;
         for (unsigned int i = 0; i < variancePtrs.size(); ++i) {
-            arguments.push_back(*variancePtrs[i]);
+            // std::cerr << "try const" << std::endl;
+            arguments.push_back(variancePtrs[i].get());
+            // std::cerr << "end try" << std::endl;
         }
         results = execute(arguments);
         setValid(true);

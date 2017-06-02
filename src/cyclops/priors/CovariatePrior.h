@@ -37,28 +37,41 @@ public:
     typedef  bsccs::shared_ptr<T> SharedPtr;
 
 public:
-    CallbackSharedPtr(T* t) : ptr(t), callback(nullptr) { }
+ //   CallbackSharedPtr(T* t) : ptr(t), callback(nullptr) { }
 
-    CallbackSharedPtr(T* t, C* c) : ptr(t), callback(c) { }
+//    CallbackSharedPtr(T* t, C* c) : ptr(t), callback(c) { }
 
     // CallbackSharedPtr(const CallbackSharedPtr& refptr) :  ptr(refptr),
     //     callback(refptr.callback) { }
 
     CallbackSharedPtr(const SharedPtr& refptr) : ptr(refptr), callback(nullptr) { }
 
-    const T& operator*() const { return *ptr; }
+    CallbackSharedPtr(const SharedPtr& refptr, C* c) : ptr(refptr), callback(c) { }
 
-    T& operator*() {
+    // const T& operator*() const { return *ptr; }
+    //
+    // T& operator*() {
+    //     std::cerr << "A ";
+    //     signal();
+    //     return *ptr;
+    // }
+
+    void set(const T& t) {
         signal();
+        *ptr = t;
+    }
+
+    const T& get() const {
         return *ptr;
     }
 
-    const T* operator->() const { return ptr.operator->(); }
-
-    T* operator->() {
-        signal();
-        return ptr.operator->();
-    }
+    // const T* operator->() const { return ptr.operator->(); }
+    //
+    // T* operator->() {
+    //     std::cerr << "B ";
+    //     signal();
+    //     return ptr.operator->();
+    // }
 
     void setCallback(C* c) {
         callback = c;
@@ -66,6 +79,7 @@ public:
 
 private:
     void signal() {
+        // std::cerr << "signal()" << std::endl;
         if (callback != nullptr) {
             callback->callback();
         }
@@ -91,18 +105,18 @@ private:
 struct CacheCallback : public Cachable {
 
     CacheCallback() : Cachable() {
-        std::cerr <<"ctor Cachable" << std::endl;
+        // std::cerr <<"ctor Cachable" << std::endl;
     }
 
     void callback() {
-        std::cerr << "callback()" << std::endl;
+        // std::cerr << "callback()" << std::endl;
         setValid(false);
     }
 };
 
-struct NoCallback { // TODO Use enable_if
-    void callback() { }
-};
+// struct NoCallback { // TODO Use enable_if
+//     void callback() { }
+// };
 
 typedef CallbackSharedPtr<double,CacheCallback> VariancePtr;
 
@@ -270,7 +284,7 @@ protected:
 	}
 
 	double getLambda() const {
-		return convertVarianceToHyperparameter(*variance);
+		return convertVarianceToHyperparameter(variance.get());
 	}
 
 private:
@@ -341,7 +355,7 @@ public:
 
 private:
 	double getEpsilon() const {
-		return convertVarianceToHyperparameter(*variance2);
+		return convertVarianceToHyperparameter(variance2.get());
 	}
 
 	VariancePtr variance2;
@@ -404,7 +418,7 @@ public:
 
 protected:
     double getVariance() const {
-        return *variance;
+        return variance.get();
     }
 
 private:
@@ -448,7 +462,7 @@ public:
     }
 
 protected:
-    double getVariance2() const { return *variance2; }
+    double getVariance2() const { return variance2.get(); }
 
 private:
     VariancePtr variance2;

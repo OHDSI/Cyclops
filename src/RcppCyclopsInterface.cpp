@@ -220,7 +220,7 @@ public:
     using bsccs::priors::PriorFunction::ResultSet;
     using bsccs::priors::PriorFunction::Evaluation;
 
-    RcppPriorFunction(Rcpp::Function function, std::vector<double>& startingParameters) :
+    RcppPriorFunction(Rcpp::Function function, const std::vector<double>& startingParameters) :
         PriorFunction(startingParameters), function(function) {
         // Do nothing
     }
@@ -243,12 +243,61 @@ private:
     Rcpp::Function function;
 };
 
-// [[Rcpp::export(".cyclopsSetFunctionalPrior")]]
-void cyclopsSetFunctionalPrior(SEXP inRcppCcdInterface,
-                               const std::vector<std::string>& priorTypeName,
-                               Rcpp::Function& priorFunction,
-                               const std::vector<double>& startingParameters,
-                               SEXP excludeNumeric) {
+// [[Rcpp::export(".cyclopsTestParameterizedPrior")]]
+Rcpp::List cyclopsTestParameterizedPrior(Rcpp::Function& priorFunction,
+                                   const std::vector<double>& startingParameters,
+                                   const std::vector<int>& indices,
+                                   const std::vector<double>& values) {
+    RcppPriorFunction func(priorFunction, startingParameters);
+
+    std::ostringstream stream;
+
+    std::vector<int> valid;
+    std::vector<std::vector<double>> evaluation;
+
+    if (indices.size() != values.size()) {
+        Rcpp::stop("Noncomforming test vectors");
+    }
+
+    auto parameter = func.getVarianceParameters();
+
+    for (int i = 0;i < indices.size(); ++i) {
+
+        if (indices[i] > 0) {
+            std::cerr << "set value" << std::endl;
+           parameter[indices[i] - 1].set(values[i]);
+           std::cerr << "end set" << std::endl;
+        }
+
+        std::cerr << "isValid?" << std::endl;
+        valid.push_back(func.isValid());
+        std::cerr << "end isvalid" << std::endl;
+
+        evaluation.push_back(func(0));
+    }
+//
+//     stream << func.isValid();
+//
+//     const auto result = func(0);
+//     for (auto it = std::begin(result); it != std::end(result); ++it) {
+//         stream << " " << *it;
+//     }
+//
+//     stream << " " << func.isValid() << std::endl;
+    // return stream.str();
+
+    return List::create(
+        Rcpp::Named("valid") = valid,
+        Rcpp::Named("evaluation") = evaluation
+    );
+}
+
+// [[Rcpp::export(".cyclopsSetParameterizedPrior")]]
+void cyclopsSetParameterizedPrior(SEXP inRcppCcdInterface,
+                                  const std::vector<std::string>& priorTypeName,
+                                  Rcpp::Function& priorFunction,
+                                  const std::vector<double>& startingParameters,
+                                  SEXP excludeNumeric) {
     using namespace bsccs;
     using namespace bsccs::priors;
 
@@ -259,27 +308,10 @@ void cyclopsSetFunctionalPrior(SEXP inRcppCcdInterface,
         exclude = as<ProfileVector>(excludeNumeric);
     }
 
-    // auto arguments = make_shared<PriorFunction::Arguments>(
-    //     std::begin(startingParameters), std::end(startingParameters)
-    // );
-
-    // std::vector<VariancePtr> variancePtrs;
-    // for (unsigned int i = 0; startingParameters.size(); ++i) {
-    //     variancePtrs.push_back(bsccs::make_shared<double>(startingParameters[i]));
-    // }
-
     PriorFunctionPtr abstractFunc = bsccs::make_shared<RcppPriorFunction>(
         as<Function>(priorFunction), startingParameters);
 
-    // for (int i = 0; i < priorFunctionList.size(); ++i) {
-    //     auto rcppFunc = as<Function>(priorFunctionList[i]);
-    //     abstractPriorFunction.emplace_back(
-    //         make_unique<RcppPriorFunction>(rcppFunc, arguments)
-    //         // bsccs::make_shared<RcppPriorFunction>(rcppFunc, arguments)
-    //     );
-    //
-    // }
-    interface->setFunctionalPrior(priorTypeName, abstractFunc, exclude);
+    interface->setParameterizedPrior(priorTypeName, abstractFunc, exclude);
 }
 
 // [[Rcpp::export(".cyclopsProfileModel")]]
@@ -631,7 +663,7 @@ void RcppCcdInterface::setNoiseLevel(bsccs::NoiseLevels noiseLevel) {
     logger->setSilent(noiseLevel == bsccs::NoiseLevels::SILENT);
 }
 
-void RcppCcdInterface::setFunctionalPrior(const std::vector<std::string>& priorName,
+void RcppCcdInterface::setParameterizedPrior(const std::vector<std::string>& priorName,
                              bsccs::priors::PriorFunctionPtr& priorFunctionPtr,
                              const ProfileVector& flatPrior) {
     auto prior = makePrior(priorName, priorFunctionPtr, flatPrior);

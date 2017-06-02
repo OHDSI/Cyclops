@@ -53,8 +53,12 @@
     invisible(.Call('Cyclops_cyclopsSetPrior', PACKAGE = 'Cyclops', inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph, sexpNeighborhood))
 }
 
-.cyclopsSetFunctionalPrior <- function(inRcppCcdInterface, priorTypeName, priorFunction, startingParameters, excludeNumeric) {
-    invisible(.Call('Cyclops_cyclopsSetFunctionalPrior', PACKAGE = 'Cyclops', inRcppCcdInterface, priorTypeName, priorFunction, startingParameters, excludeNumeric))
+.cyclopsTestParameterizedPrior <- function(priorFunction, startingParameters, indices, values) {
+    .Call('Cyclops_cyclopsTestParameterizedPrior', PACKAGE = 'Cyclops', priorFunction, startingParameters, indices, values)
+}
+
+.cyclopsSetParameterizedPrior <- function(inRcppCcdInterface, priorTypeName, priorFunction, startingParameters, excludeNumeric) {
+    invisible(.Call('Cyclops_cyclopsSetParameterizedPrior', PACKAGE = 'Cyclops', inRcppCcdInterface, priorTypeName, priorFunction, startingParameters, excludeNumeric))
 }
 
 .cyclopsProfileModel <- function(inRcppCcdInterface, sexpCovariates, threads, threshold, override, includePenalty) {

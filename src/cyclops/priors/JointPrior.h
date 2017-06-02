@@ -57,13 +57,13 @@ public:
 
 	void setVariance(int index, double x) {
 		// TODO Check bounds
-		*variance[index] = x;
+		variance[index].set(x);
 	}
 
 	std::vector<double> getVariance() const {
 	    std::vector<double> tmp;
 	    for (auto v : variance) {
-	        tmp.push_back(*v);
+	        tmp.push_back(v.get());
 	    }
 		return tmp;
 	}
@@ -532,8 +532,8 @@ public:
 // 		double t1 = 1/hierarchyPriors[0]->getVariance(0); // this is the hyperparameter that is used in the original code
 // 		double t2 = 1/hierarchyPriors[1]->getVariance(0);
 
-		double t1 = 1.0 / *variance[0];
-		double t2 = 1.0 / *variance[1];
+		double t1 = 1.0 / variance[0].get();
+		double t2 = 1.0 / variance[1].get();
 
 		int parent = getParentMap.at(index);
 		const std::vector<int>& siblings = getChildMap.at(parent);

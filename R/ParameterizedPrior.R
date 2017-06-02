@@ -59,11 +59,11 @@ createParameterizedPrior <- function(priorType,
             warning("Excluding intercept from regularization")
         }
 
-        .cyclopsSetFunctionalPrior(cyclopsData$cyclopsInterfacePtr,
-                                   priorType,
-                                   parameterize,
-                                   values,
-                                   excludeNumeric = NULL)
+        .cyclopsSetParameterizedPrior(cyclopsData$cyclopsInterfacePtr,
+                                      priorType,
+                                      parameterize,
+                                      values,
+                                      excludeNumeric = NULL)
     }
 
     structure(list(priorType = priorType,

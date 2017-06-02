@@ -76,9 +76,9 @@ public:
     	return result;
     }
 
-    void setFunctionalPrior(const std::vector<std::string>& priorName,
-                            bsccs::priors::PriorFunctionPtr& priorFunctionPtr,
-                            const ProfileVector& flatPrior);
+    void setParameterizedPrior(const std::vector<std::string>& priorName,
+                              bsccs::priors::PriorFunctionPtr& priorFunctionPtr,
+                              const ProfileVector& flatPrior);
 
 	void setPrior(
 				const std::vector<std::string>& basePriorName,
