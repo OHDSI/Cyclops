@@ -1663,6 +1663,7 @@ public:
 
 	void predictEstimate(real& yi, real xBeta){
 		// do nothing for now
+		yi = xBeta;
 	}
 };
 

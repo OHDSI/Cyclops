@@ -239,6 +239,14 @@ getNumberOfTypes <- function(object) {
     .Call('Cyclops_cyclopsGetMeanOffset', PACKAGE = 'Cyclops', x)
 }
 
+getYVector <- function(object) {
+    .Call('Cyclops_cyclopsGetYVector', PACKAGE = 'Cyclops', object)
+}
+
+getTimeVector <- function(object) {
+    .Call('Cyclops_cyclopsGetTimeVector', PACKAGE = 'Cyclops', object)
+}
+
 .cyclopsFinalizeData <- function(x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag = FALSE) {
     invisible(.Call('Cyclops_cyclopsFinalizeData', PACKAGE = 'Cyclops', x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag))
 }
