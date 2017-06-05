@@ -8,6 +8,8 @@
 #'
 #' @return Baseline survival function, not adjusted for each covariate to have mean 0 (unlike coxph{survival})
 #'
+#' @importFrom survival survfit
+#'
 #' @export
 survfit.cyclopsFit <- function(formula) {
     times = getTimeVector(formula$cyclopsData)
