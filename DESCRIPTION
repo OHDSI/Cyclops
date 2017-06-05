@@ -32,7 +32,6 @@ LinkingTo: Rcpp,
     RcppParallel
 Suggests:
     testthat,
-    survival,
     gnm,
     ggplot2
 RoxygenNote: 5.0.1
