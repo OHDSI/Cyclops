@@ -24,7 +24,8 @@ Imports:
     ff,
     ffbase,
     RcppParallel,
-    methods
+    methods,
+    survival
 LinkingTo: Rcpp,
     BH (>= 1.51.0),
     RcppEigen (>= 0.3.2),
