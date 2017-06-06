@@ -2,6 +2,9 @@ languague: c
 sudo: false
 cache: packages
 
+r_packages:
+  devtools
+
 matrix:
   include:
     # gcc default
