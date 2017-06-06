@@ -31,11 +31,14 @@ matrix:
       before_script:
         - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
         - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')      
+        - export CC=gcc-6
+        - export CXX=g++-6
         - mkdir -p ~/.R
         - echo 'CC=gcc-6' > ~/.R/Makevars
         - echo 'CXX=g++-6' >> ~/.R/Makevars
         - echo 'CXX1X=g++-6' >> ~/.R/Makevars
         - echo 'PKG_CXXFLAGS= -std=c++14 -s -g1 -Wno-ignored-attributes -Wno-deprecated-declarations' >> ~/.R/Makevars
+        - source ~/.R/Makevars
     
 #cache:
 #  directories:
