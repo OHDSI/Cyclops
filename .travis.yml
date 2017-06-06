@@ -38,7 +38,7 @@ matrix:
         - echo 'CXX=g++-6' >> ~/.R/Makevars
         - echo 'CXX1X=g++-6' >> ~/.R/Makevars
         - echo 'PKG_CXXFLAGS= -std=c++14 -s -g1 -Wno-ignored-attributes -Wno-deprecated-declarations' >> ~/.R/Makevars
-        - source ~/.R/Makevars
+#        - source ~/.R/Makevars
     
 #cache:
 #  directories:
