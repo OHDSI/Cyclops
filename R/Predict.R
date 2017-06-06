@@ -27,6 +27,8 @@
 #' @param newCovariates  An optional data frame or ffdf object, similar to the object used in \code{\link{convertToCyclopsData}}.
 #' @param ...   Additional arguments
 #'
+#' @importFrom stats predict
+#'
 #' @export
 predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
     if (!missing(newOutcomes) && (missing(newCovariates) || is.null(newCovariates)))
