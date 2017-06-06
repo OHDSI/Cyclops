@@ -73,8 +73,8 @@ r_packages:
 #  - Rscript -e "if (!require('gnm')) install.packages('gnm')"
   
 before_script:
-  - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
-  - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')
+  - export PKG_NAME=$(R -e 'cat(paste0(devtools::as.package(".")$package))')
+  - export PKG_TARBALL=$(R -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')
   
  # Build and check package
 script:
@@ -83,9 +83,9 @@ script:
   - cat ${PKG_NAME}.Rcheck/00install.out # Print out install / compile log 
 
 after_success:
-  - Rscript -e 'covr::codecov()'
+  - R -e 'covr::codecov()'
   # Rebuild docker container
   - curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/broadsea-methodslibrary/trigger/f0b51cec-4027-4781-9383-4b38b42dd4f5/
   # Rebuild drat repo   
-  - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')    
+  - export PKG_TARBALL=$(R -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')    
   - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && bash deploy.sh
