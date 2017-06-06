@@ -31,6 +31,7 @@ matrix:
       before_script:
         - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
         - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')      
+        - mkdir -p ~/.R
         - echo 'CC=gcc-6' > ~/.R/Makevars
         - echo 'CXX=g++-6' >> ~/.R/Makevars
         - echo 'CXX1X=g++-6' >> ~/.R/Makevars
