@@ -110,4 +110,19 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
 
 }
 
-
+#' @title Calculates xbar*beta
+#' @description
+#' \code{meanLinearPredictor} computes xbar*beta for model fit
+#'
+#' @param cyclopsFit A Cyclops model fit object
+#'
+#' @export
+meanLinearPredictor <- function(cyclopsFit) {
+    cyclopsData = cyclopsFit$cyclopsData
+    dataSummary = summary(cyclopsData)
+    dataSummary$xbar = dataSummary$nzCount*dataSummary$nzMean/getNumberOfRows(cyclopsData)
+    dataSummary$beta = coef(cyclopsFit)[match(rownames(dataSummary),names(coef(cyclopsFit)))]
+    dataSummary$xbarBeta = dataSummary$xbar * dataSummary$beta
+    delta = sum(dataSummary$xbarBeta)
+    return (delta)
+}

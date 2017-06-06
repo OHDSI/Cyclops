@@ -4,13 +4,15 @@
 \alias{survfit.cyclopsFit}
 \title{Calculate baseline hazard function}
 \usage{
-\method{survfit}{cyclopsFit}(formula)
+\method{survfit}{cyclopsFit}(cyclopsFit, type = "aalen")
 }
 \arguments{
-\item{formula}{A Cyclops survival model fit object}
+\item{cyclopsFit}{A Cyclops survival model fit object}
+
+\item{type}{type of baseline survival, choices are: "aalen" (Breslow)}
 }
 \value{
-Baseline survival function, not adjusted for each covariate to have mean 0 (unlike coxph{survival})
+Baseline survival function for mean covariates
 }
 \description{
 \code{survfit.cyclopsFit} computes baseline hazard function
