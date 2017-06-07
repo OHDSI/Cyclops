@@ -399,6 +399,18 @@ double cyclopsGetMeanOffset(Environment x) {
         0.0;
 }
 
+// [[Rcpp::export("getYVector")]]
+std::vector<double> cyclopsGetYVector(Environment object) {
+    XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);
+    return (data->getYVectorRef());
+}
+
+// [[Rcpp::export("getTimeVector")]]
+std::vector<double> cyclopsGetTimeVector(Environment object) {
+    XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);
+    return (data->getTimeVectorRef());
+}
+
 // [[Rcpp::export(".cyclopsFinalizeData")]]
 void cyclopsFinalizeData(
         Environment x,

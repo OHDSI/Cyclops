@@ -27,6 +27,8 @@
 #' @param newCovariates  An optional data frame or ffdf object, similar to the object used in \code{\link{convertToCyclopsData}}.
 #' @param ...   Additional arguments
 #'
+#' @importFrom stats predict
+#'
 #' @export
 predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
     if (!missing(newOutcomes) && (missing(newCovariates) || is.null(newCovariates)))
@@ -110,4 +112,19 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
 
 }
 
-
+#' @title Calculates xbar*beta
+#' @description
+#' \code{meanLinearPredictor} computes xbar*beta for model fit
+#'
+#' @param cyclopsFit A Cyclops model fit object
+#'
+#' @export
+meanLinearPredictor <- function(cyclopsFit) {
+    cyclopsData = cyclopsFit$cyclopsData
+    dataSummary = summary(cyclopsData)
+    dataSummary$xbar = dataSummary$nzCount*dataSummary$nzMean/getNumberOfRows(cyclopsData)
+    dataSummary$beta = coef(cyclopsFit)[match(rownames(dataSummary),names(coef(cyclopsFit)))]
+    dataSummary$xbarBeta = dataSummary$xbar * dataSummary$beta
+    delta = sum(dataSummary$xbarBeta)
+    return (delta)
+}

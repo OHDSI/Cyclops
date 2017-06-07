@@ -551,6 +551,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsGetYVector
+std::vector<double> cyclopsGetYVector(Environment object);
+RcppExport SEXP Cyclops_cyclopsGetYVector(SEXP objectSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type object(objectSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetYVector(object));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cyclopsGetTimeVector
+std::vector<double> cyclopsGetTimeVector(Environment object);
+RcppExport SEXP Cyclops_cyclopsGetTimeVector(SEXP objectSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type object(objectSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetTimeVector(object));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsFinalizeData
 void cyclopsFinalizeData(Environment x, bool addIntercept, SEXP sexpOffsetCovariate, bool offsetAlreadyOnLogScale, bool sortCovariates, SEXP sexpCovariatesDense, bool magicFlag);
 RcppExport SEXP Cyclops_cyclopsFinalizeData(SEXP xSEXP, SEXP addInterceptSEXP, SEXP sexpOffsetCovariateSEXP, SEXP offsetAlreadyOnLogScaleSEXP, SEXP sortCovariatesSEXP, SEXP sexpCovariatesDenseSEXP, SEXP magicFlagSEXP) {
