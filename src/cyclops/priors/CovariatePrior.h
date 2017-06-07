@@ -77,6 +77,10 @@ public:
         callback = c;
     }
 
+    bool operator==(const CallbackSharedPtr<T,C>& rhs) noexcept {
+        return ptr == rhs.ptr;
+    }
+
 private:
     void signal() {
         // std::cerr << "signal()" << std::endl;

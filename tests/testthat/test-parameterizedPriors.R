@@ -80,3 +80,41 @@ test_that("Specify parameterized L1 regularization", {
     expect_equivalent(coef(fit)[4:5], c(0.2, 0.2))
 })
 
+test_that("Using parameterized cross-validation", {
+    skip_on_cran() # Do not run on CRAN
+
+    ntest <- 1000
+    ntrain <- 1000
+    ncovars <- 2000
+
+    set.seed(666)
+
+    data <- simulateCyclopsData(nstrata=1,nrows=ntest+ntrain,ncovars=ncovars,model="logistic")
+    test <- list(outcomes = data$outcomes[1:ntest,], covariates = data$covariates[data$covariates$rowId %in% data$outcomes$rowId[1:ntest],])
+    train <- list(outcomes = data$outcomes[(ntest+1):(ntest+ntrain),], covariates = data$covariates[data$covariates$rowId %in% data$outcomes$rowId[(ntest+1):(ntest+ntrain)],])
+    cyclopsData <- convertToCyclopsData(train$outcomes,train$covariates,modelType = "lr",addIntercept = TRUE)
+
+    prior1 <- createParameterizedPrior(c("none", rep("laplace", ncovars)),
+                                      parameterize = function(x) {
+                                          lapply(1:(ncovars + 1), function(i) { c(0,x) })
+                                      },
+                                      values = c(1),
+                                      useCrossValidation = TRUE)
+
+    prior2 <- createPrior("laplace", exclude = c(0), useCrossValidation = TRUE)
+
+    control <- createControl(noiseLevel = "silent", cvType = "auto", cvRepetitions = 1, seed = 666, threads = 1, resetCoefficients = TRUE)
+
+    time1 <- system.time(fit1 <- fitCyclopsModel(cyclopsData,
+                                                 prior=prior1,
+                                                 control=control,
+                                                 forceNewObject = TRUE))
+
+    time2 <- system.time(fit2 <- fitCyclopsModel(cyclopsData,
+                                                 prior=prior2,
+                                                 control=control,
+                                                 forceNewObject = TRUE))
+    expect_equal(fit1$variance, fit2$variance)
+
+})
+

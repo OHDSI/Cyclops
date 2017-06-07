@@ -42,7 +42,7 @@ createParameterizedPrior <- function(priorType,
         stop("Prior types and functions have a dimensionality mismatch")
     }
 
-    if (priorType == "none" && useCrossValidation) {
+    if (all(priorType == "none") && useCrossValidation) {
         stop("Cannot perform cross validation with a flat prior")
     }
 

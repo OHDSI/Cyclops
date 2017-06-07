@@ -84,6 +84,7 @@ std::vector<double> AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	const double tolerance = 1E-2; // TODO Make Cyclops argument
 
 	int nDim = ccd.getHyperprior().size();
+
 	std::vector<double> currentOptimal(nDim, tryvalue);
 
 	bool globalFinished = false;

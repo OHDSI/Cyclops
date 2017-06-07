@@ -46,7 +46,9 @@ public:
 //  	virtual JointPrior* clone() const = 0; // pure virtual
 
     void addVarianceParameter(const VariancePtr& ptr) {
-        variance.push_back(ptr); // TODO Check for uniqueness
+        if (std::find(variance.begin(), variance.end(), ptr) == variance.end()) {
+            variance.push_back(ptr);
+        }
     }
 
 	void addVarianceParameters(const std::vector<VariancePtr>& ptrs) {
@@ -89,6 +91,7 @@ public:
 		// TODO assert(index < listPriors.size());
 		listPriors[index] = newPrior;
 		uniquePriors.push_back(newPrior);
+		addVarianceParameters(newPrior->getVarianceParameters());
 	}
 
 	const std::string getDescription() const {

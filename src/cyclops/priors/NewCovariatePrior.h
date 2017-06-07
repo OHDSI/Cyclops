@@ -109,9 +109,7 @@ public:
 	}
 
 	std::vector<VariancePtr> getVarianceParameters() const {
-	    auto tmp = std::vector<VariancePtr>();
-	    // tmp.push_back(variance);
-		return tmp;
+	    return priorFunction->getVarianceParameters();
 	}
 
 protected:
@@ -181,6 +179,7 @@ static PriorPtr makePrior(PriorType priorType, PriorFunctionPtr& priorFunction,
         prior = bsccs::make_shared<NewLaplacePrior>(priorFunction, index);
         break;
     case NORMAL :
+        Rcpp::stop("Parameterized normal priors are not yet implemented");
         prior = bsccs::make_shared<NormalPrior>(1.0);
         break;
     default : break;

@@ -228,7 +228,7 @@ public:
 protected:
 
     ResultSet execute(const Arguments& arguments) const {
-        std::cerr << "execute()" << std::endl;
+        // std::cerr << "execute()" << std::endl;
         ResultSet results;
         const auto list = as<List>(function(arguments));
 
@@ -264,27 +264,12 @@ Rcpp::List cyclopsTestParameterizedPrior(Rcpp::Function& priorFunction,
     for (int i = 0;i < indices.size(); ++i) {
 
         if (indices[i] > 0) {
-            std::cerr << "set value" << std::endl;
            parameter[indices[i] - 1].set(values[i]);
-           std::cerr << "end set" << std::endl;
         }
 
-        std::cerr << "isValid?" << std::endl;
         valid.push_back(func.isValid());
-        std::cerr << "end isvalid" << std::endl;
-
         evaluation.push_back(func(0));
     }
-//
-//     stream << func.isValid();
-//
-//     const auto result = func(0);
-//     for (auto it = std::begin(result); it != std::end(result); ++it) {
-//         stream << " " << *it;
-//     }
-//
-//     stream << " " << func.isValid() << std::endl;
-    // return stream.str();
 
     return List::create(
         Rcpp::Named("valid") = valid,
@@ -692,17 +677,6 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
                                                     priorFunctionPtr, i);
         prior->changePrior(columnPrior, i);
     }
-
-    // Set-up call back
-
-    // getDelta(const GradientHessian gh, const DoubleVector& beta, const int index)
-
-    // priors::GradientHessian gh;
-    // std::vector<double> beta(dataLength);
-    // prior->getDelta(gh, beta, 0);
-    // prior->getDelta(gh, beta, 2);
-    //
-    // Rcpp::stop("out");
 
     return prior;
 }
