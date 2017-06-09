@@ -116,5 +116,26 @@ test_that("Using parameterized cross-validation", {
                                                  forceNewObject = TRUE))
     expect_equal(fit1$variance, fit2$variance)
 
+    prior3 <- createParameterizedPrior(c("none", rep("laplace", ncovars)),
+                                       parameterize = function(x) {
+                                           lapply(1:(ncovars + 1),
+                                                  function(i) {
+                                                      if (i < (ncovars / 2)) {
+                                                          return(c(0,x[1]))
+                                                      } else {
+                                                          return(c(0,2 * x[2]))
+                                                      }
+                                                  }
+                                           )
+                                       },
+                                       values = c(1, 0.5),
+                                       useCrossValidation = TRUE)
+
+    # time3 <- system.time(fit3 <- fitCyclopsModel(cyclopsData,
+    #                                              prior=prior3,
+    #                                              control=control,
+    #                                              forceNewObject = TRUE))
+
+
 })
 
