@@ -230,7 +230,10 @@ protected:
     ResultSet execute(const Arguments& arguments) const {
         // std::cerr << "execute()" << std::endl;
         ResultSet results;
+
+        lock.lock();
         const auto list = as<List>(function(arguments));
+        lock.unlock();
 
         for (int i = 0; i < list.size(); ++i) {
             results.emplace_back(as<Evaluation>(list[i]));
@@ -241,6 +244,7 @@ protected:
 
 private:
     Rcpp::Function function;
+    mutable bsccs::mutex lock;
 };
 
 // [[Rcpp::export(".cyclopsTestParameterizedPrior")]]
