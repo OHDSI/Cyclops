@@ -47,16 +47,19 @@ test_that("Grid in R and auto-search in C++", {
 
     prior <- createPrior("laplace", exclude = c(0), useCrossValidation = TRUE)
 
-    control <- createControl(noiseLevel = "silent",
+    control <- createControl(noiseLevel = "quiet",
                               cvType = "auto",
                               cvRepetitions = 1,
                               seed = seed)
 
-    fit <- fitCyclopsModel(cyclopsData, prior, control)
+    out <- capture.output(fit <- fitCyclopsModel(cyclopsData, prior, control))
 
     cv <- Cyclops:::getCrossValidationInfo(fit)
 
-    expect_equal(cv$ordinate, -35.2885)
+    printValue <- as.numeric(gsub(".* log likelihood \\((.*)\\) estimated.*", "\\1",
+                                  capture.output(cat(out))))
+
+    expect_equal(cv$ordinate, printValue)
 
     # out1 <- capture.output(fit1 <- fitCyclopsModel(cyclopsData,
     #                                                prior = prior,
