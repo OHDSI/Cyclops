@@ -52,15 +52,15 @@ void AutoSearchCrossValidationDriver::logResults(const CCDArguments& allArgument
 		error->throwError(stream);
 	}
 	outLog << std::scientific;
-	for (int i = 0; i < maxPoint.size(); ++i) {
-	    outLog << maxPoint[i] << " ";
+	for (int i = 0; i < maxPoint.point.size(); ++i) {
+	    outLog << maxPoint.point[i] << " ";
 	}
 	outLog << std::endl;
 	outLog.close();
 }
 
 // This is specific to auto-search
-std::vector<double> AutoSearchCrossValidationDriver::doCrossValidationLoop(
+MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
 			const CCDArguments& allArguments,
@@ -157,7 +157,7 @@ std::vector<double> AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	        globalFinished = (diff < tolerance);
 	    }
 	}
-	return currentOptimal;
+	return MaxPoint{currentOptimal, 0.0};
 }
 
 } // namespace

@@ -45,7 +45,7 @@ void HierarchyAutoSearchCrossValidationDriver::resetForOptimal(
 		const CCDArguments& arguments) {
 
 	ccd.setWeights(NULL);
-	ccd.setHyperprior(maxPoint[0]);
+	ccd.setHyperprior(maxPoint.point[0]);
 	ccd.setClassHyperprior(maxPointClass);
 	ccd.resetBeta(); // Cold-start
 }
@@ -141,20 +141,20 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
         }
 	}
 
-	maxPoint[0] = tryvalue;
+	maxPoint.point[0] = tryvalue;
 	maxPointClass = tryvalueClass;
 
 	// Report results
 	std::ostringstream stream2;
 	stream2 << std::endl;
 	stream2 << "Maximum predicted log likelihood estimated at:" << std::endl;
-	stream2 << "\t" << maxPoint[0] << " (variance)" << std::endl;
+	stream2 << "\t" << maxPoint.point[0] << " (variance)" << std::endl;
 	stream2 << "class level = " << maxPointClass;
 	logger->writeLine(stream2);
 
 
 	if (!allArguments.useNormalPrior) {
-		double lambda = convertVarianceToHyperparameter(maxPoint[0]);
+		double lambda = convertVarianceToHyperparameter(maxPoint.point[0]);
 		std::ostringstream stream;
 		stream << "\t" << lambda << " (lambda)";
 		logger->writeLine(stream);

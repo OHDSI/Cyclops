@@ -58,7 +58,7 @@ protected:
 // 	std::vector<real>* weightsExclude;
 	double maxSteps;
 
-	virtual std::vector<double> doCrossValidationLoop(
+	virtual MaxPoint doCrossValidationLoop(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
 			const CCDArguments& arguments,

@@ -17,6 +17,11 @@ class CyclicCoordinateDescent;
 class AbstractSelector;
 struct CCDArguments;
 
+struct MaxPoint {
+    std::vector<double> point;
+    double value;
+};
+
 class AbstractCrossValidationDriver : public AbstractDriver {
 public:
 	AbstractCrossValidationDriver(
@@ -42,7 +47,7 @@ public:
 protected:
 
     // Derived classes use different optimization loops
-	virtual std::vector<double> doCrossValidationLoop(
+	virtual MaxPoint doCrossValidationLoop(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
 			const CCDArguments& arguments,
@@ -64,7 +69,7 @@ protected:
 
 	double computeStDev(const std::vector<double>& value, double mean);
 
-	std::vector<double> maxPoint;
+	MaxPoint maxPoint;
 	std::vector<real>* weightsExclude;
 };
 

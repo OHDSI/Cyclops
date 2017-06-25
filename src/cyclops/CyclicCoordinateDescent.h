@@ -140,7 +140,11 @@ public:
 
 	std::vector<double> getHyperprior(void) const;
 
-	string getPriorInfo();
+	string getPriorInfo() const;
+
+	string getCrossValidationInfo() const;
+
+	void setCrossValidationInfo(string info);
 
 	string getConditionId() const {
 		return conditionId;
@@ -308,7 +312,7 @@ protected:
  	const double* hY; // K-vector
 	const int* hPid;
 	int** hXColumnRowIndicators; // J-vector
-	
+
 	typedef std::vector<double> DoubleVector;
 	DoubleVector hBeta;
 
@@ -355,6 +359,8 @@ protected:
 	typedef std::deque<SetBetaEntry> SetBetaContainer;
 
 	SetBetaContainer setBetaList;
+
+	string crossValidationInfo;
 
 	loggers::ProgressLoggerPtr logger;
 	loggers::ErrorHandlerPtr error;
