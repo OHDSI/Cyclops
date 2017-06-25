@@ -54,7 +54,7 @@ test_that("Grid in R and auto-search in C++", {
 
     fit <- fitCyclopsModel(cyclopsData, prior, control)
 
-    cv <- Cyclops::getCrossValidationInfo(fit)
+    cv <- Cyclops:::getCrossValidationInfo(fit)
 
     expect_equal(cv$ordinate, -35.2885)
 
