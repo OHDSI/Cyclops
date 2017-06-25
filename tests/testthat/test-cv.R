@@ -36,7 +36,7 @@ test_that("Grid in R and auto-search in C++", {
     set.seed(seed)
 
     data <- simulateCyclopsData(nstrata = 1,
-                                nrows = 100,
+                                nrows = 1000,
                                 ncovars = 200,
                                 model = "logistic")
 
@@ -47,12 +47,16 @@ test_that("Grid in R and auto-search in C++", {
 
     prior <- createPrior("laplace", exclude = c(0), useCrossValidation = TRUE)
 
-    control <- createControl(noiseLevel = "quiet",
+    control <- createControl(noiseLevel = "silent",
                               cvType = "auto",
                               cvRepetitions = 1,
                               seed = seed)
 
     fit <- fitCyclopsModel(cyclopsData, prior, control)
+
+    cv <- Cyclops::getCrossValidationInfo(fit)
+
+    expect_equal(cv$ordinate, -35.2885)
 
     # out1 <- capture.output(fit1 <- fitCyclopsModel(cyclopsData,
     #                                                prior = prior,

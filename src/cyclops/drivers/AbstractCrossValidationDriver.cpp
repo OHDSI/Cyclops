@@ -105,11 +105,14 @@ void AbstractCrossValidationDriver::drive(
 
 	// Report results
 	std::ostringstream stream1;
+	std::ostringstream report;
 	stream1 << std::endl;
 	stream1 << "Maximum predicted log likelihood (" << maxPoint.value << ") estimated at:" << std::endl;
+	report << maxPoint.value;
 	stream1 << "\t";
 	for (int i = 0; i < maxPoint.point.size(); ++i) {
 	    stream1 << maxPoint.point[i] << " ";
+	    report << " " << maxPoint.point[i];
 	}
 	stream1 << "(variance)" << std::endl;
 	if (!allArguments.useNormalPrior) {
@@ -121,6 +124,8 @@ void AbstractCrossValidationDriver::drive(
 		stream1 << "(lambda)" << std::endl;
 	}
 	logger->writeLine(stream1);
+
+	ccd.setCrossValidationInfo(report.str());
 }
 
 double AbstractCrossValidationDriver::doCrossValidationStep(

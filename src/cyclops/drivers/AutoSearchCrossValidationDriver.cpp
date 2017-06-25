@@ -86,6 +86,7 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	int nDim = ccd.getHyperprior().size();
 
 	std::vector<double> currentOptimal(nDim, tryvalue);
+	double currentOptimalValue;
 
 	bool globalFinished = false;
 	std::vector<double> savedOptimal;
@@ -121,12 +122,13 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	            std::ostringstream stream;
 	            stream << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
 	            searcher.tried(currentOptimal[dim], pointEstimate, stdDevEstimate);
-	            pair<bool,double> next = searcher.step();
+	            StepValue next = searcher.step();
 	            stream << "Completed at " << currentOptimal[dim] << std::endl;
-	            stream << "Next point at " << next.second << " and " << next.first;
+	            stream << "Next point at " << next.second << " with value " << next.expected << " and continue = " << next.first;
 	            logger->writeLine(stream);
 
 	            currentOptimal[dim] = next.second;
+	            currentOptimalValue = next.expected;
 	            if (!next.first) {
 	                dimFinished = true;
 	            }
@@ -157,7 +159,7 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	        globalFinished = (diff < tolerance);
 	    }
 	}
-	return MaxPoint{currentOptimal, 0.0};
+	return MaxPoint{currentOptimal, currentOptimalValue};
 }
 
 } // namespace

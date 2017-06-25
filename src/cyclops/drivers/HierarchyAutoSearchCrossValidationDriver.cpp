@@ -105,7 +105,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
         // alternate adapting the class and element level, unless one is finished
         if ((step % 2 == 0 && !drugLevelFinished) || classLevelFinished){
         	searcher.tried(tryvalue, pointEstimate, stdDevEstimate);
-        	pair<bool,double> next = searcher.step();
+        	StepValue next = searcher.step();
         	tryvalue = next.second;
         	std::ostringstream stream;
             stream << "Next point at " << next.second << " and " << next.first;
@@ -115,7 +115,7 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
             }
        	} else {
        		searcherClass.tried(tryvalueClass, pointEstimate, stdDevEstimate);
-       		pair<bool,double> next = searcherClass.step();
+       		StepValue next = searcherClass.step();
        		tryvalueClass = next.second;
        		std::ostringstream stream;
        	    stream << "Next Class point at " << next.second << " and " << next.first;

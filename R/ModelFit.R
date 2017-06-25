@@ -598,6 +598,25 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
     .cyclopsGetPredictiveLogLikelihood(object$cyclopsData$cyclopsInterfacePtr, weights)
 }
 
+#' @title Get cross-validation information from a Cyclops model fit
+#'
+#' @description {getCrossValidationInfo} returns the predicted optimal cross-validation point and ordinate
+#'
+#' @param object A Cyclops model fit object
+#'
+#' @keywords internal
+getCrossValidationInfo <- function(object) {
+    info <- object$cross_validation
+
+    if (is.na(info) || info == "") {
+        stop("No cross-validation information is available")
+    }
+
+    values <- as.numeric(unlist(strsplit(info, " ")))
+    list(ordinate = values[1],
+         point = values[-1])
+}
+
 .setControl <- function(cyclopsInterfacePtr, control) {
     if (!missing(control)) {
         stopifnot(inherits(control, "cyclopsControl"))
