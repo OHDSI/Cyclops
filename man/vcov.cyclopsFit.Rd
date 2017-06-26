@@ -22,3 +22,4 @@ A matrix of the estimates covariances between all covariate estimates.
 \description{
 \code{vcov.cyclopsFit} returns the variance-covariance matrix for all covariates of a Cyclops model object
 }
+

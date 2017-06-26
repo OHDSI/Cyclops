@@ -10,11 +10,6 @@
 #' @param useCrossValidation    Logical: Perform cross-validation to determine \code{parameters}.
 #' @param forceIntercept  Logical: Force intercept coefficient into prior
 #'
-#' @section Prior types:
-#'
-#' @examples
-#'
-#'
 #' @return
 #' A Cyclops prior object of class inheriting from \code{"cyclopsPrior"} and \code{"cyclopsFunctionalPrior"}
 #' for use with \code{fitCyclopsModel}.
@@ -69,6 +64,8 @@ createParameterizedPrior <- function(priorType,
     structure(list(priorType = priorType,
                    useCrossValidation = useCrossValidation,
                    forceIntercept = forceIntercept,
-                   setHook = setHook),
-              class = c("cyclopsPrior", "cyclopsFunctionalPrior"))
+                   setHook = setHook,
+                   parameterize = parameterize,
+                   values = values),
+              class = c("cyclopsPrior", "cyclopsParameterizedPrior"))
 }

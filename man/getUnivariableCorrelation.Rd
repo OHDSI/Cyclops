@@ -19,3 +19,4 @@ A list of covariates whose absolute correlation with the outcome is greater than
 \description{
 \code{getUnivariableCorrelation} reports covariates that have high correlation with the outcome
 }
+

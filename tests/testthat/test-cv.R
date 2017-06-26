@@ -35,9 +35,12 @@ test_that("Grid in R and auto-search in C++", {
     seed <- 666
     set.seed(seed)
 
+    nrows <- 1000
+    ncovars <- 200
+
     data <- simulateCyclopsData(nstrata = 1,
-                                nrows = 1000,
-                                ncovars = 200,
+                                nrows = nrows,
+                                ncovars = ncovars,
                                 model = "logistic")
 
     cyclopsData <- convertToCyclopsData(data$outcomes,
@@ -61,9 +64,40 @@ test_that("Grid in R and auto-search in C++", {
 
     expect_equal(cv$ordinate, printValue)
 
-    # out1 <- capture.output(fit1 <- fitCyclopsModel(cyclopsData,
-    #                                                prior = prior,
-    #                                                control = control1))
+    outerGrid <- c(0.5, 1, 2)
+    expect_error(createAutoGridCrossValidationControl(outerGrid, autoPosition = 0), "Auto-position")
+    expect_error(createAutoGridCrossValidationControl(outerGrid, autoPosition = 3), "Auto-position")
+
+    expect_error(
+        fitCyclopsModel(cyclopsData,
+                        prior = prior,
+                        control = createAutoGridCrossValidationControl(outerGrid)),
+        "Auto-grid"
+    )
+
+    prior <-
+        createParameterizedPrior(
+            c("none", rep("laplace", ncovars)),
+            parameterize = function(x) {
+                lapply(1:(ncovars + 1),
+                       function(i) {
+                           if (i < (ncovars / 2)) {
+                               return(c(0, x[1]))
+                           } else {
+                               return(c(0, x[1] * x[2]))
+                           }
+                       })
+            },
+            values = c(1, 0.5),
+            useCrossValidation = TRUE
+        )
+
+    fit <- fitCyclopsModel(cyclopsData,
+                    prior = prior,
+                    control = createAutoGridCrossValidationControl(outerGrid,
+                                                                   autoPosition = 1))
+    expect_equal(length(fit$searchResults), 3)
+    expect_equal(length(Cyclops:::getCrossValidationInfo(fit)$point), 2)
 
 })
 

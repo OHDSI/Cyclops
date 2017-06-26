@@ -14,3 +14,4 @@ getCovariateTypes(object, covariateLabel)
 \description{
 \code{getCovariateTypes} returns a vector covariate types in a Cyclops data object
 }
+

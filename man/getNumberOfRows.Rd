@@ -12,3 +12,4 @@ getNumberOfRows(object)
 \description{
 \code{getNumberOfRows} returns the total number of outcome rows in a Cyclops data object
 }
+

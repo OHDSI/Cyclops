@@ -17,3 +17,4 @@ MSE(\code{goldStandard}, \code{estimates})
 \description{
 \code{mse} computes the mean squared error between two numeric vectors
 }
+

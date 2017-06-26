@@ -70,6 +70,13 @@ fitCyclopsModel <- function(cyclopsData,
                             startingCoefficients = NULL,
                             fixedCoefficients = NULL) {
 
+    # Delegate to control$setHook if exists
+    if (!is.null(control$setHook)) {
+        return(control$setHook(cyclopsData, prior, control,
+                               weights, forceNewObject, returnEstimates,
+                               startingCoefficients, fixedCoefficients))
+    }
+
     # Delegate to prior$fitHook if exists
     if (!is.null(prior$fitHook)) {
         return(prior$fitHook(cyclopsData, prior, control,
@@ -230,6 +237,7 @@ fitCyclopsModel <- function(cyclopsData,
         if (control$selectorType == "byPid" && minCVData > getNumberOfStrata(cyclopsData)) {
             stop("Insufficient data count for cross validation")
         }
+
         fit <- .cyclopsRunCrossValidation(cyclopsData$cyclopsInterfacePtr)
     } else {
         fit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)

@@ -26,3 +26,4 @@ When the requested covariates do not equate to all coefficients in the model,
 then interpretation is more challenging.
 }
 \keyword{internal}
+

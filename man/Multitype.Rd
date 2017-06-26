@@ -22,3 +22,4 @@ hierarchical Cyclops model fit.
 Multitype(c(0,1,0), as.factor(c("A","A","B")))
 
 }
+

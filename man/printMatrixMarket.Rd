@@ -14,3 +14,4 @@ printMatrixMarket(object, file)
 \description{
 \code{printMatrixMarket} prints the data matrix to a file
 }
+
