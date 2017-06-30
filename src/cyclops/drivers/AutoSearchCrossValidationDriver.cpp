@@ -52,15 +52,15 @@ void AutoSearchCrossValidationDriver::logResults(const CCDArguments& allArgument
 		error->throwError(stream);
 	}
 	outLog << std::scientific;
-	for (int i = 0; i < maxPoint.size(); ++i) {
-	    outLog << maxPoint[i] << " ";
+	for (int i = 0; i < maxPoint.point.size(); ++i) {
+	    outLog << maxPoint.point[i] << " ";
 	}
 	outLog << std::endl;
 	outLog.close();
 }
 
 // This is specific to auto-search
-std::vector<double> AutoSearchCrossValidationDriver::doCrossValidationLoop(
+MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
 			const CCDArguments& allArguments,
@@ -84,7 +84,9 @@ std::vector<double> AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	const double tolerance = 1E-2; // TODO Make Cyclops argument
 
 	int nDim = ccd.getHyperprior().size();
+
 	std::vector<double> currentOptimal(nDim, tryvalue);
+	double currentOptimalValue;
 
 	bool globalFinished = false;
 	std::vector<double> savedOptimal;
@@ -120,12 +122,13 @@ std::vector<double> AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	            std::ostringstream stream;
 	            stream << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
 	            searcher.tried(currentOptimal[dim], pointEstimate, stdDevEstimate);
-	            pair<bool,double> next = searcher.step();
+	            StepValue next = searcher.step();
 	            stream << "Completed at " << currentOptimal[dim] << std::endl;
-	            stream << "Next point at " << next.second << " and " << next.first;
+	            stream << "Next point at " << next.second << " with value " << next.expected << " and continue = " << next.first;
 	            logger->writeLine(stream);
 
 	            currentOptimal[dim] = next.second;
+	            currentOptimalValue = next.expected;
 	            if (!next.first) {
 	                dimFinished = true;
 	            }
@@ -156,7 +159,7 @@ std::vector<double> AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	        globalFinished = (diff < tolerance);
 	    }
 	}
-	return currentOptimal;
+	return MaxPoint{currentOptimal, currentOptimalValue};
 }
 
 } // namespace

@@ -27,6 +27,8 @@
 #' @param newCovariates  An optional data frame or ffdf object, similar to the object used in \code{\link{convertToCyclopsData}}.
 #' @param ...   Additional arguments
 #'
+#' @importFrom stats predict
+#'
 #' @export
 predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
     if (!missing(newOutcomes) && (missing(newCovariates) || is.null(newCovariates)))
@@ -62,21 +64,36 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
         coefficients <- coefficients[coefficients$beta != 0, ]
         if (ff::is.ffdf(newCovariates)) {
             # Optimized for ff
-            prediction <- ffbase::merge.ffdf(newCovariates, ff::as.ffdf(coefficients), by = "covariateId")
-            prediction$value <- prediction$covariateValue * prediction$beta
-            prediction <- .bySum(prediction$value, prediction$rowId)
-            colnames(prediction) <- c("rowId", "value")
-            prediction <- merge(ff::as.ram(newOutcomes), prediction, by = "rowId", all.x = TRUE)
-            prediction$value[is.na(prediction$value)] <- 0
-            prediction$value <- prediction$value + intercept
+            if (nrow(coefficients) == 0) {
+                if ("time" %in% colnames(newOutcomes)) {
+                    prediction <- data.frame(rowId = as.numeric(ff::as.ram(newOutcomes$rowId)),
+                                             time = as.numeric(ff::as.ram(newOutcomes$time)))
+                } else {
+                    prediction <- data.frame(rowId = as.numeric(ff::as.ram(newOutcomes$rowId)))
+                }
+                prediction$value <- intercept
+            } else {
+                prediction <- ffbase::merge.ffdf(newCovariates, ff::as.ffdf(coefficients), by = "covariateId")
+                prediction$value <- prediction$covariateValue * prediction$beta
+                prediction <- .bySum(prediction$value, prediction$rowId)
+                colnames(prediction) <- c("rowId", "value")
+                prediction <- merge(ff::as.ram(newOutcomes), prediction, by = "rowId", all.x = TRUE)
+                prediction$value[is.na(prediction$value)] <- 0
+                prediction$value <- prediction$value + intercept
+            }
         } else {
             # Not using ff
-            prediction <- merge(newCovariates, coefficients, by = "covariateId")
-            prediction$value <- prediction$covariateValue * prediction$beta
-            prediction <- aggregate(value ~ rowId, data = prediction, sum)
-            prediction <- merge(newOutcomes, prediction, by = "rowId", all.x = TRUE)
-            prediction$value[is.na(prediction$value)] <- 0
-            prediction$value <- prediction$value + intercept
+            if (nrow(coefficients) == 0) {
+                prediction <- newOutcomes
+                prediction$value <- intercept
+            } else {
+                prediction <- merge(newCovariates, coefficients, by = "covariateId")
+                prediction$value <- prediction$covariateValue * prediction$beta
+                prediction <- aggregate(value ~ rowId, data = prediction, sum)
+                prediction <- merge(newOutcomes, prediction, by = "rowId", all.x = TRUE)
+                prediction$value[is.na(prediction$value)] <- 0
+                prediction$value <- prediction$value + intercept
+            }
         }
 
         if (modelType == "lr") {
@@ -95,4 +112,19 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
 
 }
 
-
+#' @title Calculates xbar*beta
+#' @description
+#' \code{meanLinearPredictor} computes xbar*beta for model fit
+#'
+#' @param cyclopsFit A Cyclops model fit object
+#'
+#' @export
+meanLinearPredictor <- function(cyclopsFit) {
+    cyclopsData = cyclopsFit$cyclopsData
+    dataSummary = summary(cyclopsData)
+    dataSummary$xbar = dataSummary$nzCount*dataSummary$nzMean/getNumberOfRows(cyclopsData)
+    dataSummary$beta = coef(cyclopsFit)[match(rownames(dataSummary),names(coef(cyclopsFit)))]
+    dataSummary$xbarBeta = dataSummary$xbar * dataSummary$beta
+    delta = sum(dataSummary$xbarBeta)
+    return (delta)
+}

@@ -251,5 +251,6 @@ namespace bsccs {
         }
         return prior;
     }
+
 	} // namespace priors
 } // namespace bsccs

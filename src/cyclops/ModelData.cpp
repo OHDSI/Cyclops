@@ -547,7 +547,7 @@ std::vector<double> ModelData<RealType>::normalizeCovariates(const Normalization
             normalizations.push_back(1.0);
         }
     }
-    return std::move(normalizations);
+    return normalizations;
 }
 
 template <typename RealType>

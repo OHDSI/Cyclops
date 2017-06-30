@@ -86,6 +86,10 @@ public:
 
     virtual int getNumberOfTypes() const = 0;
 
+    virtual std::vector<double> copyYVector() const = 0;
+
+    virtual std::vector<double> copyTimeVector() const = 0;
+
     virtual std::vector<double> univariableCorrelation(
             const std::vector<long>& covariateLabel) const = 0;
 
@@ -307,6 +311,18 @@ public:
 
 	const IntVector& getPidVectorRef() const { // Not const because PIDs can get renumbered
 		return pid;
+	}
+
+	std::vector<double> copyYVector() const {
+        std::vector<double> copy(y.size());
+	    std::copy(std::begin(y), std::end(y), std::begin(copy));
+	    return copy;
+	}
+
+	std::vector<double> copyTimeVector() const {
+	    std::vector<double> copy(offs.size());
+	    std::copy(std::begin(offs), std::end(offs), std::begin(copy));
+	    return copy;
 	}
 
 	RealVector& getZVectorRef() {

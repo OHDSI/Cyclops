@@ -29,7 +29,100 @@ namespace priors {
 typedef std::pair<double, double> GradientHessian;
 typedef std::vector<double> DoubleVector;
 
-typedef bsccs::shared_ptr<double> VariancePtr;
+//typedef bsccs::shared_ptr<double> VariancePtr;
+
+template <typename T, typename C>
+class CallbackSharedPtr {
+public:
+    typedef  bsccs::shared_ptr<T> SharedPtr;
+
+public:
+ //   CallbackSharedPtr(T* t) : ptr(t), callback(nullptr) { }
+
+//    CallbackSharedPtr(T* t, C* c) : ptr(t), callback(c) { }
+
+    // CallbackSharedPtr(const CallbackSharedPtr& refptr) :  ptr(refptr),
+    //     callback(refptr.callback) { }
+
+    CallbackSharedPtr(const SharedPtr& refptr) : ptr(refptr), callback(nullptr) { }
+
+    CallbackSharedPtr(const SharedPtr& refptr, C* c) : ptr(refptr), callback(c) { }
+
+    // const T& operator*() const { return *ptr; }
+    //
+    // T& operator*() {
+    //     std::cerr << "A ";
+    //     signal();
+    //     return *ptr;
+    // }
+
+    void set(const T& t) {
+        signal();
+        *ptr = t;
+    }
+
+    const T& get() const {
+        return *ptr;
+    }
+
+    // const T* operator->() const { return ptr.operator->(); }
+    //
+    // T* operator->() {
+    //     std::cerr << "B ";
+    //     signal();
+    //     return ptr.operator->();
+    // }
+
+    void setCallback(C* c) {
+        callback = c;
+    }
+
+    bool operator==(const CallbackSharedPtr<T,C>& rhs) noexcept {
+        return ptr == rhs.ptr;
+    }
+
+private:
+    void signal() {
+        // std::cerr << "signal()" << std::endl;
+        if (callback != nullptr) {
+            callback->callback();
+        }
+    }
+
+    SharedPtr ptr;
+    C* callback;
+};
+
+struct Cachable {
+
+    Cachable() : valid(false) { }
+
+    bool isValid() const { return valid; }
+
+protected:
+    void setValid(bool v) { valid = v; }
+
+private:
+    bool valid;
+};
+
+struct CacheCallback : public Cachable {
+
+    CacheCallback() : Cachable() {
+        // std::cerr <<"ctor Cachable" << std::endl;
+    }
+
+    void callback() {
+        // std::cerr << "callback()" << std::endl;
+        setValid(false);
+    }
+};
+
+// struct NoCallback { // TODO Use enable_if
+//     void callback() { }
+// };
+
+typedef CallbackSharedPtr<double,CacheCallback> VariancePtr;
 
 class CovariatePrior; // forward declaration
 typedef bsccs::shared_ptr<CovariatePrior> PriorPtr;
@@ -182,7 +275,7 @@ public:
 	std::vector<VariancePtr> getVarianceParameters() const {
 	    auto tmp = std::vector<VariancePtr>();
 	    tmp.push_back(variance);
-		return std::move(tmp);
+		return tmp;
 	}
 
 protected:
@@ -195,7 +288,7 @@ protected:
 	}
 
 	double getLambda() const {
-		return convertVarianceToHyperparameter(*variance);
+		return convertVarianceToHyperparameter(variance.get());
 	}
 
 private:
@@ -266,7 +359,7 @@ public:
 
 private:
 	double getEpsilon() const {
-		return convertVarianceToHyperparameter(*variance2);
+		return convertVarianceToHyperparameter(variance2.get());
 	}
 
 	VariancePtr variance2;
@@ -324,12 +417,12 @@ public:
 	std::vector<VariancePtr> getVarianceParameters() const {
 	    auto tmp = std::vector<VariancePtr>();
 	    tmp.push_back(variance);
-		return std::move(tmp);
+		return tmp;
 	}
 
 protected:
     double getVariance() const {
-        return *variance;
+        return variance.get();
     }
 
 private:
@@ -369,11 +462,11 @@ public:
     std::vector<VariancePtr> getVarianceParameters() const {
         auto tmp = NormalPrior::getVarianceParameters();
         tmp.push_back(variance2);
-        return std::move(tmp);
+        return tmp;
     }
 
 protected:
-    double getVariance2() const { return *variance2; }
+    double getVariance2() const { return variance2.get(); }
 
 private:
     VariancePtr variance2;

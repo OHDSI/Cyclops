@@ -165,6 +165,34 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsTestParameterizedPrior
+Rcpp::List cyclopsTestParameterizedPrior(Rcpp::Function& priorFunction, const std::vector<double>& startingParameters, const std::vector<int>& indices, const std::vector<double>& values);
+RcppExport SEXP Cyclops_cyclopsTestParameterizedPrior(SEXP priorFunctionSEXP, SEXP startingParametersSEXP, SEXP indicesSEXP, SEXP valuesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::Function& >::type priorFunction(priorFunctionSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type startingParameters(startingParametersSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type indices(indicesSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type values(valuesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsTestParameterizedPrior(priorFunction, startingParameters, indices, values));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cyclopsSetParameterizedPrior
+void cyclopsSetParameterizedPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& priorTypeName, Rcpp::Function& priorFunction, const std::vector<double>& startingParameters, SEXP excludeNumeric);
+RcppExport SEXP Cyclops_cyclopsSetParameterizedPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP priorFunctionSEXP, SEXP startingParametersSEXP, SEXP excludeNumericSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const std::vector<std::string>& >::type priorTypeName(priorTypeNameSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Function& >::type priorFunction(priorFunctionSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type startingParameters(startingParametersSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type excludeNumeric(excludeNumericSEXP);
+    cyclopsSetParameterizedPrior(inRcppCcdInterface, priorTypeName, priorFunction, startingParameters, excludeNumeric);
+    return R_NilValue;
+END_RCPP
+}
 // cyclopsProfileModel
 List cyclopsProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, int threads, double threshold, bool override, bool includePenalty);
 RcppExport SEXP Cyclops_cyclopsProfileModel(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP, SEXP threadsSEXP, SEXP thresholdSEXP, SEXP overrideSEXP, SEXP includePenaltySEXP) {
@@ -533,6 +561,28 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(cyclopsGetMeanOffset(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cyclopsGetYVector
+std::vector<double> cyclopsGetYVector(Environment object);
+RcppExport SEXP Cyclops_cyclopsGetYVector(SEXP objectSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type object(objectSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetYVector(object));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cyclopsGetTimeVector
+std::vector<double> cyclopsGetTimeVector(Environment object);
+RcppExport SEXP Cyclops_cyclopsGetTimeVector(SEXP objectSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type object(objectSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetTimeVector(object));
     return rcpp_result_gen;
 END_RCPP
 }

@@ -14,8 +14,8 @@
 #include <stdexcept>
 #include <thread>
 
-#define CYCLOPS_DEBUG_TIMING
-#define CYCLOPS_DEBUG_TIMING_LOW
+// #define CYCLOPS_DEBUG_TIMING
+// #define CYCLOPS_DEBUG_TIMING_LOW
 
 #ifdef CYCLOPS_DEBUG_TIMING
     #include "Timing.h"
@@ -651,8 +651,7 @@ public:
 	}
 
 	RealType predictEstimate(RealType xBeta){
-		//do nothing for now
-		return static_cast<RealType>(0);
+		return xBeta;
 	}
 
 };
@@ -740,8 +739,7 @@ public:
 	}
 
 	RealType predictEstimate(RealType xBeta){
-		//do nothing for now
-		return static_cast<RealType>(0);
+		return xBeta;
 	}
 
 };
@@ -824,9 +822,7 @@ public:
 	}
 
 	RealType predictEstimate(RealType xBeta){
-	    // Do nothing
-		//yi = xBeta; // Returns the linear predictor;  ###relative risk
-		return static_cast<RealType>(0);
+		return xBeta;
 	}
 
 };
@@ -913,9 +909,7 @@ public:
 	}
 
 	RealType predictEstimate(RealType xBeta){
-	    // Do nothing
-		//yi = xBeta; // Returns the linear predictor;  ###relative risk
-		return static_cast<RealType>(0);
+		return xBeta;
 	}
 
 };
@@ -1097,8 +1091,7 @@ public:
 	}
 
 	RealType predictEstimate(RealType xBeta){
-		// do nothing for now
-		return static_cast<RealType>(0);
+		return xBeta;
 	}
 };
 
@@ -1200,8 +1193,7 @@ public:
 	}
 
 	RealType predictEstimate(RealType xBeta){
-		// do nothing for now
-		return static_cast<RealType>(0);
+		return xBeta;
 	}
 };
 

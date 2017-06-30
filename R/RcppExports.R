@@ -57,6 +57,14 @@
     invisible(.Call('Cyclops_cyclopsSetPrior', PACKAGE = 'Cyclops', inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph, sexpNeighborhood))
 }
 
+.cyclopsTestParameterizedPrior <- function(priorFunction, startingParameters, indices, values) {
+    .Call('Cyclops_cyclopsTestParameterizedPrior', PACKAGE = 'Cyclops', priorFunction, startingParameters, indices, values)
+}
+
+.cyclopsSetParameterizedPrior <- function(inRcppCcdInterface, priorTypeName, priorFunction, startingParameters, excludeNumeric) {
+    invisible(.Call('Cyclops_cyclopsSetParameterizedPrior', PACKAGE = 'Cyclops', inRcppCcdInterface, priorTypeName, priorFunction, startingParameters, excludeNumeric))
+}
+
 .cyclopsProfileModel <- function(inRcppCcdInterface, sexpCovariates, threads, threshold, override, includePenalty) {
     .Call('Cyclops_cyclopsProfileModel', PACKAGE = 'Cyclops', inRcppCcdInterface, sexpCovariates, threads, threshold, override, includePenalty)
 }
@@ -241,6 +249,14 @@ getNumberOfTypes <- function(object) {
 
 .cyclopsGetMeanOffset <- function(x) {
     .Call('Cyclops_cyclopsGetMeanOffset', PACKAGE = 'Cyclops', x)
+}
+
+getYVector <- function(object) {
+    .Call('Cyclops_cyclopsGetYVector', PACKAGE = 'Cyclops', object)
+}
+
+getTimeVector <- function(object) {
+    .Call('Cyclops_cyclopsGetTimeVector', PACKAGE = 'Cyclops', object)
 }
 
 .cyclopsFinalizeData <- function(x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag = FALSE) {

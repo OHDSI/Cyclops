@@ -1,3 +1,10 @@
+Cyclops v1.2.4 (not released)
+
+Changes: 1. implements specialized priors through callbacks for use, for example,
+            in the BrokenAdaptiveRidge package to provide L0-based model selection
+         2. implements specialized control through callbacks for use, for example,
+            auto-and-grid-based cross-validation hyperparameter searches
+
 Cyclops v1.2.2 (Release date: 2016-10-06)
 
 Changes: 1. fixed `solaris` build errors

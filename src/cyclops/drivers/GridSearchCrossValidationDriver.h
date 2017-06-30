@@ -38,7 +38,7 @@ protected:
 
 	double computeGridPoint(int step);
 
-	virtual std::vector<double> doCrossValidationLoop(
+	virtual MaxPoint doCrossValidationLoop(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
 			const CCDArguments& arguments,

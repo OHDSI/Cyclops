@@ -242,44 +242,7 @@ int cyclopsGetNumberOfTypes(Environment object) {
 std::vector<double> cyclopsUnivariableCorrelation(Environment x,
                                                   const std::vector<long>& covariateLabel) {
     XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(x);
-
     return data->univariableCorrelation(covariateLabel);
-
-    // const double Ey1 = data->reduce(-1, FirstPower()) / data->getNumberOfRows();
-    // const double Ey2 = data->reduce(-1, SecondPower()) / data->getNumberOfRows();
-    // const double Vy = Ey2 - Ey1 * Ey1;
-    //
-    // std::vector<double> result;
-    //
-    // auto oneVariable = [&data, &result, Ey1, Vy](const size_t index) {
-    //     const double Ex1 = data->reduce(index, FirstPower()) / data->getNumberOfRows();
-    //     const double Ex2 = data->reduce(index, SecondPower()) / data->getNumberOfRows();
-    //     const double Exy = data->innerProductWithOutcome(index, InnerProduct()) / data->getNumberOfRows();
-    //
-    //     const double Vx = Ex2 - Ex1 * Ex1;
-    //     const double cov = Exy - Ex1 * Ey1;
-    //     const double cor = (Vx > 0.0 && Vy > 0.0) ?
-    //                        cov / std::sqrt(Vx) / std::sqrt(Vy) : NA_REAL;
-    //
-    //     // Rcpp::Rcout << index << " " << Ey1 << " " << Ey2 << " " << Ex1 << " " << Ex2 << std::endl;
-    //     // Rcpp::Rcout << index << " " << ySquared << " " << xSquared <<  " " << crossProduct << std::endl;
-    //     result.push_back(cor);
-    // };
-    //
-    // if (covariateLabel.size() == 0) {
-    //     result.reserve(data->getNumberOfCovariates());
-    //     size_t index = (data->getHasOffsetCovariate()) ? 1 : 0;
-    //     for (; index <  data->getNumberOfCovariates(); ++index) {
-    //         oneVariable(index);
-    //     }
-    // } else {
-    //     result.reserve(covariateLabel.size());
-    //     for(auto it = covariateLabel.begin(); it != covariateLabel.end(); ++it) {
-    //         oneVariable(data->getColumnIndex(*it));
-    //     }
-    // }
-    //
-    // return std::move(result);
 }
 
 // [[Rcpp::export(".cyclopsSumByGroup")]]
@@ -399,6 +362,22 @@ double cyclopsGetMeanOffset(Environment x) {
     return (data->getHasOffsetCovariate()) ?
         data->sum(-1, 1) / data->getNumberOfRows() :
         0.0;
+}
+
+// [[Rcpp::export("getYVector")]]
+std::vector<double> cyclopsGetYVector(Environment object) {
+    XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
+    return data->copyYVector();
+    //XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);
+    //return (data->getYVectorRef());
+}
+
+// [[Rcpp::export("getTimeVector")]]
+std::vector<double> cyclopsGetTimeVector(Environment object) {
+    XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
+    return data->copyTimeVector();
+    // XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);
+    // return (data->getTimeVectorRef());
 }
 
 // [[Rcpp::export(".cyclopsFinalizeData")]]

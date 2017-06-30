@@ -274,6 +274,9 @@ public:
 		out.addMetaKey("prior_info").addMetaValue(priorInfo);
 		out.addMetaKey("variance").addMetaValue(hyperParameter);
 		out.addMetaKey("covariate_count").addMetaValue(covariateCount);
+		out.addMetaKey("cross_validation").addMetaValue(
+		    ccd.getCrossValidationInfo()
+		);
 
 		for (ExtraInformationVector::const_iterator it = extraInfoVector.begin();
 			it != extraInfoVector.end(); ++it) {

@@ -913,7 +913,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	RealType gradient = static_cast<RealType>(0);
 	RealType hessian = static_cast<RealType>(0);
 
-	if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
+    if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 
 #ifdef DEBUG_COX2
 	    RealType lastG = gradient;

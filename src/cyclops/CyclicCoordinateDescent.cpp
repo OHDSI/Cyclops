@@ -150,8 +150,16 @@ void CyclicCoordinateDescent::setNoiseLevel(NoiseLevels noise) {
 	noiseLevel = noise;
 }
 
-string CyclicCoordinateDescent::getPriorInfo() {
+string CyclicCoordinateDescent::getPriorInfo() const {
 	return jointPrior->getDescription();
+}
+
+void CyclicCoordinateDescent::setCrossValidationInfo(string info) {
+    crossValidationInfo = info;
+}
+
+string CyclicCoordinateDescent::getCrossValidationInfo() const {
+    return crossValidationInfo;
 }
 
 void CyclicCoordinateDescent::setPrior(priors::JointPriorPtr newPrior) {
