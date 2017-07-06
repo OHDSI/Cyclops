@@ -839,7 +839,7 @@ public:
 	const static bool precomputeGradient = true; // XjY   // TODO Until tied calculations are only used for ties
 	const static bool precomputeHessian = false; // XjX
 	const static bool likelihoodHasFixedTerms = false;
-	const static bool exactCLR = TRUE;
+	const static bool exactCLR = true;
 
 	RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoffseti) {
         throw new std::logic_error("Not model-specific");
@@ -1217,7 +1217,7 @@ public:
 
 	const static bool hasTwoNumeratorTerms = false;
 
-	const static bool exactCLR = FALSE;
+	const static bool exactCLR = false;
 
 	static RealType getDenomNullValue () { return static_cast<RealType>(0); }
 
