@@ -462,6 +462,7 @@ void ModelSpecifics<BaseModel, RealType>::computeXjY(bool useCrossValidation) {
 				const int k = it.index();
 				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
 					// Do not precompute
+					hXjY[j] += it.value() * hY[k] * hKWeight[k];
 				} else {
 					hXjY[j] += it.value() * hY[k] * hKWeight[k];
 				}
@@ -471,6 +472,7 @@ void ModelSpecifics<BaseModel, RealType>::computeXjY(bool useCrossValidation) {
 				const int k = it.index();
 				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
 					// Do not precompute
+					hXjY[j] += it.value() * hY[k];
 				} else {
 					hXjY[j] += it.value() * hY[k];
 				}
@@ -1078,6 +1080,20 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                     denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
 	    }
 
+	} else if (BaseModel::exactCLR) {
+		for (int i=0; i<N; i++) {
+			DenseView<IteratorType, RealType> x(IteratorType(hX, index), hNtoK[i], hNtoK[i+1]);
+			int numSubjects = hNtoK[i+1] - hNtoK[i];
+			int numCases = hNWeight[i];
+
+			std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases);//, hY.begin() + hNtoK[i]);
+
+			using namespace sugar;
+
+			//gradient -= (RealType)(value[3] - value[1]/value[0]);
+			gradient -= (RealType)(-value[1]/value[0]);
+			hessian -= (RealType)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
+		}
 	} else {
 
 	    IteratorType it(hX, index);

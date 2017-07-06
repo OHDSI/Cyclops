@@ -113,116 +113,136 @@ public:
 		return frac * std::pow(2.0, static_cast<double>(exp)); // TODO Use shift operator
 	}
 };
-    
-namespace sugar {        
+
+namespace sugar {
     // Syntactic sugar to write: bigNum + bigNum
     template <typename T>
     T operator+(const T& lhs, const T& rhs) {
-    	return T::add(lhs, rhs);    
-    } 
-   
+    	return T::add(lhs, rhs);
+    }
+
 	// Syntactic sugar to write: bigNum / bigNum
 	template <typename T>
 	T operator/(const T& lhs, const T rhs) {
 		return T::div(lhs, rhs);
 	}
-	
+
 	// Syntactic sugar to write: double * bigNum
 	template <typename T>
 	T operator*(const double lhs, const T& rhs) {
 		return T::mul(lhs, rhs);
 	}
-	
+
 	// Syntactic sugar to write: bigNum * bigNum
 	template <typename T>
 	T operator*(const T& lhs, const T& rhs) {
 		return T::mul(lhs, rhs);
-	}	
-	
+	}
+
 	// Syntactic sugar to write: bigNum - bigNum
 	template <typename T>
 	double operator-(const T& lhs, const T& rhs) {
 		return lhs.toDouble() - rhs.toDouble();
 	}
-	
+
 	// Syntactic sugar to write: bigNum += bigNum // TODO Is this needed?
-	
+
 } // namespace sugar
 
 
-template <typename T, typename UIteratorType, typename W, typename SparseIteratorType>
-std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorType itX, 
-	int numSubjects, int numCases, /*bsccs::real*  */ W caseOrNo) {
+template <typename T, typename SparseIteratorType, typename UIteratorType> //typename W typename UIteratorType,
+std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorType itX,
+	int numSubjects, int numCases){//, /*bsccs::real*  */ W caseOrNo) {
 
 	using namespace sugar;
+	std::vector<T> result;
+	//double caseSum = 0;
 
-	double caseSum = 0;
+	if (numCases==1) {
+		T B = 0;
+		T dB = 0;
+		T ddB = 0;
+		for (int n=0; n<numSubjects; n++) {
+			B += *itExpXBeta;
+			dB += *itExpXBeta * *itX;
+			ddB += *itExpXBeta * *itX * *itX;
+			++itExpXBeta;
+			++itX;
+		}
+		result.push_back(B);
+		result.push_back(dB);
+		result.push_back(ddB);
+	} else {
 
-	std::vector<T> B[2];
-	std::vector<T> dB[2];
-	std::vector<T> ddB[2];
+		std::vector<T> B[2];
+		std::vector<T> dB[2];
+		std::vector<T> ddB[2];
+		int currentB = 0;
 
-	int currentB = 0;
-
-	B[0].push_back(1);
-	B[1].push_back(1);
-	dB[0].push_back(0);
-	dB[1].push_back(0);
-	ddB[0].push_back(0);
-	ddB[1].push_back(0);
-
-	for (int i=1; i<=numCases; i++) {
-		B[0].push_back(0);
-		B[1].push_back(0);
+		B[0].push_back(1);
+		B[1].push_back(1);
 		dB[0].push_back(0);
 		dB[1].push_back(0);
 		ddB[0].push_back(0);
 		ddB[1].push_back(0);
-	}
-	
-	//double maxXi = 0.0;
-	//double maxSorted = 0.0;
-	//std::vector<T> sortXi;
-	
-	for (int n=1; n<= numSubjects; n++) {
-		for (int m=std::max(1,n+numCases-numSubjects); m<=std::min(n,numCases);m++) {
-			  B[!currentB][m] =   B[currentB][m] + (*itExpXBeta) *   B[currentB][m-1];
-			 dB[!currentB][m] =  dB[currentB][m] + (*itExpXBeta) *  dB[currentB][m-1] + (*itX)*(*itExpXBeta)*B[currentB][m-1];
-			ddB[!currentB][m] = ddB[currentB][m] + (*itExpXBeta) * ddB[currentB][m-1] + (*itX)*(*itX)*(*itExpXBeta)*B[currentB][m-1] + 
-								2*(*itX)*(*itExpXBeta)*dB[currentB][m-1];
+
+		for (int i=1; i<=numCases; i++) {
+			B[0].push_back(0);
+			B[1].push_back(0);
+			dB[0].push_back(0);
+			dB[1].push_back(0);
+			ddB[0].push_back(0);
+			ddB[1].push_back(0);
 		}
+
+		//double maxXi = 0.0;
+		//double maxSorted = 0.0;
+		//std::vector<T> sortXi;
+
+		for (int n=1; n<= numSubjects; n++) {
+			for (int m=std::max(1,n+numCases-numSubjects); m<=std::min(n,numCases);m++) {
+				//std::cout<<*itExpXBeta<<" ";
+				B[!currentB][m] =   B[currentB][m] + (*itExpXBeta) *   B[currentB][m-1];
+				dB[!currentB][m] =  dB[currentB][m] + (*itExpXBeta) *  dB[currentB][m-1] + (*itX)*(*itExpXBeta)*B[currentB][m-1];
+				ddB[!currentB][m] = ddB[currentB][m] + (*itExpXBeta) * ddB[currentB][m-1] + (*itX)*(*itX)*(*itExpXBeta)*B[currentB][m-1] +
+						2*(*itX)*(*itExpXBeta)*dB[currentB][m-1];
+			}
+			/*
 		if (caseOrNo[n-1] == 1) {
 			caseSum += (*itX);
 		}
+			 */
 
-		//if (*itX > maxXi) {
-		//	maxXi = *itX;
+			//if (*itX > maxXi) {
+			//	maxXi = *itX;
+			//}
+			//sortXi.push_back(*itX);
+
+			currentB = !currentB;
+			++itExpXBeta;
+			//++i;
+			++itX;
+
+		}
+
+		//std::sort (sortXi.begin(), sortXi.end());
+		//for (int i=1; i<=numCases; i++) {
+		//	maxSorted += sortXi[numSubjects-i];
 		//}
-		//sortXi.push_back(*itX);
+		//maxXi = maxXi * numCases;
 
-		currentB = !currentB;
-		++itExpXBeta; ++itX;
-
+		result.push_back(B[currentB][numCases]);
+		result.push_back(dB[currentB][numCases]);
+		result.push_back(ddB[currentB][numCases]);
+		//result.push_back(caseSum);
 	}
 
-	//std::sort (sortXi.begin(), sortXi.end());
-	//for (int i=1; i<=numCases; i++) {
-	//	maxSorted += sortXi[numSubjects-i];
-	//}
-	//maxXi = maxXi * numCases;
-
-	std::vector<T> result;
-	result.push_back(B[currentB][numCases]);
-	result.push_back(dB[currentB][numCases]);
-	result.push_back(ddB[currentB][numCases]);
-	result.push_back(caseSum);
-	
 	//result.push_back(maxXi);
 	//result.push_back(maxSorted);
 
 	return result;
 }
-            
+
 } // namespace
 
 #endif /* RECURSIONS_HPP_ */
