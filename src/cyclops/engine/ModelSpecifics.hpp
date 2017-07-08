@@ -1086,8 +1086,8 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 			int numSubjects = hNtoK[i+1] - hNtoK[i];
 			int numCases = hNWeight[i];
 
-			std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases);//, hY.begin() + hNtoK[i]);
-
+			std::vector<RealType> value = computeHowardRecursion<RealType>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases);//, hY.begin() + hNtoK[i]);
+			//std::cout<<value[0]<<" | "<<value[1]<<" | "<<value[2]<<"\n";
 			using namespace sugar;
 
 			//gradient -= (RealType)(value[3] - value[1]/value[0]);

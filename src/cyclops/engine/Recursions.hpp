@@ -173,7 +173,7 @@ std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorTy
 		result.push_back(dB);
 		result.push_back(ddB);
 	} else {
-
+/*
 		std::vector<T> B[2];
 		std::vector<T> dB[2];
 		std::vector<T> ddB[2];
@@ -200,41 +200,93 @@ std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorTy
 		//std::vector<T> sortXi;
 
 		for (int n=1; n<= numSubjects; n++) {
+			T x = *itX;
+			T t = *itExpXBeta;
 			for (int m=std::max(1,n+numCases-numSubjects); m<=std::min(n,numCases);m++) {
-				//std::cout<<*itExpXBeta<<" ";
-				B[!currentB][m] =   B[currentB][m] + (*itExpXBeta) *   B[currentB][m-1];
-				dB[!currentB][m] =  dB[currentB][m] + (*itExpXBeta) *  dB[currentB][m-1] + (*itX)*(*itExpXBeta)*B[currentB][m-1];
-				ddB[!currentB][m] = ddB[currentB][m] + (*itExpXBeta) * ddB[currentB][m-1] + (*itX)*(*itX)*(*itExpXBeta)*B[currentB][m-1] +
-						2*(*itX)*(*itExpXBeta)*dB[currentB][m-1];
+				T b = B[currentB][m-1];
+				T db = dB[currentB][m-1];
+				T tb = t*b;
+				B[!currentB][m] =   B[currentB][m] + tb;
+				T xtb = x*tb;
+				T tdb = t*db;
+				dB[!currentB][m] =  dB[currentB][m] + tdb + xtb;
+				ddB[!currentB][m] = ddB[currentB][m] + t * ddB[currentB][m-1] + x*xtb + 2*x*tdb;
 			}
-			/*
-		if (caseOrNo[n-1] == 1) {
-			caseSum += (*itX);
-		}
-			 */
-
-			//if (*itX > maxXi) {
-			//	maxXi = *itX;
-			//}
-			//sortXi.push_back(*itX);
-
+		//if (caseOrNo[n-1] == 1) {
+		//caseSum += (*itX);
+		//}
+		//if (*itX > maxXi) {
+		//	maxXi = *itX;
+		//}
+		//sortXi.push_back(*itX);
 			currentB = !currentB;
 			++itExpXBeta;
-			//++i;
 			++itX;
 
+			if (B[currentB][std::min(n,numCases)]>1e200 || dB[currentB][std::min(n,numCases)]>1e200 || ddB[currentB][std::min(n,numCases)]>1e200) {
+				for (int i=0; i<=numCases; i++) {
+					B[currentB][i] /= 1e200;
+					dB[currentB][i] /= 1e200;
+					ddB[currentB][i] /= 1e200;
+				}
+			}
 		}
-
+		result.push_back(B[currentB][numCases]);
+		result.push_back(dB[currentB][numCases]);
+		result.push_back(ddB[currentB][numCases]);
+		//result.push_back(caseSum);
 		//std::sort (sortXi.begin(), sortXi.end());
 		//for (int i=1; i<=numCases; i++) {
 		//	maxSorted += sortXi[numSubjects-i];
 		//}
 		//maxXi = maxXi * numCases;
+*/
+		std::vector<T> B[2];
+		std::vector<T> B1;
+		int currentB = 0;
 
-		result.push_back(B[currentB][numCases]);
-		result.push_back(dB[currentB][numCases]);
-		result.push_back(ddB[currentB][numCases]);
-		//result.push_back(caseSum);
+		B[0].push_back(1);
+		B[1].push_back(1);
+
+		for (int i=1; i<=3*numCases+2; i++) {
+			B[0].push_back(0);
+			B[1].push_back(0);
+		}
+		int start = 1;
+		int end = 0;
+		for (int n=1; n<= numSubjects; n++) {
+			T x = *itX;
+			T t = *itExpXBeta;
+			if (n>numSubjects-numCases+1) start++;
+			if (n<=numCases) end++;
+			//for (int m=std::max(1,n+numCases-numSubjects); m<=std::min(n,numCases);m++) {
+			for (int m=start;m<=end;m++) {
+				T b = B[currentB][3*m-3];
+				T db = B[currentB][3*m-2];
+				T tb = t*b;
+				T xtb = x*tb;
+				T tdb = t*db;
+				B[!currentB][3*m] = B[currentB][3*m] + tb;
+				B[!currentB][3*m+1] =  B[currentB][3*m+1] + tdb + xtb;
+				B[!currentB][3*m+2] = B[currentB][3*m+2] + t * B[currentB][3*m-1] + x*xtb + 2*x*tdb;
+			}
+			currentB = !currentB;
+			++itExpXBeta;
+			++itX;
+			int m = std::min(n,numCases);
+			if (B[currentB][3*m]>1e200 || B[currentB][3*m+1]>1e200 || B[currentB][3*m+2]>1e200) {
+				for (int i=0; i<=numCases; i++) {
+					B[currentB][3*i] /= 1e200;
+					B[currentB][3*i+1] /= 1e200;
+					B[currentB][3*i+2] /= 1e200;
+				}
+			}
+		}
+		result.push_back(B[currentB][3*numCases]);
+		result.push_back(B[currentB][3*numCases+1]);
+		result.push_back(B[currentB][3*numCases+2]);
+
+
 	}
 
 	//result.push_back(maxXi);
