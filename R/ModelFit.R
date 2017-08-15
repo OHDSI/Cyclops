@@ -218,8 +218,8 @@ fitCyclopsModel <- function(cyclopsData,
         if (length(weights) != getNumberOfRows(cyclopsData)) {
             stop("Must provide a weight for each data row")
         }
-        if (!all(weights %in% c(0,1))) {
-            stop("Only 0/1 weights are currently supported")
+        if (any(weights < 0)) {
+            stop("All weights must be non-negative")
         }
 
         if(!is.null(cyclopsData$sortOrder)) {
