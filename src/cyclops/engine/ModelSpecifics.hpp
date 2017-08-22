@@ -848,45 +848,60 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	} else {
 
+	    IteratorType it(modelData, index);
+
+	    for (; it; ++it) {
+	        const int i = it.index();
+
+	        real numerator1 = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<real>(0), static_cast<real>(0));
+	        real numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+	        BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<real>(0);
+
+	        BaseModel::incrementGradientAndHessian(it,
+                                                w, // Signature-only, for iterator-type specialization
+                                                &gradient, &hessian, numerator1, numerator2,
+                                                denomPid[hPid[i]], hNWeight[hPid[i]], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
+	    }
+
 // #ifdef OLD_WAY
 //
-// 		auto range = helper::getRangeDenominator(sparseIndices[index], N, typename IteratorType::tag());
-//
-// 		auto kernel = AccumulateGradientAndHessianKernel<BaseModel,IteratorType, Weights, real, int>(
-// 							begin(numerPid), begin(numerPid2), begin(denomPid),
-// 							begin(hNWeight), begin(hXBeta), begin(hY));
-//
-// 		Fraction<real> result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), kernel,
-// 		 SerialOnly()
-// 	//     info
-// 		);
-//
-// 		gradient = result.real();
-// 		hessian = result.imag();
-//
+	// 	auto range = helper::dependent::getRangeDenominator(sparseIndices[index], N, typename IteratorType::tag());
+	//
+	// 	auto kernel = AccumulateGradientAndHessianKernel<BaseModel,IteratorType, Weights, real, int>(
+	// 						begin(numerPid), begin(numerPid2), begin(denomPid),
+	// 						begin(hNWeight), begin(hXBeta), begin(hY));
+	//
+	// 	Fraction<real> result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), kernel,
+	// 	 SerialOnly()
+	// //     info
+	// 	);
+	//
+	// 	gradient = result.real();
+	// 	hessian = result.imag();
+
 // #endif
 //
 // #ifdef NEW_WAY2
 
-		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid,
-		        typename IteratorType::tag());
-
-        auto rangeXNumerator = helper::dependent::getRangeX(modelData, index, offsExpXBeta,
-                typename IteratorType::tag());
-
-        auto rangeGradient = helper::dependent::getRangeGradient(sparseIndices[index].get(), N, // runtime error: reference binding to null pointer of type 'struct vector'
-                denomPid, hNWeight,
-                typename IteratorType::tag());
-
-		const auto result = variants::trial::nested_reduce(
-		        rangeKey.begin(), rangeKey.end(),
-		        rangeXNumerator.begin(), rangeGradient.begin(),
-		        std::pair<real,real>{0,0}, Fraction<real>{0,0},
-                TestNumeratorKernel<BaseModel,IteratorType,real>(), // Inner transform-reduce
-		       	TestGradientKernel<BaseModel,IteratorType,Weights,real>()); // Outer transform-reduce
-
-		gradient = result.real();
-		hessian = result.imag();
+// 		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid,
+// 		        typename IteratorType::tag());
+//
+//         auto rangeXNumerator = helper::dependent::getRangeX(modelData, index, offsExpXBeta,
+//                 typename IteratorType::tag());
+//
+//         auto rangeGradient = helper::dependent::getRangeGradient(sparseIndices[index].get(), N, // runtime error: reference binding to null pointer of type 'struct vector'
+//                 denomPid, hNWeight,
+//                 typename IteratorType::tag());
+//
+// 		const auto result = variants::trial::nested_reduce(
+// 		        rangeKey.begin(), rangeKey.end(),
+// 		        rangeXNumerator.begin(), rangeGradient.begin(),
+// 		        std::pair<real,real>{0,0}, Fraction<real>{0,0},
+//                 TestNumeratorKernel<BaseModel,IteratorType,real>(), // Inner transform-reduce
+// 		       	TestGradientKernel<BaseModel,IteratorType,Weights,real>()); // Outer transform-reduce
+//
+// 		gradient = result.real();
+// 		hessian = result.imag();
 // #endif
 
 //       std::cerr << std::endl
