@@ -1,4 +1,4 @@
-Cyclops v1.2.4 (Release data: 2017-08-23)
+Cyclops v1.3.0 (Release data: 2017-08-23)
 ==============
 
 Changes: 1. implements specialized priors through callbacks for use, for example,
