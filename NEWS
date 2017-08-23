@@ -1,4 +1,5 @@
 Cyclops v1.2.4 (Release data: 2017-08-23)
+==============
 
 Changes: 1. implements specialized priors through callbacks for use, for example,
             in the BrokenAdaptiveRidge package to provide L0-based model selection
@@ -6,7 +7,13 @@ Changes: 1. implements specialized priors through callbacks for use, for example
             auto-and-grid-based cross-validation hyperparameter searches
          3. removes src/boost that clashes with BH 1.65.0
 
+Cyclops v1.2.3 (Not released)
+==============
+
+Changes: 1. fixed `predict` error with `ff.data.frame` with size == 0
+
 Cyclops v1.2.2 (Release date: 2016-10-06)
+==============
 
 Changes: 1. fixed `solaris` build errors
          2. added compatibility for C++14 (make_unique)
