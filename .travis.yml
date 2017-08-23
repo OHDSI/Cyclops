@@ -25,6 +25,7 @@ matrix:
         - echo 'CC=gcc-6' > ~/.R/Makevars
         - echo 'CXX=g++-6' >> ~/.R/Makevars
         - echo 'CXX1X=g++-6' >> ~/.R/Makevars
+        - echo 'CXX11=g++-6' >> ~/.R/Makevars
         - echo 'PKG_CXXFLAGS= -std=c++14 -s -g1 -Wno-ignored-attributes -Wno-deprecated-declarations' >> ~/.R/Makevars
 
 before_install:
