@@ -18,4 +18,3 @@ The predictive log-likelihood
 \code{getCyclopsPredictiveLogLikelihood} returns the log-likelihood of a subset of the data in a Cyclops model fit object.
 }
 \keyword{internal}
-

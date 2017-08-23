@@ -26,4 +26,3 @@ for use with \code{fitCyclopsModel}.
 \code{createParameterizedPrior} creates a Cyclops prior object for use with \code{\link{fitCyclopsModel}}
 in which arbitrary \code{R} functions parameterize the prior location and variance.
 }
-

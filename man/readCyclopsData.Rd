@@ -69,9 +69,9 @@ Currently supported model types are:
 	\verb{	"cox"} \tab Cox proportional hazards regression \cr
 }
 }
+
 \examples{
 \dontrun{
 dataPtr = readCyclopsData(system.file("extdata/infert_ccd.txt", package="Cyclops"), "clr")
 }
 }
-

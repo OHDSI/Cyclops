@@ -19,4 +19,3 @@ convertToGlmnetLambda(variance, nobs)
 from \code{Cyclops} into the regularization parameter \code{lambda}.
 }
 \keyword{internal}
-
