@@ -5,17 +5,18 @@ r_packages:
   - covr
   - drat
 
-include:
-- os: linux
-  compiler: gcc
-  addons:
-    apt:
-      sources: ['ubuntu-toolchain-r-test']
-      packages: ['g++-5']
-  env:
-    - COMPILER=g++-5
-    - CC=gcc=5
-    - CXX=g++-5
+matrix:
+    include:
+    - os: linux
+      compiler: gcc
+      addons:
+        apt:
+          sources: ['ubuntu-toolchain-r-test']
+          packages: ['g++-5']
+      env:
+        - COMPILER=g++-5
+        - CC=gcc=5
+        - CXX=g++-5
 
 #matrix:
 #  include:
