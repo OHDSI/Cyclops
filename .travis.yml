@@ -35,7 +35,7 @@ before_install:
 
 install:
   - ./run.sh install_aptget r-cran-rcpp r-cran-bit r-cran-ff r-cran-ffbase r-cran-rcppparallel r-cran-rcppeigen r-cran-ggplot2 r-cran-testthat r-cran-gnm
-  - ./run.sh install_r_binary drat covr
+  - ./run.sh install_r drat covr
 
 script:
   - ./run.sh run_tests
