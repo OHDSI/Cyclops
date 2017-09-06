@@ -594,9 +594,13 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
     if (length(weights) != getNumberOfRows(object$cyclopsData)) {
         stop("Must provide a weight for each data row")
     }
-    if (!all(weights %in% c(0,1))) {
-        stop("Only 0/1 weights are currently supported")
+    # if (!all(weights %in% c(0,1))) {
+    #     stop("Only 0/1 weights are currently supported")
+    # }
+    if (any(weights < 0)) { # TODO What about > 1?
+        stop("Only non-negative weights are allowed")
     }
+
 
     if(!is.null(object$cyclopsData$sortOrder)) {
         weights <- weights[object$cyclopsData$sortOrder]
