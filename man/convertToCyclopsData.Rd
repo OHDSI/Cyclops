@@ -2,8 +2,8 @@
 % Please edit documentation in R/NewDataConversion.R
 \name{convertToCyclopsData}
 \alias{convertToCyclopsData}
-\alias{convertToCyclopsData.data.frame}
 \alias{convertToCyclopsData.ffdf}
+\alias{convertToCyclopsData.data.frame}
 \title{Convert data from two data frames or ffdf objects into a CyclopsData object}
 \usage{
 convertToCyclopsData(outcomes, covariates, modelType = "lr",
@@ -71,6 +71,7 @@ stratumId (if present), -time, y, and rowId.
 
 \item \code{data.frame}: Convert data from two \code{data.frame}
 }}
+
 \examples{
 #Convert infert dataset to Cyclops format:
 covariates <- data.frame(stratumId = rep(infert$stratum, 2),
@@ -91,4 +92,3 @@ cyclopsData <- convertToCyclopsData(outcomes, covariates, modelType = "clr",
 fit <- fitCyclopsModel(cyclopsData, prior = createPrior("none"))
 
 }
-

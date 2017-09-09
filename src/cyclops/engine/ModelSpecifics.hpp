@@ -848,22 +848,37 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	} else {
 
+// 	    IteratorType it(modelData, index);
+//
+// 	    for (; it; ++it) {
+// 	        const int i = it.index();
+//
+// 	        real numerator1 = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<real>(0), static_cast<real>(0));
+// 	        real numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+// 	        BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<real>(0);
+//
+// 	        BaseModel::incrementGradientAndHessian(it,
+//                                                 w, // Signature-only, for iterator-type specialization
+//                                                 &gradient, &hessian, numerator1, numerator2,
+//                                                 denomPid[hPid[i]], hNWeight[hPid[i]], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
+// 	    }
+
 // #ifdef OLD_WAY
 //
-// 		auto range = helper::getRangeDenominator(sparseIndices[index], N, typename IteratorType::tag());
-//
-// 		auto kernel = AccumulateGradientAndHessianKernel<BaseModel,IteratorType, Weights, real, int>(
-// 							begin(numerPid), begin(numerPid2), begin(denomPid),
-// 							begin(hNWeight), begin(hXBeta), begin(hY));
-//
-// 		Fraction<real> result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), kernel,
-// 		 SerialOnly()
-// 	//     info
-// 		);
-//
-// 		gradient = result.real();
-// 		hessian = result.imag();
-//
+	// 	auto range = helper::dependent::getRangeDenominator(sparseIndices[index], N, typename IteratorType::tag());
+	//
+	// 	auto kernel = AccumulateGradientAndHessianKernel<BaseModel,IteratorType, Weights, real, int>(
+	// 						begin(numerPid), begin(numerPid2), begin(denomPid),
+	// 						begin(hNWeight), begin(hXBeta), begin(hY));
+	//
+	// 	Fraction<real> result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), kernel,
+	// 	 SerialOnly()
+	// //     info
+	// 	);
+	//
+	// 	gradient = result.real();
+	// 	hessian = result.imag();
+
 // #endif
 //
 // #ifdef NEW_WAY2

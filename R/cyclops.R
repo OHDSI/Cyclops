@@ -37,7 +37,7 @@
 #' @importFrom methods as
 #' @importFrom stats aggregate as.formula coef coefficients confint contrasts deviance model.matrix model.offset model.response pchisq poisson qchisq qnorm rbinom rexp rnorm rpois runif terms time vcov
 #'
-#' @useDynLib Cyclops
+#' @useDynLib Cyclops, .registration = TRUE
 NULL
 
 .onUnload <- function (libpath) {

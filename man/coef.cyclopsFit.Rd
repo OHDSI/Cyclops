@@ -19,4 +19,3 @@ Named numeric vector of model coefficients.
 \description{
 \code{coef.cyclopsFit} extracts model coefficients from an Cyclops model fit object
 }
-
