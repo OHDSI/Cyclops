@@ -1708,7 +1708,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 		// Update denominators as well
 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
 			RealType oldEntry = offsExpXBeta[k];
-		    RealType newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
+		    RealType newEntry = offsExpXBeta[k] = hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
 			incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry));
 		}
 	}
@@ -1739,7 +1739,7 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatistics(bool useWeig
 	if (BaseModel::likelihoodHasDenominator) {
 		fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
 		for (size_t k = 0; k < K; ++k) {
-			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
+			offsExpXBeta[k] = hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
 			incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
 		}
 		computeAccumlatedDenominator(useWeights); // WAS computeAccumlatedNumerDenom
