@@ -13,3 +13,4 @@ getCrossValidationInfo(object)
 {getCrossValidationInfo} returns the predicted optimal cross-validation point and ordinate
 }
 \keyword{internal}
+

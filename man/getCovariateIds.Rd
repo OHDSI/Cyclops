@@ -12,3 +12,4 @@ getCovariateIds(object)
 \description{
 \code{getCovariateIds} returns a vector of integer covariate identifiers in a Cyclops data object
 }
+

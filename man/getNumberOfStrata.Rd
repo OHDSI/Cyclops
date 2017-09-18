@@ -12,3 +12,4 @@ getNumberOfStrata(object)
 \description{
 \code{getNumberOfStrata} return the number of unique strata in a Cyclops data object
 }
+

@@ -18,3 +18,4 @@ plotCyclopsSimulationFit(fit, goldStandard, label)
 Cyclops model \code{fit}.
 }
 \keyword{internal}
+

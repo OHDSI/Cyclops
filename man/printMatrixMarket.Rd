@@ -15,3 +15,4 @@ printMatrixMarket(object, file)
 \code{printMatrixMarket} prints the data matrix to a file
 }
 \keyword{internal}
+
