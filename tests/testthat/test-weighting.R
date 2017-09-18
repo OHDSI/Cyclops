@@ -7,14 +7,14 @@ library("Cyclops")
 
 test <- read.table(header=T, sep = ",", text = "
                    start, length, status, x1
-                   0, 1,  1,2
-                   0, 1,  0,0
-                   0, 2,  1,0
-                   0, 2,  1,0
-                   0, 2,  0,1
-                   0, 3,  0,0
+                   0, 5,  0,0
                    0, 4,  1,1
-                   0, 5,  0,0  ")
+                   0, 3,  0,0
+                   0, 2,  0,1
+                   0, 2,  1,0
+                   0, 2,  1,0
+                   0, 1,  0,0
+                   0, 1,  1,2  ")
 
 gold <- coxph(Surv(length, status) ~ x1, test, ties = "breslow")
 
@@ -26,20 +26,19 @@ logLik(gold)
 logLik(cyclopsFit)
 
 
-
 ## Single covariate: weighted without ties
 
 test <- read.table(header=T, sep = ",", text = "
                    start, length, status, x1
-                   0, 1,  1,1
-                   0, 1,  0,1
-                   0, 2,  1,0
-                   0, 2,  0,1
-                   0, 3,  0,0
+                   0, 5,  0,0
                    0, 4,  1,1
-                   0, 5,  0,0 ")
+                   0, 3,  0,0
+                   0, 2,  0,1
+                   0, 2,  1,0
+                   0, 1,  0,1
+                   0, 1,  1,1 ")
 
-weights <- c(1,2,3,2,1,2,1)
+weights <- c(1,2,1,2,3,2,1)
 
 gold <- coxph(Surv(length, status) ~ x1, test, weights = weights)
 
@@ -74,3 +73,4 @@ cyclopsFit <- fitCyclopsModel(cyclopsData, weights=weights)
 expect_equal(coef(gold), coef(cyclopsFit))
 logLik(gold)
 logLik(cyclopsFit)
+

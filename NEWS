@@ -1,4 +1,4 @@
-Cyclops v1.2.4 (not released)
+Cyclops v1.3.0
 
 Changes: 1. implements specialized priors through callbacks for use, for example,
             in the BrokenAdaptiveRidge package to provide L0-based model selection
