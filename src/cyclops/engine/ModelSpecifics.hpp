@@ -19,8 +19,6 @@
 
 #include "Recursions.hpp"
 #include "ParallelLoops.h"
-#include <tbb/mutex.h>
-#include <tbb/parallel_for.h>
 
 //#include "R.h"
 //#include "Rcpp.h" // TODO Remove
@@ -72,7 +70,6 @@ ModelSpecifics<BaseModel,RealType>::ModelSpecifics(const ModelData<RealType>& in
 	: AbstractModelSpecifics(input), BaseModel(input.getYVectorRef(), input.getTimeVectorRef()),
    modelData(input),
    hX(modelData.getX())
-   // threadPool()
    // hY(input.getYVectorRef()),
    // hOffs(input.getTimeVectorRef())
  //  hPidOriginal(input.getPidVectorRef()), hPid(const_cast<int*>(hPidOriginal.data())),
@@ -1084,59 +1081,19 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	    }
 
 	} else if (BaseModel::exactCLR) {
-
-	    //tbb::mutex mutex0;
-	    tbb::combinable<RealType> newGrad(static_cast<RealType>(0));
-	    tbb::combinable<RealType> newHess(static_cast<RealType>(0));
-
-	    auto func = [&,index](const tbb::blocked_range<int>& range){
-	        for (int i = range.begin(); i < range.end(); ++i) {
-	            DenseView<IteratorType, RealType> x(IteratorType(hX, index), hNtoK[i], hNtoK[i+1]);
-	            int numSubjects = hNtoK[i+1] - hNtoK[i];
-	            int numCases = hNWeight[i];
-	            std::vector<RealType> value = computeHowardRecursion<RealType>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases);
-	            if (value[0]==0 || value[1] == 0 || value[2] == 0 || isinf(value[0]) || isinf(value[1]) || isinf(value[2])) {
-	                DenseView<IteratorType, RealType> newX(IteratorType(hX, index), hNtoK[i], hNtoK[i+1]);
-	                std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], newX, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
-	                using namespace sugar;
-	                //mutex0.lock();
-	                newGrad.local() -= (RealType)(-value[1]/value[0]);
-	                newHess.local() -= (RealType)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
-	                //mutex0.unlock();
-	                continue;
-	            }
-	            //mutex0.lock();
-	            newGrad.local() -= (RealType)(-value[1]/value[0]);
-	            newHess.local() -= (RealType)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
-	            //mutex0.unlock();
-	        }
-	    };
-	    tbb::parallel_for(tbb::blocked_range<int>(0,N),func);
-	    gradient += newGrad.combine([](const RealType& x, const RealType& y) {return x+y;});
-	    hessian += newHess.combine([](const RealType& x, const RealType& y) {return x+y;});
-
-	//     std::cout<<"\n"<<"index: "<<index;
-/*
 		for (int i=0; i<N; i++) {
 			DenseView<IteratorType, RealType> x(IteratorType(hX, index), hNtoK[i], hNtoK[i+1]);
 			int numSubjects = hNtoK[i+1] - hNtoK[i];
 			int numCases = hNWeight[i];
 
-			std::vector<RealType> value = computeHowardRecursion<RealType>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
-	        //std::cout<<" values" << i <<": "<<value[0]<<" | "<<value[1]<<" | "<<value[2];
-			if (value[0]==0 || value[1] == 0 || value[2] == 0 || isinf(value[0]) || isinf(value[1]) || isinf(value[2])) {
-			    DenseView<IteratorType, RealType> newX(IteratorType(hX, index), hNtoK[i], hNtoK[i+1]);
-			    std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], newX, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
-			    using namespace sugar;
-			    gradient -= (RealType)(-value[1]/value[0]);
-			    hessian -= (RealType)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
-			    continue;
-			}
+			std::vector<RealType> value = computeHowardRecursion<RealType>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases);//, hY.begin() + hNtoK[i]);
+			//std::cout<<value[0]<<" | "<<value[1]<<" | "<<value[2]<<"\n";
+			using namespace sugar;
+
 			//gradient -= (RealType)(value[3] - value[1]/value[0]);
 			gradient -= (RealType)(-value[1]/value[0]);
 			hessian -= (RealType)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
 		}
-		*/
 	} else {
 
 	    IteratorType it(hX, index);
@@ -1708,7 +1665,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 		// Update denominators as well
 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
 			RealType oldEntry = offsExpXBeta[k];
-		    RealType newEntry = offsExpXBeta[k] = hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
+		    RealType newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
 			incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry));
 		}
 	}
@@ -1739,7 +1696,7 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatistics(bool useWeig
 	if (BaseModel::likelihoodHasDenominator) {
 		fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
 		for (size_t k = 0; k < K; ++k) {
-			offsExpXBeta[k] = hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
+			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
 			incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
 		}
 		computeAccumlatedDenominator(useWeights); // WAS computeAccumlatedNumerDenom
