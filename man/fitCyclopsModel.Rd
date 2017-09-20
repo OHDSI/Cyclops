@@ -46,7 +46,6 @@ Currently supported prior types are:
  \verb{  "normal"} \tab L_2 regularization \cr
 }
 }
-
 \examples{
 ## Dobson (1990) Page 93: Randomized Controlled Trial :
 counts <- c(18,17,15,20,10,20,25,13,12)
@@ -72,3 +71,4 @@ Mittal S, Madigan D, Burd RS, Suchard MA.
 High-dimensional, massive sample-size Cox proportional hazards regression for survival analysis.
 Biostatistics, 15, 207-221, 2014.
 }
+

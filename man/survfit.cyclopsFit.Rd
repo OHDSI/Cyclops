@@ -17,3 +17,4 @@ Baseline survival function for mean covariates
 \description{
 \code{survfit.cyclopsFit} computes baseline hazard function
 }
+

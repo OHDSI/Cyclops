@@ -16,3 +16,4 @@
 \description{
 \code{print.cyclopsFit} displays information about a Cyclops model fit object
 }
+

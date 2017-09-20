@@ -220,8 +220,8 @@ fitCyclopsModel <- function(cyclopsData,
         if (length(weights) != getNumberOfRows(cyclopsData)) {
             stop("Must provide a weight for each data row")
         }
-        if (!all(weights %in% c(0,1))) {
-            stop("Only 0/1 weights are currently supported")
+        if (any(weights < 0)) {
+            stop("Only non-negative weights are allowed")
         }
 
         if(!is.null(cyclopsData$sortOrder)) {
@@ -479,7 +479,7 @@ createControl <- function(maxIterations = 1000,
     stopifnot(threads == -1 || threads >= 1)
     stopifnot(startingVariance == -1 || startingVariance > 0)
     stopifnot(selectorType %in% c("auto","byPid", "byRow"))
-    
+
     validAlgorithmNames = c("ccd", "mm")
     stopifnot(algorithm %in% validAlgorithmNames)
 
@@ -608,8 +608,8 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
     if (length(weights) != getNumberOfRows(object$cyclopsData)) {
         stop("Must provide a weight for each data row")
     }
-    if (!all(weights %in% c(0,1))) {
-        stop("Only 0/1 weights are currently supported")
+    if (any(weights < 0)) {
+        stop("Only non-negative weights are allowed")
     }
 
     if(!is.null(object$cyclopsData$sortOrder)) {

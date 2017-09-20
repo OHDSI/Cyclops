@@ -13,3 +13,4 @@ printCyclopsRowIds(object)
 \code{printCcdRowIds} return the row identifiers in a Cyclops data object
 }
 \keyword{internal}
+

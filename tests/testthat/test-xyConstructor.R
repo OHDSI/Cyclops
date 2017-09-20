@@ -1,5 +1,5 @@
-library(testthat)
-library(survival)
+library("testthat")
+library("survival")
 
 #
 # Tests for the XY constructor of ModelData
