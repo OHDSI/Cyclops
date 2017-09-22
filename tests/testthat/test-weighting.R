@@ -34,7 +34,6 @@ test_that("Check very small Cox example without ties, but with weights",{
                        0, 2,  1,0
                        0, 1,  0,1
                        0, 1,  1,1 ")
-
     weights <- c(1,2,1,2,3,2,1)
 
     gold <- coxph(Surv(length, status) ~ x1, test, weights = weights)
