@@ -24,6 +24,7 @@ test_that("Check very small Cox example with ties, but without weights",{
 })
 
 
+<<<<<<< HEAD
 test_that("Check very small Cox example without ties, but with weights",{
     test <- read.table(header=T, sep = ",", text = "
                    start, length, status, x1
@@ -46,6 +47,8 @@ test_that("Check very small Cox example without ties, but with weights",{
 })
 
 
+=======
+>>>>>>> parent of 33e737c... try to fix tests (parallel confint hasn't succeeded yet)
 test_that("Check very small Cox example with ties, with weights",{
     test <- read.table(header=T, sep = ",", text = "
                        start, length, status, x1

@@ -64,7 +64,7 @@ test_that("Small Poisson fixed beta", {
 #     cyclopsFit2 <- fitCyclopsModel(dataPtrD,
 #                                    prior = createPrior("none"),
 #                                    control = createControl(noiseLevel = "silent",
-#                                                            threads = 2))
+#                                                            threads = -1))
 #
 #     expect_equal(confint(cyclopsFit1, c(1:3)), confint(cyclopsFit2, c(1:3)))
 #     ## TODO Check output of confint for "Using 2 thread(s)"
