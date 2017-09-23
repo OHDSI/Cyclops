@@ -29,4 +29,3 @@ for use with \code{fitCyclopsModel}.
 that supports multiple hyperparameters through an auto-search in one dimension and a grid-search over the remaining
 dimensions
 }
-

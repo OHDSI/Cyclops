@@ -24,4 +24,3 @@ data(oxford)
 A dataset containing the MMR vaccination / meningitis in Oxford example from
 Farrington and Whitaker.  There are 10 patients comprising 38 unique exposure intervals.
 }
-

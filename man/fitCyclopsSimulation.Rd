@@ -23,4 +23,3 @@ fitCyclopsSimulation(sim, useCyclops = TRUE, model = "logistic",
 This function is useful for simulation studies comparing the performance of Cyclops when considering
 large, sparse datasets.
 }
-

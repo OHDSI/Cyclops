@@ -12,4 +12,3 @@ meanLinearPredictor(cyclopsFit)
 \description{
 \code{meanLinearPredictor} computes xbar*beta for model fit
 }
-
