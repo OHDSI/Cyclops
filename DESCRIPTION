@@ -19,7 +19,7 @@ Depends:
     R (>= 3.1.0)
 Imports:
     Matrix,
-    Rcpp (>= 0.12.4),
+    Rcpp (>= 0.12.12),
     bit,
     ff,
     ffbase,

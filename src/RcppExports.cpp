@@ -713,63 +713,6 @@ BEGIN_RCPP
 END_RCPP
 }
 
-RcppExport SEXP Cyclops_bySum(SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsAppendSqlData(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsFinalizeData(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsFitModel(SEXP);
-RcppExport SEXP Cyclops_cyclopsGetComputeDevice(SEXP);
-RcppExport SEXP Cyclops_cyclopsGetCovariateIds(SEXP);
-RcppExport SEXP Cyclops_cyclopsGetCovariateType(SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsGetFisherInformation(SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsGetHasIntercept(SEXP);
-RcppExport SEXP Cyclops_cyclopsGetHasOffset(SEXP);
-RcppExport SEXP Cyclops_cyclopsGetInterceptLabel(SEXP);
-RcppExport SEXP Cyclops_cyclopsGetIsRegularized(SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsGetIsSurvivalNames();
-RcppExport SEXP Cyclops_cyclopsGetLogLikelihood(SEXP);
-RcppExport SEXP Cyclops_cyclopsGetMeanOffset(SEXP);
-RcppExport SEXP Cyclops_cyclopsGetModelTypeNames();
-RcppExport SEXP Cyclops_cyclopsGetNumberOfColumns(SEXP);
-RcppExport SEXP Cyclops_cyclopsGetNumberOfRows(SEXP);
-RcppExport SEXP Cyclops_cyclopsGetNumberOfStrata(SEXP);
-RcppExport SEXP Cyclops_cyclopsGetNumberOfTypes(SEXP);
-RcppExport SEXP Cyclops_cyclopsGetPredictiveLogLikelihood(SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsGetRemoveInterceptNames();
-RcppExport SEXP Cyclops_cyclopsGetTimeVector(SEXP);
-RcppExport SEXP Cyclops_cyclopsGetUseOffsetNames();
-RcppExport SEXP Cyclops_cyclopsGetYVector(SEXP);
-RcppExport SEXP Cyclops_cyclopsInitializeModel(SEXP, SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsLoadDataMultipleX(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsLoadDataX(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsLoadDataY(SEXP, SEXP, SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsLogModel(SEXP);
-RcppExport SEXP Cyclops_cyclopsMedian(SEXP);
-RcppExport SEXP Cyclops_cyclopsModelData(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsNewSqlData(SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsNormalizeCovariates(SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsPredictModel(SEXP);
-RcppExport SEXP Cyclops_cyclopsPrintMatrixMarket(SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsPrintRowIds(SEXP);
-RcppExport SEXP Cyclops_cyclopsProfileModel(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsQuantile(SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsReadFileData(SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsRunCrossValidationl(SEXP);
-RcppExport SEXP Cyclops_cyclopsSetBeta(SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsSetControl(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsSetFixedBeta(SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsSetHasIntercept(SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsSetParameterizedPrior(SEXP, SEXP, SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsSetPrior(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsSetWeights(SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsSum(SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsSumByGroup(SEXP, SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsSumByStratum(SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsTestParameterizedPrior(SEXP, SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_cyclopsUnivariableCorrelation(SEXP, SEXP);
-RcppExport SEXP Cyclops_isRcppPtrNull(SEXP);
-RcppExport SEXP Cyclops_isSorted(SEXP, SEXP, SEXP);
-RcppExport SEXP Cyclops_isSortedVectorList(SEXP, SEXP);
-
 static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_bySum", (DL_FUNC) &_Cyclops_bySum, 2},
     {"_Cyclops_cyclopsGetModelTypeNames", (DL_FUNC) &_Cyclops_cyclopsGetModelTypeNames, 0},
@@ -827,62 +770,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetInterceptLabel", (DL_FUNC) &_Cyclops_cyclopsGetInterceptLabel, 1},
     {"_Cyclops_cyclopsReadFileData", (DL_FUNC) &_Cyclops_cyclopsReadFileData, 2},
     {"_Cyclops_cyclopsModelData", (DL_FUNC) &_Cyclops_cyclopsModelData, 10},
-    {"Cyclops_bySum",                             (DL_FUNC) &Cyclops_bySum,                              2},
-    {"Cyclops_cyclopsAppendSqlData",              (DL_FUNC) &Cyclops_cyclopsAppendSqlData,               8},
-    {"Cyclops_cyclopsFinalizeData",               (DL_FUNC) &Cyclops_cyclopsFinalizeData,                7},
-    {"Cyclops_cyclopsFitModel",                   (DL_FUNC) &Cyclops_cyclopsFitModel,                    1},
-    {"Cyclops_cyclopsGetComputeDevice",           (DL_FUNC) &Cyclops_cyclopsGetComputeDevice,            1},
-    {"Cyclops_cyclopsGetCovariateIds",            (DL_FUNC) &Cyclops_cyclopsGetCovariateIds,             1},
-    {"Cyclops_cyclopsGetCovariateType",           (DL_FUNC) &Cyclops_cyclopsGetCovariateType,            2},
-    {"Cyclops_cyclopsGetFisherInformation",       (DL_FUNC) &Cyclops_cyclopsGetFisherInformation,        2},
-    {"Cyclops_cyclopsGetHasIntercept",            (DL_FUNC) &Cyclops_cyclopsGetHasIntercept,             1},
-    {"Cyclops_cyclopsGetHasOffset",               (DL_FUNC) &Cyclops_cyclopsGetHasOffset,                1},
-    {"Cyclops_cyclopsGetInterceptLabel",          (DL_FUNC) &Cyclops_cyclopsGetInterceptLabel,           1},
-    {"Cyclops_cyclopsGetIsRegularized",           (DL_FUNC) &Cyclops_cyclopsGetIsRegularized,            2},
-    {"Cyclops_cyclopsGetIsSurvivalNames",         (DL_FUNC) &Cyclops_cyclopsGetIsSurvivalNames,          0},
-    {"Cyclops_cyclopsGetLogLikelihood",           (DL_FUNC) &Cyclops_cyclopsGetLogLikelihood,            1},
-    {"Cyclops_cyclopsGetMeanOffset",              (DL_FUNC) &Cyclops_cyclopsGetMeanOffset,               1},
-    {"Cyclops_cyclopsGetModelTypeNames",          (DL_FUNC) &Cyclops_cyclopsGetModelTypeNames,           0},
-    {"Cyclops_cyclopsGetNumberOfColumns",         (DL_FUNC) &Cyclops_cyclopsGetNumberOfColumns,          1},
-    {"Cyclops_cyclopsGetNumberOfRows",            (DL_FUNC) &Cyclops_cyclopsGetNumberOfRows,             1},
-    {"Cyclops_cyclopsGetNumberOfStrata",          (DL_FUNC) &Cyclops_cyclopsGetNumberOfStrata,           1},
-    {"Cyclops_cyclopsGetNumberOfTypes",           (DL_FUNC) &Cyclops_cyclopsGetNumberOfTypes,            1},
-    {"Cyclops_cyclopsGetPredictiveLogLikelihood", (DL_FUNC) &Cyclops_cyclopsGetPredictiveLogLikelihood,  2},
-    {"Cyclops_cyclopsGetRemoveInterceptNames",    (DL_FUNC) &Cyclops_cyclopsGetRemoveInterceptNames,     0},
-    {"Cyclops_cyclopsGetTimeVector",              (DL_FUNC) &Cyclops_cyclopsGetTimeVector,               1},
-    {"Cyclops_cyclopsGetUseOffsetNames",          (DL_FUNC) &Cyclops_cyclopsGetUseOffsetNames,           0},
-    {"Cyclops_cyclopsGetYVector",                 (DL_FUNC) &Cyclops_cyclopsGetYVector,                  1},
-    {"Cyclops_cyclopsInitializeModel",            (DL_FUNC) &Cyclops_cyclopsInitializeModel,             4},
-    {"Cyclops_cyclopsLoadDataMultipleX",          (DL_FUNC) &Cyclops_cyclopsLoadDataMultipleX,           8},
-    {"Cyclops_cyclopsLoadDataX",                  (DL_FUNC) &Cyclops_cyclopsLoadDataX,                   7},
-    {"Cyclops_cyclopsLoadDataY",                  (DL_FUNC) &Cyclops_cyclopsLoadDataY,                   5},
-    {"Cyclops_cyclopsLogModel",                   (DL_FUNC) &Cyclops_cyclopsLogModel,                    1},
-    {"Cyclops_cyclopsMedian",                     (DL_FUNC) &Cyclops_cyclopsMedian,                      1},
-    {"Cyclops_cyclopsModelData",                  (DL_FUNC) &Cyclops_cyclopsModelData,                  10},
-    {"Cyclops_cyclopsNewSqlData",                 (DL_FUNC) &Cyclops_cyclopsNewSqlData,                  2},
-    {"Cyclops_cyclopsNormalizeCovariates",        (DL_FUNC) &Cyclops_cyclopsNormalizeCovariates,         2},
-    {"Cyclops_cyclopsPredictModel",               (DL_FUNC) &Cyclops_cyclopsPredictModel,                1},
-    {"Cyclops_cyclopsPrintMatrixMarket",          (DL_FUNC) &Cyclops_cyclopsPrintMatrixMarket,           2},
-    {"Cyclops_cyclopsPrintRowIds",                (DL_FUNC) &Cyclops_cyclopsPrintRowIds,                 1},
-    {"Cyclops_cyclopsProfileModel",               (DL_FUNC) &Cyclops_cyclopsProfileModel,                6},
-    {"Cyclops_cyclopsQuantile",                   (DL_FUNC) &Cyclops_cyclopsQuantile,                    2},
-    {"Cyclops_cyclopsReadFileData",               (DL_FUNC) &Cyclops_cyclopsReadFileData,                2},
-    {"Cyclops_cyclopsRunCrossValidationl",        (DL_FUNC) &Cyclops_cyclopsRunCrossValidationl,         1},
-    {"Cyclops_cyclopsSetBeta",                    (DL_FUNC) &Cyclops_cyclopsSetBeta,                     2},
-    {"Cyclops_cyclopsSetControl",                 (DL_FUNC) &Cyclops_cyclopsSetControl,                 21},
-    {"Cyclops_cyclopsSetFixedBeta",               (DL_FUNC) &Cyclops_cyclopsSetFixedBeta,                3},
-    {"Cyclops_cyclopsSetHasIntercept",            (DL_FUNC) &Cyclops_cyclopsSetHasIntercept,             2},
-    {"Cyclops_cyclopsSetParameterizedPrior",      (DL_FUNC) &Cyclops_cyclopsSetParameterizedPrior,       5},
-    {"Cyclops_cyclopsSetPrior",                   (DL_FUNC) &Cyclops_cyclopsSetPrior,                    6},
-    {"Cyclops_cyclopsSetWeights",                 (DL_FUNC) &Cyclops_cyclopsSetWeights,                  2},
-    {"Cyclops_cyclopsSum",                        (DL_FUNC) &Cyclops_cyclopsSum,                         3},
-    {"Cyclops_cyclopsSumByGroup",                 (DL_FUNC) &Cyclops_cyclopsSumByGroup,                  4},
-    {"Cyclops_cyclopsSumByStratum",               (DL_FUNC) &Cyclops_cyclopsSumByStratum,                3},
-    {"Cyclops_cyclopsTestParameterizedPrior",     (DL_FUNC) &Cyclops_cyclopsTestParameterizedPrior,      4},
-    {"Cyclops_cyclopsUnivariableCorrelation",     (DL_FUNC) &Cyclops_cyclopsUnivariableCorrelation,      2},
-    {"Cyclops_isRcppPtrNull",                     (DL_FUNC) &Cyclops_isRcppPtrNull,                      1},
-    {"Cyclops_isSorted",                          (DL_FUNC) &Cyclops_isSorted,                           3},
-    {"Cyclops_isSortedVectorList",                (DL_FUNC) &Cyclops_isSortedVectorList,                 2},
     {NULL, NULL, 0}
 };
 
