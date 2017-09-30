@@ -1355,10 +1355,29 @@ public:
 		RealType numer, RealType numer2, RealType denom, RealType weight,
 		RealType x, RealType xBeta, RealType y
 		) {
+	    // // Reduce contribution here
+	    // if (IteratorType::isIndicator) {
+	    //     if (Weights::isWeighted) {
+	    //         const RealType value = weight * numer;
+	    //         *gradient += value;
+	    //         *hessian += value;
+	    //     } else {
+	    //         *gradient += numer;
+	    //         *hessian += numer;
+	    //     }
+	    // } else {
+	    //     if (Weights::isWeighted) {
+	    //         *gradient += weight * numer;
+	    //         *hessian += weight * numer2;
+	    //     } else {
+	    //         *gradient += numer;
+	    //         *hessian += numer2;
+	    //     }
+	    // }
 			// Reduce contribution here
 			if (IteratorType::isIndicator) {
 				if (Weights::isWeighted) {
-					const RealType value = weight * numer;
+					const RealType value = numer;
 					*gradient += value;
 					*hessian += value;
 				} else {
@@ -1366,13 +1385,8 @@ public:
 					*hessian += numer;
 				}
 			} else {
-				if (Weights::isWeighted) {
-					*gradient += weight * numer;
-					*hessian += weight * numer2;
-				} else {
 					*gradient += numer;
 					*hessian += numer2;
-				}
 			}
 	}
 

@@ -95,3 +95,54 @@ test_that("Check very small Cox example with weighting", {
     expect_equal(coef(gold), coef(cyclopsFit), tolerance = 1E-6)
     expect_equal(coef(goldDup), coef(cyclopsFit), tolerance = 1E-6)
 })
+
+test_that("Small Poisson dense regression with weighting", {
+    dobson <- data.frame(
+        counts = c(18,17,15,20,10,20,25,13,12),
+        outcome = gl(3,1,9),
+        treatment = gl(3,3)
+    )
+    tolerance <- 1E-4
+
+    weights <- c(1,2,1,2,4,3,2,1,1)
+
+    glmFit <- glm(counts ~ outcome + treatment, data = dobson, weights, family = poisson()) # gold standard
+
+    dataPtrD <- createCyclopsData(counts ~ outcome + treatment, data = dobson,
+                                  modelType = "pr")
+    cyclopsFitD <- fitCyclopsModel(dataPtrD,
+                                   prior = createPrior("none"),
+                                   control = createControl(noiseLevel = "silent"),weights=weights)
+
+    expect_equal(coef(cyclopsFitD), coef(glmFit), tolerance = tolerance)
+    expect_equal(cyclopsFitD$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
+    expect_equal(confint(cyclopsFitD, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
+    expect_equal(predict(cyclopsFitD), predict(glmFit, type = "response"), tolerance = tolerance)
+    expect_equal(confint(cyclopsFitD, c("(Intercept)","outcome3")), confint(cyclopsFitD, c(1,3)))
+})
+
+test_that("Small conditional logistic regression with weighting", {
+
+    weights = as.numeric(gl(5,1,length(infert$case)))
+
+    gold <- clogit(case ~ spontaneous + induced + strata(stratum), data=infert, weights = weights, method=c("approximate"))
+
+    dataPtr <- createCyclopsData(case ~ spontaneous + induced + strata(stratum),
+                                 data = infert,
+                                 modelType = "clr")
+
+    cyclopsFit <- fitCyclopsModel(dataPtr, prior = createPrior("none"), weights=weights)
+
+    tolerance <- 1E-4
+
+    expect_equal(coef(cyclopsFit), coef(gold), tolerance = tolerance)
+    expect_equal(cyclopsFit$log_likelihood, logLik(gold)[[1]], tolerance = tolerance)
+
+    # expect_equal(vcov(cyclopsFit), vcov(gold), tolerance = tolerance)
+    #
+    # expect_equal(aconfint(cyclopsFit), confint(gold), tolerance = tolerance)
+    #
+    # expect_equal(confint(cyclopsFit, c(1:2), includePenalty = TRUE),
+    #              confint(cyclopsFit, c(1:2), includePenalty = FALSE))
+
+})
