@@ -31,7 +31,9 @@ library("testthat")
 # fit <- fitCyclopsModel(cyclopsData,prior=prior,control=control)
 
 test_that("Grid in R and auto-search in C++", {
-    skip_on_cran()
+    skip_on_cran() # Do not run on CRAN
+    skip("Do not run")
+
     seed <- 666
     set.seed(seed)
 

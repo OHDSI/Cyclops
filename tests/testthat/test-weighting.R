@@ -112,13 +112,37 @@ test_that("Small Poisson dense regression with weighting", {
                                   modelType = "pr")
     cyclopsFitD <- fitCyclopsModel(dataPtrD,
                                    prior = createPrior("none"),
-                                   control = createControl(noiseLevel = "silent"),weights=weights)
+                                   control = createControl(noiseLevel = "silent"), weights = weights)
 
     expect_equal(coef(cyclopsFitD), coef(glmFit), tolerance = tolerance)
     expect_equal(cyclopsFitD$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
     expect_equal(confint(cyclopsFitD, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
     expect_equal(predict(cyclopsFitD), predict(glmFit, type = "response"), tolerance = tolerance)
     expect_equal(confint(cyclopsFitD, c("(Intercept)","outcome3")), confint(cyclopsFitD, c(1,3)))
+})
+
+test_that("Small Bernoulli dense regression with weighting", {
+    binomial_bid <- c(1,5,10,20,30,40,50,75,100,150,200)
+    binomial_n <- c(31,29,27,25,23,21,19,17,15,15,15)
+    binomial_y <- c(0,3,6,7,9,13,17,12,11,14,13)
+
+    log_bid <- log(c(rep(rep(binomial_bid, binomial_n - binomial_y)), rep(binomial_bid, binomial_y)))
+    y <- c(rep(0, sum(binomial_n - binomial_y)), rep(1, sum(binomial_y)))
+
+    weights = as.numeric(gl(5,1,length(y)))
+
+    tolerance <- 1E-4
+
+    glmFit <- glm(y ~ log_bid, family = binomial(), weights = weights) # gold standard
+
+    dataPtrD <- createCyclopsData(y ~ log_bid, modelType = "lr")
+    cyclopsFitD <- fitCyclopsModel(dataPtrD, prior = createPrior("none"),
+                                   control = createControl(noiseLevel = "silent"), weights = weights)
+
+    expect_equal(coef(cyclopsFitD), coef(glmFit), tolerance = tolerance)
+    expect_equal(cyclopsFitD$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
+    expect_equal(confint(cyclopsFitD, c(1:2))[,2:3], confint(glmFit, c(1:2)), tolerance = tolerance)
+    expect_equal(predict(cyclopsFitD), predict(glmFit, type = "response"), tolerance = tolerance)
 })
 
 test_that("Small conditional logistic regression with weighting", {
@@ -131,7 +155,7 @@ test_that("Small conditional logistic regression with weighting", {
                                  data = infert,
                                  modelType = "clr")
 
-    cyclopsFit <- fitCyclopsModel(dataPtr, prior = createPrior("none"), weights=weights)
+    cyclopsFit <- fitCyclopsModel(dataPtr, prior = createPrior("none"), weights = weights)
 
     tolerance <- 1E-4
 
@@ -146,3 +170,4 @@ test_that("Small conditional logistic regression with weighting", {
     #              confint(cyclopsFit, c(1:2), includePenalty = FALSE))
 
 })
+

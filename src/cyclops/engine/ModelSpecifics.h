@@ -496,7 +496,29 @@ public:
 			RealType weight,
 			RealType x, RealType xBeta, RealType y) {
 
-		const RealType g = numer / denom;
+	    // const RealType g = numer / denom;
+	    // if (Weights::isWeighted) {
+	    //     *gradient += weight * g;
+	    // } else {
+	    //     *gradient += g;
+	    // }
+	    // if (IteratorType::isIndicator) {
+	    //     if (Weights::isWeighted) {
+	    //         *hessian += weight * g * (static_cast<RealType>(1.0) - g);
+	    //     } else {
+	    //         *hessian += g * (static_cast<RealType>(1.0) - g);
+	    //     }
+	    // } else {
+	    //     if (Weights::isWeighted) {
+	    //         *hessian += weight * (numer2 / denom - g * g); // Bounded by x_j^2
+	    //     } else {
+	    //         *hessian += (numer2 / denom - g * g); // Bounded by x_j^2
+	    //     }
+	    // }
+
+
+	    // offsExpXBeta already include weights
+		const RealType g = numer / (denom + weight -1);
 		if (Weights::isWeighted) {
 			*gradient += weight * g;
 		} else {
@@ -510,9 +532,9 @@ public:
 			}
 		} else {
 			if (Weights::isWeighted) {
-				*hessian += weight * (numer2 / denom - g * g); // Bounded by x_j^2
+				*hessian += weight * (numer2 / (denom + weight -1) - g * g); // Bounded by x_j^2
 			} else {
-				*hessian += (numer2 / denom - g * g); // Bounded by x_j^2
+				*hessian += (numer2 / (denom + weight -1) - g * g); // Bounded by x_j^2
 			}
 		}
 	}
@@ -946,7 +968,7 @@ public:
 	}
 
 	RealType logLikeDenominatorContrib(RealType ni, RealType denom) {
-		return std::log(denom);
+		return ni * std::log((denom - 1)/ni + 1); // offsExpXBeta already include weights
 	}
 
 	RealType logPredLikeContrib(RealType y, RealType weight, RealType xBeta, RealType denominator) {
