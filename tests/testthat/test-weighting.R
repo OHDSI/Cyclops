@@ -165,9 +165,9 @@ test_that("Small conditional logistic regression with weighting", {
     # expect_equal(vcov(cyclopsFit), vcov(gold), tolerance = tolerance)
     #
     # expect_equal(aconfint(cyclopsFit), confint(gold), tolerance = tolerance)
-    #
-    # expect_equal(confint(cyclopsFit, c(1:2), includePenalty = TRUE),
-    #              confint(cyclopsFit, c(1:2), includePenalty = FALSE))
+
+    expect_equal(confint(cyclopsFit, c(1:2), includePenalty = TRUE),
+                 confint(cyclopsFit, c(1:2), includePenalty = FALSE))
 
 })
 
