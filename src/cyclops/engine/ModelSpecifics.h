@@ -517,9 +517,12 @@ public:
 	    // }
 
 
-	    // offsExpXBeta already include weights
-		const RealType g = numer / (denom + weight -1);
-		if (Weights::isWeighted) {
+	    // unlike Cox, denom of LR shouldn't include weights
+	    // current_denom = weight * offsExpXBeta + 1
+	    // correct_denom = offsExpXBeta + 1 = (current_denom - 1) / weight + 1
+		const RealType d = (denom - static_cast<RealType>(1.0)) / weight + static_cast<RealType>(1.0); // correct denom
+	    const RealType g = numer / d;
+	    if (Weights::isWeighted) {
 			*gradient += weight * g;
 		} else {
 			*gradient += g;
@@ -532,9 +535,9 @@ public:
 			}
 		} else {
 			if (Weights::isWeighted) {
-				*hessian += weight * (numer2 / (denom + weight -1) - g * g); // Bounded by x_j^2
+				*hessian += weight * (numer2 / d - g * g); // Bounded by x_j^2
 			} else {
-				*hessian += (numer2 / (denom + weight -1) - g * g); // Bounded by x_j^2
+				*hessian += (numer2 / d - g * g); // Bounded by x_j^2
 			}
 		}
 	}
@@ -826,7 +829,7 @@ public:
 
 	RealType getOffsExpXBeta(const RealType offs, const RealType xBeta) {
         return std::exp(xBeta);
-    }
+	}
 
 	RealType getOffsExpXBeta(const RealType* offs, RealType xBeta, RealType y, int k) {
 		return std::exp(xBeta);
@@ -968,7 +971,11 @@ public:
 	}
 
 	RealType logLikeDenominatorContrib(RealType ni, RealType denom) {
-		return ni * std::log((denom - 1)/ni + 1); // offsExpXBeta already include weights
+	    // return std::log(denom); // weights are calculated in wrong place for LR
+	    // current_denom = weight * offsExpXBeta + 1
+	    // current_loglikedenom = log(current_denom) = log(weight * offsExpXBeta + 1)
+	    // correct_loglikedenom = weight * log(offsExpXBeta + 1) = weight * log((current_denom - 1) / weight + 1)
+		return ni * std::log((denom - static_cast<RealType>(1.0))/ni + static_cast<RealType>(1.0));
 	}
 
 	RealType logPredLikeContrib(RealType y, RealType weight, RealType xBeta, RealType denominator) {
@@ -1377,39 +1384,33 @@ public:
 		RealType numer, RealType numer2, RealType denom, RealType weight,
 		RealType x, RealType xBeta, RealType y
 		) {
-	    // // Reduce contribution here
-	    // if (IteratorType::isIndicator) {
-	    //     if (Weights::isWeighted) {
-	    //         const RealType value = weight * numer;
-	    //         *gradient += value;
-	    //         *hessian += value;
-	    //     } else {
-	    //         *gradient += numer;
-	    //         *hessian += numer;
-	    //     }
-	    // } else {
-	    //     if (Weights::isWeighted) {
-	    //         *gradient += weight * numer;
-	    //         *hessian += weight * numer2;
-	    //     } else {
-	    //         *gradient += numer;
-	    //         *hessian += numer2;
-	    //     }
-	    // }
-			// Reduce contribution here
-			if (IteratorType::isIndicator) {
-				if (Weights::isWeighted) {
-					const RealType value = numer;
-					*gradient += value;
-					*hessian += value;
-				} else {
-					*gradient += numer;
-					*hessian += numer;
-				}
-			} else {
-					*gradient += numer;
-					*hessian += numer2;
-			}
+	    // Reduce contribution here
+	    if (IteratorType::isIndicator) {
+	        if (Weights::isWeighted) {
+	            const RealType value = weight * numer;
+	            *gradient += value;
+	            *hessian += value;
+	        } else {
+	            *gradient += numer;
+	            *hessian += numer;
+	        }
+	    } else {
+	        if (Weights::isWeighted) {
+	            *gradient += weight * numer;
+	            *hessian += weight * numer2;
+	        } else {
+	            *gradient += numer;
+	            *hessian += numer2;
+	        }
+	    }
+			// // Reduce contribution here
+			// if (IteratorType::isIndicator) {
+			// 		*gradient += numer;
+			// 		*hessian += numer;
+			// } else {
+			// 		*gradient += numer;
+			// 		*hessian += numer2;
+			// }
 	}
 
 	template <class IteratorType, class Weights>
