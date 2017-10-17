@@ -19,7 +19,9 @@
 
 #include "Recursions.hpp"
 #include "ParallelLoops.h"
-//#include <tbb/parallel_for.h>
+
+#include <tbb/combinable.h>
+#include <tbb/parallel_for.h>
 
 //#include "R.h"
 //#include "Rcpp.h" // TODO Remove
@@ -1087,6 +1089,9 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	    tbb::combinable<RealType> newHess(static_cast<RealType>(0));
 
 	    auto func = [&,index](const tbb::blocked_range<int>& range){
+
+	        using std::isinf;
+
 	        for (int i = range.begin(); i < range.end(); ++i) {
 	            DenseView<IteratorType, RealType> x(IteratorType(hX, index), hNtoK[i], hNtoK[i+1]);
 	            int numSubjects = hNtoK[i+1] - hNtoK[i];
