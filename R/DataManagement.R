@@ -264,6 +264,9 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
             if (!missing(type)) {
                 type <- type[sortOrder]
             }
+            if (!missing(weights)) {
+                weights <- weights[sortOrder]
+            }
             time <- time[sortOrder]
             dx <- dx[sortOrder, ]
             if (class(dx) == "numeric") {
@@ -350,6 +353,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
     }
 
     result$sortOrder <- sortOrder
+    result$weights <- weights
 
     if (identical(method, "debug")) {
         result$debug <- list()

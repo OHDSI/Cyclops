@@ -213,9 +213,20 @@ fitCyclopsModel <- function(cyclopsData,
         }
     }
 
+    # Handle weights
+
+    weightsUnsorted <- TRUE
+    if (!is.null(cyclopsData$weights)) {
+        if (!is.null(weights)) {
+            warning("Using weights passed to fitCyclopsModel()")
+        } else {
+            weights <- cyclopsData$weights
+            weightsUnsorted <- FALSE
+        }
+    }
     if (!is.null(weights)) {
         if (prior$useCrossValidation) {
-            stop("Can not set data weights and use cross-validation simultaneously")
+            stop("Can not currently set data weights and use cross-validation simultaneously")
         }
         if (length(weights) != getNumberOfRows(cyclopsData)) {
             stop("Must provide a weight for each data row")
@@ -224,8 +235,10 @@ fitCyclopsModel <- function(cyclopsData,
             stop("Only non-negative weights are allowed")
         }
 
-        if(!is.null(cyclopsData$sortOrder)) {
-            weights <- weights[cyclopsData$sortOrder]
+        if (weightsUnsorted) {
+            if (!is.null(cyclopsData$sortOrder)) {
+                weights <- weights[cyclopsData$sortOrder]
+            }
         }
 
         .cyclopsSetWeights(cyclopsData$cyclopsInterfacePtr, weights)

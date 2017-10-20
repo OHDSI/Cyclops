@@ -103,6 +103,7 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
 #'   \verb{y}    \tab(real) \tab The outcome variable \cr
 #'   \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
 #'                  \tab        \tab(e.g. number of days) \cr
+#'   \verb{weight} \tab(real) \tab Non-negative weight to apply to outcome
 #' }
 #'
 #' These columns are expected in the covariates object:
@@ -277,6 +278,12 @@ convertToCyclopsData.ffdf <- function(outcomes,
         .normalizeCovariates(dataPtr, normalize)
     }
 
+    if (is.null(outcomes$weight)) {
+        dataPtr$weights <- NULL
+    } else {
+        dataPtr$weights <- ff::as.ram.ff(outcomes$weight)
+    }
+
     return(dataPtr)
 
 }
@@ -377,6 +384,12 @@ convertToCyclopsData.data.frame <- function(outcomes,
 
     if (!is.null(normalize)) {
         .normalizeCovariates(dataPtr, normalize)
+    }
+
+    if (is.null(outcomes$weight)) {
+        dataPtr$weights <- NULL
+    } else {
+        dataPtr$weights <- outcomes$weight
     }
 
     return(dataPtr)
