@@ -94,6 +94,15 @@ test_that("Check very small Cox example with weighting", {
 
     expect_equal(coef(gold), coef(cyclopsFit), tolerance = 1E-6)
     expect_equal(coef(goldDup), coef(cyclopsFit), tolerance = 1E-6)
+
+    # Weights with sparse and indicator values
+    cyclopsData4 <- createCyclopsData(Surv(length, event) ~ 1, sparseFormula = ~ x1,
+                                      indicatorFormula = ~ x2,
+                                      data = testDup, modelType = "cox",
+                                      weights = weights)
+    cyclopsFit4 <- fitCyclopsModel(cyclopsData4)
+    expect_equal(coef(goldDup), coef(cyclopsFit4), tolerance = 0.000001)
+
 })
 
 test_that("Small Poisson dense regression with weighting", {

@@ -1713,8 +1713,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 		//  RealType newEntry = offsExpXBeta[k] = hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
 		// 	incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry));
 
-			RealType oldEntry = (IteratorType::isIndicator) ?
-			                    offsExpXBeta[k] : hKWeight[k] * offsExpXBeta[k];
+			RealType oldEntry = hKWeight[k] * offsExpXBeta[k];
 			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k); // Update offsExpXBeta
 			RealType newEntry = hKWeight[k] * offsExpXBeta[k];
 			incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
