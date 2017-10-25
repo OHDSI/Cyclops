@@ -160,7 +160,7 @@ protected:
 	template <typename IteratorType>
 	void axpy(RealType* y, const RealType alpha, const int index);
 
-	void computeNumeratorForGradient(int index);
+	void computeNumeratorForGradient(int index, bool useWeights);
 
 	void computeFisherInformation(int indexOne, int indexTwo, double *oinfo, bool useWeights);
 
@@ -220,6 +220,9 @@ protected:
 
 private:
 
+    template <class Weights>
+    void computeRemainingStatisticsImpl();
+
 	template <class IteratorType>
 	void computeXBetaImpl(double *beta);
 
@@ -234,11 +237,11 @@ private:
 			int index, double *ogradient,
             double *ohessian, Weights w);
 
-	template <class IteratorType>
+	template <class IteratorType, class Weights>
 	void incrementNumeratorForGradientImpl(int index);
 
-	template <class IteratorType>
-	void updateXBetaImpl(RealType delta, int index, bool useWeights);
+	template <class IteratorType, class Weights>
+	void updateXBetaImpl(RealType delta, int index);
 
 	template <class OutType, class InType>
 	void incrementByGroup(OutType* values, int* groups, int k, InType inc) {

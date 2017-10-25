@@ -1135,7 +1135,7 @@ void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ograd
 
 void CyclicCoordinateDescent::computeNumeratorForGradient(int index) {
 	// Delegate
-	modelSpecifics.computeNumeratorForGradient(index);
+	modelSpecifics.computeNumeratorForGradient(index, useCrossValidation);
 }
 
 void CyclicCoordinateDescent::computeRatiosForGradientAndHessian(int index) {

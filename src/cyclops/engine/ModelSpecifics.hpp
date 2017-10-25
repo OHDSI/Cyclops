@@ -443,7 +443,7 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, bool useC
 
 	std::fill(hNWeight.begin(), hNWeight.end(), static_cast<RealType>(0));
 	for (size_t k = 0; k < K; ++k) {
-		RealType event = BaseModel::observationCount(hY[k])*hKWeight[k];
+		RealType event = BaseModel::observationCount(hY[k]) * hKWeight[k];
 		incrementByGroup(hNWeight.data(), hPid, k, event);
 	}
 
@@ -465,7 +465,7 @@ void ModelSpecifics<BaseModel, RealType>::computeXjY(bool useCrossValidation) {
 				const int k = it.index();
 				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
 					// Do not precompute
-					hXjY[j] += it.value() * hY[k] * hKWeight[k];
+					hXjY[j] += it.value() * hY[k] * hKWeight[k]; // TODO Remove
 				} else {
 					hXjY[j] += it.value() * hY[k] * hKWeight[k];
 				}
@@ -475,7 +475,7 @@ void ModelSpecifics<BaseModel, RealType>::computeXjY(bool useCrossValidation) {
 				const int k = it.index();
 				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
 					// Do not precompute
-					hXjY[j] += it.value() * hY[k];
+					hXjY[j] += it.value() * hY[k]; // TODO Remove
 				} else {
 					hXjY[j] += it.value() * hY[k];
 				}
@@ -536,7 +536,7 @@ void ModelSpecifics<BaseModel,RealType>::computeFixedTermsInLogLikelihood(bool u
 	if(BaseModel::likelihoodHasFixedTerms) {
 		logLikelihoodFixedTerm = static_cast<RealType>(0);
 	    bool hasOffs = hOffs.size() > 0;
-		if(useCrossValidation) {
+		if (useCrossValidation) {
 			for(size_t i = 0; i < K; i++) {
 			    auto offs = hasOffs ? hOffs[i] : static_cast<RealType>(0);
 				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], offs, offs) * hKWeight[i];
@@ -1146,9 +1146,14 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	    for (; it; ++it) {
 	        const int i = it.index();
 
-	        RealType numerator1 = hKWeight[i] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
+	        RealType numerator1 = (Weights::isWeighted) ? // TODO Delegate condition to gNC
+	            hKWeight[i] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0)) :
+	            BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
 	        RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-	                 hKWeight[i] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
+	            (Weights::isWeighted) ?
+	                 hKWeight[i] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) :
+                     BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i])
+	            : static_cast<RealType>(0);
 
 	        BaseModel::incrementGradientAndHessian(it,
                     w, // Signature-only, for iterator-type specialization
@@ -1392,7 +1397,7 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformationImpl(int indexO
 }
 
 template <class BaseModel,typename RealType>
-void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index) {
+void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, bool useWeights) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifndef CYCLOPS_DEBUG_TIMING_LOW
@@ -1401,60 +1406,59 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index) 
 #endif
 
 	if (BaseModel::cumulativeGradientAndHessian) {
-//
-// 		// Run-time delegation
-// 		switch (modelData.getFormatType(index)) {
-// 			case INDICATOR :
-// 				incrementNumeratorForGradientImpl<IndicatorIterator>(index);
-// 				break;
-// 			case SPARSE :
-// 				incrementNumeratorForGradientImpl<SparseIterator>(index);
-// 				break;
-// 			case DENSE :
-// 				incrementNumeratorForGradientImpl<DenseIterator>(index);
-// 				break;
-// 			case INTERCEPT :
-// 				incrementNumeratorForGradientImpl<InterceptIterator>(index);
-// 				break;
-// 			default : break;
-// 				// throw error
-// 		}
 		switch (hX.getFormatType(index)) {
-			case INDICATOR : {
-				IndicatorIterator<RealType> it(*(sparseIndices)[index]);
-				for (; it; ++it) { // Only affected entries
-					numerPid[it.index()] = static_cast<RealType>(0.0);
+		case INDICATOR : {
+				IndicatorIterator<RealType> itI(*(sparseIndices)[index]);
+				for (; itI; ++itI) { // Only affected entries
+					numerPid[itI.index()] = static_cast<RealType>(0.0);
 				}
-				incrementNumeratorForGradientImpl<IndicatorIterator<RealType>>(index);
+				if (useWeights) {
+				    incrementNumeratorForGradientImpl<IndicatorIterator<RealType>, WeightedOperation>(index);
+				} else {
+				    incrementNumeratorForGradientImpl<IndicatorIterator<RealType>, UnweightedOperation>(index);
 				}
 				break;
-			case SPARSE : {
-				SparseIterator<RealType> it(*(sparseIndices)[index]);
-				for (; it; ++it) { // Only affected entries
-					numerPid[it.index()] = static_cast<RealType>(0.0);
+		}
+		case SPARSE : {
+				SparseIterator<RealType> itS(*(sparseIndices)[index]);
+				for (; itS; ++itS) { // Only affected entries
+					numerPid[itS.index()] = static_cast<RealType>(0.0);
 					if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
-						numerPid2[it.index()] = static_cast<RealType>(0.0); // TODO Does this invalid the cache line too much?
+						numerPid2[itS.index()] = static_cast<RealType>(0.0); // TODO Does this invalid the cache line too much?
 					}
 				}
-				incrementNumeratorForGradientImpl<SparseIterator<RealType>>(index); }
+				if (useWeights) {
+				    incrementNumeratorForGradientImpl<SparseIterator<RealType>, WeightedOperation>(index);
+				} else {
+				    incrementNumeratorForGradientImpl<SparseIterator<RealType>, UnweightedOperation>(index);
+				}
 				break;
-			case DENSE :
+		}
+		case DENSE : {
 				zeroVector(numerPid.data(), N);
 				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
 					zeroVector(numerPid2.data(), N);
 				}
-				incrementNumeratorForGradientImpl<DenseIterator<RealType>>(index);
+				if (useWeights) {
+				    incrementNumeratorForGradientImpl<DenseIterator<RealType>, WeightedOperation>(index);
+				} else {
+				    incrementNumeratorForGradientImpl<DenseIterator<RealType>, UnweightedOperation>(index);
+				}
 				break;
-			case INTERCEPT :
+		}
+		case INTERCEPT : {
 				zeroVector(numerPid.data(), N);
 				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
 					zeroVector(numerPid2.data(), N);
 				}
-				incrementNumeratorForGradientImpl<InterceptIterator<RealType>>(index);
+				if (useWeights) {
+				    incrementNumeratorForGradientImpl<InterceptIterator<RealType>, WeightedOperation>(index);
+				} else {
+				    incrementNumeratorForGradientImpl<InterceptIterator<RealType>, UnweightedOperation>(index);
+				}
 				break;
-			default : break;
-				// throw error
-				//exit(-1);
+		}
+		default : break;
 		}
 	}
 
@@ -1468,7 +1472,7 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index) 
 
 }
 
-template <class BaseModel,typename RealType> template <class IteratorType>
+template <class BaseModel,typename RealType> template <class IteratorType, class Weights>
 void ModelSpecifics<BaseModel,RealType>::incrementNumeratorForGradientImpl(int index) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -1536,14 +1540,22 @@ void ModelSpecifics<BaseModel,RealType>::incrementNumeratorForGradientImpl(int i
 
 // #else
 
+// TODO Delegate Weights::isWeighted to gradientNumeratorContrib
+
 	IteratorType it(hX, index);
 	for (; it; ++it) {
 		const int k = it.index();
 		incrementByGroup(numerPid.data(), hPid, k,
-                   hKWeight[k] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
+                   Weights::isWeighted ?
+                       hKWeight[k] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]) :
+		               BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k])
+		    );
 		if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
 			incrementByGroup(numerPid2.data(), hPid, k,
-                    hKWeight[k] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]));
+                    Weights::isWeighted ?
+                        hKWeight[k] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]) :
+                        BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k])
+                );
 		}
 
 #ifdef DEBUG_COX
@@ -1590,18 +1602,38 @@ void ModelSpecifics<BaseModel,RealType>::updateXBeta(double delta, int index, bo
 
 	// Run-time dispatch to implementation depending on covariate FormatType
 	switch(hX.getFormatType(index)) {
-		case INDICATOR :
-			updateXBetaImpl<IndicatorIterator<RealType>>(realDelta, index, useWeights);
+	    case INDICATOR : {
+		    if (useWeights) {
+			    updateXBetaImpl<IndicatorIterator<RealType>, WeightedOperation>(realDelta, index);
+		    } else {
+		        updateXBetaImpl<IndicatorIterator<RealType>, UnweightedOperation>(realDelta, index);
+		    }
 			break;
-		case SPARSE :
-			updateXBetaImpl<SparseIterator<RealType>>(realDelta, index, useWeights);
+	    }
+	    case SPARSE : {
+		    if (useWeights) {
+			    updateXBetaImpl<SparseIterator<RealType>, WeightedOperation>(realDelta, index);
+		    } else {
+		        updateXBetaImpl<SparseIterator<RealType>, UnweightedOperation>(realDelta, index);
+		    }
 			break;
-		case DENSE :
-			updateXBetaImpl<DenseIterator<RealType>>(realDelta, index, useWeights);
+	    }
+	    case DENSE : {
+	        if (useWeights) {
+			    updateXBetaImpl<DenseIterator<RealType>, WeightedOperation>(realDelta, index);
+	        } else {
+	            updateXBetaImpl<DenseIterator<RealType>, UnweightedOperation>(realDelta, index);
+	        }
 			break;
-		case INTERCEPT :
-			updateXBetaImpl<InterceptIterator<RealType>>(realDelta, index, useWeights);
+	    }
+	    case INTERCEPT : {
+	        if (useWeights) {
+			    updateXBetaImpl<InterceptIterator<RealType>, WeightedOperation>(realDelta, index);
+	        } else {
+	            updateXBetaImpl<InterceptIterator<RealType>, UnweightedOperation>(realDelta, index);
+	        }
 			break;
+	    }
 		default : break;
 			// throw error
 			//exit(-1);
@@ -1617,8 +1649,8 @@ void ModelSpecifics<BaseModel,RealType>::updateXBeta(double delta, int index, bo
 
 }
 
-template <class BaseModel,typename RealType> template <class IteratorType>
-inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDelta, int index, bool useWeights) {
+template <class BaseModel,typename RealType> template <class IteratorType, class Weights>
+inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDelta, int index) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
@@ -1713,15 +1745,15 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 		//  RealType newEntry = offsExpXBeta[k] = hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
 		// 	incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry));
 
-			RealType oldEntry = hKWeight[k] * offsExpXBeta[k];
+			RealType oldEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition to forming offExpXBeta
 			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k); // Update offsExpXBeta
-			RealType newEntry = hKWeight[k] * offsExpXBeta[k];
+			RealType newEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition
 			incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
 		}
 	}
 // RANGE
 
-	computeAccumlatedDenominator(useWeights);
+	computeAccumlatedDenominator(Weights::isWeighted); // TODO pass compile-time?
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
@@ -1734,6 +1766,27 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 
 }
 
+template <class BaseModel, typename RealType> template <class Weights>
+void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
+
+    auto& xBeta = getXBeta();
+
+    if (BaseModel::likelihoodHasDenominator) {
+        fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
+        for (size_t k = 0; k < K; ++k) {
+            // offsExpXBeta[k] = hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
+            // incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
+
+            offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
+            RealType weightoffsExpXBeta =  Weights::isWeighted ?
+                hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k) :
+                BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k); // TODO Delegate condition to gOEXB
+            incrementByGroup(denomPid.data(), hPid, k, weightoffsExpXBeta); // Update denominators
+        }
+        computeAccumlatedDenominator(Weights::isWeighted); // WAS computeAccumlatedNumerDenom
+    }
+}
+
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeRemainingStatistics(bool useWeights) {
 
@@ -1741,20 +1794,28 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatistics(bool useWeig
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 
-	auto& xBeta = getXBeta();
-
-	if (BaseModel::likelihoodHasDenominator) {
-		fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
-		for (size_t k = 0; k < K; ++k) {
-			// offsExpXBeta[k] = hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
-			// incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
-
-			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
-			RealType weightoffsExpXBeta =  hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
-			incrementByGroup(denomPid.data(), hPid, k, weightoffsExpXBeta); // Update denominators
-		}
-		computeAccumlatedDenominator(useWeights); // WAS computeAccumlatedNumerDenom
+	if (useWeights) {
+	    computeRemainingStatisticsImpl<WeightedOperation>();
+	} else {
+	    computeRemainingStatisticsImpl<UnweightedOperation>();
 	}
+
+	// auto& xBeta = getXBeta();
+	//
+	// if (BaseModel::likelihoodHasDenominator) {
+	// 	fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
+	// 	for (size_t k = 0; k < K; ++k) {
+	// 		// offsExpXBeta[k] = hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
+	// 		// incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
+	//
+	// 		offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
+	// 		RealType weightoffsExpXBeta =  Weights::isWeighted ?
+	// 		    hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k) :
+	// 		    BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k); // TODO Delegate condition to gOEXB
+	// 		incrementByGroup(denomPid.data(), hPid, k, weightoffsExpXBeta); // Update denominators
+	// 	}
+	// 	computeAccumlatedDenominator(useWeights); // WAS computeAccumlatedNumerDenom
+	// }
 
 	// std::cerr << "finished MS.cRS" << std::endl;
 

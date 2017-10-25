@@ -68,7 +68,7 @@ public:
 
 	virtual void computeMMGradientAndHessian(std::vector<GradientHessian>& gh, const std::vector<bool>& fixBeta, bool useWeights) = 0; // pure virtual
 
-	virtual void computeNumeratorForGradient(int index) = 0; // pure virtual
+	virtual void computeNumeratorForGradient(int index, bool useWeights) = 0; // pure virtual
 
 	virtual void computeFisherInformation(int indexOne, int indexTwo,
 			double *oinfo, bool useWeights) = 0; // pure virtual
