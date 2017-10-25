@@ -189,7 +189,7 @@ std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorTy
 
 		// std::vector<T> B1;
 		int currentB = 0;
-		int nThreads = 4;
+		// int nThreads = 4;
 
 		B[0].push_back(1);
 		B[1].push_back(1);
@@ -209,7 +209,7 @@ std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorTy
 			T t = *itExpXBeta;
 			if (n>numSubjects-numCases+1) start++;
 			if (n<=numCases) end++;
-			int nloop = end-start+1;
+			// int nloop = end-start+1;
 			//std::cout<<"before"<<B[!currentB][3*start]<<'\n';
 			//std::future<void> futures[4];
 /*
