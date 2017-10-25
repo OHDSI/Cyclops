@@ -401,13 +401,7 @@ public:
 
     std::vector<double> normalizeCovariates(const NormalizationType type);
 
-	const std::string& getRowLabel(const size_t i) const {
-		if (i >= labels.size()) {
-			return missing;
-		} else {
-			return labels[i];
-		}
-	}
+	const std::string& getRowLabel(const size_t i) const;
 
 	void clean() const { touchedY = false; touchedX = false; }
 
@@ -574,7 +568,7 @@ public:
 	        }
 	    }
 
-	    return std::move(result);
+	    return result;
 	}
 
 

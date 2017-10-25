@@ -763,7 +763,19 @@ void ModelData<RealType>::sumByPid(std::vector<double>& out, const IdType covari
 }
 
 template <typename RealType>
-const std::string ModelData<RealType>::missing = "NA";
+const std::string& ModelData<RealType>::getRowLabel(const size_t i) const {
+    if (i >= labels.size()) {
+        return missing;
+    } else {
+        return labels[i];
+    }
+}
+
+template <>
+const std::string ModelData<double>::missing = "NA";
+
+template <>
+const std::string ModelData<float>::missing = "NA";
 
 // Instantiate classes
 template class ModelData<double>;
