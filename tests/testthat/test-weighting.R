@@ -68,6 +68,39 @@ test_that("Check very small Cox example with ties, with weights",{
 
 })
 
+test_that("Check predictive log likelihood",{
+    test <- read.table(header=T, sep = ",", text = "
+                       start, length, event, x1, x2
+                       0, 4,  1,0,0
+                       0, 3,  1,2,0
+                       0, 3,  0,0,1
+                       0, 2,  1,0,1
+                       0, 2,  1,1,1
+                       0, 1,  0,1,0
+                       0, 1,  1,1,0")
+
+    gold <- coxph(Surv(length, event) ~ x1 + strata(x2), test, ties = "breslow")
+
+    # Double the data
+    test2 <- rbind(data.frame(test, index = 1:7), data.frame(test, index = 1:7))
+    test2 <- test2[order(test2$index),]
+
+    data <- createCyclopsData(Surv(length, event) ~ x1 + strata(x2), data = test2,
+                              modelType = "cox")
+
+    # Fit with the second set
+    weights = rep(c(0,1), 7)
+    fit <- fitCyclopsModel(data, weights = rep(c(0,1), 7))
+
+    tolerance <- 1E-4
+    expect_equal(coef(fit), coef(gold), tolerance = tolerance)
+    expect_equivalent(logLik(fit), logLik(gold))
+
+    # Get predictive log likelihood of first set
+    pred <- Cyclops:::.cyclopsGetPredictiveLogLikelihood(fit$interface, weights = 1 - weights)
+    expect_equal(pred, as.numeric(logLik(gold)), tolerance)
+})
+
 test_that("Check very small Cox example with weighting", {
     test <- read.table(header=T, sep = ",", text = "
                        start, length, event, x1, x2
