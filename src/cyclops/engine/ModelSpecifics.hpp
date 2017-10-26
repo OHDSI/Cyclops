@@ -672,13 +672,15 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 	if (BaseModel::cumulativeGradientAndHessian)	{
 	    for (size_t k = 0; k < K; ++k) {
 	        logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], &accDenomPid[0], hPid, k); // TODO Going to crash with ties
+	        std::cerr << logLikelihood << " " << weights[k] << " " << hXBeta[k] << " " << accDenomPid[k] << "\n";
 	    }
 	} else { // TODO Unnecessary code duplication
 	    for (size_t k = 0; k < K; ++k) { // TODO Is index of K correct?
 	        logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], &denomPid[0], hPid, k);
 	    }
 	}
-// RANGE
+
+        // RANGE
 
 	if (BaseModel::cumulativeGradientAndHessian) {
 
