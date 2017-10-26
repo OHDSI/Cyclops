@@ -650,7 +650,7 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
  		saveKWeight = hKWeight; // make copy
 
 		setPidForAccumulation(weights);
-		computeRemainingStatistics(true); // compute accDenomPid
+		// computeRemainingStatistics(true); // compute accDenomPid
     }
 
 	// Compile-time switch for models with / with-out PID (hasIndependentRows)
