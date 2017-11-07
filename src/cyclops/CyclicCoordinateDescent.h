@@ -84,6 +84,8 @@ public:
 
 	double getPredictiveLogLikelihood(double* weights);
 
+	double getNewPredictiveLogLikelihood(double* weights);
+
 	void getPredictiveEstimates(double* y, double* weights) const;
 
 	double getLogPrior(void);

@@ -45,6 +45,10 @@
     .Call('_Cyclops_cyclopsGetPredictiveLogLikelihood', PACKAGE = 'Cyclops', inRcppCcdInterface, weights)
 }
 
+.cyclopsGetNewPredictiveLogLikelihood <- function(inRcppCcdInterface, weights) {
+    .Call('_Cyclops_cyclopsGetNewPredictiveLogLikelihood', PACKAGE = 'Cyclops', inRcppCcdInterface, weights)
+}
+
 .cyclopsGetLogLikelihood <- function(inRcppCcdInterface) {
     .Call('_Cyclops_cyclopsGetLogLikelihood', PACKAGE = 'Cyclops', inRcppCcdInterface)
 }

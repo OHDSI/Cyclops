@@ -141,6 +141,15 @@ double cyclopsGetPredictiveLogLikelihood(SEXP inRcppCcdInterface,
     return interface->getCcd().getPredictiveLogLikelihood(&weights[0]);
 }
 
+// [[Rcpp::export(".cyclopsGetNewPredictiveLogLikelihood")]]
+double cyclopsGetNewPredictiveLogLikelihood(SEXP inRcppCcdInterface,
+                                         NumericVector& weights) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    return interface->getCcd().getNewPredictiveLogLikelihood(&weights[0]);
+}
+
 // [[Rcpp::export(".cyclopsGetLogLikelihood")]]
 double cyclopsGetLogLikelihood(SEXP inRcppCcdInterface) {
 	using namespace bsccs;

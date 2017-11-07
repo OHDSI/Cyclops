@@ -127,6 +127,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsGetNewPredictiveLogLikelihood
+double cyclopsGetNewPredictiveLogLikelihood(SEXP inRcppCcdInterface, NumericVector& weights);
+RcppExport SEXP _Cyclops_cyclopsGetNewPredictiveLogLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP weightsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< NumericVector& >::type weights(weightsSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetNewPredictiveLogLikelihood(inRcppCcdInterface, weights));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsGetLogLikelihood
 double cyclopsGetLogLikelihood(SEXP inRcppCcdInterface);
 RcppExport SEXP _Cyclops_cyclopsGetLogLikelihood(SEXP inRcppCcdInterfaceSEXP) {
@@ -725,6 +737,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetIsRegularized", (DL_FUNC) &_Cyclops_cyclopsGetIsRegularized, 2},
     {"_Cyclops_cyclopsSetWeights", (DL_FUNC) &_Cyclops_cyclopsSetWeights, 2},
     {"_Cyclops_cyclopsGetPredictiveLogLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetPredictiveLogLikelihood, 2},
+    {"_Cyclops_cyclopsGetNewPredictiveLogLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetNewPredictiveLogLikelihood, 2},
     {"_Cyclops_cyclopsGetLogLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihood, 1},
     {"_Cyclops_cyclopsGetFisherInformation", (DL_FUNC) &_Cyclops_cyclopsGetFisherInformation, 2},
     {"_Cyclops_cyclopsSetPrior", (DL_FUNC) &_Cyclops_cyclopsSetPrior, 6},
