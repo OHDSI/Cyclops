@@ -311,9 +311,9 @@ fitCyclopsModel <- function(cyclopsData,
             stop("Interface object is not initialized")
         }
 
-        if (computeDevice != "native") {
-            stopifnot(computeDevice %in% listOpenCLDevices())
-        }
+        # if (computeDevice != "native") {
+        #     stopifnot(computeDevice %in% listOpenCLDevices())
+        # }
 
         # Build interface
         interface <- .cyclopsInitializeModel(x$cyclopsDataPtr, modelType = x$modelType, computeDevice, computeMLE = TRUE)

@@ -210,11 +210,11 @@ void ModelSpecifics<BaseModel,RealType>::initializeMM(
     }
 
     if (boundType == MmBoundType::METHOD_1) {
-        std::cerr << "boundType: METHOD_1" << std::endl;
+        // std::cerr << "boundType: METHOD_1" << std::endl;
 
 
     } else if (boundType == MmBoundType::METHOD_2) {
-        std::cerr << "boundType: METHOD_2" << std::endl;
+        // std::cerr << "boundType: METHOD_2" << std::endl;
 
         double total = 0;
 
