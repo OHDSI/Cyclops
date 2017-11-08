@@ -138,7 +138,9 @@ double cyclopsGetPredictiveLogLikelihood(SEXP inRcppCcdInterface,
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
-    return interface->getCcd().getPredictiveLogLikelihood(&weights[0]);
+    // return interface->getCcd().getPredictiveLogLikelihood(&weights[0]);
+    Rcpp::stop("No longer implemented");
+    return 0.0;
 }
 
 // [[Rcpp::export(".cyclopsGetNewPredictiveLogLikelihood")]]

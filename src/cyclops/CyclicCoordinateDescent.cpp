@@ -269,25 +269,25 @@ void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
 	outLog.close();
 }
 
-double CyclicCoordinateDescent::getPredictiveLogLikelihood(double* weights) {
-
-    xBetaKnown = false;
-
-    if (!xBetaKnown) {
-        computeXBeta();
-        xBetaKnown = true;
-        sufficientStatisticsKnown = false;
-    }
-
-    if (!sufficientStatisticsKnown) {
-        computeRemainingStatistics(true, 0); // TODO Remove index????
-        sufficientStatisticsKnown = true;
-    }
-
-    getDenominators();
-
-    return modelSpecifics.getPredictiveLogLikelihood(weights); // TODO Pass double
-}
+// double CyclicCoordinateDescent::getPredictiveLogLikelihood(double* weights) {
+//
+//     xBetaKnown = false;
+//
+//     if (!xBetaKnown) {
+//         computeXBeta();
+//         xBetaKnown = true;
+//         sufficientStatisticsKnown = false;
+//     }
+//
+//     if (!sufficientStatisticsKnown) {
+//         computeRemainingStatistics(true, 0); // TODO Remove index????
+//         sufficientStatisticsKnown = true;
+//     }
+//
+//     getDenominators();
+//
+//     return modelSpecifics.getPredictiveLogLikelihood(weights); // TODO Pass double
+// }
 
 double CyclicCoordinateDescent::getNewPredictiveLogLikelihood(double* weights) {
 

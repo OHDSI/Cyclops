@@ -216,7 +216,7 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 						}
 					}
 
-					double logLikelihood = ccdTask->getPredictiveLogLikelihood(&weights[0]);
+					double logLikelihood = ccdTask->getNewPredictiveLogLikelihood(&weights[0]);
 
 					// Store value
 					stream << logLikelihood;

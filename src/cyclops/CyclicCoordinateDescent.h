@@ -82,7 +82,7 @@ public:
 
 	double getLogLikelihood(void);
 
-	double getPredictiveLogLikelihood(double* weights);
+	//double getPredictiveLogLikelihood(double* weights);
 
 	double getNewPredictiveLogLikelihood(double* weights);
 

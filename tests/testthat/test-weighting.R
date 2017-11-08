@@ -90,14 +90,14 @@ test_that("Check predictive log likelihood",{
 
     # Fit with the second set
     weights = rep(c(0,1), 7)
-    fit <- fitCyclopsModel(data, weights = rep(c(0,1), 7))
+    fit <- fitCyclopsModel(data, weights = weights)
 
     tolerance <- 1E-4
     expect_equal(coef(fit), coef(gold), tolerance = tolerance)
     expect_equivalent(logLik(fit), logLik(gold))
 
     # Get predictive log likelihood of first set
-    pred <- Cyclops:::.cyclopsGetPredictiveLogLikelihood(fit$interface, weights = 1 - weights)
+    pred <- Cyclops:::.cyclopsGetNewPredictiveLogLikelihood(fit$interface, weights = 1 - weights)
     expect_equal(pred, as.numeric(logLik(gold)), tolerance)
 })
 

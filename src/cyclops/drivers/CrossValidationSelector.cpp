@@ -24,7 +24,7 @@ CrossValidationSelector::CrossValidationSelector(
 		SelectorType inType,
 		long inSeed,
 	    loggers::ProgressLoggerPtr _logger,
-		loggers::ErrorHandlerPtr _error,		
+		loggers::ErrorHandlerPtr _error,
 		std::vector<double>* wtsExclude) : AbstractSelector(inIds, inType, inSeed, _logger, _error), fold(inFold) {
 
 	// Calculate interval starts
@@ -72,7 +72,7 @@ void CrossValidationSelector::getWeights(int batch, std::vector<double>& weights
 		weights.resize(K);
 	}
 
-	std::fill(weights.begin(), weights.end(), 1.0);
+	std::fill(weights.begin(), weights.end(), 1.0); // TODO Should be original weights !!!
 
 	if (batch == -1) {
 		return;
@@ -90,7 +90,7 @@ void CrossValidationSelector::getWeights(int batch, std::vector<double>& weights
 			if (excludeSet.find(ids.at(k)) != excludeSet.end()) { // found
 				weights[k] = 0.0;
 			} else {
-				weights[k] = 1.0; // TODO Is this necessary?
+				weights[k] = 1.0; // TODO Should be original weight !!!
 			}
 		}
 	} else { // SelectorType::BY_ROW
