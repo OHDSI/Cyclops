@@ -129,6 +129,8 @@ public:
 
 	void setWeights(double* weights);
 
+	std::vector<double> getWeights();
+
 	void setLogisticRegression(bool idoLR);
 
 //	template <typename T>

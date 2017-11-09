@@ -25,7 +25,8 @@ CrossValidationSelector::CrossValidationSelector(
 		long inSeed,
 	    loggers::ProgressLoggerPtr _logger,
 		loggers::ErrorHandlerPtr _error,
-		std::vector<double>* wtsExclude) : AbstractSelector(inIds, inType, inSeed, _logger, _error), fold(inFold) {
+		std::vector<double>* wtsExclude,
+		std::vector<double>* wtsOriginal) : AbstractSelector(inIds, inType, inSeed, _logger, _error), fold(inFold) {
 
 	// Calculate interval starts
 	intervalStart.reserve(fold + 1);
@@ -53,6 +54,7 @@ CrossValidationSelector::CrossValidationSelector(
 	permutation.resize(N);
 
 	weightsExclude = wtsExclude;
+	weightsOriginal = wtsOriginal;
 }
 
 void CrossValidationSelector::reseed() {
@@ -72,7 +74,11 @@ void CrossValidationSelector::getWeights(int batch, std::vector<double>& weights
 		weights.resize(K);
 	}
 
-	std::fill(weights.begin(), weights.end(), 1.0); // TODO Should be original weights !!!
+	if (weightsOriginal != nullptr) {
+	    std::copy(weightsOriginal->begin(), weightsOriginal->end(), weights.begin());
+	} else {
+	    std::fill(weights.begin(), weights.end(), 1.0);
+	}
 
 	if (batch == -1) {
 		return;
@@ -90,7 +96,11 @@ void CrossValidationSelector::getWeights(int batch, std::vector<double>& weights
 			if (excludeSet.find(ids.at(k)) != excludeSet.end()) { // found
 				weights[k] = 0.0;
 			} else {
-				weights[k] = 1.0; // TODO Should be original weight !!!
+			    if (weightsOriginal != nullptr) {
+			        weights[k] = (*weightsOriginal)[k];
+			    } else {
+				    weights[k] = 1.0;
+			    }
 			}
 		}
 	} else { // SelectorType::BY_ROW
@@ -110,9 +120,19 @@ AbstractSelector* CrossValidationSelector::clone() const {
 }
 
 void CrossValidationSelector::getComplement(std::vector<double>& weights) {
-	for(auto it = weights.begin(); it != weights.end(); it++) {
-		*it = 1 - *it;
-	}
+    if (weightsOriginal != nullptr) {
+        for (int i = 0; i < weights.size(); ++i) {
+            if (weights[i] == 0.0) {
+                weights[i] = (*weightsOriginal)[i];
+            } else {
+                weights[i] = 0.0;
+            }
+        }
+    } else {
+	    for (auto it = weights.begin(); it != weights.end(); it++) {
+		    *it = 1 - *it;
+	    }
+    }
 }
 
 void CrossValidationSelector::permute() {

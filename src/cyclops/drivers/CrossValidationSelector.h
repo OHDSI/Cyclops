@@ -23,18 +23,19 @@ public:
 			long inSeed,
     	    loggers::ProgressLoggerPtr _logger,
 	    	loggers::ErrorHandlerPtr _error,
-			std::vector<double>* wtsExclude = NULL);
+			std::vector<double>* wtsExclude,
+			std::vector<double>* wtsOriginal);
 
 	virtual ~CrossValidationSelector();
 
 	void permute();
-	
+
  	void reseed();
 
 	void getWeights(int batch, std::vector<double>& weights);
 
 	void getComplement(std::vector<double>& weights);
-	
+
 	AbstractSelector* clone() const;
 
 private:
@@ -42,6 +43,7 @@ private:
 	std::vector<int> permutation;
 	std::vector<int> intervalStart;
 	std::vector<double>* weightsExclude;
+	std::vector<double>* weightsOriginal;
 };
 
 } // namespace

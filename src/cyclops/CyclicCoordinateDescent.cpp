@@ -438,6 +438,10 @@ void CyclicCoordinateDescent::setBeta(int i, double beta) {
 	varianceKnown = false;
 }
 
+std::vector<double> CyclicCoordinateDescent::getWeights() {
+    return hWeights; // Makes copy
+}
+
 void CyclicCoordinateDescent::setWeights(double* iWeights) {
 
 	if (iWeights == NULL) {

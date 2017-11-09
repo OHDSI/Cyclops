@@ -225,9 +225,6 @@ fitCyclopsModel <- function(cyclopsData,
         }
     }
     if (!is.null(weights)) {
-        if (prior$useCrossValidation) {
-            stop("Can not currently set data weights and use cross-validation simultaneously")
-        }
         if (length(weights) != getNumberOfRows(cyclopsData)) {
             stop("Must provide a weight for each data row")
         }

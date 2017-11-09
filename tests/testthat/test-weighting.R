@@ -161,6 +161,11 @@ test_that("Small Poisson dense regression with weighting", {
     expect_equal(confint(cyclopsFitD, c(1:3))[,2:3], confint(glmFit, c(1:3)), tolerance = tolerance)
     expect_equal(predict(cyclopsFitD), predict(glmFit, type = "response"), tolerance = tolerance)
     expect_equal(confint(cyclopsFitD, c("(Intercept)","outcome3")), confint(cyclopsFitD, c(1,3)))
+
+    fit <- fitCyclopsModel(dataPtrD,
+                           prior = createPrior("laplace", useCrossValidation = TRUE),
+                           weights = weights,
+                           control = createControl(minCVData = 1, noiseLevel = "quiet"))
 })
 
 test_that("Small Bernoulli dense regression with weighting", {
@@ -171,7 +176,7 @@ test_that("Small Bernoulli dense regression with weighting", {
     log_bid <- log(c(rep(rep(binomial_bid, binomial_n - binomial_y)), rep(binomial_bid, binomial_y)))
     y <- c(rep(0, sum(binomial_n - binomial_y)), rep(1, sum(binomial_y)))
 
-    weights = as.numeric(gl(5,1,length(y)))
+    weights <- as.numeric(gl(5,1,length(y)))
 
     tolerance <- 1E-4
 
@@ -189,7 +194,7 @@ test_that("Small Bernoulli dense regression with weighting", {
 
 test_that("Small conditional logistic regression with weighting", {
 
-    weights = as.numeric(gl(5,1,length(infert$case)))
+    weights <- as.numeric(gl(5,1,length(infert$case)))
 
     gold <- clogit(case ~ spontaneous + induced + strata(stratum), data=infert, weights = weights, method=c("approximate"))
 
