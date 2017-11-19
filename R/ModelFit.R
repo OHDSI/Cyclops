@@ -263,7 +263,8 @@ fitCyclopsModel <- function(cyclopsData,
         saved <- covariates
         if (inherits(covariates, "character")) {
             # Try to match names
-            covariates <- match(covariates, cyclopsData$coefficientNames)
+            indices <- match(covariates, cyclopsData$coefficientNames)
+            covariates <- getCovariateIds(cyclopsData)[indices]
         }
         covariates = as.numeric(covariates)
 

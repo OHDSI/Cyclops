@@ -1,3 +1,8 @@
+Cyclops v1.3.1 (Not released)
+
+Changes: 1. fixes covariate indices returned from `.checkCovariates` when excluding
+            covariates from regularization
+
 Cyclops v1.3.0 (Release data: 2017-08-23)
 ==============
 
