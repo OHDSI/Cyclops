@@ -255,6 +255,18 @@ protected:
 	std::vector<WeightType> hNWeight;
 	std::vector<WeightType> hKWeight;
 
+	void initializeMmXt();
+
+	void initializeMM(
+	    MmBoundType boundType,
+		const std::vector<bool>& fixBeta
+	);
+
+	void computeNorms(void);
+
+	template <class InteratorType>
+	void incrementNormsImpl(int index);
+
 #ifdef CYCLOPS_DEBUG_TIMING
 	//	std::vector<double> duration;
 	std::map<std::string,long long> duration;
@@ -302,23 +314,9 @@ private:
 
 	void computeNtoKIndices(bool useCrossValidation);
 
-	void initializeMmXt();
-
-	void initializeMM(
-	    MmBoundType boundType,
-		const std::vector<bool>& fixBeta
-	);
-
-	void computeNorms(void);
-
-	template <class InteratorType>
-	void incrementNormsImpl(int index);
-
 //	std::vector<int> nPid;
 //	std::vector<real> nY;
 	std::vector<int> hNtoK;
-
-	std::vector<real> norm;
 
 	struct WeightedOperation {
 		const static bool isWeighted = true;
@@ -624,6 +622,7 @@ struct TestAccumulateLikeDenominatorKernel : private BaseModel {
 protected:
     const RealType* nWeight;
     const RealType* denominator;
+
 };
 
 
@@ -1138,6 +1137,8 @@ public:
 	        real expXBeta, real denominator,
 	        real weight, real x, real xBeta, real y, real norm) {
 
+		// old Marc code
+		/*
 	    if (IteratorType::isIndicator) {
 	        gradient += weight * expXBeta / denominator;
 	        hessian += weight * expXBeta / denominator; // * norm;
@@ -1145,6 +1146,33 @@ public:
 	        gradient += weight * expXBeta * x / denominator;
 	        hessian += weight * expXBeta * x * x / denominator; // * norm;
 	    }
+	    */
+
+		//std::cout << "exp(xBeta): " << exp(xBeta) << " expXBeta: " << expXBeta << '\n';
+
+		// quadratic bound
+		/*
+	    if (IteratorType::isIndicator) {
+	    	//std::cout << "indicator \n";
+	        gradient += weight * x * expXBeta / denominator;
+	        hessian += weight * x * x * norm/ 4; // * norm;
+	    } else {
+	    	//std::cout << "not indicator \n";
+	        gradient += weight * x * expXBeta / denominator;
+	        hessian += weight * x * x * norm/ 4; // * norm;
+	    }
+	    */
+
+	    // Jensen's inequality
+		if (x != 0) {
+	    if (IteratorType::isIndicator) {
+	        gradient += weight * expXBeta / denominator;
+	        hessian += weight * expXBeta / denominator / denominator * norm / abs(x);
+	    } else {
+	        gradient += weight * expXBeta * x / denominator;
+	        hessian += weight * expXBeta * x * x / denominator / denominator * norm / abs(x);
+	    }
+		}
 	}
 
 	template <class IteratorType, class WeightOperationType, class RealType>

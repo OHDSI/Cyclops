@@ -18,4 +18,3 @@
 \description{
 \code{predict.cyclopsFit} computes model response-scale predictive values for all data rows
 }
-

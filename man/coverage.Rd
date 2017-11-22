@@ -19,4 +19,3 @@ The proportion of times \code{goldStandard} falls between \code{lowerBound} and 
 \description{
 \code{coverage} computes the coverage on confidence intervals
 }
-

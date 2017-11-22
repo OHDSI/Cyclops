@@ -13,4 +13,3 @@ getNumberOfTypes(object)
 \code{getNumberOfTypes} returns the total number of outcome types in a Cyclops data object
 }
 \keyword{internal}
-

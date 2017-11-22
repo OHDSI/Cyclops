@@ -487,8 +487,9 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const auto convergenceType = arguments.convergenceType;
 	const auto epsilon = arguments.tolerance;
 	const int maxCount = arguments.maxBoundCount;
-	const auto algorthmType = arguments.algorithmType;
+	const auto algorithmType = arguments.algorithmType;
 	const int qnQ = 0;
+	modelSpecifics.setAlgorithmType(algorithmType);
 
 	initialBound = arguments.initialBound;
 
@@ -498,7 +499,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
  	    if (arguments.useKktSwindle && jointPrior->getSupportsKktSwindle()) {
 		    kktSwindle(arguments);
 	    } else {
-		    findMode(maxIterations, convergenceType, epsilon, algorthmType, qnQ);
+		    findMode(maxIterations, convergenceType, epsilon, algorithmType, qnQ);
 	    }
 	    ++count;
 
@@ -766,6 +767,8 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
     double thisLogLikelihood = getLogLikelihood();
     double thisLogPrior = getLogPrior();
     double thisLogPost = thisLogLikelihood + thisLogPrior;
+    //std::cout << setprecision(15) << "hBeta: " << hBeta[0] << " | " << hBeta[1] << '\n';
+    std::cout << "logs: " << thisLogLikelihood << " | " << thisLogPrior << '\n';
 
     std::ostringstream stream;
     if (noiseLevel > QUIET) {
@@ -859,7 +862,7 @@ void CyclicCoordinateDescent::findMode(
 	    lastLogPosterior = -10E10;
 	}
 
-	auto cycle = [this,&iteration,algorithmType,&allDelta] {
+	auto cycle = [this,&iteration,&algorithmType,&allDelta] {
 
 	    auto log = [this](const int index) {
 	        if ( (noiseLevel > QUIET) && ((index+1) % 100 == 0)) {
@@ -872,12 +875,13 @@ void CyclicCoordinateDescent::findMode(
 	    if (algorithmType == AlgorithmType::MM) {
             // Do delta computation in parallel
             mmUpdateAllBeta(allDelta, fixBeta);
-
 	        // for (auto x : allDelta) {
 	        //     std::cerr << " " << x;
 	        // }
 	        // std::cerr << "\n";
 	        //Rcpp::stop("A");
+            //std::cout << setprecision (15) << "hBeta: " << hBeta[0] << " | " << hBeta[1] << " delta: " << allDelta[0] << " | " << allDelta[1] << '\n';
+
 
             for (int index = 0; index < J; ++index) {
                 if (!fixBeta[index]) {
@@ -904,6 +908,7 @@ void CyclicCoordinateDescent::findMode(
 	    } else {
 
 	        // Do a complete cycle in serial
+
 	        for(int index = 0; index < J; index++) {
 
 	            if (!fixBeta[index]) {
@@ -917,11 +922,13 @@ void CyclicCoordinateDescent::findMode(
 
 	            log(index);
 	        }
+            //std::cout << setprecision (15) << "hBeta: " << hBeta[0] << " | " << hBeta[1] << '\n';
+
 	    }
 	    iteration++;
 	};
 
-	auto check = [this,&iteration,&lastObjFunc,algorithmType,&lastLogPosterior,
+	auto check = [this,&iteration,&lastObjFunc,&algorithmType,&lastLogPosterior,
                convergenceType, epsilon,maxIterations] {
                    bool done = false;
                    //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
@@ -930,16 +937,30 @@ void CyclicCoordinateDescent::findMode(
 
                    if (algorithmType == AlgorithmType::MM) {
                        double thisLogPosterior = getLogLikelihood() + getLogPrior();
+                       //std::cout << "log likelihood: " << getLogLikelihood() << " log prior: " << getLogPrior() << " total: ";
+
                        if (iteration > 1) {
                            double change = thisLogPosterior - lastLogPosterior;
-                           Rcpp::Rcout << lastLogPosterior << " -> " << thisLogPosterior << " == " << change;
+                           //if (abs(change) < 0.01) {
+                        	//   algorithmType = AlgorithmType::CCD;
+                        	//   modelSpecifics.setAlgorithmType(AlgorithmType::CCD);
+                           //}
+                           //std::cout << setprecision (15) << lastLogPosterior << " -> " << thisLogPosterior << " == " << change << '\n';
+                           //Rcpp::Rcout << lastLogPosterior << " -> " << thisLogPosterior << " == " << change << '\n';
+                           //std::cout << '\n';
 
+
+                           /*
                            if (change < 0.0) {
                                std::ostringstream stream;
                                stream << "Non-increasing!";
                                error->throwError(stream);
                            }
+                           */
+
+
                        }
+
                        lastLogPosterior = thisLogPosterior;
                    }
 
@@ -1284,11 +1305,13 @@ void CyclicCoordinateDescent::mmUpdateAllBeta(std::vector<double>& delta,
             gh[j].second /= scale;
 
             delta[j] = jointPrior->getDelta(gh[j], hBeta, j);
+            //std::cout << "j: " << j << " | " << gh[j].first << " | " << gh[j].second << " | " << delta[j] << '\n';
             // TODO this is only correct when joints are independent across dimensions
         } else {
             delta[j] = 0.0;
         }
     }
+
 }
 
 

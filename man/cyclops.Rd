@@ -12,4 +12,3 @@ found in large-scale observational healthcare data.  Implementations focus
 on computational optimization and fine-scale parallelization to yield
 efficient inference in massive datasets.
 }
-

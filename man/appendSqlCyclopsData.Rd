@@ -33,4 +33,3 @@ All entries in the outcome table must be sorted in increasing order by {oStratum
 must be sorted in increasing order by {cRowId}. Each cRowId value must match exactly one oRowId value.
 }
 \keyword{internal}
-

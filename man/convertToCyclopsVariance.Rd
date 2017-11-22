@@ -19,4 +19,3 @@ Prior variance under a Laplace() prior
 from \code{glmnet} into a prior variance.
 }
 \keyword{internal}
-

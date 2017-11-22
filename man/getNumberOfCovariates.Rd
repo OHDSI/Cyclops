@@ -12,4 +12,3 @@ getNumberOfCovariates(object)
 \description{
 \code{getNumberOfCovariates} returns the total number of covariates in a Cyclops data object
 }
-

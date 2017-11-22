@@ -61,6 +61,8 @@ public:
 			real* iBeta,
 			const real* iY);
 
+	virtual void setAlgorithmType(AlgorithmType alg);
+
 	virtual void setWeights(double* inWeights, bool useCrossValidation) = 0; // pure virtual
 
 	virtual void computeGradientAndHessian(int index, double *ogradient,
@@ -194,8 +196,12 @@ protected:
 // 	real* hXBeta;
 // 	real* hXBetaSave;
 
+	AlgorithmType algorithmType;
+
+	RealVector hBeta;
 	RealVector hXBeta; // TODO Delegate to ModelSpecifics
 	RealVector hXBetaSave; // Delegate
+	RealVector norm;
 
 //	real* hDelta;
 

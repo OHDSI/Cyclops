@@ -24,4 +24,3 @@ and \code{"cyclopsPrior"} for use with \code{fitCyclopsModel}.
 prior <- createAbridgePrior(penalty = "bic")
 
 }
-

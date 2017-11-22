@@ -278,6 +278,7 @@ ModelSpecifics<BaseModel,WeightType>::ModelSpecifics(const ModelData& input)
 // threadPool(0,0,10)
 	{
 	// TODO Memory allocation here
+	std::cout << "cpu modelspecifics \n";
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto now = bsccs::chrono::system_clock::now();
@@ -349,7 +350,14 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNormsImpl(int index) {
 		const int k = it.index();
 		const real x = it.value();
 
+		// 1-norm
 		norm[k] += std::abs(x);
+
+		// 0-norm
+		//norm[k] += 1;
+
+		// 2-norm
+		//norm[k] += x * x;
 	}
 }
 
@@ -533,6 +541,10 @@ duration["computeXBeta     "] += bsccs::chrono::duration_cast<chrono::TimingUnit
 
 template <class BaseModel,typename WeightType> template <class IteratorType>
 void ModelSpecifics<BaseModel,WeightType>::computeXBetaImpl(double *beta) {
+
+	for (int j = 0; j < J; ++j) {
+		hBeta[j] = beta[j];
+	}
 
     for (int k = 0; k < K; ++k) {
         real sum = 0.0;
@@ -1049,15 +1061,19 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
     real gradient = static_cast<real>(0);
     real hessian = static_cast<real>(0);
 
+    //real fixedBeta = hBeta[index];
+
     IteratorType it(modelData, index);
     for (; it; ++it) {
         const int k = it.index();
 
+        //std::cout << hXBeta[k] << " ";
         BaseModel::template incrementMMGradientAndHessian<IteratorType, Weights>(
                 gradient, hessian, offsExpXBeta[k],
                 denomPid[BaseModel::getGroup(hPid, k)], hNWeight[BaseModel::getGroup(hPid, k)],
-                it.value(), hXBeta[k], hY[k], norm[k]);
+                it.value(), hXBeta[k], hY[k], norm[k]); // J
     }
+    //std::cout << "\n";
 
     //hessian = 40 * modelData.getNumberOfStrata() * modelData.getNumberOfColumns() / 4.0; // curvature[index];
 
@@ -1072,6 +1088,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
 //    std::cerr << hXjY[index] << std::endl;
 
     if (BaseModel::precomputeHessian) { // Compile-time switch
+    	std::cout << "precompute Hessian \n";
         hessian += static_cast<real>(2.0) * hXjX[index];
     }
 

@@ -65,6 +65,10 @@ AbstractModelSpecifics* AbstractModelSpecifics::deviceFactory(
         const std::string& deviceName) {
     AbstractModelSpecifics* model = nullptr;
 
+#ifdef HAVE_OPENCL
+    std::cout<<"have opencl\n";
+#endif
+
     switch (deviceType) {
     case DeviceType::CPU :
         model = new ModelSpecifics<Model,RealType>(modelData);
@@ -221,7 +225,8 @@ AbstractModelSpecifics::AbstractModelSpecifics(const ModelData& input)
 // 	  hPid(const_cast<int*>(input.getPidVectorRef().data()))
 // 	  hPid(input.getPidVectorRef())
       hPidOriginal(input.getPidVectorRef()), hPid(const_cast<int*>(hPidOriginal.data())),
-      boundType(MmBoundType::METHOD_2)
+      boundType(MmBoundType::METHOD_2),
+	  algorithmType(AlgorithmType::CCD)
 	  {
 	// Do nothing
 }
@@ -235,6 +240,10 @@ void AbstractModelSpecifics::makeDirty(void) {
 //			it != hessianSparseCrossTerms.end(); ++it) {
 //		delete it->second;
 //	}
+}
+
+void AbstractModelSpecifics::setAlgorithmType(AlgorithmType alg) {
+	algorithmType = alg;
 }
 
 int AbstractModelSpecifics::getAlignedLength(int N) {
@@ -353,6 +362,7 @@ void AbstractModelSpecifics::initialize(
 	J = iJ;
 	offsExpXBeta.resize(K);
 	hXBeta.resize(K);
+	hBeta.resize(K);
 
 	if (allocateXjY()) {
 		hXjY.resize(J);

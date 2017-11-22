@@ -257,6 +257,10 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::J;
     using ModelSpecifics<BaseModel, WeightType>::N;
     using ModelSpecifics<BaseModel, WeightType>::duration;
+    using ModelSpecifics<BaseModel, WeightType>::hBeta;
+    using ModelSpecifics<BaseModel, WeightType>::algorithmType;
+    using ModelSpecifics<BaseModel, WeightType>::norm;
+    using ModelSpecifics<BaseModel, WeightType>::boundType;
 
     const static int tpb = 128; // threads-per-block  // Appears best on K40
     const static int maxWgs = 2;  // work-group-size
@@ -272,9 +276,9 @@ public:
           , compute::command_queue::enable_profiling
       ),
       dColumns(ctx),
-      dY(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dBuffer(ctx), dKWeight(ctx),
-      dId(ctx),
-      dXBetaKnown(false), hXBetaKnown(false) {
+      dY(ctx), dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dBuffer(ctx), dKWeight(ctx),
+      dId(ctx), dNorm(ctx),
+      dXBetaKnown(false), hXBetaKnown(false){
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
 
@@ -322,6 +326,7 @@ public:
         detail::resizeAndCopyToDevice(inputY, dY, queue);
 
         // Internal buffers
+        detail::resizeAndCopyToDevice(hBeta, dBeta, queue);
         detail::resizeAndCopyToDevice(hXBeta, dXBeta, queue);  hXBetaKnown = true; dXBetaKnown = true;
         detail::resizeAndCopyToDevice(offsExpXBeta, dExpXBeta, queue);
         detail::resizeAndCopyToDevice(denomPid, dDenominator, queue);
@@ -330,13 +335,14 @@ public:
         std::cerr << "Format types required: " << need << std::endl;
 
         buildAllKernels(neededFormatTypes);
+        std::cout << "built all kernels \n";
 
         printAllKernels(std::cerr);
     }
 
     virtual void computeRemainingStatistics(bool useWeights) {
 
-        std::cerr << "GPU::cRS called" << std::endl;
+        //std::cerr << "GPU::cRS called" << std::endl;
 
         // Currently RS only computed on CPU and then copied
         ModelSpecifics<BaseModel, WeightType>::computeRemainingStatistics(useWeights);
@@ -344,11 +350,17 @@ public:
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
+        /*
+        if (algorithmType == AlgorithmType::MM) {
+        	compute::copy(std::begin(hBeta), std::end(hBeta), std::begin(dBeta), queue);
+        }
+        */
 
         if (BaseModel::likelihoodHasDenominator) {
             compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta), queue);
             compute::copy(std::begin(denomPid), std::end(denomPid), std::begin(dDenominator), queue);
         }
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
@@ -403,6 +415,7 @@ public:
             hBuffer.resize(2 * maxWgs);
         }
 #else
+
         if (dBuffer.size() < 2 * maxWgs) {
             dBuffer.resize(2 * maxWgs, queue);
             //compute::fill(std::begin(dBuffer), std::end(dBuffer), 0.0, queue); // TODO Not needed
@@ -425,6 +438,7 @@ public:
 //
 //         kernel.set_arg(3, column.getDataVector());
 //         kernel.set_arg(4, column.getIndicesVector());
+
 
         kernel.set_arg(0, dColumns.getDataOffset(index));
         kernel.set_arg(1, dColumns.getIndicesOffset(index));
@@ -454,6 +468,7 @@ public:
 //         kernel.set_arg(7, tmpR);
         // kernel.set_arg(8, tmpR);
         kernel.set_arg(9, dBuffer); // TODO Why is this necessary?
+
 //         kernel.set_arg(9, tmpI);
 //         kernel.set_arg(10, tmpR);
 
@@ -538,7 +553,106 @@ public:
 			std::vector<GradientHessian>& gh,
 			const std::vector<bool>& fixBeta,
 			bool useWeights) {
-			// Do nothing
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+        if (!dXBetaKnown) {
+        	compute::copy(std::begin(hBeta), std::end(hBeta), std::begin(dBeta), queue);
+            compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
+            dXBetaKnown = true;
+        }
+
+        FormatType formatType = modelData.getFormatType(0);
+
+        auto& kernel = (useWeights) ? // Double-dispatch
+        		kernelGradientHessianMMWeighted[formatType] :
+				kernelGradientHessianMMNoWeight[formatType];
+
+        //auto& kernel = (useWeights) ? // Double-dispatch
+        //		kernelGradientHessianWeighted[formatType] :
+		//		kernelGradientHessianNoWeight[formatType];
+
+    	const auto wgs = maxWgs;
+    	const auto globalWorkSize = tpb * wgs;
+
+    	if (dBuffer.size() < 2 * maxWgs * J) {
+    		dBuffer.resize(2 * maxWgs * J, queue);
+    		//compute::fill(std::begin(dBuffer), std::end(dBuffer), 0.0, queue); // TODO Not needed
+    		kernel.set_arg(9, dBuffer); // Can get reallocated.
+    		hBuffer.resize(2 * maxWgs * J);
+    	}
+
+    	if (dKWeight.size() == 0) {
+    		kernel.set_arg(11, 0);
+    	} else {
+    		kernel.set_arg(11, dKWeight); // TODO Only when dKWeight gets reallocated
+    	}
+    	kernel.set_arg(3, dColumns.getData());
+    	kernel.set_arg(4, dColumns.getIndices());
+    	kernel.set_arg(6, dXBeta);
+    	kernel.set_arg(7, dExpXBeta);
+	    if (norm.size() == 0) {
+	        this->initializeMM(boundType, fixBeta);
+		    //dNorm.resize(norm.size(), queue);
+        	//compute::copy(std::begin(norm), std::end(norm), std::begin(dNorm), queue);
+		    //std::cout << "size: " << dNorm.size() << " dNorm0: "<< dNorm[0] << '\n';
+		    detail::resizeAndCopyToDevice(norm, dNorm, queue);
+	    	kernel.set_arg(12, dNorm);
+	    }
+    	//kernel.set_arg(12, dBeta);
+
+    	for (int index = 0; index < J; ++index) {
+
+    		if (fixBeta[index]) continue;
+
+    		// auto& column = columns[index];
+    		// const auto taskCount = column.getTaskCount();
+
+    		const auto taskCount = dColumns.getTaskCount(index);
+
+    		size_t loops = taskCount / globalWorkSize;
+    		if (taskCount % globalWorkSize != 0) {
+    			++loops;
+    		}
+    		kernel.set_arg(0, dColumns.getDataOffset(index));
+    		kernel.set_arg(1, dColumns.getIndicesOffset(index));
+    		kernel.set_arg(2, taskCount);
+    		kernel.set_arg(13, index);
+    		queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
+    		queue.finish();
+    	}
+
+    	// Get result
+
+    	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+
+    	for (int j = 0; j < J; ++j) {
+    		for (int i = 0; i < wgs; ++i) { // TODO Use SSE
+    			gh[j].first += hBuffer[i + 2*j*wgs];
+    			gh[j].second += hBuffer[i + wgs + 2*j*wgs];
+    		}
+    	}
+
+    	if (BaseModel::precomputeGradient) { // Compile-time switch
+    		for (int j=0; j < J; ++j) {
+    			gh[j].first -= hXjY[j];
+    		}
+    	}
+
+    	if (BaseModel::precomputeHessian) { // Compile-time switch
+    		for (int j = 0; j < J; ++j) {
+    			gh[j].second += static_cast<real>(2.0) * hXjX[j];
+    		}
+    	}
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    	auto end = bsccs::chrono::steady_clock::now();
+    	///////////////////////////"
+    	auto name = "compGradHessG" + getFormatTypeExtension(formatType) + " ";
+    	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
 	}
 
     virtual void updateXBeta(real realDelta, int index, bool useWeights) {
@@ -618,7 +732,7 @@ public:
 
     virtual void zeroXBeta() {
 
-        std::cerr << "GPU::zXB called" << std::endl;
+        //std::cerr << "GPU::zXB called" << std::endl;
 
         ModelSpecifics<BaseModel,WeightType>::zeroXBeta(); // touches hXBeta
 
@@ -627,7 +741,7 @@ public:
 
     virtual void axpyXBeta(const double beta, const int j) {
 
-        std::cerr << "GPU::aXB called" << std::endl;
+        //std::cerr << "GPU::aXB called" << std::endl;
 
         ModelSpecifics<BaseModel,WeightType>::axpyXBeta(beta, j); // touches hXBeta
 
@@ -667,6 +781,8 @@ private:
     SourceCode writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
     SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType);
+
+    SourceCode writeCodeForMMGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
     void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
 
@@ -715,14 +831,23 @@ private:
 
         auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
 
+        /*
+        if (algorithmType == AlgorithmType::MM) {
+        	std::cout << "wrote MM source\n";
+        	source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
+        }
+        */
+
          // std::cerr << options.str() << std::endl;
          // std::cerr << source.body << std::endl;
 
+        std::cout << "formatType: " << formatType << " isNvidia: " << isNvidia << '\n';
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        std::cout << "program built \n";
         auto kernel = compute::kernel(program, source.name);
+        std::cout << "kernal built \n";
 
         // Rcpp::stop("cGH");
-
 
         // Run-time constant arguments.
         kernel.set_arg(5, dY);
@@ -733,10 +858,23 @@ private:
         kernel.set_arg(10, dId);
         kernel.set_arg(11, dKWeight); // TODO Does not seem to stick
 
+    	source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
+        program = compute::program::build_with_source(source.body, ctx, options.str());
+        auto kernelMM = compute::kernel(program, source.name);
+        kernelMM.set_arg(5, dY);
+        kernelMM.set_arg(6, dXBeta);
+        kernelMM.set_arg(7, dExpXBeta);
+        kernelMM.set_arg(8, dDenominator);
+        kernelMM.set_arg(9, dBuffer);  // TODO Does not seem to stick
+        kernelMM.set_arg(10, dId);
+        kernelMM.set_arg(11, dKWeight); // TODO Does not seem to stick
+
         if (useWeights) {
             kernelGradientHessianWeighted[formatType] = std::move(kernel);
+            kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
         } else {
             kernelGradientHessianNoWeight[formatType] = std::move(kernel);
+            kernelGradientHessianMMNoWeight[formatType] = std::move(kernelMM);
         }
     }
 
@@ -750,6 +888,7 @@ private:
         // std::cerr << source.body << std::endl;
 
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        std::cout << "built updateXBeta program \n";
         auto kernel = compute::kernel(program, source.name);
 
         // Rcpp::stop("uXB");
@@ -777,7 +916,9 @@ private:
 
     void buildAllKernels(const std::vector<FormatType>& neededFormatTypes) {
         buildAllGradientHessianKernels(neededFormatTypes);
+        std::cout << "built gradhessian kernels \n";
         buildAllUpdateXBetaKernels(neededFormatTypes);
+        std::cout << "built updateXBeta kernels \n";
     }
 
     void printAllKernels(std::ostream& stream) {
@@ -803,6 +944,8 @@ private:
     std::map<FormatType, compute::kernel> kernelGradientHessianWeighted;
     std::map<FormatType, compute::kernel> kernelGradientHessianNoWeight;
     std::map<FormatType, compute::kernel> kernelUpdateXBeta;
+    std::map<FormatType, compute::kernel> kernelGradientHessianMMWeighted;
+    std::map<FormatType, compute::kernel> kernelGradientHessianMMNoWeight;
 
     // vectors of columns
     // std::vector<GpuColumn<real> > columns;
@@ -812,9 +955,11 @@ private:
 
     // Internal storage
     compute::vector<real> dY;
+    compute::vector<real> dBeta;
     compute::vector<real> dXBeta;
     compute::vector<real> dExpXBeta;
     compute::vector<real> dDenominator;
+    compute::vector<real> dNorm;
 #ifdef USE_VECTOR
     compute::vector<compute::double2_> dBuffer;
 #else
