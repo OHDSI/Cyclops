@@ -309,6 +309,115 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 	template <class BaseModel, typename WeightType>
     SourceCode
+    GpuModelSpecifics<BaseModel, WeightType>::writeCodeForComputeRemainingStatisticsKernel(FormatType formatType) {
+
+        std::string name = "computeRemainingStatistics" + getFormatTypeExtension(formatType);
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "(     \n" <<
+                "       const uint N,              \n" <<
+				"		__global REAL* xBeta,	   \n" <<
+                "       __global REAL* expXBeta,   \n" <<
+                "       __global REAL* denominator,\n" <<
+                "       __global const int* id) {   \n" <<
+                "   const uint task = get_global_id(0); \n";
+        //code << "   const uint lid = get_local_id(0); \n" <<
+        //        "   const uint loopSize = get_global_size(0); \n";
+        // Local and thread storage
+        code << "   if (task < N) {      				\n";
+        if (BaseModel::likelihoodHasDenominator) {
+        	code << " 		REAL exb = exp(xBeta[task]);		\n" <<
+        			"		expXBeta[task] = exb;		\n";
+            code << "       denominator[task] = 1.0 + exb; \n";// <<
+        	//code << "expXBeta[k] = exp(xb); \n";
+        	//code << "expXBeta[k] = exp(1); \n";
+
+            // LOGISTIC MODEL ONLY
+            //                     const real t = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
+            //                     expXBeta[k] = t;
+            //                     denominator[k] = static_cast<real>(1.0) + t;
+            //             code << "    const REAL t = 0.0;               \n" <<
+            //                     "   expXBeta[k] = exp(xBeta[k]);      \n" <<
+            //                     "   denominator[k] = REAL(1.0) + tmp; \n";
+        }
+
+        code << "   } \n";
+        code << "}    \n";
+
+        return SourceCode(code.str(), name);
+    }
+
+	template <class BaseModel, typename WeightType>
+    SourceCode
+    GpuModelSpecifics<BaseModel, WeightType>::writeCodeForComputeXBetaKernel(FormatType formatType) {
+
+        std::string name = "computeXBeta" + getFormatTypeExtension(formatType);
+
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "(     \n" <<
+                "       const uint offX,           \n" <<
+                "       const uint offK,           \n" <<
+                "       const uint N,              \n" <<
+                "       const REAL delta,          \n" <<
+                "       __global const REAL* X,    \n" <<
+                "       __global const int* K,     \n" <<
+                "       __global const REAL* Y,    \n" <<
+                "       __global REAL* xBeta,      \n" <<
+                "       __global REAL* expXBeta,   \n" <<
+                "       __global REAL* denominator,\n" <<
+                "       __global const int* id) {   \n" <<
+                "   const uint task = get_global_id(0); \n";
+
+        if (formatType == INDICATOR || formatType == SPARSE) {
+            code << "   const uint k = K[offK + task];         \n";
+        } else { // DENSE, INTERCEPT
+            code << "   const uint k = task;            \n";
+        }
+
+        if (formatType == SPARSE || formatType == DENSE) {
+            code << "   const REAL inc = delta * X[offX + task]; \n";
+        } else { // INDICATOR, INTERCEPT
+            code << "   const REAL inc = delta;           \n";
+        }
+
+        code << "   if (task < N) {      				\n";
+        code << "       REAL xb = inc; 		\n" <<
+                "       xBeta[k] = xb;                  \n";
+
+        if (BaseModel::likelihoodHasDenominator) {
+            // TODO: The following is not YET thread-safe for multi-row observations
+            // code << "       const REAL oldEntry = expXBeta[k];                 \n" <<
+            //         "       const REAL newEntry = expXBeta[k] = exp(xBeta[k]); \n" <<
+            //         "       denominator[" << group<BaseModel>("id","k") << "] += (newEntry - oldEntry); \n";
+
+
+            code << "       REAL exb = exp(xb); \n" <<
+                    "       expXBeta[k] = exb;        \n";
+        	//code << "expXBeta[k] = exp(xb); \n";
+        	//code << "expXBeta[k] = exp(1); \n";
+
+            // LOGISTIC MODEL ONLY
+            //                     const real t = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
+            //                     expXBeta[k] = t;
+            //                     denominator[k] = static_cast<real>(1.0) + t;
+            //             code << "    const REAL t = 0.0;               \n" <<
+            //                     "   expXBeta[k] = exp(xBeta[k]);      \n" <<
+            //                     "   denominator[k] = REAL(1.0) + tmp; \n";
+        }
+
+        code << "   } \n";
+        code << "}    \n";
+
+        return SourceCode(code.str(), name);
+    }
+
+	template <class BaseModel, typename WeightType>
+    SourceCode
 	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForMMGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia) {
 
         std::string name = "computeMMGradHess" + getFormatTypeExtension(formatType) + (useWeights ? "W" : "N");
@@ -373,9 +482,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
         		"		const REAL xb = xBeta[k];			\n" <<
 				"		const REAL norm0 = norm[k];				\n" <<
                 "       const REAL numer = " << timesX("exb", formatType) << ";\n" <<
-				"		const REAL denom = denominator[k];	\n";
+				//"		const REAL denom = denominator[k];	\n";
+        		"		const REAL denom = 1 + exb;			\n";
 				//"		const REAL factor = norm[k]/abs(x);				\n" <<
-                //"       const REAL denom = 1.0 + exb;      \n";
         //denominator[k]; \n" <<
                 //"       const REAL g = numer / denom;      \n";
 

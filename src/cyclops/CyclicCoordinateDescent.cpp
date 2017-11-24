@@ -890,21 +890,19 @@ void CyclicCoordinateDescent::findMode(
                    // delta = applyBounds(delta, index);
                     if (delta != 0.0) {
                         sufficientStatisticsKnown = false;
-                        hBeta[index] += delta;
-
+                        //hBeta[index] += delta;
+	                    updateSufficientStatistics(delta, index);
                         // std::cerr << " : " << index << " " << hBeta[index] << " " << delta;
 
                     // modelSpecifics.axpyXBeta(delta, index); // TODO Do single spMV
                     }
                 }
             }
-            // std::cerr << "\n";
 
             // sufficientStatisticsKnown = false;
-            modelSpecifics.computeXBeta(hBeta.data(), useCrossValidation);
+            //modelSpecifics.computeXBeta(hBeta.data(), useCrossValidation);
             computeRemainingStatistics(true, 0);
             sufficientStatisticsKnown = true;
-
 
 	    } else {
 
