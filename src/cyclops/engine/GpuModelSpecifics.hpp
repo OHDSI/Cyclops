@@ -257,7 +257,7 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::J;
     using ModelSpecifics<BaseModel, WeightType>::N;
     using ModelSpecifics<BaseModel, WeightType>::duration;
-    using ModelSpecifics<BaseModel, WeightType>::hBeta;
+    //using ModelSpecifics<BaseModel, WeightType>::hBeta;
     using ModelSpecifics<BaseModel, WeightType>::algorithmType;
     using ModelSpecifics<BaseModel, WeightType>::norm;
     using ModelSpecifics<BaseModel, WeightType>::boundType;
@@ -326,7 +326,7 @@ public:
         detail::resizeAndCopyToDevice(inputY, dY, queue);
 
         // Internal buffers
-        detail::resizeAndCopyToDevice(hBeta, dBeta, queue);
+        //detail::resizeAndCopyToDevice(hBeta, dBeta, queue);
         detail::resizeAndCopyToDevice(hXBeta, dXBeta, queue);  hXBetaKnown = true; dXBetaKnown = true;
         detail::resizeAndCopyToDevice(offsExpXBeta, dExpXBeta, queue);
         detail::resizeAndCopyToDevice(denomPid, dDenominator, queue);
@@ -467,7 +467,7 @@ public:
 //         kernel.set_arg(6, tmpR);
 //         kernel.set_arg(7, tmpR);
         // kernel.set_arg(8, tmpR);
-        kernel.set_arg(9, dBuffer); // TODO Why is this necessary?
+        // kernel.set_arg(9, dBuffer); // TODO Why is this necessary?
 
 //         kernel.set_arg(9, tmpI);
 //         kernel.set_arg(10, tmpR);
@@ -558,7 +558,7 @@ public:
         auto start = bsccs::chrono::steady_clock::now();
 #endif
         if (!dXBetaKnown) {
-        	compute::copy(std::begin(hBeta), std::end(hBeta), std::begin(dBeta), queue);
+        	//compute::copy(std::begin(hBeta), std::end(hBeta), std::begin(dBeta), queue);
             compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
             dXBetaKnown = true;
         }
@@ -703,6 +703,59 @@ public:
 #endif // GPU_DEBUG
     }
 
+
+    virtual double getGradientObjective(bool useCrossValidation) {
+#ifdef GPU_DEBUG
+        ModelSpecifics<BaseModel, WeightType>::getGradientObjective(useCrossValidation);
+        std::cerr << *ogradient << " & " << *ohessian << std::endl;
+#endif // GPU_DEBUG
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+        FormatType formatType = FormatType::DENSE;
+        auto& kernel = (useCrossValidation) ? // Double-dispatch
+                            kernelGetGradientObjectiveWeighted[formatType] :
+							kernelGetGradientObjectiveNoWeight[formatType];
+
+        const auto wgs = maxWgs;
+        const auto globalWorkSize = tpb * wgs;
+
+        dBuffer.resize(2 * maxWgs, queue);
+        kernel.set_arg(3, dBuffer); // Can get reallocated.
+        hBuffer.resize(2 * maxWgs);
+
+        if (dKWeight.size() == 0) {
+            kernel.set_arg(4, 0);
+        } else {
+            kernel.set_arg(4, dKWeight); // TODO Only when dKWeight gets reallocated
+        }
+
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
+        queue.finish();
+
+        compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+
+        double objective = 0.0;
+
+        for (int i = 0; i < wgs; ++i) { // TODO Use SSE
+        	objective += hBuffer[i];
+        }
+
+#ifdef GPU_DEBUG
+        std::cerr << gradient << " & " << hessian << std::endl << std::endl;
+#endif // GPU_DEBUG
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        auto name = "compGradObj" + getFormatTypeExtension(formatType) + " ";
+        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+        return(objective);
+    }
+
     virtual void setWeights(double* inWeights, bool useCrossValidation) {
         // Currently only computed on CPU and then copied to GPU
         ModelSpecifics<BaseModel, WeightType>::setWeights(inWeights, useCrossValidation);
@@ -748,6 +801,10 @@ public:
         dXBetaKnown = false;
     }
 
+    virtual void computeNumeratorForGradient(int index) {
+    }
+
+
 private:
 
     void buildAllUpdateXBetaKernels(const std::vector<FormatType>& neededFormatTypes) {
@@ -761,6 +818,14 @@ private:
         for (FormatType formatType : neededFormatTypes) {
             buildGradientHessianKernel(formatType, true); ++b;
             buildGradientHessianKernel(formatType, false); ++b;
+        }
+    }
+
+    void buildAllGetGradientObjectiveKernels(const std::vector<FormatType>& neededFormatTypes) {
+        int b = 0;
+        for (FormatType formatType : neededFormatTypes) {
+        	buildGetGradientObjectiveKernel(formatType, true); ++b;
+        	buildGetGradientObjectiveKernel(formatType, false); ++b;
         }
     }
 
@@ -783,6 +848,8 @@ private:
     SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType);
 
     SourceCode writeCodeForMMGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
+
+    SourceCode writeCodeForGetGradientObjective(FormatType formatType, bool useWeights, bool isNvidia);
 
     void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
 
@@ -858,6 +925,7 @@ private:
         kernel.set_arg(10, dId);
         kernel.set_arg(11, dKWeight); // TODO Does not seem to stick
 
+
     	source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
         program = compute::program::build_with_source(source.body, ctx, options.str());
         auto kernelMM = compute::kernel(program, source.name);
@@ -874,7 +942,7 @@ private:
             kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
         } else {
             kernelGradientHessianNoWeight[formatType] = std::move(kernel);
-            kernelGradientHessianMMNoWeight[formatType] = std::move(kernelMM);
+           kernelGradientHessianMMNoWeight[formatType] = std::move(kernelMM);
         }
     }
 
@@ -903,6 +971,46 @@ private:
         kernelUpdateXBeta[formatType] = std::move(kernel);
     }
 
+    void buildGetGradientObjectiveKernel(FormatType formatType, bool useWeights) {
+    	std::stringstream options;
+        if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+        options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+#else
+        options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+#endif // USE_VECTOR
+        } else {
+#ifdef USE_VECTOR
+            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+#else
+            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+#endif // USE_VECTOR
+        }
+        options << " -cl-mad-enable -cl-fast-relaxed-math";
+
+         const auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+
+         auto source = writeCodeForGetGradientObjective(formatType, useWeights, isNvidia);
+         std::cout << source.body;
+         auto program = compute::program::build_with_source(source.body, ctx, options.str());
+         auto kernel = compute::kernel(program, source.name);
+
+         int dK = K;
+
+         // Run-time constant arguments.
+         kernel.set_arg(0, dK);
+         kernel.set_arg(1, dY);
+         kernel.set_arg(2, dXBeta);
+         kernel.set_arg(3, dBuffer);  // TODO Does not seem to stick
+         kernel.set_arg(4, dKWeight); // TODO Does not seem to stick
+
+         if (useWeights) {
+             kernelGetGradientObjectiveWeighted[formatType] = std::move(kernel);
+         } else {
+        	 kernelGetGradientObjectiveNoWeight[formatType] = std::move(kernel);
+         }
+    }
+
     void printKernel(compute::kernel& kernel, std::ostream& stream) {
 
         auto program = kernel.get_program();
@@ -919,6 +1027,8 @@ private:
         std::cout << "built gradhessian kernels \n";
         buildAllUpdateXBetaKernels(neededFormatTypes);
         std::cout << "built updateXBeta kernels \n";
+        buildAllGetGradientObjectiveKernels(neededFormatTypes);
+        std::cout << "built getGradObjective kernels \n";
     }
 
     void printAllKernels(std::ostream& stream) {
@@ -933,6 +1043,14 @@ private:
         for (auto& entry : kernelUpdateXBeta) {
             printKernel(entry.second, stream);
         }
+
+        for (auto& entry: kernelGetGradientObjectiveWeighted) {
+        	printKernel(entry.second, stream);
+        }
+
+        for (auto& entry: kernelGetGradientObjectiveNoWeight) {
+        	printKernel(entry.second, stream);
+        }
     }
 
     // boost::compute objects
@@ -946,6 +1064,8 @@ private:
     std::map<FormatType, compute::kernel> kernelUpdateXBeta;
     std::map<FormatType, compute::kernel> kernelGradientHessianMMWeighted;
     std::map<FormatType, compute::kernel> kernelGradientHessianMMNoWeight;
+    std::map<FormatType, compute::kernel> kernelGetGradientObjectiveWeighted;
+    std::map<FormatType, compute::kernel> kernelGetGradientObjectiveNoWeight;
 
     // vectors of columns
     // std::vector<GpuColumn<real> > columns;

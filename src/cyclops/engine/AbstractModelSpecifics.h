@@ -198,7 +198,7 @@ protected:
 
 	AlgorithmType algorithmType;
 
-	RealVector hBeta;
+	//RealVector hBeta;
 	RealVector hXBeta; // TODO Delegate to ModelSpecifics
 	RealVector hXBetaSave; // Delegate
 	RealVector norm;

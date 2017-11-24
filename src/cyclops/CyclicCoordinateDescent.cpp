@@ -745,6 +745,7 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
     bool illconditioned = false;
     if (convergenceType < ZHANG_OLES) {
         double thisObjFunc = getObjectiveFunction(convergenceType);
+        std::cout << "thisObjFunc: " << thisObjFunc << '\n';
         if (thisObjFunc != thisObjFunc) {
             std::ostringstream stream;
             stream << "\nWarning: problem is ill-conditioned for this choice of\n"
@@ -764,20 +765,20 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
     } // Necessary to call getObjFxn or computeZO before getLogLikelihood,
     // since these copy over XBeta
 
-    double thisLogLikelihood = getLogLikelihood();
-    double thisLogPrior = getLogPrior();
-    double thisLogPost = thisLogLikelihood + thisLogPrior;
+    //double thisLogLikelihood = getLogLikelihood();
+    //double thisLogPrior = getLogPrior();
+    //double thisLogPost = thisLogLikelihood + thisLogPrior;
     //std::cout << setprecision(15) << "hBeta: " << hBeta[0] << " | " << hBeta[1] << '\n';
-    std::cout << "logs: " << thisLogLikelihood << " | " << thisLogPrior << '\n';
+    //std::cout << "logs: " << thisLogLikelihood << " | " << thisLogPrior << '\n';
 
     std::ostringstream stream;
     if (noiseLevel > QUIET) {
         // stream << "\n";
         // printVector(&hBeta[0], J, stream);
         stream << "\n";
-        stream << "log post: " << thisLogPost
-               << " (" << thisLogLikelihood << " + " << thisLogPrior
-               << ") (iter:" << iteration << ", conv: " << conv << ") ";
+        //stream << "log post: " << thisLogPost
+        //       << " (" << thisLogLikelihood << " + " << thisLogPrior
+         //      << ") (iter:" << iteration << ", conv: " << conv << ") ";
     }
 
     if (epsilon > 0 && conv < epsilon) {
@@ -936,11 +937,11 @@ void CyclicCoordinateDescent::findMode(
 
 
                    if (algorithmType == AlgorithmType::MM) {
-                       double thisLogPosterior = getLogLikelihood() + getLogPrior();
+                       //double thisLogPosterior = getLogLikelihood() + getLogPrior();
                        //std::cout << "log likelihood: " << getLogLikelihood() << " log prior: " << getLogPrior() << " total: ";
 
                        if (iteration > 1) {
-                           double change = thisLogPosterior - lastLogPosterior;
+                           //double change = thisLogPosterior - lastLogPosterior;
                            //if (abs(change) < 0.01) {
                         	//   algorithmType = AlgorithmType::CCD;
                         	//   modelSpecifics.setAlgorithmType(AlgorithmType::CCD);
@@ -961,7 +962,7 @@ void CyclicCoordinateDescent::findMode(
 
                        }
 
-                       lastLogPosterior = thisLogPosterior;
+                       //lastLogPosterior = thisLogPosterior;
                    }
 
 

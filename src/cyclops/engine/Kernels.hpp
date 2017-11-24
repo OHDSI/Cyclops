@@ -261,7 +261,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "       __global REAL* xBeta,      \n" <<
                 "       __global REAL* expXBeta,   \n" <<
                 "       __global REAL* denominator,\n" <<
-                "       __global const int* id) {  \n" <<
+                "       __global const int* id) {   \n" <<
                 "   const uint task = get_global_id(0); \n";
 
         if (formatType == INDICATOR || formatType == SPARSE) {
@@ -276,8 +276,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
             code << "   const REAL inc = delta;           \n";
         }
 
-        code << "   if (task < N) {      \n";
-        code << "       REAL xb = xBeta[k] + inc; \n" <<
+        code << "   if (task < N) {      				\n";
+        code << "       REAL xb = xBeta[k] + inc; 		\n" <<
                 "       xBeta[k] = xb;                  \n";
 
         if (BaseModel::likelihoodHasDenominator) {
@@ -433,6 +433,48 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
         code << "}  \n"; // End of kernel
 
+        return SourceCode(code.str(), name);
+	}
+
+	template <class BaseModel, typename WeightType>
+    SourceCode
+	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForGetGradientObjective(FormatType formatType, bool useWeights, bool isNvidia) {
+        std::string name = "getGradientObjective" + getFormatTypeExtension(formatType) + (useWeights ? "W" : "N");
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "(            \n" <<
+                "       const uint N,                     \n" <<
+                "       __global const REAL* Y,           \n" <<
+                "       __global const REAL* xBeta,       \n" <<
+                "       __global REAL* buffer,            \n" <<
+                "       __global const REAL* weight) {    \n";    // TODO Make weight optional
+        // Initialization
+        code << "   const uint lid = get_local_id(0); \n" <<
+                "   const uint loopSize = get_global_size(0); \n" <<
+                "   uint task = get_global_id(0);  \n" <<
+                    // Local and thread storage
+                "   __local REAL scratch[TPB + 1];  \n" <<
+                "   REAL sum = 0.0; \n" <<
+                "   while (task < N) { \n";
+        if (useWeights) {
+        	code << "       const REAL w = weight[task];\n";
+        }
+        code << "	const REAL xb = xBeta[task];     \n" <<
+        		"	const REAL y = Y[task];			 \n";
+        code << " sum += " << weight("y * xb", useWeights) << ";\n";
+        // Bookkeeping
+        code << "       task += loopSize; \n" <<
+                "   } \n" <<
+                    // Thread -> local
+                "   scratch[lid] = sum; \n";
+        code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
+
+        code << "   if (lid == 0) { \n" <<
+                "       buffer[get_group_id(0)] = scratch[0]; \n" <<
+                "   } \n";
+        code << "}  \n"; // End of kernel
         return SourceCode(code.str(), name);
 	}
 

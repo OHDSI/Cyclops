@@ -362,7 +362,7 @@ void AbstractModelSpecifics::initialize(
 	J = iJ;
 	offsExpXBeta.resize(K);
 	hXBeta.resize(K);
-	hBeta.resize(K);
+	//hBeta.resize(K);
 
 	if (allocateXjY()) {
 		hXjY.resize(J);

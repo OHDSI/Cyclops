@@ -542,9 +542,9 @@ duration["computeXBeta     "] += bsccs::chrono::duration_cast<chrono::TimingUnit
 template <class BaseModel,typename WeightType> template <class IteratorType>
 void ModelSpecifics<BaseModel,WeightType>::computeXBetaImpl(double *beta) {
 
-	for (int j = 0; j < J; ++j) {
-		hBeta[j] = beta[j];
-	}
+	//for (int j = 0; j < J; ++j) {
+	//	hBeta[j] = beta[j];
+	//}
 
     for (int k = 0; k < K; ++k) {
         real sum = 0.0;
