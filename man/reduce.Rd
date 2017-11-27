@@ -22,4 +22,3 @@ Specified reduction as number or \code{data.frame} if segmented.
 \code{reduce} reports the count of non-zero elements, sum and sum-of-squares for specified covariates in a Cyclops data object.
 }
 \keyword{internal}
-

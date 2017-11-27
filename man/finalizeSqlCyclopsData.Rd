@@ -30,4 +30,3 @@ For efficiency, we suggest making at least the intercept dense.}
 \code{finalizeSqlCyclopsData} finalizes a Cyclops data object
 }
 \keyword{internal}
-

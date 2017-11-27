@@ -16,4 +16,3 @@
 \description{
 \code{print.cyclopsData} displays information about a Cyclops data model object.
 }
-

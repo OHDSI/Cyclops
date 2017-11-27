@@ -709,6 +709,7 @@ void RcppCcdInterface::initializeModelImpl(
 
 	// Parse type of model
 	ModelType modelType = parseModelType(arguments.modelName);
+	//std::cout << arguments.modelName << '\n';
 
 	const std::string& deviceName = arguments.computeDevice.name;
 	DeviceType deviceType = (deviceName == "native")
