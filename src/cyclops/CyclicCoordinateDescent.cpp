@@ -745,7 +745,7 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
     bool illconditioned = false;
     if (convergenceType < ZHANG_OLES) {
         double thisObjFunc = getObjectiveFunction(convergenceType);
-        std::cout << "thisObjFunc: " << thisObjFunc << '\n';
+        std::cout << "ObjFunc: " << thisObjFunc << '\n';
         if (thisObjFunc != thisObjFunc) {
             std::ostringstream stream;
             stream << "\nWarning: problem is ill-conditioned for this choice of\n"
@@ -850,6 +850,7 @@ void CyclicCoordinateDescent::findMode(
 
 	if (convergenceType < ZHANG_OLES) {
 		lastObjFunc = getObjectiveFunction(convergenceType);
+        std::cout << "ObjFunc: " << lastObjFunc << '\n';
 	} else { // ZHANG_OLES
 		saveXBeta();
 	}
@@ -876,10 +877,10 @@ void CyclicCoordinateDescent::findMode(
 	    if (algorithmType == AlgorithmType::MM) {
             // Do delta computation in parallel
             mmUpdateAllBeta(allDelta, fixBeta);
-	        // for (auto x : allDelta) {
-	        //     std::cerr << " " << x;
-	        // }
-	        // std::cerr << "\n";
+	         //for (auto x : allDelta) {
+	         //    std::cerr << " " << x;
+	         //}
+	         //std::cerr << "\n";
 	        //Rcpp::stop("A");
             //std::cout << setprecision (15) << "hBeta: " << hBeta[0] << " | " << hBeta[1] << " delta: " << allDelta[0] << " | " << allDelta[1] << '\n';
 
@@ -907,9 +908,7 @@ void CyclicCoordinateDescent::findMode(
 	    } else {
 
 	        // Do a complete cycle in serial
-
 	        for(int index = 0; index < J; index++) {
-
 	            if (!fixBeta[index]) {
 	                double delta = ccdUpdateBeta(index);
 	                delta = applyBounds(delta, index);

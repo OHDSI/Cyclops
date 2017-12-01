@@ -85,8 +85,10 @@ public:
     typedef compute::vector<RealType> DataVector;
     typedef compute::vector<int> IndicesVector;
     typedef compute::uint_ UInt;
+    typedef std::vector<UInt> StartsVector;
 
     AllGpuColumns(const compute::context& context) : indices(context), data(context) {
+    		//dataStarts(context), indicesStarts(context), taskCounts(context) {
         // Do nothing
     }
 
@@ -158,6 +160,19 @@ public:
         return indices;
     }
 
+    const StartsVector& getDataStarts() const {
+    	return dataStarts;
+    }
+
+    const StartsVector& getIndicesStarts() const {
+    	return indicesStarts;
+    }
+
+    const StartsVector& getTaskCounts() const {
+    	return taskCounts;
+    }
+
+
 private:
 
     template <class T>
@@ -179,10 +194,13 @@ private:
 
     IndicesVector indices;
     DataVector data;
+	StartsVector taskCounts;
+	StartsVector dataStarts;
+	StartsVector indicesStarts;
 
-	std::vector<UInt> taskCounts;
-    std::vector<UInt> dataStarts;
-    std::vector<UInt> indicesStarts;
+	//std::vector<UInt> taskCounts;
+    //std::vector<UInt> dataStarts;
+    //std::vector<UInt> indicesStarts;
     std::vector<FormatType> formats;
 };
 
@@ -277,7 +295,7 @@ public:
       ),
       dColumns(ctx),
       dY(ctx), dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dBuffer(ctx), dKWeight(ctx),
-      dId(ctx), dNorm(ctx), dOffs(ctx),
+      dId(ctx), dNorm(ctx), dOffs(ctx), dFixBeta(ctx),
       dXBetaKnown(false), hXBetaKnown(false){
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
@@ -604,7 +622,6 @@ public:
 			std::vector<GradientHessian>& gh,
 			const std::vector<bool>& fixBeta,
 			bool useWeights) {
-
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
@@ -639,6 +656,32 @@ public:
     	} else {
     		kernel.set_arg(11, dKWeight); // TODO Only when dKWeight gets reallocated
     	}
+
+    	/*
+    	std::vector<int> hDataStarts;
+    	hDataStarts.resize(J);
+    	compute::copy(std::begin(dColumns.getIndicesStarts()), std::end(dColumns.getIndicesStarts()), std::begin(hDataStarts), queue);
+        for (auto x : hDataStarts) {
+            std::cerr << " " << x;
+        }
+        std::cerr << "\n";
+        */
+/*
+    	kernel.set_arg(0, dColumns.getDataStarts());
+    	kernel.set_arg(1, dColumns.getIndicesStarts());
+    	kernel.set_arg(2, dColumns.getTaskCounts());
+	    //detail::resizeAndCopyToDevice(fixBeta, dFixBeta, queue);
+    	dFixBeta.resize(J);
+    	for (int i=0; i<J; ++i) {
+    		dFixBeta[i] = fixBeta[i];
+    	}
+        //compute::copy(std::begin(fixBeta), std::end(fixBeta), std::begin(dFixBeta), queue);
+    	kernel.set_arg(13, dFixBeta);
+    	int dJ = J;
+    	kernel.set_arg(14, dJ);
+ */
+
+
     	kernel.set_arg(3, dColumns.getData());
     	kernel.set_arg(4, dColumns.getIndices());
     	kernel.set_arg(6, dXBeta);
@@ -652,6 +695,10 @@ public:
 	    	kernel.set_arg(12, dNorm);
 	    }
     	//kernel.set_arg(12, dBeta);
+
+		//queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
+		//queue.finish();
+
 
     	for (int index = 0; index < J; ++index) {
 
@@ -673,6 +720,8 @@ public:
     		queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
     		queue.finish();
     	}
+
+
 
     	// Get result
 
@@ -1255,6 +1304,7 @@ private:
     compute::vector<real> dDenominator;
     compute::vector<real> dNorm;
     compute::vector<real> dOffs;
+    compute::vector<bool> dFixBeta;
 #ifdef USE_VECTOR
     compute::vector<compute::double2_> dBuffer;
 #else
