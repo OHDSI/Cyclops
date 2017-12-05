@@ -1027,6 +1027,8 @@ public:
 
 	const static bool hasTwoNumeratorTerms = true;
 
+	const static bool exactCLR = false;
+
 	template <class XType>
 	real gradientNumeratorContrib(XType x, real predictor, real xBeta, real y) {
 //		using namespace indicator_sugar;
@@ -1482,6 +1484,7 @@ public:
 	const static bool precomputeGradient = true; // XjY   // TODO Until tied calculations are only used for ties
 	const static bool precomputeHessian = false; // XjX
 	const static bool likelihoodHasFixedTerms = false;
+	const static bool exactCLR = true;
 
 	real logLikeFixedTermsContrib(real yi, real offseti, real logoffseti) {
         throw new std::logic_error("Not model-specific");
@@ -1808,6 +1811,8 @@ public:
 	const static bool likelihoodHasDenominator = false;
 
 	const static bool hasTwoNumeratorTerms = false;
+
+	const static bool exactCLR = false;
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
 

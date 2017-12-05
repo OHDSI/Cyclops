@@ -25,6 +25,9 @@
 #include "ParallelLoops.h"
 #include "Ranges.h"
 
+#include <tbb/combinable.h>
+#include <tbb/parallel_for.h>
+
 //#include "R.h"
 //#include "Rcpp.h" // TODO Remove
 
@@ -677,6 +680,7 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjY(bool useCrossValidation) 
 			for (; it; ++it) {
 				const int k = it.index();
 				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
+					hXjY[j] += it.value() * hY[k];
 					// Do not precompute
 				} else {
 					hXjY[j] += it.value() * hY[k];
@@ -1259,6 +1263,69 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 		gradient = result.real();
 		hessian = result.imag();
+
+	} else if (BaseModel::exactCLR) {
+		//std::cout << N << '\n';
+
+	    //tbb::mutex mutex0;
+	    tbb::combinable<real> newGrad(static_cast<real>(0));
+	    tbb::combinable<real> newHess(static_cast<real>(0));
+
+	    auto func = [&,index](const tbb::blocked_range<int>& range){
+
+	        using std::isinf;
+
+	        for (int i = range.begin(); i < range.end(); ++i) {
+	            DenseView<IteratorType> x(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
+	            int numSubjects = hNtoK[i+1] - hNtoK[i];
+	            int numCases = hNWeight[i];
+	            std::vector<real> value = computeHowardRecursion<real>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases);
+	            if (value[0]==0 || value[1] == 0 || value[2] == 0 || isinf(value[0]) || isinf(value[1]) || isinf(value[2])) {
+	                DenseView<IteratorType> newX(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
+	                std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], newX, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
+	                using namespace sugar;
+	                //mutex0.lock();
+	                newGrad.local() -= (real)(-value[1]/value[0]);
+	                newHess.local() -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
+	                //mutex0.unlock();
+	                continue;
+	            }
+	            //mutex0.lock();
+	            newGrad.local() -= (real)(-value[1]/value[0]);
+	            newHess.local() -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
+	            //mutex0.unlock();
+	        }
+	    };
+	    tbb::parallel_for(tbb::blocked_range<int>(0,N),func);
+	    gradient += newGrad.combine([](const real& x, const real& y) {return x+y;});
+	    hessian += newHess.combine([](const real& x, const real& y) {return x+y;});
+
+	         //std::cout << "index: "<<index;
+/*
+	    for (int i=0; i<N; i++) {
+	    	//std::cout << "grad: " << gradient << " hess: " << hessian << " ";
+	        DenseView<IteratorType> x(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
+	        int numSubjects = hNtoK[i+1] - hNtoK[i];
+	        int numCases = hNWeight[i];
+
+	        std::vector<real> value = computeHowardRecursion<real>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
+	        //std::cout<<" values" << i <<": "<<value[0]<<" | "<<value[1]<<" | "<<value[2];
+	        if (value[0]==0 || value[1] == 0 || value[2] == 0 || isinf(value[0]) || isinf(value[1]) || isinf(value[2])) {
+	            DenseView<IteratorType> newX(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
+	            std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], newX, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
+	            using namespace sugar;
+	            gradient -= (real)(-value[1]/value[0]);
+	            hessian -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
+	            continue;
+	        }
+	        //gradient -= (real)(value[3] - value[1]/value[0]);
+	        gradient -= (real)(-value[1]/value[0]);
+	        hessian -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
+	    }
+
+	    //std::cout << '\n';
+    	//std::cout << "grad: " << gradient << " hess: " << hessian << " \n";
+*/
 
 	} else {
 

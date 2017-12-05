@@ -31,6 +31,7 @@ LinkingTo: Rcpp,
     RcppParallel,
     BoostCompiledLibraries,
     RcppBoostCompute
++SystemRequirements: GNU make
 Suggests:
     testthat,
     survival,

@@ -745,7 +745,7 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
     bool illconditioned = false;
     if (convergenceType < ZHANG_OLES) {
         double thisObjFunc = getObjectiveFunction(convergenceType);
-        std::cout << "ObjFunc: " << thisObjFunc << '\n';
+        //std::cout << "ObjFunc" << convergenceType << ": " << thisObjFunc << '\n';
         if (thisObjFunc != thisObjFunc) {
             std::ostringstream stream;
             stream << "\nWarning: problem is ill-conditioned for this choice of\n"
@@ -850,7 +850,6 @@ void CyclicCoordinateDescent::findMode(
 
 	if (convergenceType < ZHANG_OLES) {
 		lastObjFunc = getObjectiveFunction(convergenceType);
-        std::cout << "ObjFunc: " << lastObjFunc << '\n';
 	} else { // ZHANG_OLES
 		saveXBeta();
 	}
@@ -906,7 +905,6 @@ void CyclicCoordinateDescent::findMode(
             sufficientStatisticsKnown = true;
 
 	    } else {
-
 	        // Do a complete cycle in serial
 	        for(int index = 0; index < J; index++) {
 	            if (!fixBeta[index]) {
