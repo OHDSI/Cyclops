@@ -461,8 +461,6 @@ public:
         double hessian = 0.0;
 
         if (BaseModel::exactCLR) {
-    	    std::cerr << "got here 0";
-
         	auto& kernel = (useWeights) ? // Double-dispatch
         	                            kernelGradientHessianWeighted[formatType] :
         	                            kernelGradientHessianNoWeight[formatType];
@@ -496,8 +494,6 @@ public:
         		}
         		detail::resizeAndCopyToDevice(hIndices, dIndices, queue);
 
-        	    //std::cerr << " indices ";
-
         		// constant vectors
         		std::vector<int> hVector1;
         		std::vector<int> hVector2;
@@ -525,14 +521,12 @@ public:
 
         		initialized = true;
         	}
-        	std::cerr << " got here 1 ";
-        	/*
+
         	kernel.set_arg(2, dIndices);
         	kernel.set_arg(5, dVector1);
         	kernel.set_arg(6, dVector2);
         	kernel.set_arg(10, dOverflow0);
         	kernel.set_arg(11, dOverflow1);
-        	*/
 
         	// B0 and B1
     	    int temp = 0;
@@ -546,10 +540,8 @@ public:
     	    }
     	    detail::resizeAndCopyToDevice(hBuffer, dBuffer, queue);
     	    detail::resizeAndCopyToDevice(hBuffer, dBuffer1, queue);
-    	    //kernel.set_arg(0, dBuffer);
-    	    //kernel.set_arg(1, dBuffer1);
-
-    	    std::cerr << " B vectors ";
+    	    kernel.set_arg(0, dBuffer);
+    	    kernel.set_arg(1, dBuffer1);
 
             compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(offsExpXBeta), queue);
             GenericIterator x(modelData, index);
@@ -563,9 +555,9 @@ public:
     	    	expXMatrix[j*(N+1)] = 0;
     	    }
 
-    	    for (int i = 1; i <= (N+1); ++i) {
+    	    for (int i = 1; i < (N+1); ++i) {
     	        for (int j = 0; j < maxN; ++j) {
-    	            if (j < subjects[i]) {
+    	            if (j < subjects[i-1]) {
     	                xMatrix[j*(N+1) + i] = x.value();
     	                expXMatrix[j*(N+1) + i] = *expX;
     	                ++expX;
@@ -577,30 +569,21 @@ public:
     	        }
     	    }
     	    detail::resizeAndCopyToDevice(xMatrix, dXMatrix, queue);
-    	    std::cerr << " xMatrix ";
     	    detail::resizeAndCopyToDevice(expXMatrix, dExpXMatrix, queue);
-
     	    int dN = N;
-    	    /*
     	    kernel.set_arg(3, dXMatrix);
     	    kernel.set_arg(4, dExpXMatrix);
     	    kernel.set_arg(7, dN);
 
-    	     */
     	    compute::uint_ taskCount = 3*(N+totalCases);
     	    size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
     	    if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
     	    	++workGroups;
     	    }
     	    const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
-    	    //kernel.set_arg(12, taskCount);
-
-
-
-    	    std::cerr << " got here 2";
+    	    kernel.set_arg(12, taskCount);
     	    for (int i=0; i < maxN; ++i) {
-    	    	std::cerr << "run" << i << " ";
-
+    	        /*
         	    kernel.set_arg(0, dBuffer);
         	    kernel.set_arg(1, dBuffer1);
             	kernel.set_arg(2, dIndices);
@@ -609,21 +592,23 @@ public:
             	kernel.set_arg(5, dVector1);
             	kernel.set_arg(6, dVector2);
         	    kernel.set_arg(7, dN);
+    	         */
                 if (dKWeight.size() == 0) {
                     kernel.set_arg(9, 0);
                 } else {
                     kernel.set_arg(9, dKWeight); // TODO Only when dKWeight gets reallocated
                 }
+                /*
             	kernel.set_arg(10, dOverflow0);
             	kernel.set_arg(11, dOverflow1);
         	    kernel.set_arg(12, taskCount);
+                 */
 
         	    kernel.set_arg(8, i);
     	        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
     	        queue.finish();
     	    }
 
-    	    std::cerr << " got here 3\n";
     	    if (maxN%2 == 0) {
     	    	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
     	    } else {
@@ -635,7 +620,7 @@ public:
     	    	temp += hNWeight[i]+1;
     	        std::cout<<"new values" << i << ": " << hBuffer[3*temp-3] <<" | "<< hBuffer[3*temp-2] << " | " << hBuffer[3*temp-1] << '\n';
     	    	gradient -= (real)(-hBuffer[3*temp-2]/hBuffer[3*temp-3]);
-    	    	hessian -= (real)((hBuffer[3*temp-2]/hBuffer[3*temp-3]) * (hBuffer[3*temp-2]/hBuffer[3*temp-3]) - hBuffer[3*temp-1]/hBuffer[3*temp-2]);
+    	    	hessian -= (real)((hBuffer[3*temp-2]/hBuffer[3*temp-3]) * (hBuffer[3*temp-2]/hBuffer[3*temp-3]) - hBuffer[3*temp-1]/hBuffer[3*temp-3]);
     	    }
         } else {
 /*
