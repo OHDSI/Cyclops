@@ -254,6 +254,7 @@ protected:
 
 	std::vector<WeightType> hNWeight;
 	std::vector<WeightType> hKWeight;
+	std::vector<int> hNtoK;
 
 	void initializeMmXt();
 
@@ -316,7 +317,6 @@ private:
 
 //	std::vector<int> nPid;
 //	std::vector<real> nY;
-	std::vector<int> hNtoK;
 
 	struct WeightedOperation {
 		const static bool isWeighted = true;

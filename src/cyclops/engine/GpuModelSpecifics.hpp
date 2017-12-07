@@ -20,6 +20,7 @@
 #include <Rcpp.h>
 
 #include "ModelSpecifics.h"
+#include "Iterators.h"
 
 #include <boost/compute/algorithm/reduce.hpp>
 
@@ -264,6 +265,8 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::offsExpXBeta;
     using ModelSpecifics<BaseModel, WeightType>::hXBeta;
     using ModelSpecifics<BaseModel, WeightType>::hY;
+    using ModelSpecifics<BaseModel, WeightType>::hNtoK;
+    using ModelSpecifics<BaseModel, WeightType>::hNWeight;
     using ModelSpecifics<BaseModel, WeightType>::hKWeight;
     using ModelSpecifics<BaseModel, WeightType>::hPid;
     using ModelSpecifics<BaseModel, WeightType>::hPidInternal;
@@ -295,8 +298,9 @@ public:
       ),
       dColumns(ctx),
       dY(ctx), dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dBuffer(ctx), dKWeight(ctx),
-      dId(ctx), dNorm(ctx), dOffs(ctx), dFixBeta(ctx),
-      dXBetaKnown(false), hXBetaKnown(false){
+      dId(ctx), dNorm(ctx), dOffs(ctx), dFixBeta(ctx), dIndices(ctx), dVector1(ctx), dVector2(ctx),
+      dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx),
+	  dXBetaKnown(false), hXBetaKnown(false){
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
 
@@ -350,6 +354,9 @@ public:
         detail::resizeAndCopyToDevice(denomPid, dDenominator, queue);
         detail::resizeAndCopyToDevice(hPidInternal, dId, queue);
         detail::resizeAndCopyToDevice(hOffs, dOffs, queue);
+
+        if (BaseModel::exactCLR) {
+        }
 
         std::cerr << "Format types required: " << need << std::endl;
 
@@ -438,7 +445,7 @@ public:
 
     }
 
-    virtual void computeGradientAndHessian(int index, double *ogradient,
+    void computeGradientAndHessian(int index, double *ogradient,
                                            double *ohessian, bool useWeights) {
 
 #ifdef GPU_DEBUG
@@ -449,6 +456,188 @@ public:
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
+        FormatType formatType = modelData.getFormatType(index);
+        double gradient = 0.0;
+        double hessian = 0.0;
+
+        if (BaseModel::exactCLR) {
+    	    std::cerr << "got here 0";
+
+        	auto& kernel = (useWeights) ? // Double-dispatch
+        	                            kernelGradientHessianWeighted[formatType] :
+        	                            kernelGradientHessianNoWeight[formatType];
+        	if (!initialized) {
+        		totalCases = 0;
+        		for (int i=0; i < N; ++i) {
+        			totalCases += hNWeight[i];
+        		}
+        		int temp = 0;
+        		maxN = 0;
+        		subjects.resize(N);
+        		for (int i = 0; i < N; ++i) {
+        			int newN = hNtoK[i+1] - hNtoK[i];
+        			subjects[i] = newN;
+        			if (newN > maxN) maxN = newN;
+        		}
+
+        		// indices vector
+        		std::vector<int> hIndices;
+        		hIndices.resize(3*(N+totalCases));
+        		temp = 0;
+        		for (int i=0; i < N; ++i) {
+        			hIndices[temp] = 0;
+        			hIndices[temp+1] = 0;
+        			hIndices[temp+2] = 0;
+        			temp += 3;
+        			for (int j = 3; j < 3*(hNWeight[i]+1); ++j) {
+        				hIndices[temp] = i+1;
+        				++temp;
+        			}
+        		}
+        		detail::resizeAndCopyToDevice(hIndices, dIndices, queue);
+
+        	    //std::cerr << " indices ";
+
+        		// constant vectors
+        		std::vector<int> hVector1;
+        		std::vector<int> hVector2;
+        		hVector1.resize(3*(N+totalCases));
+        		hVector2.resize(3*(N+totalCases));
+        		for (int i=0; i < N+totalCases; ++i) {
+        			hVector1[3*i] = 0;
+        			hVector1[3*i+1] = 1;
+        			hVector1[3*i+2] = 1;
+        			hVector2[3*i] = 0;
+        			hVector2[3*i+1] = 0;
+        			hVector2[3*i+2] = 1;
+        		}
+        		detail::resizeAndCopyToDevice(hVector1, dVector1, queue);
+        		detail::resizeAndCopyToDevice(hVector2, dVector2, queue);
+
+        		// overflow vectors
+        		std::vector<int> hOverflow;
+        		hOverflow.resize(N+1);
+        		for (int i=0; i < N+1; ++i) {
+        			hOverflow[i] = 0;
+        		}
+        		detail::resizeAndCopyToDevice(hOverflow, dOverflow0, queue);
+        		detail::resizeAndCopyToDevice(hOverflow, dOverflow1, queue);
+
+        		initialized = true;
+        	}
+        	std::cerr << " got here 1 ";
+        	/*
+        	kernel.set_arg(2, dIndices);
+        	kernel.set_arg(5, dVector1);
+        	kernel.set_arg(6, dVector2);
+        	kernel.set_arg(10, dOverflow0);
+        	kernel.set_arg(11, dOverflow1);
+        	*/
+
+        	// B0 and B1
+    	    int temp = 0;
+        	hBuffer.resize(3*(N+totalCases));
+    	    for (int i=0; i < 3*(N+totalCases); ++i) {
+    	    	hBuffer[i] = 0;
+    	    }
+    	    for (int i=0; i < N; ++i) {
+    	    	hBuffer[temp] = 1;
+    	        temp += 3*(hNWeight[i]+1);
+    	    }
+    	    detail::resizeAndCopyToDevice(hBuffer, dBuffer, queue);
+    	    detail::resizeAndCopyToDevice(hBuffer, dBuffer1, queue);
+    	    //kernel.set_arg(0, dBuffer);
+    	    //kernel.set_arg(1, dBuffer1);
+
+    	    std::cerr << " B vectors ";
+
+            compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(offsExpXBeta), queue);
+            GenericIterator x(modelData, index);
+    	    auto expX = offsExpXBeta.begin();
+
+    	    // X and ExpX matrices
+    	    xMatrix.resize((N+1) * maxN);
+    	    expXMatrix.resize((N+1) * maxN);
+    	    for (int j = 0; j < maxN; ++j) {
+    	    	xMatrix[j*(N+1)] = 0;
+    	    	expXMatrix[j*(N+1)] = 0;
+    	    }
+
+    	    for (int i = 1; i <= (N+1); ++i) {
+    	        for (int j = 0; j < maxN; ++j) {
+    	            if (j < subjects[i]) {
+    	                xMatrix[j*(N+1) + i] = x.value();
+    	                expXMatrix[j*(N+1) + i] = *expX;
+    	                ++expX;
+    	                ++x;
+    	            } else {
+    	                xMatrix[j*(N+1) + i] = 0;
+    	                expXMatrix[j*(N+1) + i] = -1;
+    	            }
+    	        }
+    	    }
+    	    detail::resizeAndCopyToDevice(xMatrix, dXMatrix, queue);
+    	    std::cerr << " xMatrix ";
+    	    detail::resizeAndCopyToDevice(expXMatrix, dExpXMatrix, queue);
+
+    	    int dN = N;
+    	    /*
+    	    kernel.set_arg(3, dXMatrix);
+    	    kernel.set_arg(4, dExpXMatrix);
+    	    kernel.set_arg(7, dN);
+
+    	     */
+    	    compute::uint_ taskCount = 3*(N+totalCases);
+    	    size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
+    	    if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+    	    	++workGroups;
+    	    }
+    	    const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+    	    //kernel.set_arg(12, taskCount);
+
+
+
+    	    std::cerr << " got here 2";
+    	    for (int i=0; i < maxN; ++i) {
+    	    	std::cerr << "run" << i << " ";
+
+        	    kernel.set_arg(0, dBuffer);
+        	    kernel.set_arg(1, dBuffer1);
+            	kernel.set_arg(2, dIndices);
+        	    kernel.set_arg(3, dXMatrix);
+        	    kernel.set_arg(4, dExpXMatrix);
+            	kernel.set_arg(5, dVector1);
+            	kernel.set_arg(6, dVector2);
+        	    kernel.set_arg(7, dN);
+                if (dKWeight.size() == 0) {
+                    kernel.set_arg(9, 0);
+                } else {
+                    kernel.set_arg(9, dKWeight); // TODO Only when dKWeight gets reallocated
+                }
+            	kernel.set_arg(10, dOverflow0);
+            	kernel.set_arg(11, dOverflow1);
+        	    kernel.set_arg(12, taskCount);
+
+        	    kernel.set_arg(8, i);
+    	        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
+    	        queue.finish();
+    	    }
+
+    	    std::cerr << " got here 3\n";
+    	    if (maxN%2 == 0) {
+    	    	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+    	    } else {
+    	    	compute::copy(std::begin(dBuffer1), std::end(dBuffer1), std::begin(hBuffer), queue);
+    	    }
+
+    	    temp = 0;
+    	    for (int i=0; i<N; ++i) {
+    	    	temp += hNWeight[i]+1;
+    	        std::cout<<"new values" << i << ": " << hBuffer[3*temp-3] <<" | "<< hBuffer[3*temp-2] << " | " << hBuffer[3*temp-1] << '\n';
+    	    	gradient -= (real)(-hBuffer[3*temp-2]/hBuffer[3*temp-3]);
+    	    	hessian -= (real)((hBuffer[3*temp-2]/hBuffer[3*temp-3]) * (hBuffer[3*temp-2]/hBuffer[3*temp-3]) - hBuffer[3*temp-1]/hBuffer[3*temp-2]);
+    	    }
+        } else {
 /*
         if (!dXBetaKnown) {
             compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
@@ -456,7 +645,6 @@ public:
         }
         */
 
-        FormatType formatType = modelData.getFormatType(index);
         auto& kernel = (useWeights) ? // Double-dispatch
                             kernelGradientHessianWeighted[formatType] :
                             kernelGradientHessianNoWeight[formatType];
@@ -574,12 +762,10 @@ public:
 #else
         compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
 
-        double gradient = 0.0;
-        double hessian = 0.0;
-
         for (int i = 0; i < wgs; ++i) { // TODO Use SSE
             gradient += hBuffer[i];
             hessian  += hBuffer[i + wgs];
+        }
         }
 
         if (BaseModel::precomputeGradient) { // Compile-time switch
@@ -593,6 +779,7 @@ public:
         *ogradient = gradient;
         *ohessian = hessian;
 #endif
+
 
 #ifdef GPU_DEBUG
         std::cerr << gradient << " & " << hessian << std::endl << std::endl;
@@ -1016,6 +1203,8 @@ private:
 
     SourceCode writeCodeForComputeXBetaKernel(FormatType formatType);
 
+    SourceCode writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia);
+
     void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
 
         std::stringstream options;
@@ -1056,58 +1245,76 @@ private:
 //         Rcpp::stop("out");
 
         const auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+        std::cout << "formatType: " << formatType << " isNvidia: " << isNvidia << '\n';
 
 //         std::cerr << queue.get_device().name() << " " << queue.get_device().vendor() << std::endl;
 //         std::cerr << "isNvidia = " << isNvidia << std::endl;
 //         Rcpp::stop("out");
 
-        auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
+        if (BaseModel::exactCLR) {
+        	// CCD Kernel
+        	auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useWeights, isNvidia);
+        	std::cout << source.body;
+        	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        	auto kernel = compute::kernel(program, source.name);
 
-        /*
-        if (algorithmType == AlgorithmType::MM) {
-        	std::cout << "wrote MM source\n";
+        	kernel.set_arg(2, dIndices);
+        	kernel.set_arg(5, dVector1);
+        	kernel.set_arg(6, dVector2);
+        	kernel.set_arg(9, dKWeight);
+
+        	// MM Kernel
         	source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
-        }
-        */
+        	program = compute::program::build_with_source(source.body, ctx, options.str());
+        	auto kernelMM = compute::kernel(program, source.name);
+        	kernelMM.set_arg(5, dY);
+        	kernelMM.set_arg(6, dXBeta);
+        	kernelMM.set_arg(7, dExpXBeta);
+        	kernelMM.set_arg(8, dDenominator);
+        	kernelMM.set_arg(9, dBuffer);  // TODO Does not seem to stick
+        	kernelMM.set_arg(10, dId);
+        	kernelMM.set_arg(11, dKWeight); // TODO Does not seem to stick
 
-         // std::cerr << options.str() << std::endl;
-         // std::cerr << source.body << std::endl;
-
-        std::cout << "formatType: " << formatType << " isNvidia: " << isNvidia << '\n';
-        auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        std::cout << "program built \n";
-        auto kernel = compute::kernel(program, source.name);
-        std::cout << "kernal built \n";
-
-        // Rcpp::stop("cGH");
-
-        // Run-time constant arguments.
-        kernel.set_arg(5, dY);
-        kernel.set_arg(6, dXBeta);
-        kernel.set_arg(7, dExpXBeta);
-        kernel.set_arg(8, dDenominator);
-        kernel.set_arg(9, dBuffer);  // TODO Does not seem to stick
-        kernel.set_arg(10, dId);
-        kernel.set_arg(11, dKWeight); // TODO Does not seem to stick
-
-
-    	source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
-        program = compute::program::build_with_source(source.body, ctx, options.str());
-        auto kernelMM = compute::kernel(program, source.name);
-        kernelMM.set_arg(5, dY);
-        kernelMM.set_arg(6, dXBeta);
-        kernelMM.set_arg(7, dExpXBeta);
-        kernelMM.set_arg(8, dDenominator);
-        kernelMM.set_arg(9, dBuffer);  // TODO Does not seem to stick
-        kernelMM.set_arg(10, dId);
-        kernelMM.set_arg(11, dKWeight); // TODO Does not seem to stick
-
-        if (useWeights) {
-            kernelGradientHessianWeighted[formatType] = std::move(kernel);
-            kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
+        	if (useWeights) {
+        		kernelGradientHessianWeighted[formatType] = std::move(kernel);
+        		kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
+        	} else {
+        		kernelGradientHessianNoWeight[formatType] = std::move(kernel);
+        		kernelGradientHessianMMNoWeight[formatType] = std::move(kernelMM);
+        	}
         } else {
-            kernelGradientHessianNoWeight[formatType] = std::move(kernel);
-           kernelGradientHessianMMNoWeight[formatType] = std::move(kernelMM);
+        	// CCD Kernel
+        	auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
+        	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        	auto kernel = compute::kernel(program, source.name);
+        	kernel.set_arg(5, dY);
+        	kernel.set_arg(6, dXBeta);
+        	kernel.set_arg(7, dExpXBeta);
+        	kernel.set_arg(8, dDenominator);
+        	kernel.set_arg(9, dBuffer);  // TODO Does not seem to stick
+        	kernel.set_arg(10, dId);
+        	kernel.set_arg(11, dKWeight); // TODO Does not seem to stick
+        	// Rcpp::stop("cGH");
+
+        	// MM Kernel
+        	source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
+        	program = compute::program::build_with_source(source.body, ctx, options.str());
+        	auto kernelMM = compute::kernel(program, source.name);
+        	kernelMM.set_arg(5, dY);
+        	kernelMM.set_arg(6, dXBeta);
+        	kernelMM.set_arg(7, dExpXBeta);
+        	kernelMM.set_arg(8, dDenominator);
+        	kernelMM.set_arg(9, dBuffer);  // TODO Does not seem to stick
+        	kernelMM.set_arg(10, dId);
+        	kernelMM.set_arg(11, dKWeight); // TODO Does not seem to stick
+
+        	if (useWeights) {
+        		kernelGradientHessianWeighted[formatType] = std::move(kernel);
+        		kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
+        	} else {
+        		kernelGradientHessianNoWeight[formatType] = std::move(kernel);
+        		kernelGradientHessianMMNoWeight[formatType] = std::move(kernelMM);
+        	}
         }
     }
 
@@ -1295,6 +1502,8 @@ private:
     AllGpuColumns<real> dColumns;
 
     std::vector<real> hBuffer;
+    std::vector<real> xMatrix;
+    std::vector<real> expXMatrix;
 
     // Internal storage
     compute::vector<real> dY;
@@ -1305,10 +1514,25 @@ private:
     compute::vector<real> dNorm;
     compute::vector<real> dOffs;
     compute::vector<bool> dFixBeta;
+
+    // for exactCLR
+    std::vector<int> subjects;
+    int totalCases;
+    int maxN;
+    compute::vector<int>  dVector1;
+    compute::vector<int>  dVector2;
+    compute::vector<int>  dIndices;
+    compute::vector<real> dXMatrix;
+    compute::vector<real> dExpXMatrix;
+    bool initialized = false;
+    compute::vector<int> dOverflow0;
+    compute::vector<int> dOverflow1;
+
 #ifdef USE_VECTOR
     compute::vector<compute::double2_> dBuffer;
 #else
     compute::vector<real> dBuffer;
+    compute::vector<real> dBuffer1;
 #endif // USE_VECTOR
     compute::vector<real> dKWeight;
     compute::vector<int> dId;

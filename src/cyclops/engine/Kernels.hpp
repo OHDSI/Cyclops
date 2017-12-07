@@ -241,7 +241,6 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
     }
 
-
 	template <class BaseModel, typename WeightType>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType>::writeCodeForUpdateXBetaKernel(FormatType formatType) {
@@ -730,6 +729,66 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
 	}
 
+	template <class BaseModel, typename WeightType>
+	SourceCode
+	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia) {
+		std::string name = "computeGradHess" + getFormatTypeExtension(formatType) + (useWeights ? "W" : "N");
+
+		        std::stringstream code;
+		        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+		        code << "__kernel void " << name << "(            	\n" <<
+		        	    "   __global REAL* B0_in,                	\n" <<
+		        	    "   __global REAL* B1_in,               	\n" <<
+		        		"   __global const uint* indices_in, 		\n" <<
+		        		"   __global const REAL* xMatrix_in, 		\n" <<
+		        		"   __global const REAL* expXMatrix_in, 	\n" <<
+		        		"   __global const uint* vector1_in, 		\n" <<
+		        		"   __global const uint* vector2_in, 		\n" <<
+		        		"   const uint N, 							\n" <<
+		        	    "   const uint col,                 		\n" <<
+		                "   __global const REAL* weight,			\n" <<
+					    "	__global uint* overflow0_in,           	\n" <<
+					    "	__global uint* overflow1_in,				\n" <<
+						"	const uint tasks) {    					\n";
+				code << "   const uint i = get_global_id(0);				\n" <<
+						"	if (i == 0) printf(\"gpu%d \",0);		\n" <<
+						"	barrier(CLK_GLOBAL_MEM_FENCE);			\n" <<
+						"	if (i < tasks) {;						\n" <<
+						"	if (i == 0) printf(\"gpu%d \",1);		\n" <<
+						"	int stratum = indices_in[i];			\n" <<
+						"	barrier(CLK_GLOBAL_MEM_FENCE);			\n" <<
+						"	if (i == 0) printf(\"gpu%d \", 2);		\n" <<
+						"	REAL x = xMatrix_in[col*(N+1)+stratum];	\n" <<
+						"	REAL t = expXMatrix_in[col*(N+1)+stratum];	\n" <<
+						"   if (col%2 == 0) {						\n" <<
+						"		if (t == -1) B1_in[i] = B0_in[i];	\n" <<
+						"		else { 								\n" <<
+						"			if (i > 2) B1_in[i] = B0_in[i] + t*B0_in[i-3] + vector1_in[i]*x*t*B0_in[i-3-i%3] + 2*vector2_in[i]*x*t*B0_in[i-2-i%3]; \n" <<
+						" 			if (overflow0_in[stratum] == 1) B1_in[i] /= 1e25;          	\n" <<
+						"			if (B1_in[i] > 1e25 && overflow1_in[stratum] == 0) {	\n" <<
+						"				overflow1_in[stratum] =  1;		\n" <<
+						"			}  										\n" <<
+						"  		}											\n" <<
+						"	}												\n" <<
+						"	if (col%2 == 1) {								\n" \
+						" 		if (t == -1) B0_in[i] = B1_in[i];			\n" <<
+						"		else { 										\n" <<
+						"			if (i > 2 ) B0_in[i] = B1_in[i] + t*B1_in[i-3] + vector1_in[i]*x*t*B1_in[i-3-i%3] + 2*vector2_in[i]*x*t*B1_in[i-2-i%3]; \n" <<
+						" 			if (overflow1_in[stratum] == 1) B0_in[i] /= 1e25;          	\n" <<
+						"			if (B0_in[i] > 1e25 && overflow0_in[stratum] == 0) {	\n" <<
+						"				overflow0_in[stratum] = 1;		\n" <<
+						"			}  										\n" <<
+						"  		}											\n" <<
+						"	}												\n" <<
+						"	barrier(CLK_GLOBAL_MEM_FENCE);				\n" <<
+						"	if (i < (N+1) && col%2 == 0) overflow0_in[i] = 0;\n" <<
+						"	if (i < (N+1) && col%2 == 1) overflow1_in[i] = 0;\n" <<
+						"	};										\n";
+		        code << "}  \n"; // End of kernel
+
+		        return SourceCode(code.str(), name);
+	}
 } // namespace bsccs
 
 #endif /* KERNELS_HPP_ */

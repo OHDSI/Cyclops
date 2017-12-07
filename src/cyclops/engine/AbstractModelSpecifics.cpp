@@ -132,7 +132,7 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
     AbstractModelSpecifics* model = nullptr;
 
     if (modelType != ModelType::LOGISTIC && deviceType == DeviceType::GPU) {
-        return model; // Implementing lr first on GPU.
+        //return model; // Implementing lr first on GPU.
     }
 
     switch (modelType) {
