@@ -299,7 +299,7 @@ public:
       dColumns(ctx),
       dY(ctx), dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dBuffer(ctx), dKWeight(ctx),
       dId(ctx), dNorm(ctx), dOffs(ctx), dFixBeta(ctx), dIndices(ctx), dVector1(ctx), dVector2(ctx),
-      dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx),
+      dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx), dNtoK(ctx),
 	  dXBetaKnown(false), hXBetaKnown(false){
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
@@ -519,35 +519,48 @@ public:
         		detail::resizeAndCopyToDevice(hOverflow, dOverflow0, queue);
         		detail::resizeAndCopyToDevice(hOverflow, dOverflow1, queue);
 
+        		//std::cerr << "got here0\n";
+        		detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
+
+            	// B0 and B1
+        	    temp = 0;
+            	hBuffer.resize(3*(N+totalCases));
+        	    for (int i=0; i < 3*(N+totalCases); ++i) {
+        	    	hBuffer[i] = 0;
+        	    }
+        	    for (int i=0; i < N; ++i) {
+        	    	hBuffer[temp] = 1;
+        	        temp += 3*(hNWeight[i]+1);
+        	    }
+
+        	    detail::resizeAndCopyToDevice(hBuffer, dBuffer, queue);
+        	    detail::resizeAndCopyToDevice(hBuffer, dBuffer1, queue);
+
         		initialized = true;
         	}
+    		//std::cerr << "got here1\n";
 
+    	    kernel.set_arg(0, dBuffer);
+    	    kernel.set_arg(1, dBuffer1);
         	kernel.set_arg(2, dIndices);
         	kernel.set_arg(5, dVector1);
         	kernel.set_arg(6, dVector2);
+    	    int dN = N;
+    	    kernel.set_arg(7, dN);
+            if (dKWeight.size() == 0) {
+                kernel.set_arg(9, 0);
+            } else {
+                kernel.set_arg(9, dKWeight); // TODO Only when dKWeight gets reallocated
+            }
         	kernel.set_arg(10, dOverflow0);
         	kernel.set_arg(11, dOverflow1);
+    	    kernel.set_arg(13, dNtoK);
 
-        	// B0 and B1
-    	    int temp = 0;
-        	hBuffer.resize(3*(N+totalCases));
-    	    for (int i=0; i < 3*(N+totalCases); ++i) {
-    	    	hBuffer[i] = 0;
-    	    }
-    	    for (int i=0; i < N; ++i) {
-    	    	hBuffer[temp] = 1;
-    	        temp += 3*(hNWeight[i]+1);
-    	    }
-    	    detail::resizeAndCopyToDevice(hBuffer, dBuffer, queue);
-    	    detail::resizeAndCopyToDevice(hBuffer, dBuffer1, queue);
-    	    kernel.set_arg(0, dBuffer);
-    	    kernel.set_arg(1, dBuffer1);
-
+            /*
+            // X and ExpX matrices
             compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(offsExpXBeta), queue);
             GenericIterator x(modelData, index);
     	    auto expX = offsExpXBeta.begin();
-
-    	    // X and ExpX matrices
     	    xMatrix.resize((N+1) * maxN);
     	    expXMatrix.resize((N+1) * maxN);
     	    for (int j = 0; j < maxN; ++j) {
@@ -568,12 +581,26 @@ public:
     	            }
     	        }
     	    }
+
     	    detail::resizeAndCopyToDevice(xMatrix, dXMatrix, queue);
     	    detail::resizeAndCopyToDevice(expXMatrix, dExpXMatrix, queue);
     	    int dN = N;
     	    kernel.set_arg(3, dXMatrix);
     	    kernel.set_arg(4, dExpXMatrix);
     	    kernel.set_arg(7, dN);
+    	    */
+
+    	    kernel.set_arg(3, dColumns.getData());
+        	kernel.set_arg(4, dExpXBeta);
+        	kernel.set_arg(14, dColumns.getDataOffset(index));
+
+        	/*
+        	std::cerr << "dExpXBeta:";
+        	for (auto x : dExpXBeta) {
+        		std::cerr << " " << x;
+        	}
+	        std::cerr << "\n";
+	        */
 
     	    compute::uint_ taskCount = 3*(N+totalCases);
     	    size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
@@ -583,6 +610,7 @@ public:
     	    const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
     	    kernel.set_arg(12, taskCount);
     	    for (int i=0; i < maxN; ++i) {
+    	    	//std::cout << "run: " << i << '\n';
     	        /*
         	    kernel.set_arg(0, dBuffer);
         	    kernel.set_arg(1, dBuffer1);
@@ -592,13 +620,11 @@ public:
             	kernel.set_arg(5, dVector1);
             	kernel.set_arg(6, dVector2);
         	    kernel.set_arg(7, dN);
-    	         */
                 if (dKWeight.size() == 0) {
                     kernel.set_arg(9, 0);
                 } else {
                     kernel.set_arg(9, dKWeight); // TODO Only when dKWeight gets reallocated
                 }
-                /*
             	kernel.set_arg(10, dOverflow0);
             	kernel.set_arg(11, dOverflow1);
         	    kernel.set_arg(12, taskCount);
@@ -609,18 +635,21 @@ public:
     	        queue.finish();
     	    }
 
+    	    //std::cout << "got here2\n";
+
+    	    hBuffer1.resize(3*(N+totalCases));
     	    if (maxN%2 == 0) {
-    	    	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+    	    	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer1), queue);
     	    } else {
-    	    	compute::copy(std::begin(dBuffer1), std::end(dBuffer1), std::begin(hBuffer), queue);
+    	    	compute::copy(std::begin(dBuffer1), std::end(dBuffer1), std::begin(hBuffer1), queue);
     	    }
 
-    	    temp = 0;
+    	    int temp = 0;
     	    for (int i=0; i<N; ++i) {
     	    	temp += hNWeight[i]+1;
-    	        std::cout<<"new values" << i << ": " << hBuffer[3*temp-3] <<" | "<< hBuffer[3*temp-2] << " | " << hBuffer[3*temp-1] << '\n';
-    	    	gradient -= (real)(-hBuffer[3*temp-2]/hBuffer[3*temp-3]);
-    	    	hessian -= (real)((hBuffer[3*temp-2]/hBuffer[3*temp-3]) * (hBuffer[3*temp-2]/hBuffer[3*temp-3]) - hBuffer[3*temp-1]/hBuffer[3*temp-3]);
+    	        std::cout<<"new values" << i << ": " << hBuffer1[3*temp-3] <<" | "<< hBuffer1[3*temp-2] << " | " << hBuffer1[3*temp-1] << '\n';
+    	    	gradient -= (real)(-hBuffer1[3*temp-2]/hBuffer1[3*temp-3]);
+    	    	hessian -= (real)((hBuffer1[3*temp-2]/hBuffer1[3*temp-3]) * (hBuffer1[3*temp-2]/hBuffer1[3*temp-3]) - hBuffer1[3*temp-1]/hBuffer1[3*temp-3]);
     	    }
         } else {
 /*
@@ -1487,6 +1516,7 @@ private:
     AllGpuColumns<real> dColumns;
 
     std::vector<real> hBuffer;
+    std::vector<real> hBuffer1;
     std::vector<real> xMatrix;
     std::vector<real> expXMatrix;
 
@@ -1512,6 +1542,7 @@ private:
     bool initialized = false;
     compute::vector<int> dOverflow0;
     compute::vector<int> dOverflow1;
+    compute::vector<int> dNtoK;
 
 #ifdef USE_VECTOR
     compute::vector<compute::double2_> dBuffer;
