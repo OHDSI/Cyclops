@@ -876,14 +876,26 @@ void CyclicCoordinateDescent::findMode(
 	    if (algorithmType == AlgorithmType::MM) {
             // Do delta computation in parallel
             mmUpdateAllBeta(allDelta, fixBeta);
-	         //for (auto x : allDelta) {
-	         //    std::cerr << " " << x;
-	         //}
-	         //std::cerr << "\n";
+            //for (auto x : hBeta) {
+            //	std::cerr << " " << x;
+            //}
+	        //std::cerr << "\n";
 	        //Rcpp::stop("A");
             //std::cout << setprecision (15) << "hBeta: " << hBeta[0] << " | " << hBeta[1] << " delta: " << allDelta[0] << " | " << allDelta[1] << '\n';
 
-
+            for (int index = 0; index < J; ++index) {
+            	if (!fixBeta[index]) {
+            		double delta = allDelta[index];
+            		delta = applyBounds(delta, index);
+            		double realDelta = static_cast<double>(delta);
+            		hBeta[index] += delta;
+            		allDelta[index] = delta;
+            	}
+            }
+            modelSpecifics.updateAllXBeta(allDelta, fixBeta, useCrossValidation);
+            computeRemainingStatistics(true, 0);
+            sufficientStatisticsKnown = true;
+/*
             for (int index = 0; index < J; ++index) {
                 if (!fixBeta[index]) {
                     double delta = allDelta[index];
@@ -898,18 +910,24 @@ void CyclicCoordinateDescent::findMode(
                     }
                 }
             }
+            */
+
 
             // sufficientStatisticsKnown = false;
             //modelSpecifics.computeXBeta(hBeta.data(), useCrossValidation);
-            computeRemainingStatistics(true, 0);
-            sufficientStatisticsKnown = true;
+            //computeRemainingStatistics(true, 0);
+            //sufficientStatisticsKnown = true;
 
 	    } else {
 	        // Do a complete cycle in serial
+	    	//std::cout << "starting cycle\n";
 	        for(int index = 0; index < J; index++) {
+		    	//std::cout << "hBeta[0]: " << hBeta[0] << " hBeta[1]: " << hBeta[1] << '\n';
 	            if (!fixBeta[index]) {
 	                double delta = ccdUpdateBeta(index);
+	                //std::cerr << " " << delta;
 	                delta = applyBounds(delta, index);
+	                //std::cout << "delta" << index << ": " << delta << "\n";
 	                if (delta != 0.0) {
 	                    sufficientStatisticsKnown = false;
 	                    updateSufficientStatistics(delta, index);
@@ -918,6 +936,7 @@ void CyclicCoordinateDescent::findMode(
 
 	            log(index);
 	        }
+	        //std::cout << '\n';
             //std::cout << setprecision (15) << "hBeta: " << hBeta[0] << " | " << hBeta[1] << '\n';
 
 	    }
@@ -1310,7 +1329,6 @@ void CyclicCoordinateDescent::mmUpdateAllBeta(std::vector<double>& delta,
 
 }
 
-
 double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 
 	if (!sufficientStatisticsKnown) {
@@ -1323,6 +1341,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 
 	priors::GradientHessian gh;
 	computeGradientAndHessian(index, &gh.first, &gh.second);
+	//std::cout << "grad" << index << ": " << gh.first << " hess" << index << ": " << gh.second << " ";
 
 	if (gh.second < 0.0) {
 	    gh.first = 0.0;

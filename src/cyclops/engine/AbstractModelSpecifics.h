@@ -77,6 +77,8 @@ public:
 
 	virtual void updateXBeta(real realDelta, int index, bool useWeights) = 0; // pure virtual
 
+	virtual void updateAllXBeta(std::vector<double>& allDelta,  std::vector<bool>& fixBeta, bool useWeights) = 0;
+
 	virtual void computeXBeta(double* beta, bool useWeights) = 0; // pure virtual
 
 	virtual void computeRemainingStatistics(bool useWeights) = 0; // pure virtual

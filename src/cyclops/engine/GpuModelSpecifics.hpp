@@ -86,10 +86,11 @@ public:
     typedef compute::vector<RealType> DataVector;
     typedef compute::vector<int> IndicesVector;
     typedef compute::uint_ UInt;
-    typedef std::vector<UInt> StartsVector;
+    typedef compute::vector<UInt> dStartsVector;
+    typedef std::vector<UInt> hStartsVector;
 
-    AllGpuColumns(const compute::context& context) : indices(context), data(context) {
-    		//dataStarts(context), indicesStarts(context), taskCounts(context) {
+    AllGpuColumns(const compute::context& context) : indices(context), data(context), // {
+    		ddataStarts(context), dindicesStarts(context), dtaskCounts(context) {
         // Do nothing
     }
 
@@ -137,6 +138,10 @@ public:
 
         detail::resizeAndCopyToDevice(flatData, data, queue);
         detail::resizeAndCopyToDevice(flatIndices, indices, queue);
+        detail::resizeAndCopyToDevice(dataStarts, ddataStarts, queue);
+        detail::resizeAndCopyToDevice(indicesStarts, dindicesStarts, queue);
+        detail::resizeAndCopyToDevice(taskCounts, dtaskCounts, queue);
+
 
     	std::cerr << "AGC end " << flatData.size() << " " << flatIndices.size() << std::endl;
     }
@@ -161,16 +166,16 @@ public:
         return indices;
     }
 
-    const StartsVector& getDataStarts() const {
-    	return dataStarts;
+    const dStartsVector& getDataStarts() const {
+    	return ddataStarts;
     }
 
-    const StartsVector& getIndicesStarts() const {
-    	return indicesStarts;
+    const dStartsVector& getIndicesStarts() const {
+    	return dindicesStarts;
     }
 
-    const StartsVector& getTaskCounts() const {
-    	return taskCounts;
+    const dStartsVector& getTaskCounts() const {
+    	return dtaskCounts;
     }
 
 
@@ -195,9 +200,13 @@ private:
 
     IndicesVector indices;
     DataVector data;
-	StartsVector taskCounts;
-	StartsVector dataStarts;
-	StartsVector indicesStarts;
+	hStartsVector taskCounts;
+	hStartsVector dataStarts;
+	hStartsVector indicesStarts;
+
+	dStartsVector dtaskCounts;
+	dStartsVector ddataStarts;
+	dStartsVector dindicesStarts;
 
 	//std::vector<UInt> taskCounts;
     //std::vector<UInt> dataStarts;
@@ -299,7 +308,7 @@ public:
       dColumns(ctx),
       dY(ctx), dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dBuffer(ctx), dKWeight(ctx),
       dId(ctx), dNorm(ctx), dOffs(ctx), dFixBeta(ctx), dIndices(ctx), dVector1(ctx), dVector2(ctx),
-      dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx), dNtoK(ctx),
+      dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx), dNtoK(ctx), dAllDelta(ctx),
 	  dXBetaKnown(false), hXBetaKnown(false){
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
@@ -464,6 +473,10 @@ public:
         	auto& kernel = (useWeights) ? // Double-dispatch
         	                            kernelGradientHessianWeighted[formatType] :
         	                            kernelGradientHessianNoWeight[formatType];
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start0 = bsccs::chrono::steady_clock::now();
+#endif
+
         	if (!initialized) {
         		totalCases = 0;
         		for (int i=0; i < N; ++i) {
@@ -524,22 +537,44 @@ public:
 
             	// B0 and B1
         	    temp = 0;
-            	hBuffer.resize(3*(N+totalCases));
+            	hBuffer0.resize(3*(N+totalCases));
         	    for (int i=0; i < 3*(N+totalCases); ++i) {
-        	    	hBuffer[i] = 0;
+        	    	hBuffer0[i] = 0;
         	    }
         	    for (int i=0; i < N; ++i) {
-        	    	hBuffer[temp] = 1;
+        	    	hBuffer0[temp] = 1;
         	        temp += 3*(hNWeight[i]+1);
         	    }
 
-        	    detail::resizeAndCopyToDevice(hBuffer, dBuffer, queue);
-        	    detail::resizeAndCopyToDevice(hBuffer, dBuffer1, queue);
+                compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(offsExpXBeta), queue);
+                GenericIterator x(modelData, index);
+        	    auto expX = offsExpXBeta.begin();
+        	    xMatrix.resize((N+1) * maxN);
+        	    expXMatrix.resize((N+1) * maxN);
+        	    for (int j = 0; j < maxN; ++j) {
+        	    	xMatrix[j*(N+1)] = 0;
+        	    	expXMatrix[j*(N+1)] = 0;
+        	    }
+
+        	    for (int i = 1; i < (N+1); ++i) {
+        	        for (int j = 0; j < maxN; ++j) {
+        	            if (j < subjects[i-1]) {
+        	                xMatrix[j*(N+1) + i] = x.value();
+        	                expXMatrix[j*(N+1) + i] = *expX;
+        	                ++expX;
+        	                ++x;
+        	            } else {
+        	                xMatrix[j*(N+1) + i] = 0;
+        	                expXMatrix[j*(N+1) + i] = -1;
+        	            }
+        	        }
+        	    }
 
         		initialized = true;
         	}
     		//std::cerr << "got here1\n";
-
+    	    detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
+    	    detail::resizeAndCopyToDevice(hBuffer0, dBuffer1, queue);
     	    kernel.set_arg(0, dBuffer);
     	    kernel.set_arg(1, dBuffer1);
         	kernel.set_arg(2, dIndices);
@@ -554,9 +589,8 @@ public:
             }
         	kernel.set_arg(10, dOverflow0);
         	kernel.set_arg(11, dOverflow1);
-    	    kernel.set_arg(13, dNtoK);
 
-            /*
+
             // X and ExpX matrices
             compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(offsExpXBeta), queue);
             GenericIterator x(modelData, index);
@@ -582,25 +616,64 @@ public:
     	        }
     	    }
 
+
     	    detail::resizeAndCopyToDevice(xMatrix, dXMatrix, queue);
     	    detail::resizeAndCopyToDevice(expXMatrix, dExpXMatrix, queue);
-    	    int dN = N;
     	    kernel.set_arg(3, dXMatrix);
     	    kernel.set_arg(4, dExpXMatrix);
-    	    kernel.set_arg(7, dN);
-    	    */
 
+
+
+/*
     	    kernel.set_arg(3, dColumns.getData());
         	kernel.set_arg(4, dExpXBeta);
+        	kernel.set_arg(13, dNtoK);
         	kernel.set_arg(14, dColumns.getDataOffset(index));
+        	*/
 
-        	/*
+/*
         	std::cerr << "dExpXBeta:";
         	for (auto x : dExpXBeta) {
         		std::cerr << " " << x;
         	}
 	        std::cerr << "\n";
+        	std::cerr << "dBuffer:";
+        	for (auto x : dBuffer) {
+        		std::cerr << " " << x;
+        	}
+	        std::cerr << "\n";
+        	std::cerr << "dBuffer1:";
+        	for (auto x : dBuffer1) {
+        		std::cerr << " " << x;
+        	}
+	        std::cerr << "\n";
+        	std::cerr << "dIndices:";
+        	for (auto x : dIndices) {
+        		std::cerr << " " << x;
+        	}
+	        std::cerr << "\n";
+        	std::cerr << "dVector1:";
+        	for (auto x : dVector1) {
+        		std::cerr << " " << x;
+        	}
+	        std::cerr << "\n";
+        	std::cerr << "dVector2:";
+        	for (auto x : dVector2) {
+        		std::cerr << " " << x;
+        	}
+	        std::cerr << "\n";
+        	std::cerr << "dOverflow0:";
+        	for (auto x : dOverflow0) {
+        		std::cerr << " " << x;
+        	}
+	        std::cerr << "\n";
+        	std::cerr << "dOverflow1:";
+        	for (auto x : dOverflow1) {
+        		std::cerr << " " << x;
+        	}
+	        std::cerr << "\n";
 	        */
+
 
     	    compute::uint_ taskCount = 3*(N+totalCases);
     	    size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
@@ -609,9 +682,23 @@ public:
     	    }
     	    const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
     	    kernel.set_arg(12, taskCount);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end0 = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        auto name0 = "setGradHessKernelArgs" + getFormatTypeExtension(formatType) + " ";
+        duration[name0] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end0 - start0).count();
+#endif
+
+    	    //kernel.set_arg(8, maxN);
+	        //queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
+	        //queue.finish();
+
+
+
     	    for (int i=0; i < maxN; ++i) {
     	    	//std::cout << "run: " << i << '\n';
-    	        /*
+/*
         	    kernel.set_arg(0, dBuffer);
         	    kernel.set_arg(1, dBuffer1);
             	kernel.set_arg(2, dIndices);
@@ -628,13 +715,12 @@ public:
             	kernel.set_arg(10, dOverflow0);
             	kernel.set_arg(11, dOverflow1);
         	    kernel.set_arg(12, taskCount);
-                 */
+*/
 
         	    kernel.set_arg(8, i);
     	        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
     	        queue.finish();
     	    }
-
     	    //std::cout << "got here2\n";
 
     	    hBuffer1.resize(3*(N+totalCases));
@@ -647,7 +733,7 @@ public:
     	    int temp = 0;
     	    for (int i=0; i<N; ++i) {
     	    	temp += hNWeight[i]+1;
-    	        std::cout<<"new values" << i << ": " << hBuffer1[3*temp-3] <<" | "<< hBuffer1[3*temp-2] << " | " << hBuffer1[3*temp-1] << '\n';
+    	        //std::cout<<"new values" << i << ": " << hBuffer1[3*temp-3] <<" | "<< hBuffer1[3*temp-2] << " | " << hBuffer1[3*temp-1] << '\n';
     	    	gradient -= (real)(-hBuffer1[3*temp-2]/hBuffer1[3*temp-3]);
     	    	hessian -= (real)((hBuffer1[3*temp-2]/hBuffer1[3*temp-3]) * (hBuffer1[3*temp-2]/hBuffer1[3*temp-3]) - hBuffer1[3*temp-1]/hBuffer1[3*temp-3]);
     	    }
@@ -826,6 +912,14 @@ public:
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
+        if (!initialized) {
+        	hBuffer0.resize(2*maxWgs*J);
+        	for (int i=0; i< 2*maxWgs*J; ++i) {
+        		hBuffer0[i] = 0;
+        	}
+    		hBuffer.resize(2*maxWgs*J);
+        	initialized = true;
+        }
         if (!dXBetaKnown) {
         	//compute::copy(std::begin(hBeta), std::end(hBeta), std::begin(dBeta), queue);
             compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
@@ -845,12 +939,16 @@ public:
     	const auto wgs = maxWgs;
     	const auto globalWorkSize = tpb * wgs;
 
+    	/*
     	if (dBuffer.size() < 2 * maxWgs * J) {
     		dBuffer.resize(2 * maxWgs * J, queue);
     		//compute::fill(std::begin(dBuffer), std::end(dBuffer), 0.0, queue); // TODO Not needed
     		kernel.set_arg(9, dBuffer); // Can get reallocated.
     		hBuffer.resize(2 * maxWgs * J);
     	}
+    	*/
+    	detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
+		kernel.set_arg(9, dBuffer); // Can get reallocated.
 
     	if (dKWeight.size() == 0) {
     		kernel.set_arg(11, 0);
@@ -867,21 +965,6 @@ public:
         }
         std::cerr << "\n";
         */
-/*
-    	kernel.set_arg(0, dColumns.getDataStarts());
-    	kernel.set_arg(1, dColumns.getIndicesStarts());
-    	kernel.set_arg(2, dColumns.getTaskCounts());
-	    //detail::resizeAndCopyToDevice(fixBeta, dFixBeta, queue);
-    	dFixBeta.resize(J);
-    	for (int i=0; i<J; ++i) {
-    		dFixBeta[i] = fixBeta[i];
-    	}
-        //compute::copy(std::begin(fixBeta), std::end(fixBeta), std::begin(dFixBeta), queue);
-    	kernel.set_arg(13, dFixBeta);
-    	int dJ = J;
-    	kernel.set_arg(14, dJ);
- */
-
 
     	kernel.set_arg(3, dColumns.getData());
     	kernel.set_arg(4, dColumns.getIndices());
@@ -895,12 +978,32 @@ public:
 		    detail::resizeAndCopyToDevice(norm, dNorm, queue);
 	    	kernel.set_arg(12, dNorm);
 	    }
-    	//kernel.set_arg(12, dBeta);
-
-		//queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
-		//queue.finish();
 
 
+    	kernel.set_arg(0, dColumns.getDataStarts());
+    	kernel.set_arg(1, dColumns.getIndicesStarts());
+    	kernel.set_arg(2, dColumns.getTaskCounts());
+
+	    //detail::resizeAndCopyToDevice(fixBeta, dFixBeta, queue);
+
+    	std::vector<int> hFixBeta;
+    	hFixBeta.resize(J);
+    	for (int i=0; i<J; ++i) {
+    		hFixBeta[i] = fixBeta[i];
+    	}
+    	detail::resizeAndCopyToDevice(hFixBeta, dFixBeta, queue);
+
+        //compute::copy(std::begin(fixBeta), std::end(fixBeta), std::begin(dFixBeta), queue);
+    	kernel.set_arg(13, dFixBeta);
+    	int dJ = J;
+    	kernel.set_arg(14, dJ);
+    	kernel.set_arg(15, wgs);
+
+    	queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize*J, tpb);
+		queue.finish();
+
+
+/*
     	for (int index = 0; index < J; ++index) {
 
     		if (fixBeta[index]) continue;
@@ -908,32 +1011,57 @@ public:
     		// auto& column = columns[index];
     		// const auto taskCount = column.getTaskCount();
 
-    		const auto taskCount = dColumns.getTaskCount(index);
+    		//const auto taskCount = dColumns.getTaskCount(index);
 
-    		size_t loops = taskCount / globalWorkSize;
-    		if (taskCount % globalWorkSize != 0) {
-    			++loops;
-    		}
-    		kernel.set_arg(0, dColumns.getDataOffset(index));
-    		kernel.set_arg(1, dColumns.getIndicesOffset(index));
-    		kernel.set_arg(2, taskCount);
+    		//size_t loops = taskCount / globalWorkSize;
+    		//if (taskCount % globalWorkSize != 0) {
+    		//	++loops;
+    		//}
+    		//kernel.set_arg(0, dColumns.getDataOffset(index));
+    		//kernel.set_arg(1, dColumns.getIndicesOffset(index));
+    		//kernel.set_arg(2, taskCount);
+
     		kernel.set_arg(13, index);
     		queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
     		queue.finish();
     	}
 
-
+*/
 
     	// Get result
 
+/*
+    	std::cerr << "dBuffer:";
+    	for (auto x : dBuffer) {
+    		std::cerr << " " << x;
+    	}
+        std::cerr << "\n";
+        */
+
+
     	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
 
+    	/*
     	for (int j = 0; j < J; ++j) {
     		for (int i = 0; i < wgs; ++i) { // TODO Use SSE
     			gh[j].first += hBuffer[i + 2*j*wgs];
     			gh[j].second += hBuffer[i + wgs + 2*j*wgs];
     		}
     	}
+    	*/
+
+    	for (int j = 0; j < J; ++j) {
+    		for (int i = 0; i < wgs; ++i) {
+    			gh[j].first += hBuffer[j*wgs+i];
+    			gh[j].second += hBuffer[(j+J)*wgs+i];
+    		}
+    	}
+
+    	/*
+    	for (int j=0; j<J; ++j) {
+    		std::cerr << "index: " << j << " g: " << gh[j].first << " h: " << gh[j].second << " f: " << hXjY[j] << std::endl;
+    	}
+    	*/
 
     	if (BaseModel::precomputeGradient) { // Compile-time switch
     		for (int j=0; j < J; ++j) {
@@ -1002,8 +1130,9 @@ public:
         detail::compare(denomPid, dDenominator, "denominator not equal");
 #endif // GPU_DEBUG
     }
-/*
-    virtual void computeXBeta(real* allDelta, bool useWeights) {
+
+    virtual void updateAllXBeta(std::vector<double>& allDelta,
+    		const std::vector<bool>& fixBeta, bool useWeights) {
 #ifdef GPU_DEBUG
         ModelSpecifics<BaseModel, WeightType>::updateXBeta(realDelta, index, useWeights);
 #endif // GPU_DEBUG
@@ -1012,47 +1141,59 @@ public:
         auto start = bsccs::chrono::steady_clock::now();
 #endif
 
-        auto& kernel = kernelUpdateXBeta[FormatType::DENSE];
-//         auto& column = columns[index];
-//         const auto taskCount = column.getTaskCount();
-        for (int index = 0; index < J; ++index) {
-        	real delta = allDelta[index];
-        	const auto taskCount = dColumns.getTaskCount(index);
+        auto& kernel = kernelUpdateAllXBeta[FormatType::DENSE];
+        //         auto& column = columns[index];
+        //         const auto taskCount = column.getTaskCount();
 
-        	kernel.set_arg(0, dColumns.getDataOffset(index));
-        	kernel.set_arg(1, dColumns.getIndicesOffset(index));
-        	kernel.set_arg(2, taskCount);
-        	kernel.set_arg(3, delta);
-        	kernel.set_arg(4, dColumns.getData());
-        	kernel.set_arg(5, dColumns.getIndices());
+        detail::resizeAndCopyToDevice(allDelta, dAllDelta, queue);
 
+        kernel.set_arg(0, dColumns.getDataStarts());
+        kernel.set_arg(1, dColumns.getIndicesStarts());
+        kernel.set_arg(2, dColumns.getTaskCounts());
+        kernel.set_arg(3, dAllDelta);
+        kernel.set_arg(4, dColumns.getData());
+        kernel.set_arg(5, dColumns.getIndices());
+
+        kernel.set_arg(6, dY);
+        kernel.set_arg(7, dXBeta);
+
+        int dJ = J;
+        kernel.set_arg(10, dJ);
+        kernel.set_arg(11, detail::constant::updateXBetaBlockSize);
+
+        std::vector<int> hFixBeta;
+        hFixBeta.resize(J);
+        for (int i=0; i<J; ++i) {
+        	hFixBeta[i] = fixBeta[i];
+        }
+        detail::resizeAndCopyToDevice(hFixBeta, dFixBeta, queue);
+
+        //compute::copy(std::begin(fixBeta), std::end(fixBeta), std::begin(dFixBeta), queue);
+        kernel.set_arg(12, dFixBeta);
+
+        /*
         	size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
         	if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
         		++workGroups;
         	}
-        	const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
 
-        	queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
-        	queue.finish();
-        }
+        	const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+         */
+        const size_t globalWorkSize = detail::constant::updateXBetaBlockSize * J;
+
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
+        queue.finish();
 
         hXBetaKnown = false; // dXBeta was just updated
 
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
         ///////////////////////////"
-        auto name = "ComputeXBetaG" + getFormatTypeExtension(FormatType::DENSE) + "  ";
+        auto name = "updateAllXBetaG" + getFormatTypeExtension(FormatType::DENSE) + "  ";
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-
-#ifdef GPU_DEBUG
-        // Compare results:
-        detail::compare(hXBeta, dXBeta, "xBeta not equal");
-        detail::compare(offsExpXBeta, dExpXBeta, "expXBeta not equal");
-        detail::compare(denomPid, dDenominator, "denominator not equal");
-#endif // GPU_DEBUG
     }
-    */
+
 
     virtual double getGradientObjective(bool useCrossValidation) {
 #ifdef GPU_DEBUG
@@ -1160,6 +1301,7 @@ private:
     void buildAllUpdateXBetaKernels(const std::vector<FormatType>& neededFormatTypes) {
         for (FormatType formatType : neededFormatTypes) {
             buildUpdateXBetaKernel(formatType);
+            buildUpdateAllXBetaKernel(formatType);
         }
     }
 
@@ -1169,11 +1311,13 @@ private:
     	}
     }
 
+    /*
     void buildAllComputeXBetaKernels(const std::vector<FormatType>& neededFormatTypes) {
     	for (FormatType formatType : neededFormatTypes) {
     		buildComputeXBetaKernel(formatType);
     	}
     }
+     */
 
     void buildAllGradientHessianKernels(const std::vector<FormatType>& neededFormatTypes) {
         int b = 0;
@@ -1208,6 +1352,8 @@ private:
     SourceCode writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
     SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType);
+
+    SourceCode writeCodeForUpdateAllXBetaKernel(FormatType formatType);
 
     SourceCode writeCodeForMMGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
@@ -1259,7 +1405,7 @@ private:
 //         Rcpp::stop("out");
 
         const auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
-        std::cout << "formatType: " << formatType << " isNvidia: " << isNvidia << '\n';
+        //std::cout << "formatType: " << formatType << " isNvidia: " << isNvidia << '\n';
 
 //         std::cerr << queue.get_device().name() << " " << queue.get_device().vendor() << std::endl;
 //         std::cerr << "isNvidia = " << isNvidia << std::endl;
@@ -1268,7 +1414,7 @@ private:
         if (BaseModel::exactCLR) {
         	// CCD Kernel
         	auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useWeights, isNvidia);
-        	std::cout << source.body;
+        	//std::cout << source.body;
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernel = compute::kernel(program, source.name);
 
@@ -1312,6 +1458,7 @@ private:
 
         	// MM Kernel
         	source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
+        	//std::cout << source.body;
         	program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernelMM = compute::kernel(program, source.name);
         	kernelMM.set_arg(5, dY);
@@ -1357,12 +1504,12 @@ private:
         kernelUpdateXBeta[formatType] = std::move(kernel);
     }
 
+
     void buildComputeRemainingStatisticsKernel(FormatType formatType) {
     	std::stringstream options;
     	options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
         auto source = writeCodeForComputeRemainingStatisticsKernel(formatType);
-        std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         std::cout << "built computeRemainingStatistics program \n";
         auto kernel = compute::kernel(program, source.name);
@@ -1377,21 +1524,22 @@ private:
         kernelComputeRemainingStatistics[formatType] = std::move(kernel);
     }
 
-    void buildComputeXBetaKernel(FormatType formatType) {
+    void buildUpdateAllXBetaKernel(FormatType formatType) {
       	std::stringstream options;
       	options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
-      	auto source = writeCodeForComputeXBetaKernel(formatType);
+      	auto source = writeCodeForUpdateAllXBetaKernel(formatType);
       	std::cout << source.body;
       	auto program = compute::program::build_with_source(source.body, ctx, options.str());
-      	std::cout << "built computeXBeta program \n";
+      	std::cout << "built updateAllXBeta program \n";
       	auto kernel = compute::kernel(program, source.name);
+
         kernel.set_arg(6, dY);
         kernel.set_arg(7, dXBeta);
         kernel.set_arg(8, dExpXBeta);
         kernel.set_arg(9, dDenominator);
-        kernel.set_arg(10, dId);
-      	kernelComputeXBeta[formatType] = std::move(kernel);
+
+      	kernelUpdateAllXBeta[formatType] = std::move(kernel);
     }
 
     void buildGetGradientObjectiveKernel(FormatType formatType, bool useWeights) {
@@ -1454,8 +1602,8 @@ private:
         std::cout << "built getGradObjective kernels \n";
         buildAllComputeRemainingStatisticsKernels(neededFormatTypes);
         std::cout << "built computeRemainingStatistics kernels \n";
-        buildAllComputeXBetaKernels(neededFormatTypes);
-        std::cout << "built computeXBeta kernels \n";
+        //buildAllComputeXBetaKernels(neededFormatTypes);
+        //std::cout << "built computeXBeta kernels \n";
     }
 
     void printAllKernels(std::ostream& stream) {
@@ -1490,7 +1638,7 @@ private:
         	printKernel(entry.second, stream);
         }
 
-        for (auto& entry: kernelComputeXBeta) {
+        for (auto& entry: kernelUpdateAllXBeta) {
         	printKernel(entry.second, stream);
         }
     }
@@ -1509,12 +1657,13 @@ private:
     std::map<FormatType, compute::kernel> kernelGetGradientObjectiveWeighted;
     std::map<FormatType, compute::kernel> kernelGetGradientObjectiveNoWeight;
     std::map<FormatType, compute::kernel> kernelComputeRemainingStatistics;
-    std::map<FormatType, compute::kernel> kernelComputeXBeta;
+    std::map<FormatType, compute::kernel> kernelUpdateAllXBeta;
 
     // vectors of columns
     // std::vector<GpuColumn<real> > columns;
     AllGpuColumns<real> dColumns;
 
+    std::vector<real> hBuffer0;
     std::vector<real> hBuffer;
     std::vector<real> hBuffer1;
     std::vector<real> xMatrix;
@@ -1528,7 +1677,8 @@ private:
     compute::vector<real> dDenominator;
     compute::vector<real> dNorm;
     compute::vector<real> dOffs;
-    compute::vector<bool> dFixBeta;
+    compute::vector<int>  dFixBeta;
+    compute::vector<real> dAllDelta;
 
     // for exactCLR
     std::vector<int> subjects;

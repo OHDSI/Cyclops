@@ -285,8 +285,6 @@ static std::string weight(const std::string& arg, bool useWeights) {
             // code << "       const REAL oldEntry = expXBeta[k];                 \n" <<
             //         "       const REAL newEntry = expXBeta[k] = exp(xBeta[k]); \n" <<
             //         "       denominator[" << group<BaseModel>("id","k") << "] += (newEntry - oldEntry); \n";
-
-
             code << "       const REAL exb = exp(xb); \n" <<
                     "       expXBeta[k] = exb;        \n";
         	//code << "expXBeta[k] = exp(xb); \n";
@@ -306,6 +304,64 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
         return SourceCode(code.str(), name);
     }
+
+	template <class BaseModel, typename WeightType>
+    SourceCode
+	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForUpdateAllXBetaKernel(FormatType formatType) {
+
+        std::string name = "updateAllXBeta" + getFormatTypeExtension(formatType);
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "(            \n" <<
+                "       __global const uint* offXVec,                  \n" <<
+                "       __global const uint* offKVec,                  \n" <<
+                "       __global const uint* NVec,                     \n" <<
+                "       __global const REAL* allDelta,                  \n" <<
+                "       __global const REAL* X,           \n" <<
+                "       __global const int* K,            \n" <<
+                "       __global const REAL* Y,           \n" <<
+                "       __global  REAL* xBeta,       \n" <<
+                "       __global const REAL* expXBeta,    \n" <<
+                "       __global const REAL* denominator, \n" <<
+				"		const uint J,					  \n" <<
+				"		const uint TPB,					\n" <<
+				"		__global const int* fixBeta) {    \n";    // TODO Make weight optional
+        // Initialization
+        code << "	const uint index = get_group_id(0);		\n" <<
+				//"	if (fixBeta[index] == 0) {					\n" <<
+        		"   uint task = get_global_id(0)%TPB; \n" <<
+                //"   const uint loopSize = get_global_size(0)/J; \n" <<
+				"	const uint offX = offXVec[index];			\n" <<
+				"	const uint offK = offKVec[index];			\n" <<
+				"	const uint N = NVec[index];					\n" <<
+				"	const REAL delta = allDelta[index];			\n" <<
+                    // Local and thread storage
+                "   while (task < N) { \n";
+        if (formatType == INDICATOR || formatType == SPARSE) {
+        	code << "   const uint k = K[offK + task];         \n";
+        } else { // DENSE, INTERCEPT
+        	code << "   const uint k = task;            \n";
+        }
+
+        if (formatType == SPARSE || formatType == DENSE) {
+        	code << "   const REAL inc = delta * X[offX + task]; \n";
+        } else { // INDICATOR, INTERCEPT
+        	code << "   const REAL inc = delta;           \n";
+        }
+        code << "	if (inc != 0.0) xBeta[k] += inc; \n";// <<
+
+        // Bookkeeping
+        code << "       task += TPB; \n" <<
+                "   } \n";// <<
+                    // Thread -> local
+        code << "}  \n"; // End of kernel
+        //code << "}  \n"; // End of kernel
+
+        return SourceCode(code.str(), name);
+	}
+
 
 	template <class BaseModel, typename WeightType>
     SourceCode
@@ -415,7 +471,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
         return SourceCode(code.str(), name);
     }
-
+/*
 	template <class BaseModel, typename WeightType>
     SourceCode
 	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForMMGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia) {
@@ -545,7 +601,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
 	}
 
-/*
+
+*/
 	template <class BaseModel, typename WeightType>
     SourceCode
 	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForMMGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia) {
@@ -559,6 +616,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "       __global const uint* offXVec,                  \n" <<
                 "       __global const uint* offKVec,                  \n" <<
                 "       __global const uint* NVec,                     \n" <<
+                //"       const uint offX,                  \n" <<
+                //"       const uint offK,                  \n" <<
+                //"       const uint N,                     \n" <<
                 "       __global const REAL* X,           \n" <<
                 "       __global const int* K,            \n" <<
                 "       __global const REAL* Y,           \n" <<
@@ -573,20 +633,19 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "       __global const int* id,           \n" <<  // TODO Make id optional
                 "       __global const REAL* weight,	  \n" <<
 				"		__global const REAL* norm,		  \n" <<
-				"		__global const bool* fixBeta,   \n" <<
-				"		const uint J) {    \n";    // TODO Make weight optional
-
-
+				//"		const uint index) {\n";
+				"		__global const int* fixBeta,   \n" <<
+				"		const uint J,					\n" <<
+				"		const uint wgs) {    \n";    // TODO Make weight optional
         // Initialization
         code << "   const uint lid = get_local_id(0); \n" <<
-                "   const uint loopSize = get_global_size(0); \n" <<
-                //"   uint task = get_global_id(0);  \n" <<
+        		//"   const uint loopSize = get_global_size(0); \n" <<
+        		//"   uint task = get_global_id(0);  \n" <<
+                "   const uint loopSize = get_global_size(0)/J; \n" <<
+				"	const uint index = get_group_id(0)/wgs;		\n" <<
+				"	if (fixBeta[index] == 0) {					\n" <<
                 "   __local REAL scratch[2][TPB + 1];  \n" <<
-				"	for (int index = 0; index < J; index++) { 	\n"
-                "   uint task = get_global_id(0);  \n" <<
-				"	barrier(CLK_GLOBAL_MEM_FENCE);				\n" <<
-				//"	if (index == 1) {printf(\"%s\\n\", \"this is a test string\\n\");} \n" <<
-				"	if (fixBeta[index]) continue;				\n" <<
+                "   uint task = get_global_id(0)%(wgs*TPB);  \n" <<
 				"	const uint offX = offXVec[index];			\n" <<
 				"	const uint offK = offKVec[index];			\n" <<
 				"	const uint N = NVec[index];					\n" <<
@@ -595,7 +654,6 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "   __local TMP_REAL scratch[TPB]; \n" <<
                 "   TMP_REAL sum = 0.0;            \n" <<
 #else
-               // "   __local REAL scratch1[TPB];  \n" <<
                 "   REAL sum0 = 0.0; \n" <<
                 "   REAL sum1 = 0.0; \n" <<
 				//"	if (lid == 0) printf(\"index: %d N: %d \", index, N); \n" <<
@@ -674,18 +732,22 @@ static std::string weight(const std::string& arg, bool useWeights) {
 #ifdef USE_VECTOR
                 "       buffer[get_group_id(0)] = scratch[0]; \n" <<
 #else
-                "       buffer[get_group_id(0) + 2*get_num_groups(0)*index] = scratch[0][0]; \n" <<
-                "       buffer[get_group_id(0) + get_num_groups(0) + 2*get_num_groups(0)*index] = scratch[1][0]; \n" <<
+                //"       buffer[get_group_id(0) + 2*get_num_groups(0)*index] = scratch[0][0]; \n" <<
+                //"       buffer[get_group_id(0) + get_num_groups(0) + 2*get_num_groups(0)*index] = scratch[1][0]; \n" <<
+				//"       buffer[get_group_id(0)%wgs + 2*wgs*index] = scratch[0][0]; \n" <<
+                //"       buffer[get_group_id(0)%wgs + wgs + 2*wgs*index] = scratch[1][0]; \n" <<
+				"       buffer[get_group_id(0)] = scratch[0][0]; \n" <<
+				"       buffer[get_group_id(0)+wgs*J] = scratch[1][0]; \n" <<
+
+
 #endif // USE_VECTOR
                 "   } \n";
         code << "}\n";
-
 
         code << "}  \n"; // End of kernel
 
         return SourceCode(code.str(), name);
 	}
-	*/
 
 	template <class BaseModel, typename WeightType>
     SourceCode
@@ -728,7 +790,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         code << "}  \n"; // End of kernel
         return SourceCode(code.str(), name);
 	}
-/*
+
 	template <class BaseModel, typename WeightType>
 	SourceCode
 	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia) {
@@ -752,13 +814,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					    "	__global uint* overflow1_in,				\n" <<
 						"	const uint tasks) {    					\n";
 				code << "   const uint i = get_global_id(0);				\n" <<
-						"	if (i == 0) printf(\"gpu%d \",0);		\n" <<
-						"	barrier(CLK_GLOBAL_MEM_FENCE);			\n" <<
 						"	if (i < tasks) {;						\n" <<
-						"	if (i == 0) printf(\"gpu%d \",1);		\n" <<
 						"	int stratum = indices_in[i];			\n" <<
-						"	barrier(CLK_GLOBAL_MEM_FENCE);			\n" <<
-						"	if (i == 0) printf(\"gpu%d \", 2);		\n" <<
 						"	REAL x = xMatrix_in[col*(N+1)+stratum];	\n" <<
 						"	REAL t = expXMatrix_in[col*(N+1)+stratum];	\n" <<
 						"   if (col%2 == 0) {						\n" <<
@@ -781,7 +838,6 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"			}  										\n" <<
 						"  		}											\n" <<
 						"	}												\n" <<
-						"	barrier(CLK_GLOBAL_MEM_FENCE);				\n" <<
 						"	if (i < (N+1) && col%2 == 0) overflow0_in[i] = 0;\n" <<
 						"	if (i < (N+1) && col%2 == 1) overflow1_in[i] = 0;\n" <<
 						"	};										\n";
@@ -789,7 +845,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 		        return SourceCode(code.str(), name);
 	}
-	*/
+
+	/*
 	template <class BaseModel, typename WeightType>
 	SourceCode
 	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia) {
@@ -807,14 +864,16 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		        		"   __global const uint* vector1_in, 		\n" <<
 		        		"   __global const uint* vector2_in, 		\n" <<
 		        		"   const uint N, 							\n" <<
-		        	    "   const uint col,                 		\n" <<
+		        	    "   const uint maxN,                 		\n" <<
 		                "   __global const REAL* weight,			\n" <<
 					    "	__global uint* overflow0_in,           	\n" <<
 					    "	__global uint* overflow1_in,				\n" <<
 						"	const uint tasks,						\n" <<
 						"	__global const uint* NtoK,				\n" <<
 						"	const uint offX) {    					\n";
-				code << "   const uint i = get_global_id(0);				\n" <<
+				code << "   const uint i = get_global_id(0);		\n" <<
+						"	for (uint col = 0; col < maxN; col++) {					\n" <<
+						"	barrier(CLK_GLOBAL_MEM_FENCE);			\n" <<
 						"	if (i < tasks) {						\n" <<
 						"	int stratum = indices_in[i];			\n" <<
 						"	if (stratum > 0) {						\n" <<
@@ -823,31 +882,60 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"   if (col < stratumSize) {				\n" <<
 						"	REAL x = xMatrix_in[offX + offset + col];		\n" <<
 						"	REAL t = expXMatrix_in[offset + col];	\n" <<
+						"	REAL* BOld;								\n" <<
+						"	REAL* BNew;								\n" <<
+						"	uint* overflowOld;						\n" <<
+						"	uint* overflowNew;						\n" <<
+						"	if (col%2 ==0) {						\n" <<
+						"		BOld = &B0_in;						\n" <<
+						"		BNew = &B1_in;						\n" <<
+						"		overflowOld = &overflow0_in;		\n" <<
+						"		overflowNew = &overflow1_in;		\n" <<
+						"	} else {								\n" <<
+						"		BOld = &B1_in;						\n" <<
+						"		BNew = &B0_in;						\n" <<
+						"		overflowOld = &overflow1_in;		\n" <<
+						"		overflowNew = &overflow0_in;		\n" <<
+						"	}										\n" <<
+						//"	if (i==0) BOld[i] = 1;					\n" <<
+						//"	if (i > 2) *(BNew+i) = *(BOld+i) + t**(BOld+i-3) + vector1_in[i]*x*t**(BOld+i-3-i%3) + 2*vector2_in*x*t**(BOld+i-2-i%3);\n" <<
+						//"	if (*(overflowOld+stratum) == 1) *(BNew+i) /= 1e25; \n" <<
+						//"	if (*(BNew+i) > 1e25 && *(overflowNew+stratum) == 0) *(overflowNew+stratum) = 1; \n" <<
+						//"	if (i > 2) BNew[i] = BOld[i] + t*BOld[i-3] + vector1_in[i]*x*t*BOld[i-3-i%3] + 2*vector2_in[i]*x*t*BOld[i-2-i%3];\n" <<
+						//"	if (overflowOld[stratum] == 1) BNew[i] /= 1e25; \n" <<
+						//"	if (BNew[i] > 1e25 && overflowNew[stratum] == 0) overflowNew[stratum] = 1; 				\n" <<
 						"   if (col%2 == 0) {						\n" <<
 						"		if (i > 2) B1_in[i] = B0_in[i] + t*B0_in[i-3] + vector1_in[i]*x*t*B0_in[i-3-i%3] + 2*vector2_in[i]*x*t*B0_in[i-2-i%3]; \n" <<
-						" 		if (overflow0_in[stratum] == 1) B1_in[i] /= 1e25;          	\n" <<
+						" 		if (overflow0_in[stratum] == 1) B1_in[i] /= 1e25;          							\n" <<
 						"		if (B1_in[i] > 1e25 && overflow1_in[stratum] == 0) overflow1_in[stratum] =  1;		\n" <<
-						"	}												\n" <<
-						"	if (col%2 == 1) {								\n" \
+						"	}										\n" <<
+						"	if (col%2 == 1) {						\n" <<
 						"		if (i > 2 ) B0_in[i] = B1_in[i] + t*B1_in[i-3] + vector1_in[i]*x*t*B1_in[i-3-i%3] + 2*vector2_in[i]*x*t*B1_in[i-2-i%3]; \n" <<
-						" 		if (overflow1_in[stratum] == 1) B0_in[i] /= 1e25;          	\n" <<
+						" 		if (overflow1_in[stratum] == 1) B0_in[i] /= 1e25;          							\n" <<
 						"		if (B0_in[i] > 1e25 && overflow0_in[stratum] == 0) overflow0_in[stratum] = 1;		\n" <<
-						"	}												\n" <<
 						"	}										\n" <<
 						"	}										\n" <<
 						"	}										\n" <<
-						"	barrier(CLK_GLOBAL_MEM_FENCE);				\n" <<
+						"	}										\n" <<
+						"	barrier(CLK_GLOBAL_MEM_FENCE);			\n" <<
 						"	if (i < (N+1) && col%2 == 0) overflow0_in[i] = 0;\n" <<
-						"	if (i < (N+1) && col%2 == 1) overflow1_in[i] = 0;\n";
+						"	if (i < (N+1) && col%2 == 1) overflow1_in[i] = 0;\n" <<
+
+						"	}\n" <<
+						"	}\n" <<
+						"	}\n"<<
+						"	barrier(CLK_GLOBAL_MEM_FENCE);				\n";// <<
+						"	if (i < (N+1)) overflowOld[i] = 0;	\n"; //<<
+
+						//"	barrier(CLK_GLOBAL_MEM_FENCE);			\n" <<
+						//"	}										\n";
 		        code << "}  \n"; // End of kernel
 
 		        return SourceCode(code.str(), name);
 	}
+	*/
+
 
 } // namespace bsccs
 
 #endif /* KERNELS_HPP_ */
-
-
-
-

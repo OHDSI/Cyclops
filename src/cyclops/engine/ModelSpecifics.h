@@ -184,7 +184,7 @@ public:
 	void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian,  bool useWeights);
 
-	virtual void computeMMGradientAndHessian(
+	void computeMMGradientAndHessian(
 			std::vector<GradientHessian>& gh,
 			const std::vector<bool>& fixBeta,
 			bool useWeights);
@@ -215,6 +215,8 @@ protected:
 	void computeFisherInformation(int indexOne, int indexTwo, double *oinfo, bool useWeights);
 
 	void updateXBeta(real realDelta, int index, bool useWeights);
+
+    void updateAllXBeta(std::vector<double>& allDelta, std::vector<bool>& fixBeta, bool useWeights);
 
 	void computeRemainingStatistics(bool useWeights);
 

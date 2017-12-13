@@ -1083,7 +1083,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
 
     // hessian *= curvature[index];
 
-    //std::cerr << "g: " << gradient << " h: " << hessian << " f: " << hXjY[index] << std::endl;
+    //std::cerr << "index: " << index << " g: " << gradient << " h: " << hessian << " f: " << hXjY[index] << std::endl;
 
     if (BaseModel::precomputeGradient) { // Compile-time switch
         gradient -= hXjY[index];
@@ -1092,7 +1092,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
 //    std::cerr << hXjY[index] << std::endl;
 
     if (BaseModel::precomputeHessian) { // Compile-time switch
-    	std::cout << "precompute Hessian \n";
         hessian += static_cast<real>(2.0) * hXjX[index];
     }
 
@@ -1268,6 +1267,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		//std::cout << N << '\n';
 
 	    //tbb::mutex mutex0;
+/*
 	    tbb::combinable<real> newGrad(static_cast<real>(0));
 	    tbb::combinable<real> newHess(static_cast<real>(0));
 
@@ -1280,6 +1280,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	            int numSubjects = hNtoK[i+1] - hNtoK[i];
 	            int numCases = hNWeight[i];
 	            std::vector<real> value = computeHowardRecursion<real>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases);
+	            //std::cout << "new values" << i << ": " << value[0] << " | " << value[1] << " | " << value[2] << '\n';
 	            if (value[0]==0 || value[1] == 0 || value[2] == 0 || isinf(value[0]) || isinf(value[1]) || isinf(value[2])) {
 	                DenseView<IteratorType> newX(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
 	                std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], newX, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
@@ -1301,7 +1302,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	    hessian += newHess.combine([](const real& x, const real& y) {return x+y;});
 
 	         //std::cout << "index: "<<index;
-/*
+
+		*/
 	    for (int i=0; i<N; i++) {
 	    	//std::cout << "grad: " << gradient << " hess: " << hessian << " ";
 	        DenseView<IteratorType> x(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
@@ -1309,7 +1311,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	        int numCases = hNWeight[i];
 
 	        std::vector<real> value = computeHowardRecursion<real>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
-	        //std::cout<<" values" << i <<": "<<value[0]<<" | "<<value[1]<<" | "<<value[2];
+	        //std::cout<<" values" << i <<": "<<value[0]<<" | "<<value[1]<<" | "<< value[2] << '\n';
 	        if (value[0]==0 || value[1] == 0 || value[2] == 0 || isinf(value[0]) || isinf(value[1]) || isinf(value[2])) {
 	            DenseView<IteratorType> newX(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
 	            std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], newX, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
@@ -1323,9 +1325,10 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	        hessian -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
 	    }
 
+
 	    //std::cout << '\n';
     	//std::cout << "grad: " << gradient << " hess: " << hessian << " \n";
-*/
+
 
 	} else {
 
@@ -1785,6 +1788,15 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index
 #endif
 #endif
 
+}
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::updateAllXBeta(std::vector<double>& allDelta,
+		std::vector<bool>& fixBeta, bool useWeights) {
+	for (int index = 0; index < J; ++index) {
+		if (fixBeta[index]) continue;
+		updateXBeta(allDelta[index], index, useWeights);
+	}
 }
 
 template <class BaseModel,typename WeightType> template <class IteratorType>
