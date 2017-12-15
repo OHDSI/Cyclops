@@ -364,9 +364,6 @@ public:
         detail::resizeAndCopyToDevice(hPidInternal, dId, queue);
         detail::resizeAndCopyToDevice(hOffs, dOffs, queue);
 
-        if (BaseModel::exactCLR) {
-        }
-
         std::cerr << "Format types required: " << need << std::endl;
 
         buildAllKernels(neededFormatTypes);
@@ -429,7 +426,9 @@ public:
         kernel.set_arg(1, dXBeta);
         kernel.set_arg(2, dExpXBeta);
         kernel.set_arg(3, dDenominator);
-        kernel.set_arg(4, dId);
+        kernel.set_arg(4, dY);
+        kernel.set_arg(5, dOffs);
+        kernel.set_arg(6, dId);
 
         // set work size, no looping
         size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
@@ -477,9 +476,6 @@ public:
         	auto& kernel = (useWeights) ? // Double-dispatch
         	                            kernelGradientHessianWeighted[formatType] :
         	                            kernelGradientHessianNoWeight[formatType];
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto start0 = bsccs::chrono::steady_clock::now();
-#endif
 
         	if (!initialized) {
         		totalCases = 0;
@@ -573,6 +569,7 @@ public:
         	            }
         	        }
         	    }
+    		    computeRemainingStatistics(true);
 
         		initialized = true;
         	}
@@ -626,58 +623,12 @@ public:
     	    kernel.set_arg(3, dXMatrix);
     	    kernel.set_arg(4, dExpXMatrix);
 
-
-
 /*
     	    kernel.set_arg(3, dColumns.getData());
         	kernel.set_arg(4, dExpXBeta);
         	kernel.set_arg(13, dNtoK);
         	kernel.set_arg(14, dColumns.getDataOffset(index));
         	*/
-
-/*
-        	std::cerr << "dExpXBeta:";
-        	for (auto x : dExpXBeta) {
-        		std::cerr << " " << x;
-        	}
-	        std::cerr << "\n";
-        	std::cerr << "dBuffer:";
-        	for (auto x : dBuffer) {
-        		std::cerr << " " << x;
-        	}
-	        std::cerr << "\n";
-        	std::cerr << "dBuffer1:";
-        	for (auto x : dBuffer1) {
-        		std::cerr << " " << x;
-        	}
-	        std::cerr << "\n";
-        	std::cerr << "dIndices:";
-        	for (auto x : dIndices) {
-        		std::cerr << " " << x;
-        	}
-	        std::cerr << "\n";
-        	std::cerr << "dVector1:";
-        	for (auto x : dVector1) {
-        		std::cerr << " " << x;
-        	}
-	        std::cerr << "\n";
-        	std::cerr << "dVector2:";
-        	for (auto x : dVector2) {
-        		std::cerr << " " << x;
-        	}
-	        std::cerr << "\n";
-        	std::cerr << "dOverflow0:";
-        	for (auto x : dOverflow0) {
-        		std::cerr << " " << x;
-        	}
-	        std::cerr << "\n";
-        	std::cerr << "dOverflow1:";
-        	for (auto x : dOverflow1) {
-        		std::cerr << " " << x;
-        	}
-	        std::cerr << "\n";
-	        */
-
 
     	    compute::uint_ taskCount = 3*(N+totalCases);
     	    size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
@@ -687,18 +638,9 @@ public:
     	    const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
     	    kernel.set_arg(12, taskCount);
 
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto end0 = bsccs::chrono::steady_clock::now();
-        ///////////////////////////"
-        auto name0 = "setGradHessKernelArgs" + getFormatTypeExtension(formatType) + " ";
-        duration[name0] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end0 - start0).count();
-#endif
-
     	    //kernel.set_arg(8, maxN);
 	        //queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
 	        //queue.finish();
-
-
 
     	    for (int i=0; i < maxN; ++i) {
     	    	//std::cout << "run: " << i << '\n';
@@ -743,124 +685,126 @@ public:
     	    }
         } else {
 
-        auto& kernel = (useWeights) ? // Double-dispatch
-                            kernelGradientHessianWeighted[formatType] :
-                            kernelGradientHessianNoWeight[formatType];
+        	if (!initialized) {
+        		computeRemainingStatistics(true);
+        		initialized = true;
+        	}
 
-        // auto& column = columns[index];
-        // const auto taskCount = column.getTaskCount();
+        	auto& kernel = (useWeights) ? // Double-dispatch
+        			kernelGradientHessianWeighted[formatType] :
+					kernelGradientHessianNoWeight[formatType];
 
-        const auto taskCount = dColumns.getTaskCount(index);
+        	// auto& column = columns[index];
+        	// const auto taskCount = column.getTaskCount();
 
-        const auto wgs = maxWgs;
-        const auto globalWorkSize = tpb * wgs;
+        	const auto taskCount = dColumns.getTaskCount(index);
 
-        size_t loops = taskCount / globalWorkSize;
-        if (taskCount % globalWorkSize != 0) {
-            ++loops;
-        }
+        	const auto wgs = maxWgs;
+        	const auto globalWorkSize = tpb * wgs;
 
-        // std::cerr << dBuffer.get_buffer() << std::endl;
+        	size_t loops = taskCount / globalWorkSize;
+        	if (taskCount % globalWorkSize != 0) {
+        		++loops;
+        	}
 
+        	// std::cerr << dBuffer.get_buffer() << std::endl;
+
+        	//         kernel.set_arg(0, 0);
+        	//         kernel.set_arg(1, 0);
+        	//         kernel.set_arg(2, taskCount);
+        	//
+        	//         kernel.set_arg(3, column.getDataVector());
+        	//         kernel.set_arg(4, column.getIndicesVector());
+
+        	// set kernel args
+        	kernel.set_arg(0, dColumns.getDataOffset(index));
+        	kernel.set_arg(1, dColumns.getIndicesOffset(index));
+        	kernel.set_arg(2, taskCount);
+
+        	kernel.set_arg(3, dColumns.getData());
+        	kernel.set_arg(4, dColumns.getIndices());
+        	kernel.set_arg(6, dXBeta);
+        	kernel.set_arg(7, dExpXBeta);
+        	kernel.set_arg(8, dDenominator);
 #ifdef USE_VECTOR
-        if (dBuffer.size() < maxWgs) {
-            dBuffer.resize(maxWgs, queue);
-            //compute::fill(std::begin(dBuffer), std::end(dBuffer), 0.0, queue); // TODO Not needed
-            kernel.set_arg(9, dBuffer); // Can get reallocated.
-            hBuffer.resize(2 * maxWgs);
-        }
+        	if (dBuffer.size() < maxWgs) {
+        		dBuffer.resize(maxWgs, queue);
+        		//compute::fill(std::begin(dBuffer), std::end(dBuffer), 0.0, queue); // TODO Not needed
+        		kernel.set_arg(9, dBuffer); // Can get reallocated.
+        		hBuffer.resize(2 * maxWgs);
+        	}
 #else
 
-        if (dBuffer.size() < 2 * maxWgs) {
-            dBuffer.resize(2 * maxWgs, queue);
-            //compute::fill(std::begin(dBuffer), std::end(dBuffer), 0.0, queue); // TODO Not needed
-            kernel.set_arg(9, dBuffer); // Can get reallocated.
-            hBuffer.resize(2 * maxWgs);
-        }
+        	if (dBuffer.size() < 2 * maxWgs) {
+        		dBuffer.resize(2 * maxWgs, queue);
+        		//compute::fill(std::begin(dBuffer), std::end(dBuffer), 0.0, queue); // TODO Not needed
+        		kernel.set_arg(9, dBuffer); // Can get reallocated.
+        		hBuffer.resize(2 * maxWgs);
+        	}
 #endif
+        	kernel.set_arg(10, dId);
+        	if (dKWeight.size() == 0) {
+        		kernel.set_arg(11, 0);
+        	} else {
+        		kernel.set_arg(11, dKWeight); // TODO Only when dKWeight gets reallocated
+        	}
 
-        // std::cerr << dBuffer.get_buffer() << std::endl << std::endl;
-
-        if (dKWeight.size() == 0) {
-            kernel.set_arg(11, 0);
-        } else {
-            kernel.set_arg(11, dKWeight); // TODO Only when dKWeight gets reallocated
-        }
-
-//         kernel.set_arg(0, 0);
-//         kernel.set_arg(1, 0);
-//         kernel.set_arg(2, taskCount);
-//
-//         kernel.set_arg(3, column.getDataVector());
-//         kernel.set_arg(4, column.getIndicesVector());
+        	//         std::cerr << "loop= " << loops << std::endl;
+        	//         std::cerr << "n   = " << taskCount << std::endl;
+        	//         std::cerr << "gWS = " << globalWorkSize << std::endl;
+        	//         std::cerr << "tpb = " << tpb << std::endl;
+        	//
+        	// std::cerr << kernel.get_program().source() << std::endl;
 
 
-        kernel.set_arg(0, dColumns.getDataOffset(index));
-        kernel.set_arg(1, dColumns.getIndicesOffset(index));
-        kernel.set_arg(2, taskCount);
+        	//         compute::vector<real> tmpR(taskCount, ctx);
+        	//         compute::vector<int> tmpI(taskCount, ctx);
 
-        kernel.set_arg(3, dColumns.getData());
-        kernel.set_arg(4, dColumns.getIndices());
-        kernel.set_arg(6, dXBeta);
-        kernel.set_arg(7, dExpXBeta);
-        kernel.set_arg(8, dDenominator);
+        	queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
+        	queue.finish();
 
-//         std::cerr << "loop= " << loops << std::endl;
-//         std::cerr << "n   = " << taskCount << std::endl;
-//         std::cerr << "gWS = " << globalWorkSize << std::endl;
-//         std::cerr << "tpb = " << tpb << std::endl;
-//
-        // std::cerr << kernel.get_program().source() << std::endl;
+        	//         for (int i = 0; i < wgs; ++i) {
+        	//             std::cerr << ", " << dBuffer[i];
+        	//         }
+        	//         std::cerr << std::endl;
 
-
-//         compute::vector<real> tmpR(taskCount, ctx);
-//         compute::vector<int> tmpI(taskCount, ctx);
-
-        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
-        queue.finish();
-
-//         for (int i = 0; i < wgs; ++i) {
-//             std::cerr << ", " << dBuffer[i];
-//         }
-//         std::cerr << std::endl;
-
-        // Get result
+        	// Get result
 #ifdef USE_VECTOR
-        compute::copy(std::begin(dBuffer), std::end(dBuffer), reinterpret_cast<compute::double2_ *>(hBuffer.data()), queue);
+        	compute::copy(std::begin(dBuffer), std::end(dBuffer), reinterpret_cast<compute::double2_ *>(hBuffer.data()), queue);
 
-        double gradient = 0.0;
-        double hessian = 0.0;
+        	double gradient = 0.0;
+        	double hessian = 0.0;
 
-        for (int i = 0; i < 2 * wgs; i += 2) { // TODO Use SSE
-            gradient += hBuffer[i + 0];
-            hessian  += hBuffer[i + 1];
-        }
+        	for (int i = 0; i < 2 * wgs; i += 2) { // TODO Use SSE
+        		gradient += hBuffer[i + 0];
+        		hessian  += hBuffer[i + 1];
+        	}
 
-        if (BaseModel::precomputeGradient) { // Compile-time switch
-            gradient -= hXjY[index];
-        }
+        	if (BaseModel::precomputeGradient) { // Compile-time switch
+        		gradient -= hXjY[index];
+        	}
 
-        if (BaseModel::precomputeHessian) { // Compile-time switch
-            hessian += static_cast<real>(2.0) * hXjX[index];
-        }
+        	if (BaseModel::precomputeHessian) { // Compile-time switch
+        		hessian += static_cast<real>(2.0) * hXjX[index];
+        	}
 
-        *ogradient = gradient;
-        *ohessian = hessian;
+        	*ogradient = gradient;
+        	*ohessian = hessian;
 #else
-        compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+        	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
 
-        for (int i = 0; i < wgs; ++i) { // TODO Use SSE
-            gradient += hBuffer[i];
-            hessian  += hBuffer[i + wgs];
-        }
+        	for (int i = 0; i < wgs; ++i) { // TODO Use SSE
+        		gradient += hBuffer[i];
+        		hessian  += hBuffer[i + wgs];
+        	}
         }
 
         if (BaseModel::precomputeGradient) { // Compile-time switch
-            gradient -= hXjY[index];
+        	gradient -= hXjY[index];
         }
 
         if (BaseModel::precomputeHessian) { // Compile-time switch
-            hessian += static_cast<real>(2.0) * hXjX[index];
+        	hessian += static_cast<real>(2.0) * hXjX[index];
         }
 
         *ogradient = gradient;
@@ -872,16 +816,16 @@ public:
         std::cerr << gradient << " & " << hessian << std::endl << std::endl;
 #endif // GPU_DEBUG
 
-//         for (auto x : dBuffer) {
-//             std::cerr << x << std::endl;
-//         }
-// //         for(int i = 0; i < wgs; ++i) {
-// //             std::cerr << dBuffer[i] << std::endl;
-// //         }
-//         std::cerr << (-hXjY[index]) << "  " << "0.0" << std::endl;
-//
-//
-//         Rcpp::stop("out");
+        //         for (auto x : dBuffer) {
+        //             std::cerr << x << std::endl;
+        //         }
+        // //         for(int i = 0; i < wgs; ++i) {
+        // //             std::cerr << dBuffer[i] << std::endl;
+        // //         }
+        //         std::cerr << (-hXjY[index]) << "  " << "0.0" << std::endl;
+        //
+        //
+        //         Rcpp::stop("out");
 
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
@@ -948,6 +892,7 @@ public:
     	kernel.set_arg(8, dDenominator);
     	detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
 		kernel.set_arg(9, dBuffer); // Can get reallocated.
+		kernel.set_arg(10, dId);
     	if (dKWeight.size() == 0) {
     		kernel.set_arg(11, 0);
     	} else {
@@ -1485,6 +1430,7 @@ private:
     	options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
         auto source = writeCodeForComputeRemainingStatisticsKernel(formatType);
+        std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         std::cout << "built computeRemainingStatistics program \n";
         auto kernel = compute::kernel(program, source.name);
@@ -1504,7 +1450,6 @@ private:
       	options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
       	auto source = writeCodeForUpdateAllXBetaKernel(formatType);
-      	std::cout << source.body;
       	auto program = compute::program::build_with_source(source.body, ctx, options.str());
       	std::cout << "built updateAllXBeta program \n";
       	auto kernel = compute::kernel(program, source.name);
@@ -1537,7 +1482,6 @@ private:
          const auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
 
          auto source = writeCodeForGetGradientObjective(formatType, useWeights, isNvidia);
-         std::cout << source.body;
          auto program = compute::program::build_with_source(source.body, ctx, options.str());
          auto kernel = compute::kernel(program, source.name);
 

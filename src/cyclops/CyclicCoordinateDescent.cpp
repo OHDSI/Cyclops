@@ -876,10 +876,7 @@ void CyclicCoordinateDescent::findMode(
 	    if (algorithmType == AlgorithmType::MM) {
             // Do delta computation in parallel
             mmUpdateAllBeta(allDelta, fixBeta);
-            //for (auto x : hBeta) {
-            //	std::cerr << " " << x;
-            //}
-	        //std::cerr << "\n";
+
 	        //Rcpp::stop("A");
             //std::cout << setprecision (15) << "hBeta: " << hBeta[0] << " | " << hBeta[1] << " delta: " << allDelta[0] << " | " << allDelta[1] << '\n';
 
@@ -887,14 +884,22 @@ void CyclicCoordinateDescent::findMode(
             	if (!fixBeta[index]) {
             		double delta = allDelta[index];
             		delta = applyBounds(delta, index);
-            		double realDelta = static_cast<double>(delta);
-            		hBeta[index] += delta;
-            		allDelta[index] = delta;
+            		//hBeta[index] += delta;
+            		//allDelta[index] = delta;
+            		updateSufficientStatistics(delta, index);
             	}
             }
-            modelSpecifics.updateAllXBeta(allDelta, fixBeta, useCrossValidation);
             computeRemainingStatistics(true, 0);
-            sufficientStatisticsKnown = true;
+
+            /*
+            std::cerr << "allDelta: ";
+            for (auto x : allDelta) {
+            	std::cerr << " " << x;
+            }
+	        std::cerr << "\n";
+	        */
+
+            //modelSpecifics.updateAllXBeta(allDelta, fixBeta, useCrossValidation);
 /*
             for (int index = 0; index < J; ++index) {
                 if (!fixBeta[index]) {
@@ -912,9 +917,7 @@ void CyclicCoordinateDescent::findMode(
             }
             */
 
-
             // sufficientStatisticsKnown = false;
-            //modelSpecifics.computeXBeta(hBeta.data(), useCrossValidation);
             //computeRemainingStatistics(true, 0);
             //sufficientStatisticsKnown = true;
 
@@ -931,11 +934,13 @@ void CyclicCoordinateDescent::findMode(
 	                if (delta != 0.0) {
 	                    sufficientStatisticsKnown = false;
 	                    updateSufficientStatistics(delta, index);
+	                    computeRemainingStatistics(true, 0);
 	                }
 	            }
 
 	            log(index);
 	        }
+
 	        //std::cout << '\n';
             //std::cout << setprecision (15) << "hBeta: " << hBeta[0] << " | " << hBeta[1] << '\n';
 

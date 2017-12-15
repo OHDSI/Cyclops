@@ -285,7 +285,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         code << "   if (task < N) {      				\n";
         code << "       REAL xb = xBeta[k] + inc; 		\n" <<
                 "       xBeta[k] = xb;                  \n";
-
+/*
         if (BaseModel::likelihoodHasDenominator) {
             // TODO: The following is not YET thread-safe for multi-row observations
             // code << "       const REAL oldEntry = expXBeta[k];                 \n" <<
@@ -305,6 +305,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
             //                     "   expXBeta[k] = exp(xBeta[k]);      \n" <<
             //                     "   denominator[k] = REAL(1.0) + tmp; \n";
         }
+        */
 
         code << "   } \n";
         code << "}    \n";
@@ -320,6 +321,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
         std::stringstream code;
         code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+        code << "#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\n";
 
         code << "__kernel void " << name << "(            \n" <<
                 "       __global const uint* offXVec,                  \n" <<
@@ -357,7 +359,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
         } else { // INDICATOR, INTERCEPT
         	code << "   const REAL inc = delta;           \n";
         }
-        code << "	if (inc != 0.0) xBeta[k] += inc; \n";// <<
+        //code << "	if (inc != 0.0) xBeta[k] += inc; \n";// <<
+        code << " REAL xb = xBeta[k];\n";
+        code << "if (inc != 0.0) atomic_xchg((volatile __global REAL *)(xBeta+k), xb + inc);\n";
 
         // Bookkeeping
         code << "       task += TPB; \n" <<
@@ -384,6 +388,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		__global REAL* xBeta,	   \n" <<
                 "       __global REAL* expXBeta,   \n" <<
                 "       __global REAL* denominator,\n" <<
+				"		__global REAL* Y,			\n" <<
+				"		__global REAL* Offs,		\n" <<
                 "       __global const int* id) {   \n" <<
                 "   const uint task = get_global_id(0); \n";
         //code << "   const uint lid = get_local_id(0); \n" <<
@@ -391,9 +397,17 @@ static std::string weight(const std::string& arg, bool useWeights) {
         // Local and thread storage
         code << "   if (task < N) {      				\n";
         if (BaseModel::likelihoodHasDenominator) {
-        	code << " 		REAL exb = exp(xBeta[task]);		\n" <<
-        			"		expXBeta[task] = exb;		\n";
-            code << "       denominator[task] = (REAL)1.0 + exb; \n";// <<
+        	code << "const REAL y = Y[task];\n" <<
+        			"const REAL xb = xBeta[task];\n" <<
+					"const REAL offs = Offs[task];\n";
+					//"const int k = task;";
+        	code << "REAL exb = " << ModelSpecifics<BaseModel, WeightType>::writeCodeForGetOffsExpXBetaG() << ";\n";
+        	code << "expXBeta[task] = exb;\n";
+        	code << ModelSpecifics<BaseModel, WeightType>::writeCodeForIncrementByGroupG() << ";\n";
+        	//code << "denominator[task] = (REAL)1.0 + exb;\n";
+        	//code << " 		REAL exb = exp(xBeta[task]);		\n" <<
+        	//		"		expXBeta[task] = exb;		\n";
+            //code << "       denominator[task] = (REAL)1.0 + exb; \n";// <<
         	//code << "expXBeta[k] = exp(xb); \n";
         	//code << "expXBeta[k] = exp(1); \n";
 
@@ -408,7 +422,6 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
         code << "   } \n";
         code << "}    \n";
-
         return SourceCode(code.str(), name);
     }
 
@@ -620,8 +633,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
         		"		const REAL xb = xBeta[k];			\n" <<
 				"		const REAL norm0 = norm[k];				\n" <<
                 "       const REAL numer = " << timesX("exb", formatType) << ";\n" <<
-				//"		const REAL denom = denominator[k];	\n";
-        		"		const REAL denom = (REAL)1.0 + exb;			\n";
+				"		const REAL denom = denominator[k];	\n";
+        		//"		const REAL denom = (REAL)1.0 + exb;			\n";
 				//"		const REAL factor = norm[k]/abs(x);				\n" <<
         //denominator[k]; \n" <<
                 //"       const REAL g = numer / denom;      \n";

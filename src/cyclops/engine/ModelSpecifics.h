@@ -283,6 +283,16 @@ protected:
 		return(BaseModel::incrementGradientAndHessianG(formatType, useWeights));
 	}
 
+	std::string writeCodeForGetOffsExpXBetaG() {
+		return(BaseModel::getOffsExpXBetaG());
+	}
+
+	std::string writeCodeForIncrementByGroupG() {
+		std::stringstream code;
+		code << "denominator[" << BaseModel::getGroupG() << "] =" << BaseModel::getDenomNullValueG() << "+ exb";
+		return(code.str());
+	}
+
 #ifdef CYCLOPS_DEBUG_TIMING
 	//	std::vector<double> duration;
 	std::map<std::string,long long> duration;
@@ -382,6 +392,11 @@ public:
 		return groups[k];
 	}
 
+	std::string getGroupG() {
+		std::string code = "task";
+        return(code);
+	}
+
 	const static bool hasIndependentRows = false;
 };
 
@@ -402,6 +417,11 @@ public:
 		return k; // No ties
 	}
 
+	std::string getGroupG() {
+		std::string code = "task";
+        return(code);
+	}
+
 	const static bool hasResetableAccumulators = true;
 
 	const static bool hasIndependentRows = false;
@@ -419,6 +439,11 @@ public:
 		return groups[k];
 	}
 
+	std::string getGroupG() {
+		std::string code = "id[task]";
+        return(code);
+	}
+
 	const static bool hasResetableAccumulators = false;
 
 	const static bool hasIndependentRows = false;
@@ -434,6 +459,11 @@ public:
 
 	int getGroup(const int* groups, int k) {
 		return k;
+	}
+
+	std::string getGroupG() {
+		std::string code = "task";
+        return(code);
 	}
 
 	const static bool hasIndependentRows = true;
@@ -1215,7 +1245,8 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
 
-	inline std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+		// assume exists: numer, denom
 		std::stringstream code;
         code << "       const REAL g = numer / denom;      \n";
         code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
@@ -1252,6 +1283,11 @@ public:
 #endif
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
+
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
 
 	real observationCount(real yi) {
 		return static_cast<real>(yi);
@@ -1309,7 +1345,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
 
-	inline std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		std::stringstream code;
         code << "       const REAL g = numer / denom;      \n";
         code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
@@ -1324,6 +1360,12 @@ public:
 
     real getOffsExpXBeta(const real offs, const real xBeta) {
         return offs * std::exp(xBeta);
+    }
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "offs * exp(xb)";
+        return(code.str());
     }
 
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
@@ -1369,6 +1411,11 @@ public:
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
 
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
+
 	real observationCount(real yi) {
 		return static_cast<real>(yi);
 	}
@@ -1410,7 +1457,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
 
-	inline std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		std::stringstream code;
         code << "       const REAL g = numer / denom;      \n";
         code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
@@ -1425,6 +1472,12 @@ public:
 
     real getOffsExpXBeta(const real offs, const real xBeta) {
         return std::exp(xBeta);
+    }
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "exp(xb)";
+        return(code.str());
     }
 
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
@@ -1462,6 +1515,11 @@ public:
 	}
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
+
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
 
 	real observationCount(real yi) {
 		return static_cast<real>(yi);
@@ -1502,7 +1560,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
 
-	inline std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		std::stringstream code;
         code << "       const REAL g = numer / denom;      \n";
         code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
@@ -1517,6 +1575,12 @@ public:
 
     real getOffsExpXBeta(const real offs, const real xBeta) {
         return std::exp(xBeta);
+    }
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "exp(xb)";
+        return(code.str());
     }
 
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
@@ -1558,6 +1622,11 @@ public:
 	}
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
+
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
 
 	real observationCount(real yi) {
 		return static_cast<real>(yi);
@@ -1605,6 +1674,12 @@ public:
         return std::exp(xBeta);
     }
 
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "exp(xb)";
+        return(code.str());
+    }
+
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
@@ -1628,7 +1703,7 @@ public:
 		return 0.0;
 	}
 
-	inline std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		return("");
 	}
 
@@ -1644,6 +1719,11 @@ public:
 
 	static real getDenomNullValue () { return static_cast<real>(1.0); }
 
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)1.0";
+		return(code);
+	}
+
 	real observationCount(real yi) {
 		return static_cast<real>(1);
 	}
@@ -1654,6 +1734,12 @@ public:
 
     real getOffsExpXBeta(const real offs, const real xBeta) {
         return std::exp(xBeta);
+    }
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "exp(xb)";
+        return(code.str());
     }
 
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
@@ -1685,6 +1771,11 @@ public:
 	const static bool precomputeHessian = false;
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
+
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
 
     real setIndependentDenominator(real expXBeta) {
         return expXBeta;
@@ -1743,7 +1834,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
 
-	inline std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		std::stringstream code;
         code << "       const REAL g = numer / denom;      \n";
         code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
@@ -1758,6 +1849,12 @@ public:
 
     real getOffsExpXBeta(const real offs, const real xBeta) {
         return std::exp(xBeta);
+    }
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "exp(xb)";
+        return(code.str());
     }
 
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
@@ -1800,6 +1897,11 @@ public:
 	const static bool precomputeHessian = false;
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
+
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
 
     bool resetAccumulators(int* pid, int k, int currentPid) {
         return pid[k] != currentPid;
@@ -1860,6 +1962,12 @@ public:
         return std::exp(xBeta);
     }
 
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "exp(xb)";
+        return(code.str());
+    }
+
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
@@ -1884,7 +1992,7 @@ public:
 		return 0.0;
 	}
 
-	inline std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		std::stringstream code;
         code << "       const REAL g = numer / denom;      \n";
         code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
@@ -1912,6 +2020,11 @@ public:
 	const static bool exactCLR = false;
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
+
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
 
 	real observationCount(real yi) {
 		return static_cast<real>(1);
@@ -2001,13 +2114,19 @@ public:
         return { lhs.real() + gradient, lhs.imag() };
     }
 
-	inline std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		return("");
 	}
 
     real getOffsExpXBeta(const real offs, const real xBeta) {
         throw new std::logic_error("Not model-specific");
 		return static_cast<real>(0);
+    }
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "(REAL)0";
+        return(code.str());
     }
 
 	real getOffsExpXBeta(const  real* offs, real xBeta, real y, int k) {
@@ -2045,6 +2164,11 @@ public:
 	const static bool likelihoodHasFixedTerms = true;
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
+
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
 
 	real observationCount(real yi) {
 		return static_cast<real>(1);
@@ -2122,7 +2246,7 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
 
-	inline std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		std::stringstream code;
         code << "       const REAL gradient = " << weight("numer", useWeights) << ";\n";
         if (formatType == INDICATOR || formatType == INTERCEPT) {
@@ -2137,6 +2261,12 @@ public:
 	real getOffsExpXBeta(const real offs, const real xBeta) {
 		return std::exp(xBeta);
 	}
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "exp(xb)";
+        return(code.str());
+    }
 
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
