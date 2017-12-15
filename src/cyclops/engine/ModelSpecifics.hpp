@@ -1124,7 +1124,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	real hessian = static_cast<real>(0);
 
 	if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
-
+		// Cox
 #ifdef DEBUG_COX2
 	    real lastG = gradient;
 	    real lastH = hessian;
@@ -1238,7 +1238,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 #endif
 
 	} else if (BaseModel::hasIndependentRows) {
-
+		// Poisson, Logistic, Least-Squares
 		auto range = helper::independent::getRangeX(modelData, index,
 		        offsExpXBeta, hXBeta, hY, denomPid, hNWeight,
 		        typename IteratorType::tag());
@@ -1264,6 +1264,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		hessian = result.imag();
 
 	} else if (BaseModel::exactCLR) {
+		// TiedConditionalLogisticRegression
 		//std::cout << N << '\n';
 
 	    //tbb::mutex mutex0;
@@ -1331,7 +1332,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 
 	} else {
-
+		// ConditionalPoissonRegression, SCCS, ConditionalLogisticRegression, BreslowTiedCoxProportionalHazards
 // #ifdef OLD_WAY
 //
 // 		auto range = helper::getRangeDenominator(sparseIndices[index], N, typename IteratorType::tag());

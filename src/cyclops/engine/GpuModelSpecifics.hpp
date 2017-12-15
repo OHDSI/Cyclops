@@ -379,23 +379,18 @@ public:
 
         //std::cerr << "GPU::cRS called" << std::endl;
 
-        // Currently RS only computed on CPU and then copied
 
         hBuffer.resize(K);
-        //std::cout << "before cRS offsExpXBeta: " << offsExpXBeta[0] << ' ' << offsExpXBeta[1] << '\n';
 
-
-        //std::cout << "hExpXBeta: " << hXBeta[0] << ' ' << hXBeta[1] << '\n';
     	//compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta), queue);
 /*
+ 	    // Currently RS only computed on CPU and then copied
         if (BaseModel::likelihoodHasDenominator) {
             compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(hBuffer), queue);
             //compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
             //compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(denomPid), queue);
         }
         */
-
-        //std::cout << "dXBeta: " << exp(hXBeta[0]) << ' ' << exp(hXBeta[1]) << '\n';
 
         /*
         compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(hBuffer), queue);
@@ -424,27 +419,28 @@ public:
         //compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(hBuffer), queue);
         //std::cout << "before kernel dDenominator: " << hBuffer[0] << " " << hBuffer[1] << '\n';
 
+        // get kernel
         auto& kernel = kernelComputeRemainingStatistics[FormatType::DENSE];
-        //         auto& column = columns[index];
-        //         const auto taskCount = column.getTaskCount();
 
+        // set kernel args
         const auto taskCount = K;
         int dK = K;
         kernel.set_arg(0, dK);
+        kernel.set_arg(1, dXBeta);
+        kernel.set_arg(2, dExpXBeta);
+        kernel.set_arg(3, dDenominator);
+        kernel.set_arg(4, dId);
+
+        // set work size, no looping
         size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
         if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
         	++workGroups;
         }
         const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
 
+        // run kernel
         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
         queue.finish();
-
-        //hBuffer.resize(K);
-        //compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(hBuffer), queue);
-        //std::cout << "after kernel dDenominator: " << hBuffer[0] << " " << hBuffer[1] << '\n';
-
-
 
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
@@ -468,6 +464,14 @@ public:
         FormatType formatType = modelData.getFormatType(index);
         double gradient = 0.0;
         double hessian = 0.0;
+
+        /*
+        if (!dXBetaKnown) {
+        	//compute::copy(std::begin(hBeta), std::end(hBeta), std::begin(dBeta), queue);
+            compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
+            dXBetaKnown = true;
+        }
+        */
 
         if (BaseModel::exactCLR) {
         	auto& kernel = (useWeights) ? // Double-dispatch
@@ -738,12 +742,6 @@ public:
     	    	hessian -= (real)((hBuffer1[3*temp-2]/hBuffer1[3*temp-3]) * (hBuffer1[3*temp-2]/hBuffer1[3*temp-3]) - hBuffer1[3*temp-1]/hBuffer1[3*temp-3]);
     	    }
         } else {
-/*
-        if (!dXBetaKnown) {
-            compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
-            dXBetaKnown = true;
-        }
-        */
 
         auto& kernel = (useWeights) ? // Double-dispatch
                             kernelGradientHessianWeighted[formatType] :
@@ -803,7 +801,9 @@ public:
 
         kernel.set_arg(3, dColumns.getData());
         kernel.set_arg(4, dColumns.getIndices());
-
+        kernel.set_arg(6, dXBeta);
+        kernel.set_arg(7, dExpXBeta);
+        kernel.set_arg(8, dDenominator);
 
 //         std::cerr << "loop= " << loops << std::endl;
 //         std::cerr << "n   = " << taskCount << std::endl;
@@ -815,19 +815,6 @@ public:
 
 //         compute::vector<real> tmpR(taskCount, ctx);
 //         compute::vector<int> tmpI(taskCount, ctx);
-
-        // kernel.set_arg(0, tmpR);
-        // kernel.set_arg(1, tmpI);
-
-//         kernel.set_arg(4, tmpR);
-//         kernel.set_arg(5, tmpR);
-//         kernel.set_arg(6, tmpR);
-//         kernel.set_arg(7, tmpR);
-        // kernel.set_arg(8, tmpR);
-        // kernel.set_arg(9, dBuffer); // TODO Why is this necessary?
-
-//         kernel.set_arg(9, tmpI);
-//         kernel.set_arg(10, tmpR);
 
         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
         queue.finish();
@@ -912,32 +899,35 @@ public:
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
+        // initialize
         if (!initialized) {
         	hBuffer0.resize(2*maxWgs*J);
         	for (int i=0; i< 2*maxWgs*J; ++i) {
         		hBuffer0[i] = 0;
         	}
     		hBuffer.resize(2*maxWgs*J);
+
+	        this->initializeMM(boundType, fixBeta);
+		    detail::resizeAndCopyToDevice(norm, dNorm, queue);
+		    computeRemainingStatistics(true);
+	    	//kernel.set_arg(12, dNorm);
+
         	initialized = true;
         }
+
+        /*
         if (!dXBetaKnown) {
         	//compute::copy(std::begin(hBeta), std::end(hBeta), std::begin(dBeta), queue);
             compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
             dXBetaKnown = true;
         }
+        */
 
+        // get kernel
         FormatType formatType = modelData.getFormatType(0);
-
         auto& kernel = (useWeights) ? // Double-dispatch
         		kernelGradientHessianMMWeighted[formatType] :
 				kernelGradientHessianMMNoWeight[formatType];
-
-        //auto& kernel = (useWeights) ? // Double-dispatch
-        //		kernelGradientHessianWeighted[formatType] :
-		//		kernelGradientHessianNoWeight[formatType];
-
-    	const auto wgs = maxWgs;
-    	const auto globalWorkSize = tpb * wgs;
 
     	/*
     	if (dBuffer.size() < 2 * maxWgs * J) {
@@ -947,45 +937,23 @@ public:
     		hBuffer.resize(2 * maxWgs * J);
     	}
     	*/
+
+    	kernel.set_arg(0, dColumns.getDataStarts());
+    	kernel.set_arg(1, dColumns.getIndicesStarts());
+    	kernel.set_arg(2, dColumns.getTaskCounts());
+    	kernel.set_arg(3, dColumns.getData());
+    	kernel.set_arg(4, dColumns.getIndices());
+    	kernel.set_arg(6, dXBeta);
+    	kernel.set_arg(7, dExpXBeta);
+    	kernel.set_arg(8, dDenominator);
     	detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
 		kernel.set_arg(9, dBuffer); // Can get reallocated.
-
     	if (dKWeight.size() == 0) {
     		kernel.set_arg(11, 0);
     	} else {
     		kernel.set_arg(11, dKWeight); // TODO Only when dKWeight gets reallocated
     	}
-
-    	/*
-    	std::vector<int> hDataStarts;
-    	hDataStarts.resize(J);
-    	compute::copy(std::begin(dColumns.getIndicesStarts()), std::end(dColumns.getIndicesStarts()), std::begin(hDataStarts), queue);
-        for (auto x : hDataStarts) {
-            std::cerr << " " << x;
-        }
-        std::cerr << "\n";
-        */
-
-    	kernel.set_arg(3, dColumns.getData());
-    	kernel.set_arg(4, dColumns.getIndices());
-    	kernel.set_arg(6, dXBeta);
-    	kernel.set_arg(7, dExpXBeta);
-	    if (norm.size() == 0) {
-	        this->initializeMM(boundType, fixBeta);
-		    //dNorm.resize(norm.size(), queue);
-        	//compute::copy(std::begin(norm), std::end(norm), std::begin(dNorm), queue);
-		    //std::cout << "size: " << dNorm.size() << " dNorm0: "<< dNorm[0] << '\n';
-		    detail::resizeAndCopyToDevice(norm, dNorm, queue);
-	    	kernel.set_arg(12, dNorm);
-	    }
-
-
-    	kernel.set_arg(0, dColumns.getDataStarts());
-    	kernel.set_arg(1, dColumns.getIndicesStarts());
-    	kernel.set_arg(2, dColumns.getTaskCounts());
-
-	    //detail::resizeAndCopyToDevice(fixBeta, dFixBeta, queue);
-
+    	kernel.set_arg(12, dNorm);
     	std::vector<int> hFixBeta;
     	hFixBeta.resize(J);
     	for (int i=0; i<J; ++i) {
@@ -997,11 +965,33 @@ public:
     	kernel.set_arg(13, dFixBeta);
     	int dJ = J;
     	kernel.set_arg(14, dJ);
-    	kernel.set_arg(15, wgs);
 
+    	// set work size; yes looping
+    	const auto wgs = maxWgs;
+    	kernel.set_arg(15, wgs);
+    	const auto globalWorkSize = tpb * wgs;
+
+    	/*
+        std::cerr << "dXBeta : ";
+        for (auto x : dXBeta) {
+        	std::cerr << " " << x;
+        }
+        std::cerr << "\n";
+        std::cerr << "dExpXBeta: ";
+        for (auto x : dExpXBeta) {
+        	std::cerr << " " << x;
+        }
+        std::cerr << "\n";
+        std::cerr << "dDenominator: ";
+        for (auto x : dDenominator) {
+        	std::cerr << " " << x;
+        }
+        std::cerr << "\n";
+        */
+
+    	// run kernel
     	queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize*J, tpb);
 		queue.finish();
-
 
 /*
     	for (int index = 0; index < J; ++index) {
@@ -1037,8 +1027,7 @@ public:
     	}
         std::cerr << "\n";
         */
-
-
+		hBuffer.resize(2*maxWgs*J);
     	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
 
     	/*
@@ -1092,12 +1081,11 @@ public:
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
-
+        // get kernel
         auto& kernel = kernelUpdateXBeta[modelData.getFormatType(index)];
-//         auto& column = columns[index];
-//         const auto taskCount = column.getTaskCount();
         const auto taskCount = dColumns.getTaskCount(index);
 
+        // set kernel args
         kernel.set_arg(0, dColumns.getDataOffset(index));
         kernel.set_arg(1, dColumns.getIndicesOffset(index));
         kernel.set_arg(2, taskCount);
@@ -1105,12 +1093,14 @@ public:
         kernel.set_arg(4, dColumns.getData());
         kernel.set_arg(5, dColumns.getIndices());
 
+        // set work size; no looping
         size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
         if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
             ++workGroups;
         }
         const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
 
+        // run kernel
         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
         queue.finish();
 
@@ -1132,7 +1122,7 @@ public:
     }
 
     virtual void updateAllXBeta(std::vector<double>& allDelta,
-    		const std::vector<bool>& fixBeta, bool useWeights) {
+    		std::vector<bool>& fixBeta, bool useWeights) {
 #ifdef GPU_DEBUG
         ModelSpecifics<BaseModel, WeightType>::updateXBeta(realDelta, index, useWeights);
 #endif // GPU_DEBUG
@@ -1141,34 +1131,28 @@ public:
         auto start = bsccs::chrono::steady_clock::now();
 #endif
 
+        // get kernel
         auto& kernel = kernelUpdateAllXBeta[FormatType::DENSE];
-        //         auto& column = columns[index];
-        //         const auto taskCount = column.getTaskCount();
 
-        detail::resizeAndCopyToDevice(allDelta, dAllDelta, queue);
-
+        // set kernel args
         kernel.set_arg(0, dColumns.getDataStarts());
         kernel.set_arg(1, dColumns.getIndicesStarts());
         kernel.set_arg(2, dColumns.getTaskCounts());
+        detail::resizeAndCopyToDevice(allDelta, dAllDelta, queue);
         kernel.set_arg(3, dAllDelta);
         kernel.set_arg(4, dColumns.getData());
         kernel.set_arg(5, dColumns.getIndices());
-
         kernel.set_arg(6, dY);
         kernel.set_arg(7, dXBeta);
-
         int dJ = J;
         kernel.set_arg(10, dJ);
         kernel.set_arg(11, detail::constant::updateXBetaBlockSize);
-
         std::vector<int> hFixBeta;
         hFixBeta.resize(J);
         for (int i=0; i<J; ++i) {
         	hFixBeta[i] = fixBeta[i];
         }
         detail::resizeAndCopyToDevice(hFixBeta, dFixBeta, queue);
-
-        //compute::copy(std::begin(fixBeta), std::end(fixBeta), std::begin(dFixBeta), queue);
         kernel.set_arg(12, dFixBeta);
 
         /*
@@ -1179,8 +1163,10 @@ public:
 
         	const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
          */
+        // set work size; yes looping
         const size_t globalWorkSize = detail::constant::updateXBetaBlockSize * J;
 
+        // run kernel
         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
         queue.finish();
 
@@ -1193,7 +1179,6 @@ public:
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
     }
-
 
     virtual double getGradientObjective(bool useCrossValidation) {
 #ifdef GPU_DEBUG
@@ -1241,7 +1226,7 @@ public:
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
         ///////////////////////////"
-        auto name = "compGradObj" + getFormatTypeExtension(formatType) + " ";
+        auto name = "compGradObjG" + getFormatTypeExtension(formatType) + " ";
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
         return(objective);
@@ -1311,14 +1296,6 @@ private:
     	}
     }
 
-    /*
-    void buildAllComputeXBetaKernels(const std::vector<FormatType>& neededFormatTypes) {
-    	for (FormatType formatType : neededFormatTypes) {
-    		buildComputeXBetaKernel(formatType);
-    	}
-    }
-     */
-
     void buildAllGradientHessianKernels(const std::vector<FormatType>& neededFormatTypes) {
         int b = 0;
         for (FormatType formatType : neededFormatTypes) {
@@ -1360,8 +1337,6 @@ private:
     SourceCode writeCodeForGetGradientObjective(FormatType formatType, bool useWeights, bool isNvidia);
 
     SourceCode writeCodeForComputeRemainingStatisticsKernel(FormatType formatType);
-
-    SourceCode writeCodeForComputeXBetaKernel(FormatType formatType);
 
     SourceCode writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia);
 
@@ -1602,8 +1577,6 @@ private:
         std::cout << "built getGradObjective kernels \n";
         buildAllComputeRemainingStatisticsKernels(neededFormatTypes);
         std::cout << "built computeRemainingStatistics kernels \n";
-        //buildAllComputeXBetaKernels(neededFormatTypes);
-        //std::cout << "built computeXBeta kernels \n";
     }
 
     void printAllKernels(std::ostream& stream) {

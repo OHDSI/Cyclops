@@ -9,6 +9,7 @@
 #define KERNELS_HPP_
 
 #include <boost/compute/type_traits/type_name.hpp>
+#include "ModelSpecifics.h"
 
 namespace bsccs {
 
@@ -115,6 +116,7 @@ static group(const std::string& id, const std::string& k) {
     return id + "[" + k + "]";
 };
 
+/*
 static std::string timesX(const std::string& arg, const FormatType formatType) {
     return (formatType == INDICATOR || formatType == INTERCEPT) ?
         arg : arg + " * x";
@@ -123,6 +125,7 @@ static std::string timesX(const std::string& arg, const FormatType formatType) {
 static std::string weight(const std::string& arg, bool useWeights) {
     return useWeights ? "w * " + arg : arg;
 }
+*/
 
 }; // anonymous namespace
 
@@ -186,14 +189,14 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
         code << "       const REAL exb = expXBeta[k];     \n" <<
                 "       const REAL numer = " << timesX("exb", formatType) << ";\n" <<
-                "       const REAL denom = 1.0 + exb;      \n" <<
-        //denominator[k]; \n" <<
-                "       const REAL g = numer / denom;      \n";
-
+                //"       const REAL denom = 1.0 + exb;			\n";
+        		"		const REAL denom = denominator[k];		\n";
         if (useWeights) {
             code << "       const REAL w = weight[k];\n";
         }
 
+/*
+        code << "       const REAL g = numer / denom;      \n";
         code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
         if (formatType == INDICATOR || formatType == INTERCEPT) {
             code << "       const REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
@@ -201,6 +204,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
             code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
                     "       const REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
         }
+        */
+
+        code << ModelSpecifics<BaseModel, WeightType>::writeCodeForIncrementGradientAndHessianG(formatType, useWeights);
 
 #ifdef USE_VECTOR
         code << "       sum += (TMP_REAL)(gradient, hessian); \n";
@@ -286,7 +292,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
             //         "       const REAL newEntry = expXBeta[k] = exp(xBeta[k]); \n" <<
             //         "       denominator[" << group<BaseModel>("id","k") << "] += (newEntry - oldEntry); \n";
             code << "       const REAL exb = exp(xb); \n" <<
-                    "       expXBeta[k] = exb;        \n";
+                    "       expXBeta[k] = exb;        \n" <<
+					"		denominator[k] = 1.0 + exb; \n";
         	//code << "expXBeta[k] = exp(xb); \n";
         	//code << "expXBeta[k] = exp(1); \n";
 
@@ -386,7 +393,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         if (BaseModel::likelihoodHasDenominator) {
         	code << " 		REAL exb = exp(xBeta[task]);		\n" <<
         			"		expXBeta[task] = exb;		\n";
-            code << "       denominator[task] = 1.0 + exb; \n";// <<
+            code << "       denominator[task] = (REAL)1.0 + exb; \n";// <<
         	//code << "expXBeta[k] = exp(xb); \n";
         	//code << "expXBeta[k] = exp(1); \n";
 
@@ -405,72 +412,6 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
     }
 
-	template <class BaseModel, typename WeightType>
-    SourceCode
-    GpuModelSpecifics<BaseModel, WeightType>::writeCodeForComputeXBetaKernel(FormatType formatType) {
-
-        std::string name = "computeXBeta" + getFormatTypeExtension(formatType);
-
-
-        std::stringstream code;
-        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
-
-        code << "__kernel void " << name << "(     \n" <<
-                "       const uint offX,           \n" <<
-                "       const uint offK,           \n" <<
-                "       const uint N,              \n" <<
-                "       const REAL delta,          \n" <<
-                "       __global const REAL* X,    \n" <<
-                "       __global const int* K,     \n" <<
-                "       __global const REAL* Y,    \n" <<
-                "       __global REAL* xBeta,      \n" <<
-                "       __global REAL* expXBeta,   \n" <<
-                "       __global REAL* denominator,\n" <<
-                "       __global const int* id) {   \n" <<
-                "   const uint task = get_global_id(0); \n";
-
-        if (formatType == INDICATOR || formatType == SPARSE) {
-            code << "   const uint k = K[offK + task];         \n";
-        } else { // DENSE, INTERCEPT
-            code << "   const uint k = task;            \n";
-        }
-
-        if (formatType == SPARSE || formatType == DENSE) {
-            code << "   const REAL inc = delta * X[offX + task]; \n";
-        } else { // INDICATOR, INTERCEPT
-            code << "   const REAL inc = delta;           \n";
-        }
-
-        code << "   if (task < N) {      				\n";
-        code << "       REAL xb = inc; 		\n" <<
-                "       xBeta[k] = xb;                  \n";
-
-        if (BaseModel::likelihoodHasDenominator) {
-            // TODO: The following is not YET thread-safe for multi-row observations
-            // code << "       const REAL oldEntry = expXBeta[k];                 \n" <<
-            //         "       const REAL newEntry = expXBeta[k] = exp(xBeta[k]); \n" <<
-            //         "       denominator[" << group<BaseModel>("id","k") << "] += (newEntry - oldEntry); \n";
-
-
-            code << "       REAL exb = exp(xb); \n" <<
-                    "       expXBeta[k] = exb;        \n";
-        	//code << "expXBeta[k] = exp(xb); \n";
-        	//code << "expXBeta[k] = exp(1); \n";
-
-            // LOGISTIC MODEL ONLY
-            //                     const real t = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
-            //                     expXBeta[k] = t;
-            //                     denominator[k] = static_cast<real>(1.0) + t;
-            //             code << "    const REAL t = 0.0;               \n" <<
-            //                     "   expXBeta[k] = exp(xBeta[k]);      \n" <<
-            //                     "   denominator[k] = REAL(1.0) + tmp; \n";
-        }
-
-        code << "   } \n";
-        code << "}    \n";
-
-        return SourceCode(code.str(), name);
-    }
 /*
 	template <class BaseModel, typename WeightType>
     SourceCode
@@ -680,7 +621,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		const REAL norm0 = norm[k];				\n" <<
                 "       const REAL numer = " << timesX("exb", formatType) << ";\n" <<
 				//"		const REAL denom = denominator[k];	\n";
-        		"		const REAL denom = 1 + exb;			\n";
+        		"		const REAL denom = (REAL)1.0 + exb;			\n";
 				//"		const REAL factor = norm[k]/abs(x);				\n" <<
         //denominator[k]; \n" <<
                 //"       const REAL g = numer / denom;      \n";
@@ -814,7 +755,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					    "	__global uint* overflow1_in,				\n" <<
 						"	const uint tasks) {    					\n";
 				code << "   const uint i = get_global_id(0);				\n" <<
-						"	if (i < tasks) {;						\n" <<
+						"	if (i < tasks) {						\n" <<
 						"	int stratum = indices_in[i];			\n" <<
 						"	REAL x = xMatrix_in[col*(N+1)+stratum];	\n" <<
 						"	REAL t = expXMatrix_in[col*(N+1)+stratum];	\n" <<

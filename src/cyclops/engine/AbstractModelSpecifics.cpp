@@ -65,10 +65,6 @@ AbstractModelSpecifics* AbstractModelSpecifics::deviceFactory(
         const std::string& deviceName) {
     AbstractModelSpecifics* model = nullptr;
 
-#ifdef HAVE_OPENCL
-    std::cout<<"have opencl\n";
-#endif
-
     switch (deviceType) {
     case DeviceType::CPU :
         model = new ModelSpecifics<Model,RealType>(modelData);
