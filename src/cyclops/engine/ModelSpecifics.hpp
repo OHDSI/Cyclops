@@ -422,7 +422,7 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(
 
     } else if (boundType == MmBoundType::METHOD_2) {
         std::cerr << "boundType: METHOD_2" << std::endl;
-
+/*
         double total = 0;
 
         for (int j = 0; j < J; ++j) {
@@ -458,6 +458,7 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(
         for (int j = 0; j < J; ++j) {
             curvature[j] = total;
         }
+ */
     }
 
 #ifdef CYCLOPS_DEBUG_TIMING

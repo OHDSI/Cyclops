@@ -340,11 +340,11 @@ public:
             const auto& column = modelData.getColumn(j);
             // columns.emplace_back(GpuColumn<real>(column, ctx, queue, K));
             need |= (1 << column.getFormatType());
+
+            indicesFormats[(FormatType)column.getFormatType()].push_back(j);
+
         }
-
-
             // Rcpp::stop("done");
-
 
         std::vector<FormatType> neededFormatTypes;
         for (int t = 0; t < 4; ++t) {
@@ -363,6 +363,7 @@ public:
         detail::resizeAndCopyToDevice(denomPid, dDenominator, queue);
         detail::resizeAndCopyToDevice(hPidInternal, dId, queue);
         detail::resizeAndCopyToDevice(hOffs, dOffs, queue);
+        detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
 
         std::cerr << "Format types required: " << need << std::endl;
 
@@ -417,7 +418,7 @@ public:
         //std::cout << "before kernel dDenominator: " << hBuffer[0] << " " << hBuffer[1] << '\n';
 
         // get kernel
-        auto& kernel = kernelComputeRemainingStatistics[FormatType::DENSE];
+        auto& kernel = kernelComputeRemainingStatistics;
 
         // set kernel args
         const auto taskCount = K;
@@ -853,10 +854,78 @@ public:
 
 	        this->initializeMM(boundType, fixBeta);
 		    detail::resizeAndCopyToDevice(norm, dNorm, queue);
+
+		    std::cerr << "\n";
 		    computeRemainingStatistics(true);
 	    	//kernel.set_arg(12, dNorm);
 
+
+
         	initialized = true;
+        }
+        std::vector<int> hFixBeta;
+        hFixBeta.resize(J);
+        for (int i=0; i<J; ++i) {
+        	hFixBeta[i] = fixBeta[i];
+        }
+        detail::resizeAndCopyToDevice(hFixBeta, dFixBeta, queue);
+
+        const auto wgs = maxWgs;
+        const auto globalWorkSize = tpb * wgs;
+        detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
+
+        for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
+            FormatType formatType = (FormatType)i;
+        	if (indicesFormats[formatType].size() == 0) {
+        		continue;
+        	}
+        	 auto& kernel = (useWeights) ? // Double-dispatch
+        	        		kernelGradientHessianMMWeighted[formatType] :
+        					kernelGradientHessianMMNoWeight[formatType];
+
+        	 kernel.set_arg(0, dColumns.getDataStarts());
+        	 kernel.set_arg(1, dColumns.getIndicesStarts());
+        	 kernel.set_arg(2, dColumns.getTaskCounts());
+        	 kernel.set_arg(3, dColumns.getData());
+        	 kernel.set_arg(4, dColumns.getIndices());
+        	 kernel.set_arg(6, dXBeta);
+        	 kernel.set_arg(7, dExpXBeta);
+        	 kernel.set_arg(8, dDenominator);
+        	 //detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
+        	 kernel.set_arg(9, dBuffer); // Can get reallocated.
+        	 kernel.set_arg(10, dId);
+        	 if (dKWeight.size() == 0) {
+        		 kernel.set_arg(11, 0);
+        	 } else {
+        		 kernel.set_arg(11, dKWeight); // TODO Only when dKWeight gets reallocated
+        	 }
+        	 kernel.set_arg(12, dNorm);
+        	 /*
+        	 hFixBeta.resize(J);
+        	 fillVector(hFixBeta, J, 0);
+        	 for (int i:indicesFormats[formatType]) {
+        		 hFixBeta[i] = fixBeta[i];
+        	 }
+        	 for (int i=0; i<J; ++i) {
+        	     		hFixBeta[i] = fixBeta[i];
+        	     	}
+        	 detail::resizeAndCopyToDevice(hFixBeta, dFixBeta, queue);
+        	         	 */
+
+        	 kernel.set_arg(13, dFixBeta);
+        	 //int dJ = indicesFormats[formatType].size();
+        	 kernel.set_arg(14, globalWorkSize);
+        	 kernel.set_arg(15, wgs);
+        	 detail::resizeAndCopyToDevice(indicesFormats[formatType], dIndices, queue);
+        	 kernel.set_arg(16, dIndices);
+
+        	 // set work size; yes looping
+        	 //const auto wgs = maxWgs;
+        	 //const auto globalWorkSize = tpb * wgs;
+
+        	 // run kernel
+        	 queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize*indicesFormats[formatType].size(), tpb);
+        	 queue.finish();
         }
 
         /*
@@ -868,11 +937,12 @@ public:
         */
 
         // get kernel
+        /*
         FormatType formatType = modelData.getFormatType(0);
         auto& kernel = (useWeights) ? // Double-dispatch
         		kernelGradientHessianMMWeighted[formatType] :
 				kernelGradientHessianMMNoWeight[formatType];
-
+*/
     	/*
     	if (dBuffer.size() < 2 * maxWgs * J) {
     		dBuffer.resize(2 * maxWgs * J, queue);
@@ -881,7 +951,7 @@ public:
     		hBuffer.resize(2 * maxWgs * J);
     	}
     	*/
-
+/*
     	kernel.set_arg(0, dColumns.getDataStarts());
     	kernel.set_arg(1, dColumns.getIndicesStarts());
     	kernel.set_arg(2, dColumns.getTaskCounts());
@@ -916,27 +986,17 @@ public:
     	kernel.set_arg(15, wgs);
     	const auto globalWorkSize = tpb * wgs;
 
-    	/*
-        std::cerr << "dXBeta : ";
-        for (auto x : dXBeta) {
-        	std::cerr << " " << x;
-        }
-        std::cerr << "\n";
-        std::cerr << "dExpXBeta: ";
-        for (auto x : dExpXBeta) {
-        	std::cerr << " " << x;
-        }
-        std::cerr << "\n";
-        std::cerr << "dDenominator: ";
-        for (auto x : dDenominator) {
+    	// run kernel
+    	queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize*J, tpb);
+		queue.finish();
+		*/
+		/*
+        std::cerr << "dBuffer : ";
+        for (auto x : dBuffer) {
         	std::cerr << " " << x;
         }
         std::cerr << "\n";
         */
-
-    	// run kernel
-    	queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize*J, tpb);
-		queue.finish();
 
 /*
     	for (int index = 0; index < J; ++index) {
@@ -972,30 +1032,33 @@ public:
     	}
         std::cerr << "\n";
         */
+
+
 		hBuffer.resize(2*maxWgs*J);
     	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
 
-    	/*
+
     	for (int j = 0; j < J; ++j) {
     		for (int i = 0; i < wgs; ++i) { // TODO Use SSE
     			gh[j].first += hBuffer[i + 2*j*wgs];
     			gh[j].second += hBuffer[i + wgs + 2*j*wgs];
     		}
     	}
-    	*/
 
+/*
     	for (int j = 0; j < J; ++j) {
     		for (int i = 0; i < wgs; ++i) {
     			gh[j].first += hBuffer[j*wgs+i];
     			gh[j].second += hBuffer[(j+J)*wgs+i];
     		}
     	}
-
-    	/*
+*/
+/*
     	for (int j=0; j<J; ++j) {
     		std::cerr << "index: " << j << " g: " << gh[j].first << " h: " << gh[j].second << " f: " << hXjY[j] << std::endl;
     	}
     	*/
+
 
     	if (BaseModel::precomputeGradient) { // Compile-time switch
     		for (int j=0; j < J; ++j) {
@@ -1012,7 +1075,7 @@ public:
 #ifdef CYCLOPS_DEBUG_TIMING
     	auto end = bsccs::chrono::steady_clock::now();
     	///////////////////////////"
-    	auto name = "compGradHessG" + getFormatTypeExtension(formatType) + " ";
+    	auto name = "compGradHessMMG";
     	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
@@ -1028,6 +1091,7 @@ public:
 #endif
         // get kernel
         auto& kernel = kernelUpdateXBeta[modelData.getFormatType(index)];
+
         const auto taskCount = dColumns.getTaskCount(index);
 
         // set kernel args
@@ -1135,18 +1199,22 @@ public:
         auto start = bsccs::chrono::steady_clock::now();
 #endif
 
-        FormatType formatType = FormatType::DENSE;
+        //FormatType formatType = FormatType::DENSE;
+
         auto& kernel = (useCrossValidation) ? // Double-dispatch
-                            kernelGetGradientObjectiveWeighted[formatType] :
-							kernelGetGradientObjectiveNoWeight[formatType];
+                            kernelGetGradientObjectiveWeighted :
+							kernelGetGradientObjectiveNoWeight;
 
         const auto wgs = maxWgs;
         const auto globalWorkSize = tpb * wgs;
 
+        int dK = K;
+        kernel.set_arg(0, dK);
+        kernel.set_arg(1, dY);
+        kernel.set_arg(2, dXBeta);
         dBuffer.resize(2 * maxWgs, queue);
         kernel.set_arg(3, dBuffer); // Can get reallocated.
         hBuffer.resize(2 * maxWgs);
-
         if (dKWeight.size() == 0) {
             kernel.set_arg(4, 0);
         } else {
@@ -1171,7 +1239,7 @@ public:
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
         ///////////////////////////"
-        auto name = "compGradObjG" + getFormatTypeExtension(formatType) + " ";
+        auto name = "compGradObjG";
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
         return(objective);
@@ -1235,10 +1303,10 @@ private:
         }
     }
 
-    void buildAllComputeRemainingStatisticsKernels(const std::vector<FormatType>& neededFormatTypes) {
-    	for (FormatType formatType : neededFormatTypes) {
-    		buildComputeRemainingStatisticsKernel(formatType);
-    	}
+    void buildAllComputeRemainingStatisticsKernels() {
+    	//for (FormatType formatType : neededFormatTypes) {
+    		buildComputeRemainingStatisticsKernel();
+    	//}
     }
 
     void buildAllGradientHessianKernels(const std::vector<FormatType>& neededFormatTypes) {
@@ -1249,12 +1317,12 @@ private:
         }
     }
 
-    void buildAllGetGradientObjectiveKernels(const std::vector<FormatType>& neededFormatTypes) {
+    void buildAllGetGradientObjectiveKernels() {
         int b = 0;
-        for (FormatType formatType : neededFormatTypes) {
-        	buildGetGradientObjectiveKernel(formatType, true); ++b;
-        	buildGetGradientObjectiveKernel(formatType, false); ++b;
-        }
+        //for (FormatType formatType : neededFormatTypes) {
+        	buildGetGradientObjectiveKernel(true); ++b;
+        	buildGetGradientObjectiveKernel(false); ++b;
+        //}
     }
 
     std::string getFormatTypeExtension(FormatType formatType) {
@@ -1279,9 +1347,9 @@ private:
 
     SourceCode writeCodeForMMGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
-    SourceCode writeCodeForGetGradientObjective(FormatType formatType, bool useWeights, bool isNvidia);
+    SourceCode writeCodeForGetGradientObjective(bool useWeights, bool isNvidia);
 
-    SourceCode writeCodeForComputeRemainingStatisticsKernel(FormatType formatType);
+    SourceCode writeCodeForComputeRemainingStatisticsKernel();
 
     SourceCode writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia);
 
@@ -1345,6 +1413,7 @@ private:
 
         	// MM Kernel
         	source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
+        	//std::cout << source.body;
         	program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernelMM = compute::kernel(program, source.name);
         	kernelMM.set_arg(5, dY);
@@ -1365,6 +1434,7 @@ private:
         } else {
         	// CCD Kernel
         	auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
+        	//std::cout << source.body;
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernel = compute::kernel(program, source.name);
         	kernel.set_arg(5, dY);
@@ -1425,12 +1495,12 @@ private:
     }
 
 
-    void buildComputeRemainingStatisticsKernel(FormatType formatType) {
+    void buildComputeRemainingStatisticsKernel() {
     	std::stringstream options;
     	options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
-        auto source = writeCodeForComputeRemainingStatisticsKernel(formatType);
-        std::cout << source.body;
+        auto source = writeCodeForComputeRemainingStatisticsKernel();
+        //std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         std::cout << "built computeRemainingStatistics program \n";
         auto kernel = compute::kernel(program, source.name);
@@ -1442,7 +1512,7 @@ private:
         kernel.set_arg(3, dDenominator);
         kernel.set_arg(4, dId);
 
-        kernelComputeRemainingStatistics[formatType] = std::move(kernel);
+        kernelComputeRemainingStatistics = std::move(kernel);
     }
 
     void buildUpdateAllXBetaKernel(FormatType formatType) {
@@ -1462,7 +1532,7 @@ private:
       	kernelUpdateAllXBeta[formatType] = std::move(kernel);
     }
 
-    void buildGetGradientObjectiveKernel(FormatType formatType, bool useWeights) {
+    void buildGetGradientObjectiveKernel(bool useWeights) {
     	std::stringstream options;
         if (sizeof(real) == 8) {
 #ifdef USE_VECTOR
@@ -1481,7 +1551,7 @@ private:
 
          const auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
 
-         auto source = writeCodeForGetGradientObjective(formatType, useWeights, isNvidia);
+         auto source = writeCodeForGetGradientObjective(useWeights, isNvidia);
          auto program = compute::program::build_with_source(source.body, ctx, options.str());
          auto kernel = compute::kernel(program, source.name);
 
@@ -1495,9 +1565,9 @@ private:
          kernel.set_arg(4, dKWeight); // TODO Does not seem to stick
 
          if (useWeights) {
-             kernelGetGradientObjectiveWeighted[formatType] = std::move(kernel);
+             kernelGetGradientObjectiveWeighted = std::move(kernel);
          } else {
-        	 kernelGetGradientObjectiveNoWeight[formatType] = std::move(kernel);
+        	 kernelGetGradientObjectiveNoWeight = std::move(kernel);
          }
     }
 
@@ -1517,9 +1587,9 @@ private:
         std::cout << "built gradhessian kernels \n";
         buildAllUpdateXBetaKernels(neededFormatTypes);
         std::cout << "built updateXBeta kernels \n";
-        buildAllGetGradientObjectiveKernels(neededFormatTypes);
+        buildAllGetGradientObjectiveKernels();
         std::cout << "built getGradObjective kernels \n";
-        buildAllComputeRemainingStatisticsKernels(neededFormatTypes);
+        buildAllComputeRemainingStatisticsKernels();
         std::cout << "built computeRemainingStatistics kernels \n";
     }
 
@@ -1543,17 +1613,9 @@ private:
             printKernel(entry.second, stream);
         }
 
-        for (auto& entry: kernelGetGradientObjectiveWeighted) {
-        	printKernel(entry.second, stream);
-        }
-
-        for (auto& entry: kernelGetGradientObjectiveNoWeight) {
-        	printKernel(entry.second, stream);
-        }
-
-        for (auto& entry: kernelComputeRemainingStatistics) {
-        	printKernel(entry.second, stream);
-        }
+        printKernel(kernelGetGradientObjectiveWeighted, stream);
+        printKernel(kernelGetGradientObjectiveNoWeight, stream);
+        printKernel(kernelComputeRemainingStatistics, stream);
 
         for (auto& entry: kernelUpdateAllXBeta) {
         	printKernel(entry.second, stream);
@@ -1571,10 +1633,11 @@ private:
     std::map<FormatType, compute::kernel> kernelUpdateXBeta;
     std::map<FormatType, compute::kernel> kernelGradientHessianMMWeighted;
     std::map<FormatType, compute::kernel> kernelGradientHessianMMNoWeight;
-    std::map<FormatType, compute::kernel> kernelGetGradientObjectiveWeighted;
-    std::map<FormatType, compute::kernel> kernelGetGradientObjectiveNoWeight;
-    std::map<FormatType, compute::kernel> kernelComputeRemainingStatistics;
+    compute::kernel kernelGetGradientObjectiveWeighted;
+    compute::kernel kernelGetGradientObjectiveNoWeight;
+    compute::kernel kernelComputeRemainingStatistics;
     std::map<FormatType, compute::kernel> kernelUpdateAllXBeta;
+    std::map<FormatType, std::vector<int>> indicesFormats;
 
     // vectors of columns
     // std::vector<GpuColumn<real> > columns;

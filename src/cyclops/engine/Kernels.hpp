@@ -165,7 +165,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "   __local TMP_REAL scratch[TPB]; \n" <<
                 "   TMP_REAL sum = 0.0;            \n" <<
 #else
-                "   __local REAL scratch[2][TPB + 1];  \n" <<
+                "   __local REAL scratch[2][TPB];  \n" <<
                // "   __local REAL scratch1[TPB];  \n" <<
                 "   REAL sum0 = 0.0; \n" <<
                 "   REAL sum1 = 0.0; \n" <<
@@ -376,9 +376,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 	template <class BaseModel, typename WeightType>
     SourceCode
-    GpuModelSpecifics<BaseModel, WeightType>::writeCodeForComputeRemainingStatisticsKernel(FormatType formatType) {
+    GpuModelSpecifics<BaseModel, WeightType>::writeCodeForComputeRemainingStatisticsKernel() {
 
-        std::string name = "computeRemainingStatistics" + getFormatTypeExtension(formatType);
+        std::string name = "computeRemainingStatistics";
 
         std::stringstream code;
         code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
@@ -590,16 +590,17 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				//"		const uint index) {\n";
 				"		__global const int* fixBeta,   \n" <<
 				"		const uint J,					\n" <<
-				"		const uint wgs) {    \n";    // TODO Make weight optional
+				"		const uint wgs,					\n" <<
+				"		__global const int* indices) {    \n";    // TODO Make weight optional
         // Initialization
         code << "   const uint lid = get_local_id(0); \n" <<
         		//"   const uint loopSize = get_global_size(0); \n" <<
         		//"   uint task = get_global_id(0);  \n" <<
-                "   const uint loopSize = get_global_size(0)/J; \n" <<
-				"	const uint index = get_group_id(0)/wgs;		\n" <<
+                "   const uint loopSize = J; \n" <<
+				"	const uint index = indices[get_group_id(0)/wgs];		\n" <<
 				"	if (fixBeta[index] == 0) {					\n" <<
-                "   __local REAL scratch[2][TPB + 1];  \n" <<
-                "   uint task = get_global_id(0)%(wgs*TPB);  \n" <<
+                "   __local REAL scratch[2][TPB];  \n" <<
+                "   uint task = get_global_id(0)%J;  \n" <<
 				"	const uint offX = offXVec[index];			\n" <<
 				"	const uint offK = offKVec[index];			\n" <<
 				"	const uint N = NVec[index];					\n" <<
@@ -646,15 +647,15 @@ static std::string weight(const std::string& arg, bool useWeights) {
         code << "       const REAL gradient = " << weight("numer / denom", useWeights) << ";\n";
         code << "		REAL hessian = 0.0;			\n";
 
-
-        code << "if (x != 0.0) { \n";
         if (formatType == INDICATOR || formatType == INTERCEPT) {
-            code << "       hessian  = " << weight("g  * norm0 / fabs(x) / denom / denom ", useWeights) << ";\n";
+            // code << "       hessian  = gradient  * norm0 / denom;				\n";
+            code << "       hessian  = " << weight("numer*norm0/denom/denom",useWeights) << ";\n";
         } else {
+        	code << "if (x != 0.0) { \n";
             code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
             		"       hessian  = " << weight("nume2 * norm0 / fabs(x) / denom / denom", useWeights) << ";\n";
+            code << "} \n";
         }
-        code << "} \n";
 
 #ifdef USE_VECTOR
         code << "       sum += (TMP_REAL)(gradient, hessian); \n";
@@ -690,8 +691,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 //"       buffer[get_group_id(0) + get_num_groups(0) + 2*get_num_groups(0)*index] = scratch[1][0]; \n" <<
 				//"       buffer[get_group_id(0)%wgs + 2*wgs*index] = scratch[0][0]; \n" <<
                 //"       buffer[get_group_id(0)%wgs + wgs + 2*wgs*index] = scratch[1][0]; \n" <<
-				"       buffer[get_group_id(0)] = scratch[0][0]; \n" <<
-				"       buffer[get_group_id(0)+wgs*J] = scratch[1][0]; \n" <<
+				"       buffer[get_group_id(0)%wgs + index*wgs*2] = scratch[0][0]; \n" <<
+				"       buffer[get_group_id(0)%wgs + index*wgs*2 + wgs] = scratch[1][0]; \n" <<
 
 
 #endif // USE_VECTOR
@@ -705,8 +706,13 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 	template <class BaseModel, typename WeightType>
     SourceCode
-	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForGetGradientObjective(FormatType formatType, bool useWeights, bool isNvidia) {
-        std::string name = "getGradientObjective" + getFormatTypeExtension(formatType) + (useWeights ? "W" : "N");
+	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForGetGradientObjective(bool useWeights, bool isNvidia) {
+        std::string name;
+	    if(useWeights) {
+	        name = "getGradientObjectiveW";
+	    } else {
+	        name = "getGradientObjectiveN";
+	    }
 
         std::stringstream code;
         code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";

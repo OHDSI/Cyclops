@@ -1214,7 +1214,7 @@ public:
 		if (x != 0) {
 	    if (IteratorType::isIndicator) {
 	        gradient += weight * expXBeta / denominator;
-	        hessian += weight * expXBeta / denominator / denominator * norm / abs(x);
+	        hessian += weight * expXBeta / denominator / denominator * norm;
 	    } else {
 	        gradient += weight * expXBeta * x / denominator;
 	        hessian += weight * expXBeta * x * x / denominator / denominator * norm / abs(x);
