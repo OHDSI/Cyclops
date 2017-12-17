@@ -168,15 +168,6 @@ inline std::ostream& operator<<(std::ostream& stream, const OneValue& rhs) {
     return stream;
 }
 
-static std::string weight(const std::string& arg, bool useWeights) {
-    return useWeights ? "w * " + arg : arg;
-}
-
-static std::string timesX(const std::string& arg, const FormatType formatType) {
-    return (formatType == INDICATOR || formatType == INTERCEPT) ?
-    arg : arg + " * x";
-}
-
 // struct ParallelInfo { };
 //
 // struct SerialOnly { };
@@ -278,20 +269,6 @@ protected:
 
 	template <class InteratorType>
 	void incrementNormsImpl(int index);
-
-	std::string writeCodeForIncrementGradientAndHessianG(FormatType formatType, bool useWeights) {
-		return(BaseModel::incrementGradientAndHessianG(formatType, useWeights));
-	}
-
-	std::string writeCodeForGetOffsExpXBetaG() {
-		return(BaseModel::getOffsExpXBetaG());
-	}
-
-	std::string writeCodeForIncrementByGroupG() {
-		std::stringstream code;
-		code << "denominator[" << BaseModel::getGroupG() << "] =" << BaseModel::getDenomNullValueG() << "+ exb";
-		return(code.str());
-	}
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	//	std::vector<double> duration;
@@ -1245,20 +1222,6 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
 
-	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
-		// assume exists: numer, denom
-		std::stringstream code;
-        code << "       const REAL g = numer / denom;      \n";
-        code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
-        if (formatType == INDICATOR || formatType == INTERCEPT) {
-            code << "       const REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
-        } else {
-            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
-                    "       const REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
-        }
-        return(code.str());
-	}
-
 };
 
 template <typename WeightType>
@@ -1345,27 +1308,8 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
 
-	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
-		std::stringstream code;
-        code << "       const REAL g = numer / denom;      \n";
-        code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
-        if (formatType == INDICATOR || formatType == INTERCEPT) {
-            code << "       const REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
-        } else {
-            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
-                    "       const REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
-        }
-        return(code.str());
-	}
-
     real getOffsExpXBeta(const real offs, const real xBeta) {
         return offs * std::exp(xBeta);
-    }
-
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "offs * exp(xb)";
-        return(code.str());
     }
 
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
@@ -1457,27 +1401,8 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
 
-	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
-		std::stringstream code;
-        code << "       const REAL g = numer / denom;      \n";
-        code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
-        if (formatType == INDICATOR || formatType == INTERCEPT) {
-            code << "       const REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
-        } else {
-            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
-                    "       const REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
-        }
-        return(code.str());
-	}
-
     real getOffsExpXBeta(const real offs, const real xBeta) {
         return std::exp(xBeta);
-    }
-
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "exp(xb)";
-        return(code.str());
     }
 
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
@@ -1560,28 +1485,10 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
 
-	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
-		std::stringstream code;
-        code << "       const REAL g = numer / denom;      \n";
-        code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
-        if (formatType == INDICATOR || formatType == INTERCEPT) {
-            code << "       const REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
-        } else {
-            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
-                    "       const REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
-        }
-        return(code.str());
-	}
-
     real getOffsExpXBeta(const real offs, const real xBeta) {
         return std::exp(xBeta);
     }
 
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "exp(xb)";
-        return(code.str());
-    }
 
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
@@ -1674,12 +1581,6 @@ public:
         return std::exp(xBeta);
     }
 
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "exp(xb)";
-        return(code.str());
-    }
-
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
@@ -1734,12 +1635,6 @@ public:
 
     real getOffsExpXBeta(const real offs, const real xBeta) {
         return std::exp(xBeta);
-    }
-
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "exp(xb)";
-        return(code.str());
     }
 
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
@@ -1834,27 +1729,8 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
 
-	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
-		std::stringstream code;
-        code << "       const REAL g = numer / denom;      \n";
-        code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
-        if (formatType == INDICATOR || formatType == INTERCEPT) {
-            code << "       const REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
-        } else {
-            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
-                    "       const REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
-        }
-        return(code.str());
-	}
-
     real getOffsExpXBeta(const real offs, const real xBeta) {
         return std::exp(xBeta);
-    }
-
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "exp(xb)";
-        return(code.str());
     }
 
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
@@ -1962,12 +1838,6 @@ public:
         return std::exp(xBeta);
     }
 
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "exp(xb)";
-        return(code.str());
-    }
-
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);
 	}
@@ -1992,18 +1862,6 @@ public:
 		return 0.0;
 	}
 
-	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
-		std::stringstream code;
-        code << "       const REAL g = numer / denom;      \n";
-        code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
-        if (formatType == INDICATOR || formatType == INTERCEPT) {
-            code << "       const REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
-        } else {
-            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
-                    "       const REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
-        }
-        return(code.str());
-	}
 };
 
 template <typename WeightType>
@@ -2123,12 +1981,6 @@ public:
 		return static_cast<real>(0);
     }
 
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "(REAL)0";
-        return(code.str());
-    }
-
 	real getOffsExpXBeta(const  real* offs, real xBeta, real y, int k) {
         throw new std::logic_error("Not model-specific");
 		return static_cast<real>(0);
@@ -2246,27 +2098,9 @@ public:
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
 
-	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
-		std::stringstream code;
-        code << "       const REAL gradient = " << weight("numer", useWeights) << ";\n";
-        if (formatType == INDICATOR || formatType == INTERCEPT) {
-            code << "       const REAL hessian  = gradient;\n";
-        } else {
-            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
-                    "       const REAL hessian  = " << weight("nume2", useWeights) << ";\n";
-        }
-        return(code.str());
-	}
-
 	real getOffsExpXBeta(const real offs, const real xBeta) {
 		return std::exp(xBeta);
 	}
-
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "exp(xb)";
-        return(code.str());
-    }
 
 	real getOffsExpXBeta(const real* offs, real xBeta, real y, int k) {
 		return std::exp(xBeta);

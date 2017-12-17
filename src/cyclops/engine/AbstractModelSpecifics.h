@@ -135,6 +135,11 @@ protected:
                                                  const DeviceType deviceType,
                                                  const std::string& deviceName);
 
+    template <class Model, typename RealType, class ModelG>
+    static AbstractModelSpecifics* deviceFactory(const ModelData& modelData,
+                                                 const DeviceType deviceType,
+                                                 const std::string& deviceName);
+
     virtual void deviceInitialization();
 
 	int getAlignedLength(int N);

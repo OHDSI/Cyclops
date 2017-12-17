@@ -13,7 +13,6 @@
 
 namespace bsccs {
 
-
 namespace {
 
 template<typename T, bool isNvidiaDevice>
@@ -127,11 +126,12 @@ static std::string weight(const std::string& arg, bool useWeights) {
 }
 */
 
+
 }; // anonymous namespace
 
-	template <class BaseModel, typename WeightType>
+	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
-    GpuModelSpecifics<BaseModel, WeightType>::writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia) {
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia) {
 
         std::string name = "computeGradHess" + getFormatTypeExtension(formatType) + (useWeights ? "W" : "N");
 
@@ -206,7 +206,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         }
         */
 
-        code << ModelSpecifics<BaseModel, WeightType>::writeCodeForIncrementGradientAndHessianG(formatType, useWeights);
+        code << writeCodeForIncrementGradientAndHessianG(formatType, useWeights);
 
 #ifdef USE_VECTOR
         code << "       sum += (TMP_REAL)(gradient, hessian); \n";
@@ -247,9 +247,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
     }
 
-	template <class BaseModel, typename WeightType>
+	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
-    GpuModelSpecifics<BaseModel, WeightType>::writeCodeForUpdateXBetaKernel(FormatType formatType) {
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForUpdateXBetaKernel(FormatType formatType) {
 
         std::string name = "updateXBeta" + getFormatTypeExtension(formatType);
 
@@ -313,9 +313,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
     }
 
-	template <class BaseModel, typename WeightType>
+	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
-	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForUpdateAllXBetaKernel(FormatType formatType, bool isNvidia) {
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForUpdateAllXBetaKernel(FormatType formatType, bool isNvidia) {
 
         std::string name = "updateAllXBeta" + getFormatTypeExtension(formatType);
 
@@ -394,9 +394,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	}
 
 
-	template <class BaseModel, typename WeightType>
+	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
-    GpuModelSpecifics<BaseModel, WeightType>::writeCodeForComputeRemainingStatisticsKernel() {
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForComputeRemainingStatisticsKernel() {
 
         std::string name = "computeRemainingStatistics";
 
@@ -421,9 +421,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
         			"const REAL xb = xBeta[task];\n" <<
 					"const REAL offs = Offs[task];\n";
 					//"const int k = task;";
-        	code << "REAL exb = " << ModelSpecifics<BaseModel, WeightType>::writeCodeForGetOffsExpXBetaG() << ";\n";
+        	code << "REAL exb = " << writeCodeForGetOffsExpXBetaG() << ";\n";
         	code << "expXBeta[task] = exb;\n";
-        	code << ModelSpecifics<BaseModel, WeightType>::writeCodeForIncrementByGroupG() << ";\n";
+        	code << writeCodeForIncrementByGroupG() << ";\n";
         	//code << "denominator[task] = (REAL)1.0 + exb;\n";
         	//code << " 		REAL exb = exp(xBeta[task]);		\n" <<
         	//		"		expXBeta[task] = exb;		\n";
@@ -577,9 +577,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 
 */
-	template <class BaseModel, typename WeightType>
+	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
-	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForMMGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia) {
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForMMGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia) {
 
         std::string name = "computeMMGradHess" + getFormatTypeExtension(formatType) + (useWeights ? "W" : "N");
 
@@ -724,9 +724,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
 	}
 
-	template <class BaseModel, typename WeightType>
+	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
-	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForGetGradientObjective(bool useWeights, bool isNvidia) {
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGetGradientObjective(bool useWeights, bool isNvidia) {
         std::string name;
 	    if(useWeights) {
 	        name = "getGradientObjectiveW";
@@ -771,9 +771,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
 	}
 
-	template <class BaseModel, typename WeightType>
+	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
-	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia) {
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia) {
 		std::string name = "computeGradHess" + getFormatTypeExtension(formatType) + (useWeights ? "W" : "N");
 
 		        std::stringstream code;
