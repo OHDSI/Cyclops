@@ -32,6 +32,7 @@ namespace detail {
 
 namespace constant {
     static const int updateXBetaBlockSize = 256; // 512; // Appears best on K40
+    static const int updateAllXBetaBlockSize = 32;
 }; // namespace constant
 
 template <typename DeviceVec, typename HostVec>
@@ -178,6 +179,10 @@ public:
     	return dtaskCounts;
     }
 
+    const std::vector<FormatType> getFormat() const{
+    	return formats;
+    }
+
 
 private:
 
@@ -291,6 +296,7 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::algorithmType;
     using ModelSpecifics<BaseModel, WeightType>::norm;
     using ModelSpecifics<BaseModel, WeightType>::boundType;
+    using ModelSpecifics<BaseModel, WeightType>::hXt;
 
     const static int tpb = 128; // threads-per-block  // Appears best on K40
     const static int maxWgs = 2;  // work-group-size
@@ -308,7 +314,7 @@ public:
       dColumns(ctx),
       dY(ctx), dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dBuffer(ctx), dKWeight(ctx),
       dId(ctx), dNorm(ctx), dOffs(ctx), dFixBeta(ctx), dIndices(ctx), dVector1(ctx), dVector2(ctx),
-      dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx), dNtoK(ctx), dAllDelta(ctx),
+      dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx), dNtoK(ctx), dAllDelta(ctx), dColumnsXt(ctx),
 	  dXBetaKnown(false), hXBetaKnown(false){
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
@@ -330,6 +336,8 @@ public:
 
         // Copy data
         dColumns.initialize(modelData, queue, K, true);
+        //this->initializeMmXt();
+        //dColumnsXt.initialize(*hXt, queue, K, true);
 
         for (size_t j = 0; j < J /*modelData.getNumberOfColumns()*/; ++j) {
 
@@ -370,7 +378,7 @@ public:
         buildAllKernels(neededFormatTypes);
         std::cout << "built all kernels \n";
 
-        printAllKernels(std::cerr);
+        //printAllKernels(std::cerr);
     }
 
     virtual void computeRemainingStatistics(bool useWeights) {
@@ -859,7 +867,8 @@ public:
 		    computeRemainingStatistics(true);
 	    	//kernel.set_arg(12, dNorm);
 
-
+	        this->initializeMmXt();
+	        dColumnsXt.initialize(*hXt, queue, K, true);
 
         	initialized = true;
         }
@@ -1130,8 +1139,7 @@ public:
 #endif // GPU_DEBUG
     }
 
-    virtual void updateAllXBeta(std::vector<double>& allDelta,
-    		std::vector<bool>& fixBeta, bool useWeights) {
+    virtual void updateAllXBeta(std::vector<double>& allDelta, std::vector<bool>& fixBeta, bool useWeights) {
 #ifdef GPU_DEBUG
         ModelSpecifics<BaseModel, WeightType>::updateXBeta(realDelta, index, useWeights);
 #endif // GPU_DEBUG
@@ -1141,21 +1149,22 @@ public:
 #endif
 
         // get kernel
-        auto& kernel = kernelUpdateAllXBeta[FormatType::DENSE];
+        auto& kernel = kernelUpdateAllXBeta[hXt->getFormatType(0)];
 
         // set kernel args
-        kernel.set_arg(0, dColumns.getDataStarts());
-        kernel.set_arg(1, dColumns.getIndicesStarts());
-        kernel.set_arg(2, dColumns.getTaskCounts());
+        kernel.set_arg(0, dColumnsXt.getDataStarts());
+        kernel.set_arg(1, dColumnsXt.getIndicesStarts());
+        kernel.set_arg(2, dColumnsXt.getTaskCounts());
         detail::resizeAndCopyToDevice(allDelta, dAllDelta, queue);
         kernel.set_arg(3, dAllDelta);
-        kernel.set_arg(4, dColumns.getData());
-        kernel.set_arg(5, dColumns.getIndices());
+        kernel.set_arg(4, dColumnsXt.getData());
+        kernel.set_arg(5, dColumnsXt.getIndices());
         kernel.set_arg(6, dY);
         kernel.set_arg(7, dXBeta);
-        int dJ = J;
-        kernel.set_arg(10, dJ);
-        kernel.set_arg(11, detail::constant::updateXBetaBlockSize);
+    	const auto wgs = 1;
+    	const auto globalWorkSize = detail::constant::updateAllXBetaBlockSize * wgs;
+        kernel.set_arg(10, globalWorkSize);
+        kernel.set_arg(11, wgs);
         std::vector<int> hFixBeta;
         hFixBeta.resize(J);
         for (int i=0; i<J; ++i) {
@@ -1173,18 +1182,17 @@ public:
         	const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
          */
         // set work size; yes looping
-        const size_t globalWorkSize = detail::constant::updateXBetaBlockSize * J;
-
         // run kernel
-        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize*K, detail::constant::updateAllXBetaBlockSize);
         queue.finish();
 
         hXBetaKnown = false; // dXBeta was just updated
 
+
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
         ///////////////////////////"
-        auto name = "updateAllXBetaG" + getFormatTypeExtension(FormatType::DENSE) + "  ";
+        auto name = "updateAllXBetaG" + getFormatTypeExtension(hXt->getFormatType(0)) + "  ";
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
     }
@@ -1343,7 +1351,7 @@ private:
 
     SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType);
 
-    SourceCode writeCodeForUpdateAllXBetaKernel(FormatType formatType);
+    SourceCode writeCodeForUpdateAllXBetaKernel(FormatType formatType, bool isNvidia);
 
     SourceCode writeCodeForMMGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
@@ -1476,10 +1484,7 @@ private:
 
         auto source = writeCodeForUpdateXBetaKernel(formatType);
 
-        // std::cerr << source.body << std::endl;
-
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        std::cout << "built updateXBeta program \n";
         auto kernel = compute::kernel(program, source.name);
 
         // Rcpp::stop("uXB");
@@ -1500,9 +1505,7 @@ private:
     	options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
         auto source = writeCodeForComputeRemainingStatisticsKernel();
-        //std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        std::cout << "built computeRemainingStatistics program \n";
         auto kernel = compute::kernel(program, source.name);
 
         int dK = K;
@@ -1517,9 +1520,26 @@ private:
 
     void buildUpdateAllXBetaKernel(FormatType formatType) {
       	std::stringstream options;
-      	options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
-      	auto source = writeCodeForUpdateAllXBetaKernel(formatType);
+        if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+        options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << detail::constant::updateAllXBetaBlockSize;
+#else
+        options << "-DREAL=double -DTMP_REAL=double -DTPB=" << detail::constant::updateAllXBetaBlockSize;
+#endif // USE_VECTOR
+        } else {
+#ifdef USE_VECTOR
+            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << detail::constant::updateAllXBetaBlockSize;
+#else
+            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << detail::constant::updateAllXBetaBlockSize;
+#endif // USE_VECTOR
+        }
+
+    	//options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
+
+        const auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+
+      	auto source = writeCodeForUpdateAllXBetaKernel(formatType, isNvidia);
       	auto program = compute::program::build_with_source(source.body, ctx, options.str());
       	std::cout << "built updateAllXBeta program \n";
       	auto kernel = compute::kernel(program, source.name);
@@ -1642,6 +1662,7 @@ private:
     // vectors of columns
     // std::vector<GpuColumn<real> > columns;
     AllGpuColumns<real> dColumns;
+    AllGpuColumns<real> dColumnsXt;
 
     std::vector<real> hBuffer0;
     std::vector<real> hBuffer;

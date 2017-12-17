@@ -883,14 +883,12 @@ void CyclicCoordinateDescent::findMode(
             for (int index = 0; index < J; ++index) {
             	if (!fixBeta[index]) {
             		double delta = allDelta[index];
-            		delta = applyBounds(delta, index);
-            		//hBeta[index] += delta;
-            		//allDelta[index] = delta;
-            		updateSufficientStatistics(delta, index);
+            		double realDelta = static_cast<double>(applyBounds(delta, index));
+            		hBeta[index] += realDelta;
+            		allDelta[index] = realDelta;
+            		//updateSufficientStatistics(delta, index);
             	}
             }
-            computeRemainingStatistics(true, 0);
-
             /*
             std::cerr << "allDelta: ";
             for (auto x : allDelta) {
@@ -899,7 +897,9 @@ void CyclicCoordinateDescent::findMode(
 	        std::cerr << "\n";
 	        */
 
-            //modelSpecifics.updateAllXBeta(allDelta, fixBeta, useCrossValidation);
+            modelSpecifics.updateAllXBeta(allDelta, fixBeta, useCrossValidation);
+            computeRemainingStatistics(true, 0);
+
 /*
             for (int index = 0; index < J; ++index) {
                 if (!fixBeta[index]) {

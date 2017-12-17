@@ -315,13 +315,12 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 	template <class BaseModel, typename WeightType>
     SourceCode
-	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForUpdateAllXBetaKernel(FormatType formatType) {
+	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForUpdateAllXBetaKernel(FormatType formatType, bool isNvidia) {
 
         std::string name = "updateAllXBeta" + getFormatTypeExtension(formatType);
 
         std::stringstream code;
         code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
-        code << "#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\n";
 
         code << "__kernel void " << name << "(            \n" <<
                 "       __global const uint* offXVec,                  \n" <<
@@ -334,41 +333,62 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "       __global  REAL* xBeta,       \n" <<
                 "       __global const REAL* expXBeta,    \n" <<
                 "       __global const REAL* denominator, \n" <<
-				"		const uint J,					  \n" <<
-				"		const uint TPB,					\n" <<
+				"		const uint indexWorkSize,		\n" <<
+				"		const uint wgs,					\n" <<
 				"		__global const int* fixBeta) {    \n";    // TODO Make weight optional
+
         // Initialization
-        code << "	const uint index = get_group_id(0);		\n" <<
-				//"	if (fixBeta[index] == 0) {					\n" <<
-        		"   uint task = get_global_id(0)%TPB; \n" <<
-                //"   const uint loopSize = get_global_size(0)/J; \n" <<
-				"	const uint offX = offXVec[index];			\n" <<
-				"	const uint offK = offKVec[index];			\n" <<
-				"	const uint N = NVec[index];					\n" <<
-				"	const REAL delta = allDelta[index];			\n" <<
+        code << "   const uint lid = get_local_id(0); \n" <<
+                "   const uint loopSize = indexWorkSize; \n" <<
+                "   uint task = get_global_id(0)%indexWorkSize;  \n" <<
                     // Local and thread storage
-                "   while (task < N) { \n";
+                "   __local REAL scratch[TPB];  \n" <<
+                "   REAL sum = 0.0; \n" <<
+				"	const uint n = get_group_id(0)/wgs;		\n" <<
+				"	const uint offX = offXVec[n];			\n" <<
+				"	const uint offK = offKVec[n];			\n" <<
+				"	const uint N = NVec[n];					\n";//<<
+				/*
+        code << "   const uint lid = get_local_id(0); \n" <<
+        		"	const uint n = get_group_id(0);		\n" <<
+				//"	if (fixBeta[index] == 0) {					\n" <<
+        		//"   uint task = get_global_id(0)%TPB; \n" <<
+                //"   const uint loopSize = get_global_size(0)/J; \n" <<
+				"	const uint offX = offXVec[n];			\n" <<
+				"	const uint offK = offKVec[n];			\n" <<
+				"	const uint N = NVec[n];					\n" <<
+				//"	const REAL delta = allDelta[index];			\n" <<
+                    // Local and thread storage
+                "   REAL sum = 0.0; \n" <<
+				"   __local REAL scratch[TPB];  \n" <<
+				*/
+        code << "   while (task < N) { 						\n";// <<
         if (formatType == INDICATOR || formatType == SPARSE) {
         	code << "   const uint k = K[offK + task];         \n";
         } else { // DENSE, INTERCEPT
         	code << "   const uint k = task;            \n";
         }
-
+        code << "	const REAL delta = allDelta[k];		\n";
         if (formatType == SPARSE || formatType == DENSE) {
         	code << "   const REAL inc = delta * X[offX + task]; \n";
         } else { // INDICATOR, INTERCEPT
         	code << "   const REAL inc = delta;           \n";
         }
         //code << "	if (inc != 0.0) xBeta[k] += inc; \n";// <<
-        code << " REAL xb = xBeta[k];\n";
-        code << "if (inc != 0.0) atomic_xchg((volatile __global REAL *)(xBeta+k), xb + inc);\n";
+        code << " sum += inc;\n";
+        //code << "if (inc != 0.0) atomic_xchg((volatile __global REAL *)(xBeta+k), xb + inc);\n";
 
         // Bookkeeping
         code << "       task += TPB; \n" <<
                 "   } \n";// <<
                     // Thread -> local
+        code << "   scratch[lid] = sum; \n";
+        code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
+
+        code << "   if (lid == 0) { \n" <<
+                "       xBeta[n] += scratch[0]; \n" <<
+                "   } \n";
         code << "}  \n"; // End of kernel
-        //code << "}  \n"; // End of kernel
 
         return SourceCode(code.str(), name);
 	}
@@ -589,18 +609,18 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		__global const REAL* norm,		  \n" <<
 				//"		const uint index) {\n";
 				"		__global const int* fixBeta,   \n" <<
-				"		const uint J,					\n" <<
+				"		const uint indexWorkSize,					\n" <<
 				"		const uint wgs,					\n" <<
 				"		__global const int* indices) {    \n";    // TODO Make weight optional
         // Initialization
         code << "   const uint lid = get_local_id(0); \n" <<
         		//"   const uint loopSize = get_global_size(0); \n" <<
         		//"   uint task = get_global_id(0);  \n" <<
-                "   const uint loopSize = J; \n" <<
+                "   const uint loopSize = indexWorkSize; \n" <<
 				"	const uint index = indices[get_group_id(0)/wgs];		\n" <<
 				"	if (fixBeta[index] == 0) {					\n" <<
                 "   __local REAL scratch[2][TPB];  \n" <<
-                "   uint task = get_global_id(0)%J;  \n" <<
+                "   uint task = get_global_id(0)%indexWorkSize;  \n" <<
 				"	const uint offX = offXVec[index];			\n" <<
 				"	const uint offK = offKVec[index];			\n" <<
 				"	const uint N = NVec[index];					\n" <<
@@ -728,7 +748,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "   const uint loopSize = get_global_size(0); \n" <<
                 "   uint task = get_global_id(0);  \n" <<
                     // Local and thread storage
-                "   __local REAL scratch[TPB + 1];  \n" <<
+                "   __local REAL scratch[TPB];  \n" <<
                 "   REAL sum = 0.0; \n" <<
                 "   while (task < N) { \n";
         if (useWeights) {
@@ -788,7 +808,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"			}  										\n" <<
 						"  		}											\n" <<
 						"	}												\n" <<
-						"	if (col%2 == 1) {								\n" \
+						"	if (col%2 == 1) {								\n" <<
 						" 		if (t == -1) B0_in[i] = B1_in[i];			\n" <<
 						"		else { 										\n" <<
 						"			if (i > 2 ) B0_in[i] = B1_in[i] + t*B1_in[i-3] + vector1_in[i]*x*t*B1_in[i-3-i%3] + 2*vector2_in[i]*x*t*B1_in[i-2-i%3]; \n" <<
