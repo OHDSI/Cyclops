@@ -206,7 +206,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         }
         */
 
-        code << writeCodeForIncrementGradientAndHessianG(formatType, useWeights);
+        code << BaseModelG::incrementGradientAndHessianG(formatType, useWeights);
 
 #ifdef USE_VECTOR
         code << "       sum += (TMP_REAL)(gradient, hessian); \n";
@@ -421,9 +421,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
         			"const REAL xb = xBeta[task];\n" <<
 					"const REAL offs = Offs[task];\n";
 					//"const int k = task;";
-        	code << "REAL exb = " << writeCodeForGetOffsExpXBetaG() << ";\n";
+        	code << "REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
         	code << "expXBeta[task] = exb;\n";
-        	code << writeCodeForIncrementByGroupG() << ";\n";
+    		code << "denominator[" << BaseModelG::getGroupG() << "] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
         	//code << "denominator[task] = (REAL)1.0 + exb;\n";
         	//code << " 		REAL exb = exp(xBeta[task]);		\n" <<
         	//		"		expXBeta[task] = exb;		\n";
@@ -749,8 +749,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "   uint task = get_global_id(0);  \n" <<
                     // Local and thread storage
                 "   __local REAL scratch[TPB];  \n" <<
-                "   REAL sum = 0.0; \n" <<
-                "   while (task < N) { \n";
+                "   REAL sum = 0.0; \n";
+        code << "   while (task < N) { \n";
         if (useWeights) {
         	code << "       const REAL w = weight[task];\n";
         }
@@ -914,6 +914,71 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		        return SourceCode(code.str(), name);
 	}
 	*/
+
+	template <class BaseModel, typename WeightType, class BaseModelG>
+	SourceCode
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGetLogLikelihood(bool useWeights, bool isNvidia) {
+        std::string name;
+	    if(useWeights) {
+	        name = "getLogLikelihoodW";
+	    } else {
+	        name = "getLogLikelihoodN";
+	    }
+
+	    std::stringstream code;
+	    code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+	    code << "__kernel void " << name << "(            \n" <<
+	    		"       const uint K,                     \n" <<
+				"		 const uint N,					   \n" <<
+				"       __global const REAL* Y,           \n" <<
+				"       __global const REAL* xBeta,       \n" <<
+				"		 __global const REAL* denominator,				\n" <<
+				"		 __global const REAL* accDenominator,			\n" <<
+				"       __global REAL* buffer,            \n" <<
+				"       __global const REAL* Kweight,	   \n" <<
+				"		 __global const REAL* Nweight) {    \n";    // TODO Make weight optional
+	    // Initialization
+	    code << "   const uint lid = get_local_id(0); \n" <<
+	    		"   const uint loopSize = get_global_size(0); \n" <<
+				"   uint task = get_global_id(0);  \n" <<
+				// Local and thread storage
+				"   __local REAL scratch[TPB];  \n" <<
+				"   REAL sum = 0.0; \n";
+
+		code << "   while (task < K) { \n";
+	    if (useWeights) {
+	    	code << "       const REAL wK = Kweight[task];\n";
+	    }
+	    code << "	const REAL xb = xBeta[task];     \n" <<
+	    		"	const REAL y = Y[task];			 \n";
+	    code << " sum += " << weightK(BaseModelG::logLikeNumeratorContribG(), useWeights) << ";\n";
+	    if (BaseModel::likelihoodHasDenominator) {
+	    	code << "if (task < N) {	\n";
+	    	code << " const REAL wN = Nweight[task];\n";
+	    	if (BaseModel::cumulativeGradientAndHessian) {
+	    		code << "const REAL denom = accDenominator[task];\n";
+	    	} else {
+	    		code << "const REAL denom = denominator[task];\n";
+	    	}
+	    	code << "sum -= " << BaseModelG::logLikeDenominatorContribG() << ";\n";
+	    	code << "}\n";
+	    }
+
+	    // Bookkeeping
+	    code << "       task += loopSize; \n" <<
+	    		"   } \n" <<
+				// Thread -> local
+				"   scratch[lid] = sum; \n";
+	    code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
+
+	    code << "   if (lid == 0) { \n" <<
+	    		"       buffer[get_group_id(0)] = scratch[0]; \n" <<
+				"   } \n";
+	    code << "}  \n"; // End of kernel
+	    return SourceCode(code.str(), name);
+	}
+
 
 
 } // namespace bsccs

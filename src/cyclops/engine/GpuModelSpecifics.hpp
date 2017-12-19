@@ -287,6 +287,7 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::hPidInternal;
     using ModelSpecifics<BaseModel, WeightType>::hOffs;
     using ModelSpecifics<BaseModel, WeightType>::denomPid;
+    using ModelSpecifics<BaseModel, WeightType>::accDenomPid;
     using ModelSpecifics<BaseModel, WeightType>::hXjY;
     using ModelSpecifics<BaseModel, WeightType>::hXjX;
     using ModelSpecifics<BaseModel, WeightType>::K;
@@ -298,6 +299,7 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::norm;
     using ModelSpecifics<BaseModel, WeightType>::boundType;
     using ModelSpecifics<BaseModel, WeightType>::hXt;
+    using ModelSpecifics<BaseModel, WeightType>::logLikelihoodFixedTerm;
 
     const static int tpb = 128; // threads-per-block  // Appears best on K40
     const static int maxWgs = 2;  // work-group-size
@@ -313,7 +315,7 @@ public:
           , compute::command_queue::enable_profiling
       ),
       dColumns(ctx),
-      dY(ctx), dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dBuffer(ctx), dKWeight(ctx),
+      dY(ctx), dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dAccDenominator(ctx), dBuffer(ctx), dKWeight(ctx), dNWeight(ctx),
       dId(ctx), dNorm(ctx), dOffs(ctx), dFixBeta(ctx), dIndices(ctx), dVector1(ctx), dVector2(ctx),
       dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx), dNtoK(ctx), dAllDelta(ctx), dColumnsXt(ctx),
 	  dXBetaKnown(false), hXBetaKnown(false){
@@ -332,6 +334,7 @@ public:
 #ifdef TIME_DEBUG
         std::cerr << "start dI" << std::endl;
 #endif
+        //isNvidia = compute::detail::is_nvidia_device(queue.get_device());
 
         int need = 0;
 
@@ -370,9 +373,11 @@ public:
         detail::resizeAndCopyToDevice(hXBeta, dXBeta, queue);  hXBetaKnown = true; dXBetaKnown = true;
         detail::resizeAndCopyToDevice(offsExpXBeta, dExpXBeta, queue);
         detail::resizeAndCopyToDevice(denomPid, dDenominator, queue);
+        detail::resizeAndCopyToDevice(accDenomPid, dAccDenominator, queue);
         detail::resizeAndCopyToDevice(hPidInternal, dId, queue);
         detail::resizeAndCopyToDevice(hOffs, dOffs, queue);
         detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
+        detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
 
         std::cerr << "Format types required: " << need << std::endl;
 
@@ -641,16 +646,22 @@ public:
         	*/
 
     	    compute::uint_ taskCount = 3*(N+totalCases);
-    	    size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
-    	    if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+    	    size_t workGroups = taskCount / detail::constant::updateAllXBetaBlockSize;
+    	    if (taskCount % detail::constant::updateAllXBetaBlockSize != 0) {
     	    	++workGroups;
     	    }
-    	    const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+    	    const size_t globalWorkSize = workGroups * detail::constant::updateAllXBetaBlockSize;
     	    kernel.set_arg(12, taskCount);
 
     	    //kernel.set_arg(8, maxN);
 	        //queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
 	        //queue.finish();
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end0 = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        auto name0 = "compGradHessGArgs";
+        duration[name0] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end0 - start).count();
+#endif
 
     	    for (int i=0; i < maxN; ++i) {
     	    	//std::cout << "run: " << i << '\n';
@@ -674,7 +685,7 @@ public:
 */
 
         	    kernel.set_arg(8, i);
-    	        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
+    	        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateAllXBetaBlockSize);
     	        queue.finish();
     	    }
     	    //std::cout << "got here2\n";
@@ -1254,11 +1265,72 @@ public:
         return(objective);
     }
 
-    virtual void setWeights(double* inWeights, bool useCrossValidation) {
+    double getLogLikelihood(bool useCrossValidation) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    	auto start = bsccs::chrono::steady_clock::now();
+#endif
+        auto& kernel = (useCrossValidation) ? // Double-dispatch
+                            kernelGetLogLikelihoodWeighted :
+							kernelGetLogLikelihoodNoWeight;
+
+        const auto wgs = maxWgs;
+        const auto globalWorkSize = tpb * wgs;
+
+        int dK = K;
+        int dN = N;
+        // Run-time constant arguments.
+        kernel.set_arg(0, dK);
+        kernel.set_arg(1, dN);
+        kernel.set_arg(2, dY);
+        kernel.set_arg(3, dXBeta);
+        kernel.set_arg(4, dDenominator);
+        kernel.set_arg(5, dAccDenominator);
+        dBuffer.resize(wgs, queue);
+        kernel.set_arg(6, dBuffer); // Can get reallocated.
+        hBuffer.resize(wgs);
+        if (dKWeight.size() == 0) {
+        	kernel.set_arg(7, 0);
+        } else {
+        	kernel.set_arg(7, dKWeight); // TODO Only when dKWeight gets reallocated
+        }
+        if (dNWeight.size() == 0) {
+        	kernel.set_arg(7, 0);
+        } else {
+        	kernel.set_arg(8, dNWeight); // TODO Only when dKWeight gets reallocated
+        }
+
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
+        queue.finish();
+
+        compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+
+        double logLikelihood = 0.0;
+
+        for (int i = 0; i < wgs; ++i) { // TODO Use SSE
+        	logLikelihood += hBuffer[i];
+        }
+
+        if (BaseModel::likelihoodHasFixedTerms) {
+        	logLikelihood += logLikelihoodFixedTerm;
+        }
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        duration["compLogLikeG      "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+        return(logLikelihood);
+    }
+
+
+virtual void setWeights(double* inWeights, bool useCrossValidation) {
         // Currently only computed on CPU and then copied to GPU
         ModelSpecifics<BaseModel, WeightType>::setWeights(inWeights, useCrossValidation);
 
         detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
+        detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
     }
 
     virtual const RealVector& getXBeta() {
@@ -1302,7 +1374,7 @@ public:
     virtual void computeNumeratorForGradient(int index) {
     }
 
-private:
+    private:
 
     void buildAllUpdateXBetaKernels(const std::vector<FormatType>& neededFormatTypes) {
         for (FormatType formatType : neededFormatTypes) {
@@ -1333,6 +1405,12 @@ private:
         //}
     }
 
+    void buildAllGetLogLikelihoodKernels() {
+        int b = 0;
+    	buildGetLogLikelihoodKernel(true); ++b;
+    	buildGetLogLikelihoodKernel(false); ++b;
+    }
+
     std::string getFormatTypeExtension(FormatType formatType) {
         switch (formatType) {
         case DENSE:
@@ -1360,6 +1438,8 @@ private:
     SourceCode writeCodeForComputeRemainingStatisticsKernel();
 
     SourceCode writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia);
+
+    SourceCode writeCodeForGetLogLikelihood(bool useWeights, bool isNvidia);
 
     void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
 
@@ -1591,6 +1671,49 @@ private:
          }
     }
 
+    void buildGetLogLikelihoodKernel(bool useWeights) {
+    	std::stringstream options;
+        if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+        options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+#else
+        options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+#endif // USE_VECTOR
+        } else {
+#ifdef USE_VECTOR
+            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+#else
+            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+#endif // USE_VECTOR
+        }
+        options << " -cl-mad-enable -cl-fast-relaxed-math";
+
+         const auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+
+         auto source = writeCodeForGetLogLikelihood(useWeights, isNvidia);
+         auto program = compute::program::build_with_source(source.body, ctx, options.str());
+         auto kernel = compute::kernel(program, source.name);
+
+         int dK = K;
+         int dN = N;
+         // Run-time constant arguments.
+         kernel.set_arg(0, dK);
+         kernel.set_arg(1, dN);
+         kernel.set_arg(2, dY);
+         kernel.set_arg(3, dXBeta);
+         kernel.set_arg(4, dDenominator);
+         kernel.set_arg(5, dAccDenominator);
+         kernel.set_arg(6, dBuffer);  // TODO Does not seem to stick
+         kernel.set_arg(7, dKWeight); // TODO Does not seem to stick
+         kernel.set_arg(8, dNWeight); // TODO Does not seem to stick
+
+         if (useWeights) {
+             kernelGetLogLikelihoodWeighted = std::move(kernel);
+         } else {
+        	 kernelGetLogLikelihoodNoWeight = std::move(kernel);
+         }
+    }
+
     void printKernel(compute::kernel& kernel, std::ostream& stream) {
 
         auto program = kernel.get_program();
@@ -1609,6 +1732,8 @@ private:
         std::cout << "built updateXBeta kernels \n";
         buildAllGetGradientObjectiveKernels();
         std::cout << "built getGradObjective kernels \n";
+        buildAllGetLogLikelihoodKernels();
+        std::cout << "built getLogLikelihood kernels \n";
         buildAllComputeRemainingStatisticsKernels();
         std::cout << "built computeRemainingStatistics kernels \n";
     }
@@ -1642,20 +1767,6 @@ private:
         }
     }
 
-	std::string writeCodeForIncrementGradientAndHessianG(FormatType formatType, bool useWeights) {
-		return(BaseModelG::incrementGradientAndHessianG(formatType, useWeights));
-	}
-
-	std::string writeCodeForGetOffsExpXBetaG() {
-		return(BaseModelG::getOffsExpXBetaG());
-	}
-
-	std::string writeCodeForIncrementByGroupG() {
-		std::stringstream code;
-		code << "denominator[" << BaseModelG::getGroupG() << "] =" << BaseModelG::getDenomNullValueG() << "+ exb";
-		return(code.str());
-	}
-
     // boost::compute objects
     const compute::device device;
     const compute::context ctx;
@@ -1670,6 +1781,8 @@ private:
     compute::kernel kernelGetGradientObjectiveWeighted;
     compute::kernel kernelGetGradientObjectiveNoWeight;
     compute::kernel kernelComputeRemainingStatistics;
+    compute::kernel kernelGetLogLikelihoodWeighted;
+    compute::kernel kernelGetLogLikelihoodNoWeight;
     std::map<FormatType, compute::kernel> kernelUpdateAllXBeta;
     std::map<FormatType, std::vector<int>> indicesFormats;
 
@@ -1690,6 +1803,7 @@ private:
     compute::vector<real> dXBeta;
     compute::vector<real> dExpXBeta;
     compute::vector<real> dDenominator;
+    compute::vector<real> dAccDenominator;
     compute::vector<real> dNorm;
     compute::vector<real> dOffs;
     compute::vector<int>  dFixBeta;
@@ -1715,7 +1829,8 @@ private:
     compute::vector<real> dBuffer;
     compute::vector<real> dBuffer1;
 #endif // USE_VECTOR
-    compute::vector<real> dKWeight;
+    compute::vector<real> dKWeight;	//TODO make these weighttype
+    compute::vector<real> dNWeight; //TODO make these weighttype
     compute::vector<int> dId;
 
     bool dXBetaKnown;
@@ -1740,6 +1855,14 @@ static std::string timesX(const std::string& arg, const FormatType formatType) {
 
 static std::string weight(const std::string& arg, bool useWeights) {
     return useWeights ? "w * " + arg : arg;
+}
+
+static std::string weightK(const std::string& arg, bool useWeights) {
+    return useWeights ? "wK * " + arg : arg;
+}
+
+static std::string weightN(const std::string& arg, bool useWeights) {
+    return useWeights ? "wN * " + arg : arg;
 }
 
 struct GroupedDataG {
@@ -1791,6 +1914,11 @@ struct NoFixedLikelihoodTermsG {
 
 struct GLMProjectionG {
 public:
+	std::string logLikeNumeratorContribG() {
+		std::stringstream code;
+		code << "y * xb";
+		return(code.str());
+	}
 };
 
 struct SurvivalG {
@@ -1841,6 +1969,12 @@ public:
         return(code.str());
     }
 
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "wN * log(denom)";
+		return(code.str());
+	}
+
 };
 
 struct ConditionalPoissonRegressionG : public GroupedDataG, GLMProjectionG, FixedPidG, SurvivalG {
@@ -1868,6 +2002,12 @@ public:
 		code << "exp(xb)";
         return(code.str());
     }
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "wN * log(denom)";
+		return(code.str());
+	}
 
 };
 
@@ -1897,6 +2037,12 @@ public:
         return(code.str());
     }
 
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "wN * log(denom)";
+		return(code.str());
+	}
+
 };
 
 struct TiedConditionalLogisticRegressionG : public GroupedWithTiesDataG, GLMProjectionG, FixedPidG, SurvivalG {
@@ -1916,6 +2062,12 @@ public:
 		return("");
 	}
 
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "wN * log(denom)";
+		return(code.str());
+	}
+
 };
 
 struct LogisticRegressionG : public IndependentDataG, GLMProjectionG, LogisticG, FixedPidG,
@@ -1931,6 +2083,12 @@ public:
 		code << "exp(xb)";
         return(code.str());
     }
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "log(denom)";
+		return(code.str());
+	}
 
 };
 
@@ -1959,6 +2117,12 @@ public:
 		code << "exp(xb)";
         return(code.str());
     }
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "wN * log(denom)";
+		return(code.str());
+	}
 
 };
 
@@ -1991,6 +2155,12 @@ public:
         }
         return(code.str());
 	}
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "wN * log(denom)";
+		return(code.str());
+	}
 };
 
 struct LeastSquaresG : public IndependentDataG, FixedPidG, NoFixedLikelihoodTermsG  {
@@ -2006,9 +2176,25 @@ public:
 
 	std::string getOffsExpXBetaG() {
 		std::stringstream code;
-		code << "(REAL)0";
+		code << "(REAL)0.0";
         return(code.str());
     }
+
+	std::string logLikeNumeratorContribG() {
+		std::stringstream code;
+		code << "(y-xb)*(y-xb)";
+		return(code.str());
+	}
+
+	real logLikeDenominatorContrib(int ni, real denom) {
+		return std::log(denom);
+	}
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "log(denom)";
+		return(code.str());
+	}
 
 };
 
@@ -2036,6 +2222,12 @@ public:
 		code << "exp(xb)";
         return(code.str());
     }
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "denom";
+		return(code.str());
+	}
 
 };
 
