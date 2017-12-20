@@ -770,7 +770,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         code << "}  \n"; // End of kernel
         return SourceCode(code.str(), name);
 	}
-
+/*
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
 	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia) {
@@ -798,6 +798,30 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"	int stratum = indices_in[i];			\n" <<
 						"	REAL x = xMatrix_in[col*(N+1)+stratum];	\n" <<
 						"	REAL t = expXMatrix_in[col*(N+1)+stratum];	\n" <<
+						"	__global REAL* BOld;					\n" <<
+						"	__global REAL* BNew;					\n" <<
+						"	__global uint* OverflowOld;				\n" <<
+						"	__global uint* OverflowNew;				\n" <<
+						//"	__local REAL* BOld; __local REAL* BNew;	\n" <<
+						"	if (col%2==0) {							\n" <<
+						"		BOld=B0_in; 						\n" <<
+						"		BNew=B1_in;							\n" <<
+						"		OverflowOld=overflow0_in; 			\n" <<
+						"		OverflowNew=overflow1_in; 			\n" <<
+						"	} else {								\n" <<
+						"		BOld=B1_in;							\n" <<
+						"		BNew=B0_in;							\n" <<
+						"		OverflowOld=overflow1_in; 			\n" <<
+						"		OverflowNew=overflow0_in; 			\n" <<
+						"	}										\n" <<
+						"	if (t == -1) BNew[i] = BOld[i];			\n" <<
+						"	else { 									\n" <<
+						"		if (i > 2) BNew[i] = BOld[i] + t*BOld[i-3] + vector1_in[i]*x*t*BOld[i-3-i%3] + 2*vector2_in[i]*x*t*BOld[i-2-i%3]; \n" <<
+						" 		if (OverflowOld[stratum] == 1) BNew[i] /= 1e25;          	\n" <<
+						"		if (BNew[i] > 1e25 && OverflowNew[stratum] == 0) OverflowNew[stratum] = 1;	\n" <<
+						"  	}										\n" <<
+						//"	if (i < (N+1) && col%2 == 0) OverflowOld[i] = 0;\n" <<
+
 						"   if (col%2 == 0) {						\n" <<
 						"		if (t == -1) B1_in[i] = B0_in[i];	\n" <<
 						"		else { 								\n" <<
@@ -818,6 +842,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"			}  										\n" <<
 						"  		}											\n" <<
 						"	}												\n" <<
+
 						"	if (i < (N+1) && col%2 == 0) overflow0_in[i] = 0;\n" <<
 						"	if (i < (N+1) && col%2 == 1) overflow1_in[i] = 0;\n" <<
 						"	};										\n";
@@ -825,95 +850,102 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 		        return SourceCode(code.str(), name);
 	}
-
-	/*
-	template <class BaseModel, typename WeightType>
+*/
+	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
-	GpuModelSpecifics<BaseModel, WeightType>::writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia) {
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia) {
 		std::string name = "computeGradHess" + getFormatTypeExtension(formatType) + (useWeights ? "W" : "N");
 
 		        std::stringstream code;
+		        code << "REAL log_sum(REAL x, REAL y) {										\n" <<
+		        		"	if (isinf(x)) return y;											\n" <<
+						"	if (isinf(y)) return x;											\n" <<
+						"	REAL z = max(x,y);												\n" <<
+						"	return z + log(exp(x-z) + exp(y-z));							\n" <<
+						"}																	\n";
 		        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
 
-		        code << "__kernel void " << name << "(            	\n" <<
-		        	    "   __global REAL* B0_in,                	\n" <<
-		        	    "   __global REAL* B1_in,               	\n" <<
-		        		"   __global const uint* indices_in, 		\n" <<
-		        		"   __global const REAL* xMatrix_in, 		\n" <<
-		        		"   __global const REAL* expXMatrix_in, 	\n" <<
-		        		"   __global const uint* vector1_in, 		\n" <<
-		        		"   __global const uint* vector2_in, 		\n" <<
-		        		"   const uint N, 							\n" <<
-		        	    "   const uint maxN,                 		\n" <<
-		                "   __global const REAL* weight,			\n" <<
-					    "	__global uint* overflow0_in,           	\n" <<
-					    "	__global uint* overflow1_in,				\n" <<
-						"	const uint tasks,						\n" <<
-						"	__global const uint* NtoK,				\n" <<
-						"	const uint offX) {    					\n";
-				code << "   const uint i = get_global_id(0);		\n" <<
-						"	for (uint col = 0; col < maxN; col++) {					\n" <<
-						"	barrier(CLK_GLOBAL_MEM_FENCE);			\n" <<
-						"	if (i < tasks) {						\n" <<
-						"	int stratum = indices_in[i];			\n" <<
-						"	if (stratum > 0) {						\n" <<
-						"	int offset = NtoK[stratum-1];			\n" <<
-						"	int stratumSize = NtoK[stratum] - offset;			\n" <<
-						"   if (col < stratumSize) {				\n" <<
-						"	REAL x = xMatrix_in[offX + offset + col];		\n" <<
-						"	REAL t = expXMatrix_in[offset + col];	\n" <<
-						"	REAL* BOld;								\n" <<
-						"	REAL* BNew;								\n" <<
-						"	uint* overflowOld;						\n" <<
-						"	uint* overflowNew;						\n" <<
-						"	if (col%2 ==0) {						\n" <<
-						"		BOld = &B0_in;						\n" <<
-						"		BNew = &B1_in;						\n" <<
-						"		overflowOld = &overflow0_in;		\n" <<
-						"		overflowNew = &overflow1_in;		\n" <<
-						"	} else {								\n" <<
-						"		BOld = &B1_in;						\n" <<
-						"		BNew = &B0_in;						\n" <<
-						"		overflowOld = &overflow1_in;		\n" <<
-						"		overflowNew = &overflow0_in;		\n" <<
-						"	}										\n" <<
-						//"	if (i==0) BOld[i] = 1;					\n" <<
-						//"	if (i > 2) *(BNew+i) = *(BOld+i) + t**(BOld+i-3) + vector1_in[i]*x*t**(BOld+i-3-i%3) + 2*vector2_in*x*t**(BOld+i-2-i%3);\n" <<
-						//"	if (*(overflowOld+stratum) == 1) *(BNew+i) /= 1e25; \n" <<
-						//"	if (*(BNew+i) > 1e25 && *(overflowNew+stratum) == 0) *(overflowNew+stratum) = 1; \n" <<
-						//"	if (i > 2) BNew[i] = BOld[i] + t*BOld[i-3] + vector1_in[i]*x*t*BOld[i-3-i%3] + 2*vector2_in[i]*x*t*BOld[i-2-i%3];\n" <<
-						//"	if (overflowOld[stratum] == 1) BNew[i] /= 1e25; \n" <<
-						//"	if (BNew[i] > 1e25 && overflowNew[stratum] == 0) overflowNew[stratum] = 1; 				\n" <<
-						"   if (col%2 == 0) {						\n" <<
-						"		if (i > 2) B1_in[i] = B0_in[i] + t*B0_in[i-3] + vector1_in[i]*x*t*B0_in[i-3-i%3] + 2*vector2_in[i]*x*t*B0_in[i-2-i%3]; \n" <<
-						" 		if (overflow0_in[stratum] == 1) B1_in[i] /= 1e25;          							\n" <<
-						"		if (B1_in[i] > 1e25 && overflow1_in[stratum] == 0) overflow1_in[stratum] =  1;		\n" <<
-						"	}										\n" <<
-						"	if (col%2 == 1) {						\n" <<
-						"		if (i > 2 ) B0_in[i] = B1_in[i] + t*B1_in[i-3] + vector1_in[i]*x*t*B1_in[i-3-i%3] + 2*vector2_in[i]*x*t*B1_in[i-2-i%3]; \n" <<
-						" 		if (overflow1_in[stratum] == 1) B0_in[i] /= 1e25;          							\n" <<
-						"		if (B0_in[i] > 1e25 && overflow0_in[stratum] == 0) overflow0_in[stratum] = 1;		\n" <<
-						"	}										\n" <<
-						"	}										\n" <<
-						"	}										\n" <<
-						"	}										\n" <<
-						"	barrier(CLK_GLOBAL_MEM_FENCE);			\n" <<
-						"	if (i < (N+1) && col%2 == 0) overflow0_in[i] = 0;\n" <<
-						"	if (i < (N+1) && col%2 == 1) overflow1_in[i] = 0;\n" <<
-
-						"	}\n" <<
-						"	}\n" <<
-						"	}\n"<<
-						"	barrier(CLK_GLOBAL_MEM_FENCE);				\n";// <<
-						"	if (i < (N+1)) overflowOld[i] = 0;	\n"; //<<
-
-						//"	barrier(CLK_GLOBAL_MEM_FENCE);			\n" <<
-						//"	}										\n";
+		        code << "__kernel void " << name << "(            		\n" <<
+		                "       __global const uint* offXVec,           \n" <<
+		                "       __global const uint* offKVec,           \n" <<
+						"		__global const uint* NVec,				\n" <<
+					    " 		__global const uint* NtoK,				\n" <<
+		                "       __global const uint* Kcurrent,          \n" <<
+		        		"   	__global const REAL* X, 				\n" <<
+		                "   	__global const int* K,            		\n" <<
+		        		"   	__global const REAL* expXBeta, 			\n" <<
+						"		__global const REAL* NWeight,			\n" <<
+						"		__global REAL* buffer,					\n" <<
+		        	    "   	__global REAL* firstRow,                \n" <<
+						"		const uint firstRowStride,				\n" <<
+		        	    "   	const uint iteration,                 	\n" <<
+					    "		const uint index) {    					\n";
+				code << "   const uint i = get_local_id(0);				\n" <<
+						"	const uint stratum = get_group_id(0);		\n" <<
+						"	const uint strata = get_num_groups(0);		\n" <<
+						"	const uint subjects = NtoK[stratum+1] - NtoK[stratum]; \n" <<
+						"	const uint cases = NWeight[stratum];		\n" <<
+						"	const uint controls = subjects - cases;		\n" <<
+						"	if (iteration * 32 < cases) {				\n" <<
+						"	__local REAL B0[99];						\n" <<
+						"	__local REAL B1[99];						\n" <<
+#ifdef USE_LOG_SUM
+						"	B0[3*i+3] = B0[3*i+4] = B0[3*i+5] = -INFINITY;		\n" <<
+						"	B1[3*i+3] = B1[3*i+4] = B1[3*i+5] = -INFINITY;		\n" <<
+						"	const REAL logTwo = log((REAL)2.0);		\n" <<
+#else
+						"	B0[3*i+3] = B0[3*i+4] = B0[3*i+5] = 0;		\n" <<
+						"	B1[3*i+3] = B1[3*i+4] = B1[3*i+5] = 0;		\n" <<
+#endif
+						"	const uint offX = offXVec[index];			\n" <<
+						"	const uint offK = offKVec[index];			\n" <<
+						"	uint taskCounts = cases%32;					\n" <<
+						"	if (taskCounts == 0 || (iteration+1) * 32 < cases) taskCounts = 32; \n" <<
+					    "	__local REAL* BOld;							\n" <<
+						"	__local REAL* BNew;							\n" <<
+						"	for (int task = 0; task < controls + taskCounts; task++) { \n" <<
+						"		if (task % 2 == 0) {						\n" <<
+						"			BOld = B0; BNew = B1;					\n" <<
+						"		} else {									\n" <<
+						"			BOld = B1; BNew = B0;					\n" <<
+						"		} 											\n" <<
+						"		const uint k = iteration * 32 + task;		\n" <<
+#ifdef USE_LOG_SUM
+						"		const REAL exb = log(expXBeta[NtoK[stratum] + k]);	\n" <<
+						"		const REAL x = log(X[offX + NtoK[stratum] + k]);	\n" <<
+#else
+						"		const REAL exb = expXBeta[NtoK[stratum] + k];	\n" <<
+						"		const REAL x = X[offX + NtoK[stratum] + k];	\n" <<
+#endif
+						"		if (i == 0 && task < controls) {	\n" <<
+						"			BOld[0] = firstRow[firstRowStride*stratum + 3*task]; \n" <<
+						"			BOld[1] = firstRow[firstRowStride*stratum + 3*task + 1]; \n" <<
+						"			BOld[2] = firstRow[firstRowStride*stratum + 3*task + 2]; \n" <<
+						"		} 											\n" <<
+#ifdef USE_LOG_SUM
+						"		BNew[3*i+3] = log_sum(BOld[3*i+3],exb+BOld[3*i]);	\n" <<
+						"		BNew[3*i+4] = log_sum(log_sum(BOld[3*i+4], exb+BOld[3*i+1]),x+exb+BOld[3*i]);	\n" <<
+						"		BNew[3*i+5] = log_sum(log_sum(log_sum(BOld[3*i+5], exb+BOld[3*i+2]), x+exb+BOld[3*i]),logTwo+x+exb+BOld[3*i+1]);	\n" <<
+#else
+						"		BNew[3*i+3] = BOld[3*i+3] + exb*BOld[3*i];	\n" <<
+						"		BNew[3*i+4] = BOld[3*i+4] + exb*BOld[3*i+1] + x*exb*BOld[3*i];	\n" <<
+						"		BNew[3*i+5] = BOld[3*i+5] + exb*BOld[3*i+2] + x*exb*BOld[3*i] + 2*x*exb*BOld[3*i+1];	\n" <<
+#endif
+						"		if (i == 31 && task >= 31) {				\n" <<
+						"			firstRow[firstRowStride*stratum + 3*(task - 31)] = BNew[3*i+3]; \n" <<
+						"			firstRow[firstRowStride*stratum + 3*(task - 31) + 1] = BNew[3*i+4]; \n" <<
+						"			firstRow[firstRowStride*stratum + 3*(task - 31) + 2] = BNew[3*i+5]; \n" <<
+						"		}											\n" <<
+						"	}												\n" <<
+						"	if (iteration * 32 + taskCounts == cases && i == taskCounts-1) {	\n" <<
+						"		buffer[3*stratum] = BNew[3*i+3];	\n" <<
+						"		buffer[3*stratum+1] = BNew[3*i+4]; \n" <<
+						"		buffer[3*stratum+2] = BNew[3*i+5]; \n" <<
+						"	}												\n" <<
+						"	}												\n";
 		        code << "}  \n"; // End of kernel
-
 		        return SourceCode(code.str(), name);
 	}
-	*/
 
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode

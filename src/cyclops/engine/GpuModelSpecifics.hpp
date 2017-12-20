@@ -14,7 +14,7 @@
 
 // #define GPU_DEBUG
 #undef GPU_DEBUG
-
+#define USE_LOG_SUM
 #define TIME_DEBUG
 
 #include <Rcpp.h>
@@ -316,7 +316,7 @@ public:
       ),
       dColumns(ctx),
       dY(ctx), dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dAccDenominator(ctx), dBuffer(ctx), dKWeight(ctx), dNWeight(ctx),
-      dId(ctx), dNorm(ctx), dOffs(ctx), dFixBeta(ctx), dIndices(ctx), dVector1(ctx), dVector2(ctx),
+      dId(ctx), dNorm(ctx), dOffs(ctx), dFixBeta(ctx), dIndices(ctx), dVector1(ctx), dVector2(ctx), dFirstRow(ctx),
       dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx), dNtoK(ctx), dAllDelta(ctx), dColumnsXt(ctx),
 	  dXBetaKnown(false), hXBetaKnown(false){
 
@@ -491,7 +491,100 @@ public:
         	auto& kernel = (useWeights) ? // Double-dispatch
         	                            kernelGradientHessianWeighted[formatType] :
         	                            kernelGradientHessianNoWeight[formatType];
+        	std::cerr << "index: " << index << '\n';
 
+        	if (!initialized) {
+    		    computeRemainingStatistics(true);
+        		detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
+        		maxN = 0;
+        		maxCases = 0;
+        		for (int i = 0; i < N; ++i) {
+        			int newN = hNtoK[i+1] - hNtoK[i];
+        			int newC = hNWeight[i];
+        			if (newN > maxN) maxN = newN;
+        			if (newC > maxCases) maxCases = newC;
+        		}
+        		hFirstRow.resize(3*(maxN+1)*N);
+        		for (int i = 0; i < N*(maxN+1); ++i) {
+#ifdef USE_LOG_SUM
+        			hFirstRow[3*i] = 0;
+        			hFirstRow[3*i+1] = -INFINITY;
+        			hFirstRow[3*i+2] = -INFINITY;
+#else
+        			hFirstRow[3*i] = 1;
+        			hFirstRow[3*i+1] = 0;
+        			hFirstRow[3*i+2] = 0;
+#endif
+        		}
+            	detail::resizeAndCopyToDevice(hFirstRow, dFirstRow, queue);
+            	detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
+            	dBuffer1.resize(1,queue);
+            	initialized = true;
+        	}
+        	kernel.set_arg(0, dColumns.getDataStarts());
+        	kernel.set_arg(1, dColumns.getIndicesStarts());
+        	kernel.set_arg(2, dColumns.getTaskCounts());
+        	kernel.set_arg(3, dNtoK);
+        	kernel.set_arg(4, dBuffer1);
+        	kernel.set_arg(5, dColumns.getData());
+        	kernel.set_arg(6, dColumns.getIndices());
+        	kernel.set_arg(7, dExpXBeta);
+        	kernel.set_arg(8, dNWeight);
+        	hBuffer.resize(3*N);
+        	for (int i = 0; i < 3*N; ++i) {
+        	    hBuffer[i] = 0;
+        	}
+        	detail::resizeAndCopyToDevice(hBuffer, dBuffer, queue);
+        	kernel.set_arg(9, dBuffer);
+        	detail::resizeAndCopyToDevice(hFirstRow, dFirstRow, queue);
+        	kernel.set_arg(10, dFirstRow);
+        	kernel.set_arg(11, maxN*3);
+        	kernel.set_arg(13, index);
+
+/*
+            std::cerr << "dExpXBeta: ";
+            for (auto x : dExpXBeta) {
+            	std::cerr << " " << x;
+            }
+	        std::cerr << "\n";
+            std::cerr << "dNWeight: ";
+            for (auto x : dNWeight) {
+            	std::cerr << " " << x;
+            }
+	        std::cerr << "\n";
+	        */
+        	size_t workGroups = maxCases / 32;
+        	if (maxCases % 32 > 0) ++workGroups;
+        	const size_t globalWorkSize = N * 32;
+
+        	for (int i = 0; i < workGroups; ++i) {
+        		std::cerr << " run" << i;
+        		kernel.set_arg(12, i);
+    	        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, 32);
+    	        queue.finish();
+        	}
+        	/*
+        	std::cout << "\n finished runs\n";
+
+        	std::cerr << "dBuffer: ";
+        	for (auto x : dBuffer) {
+        	    std::cerr << " " << exp(x);
+        	}
+        	std::cerr << "\n";
+*/
+        	hBuffer1.resize(3*N);
+        	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer1), queue);
+        	for (int i = 0; i < N; ++i) {
+#ifdef USE_LOG_SUM
+        		gradient -= (real) -exp(hBuffer1[3*i+1]-hBuffer1[3*i]);
+        		hessian -= (real) (exp(2*(hBuffer1[3*i+1]-hBuffer1[3*i]))-exp(hBuffer1[3*i+2]-hBuffer1[3*i]));
+#else
+        		gradient -= (real)(-hBuffer1[3*i+1]/hBuffer1[3*i]);
+        		hessian -= (real)((hBuffer1[3*i+1]/hBuffer1[3*i]) * (hBuffer1[3*i+1]/hBuffer1[3*i]) - hBuffer1[3*i+2]/hBuffer1[3*i]);
+#endif
+        	}
+
+/*
         	if (!initialized) {
         		totalCases = 0;
         		for (int i=0; i < N; ++i) {
@@ -638,12 +731,11 @@ public:
     	    kernel.set_arg(3, dXMatrix);
     	    kernel.set_arg(4, dExpXMatrix);
 
-/*
+
     	    kernel.set_arg(3, dColumns.getData());
         	kernel.set_arg(4, dExpXBeta);
         	kernel.set_arg(13, dNtoK);
         	kernel.set_arg(14, dColumns.getDataOffset(index));
-        	*/
 
     	    compute::uint_ taskCount = 3*(N+totalCases);
     	    size_t workGroups = taskCount / detail::constant::updateAllXBetaBlockSize;
@@ -665,7 +757,6 @@ public:
 
     	    for (int i=0; i < maxN; ++i) {
     	    	//std::cout << "run: " << i << '\n';
-/*
         	    kernel.set_arg(0, dBuffer);
         	    kernel.set_arg(1, dBuffer1);
             	kernel.set_arg(2, dIndices);
@@ -682,7 +773,6 @@ public:
             	kernel.set_arg(10, dOverflow0);
             	kernel.set_arg(11, dOverflow1);
         	    kernel.set_arg(12, taskCount);
-*/
 
         	    kernel.set_arg(8, i);
     	        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateAllXBetaBlockSize);
@@ -704,6 +794,8 @@ public:
     	    	gradient -= (real)(-hBuffer1[3*temp-2]/hBuffer1[3*temp-3]);
     	    	hessian -= (real)((hBuffer1[3*temp-2]/hBuffer1[3*temp-3]) * (hBuffer1[3*temp-2]/hBuffer1[3*temp-3]) - hBuffer1[3*temp-1]/hBuffer1[3*temp-3]);
     	    }
+        	*/
+
         } else {
 
         	if (!initialized) {
@@ -1490,14 +1582,14 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
         if (BaseModel::exactCLR) {
         	// CCD Kernel
         	auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useWeights, isNvidia);
-        	//std::cout << source.body;
+        	std::cout << source.body;
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernel = compute::kernel(program, source.name);
 
-        	kernel.set_arg(2, dIndices);
-        	kernel.set_arg(5, dVector1);
-        	kernel.set_arg(6, dVector2);
-        	kernel.set_arg(9, dKWeight);
+        	//kernel.set_arg(2, dIndices);
+        	//kernel.set_arg(5, dVector1);
+        	//kernel.set_arg(6, dVector2);
+        	//kernel.set_arg(9, dKWeight);
 
         	// MM Kernel
         	source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
@@ -1796,6 +1888,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
     std::vector<real> hBuffer1;
     std::vector<real> xMatrix;
     std::vector<real> expXMatrix;
+	std::vector<real> hFirstRow;
 
     // Internal storage
     compute::vector<real> dY;
@@ -1813,6 +1906,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
     std::vector<int> subjects;
     int totalCases;
     int maxN;
+    int maxCases;
     compute::vector<int>  dVector1;
     compute::vector<int>  dVector2;
     compute::vector<int>  dIndices;
@@ -1822,6 +1916,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
     compute::vector<int> dOverflow0;
     compute::vector<int> dOverflow1;
     compute::vector<int> dNtoK;
+    compute::vector<real> dFirstRow;
 
 #ifdef USE_VECTOR
     compute::vector<compute::double2_> dBuffer;
