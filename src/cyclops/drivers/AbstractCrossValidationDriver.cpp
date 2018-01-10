@@ -14,6 +14,8 @@
 #include "Thread.h"
 #include "AbstractCrossValidationDriver.h"
 
+#define syncCV
+
 namespace bsccs {
 
 AbstractCrossValidationDriver::AbstractCrossValidationDriver(
@@ -61,6 +63,11 @@ void AbstractCrossValidationDriver::drive(
 	std::ostringstream stream2;
 	stream2 << "Using " << nThreads << " thread(s)";
 	logger->writeLine(stream2);
+
+#ifdef syncCV
+	ccd.turnOnSyncCV(allArguments.crossValidation.foldToCompute);
+#else
+#endif
 
 	std::vector<CyclicCoordinateDescent*> ccdPool;
 	std::vector<AbstractSelector*> selectorPool;
@@ -135,6 +142,36 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 
     const auto& arguments = allArguments.crossValidation;
     bool coldStart = allArguments.resetCoefficients;
+
+#ifdef syncCV
+
+	int repetitions = arguments.foldToCompute / arguments.fold;
+	selectorPool.resize(repetitions);
+	for (int i = 0; i < repetitions; ++i) {
+		selectorPool.push_back(selector.clone());
+		selectorPool[i]->reseed();
+		selectorPool[i]->permute();
+		for (int j = 0; j < arguments.fold; ++j) {
+			int index = i * arguments.fold + j;
+			std::vector<double> weights; // Task-specific
+			selectorPool[i]->getWeights(j, weights);
+			if (weightsExclude){
+				for(size_t k = 0; k < weightsExclude->size(); k++){
+					if (weightsExclude->at(k) == 1.0){
+						weights[k] = 0.0;
+					}
+				}
+			}
+			ccd.setWeights(&weights[0], index);
+		}
+	}
+	if (coldStart) {
+        ccd.resetBeta();
+    }
+
+	ccd.update(allArguments.modeFinding);
+
+#else
 
 	predLogLikelihood.resize(arguments.foldToCompute);
 
@@ -236,6 +273,7 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
     	ccd.getProgressLogger().setConcurrent(false);
      	ccd.getProgressLogger().flush();
      }
+#endif
 
 	double pointEstimate = computePointEstimate(predLogLikelihood);
 

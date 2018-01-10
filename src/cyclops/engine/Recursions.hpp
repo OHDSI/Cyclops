@@ -288,7 +288,6 @@ std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorTy
 			int m = std::min(n,numCases);
 			for (int i=3*m+2; i >= 0; --i) {
 				if (B[currentB][i] > 1e200) {
-					std::cout<<"resizing"<<'\n';
 					for (int j=0; j<3*numCases+3; ++j) {
 						B[currentB][j] /= 1e200;
 					}

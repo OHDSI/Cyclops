@@ -174,6 +174,20 @@ public:
 
 	loggers::ErrorHandler& getErrorHandler() const { return *error; }
 
+	// syncCV
+
+	void setWeights(double* iWeights, int syncCVIndex);
+
+	void turnOnSyncCV(int foldToCompute);
+
+	std::vector<double> getObjectiveFunctions(int convergenceType);
+
+	std::vector<double> getLogLikelihoods(void);
+
+	std::vector<double> getLogPriors(void);
+
+	std::vector<double> ccdUpdateBetaVec(int index);
+
 protected:
 
 	bsccs::unique_ptr<AbstractModelSpecifics> privateModelSpecifics;
@@ -253,6 +267,8 @@ protected:
 	void axpy(double* y, const double alpha, const int index);
 
 	void axpyXBeta(const double beta, const int index);
+
+	void axpyXBeta(const double beta, const int index, const int cvIndex);
 
 	virtual void getDenominators(void);
 
@@ -372,6 +388,36 @@ protected:
 
 	loggers::ProgressLoggerPtr logger;
 	loggers::ErrorHandlerPtr error;
+
+	// CV items
+	std::vector<DoubleVector> hBetaPool;
+	std::vector<DoubleVector> hDeltaPool;
+	std::vector<std::vector<bool>> fixBetaPool;
+	std::vector<bool> donePool;
+	std::vector<DoubleVector> hWeightsPool; // Make DoubleVector and delegate to ModelSpecifics
+
+	void computeNumeratorForGradient(int index, std::vector<bool> fixBeta);
+
+	virtual void computeGradientAndHessian(int index, std::vector<double>& gradient,
+			std::vector<double>& hessian);
+
+	std::vector<double> applyBounds(
+			std::vector<double> inDelta,
+			int index);
+
+	void updateSufficientStatistics(std::vector<double> delta, int index);
+
+	virtual void updateXBeta(std::vector<double> delta, int index);
+
+	bool performCheckConvergence(int convergenceType,
+                              double epsilon,
+                              int maxIterations,
+                              int iteration,
+                              std::vector<double>& lastObjFunc);
+
+	bool syncCV = false;
+	int syncCVFolds;
+
 };
 
 double convertVarianceToHyperparameter(double variance);

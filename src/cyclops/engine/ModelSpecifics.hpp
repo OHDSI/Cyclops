@@ -316,6 +316,76 @@ double ModelSpecifics<BaseModel,WeightType>::getGradientObjective(bool useCrossV
 	}
 
 template <class BaseModel, typename WeightType>
+std::vector<double> ModelSpecifics<BaseModel,WeightType>::getGradientObjectives() {
+	std::vector<double> result;
+	for (int index = 0; index < syncCVFolds; index++) {
+		auto& xBeta = getXBeta(index);
+		real criterion = 0;
+		for (int i = 0; i < K; i++) {
+			criterion += xBeta[i] * hY[i] * hKWeightPool[index][i];
+		}
+		result.push_back(criterion);
+	}
+	return result;
+}
+
+template <class BaseModel,typename WeightType>
+std::vector<double> ModelSpecifics<BaseModel,WeightType>::getLogLikelihoods(bool useCrossValidation) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+	auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+	std::vector<double> result;
+
+	for (int index = 0; index < syncCVFolds; index++) {
+
+		auto rangeNumerator = helper::getRangeAllNumerators(K, hY, hXBetaPool[index], hKWeightPool[index]);
+
+		real logLikelihood = useCrossValidation ?
+				variants::reduce(
+						rangeNumerator.begin(), rangeNumerator.end(), static_cast<real>(0.0),
+						TestAccumulateLikeNumeratorKernel<BaseModel,real,true>(),
+						SerialOnly()
+				) :
+				variants::reduce(
+						rangeNumerator.begin(), rangeNumerator.end(), static_cast<real>(0.0),
+						TestAccumulateLikeNumeratorKernel<BaseModel,real,false>(),
+						SerialOnly()
+				);
+
+		if (BaseModel::likelihoodHasDenominator) {
+			auto rangeDenominator = (BaseModel::cumulativeGradientAndHessian) ?
+					helper::getRangeAllDenominators(N, accDenomPidPool[index], hNWeightPool[index]) :
+					helper::getRangeAllDenominators(N, denomPidPool[index], hNWeightPool[index]);
+
+			logLikelihood -= variants::reduce(
+					rangeDenominator.begin(), rangeDenominator.end(),
+					static_cast<real>(0.0),
+					TestAccumulateLikeDenominatorKernel<BaseModel,real>(),
+					SerialOnly()
+			);
+
+		}
+
+		if (BaseModel::likelihoodHasFixedTerms) {
+			logLikelihood += logLikelihoodFixedTermPool[index];
+		}
+
+		result.push_back(logLikelihood);
+	}
+
+#ifdef CYCLOPS_DEBUG_TIMING
+	auto end = bsccs::chrono::steady_clock::now();
+	///////////////////////////"
+	duration["compLogLike      "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+	return result;
+}
+
+
+template <class BaseModel, typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::printTiming() {
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -491,11 +561,20 @@ template <class BaseModel,typename WeightType>
 const RealVector& ModelSpecifics<BaseModel,WeightType>::getXBeta() { return hXBeta; }
 
 template <class BaseModel,typename WeightType>
+const RealVector& ModelSpecifics<BaseModel,WeightType>::getXBeta(int index) { return hXBetaPool[index]; }
+
+template <class BaseModel,typename WeightType>
 const RealVector& ModelSpecifics<BaseModel,WeightType>::getXBetaSave() {  return hXBetaSave; }
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::zeroXBeta() {
-	std::fill(std::begin(hXBeta), std::end(hXBeta), 0.0);
+	if (syncCV) {
+		for (int i=0; i<syncCVFolds; ++i) {
+			std::fill(std::begin(hXBetaPool[i]), std::end(hXBetaPool[i]), 0.0);
+		}
+	} else {
+		std::fill(std::begin(hXBeta), std::end(hXBeta), 0.0);
+	}
 }
 
 template <class BaseModel,typename WeightType>
@@ -627,6 +706,39 @@ void ModelSpecifics<BaseModel,WeightType>::axpyXBeta(const double beta, const in
 }
 
 template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::axpyXBeta(const double beta, const int j, int cvIndex) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+	if (beta != static_cast<double>(0.0)) {
+		switch (modelData.getFormatType(j)) {
+		case INDICATOR:
+			axpy < IndicatorIterator > (hXBetaPool[cvIndex].data(), beta, j);
+			break;
+		case INTERCEPT:
+		    axpy < InterceptIterator > (hXBetaPool[cvIndex].data(), beta, j);
+		    break;
+		case DENSE:
+			axpy < DenseIterator > (hXBetaPool[cvIndex].data(), beta, j);
+			break;
+		case SPARSE:
+			axpy < SparseIterator > (hXBetaPool[cvIndex].data(), beta, j);
+			break;
+		}
+	}
+
+#ifdef CYCLOPS_DEBUG_TIMING
+	auto end = bsccs::chrono::steady_clock::now();
+	///////////////////////////"
+	duration["axpy             "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+}
+
+
+template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::setWeights(double* inWeights, bool useCrossValidation) {
 	// Set K weights
 	if (hKWeight.size() != K) {
@@ -668,23 +780,38 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjY(bool useCrossValidation) 
 
 		GenericIterator it(modelData, j);
 
-		if (useCrossValidation) {
+		if (syncCV) {
 			for (; it; ++it) {
 				const int k = it.index();
-				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
-					// Do not precompute
-				} else {
-					hXjY[j] += it.value() * hY[k] * hKWeight[k];
+				for (int index = 0; index < syncCVFolds; index++) {
+					if (k==0) hXjYPool[index][j] = 0;
+					if (BaseModel::exactTies && hNWeightPool[index][BaseModel::getGroup(hPidPool[index], k)] > 1) {
+						// Do not precompute
+					} else {
+						hXjYPool[index][j] += it.value() * hY[k] * hKWeightPool[index][k];
+					}
 				}
 			}
+
 		} else {
-			for (; it; ++it) {
-				const int k = it.index();
-				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
-					hXjY[j] += it.value() * hY[k];
-					// Do not precompute
-				} else {
-					hXjY[j] += it.value() * hY[k];
+			if (useCrossValidation) {
+				for (; it; ++it) {
+					const int k = it.index();
+					if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
+						// Do not precompute
+					} else {
+						hXjY[j] += it.value() * hY[k] * hKWeight[k];
+					}
+				}
+			} else {
+				for (; it; ++it) {
+					const int k = it.index();
+					if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
+						hXjY[j] += it.value() * hY[k];
+						// Do not precompute
+					} else {
+						hXjY[j] += it.value() * hY[k];
+					}
 				}
 			}
 		}
@@ -700,22 +827,36 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjX(bool useCrossValidation) 
 		hXjX[j] = 0;
 		GenericIterator it(modelData, j);
 
-		if (useCrossValidation) {
+		if (syncCV) {
 			for (; it; ++it) {
 				const int k = it.index();
-				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
-					// Do not precompute
-				} else {
-					hXjX[j] += it.value() * it.value() * hKWeight[k];
+				for (int index = 0; index < syncCVFolds; index++) {
+					if (k==0) hXjXPool[index][j] = 0;
+					if (BaseModel::exactTies && hNWeightPool[index][BaseModel::getGroup(hPid, k)] > 1) {
+						// Do not precompute
+					} else {
+						hXjXPool[index][j] += it.value() * it.value() * hKWeightPool[index][k];
+					}
 				}
 			}
 		} else {
-			for (; it; ++it) {
-				const int k = it.index();
-				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
-					// Do not precompute
-				} else {
-					hXjX[j] += it.value() * it.value();
+			if (useCrossValidation) {
+				for (; it; ++it) {
+					const int k = it.index();
+					if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
+						// Do not precompute
+					} else {
+						hXjX[j] += it.value() * it.value() * hKWeight[k];
+					}
+				}
+			} else {
+				for (; it; ++it) {
+					const int k = it.index();
+					if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
+						// Do not precompute
+					} else {
+						hXjX[j] += it.value() * it.value();
+					}
 				}
 			}
 		}
@@ -725,33 +866,63 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjX(bool useCrossValidation) 
 template<class BaseModel, typename WeightType>
 void ModelSpecifics<BaseModel, WeightType>::computeNtoKIndices(bool useCrossValidation) {
 
-	hNtoK.resize(N+1);
-	int n = 0;
-	for (size_t k = 0; k < K;) {
-		hNtoK[n] = k;
-		int currentPid = hPid[k];
-		do {
-			++k;
-		} while (k < K && currentPid == hPid[k]);
-		++n;
+	if (syncCV) {
+		for (int index = 0; index < syncCVFolds; index++) {
+			hNtoKPool[index].resize(N+1);
+			int n = 0;
+			for (size_t k = 0; k < K;) {
+				hNtoKPool[index][n] = k;
+				int currentPid = hPidPool[index][k];
+				do {
+					++k;
+				} while (k < K && currentPid == hPidPool[index][k]);
+				++n;
+			}
+			hNtoKPool[index][n] = K;
+		}
+	} else {
+		hNtoK.resize(N+1);
+		int n = 0;
+		for (size_t k = 0; k < K;) {
+			hNtoK[n] = k;
+			int currentPid = hPid[k];
+			do {
+				++k;
+			} while (k < K && currentPid == hPid[k]);
+			++n;
+		}
+		hNtoK[n] = K;
 	}
-	hNtoK[n] = K;
 }
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInLogLikelihood(bool useCrossValidation) {
-	if(BaseModel::likelihoodHasFixedTerms) {
-		logLikelihoodFixedTerm = 0.0;
-	    bool hasOffs = hOffs.size() > 0;
-		if(useCrossValidation) {
-			for(size_t i = 0; i < K; i++) {
-			    auto offs = hasOffs ? hOffs[i] : 0.0;
-				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], offs, offs) * hKWeight[i];
+	if (syncCV) {
+		if(BaseModel::likelihoodHasFixedTerms) {
+			for (int index = 0; index < syncCVFolds; index++) {
+				int temp = 0.0;
+				bool hasOffs = hOffs.size() > 0;
+				for(size_t i = 0; i < K; i++) {
+					auto offs = hasOffs ? hOffs[i] : 0.0;
+					temp += BaseModel::logLikeFixedTermsContrib(hY[i], offs, offs) * hKWeightPool[index][i];
+				}
+				logLikelihoodFixedTermPool[index] = temp;
 			}
-		} else {
-			for(size_t i = 0; i < K; i++) {
-			    auto offs = hasOffs ? hOffs[i] : 0.0;
-				logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], offs, offs); // TODO SEGV in Poisson model
+		}
+	} else {
+		if(BaseModel::likelihoodHasFixedTerms) {
+			logLikelihoodFixedTerm = 0.0;
+			bool hasOffs = hOffs.size() > 0;
+			if(useCrossValidation) {
+				for(size_t i = 0; i < K; i++) {
+					auto offs = hasOffs ? hOffs[i] : 0.0;
+					logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], offs, offs) * hKWeight[i];
+				}
+			} else {
+				for(size_t i = 0; i < K; i++) {
+					auto offs = hasOffs ? hOffs[i] : 0.0;
+					logLikelihoodFixedTerm += BaseModel::logLikeFixedTermsContrib(hY[i], offs, offs); // TODO SEGV in Poisson model
+				}
 			}
 		}
 	}
@@ -1313,20 +1484,19 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	        int numCases = hNWeight[i];
 
 	        std::vector<real> value = computeHowardRecursion<real>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
-	        //std::cout<<" values" << i <<": "<<value[0]<<" | "<<value[1]<<" | "<< value[2] << '\n';
+	        //std::cout<<" values" << i <<": "<<value[0]<<" | "<<value[1]<<" | "<< value[2] << ' ';
 	        if (value[0]==0 || value[1] == 0 || value[2] == 0 || isinf(value[0]) || isinf(value[1]) || isinf(value[2])) {
-	            DenseView<IteratorType> newX(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
+	        	DenseView<IteratorType> newX(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
 	            std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], newX, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
 	            using namespace sugar;
 	            gradient -= (real)(-value[1]/value[0]);
 	            hessian -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
-	            continue;
+	        	continue;
 	        }
 	        //gradient -= (real)(value[3] - value[1]/value[0]);
 	        gradient -= (real)(-value[1]/value[0]);
 	        hessian -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
 	    }
-
 
 	    //std::cout << '\n';
     	//std::cout << "grad: " << gradient << " hess: " << hessian << " \n";
@@ -1932,15 +2102,35 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 
-	auto& xBeta = getXBeta();
+	if (syncCV) {
 
-	if (BaseModel::likelihoodHasDenominator) {
-		fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
-		for (size_t k = 0; k < K; ++k) {
-			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
-			incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
+    auto func = [&](const tbb::blocked_range<int>& range){
+
+    	for (int i = range.begin(); i < range.end(); ++i) {
+    		auto& xBeta = getXBeta(i);
+    		if (BaseModel::likelihoodHasDenominator) {
+    			fillVector(denomPidPool[i].data(), N, BaseModel::getDenomNullValue());
+    			for (size_t k = 0; k < K; ++k) {
+    				offsExpXBetaPool[i][k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
+    				incrementByGroup(denomPidPool[i].data(), hPidPool[i], k, offsExpXBetaPool[i][k]);
+    			}
+    			computeAccumlatedDenominator(useWeights, i); // WAS computeAccumlatedNumerDenom
+    		}
+    	}
+    };
+    tbb::parallel_for(tbb::blocked_range<int>(0,syncCVFolds),func);
+
+	} else {
+		auto& xBeta = getXBeta();
+
+		if (BaseModel::likelihoodHasDenominator) {
+			fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
+			for (size_t k = 0; k < K; ++k) {
+				offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
+				incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
+			}
+			computeAccumlatedDenominator(useWeights); // WAS computeAccumlatedNumerDenom
 		}
-		computeAccumlatedDenominator(useWeights); // WAS computeAccumlatedNumerDenom
 	}
 
 	// std::cerr << "finished MS.cRS" << std::endl;
@@ -2042,6 +2232,52 @@ void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedDenominator(bool use
 }
 
 template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedDenominator(bool useWeights, int index) {
+
+	if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
+		BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
+			if (accDenomPidPool[index].size() != (N + 1)) {
+				accDenomPidPool[index].resize(N + 1, static_cast<real>(0));
+			}
+// 			if (accNumerPid.size() != N) {
+// 				accNumerPid.resize(N, static_cast<real>(0));
+// 			}
+// 			if (accNumerPid2.size() != N) {
+// 				accNumerPid2.resize(N, static_cast<real>(0));
+// 			}
+
+			// segmented prefix-scan
+			real totalDenom = static_cast<real>(0);
+// 			real totalNumer = static_cast<real>(0);
+// 			real totalNumer2 = static_cast<real>(0);
+
+			auto reset = begin(accResetPool[index]);
+
+			for (size_t i = 0; i < N; ++i) {
+// TODO CHECK
+				if (static_cast<unsigned int>(*reset) == i) { // TODO Check with SPARSE
+					totalDenom = static_cast<real>(0);
+// 					totalNumer = static_cast<real>(0);
+// 					totalNumer2 = static_cast<real>(0);
+					++reset;
+				}
+
+				totalDenom += denomPidPool[index][i];
+// 				totalNumer += numerPid[i];
+// 				totalNumer2 += numerPid2[i];
+				accDenomPidPool[index][i] = totalDenom;
+// 				accNumerPid[i] = totalNumer;
+// 				accNumerPid2[i] = totalNumer2;
+#if defined(DEBUG_COX) || defined(DEBUG_COX_MIN)
+                using namespace std;
+				cerr << denomPid[i] << " " << accDenomPid[i] << " (beta)" << endl;
+#endif
+			}
+	}
+}
+
+
+template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::doSortPid(bool useCrossValidation) {
 /* For Cox model:
  *
@@ -2049,6 +2285,719 @@ void ModelSpecifics<BaseModel,WeightType>::doSortPid(bool useCrossValidation) {
  *
  */
 }
+
+//syncCV
+template<class BaseModel, typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::turnOnSyncCV(int foldToCompute) {
+	syncCV = true;
+	syncCVFolds = foldToCompute;
+	for(int i=0; i<foldToCompute; ++i) {
+		hNWeightPool.push_back(hNWeight);
+		hKWeightPool.push_back(hKWeight);
+		accDenomPidPool.push_back(accDenomPid);
+		accNumerPidPool.push_back(accNumerPid);
+		accNumerPid2Pool.push_back(accNumerPid2);
+		accResetPool.push_back(accReset);
+		hPidPool.push_back(hPid);
+		hPidInternalPool.push_back(hPidInternal);
+		hXBetaPool.push_back(hXBeta);
+		offsExpXBetaPool.push_back(offsExpXBeta);
+		denomPidPool.push_back(denomPid);
+		numerPidPool.push_back(numerPid);
+		numerPid2Pool.push_back(numerPid2);
+		hXjYPool.push_back(hXjY);
+		hXjXPool.push_back(hXjX);
+		logLikelihoodFixedTermPool.push_back(logLikelihoodFixedTerm);
+	}
+	/*
+	std::cout << "hNWeightPool: " << hNWeightPool[0][0] << '\n';
+	std::cout << "hKWeightPool: " << hKWeightPool[0][0] << '\n';
+	std::cout << "accDenomPidPool: " << accDenomPidPool[0][0] << '\n';
+	std::cout << "accNumerPidPool: " << accNumerPidPool[0][0] << '\n';
+	std::cout << "accNumerPid2Pool: " << accNumerPid2Pool[0][0] << '\n';
+	std::cout << "accResetPool: " << accResetPool[0][0] << '\n';
+	std::cout << "hPidPool: " << hPidPool[0][0] << '\n';
+	std::cout << "hPidInternalPool: " << hPidInternalPool[0][0] << '\n';
+	std::cout << "hXBetaPool: " << hXBetaPool[0][0] << '\n';
+	std::cout << "offsExpXBetaPool: " << offsExpXBetaPool[0][0] << '\n';
+	std::cout << "denomPidPool: " << denomPidPool[0][0] << '\n';
+	std::cout << "numerPidPool: " << numerPidPool[0][0] << '\n';
+	std::cout << "numerPid2Pool: " << numerPid2Pool[0][0] << '\n';
+	std::cout << "hXjYPool: " << hXjYPool[0][0] << '\n';
+	std::cout << "hXjXPool: " << hXjXPool[0][0] << '\n';
+	std::cout << "logLikelihoodFixedTermPool: " << logLikelihoodFixedTermPool[0][0] << '\n';
+*/
+	std::cout << "offsExpXBetaPool: ";
+	for (auto x : offsExpXBetaPool[1]) {
+		std::cout << " " << x;
+	}
+	std::cout << "\n";
+}
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::setWeights(double* inWeights, bool useCrossValidation, int index) {
+	// Set K weights
+	if (hKWeightPool[index].size() != K) {
+		hKWeightPool[index].resize(K);
+	}
+	if (useCrossValidation) {
+		for (size_t k = 0; k < K; ++k) {
+			hKWeightPool[index][k] = inWeights[k];
+		}
+	} else {
+		std::fill(hKWeightPool[index].begin(), hKWeightPool[index].end(), static_cast<WeightType>(1));
+	}
+
+	if (initializeAccumulationVectors()) {
+		setPidForAccumulation(inWeights, index); //TODO implement
+	}
+
+	// Set N weights (these are the same for independent data models
+	if (hNWeightPool[index].size() < N + 1) { // Add +1 for extra (zero-weight stratum)
+		hNWeightPool[index].resize(N + 1);
+	}
+
+	std::fill(hNWeightPool[index].begin(), hNWeightPool[index].end(), static_cast<WeightType>(0));
+	for (size_t k = 0; k < K; ++k) {
+		WeightType event = BaseModel::observationCount(hY[k])*hKWeightPool[index][k];
+		incrementByGroup(hNWeightPool[index].data(), hPidPool[index], k, event);
+	}
+
+#ifdef DEBUG_COX
+	cerr << "Done with set weights" << endl;
+#endif
+
+}
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index, std::vector<bool> fixBeta) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = bsccs::chrono::steady_clock::now();
+#endif
+#endif
+
+	if (BaseModel::cumulativeGradientAndHessian) {
+		switch (modelData.getFormatType(index)) {
+			case INDICATOR : {
+				for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+					if (!fixBeta[cvIndex]) {
+						IndicatorIterator it(*(sparseIndices)[index]);
+						for (; it; ++it) { // Only affected entries
+							numerPidPool[cvIndex][it.index()] = static_cast<real>(0.0);
+						}
+						incrementNumeratorForGradientImpl<IndicatorIterator>(index, cvIndex);
+					}
+				}
+			}
+				break;
+
+			case SPARSE : {
+				for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+					if (!fixBeta[cvIndex]) {
+						SparseIterator it(*(sparseIndices)[index]);
+						for (; it; ++it) { // Only affected entries
+							numerPidPool[cvIndex][it.index()] = static_cast<real>(0.0);
+							if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
+								numerPid2Pool[cvIndex][it.index()] = static_cast<real>(0.0); // TODO Does this invalid the cache line too much?
+							}
+						}
+						incrementNumeratorForGradientImpl<SparseIterator>(index, cvIndex); }
+				}
+			}
+				break;
+			case DENSE :
+				for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+					if (!fixBeta[cvIndex]) {
+						zeroVector(numerPidPool[cvIndex].data(), N);
+						if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
+							zeroVector(numerPid2Pool[cvIndex].data(), N);
+						}
+						incrementNumeratorForGradientImpl<DenseIterator>(index, cvIndex);
+					}
+				}
+				break;
+			case INTERCEPT :
+				for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+					if (!fixBeta[cvIndex]) {
+						zeroVector(numerPidPool[index].data(), N);
+						if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
+							zeroVector(numerPid2Pool[index].data(), N);
+						}
+						incrementNumeratorForGradientImpl<InterceptIterator>(index, cvIndex);
+					}
+				}
+				break;
+			default : break;
+				// throw error
+				//exit(-1);
+		}
+	}
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = bsccs::chrono::steady_clock::now();
+	///////////////////////////"
+	duration["compNumForGrad   "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+#endif
+#endif
+
+}
+
+template <class BaseModel,typename WeightType> template <class IteratorType>
+void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int index, int cvIndex) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = bsccs::chrono::steady_clock::now();
+#endif
+#endif
+
+	IteratorType it(modelData, index);
+	for (; it; ++it) {
+		const int k = it.index();
+		incrementByGroup(numerPidPool[cvIndex].data(), hPidPool[cvIndex], k,
+				BaseModel::gradientNumeratorContrib(it.value(), offsExpXBetaPool[cvIndex][k], hXBetaPool[cvIndex][k], hY[k]));
+		if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
+			incrementByGroup(numerPid2Pool[cvIndex].data(), hPidPool[cvIndex], k,
+					BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBetaPool[cvIndex][k]));
+		}
+	}
+
+// #endif // NEW_LOOPS
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = bsccs::chrono::steady_clock::now();
+	///////////////////////////"
+	auto name = "compNumGrad" + IteratorType::name + "   ";
+	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+#endif
+
+}
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, std::vector<double>& ogradient,
+		std::vector<double>& ohessian, bool useWeights, std::vector<bool> fixBeta) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = bsccs::chrono::steady_clock::now();
+#endif
+#endif
+
+	/*
+	if (modelData.getNumberOfNonZeroEntries(index) == 0) {
+	    *ogradient = 0.0; *ohessian = 0.0;
+	    return;
+	}
+	*/
+
+	// Run-time dispatch, so virtual call should not effect speed
+	if (useWeights) {
+		switch (modelData.getFormatType(index)) {
+			case INDICATOR :
+				for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+					if(!fixBeta[cvIndex]) computeGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, weighted, cvIndex);
+				}
+				break;
+			case SPARSE :
+				for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+					if(!fixBeta[cvIndex]) computeGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, weighted, cvIndex);
+				}
+				break;
+			case DENSE :
+				for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+					if(!fixBeta[cvIndex]) computeGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, weighted, cvIndex);
+				}
+				break;
+			case INTERCEPT :
+				for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+					if(!fixBeta[cvIndex]) computeGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, weighted, cvIndex);
+				}
+				break;
+		}
+	}
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = bsccs::chrono::steady_clock::now();
+	///////////////////////////"
+	duration["compGradAndHess  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+#endif
+
+}
+
+template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
+void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, std::vector<double>& ogradient,
+		std::vector<double>& ohessian, Weights w, int cvIndex) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = bsccs::chrono::steady_clock::now();
+#endif
+#endif
+
+	real gradient = static_cast<real>(0);
+	real hessian = static_cast<real>(0);
+
+	if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
+		// Cox
+#ifdef DEBUG_COX2
+	    real lastG = gradient;
+	    real lastH = hessian;
+#endif
+
+    	if (sparseIndices[index] == nullptr || sparseIndices[index]->size() > 0) {
+
+		// TODO
+		// x. Fill numerators <- 0
+		// x. Compute non-zero numerators
+		// x. Segmented scan of numerators
+		// x. Transformation/reduction of [begin,end)
+
+		IteratorType it(sparseIndices[index].get(), N);
+
+
+		real accNumerPid  = static_cast<real>(0);
+		real accNumerPid2 = static_cast<real>(0);
+
+// 		const real* data = modelData.getDataVector(index);
+
+        // find start relavent accumulator reset point
+        auto reset = begin(accResetPool[cvIndex]);
+        while( *reset < it.index() ) {
+            ++reset;
+        }
+
+		for (; it; ) {
+			int i = it.index();
+
+			if (*reset <= i) {
+			    accNumerPid  = static_cast<real>(0.0);
+			    accNumerPid2 = static_cast<real>(0.0);
+			    ++reset;
+			}
+
+
+//			const real x = it.value();
+
+//			const real x = (IteratorType::isIndicator) ? 1.0 :
+//				(IteratorType::isSparse) ? *data : data[i];
+// 			const real x = 1.0;
+
+			const auto numerator1 = numerPidPool[cvIndex][i];
+			const auto numerator2 = numerPid2Pool[cvIndex][i];
+
+//     		const real numerator1 = BaseModel::gradientNumeratorContrib(x, offsExpXBeta[i], hXBeta[i], hY[i]);
+//     		const real numerator2 = BaseModel::gradientNumerator2Contrib(x, offsExpXBeta[i]);
+
+     		accNumerPid += numerator1;
+     		accNumerPid2 += numerator2;
+
+//#define DEBUG_COX2
+
+#ifdef DEBUG_COX2
+#endif
+			// Compile-time delegation
+			BaseModel::incrementGradientAndHessian(it,
+					w, // Signature-only, for iterator-type specialization
+					&gradient, &hessian, accNumerPid, accNumerPid2,
+					accDenomPidPool[cvIndex][i], hNWeightPool[cvIndex][i],
+                             0.0,
+                             //it.value(),
+                             hXBetaPool[cvIndex][i], hY[i]);
+					// When function is in-lined, compiler will only use necessary arguments
+#ifdef DEBUG_COX2
+			using namespace std;
+
+			if (lastG != gradient || lastH != hessian) {
+
+			cerr << "w: " << i << " " << hNWeight[i] << " " << numerator1 << ":" <<
+				    accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[i];
+
+			cerr << " -> g:" << gradient << " h:" << hessian << endl;
+			}
+
+			lastG = gradient; lastH = hessian;
+#endif
+			++it;
+
+			if (IteratorType::isSparse) {
+// 				++data;
+				const int next = it ? it.index() : N;
+				for (++i; i < next; ++i) {
+#ifdef DEBUG_COX
+			cerr << "q: " << i << " " << hNWeight[i] << " " << 0 << ":" <<
+					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[i];
+#endif
+                    if (*reset <= i) {
+			            accNumerPid  = static_cast<real>(0.0);
+        			    accNumerPid2 = static_cast<real>(0.0);
+		        	    ++reset;
+                   }
+
+					BaseModel::incrementGradientAndHessian(it,
+							w, // Signature-only, for iterator-type specialization
+							&gradient, &hessian, accNumerPid, accNumerPid2,
+							accDenomPidPool[cvIndex][i], hNWeightPool[cvIndex][i], static_cast<real>(0), hXBetaPool[cvIndex][i], hY[i]);
+							// When function is in-lined, compiler will only use necessary arguments
+#ifdef DEBUG_COX
+			cerr << " -> g:" << gradient << " h:" << hessian << endl;
+#endif
+
+				}
+			}
+		}
+		}
+
+#ifdef DEBUG_COX2
+    Rcpp::stop("out");
+#endif
+
+	} else if (BaseModel::hasIndependentRows) {
+		//auto blah = std::begin(modelData.getCompressedColumnVectorSTL(0));
+
+		// Poisson, Logistic, Least-Squares
+		auto range = helper::independent::getRangeX(modelData, index,
+		        offsExpXBetaPool[cvIndex], hXBetaPool[cvIndex], hY, denomPidPool[cvIndex], hNWeightPool[cvIndex],
+		        typename IteratorType::tag());
+
+		const auto result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
+		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
+ 	        SerialOnly()
+// 		RcppParallel()
+		);
+
+
+// 		const auto result2 = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0),
+// 		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, real, int>(),
+// // 			SerialOnly()
+// 			RcppParallel()
+// 		);
+
+
+// 		std::cerr << result.real() << " " << result.imag()	<< std::endl;
+// 		std::cerr << result2.real() << " " << result2.imag()	<< std::endl << std::endl;
+
+		gradient = result.real();
+		hessian = result.imag();
+
+	} else if (BaseModel::exactCLR) { //TODO figure out weights
+		// TiedConditionalLogisticRegression
+		//std::cout << N << '\n';
+
+	    //tbb::mutex mutex0;
+/*
+	    tbb::combinable<real> newGrad(static_cast<real>(0));
+	    tbb::combinable<real> newHess(static_cast<real>(0));
+
+	    auto func = [&,index](const tbb::blocked_range<int>& range){
+
+	        using std::isinf;
+
+	        for (int i = range.begin(); i < range.end(); ++i) {
+	            DenseView<IteratorType> x(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
+	            int numSubjects = hNtoK[i+1] - hNtoK[i];
+	            int numCases = hNWeight[i];
+	            std::vector<real> value = computeHowardRecursion<real>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases);
+	            //std::cout << "new values" << i << ": " << value[0] << " | " << value[1] << " | " << value[2] << '\n';
+	            if (value[0]==0 || value[1] == 0 || value[2] == 0 || isinf(value[0]) || isinf(value[1]) || isinf(value[2])) {
+	                DenseView<IteratorType> newX(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
+	                std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], newX, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
+	                using namespace sugar;
+	                //mutex0.lock();
+	                newGrad.local() -= (real)(-value[1]/value[0]);
+	                newHess.local() -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
+	                //mutex0.unlock();
+	                continue;
+	            }
+	            //mutex0.lock();
+	            newGrad.local() -= (real)(-value[1]/value[0]);
+	            newHess.local() -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
+	            //mutex0.unlock();
+	        }
+	    };
+	    tbb::parallel_for(tbb::blocked_range<int>(0,N),func);
+	    gradient += newGrad.combine([](const real& x, const real& y) {return x+y;});
+	    hessian += newHess.combine([](const real& x, const real& y) {return x+y;});
+
+	         //std::cout << "index: "<<index;
+
+		*/
+	    for (int i=0; i<N; i++) {
+	    	//std::cout << "grad: " << gradient << " hess: " << hessian << " ";
+	        DenseView<IteratorType> x(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
+	        int numSubjects = hNtoK[i+1] - hNtoK[i];
+	        int numCases = hNWeight[i];
+
+	        std::vector<real> value = computeHowardRecursion<real>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
+	        //std::cout<<" values" << i <<": "<<value[0]<<" | "<<value[1]<<" | "<< value[2] << ' ';
+	        if (value[0]==0 || value[1] == 0 || value[2] == 0 || isinf(value[0]) || isinf(value[1]) || isinf(value[2])) {
+	        	DenseView<IteratorType> newX(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
+	            std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], newX, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
+	            using namespace sugar;
+	            gradient -= (real)(-value[1]/value[0]);
+	            hessian -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
+	        	continue;
+	        }
+	        //gradient -= (real)(value[3] - value[1]/value[0]);
+	        gradient -= (real)(-value[1]/value[0]);
+	        hessian -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
+	    }
+
+	    //std::cout << '\n';
+    	//std::cout << "grad: " << gradient << " hess: " << hessian << " \n";
+
+
+	} else {
+		// ConditionalPoissonRegression, SCCS, ConditionalLogisticRegression, BreslowTiedCoxProportionalHazards
+// #ifdef OLD_WAY
+//
+// 		auto range = helper::getRangeDenominator(sparseIndices[index], N, typename IteratorType::tag());
+//
+// 		auto kernel = AccumulateGradientAndHessianKernel<BaseModel,IteratorType, Weights, real, int>(
+// 							begin(numerPid), begin(numerPid2), begin(denomPid),
+// 							begin(hNWeight), begin(hXBeta), begin(hY));
+//
+// 		Fraction<real> result = variants::reduce(range.begin(), range.end(), Fraction<real>(0,0), kernel,
+// 		 SerialOnly()
+// 	//     info
+// 		);
+//
+// 		gradient = result.real();
+// 		hessian = result.imag();
+//
+// #endif
+//
+// #ifdef NEW_WAY2
+
+		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPidPool[cvIndex],
+		        typename IteratorType::tag());
+
+        auto rangeXNumerator = helper::dependent::getRangeX(modelData, index, offsExpXBetaPool[cvIndex],
+                typename IteratorType::tag());
+
+        auto rangeGradient = helper::dependent::getRangeGradient(sparseIndices[index].get(), N, // runtime error: reference binding to null pointer of type 'struct vector'
+                denomPidPool[cvIndex], hNWeightPool[cvIndex],
+                typename IteratorType::tag());
+
+		const auto result = variants::trial::nested_reduce(
+		        rangeKey.begin(), rangeKey.end(),
+		        rangeXNumerator.begin(), rangeGradient.begin(),
+		        std::pair<real,real>{0,0}, Fraction<real>{0,0},
+                TestNumeratorKernel<BaseModel,IteratorType,real>(), // Inner transform-reduce
+		       	TestGradientKernel<BaseModel,IteratorType,Weights,real>()); // Outer transform-reduce
+
+		gradient = result.real();
+		hessian = result.imag();
+// #endif
+
+//       std::cerr << std::endl
+//            << result.real() << " " << result.imag() << std::endl
+//            << result2.real() << " " << result2.imag() << std::endl
+// 		   		 << result3.real() << " " << result3.imag() << std::endl;
+
+//  		::Rf_error("break");
+
+    } // not Cox
+
+	//std::cerr << "g: " << gradient << " h: " << hessian << " f: " << hXjY[index] << std::endl;
+
+	if (BaseModel::precomputeGradient) { // Compile-time switch
+		gradient -= hXjYPool[cvIndex][index];
+	}
+
+	if (BaseModel::precomputeHessian) { // Compile-time switch
+		hessian += static_cast<real>(2.0) * hXjXPool[cvIndex][index];
+	}
+
+ 	ogradient[cvIndex] = static_cast<double>(gradient);
+	ohessian[cvIndex] = static_cast<double>(hessian);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = bsccs::chrono::steady_clock::now();
+	///////////////////////////"
+	auto name = "compGradHess" + IteratorType::name + "  ";
+	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+#endif
+
+ }
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index, bool useWeights, int cvIndex) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = bsccs::chrono::steady_clock::now();
+#endif
+#endif
+
+	// Run-time dispatch to implementation depending on covariate FormatType
+	switch(modelData.getFormatType(index)) {
+		case INDICATOR :
+			updateXBetaImpl<IndicatorIterator>(realDelta, index, useWeights, cvIndex);
+			break;
+		case SPARSE :
+			updateXBetaImpl<SparseIterator>(realDelta, index, useWeights, cvIndex);
+			break;
+		case DENSE :
+			updateXBetaImpl<DenseIterator>(realDelta, index, useWeights, cvIndex);
+			break;
+		case INTERCEPT :
+			updateXBetaImpl<InterceptIterator>(realDelta, index, useWeights, cvIndex);
+			break;
+		default : break;
+			// throw error
+			//exit(-1);
+	}
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = bsccs::chrono::steady_clock::now();
+	///////////////////////////"
+	duration["updateXBeta      "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+#endif
+
+}
+
+template <class BaseModel,typename WeightType> template <class IteratorType>
+inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta, int index, bool useWeights, int cvIndex) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = bsccs::chrono::steady_clock::now();
+#endif
+#endif
+
+// #ifdef NEW_LOOPS
+
+#if 1
+	auto range = helper::getRangeX(modelData, index, typename IteratorType::tag());
+
+	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,real,int>(
+					realDelta, begin(offsExpXBetaPool[cvIndex]), begin(hXBetaPool[cvIndex]),
+					begin(hY),
+					begin(hPidPool[cvIndex]),
+					begin(denomPidPool[cvIndex]),
+					begin(hOffs)
+					);
+
+
+	variants::for_each(
+		range.begin(), range.end(),
+		kernel,
+// 		info
+//          threadPool
+// 		RcppParallel() // TODO Currently *not* thread-safe
+          SerialOnly()
+		);
+
+#else
+
+    if (BaseModel::hasIndependentRows) {
+
+        auto range = helper::independent::getRangeXBeta(modelData, index,
+                offsExpXBeta, hXBeta, denomPid, hOffs,
+                typename IteratorType::tag());
+
+        auto kernel = TestUpdateXBetaKernel<BaseModel,IteratorType,real>(realDelta);
+        variants::for_each(
+            range.begin(), range.end(),
+            kernel,
+            SerialOnly()
+        );
+
+    } else {
+
+        auto rangeXBeta = helper::independent::getRangeXBeta(modelData, index,
+            offsExpXBeta, hXBeta, denomPid, /* denom not used here */ hOffs,
+            typename IteratorType::tag());
+
+ 		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid,
+		        typename IteratorType::tag());
+
+		auto rangeDenominator = helper::dependent::getRangeDenominator(sparseIndices[index].get(), N,
+		        denomPid, typename IteratorType::tag());
+
+        auto kernel = TestUpdateXBetaKernelDependent<BaseModel,IteratorType,real>(realDelta);
+
+        auto key = rangeKey.begin();
+        auto end = rangeKey.end();
+        auto inner = rangeXBeta.begin();
+        auto outer = rangeDenominator.begin();
+
+        const auto stop = end - 1;
+
+        real result = 0;
+
+        for (; key != stop; ++key, ++inner) {
+
+            result = kernel(result, *inner);
+
+            if (*key != *(key + 1)) {
+
+                *outer = result + *outer;
+
+                result = 0;
+                ++outer;
+            }
+        }
+
+        result = kernel(result, *inner);
+
+        *outer = result + *outer;
+    }
+
+#endif
+
+// 	std::cerr << std::endl << realDelta << std::endl;
+//
+// 	::Rf_error("return");
+
+
+
+// #else
+// 	IteratorType it(modelData, index);
+// 	for (; it; ++it) {
+// 		const int k = it.index();
+// 		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
+// 		// Update denominators as well
+// 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+// 			real oldEntry = offsExpXBeta[k];
+// 			real newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
+// 			incrementByGroup(denomPid, hPid, k, (newEntry - oldEntry));
+// 		}
+// 	}
+//
+// #endif
+
+	computeAccumlatedDenominator(useWeights, cvIndex);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = bsccs::chrono::steady_clock::now();
+	///////////////////////////"
+	auto name = "updateXBeta" + IteratorType::name + "   ";
+	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+#endif
+
+}
+
+
+
+
+
+
+
 
 } // namespace
 

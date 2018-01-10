@@ -358,6 +358,67 @@ void AbstractModelSpecifics::setPidForAccumulation(const RealType* weights) {
 	setupSparseIndices(N); // ignore pid == N (pointing to removed data strata)
 }
 
+template <typename RealType>
+void AbstractModelSpecifics::setPidForAccumulation(const RealType* weights, int cvIndex) {
+
+	hPidInternalPool[cvIndex] =  hPidOriginal; // Make copy
+	hPidPool[cvIndex] = hPidInternalPool[cvIndex].data(); // Point to copy
+	accResetPool[cvIndex].clear();
+
+	const int ignore = -1;
+
+	// Find first non-zero weight
+	size_t index = 0;
+	while(weights != nullptr && weights[index] == 0.0 && index < K) {
+		hPidPool[cvIndex][index] = ignore;
+		index++;
+	}
+
+	int lastPid = hPidPool[cvIndex][index];
+	real lastTime = hOffs[index];
+	real lastEvent = hY[index];
+
+	int pid = hPid[index] = 0;
+
+	for (size_t k = index + 1; k < K; ++k) {
+		if (weights == nullptr || weights[k] != 0.0) {
+			int nextPid = hPidPool[cvIndex][k];
+
+			if (nextPid != lastPid) { // start new strata
+				pid++;
+				accResetPool[cvIndex].push_back(pid);
+				lastPid = nextPid;
+			} else {
+
+				if (lastEvent == 1.0 && lastTime == hOffs[k] && lastEvent == hY[k]) {
+					// In a tie, do not increment denominator
+				} else {
+					pid++;
+				}
+			}
+			lastTime = hOffs[k];
+			lastEvent = hY[k];
+
+			hPidPool[cvIndex][k] = pid;
+		} else {
+			hPidPool[cvIndex][k] = ignore;
+		}
+	}
+	pid++;
+	accResetPool[cvIndex].push_back(pid);
+
+	// Save number of denominators
+	N = pid;
+
+	if (weights != nullptr) {
+		for (size_t i = 0; i < K; ++i) {
+			if (hPid[i] == ignore) hPid[i] = N; // do NOT accumulate, since loops use: i < N
+		}
+	}
+	setupSparseIndices(N); // ignore pid == N (pointing to removed data strata)
+}
+
+
 void AbstractModelSpecifics::setupSparseIndices(const int max) {
 	sparseIndices.clear(); // empty if full!
 

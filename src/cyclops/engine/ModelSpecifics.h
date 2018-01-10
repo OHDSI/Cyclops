@@ -203,6 +203,17 @@ public:
 
 	virtual void computeXBeta(double* beta, bool useWeights);
 
+	// syncCV
+	void turnOnSyncCV(int foldToCompute);
+
+	virtual void axpyXBeta(const double beta, const int j, int cvIndex);
+
+	virtual const RealVector& getXBeta(int index);
+
+	virtual void computeGradientAndHessian(int index, std::vector<double>& gradient,
+				std::vector<double>& hessian, bool useWeights, std::vector<bool> fixBeta);
+
+
 	//virtual double getGradientObjective();
 
 protected:
@@ -246,6 +257,8 @@ protected:
 
 	void setWeights(double* inWeights, bool useCrossValidation);
 
+	void setWeights(double* inWeights, bool useCrossValidation, int index);
+
 	void doSortPid(bool useCrossValidation);
 
 	bool initializeAccumulationVectors(void);
@@ -274,6 +287,23 @@ protected:
 	//	std::vector<double> duration;
 	std::map<std::string,long long> duration;
 #endif
+
+	// syncCV objects;
+	std::vector<std::vector<WeightType>> hNWeightPool;
+
+	std::vector<std::vector<WeightType>> hKWeightPool;
+
+	std::vector<std::vector<int>> hNtoKPool;
+
+	void computeAccumlatedDenominator(bool useWeights, int index);
+
+	std::vector<double> getGradientObjectives(void);
+
+	std::vector<double> getLogLikelihoods(bool useCrossValidation);
+
+	void computeNumeratorForGradient(int index, std::vector<bool> fixBeta);
+
+	void updateXBeta(real realDelta, int index, bool useWeights, int cvIndex);
 
 private:
 
@@ -331,6 +361,20 @@ private:
 	ParallelInfo info;
 
 //	C11ThreadPool threadPool;
+
+	// syncCV
+	template <class IteratorType>
+	void incrementNumeratorForGradientImpl(int index, int cvIndex);
+
+	template <class IteratorType, class Weights>
+	void computeGradientAndHessianImpl(
+			int index,
+			std::vector<double>& gradient,
+			std::vector<double>& hessian, Weights w, int cvIndex);
+
+	template <class IteratorType>
+		void updateXBetaImpl(real delta, int index, bool useWeights, int cvIndex);
+
 };
 
 template <typename WeightType>

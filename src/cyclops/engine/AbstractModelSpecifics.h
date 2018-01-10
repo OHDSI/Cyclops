@@ -124,6 +124,45 @@ public:
 
 	virtual void axpyXBeta(const double beta, const int j) = 0;
 
+	//syncCV
+	virtual void turnOnSyncCV(int foldToCompute) = 0;
+	virtual void axpyXBeta(const double beta, const int j, const int cvIndex) = 0;
+
+	virtual void setWeights(double* inWeights, bool useCrossValidation, int index) = 0; // pure virtual
+
+    virtual std::vector<double> getGradientObjectives() = 0; // pure virtual
+
+    virtual std::vector<double> getLogLikelihoods(bool useCrossValidation) = 0; // pure virtual
+
+	virtual void computeNumeratorForGradient(int index, std::vector<bool> fixBeta) = 0; // pure virtual
+
+	virtual void computeGradientAndHessian(int index, std::vector<double>& gradient,
+			std::vector<double>& hessian, bool useWeights, std::vector<bool> fixBeta) = 0;
+
+	virtual void updateXBeta(real realDelta, int index, bool useWeights, int cvIndex) = 0; // pure virtual
+
+	std::vector<RealVector> accDenomPidPool;
+	std::vector<RealVector> accNumerPidPool;
+	std::vector<RealVector> accNumerPid2Pool;
+	std::vector<IntVector> accResetPool;
+
+	std::vector<int*> hPidPool;
+	std::vector<std::vector<int>> hPidInternalPool;
+
+	std::vector<RealVector> hXBetaPool;
+	std::vector<RealVector> offsExpXBetaPool;
+
+	std::vector<RealVector> denomPidPool;
+	std::vector<RealVector> numerPidPool;
+	std::vector<RealVector> numerPid2Pool;
+
+	std::vector<RealVector> hXjYPool;
+	std::vector<RealVector> hXjXPool;
+	std::vector<real> logLikelihoodFixedTermPool;
+
+	bool syncCV = false;
+	int syncCVFolds;
+
 protected:
 
 //     template <class Engine>
@@ -168,6 +207,10 @@ protected:
 	void zeroVector(T* vector, const int length) {
 		fillVector(vector, length, T());
 	}
+
+	//syncCV
+	template <typename RealType>
+	void setPidForAccumulation(const RealType *weights, int cvIndex);
 
 protected:
 	const ModelData& modelData;
