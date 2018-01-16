@@ -463,12 +463,16 @@ double CyclicCoordinateDescent::getLogPrior(void) {
 
 double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
 	if (convergenceType == GRADIENT) {
+		std::cout << "grad obj\n";
 	    return modelSpecifics.getGradientObjective(useCrossValidation);
 	} else
 	if (convergenceType == MITTAL) {
+		std::cout << "mittal obj\n";
 		return getLogLikelihood();
 	} else
 	if (convergenceType == LANGE) {
+		std::cout << "lange obj\n";
+    	std::cout << getLogLikelihood() << " " << getLogPrior();
 		return getLogLikelihood() + getLogPrior();
 	} else {
     	std::ostringstream stream;
@@ -515,6 +519,17 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	modelSpecifics.setAlgorithmType(algorithmType);
 
 	initialBound = arguments.initialBound;
+
+	std::cout << "calling ccd update\n";
+	if (syncCV) {
+		fixBetaPool.resize(J);
+		for (int i=0; i<J; i++) {
+			fixBetaPool[i].resize(syncCVFolds);
+			for (int j=0; j<syncCVFolds; j++) {
+				fixBetaPool[i][j] = false;
+			}
+		}
+	}
 
 	int count = 0;
 	bool done = false;
@@ -764,7 +779,8 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
                                                       int maxIterations,
                                                       int iteration,
                                                       double* lastObjFunc) {
-    std::cout << " " << *lastObjFunc << '\n';
+    if (iteration==1) std::cout << "sizeof real:  " << sizeof(real) << "\n";
+	std::cout << "" << *lastObjFunc << '\n';
 
     bool done = false;
     double conv;
@@ -875,6 +891,10 @@ void CyclicCoordinateDescent::findMode(
 	double lastObjFunc = 0.0;
 	std::vector<double> lastObjFuncVec;
 
+	if (initialBound == 2.0) {
+		modelSpecifics.printStuff();
+	}
+
 	if (convergenceType < ZHANG_OLES) {
 		if (syncCV) {
 			lastObjFuncVec = getObjectiveFunctions(convergenceType);
@@ -905,6 +925,7 @@ void CyclicCoordinateDescent::findMode(
 	}
 
 	auto cycle = [this,&iteration,&algorithmType,&allDelta,&allDeltaPool] {
+
 		if (iteration%100==0) std::cout<<iteration<<"\n";
 	    auto log = [this](const int index) {
 	        if ( (noiseLevel > QUIET) && ((index+1) % 100 == 0)) {
@@ -964,19 +985,29 @@ void CyclicCoordinateDescent::findMode(
 
 	    } else {
 	        // Do a complete cycle in serial
-	    	//std::cout << "starting cycle\n";
+	    	std::cout << "starting cycle\n";
 	        for(int index = 0; index < J; index++) {
+	        	std::cout << "index " << index << ": ";
 		    	//std::cout << "hBeta[0]: " << hBeta[0] << " hBeta[1]: " << hBeta[1] << '\n';
 	        	if (syncCV) {
 	        		std::vector<double> deltaVec = ccdUpdateBetaVec(index);
+
+	        		std::cout << " deltaVec: ";
+	        		for (auto x : deltaVec) {
+	        			std::cout << x << " ";
+	        		}
+
 	        		deltaVec = applyBounds(deltaVec, index);
+
 	        		updateSufficientStatistics(deltaVec, index);
     				computeRemainingStatistics(true, 0);
 	        	} else {
 	        		if (!fixBeta[index]) {
 	        			double delta = ccdUpdateBeta(index);
+	        			//std::cout << "delta " << index << ": " << delta;
 	        			//std::cerr << " " << delta;
 	        			delta = applyBounds(delta, index);
+	        			//std::cout << " " << delta;
 	        			//std::cout << "delta" << index << ": " << delta << "\n";
 	        			if (delta != 0.0) {
 	        				sufficientStatisticsKnown = false;
@@ -987,6 +1018,7 @@ void CyclicCoordinateDescent::findMode(
 
 	            //log(index);
 	        	}
+		        std::cout << "\n";
 	        }
 
 	        //std::cout << '\n';
@@ -1399,14 +1431,19 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 
 	priors::GradientHessian gh;
 	computeGradientAndHessian(index, &gh.first, &gh.second);
-	//std::cout << "grad" << index << ": " << gh.first << " hess" << index << ": " << gh.second << " ";
+	//std::cout << "grad" << ": " << gh.first << " hess" << ": " << gh.second << " ";
 
 	if (gh.second < 0.0) {
 	    gh.first = 0.0;
 	    gh.second = 0.0;
 	}
 
-	return jointPrior->getDelta(gh, hBeta, index);
+	double blah = jointPrior->getDelta(gh, hBeta, index);
+	std::cout << " delta: " << blah;
+
+	return blah;
+
+	//return jointPrior->getDelta(gh, hBeta, index);
 }
 
 void CyclicCoordinateDescent::axpyXBeta(const double beta, const int j) {
@@ -1606,19 +1643,24 @@ void CyclicCoordinateDescent::turnOnSyncCV(int foldToCompute) {
 	}
 }
 
+void CyclicCoordinateDescent::turnOffSyncCV() {
+	syncCV = false;
+	modelSpecifics.turnOffSyncCV();
+}
+
 std::vector<double> CyclicCoordinateDescent::getObjectiveFunctions(int convergenceType) {
 	if (convergenceType == GRADIENT) {
+		std::cout << "grad obj \n";
 	    return modelSpecifics.getGradientObjectives();
 	} else
 	if (convergenceType == MITTAL) {
+		std::cout << "mittal obj \n";
 		return getLogLikelihoods();
 	} else
 	if (convergenceType == LANGE) {
+		std::cout << "lange obj: ";
 	    std::vector<double> logLikelihoods = getLogLikelihoods();
 	    std::vector<double> logPriors = getLogPriors();
-	    for (int i = 0; i < syncCVFolds; i++) {
-	        logLikelihoods[i] += logPriors[i];
-	    }
 		return logLikelihoods;
 	} else {
     	std::ostringstream stream;
@@ -1666,12 +1708,20 @@ std::vector<double> CyclicCoordinateDescent::ccdUpdateBetaVec(int index) {
 
 	computeGradientAndHessian(index, gradList, hessList);
 
+	/*
+	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+		std::cout << cvIndex << ": " << gradList[cvIndex] << " | " << hessList[cvIndex] << " ";
+	}
+	std::cout << "\n";
+	*/
+
 	//computeGradientAndHessian(index, &gh.first, &gh.second);
 	//std::cout << "grad" << index << ": " << gh.first << " hess" << index << ": " << gh.second << " ";
 
 	std::vector<double> result;
 	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
 		if (fixBetaPool[index][cvIndex]) {
+			//std::cout << "fixedBeta ";
 			result.push_back(0.0);
 		} else {
 			if (hessList[cvIndex] < 0.0) {
@@ -1679,7 +1729,11 @@ std::vector<double> CyclicCoordinateDescent::ccdUpdateBetaVec(int index) {
 				hessList[cvIndex] = 0.0;
 			}
 			gh = priors::GradientHessian(gradList[cvIndex], hessList[cvIndex]);
-			result.push_back(jointPrior->getDelta(gh, hBetaPool[cvIndex], index));
+			//std::cout << "gh: " << cvIndex <<  ": " << gh.first << " | " << gh.second << " ";
+			double blah = jointPrior->getDelta(gh, hBetaPool[cvIndex], index);
+			//std::cout << "delta: " << blah << "\n";
+			result.push_back(blah);
+			//std::cout << "\n       ";
 		}
 	}
 
@@ -1704,9 +1758,11 @@ std::vector<double> CyclicCoordinateDescent::applyBounds(std::vector<double> del
 
 
 	    // TODO Remove magic numbers
+
 	    auto intermediate = std::max(std::abs(delta[cvIndex]) * 2, hDeltaPool[cvIndex][index] / 2);
 	    intermediate = std::max(intermediate, 1E-3);
 	    hDeltaPool[cvIndex][index] = intermediate;
+
     	}
     }
 
@@ -1738,18 +1794,33 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
                                                       int maxIterations,
                                                       int iteration,
                                                       std::vector<double>& lastObjFuncVec) {
+	std::cout << "lastObjFunc: ";
     for (auto x : lastObjFuncVec) {
         std::cout << " " << x;
     }
     std::cout << '\n';
+    std::ostringstream stream;
 
     bool done = true;
     std::vector<double> conv;
     conv.resize(syncCVFolds);
-    std::vector<bool> illconditioned;
-    illconditioned.resize(syncCVFolds, false);
+    //std::vector<bool> illconditioned;
+    //illconditioned.resize(syncCVFolds, false);
+    bool illconditioned = false;
+    if (iteration > maxIterations) {
+    	if (noiseLevel > SILENT) {
+    		stream << "Reached maximum iterations";
+    	}
+    	done = true;
+    	lastReturnFlag = MAX_ITERATIONS;
+    }
     if (convergenceType < ZHANG_OLES) {
     	std::vector<double> thisObjFuncVec = getObjectiveFunctions(convergenceType);
+    	std::cout << "thisObjFunc: ";
+        for (auto x : thisObjFuncVec) {
+            std::cout << " " << x;
+        }
+        std::cout << '\n';
     	//std::cout << "ObjFunc" << convergenceType << ": " << thisObjFunc << '\n';
     	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
     		if (thisObjFuncVec[cvIndex] != thisObjFuncVec[cvIndex]) {
@@ -1760,9 +1831,19 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
 						<< "Enforcing convergence!";
     			logger->writeLine(stream);
     			conv[cvIndex] = 0.0;
-    			illconditioned[cvIndex] = true;
+    			//illconditioned[cvIndex] = true;
+    			illconditioned = true;
+    			done = true;
     		} else {
     			conv[cvIndex] = computeConvergenceCriterion(thisObjFuncVec[cvIndex], lastObjFuncVec[cvIndex]);
+    			if (conv[cvIndex] > epsilon) {
+    				done = false;
+    			}
+    			if (epsilon > 0 && conv[cvIndex] < epsilon) {
+    				for (int j = 0; j < J; j++) {
+    					fixBetaPool[j][cvIndex] = true;
+    				}
+    			}
     		}
     		lastObjFuncVec[cvIndex] = thisObjFuncVec[cvIndex];
     	}
@@ -1772,62 +1853,22 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
     } // Necessary to call getObjFxn or computeZO before getLogLikelihood,
     // since these copy over XBeta
 
-    //double thisLogLikelihood = getLogLikelihood();
-    //double thisLogPrior = getLogPrior();
-    //double thisLogPost = thisLogLikelihood + thisLogPrior;
-    //std::cout << setprecision(15) << "hBeta: " << hBeta[0] << " | " << hBeta[1] << '\n';
-    //std::cout << "logs: " << thisLogLikelihood << " | " << thisLogPrior << '\n';
-
-    std::ostringstream stream;
-    if (noiseLevel > QUIET) {
-        // stream << "\n";
-        // printVector(&hBeta[0], J, stream);
-        stream << "\n";
-        //stream << "log post: " << thisLogPost
-        //       << " (" << thisLogLikelihood << " + " << thisLogPrior
-         //      << ") (iter:" << iteration << ", conv: " << conv << ") ";
-    }
-
-    for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
-    	if (epsilon > 0 && conv[cvIndex] < epsilon) {
-    		for (int j = 0; j < J; j++) {
-    			fixBetaPool[j][cvIndex] = true;
-    		}
-    		continue;
-    	} else {
-    		done = false;
-    		break;
-    	}
-    }
-
     if (done) {
-
-    }
-
-    /*
-    if (epsilon > 0 && conv < epsilon) {
-        if (illconditioned) {
-            lastReturnFlag = ILLCONDITIONED;
-        } else {
-            if (noiseLevel > SILENT) {
-                stream << "Reached convergence criterion";
-            }
-            lastReturnFlag = SUCCESS;
-        }
-        done = true;
-    } else if (iteration == maxIterations) {
-        if (noiseLevel > SILENT) {
-            stream << "Reached maximum iterations";
-        }
-        done = true;
-        lastReturnFlag = MAX_ITERATIONS;
+    	if (illconditioned) {
+    		lastReturnFlag = ILLCONDITIONED;
+    	} else {
+    		if (noiseLevel > SILENT) {
+    			stream << "Reached convergence criterion";
+    		}
+    		lastReturnFlag = SUCCESS;
+    	}
     }
     if (noiseLevel > QUIET) {
         logger->writeLine(stream);
     }
 
     logger->yield();
-*/
+
     return done;
 }
 
@@ -1842,15 +1883,43 @@ void CyclicCoordinateDescent::setWeights(double* iWeights, int syncCVIndex) {
 	validWeights = false;
 	sufficientStatisticsKnown = false;
 
+	/*
 	std::cout << "weights" << syncCVIndex << ": ";
 	for (auto x : hWeightsPool[syncCVIndex]) {
 		std::cout << " " << x;
 	}
 	std::cout << '\n';
+	*/
 
 }
 
+double CyclicCoordinateDescent::getPredictiveLogLikelihood(double* weights, int cvIndex) {
 
+	/*
+	std::cout << "weights: ";
+	for (int x = 0; x < K; x++) {
+		std::cout << " " << weights[x];
+	}
+	std::cout << "\n";
+	*/
+
+	xBetaKnown = false;
+
+	if (!xBetaKnown) {
+		computeXBeta();
+		xBetaKnown = true;
+		sufficientStatisticsKnown = false;
+	}
+
+	if (!sufficientStatisticsKnown) {
+		computeRemainingStatistics(true, 0); // TODO Remove index????
+		sufficientStatisticsKnown = true;
+	}
+
+	getDenominators();
+
+	return modelSpecifics.getPredictiveLogLikelihood(weights, cvIndex); // TODO Pass double
+}
 
 
 

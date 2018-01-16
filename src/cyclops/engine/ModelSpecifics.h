@@ -206,6 +206,8 @@ public:
 	// syncCV
 	void turnOnSyncCV(int foldToCompute);
 
+	void turnOffSyncCV(void);
+
 	virtual void axpyXBeta(const double beta, const int j, int cvIndex);
 
 	virtual const RealVector& getXBeta(int index);
@@ -213,6 +215,7 @@ public:
 	virtual void computeGradientAndHessian(int index, std::vector<double>& gradient,
 				std::vector<double>& hessian, bool useWeights, std::vector<bool> fixBeta);
 
+	virtual void printStuff(void);
 
 	//virtual double getGradientObjective();
 
@@ -282,6 +285,8 @@ protected:
 
 	template <class InteratorType>
 	void incrementNormsImpl(int index);
+
+	double getPredictiveLogLikelihood(double* weights, int cvIndex);
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	//	std::vector<double> duration;

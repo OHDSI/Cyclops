@@ -14,7 +14,7 @@
 #include "Thread.h"
 #include "AbstractCrossValidationDriver.h"
 
-#define syncCV
+// #define syncCV
 
 namespace bsccs {
 
@@ -34,6 +34,11 @@ void AbstractCrossValidationDriver::resetForOptimal(
 		CyclicCoordinateDescent& ccd,
 		CrossValidationSelector& selector,
 		const CCDArguments& arguments) {
+
+#ifdef syncCV
+	ccd.turnOffSyncCV();
+#else
+#endif
 
 	ccd.setWeights(NULL);
 
@@ -59,6 +64,8 @@ void AbstractCrossValidationDriver::drive(
     if (nThreads < 1) {
         nThreads = 1;
     }
+
+    nThreads = 1;
 
 	std::ostringstream stream2;
 	stream2 << "Using " << nThreads << " thread(s)";
@@ -147,29 +154,87 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 
 	int repetitions = arguments.foldToCompute / arguments.fold;
 	selectorPool.resize(repetitions);
+	std::vector<std::vector<double>> weightsPool;
+	weightsPool.resize(arguments.foldToCompute);
+	predLogLikelihood.resize(arguments.foldToCompute);
+
 	for (int i = 0; i < repetitions; ++i) {
 		selectorPool.push_back(selector.clone());
-		selectorPool[i]->reseed();
+		//selectorPool[i]->reseed();
 		selectorPool[i]->permute();
 		for (int j = 0; j < arguments.fold; ++j) {
 			int index = i * arguments.fold + j;
-			std::vector<double> weights; // Task-specific
-			selectorPool[i]->getWeights(j, weights);
+			//std::vector<double> weights; // Task-specific
+			selectorPool[i]->getWeights(j, weightsPool[i * arguments.fold + j]);
 			if (weightsExclude){
 				for(size_t k = 0; k < weightsExclude->size(); k++){
 					if (weightsExclude->at(k) == 1.0){
-						weights[k] = 0.0;
+						weightsPool[i * arguments.fold + j][k] = 0.0;
 					}
 				}
 			}
-			ccd.setWeights(&weights[0], index);
+			//ccd.setWeights(&weights[0], index);
+			ccd.setWeights(&weightsPool[i * arguments.fold + j][0], index);
 		}
 	}
+
+	std::cout << "weights0: ";
+	for (int i = 0 ; i < 50; i++) {
+		std::cout << weightsPool[0][i] << " ";
+	}
+	std::cout << "\n";
+
+	std::cout << "weights1: ";
+	for (int i = 0 ; i < 50; i++) {
+		std::cout << weightsPool[1][i] << " ";
+	}
+	std::cout << "\n";
+
+	std::ostringstream stream;
+	stream << "Running at " << ccd.getPriorInfo() << " ";
+	stream << "Grid-point #" << (step + 1) << " at ";
+	std::vector<double> hyperprior = ccd.getHyperprior();
+	std::copy(hyperprior.begin(), hyperprior.end(),
+		std::ostream_iterator<double>(stream, " "));
+
+    bool write = true;
+
+	if (write) logger->writeLine(stream);
+
 	if (coldStart) {
         ccd.resetBeta();
     }
 
 	ccd.update(allArguments.modeFinding);
+
+	if (ccd.getUpdateReturnFlag() == SUCCESS) {
+		// Compute predictive loglikelihood for this fold
+		for (int cvIndex = 0; cvIndex < arguments.foldToCompute; cvIndex++) {
+			selector.getComplement(weightsPool[cvIndex]);  // TODO THREAD_SAFE
+			if (weightsExclude){
+				for(int j = 0; j < (int)weightsExclude->size(); j++){
+					if(weightsExclude->at(j) == 1.0){
+						weightsPool[cvIndex][j] = 0.0;
+					}
+				}
+			}
+			std::cout << "predLik weights " << cvIndex << ": ";
+			for (int i = 0; i < 50; i++) {
+				std::cout << weightsPool[cvIndex][i] << " ";
+			}
+			std::cout << "\n";
+			double logLikelihood = ccd.getPredictiveLogLikelihood(&weightsPool[cvIndex][0], cvIndex);
+			stream << logLikelihood << " ";
+			predLogLikelihood[cvIndex] = logLikelihood;
+
+		}
+	} else {
+		ccd.resetBeta(); // cold start for stability
+		stream << "Not computed";
+		for (int cvIndex = 0; cvIndex < arguments.foldToCompute; cvIndex++) {
+			predLogLikelihood[cvIndex] = std::numeric_limits<double>::quiet_NaN();
+		}
+	}
 
 #else
 
@@ -197,7 +262,7 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 
 				// Bring selector up-to-date
 				if (task == 0 || nThreads > 1) {
-    				selectorTask->reseed();
+    				//selectorTask->reseed();
     			}
     			int i = (nThreads == 1) ? task : 0;
 				for ( ; i <= task; ++i) {
@@ -220,6 +285,26 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 					}
 				}
 				ccdTask->setWeights(&weights[0]);
+
+
+				if (task == 0) {
+					std::cout << "weights0: ";
+					selectorTask->getWeights(0, weights);
+					for (int i = 0 ; i < 50; i++) {
+						std::cout << weights[i] << " ";
+					}
+					std::cout << "\n";
+
+					std::cout << "weights1: ";
+					selectorTask->getWeights(1, weights);
+					for (int i = 0 ; i < 50; i++) {
+						std::cout << weights[i] << " ";
+					}
+					std::cout << "\n";
+
+					selectorTask->getWeights(0, weights);
+				}
+
 
 				std::ostringstream stream;
 				stream << "Running at " << ccdTask->getPriorInfo() << " ";
@@ -247,6 +332,12 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 							}
 						}
 					}
+
+					std::cout << "predLik weights " << task << ": ";
+					for (int i = 0; i < 50; i++) {
+						std::cout << weights[i] << " ";
+					}
+					std::cout << "\n";
 
 					double logLikelihood = ccdTask->getPredictiveLogLikelihood(&weights[0]);
 

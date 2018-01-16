@@ -378,7 +378,7 @@ void AbstractModelSpecifics::setPidForAccumulation(const RealType* weights, int 
 	real lastTime = hOffs[index];
 	real lastEvent = hY[index];
 
-	int pid = hPid[index] = 0;
+	int pid = hPidPool[cvIndex][index] = 0;
 
 	for (size_t k = index + 1; k < K; ++k) {
 		if (weights == nullptr || weights[k] != 0.0) {
@@ -412,10 +412,10 @@ void AbstractModelSpecifics::setPidForAccumulation(const RealType* weights, int 
 
 	if (weights != nullptr) {
 		for (size_t i = 0; i < K; ++i) {
-			if (hPid[i] == ignore) hPid[i] = N; // do NOT accumulate, since loops use: i < N
+			if (hPidPool[cvIndex][i] == ignore) hPidPool[cvIndex][i] = N; // do NOT accumulate, since loops use: i < N
 		}
 	}
-	setupSparseIndices(N); // ignore pid == N (pointing to removed data strata)
+	setupSparseIndices(N, cvIndex); // ignore pid == N (pointing to removed data strata)
 }
 
 
@@ -438,6 +438,29 @@ void AbstractModelSpecifics::setupSparseIndices(const int max) {
 			}
 			auto indices = bsccs::make_shared<IndexVector>(unique.begin(), unique.end());
             sparseIndices.push_back(indices);
+		}
+	}
+}
+
+void AbstractModelSpecifics::setupSparseIndices(const int max, int cvIndex) {
+	sparseIndicesPool[cvIndex].clear(); // empty if full!
+
+	for (size_t j = 0; j < J; ++j) {
+		if (modelData.getFormatType(j) == DENSE || modelData.getFormatType(j) == INTERCEPT) {
+			sparseIndicesPool[cvIndex].push_back(NULL);
+		} else {
+			std::set<int> unique;
+			const size_t n = modelData.getNumberOfEntries(j);
+			const int* indicators = modelData.getCompressedColumnVector(j);
+			for (size_t j = 0; j < n; j++) { // Loop through non-zero entries only
+				const int k = indicators[j];
+				const int i = hPidPool[cvIndex][k];  // TODO container-overflow #Generate some simulated data: #Fit the model
+				if (i < max) {
+					unique.insert(i);
+				}
+			}
+			auto indices = bsccs::make_shared<IndexVector>(unique.begin(), unique.end());
+            sparseIndicesPool[cvIndex].push_back(indices);
 		}
 	}
 }

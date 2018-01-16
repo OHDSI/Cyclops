@@ -781,10 +781,13 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjY(bool useCrossValidation) 
 		GenericIterator it(modelData, j);
 
 		if (syncCV) {
+			for (int index = 0; index < syncCVFolds; index++) {
+				hXjYPool[index][j] = 0;
+			}
+
 			for (; it; ++it) {
 				const int k = it.index();
 				for (int index = 0; index < syncCVFolds; index++) {
-					if (k==0) hXjYPool[index][j] = 0;
 					if (BaseModel::exactTies && hNWeightPool[index][BaseModel::getGroup(hPidPool[index], k)] > 1) {
 						// Do not precompute
 					} else {
@@ -2308,6 +2311,7 @@ void ModelSpecifics<BaseModel,WeightType>::turnOnSyncCV(int foldToCompute) {
 		hXjYPool.push_back(hXjY);
 		hXjXPool.push_back(hXjX);
 		logLikelihoodFixedTermPool.push_back(logLikelihoodFixedTerm);
+		sparseIndicesPool.push_back(sparseIndices);
 	}
 	/*
 	std::cout << "hNWeightPool: " << hNWeightPool[0][0] << '\n';
@@ -2327,12 +2331,13 @@ void ModelSpecifics<BaseModel,WeightType>::turnOnSyncCV(int foldToCompute) {
 	std::cout << "hXjXPool: " << hXjXPool[0][0] << '\n';
 	std::cout << "logLikelihoodFixedTermPool: " << logLikelihoodFixedTermPool[0][0] << '\n';
 */
-	std::cout << "offsExpXBetaPool: ";
-	for (auto x : offsExpXBetaPool[1]) {
-		std::cout << " " << x;
-	}
-	std::cout << "\n";
 }
+
+template<class BaseModel, typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::turnOffSyncCV() {
+	syncCV = false;
+}
+
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::setWeights(double* inWeights, bool useCrossValidation, int index) {
@@ -2383,7 +2388,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 			case INDICATOR : {
 				for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
 					if (!fixBeta[cvIndex]) {
-						IndicatorIterator it(*(sparseIndices)[index]);
+						IndicatorIterator it(*(sparseIndicesPool[cvIndex])[index]);
 						for (; it; ++it) { // Only affected entries
 							numerPidPool[cvIndex][it.index()] = static_cast<real>(0.0);
 						}
@@ -2396,7 +2401,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeNumeratorForGradient(int index
 			case SPARSE : {
 				for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
 					if (!fixBeta[cvIndex]) {
-						SparseIterator it(*(sparseIndices)[index]);
+						SparseIterator it(*(sparseIndicesPool[cvIndex])[index]);
 						for (; it; ++it) { // Only affected entries
 							numerPidPool[cvIndex][it.index()] = static_cast<real>(0.0);
 							if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
@@ -2552,7 +2557,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	    real lastH = hessian;
 #endif
 
-    	if (sparseIndices[index] == nullptr || sparseIndices[index]->size() > 0) {
+    	if (sparseIndicesPool[cvIndex][index] == nullptr || sparseIndicesPool[cvIndex][index]->size() > 0) {
 
 		// TODO
 		// x. Fill numerators <- 0
@@ -2560,7 +2565,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		// x. Segmented scan of numerators
 		// x. Transformation/reduction of [begin,end)
 
-		IteratorType it(sparseIndices[index].get(), N);
+		IteratorType it(sparseIndicesPool[cvIndex][index].get(), N);
 
 
 		real accNumerPid  = static_cast<real>(0);
@@ -2882,6 +2887,14 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 #if 1
 	auto range = helper::getRangeX(modelData, index, typename IteratorType::tag());
 
+	/*
+	std::cout << "offExpXBetaPool " << cvIndex << " before: ";
+	for (auto x : offsExpXBetaPool[cvIndex]) {
+		std::cout << " " << x;
+	}
+	std::cout << "\n";
+	*/
+
 	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,real,int>(
 					realDelta, begin(offsExpXBetaPool[cvIndex]), begin(hXBetaPool[cvIndex]),
 					begin(hY),
@@ -2899,6 +2912,13 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 // 		RcppParallel() // TODO Currently *not* thread-safe
           SerialOnly()
 		);
+/*
+	std::cout << "offExpXBetaPool " << cvIndex << " after: ";
+	for (auto x : offsExpXBetaPool[cvIndex]) {
+		std::cout << " " << x;
+	}
+	std::cout << "\n";
+	*/
 
 #else
 
@@ -2992,11 +3012,71 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 
 }
 
+template <class BaseModel,typename WeightType>
+double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(double* weights, int cvIndex) {
 
+    std::vector<real> saveKWeight;
+	if(BaseModel::cumulativeGradientAndHessian)	{
 
+ 		saveKWeight = hKWeightPool[cvIndex]; // make copy
 
+// 		std::vector<int> savedPid = hPidInternal; // make copy
+// 		std::vector<int> saveAccReset = accReset; // make copy
+		setPidForAccumulation(weights, cvIndex);
+		computeRemainingStatistics(true); // compute accDenomPid
 
+    }
 
+	// Compile-time switch for models with / with-out PID (hasIndependentRows)
+	auto range = helper::getRangeAllPredictiveLikelihood(K, hY, hXBetaPool[cvIndex],
+		(BaseModel::cumulativeGradientAndHessian) ? accDenomPidPool[cvIndex] : denomPidPool[cvIndex],
+		weights, hPidPool[cvIndex], std::integral_constant<bool, BaseModel::hasIndependentRows>());
+
+	auto kernel = TestPredLikeKernel<BaseModel,real>();
+
+	real logLikelihood = variants::reduce(
+			range.begin(), range.end(), static_cast<real>(0.0),
+			kernel,
+			SerialOnly()
+		);
+
+	if (BaseModel::cumulativeGradientAndHessian) {
+
+// 		hPidInternal = savedPid; // make copy; TODO swap
+// 		accReset = saveAccReset; // make copy; TODO swap
+		setPidForAccumulation(&saveKWeight[0], cvIndex);
+		computeRemainingStatistics(true);
+	}
+
+	return static_cast<double>(logLikelihood);
+}   // END OF DIFF
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::printStuff(void) {
+	/*
+	std::cout << "hPidOriginal: ";
+	for (int i = 0; i < 50; i++) {
+		std::cout << hPidOriginal[i] << " ";
+	}
+	std::cout << "\n";
+	*/
+	if (syncCV) {
+		for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+			//std::cout << "fold " << cvIndex << ": \n";
+			std::cout << "hXjYPool: ";
+			for (int i = 0; i < 50; i++) {
+				std::cout << hXjYPool[cvIndex][i] << " ";
+			}
+			std::cout << "\n";
+		}
+	} else {
+		std::cout << "hXjYPool: ";
+		for (int i = 0; i < 50; i++) {
+			std::cout << hXjY[i] << " ";
+		}
+		std::cout << "\n";
+	}
+}
 
 
 } // namespace

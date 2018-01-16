@@ -188,6 +188,10 @@ public:
 
 	std::vector<double> ccdUpdateBetaVec(int index);
 
+	double getPredictiveLogLikelihood(double* weights, int cvIndex);
+
+	void turnOffSyncCV(void);
+
 protected:
 
 	bsccs::unique_ptr<AbstractModelSpecifics> privateModelSpecifics;

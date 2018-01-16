@@ -126,6 +126,9 @@ public:
 
 	//syncCV
 	virtual void turnOnSyncCV(int foldToCompute) = 0;
+
+	virtual void turnOffSyncCV() = 0;
+
 	virtual void axpyXBeta(const double beta, const int j, const int cvIndex) = 0;
 
 	virtual void setWeights(double* inWeights, bool useCrossValidation, int index) = 0; // pure virtual
@@ -140,6 +143,8 @@ public:
 			std::vector<double>& hessian, bool useWeights, std::vector<bool> fixBeta) = 0;
 
 	virtual void updateXBeta(real realDelta, int index, bool useWeights, int cvIndex) = 0; // pure virtual
+
+	virtual void printStuff() = 0;
 
 	std::vector<RealVector> accDenomPidPool;
 	std::vector<RealVector> accNumerPidPool;
@@ -162,6 +167,8 @@ public:
 
 	bool syncCV = false;
 	int syncCVFolds;
+
+	virtual double getPredictiveLogLikelihood(double* weights, int cvIndex) = 0; // pure virtual
 
 protected:
 
@@ -211,6 +218,8 @@ protected:
 	//syncCV
 	template <typename RealType>
 	void setPidForAccumulation(const RealType *weights, int cvIndex);
+
+	void setupSparseIndices(const int max, int cvIndex);
 
 protected:
 	const ModelData& modelData;
@@ -302,6 +311,9 @@ protected:
 	CdmPtr hXt;
 	const MmBoundType boundType;
 	std::vector<double> curvature;
+
+	std::vector<std::vector<IndexVectorPtr>> sparseIndicesPool; // TODO in c++11, are pointers necessary?
+
 };
 
 typedef bsccs::shared_ptr<AbstractModelSpecifics> ModelSpecificsPtr;
