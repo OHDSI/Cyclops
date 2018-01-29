@@ -14,7 +14,7 @@
 
 // #define GPU_DEBUG
 #undef GPU_DEBUG
-#define USE_LOG_SUM
+//#define USE_LOG_SUM
 #define TIME_DEBUG
 
 #include <Rcpp.h>
@@ -288,8 +288,14 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::hOffs;
     using ModelSpecifics<BaseModel, WeightType>::denomPid;
     using ModelSpecifics<BaseModel, WeightType>::accDenomPid;
+    using ModelSpecifics<BaseModel, WeightType>::accNumerPid;
+    using ModelSpecifics<BaseModel, WeightType>::accNumerPid2;
+    using ModelSpecifics<BaseModel, WeightType>::accReset;
+    using ModelSpecifics<BaseModel, WeightType>::numerPid;
+    using ModelSpecifics<BaseModel, WeightType>::numerPid2;
     using ModelSpecifics<BaseModel, WeightType>::hXjY;
     using ModelSpecifics<BaseModel, WeightType>::hXjX;
+    using ModelSpecifics<BaseModel, WeightType>::sparseIndices;
     using ModelSpecifics<BaseModel, WeightType>::K;
     using ModelSpecifics<BaseModel, WeightType>::J;
     using ModelSpecifics<BaseModel, WeightType>::N;
@@ -300,6 +306,10 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::boundType;
     using ModelSpecifics<BaseModel, WeightType>::hXt;
     using ModelSpecifics<BaseModel, WeightType>::logLikelihoodFixedTerm;
+
+    using ModelSpecifics<BaseModel, WeightType>::syncCV;
+    using ModelSpecifics<BaseModel, WeightType>::syncCVFolds;
+
 
     const static int tpb = 128; // threads-per-block  // Appears best on K40
     const static int maxWgs = 2;  // work-group-size
@@ -491,8 +501,9 @@ public:
         	auto& kernel = (useWeights) ? // Double-dispatch
         	                            kernelGradientHessianWeighted[formatType] :
         	                            kernelGradientHessianNoWeight[formatType];
-        	std::cerr << "index: " << index << '\n';
-
+        	//std::cerr << "index: " << index << '\n';
+/*
+ * 32 rows at a time
         	if (!initialized) {
     		    computeRemainingStatistics(true);
         		detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
@@ -518,7 +529,13 @@ public:
         		}
             	detail::resizeAndCopyToDevice(hFirstRow, dFirstRow, queue);
             	detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
+            	hOverflow.resize(3*(maxN+1)*N);
+            	for (int i = 0; i < 3*(maxN+1)*N; ++i) {
+            	    hOverflow[i] = 1.0;
+            	}
+            	detail::resizeAndCopyToDevice(hOverflow, dOverflow0, queue);
             	dBuffer1.resize(1,queue);
+            	//dVector2.resize(112*N);
             	initialized = true;
         	}
         	kernel.set_arg(0, dColumns.getDataStarts());
@@ -529,6 +546,7 @@ public:
         	kernel.set_arg(5, dColumns.getData());
         	kernel.set_arg(6, dColumns.getIndices());
         	kernel.set_arg(7, dExpXBeta);
+        	detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
         	kernel.set_arg(8, dNWeight);
         	hBuffer.resize(3*N);
         	for (int i = 0; i < 3*N; ++i) {
@@ -538,40 +556,42 @@ public:
         	kernel.set_arg(9, dBuffer);
         	detail::resizeAndCopyToDevice(hFirstRow, dFirstRow, queue);
         	kernel.set_arg(10, dFirstRow);
-        	kernel.set_arg(11, maxN*3);
-        	kernel.set_arg(13, index);
+        	kernel.set_arg(11, (maxN+1)*3);
+        	//kernel.set_arg(13, dVector1);
+        	//kernel.set_arg(14, dVector2);
+        	kernel.set_arg(13, dOverflow0);
+        	kernel.set_arg(14, index);
 
-/*
-            std::cerr << "dExpXBeta: ";
-            for (auto x : dExpXBeta) {
-            	std::cerr << " " << x;
-            }
-	        std::cerr << "\n";
-            std::cerr << "dNWeight: ";
-            for (auto x : dNWeight) {
-            	std::cerr << " " << x;
-            }
-	        std::cerr << "\n";
-	        */
         	size_t workGroups = maxCases / 32;
         	if (maxCases % 32 > 0) ++workGroups;
         	const size_t globalWorkSize = N * 32;
 
         	for (int i = 0; i < workGroups; ++i) {
-        		std::cerr << " run" << i;
-        		kernel.set_arg(12, i);
+        		//std::cerr << " run" << i;
+        		kernel.set_arg(0, dColumns.getDataStarts());
+        		kernel.set_arg(1, dColumns.getIndicesStarts());
+        		kernel.set_arg(2, dColumns.getTaskCounts());
+        		detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
+        		kernel.set_arg(3, dNtoK);
+        		kernel.set_arg(4, dBuffer1);
+        		kernel.set_arg(5, dColumns.getData());
+        		kernel.set_arg(6, dColumns.getIndices());
+        		kernel.set_arg(7, dExpXBeta);
+        		detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
+        		kernel.set_arg(8, dNWeight);
+        		kernel.set_arg(9, dBuffer);
+        		kernel.set_arg(10, dFirstRow);
+        		kernel.set_arg(11, (1+maxN)*3);
+        		//kernel.set_arg(13, dVector1);
+        		//kernel.set_arg(14, dVector2);
+        		detail::resizeAndCopyToDevice(hOverflow, dOverflow0, queue);
+            	kernel.set_arg(13, dOverflow0);
+            	kernel.set_arg(14, index);
+            	kernel.set_arg(12, i);
     	        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, 32);
     	        queue.finish();
         	}
-        	/*
-        	std::cout << "\n finished runs\n";
 
-        	std::cerr << "dBuffer: ";
-        	for (auto x : dBuffer) {
-        	    std::cerr << " " << exp(x);
-        	}
-        	std::cerr << "\n";
-*/
         	hBuffer1.resize(3*N);
         	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer1), queue);
         	for (int i = 0; i < N; ++i) {
@@ -584,7 +604,9 @@ public:
 #endif
         	}
 
-/*
+*/
+
+        	// 1 col at a time
         	if (!initialized) {
         		totalCases = 0;
         		for (int i=0; i < N; ++i) {
@@ -616,8 +638,8 @@ public:
         		detail::resizeAndCopyToDevice(hIndices, dIndices, queue);
 
         		// constant vectors
-        		std::vector<int> hVector1;
-        		std::vector<int> hVector2;
+        		std::vector<real> hVector1;
+        		std::vector<real> hVector2;
         		hVector1.resize(3*(N+totalCases));
         		hVector2.resize(3*(N+totalCases));
         		for (int i=0; i < N+totalCases; ++i) {
@@ -725,17 +747,16 @@ public:
     	        }
     	    }
 
-
     	    detail::resizeAndCopyToDevice(xMatrix, dXMatrix, queue);
     	    detail::resizeAndCopyToDevice(expXMatrix, dExpXMatrix, queue);
     	    kernel.set_arg(3, dXMatrix);
     	    kernel.set_arg(4, dExpXMatrix);
 
 
-    	    kernel.set_arg(3, dColumns.getData());
-        	kernel.set_arg(4, dExpXBeta);
-        	kernel.set_arg(13, dNtoK);
-        	kernel.set_arg(14, dColumns.getDataOffset(index));
+    	    //kernel.set_arg(3, dColumns.getData());
+        	//kernel.set_arg(4, dExpXBeta);
+        	//kernel.set_arg(13, dNtoK);
+        	//kernel.set_arg(14, dColumns.getDataOffset(index));
 
     	    compute::uint_ taskCount = 3*(N+totalCases);
     	    size_t workGroups = taskCount / detail::constant::updateAllXBetaBlockSize;
@@ -794,7 +815,7 @@ public:
     	    	gradient -= (real)(-hBuffer1[3*temp-2]/hBuffer1[3*temp-3]);
     	    	hessian -= (real)((hBuffer1[3*temp-2]/hBuffer1[3*temp-3]) * (hBuffer1[3*temp-2]/hBuffer1[3*temp-3]) - hBuffer1[3*temp-1]/hBuffer1[3*temp-3]);
     	    }
-        	*/
+
 
         } else {
 
@@ -1466,6 +1487,57 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
     virtual void computeNumeratorForGradient(int index) {
     }
 
+    // need to do pid for acc
+    virtual double getPredictiveLogLikelihood(double* weights) {
+        compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(denomPid), queue);
+        compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
+        compute::copy(std::begin(dKWeight), std::end(dKWeight), std::begin(hKWeight), queue);
+
+        std::vector<real> saveKWeight;
+        if(BaseModel::cumulativeGradientAndHessian)	{
+        	saveKWeight = hKWeight; // make copy
+        	// 		std::vector<int> savedPid = hPidInternal; // make copy
+        	// 		std::vector<int> saveAccReset = accReset; // make copy
+        	this->setPidForAccumulation(weights);
+        	computeRemainingStatistics(true); // compute accDenomPid
+        }
+
+        // Compile-time switch for models with / with-out PID (hasIndependentRows)
+        auto range = helper::getRangeAllPredictiveLikelihood(K, hY, hXBeta,
+        		(BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
+        				weights, hPid, std::integral_constant<bool, BaseModel::hasIndependentRows>());
+
+        auto kernel = TestPredLikeKernel<BaseModel,real>();
+
+        real logLikelihood = variants::reduce(
+        		range.begin(), range.end(), static_cast<real>(0.0),
+				kernel,
+				SerialOnly()
+        );
+
+        if (BaseModel::cumulativeGradientAndHessian) {
+        	// 		hPidInternal = savedPid; // make copy; TODO swap
+        	// 		accReset = saveAccReset; // make copy; TODO swap
+        	this->setPidForAccumulation(&saveKWeight[0]);
+        	computeRemainingStatistics(true);
+        }
+
+        return static_cast<double>(logLikelihood);
+
+    }   // END OF DIFF
+
+
+    /*
+    void turnOnSyncCV(int foldToCompute) {
+    	syncCV = true;
+    	syncCVFolds = foldToCompute;
+    }
+
+    void turnOffSyncCV() {
+    	syncCV = false;
+    }
+    */
+
     private:
 
     void buildAllUpdateXBetaKernels(const std::vector<FormatType>& neededFormatTypes) {
@@ -1582,7 +1654,6 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
         if (BaseModel::exactCLR) {
         	// CCD Kernel
         	auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useWeights, isNvidia);
-        	std::cout << source.body;
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernel = compute::kernel(program, source.name);
 
@@ -1889,6 +1960,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
     std::vector<real> xMatrix;
     std::vector<real> expXMatrix;
 	std::vector<real> hFirstRow;
+	std::vector<real> hOverflow;
 
     // Internal storage
     compute::vector<real> dY;
@@ -1907,14 +1979,14 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
     int totalCases;
     int maxN;
     int maxCases;
-    compute::vector<int>  dVector1;
-    compute::vector<int>  dVector2;
+    compute::vector<real>  dVector1;
+    compute::vector<real>  dVector2;
     compute::vector<int>  dIndices;
     compute::vector<real> dXMatrix;
     compute::vector<real> dExpXMatrix;
     bool initialized = false;
-    compute::vector<int> dOverflow0;
-    compute::vector<int> dOverflow1;
+    compute::vector<real> dOverflow0;
+    compute::vector<real> dOverflow1;
     compute::vector<int> dNtoK;
     compute::vector<real> dFirstRow;
 
@@ -1930,6 +2002,25 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
 
     bool dXBetaKnown;
     bool hXBetaKnown;
+
+    // syhcCV
+    compute::vector<real> dNWeightVector;
+    compute::vector<real> dKWeightVector;
+    compute::vector<real> dAccDenomPidVector;
+    compute::vector<real> dAccNumerPidVector;
+    compute::vector<real> dAccNumerPid2Vector;
+    compute::vector<real> dAccResetVector;
+    compute::vector<real> dPidVector;
+    compute::vector<real> dPidInternalVector;
+    compute::vector<real> dXBetaVector;
+    compute::vector<real> dOffsExpXBetaVector;
+    compute::vector<real> dDenomPidVector;
+    compute::vector<real> dNumerPidVector;
+    compute::vector<real> dNumerPid2Vector;
+    compute::vector<real> dXjYVector;
+    compute::vector<real> dXjXVector;
+    compute::vector<real> dLogLikelihoodFixedTermVector;
+
 };
 
 /*

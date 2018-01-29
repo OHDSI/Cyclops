@@ -273,7 +273,7 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 		bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps,
 		const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance,
         bool useKKTSwindle, int swindleMultipler, const std::string& selectorType, double initialBound,
-        int maxBoundCount, const std::string& algorithm
+        int maxBoundCount, const std::string& algorithm, bool useSyncCV
 		) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
@@ -299,6 +299,7 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 	args.crossValidation.gridSteps = gridSteps;
 	args.crossValidation.startingVariance = startingVariance;
 	args.crossValidation.selectorType = RcppCcdInterface::parseSelectorType(selectorType);
+	args.crossValidation.useSyncCV = useSyncCV;
 
 	NoiseLevels noise = RcppCcdInterface::parseNoiseLevel(noiseLevel);
 	args.noiseLevel = noise;

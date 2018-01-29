@@ -14,7 +14,7 @@
 #include "Thread.h"
 #include "AbstractCrossValidationDriver.h"
 
-// #define syncCV
+//#define syncCV
 
 namespace bsccs {
 
@@ -35,10 +35,9 @@ void AbstractCrossValidationDriver::resetForOptimal(
 		CrossValidationSelector& selector,
 		const CCDArguments& arguments) {
 
-#ifdef syncCV
-	ccd.turnOffSyncCV();
-#else
-#endif
+	if (syncCV) {
+		ccd.turnOffSyncCV();
+	}
 
 	ccd.setWeights(NULL);
 
@@ -53,6 +52,12 @@ void AbstractCrossValidationDriver::drive(
 		AbstractSelector& selector,
 		const CCDArguments& allArguments) {
 
+	std::cout << "abstractCVdriver syncCV: " << allArguments.crossValidation.useSyncCV << "\n";
+
+	if (allArguments.crossValidation.useSyncCV) {
+		syncCV = true;
+	}
+
 	// TODO Check that selector is type of CrossValidationSelector
 //     const auto& arguments = allArguments.crossValidation;
 
@@ -65,16 +70,15 @@ void AbstractCrossValidationDriver::drive(
         nThreads = 1;
     }
 
-    nThreads = 1;
-
 	std::ostringstream stream2;
 	stream2 << "Using " << nThreads << " thread(s)";
 	logger->writeLine(stream2);
 
-#ifdef syncCV
-	ccd.turnOnSyncCV(allArguments.crossValidation.foldToCompute);
-#else
-#endif
+	if (syncCV) {
+		ccd.turnOnSyncCV(allArguments.crossValidation.foldToCompute);
+		std::cout << "turned on ccd syncCV\n";
+		nThreads = 1;
+	}
 
 	std::vector<CyclicCoordinateDescent*> ccdPool;
 	std::vector<AbstractSelector*> selectorPool;
@@ -150,22 +154,22 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
     const auto& arguments = allArguments.crossValidation;
     bool coldStart = allArguments.resetCoefficients;
 
-#ifdef syncCV
+    if (syncCV) {
 
 	int repetitions = arguments.foldToCompute / arguments.fold;
-	selectorPool.resize(repetitions);
+	//selectorPool.resize(repetitions);
 	std::vector<std::vector<double>> weightsPool;
 	weightsPool.resize(arguments.foldToCompute);
 	predLogLikelihood.resize(arguments.foldToCompute);
 
 	for (int i = 0; i < repetitions; ++i) {
-		selectorPool.push_back(selector.clone());
+		//selectorPool.push_back(selector.clone());
 		//selectorPool[i]->reseed();
-		selectorPool[i]->permute();
+		selector.permute();
 		for (int j = 0; j < arguments.fold; ++j) {
 			int index = i * arguments.fold + j;
 			//std::vector<double> weights; // Task-specific
-			selectorPool[i]->getWeights(j, weightsPool[i * arguments.fold + j]);
+			selector.getWeights(j, weightsPool[i * arguments.fold + j]);
 			if (weightsExclude){
 				for(size_t k = 0; k < weightsExclude->size(); k++){
 					if (weightsExclude->at(k) == 1.0){
@@ -178,6 +182,7 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 		}
 	}
 
+	/*
 	std::cout << "weights0: ";
 	for (int i = 0 ; i < 50; i++) {
 		std::cout << weightsPool[0][i] << " ";
@@ -189,6 +194,7 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 		std::cout << weightsPool[1][i] << " ";
 	}
 	std::cout << "\n";
+	*/
 
 	std::ostringstream stream;
 	stream << "Running at " << ccd.getPriorInfo() << " ";
@@ -207,6 +213,7 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 
 	ccd.update(allArguments.modeFinding);
 
+	/*
 	if (ccd.getUpdateReturnFlag() == SUCCESS) {
 		// Compute predictive loglikelihood for this fold
 		for (int cvIndex = 0; cvIndex < arguments.foldToCompute; cvIndex++) {
@@ -218,11 +225,7 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 					}
 				}
 			}
-			std::cout << "predLik weights " << cvIndex << ": ";
-			for (int i = 0; i < 50; i++) {
-				std::cout << weightsPool[cvIndex][i] << " ";
-			}
-			std::cout << "\n";
+
 			double logLikelihood = ccd.getPredictiveLogLikelihood(&weightsPool[cvIndex][0], cvIndex);
 			stream << logLikelihood << " ";
 			predLogLikelihood[cvIndex] = logLikelihood;
@@ -235,8 +238,25 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 			predLogLikelihood[cvIndex] = std::numeric_limits<double>::quiet_NaN();
 		}
 	}
+	*/
 
-#else
+	for (int cvIndex = 0; cvIndex < arguments.foldToCompute; cvIndex++) {
+		selector.getComplement(weightsPool[cvIndex]);  // TODO THREAD_SAFE
+		if (weightsExclude){
+			for(int j = 0; j < (int)weightsExclude->size(); j++){
+				if(weightsExclude->at(j) == 1.0){
+					weightsPool[cvIndex][j] = 0.0;
+				}
+			}
+		}
+
+		double logLikelihood = ccd.getPredictiveLogLikelihood(&weightsPool[cvIndex][0], cvIndex);
+		stream << logLikelihood << " ";
+		predLogLikelihood[cvIndex] = logLikelihood;
+	}
+	ccd.resetBeta();
+
+} else {
 
 	predLogLikelihood.resize(arguments.foldToCompute);
 
@@ -286,7 +306,7 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 				}
 				ccdTask->setWeights(&weights[0]);
 
-
+/*
 				if (task == 0) {
 					std::cout << "weights0: ";
 					selectorTask->getWeights(0, weights);
@@ -304,6 +324,7 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 
 					selectorTask->getWeights(0, weights);
 				}
+				*/
 
 
 				std::ostringstream stream;
@@ -333,12 +354,6 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 						}
 					}
 
-					std::cout << "predLik weights " << task << ": ";
-					for (int i = 0; i < 50; i++) {
-						std::cout << weights[i] << " ";
-					}
-					std::cout << "\n";
-
 					double logLikelihood = ccdTask->getPredictiveLogLikelihood(&weights[0]);
 
 					// Store value
@@ -364,8 +379,7 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
     	ccd.getProgressLogger().setConcurrent(false);
      	ccd.getProgressLogger().flush();
      }
-#endif
-
+}
 	double pointEstimate = computePointEstimate(predLogLikelihood);
 
 	return(pointEstimate);

@@ -66,6 +66,7 @@ protected:
 
 	std::vector<double> maxPoint;
 	std::vector<double>* weightsExclude;
+	bool syncCV = false;
 };
 
 } // namespace

@@ -770,7 +770,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         code << "}  \n"; // End of kernel
         return SourceCode(code.str(), name);
 	}
-/*
+
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
 	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia) {
@@ -820,37 +820,13 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						" 		if (OverflowOld[stratum] == 1) BNew[i] /= 1e25;          	\n" <<
 						"		if (BNew[i] > 1e25 && OverflowNew[stratum] == 0) OverflowNew[stratum] = 1;	\n" <<
 						"  	}										\n" <<
-						//"	if (i < (N+1) && col%2 == 0) OverflowOld[i] = 0;\n" <<
-
-						"   if (col%2 == 0) {						\n" <<
-						"		if (t == -1) B1_in[i] = B0_in[i];	\n" <<
-						"		else { 								\n" <<
-						"			if (i > 2) B1_in[i] = B0_in[i] + t*B0_in[i-3] + vector1_in[i]*x*t*B0_in[i-3-i%3] + 2*vector2_in[i]*x*t*B0_in[i-2-i%3]; \n" <<
-						" 			if (overflow0_in[stratum] == 1) B1_in[i] /= 1e25;          	\n" <<
-						"			if (B1_in[i] > 1e25 && overflow1_in[stratum] == 0) {	\n" <<
-						"				overflow1_in[stratum] =  1;		\n" <<
-						"			}  										\n" <<
-						"  		}											\n" <<
-						"	}												\n" <<
-						"	if (col%2 == 1) {								\n" <<
-						" 		if (t == -1) B0_in[i] = B1_in[i];			\n" <<
-						"		else { 										\n" <<
-						"			if (i > 2 ) B0_in[i] = B1_in[i] + t*B1_in[i-3] + vector1_in[i]*x*t*B1_in[i-3-i%3] + 2*vector2_in[i]*x*t*B1_in[i-2-i%3]; \n" <<
-						" 			if (overflow1_in[stratum] == 1) B0_in[i] /= 1e25;          	\n" <<
-						"			if (B0_in[i] > 1e25 && overflow0_in[stratum] == 0) {	\n" <<
-						"				overflow0_in[stratum] = 1;		\n" <<
-						"			}  										\n" <<
-						"  		}											\n" <<
-						"	}												\n" <<
-
-						"	if (i < (N+1) && col%2 == 0) overflow0_in[i] = 0;\n" <<
-						"	if (i < (N+1) && col%2 == 1) overflow1_in[i] = 0;\n" <<
+						"	if (i < (N+1) && col%2 == 0) OverflowOld[i] = 0;\n" <<
 						"	};										\n";
 		        code << "}  \n"; // End of kernel
 
 		        return SourceCode(code.str(), name);
 	}
-*/
+/*
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
 	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia) {
@@ -877,37 +853,55 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"		__global const REAL* NWeight,			\n" <<
 						"		__global REAL* buffer,					\n" <<
 		        	    "   	__global REAL* firstRow,                \n" <<
-						"		const uint firstRowStride,				\n" <<
-		        	    "   	const uint iteration,                 	\n" <<
-					    "		const uint index) {    					\n";
-				code << "   const uint i = get_local_id(0);				\n" <<
-						"	const uint stratum = get_group_id(0);		\n" <<
-						"	const uint strata = get_num_groups(0);		\n" <<
-						"	const uint subjects = NtoK[stratum+1] - NtoK[stratum]; \n" <<
-						"	const uint cases = NWeight[stratum];		\n" <<
-						"	const uint controls = subjects - cases;		\n" <<
+						"		uint firstRowStride,				\n" <<
+		        	    "   	uint iteration,                 	\n" <<
+						//"		__global REAL* B0,						\n" <<
+						//"		__global REAL* B1,						\n" <<
+						"		__global REAL* overflowVec,			\n" <<
+					    "		uint index) {    					\n";
+				code << "   uint i = get_local_id(0);				\n" <<
+						"	uint stratum = get_group_id(0);		\n" <<
+						"	uint strata = get_num_groups(0);		\n" <<
+						"	uint subjects = NtoK[stratum+1] - NtoK[stratum]; \n" <<
+						"	uint cases = NWeight[stratum];		\n" <<
+						"	uint controls = subjects - cases;		\n" <<
 						"	if (iteration * 32 < cases) {				\n" <<
 						"	__local REAL B0[99];						\n" <<
 						"	__local REAL B1[99];						\n" <<
+						//"	const uint BOffs = 112 * stratum;			\n" <<
+						"	uint BOffs = 0;						\n" <<
 #ifdef USE_LOG_SUM
-						"	B0[3*i+3] = B0[3*i+4] = B0[3*i+5] = -INFINITY;		\n" <<
-						"	B1[3*i+3] = B1[3*i+4] = B1[3*i+5] = -INFINITY;		\n" <<
+						"	B0[BOffs+3*i+3] = B0[BOffs+3*i+4] = B0[BOffs+3*i+5] = -INFINITY;		\n" <<
+						"	B1[BOffs+3*i+3] = B1[BOffs+3*i+4] = B1[BOffs+3*i+5] = -INFINITY;		\n" <<
 						"	const REAL logTwo = log((REAL)2.0);		\n" <<
 #else
-						"	B0[3*i+3] = B0[3*i+4] = B0[3*i+5] = 0;		\n" <<
-						"	B1[3*i+3] = B1[3*i+4] = B1[3*i+5] = 0;		\n" <<
+						"	B0[BOffs+3*i+3] = B0[BOffs+3*i+4] = B0[BOffs+3*i+5] = 0;		\n" <<
+						"	B1[BOffs+3*i+3] = B1[BOffs+3*i+4] = B1[BOffs+3*i+5] = 0;		\n" <<
 #endif
+                        "   __local REAL overflow;	                    \n" <<
+                        "   __local REAL cumOverflow;		            \n" <<
+						"	if (i == 0) {								\n" <<
+						"		overflow = 1.0;							\n" <<
+						"		cumOverflow = 1.0;						\n" <<
+						"	}											\n" <<
 						"	const uint offX = offXVec[index];			\n" <<
 						"	const uint offK = offKVec[index];			\n" <<
 						"	uint taskCounts = cases%32;					\n" <<
 						"	if (taskCounts == 0 || (iteration+1) * 32 < cases) taskCounts = 32; \n" <<
-					    "	__local REAL* BOld;							\n" <<
-						"	__local REAL* BNew;							\n" <<
-						"	for (int task = 0; task < controls + taskCounts; task++) { \n" <<
+					    //"	__global REAL* BOld;							\n" <<
+						//"	__global REAL* BNew;							\n" <<
+						"	volatile __local REAL* BOld;							\n" <<
+						"	volatile __local REAL* BNew;							\n" <<
+						//"   for (int j = 0; j < (controls+taskCounts)/32+1; ++j) {  \n" <<
+						//"   	if (32*j + i < controls+taskCounts) {   \n" <<
+						//"       	overflowVec[32*j+i] = 1.0;      \n" <<
+						//"       }                                       \n" <<
+						//"   }                                               \n" <<
+						"	for (uint task = 0; task < controls + taskCounts; task++) { \n" <<
 						"		if (task % 2 == 0) {						\n" <<
-						"			BOld = B0; BNew = B1;					\n" <<
+						"			BOld = B0+BOffs; BNew = B1+BOffs;					\n" <<
 						"		} else {									\n" <<
-						"			BOld = B1; BNew = B0;					\n" <<
+						"			BOld = B1+BOffs; BNew = B0+BOffs;					\n" <<
 						"		} 											\n" <<
 						"		const uint k = iteration * 32 + task;		\n" <<
 #ifdef USE_LOG_SUM
@@ -918,18 +912,27 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"		const REAL x = X[offX + NtoK[stratum] + k];	\n" <<
 #endif
 						"		if (i == 0 && task < controls) {	\n" <<
-						"			BOld[0] = firstRow[firstRowStride*stratum + 3*task]; \n" <<
-						"			BOld[1] = firstRow[firstRowStride*stratum + 3*task + 1]; \n" <<
-						"			BOld[2] = firstRow[firstRowStride*stratum + 3*task + 2]; \n" <<
+						"			BOld[0] = cumOverflow*firstRow[firstRowStride*stratum + 3*task]; \n" <<
+						"			BOld[1] = cumOverflow*firstRow[firstRowStride*stratum + 3*task + 1]; \n" <<
+						"			BOld[2] = cumOverflow*firstRow[firstRowStride*stratum + 3*task + 2]; \n" <<
 						"		} 											\n" <<
 #ifdef USE_LOG_SUM
 						"		BNew[3*i+3] = log_sum(BOld[3*i+3],exb+BOld[3*i]);	\n" <<
 						"		BNew[3*i+4] = log_sum(log_sum(BOld[3*i+4], exb+BOld[3*i+1]),x+exb+BOld[3*i]);	\n" <<
 						"		BNew[3*i+5] = log_sum(log_sum(log_sum(BOld[3*i+5], exb+BOld[3*i+2]), x+exb+BOld[3*i]),logTwo+x+exb+BOld[3*i+1]);	\n" <<
 #else
-						"		BNew[3*i+3] = BOld[3*i+3] + exb*BOld[3*i];	\n" <<
-						"		BNew[3*i+4] = BOld[3*i+4] + exb*BOld[3*i+1] + x*exb*BOld[3*i];	\n" <<
-						"		BNew[3*i+5] = BOld[3*i+5] + exb*BOld[3*i+2] + x*exb*BOld[3*i] + 2*x*exb*BOld[3*i+1];	\n" <<
+						"		BNew[3*i+3] = overflow*(BOld[3*i+3] + exb*BOld[3*i]);	\n" <<
+						"		BNew[3*i+4] = overflow*(BOld[3*i+4] + exb*BOld[3*i+1] + x*exb*BOld[3*i]);	\n" <<
+						"		BNew[3*i+5] = overflow*(BOld[3*i+5] + exb*BOld[3*i+2] + x*exb*BOld[3*i] + 2*x*exb*BOld[3*i+1]);	\n" <<
+						"       if (overflow!=1.0 && i == 0) {                          \n" <<
+						"       	cumOverflow *= 1e-200;                          \n" <<
+						"           overflowVec[firstRowStride*stratum + task] = 1e-200;                     \n" <<
+						"       }                                                       \n" <<
+						"       if (BNew[3*i+3]>1e200 || BNew[3*i+4]>1e200 || BNew[3*i+5]>1e200) {      \n" <<
+						"       	overflow = 1e-200;                              \n" <<
+						"       } else if (i==0) {                                      \n" <<
+						"       	overflow = 1.0;                                 \n" <<
+						"       }                                                       \n" <<
 #endif
 						"		if (i == 31 && task >= 31) {				\n" <<
 						"			firstRow[firstRowStride*stratum + 3*(task - 31)] = BNew[3*i+3]; \n" <<
@@ -942,10 +945,20 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"		buffer[3*stratum+1] = BNew[3*i+4]; \n" <<
 						"		buffer[3*stratum+2] = BNew[3*i+5]; \n" <<
 						"	}												\n" <<
+						"	if (i==0) {                                             \n" <<
+						"   	REAL tmp = 1.0;                                         \n" <<
+						"   	for (int j = controls+taskCounts-1; j >= 0; --j) {              \n" <<
+						"   		firstRow[firstRowStride*stratum + 3*(j-31)] *= tmp;     \n" <<
+						"  			firstRow[firstRowStride*stratum + 3*(j-31)+1] *= tmp;   \n" <<
+						"       	firstRow[firstRowStride*stratum + 3*(j-31)+2] *= tmp;   \n" <<
+						"       	tmp *= overflowVec[firstRowStride*stratum+j];                  \n" <<
+						"       }                                                       \n" <<
+						"   }                                                               \n" <<
 						"	}												\n";
 		        code << "}  \n"; // End of kernel
 		        return SourceCode(code.str(), name);
 	}
+	*/
 
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
@@ -999,9 +1012,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 	    // Bookkeeping
 	    code << "       task += loopSize; \n" <<
-	    		"   } \n" <<
+	    		"   } \n";
 				// Thread -> local
-				"   scratch[lid] = sum; \n";
+				code << "   scratch[lid] = sum; \n";
 	    code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
 
 	    code << "   if (lid == 0) { \n" <<
