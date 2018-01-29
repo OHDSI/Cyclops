@@ -249,6 +249,8 @@ protected:
 
 	virtual void computeRemainingStatistics(bool skip, int index);
 
+	virtual void computeRemainingStatistics(bool skip, int index, std::vector<double>& deltaVec);
+
 	virtual void computeRatiosForGradientAndHessian(int index);
 
 	virtual void computeGradientAndHessian(
@@ -402,8 +404,8 @@ protected:
 
 	void computeNumeratorForGradient(int index, std::vector<bool> fixBeta);
 
-	virtual void computeGradientAndHessian(int index, std::vector<double>& gradient,
-			std::vector<double>& hessian);
+	virtual void computeGradientAndHessian(int index, double* gradient,
+			double* hessian, int cvIndex);
 
 	std::vector<double> applyBounds(
 			std::vector<double> inDelta,

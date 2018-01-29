@@ -2105,25 +2105,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 
-	if (syncCV) {
-
-    auto func = [&](const tbb::blocked_range<int>& range){
-
-    	for (int i = range.begin(); i < range.end(); ++i) {
-    		auto& xBeta = getXBeta(i);
-    		if (BaseModel::likelihoodHasDenominator) {
-    			fillVector(denomPidPool[i].data(), N, BaseModel::getDenomNullValue());
-    			for (size_t k = 0; k < K; ++k) {
-    				offsExpXBetaPool[i][k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
-    				incrementByGroup(denomPidPool[i].data(), hPidPool[i], k, offsExpXBetaPool[i][k]);
-    			}
-    			computeAccumlatedDenominator(useWeights, i); // WAS computeAccumlatedNumerDenom
-    		}
-    	}
-    };
-    tbb::parallel_for(tbb::blocked_range<int>(0,syncCVFolds),func);
-
-	} else {
 		auto& xBeta = getXBeta();
 
 		if (BaseModel::likelihoodHasDenominator) {
@@ -2134,7 +2115,53 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 			}
 			computeAccumlatedDenominator(useWeights); // WAS computeAccumlatedNumerDenom
 		}
+
+	// std::cerr << "finished MS.cRS" << std::endl;
+
+#ifdef DEBUG_COX
+	using namespace std;
+	cerr << "Done with initial denominators" << endl;
+
+	for (int i = 0; i < N; ++i) {
+		cerr << denomPid[i] << " " << accDenomPid[i] << " " << numerPid[i] << endl;
 	}
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+	auto end = bsccs::chrono::steady_clock::now();
+	///////////////////////////"
+	duration["compRS           "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+#endif
+
+}
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWeights, int cvIndex) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+	auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+    //auto func = [&](const tbb::blocked_range<int>& range){
+
+	if (BaseModel::likelihoodHasDenominator) {
+		auto& xBeta = getXBeta(cvIndex);
+		auto denomPidStart = denomPidPool[cvIndex].data();
+		auto expXBeta = offsExpXBetaPool[cvIndex].data();
+		auto hPidStart = hPidPool[cvIndex];
+		fillVector(denomPidPool[cvIndex].data(), N, BaseModel::getDenomNullValue());
+		//auto func = [&](const tbb::blocked_range<int>& range) {
+	    //	for (int k = range.begin(); k < range.end(); ++k) {
+		for (int k=0; k<K; ++k) {
+	    		expXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
+	    		//incrementByGroup(denomPidStart, hPidPool[cvIndex], k, offsExpXBetaPool[cvIndex][k]);
+	    		incrementByGroup(denomPidStart, hPidStart, k, expXBeta[k]);
+	    	}
+		//};
+		//tbb::parallel_for(tbb::blocked_range<int>(0,K),func);
+		computeAccumlatedDenominator(useWeights, cvIndex);
+	}
+    //tbb::parallel_for(tbb::blocked_range<int>(0,syncCVFolds),func);
 
 	// std::cerr << "finished MS.cRS" << std::endl;
 
@@ -2313,6 +2340,17 @@ void ModelSpecifics<BaseModel,WeightType>::turnOnSyncCV(int foldToCompute) {
 		logLikelihoodFixedTermPool.push_back(logLikelihoodFixedTerm);
 		sparseIndicesPool.push_back(sparseIndices);
 	}
+
+	/*
+	offsExpXBetaPool.resize(foldToCompute);
+	for (int i=0; i<foldToCompute; ++i) {
+		offsExpXBetaPool[i].resize(K);
+		for (int k=0; k<K; k++) {
+			offsExpXBetaPool[i][k] = offsExpXBeta[k];
+		}
+	}
+	*/
+
 	/*
 	std::cout << "hNWeightPool: " << hNWeightPool[0][0] << '\n';
 	std::cout << "hKWeightPool: " << hKWeightPool[0][0] << '\n';
@@ -2485,8 +2523,8 @@ void ModelSpecifics<BaseModel,WeightType>::incrementNumeratorForGradientImpl(int
 }
 
 template <class BaseModel,typename WeightType>
-void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, std::vector<double>& ogradient,
-		std::vector<double>& ohessian, bool useWeights, std::vector<bool> fixBeta) {
+void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, double *ogradient,
+		double *ohessian, bool useWeights, int cvIndex) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifndef CYCLOPS_DEBUG_TIMING_LOW
@@ -2505,24 +2543,16 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 	if (useWeights) {
 		switch (modelData.getFormatType(index)) {
 			case INDICATOR :
-				for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
-					if(!fixBeta[cvIndex]) computeGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, weighted, cvIndex);
-				}
+					computeGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, weighted, cvIndex);
 				break;
 			case SPARSE :
-				for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
-					if(!fixBeta[cvIndex]) computeGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, weighted, cvIndex);
-				}
+					computeGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, weighted, cvIndex);
 				break;
 			case DENSE :
-				for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
-					if(!fixBeta[cvIndex]) computeGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, weighted, cvIndex);
-				}
+					computeGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, weighted, cvIndex);
 				break;
 			case INTERCEPT :
-				for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
-					if(!fixBeta[cvIndex]) computeGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, weighted, cvIndex);
-				}
+					computeGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, weighted, cvIndex);
 				break;
 		}
 	}
@@ -2538,8 +2568,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 }
 
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
-void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, std::vector<double>& ogradient,
-		std::vector<double>& ohessian, Weights w, int cvIndex) {
+void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int index, double* ogradient,
+		double* ohessian, Weights w, int cvIndex) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
@@ -2821,8 +2851,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		hessian += static_cast<real>(2.0) * hXjXPool[cvIndex][index];
 	}
 
- 	ogradient[cvIndex] = static_cast<double>(gradient);
-	ohessian[cvIndex] = static_cast<double>(hessian);
+ 	*ogradient = static_cast<double>(gradient);
+	*ohessian = static_cast<double>(hessian);
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW

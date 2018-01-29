@@ -139,12 +139,15 @@ public:
 
 	virtual void computeNumeratorForGradient(int index, std::vector<bool> fixBeta) = 0; // pure virtual
 
-	virtual void computeGradientAndHessian(int index, std::vector<double>& gradient,
-			std::vector<double>& hessian, bool useWeights, std::vector<bool> fixBeta) = 0;
+	virtual void computeGradientAndHessian(int index, double* gradient,
+			double* hessian, bool useWeights, int cvIndex) = 0;
+
+	virtual void computeRemainingStatistics(bool useWeights, int cvIndex) = 0; // pure virtual
 
 	virtual void updateXBeta(real realDelta, int index, bool useWeights, int cvIndex) = 0; // pure virtual
 
 	virtual void printStuff() = 0;
+
 
 	std::vector<RealVector> accDenomPidPool;
 	std::vector<RealVector> accNumerPidPool;

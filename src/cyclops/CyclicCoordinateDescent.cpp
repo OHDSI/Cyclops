@@ -23,6 +23,8 @@
 #include "Timing.h"
 
 #include "priors/CovariatePrior.h"
+#include <tbb/parallel_for.h>
+
 
 namespace bsccs {
 
@@ -1009,7 +1011,7 @@ void CyclicCoordinateDescent::findMode(
 	        		deltaVec = applyBounds(deltaVec, index);
 
 	        		updateSufficientStatistics(deltaVec, index);
-    				computeRemainingStatistics(true, 0);
+	        		computeRemainingStatistics(true, index, deltaVec);
 	        	} else {
 	        		if (!fixBeta[index]) {
 	        			double delta = ccdUpdateBeta(index);
@@ -1538,10 +1540,53 @@ void CyclicCoordinateDescent::updateSufficientStatistics(double delta, int index
 	sufficientStatisticsKnown = true;
 }
 
-void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int index) { // TODO Rename
+void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int index, std::vector<double>& deltaVec) { // TODO Rename
 	// Separate function for benchmarking
 	if (allStats) {
 		// Delegate
+		/*
+		for (int i=0; i<syncCVFolds; ++i) {
+			if (!donePool[i] || !fixBetaPool[index][i]) {
+				if (deltaVec[i] != 0.0) {
+					modelSpecifics.computeRemainingStatistics(useCrossValidation, i);
+				}
+			}
+		}
+		*/
+
+		int count = 0;
+		std::vector<int> temp;
+
+		for (int i=0; i<syncCVFolds; ++i) {
+			if (!donePool[i] || !fixBetaPool[index][i]) {
+				if (deltaVec[i] != 0.0) {
+					++count;
+					temp.push_back(i);
+				}
+			}
+		}
+
+		auto func = [&](const tbb::blocked_range<int>& range) {
+			for (int k = range.begin(); k < range.end(); ++k) {
+				modelSpecifics.computeRemainingStatistics(useCrossValidation, temp[k]);
+			}
+		};
+		tbb::parallel_for(tbb::blocked_range<int>(0,count),func);
+
+	}
+}
+
+
+void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int index) { // TODO Rename
+	// Separate function for benchmarking
+	if (allStats) {
+		if (syncCV) {
+			for (int i=0; i<syncCVFolds; ++i) {
+				if (!donePool[i] || !fixBetaPool[index][i]) {
+					modelSpecifics.computeRemainingStatistics(useCrossValidation, i);
+				}
+			}
+		}
 		modelSpecifics.computeRemainingStatistics(useCrossValidation);
 	}
 }
@@ -1713,13 +1758,34 @@ std::vector<double> CyclicCoordinateDescent::ccdUpdateBetaVec(int index) {
 	computeNumeratorForGradient(index, fixBetaPool[index]);
 
 	priors::GradientHessian gh;
+	std::vector<priors::GradientHessian> ghList;
+	int count = 0;
+	std::vector<int> temp;
 
+	for (int cvIndex = 0; cvIndex < syncCVFolds; ++cvIndex) {
+		ghList.push_back(gh);
+		if (!fixBetaPool[index][cvIndex]) {
+			++count;
+			temp.push_back(cvIndex);
+		}
+	}
+
+	auto func = [&](const tbb::blocked_range<int>& range) {
+		for (int k = range.begin(); k < range.end(); ++k) {
+			modelSpecifics.computeGradientAndHessian(index, &ghList[temp[k]].first, &ghList[temp[k]].second, useCrossValidation, temp[k]);
+		}
+	};
+	tbb::parallel_for(tbb::blocked_range<int>(0,count),func);/*
 	std::vector<double> gradList;
 	gradList.resize(syncCVFolds);
 	std::vector<double> hessList;
 	hessList.resize(syncCVFolds);
+	*/
 
-	computeGradientAndHessian(index, gradList, hessList);
+
+
+
+	//computeGradientAndHessian(index, gradList, hessList);
 
 	/*
 	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
@@ -1737,11 +1803,12 @@ std::vector<double> CyclicCoordinateDescent::ccdUpdateBetaVec(int index) {
 			//std::cout << "fixedBeta ";
 			result.push_back(0.0);
 		} else {
-			if (hessList[cvIndex] < 0.0) {
-				gradList[cvIndex] = 0.0;
-				hessList[cvIndex] = 0.0;
+			if (ghList[cvIndex].second < 0.0) {
+				ghList[cvIndex].first = 0.0;
+				ghList[cvIndex].second = 0.0;
 			}
-			gh = priors::GradientHessian(gradList[cvIndex], hessList[cvIndex]);
+			//gh = priors::GradientHessian(gradList[cvIndex], hessList[cvIndex]);
+			gh = ghList[cvIndex];
 			//std::cout << "gh: " << cvIndex <<  ": " << gh.first << " | " << gh.second << " ";
 			double blah = jointPrior->getDelta(gh, hBetaPool[cvIndex], index);
 			//std::cout << "delta: " << blah << "\n";
@@ -1753,9 +1820,8 @@ std::vector<double> CyclicCoordinateDescent::ccdUpdateBetaVec(int index) {
 	return result;
 }
 
-void CyclicCoordinateDescent::computeGradientAndHessian(int index, std::vector<double>& ogradient,
-		std::vector<double>& ohessian) {
-		modelSpecifics.computeGradientAndHessian(index, ogradient, ohessian, useCrossValidation, fixBetaPool[index]);
+void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ogradient, double *ohessian, int cvIndex) {
+		modelSpecifics.computeGradientAndHessian(index, ogradient, ohessian, useCrossValidation, cvIndex);
 }
 
 std::vector<double> CyclicCoordinateDescent::applyBounds(std::vector<double> delta, int index) {

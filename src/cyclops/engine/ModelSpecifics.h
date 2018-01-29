@@ -212,8 +212,8 @@ public:
 
 	virtual const RealVector& getXBeta(int index);
 
-	virtual void computeGradientAndHessian(int index, std::vector<double>& gradient,
-				std::vector<double>& hessian, bool useWeights, std::vector<bool> fixBeta);
+	virtual void computeGradientAndHessian(int index, double* gradient,
+				double* hessian, bool useWeights, int cvIndex);
 
 	virtual void printStuff(void);
 
@@ -310,6 +310,8 @@ protected:
 
 	void updateXBeta(real realDelta, int index, bool useWeights, int cvIndex);
 
+	void computeRemainingStatistics(bool useWeights, int cvIndex);
+
 private:
 
 	template <class IteratorType>
@@ -374,8 +376,8 @@ private:
 	template <class IteratorType, class Weights>
 	void computeGradientAndHessianImpl(
 			int index,
-			std::vector<double>& gradient,
-			std::vector<double>& hessian, Weights w, int cvIndex);
+			double* gradient,
+			double* hessian, Weights w, int cvIndex);
 
 	template <class IteratorType>
 		void updateXBetaImpl(real delta, int index, bool useWeights, int cvIndex);
