@@ -285,8 +285,7 @@ protected:
 	double ccdUpdateBeta(int index);
 
 
-	void mmUpdateAllBeta(std::vector<double>& allDelta,
-                         const std::vector<bool>& fixedBeta);
+	void mmUpdateAllBeta(std::vector<double>& allDelta);
 
 
 	double applyBounds(
@@ -402,14 +401,14 @@ protected:
 	std::vector<bool> donePool;
 	std::vector<DoubleVector> hWeightsPool; // Make DoubleVector and delegate to ModelSpecifics
 
-	void computeNumeratorForGradient(int index, std::vector<bool> fixBeta);
-
 	virtual void computeGradientAndHessian(int index, double* gradient,
 			double* hessian, int cvIndex);
 
 	std::vector<double> applyBounds(
 			std::vector<double> inDelta,
 			int index);
+
+	virtual void applyBounds(std::vector<std::vector<double>>& inDelta);
 
 	void updateSufficientStatistics(std::vector<double> delta, int index);
 
@@ -420,6 +419,9 @@ protected:
                               int maxIterations,
                               int iteration,
                               std::vector<double>& lastObjFunc);
+
+	void mmUpdateAllBeta(std::vector<std::vector<double>>& allDelta);
+
 
 	bool syncCV = false;
 	int syncCVFolds;

@@ -77,7 +77,7 @@ public:
 
 	virtual void updateXBeta(real realDelta, int index, bool useWeights) = 0; // pure virtual
 
-	virtual void updateAllXBeta(std::vector<double>& allDelta,  std::vector<bool>& fixBeta, bool useWeights) = 0;
+	virtual void updateAllXBeta(std::vector<double>& allDelta, bool useWeights) = 0;
 
 	virtual void computeXBeta(double* beta, bool useWeights) = 0; // pure virtual
 
@@ -137,7 +137,7 @@ public:
 
     virtual std::vector<double> getLogLikelihoods(bool useCrossValidation) = 0; // pure virtual
 
-	virtual void computeNumeratorForGradient(int index, std::vector<bool> fixBeta) = 0; // pure virtual
+	virtual void computeNumeratorForGradient(int index, int cvIndex) = 0; // pure virtual
 
 	virtual void computeGradientAndHessian(int index, double* gradient,
 			double* hessian, bool useWeights, int cvIndex) = 0;
@@ -147,6 +147,11 @@ public:
 	virtual void updateXBeta(real realDelta, int index, bool useWeights, int cvIndex) = 0; // pure virtual
 
 	virtual void printStuff() = 0;
+
+	virtual void updateAllXBeta(std::vector<double>& allDelta, bool useWeights, int cvIndex) = 0;
+
+	//virtual void computeMMGradientAndHessian(std::vector<GradientHessian>& gh, const std::vector<bool>& fixBeta, bool useWeights, int cvIndex) = 0; // pure virtual
+
 
 
 	std::vector<RealVector> accDenomPidPool;
@@ -167,6 +172,29 @@ public:
 	std::vector<RealVector> hXjYPool;
 	std::vector<RealVector> hXjXPool;
 	std::vector<real> logLikelihoodFixedTermPool;
+	/*
+
+	RealVector accDenomPidPool;
+	RealVector accNumerPidPool;
+	RealVector accNumerPid2Pool;
+	IntVector accResetPool;
+
+	std::vector<int> hPidPool;
+	std::vector<int> hPidInternalPool;
+
+	RealVector hXBetaPool;
+	RealVector offsExpXBetaPool;
+
+	RealVector denomPidPool;
+	RealVector numerPidPool;
+	RealVector numerPid2Pool;
+
+	RealVector hXjYPool;
+	RealVector hXjXPool;
+	std::vector<real> logLikelihoodFixedTermPool;
+*/
+
+
 
 	bool syncCV = false;
 	int syncCVFolds;
@@ -264,6 +292,8 @@ protected:
 	RealVector hXBeta; // TODO Delegate to ModelSpecifics
 	RealVector hXBetaSave; // Delegate
 	RealVector norm;
+
+	std::vector<RealVector> normPool;
 
 //	real* hDelta;
 

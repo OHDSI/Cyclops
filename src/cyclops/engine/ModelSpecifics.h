@@ -230,7 +230,7 @@ protected:
 
 	void updateXBeta(real realDelta, int index, bool useWeights);
 
-    void updateAllXBeta(std::vector<double>& allDelta, std::vector<bool>& fixBeta, bool useWeights);
+    void updateAllXBeta(std::vector<double>& allDelta, bool useWeights);
 
 	void computeRemainingStatistics(bool useWeights);
 
@@ -306,11 +306,14 @@ protected:
 
 	std::vector<double> getLogLikelihoods(bool useCrossValidation);
 
-	void computeNumeratorForGradient(int index, std::vector<bool> fixBeta);
+	void computeNumeratorForGradient(int index, int cvIndex);
 
 	void updateXBeta(real realDelta, int index, bool useWeights, int cvIndex);
 
 	void computeRemainingStatistics(bool useWeights, int cvIndex);
+
+    void updateAllXBeta(std::vector<double>& allDelta, bool useWeights, int cvIndex);
+
 
 private:
 
@@ -381,6 +384,12 @@ private:
 
 	template <class IteratorType>
 		void updateXBetaImpl(real delta, int index, bool useWeights, int cvIndex);
+
+	/*
+	void computeMMGradientAndHessianImpl(
+			int index, double *ogradient,
+            double *ohessian, Weights w, int cvIndex);
+	 */
 
 };
 
