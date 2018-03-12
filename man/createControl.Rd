@@ -10,7 +10,7 @@ createControl(maxIterations = 1000, tolerance = 1e-06,
   minCVData = 100, noiseLevel = "silent", threads = 1, seed = NULL,
   resetCoefficients = FALSE, startingVariance = -1, useKKTSwindle = FALSE,
   tuneSwindle = 10, selectorType = "auto", initialBound = 2,
-  maxBoundCount = 5, algorithm = "ccd")
+  maxBoundCount = 5, algorithm = "ccd", useSyncCV = FALSE)
 }
 \arguments{
 \item{maxIterations}{Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error}

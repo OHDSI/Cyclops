@@ -277,7 +277,7 @@ fitCyclopsModel <- function(cyclopsData,
         || is.null(x$cyclopsInterfacePtr)
         || class(x$cyclopsInterfacePtr) != "externalptr"
         || .isRcppPtrNull(x$cyclopsInterfacePtr)
-        || .cyclopsGetComputeDevice(x$cyclopsInterfacePtr) != computeDevice
+        #|| .cyclopsGetComputeDevice(x$cyclopsInterfacePtr) != computeDevice
     ) {
 
         if (testOnly == TRUE) {

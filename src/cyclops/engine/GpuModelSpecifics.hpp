@@ -1264,7 +1264,7 @@ public:
 #endif // GPU_DEBUG
     }
 
-    virtual void updateAllXBeta(std::vector<double>& allDelta, std::vector<bool>& fixBeta, bool useWeights) {
+    virtual void updateAllXBeta(std::vector<double>& allDelta, bool useWeights) {
 #ifdef GPU_DEBUG
         ModelSpecifics<BaseModel, WeightType>::updateXBeta(realDelta, index, useWeights);
 #endif // GPU_DEBUG
@@ -1293,7 +1293,12 @@ public:
         std::vector<int> hFixBeta;
         hFixBeta.resize(J);
         for (int i=0; i<J; ++i) {
-        	hFixBeta[i] = fixBeta[i];
+        	if (allDelta[i]==0) {
+        		hFixBeta[i] = 1;
+        	} else {
+        		hFixBeta[i] = 0;
+        	}
+        	//hFixBeta[i] = fixBeta[i];
         }
         detail::resizeAndCopyToDevice(hFixBeta, dFixBeta, queue);
         kernel.set_arg(12, dFixBeta);
@@ -1526,8 +1531,25 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
 
     }   // END OF DIFF
 
+    void getPredictiveEstimates(double* y, double* weights){
 
-    /*
+    	// TODO Check with SM: the following code appears to recompute hXBeta at large expense
+    //	std::vector<real> xBeta(K,0.0);
+    //	for(int j = 0; j < J; j++){
+    //		GenericIterator it(modelData, j);
+    //		for(; it; ++it){
+    //			const int k = it.index();
+    //			xBeta[k] += it.value() * hBeta[j] * weights[k];
+    //		}
+    //	}
+        compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
+        ModelSpecifics<BaseModel, WeightType>::getPredictiveEstimates(y,weights);
+    	// TODO How to remove code duplication above?
+    }
+
+
+
+/*
     void turnOnSyncCV(int foldToCompute) {
     	syncCV = true;
     	syncCVFolds = foldToCompute;
@@ -1537,6 +1559,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
     	syncCV = false;
     }
     */
+
 
     private:
 
