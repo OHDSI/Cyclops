@@ -65,8 +65,8 @@
     .Call('_Cyclops_cyclopsPredictModel', PACKAGE = 'Cyclops', inRcppCcdInterface)
 }
 
-.cyclopsSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm, useSyncCV) {
-    invisible(.Call('_Cyclops_cyclopsSetControl', PACKAGE = 'Cyclops', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm, useSyncCV))
+.cyclopsSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm, useSyncCV, mmtolerance) {
+    invisible(.Call('_Cyclops_cyclopsSetControl', PACKAGE = 'Cyclops', inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm, useSyncCV, mmtolerance))
 }
 
 .cyclopsRunCrossValidation <- function(inRcppCcdInterface) {

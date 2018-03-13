@@ -183,21 +183,7 @@ std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorTy
 	    //     B[0][i] = 0;
 	    //     B[1][i] = 0;
 	    // }
-	 	//std::vector<T> B[2];
-		T *B0 = (T*)malloc(3*(numCases+1)*sizeof(T));
-	 	T *B1 = (T*)malloc(3*(numCases+1)*sizeof(T));
-	 	T *B[2];
-	 	B[0] = B0;
-	 	B[1] = B1;
-	 	//T *B[2];
-	 	//B[0] = (T*)malloc(3*(numCases+1)*sizeof(T));
-	 	//B[1] = (T*)malloc(3*(numCases+1)*sizeof(T));
-	 	B[0][0] = 1;
-	 	B[1][0] = 1;
-		for (int i=1; i<=3*numCases+2; i++) {
-			B[0][i] = 0;
-			B[1][i] = 0;
-		}
+	 	std::vector<T> B[2];
 
 	//     B.emplace_back(std::vector<T>(1, static_cast<T>(1)));
 	//     B.emplace_back(std::vector<T>(1, static_cast<T>(1)));
@@ -205,14 +191,14 @@ std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorTy
 		// std::vector<T> B1;
 		int currentB = 0;
 		// int nThreads = 4;
-/*
+
 		B[0].push_back(1);
 		B[1].push_back(1);
 		for (int i=1; i<=3*numCases+2; i++) {
 			B[0].push_back(0);
 			B[1].push_back(0);
 		}
-		*/
+
 
 		int start = 1;
 		int end = 0;
@@ -325,8 +311,6 @@ std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorTy
 		result.push_back(B[currentB][3*numCases+1]);
 		result.push_back(B[currentB][3*numCases+2]);
 
-		free(B[0]);
-		free(B[1]);
 	}
 
 	//result.push_back(maxXi);
