@@ -671,9 +671,6 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData 
 	    }
 		// Do full fit for optimal parameter
 		driver->resetForOptimal(*ccd, selector, arguments);
-		if (arguments.modeFinding.maxIterations > 1000) {
-			arguments.modeFinding.maxIterations = 1000;
-		}
 		fitModel(ccd);
 		if (arguments.fitMLEAtMode) {
 			runFitMLEAtMode(ccd);
