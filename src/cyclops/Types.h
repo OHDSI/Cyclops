@@ -142,6 +142,7 @@ enum class ModelType {
 enum class AlgorithmType {
 	CCD = 0,
 	MM,
+	CCDGREEDY,
 	SIZE_OF_ENUM // Keep at end
 };
 

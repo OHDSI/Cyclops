@@ -219,6 +219,11 @@ public:
 
 	//virtual double getGradientObjective();
 
+	void computeAllGradientAndHessian(
+			std::vector<GradientHessian>& gh,
+			const std::vector<bool>& fixBeta,
+			bool useWeights);
+
 protected:
 
 	template <typename IteratorType>

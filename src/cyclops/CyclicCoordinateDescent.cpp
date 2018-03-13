@@ -520,6 +520,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const int maxCount = arguments.maxBoundCount;
 	const auto algorithmType = arguments.algorithmType;
 	const int qnQ = 0;
+	const auto mmepsilon = arguments.mmtolerance;
 	modelSpecifics.setAlgorithmType(algorithmType);
 
 	initialBound = arguments.initialBound;
@@ -544,7 +545,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
  	    if (arguments.useKktSwindle && jointPrior->getSupportsKktSwindle()) {
 		    kktSwindle(arguments);
 	    } else {
-		    findMode(maxIterations, convergenceType, epsilon, algorithmType, qnQ);
+		    findMode(maxIterations, convergenceType, epsilon, algorithmType, qnQ, mmepsilon);
 	    }
 	    ++count;
 
@@ -568,13 +569,13 @@ typedef std::tuple<
 template <typename Iterator>
 void CyclicCoordinateDescent::findMode(Iterator begin, Iterator end,
 		const int maxIterations, const int convergenceType, const double epsilon,
-		const AlgorithmType algorithmType, const int qnQ) {
+		const AlgorithmType algorithmType, const int qnQ, const double mmepsilon) {
 
 	std::fill(fixBeta.begin(), fixBeta.end(), true);
  	std::for_each(begin, end, [this] (ScoreTuple& tuple) {
  		fixBeta[std::get<0>(tuple)] = false;
  	});
-	findMode(maxIterations, convergenceType, epsilon, algorithmType, qnQ);
+	findMode(maxIterations, convergenceType, epsilon, algorithmType, qnQ, mmepsilon);
     // fixBeta is no longer valid
 }
 
@@ -584,6 +585,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 	const auto convergenceType = arguments.convergenceType;
 	const auto epsilon = arguments.tolerance;
 	const auto algorithmType = arguments.algorithmType;
+	const auto mmepsilon = arguments.mmtolerance;
 	const int qnQ = 0;
 
 	// Make sure internal state is up-to-date
@@ -641,7 +643,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 			auto start = bsccs::chrono::steady_clock::now();
 
 			findMode(begin(activeSet), end(activeSet), maxIterations, convergenceType, epsilon,
-            algorithmType, qnQ);
+            algorithmType, qnQ, mmepsilon);
 
 			auto end = bsccs::chrono::steady_clock::now();
 			bsccs::chrono::duration<double> elapsed_seconds = end-start;
@@ -830,6 +832,8 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
          //      << ") (iter:" << iteration << ", conv: " << conv << ") ";
     }
 
+    //std::cout << conv << "\n";
+
     if (epsilon > 0 && conv < epsilon) {
         if (illconditioned) {
             lastReturnFlag = ILLCONDITIONED;
@@ -862,7 +866,8 @@ void CyclicCoordinateDescent::findMode(
 		int convergenceType,
 		double epsilon,
 		AlgorithmType algorithmType,
-		int qnQ
+		int qnQ,
+		double mmepsilon
 		) {
 
 	if (convergenceType < GRADIENT || convergenceType > ZHANG_OLES) {
@@ -915,11 +920,18 @@ void CyclicCoordinateDescent::findMode(
 	}
 
 	std::vector<double> allDelta;
+	std::vector<double> allDeltaObj;
 
     double lastLogPosterior; // = getLogLikelihood() + getLogPrior();
 
 	std::vector<std::vector<double>> allDeltaPool;
     std::vector<double> lastLogPosteriorVec;
+
+	if (mm_original) {
+	   algorithmType = AlgorithmType::MM;
+	   modelSpecifics.setAlgorithmType(AlgorithmType::MM);
+	   std::cout << "switch to mm \n";
+	}
 
 	if (algorithmType == AlgorithmType::MM) {
 	    // Any further initialization necessary?
@@ -936,7 +948,12 @@ void CyclicCoordinateDescent::findMode(
 		}
 	}
 
-	auto cycle = [this,&iteration,&algorithmType,&allDelta,&allDeltaPool] {
+	if (algorithmType == AlgorithmType::CCDGREEDY) {
+		if (allDelta.size() < J) allDelta.resize(J);
+		if (allDeltaObj.size() < J) allDeltaObj.resize(J);
+	}
+
+	auto cycle = [this,&iteration,&algorithmType,&allDelta,&allDeltaPool,&lastObjFunc,&convergenceType] {
 
 		//if (iteration%10==0 && iteration > 0) std::cout<<"iteration " << iteration <<"\n";
 	    auto log = [this](const int index) {
@@ -981,6 +998,7 @@ void CyclicCoordinateDescent::findMode(
 	            		//updateSufficientStatistics(delta, index);
 	            	}
 	            }
+	            //std::cout << "calling updateallxbeta \n";
 	            modelSpecifics.updateAllXBeta(allDelta, useCrossValidation);
 	            computeRemainingStatistics(true, 0);
 	    	}
@@ -1011,7 +1029,40 @@ void CyclicCoordinateDescent::findMode(
             //computeRemainingStatistics(true, 0);
             //sufficientStatisticsKnown = true;
 
+	    } else if (algorithmType == AlgorithmType::CCDGREEDY){
+            ccdUpdateAllBeta(allDelta);
+            /*
+            std::cout << "allDelta: ";
+            for (auto x:allDelta) {
+            	std::cout << x << " ";
+            }
+            std::cout << "\n";
+            */
+
+            int maxIndex = 0;
+            int maxDelta = 0;
+            for (int j=0; j<J; ++j) {
+            	if (allDelta[j] > maxDelta) {
+            		maxDelta = allDelta[j];
+            		maxIndex = j;
+            	}
+            }
+
+            double delta = ccdUpdateBeta(maxIndex);
+            //std::cout << "delta " << index << ": " << delta;
+            //std::cerr << " " << delta;
+            delta = applyBounds(delta, maxIndex);
+            //std::cout << " " << delta;
+            //std::cout << "delta" << index << ": " << delta << "\n";
+            if (delta != 0.0) {
+            	sufficientStatisticsKnown = false;
+            	updateSufficientStatistics(delta, maxIndex);
+            	computeRemainingStatistics(true, 0);
+            }
+
 	    } else {
+
+	    	//std::cout<<hBeta[0]<<"\n";
 	        // Do a complete cycle in serial
 	    	//std::cout << "starting cycle\n";
 	        for(int index = 0; index < J; index++) {
@@ -1059,24 +1110,27 @@ void CyclicCoordinateDescent::findMode(
 	};
 
 	auto check = [this,&iteration,&lastObjFunc,&algorithmType,&lastLogPosterior, &lastObjFuncVec, &lastLogPosteriorVec,
-               convergenceType, epsilon,maxIterations] {
+               convergenceType, epsilon,maxIterations,mmepsilon] {
                    bool done = false;
                    //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
                    bool checkConvergence = true; // Check after each complete cycle
 
                    //std::cout << "log likelihood: " << getLogLikelihood() << " log prior: " << getLogPrior() << " \n";
-
+                   //double thisLogPosterior = getLogLikelihood() + getLogPrior();
+                   //std::cout << thisLogPosterior << "\n";
 
                    if (algorithmType == AlgorithmType::MM) {
-                       //double thisLogPosterior = getLogLikelihood() + getLogPrior();
+                       //std::cout << thisLogPosterior << "\n";
                        //std::cout << "log likelihood: " << getLogLikelihood() << " log prior: " << getLogPrior() << " total: ";
 
                        if (iteration > 1) {
-                           //double change = thisLogPosterior - lastLogPosterior;
-                           //if (abs(change) < 0.01) {
-                        	//   algorithmType = AlgorithmType::CCD;
-                        	//   modelSpecifics.setAlgorithmType(AlgorithmType::CCD);
-                           //}
+                    	   /*
+                           double change = thisLogPosterior - lastLogPosterior;
+                           if (abs(change) < 0.01) {
+                        	   algorithmType = AlgorithmType::CCD;
+                        	   modelSpecifics.setAlgorithmType(AlgorithmType::CCD);
+                           }
+                           */
                            //std::cout << setprecision (15) << lastLogPosterior << " -> " << thisLogPosterior << " == " << change << '\n';
                            //Rcpp::Rcout << lastLogPosterior << " -> " << thisLogPosterior << " == " << change << '\n';
                            //std::cout << '\n';
@@ -1089,12 +1143,19 @@ void CyclicCoordinateDescent::findMode(
                                error->throwError(stream);
                            }
                            */
-
+                           double thisObjFunc = getObjectiveFunction(convergenceType);
+                           double conv = computeConvergenceCriterion(thisObjFunc, lastObjFunc);
+                           if (conv < mmepsilon) {
+                        	   mm_original = true;
+                        	   algorithmType = AlgorithmType::CCDGREEDY;
+                        	   modelSpecifics.setAlgorithmType(AlgorithmType::CCDGREEDY);
+                        	   std::cout << "switch to greedy ccd \n";
+                           }
 
                        }
 
-                       //lastLogPosterior = thisLogPosterior;
                    }
+                   //lastLogPosterior = thisLogPosterior;
 
 
                    if (checkConvergence) {
@@ -1464,6 +1525,52 @@ void CyclicCoordinateDescent::mmUpdateAllBeta(std::vector<double>& delta) {
         }
     }
 
+}
+
+void CyclicCoordinateDescent::ccdUpdateAllBeta(std::vector<double>& delta) {
+	 if (!sufficientStatisticsKnown) {
+	        std::ostringstream stream;
+	        stream << "Error in state synchronization.";
+	        error->throwError(stream);
+	    }
+
+	    std::vector<priors::GradientHessian> gh(J); // TODO make once
+
+	    // computeNumeratorForGradient(index);
+
+	    // priors::GradientHessian gh;
+	    // computeGradientAndHessian(index, &gh.first, &gh.second);
+
+	    modelSpecifics.computeAllGradientAndHessian(gh, fixBeta, useCrossValidation);
+	    for (int j=0; j<J; ++j) {
+	    	if (fixBeta[j]) {
+	    		delta[j] = 0.0;
+	    	} else {
+	    		gh[j].second = 1.0;
+	    		delta[j] = abs(jointPrior->getDelta(gh[j],hBeta,j));
+	    	}
+	    }
+	    /*
+	    double scale = 1.0; // TODO Tune, somehow?
+
+	    for (int j = 0; j < J; ++j) {
+	        if (!fixBeta[j]) {
+	            if (gh[j].second < 0.0) {
+	                gh[j].first = 0.0;
+	                gh[j].second = 0.0;
+	                Rcpp::stop("Bad hessian");
+	            }
+
+	            gh[j].second /= scale;
+
+	            delta[j] = jointPrior->getDelta(gh[j], hBeta, j);
+	            //std::cout << "j: " << j << " | " << gh[j].first << " | " << gh[j].second << " | " << delta[j] << '\n';
+	            // TODO this is only correct when joints are independent across dimensions
+	        } else {
+	            delta[j] = 0.0;
+	        }
+	    }
+	    */
 }
 
 void CyclicCoordinateDescent::mmUpdateAllBeta(std::vector<std::vector<double>>& deltaPool) {

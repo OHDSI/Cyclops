@@ -457,7 +457,8 @@ createControl <- function(maxIterations = 1000,
                           initialBound = 2.0,
                           maxBoundCount = 5,
                           algorithm = "ccd",
-                          useSyncCV = FALSE) {
+                          useSyncCV = FALSE,
+                          mmtolerance = NULL) {
     validCVNames = c("grid", "auto")
     stopifnot(cvType %in% validCVNames)
 
@@ -467,8 +468,12 @@ createControl <- function(maxIterations = 1000,
     stopifnot(startingVariance == -1 || startingVariance > 0)
     stopifnot(selectorType %in% c("auto","byPid", "byRow"))
 
-    validAlgorithmNames = c("ccd", "mm")
+    validAlgorithmNames = c("ccd", "mm", "ccdgreedy")
     stopifnot(algorithm %in% validAlgorithmNames)
+
+    if (is.null(mmtolerance)) {
+        mmtolerance = tolerance
+    }
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -491,7 +496,8 @@ createControl <- function(maxIterations = 1000,
                    initialBound = initialBound,
                    maxBoundCount = maxBoundCount,
                    algorithm = algorithm,
-                   useSyncCV = useSyncCV),
+                   useSyncCV = useSyncCV,
+                   mmtolerance = mmtolerance),
               class = "cyclopsControl")
 }
 
@@ -623,7 +629,7 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
                            control$noiseLevel, control$threads, control$seed, control$resetCoefficients,
                            control$startingVariance, control$useKKTSwindle, control$tuneSwindle,
                            control$selectorType, control$initialBound, control$maxBoundCount,
-                           control$algorithm, control$useSyncCV
+                           control$algorithm, control$useSyncCV, control$mmtolerance
                           )
     }
 }

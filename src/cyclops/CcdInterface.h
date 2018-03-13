@@ -73,6 +73,7 @@ struct ModeFindingArguments {
 
 	// All options related to mode-finding should (TODO) go here
 	double tolerance;
+	double mmtolerance;
 	int maxIterations;
     std::string convergenceTypeString;
 	int convergenceType;

@@ -1227,6 +1227,74 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessian(
 
 }
 
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeAllGradientAndHessian(
+        std::vector<GradientHessian>& gh,
+        const std::vector<bool>& fixBeta,
+        bool useWeights) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+    auto start = bsccs::chrono::steady_clock::now();
+#endif
+#endif
+
+    for (int index = 0; index < J; ++index) {
+        double *ogradient = &(gh[index].first);
+        double *ohessian  = &(gh[index].second);
+
+        if (fixBeta[index]) {
+            *ogradient = 0.0; *ohessian = 0.0;
+        } else {
+        	if (modelData.getNumberOfNonZeroEntries(index) == 0) {
+        		    *ogradient = 0.0; *ohessian = 0.0;
+        		    return;
+        		}
+        		// Run-time dispatch, so virtual call should not effect speed
+        	if (useWeights) {
+        		switch (modelData.getFormatType(index)) {
+        		case INDICATOR :
+        			computeGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, weighted);
+        			break;
+        		case SPARSE :
+        			computeGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, weighted);
+        			break;
+        		case DENSE :
+        			computeGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, weighted);
+        			break;
+        		case INTERCEPT :
+        			computeGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, weighted);
+        			break;
+        		}
+        	} else {
+        		switch (modelData.getFormatType(index)) {
+        		case INDICATOR :
+        			computeGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, unweighted);
+        			break;
+        		case SPARSE :
+        			computeGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, unweighted);
+        			break;
+        		case DENSE :
+        			computeGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, unweighted);
+        			break;
+        		case INTERCEPT :
+        			computeGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, unweighted);
+        			break;
+        		}
+        	}
+        }
+    }
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+    auto end = bsccs::chrono::steady_clock::now();
+    ///////////////////////////"
+    duration["compAllGradAndHess"] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+#endif
+
+}
+
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int index, double *ogradient,
                                                                            double *ohessian, Weights w) {

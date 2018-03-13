@@ -215,12 +215,12 @@ protected:
 	void computeFixedTermsInGradientAndHessian(void);
 
 	void findMode(const int maxIterations, const int convergenceType, const double epsilon,
-               const AlgorithmType algorithmType, const int qQN);
+               const AlgorithmType algorithmType, const int qQN, const double mmepsilon);
 
 	template <typename Iterator>
 	void findMode(Iterator begin, Iterator end,
 		const int maxIterations, const int convergenceType, const double epsilon,
-		const AlgorithmType algorithmType, const int qQN);
+		const AlgorithmType algorithmType, const int qQN, const double mmepsilon);
 
 	template <typename Container>
 	void computeKktConditions(Container& set);
@@ -425,6 +425,10 @@ protected:
 
 	bool syncCV = false;
 	int syncCVFolds;
+
+	bool mm_original = false;
+
+	void ccdUpdateAllBeta(std::vector<double>& allDelta);
 
 };
 

@@ -201,6 +201,8 @@ public:
 
 	virtual double getPredictiveLogLikelihood(double* weights, int cvIndex) = 0; // pure virtual
 
+	virtual void computeAllGradientAndHessian(std::vector<GradientHessian>& gh, const std::vector<bool>& fixBeta, bool useWeights) = 0; // pure virtual
+
 protected:
 
 //     template <class Engine>
