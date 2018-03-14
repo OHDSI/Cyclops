@@ -3144,6 +3144,26 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(double* 
 
 	return static_cast<double>(logLikelihood);
 }   // END OF DIFF
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, std::vector<priors::GradientHessian>& ghList, std::vector<bool>& fixBeta, bool useWeights) {
+	std::vector<int> temp;
+	int count = 0;
+	for (int cvIndex = 0; cvIndex < syncCVFolds; ++cvIndex) {
+		if (!fixBeta[cvIndex]) {
+			++count;
+			temp.push_back(cvIndex);
+		}
+	}
+	auto func = [&](const tbb::blocked_range<int>& range) {
+		for (int k = range.begin(); k < range.end(); ++k) {
+			computeGradientAndHessian(index, &ghList[temp[k]].first, &ghList[temp[k]].second, useWeights, temp[k]);
+		}
+	};
+	tbb::parallel_for(tbb::blocked_range<int>(0,count),func);
+}
+
+
 /*
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessian(

@@ -390,6 +390,9 @@ private:
 	template <class IteratorType>
 		void updateXBetaImpl(real delta, int index, bool useWeights, int cvIndex);
 
+	void computeGradientAndHessian(int index, std::vector<priors::GradientHessian>& ghList, std::vector<bool>& fixBeta, bool useWeights);
+
+
 	/*
 	void computeMMGradientAndHessianImpl(
 			int index, double *ogradient,

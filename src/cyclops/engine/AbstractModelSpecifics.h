@@ -14,6 +14,7 @@
 #include <cstddef>
 
 #include "Types.h"
+#include "priors/CovariatePrior.h"
 
 namespace bsccs {
 
@@ -149,6 +150,8 @@ public:
 	virtual void printStuff() = 0;
 
 	virtual void updateAllXBeta(std::vector<double>& allDelta, bool useWeights, int cvIndex) = 0;
+
+	virtual void computeGradientAndHessian(int index, std::vector<priors::GradientHessian>& ghList, std::vector<bool>& fixBetaTemp, bool useWeights) = 0;
 
 	//virtual void computeMMGradientAndHessian(std::vector<GradientHessian>& gh, const std::vector<bool>& fixBeta, bool useWeights, int cvIndex) = 0; // pure virtual
 

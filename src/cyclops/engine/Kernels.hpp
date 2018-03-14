@@ -1166,6 +1166,111 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 	}
 
 
+	template <class BaseModel, typename WeightType, class BaseModelG>
+    SourceCode
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncCVGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia) {
+
+        std::string name = "computeSyncCVGradHess" + getFormatTypeExtension(formatType) + (useWeights ? "W" : "N");
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "(            \n" <<
+                "       const uint offX,                  \n" <<
+                "       const uint offK,                  \n" <<
+                "       const uint N,                     \n" <<
+                "       __global const REAL* X,           \n" <<
+                "       __global const int* K,            \n" <<
+                "       __global const REAL* Y,           \n" <<
+                "       __global const REAL* xBetaVector,       \n" <<
+                "       __global const REAL* expXBetaVector,    \n" <<
+                "       __global const REAL* denomPidVector, \n" <<
+#ifdef USE_VECTOR
+                "       __global TMP_REAL* buffer,     \n" <<
+#else
+                "       __global REAL* buffer,            \n" <<
+#endif // USE_VECTOR
+                "       __global const int* pIdVector,           \n" <<  // TODO Make id optional
+                "       __global const REAL* weightVector,	\n" <<
+				"		const uint stride,				\n" <<
+				"		const uint indexWorkSize,		\n" <<
+				"		const uint wgs,					\n" <<
+				"		__global const int* cvIndices) {    \n";    // TODO Make weight optional
+
+        // Initialization
+        code << "   const uint lid = get_local_id(0); \n" <<
+                "   const uint loopSize = indexWorkSize; \n" <<
+                "   uint task = get_global_id(0)%indexWorkSize;  \n" <<
+				"	const uint bufferIndex = get_group_id(0)/wgs;	\n" <<
+				"	const uint cvIndex = cvIndices[bufferIndex]; \n" <<
+				"	const uint vecOffset = stride*cvIndex;	\n" <<
+                    // Local and thread storage
+#ifdef USE_VECTOR
+                "   __local TMP_REAL scratch[TPB]; \n" <<
+                "   TMP_REAL sum = 0.0;            \n" <<
+#else
+                "   __local REAL scratch[2][TPB];  \n" <<
+               // "   __local REAL scratch1[TPB];  \n" <<
+                "   REAL sum0 = 0.0; \n" <<
+                "   REAL sum1 = 0.0; \n" <<
+
+#endif // USE_VECTOR
+                    //
+                "   while (task < N) { \n";
+
+        // Fused transformation-reduction
+
+        if (formatType == INDICATOR || formatType == SPARSE) {
+            code << "       const uint k = K[offK + task];         \n";
+        } else { // DENSE, INTERCEPT
+            code << "       const uint k = task;            \n";
+        }
+
+        if (formatType == SPARSE || formatType == DENSE) {
+            code << "       const REAL x = X[offX + task]; \n";
+        } else { // INDICATOR, INTERCEPT
+            // Do nothing
+        }
+
+        code << "       const REAL exb = expXBetaVector[vecOffset+k];     \n" <<
+                "       const REAL numer = " << timesX("exb", formatType) << ";\n" <<
+                //"       const REAL denom = 1.0 + exb;			\n";
+        		"		const REAL denom = denomPidVector[vecOffset+k];		\n";
+        if (useWeights) {
+            code << "       const REAL w = weightVector[vecOffset+k];\n";
+        }
+
+        code << BaseModelG::incrementGradientAndHessianG(formatType, useWeights);
+
+        code << "       sum0 += gradient; \n" <<
+                "       sum1 += hessian;  \n";
+
+        // Bookkeeping
+        code << "       task += loopSize; \n" <<
+                "   } \n" <<
+                    // Thread -> local
+
+                "   scratch[0][lid] = sum0; \n" <<
+                "   scratch[1][lid] = sum1; \n";
+
+
+        code << (isNvidia ? ReduceBody2<real,true>::body() : ReduceBody2<real,false>::body());
+
+        code << "   if (lid == 0) { \n" <<
+
+                "       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2] = scratch[0][0]; \n" <<
+                "       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2+wgs] = scratch[1][0]; \n" <<
+
+
+                "   } \n";
+
+        code << "}  \n"; // End of kernel
+
+        return SourceCode(code.str(), name);
+    }
+
+
+
 
 } // namespace bsccs
 

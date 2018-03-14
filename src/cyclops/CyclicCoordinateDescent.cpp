@@ -1950,6 +1950,16 @@ std::vector<double> CyclicCoordinateDescent::ccdUpdateBetaVec(int index) {
 
 	priors::GradientHessian gh;
 	std::vector<priors::GradientHessian> ghList;
+	std::vector<bool> fixBetaTemp;
+
+	for (int cvIndex = 0; cvIndex < syncCVFolds; ++cvIndex) {
+		ghList.push_back(gh);
+		fixBetaTemp.push_back(fixBetaPool[cvIndex][index]);
+	}
+
+	modelSpecifics.computeGradientAndHessian(index, ghList, fixBetaTemp, useCrossValidation);
+
+	/*
 	int count = 0;
 	std::vector<int> temp;
 
@@ -1966,7 +1976,10 @@ std::vector<double> CyclicCoordinateDescent::ccdUpdateBetaVec(int index) {
 			modelSpecifics.computeGradientAndHessian(index, &ghList[temp[k]].first, &ghList[temp[k]].second, useCrossValidation, temp[k]);
 		}
 	};
-	tbb::parallel_for(tbb::blocked_range<int>(0,count),func);/*
+	tbb::parallel_for(tbb::blocked_range<int>(0,count),func);
+	*/
+
+	/*
 	std::vector<double> gradList;
 	gradList.resize(syncCVFolds);
 	std::vector<double> hessList;
