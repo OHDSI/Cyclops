@@ -2260,6 +2260,28 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 }
 
 template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWeights, std::vector<bool>& fixBeta) {
+
+	int count = 0;
+	std::vector<int> temp;
+
+	for (int i=0; i<syncCVFolds; ++i) {
+		if (!fixBeta[i]) {
+			temp.push_back(i);
+			count++;
+		}
+	}
+
+	auto func = [&](const tbb::blocked_range<int>& range) {
+		for (int k = range.begin(); k < range.end(); ++k) {
+			computeRemainingStatistics(useWeights, temp[k]);
+		}
+	};
+	tbb::parallel_for(tbb::blocked_range<int>(0,count),func);
+
+}
+
+template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeAccumlatedNumerator(bool useWeights) {
 
 	if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
@@ -2964,6 +2986,27 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index
 	duration["updateXBeta      "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 #endif
+
+}
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::updateXBeta(std::vector<double>& realDelta, int index, bool useWeights) {
+	int count = 0;
+	std::vector<int> temp;
+
+	for (int i=0; i<syncCVFolds; ++i) {
+		if (realDelta[i]!=0.0) {
+			temp.push_back(i);
+			count++;
+		}
+	}
+
+	auto func = [&](const tbb::blocked_range<int>& range) {
+		for (int k = range.begin(); k < range.end(); ++k) {
+			updateXBeta(realDelta[temp[k]], index, useWeights, temp[k]);
+		}
+	};
+	tbb::parallel_for(tbb::blocked_range<int>(0,count),func);
 
 }
 

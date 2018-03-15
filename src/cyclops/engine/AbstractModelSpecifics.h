@@ -145,7 +145,11 @@ public:
 
 	virtual void computeRemainingStatistics(bool useWeights, int cvIndex) = 0; // pure virtual
 
+	virtual void computeRemainingStatistics(bool useWeights, std::vector<bool>& fixBeta) = 0; // pure virtual
+
 	virtual void updateXBeta(real realDelta, int index, bool useWeights, int cvIndex) = 0; // pure virtual
+
+	virtual void updateXBeta(std::vector<double>& realDelta, int index, bool useWeights) = 0; // pure virtual
 
 	virtual void printStuff() = 0;
 

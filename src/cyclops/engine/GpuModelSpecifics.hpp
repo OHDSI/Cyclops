@@ -493,6 +493,60 @@ public:
 
     }
 
+    virtual void computeRemainingStatistics(bool useWeights, std::vector<bool>& fixBeta) {
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+    	std::vector<int> foldIndices;
+    	size_t count = 0;
+    	for (int cvIndex = 0; cvIndex < syncCVFolds; ++cvIndex) {
+    		if (!fixBeta[cvIndex]) {
+    			++count;
+    			foldIndices.push_back(cvIndex);
+    		}
+    	}
+
+    	if (count==0) {
+    		return;
+    	}
+
+        // get kernel
+        auto& kernel = kernelComputeRemainingStatisticsSync;
+
+        // set kernel args
+        size_t taskCount = K * count;
+        int dK = K;
+        kernel.set_arg(0, dK);
+        kernel.set_arg(1, dXBetaVector);
+        kernel.set_arg(2, dOffsExpXBetaVector);
+        kernel.set_arg(3, dDenomPidVector);
+        kernel.set_arg(4, dY);
+        kernel.set_arg(5, dOffs);
+        kernel.set_arg(6, dPidVector);
+        kernel.set_arg(7, dK);
+        detail::resizeAndCopyToDevice(foldIndices, dIndices, queue);
+        kernel.set_arg(8, dIndices);
+
+        // set work size, no looping
+        size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
+        if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+        	++workGroups;
+        }
+        const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+
+        // run kernel
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
+        queue.finish();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        duration["compRSGSync          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+#endif
+
+    }
+
     void computeGradientAndHessian(int index, double *ogradient,
                                            double *ohessian, bool useWeights) {
 
@@ -1530,6 +1584,9 @@ public:
 #endif // GPU_DEBUG
     }
 
+    virtual void updateXBeta(std::vector<double>& realDelta, int index, bool useWeights) {
+    }
+
     virtual void updateAllXBeta(std::vector<double>& allDelta, bool useWeights) {
 #ifdef GPU_DEBUG
         ModelSpecifics<BaseModel, WeightType>::updateXBeta(realDelta, index, useWeights);
@@ -1716,6 +1773,22 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
         detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
         detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
     }
+
+virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex) {
+	ModelSpecifics<BaseModel,WeightType>::setWeights(inWeights, useCrossValidation, cvIndex);
+	if (cvIndex == syncCVFolds - 1) {
+		std::vector<real> hNWeightTemp;
+		std::vector<real> hKWeightTemp;
+		int garbage;
+		for (int i=0; i<syncCVFolds; i++) {
+			//std::cout << "hNWeightPool size" << i << ": " << hNWeightPool[i].size() << "\n";
+        	appendAndPad(hNWeightPool[i], hNWeightTemp, garbage, false);
+        	appendAndPad(hKWeightPool[i], hKWeightTemp, garbage, false);
+		}
+        detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
+        detail::resizeAndCopyToDevice(hKWeightTemp, dKWeightVector, queue);
+	}
+}
 
     virtual const RealVector& getXBeta() {
         if (!hXBetaKnown) {
@@ -1907,7 +1980,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
         FormatType formatType = modelData.getFormatType(index);
 
         std::vector<int> foldIndices;
-        int count = 0;
+        size_t count = 0;
         for (int cvIndex = 0; cvIndex < syncCVFolds; ++cvIndex) {
         	if (!fixBeta[cvIndex]) {
         		++count;
@@ -1924,7 +1997,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
         */
 
         if (!initialized) {
-        	//computeRemainingStatisticsSyncCV(true);
+        	std::vector<bool> fixBetaTemp(syncCVFolds,true);
+        	computeRemainingStatistics(true, fixBetaTemp);
         	initialized = true;
         }
 
@@ -1961,6 +2035,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
 
         kernel.set_arg(3, dColumns.getData());
         kernel.set_arg(4, dColumns.getIndices());
+        kernel.set_arg(5, dY);
 
         kernel.set_arg(6, dXBetaVector);
         kernel.set_arg(7, dOffsExpXBetaVector);
@@ -1974,20 +2049,20 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
         //}
 
         kernel.set_arg(10, dPidVector);
-        kernel.set_arg(11, dKWeightVector);
-        /*
-        if (dKWeight.size() == 0) {
-        	kernel.set_arg(11, 0);
-        } else {
-        	kernel.set_arg(11, dKWeight); // TODO Only when dKWeight gets reallocated
-        }
-        */
+        //kernel.set_arg(11, dKWeightVector);
+
         int dK = K;
         kernel.set_arg(12, dK);
         kernel.set_arg(13, tpb*wgs);
         kernel.set_arg(14, wgs);
         detail::resizeAndCopyToDevice(foldIndices, dIndices, queue);
         kernel.set_arg(15, dIndices);
+
+        if (dKWeightVector.size() == 0) {
+        	kernel.set_arg(11, 0);
+        } else {
+        	kernel.set_arg(11, dKWeightVector); // TODO Only when dKWeight gets reallocated
+        }
 
         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
         queue.finish();
@@ -2108,6 +2183,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
     SourceCode writeCodeForGetGradientObjective(bool useWeights, bool isNvidia);
 
     SourceCode writeCodeForComputeRemainingStatisticsKernel();
+
+    SourceCode writeCodeForSyncComputeRemainingStatisticsKernel();
 
     SourceCode writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia);
 
@@ -2306,6 +2383,13 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
         kernel.set_arg(4, dId);
 
         kernelComputeRemainingStatistics = std::move(kernel);
+
+        source = writeCodeForSyncComputeRemainingStatisticsKernel();
+        std::cout << source.body;
+        program = compute::program::build_with_source(source.body, ctx, options.str());
+        auto kernelSync = compute::kernel(program, source.name);
+
+        kernelComputeRemainingStatisticsSync = std::move(kernelSync);
     }
 
     void buildUpdateAllXBetaKernel(FormatType formatType) {
@@ -2471,6 +2555,14 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
     		printKernel(entry.second, stream);
     	}
 
+    	for (auto& entry : kernelGradientHessianSyncWeighted) {
+    		printKernel(entry.second, stream);
+    	}
+
+    	for (auto& entry : kernelGradientHessianSyncNoWeight) {
+    		printKernel(entry.second, stream);
+    	}
+
         for (auto& entry : kernelUpdateXBeta) {
             printKernel(entry.second, stream);
         }
@@ -2478,6 +2570,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
         printKernel(kernelGetGradientObjectiveWeighted, stream);
         printKernel(kernelGetGradientObjectiveNoWeight, stream);
         printKernel(kernelComputeRemainingStatistics, stream);
+        printKernel(kernelComputeRemainingStatisticsSync, stream);
 
         for (auto& entry: kernelUpdateAllXBeta) {
         	printKernel(entry.second, stream);
@@ -2503,6 +2596,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
     compute::kernel kernelGetGradientObjectiveWeighted;
     compute::kernel kernelGetGradientObjectiveNoWeight;
     compute::kernel kernelComputeRemainingStatistics;
+    compute::kernel kernelComputeRemainingStatisticsSync;
     compute::kernel kernelGetLogLikelihoodWeighted;
     compute::kernel kernelGetLogLikelihoodNoWeight;
     std::map<FormatType, compute::kernel> kernelUpdateAllXBeta;

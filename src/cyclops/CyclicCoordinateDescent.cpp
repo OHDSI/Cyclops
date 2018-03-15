@@ -1079,7 +1079,6 @@ void CyclicCoordinateDescent::findMode(
 	        		*/
 
 	        		deltaVec = applyBounds(deltaVec, index);
-
 	        		updateSufficientStatistics(deltaVec, index);
 	        		computeRemainingStatistics(true, index, deltaVec);
 	        	} else {
@@ -1744,7 +1743,16 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 			}
 		}
 		*/
-
+		std::vector<bool> fixBetaTemp;
+		for (int i=0; i<syncCVFolds; i++) {
+			if (deltaVec[i]==0.0) {
+				fixBetaTemp.push_back(1);
+			} else {
+				fixBetaTemp.push_back(0);
+			}
+		}
+		modelSpecifics.computeRemainingStatistics(useCrossValidation, fixBetaTemp);
+		/*
 		int count = 0;
 		std::vector<int> temp;
 
@@ -1763,6 +1771,7 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 			}
 		};
 		tbb::parallel_for(tbb::blocked_range<int>(0,count),func);
+		*/
 
 	}
 }
@@ -1772,11 +1781,16 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 	// Separate function for benchmarking
 	if (allStats) {
 		if (syncCV) {
-			for (int i=0; i<syncCVFolds; ++i) {
-				if (!donePool[i] || !fixBetaPool[i][index]) {
-					modelSpecifics.computeRemainingStatistics(useCrossValidation, i);
+			std::vector<bool> fixBetaTemp;
+			for (int i=0; i<syncCVFolds; i++) {
+				if (donePool[i] || fixBetaPool[i][index]) {
+					fixBetaTemp.push_back(1);
+				} else {
+					fixBetaTemp.push_back(0);
 				}
 			}
+			modelSpecifics.computeRemainingStatistics(useCrossValidation, fixBetaTemp);
+
 		}
 		modelSpecifics.computeRemainingStatistics(useCrossValidation);
 	}
@@ -2074,13 +2088,16 @@ void CyclicCoordinateDescent::applyBounds(std::vector<std::vector<double>>& delt
 
 void CyclicCoordinateDescent::updateXBeta(std::vector<double> delta, int index) {
 	// Update beta
+	std::vector<double> realDeltaVec;
+
 	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
 		double realDelta = static_cast<double>(delta[cvIndex]);
 		hBetaPool[cvIndex][index] += realDelta;
-
+		realDeltaVec.push_back(realDelta);
 		// Delegate
-		if (realDelta!=0.0) modelSpecifics.updateXBeta(realDelta, index, useCrossValidation, cvIndex);
+		//if (realDelta!=0.0) modelSpecifics.updateXBeta(realDelta, index, useCrossValidation, cvIndex);
 	}
+	modelSpecifics.updateXBeta(realDeltaVec, index, useCrossValidation);
 }
 
 void CyclicCoordinateDescent::updateSufficientStatistics(std::vector<double> delta, int index) {

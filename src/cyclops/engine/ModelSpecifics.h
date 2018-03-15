@@ -315,7 +315,11 @@ protected:
 
 	void updateXBeta(real realDelta, int index, bool useWeights, int cvIndex);
 
+	void updateXBeta(std::vector<double>& realDelta, int index, bool useWeights);
+
 	void computeRemainingStatistics(bool useWeights, int cvIndex);
+
+	void computeRemainingStatistics(bool useWeights, std::vector<bool>& fixBeta);
 
     void updateAllXBeta(std::vector<double>& allDelta, bool useWeights, int cvIndex);
 

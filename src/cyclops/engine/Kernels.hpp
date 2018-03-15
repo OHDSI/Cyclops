@@ -1269,6 +1269,47 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
         return SourceCode(code.str(), name);
     }
 
+	template <class BaseModel, typename WeightType, class BaseModelG>
+    SourceCode
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncComputeRemainingStatisticsKernel() {
+
+        std::string name = "computeRemainingStatistics";
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "(     \n" <<
+                "       const uint N,              \n" <<
+				"		__global REAL* xBetaVector,	   \n" <<
+                "       __global REAL* expXBetaVector,   \n" <<
+                "       __global REAL* denomPidVector,\n" <<
+				"		__global REAL* Y,			\n" <<
+				"		__global REAL* Offs,		\n" <<
+                "       __global const int* pIdVector,		\n" <<
+				"		const uint stride,				\n" <<
+				"		__global const int* cvIndices) {   \n" <<
+                "   const uint task = get_global_id(0)%N; \n" <<
+        		"	const uint cvIndex = cvIndices[get_global_id(0)/stride];	\n" <<
+				"	const uint vecOffset = stride*cvIndex;	\n";
+        //code << "   const uint lid = get_local_id(0); \n" <<
+        //        "   const uint loopSize = get_global_size(0); \n";
+        // Local and thread storage
+        code << "   if (task < N) {      				\n";
+        if (BaseModel::likelihoodHasDenominator) {
+        	code << "const REAL y = Y[task];\n" <<
+        			"const REAL xb = xBetaVector[vecOffset+task];\n" <<
+					"const REAL offs = Offs[task];\n";
+					//"const int k = task;";
+        	code << "REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
+        	code << "expXBetaVector[vecOffset+task] = exb;\n";
+    		code << "denomPidVector[vecOffset+" << BaseModelG::getGroupG() << "] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+        }
+        code << "   } \n";
+        code << "}    \n";
+        return SourceCode(code.str(), name);
+    }
+
+
 
 
 
