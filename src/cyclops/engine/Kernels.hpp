@@ -1309,6 +1309,55 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
         return SourceCode(code.str(), name);
     }
 
+	template <class BaseModel, typename WeightType, class BaseModelG>
+    SourceCode
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncUpdateXBetaKernel(FormatType formatType) {
+
+        std::string name = "updateXBetaSync" + getFormatTypeExtension(formatType);
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "(     \n" <<
+                "       const uint offX,           \n" <<
+                "       const uint offK,           \n" <<
+                "       const uint N,              \n" <<
+                "       __global const REAL* deltaVector,          \n" <<
+                "       __global const REAL* X,    \n" <<
+                "       __global const int* K,     \n" <<
+                "       __global const REAL* Y,    \n" <<
+                "       __global REAL* xBetaVector,      \n" <<
+                "       __global REAL* expXBetaVector,   \n" <<
+                "       __global REAL* denomPidVector,\n" <<
+                "       __global const int* id,		\n" <<
+				"		const uint stride,			\n" <<
+				"		__global const int* cvIndices) {   \n" <<
+        "   const uint task = get_global_id(0)%N; \n" <<
+		"	const uint cvIndex = cvIndices[get_global_id(0)/N];	\n" <<
+		"	const uint vecOffset = stride*cvIndex;	\n";
+
+        if (formatType == INDICATOR || formatType == SPARSE) {
+            code << "   const uint k = K[offK + task];         \n";
+        } else { // DENSE, INTERCEPT
+            code << "   const uint k = task;            \n";
+        }
+
+        if (formatType == SPARSE || formatType == DENSE) {
+            code << "   const REAL inc = deltaVector[cvIndex] * X[offX + task]; \n";
+        } else { // INDICATOR, INTERCEPT
+            code << "   const REAL inc = deltaVector[cvIndex];           \n";
+        }
+
+        code << "   if (task < N) {      				\n";
+        code << "       REAL xb = xBetaVector[vecOffset+k] + inc; 		\n" <<
+                "       xBetaVector[vecOffset+k] = xb;                  \n";
+        code << "   } \n";
+        code << "}    \n";
+
+        return SourceCode(code.str(), name);
+    }
+
+
 
 
 

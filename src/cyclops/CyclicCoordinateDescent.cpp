@@ -1070,12 +1070,12 @@ void CyclicCoordinateDescent::findMode(
 		    	//std::cout << "hBeta[0]: " << hBeta[0] << " hBeta[1]: " << hBeta[1] << '\n';
 	        	if (syncCV) {
 	        		std::vector<double> deltaVec = ccdUpdateBetaVec(index);
-
-	        		/*
-	        		std::cout << " deltaVec: ";
-	        		for (auto x : deltaVec) {
+/*
+	        		std::cout << "deltaVec: ";
+	        		for (auto x:deltaVec) {
 	        			std::cout << x << " ";
 	        		}
+	        		std::cout << "\n";
 	        		*/
 
 	        		deltaVec = applyBounds(deltaVec, index);
@@ -2247,7 +2247,6 @@ double CyclicCoordinateDescent::getPredictiveLogLikelihood(double* weights, int 
 	} else {
 		return std::numeric_limits<double>::quiet_NaN();
 	}
-
 }
 
 

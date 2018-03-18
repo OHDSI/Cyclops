@@ -1585,6 +1585,66 @@ public:
     }
 
     virtual void updateXBeta(std::vector<double>& realDelta, int index, bool useWeights) {
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+        std::vector<int> foldIndices;
+        size_t count = 0;
+        for (int cvIndex = 0; cvIndex < syncCVFolds; ++cvIndex) {
+        	if (realDelta[cvIndex]!=0.0) {
+        		++count;
+        		foldIndices.push_back(cvIndex);
+        	}
+        }
+
+        if (count==0) {
+        	return;
+        }
+        // get kernel
+        auto& kernel = kernelUpdateXBetaSync[modelData.getFormatType(index)];
+
+        const auto taskCount = dColumns.getTaskCount(index);
+
+        // set kernel args
+        kernel.set_arg(0, dColumns.getDataOffset(index));
+        kernel.set_arg(1, dColumns.getIndicesOffset(index));
+        kernel.set_arg(2, taskCount);
+        detail::resizeAndCopyToDevice(realDelta, dVector1, queue);
+        kernel.set_arg(3, dVector1);
+        kernel.set_arg(4, dColumns.getData());
+        kernel.set_arg(5, dColumns.getIndices());
+        kernel.set_arg(6, dY);
+        kernel.set_arg(7, dXBetaVector);
+        kernel.set_arg(8, dOffsExpXBetaVector);
+        kernel.set_arg(9, dDenomPidVector);
+        kernel.set_arg(10, dPidVector);
+        int dK = K;
+        kernel.set_arg(11, dK);
+        detail::resizeAndCopyToDevice(foldIndices, dIndices, queue);
+        kernel.set_arg(12, dIndices);
+
+        // set work size; no looping
+        size_t workGroups = taskCount*count / detail::constant::updateXBetaBlockSize;
+        if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+            ++workGroups;
+        }
+        const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+
+        // run kernel
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
+        queue.finish();
+
+        hXBetaKnown = false; // dXBeta was just updated
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        auto name = "updateXBetaG" + getFormatTypeExtension(modelData.getFormatType(index)) + "  ";
+        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
     }
 
     virtual void updateAllXBeta(std::vector<double>& allDelta, bool useWeights) {
@@ -1873,6 +1933,13 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 
     }   // END OF DIFF
 
+    double getPredictiveLogLikelihood(double* weights, int cvIndex) {
+    	compute::copy(std::begin(dXBetaVector)+cvIndex*K, std::begin(dXBetaVector)+cvIndex*K+K, std::begin(hXBetaPool[cvIndex]), queue);
+    	compute::copy(std::begin(dDenomPidVector)+cvIndex*K, std::begin(dDenomPidVector)+cvIndex*K+K, std::begin(denomPidPool[cvIndex]), queue);
+    	return ModelSpecifics<BaseModel, WeightType>::getPredictiveLogLikelihood(weights, cvIndex);
+    }
+
+
     void getPredictiveEstimates(double* y, double* weights){
 
     	// TODO Check with SM: the following code appears to recompute hXBeta at large expense
@@ -2100,6 +2167,25 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 
     }
 
+    std::vector<double> getGradientObjectives() {
+    	std::cout << "got to grad obj \n";
+    	for (int cvIndex=0; cvIndex<syncCVFolds; ++cvIndex) {
+    		compute::copy(std::begin(dXBeta), std::begin(dXBeta)+K, std::begin(hXBetaPool[cvIndex]), queue);
+    	}
+    	return ModelSpecifics<BaseModel,WeightType>::getGradientObjectives();
+    }
+
+    std::vector<double> getLogLikelihoods(bool useCrossValidation) {
+    	for (int cvIndex=0; cvIndex<syncCVFolds; ++cvIndex) {
+    		compute::copy(std::begin(dXBetaVector), std::begin(dXBetaVector)+K, std::begin(hXBetaPool[cvIndex]), queue);
+    		compute::copy(std::begin(dDenomPidVector), std::begin(dDenomPidVector)+K, std::begin(denomPidPool[cvIndex]), queue);
+    		compute::copy(std::begin(dAccDenomPidVector), std::begin(dAccDenomPidVector)+K, std::begin(accDenomPidPool[cvIndex]), queue);
+    	}
+    	return ModelSpecifics<BaseModel,WeightType>::getLogLikelihoods(useCrossValidation);
+
+    }
+
+
     private:
 
     template <class T>
@@ -2171,6 +2257,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     SourceCode writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
     SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType);
+
+    SourceCode writeCodeForSyncUpdateXBetaKernel(FormatType formatType);
 
     SourceCode writeCodeForUpdateAllXBetaKernel(FormatType formatType, bool isNvidia);
 
@@ -2364,6 +2452,11 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         kernel.set_arg(10, dId);
 
         kernelUpdateXBeta[formatType] = std::move(kernel);
+
+        source = writeCodeForSyncUpdateXBetaKernel(formatType);
+        program = compute::program::build_with_source(source.body, ctx, options.str());
+        auto kernelSync = compute::kernel(program, source.name);
+        kernelUpdateXBetaSync[formatType] = std::move(kernelSync);
     }
 
 
@@ -2586,6 +2679,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     std::map<FormatType, compute::kernel> kernelGradientHessianWeighted;
     std::map<FormatType, compute::kernel> kernelGradientHessianNoWeight;
     std::map<FormatType, compute::kernel> kernelUpdateXBeta;
+    std::map<FormatType, compute::kernel> kernelUpdateXBetaSync;
     std::map<FormatType, compute::kernel> kernelGradientHessianMMWeighted;
     std::map<FormatType, compute::kernel> kernelGradientHessianMMNoWeight;
     std::map<FormatType, compute::kernel> kernelGradientHessianAllWeighted;
