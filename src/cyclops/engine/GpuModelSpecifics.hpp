@@ -2168,21 +2168,19 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     }
 
     std::vector<double> getGradientObjectives() {
-    	std::cout << "got to grad obj \n";
     	for (int cvIndex=0; cvIndex<syncCVFolds; ++cvIndex) {
-    		compute::copy(std::begin(dXBeta), std::begin(dXBeta)+K, std::begin(hXBetaPool[cvIndex]), queue);
+    		compute::copy(std::begin(dXBetaVector)+cvIndex*K, std::begin(dXBetaVector)+cvIndex*K+K, std::begin(hXBetaPool[cvIndex]), queue);
     	}
     	return ModelSpecifics<BaseModel,WeightType>::getGradientObjectives();
     }
 
     std::vector<double> getLogLikelihoods(bool useCrossValidation) {
     	for (int cvIndex=0; cvIndex<syncCVFolds; ++cvIndex) {
-    		compute::copy(std::begin(dXBetaVector), std::begin(dXBetaVector)+K, std::begin(hXBetaPool[cvIndex]), queue);
-    		compute::copy(std::begin(dDenomPidVector), std::begin(dDenomPidVector)+K, std::begin(denomPidPool[cvIndex]), queue);
-    		compute::copy(std::begin(dAccDenomPidVector), std::begin(dAccDenomPidVector)+K, std::begin(accDenomPidPool[cvIndex]), queue);
+    		compute::copy(std::begin(dXBetaVector)+cvIndex*K, std::begin(dXBetaVector)+cvIndex*K+K, std::begin(hXBetaPool[cvIndex]), queue);
+    		compute::copy(std::begin(dDenomPidVector)+cvIndex*K, std::begin(dDenomPidVector)+cvIndex*K+K, std::begin(denomPidPool[cvIndex]), queue);
+    		//compute::copy(std::begin(dAccDenomPidVector), std::begin(dAccDenomPidVector)+K, std::begin(accDenomPidPool[cvIndex]), queue);
     	}
     	return ModelSpecifics<BaseModel,WeightType>::getLogLikelihoods(useCrossValidation);
-
     }
 
 

@@ -1971,7 +1971,7 @@ std::vector<double> CyclicCoordinateDescent::ccdUpdateBetaVec(int index) {
 		fixBetaTemp.push_back(fixBetaPool[cvIndex][index]);
 	}
 
-	modelSpecifics.computeGradientAndHessian(index, ghList, fixBetaTemp, useCrossValidation);
+	if (fixBetaTemp.size() > 0) modelSpecifics.computeGradientAndHessian(index, ghList, fixBetaTemp, useCrossValidation);
 
 	/*
 	int count = 0;
