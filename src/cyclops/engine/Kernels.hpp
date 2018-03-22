@@ -1288,7 +1288,7 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
                 "       __global const int* pIdVector,		\n" <<
 				"		const uint stride,				\n" <<
 				"		__global const int* cvIndices) {   \n" <<
-                "   const uint task = get_global_id(0)%N; \n" <<
+                "   const uint task = get_global_id(0)%stride; \n" <<
         		"	const uint cvIndex = cvIndices[get_global_id(0)/stride];	\n" <<
 				"	const uint vecOffset = stride*cvIndex;	\n";
         //code << "   const uint lid = get_local_id(0); \n" <<
@@ -1331,10 +1331,12 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
                 "       __global REAL* denomPidVector,\n" <<
                 "       __global const int* id,		\n" <<
 				"		const uint stride,			\n" <<
-				"		__global const int* cvIndices) {   \n" <<
-        "   const uint task = get_global_id(0)%N; \n" <<
-		"	const uint cvIndex = cvIndices[get_global_id(0)/N];	\n" <<
+				"		__global const int* cvIndices,	\n" <<
+				"		const uint localstride) {   \n" <<
+        "   const uint task = get_global_id(0)%localstride; \n" <<
+		"	const uint cvIndex = cvIndices[get_global_id(0)/localstride];	\n" <<
 		"	const uint vecOffset = stride*cvIndex;	\n";
+        code << "   if (task < N) {      				\n";
 
         if (formatType == INDICATOR || formatType == SPARSE) {
             code << "   const uint k = K[offK + task];         \n";
@@ -1348,7 +1350,6 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
             code << "   const REAL inc = deltaVector[cvIndex];           \n";
         }
 
-        code << "   if (task < N) {      				\n";
         code << "       REAL xb = xBetaVector[vecOffset+k] + inc; 		\n" <<
                 "       xBetaVector[vecOffset+k] = xb;                  \n";
         code << "   } \n";

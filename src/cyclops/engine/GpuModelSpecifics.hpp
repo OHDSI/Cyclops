@@ -515,7 +515,7 @@ public:
         auto& kernel = kernelComputeRemainingStatisticsSync;
 
         // set kernel args
-        size_t taskCount = K * count;
+        size_t taskCount = cvIndexStride * count;
         int dK = K;
         kernel.set_arg(0, dK);
         kernel.set_arg(1, dXBetaVector);
@@ -524,7 +524,7 @@ public:
         kernel.set_arg(4, dY);
         kernel.set_arg(5, dOffs);
         kernel.set_arg(6, dPidVector);
-        kernel.set_arg(7, dK);
+        kernel.set_arg(7, cvIndexStride);
         detail::resizeAndCopyToDevice(foldIndices, dIndices, queue);
         kernel.set_arg(8, dIndices);
 
@@ -1605,6 +1605,7 @@ public:
         auto& kernel = kernelUpdateXBetaSync[modelData.getFormatType(index)];
 
         const auto taskCount = dColumns.getTaskCount(index);
+        const auto localstride = detail::getAlignedLength<16>(taskCount);
 
         // set kernel args
         kernel.set_arg(0, dColumns.getDataOffset(index));
@@ -1620,13 +1621,14 @@ public:
         kernel.set_arg(9, dDenomPidVector);
         kernel.set_arg(10, dPidVector);
         int dK = K;
-        kernel.set_arg(11, dK);
+        kernel.set_arg(11, cvIndexStride);
         detail::resizeAndCopyToDevice(foldIndices, dIndices, queue);
         kernel.set_arg(12, dIndices);
+        kernel.set_arg(13, localstride);
 
         // set work size; no looping
-        size_t workGroups = taskCount*count / detail::constant::updateXBetaBlockSize;
-        if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+        size_t workGroups = localstride*count / detail::constant::updateXBetaBlockSize;
+        if (localstride % detail::constant::updateXBetaBlockSize != 0) {
             ++workGroups;
         }
         const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
@@ -1641,7 +1643,7 @@ public:
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
         ///////////////////////////"
-        auto name = "updateXBetaG" + getFormatTypeExtension(modelData.getFormatType(index)) + "  ";
+        auto name = "updateXBetaSyncCVG" + getFormatTypeExtension(modelData.getFormatType(index)) + "  ";
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
@@ -1842,8 +1844,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 		int garbage;
 		for (int i=0; i<syncCVFolds; i++) {
 			//std::cout << "hNWeightPool size" << i << ": " << hNWeightPool[i].size() << "\n";
-        	appendAndPad(hNWeightPool[i], hNWeightTemp, garbage, false);
-        	appendAndPad(hKWeightPool[i], hKWeightTemp, garbage, false);
+        	appendAndPad(hNWeightPool[i], hNWeightTemp, garbage, pad);
+        	appendAndPad(hKWeightPool[i], hKWeightTemp, garbage, pad);
 		}
         detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
         detail::resizeAndCopyToDevice(hKWeightTemp, dKWeightVector, queue);
@@ -1934,8 +1936,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     }   // END OF DIFF
 
     double getPredictiveLogLikelihood(double* weights, int cvIndex) {
-    	compute::copy(std::begin(dXBetaVector)+cvIndex*K, std::begin(dXBetaVector)+cvIndex*K+K, std::begin(hXBetaPool[cvIndex]), queue);
-    	compute::copy(std::begin(dDenomPidVector)+cvIndex*K, std::begin(dDenomPidVector)+cvIndex*K+K, std::begin(denomPidPool[cvIndex]), queue);
+    	compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
+    	compute::copy(std::begin(dDenomPidVector)+cvIndexStride*cvIndex, std::begin(dDenomPidVector)+cvIndexStride*cvIndex+K, std::begin(denomPidPool[cvIndex]), queue);
     	return ModelSpecifics<BaseModel, WeightType>::getPredictiveLogLikelihood(weights, cvIndex);
     }
 
@@ -1960,6 +1962,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     	ModelSpecifics<BaseModel, WeightType>::turnOnSyncCV(foldToCompute);
 
     	syncCV = true;
+    	pad = false;
     	syncCVFolds = foldToCompute;
 
     	//int dataStart = 0;
@@ -1967,67 +1970,80 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 
         std::vector<real> hNWeightTemp;
         std::vector<real> hKWeightTemp;
-        std::vector<real> accDenomPidTemp;
-        std::vector<real> accNumerPidTemp;
-        std::vector<real> accNumerPid2Temp;
-        std::vector<int> accResetTemp;
+        //std::vector<real> accDenomPidTemp;
+        //std::vector<real> accNumerPidTemp;
+        //std::vector<real> accNumerPid2Temp;
+        //std::vector<int> accResetTemp;
         std::vector<int> hPidTemp;
-        std::vector<int> hPidInternalTemp;
+        //std::vector<int> hPidInternalTemp;
         std::vector<real> hXBetaTemp;
         std::vector<real> offsExpXBetaTemp;
         std::vector<real> denomPidTemp;
-        std::vector<real> numerPidTemp;
-        std::vector<real> numerPid2Temp;
-        std::vector<real> hXjYTemp;
-        std::vector<real> hXjXTemp;
-        std::vector<real> logLikelihoodFixedTermTemp;
+        //std::vector<real> numerPidTemp;
+        //std::vector<real> numerPid2Temp;
+        //std::vector<real> hXjYTemp;
+        //std::vector<real> hXjXTemp;
+        //std::vector<real> logLikelihoodFixedTermTemp;
         //std::vector<IndexVectorPtr> sparseIndicesTemp;
-        std::vector<real> normTemp;
+        //std::vector<real> normTemp;
+
+        //std::vector<int> cvIndexOffsets;
 
         for (int i=0; i<foldToCompute; ++i) {
-        	appendAndPad(hKWeight, hNWeightTemp, garbage, false);
-        	appendAndPad(hKWeight, hKWeightTemp, garbage, false);
-        	appendAndPad(accDenomPid, accDenomPidTemp, garbage, false);
-        	appendAndPad(accNumerPid, accNumerPidTemp, garbage, false);
-        	appendAndPad(accNumerPid2, accNumerPid2Temp, garbage, false);
-        	appendAndPad(accReset, accResetTemp, garbage, false);
-        	appendAndPad(hPidInternal, hPidInternalTemp, garbage, false);
-        	appendAndPad(hXBeta, hXBetaTemp, garbage, false);
-        	appendAndPad(offsExpXBeta, offsExpXBetaTemp, garbage, false);
-        	appendAndPad(denomPid, denomPidTemp, garbage, false);
-        	appendAndPad(numerPid, numerPidTemp, garbage, false);
-        	appendAndPad(numerPid2, numerPid2Temp, garbage, false);
+        	//cvIndexOffsets.push_back(indices1);
+        	appendAndPad(hNWeight, hNWeightTemp, garbage, pad);
+        	appendAndPad(hKWeight, hKWeightTemp, garbage, pad);
+        	//appendAndPad(accDenomPid, accDenomPidTemp, garbage, true);
+        	//appendAndPad(accNumerPid, accNumerPidTemp, garbage, true);
+        	//appendAndPad(accNumerPid2, accNumerPid2Temp, garbage, true);
+        	//appendAndPad(accReset, accResetTemp, garbage, true);
+        	//appendAndPad(hPidInternal, hPidInternalTemp, garbage, true);
+        	appendAndPad(hXBeta, hXBetaTemp, garbage, pad);
+        	appendAndPad(offsExpXBeta, offsExpXBetaTemp, garbage, pad);
+        	appendAndPad(denomPid, denomPidTemp, garbage, pad);
+        	//appendAndPad(numerPid, numerPidTemp, garbage, true);
+        	//appendAndPad(numerPid2, numerPid2Temp, garbage, true);
         	//appendAndPad(hXjY, hXjYTemp, garbage, false);
         	//appendAndPad(hXjX, hXjXTemp, garbage, false);
         	//appendAndPad(sparseIndices, sparseIndicesTemp, garbage, false);
-        	appendAndPad(norm, normTemp, garbage, false);
+        	//appendAndPad(norm, normTemp, garbage, false);
         }
+        if (pad) {
+        	cvIndexStride = detail::getAlignedLength<16>(K);
+        } else {
+        	cvIndexStride = K;
+        }
+        std::cout << "cvStride: " << cvIndexStride << "\n";
 
         for (int i=0; i<foldToCompute; ++i) {
         	for (int n=0; n<K; ++n) {
         		hPidTemp.push_back(hPid[n]);
+        	}
+        	for (int n=K; n<cvIndexStride; ++n) {
+        		hPidTemp.push_back(-1);
         	}
         	//logLikelihoodFixedTermTemp.push_back(logLikelihoodFixedTerm);
         }
 
         detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
         detail::resizeAndCopyToDevice(hKWeightTemp, dKWeightVector, queue);
-        detail::resizeAndCopyToDevice(accDenomPidTemp, dAccDenomPidVector, queue);
-        detail::resizeAndCopyToDevice(accNumerPidTemp, dAccNumerPidVector, queue);
-        detail::resizeAndCopyToDevice(accNumerPid2Temp, dAccNumerPid2Vector, queue);
-        detail::resizeAndCopyToDevice(accResetTemp, dAccResetVector, queue);
+        //detail::resizeAndCopyToDevice(accDenomPidTemp, dAccDenomPidVector, queue);
+        //detail::resizeAndCopyToDevice(accNumerPidTemp, dAccNumerPidVector, queue);
+        //detail::resizeAndCopyToDevice(accNumerPid2Temp, dAccNumerPid2Vector, queue);
+        //detail::resizeAndCopyToDevice(accResetTemp, dAccResetVector, queue);
         detail::resizeAndCopyToDevice(hPidTemp, dPidVector, queue);
-        detail::resizeAndCopyToDevice(hPidInternalTemp, dPidInternalVector, queue);
+        //detail::resizeAndCopyToDevice(hPidInternalTemp, dPidInternalVector, queue);
         detail::resizeAndCopyToDevice(hXBetaTemp, dXBetaVector, queue);
         detail::resizeAndCopyToDevice(offsExpXBetaTemp, dOffsExpXBetaVector, queue);
         detail::resizeAndCopyToDevice(denomPidTemp, dDenomPidVector, queue);
-        detail::resizeAndCopyToDevice(numerPidTemp, dNumerPidVector, queue);
-        detail::resizeAndCopyToDevice(numerPid2Temp, dNumerPid2Vector, queue);
+        //detail::resizeAndCopyToDevice(numerPidTemp, dNumerPidVector, queue);
+        //detail::resizeAndCopyToDevice(numerPid2Temp, dNumerPid2Vector, queue);
         //detail::resizeAndCopyToDevice(hXjYTemp, dXjYVector, queue);
         //detail::resizeAndCopyToDevice(hXjXTemp, dXjXVector, queue);
         //detail::resizeAndCopyToDevice(logLikelihoodFixedTermTemp, dLogLikelihoodFixedTermVector, queue);
         //detail::resizeAndCopyToDevice(sparseIndicesTemp, dSpareIndicesVector, queue);
-        detail::resizeAndCopyToDevice(normTemp, dNormVector, queue);
+        //detail::resizeAndCopyToDevice(normTemp, dNormVector, queue);
+        //detail::resizeAndCopyToDevice(cvIndexOffsets, dcvIndexOffsets, queue);
     }
 
     void turnOffSyncCV() {
@@ -2053,6 +2069,9 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         		++count;
         		foldIndices.push_back(cvIndex);
         	}
+        }
+        if (count == 0) {
+        	return;
         }
 
         /*
@@ -2119,7 +2138,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         //kernel.set_arg(11, dKWeightVector);
 
         int dK = K;
-        kernel.set_arg(12, dK);
+        kernel.set_arg(12, cvIndexStride);
         kernel.set_arg(13, tpb*wgs);
         kernel.set_arg(14, wgs);
         detail::resizeAndCopyToDevice(foldIndices, dIndices, queue);
@@ -2169,15 +2188,15 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 
     std::vector<double> getGradientObjectives() {
     	for (int cvIndex=0; cvIndex<syncCVFolds; ++cvIndex) {
-    		compute::copy(std::begin(dXBetaVector)+cvIndex*K, std::begin(dXBetaVector)+cvIndex*K+K, std::begin(hXBetaPool[cvIndex]), queue);
+    		compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
     	}
     	return ModelSpecifics<BaseModel,WeightType>::getGradientObjectives();
     }
 
     std::vector<double> getLogLikelihoods(bool useCrossValidation) {
     	for (int cvIndex=0; cvIndex<syncCVFolds; ++cvIndex) {
-    		compute::copy(std::begin(dXBetaVector)+cvIndex*K, std::begin(dXBetaVector)+cvIndex*K+K, std::begin(hXBetaPool[cvIndex]), queue);
-    		compute::copy(std::begin(dDenomPidVector)+cvIndex*K, std::begin(dDenomPidVector)+cvIndex*K+K, std::begin(denomPidPool[cvIndex]), queue);
+    		compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
+    		compute::copy(std::begin(dDenomPidVector)+cvIndexStride*cvIndex, std::begin(dDenomPidVector)+cvIndexStride*cvIndex+K, std::begin(denomPidPool[cvIndex]), queue);
     		//compute::copy(std::begin(dAccDenomPidVector), std::begin(dAccDenomPidVector)+K, std::begin(accDenomPidPool[cvIndex]), queue);
     	}
     	return ModelSpecifics<BaseModel,WeightType>::getLogLikelihoods(useCrossValidation);
@@ -2388,6 +2407,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	// Rcpp::stop("cGH");
 
         	// MM Kernel
+        	if (algorithmType == AlgorithmType::MM) {
         	source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
         	//std::cout << source.body;
         	program = compute::program::build_with_source(source.body, ctx, options.str());
@@ -2399,7 +2419,14 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	kernelMM.set_arg(9, dBuffer);  // TODO Does not seem to stick
         	kernelMM.set_arg(10, dId);
         	kernelMM.set_arg(11, dKWeight); // TODO Does not seem to stick
+        	if (useWeights) {
+        		kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
+        	} else {
+        		kernelGradientHessianMMNoWeight[formatType] = std::move(kernelMM);
+        	}
+        	}
 
+        	if (algorithmType == AlgorithmType::MM || algorithmType == AlgorithmType::CCDGREEDY) {
         	source = writeCodeForAllGradientHessianKernel(formatType, useWeights, isNvidia);
         	//std::cout << source.body;
         	program = compute::program::build_with_source(source.body, ctx, options.str());
@@ -2411,6 +2438,12 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	kernelAll.set_arg(9, dBuffer);  // TODO Does not seem to stick
         	kernelAll.set_arg(10, dId);
         	kernelAll.set_arg(11, dKWeight); // TODO Does not seem to stick
+        	if (useWeights) {
+        		kernelGradientHessianAllWeighted[formatType] = std::move(kernelAll);
+        	} else {
+        		kernelGradientHessianAllNoWeight[formatType] = std::move(kernelAll);
+        	}
+        	}
 
         	source = writeCodeForSyncCVGradientHessianKernel(formatType, useWeights, isNvidia);
         	program = compute::program::build_with_source(source.body, ctx, options.str());
@@ -2418,13 +2451,9 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 
         	if (useWeights) {
         		kernelGradientHessianWeighted[formatType] = std::move(kernel);
-        		kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
-        		kernelGradientHessianAllWeighted[formatType] = std::move(kernelAll);
         		kernelGradientHessianSyncWeighted[formatType] = std::move(kernelSync);
         	} else {
         		kernelGradientHessianNoWeight[formatType] = std::move(kernel);
-        		kernelGradientHessianMMNoWeight[formatType] = std::move(kernelMM);
-        		kernelGradientHessianAllNoWeight[formatType] = std::move(kernelAll);
         		kernelGradientHessianSyncNoWeight[formatType] = std::move(kernelSync);
         	}
         }
@@ -2749,6 +2778,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     bool hXBetaKnown;
 
     // syhcCV
+    int cvIndexStride;
+    bool pad;
     compute::vector<real> dNWeightVector;
     compute::vector<real> dKWeightVector;
     compute::vector<real> dAccDenomPidVector;
