@@ -1727,6 +1727,9 @@ void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
 
 void CyclicCoordinateDescent::updateSufficientStatistics(double delta, int index) {
 	updateXBeta(delta, index);
+	if (hBeta[index] == 0.0) {
+		fixBeta[index] = true;
+	}
 	sufficientStatisticsKnown = true;
 }
 
@@ -2102,6 +2105,11 @@ void CyclicCoordinateDescent::updateXBeta(std::vector<double> delta, int index) 
 
 void CyclicCoordinateDescent::updateSufficientStatistics(std::vector<double> delta, int index) {
 	updateXBeta(delta, index);
+	for (int i=0; i<syncCVFolds; i++) {
+		if (hBetaPool[i][index] == 0.0) {
+			fixBetaPool[i][index] = true;
+		}
+	}
 	sufficientStatisticsKnown = true;
 }
 
