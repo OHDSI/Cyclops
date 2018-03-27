@@ -1082,6 +1082,8 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 						"		buffer[3*stratum+1] = BNew[3*i+4]; \n" <<
 						"		buffer[3*stratum+2] = BNew[3*i+5]; \n" <<
 						"	}												\n" <<
+#ifdef USE_LOG_SUM
+#else
 						"	if (i==0) {                                             \n" <<
 						"   	REAL tmp = 1.0;                                         \n" <<
 						"   	for (int j = controls+taskCounts-1; j >= 0; --j) {              \n" <<
@@ -1091,11 +1093,13 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 						"       	tmp *= overflowVec[firstRowStride*stratum+j];                  \n" <<
 						"       }                                                       \n" <<
 						"   }                                                               \n" <<
+#endif
 						"	}												\n";
 		        code << "}  \n"; // End of kernel
 		        return SourceCode(code.str(), name);
 	}
 	*/
+
 
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
@@ -1198,12 +1202,12 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 				"		__global const int* cvIndices) {    \n";    // TODO Make weight optional
 
         // Initialization
-        code << "   const uint lid = get_local_id(0); \n" <<
-                "   const uint loopSize = indexWorkSize; \n" <<
+        code << "   uint lid = get_local_id(0); \n" <<
                 "   uint task = get_global_id(0)%indexWorkSize;  \n" <<
-				"	const uint bufferIndex = get_group_id(0)/wgs;	\n" <<
-				"	const uint cvIndex = cvIndices[bufferIndex]; \n" <<
-				"	const uint vecOffset = stride*cvIndex;	\n" <<
+				"	__local uint bufferIndex, cvIndex, vecOffset;	\n" <<
+				"	bufferIndex = get_group_id(0)/wgs;	\n" <<
+				"	cvIndex = cvIndices[bufferIndex]; \n" <<
+				"	vecOffset = stride*cvIndex;	\n" <<
                     // Local and thread storage
 #ifdef USE_VECTOR
                 "   __local TMP_REAL scratch[TPB]; \n" <<
@@ -1221,23 +1225,23 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
         // Fused transformation-reduction
 
         if (formatType == INDICATOR || formatType == SPARSE) {
-            code << "       const uint k = K[offK + task];         \n";
+            code << "       uint k = K[offK + task];         \n";
         } else { // DENSE, INTERCEPT
-            code << "       const uint k = task;            \n";
+            code << "       uint k = task;            \n";
         }
 
         if (formatType == SPARSE || formatType == DENSE) {
-            code << "       const REAL x = X[offX + task]; \n";
+            code << "       REAL x = X[offX + task]; \n";
         } else { // INDICATOR, INTERCEPT
             // Do nothing
         }
 
-        code << "       const REAL exb = expXBetaVector[vecOffset+k];     \n" <<
-                "       const REAL numer = " << timesX("exb", formatType) << ";\n" <<
+        code << "       REAL exb = expXBetaVector[vecOffset+k];     \n" <<
+                "       REAL numer = " << timesX("exb", formatType) << ";\n" <<
                 //"       const REAL denom = 1.0 + exb;			\n";
-        		"		const REAL denom = denomPidVector[vecOffset+k];		\n";
+        		"		REAL denom = denomPidVector[vecOffset+k];		\n";
         if (useWeights) {
-            code << "       const REAL w = weightVector[vecOffset+k];\n";
+            code << "       REAL w = weightVector[vecOffset+k];\n";
         }
 
         code << BaseModelG::incrementGradientAndHessianG(formatType, useWeights);
@@ -1246,7 +1250,7 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
                 "       sum1 += hessian;  \n";
 
         // Bookkeeping
-        code << "       task += loopSize; \n" <<
+        code << "       task += indexWorkSize; \n" <<
                 "   } \n" <<
                     // Thread -> local
 
@@ -1287,18 +1291,20 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 				"		__global REAL* Offs,		\n" <<
                 "       __global const int* pIdVector,		\n" <<
 				"		const uint stride,				\n" <<
-				"		__global const int* cvIndices) {   \n" <<
-                "   const uint task = get_global_id(0)%stride; \n" <<
-        		"	const uint cvIndex = cvIndices[get_global_id(0)/stride];	\n" <<
-				"	const uint vecOffset = stride*cvIndex;	\n";
+				"		__global const int* cvIndices,	\n" <<
+				"		__const uint blockSize) {   \n" <<
+                "   uint task = get_global_id(0)%blockSize; \n" <<
+				"	__local uint cvIndex, vecOffset;	\n" <<
+        		"	cvIndex = cvIndices[get_global_id(0)/blockSize];	\n" <<
+				"	vecOffset = stride*cvIndex;	\n";
         //code << "   const uint lid = get_local_id(0); \n" <<
         //        "   const uint loopSize = get_global_size(0); \n";
         // Local and thread storage
         code << "   if (task < N) {      				\n";
         if (BaseModel::likelihoodHasDenominator) {
-        	code << "const REAL y = Y[task];\n" <<
-        			"const REAL xb = xBetaVector[vecOffset+task];\n" <<
-					"const REAL offs = Offs[task];\n";
+        	code << "REAL y = Y[task];\n" <<
+        			"REAL xb = xBetaVector[vecOffset+task];\n" <<
+					"REAL offs = Offs[task];\n";
 					//"const int k = task;";
         	code << "REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
         	code << "expXBetaVector[vecOffset+task] = exb;\n";
@@ -1332,22 +1338,23 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
                 "       __global const int* id,		\n" <<
 				"		const uint stride,			\n" <<
 				"		__global const int* cvIndices,	\n" <<
-				"		const uint localstride) {   \n" <<
-        "   const uint task = get_global_id(0)%localstride; \n" <<
-		"	const uint cvIndex = cvIndices[get_global_id(0)/localstride];	\n" <<
-		"	const uint vecOffset = stride*cvIndex;	\n";
+				"		const uint blockSize) {   \n" <<
+        "   uint task = get_global_id(0)%blockSize; \n" <<
+		"	__local uint cvIndex, vecOffset;	\n" <<
+		"	cvIndex = cvIndices[get_global_id(0)/blockSize];	\n" <<
+		"	vecOffset = stride*cvIndex;	\n";
         code << "   if (task < N) {      				\n";
 
         if (formatType == INDICATOR || formatType == SPARSE) {
-            code << "   const uint k = K[offK + task];         \n";
+            code << "   uint k = K[offK + task];         \n";
         } else { // DENSE, INTERCEPT
-            code << "   const uint k = task;            \n";
+            code << "   uint k = task;            \n";
         }
 
         if (formatType == SPARSE || formatType == DENSE) {
-            code << "   const REAL inc = deltaVector[cvIndex] * X[offX + task]; \n";
+            code << "   REAL inc = deltaVector[cvIndex] * X[offX + task]; \n";
         } else { // INDICATOR, INTERCEPT
-            code << "   const REAL inc = deltaVector[cvIndex];           \n";
+            code << "   REAL inc = deltaVector[cvIndex];           \n";
         }
 
         code << "       REAL xb = xBetaVector[vecOffset+k] + inc; 		\n" <<

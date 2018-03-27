@@ -515,7 +515,7 @@ public:
         auto& kernel = kernelComputeRemainingStatisticsSync;
 
         // set kernel args
-        size_t taskCount = cvIndexStride * count;
+        size_t taskCount = cvIndexStride;
         int dK = K;
         kernel.set_arg(0, dK);
         kernel.set_arg(1, dXBetaVector);
@@ -533,7 +533,9 @@ public:
         if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
         	++workGroups;
         }
-        const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+        const size_t globalWorkSize = workGroups * count * detail::constant::updateXBetaBlockSize;
+        int blockSize = workGroups * detail::constant::updateXBetaBlockSize;
+        kernel.set_arg(9, blockSize);
 
         // run kernel
         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
@@ -575,8 +577,9 @@ public:
         	                            kernelGradientHessianWeighted[formatType] :
         	                            kernelGradientHessianNoWeight[formatType];
         	//std::cerr << "index: " << index << '\n';
-/*
- * 32 rows at a time
+
+        	/*
+// 32 rows at a time
         	if (!initialized) {
     		    computeRemainingStatistics(true);
         		detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
@@ -652,6 +655,7 @@ public:
         		kernel.set_arg(7, dExpXBeta);
         		detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
         		kernel.set_arg(8, dNWeight);
+            	detail::resizeAndCopyToDevice(hBuffer, dBuffer, queue);
         		kernel.set_arg(9, dBuffer);
         		kernel.set_arg(10, dFirstRow);
         		kernel.set_arg(11, (1+maxN)*3);
@@ -1624,14 +1628,16 @@ public:
         kernel.set_arg(11, cvIndexStride);
         detail::resizeAndCopyToDevice(foldIndices, dIndices, queue);
         kernel.set_arg(12, dIndices);
-        kernel.set_arg(13, localstride);
+        //kernel.set_arg(13, localstride);
 
         // set work size; no looping
-        size_t workGroups = localstride*count / detail::constant::updateXBetaBlockSize;
+        size_t workGroups = localstride / detail::constant::updateXBetaBlockSize;
         if (localstride % detail::constant::updateXBetaBlockSize != 0) {
             ++workGroups;
         }
-        const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+        const size_t globalWorkSize = workGroups * count * detail::constant::updateXBetaBlockSize;
+        int blockSize = workGroups * detail::constant::updateXBetaBlockSize;
+        kernel.set_arg(13, blockSize);
 
         // run kernel
         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
@@ -2382,14 +2388,14 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 
         	if (useWeights) {
         		kernelGradientHessianWeighted[formatType] = std::move(kernel);
-        		kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
-        		kernelGradientHessianAllWeighted[formatType] = std::move(kernelAll);
-        		kernelGradientHessianSyncWeighted[formatType] = std::move(kernelSync);
+        		//kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
+        		//kernelGradientHessianAllWeighted[formatType] = std::move(kernelAll);
+        		//kernelGradientHessianSyncWeighted[formatType] = std::move(kernelSync);
         	} else {
         		kernelGradientHessianNoWeight[formatType] = std::move(kernel);
-        		kernelGradientHessianMMNoWeight[formatType] = std::move(kernelMM);
-        		kernelGradientHessianAllNoWeight[formatType] = std::move(kernelAll);
-        		kernelGradientHessianSyncNoWeight[formatType] = std::move(kernelSync);
+        		//kernelGradientHessianMMNoWeight[formatType] = std::move(kernelMM);
+        		//kernelGradientHessianAllNoWeight[formatType] = std::move(kernelAll);
+        		//kernelGradientHessianSyncNoWeight[formatType] = std::move(kernelSync);
         	}
         } else {
         	// CCD Kernel
@@ -2505,7 +2511,6 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         kernelComputeRemainingStatistics = std::move(kernel);
 
         source = writeCodeForSyncComputeRemainingStatisticsKernel();
-        std::cout << source.body;
         program = compute::program::build_with_source(source.body, ctx, options.str());
         auto kernelSync = compute::kernel(program, source.name);
 
@@ -2894,13 +2899,13 @@ public:
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		// assume exists: numer, denom
 		std::stringstream code;
-        code << "       const REAL g = numer / denom;      \n";
-        code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
+        code << "       REAL g = numer / denom;      \n";
+        code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
         if (formatType == INDICATOR || formatType == INTERCEPT) {
-            code << "       const REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
+            code << "       REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
         } else {
-            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
-                    "       const REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
         }
         return(code.str());
 	}
@@ -2916,13 +2921,13 @@ public:
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		std::stringstream code;
-        code << "       const REAL g = numer / denom;      \n";
-        code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
+        code << "       REAL g = numer / denom;      \n";
+        code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
         if (formatType == INDICATOR || formatType == INTERCEPT) {
-            code << "       const REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
+            code << "       REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
         } else {
-            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
-                    "       const REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
         }
         return(code.str());
 	}
@@ -2950,13 +2955,13 @@ public:
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		std::stringstream code;
-        code << "       const REAL g = numer / denom;      \n";
-        code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
+        code << "       REAL g = numer / denom;      \n";
+        code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
         if (formatType == INDICATOR || formatType == INTERCEPT) {
-            code << "       const REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
+            code << "       REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
         } else {
-            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
-                    "       const REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
         }
         return(code.str());
 	}
@@ -2984,13 +2989,13 @@ public:
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		std::stringstream code;
-        code << "       const REAL g = numer / denom;      \n";
-        code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
+        code << "       REAL g = numer / denom;      \n";
+        code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
         if (formatType == INDICATOR || formatType == INTERCEPT) {
-            code << "       const REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
+            code << "       REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
         } else {
-            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
-                    "       const REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
         }
         return(code.str());
 	}
@@ -3065,13 +3070,13 @@ public:
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		std::stringstream code;
-        code << "       const REAL g = numer / denom;      \n";
-        code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
+        code << "       REAL g = numer / denom;      \n";
+        code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
         if (formatType == INDICATOR || formatType == INTERCEPT) {
-            code << "       const REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
+            code << "       REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
         } else {
-            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
-                    "       const REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
         }
         return(code.str());
 	}
@@ -3109,13 +3114,13 @@ public:
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		std::stringstream code;
-        code << "       const REAL g = numer / denom;      \n";
-        code << "       const REAL gradient = " << weight("g", useWeights) << ";\n";
+        code << "       REAL g = numer / denom;      \n";
+        code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
         if (formatType == INDICATOR || formatType == INTERCEPT) {
-            code << "       const REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
+            code << "       REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
         } else {
-            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
-                    "       const REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
         }
         return(code.str());
 	}
@@ -3171,12 +3176,12 @@ public:
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		std::stringstream code;
-        code << "       const REAL gradient = " << weight("numer", useWeights) << ";\n";
+        code << "       REAL gradient = " << weight("numer", useWeights) << ";\n";
         if (formatType == INDICATOR || formatType == INTERCEPT) {
-            code << "       const REAL hessian  = gradient;\n";
+            code << "       REAL hessian  = gradient;\n";
         } else {
-            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
-                    "       const REAL hessian  = " << weight("nume2", useWeights) << ";\n";
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("nume2", useWeights) << ";\n";
         }
         return(code.str());
 	}
