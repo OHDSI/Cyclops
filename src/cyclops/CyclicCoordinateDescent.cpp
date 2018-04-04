@@ -537,6 +537,10 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 		for (int i=0; i<syncCVFolds; i++) {
 			donePool[i] = false;
 		}
+		nonZeros.resize(syncCVFolds);
+		for (int i=0; i<syncCVFolds; i++) {
+			nonZeros[i] = J;
+		}
 	}
 
 	int count = 0;
@@ -553,9 +557,24 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	        // Reset beta and shrink bounding box
 	        initialBound /= 10.0;
             resetBeta();
+            resetFixBeta();
 	    } else {
 	        done = true;
 	    }
+	}
+}
+
+void CyclicCoordinateDescent::resetFixBeta() {
+	for (int i=0; i<J; i++) {
+		fixBeta[i] = false;
+	}
+	if (syncCV) {
+		for (int i=0; i<syncCVFolds; i++) {
+			for (int j=0; j<J; j++) {
+				fixBetaPool[i][j] = false;
+			}
+			nonZeros[i] = J;
+		}
 	}
 }
 
@@ -955,7 +974,15 @@ void CyclicCoordinateDescent::findMode(
 
 	auto cycle = [this,&iteration,&algorithmType,&allDelta,&allDeltaPool,&lastObjFunc,&convergenceType] {
 
-		//if (iteration%10==0 && iteration > 0) std::cout<<"iteration " << iteration <<"\n";
+		if (iteration%10==0 && iteration > 0) {
+			std::cout<<"iteration " << iteration << " | nonZeros: ";
+
+			for (auto x:nonZeros) {
+				std::cout << x << " ";
+			}
+			std::cout << "\n";
+		}
+
 	    auto log = [this](const int index) {
 	        if ( (noiseLevel > QUIET) && ((index+1) % 100 == 0)) {
 	            std::ostringstream stream;
@@ -2106,7 +2133,8 @@ void CyclicCoordinateDescent::updateXBeta(std::vector<double> delta, int index) 
 void CyclicCoordinateDescent::updateSufficientStatistics(std::vector<double> delta, int index) {
 	updateXBeta(delta, index);
 	for (int i=0; i<syncCVFolds; i++) {
-		if (hBetaPool[i][index] == 0.0) {
+		if (hBetaPool[i][index] == 0.0 && fixBetaPool[i][index] == false) {
+			nonZeros[i]--;
 			fixBetaPool[i][index] = true;
 		}
 	}

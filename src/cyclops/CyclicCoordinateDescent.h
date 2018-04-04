@@ -430,6 +430,10 @@ protected:
 
 	void ccdUpdateAllBeta(std::vector<double>& allDelta);
 
+	std::vector<int> nonZeros;
+
+	void resetFixBeta();
+
 };
 
 double convertVarianceToHyperparameter(double variance);
