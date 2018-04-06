@@ -282,14 +282,16 @@ protected:
 	void initializeMmXt();
 
 	void initializeMM(
-	    MmBoundType boundType,
-		const std::vector<bool>& fixBeta
+	    MmBoundType boundType
 	);
 
 	void computeNorms(void);
 
 	template <class InteratorType>
 	void incrementNormsImpl(int index);
+
+	template <class InteratorType>
+	void incrementNormsImpl(int index, int cvIndex);
 
 	double getPredictiveLogLikelihood(double* weights, int cvIndex);
 
@@ -396,12 +398,16 @@ private:
 
 	void computeGradientAndHessian(int index, std::vector<priors::GradientHessian>& ghList, std::vector<bool>& fixBeta, bool useWeights);
 
+	void computeMMGradientAndHessian(
+			std::vector<GradientHessian>& gh,
+			const std::vector<std::pair<int,int>>& updateIndices);
 
-	/*
+	template <class IteratorType, class Weights>
 	void computeMMGradientAndHessianImpl(
 			int index, double *ogradient,
-            double *ohessian, Weights w, int cvIndex);
-	 */
+			double *ohessian, Weights w, int cvIndex);
+
+	virtual void updateXBeta(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights); // pure virtual
 
 };
 

@@ -389,7 +389,7 @@ template <class BaseModel, typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::printTiming() {
 
 #ifdef CYCLOPS_DEBUG_TIMING
-
+	//std::cout << "duration length: " << duration.size() << "\n";
 	std::cout << std::endl;
 	for (auto& d : duration) {
 		std::cout << d.first << " " << d.second << std::endl;
@@ -452,8 +452,7 @@ duration["transpose        "] += bsccs::chrono::duration_cast<chrono::TimingUnit
 
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::initializeMM(
-        MmBoundType boundType,
-        const std::vector<bool>& fixBeta
+        MmBoundType boundType
     ) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -463,7 +462,6 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(
     // std::cout << "Computing norms..." << std::endl;
     norm.resize(K);
     zeroVector(&norm[0], K);
-
     for (int j = 0; j < J; ++j) {
     	if (
     	true
@@ -484,6 +482,13 @@ void ModelSpecifics<BaseModel,WeightType>::initializeMM(
 					break;
 			}
         }
+    }
+
+    if (syncCV) {
+    	normPool.resize(syncCVFolds);
+    	for (int cvIndex=0; cvIndex<syncCVFolds; cvIndex++) {
+    		normPool[cvIndex] = norm;
+    	}
     }
 
     if (boundType == MmBoundType::METHOD_1) {
@@ -1165,7 +1170,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessian(
         bool useWeights) {
 
     if (norm.size() == 0) {
-        initializeMM(boundType, fixBeta);
+        initializeMM(boundType);
     }
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -2952,6 +2957,53 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
  }
 
 template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::updateXBeta(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights) {
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto start = bsccs::chrono::steady_clock::now();
+#endif
+#endif
+
+	auto func = [&](const tbb::blocked_range<int>& range) {
+		for (int i = range.begin(); i < range.end(); ++i) {
+	//for (int i=0; i<allDelta.size(); i++) {
+		// Run-time dispatch to implementation depending on covariate FormatType
+		switch(modelData.getFormatType(updateIndices[i].first)) {
+		case INDICATOR :
+			updateXBetaImpl<IndicatorIterator>(allDelta[i], updateIndices[i].first, useWeights, updateIndices[i].second);
+			break;
+		case SPARSE :
+			updateXBetaImpl<SparseIterator>(allDelta[i], updateIndices[i].first, useWeights, updateIndices[i].second);
+			break;
+		case DENSE :
+			updateXBetaImpl<DenseIterator>(allDelta[i], updateIndices[i].first, useWeights, updateIndices[i].second);
+			break;
+		case INTERCEPT :
+			updateXBetaImpl<InterceptIterator>(allDelta[i], updateIndices[i].first, useWeights, updateIndices[i].second);
+			break;
+		default : break;
+		// throw error
+		//exit(-1);
+		}
+		}
+	};
+
+	tbb::parallel_for(tbb::blocked_range<int>(0,allDelta.size()),func);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+	auto end = bsccs::chrono::steady_clock::now();
+	///////////////////////////"
+	duration["updateXBeta      "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+#endif
+
+}
+
+
+template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::updateXBeta(real realDelta, int index, bool useWeights, int cvIndex) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -3020,17 +3072,21 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 #endif
 
 // #ifdef NEW_LOOPS
+	if (realDelta == 0.0) {
+		return;
+	}
 
 #if 1
 	auto range = helper::getRangeX(modelData, index, typename IteratorType::tag());
 
-	/*
+/*
 	std::cout << "offExpXBetaPool " << cvIndex << " before: ";
 	for (auto x : offsExpXBetaPool[cvIndex]) {
 		std::cout << " " << x;
 	}
 	std::cout << "\n";
 	*/
+
 
 	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,real,int>(
 					realDelta, begin(offsExpXBetaPool[cvIndex]), begin(hXBetaPool[cvIndex]),
@@ -3142,7 +3198,7 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
 	auto end = bsccs::chrono::steady_clock::now();
 	///////////////////////////"
-	auto name = "updateXBeta" + IteratorType::name + "   ";
+	auto name = "updateXBetaSync" + IteratorType::name + "   ";
 	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 #endif
@@ -3207,15 +3263,14 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 }
 
 
-/*
+
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessian(
         std::vector<GradientHessian>& gh,
-        const std::vector<bool>& fixBeta,
-        bool useWeights, int cvIndex) {
+        const std::vector<std::pair<int,int>>& updateIndices) {
 
-    if (normPool[cvIndex].size() == 0) {
-        initializeMM(boundType, fixBeta, cvIndex);
+    if (norm.size() == 0) {
+        initializeMM(boundType);
     }
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -3223,49 +3278,34 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessian(
     auto start = bsccs::chrono::steady_clock::now();
 #endif
 #endif
+	auto func = [&](const tbb::blocked_range<int>& range) {
+		for (int i = range.begin(); i < range.end(); ++i) {
+    //for (int i = 0; i < updateIndices.size(); i++) {
+    	 double *ogradient = &(gh[i].first);
+    	 double *ohessian  = &(gh[i].second);
 
-    for (int index = 0; index < J; ++index) {
-        double *ogradient = &(gh[index].first);
-        double *ohessian  = &(gh[index].second);
+    	 int index = updateIndices[i].first;
+    	 int cvFold = updateIndices[i].second;
 
-        if (fixBeta[index]) {
-            *ogradient = 0.0; *ohessian = 0.0;
-        } else {
-
-        // Run-time dispatch, so virtual call should not effect speed
-        if (useWeights) {
-            switch (modelData.getFormatType(index)) {
-            case INDICATOR :
-                computeMMGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, weighted);
-                break;
-            case SPARSE :
-                computeMMGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, weighted);
-                break;
-            case DENSE :
-                computeMMGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, weighted);
-                break;
-            case INTERCEPT :
-                computeMMGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, weighted);
-                break;
-            }
-        } else {
-            switch (modelData.getFormatType(index)) {
-            case INDICATOR :
-                computeMMGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, unweighted);
-                break;
-            case SPARSE :
-                computeMMGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, unweighted);
-                break;
-            case DENSE :
-                computeMMGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, unweighted);
-                break;
-            case INTERCEPT :
-                computeMMGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, unweighted);
-                break;
-            }
-        }
-        }
+    	 switch (modelData.getFormatType(index)) {
+    	 case INDICATOR :
+    		 computeMMGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, weighted, cvFold);
+    		 break;
+    	 case SPARSE :
+    		 computeMMGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, weighted, cvFold);
+    		 break;
+    	 case DENSE :
+    		 computeMMGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, weighted, cvFold);
+    		 break;
+    	 case INTERCEPT :
+    		 computeMMGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, weighted, cvFold);
+    		 break;
+    	 }
     }
+	};
+
+	tbb::parallel_for(tbb::blocked_range<int>(0,updateIndices.size()),func);
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifndef CYCLOPS_DEBUG_TIMING_LOW
@@ -3276,11 +3316,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessian(
 #endif
 
 }
-*/
-/*
+
+
 template <class BaseModel,typename WeightType> template <class IteratorType, class Weights>
 void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int index, double *ogradient,
-                                                                           double *ohessian, Weights w) {
+                                                                           double *ohessian, Weights w, int cvIndex) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
@@ -3299,9 +3339,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
 
         //std::cout << hXBeta[k] << " ";
         BaseModel::template incrementMMGradientAndHessian<IteratorType, Weights>(
-                gradient, hessian, offsExpXBeta[k],
-                denomPid[BaseModel::getGroup(hPid, k)], hNWeight[BaseModel::getGroup(hPid, k)],
-                it.value(), hXBeta[k], hY[k], norm[k]); // J
+                gradient, hessian, offsExpXBetaPool[cvIndex][k],
+                denomPidPool[cvIndex][BaseModel::getGroup(hPidPool[cvIndex], k)], hNWeightPool[cvIndex][BaseModel::getGroup(hPidPool[cvIndex], k)],
+                it.value(), hXBetaPool[cvIndex][k], hY[k], normPool[cvIndex][k]); // J
     }
     //std::cout << "\n";
 
@@ -3312,13 +3352,13 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
     //std::cerr << "index: " << index << " g: " << gradient << " h: " << hessian << " f: " << hXjY[index] << std::endl;
 
     if (BaseModel::precomputeGradient) { // Compile-time switch
-        gradient -= hXjY[index];
+        gradient -= hXjYPool[cvIndex][index];
     }
 
 //    std::cerr << hXjY[index] << std::endl;
 
     if (BaseModel::precomputeHessian) { // Compile-time switch
-        hessian += static_cast<real>(2.0) * hXjX[index];
+        hessian += static_cast<real>(2.0) * hXjXPool[cvIndex][index];
     }
 
     *ogradient = static_cast<double>(gradient);
@@ -3335,7 +3375,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeMMGradientAndHessianImpl(int i
 #endif
 #endif
 }
-*/
+
 template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::printStuff(void) {
 	/*

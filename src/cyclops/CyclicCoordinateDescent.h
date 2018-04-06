@@ -247,6 +247,8 @@ protected:
 	template <class IteratorType>
 	void updateXBetaImpl(double delta, int index);
 
+	virtual void computeRemainingStatistics();
+
 	virtual void computeRemainingStatistics(bool skip, int index);
 
 	virtual void computeRemainingStatistics(bool skip, int index, std::vector<double>& deltaVec);
@@ -410,7 +412,13 @@ protected:
 
 	virtual void applyBounds(std::vector<std::vector<double>>& inDelta);
 
+	virtual void applyBounds(std::vector<double>& delta, std::vector<std::pair<int,int>>& indicesToUpdate);
+
 	void updateSufficientStatistics(std::vector<double> delta, int index);
+
+	void updateSufficientStatistics(std::vector<double> delta);
+
+	void updateSufficientStatistics(std::vector<double>& delta, std::vector<std::pair<int,int>>& indicesToUpdate);
 
 	virtual void updateXBeta(std::vector<double> delta, int index);
 
@@ -420,8 +428,7 @@ protected:
                               int iteration,
                               std::vector<double>& lastObjFunc);
 
-	void mmUpdateAllBeta(std::vector<std::vector<double>>& allDelta);
-
+	void mmUpdateAllBeta(std::vector<double>& delta, std::vector<std::pair<int,int>>& indicesToUpdate);
 
 	bool syncCV = false;
 	int syncCVFolds;
@@ -433,6 +440,10 @@ protected:
 	std::vector<int> nonZeros;
 
 	void resetFixBeta();
+
+	SyncCVIterator syncCVIterator;
+
+	//std::vector<double> CyclicCoordinateDescent::ccdUpdateBetaVec(std::vector<int> indices, std::vector<int> folds);
 
 };
 

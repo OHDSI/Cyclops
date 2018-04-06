@@ -510,6 +510,122 @@ class PairProductIterator {
 // const std::string SparseIterator::name = "Spa";
 // const std::string InterceptIterator::name = "Icp";
 
+class SyncCVIterator {
+public:
+	inline SyncCVIterator() {
+	}
+
+	/*
+	inline SyncCVIterator(int folds, int j) : syncCVFolds(folds), J(j) {
+		indices.resize(syncCVFolds);
+		cvFolds.resize(syncCVFolds);
+		for (int i=0; i<syncCVFolds; i++) {
+			for (int k=0; k<J; k++) {
+				indices[i].push_back(k);
+			}
+			cvFolds.push_back(i);
+			foldLength.push_back(J);
+		}
+		max = J;
+	}
+	inline int end() {
+		return max;
+	}
+	*/
+
+	inline std::vector<std::vector<std::vector<int>>> getAllIndicesCCD() {
+		std::vector<std::vector<int>> resultIndices;
+		std::vector<std::vector<int>> resultFolds;
+
+		for (int index=0; index<max; index++) {
+			std::vector<int> tempIndices;
+			std::vector<int> tempFolds;
+			for (int i=0; i<cvFolds.size(); i++) {
+				if (foldLength[cvFolds[i]] <= index) {
+					continue;
+				}
+				tempIndices.push_back(indices[cvFolds[i]*J+index]);
+				tempFolds.push_back(cvFolds[i]);
+			}
+			resultIndices.push_back(tempIndices);
+			resultFolds.push_back(tempFolds);
+		}
+		std::vector<std::vector<std::vector<int>>> result;
+		result.push_back(resultIndices);
+		result.push_back(resultFolds);
+		return(result);
+	}
+
+	inline std::vector<std::pair<int,int>> getAllIndicesMM() {
+		//std::vector<int> resultIndices;
+		//std::vector<int> resultFolds;
+		std::vector<std::pair<int,int>> result;
+		for (int i = 0; i < activeFolds; i++) {
+			for (int j = 0; j < foldLength[cvFolds[i]]; j++) {
+				std::pair<int,int> newPair(indices[cvFolds[i]*J+j],cvFolds[i]);
+				result.push_back(newPair);
+				//resultIndices.push_back(indices[cvFolds[i]*J+j]);
+				//resultFolds.push_back(cvFolds[i]);
+			}
+		}
+		//std::vector<std::vector<int>> result;
+		//result.push_back(resultIndices);
+		//result.push_back(resultFolds);
+		return result;
+	}
+
+	inline void fix(int index, int fold) {
+	    /*
+		std::cout << "fold : " << fold << " index: " << index <<  " length: " << foldLength[fold] << "\n";
+		std::cout << "          ";
+		for (std::vector<int>::iterator it = indices.begin()+fold*J ; it != indices.begin() + fold*J + foldLength[fold]; ++it) {
+			std::cout << *it << " ";
+		}
+		std::cout << "\n";
+	     */
+		std::remove(indices.begin()+fold*J, indices.begin() + fold*J + foldLength[fold], index);
+		foldLength[fold]--;
+	}
+
+	inline void fix(int fold) {
+		//std::cout << "fixing fold\n";
+		std::remove(cvFolds.begin(), cvFolds.begin() + activeFolds, fold);
+		activeFolds--;
+	}
+
+	inline void reset(int folds, int j) {
+		syncCVFolds = folds;
+		J = j;
+
+		if (cvFolds.size() < syncCVFolds) {
+			indices.resize(syncCVFolds*J);
+			cvFolds.resize(syncCVFolds);
+			foldLength.resize(syncCVFolds);
+		}
+
+
+		for (int i=0; i<syncCVFolds; i++) {
+			for (int k=0; k<J; k++) {
+				indices[i*J+k] = k;
+			}
+			cvFolds[i] = i;
+			foldLength[i] = J;
+			// indicesEnds[i] = (&indices[i][J-1]);
+		}
+		max = J;
+		activeFolds = syncCVFolds;
+	}
+
+protected:
+	int syncCVFolds;
+	int J;
+	int max;
+	int activeFolds;
+	std::vector<int> foldLength;
+	std::vector<int> indices;
+	std::vector<int> cvFolds;
+	// std::vector<int*> indicesEnds;
+};
 
 } // namespace
 

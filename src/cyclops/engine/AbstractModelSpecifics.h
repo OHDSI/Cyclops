@@ -80,6 +80,8 @@ public:
 
 	virtual void updateAllXBeta(std::vector<double>& allDelta, bool useWeights) = 0;
 
+	virtual void updateXBeta(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights) = 0; // pure virtual
+
 	virtual void computeXBeta(double* beta, bool useWeights) = 0; // pure virtual
 
 	virtual void computeRemainingStatistics(bool useWeights) = 0; // pure virtual
@@ -157,9 +159,7 @@ public:
 
 	virtual void computeGradientAndHessian(int index, std::vector<priors::GradientHessian>& ghList, std::vector<bool>& fixBetaTemp, bool useWeights) = 0;
 
-	//virtual void computeMMGradientAndHessian(std::vector<GradientHessian>& gh, const std::vector<bool>& fixBeta, bool useWeights, int cvIndex) = 0; // pure virtual
-
-
+	virtual void computeMMGradientAndHessian(std::vector<GradientHessian>& gh, const std::vector<std::pair<int,int>>& updateIndices) = 0; // pure virtual
 
 	std::vector<RealVector> accDenomPidPool;
 	std::vector<RealVector> accNumerPidPool;

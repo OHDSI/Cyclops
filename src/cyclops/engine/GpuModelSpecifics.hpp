@@ -1062,7 +1062,7 @@ public:
         	}
     		hBuffer.resize(2*maxWgs*J);
 
-	        this->initializeMM(boundType, fixBeta);
+	        this->initializeMM(boundType);
 		    detail::resizeAndCopyToDevice(norm, dNorm, queue);
 
 		    std::cerr << "\n";
@@ -1308,7 +1308,7 @@ public:
         	}
     		hBuffer.resize(2*maxWgs*J);
 
-	        this->initializeMM(boundType, fixBeta);
+	        this->initializeMM(boundType);
 		    detail::resizeAndCopyToDevice(norm, dNorm, queue);
 
 		    std::cerr << "\n";
