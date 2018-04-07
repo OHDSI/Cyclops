@@ -188,6 +188,8 @@ public:
 
 	std::vector<double> ccdUpdateBetaVec(int index);
 
+	void ccdUpdateBetaVec(std::vector<double>& deltaVec, std::vector<std::pair<int,int>>& indicesToUpdate);
+
 	double getPredictiveLogLikelihood(double* weights, int cvIndex);
 
 	void turnOffSyncCV(void);

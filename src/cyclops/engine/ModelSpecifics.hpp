@@ -2966,9 +2966,9 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(std::vector<double>& allD
 #endif
 #endif
 
-	auto func = [&](const tbb::blocked_range<int>& range) {
-		for (int i = range.begin(); i < range.end(); ++i) {
-	//for (int i=0; i<allDelta.size(); i++) {
+	//auto func = [&](const tbb::blocked_range<int>& range) {
+		//for (int i = range.begin(); i < range.end(); ++i) {
+	for (int i=0; i<allDelta.size(); i++) {
 		// Run-time dispatch to implementation depending on covariate FormatType
 		switch(modelData.getFormatType(updateIndices[i].first)) {
 		case INDICATOR :
@@ -2988,9 +2988,9 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(std::vector<double>& allD
 		//exit(-1);
 		}
 		}
-	};
+	//};
 
-	tbb::parallel_for(tbb::blocked_range<int>(0,allDelta.size()),func);
+	//tbb::parallel_for(tbb::blocked_range<int>(0,allDelta.size()),func);
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifndef CYCLOPS_DEBUG_TIMING_LOW
@@ -3260,6 +3260,56 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 		}
 	};
 	tbb::parallel_for(tbb::blocked_range<int>(0,count),func);
+}
+
+
+template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(
+        std::vector<GradientHessian>& gh,
+        const std::vector<std::pair<int,int>>& updateIndices) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+    auto start = bsccs::chrono::steady_clock::now();
+#endif
+#endif
+	//auto func = [&](const tbb::blocked_range<int>& range) {
+		//for (int i = range.begin(); i < range.end(); ++i) {
+    for (int i = 0; i < updateIndices.size(); i++) {
+    	 double *ogradient = &(gh[i].first);
+    	 double *ohessian  = &(gh[i].second);
+
+    	 int index = updateIndices[i].first;
+    	 int cvFold = updateIndices[i].second;
+
+    	 switch (modelData.getFormatType(index)) {
+    	 case INDICATOR :
+    		 computeGradientAndHessianImpl<IndicatorIterator>(index, ogradient, ohessian, weighted, cvFold);
+    		 break;
+    	 case SPARSE :
+    		 computeGradientAndHessianImpl<SparseIterator>(index, ogradient, ohessian, weighted, cvFold);
+    		 break;
+    	 case DENSE :
+    		 computeGradientAndHessianImpl<DenseIterator>(index, ogradient, ohessian, weighted, cvFold);
+    		 break;
+    	 case INTERCEPT :
+    		 computeGradientAndHessianImpl<InterceptIterator>(index, ogradient, ohessian, weighted, cvFold);
+    		 break;
+    	 }
+    }
+	//};
+
+	//tbb::parallel_for(tbb::blocked_range<int>(0,updateIndices.size()),func);
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+    auto end = bsccs::chrono::steady_clock::now();
+    ///////////////////////////"
+    duration["compGradAndHess"] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+#endif
+
 }
 
 

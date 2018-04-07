@@ -533,26 +533,25 @@ public:
 	}
 	*/
 
-	inline std::vector<std::vector<std::vector<int>>> getAllIndicesCCD() {
-		std::vector<std::vector<int>> resultIndices;
-		std::vector<std::vector<int>> resultFolds;
-
-		for (int index=0; index<max; index++) {
-			std::vector<int> tempIndices;
-			std::vector<int> tempFolds;
-			for (int i=0; i<cvFolds.size(); i++) {
-				if (foldLength[cvFolds[i]] <= index) {
-					continue;
-				}
-				tempIndices.push_back(indices[cvFolds[i]*J+index]);
-				tempFolds.push_back(cvFolds[i]);
+	inline std::vector<std::vector<std::pair<int,int>>> getAllIndicesCCD() {
+		std::vector<std::vector<std::pair<int,int>>> result;
+		int max = 0;
+		for (int i=0; i<activeFolds; i++) {
+			int temp = foldLength[cvFolds[i]];
+			if (temp>max) {
+				max = temp;
 			}
-			resultIndices.push_back(tempIndices);
-			resultFolds.push_back(tempFolds);
 		}
-		std::vector<std::vector<std::vector<int>>> result;
-		result.push_back(resultIndices);
-		result.push_back(resultFolds);
+		for (int i=0; i<max; i++) {
+			std::vector<std::pair<int,int>> temp;
+			for (int j=0; j<activeFolds; j++) {
+				if (i < foldLength[cvFolds[j]]) {
+					std::pair<int,int> newPair(indices[cvFolds[j]*J+i],cvFolds[j]);
+					temp.push_back(newPair);
+				}
+			}
+			result.push_back(temp);
+		}
 		return(result);
 	}
 
@@ -612,14 +611,14 @@ public:
 			foldLength[i] = J;
 			// indicesEnds[i] = (&indices[i][J-1]);
 		}
-		max = J;
+		//max = J;
 		activeFolds = syncCVFolds;
 	}
 
 protected:
 	int syncCVFolds;
 	int J;
-	int max;
+	//int max;
 	int activeFolds;
 	std::vector<int> foldLength;
 	std::vector<int> indices;

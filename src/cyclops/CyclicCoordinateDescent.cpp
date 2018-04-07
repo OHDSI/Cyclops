@@ -544,6 +544,10 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 		syncCVIterator.reset(syncCVFolds, J);
 	}
 
+	for (int i=0; i<J; i++) {
+		fixBeta[i] = false;
+	}
+
 	int count = 0;
 	bool done = false;
 	while (!done) {
@@ -1070,14 +1074,26 @@ void CyclicCoordinateDescent::findMode(
             }
 
 	    } else {
-	    	/*
+
 	    	if (syncCV) {
-	    		std::vector<std::vector<std::vector<int>>> allIndices = syncCVIterator.getAllIndices();
-	    		for (int i=0; i<allIndices.size(); i++) {
-	    			std::vector<double> deltaVec = ccdUpdateBetaVec(allIndices[0][i], allIndices[0][i]);
+	    		std::vector<std::vector<std::pair<int,int>>> indicesToUpdate = syncCVIterator.getAllIndicesCCD();
+	    		//std::cout << "indices updated: " << indicesToUpdate.size() << "\n";
+	    		for (int i=0; i<indicesToUpdate.size(); i++) {
+	    			//std::cout << "update " << i << " : " << indicesToUpdate[i].size() << "\n";
+		    		allDelta.resize(indicesToUpdate[i].size());
+	    			ccdUpdateBetaVec(allDelta, indicesToUpdate[i]);
+	    			/*
+	    			std::cout << "allDelta: ";
+	    			for (auto x:allDelta) {
+	    				std::cout << x << " ";
+	    			}
+	    			std::cout << "\n";
+	    			*/
+		    		applyBounds(allDelta, indicesToUpdate[i]);
+		    		updateSufficientStatistics(allDelta, indicesToUpdate[i]);
+		            computeRemainingStatistics();
 	    		}
 	    	}
-	    	*/
 
 	    	//std::cout<<hBeta[0]<<"\n";
 	        // Do a complete cycle in serial
@@ -1086,7 +1102,6 @@ void CyclicCoordinateDescent::findMode(
 	        	//std::cout << "index " << index << ": ";
 		    	//std::cout << "hBeta[0]: " << hBeta[0] << " hBeta[1]: " << hBeta[1] << '\n';
 	        	if (syncCV) {
-	        		std::vector<double> deltaVec = ccdUpdateBetaVec(index);
 /*
 	        		std::cout << "deltaVec: ";
 	        		for (auto x:deltaVec) {
@@ -1094,10 +1109,14 @@ void CyclicCoordinateDescent::findMode(
 	        		}
 	        		std::cout << "\n";
 	        		*/
-
+/*
+	        		std::vector<double> deltaVec = ccdUpdateBetaVec(index);
 	        		deltaVec = applyBounds(deltaVec, index);
 	        		updateSufficientStatistics(deltaVec, index);
 	        		computeRemainingStatistics(true, index, deltaVec);
+	        		*/
+
+
 	        	} else {
 	        		if (!fixBeta[index]) {
 	        			double delta = ccdUpdateBeta(index);
@@ -1750,7 +1769,7 @@ void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
 
 void CyclicCoordinateDescent::updateSufficientStatistics(double delta, int index) {
 	updateXBeta(delta, index);
-	if (hBeta[index] == 0.0) {
+	if (hBeta[index] == 0.0 && fixBeta[index] == false) {
 		fixBeta[index] = true;
 	}
 	sufficientStatisticsKnown = true;
@@ -2079,6 +2098,38 @@ std::vector<double> CyclicCoordinateDescent::ccdUpdateBetaVec(int index) {
 	}
 
 	return result;
+}
+
+
+void CyclicCoordinateDescent::ccdUpdateBetaVec(std::vector<double>& deltaVec, std::vector<std::pair<int,int>>& indicesToUpdate) {
+
+	if (!sufficientStatisticsKnown) {
+	    std::ostringstream stream;
+		stream << "Error in state synchronization.";
+		error->throwError(stream);
+	}
+
+    int length = indicesToUpdate.size();
+    //std::vector<std::vector<int>> indicesToUpdate = syncCVIterator.getAllIndicesMM();
+    if (length==0) {
+    	return;
+    }
+    //delta.resize(length);
+    std::vector<priors::GradientHessian> gh(length); // TODO make once
+
+    modelSpecifics.computeGradientAndHessian(gh, indicesToUpdate);
+
+    //std::cout << "length: " << length << " delta: " << delta.size() << " gh: " << gh.size() << " indices: " << indicesToUpdate.size() << "\n";
+    double scale = 1.0;
+    for (int i=0; i<length; i++) {
+    	if (gh[i].second < 0.0) {
+    		gh[i].first = 0.0;
+    		gh[i].second = 0.0;
+    		Rcpp::stop("Bad hessian");
+    	}
+    	gh[i].second /= scale;
+    	deltaVec[i] = jointPrior->getDelta(gh[i],hBetaPool[indicesToUpdate[i].second],indicesToUpdate[i].first);
+    }
 }
 
 void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ogradient, double *ohessian, int cvIndex) {

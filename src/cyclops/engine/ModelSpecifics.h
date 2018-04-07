@@ -402,6 +402,10 @@ private:
 			std::vector<GradientHessian>& gh,
 			const std::vector<std::pair<int,int>>& updateIndices);
 
+	void computeGradientAndHessian(
+			std::vector<GradientHessian>& gh,
+			const std::vector<std::pair<int,int>>& updateIndices);
+
 	template <class IteratorType, class Weights>
 	void computeMMGradientAndHessianImpl(
 			int index, double *ogradient,
