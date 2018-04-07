@@ -1082,18 +1082,21 @@ void CyclicCoordinateDescent::findMode(
 	    			//std::cout << "update " << i << " : " << indicesToUpdate[i].size() << "\n";
 		    		allDelta.resize(indicesToUpdate[i].size());
 	    			ccdUpdateBetaVec(allDelta, indicesToUpdate[i]);
-	    			/*
-	    			std::cout << "allDelta: ";
+/*
+	    			std::cout << "allDelta" << i << " ";
 	    			for (auto x:allDelta) {
 	    				std::cout << x << " ";
 	    			}
 	    			std::cout << "\n";
 	    			*/
+
 		    		applyBounds(allDelta, indicesToUpdate[i]);
 		    		updateSufficientStatistics(allDelta, indicesToUpdate[i]);
 		            computeRemainingStatistics();
 	    		}
 	    	}
+
+
 
 	    	//std::cout<<hBeta[0]<<"\n";
 	        // Do a complete cycle in serial
@@ -1103,20 +1106,18 @@ void CyclicCoordinateDescent::findMode(
 		    	//std::cout << "hBeta[0]: " << hBeta[0] << " hBeta[1]: " << hBeta[1] << '\n';
 	        	if (syncCV) {
 /*
-	        		std::cout << "deltaVec: ";
+	        		std::vector<double> deltaVec = ccdUpdateBetaVec(index);
+
+	        		std::cout << "allDelta: ";
 	        		for (auto x:deltaVec) {
 	        			std::cout << x << " ";
 	        		}
 	        		std::cout << "\n";
-	        		*/
-/*
-	        		std::vector<double> deltaVec = ccdUpdateBetaVec(index);
+
 	        		deltaVec = applyBounds(deltaVec, index);
 	        		updateSufficientStatistics(deltaVec, index);
 	        		computeRemainingStatistics(true, index, deltaVec);
-	        		*/
-
-
+*/
 	        	} else {
 	        		if (!fixBeta[index]) {
 	        			double delta = ccdUpdateBeta(index);
@@ -2080,7 +2081,6 @@ std::vector<double> CyclicCoordinateDescent::ccdUpdateBetaVec(int index) {
 	std::vector<double> result;
 	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
 		if (donePool[cvIndex] || fixBetaPool[cvIndex][index]) {
-			//std::cout << "fixedBeta ";
 			result.push_back(0.0);
 		} else {
 			if (ghList[cvIndex].second < 0.0) {
@@ -2089,13 +2089,26 @@ std::vector<double> CyclicCoordinateDescent::ccdUpdateBetaVec(int index) {
 			}
 			//gh = priors::GradientHessian(gradList[cvIndex], hessList[cvIndex]);
 			gh = ghList[cvIndex];
-			//std::cout << "gh: " << cvIndex <<  ": " << gh.first << " | " << gh.second << " ";
+			//std::cout << "gh " << cvIndex <<  ": " << gh.first << " | " << gh.second << " ";
 			double blah = jointPrior->getDelta(gh, hBetaPool[cvIndex], index);
 			//std::cout << "delta: " << blah << "\n";
 			result.push_back(blah);
 			//std::cout << "\n       ";
 		}
 	}
+/*
+	std::cout << "h" << index << ": ";
+	for (int i=0; i<syncCVFolds; i++) {
+		std::cout << hBetaPool[i][index] << " ";
+	}
+	std::cout << "\n";
+
+	std::cout << "gh: ";
+	for (int i=0; i<syncCVFolds; i++) {
+		std::cout << ghList[i].first << " " << ghList[i].second << " ";
+	}
+	std::cout << "\n";
+	*/
 
 	return result;
 }
