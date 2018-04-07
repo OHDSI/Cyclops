@@ -253,7 +253,9 @@ protected:
 
 	virtual void computeRemainingStatistics(bool skip, int index);
 
-	virtual void computeRemainingStatistics(bool skip, int index, std::vector<double>& deltaVec);
+	virtual void computeRemainingStatistics(bool skip, std::vector<double>& deltaVec);
+
+	virtual void computeRemainingStatistics(bool skip, std::vector<double>& deltaVec, std::vector<std::pair<int,int>> updateIndices);
 
 	virtual void computeRatiosForGradientAndHessian(int index);
 

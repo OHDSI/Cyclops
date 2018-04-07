@@ -2441,6 +2441,109 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         }
     }
 
+    void computeMMGradientAndHessian(
+    		std::vector<GradientHessian>& ghList,
+    		const std::vector<std::pair<int,int>>& updateIndices) {
+/*
+#ifdef GPU_DEBUG
+        ModelSpecifics<BaseModel, WeightType>::computeGradientAndHessian(index, ogradient, ohessian, useWeights);
+        std::cerr << *ogradient << " & " << *ohessian << std::endl;
+#endif // GPU_DEBUG
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+        std::vector<int> indexList[4];
+        std::vector<int> cvIndexList[4];
+        std::vector<int> ogIndexList[4];
+
+        for (int i=0; i<updateIndices.size(); i++) {
+        	int index = updateIndices[i].first;
+        	indexList[formatList[index]].push_back(index);
+        	cvIndexList[formatList[index]].push_back(updateIndices[i].second);
+        	ogIndexList[formatList[index]].push_back(i);
+        }
+
+        const auto wgs = 1;
+        auto useWeights = true;
+
+        for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
+        	FormatType formatType = (FormatType)i;
+        	const auto length = indexList[formatType].size();
+        	if (length == 0) {
+        		continue;
+        	}
+        	auto& kernel = (useWeights) ? // Double-dispatch
+        			kernelGradientHessianMMSyncWeighted[formatType] :
+					kernelGradientHessianMMSyncNoWeight[formatType];
+
+        	kernel.set_arg(0, dColumns.getDataStarts());
+        	kernel.set_arg(1, dColumns.getIndicesStarts());
+        	kernel.set_arg(2, dColumns.getTaskCounts());
+        	kernel.set_arg(3, dColumns.getData());
+        	kernel.set_arg(4, dColumns.getIndices());
+        	kernel.set_arg(5, dY);
+        	kernel.set_arg(6, dXBetaVector);
+        	kernel.set_arg(7, dOffsExpXBetaVector);
+        	kernel.set_arg(8, dDenomPidVector);
+        	//detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
+            dBuffer.resize(2 * wgs * length, queue);
+        	kernel.set_arg(9, dBuffer); // Can get reallocated.
+        	hBuffer.resize(2 * wgs * length);
+        	kernel.set_arg(10, dPidVector);
+        	if (dKWeightVector.size() == 0) {
+        		kernel.set_arg(11, 0);
+        	} else {
+        		kernel.set_arg(11, dKWeightVector); // TODO Only when dKWeight gets reallocated
+        	}
+        	kernel.set_arg(12, cvIndexStride);
+        	kernel.set_arg(13, tpb*wgs);
+        	kernel.set_arg(14, wgs);
+        	detail::resizeAndCopyToDevice(indexList[i], dIndices, queue);
+        	kernel.set_arg(15, dIndices);
+        	detail::resizeAndCopyToDevice(cvIndexList[i], dCVIndices, queue);
+        	kernel.set_arg(16, dCVIndices);
+
+        	const auto globalWorkSize = tpb * wgs * length;
+
+            queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
+            queue.finish();
+
+            compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+
+            for (int k = 0; k < length; k++) {
+            	int index = indexList[formatType][k];
+            	int cvIndex = cvIndexList[formatType][k];
+
+            	for (int j = 0; j < wgs; ++j) { // TODO Use SSE
+            		ghList[ogIndexList[formatType][k]].first += hBuffer[j+2*wgs*k];
+            		ghList[ogIndexList[formatType][k]].second  += hBuffer[j + wgs+2*wgs*k];
+            	}
+
+            	if (BaseModel::precomputeGradient) { // Compile-time switch
+            		ghList[ogIndexList[formatType][k]].first -= hXjYPool[cvIndex][index];
+            	}
+
+            	if (BaseModel::precomputeHessian) { // Compile-time switch
+            		ghList[ogIndexList[formatType][k]].second += static_cast<real>(2.0) * hXjXPool[cvIndex][index];
+            	}
+            }
+
+#ifdef GPU_DEBUG
+            std::cerr << gradient << " & " << hessian << std::endl << std::endl;
+#endif // GPU_DEBUG
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name = "compGradHessMMSyncCVG" + getFormatTypeExtension(formatType) + " ";
+            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+        }
+        */
+    }
+
+
     void updateXBeta(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights) {
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
@@ -2671,7 +2774,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 //
 //         Rcpp::stop("out");
 
-        const auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+        auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+        isNvidia = false;
         //std::cout << "formatType: " << formatType << " isNvidia: " << isNvidia << '\n';
 
 //         std::cerr << queue.get_device().name() << " " << queue.get_device().vendor() << std::endl;
@@ -2880,7 +2984,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 
     	//options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
-        const auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+        auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+        isNvidia = false;
 
       	auto source = writeCodeForUpdateAllXBetaKernel(formatType, isNvidia);
       	auto program = compute::program::build_with_source(source.body, ctx, options.str());
@@ -2911,7 +3016,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         }
         options << " -cl-mad-enable -cl-fast-relaxed-math";
 
-         const auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+         auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+         isNvidia = false;
 
          auto source = writeCodeForGetGradientObjective(useWeights, isNvidia);
          auto program = compute::program::build_with_source(source.body, ctx, options.str());
@@ -2950,7 +3056,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         }
         options << " -cl-mad-enable -cl-fast-relaxed-math";
 
-         const auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+         auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+         isNvidia = false;
 
          auto source = writeCodeForGetLogLikelihood(useWeights, isNvidia);
          auto program = compute::program::build_with_source(source.body, ctx, options.str());

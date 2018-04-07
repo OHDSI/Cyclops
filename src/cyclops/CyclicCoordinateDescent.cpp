@@ -983,10 +983,15 @@ void CyclicCoordinateDescent::findMode(
 	auto cycle = [this,&iteration,&algorithmType,&allDelta,&allDeltaPool,&lastObjFunc,&convergenceType] {
 
 		if (iteration%10==0 && iteration > 0) {
-			std::cout<<"iteration " << iteration << " | nonZeros: ";
+			std::cout<<"iteration " << iteration << " ";
 
-			for (auto x:nonZeros) {
-				std::cout << x << " ";
+			if (syncCV) {
+				std::cout << "nonzeros: ";
+				for (int i=0; i<syncCVFolds; i++) {
+					if (!donePool[i]) {
+						std::cout << nonZeros[i] << " ";
+					}
+				}
 			}
 			std::cout << "\n";
 		}
@@ -1088,11 +1093,11 @@ void CyclicCoordinateDescent::findMode(
 	    				std::cout << x << " ";
 	    			}
 	    			std::cout << "\n";
-	    			*/
+*/
 
 		    		applyBounds(allDelta, indicesToUpdate[i]);
 		    		updateSufficientStatistics(allDelta, indicesToUpdate[i]);
-		            computeRemainingStatistics();
+		            computeRemainingStatistics(true, allDelta, indicesToUpdate[i]);
 	    		}
 	    	}
 
@@ -1116,7 +1121,7 @@ void CyclicCoordinateDescent::findMode(
 
 	        		deltaVec = applyBounds(deltaVec, index);
 	        		updateSufficientStatistics(deltaVec, index);
-	        		computeRemainingStatistics(true, index, deltaVec);
+	        		computeRemainingStatistics(true, deltaVec);
 */
 	        	} else {
 	        		if (!fixBeta[index]) {
@@ -1776,7 +1781,7 @@ void CyclicCoordinateDescent::updateSufficientStatistics(double delta, int index
 	sufficientStatisticsKnown = true;
 }
 
-void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int index, std::vector<double>& deltaVec) { // TODO Rename
+void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, std::vector<double>& deltaVec) { // TODO Rename
 	// Separate function for benchmarking
 	if (allStats) {
 		// Delegate
@@ -1791,10 +1796,10 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 		*/
 		std::vector<bool> fixBetaTemp;
 		for (int i=0; i<syncCVFolds; i++) {
-			if (deltaVec[i]==0.0) {
-				fixBetaTemp.push_back(1);
+			if (donePool[i]==false && deltaVec[i]!=0.0) {
+				fixBetaTemp.push_back(false);
 			} else {
-				fixBetaTemp.push_back(0);
+				fixBetaTemp.push_back(true);
 			}
 		}
 		modelSpecifics.computeRemainingStatistics(useCrossValidation, fixBetaTemp);
@@ -1822,6 +1827,22 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 	}
 }
 
+void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, std::vector<double>& deltaVec, std::vector<std::pair<int,int>> updateIndices) { // TODO Rename
+	// Separate function for benchmarking
+	if (allStats) {
+		std::vector<bool> fixBetaTemp;
+		fixBetaTemp.resize(syncCVFolds, true);
+		for (int i=0; i<updateIndices.size(); i++) {
+			int cvIndex = updateIndices[i].second;
+			if (donePool[cvIndex]==false && deltaVec[i]!=0.0) {
+				fixBetaTemp[cvIndex] = false;
+			}
+		}
+		modelSpecifics.computeRemainingStatistics(useCrossValidation, fixBetaTemp);
+	}
+}
+
+
 
 void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int index) { // TODO Rename
 	// Separate function for benchmarking
@@ -1830,9 +1851,9 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 			std::vector<bool> fixBetaTemp;
 			for (int i=0; i<syncCVFolds; i++) {
 				if (donePool[i] || fixBetaPool[i][index]) {
-					fixBetaTemp.push_back(1);
+					fixBetaTemp.push_back(true);
 				} else {
-					fixBetaTemp.push_back(0);
+					fixBetaTemp.push_back(false);
 				}
 			}
 			modelSpecifics.computeRemainingStatistics(useCrossValidation, fixBetaTemp);
@@ -1848,9 +1869,9 @@ void CyclicCoordinateDescent::computeRemainingStatistics() { // TODO Rename
 		std::vector<bool> fixBetaTemp;
 		for (int i=0; i<syncCVFolds; i++) {
 			if (donePool[i]) {
-				fixBetaTemp.push_back(1);
+				fixBetaTemp.push_back(true);
 			} else {
-				fixBetaTemp.push_back(0);
+				fixBetaTemp.push_back(false);
 			}
 		}
 		modelSpecifics.computeRemainingStatistics(useCrossValidation, fixBetaTemp);
