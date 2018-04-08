@@ -2397,8 +2397,6 @@ void CyclicCoordinateDescent::setWeights(double* iWeights, int syncCVIndex) {
 	useCrossValidation = true;
 	validWeights = false;
 	sufficientStatisticsKnown = false;
-	}
-
 }
 
 double CyclicCoordinateDescent::getPredictiveLogLikelihood(double* weights, int cvIndex) {
