@@ -1785,7 +1785,6 @@ public:
         auto name = "updateXBetaSyncCVG" + getFormatTypeExtension(modelData.getFormatType(index)) + "  ";
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-
     }
 
     virtual void updateAllXBeta(std::vector<double>& allDelta, bool useWeights) {
@@ -2227,9 +2226,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	initialized = true;
         }
 
-        auto& kernel = (useWeights) ? // Double-dispatch
-        		kernelGradientHessianSyncWeighted[formatType] :
-				kernelGradientHessianSyncNoWeight[formatType];
+        auto& kernel = kernelGradientHessianSync[formatType];
 
         // auto& column = columns[index];
         // const auto taskCount = column.getTaskCount();
@@ -2254,6 +2251,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         //         kernel.set_arg(4, column.getIndicesVector());
 
         // set kernel args
+
         kernel.set_arg(0, dColumns.getDataOffset(index));
         kernel.set_arg(1, dColumns.getIndicesOffset(index));
         kernel.set_arg(2, taskCount);
@@ -2266,11 +2264,15 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         kernel.set_arg(7, dOffsExpXBetaVector);
         kernel.set_arg(8, dDenomPidVector);
 
-        //if (dBuffer.size() < 2 * maxWgs) {
-        dBuffer.resize(2 * wgs * count, queue);
+        if (hBuffer.size() < 2*wgs*count) {
+        	hBuffer.resize(2*wgs*count);
+        }
+        if (dBuffer.size() < 2*wgs*count) {
+        	dBuffer.resize(2*wgs*count);
+        }
+        //detail::resizeAndCopyToDevice(hBuffer, dBuffer, queue);
         //compute::fill(std::begin(dBuffer), std::end(dBuffer), 0.0, queue); // TODO Not needed
         kernel.set_arg(9, dBuffer); // Can get reallocated.
-        hBuffer.resize(2 * wgs * count);
         //}
 
         kernel.set_arg(10, dPidVector);
@@ -2283,6 +2285,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         detail::resizeAndCopyToDevice(foldIndices, dIndices, queue);
         kernel.set_arg(15, dIndices);
 
+
         if (dKWeightVector.size() == 0) {
         	kernel.set_arg(11, 0);
         } else {
@@ -2292,15 +2295,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
         queue.finish();
 
-        compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
-/*
-        std::cout << "format: " << formatType << "\n";
-        for (auto x:hBuffer) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
-        */
-
+        compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs*count, std::begin(hBuffer), queue);
 
         for (int i = 0; i < count; i++) {
         	int cvIndex = foldIndices[i];
@@ -2355,7 +2350,6 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	cvIndexList[formatList[index]].push_back(updateIndices[i].second);
         	ogIndexList[formatList[index]].push_back(i);
         }
-
         const auto wgs = maxWgs;
         auto useWeights = true;
 
@@ -2365,9 +2359,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	if (length == 0) {
         		continue;
         	}
-        	auto& kernel = (useWeights) ? // Double-dispatch
-        			kernelGradientHessianSync1Weighted[formatType] :
-					kernelGradientHessianSync1NoWeight[formatType];
+
+        	auto& kernel = kernelGradientHessianSync1[formatType];
 
         	kernel.set_arg(0, dColumns.getDataStarts());
         	kernel.set_arg(1, dColumns.getIndicesStarts());
@@ -2379,9 +2372,13 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	kernel.set_arg(7, dOffsExpXBetaVector);
         	kernel.set_arg(8, dDenomPidVector);
         	//detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
-            dBuffer.resize(2 * wgs * length, queue);
+            if (hBuffer.size() < 2*wgs*length) {
+            	hBuffer.resize(2*wgs*length);
+            }
+            if (dBuffer.size() < 2*wgs*length) {
+            	dBuffer.resize(2*wgs*length);
+            }
         	kernel.set_arg(9, dBuffer); // Can get reallocated.
-        	hBuffer.resize(2 * wgs * length);
         	kernel.set_arg(10, dPidVector);
         	if (dKWeightVector.size() == 0) {
         		kernel.set_arg(11, 0);
@@ -2401,14 +2398,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
             queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
             queue.finish();
 
-            compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
-/*
-            std::cout << "format: " << formatType << "\n";
-            for (auto x:hBuffer) {
-            	std::cout << x << " ";
-            }
-            std::cout << "\n";
-            */
+            compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs*length, std::begin(hBuffer), queue);
 
             for (int k = 0; k < length; k++) {
             	int index = indexList[formatType][k];
@@ -2444,7 +2434,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     void computeMMGradientAndHessian(
     		std::vector<GradientHessian>& ghList,
     		const std::vector<std::pair<int,int>>& updateIndices) {
-/*
+
 #ifdef GPU_DEBUG
         ModelSpecifics<BaseModel, WeightType>::computeGradientAndHessian(index, ogradient, ohessian, useWeights);
         std::cerr << *ogradient << " & " << *ohessian << std::endl;
@@ -2453,6 +2443,31 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
+
+        // initialize
+        if (!initialized) {
+        	this->initializeMM(boundType);
+        	detail::resizeAndCopyToDevice(norm, dNorm, queue);
+
+        	std::vector<real> hNormTemp;
+        	int garbage;
+        	for (int i=0; i<syncCVFolds; i++) {
+        		//std::cout << "hNWeightPool size" << i << ": " << hNWeightPool[i].size() << "\n";
+        		appendAndPad(normPool[i], hNormTemp, garbage, pad);
+        	}
+        	detail::resizeAndCopyToDevice(hNormTemp, dNormVector, queue);
+
+        	computeRemainingStatistics(true);
+        	std::vector<bool> tempBool(syncCVFolds, false);
+        	computeRemainingStatistics(true, tempBool);
+        	//kernel.set_arg(12, dNorm);
+
+        	this->initializeMmXt();
+        	dColumnsXt.initialize(*hXt, queue, K, true);
+
+        	initialized = true;
+        }
+
         std::vector<int> indexList[4];
         std::vector<int> cvIndexList[4];
         std::vector<int> ogIndexList[4];
@@ -2473,9 +2488,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	if (length == 0) {
         		continue;
         	}
-        	auto& kernel = (useWeights) ? // Double-dispatch
-        			kernelGradientHessianMMSyncWeighted[formatType] :
-					kernelGradientHessianMMSyncNoWeight[formatType];
+        	auto& kernel = kernelGradientHessianMMSync[formatType];
 
         	kernel.set_arg(0, dColumns.getDataStarts());
         	kernel.set_arg(1, dColumns.getIndicesStarts());
@@ -2503,6 +2516,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	kernel.set_arg(15, dIndices);
         	detail::resizeAndCopyToDevice(cvIndexList[i], dCVIndices, queue);
         	kernel.set_arg(16, dCVIndices);
+        	kernel.set_arg(17, dNormVector);
 
         	const auto globalWorkSize = tpb * wgs * length;
 
@@ -2540,7 +2554,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
         }
-        */
+
     }
 
 
@@ -2570,11 +2584,11 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	return;
         }
 
-        const auto wgs = 8;
+        const auto wgs = 4;
 
         for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
         	FormatType formatType = (FormatType)i;
-        	const auto length = indexList[formatType].size();
+        	const auto length = indexList[i].size();
         	if (length == 0) {
         		continue;
         	}
@@ -2591,17 +2605,16 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	kernel.set_arg(5, dColumns.getIndices());
         	kernel.set_arg(6, dY);
         	kernel.set_arg(7, dXBetaVector);
-        	kernel.set_arg(8, dOffsExpXBetaVector);
-        	kernel.set_arg(9, dDenomPidVector);
-        	kernel.set_arg(10, dPidVector);
-        	int dK = K;
-        	kernel.set_arg(11, cvIndexStride);
-        	kernel.set_arg(12, tpb*wgs);
-        	kernel.set_arg(13, wgs);
+        	//kernel.set_arg(8, dOffsExpXBetaVector);
+        	//kernel.set_arg(9, dDenomPidVector);
+        	//kernel.set_arg(10, dPidVector);
+        	kernel.set_arg(8, cvIndexStride);
+        	kernel.set_arg(9, tpb*wgs);
+        	kernel.set_arg(10, wgs);
         	detail::resizeAndCopyToDevice(indexList[i], dIndices, queue);
-        	kernel.set_arg(14, dIndices);
+        	kernel.set_arg(11, dIndices);
         	detail::resizeAndCopyToDevice(cvIndexList[i], dCVIndices, queue);
-        	kernel.set_arg(15, dCVIndices);
+        	kernel.set_arg(12, dCVIndices);
 
         	// set work size; no looping
         	const auto globalWorkSize = tpb * wgs * length;
@@ -2617,7 +2630,6 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 #endif
         }
     	hXBetaKnown = false; // dXBeta was just updated
-
     }
 
 
@@ -2719,11 +2731,13 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 
     SourceCode writeCodeForMMGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
+    SourceCode writeCodeForSyncCVMMGradientHessianKernel(FormatType formatType, bool isNvidia);
+
     SourceCode writeCodeForAllGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
-    SourceCode writeCodeForSyncCVGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
+    SourceCode writeCodeForSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia);
 
-    SourceCode writeCodeForSyncCV1GradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
+    SourceCode writeCodeForSyncCV1GradientHessianKernel(FormatType formatType, bool isNvidia);
 
     SourceCode writeCodeForGetGradientObjective(bool useWeights, bool isNvidia);
 
@@ -2817,7 +2831,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	kernelAll.set_arg(10, dId);
         	kernelAll.set_arg(11, dKWeight); // TODO Does not seem to stick
 
-        	source = writeCodeForSyncCVGradientHessianKernel(formatType, useWeights, isNvidia);
+        	source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia);
         	program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernelSync = compute::kernel(program, source.name);
 
@@ -2860,8 +2874,13 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	kernelMM.set_arg(9, dBuffer);  // TODO Does not seem to stick
         	kernelMM.set_arg(10, dId);
         	kernelMM.set_arg(11, dKWeight); // TODO Does not seem to stick
+
         	if (useWeights) {
         		kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
+            	source = writeCodeForSyncCVMMGradientHessianKernel(formatType, isNvidia);
+            	program = compute::program::build_with_source(source.body, ctx, options.str());
+            	auto kernelMMSync = compute::kernel(program, source.name);
+        		kernelGradientHessianMMSync[formatType] = std::move(kernelMMSync);
         	} else {
         		kernelGradientHessianMMNoWeight[formatType] = std::move(kernelMM);
         	}
@@ -2886,22 +2905,22 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	}
         	}
 
-        	source = writeCodeForSyncCVGradientHessianKernel(formatType, useWeights, isNvidia);
-        	program = compute::program::build_with_source(source.body, ctx, options.str());
-        	auto kernelSync = compute::kernel(program, source.name);
-
-        	source = writeCodeForSyncCV1GradientHessianKernel(formatType, useWeights, isNvidia);
-        	program = compute::program::build_with_source(source.body, ctx, options.str());
-        	auto kernelSync1 = compute::kernel(program, source.name);
-
         	if (useWeights) {
         		kernelGradientHessianWeighted[formatType] = std::move(kernel);
-        		kernelGradientHessianSyncWeighted[formatType] = std::move(kernelSync);
-        		kernelGradientHessianSync1Weighted[formatType] = std::move(kernelSync1);
+
+            	source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia);
+            	std::cout << source.body;
+            	program = compute::program::build_with_source(source.body, ctx, options.str());
+            	auto kernelSync = compute::kernel(program, source.name);
+        		kernelGradientHessianSync[formatType] = std::move(kernelSync);
+
+            	source = writeCodeForSyncCV1GradientHessianKernel(formatType, isNvidia);
+            	std::cout << source.body;
+            	program = compute::program::build_with_source(source.body, ctx, options.str());
+            	auto kernelSync1 = compute::kernel(program, source.name);
+        		kernelGradientHessianSync1[formatType] = std::move(kernelSync1);
         	} else {
         		kernelGradientHessianNoWeight[formatType] = std::move(kernel);
-        		kernelGradientHessianSyncNoWeight[formatType] = std::move(kernelSync);
-        		kernelGradientHessianSync1NoWeight[formatType] = std::move(kernelSync1);
         	}
         }
     }
@@ -2933,7 +2952,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         kernelUpdateXBetaSync[formatType] = std::move(kernelSync);
 
         source = writeCodeForSync1UpdateXBetaKernel(formatType);
-        std::cout << source.body;
+        //std::cout << source.body;
         program = compute::program::build_with_source(source.body, ctx, options.str());
         std::cout << "program built\n";
         auto kernelSync1 = compute::kernel(program, source.name);
@@ -3131,11 +3150,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     		printKernel(entry.second, stream);
     	}
 
-    	for (auto& entry : kernelGradientHessianSyncWeighted) {
-    		printKernel(entry.second, stream);
-    	}
-
-    	for (auto& entry : kernelGradientHessianSyncNoWeight) {
+    	for (auto& entry : kernelGradientHessianSync) {
     		printKernel(entry.second, stream);
     	}
 
@@ -3166,12 +3181,11 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     std::map<FormatType, compute::kernel> kernelUpdateXBetaSync1;
     std::map<FormatType, compute::kernel> kernelGradientHessianMMWeighted;
     std::map<FormatType, compute::kernel> kernelGradientHessianMMNoWeight;
+    std::map<FormatType, compute::kernel> kernelGradientHessianMMSync;
     std::map<FormatType, compute::kernel> kernelGradientHessianAllWeighted;
     std::map<FormatType, compute::kernel> kernelGradientHessianAllNoWeight;
-    std::map<FormatType, compute::kernel> kernelGradientHessianSyncWeighted;
-    std::map<FormatType, compute::kernel> kernelGradientHessianSyncNoWeight;
-    std::map<FormatType, compute::kernel> kernelGradientHessianSync1Weighted;
-    std::map<FormatType, compute::kernel> kernelGradientHessianSync1NoWeight;
+    std::map<FormatType, compute::kernel> kernelGradientHessianSync;
+    std::map<FormatType, compute::kernel> kernelGradientHessianSync1;
 
     compute::kernel kernelGetGradientObjectiveWeighted;
     compute::kernel kernelGetGradientObjectiveNoWeight;

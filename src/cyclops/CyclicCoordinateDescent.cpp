@@ -1094,13 +1094,11 @@ void CyclicCoordinateDescent::findMode(
 	    			}
 	    			std::cout << "\n";
 */
-
 		    		applyBounds(allDelta, indicesToUpdate[i]);
 		    		updateSufficientStatistics(allDelta, indicesToUpdate[i]);
 		            computeRemainingStatistics(true, allDelta, indicesToUpdate[i]);
 	    		}
 	    	}
-
 
 
 	    	//std::cout<<hBeta[0]<<"\n";
@@ -1113,7 +1111,7 @@ void CyclicCoordinateDescent::findMode(
 /*
 	        		std::vector<double> deltaVec = ccdUpdateBetaVec(index);
 
-	        		std::cout << "allDelta: ";
+	        		std::cout << "allDelta" << index << " ";
 	        		for (auto x:deltaVec) {
 	        			std::cout << x << " ";
 	        		}
@@ -2302,13 +2300,14 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
                                                       int maxIterations,
                                                       int iteration,
                                                       std::vector<double>& lastObjFuncVec) {
-	/*
-	std::cout << "lastObjFunc: ";
+/*
+	std::cout << "lastObjFunc" << iteration << ": ";
     for (auto x : lastObjFuncVec) {
         std::cout << " " << x;
     }
     std::cout << '\n';
     */
+
     std::ostringstream stream;
 
     bool done = true;
@@ -2398,14 +2397,7 @@ void CyclicCoordinateDescent::setWeights(double* iWeights, int syncCVIndex) {
 	useCrossValidation = true;
 	validWeights = false;
 	sufficientStatisticsKnown = false;
-
-	/*
-	std::cout << "weights" << syncCVIndex << ": ";
-	for (auto x : hWeightsPool[syncCVIndex]) {
-		std::cout << " " << x;
 	}
-	std::cout << '\n';
-	*/
 
 }
 
