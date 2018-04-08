@@ -560,11 +560,6 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 		}
 		syncCVIterator.reset(syncCVFolds, J);
 
-		std::cout << "hBeta0: ";
-		for (auto x:hBetaPool[0]) {
-			std::cout << x << " ";
-		}
-		std::cout << "\n";
 	}
 
 	for (int i=0; i<J; i++) {
