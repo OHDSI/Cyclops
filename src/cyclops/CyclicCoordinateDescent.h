@@ -192,6 +192,8 @@ public:
 
 	double getPredictiveLogLikelihood(double* weights, int cvIndex);
 
+	std::vector<double> getPredictiveLogLikelihood(std::vector<std::vector<double>>& weightsPool);
+
 	void turnOffSyncCV(void);
 
 protected:

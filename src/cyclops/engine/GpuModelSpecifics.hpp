@@ -740,7 +740,6 @@ public:
         		detail::resizeAndCopyToDevice(hOverflow, dOverflow0, queue);
         		detail::resizeAndCopyToDevice(hOverflow, dOverflow1, queue);
 
-        		//std::cerr << "got here0\n";
         		detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
 
             	// B0 and B1
@@ -781,7 +780,6 @@ public:
 
         		initialized = true;
         	}
-    		//std::cerr << "got here1\n";
     	    detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
     	    detail::resizeAndCopyToDevice(hBuffer0, dBuffer1, queue);
     	    kernel.set_arg(0, dBuffer);
@@ -877,7 +875,6 @@ public:
     	        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateAllXBetaBlockSize);
     	        queue.finish();
     	    }
-    	    //std::cout << "got here2\n";
 
     	    hBuffer1.resize(3*(N+totalCases));
     	    if (maxN%2 == 0) {
@@ -2100,7 +2097,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     	ModelSpecifics<BaseModel, WeightType>::turnOnSyncCV(foldToCompute);
 
     	syncCV = true;
-    	pad = false;
+    	pad = true;
     	syncCVFolds = foldToCompute;
 
     	//int dataStart = 0;
@@ -2809,7 +2806,6 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 
         	// MM Kernel
         	source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
-        	//std::cout << source.body;
         	program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernelMM = compute::kernel(program, source.name);
         	kernelMM.set_arg(5, dY);
@@ -2849,7 +2845,6 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         } else {
         	// CCD Kernel
         	auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
-        	//std::cout << source.body;
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernel = compute::kernel(program, source.name);
         	kernel.set_arg(5, dY);
@@ -2864,7 +2859,6 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	// MM Kernel
         	if (algorithmType == AlgorithmType::MM) {
         	source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
-        	//std::cout << source.body;
         	program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernelMM = compute::kernel(program, source.name);
         	kernelMM.set_arg(5, dY);
@@ -2888,7 +2882,6 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 
         	if (algorithmType == AlgorithmType::MM || algorithmType == AlgorithmType::CCDGREEDY) {
         	source = writeCodeForAllGradientHessianKernel(formatType, useWeights, isNvidia);
-        	//std::cout << source.body;
         	program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernelAll = compute::kernel(program, source.name);
         	kernelAll.set_arg(5, dY);
@@ -2909,13 +2902,11 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         		kernelGradientHessianWeighted[formatType] = std::move(kernel);
 
             	source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia);
-            	std::cout << source.body;
             	program = compute::program::build_with_source(source.body, ctx, options.str());
             	auto kernelSync = compute::kernel(program, source.name);
         		kernelGradientHessianSync[formatType] = std::move(kernelSync);
 
             	source = writeCodeForSyncCV1GradientHessianKernel(formatType, isNvidia);
-            	std::cout << source.body;
             	program = compute::program::build_with_source(source.body, ctx, options.str());
             	auto kernelSync1 = compute::kernel(program, source.name);
         		kernelGradientHessianSync1[formatType] = std::move(kernelSync1);

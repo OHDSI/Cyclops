@@ -1396,6 +1396,16 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 
         code << "       REAL xb = xBetaVector[vecOffset+k] + inc; 		\n" <<
                 "       xBetaVector[vecOffset+k] = xb;                  \n";
+        // hack for logistic only
+        /*
+        if (BaseModel::likelihoodHasDenominator) {
+        	code << "REAL y = Y[k];\n" <<
+        			"REAL offs = Offs[k];\n";
+        	code << "REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
+               	code << "expXBetaVector[vecOffset+k] = exb;\n";
+           		code << "denomPidVector[vecOffset+k] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+        }
+        */
         code << "       task += indexWorkSize;			 				\n";
         code << "   } \n";
         code << "}    \n";

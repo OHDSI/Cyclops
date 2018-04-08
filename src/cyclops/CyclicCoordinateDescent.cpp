@@ -542,6 +542,12 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 			nonZeros[i] = J;
 		}
 		syncCVIterator.reset(syncCVFolds, J);
+
+		std::cout << "hBeta0: ";
+		for (auto x:hBetaPool[0]) {
+			std::cout << x << " ";
+		}
+		std::cout << "\n";
 	}
 
 	for (int i=0; i<J; i++) {
@@ -2431,7 +2437,33 @@ double CyclicCoordinateDescent::getPredictiveLogLikelihood(double* weights, int 
 	}
 }
 
+std::vector<double> CyclicCoordinateDescent::getPredictiveLogLikelihood(std::vector<std::vector<double>>& weightsPool) {
+	xBetaKnown = false;
 
+	if (!xBetaKnown) {
+		computeXBeta();
+		xBetaKnown = true;
+		sufficientStatisticsKnown = false;
+	}
+
+	if (!sufficientStatisticsKnown) {
+		computeRemainingStatistics(true, 0); // TODO Remove index????
+		sufficientStatisticsKnown = true;
+	}
+
+	getDenominators();
+
+	std::vector<double> result;
+	result.resize(syncCVFolds);
+	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+		if (donePool[cvIndex]) {
+			result[cvIndex] = modelSpecifics.getPredictiveLogLikelihood(&weightsPool[cvIndex][0], cvIndex); // TODO Pass double
+		} else {
+			result[cvIndex] = std::numeric_limits<double>::quiet_NaN();
+		}
+	}
+	return result;
+}
 
 
 } // namespace

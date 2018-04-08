@@ -440,6 +440,17 @@ void AbstractModelSpecifics::setupSparseIndices(const int max) {
             sparseIndices.push_back(indices);
 		}
 	}
+/*
+	std::cout << "setup sparse indices ";
+	for (int j = 0; j < J; j++) {
+		GenericIterator blah(*sparseIndices[j]);
+		std::cout << "\n";
+		for (auto x : blah) {
+			std::cout << x << " ";
+		}
+	}
+	std::cout << "\n";
+	*/
 }
 
 void AbstractModelSpecifics::setupSparseIndices(const int max, int cvIndex) {
@@ -463,6 +474,18 @@ void AbstractModelSpecifics::setupSparseIndices(const int max, int cvIndex) {
             sparseIndicesPool[cvIndex].push_back(indices);
 		}
 	}
+/*
+	std::cout << "setup syncCV sparse indices " << cvIndex << " ";
+	for (int j = 0; j < J; j++) {
+		GenericIterator blah(*sparseIndicesPool[cvIndex][j]);
+	    std::cout << "\n";
+		for (auto x : blah) {
+			std::cout << x << " ";
+		}
+	}
+	std::cout << "\n";
+	*/
+
 }
 
 void AbstractModelSpecifics::deviceInitialization() {
