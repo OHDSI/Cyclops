@@ -447,6 +447,8 @@ protected:
 
 	void resetFixBeta();
 
+	void resetBetaPartial();
+
 	SyncCVIterator syncCVIterator;
 
 	//std::vector<double> CyclicCoordinateDescent::ccdUpdateBetaVec(std::vector<int> indices, std::vector<int> folds);

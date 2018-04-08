@@ -237,6 +237,23 @@ void CyclicCoordinateDescent::resetBeta(void) {
 	auto start = hXI.getHasOffsetCovariate() ? 1 : 0;
 	if (syncCV) {
 		for (int i=0; i<syncCVFolds; ++i) {
+			for (auto j = start; j < J; j++) {
+				hBetaPool[i][j] = 0.0;
+			}
+		}
+	} else {
+		for (auto j = start; j < J; j++) {
+			hBeta[j] = 0.0;
+		}
+	}
+	computeXBeta();
+	sufficientStatisticsKnown = false;
+}
+
+void CyclicCoordinateDescent::resetBetaPartial(void) {
+	auto start = hXI.getHasOffsetCovariate() ? 1 : 0;
+	if (syncCV) {
+		for (int i=0; i<syncCVFolds; ++i) {
 			if (!donePool[i]) {
 				for (auto j = start; j < J; j++) {
 					hBetaPool[i][j] = 0.0;
@@ -567,7 +584,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	    if (lastReturnFlag == ILLCONDITIONED && count < maxCount) {
 	        // Reset beta and shrink bounding box
 	        initialBound /= 10.0;
-            resetBeta();
+            resetBetaPartial();
             resetFixBeta();
 	    } else {
 	        done = true;

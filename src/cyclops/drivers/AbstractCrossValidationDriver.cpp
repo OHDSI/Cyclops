@@ -250,11 +250,15 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 			}
 		}
 
-		double logLikelihood = ccd.getPredictiveLogLikelihood(&weightsPool[cvIndex][0], cvIndex);
-		stream << logLikelihood << " ";
-		predLogLikelihood[cvIndex] = logLikelihood;
+		//double logLikelihood = ccd.getPredictiveLogLikelihood(&weightsPool[cvIndex][0], cvIndex);
+		//stream << logLikelihood << " ";
+		//predLogLikelihood[cvIndex] = logLikelihood;
 	}
-	ccd.resetBeta();
+
+	std::vector<double> logLikelihood = ccd.getPredictiveLogLikelihood(weightsPool);
+	for (int i=0; i<arguments.foldToCompute; i++) {
+		predLogLikelihood[i] = logLikelihood[i];
+	}
 
 } else {
 
