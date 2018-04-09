@@ -342,7 +342,7 @@ public:
       ),
       dColumns(ctx),
       dY(ctx), dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dAccDenominator(ctx), dBuffer(ctx), dKWeight(ctx), dNWeight(ctx),
-      dId(ctx), dNorm(ctx), dOffs(ctx), dFixBeta(ctx), dIndices(ctx), dCVIndices(ctx), dVector1(ctx), dVector2(ctx), dFirstRow(ctx),
+      dId(ctx), dNorm(ctx), dOffs(ctx), dFixBeta(ctx), dIntVector1(ctx), dIntVector2(ctx), dIntVector3(ctx), dIntVector4(ctx), dRealVector1(ctx), dRealVector2(ctx), dFirstRow(ctx),
       dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx), dNtoK(ctx), dAllDelta(ctx), dColumnsXt(ctx),
 	  dXBetaVector(ctx), dOffsExpXBetaVector(ctx), dDenomPidVector(ctx), dNWeightVector(ctx), dKWeightVector(ctx), dPidVector(ctx),
 	  dAccDenomPidVector(ctx), dAccNumerPidVector(ctx), dAccNumerPid2Vector(ctx), dAccResetVector(ctx), dPidInternalVector(ctx), dNumerPidVector(ctx),
@@ -444,8 +444,8 @@ public:
         kernel.set_arg(5, dOffs);
         kernel.set_arg(6, dPidVector);
         kernel.set_arg(7, cvIndexStride);
-        detail::resizeAndCopyToDevice(foldIndices, dIndices, queue);
-        kernel.set_arg(8, dIndices);
+        detail::resizeAndCopyToDevice(foldIndices, dIntVector1, queue);
+        kernel.set_arg(8, dIntVector1);
 
         // set work size, no looping
         size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
@@ -571,8 +571,8 @@ public:
         kernel.set_arg(5, dOffs);
         kernel.set_arg(6, dPidVector);
         kernel.set_arg(7, cvIndexStride);
-        detail::resizeAndCopyToDevice(foldIndices, dIndices, queue);
-        kernel.set_arg(8, dIndices);
+        detail::resizeAndCopyToDevice(foldIndices, dIntVector1, queue);
+        kernel.set_arg(8, dIntVector1);
 
         // set work size, no looping
         size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
@@ -657,7 +657,7 @@ public:
             	}
             	detail::resizeAndCopyToDevice(hOverflow, dOverflow0, queue);
             	dBuffer1.resize(1,queue);
-            	//dVector2.resize(112*N);
+            	//dRealVector2.resize(112*N);
             	initialized = true;
         	}
         	kernel.set_arg(0, dColumns.getDataStarts());
@@ -679,8 +679,8 @@ public:
         	detail::resizeAndCopyToDevice(hFirstRow, dFirstRow, queue);
         	kernel.set_arg(10, dFirstRow);
         	kernel.set_arg(11, (maxN+1)*3);
-        	//kernel.set_arg(13, dVector1);
-        	//kernel.set_arg(14, dVector2);
+        	//kernel.set_arg(13, dRealVector1);
+        	//kernel.set_arg(14, dRealVector2);
         	kernel.set_arg(13, dOverflow0);
         	kernel.set_arg(14, index);
 
@@ -705,8 +705,8 @@ public:
         		kernel.set_arg(9, dBuffer);
         		kernel.set_arg(10, dFirstRow);
         		kernel.set_arg(11, (1+maxN)*3);
-        		//kernel.set_arg(13, dVector1);
-        		//kernel.set_arg(14, dVector2);
+        		//kernel.set_arg(13, dRealVector1);
+        		//kernel.set_arg(14, dRealVector2);
         		detail::resizeAndCopyToDevice(hOverflow, dOverflow0, queue);
             	kernel.set_arg(13, dOverflow0);
             	kernel.set_arg(14, index);
@@ -758,7 +758,7 @@ public:
         				++temp;
         			}
         		}
-        		detail::resizeAndCopyToDevice(hIndices, dIndices, queue);
+        		detail::resizeAndCopyToDevice(hIndices, dIntVector1, queue);
 
         		// constant vectors
         		std::vector<real> hVector1;
@@ -773,8 +773,8 @@ public:
         			hVector2[3*i+1] = 0;
         			hVector2[3*i+2] = 1;
         		}
-        		detail::resizeAndCopyToDevice(hVector1, dVector1, queue);
-        		detail::resizeAndCopyToDevice(hVector2, dVector2, queue);
+        		detail::resizeAndCopyToDevice(hVector1, dRealVector1, queue);
+        		detail::resizeAndCopyToDevice(hVector2, dRealVector2, queue);
 
         		// overflow vectors
         		std::vector<int> hOverflow;
@@ -829,9 +829,9 @@ public:
     	    detail::resizeAndCopyToDevice(hBuffer0, dBuffer1, queue);
     	    kernel.set_arg(0, dBuffer);
     	    kernel.set_arg(1, dBuffer1);
-        	kernel.set_arg(2, dIndices);
-        	kernel.set_arg(5, dVector1);
-        	kernel.set_arg(6, dVector2);
+        	kernel.set_arg(2, dIntVector1);
+        	kernel.set_arg(5, dRealVector1);
+        	kernel.set_arg(6, dRealVector2);
     	    int dN = N;
     	    kernel.set_arg(7, dN);
             if (dKWeight.size() == 0) {
@@ -901,11 +901,11 @@ public:
     	    	//std::cout << "run: " << i << '\n';
         	    kernel.set_arg(0, dBuffer);
         	    kernel.set_arg(1, dBuffer1);
-            	kernel.set_arg(2, dIndices);
+            	kernel.set_arg(2, dIntVector1);
         	    kernel.set_arg(3, dXMatrix);
         	    kernel.set_arg(4, dExpXMatrix);
-            	kernel.set_arg(5, dVector1);
-            	kernel.set_arg(6, dVector2);
+            	kernel.set_arg(5, dRealVector1);
+            	kernel.set_arg(6, dRealVector2);
         	    kernel.set_arg(7, dN);
                 if (dKWeight.size() == 0) {
                     kernel.set_arg(9, 0);
@@ -1170,8 +1170,8 @@ public:
         	 //int dJ = indicesFormats[formatType].size();
         	 kernel.set_arg(14, globalWorkSize);
         	 kernel.set_arg(15, wgs);
-        	 detail::resizeAndCopyToDevice(indicesFormats[formatType], dIndices, queue);
-        	 kernel.set_arg(16, dIndices);
+        	 detail::resizeAndCopyToDevice(indicesFormats[formatType], dIntVector1, queue);
+        	 kernel.set_arg(16, dIntVector1);
 
         	 // set work size; yes looping
         	 //const auto wgs = maxWgs;
@@ -1422,8 +1422,8 @@ public:
 	        	 }
 	        	 kernel.set_arg(12, dNormVector);
 	        	 kernel.set_arg(13, globalWorkSize);
-	        	 detail::resizeAndCopyToDevice(indicesFormats[formatType], dIndices, queue);
-	        	 kernel.set_arg(16, dIndices);
+	        	 detail::resizeAndCopyToDevice(indicesFormats[formatType], dIntVector1, queue);
+	        	 kernel.set_arg(16, dIntVector1);
 
 	        	 // set work size; yes looping
 	        	 //const auto wgs = maxWgs;
@@ -1548,8 +1548,8 @@ public:
         	 //int dJ = indicesFormats[formatType].size();
         	 kernel.set_arg(14, globalWorkSize);
         	 kernel.set_arg(15, wgs);
-        	 detail::resizeAndCopyToDevice(indicesFormats[formatType], dIndices, queue);
-        	 kernel.set_arg(16, dIndices);
+        	 detail::resizeAndCopyToDevice(indicesFormats[formatType], dIntVector1, queue);
+        	 kernel.set_arg(16, dIntVector1);
 
         	 // set work size; yes looping
         	 //const auto wgs = maxWgs;
@@ -1791,8 +1791,8 @@ public:
         kernel.set_arg(0, dColumns.getDataOffset(index));
         kernel.set_arg(1, dColumns.getIndicesOffset(index));
         kernel.set_arg(2, taskCount);
-        detail::resizeAndCopyToDevice(realDelta, dVector1, queue);
-        kernel.set_arg(3, dVector1);
+        detail::resizeAndCopyToDevice(realDelta, dRealVector1, queue);
+        kernel.set_arg(3, dRealVector1);
         kernel.set_arg(4, dColumns.getData());
         kernel.set_arg(5, dColumns.getIndices());
         kernel.set_arg(6, dY);
@@ -1802,8 +1802,8 @@ public:
         kernel.set_arg(10, dPidVector);
         int dK = K;
         kernel.set_arg(11, cvIndexStride);
-        detail::resizeAndCopyToDevice(foldIndices, dIndices, queue);
-        kernel.set_arg(12, dIndices);
+        detail::resizeAndCopyToDevice(foldIndices, dIntVector1, queue);
+        kernel.set_arg(12, dIntVector1);
         //kernel.set_arg(13, localstride);
 
         // set work size; no looping
@@ -2324,8 +2324,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         kernel.set_arg(12, cvIndexStride);
         kernel.set_arg(13, tpb*wgs);
         kernel.set_arg(14, wgs);
-        detail::resizeAndCopyToDevice(foldIndices, dIndices, queue);
-        kernel.set_arg(15, dIndices);
+        detail::resizeAndCopyToDevice(foldIndices, dIntVector1, queue);
+        kernel.set_arg(15, dIntVector1);
 
 
         if (dKWeightVector.size() == 0) {
@@ -2430,10 +2430,10 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	kernel.set_arg(12, cvIndexStride);
         	kernel.set_arg(13, tpb*wgs);
         	kernel.set_arg(14, wgs);
-        	detail::resizeAndCopyToDevice(indexList[i], dIndices, queue);
-        	kernel.set_arg(15, dIndices);
-        	detail::resizeAndCopyToDevice(cvIndexList[i], dCVIndices, queue);
-        	kernel.set_arg(16, dCVIndices);
+        	detail::resizeAndCopyToDevice(indexList[i], dIntVector1, queue);
+        	kernel.set_arg(15, dIntVector1);
+        	detail::resizeAndCopyToDevice(cvIndexList[i], dIntVector2, queue);
+        	kernel.set_arg(16, dIntVector2);
 
         	const auto globalWorkSize = tpb * wgs * length;
 
@@ -2516,7 +2516,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	ogIndexList[formatList[index]].push_back(i);
         }
 
-        const auto wgs = 1;
+        const int wgs = 1;
         auto useWeights = true;
 
         for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
@@ -2525,6 +2525,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	if (length == 0) {
         		continue;
         	}
+        	//std::cout << "formatType " << formatType << ": " << length << "\n";
         	auto& kernel = kernelGradientHessianMMSync[formatType];
 
         	kernel.set_arg(0, dColumns.getDataStarts());
@@ -2553,10 +2554,10 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	kernel.set_arg(12, cvIndexStride);
         	kernel.set_arg(13, tpb*wgs);
         	kernel.set_arg(14, wgs);
-        	detail::resizeAndCopyToDevice(indexList[i], dIndices, queue);
-        	kernel.set_arg(15, dIndices);
-        	detail::resizeAndCopyToDevice(cvIndexList[i], dCVIndices, queue);
-        	kernel.set_arg(16, dCVIndices);
+        	detail::resizeAndCopyToDevice(indexList[i], dIntVector1, queue);
+        	kernel.set_arg(15, dIntVector1);
+        	detail::resizeAndCopyToDevice(cvIndexList[i], dIntVector2, queue);
+        	kernel.set_arg(16, dIntVector2);
         	kernel.set_arg(17, dNormVector);
 
         	const auto globalWorkSize = tpb * wgs * length;
@@ -2599,99 +2600,196 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     }
 
     void updateXBetaMM(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights) {
-    	std::vector<int> indexList[4];
-        std::vector<int> cvIndexList[4];
-        std::vector<real> deltaList[4];
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+    	std::vector<int> indexList;
+        std::vector<int> cvIndexList;
+        std::vector<real> deltaList;
 
-        int count = 0;
+        int length = 0;
         for (int i=0; i<updateIndices.size(); i++) {
         	if (allDelta[i] == 0.0) {
         		continue;
         	}
         	int index = updateIndices[i].first;
-        	indexList[formatList[index]].push_back(index);
-        	cvIndexList[formatList[index]].push_back(updateIndices[i].second);
-        	deltaList[formatList[index]].push_back((real)allDelta[i]);
-        	count++;
+        	indexList.push_back(index);
+        	cvIndexList.push_back(updateIndices[i].second);
+        	deltaList.push_back((real)allDelta[i]);
+        	length++;
         }
 
-        if (count == 0) {
+        if (length == 0) {
         	return;
         }
 
-        const auto wgs = 4;
+    	std::vector<int> cvIndices;
+    	std::vector<int> cvLengths;
+    	std::vector<int> cvOffsets;
+    	int lastCvIndex = cvIndexList[0];
+    	cvIndices.push_back(lastCvIndex);
+    	cvOffsets.push_back(0);
+    	int lastLength = 0;
+    	for (int j=0; j<length; j++) {
+    		int thisCvIndex = cvIndexList[j];
+    		if (thisCvIndex > lastCvIndex) {
+    			lastCvIndex = thisCvIndex;
+    			cvIndices.push_back(lastCvIndex);
+    			cvOffsets.push_back(j);
+    			cvLengths.push_back(lastLength);
+    			lastLength = 1;
+    		} else {
+    			lastLength++;
+    		}
+    	}
+    	cvLengths.push_back(lastLength);
+
         const auto blockSize = 32;
+/*
+    	std::cout << "ddataStarts: ";
+    	blah.resize(dColumns.getDataStarts().size());
+        compute::copy(std::begin(dColumns.getDataStarts()), std::end(dColumns.getDataStarts()), std::begin(blah), queue);
+        for (auto x:blah) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
 
-        for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto start = bsccs::chrono::steady_clock::now();
-#endif
-        	FormatType formatType = (FormatType)i;
-        	const auto length = indexList[i].size();
-        	if (length == 0) {
-        		continue;
-        	}
+    	std::cout << "dindicesStarts: ";
+    	blah.resize(dColumns.getIndicesStarts().size());
+        compute::copy(std::begin(dColumns.getIndicesStarts()), std::end(dColumns.getIndicesStarts()), std::begin(blah), queue);
+        for (auto x:blah) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
 
-        	std::vector<int> cvIndices;
-        	std::vector<int> cvLengths;
-        	std::vector<int> cvOffsets;
-        	int lastCvIndex = cvIndexList[i][0];
-        	cvIndices.push_back(lastCvIndex);
-        	cvOffsets.push_back(0);
-        	int lastLength = 0;
-        	for (int j=0; j<length; j++) {
-        		int thisCvIndex = cvIndexList[i][j];
-        		if (thisCvIndex > lastCvIndex) {
-        			lastCvIndex = thisCvIndex;
-        			cvIndices.push_back(lastCvIndex);
-        			cvOffsets.push_back(j);
-        			cvLengths.push_back(lastLength);
-        			lastLength = 1;
-        		} else {
-        			lastLength++;
-        		}
-        	}
-        	cvLengths.push_back(lastLength);
+    	std::cout << "dTaskCounts: ";
+    	blah.resize(dColumns.getTaskCounts().size());
+        compute::copy(std::begin(dColumns.getTaskCounts()), std::end(dColumns.getTaskCounts()), std::begin(blah), queue);
+        for (auto x:blah) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
+        */
+        std::vector<int> blah;
+        std::vector<real> blah2;
+/*
+    	std::cout << "ddataStartsT: ";
+    	blah.resize(dColumnsXt.getDataStarts().size());
+        compute::copy(std::begin(dColumnsXt.getDataStarts()), std::end(dColumnsXt.getDataStarts()), std::begin(blah), queue);
+        for (auto x:blah) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
 
-        	auto& kernel = kernelUpdateXBetaMM[formatType];
+    	std::cout << "dindicesStartsT: ";
+    	blah.resize(dColumnsXt.getIndicesStarts().size());
+        compute::copy(std::begin(dColumnsXt.getIndicesStarts()), std::end(dColumnsXt.getIndicesStarts()), std::begin(blah), queue);
+        for (auto x:blah) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
 
-        	kernel.set_arg(0, dColumnsXt.getDataStarts());
-        	kernel.set_arg(1, dColumnsXt.getIndicesStarts());
-        	kernel.set_arg(2, dColumnsXt.getData());
-        	kernel.set_arg(3, dColumnsXt.getIndices());
-        	kernel.set_arg(4, dY);
-        	kernel.set_arg(5, dXBetaVector);
-        	kernel.set_arg(6, dOffsExpXBetaVector);
-        	kernel.set_arg(7, dDenomPidVector);
-        	kernel.set_arg(8, dOffs);
-        	kernel.set_arg(9, cvIndexStride);
-        	detail::resizeAndCopyToDevice(deltaList[i], dVector1, queue);
-        	kernel.set_arg(10, dVector1);
-        	detail::resizeAndCopyToDevice(indexList[i], dIndices, queue);
-        	kernel.set_arg(11, dIndices);
-        	detail::resizeAndCopyToDevice(cvIndices, dCVIndices, queue);
-        	kernel.set_arg(12, dCVIndices);
-        	detail::resizeAndCopyToDevice(cvLengths, dBuffer, queue);
-        	kernel.set_arg(13, dBuffer);
-        	detail::resizeAndCopyToDevice(cvOffsets, dBuffer1, queue);
-        	kernel.set_arg(14, dBuffer1);
-        	int dK = K;
-        	kernel.set_arg(15, dK);
+    	std::cout << "dTaskCountsT: ";
+    	blah.resize(dColumnsXt.getTaskCounts().size());
+        compute::copy(std::begin(dColumnsXt.getTaskCounts()), std::end(dColumnsXt.getTaskCounts()), std::begin(blah), queue);
+        for (auto x:blah) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
 
-        	const auto globalWorkSize = blockSize * K * cvOffsets.size();
+    	std::cout << "dIndicesT: ";
+    	blah.resize(dColumnsXt.getIndices().size());
+        compute::copy(std::begin(dColumnsXt.getIndices()), std::end(dColumnsXt.getIndices()), std::begin(blah), queue);
+        for (auto x:blah) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
 
-        	queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, blockSize);
-        	queue.finish();
+        std::cout << "dDataT size: " << dColumnsXt.getData().size() << "\n";
+    	std::cout << "dDataT: ";
+    	blah2.resize(dColumnsXt.getData().size());
+        compute::copy(std::begin(dColumnsXt.getData()), std::end(dColumnsXt.getData()), std::begin(blah2), queue);
+        for (auto x:blah2) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
+*/
+/*
+        std::cout << "deltaList: ";
+        for (auto x:deltaList) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
+        std::cout << "indexList: ";
+        for (auto x:indexList) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
+        std::cout << "cvIndices: ";
+        for (auto x:cvIndices) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
+        std::cout << "cvLengths: ";
+        for (auto x:cvLengths) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
+        std::cout << "cvOffsets: ";
+        for (auto x:cvOffsets) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
+*/
+        auto& kernel = kernelUpdateXBetaMM;
+
+        kernel.set_arg(0, dColumnsXt.getDataStarts());
+        kernel.set_arg(1, dColumnsXt.getIndicesStarts());
+        kernel.set_arg(2, dColumnsXt.getTaskCounts());
+        kernel.set_arg(3, dColumnsXt.getData());
+        kernel.set_arg(4, dColumnsXt.getIndices());
+        kernel.set_arg(5, dY);
+        kernel.set_arg(6, dXBetaVector);
+        kernel.set_arg(7, dOffsExpXBetaVector);
+        kernel.set_arg(8, dDenomPidVector);
+        kernel.set_arg(9, dOffs);
+        kernel.set_arg(10, cvIndexStride);
+        detail::resizeAndCopyToDevice(deltaList, dRealVector1, queue);
+        kernel.set_arg(11, dRealVector1);
+        detail::resizeAndCopyToDevice(indexList, dIntVector1, queue);
+        kernel.set_arg(12, dIntVector1);
+        detail::resizeAndCopyToDevice(cvIndices, dIntVector2, queue);
+        kernel.set_arg(13, dIntVector2);
+        detail::resizeAndCopyToDevice(cvLengths, dIntVector3, queue);
+        kernel.set_arg(14, dIntVector3);
+        detail::resizeAndCopyToDevice(cvOffsets, dIntVector4, queue);
+        kernel.set_arg(15, dIntVector4);
+        int dK = K;
+        kernel.set_arg(16, dK);
+
+        const auto globalWorkSize = blockSize * K * cvIndices.size();
+
+        //std::cout << "globalWorkSize: " << globalWorkSize << "\n";
+
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, blockSize);
+        queue.finish();
 
 #ifdef CYCLOPS_DEBUG_TIMING
         	auto end = bsccs::chrono::steady_clock::now();
         	///////////////////////////"
-        	auto name = "updateXBetaMMG" + getFormatTypeExtension(formatType) + "  ";
+        	auto name = "updateXBetaMMG";
         	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-        }
     	hXBetaKnown = false; // dXBeta was just updated
-
+/*
+    	blah2.resize(K);
+        compute::copy(std::begin(dXBetaVector), std::begin(dXBetaVector)+K, std::begin(blah2), queue);
+    	std::cout << "XBeta0: ";
+    	for (int i=0; i<K; i++) {
+    		std::cout << blah2[i] << " ";
+    	}
+    	std::cout << "\n";
+*/
     }
 
 
@@ -2736,8 +2834,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	kernel.set_arg(0, dColumns.getDataStarts());
         	kernel.set_arg(1, dColumns.getIndicesStarts());
         	kernel.set_arg(2, dColumns.getTaskCounts());
-        	detail::resizeAndCopyToDevice(deltaList[i], dVector1, queue);
-        	kernel.set_arg(3, dVector1);
+        	detail::resizeAndCopyToDevice(deltaList[i], dRealVector1, queue);
+        	kernel.set_arg(3, dRealVector1);
         	kernel.set_arg(4, dColumns.getData());
         	kernel.set_arg(5, dColumns.getIndices());
         	kernel.set_arg(6, dY);
@@ -2748,10 +2846,10 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	kernel.set_arg(11, cvIndexStride);
         	kernel.set_arg(12, tpb*wgs);
         	kernel.set_arg(13, wgs);
-        	detail::resizeAndCopyToDevice(indexList[i], dIndices, queue);
-        	kernel.set_arg(14, dIndices);
-        	detail::resizeAndCopyToDevice(cvIndexList[i], dCVIndices, queue);
-        	kernel.set_arg(15, dCVIndices);
+        	detail::resizeAndCopyToDevice(indexList[i], dIntVector1, queue);
+        	kernel.set_arg(14, dIntVector1);
+        	detail::resizeAndCopyToDevice(cvIndexList[i], dIntVector2, queue);
+        	kernel.set_arg(15, dIntVector2);
 
         	// set work size; no looping
         	const auto globalWorkSize = tpb * wgs * length;
@@ -2812,6 +2910,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
             buildUpdateXBetaKernel(formatType);
             buildUpdateAllXBetaKernel(formatType);
         }
+        buildUpdateXBetaMMKernel();
     }
 
     void buildAllComputeRemainingStatisticsKernels() {
@@ -2886,7 +2985,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 
     SourceCode writeCodeForGetLogLikelihood(bool useWeights, bool isNvidia);
 
-    SourceCode writeCodeForMMUpdateXBetaKernel(FormatType formatType, bool isNvidia);
+    SourceCode writeCodeForMMUpdateXBetaKernel(bool isNvidia);
 
     void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
 
@@ -2941,9 +3040,9 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernel = compute::kernel(program, source.name);
 
-        	//kernel.set_arg(2, dIndices);
-        	//kernel.set_arg(5, dVector1);
-        	//kernel.set_arg(6, dVector2);
+        	//kernel.set_arg(2, dIntVector1);
+        	//kernel.set_arg(5, dRealVector1);
+        	//kernel.set_arg(6, dRealVector2);
         	//kernel.set_arg(9, dKWeight);
 
         	// MM Kernel
@@ -2999,7 +3098,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	// Rcpp::stop("cGH");
 
         	// MM Kernel
-        	if (algorithmType == AlgorithmType::MM) {
+        	//if (algorithmType == AlgorithmType::MM) {
         	source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
         	program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernelMM = compute::kernel(program, source.name);
@@ -3014,13 +3113,14 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	if (useWeights) {
         		kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
             	source = writeCodeForSyncCVMMGradientHessianKernel(formatType, isNvidia);
+            	std::cout << source.body;
             	program = compute::program::build_with_source(source.body, ctx, options.str());
             	auto kernelMMSync = compute::kernel(program, source.name);
         		kernelGradientHessianMMSync[formatType] = std::move(kernelMMSync);
         	} else {
         		kernelGradientHessianMMNoWeight[formatType] = std::move(kernelMM);
         	}
-        	}
+        	//}
 
         	if (algorithmType == AlgorithmType::MM || algorithmType == AlgorithmType::CCDGREEDY) {
         	source = writeCodeForAllGradientHessianKernel(formatType, useWeights, isNvidia);
@@ -3061,22 +3161,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     void buildUpdateXBetaKernel(FormatType formatType) {
         std::stringstream options;
 
-        if (sizeof(real) == 8) {
-#ifdef USE_VECTOR
-        options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << 32;
-#else
-        options << "-DREAL=double -DTMP_REAL=double -DTPB=" << 32;
-#endif // USE_VECTOR
-        } else {
-#ifdef USE_VECTOR
-            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << 32;
-#else
-            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << 32;
-#endif // USE_VECTOR
-        }
-        options << " -cl-mad-enable -cl-fast-relaxed-math";
-
-        //options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
+        options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
         auto source = writeCodeForUpdateXBetaKernel(formatType);
 
@@ -3105,16 +3190,34 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         //std::cout << "program built\n";
         auto kernelSync1 = compute::kernel(program, source.name);
         kernelUpdateXBetaSync1[formatType] = std::move(kernelSync1);
+    }
 
-        auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
-        isNvidia = false;
-        source = writeCodeForMMUpdateXBetaKernel(formatType, isNvidia);
-        std::cout << source.body;
-        program = compute::program::build_with_source(source.body, ctx, options.str());
-        std::cout << "program built\n";
-        auto kernelMM = compute::kernel(program, source.name);
-        kernelUpdateXBetaMM[formatType] = std::move(kernelMM);
+    void buildUpdateXBetaMMKernel() {
+    	std::stringstream options;
 
+    	if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+    		options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << 32;
+#else
+    		options << "-DREAL=double -DTMP_REAL=double -DTPB=" << 32;
+#endif // USE_VECTOR
+    	} else {
+#ifdef USE_VECTOR
+    		options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << 32;
+#else
+    		options << "-DREAL=float -DTMP_REAL=float -DTPB=" << 32;
+#endif // USE_VECTOR
+    	}
+    	options << " -cl-mad-enable -cl-fast-relaxed-math";
+
+    	auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+    	isNvidia = false;
+    	auto source = writeCodeForMMUpdateXBetaKernel(isNvidia);
+    	std::cout << source.body;
+    	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    	std::cout << "program built\n";
+    	auto kernelMM = compute::kernel(program, source.name);
+    	kernelUpdateXBetaMM = std::move(kernelMM);
     }
 
 
@@ -3337,7 +3440,6 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     std::map<FormatType, compute::kernel> kernelUpdateXBeta;
     std::map<FormatType, compute::kernel> kernelUpdateXBetaSync;
     std::map<FormatType, compute::kernel> kernelUpdateXBetaSync1;
-    std::map<FormatType, compute::kernel> kernelUpdateXBetaMM;
     std::map<FormatType, compute::kernel> kernelGradientHessianMMWeighted;
     std::map<FormatType, compute::kernel> kernelGradientHessianMMNoWeight;
     std::map<FormatType, compute::kernel> kernelGradientHessianMMSync;
@@ -3346,6 +3448,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     std::map<FormatType, compute::kernel> kernelGradientHessianSync;
     std::map<FormatType, compute::kernel> kernelGradientHessianSync1;
 
+    compute::kernel kernelUpdateXBetaMM;
     compute::kernel kernelGetGradientObjectiveWeighted;
     compute::kernel kernelGetGradientObjectiveNoWeight;
     compute::kernel kernelComputeRemainingStatistics;
@@ -3386,10 +3489,12 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     int totalCases;
     int maxN;
     int maxCases;
-    compute::vector<real>  dVector1;
-    compute::vector<real>  dVector2;
-    compute::vector<int>  dIndices;
-    compute::vector<int>  dCVIndices;
+    compute::vector<real>  dRealVector1;
+    compute::vector<real>  dRealVector2;
+    compute::vector<int>  dIntVector1;
+    compute::vector<int>  dIntVector2;
+    compute::vector<int>  dIntVector3;
+    compute::vector<int>  dIntVector4;
     compute::vector<real> dXMatrix;
     compute::vector<real> dExpXMatrix;
     bool initialized = false;

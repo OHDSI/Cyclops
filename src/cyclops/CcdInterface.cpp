@@ -671,6 +671,7 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData 
 	    }
 		// Do full fit for optimal parameter
 		driver->resetForOptimal(*ccd, selector, arguments);
+		arguments.modeFinding.algorithmType == AlgorithmType::CCD;
 		fitModel(ccd);
 		if (arguments.fitMLEAtMode) {
 			runFitMLEAtMode(ccd);

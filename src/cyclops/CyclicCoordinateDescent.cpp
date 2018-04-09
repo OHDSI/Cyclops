@@ -834,14 +834,14 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
                                                       int iteration,
                                                       double* lastObjFunc) {
     //if (iteration==1) std::cout << "sizeof real:  " << sizeof(real) << "\n";
-	//std::cout << "" << *lastObjFunc << '\n';
+	std::cout << "" << *lastObjFunc << '\n';
 
     bool done = false;
     double conv;
     bool illconditioned = false;
     if (convergenceType < ZHANG_OLES) {
         double thisObjFunc = getObjectiveFunction(convergenceType);
-        //std::cout << "ObjFunc" << convergenceType << ": " << thisObjFunc << '\n';
+        std::cout << "ObjFunc" << convergenceType << ": " << thisObjFunc << '\n';
         if (thisObjFunc != thisObjFunc) {
             std::ostringstream stream;
             stream << "\nWarning: problem is ill-conditioned for this choice of\n"
@@ -1029,10 +1029,16 @@ void CyclicCoordinateDescent::findMode(
 	    		//std::cout << "indicesToUpdate length: " << indicesToUpdate.size() << "\n";
 	    		allDelta.resize(indicesToUpdate.size());
 	    		mmUpdateAllBeta(allDelta, indicesToUpdate);
+	    		/*
+    			std::cout << "allDelta: " << " ";
+    			for (auto x:allDelta) {
+    				std::cout << x << " ";
+    			}
+    			std::cout << "\n";
+    			*/
 	    		applyBounds(allDelta, indicesToUpdate);
 	    		updateSufficientStatisticsMM(allDelta, indicesToUpdate);
-	            computeRemainingStatistics();
-
+	            computeRemainingStatistics(true, allDelta, indicesToUpdate);
 	    	} else {
 	            mmUpdateAllBeta(allDelta);
 	            updateSufficientStatistics(allDelta);
@@ -1215,6 +1221,7 @@ void CyclicCoordinateDescent::findMode(
                                error->throwError(stream);
                            }
                            */
+                    	   /*
                            double thisObjFunc = getObjectiveFunction(convergenceType);
                            double conv = computeConvergenceCriterion(thisObjFunc, lastObjFunc);
                            if (conv < mmepsilon) {
@@ -1223,6 +1230,7 @@ void CyclicCoordinateDescent::findMode(
                         	   modelSpecifics.setAlgorithmType(AlgorithmType::CCD);
                         	   std::cout << "switch to ccd \n";
                            }
+                           */
                        }
                 	   }
 
@@ -2335,7 +2343,8 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
                                                       int maxIterations,
                                                       int iteration,
                                                       std::vector<double>& lastObjFuncVec) {
-/*
+
+	/*
 	std::cout << "lastObjFunc" << iteration << ": ";
     for (auto x : lastObjFuncVec) {
         std::cout << " " << x;
