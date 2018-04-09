@@ -2186,7 +2186,14 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
-
+	if (syncCV) {
+		auto func = [&](const tbb::blocked_range<int>& range) {
+			for (int k = range.begin(); k < range.end(); ++k) {
+				computeRemainingStatistics(useWeights, k);
+			}
+		};
+		tbb::parallel_for(tbb::blocked_range<int>(0,syncCVFolds),func);
+	} else {
 		auto& xBeta = getXBeta();
 
 		if (BaseModel::likelihoodHasDenominator) {
@@ -2197,7 +2204,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 			}
 			computeAccumlatedDenominator(useWeights); // WAS computeAccumlatedNumerDenom
 		}
-
+	}
 	// std::cerr << "finished MS.cRS" << std::endl;
 
 #ifdef DEBUG_COX

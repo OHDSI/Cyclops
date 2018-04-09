@@ -420,7 +420,52 @@ public:
     virtual void computeRemainingStatistics(bool useWeights) {
 
         //std::cerr << "GPU::cRS called" << std::endl;
+    	if (syncCV) {
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+    	std::vector<int> foldIndices;
+    	size_t count = 0;
+    	for (int cvIndex = 0; cvIndex < syncCVFolds; ++cvIndex) {
+    		foldIndices.push_back(cvIndex);
+    	}
 
+        // get kernel
+        auto& kernel = kernelComputeRemainingStatisticsSync;
+
+        // set kernel args
+        size_t taskCount = cvIndexStride;
+        int dK = K;
+        kernel.set_arg(0, dK);
+        kernel.set_arg(1, dXBetaVector);
+        kernel.set_arg(2, dOffsExpXBetaVector);
+        kernel.set_arg(3, dDenomPidVector);
+        kernel.set_arg(4, dY);
+        kernel.set_arg(5, dOffs);
+        kernel.set_arg(6, dPidVector);
+        kernel.set_arg(7, cvIndexStride);
+        detail::resizeAndCopyToDevice(foldIndices, dIndices, queue);
+        kernel.set_arg(8, dIndices);
+
+        // set work size, no looping
+        size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
+        if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+        	++workGroups;
+        }
+        const size_t globalWorkSize = workGroups * syncCVFolds * detail::constant::updateXBetaBlockSize;
+        int blockSize = workGroups * detail::constant::updateXBetaBlockSize;
+        kernel.set_arg(9, blockSize);
+
+        // run kernel
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
+        queue.finish();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        duration["compRSGSync          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+#endif
+    	} else {
 
         hBuffer.resize(K);
 
@@ -491,14 +536,14 @@ public:
         ///////////////////////////"
         duration["compRSG          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
 #endif
-
+    	}
     }
 
     virtual void computeRemainingStatistics(bool useWeights, std::vector<bool>& fixBeta) {
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
-
+        return;
     	std::vector<int> foldIndices;
     	size_t count = 0;
     	for (int cvIndex = 0; cvIndex < syncCVFolds; ++cvIndex) {
@@ -2602,16 +2647,16 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	kernel.set_arg(5, dColumns.getIndices());
         	kernel.set_arg(6, dY);
         	kernel.set_arg(7, dXBetaVector);
-        	//kernel.set_arg(8, dOffsExpXBetaVector);
-        	//kernel.set_arg(9, dDenomPidVector);
-        	//kernel.set_arg(10, dPidVector);
-        	kernel.set_arg(8, cvIndexStride);
-        	kernel.set_arg(9, tpb*wgs);
-        	kernel.set_arg(10, wgs);
+        	kernel.set_arg(8, dOffsExpXBetaVector);
+        	kernel.set_arg(9, dDenomPidVector);
+        	kernel.set_arg(10, dOffs);
+        	kernel.set_arg(11, cvIndexStride);
+        	kernel.set_arg(12, tpb*wgs);
+        	kernel.set_arg(13, wgs);
         	detail::resizeAndCopyToDevice(indexList[i], dIndices, queue);
-        	kernel.set_arg(11, dIndices);
+        	kernel.set_arg(14, dIndices);
         	detail::resizeAndCopyToDevice(cvIndexList[i], dCVIndices, queue);
-        	kernel.set_arg(12, dCVIndices);
+        	kernel.set_arg(15, dCVIndices);
 
         	// set work size; no looping
         	const auto globalWorkSize = tpb * wgs * length;

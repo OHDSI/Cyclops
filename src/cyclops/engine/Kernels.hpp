@@ -1364,9 +1364,9 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
                 "       __global const int* K,     \n" <<
                 "       __global const REAL* Y,    \n" <<
                 "       __global REAL* xBetaVector,      \n" <<
-                //"       __global REAL* expXBetaVector,   \n" <<
-                //"       __global REAL* denomPidVector,\n" <<
-                //"       __global const int* pIdVector,		\n" <<
+                "       __global REAL* expXBetaVector,   \n" <<
+                "       __global REAL* denomPidVector,\n" <<
+				"		__global REAL* Offs,		\n" <<
 				"		const uint stride,			\n" <<
 				"		const uint indexWorkSize,		\n" <<
 				"		const uint wgs,					\n" <<
@@ -1397,7 +1397,7 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
         code << "       REAL xb = xBetaVector[vecOffset+k] + inc; 		\n" <<
                 "       xBetaVector[vecOffset+k] = xb;                  \n";
         // hack for logistic only
-        /*
+
         if (BaseModel::likelihoodHasDenominator) {
         	code << "REAL y = Y[k];\n" <<
         			"REAL offs = Offs[k];\n";
@@ -1405,7 +1405,7 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
                	code << "expXBetaVector[vecOffset+k] = exb;\n";
            		code << "denomPidVector[vecOffset+k] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
         }
-        */
+
         code << "       task += indexWorkSize;			 				\n";
         code << "   } \n";
         code << "}    \n";

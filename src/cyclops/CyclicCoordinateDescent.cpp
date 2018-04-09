@@ -1863,6 +1863,7 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, std::vec
 void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int index) { // TODO Rename
 	// Separate function for benchmarking
 	if (allStats) {
+		/*
 		if (syncCV) {
 			std::vector<bool> fixBetaTemp;
 			for (int i=0; i<syncCVFolds; i++) {
@@ -1875,6 +1876,7 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 			modelSpecifics.computeRemainingStatistics(useCrossValidation, fixBetaTemp);
 
 		}
+		*/
 		modelSpecifics.computeRemainingStatistics(useCrossValidation);
 	}
 }
@@ -1882,6 +1884,7 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 void CyclicCoordinateDescent::computeRemainingStatistics() { // TODO Rename
 	// Separate function for benchmarking
 	if (syncCV) {
+		/*
 		std::vector<bool> fixBetaTemp;
 		for (int i=0; i<syncCVFolds; i++) {
 			if (donePool[i]) {
@@ -1891,7 +1894,7 @@ void CyclicCoordinateDescent::computeRemainingStatistics() { // TODO Rename
 			}
 		}
 		modelSpecifics.computeRemainingStatistics(useCrossValidation, fixBetaTemp);
-
+*/
 	}
 	modelSpecifics.computeRemainingStatistics(useCrossValidation);
 }
