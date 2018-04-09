@@ -2499,11 +2499,6 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	}
         	detail::resizeAndCopyToDevice(hNormTemp, dNormVector, queue);
 
-        	computeRemainingStatistics(true);
-        	std::vector<bool> tempBool(syncCVFolds, false);
-        	computeRemainingStatistics(true, tempBool);
-        	//kernel.set_arg(12, dNorm);
-
         	this->initializeMmXt();
         	dColumnsXt.initialize(*hXt, queue, K, true);
 
@@ -2542,9 +2537,13 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	kernel.set_arg(7, dOffsExpXBetaVector);
         	kernel.set_arg(8, dDenomPidVector);
         	//detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
-            dBuffer.resize(2 * wgs * length, queue);
+            if (hBuffer.size() < 2*wgs*length) {
+            	hBuffer.resize(2*wgs*length);
+            }
+            if (dBuffer.size() < 2*wgs*length) {
+            	dBuffer.resize(2*wgs*length);
+            }
         	kernel.set_arg(9, dBuffer); // Can get reallocated.
-        	hBuffer.resize(2 * wgs * length);
         	kernel.set_arg(10, dPidVector);
         	if (dKWeightVector.size() == 0) {
         		kernel.set_arg(11, 0);
@@ -2599,11 +2598,104 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 
     }
 
+    void updateXBetaMM(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights) {
+    	std::vector<int> indexList[4];
+        std::vector<int> cvIndexList[4];
+        std::vector<real> deltaList[4];
 
-    void updateXBeta(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights) {
+        int count = 0;
+        for (int i=0; i<updateIndices.size(); i++) {
+        	if (allDelta[i] == 0.0) {
+        		continue;
+        	}
+        	int index = updateIndices[i].first;
+        	indexList[formatList[index]].push_back(index);
+        	cvIndexList[formatList[index]].push_back(updateIndices[i].second);
+        	deltaList[formatList[index]].push_back((real)allDelta[i]);
+        	count++;
+        }
+
+        if (count == 0) {
+        	return;
+        }
+
+        const auto wgs = 4;
+        const auto blockSize = 32;
+
+        for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
+        	FormatType formatType = (FormatType)i;
+        	const auto length = indexList[i].size();
+        	if (length == 0) {
+        		continue;
+        	}
+
+        	std::vector<int> cvIndices;
+        	std::vector<int> cvLengths;
+        	std::vector<int> cvOffsets;
+        	int lastCvIndex = cvIndexList[i][0];
+        	cvIndices.push_back(lastCvIndex);
+        	cvOffsets.push_back(0);
+        	int lastLength = 0;
+        	for (int j=0; j<length; j++) {
+        		int thisCvIndex = cvIndexList[i][j];
+        		if (thisCvIndex > lastCvIndex) {
+        			lastCvIndex = thisCvIndex;
+        			cvIndices.push_back(lastCvIndex);
+        			cvOffsets.push_back(j);
+        			cvLengths.push_back(lastLength);
+        			lastLength = 1;
+        		} else {
+        			lastLength++;
+        		}
+        	}
+        	cvLengths.push_back(lastLength);
+
+        	auto& kernel = kernelUpdateXBetaMM[formatType];
+
+        	kernel.set_arg(0, dColumnsXt.getDataStarts());
+        	kernel.set_arg(1, dColumnsXt.getIndicesStarts());
+        	kernel.set_arg(2, dColumnsXt.getData());
+        	kernel.set_arg(3, dColumnsXt.getIndices());
+        	kernel.set_arg(4, dY);
+        	kernel.set_arg(5, dXBetaVector);
+        	kernel.set_arg(6, dOffsExpXBetaVector);
+        	kernel.set_arg(7, dDenomPidVector);
+        	kernel.set_arg(8, dOffs);
+        	kernel.set_arg(9, cvIndexStride);
+        	detail::resizeAndCopyToDevice(deltaList[i], dVector1, queue);
+        	kernel.set_arg(10, dVector1);
+        	detail::resizeAndCopyToDevice(indexList[i], dIndices, queue);
+        	kernel.set_arg(11, dIndices);
+        	detail::resizeAndCopyToDevice(cvIndices, dCVIndices, queue);
+        	kernel.set_arg(12, dCVIndices);
+        	detail::resizeAndCopyToDevice(cvLengths, dBuffer, queue);
+        	kernel.set_arg(13, dBuffer);
+        	detail::resizeAndCopyToDevice(cvOffsets, dBuffer1, queue);
+        	kernel.set_arg(14, dBuffer1);
+        	int dK = K;
+        	kernel.set_arg(15, dK);
+
+        	const auto globalWorkSize = blockSize * K * cvOffsets.size();
+
+        	queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, blockSize);
+        	queue.finish();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        	auto end = bsccs::chrono::steady_clock::now();
+        	///////////////////////////"
+        	auto name = "updateXBetaMMG" + getFormatTypeExtension(formatType) + "  ";
+        	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+        }
+    	hXBetaKnown = false; // dXBeta was just updated
+
+    }
+
+
+    void updateXBeta(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights) {
         std::vector<int> indexList[4];
         std::vector<int> cvIndexList[4];
         std::vector<int> ogIndexList[4];
@@ -2629,6 +2721,9 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         const auto wgs = 4;
 
         for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
         	FormatType formatType = (FormatType)i;
         	const auto length = indexList[i].size();
         	if (length == 0) {
@@ -2790,6 +2885,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     SourceCode writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia);
 
     SourceCode writeCodeForGetLogLikelihood(bool useWeights, bool isNvidia);
+
+    SourceCode writeCodeForMMUpdateXBetaKernel(FormatType formatType, bool isNvidia);
 
     void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
 
@@ -2962,9 +3059,24 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     }
 
     void buildUpdateXBetaKernel(FormatType formatType) {
-
         std::stringstream options;
-        options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
+
+        if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+        options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << 32;
+#else
+        options << "-DREAL=double -DTMP_REAL=double -DTPB=" << 32;
+#endif // USE_VECTOR
+        } else {
+#ifdef USE_VECTOR
+            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << 32;
+#else
+            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << 32;
+#endif // USE_VECTOR
+        }
+        options << " -cl-mad-enable -cl-fast-relaxed-math";
+
+        //options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
         auto source = writeCodeForUpdateXBetaKernel(formatType);
 
@@ -2990,9 +3102,19 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         source = writeCodeForSync1UpdateXBetaKernel(formatType);
         //std::cout << source.body;
         program = compute::program::build_with_source(source.body, ctx, options.str());
-        std::cout << "program built\n";
+        //std::cout << "program built\n";
         auto kernelSync1 = compute::kernel(program, source.name);
         kernelUpdateXBetaSync1[formatType] = std::move(kernelSync1);
+
+        auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+        isNvidia = false;
+        source = writeCodeForMMUpdateXBetaKernel(formatType, isNvidia);
+        std::cout << source.body;
+        program = compute::program::build_with_source(source.body, ctx, options.str());
+        std::cout << "program built\n";
+        auto kernelMM = compute::kernel(program, source.name);
+        kernelUpdateXBetaMM[formatType] = std::move(kernelMM);
+
     }
 
 
@@ -3215,6 +3337,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     std::map<FormatType, compute::kernel> kernelUpdateXBeta;
     std::map<FormatType, compute::kernel> kernelUpdateXBetaSync;
     std::map<FormatType, compute::kernel> kernelUpdateXBetaSync1;
+    std::map<FormatType, compute::kernel> kernelUpdateXBetaMM;
     std::map<FormatType, compute::kernel> kernelGradientHessianMMWeighted;
     std::map<FormatType, compute::kernel> kernelGradientHessianMMNoWeight;
     std::map<FormatType, compute::kernel> kernelGradientHessianMMSync;

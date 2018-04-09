@@ -2964,6 +2964,11 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
  }
 
 template <class BaseModel,typename WeightType>
+void ModelSpecifics<BaseModel,WeightType>::updateXBetaMM(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights) {
+	updateXBeta(allDelta, updateIndices, useWeights);
+}
+
+template <class BaseModel,typename WeightType>
 void ModelSpecifics<BaseModel,WeightType>::updateXBeta(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights) {
 
 

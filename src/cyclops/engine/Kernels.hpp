@@ -1621,6 +1621,81 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 	        return SourceCode(code.str(), name);
 		}
 
+	template <class BaseModel, typename WeightType, class BaseModelG>
+	    SourceCode
+	    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForMMUpdateXBetaKernel(FormatType formatType, bool isNvidia) {
+
+	        std::string name = "updateXBetaMM" + getFormatTypeExtension(formatType);
+
+	        std::stringstream code;
+	        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+	        code << "__kernel void " << name << "(     \n" <<
+	                "       __global const uint* offXVec,                  \n" <<
+	                "       __global const uint* offKVec,                  \n" <<
+	                "       __global const REAL* X,    \n" <<
+	                "       __global const int* K,     \n" <<
+	                "       __global const REAL* Y,    \n" <<
+	                "       __global REAL* xBetaVector,      \n" <<
+	                "       __global REAL* expXBetaVector,   \n" <<
+	                "       __global REAL* denomPidVector,\n" <<
+					"		__global REAL* Offs,		\n" <<
+					"		const uint stride,			\n" <<
+	                "       __global const REAL* deltaVector,          \n" <<
+					"		__global const int* indices,	\n" <<
+					"		__global const int* cvIndices,	\n" <<
+					"		__global const int* cvLengths,	\n" <<
+					"		__global const int* cvOffsets,	\n" <<
+					"		const uint N) {   \n";
+			code << "   uint lid = get_local_id(0); \n" <<
+					"   uint task = get_global_id(0)%TPB;  \n" <<
+	        		"	__local uint bufferIndex, index, vecOffset, offX, offK;		\n" <<
+					"	bufferIndex = get_group_id(0)/N;	\n" <<
+					"	index = get_group_id(0)%N;			\n" <<
+					"	vecOffset = stride*cvIndices[bufferIndex];			\n" <<
+					"	offX = offXVec[index];				\n" <<
+					"	offK = offKVec[index];				\n" <<
+	                "   __local REAL scratch[TPB];  		\n" <<
+					"	REAL sum = 0;						\n";
+	        code << "   while (task < cvLengths[bufferIndex]) {      				\n";
+	        if (formatType == INDICATOR || formatType == SPARSE) {
+	            code << "   uint k = K[offK + task];        \n";
+	        } else { // DENSE, INTERCEPT
+	            code << "   uint k = task;            		\n";
+	        }
+
+	        if (formatType == SPARSE || formatType == DENSE) {
+	            code << "   REAL inc = deltaVector[cvOffsets[bufferIndex]+task] * X[offX + k]; \n";
+	        } else { // INDICATOR, INTERCEPT
+	            code << "   REAL inc = deltaVector[cvOffsets[bufferIndex]+task];           \n";
+	        }
+
+	        code << "       sum += inc; 					\n" <<
+	        		"		task += TPB;					\n" <<
+					"	}									\n";
+	        code << "   scratch[lid] = sum; \n";
+	        code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
+
+	        code << "   if (lid == 0) { \n" <<
+	        		"	REAL xb = xBetaVector[vecOffset+index] + scratch[0];	\n";
+	                "       xBetaVector[vecOffset+index] = xb; \n";
+	        // hack for logistic only
+
+	        if (BaseModel::likelihoodHasDenominator) {
+	        	code << "REAL y = Y[index];\n" <<
+	        			"REAL offs = Offs[index];\n";
+	        	code << "REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
+	               	code << "expXBetaVector[vecOffset+index] = exb;\n";
+	           		code << "denomPidVector[vecOffset+index] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+	        }
+            code << "   } \n";
+
+	        code << "}  \n"; // End of kernel
+
+	        return SourceCode(code.str(), name);
+	    }
+
+
 
 
 } // namespace bsccs

@@ -1030,7 +1030,7 @@ void CyclicCoordinateDescent::findMode(
 	    		allDelta.resize(indicesToUpdate.size());
 	    		mmUpdateAllBeta(allDelta, indicesToUpdate);
 	    		applyBounds(allDelta, indicesToUpdate);
-	    		updateSufficientStatistics(allDelta, indicesToUpdate);
+	    		updateSufficientStatisticsMM(allDelta, indicesToUpdate);
 	            computeRemainingStatistics();
 
 	    	} else {
@@ -1219,9 +1219,9 @@ void CyclicCoordinateDescent::findMode(
                            double conv = computeConvergenceCriterion(thisObjFunc, lastObjFunc);
                            if (conv < mmepsilon) {
                         	   mm_original = true;
-                        	   algorithmType = AlgorithmType::CCDGREEDY;
-                        	   modelSpecifics.setAlgorithmType(AlgorithmType::CCDGREEDY);
-                        	   std::cout << "switch to greedy ccd \n";
+                        	   algorithmType = AlgorithmType::CCD;
+                        	   modelSpecifics.setAlgorithmType(AlgorithmType::CCD);
+                        	   std::cout << "switch to ccd \n";
                            }
                        }
                 	   }
@@ -2313,6 +2313,20 @@ void CyclicCoordinateDescent::updateSufficientStatistics(std::vector<double>& al
 	    		tbb::parallel_for(tbb::blocked_range<int>(0,count),func);
 	 */
 	modelSpecifics.updateXBeta(allDelta, indicesToUpdate, useCrossValidation);
+}
+
+void CyclicCoordinateDescent::updateSufficientStatisticsMM(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& indicesToUpdate) {
+	for (int i=0; i<allDelta.size(); i++) {
+		int index = indicesToUpdate[i].first;
+		int cvIndex = indicesToUpdate[i].second;
+		hBetaPool[cvIndex][index] += allDelta[i];
+		if (hBetaPool[cvIndex][index] == 0.0 && fixBetaPool[cvIndex][index] == false) {
+			nonZeros[cvIndex]--;
+			fixBetaPool[cvIndex][index] = true;
+			syncCVIterator.fix(index,cvIndex);
+		}
+	}
+	modelSpecifics.updateXBetaMM(allDelta, indicesToUpdate, useCrossValidation);
 }
 
 

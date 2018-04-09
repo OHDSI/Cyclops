@@ -426,6 +426,8 @@ protected:
 
 	void updateSufficientStatistics(std::vector<double>& delta, std::vector<std::pair<int,int>>& indicesToUpdate);
 
+	void updateSufficientStatisticsMM(std::vector<double>& delta, std::vector<std::pair<int,int>>& indicesToUpdate);
+
 	virtual void updateXBeta(std::vector<double> delta, int index);
 
 	bool performCheckConvergence(int convergenceType,

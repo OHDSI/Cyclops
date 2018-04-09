@@ -413,6 +413,8 @@ private:
 
 	virtual void updateXBeta(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights); // pure virtual
 
+	virtual void updateXBetaMM(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights); // pure virtual
+
 };
 
 template <typename WeightType>
