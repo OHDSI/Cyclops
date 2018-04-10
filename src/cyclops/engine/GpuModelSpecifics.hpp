@@ -2507,6 +2507,83 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
+        std::vector<int> cvIndexList;
+        std::vector<bool> cvIndexBool(syncCVFolds, false);
+
+        int stride = J;
+        if (pad) {
+        	stride = detail::getAlignedLength<16>(J);
+        }
+        std::vector<real> deltaList(stride * syncCVFolds,0);
+
+        int length = 0;
+        for (int i=0; i<updateIndices.size(); i++) {
+        	if (allDelta[i] == 0.0) {
+        		continue;
+        	}
+        	int cvIndex = updateIndices[i].second;
+        	cvIndexBool[cvIndex] = true;
+        	deltaList[stride*cvIndex+updateIndices[i].first] = allDelta[i];
+        	length++;
+        }
+
+        if (length == 0) {
+        	return;
+        }
+
+        for (int i=0; i<syncCVFolds; i++) {
+        	if (cvIndexBool[i]) {
+        		cvIndexList.push_back(i);
+        	}
+        }
+
+        const auto blockSize = 32;
+
+        std::vector<int> blah;
+        std::vector<real> blah2;
+
+        auto& kernel = kernelUpdateXBetaMM;
+
+        kernel.set_arg(0, dColumnsXt.getDataStarts());
+        kernel.set_arg(1, dColumnsXt.getIndicesStarts());
+        kernel.set_arg(2, dColumnsXt.getTaskCounts());
+        kernel.set_arg(3, dColumnsXt.getData());
+        kernel.set_arg(4, dColumnsXt.getIndices());
+        kernel.set_arg(5, dY);
+        kernel.set_arg(6, dXBetaVector);
+        kernel.set_arg(7, dOffsExpXBetaVector);
+        kernel.set_arg(8, dDenomPidVector);
+        kernel.set_arg(9, dOffs);
+        kernel.set_arg(10, stride);
+        kernel.set_arg(11, cvIndexStride);
+        detail::resizeAndCopyToDevice(deltaList, dRealVector1, queue);
+        kernel.set_arg(12, dRealVector1);
+        detail::resizeAndCopyToDevice(cvIndexList, dIntVector2, queue);
+        kernel.set_arg(13, dIntVector2);
+        int dK = K;
+        kernel.set_arg(14, dK);
+
+        const auto globalWorkSize = blockSize * K * cvIndexList.size();
+
+        //std::cout << "globalWorkSize: " << globalWorkSize << "\n";
+
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, blockSize);
+        queue.finish();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        	auto end = bsccs::chrono::steady_clock::now();
+        	///////////////////////////"
+        	auto name = "updateXBetaMMSyncCVG";
+        	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+    	hXBetaKnown = false; // dXBeta was just updated
+    }
+
+    /*
+    void updateXBetaMM(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights) {
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
     	std::vector<int> indexList;
         std::vector<int> cvIndexList;
         std::vector<real> deltaList;
@@ -2549,102 +2626,10 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     	cvLengths.push_back(lastLength);
 
         const auto blockSize = 32;
-/*
-    	std::cout << "ddataStarts: ";
-    	blah.resize(dColumns.getDataStarts().size());
-        compute::copy(std::begin(dColumns.getDataStarts()), std::end(dColumns.getDataStarts()), std::begin(blah), queue);
-        for (auto x:blah) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
 
-    	std::cout << "dindicesStarts: ";
-    	blah.resize(dColumns.getIndicesStarts().size());
-        compute::copy(std::begin(dColumns.getIndicesStarts()), std::end(dColumns.getIndicesStarts()), std::begin(blah), queue);
-        for (auto x:blah) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
-
-    	std::cout << "dTaskCounts: ";
-    	blah.resize(dColumns.getTaskCounts().size());
-        compute::copy(std::begin(dColumns.getTaskCounts()), std::end(dColumns.getTaskCounts()), std::begin(blah), queue);
-        for (auto x:blah) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
-        */
         std::vector<int> blah;
         std::vector<real> blah2;
-/*
-    	std::cout << "ddataStartsT: ";
-    	blah.resize(dColumnsXt.getDataStarts().size());
-        compute::copy(std::begin(dColumnsXt.getDataStarts()), std::end(dColumnsXt.getDataStarts()), std::begin(blah), queue);
-        for (auto x:blah) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
 
-    	std::cout << "dindicesStartsT: ";
-    	blah.resize(dColumnsXt.getIndicesStarts().size());
-        compute::copy(std::begin(dColumnsXt.getIndicesStarts()), std::end(dColumnsXt.getIndicesStarts()), std::begin(blah), queue);
-        for (auto x:blah) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
-
-    	std::cout << "dTaskCountsT: ";
-    	blah.resize(dColumnsXt.getTaskCounts().size());
-        compute::copy(std::begin(dColumnsXt.getTaskCounts()), std::end(dColumnsXt.getTaskCounts()), std::begin(blah), queue);
-        for (auto x:blah) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
-
-    	std::cout << "dIndicesT: ";
-    	blah.resize(dColumnsXt.getIndices().size());
-        compute::copy(std::begin(dColumnsXt.getIndices()), std::end(dColumnsXt.getIndices()), std::begin(blah), queue);
-        for (auto x:blah) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
-
-        std::cout << "dDataT size: " << dColumnsXt.getData().size() << "\n";
-    	std::cout << "dDataT: ";
-    	blah2.resize(dColumnsXt.getData().size());
-        compute::copy(std::begin(dColumnsXt.getData()), std::end(dColumnsXt.getData()), std::begin(blah2), queue);
-        for (auto x:blah2) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
-*/
-/*
-        std::cout << "deltaList: ";
-        for (auto x:deltaList) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
-        std::cout << "indexList: ";
-        for (auto x:indexList) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
-        std::cout << "cvIndices: ";
-        for (auto x:cvIndices) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
-        std::cout << "cvLengths: ";
-        for (auto x:cvLengths) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
-        std::cout << "cvOffsets: ";
-        for (auto x:cvOffsets) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
-*/
         auto& kernel = kernelUpdateXBetaMM;
 
         kernel.set_arg(0, dColumnsXt.getDataStarts());
@@ -2685,16 +2670,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
     	hXBetaKnown = false; // dXBeta was just updated
-/*
-    	blah2.resize(K);
-        compute::copy(std::begin(dXBetaVector), std::begin(dXBetaVector)+K, std::begin(blah2), queue);
-    	std::cout << "XBeta0: ";
-    	for (int i=0; i<K; i++) {
-    		std::cout << blah2[i] << " ";
-    	}
-    	std::cout << "\n";
-*/
     }
+    */
 
 
     void updateXBeta(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights) {
@@ -2997,9 +2974,9 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         	// MM Kernel
         	//if (algorithmType == AlgorithmType::MM) {
         	source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
-        	std::cout << source.body;
+        	//std::cout << source.body;
         	program = compute::program::build_with_source(source.body, ctx, options.str());
-        	std::cout << "program built\n";
+        	//std::cout << "program built\n";
         	auto kernelMM = compute::kernel(program, source.name);
 
         	if (useWeights) {

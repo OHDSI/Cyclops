@@ -834,14 +834,14 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
                                                       int iteration,
                                                       double* lastObjFunc) {
     //if (iteration==1) std::cout << "sizeof real:  " << sizeof(real) << "\n";
-	std::cout << "" << *lastObjFunc << '\n';
+	//std::cout << "" << *lastObjFunc << '\n';
 
     bool done = false;
     double conv;
     bool illconditioned = false;
     if (convergenceType < ZHANG_OLES) {
         double thisObjFunc = getObjectiveFunction(convergenceType);
-        std::cout << "ObjFunc" << convergenceType << ": " << thisObjFunc << '\n';
+        //std::cout << "ObjFunc" << convergenceType << ": " << thisObjFunc << '\n';
         if (thisObjFunc != thisObjFunc) {
             std::ostringstream stream;
             stream << "\nWarning: problem is ill-conditioned for this choice of\n"

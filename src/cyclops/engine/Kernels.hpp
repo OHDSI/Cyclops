@@ -1625,6 +1625,88 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 	                "       __global REAL* expXBetaVector,   \n" <<
 	                "       __global REAL* denomPidVector,\n" <<
 					"		__global REAL* Offs,		\n" <<
+					"		const uint deltaStride,			\n" <<
+					"		const uint cvIndexStride,		\n" <<
+	                "       __global const REAL* deltaVector,          \n" <<
+					"		__global const int* cvIndices,	\n" <<
+					"		const uint persons) {   \n";
+			code << "   uint lid = get_local_id(0); \n" <<
+					"   uint task = lid;  \n" <<
+	        		"	__local uint bufferIndex, index, cvIndex, vecOffset, offX, offK;		\n" <<
+					"	bufferIndex = get_group_id(0)/persons;	\n" <<
+					"	index = get_group_id(0)%persons;			\n" <<
+					"	cvIndex = cvIndices[bufferIndex];	\n" <<
+					"	vecOffset = cvIndexStride*cvIndex;	\n" <<
+					"	offX = offXVec[index];				\n" <<
+					"	offK = offKVec[index];				\n" <<
+	                "   __local REAL scratch[TPB];  		\n" <<
+					"	scratch[lid] = 0.0;					\n" <<
+					"	REAL sum = 0.0;						\n" <<
+					"	REAL N = NVec[index];				\n";
+	        code << "   while (task < N) { 					\n" <<
+	        		"	uint k = K[offK+task];				\n";
+	        		/*
+	                // Fused transformation-reduction
+	                if (formatType == INDICATOR || formatType == SPARSE) {
+	                    code << "       uint k = K[offK + task];         \n";
+	                } else { // DENSE, INTERCEPT
+	                    code << "       uint k = task;            \n";
+	                }
+	                if (formatType == SPARSE || formatType == DENSE) {
+	                    code << "       const REAL x = X[offX + task]; \n";
+	                } else { // INDICATOR, INTERCEPT
+	                    // Do nothing
+	                }
+
+	                code << "sum += " << timesX("deltaVector[deltaStride*cvIndex+k]", formatType) << ";\n";
+	                */
+	        code << "	sum += deltaVector[deltaStride*cvIndex+k];	\n" <<
+					"		task += TPB;					\n" <<
+					"	}									\n";
+	        code << "   scratch[lid] = sum; \n";
+	        code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
+	        code << "   if (lid == 0) { \n" <<
+					//"		if (index == 0 && cvIndices[bufferIndex] == 0) {	\n" <<
+					//"			printf(\"writing to %d, value %f\", vecOffset+index, scratch[0]);		\n" <<
+					//"		}									\n" <<
+	        		"		REAL xb = xBetaVector[vecOffset+index] + scratch[0];	\n" <<
+	                "   	xBetaVector[vecOffset+index] = xb; \n";
+	        // hack for logistic only
+	        if (BaseModel::likelihoodHasDenominator) {
+	        	code << "	REAL y = Y[index];\n" <<
+	        			"	REAL offs = Offs[index];\n";
+	        	code << "	REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
+	            code << "	expXBetaVector[vecOffset+index] = exb;\n";
+	            code << "	denomPidVector[vecOffset+index] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+	        }
+            code << "   } \n";
+
+	        code << "}  \n"; // End of kernel
+
+	        return SourceCode(code.str(), name);
+	    }
+
+	/*
+	template <class BaseModel, typename WeightType, class BaseModelG>
+	    SourceCode
+	    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForMMUpdateXBetaKernel(bool isNvidia) {
+
+	        std::string name = "updateXBetaMM";
+
+	        std::stringstream code;
+	        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+	        code << "__kernel void " << name << "(     \n" <<
+	                "       __global const uint* offXVec,                  \n" <<
+	                "       __global const uint* offKVec,                  \n" <<
+					"		__global const uint* NVec,	\n" <<
+	                "       __global const REAL* X,    \n" <<
+	                "       __global const int* K,     \n" <<
+	                "       __global const REAL* Y,    \n" <<
+	                "       __global REAL* xBetaVector,      \n" <<
+	                "       __global REAL* expXBetaVector,   \n" <<
+	                "       __global REAL* denomPidVector,\n" <<
+					"		__global REAL* Offs,		\n" <<
 					"		const uint stride,			\n" <<
 	                "       __global const REAL* deltaVector,          \n" <<
 					"		__global const int* indices,	\n" <<
@@ -1686,7 +1768,7 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 
 	        return SourceCode(code.str(), name);
 	    }
-
+*/
 
 
 
