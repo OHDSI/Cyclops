@@ -607,73 +607,64 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "       __global const REAL* weight,	  \n" <<
 				"		__global const REAL* norm,		  \n" <<
 				//"		const uint index) {\n";
-				"		__global const int* fixBeta,   \n" <<
 				"		const uint indexWorkSize,					\n" <<
 				"		const uint wgs,					\n" <<
 				"		__global const int* indices) {    \n";    // TODO Make weight optional
         // Initialization
         code << "   const uint lid = get_local_id(0); \n" <<
+        		"	__local uint bufferIndex, index, offX, offK, N;	\n" <<
         		//"   const uint loopSize = get_global_size(0); \n" <<
         		//"   uint task = get_global_id(0);  \n" <<
-                "   const uint loopSize = indexWorkSize; \n" <<
-				"	const uint index = indices[get_group_id(0)/wgs];		\n" <<
-				"	if (fixBeta[index] == 0) {					\n" <<
-                "   __local REAL scratch[2][TPB];  \n" <<
+				"	bufferIndex = get_group_id(0)/wgs;		\n" <<
+				"	index = indices[bufferIndex];		\n" <<
                 "   uint task = get_global_id(0)%indexWorkSize;  \n" <<
-				"	const uint offX = offXVec[index];			\n" <<
-				"	const uint offK = offKVec[index];			\n" <<
-				"	const uint N = NVec[index];					\n" <<
+				"	offX = offXVec[index];			\n" <<
+				"	offK = offKVec[index];			\n" <<
+				"	N = NVec[index];				\n" <<
                     // Local and thread storage
 #ifdef USE_VECTOR
                 "   __local TMP_REAL scratch[TPB]; \n" <<
                 "   TMP_REAL sum = 0.0;            \n" <<
 #else
-                "   REAL sum0 = 0.0; \n" <<
+                "   __local REAL scratch[2][TPB];  \n" <<
+				"   REAL sum0 = 0.0; \n" <<
                 "   REAL sum1 = 0.0; \n" <<
 				//"	if (lid == 0) printf(\"index: %d N: %d \", index, N); \n" <<
-
 #endif // USE_VECTOR
                 "   while (task < N) { \n";
-
         // Fused transformation-reduction
-
         if (formatType == INDICATOR || formatType == SPARSE) {
             code << "       const uint k = K[offK + task];         \n";
         } else { // DENSE, INTERCEPT
             code << "       const uint k = task;            \n";
         }
-
         if (formatType == SPARSE || formatType == DENSE) {
             code << "       const REAL x = X[offX + task]; \n";
         } else { // INDICATOR, INTERCEPT
             // Do nothing
         }
-
-        code << "       const REAL exb = expXBeta[k];     	\n" <<
-        		"		const REAL xb = xBeta[k];			\n" <<
-				"		const REAL norm0 = norm[k];				\n" <<
-                "       const REAL numer = " << timesX("exb", formatType) << ";\n" <<
-				"		const REAL denom = denominator[k];	\n";
-        		//"		const REAL denom = (REAL)1.0 + exb;			\n";
+        code << "       REAL exb = expXBeta[k];     	\n" <<
+        		"		REAL xb = xBeta[k];			\n" <<
+				"		REAL norm0 = norm[k];				\n" <<
+                "       REAL numer = " << timesX("exb", formatType) << ";\n" <<
+				"		REAL denom = denominator[k];	\n";
 				//"		const REAL factor = norm[k]/abs(x);				\n" <<
-        //denominator[k]; \n" <<
                 //"       const REAL g = numer / denom;      \n";
-
         if (useWeights) {
             code << "       const REAL w = weight[k];\n";
         }
-
-        code << "       const REAL gradient = " << weight("numer / denom", useWeights) << ";\n";
+        code << "       REAL gradient = " << weight("numer / denom", useWeights) << ";\n";
         code << "		REAL hessian = 0.0;			\n";
-
         if (formatType == INDICATOR || formatType == INTERCEPT) {
-            // code << "       hessian  = gradient  * norm0 / denom;				\n";
-            code << "       hessian  = " << weight("numer*norm0/denom/denom",useWeights) << ";\n";
+            code << "       hessian  = gradient  * norm0 / denom;				\n";
+            //code << "       hessian  = " << weight("numer*norm0/denom/denom",useWeights) << ";\n";
         } else {
-        	code << "if (x != 0.0) { \n";
-            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
-            		"       hessian  = " << weight("nume2 * norm0 / fabs(x) / denom / denom", useWeights) << ";\n";
-            code << "} \n";
+        	code << "if (x != 0.0) { \n" <<
+        			//"		REAL nume2 = " << timesX("gradient", formatType) << "\n" <<
+					//"		hessian = nume2 * norm0 / fabs(x) / denom " <<
+        			"       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+					"       hessian  = " << weight("nume2 * norm0 / fabs(x) / denom / denom", useWeights) << ";\n" <<
+            		"} \n";
         }
 
 #ifdef USE_VECTOR
@@ -682,9 +673,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
         code << "       sum0 += gradient; \n" <<
                 "       sum1 += hessian;  \n";
 #endif // USE_VECTOR
-
         // Bookkeeping
-        code << "       task += loopSize; \n" <<
+        code << "       task += indexWorkSize; \n" <<
                 "   } \n" <<
                     // Thread -> local
 #ifdef USE_VECTOR
@@ -706,16 +696,10 @@ static std::string weight(const std::string& arg, bool useWeights) {
 #ifdef USE_VECTOR
                 "       buffer[get_group_id(0)] = scratch[0]; \n" <<
 #else
-                //"       buffer[get_group_id(0) + 2*get_num_groups(0)*index] = scratch[0][0]; \n" <<
-                //"       buffer[get_group_id(0) + get_num_groups(0) + 2*get_num_groups(0)*index] = scratch[1][0]; \n" <<
-				//"       buffer[get_group_id(0)%wgs + 2*wgs*index] = scratch[0][0]; \n" <<
-                //"       buffer[get_group_id(0)%wgs + wgs + 2*wgs*index] = scratch[1][0]; \n" <<
-				"       buffer[get_group_id(0)%wgs + index*wgs*2] = scratch[0][0]; \n" <<
-				"       buffer[get_group_id(0)%wgs + index*wgs*2 + wgs] = scratch[1][0]; \n" <<
-
+                "       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2] = scratch[0][0]; \n" <<
+                "       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2+wgs] = scratch[1][0]; \n";
 
 #endif // USE_VECTOR
-                "   } \n";
         code << "}\n";
 
         code << "}  \n"; // End of kernel

@@ -210,6 +210,8 @@ public:
 
 	virtual void axpyXBeta(const double beta, const int j, int cvIndex);
 
+	virtual void copyXBetaVec() {};
+
 	virtual const RealVector& getXBeta(int index);
 
 	virtual void computeGradientAndHessian(int index, double* gradient,

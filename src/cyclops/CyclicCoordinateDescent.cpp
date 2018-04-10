@@ -1041,6 +1041,13 @@ void CyclicCoordinateDescent::findMode(
 	            computeRemainingStatistics(true, allDelta, indicesToUpdate);
 	    	} else {
 	            mmUpdateAllBeta(allDelta);
+	            /*
+    			std::cout << "allDelta: " << " ";
+    			for (auto x:allDelta) {
+    				std::cout << x << " ";
+    			}
+    			std::cout << "\n";
+    			*/
 	            updateSufficientStatistics(allDelta);
 	            computeRemainingStatistics();
 	    	}
@@ -1774,6 +1781,7 @@ void CyclicCoordinateDescent::computeXBeta(void) {
 					axpyXBeta(hBetaPool[i][j], j, i);
 				}
 			}
+			modelSpecifics.copyXBetaVec();
 		} else {
 			for (int j = 0; j < J; ++j) {
 				axpyXBeta(hBeta[j], j);

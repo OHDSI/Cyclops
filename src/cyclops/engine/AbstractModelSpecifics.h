@@ -165,6 +165,7 @@ public:
 
 	virtual void computeGradientAndHessian(std::vector<GradientHessian>& gh, const std::vector<std::pair<int,int>>& updateIndices) = 0; // pure virtual
 
+	virtual void copyXBetaVec() = 0;
 	std::vector<RealVector> accDenomPidPool;
 	std::vector<RealVector> accNumerPidPool;
 	std::vector<RealVector> accNumerPid2Pool;
