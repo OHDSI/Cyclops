@@ -417,6 +417,7 @@ public:
         //printAllKernels(std::cerr);
     }
 
+    // updates everything
     virtual void computeRemainingStatistics(bool useWeights) {
 
         //std::cerr << "GPU::cRS called" << std::endl;
@@ -539,6 +540,7 @@ public:
     	}
     }
 
+    // for syncCV, does nothing right now because hacking LR
     virtual void computeRemainingStatistics(bool useWeights, std::vector<bool>& fixBeta) {
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
@@ -595,8 +597,8 @@ public:
 
     }
 
-    void computeGradientAndHessian(int index, double *ogradient,
-                                           double *ohessian, bool useWeights) {
+    // single ccd
+    void computeGradientAndHessian(int index, double *ogradient, double *ohessian, bool useWeights) {
 
 #ifdef GPU_DEBUG
         ModelSpecifics<BaseModel, WeightType>::computeGradientAndHessian(index, ogradient, ohessian, useWeights);
@@ -1090,924 +1092,7 @@ public:
 
     }
 
-	virtual void computeMMGradientAndHessian(
-			std::vector<GradientHessian>& ghList,
-			const std::vector<bool>& fixBeta,
-			bool useWeights) {
-
-        /*
-        if (!dXBetaKnown) {
-        	//compute::copy(std::begin(hBeta), std::end(hBeta), std::begin(dBeta), queue);
-            compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
-            dXBetaKnown = true;
-        }
-        */
-
-        // initialize
-        if (!initialized) {
-	        this->initializeMM(boundType);
-		    detail::resizeAndCopyToDevice(norm, dNorm, queue);
-
-		    std::cerr << "\n";
-		    computeRemainingStatistics(true);
-	    	//kernel.set_arg(12, dNorm);
-
-	        this->initializeMmXt();
-	        dColumnsXt.initialize(*hXt, queue, K, true);
-
-        	initialized = true;
-        }
-
-        std::vector<int> indexList[4];
-        for (int i=0; i<J; i++) {
-        	if (!fixBeta[i]) {
-        	    indexList[formatList[i]].push_back(i);
-        	}
-        }
-
-        const auto wgs = maxWgs;
-        const auto globalWorkSize = tpb * wgs;
-        //detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
-
-        for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto start = bsccs::chrono::steady_clock::now();
-#endif
-            FormatType formatType = (FormatType)i;
-            int length = indexList[i].size();
-        	if (length == 0) {
-        		continue;
-        	}
-        	 auto& kernel = (useWeights) ? // Double-dispatch
-        	        		kernelGradientHessianMMWeighted[formatType] :
-        					kernelGradientHessianMMNoWeight[formatType];
-
-        	 kernel.set_arg(0, dColumns.getDataStarts());
-        	 kernel.set_arg(1, dColumns.getIndicesStarts());
-        	 kernel.set_arg(2, dColumns.getTaskCounts());
-        	 kernel.set_arg(3, dColumns.getData());
-        	 kernel.set_arg(4, dColumns.getIndices());
-        	 kernel.set_arg(5, dY);
-        	 kernel.set_arg(6, dXBeta);
-        	 kernel.set_arg(7, dExpXBeta);
-        	 kernel.set_arg(8, dDenominator);
-        	 //detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
-        	 dBuffer.resize(2*wgs*length,queue);
-        	 hBuffer.resize(2*wgs*length);
-        	 kernel.set_arg(9, dBuffer); // Can get reallocated.
-        	 kernel.set_arg(10, dId);
-        	 if (dKWeight.size() == 0) {
-        		 kernel.set_arg(11, 0);
-        	 } else {
-        		 kernel.set_arg(11, dKWeight); // TODO Only when dKWeight gets reallocated
-        	 }
-        	 kernel.set_arg(12, dNorm);
-        	 //int dJ = indicesFormats[formatType].size();
-        	 kernel.set_arg(13, globalWorkSize);
-        	 kernel.set_arg(14, wgs);
-        	 detail::resizeAndCopyToDevice(indexList[i], dIntVector1, queue);
-        	 kernel.set_arg(15, dIntVector1);
-
-        	 // set work size; yes looping
-        	 //const auto wgs = maxWgs;
-        	 //const auto globalWorkSize = tpb * wgs;
-
-        	 // run kernel
-        	 queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize*length, tpb);
-        	 queue.finish();
-
-             compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
-
-             for (int k = 0; k < length; k++) {
-             	int index = indexList[formatType][k];
-
-             	for (int j = 0; j < wgs; ++j) { // TODO Use SSE
-             		ghList[index].first += hBuffer[j+2*wgs*k];
-             		ghList[index].second  += hBuffer[j + wgs+2*wgs*k];
-             	}
-
-             	if (BaseModel::precomputeGradient) { // Compile-time switch
-             		ghList[index].first -= hXjY[index];
-             	}
-
-             	if (BaseModel::precomputeHessian) { // Compile-time switch
-             		ghList[index].second += static_cast<real>(2.0) * hXjX[index];
-             	}
-             }
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto end = bsccs::chrono::steady_clock::now();
-            ///////////////////////////"
-            auto name = "compGradHessMMG" + getFormatTypeExtension(formatType) + " ";
-            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
-        }
-
-	}
-/*
-	virtual void computeMMGradientAndHessian(
-				std::vector<GradientHessian>& gh,
-				const std::vector<std::pair<int,int>>& updateIndices) {
-	#ifdef CYCLOPS_DEBUG_TIMING
-	        auto start = bsccs::chrono::steady_clock::now();
-	#endif
-	        // initialize
-	        int length = updateIndices.size();
-	        if (!initialized) {
-	        	hBuffer0.resize(2*length);
-	        	for (int i=0; i< 2*length; ++i) {
-	        		hBuffer0[i] = 0;
-	        	}
-	        	hBuffer.resize(2*length);
-
-	        	this->initializeMM(boundType);
-	        	detail::resizeAndCopyToDevice(norm, dNorm, queue);
-
-	        	std::vector<real> hNormTemp;
-	        	int garbage;
-	        	for (int i=0; i<syncCVFolds; i++) {
-	        		//std::cout << "hNWeightPool size" << i << ": " << hNWeightPool[i].size() << "\n";
-	        		appendAndPad(normPool[i], hNormTemp, garbage, pad);
-	        	}
-	        	detail::resizeAndCopyToDevice(hNormTemp, dNormVector, queue);
-
-	        	computeRemainingStatistics(true);
-	        	std::vector<bool> tempBool(syncCVFolds, false);
-	        	computeRemainingStatistics(true, tempBool);
-	        	//kernel.set_arg(12, dNorm);
-
-	        	this->initializeMmXt();
-	        	dColumnsXt.initialize(*hXt, queue, K, true);
-
-	        	initialized = true;
-	        }
-
-	        if (hBuffer0.size() < 2*length) {
-	        	hBuffer0.resize(2*length);
-	        	for (int i=0; i<2*length; i++) {
-	        		hBuffer0[i] = 0;
-	        	}
-	        }
-	        if (hBuffer.size() < hBuffer0.size()) {
-	        	hBuffer.resize(hBuffer0.size());
-	        }
-	        detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
-
-	        const auto wgs = 1;
-	        const auto globalWorkSize = tpb * wgs;
-
-	        std::vector<int> indexList[4];
-	        std::vector<int> cvIndexList[4];
-
-	        for (int i=0; i<length; i++) {
-	        	int index = updateIndices[i].first;
-	        	indexList[formatList[index]].push_back(index);
-	        	cvIndexList[formatList[index]] = updateIndices[i].second;
-	        }
-
-	        for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
-	            FormatType formatType = (FormatType)i;
-	        	if (indexList[formatType].size() == 0) {
-	        		continue;
-	        	}
-	        	 auto& kernel = (useWeights) ? // Double-dispatch
-	        	        		kernelGradientHessianMMSyncWeighted[formatType] :
-	        					kernelGradientHessianMMSyncNoWeight[formatType];
-
-	        	 kernel.set_arg(0, dColumns.getDataStarts());
-	        	 kernel.set_arg(1, dColumns.getIndicesStarts());
-	        	 kernel.set_arg(2, dColumns.getTaskCounts());
-	        	 kernel.set_arg(3, dColumns.getData());
-	        	 kernel.set_arg(4, dColumns.getIndices());
-	        	 kernel.set_arg(6, dXBetaVector);
-	        	 kernel.set_arg(7, dOffsExpXBetaVector);
-	        	 kernel.set_arg(8, dDenomPidVector);
-	        	 //detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
-	        	 kernel.set_arg(9, dBuffer); // Can get reallocated.
-	        	 kernel.set_arg(10, dPidVector);
-	        	 if (dKWeight.size() == 0) {
-	        		 kernel.set_arg(11, 0);
-	        	 } else {
-	        		 kernel.set_arg(11, dKWeightVector); // TODO Only when dKWeight gets reallocated
-	        	 }
-	        	 kernel.set_arg(12, dNormVector);
-	        	 kernel.set_arg(13, globalWorkSize);
-	        	 detail::resizeAndCopyToDevice(indicesFormats[formatType], dIntVector1, queue);
-	        	 kernel.set_arg(16, dIntVector1);
-
-	        	 // set work size; yes looping
-	        	 //const auto wgs = maxWgs;
-	        	 //const auto globalWorkSize = tpb * wgs;
-
-	        	 // run kernel
-	        	 queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize*indicesFormats[formatType].size(), tpb);
-	        	 queue.finish();
-	        }
-
-			hBuffer.resize(2*maxWgs*J);
-	    	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
-
-
-	    	for (int j = 0; j < J; ++j) {
-	    		for (int i = 0; i < wgs; ++i) { // TODO Use SSE
-	    			gh[j].first += hBuffer[i + 2*j*wgs];
-	    			gh[j].second += hBuffer[i + wgs + 2*j*wgs];
-	    		}
-	    	}
-
-	    	if (BaseModel::precomputeGradient) { // Compile-time switch
-	    		for (int j=0; j < J; ++j) {
-	    			gh[j].first -= hXjY[j];
-	    		}
-	    	}
-
-	    	if (BaseModel::precomputeHessian) { // Compile-time switch
-	    		for (int j = 0; j < J; ++j) {
-	    			gh[j].second += static_cast<real>(2.0) * hXjX[j];
-	    		}
-	    	}
-
-	#ifdef CYCLOPS_DEBUG_TIMING
-	    	auto end = bsccs::chrono::steady_clock::now();
-	    	///////////////////////////"
-	    	auto name = "compGradHessMMG";
-	    	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-	#endif
-
-		}
-		*/
-
-
-	virtual void computeAllGradientAndHessian(
-			std::vector<GradientHessian>& gh,
-			const std::vector<bool>& fixBeta,
-			bool useWeights) {
-
-        std::vector<int> indexList[4];
-        std::vector<int> ogIndexList[4];
-
-        int count;
-
-        for (int i=0; i<J; i++) {
-        	if (!fixBeta[i]) {
-        		indexList[formatList[i]].push_back(i);
-        		ogIndexList[formatList[i]].push_back(i);
-        		count++;
-        	}
-        }
-
-        if (count == 0) {
-        	return;
-        }
-
-        const auto wgs = maxWgs;
-        //const auto globalWorkSize = tpb * wgs;
-
-        for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto start = bsccs::chrono::steady_clock::now();
-#endif
-            FormatType formatType = (FormatType)i;
-            int length = indexList[i].size();
-        	if (length == 0) {
-        		continue;
-        	}
-        	 auto& kernel = (useWeights) ? // Double-dispatch
-        	        		kernelGradientHessianAllWeighted[formatType] :
-        					kernelGradientHessianAllNoWeight[formatType];
-
-        	 kernel.set_arg(0, dColumns.getDataStarts());
-        	 kernel.set_arg(1, dColumns.getIndicesStarts());
-        	 kernel.set_arg(2, dColumns.getTaskCounts());
-        	 kernel.set_arg(3, dColumns.getData());
-        	 kernel.set_arg(4, dColumns.getIndices());
-        	 kernel.set_arg(5, dY);
-        	 kernel.set_arg(6, dXBeta);
-        	 kernel.set_arg(7, dExpXBeta);
-        	 kernel.set_arg(8, dDenominator);
-        	 //detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
-        	 if (dBuffer.size() < 2*wgs*J) {
-        		 dBuffer.resize(2*wgs*J, queue);
-        	 }
-        	 kernel.set_arg(9, dBuffer); // Can get reallocated.
-        	 kernel.set_arg(10, dId);
-        	 if (dKWeight.size() == 0) {
-        		 kernel.set_arg(11, 0);
-        	 } else {
-        		 kernel.set_arg(11, dKWeight); // TODO Only when dKWeight gets reallocated
-        	 }
-        	 kernel.set_arg(12, tpb*wgs);
-        	 kernel.set_arg(13, wgs);
-        	 detail::resizeAndCopyToDevice(indexList[formatType], dIntVector1, queue);
-        	 kernel.set_arg(14, dIntVector1);
-
-
-        	 // set work size; yes looping
-        	 //const auto wgs = maxWgs;
-        	 const auto globalWorkSize = tpb * wgs * length;
-
-        	 // run kernel
-        	 queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
-        	 queue.finish();
-
-        	 hBuffer.resize(2*wgs*length);
-        	 compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
-
-        	 for (int j=0; j<length; j++) {
-        		 int index = ogIndexList[formatType][j];
-        		 for (int k=0; k<wgs; k++) {
-        			 gh[index].first += hBuffer[j*wgs+k];
-        			 gh[index].second += hBuffer[j*wgs+k+length*wgs];
-        		 }
-        		 if (BaseModel::precomputeGradient) { // Compile-time switch
-        			 gh[index].first -= hXjY[index];
-        		 }
-
-        		 if (BaseModel::precomputeHessian) { // Compile-time switch
-        			 gh[index].second += static_cast<real>(2.0) * hXjX[index];
-        		 }
-        	 }
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto end = bsccs::chrono::steady_clock::now();
-            ///////////////////////////"
-            auto name = "compGradHessAllG" + getFormatTypeExtension(formatType) + " ";
-            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
-        }
-
-        /*
-        if (!dXBetaKnown) {
-        	//compute::copy(std::begin(hBeta), std::end(hBeta), std::begin(dBeta), queue);
-            compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
-            dXBetaKnown = true;
-        }
-        */
-
-/*
-    	std::cerr << "dBuffer:";
-    	for (auto x : dBuffer) {
-    		std::cerr << " " << x;
-    	}
-        std::cerr << "\n";
-        */
-	}
-
-
-    virtual void updateXBeta(real realDelta, int index, bool useWeights) {
-#ifdef GPU_DEBUG
-        ModelSpecifics<BaseModel, WeightType>::updateXBeta(realDelta, index, useWeights);
-#endif // GPU_DEBUG
-
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto start = bsccs::chrono::steady_clock::now();
-#endif
-        // get kernel
-        auto& kernel = kernelUpdateXBeta[modelData.getFormatType(index)];
-
-        const auto taskCount = dColumns.getTaskCount(index);
-
-        // set kernel args
-        kernel.set_arg(0, dColumns.getDataOffset(index));
-        kernel.set_arg(1, dColumns.getIndicesOffset(index));
-        kernel.set_arg(2, taskCount);
-        kernel.set_arg(3, realDelta);
-        kernel.set_arg(4, dColumns.getData());
-        kernel.set_arg(5, dColumns.getIndices());
-
-        // set work size; no looping
-        size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
-        if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
-            ++workGroups;
-        }
-        const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
-
-        // run kernel
-        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
-        queue.finish();
-
-        hXBetaKnown = false; // dXBeta was just updated
-
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto end = bsccs::chrono::steady_clock::now();
-        ///////////////////////////"
-        auto name = "updateXBetaG" + getFormatTypeExtension(modelData.getFormatType(index)) + "  ";
-        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
-
-#ifdef GPU_DEBUG
-        // Compare results:
-        detail::compare(hXBeta, dXBeta, "xBeta not equal");
-        detail::compare(offsExpXBeta, dExpXBeta, "expXBeta not equal");
-        detail::compare(denomPid, dDenominator, "denominator not equal");
-#endif // GPU_DEBUG
-    }
-
-    virtual void updateXBeta(std::vector<double>& realDelta, int index, bool useWeights) {
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto start = bsccs::chrono::steady_clock::now();
-#endif
-
-        std::vector<int> foldIndices;
-        size_t count = 0;
-        for (int cvIndex = 0; cvIndex < syncCVFolds; ++cvIndex) {
-        	if (realDelta[cvIndex]!=0.0) {
-        		++count;
-        		foldIndices.push_back(cvIndex);
-        	}
-        }
-
-        if (count==0) {
-        	return;
-        }
-
-        // get kernel
-        auto& kernel = kernelUpdateXBetaSync[modelData.getFormatType(index)];
-
-        const auto taskCount = dColumns.getTaskCount(index);
-        const auto localstride = detail::getAlignedLength<16>(taskCount);
-
-        // set kernel args
-        kernel.set_arg(0, dColumns.getDataOffset(index));
-        kernel.set_arg(1, dColumns.getIndicesOffset(index));
-        kernel.set_arg(2, taskCount);
-        detail::resizeAndCopyToDevice(realDelta, dRealVector1, queue);
-        kernel.set_arg(3, dRealVector1);
-        kernel.set_arg(4, dColumns.getData());
-        kernel.set_arg(5, dColumns.getIndices());
-        kernel.set_arg(6, dY);
-        kernel.set_arg(7, dXBetaVector);
-        kernel.set_arg(8, dOffsExpXBetaVector);
-        kernel.set_arg(9, dDenomPidVector);
-        kernel.set_arg(10, dPidVector);
-        int dK = K;
-        kernel.set_arg(11, cvIndexStride);
-        detail::resizeAndCopyToDevice(foldIndices, dIntVector1, queue);
-        kernel.set_arg(12, dIntVector1);
-        //kernel.set_arg(13, localstride);
-
-        // set work size; no looping
-        size_t workGroups = localstride / detail::constant::updateXBetaBlockSize;
-        if (localstride % detail::constant::updateXBetaBlockSize != 0) {
-            ++workGroups;
-        }
-        const size_t globalWorkSize = workGroups * count * detail::constant::updateXBetaBlockSize;
-        int blockSize = workGroups * detail::constant::updateXBetaBlockSize;
-        kernel.set_arg(13, blockSize);
-
-        // run kernel
-        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
-        queue.finish();
-
-        hXBetaKnown = false; // dXBeta was just updated
-
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto end = bsccs::chrono::steady_clock::now();
-        ///////////////////////////"
-        auto name = "updateXBetaSyncCVG" + getFormatTypeExtension(modelData.getFormatType(index)) + "  ";
-        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
-    }
-
-    virtual void updateAllXBeta(std::vector<double>& allDelta, bool useWeights) {
-#ifdef GPU_DEBUG
-        ModelSpecifics<BaseModel, WeightType>::updateXBeta(realDelta, index, useWeights);
-#endif // GPU_DEBUG
-
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto start = bsccs::chrono::steady_clock::now();
-#endif
-
-        // get kernel
-        auto& kernel = kernelUpdateAllXBeta[hXt->getFormatType(0)];
-
-        // set kernel args
-        kernel.set_arg(0, dColumnsXt.getDataStarts());
-        kernel.set_arg(1, dColumnsXt.getIndicesStarts());
-        kernel.set_arg(2, dColumnsXt.getTaskCounts());
-        detail::resizeAndCopyToDevice(allDelta, dAllDelta, queue);
-        kernel.set_arg(3, dAllDelta);
-        kernel.set_arg(4, dColumnsXt.getData());
-        kernel.set_arg(5, dColumnsXt.getIndices());
-        kernel.set_arg(6, dY);
-        kernel.set_arg(7, dXBeta);
-    	const auto wgs = 1;
-    	const auto globalWorkSize = detail::constant::updateAllXBetaBlockSize * wgs;
-        kernel.set_arg(10, globalWorkSize);
-        kernel.set_arg(11, wgs);
-        std::vector<int> hFixBeta;
-        hFixBeta.resize(J);
-        for (int i=0; i<J; ++i) {
-        	if (allDelta[i]==0) {
-        		hFixBeta[i] = 1;
-        	} else {
-        		hFixBeta[i] = 0;
-        	}
-        	//hFixBeta[i] = fixBeta[i];
-        }
-        detail::resizeAndCopyToDevice(hFixBeta, dFixBeta, queue);
-        kernel.set_arg(12, dFixBeta);
-
-        /*
-        	size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
-        	if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
-        		++workGroups;
-        	}
-
-        	const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
-         */
-        // set work size; yes looping
-        // run kernel
-        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize*K, detail::constant::updateAllXBetaBlockSize);
-        queue.finish();
-
-        hXBetaKnown = false; // dXBeta was just updated
-
-        /*
-        hBuffer.resize(K);
-        compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hBuffer), queue);
-        std::cout << "hXBeta: ";
-        for (auto x:hBuffer) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
-        */
-
-
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto end = bsccs::chrono::steady_clock::now();
-        ///////////////////////////"
-        auto name = "updateAllXBetaG" + getFormatTypeExtension(hXt->getFormatType(0)) + "  ";
-        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
-    }
-
-    virtual double getGradientObjective(bool useCrossValidation) {
-#ifdef GPU_DEBUG
-        ModelSpecifics<BaseModel, WeightType>::getGradientObjective(useCrossValidation);
-        std::cerr << *ogradient << " & " << *ohessian << std::endl;
-#endif // GPU_DEBUG
-
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto start = bsccs::chrono::steady_clock::now();
-#endif
-
-        compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
-        return ModelSpecifics<BaseModel,WeightType>::getGradientObjective(useCrossValidation);
-/*
-        //FormatType formatType = FormatType::DENSE;
-
-        auto& kernel = (useCrossValidation) ? // Double-dispatch
-                            kernelGetGradientObjectiveWeighted :
-							kernelGetGradientObjectiveNoWeight;
-
-        const auto wgs = maxWgs;
-        const auto globalWorkSize = tpb * wgs;
-
-        int dK = K;
-        kernel.set_arg(0, dK);
-        kernel.set_arg(1, dY);
-        kernel.set_arg(2, dXBeta);
-        dBuffer.resize(2 * maxWgs, queue);
-        kernel.set_arg(3, dBuffer); // Can get reallocated.
-        hBuffer.resize(2 * maxWgs);
-        if (dKWeight.size() == 0) {
-            kernel.set_arg(4, 0);
-        } else {
-            kernel.set_arg(4, dKWeight); // TODO Only when dKWeight gets reallocated
-        }
-
-        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
-        queue.finish();
-
-        compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
-
-        double objective = 0.0;
-
-        for (int i = 0; i < wgs; ++i) { // TODO Use SSE
-        	objective += hBuffer[i];
-        }
-
-#ifdef GPU_DEBUG
-        std::cerr << gradient << " & " << hessian << std::endl << std::endl;
-#endif // GPU_DEBUG
-
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto end = bsccs::chrono::steady_clock::now();
-        ///////////////////////////"
-        auto name = "compGradObj";
-        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
-        return(objective);
- */
-    }
-
-    double getLogLikelihood(bool useCrossValidation) {
-
-#ifdef CYCLOPS_DEBUG_TIMING
-    	auto start = bsccs::chrono::steady_clock::now();
-#endif
-        auto& kernel = (useCrossValidation) ? // Double-dispatch
-                            kernelGetLogLikelihoodWeighted :
-							kernelGetLogLikelihoodNoWeight;
-
-        const auto wgs = maxWgs;
-        const auto globalWorkSize = tpb * wgs;
-
-        int dK = K;
-        int dN = N;
-        // Run-time constant arguments.
-        kernel.set_arg(0, dK);
-        kernel.set_arg(1, dN);
-        kernel.set_arg(2, dY);
-        kernel.set_arg(3, dXBeta);
-        kernel.set_arg(4, dDenominator);
-        kernel.set_arg(5, dAccDenominator);
-        dBuffer.resize(wgs, queue);
-        kernel.set_arg(6, dBuffer); // Can get reallocated.
-        hBuffer.resize(wgs);
-        if (dKWeight.size() == 0) {
-        	kernel.set_arg(7, 0);
-        } else {
-        	kernel.set_arg(7, dKWeight); // TODO Only when dKWeight gets reallocated
-        }
-        if (dNWeight.size() == 0) {
-        	kernel.set_arg(7, 0);
-        } else {
-        	kernel.set_arg(8, dNWeight); // TODO Only when dKWeight gets reallocated
-        }
-
-        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
-        queue.finish();
-
-        compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
-
-        double logLikelihood = 0.0;
-
-        for (int i = 0; i < wgs; ++i) { // TODO Use SSE
-        	logLikelihood += hBuffer[i];
-        }
-
-        if (BaseModel::likelihoodHasFixedTerms) {
-        	logLikelihood += logLikelihoodFixedTerm;
-        }
-
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto end = bsccs::chrono::steady_clock::now();
-        ///////////////////////////"
-        duration["compLogLikeG      "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
-
-        return(logLikelihood);
-    }
-
-
-virtual void setWeights(double* inWeights, bool useCrossValidation) {
-        // Currently only computed on CPU and then copied to GPU
-        ModelSpecifics<BaseModel, WeightType>::setWeights(inWeights, useCrossValidation);
-
-        detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
-        detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
-    }
-
-virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex) {
-	ModelSpecifics<BaseModel,WeightType>::setWeights(inWeights, useCrossValidation, cvIndex);
-	if (cvIndex == syncCVFolds - 1) {
-		std::vector<real> hNWeightTemp;
-		std::vector<real> hKWeightTemp;
-		int garbage;
-		for (int i=0; i<syncCVFolds; i++) {
-			//std::cout << "hNWeightPool size" << i << ": " << hNWeightPool[i].size() << "\n";
-        	appendAndPad(hNWeightPool[i], hNWeightTemp, garbage, pad);
-        	appendAndPad(hKWeightPool[i], hKWeightTemp, garbage, pad);
-		}
-        detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
-        detail::resizeAndCopyToDevice(hKWeightTemp, dKWeightVector, queue);
-	}
-}
-
-    virtual const RealVector& getXBeta() {
-        if (!hXBetaKnown) {
-            compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
-            hXBetaKnown = true;
-        }
-        return ModelSpecifics<BaseModel,WeightType>::getXBeta();
-    }
-
-    virtual const RealVector& getXBetaSave() {
-        return ModelSpecifics<BaseModel,WeightType>::getXBetaSave();
-    }
-
-    virtual void saveXBeta() {
-        if (!hXBetaKnown) {
-            compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
-            hXBetaKnown = true;
-        }
-        ModelSpecifics<BaseModel,WeightType>::saveXBeta();
-    }
-
-    virtual void zeroXBeta() {
-
-        //std::cerr << "GPU::zXB called" << std::endl;
-
-        ModelSpecifics<BaseModel,WeightType>::zeroXBeta(); // touches hXBeta
-        if (syncCV) {
-        	std::vector<real> temp;
-        	int garbage;
-        	for (int  i=0; i<syncCVFolds; i++) {
-        		appendAndPad(hXBetaPool[i], temp, garbage, pad);
-        	}
-            detail::resizeAndCopyToDevice(temp, dXBetaVector, queue);
-        } else {
-            detail::resizeAndCopyToDevice(hXBeta, dXBeta, queue);
-        }
-
-        //dXBetaKnown = false;
-    }
-
-    virtual void axpyXBeta(const double beta, const int j) {
-
-        //std::cerr << "GPU::aXB called" << std::endl;
-
-        ModelSpecifics<BaseModel,WeightType>::axpyXBeta(beta, j); // touches hXBeta
-        detail::resizeAndCopyToDevice(hXBeta, dXBeta, queue);
-
-        //dXBetaKnown = false;
-    }
-
-    virtual void axpyXBeta(const double beta, const int j, int cvIndex) {
-
-    	ModelSpecifics<BaseModel,WeightType>::axpyXBeta(beta, j, cvIndex);
-    	//compute::copy(std::begin(hXBetaPool[cvIndex]), std::end(hXBetaPool[cvIndex]), std::begin(dXBetaVector)+cvIndexStride * cvIndex, queue);
-    }
-
-    virtual void copyXBetaVec() {
-    	std::vector<real> temp;
-    	int garbage;
-    	for (int  i=0; i<syncCVFolds; i++) {
-    		appendAndPad(hXBetaPool[i], temp, garbage, pad);
-    	}
-    	detail::resizeAndCopyToDevice(temp, dXBetaVector, queue);
-    }
-
-    virtual void computeNumeratorForGradient(int index) {
-    }
-
-    virtual void computeNumeratorForGradient(int index, int cvIndex) {
-    }
-
-    // need to do pid for acc
-    virtual double getPredictiveLogLikelihood(double* weights) {
-        compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(denomPid), queue);
-        compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
-        compute::copy(std::begin(dKWeight), std::end(dKWeight), std::begin(hKWeight), queue);
-
-        std::vector<real> saveKWeight;
-        if(BaseModel::cumulativeGradientAndHessian)	{
-        	saveKWeight = hKWeight; // make copy
-        	// 		std::vector<int> savedPid = hPidInternal; // make copy
-        	// 		std::vector<int> saveAccReset = accReset; // make copy
-        	this->setPidForAccumulation(weights);
-        	computeRemainingStatistics(true); // compute accDenomPid
-        }
-
-        // Compile-time switch for models with / with-out PID (hasIndependentRows)
-        auto range = helper::getRangeAllPredictiveLikelihood(K, hY, hXBeta,
-        		(BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
-        				weights, hPid, std::integral_constant<bool, BaseModel::hasIndependentRows>());
-
-        auto kernel = TestPredLikeKernel<BaseModel,real>();
-
-        real logLikelihood = variants::reduce(
-        		range.begin(), range.end(), static_cast<real>(0.0),
-				kernel,
-				SerialOnly()
-        );
-
-        if (BaseModel::cumulativeGradientAndHessian) {
-        	// 		hPidInternal = savedPid; // make copy; TODO swap
-        	// 		accReset = saveAccReset; // make copy; TODO swap
-        	this->setPidForAccumulation(&saveKWeight[0]);
-        	computeRemainingStatistics(true);
-        }
-
-        return static_cast<double>(logLikelihood);
-
-    }   // END OF DIFF
-
-    double getPredictiveLogLikelihood(double* weights, int cvIndex) {
-    	compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
-    	compute::copy(std::begin(dDenomPidVector)+cvIndexStride*cvIndex, std::begin(dDenomPidVector)+cvIndexStride*cvIndex+K, std::begin(denomPidPool[cvIndex]), queue);
-    	return ModelSpecifics<BaseModel, WeightType>::getPredictiveLogLikelihood(weights, cvIndex);
-    }
-
-
-    void getPredictiveEstimates(double* y, double* weights){
-
-    	// TODO Check with SM: the following code appears to recompute hXBeta at large expense
-    //	std::vector<real> xBeta(K,0.0);
-    //	for(int j = 0; j < J; j++){
-    //		GenericIterator it(modelData, j);
-    //		for(; it; ++it){
-    //			const int k = it.index();
-    //			xBeta[k] += it.value() * hBeta[j] * weights[k];
-    //		}
-    //	}
-        compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
-        ModelSpecifics<BaseModel, WeightType>::getPredictiveEstimates(y,weights);
-    	// TODO How to remove code duplication above?
-    }
-
-    void turnOnSyncCV(int foldToCompute) {
-    	ModelSpecifics<BaseModel, WeightType>::turnOnSyncCV(foldToCompute);
-
-    	syncCV = true;
-    	pad = true;
-    	syncCVFolds = foldToCompute;
-
-    	//int dataStart = 0;
-    	int garbage = 0;
-
-        std::vector<real> hNWeightTemp;
-        std::vector<real> hKWeightTemp;
-        //std::vector<real> accDenomPidTemp;
-        //std::vector<real> accNumerPidTemp;
-        //std::vector<real> accNumerPid2Temp;
-        //std::vector<int> accResetTemp;
-        std::vector<int> hPidTemp;
-        //std::vector<int> hPidInternalTemp;
-        std::vector<real> hXBetaTemp;
-        std::vector<real> offsExpXBetaTemp;
-        std::vector<real> denomPidTemp;
-        //std::vector<real> numerPidTemp;
-        //std::vector<real> numerPid2Temp;
-        //std::vector<real> hXjYTemp;
-        //std::vector<real> hXjXTemp;
-        //std::vector<real> logLikelihoodFixedTermTemp;
-        //std::vector<IndexVectorPtr> sparseIndicesTemp;
-        //std::vector<real> normTemp;
-
-        //std::vector<int> cvIndexOffsets;
-
-        for (int i=0; i<foldToCompute; ++i) {
-        	//cvIndexOffsets.push_back(indices1);
-        	appendAndPad(hNWeight, hNWeightTemp, garbage, pad);
-        	appendAndPad(hKWeight, hKWeightTemp, garbage, pad);
-        	//appendAndPad(accDenomPid, accDenomPidTemp, garbage, true);
-        	//appendAndPad(accNumerPid, accNumerPidTemp, garbage, true);
-        	//appendAndPad(accNumerPid2, accNumerPid2Temp, garbage, true);
-        	//appendAndPad(accReset, accResetTemp, garbage, true);
-        	//appendAndPad(hPidInternal, hPidInternalTemp, garbage, true);
-        	appendAndPad(hXBeta, hXBetaTemp, garbage, pad);
-        	appendAndPad(offsExpXBeta, offsExpXBetaTemp, garbage, pad);
-        	appendAndPad(denomPid, denomPidTemp, garbage, pad);
-        	//appendAndPad(numerPid, numerPidTemp, garbage, true);
-        	//appendAndPad(numerPid2, numerPid2Temp, garbage, true);
-        	//appendAndPad(hXjY, hXjYTemp, garbage, false);
-        	//appendAndPad(hXjX, hXjXTemp, garbage, false);
-        	//appendAndPad(sparseIndices, sparseIndicesTemp, garbage, false);
-        	//appendAndPad(norm, normTemp, garbage, false);
-        }
-        if (pad) {
-        	cvIndexStride = detail::getAlignedLength<16>(K);
-        } else {
-        	cvIndexStride = K;
-        }
-        std::cout << "cvStride: " << cvIndexStride << "\n";
-
-        for (int i=0; i<foldToCompute; ++i) {
-        	for (int n=0; n<K; ++n) {
-        		hPidTemp.push_back(hPid[n]);
-        	}
-        	for (int n=K; n<cvIndexStride; ++n) {
-        		hPidTemp.push_back(-1);
-        	}
-        	//logLikelihoodFixedTermTemp.push_back(logLikelihoodFixedTerm);
-        }
-
-        detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
-        detail::resizeAndCopyToDevice(hKWeightTemp, dKWeightVector, queue);
-        //detail::resizeAndCopyToDevice(accDenomPidTemp, dAccDenomPidVector, queue);
-        //detail::resizeAndCopyToDevice(accNumerPidTemp, dAccNumerPidVector, queue);
-        //detail::resizeAndCopyToDevice(accNumerPid2Temp, dAccNumerPid2Vector, queue);
-        //detail::resizeAndCopyToDevice(accResetTemp, dAccResetVector, queue);
-        detail::resizeAndCopyToDevice(hPidTemp, dPidVector, queue);
-        //detail::resizeAndCopyToDevice(hPidInternalTemp, dPidInternalVector, queue);
-        detail::resizeAndCopyToDevice(hXBetaTemp, dXBetaVector, queue);
-        detail::resizeAndCopyToDevice(offsExpXBetaTemp, dOffsExpXBetaVector, queue);
-        detail::resizeAndCopyToDevice(denomPidTemp, dDenomPidVector, queue);
-        //detail::resizeAndCopyToDevice(numerPidTemp, dNumerPidVector, queue);
-        //detail::resizeAndCopyToDevice(numerPid2Temp, dNumerPid2Vector, queue);
-        //detail::resizeAndCopyToDevice(hXjYTemp, dXjYVector, queue);
-        //detail::resizeAndCopyToDevice(hXjXTemp, dXjXVector, queue);
-        //detail::resizeAndCopyToDevice(logLikelihoodFixedTermTemp, dLogLikelihoodFixedTermVector, queue);
-        //detail::resizeAndCopyToDevice(sparseIndicesTemp, dSpareIndicesVector, queue);
-        //detail::resizeAndCopyToDevice(normTemp, dNormVector, queue);
-        //detail::resizeAndCopyToDevice(cvIndexOffsets, dcvIndexOffsets, queue);
-    }
-
-    void turnOffSyncCV() {
-    	syncCV = false;
-    }
-
+    // syncCV ccd, single index, not using
     void computeGradientAndHessian(int index, std::vector<priors::GradientHessian>& ghList, std::vector<bool>& fixBeta, bool useWeights) {
 
 #ifdef GPU_DEBUG
@@ -2148,9 +1233,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 
     }
 
-    void computeGradientAndHessian(
-    		std::vector<GradientHessian>& ghList,
-    		const std::vector<std::pair<int,int>>& updateIndices) {
+    // syncCV ccd
+    void computeGradientAndHessian(std::vector<GradientHessian>& ghList, const std::vector<std::pair<int,int>>& updateIndices) {
 
 #ifdef GPU_DEBUG
         ModelSpecifics<BaseModel, WeightType>::computeGradientAndHessian(index, ogradient, ohessian, useWeights);
@@ -2251,9 +1335,120 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         }
     }
 
-    void computeMMGradientAndHessian(
-    		std::vector<GradientHessian>& ghList,
-    		const std::vector<std::pair<int,int>>& updateIndices) {
+    // single mm
+	virtual void computeMMGradientAndHessian(std::vector<GradientHessian>& ghList, const std::vector<bool>& fixBeta, bool useWeights) {
+
+        /*
+        if (!dXBetaKnown) {
+        	//compute::copy(std::begin(hBeta), std::end(hBeta), std::begin(dBeta), queue);
+            compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
+            dXBetaKnown = true;
+        }
+        */
+
+        // initialize
+        if (!initialized) {
+	        this->initializeMM(boundType);
+		    detail::resizeAndCopyToDevice(norm, dNorm, queue);
+
+		    std::cerr << "\n";
+		    computeRemainingStatistics(true);
+	    	//kernel.set_arg(12, dNorm);
+
+	        this->initializeMmXt();
+	        dColumnsXt.initialize(*hXt, queue, K, true);
+
+        	initialized = true;
+        }
+
+        std::vector<int> indexList[4];
+        for (int i=0; i<J; i++) {
+        	if (!fixBeta[i]) {
+        	    indexList[formatList[i]].push_back(i);
+        	}
+        }
+
+        const auto wgs = maxWgs;
+        const auto globalWorkSize = tpb * wgs;
+        //detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
+
+        for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+            FormatType formatType = (FormatType)i;
+            int length = indexList[i].size();
+        	if (length == 0) {
+        		continue;
+        	}
+        	 auto& kernel = (useWeights) ? // Double-dispatch
+        	        		kernelGradientHessianMMWeighted[formatType] :
+        					kernelGradientHessianMMNoWeight[formatType];
+
+        	 kernel.set_arg(0, dColumns.getDataStarts());
+        	 kernel.set_arg(1, dColumns.getIndicesStarts());
+        	 kernel.set_arg(2, dColumns.getTaskCounts());
+        	 kernel.set_arg(3, dColumns.getData());
+        	 kernel.set_arg(4, dColumns.getIndices());
+        	 kernel.set_arg(5, dY);
+        	 kernel.set_arg(6, dXBeta);
+        	 kernel.set_arg(7, dExpXBeta);
+        	 kernel.set_arg(8, dDenominator);
+        	 //detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
+        	 dBuffer.resize(2*wgs*length,queue);
+        	 hBuffer.resize(2*wgs*length);
+        	 kernel.set_arg(9, dBuffer); // Can get reallocated.
+        	 kernel.set_arg(10, dId);
+        	 if (dKWeight.size() == 0) {
+        		 kernel.set_arg(11, 0);
+        	 } else {
+        		 kernel.set_arg(11, dKWeight); // TODO Only when dKWeight gets reallocated
+        	 }
+        	 kernel.set_arg(12, dNorm);
+        	 //int dJ = indicesFormats[formatType].size();
+        	 kernel.set_arg(13, globalWorkSize);
+        	 kernel.set_arg(14, wgs);
+        	 detail::resizeAndCopyToDevice(indexList[i], dIntVector1, queue);
+        	 kernel.set_arg(15, dIntVector1);
+
+        	 // set work size; yes looping
+        	 //const auto wgs = maxWgs;
+        	 //const auto globalWorkSize = tpb * wgs;
+
+        	 // run kernel
+        	 queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize*length, tpb);
+        	 queue.finish();
+
+             compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+
+             for (int k = 0; k < length; k++) {
+             	int index = indexList[formatType][k];
+
+             	for (int j = 0; j < wgs; ++j) { // TODO Use SSE
+             		ghList[index].first += hBuffer[j+2*wgs*k];
+             		ghList[index].second  += hBuffer[j + wgs+2*wgs*k];
+             	}
+
+             	if (BaseModel::precomputeGradient) { // Compile-time switch
+             		ghList[index].first -= hXjY[index];
+             	}
+
+             	if (BaseModel::precomputeHessian) { // Compile-time switch
+             		ghList[index].second += static_cast<real>(2.0) * hXjX[index];
+             	}
+             }
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name = "compGradHessMMG" + getFormatTypeExtension(formatType) + " ";
+            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+        }
+
+	}
+
+	// syncCV mm
+    void computeMMGradientAndHessian(std::vector<GradientHessian>& ghList, const std::vector<std::pair<int,int>>& updateIndices) {
 
 #ifdef GPU_DEBUG
         ModelSpecifics<BaseModel, WeightType>::computeGradientAndHessian(index, ogradient, ohessian, useWeights);
@@ -2376,6 +1571,316 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
 
     }
 
+    // greedy ccd
+	virtual void computeAllGradientAndHessian(std::vector<GradientHessian>& gh, const std::vector<bool>& fixBeta, bool useWeights) {
+
+        std::vector<int> indexList[4];
+        std::vector<int> ogIndexList[4];
+
+        int count;
+
+        for (int i=0; i<J; i++) {
+        	if (!fixBeta[i]) {
+        		indexList[formatList[i]].push_back(i);
+        		ogIndexList[formatList[i]].push_back(i);
+        		count++;
+        	}
+        }
+
+        std::cout << "made indexList\n";
+
+        if (count == 0) {
+        	return;
+        }
+
+        const auto wgs = maxWgs;
+        //const auto globalWorkSize = tpb * wgs;
+
+        for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+            FormatType formatType = (FormatType)i;
+            int length = indexList[i].size();
+        	if (length == 0) {
+        		continue;
+        	}
+        	 auto& kernel = (useWeights) ? // Double-dispatch
+        	        		kernelGradientHessianAllWeighted[formatType] :
+        					kernelGradientHessianAllNoWeight[formatType];
+
+        	 kernel.set_arg(0, dColumns.getDataStarts());
+        	 kernel.set_arg(1, dColumns.getIndicesStarts());
+        	 kernel.set_arg(2, dColumns.getTaskCounts());
+        	 kernel.set_arg(3, dColumns.getData());
+        	 kernel.set_arg(4, dColumns.getIndices());
+        	 kernel.set_arg(5, dY);
+        	 kernel.set_arg(6, dXBeta);
+        	 kernel.set_arg(7, dExpXBeta);
+        	 kernel.set_arg(8, dDenominator);
+        	 //detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
+        	 if (dBuffer.size() < 2*wgs*length) {
+        		 dBuffer.resize(2*wgs*length, queue);
+        	 }
+        	 kernel.set_arg(9, dBuffer); // Can get reallocated.
+        	 kernel.set_arg(10, dId);
+        	 if (dKWeight.size() == 0) {
+        		 kernel.set_arg(11, 0);
+        	 } else {
+        		 kernel.set_arg(11, dKWeight); // TODO Only when dKWeight gets reallocated
+        	 }
+        	 kernel.set_arg(12, tpb*wgs);
+        	 kernel.set_arg(13, wgs);
+        	 detail::resizeAndCopyToDevice(indexList[formatType], dIntVector1, queue);
+        	 kernel.set_arg(14, dIntVector1);
+
+
+        	 // set work size; yes looping
+        	 //const auto wgs = maxWgs;
+        	 const auto globalWorkSize = tpb * wgs * length;
+
+        	 // run kernel
+        	 queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
+        	 std::cout << "kernel launched\n";
+        	 queue.finish();
+
+        	 std::cout << "kernel finished\n";
+
+        	 hBuffer.resize(2*wgs*length);
+        	 compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs*length, std::begin(hBuffer), queue);
+
+        	 for (int j=0; j<length; j++) {
+        		 int index = ogIndexList[formatType][j];
+        		 for (int k=0; k<wgs; k++) {
+        			 gh[index].first += hBuffer[j*wgs+k];
+        			 gh[index].second += hBuffer[j*wgs+k+length*wgs];
+        		 }
+        		 if (BaseModel::precomputeGradient) { // Compile-time switch
+        			 gh[index].first -= hXjY[index];
+        		 }
+
+        		 if (BaseModel::precomputeHessian) { // Compile-time switch
+        			 gh[index].second += static_cast<real>(2.0) * hXjX[index];
+        		 }
+        	 }
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name = "compGradHessAllG" + getFormatTypeExtension(formatType) + " ";
+            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+        }
+
+        /*
+        if (!dXBetaKnown) {
+        	//compute::copy(std::begin(hBeta), std::end(hBeta), std::begin(dBeta), queue);
+            compute::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta), queue);
+            dXBetaKnown = true;
+        }
+        */
+
+/*
+    	std::cerr << "dBuffer:";
+    	for (auto x : dBuffer) {
+    		std::cerr << " " << x;
+    	}
+        std::cerr << "\n";
+        */
+	}
+
+	// single index
+    virtual void updateXBeta(real realDelta, int index, bool useWeights) {
+#ifdef GPU_DEBUG
+        ModelSpecifics<BaseModel, WeightType>::updateXBeta(realDelta, index, useWeights);
+#endif // GPU_DEBUG
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+        // get kernel
+        auto& kernel = kernelUpdateXBeta[modelData.getFormatType(index)];
+
+        const auto taskCount = dColumns.getTaskCount(index);
+
+        // set kernel args
+        kernel.set_arg(0, dColumns.getDataOffset(index));
+        kernel.set_arg(1, dColumns.getIndicesOffset(index));
+        kernel.set_arg(2, taskCount);
+        kernel.set_arg(3, realDelta);
+        kernel.set_arg(4, dColumns.getData());
+        kernel.set_arg(5, dColumns.getIndices());
+
+        // set work size; no looping
+        size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
+        if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+            ++workGroups;
+        }
+        const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+
+        // run kernel
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
+        queue.finish();
+
+        hXBetaKnown = false; // dXBeta was just updated
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        auto name = "updateXBetaG" + getFormatTypeExtension(modelData.getFormatType(index)) + "  ";
+        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef GPU_DEBUG
+        // Compare results:
+        detail::compare(hXBeta, dXBeta, "xBeta not equal");
+        detail::compare(offsExpXBeta, dExpXBeta, "expXBeta not equal");
+        detail::compare(denomPid, dDenominator, "denominator not equal");
+#endif // GPU_DEBUG
+    }
+
+    // single index syncCV, not using
+    virtual void updateXBeta(std::vector<double>& realDelta, int index, bool useWeights) {
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+        std::vector<int> foldIndices;
+        size_t count = 0;
+        for (int cvIndex = 0; cvIndex < syncCVFolds; ++cvIndex) {
+        	if (realDelta[cvIndex]!=0.0) {
+        		++count;
+        		foldIndices.push_back(cvIndex);
+        	}
+        }
+
+        if (count==0) {
+        	return;
+        }
+
+        // get kernel
+        auto& kernel = kernelUpdateXBetaSync[modelData.getFormatType(index)];
+
+        const auto taskCount = dColumns.getTaskCount(index);
+        const auto localstride = detail::getAlignedLength<16>(taskCount);
+
+        // set kernel args
+        kernel.set_arg(0, dColumns.getDataOffset(index));
+        kernel.set_arg(1, dColumns.getIndicesOffset(index));
+        kernel.set_arg(2, taskCount);
+        detail::resizeAndCopyToDevice(realDelta, dRealVector1, queue);
+        kernel.set_arg(3, dRealVector1);
+        kernel.set_arg(4, dColumns.getData());
+        kernel.set_arg(5, dColumns.getIndices());
+        kernel.set_arg(6, dY);
+        kernel.set_arg(7, dXBetaVector);
+        kernel.set_arg(8, dOffsExpXBetaVector);
+        kernel.set_arg(9, dDenomPidVector);
+        kernel.set_arg(10, dPidVector);
+        int dK = K;
+        kernel.set_arg(11, cvIndexStride);
+        detail::resizeAndCopyToDevice(foldIndices, dIntVector1, queue);
+        kernel.set_arg(12, dIntVector1);
+        //kernel.set_arg(13, localstride);
+
+        // set work size; no looping
+        size_t workGroups = localstride / detail::constant::updateXBetaBlockSize;
+        if (localstride % detail::constant::updateXBetaBlockSize != 0) {
+            ++workGroups;
+        }
+        const size_t globalWorkSize = workGroups * count * detail::constant::updateXBetaBlockSize;
+        int blockSize = workGroups * detail::constant::updateXBetaBlockSize;
+        kernel.set_arg(13, blockSize);
+
+        // run kernel
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
+        queue.finish();
+
+        hXBetaKnown = false; // dXBeta was just updated
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        auto name = "updateXBetaSyncCVG" + getFormatTypeExtension(modelData.getFormatType(index)) + "  ";
+        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+    }
+
+    // syncCV ccd
+    void updateXBeta(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights) {
+        std::vector<int> indexList[4];
+        std::vector<int> cvIndexList[4];
+        std::vector<int> ogIndexList[4];
+        std::vector<real> deltaList[4];
+
+        int count = 0;
+        for (int i=0; i<updateIndices.size(); i++) {
+        	if (allDelta[i] == 0.0) {
+        		continue;
+        	}
+        	int index = updateIndices[i].first;
+        	indexList[formatList[index]].push_back(index);
+        	cvIndexList[formatList[index]].push_back(updateIndices[i].second);
+        	ogIndexList[formatList[index]].push_back(i);
+        	deltaList[formatList[index]].push_back((real)allDelta[i]);
+        	count++;
+        }
+
+        if (count == 0) {
+        	return;
+        }
+
+        const auto wgs = 4;
+
+        for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+        	FormatType formatType = (FormatType)i;
+        	const auto length = indexList[i].size();
+        	if (length == 0) {
+        		continue;
+        	}
+        	// get kernel
+        	auto& kernel = kernelUpdateXBetaSync1[formatType];
+
+        	// set kernel args
+        	kernel.set_arg(0, dColumns.getDataStarts());
+        	kernel.set_arg(1, dColumns.getIndicesStarts());
+        	kernel.set_arg(2, dColumns.getTaskCounts());
+        	detail::resizeAndCopyToDevice(deltaList[i], dRealVector1, queue);
+        	kernel.set_arg(3, dRealVector1);
+        	kernel.set_arg(4, dColumns.getData());
+        	kernel.set_arg(5, dColumns.getIndices());
+        	kernel.set_arg(6, dY);
+        	kernel.set_arg(7, dXBetaVector);
+        	kernel.set_arg(8, dOffsExpXBetaVector);
+        	kernel.set_arg(9, dDenomPidVector);
+        	kernel.set_arg(10, dOffs);
+        	kernel.set_arg(11, cvIndexStride);
+        	kernel.set_arg(12, tpb*wgs);
+        	kernel.set_arg(13, wgs);
+        	detail::resizeAndCopyToDevice(indexList[i], dIntVector1, queue);
+        	kernel.set_arg(14, dIntVector1);
+        	detail::resizeAndCopyToDevice(cvIndexList[i], dIntVector2, queue);
+        	kernel.set_arg(15, dIntVector2);
+
+        	// set work size; no looping
+        	const auto globalWorkSize = tpb * wgs * length;
+
+        	queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
+        	queue.finish();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        	auto end = bsccs::chrono::steady_clock::now();
+        	///////////////////////////"
+        	auto name = "updateXBetaSyncCV1G" + getFormatTypeExtension(formatType) + "  ";
+        	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+        }
+    	hXBetaKnown = false; // dXBeta was just updated
+    }
+
+    // syncCV mm
     void updateXBetaMM(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights) {
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
@@ -2452,6 +1957,7 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     	hXBetaKnown = false; // dXBeta was just updated
     }
 
+    // less efficient syncCV mm
     /*
     void updateXBetaMM(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights) {
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -2546,83 +2052,142 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     }
     */
 
+    // single mm
+    virtual void updateAllXBeta(std::vector<double>& allDelta, bool useWeights) {
+#ifdef GPU_DEBUG
+        ModelSpecifics<BaseModel, WeightType>::updateXBeta(realDelta, index, useWeights);
+#endif // GPU_DEBUG
 
-    void updateXBeta(std::vector<double>& allDelta, std::vector<std::pair<int,int>>& updateIndices, bool useWeights) {
-        std::vector<int> indexList[4];
-        std::vector<int> cvIndexList[4];
-        std::vector<int> ogIndexList[4];
-        std::vector<real> deltaList[4];
-
-        int count = 0;
-        for (int i=0; i<updateIndices.size(); i++) {
-        	if (allDelta[i] == 0.0) {
-        		continue;
-        	}
-        	int index = updateIndices[i].first;
-        	indexList[formatList[index]].push_back(index);
-        	cvIndexList[formatList[index]].push_back(updateIndices[i].second);
-        	ogIndexList[formatList[index]].push_back(i);
-        	deltaList[formatList[index]].push_back((real)allDelta[i]);
-        	count++;
-        }
-
-        if (count == 0) {
-        	return;
-        }
-
-        const auto wgs = 4;
-
-        for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
-        	FormatType formatType = (FormatType)i;
-        	const auto length = indexList[i].size();
-        	if (length == 0) {
-        		continue;
+
+        // get kernel
+        auto& kernel = kernelUpdateAllXBeta[hXt->getFormatType(0)];
+
+        // set kernel args
+        kernel.set_arg(0, dColumnsXt.getDataStarts());
+        kernel.set_arg(1, dColumnsXt.getIndicesStarts());
+        kernel.set_arg(2, dColumnsXt.getTaskCounts());
+        detail::resizeAndCopyToDevice(allDelta, dAllDelta, queue);
+        kernel.set_arg(3, dAllDelta);
+        kernel.set_arg(4, dColumnsXt.getData());
+        kernel.set_arg(5, dColumnsXt.getIndices());
+        kernel.set_arg(6, dY);
+        kernel.set_arg(7, dXBeta);
+    	const auto wgs = 1;
+    	const auto globalWorkSize = detail::constant::updateAllXBetaBlockSize * wgs;
+        kernel.set_arg(10, globalWorkSize);
+        kernel.set_arg(11, wgs);
+        std::vector<int> hFixBeta;
+        hFixBeta.resize(J);
+        for (int i=0; i<J; ++i) {
+        	if (allDelta[i]==0) {
+        		hFixBeta[i] = 1;
+        	} else {
+        		hFixBeta[i] = 0;
         	}
-        	// get kernel
-        	auto& kernel = kernelUpdateXBetaSync1[formatType];
+        	//hFixBeta[i] = fixBeta[i];
+        }
+        detail::resizeAndCopyToDevice(hFixBeta, dFixBeta, queue);
+        kernel.set_arg(12, dFixBeta);
 
-        	// set kernel args
-        	kernel.set_arg(0, dColumns.getDataStarts());
-        	kernel.set_arg(1, dColumns.getIndicesStarts());
-        	kernel.set_arg(2, dColumns.getTaskCounts());
-        	detail::resizeAndCopyToDevice(deltaList[i], dRealVector1, queue);
-        	kernel.set_arg(3, dRealVector1);
-        	kernel.set_arg(4, dColumns.getData());
-        	kernel.set_arg(5, dColumns.getIndices());
-        	kernel.set_arg(6, dY);
-        	kernel.set_arg(7, dXBetaVector);
-        	kernel.set_arg(8, dOffsExpXBetaVector);
-        	kernel.set_arg(9, dDenomPidVector);
-        	kernel.set_arg(10, dOffs);
-        	kernel.set_arg(11, cvIndexStride);
-        	kernel.set_arg(12, tpb*wgs);
-        	kernel.set_arg(13, wgs);
-        	detail::resizeAndCopyToDevice(indexList[i], dIntVector1, queue);
-        	kernel.set_arg(14, dIntVector1);
-        	detail::resizeAndCopyToDevice(cvIndexList[i], dIntVector2, queue);
-        	kernel.set_arg(15, dIntVector2);
+        /*
+        	size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
+        	if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+        		++workGroups;
+        	}
 
-        	// set work size; no looping
-        	const auto globalWorkSize = tpb * wgs * length;
+        	const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+         */
+        // set work size; yes looping
+        // run kernel
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize*K, detail::constant::updateAllXBetaBlockSize);
+        queue.finish();
 
-        	queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
-        	queue.finish();
+        hXBetaKnown = false; // dXBeta was just updated
+
+        /*
+        hBuffer.resize(K);
+        compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hBuffer), queue);
+        std::cout << "hXBeta: ";
+        for (auto x:hBuffer) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
+        */
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
-        	auto end = bsccs::chrono::steady_clock::now();
-        	///////////////////////////"
-        	auto name = "updateXBetaSyncCV1G" + getFormatTypeExtension(formatType) + "  ";
-        	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+        auto end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        auto name = "updateAllXBetaG" + getFormatTypeExtension(hXt->getFormatType(0)) + "  ";
+        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-        }
-    	hXBetaKnown = false; // dXBeta was just updated
     }
 
+    // letting modelspecifics handle it, but kernel available
+    virtual double getGradientObjective(bool useCrossValidation) {
+#ifdef GPU_DEBUG
+        ModelSpecifics<BaseModel, WeightType>::getGradientObjective(useCrossValidation);
+        std::cerr << *ogradient << " & " << *ohessian << std::endl;
+#endif // GPU_DEBUG
 
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
 
+        compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
+        return ModelSpecifics<BaseModel,WeightType>::getGradientObjective(useCrossValidation);
+/*
+        //FormatType formatType = FormatType::DENSE;
+
+        auto& kernel = (useCrossValidation) ? // Double-dispatch
+                            kernelGetGradientObjectiveWeighted :
+							kernelGetGradientObjectiveNoWeight;
+
+        const auto wgs = maxWgs;
+        const auto globalWorkSize = tpb * wgs;
+
+        int dK = K;
+        kernel.set_arg(0, dK);
+        kernel.set_arg(1, dY);
+        kernel.set_arg(2, dXBeta);
+        dBuffer.resize(2 * maxWgs, queue);
+        kernel.set_arg(3, dBuffer); // Can get reallocated.
+        hBuffer.resize(2 * maxWgs);
+        if (dKWeight.size() == 0) {
+            kernel.set_arg(4, 0);
+        } else {
+            kernel.set_arg(4, dKWeight); // TODO Only when dKWeight gets reallocated
+        }
+
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
+        queue.finish();
+
+        compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+
+        double objective = 0.0;
+
+        for (int i = 0; i < wgs; ++i) { // TODO Use SSE
+        	objective += hBuffer[i];
+        }
+
+#ifdef GPU_DEBUG
+        std::cerr << gradient << " & " << hessian << std::endl << std::endl;
+#endif // GPU_DEBUG
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        auto name = "compGradObj";
+        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+        return(objective);
+ */
+    }
+
+    // syncCV
     std::vector<double> getGradientObjectives() {
     	/*
     	for (int cvIndex=0; cvIndex<syncCVFolds; ++cvIndex) {
@@ -2690,6 +2255,67 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
         return result;
     }
 
+    // using kernel, should let modelspecifics handle maybe
+    double getLogLikelihood(bool useCrossValidation) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    	auto start = bsccs::chrono::steady_clock::now();
+#endif
+        auto& kernel = (useCrossValidation) ? // Double-dispatch
+                            kernelGetLogLikelihoodWeighted :
+							kernelGetLogLikelihoodNoWeight;
+
+        const auto wgs = maxWgs;
+        const auto globalWorkSize = tpb * wgs;
+
+        int dK = K;
+        int dN = N;
+        // Run-time constant arguments.
+        kernel.set_arg(0, dK);
+        kernel.set_arg(1, dN);
+        kernel.set_arg(2, dY);
+        kernel.set_arg(3, dXBeta);
+        kernel.set_arg(4, dDenominator);
+        kernel.set_arg(5, dAccDenominator);
+        dBuffer.resize(wgs, queue);
+        kernel.set_arg(6, dBuffer); // Can get reallocated.
+        hBuffer.resize(wgs);
+        if (dKWeight.size() == 0) {
+        	kernel.set_arg(7, 0);
+        } else {
+        	kernel.set_arg(7, dKWeight); // TODO Only when dKWeight gets reallocated
+        }
+        if (dNWeight.size() == 0) {
+        	kernel.set_arg(7, 0);
+        } else {
+        	kernel.set_arg(8, dNWeight); // TODO Only when dKWeight gets reallocated
+        }
+
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
+        queue.finish();
+
+        compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+
+        double logLikelihood = 0.0;
+
+        for (int i = 0; i < wgs; ++i) { // TODO Use SSE
+        	logLikelihood += hBuffer[i];
+        }
+
+        if (BaseModel::likelihoodHasFixedTerms) {
+        	logLikelihood += logLikelihoodFixedTerm;
+        }
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        duration["compLogLikeG      "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+        return(logLikelihood);
+    }
+
+    // syncCV, should write kernel
     std::vector<double> getLogLikelihoods(bool useCrossValidation) {
     	for (int cvIndex=0; cvIndex<syncCVFolds; ++cvIndex) {
     		compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
@@ -2699,6 +2325,258 @@ virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex)
     	return ModelSpecifics<BaseModel,WeightType>::getLogLikelihoods(useCrossValidation);
     }
 
+    // letting cpu handle, need to do pid for acc
+    virtual double getPredictiveLogLikelihood(double* weights) {
+        compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(denomPid), queue);
+        compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
+        compute::copy(std::begin(dKWeight), std::end(dKWeight), std::begin(hKWeight), queue);
+
+        std::vector<real> saveKWeight;
+        if(BaseModel::cumulativeGradientAndHessian)	{
+        	saveKWeight = hKWeight; // make copy
+        	// 		std::vector<int> savedPid = hPidInternal; // make copy
+        	// 		std::vector<int> saveAccReset = accReset; // make copy
+        	this->setPidForAccumulation(weights);
+        	computeRemainingStatistics(true); // compute accDenomPid
+        }
+
+        // Compile-time switch for models with / with-out PID (hasIndependentRows)
+        auto range = helper::getRangeAllPredictiveLikelihood(K, hY, hXBeta,
+        		(BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
+        				weights, hPid, std::integral_constant<bool, BaseModel::hasIndependentRows>());
+
+        auto kernel = TestPredLikeKernel<BaseModel,real>();
+
+        real logLikelihood = variants::reduce(
+        		range.begin(), range.end(), static_cast<real>(0.0),
+				kernel,
+				SerialOnly()
+        );
+
+        if (BaseModel::cumulativeGradientAndHessian) {
+        	// 		hPidInternal = savedPid; // make copy; TODO swap
+        	// 		accReset = saveAccReset; // make copy; TODO swap
+        	this->setPidForAccumulation(&saveKWeight[0]);
+        	computeRemainingStatistics(true);
+        }
+
+        return static_cast<double>(logLikelihood);
+
+    }   // END OF DIFF
+
+    // letting cpu handle
+    double getPredictiveLogLikelihood(double* weights, int cvIndex) {
+    	compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
+    	compute::copy(std::begin(dDenomPidVector)+cvIndexStride*cvIndex, std::begin(dDenomPidVector)+cvIndexStride*cvIndex+K, std::begin(denomPidPool[cvIndex]), queue);
+    	return ModelSpecifics<BaseModel, WeightType>::getPredictiveLogLikelihood(weights, cvIndex);
+    }
+
+    // letting cpu handle
+    void getPredictiveEstimates(double* y, double* weights){
+
+    	// TODO Check with SM: the following code appears to recompute hXBeta at large expense
+    //	std::vector<real> xBeta(K,0.0);
+    //	for(int j = 0; j < J; j++){
+    //		GenericIterator it(modelData, j);
+    //		for(; it; ++it){
+    //			const int k = it.index();
+    //			xBeta[k] += it.value() * hBeta[j] * weights[k];
+    //		}
+    //	}
+        compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
+        ModelSpecifics<BaseModel, WeightType>::getPredictiveEstimates(y,weights);
+    	// TODO How to remove code duplication above?
+    }
+
+    // set single weights
+    virtual void setWeights(double* inWeights, bool useCrossValidation) {
+    	// Currently only computed on CPU and then copied to GPU
+    	ModelSpecifics<BaseModel, WeightType>::setWeights(inWeights, useCrossValidation);
+
+    	detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
+    	detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
+    }
+
+    // set syncCV weights
+    virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex) {
+    	ModelSpecifics<BaseModel,WeightType>::setWeights(inWeights, useCrossValidation, cvIndex);
+    	if (cvIndex == syncCVFolds - 1) {
+    		std::vector<real> hNWeightTemp;
+    		std::vector<real> hKWeightTemp;
+    		int garbage;
+    		for (int i=0; i<syncCVFolds; i++) {
+    			//std::cout << "hNWeightPool size" << i << ": " << hNWeightPool[i].size() << "\n";
+    			appendAndPad(hNWeightPool[i], hNWeightTemp, garbage, pad);
+    			appendAndPad(hKWeightPool[i], hKWeightTemp, garbage, pad);
+    		}
+    		detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
+    		detail::resizeAndCopyToDevice(hKWeightTemp, dKWeightVector, queue);
+    	}
+    }
+
+    virtual const RealVector& getXBeta() {
+        if (!hXBetaKnown) {
+            compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
+            hXBetaKnown = true;
+        }
+        return ModelSpecifics<BaseModel,WeightType>::getXBeta();
+    }
+
+    virtual const RealVector& getXBetaSave() {
+        return ModelSpecifics<BaseModel,WeightType>::getXBetaSave();
+    }
+
+    virtual void saveXBeta() {
+        if (!hXBetaKnown) {
+            compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
+            hXBetaKnown = true;
+        }
+        ModelSpecifics<BaseModel,WeightType>::saveXBeta();
+    }
+
+    virtual void zeroXBeta() {
+
+        //std::cerr << "GPU::zXB called" << std::endl;
+
+        ModelSpecifics<BaseModel,WeightType>::zeroXBeta(); // touches hXBeta
+        if (syncCV) {
+        	std::vector<real> temp;
+        	int garbage;
+        	for (int  i=0; i<syncCVFolds; i++) {
+        		appendAndPad(hXBetaPool[i], temp, garbage, pad);
+        	}
+            detail::resizeAndCopyToDevice(temp, dXBetaVector, queue);
+        } else {
+            detail::resizeAndCopyToDevice(hXBeta, dXBeta, queue);
+        }
+
+        //dXBetaKnown = false;
+    }
+
+    virtual void axpyXBeta(const double beta, const int j) {
+
+        //std::cerr << "GPU::aXB called" << std::endl;
+
+        ModelSpecifics<BaseModel,WeightType>::axpyXBeta(beta, j); // touches hXBeta
+        detail::resizeAndCopyToDevice(hXBeta, dXBeta, queue);
+
+        //dXBetaKnown = false;
+    }
+
+    virtual void axpyXBeta(const double beta, const int j, int cvIndex) {
+
+    	ModelSpecifics<BaseModel,WeightType>::axpyXBeta(beta, j, cvIndex);
+    	//compute::copy(std::begin(hXBetaPool[cvIndex]), std::end(hXBetaPool[cvIndex]), std::begin(dXBetaVector)+cvIndexStride * cvIndex, queue);
+    }
+
+    virtual void copyXBetaVec() {
+    	std::vector<real> temp;
+    	int garbage;
+    	for (int  i=0; i<syncCVFolds; i++) {
+    		appendAndPad(hXBetaPool[i], temp, garbage, pad);
+    	}
+    	detail::resizeAndCopyToDevice(temp, dXBetaVector, queue);
+    }
+
+    // not doing anything yet
+    virtual void computeNumeratorForGradient(int index) {
+    }
+
+    // not doing anything yet
+    virtual void computeNumeratorForGradient(int index, int cvIndex) {
+    }
+
+    void turnOnSyncCV(int foldToCompute) {
+    	ModelSpecifics<BaseModel, WeightType>::turnOnSyncCV(foldToCompute);
+
+    	syncCV = true;
+    	pad = true;
+    	syncCVFolds = foldToCompute;
+
+    	//int dataStart = 0;
+    	int garbage = 0;
+
+        std::vector<real> hNWeightTemp;
+        std::vector<real> hKWeightTemp;
+        //std::vector<real> accDenomPidTemp;
+        //std::vector<real> accNumerPidTemp;
+        //std::vector<real> accNumerPid2Temp;
+        //std::vector<int> accResetTemp;
+        std::vector<int> hPidTemp;
+        //std::vector<int> hPidInternalTemp;
+        std::vector<real> hXBetaTemp;
+        std::vector<real> offsExpXBetaTemp;
+        std::vector<real> denomPidTemp;
+        //std::vector<real> numerPidTemp;
+        //std::vector<real> numerPid2Temp;
+        //std::vector<real> hXjYTemp;
+        //std::vector<real> hXjXTemp;
+        //std::vector<real> logLikelihoodFixedTermTemp;
+        //std::vector<IndexVectorPtr> sparseIndicesTemp;
+        //std::vector<real> normTemp;
+
+        //std::vector<int> cvIndexOffsets;
+
+        for (int i=0; i<foldToCompute; ++i) {
+        	//cvIndexOffsets.push_back(indices1);
+        	appendAndPad(hNWeight, hNWeightTemp, garbage, pad);
+        	appendAndPad(hKWeight, hKWeightTemp, garbage, pad);
+        	//appendAndPad(accDenomPid, accDenomPidTemp, garbage, true);
+        	//appendAndPad(accNumerPid, accNumerPidTemp, garbage, true);
+        	//appendAndPad(accNumerPid2, accNumerPid2Temp, garbage, true);
+        	//appendAndPad(accReset, accResetTemp, garbage, true);
+        	//appendAndPad(hPidInternal, hPidInternalTemp, garbage, true);
+        	appendAndPad(hXBeta, hXBetaTemp, garbage, pad);
+        	appendAndPad(offsExpXBeta, offsExpXBetaTemp, garbage, pad);
+        	appendAndPad(denomPid, denomPidTemp, garbage, pad);
+        	//appendAndPad(numerPid, numerPidTemp, garbage, true);
+        	//appendAndPad(numerPid2, numerPid2Temp, garbage, true);
+        	//appendAndPad(hXjY, hXjYTemp, garbage, false);
+        	//appendAndPad(hXjX, hXjXTemp, garbage, false);
+        	//appendAndPad(sparseIndices, sparseIndicesTemp, garbage, false);
+        	//appendAndPad(norm, normTemp, garbage, false);
+        }
+        if (pad) {
+        	cvIndexStride = detail::getAlignedLength<16>(K);
+        } else {
+        	cvIndexStride = K;
+        }
+        std::cout << "cvStride: " << cvIndexStride << "\n";
+
+        for (int i=0; i<foldToCompute; ++i) {
+        	for (int n=0; n<K; ++n) {
+        		hPidTemp.push_back(hPid[n]);
+        	}
+        	for (int n=K; n<cvIndexStride; ++n) {
+        		hPidTemp.push_back(-1);
+        	}
+        	//logLikelihoodFixedTermTemp.push_back(logLikelihoodFixedTerm);
+        }
+
+        detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
+        detail::resizeAndCopyToDevice(hKWeightTemp, dKWeightVector, queue);
+        //detail::resizeAndCopyToDevice(accDenomPidTemp, dAccDenomPidVector, queue);
+        //detail::resizeAndCopyToDevice(accNumerPidTemp, dAccNumerPidVector, queue);
+        //detail::resizeAndCopyToDevice(accNumerPid2Temp, dAccNumerPid2Vector, queue);
+        //detail::resizeAndCopyToDevice(accResetTemp, dAccResetVector, queue);
+        detail::resizeAndCopyToDevice(hPidTemp, dPidVector, queue);
+        //detail::resizeAndCopyToDevice(hPidInternalTemp, dPidInternalVector, queue);
+        detail::resizeAndCopyToDevice(hXBetaTemp, dXBetaVector, queue);
+        detail::resizeAndCopyToDevice(offsExpXBetaTemp, dOffsExpXBetaVector, queue);
+        detail::resizeAndCopyToDevice(denomPidTemp, dDenomPidVector, queue);
+        //detail::resizeAndCopyToDevice(numerPidTemp, dNumerPidVector, queue);
+        //detail::resizeAndCopyToDevice(numerPid2Temp, dNumerPid2Vector, queue);
+        //detail::resizeAndCopyToDevice(hXjYTemp, dXjYVector, queue);
+        //detail::resizeAndCopyToDevice(hXjXTemp, dXjXVector, queue);
+        //detail::resizeAndCopyToDevice(logLikelihoodFixedTermTemp, dLogLikelihoodFixedTermVector, queue);
+        //detail::resizeAndCopyToDevice(sparseIndicesTemp, dSpareIndicesVector, queue);
+        //detail::resizeAndCopyToDevice(normTemp, dNormVector, queue);
+        //detail::resizeAndCopyToDevice(cvIndexOffsets, dcvIndexOffsets, queue);
+    }
+
+    void turnOffSyncCV() {
+    	syncCV = false;
+    }
 
     private:
 
