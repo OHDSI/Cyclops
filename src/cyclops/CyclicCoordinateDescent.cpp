@@ -561,6 +561,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 		syncCVIterator.reset(syncCVFolds, J);
 
 	}
+	mm_original = false;
 
 	for (int i=0; i<J; i++) {
 		fixBeta[i] = false;
@@ -1003,6 +1004,10 @@ void CyclicCoordinateDescent::findMode(
 		if (iteration%10==0 && iteration > 0) {
 			std::cout<<"iteration " << iteration << " ";
 
+			if (!syncCV) {
+				std::cout << "lastObjFunc: " << lastObjFunc << " ";
+			}
+
 			if (syncCV) {
 				std::cout << "nonzeros: ";
 				for (int i=0; i<syncCVFolds; i++) {
@@ -1011,6 +1016,7 @@ void CyclicCoordinateDescent::findMode(
 					}
 				}
 			}
+
 			std::cout << "\n";
 		}
 
@@ -1194,6 +1200,11 @@ void CyclicCoordinateDescent::findMode(
                        //std::cout << "log likelihood: " << getLogLikelihood() << " log prior: " << getLogPrior() << " total: ";
 
                 	   if (syncCV) {
+                		   if (iteration > mmepsilon) {
+                        	   mm_original = true;
+                        	   algorithmType = AlgorithmType::CCD;
+                        	   std::cout << "switch to ccd \n";
+                		   }
                 		   /*
                 		   int count = 0;
                 		   std::vector<double> thisObjFuncVec = getObjectiveFunctions(convergenceType);
@@ -1208,7 +1219,10 @@ void CyclicCoordinateDescent::findMode(
                 		   }
                 		   */
                 	   } else {
-                       if (iteration > 1) {
+                       if (iteration > mmepsilon) {
+                    	   mm_original = true;
+                    	   algorithmType = AlgorithmType::CCD;
+                    	   std::cout << "switch to ccd \n";
                     	   /*
                            double change = thisLogPosterior - lastLogPosterior;
                            if (abs(change) < 0.01) {
