@@ -1182,12 +1182,18 @@ public:
 
         kernel.set_arg(10, dPidVector);
         //kernel.set_arg(11, dKWeightVector);
-
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start1 = bsccs::chrono::steady_clock::now();
+#endif
         int dK = K;
         kernel.set_arg(12, cvIndexStride);
         kernel.set_arg(13, tpb*wgs);
         kernel.set_arg(14, wgs);
-        detail::resizeAndCopyToDevice(foldIndices, dIntVector1, queue);
+        if (dIntVector1.size() < count) {
+        	dIntVector1.resize(count,queue);
+        }
+        compute::copy(std::begin(foldIndices), std::end(foldIndices), std::begin(dIntVector1), queue);
+        //detail::resizeAndCopyToDevice(foldIndices, dIntVector1, queue);
         kernel.set_arg(15, dIntVector1);
 
 
@@ -1197,8 +1203,26 @@ public:
         	kernel.set_arg(11, dKWeightVector); // TODO Only when dKWeight gets reallocated
         }
 
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end1 = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        auto name1 = "compGradHessSyncCVKernelArgsG" + getFormatTypeExtension(formatType) + " ";
+        duration[name1] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start1).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start0 = bsccs::chrono::steady_clock::now();
+#endif
+
         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
         queue.finish();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end0 = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        auto name0 = "compGradHessSyncCVKernelG" + getFormatTypeExtension(formatType) + " ";
+        duration[name0] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end0 - start0).count();
+#endif
 
         compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs*count, std::begin(hBuffer), queue);
 
@@ -1240,10 +1264,6 @@ public:
         ModelSpecifics<BaseModel, WeightType>::computeGradientAndHessian(index, ogradient, ohessian, useWeights);
         std::cerr << *ogradient << " & " << *ohessian << std::endl;
 #endif // GPU_DEBUG
-
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto start = bsccs::chrono::steady_clock::now();
-#endif
         std::vector<int> indexList[4];
         std::vector<int> cvIndexList[4];
         std::vector<int> ogIndexList[4];
@@ -1258,6 +1278,9 @@ public:
         auto useWeights = true;
 
         for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
         	FormatType formatType = (FormatType)i;
         	const auto length = indexList[formatType].size();
         	if (length == 0) {
@@ -1309,8 +1332,10 @@ public:
             	int cvIndex = cvIndexList[formatType][k];
 
             	for (int j = 0; j < wgs; ++j) { // TODO Use SSE
-            		ghList[ogIndexList[formatType][k]].first += hBuffer[j+2*wgs*k];
-            		ghList[ogIndexList[formatType][k]].second  += hBuffer[j + wgs+2*wgs*k];
+            		ghList[ogIndexList[formatType][k]].first += hBuffer[k*wgs+j];
+            		ghList[ogIndexList[formatType][k]].second  += hBuffer[k*wgs+j+length*wgs];
+            		//ghList[ogIndexList[formatType][k]].first += hBuffer[j+2*wgs*k];
+            		//ghList[ogIndexList[formatType][k]].second  += hBuffer[j + wgs+2*wgs*k];
             	}
 
             	if (BaseModel::precomputeGradient) { // Compile-time switch
@@ -1577,7 +1602,7 @@ public:
         std::vector<int> indexList[4];
         std::vector<int> ogIndexList[4];
 
-        int count;
+        int count = 0;
 
         for (int i=0; i<J; i++) {
         	if (!fixBeta[i]) {
@@ -1767,7 +1792,11 @@ public:
         kernel.set_arg(0, dColumns.getDataOffset(index));
         kernel.set_arg(1, dColumns.getIndicesOffset(index));
         kernel.set_arg(2, taskCount);
-        detail::resizeAndCopyToDevice(realDelta, dRealVector1, queue);
+        if (dRealVector1.size() < syncCVFolds) {
+        	dRealVector1.resize(syncCVFolds, queue);
+        }
+        compute::copy(std::begin(realDelta), std::end(realDelta), std::begin(dRealVector1), queue);
+        //detail::resizeAndCopyToDevice(realDelta, dRealVector1, queue);
         kernel.set_arg(3, dRealVector1);
         kernel.set_arg(4, dColumns.getData());
         kernel.set_arg(5, dColumns.getIndices());
@@ -1778,8 +1807,13 @@ public:
         kernel.set_arg(10, dPidVector);
         int dK = K;
         kernel.set_arg(11, cvIndexStride);
-        detail::resizeAndCopyToDevice(foldIndices, dIntVector1, queue);
+        if (dIntVector1.size() < count) {
+        	dIntVector1.resize(count, queue);
+        }
+        compute::copy(std::begin(foldIndices), std::end(foldIndices), std::begin(dIntVector1), queue);
+        //detail::resizeAndCopyToDevice(foldIndices, dIntVector1, queue);
         kernel.set_arg(12, dIntVector1);
+
         //kernel.set_arg(13, localstride);
 
         // set work size; no looping
@@ -1790,10 +1824,22 @@ public:
         const size_t globalWorkSize = workGroups * count * detail::constant::updateXBetaBlockSize;
         int blockSize = workGroups * detail::constant::updateXBetaBlockSize;
         kernel.set_arg(13, blockSize);
+        kernel.set_arg(14, dOffs);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start0 = bsccs::chrono::steady_clock::now();
+#endif
 
         // run kernel
         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
         queue.finish();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end0 = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        auto name0 = "updateXBetaSyncCVKernelG" + getFormatTypeExtension(modelData.getFormatType(index)) + "  ";
+        duration[name0] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end0 - start0).count();
+#endif
 
         hXBetaKnown = false; // dXBeta was just updated
 

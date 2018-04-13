@@ -1194,10 +1194,13 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
                 "       __global const int* id,		\n" <<
 				"		const uint stride,			\n" <<
 				"		__global const int* cvIndices,	\n" <<
-				"		const uint blockSize) {   \n" <<
+				"		const uint blockSize,		\n" <<
+				"		__global const REAL* Offs) {   \n" <<
         "   uint task = get_global_id(0)%blockSize; \n" <<
 		"	__local uint cvIndex, vecOffset;	\n" <<
+		"	__local REAL delta;					\n" <<
 		"	cvIndex = cvIndices[get_global_id(0)/blockSize];	\n" <<
+		"	delta = deltaVector[cvIndex];			\n" <<
 		"	vecOffset = stride*cvIndex;	\n";
         code << "   if (task < N) {      				\n";
 
@@ -1208,13 +1211,20 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
         }
 
         if (formatType == SPARSE || formatType == DENSE) {
-            code << "   REAL inc = deltaVector[cvIndex] * X[offX + task]; \n";
+            code << "   REAL inc = delta * X[offX + task]; \n";
         } else { // INDICATOR, INTERCEPT
-            code << "   REAL inc = deltaVector[cvIndex];           \n";
+            code << "   REAL inc = delta;           \n";
         }
 
         code << "       REAL xb = xBetaVector[vecOffset+k] + inc; 		\n" <<
                 "       xBetaVector[vecOffset+k] = xb;                  \n";
+        if (BaseModel::likelihoodHasDenominator) {
+        	code << "REAL y = Y[k];\n" <<
+        			"REAL offs = Offs[k];\n";
+        	code << "REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
+               	code << "expXBetaVector[vecOffset+k] = exb;\n";
+           		code << "denomPidVector[vecOffset+k] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+        }
         code << "   } \n";
         code << "}    \n";
 
@@ -1249,12 +1259,14 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 				"		__global const int* cvIndices) {   \n";
         code << "   uint task = get_global_id(0)%indexWorkSize;  \n" <<
 				"	__local uint bufferIndex, cvIndex, index, vecOffset, offX, offK, N;	\n" <<
+				"	__local REAL delta;					\n" <<
 				"	bufferIndex = get_group_id(0)/wgs;	\n" <<
 				"	index = indices[bufferIndex];		\n" <<
 				"	cvIndex = cvIndices[bufferIndex]; 	\n" <<
 				"	vecOffset = stride*cvIndex;			\n" <<
 				"	offX = offXVec[index];				\n" <<
 				"	offK = offKVec[index];				\n" <<
+				"	delta = deltaVector[bufferIndex];	\n" <<
 				"	N = NVec[index];					\n";
         code << "   while (task < N) {      				\n";
         if (formatType == INDICATOR || formatType == SPARSE) {
@@ -1264,9 +1276,9 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
         }
 
         if (formatType == SPARSE || formatType == DENSE) {
-            code << "   REAL inc = deltaVector[bufferIndex] * X[offX + task]; \n";
+            code << "   REAL inc = delta * X[offX + task]; \n";
         } else { // INDICATOR, INTERCEPT
-            code << "   REAL inc = deltaVector[bufferIndex];           \n";
+            code << "   REAL inc = delta;           \n";
         }
 
         code << "       REAL xb = xBetaVector[vecOffset+k] + inc; 		\n" <<
@@ -1323,16 +1335,16 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 		// Initialization
 		code << "   uint lid = get_local_id(0); \n" <<
 				"   uint task = get_global_id(0)%indexWorkSize;  \n" <<
-				"	uint bufferIndex = get_group_id(0)/wgs;	\n" <<
-				"	uint vecOffset = stride * cvIndices[bufferIndex];	\n" <<
-				//"	__local uint bufferIndex, cvIndex, index, vecOffset, N;	\n" <<
-				//"	bufferIndex = get_group_id(0)/wgs;	\n" <<
-				//"	index = indices[bufferIndex];		\n" <<
+				//"	uint bufferIndex = get_group_id(0)/wgs;	\n" <<
+				//"	uint vecOffset = stride * cvIndices[bufferIndex];	\n" <<
+				"	__local uint bufferIndex, index, vecOffset, N, offX, offK;	\n" <<
+				"	bufferIndex = get_group_id(0)/wgs;	\n" <<
+				"	index = indices[bufferIndex];		\n" <<
 				//"	cvIndex = cvIndices[bufferIndex]; 	\n" <<
-				//"	vecOffset = stride*cvIndex;			\n" <<
-				//"	offX = offXVec[index];				\n" <<
-				//"	offK = offKVec[index];				\n" <<
-				//"	N = NVec[index];					\n" <<
+				"	vecOffset = stride*cvIndices[bufferIndex];			\n" <<
+				"	offX = offXVec[index];				\n" <<
+				"	offK = offKVec[index];				\n" <<
+				"	N = NVec[index];					\n" <<
 				// Local and thread storage
 #ifdef USE_VECTOR
 				"   __local TMP_REAL scratch[TPB]; \n" <<
@@ -1345,15 +1357,15 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 				"   REAL sum0 = 0.0; \n" <<
 				"   REAL sum1 = 0.0; \n" <<
 #endif // USE_VECTOR
-				"   while (task < NVec[indices[bufferIndex]]) { \n";
+				"   while (task < N) { \n";
 		// Fused transformation-reduction
 		if (formatType == INDICATOR || formatType == SPARSE) {
-			code << "       uint k = K[offKVec[indices[bufferIndex]] + task];         \n";
+			code << "       uint k = K[offK + task];         \n";
 		} else { // DENSE, INTERCEPT
 			code << "       uint k = task;            \n";
 		}
 		if (formatType == SPARSE || formatType == DENSE) {
-			code << "       REAL x = X[offXVec[indices[bufferIndex]] + task]; \n";
+			code << "       REAL x = X[offX + task]; \n";
 		} else { // INDICATOR, INTERCEPT
 			// Do nothing
 		}
@@ -1374,8 +1386,10 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 				"   scratch[1][lid] = sum1; \n";
 		code << (isNvidia ? ReduceBody2<real,true>::body() : ReduceBody2<real,false>::body());
 		code << "   if (lid == 0) { \n" <<
-				"       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2] = scratch[0][0]; \n" <<
-				"       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2+wgs] = scratch[1][0]; \n" <<
+				"       buffer[get_group_id(0)] = scratch[0][0]; \n" <<
+				"       buffer[get_group_id(0)+get_num_groups(0)] = scratch[1][0]; \n" <<
+				//"       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2] = scratch[0][0]; \n" <<
+				//"       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2+wgs] = scratch[1][0]; \n" <<
 				"   } \n";
 		code << "}  \n"; // End of kernel
 		return SourceCode(code.str(), name);
