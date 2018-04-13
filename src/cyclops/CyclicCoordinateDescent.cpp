@@ -1162,6 +1162,13 @@ void CyclicCoordinateDescent::findMode(
 		    	//std::cout << "hBeta[0]: " << hBeta[0] << " hBeta[1]: " << hBeta[1] << '\n';
 	        	if (syncCV) {
 	        		std::vector<double> deltaVec = ccdUpdateBetaVec(index);
+/*
+	        		std::cout << "deltaVec" << index << ": ";
+	        		for (auto x:deltaVec) {
+	        			std::cout << x << " ";
+	        		}
+	        		std::cout << "\n";
+*/
 	        		deltaVec = applyBounds(deltaVec, index);
 	        		updateSufficientStatistics(deltaVec, index);
 	        		computeRemainingStatistics(true, deltaVec);

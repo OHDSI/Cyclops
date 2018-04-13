@@ -1073,15 +1073,16 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 				"       __global const REAL* weightVector,	\n" <<
 				"		const uint stride,				\n" <<
 				"		const uint indexWorkSize,		\n" <<
-				"		const uint wgs,					\n" <<
 				"		__global const int* cvIndices) {    \n";    // TODO Make weight optional
 		// Initialization
 		code << "   uint lid = get_local_id(0); \n" <<
 				"   uint task = get_global_id(0)%indexWorkSize;  \n" <<
-				"	__local uint bufferIndex, cvIndex, vecOffset;	\n" <<
-				"	bufferIndex = get_group_id(0)/wgs;	\n" <<
-				"	cvIndex = cvIndices[bufferIndex]; \n" <<
-				"	vecOffset = stride*cvIndex;	\n" <<
+				"	uint bufferIndex = get_global_id(0)/indexWorkSize;	\n" <<
+				"	uint vecOffset = cvIndices[bufferIndex] * stride;	\n" <<
+				//"	__local uint bufferIndex, cvIndex, vecOffset;	\n" <<
+				//"	bufferIndex = get_group_id(0)/wgs;	\n" <<
+				//"	cvIndex = cvIndices[bufferIndex]; \n" <<
+				//"	vecOffset = stride*cvIndex;	\n" <<
 				// Local and thread storage
 #ifdef USE_VECTOR
 				"   __local TMP_REAL scratch[TPB]; \n" <<
@@ -1094,7 +1095,7 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 				"   REAL sum0 = 0.0; \n" <<
 				"   REAL sum1 = 0.0; \n" <<
 #endif // USE_VECTOR
-				"   while (task < N) { \n";
+				"   if (task < N) { \n";
 		// Fused transformation-reduction
 		if (formatType == INDICATOR || formatType == SPARSE) {
 			code << "       uint k = K[offK + task];         \n";
@@ -1122,8 +1123,10 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 				"   scratch[1][lid] = sum1; \n";
 		code << (isNvidia ? ReduceBody2<real,true>::body() : ReduceBody2<real,false>::body());
 		code << "   if (lid == 0) { \n" <<
-				"       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2] = scratch[0][0]; \n" <<
-				"       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2+wgs] = scratch[1][0]; \n" <<
+				"		buffer[get_group_id(0)]	= scratch[0][0];	\n" <<
+				"		buffer[get_group_id(0) + get_num_groups(0)] = scratch[1][0];	\n" <<
+				//"       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2] = scratch[0][0]; \n" <<
+				//"       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2+wgs] = scratch[1][0]; \n" <<
 				"   } \n";
 		code << "}  \n"; // End of kernel
 		return SourceCode(code.str(), name);
@@ -1197,11 +1200,14 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 				"		const uint blockSize,		\n" <<
 				"		__global const REAL* Offs) {   \n" <<
         "   uint task = get_global_id(0)%blockSize; \n" <<
-		"	__local uint cvIndex, vecOffset;	\n" <<
-		"	__local REAL delta;					\n" <<
-		"	cvIndex = cvIndices[get_global_id(0)/blockSize];	\n" <<
-		"	delta = deltaVector[cvIndex];			\n" <<
-		"	vecOffset = stride*cvIndex;	\n";
+		"	uint bufferIndex = get_global_id(0)/blockSize;	\n" <<
+		"	uint vecOffset = stride*cvIndices[bufferIndex];	\n" <<
+		"	REAL delta = deltaVector[cvIndices[bufferIndex]];	\n";
+		//"	__local uint cvIndex, vecOffset;	\n" <<
+		//"	__local REAL delta;					\n" <<
+		//"	cvIndex = cvIndices[get_global_id(0)/blockSize];	\n" <<
+		//"	delta = deltaVector[cvIndex];			\n" <<
+		//"	vecOffset = stride*cvIndex;	\n";
         code << "   if (task < N) {      				\n";
 
         if (formatType == INDICATOR || formatType == SPARSE) {

@@ -1138,13 +1138,17 @@ public:
 
         const auto taskCount = dColumns.getTaskCount(index);
 
-        const auto wgs = maxWgs;
-        const auto globalWorkSize = tpb * wgs * count;
+        //const auto wgs = maxWgs;
 
-        size_t loops = taskCount / globalWorkSize;
-        if (taskCount % globalWorkSize != 0) {
+        size_t loops = taskCount / tpb;
+        if (taskCount % tpb != 0) {
         	++loops;
         }
+
+        int wgs = loops;
+
+        const auto globalWorkSize = tpb * wgs * count;
+
 
         // std::cerr << dBuffer.get_buffer() << std::endl;
 
@@ -1188,13 +1192,12 @@ public:
         int dK = K;
         kernel.set_arg(12, cvIndexStride);
         kernel.set_arg(13, tpb*wgs);
-        kernel.set_arg(14, wgs);
         if (dIntVector1.size() < count) {
         	dIntVector1.resize(count,queue);
         }
         compute::copy(std::begin(foldIndices), std::end(foldIndices), std::begin(dIntVector1), queue);
         //detail::resizeAndCopyToDevice(foldIndices, dIntVector1, queue);
-        kernel.set_arg(15, dIntVector1);
+        kernel.set_arg(14, dIntVector1);
 
 
         if (dKWeightVector.size() == 0) {
@@ -1229,8 +1232,10 @@ public:
         for (int i = 0; i < count; i++) {
         	int cvIndex = foldIndices[i];
         	for (int j = 0; j < wgs; ++j) { // TODO Use SSE
-        		ghList[cvIndex].first += hBuffer[j+2*wgs*i];
-        		ghList[cvIndex].second  += hBuffer[j + wgs+2*wgs*i];
+        		ghList[cvIndex].first += hBuffer[i*wgs+j];
+        		ghList[cvIndex].second += hBuffer[count*wgs+i*wgs+j];
+        		//ghList[cvIndex].first += hBuffer[j+2*wgs*i];
+        		//ghList[cvIndex].second  += hBuffer[j + wgs+2*wgs*i];
         	}
 
         	if (BaseModel::precomputeGradient) { // Compile-time switch
@@ -1821,8 +1826,10 @@ public:
         if (localstride % detail::constant::updateXBetaBlockSize != 0) {
             ++workGroups;
         }
+        //int blah = workGroups;
         const size_t globalWorkSize = workGroups * count * detail::constant::updateXBetaBlockSize;
         int blockSize = workGroups * detail::constant::updateXBetaBlockSize;
+
         kernel.set_arg(13, blockSize);
         kernel.set_arg(14, dOffs);
 
@@ -1842,6 +1849,16 @@ public:
 #endif
 
         hXBetaKnown = false; // dXBeta was just updated
+
+        std::vector<real> temp;
+        temp.resize(K);
+        compute::copy(std::begin(dXBetaVector), std::begin(dXBetaVector)+K, std::begin(temp), queue);
+        std::cout << "xbeta0: ";
+        for (auto x:temp) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
@@ -2883,6 +2900,8 @@ public:
 
         options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
+    	options << " -cl-mad-enable -cl-fast-relaxed-math";
+
         auto source = writeCodeForUpdateXBetaKernel(formatType);
 
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
@@ -2945,6 +2964,8 @@ public:
     	std::stringstream options;
     	options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
+    	options << " -cl-mad-enable -cl-fast-relaxed-math";
+
         auto source = writeCodeForComputeRemainingStatisticsKernel();
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         auto kernel = compute::kernel(program, source.name);
@@ -2981,6 +3002,8 @@ public:
             options << "-DREAL=float -DTMP_REAL=float -DTPB=" << detail::constant::updateAllXBetaBlockSize;
 #endif // USE_VECTOR
         }
+
+    	options << " -cl-mad-enable -cl-fast-relaxed-math";
 
     	//options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
