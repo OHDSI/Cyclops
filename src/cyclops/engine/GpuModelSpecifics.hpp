@@ -1294,7 +1294,7 @@ public:
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start1 = bsccs::chrono::steady_clock::now();
 #endif
-        int wgs = maxWgs;
+        int wgs = 64;
 
         auto& kernel = kernelGradientHessianSync[formatType];
         const auto taskCount = dColumns.getTaskCount(index);
@@ -1323,6 +1323,8 @@ public:
         //kernel.set_arg(11, dKWeightVector);
         kernel.set_arg(12, cvIndexStride);
         int cvBlock = 32;
+        if (syncCVFolds > 32) cvBlock = 64;
+        if (syncCVFolds > 64) cvBlock = 128;
         kernel.set_arg(13, cvBlock);
         kernel.set_arg(14, syncCVFolds);
 
@@ -1335,6 +1337,10 @@ public:
         int loops = syncCVFolds / cvBlock;
         if (syncCVFolds % cvBlock != 0) {
         	loops++;
+        }
+
+        if (taskCount < 64) {
+        	wgs = 8;
         }
 
         size_t globalWorkSize[2];
@@ -1359,13 +1365,55 @@ public:
         queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
         queue.finish();
 
+        auto& kernel1 = kernelReduceCVBuffer;
+        kernel1.set_arg(0, dBuffer);
+        if (dBuffer1.size() < 2*syncCVFolds) {
+        	dBuffer1.resize(2*syncCVFolds, queue);
+        }
+        kernel1.set_arg(1, dBuffer1);
+        kernel1.set_arg(2, syncCVFolds);
+        kernel1.set_arg(3, cvIndexStride);
+        kernel1.set_arg(4, wgs);
+
+        queue.enqueue_1d_range_kernel(kernel1, 0, syncCVFolds*tpb, tpb);
+        queue.finish();
+
+        /*
+        compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs*cvIndexStride, std::begin(hBuffer), queue);
+        std::cout << "bufferIn: ";
+        for (int i=0; i<2*wgs*cvIndexStride; i++) {
+        	std::cout << hBuffer[i] << " ";
+        }
+        std::cout << "\n";
+        */
+
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end0 = bsccs::chrono::steady_clock::now();
         ///////////////////////////"
         auto name0 = "compGradHessSyncCVKernelG" + getFormatTypeExtension(formatType) + " ";
         duration[name0] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end0 - start0).count();
 #endif
+        compute::copy(std::begin(dBuffer1), std::begin(dBuffer1)+2*syncCVFolds, std::begin(hBuffer), queue);
+/*
+        std::cout << "bufferOut: ";
+        for (int i=0; i<2*syncCVFolds; i++) {
+        	std::cout << hBuffer[i] << " ";
+        }
+        std::cout << "\n";
+        */
+        for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+        	ghList[cvIndex].first = hBuffer[cvIndex];
+        	ghList[cvIndex].second = hBuffer[cvIndex + syncCVFolds];
 
+    		if (BaseModel::precomputeGradient) { // Compile-time switch
+    			ghList[cvIndex].first -= hXjYPool[cvIndex][index];
+    		}
+
+    		if (BaseModel::precomputeHessian) { // Compile-time switch
+    			ghList[cvIndex].second += static_cast<real>(2.0) * hXjXPool[cvIndex][index];
+    		}
+        }
+/*
         compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs*cvIndexStride, std::begin(hBuffer), queue);
 
         for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
@@ -1382,6 +1430,7 @@ public:
     			ghList[cvIndex].second += static_cast<real>(2.0) * hXjXPool[cvIndex][index];
     		}
     	}
+    	*/
 
 
 #ifdef GPU_DEBUG
@@ -1991,6 +2040,16 @@ public:
 #endif
 */
 
+        size_t count = 0;
+        for (int cvIndex = 0; cvIndex < syncCVFolds; ++cvIndex) {
+        	if (realDelta[cvIndex]!=0.0) {
+        		++count;
+        	}
+        }
+        if (count==0) {
+        	return;
+        }
+
         // get kernel
         auto& kernel = kernelUpdateXBetaSync[modelData.getFormatType(index)];
 
@@ -2504,7 +2563,7 @@ public:
         */
         auto& kernel = kernelGetGradientObjectiveSync;
 
-        const auto wgs = maxWgs;
+        const auto wgs = 128;
         int dK = K;
         kernel.set_arg(0, dK);
         kernel.set_arg(1, dY);
@@ -3068,6 +3127,8 @@ public:
 
     SourceCode writeCodeForMMUpdateXBetaKernel(bool isNvidia);
 
+    SourceCode writeCodeForReduceCVBuffer();
+
     void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
 
         std::stringstream options;
@@ -3397,6 +3458,32 @@ public:
          }
     }
 
+    void buildReduceCVBufferKernel() {
+       	std::stringstream options;
+           if (sizeof(real) == 8) {
+   #ifdef USE_VECTOR
+           options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+   #else
+           options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+   #endif // USE_VECTOR
+           } else {
+   #ifdef USE_VECTOR
+               options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+   #else
+               options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+   #endif // USE_VECTOR
+           }
+           options << " -cl-mad-enable -cl-fast-relaxed-math";
+
+            auto source = writeCodeForReduceCVBuffer();
+            std::cout << source.body;
+            auto program = compute::program::build_with_source(source.body, ctx, options.str());
+            std::cout << "program built\n";
+            auto kernel = compute::kernel(program, source.name);
+
+            kernelReduceCVBuffer = std::move(kernel);
+       }
+
     void printKernel(compute::kernel& kernel, std::ostream& stream) {
 
         auto program = kernel.get_program();
@@ -3419,6 +3506,8 @@ public:
         std::cout << "built getLogLikelihood kernels \n";
         buildAllComputeRemainingStatisticsKernels();
         std::cout << "built computeRemainingStatistics kernels \n";
+        buildReduceCVBufferKernel();
+        std::cout << "built reduceCVBuffer kenel\n";
     }
 
     void printAllKernels(std::ostream& stream) {
@@ -3482,6 +3571,7 @@ public:
     std::map<FormatType, compute::kernel> kernelGradientHessianSync;
     std::map<FormatType, compute::kernel> kernelGradientHessianSync1;
 
+    compute::kernel kernelReduceCVBuffer;
     compute::kernel kernelUpdateXBetaMM;
     compute::kernel kernelGetGradientObjectiveWeighted;
     compute::kernel kernelGetGradientObjectiveNoWeight;

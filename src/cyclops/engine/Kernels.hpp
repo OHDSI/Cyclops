@@ -1796,6 +1796,45 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	    return SourceCode(code.str(), name);
 	}
 
+	template <class BaseModel, typename WeightType, class BaseModelG>
+	SourceCode
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForReduceCVBuffer() {
+        std::string name = "reduceCVBuffer";
+
+	    std::stringstream code;
+	    code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+	    code << "__kernel void " << name << "(            \n" <<
+	    		"		__global REAL* buffer,				\n" <<
+				"		__global REAL* bufferOut,			\n" <<
+				"		const uint syncCVFolds,				\n" <<
+				"		const uint cvIndexStride,			\n" <<
+				"		const uint wgs) {    \n";    // TODO Make weight optional
+	    // Initialization
+	    code <<	"	uint cvIndex = get_group_id(0);			\n" <<
+	    		"	__local REAL scratch[2][TPB];				\n" <<
+				"	uint lid = get_local_id(0);				\n" <<
+				"	if (lid < wgs) {						\n" <<
+				"		scratch[0][lid] = buffer[lid*cvIndexStride+cvIndex];	\n" <<
+				"		scratch[1][lid] = buffer[(lid+wgs)*cvIndexStride+cvIndex];	\n" <<
+				"	}										\n" <<
+	            "   for(int j = 1; j < wgs; j <<= 1) {          \n" <<
+	            "       barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
+	            "       uint mask = (j << 1) - 1;               \n" <<
+	            "       if ((lid & mask) == 0) {                \n" <<
+	            "           scratch[0][lid] += scratch[0][lid + j]; \n" <<
+	            "           scratch[1][lid] += scratch[1][lid + j]; \n" <<
+	            "       }                                       \n" <<
+	            "   }                                           \n" <<
+				"	if (lid == 0) {							\n" <<
+				"		bufferOut[cvIndex] = scratch[0][lid];	\n" <<
+				"		bufferOut[cvIndex+syncCVFolds] = scratch[1][lid];	\n" <<
+				"	}										\n" <<
+				"	}										\n";
+	    return SourceCode(code.str(), name);
+	}
+
+
 	/*
 	 * dumber xbeta update for mm
 	template <class BaseModel, typename WeightType, class BaseModelG>
