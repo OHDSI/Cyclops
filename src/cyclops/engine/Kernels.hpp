@@ -248,201 +248,251 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
-    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForUpdateXBetaKernel(FormatType formatType) {
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia) {
 
-        std::string name = "updateXBeta" + getFormatTypeExtension(formatType);
+		std::string name = "computeSyncCVGradHess" + getFormatTypeExtension(formatType);
 
-        std::stringstream code;
-        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+		std::stringstream code;
+		code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
 
-        code << "__kernel void " << name << "(     \n" <<
-                "       const uint offX,           \n" <<
-                "       const uint offK,           \n" <<
-                "       const uint N,              \n" <<
-                "       const REAL delta,          \n" <<
-                "       __global const REAL* X,    \n" <<
-                "       __global const int* K,     \n" <<
-                "       __global const REAL* Y,    \n" <<
-                "       __global REAL* xBeta,      \n" <<
-                "       __global REAL* expXBeta,   \n" <<
-                "       __global REAL* denominator,\n" <<
-                "       __global const int* id) {   \n" <<
-                "   const uint task = get_global_id(0); \n";
-
-        if (formatType == INDICATOR || formatType == SPARSE) {
-            code << "   const uint k = K[offK + task];         \n";
-        } else { // DENSE, INTERCEPT
-            code << "   const uint k = task;            \n";
-        }
-
-        if (formatType == SPARSE || formatType == DENSE) {
-            code << "   const REAL inc = delta * X[offX + task]; \n";
-        } else { // INDICATOR, INTERCEPT
-            code << "   const REAL inc = delta;           \n";
-        }
-
-        code << "   if (task < N) {      				\n";
-        code << "       REAL xb = xBeta[k] + inc; 		\n" <<
-                "       xBeta[k] = xb;                  \n";
-/*
-        if (BaseModel::likelihoodHasDenominator) {
-            // TODO: The following is not YET thread-safe for multi-row observations
-            // code << "       const REAL oldEntry = expXBeta[k];                 \n" <<
-            //         "       const REAL newEntry = expXBeta[k] = exp(xBeta[k]); \n" <<
-            //         "       denominator[" << group<BaseModel>("id","k") << "] += (newEntry - oldEntry); \n";
-            code << "       const REAL exb = exp(xb); \n" <<
-                    "       expXBeta[k] = exb;        \n" <<
-					"		denominator[k] = 1.0 + exb; \n";
-        	//code << "expXBeta[k] = exp(xb); \n";
-        	//code << "expXBeta[k] = exp(1); \n";
-
-            // LOGISTIC MODEL ONLY
-            //                     const real t = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
-            //                     expXBeta[k] = t;
-            //                     denominator[k] = static_cast<real>(1.0) + t;
-            //             code << "    const REAL t = 0.0;               \n" <<
-            //                     "   expXBeta[k] = exp(xBeta[k]);      \n" <<
-            //                     "   denominator[k] = REAL(1.0) + tmp; \n";
-        }
-        */
-
-        code << "   } \n";
-        code << "}    \n";
-
-        return SourceCode(code.str(), name);
-    }
-
-	template <class BaseModel, typename WeightType, class BaseModelG>
-    SourceCode
-	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForUpdateAllXBetaKernel(FormatType formatType, bool isNvidia) {
-
-        std::string name = "updateAllXBeta" + getFormatTypeExtension(formatType);
-
-        std::stringstream code;
-        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
-
-        code << "__kernel void " << name << "(            \n" <<
-                "       __global const uint* offXVec,                  \n" <<
-                "       __global const uint* offKVec,                  \n" <<
-                "       __global const uint* NVec,                     \n" <<
-                "       __global const REAL* allDelta,                  \n" <<
-                "       __global const REAL* X,           \n" <<
-                "       __global const int* K,            \n" <<
-                "       __global const REAL* Y,           \n" <<
-                "       __global  REAL* xBeta,       \n" <<
-                "       __global const REAL* expXBeta,    \n" <<
-                "       __global const REAL* denominator, \n" <<
-				"		const uint indexWorkSize,		\n" <<
-				"		const uint wgs,					\n" <<
-				"		__global const int* fixBeta) {    \n";    // TODO Make weight optional
-
-        // Initialization
-        code << "   const uint lid = get_local_id(0); \n" <<
-                "   const uint loopSize = indexWorkSize; \n" <<
-                "   uint task = get_global_id(0)%indexWorkSize;  \n" <<
-                    // Local and thread storage
-                "   __local REAL scratch[TPB];  \n" <<
-                "   REAL sum = 0.0; \n" <<
-				"	const uint n = get_group_id(0)/wgs;		\n" <<
-				"	const uint offX = offXVec[n];			\n" <<
-				"	const uint offK = offKVec[n];			\n" <<
-				"	const uint N = NVec[n];					\n";//<<
-				/*
-        code << "   const uint lid = get_local_id(0); \n" <<
-        		"	const uint n = get_group_id(0);		\n" <<
-				//"	if (fixBeta[index] == 0) {					\n" <<
-        		//"   uint task = get_global_id(0)%TPB; \n" <<
-                //"   const uint loopSize = get_global_size(0)/J; \n" <<
-				"	const uint offX = offXVec[n];			\n" <<
-				"	const uint offK = offKVec[n];			\n" <<
-				"	const uint N = NVec[n];					\n" <<
-				//"	const REAL delta = allDelta[index];			\n" <<
-                    // Local and thread storage
-                "   REAL sum = 0.0; \n" <<
-				"   __local REAL scratch[TPB];  \n" <<
-				*/
-        code << "   while (task < N) { 						\n";// <<
-        if (formatType == INDICATOR || formatType == SPARSE) {
-        	code << "   const uint k = K[offK + task];         \n";
-        } else { // DENSE, INTERCEPT
-        	code << "   const uint k = task;            \n";
-        }
-        code << "	const REAL delta = allDelta[k];		\n";
-        if (formatType == SPARSE || formatType == DENSE) {
-        	code << "   const REAL inc = delta * X[offX + task]; \n";
-        } else { // INDICATOR, INTERCEPT
-        	code << "   const REAL inc = delta;           \n";
-        }
-        //code << "	if (inc != 0.0) xBeta[k] += inc; \n";// <<
-        code << " sum += inc;\n";
-        //code << "if (inc != 0.0) atomic_xchg((volatile __global REAL *)(xBeta+k), xb + inc);\n";
-
-        // Bookkeeping
-        code << "       task += TPB; \n" <<
-                "   } \n";// <<
-                    // Thread -> local
-        code << "   scratch[lid] = sum; \n";
-        code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
-
-        code << "   if (lid == 0) { \n" <<
-                "       xBeta[n] += scratch[0]; \n" <<
-                "   } \n";
-        code << "}  \n"; // End of kernel
-
-        return SourceCode(code.str(), name);
+		code << "__kernel void " << name << "(            \n" <<
+				"       const uint offX,                  \n" <<
+				"       const uint offK,                  \n" <<
+				"       const uint N,                     \n" <<
+				"       __global const REAL* X,           \n" <<
+				"       __global const int* K,            \n" <<
+				"       __global const REAL* Y,           \n" <<
+				"       __global const REAL* xBetaVector,       \n" <<
+				"       __global const REAL* expXBetaVector,    \n" <<
+				"       __global const REAL* denomPidVector, \n" <<
+#ifdef USE_VECTOR
+				"       __global TMP_REAL* buffer,     \n" <<
+#else
+				"       __global REAL* buffer,            \n" <<
+#endif // USE_VECTOR
+				"       __global const int* pIdVector,           \n" <<  // TODO Make id optional
+				"       __global const REAL* weightVector,	\n" <<
+				"		const uint cvIndexStride,		\n" <<
+				"		const uint size0,				\n" <<
+				"		const uint syncCVFolds) {   		 	\n";    // TODO Make weight optional
+		// Initialization
+		code << "	uint lid0 = get_local_id(0);		\n" <<
+				//"	uint task0 = get_group_id(0)*size0+lid0;	\n" <<
+				"	uint task1 = get_group_id(1);		\n" <<
+				"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
+				"	REAL sum0 = 0.0;					\n" <<
+				"	REAL sum1 = 0.0;					\n" <<
+				"	if (cvIndex < syncCVFolds) {		\n" <<
+				"	while (task1 < N) {					\n";
+		if (formatType == INDICATOR || formatType == SPARSE) {
+			code << "  	uint k = K[offK + task1];      	\n";
+		} else { // DENSE, INTERCEPT
+			code << "   uint k = task1;           		\n";
+		}
+		if (formatType == SPARSE || formatType == DENSE) {
+			code << "  	REAL x = X[offX + task1]; \n";
+		} else { // INDICATOR, INTERCEPT
+			// Do nothing
+		}
+		code << "		uint vecOffset = k*cvIndexStride;	\n" <<
+				"		REAL exb = expXBetaVector[vecOffset+cvIndex];	\n" <<
+				"		REAL numer = " << timesX("exb", formatType) << ";\n" <<
+				"		REAL denom = denomPidVector[vecOffset+cvIndex];		\n" <<
+				"		REAL w = weightVector[vecOffset+cvIndex];\n";
+		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
+		code << "       sum0 += gradient; \n" <<
+				"       sum1 += hessian;  \n";
+		code << "       task1 += get_num_groups(1); \n" <<
+				"   } \n" <<
+				"	buffer[cvIndex+cvIndexStride*get_group_id(1)] = sum0;	\n" <<
+				"	buffer[cvIndex+cvIndexStride*(get_group_id(1)+get_num_groups(1))] = sum1;	\n" <<
+				"	}									\n";
+		code << "}  \n"; // End of kernel
+		return SourceCode(code.str(), name);
 	}
 
+	/*
+		template <class BaseModel, typename WeightType, class BaseModelG>
+	    SourceCode
+	    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia) {
+
+			std::string name = "computeSyncCVGradHess" + getFormatTypeExtension(formatType);
+
+			std::stringstream code;
+			code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+			code << "__kernel void " << name << "(            \n" <<
+					"       const uint offX,                  \n" <<
+					"       const uint offK,                  \n" <<
+					"       const uint N,                     \n" <<
+					"       __global const REAL* X,           \n" <<
+					"       __global const int* K,            \n" <<
+					"       __global const REAL* Y,           \n" <<
+					"       __global const REAL* xBetaVector,       \n" <<
+					"       __global const REAL* expXBetaVector,    \n" <<
+					"       __global const REAL* denomPidVector, \n" <<
+	#ifdef USE_VECTOR
+					"       __global TMP_REAL* buffer,     \n" <<
+	#else
+					"       __global REAL* buffer,            \n" <<
+	#endif // USE_VECTOR
+					"       __global const int* pIdVector,           \n" <<  // TODO Make id optional
+					"       __global const REAL* weightVector,	\n" <<
+					"		const uint stride,				\n" <<
+					"		const uint indexWorkSize,		\n" <<
+					"		__global const int* cvIndices) {    \n";    // TODO Make weight optional
+			// Initialization
+			code << "   uint lid = get_local_id(0); \n" <<
+					"   uint task = get_global_id(0)%indexWorkSize;  \n" <<
+					"	uint bufferIndex = get_global_id(0)/indexWorkSize;	\n" <<
+					"	uint vecOffset = cvIndices[bufferIndex] * stride;	\n" <<
+					//"	__local uint bufferIndex, cvIndex, vecOffset;	\n" <<
+					//"	bufferIndex = get_group_id(0)/wgs;	\n" <<
+					//"	cvIndex = cvIndices[bufferIndex]; \n" <<
+					//"	vecOffset = stride*cvIndex;	\n" <<
+					// Local and thread storage
+	#ifdef USE_VECTOR
+					"   __local TMP_REAL scratch[TPB]; \n" <<
+					"   TMP_REAL sum = 0.0;            \n" <<
+	#else
+					"   __local REAL scratch[2][TPB];  \n" <<
+					"	scratch[0][lid] = 0;			\n" <<
+					"	scratch[1][lid] = 0;			\n" <<
+					// "   __local REAL scratch1[TPB];  \n" <<
+					"   REAL sum0 = 0.0; \n" <<
+					"   REAL sum1 = 0.0; \n" <<
+	#endif // USE_VECTOR
+					"   if (task < N) { \n";
+			// Fused transformation-reduction
+			if (formatType == INDICATOR || formatType == SPARSE) {
+				code << "       uint k = K[offK + task];         \n";
+			} else { // DENSE, INTERCEPT
+				code << "       uint k = task;            \n";
+			}
+			if (formatType == SPARSE || formatType == DENSE) {
+				code << "       REAL x = X[offX + task]; \n";
+			} else { // INDICATOR, INTERCEPT
+				// Do nothing
+			}
+			code << "       REAL exb = expXBetaVector[vecOffset+k];     \n" <<
+					"       REAL numer = " << timesX("exb", formatType) << ";\n" <<
+					//"       const REAL denom = 1.0 + exb;			\n";
+					"		REAL denom = denomPidVector[vecOffset+k];		\n" <<
+					"       REAL w = weightVector[vecOffset+k];\n";
+			code << BaseModelG::incrementGradientAndHessianG(formatType, true);
+			code << "       sum0 += gradient; \n" <<
+					"       sum1 += hessian;  \n";
+			// Bookkeeping
+			code << "       task += indexWorkSize; \n" <<
+					"   } \n" <<
+					// Thread -> local
+					"   scratch[0][lid] = sum0; \n" <<
+					"   scratch[1][lid] = sum1; \n";
+			code << (isNvidia ? ReduceBody2<real,true>::body() : ReduceBody2<real,false>::body());
+			code << "   if (lid == 0) { \n" <<
+					"		buffer[get_group_id(0)]	= scratch[0][0];	\n" <<
+					"		buffer[get_group_id(0) + get_num_groups(0)] = scratch[1][0];	\n" <<
+					//"       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2] = scratch[0][0]; \n" <<
+					//"       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2+wgs] = scratch[1][0]; \n" <<
+					"   } \n";
+			code << "}  \n"; // End of kernel
+			return SourceCode(code.str(), name);
+		}
+		*/
 
 	template <class BaseModel, typename WeightType, class BaseModelG>
-    SourceCode
-    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForComputeRemainingStatisticsKernel() {
+	SourceCode
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncCV1GradientHessianKernel(FormatType formatType, bool isNvidia) {
 
-        std::string name = "computeRemainingStatistics";
+		std::string name = "computeGradHessSync1" + getFormatTypeExtension(formatType);
 
-        std::stringstream code;
-        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+		std::stringstream code;
+		code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
 
-        code << "__kernel void " << name << "(     \n" <<
-                "       const uint N,              \n" <<
-				"		__global REAL* xBeta,	   \n" <<
-                "       __global REAL* expXBeta,   \n" <<
-                "       __global REAL* denominator,\n" <<
-				"		__global REAL* Y,			\n" <<
-				"		__global REAL* Offs,		\n" <<
-                "       __global const int* id) {   \n" <<
-                "   const uint task = get_global_id(0); \n";
-        //code << "   const uint lid = get_local_id(0); \n" <<
-        //        "   const uint loopSize = get_global_size(0); \n";
-        // Local and thread storage
-        code << "   if (task < N) {      				\n";
-        if (BaseModel::likelihoodHasDenominator) {
-        	code << "const REAL y = Y[task];\n" <<
-        			"const REAL xb = xBeta[task];\n" <<
-					"const REAL offs = Offs[task];\n";
-					//"const int k = task;";
-        	code << "REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
-        	code << "expXBeta[task] = exb;\n";
-    		code << "denominator[" << BaseModelG::getGroupG() << "] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
-        	//code << "denominator[task] = (REAL)1.0 + exb;\n";
-        	//code << " 		REAL exb = exp(xBeta[task]);		\n" <<
-        	//		"		expXBeta[task] = exb;		\n";
-            //code << "       denominator[task] = (REAL)1.0 + exb; \n";// <<
-        	//code << "expXBeta[k] = exp(xb); \n";
-        	//code << "expXBeta[k] = exp(1); \n";
+		code << "__kernel void " << name << "(            \n" <<
+				"       __global const uint* offXVec,                  \n" <<
+				"       __global const uint* offKVec,                  \n" <<
+				"       __global const uint* NVec,                     \n" <<
+				"       __global const REAL* X,           \n" <<
+				"       __global const int* K,            \n" <<
+				"       __global const REAL* Y,           \n" <<
+				"       __global const REAL* xBetaVector,       \n" <<
+				"       __global const REAL* expXBetaVector,    \n" <<
+				"       __global const REAL* denomPidVector, \n" <<
+#ifdef USE_VECTOR
+				"       __global TMP_REAL* buffer,     \n" <<
+#else
+				"       __global REAL* buffer,            \n" <<
+#endif // USE_VECTOR
+				"       __global const int* pIdVector,           \n" <<  // TODO Make id optional
+				"       __global const REAL* weightVector,	  \n" <<
+				"		const uint stride,				\n" <<
+				"		const uint indexWorkSize,		\n" <<
+				"		const uint wgs,					\n" <<
+				"		__global const int* indices,	\n" <<
+				"		__global const int* cvIndices) {    \n";    // TODO Make weight optional
+		// Initialization
+		code << "   uint lid = get_local_id(0); \n" <<
+				"   uint task = get_global_id(0)%indexWorkSize;  \n" <<
+				//"	uint bufferIndex = get_group_id(0)/wgs;	\n" <<
+				//"	uint vecOffset = stride * cvIndices[bufferIndex];	\n" <<
+				"	__local uint bufferIndex, index, vecOffset, N, offX, offK;	\n" <<
+				"	bufferIndex = get_group_id(0)/wgs;	\n" <<
+				"	index = indices[bufferIndex];		\n" <<
+				//"	cvIndex = cvIndices[bufferIndex]; 	\n" <<
+				"	vecOffset = stride*cvIndices[bufferIndex];			\n" <<
+				"	offX = offXVec[index];				\n" <<
+				"	offK = offKVec[index];				\n" <<
+				"	N = NVec[index];					\n" <<
+				// Local and thread storage
+#ifdef USE_VECTOR
+				"   __local TMP_REAL scratch[TPB]; \n" <<
+				"   TMP_REAL sum = 0.0;            \n" <<
+#else
+				"   __local REAL scratch[2][TPB];  \n" <<
+				"	scratch[0][lid] = 0;			\n" <<
+				"	scratch[1][lid] = 0;			\n" <<
+				// "   __local REAL scratch1[TPB];  \n" <<
+				"   REAL sum0 = 0.0; \n" <<
+				"   REAL sum1 = 0.0; \n" <<
+#endif // USE_VECTOR
+				"   while (task < N) { \n";
+		// Fused transformation-reduction
+		if (formatType == INDICATOR || formatType == SPARSE) {
+			code << "       uint k = K[offK + task];         \n";
+		} else { // DENSE, INTERCEPT
+			code << "       uint k = task;            \n";
+		}
+		if (formatType == SPARSE || formatType == DENSE) {
+			code << "       REAL x = X[offX + task]; \n";
+		} else { // INDICATOR, INTERCEPT
+			// Do nothing
+		}
+		code << "       REAL exb = expXBetaVector[vecOffset+k];     \n" <<
+				"       REAL numer = " << timesX("exb", formatType) << ";\n" <<
+				//"       const REAL denom = 1.0 + exb;			\n";
+				"		REAL denom = denomPidVector[vecOffset+k];		\n" <<
+				"       REAL w = weightVector[vecOffset+k];\n";
+		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
 
-            // LOGISTIC MODEL ONLY
-            //                     const real t = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
-            //                     expXBeta[k] = t;
-            //                     denominator[k] = static_cast<real>(1.0) + t;
-            //             code << "    const REAL t = 0.0;               \n" <<
-            //                     "   expXBeta[k] = exp(xBeta[k]);      \n" <<
-            //                     "   denominator[k] = REAL(1.0) + tmp; \n";
-        }
-
-        code << "   } \n";
-        code << "}    \n";
-        return SourceCode(code.str(), name);
-    }
+		code << "       sum0 += gradient; \n" <<
+				"       sum1 += hessian;  \n";
+		// Bookkeeping
+		code << "       task += indexWorkSize; \n" <<
+				"   } \n" <<
+				// Thread -> local
+				"   scratch[0][lid] = sum0; \n" <<
+				"   scratch[1][lid] = sum1; \n";
+		code << (isNvidia ? ReduceBody2<real,true>::body() : ReduceBody2<real,false>::body());
+		code << "   if (lid == 0) { \n" <<
+				"       buffer[get_group_id(0)] = scratch[0][0]; \n" <<
+				"       buffer[get_group_id(0)+get_num_groups(0)] = scratch[1][0]; \n" <<
+				//"       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2] = scratch[0][0]; \n" <<
+				//"       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2+wgs] = scratch[1][0]; \n" <<
+				"   } \n";
+		code << "}  \n"; // End of kernel
+		return SourceCode(code.str(), name);
+	}
 
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
@@ -576,212 +626,229 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	}
 
 
-template <class BaseModel, typename WeightType, class BaseModelG>
-SourceCode
-GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia) {
-
-    std::string name = "computeAllGradHess" + getFormatTypeExtension(formatType) + (useWeights ? "W" : "N");
-
-    std::stringstream code;
-    code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
-
-    code << "__kernel void " << name << "(            \n" <<
-            "       __global const uint* offXVec,                  \n" <<
-            "       __global const uint* offKVec,                  \n" <<
-            "       __global const uint* NVec,                     \n" <<
-            "       __global const REAL* X,           \n" <<
-            "       __global const int* K,            \n" <<
-            "       __global const REAL* Y,           \n" <<
-            "       __global const REAL* xBeta,       \n" <<
-            "       __global const REAL* expXBeta,    \n" <<
-            "       __global const REAL* denominator, \n" <<
-#ifdef USE_VECTOR
-            "       __global TMP_REAL* buffer,     \n" <<
-#else
-            "       __global REAL* buffer,            \n" <<
-#endif // USE_VECTOR
-            "       __global const int* id,           \n" <<  // TODO Make id optional
-            "       __global const REAL* weight,	  \n" <<
-			//"		const uint index) {\n";
-			"		const uint indexWorkSize,					\n" <<
-			"		const uint wgs,					\n" <<
-			"		__global const int* indices) {    \n";    // TODO Make weight optional
-    // Initialization
-    code << "   uint lid = get_local_id(0); \n" <<
-    		"	__local uint offX, offK, N;			\n" <<
-    		"   uint task = get_global_id(0)%indexWorkSize;  \n" <<
-			"	uint index = indices[get_group_id(0)/wgs];		\n" <<
-            "   __local REAL scratch[2][TPB];  \n" <<
-			"	offX = offXVec[index];			\n" <<
-			"	offK = offKVec[index];			\n" <<
-			"	N = NVec[index];					\n" <<
-                // Local and thread storage
-#ifdef USE_VECTOR
-            "   __local TMP_REAL scratch[TPB]; \n" <<
-            "   TMP_REAL sum = 0.0;            \n" <<
-#else
-            "   REAL sum0 = 0.0; \n" <<
-            "   REAL sum1 = 0.0; \n" <<
-			//"	if (lid == 0) printf(\"index: %d N: %d \", index, N); \n" <<
-#endif // USE_VECTOR
-            "   while (task < N) { \n";
-    // Fused transformation-reduction
-    if (formatType == INDICATOR || formatType == SPARSE) {
-        code << "       const uint k = K[offK + task];         \n";
-    } else { // DENSE, INTERCEPT
-        code << "       const uint k = task;            \n";
-    }
-
-    if (formatType == SPARSE || formatType == DENSE) {
-        code << "       const REAL x = X[offX + task]; \n";
-    } else { // INDICATOR, INTERCEPT
-        // Do nothing
-    }
-
-    code << "       REAL exb = expXBeta[k];     	\n" <<
-    		"		REAL xb = xBeta[k];			\n" <<
-            "       REAL numer = " << timesX("exb", formatType) << ";\n" <<
-			"		REAL denom = denominator[k];	\n";
-    if (useWeights) {
-        code << "       const REAL w = weight[k];\n";
-    }
-    code << BaseModelG::incrementGradientAndHessianG(formatType, useWeights);
-#ifdef USE_VECTOR
-    code << "       sum += (TMP_REAL)(gradient, hessian); \n";
-#else
-    code << "       sum0 += gradient; \n" <<
-            "       sum1 += hessian;  \n";
-#endif // USE_VECTOR
-
-    // Bookkeeping
-    code << "       task += indexWorkSize; \n" <<
-            "   } \n" <<
-                // Thread -> local
-#ifdef USE_VECTOR
-            "   scratch[lid] = sum; \n";
-#else
-            "   scratch[0][lid] = sum0; \n" <<
-            "   scratch[1][lid] = sum1; \n";
-#endif // USE_VECTOR
-
-#ifdef USE_VECTOR
-    // code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
-    code << ReduceBody1<real,false>::body();
-#else
-    code << (isNvidia ? ReduceBody2<real,true>::body() : ReduceBody2<real,false>::body());
-#endif
-
-    code << "   if (lid == 0) { \n" <<
-			//"	printf(\"%f %f | \", scratch[0][0], scratch[1][0]); \n" <<
-#ifdef USE_VECTOR
-            "       buffer[get_group_id(0)] = scratch[0]; \n" <<
-#else
-			"       buffer[get_group_id(0)] = scratch[0][0]; \n" <<
-			"       buffer[get_group_id(0)+get_num_groups(0)] = scratch[1][0]; \n" <<
-#endif // USE_VECTOR
-            "   } \n";
-    code << "}  \n"; // End of kernel
-
-    return SourceCode(code.str(), name);
-}
-
-
-	template <class BaseModel, typename WeightType, class BaseModelG>
-    SourceCode
-	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGetGradientObjective(bool useWeights, bool isNvidia) {
-        std::string name;
-	    if(useWeights) {
-	        name = "getGradientObjectiveW";
-	    } else {
-	        name = "getGradientObjectiveN";
-	    }
-
-        std::stringstream code;
-        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
-
-        code << "__kernel void " << name << "(            \n" <<
-                "       const uint N,                     \n" <<
-                "       __global const REAL* Y,           \n" <<
-                "       __global const REAL* xBeta,       \n" <<
-                "       __global REAL* buffer,            \n" <<
-                "       __global const REAL* weight) {    \n";    // TODO Make weight optional
-        // Initialization
-        code << "   const uint lid = get_local_id(0); \n" <<
-                "   const uint loopSize = get_global_size(0); \n" <<
-                "   uint task = get_global_id(0);  \n" <<
-                    // Local and thread storage
-                "   __local REAL scratch[TPB];  \n" <<
-                "   REAL sum = 0.0; \n";
-        code << "   while (task < N) { \n";
-        if (useWeights) {
-        	code << "       const REAL w = weight[task];\n";
-        }
-        code << "	const REAL xb = xBeta[task];     \n" <<
-        		"	const REAL y = Y[task];			 \n";
-        code << " sum += " << weight("y * xb", useWeights) << ";\n";
-        // Bookkeeping
-        code << "       task += loopSize; \n" <<
-                "   } \n" <<
-                    // Thread -> local
-                "   scratch[lid] = sum; \n";
-        code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
-
-        code << "   if (lid == 0) { \n" <<
-                "       buffer[get_group_id(0)] = scratch[0]; \n" <<
-                "   } \n";
-        code << "}  \n"; // End of kernel
-        return SourceCode(code.str(), name);
-	}
-
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	    SourceCode
-		GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGetGradientObjectiveSync(bool isNvidia) {
-	        std::string name;
-		        name = "getGradientObjectiveSync";
+		GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncCVMMGradientHessianKernel(FormatType formatType, bool isNvidia) {
 
+	        std::string name = "computeMMGradHessSync" + getFormatTypeExtension(formatType) ;
 
 	        std::stringstream code;
 	        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
 
 	        code << "__kernel void " << name << "(            \n" <<
-	                "       const uint N,                     \n" <<
+	                "       __global const uint* offXVec,                  \n" <<
+	                "       __global const uint* offKVec,                  \n" <<
+	                "       __global const uint* NVec,                     \n" <<
+	                "       __global const REAL* X,           \n" <<
+	                "       __global const int* K,            \n" <<
 	                "       __global const REAL* Y,           \n" <<
 	                "       __global const REAL* xBetaVector,       \n" <<
+	                "       __global const REAL* expXBetaVector,    \n" <<
+	                "       __global const REAL* denomPidVector, \n" <<
+	#ifdef USE_VECTOR
+	                "       __global TMP_REAL* buffer,     \n" <<
+	#else
 	                "       __global REAL* buffer,            \n" <<
-					"		const uint workSize,				\n" <<
-					"		const uint wgs,						\n" <<
-					"		const uint stride,					\n" <<
-	                "       __global const REAL* weightVector) {    \n";    // TODO Make weight optional
+	#endif // USE_VECTOR
+	                "       __global const int* pIdVector,           \n" <<  // TODO Make id optional
+	                "       __global const REAL* weightVector,	  \n" <<
+					"		const uint stride,				\n" <<
+					"		const uint indexWorkSize,		\n" <<
+					"		const uint wgs,					\n" <<
+					"		__global const int* indices,	\n" <<
+					"		__global const int* cvIndices,	\n" <<
+					"		__global const REAL* normVector) {    \n";    // TODO Make weight optional
 	        // Initialization
 	        code << "   uint lid = get_local_id(0); \n" <<
-	        		"	__local uint cvIndex, vecOffset;		\n" <<
-					"	cvIndex = get_group_id(0)/wgs;			\n" <<
-	                "   uint task = get_global_id(0)%workSize;  \n" <<
+	                    "   uint task = get_global_id(0)%indexWorkSize;  \n" <<
+	    				"	__local uint bufferIndex, cvIndex, index, vecOffset, offX, offK, N;	\n" <<
+	    				"	bufferIndex = get_group_id(0)/wgs;	\n" <<
+						"	index = indices[bufferIndex];		\n" <<
+	    				"	cvIndex = cvIndices[bufferIndex]; 	\n" <<
+	    				"	vecOffset = stride*cvIndex;			\n" <<
+						"	offX = offXVec[index];				\n" <<
+						"	offK = offKVec[index];				\n" <<
+						"	N = NVec[index];					\n" <<
 	                    // Local and thread storage
-	                "   __local REAL scratch[TPB];  \n" <<
-					"	vecOffset = stride * cvIndex;			\n" <<
-	                "   REAL sum = 0.0; \n";
-	        code << "   while (task < N) { \n";
-	        //if (useWeights) {
-	        	code << "       REAL w = weightVector[vecOffset+task];\n";
-	        //}
-	        code << "	REAL xb = xBetaVector[vecOffset+task];     \n" <<
-	        		"	REAL y = Y[task];			 \n" <<
-	        	    "   sum += w * y * xb;                 \n";
-	        //code << " sum += " << weight("y * xb", useWeights) << ";\n";
+	#ifdef USE_VECTOR
+	                "   __local TMP_REAL scratch[TPB]; \n" <<
+	                "   TMP_REAL sum = 0.0;            \n" <<
+	#else
+	                "   __local REAL scratch[2][TPB];  \n" <<
+	               // "   __local REAL scratch1[TPB];  \n" <<
+	                "   REAL sum0 = 0.0; \n" <<
+	                "   REAL sum1 = 0.0; \n" <<
+
+	#endif // USE_VECTOR
+	                    //
+	                "   while (task < N) { \n";
+
+	        // Fused transformation-reduction
+
+	        if (formatType == INDICATOR || formatType == SPARSE) {
+	            code << "       uint k = K[offK + task];         \n";
+	        } else { // DENSE, INTERCEPT
+	            code << "       uint k = task;            \n";
+	        }
+
+	        if (formatType == SPARSE || formatType == DENSE) {
+	            code << "       REAL x = X[offX + task]; \n";
+	        } else { // INDICATOR, INTERCEPT
+	            // Do nothing
+	        }
+
+	        code << "       REAL exb = expXBetaVector[vecOffset+k];     \n" <<
+	                "       REAL numer = " << timesX("exb", formatType) << ";\n" <<
+	                //"       const REAL denom = 1.0 + exb;			\n";
+	        		"		REAL denom = denomPidVector[vecOffset+k];		\n" <<
+					"		REAL norm = normVector[vecOffset+k];		\n" <<
+	            	"       REAL w = weightVector[vecOffset+k];\n";
+
+	        code << "       const REAL gradient = " << weight("numer / denom", true) << ";\n";
+	        code << "		REAL hessian = 0.0;			\n";
+
+	        if (formatType == INDICATOR || formatType == INTERCEPT) {
+	            // code << "       hessian  = gradient  * norm0 / denom;				\n";
+	            code << "       hessian  = " << weight("numer*norm/denom/denom",true) << ";\n";
+	        } else {
+	        	code << "if (x != 0.0) { \n";
+	            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+	            		"       hessian  = " << weight("nume2 * norm / fabs(x) / denom / denom", true) << ";\n";
+	            code << "} \n";
+	        }
+
+	        code << "       sum0 += gradient; \n" <<
+	                "       sum1 += hessian;  \n";
+
 	        // Bookkeeping
-	        code << "       task += workSize; \n" <<
+	        code << "       task += indexWorkSize; \n" <<
 	                "   } \n" <<
 	                    // Thread -> local
-	                "   scratch[lid] = sum; \n";
-	        code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
+
+	                "   scratch[0][lid] = sum0; \n" <<
+	                "   scratch[1][lid] = sum1; \n";
+
+
+	        code << (isNvidia ? ReduceBody2<real,true>::body() : ReduceBody2<real,false>::body());
 
 	        code << "   if (lid == 0) { \n" <<
-	                "       buffer[get_group_id(0)] = scratch[0]; \n" <<
+	                "       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2] = scratch[0][0]; \n" <<
+	                "       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2+wgs] = scratch[1][0]; \n" <<
 	                "   } \n";
+
 	        code << "}  \n"; // End of kernel
+
 	        return SourceCode(code.str(), name);
 		}
+
+	template <class BaseModel, typename WeightType, class BaseModelG>
+	SourceCode
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia) {
+
+	    std::string name = "computeAllGradHess" + getFormatTypeExtension(formatType) + (useWeights ? "W" : "N");
+
+	    std::stringstream code;
+	    code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+	    code << "__kernel void " << name << "(            \n" <<
+	            "       __global const uint* offXVec,                  \n" <<
+	            "       __global const uint* offKVec,                  \n" <<
+	            "       __global const uint* NVec,                     \n" <<
+	            "       __global const REAL* X,           \n" <<
+	            "       __global const int* K,            \n" <<
+	            "       __global const REAL* Y,           \n" <<
+	            "       __global const REAL* xBeta,       \n" <<
+	            "       __global const REAL* expXBeta,    \n" <<
+	            "       __global const REAL* denominator, \n" <<
+	#ifdef USE_VECTOR
+	            "       __global TMP_REAL* buffer,     \n" <<
+	#else
+	            "       __global REAL* buffer,            \n" <<
+	#endif // USE_VECTOR
+	            "       __global const int* id,           \n" <<  // TODO Make id optional
+	            "       __global const REAL* weight,	  \n" <<
+				//"		const uint index) {\n";
+				"		const uint indexWorkSize,					\n" <<
+				"		const uint wgs,					\n" <<
+				"		__global const int* indices) {    \n";    // TODO Make weight optional
+	    // Initialization
+	    code << "   uint lid = get_local_id(0); \n" <<
+	    		"	__local uint offX, offK, N;			\n" <<
+	    		"   uint task = get_global_id(0)%indexWorkSize;  \n" <<
+				"	uint index = indices[get_group_id(0)/wgs];		\n" <<
+	            "   __local REAL scratch[2][TPB];  \n" <<
+				"	offX = offXVec[index];			\n" <<
+				"	offK = offKVec[index];			\n" <<
+				"	N = NVec[index];					\n" <<
+	                // Local and thread storage
+	#ifdef USE_VECTOR
+	            "   __local TMP_REAL scratch[TPB]; \n" <<
+	            "   TMP_REAL sum = 0.0;            \n" <<
+	#else
+	            "   REAL sum0 = 0.0; \n" <<
+	            "   REAL sum1 = 0.0; \n" <<
+				//"	if (lid == 0) printf(\"index: %d N: %d \", index, N); \n" <<
+	#endif // USE_VECTOR
+	            "   while (task < N) { \n";
+	    // Fused transformation-reduction
+	    if (formatType == INDICATOR || formatType == SPARSE) {
+	        code << "       const uint k = K[offK + task];         \n";
+	    } else { // DENSE, INTERCEPT
+	        code << "       const uint k = task;            \n";
+	    }
+
+	    if (formatType == SPARSE || formatType == DENSE) {
+	        code << "       const REAL x = X[offX + task]; \n";
+	    } else { // INDICATOR, INTERCEPT
+	        // Do nothing
+	    }
+
+	    code << "       REAL exb = expXBeta[k];     	\n" <<
+	    		"		REAL xb = xBeta[k];			\n" <<
+	            "       REAL numer = " << timesX("exb", formatType) << ";\n" <<
+				"		REAL denom = denominator[k];	\n";
+	    if (useWeights) {
+	        code << "       const REAL w = weight[k];\n";
+	    }
+	    code << BaseModelG::incrementGradientAndHessianG(formatType, useWeights);
+	#ifdef USE_VECTOR
+	    code << "       sum += (TMP_REAL)(gradient, hessian); \n";
+	#else
+	    code << "       sum0 += gradient; \n" <<
+	            "       sum1 += hessian;  \n";
+	#endif // USE_VECTOR
+
+	    // Bookkeeping
+	    code << "       task += indexWorkSize; \n" <<
+	            "   } \n" <<
+	                // Thread -> local
+	#ifdef USE_VECTOR
+	            "   scratch[lid] = sum; \n";
+	#else
+	            "   scratch[0][lid] = sum0; \n" <<
+	            "   scratch[1][lid] = sum1; \n";
+	#endif // USE_VECTOR
+
+	#ifdef USE_VECTOR
+	    // code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
+	    code << ReduceBody1<real,false>::body();
+	#else
+	    code << (isNvidia ? ReduceBody2<real,true>::body() : ReduceBody2<real,false>::body());
+	#endif
+
+	    code << "   if (lid == 0) { \n" <<
+				//"	printf(\"%f %f | \", scratch[0][0], scratch[1][0]); \n" <<
+	#ifdef USE_VECTOR
+	            "       buffer[get_group_id(0)] = scratch[0]; \n" <<
+	#else
+				"       buffer[get_group_id(0)] = scratch[0][0]; \n" <<
+				"       buffer[get_group_id(0)+get_num_groups(0)] = scratch[1][0]; \n" <<
+	#endif // USE_VECTOR
+	            "   } \n";
+	    code << "}  \n"; // End of kernel
+
+	    return SourceCode(code.str(), name);
+	}
 
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
@@ -977,203 +1044,209 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 
 
 	template <class BaseModel, typename WeightType, class BaseModelG>
-	SourceCode
-	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGetLogLikelihood(bool useWeights, bool isNvidia) {
-        std::string name;
-	    if(useWeights) {
-	        name = "getLogLikelihoodW";
-	    } else {
-	        name = "getLogLikelihoodN";
-	    }
-
-	    std::stringstream code;
-	    code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
-
-	    code << "__kernel void " << name << "(            \n" <<
-	    		"       const uint K,                     \n" <<
-				"		 const uint N,					   \n" <<
-				"       __global const REAL* Y,           \n" <<
-				"       __global const REAL* xBeta,       \n" <<
-				"		 __global const REAL* denominator,				\n" <<
-				"		 __global const REAL* accDenominator,			\n" <<
-				"       __global REAL* buffer,            \n" <<
-				"       __global const REAL* Kweight,	   \n" <<
-				"		 __global const REAL* Nweight) {    \n";    // TODO Make weight optional
-	    // Initialization
-
-	    code << "   const uint lid = get_local_id(0); \n" <<
-	    		"   const uint loopSize = get_global_size(0); \n" <<
-				"   uint task = get_global_id(0);  \n" <<
-				// Local and thread storage
-				"   __local REAL scratch[TPB];  \n" <<
-				"   REAL sum = 0.0; \n";
-
-		code << "   while (task < K) { \n";
-
-	    if (useWeights) {
-	    	code << "       const REAL wK = Kweight[task];\n";
-	    }
-	    code << "	const REAL xb = xBeta[task];     \n" <<
-	    		"	const REAL y = Y[task];			 \n";
-	    code << " sum += " << weightK(BaseModelG::logLikeNumeratorContribG(), useWeights) << ";\n";
-
-	    if (BaseModel::likelihoodHasDenominator) {
-	    	code << "if (task < N) {	\n";
-	    	code << " const REAL wN = Nweight[task];\n";
-	    	if (BaseModel::cumulativeGradientAndHessian) {
-	    		code << "const REAL denom = accDenominator[task];\n";
-	    	} else {
-	    		code << "const REAL denom = denominator[task];\n";
-	    	}
-	    	code << "sum -= (REAL) " << BaseModelG::logLikeDenominatorContribG() << ";\n";
-	    	code << "}\n";
-	    }
-
-	    // Bookkeeping
-	    code << "       task += loopSize; \n" <<
-	    		"   } \n";
-				// Thread -> local
-				code << "   scratch[lid] = sum; \n";
-	    code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
-
-	    code << "   if (lid == 0) { \n" <<
-	    		"       buffer[get_group_id(0)] = scratch[0]; \n" <<
-				"   } \n";
-
-	    code << "}  \n"; // End of kernel
-	    return SourceCode(code.str(), name);
-	}
-
-
-	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
-    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia) {
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForUpdateXBetaKernel(FormatType formatType) {
 
-		std::string name = "computeSyncCVGradHess" + getFormatTypeExtension(formatType);
-
-		std::stringstream code;
-		code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
-
-		code << "__kernel void " << name << "(            \n" <<
-				"       const uint offX,                  \n" <<
-				"       const uint offK,                  \n" <<
-				"       const uint N,                     \n" <<
-				"       __global const REAL* X,           \n" <<
-				"       __global const int* K,            \n" <<
-				"       __global const REAL* Y,           \n" <<
-				"       __global const REAL* xBetaVector,       \n" <<
-				"       __global const REAL* expXBetaVector,    \n" <<
-				"       __global const REAL* denomPidVector, \n" <<
-#ifdef USE_VECTOR
-				"       __global TMP_REAL* buffer,     \n" <<
-#else
-				"       __global REAL* buffer,            \n" <<
-#endif // USE_VECTOR
-				"       __global const int* pIdVector,           \n" <<  // TODO Make id optional
-				"       __global const REAL* weightVector,	\n" <<
-				"		const uint stride,				\n" <<
-				"		const uint indexWorkSize,		\n" <<
-				"		__global const int* cvIndices) {    \n";    // TODO Make weight optional
-		// Initialization
-		code << "   uint lid = get_local_id(0); \n" <<
-				"   uint task = get_global_id(0)%indexWorkSize;  \n" <<
-				"	uint bufferIndex = get_global_id(0)/indexWorkSize;	\n" <<
-				"	uint vecOffset = cvIndices[bufferIndex] * stride;	\n" <<
-				//"	__local uint bufferIndex, cvIndex, vecOffset;	\n" <<
-				//"	bufferIndex = get_group_id(0)/wgs;	\n" <<
-				//"	cvIndex = cvIndices[bufferIndex]; \n" <<
-				//"	vecOffset = stride*cvIndex;	\n" <<
-				// Local and thread storage
-#ifdef USE_VECTOR
-				"   __local TMP_REAL scratch[TPB]; \n" <<
-				"   TMP_REAL sum = 0.0;            \n" <<
-#else
-				"   __local REAL scratch[2][TPB];  \n" <<
-				"	scratch[0][lid] = 0;			\n" <<
-				"	scratch[1][lid] = 0;			\n" <<
-				// "   __local REAL scratch1[TPB];  \n" <<
-				"   REAL sum0 = 0.0; \n" <<
-				"   REAL sum1 = 0.0; \n" <<
-#endif // USE_VECTOR
-				"   if (task < N) { \n";
-		// Fused transformation-reduction
-		if (formatType == INDICATOR || formatType == SPARSE) {
-			code << "       uint k = K[offK + task];         \n";
-		} else { // DENSE, INTERCEPT
-			code << "       uint k = task;            \n";
-		}
-		if (formatType == SPARSE || formatType == DENSE) {
-			code << "       REAL x = X[offX + task]; \n";
-		} else { // INDICATOR, INTERCEPT
-			// Do nothing
-		}
-		code << "       REAL exb = expXBetaVector[vecOffset+k];     \n" <<
-				"       REAL numer = " << timesX("exb", formatType) << ";\n" <<
-				//"       const REAL denom = 1.0 + exb;			\n";
-				"		REAL denom = denomPidVector[vecOffset+k];		\n" <<
-				"       REAL w = weightVector[vecOffset+k];\n";
-		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
-		code << "       sum0 += gradient; \n" <<
-				"       sum1 += hessian;  \n";
-		// Bookkeeping
-		code << "       task += indexWorkSize; \n" <<
-				"   } \n" <<
-				// Thread -> local
-				"   scratch[0][lid] = sum0; \n" <<
-				"   scratch[1][lid] = sum1; \n";
-		code << (isNvidia ? ReduceBody2<real,true>::body() : ReduceBody2<real,false>::body());
-		code << "   if (lid == 0) { \n" <<
-				"		buffer[get_group_id(0)]	= scratch[0][0];	\n" <<
-				"		buffer[get_group_id(0) + get_num_groups(0)] = scratch[1][0];	\n" <<
-				//"       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2] = scratch[0][0]; \n" <<
-				//"       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2+wgs] = scratch[1][0]; \n" <<
-				"   } \n";
-		code << "}  \n"; // End of kernel
-		return SourceCode(code.str(), name);
-	}
-
-	template <class BaseModel, typename WeightType, class BaseModelG>
-    SourceCode
-    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncComputeRemainingStatisticsKernel() {
-
-        std::string name = "computeRemainingStatistics";
+        std::string name = "updateXBeta" + getFormatTypeExtension(formatType);
 
         std::stringstream code;
         code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
 
         code << "__kernel void " << name << "(     \n" <<
+                "       const uint offX,           \n" <<
+                "       const uint offK,           \n" <<
                 "       const uint N,              \n" <<
-				"		__global REAL* xBetaVector,	   \n" <<
-                "       __global REAL* expXBetaVector,   \n" <<
-                "       __global REAL* denomPidVector,\n" <<
-				"		__global REAL* Y,			\n" <<
-				"		__global REAL* Offs,		\n" <<
-                "       __global const int* pIdVector,		\n" <<
-				"		const uint stride,				\n" <<
-				"		__global const int* cvIndices,	\n" <<
-				"		__const uint blockSize) {   \n" <<
-                "   uint task = get_global_id(0)%blockSize; \n" <<
-				"	__local uint cvIndex, vecOffset;	\n" <<
-        		"	cvIndex = cvIndices[get_global_id(0)/blockSize];	\n" <<
-				"	vecOffset = stride*cvIndex;	\n";
-        //code << "   const uint lid = get_local_id(0); \n" <<
-        //        "   const uint loopSize = get_global_size(0); \n";
-        // Local and thread storage
-        code << "   if (task < N) {      				\n";
-        if (BaseModel::likelihoodHasDenominator) {
-        	code << "REAL y = Y[task];\n" <<
-        			"REAL xb = xBetaVector[vecOffset+task];\n" <<
-					"REAL offs = Offs[task];\n";
-					//"const int k = task;";
-        	code << "REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
-        	code << "expXBetaVector[vecOffset+task] = exb;\n";
-    		code << "denomPidVector[vecOffset+" << BaseModelG::getGroupG() << "] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+                "       const REAL delta,          \n" <<
+                "       __global const REAL* X,    \n" <<
+                "       __global const int* K,     \n" <<
+                "       __global const REAL* Y,    \n" <<
+                "       __global REAL* xBeta,      \n" <<
+                "       __global REAL* expXBeta,   \n" <<
+                "       __global REAL* denominator,\n" <<
+                "       __global const int* id) {   \n" <<
+                "   const uint task = get_global_id(0); \n";
+
+        if (formatType == INDICATOR || formatType == SPARSE) {
+            code << "   const uint k = K[offK + task];         \n";
+        } else { // DENSE, INTERCEPT
+            code << "   const uint k = task;            \n";
         }
+
+        if (formatType == SPARSE || formatType == DENSE) {
+            code << "   const REAL inc = delta * X[offX + task]; \n";
+        } else { // INDICATOR, INTERCEPT
+            code << "   const REAL inc = delta;           \n";
+        }
+
+        code << "   if (task < N) {      				\n";
+        code << "       REAL xb = xBeta[k] + inc; 		\n" <<
+                "       xBeta[k] = xb;                  \n";
+/*
+        if (BaseModel::likelihoodHasDenominator) {
+            // TODO: The following is not YET thread-safe for multi-row observations
+            // code << "       const REAL oldEntry = expXBeta[k];                 \n" <<
+            //         "       const REAL newEntry = expXBeta[k] = exp(xBeta[k]); \n" <<
+            //         "       denominator[" << group<BaseModel>("id","k") << "] += (newEntry - oldEntry); \n";
+            code << "       const REAL exb = exp(xb); \n" <<
+                    "       expXBeta[k] = exb;        \n" <<
+					"		denominator[k] = 1.0 + exb; \n";
+        	//code << "expXBeta[k] = exp(xb); \n";
+        	//code << "expXBeta[k] = exp(1); \n";
+
+            // LOGISTIC MODEL ONLY
+            //                     const real t = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
+            //                     expXBeta[k] = t;
+            //                     denominator[k] = static_cast<real>(1.0) + t;
+            //             code << "    const REAL t = 0.0;               \n" <<
+            //                     "   expXBeta[k] = exp(xBeta[k]);      \n" <<
+            //                     "   denominator[k] = REAL(1.0) + tmp; \n";
+        }
+        */
+
         code << "   } \n";
         code << "}    \n";
+
         return SourceCode(code.str(), name);
     }
 
+	template <class BaseModel, typename WeightType, class BaseModelG>
+    SourceCode
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForUpdateAllXBetaKernel(FormatType formatType, bool isNvidia) {
+
+        std::string name = "updateAllXBeta" + getFormatTypeExtension(formatType);
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "(            \n" <<
+                "       __global const uint* offXVec,                  \n" <<
+                "       __global const uint* offKVec,                  \n" <<
+                "       __global const uint* NVec,                     \n" <<
+                "       __global const REAL* allDelta,                  \n" <<
+                "       __global const REAL* X,           \n" <<
+                "       __global const int* K,            \n" <<
+                "       __global const REAL* Y,           \n" <<
+                "       __global  REAL* xBeta,       \n" <<
+                "       __global const REAL* expXBeta,    \n" <<
+                "       __global const REAL* denominator, \n" <<
+				"		const uint indexWorkSize,		\n" <<
+				"		const uint wgs,					\n" <<
+				"		__global const int* fixBeta) {    \n";    // TODO Make weight optional
+
+        // Initialization
+        code << "   const uint lid = get_local_id(0); \n" <<
+                "   const uint loopSize = indexWorkSize; \n" <<
+                "   uint task = get_global_id(0)%indexWorkSize;  \n" <<
+                    // Local and thread storage
+                "   __local REAL scratch[TPB];  \n" <<
+                "   REAL sum = 0.0; \n" <<
+				"	const uint n = get_group_id(0)/wgs;		\n" <<
+				"	const uint offX = offXVec[n];			\n" <<
+				"	const uint offK = offKVec[n];			\n" <<
+				"	const uint N = NVec[n];					\n";//<<
+				/*
+        code << "   const uint lid = get_local_id(0); \n" <<
+        		"	const uint n = get_group_id(0);		\n" <<
+				//"	if (fixBeta[index] == 0) {					\n" <<
+        		//"   uint task = get_global_id(0)%TPB; \n" <<
+                //"   const uint loopSize = get_global_size(0)/J; \n" <<
+				"	const uint offX = offXVec[n];			\n" <<
+				"	const uint offK = offKVec[n];			\n" <<
+				"	const uint N = NVec[n];					\n" <<
+				//"	const REAL delta = allDelta[index];			\n" <<
+                    // Local and thread storage
+                "   REAL sum = 0.0; \n" <<
+				"   __local REAL scratch[TPB];  \n" <<
+				*/
+        code << "   while (task < N) { 						\n";// <<
+        if (formatType == INDICATOR || formatType == SPARSE) {
+        	code << "   const uint k = K[offK + task];         \n";
+        } else { // DENSE, INTERCEPT
+        	code << "   const uint k = task;            \n";
+        }
+        code << "	const REAL delta = allDelta[k];		\n";
+        if (formatType == SPARSE || formatType == DENSE) {
+        	code << "   const REAL inc = delta * X[offX + task]; \n";
+        } else { // INDICATOR, INTERCEPT
+        	code << "   const REAL inc = delta;           \n";
+        }
+        //code << "	if (inc != 0.0) xBeta[k] += inc; \n";// <<
+        code << " sum += inc;\n";
+        //code << "if (inc != 0.0) atomic_xchg((volatile __global REAL *)(xBeta+k), xb + inc);\n";
+
+        // Bookkeeping
+        code << "       task += TPB; \n" <<
+                "   } \n";// <<
+                    // Thread -> local
+        code << "   scratch[lid] = sum; \n";
+        code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
+
+        code << "   if (lid == 0) { \n" <<
+                "       xBeta[n] += scratch[0]; \n" <<
+                "   } \n";
+        code << "}  \n"; // End of kernel
+
+        return SourceCode(code.str(), name);
+	}
+
+	template <class BaseModel, typename WeightType, class BaseModelG>
+    SourceCode
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncUpdateXBetaKernel(FormatType formatType) {
+
+        std::string name = "updateXBetaSync" + getFormatTypeExtension(formatType);
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "(     \n" <<
+                "       const uint offX,           \n" <<
+                "       const uint offK,           \n" <<
+                "       __global const REAL* deltaVector,          \n" <<
+                "       __global const REAL* X,    \n" <<
+                "       __global const int* K,     \n" <<
+                "       __global const REAL* Y,    \n" <<
+                "       __global REAL* xBetaVector,      \n" <<
+                "       __global REAL* expXBetaVector,   \n" <<
+                "       __global REAL* denomPidVector,\n" <<
+                "       __global const int* id,		\n" <<
+				"		const uint cvIndexStride,			\n" <<
+				"		__global const REAL* Offs,	\n" <<
+				"		const uint size0,			\n" <<
+				"		const uint syncCVFolds) {   \n";
+
+        code << "	uint lid0 = get_local_id(0);		\n" <<
+        		//"	uint task0 = get_group_id(0)*size0+lid0;	\n" <<
+        		"	uint task1 = get_group_id(1);		\n" <<
+				"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
+				"	if (cvIndex < syncCVFolds) {		\n" <<
+				"		REAL delta = deltaVector[cvIndex];	\n";
+        if (formatType == INDICATOR || formatType == SPARSE) {
+        	code << "  	uint k = K[offK + task1];      	\n";
+        } else { // DENSE, INTERCEPT
+        	code << "   uint k = task1;           		\n";
+        }
+        if (formatType == SPARSE || formatType == DENSE) {
+            code << "   REAL inc = delta * X[offX + task1]; \n";
+        } else { // INDICATOR, INTERCEPT
+            code << "   REAL inc = delta;           \n";
+        }
+        code << "		uint vecOffset = k*cvIndexStride;	\n" <<
+        		"		REAL xb = xBetaVector[vecOffset + cvIndex] + inc;	\n" <<
+				"		xBetaVector[vecOffset + cvIndex] = xb;	\n";
+        if (BaseModel::likelihoodHasDenominator) {
+        	code << "	REAL y = Y[k];\n" <<
+        			"	REAL offs = Offs[k];\n";
+        	code << "	REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
+        	code << "	expXBetaVector[vecOffset+cvIndex] = exb;\n";
+        	code << "	denomPidVector[vecOffset+cvIndex] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+        }
+        code << "   } \n";
+        code << "}    \n";
+
+        return SourceCode(code.str(), name);
+    }
+
+	/*
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncUpdateXBetaKernel(FormatType formatType) {
@@ -1236,6 +1309,7 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 
         return SourceCode(code.str(), name);
     }
+*/
 
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
@@ -1306,219 +1380,9 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
         return SourceCode(code.str(), name);
     }
 
-
-	template <class BaseModel, typename WeightType, class BaseModelG>
-	SourceCode
-	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncCV1GradientHessianKernel(FormatType formatType, bool isNvidia) {
-
-		std::string name = "computeGradHessSync1" + getFormatTypeExtension(formatType);
-
-		std::stringstream code;
-		code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
-
-		code << "__kernel void " << name << "(            \n" <<
-				"       __global const uint* offXVec,                  \n" <<
-				"       __global const uint* offKVec,                  \n" <<
-				"       __global const uint* NVec,                     \n" <<
-				"       __global const REAL* X,           \n" <<
-				"       __global const int* K,            \n" <<
-				"       __global const REAL* Y,           \n" <<
-				"       __global const REAL* xBetaVector,       \n" <<
-				"       __global const REAL* expXBetaVector,    \n" <<
-				"       __global const REAL* denomPidVector, \n" <<
-#ifdef USE_VECTOR
-				"       __global TMP_REAL* buffer,     \n" <<
-#else
-				"       __global REAL* buffer,            \n" <<
-#endif // USE_VECTOR
-				"       __global const int* pIdVector,           \n" <<  // TODO Make id optional
-				"       __global const REAL* weightVector,	  \n" <<
-				"		const uint stride,				\n" <<
-				"		const uint indexWorkSize,		\n" <<
-				"		const uint wgs,					\n" <<
-				"		__global const int* indices,	\n" <<
-				"		__global const int* cvIndices) {    \n";    // TODO Make weight optional
-		// Initialization
-		code << "   uint lid = get_local_id(0); \n" <<
-				"   uint task = get_global_id(0)%indexWorkSize;  \n" <<
-				//"	uint bufferIndex = get_group_id(0)/wgs;	\n" <<
-				//"	uint vecOffset = stride * cvIndices[bufferIndex];	\n" <<
-				"	__local uint bufferIndex, index, vecOffset, N, offX, offK;	\n" <<
-				"	bufferIndex = get_group_id(0)/wgs;	\n" <<
-				"	index = indices[bufferIndex];		\n" <<
-				//"	cvIndex = cvIndices[bufferIndex]; 	\n" <<
-				"	vecOffset = stride*cvIndices[bufferIndex];			\n" <<
-				"	offX = offXVec[index];				\n" <<
-				"	offK = offKVec[index];				\n" <<
-				"	N = NVec[index];					\n" <<
-				// Local and thread storage
-#ifdef USE_VECTOR
-				"   __local TMP_REAL scratch[TPB]; \n" <<
-				"   TMP_REAL sum = 0.0;            \n" <<
-#else
-				"   __local REAL scratch[2][TPB];  \n" <<
-				"	scratch[0][lid] = 0;			\n" <<
-				"	scratch[1][lid] = 0;			\n" <<
-				// "   __local REAL scratch1[TPB];  \n" <<
-				"   REAL sum0 = 0.0; \n" <<
-				"   REAL sum1 = 0.0; \n" <<
-#endif // USE_VECTOR
-				"   while (task < N) { \n";
-		// Fused transformation-reduction
-		if (formatType == INDICATOR || formatType == SPARSE) {
-			code << "       uint k = K[offK + task];         \n";
-		} else { // DENSE, INTERCEPT
-			code << "       uint k = task;            \n";
-		}
-		if (formatType == SPARSE || formatType == DENSE) {
-			code << "       REAL x = X[offX + task]; \n";
-		} else { // INDICATOR, INTERCEPT
-			// Do nothing
-		}
-		code << "       REAL exb = expXBetaVector[vecOffset+k];     \n" <<
-				"       REAL numer = " << timesX("exb", formatType) << ";\n" <<
-				//"       const REAL denom = 1.0 + exb;			\n";
-				"		REAL denom = denomPidVector[vecOffset+k];		\n" <<
-				"       REAL w = weightVector[vecOffset+k];\n";
-		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
-
-		code << "       sum0 += gradient; \n" <<
-				"       sum1 += hessian;  \n";
-		// Bookkeeping
-		code << "       task += indexWorkSize; \n" <<
-				"   } \n" <<
-				// Thread -> local
-				"   scratch[0][lid] = sum0; \n" <<
-				"   scratch[1][lid] = sum1; \n";
-		code << (isNvidia ? ReduceBody2<real,true>::body() : ReduceBody2<real,false>::body());
-		code << "   if (lid == 0) { \n" <<
-				"       buffer[get_group_id(0)] = scratch[0][0]; \n" <<
-				"       buffer[get_group_id(0)+get_num_groups(0)] = scratch[1][0]; \n" <<
-				//"       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2] = scratch[0][0]; \n" <<
-				//"       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2+wgs] = scratch[1][0]; \n" <<
-				"   } \n";
-		code << "}  \n"; // End of kernel
-		return SourceCode(code.str(), name);
-	}
-
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	    SourceCode
-		GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncCVMMGradientHessianKernel(FormatType formatType, bool isNvidia) {
-
-	        std::string name = "computeMMGradHessSync" + getFormatTypeExtension(formatType) ;
-
-	        std::stringstream code;
-	        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
-
-	        code << "__kernel void " << name << "(            \n" <<
-	                "       __global const uint* offXVec,                  \n" <<
-	                "       __global const uint* offKVec,                  \n" <<
-	                "       __global const uint* NVec,                     \n" <<
-	                "       __global const REAL* X,           \n" <<
-	                "       __global const int* K,            \n" <<
-	                "       __global const REAL* Y,           \n" <<
-	                "       __global const REAL* xBetaVector,       \n" <<
-	                "       __global const REAL* expXBetaVector,    \n" <<
-	                "       __global const REAL* denomPidVector, \n" <<
-	#ifdef USE_VECTOR
-	                "       __global TMP_REAL* buffer,     \n" <<
-	#else
-	                "       __global REAL* buffer,            \n" <<
-	#endif // USE_VECTOR
-	                "       __global const int* pIdVector,           \n" <<  // TODO Make id optional
-	                "       __global const REAL* weightVector,	  \n" <<
-					"		const uint stride,				\n" <<
-					"		const uint indexWorkSize,		\n" <<
-					"		const uint wgs,					\n" <<
-					"		__global const int* indices,	\n" <<
-					"		__global const int* cvIndices,	\n" <<
-					"		__global const REAL* normVector) {    \n";    // TODO Make weight optional
-	        // Initialization
-	        code << "   uint lid = get_local_id(0); \n" <<
-	                    "   uint task = get_global_id(0)%indexWorkSize;  \n" <<
-	    				"	__local uint bufferIndex, cvIndex, index, vecOffset, offX, offK, N;	\n" <<
-	    				"	bufferIndex = get_group_id(0)/wgs;	\n" <<
-						"	index = indices[bufferIndex];		\n" <<
-	    				"	cvIndex = cvIndices[bufferIndex]; 	\n" <<
-	    				"	vecOffset = stride*cvIndex;			\n" <<
-						"	offX = offXVec[index];				\n" <<
-						"	offK = offKVec[index];				\n" <<
-						"	N = NVec[index];					\n" <<
-	                    // Local and thread storage
-	#ifdef USE_VECTOR
-	                "   __local TMP_REAL scratch[TPB]; \n" <<
-	                "   TMP_REAL sum = 0.0;            \n" <<
-	#else
-	                "   __local REAL scratch[2][TPB];  \n" <<
-	               // "   __local REAL scratch1[TPB];  \n" <<
-	                "   REAL sum0 = 0.0; \n" <<
-	                "   REAL sum1 = 0.0; \n" <<
-
-	#endif // USE_VECTOR
-	                    //
-	                "   while (task < N) { \n";
-
-	        // Fused transformation-reduction
-
-	        if (formatType == INDICATOR || formatType == SPARSE) {
-	            code << "       uint k = K[offK + task];         \n";
-	        } else { // DENSE, INTERCEPT
-	            code << "       uint k = task;            \n";
-	        }
-
-	        if (formatType == SPARSE || formatType == DENSE) {
-	            code << "       REAL x = X[offX + task]; \n";
-	        } else { // INDICATOR, INTERCEPT
-	            // Do nothing
-	        }
-
-	        code << "       REAL exb = expXBetaVector[vecOffset+k];     \n" <<
-	                "       REAL numer = " << timesX("exb", formatType) << ";\n" <<
-	                //"       const REAL denom = 1.0 + exb;			\n";
-	        		"		REAL denom = denomPidVector[vecOffset+k];		\n" <<
-					"		REAL norm = normVector[vecOffset+k];		\n" <<
-	            	"       REAL w = weightVector[vecOffset+k];\n";
-
-	        code << "       const REAL gradient = " << weight("numer / denom", true) << ";\n";
-	        code << "		REAL hessian = 0.0;			\n";
-
-	        if (formatType == INDICATOR || formatType == INTERCEPT) {
-	            // code << "       hessian  = gradient  * norm0 / denom;				\n";
-	            code << "       hessian  = " << weight("numer*norm/denom/denom",true) << ";\n";
-	        } else {
-	        	code << "if (x != 0.0) { \n";
-	            code << "       const REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
-	            		"       hessian  = " << weight("nume2 * norm / fabs(x) / denom / denom", true) << ";\n";
-	            code << "} \n";
-	        }
-
-	        code << "       sum0 += gradient; \n" <<
-	                "       sum1 += hessian;  \n";
-
-	        // Bookkeeping
-	        code << "       task += indexWorkSize; \n" <<
-	                "   } \n" <<
-	                    // Thread -> local
-
-	                "   scratch[0][lid] = sum0; \n" <<
-	                "   scratch[1][lid] = sum1; \n";
-
-
-	        code << (isNvidia ? ReduceBody2<real,true>::body() : ReduceBody2<real,false>::body());
-
-	        code << "   if (lid == 0) { \n" <<
-	                "       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2] = scratch[0][0]; \n" <<
-	                "       buffer[get_group_id(0)%wgs + bufferIndex*wgs*2+wgs] = scratch[1][0]; \n" <<
-	                "   } \n";
-
-	        code << "}  \n"; // End of kernel
-
-	        return SourceCode(code.str(), name);
-		}
-
-	template <class BaseModel, typename WeightType, class BaseModelG>
-	    SourceCode
-	    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForMMUpdateXBetaKernel(bool isNvidia) {
+		GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForMMUpdateXBetaKernel(bool isNvidia) {
 
 	        std::string name = "updateXBetaMM";
 
@@ -1597,6 +1461,340 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHes
 	        return SourceCode(code.str(), name);
 	    }
 
+
+	template <class BaseModel, typename WeightType, class BaseModelG>
+    SourceCode
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForComputeRemainingStatisticsKernel() {
+
+        std::string name = "computeRemainingStatistics";
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "(     \n" <<
+                "       const uint N,              \n" <<
+				"		__global REAL* xBeta,	   \n" <<
+                "       __global REAL* expXBeta,   \n" <<
+                "       __global REAL* denominator,\n" <<
+				"		__global REAL* Y,			\n" <<
+				"		__global REAL* Offs,		\n" <<
+                "       __global const int* id) {   \n" <<
+                "   const uint task = get_global_id(0); \n";
+        //code << "   const uint lid = get_local_id(0); \n" <<
+        //        "   const uint loopSize = get_global_size(0); \n";
+        // Local and thread storage
+        code << "   if (task < N) {      				\n";
+        if (BaseModel::likelihoodHasDenominator) {
+        	code << "const REAL y = Y[task];\n" <<
+        			"const REAL xb = xBeta[task];\n" <<
+					"const REAL offs = Offs[task];\n";
+					//"const int k = task;";
+        	code << "REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
+        	code << "expXBeta[task] = exb;\n";
+    		code << "denominator[" << BaseModelG::getGroupG() << "] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+        	//code << "denominator[task] = (REAL)1.0 + exb;\n";
+        	//code << " 		REAL exb = exp(xBeta[task]);		\n" <<
+        	//		"		expXBeta[task] = exb;		\n";
+            //code << "       denominator[task] = (REAL)1.0 + exb; \n";// <<
+        	//code << "expXBeta[k] = exp(xb); \n";
+        	//code << "expXBeta[k] = exp(1); \n";
+
+            // LOGISTIC MODEL ONLY
+            //                     const real t = BaseModel::getOffsExpXBeta(offs, xBeta[k], y[k], k);
+            //                     expXBeta[k] = t;
+            //                     denominator[k] = static_cast<real>(1.0) + t;
+            //             code << "    const REAL t = 0.0;               \n" <<
+            //                     "   expXBeta[k] = exp(xBeta[k]);      \n" <<
+            //                     "   denominator[k] = REAL(1.0) + tmp; \n";
+        }
+
+        code << "   } \n";
+        code << "}    \n";
+        return SourceCode(code.str(), name);
+    }
+
+	template <class BaseModel, typename WeightType, class BaseModelG>
+    SourceCode
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncComputeRemainingStatisticsKernel() {
+
+        std::string name = "computeRemainingStatistics";
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "(     \n" <<
+				"		__global REAL* xBetaVector,	   \n" <<
+                "       __global REAL* expXBetaVector,   \n" <<
+                "       __global REAL* denomPidVector,\n" <<
+				"		__global REAL* Y,			\n" <<
+				"		__global REAL* Offs,		\n" <<
+                "       __global const int* pIdVector,		\n" <<
+				"		const uint cvIndexStride,	\n" <<
+				"		const uint size0,			\n" <<
+				"		const uint syncCVFolds) {   \n" <<
+				"	uint lid0 = get_local_id(0);	\n" <<
+				"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
+				"	uint task = get_group_id(1);	\n" <<
+				"	if (cvIndex < syncCVFolds) {	\n" <<
+				"		uint vecOffset = task*cvIndexStride;	\n" <<
+				"		REAL y = Y[task];			\n" <<
+				"		REAL xb = xBetaVector[vecOffset + cvIndex];	\n" <<
+				"		REAL offs = Offs[task];		\n";
+        code << "		REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
+        code << "		expXBetaVector[vecOffset + cvIndex] = exb;	\n";
+		code << "		denomPidVector[vecOffset + cvIndex] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+        code << "   } \n";
+        code << "}    \n";
+        return SourceCode(code.str(), name);
+    }
+
+/*
+	template <class BaseModel, typename WeightType, class BaseModelG>
+    SourceCode
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncComputeRemainingStatisticsKernel() {
+
+        std::string name = "computeRemainingStatistics";
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "(     \n" <<
+                "       const uint N,              \n" <<
+				"		__global REAL* xBetaVector,	   \n" <<
+                "       __global REAL* expXBetaVector,   \n" <<
+                "       __global REAL* denomPidVector,\n" <<
+				"		__global REAL* Y,			\n" <<
+				"		__global REAL* Offs,		\n" <<
+                "       __global const int* pIdVector,		\n" <<
+				"		const uint stride,				\n" <<
+				"		__global const int* cvIndices,	\n" <<
+				"		__const uint blockSize) {   \n" <<
+                "   uint task = get_global_id(0)%blockSize; \n" <<
+				"	__local uint cvIndex, vecOffset;	\n" <<
+        		"	cvIndex = cvIndices[get_global_id(0)/blockSize];	\n" <<
+				"	vecOffset = stride*cvIndex;	\n";
+        //code << "   const uint lid = get_local_id(0); \n" <<
+        //        "   const uint loopSize = get_global_size(0); \n";
+        // Local and thread storage
+        code << "   if (task < N) {      				\n";
+        if (BaseModel::likelihoodHasDenominator) {
+        	code << "REAL y = Y[task];\n" <<
+        			"REAL xb = xBetaVector[vecOffset+task];\n" <<
+					"REAL offs = Offs[task];\n";
+					//"const int k = task;";
+        	code << "REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
+        	code << "expXBetaVector[vecOffset+task] = exb;\n";
+    		code << "denomPidVector[vecOffset+" << BaseModelG::getGroupG() << "] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+        }
+        code << "   } \n";
+        code << "}    \n";
+        return SourceCode(code.str(), name);
+    }
+*/
+
+	template <class BaseModel, typename WeightType, class BaseModelG>
+    SourceCode
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGetGradientObjective(bool useWeights, bool isNvidia) {
+        std::string name;
+	    if(useWeights) {
+	        name = "getGradientObjectiveW";
+	    } else {
+	        name = "getGradientObjectiveN";
+	    }
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "(            \n" <<
+                "       const uint N,                     \n" <<
+                "       __global const REAL* Y,           \n" <<
+                "       __global const REAL* xBeta,       \n" <<
+                "       __global REAL* buffer,            \n" <<
+                "       __global const REAL* weight) {    \n";    // TODO Make weight optional
+        // Initialization
+        code << "   const uint lid = get_local_id(0); \n" <<
+                "   const uint loopSize = get_global_size(0); \n" <<
+                "   uint task = get_global_id(0);  \n" <<
+                    // Local and thread storage
+                "   __local REAL scratch[TPB];  \n" <<
+                "   REAL sum = 0.0; \n";
+        code << "   while (task < N) { \n";
+        if (useWeights) {
+        	code << "       const REAL w = weight[task];\n";
+        }
+        code << "	const REAL xb = xBeta[task];     \n" <<
+        		"	const REAL y = Y[task];			 \n";
+        code << " sum += " << weight("y * xb", useWeights) << ";\n";
+        // Bookkeeping
+        code << "       task += loopSize; \n" <<
+                "   } \n" <<
+                    // Thread -> local
+                "   scratch[lid] = sum; \n";
+        code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
+
+        code << "   if (lid == 0) { \n" <<
+                "       buffer[get_group_id(0)] = scratch[0]; \n" <<
+                "   } \n";
+        code << "}  \n"; // End of kernel
+        return SourceCode(code.str(), name);
+	}
+
+	template <class BaseModel, typename WeightType, class BaseModelG>
+	    SourceCode
+		GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGetGradientObjectiveSync(bool isNvidia) {
+	        std::string name;
+		        name = "getGradientObjectiveSync";
+
+	        std::stringstream code;
+	        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+	        code << "__kernel void " << name << "(            \n" <<
+	                "       const uint N,                     \n" <<
+	                "       __global const REAL* Y,           \n" <<
+	                "       __global const REAL* xBetaVector,       \n" <<
+	                "       __global REAL* buffer,            \n" <<
+					"		const uint cvIndexStride,					\n" <<
+	                "       __global const REAL* weightVector,	\n" <<
+					"		const uint size0,				\n" <<
+					"		const uint syncCVFolds) {    \n";    // TODO Make weight optional
+			code << "	uint lid0 = get_local_id(0);		\n" <<
+					//"	uint task0 = get_group_id(0)*size0+lid0;	\n" <<
+					"	uint task1 = get_group_id(1);		\n" <<
+					"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
+					"	REAL sum = 0.0;					\n" <<
+					"	if (cvIndex < syncCVFolds) {		\n" <<
+					"	while (task1 < N) {					\n" <<
+					"		uint vecOffset = task1*cvIndexStride;	\n" <<
+					"		REAL w = weightVector[vecOffset+cvIndex];	\n" <<
+					"		REAL y = Y[task1];				\n" <<
+					"		REAL xb = xBetaVector[vecOffset+cvIndex];	\n" <<
+					"		sum += w * y * xb;				\n" <<
+					"		task1 += get_num_groups(1);		\n" <<
+					"	} 									\n" <<
+					"	buffer[cvIndex+cvIndexStride*get_group_id(1)] = sum;	\n" <<
+					"	}									\n";
+	        code << "}  \n"; // End of kernel
+	        return SourceCode(code.str(), name);
+		}
+/*
+	template <class BaseModel, typename WeightType, class BaseModelG>
+	    SourceCode
+		GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGetGradientObjectiveSync(bool isNvidia) {
+	        std::string name;
+		        name = "getGradientObjectiveSync";
+
+
+	        std::stringstream code;
+	        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+	        code << "__kernel void " << name << "(            \n" <<
+	                "       const uint N,                     \n" <<
+	                "       __global const REAL* Y,           \n" <<
+	                "       __global const REAL* xBetaVector,       \n" <<
+	                "       __global REAL* buffer,            \n" <<
+					"		const uint workSize,				\n" <<
+					"		const uint wgs,						\n" <<
+					"		const uint stride,					\n" <<
+	                "       __global const REAL* weightVector) {    \n";    // TODO Make weight optional
+	        // Initialization
+	        code << "   uint lid = get_local_id(0); \n" <<
+	        		"	__local uint cvIndex, vecOffset;		\n" <<
+					"	cvIndex = get_group_id(0)/wgs;			\n" <<
+	                "   uint task = get_global_id(0)%workSize;  \n" <<
+	                    // Local and thread storage
+	                "   __local REAL scratch[TPB];  \n" <<
+					"	vecOffset = stride * cvIndex;			\n" <<
+	                "   REAL sum = 0.0; \n";
+	        code << "   while (task < N) { \n";
+	        //if (useWeights) {
+	        	code << "       REAL w = weightVector[vecOffset+task];\n";
+	        //}
+	        code << "	REAL xb = xBetaVector[vecOffset+task];     \n" <<
+	        		"	REAL y = Y[task];			 \n" <<
+	        	    "   sum += w * y * xb;                 \n";
+	        //code << " sum += " << weight("y * xb", useWeights) << ";\n";
+	        // Bookkeeping
+	        code << "       task += workSize; \n" <<
+	                "   } \n" <<
+	                    // Thread -> local
+	                "   scratch[lid] = sum; \n";
+	        code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
+
+	        code << "   if (lid == 0) { \n" <<
+	                "       buffer[get_group_id(0)] = scratch[0]; \n" <<
+	                "   } \n";
+	        code << "}  \n"; // End of kernel
+	        return SourceCode(code.str(), name);
+		}
+*/
+
+	template <class BaseModel, typename WeightType, class BaseModelG>
+	SourceCode
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGetLogLikelihood(bool useWeights, bool isNvidia) {
+        std::string name;
+	    if(useWeights) {
+	        name = "getLogLikelihoodW";
+	    } else {
+	        name = "getLogLikelihoodN";
+	    }
+
+	    std::stringstream code;
+	    code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+	    code << "__kernel void " << name << "(            \n" <<
+	    		"       const uint K,                     \n" <<
+				"		 const uint N,					   \n" <<
+				"       __global const REAL* Y,           \n" <<
+				"       __global const REAL* xBeta,       \n" <<
+				"		 __global const REAL* denominator,				\n" <<
+				"		 __global const REAL* accDenominator,			\n" <<
+				"       __global REAL* buffer,            \n" <<
+				"       __global const REAL* Kweight,	   \n" <<
+				"		 __global const REAL* Nweight) {    \n";    // TODO Make weight optional
+	    // Initialization
+
+	    code << "   const uint lid = get_local_id(0); \n" <<
+	    		"   const uint loopSize = get_global_size(0); \n" <<
+				"   uint task = get_global_id(0);  \n" <<
+				// Local and thread storage
+				"   __local REAL scratch[TPB];  \n" <<
+				"   REAL sum = 0.0; \n";
+
+		code << "   while (task < K) { \n";
+
+	    if (useWeights) {
+	    	code << "       const REAL wK = Kweight[task];\n";
+	    }
+	    code << "	const REAL xb = xBeta[task];     \n" <<
+	    		"	const REAL y = Y[task];			 \n";
+	    code << " sum += " << weightK(BaseModelG::logLikeNumeratorContribG(), useWeights) << ";\n";
+
+	    if (BaseModel::likelihoodHasDenominator) {
+	    	code << "if (task < N) {	\n";
+	    	code << " const REAL wN = Nweight[task];\n";
+	    	if (BaseModel::cumulativeGradientAndHessian) {
+	    		code << "const REAL denom = accDenominator[task];\n";
+	    	} else {
+	    		code << "const REAL denom = denominator[task];\n";
+	    	}
+	    	code << "sum -= (REAL) " << BaseModelG::logLikeDenominatorContribG() << ";\n";
+	    	code << "}\n";
+	    }
+
+	    // Bookkeeping
+	    code << "       task += loopSize; \n" <<
+	    		"   } \n";
+				// Thread -> local
+				code << "   scratch[lid] = sum; \n";
+	    code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
+
+	    code << "   if (lid == 0) { \n" <<
+	    		"       buffer[get_group_id(0)] = scratch[0]; \n" <<
+				"   } \n";
+
+	    code << "}  \n"; // End of kernel
+	    return SourceCode(code.str(), name);
+	}
 
 	/*
 	 * dumber xbeta update for mm
