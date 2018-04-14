@@ -439,7 +439,7 @@ public:
         kernel.set_arg(8, syncCVFolds);
 
         int loops = syncCVFolds / cvBlock;
-        if (loops % syncCVFolds != 0) {
+        if (syncCVFolds % cvBlock != 0) {
         	loops++;
         }
 
@@ -1333,7 +1333,7 @@ public:
         }
 
         int loops = syncCVFolds / cvBlock;
-        if (loops % syncCVFolds != 0) {
+        if (syncCVFolds % cvBlock != 0) {
         	loops++;
         }
 
@@ -2019,7 +2019,7 @@ public:
         kernel.set_arg(13, syncCVFolds);
 
         int loops = syncCVFolds / cvBlock;
-        if (loops % syncCVFolds != 0) {
+        if (syncCVFolds % cvBlock != 0) {
         	loops++;
         }
 
@@ -2030,6 +2030,7 @@ public:
         localWorkSize[0] = cvBlock;
         localWorkSize[1] = 1;
         size_t dim = 2;
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start0 = bsccs::chrono::steady_clock::now();
@@ -2049,15 +2050,14 @@ public:
         hXBetaKnown = false; // dXBeta was just updated
 /*
         std::vector<real> temp;
-        temp.resize(K);
-        compute::copy(std::begin(dXBetaVector), std::begin(dXBetaVector)+K, std::begin(temp), queue);
-        std::cout << "xbeta0: ";
+        temp.resize(K*cvIndexStride);
+        compute::copy(std::begin(dXBetaVector), std::begin(dXBetaVector)+K*cvIndexStride, std::begin(temp), queue);
+        std::cout << "xbeta: ";
         for (auto x:temp) {
         	std::cout << x << " ";
         }
         std::cout << "\n";
 */
-
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
         ///////////////////////////"
@@ -2509,9 +2509,13 @@ public:
         kernel.set_arg(0, dK);
         kernel.set_arg(1, dY);
         kernel.set_arg(2, dXBetaVector);
-        dBuffer.resize(wgs * syncCVFolds, queue);
+        if (dBuffer.size() < wgs*cvIndexStride) {
+        	dBuffer.resize(wgs * cvIndexStride, queue);
+        }
+        if (hBuffer.size() < wgs*cvIndexStride) {
+            hBuffer.resize(wgs * cvIndexStride);
+        }
         kernel.set_arg(3, dBuffer); // Can get reallocated.
-        hBuffer.resize(wgs * syncCVFolds);
         kernel.set_arg(4, cvIndexStride);
         if (dKWeightVector.size() == 0) {
             kernel.set_arg(5, 0);
@@ -2523,7 +2527,7 @@ public:
         kernel.set_arg(7, syncCVFolds);
 
         int loops = syncCVFolds / cvBlock;
-        if (loops % syncCVFolds != 0) {
+        if (syncCVFolds % cvBlock != 0) {
         	loops++;
         }
 
@@ -2535,13 +2539,14 @@ public:
         localWorkSize[1] = 1;
         size_t dim = 2;
 
+
         queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
         queue.finish();
 
         compute::copy(std::begin(dBuffer), std::begin(dBuffer)+wgs*cvIndexStride, std::begin(hBuffer), queue);
 
         std::vector<double> result;
-        result.resize(syncCVFolds, 0);
+        result.resize(syncCVFolds, 0.0);
         for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
         	for (int j = 0; j < wgs; ++j) { // TODO Use SSE
         		result[cvIndex] += hBuffer[j*cvIndexStride+cvIndex];
