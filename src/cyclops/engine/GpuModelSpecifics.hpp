@@ -346,7 +346,7 @@ public:
       dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx), dNtoK(ctx), dAllDelta(ctx), dColumnsXt(ctx),
 	  dXBetaVector(ctx), dOffsExpXBetaVector(ctx), dDenomPidVector(ctx), dNWeightVector(ctx), dKWeightVector(ctx), dPidVector(ctx),
 	  dAccDenomPidVector(ctx), dAccNumerPidVector(ctx), dAccNumerPid2Vector(ctx), dAccResetVector(ctx), dPidInternalVector(ctx), dNumerPidVector(ctx),
-	  dNumerPid2Vector(ctx), dNormVector(ctx), dXjXVector(ctx), dXjYVector(ctx), dDeltaVector(ctx), dBoundVector(ctx), dPriorParams(ctx), dBetaVector(ctx), dAllZero(ctx),
+	  dNumerPid2Vector(ctx), dNormVector(ctx), dXjXVector(ctx), dXjYVector(ctx), dDeltaVector(ctx), dBoundVector(ctx), dPriorParams(ctx), dBetaVector(ctx), dAllZero(ctx), dDoneVector(ctx),
 	  dXBetaKnown(false), hXBetaKnown(false){
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
@@ -3012,6 +3012,7 @@ public:
         kernel1.set_arg(9, index);
         kernel1.set_arg(10, dBetaVector);
         kernel1.set_arg(11, dAllZero);
+        kernel1.set_arg(12, dDoneVector);
 
 #ifdef CYCLOPS_DEBUG_TIMING
         end = bsccs::chrono::steady_clock::now();
@@ -3258,6 +3259,10 @@ public:
         std::vector<int> hAllZero;
         hAllZero.push_back(0);
         detail::resizeAndCopyToDevice(hAllZero, dAllZero, queue);
+
+        std::vector<int> hDone;
+        hDone.resize(syncCVFolds, 1);
+        detail::resizeAndCopyToDevice(hDone, dDoneVector, queue);
     }
 
     void turnOffSyncCV() {
@@ -3265,6 +3270,15 @@ public:
     }
 
     bool isGPU() {return true;};
+
+    virtual void updateDoneFolds(std::vector<bool>& donePool) {
+    	std::vector<int> temp;
+    	temp.resize(syncCVFolds, 1);
+    	for (int i=0; i<syncCVFolds; i++) {
+    		if (donePool[i]) temp[i] = 0;
+    	}
+    	compute::copy(std::begin(temp), std::end(temp), std::begin(dDoneVector), queue);
+    }
 
     void computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
     	ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInGradientAndHessian(useCrossValidation);
@@ -4003,6 +4017,7 @@ public:
     compute::vector<real> dBoundVector;
     compute::vector<real> dPriorParams;
     compute::vector<real> dBetaVector;
+    compute::vector<int> dDoneVector;
 
     std::vector<real> priorTypes;
 

@@ -219,6 +219,8 @@ public:
 
 	virtual void setPriorParams(std::vector<double>& paramList) {};
 
+	virtual void updateDoneFolds(std::vector<bool>& donePool) {};
+
 	virtual void runCCDIndex(int index) {};
 
 	virtual void resetBeta() {};

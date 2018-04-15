@@ -1865,7 +1865,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		const uint J,						\n" <<
 				"		const uint index,					\n" <<
 				"		__global REAL* betaVector,			\n" <<
-				"		__global uint* allZero) {    \n";    // TODO Make weight optional
+				"		__global uint* allZero,				\n" <<
+				"		__global int* doneVector) {    \n";    // TODO Make weight optional
 	    // Initialization
 	    code <<	"	uint cvIndex = get_group_id(0);			\n" <<
 	    		"	__local REAL scratch[2][TPB];				\n" <<
@@ -1920,7 +1921,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"	REAL delta = - (grad + (beta / var)) / (hess + (1.0 / var));	\n";
 	    }
 
-	    code << "	REAL bound = boundVector[offset];		\n" <<
+	    code << "	delta = delta * doneVector[cvIndex];	\n" <<
+	    		"	REAL bound = boundVector[offset];		\n" <<
 	    		"	if (delta < -bound)	{					\n" <<
 				"		delta = -bound;						\n" <<
 				"	} else if (delta > bound) {				\n" <<

@@ -578,6 +578,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 		donePool.resize(syncCVFolds);
 		for (int i=0; i<syncCVFolds; i++) {
 			donePool[i] = false;
+			if (usingGPU) modelSpecifics.updateDoneFolds(donePool);
 		}
 		/*
 		nonZeros.resize(syncCVFolds);
@@ -2496,6 +2497,7 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
     			}
     			if (!donePool[cvIndex] && epsilon > 0 && conv[cvIndex] < epsilon) {
     				donePool[cvIndex] = true;
+    				if (usingGPU) modelSpecifics.updateDoneFolds(donePool);
     				/*
     				for (int j = 0; j < J; j++) {
     					fixBetaPool[cvIndex][j] = true;
