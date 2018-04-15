@@ -212,6 +212,8 @@ public:
 
 	virtual void copyXBetaVec() {};
 
+	virtual bool isGPU() {return false;};
+
 	virtual const RealVector& getXBeta(int index);
 
 	virtual void computeGradientAndHessian(int index, double* gradient,

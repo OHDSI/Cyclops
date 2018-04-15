@@ -274,9 +274,11 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"       __global const REAL* weightVector,	\n" <<
 				"		const uint cvIndexStride,		\n" <<
 				"		const uint size0,				\n" <<
-				"		const uint syncCVFolds) {   		 	\n";    // TODO Make weight optional
+				"		const uint syncCVFolds,			\n" <<
+				"		__global int* allZero) {   		 	\n";    // TODO Make weight optional
 		// Initialization
 		code << "	uint lid0 = get_local_id(0);		\n" <<
+				"	if (get_global_id(0) == 0) allZero[0] = 1;	\n" <<
 				//"	uint task0 = get_group_id(0)*size0+lid0;	\n" <<
 				"	uint task1 = get_group_id(1);		\n" <<
 				"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
@@ -1212,14 +1214,18 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		const uint cvIndexStride,			\n" <<
 				"		__global const REAL* Offs,	\n" <<
 				"		const uint size0,			\n" <<
-				"		const uint syncCVFolds) {   \n";
+				"		const uint syncCVFolds,		\n" <<
+				"		const uint index,			\n" <<
+				"		__global int* allZero) {   \n";
 
-        code << "	uint lid0 = get_local_id(0);		\n" <<
+        code << "	if (allZero[0] == 0) {				\n" <<
+        		"	uint lid0 = get_local_id(0);		\n" <<
         		//"	uint task0 = get_group_id(0)*size0+lid0;	\n" <<
         		"	uint task1 = get_group_id(1);		\n" <<
 				"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
 				"	if (cvIndex < syncCVFolds) {		\n" <<
-				"		REAL delta = deltaVector[cvIndex];	\n";
+				//	"		REAL delta = deltaVector[cvIndex];	\n";
+				"		REAL delta = deltaVector[index*cvIndexStride+cvIndex];	\n";
         if (formatType == INDICATOR || formatType == SPARSE) {
         	code << "  	uint k = K[offK + task1];      	\n";
         } else { // DENSE, INTERCEPT
@@ -1242,6 +1248,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         }
         code << "   } \n";
         code << "}    \n";
+        code << "}		\n";
 
         return SourceCode(code.str(), name);
     }
@@ -1834,6 +1841,105 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	    return SourceCode(code.str(), name);
 	}
 
+
+	template <class BaseModel, typename WeightType, class BaseModelG>
+	SourceCode
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForProcessDeltaKernel(int priorType) {
+        std::string name;
+        if (priorType == 0) name = "ProcessDeltaKernelNone";
+        if (priorType == 1) name = "ProcessDeltaKernelLaplace";
+        if (priorType == 2) name = "ProcessDeltaKernelNormal";
+
+	    std::stringstream code;
+	    code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+	    code << "__kernel void " << name << "(            \n" <<
+	    		"		__global REAL* buffer,				\n" <<
+				"		__global REAL* deltaVector,			\n" <<
+				"		const uint syncCVFolds,				\n" <<
+				"		const uint cvIndexStride,			\n" <<
+				"		const uint wgs,						\n" <<
+				"		__global REAL* boundVector,				\n" <<
+				"		__global const REAL* priorParams,			\n" <<
+				"		__global const REAL* XjYVector,			\n" <<
+				"		const uint J,						\n" <<
+				"		const uint index,					\n" <<
+				"		__global REAL* betaVector,			\n" <<
+				"		__global uint* allZero) {    \n";    // TODO Make weight optional
+	    // Initialization
+	    code <<	"	uint cvIndex = get_group_id(0);			\n" <<
+	    		"	__local REAL scratch[2][TPB];				\n" <<
+				"	uint lid = get_local_id(0);				\n" <<
+				"	if (lid < wgs) {						\n" <<
+				"		scratch[0][lid] = buffer[lid*cvIndexStride+cvIndex];	\n" <<
+				"		scratch[1][lid] = buffer[(lid+wgs)*cvIndexStride+cvIndex];	\n" <<
+				"	}										\n" <<
+	            "   for(int j = 1; j < wgs; j <<= 1) {          \n" <<
+	            "       barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
+	            "       uint mask = (j << 1) - 1;               \n" <<
+	            "       if ((lid & mask) == 0) {                \n" <<
+	            "           scratch[0][lid] += scratch[0][lid + j]; \n" <<
+	            "           scratch[1][lid] += scratch[1][lid + j]; \n" <<
+	            "       }                                       \n" <<
+	            "   }                                           \n";
+
+	    code << "	if (lid == 0) {							\n" <<
+				"		uint offset = cvIndex*J+index;		\n" <<
+				"		REAL grad = scratch[0][lid];		\n" <<
+				"		grad = grad - XjYVector[offset];	\n" <<
+				"		REAL hess = scratch[1][lid];		\n" <<
+    			"		REAL beta = betaVector[offset];		\n";
+	    if (priorType == 0) {
+	    	code << " REAL delta = -grad / hess;			\n";
+	    }
+	    if (priorType == 1) {
+	    	code << "	REAL lambda = priorParams[index];	\n" <<
+					"	REAL delta;							\n" <<
+					"	REAL negupdate = - (grad - lambda) / hess; \n" <<
+					"	REAL posupdate = - (grad + lambda) / hess; \n" <<
+					"	if (beta == 0 ) {					\n" <<
+					"		if (negupdate < 0) {			\n" <<
+					"			delta = negupdate;			\n" <<
+					"		} else if (posupdate > 0) {		\n" <<
+					"			delta = posupdate;			\n" <<
+					"		} else {						\n" <<
+					"			delta = 0;					\n" <<
+					"		}								\n" <<
+					"	} else {							\n" <<
+					"		if (beta < 0) {					\n" <<
+					"			delta = negupdate;			\n" <<
+					"			if (beta+delta > 0) delta = -beta;	\n" <<
+					"		} else {						\n" <<
+					"			delta = posupdate;			\n" <<
+					"			if (beta+delta < 0) delta = -beta;	\n" <<
+					"		}								\n" <<
+					"	}									\n";
+	    }
+	    if (priorType == 2) {
+	    	code << "	REAL var = priorParams[index];		\n" <<
+					"	REAL delta = - (grad + (beta / var)) / (hess + (1.0 / var));	\n";
+	    }
+
+	    code << "	REAL bound = boundVector[offset];		\n" <<
+	    		"	if (delta < -bound)	{					\n" <<
+				"		delta = -bound;						\n" <<
+				"	} else if (delta > bound) {				\n" <<
+				"		delta = bound;						\n" <<
+				"	}										\n" <<
+				//"	REAL intermediate = 2;					\n" <<
+				"	REAL intermediate = max(fabs(delta)*2, bound/2);	\n" <<
+				"	intermediate = max(intermediate, 0.001);	\n" <<
+				"	boundVector[offset] = intermediate;		\n" <<
+				"	deltaVector[index*cvIndexStride+cvIndex] = delta;	\n" <<
+				"	betaVector[offset] = delta + beta;		\n" <<
+				"	if (delta != 0.0)	{						\n" <<
+				"		allZero[0] = 0;						\n" <<
+				"	}										\n" <<
+				"	}										\n";
+
+	    code << "	}										\n";
+	    return SourceCode(code.str(), name);
+	}
 
 	/*
 	 * dumber xbeta update for mm

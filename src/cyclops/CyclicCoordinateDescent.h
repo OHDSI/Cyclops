@@ -196,6 +196,8 @@ public:
 
 	void turnOffSyncCV(void);
 
+	bool usingGPU;
+
 protected:
 
 	bsccs::unique_ptr<AbstractModelSpecifics> privateModelSpecifics;

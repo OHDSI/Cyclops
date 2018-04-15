@@ -43,6 +43,8 @@ public:
 		// Do nothing
 	}
 
+	virtual PriorType getPriorType() {return PriorType::NONE;};
+
 	virtual const std::string getDescription() const = 0; // pure virtual
 
 	virtual double logDensity(const DoubleVector& beta, const int index) const = 0; // pure virtual
@@ -82,6 +84,10 @@ public:
 		return "None";
 	}
 
+	PriorType getPriorType() {
+		return PriorType::NONE;
+	}
+
     double logDensity(const DoubleVector& beta, const int index) const {
         return 0.0;
     }
@@ -117,6 +123,10 @@ public:
 
 	virtual ~LaplacePrior() {
 		// Do nothing
+	}
+
+	PriorType getPriorType() {
+		return PriorType::LAPLACE;
 	}
 
 	const std::string getDescription() const {
@@ -287,6 +297,10 @@ public:
 
 	virtual ~NormalPrior() {
 		// Do nothing
+	}
+
+	PriorType getPriorType() {
+		return PriorType::NORMAL;
 	}
 
 	const std::string getDescription() const {

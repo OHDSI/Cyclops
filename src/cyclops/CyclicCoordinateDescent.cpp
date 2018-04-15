@@ -171,6 +171,9 @@ void CyclicCoordinateDescent::resetBounds() {
 				hDeltaPool[index][j] = initialBound;
 			}
 		}
+		if (usingGPU) {
+			modelSpecifics.setBounds(initialBound);
+		}
 	} else {
 		for (int j = 0; j < J; j++) {
 			hDelta[j] = initialBound;
@@ -213,6 +216,8 @@ void CyclicCoordinateDescent::init(bool offset) {
 			NULL
 		//	hY
 			);
+
+	usingGPU = modelSpecifics.isGPU();
 }
 
 int CyclicCoordinateDescent::getAlignedLength(int N) {
@@ -240,6 +245,9 @@ void CyclicCoordinateDescent::resetBeta(void) {
 			for (auto j = start; j < J; j++) {
 				hBetaPool[i][j] = 0.0;
 			}
+		}
+		if (usingGPU) {
+			modelSpecifics.resetBeta();
 		}
 	} else {
 		for (auto j = start; j < J; j++) {
@@ -397,6 +405,21 @@ double convertHyperparameterToVariance(double value) {
 
 void CyclicCoordinateDescent::setHyperprior(int index, double value) {
     jointPrior->setVariance(index, value);
+    if (usingGPU && syncCV) {
+		std::vector<double> varianceList = jointPrior->getVariance();
+		std::vector<double> temp;
+		temp.resize(J, 0.0);
+		for (int i=0; i<J; i++) {
+			int type = jointPrior->getPriorType(i);
+			if (type == 1) {
+				temp[i] = convertVarianceToHyperparameter(varianceList[0]);
+			}
+			if (type == 2) {
+				temp[i] = varianceList[0];
+			}
+		}
+		modelSpecifics.setPriorParams(temp);
+    }
 }
 
 // TODO Depricate
@@ -1014,14 +1037,14 @@ void CyclicCoordinateDescent::findMode(
 			}
 
 			if (syncCV) {
-				/*
+/*
 				std::cout << "nonzeros: ";
 				for (int i=0; i<syncCVFolds; i++) {
 					if (!donePool[i]) {
 						std::cout << nonZeros[i] << " ";
 					}
 				}
-				*/
+*/
 				for (int i=0; i<syncCVFolds; i++) {
 					if (!donePool[i]) {
 						std::cout << lastObjFuncVec[i] << " ";
@@ -1031,6 +1054,7 @@ void CyclicCoordinateDescent::findMode(
 
 			std::cout << "\n";
 		}
+
 
 	    auto log = [this](const int index) {
 	        if ( (noiseLevel > QUIET) && ((index+1) % 100 == 0)) {
@@ -1158,6 +1182,9 @@ void CyclicCoordinateDescent::findMode(
 	        // Do a complete cycle in serial
 	    	//std::cout << "starting cycle\n";
 	        for(int index = 0; index < J; index++) {
+	        	if (usingGPU && syncCV) {
+	        		modelSpecifics.runCCDIndex(index);
+	        	} else {
 	        	//std::cout << "index " << index << ": ";
 		    	//std::cout << "hBeta[0]: " << hBeta[0] << " hBeta[1]: " << hBeta[1] << '\n';
 	        	if (syncCV) {
@@ -1188,6 +1215,7 @@ void CyclicCoordinateDescent::findMode(
 	        		//}
 
 	            //log(index);
+	        	}
 	        	}
 		        //std::cout << "\n";
 	        }
@@ -2055,6 +2083,28 @@ void CyclicCoordinateDescent::turnOnSyncCV(int foldToCompute) {
 	donePool.resize(foldToCompute, false);
 	for (int i=0; i<foldToCompute; i++) {
 		fixBetaPool[i].resize(J, false);
+	}
+
+	if (usingGPU) {
+		modelSpecifics.setBounds(initialBound);
+		std::vector<int> priorList;
+		std::vector<double> varianceList = jointPrior->getVariance();
+		std::vector<double> temp;
+		temp.resize(J, 0.0);
+
+		for (int i=0; i<J; i++) {
+			int type = jointPrior->getPriorType(i);
+			priorList.push_back(type);
+			if (type == 1) {
+				temp[i] = convertVarianceToHyperparameter(varianceList[0]);
+			}
+			if (type == 2) {
+				temp[i] = varianceList[0];
+			}
+		}
+		modelSpecifics.setPriorTypes(priorList);
+		modelSpecifics.setPriorParams(temp);
+		modelSpecifics.resetBeta();
 	}
 }
 

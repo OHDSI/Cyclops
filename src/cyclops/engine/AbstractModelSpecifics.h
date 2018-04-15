@@ -104,6 +104,8 @@ public:
 
     virtual void printTiming() = 0; // pure virtual
 
+    virtual bool isGPU() = 0;
+
 //	virtual void sortPid(bool useCrossValidation) = 0; // pure virtual
 
 //	static bsccs::shared_ptr<AbstractModelSpecifics> factory(const ModelType modelType, const ModelData& modelData);
@@ -210,6 +212,16 @@ public:
 
 	bool syncCV = false;
 	int syncCVFolds;
+
+	virtual void setBounds(double initialBound) {};
+
+	virtual void setPriorTypes(std::vector<int>& typeList) {};
+
+	virtual void setPriorParams(std::vector<double>& paramList) {};
+
+	virtual void runCCDIndex(int index) {};
+
+	virtual void resetBeta() {};
 
 	virtual double getPredictiveLogLikelihood(double* weights, int cvIndex) = 0; // pure virtual
 
