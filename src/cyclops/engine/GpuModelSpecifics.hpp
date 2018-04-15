@@ -3048,11 +3048,13 @@ public:
         }
 */
 
-        /*
+/*
 #ifdef CYCLOPS_DEBUG_TIMING
         start = bsccs::chrono::steady_clock::now();
 #endif
-        int stopNow = dAllZero[0];
+        std::vector<int> stopNow;
+        stopNow.resize(1);
+        compute::copy(std::begin(dAllZero), std::begin(dAllZero)+1, std::begin(stopNow), queue);
 
 #ifdef CYCLOPS_DEBUG_TIMING
         end = bsccs::chrono::steady_clock::now();
@@ -3061,10 +3063,10 @@ public:
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-        if (stopNow == 1) {
+        if (stopNow[0] == 1) {
         	return;
         }
-        */
+*/
 
 #ifdef CYCLOPS_DEBUG_TIMING
         start = bsccs::chrono::steady_clock::now();
@@ -3115,6 +3117,7 @@ public:
         // run kernel
 		queue.enqueue_nd_range_kernel(kernel2, dim, 0, globalWorkSize, localWorkSize);
         queue.finish();
+
 /*
         if (index == 0) {
         hBuffer.resize(K*cvIndexStride);
@@ -3467,9 +3470,7 @@ public:
         options << " -cl-mad-enable -cl-fast-relaxed-math";
 
     	auto source = writeCodeForProcessDeltaKernel(priorType);
-    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
-    	std::cout << "program built\n";
     	auto kernel = compute::kernel(program, source.name);
 
     	kernelProcessDeltaBuffer[priorType] = std::move(kernel);
@@ -3567,15 +3568,12 @@ public:
         	// MM Kernel
         	//if (algorithmType == AlgorithmType::MM) {
         	source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
-        	//std::cout << source.body;
         	program = compute::program::build_with_source(source.body, ctx, options.str());
-        	//std::cout << "program built\n";
         	auto kernelMM = compute::kernel(program, source.name);
 
         	if (useWeights) {
         		kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
             	source = writeCodeForSyncCVMMGradientHessianKernel(formatType, isNvidia);
-            	//std::cout << source.body;
             	program = compute::program::build_with_source(source.body, ctx, options.str());
             	auto kernelMMSync = compute::kernel(program, source.name);
         		kernelGradientHessianMMSync[formatType] = std::move(kernelMMSync);
@@ -3598,9 +3596,7 @@ public:
         		kernelGradientHessianWeighted[formatType] = std::move(kernel);
 
             	source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia);
-            	std::cout << source.body;
             	program = compute::program::build_with_source(source.body, ctx, options.str());
-            	std::cout << "program built\n";
             	auto kernelSync = compute::kernel(program, source.name);
         		kernelGradientHessianSync[formatType] = std::move(kernelSync);
 
@@ -3632,16 +3628,12 @@ public:
         kernelUpdateXBeta[formatType] = std::move(kernel);
 
         source = writeCodeForSyncUpdateXBetaKernel(formatType);
-    	std::cout << source.body;
         program = compute::program::build_with_source(source.body, ctx, options.str());
-        std::cout << "program built\n";
         auto kernelSync = compute::kernel(program, source.name);
         kernelUpdateXBetaSync[formatType] = std::move(kernelSync);
 
         source = writeCodeForSync1UpdateXBetaKernel(formatType);
-        //std::cout << source.body;
         program = compute::program::build_with_source(source.body, ctx, options.str());
-        //std::cout << "program built\n";
         auto kernelSync1 = compute::kernel(program, source.name);
         kernelUpdateXBetaSync1[formatType] = std::move(kernelSync1);
     }
@@ -3667,9 +3659,7 @@ public:
     	auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
     	isNvidia = false;
     	auto source = writeCodeForMMUpdateXBetaKernel(isNvidia);
-    	//std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
-    	//std::cout << "program built\n";
     	auto kernelMM = compute::kernel(program, source.name);
     	kernelUpdateXBetaMM = std::move(kernelMM);
     }
@@ -3688,9 +3678,7 @@ public:
         kernelComputeRemainingStatistics = std::move(kernel);
 
         source = writeCodeForSyncComputeRemainingStatisticsKernel();
-        std::cout << source.body;
         program = compute::program::build_with_source(source.body, ctx, options.str());
-        std::cout << "program built\n";
         auto kernelSync = compute::kernel(program, source.name);
 
         kernelComputeRemainingStatisticsSync = std::move(kernelSync);
@@ -3759,9 +3747,7 @@ public:
          if (useWeights) {
              kernelGetGradientObjectiveWeighted = std::move(kernel);
              source = writeCodeForGetGradientObjectiveSync(isNvidia);
-             std::cout << source.body;
              program = compute::program::build_with_source(source.body, ctx, options.str());
-             std::cout << "program built\n";
              auto kernelSync = compute::kernel(program, source.name);
              kernelGetGradientObjectiveSync = std::move(kernelSync);
          } else {
@@ -3822,9 +3808,7 @@ public:
            options << " -cl-mad-enable -cl-fast-relaxed-math";
 
             auto source = writeCodeForReduceCVBuffer();
-            std::cout << source.body;
             auto program = compute::program::build_with_source(source.body, ctx, options.str());
-            std::cout << "program built\n";
             auto kernel = compute::kernel(program, source.name);
 
             kernelReduceCVBuffer = std::move(kernel);

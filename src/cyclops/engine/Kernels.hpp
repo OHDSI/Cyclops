@@ -1216,7 +1216,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		const uint size0,			\n" <<
 				"		const uint syncCVFolds,		\n" <<
 				"		const uint index,			\n" <<
-				"		__global int* allZero) {   \n";
+				"		__global const int* allZero) {   \n";
 
         code << "	if (allZero[0] == 0) {				\n" <<
         		"	uint lid0 = get_local_id(0);		\n" <<

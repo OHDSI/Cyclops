@@ -578,8 +578,9 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 		donePool.resize(syncCVFolds);
 		for (int i=0; i<syncCVFolds; i++) {
 			donePool[i] = false;
-			if (usingGPU) modelSpecifics.updateDoneFolds(donePool);
 		}
+		if (usingGPU) modelSpecifics.updateDoneFolds(donePool);
+
 		/*
 		nonZeros.resize(syncCVFolds);
 		for (int i=0; i<syncCVFolds; i++) {
@@ -2562,6 +2563,7 @@ double CyclicCoordinateDescent::getPredictiveLogLikelihood(double* weights, int 
 	*/
 
 	xBetaKnown = false;
+	if (usingGPU && syncCV) xBetaKnown = true;
 
 	if (!xBetaKnown) {
 		computeXBeta();
@@ -2585,6 +2587,7 @@ double CyclicCoordinateDescent::getPredictiveLogLikelihood(double* weights, int 
 
 std::vector<double> CyclicCoordinateDescent::getPredictiveLogLikelihood(std::vector<std::vector<double>>& weightsPool) {
 	xBetaKnown = false;
+	if (usingGPU && syncCV) xBetaKnown = true;
 
 	if (!xBetaKnown) {
 		computeXBeta();
