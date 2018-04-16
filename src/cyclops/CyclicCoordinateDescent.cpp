@@ -1067,6 +1067,9 @@ void CyclicCoordinateDescent::findMode(
 	    };
 
 	    if (algorithmType == AlgorithmType::MM) {
+	    	if (usingGPU && syncCV) {
+	    		modelSpecifics.runMM();
+	    	} else {
             // Do delta computation in parallel
 	    	if (syncCV) {
 	    		std::vector<std::pair<int,int>> indicesToUpdate = syncCVIterator.getAllIndicesMM();
@@ -1079,21 +1082,22 @@ void CyclicCoordinateDescent::findMode(
     				std::cout << x << " ";
     			}
     			std::cout << "\n";
-    			*/
+	    		 */
 	    		applyBounds(allDelta, indicesToUpdate);
 	    		updateSufficientStatisticsMM(allDelta, indicesToUpdate);
-	            computeRemainingStatistics(true, allDelta, indicesToUpdate);
+	    		computeRemainingStatistics(true, allDelta, indicesToUpdate);
 	    	} else {
-	            mmUpdateAllBeta(allDelta);
-	            /*
+	    		mmUpdateAllBeta(allDelta);
+	    		/*
     			std::cout << "allDelta: " << " ";
     			for (auto x:allDelta) {
     				std::cout << x << " ";
     			}
     			std::cout << "\n";
-    			*/
-	            updateSufficientStatistics(allDelta);
-	            computeRemainingStatistics();
+	    		 */
+	    		updateSufficientStatistics(allDelta);
+	    		computeRemainingStatistics();
+	    	}
 	    	}
 
 	        //Rcpp::stop("A");

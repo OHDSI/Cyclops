@@ -223,6 +223,8 @@ public:
 
 	virtual void runCCDIndex(int index) {};
 
+	virtual void runMM() {};
+
 	virtual void resetBeta() {};
 
 	virtual double getPredictiveLogLikelihood(double* weights, int cvIndex) = 0; // pure virtual

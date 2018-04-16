@@ -2914,6 +2914,7 @@ public:
     	detail::resizeAndCopyToDevice(temp, dBetaVector, queue);
     }
 
+    /*
     virtual void runCCDIndex(int index) {
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
@@ -3034,21 +3035,8 @@ public:
         name = "compProcessDeltaKernelG" + getFormatTypeExtension(formatType) + " ";
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-/*
-        if (index==0) {
-        hBuffer.resize(cvIndexStride);
-        compute::copy(std::begin(dDeltaVector), std::begin(dDeltaVector)+cvIndexStride, std::begin(hBuffer), queue);
-        std::cout << "delta: ";
-        for (auto x:hBuffer) {
-        	std::cout << x << " ";
-        }
-		std::cout << "\n";
 
-		std::cout << "allZero: " << dAllZero[0] << "\n";
-        }
-*/
 
-/*
 #ifdef CYCLOPS_DEBUG_TIMING
         start = bsccs::chrono::steady_clock::now();
 #endif
@@ -3066,7 +3054,7 @@ public:
         if (stopNow[0] == 1) {
         	return;
         }
-*/
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
         start = bsccs::chrono::steady_clock::now();
@@ -3118,17 +3106,6 @@ public:
 		queue.enqueue_nd_range_kernel(kernel2, dim, 0, globalWorkSize, localWorkSize);
         queue.finish();
 
-/*
-        if (index == 0) {
-        hBuffer.resize(K*cvIndexStride);
-        compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(hBuffer), queue);
-        std::cout << "xbeta: ";
-        for (auto x:hBuffer) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
-        }
-*/
         hXBetaKnown = false; // dXBeta was just updated
 #ifdef CYCLOPS_DEBUG_TIMING
         end = bsccs::chrono::steady_clock::now();
@@ -3137,15 +3114,82 @@ public:
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
+    }
+    */
 
-        /*
+    virtual void runCCDIndex(int index) {
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+        FormatType formatType = modelData.getFormatType(index);
+        int priorType = priorTypes[index];
+
+        auto& kernel = kernelDoItAll[formatType*3+priorType];
+        const auto taskCount = dColumns.getTaskCount(index);
+
+        kernel.set_arg(0, dColumns.getDataOffset(index));
+        kernel.set_arg(1, dColumns.getIndicesOffset(index));
+        kernel.set_arg(2, taskCount);
+        kernel.set_arg(3, dColumns.getData());
+        kernel.set_arg(4, dColumns.getIndices());
+        kernel.set_arg(5, dY);
+        kernel.set_arg(6, dOffs);
+        kernel.set_arg(7, dXBetaVector);
+        kernel.set_arg(8, dOffsExpXBetaVector);
+        kernel.set_arg(9, dDenomPidVector);
+        kernel.set_arg(10, dPidVector);
+        if (dKWeightVector.size() == 0) {
+        	kernel.set_arg(11, 0);
+        } else {
+        	kernel.set_arg(11, dKWeightVector); // TODO Only when dKWeight gets reallocated
+        }
+        kernel.set_arg(12, dBoundVector);
+        kernel.set_arg(13, dPriorParams);
+        kernel.set_arg(14, dXjYVector);
+        kernel.set_arg(15, dBetaVector);
+        kernel.set_arg(16, dDoneVector);
+        kernel.set_arg(17, cvIndexStride);
+        kernel.set_arg(18, syncCVFolds);
+        int dJ = J;
+        kernel.set_arg(19, dJ);
+        kernel.set_arg(20, index);
+
+        int loops = syncCVFolds / 16;
+        if (syncCVFolds % 16 != 0) {
+        	loops++;
+        }
+
+        size_t globalWorkSize[2];
+        globalWorkSize[0] = loops*16;
+        globalWorkSize[1] = 16;
+        size_t localWorkSize[2];
+        localWorkSize[0] = 16;
+        localWorkSize[1] = 16;
+        size_t dim = 2;
+
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
         ///////////////////////////"
-        auto name = "compCCDIndexG" + getFormatTypeExtension(formatType) + " ";
+        auto name = "compDoItAllArgsG" + getFormatTypeExtension(formatType) + " ";
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-*/
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        start = bsccs::chrono::steady_clock::now();
+#endif
+
+        queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
+        queue.finish();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        name = "compDoItAllKernelG" + getFormatTypeExtension(formatType) + " ";
+        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+    }
+
+    virtual void runMM() {
     }
 
     void turnOnSyncCV(int foldToCompute) {
@@ -3399,6 +3443,15 @@ public:
     	buildGetLogLikelihoodKernel(false); ++b;
     }
 
+    void buildAllDoItAllKernels(const std::vector<FormatType>& neededFormatTypes) {
+        int b = 0;
+        for (FormatType formatType : neededFormatTypes) {
+            buildDoItAllKernel(formatType, 0);
+            buildDoItAllKernel(formatType, 1);
+            buildDoItAllKernel(formatType, 2);
+        }
+    }
+
     std::string getFormatTypeExtension(FormatType formatType) {
         switch (formatType) {
         case DENSE:
@@ -3450,6 +3503,35 @@ public:
     SourceCode writeCodeForReduceCVBuffer();
 
     SourceCode writeCodeForProcessDeltaKernel(int priorType);
+
+    SourceCode writeCodeForDoItAllKernel(FormatType formatType, int priorType);
+
+    void buildDoItAllKernel(FormatType formatType, int priorType) {
+        std::stringstream options;
+
+        if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+        options << "-DREAL=double -DTMP_REAL=double2 ";
+#else
+        options << "-DREAL=double -DTMP_REAL=double ";
+#endif // USE_VECTOR
+        } else {
+#ifdef USE_VECTOR
+            options << "-DREAL=float -DTMP_REAL=float2 ";
+#else
+            options << "-DREAL=float -DTMP_REAL=float ";
+#endif // USE_VECTOR
+        }
+        options << " -cl-mad-enable -cl-fast-relaxed-math";
+
+    	auto source = writeCodeForDoItAllKernel(formatType, priorType);
+    	std::cout << source.body;
+    	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    	std::cout << "program built\n";
+    	auto kernel = compute::kernel(program, source.name);
+
+    	kernelDoItAll[formatType*3+priorType] = std::move(kernel);
+    }
 
     void buildProcessDeltaKernel(int priorType) {
         std::stringstream options;
@@ -3840,6 +3922,8 @@ public:
         std::cout << "built reduceCVBuffer kenel\n";
         buildAllProcessDeltaKernels();
         std::cout << "built ProcessDelta kenels \n";
+        buildAllDoItAllKernels(neededFormatTypes);
+        std::cout << "built doItAll kernels\n";
     }
 
     void printAllKernels(std::ostream& stream) {
@@ -3903,6 +3987,7 @@ public:
     std::map<FormatType, compute::kernel> kernelGradientHessianSync;
     std::map<FormatType, compute::kernel> kernelGradientHessianSync1;
 
+    std::map<int, compute::kernel> kernelDoItAll;
     std::map<int, compute::kernel> kernelProcessDeltaBuffer;
 
     compute::kernel kernelReduceCVBuffer;
