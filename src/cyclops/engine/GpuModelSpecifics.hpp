@@ -2914,14 +2914,64 @@ public:
     	detail::resizeAndCopyToDevice(temp, dBetaVector, queue);
     }
 
-    /*
+
     virtual void runCCDIndex(int index) {
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
+        /*
+        if (!initialized) {
+                this->initializeMmXt();
+                dColumnsXt.initialize(*hXt, queue, K, true);
+                initialized = true;
+
+                std::vector<int> blah;
+                std::vector<real> blah1;
+
+                blah.resize(dColumnsXt.getDataStarts().size());
+                compute::copy(std::begin(dColumnsXt.getDataStarts()), std::end(dColumnsXt.getDataStarts()), std::begin(blah), queue);
+                std::cout << "data starts: ";
+                for (auto x:blah) {
+                        std::cout << x << " ";
+                }
+                std::cout << "\n";
+
+                blah.resize(dColumnsXt.getIndicesStarts().size());
+                compute::copy(std::begin(dColumnsXt.getIndicesStarts()), std::end(dColumnsXt.getIndicesStarts()), std::begin(blah), queue);
+                std::cout << "indices starts: ";
+                for (auto x:blah) {
+                        std::cout << x << " ";
+                }
+                std::cout << "\n";
+
+                blah.resize(dColumnsXt.getTaskCounts().size());
+                compute::copy(std::begin(dColumnsXt.getTaskCounts()), std::end(dColumnsXt.getTaskCounts()), std::begin(blah), queue);
+                std::cout << "task starts: ";
+                for (auto x:blah) {
+                        std::cout << x << " ";
+                }
+                std::cout << "\n";
+
+                blah1.resize(dColumnsXt.getData().size());
+                compute::copy(std::begin(dColumnsXt.getData()), std::end(dColumnsXt.getData()), std::begin(blah1), queue);
+                std::cout << "data: ";
+                for (auto x:blah1) {
+                        std::cout << x << " ";
+                }
+                std::cout << "\n";
+
+                blah.resize(dColumnsXt.getIndices().size());
+                compute::copy(std::begin(dColumnsXt.getIndices()), std::end(dColumnsXt.getIndices()), std::begin(blah), queue);
+                std::cout << "indices: ";
+                for (auto x:blah) {
+                        std::cout << x << " ";
+                }
+                std::cout << "\n";
+        }
+        */
         FormatType formatType = modelData.getFormatType(index);
 
-        int wgs = 64;
+        int wgs = 128;
 
         auto& kernel = kernelGradientHessianSync[formatType];
         const auto taskCount = dColumns.getTaskCount(index);
@@ -2958,9 +3008,7 @@ public:
         if (syncCVFolds % cvBlock != 0) {
         	loops++;
         }
-        if (taskCount < 64) {
-        	wgs = 8;
-        }
+
         size_t globalWorkSize[2];
         globalWorkSize[0] = loops*cvBlock;
         globalWorkSize[1] = wgs;
@@ -3115,8 +3163,8 @@ public:
 #endif
 
     }
-    */
 
+/*
     virtual void runCCDIndex(int index) {
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
@@ -3188,8 +3236,222 @@ public:
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
     }
+    */
 
     virtual void runMM() {
+
+        if (!initialized) {
+        	this->initializeMM(boundType);
+        	detail::resizeAndCopyToDevice(norm, dNorm, queue);
+
+        	std::cout << "dNorm size: " << dNorm.size() <<  "\n";
+        	this->initializeMmXt();
+        	dColumnsXt.initialize(*hXt, queue, K, true);
+
+        	initialized = true;
+
+			for (int i=0; i<J; i++) {
+				int formatType = formatList[i];
+				int priorType = priorTypes[i];
+				indexListWithPrior[formatType*3+priorType].push_back(i);
+			}
+/*
+			std::vector<int> blah;
+			blah.resize(dColumnsXt.getTaskCounts().size());
+			compute::copy(std::begin(dColumnsXt.getTaskCounts()), std::end(dColumnsXt.getTaskCounts()), std::begin(blah), queue);
+			std::cout << "task counts: ";
+			for (auto x:blah) {
+				std::cout << x << " ";
+			}
+			std::cout << "\n";
+
+			blah.resize(dColumnsXt.getIndices().size());
+			compute::copy(std::begin(dColumnsXt.getIndices()), std::end(dColumnsXt.getIndices()), std::begin(blah), queue);
+			std::cout << "indices: ";
+			for (auto x:blah) {
+				std::cout << x << " ";
+			}
+			std::cout << "\n";
+*/
+        }
+
+    	if (dDeltaVector.size() < J*cvIndexStride) {
+    		dDeltaVector.resize(J*cvIndexStride);
+    	}
+
+        for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
+        	for (int j = 0; j < 3; j++) {
+#ifdef CYCLOPS_DEBUG_TIMING
+        	auto start = bsccs::chrono::steady_clock::now();
+#endif
+        	FormatType formatType = (FormatType)i;
+
+        	int length = indexListWithPrior[i*3+j].size();
+        	if (length == 0) {
+        		continue;
+        	}
+        	auto& kernel = kernelMMFindDelta[i*3+j];
+        	//printKernel(kernel, std::cerr);
+
+        	kernel.set_arg(0, dColumns.getDataStarts());
+        	kernel.set_arg(1, dColumns.getIndicesStarts());
+        	kernel.set_arg(2, dColumns.getTaskCounts());
+        	kernel.set_arg(3, dColumns.getData());
+        	kernel.set_arg(4, dColumns.getIndices());
+        	kernel.set_arg(5, dY);
+        	kernel.set_arg(6, dOffs);
+        	kernel.set_arg(7, dXBetaVector);
+        	kernel.set_arg(8, dOffsExpXBetaVector);
+        	kernel.set_arg(9, dDenomPidVector);
+        	kernel.set_arg(10, dPidVector);
+        	if (dKWeightVector.size() == 0) {
+        		kernel.set_arg(11, 0);
+        	} else {
+        		kernel.set_arg(11, dKWeightVector); // TODO Only when dKWeight gets reallocated
+        	}
+        	kernel.set_arg(12, dNorm);
+        	kernel.set_arg(13, dBoundVector);
+        	kernel.set_arg(14, dPriorParams);
+        	kernel.set_arg(15, dXjYVector);
+        	kernel.set_arg(16, dBetaVector);
+        	kernel.set_arg(17, dDoneVector);
+        	detail::resizeAndCopyToDevice(indexListWithPrior[i*3+j], dIntVector1, queue);
+        	kernel.set_arg(18, dIntVector1);
+        	kernel.set_arg(19, dDeltaVector);
+        	kernel.set_arg(20, cvIndexStride);
+        	kernel.set_arg(21, syncCVFolds);
+        	int dJ = J;
+        	kernel.set_arg(22, dJ);
+
+            auto cvBlock = 32;
+            auto idBlock = 8;
+            int loops = syncCVFolds / 32;
+            if (syncCVFolds % 32 != 0) {
+            	loops++;
+            }
+
+            size_t globalWorkSize[2];
+            globalWorkSize[0] = loops*cvBlock;
+            globalWorkSize[1] = idBlock*length;
+            size_t localWorkSize[2];
+            localWorkSize[0] = cvBlock;
+            localWorkSize[1] = idBlock;
+            size_t dim = 2;
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name = "compMMFindDeltaArgsG" + getFormatTypeExtension(formatType) + " ";
+            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            start = bsccs::chrono::steady_clock::now();
+#endif
+
+            queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
+            queue.finish();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            end = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            name = "compMMFindDeltaKernelG" + getFormatTypeExtension(formatType) + " ";
+            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+        	}
+        }
+/*
+        std::cout << "delta0: ";
+        std::vector<real> temp;
+        temp.resize(syncCVFolds);
+        compute::copy(std::begin(dDeltaVector), std::begin(dDeltaVector)+syncCVFolds, std::begin(temp), queue);
+        for (auto x:temp) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
+
+        std::cout << "before hbeta0: ";
+        temp.resize(syncCVFolds);
+        compute::copy(std::begin(dXBetaVector), std::begin(dXBetaVector)+syncCVFolds, std::begin(temp), queue);
+        for (auto x:temp) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
+        */
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+        auto& kernel1 = kernelUpdateXBetaMM;
+
+        kernel1.set_arg(0, dColumnsXt.getDataStarts());
+        kernel1.set_arg(1, dColumnsXt.getIndicesStarts());
+        kernel1.set_arg(2, dColumnsXt.getTaskCounts());
+        kernel1.set_arg(3, dColumnsXt.getData());
+        kernel1.set_arg(4, dColumnsXt.getIndices());
+        kernel1.set_arg(5, dY);
+        kernel1.set_arg(6, dXBetaVector);
+        kernel1.set_arg(7, dOffsExpXBetaVector);
+        kernel1.set_arg(8, dDenomPidVector);
+        kernel1.set_arg(9, dOffs);
+        kernel1.set_arg(10, cvIndexStride);
+        kernel1.set_arg(11, dDeltaVector);
+        kernel1.set_arg(12, syncCVFolds);
+
+        auto cvBlock = 32;
+        auto idBlock = 8;
+        int dK = K;
+        int loops = syncCVFolds / 32;
+        if (syncCVFolds % 32 != 0) {
+        	loops++;
+        }
+
+        size_t globalWorkSize[2];
+        globalWorkSize[0] = loops*cvBlock;
+        globalWorkSize[1] = idBlock*dK;
+        size_t localWorkSize[2];
+        localWorkSize[0] = cvBlock;
+        localWorkSize[1] = idBlock;
+        size_t dim = 2;
+
+        //std::cout << "globalsize: " << loops*cvBlock << " " << idBlock * dK << " localsize: " << cvBlock << " " << idBlock << "\n";
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        auto name = "compMMUpdateXBetaArgsG ";
+        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        start = bsccs::chrono::steady_clock::now();
+#endif
+
+
+        //printKernel(kernel1,std::cerr);
+
+        queue.enqueue_nd_range_kernel(kernel1, dim, 0, globalWorkSize, localWorkSize);
+        queue.finish();
+
+/*
+        std::cout << "after hbeta0: ";
+        temp.resize(syncCVFolds);
+        compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector)+syncCVFolds, std::begin(temp), queue);
+        for (auto x:temp) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
+*/
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        name = "compMMUpdateXBetaKernelG ";
+        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
     }
 
     void turnOnSyncCV(int foldToCompute) {
@@ -3449,6 +3711,10 @@ public:
             buildDoItAllKernel(formatType, 0);
             buildDoItAllKernel(formatType, 1);
             buildDoItAllKernel(formatType, 2);
+
+            buildMMFindDeltaKernel(formatType, 0);
+            buildMMFindDeltaKernel(formatType, 1);
+            buildMMFindDeltaKernel(formatType, 2);
         }
     }
 
@@ -3506,6 +3772,8 @@ public:
 
     SourceCode writeCodeForDoItAllKernel(FormatType formatType, int priorType);
 
+    SourceCode writeCodeForMMFindDeltaKernel(FormatType formatType, int priorType);
+
     void buildDoItAllKernel(FormatType formatType, int priorType) {
         std::stringstream options;
 
@@ -3525,13 +3793,38 @@ public:
         options << " -cl-mad-enable -cl-fast-relaxed-math";
 
     	auto source = writeCodeForDoItAllKernel(formatType, priorType);
-    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
-    	std::cout << "program built\n";
     	auto kernel = compute::kernel(program, source.name);
 
     	kernelDoItAll[formatType*3+priorType] = std::move(kernel);
     }
+
+    void buildMMFindDeltaKernel(FormatType formatType, int priorType) {
+            std::stringstream options;
+
+            if (sizeof(real) == 8) {
+    #ifdef USE_VECTOR
+            options << "-DREAL=double -DTMP_REAL=double2 ";
+    #else
+            options << "-DREAL=double -DTMP_REAL=double ";
+    #endif // USE_VECTOR
+            } else {
+    #ifdef USE_VECTOR
+                options << "-DREAL=float -DTMP_REAL=float2 ";
+    #else
+                options << "-DREAL=float -DTMP_REAL=float ";
+    #endif // USE_VECTOR
+            }
+            options << " -cl-mad-enable -cl-fast-relaxed-math";
+
+        	auto source = writeCodeForMMFindDeltaKernel(formatType, priorType);
+        	std::cout << source.body;
+        	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        	std::cout << "program built\n";
+        	auto kernel = compute::kernel(program, source.name);
+
+        	kernelMMFindDelta[formatType*3+priorType] = std::move(kernel);
+        }
 
     void buildProcessDeltaKernel(int priorType) {
         std::stringstream options;
@@ -3741,7 +4034,9 @@ public:
     	auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
     	isNvidia = false;
     	auto source = writeCodeForMMUpdateXBetaKernel(isNvidia);
+    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    	std::cout << "program built\n";
     	auto kernelMM = compute::kernel(program, source.name);
     	kernelUpdateXBetaMM = std::move(kernelMM);
     }
@@ -3988,6 +4283,7 @@ public:
     std::map<FormatType, compute::kernel> kernelGradientHessianSync1;
 
     std::map<int, compute::kernel> kernelDoItAll;
+    std::map<int, compute::kernel> kernelMMFindDelta;
     std::map<int, compute::kernel> kernelProcessDeltaBuffer;
 
     compute::kernel kernelReduceCVBuffer;
@@ -4089,7 +4385,7 @@ public:
     compute::vector<int> dDoneVector;
 
     std::vector<real> priorTypes;
-
+    std::vector<int> indexListWithPrior[12];
 };
 
 /*
