@@ -221,7 +221,7 @@ public:
 
 	virtual void updateDoneFolds(std::vector<bool>& donePool) {};
 
-	virtual void runCCDIndex(int index) {};
+	virtual void runCCDIndex() {};
 
 	virtual void runMM() {};
 

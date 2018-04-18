@@ -1031,7 +1031,7 @@ void CyclicCoordinateDescent::findMode(
 
 	auto cycle = [this,&iteration,&algorithmType,&allDelta,&allDeltaPool,&lastObjFunc,&lastObjFuncVec,&convergenceType] {
 
-		if (iteration%10==0 && iteration > 0) {
+		if (iteration%10==0) {
 			std::cout<<"iteration " << iteration << " ";
 
 			if (!syncCV) {
@@ -1187,10 +1187,11 @@ void CyclicCoordinateDescent::findMode(
 	    	//std::cout<<hBeta[0]<<"\n";
 	        // Do a complete cycle in serial
 	    	//std::cout << "starting cycle\n";
-	        for(int index = 0; index < J; index++) {
-	        	if (usingGPU && syncCV) {
-	        		modelSpecifics.runCCDIndex(index);
-	        	} else {
+        	if (usingGPU && syncCV) {
+        		modelSpecifics.runCCDIndex();
+        	} else {
+        		for(int index = 0; index < J; index++) {
+
 	        	//std::cout << "index " << index << ": ";
 		    	//std::cout << "hBeta[0]: " << hBeta[0] << " hBeta[1]: " << hBeta[1] << '\n';
 	        	if (syncCV) {

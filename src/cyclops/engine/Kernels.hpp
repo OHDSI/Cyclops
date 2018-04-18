@@ -277,13 +277,19 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		const uint syncCVFolds,			\n" <<
 				"		__global int* allZero) {   		 	\n";    // TODO Make weight optional
 		// Initialization
-		code << "	uint lid0 = get_local_id(0);		\n" <<
-				"	if (get_global_id(0) == 0) allZero[0] = 1;	\n" <<
-				//"	uint task0 = get_group_id(0)*size0+lid0;	\n" <<
-				"	uint task1 = get_group_id(1);		\n" <<
-				"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
-				"	REAL sum0 = 0.0;					\n" <<
-				"	REAL sum1 = 0.0;					\n" <<
+		code << "	if (get_global_id(0) == 0) allZero[0] = 1;	\n" <<
+				"	uint lid0 = get_local_id(0);		\n" <<
+		        "   __local uint loopSize, gid1; 		\n" <<
+		        "   loopSize = get_num_groups(1);       \n" <<
+		        "   gid1 = get_group_id(1);             \n" <<
+				"	uint task1 = gid1;		\n" <<
+		        "   __local REAL sum0[TPB];             \n" <<
+		        "   __local REAL sum1[TPB];             \n" <<
+				"	sum0[lid0] = 0.0;					\n" <<
+				"	sum1[lid0] = 0.0;					\n" <<
+				"	uint cvIndex = get_group_id(0)*TPB+lid0;	\n" <<
+				//"	REAL sum0 = 0.0;					\n" <<
+				//"	REAL sum1 = 0.0;					\n" <<
 				"	if (cvIndex < syncCVFolds) {		\n" <<
 				"	while (task1 < N) {					\n";
 		if (formatType == INDICATOR || formatType == SPARSE) {
@@ -296,18 +302,18 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		} else { // INDICATOR, INTERCEPT
 			// Do nothing
 		}
-		code << "		uint vecOffset = k*cvIndexStride;	\n" <<
-				"		REAL exb = expXBetaVector[vecOffset+cvIndex];	\n" <<
+		code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
+				"		REAL exb = expXBetaVector[vecOffset];	\n" <<
 				"		REAL numer = " << timesX("exb", formatType) << ";\n" <<
-				"		REAL denom = denomPidVector[vecOffset+cvIndex];		\n" <<
-				"		REAL w = weightVector[vecOffset+cvIndex];\n";
+				"		REAL denom = denomPidVector[vecOffset];		\n" <<
+				"		REAL w = weightVector[vecOffset];\n";
 		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
-		code << "       sum0 += gradient; \n" <<
-				"       sum1 += hessian;  \n";
-		code << "       task1 += get_num_groups(1); \n" <<
+		code << "       sum0[lid0] += gradient; \n" <<
+				"       sum1[lid0] += hessian;  \n";
+		code << "       task1 += loopSize; \n" <<
 				"   } \n" <<
-				"	buffer[cvIndex+cvIndexStride*get_group_id(1)] = sum0;	\n" <<
-				"	buffer[cvIndex+cvIndexStride*(get_group_id(1)+get_num_groups(1))] = sum1;	\n" <<
+				"	buffer[cvIndexStride*gid1 + cvIndex] = sum0[lid0];	\n" <<
+				"	buffer[cvIndexStride*(gid1+loopSize) + cvIndex] = sum1[lid0];	\n" <<
 				"	}									\n";
 		code << "}  \n"; // End of kernel
 		return SourceCode(code.str(), name);
@@ -1296,11 +1302,17 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		const uint index,			\n" <<
 				"		__global const int* allZero) {   \n";
 
-        code << "	if (allZero[0] == 0) {				\n" <<
-        		"	uint lid0 = get_local_id(0);		\n" <<
+        code << "	uint lid0 = get_local_id(0);		\n" <<
+        		//"	if (allZero[0] == 0) {				\n" <<
         		//"	uint task0 = get_group_id(0)*size0+lid0;	\n" <<
-        		"	uint task1 = get_group_id(1);		\n" <<
+				"	__local uint stop;					\n" <<
+				"	if (lid0 == 0) stop = allZero[0];	\n" <<
+	            "   barrier(CLK_LOCAL_MEM_FENCE);       \n" <<
+				"	if (stop == 0) {					\n" <<
+				"	__local uint task1; 				\n" <<
+        		"	task1 = get_group_id(1);			\n" <<
 				"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
+				"	__local y, offs;					\n" <<
 				"	if (cvIndex < syncCVFolds) {		\n" <<
 				//	"		REAL delta = deltaVector[cvIndex];	\n";
 				"		REAL delta = deltaVector[index*cvIndexStride+cvIndex];	\n" <<
@@ -1315,15 +1327,15 @@ static std::string weight(const std::string& arg, bool useWeights) {
         } else { // INDICATOR, INTERCEPT
             code << "   REAL inc = delta;           \n";
         }
-        code << "		uint vecOffset = k*cvIndexStride;	\n" <<
-        		"		REAL xb = xBetaVector[vecOffset + cvIndex] + inc;	\n" <<
-				"		xBetaVector[vecOffset + cvIndex] = xb;	\n";
+        code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
+        		"		REAL xb = xBetaVector[vecOffset] + inc;	\n" <<
+				"		xBetaVector[vecOffset] = xb;	\n";
         if (BaseModel::likelihoodHasDenominator) {
-        	code << "	REAL y = Y[k];\n" <<
-        			"	REAL offs = Offs[k];\n";
+        	//code << "	REAL y = Y[k];\n" <<
+        	//		"	REAL offs = Offs[k];\n";
         	code << "	REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
-        	code << "	expXBetaVector[vecOffset+cvIndex] = exb;\n";
-        	code << "	denomPidVector[vecOffset+cvIndex] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+        	code << "	expXBetaVector[vecOffset] = exb;\n";
+        	code << "	denomPidVector[vecOffset] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
         }
         code << "   } \n";
         code << "}	\n";
@@ -2024,7 +2036,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		__global uint* allZero,				\n" <<
 				"		__global const int* doneVector) {    \n";    // TODO Make weight optional
 	    // Initialization
-	    code <<	"	uint cvIndex = get_group_id(0);			\n" <<
+	    code <<	"	__local uint cvIndex;					\n" <<
+	    		"	cvIndex = get_group_id(0);				\n" <<
+	    		//"	uint cvIndex = get_group_id(0);			\n" <<
 	    		"	__local REAL scratch[2][TPB];				\n" <<
 				"	uint lid = get_local_id(0);				\n" <<
 				"	if (lid < wgs) {						\n" <<
@@ -2041,17 +2055,21 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	            "   }                                           \n";
 
 	    code << "	if (lid == 0) {							\n" <<
-				"		uint offset = cvIndex*J+index;		\n" <<
-				"		REAL grad = scratch[0][lid];		\n" <<
-				"		grad = grad - XjYVector[offset];	\n" <<
-				"		REAL hess = scratch[1][lid];		\n" <<
-    			"		REAL beta = betaVector[offset];		\n";
+	    		"		__local uint offset;				\n" <<
+				"		offset = cvIndex*J+index;			\n" <<
+				"		__local REAL grad, hess, beta, delta;		\n" <<
+				"		grad = scratch[0][lid] - XjYVector[offset];		\n" <<
+				"		hess = scratch[1][lid];		\n" <<
+    			"		beta = betaVector[offset];		\n";
+	    		//"		uint offset = cvIndex*J+index;		\n" <<
+				//"		REAL grad = scratch[0][lid] - XjYVector[offset];		\n" <<
+				//"		REAL hess = scratch[1][lid];		\n" <<
+    			//"		REAL beta = betaVector[offset];		\n";
 	    if (priorType == 0) {
-	    	code << " REAL delta = -grad / hess;			\n";
+	    	code << " delta = -grad / hess;			\n";
 	    }
 	    if (priorType == 1) {
 	    	code << "	REAL lambda = priorParams[index];	\n" <<
-					"	REAL delta;							\n" <<
 					"	REAL negupdate = - (grad - lambda) / hess; \n" <<
 					"	REAL posupdate = - (grad + lambda) / hess; \n" <<
 					"	if (beta == 0 ) {					\n" <<
@@ -2074,7 +2092,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	    }
 	    if (priorType == 2) {
 	    	code << "	REAL var = priorParams[index];		\n" <<
-					"	REAL delta = - (grad + (beta / var)) / (hess + (1.0 / var));	\n";
+					"	delta = - (grad + (beta / var)) / (hess + (1.0 / var));	\n";
 	    }
 
 	    code << "	delta = delta * doneVector[cvIndex];	\n" <<

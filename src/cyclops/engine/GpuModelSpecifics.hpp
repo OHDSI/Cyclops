@@ -2915,64 +2915,14 @@ public:
     }
 
 
-    virtual void runCCDIndex(int index) {
+    virtual void runCCDIndex() {
+        for (int index = 0; index < J; index++) {
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
-        /*
-        if (!initialized) {
-                this->initializeMmXt();
-                dColumnsXt.initialize(*hXt, queue, K, true);
-                initialized = true;
-
-                std::vector<int> blah;
-                std::vector<real> blah1;
-
-                blah.resize(dColumnsXt.getDataStarts().size());
-                compute::copy(std::begin(dColumnsXt.getDataStarts()), std::end(dColumnsXt.getDataStarts()), std::begin(blah), queue);
-                std::cout << "data starts: ";
-                for (auto x:blah) {
-                        std::cout << x << " ";
-                }
-                std::cout << "\n";
-
-                blah.resize(dColumnsXt.getIndicesStarts().size());
-                compute::copy(std::begin(dColumnsXt.getIndicesStarts()), std::end(dColumnsXt.getIndicesStarts()), std::begin(blah), queue);
-                std::cout << "indices starts: ";
-                for (auto x:blah) {
-                        std::cout << x << " ";
-                }
-                std::cout << "\n";
-
-                blah.resize(dColumnsXt.getTaskCounts().size());
-                compute::copy(std::begin(dColumnsXt.getTaskCounts()), std::end(dColumnsXt.getTaskCounts()), std::begin(blah), queue);
-                std::cout << "task starts: ";
-                for (auto x:blah) {
-                        std::cout << x << " ";
-                }
-                std::cout << "\n";
-
-                blah1.resize(dColumnsXt.getData().size());
-                compute::copy(std::begin(dColumnsXt.getData()), std::end(dColumnsXt.getData()), std::begin(blah1), queue);
-                std::cout << "data: ";
-                for (auto x:blah1) {
-                        std::cout << x << " ";
-                }
-                std::cout << "\n";
-
-                blah.resize(dColumnsXt.getIndices().size());
-                compute::copy(std::begin(dColumnsXt.getIndices()), std::end(dColumnsXt.getIndices()), std::begin(blah), queue);
-                std::cout << "indices: ";
-                for (auto x:blah) {
-                        std::cout << x << " ";
-                }
-                std::cout << "\n";
-        }
-        */
         FormatType formatType = modelData.getFormatType(index);
 
         int wgs = 128;
-
         auto& kernel = kernelGradientHessianSync[formatType];
         const auto taskCount = dColumns.getTaskCount(index);
 
@@ -3084,7 +3034,7 @@ public:
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-
+/*
 #ifdef CYCLOPS_DEBUG_TIMING
         start = bsccs::chrono::steady_clock::now();
 #endif
@@ -3102,7 +3052,7 @@ public:
         if (stopNow[0] == 1) {
         	return;
         }
-
+*/
 
 #ifdef CYCLOPS_DEBUG_TIMING
         start = bsccs::chrono::steady_clock::now();
@@ -3161,7 +3111,7 @@ public:
         name = "compUpdateXBetaKernelG" + getFormatTypeExtension(formatType) + " ";
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-
+        }
     }
 
 /*
@@ -3572,6 +3522,22 @@ public:
         std::vector<int> hDone;
         hDone.resize(syncCVFolds, 1);
         detail::resizeAndCopyToDevice(hDone, dDoneVector, queue);
+
+        int need = 0;
+        for (size_t j = 0; j < J /*modelData.getNumberOfColumns()*/; ++j) {
+            const auto& column = modelData.getColumn(j);
+            // columns.emplace_back(GpuColumn<real>(column, ctx, queue, K));
+            need |= (1 << column.getFormatType());
+        }
+        std::vector<FormatType> neededFormatTypes;
+        for (int t = 0; t < 4; ++t) {
+            if (need & (1 << t)) {
+                neededFormatTypes.push_back(static_cast<FormatType>(t));
+            }
+        }
+        std::cerr << "Format types required: " << need << std::endl;
+        buildAllSyncCVKernels(neededFormatTypes);
+        std::cout << "built all syncCV kernels \n";
     }
 
     void turnOffSyncCV() {
@@ -3668,6 +3634,12 @@ public:
             buildUpdateXBetaKernel(formatType);
             buildUpdateAllXBetaKernel(formatType);
         }
+    }
+
+    void buildAllSyncCVUpdateXBetaKernels(const std::vector<FormatType>& neededFormatTypes) {
+        for (FormatType formatType : neededFormatTypes) {
+            buildSyncCVUpdateXBetaKernel(formatType);
+        }
         buildUpdateXBetaMMKernel();
     }
 
@@ -3677,11 +3649,22 @@ public:
     	//}
     }
 
+    void buildAllSyncCVComputeRemainingStatisticsKernels() {
+        buildSyncCVComputeRemainingStatisticsKernel();
+    }
+
     void buildAllGradientHessianKernels(const std::vector<FormatType>& neededFormatTypes) {
         int b = 0;
         for (FormatType formatType : neededFormatTypes) {
             buildGradientHessianKernel(formatType, true); ++b;
             buildGradientHessianKernel(formatType, false); ++b;
+        }
+    }
+
+    void buildAllSyncCVGradientHessianKernels(const std::vector<FormatType>& neededFormatTypes) {
+        int b = 0;
+        for (FormatType formatType : neededFormatTypes) {
+            buildSyncCVGradientHessianKernel(formatType); ++b;
         }
     }
 
@@ -3697,6 +3680,11 @@ public:
         	buildGetGradientObjectiveKernel(true); ++b;
         	buildGetGradientObjectiveKernel(false); ++b;
         //}
+    }
+
+    void buildAllSyncCVGetGradientObjectiveKernels() {
+        int b = 0;
+        buildSyncCVGetGradientObjectiveKernel(); ++b;
     }
 
     void buildAllGetLogLikelihoodKernels() {
@@ -3818,9 +3806,7 @@ public:
             options << " -cl-mad-enable -cl-fast-relaxed-math";
 
         	auto source = writeCodeForMMFindDeltaKernel(formatType, priorType);
-        	std::cout << source.body;
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        	std::cout << "program built\n";
         	auto kernel = compute::kernel(program, source.name);
 
         	kernelMMFindDelta[formatType*3+priorType] = std::move(kernel);
@@ -3904,24 +3890,6 @@ public:
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernel = compute::kernel(program, source.name);
 
-        	//kernel.set_arg(2, dIntVector1);
-        	//kernel.set_arg(5, dRealVector1);
-        	//kernel.set_arg(6, dRealVector2);
-        	//kernel.set_arg(9, dKWeight);
-
-        	// MM Kernel
-        	source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
-        	program = compute::program::build_with_source(source.body, ctx, options.str());
-        	auto kernelMM = compute::kernel(program, source.name);
-
-        	source = writeCodeForAllGradientHessianKernel(formatType, useWeights, isNvidia);
-        	program = compute::program::build_with_source(source.body, ctx, options.str());
-        	auto kernelAll = compute::kernel(program, source.name);
-
-        	source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia);
-        	program = compute::program::build_with_source(source.body, ctx, options.str());
-        	auto kernelSync = compute::kernel(program, source.name);
-
         	if (useWeights) {
         		kernelGradientHessianWeighted[formatType] = std::move(kernel);
         		//kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
@@ -3948,10 +3916,6 @@ public:
 
         	if (useWeights) {
         		kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
-            	source = writeCodeForSyncCVMMGradientHessianKernel(formatType, isNvidia);
-            	program = compute::program::build_with_source(source.body, ctx, options.str());
-            	auto kernelMMSync = compute::kernel(program, source.name);
-        		kernelGradientHessianMMSync[formatType] = std::move(kernelMMSync);
         	} else {
         		kernelGradientHessianMMNoWeight[formatType] = std::move(kernelMM);
         	}
@@ -3969,20 +3933,59 @@ public:
 
         	if (useWeights) {
         		kernelGradientHessianWeighted[formatType] = std::move(kernel);
-
-            	source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia);
-            	program = compute::program::build_with_source(source.body, ctx, options.str());
-            	auto kernelSync = compute::kernel(program, source.name);
-        		kernelGradientHessianSync[formatType] = std::move(kernelSync);
-
-            	source = writeCodeForSyncCV1GradientHessianKernel(formatType, isNvidia);
-            	program = compute::program::build_with_source(source.body, ctx, options.str());
-            	auto kernelSync1 = compute::kernel(program, source.name);
-        		kernelGradientHessianSync1[formatType] = std::move(kernelSync1);
         	} else {
         		kernelGradientHessianNoWeight[formatType] = std::move(kernel);
         	}
         }
+    }
+
+    void buildSyncCVGradientHessianKernel(FormatType formatType) {
+
+        std::stringstream options;
+
+        int thisTPB = 32;
+        if (syncCVFolds > 32) thisTPB = 64;
+        if (syncCVFolds > 64) thisTPB = 128;
+
+        if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+            options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << thisTPB;
+#else
+            options << "-DREAL=double -DTMP_REAL=double -DTPB=" << thisTPB;
+#endif // USE_VECTOR
+        } else {
+#ifdef USE_VECTOR
+            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << thisTPB;
+#else
+            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << thisTPB;
+#endif // USE_VECTOR
+        }
+        options << " -cl-mad-enable -cl-fast-relaxed-math";
+
+        auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+        isNvidia = false;
+
+        // CCD Kernel
+        // Rcpp::stop("cGH");
+        auto source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia);
+        std::cout << source.body;
+        auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        std::cout << "program built\n";
+        auto kernelSync = compute::kernel(program, source.name);
+        kernelGradientHessianSync[formatType] = std::move(kernelSync);
+
+        source = writeCodeForSyncCV1GradientHessianKernel(formatType, isNvidia);
+        program = compute::program::build_with_source(source.body, ctx, options.str());
+        auto kernelSync1 = compute::kernel(program, source.name);
+        kernelGradientHessianSync1[formatType] = std::move(kernelSync1);
+
+        // MM Kernel
+        //if (algorithmType == AlgorithmType::MM) {
+
+        source = writeCodeForSyncCVMMGradientHessianKernel(formatType, isNvidia);
+        program = compute::program::build_with_source(source.body, ctx, options.str());
+        auto kernelMMSync = compute::kernel(program, source.name);
+        kernelGradientHessianMMSync[formatType] = std::move(kernelMMSync);
     }
 
     void buildUpdateXBetaKernel(FormatType formatType) {
@@ -4013,6 +4016,28 @@ public:
         kernelUpdateXBetaSync1[formatType] = std::move(kernelSync1);
     }
 
+    void buildSyncCVUpdateXBetaKernel(FormatType formatType) {
+        std::stringstream options;
+
+        options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
+
+        options << " -cl-mad-enable -cl-fast-relaxed-math";
+
+        // Rcpp::stop("uXB");
+
+        // Run-time constant arguments.
+
+        auto source = writeCodeForSyncUpdateXBetaKernel(formatType);
+        auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        auto kernelSync = compute::kernel(program, source.name);
+        kernelUpdateXBetaSync[formatType] = std::move(kernelSync);
+
+        source = writeCodeForSync1UpdateXBetaKernel(formatType);
+        program = compute::program::build_with_source(source.body, ctx, options.str());
+        auto kernelSync1 = compute::kernel(program, source.name);
+        kernelUpdateXBetaSync1[formatType] = std::move(kernelSync1);
+    }
+
     void buildUpdateXBetaMMKernel() {
     	std::stringstream options;
 
@@ -4034,9 +4059,7 @@ public:
     	auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
     	isNvidia = false;
     	auto source = writeCodeForMMUpdateXBetaKernel(isNvidia);
-    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
-    	std::cout << "program built\n";
     	auto kernelMM = compute::kernel(program, source.name);
     	kernelUpdateXBetaMM = std::move(kernelMM);
     }
@@ -4053,9 +4076,15 @@ public:
         auto kernel = compute::kernel(program, source.name);
 
         kernelComputeRemainingStatistics = std::move(kernel);
+    }
 
-        source = writeCodeForSyncComputeRemainingStatisticsKernel();
-        program = compute::program::build_with_source(source.body, ctx, options.str());
+    void buildSyncCVComputeRemainingStatisticsKernel() {
+        std::stringstream options;
+        options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
+
+        options << " -cl-mad-enable -cl-fast-relaxed-math";
+        auto source = writeCodeForSyncComputeRemainingStatisticsKernel();
+        auto program = compute::program::build_with_source(source.body, ctx, options.str());
         auto kernelSync = compute::kernel(program, source.name);
 
         kernelComputeRemainingStatisticsSync = std::move(kernelSync);
@@ -4123,13 +4152,36 @@ public:
 
          if (useWeights) {
              kernelGetGradientObjectiveWeighted = std::move(kernel);
-             source = writeCodeForGetGradientObjectiveSync(isNvidia);
-             program = compute::program::build_with_source(source.body, ctx, options.str());
-             auto kernelSync = compute::kernel(program, source.name);
-             kernelGetGradientObjectiveSync = std::move(kernelSync);
          } else {
         	 kernelGetGradientObjectiveNoWeight = std::move(kernel);
          }
+    }
+
+    void buildSyncCVGetGradientObjectiveKernel() {
+        std::stringstream options;
+        if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+            options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+#else
+            options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+#endif // USE_VECTOR
+        } else {
+#ifdef USE_VECTOR
+            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+#else
+            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+#endif // USE_VECTOR
+        }
+        options << " -cl-mad-enable -cl-fast-relaxed-math";
+
+        auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+        isNvidia = false;
+
+        // Run-time constant arguments.
+        auto source = writeCodeForGetGradientObjectiveSync(isNvidia);
+        auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        auto kernelSync = compute::kernel(program, source.name);
+        kernelGetGradientObjectiveSync = std::move(kernelSync);
     }
 
     void buildGetLogLikelihoodKernel(bool useWeights) {
@@ -4212,6 +4264,25 @@ public:
         buildAllGetLogLikelihoodKernels();
         std::cout << "built getLogLikelihood kernels \n";
         buildAllComputeRemainingStatisticsKernels();
+        std::cout << "built computeRemainingStatistics kernels \n";
+        //buildReduceCVBufferKernel();
+        //std::cout << "built reduceCVBuffer kenel\n";
+        //buildAllProcessDeltaKernels();
+        //std::cout << "built ProcessDelta kenels \n";
+        //buildAllDoItAllKernels(neededFormatTypes);
+        //std::cout << "built doItAll kernels\n";
+    }
+
+    void buildAllSyncCVKernels(const std::vector<FormatType>& neededFormatTypes) {
+        buildAllSyncCVGradientHessianKernels(neededFormatTypes);
+        std::cout << "built syncCV gradhessian kernels \n";
+        buildAllSyncCVUpdateXBetaKernels(neededFormatTypes);
+        std::cout << "built syncCV updateXBeta kernels \n";
+        buildAllSyncCVGetGradientObjectiveKernels();
+        std::cout << "built syncCV getGradObjective kernels \n";
+        //buildAllGetLogLikelihoodKernels();
+        //std::cout << "built getLogLikelihood kernels \n";
+        buildAllSyncCVComputeRemainingStatisticsKernels();
         std::cout << "built computeRemainingStatistics kernels \n";
         buildReduceCVBufferKernel();
         std::cout << "built reduceCVBuffer kenel\n";
