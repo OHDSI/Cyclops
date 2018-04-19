@@ -290,7 +290,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"	uint cvIndex = get_group_id(0)*TPB+lid0;	\n" <<
 				//"	REAL sum0 = 0.0;					\n" <<
 				//"	REAL sum1 = 0.0;					\n" <<
-				"	if (cvIndex < syncCVFolds) {		\n" <<
+				//"	if (cvIndex < syncCVFolds) {		\n" <<
 				"	while (task1 < N) {					\n";
 		if (formatType == INDICATOR || formatType == SPARSE) {
 			code << "  	uint k = K[offK + task1];      	\n";
@@ -315,7 +315,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"	buffer[cvIndexStride*gid1 + cvIndex] = sum0[lid0];	\n" <<
 				"	buffer[cvIndexStride*(gid1+loopSize) + cvIndex] = sum1[lid0];	\n" <<
 				"	}									\n";
-		code << "}  \n"; // End of kernel
+		//code << "}  \n"; // End of kernel
 		return SourceCode(code.str(), name);
 	}
 
@@ -1309,7 +1309,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         		"	task1 = get_group_id(1);			\n" <<
 				"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
 				//"	__local y, offs;					\n";// <<
-				"	if (cvIndex < syncCVFolds) {		\n" <<
+				//"	if (cvIndex < syncCVFolds) {		\n" <<
 				//	"		REAL delta = deltaVector[cvIndex];	\n";
 				"		REAL delta = deltaVector[index*cvIndexStride+cvIndex];	\n";// <<
 				//"	if (delta != 0) {					\n";
@@ -1334,7 +1334,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         	code << "	denomPidVector[vecOffset] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
         }
         //code << "   } \n";
-        code << "}	\n";
+        //code << "}	\n";
         code << "}    \n";
         code << "}		\n";
 
@@ -1833,7 +1833,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"	uint task1 = get_group_id(1);		\n" <<
 					"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
 					"	REAL sum = 0.0;					\n" <<
-					"	if (cvIndex < syncCVFolds) {		\n" <<
+					//"	if (cvIndex < syncCVFolds) {		\n" <<
 					"	while (task1 < N) {					\n" <<
 					"		uint vecOffset = task1*cvIndexStride;	\n" <<
 					"		REAL w = weightVector[vecOffset+cvIndex];	\n" <<
@@ -1845,7 +1845,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"	buffer[cvIndex+cvIndexStride*get_group_id(1)] = sum;	\n" <<
 				    //"   if (get_global_id(0) == 0) printf(\"inside kernel\");    \n" <<
 					"	}									\n";
-	        code << "}  \n"; // End of kernel
+	        //code << "}  \n"; // End of kernel
 	        return SourceCode(code.str(), name);
 		}
 /*

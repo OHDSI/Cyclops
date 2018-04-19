@@ -434,20 +434,19 @@ public:
         kernel.set_arg(4, dOffs);
         kernel.set_arg(5, dPidVector);
         kernel.set_arg(6, cvIndexStride);
-        int cvBlock = 32;
-        kernel.set_arg(7, cvBlock);
+        kernel.set_arg(7, cvBlockSize);
         kernel.set_arg(8, syncCVFolds);
 
-        int loops = syncCVFolds / cvBlock;
-        if (syncCVFolds % cvBlock != 0) {
+        int loops = syncCVFolds / cvBlockSize;
+        if (syncCVFolds % cvBlockSize != 0) {
         	loops++;
         }
 
         size_t globalWorkSize[2];
-        globalWorkSize[0] = loops*cvBlock;
+        globalWorkSize[0] = loops*cvBlockSize;
         globalWorkSize[1] = K;
         size_t localWorkSize[2];
-        localWorkSize[0] = cvBlock;
+        localWorkSize[0] = cvBlockSize;
         localWorkSize[1] = 1;
         size_t dim = 2;
 
@@ -1322,10 +1321,7 @@ public:
         kernel.set_arg(10, dPidVector);
         //kernel.set_arg(11, dKWeightVector);
         kernel.set_arg(12, cvIndexStride);
-        int cvBlock = 32;
-        if (syncCVFolds > 32) cvBlock = 64;
-        if (syncCVFolds > 64) cvBlock = 128;
-        kernel.set_arg(13, cvBlock);
+        kernel.set_arg(13, cvBlockSize);
         kernel.set_arg(14, syncCVFolds);
 
         if (dKWeightVector.size() == 0) {
@@ -1334,8 +1330,8 @@ public:
         	kernel.set_arg(11, dKWeightVector); // TODO Only when dKWeight gets reallocated
         }
 
-        int loops = syncCVFolds / cvBlock;
-        if (syncCVFolds % cvBlock != 0) {
+        int loops = syncCVFolds / cvBlockSize;
+        if (syncCVFolds % cvBlockSize != 0) {
         	loops++;
         }
 
@@ -1344,10 +1340,10 @@ public:
         }
 
         size_t globalWorkSize[2];
-        globalWorkSize[0] = loops*cvBlock;
+        globalWorkSize[0] = loops*cvBlockSize;
         globalWorkSize[1] = wgs;
         size_t localWorkSize[2];
-        localWorkSize[0] = cvBlock;
+        localWorkSize[0] = cvBlockSize;
         localWorkSize[1] = 1;
         size_t dim = 2;
 
@@ -2073,20 +2069,19 @@ public:
         kernel.set_arg(9, dPidVector);
         kernel.set_arg(10, cvIndexStride);
         kernel.set_arg(11, dOffs);
-        int cvBlock = 32;
-        kernel.set_arg(12, cvBlock);
+        kernel.set_arg(12, cvBlockSize);
         kernel.set_arg(13, syncCVFolds);
 
-        int loops = syncCVFolds / cvBlock;
-        if (syncCVFolds % cvBlock != 0) {
+        int loops = syncCVFolds / cvBlockSize;
+        if (syncCVFolds % cvBlockSize != 0) {
         	loops++;
         }
 
         size_t globalWorkSize[2];
-        globalWorkSize[0] = loops*cvBlock;
+        globalWorkSize[0] = loops*cvBlockSize;
         globalWorkSize[1] = taskCount;
         size_t localWorkSize[2];
-        localWorkSize[0] = cvBlock;
+        localWorkSize[0] = cvBlockSize;
         localWorkSize[1] = 1;
         size_t dim = 2;
 
@@ -2581,20 +2576,19 @@ public:
         } else {
             kernel.set_arg(5, dKWeightVector); // TODO Only when dKWeight gets reallocated
         }
-        int cvBlock = 32;
-        kernel.set_arg(6, cvBlock);
+        kernel.set_arg(6, cvBlockSize);
         kernel.set_arg(7, syncCVFolds);
 
-        int loops = syncCVFolds / cvBlock;
-        if (syncCVFolds % cvBlock != 0) {
+        int loops = syncCVFolds / cvBlockSize;
+        if (syncCVFolds % cvBlockSize != 0) {
         	loops++;
         }
 
         size_t globalWorkSize[2];
-        globalWorkSize[0] = loops*cvBlock;
+        globalWorkSize[0] = loops*cvBlockSize;
         globalWorkSize[1] = wgs;
         size_t localWorkSize[2];
-        localWorkSize[0] = cvBlock;
+        localWorkSize[0] = cvBlockSize;
         localWorkSize[1] = 1;
         size_t dim = 2;
 
@@ -2947,23 +2941,20 @@ public:
         }
 
         kernel.set_arg(12, cvIndexStride);
-        int cvBlock = 32;
-        if (syncCVFolds > 32) cvBlock = 64;
-        if (syncCVFolds > 64) cvBlock = 128;
-        kernel.set_arg(13, cvBlock);
+        kernel.set_arg(13, cvBlockSize);
         kernel.set_arg(14, syncCVFolds);
         kernel.set_arg(15, dAllZero);
 
-        int loops = syncCVFolds / cvBlock;
-        if (syncCVFolds % cvBlock != 0) {
+        int loops = syncCVFolds / cvBlockSize;
+        if (syncCVFolds % cvBlockSize != 0) {
         	loops++;
         }
 
         size_t globalWorkSize[2];
-        globalWorkSize[0] = loops*cvBlock;
+        globalWorkSize[0] = loops*cvBlockSize;
         globalWorkSize[1] = wgs;
         size_t localWorkSize[2];
-        localWorkSize[0] = cvBlock;
+        localWorkSize[0] = cvBlockSize;
         localWorkSize[1] = 1;
         size_t dim = 2;
 
@@ -3072,20 +3063,19 @@ public:
         kernel2.set_arg(9, dPidVector);
         kernel2.set_arg(10, cvIndexStride);
         kernel2.set_arg(11, dOffs);
-        cvBlock = 32;
-        kernel2.set_arg(12, cvBlock);
+        kernel2.set_arg(12, cvBlockSize);
         kernel2.set_arg(13, syncCVFolds);
         kernel2.set_arg(14, index);
         kernel2.set_arg(15, dAllZero);
 
-        loops = syncCVFolds / cvBlock;
-        if (syncCVFolds % cvBlock != 0) {
+        loops = syncCVFolds / cvBlockSize;
+        if (syncCVFolds % cvBlockSize != 0) {
         	loops++;
         }
 
-        globalWorkSize[0] = loops*cvBlock;
+        globalWorkSize[0] = loops*cvBlockSize;
         globalWorkSize[1] = taskCount;
-        localWorkSize[0] = cvBlock;
+        localWorkSize[0] = cvBlockSize;
         localWorkSize[1] = 1;
         dim = 2;
 
