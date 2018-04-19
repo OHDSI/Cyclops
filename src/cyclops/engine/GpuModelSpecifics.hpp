@@ -3993,21 +3993,17 @@ public:
 
         std::stringstream options;
 
-        int thisTPB = 32;
-        if (syncCVFolds > 32) thisTPB = 64;
-        if (syncCVFolds > 64) thisTPB = 128;
-
         if (sizeof(real) == 8) {
 #ifdef USE_VECTOR
-            options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << thisTPB;
+            options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << cvIndexStride;
 #else
-            options << "-DREAL=double -DTMP_REAL=double -DTPB=" << thisTPB;
+            options << "-DREAL=double -DTMP_REAL=double -DTPB=" << cvIndexStride;
 #endif // USE_VECTOR
         } else {
 #ifdef USE_VECTOR
-            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << thisTPB;
+            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << cvIndexStride;
 #else
-            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << thisTPB;
+            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << cvIndexStride;
 #endif // USE_VECTOR
         }
         options << " -cl-mad-enable";
@@ -4066,9 +4062,7 @@ public:
         // Run-time constant arguments.
 
         auto source = writeCodeForSyncUpdateXBetaKernel(formatType);
-        std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        std::cout << "program built\n";
         auto kernelSync = compute::kernel(program, source.name);
         kernelUpdateXBetaSync[formatType] = std::move(kernelSync);
 
