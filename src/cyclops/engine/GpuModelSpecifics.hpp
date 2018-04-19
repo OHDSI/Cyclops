@@ -2910,13 +2910,17 @@ public:
 
 
     virtual void runCCDIndex() {
+        int wgs = 128;
+        if (dBuffer.size() < 2*wgs*cvIndexStride) {
+        	dBuffer.resize(2*wgs*cvIndexStride);
+        }
+
         for (int index = 0; index < J; index++) {
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
         FormatType formatType = modelData.getFormatType(index);
 
-        int wgs = 128;
         auto& kernel = kernelGradientHessianSync[formatType];
         const auto taskCount = dColumns.getTaskCount(index);
 
@@ -2929,9 +2933,6 @@ public:
         kernel.set_arg(6, dXBetaVector);
         kernel.set_arg(7, dOffsExpXBetaVector);
         kernel.set_arg(8, dDenomPidVector);
-        if (dBuffer.size() < 2*wgs*cvIndexStride) {
-        	dBuffer.resize(2*wgs*cvIndexStride);
-        }
         kernel.set_arg(9, dBuffer); // Can get reallocated.
         kernel.set_arg(10, dPidVector);
         if (dKWeightVector.size() == 0) {
@@ -3995,15 +3996,15 @@ public:
 
         if (sizeof(real) == 8) {
 #ifdef USE_VECTOR
-            options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << cvIndexStride;
+            options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << cvBlockSize;
 #else
-            options << "-DREAL=double -DTMP_REAL=double -DTPB=" << cvIndexStride;
+            options << "-DREAL=double -DTMP_REAL=double -DTPB=" << cvBlockSize;
 #endif // USE_VECTOR
         } else {
 #ifdef USE_VECTOR
-            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << cvIndexStride;
+            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << cvBlockSize;
 #else
-            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << cvIndexStride;
+            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << cvBlockSize;
 #endif // USE_VECTOR
         }
         options << " -cl-mad-enable";
