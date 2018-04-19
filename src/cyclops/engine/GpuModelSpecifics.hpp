@@ -3111,6 +3111,51 @@ public:
         name = "compUpdateXBetaKernelG" + getFormatTypeExtension(formatType) + " ";
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
+
+        /*
+#ifdef CYCLOPS_DEBUG_TIMING
+        start = bsccs::chrono::steady_clock::now();
+#endif
+        auto& kernel3 = kernelEmpty;
+
+        // set kernel args
+        int blah = 0;
+        kernel3.set_arg(0, blah);
+
+        loops = syncCVFolds / cvBlockSize;
+        if (syncCVFolds % cvBlockSize != 0) {
+            loops++;
+        }
+
+        globalWorkSize[0] = loops*cvBlockSize;
+        globalWorkSize[1] = taskCount;
+        localWorkSize[0] = cvBlockSize;
+        localWorkSize[1] = 1;
+        dim = 2;
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        name = "compEmpetyArgsG" + getFormatTypeExtension(formatType) + " ";
+        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        start = bsccs::chrono::steady_clock::now();
+#endif
+
+        // run kernel
+        queue.enqueue_nd_range_kernel(kernel3, dim, 0, globalWorkSize, localWorkSize);
+        queue.finish();
+
+        hXBetaKnown = false; // dXBeta was just updated
+#ifdef CYCLOPS_DEBUG_TIMING
+        end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        name = "compEmptyKernelG";
+        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+         */
         }
     }
 
@@ -3189,6 +3234,7 @@ public:
     */
 
     virtual void runMM() {
+        std::cout << "running mm kernels\n";
 
         if (!initialized) {
         	this->initializeMM(boundType);
@@ -3412,19 +3458,29 @@ public:
     	syncCVFolds = foldToCompute;
 
         if (pad) {
+        	cvBlockSize = 32;
+        	if (syncCVFolds > 32) cvBlockSize = 64;
+        	//if (syncCVFolds > 64 && syncCVFolds <= 128) cvBlockSize = 128;
         	//cvIndexStride = detail::getAlignedLength<16>(K);
-        	cvIndexStride = detail::getAlignedLength<16>(syncCVFolds);
+        	if (syncCVFolds > 64) cvBlockSize = 128;
+        	if (cvBlockSize == 32)  cvIndexStride = detail::getAlignedLength<32>(syncCVFolds);
+        	if (cvBlockSize == 64)  cvIndexStride = detail::getAlignedLength<64>(syncCVFolds);
+        	if (cvBlockSize == 128)  cvIndexStride = detail::getAlignedLength<128>(syncCVFolds);
         } else {
+        	// do not use
         	// cvIndexStride = K;
         	cvIndexStride = syncCVFolds;
         }
+
+
+
         std::cout << "cvStride: " << cvIndexStride << "\n";
 
     	//int dataStart = 0;
     	int garbage = 0;
 
-    	std::vector<real> blah(syncCVFolds, 0);
-    	std::vector<int> blah1(syncCVFolds, 0);
+    	std::vector<real> blah(cvIndexStride, 0);
+    	std::vector<int> blah1(cvIndexStride, 0);
         //std::vector<real> hNWeightTemp;
         std::vector<real> hKWeightTemp;
         //std::vector<real> accDenomPidTemp;
@@ -3538,6 +3594,8 @@ public:
         std::cerr << "Format types required: " << need << std::endl;
         buildAllSyncCVKernels(neededFormatTypes);
         std::cout << "built all syncCV kernels \n";
+
+        //printAllSyncCVKernels(std::cerr);
     }
 
     void turnOffSyncCV() {
@@ -3720,6 +3778,8 @@ public:
         }
     }
 
+    SourceCode writeCodeForEmptyKernel();
+
     SourceCode writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
     SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType);
@@ -3778,7 +3838,7 @@ public:
             options << "-DREAL=float -DTMP_REAL=float ";
 #endif // USE_VECTOR
         }
-        options << " -cl-mad-enable -cl-fast-relaxed-math";
+        options << " -cl-mad-enable";
 
     	auto source = writeCodeForDoItAllKernel(formatType, priorType);
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
@@ -3803,7 +3863,7 @@ public:
                 options << "-DREAL=float -DTMP_REAL=float ";
     #endif // USE_VECTOR
             }
-            options << " -cl-mad-enable -cl-fast-relaxed-math";
+            options << " -cl-mad-enable";
 
         	auto source = writeCodeForMMFindDeltaKernel(formatType, priorType);
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
@@ -3828,7 +3888,7 @@ public:
             options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
 #endif // USE_VECTOR
         }
-        options << " -cl-mad-enable -cl-fast-relaxed-math";
+        options << " -cl-mad-enable";
 
     	auto source = writeCodeForProcessDeltaKernel(priorType);
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
@@ -3854,7 +3914,7 @@ public:
             options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
 #endif // USE_VECTOR
         }
-        options << " -cl-mad-enable -cl-fast-relaxed-math";
+        options << " -cl-mad-enable";
 
 //         compute::vector<compute::double2_> buf(10, ctx);
 //
@@ -3960,7 +4020,7 @@ public:
             options << "-DREAL=float -DTMP_REAL=float -DTPB=" << thisTPB;
 #endif // USE_VECTOR
         }
-        options << " -cl-mad-enable -cl-fast-relaxed-math";
+        options << " -cl-mad-enable";
 
         auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
         isNvidia = false;
@@ -3968,9 +4028,7 @@ public:
         // CCD Kernel
         // Rcpp::stop("cGH");
         auto source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia);
-        std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        std::cout << "program built\n";
         auto kernelSync = compute::kernel(program, source.name);
         kernelGradientHessianSync[formatType] = std::move(kernelSync);
 
@@ -3993,7 +4051,7 @@ public:
 
         options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
-    	options << " -cl-mad-enable -cl-fast-relaxed-math";
+    	options << " -cl-mad-enable";
 
         auto source = writeCodeForUpdateXBetaKernel(formatType);
 
@@ -4004,9 +4062,23 @@ public:
 
         // Run-time constant arguments.
         kernelUpdateXBeta[formatType] = std::move(kernel);
+    }
 
-        source = writeCodeForSyncUpdateXBetaKernel(formatType);
-        program = compute::program::build_with_source(source.body, ctx, options.str());
+    void buildSyncCVUpdateXBetaKernel(FormatType formatType) {
+        std::stringstream options;
+
+        options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
+
+        options << " -cl-mad-enable";
+
+        // Rcpp::stop("uXB");
+
+        // Run-time constant arguments.
+
+        auto source = writeCodeForSyncUpdateXBetaKernel(formatType);
+        std::cout << source.body;
+        auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        std::cout << "program built\n";
         auto kernelSync = compute::kernel(program, source.name);
         kernelUpdateXBetaSync[formatType] = std::move(kernelSync);
 
@@ -4016,26 +4088,17 @@ public:
         kernelUpdateXBetaSync1[formatType] = std::move(kernelSync1);
     }
 
-    void buildSyncCVUpdateXBetaKernel(FormatType formatType) {
+    void buildEmptyKernel() {
         std::stringstream options;
 
         options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
-        options << " -cl-mad-enable -cl-fast-relaxed-math";
+        options << " -cl-mad-enable";
 
-        // Rcpp::stop("uXB");
-
-        // Run-time constant arguments.
-
-        auto source = writeCodeForSyncUpdateXBetaKernel(formatType);
+        auto source = writeCodeForEmptyKernel();
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         auto kernelSync = compute::kernel(program, source.name);
-        kernelUpdateXBetaSync[formatType] = std::move(kernelSync);
-
-        source = writeCodeForSync1UpdateXBetaKernel(formatType);
-        program = compute::program::build_with_source(source.body, ctx, options.str());
-        auto kernelSync1 = compute::kernel(program, source.name);
-        kernelUpdateXBetaSync1[formatType] = std::move(kernelSync1);
+        kernelEmpty = std::move(kernelSync);
     }
 
     void buildUpdateXBetaMMKernel() {
@@ -4054,7 +4117,7 @@ public:
     		options << "-DREAL=float -DTMP_REAL=float -DTPB=" << 32;
 #endif // USE_VECTOR
     	}
-    	options << " -cl-mad-enable -cl-fast-relaxed-math";
+    	options << " -cl-mad-enable";
 
     	auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
     	isNvidia = false;
@@ -4069,7 +4132,7 @@ public:
     	std::stringstream options;
     	options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
-    	options << " -cl-mad-enable -cl-fast-relaxed-math";
+    	options << " -cl-mad-enable";
 
         auto source = writeCodeForComputeRemainingStatisticsKernel();
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
@@ -4082,7 +4145,7 @@ public:
         std::stringstream options;
         options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
-        options << " -cl-mad-enable -cl-fast-relaxed-math";
+        options << " -cl-mad-enable";
         auto source = writeCodeForSyncComputeRemainingStatisticsKernel();
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         auto kernelSync = compute::kernel(program, source.name);
@@ -4107,7 +4170,7 @@ public:
 #endif // USE_VECTOR
         }
 
-    	options << " -cl-mad-enable -cl-fast-relaxed-math";
+    	options << " -cl-mad-enable";
 
     	//options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
 
@@ -4137,7 +4200,7 @@ public:
             options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
 #endif // USE_VECTOR
         }
-        options << " -cl-mad-enable -cl-fast-relaxed-math";
+        options << " -cl-mad-enable";
 
          auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
          isNvidia = false;
@@ -4172,7 +4235,7 @@ public:
             options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
 #endif // USE_VECTOR
         }
-        options << " -cl-mad-enable -cl-fast-relaxed-math";
+        options << " -cl-mad-enable";
 
         auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
         isNvidia = false;
@@ -4199,7 +4262,7 @@ public:
             options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
 #endif // USE_VECTOR
         }
-        options << " -cl-mad-enable -cl-fast-relaxed-math";
+        options << " -cl-mad-enable";
 
          auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
          isNvidia = false;
@@ -4234,7 +4297,7 @@ public:
                options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
    #endif // USE_VECTOR
            }
-           options << " -cl-mad-enable -cl-fast-relaxed-math";
+           options << " -cl-mad-enable";
 
             auto source = writeCodeForReduceCVBuffer();
             auto program = compute::program::build_with_source(source.body, ctx, options.str());
@@ -4265,6 +4328,8 @@ public:
         std::cout << "built getLogLikelihood kernels \n";
         buildAllComputeRemainingStatisticsKernels();
         std::cout << "built computeRemainingStatistics kernels \n";
+        buildEmptyKernel();
+        std::cout << "built empty kernel\n";
         //buildReduceCVBufferKernel();
         //std::cout << "built reduceCVBuffer kenel\n";
         //buildAllProcessDeltaKernels();
@@ -4316,23 +4381,56 @@ public:
     		printKernel(entry.second, stream);
     	}
 
-    	for (auto& entry : kernelGradientHessianSync) {
-    		printKernel(entry.second, stream);
-    	}
-
         for (auto& entry : kernelUpdateXBeta) {
+            printKernel(entry.second, stream);
+        }
+
+        for (auto& entry : kernelUpdateAllXBeta) {
             printKernel(entry.second, stream);
         }
 
         printKernel(kernelGetGradientObjectiveWeighted, stream);
         printKernel(kernelGetGradientObjectiveNoWeight, stream);
-        printKernel(kernelComputeRemainingStatistics, stream);
-        printKernel(kernelComputeRemainingStatisticsSync, stream);
 
-        for (auto& entry: kernelUpdateAllXBeta) {
-        	printKernel(entry.second, stream);
-        }
+        printKernel(kernelComputeRemainingStatistics, stream);
     }
+
+    void printAllSyncCVKernels(std::ostream& stream) {
+
+    	for (auto& entry : kernelGradientHessianSync) {
+    		printKernel(entry.second, stream);
+    	}
+
+    	for (auto& entry : kernelGradientHessianMMSync) {
+    		printKernel(entry.second, stream);
+    	}
+
+    	printKernel(kernelReduceCVBuffer, stream);
+
+    	for (auto& entry : kernelUpdateXBetaSync) {
+    		printKernel(entry.second, stream);
+    	}
+
+    	printKernel(kernelUpdateXBetaMM, stream);
+
+    	for (auto& entry : kernelDoItAll) {
+    		printKernel(entry.second, stream);
+    	}
+
+    	for (auto& entry : kernelMMFindDelta) {
+    		printKernel(entry.second, stream);
+    	}
+
+    	for (auto& entry : kernelProcessDeltaBuffer) {
+    		printKernel(entry.second, stream);
+    	}
+
+    	printKernel(kernelGetGradientObjectiveSync, stream);
+
+    	printKernel(kernelComputeRemainingStatisticsSync, stream);
+    }
+
+
 
     // boost::compute objects
     const compute::device device;
@@ -4357,6 +4455,7 @@ public:
     std::map<int, compute::kernel> kernelMMFindDelta;
     std::map<int, compute::kernel> kernelProcessDeltaBuffer;
 
+    compute::kernel kernelEmpty;
     compute::kernel kernelReduceCVBuffer;
     compute::kernel kernelUpdateXBetaMM;
     compute::kernel kernelGetGradientObjectiveWeighted;
@@ -4429,6 +4528,7 @@ public:
     bool hXBetaKnown;
 
     // syhcCV
+    int cvBlockSize;
     int cvIndexStride;
     bool pad;
     compute::vector<real> dNWeightVector;

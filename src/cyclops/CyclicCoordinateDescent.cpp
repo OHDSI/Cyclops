@@ -327,6 +327,8 @@ double CyclicCoordinateDescent::getPredictiveLogLikelihood(double* weights) {
 
 	getDenominators();
 
+	std::cout << "iterations: " << lastIterationCount << " ";
+
 	return modelSpecifics.getPredictiveLogLikelihood(weights); // TODO Pass double
 }
 
@@ -1003,7 +1005,7 @@ void CyclicCoordinateDescent::findMode(
 	std::vector<std::vector<double>> allDeltaPool;
     std::vector<double> lastLogPosteriorVec;
 
-	if (mm_original) {
+	if (mm_original && syncCV) {
 	   algorithmType = AlgorithmType::MM;
 	   modelSpecifics.setAlgorithmType(AlgorithmType::MM);
 	   std::cout << "switch to mm \n";
@@ -2616,6 +2618,8 @@ std::vector<double> CyclicCoordinateDescent::getPredictiveLogLikelihood(std::vec
 			result[cvIndex] = std::numeric_limits<double>::quiet_NaN();
 		}
 	}
+
+	std::cout << "iterations: " << lastIterationCount << " ";
 	return result;
 }
 

@@ -1303,20 +1303,16 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		__global const int* allZero) {   \n";
 
         code << "	uint lid0 = get_local_id(0);		\n" <<
-        		//"	if (allZero[0] == 0) {				\n" <<
+        		"	if (allZero[0] == 0) {				\n" <<
         		//"	uint task0 = get_group_id(0)*size0+lid0;	\n" <<
-				"	__local uint stop;					\n" <<
-				"	if (lid0 == 0) stop = allZero[0];	\n" <<
-	            "   barrier(CLK_LOCAL_MEM_FENCE);       \n" <<
-				"	if (stop == 0) {					\n" <<
 				"	__local uint task1; 				\n" <<
         		"	task1 = get_group_id(1);			\n" <<
 				"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
-				"	__local y, offs;					\n" <<
+				//"	__local y, offs;					\n";// <<
 				"	if (cvIndex < syncCVFolds) {		\n" <<
 				//	"		REAL delta = deltaVector[cvIndex];	\n";
-				"		REAL delta = deltaVector[index*cvIndexStride+cvIndex];	\n" <<
-				"	if (delta != 0) {					\n";
+				"		REAL delta = deltaVector[index*cvIndexStride+cvIndex];	\n";// <<
+				//"	if (delta != 0) {					\n";
         if (formatType == INDICATOR || formatType == SPARSE) {
         	code << "  	uint k = K[offK + task1];      	\n";
         } else { // DENSE, INTERCEPT
@@ -1337,7 +1333,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         	code << "	expXBetaVector[vecOffset] = exb;\n";
         	code << "	denomPidVector[vecOffset] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
         }
-        code << "   } \n";
+        //code << "   } \n";
         code << "}	\n";
         code << "}    \n";
         code << "}		\n";
@@ -1847,6 +1843,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"		task1 += get_num_groups(1);		\n" <<
 					"	} 									\n" <<
 					"	buffer[cvIndex+cvIndexStride*get_group_id(1)] = sum;	\n" <<
+				    //"   if (get_global_id(0) == 0) printf(\"inside kernel\");    \n" <<
 					"	}									\n";
 	        code << "}  \n"; // End of kernel
 	        return SourceCode(code.str(), name);
@@ -2524,6 +2521,21 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		code << "}  \n"; // End of kernel
 		return SourceCode(code.str(), name);
 	}
+
+	template <class BaseModel, typename WeightType, class BaseModelG>
+	SourceCode
+	    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForEmptyKernel() {
+	        std::string name = "empty";
+	        std::stringstream code;
+	        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+	        code << "__kernel void " << name << "( 	\n" <<
+	        		"	const uint blah) {			\n" <<
+					"	uint lid = get_local_id(0);	\n" <<
+	        		"}   		 					\n";
+	        return SourceCode(code.str(), name);
+	    }
+
 
 
 
