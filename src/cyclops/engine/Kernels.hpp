@@ -303,9 +303,12 @@ static std::string weight(const std::string& arg, bool useWeights) {
 			// Do nothing
 		}
 		code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
-				"		REAL exb = expXBetaVector[vecOffset];	\n" <<
+				"		REAL xb = xBetaVector[vecOffset];			\n" <<
+				"		REAL exb = exp(xb);							\n" <<
+				//"		REAL exb = expXBetaVector[vecOffset];	\n" <<
 				"		REAL numer = " << timesX("exb", formatType) << ";\n" <<
-				"		REAL denom = denomPidVector[vecOffset];		\n" <<
+				"		REAL denom = (REAL)1.0 + exb;				\n" <<
+				//"		REAL denom = denomPidVector[vecOffset];		\n" <<
 				"		REAL w = weightVector[vecOffset];\n";
 		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
 		code << "       sum0[lid0] += gradient; \n" <<
@@ -1329,9 +1332,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
         if (BaseModel::likelihoodHasDenominator) {
         	//code << "	REAL y = Y[k];\n" <<
         	//		"	REAL offs = Offs[k];\n";
-        	code << "	REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
-        	code << "	expXBetaVector[vecOffset] = exb;\n";
-        	code << "	denomPidVector[vecOffset] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+        	//code << "	REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
+        	//code << "	expXBetaVector[vecOffset] = exb;\n";
+        	//code << "	denomPidVector[vecOffset] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
         }
         //code << "   } \n";
         //code << "}	\n";

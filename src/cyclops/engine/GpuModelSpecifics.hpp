@@ -2745,6 +2745,7 @@ public:
 
     // letting cpu handle
     double getPredictiveLogLikelihood(double* weights, int cvIndex) {
+    	computeRemainingStatistics(true);
     	std::vector<real> xBetaTemp(dXBetaVector.size());
     	std::vector<real> denomTemp(dDenomPidVector.size());
 		compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(xBetaTemp), queue);
