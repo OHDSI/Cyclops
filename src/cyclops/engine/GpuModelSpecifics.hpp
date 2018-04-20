@@ -425,7 +425,7 @@ public:
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
-
+/*
         auto& kernel = kernelComputeRemainingStatisticsSync;
         kernel.set_arg(0, dXBetaVector);
         kernel.set_arg(1, dOffsExpXBetaVector);
@@ -452,16 +452,6 @@ public:
 
         queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
         queue.finish();
-
-        /*
-        std::vector<real> blah;
-        blah.resize(dOffsExpXBetaVector.size());
-        compute::copy(std::begin(dOffsExpXBetaVector), std::end(dOffsExpXBetaVector), std::begin(blah), queue);
-        std::cout << "offs0: ";
-        for (auto x:blah) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
         */
 
         /*
@@ -470,6 +460,7 @@ public:
     	for (int cvIndex = 0; cvIndex < syncCVFolds; ++cvIndex) {
     		foldIndices.push_back(cvIndex);
     	}
+    	*/
 
         // get kernel
         auto& kernel = kernelComputeRemainingStatisticsSync;
@@ -485,14 +476,17 @@ public:
         kernel.set_arg(5, dOffs);
         kernel.set_arg(6, dPidVector);
         kernel.set_arg(7, cvIndexStride);
-        detail::resizeAndCopyToDevice(foldIndices, dIntVector1, queue);
-        kernel.set_arg(8, dIntVector1);
+        kernel.set_arg(8, dDoneVector);
+        //detail::resizeAndCopyToDevice(foldIndices, dIntVector1, queue);
+        //kernel.set_arg(8, dIntVector1);
 
         // set work size, no looping
+
         size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
         if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
         	++workGroups;
         }
+
         const size_t globalWorkSize = workGroups * syncCVFolds * detail::constant::updateXBetaBlockSize;
         int blockSize = workGroups * detail::constant::updateXBetaBlockSize;
         kernel.set_arg(9, blockSize);
@@ -500,7 +494,6 @@ public:
         // run kernel
         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
         queue.finish();
-        */
 
 
 
@@ -2521,7 +2514,7 @@ public:
 #endif
 
         //FormatType formatType = FormatType::DENSE;
-/*
+
         auto& kernel = kernelGetGradientObjectiveSync;
 
         const auto wgs = maxWgs;
@@ -2555,7 +2548,7 @@ public:
         		result[i] += hBuffer[i*wgs+j];
         	}
         }
-        */
+        /*
         auto& kernel = kernelGetGradientObjectiveSync;
 
         const auto wgs = 128;
@@ -2605,7 +2598,7 @@ public:
         		result[cvIndex] += hBuffer[j*cvIndexStride+cvIndex];
         	}
     	}
-
+*/
 #ifdef GPU_DEBUG
         std::cerr << gradient << " & " << hessian << std::endl << std::endl;
 #endif // GPU_DEBUG
@@ -2746,6 +2739,7 @@ public:
     // letting cpu handle
     double getPredictiveLogLikelihood(double* weights, int cvIndex) {
     	computeRemainingStatistics(true);
+    	/*
     	std::vector<real> xBetaTemp(dXBetaVector.size());
     	std::vector<real> denomTemp(dDenomPidVector.size());
 		compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(xBetaTemp), queue);
@@ -2755,9 +2749,9 @@ public:
 			hXBetaPool[cvIndex][i] = xBetaTemp[i*cvIndexStride+cvIndex];
 			denomPidPool[cvIndex][i] = denomTemp[i*cvIndexStride+cvIndex];
 		}
-
-    	//compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
-    	//compute::copy(std::begin(dDenomPidVector)+cvIndexStride*cvIndex, std::begin(dDenomPidVector)+cvIndexStride*cvIndex+K, std::begin(denomPidPool[cvIndex]), queue);
+*/
+    	compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
+    	compute::copy(std::begin(dDenomPidVector)+cvIndexStride*cvIndex, std::begin(dDenomPidVector)+cvIndexStride*cvIndex+K, std::begin(denomPidPool[cvIndex]), queue);
     	return ModelSpecifics<BaseModel, WeightType>::getPredictiveLogLikelihood(weights, cvIndex);
     }
 
@@ -2792,15 +2786,15 @@ public:
     	ModelSpecifics<BaseModel,WeightType>::setWeights(inWeights, useCrossValidation, cvIndex);
     	if (cvIndex == syncCVFolds - 1) {
     		//std::vector<real> hNWeightTemp;
-    		//std::vector<real> hKWeightTemp;
-    		//int garbage;
-    		/*
+    		std::vector<real> hKWeightTemp;
+    		int garbage;
+
     		for (int i=0; i<syncCVFolds; i++) {
     			//std::cout << "hNWeightPool size" << i << ": " << hNWeightPool[i].size() << "\n";
     			//appendAndPad(hNWeightPool[i], hNWeightTemp, garbage, pad); // not using for now
     			appendAndPad(hKWeightPool[i], hKWeightTemp, garbage, pad);
     		}
-    		*/
+    		/*
 
     		std::vector<real> hKWeightTemp(K*cvIndexStride,0.0);
     		for (int i=0; i<K; i++) {
@@ -2808,7 +2802,7 @@ public:
     				hKWeightTemp[i*cvIndexStride+j] = hKWeightPool[j][i];
     			}
     		}
-
+*/
     		//detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
     		detail::resizeAndCopyToDevice(hKWeightTemp, dKWeightVector, queue);
     	}
@@ -2879,18 +2873,21 @@ public:
     }
 
     virtual void copyXBetaVec() {
+    	/*
     	std::vector<real> temp(K*cvIndexStride,0.0);
     	for (int i=0; i<K; i++) {
     		for (int j=0; j<syncCVFolds; j++) {
     			temp[i*cvIndexStride+j] = hXBetaPool[j][i];
     		}
     	}
-    	/*
+    	*/
+
+    	std::vector<real> temp;
     	int garbage;
     	for (int  i=0; i<syncCVFolds; i++) {
     		appendAndPad(hXBetaPool[i], temp, garbage, pad);
     	}
-    	*/
+
     	compute::copy(std::begin(temp), std::end(temp), std::begin(dXBetaVector), queue);
     	//detail::resizeAndCopyToDevice(temp, dXBetaVector, queue);
     }
@@ -2909,7 +2906,7 @@ public:
     	detail::resizeAndCopyToDevice(temp, dBetaVector, queue);
     }
 
-
+/*
     virtual void runCCDIndex() {
         int wgs = 128;
         if (dBuffer.size() < 2*wgs*cvIndexStride) {
@@ -3025,25 +3022,6 @@ public:
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-/*
-#ifdef CYCLOPS_DEBUG_TIMING
-        start = bsccs::chrono::steady_clock::now();
-#endif
-        std::vector<int> stopNow;
-        stopNow.resize(1);
-        compute::copy(std::begin(dAllZero), std::begin(dAllZero)+1, std::begin(stopNow), queue);
-
-#ifdef CYCLOPS_DEBUG_TIMING
-        end = bsccs::chrono::steady_clock::now();
-        ///////////////////////////"
-        name = "checkingAllZero" + getFormatTypeExtension(formatType) + " ";
-        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
-
-        if (stopNow[0] == 1) {
-        	return;
-        }
-*/
 
 #ifdef CYCLOPS_DEBUG_TIMING
         start = bsccs::chrono::steady_clock::now();
@@ -3102,7 +3080,7 @@ public:
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-        /*
+
 #ifdef CYCLOPS_DEBUG_TIMING
         start = bsccs::chrono::steady_clock::now();
 #endif
@@ -3145,12 +3123,14 @@ public:
         name = "compEmptyKernelG";
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-         */
+
         }
     }
 
-/*
-    virtual void runCCDIndex(int index) {
+*/
+    virtual void runCCDIndex() {
+    	//std::cout << "running ccd index active folds = " << activeFolds << "\n";
+    	for (int index = 0; index < J; index++) {
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
@@ -3165,40 +3145,29 @@ public:
         kernel.set_arg(2, taskCount);
         kernel.set_arg(3, dColumns.getData());
         kernel.set_arg(4, dColumns.getIndices());
-        kernel.set_arg(5, dY);
-        kernel.set_arg(6, dOffs);
-        kernel.set_arg(7, dXBetaVector);
-        kernel.set_arg(8, dOffsExpXBetaVector);
-        kernel.set_arg(9, dDenomPidVector);
-        kernel.set_arg(10, dPidVector);
+        //kernel.set_arg(5, dY);
+        //kernel.set_arg(6, dOffs);
+        kernel.set_arg(5, dXBetaVector);
+        //kernel.set_arg(8, dOffsExpXBetaVector);
+        //kernel.set_arg(9, dDenomPidVector);
+        //kernel.set_arg(10, dPidVector);
         if (dKWeightVector.size() == 0) {
         	kernel.set_arg(11, 0);
         } else {
-        	kernel.set_arg(11, dKWeightVector); // TODO Only when dKWeight gets reallocated
+        	kernel.set_arg(6, dKWeightVector); // TODO Only when dKWeight gets reallocated
         }
-        kernel.set_arg(12, dBoundVector);
-        kernel.set_arg(13, dPriorParams);
-        kernel.set_arg(14, dXjYVector);
-        kernel.set_arg(15, dBetaVector);
-        kernel.set_arg(16, dDoneVector);
-        kernel.set_arg(17, cvIndexStride);
-        kernel.set_arg(18, syncCVFolds);
+        kernel.set_arg(7, dBoundVector);
+        kernel.set_arg(8, dPriorParams);
+        kernel.set_arg(9, dXjYVector);
+        kernel.set_arg(10, dBetaVector);
+        kernel.set_arg(11, dDoneVector);
+        kernel.set_arg(12, cvIndexStride);
+        //kernel.set_arg(18, syncCVFolds);
         int dJ = J;
-        kernel.set_arg(19, dJ);
-        kernel.set_arg(20, index);
+        kernel.set_arg(13, dJ);
+        kernel.set_arg(14, index);
 
-        int loops = syncCVFolds / 16;
-        if (syncCVFolds % 16 != 0) {
-        	loops++;
-        }
-
-        size_t globalWorkSize[2];
-        globalWorkSize[0] = loops*16;
-        globalWorkSize[1] = 16;
-        size_t localWorkSize[2];
-        localWorkSize[0] = 16;
-        localWorkSize[1] = 16;
-        size_t dim = 2;
+        const auto globalWorkSize = tpb;
 
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
@@ -3211,7 +3180,7 @@ public:
         start = bsccs::chrono::steady_clock::now();
 #endif
 
-        queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize*activeFolds, tpb);
         queue.finish();
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -3220,8 +3189,9 @@ public:
         name = "compDoItAllKernelG" + getFormatTypeExtension(formatType) + " ";
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
+    	}
     }
-    */
+
 
     virtual void runMM() {
         std::cout << "running mm kernels\n";
@@ -3449,6 +3419,7 @@ public:
 
         if (pad) {
         	cvBlockSize = 32;
+        	/*
         	if (syncCVFolds > 32) cvBlockSize = 64;
         	//if (syncCVFolds > 64 && syncCVFolds <= 128) cvBlockSize = 128;
         	//cvIndexStride = detail::getAlignedLength<16>(K);
@@ -3456,21 +3427,21 @@ public:
         	if (cvBlockSize == 32)  cvIndexStride = detail::getAlignedLength<32>(syncCVFolds);
         	if (cvBlockSize == 64)  cvIndexStride = detail::getAlignedLength<64>(syncCVFolds);
         	if (cvBlockSize == 128)  cvIndexStride = detail::getAlignedLength<128>(syncCVFolds);
+        	*/
+        	cvIndexStride = detail::getAlignedLength<16>(K);
         } else {
         	// do not use
-        	// cvIndexStride = K;
-        	cvIndexStride = syncCVFolds;
+        	cvIndexStride = K;
+        	//cvIndexStride = syncCVFolds;
         }
-
-
 
         std::cout << "cvStride: " << cvIndexStride << "\n";
 
     	//int dataStart = 0;
     	int garbage = 0;
 
-    	std::vector<real> blah(cvIndexStride, 0);
-    	std::vector<int> blah1(cvIndexStride, 0);
+    	//std::vector<real> blah(cvIndexStride, 0);
+    	//std::vector<int> blah1(cvIndexStride, 0);
         //std::vector<real> hNWeightTemp;
         std::vector<real> hKWeightTemp;
         //std::vector<real> accDenomPidTemp;
@@ -3491,6 +3462,7 @@ public:
         //std::vector<real> normTemp;
         //std::vector<int> cvIndexOffsets;
 
+        /*
         for (int i=0; i<K; i++) {
         	//std::fill(std::begin(blah), std::end(blah), static_cast<real>(hKWeight[i]));
         	//appendAndPad(blah, hKWeightTemp, garbage, pad);
@@ -3507,7 +3479,8 @@ public:
         	std::fill(std::begin(blah1), std::end(blah1), hPid[i]);
         	appendAndPad(blah1, hPidTemp, garbage, pad);
         }
-/*
+        */
+
         for (int i=0; i<foldToCompute; ++i) {
         	//cvIndexOffsets.push_back(indices1);
         	//appendAndPad(hNWeight, hNWeightTemp, garbage, pad);
@@ -3527,9 +3500,9 @@ public:
         	//appendAndPad(sparseIndices, sparseIndicesTemp, garbage, false);
         	//appendAndPad(norm, normTemp, garbage, false);
         }
-        */
 
-        /*
+
+
         for (int i=0; i<foldToCompute; ++i) {
         	for (int n=0; n<K; ++n) {
         		hPidTemp.push_back(hPid[n]);
@@ -3539,7 +3512,7 @@ public:
         	}
         	//logLikelihoodFixedTermTemp.push_back(logLikelihoodFixedTerm);
         }
-        */
+
 
         //detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
         //detail::resizeAndCopyToDevice(hKWeightTemp, dKWeightVector, queue);
@@ -3561,6 +3534,8 @@ public:
         //detail::resizeAndCopyToDevice(normTemp, dNormVector, queue);
         //detail::resizeAndCopyToDevice(cvIndexOffsets, dcvIndexOffsets, queue);
 
+
+        /*
         std::vector<int> hAllZero;
         hAllZero.push_back(0);
         detail::resizeAndCopyToDevice(hAllZero, dAllZero, queue);
@@ -3568,6 +3543,16 @@ public:
         std::vector<int> hDone;
         hDone.resize(syncCVFolds, 1);
         detail::resizeAndCopyToDevice(hDone, dDoneVector, queue);
+
+*/
+        std::vector<int> hDone;
+        hDone.resize(syncCVFolds);
+        for (int i=0; i<syncCVFolds; i++) {
+        	hDone[i] = i;
+        }
+        detail::resizeAndCopyToDevice(hDone, dDoneVector, queue);
+        activeFolds = syncCVFolds;
+
 
         int need = 0;
         for (size_t j = 0; j < J /*modelData.getNumberOfColumns()*/; ++j) {
@@ -3596,10 +3581,18 @@ public:
 
     virtual void updateDoneFolds(std::vector<bool>& donePool) {
     	std::vector<int> temp;
+
+    	/*
     	temp.resize(syncCVFolds, 1);
     	for (int i=0; i<syncCVFolds; i++) {
     		if (donePool[i]) temp[i] = 0;
     	}
+    	*/
+
+    	for (int i=0; i<syncCVFolds; i++) {
+    		if (!donePool[i]) temp.push_back(i);
+    	}
+    	activeFolds = temp.size();
     	compute::copy(std::begin(temp), std::end(temp), std::begin(dDoneVector), queue);
     }
 
@@ -3817,21 +3810,23 @@ public:
 
         if (sizeof(real) == 8) {
 #ifdef USE_VECTOR
-        options << "-DREAL=double -DTMP_REAL=double2 ";
+        options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
 #else
-        options << "-DREAL=double -DTMP_REAL=double ";
+        options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
 #endif // USE_VECTOR
         } else {
 #ifdef USE_VECTOR
-            options << "-DREAL=float -DTMP_REAL=float2 ";
+            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
 #else
-            options << "-DREAL=float -DTMP_REAL=float ";
+            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
 #endif // USE_VECTOR
         }
         options << " -cl-mad-enable";
 
     	auto source = writeCodeForDoItAllKernel(formatType, priorType);
+    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        std::cout << "program built\n";
     	auto kernel = compute::kernel(program, source.name);
 
     	kernelDoItAll[formatType*3+priorType] = std::move(kernel);
@@ -4015,9 +4010,7 @@ public:
         // Rcpp::stop("cGH");
         auto source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia);
 
-        std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        std::cout << "program built\n";
         auto kernelSync = compute::kernel(program, source.name);
         kernelGradientHessianSync[formatType] = std::move(kernelSync);
 
@@ -4518,6 +4511,7 @@ public:
     int cvBlockSize;
     int cvIndexStride;
     bool pad;
+    int activeFolds;
     compute::vector<real> dNWeightVector;
     compute::vector<real> dKWeightVector;
     compute::vector<real> dAccDenomPidVector;
