@@ -2943,9 +2943,7 @@ public:
         }
 
         kernel.set_arg(12, cvIndexStride);
-        kernel.set_arg(13, cvBlockSize);
-        kernel.set_arg(14, syncCVFolds);
-        kernel.set_arg(15, dAllZero);
+        kernel.set_arg(13, dAllZero);
 
         int loops = syncCVFolds / cvBlockSize;
         if (syncCVFolds % cvBlockSize != 0) {
@@ -4016,7 +4014,10 @@ public:
         // CCD Kernel
         // Rcpp::stop("cGH");
         auto source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia);
+
+        std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        std::cout << "program built\n";
         auto kernelSync = compute::kernel(program, source.name);
         kernelGradientHessianSync[formatType] = std::move(kernelSync);
 

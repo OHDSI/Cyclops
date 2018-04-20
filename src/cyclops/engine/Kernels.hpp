@@ -273,25 +273,32 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"       __global const int* pIdVector,           \n" <<  // TODO Make id optional
 				"       __global const REAL* weightVector,	\n" <<
 				"		const uint cvIndexStride,		\n" <<
-				"		const uint size0,				\n" <<
-				"		const uint syncCVFolds,			\n" <<
 				"		__global int* allZero) {   		 	\n";    // TODO Make weight optional
 		// Initialization
 		code << "	if (get_global_id(0) == 0) allZero[0] = 1;	\n" <<
 				"	uint lid0 = get_local_id(0);		\n" <<
-		        "   __local uint loopSize, gid1; 		\n" <<
-		        "   loopSize = get_num_groups(1);       \n" <<
-		        "   gid1 = get_group_id(1);             \n" <<
-				"	uint task1 = gid1;		\n" <<
-		        "   __local REAL sum0[TPB];             \n" <<
-		        "   __local REAL sum1[TPB];             \n" <<
-				"	sum0[lid0] = 0.0;					\n" <<
-				"	sum1[lid0] = 0.0;					\n" <<
+		        "   uint gid1, loops, remainder; 			\n" <<
+				"   gid1 = get_group_id(1);             \n" <<
+		        //"   loopSize = get_num_groups(1);       \n" <<
+				"	loops = N / TPB;					\n" <<
+				"	remainder = N % TPB;			\n" <<
+				"	uint task1;							\n" <<
+				"	if (gid1 < remainder) {				\n" <<
+				"		task1 = gid1*(loops+1);			\n" <<
+				"	} else {							\n" <<
+				"		task1 = remainder*(loops+1) + (gid1-remainder)*loops;	\n" <<
+				"	}									\n" <<
+				//"	uint task1 = gid1;					\n" <<
+				//"	__local REAL scratch[2][TPB];		\n" <<
+		        //"   __local REAL sum0[TPB];             \n" <<
+		        //"   __local REAL sum1[TPB];             \n" <<
+				//"	sum0[lid0] = 0.0;					\n" <<
+				//"	sum1[lid0] = 0.0;					\n" <<
 				"	uint cvIndex = get_group_id(0)*TPB+lid0;	\n" <<
-				//"	REAL sum0 = 0.0;					\n" <<
-				//"	REAL sum1 = 0.0;					\n" <<
-				//"	if (cvIndex < syncCVFolds) {		\n" <<
-				"	while (task1 < N) {					\n";
+				"	REAL sum0 = 0.0;					\n" <<
+				"	REAL sum1 = 0.0;					\n";
+
+		code <<	"	for (int i=0; i<loops; i++) {		\n";
 		if (formatType == INDICATOR || formatType == SPARSE) {
 			code << "  	uint k = K[offK + task1];      	\n";
 		} else { // DENSE, INTERCEPT
@@ -311,12 +318,37 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				//"		REAL denom = denomPidVector[vecOffset];		\n" <<
 				"		REAL w = weightVector[vecOffset];\n";
 		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
-		code << "       sum0[lid0] += gradient; \n" <<
-				"       sum1[lid0] += hessian;  \n";
-		code << "       task1 += loopSize; \n" <<
-				"   } \n" <<
-				"	buffer[cvIndexStride*gid1 + cvIndex] = sum0[lid0];	\n" <<
-				"	buffer[cvIndexStride*(gid1+loopSize) + cvIndex] = sum1[lid0];	\n" <<
+		code << "       sum0 += gradient; \n" <<
+				"       sum1 += hessian;  \n";
+		code << "       task1 += 1; \n" <<
+				"   } \n";
+
+		code << "	if (gid1 < remainder)	{				\n";
+		if (formatType == INDICATOR || formatType == SPARSE) {
+			code << "  	uint k = K[offK + task1];      	\n";
+		} else { // DENSE, INTERCEPT
+			code << "   uint k = task1;           		\n";
+		}
+		if (formatType == SPARSE || formatType == DENSE) {
+			code << "  	REAL x = X[offX + task1]; \n";
+		} else { // INDICATOR, INTERCEPT
+			// Do nothing
+		}
+		code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
+				"		REAL xb = xBetaVector[vecOffset];			\n" <<
+				"		REAL exb = exp(xb);							\n" <<
+				//"		REAL exb = expXBetaVector[vecOffset];	\n" <<
+				"		REAL numer = " << timesX("exb", formatType) << ";\n" <<
+				"		REAL denom = (REAL)1.0 + exb;				\n" <<
+				//"		REAL denom = denomPidVector[vecOffset];		\n" <<
+				"		REAL w = weightVector[vecOffset];\n";
+		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
+		code << "       sum0 += gradient; \n" <<
+				"       sum1 += hessian;  \n" <<
+				"	}						\n";
+
+		code << "	buffer[cvIndexStride*gid1 + cvIndex] = sum0;	\n" <<
+				"	buffer[cvIndexStride*(gid1+get_num_groups(1)) + cvIndex] = sum1;	\n" <<
 				"	}									\n";
 		//code << "}  \n"; // End of kernel
 		return SourceCode(code.str(), name);
