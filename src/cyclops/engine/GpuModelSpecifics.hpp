@@ -346,7 +346,7 @@ public:
       dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx), dNtoK(ctx), dAllDelta(ctx), dColumnsXt(ctx),
 	  dXBetaVector(ctx), dOffsExpXBetaVector(ctx), dDenomPidVector(ctx), dNWeightVector(ctx), dKWeightVector(ctx), dPidVector(ctx),
 	  dAccDenomPidVector(ctx), dAccNumerPidVector(ctx), dAccNumerPid2Vector(ctx), dAccResetVector(ctx), dPidInternalVector(ctx), dNumerPidVector(ctx),
-	  dNumerPid2Vector(ctx), dNormVector(ctx), dXjXVector(ctx), dXjYVector(ctx), dDeltaVector(ctx), dBoundVector(ctx), dPriorParams(ctx), dBetaVector(ctx), dAllZero(ctx), dDoneVector(ctx),
+	  dNumerPid2Vector(ctx), dNormVector(ctx), dXjXVector(ctx), dXjYVector(ctx), dDeltaVector(ctx), dBoundVector(ctx), dPriorParams(ctx), dBetaVector(ctx), dAllZero(ctx), dDoneVector(ctx), dIndexListWithPrior(ctx),
 	  dXBetaKnown(false), hXBetaKnown(false){
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
@@ -3129,67 +3129,146 @@ public:
 
 */
     virtual void runCCDIndex() {
-    	//std::cout << "running ccd index active folds = " << activeFolds << "\n";
-    	for (int index = 0; index < J; index++) {
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto start = bsccs::chrono::steady_clock::now();
-#endif
-        FormatType formatType = modelData.getFormatType(index);
-        int priorType = priorTypes[index];
+    	if (!initialized) {
+            std::vector<int> hIndexListWithPrior[12];
 
-        auto& kernel = kernelDoItAll[formatType*3+priorType];
-        const auto taskCount = dColumns.getTaskCount(index);
+            for (int i=0; i<J; i++) {
+            	int formatType = formatList[i];
+            	int priorType = priorTypes[i];
+            	hIndexListWithPrior[formatType*3+priorType].push_back(i);
+            }
 
-        kernel.set_arg(0, dColumns.getDataOffset(index));
-        kernel.set_arg(1, dColumns.getIndicesOffset(index));
-        kernel.set_arg(2, taskCount);
-        kernel.set_arg(3, dColumns.getData());
-        kernel.set_arg(4, dColumns.getIndices());
-        //kernel.set_arg(5, dY);
-        //kernel.set_arg(6, dOffs);
-        kernel.set_arg(5, dXBetaVector);
-        //kernel.set_arg(8, dOffsExpXBetaVector);
-        //kernel.set_arg(9, dDenomPidVector);
-        //kernel.set_arg(10, dPidVector);
-        if (dKWeightVector.size() == 0) {
-        	kernel.set_arg(11, 0);
-        } else {
-        	kernel.set_arg(6, dKWeightVector); // TODO Only when dKWeight gets reallocated
-        }
-        kernel.set_arg(7, dBoundVector);
-        kernel.set_arg(8, dPriorParams);
-        kernel.set_arg(9, dXjYVector);
-        kernel.set_arg(10, dBetaVector);
-        kernel.set_arg(11, dDoneVector);
-        kernel.set_arg(12, cvIndexStride);
-        //kernel.set_arg(18, syncCVFolds);
-        int dJ = J;
-        kernel.set_arg(13, dJ);
-        kernel.set_arg(14, index);
+            std::vector<int> hIndices;
+            int starts = 0;
+            for (int i=0; i<12; i++) {
+            	int length = hIndexListWithPrior[i].size();
+            	indexListWithPriorLengths.push_back(length);
+            	indexListWithPriorStarts.push_back(starts);
+            	for (int j=0; j<length; j++) {
+            		hIndices.push_back(hIndexListWithPrior[i][j]);
+            	}
 
-        const auto globalWorkSize = tpb;
+            	/*
+            	if (length > 0) {
+            		std::cout << "format " << i/4 << " priorType " << i%4 << " length " << length << " start " << starts << " indices: ";
+            		for (auto x:hIndexListWithPrior[i]) {
+            			std::cout << x << " ";
+            		}
+            		std::cout << "\n";
+            	}
+            	 */
 
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto end = bsccs::chrono::steady_clock::now();
-        ///////////////////////////"
-        auto name = "compDoItAllArgsG" + getFormatTypeExtension(formatType) + " ";
-        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
+            	starts += length;
+            }
 
-#ifdef CYCLOPS_DEBUG_TIMING
-        start = bsccs::chrono::steady_clock::now();
-#endif
+            detail::resizeAndCopyToDevice(hIndices, dIndexListWithPrior, queue);
 
-        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize*activeFolds, tpb);
-        queue.finish();
-
-#ifdef CYCLOPS_DEBUG_TIMING
-        end = bsccs::chrono::steady_clock::now();
-        ///////////////////////////"
-        name = "compDoItAllKernelG" + getFormatTypeExtension(formatType) + " ";
-        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
+            initialized = true;
     	}
+
+
+    	//for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
+    	for (int i = FormatType::INTERCEPT; i >= FormatType::DENSE; --i) {
+    		for (int j = 0; j < 3; j++) {
+    	//for (int index = 0; index < J; index++) {
+#ifdef CYCLOPS_DEBUG_TIMING
+    			auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+    			FormatType formatType = (FormatType)i;
+    			int priorType = j;
+
+
+    			int length = indexListWithPriorLengths[i*3+j];
+    			if (length == 0) {
+    				continue;
+    			}
+
+    			//std::cout << "running format " << i << " prior " << j << " length " << length << " start " << indexListWithPriorStarts[i*3+j] << "\n";
+
+
+    			//FormatType formatType = modelData.getFormatType(index);
+    			//int priorType = priorTypes[index];
+
+
+    			auto& kernel = kernelDoItAll[formatType*3+priorType];
+    			//const auto taskCount = dColumns.getTaskCount(index);
+
+    			//for (int m = 0; m < length; m++) {
+    				//int index = dIndexListWithPrior[indexListWithPriorStarts[i*3+j] + m];
+    			    //const auto taskCount = dColumns.getTaskCount(index);
+
+        			//std::cout << "index " << index << " format " << formatType << " prior " << priorType << " \n";
+
+    			kernel.set_arg(0, dColumns.getDataStarts());
+    			kernel.set_arg(1, dColumns.getIndicesStarts());
+    			kernel.set_arg(2, dColumns.getTaskCounts());
+    	        //kernel.set_arg(0, dColumns.getDataOffset(index));
+    	        //kernel.set_arg(1, dColumns.getIndicesOffset(index));
+    			//kernel.set_arg(2, taskCount);
+    			kernel.set_arg(3, dColumns.getData());
+    			kernel.set_arg(4, dColumns.getIndices());
+    			//kernel.set_arg(5, dY);
+    			//kernel.set_arg(6, dOffs);
+    			kernel.set_arg(5, dXBetaVector);
+    			//kernel.set_arg(8, dOffsExpXBetaVector);
+    			//kernel.set_arg(9, dDenomPidVector);
+    			//kernel.set_arg(10, dPidVector);
+    			if (dKWeightVector.size() == 0) {
+    				kernel.set_arg(11, 0);
+    			} else {
+    				kernel.set_arg(6, dKWeightVector); // TODO Only when dKWeight gets reallocated
+    			}
+    			kernel.set_arg(7, dBoundVector);
+    			kernel.set_arg(8, dPriorParams);
+    			kernel.set_arg(9, dXjYVector);
+    			kernel.set_arg(10, dBetaVector);
+    			kernel.set_arg(11, dDoneVector);
+    			kernel.set_arg(12, cvIndexStride);
+    			//kernel.set_arg(18, syncCVFolds);
+    			int dJ = J;
+    			kernel.set_arg(13, dJ);
+    			//kernel.set_arg(14, index);
+    			kernel.set_arg(14, indexListWithPriorStarts[i*3+j]);
+    			kernel.set_arg(15, length);
+    			kernel.set_arg(16, dIndexListWithPrior);
+
+    			const auto globalWorkSize = tpb;
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    			auto end = bsccs::chrono::steady_clock::now();
+    			///////////////////////////"
+    			auto name = "compDoItAllArgsG" + getFormatTypeExtension(formatType) + " ";
+    			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    			start = bsccs::chrono::steady_clock::now();
+#endif
+
+    			queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize*activeFolds, tpb);
+    			queue.finish();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    			end = bsccs::chrono::steady_clock::now();
+    			///////////////////////////"
+    			name = "compDoItAllKernelG" + getFormatTypeExtension(formatType) + " ";
+    			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+    			//}
+    		}
+    	}
+
+    	/*
+    	std::vector<real> blah;
+    	blah.resize(dXBetaVector.size());
+    	compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(blah), queue);
+    	std::cout << "xbeta: ";
+    	for (int i=0; i<syncCVFolds; i++) {
+    		std::cout << blah[i*cvIndexStride] << " ";
+    	}
+    	std::cout << "\n";
+    	*/
     }
 
 
@@ -3209,7 +3288,7 @@ public:
 			for (int i=0; i<J; i++) {
 				int formatType = formatList[i];
 				int priorType = priorTypes[i];
-				indexListWithPrior[formatType*3+priorType].push_back(i);
+				//indexListWithPrior[formatType*3+priorType].push_back(i);
 			}
 /*
 			std::vector<int> blah;
@@ -3242,7 +3321,8 @@ public:
 #endif
         	FormatType formatType = (FormatType)i;
 
-        	int length = indexListWithPrior[i*3+j].size();
+        	//int length = indexListWithPrior[i*3+j].size();
+        	int length = 0;
         	if (length == 0) {
         		continue;
         	}
@@ -3271,7 +3351,7 @@ public:
         	kernel.set_arg(15, dXjYVector);
         	kernel.set_arg(16, dBetaVector);
         	kernel.set_arg(17, dDoneVector);
-        	detail::resizeAndCopyToDevice(indexListWithPrior[i*3+j], dIntVector1, queue);
+        	//detail::resizeAndCopyToDevice(indexListWithPrior[i*3+j], dIntVector1, queue);
         	kernel.set_arg(18, dIntVector1);
         	kernel.set_arg(19, dDeltaVector);
         	kernel.set_arg(20, cvIndexStride);
@@ -3552,7 +3632,6 @@ public:
         }
         detail::resizeAndCopyToDevice(hDone, dDoneVector, queue);
         activeFolds = syncCVFolds;
-
 
         int need = 0;
         for (size_t j = 0; j < J /*modelData.getNumberOfColumns()*/; ++j) {
@@ -4537,7 +4616,9 @@ public:
     compute::vector<int> dDoneVector;
 
     std::vector<real> priorTypes;
-    std::vector<int> indexListWithPrior[12];
+    compute::vector<int> dIndexListWithPrior;
+    std::vector<int> indexListWithPriorStarts;
+    std::vector<int> indexListWithPriorLengths;
 };
 
 /*

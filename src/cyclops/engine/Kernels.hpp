@@ -1310,6 +1310,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
 	}
 
+	/*
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncUpdateXBetaKernel(FormatType formatType) {
@@ -1375,8 +1376,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
         return SourceCode(code.str(), name);
     }
+*/
 
-	/*
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncUpdateXBetaKernel(FormatType formatType) {
@@ -1439,7 +1440,6 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
         return SourceCode(code.str(), name);
     }
-*/
 
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
@@ -1766,11 +1766,11 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
         code << "__kernel void " << name << "(     \n" <<
                 "       const uint N,              \n" <<
-				"		__global REAL* xBetaVector,	   \n" <<
+				"		__global const REAL* xBetaVector,	   \n" <<
                 "       __global REAL* expXBetaVector,   \n" <<
                 "       __global REAL* denomPidVector,\n" <<
-				"		__global REAL* Y,			\n" <<
-				"		__global REAL* Offs,		\n" <<
+				"		__global const REAL* Y,			\n" <<
+				"		__global const REAL* Offs,		\n" <<
                 "       __global const int* pIdVector,		\n" <<
 				"		const uint stride,				\n" <<
 				"		__global const int* cvIndices,	\n" <<
@@ -1916,11 +1916,11 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	                "   REAL sum = 0.0; \n";
 	        code << "   while (task < N) { \n";
 	        //if (useWeights) {
-	        	code << "       REAL w = weightVector[vecOffset+task];\n";
+	        code << "       REAL w = weightVector[vecOffset+task];\n";
 	        //}
-	        code << "	REAL xb = xBetaVector[vecOffset+task];     \n" <<
-	        		"	REAL y = Y[task];			 \n" <<
-	        	    "   sum += w * y * xb;                 \n";
+	        code << "		REAL xb = xBetaVector[vecOffset+task];     \n" <<
+	        		"		REAL y = Y[task];			 \n" <<
+	        	    "   	sum += w * y * xb;                 \n";
 	        //code << " sum += " << weight("y * xb", useWeights) << ";\n";
 	        // Bookkeeping
 	        code << "       task += workSize; \n" <<
@@ -2249,9 +2249,12 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
 
 		code << "__kernel void " << name << "(            \n" <<
-				"       const uint offX,                  \n" <<
-				"       const uint offK,                  \n" <<
-				"       const uint N,                     \n" <<
+				"       __global const uint* offXVec,                  \n" <<
+				"       __global const uint* offKVec,                  \n" <<
+				"       __global const uint* NVec,                     \n" <<
+				//"       const uint offX,                  \n" <<
+				//"       const uint offK,                  \n" <<
+				//"       const uint N,                     \n" <<
 				"       __global const REAL* X,           \n" <<
 				"       __global const int* K,            \n" <<
 				//"       __global const REAL* Y,           \n" <<
@@ -2269,21 +2272,30 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		const uint cvIndexStride,		\n" <<
 				//"		const uint syncCVFolds,			\n" <<
 				"		const uint J,						\n" <<
-				"		const uint index) {   		 	\n";    // TODO Make weight optional
+				//"		const uint index)	{				\n";
+				"		const uint indexStart,				\n" <<
+				"		const uint length,				\n" <<
+				"		__global const uint* indices) {   		 	\n";    // TODO Make weight optional
 		// Initialization
-		code << "	__local uint cvIndex, remainder, loops;	\n" <<
-				"	loops = N / TPB;					\n" <<
-				"	remainder = N % TPB;				\n" <<
+		code << "	__local uint cvIndex, remainder, loops, offK, offX, N, index;	\n" <<
+				"	__local REAL scratch[2][TPB];		\n" <<
+				//"	__local uint cvIndex, remainder, loops;	\n" <<
 				"	cvIndex = cvIndices[get_group_id(0)];	\n" <<
 				"	uint lid = get_local_id(0);			\n" <<
-				"	uint task;							\n" <<
+				"	for (int n = 0; n < length; n++) {	\n" <<
+				"		index = indices[indexStart + n];	\n" <<
+				"		offK = offKVec[index];			\n" <<
+				"		offX = offXVec[index];			\n" <<
+				"		N = NVec[index];				\n" <<
+				"	uint task0;							\n" <<
+				"	loops = N / TPB;					\n" <<
+				"	remainder = N % TPB;				\n" <<
 				"	if (lid < remainder) {				\n" <<
-				"		task = lid*(loops+1);			\n" <<
+				"		task0 = lid*(loops+1);			\n" <<
 				"	} else {							\n" <<
-				"		task = remainder*(loops+1) + (lid-remainder)*loops;	\n" <<
+				"		task0 = remainder*(loops+1) + (lid-remainder)*loops;	\n" <<
 				"	}									\n" <<
-				"	uint task0 = task;					\n" <<
-				"	__local REAL scratch[2][TPB];		\n" <<
+				"	uint task = task0;					\n" <<
 				"	REAL sum0 = 0.0;					\n" <<
 				"	REAL sum1 = 0.0;					\n";
 		code <<	"	for (int i=0; i<loops; i++) {		\n";
@@ -2427,7 +2439,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		xBetaVector[vecOffset] = xb;	\n";
         code << "} 										\n";
         code << "}    	\n";
+        code << "   barrier(CLK_GLOBAL_MEM_FENCE);           \n";
 		code << "}  \n"; // End of kernel
+		code << "}	\n";
 		return SourceCode(code.str(), name);
 	}
 
