@@ -3311,7 +3311,7 @@ virtual void runCCDIndex() {
 
 
         	if (length > 0) {
-        		std::cout << "format " << i/4 << " priorType " << i%4 << " length " << length << " start " << starts << "\n ";
+        		std::cout << "format " << i/3 << " priorType " << i%3 << " length " << length << " start " << starts << "\n ";
         		//for (auto x:hIndexListWithPrior[i]) {
         		//	std::cout << x << " ";
         		//}
@@ -4096,9 +4096,9 @@ virtual void runCCDIndex() {
         options << " -cl-mad-enable";
 
     	auto source = writeCodeForDoItAllKernel(formatType, priorType);
-    	std::cout << source.body;
+    	//std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        std::cout << "program built\n";
+        //std::cout << "program built\n";
     	auto kernel = compute::kernel(program, source.name);
 
     	kernelDoItAll[formatType*3+priorType] = std::move(kernel);

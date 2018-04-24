@@ -2282,8 +2282,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		__global const uint* indices) {   		 	\n";    // TODO Make weight optional
 		// Initialization
 		code << "	__local uint offK, offX, N, index;	\n" <<
-				"	__local REAL grad[TPB0][TPB1];		\n" <<
-				"	__local REAL hess[TPB0][TPB1];		\n" <<
+				"	__local REAL grad[TPB1][TPB0];		\n" <<
+				"	__local REAL hess[TPB1][TPB0];		\n" <<
 				"	__local REAL deltaVec[TPB0];		\n" <<
 				"	__local int localDone[TPB0];		\n" <<
 				"	__local int scratchInt[TPB0];		\n" <<
@@ -2344,23 +2344,23 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		count += 1;		\n" <<
 				"   } \n";
 
-		code << "	grad[lid0][lid1] = sum0;	\n" <<
-				"	hess[lid0][lid1] = sum1;	\n";
+		code << "	grad[lid1][lid0] = sum0;	\n" <<
+				"	hess[lid1][lid0] = sum1;	\n";
 
 		code << "   for(int j = 1; j < TPB1; j <<= 1) {          \n" <<
 	            "       barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
 	            "       uint mask = (j << 1) - 1;               \n" <<
 	            "       if ((lid1 & mask) == 0) {                \n" <<
-	            "           grad[lid0][lid1] += grad[lid0][lid1 + j]; \n" <<
-	            "           hess[lid0][lid1] += hess[lid0][lid1 + j]; \n" <<
+	            "           grad[lid1][lid0] += grad[lid1+j][lid0]; \n" <<
+	            "           hess[lid1][lid0] += hess[lid1+j][lid0]; \n" <<
 	            "       }                                       \n" <<
 	            "   }                                           \n";
 
 		code << "	if (lid1 == 0) {	\n" <<
 				"		uint offset = cvIndexStride*index+cvIndex;		\n" <<
-				"		REAL grad0 = grad[lid0][0];		\n" <<
+				"		REAL grad0 = grad[0][lid0];		\n" <<
 				"		grad0 = grad0 - XjYVector[offset];	\n" <<
-				"		REAL hess0 = hess[lid0][0];		\n" <<
+				"		REAL hess0 = hess[0][lid0];		\n" <<
     			"		REAL beta = betaVector[offset];		\n" <<
 				"		REAL delta;							\n";
 
