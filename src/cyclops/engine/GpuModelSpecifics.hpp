@@ -425,7 +425,7 @@ public:
 #ifdef CYCLOPS_DEBUG_TIMING
         auto start = bsccs::chrono::steady_clock::now();
 #endif
-/*
+
         auto& kernel = kernelComputeRemainingStatisticsSync;
         kernel.set_arg(0, dXBetaVector);
         kernel.set_arg(1, dOffsExpXBetaVector);
@@ -452,7 +452,7 @@ public:
 
         queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
         queue.finish();
-        */
+
 
         /*
     	std::vector<int> foldIndices;
@@ -461,7 +461,7 @@ public:
     		foldIndices.push_back(cvIndex);
     	}
     	*/
-
+/*
         // get kernel
         auto& kernel = kernelComputeRemainingStatisticsSync;
 
@@ -495,7 +495,7 @@ public:
         queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
         queue.finish();
 
-
+*/
 
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end = bsccs::chrono::steady_clock::now();
@@ -2514,7 +2514,7 @@ public:
 #endif
 
         //FormatType formatType = FormatType::DENSE;
-
+/*
         auto& kernel = kernelGetGradientObjectiveSync;
 
         const auto wgs = maxWgs;
@@ -2548,7 +2548,7 @@ public:
         		result[i] += hBuffer[i*wgs+j];
         	}
         }
-        /*
+        */
         auto& kernel = kernelGetGradientObjectiveSync;
 
         const auto wgs = 128;
@@ -2598,7 +2598,7 @@ public:
         		result[cvIndex] += hBuffer[j*cvIndexStride+cvIndex];
         	}
     	}
-*/
+
 #ifdef GPU_DEBUG
         std::cerr << gradient << " & " << hessian << std::endl << std::endl;
 #endif // GPU_DEBUG
@@ -2739,7 +2739,9 @@ public:
     // letting cpu handle
     double getPredictiveLogLikelihood(double* weights, int cvIndex) {
     	computeRemainingStatistics(true);
-    	/*
+
+    	// layout by person
+
     	std::vector<real> xBetaTemp(dXBetaVector.size());
     	std::vector<real> denomTemp(dDenomPidVector.size());
 		compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(xBetaTemp), queue);
@@ -2749,9 +2751,9 @@ public:
 			hXBetaPool[cvIndex][i] = xBetaTemp[i*cvIndexStride+cvIndex];
 			denomPidPool[cvIndex][i] = denomTemp[i*cvIndexStride+cvIndex];
 		}
-*/
-    	compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
-    	compute::copy(std::begin(dDenomPidVector)+cvIndexStride*cvIndex, std::begin(dDenomPidVector)+cvIndexStride*cvIndex+K, std::begin(denomPidPool[cvIndex]), queue);
+
+    	//compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
+    	//compute::copy(std::begin(dDenomPidVector)+cvIndexStride*cvIndex, std::begin(dDenomPidVector)+cvIndexStride*cvIndex+K, std::begin(denomPidPool[cvIndex]), queue);
     	return ModelSpecifics<BaseModel, WeightType>::getPredictiveLogLikelihood(weights, cvIndex);
     }
 
@@ -2786,6 +2788,7 @@ public:
     	ModelSpecifics<BaseModel,WeightType>::setWeights(inWeights, useCrossValidation, cvIndex);
     	if (cvIndex == syncCVFolds - 1) {
     		//std::vector<real> hNWeightTemp;
+    		/*
     		std::vector<real> hKWeightTemp;
     		int garbage;
 
@@ -2794,7 +2797,8 @@ public:
     			//appendAndPad(hNWeightPool[i], hNWeightTemp, garbage, pad); // not using for now
     			appendAndPad(hKWeightPool[i], hKWeightTemp, garbage, pad);
     		}
-    		/*
+    		*/
+    		// layout by person
 
     		std::vector<real> hKWeightTemp(K*cvIndexStride,0.0);
     		for (int i=0; i<K; i++) {
@@ -2802,7 +2806,7 @@ public:
     				hKWeightTemp[i*cvIndexStride+j] = hKWeightPool[j][i];
     			}
     		}
-*/
+
     		//detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
     		detail::resizeAndCopyToDevice(hKWeightTemp, dKWeightVector, queue);
     	}
@@ -2873,21 +2877,22 @@ public:
     }
 
     virtual void copyXBetaVec() {
-    	/*
+    	// layout by person
+
     	std::vector<real> temp(K*cvIndexStride,0.0);
     	for (int i=0; i<K; i++) {
     		for (int j=0; j<syncCVFolds; j++) {
     			temp[i*cvIndexStride+j] = hXBetaPool[j][i];
     		}
     	}
-    	*/
 
+/*
     	std::vector<real> temp;
     	int garbage;
     	for (int  i=0; i<syncCVFolds; i++) {
     		appendAndPad(hXBetaPool[i], temp, garbage, pad);
     	}
-
+*/
     	compute::copy(std::begin(temp), std::end(temp), std::begin(dXBetaVector), queue);
     	//detail::resizeAndCopyToDevice(temp, dXBetaVector, queue);
     }
@@ -2902,11 +2907,12 @@ public:
 
     virtual void resetBeta() {
     	std::vector<real> temp;
-    	temp.resize(J*syncCVFolds, 0.0);
+    	//temp.resize(J*syncCVFolds, 0.0);
+    	temp.resize(J*cvIndexStride, 0.0);
     	detail::resizeAndCopyToDevice(temp, dBetaVector, queue);
     }
 
-/*
+
     virtual void runCCDIndex() {
         int wgs = 128;
         if (dBuffer.size() < 2*wgs*cvIndexStride) {
@@ -2940,7 +2946,8 @@ public:
         }
 
         kernel.set_arg(12, cvIndexStride);
-        kernel.set_arg(13, dAllZero);
+        kernel.set_arg(13, cvBlockSize);
+        kernel.set_arg(14, dAllZero);
 
         int loops = syncCVFolds / cvBlockSize;
         if (syncCVFolds % cvBlockSize != 0) {
@@ -2968,6 +2975,7 @@ public:
 
         queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
         queue.finish();
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
         end = bsccs::chrono::steady_clock::now();
@@ -3012,8 +3020,10 @@ public:
         start = bsccs::chrono::steady_clock::now();
 #endif
 
+
         queue.enqueue_1d_range_kernel(kernel1, 0, syncCVFolds*tpb, tpb);
         queue.finish();
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
         end = bsccs::chrono::steady_clock::now();
@@ -3080,6 +3090,17 @@ public:
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
+/*
+    	std::vector<real> blah;
+    	blah.resize(dXBetaVector.size());
+    	compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(blah), queue);
+    	std::cout << "xbeta: ";
+    	for (int i=0; i<syncCVFolds; i++) {
+    		std::cout << blah[i*cvIndexStride] << " ";
+    	}
+    	std::cout << "\n";
+*/
+/*
 
 #ifdef CYCLOPS_DEBUG_TIMING
         start = bsccs::chrono::steady_clock::now();
@@ -3123,11 +3144,14 @@ public:
         name = "compEmptyKernelG";
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
+*/
 
         }
     }
 
-*/
+
+
+    /*
     virtual void runCCDIndex() {
     	if (!initialized) {
             std::vector<int> hIndexListWithPrior[12];
@@ -3148,15 +3172,6 @@ public:
             		hIndices.push_back(hIndexListWithPrior[i][j]);
             	}
 
-            	/*
-            	if (length > 0) {
-            		std::cout << "format " << i/4 << " priorType " << i%4 << " length " << length << " start " << starts << " indices: ";
-            		for (auto x:hIndexListWithPrior[i]) {
-            			std::cout << x << " ";
-            		}
-            		std::cout << "\n";
-            	}
-            	 */
 
             	starts += length;
             }
@@ -3259,7 +3274,6 @@ public:
     		}
     	}
 
-    	/*
     	std::vector<real> blah;
     	blah.resize(dXBetaVector.size());
     	compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(blah), queue);
@@ -3268,8 +3282,164 @@ public:
     		std::cout << blah[i*cvIndexStride] << " ";
     	}
     	std::cout << "\n";
-    	*/
+
     }
+*/
+
+/*
+virtual void runCCDIndex() {
+	if (!initialized) {
+        std::vector<int> hIndexListWithPrior[12];
+
+        for (int i=0; i<J; i++) {
+        	int formatType = formatList[i];
+        	int priorType = priorTypes[i];
+        	hIndexListWithPrior[formatType*3+priorType].push_back(i);
+        }
+
+        std::vector<int> hIndices;
+        int starts = 0;
+        for (int i=0; i<12; i++) {
+        	int length = hIndexListWithPrior[i].size();
+        	indexListWithPriorLengths.push_back(length);
+        	indexListWithPriorStarts.push_back(starts);
+        	for (int j=0; j<length; j++) {
+        		hIndices.push_back(hIndexListWithPrior[i][j]);
+        	}
+
+
+        	if (length > 0) {
+        		std::cout << "format " << i/4 << " priorType " << i%4 << " length " << length << " start " << starts << " indices: ";
+        		for (auto x:hIndexListWithPrior[i]) {
+        			std::cout << x << " ";
+        		}
+        		std::cout << "\n";
+        	}
+
+
+        	starts += length;
+        }
+
+        detail::resizeAndCopyToDevice(hIndices, dIndexListWithPrior, queue);
+
+        initialized = true;
+	}
+
+	int wgs = 16;
+
+	//for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
+	for (int i = FormatType::INTERCEPT; i >= FormatType::DENSE; --i) {
+		for (int j = 0; j < 3; j++) {
+	//for (int index = 0; index < J; index++) {
+#ifdef CYCLOPS_DEBUG_TIMING
+			auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+			FormatType formatType = (FormatType)i;
+			int priorType = j;
+
+
+			int length = indexListWithPriorLengths[i*3+j];
+			if (length == 0) {
+				continue;
+			}
+
+			//std::cout << "running format " << i << " prior " << j << " length " << length << " start " << indexListWithPriorStarts[i*3+j] << "\n";
+
+
+			//FormatType formatType = modelData.getFormatType(index);
+			//int priorType = priorTypes[index];
+
+
+			auto& kernel = kernelDoItAll[formatType*3+priorType];
+			//const auto taskCount = dColumns.getTaskCount(index);
+
+			//for (int m = 0; m < length; m++) {
+				//int index = dIndexListWithPrior[indexListWithPriorStarts[i*3+j] + m];
+			    //const auto taskCount = dColumns.getTaskCount(index);
+
+    			//std::cout << "index " << index << " format " << formatType << " prior " << priorType << " \n";
+
+			kernel.set_arg(0, dColumns.getDataStarts());
+			kernel.set_arg(1, dColumns.getIndicesStarts());
+			kernel.set_arg(2, dColumns.getTaskCounts());
+	        //kernel.set_arg(0, dColumns.getDataOffset(index));
+	        //kernel.set_arg(1, dColumns.getIndicesOffset(index));
+			//kernel.set_arg(2, taskCount);
+			kernel.set_arg(3, dColumns.getData());
+			kernel.set_arg(4, dColumns.getIndices());
+			//kernel.set_arg(5, dY);
+			//kernel.set_arg(6, dOffs);
+			kernel.set_arg(5, dXBetaVector);
+			//kernel.set_arg(8, dOffsExpXBetaVector);
+			//kernel.set_arg(9, dDenomPidVector);
+			//kernel.set_arg(10, dPidVector);
+			if (dKWeightVector.size() == 0) {
+				kernel.set_arg(6, 0);
+			} else {
+				kernel.set_arg(6, dKWeightVector); // TODO Only when dKWeight gets reallocated
+			}
+			kernel.set_arg(7, dBoundVector);
+			kernel.set_arg(8, dPriorParams);
+			kernel.set_arg(9, dXjYVector);
+			kernel.set_arg(10, dBetaVector);
+			kernel.set_arg(11, dDoneVector);
+			kernel.set_arg(12, cvIndexStride);
+			//kernel.set_arg(18, syncCVFolds);
+			int dJ = J;
+			//kernel.set_arg(14, index);
+			kernel.set_arg(13, indexListWithPriorStarts[i*3+j]);
+			kernel.set_arg(14, length);
+			kernel.set_arg(15, dIndexListWithPrior);
+
+			//const auto globalWorkSize = tpb;
+
+	        size_t globalWorkSize[2];
+	        globalWorkSize[0] = cvIndexStride;
+	        globalWorkSize[1] =  wgs;
+
+	        size_t localWorkSize[2];
+	        localWorkSize[0] = cvBlockSize;
+	        localWorkSize[1] = wgs;
+
+	        size_t dim = 2;
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			auto end = bsccs::chrono::steady_clock::now();
+			///////////////////////////"
+			auto name = "compDoItAllArgsG" + getFormatTypeExtension(formatType) + " ";
+			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			start = bsccs::chrono::steady_clock::now();
+#endif
+
+	        queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
+	        queue.finish();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			end = bsccs::chrono::steady_clock::now();
+			///////////////////////////"
+			name = "compDoItAllKernelG" + getFormatTypeExtension(formatType) + " ";
+			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+			//}
+		}
+	}
+
+	std::vector<real> blah;
+	blah.resize(dXBetaVector.size());
+	compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(blah), queue);
+	std::cout << "xbeta: ";
+	for (int i=0; i<syncCVFolds; i++) {
+		std::cout << blah[i*cvIndexStride] << " ";
+	}
+	std::cout << "\n";
+
+}
+*/
 
 
     virtual void runMM() {
@@ -3498,7 +3668,10 @@ public:
     	syncCVFolds = foldToCompute;
 
         if (pad) {
-        	cvBlockSize = 32;
+        	// layout by person
+        	cvBlockSize = 16;
+        	cvIndexStride = detail::getAlignedLength<16>(syncCVFolds);
+
         	/*
         	if (syncCVFolds > 32) cvBlockSize = 64;
         	//if (syncCVFolds > 64 && syncCVFolds <= 128) cvBlockSize = 128;
@@ -3508,7 +3681,7 @@ public:
         	if (cvBlockSize == 64)  cvIndexStride = detail::getAlignedLength<64>(syncCVFolds);
         	if (cvBlockSize == 128)  cvIndexStride = detail::getAlignedLength<128>(syncCVFolds);
         	*/
-        	cvIndexStride = detail::getAlignedLength<16>(K);
+        	//cvIndexStride = detail::getAlignedLength<16>(K);
         } else {
         	// do not use
         	cvIndexStride = K;
@@ -3520,8 +3693,8 @@ public:
     	//int dataStart = 0;
     	int garbage = 0;
 
-    	//std::vector<real> blah(cvIndexStride, 0);
-    	//std::vector<int> blah1(cvIndexStride, 0);
+    	std::vector<real> blah(cvIndexStride, 0);
+    	std::vector<int> blah1(cvIndexStride, 0);
         //std::vector<real> hNWeightTemp;
         std::vector<real> hKWeightTemp;
         //std::vector<real> accDenomPidTemp;
@@ -3542,7 +3715,7 @@ public:
         //std::vector<real> normTemp;
         //std::vector<int> cvIndexOffsets;
 
-        /*
+
         for (int i=0; i<K; i++) {
         	//std::fill(std::begin(blah), std::end(blah), static_cast<real>(hKWeight[i]));
         	//appendAndPad(blah, hKWeightTemp, garbage, pad);
@@ -3559,8 +3732,8 @@ public:
         	std::fill(std::begin(blah1), std::end(blah1), hPid[i]);
         	appendAndPad(blah1, hPidTemp, garbage, pad);
         }
-        */
 
+/*
         for (int i=0; i<foldToCompute; ++i) {
         	//cvIndexOffsets.push_back(indices1);
         	//appendAndPad(hNWeight, hNWeightTemp, garbage, pad);
@@ -3592,7 +3765,7 @@ public:
         	}
         	//logLikelihoodFixedTermTemp.push_back(logLikelihoodFixedTerm);
         }
-
+*/
 
         //detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
         //detail::resizeAndCopyToDevice(hKWeightTemp, dKWeightVector, queue);
@@ -3615,16 +3788,19 @@ public:
         //detail::resizeAndCopyToDevice(cvIndexOffsets, dcvIndexOffsets, queue);
 
 
-        /*
+
         std::vector<int> hAllZero;
         hAllZero.push_back(0);
         detail::resizeAndCopyToDevice(hAllZero, dAllZero, queue);
 
         std::vector<int> hDone;
-        hDone.resize(syncCVFolds, 1);
+        hDone.resize(cvIndexStride, 0);
+        for (int i=0; i<syncCVFolds; i++) {
+        	hDone[i] = 1;
+        }
         detail::resizeAndCopyToDevice(hDone, dDoneVector, queue);
 
-*/
+        /*
         std::vector<int> hDone;
         hDone.resize(syncCVFolds);
         for (int i=0; i<syncCVFolds; i++) {
@@ -3632,7 +3808,7 @@ public:
         }
         detail::resizeAndCopyToDevice(hDone, dDoneVector, queue);
         activeFolds = syncCVFolds;
-
+         */
         int need = 0;
         for (size_t j = 0; j < J /*modelData.getNumberOfColumns()*/; ++j) {
             const auto& column = modelData.getColumn(j);
@@ -3661,17 +3837,19 @@ public:
     virtual void updateDoneFolds(std::vector<bool>& donePool) {
     	std::vector<int> temp;
 
-    	/*
-    	temp.resize(syncCVFolds, 1);
-    	for (int i=0; i<syncCVFolds; i++) {
-    		if (donePool[i]) temp[i] = 0;
-    	}
-    	*/
+    	// layout by person
 
+    	temp.resize(cvIndexStride, 0);
+    	for (int i=0; i<syncCVFolds; i++) {
+    		if (!donePool[i]) temp[i] = 1;
+    	}
+
+/*
     	for (int i=0; i<syncCVFolds; i++) {
     		if (!donePool[i]) temp.push_back(i);
     	}
     	activeFolds = temp.size();
+    	*/
     	compute::copy(std::begin(temp), std::end(temp), std::begin(dDoneVector), queue);
     }
 
@@ -3681,6 +3859,7 @@ public:
     	//std::vector<real> xjxTemp;
     	//xjxTemp.resize(J*syncCVFolds);
     	std::vector<real> xjyTemp;
+    	/*
     	xjyTemp.resize(J*syncCVFolds, 0.0);
 
     	for (int i=0; i<syncCVFolds; i++) {
@@ -3689,6 +3868,16 @@ public:
     			xjyTemp[i*J+j] = hXjYPool[i][j];
     		}
     	}
+    	*/
+
+    	xjyTemp.resize(J*cvIndexStride, 0.0);
+
+    	for (int i=0; i<J; i++) {
+    		for (int j=0; j<syncCVFolds; j++) {
+    			xjyTemp[i*cvIndexStride+j] = hXjYPool[j][i];
+    		}
+    	}
+
 
     	//detail::resizeAndCopyToDevice(xjxTemp, dXjXVector, queue);
     	detail::resizeAndCopyToDevice(xjyTemp, dXjYVector, queue);
@@ -3697,7 +3886,9 @@ public:
 
     void setBounds(double initialBound) {
     	std::vector<real> temp;
-        temp.resize(J*syncCVFolds, initialBound);
+        //temp.resize(J*syncCVFolds, initialBound);
+    	// layout by person
+    	temp.resize(J*cvIndexStride, initialBound);
     	detail::resizeAndCopyToDevice(temp, dBoundVector, queue);
     }
 
@@ -3889,15 +4080,15 @@ public:
 
         if (sizeof(real) == 8) {
 #ifdef USE_VECTOR
-        options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+        options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << 16  << " -DTPB1=" << 64;
 #else
-        options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+        options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << 16  << " -DTPB1=" << 64;
 #endif // USE_VECTOR
         } else {
 #ifdef USE_VECTOR
-            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+            options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << 16  << " -DTPB1=" << 64;
 #else
-            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+            options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << 16  << " -DTPB1=" << 64;
 #endif // USE_VECTOR
         }
         options << " -cl-mad-enable";
