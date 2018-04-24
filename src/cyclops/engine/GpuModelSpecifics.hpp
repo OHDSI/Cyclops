@@ -330,6 +330,9 @@ public:
     const static int tpb = 128; // threads-per-block  // Appears best on K40
     const static int maxWgs = 2;  // work-group-size
 
+    const static int tpb0 = 16;
+    const static int tpb1 = 64;
+
     // const static int globalWorkSize = tpb * wgs;
 
     GpuModelSpecifics(const ModelData& input,
@@ -2912,7 +2915,7 @@ public:
     	detail::resizeAndCopyToDevice(temp, dBetaVector, queue);
     }
 
-
+/*
     virtual void runCCDIndex() {
         int wgs = 128;
         if (dBuffer.size() < 2*wgs*cvIndexStride) {
@@ -3090,7 +3093,7 @@ public:
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-/*
+
     	std::vector<real> blah;
     	blah.resize(dXBetaVector.size());
     	compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(blah), queue);
@@ -3099,8 +3102,6 @@ public:
     		std::cout << blah[i*cvIndexStride] << " ";
     	}
     	std::cout << "\n";
-*/
-/*
 
 #ifdef CYCLOPS_DEBUG_TIMING
         start = bsccs::chrono::steady_clock::now();
@@ -3144,10 +3145,11 @@ public:
         name = "compEmptyKernelG";
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-*/
+
 
         }
     }
+    */
 
 
 
@@ -3286,7 +3288,7 @@ public:
     }
 */
 
-/*
+
 virtual void runCCDIndex() {
 	if (!initialized) {
         std::vector<int> hIndexListWithPrior[12];
@@ -3325,7 +3327,7 @@ virtual void runCCDIndex() {
         initialized = true;
 	}
 
-	int wgs = 16;
+	int wgs = tpb1;
 
 	//for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
 	for (int i = FormatType::INTERCEPT; i >= FormatType::DENSE; --i) {
@@ -3428,7 +3430,7 @@ virtual void runCCDIndex() {
 			//}
 		}
 	}
-
+/*
 	std::vector<real> blah;
 	blah.resize(dXBetaVector.size());
 	compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(blah), queue);
@@ -3437,9 +3439,9 @@ virtual void runCCDIndex() {
 		std::cout << blah[i*cvIndexStride] << " ";
 	}
 	std::cout << "\n";
-
-}
 */
+}
+
 
 
     virtual void runMM() {
@@ -3669,8 +3671,8 @@ virtual void runCCDIndex() {
 
         if (pad) {
         	// layout by person
-        	cvBlockSize = 16;
-        	cvIndexStride = detail::getAlignedLength<16>(syncCVFolds);
+        	cvBlockSize = tpb0;
+        	cvIndexStride = detail::getAlignedLength<tpb0>(syncCVFolds);
 
         	/*
         	if (syncCVFolds > 32) cvBlockSize = 64;
@@ -4080,15 +4082,15 @@ virtual void runCCDIndex() {
 
         if (sizeof(real) == 8) {
 #ifdef USE_VECTOR
-        options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << 16  << " -DTPB1=" << 64;
+        options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1;
 #else
-        options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << 16  << " -DTPB1=" << 64;
+        options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << tpb1;
 #endif // USE_VECTOR
         } else {
 #ifdef USE_VECTOR
-            options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << 16  << " -DTPB1=" << 64;
+            options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1;
 #else
-            options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << 16  << " -DTPB1=" << 64;
+            options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << tpb1;
 #endif // USE_VECTOR
         }
         options << " -cl-mad-enable";
