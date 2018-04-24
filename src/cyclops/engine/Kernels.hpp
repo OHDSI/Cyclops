@@ -2285,16 +2285,22 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"	__local REAL grad[TPB0][TPB1];		\n" <<
 				"	__local REAL hess[TPB0][TPB1];		\n" <<
 				"	__local REAL deltaVec[TPB0];		\n" <<
+				"	__local int localDone[TPB0];		\n" <<
+				"	__local REAL localXB[TPB1*3][TPB0];	\n" <<
 				"	uint lid0 = get_local_id(0);			\n" <<
 				"	uint lid1 = get_local_id(1);		\n" <<
 				"	uint cvIndex = get_group_id(0)*TPB0 + lid0;	\n" <<
+				"	if (lid1 == 0) {					\n" <<
+				"		localDone[lid0] = doneVector[cvIndex];	\n" <<
+				"	}									\n" <<
 				"	uint loopSize = TPB1;				\n" <<
 				"	for (int n = 0; n < length; n++) {	\n" <<
 				"		index = indices[indexStart + n];	\n" <<
 				"		offK = offKVec[index];			\n" <<
 				"		offX = offXVec[index];			\n" <<
 				"		N = NVec[index];				\n" <<
-				"	uint task = lid1;							\n" <<
+				"	uint task = lid1;					\n" <<
+				"	uint count = 0;						\n" <<
 				"	REAL sum0 = 0.0;					\n" <<
 				"	REAL sum1 = 0.0;					\n";
 		code <<	"	while (task < N) {		\n";
@@ -2310,6 +2316,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		}
 		code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
 				"		REAL xb = xBetaVector[vecOffset];			\n" <<
+				"		if (count < 3) localXB[count*TPB1+lid1][lid0] = xb;	\n" <<
 				"		REAL exb = exp(xb);							\n" <<
 				//"		REAL exb = expXBetaVector[vecOffset];	\n" <<
 				"		REAL numer = " << timesX("exb", formatType) << ";\n" <<
@@ -2320,6 +2327,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		code << "       sum0 += gradient; \n" <<
 				"       sum1 += hessian;  \n";
 		code << "       task += loopSize; \n" <<
+				"		count += 1;		\n" <<
 				"   } \n";
 
 		code << "	grad[lid0][lid1] = sum0;	\n" <<
@@ -2372,7 +2380,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"	delta = - (grad0 + (beta / var)) / (hess0 + (1.0 / var));	\n";
 		}
 
-		code << "	delta = delta * doneVector[cvIndex];	\n" <<
+		code << "	delta = delta * localDone[lid0];	\n" <<
 				"	REAL bound = boundVector[offset];		\n" <<
 				"	if (delta < -bound)	{					\n" <<
 				"		delta = -bound;						\n" <<
@@ -2388,6 +2396,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
         code << "   barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
         		"	REAL delta = deltaVec[lid0];			\n" <<
+				"	count = 0;							\n" <<
         		"	task = lid1;						\n";
         code <<	"	while (task < N) {		\n";
         if (formatType == INDICATOR || formatType == SPARSE) {
@@ -2401,9 +2410,16 @@ static std::string weight(const std::string& arg, bool useWeights) {
         	code << "   REAL inc = delta;           	\n";
         }
         code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
-        		"		REAL xb = xBetaVector[vecOffset] + inc;	\n" <<
+        		"		REAL xb;						\n" <<
+				"		if (count < 3) {				\n" <<
+				"			xb = localXB[count*TPB1+lid1][lid0] + inc; \n" <<
+				"		} else {						\n" <<
+				"			xb = xBetaVector[vecOffset] + inc;	\n" <<
+				"		}								\n" <<
+        		//"		REAL xb = xBetaVector[vecOffset] + inc;	\n" <<
 				"		xBetaVector[vecOffset] = xb;	\n";
-        code << "	task += loopSize;							\n";
+        code << "		task += loopSize;							\n" <<
+        		"		count += 1;						\n";
         code << "} 										\n";
 
         code << "   barrier(CLK_GLOBAL_MEM_FENCE);           \n";

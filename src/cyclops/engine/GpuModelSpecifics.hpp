@@ -330,8 +330,8 @@ public:
     const static int tpb = 128; // threads-per-block  // Appears best on K40
     const static int maxWgs = 2;  // work-group-size
 
-    const static int tpb0 = 16;
-    const static int tpb1 = 64;
+    const static int tpb0 = 8;
+    const static int tpb1 = 128;
 
     // const static int globalWorkSize = tpb * wgs;
 
