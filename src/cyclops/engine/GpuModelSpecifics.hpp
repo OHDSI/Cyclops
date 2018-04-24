@@ -3311,11 +3311,11 @@ virtual void runCCDIndex() {
 
 
         	if (length > 0) {
-        		std::cout << "format " << i/4 << " priorType " << i%4 << " length " << length << " start " << starts << " indices: ";
-        		for (auto x:hIndexListWithPrior[i]) {
-        			std::cout << x << " ";
-        		}
-        		std::cout << "\n";
+        		std::cout << "format " << i/4 << " priorType " << i%4 << " length " << length << " start " << starts << "\n ";
+        		//for (auto x:hIndexListWithPrior[i]) {
+        		//	std::cout << x << " ";
+        		//}
+        		//std::cout << "\n";
         	}
 
 
