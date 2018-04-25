@@ -2307,8 +2307,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 		code << "   barrier(CLK_LOCAL_MEM_FENCE);           \n";
 		code << "	if (scratchInt[0] > 0) {			\n";
-		code << "	uint loopSize = TPB1;				\n" <<
-				"	for (int n = 0; n < length; n++) {	\n" <<
+		code << "	for (int n = 0; n < length; n++) {	\n" <<
 				"		index = indices[indexStart + n];	\n" <<
 				"		offK = offKVec[index];			\n" <<
 				"		offX = offXVec[index];			\n" <<
@@ -2340,7 +2339,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
 		code << "       sum0 += gradient; \n" <<
 				"       sum1 += hessian;  \n";
-		code << "       task += loopSize; \n" <<
+		code << "       task += TPB1; \n" <<
 				"		count += 1;		\n" <<
 				"   } \n";
 
@@ -2446,7 +2445,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		}								\n" <<
         		//"		REAL xb = xBetaVector[vecOffset] + inc;	\n" <<
 				"		xBetaVector[vecOffset] = xb;	\n";
-        code << "		task += loopSize;							\n" <<
+        code << "		task += TPB1;							\n" <<
         		"		count += 1;						\n";
         code << "} 										\n";
 

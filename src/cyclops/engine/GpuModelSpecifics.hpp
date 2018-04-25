@@ -3396,8 +3396,16 @@ virtual void runCCDIndex() {
 
 			//const auto globalWorkSize = tpb;
 
+
+			int loops = syncCVFolds / cvBlockSize;
+			if (syncCVFolds % cvBlockSize != 0) {
+				loops++;
+			}
+
+
 	        size_t globalWorkSize[2];
-	        globalWorkSize[0] = cvIndexStride;
+	        //globalWorkSize[0] = cvIndexStride;
+	        globalWorkSize[0] = cvBlockSize * loops;
 	        globalWorkSize[1] =  wgs;
 
 	        size_t localWorkSize[2];
@@ -3672,7 +3680,13 @@ virtual void runCCDIndex() {
         if (pad) {
         	// layout by person
         	cvBlockSize = tpb0;
-        	cvIndexStride = detail::getAlignedLength<tpb0>(syncCVFolds);
+
+        	if (tpb0 < 16) {
+        		cvIndexStride = detail::getAlignedLength<16>(syncCVFolds);
+        	} else {
+        		cvIndexStride = detail::getAlignedLength<tpb0>(syncCVFolds);
+        	}
+
 
         	/*
         	if (syncCVFolds > 32) cvBlockSize = 64;
