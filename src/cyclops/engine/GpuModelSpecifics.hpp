@@ -349,7 +349,8 @@ public:
       dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx), dNtoK(ctx), dAllDelta(ctx), dColumnsXt(ctx),
 	  dXBetaVector(ctx), dOffsExpXBetaVector(ctx), dDenomPidVector(ctx), dNWeightVector(ctx), dKWeightVector(ctx), dPidVector(ctx),
 	  dAccDenomPidVector(ctx), dAccNumerPidVector(ctx), dAccNumerPid2Vector(ctx), dAccResetVector(ctx), dPidInternalVector(ctx), dNumerPidVector(ctx),
-	  dNumerPid2Vector(ctx), dNormVector(ctx), dXjXVector(ctx), dXjYVector(ctx), dDeltaVector(ctx), dBoundVector(ctx), dPriorParams(ctx), dBetaVector(ctx), dAllZero(ctx), dDoneVector(ctx), dIndexListWithPrior(ctx),
+	  dNumerPid2Vector(ctx), dNormVector(ctx), dXjXVector(ctx), dXjYVector(ctx), dDeltaVector(ctx), dBoundVector(ctx), dPriorParams(ctx), dBetaVector(ctx),
+	  dAllZero(ctx), dDoneVector(ctx), dIndexListWithPrior(ctx), dCVIndices(ctx),
 	  dXBetaKnown(false), hXBetaKnown(false){
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
@@ -3327,8 +3328,6 @@ virtual void runCCDIndex() {
         initialized = true;
 	}
 
-	int wgs = tpb1;
-
 	//for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
 	for (int i = FormatType::INTERCEPT; i >= FormatType::DENSE; --i) {
 		for (int j = 0; j < 3; j++) {
@@ -3352,7 +3351,7 @@ virtual void runCCDIndex() {
 			//FormatType formatType = modelData.getFormatType(index);
 			//int priorType = priorTypes[index];
 
-
+			if (activeFolds > multiprocessors) {
 			auto& kernel = kernelDoItAll[formatType*3+priorType];
 			//const auto taskCount = dColumns.getTaskCount(index);
 
@@ -3402,18 +3401,16 @@ virtual void runCCDIndex() {
 				loops++;
 			}
 
-
 	        size_t globalWorkSize[2];
 	        //globalWorkSize[0] = cvIndexStride;
 	        globalWorkSize[0] = cvBlockSize * loops;
-	        globalWorkSize[1] =  wgs;
+	        globalWorkSize[1] =  tpb1;
 
 	        size_t localWorkSize[2];
 	        localWorkSize[0] = cvBlockSize;
-	        localWorkSize[1] = wgs;
+	        localWorkSize[1] = tpb1;
 
 	        size_t dim = 2;
-
 
 #ifdef CYCLOPS_DEBUG_TIMING
 			auto end = bsccs::chrono::steady_clock::now();
@@ -3435,6 +3432,90 @@ virtual void runCCDIndex() {
 			name = "compDoItAllKernelG" + getFormatTypeExtension(formatType) + " ";
 			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
+			} else {
+/*
+				std::vector<int> temp;
+				temp.resize(dCVIndices.size());
+				compute::copy(std::begin(dCVIndices), std::end(dCVIndices), std::begin(temp), queue);
+				for (auto x:temp) {
+					std::cout << x << " ";
+				}
+				std::cout << "\n";
+*/
+				auto& kernel1 = kernelDoItAllSingle[formatType*3+priorType];
+				//const auto taskCount = dColumns.getTaskCount(index);
+
+				//for (int m = 0; m < length; m++) {
+					//int index = dIndexListWithPrior[indexListWithPriorStarts[i*3+j] + m];
+				    //const auto taskCount = dColumns.getTaskCount(index);
+
+	    			//std::cout << "index " << index << " format " << formatType << " prior " << priorType << " \n";
+
+				kernel1.set_arg(0, dColumns.getDataStarts());
+				kernel1.set_arg(1, dColumns.getIndicesStarts());
+				kernel1.set_arg(2, dColumns.getTaskCounts());
+		        //kernel.set_arg(0, dColumns.getDataOffset(index));
+		        //kernel.set_arg(1, dColumns.getIndicesOffset(index));
+				//kernel.set_arg(2, taskCount);
+				kernel1.set_arg(3, dColumns.getData());
+				kernel1.set_arg(4, dColumns.getIndices());
+				//kernel.set_arg(5, dY);
+				//kernel.set_arg(6, dOffs);
+				kernel1.set_arg(5, dXBetaVector);
+				//kernel.set_arg(8, dOffsExpXBetaVector);
+				//kernel.set_arg(9, dDenomPidVector);
+				//kernel.set_arg(10, dPidVector);
+				if (dKWeightVector.size() == 0) {
+					kernel1.set_arg(6, 0);
+				} else {
+					kernel1.set_arg(6, dKWeightVector); // TODO Only when dKWeight gets reallocated
+				}
+				kernel1.set_arg(7, dBoundVector);
+				kernel1.set_arg(8, dPriorParams);
+				kernel1.set_arg(9, dXjYVector);
+				kernel1.set_arg(10, dBetaVector);
+				kernel1.set_arg(11, dCVIndices);
+				kernel1.set_arg(12, cvIndexStride);
+				//kernel.set_arg(18, syncCVFolds);
+				int dJ = J;
+				//kernel.set_arg(14, index);
+				kernel1.set_arg(13, indexListWithPriorStarts[i*3+j]);
+				kernel1.set_arg(14, length);
+				kernel1.set_arg(15, dIndexListWithPrior);
+
+				//const auto globalWorkSize = tpb;
+
+
+				int loops = syncCVFolds / cvBlockSize;
+				if (syncCVFolds % cvBlockSize != 0) {
+					loops++;
+				}
+
+		        size_t globalWorkSize = tpb0*tpb1*activeFolds;
+
+		        //std::cout << "global work size: " << tpb0*tpb1*activeFolds << " local work size: " << tpb0*tpb1 << "\n";
+
+	#ifdef CYCLOPS_DEBUG_TIMING
+				auto end = bsccs::chrono::steady_clock::now();
+				///////////////////////////"
+				auto name = "compDoItAllSingleArgsG" + getFormatTypeExtension(formatType) + " ";
+				duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+	#endif
+
+	#ifdef CYCLOPS_DEBUG_TIMING
+				start = bsccs::chrono::steady_clock::now();
+	#endif
+
+		        queue.enqueue_1d_range_kernel(kernel1, 0, globalWorkSize, tpb0*tpb1);
+		        queue.finish();
+
+	#ifdef CYCLOPS_DEBUG_TIMING
+				end = bsccs::chrono::steady_clock::now();
+				///////////////////////////"
+				name = "compDoItAllSingleKernelG" + getFormatTypeExtension(formatType) + " ";
+				duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+	#endif
+			}
 			//}
 		}
 	}
@@ -3810,11 +3891,16 @@ virtual void runCCDIndex() {
         detail::resizeAndCopyToDevice(hAllZero, dAllZero, queue);
 
         std::vector<int> hDone;
+        std::vector<int> hCVIndices;
         hDone.resize(cvIndexStride, 0);
         for (int i=0; i<syncCVFolds; i++) {
         	hDone[i] = 1;
+        	hCVIndices.push_back(i);
         }
+    	activeFolds = syncCVFolds;
+
         detail::resizeAndCopyToDevice(hDone, dDoneVector, queue);
+        if (activeFolds <= multiprocessors) detail::resizeAndCopyToDevice(hCVIndices, dCVIndices, queue);
 
         /*
         std::vector<int> hDone;
@@ -3852,12 +3938,18 @@ virtual void runCCDIndex() {
 
     virtual void updateDoneFolds(std::vector<bool>& donePool) {
     	std::vector<int> temp;
+    	std::vector<int> temp1;
 
     	// layout by person
 
+    	activeFolds = 0;
     	temp.resize(cvIndexStride, 0);
     	for (int i=0; i<syncCVFolds; i++) {
-    		if (!donePool[i]) temp[i] = 1;
+    		if (!donePool[i]) {
+    			temp[i] = 1;
+    			temp1.push_back(i);
+    			activeFolds++;
+    		}
     	}
 
 /*
@@ -3867,6 +3959,7 @@ virtual void runCCDIndex() {
     	activeFolds = temp.size();
     	*/
     	compute::copy(std::begin(temp), std::end(temp), std::begin(dDoneVector), queue);
+    	if (activeFolds <= multiprocessors) detail::resizeAndCopyToDevice(temp1, dCVIndices, queue);
     }
 
     void computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
@@ -4089,6 +4182,8 @@ virtual void runCCDIndex() {
 
     SourceCode writeCodeForDoItAllKernel(FormatType formatType, int priorType);
 
+    SourceCode writeCodeForDoItAllSingleKernel(FormatType formatType, int priorType);
+
     SourceCode writeCodeForMMFindDeltaKernel(FormatType formatType, int priorType);
 
     void buildDoItAllKernel(FormatType formatType, int priorType) {
@@ -4096,15 +4191,15 @@ virtual void runCCDIndex() {
 
         if (sizeof(real) == 8) {
 #ifdef USE_VECTOR
-        options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1;
+        options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb0*tpb1;
 #else
-        options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << tpb1;
+        options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb0*tpb1;
 #endif // USE_VECTOR
         } else {
 #ifdef USE_VECTOR
-            options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1;
+            options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb0*tpb1;
 #else
-            options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << tpb1;
+            options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb0*tpb1;
 #endif // USE_VECTOR
         }
         options << " -cl-mad-enable";
@@ -4116,6 +4211,14 @@ virtual void runCCDIndex() {
     	auto kernel = compute::kernel(program, source.name);
 
     	kernelDoItAll[formatType*3+priorType] = std::move(kernel);
+
+    	source = writeCodeForDoItAllSingleKernel(formatType, priorType);
+    	std::cout << source.body;
+    	program = compute::program::build_with_source(source.body, ctx, options.str());
+        std::cout << "program built\n";
+    	auto kernelSingle = compute::kernel(program, source.name);
+
+    	kernelDoItAllSingle[formatType*3+priorType] = std::move(kernelSingle);
     }
 
     void buildMMFindDeltaKernel(FormatType formatType, int priorType) {
@@ -4718,6 +4821,7 @@ virtual void runCCDIndex() {
     std::map<FormatType, compute::kernel> kernelGradientHessianSync1;
 
     std::map<int, compute::kernel> kernelDoItAll;
+    std::map<int, compute::kernel> kernelDoItAllSingle;
     std::map<int, compute::kernel> kernelMMFindDelta;
     std::map<int, compute::kernel> kernelProcessDeltaBuffer;
 
@@ -4798,6 +4902,7 @@ virtual void runCCDIndex() {
     int cvIndexStride;
     bool pad;
     int activeFolds;
+    int multiprocessors = 15;
     compute::vector<real> dNWeightVector;
     compute::vector<real> dKWeightVector;
     compute::vector<real> dAccDenomPidVector;
@@ -4821,6 +4926,7 @@ virtual void runCCDIndex() {
     compute::vector<real> dPriorParams;
     compute::vector<real> dBetaVector;
     compute::vector<int> dDoneVector;
+    compute::vector<int> dCVIndices;
 
     std::vector<real> priorTypes;
     compute::vector<int> dIndexListWithPrior;
