@@ -524,7 +524,13 @@ public:
 	    // unlike Cox, denom of LR shouldn't include weights
 	    // current_denom = weight * offsExpXBeta + 1
 	    // correct_denom = offsExpXBeta + 1 = (current_denom - 1) / weight + 1
-		const RealType d = (denom - static_cast<RealType>(1.0)) / weight + static_cast<RealType>(1.0); // correct denom
+		const RealType d = Weights::isWeighted ?
+	        (weight == static_cast<RealType>(0.0)) ?
+	            1.0 :
+                (denom - static_cast<RealType>(1.0)) / weight + static_cast<RealType>(1.0) :
+	        denom;
+
+//	    const RealType d = (denom - static_cast<RealType>(1.0)) / weight + static_cast<RealType>(1.0); // correct denom
 	    const RealType g = numer / d;
 	    if (Weights::isWeighted) {
 			*gradient += weight * g;
@@ -979,7 +985,11 @@ public:
 	    // current_denom = weight * offsExpXBeta + 1
 	    // current_loglikedenom = log(current_denom) = log(weight * offsExpXBeta + 1)
 	    // correct_loglikedenom = weight * log(offsExpXBeta + 1) = weight * log((current_denom - 1) / weight + 1)
-		return ni * std::log((denom - static_cast<RealType>(1.0))/ni + static_cast<RealType>(1.0));
+	    if (ni == static_cast<RealType>(0.0)) {
+	        return 0.0;
+	    } else {
+		    return ni * std::log((denom - static_cast<RealType>(1.0))/ni + static_cast<RealType>(1.0));
+	    }
 	}
 
 	RealType logPredLikeContrib(RealType y, RealType weight, RealType xBeta, RealType denominator) {

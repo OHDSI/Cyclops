@@ -112,6 +112,7 @@ double ModelSpecifics<BaseModel,RealType>::getGradientObjective(bool useCrossVal
 				criterion += xBeta[i] * hY[i];
 			}
 		}
+
 		return static_cast<double> (criterion);
 	}
 
@@ -1082,6 +1083,13 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                     w, // Signature-only, for iterator-type specialization
                     &gradient, &hessian, numerator1, numerator2,
                     denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
+
+// #define DEBUG_LR
+#ifdef DEBUG_LR
+	        std::cerr << "q: " << i << " " << hNWeight[i] << " " << ":" <<
+	            numerator1 << ":" << numerator2 << ":" << denomPid[i] << ":" << hXBeta[i];
+	        std::cerr << " -> g:" << gradient << " h:" << hessian << std::endl;
+#endif
 	    }
 
 	} else if (BaseModel::exactCLR) {
@@ -1212,8 +1220,6 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 //             denomPid[hPid[i]], hNWeight[hPid[i]], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
 	}
 // RANGE
-
-	// std::cerr << "it g: " << gradient << " h: " << hessian << " f: " << hXjY[index] << std::endl;
 
 	if (BaseModel::precomputeGradient) { // Compile-time switch
 		gradient -= hXjY[index];
