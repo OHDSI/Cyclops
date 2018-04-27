@@ -330,8 +330,8 @@ public:
     const static int tpb = 128; // threads-per-block  // Appears best on K40
     const static int maxWgs = 2;  // work-group-size
 
-    const static int tpb0 = 8;
-    const static int tpb1 = 128;
+    int tpb0 = 8;
+    int tpb1 = 128;
 
     // const static int globalWorkSize = tpb * wgs;
 
@@ -350,7 +350,7 @@ public:
 	  dXBetaVector(ctx), dOffsExpXBetaVector(ctx), dDenomPidVector(ctx), dNWeightVector(ctx), dKWeightVector(ctx), dPidVector(ctx),
 	  dAccDenomPidVector(ctx), dAccNumerPidVector(ctx), dAccNumerPid2Vector(ctx), dAccResetVector(ctx), dPidInternalVector(ctx), dNumerPidVector(ctx),
 	  dNumerPid2Vector(ctx), dNormVector(ctx), dXjXVector(ctx), dXjYVector(ctx), dDeltaVector(ctx), dBoundVector(ctx), dPriorParams(ctx), dBetaVector(ctx),
-	  dAllZero(ctx), dDoneVector(ctx), dIndexListWithPrior(ctx), dCVIndices(ctx),
+	  dAllZero(ctx), dDoneVector(ctx), dIndexListWithPrior(ctx), dCVIndices(ctx), dSMStarts(ctx), dSMScales(ctx),
 	  dXBetaKnown(false), hXBetaKnown(false){
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
@@ -3392,6 +3392,8 @@ virtual void runCCDIndex() {
 			kernel.set_arg(13, indexListWithPriorStarts[i*3+j]);
 			kernel.set_arg(14, length);
 			kernel.set_arg(15, dIndexListWithPrior);
+			kernel.set_arg(16, dSMStarts);
+			kernel.set_arg(17, dSMScales);
 
 			//const auto globalWorkSize = tpb;
 
@@ -3401,13 +3403,23 @@ virtual void runCCDIndex() {
 				loops++;
 			}
 
+
+/*
+			int loops = syncCVFolds / tpb0;
+			if (syncCVFolds % tpb0 != 0) {
+				loops++;
+			}
+*/
+
 	        size_t globalWorkSize[2];
-	        //globalWorkSize[0] = cvIndexStride;
-	        globalWorkSize[0] = cvBlockSize * loops;
+	        //globalWorkSize[0] = tpb0*loops;
+	        //globalWorkSize[0] = cvBlockSize * loops;
+	        globalWorkSize[0] = tpb0 * multiprocessors;
 	        globalWorkSize[1] =  tpb1;
 
 	        size_t localWorkSize[2];
-	        localWorkSize[0] = cvBlockSize;
+	        //localWorkSize[0] = cvBlockSize;
+	        localWorkSize[0] = tpb0;
 	        localWorkSize[1] = tpb1;
 
 	        size_t dim = 2;
@@ -3758,15 +3770,79 @@ virtual void runCCDIndex() {
     	pad = true;
     	syncCVFolds = foldToCompute;
 
+
+    	std::vector<int> smStarts;
+    	std::vector<int> smScales;
+    	int big;
+    	int small;
+
+    	tpb0 = 1;
+    	while (syncCVFolds / multiprocessors > tpb0) {
+    		tpb0 = tpb0*2;
+    	}
+
+    	int temp = (syncCVFolds - tpb0/2*multiprocessors);
+    	if (temp % (tpb0/2) != 0) {
+    		big = temp / (tpb0/2) + 1;
+    	} else {
+    		big = temp / (tpb0/2);
+    	}
+    	small = multiprocessors - big;
+    	std::cout << "tpb0: " << tpb0 << " big: " << big << " small: " << small << "\n";
+    	for (int i=0; i<multiprocessors; i++) {
+    		if (i < small) {
+    			smStarts.push_back(i*tpb0/2);
+    			smScales.push_back(2);
+    		} else {
+    			smStarts.push_back(small*tpb0/2+(i-small)*tpb0);
+    			smScales.push_back(1);
+    		}
+    	}
+
+    	/*
+    	int temp = 0;
+    	while (temp < syncCVFolds) {
+    		smStarts.push_back(temp);
+    		smScales.push_back(1);
+    		temp += tpb0;
+    	}
+*/
+    	std::cout << "smStarts: ";
+    	for (auto x:smStarts) {
+    		std::cout << x << " ";
+    	}
+    	std::cout << "\n";
+    	std::cout << "smScales: ";
+    	for (auto x:smScales) {
+    		std::cout << x << " ";
+    	}
+    	std::cout << "\n";
+
+    	detail::resizeAndCopyToDevice(smStarts, dSMStarts, queue);
+    	detail::resizeAndCopyToDevice(smScales, dSMScales, queue);
+
+
         if (pad) {
         	// layout by person
         	cvBlockSize = tpb0;
 
+            if (tpb0 <= 16) {
+                cvIndexStride = detail::getAlignedLength<16>(syncCVFolds);
+            } else if (tpb0 <= 32) {
+                cvIndexStride = detail::getAlignedLength<32>(syncCVFolds);
+            } else if (tpb0 <= 64) {
+                cvIndexStride = detail::getAlignedLength<64>(syncCVFolds);
+            } else if (tpb0 <= 128) {
+                cvIndexStride = detail::getAlignedLength<128>(syncCVFolds);
+            }
+
+/*
         	if (tpb0 < 16) {
         		cvIndexStride = detail::getAlignedLength<16>(syncCVFolds);
         	} else {
         		cvIndexStride = detail::getAlignedLength<tpb0>(syncCVFolds);
         	}
+*/
 
 
         	/*
@@ -3901,6 +3977,8 @@ virtual void runCCDIndex() {
 
         detail::resizeAndCopyToDevice(hDone, dDoneVector, queue);
         if (activeFolds <= multiprocessors) detail::resizeAndCopyToDevice(hCVIndices, dCVIndices, queue);
+
+
 
         /*
         std::vector<int> hDone;
@@ -4205,17 +4283,17 @@ virtual void runCCDIndex() {
         options << " -cl-mad-enable";
 
     	auto source = writeCodeForDoItAllKernel(formatType, priorType);
-    	//std::cout << source.body;
+    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        //std::cout << "program built\n";
+        std::cout << "program built\n";
     	auto kernel = compute::kernel(program, source.name);
 
     	kernelDoItAll[formatType*3+priorType] = std::move(kernel);
 
     	source = writeCodeForDoItAllSingleKernel(formatType, priorType);
-    	std::cout << source.body;
+    	//std::cout << source.body;
     	program = compute::program::build_with_source(source.body, ctx, options.str());
-        std::cout << "program built\n";
+        //std::cout << "program built\n";
     	auto kernelSingle = compute::kernel(program, source.name);
 
     	kernelDoItAllSingle[formatType*3+priorType] = std::move(kernelSingle);
@@ -4927,6 +5005,8 @@ virtual void runCCDIndex() {
     compute::vector<real> dBetaVector;
     compute::vector<int> dDoneVector;
     compute::vector<int> dCVIndices;
+    compute::vector<int> dSMStarts;
+    compute::vector<int> dSMScales;
 
     std::vector<real> priorTypes;
     compute::vector<int> dIndexListWithPrior;

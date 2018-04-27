@@ -2279,28 +2279,42 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				//"		const uint index)	{				\n";
 				"		const uint indexStart,				\n" <<
 				"		const uint length,				\n" <<
-				"		__global const uint* indices) {   		 	\n";    // TODO Make weight optional
+				"		__global const uint* indices,	\n" <<
+				"		__global const uint* smStarts,	\n" <<
+				"		__global const uint* smScales) {   		 	\n";    // TODO Make weight optional
 		// Initialization
 		code << "	__local uint offK, offX, N, index;	\n" <<
-				"	__local REAL grad[TPB1][TPB0];		\n" <<
-				"	__local REAL hess[TPB1][TPB0];		\n" <<
+				"	__local REAL grad[TPB1*TPB0];		\n" <<
+				"	__local REAL hess[TPB1*TPB0];		\n" <<
 				"	__local REAL deltaVec[TPB0];		\n" <<
 				"	__local int localDone[TPB0];		\n" <<
 				"	__local int scratchInt[TPB0];		\n" <<
-				"	__local REAL localXB[TPB1*3][TPB0];	\n" <<
+				"	__local REAL localXB[TPB1*3*TPB0];	\n" <<
 				"	uint lid0 = get_local_id(0);			\n" <<
+				"	uint smScale = smScales[get_group_id(0)];	\n" <<
+				//"	uint myTPB0 = TPB0;					\n" <<
+				//"	uint myTPB1 = TPB1;					\n" <<
+				"	uint myTPB0 = TPB0 / smScale;		\n" <<
+				"	uint myTPB1 = TPB1 * smScale;		\n" <<
+				//"	if (get_global_id(0) == 0) printf(\"smScale %d tpb0 %d tpb1 %d \", smScale, myTPB0, myTPB1);	\n" <<
+				"	uint mylid0 = lid0 % myTPB0;		\n" <<
+				//"	uint mylid0 = lid0;					\n" <<
+				"	uint cvIndex = smStarts[get_group_id(0)] + mylid0;	\n" <<
+				//"	uint cvIndex = get_group_id(0)*TPB0 + lid0;	\n" <<
 				"	uint lid1 = get_local_id(1);		\n" <<
-				"	uint cvIndex = get_group_id(0)*TPB0 + lid0;	\n" <<
-				"	if (lid1 == 0) {					\n" <<
+				"	uint mylid1 = lid1 * smScale + lid0 / myTPB0;		\n" <<
+				//"	uint mylid1 = lid1;					\n" <<
+
+				"	if (mylid1 == 0) {					\n" <<
 				"		int temp = doneVector[cvIndex];	\n" <<
 				"		localDone[lid0] = temp;	\n" <<
 				"		scratchInt[lid0] = temp;	\n" <<
 				"	}									\n";
 
-		code << "	for(int j = 1; j < TPB0; j <<= 1) {          	\n" <<
+		code << "	for(int j = 1; j < myTPB0; j <<= 1) {          	\n" <<
 				"       barrier(CLK_LOCAL_MEM_FENCE);           	\n" <<
 				"       uint mask = (j << 1) - 1;               	\n" <<
-				"       if (lid1==0 && (lid0 & mask) == 0) {                	\n" <<
+				"       if (mylid1==0 && (lid0 & mask) == 0) {                	\n" <<
 				"           scratchInt[lid0] += scratchInt[lid0 + j]; 		\n" <<
 				"       }                                       	\n" <<
 				"	}									\n";
@@ -2312,7 +2326,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		offK = offKVec[index];			\n" <<
 				"		offX = offXVec[index];			\n" <<
 				"		N = NVec[index];				\n" <<
-				"	uint task = lid1;					\n" <<
+				"	uint task = mylid1;					\n" <<
 				"	uint count = 0;						\n" <<
 				"	REAL sum0 = 0.0;					\n" <<
 				"	REAL sum1 = 0.0;					\n";
@@ -2329,7 +2343,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		}
 		code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
 				"		REAL xb = xBetaVector[vecOffset];			\n" <<
-				"		if (count < 3) localXB[count*TPB1+lid1][lid0] = xb;	\n" <<
+				"		if (count < 3) localXB[(mylid1+myTPB1*count)*myTPB0 + mylid0] = xb;	\n" <<
 				"		REAL exb = exp(xb);							\n" <<
 				//"		REAL exb = expXBetaVector[vecOffset];	\n" <<
 				"		REAL numer = " << timesX("exb", formatType) << ";\n" <<
@@ -2339,27 +2353,28 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
 		code << "       sum0 += gradient; \n" <<
 				"       sum1 += hessian;  \n";
-		code << "       task += TPB1; \n" <<
+		code << "       task += myTPB1; \n" <<
 				"		count += 1;		\n" <<
 				"   } \n";
 
-		code << "	grad[lid1][lid0] = sum0;	\n" <<
-				"	hess[lid1][lid0] = sum1;	\n";
+		code << "	grad[mylid1*myTPB0+mylid0] = sum0;	\n" <<
+				"	hess[mylid1*myTPB0+mylid0] = sum1;	\n";
 
-		code << "   for(int j = 1; j < TPB1; j <<= 1) {          \n" <<
+		code << "   for(int j = 1; j < myTPB1; j <<= 1) {          \n" <<
 	            "       barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
 	            "       uint mask = (j << 1) - 1;               \n" <<
-	            "       if ((lid1 & mask) == 0) {                \n" <<
-	            "           grad[lid1][lid0] += grad[lid1+j][lid0]; \n" <<
-	            "           hess[lid1][lid0] += hess[lid1+j][lid0]; \n" <<
+	            "       if ((mylid1 & mask) == 0) {                \n" <<
+	            "           grad[mylid1*myTPB0+mylid0] += grad[(mylid1+j)*myTPB0+mylid0]; \n" <<
+	            "           hess[mylid1*myTPB0+mylid0] += hess[(mylid1+j)*myTPB0+mylid0]; \n" <<
 	            "       }                                       \n" <<
-	            "   }                                           \n";
+	            "   }                                         \n";
 
-		code << "	if (lid1 == 0) {	\n" <<
+
+		code << "	if (mylid1 == 0) {	\n" <<
 				"		uint offset = cvIndexStride*index+cvIndex;		\n" <<
-				"		REAL grad0 = grad[0][lid0];		\n" <<
+				"		REAL grad0 = grad[lid0];		\n" <<
 				"		grad0 = grad0 - XjYVector[offset];	\n" <<
-				"		REAL hess0 = hess[0][lid0];		\n" <<
+				"		REAL hess0 = hess[lid0];		\n" <<
     			"		REAL beta = betaVector[offset];		\n" <<
 				"		REAL delta;							\n";
 
@@ -2413,18 +2428,20 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"	}										\n" <<
 
 				"	}										\n";
-		code << "	for(int j = 1; j < TPB0; j <<= 1) {          	\n" <<
+
+		code << "	for(int j = 1; j < myTPB0; j <<= 1) {          	\n" <<
 				"       barrier(CLK_LOCAL_MEM_FENCE);           	\n" <<
 				"       uint mask = (j << 1) - 1;               	\n" <<
-				"       if (lid1==0 && (lid0 & mask) == 0) {                	\n" <<
+				"       if (mylid1==0 && (lid0 & mask) == 0) {                	\n" <<
 				"           scratchInt[lid0] += scratchInt[lid0 + j]; 		\n" <<
 				"       }                                       	\n" <<
 				"	}									\n";
         code << "   barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
         		"	if (scratchInt[0] > 0) {				\n" <<
-        		"	REAL delta = deltaVec[lid0];			\n" <<
+        		"	REAL delta = deltaVec[mylid0];			\n" <<
 				"	count = 0;							\n" <<
-        		"	task = lid1;						\n";
+        		"	task = mylid1;						\n";
+
         code <<	"	while (task < N) {		\n";
         if (formatType == INDICATOR || formatType == SPARSE) {
         	code << "  	uint k = K[offK + task];      	\n";
@@ -2439,18 +2456,19 @@ static std::string weight(const std::string& arg, bool useWeights) {
         code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
         		"		REAL xb;						\n" <<
 				"		if (count < 3) {				\n" <<
-				"			xb = localXB[count*TPB1+lid1][lid0] + inc; \n" <<
+				"			xb = localXB[(mylid1+myTPB1*count)*myTPB0 + mylid0] + inc; \n" <<
 				"		} else {						\n" <<
 				"			xb = xBetaVector[vecOffset] + inc;	\n" <<
 				"		}								\n" <<
         		//"		REAL xb = xBetaVector[vecOffset] + inc;	\n" <<
 				"		xBetaVector[vecOffset] = xb;	\n";
-        code << "		task += TPB1;							\n" <<
+        code << "		task += myTPB1;							\n" <<
         		"		count += 1;						\n";
         code << "} 										\n";
 
         code << "   barrier(CLK_GLOBAL_MEM_FENCE);           \n";
         code << "}	\n";
+
         code << "}	\n";
 		code << "}	\n";
 		code << "}	\n";
@@ -2590,7 +2608,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"			REAL intermediate = max(fabs(delta)*2, bound/2);	\n" <<
 					"			intermediate = max(intermediate, 0.001);\n" <<
 					"			boundVector[offset] = intermediate;		\n" <<
-					"			betaVector[offset] = delta + beta;		\n" <<
+					"			if (delta != 0) betaVector[offset] = delta + beta;		\n" <<
 					"		}										\n";
 	        code << "   	barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
 	        		"		if (delta != 0) {				\n" <<
