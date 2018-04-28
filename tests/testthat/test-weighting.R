@@ -218,3 +218,40 @@ test_that("Small conditional logistic regression with weighting", {
 
 })
 
+test_that("Small Bernoulli dense regression with zero-weights", {
+    binomial_bid <- c(1,5,10,20,30,40,50,75,100,150,200)
+    binomial_n <- c(31,29,27,25,23,21,19,17,15,15,15)
+    binomial_y <- c(0,3,6,7,9,13,17,12,11,14,13)
+
+    log_bid <- log(c(rep(rep(binomial_bid, binomial_n - binomial_y)), rep(binomial_bid, binomial_y)))
+    y <- c(rep(0, sum(binomial_n - binomial_y)), rep(1, sum(binomial_y)))
+
+    weights <- as.numeric(gl(2,1,length(y))) - 1
+
+    y_sub <- y[which(weights == 1)]
+    log_bid_sub <- log_bid[which(weights == 1)]
+
+    glmFit <- glm(y ~ log_bid, family = binomial(), weights = weights) # gold standard
+
+    tolerance <- 1E-4
+
+    data <- createCyclopsData(y ~ log_bid, modelType = "lr")
+    data_sub <- createCyclopsData(y_sub ~ log_bid_sub, modelType = "lr")
+
+    fit <- fitCyclopsModel(data, prior = createPrior("none"),
+                           control = createControl(noiseLevel = "silent"),
+                           weights = weights)
+
+    fit_sub <- fitCyclopsModel(data_sub, prior = createPrior("none"),
+                               control = createControl(noiseLevel = "silent"))
+
+    expect_equal(coef(fit), coef(glmFit), tolerance = tolerance)
+    expect_equal(fit$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
+    expect_equal(predict(glmFit, type = "response"), predict(fit), tolerance = tolerance)
+
+    expect_equal(coef(fit), coef(fit_sub), check.attributes = FALSE)
+    expect_equal(fit$log_likelihood, fit_sub$log_likelihood)
+
+    expect_equal(predict(fit)[which(weights == 1)], predict(fit_sub), check.attributes = FALSE)
+})
+
