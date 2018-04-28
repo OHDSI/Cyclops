@@ -23,5 +23,5 @@ test_that("Logistic regression with cross-validation", {
     # 6           7           8           9
     # -0.02982060  0.00000000  0.09693092  0.00000000
 
-    expect_equal(sum(coef(fit) != 0), 38)
+    expect_equal(coef(fit)[1], -0.99, tolerance = 0.01, check.attributes = FALSE)
 })
