@@ -2487,6 +2487,7 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
         std::cout << '\n';
         */
     	//std::cout << "ObjFunc" << convergenceType << ": " << thisObjFunc << '\n';
+    	bool needsUpdate = false;
     	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
     		if (thisObjFuncVec[cvIndex] != thisObjFuncVec[cvIndex]) {
     			std::ostringstream stream;
@@ -2507,7 +2508,8 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
     			}
     			if (!donePool[cvIndex] && epsilon > 0 && conv[cvIndex] < epsilon) {
     				donePool[cvIndex] = true;
-    				if (usingGPU) modelSpecifics.updateDoneFolds(donePool);
+    				needsUpdate = true;
+    				//if (usingGPU) modelSpecifics.updateDoneFolds(donePool);
     				/*
     				for (int j = 0; j < J; j++) {
     					fixBetaPool[cvIndex][j] = true;
@@ -2518,6 +2520,7 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
     		}
     		lastObjFuncVec[cvIndex] = thisObjFuncVec[cvIndex];
     	}
+    	if (usingGPU && needsUpdate) modelSpecifics.updateDoneFolds(donePool);
     } else { // TODO ZHANG_OLES
         //conv = computeZhangOlesConvergenceCriterion();
         //saveXBeta();

@@ -2281,7 +2281,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		const uint length,				\n" <<
 				"		__global const uint* indices,	\n" <<
 				"		__global const uint* smStarts,	\n" <<
-				"		__global const uint* smScales) {   		 	\n";    // TODO Make weight optional
+				"		__global const uint* smScales,	\n" <<
+				"		__global const uint* smIndices) {   		 	\n";    // TODO Make weight optional
 		// Initialization
 		code << "	__local uint offK, offX, N, index;	\n" <<
 				"	__local REAL grad[TPB1*TPB0];		\n" <<
@@ -2299,7 +2300,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				//"	if (get_global_id(0) == 0) printf(\"smScale %d tpb0 %d tpb1 %d \", smScale, myTPB0, myTPB1);	\n" <<
 				"	uint mylid0 = lid0 % myTPB0;		\n" <<
 				//"	uint mylid0 = lid0;					\n" <<
-				"	uint cvIndex = smStarts[get_group_id(0)] + mylid0;	\n" <<
+				//"	uint cvIndex = smStarts[get_group_id(0)] + mylid0;	\n" <<
+				"	uint cvIndex = smIndices[smStarts[get_group_id(0)] + mylid0];	\n" <<
 				//"	uint cvIndex = get_group_id(0)*TPB0 + lid0;	\n" <<
 				"	uint lid1 = get_local_id(1);		\n" <<
 				"	uint mylid1 = lid1 * smScale + lid0 / myTPB0;		\n" <<

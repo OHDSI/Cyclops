@@ -350,7 +350,7 @@ public:
 	  dXBetaVector(ctx), dOffsExpXBetaVector(ctx), dDenomPidVector(ctx), dNWeightVector(ctx), dKWeightVector(ctx), dPidVector(ctx),
 	  dAccDenomPidVector(ctx), dAccNumerPidVector(ctx), dAccNumerPid2Vector(ctx), dAccResetVector(ctx), dPidInternalVector(ctx), dNumerPidVector(ctx),
 	  dNumerPid2Vector(ctx), dNormVector(ctx), dXjXVector(ctx), dXjYVector(ctx), dDeltaVector(ctx), dBoundVector(ctx), dPriorParams(ctx), dBetaVector(ctx),
-	  dAllZero(ctx), dDoneVector(ctx), dIndexListWithPrior(ctx), dCVIndices(ctx), dSMStarts(ctx), dSMScales(ctx),
+	  dAllZero(ctx), dDoneVector(ctx), dIndexListWithPrior(ctx), dCVIndices(ctx), dSMStarts(ctx), dSMScales(ctx), dSMIndices(ctx),
 	  dXBetaKnown(false), hXBetaKnown(false){
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
@@ -3394,6 +3394,7 @@ virtual void runCCDIndex() {
 			kernel.set_arg(15, dIndexListWithPrior);
 			kernel.set_arg(16, dSMStarts);
 			kernel.set_arg(17, dSMScales);
+			kernel.set_arg(18, dSMIndices);
 
 			//const auto globalWorkSize = tpb;
 
@@ -3771,8 +3772,8 @@ virtual void runCCDIndex() {
     	syncCVFolds = foldToCompute;
 
 
-    	std::vector<int> smStarts;
-    	std::vector<int> smScales;
+    	hSMStarts.resize(multiprocessors);
+    	hSMScales.resize(multiprocessors);
     	int big;
     	int small;
 
@@ -3789,13 +3790,26 @@ virtual void runCCDIndex() {
     	}
     	small = multiprocessors - big;
     	std::cout << "tpb0: " << tpb0 << " big: " << big << " small: " << small << "\n";
+
+    	temp = 0;
+    	hSMIndices.resize(0);
+
+    	std::vector<int> activeFoldsVec;
     	for (int i=0; i<multiprocessors; i++) {
-    		if (i < small) {
-    			smStarts.push_back(i*tpb0/2);
-    			smScales.push_back(2);
+    		if (i < big) {
+    			hSMStarts[i] = i*tpb0;
+    			hSMScales[i] = 1;
+    			for (int j=0; j<tpb0; j++) {
+    				hSMIndices.push_back(temp);
+    				temp++;
+    			}
     		} else {
-    			smStarts.push_back(small*tpb0/2+(i-small)*tpb0);
-    			smScales.push_back(1);
+    			hSMStarts[i] = (big*tpb0+(i-big)*tpb0/2);
+    			hSMScales[i] = 2;
+    			for (int j=0; j<tpb0/2; j++) {
+    				hSMIndices.push_back(temp);
+    				temp++;
+    			}
     		}
     	}
 
@@ -3807,19 +3821,33 @@ virtual void runCCDIndex() {
     		temp += tpb0;
     	}
 */
-    	std::cout << "smStarts: ";
-    	for (auto x:smStarts) {
+    	std::cout << "hSMStarts: ";
+    	for (auto x:hSMStarts) {
     		std::cout << x << " ";
     	}
     	std::cout << "\n";
-    	std::cout << "smScales: ";
-    	for (auto x:smScales) {
+    	std::cout << "hSMScales: ";
+    	for (auto x:hSMScales) {
+    		std::cout << x << " ";
+    	}
+    	std::cout << "\n";
+    	std::cout << "hSMIndices: ";
+    	for (auto x:hSMIndices) {
     		std::cout << x << " ";
     	}
     	std::cout << "\n";
 
-    	detail::resizeAndCopyToDevice(smStarts, dSMStarts, queue);
-    	detail::resizeAndCopyToDevice(smScales, dSMScales, queue);
+    	detail::resizeAndCopyToDevice(hSMStarts, dSMStarts, queue);
+    	detail::resizeAndCopyToDevice(hSMScales, dSMScales, queue);
+    	detail::resizeAndCopyToDevice(hSMIndices, dSMIndices, queue);
+
+    	for (auto x:hSMScales) {
+    		hSMScales0.push_back(x);
+    	}
+
+    	for (auto x:hSMIndices) {
+    		hSMIndices0.push_back(x);
+    	}
 
 
         if (pad) {
@@ -4015,20 +4043,149 @@ virtual void runCCDIndex() {
     bool isGPU() {return true;};
 
     virtual void updateDoneFolds(std::vector<bool>& donePool) {
-    	std::vector<int> temp;
-    	std::vector<int> temp1;
+#ifdef CYCLOPS_DEBUG_TIMING
+			auto start = bsccs::chrono::steady_clock::now();
+#endif
+    	std::vector<int> hDone;
+    	std::vector<int> hCVIndices;
 
     	// layout by person
 
     	activeFolds = 0;
-    	temp.resize(cvIndexStride, 0);
+    	bool reset = true;
+    	hDone.resize(cvIndexStride, 0);
     	for (int i=0; i<syncCVFolds; i++) {
     		if (!donePool[i]) {
-    			temp[i] = 1;
-    			temp1.push_back(i);
+    			hDone[i] = 1;
+    			hCVIndices.push_back(i);
     			activeFolds++;
+    		} else {
+    			reset = false;
     		}
     	}
+/*
+    	std::cout << "hSMStarts: ";
+    	for (auto x:hSMStarts) {
+    		std::cout << x << " ";
+    	}
+    	std::cout << "\n";
+    	std::cout << "hSMScales: ";
+    	for (auto x:hSMScales) {
+    		std::cout << x << " ";
+    	}
+    	std::cout << "\n";
+    	std::cout << "hSMIndices: ";
+    	for (auto x:hSMIndices) {
+    		std::cout << x << " ";
+    	}
+    	std::cout << "\n";
+    	std::cout << "hDone: ";
+    	for (auto x:hDone) {
+    		std::cout << x << " ";
+    	}
+    	std::cout << "\n";
+*/
+
+    	if (reset) {
+    		std::copy(std::begin(hSMScales0), std::end(hSMScales0), std::begin(hSMScales));
+    		std::copy(std::begin(hSMIndices0), std::end(hSMIndices0), std::begin(hSMIndices));
+    	} else if (activeFolds > multiprocessors) {
+        	std::vector<int> blockCount;
+    		std::vector<int> zeros;
+    		for (int i=0; i<multiprocessors; i++) {
+    			int temp = 0;
+    			for (int j=0; j<tpb0/hSMScales[i]; j++) {
+    				temp += hDone[hSMIndices[hSMStarts[i]+j]];
+    			}
+    			blockCount.push_back(temp);
+    			if (temp == 0) zeros.push_back(i);
+    		}
+
+    		for (int i=0; i<multiprocessors; i++) {
+    			if (blockCount[i] > 0 && blockCount[i] <= tpb0/(hSMScales[i]*2)) {
+    				int j=1;
+    				while (blockCount[i] > j) {
+    					j *= 2;
+    				}
+    				std::vector<int> temp0;
+    				std::vector<int> temp1;
+    				for (int k=0; k<tpb0/hSMScales[i]; k++) {
+    					if (hDone[hSMIndices[hSMStarts[i] + k]] == 1) {
+    						temp1.push_back(hSMIndices[hSMStarts[i] + k]);
+    					} else {
+    						temp0.push_back(hSMIndices[hSMStarts[i] + k]);
+    					}
+    				}
+    				for (int k=0; k<temp1.size(); k++) {
+    					hSMIndices[hSMStarts[i] + k] = temp1[k];
+    				}
+    				for (int k=0; k<j-temp1.size(); k++) {
+    					hSMIndices[hSMStarts[i] + temp1.size() + k] = temp0[k];
+    				}
+    				hSMScales[i] = tpb0/j;
+    			}
+    		}
+
+    		for (int k=0; k<zeros.size(); k++) {
+    			int zeroIndex = zeros[k];
+
+    			int maxBlock = 0;
+    			int maxBlockSize = 0;
+    			for (int i=0; i<multiprocessors; i++) {
+    				if (blockCount[i] > maxBlockSize) {
+    					maxBlock = i;
+    					maxBlockSize = blockCount[i];
+    				}
+    			}
+
+    			for (int j=0; j<tpb0/hSMScales[maxBlock]/2; j++) {
+    				hSMIndices[hSMStarts[zeroIndex]+j] = hSMIndices[hSMStarts[maxBlock] + tpb0/hSMScales[maxBlock]/2 + j];
+    			}
+    			hSMScales[maxBlock] = hSMScales[maxBlock] * 2;
+    			hSMScales[zeroIndex] = hSMScales[maxBlock];
+
+
+            	blockCount.resize(0);
+        		for (int i=0; i<multiprocessors; i++) {
+        			int temp = 0;
+        			for (int j=0; j<tpb0/hSMScales[i]; j++) {
+        				temp += hDone[hSMIndices[hSMStarts[i]+j]];
+        			}
+        			blockCount.push_back(temp);
+        		}
+    			std::vector<int> temp;
+    			temp.push_back(maxBlock);
+    			temp.push_back(zeroIndex);
+        		for (auto i:temp) {
+        			if (blockCount[i] > 0 && blockCount[i] <= tpb0/(hSMScales[i]*2)) {
+        				int j=1;
+        				while (blockCount[i] > j) {
+        					j *= 2;
+        				}
+        				std::vector<int> temp0;
+        				std::vector<int> temp1;
+        				for (int k=0; k<tpb0/hSMScales[i]; k++) {
+        					if (hDone[hSMIndices[hSMStarts[i] + k]] == 1) {
+        						temp1.push_back(hSMIndices[hSMStarts[i] + k]);
+        					} else {
+        						temp0.push_back(hSMIndices[hSMStarts[i] + k]);
+        					}
+        				}
+        				for (int k=0; k<temp1.size(); k++) {
+        					hSMIndices[hSMStarts[i] + k] = temp1[k];
+        				}
+        				for (int k=0; k<j-temp1.size(); k++) {
+        					hSMIndices[hSMStarts[i] + temp1.size() + k] = temp0[k];
+        				}
+        				hSMScales[i] = tpb0/j;
+        			}
+        		}
+    		}
+    	}
+    	detail::resizeAndCopyToDevice(hSMScales, dSMScales, queue);
+    	detail::resizeAndCopyToDevice(hSMIndices, dSMIndices, queue);
+
+    	//detail::resizeAndCopyToDevice(hSMStarts, dSMStarts, queue);
 
 /*
     	for (int i=0; i<syncCVFolds; i++) {
@@ -4036,8 +4193,47 @@ virtual void runCCDIndex() {
     	}
     	activeFolds = temp.size();
     	*/
-    	compute::copy(std::begin(temp), std::end(temp), std::begin(dDoneVector), queue);
-    	if (activeFolds <= multiprocessors) detail::resizeAndCopyToDevice(temp1, dCVIndices, queue);
+    	compute::copy(std::begin(hDone), std::end(hDone), std::begin(dDoneVector), queue);
+    	if (activeFolds <= multiprocessors) detail::resizeAndCopyToDevice(hCVIndices, dCVIndices, queue);
+
+    	/*
+    	std::cout << "indices running: ";
+    	if (activeFolds > multiprocessors) {
+
+    		for (int i=0; i<multiprocessors; i++) {
+    			for (int j=0; j<tpb0/hSMScales[i]; j++) {
+    				int index = hSMIndices[hSMStarts[i] + j];
+    				if (hDone[index] == 1) {
+    					std::cout << index << " ";
+    				} else {
+    					std::cout << -1 << " ";
+    				}
+    			}
+    			std::cout << " | ";
+    		}
+
+
+    		for (int i=0; i<hDone.size(); i++) {
+    			if (hDone[i] == 1) {
+    				std::cout << i << " ";
+    			}
+    		}
+
+    		std::cout << "\n";
+    	} else {
+    		std::cout << "single ";
+    		for (auto x:hCVIndices) {
+    			std::cout << x << " | ";
+    		}
+    		std::cout << "\n";
+    	}
+*/
+#ifdef CYCLOPS_DEBUG_TIMING
+			auto end = bsccs::chrono::steady_clock::now();
+			///////////////////////////"
+			auto name = "updateDoneFoldsG";
+			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
     }
 
     void computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
@@ -5007,6 +5203,14 @@ virtual void runCCDIndex() {
     compute::vector<int> dCVIndices;
     compute::vector<int> dSMStarts;
     compute::vector<int> dSMScales;
+    compute::vector<int> dSMIndices;
+
+    std::vector<int> hSMStarts;
+    std::vector<int> hSMScales;
+    std::vector<int> hSMIndices;
+
+    std::vector<int> hSMScales0;
+    std::vector<int> hSMIndices0;
 
     std::vector<real> priorTypes;
     compute::vector<int> dIndexListWithPrior;
