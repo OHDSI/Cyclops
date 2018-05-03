@@ -4,6 +4,7 @@
 standalone
 .csettings
 \.o$
+\.o-*$
 \.so$
 papers
 .git

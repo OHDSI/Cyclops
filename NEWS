@@ -1,9 +1,16 @@
+Cyclops v1.3.2 (Release date: forthcoming)
+==============
+
+Changes: 1. explicitly includes `<complex>` header, needed for `R` 3.5 builds
+         2. remove `pragma` statements used to quiet `RcppEigen` and `RcppParallel`
+
 Cyclops v1.3.1 (Not released)
+==============
 
 Changes: 1. fixes covariate indices returned from `.checkCovariates` when excluding
             covariates from regularization
 
-Cyclops v1.3.0 (Release data: 2017-08-23)
+Cyclops v1.3.0 (Release date: 2017-08-23)
 ==============
 
 Changes: 1. implements specialized priors through callbacks for use, for example,
