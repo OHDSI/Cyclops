@@ -1,4 +1,4 @@
-Cyclops v1.3.2 (Release date: forthcoming)
+Cyclops v1.3.2 (Release date: 2018-05-04)
 ==============
 
 Changes: 1. explicitly includes `<complex>` header, needed for `R` 3.5 builds
