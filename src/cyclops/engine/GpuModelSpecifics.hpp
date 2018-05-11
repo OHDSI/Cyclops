@@ -14,7 +14,7 @@
 
 // #define GPU_DEBUG
 #undef GPU_DEBUG
-//#define USE_LOG_SUM
+#define USE_LOG_SUM
 #define TIME_DEBUG
 
 #include <Rcpp.h>
@@ -33,6 +33,7 @@ namespace detail {
 namespace constant {
     static const int updateXBetaBlockSize = 256; // 512; // Appears best on K40
     static const int updateAllXBetaBlockSize = 32;
+    static const int exactCLRBlockSize = 256;
 }; // namespace constant
 
 template <typename DeviceVec, typename HostVec>
@@ -331,7 +332,7 @@ public:
     const static int maxWgs = 2;  // work-group-size
 
     int tpb0 = 8;
-    int tpb1 = 128;
+    int tpb1 = 32;
 
     // const static int globalWorkSize = tpb * wgs;
 
@@ -666,318 +667,121 @@ public:
         	                            kernelGradientHessianNoWeight[formatType];
         	//std::cerr << "index: " << index << '\n';
 
-        	/*
-// 32 rows at a time
-        	if (!initialized) {
-    		    computeRemainingStatistics(true);
-        		detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
-        		maxN = 0;
-        		maxCases = 0;
-        		for (int i = 0; i < N; ++i) {
-        			int newN = hNtoK[i+1] - hNtoK[i];
-        			int newC = hNWeight[i];
-        			if (newN > maxN) maxN = newN;
-        			if (newC > maxCases) maxCases = newC;
-        		}
-        		hFirstRow.resize(3*(maxN+1)*N);
-        		for (int i = 0; i < N*(maxN+1); ++i) {
-#ifdef USE_LOG_SUM
-        			hFirstRow[3*i] = 0;
-        			hFirstRow[3*i+1] = -INFINITY;
-        			hFirstRow[3*i+2] = -INFINITY;
-#else
-        			hFirstRow[3*i] = 1;
-        			hFirstRow[3*i+1] = 0;
-        			hFirstRow[3*i+2] = 0;
-#endif
-        		}
-            	detail::resizeAndCopyToDevice(hFirstRow, dFirstRow, queue);
-            	detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
-            	hOverflow.resize(3*(maxN+1)*N);
-            	for (int i = 0; i < 3*(maxN+1)*N; ++i) {
-            	    hOverflow[i] = 1.0;
-            	}
-            	detail::resizeAndCopyToDevice(hOverflow, dOverflow0, queue);
-            	dBuffer1.resize(1,queue);
-            	//dRealVector2.resize(112*N);
-            	initialized = true;
-        	}
-        	kernel.set_arg(0, dColumns.getDataStarts());
-        	kernel.set_arg(1, dColumns.getIndicesStarts());
-        	kernel.set_arg(2, dColumns.getTaskCounts());
-        	kernel.set_arg(3, dNtoK);
-        	kernel.set_arg(4, dBuffer1);
-        	kernel.set_arg(5, dColumns.getData());
-        	kernel.set_arg(6, dColumns.getIndices());
-        	kernel.set_arg(7, dExpXBeta);
-        	detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
-        	kernel.set_arg(8, dNWeight);
-        	hBuffer.resize(3*N);
-        	for (int i = 0; i < 3*N; ++i) {
-        	    hBuffer[i] = 0;
-        	}
-        	detail::resizeAndCopyToDevice(hBuffer, dBuffer, queue);
-        	kernel.set_arg(9, dBuffer);
-        	detail::resizeAndCopyToDevice(hFirstRow, dFirstRow, queue);
-        	kernel.set_arg(10, dFirstRow);
-        	kernel.set_arg(11, (maxN+1)*3);
-        	//kernel.set_arg(13, dRealVector1);
-        	//kernel.set_arg(14, dRealVector2);
-        	kernel.set_arg(13, dOverflow0);
-        	kernel.set_arg(14, index);
-
-        	size_t workGroups = maxCases / 32;
-        	if (maxCases % 32 > 0) ++workGroups;
-        	const size_t globalWorkSize = N * 32;
-
-        	for (int i = 0; i < workGroups; ++i) {
-        		//std::cerr << " run" << i;
-        		kernel.set_arg(0, dColumns.getDataStarts());
-        		kernel.set_arg(1, dColumns.getIndicesStarts());
-        		kernel.set_arg(2, dColumns.getTaskCounts());
-        		detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
-        		kernel.set_arg(3, dNtoK);
-        		kernel.set_arg(4, dBuffer1);
-        		kernel.set_arg(5, dColumns.getData());
-        		kernel.set_arg(6, dColumns.getIndices());
-        		kernel.set_arg(7, dExpXBeta);
-        		detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
-        		kernel.set_arg(8, dNWeight);
-            	detail::resizeAndCopyToDevice(hBuffer, dBuffer, queue);
-        		kernel.set_arg(9, dBuffer);
-        		kernel.set_arg(10, dFirstRow);
-        		kernel.set_arg(11, (1+maxN)*3);
-        		//kernel.set_arg(13, dRealVector1);
-        		//kernel.set_arg(14, dRealVector2);
-        		detail::resizeAndCopyToDevice(hOverflow, dOverflow0, queue);
-            	kernel.set_arg(13, dOverflow0);
-            	kernel.set_arg(14, index);
-            	kernel.set_arg(12, i);
-    	        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, 32);
-    	        queue.finish();
-        	}
-
-        	hBuffer1.resize(3*N);
-        	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer1), queue);
-        	for (int i = 0; i < N; ++i) {
-#ifdef USE_LOG_SUM
-        		gradient -= (real) -exp(hBuffer1[3*i+1]-hBuffer1[3*i]);
-        		hessian -= (real) (exp(2*(hBuffer1[3*i+1]-hBuffer1[3*i]))-exp(hBuffer1[3*i+2]-hBuffer1[3*i]));
-#else
-        		gradient -= (real)(-hBuffer1[3*i+1]/hBuffer1[3*i]);
-        		hessian -= (real)((hBuffer1[3*i+1]/hBuffer1[3*i]) * (hBuffer1[3*i+1]/hBuffer1[3*i]) - hBuffer1[3*i+2]/hBuffer1[3*i]);
-#endif
-        	}
-
-*/
-
         	// 1 col at a time
         	if (!initialized) {
-        		totalCases = 0;
-        		for (int i=0; i < N; ++i) {
-        			totalCases += hNWeight[i];
-        		}
-        		int temp = 0;
-        		maxN = 0;
-        		subjects.resize(N);
-        		for (int i = 0; i < N; ++i) {
-        			int newN = hNtoK[i+1] - hNtoK[i];
-        			subjects[i] = newN;
-        			if (newN > maxN) maxN = newN;
-        		}
-
-        		// indices vector
-        		std::vector<int> hIndices;
-        		hIndices.resize(3*(N+totalCases));
-        		temp = 0;
-        		for (int i=0; i < N; ++i) {
-        			hIndices[temp] = 0;
-        			hIndices[temp+1] = 0;
-        			hIndices[temp+2] = 0;
-        			temp += 3;
-        			for (int j = 3; j < 3*(hNWeight[i]+1); ++j) {
-        				hIndices[temp] = i+1;
-        				++temp;
-        			}
-        		}
-        		detail::resizeAndCopyToDevice(hIndices, dIntVector1, queue);
-
-        		// constant vectors
-        		std::vector<real> hVector1;
-        		std::vector<real> hVector2;
-        		hVector1.resize(3*(N+totalCases));
-        		hVector2.resize(3*(N+totalCases));
-        		for (int i=0; i < N+totalCases; ++i) {
-        			hVector1[3*i] = 0;
-        			hVector1[3*i+1] = 1;
-        			hVector1[3*i+2] = 1;
-        			hVector2[3*i] = 0;
-        			hVector2[3*i+1] = 0;
-        			hVector2[3*i+2] = 1;
-        		}
-        		detail::resizeAndCopyToDevice(hVector1, dRealVector1, queue);
-        		detail::resizeAndCopyToDevice(hVector2, dRealVector2, queue);
-
-        		// overflow vectors
-        		std::vector<int> hOverflow;
-        		hOverflow.resize(N+1);
-        		for (int i=0; i < N+1; ++i) {
-        			hOverflow[i] = 0;
-        		}
-        		detail::resizeAndCopyToDevice(hOverflow, dOverflow0, queue);
-        		detail::resizeAndCopyToDevice(hOverflow, dOverflow1, queue);
-
         		detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
-
-            	// B0 and B1
-        	    temp = 0;
-            	hBuffer0.resize(3*(N+totalCases));
-        	    for (int i=0; i < 3*(N+totalCases); ++i) {
-        	    	hBuffer0[i] = 0;
-        	    }
-        	    for (int i=0; i < N; ++i) {
-        	    	hBuffer0[temp] = 1;
-        	        temp += 3*(hNWeight[i]+1);
-        	    }
-
-                compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(offsExpXBeta), queue);
-                GenericIterator x(modelData, index);
-        	    auto expX = offsExpXBeta.begin();
-        	    xMatrix.resize((N+1) * maxN);
-        	    expXMatrix.resize((N+1) * maxN);
-        	    for (int j = 0; j < maxN; ++j) {
-        	    	xMatrix[j*(N+1)] = 0;
-        	    	expXMatrix[j*(N+1)] = 0;
-        	    }
-
-        	    for (int i = 1; i < (N+1); ++i) {
-        	        for (int j = 0; j < maxN; ++j) {
-        	            if (j < subjects[i-1]) {
-        	                xMatrix[j*(N+1) + i] = x.value();
-        	                expXMatrix[j*(N+1) + i] = *expX;
-        	                ++expX;
-        	                ++x;
-        	            } else {
-        	                xMatrix[j*(N+1) + i] = 0;
-        	                expXMatrix[j*(N+1) + i] = -1;
-        	            }
-        	        }
-        	    }
-    		    computeRemainingStatistics(true);
-
         		initialized = true;
+        		/*
+        		std::cout << "NtoK: ";
+        		for (auto x:hNtoK) {
+        			std::cout << x << " ";
+        		}
+        		std::cout << "\n";
+        		std::cout << "hNWeight: ";
+        		for (auto x:hNWeight) {
+        			std::cout << x << " ";
+        		}
+        		std::cout << "\n";
+        		std::cout << "N: " << N << "\n";
+
+        		std::vector<int> temp;
+        		temp.resize(dColumns.getDataStarts().size());
+        		compute::copy(std::begin(dColumns.getDataStarts()), std::end(dColumns.getDataStarts()), std::begin(temp), queue);
+        		std::cout << "data starts " << temp.size() << ": ";
+        		for (auto x:temp) {
+        			std::cout << x << " ";
+        		}
+        		std::cout << "\n";
+
+        		std::vector<real> blah;
+        		blah.resize(dColumns.getData().size());
+        		compute::copy(std::begin(dColumns.getData()), std::end(dColumns.getData()), std::begin(blah), queue);
+
+        		std::cout << "data length " << blah.size() << ": ";
+        		for (auto x:blah) {
+        			std::cout << x << " ";
+        		}
+        		std::cout << "\n";
+        		*/
         	}
-    	    detail::resizeAndCopyToDevice(hBuffer0, dBuffer, queue);
-    	    detail::resizeAndCopyToDevice(hBuffer0, dBuffer1, queue);
-    	    kernel.set_arg(0, dBuffer);
-    	    kernel.set_arg(1, dBuffer1);
-        	kernel.set_arg(2, dIntVector1);
-        	kernel.set_arg(5, dRealVector1);
-        	kernel.set_arg(6, dRealVector2);
-    	    int dN = N;
-    	    kernel.set_arg(7, dN);
-            if (dKWeight.size() == 0) {
-                kernel.set_arg(9, 0);
-            } else {
-                kernel.set_arg(9, dKWeight); // TODO Only when dKWeight gets reallocated
-            }
-        	kernel.set_arg(10, dOverflow0);
-        	kernel.set_arg(11, dOverflow1);
 
 
-            // X and ExpX matrices
-            compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(offsExpXBeta), queue);
-            GenericIterator x(modelData, index);
-    	    auto expX = offsExpXBeta.begin();
-    	    xMatrix.resize((N+1) * maxN);
-    	    expXMatrix.resize((N+1) * maxN);
-    	    for (int j = 0; j < maxN; ++j) {
-    	    	xMatrix[j*(N+1)] = 0;
-    	    	expXMatrix[j*(N+1)] = 0;
-    	    }
+        	kernel.set_arg(0, dColumns.getDataOffset(index));
+        	kernel.set_arg(1, dColumns.getIndicesOffset(index));
+        	kernel.set_arg(2, dColumns.getTaskCount(index));
 
-    	    for (int i = 1; i < (N+1); ++i) {
-    	        for (int j = 0; j < maxN; ++j) {
-    	            if (j < subjects[i-1]) {
-    	                xMatrix[j*(N+1) + i] = x.value();
-    	                expXMatrix[j*(N+1) + i] = *expX;
-    	                ++expX;
-    	                ++x;
-    	            } else {
-    	                xMatrix[j*(N+1) + i] = 0;
-    	                expXMatrix[j*(N+1) + i] = -1;
-    	            }
-    	        }
-    	    }
+        	kernel.set_arg(3, dColumns.getData());
+        	kernel.set_arg(4, dColumns.getIndices());
+        	kernel.set_arg(5, dNtoK);
 
-    	    detail::resizeAndCopyToDevice(xMatrix, dXMatrix, queue);
-    	    detail::resizeAndCopyToDevice(expXMatrix, dExpXMatrix, queue);
-    	    kernel.set_arg(3, dXMatrix);
-    	    kernel.set_arg(4, dExpXMatrix);
+        	if (dBuffer.size() < 3*N) {
+        		dBuffer.resize(3*N, queue);
+        	}
+        	if (hBuffer.size() < 3*N) {
+        		hBuffer.resize(3*N);
+        	}
+        	kernel.set_arg(6, dNWeight);
+#ifdef USE_LOG_SUM
+        	kernel.set_arg(7, dXBeta);
+#else
+        	kernel.set_arg(7, dExpXBeta);
+#endif
+/*
+        	std::vector<real> blah;
+        	blah.resize(dExpXBeta.size());
+        	compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(blah), queue);
+        	std::cout << "expXBeta: ";
+        	for (auto x:blah) {
+        		std::cout << x << " ";
+        	}
+        	std::cout << "\n";
+        	*/
 
+        	kernel.set_arg(8, dBuffer);
+        	//kernel.set_arg(9, dBuffer1);
+        	//dK = K;
+        	//kernel.set_arg(10, dK);
+        	kernel.set_arg(9, index);
 
-    	    //kernel.set_arg(3, dColumns.getData());
-        	//kernel.set_arg(4, dExpXBeta);
-        	//kernel.set_arg(13, dNtoK);
-        	//kernel.set_arg(14, dColumns.getDataOffset(index));
+    	    const size_t globalWorkSize = N * detail::constant::exactCLRBlockSize;
 
-    	    compute::uint_ taskCount = 3*(N+totalCases);
-    	    size_t workGroups = taskCount / detail::constant::updateAllXBetaBlockSize;
-    	    if (taskCount % detail::constant::updateAllXBetaBlockSize != 0) {
-    	    	++workGroups;
-    	    }
-    	    const size_t globalWorkSize = workGroups * detail::constant::updateAllXBetaBlockSize;
-    	    kernel.set_arg(12, taskCount);
-
-    	    //kernel.set_arg(8, maxN);
-	        //queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
-	        //queue.finish();
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end0 = bsccs::chrono::steady_clock::now();
         ///////////////////////////"
         auto name0 = "compGradHessGArgs";
         duration[name0] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end0 - start).count();
 #endif
+        	queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::exactCLRBlockSize);
+        	queue.finish();
 
-    	    for (int i=0; i < maxN; ++i) {
-    	    	//std::cout << "run: " << i << '\n';
-        	    kernel.set_arg(0, dBuffer);
-        	    kernel.set_arg(1, dBuffer1);
-            	kernel.set_arg(2, dIntVector1);
-        	    kernel.set_arg(3, dXMatrix);
-        	    kernel.set_arg(4, dExpXMatrix);
-            	kernel.set_arg(5, dRealVector1);
-            	kernel.set_arg(6, dRealVector2);
-        	    kernel.set_arg(7, dN);
-                if (dKWeight.size() == 0) {
-                    kernel.set_arg(9, 0);
-                } else {
-                    kernel.set_arg(9, dKWeight); // TODO Only when dKWeight gets reallocated
-                }
-            	kernel.set_arg(10, dOverflow0);
-            	kernel.set_arg(11, dOverflow1);
-        	    kernel.set_arg(12, taskCount);
+        	compute::copy(std::begin(dBuffer), std::begin(dBuffer)+3*N, std::begin(hBuffer), queue);
 
-        	    kernel.set_arg(8, i);
-    	        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateAllXBetaBlockSize);
-    	        queue.finish();
-    	    }
 
-    	    hBuffer1.resize(3*(N+totalCases));
-    	    if (maxN%2 == 0) {
-    	    	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer1), queue);
-    	    } else {
-    	    	compute::copy(std::begin(dBuffer1), std::end(dBuffer1), std::begin(hBuffer1), queue);
-    	    }
-
-    	    int temp = 0;
     	    for (int i=0; i<N; ++i) {
-    	    	temp += hNWeight[i]+1;
-    	        //std::cout<<"new values" << i << ": " << hBuffer1[3*temp-3] <<" | "<< hBuffer1[3*temp-2] << " | " << hBuffer1[3*temp-1] << '\n';
-    	    	gradient -= (real)(-hBuffer1[3*temp-2]/hBuffer1[3*temp-3]);
-    	    	hessian -= (real)((hBuffer1[3*temp-2]/hBuffer1[3*temp-3]) * (hBuffer1[3*temp-2]/hBuffer1[3*temp-3]) - hBuffer1[3*temp-1]/hBuffer1[3*temp-3]);
+#ifdef USE_LOG_SUM
+    	    	gradient -= (real) -exp(hBuffer[3*i+1] - hBuffer[3*i]);
+    	    	hessian -= (real) (exp(2*(hBuffer[3*i+1]-hBuffer[3*i])) - exp(hBuffer[3*i+2] - hBuffer[3*i]));
+    	    	//int a = detail::constant::exactCLRBlockSize;
+    	    	//gradient -= (real) -exp(hBuffer[3*i*a+a+hNWeight[i]]-hBuffer[3*i*a+hNWeight[i]]);
+    	    	//hessian -= (real) (exp(2*(hBuffer[3*i*a+a+hNWeight[i]]-hBuffer[3*i*a+hNWeight[i]]))  - exp(hBuffer[3*i*a+2*a+hNWeight[i]]-hBuffer[3*i*a+hNWeight[i]]));
+#else
+    	    	gradient -= (real)(-hBuffer[3*i+1]/hBuffer[3*i]);
+    	    	hessian -= (real)((hBuffer[3*i+1]/hBuffer[3*i]) * (hBuffer[3*i+1]/hBuffer[3*i]) - hBuffer[3*i+2]/hBuffer[3*i]);
+    	    	//int a = detail::constant::exactCLRBlockSize;
+    	    	//gradient -= (real)(-hBuffer[3*i*a+a+hNWeight[i]]/hBuffer[3*i*a+hNWeight[i]]);
+    	    	//hessian -= (real)((hBuffer[3*i*a+a+hNWeight[i]]/hBuffer[3*i*a+hNWeight[i]]) * (hBuffer[3*i*a+a+hNWeight[i]]/hBuffer[3*i*a+hNWeight[i]]) - hBuffer[3*i*a+2*a+hNWeight[i]]/hBuffer[3*i*a+hNWeight[i]]);
+#endif
     	    }
 
+/*
+    	    std::cout << "hBuffer: ";
+    	    for (auto x:hBuffer) {
+    	    	std::cout << x << " ";
+    	    }
+    	    std::cout << "\n";
+
+    	    std::cout << "gradient: " <<  gradient << " hessian: " <<  hessian << "\n";
+    	    */
 
         } else {
 
@@ -4241,6 +4045,7 @@ virtual void runCCDIndex() {
 
     	//std::vector<real> xjxTemp;
     	//xjxTemp.resize(J*syncCVFolds);
+    	if (syncCV) {
     	std::vector<real> xjyTemp;
     	/*
     	xjyTemp.resize(J*syncCVFolds, 0.0);
@@ -4264,6 +4069,7 @@ virtual void runCCDIndex() {
 
     	//detail::resizeAndCopyToDevice(xjxTemp, dXjXVector, queue);
     	detail::resizeAndCopyToDevice(xjyTemp, dXjYVector, queue);
+    	}
 
     }
 
@@ -4547,23 +4353,6 @@ virtual void runCCDIndex() {
 
     void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
 
-        std::stringstream options;
-
-        if (sizeof(real) == 8) {
-#ifdef USE_VECTOR
-        options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
-#else
-        options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
-#endif // USE_VECTOR
-        } else {
-#ifdef USE_VECTOR
-            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
-#else
-            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
-#endif // USE_VECTOR
-        }
-        options << " -cl-mad-enable";
-
 //         compute::vector<compute::double2_> buf(10, ctx);
 //
 //         compute::double2_ sum = compute::double2_{0.0, 0.0};
@@ -4593,9 +4382,28 @@ virtual void runCCDIndex() {
 //         Rcpp::stop("out");
 
         if (BaseModel::exactCLR) {
+            std::stringstream options;
+
+            if (sizeof(real) == 8) {
+    #ifdef USE_VECTOR
+            options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << detail::constant::exactCLRBlockSize;
+    #else
+            options << "-DREAL=double -DTMP_REAL=double -DTPB=" << detail::constant::exactCLRBlockSize;
+    #endif // USE_VECTOR
+            } else {
+    #ifdef USE_VECTOR
+                options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << detail::constant::exactCLRBlockSize;
+    #else
+                options << "-DREAL=float -DTMP_REAL=float -DTPB=" << detail::constant::exactCLRBlockSize;
+    #endif // USE_VECTOR
+            }
+            options << " -cl-mad-enable";
+
         	// CCD Kernel
         	auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useWeights, isNvidia);
+        	std::cout << source.body;
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        	std::cout << "program built\n";
         	auto kernel = compute::kernel(program, source.name);
 
         	if (useWeights) {
@@ -4610,6 +4418,23 @@ virtual void runCCDIndex() {
         		//kernelGradientHessianSyncNoWeight[formatType] = std::move(kernelSync);
         	}
         } else {
+            std::stringstream options;
+
+            if (sizeof(real) == 8) {
+    #ifdef USE_VECTOR
+            options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+    #else
+            options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+    #endif // USE_VECTOR
+            } else {
+    #ifdef USE_VECTOR
+                options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+    #else
+                options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+    #endif // USE_VECTOR
+            }
+            options << " -cl-mad-enable";
+
         	// CCD Kernel
         	auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
