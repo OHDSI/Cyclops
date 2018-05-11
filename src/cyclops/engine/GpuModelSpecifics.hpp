@@ -714,11 +714,12 @@ public:
         	kernel.set_arg(4, dColumns.getIndices());
         	kernel.set_arg(5, dNtoK);
 
-        	if (dBuffer.size() < 3*N) {
-        		dBuffer.resize(3*N, queue);
+        	int a = detail::constant::exactCLRBlockSize;
+        	if (dBuffer.size() < 3*N*a) {
+        		dBuffer.resize(3*N*a, queue);
         	}
-        	if (hBuffer.size() < 3*N) {
-        		hBuffer.resize(3*N);
+        	if (hBuffer.size() < 3*N*a) {
+        		hBuffer.resize(3*N*a);
         	}
         	kernel.set_arg(6, dNWeight);
 #ifdef USE_LOG_SUM
@@ -726,7 +727,7 @@ public:
 #else
         	kernel.set_arg(7, dExpXBeta);
 #endif
-/*
+
         	std::vector<real> blah;
         	blah.resize(dExpXBeta.size());
         	compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(blah), queue);
@@ -735,7 +736,7 @@ public:
         		std::cout << x << " ";
         	}
         	std::cout << "\n";
-        	*/
+
 
         	kernel.set_arg(8, dBuffer);
         	//kernel.set_arg(9, dBuffer1);
@@ -754,26 +755,26 @@ public:
         	queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::exactCLRBlockSize);
         	queue.finish();
 
-        	compute::copy(std::begin(dBuffer), std::begin(dBuffer)+3*N, std::begin(hBuffer), queue);
+        	compute::copy(std::begin(dBuffer), std::begin(dBuffer)+3*N*a, std::begin(hBuffer), queue);
 
 
     	    for (int i=0; i<N; ++i) {
 #ifdef USE_LOG_SUM
-    	    	gradient -= (real) -exp(hBuffer[3*i+1] - hBuffer[3*i]);
-    	    	hessian -= (real) (exp(2*(hBuffer[3*i+1]-hBuffer[3*i])) - exp(hBuffer[3*i+2] - hBuffer[3*i]));
+    	    	//gradient -= (real) -exp(hBuffer[3*i+1] - hBuffer[3*i]);
+    	    	//hessian -= (real) (exp(2*(hBuffer[3*i+1]-hBuffer[3*i])) - exp(hBuffer[3*i+2] - hBuffer[3*i]));
     	    	//int a = detail::constant::exactCLRBlockSize;
-    	    	//gradient -= (real) -exp(hBuffer[3*i*a+a+hNWeight[i]]-hBuffer[3*i*a+hNWeight[i]]);
-    	    	//hessian -= (real) (exp(2*(hBuffer[3*i*a+a+hNWeight[i]]-hBuffer[3*i*a+hNWeight[i]]))  - exp(hBuffer[3*i*a+2*a+hNWeight[i]]-hBuffer[3*i*a+hNWeight[i]]));
+    	    	gradient -= (real) -exp(hBuffer[3*i*a+a+hNWeight[i]]-hBuffer[3*i*a+hNWeight[i]]);
+    	    	hessian -= (real) (exp(2*(hBuffer[3*i*a+a+hNWeight[i]]-hBuffer[3*i*a+hNWeight[i]]))  - exp(hBuffer[3*i*a+2*a+hNWeight[i]]-hBuffer[3*i*a+hNWeight[i]]));
 #else
-    	    	gradient -= (real)(-hBuffer[3*i+1]/hBuffer[3*i]);
-    	    	hessian -= (real)((hBuffer[3*i+1]/hBuffer[3*i]) * (hBuffer[3*i+1]/hBuffer[3*i]) - hBuffer[3*i+2]/hBuffer[3*i]);
+    	    	//gradient -= (real)(-hBuffer[3*i+1]/hBuffer[3*i]);
+    	    	//hessian -= (real)((hBuffer[3*i+1]/hBuffer[3*i]) * (hBuffer[3*i+1]/hBuffer[3*i]) - hBuffer[3*i+2]/hBuffer[3*i]);
     	    	//int a = detail::constant::exactCLRBlockSize;
-    	    	//gradient -= (real)(-hBuffer[3*i*a+a+hNWeight[i]]/hBuffer[3*i*a+hNWeight[i]]);
-    	    	//hessian -= (real)((hBuffer[3*i*a+a+hNWeight[i]]/hBuffer[3*i*a+hNWeight[i]]) * (hBuffer[3*i*a+a+hNWeight[i]]/hBuffer[3*i*a+hNWeight[i]]) - hBuffer[3*i*a+2*a+hNWeight[i]]/hBuffer[3*i*a+hNWeight[i]]);
+    	    	gradient -= (real)(-hBuffer[3*i*a+a+hNWeight[i]]/hBuffer[3*i*a+hNWeight[i]]);
+    	    	hessian -= (real)((hBuffer[3*i*a+a+hNWeight[i]]/hBuffer[3*i*a+hNWeight[i]]) * (hBuffer[3*i*a+a+hNWeight[i]]/hBuffer[3*i*a+hNWeight[i]]) - hBuffer[3*i*a+2*a+hNWeight[i]]/hBuffer[3*i*a+hNWeight[i]]);
 #endif
     	    }
 
-/*
+
     	    std::cout << "hBuffer: ";
     	    for (auto x:hBuffer) {
     	    	std::cout << x << " ";
@@ -781,7 +782,7 @@ public:
     	    std::cout << "\n";
 
     	    std::cout << "gradient: " <<  gradient << " hessian: " <<  hessian << "\n";
-    	    */
+
 
         } else {
 

@@ -1106,19 +1106,19 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"		}									\n" <<
 						"	}										\n";
 						*/
-				/*
+
 				code << "	output[stratum*3*TPB + lid] = B0[1-current][lid];	\n" <<
 						"	output[stratum*3*TPB + TPB + lid] = B1[1-current][lid];	\n" <<
 						"	output[stratum*3*TPB + 2*TPB + lid] = B2[1-current][lid];	\n";
-				*/
 
+/*
 				code << "	if (lid == 0) {							\n" <<
 						"		output[3*stratum] = B0[1-current][cases];	\n" <<
 						"		output[3*stratum+1] = B1[1-current][cases];	\n" <<
 						"		output[3*stratum+2] = B2[1-current][cases];	\n" <<
 						"	}										\n";
+						*/
 		        code << "}  \n"; // End of kernel
-
 		        return SourceCode(code.str(), name);
 	}
 
