@@ -982,8 +982,13 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		code << "REAL log_sum(REAL x, REAL y) {										\n" <<
 				"	if (isinf(x)) return y;											\n" <<
 				"	if (isinf(y)) return x;											\n" <<
-				"	REAL z = max(x,y);												\n" <<
-				"	return z + log(exp(x-z) + exp(y-z));							\n" <<
+				"	if (x > y) {											\n" <<
+				"		return x + log(1 + exp(y-x));								\n" <<
+				"	} else {														\n" <<
+				"		return y + log(1 + exp(x-y));								\n" <<
+				"	}																\n" <<
+				//"	REAL z = max(x,y);												\n" <<
+				//"	return z + log(exp(x-z) + exp(y-z));							\n" <<
 				"}																	\n";
 
 		        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
@@ -1079,9 +1084,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
 							"		currentK = K[offK + currentKIndex];	\n" <<
 							"	}									\n";
 				}
-				code << "		if (lid > 0 && lid <= cases) {						\n" <<
+				code << "		if (lid > 0) {						\n" <<
 #ifdef USE_LOG_SUM
-						"			x = log(x);										\n" <<
+						//"			x = log(x);										\n" <<
 						"			B0[current][lid] = log_sum(				   B0[1-current][lid], U+B0[1-current][lid-1]);	\n" <<
 						"			B1[current][lid] = log_sum(log_sum(		   B1[1-current][lid], U+B1[1-current][lid-1]), x + U + B0[1-current][lid-1]);	\n" <<
 						"			B2[current][lid] = log_sum(log_sum(log_sum(B2[1-current][lid], U+B2[1-current][lid-1]), x + U + B0[1-current][lid-1]), logTwo + x + U + B1[1-current][lid-1]);	\n" <<
@@ -1137,7 +1142,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				}
 				code << "		if (lid > 0) {						\n" <<
 #ifdef USE_LOG_SUM
-						"			x = log(x);										\n" <<
+						//"			x = log(x);										\n" <<
 						"			B0[current][lid] = log_sum(				   B0[1-current][lid], U+B0[1-current][lid-1]);	\n" <<
 						"			B1[current][lid] = log_sum(log_sum(		   B1[1-current][lid], U+B1[1-current][lid-1]), x + U + B0[1-current][lid-1]);	\n" <<
 						"			B2[current][lid] = log_sum(log_sum(log_sum(B2[1-current][lid], U+B2[1-current][lid-1]), x + U + B0[1-current][lid-1]), logTwo + x + U + B1[1-current][lid-1]);	\n" <<
@@ -1234,7 +1239,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
 				code << "		if (lid > 0) {						\n" <<
 #ifdef USE_LOG_SUM
-						"			x = log(x);										\n" <<
+						//"			x = log(x);										\n" <<
 						"			B0[current][lid] = log_sum(				   B0[1-current][lid], U+B0[1-current][lid-1]);	\n" <<
 						"			B1[current][lid] = log_sum(log_sum(		   B1[1-current][lid], U+B1[1-current][lid-1]), x + U + B0[1-current][lid-1]);	\n" <<
 						"			B2[current][lid] = log_sum(log_sum(log_sum(B2[1-current][lid], U+B2[1-current][lid-1]), x + U + B0[1-current][lid-1]), logTwo + x + U + B1[1-current][lid-1]);	\n" <<
@@ -1328,7 +1333,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"		}									\n";
 				code << "		if (lid > 0) {						\n" <<
 #ifdef USE_LOG_SUM
-						"			x = log(x);										\n" <<
+						//"			x = log(x);										\n" <<
 						"			B0[current][lid] = log_sum(				   B0[1-current][lid], U+B0[1-current][lid-1]);	\n" <<
 						"			B1[current][lid] = log_sum(log_sum(		   B1[1-current][lid], U+B1[1-current][lid-1]), x + U + B0[1-current][lid-1]);	\n" <<
 						"			B2[current][lid] = log_sum(log_sum(log_sum(B2[1-current][lid], U+B2[1-current][lid-1]), x + U + B0[1-current][lid-1]), logTwo + x + U + B1[1-current][lid-1]);	\n" <<

@@ -351,7 +351,7 @@ public:
 	  dXBetaVector(ctx), dOffsExpXBetaVector(ctx), dDenomPidVector(ctx), dNWeightVector(ctx), dKWeightVector(ctx), dPidVector(ctx),
 	  dAccDenomPidVector(ctx), dAccNumerPidVector(ctx), dAccNumerPid2Vector(ctx), dAccResetVector(ctx), dPidInternalVector(ctx), dNumerPidVector(ctx),
 	  dNumerPid2Vector(ctx), dNormVector(ctx), dXjXVector(ctx), dXjYVector(ctx), dDeltaVector(ctx), dBoundVector(ctx), dPriorParams(ctx), dBetaVector(ctx),
-	  dAllZero(ctx), dDoneVector(ctx), dIndexListWithPrior(ctx), dCVIndices(ctx), dSMStarts(ctx), dSMScales(ctx), dSMIndices(ctx),
+	  dAllZero(ctx), dDoneVector(ctx), dIndexListWithPrior(ctx), dCVIndices(ctx), dSMStarts(ctx), dSMScales(ctx), dSMIndices(ctx), dLogX(ctx),
 	  dXBetaKnown(false), hXBetaKnown(false){
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
@@ -672,6 +672,14 @@ public:
         		detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
         		detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
         		initialized = true;
+
+        		std::vector<real> hLogX;
+        		hLogX.resize(dColumns.getData().size());
+        		compute::copy(std::begin(dColumns.getData()), std::end(dColumns.getData()), std::begin(hLogX), queue);
+        		for (int i=0; i<hLogX.size(); i++) {
+        			hLogX[i] = log(hLogX[i]);
+        		}
+        		detail::resizeAndCopyToDevice(hLogX, dLogX, queue);
         		/*
         		std::cout << "NtoK: ";
         		for (auto x:hNtoK) {
@@ -711,7 +719,7 @@ public:
         	kernel.set_arg(1, dColumns.getIndicesOffset(index));
         	kernel.set_arg(2, dColumns.getTaskCount(index));
 
-        	kernel.set_arg(3, dColumns.getData());
+        	kernel.set_arg(3, dLogX);
         	kernel.set_arg(4, dColumns.getIndices());
         	kernel.set_arg(5, dNtoK);
 
@@ -740,13 +748,14 @@ public:
         	std::cout << "\n";
         	*/
 
-        	if (dBuffer1.size() < 3*K) {
-        		dBuffer1.resize(3*K);
+        	int Kstride = detail::getAlignedLength<16>(K);
+        	if (dBuffer1.size() < Kstride) {
+        		dBuffer1.resize(Kstride);
         	}
         	kernel.set_arg(8, dBuffer);
         	kernel.set_arg(9, dBuffer1);
         	int dK = K;
-        	kernel.set_arg(10, dK);
+        	kernel.set_arg(10, Kstride);
         	kernel.set_arg(11, index);
 
     	    const size_t globalWorkSize = N * detail::constant::exactCLRBlockSize;
@@ -5010,6 +5019,7 @@ virtual void runCCDIndex() {
     compute::vector<int> dNtoK;
     compute::vector<real> dFirstRow;
     compute::vector<int> dAllZero;
+    compute::vector<real> dLogX;
 
 #ifdef USE_VECTOR
     compute::vector<compute::double2_> dBuffer;
