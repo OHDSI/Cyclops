@@ -2088,7 +2088,14 @@ static std::string weight(const std::string& arg, bool useWeights) {
         //        "   const uint loopSize = get_global_size(0); \n";
         // Local and thread storage
         code << "   if (task < N) {      				\n";
-        if (BaseModel::likelihoodHasDenominator) {
+        if (BaseModel::exactCLR) {
+#ifdef USE_LOG_SUM
+#else
+        	code << "const REAL xb = xBeta[task];	\n" <<
+        			"REAL exb = exp(xb);			\n" <<
+					"expXBeta[task] = exb;			\n";
+#endif
+        } else if (BaseModel::likelihoodHasDenominator) {
         	code << "const REAL y = Y[task];\n" <<
         			"const REAL xb = xBeta[task];\n" <<
 					"const REAL offs = Offs[task];\n";
