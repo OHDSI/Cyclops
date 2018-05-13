@@ -998,11 +998,11 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"	__global const REAL* casesVec,			\n" <<
 						"	__global const REAL* expXBeta,				\n" <<
 						"	__global REAL* output,					\n" <<
-						//"	__global REAL* firstRow,				\n" <<
-						//"	const uint persons;						\n" <<
+						"	__global REAL* firstRow,				\n" <<
+						"	const uint persons,						\n" <<
 						"	const uint index) {    					\n";
 				code << "	uint lid = get_local_id(0);				\n" <<
-						"	__local uint stratum, stratumStart, cases, total, controls;		\n" <<
+						"	uint stratum, stratumStart, cases, total, controls;		\n" <<
 						"	stratum = get_group_id(0);				\n" <<
 						"	cases = casesVec[stratum];				\n" <<
 						"	stratumStart = NtoK[stratum];			\n" <<
@@ -1010,9 +1010,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"	controls = total - cases;				\n" <<
 						"	__local REAL B0[2][TPB];					\n" <<
 						"	__local REAL B1[2][TPB];				\n" <<
-						"	__local REAL B2[2][TPB];				\n" <<
+						"	__local REAL B2[2][TPB];				\n";
 #ifdef USE_LOG_SUM
-						"	B0[0][lid] = -INFINITY;					\n" <<
+				code << "	B0[0][lid] = -INFINITY;					\n" <<
 						"	B0[1][lid] = -INFINITY;					\n" <<
 						"	B1[0][lid] = -INFINITY;					\n" <<
 						"	B1[1][lid] = -INFINITY;					\n" <<
@@ -1022,9 +1022,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"		B0[0][lid] = 0;						\n" <<
 						"		B0[1][lid] = 0;						\n" <<
 						"	}										\n" <<
-						"	const REAL logTwo = log((REAL)2.0);		\n" <<
+						"	const REAL logTwo = log((REAL)2.0);		\n";
 #else
-						"	B0[0][lid] = 0;							\n" <<
+				code << "	B0[0][lid] = 0;							\n" <<
 						"	B0[1][lid] = 0;							\n" <<
 						"	B1[0][lid] = 0;							\n" <<
 						"	B1[1][lid] = 0;							\n" <<
@@ -1033,15 +1033,21 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"	if (lid == 0) {							\n" <<
 						"		B0[0][lid] = 1;						\n" <<
 						"		B0[1][lid] = 1;						\n" <<
-						"	}										\n" <<
+						"	}										\n";
 #endif
-						"	uint current = 0;						\n";
-				/*
-				code << "	__local loops;							\n" <<
-						"	loops = (cases+1) / TPB;				\n" <<
-						"	if ((cases+1)%TPB!=0) loops++;			\n" <<
-						"	for (int loop = 0; loop < loops; loop++) {	\n";
-						*/
+						//"	uint current = 0;						\n";
+
+
+				code << "	uint loops;								\n" <<
+						"	loops = cases / (TPB - 1);				\n" <<
+						"	if (cases % (TPB - 1) > 0) {			\n" <<
+						"		loops++;							\n" <<
+						"	}										\n";
+
+				// if loops == 1
+				code << "if (loops == 1) {							\n" <<
+				        "	uint current = 0;						\n";
+
 				if (formatType == INDICATOR || formatType == SPARSE) {
 				code << "	uint currentKIndex = 0;					\n" <<
 						"	uint currentK = K[offK];				\n" <<
@@ -1050,10 +1056,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"		currentK = K[offK + currentKIndex];		\n" <<
 						"	}										\n";
 				}
-				code << "	int start = 0;							\n" << //loop * TPB;					\n" <<
-						"	int end = total;						\n";//start + TPB + controls;		\n" <<
-						//"	if (end>total) end = total;				\n";
-				code << "	for (int col = start; col < end; col++) {	\n" <<
+
+				code << "	for (int col = 0; col < total; col++) {	\n" <<
 						"		REAL U = expXBeta[stratumStart+col];	\n";
 				if (formatType == DENSE) {
 					code << "	REAL x = X[offX+stratumStart+col];			\n";
@@ -1091,25 +1095,259 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"		current = 1 - current;				\n" <<
 						"		barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
 						"	}										\n";
-				/*
-				code << "	if (loops == loop - 1) {				\n";
-				code << "		if (lid == 0) {							\n" <<
-						"			output[3*stratum] = B0[1-current][cases];	\n" <<
-						"			output[3*stratum+1] = B1[1-current][cases];	\n" <<
-						"			output[3*stratum+2] = B2[1-current][cases];	\n" <<
-						"		}										\n" <<
-						"	} else {								\n" <<
-						"		if (lid == 0) {						\n" <<
-						"			firstRow[stratum*3*persons + col] = B0[1-current][TPB];	\n" <<
-						"			firstRow[stratum*3*persons+persons+col] = B1[1-current][TPB];	\n" <<
-						"			firstRow[stratum*3*persons+2*persons+col] = B2[1-current][TPB];	\n" <<
-						"		}									\n" <<
+				code << "	output[stratum*3*TPB + lid] = B0[1-current][lid];	\n" <<
+						"	output[stratum*3*TPB + TPB + lid] = B1[1-current][lid];	\n" <<
+						"	output[stratum*3*TPB + 2*TPB + lid] = B2[1-current][lid];	\n";
+				code << "} else {									\n";
+
+				// loop 1
+				code << "	int start = 0;							\n" << //loop * TPB;					\n" <<
+						"	int end = start + TPB - 1 + controls;		\n";//start + TPB + controls;		\n" <<
+				//code << "	if (end>total) end = total;				\n";
+				if (formatType == INDICATOR || formatType == SPARSE) {
+				code << "	uint currentKIndex = 0;					\n" <<
+						"	uint currentK = K[offK];				\n" <<
+						"	while (currentK < stratumStart) {		\n" <<
+						"		currentKIndex++;					\n" <<
+						"		currentK = K[offK + currentKIndex];		\n" <<
 						"	}										\n";
-						*/
+				}
+				code << "	uint current = 0;						\n";
+				code << "	for (int col = start; col < end; col++) {	\n" <<
+						"		REAL U = expXBeta[stratumStart+col];	\n";
+				if (formatType == DENSE) {
+					code << "	REAL x = X[offX+stratumStart+col];			\n";
+				}
+				if (formatType == INTERCEPT) {
+					code << "	REAL x = 1;					\n";
+				}
+				if (formatType == INDICATOR) {
+					code << "	if (stratumStart + col == currentK) {	\n" <<
+							"		REAL x = 1;	\n" <<
+							"		currentKIndex++;					\n" <<
+							"		currentK = K[offK + currentKIndex];	\n" <<
+							"	}									\n";
+				}
+				if (formatType == SPARSE) {
+					code << "	if (stratumStart + col == currentK) {	\n" <<
+							"		REAL x = X[offX + currentKIndex];	\n" <<
+							"		currentKIndex++;					\n" <<
+							"		currentK = K[offK + currentKIndex];	\n" <<
+							"	}									\n";
+				}
+				code << "		if (lid > 0) {						\n" <<
+#ifdef USE_LOG_SUM
+						"			x = log(x);										\n" <<
+						"			B0[current][lid] = log_sum(				   B0[1-current][lid], U+B0[1-current][lid-1]);	\n" <<
+						"			B1[current][lid] = log_sum(log_sum(		   B1[1-current][lid], U+B1[1-current][lid-1]), x + U + B0[1-current][lid-1]);	\n" <<
+						"			B2[current][lid] = log_sum(log_sum(log_sum(B2[1-current][lid], U+B2[1-current][lid-1]), x + U + B0[1-current][lid-1]), logTwo + x + U + B1[1-current][lid-1]);	\n" <<
+
+#else
+						"			B0[current][lid] = B0[1-current][lid] + U*B0[1-current][lid-1];	\n" <<
+						"			B1[current][lid] = B1[1-current][lid] + U*B1[1-current][lid-1] + x*U*B0[1-current][lid-1];	\n" <<
+						"			B2[current][lid] = B2[1-current][lid] + U*B2[1-current][lid-1] + x*U*B0[1-current][lid-1] + 2*x*U*B1[1-current][lid-1];	\n" <<
+#endif
+						"		}									\n" <<
+						"		if (lid == TPB - 1)	{					\n" <<
+						"			firstRow[stratumStart + col] = B0[current][lid];	\n" <<
+						"			firstRow[persons + stratumStart + col] = B1[current][lid];	\n" <<
+						"			firstRow[2*persons + stratumStart + col] = B2[current][lid];	\n" <<
+						"		}									\n" <<
+						"		current = 1 - current;				\n" <<
+						"		barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
+						"	}										\n";
+
+				// middle loops
+				code << "	if (loops > 2) {						\n";
+				code << "	for (int loop = 1; loop < loops-1; loop++) {	\n";
+				code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+				code << "	barrier(CLK_LOCAL_MEM_FENCE);		\n";
+
+				code << "	start = loop * (TPB - 1);					\n" <<
+						"	end = start + TPB - 1 + controls;		\n" <<
+						"	current = 0;						\n";
+
+				if (formatType == INDICATOR || formatType == SPARSE) {
+				code << "	uint currentKIndex = 0;					\n" <<
+						"	uint currentK = K[offK];				\n" <<
+						"	while (currentK < stratumStart+TPB*loop) {		\n" <<
+						"		currentKIndex++;					\n" <<
+						"		currentK = K[offK + currentKIndex];		\n" <<
+						"	}										\n";
+				}
+
+#ifdef USE_LOG_SUM
+				code << "	B0[0][lid] = -INFINITY;					\n" <<
+						"	B0[1][lid] = -INFINITY;					\n" <<
+						"	B1[0][lid] = -INFINITY;					\n" <<
+						"	B1[1][lid] = -INFINITY;					\n" <<
+						"	B2[0][lid] = -INFINITY;					\n" <<
+						"	B2[1][lid] = -INFINITY;					\n" <<
+						"	if (lid == 0) {							\n" <<
+						"		B0[1][lid] = firstRow[stratumStart + start-1];			\n" <<
+						"		B1[1][lid] = firstRow[persons + stratumStart + start-1];	\n" <<
+						"		B2[1][lid] = firstRow[2*persons + stratumStart + start-1];	\n" <<
+						"	}										\n";
+#else
+				code << "	B0[0][lid] = 0;							\n" <<
+						"	B0[1][lid] = 0;							\n" <<
+						"	B1[0][lid] = 0;							\n" <<
+						"	B1[1][lid] = 0;							\n" <<
+						"	B2[0][lid] = 0;							\n" <<
+						"	B2[1][lid] = 0;							\n" <<
+						"	if (lid == 0) {							\n" <<
+						"		B0[1][lid] = firstRow[stratumStart + start-1];			\n" <<
+						"		B1[1][lid] = firstRow[persons + stratumStart + start-1];	\n" <<
+						"		B2[1][lid] = firstRow[2*persons + stratumStart + start-1];	\n" <<
+						"	}										\n";
+#endif
+
+				code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+
+				code << "	for (int col = start; col < end; col++) {	\n" <<
+						"		REAL U = expXBeta[stratumStart+col];	\n";
+				if (formatType == DENSE) {
+					code << "	REAL x = X[offX+stratumStart+col];			\n";
+				}
+				if (formatType == INTERCEPT) {
+					code << "	REAL x = 1;					\n";
+				}
+				if (formatType == INDICATOR) {
+					code << "	if (stratumStart + col == currentK) {	\n" <<
+							"		REAL x = 1;	\n" <<
+							"		currentKIndex++;					\n" <<
+							"		currentK = K[offK + currentKIndex];	\n" <<
+							"	}									\n";
+				}
+				if (formatType == SPARSE) {
+					code << "	if (stratumStart + col == currentK) {	\n" <<
+							"		REAL x = X[offX + currentKIndex];	\n" <<
+							"		currentKIndex++;					\n" <<
+							"		currentK = K[offK + currentKIndex];	\n" <<
+							"	}									\n";
+				}
+				code << "		if (lid == 0) {						\n" <<
+						"			B0[current][lid] = firstRow[stratumStart + col];	\n" <<
+						"			B1[current][lid] = firstRow[persons + stratumStart + col];	\n" <<
+						"			B2[current][lid] = firstRow[2*persons + stratumStart + col];	\n" <<
+						"		}									\n";
+				code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+				code << "		if (lid > 0) {						\n" <<
+#ifdef USE_LOG_SUM
+						"			x = log(x);										\n" <<
+						"			B0[current][lid] = log_sum(				   B0[1-current][lid], U+B0[1-current][lid-1]);	\n" <<
+						"			B1[current][lid] = log_sum(log_sum(		   B1[1-current][lid], U+B1[1-current][lid-1]), x + U + B0[1-current][lid-1]);	\n" <<
+						"			B2[current][lid] = log_sum(log_sum(log_sum(B2[1-current][lid], U+B2[1-current][lid-1]), x + U + B0[1-current][lid-1]), logTwo + x + U + B1[1-current][lid-1]);	\n" <<
+
+#else
+						"			B0[current][lid] = B0[1-current][lid] + U*B0[1-current][lid-1];	\n" <<
+						"			B1[current][lid] = B1[1-current][lid] + U*B1[1-current][lid-1] + x*U*B0[1-current][lid-1];	\n" <<
+						"			B2[current][lid] = B2[1-current][lid] + U*B2[1-current][lid-1] + x*U*B0[1-current][lid-1] + 2*x*U*B1[1-current][lid-1];	\n" <<
+#endif
+						"		}									\n" <<
+						"		if (lid == TPB - 1)	{					\n" <<
+						"			firstRow[stratumStart + col] = B0[current][lid];	\n" <<
+						"			firstRow[persons + stratumStart + col] = B1[current][lid];	\n" <<
+						"			firstRow[2*persons + stratumStart + col] = B2[current][lid];	\n" <<
+						"		}									\n" <<
+						"		current = 1 - current;				\n" <<
+						"		barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
+						"	}										\n";
+				code << "}											\n";
+				code << "}											\n";
+
+				// final loop
+				code << "	start = (loops-1) * (TPB - 1);			\n" <<
+						"	end = total;						\n" <<
+						"	current = 0;						\n";
+				code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+
+				if (formatType == INDICATOR || formatType == SPARSE) {
+				code << "	uint currentKIndex = 0;					\n" <<
+						"	uint currentK = K[offK];				\n" <<
+						"	while (currentK < stratumStart+TPB*(loops-1)) {		\n" <<
+						"		currentKIndex++;					\n" <<
+						"		currentK = K[offK + currentKIndex];		\n" <<
+						"	}										\n";
+				}
+
+#ifdef USE_LOG_SUM
+				code << "	B0[0][lid] = -INFINITY;					\n" <<
+						"	B0[1][lid] = -INFINITY;					\n" <<
+						"	B1[0][lid] = -INFINITY;					\n" <<
+						"	B1[1][lid] = -INFINITY;					\n" <<
+						"	B2[0][lid] = -INFINITY;					\n" <<
+						"	B2[1][lid] = -INFINITY;					\n" <<
+						"	if (lid == 0) {							\n" <<
+						"		B0[1][lid] = firstRow[stratumStart + start-1];			\n" <<
+						"		B1[1][lid] = firstRow[persons + stratumStart + start-1];	\n" <<
+						"		B2[1][lid] = firstRow[2*persons + stratumStart + start-1];	\n" <<
+						"	}										\n";
+#else
+				code << "	B0[0][lid] = 0;							\n" <<
+						"	B0[1][lid] = 0;							\n" <<
+						"	B1[0][lid] = 0;							\n" <<
+						"	B1[1][lid] = 0;							\n" <<
+						"	B2[0][lid] = 0;							\n" <<
+						"	B2[1][lid] = 0;							\n" <<
+						"	if (lid == 0) {							\n" <<
+						"		B0[1][lid] = firstRow[stratumStart + start-1];			\n" <<
+						"		B1[1][lid] = firstRow[persons + stratumStart + start-1];	\n" <<
+						"		B2[1][lid] = firstRow[2*persons + stratumStart + start-1];	\n" <<
+						"	}										\n";
+#endif
+				code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+				code << "	barrier(CLK_LOCAL_MEM_FENCE);		\n";
+
+				code << "	for (int col = start; col < end; col++) {	\n" <<
+						"		REAL U = expXBeta[stratumStart+col];	\n";
+				if (formatType == DENSE) {
+					code << "	REAL x = X[offX+stratumStart+col];			\n";
+				}
+				if (formatType == INTERCEPT) {
+					code << "	REAL x = 1;					\n";
+				}
+				if (formatType == INDICATOR) {
+					code << "	if (stratumStart + col == currentK) {	\n" <<
+							"		REAL x = 1;	\n" <<
+							"		currentKIndex++;					\n" <<
+							"		currentK = K[offK + currentKIndex];	\n" <<
+							"	}									\n";
+				}
+				if (formatType == SPARSE) {
+					code << "	if (stratumStart + col == currentK) {	\n" <<
+							"		REAL x = X[offX + currentKIndex];	\n" <<
+							"		currentKIndex++;					\n" <<
+							"		currentK = K[offK + currentKIndex];	\n" <<
+							"	}									\n";
+				}
+				code << "		if (lid == 0) {						\n" <<
+						"			B0[current][lid] = firstRow[stratumStart + col];	\n" <<
+						"			B1[current][lid] = firstRow[persons + stratumStart + col];	\n" <<
+						"			B2[current][lid] = firstRow[2*persons + stratumStart + col];	\n" <<
+						"		}									\n";
+				code << "		if (lid > 0) {						\n" <<
+#ifdef USE_LOG_SUM
+						"			x = log(x);										\n" <<
+						"			B0[current][lid] = log_sum(				   B0[1-current][lid], U+B0[1-current][lid-1]);	\n" <<
+						"			B1[current][lid] = log_sum(log_sum(		   B1[1-current][lid], U+B1[1-current][lid-1]), x + U + B0[1-current][lid-1]);	\n" <<
+						"			B2[current][lid] = log_sum(log_sum(log_sum(B2[1-current][lid], U+B2[1-current][lid-1]), x + U + B0[1-current][lid-1]), logTwo + x + U + B1[1-current][lid-1]);	\n" <<
+
+#else
+						"			B0[current][lid] = B0[1-current][lid] + U*B0[1-current][lid-1];	\n" <<
+						"			B1[current][lid] = B1[1-current][lid] + U*B1[1-current][lid-1] + x*U*B0[1-current][lid-1];	\n" <<
+						"			B2[current][lid] = B2[1-current][lid] + U*B2[1-current][lid-1] + x*U*B0[1-current][lid-1] + 2*x*U*B1[1-current][lid-1];	\n" <<
+#endif
+						"		}									\n" <<
+						"		current = 1 - current;				\n" <<
+						"		barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
+						"	}										\n";
+
 
 				code << "	output[stratum*3*TPB + lid] = B0[1-current][lid];	\n" <<
 						"	output[stratum*3*TPB + TPB + lid] = B1[1-current][lid];	\n" <<
 						"	output[stratum*3*TPB + 2*TPB + lid] = B2[1-current][lid];	\n";
+				code << "}											\n";
 
 /*
 				code << "	if (lid == 0) {							\n" <<

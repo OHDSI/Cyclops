@@ -311,7 +311,7 @@ std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorTy
 		result.push_back(B[currentB][3*numCases+1]);
 		result.push_back(B[currentB][3*numCases+2]);
 
-
+		/*
 		for (int i = 0; i<=numCases; i++) {
 			std::cout << B[currentB][3*i] << " ";
 		}
@@ -324,7 +324,7 @@ std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorTy
 			std::cout << B[currentB][3*i+2] << " ";
 		}
 		std::cout << " | ";
-
+		*/
 	}
 
 	//result.push_back(maxXi);
