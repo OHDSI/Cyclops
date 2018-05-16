@@ -14,7 +14,7 @@
 
 // #define GPU_DEBUG
 #undef GPU_DEBUG
-//#define USE_LOG_SUM
+#define USE_LOG_SUM
 #define TIME_DEBUG
 
 #include <Rcpp.h>
