@@ -351,7 +351,7 @@ public:
 	  dXBetaVector(ctx), dOffsExpXBetaVector(ctx), dDenomPidVector(ctx), dNWeightVector(ctx), dKWeightVector(ctx), dPidVector(ctx),
 	  dAccDenomPidVector(ctx), dAccNumerPidVector(ctx), dAccNumerPid2Vector(ctx), dAccResetVector(ctx), dPidInternalVector(ctx), dNumerPidVector(ctx),
 	  dNumerPid2Vector(ctx), dNormVector(ctx), dXjXVector(ctx), dXjYVector(ctx), dDeltaVector(ctx), dBoundVector(ctx), dPriorParams(ctx), dBetaVector(ctx),
-	  dAllZero(ctx), dDoneVector(ctx), dIndexListWithPrior(ctx), dCVIndices(ctx), dSMStarts(ctx), dSMScales(ctx), dSMIndices(ctx), dLogX(ctx),
+	  dAllZero(ctx), dDoneVector(ctx), dIndexListWithPrior(ctx), dCVIndices(ctx), dSMStarts(ctx), dSMScales(ctx), dSMIndices(ctx), dLogX(ctx), dKStrata(ctx),
 	  dXBetaKnown(false), hXBetaKnown(false){
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
@@ -669,6 +669,14 @@ public:
 
         	// 1 col at a time
         	if (!initialized) {
+
+        		std::cout << "J: " << J << "\n";
+        		std::cout << "formatlist length: " << formatList.size() << " : ";
+        		for (auto x:formatList) {
+        			std::cout << x << " ";
+        		}
+        		std::cout << "\n";
+
         		detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
         		detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
         		initialized = true;
@@ -680,6 +688,46 @@ public:
         			hLogX[i] = log(hLogX[i]);
         		}
         		detail::resizeAndCopyToDevice(hLogX, dLogX, queue);
+
+        		bool dense = TRUE;
+        		for (int index=0; index<J; index++) {
+        			FormatType formatType = modelData.getFormatType(index);
+        			if (formatType == FormatType::INDICATOR || formatType == FormatType::SPARSE) {
+        				dense = FALSE;
+        			}
+        		}
+
+        		if (!dense) {
+        			std::vector<int> hK;
+        			hK.resize(dColumns.getIndices().size());
+        			compute::copy(std::begin(dColumns.getIndices()), std::end(dColumns.getIndices()), std::begin(hK), queue);
+
+        			std::vector<int> offKVec;
+        			offKVec.resize(dColumns.getIndicesStarts().size());
+        			compute::copy(std::begin(dColumns.getIndicesStarts()), std::end(dColumns.getIndicesStarts()), std::begin(offKVec), queue);
+
+        			std::vector<int> Kstrata(N*J);
+
+        			for (int index=0; index<J; index++) {
+        				FormatType formatType = modelData.getFormatType(index);
+        				if (formatType == FormatType::INDICATOR || formatType == FormatType::SPARSE) {
+        					int offK = offKVec[index];
+        					int currentK = hK[offK];
+        					int i=0;
+        					for (int n=0; n<N; n++) {
+            					int stratumStart = hNtoK[n];
+            					while(currentK < stratumStart) {
+            						i++;
+            						currentK = hK[offK+i];
+            					}
+            					Kstrata[N*index+n] = i;
+        					}
+        				}
+        			}
+
+        			detail::resizeAndCopyToDevice(Kstrata, dKStrata, queue);
+        		}
+
         		/*
         		std::cout << "NtoK: ";
         		for (auto x:hNtoK) {
@@ -757,6 +805,7 @@ public:
         	int dK = K;
         	kernel.set_arg(10, Kstride);
         	kernel.set_arg(11, index);
+        	kernel.set_arg(12, dKStrata);
 
     	    const size_t globalWorkSize = N * detail::constant::exactCLRBlockSize;
 
@@ -5020,6 +5069,7 @@ virtual void runCCDIndex() {
     compute::vector<real> dFirstRow;
     compute::vector<int> dAllZero;
     compute::vector<real> dLogX;
+    compute::vector<int> dKStrata;
 
 #ifdef USE_VECTOR
     compute::vector<compute::double2_> dBuffer;

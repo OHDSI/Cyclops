@@ -140,9 +140,9 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
                                                         const std::string& deviceName) {
     AbstractModelSpecifics* model = nullptr;
 
-    if (modelType != ModelType::LOGISTIC && deviceType == DeviceType::GPU) {
+    //if (modelType != ModelType::LOGISTIC && deviceType == DeviceType::GPU) {
         //return model; // Implementing lr first on GPU.
-    }
+    //}
 
     switch (modelType) {
     case ModelType::SELF_CONTROLLED_MODEL :

@@ -163,7 +163,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
                                       checkRowIds = TRUE,
                                       normalize = NULL,
                                       quiet = FALSE){
-    if ((modelType == "clr" | modelType == "cpr") & addIntercept){
+    if ((modelType == "clr" | modelType == "cpr" | modelType == "clr_exact") & addIntercept){
         if(!quiet) {
             warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)
         }
@@ -199,7 +199,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
                 covariates <- covariates[ff::ffdforder(covariates[c("covariateId","rowId")]),]
             }
         }
-        if (modelType == "clr" | modelType == "cpr"){
+        if (modelType == "clr" | modelType == "cpr" | modelType == "clr_exact"){
             if (!isSorted(outcomes,c("stratumId","rowId"))){
                 if(!quiet) {
                     writeLines("Sorting outcomes by stratumId and rowId")
@@ -291,7 +291,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                             checkRowIds = TRUE,
                                             normalize = NULL,
                                             quiet = FALSE){
-    if ((modelType == "clr" | modelType == "cpr") & addIntercept){
+    if ((modelType == "clr" | modelType == "cpr" | modelType == "clr_exact") & addIntercept){
         if(!quiet)
             warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)
         addIntercept = FALSE
@@ -323,7 +323,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
             }
         }
 
-        if (modelType == "clr" | modelType == "cpr"){
+        if (modelType == "clr" | modelType == "cpr" | modelType == "clr_exact"){
             if (!isSorted(outcomes,c("stratumId","rowId"))){
                 if(!quiet)
                     writeLines("Sorting outcomes by stratumId and rowId")
