@@ -14,7 +14,7 @@
 
 // #define GPU_DEBUG
 #undef GPU_DEBUG
-#define USE_LOG_SUM
+//#define USE_LOG_SUM
 #define TIME_DEBUG
 
 #include <Rcpp.h>
@@ -33,7 +33,7 @@ namespace detail {
 namespace constant {
     static const int updateXBetaBlockSize = 256; // 512; // Appears best on K40
     static const int updateAllXBetaBlockSize = 32;
-    static const int exactCLRBlockSize = 256;
+    static const int exactCLRBlockSize = 32;
 }; // namespace constant
 
 template <typename DeviceVec, typename HostVec>
@@ -681,6 +681,7 @@ public:
         		detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
         		initialized = true;
 
+#ifdef USE_LOG_SUM
         		std::vector<real> hLogX;
         		hLogX.resize(dColumns.getData().size());
         		compute::copy(std::begin(dColumns.getData()), std::end(dColumns.getData()), std::begin(hLogX), queue);
@@ -688,6 +689,7 @@ public:
         			hLogX[i] = log(hLogX[i]);
         		}
         		detail::resizeAndCopyToDevice(hLogX, dLogX, queue);
+#endif
 
         		bool dense = TRUE;
         		for (int index=0; index<J; index++) {
@@ -767,7 +769,11 @@ public:
         	kernel.set_arg(1, dColumns.getIndicesOffset(index));
         	kernel.set_arg(2, dColumns.getTaskCount(index));
 
+#ifdef USE_LOG_SUM
         	kernel.set_arg(3, dLogX);
+#else
+        	kernel.set_arg(3, dColumns.getData());
+#endif
         	kernel.set_arg(4, dColumns.getIndices());
         	kernel.set_arg(5, dNtoK);
 
@@ -825,8 +831,8 @@ public:
         	compute::copy(std::begin(dBuffer), std::begin(dBuffer)+3*N*a, std::begin(hBuffer), queue);
 
     	    for (int i=0; i<N; ++i) {
-#ifdef USE_LOG_SUM
     	    	int k = (int)hNWeight[i]%(a-1);
+#ifdef USE_LOG_SUM
     	    	//gradient -= (real) -exp(hBuffer[3*i+1] - hBuffer[3*i]);
     	    	//hessian -= (real) (exp(2*(hBuffer[3*i+1]-hBuffer[3*i])) - exp(hBuffer[3*i+2] - hBuffer[3*i]));
     	    	//int a = detail::constant::exactCLRBlockSize;
