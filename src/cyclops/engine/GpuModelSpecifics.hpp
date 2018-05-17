@@ -701,6 +701,10 @@ public:
         			offKVec.resize(dColumns.getIndicesStarts().size());
         			compute::copy(std::begin(dColumns.getIndicesStarts()), std::end(dColumns.getIndicesStarts()), std::begin(offKVec), queue);
 
+        			std::vector<int> NVec;
+        			NVec.resize(dColumns.getTaskCounts().size());
+        			compute::copy(std::begin(dColumns.getTaskCounts()), std::end(dColumns.getTaskCounts()), std::begin(NVec), queue);
+
         			std::vector<int> Kstrata(N*J);
 
         			for (int index=0; index<J; index++) {
@@ -708,14 +712,20 @@ public:
         				if (formatType == FormatType::INDICATOR || formatType == FormatType::SPARSE) {
         					int offK = offKVec[index];
         					int currentK = hK[offK];
+        					int tasks = NVec[index];
         					int i=0;
         					for (int n=0; n<N; n++) {
-            					int stratumStart = hNtoK[n];
-            					while(currentK < stratumStart) {
-            						i++;
-            						currentK = hK[offK+i];
-            					}
-            					Kstrata[N*index+n] = i;
+        						int stratumStart = hNtoK[n];
+        						int stratumEnd = hNtoK[n+1];
+        						while(currentK < stratumStart && i < tasks) {
+        							i++;
+        							currentK = hK[offK+i];
+        						}
+        						if (currentK >= stratumEnd || i == tasks) {
+        							Kstrata[N*index+n] = -1;
+        						} else {
+        							Kstrata[N*index+n] = i;
+        						}
         					}
         				}
         			}

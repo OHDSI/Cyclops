@@ -1070,7 +1070,11 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				code << "	__local uint currentKIndex, currentK;	\n" <<
 						"	if (lid == 0) {							\n" <<
 						"		currentKIndex = KStrata[offKStrata];					\n" <<
-						"		currentK = K[offK+currentKIndex];				\n" <<
+						"		if (currentKIndex == -1) {			\n" <<
+						"			currentK = -1;					\n" <<
+						"		} else {							\n" <<
+						"			currentK = K[offK+currentKIndex];	\n" <<
+						"		}									\n" <<
 						"	}										\n" <<
 						"	barrier(CLK_LOCAL_MEM_FENCE);			\n";
 				}
@@ -1101,7 +1105,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				if (formatType == INDICATOR) {
 					code << "	if (lid == 0) {						\n" <<
-							"		if (stratumStart + col == currentK) {	\n" <<
+							"		if (stratumStart + col == currentK && currentKIndex < N) {	\n" <<
 #ifdef USE_LOG_SUM
 							"	x = 0;								\n" <<
 #else
@@ -1122,7 +1126,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				if (formatType == SPARSE) {
 					code << "	if (lid == 0) {						\n" <<
-							"		if (stratumStart + col == currentK) {	\n" <<
+							"		if (stratumStart + col == currentK && currentKIndex < N) {	\n" <<
 							"			x = X[offX+currentKIndex];	\n" <<
 							"			currentKIndex++;			\n" <<
 							"			currentK = K[offK + currentKIndex];	\n" <<
@@ -1174,8 +1178,12 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				if (formatType == INDICATOR || formatType == SPARSE) {
 				code << "	__local uint currentKIndex, currentK;	\n" <<
 						"	if (lid == 0) {							\n" <<
-						"		currentKIndex = KStrata[offKStrata];					\n" <<
-						"		currentK = K[offK+currentKIndex];				\n" <<
+						"		currentKIndex = KStrata[offKStrata];	\n" <<
+						"		if (currentKIndex == -1) {				\n" <<
+						"			currentK = -1;						\n" <<
+						"		} else {								\n" <<
+						"			currentK = K[offK+currentKIndex];	\n" <<
+						"		}									\n" <<
 						"	}										\n" <<
 						"	barrier(CLK_LOCAL_MEM_FENCE);			\n";
 				}
@@ -1205,7 +1213,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				if (formatType == INDICATOR) {
 					code << "	if (lid == 0) {						\n" <<
-							"		if (stratumStart + col == currentK) {	\n" <<
+							"		if (stratumStart + col == currentK && currentKIndex < N) {	\n" <<
 #ifdef USE_LOG_SUM
 							"	x = 0;								\n" <<
 #else
@@ -1226,7 +1234,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				if (formatType == SPARSE) {
 					code << "	if (lid == 0) {						\n" <<
-							"		if (stratumStart + col == currentK) {	\n" <<
+							"		if (stratumStart + col == currentK && currentKIndex < N) {	\n" <<
 							"			x = X[offX+currentKIndex];	\n" <<
 							"			currentKIndex++;			\n" <<
 							"			currentK = K[offK + currentKIndex];	\n" <<
@@ -1275,11 +1283,18 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				if (formatType == INDICATOR || formatType == SPARSE) {
 				code << "	if (lid == 0) {							\n" <<
 						"		currentKIndex = KStrata[offKStrata];					\n" <<
-						"		currentK = K[offK+currentKIndex];				\n" <<
-						"		while (currentK < stratumStart+start) {		\n" <<
-						"			currentKIndex++;						\n" <<
-						"			currentK = K[offK + currentKIndex];		\n" <<
-						"		}										\n" <<
+						"		if (currentKIndex == -1) {			\n" <<
+						"			currentK = -1;					\n" <<
+						"		} else {							\n" <<
+						"			currentK = K[offK+currentKIndex];		\n" <<
+						"			while (currentK < stratumStart+start && currentKIndex < N) {		\n" <<
+						"				currentKIndex++;						\n" <<
+						"				currentK = K[offK + currentKIndex];		\n" <<
+						"			}										\n" <<
+						"			if (currentK >= NtoK[stratum+1] || currentKIndex == N) {	\n" <<
+						"				currentK = -1;				\n" <<
+						"			}								\n" <<
+						"		}									\n" <<
 						"	}										\n" <<
 						"	barrier(CLK_LOCAL_MEM_FENCE);			\n";
 				}
@@ -1332,7 +1347,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				if (formatType == INDICATOR) {
 					code << "	if (lid == 0) {						\n" <<
-							"		if (stratumStart + col == currentK) {	\n" <<
+							"		if (stratumStart + col == currentK && currentKIndex < N) {	\n" <<
 #ifdef USE_LOG_SUM
 							"	x = 0;								\n" <<
 #else
@@ -1353,7 +1368,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				if (formatType == SPARSE) {
 					code << "	if (lid == 0) {						\n" <<
-							"		if (stratumStart + col == currentK) {	\n" <<
+							"		if (stratumStart + col == currentK && currentKIndex < N) {	\n" <<
 							"			x = X[offX+currentKIndex];	\n" <<
 							"			currentKIndex++;			\n" <<
 							"			currentK = K[offK + currentKIndex];	\n" <<
@@ -1405,15 +1420,22 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
 
 				if (formatType == INDICATOR || formatType == SPARSE) {
-					code << "	if (lid == 0) {							\n" <<
-							"		currentKIndex = KStrata[offKStrata];					\n" <<
-							"		currentK = K[offK+currentKIndex];				\n" <<
-							"		while (currentK < stratumStart+start) {		\n" <<
-							"			currentKIndex++;						\n" <<
-							"			currentK = K[offK + currentKIndex];		\n" <<
-							"		}										\n" <<
-							"	}										\n" <<
-							"	barrier(CLK_LOCAL_MEM_FENCE);			\n";
+				code << "	if (lid == 0) {								\n" <<
+						"		currentKIndex = KStrata[offKStrata];	\n" <<
+						"		if (currentKIndex == -1) {				\n" <<
+						"			currentK = -1;						\n" <<
+						"		} else {								\n" <<
+						"			currentK = K[offK+currentKIndex];	\n" <<
+						"			while (currentK < stratumStart+start && currentKIndex < N) {		\n" <<
+						"				currentKIndex++;						\n" <<
+						"				currentK = K[offK + currentKIndex];		\n" <<
+						"			}									\n" <<
+						"			if (currentK >= NtoK[stratum+1] || currentKIndex == N) {	\n" <<
+						"				currentK = -1;					\n" <<
+						"			}									\n" <<
+						"		}										\n" <<
+						"	}											\n" <<
+						"	barrier(CLK_LOCAL_MEM_FENCE);				\n";
 				}
 
 #ifdef USE_LOG_SUM
@@ -1463,7 +1485,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				if (formatType == INDICATOR) {
 					code << "	if (lid == 0) {						\n" <<
-							"		if (stratumStart + col == currentK) {	\n" <<
+							"		if (stratumStart + col == currentK && currentKIndex < N) {	\n" <<
 #ifdef USE_LOG_SUM
 							"	x = 0;								\n" <<
 #else
@@ -1484,7 +1506,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				if (formatType == SPARSE) {
 					code << "	if (lid == 0) {						\n" <<
-							"		if (stratumStart + col == currentK) {	\n" <<
+							"		if (stratumStart + col == currentK && currentKIndex < N) {	\n" <<
 							"			x = X[offX+currentKIndex];	\n" <<
 							"			currentKIndex++;			\n" <<
 							"			currentK = K[offK + currentKIndex];	\n" <<
