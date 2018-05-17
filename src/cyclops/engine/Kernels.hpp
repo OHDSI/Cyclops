@@ -1153,9 +1153,18 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"		current = 1 - current;				\n" <<
 						"		barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
 						"	}										\n";
+				/*
 				code << "	output[stratum*3*TPB + lid] = B0[1-current][lid];	\n" <<
 						"	output[stratum*3*TPB + TPB + lid] = B1[1-current][lid];	\n" <<
 						"	output[stratum*3*TPB + 2*TPB + lid] = B2[1-current][lid];	\n";
+						*/
+
+				code << "	if (lid == 0) {							\n" <<
+						"		output[stratum*3] = B0[1-current][cases];	\n" <<
+						"		output[stratum*3+1] = B1[1-current][cases];	\n" <<
+						"		output[stratum*3+2] = B2[1-current][cases];	\n" <<
+						"	}										\n";
+
 				code << "} else {									\n";
 
 				// loop 1
@@ -1302,6 +1311,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 #endif
 
 				code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+				code << "	barrier(CLK_LOCAL_MEM_FENCE);			\n";
 
 				code << "	for (int col = start; col < end; col++) {	\n" <<
 						"		REAL U = expXBeta[stratumStart+col];	\n";
@@ -1363,6 +1373,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"			B2[current][lid] = firstRow[2*persons + stratumStart + col];	\n" <<
 						"		}									\n";
 				code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+				code << "	barrier(CLK_LOCAL_MEM_FENCE);			\n";
 				code << "		if (lid > 0) {						\n" <<
 #ifdef USE_LOG_SUM
 						//"			x = log(x);										\n" <<
@@ -1508,20 +1519,22 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"		current = 1 - current;				\n" <<
 						"		barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
 						"	}										\n";
-
-
+/*
 				code << "	output[stratum*3*TPB + lid] = B0[1-current][lid];	\n" <<
 						"	output[stratum*3*TPB + TPB + lid] = B1[1-current][lid];	\n" <<
 						"	output[stratum*3*TPB + 2*TPB + lid] = B2[1-current][lid];	\n";
+						*/
+
+				code << "	if (lid == 0) {							\n" <<
+						"		int id = cases % (TPB-1);			\n" <<
+						"		if (id == 0) id = TPB - 1;			\n" <<
+						"		output[stratum*3] = B0[1-current][id];	\n" <<
+						"		output[stratum*3+1] = B1[1-current][id];	\n" <<
+						"		output[stratum*3+2] = B2[1-current][id];	\n" <<
+						"	}										\n";
+
 				code << "}											\n";
 
-/*
-				code << "	if (lid == 0) {							\n" <<
-						"		output[3*stratum] = B0[1-current][cases];	\n" <<
-						"		output[3*stratum+1] = B1[1-current][cases];	\n" <<
-						"		output[3*stratum+2] = B2[1-current][cases];	\n" <<
-						"	}										\n";
-						*/
 		        code << "}  \n"; // End of kernel
 		        return SourceCode(code.str(), name);
 	}
