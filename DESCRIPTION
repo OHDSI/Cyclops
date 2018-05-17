@@ -25,7 +25,8 @@ Imports:
     ffbase,
     RcppParallel,
     methods,
-    survival
+    survival,
+    MASS
 LinkingTo: Rcpp,
     BH (>= 1.51.0),
     RcppEigen (>= 0.3.2),
@@ -33,5 +34,6 @@ LinkingTo: Rcpp,
 Suggests:
     testthat,
     gnm,
-    ggplot2
+    ggplot2,
+    microbenchmark
 RoxygenNote: 6.0.1
