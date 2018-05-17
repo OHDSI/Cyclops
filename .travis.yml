@@ -40,7 +40,7 @@ before_install:
 
 install:
   - ./run.sh install_aptget r-cran-rcpp r-cran-bit r-cran-ff r-cran-ffbase r-cran-rcppparallel r-cran-rcppeigen r-cran-ggplot2 r-cran-testthat r-cran-gnm r-cran-devtools
-  - ./run.sh install_r drat covr
+  - ./run.sh install_r drat covr microbenchmark
   - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
   - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')
 
