@@ -865,9 +865,9 @@ public:
         	*/
 
 
-        	std::vector<real> blah;
-        	blah.resize(dExpXBeta.size());
-        	compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(blah), queue);
+        	//std::vector<real> blah;
+        	//blah.resize(dExpXBeta.size());
+        	//compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(blah), queue);
         	/*
         	std::cout << "XBeta: ";
         	for (auto x:blah) {
