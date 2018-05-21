@@ -745,7 +745,7 @@ public:
         			detail::resizeAndCopyToDevice(hK, dKStrata, queue);
         		}
 
-
+        		/*
         		std::cout << "NtoK: ";
         		for (auto x:hNtoK) {
         			std::cout << x << " ";
@@ -772,6 +772,7 @@ public:
         	    	std::cout << x << " ";
         	    }
         	    std::cout << "\n";
+        	    */
 /*
         		std::vector<real> blah;
         		blah.resize(dColumns.getData().size());
@@ -908,8 +909,8 @@ public:
 #ifdef USE_LOG_SUM
     	    	gradient -= (real) -exp(hBuffer[3*i+1] - hBuffer[3*i]);
     	    	hessian -= (real) (exp(2*(hBuffer[3*i+1]-hBuffer[3*i])) - exp(hBuffer[3*i+2] - hBuffer[3*i]));
-    	    	gradient -= (real) -exp(hBuffer[3*i*a+a+k]-hBuffer[3*i*a+k]);
-    	    	hessian -= (real) (exp(2*(hBuffer[3*i*a+a+k]-hBuffer[3*i*a+k]))  - exp(hBuffer[3*i*a+2*a+k]-hBuffer[3*i*a+k]));
+    	    	//gradient -= (real) -exp(hBuffer[3*i*a+a+k]-hBuffer[3*i*a+k]);
+    	    	//hessian -= (real) (exp(2*(hBuffer[3*i*a+a+k]-hBuffer[3*i*a+k]))  - exp(hBuffer[3*i*a+2*a+k]-hBuffer[3*i*a+k]));
 #else
     	    	gradient -= (real)(-hBuffer[3*i+1]/hBuffer[3*i]);
     	    	hessian -= (real)((hBuffer[3*i+1]/hBuffer[3*i]) * (hBuffer[3*i+1]/hBuffer[3*i]) - hBuffer[3*i+2]/hBuffer[3*i]);
