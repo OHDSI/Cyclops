@@ -1554,14 +1554,50 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 		*/
 
-		/*
+/*
 		std::cout << "expXBeta: ";
 		for (auto x:offsExpXBeta) {
-			std::cout << x << " ";
+			std::cout << log(x) << " ";
 		}
 		std::cout << "\n";
-		std::cout << "hBuffer: ";
 		*/
+
+		//std::cout << "hBuffer: \n";
+
+
+/*
+	    if (index == 0) {
+	    	 std::cout << "denseview 0: ";
+	    	DenseView<IteratorType> x(IteratorType(modelData, index), 0, K);
+	    	for (int i=0; i<K; i++) {
+	    		real value = *x;
+	    		std::cout << value << " ";
+	    		++x;
+	    	}
+		    std::cout << "\n";
+
+		    std::cout << "hXjY: ";
+		    for (auto x:hXjY) {
+		    	std::cout << x << " ";
+		    }
+		    std::cout << "\n";
+	    }
+	    */
+		/*
+		if (index == 0) {
+			for (int i=0; i<J; i++) {
+    	    	std::cout << "data " << i << ": ";
+    	    	DenseView<IteratorType> x(IteratorType(modelData, i), 0, K);
+    	    	for (int k=0; k<K; k++) {
+    	    	    real value = *x;
+    	    	    std::cout << value << " ";
+    	    	    ++x;
+    	    	}
+    	    	std::cout << "\n";
+			}
+		}
+		*/
+
 	    for (int i=0; i<N; i++) {
 	    	//std::cout << "grad: " << gradient << " hess: " << hessian << " ";
 	        DenseView<IteratorType> x(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
@@ -1581,6 +1617,8 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	        //gradient -= (real)(value[3] - value[1]/value[0]);
 	        gradient -= (real)(-value[1]/value[0]);
 	        hessian -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
+
+	        //std::cout << "stratum: " << i << " " << value[0] << " " << value[1] << " " << value[2] << "\n ";
 	    }
 
 	    //std::cout << '\n';

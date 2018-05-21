@@ -682,6 +682,14 @@ public:
         			hLogX[i] = log(hLogX[i]);
         		}
         		detail::resizeAndCopyToDevice(hLogX, dLogX, queue);
+
+        		/*
+        		std::cout << "logX: ";
+        		for (auto x:hLogX) {
+        			std::cout << x << " ";
+        		}
+        		std::cout << "\n";
+        		*/
 #endif
 
         		bool dense = TRUE;
@@ -737,7 +745,7 @@ public:
         			detail::resizeAndCopyToDevice(hK, dKStrata, queue);
         		}
 
-        		/*
+
         		std::cout << "NtoK: ";
         		for (auto x:hNtoK) {
         			std::cout << x << " ";
@@ -758,20 +766,62 @@ public:
         			std::cout << x << " ";
         		}
         		std::cout << "\n";
-        		*/
 
-        		/*
+        	    std::cout << "hXjY: ";
+        	    for (auto x:hXjY) {
+        	    	std::cout << x << " ";
+        	    }
+        	    std::cout << "\n";
+/*
         		std::vector<real> blah;
         		blah.resize(dColumns.getData().size());
         		compute::copy(std::begin(dColumns.getData()), std::end(dColumns.getData()), std::begin(blah), queue);
 
         		std::cout << "data length " << blah.size() << ": ";
-        		for (auto x:blah) {
+        		for (int i=0; i<1000; i++) {
+        			std::cout << blah[i] << " ";
+        		}
+        		std::cout << "\n";
+
+        		std::vector<int> blah1;
+        		blah1.resize(dColumns.getIndices().size());
+        		compute::copy(std::begin(dColumns.getIndices()), std::end(dColumns.getIndices()), std::begin(blah1), queue);
+
+        		std::cout << "indices length " << blah1.size() << ": ";
+        		if (blah1.size() > 0) {
+        		for (int i=0; i<1000; i++) {
+        			std::cout << blah1[i] << " ";
+        		}
+        		std::cout << "\n";
+        		}
+
+        		blah1.resize(dColumns.getDataStarts().size());
+        		compute::copy(std::begin(dColumns.getDataStarts()), std::end(dColumns.getDataStarts()), std::begin(blah1), queue);
+
+        		std::cout << "data starts " << blah1.size() << ": ";
+        		for (auto x:blah1) {
         			std::cout << x << " ";
         		}
         		std::cout << "\n";
-        		*/
 
+        		blah1.resize(dColumns.getIndicesStarts().size());
+        		compute::copy(std::begin(dColumns.getIndicesStarts()), std::end(dColumns.getIndicesStarts()), std::begin(blah1), queue);
+
+        		std::cout << "task count " << blah1.size() << ": ";
+        		for (auto x:blah1) {
+        			std::cout << x << " ";
+        		}
+        		std::cout << "\n";
+
+        		blah1.resize(dColumns.getTaskCounts().size());
+        		compute::copy(std::begin(dColumns.getTaskCounts()), std::end(dColumns.getTaskCounts()), std::begin(blah1), queue);
+
+        		std::cout << "indices starts " << blah1.size() << ": ";
+        		for (auto x:blah1) {
+        			std::cout << x << " ";
+        		}
+        		std::cout << "\n";
+*/
         	}
 
 
@@ -787,8 +837,8 @@ public:
         	kernel.set_arg(4, dColumns.getIndices());
         	kernel.set_arg(5, dNtoK);
 
-        	//int a = detail::constant::exactCLRBlockSize;
-        	int a = 1;
+        	int a = detail::constant::exactCLRBlockSize;
+        	//int a = 1;
         	if (dBuffer.size() < 3*N*a) {
         		dBuffer.resize(3*N*a, queue);
         	}
@@ -813,17 +863,17 @@ public:
         	std::cout << "\n";
         	*/
 
-        	/*
+
         	std::vector<real> blah;
         	blah.resize(dExpXBeta.size());
-        	compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(blah), queue);
-        	std::cout << "expXBeta: ";
+        	compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(blah), queue);
+        	/*
+        	std::cout << "XBeta: ";
         	for (auto x:blah) {
         		std::cout << x << " ";
         	}
         	std::cout << "\n";
-        	*/
-
+			*/
         	int Kstride = detail::getAlignedLength<16>(K);
         	if (dBuffer1.size() < 3*Kstride) {
         		dBuffer1.resize(3*Kstride, queue);
@@ -858,8 +908,8 @@ public:
 #ifdef USE_LOG_SUM
     	    	gradient -= (real) -exp(hBuffer[3*i+1] - hBuffer[3*i]);
     	    	hessian -= (real) (exp(2*(hBuffer[3*i+1]-hBuffer[3*i])) - exp(hBuffer[3*i+2] - hBuffer[3*i]));
-    	    	//gradient -= (real) -exp(hBuffer[3*i*a+a+k]-hBuffer[3*i*a+k]);
-    	    	//hessian -= (real) (exp(2*(hBuffer[3*i*a+a+k]-hBuffer[3*i*a+k]))  - exp(hBuffer[3*i*a+2*a+k]-hBuffer[3*i*a+k]));
+    	    	gradient -= (real) -exp(hBuffer[3*i*a+a+k]-hBuffer[3*i*a+k]);
+    	    	hessian -= (real) (exp(2*(hBuffer[3*i*a+a+k]-hBuffer[3*i*a+k]))  - exp(hBuffer[3*i*a+2*a+k]-hBuffer[3*i*a+k]));
 #else
     	    	gradient -= (real)(-hBuffer[3*i+1]/hBuffer[3*i]);
     	    	hessian -= (real)((hBuffer[3*i+1]/hBuffer[3*i]) * (hBuffer[3*i+1]/hBuffer[3*i]) - hBuffer[3*i+2]/hBuffer[3*i]);
@@ -869,23 +919,31 @@ public:
     	    }
 
     	    /*
-    	    blah.resize(dBuffer1.size());
-    	    compute::copy(std::begin(dBuffer1), std::end(dBuffer1), std::begin(blah), queue);
-    	    std::cout << "firstRow: ";
-    	    for (auto x:blah) {
-    	    	std::cout << x << " ";
-    	    }
-    	    std::cout << "\n";
-			*/
-    	    /*
     	    std::cout << "hBuffer: ";
+    	    for (int i=0; i<N; i++) {
+    	    	for (int j=0; j<=hNWeight[i]; j++) {
+    	    		std::cout << log(hBuffer[3*i*a+j]) << " ";
+    	    	}
+    	    	std::cout << "\n";
+    	    	for (int j=0; j<=hNWeight[i]; j++) {
+    	    		std::cout << log(hBuffer[3*i*a+a+j]) << " ";
+    	    	}
+    	    	std::cout << "\n";
+    	    	for (int j=0; j<=hNWeight[i]; j++) {
+    	    		std::cout << log(hBuffer[3*i*a+2*a+j]) << " ";
+    	    	}
+    	    	std::cout << "\n";
+    	    }
+    	    */
+    	    /*
     	    for (auto x:hBuffer) {
     	    	std::cout << x << " ";
     	    }
     	    std::cout << "\n";
-
-    	    std::cout << "gradient: " <<  gradient << " hessian: " <<  hessian << "\n";
     	    */
+
+    	    //std::cout << "gradient: " <<  gradient << " hessian: " <<  hessian << "\n";
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end0 = bsccs::chrono::steady_clock::now();

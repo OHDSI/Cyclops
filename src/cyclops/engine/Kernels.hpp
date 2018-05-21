@@ -1105,7 +1105,13 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				if (formatType == INDICATOR) {
 					code << "	if (lid == 0) {						\n" <<
-							"		if (stratumStart + col == currentK && currentKIndex < N) {	\n" <<
+							"		if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
+#ifdef USE_LOG_SUM
+							"	x = -INFINITY;								\n" <<
+#else
+							"	x = 0;								\n" <<
+#endif
+							"		} else {	\n" <<
 #ifdef USE_LOG_SUM
 							"	x = 0;								\n" <<
 #else
@@ -1113,12 +1119,6 @@ static std::string weight(const std::string& arg, bool useWeights) {
 #endif
 							"			currentKIndex++;			\n" <<
 							"			currentK = K[offK + currentKIndex];	\n" <<
-							"		} else {						\n" <<
-#ifdef USE_LOG_SUM
-							"	x = -INFINITY;								\n" <<
-#else
-							"	x = 0;								\n" <<
-#endif
 							"		}								\n" <<
 							"	}									\n" <<
 							"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
@@ -1126,22 +1126,22 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				if (formatType == SPARSE) {
 					code << "	if (lid == 0) {						\n" <<
-							"		if (stratumStart + col == currentK && currentKIndex < N) {	\n" <<
-							"			x = X[offX+currentKIndex];	\n" <<
-							"			currentKIndex++;			\n" <<
-							"			currentK = K[offK + currentKIndex];	\n" <<
-							"		} else {						\n" <<
+							"		if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
 #ifdef USE_LOG_SUM
 							"	x = -INFINITY;								\n" <<
 #else
 							"	x = 0;								\n" <<
 #endif
+							"		} else {						\n" <<
+							"			x = X[offX+currentKIndex];	\n" <<
+							"			currentKIndex++;			\n" <<
+							"			currentK = K[offK + currentKIndex];	\n" <<
 							"		}								\n" <<
 							"	}									\n" <<
 							"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
 				}
 
-				code << "		if (lid > 0) {						\n" <<
+				code << "		if (lid > 0 && lid <= cases) {						\n" <<
 #ifdef USE_LOG_SUM
 						//"			x = log(x);										\n" <<
 						"			B0[current][lid] = log_sum(				   B0[1-current][lid], U+B0[1-current][lid-1]);	\n" <<
@@ -1157,17 +1157,21 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"		current = 1 - current;				\n" <<
 						"		barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
 						"	}										\n";
+
 				/*
 				code << "	output[stratum*3*TPB + lid] = B0[1-current][lid];	\n" <<
 						"	output[stratum*3*TPB + TPB + lid] = B1[1-current][lid];	\n" <<
 						"	output[stratum*3*TPB + 2*TPB + lid] = B2[1-current][lid];	\n";
 						*/
 
+
 				code << "	if (lid == 0) {							\n" <<
 						"		output[stratum*3] = B0[1-current][cases];	\n" <<
 						"		output[stratum*3+1] = B1[1-current][cases];	\n" <<
 						"		output[stratum*3+2] = B2[1-current][cases];	\n" <<
 						"	}										\n";
+
+
 
 				code << "} else {									\n";
 
@@ -1213,7 +1217,13 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				if (formatType == INDICATOR) {
 					code << "	if (lid == 0) {						\n" <<
-							"		if (stratumStart + col == currentK && currentKIndex < N) {	\n" <<
+							"		if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
+#ifdef USE_LOG_SUM
+							"	x = -INFINITY;								\n" <<
+#else
+							"	x = 0;								\n" <<
+#endif
+							"		} else {	\n" <<
 #ifdef USE_LOG_SUM
 							"	x = 0;								\n" <<
 #else
@@ -1221,12 +1231,6 @@ static std::string weight(const std::string& arg, bool useWeights) {
 #endif
 							"			currentKIndex++;			\n" <<
 							"			currentK = K[offK + currentKIndex];	\n" <<
-							"		} else {						\n" <<
-#ifdef USE_LOG_SUM
-							"	x = -INFINITY;								\n" <<
-#else
-							"	x = 0;								\n" <<
-#endif
 							"		}								\n" <<
 							"	}									\n" <<
 							"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
@@ -1234,16 +1238,16 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				if (formatType == SPARSE) {
 					code << "	if (lid == 0) {						\n" <<
-							"		if (stratumStart + col == currentK && currentKIndex < N) {	\n" <<
-							"			x = X[offX+currentKIndex];	\n" <<
-							"			currentKIndex++;			\n" <<
-							"			currentK = K[offK + currentKIndex];	\n" <<
-							"		} else {						\n" <<
+							"		if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
 #ifdef USE_LOG_SUM
 							"	x = -INFINITY;								\n" <<
 #else
 							"	x = 0;								\n" <<
 #endif
+							"		} else {						\n" <<
+							"			x = X[offX+currentKIndex];	\n" <<
+							"			currentKIndex++;			\n" <<
+							"			currentK = K[offK + currentKIndex];	\n" <<
 							"		}								\n" <<
 							"	}									\n" <<
 							"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
@@ -1347,7 +1351,13 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				if (formatType == INDICATOR) {
 					code << "	if (lid == 0) {						\n" <<
-							"		if (stratumStart + col == currentK && currentKIndex < N) {	\n" <<
+							"		if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
+#ifdef USE_LOG_SUM
+							"	x = -INFINITY;								\n" <<
+#else
+							"	x = 0;								\n" <<
+#endif
+							"		} else {	\n" <<
 #ifdef USE_LOG_SUM
 							"	x = 0;								\n" <<
 #else
@@ -1355,12 +1365,6 @@ static std::string weight(const std::string& arg, bool useWeights) {
 #endif
 							"			currentKIndex++;			\n" <<
 							"			currentK = K[offK + currentKIndex];	\n" <<
-							"		} else {						\n" <<
-#ifdef USE_LOG_SUM
-							"	x = -INFINITY;								\n" <<
-#else
-							"	x = 0;								\n" <<
-#endif
 							"		}								\n" <<
 							"	}									\n" <<
 							"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
@@ -1368,16 +1372,16 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				if (formatType == SPARSE) {
 					code << "	if (lid == 0) {						\n" <<
-							"		if (stratumStart + col == currentK && currentKIndex < N) {	\n" <<
-							"			x = X[offX+currentKIndex];	\n" <<
-							"			currentKIndex++;			\n" <<
-							"			currentK = K[offK + currentKIndex];	\n" <<
-							"		} else {						\n" <<
+							"		if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
 #ifdef USE_LOG_SUM
 							"	x = -INFINITY;								\n" <<
 #else
 							"	x = 0;								\n" <<
 #endif
+							"		} else {						\n" <<
+							"			x = X[offX+currentKIndex];	\n" <<
+							"			currentKIndex++;			\n" <<
+							"			currentK = K[offK + currentKIndex];	\n" <<
 							"		}								\n" <<
 							"	}									\n" <<
 							"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
@@ -1416,6 +1420,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				// final loop
 				code << "	start = (loops-1) * (TPB - 1);			\n" <<
 						"	end = total;						\n" <<
+						"	uint lastLid = (cases-1)%(TPB-1)+1;		\n" <<
 						"	current = 0;						\n";
 				code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
 
@@ -1485,7 +1490,13 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				if (formatType == INDICATOR) {
 					code << "	if (lid == 0) {						\n" <<
-							"		if (stratumStart + col == currentK && currentKIndex < N) {	\n" <<
+							"		if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
+#ifdef USE_LOG_SUM
+							"	x = -INFINITY;								\n" <<
+#else
+							"	x = 0;								\n" <<
+#endif
+							"		} else {	\n" <<
 #ifdef USE_LOG_SUM
 							"	x = 0;								\n" <<
 #else
@@ -1493,12 +1504,6 @@ static std::string weight(const std::string& arg, bool useWeights) {
 #endif
 							"			currentKIndex++;			\n" <<
 							"			currentK = K[offK + currentKIndex];	\n" <<
-							"		} else {						\n" <<
-#ifdef USE_LOG_SUM
-							"	x = -INFINITY;								\n" <<
-#else
-							"	x = 0;								\n" <<
-#endif
 							"		}								\n" <<
 							"	}									\n" <<
 							"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
@@ -1506,26 +1511,27 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				if (formatType == SPARSE) {
 					code << "	if (lid == 0) {						\n" <<
-							"		if (stratumStart + col == currentK && currentKIndex < N) {	\n" <<
-							"			x = X[offX+currentKIndex];	\n" <<
-							"			currentKIndex++;			\n" <<
-							"			currentK = K[offK + currentKIndex];	\n" <<
-							"		} else {						\n" <<
+							"		if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
 #ifdef USE_LOG_SUM
 							"	x = -INFINITY;								\n" <<
 #else
 							"	x = 0;								\n" <<
 #endif
+							"		} else {						\n" <<
+							"			x = X[offX+currentKIndex];	\n" <<
+							"			currentKIndex++;			\n" <<
+							"			currentK = K[offK + currentKIndex];	\n" <<
 							"		}								\n" <<
 							"	}									\n" <<
 							"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
 				}
+
 				code << "		if (lid == 0) {						\n" <<
 						"			B0[current][lid] = firstRow[stratumStart + col];	\n" <<
 						"			B1[current][lid] = firstRow[persons + stratumStart + col];	\n" <<
 						"			B2[current][lid] = firstRow[2*persons + stratumStart + col];	\n" <<
 						"		}									\n";
-				code << "		if (lid > 0) {						\n" <<
+				code << "		if (lid > 0 && lid <= lastLid) {						\n" <<
 #ifdef USE_LOG_SUM
 						//"			x = log(x);										\n" <<
 						"			B0[current][lid] = log_sum(				   B0[1-current][lid], U+B0[1-current][lid-1]);	\n" <<
@@ -1541,19 +1547,22 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"		current = 1 - current;				\n" <<
 						"		barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
 						"	}										\n";
-/*
+
+				/*
 				code << "	output[stratum*3*TPB + lid] = B0[1-current][lid];	\n" <<
 						"	output[stratum*3*TPB + TPB + lid] = B1[1-current][lid];	\n" <<
 						"	output[stratum*3*TPB + 2*TPB + lid] = B2[1-current][lid];	\n";
 						*/
 
-				code << "	if (lid == 0) {							\n" <<
-						"		int id = cases % (TPB-1);			\n" <<
-						"		if (id == 0) id = TPB - 1;			\n" <<
-						"		output[stratum*3] = B0[1-current][id];	\n" <<
-						"		output[stratum*3+1] = B1[1-current][id];	\n" <<
-						"		output[stratum*3+2] = B2[1-current][id];	\n" <<
+
+				code << "	if (lid == lastLid) {							\n" <<
+						//"		int id = (cases - 1) % (TPB-1) + 1;			\n" <<
+						//"		if (id == 0) id = TPB - 1;			\n" <<
+						"		output[stratum*3] = B0[1-current][lid];	\n" <<
+						"		output[stratum*3+1] = B1[1-current][lid];	\n" <<
+						"		output[stratum*3+2] = B2[1-current][lid];	\n" <<
 						"	}										\n";
+
 
 				code << "}											\n";
 
