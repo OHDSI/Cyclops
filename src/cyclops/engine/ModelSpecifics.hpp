@@ -873,8 +873,9 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjX(bool useCrossValidation) 
 
 template<class BaseModel, typename WeightType>
 void ModelSpecifics<BaseModel, WeightType>::computeNtoKIndices(bool useCrossValidation) {
-
-	if (syncCV) {
+	// not using syncCV for now
+	//if (syncCV) {
+	/*
 		for (int index = 0; index < syncCVFolds; index++) {
 			hNtoKPool[index].resize(N+1);
 			int n = 0;
@@ -888,7 +889,8 @@ void ModelSpecifics<BaseModel, WeightType>::computeNtoKIndices(bool useCrossVali
 			}
 			hNtoKPool[index][n] = K;
 		}
-	} else {
+		*/
+	//} else {
 		hNtoK.resize(N+1);
 		int n = 0;
 		for (size_t k = 0; k < K;) {
@@ -900,7 +902,7 @@ void ModelSpecifics<BaseModel, WeightType>::computeNtoKIndices(bool useCrossVali
 			++n;
 		}
 		hNtoK[n] = K;
-	}
+	//}
 }
 
 template <class BaseModel,typename WeightType>

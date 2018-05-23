@@ -2901,7 +2901,7 @@ public:
     	detail::resizeAndCopyToDevice(temp, dBetaVector, queue);
     }
 
-/*
+
     virtual void runCCDIndex() {
         int wgs = 128;
         if (dBuffer.size() < 2*wgs*cvIndexStride) {
@@ -3089,6 +3089,8 @@ public:
     	}
     	std::cout << "\n";
 
+
+
 #ifdef CYCLOPS_DEBUG_TIMING
         start = bsccs::chrono::steady_clock::now();
 #endif
@@ -3132,147 +3134,8 @@ public:
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-
         }
     }
-    */
-
-
-
-    /*
-    virtual void runCCDIndex() {
-    	if (!initialized) {
-            std::vector<int> hIndexListWithPrior[12];
-
-            for (int i=0; i<J; i++) {
-            	int formatType = formatList[i];
-            	int priorType = priorTypes[i];
-            	hIndexListWithPrior[formatType*3+priorType].push_back(i);
-            }
-
-            std::vector<int> hIndices;
-            int starts = 0;
-            for (int i=0; i<12; i++) {
-            	int length = hIndexListWithPrior[i].size();
-            	indexListWithPriorLengths.push_back(length);
-            	indexListWithPriorStarts.push_back(starts);
-            	for (int j=0; j<length; j++) {
-            		hIndices.push_back(hIndexListWithPrior[i][j]);
-            	}
-
-
-            	starts += length;
-            }
-
-            detail::resizeAndCopyToDevice(hIndices, dIndexListWithPrior, queue);
-
-            initialized = true;
-    	}
-
-
-    	//for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
-    	for (int i = FormatType::INTERCEPT; i >= FormatType::DENSE; --i) {
-    		for (int j = 0; j < 3; j++) {
-    	//for (int index = 0; index < J; index++) {
-#ifdef CYCLOPS_DEBUG_TIMING
-    			auto start = bsccs::chrono::steady_clock::now();
-#endif
-
-    			FormatType formatType = (FormatType)i;
-    			int priorType = j;
-
-
-    			int length = indexListWithPriorLengths[i*3+j];
-    			if (length == 0) {
-    				continue;
-    			}
-
-    			//std::cout << "running format " << i << " prior " << j << " length " << length << " start " << indexListWithPriorStarts[i*3+j] << "\n";
-
-
-    			//FormatType formatType = modelData.getFormatType(index);
-    			//int priorType = priorTypes[index];
-
-
-    			auto& kernel = kernelDoItAll[formatType*3+priorType];
-    			//const auto taskCount = dColumns.getTaskCount(index);
-
-    			//for (int m = 0; m < length; m++) {
-    				//int index = dIndexListWithPrior[indexListWithPriorStarts[i*3+j] + m];
-    			    //const auto taskCount = dColumns.getTaskCount(index);
-
-        			//std::cout << "index " << index << " format " << formatType << " prior " << priorType << " \n";
-
-    			kernel.set_arg(0, dColumns.getDataStarts());
-    			kernel.set_arg(1, dColumns.getIndicesStarts());
-    			kernel.set_arg(2, dColumns.getTaskCounts());
-    	        //kernel.set_arg(0, dColumns.getDataOffset(index));
-    	        //kernel.set_arg(1, dColumns.getIndicesOffset(index));
-    			//kernel.set_arg(2, taskCount);
-    			kernel.set_arg(3, dColumns.getData());
-    			kernel.set_arg(4, dColumns.getIndices());
-    			//kernel.set_arg(5, dY);
-    			//kernel.set_arg(6, dOffs);
-    			kernel.set_arg(5, dXBetaVector);
-    			//kernel.set_arg(8, dOffsExpXBetaVector);
-    			//kernel.set_arg(9, dDenomPidVector);
-    			//kernel.set_arg(10, dPidVector);
-    			if (dKWeightVector.size() == 0) {
-    				kernel.set_arg(11, 0);
-    			} else {
-    				kernel.set_arg(6, dKWeightVector); // TODO Only when dKWeight gets reallocated
-    			}
-    			kernel.set_arg(7, dBoundVector);
-    			kernel.set_arg(8, dPriorParams);
-    			kernel.set_arg(9, dXjYVector);
-    			kernel.set_arg(10, dBetaVector);
-    			kernel.set_arg(11, dDoneVector);
-    			kernel.set_arg(12, cvIndexStride);
-    			//kernel.set_arg(18, syncCVFolds);
-    			int dJ = J;
-    			kernel.set_arg(13, dJ);
-    			//kernel.set_arg(14, index);
-    			kernel.set_arg(14, indexListWithPriorStarts[i*3+j]);
-    			kernel.set_arg(15, length);
-    			kernel.set_arg(16, dIndexListWithPrior);
-
-    			const auto globalWorkSize = tpb;
-
-#ifdef CYCLOPS_DEBUG_TIMING
-    			auto end = bsccs::chrono::steady_clock::now();
-    			///////////////////////////"
-    			auto name = "compDoItAllArgsG" + getFormatTypeExtension(formatType) + " ";
-    			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
-
-#ifdef CYCLOPS_DEBUG_TIMING
-    			start = bsccs::chrono::steady_clock::now();
-#endif
-
-    			queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize*activeFolds, tpb);
-    			queue.finish();
-
-#ifdef CYCLOPS_DEBUG_TIMING
-    			end = bsccs::chrono::steady_clock::now();
-    			///////////////////////////"
-    			name = "compDoItAllKernelG" + getFormatTypeExtension(formatType) + " ";
-    			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
-    			//}
-    		}
-    	}
-
-    	std::vector<real> blah;
-    	blah.resize(dXBetaVector.size());
-    	compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(blah), queue);
-    	std::cout << "xbeta: ";
-    	for (int i=0; i<syncCVFolds; i++) {
-    		std::cout << blah[i*cvIndexStride] << " ";
-    	}
-    	std::cout << "\n";
-
-    }
-*/
 
 
 virtual void runCCDIndex() {
@@ -3311,6 +3174,93 @@ virtual void runCCDIndex() {
         detail::resizeAndCopyToDevice(hIndices, dIndexListWithPrior, queue);
 
         initialized = true;
+
+        if (BaseModel::exactCLR) {
+        	detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
+        	detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
+
+#ifdef USE_LOG_SUM
+        	std::vector<real> hLogX;
+        	hLogX.resize(dColumns.getData().size());
+        	compute::copy(std::begin(dColumns.getData()), std::end(dColumns.getData()), std::begin(hLogX), queue);
+        	for (int i=0; i<hLogX.size(); i++) {
+        		hLogX[i] = log(hLogX[i]);
+        	}
+        	detail::resizeAndCopyToDevice(hLogX, dLogX, queue);
+
+        	/*
+                		std::cout << "logX: ";
+                		for (auto x:hLogX) {
+                			std::cout << x << " ";
+                		}
+                		std::cout << "\n";
+        	 */
+#endif
+
+        	bool dense = TRUE;
+        	for (int index=0; index<J; index++) {
+        		FormatType formatType = modelData.getFormatType(index);
+        		if (formatType == FormatType::INDICATOR || formatType == FormatType::SPARSE) {
+        			dense = FALSE;
+        		}
+        	}
+
+        	if (!dense) {
+        		std::vector<int> hK;
+        		hK.resize(dColumns.getIndices().size());
+        		compute::copy(std::begin(dColumns.getIndices()), std::end(dColumns.getIndices()), std::begin(hK), queue);
+
+        		std::vector<int> offKVec;
+        		offKVec.resize(dColumns.getIndicesStarts().size());
+        		compute::copy(std::begin(dColumns.getIndicesStarts()), std::end(dColumns.getIndicesStarts()), std::begin(offKVec), queue);
+
+        		std::vector<int> NVec;
+        		NVec.resize(dColumns.getTaskCounts().size());
+        		compute::copy(std::begin(dColumns.getTaskCounts()), std::end(dColumns.getTaskCounts()), std::begin(NVec), queue);
+
+        		std::vector<int> Kstrata(N*J);
+
+        		for (int index=0; index<J; index++) {
+        			FormatType formatType = modelData.getFormatType(index);
+        			if (formatType == FormatType::INDICATOR || formatType == FormatType::SPARSE) {
+        				int offK = offKVec[index];
+        				int currentK = hK[offK];
+        				int tasks = NVec[index];
+        				int i=0;
+        				for (int n=0; n<N; n++) {
+        					int stratumStart = hNtoK[n];
+        					int stratumEnd = hNtoK[n+1];
+        					while(currentK < stratumStart && i < tasks) {
+        						i++;
+        						currentK = hK[offK+i];
+        					}
+        					if (currentK >= stratumEnd || i == tasks) {
+        						Kstrata[N*index+n] = -1;
+        					} else {
+        						Kstrata[N*index+n] = i;
+        					}
+        				}
+        			}
+        		}
+
+        		detail::resizeAndCopyToDevice(Kstrata, dKStrata, queue);
+        	} else {
+        		std::vector<int> hK;
+        		hK.push_back(0);
+        		detail::resizeAndCopyToDevice(hK, dKStrata, queue);
+        	}
+        }
+
+    	std::vector<real> blah;
+    	blah.resize(dXBetaVector.size());
+    	compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(blah), queue);
+    	std::cout << "xbeta: ";
+		for (int j=0; j<100; j++) {
+			for (int i=0; i<syncCVFolds; i++) {
+    			std::cout << blah[j*cvIndexStride+i] << " ";
+    		}
+    	}
+    	std::cout << "\n";
 	}
 
 	//for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
@@ -3352,7 +3302,11 @@ virtual void runCCDIndex() {
 	        //kernel.set_arg(0, dColumns.getDataOffset(index));
 	        //kernel.set_arg(1, dColumns.getIndicesOffset(index));
 			//kernel.set_arg(2, taskCount);
+#ifdef USE_LOG_SUM
+			kernel.set_arg(3, dLogX);
+#else
 			kernel.set_arg(3, dColumns.getData());
+#endif
 			kernel.set_arg(4, dColumns.getIndices());
 			//kernel.set_arg(5, dY);
 			//kernel.set_arg(6, dOffs);
@@ -3389,24 +3343,38 @@ virtual void runCCDIndex() {
 				loops++;
 			}
 
-
-/*
-			int loops = syncCVFolds / tpb0;
-			if (syncCVFolds % tpb0 != 0) {
-				loops++;
-			}
-*/
-
 	        size_t globalWorkSize[2];
-	        //globalWorkSize[0] = tpb0*loops;
-	        //globalWorkSize[0] = cvBlockSize * loops;
 	        globalWorkSize[0] = tpb0 * multiprocessors;
-	        globalWorkSize[1] =  tpb1;
 
 	        size_t localWorkSize[2];
-	        //localWorkSize[0] = cvBlockSize;
 	        localWorkSize[0] = tpb0;
-	        localWorkSize[1] = tpb1;
+
+
+			if (BaseModel::exactCLR) {
+				kernel.set_arg(19, dNtoK);
+				kernel.set_arg(20, dNWeight);
+				int KStride = detail::getAlignedLength<16>(K);
+				kernel.set_arg(21, KStride);
+				int dN = N;
+				kernel.set_arg(22, dN);
+				globalWorkSize[1] = detail::constant::exactCLRBlockSize;
+				localWorkSize[1] = detail::constant::exactCLRBlockSize;
+			} else {
+		        globalWorkSize[1] =  tpb1;
+		        localWorkSize[1] = tpb1;
+			}
+
+
+	        //size_t globalWorkSize[2];
+	        //globalWorkSize[0] = tpb0*loops;
+	        //globalWorkSize[0] = cvBlockSize * loops;
+	        //globalWorkSize[0] = tpb0 * multiprocessors;
+	        //globalWorkSize[1] =  tpb1;
+
+	        //size_t localWorkSize[2];
+	        //localWorkSize[0] = cvBlockSize;
+	        //localWorkSize[0] = tpb0;
+	        //localWorkSize[1] = tpb1;
 
 	        size_t dim = 2;
 
@@ -3430,16 +3398,20 @@ virtual void runCCDIndex() {
 			name = "compDoItAllKernelG" + getFormatTypeExtension(formatType) + " ";
 			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
+
+	    	std::vector<real> blah;
+	    	blah.resize(dXBetaVector.size());
+	    	compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(blah), queue);
+	    	std::cout << "xbeta: ";
+    		for (int j=0; j<100; j++) {
+    			for (int i=0; i<syncCVFolds; i++) {
+	    			std::cout << blah[j*cvIndexStride+i] << " ";
+	    		}
+	    	}
+	    	std::cout << "\n";
+
 			} else {
-/*
-				std::vector<int> temp;
-				temp.resize(dCVIndices.size());
-				compute::copy(std::begin(dCVIndices), std::end(dCVIndices), std::begin(temp), queue);
-				for (auto x:temp) {
-					std::cout << x << " ";
-				}
-				std::cout << "\n";
-*/
+
 				auto& kernel1 = kernelDoItAllSingle[formatType*3+priorType];
 				//const auto taskCount = dColumns.getTaskCount(index);
 
@@ -3455,7 +3427,11 @@ virtual void runCCDIndex() {
 		        //kernel.set_arg(0, dColumns.getDataOffset(index));
 		        //kernel.set_arg(1, dColumns.getIndicesOffset(index));
 				//kernel.set_arg(2, taskCount);
+#ifdef USE_LOG_SUM
+				kernel1.set_arg(3, dLogX);
+#else
 				kernel1.set_arg(3, dColumns.getData());
+#endif
 				kernel1.set_arg(4, dColumns.getIndices());
 				//kernel.set_arg(5, dY);
 				//kernel.set_arg(6, dOffs);
@@ -3481,6 +3457,24 @@ virtual void runCCDIndex() {
 				kernel1.set_arg(14, length);
 				kernel1.set_arg(15, dIndexListWithPrior);
 
+				size_t globalWorkSize;
+				size_t localWorkSize;
+
+				if (BaseModel::exactCLR) {
+					kernel1.set_arg(16, dNtoK);
+					kernel1.set_arg(17, dNWeight);
+					int KStride = detail::getAlignedLength<16>(K);
+					kernel1.set_arg(18, KStride);
+					int dN = N;
+					kernel1.set_arg(19, dN);
+					globalWorkSize = tpb0*detail::constant::exactCLRBlockSize*activeFolds;
+					localWorkSize = tpb0*detail::constant::exactCLRBlockSize;
+				} else {
+					globalWorkSize =  tpb0*tpb1*activeFolds;
+					localWorkSize = tpb0*tpb1;
+				}
+
+
 				//const auto globalWorkSize = tpb;
 
 
@@ -3489,7 +3483,7 @@ virtual void runCCDIndex() {
 					loops++;
 				}
 
-		        size_t globalWorkSize = tpb0*tpb1*activeFolds;
+		        //size_t globalWorkSize = tpb0*tpb1*activeFolds;
 
 		        //std::cout << "global work size: " << tpb0*tpb1*activeFolds << " local work size: " << tpb0*tpb1 << "\n";
 
@@ -3504,7 +3498,7 @@ virtual void runCCDIndex() {
 				start = bsccs::chrono::steady_clock::now();
 	#endif
 
-		        queue.enqueue_1d_range_kernel(kernel1, 0, globalWorkSize, tpb0*tpb1);
+		        queue.enqueue_1d_range_kernel(kernel1, 0, globalWorkSize, localWorkSize);
 		        queue.finish();
 
 	#ifdef CYCLOPS_DEBUG_TIMING
@@ -3514,20 +3508,10 @@ virtual void runCCDIndex() {
 				duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 	#endif
 			}
-			//}
 		}
 	}
-/*
-	std::vector<real> blah;
-	blah.resize(dXBetaVector.size());
-	compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(blah), queue);
-	std::cout << "xbeta: ";
-	for (int i=0; i<syncCVFolds; i++) {
-		std::cout << blah[i*cvIndexStride] << " ";
-	}
-	std::cout << "\n";
-*/
 }
+
 
 
 
@@ -3752,18 +3736,21 @@ virtual void runCCDIndex() {
     void turnOnSyncCV(int foldToCompute) {
     	ModelSpecifics<BaseModel, WeightType>::turnOnSyncCV(foldToCompute);
 
+    	std::cout << "start turn on syncCV\n";
+
     	syncCV = true;
     	pad = true;
     	syncCVFolds = foldToCompute;
 
 
+    	if (syncCVFolds > multiprocessors) {
     	hSMStarts.resize(multiprocessors);
     	hSMScales.resize(multiprocessors);
     	int big;
     	int small;
 
     	tpb0 = 1;
-    	while (syncCVFolds / multiprocessors > tpb0) {
+    	while ((double)syncCVFolds /(double)multiprocessors > tpb0) {
     		tpb0 = tpb0*2;
     	}
 
@@ -3832,6 +3819,7 @@ virtual void runCCDIndex() {
 
     	for (auto x:hSMIndices) {
     		hSMIndices0.push_back(x);
+    	}
     	}
 
 
@@ -4071,9 +4059,12 @@ virtual void runCCDIndex() {
     	std::cout << "\n";
 */
 
-    	if (reset) {
+    	if (reset && activeFolds > multiprocessors) {
     		std::copy(std::begin(hSMScales0), std::end(hSMScales0), std::begin(hSMScales));
     		std::copy(std::begin(hSMIndices0), std::end(hSMIndices0), std::begin(hSMIndices));
+        	detail::resizeAndCopyToDevice(hSMScales, dSMScales, queue);
+        	detail::resizeAndCopyToDevice(hSMIndices, dSMIndices, queue);
+        	compute::copy(std::begin(hDone), std::end(hDone), std::begin(dDoneVector), queue);
     	} else if (activeFolds > multiprocessors) {
         	std::vector<int> blockCount;
     		std::vector<int> zeros;
@@ -4166,9 +4157,13 @@ virtual void runCCDIndex() {
         			}
         		}
     		}
+        	detail::resizeAndCopyToDevice(hSMScales, dSMScales, queue);
+        	detail::resizeAndCopyToDevice(hSMIndices, dSMIndices, queue);
+        	compute::copy(std::begin(hDone), std::end(hDone), std::begin(dDoneVector), queue);
+    	} else {
+        	if (activeFolds <= multiprocessors) detail::resizeAndCopyToDevice(hCVIndices, dCVIndices, queue);
     	}
-    	detail::resizeAndCopyToDevice(hSMScales, dSMScales, queue);
-    	detail::resizeAndCopyToDevice(hSMIndices, dSMIndices, queue);
+
 
     	//detail::resizeAndCopyToDevice(hSMStarts, dSMStarts, queue);
 
@@ -4178,8 +4173,6 @@ virtual void runCCDIndex() {
     	}
     	activeFolds = temp.size();
     	*/
-    	compute::copy(std::begin(hDone), std::end(hDone), std::begin(dDoneVector), queue);
-    	if (activeFolds <= multiprocessors) detail::resizeAndCopyToDevice(hCVIndices, dCVIndices, queue);
 
     	/*
     	std::cout << "indices running: ";
@@ -4431,7 +4424,9 @@ virtual void runCCDIndex() {
 
     SourceCode writeCodeForSyncComputeRemainingStatisticsKernel();
 
-    SourceCode writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights, bool isNvidia);
+    SourceCode writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights);
+
+    SourceCode writeCodeForSyncCVGradientHessianKernelExactCLR(FormatType formatType);
 
     SourceCode writeCodeForGetLogLikelihood(bool useWeights, bool isNvidia);
 
@@ -4443,43 +4438,85 @@ virtual void runCCDIndex() {
 
     SourceCode writeCodeForDoItAllKernel(FormatType formatType, int priorType);
 
+    SourceCode writeCodeForExactCLRDoItAllKernel(FormatType formatType, int priorType);
+
     SourceCode writeCodeForDoItAllSingleKernel(FormatType formatType, int priorType);
+
+    SourceCode writeCodeForExactCLRDoItAllSingleKernel(FormatType formatType, int priorType);
 
     SourceCode writeCodeForMMFindDeltaKernel(FormatType formatType, int priorType);
 
     void buildDoItAllKernel(FormatType formatType, int priorType) {
-        std::stringstream options;
+    	if (BaseModel::exactCLR) {
+    		std::stringstream options;
 
-        if (sizeof(real) == 8) {
+    		int mytpb1 = detail::constant::exactCLRBlockSize;
+
+    		if (sizeof(real) == 8) {
 #ifdef USE_VECTOR
-        options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb0*tpb1;
+    			options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << tpb0  << " -DTPB1=" << mytpb1 << " -DTPB=" << tpb0*mytpb1;
 #else
-        options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb0*tpb1;
+    			options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << mytpb1 << " -DTPB=" << tpb0*mytpb1;
 #endif // USE_VECTOR
-        } else {
+    		} else {
 #ifdef USE_VECTOR
-            options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb0*tpb1;
+    			options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << tpb0  << " -DTPB1=" << mytpb1 << " -DTPB=" << tpb0*mytpb1;
 #else
-            options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb0*tpb1;
+    			options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << mytpb1 << " -DTPB=" << tpb0*mytpb1;
 #endif // USE_VECTOR
-        }
-        options << " -cl-mad-enable";
+    		}
+    		options << " -cl-mad-enable";
 
-    	auto source = writeCodeForDoItAllKernel(formatType, priorType);
-    	std::cout << source.body;
-    	auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        std::cout << "program built\n";
-    	auto kernel = compute::kernel(program, source.name);
+    		auto source = writeCodeForExactCLRDoItAllKernel(formatType, priorType);
+    		std::cout << source.body;
+    		auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    		std::cout << "program built\n";
+    		auto kernel = compute::kernel(program, source.name);
 
-    	kernelDoItAll[formatType*3+priorType] = std::move(kernel);
+    		kernelDoItAll[formatType*3+priorType] = std::move(kernel);
 
-    	source = writeCodeForDoItAllSingleKernel(formatType, priorType);
-    	//std::cout << source.body;
-    	program = compute::program::build_with_source(source.body, ctx, options.str());
-        //std::cout << "program built\n";
-    	auto kernelSingle = compute::kernel(program, source.name);
+    		source = writeCodeForExactCLRDoItAllSingleKernel(formatType, priorType);
+    		std::cout << source.body;
+    		program = compute::program::build_with_source(source.body, ctx, options.str());
+    		std::cout << "program built\n";
+    		auto kernelSingle = compute::kernel(program, source.name);
 
-    	kernelDoItAllSingle[formatType*3+priorType] = std::move(kernelSingle);
+    		kernelDoItAllSingle[formatType*3+priorType] = std::move(kernelSingle);
+
+
+    	} else {
+    		std::stringstream options;
+
+    		if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+    			options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb0*tpb1;
+#else
+    			options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb0*tpb1;
+#endif // USE_VECTOR
+    		} else {
+#ifdef USE_VECTOR
+    			options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb0*tpb1;
+#else
+    			options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb0*tpb1;
+#endif // USE_VECTOR
+    		}
+    		options << " -cl-mad-enable";
+
+    		auto source = writeCodeForDoItAllKernel(formatType, priorType);
+    		auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    		auto kernel = compute::kernel(program, source.name);
+
+    		kernelDoItAll[formatType*3+priorType] = std::move(kernel);
+
+
+    		source = writeCodeForDoItAllSingleKernel(formatType, priorType);
+    		//std::cout << source.body;
+    		program = compute::program::build_with_source(source.body, ctx, options.str());
+    		//std::cout << "program built\n";
+    		auto kernelSingle = compute::kernel(program, source.name);
+
+    		kernelDoItAllSingle[formatType*3+priorType] = std::move(kernelSingle);
+    	}
     }
 
     void buildMMFindDeltaKernel(FormatType formatType, int priorType) {
@@ -4581,7 +4618,7 @@ virtual void runCCDIndex() {
             options << " -cl-mad-enable";
 
         	// CCD Kernel
-        	auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useWeights, isNvidia);
+        	auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useWeights);
         	std::cout << source.body;
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
         	std::cout << "program built\n";
@@ -4654,47 +4691,76 @@ virtual void runCCDIndex() {
     }
 
     void buildSyncCVGradientHessianKernel(FormatType formatType) {
+    	if (BaseModel::exactCLR) {
+    		std::stringstream options;
 
-        std::stringstream options;
+    		int mytpb1 = detail::constant::exactCLRBlockSize;
 
-        if (sizeof(real) == 8) {
+    		if (sizeof(real) == 8) {
 #ifdef USE_VECTOR
-            options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << cvBlockSize;
+    			options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << tpb0  << " -DTPB1=" << mytpb1 << " -DTPB=" << tpb0*mytpb1;
 #else
-            options << "-DREAL=double -DTMP_REAL=double -DTPB=" << cvBlockSize;
+    			options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << mytpb1 << " -DTPB=" << tpb0*mytpb1;
 #endif // USE_VECTOR
-        } else {
+    		} else {
 #ifdef USE_VECTOR
-            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << cvBlockSize;
+    			options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << tpb0  << " -DTPB1=" << mytpb1 << " -DTPB=" << tpb0*mytpb1;
 #else
-            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << cvBlockSize;
+    			options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << mytpb1 << " -DTPB=" << tpb0*mytpb1;
 #endif // USE_VECTOR
-        }
-        options << " -cl-mad-enable";
+    		}
+    		options << " -cl-mad-enable";
 
-        auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
-        isNvidia = false;
+    		auto source = writeCodeForSyncCVGradientHessianKernelExactCLR(formatType);
+    		std::cout << source.body;
+    		auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    		std::cout << "program built\n";
+    		auto kernelSync = compute::kernel(program, source.name);
 
-        // CCD Kernel
-        // Rcpp::stop("cGH");
-        auto source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia);
+    		kernelGradientHessianSync[formatType] = std::move(kernelSync);
+    	} else {
 
-        auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        auto kernelSync = compute::kernel(program, source.name);
-        kernelGradientHessianSync[formatType] = std::move(kernelSync);
+    		std::stringstream options;
 
-        source = writeCodeForSyncCV1GradientHessianKernel(formatType, isNvidia);
-        program = compute::program::build_with_source(source.body, ctx, options.str());
-        auto kernelSync1 = compute::kernel(program, source.name);
-        kernelGradientHessianSync1[formatType] = std::move(kernelSync1);
+    		if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+    			options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << cvBlockSize;
+#else
+    			options << "-DREAL=double -DTMP_REAL=double -DTPB=" << cvBlockSize;
+#endif // USE_VECTOR
+    		} else {
+#ifdef USE_VECTOR
+    			options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << cvBlockSize;
+#else
+    			options << "-DREAL=float -DTMP_REAL=float -DTPB=" << cvBlockSize;
+#endif // USE_VECTOR
+    		}
+    		options << " -cl-mad-enable";
 
-        // MM Kernel
-        //if (algorithmType == AlgorithmType::MM) {
+    		auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+    		isNvidia = false;
 
-        source = writeCodeForSyncCVMMGradientHessianKernel(formatType, isNvidia);
-        program = compute::program::build_with_source(source.body, ctx, options.str());
-        auto kernelMMSync = compute::kernel(program, source.name);
-        kernelGradientHessianMMSync[formatType] = std::move(kernelMMSync);
+    		// CCD Kernel
+    		// Rcpp::stop("cGH");
+    		auto source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia);
+
+    		auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    		auto kernelSync = compute::kernel(program, source.name);
+    		kernelGradientHessianSync[formatType] = std::move(kernelSync);
+
+    		source = writeCodeForSyncCV1GradientHessianKernel(formatType, isNvidia);
+    		program = compute::program::build_with_source(source.body, ctx, options.str());
+    		auto kernelSync1 = compute::kernel(program, source.name);
+    		kernelGradientHessianSync1[formatType] = std::move(kernelSync1);
+
+    		// MM Kernel
+    		//if (algorithmType == AlgorithmType::MM) {
+
+    		source = writeCodeForSyncCVMMGradientHessianKernel(formatType, isNvidia);
+    		program = compute::program::build_with_source(source.body, ctx, options.str());
+    		auto kernelMMSync = compute::kernel(program, source.name);
+    		kernelGradientHessianMMSync[formatType] = std::move(kernelMMSync);
+    	}
     }
 
     void buildUpdateXBetaKernel(FormatType formatType) {
@@ -4870,30 +4936,30 @@ virtual void runCCDIndex() {
     }
 
     void buildSyncCVGetGradientObjectiveKernel() {
-        std::stringstream options;
-        if (sizeof(real) == 8) {
+    	std::stringstream options;
+    	if (sizeof(real) == 8) {
 #ifdef USE_VECTOR
-            options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+    		options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
 #else
-            options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+    		options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
 #endif // USE_VECTOR
-        } else {
+    	} else {
 #ifdef USE_VECTOR
-            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+    		options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
 #else
-            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+    		options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
 #endif // USE_VECTOR
-        }
-        options << " -cl-mad-enable";
+    	}
+    	options << " -cl-mad-enable";
 
-        auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
-        isNvidia = false;
+    	auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+    	isNvidia = false;
 
-        // Run-time constant arguments.
-        auto source = writeCodeForGetGradientObjectiveSync(isNvidia);
-        auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        auto kernelSync = compute::kernel(program, source.name);
-        kernelGetGradientObjectiveSync = std::move(kernelSync);
+    	// Run-time constant arguments.
+    	auto source = writeCodeForGetGradientObjectiveSync(isNvidia);
+    	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    	auto kernelSync = compute::kernel(program, source.name);
+    	kernelGetGradientObjectiveSync = std::move(kernelSync);
     }
 
     void buildGetLogLikelihoodKernel(bool useWeights) {
@@ -5447,8 +5513,19 @@ public:
         return(code.str());
     }
 
+    // same as lr, do not use
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
-		return("");
+		// assume exists: numer, denom
+		std::stringstream code;
+        code << "       REAL g = numer / denom;      \n";
+        code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
+        if (formatType == INDICATOR || formatType == INTERCEPT) {
+            code << "       REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
+        } else {
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
+        }
+        return(code.str());
 	}
 
 	std::string logLikeDenominatorContribG() {
