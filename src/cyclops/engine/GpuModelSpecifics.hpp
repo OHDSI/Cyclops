@@ -2729,17 +2729,30 @@ public:
     double getPredictiveLogLikelihood(double* weights, int cvIndex) {
     	computeRemainingStatistics(true);
 
-    	// layout by person
+    	if (BaseModel::exactCLR) {
+    		std::vector<real> xBetaTemp(dXBetaVector.size());
+    		std::vector<real> expXBetaTemp(dOffsExpXBetaVector.size());
+    		compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(xBetaTemp), queue);
+    		compute::copy(std::begin(dOffsExpXBetaVector), std::end(dOffsExpXBetaVector), std::begin(expXBetaTemp), queue);
 
-    	std::vector<real> xBetaTemp(dXBetaVector.size());
-    	std::vector<real> denomTemp(dDenomPidVector.size());
-		compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(xBetaTemp), queue);
-		compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(denomTemp), queue);
+    		for (int i=0; i<K; i++) {
+    			hXBetaPool[cvIndex][i] = xBetaTemp[i*cvIndexStride+cvIndex];
+    			offsExpXBetaPool[cvIndex][i] = expXBetaTemp[i*cvIndexStride+cvIndex];
+    		}
 
-		for (int i=0; i<K; i++) {
-			hXBetaPool[cvIndex][i] = xBetaTemp[i*cvIndexStride+cvIndex];
-			denomPidPool[cvIndex][i] = denomTemp[i*cvIndexStride+cvIndex];
-		}
+    	} else {
+
+    		// layout by person
+    		std::vector<real> xBetaTemp(dXBetaVector.size());
+    		std::vector<real> denomTemp(dDenomPidVector.size());
+    		compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(xBetaTemp), queue);
+    		compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(denomTemp), queue);
+
+    		for (int i=0; i<K; i++) {
+    			hXBetaPool[cvIndex][i] = xBetaTemp[i*cvIndexStride+cvIndex];
+    			denomPidPool[cvIndex][i] = denomTemp[i*cvIndexStride+cvIndex];
+    		}
+    	}
 
     	//compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
     	//compute::copy(std::begin(dDenomPidVector)+cvIndexStride*cvIndex, std::begin(dDenomPidVector)+cvIndexStride*cvIndex+K, std::begin(denomPidPool[cvIndex]), queue);

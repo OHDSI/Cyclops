@@ -57,6 +57,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	initialBound = 2.0;
 
 	init(hXI.getHasOffsetCovariate());
+
 }
 
 CyclicCoordinateDescent* CyclicCoordinateDescent::clone() {
@@ -1198,6 +1199,7 @@ void CyclicCoordinateDescent::findMode(
 		    	//std::cout << "hBeta[0]: " << hBeta[0] << " hBeta[1]: " << hBeta[1] << '\n';
 	        	if (syncCV) {
 	        		std::vector<double> deltaVec = ccdUpdateBetaVec(index);
+	        		deltaVec = applyBounds(deltaVec, index);
 /*
 	        		std::cout << "deltaVec" << index << ": ";
 	        		for (auto x:deltaVec) {
@@ -1205,7 +1207,6 @@ void CyclicCoordinateDescent::findMode(
 	        		}
 	        		std::cout << "\n";
 */
-	        		deltaVec = applyBounds(deltaVec, index);
 	        		updateSufficientStatistics(deltaVec, index);
 	        		computeRemainingStatistics(true, deltaVec);
 	        	} else {
@@ -2083,6 +2084,7 @@ inline int CyclicCoordinateDescent::sign(double x) {
 void CyclicCoordinateDescent::turnOnSyncCV(int foldToCompute) {
 	syncCV = true;
 	syncCVFolds = foldToCompute;
+	std::cout << "foldToCompute: " << foldToCompute << "\n";
 	modelSpecifics.turnOnSyncCV(foldToCompute);
 	for(int i=0; i<foldToCompute; ++i) {
 		hBetaPool.push_back(hBeta);
@@ -2503,7 +2505,7 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
     		} else {
     			illconditioned = false;
     			conv[cvIndex] = computeConvergenceCriterion(thisObjFuncVec[cvIndex], lastObjFuncVec[cvIndex]);
-    			if (conv[cvIndex] > epsilon) {
+    			if (!donePool[cvIndex] && epsilon > 0 && conv[cvIndex] >= epsilon) {
     				done = false;
     			}
     			if (!donePool[cvIndex] && epsilon > 0 && conv[cvIndex] < epsilon) {

@@ -336,6 +336,174 @@ std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorTy
 	return result;
 }
 
+template <typename T, typename UIteratorType>//, typename thread_pool> //typename W typename UIteratorType,
+T computeHowardRecursionSingle(UIteratorType itExpXBeta,
+	int numSubjects, int numCases){//, thread_pool &threadPool){//, /*bsccs::real*  */ W caseOrNo) {
+
+    //std::cout<<"starting recursion\n";
+	using namespace sugar;
+	T result;
+	//double caseSum = 0;
+
+	if (numCases==1) {
+		T B = 0;
+		for (int n=0; n<numSubjects; n++) {
+			B += *itExpXBeta;
+			++itExpXBeta;
+		}
+		result = B;
+	} else {
+
+	    //std::vector<T> B[2];
+	    // T B[2][3*(numCases+1)];
+	    // B[0][0] = 1;
+	    // B[1][0] = 1;
+	    // for (int i=1; i<=3*numCases+2; i++) {
+	    //     B[0][i] = 0;
+	    //     B[1][i] = 0;
+	    // }
+	 	std::vector<T> B[2];
+
+	//     B.emplace_back(std::vector<T>(1, static_cast<T>(1)));
+	//     B.emplace_back(std::vector<T>(1, static_cast<T>(1)));
+
+		// std::vector<T> B1;
+		int currentB = 0;
+		// int nThreads = 4;
+
+		B[0].push_back(1);
+		B[1].push_back(1);
+		for (int i=1; i<=numCases; i++) {
+			B[0].push_back(0);
+			B[1].push_back(0);
+		}
+
+
+		int start = 1;
+		int end = 0;
+		// tbb::task_group threadPool;
+
+		//std::future<void> futures[4];
+
+		for (int n=1; n<= numSubjects; n++) {
+			T t = *itExpXBeta;
+			if (n>numSubjects-numCases+1) start++;
+			if (n<=numCases) end++;
+			// int nloop = end-start+1;
+			//std::cout<<"before"<<B[!currentB][3*start]<<'\n';
+			//std::future<void> futures[4];
+/*
+			for (int i=0; i<nThreads; ++i) {
+			    std::future<void> tempFuture = threadPool.push([x,t,currentB,&B](int id, int tStart,int tEnd){
+			        //futures.push_back(std::move(threadPool.enqueue([=,&B](int tStart,int tEnd){
+			        for (int m=tStart; m<tEnd; m++) {
+			            T b = B[currentB][3*m-3];
+			            T db = B[currentB][3*m-2];
+			            T tb = t*b;
+			            T xtb = x*tb;
+			            T tdb = t*db;
+			            B[!currentB][3*m] = B[currentB][3*m] + tb;
+			            B[!currentB][3*m+1] = B[currentB][3*m+1] + tdb + xtb;
+			            B[!currentB][3*m+2] = B[currentB][3*m+2] + t * B[currentB][3*m-1] + x*xtb + 2*x*tdb;
+			        }
+			    },start+i*nloop/nThreads,start+((i+1)==nThreads?nloop:(t+1)*nloop/nThreads));
+			    //if (tempFuture.valid()) futures[i]=std::move(tempFuture);
+				//futures.emplace_back(tempFuture);
+				//futures.push_back(std::move(tempFuture));
+						//task.wait();
+			}
+ */
+			//std::cout<<threadPool.n_idle() <<" ";
+			// for (int i=0; i<nThreads; i++) {
+				// futures[i].wait();
+			// }
+			// threadPool.clear_queue();
+			//threadPool.stop(true);
+			//std::cout<<"after"<<B[!currentB][3*start]<<'\n';
+
+			//for (int m=std::max(1,n+numCases-numSubjects); m<=std::min(n,numCases);m++) {
+
+
+			// auto func = [&B,x,t,currentB,start,nThreads,nloop](const tbb::blocked_range<int>& range) {
+			// auto func = [&B,x,t,currentB,start,nThreads,nloop](int i) {
+			//
+			//     int tStart = start + i * nloop / nThreads;
+			//     int tEnd = start + ((i + 1) == nThreads ? nloop : (i + 1) * nloop / nThreads);
+			//
+
+			    for (int m = 1; m <= numCases; ++m) {
+			        T b = B[currentB][m-1];
+			        T tb = t*b;
+			        B[!currentB][m] = B[currentB][m] + tb;
+			    }
+			// };
+
+
+			// auto func = [&B,x,t,currentB](const tbb::blocked_range<int>& range) {
+			//     for (int m = range.begin(); m < range.end(); ++m) {
+			//         T b = B[currentB][3*m-3];
+			//         T db = B[currentB][3*m-2];
+			//         T tb = t*b;
+			//         T xtb = x*tb;
+			//         T tdb = t*db;
+			//         B[!currentB][3*m] = B[currentB][3*m] + tb;
+			//         B[!currentB][3*m+1] =  B[currentB][3*m+1] + tdb + xtb;
+			//         B[!currentB][3*m+2] = B[currentB][3*m+2] + t * B[currentB][3*m-1] + x*xtb + 2*x*tdb;
+			//     }
+			// };
+			//
+			// tbb::parallel_for(
+			//     tbb::blocked_range<int>(start, end+1), func
+			//     );
+
+
+			currentB = !currentB;
+			++itExpXBeta;
+			int m = std::min(n,numCases);
+			for (int i=m; i >= 0; --i) {
+				if (B[currentB][i] > 1e200) {
+					for (int j=0; j<numCases+1; ++j) {
+						B[currentB][j] /= 1e200;
+					}
+					break;
+				}
+			}
+			/*
+			if (B[currentB][3*m]>1e20 || B[currentB][3*m+1]>1e20 || B[currentB][3*m+2]>1e20) {
+				for (int i=0; i<=numCases; i++) {
+					B[currentB][3*i] /= 1e20;
+					B[currentB][3*i+1] /= 1e20;
+					B[currentB][3*i+2] /= 1e20;
+				}
+			}
+			*/
+		}
+
+		result = B[currentB][numCases];
+
+		/*
+		for (int i = 0; i<=numCases; i++) {
+			std::cout << log(B[currentB][3*i]) << " ";
+		}
+		std::cout << "\n";
+		//std::cout << " | ";
+		for (int i = 0; i<=numCases; i++) {
+			std::cout << log(B[currentB][3*i+1]) << " ";
+		}
+		std::cout << "\n";
+		for (int i = 0; i<=numCases; i++) {
+			std::cout << log(B[currentB][3*i+2]) << " ";
+		}
+		std::cout << "\n";
+		*/
+	}
+
+	//result.push_back(maxXi);
+	//result.push_back(maxSorted);
+
+	return result;
+}
+
 } // namespace
 
 #endif /* RECURSIONS_HPP_ */

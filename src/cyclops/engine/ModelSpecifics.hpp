@@ -338,9 +338,9 @@ std::vector<double> ModelSpecifics<BaseModel,WeightType>::getLogLikelihoods(bool
 
 	std::vector<double> result;
 
-	for (int index = 0; index < syncCVFolds; index++) {
+	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
 
-		auto rangeNumerator = helper::getRangeAllNumerators(K, hY, hXBetaPool[index], hKWeightPool[index]);
+		auto rangeNumerator = helper::getRangeAllNumerators(K, hY, hXBetaPool[cvIndex], hKWeightPool[cvIndex]);
 
 		real logLikelihood = useCrossValidation ?
 				variants::reduce(
@@ -355,21 +355,46 @@ std::vector<double> ModelSpecifics<BaseModel,WeightType>::getLogLikelihoods(bool
 				);
 
 		if (BaseModel::likelihoodHasDenominator) {
-			auto rangeDenominator = (BaseModel::cumulativeGradientAndHessian) ?
-					helper::getRangeAllDenominators(N, accDenomPidPool[index], hNWeightPool[index]) :
-					helper::getRangeAllDenominators(N, denomPidPool[index], hNWeightPool[index]);
+			if (BaseModel::exactCLR) {
+				tbb::combinable<real> newB(static_cast<real>(0));
+				auto func = [&,cvIndex](const tbb::blocked_range<int>& range){
+					using std::isinf;
+					for (int i = range.begin(); i < range.end(); ++i) {
+						if (hKWeightPool[cvIndex][hNtoK[i]] == 1) {
+							int numSubjects = hNtoK[i+1] - hNtoK[i];
+							int numCases = hNWeight[i];
+							real value = computeHowardRecursionSingle<real>(offsExpXBetaPool[cvIndex].begin() + hNtoK[i], numSubjects, numCases);
+							//std::cout << "new values" << i << ": " << value[0] << " | " << value[1] << " | " << value[2] << '\n';
+							if (value==0 || isinf(value)) {
+								DDouble value = computeHowardRecursionSingle<DDouble>(offsExpXBetaPool[cvIndex].begin() + hNtoK[i], numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
+								using namespace sugar;
+								//mutex0.lock();
+								newB.local() += log(value);
+								//mutex0.unlock();
+								continue;
+							}
+							newB.local() += log(value);
+						}
+					}
+				};
+				tbb::parallel_for(tbb::blocked_range<int>(0,N),func);
+				logLikelihood -= newB.combine([](const real& x, const real& y) {return x+y;});
+			} else {
+				auto rangeDenominator = (BaseModel::cumulativeGradientAndHessian) ?
+						helper::getRangeAllDenominators(N, accDenomPidPool[cvIndex], hNWeightPool[cvIndex]) :
+						helper::getRangeAllDenominators(N, denomPidPool[cvIndex], hNWeightPool[cvIndex]);
 
-			logLikelihood -= variants::reduce(
-					rangeDenominator.begin(), rangeDenominator.end(),
-					static_cast<real>(0.0),
-					TestAccumulateLikeDenominatorKernel<BaseModel,real>(),
-					SerialOnly()
-			);
-
+				logLikelihood -= variants::reduce(
+						rangeDenominator.begin(), rangeDenominator.end(),
+						static_cast<real>(0.0),
+						TestAccumulateLikeDenominatorKernel<BaseModel,real>(),
+						SerialOnly()
+				);
+			}
 		}
 
 		if (BaseModel::likelihoodHasFixedTerms) {
-			logLikelihood += logLikelihoodFixedTermPool[index];
+			logLikelihood += logLikelihoodFixedTermPool[cvIndex];
 		}
 
 		result.push_back(logLikelihood);
@@ -1006,17 +1031,41 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 //                 kernelDenominator,
 //                 SerialOnly()
 //         );
+    	if (BaseModel::exactCLR) {
 
-		auto rangeDenominator = (BaseModel::cumulativeGradientAndHessian) ?
-				helper::getRangeAllDenominators(N, accDenomPid, hNWeight) :
-				helper::getRangeAllDenominators(N, denomPid, hNWeight);
+    	    tbb::combinable<real> newB(static_cast<real>(0));
+    	    auto func = [&](const tbb::blocked_range<int>& range){
+    	        using std::isinf;
+    	        for (int i = range.begin(); i < range.end(); ++i) {
+    	            int numSubjects = hNtoK[i+1] - hNtoK[i];
+    	            int numCases = hNWeight[i];
+    	            real value = computeHowardRecursionSingle<real>(offsExpXBeta.begin() + hNtoK[i], numSubjects, numCases);
+    	            //std::cout << "new values" << i << ": " << value[0] << " | " << value[1] << " | " << value[2] << '\n';
+    	            if (value==0 || isinf(value)) {
+    	                DDouble value = computeHowardRecursionSingle<DDouble>(offsExpXBeta.begin() + hNtoK[i], numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
+    	                using namespace sugar;
+    	                //mutex0.lock();
+    	                newB.local() += log(value);
+    	                //mutex0.unlock();
+    	                continue;
+    	            }
+    	            newB.local() += log(value);
+    	        }
+    	    };
+    	    tbb::parallel_for(tbb::blocked_range<int>(0,N),func);
+    	    logLikelihood -= newB.combine([](const real& x, const real& y) {return x+y;});
+    	} else {
+    		auto rangeDenominator = (BaseModel::cumulativeGradientAndHessian) ?
+    				helper::getRangeAllDenominators(N, accDenomPid, hNWeight) :
+					helper::getRangeAllDenominators(N, denomPid, hNWeight);
 
-		logLikelihood -= variants::reduce(
-				rangeDenominator.begin(), rangeDenominator.end(),
-				static_cast<real>(0.0),
-				TestAccumulateLikeDenominatorKernel<BaseModel,real>(),
-				SerialOnly()
-		);
+    		logLikelihood -= variants::reduce(
+    				rangeDenominator.begin(), rangeDenominator.end(),
+					static_cast<real>(0.0),
+					TestAccumulateLikeDenominatorKernel<BaseModel,real>(),
+					SerialOnly()
+    		);
+    	}
 
 //         std::cerr << logLikelihood << " == " << logLikelihood2 << std::endl;
     }
@@ -1037,37 +1086,67 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 template <class BaseModel,typename WeightType>
 double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(double* weights) {
 
-    std::vector<real> saveKWeight;
-	if(BaseModel::cumulativeGradientAndHessian)	{
+	real logLikelihood = 0;
+	if (BaseModel::exactCLR) {
+		for (int i=0; i<K; i++) {
+			logLikelihood += hY[i]*weights[i]*hXBeta[i];
+		}
+		tbb::combinable<real> newB(static_cast<real>(0));
+		auto func = [&](const tbb::blocked_range<int>& range){
+			using std::isinf;
+			for (int i = range.begin(); i < range.end(); ++i) {
+				if (weights[hNtoK[i]] == 1) {
+					int numSubjects = hNtoK[i+1] - hNtoK[i];
+					int numCases = hNWeight[i];
+					real value = computeHowardRecursionSingle<real>(offsExpXBeta.begin() + hNtoK[i], numSubjects, numCases);
+					//std::cout << "new values" << i << ": " << value[0] << " | " << value[1] << " | " << value[2] << '\n';
+					if (value==0 || isinf(value)) {
+						DDouble value = computeHowardRecursionSingle<DDouble>(offsExpXBeta.begin() + hNtoK[i], numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
+						using namespace sugar;
+						//mutex0.lock();
+						newB.local() += log(value);
+						//mutex0.unlock();
+						continue;
+					}
+					newB.local() += log(value);
+				}
+			}
+		};
+		tbb::parallel_for(tbb::blocked_range<int>(0,N),func);
+		logLikelihood -= newB.combine([](const real& x, const real& y) {return x+y;});
+	} else {
+		std::vector<real> saveKWeight;
+		if(BaseModel::cumulativeGradientAndHessian)	{
 
- 		saveKWeight = hKWeight; // make copy
+			saveKWeight = hKWeight; // make copy
 
-// 		std::vector<int> savedPid = hPidInternal; // make copy
-// 		std::vector<int> saveAccReset = accReset; // make copy
-		setPidForAccumulation(weights);
-		computeRemainingStatistics(true); // compute accDenomPid
+			// 		std::vector<int> savedPid = hPidInternal; // make copy
+			// 		std::vector<int> saveAccReset = accReset; // make copy
+			setPidForAccumulation(weights);
+			computeRemainingStatistics(true); // compute accDenomPid
 
-    }
+		}
 
-	// Compile-time switch for models with / with-out PID (hasIndependentRows)
-	auto range = helper::getRangeAllPredictiveLikelihood(K, hY, hXBeta,
-		(BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
-		weights, hPid, std::integral_constant<bool, BaseModel::hasIndependentRows>());
+		// Compile-time switch for models with / with-out PID (hasIndependentRows)
+		auto range = helper::getRangeAllPredictiveLikelihood(K, hY, hXBeta,
+				(BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
+						weights, hPid, std::integral_constant<bool, BaseModel::hasIndependentRows>());
 
-	auto kernel = TestPredLikeKernel<BaseModel,real>();
+		auto kernel = TestPredLikeKernel<BaseModel,real>();
 
-	real logLikelihood = variants::reduce(
-			range.begin(), range.end(), static_cast<real>(0.0),
-			kernel,
-			SerialOnly()
+		logLikelihood = variants::reduce(
+				range.begin(), range.end(), static_cast<real>(0.0),
+				kernel,
+				SerialOnly()
 		);
 
-	if (BaseModel::cumulativeGradientAndHessian) {
+		if (BaseModel::cumulativeGradientAndHessian) {
 
-// 		hPidInternal = savedPid; // make copy; TODO swap
-// 		accReset = saveAccReset; // make copy; TODO swap
-		setPidForAccumulation(&saveKWeight[0]);
-		computeRemainingStatistics(true);
+			// 		hPidInternal = savedPid; // make copy; TODO swap
+			// 		accReset = saveAccReset; // make copy; TODO swap
+			setPidForAccumulation(&saveKWeight[0]);
+			computeRemainingStatistics(true);
+		}
 	}
 
 	return static_cast<double>(logLikelihood);
@@ -2558,17 +2637,21 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(double* inWeights, bool us
 	}
 
 	// Set N weights (these are the same for independent data models
-	// jerry rigged for now
-		if (hNWeight.size() < N + 1) { // Add +1 for extra (zero-weight stratum)
-			hNWeight.resize(N + 1);
-		}
+	// all the same for now, cv fold by stratum
+	if (hNWeight.size() < N + 1) { // Add +1 for extra (zero-weight stratum)
+		hNWeight.resize(N + 1);
+	}
 
-		std::fill(hNWeight.begin(), hNWeight.end(), static_cast<WeightType>(0));
-		for (size_t k = 0; k < K; ++k) {
-			WeightType event = BaseModel::observationCount(hY[k])*1;
-			incrementByGroup(hNWeight.data(), hPid, k, event);
-		}
+	std::fill(hNWeight.begin(), hNWeight.end(), static_cast<WeightType>(0));
+	for (size_t k = 0; k < K; ++k) {
+		WeightType event = BaseModel::observationCount(hY[k])*1;
+		incrementByGroup(hNWeight.data(), hPid, k, event);
+	}
 
+
+	for (auto x:hNWeight) {
+		hNWeightPool[index].push_back(x);
+	}
 		/*
 	// Set N weights (these are the same for independent data models
 	if (hNWeightPool[index].size() < N + 1) { // Add +1 for extra (zero-weight stratum)
@@ -2895,27 +2978,28 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	    auto func = [&,index](const tbb::blocked_range<int>& range){
 
 	        using std::isinf;
-
+//only 0 1 weights
 	        for (int i = range.begin(); i < range.end(); ++i) {
-	            DenseView<IteratorType> x(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
-	            int numSubjects = hNtoK[i+1] - hNtoK[i];
-	            int numCases = hNWeight[i];
-	            std::vector<real> value = computeHowardRecursion<real>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases);
-	            //std::cout << "new values" << i << ": " << value[0] << " | " << value[1] << " | " << value[2] << '\n';
-	            if (value[0]==0 || value[1] == 0 || value[2] == 0 || isinf(value[0]) || isinf(value[1]) || isinf(value[2])) {
-	                DenseView<IteratorType> newX(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
-	                std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], newX, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
-	                using namespace sugar;
-	                //mutex0.lock();
-	                newGrad.local() -= (real)(-value[1]/value[0]);
-	                newHess.local() -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
-	                //mutex0.unlock();
-	                continue;
-	            }
-	            //mutex0.lock();
-	            newGrad.local() -= (real)(-value[1]/value[0]);
-	            newHess.local() -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
-
+	        	if (hKWeightPool[cvIndex][hNtoK[i]] == 1) {
+	        		DenseView<IteratorType> x(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
+	        		int numSubjects = hNtoK[i+1] - hNtoK[i];
+	        		int numCases = hNWeight[i];
+	        		std::vector<real> value = computeHowardRecursion<real>(offsExpXBetaPool[cvIndex].begin() + hNtoK[i], x, numSubjects, numCases);
+	        		//std::cout << "new values" << i << ": " << value[0] << " | " << value[1] << " | " << value[2] << '\n';
+	        		if (value[0]==0 || value[1] == 0 || value[2] == 0 || isinf(value[0]) || isinf(value[1]) || isinf(value[2])) {
+	        			DenseView<IteratorType> newX(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
+	        			std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBetaPool[cvIndex].begin() + hNtoK[i], newX, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
+	        			using namespace sugar;
+	        			//mutex0.lock();
+	        			newGrad.local() -= (real)(-value[1]/value[0]);
+	        			newHess.local() -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
+	        			//mutex0.unlock();
+	        			continue;
+	        		}
+	        		//mutex0.lock();
+	        		newGrad.local() -= (real)(-value[1]/value[0]);
+	        		newHess.local() -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
+	        	}
 	            //mutex0.unlock();
 	        }
 	    };
@@ -2947,7 +3031,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	        hessian -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
 	    	}
 	    }
-	    */
+ */
 
     	//std::cout << "grad: " << gradient << " hess: " << hessian << " \n";
 
@@ -3285,39 +3369,68 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 template <class BaseModel,typename WeightType>
 double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(double* weights, int cvIndex) {
 
-    std::vector<real> saveKWeight;
-	if(BaseModel::cumulativeGradientAndHessian)	{
+	real logLikelihood = 0;
+	if (BaseModel::exactCLR) {
+		for (int i=0; i<K; i++) {
+			logLikelihood += hY[i]*weights[i]*hXBetaPool[cvIndex][i];
+		}
+		tbb::combinable<real> newB(static_cast<real>(0));
+		auto func = [&,cvIndex](const tbb::blocked_range<int>& range){
+			using std::isinf;
+			for (int i = range.begin(); i < range.end(); ++i) {
+				if (weights[hNtoK[i]] == 1) {
+					int numSubjects = hNtoK[i+1] - hNtoK[i];
+					int numCases = hNWeight[i];
+					real value = computeHowardRecursionSingle<real>(offsExpXBetaPool[cvIndex].begin() + hNtoK[i], numSubjects, numCases);
+					//std::cout << "new values" << i << ": " << value[0] << " | " << value[1] << " | " << value[2] << '\n';
+					if (value==0 || isinf(value)) {
+						DDouble value = computeHowardRecursionSingle<DDouble>(offsExpXBetaPool[cvIndex].begin() + hNtoK[i], numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
+						using namespace sugar;
+						//mutex0.lock();
+						newB.local() += log(value);
+						//mutex0.unlock();
+						continue;
+					}
+					newB.local() += log(value);
+				}
+			}
+		};
+		tbb::parallel_for(tbb::blocked_range<int>(0,N),func);
+		logLikelihood -= newB.combine([](const real& x, const real& y) {return x+y;});
+	} else {
+		std::vector<real> saveKWeight;
+		if(BaseModel::cumulativeGradientAndHessian)	{
 
- 		saveKWeight = hKWeightPool[cvIndex]; // make copy
+			saveKWeight = hKWeightPool[cvIndex]; // make copy
 
-// 		std::vector<int> savedPid = hPidInternal; // make copy
-// 		std::vector<int> saveAccReset = accReset; // make copy
-		setPidForAccumulation(weights, cvIndex);
-		computeRemainingStatistics(true); // compute accDenomPid
+			// 		std::vector<int> savedPid = hPidInternal; // make copy
+			// 		std::vector<int> saveAccReset = accReset; // make copy
+			setPidForAccumulation(weights, cvIndex);
+			computeRemainingStatistics(true); // compute accDenomPid
 
-    }
+		}
 
-	// Compile-time switch for models with / with-out PID (hasIndependentRows)
-	auto range = helper::getRangeAllPredictiveLikelihood(K, hY, hXBetaPool[cvIndex],
-		(BaseModel::cumulativeGradientAndHessian) ? accDenomPidPool[cvIndex] : denomPidPool[cvIndex],
-		weights, hPidPool[cvIndex], std::integral_constant<bool, BaseModel::hasIndependentRows>());
+		// Compile-time switch for models with / with-out PID (hasIndependentRows)
+		auto range = helper::getRangeAllPredictiveLikelihood(K, hY, hXBetaPool[cvIndex],
+				(BaseModel::cumulativeGradientAndHessian) ? accDenomPidPool[cvIndex] : denomPidPool[cvIndex],
+						weights, hPidPool[cvIndex], std::integral_constant<bool, BaseModel::hasIndependentRows>());
 
-	auto kernel = TestPredLikeKernel<BaseModel,real>();
+		auto kernel = TestPredLikeKernel<BaseModel,real>();
 
-	real logLikelihood = variants::reduce(
-			range.begin(), range.end(), static_cast<real>(0.0),
-			kernel,
-			SerialOnly()
+		logLikelihood = variants::reduce(
+				range.begin(), range.end(), static_cast<real>(0.0),
+				kernel,
+				SerialOnly()
 		);
 
-	if (BaseModel::cumulativeGradientAndHessian) {
+		if (BaseModel::cumulativeGradientAndHessian) {
 
-// 		hPidInternal = savedPid; // make copy; TODO swap
-// 		accReset = saveAccReset; // make copy; TODO swap
-		setPidForAccumulation(&saveKWeight[0], cvIndex);
-		computeRemainingStatistics(true);
-	}
-
+			// 		hPidInternal = savedPid; // make copy; TODO swap
+			// 		accReset = saveAccReset; // make copy; TODO swap
+			setPidForAccumulation(&saveKWeight[0], cvIndex);
+			computeRemainingStatistics(true);
+		}
+		}
 	return static_cast<double>(logLikelihood);
 }   // END OF DIFF
 
