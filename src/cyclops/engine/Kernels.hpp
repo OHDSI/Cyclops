@@ -1597,54 +1597,48 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"   const uint N,              \n" <<
 					"   __global const REAL* X,           		\n" <<
 					"   __global const int* K,            		\n" <<
+					"	__global const REAL* Y,					\n" <<
+					"   __global const REAL* xBetaVector,       \n" <<
+					"   __global const REAL* expXBetaVector,    \n" <<
+					"   __global const REAL* denomPidVector, 	\n" <<
+					"	__global REAL* buffer,					\n" <<
+					"	__global const int* pIdVector,			\n" <<
+					"	__global const REAL* weightVector,		\n" <<
+					"	const uint cvIndexStride,				\n" <<
+					"	const uint blockSize,					\n" <<
+					"	__global int* allZero,					\n" <<
 					"	__global const uint* NtoK,				\n" <<
 					"	__global const REAL* casesVec,			\n" <<
-					"	__global const REAL* expXBeta,				\n" <<
-					"	__global REAL* output,					\n" <<
-					"	__global REAL* firstRow,				\n" <<
+					//"	__global REAL* firstRow,				\n" <<
 					"	const uint persons,						\n" <<
 					"	const uint index,						\n" <<
 					"	const uint totalStrata,					\n" <<
-					"	const uint cvIndexStride,				\n" <<
-					"   __global const REAL* weightVector,		\n" <<
-					"	__global const uint* KStrata,			\n" <<
-					"	__global const uint* smStarts,			\n" <<
-					"	__global const uint* smScales,			\n" <<
-					"	__global const uint* smIndices) {    	\n";
+					"	__global const uint* KStrata) {    	\n";
 
-			code <<  "	__local REAL B0[2][TPB0*TPB1];			\n" <<
+			code << "	if (get_global_id(0) == 0) allZero[0] = 1;	\n" <<
+					"	__local REAL B0[2][TPB0*TPB1];			\n" <<
 					"	__local REAL B1[2][TPB0*TPB1];			\n" <<
 					"	__local REAL B2[2][TPB0*TPB1];			\n" <<
-					"	__local REAL localWeights[TPB0];			\n" <<
+					"	__local REAL localWeights[TPB0];	\n" <<
+					"	uint lid0 = get_local_id(0);		\n" <<
+					"	uint lid1 = get_local_id(1);		\n" <<
+					"	uint mylid = lid1*TPB0+lid0;		\n" <<
+					"	uint cvIndex = get_group_id(0)*blockSize+lid0;	\n" <<
+					"	uint stratum = get_group_id(1);			\n" <<
+					"	uint loopSize = get_num_groups(1);		\n" <<
+					"	REAL grad = 0;							\n" <<
+					"	REAL hess = 0;							\n" <<
 
-					"	uint lid0 = get_local_id(0);			\n" <<
-					"	uint lid1 = get_local_id(1);			\n" <<
-
-					"	uint smScale = smScales[get_group_id(0)];	\n" <<
-					//"	uint myTPB0 = TPB0;					\n" <<
-					//"	uint myTPB1 = TPB1;					\n" <<
-					//"	uint mylid0 = lid0;					\n" <<
-					//"	uint mylid1 = lid1;					\n" <<
-					"	uint myTPB0 = TPB0 / smScale;		\n" <<
-					"	uint myTPB1 = TPB1 * smScale;		\n" <<
-					"	uint mylid0 = lid0 % myTPB0;		\n" <<
-					"	uint mylid1 = lid1 * smScale + lid0 / myTPB0;		\n" <<
-					"	uint mylid = mylid1*myTPB0+mylid0;	\n" <<
-
-					//"	uint cvIndex = smStarts[get_group_id(0)] + mylid0;	\n" <<
-					"	uint cvIndex = smIndices[smStarts[get_group_id(0)] + lid0];	\n";
-					//"	uint cvIndex = get_group_id(0)*TPB0 + lid0;	\n" <<
-
-			code << "	for (int stratum = 0; stratum < totalStrata; stratum++) {	\n" <<
+					"	while (stratum < totalStrata) {		\n" <<
 					"		int stratumStart = NtoK[stratum];	\n" <<
 					"		uint vecOffset = stratumStart*cvIndexStride + cvIndex;	\n" <<
 					"		int total = NtoK[stratum+1] - stratumStart;	\n" <<
 					"		int cases = casesVec[stratum];		\n" <<
 					"		int controls = total - cases;		\n" <<
 					"		int offKStrata = index*totalStrata + stratum;	\n" <<
-					"		if (mylid1 == 0) {					\n" <<
+					"		if (lid1 == 0) {					\n" <<
 					"			REAL temp = weightVector[vecOffset];	\n" <<
-					"			localWeights[mylid0] = temp;		\n" <<
+					"			localWeights[lid0] = temp;		\n" <<
 					"		}									\n" <<
 					"		barrier(CLK_LOCAL_MEM_FENCE);		\n";
 #ifdef USE_LOG_SUM
@@ -1654,9 +1648,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"		B1[1][mylid] = -INFINITY;					\n" <<
 					"		B2[0][mylid] = -INFINITY;					\n" <<
 					"		B2[1][mylid] = -INFINITY;					\n" <<
-					"		if (mylid1 == 0) {							\n" <<
-					"			B0[0][mylid0] = 0;						\n" <<
-					"			B0[1][mylid0] = 0;						\n" <<
+					"		if (lid1 == 0) {							\n" <<
+					"			B0[0][lid0] = 0;						\n" <<
+					"			B0[1][lid0] = 0;						\n" <<
 					"		}										\n" <<
 					"		const REAL logTwo = log((REAL)2.0);		\n";
 #else
@@ -1666,26 +1660,26 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"		B1[1][mylid] = 0;							\n" <<
 					"		B2[0][mylid] = 0;							\n" <<
 					"		B2[1][mylid] = 0;							\n" <<
-					"		if (mylid1 == 0) {							\n" <<
-					"			B0[0][mylid0] = 1;						\n" <<
-					"			B0[1][mylid0] = 1;						\n" <<
+					"		if (lid1 == 0) {							\n" <<
+					"			B0[0][lid0] = 1;						\n" <<
+					"			B0[1][lid0] = 1;						\n" <<
 					"		}										\n";
 #endif
 			//"	uint current = 0;						\n";
 
 			code << "		uint loops;								\n" <<
-					"		loops = cases / (myTPB1 - 1);				\n" <<
-					"		if (cases % (myTPB1 - 1) > 0) {			\n" <<
+					"		loops = cases / (TPB1 - 1);				\n" <<
+					"		if (cases % (TPB1 - 1) > 0) {			\n" <<
 					"			loops++;							\n" <<
 					"		}										\n";
 
 			// if loops == 1
-			code << "		if (loops == 1) {							\n" <<
-					"			uint current = 0;						\n";
+			//code << "	if (loops == 1) {							\n" <<
+			code << "		uint current = 0;						\n";
 
 			if (formatType == INDICATOR || formatType == SPARSE) {
 				code << "	__local uint currentKIndex, currentK;	\n" <<
-						"	if (mylid0 == 0 && mylid1 == 0) {							\n" <<
+						"	if (lid0 == 0 && lid1 == 0) {							\n" <<
 						"		currentKIndex = KStrata[offKStrata];					\n" <<
 						"		if (currentKIndex == -1) {			\n" <<
 						"			currentK = -1;					\n" <<
@@ -1697,97 +1691,110 @@ static std::string weight(const std::string& arg, bool useWeights) {
 			}
 
 			if (formatType == INTERCEPT) {
-				code << "REAL x;						\n";
+				code << "	REAL x;						\n";
 			} else {
-				code << "__local REAL x;				\n";
+				code << "	__local REAL x;				\n";
 			}
 
-			code << "	for (int col = 0; col < total; col++) {	\n" <<
-					"		REAL U = expXBeta[vecOffset + col * cvIndexStride];	\n";
+			code << "		for (int col = 0; col < total; col++) {	\n" <<
+#ifdef USE_LOG_SUM
+					"			REAL U = xBetaVector[vecOffset + col * cvIndexStride];	\n";
+#else
+					"			REAL U = exp(xBetaVector[vecOffset+col*cvIndexStride]);	\n";
+#endif
 
 			if (formatType == DENSE) {
-				code << "	if (mylid0 == 0 && mylid1 == 0) {						\n" <<
-						"		x = X[offX+stratumStart+col];			\n" <<
-						"	}									\n" <<
-						"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
+				code << "		if (lid0 == 0 && lid1 == 0) {						\n" <<
+						"			x = X[offX+stratumStart+col];			\n" <<
+						"		}									\n" <<
+						"		barrier(CLK_LOCAL_MEM_FENCE);		\n";
 			}
 
 			if (formatType == INTERCEPT) {
 #ifdef USE_LOG_SUM
-				code << "	x = 0;					\n";
+				code << "		x = 0;					\n";
 #else
-				code << "	x = 1;					\n";
+				code << "		x = 1;					\n";
 #endif
 			}
 
 			if (formatType == INDICATOR) {
-				code << "	if (mylid0 == 0 && mylid1 == 0) {						\n" <<
-						"		if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
+				code << "		if (lid0 == 0 && lid1 == 0) {						\n" <<
+						"			if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
 #ifdef USE_LOG_SUM
-						"	x = -INFINITY;								\n" <<
+						"			x = -INFINITY;								\n" <<
 #else
-						"	x = 0;								\n" <<
+						"			x = 0;								\n" <<
 #endif
-						"		} else {	\n" <<
+						"			} else {	\n" <<
 #ifdef USE_LOG_SUM
-						"	x = 0;								\n" <<
+						"			x = 0;								\n" <<
 #else
-						"	x = 1;								\n" <<
+						"			x = 1;								\n" <<
 #endif
 						"			currentKIndex++;			\n" <<
 						"			currentK = K[offK + currentKIndex];	\n" <<
-						"		}								\n" <<
-						"	}									\n" <<
-						"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
+						"			}								\n" <<
+						"		}									\n" <<
+						"		barrier(CLK_LOCAL_MEM_FENCE);		\n";
 			}
 
 			if (formatType == SPARSE) {
-				code << "	if (mylid0 == 0 && mylid1 == 0) {						\n" <<
-						"		if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
+				code << "		if (lid0 == 0 && lid1 == 0) {						\n" <<
+						"			if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
 #ifdef USE_LOG_SUM
-						"	x = -INFINITY;								\n" <<
+						"			x = -INFINITY;								\n" <<
 #else
-						"	x = 0;								\n" <<
+						"			x = 0;								\n" <<
 #endif
-						"		} else {						\n" <<
-						"			x = X[offX+currentKIndex];	\n" <<
-						"			currentKIndex++;			\n" <<
+						"			} else {						\n" <<
+						"				x = X[offX+currentKIndex];	\n" <<
+						"				currentKIndex++;			\n" <<
 						"			currentK = K[offK + currentKIndex];	\n" <<
-						"		}								\n" <<
-						"	}									\n" <<
-						"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
+						"			}								\n" <<
+						"		}									\n" <<
+						"		barrier(CLK_LOCAL_MEM_FENCE);		\n";
 			}
 
-			code << "		if (mylid1 > 0 && mylid1 <= cases) {						\n" <<
+			code << "			if (lid1 > 0 && lid1 <= cases) {						\n" <<
 #ifdef USE_LOG_SUM
 					//"			x = log(x);										\n" <<
-					"			B0[current][mylid] = log_sum(				 B0[1-current][mylid], U+B0[1-current][mylid-myTPB0]);	\n" <<
-					"			B1[current][mylid] = log_sum(log_sum(		 B1[1-current][mylid], U+B1[1-current][mylid-myTPB0]), x + U + B0[1-current][mylid-myTPB0]);	\n" <<
-					"			B2[current][mylid] = log_sum(log_sum(log_sum(B2[1-current][mylid], U+B2[1-current][mylid-myTPB0]), x + U + B0[1-current][mylid-myTPB0]), logTwo + x + U + B1[1-current][mylid-myTPB0]);	\n" <<
+					"				B0[current][mylid] = log_sum(				 B0[1-current][mylid], U+B0[1-current][mylid-TPB0]);	\n" <<
+					"				B1[current][mylid] = log_sum(log_sum(		 B1[1-current][mylid], U+B1[1-current][mylid-TPB0]), x + U + B0[1-current][mylid-TPB0]);	\n" <<
+					"				B2[current][mylid] = log_sum(log_sum(log_sum(B2[1-current][mylid], U+B2[1-current][mylid-TPB0]), x + U + B0[1-current][mylid-TPB0]), logTwo + x + U + B1[1-current][mylid-TPB0]);	\n" <<
 
 #else
-					"			B0[current][mylid] = B0[1-current][mylid] + U*B0[1-current][mylid-myTPB0];	\n" <<
-					"			B1[current][mylid] = B1[1-current][mylid] + U*B1[1-current][mylid-myTPB0] + x*U*B0[1-current][lid-1];	\n" <<
-					"			B2[current][mylid] = B2[1-current][mylid] + U*B2[1-current][mylid-myTPB0] + x*U*B0[1-current][lid-1] + 2*x*U*B1[1-current][mylid-myTPB0];	\n" <<
+					"				B0[current][mylid] = B0[1-current][mylid] + U*B0[1-current][mylid-TPB0];	\n" <<
+					"				B1[current][mylid] = B1[1-current][mylid] + U*B1[1-current][mylid-TPB0] + x*U*B0[1-current][mylid-TPB0];	\n" <<
+					"				B2[current][mylid] = B2[1-current][mylid] + U*B2[1-current][mylid-TPB0] + x*U*B0[1-current][mylid-TPB0] + 2*x*U*B1[1-current][mylid-TPB0];	\n" <<
 #endif
-					"		}									\n" <<
-					"		current = 1 - current;				\n" <<
-					"		barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
-					"	}										\n";
+					"			}									\n" <<
+					"			current = 1 - current;				\n" <<
+					"			barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
+					"		}										\n";
 
-
-			code << "	if (mylid1 == cases) {							\n" <<
-					"		output[3*cvIndexStride*stratum+3*cvIndex] = B0[1-current][mylid]*weightVector[mylid0];	\n" <<
-					"		output[3*cvIndexStride*stratum*3*cvIndex+1] = B1[1-current][mylid]*weightVector[mylid0];	\n" <<
-					"		output[3*cvIndexStride*stratum*3*cvIndex+2] = B2[1-current][mylid]*weightVector[mylid0];	\n" <<
-					"	}										\n";
-
-			code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
-			code << "	barrier(CLK_LOCAL_MEM_FENCE);			\n";
-
-			code << "}											\n";
-			code << "}											\n";
-
+			code << "		if (lid1 == 0) {							\n" <<
+					"			if (localWeights[lid0] != 0) {			\n" <<
+					"				REAL value0 = B0[1-current][cases*TPB0+lid0]*localWeights[lid0];	\n" <<
+					"				REAL value1 = B1[1-current][cases*TPB0+lid0]*localWeights[lid0];	\n" <<
+					"				REAL value2 = B2[1-current][cases*TPB0+lid0]*localWeights[lid0];	\n" <<
+#ifdef USE_LOG_SUM
+					"				grad -= -exp(value1 - value0);			\n" <<
+					"				hess -= exp(2*(value1-value0)) - exp(value2 - value0);	\n" <<
+#else
+					"				grad -= -value1/value0;					\n" <<
+					"				hess -= value1*value1/value0/value0 - value2/value0;		\n" <<
+#endif
+					"			}									\n" <<
+					"		}										\n";
+			code << "		stratum += loopSize;					\n";
+			code << "		barrier(CLK_LOCAL_MEM_FENCE);			\n";
+			code << "		barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+			code << "	}											\n";
+			code << "	if (lid1 == 0) {							\n" <<
+					"			buffer[cvIndexStride*get_group_id(1) + cvIndex] = grad;	\n" <<
+					"			buffer[cvIndexStride*(loopSize+get_group_id(1)) + cvIndex] = hess;	\n" <<
+					"	}											\n";
 			code << "}  \n"; // End of kernel
 			return SourceCode(code.str(), name);
 	}

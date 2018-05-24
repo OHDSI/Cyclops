@@ -2903,7 +2903,100 @@ public:
 
 
     virtual void runCCDIndex() {
-        int wgs = 128;
+    	if (!initialized) {
+    		initialized = true;
+    		if (BaseModel::exactCLR) {
+    			detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
+    			detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
+
+    			std::cout << "hNWeight: ";
+    			for (auto x:hNWeight) {
+    				std::cout << x << " ";
+    			}
+    			std::cout << "\n";
+
+    			std::cout << "hNtoK: ";
+    			for (auto x:hNtoK) {
+    				std::cout << x << " ";
+    			}
+    			std::cout << "\n";
+
+/*
+    			std::cout << "hXjYVector: ";
+    			for (int i=0; i<syncCVFolds; i++) {
+    				for (auto x:hXjYPool[i]) {
+    					std::cout << x << " ";
+    				}
+    				std::cout << "\n";
+    			}
+*/
+
+#ifdef USE_LOG_SUM
+    			std::vector<real> hLogX;
+    			hLogX.resize(dColumns.getData().size());
+    			compute::copy(std::begin(dColumns.getData()), std::end(dColumns.getData()), std::begin(hLogX), queue);
+    			for (int i=0; i<hLogX.size(); i++) {
+    				hLogX[i] = log(hLogX[i]);
+    			}
+    			detail::resizeAndCopyToDevice(hLogX, dLogX, queue);
+#endif
+
+    			bool dense = TRUE;
+    			for (int index=0; index<J; index++) {
+    				FormatType formatType = modelData.getFormatType(index);
+    				if (formatType == FormatType::INDICATOR || formatType == FormatType::SPARSE) {
+    					dense = FALSE;
+    				}
+    			}
+
+    			if (!dense) {
+    				std::vector<int> hK;
+    				hK.resize(dColumns.getIndices().size());
+    				compute::copy(std::begin(dColumns.getIndices()), std::end(dColumns.getIndices()), std::begin(hK), queue);
+
+    				std::vector<int> offKVec;
+    				offKVec.resize(dColumns.getIndicesStarts().size());
+    				compute::copy(std::begin(dColumns.getIndicesStarts()), std::end(dColumns.getIndicesStarts()), std::begin(offKVec), queue);
+
+    				std::vector<int> NVec;
+    				NVec.resize(dColumns.getTaskCounts().size());
+    				compute::copy(std::begin(dColumns.getTaskCounts()), std::end(dColumns.getTaskCounts()), std::begin(NVec), queue);
+
+    				std::vector<int> Kstrata(N*J);
+
+    				for (int index=0; index<J; index++) {
+    					FormatType formatType = modelData.getFormatType(index);
+    					if (formatType == FormatType::INDICATOR || formatType == FormatType::SPARSE) {
+    						int offK = offKVec[index];
+    						int currentK = hK[offK];
+    						int tasks = NVec[index];
+    						int i=0;
+    						for (int n=0; n<N; n++) {
+    							int stratumStart = hNtoK[n];
+    							int stratumEnd = hNtoK[n+1];
+    							while(currentK < stratumStart && i < tasks) {
+    								i++;
+    								currentK = hK[offK+i];
+    							}
+    							if (currentK >= stratumEnd || i == tasks) {
+    								Kstrata[N*index+n] = -1;
+    							} else {
+    								Kstrata[N*index+n] = i;
+    							}
+    						}
+    					}
+    				}
+
+    				detail::resizeAndCopyToDevice(Kstrata, dKStrata, queue);
+    			} else {
+    				std::vector<int> hK;
+    				hK.push_back(0);
+    				detail::resizeAndCopyToDevice(hK, dKStrata, queue);
+    			}
+    		}
+    	}
+
+        int wgs = 32;
         if (dBuffer.size() < 2*wgs*cvIndexStride) {
         	dBuffer.resize(2*wgs*cvIndexStride);
         }
@@ -2920,7 +3013,11 @@ public:
         kernel.set_arg(0, dColumns.getDataOffset(index));
         kernel.set_arg(1, dColumns.getIndicesOffset(index));
         kernel.set_arg(2, taskCount);
+#ifdef USE_LOG_SUM
+        kernel.set_arg(3, dLogX);
+#else
         kernel.set_arg(3, dColumns.getData());
+#endif
         kernel.set_arg(4, dColumns.getIndices());
         kernel.set_arg(5, dY);
         kernel.set_arg(6, dXBetaVector);
@@ -2938,6 +3035,19 @@ public:
         kernel.set_arg(13, cvBlockSize);
         kernel.set_arg(14, dAllZero);
 
+        int a = 1;
+        if (BaseModel::exactCLR) {
+        	a = detail::constant::exactCLRBlockSize;
+        	kernel.set_arg(15, dNtoK);
+        	kernel.set_arg(16, dNWeight);
+        	int Kstride = detail::getAlignedLength<16>(K);
+        	kernel.set_arg(17, Kstride);
+        	kernel.set_arg(18, index);
+        	int dN = N;
+        	kernel.set_arg(19, dN);
+        	kernel.set_arg(20, dKStrata);
+        }
+
         int loops = syncCVFolds / cvBlockSize;
         if (syncCVFolds % cvBlockSize != 0) {
         	loops++;
@@ -2945,10 +3055,10 @@ public:
 
         size_t globalWorkSize[2];
         globalWorkSize[0] = loops*cvBlockSize;
-        globalWorkSize[1] = wgs;
+        globalWorkSize[1] = wgs*a;
         size_t localWorkSize[2];
         localWorkSize[0] = cvBlockSize;
-        localWorkSize[1] = 1;
+        localWorkSize[1] = a;
         size_t dim = 2;
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -2972,6 +3082,18 @@ public:
         name = "compGradHessKernelG" + getFormatTypeExtension(formatType) + " ";
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
+
+/*
+        std::vector<double> blah;
+        blah.resize(dBuffer.size());
+        compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(blah), queue);
+        std::cout << "buffer: ";
+        for (auto x:blah) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
+*/
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
         start = bsccs::chrono::steady_clock::now();
@@ -3012,7 +3134,16 @@ public:
 
         queue.enqueue_1d_range_kernel(kernel1, 0, syncCVFolds*tpb, tpb);
         queue.finish();
-
+/*
+        //std::vector<real> blah;
+        blah.resize(dDeltaVector.size());
+        compute::copy(std::begin(dDeltaVector), std::end(dDeltaVector), std::begin(blah), queue);
+        std::cout << "deltaVector " << index << ": ";
+        for (int i=0; i<syncCVFolds; i++) {
+        	std::cout << blah[index*cvIndexStride+i] << " ";
+        }
+        std::cout << "\n";
+*/
 
 #ifdef CYCLOPS_DEBUG_TIMING
         end = bsccs::chrono::steady_clock::now();
@@ -3079,7 +3210,7 @@ public:
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-
+/*
     	std::vector<real> blah;
     	blah.resize(dXBetaVector.size());
     	compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(blah), queue);
@@ -3088,56 +3219,12 @@ public:
     		std::cout << blah[i*cvIndexStride] << " ";
     	}
     	std::cout << "\n";
-
-
-
-#ifdef CYCLOPS_DEBUG_TIMING
-        start = bsccs::chrono::steady_clock::now();
-#endif
-        auto& kernel3 = kernelEmpty;
-
-        // set kernel args
-        int blah = 0;
-        kernel3.set_arg(0, blah);
-
-        loops = syncCVFolds / cvBlockSize;
-        if (syncCVFolds % cvBlockSize != 0) {
-            loops++;
-        }
-
-        globalWorkSize[0] = loops*cvBlockSize;
-        globalWorkSize[1] = taskCount;
-        localWorkSize[0] = cvBlockSize;
-        localWorkSize[1] = 1;
-        dim = 2;
-
-#ifdef CYCLOPS_DEBUG_TIMING
-        end = bsccs::chrono::steady_clock::now();
-        ///////////////////////////"
-        name = "compEmpetyArgsG" + getFormatTypeExtension(formatType) + " ";
-        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
-
-#ifdef CYCLOPS_DEBUG_TIMING
-        start = bsccs::chrono::steady_clock::now();
-#endif
-
-        // run kernel
-        queue.enqueue_nd_range_kernel(kernel3, dim, 0, globalWorkSize, localWorkSize);
-        queue.finish();
-
-        hXBetaKnown = false; // dXBeta was just updated
-#ifdef CYCLOPS_DEBUG_TIMING
-        end = bsccs::chrono::steady_clock::now();
-        ///////////////////////////"
-        name = "compEmptyKernelG";
-        duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
+ */
 
         }
     }
 
-
+/*
 virtual void runCCDIndex() {
 	if (!initialized) {
         std::vector<int> hIndexListWithPrior[12];
@@ -3188,13 +3275,13 @@ virtual void runCCDIndex() {
         	}
         	detail::resizeAndCopyToDevice(hLogX, dLogX, queue);
 
-        	/*
+
                 		std::cout << "logX: ";
                 		for (auto x:hLogX) {
                 			std::cout << x << " ";
                 		}
                 		std::cout << "\n";
-        	 */
+
 #endif
 
         	bool dense = TRUE;
@@ -3511,7 +3598,7 @@ virtual void runCCDIndex() {
 		}
 	}
 }
-
+*/
 
 
 
@@ -3741,7 +3828,6 @@ virtual void runCCDIndex() {
     	syncCV = true;
     	pad = true;
     	syncCVFolds = foldToCompute;
-
 
     	if (syncCVFolds > multiprocessors) {
     	hSMStarts.resize(multiprocessors);
@@ -4468,17 +4554,17 @@ virtual void runCCDIndex() {
     		options << " -cl-mad-enable";
 
     		auto source = writeCodeForExactCLRDoItAllKernel(formatType, priorType);
-    		std::cout << source.body;
+    		//std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
-    		std::cout << "program built\n";
+    		//std::cout << "program built\n";
     		auto kernel = compute::kernel(program, source.name);
 
     		kernelDoItAll[formatType*3+priorType] = std::move(kernel);
 
     		source = writeCodeForExactCLRDoItAllSingleKernel(formatType, priorType);
-    		std::cout << source.body;
+    		//std::cout << source.body;
     		program = compute::program::build_with_source(source.body, ctx, options.str());
-    		std::cout << "program built\n";
+    		//std::cout << "program built\n";
     		auto kernelSingle = compute::kernel(program, source.name);
 
     		kernelDoItAllSingle[formatType*3+priorType] = std::move(kernelSingle);
@@ -4563,7 +4649,9 @@ virtual void runCCDIndex() {
         options << " -cl-mad-enable";
 
     	auto source = writeCodeForProcessDeltaKernel(priorType);
+    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    	std::cout << "process delta kernel built\n";
     	auto kernel = compute::kernel(program, source.name);
 
     	kernelProcessDeltaBuffer[priorType] = std::move(kernel);
@@ -4619,9 +4707,7 @@ virtual void runCCDIndex() {
 
         	// CCD Kernel
         	auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useWeights);
-        	std::cout << source.body;
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        	std::cout << "program built\n";
         	auto kernel = compute::kernel(program, source.name);
 
         	if (useWeights) {
@@ -4793,7 +4879,9 @@ virtual void runCCDIndex() {
         // Run-time constant arguments.
 
         auto source = writeCodeForSyncUpdateXBetaKernel(formatType);
+        std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        std::cout << "update xbeta sync program built\n";
         auto kernelSync = compute::kernel(program, source.name);
         kernelUpdateXBetaSync[formatType] = std::move(kernelSync);
 

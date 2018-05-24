@@ -640,6 +640,10 @@ public:
 		return singlePrior->getKktBoundary();
 	}
 
+	PriorType getPriorType(int index) {
+		return singlePrior->getPriorType();
+	}
+
 // 	JointPrior* clone() const {
 // 	    std::vector<VariancePtr> newPtrs;
 // 	    for (auto x : variance) {

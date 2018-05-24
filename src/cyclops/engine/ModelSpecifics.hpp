@@ -789,12 +789,13 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjY(bool useCrossValidation) 
 			for (int index = 0; index < syncCVFolds; index++) {
 				hXjYPool[index][j] = 0;
 			}
-
+			// all share hNWeight for now
 			for (; it; ++it) {
 				const int k = it.index();
 				for (int index = 0; index < syncCVFolds; index++) {
-					if (BaseModel::exactTies && hNWeightPool[index][BaseModel::getGroup(hPidPool[index], k)] > 1) {
+					if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
 						// Do not precompute
+						hXjYPool[index][j] += it.value() * hY[k] * hKWeightPool[index][k];
 					} else {
 						hXjYPool[index][j] += it.value() * hY[k] * hKWeightPool[index][k];
 					}
@@ -2557,6 +2558,19 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(double* inWeights, bool us
 	}
 
 	// Set N weights (these are the same for independent data models
+	// jerry rigged for now
+		if (hNWeight.size() < N + 1) { // Add +1 for extra (zero-weight stratum)
+			hNWeight.resize(N + 1);
+		}
+
+		std::fill(hNWeight.begin(), hNWeight.end(), static_cast<WeightType>(0));
+		for (size_t k = 0; k < K; ++k) {
+			WeightType event = BaseModel::observationCount(hY[k])*1;
+			incrementByGroup(hNWeight.data(), hPid, k, event);
+		}
+
+		/*
+	// Set N weights (these are the same for independent data models
 	if (hNWeightPool[index].size() < N + 1) { // Add +1 for extra (zero-weight stratum)
 		hNWeightPool[index].resize(N + 1);
 	}
@@ -2566,6 +2580,7 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(double* inWeights, bool us
 		WeightType event = BaseModel::observationCount(hY[k])*hKWeightPool[index][k];
 		incrementByGroup(hNWeightPool[index].data(), hPidPool[index], k, event);
 	}
+	*/
 
 #ifdef DEBUG_COX
 	cerr << "Done with set weights" << endl;
@@ -2873,6 +2888,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	    //tbb::mutex mutex0;
 
+
 	    tbb::combinable<real> newGrad(static_cast<real>(0));
 	    tbb::combinable<real> newHess(static_cast<real>(0));
 
@@ -2899,6 +2915,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	            //mutex0.lock();
 	            newGrad.local() -= (real)(-value[1]/value[0]);
 	            newHess.local() -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
+
 	            //mutex0.unlock();
 	        }
 	    };
@@ -2906,33 +2923,32 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	    gradient += newGrad.combine([](const real& x, const real& y) {return x+y;});
 	    hessian += newHess.combine([](const real& x, const real& y) {return x+y;});
 
-	         //std::cout << "index: "<<index;
-
-
 /*
 	    for (int i=0; i<N; i++) {
+	    	if (hKWeightPool[cvIndex][hNtoK[i]]==1) {
+
 	    	//std::cout << "grad: " << gradient << " hess: " << hessian << " ";
 	        DenseView<IteratorType> x(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
 	        int numSubjects = hNtoK[i+1] - hNtoK[i];
 	        int numCases = hNWeight[i];
 
-	        std::vector<real> value = computeHowardRecursion<real>(offsExpXBeta.begin() + hNtoK[i], x, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
+	        std::vector<real> value = computeHowardRecursion<real>(offsExpXBetaPool[cvIndex].begin() + hNtoK[i], x, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
 	        //std::cout<<" values" << i <<": "<<value[0]<<" | "<<value[1]<<" | "<< value[2] << ' ';
 	        if (value[0]==0 || value[1] == 0 || value[2] == 0 || isinf(value[0]) || isinf(value[1]) || isinf(value[2])) {
 	        	DenseView<IteratorType> newX(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
-	            std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], newX, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
+	            std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBetaPool[cvIndex].begin() + hNtoK[i], newX, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
 	            using namespace sugar;
 	            gradient -= (real)(-value[1]/value[0]);
 	            hessian -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
 	        	continue;
 	        }
 	        //gradient -= (real)(value[3] - value[1]/value[0]);
-	        gradient -= (real)(-value[1]/value[0]);
+	   	    gradient -= (real)(-value[1]/value[0]);
 	        hessian -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
+	    	}
 	    }
- */
+	    */
 
-	    //std::cout << '\n';
     	//std::cout << "grad: " << gradient << " hess: " << hessian << " \n";
 
 
@@ -3315,6 +3331,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 			temp.push_back(cvIndex);
 		}
 	}
+
 	auto func = [&](const tbb::blocked_range<int>& range) {
 		for (int k = range.begin(); k < range.end(); ++k) {
 			computeGradientAndHessian(index, &ghList[temp[k]].first, &ghList[temp[k]].second, useWeights, temp[k]);
