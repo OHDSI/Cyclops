@@ -1613,7 +1613,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"	const uint persons,						\n" <<
 					"	const uint index,						\n" <<
 					"	const uint totalStrata,					\n" <<
-					"	__global const uint* KStrata) {    	\n";
+					"	__global const uint* KStrata,			\n" <<
+					"	__global REAL* firstRow) {    	\n";
 
 			code << "	if (get_global_id(0) == 0) allZero[0] = 1;	\n" <<
 					"	__local REAL B0[2][TPB0*TPB1];			\n" <<
@@ -1628,8 +1629,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"	uint loopSize = get_num_groups(1);		\n" <<
 					"	REAL grad = 0;							\n" <<
 					"	REAL hess = 0;							\n" <<
+					"	uint lastLid = 0;							\n";
 
-					"	while (stratum < totalStrata) {		\n" <<
+			code << "	while (stratum < totalStrata) {		\n" <<
 					"		int stratumStart = NtoK[stratum];	\n" <<
 					"		uint vecOffset = stratumStart*cvIndexStride + cvIndex;	\n" <<
 					"		int total = NtoK[stratum+1] - stratumStart;	\n" <<
@@ -1673,9 +1675,11 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"			loops++;							\n" <<
 					"		}										\n";
 
-			// if loops == 1
-			//code << "	if (loops == 1) {							\n" <<
 			code << "		uint current = 0;						\n";
+
+			// if loops == 1
+			code << "	if (loops == 1) {							\n" <<
+					"		lastLid = cases;						\n";
 
 			if (formatType == INDICATOR || formatType == SPARSE) {
 				code << "	__local uint currentKIndex, currentK;	\n" <<
@@ -1773,6 +1777,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"			barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
 					"		}										\n";
 
+			/*
 			code << "		if (lid1 == 0) {							\n" <<
 					"			if (localWeights[lid0] != 0) {			\n" <<
 					"				REAL value0 = B0[1-current][cases*TPB0+lid0]*localWeights[lid0];	\n" <<
@@ -1790,11 +1795,424 @@ static std::string weight(const std::string& arg, bool useWeights) {
 			code << "		stratum += loopSize;					\n";
 			code << "		barrier(CLK_LOCAL_MEM_FENCE);			\n";
 			code << "		barrier(CLK_GLOBAL_MEM_FENCE);			\n";
-			code << "	}											\n";
-			code << "	if (lid1 == 0) {							\n" <<
+			code << "		if (lid1 == 0) {							\n" <<
 					"			buffer[cvIndexStride*get_group_id(1) + cvIndex] = grad;	\n" <<
 					"			buffer[cvIndexStride*(loopSize+get_group_id(1)) + cvIndex] = hess;	\n" <<
+					"		}											\n";
+					*/
+			code << "	} else {										\n";
+			// loop 1
+			code << "		int start = 0;							\n" << //loop * TPB;					\n" <<
+					"		int end = start + TPB1 - 1 + controls;		\n";//start + TPB + controls;		\n" <<
+			//code << "	if (end>total) end = total;				\n";
+			if (formatType == INDICATOR || formatType == SPARSE) {
+				code << "	__local uint currentKIndex, currentK;	\n" <<
+						"	if (lid0 == 0 && lid1 == 0) {							\n" <<
+						"		currentKIndex = KStrata[offKStrata];	\n" <<
+						"		if (currentKIndex == -1) {				\n" <<
+						"			currentK = -1;						\n" <<
+						"		} else {								\n" <<
+						"			currentK = K[offK+currentKIndex];	\n" <<
+						"		}									\n" <<
+						"	}										\n" <<
+						"	barrier(CLK_LOCAL_MEM_FENCE);			\n";
+			}
+			if (formatType == INTERCEPT) {
+				code << "	REAL x;						\n";
+			} else {
+				code << "	__local REAL x;				\n";
+			}
+
+			code << "		for (int col = start; col < end; col++) {	\n" <<
+#ifdef USE_LOG_SUM
+					"			REAL U = xBetaVector[vecOffset + col * cvIndexStride];	\n";
+#else
+					"			REAL U = exp(xBetaVector[vecOffset+col*cvIndexStride]);	\n";
+#endif
+			if (formatType == DENSE) {
+				code << "		if (lid0 == 0 && lid1 == 0) {						\n" <<
+						"			x = X[offX+stratumStart+col];			\n" <<
+						"		}									\n" <<
+						"		barrier(CLK_LOCAL_MEM_FENCE);		\n";
+			}
+
+			if (formatType == INTERCEPT) {
+#ifdef USE_LOG_SUM
+				code << "		x = 0;					\n";
+#else
+				code << "		x = 1;					\n";
+#endif
+			}
+
+			if (formatType == INDICATOR) {
+				code << "		if (lid0 == 0 && lid1 == 0) {						\n" <<
+						"			if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
+#ifdef USE_LOG_SUM
+						"				x = -INFINITY;								\n" <<
+#else
+						"				x = 0;								\n" <<
+#endif
+						"			} else {	\n" <<
+#ifdef USE_LOG_SUM
+						"				x = 0;								\n" <<
+#else
+						"				x = 1;								\n" <<
+#endif
+						"				currentKIndex++;			\n" <<
+						"				currentK = K[offK + currentKIndex];	\n" <<
+						"			}								\n" <<
+						"		}									\n" <<
+						"		barrier(CLK_LOCAL_MEM_FENCE);		\n";
+			}
+
+			if (formatType == SPARSE) {
+				code << "		if (lid0 == 0 && lid1 == 0) {						\n" <<
+						"			if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
+#ifdef USE_LOG_SUM
+						"				x = -INFINITY;								\n" <<
+#else
+						"				x = 0;								\n" <<
+#endif
+						"			} else {						\n" <<
+						"				x = X[offX+currentKIndex];	\n" <<
+						"				currentKIndex++;			\n" <<
+						"				currentK = K[offK + currentKIndex];	\n" <<
+						"			}								\n" <<
+						"		}									\n" <<
+						"		barrier(CLK_LOCAL_MEM_FENCE);		\n";
+			}
+			code << "			if (lid1 > 0) {						\n" <<
+#ifdef USE_LOG_SUM
+					//"			x = log(x);										\n" <<
+					"				B0[current][mylid] = log_sum(				   B0[1-current][mylid], U+B0[1-current][mylid-TPB0]);	\n" <<
+					"				B1[current][mylid] = log_sum(log_sum(		   B1[1-current][mylid], U+B1[1-current][mylid-TPB0]), x + U + B0[1-current][mylid-TPB0]);	\n" <<
+					"				B2[current][mylid] = log_sum(log_sum(log_sum(B2[1-current][mylid], U+B2[1-current][mylid-TPB0]), x + U + B0[1-current][mylid-TPB0]), logTwo + x + U + B1[1-current][mylid-TPB0]);	\n" <<
+
+#else
+					"				B0[current][mylid] = B0[1-current][mylid] + U*B0[1-current][mylid-TPB0];	\n" <<
+					"				B1[current][mylid] = B1[1-current][mylid] + U*B1[1-current][mylid-TPB0] + x*U*B0[1-current][mylid-TPB0];	\n" <<
+					"				B2[current][mylid] = B2[1-current][mylid] + U*B2[1-current][mylid-TPB0] + x*U*B0[1-current][mylid-TPB0] + 2*x*U*B1[1-current][mylid-TPB0];	\n" <<
+#endif
+					"			}									\n" <<
+					"			if (lid1 == TPB1 - 1)	{					\n" <<
+					"				firstRow[(stratumStart + col)*cvIndexStride+cvIndex] = B0[current][mylid];	\n" <<
+					"				firstRow[(persons + stratumStart + col)*cvIndexStride+cvIndex] = B1[current][mylid];	\n" <<
+					"				firstRow[(2*persons + stratumStart + col)*cvIndexStride+cvIndex] = B2[current][mylid];	\n" <<
+					"			}									\n" <<
+					"			current = 1 - current;				\n" <<
+					"			barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
+					"		}										\n";
+
+			// middle loops
+			code << "		if (loops > 2) {						\n";
+			code << "		for (int loop = 1; loop < loops-1; loop++) {	\n";
+			code << "			barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+			code << "			barrier(CLK_LOCAL_MEM_FENCE);		\n";
+
+			code << "			start = loop * (TPB1 - 1);					\n" <<
+					"			end = start + TPB1 - 1 + controls;		\n" <<
+					"			current = 0;						\n";
+
+			if (formatType == INDICATOR || formatType == SPARSE) {
+				code << "		if (lid0 == 0 && lid1 == 0) {							\n" <<
+						"			currentKIndex = KStrata[offKStrata];					\n" <<
+						"			if (currentKIndex == -1) {			\n" <<
+						"				currentK = -1;					\n" <<
+						"			} else {							\n" <<
+						"				currentK = K[offK+currentKIndex];		\n" <<
+						"				while (currentK < stratumStart+start && currentKIndex < N) {		\n" <<
+						"					currentKIndex++;						\n" <<
+						"					currentK = K[offK + currentKIndex];		\n" <<
+						"				}										\n" <<
+						"				if (currentK >= NtoK[stratum+1] || currentKIndex == N) {	\n" <<
+						"					currentK = -1;				\n" <<
+						"				}								\n" <<
+						"			}									\n" <<
+						"		}										\n" <<
+						"		barrier(CLK_LOCAL_MEM_FENCE);			\n";
+			}
+
+#ifdef USE_LOG_SUM
+			code << "			B0[0][mylid] = -INFINITY;					\n" <<
+					"			B0[1][mylid] = -INFINITY;					\n" <<
+					"			B1[0][mylid] = -INFINITY;					\n" <<
+					"			B1[1][mylid] = -INFINITY;					\n" <<
+					"			B2[0][mylid] = -INFINITY;					\n" <<
+					"			B2[1][mylid] = -INFINITY;					\n" <<
+					"			if (lid1 == 0) {							\n" <<
+					"				B0[1][lid0] = firstRow[(stratumStart + start-1)*cvIndexStride + cvIndex];			\n" <<
+					"				B1[1][lid0] = firstRow[(persons + stratumStart + start-1)*cvIndexStride + cvIndex];	\n" <<
+					"				B2[1][lid0] = firstRow[(2*persons + stratumStart + start-1)*cvIndexStride + cvIndex];	\n" <<
+					"			}										\n";
+#else
+			code << "			B0[0][mylid] = 0;							\n" <<
+					"			B0[1][mylid] = 0;							\n" <<
+					"			B1[0][mylid] = 0;							\n" <<
+					"			B1[1][mylid] = 0;							\n" <<
+					"			B2[0][mylid] = 0;							\n" <<
+					"			B2[1][mylid] = 0;							\n" <<
+					"			if (lid1 == 0) {							\n" <<
+					"				B0[1][lid0] = firstRow[stratumStart + start-1];			\n" <<
+					"				B1[1][lid0] = firstRow[persons + stratumStart + start-1];	\n" <<
+					"				B2[1][lid0] = firstRow[2*persons + stratumStart + start-1];	\n" <<
+					"			}										\n";
+#endif
+
+			code << "			barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+			code << "			barrier(CLK_LOCAL_MEM_FENCE);			\n";
+
+			code << "			for (int col = start; col < end; col++) {	\n" <<
+#ifdef USE_LOG_SUM
+					"				REAL U = xBetaVector[vecOffset + col * cvIndexStride];	\n";
+#else
+					"				REAL U = exp(xBetaVector[vecOffset+col*cvIndexStride]);	\n";
+#endif
+			if (formatType == DENSE) {
+				code << "			if (lid0 == 0 && lid1 == 0) {						\n" <<
+						"				x = X[offX+stratumStart+col];			\n" <<
+						"			}									\n" <<
+						"			barrier(CLK_LOCAL_MEM_FENCE);		\n";
+			}
+
+			if (formatType == INTERCEPT) {
+#ifdef USE_LOG_SUM
+				code << "			x = 0;					\n";
+#else
+				code << "			x = 1;					\n";
+#endif
+			}
+
+			if (formatType == INDICATOR) {
+				code << "			if (lid0 == 0 && lid1 == 0) {						\n" <<
+						"				if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
+#ifdef USE_LOG_SUM
+						"				x = -INFINITY;								\n" <<
+#else
+						"				x = 0;								\n" <<
+#endif
+						"				} else {	\n" <<
+#ifdef USE_LOG_SUM
+						"					x = 0;								\n" <<
+#else
+						"					x = 1;								\n" <<
+#endif
+						"					currentKIndex++;			\n" <<
+						"					currentK = K[offK + currentKIndex];	\n" <<
+						"				}								\n" <<
+						"			}									\n" <<
+						"			barrier(CLK_LOCAL_MEM_FENCE);		\n";
+			}
+
+			if (formatType == SPARSE) {
+				code << "			if (lid0 == 0 && lid1 == 0) {						\n" <<
+						"				if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
+#ifdef USE_LOG_SUM
+						"					x = -INFINITY;								\n" <<
+#else
+						"					x = 0;								\n" <<
+#endif
+						"				} else {						\n" <<
+						"					x = X[offX+currentKIndex];	\n" <<
+						"					currentKIndex++;			\n" <<
+						"					currentK = K[offK + currentKIndex];	\n" <<
+						"				}								\n" <<
+						"			}									\n" <<
+						"			barrier(CLK_LOCAL_MEM_FENCE);		\n";
+			}
+			code << "				if (lid1 == 0) {						\n" <<
+					"					B0[current][mylid] = firstRow[(stratumStart + col)*cvIndexStride+cvIndex];	\n" <<
+					"					B1[current][mylid] = firstRow[(persons + stratumStart + col)*cvIndexStride+cvIndex];	\n" <<
+					"					B2[current][mylid] = firstRow[(2*persons + stratumStart + col)*cvIndexStride+cvIndex];	\n" <<
+					"				}									\n";
+			code << "				barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+			code << "				barrier(CLK_LOCAL_MEM_FENCE);			\n";
+			code << "				if (lid1 > 0) {						\n" <<
+#ifdef USE_LOG_SUM
+					//"			x = log(x);										\n" <<
+					"					B0[current][mylid] = log_sum(				   B0[1-current][mylid], U+B0[1-current][mylid-TPB0]);	\n" <<
+					"					B1[current][mylid] = log_sum(log_sum(		   B1[1-current][mylid], U+B1[1-current][mylid-TPB0]), x + U + B0[1-current][mylid-TPB0]);	\n" <<
+					"					B2[current][mylid] = log_sum(log_sum(log_sum(B2[1-current][mylid], U+B2[1-current][mylid-TPB0]), x + U + B0[1-current][mylid-TPB0]), logTwo + x + U + B1[1-current][mylid-TPB0]);	\n" <<
+
+#else
+					"					B0[current][mylid] = B0[1-current][mylid] + U*B0[1-current][mylid-TPB0];	\n" <<
+					"					B1[current][mylid] = B1[1-current][mylid] + U*B1[1-current][mylid-TPB0] + x*U*B0[1-current][mylid-TPB0];	\n" <<
+					"					B2[current][mylid] = B2[1-current][mylid] + U*B2[1-current][mylid-TPB0] + x*U*B0[1-current][mylid-TPB0] + 2*x*U*B1[1-current][mylid-TPB0];	\n" <<
+#endif
+					"				}									\n" <<
+					"				if (lid1 == TPB1 - 1)	{					\n" <<
+					"					firstRow[(stratumStart + col)*cvIndexStride+cvIndex] = B0[current][mylid];	\n" <<
+					"					firstRow[(persons + stratumStart + col)*cvIndexStride+cvIndex] = B1[current][mylid];	\n" <<
+					"					firstRow[(2*persons + stratumStart + col)*cvIndexStride+cvIndex] = B2[current][mylid];	\n" <<
+					"				}									\n" <<
+					"				current = 1 - current;				\n" <<
+					"				barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
+					"			}										\n";
+			code << "		}											\n";
+			code << "	}											\n";
+
+			// final loop
+			code << "	start = (loops-1) * (TPB1 - 1);			\n" <<
+					"	end = total;						\n" <<
+					"	lastLid = (cases-1)%(TPB1-1)+1;		\n" <<
+					"	current = 0;						\n";
+			code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+
+			if (formatType == INDICATOR || formatType == SPARSE) {
+			code << "	if (lid0 == 0 && lid1 == 0) {								\n" <<
+					"		currentKIndex = KStrata[offKStrata];	\n" <<
+					"		if (currentKIndex == -1) {				\n" <<
+					"			currentK = -1;						\n" <<
+					"		} else {								\n" <<
+					"			currentK = K[offK+currentKIndex];	\n" <<
+					"			while (currentK < stratumStart+start && currentKIndex < N) {		\n" <<
+					"				currentKIndex++;						\n" <<
+					"				currentK = K[offK + currentKIndex];		\n" <<
+					"			}									\n" <<
+					"			if (currentK >= NtoK[stratum+1] || currentKIndex == N) {	\n" <<
+					"				currentK = -1;					\n" <<
+					"			}									\n" <<
+					"		}										\n" <<
+					"	}											\n" <<
+					"	barrier(CLK_LOCAL_MEM_FENCE);				\n";
+			}
+
+#ifdef USE_LOG_SUM
+			code << "	B0[0][mylid] = -INFINITY;					\n" <<
+					"	B0[1][mylid] = -INFINITY;					\n" <<
+					"	B1[0][mylid] = -INFINITY;					\n" <<
+					"	B1[1][mylid] = -INFINITY;					\n" <<
+					"	B2[0][mylid] = -INFINITY;					\n" <<
+					"	B2[1][mylid] = -INFINITY;					\n" <<
+					"	if (lid1 == 0) {							\n" <<
+					"		B0[1][mylid] = firstRow[(stratumStart + start-1)*cvIndexStride+cvIndex];			\n" <<
+					"		B1[1][mylid] = firstRow[(persons + stratumStart + start-1)*cvIndexStride+cvIndex];	\n" <<
+					"		B2[1][mylid] = firstRow[(2*persons + stratumStart + start-1)*cvIndexStride+cvIndex];	\n" <<
+					"	}										\n";
+#else
+			code << "	B0[0][mylid] = 0;							\n" <<
+					"	B0[1][mylid] = 0;							\n" <<
+					"	B1[0][mylid] = 0;							\n" <<
+					"	B1[1][mylid] = 0;							\n" <<
+					"	B2[0][mylid] = 0;							\n" <<
+					"	B2[1][mylid] = 0;							\n" <<
+					"	if (lid1 == 0) {							\n" <<
+					"		B0[1][mylid] = firstRow[stratumStart + start-1)*cvIndexStride+cvIndex];			\n" <<
+					"		B1[1][mylid] = firstRow[persons + stratumStart + start-1)*cvIndexStride+cvIndex];	\n" <<
+					"		B2[1][mylid] = firstRow[2*persons + stratumStart + start-1)*cvIndexStride+cvIndex];	\n" <<
+					"	}										\n";
+#endif
+			code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+			code << "	barrier(CLK_LOCAL_MEM_FENCE);		\n";
+
+			code << "	for (int col = start; col < end; col++) {	\n" <<
+#ifdef USE_LOG_SUM
+					"				REAL U = xBetaVector[vecOffset + col * cvIndexStride];	\n";
+#else
+					"				REAL U = exp(xBetaVector[vecOffset+col*cvIndexStride]);	\n";
+#endif
+			if (formatType == DENSE) {
+				code << "	if (lid0 == 0 && lid1 == 0) {						\n" <<
+						"		x = X[offX+stratumStart+col];			\n" <<
+						"	}									\n" <<
+						"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
+			}
+
+			if (formatType == INTERCEPT) {
+#ifdef USE_LOG_SUM
+				code << "	x = 0;					\n";
+#else
+				code << "	x = 1;					\n";
+#endif
+			}
+
+			if (formatType == INDICATOR) {
+				code << "	if (lid0 == 0 && lid1 == 0) {						\n" <<
+						"		if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
+#ifdef USE_LOG_SUM
+						"			x = -INFINITY;								\n" <<
+#else
+						"			x = 0;								\n" <<
+#endif
+						"		} else {	\n" <<
+#ifdef USE_LOG_SUM
+						"			x = 0;								\n" <<
+#else
+						"			x = 1;								\n" <<
+#endif
+						"			currentKIndex++;			\n" <<
+						"			currentK = K[offK + currentKIndex];	\n" <<
+						"		}								\n" <<
+						"	}									\n" <<
+						"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
+			}
+
+			if (formatType == SPARSE) {
+				code << "	if (lid0 == 0 && lid1 == 0) {						\n" <<
+						"		if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n" <<
+#ifdef USE_LOG_SUM
+						"			x = -INFINITY;								\n" <<
+#else
+						"			x = 0;								\n" <<
+#endif
+						"		} else {						\n" <<
+						"			x = X[offX+currentKIndex];	\n" <<
+						"			currentKIndex++;			\n" <<
+						"			currentK = K[offK + currentKIndex];	\n" <<
+						"		}								\n" <<
+						"	}									\n" <<
+						"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
+			}
+
+			code << "		if (lid1 == 0) {						\n" <<
+					"			B0[current][mylid] = firstRow[(stratumStart + col)*cvIndexStride+cvIndex];	\n" <<
+					"			B1[current][mylid] = firstRow[(persons + stratumStart + col)*cvIndexStride+cvIndex];	\n" <<
+					"			B2[current][mylid] = firstRow[(2*persons + stratumStart + col)*cvIndexStride+cvIndex];	\n" <<
+					"		}									\n";
+			code << "		if (lid1 > 0 && lid1 <= lastLid) {						\n" <<
+#ifdef USE_LOG_SUM
+					//"			x = log(x);										\n" <<
+					"			B0[current][mylid] = log_sum(				   B0[1-current][mylid], U+B0[1-current][mylid-TPB0]);	\n" <<
+					"			B1[current][mylid] = log_sum(log_sum(		   B1[1-current][mylid], U+B1[1-current][mylid-TPB0]), x + U + B0[1-current][mylid-TPB0]);	\n" <<
+					"			B2[current][mylid] = log_sum(log_sum(log_sum(B2[1-current][mylid], U+B2[1-current][mylid-TPB0]), x + U + B0[1-current][mylid-TPB0]), logTwo + x + U + B1[1-current][mylid-TPB0]);	\n" <<
+
+#else
+					"			B0[current][mylid] = B0[1-current][mylid] + U*B0[1-current][mylid-TPB0];	\n" <<
+					"			B1[current][mylid] = B1[1-current][mylid] + U*B1[1-current][mylid-TPB0] + x*U*B0[1-current][mylid-TPB0];	\n" <<
+					"			B2[current][mylid] = B2[1-current][mylid] + U*B2[1-current][mylid-TPB0] + x*U*B0[1-current][mylid-TPB0] + 2*x*U*B1[1-current][mylid-TPB0];	\n" <<
+#endif
+					"		}									\n" <<
+					"		current = 1 - current;				\n" <<
+					"		barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
+					"	}										\n";
+			code << "}											\n";
+
+
+			code << "		if (lid1 == 0) {							\n" <<
+					"			if (localWeights[lid0] != 0) {			\n" <<
+					"				REAL value0 = B0[1-current][lastLid*TPB0+lid0]*localWeights[lid0];	\n" <<
+					"				REAL value1 = B1[1-current][lastLid*TPB0+lid0]*localWeights[lid0];	\n" <<
+					"				REAL value2 = B2[1-current][lastLid*TPB0+lid0]*localWeights[lid0];	\n" <<
+#ifdef USE_LOG_SUM
+					"				grad -= -exp(value1 - value0);			\n" <<
+					"				hess -= exp(2*(value1-value0)) - exp(value2 - value0);	\n" <<
+#else
+					"				grad -= -value1/value0;					\n" <<
+					"				hess -= value1*value1/value0/value0 - value2/value0;		\n" <<
+#endif
+					"			}									\n" <<
+					"		}										\n";
+
+			code << "		stratum += loopSize;					\n";
+			code << "		barrier(CLK_LOCAL_MEM_FENCE);			\n";
+			code << "		barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+			code << "}												\n";
+
+
+			code << "	if (lid1 == 0) {							\n" <<
+					"		buffer[cvIndexStride*get_group_id(1) + cvIndex] = grad;	\n" <<
+					"		buffer[cvIndexStride*(loopSize+get_group_id(1)) + cvIndex] = hess;	\n" <<
 					"	}											\n";
+
 			code << "}  \n"; // End of kernel
 			return SourceCode(code.str(), name);
 	}
@@ -3772,7 +4190,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"		__global const uint* NtoK,		\n" <<
 					"		__global const REAL* casesVec,	\n" <<
 					"		const uint persons,				\n" <<
-					"		const uint totalStrata) {   		 	\n";    // TODO Make weight optional
+					"		const uint totalStrata,			\n" <<
+					"		__global const uint* KStrata) {   		 	\n";    // TODO Make weight optional
 
 			//"	__global REAL* firstRow,				\n" <<
 			//"	__global const uint* KStrata,			\n" <<
@@ -4136,7 +4555,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"		__global const uint* NtoK,		\n" <<
 						"		__global const REAL* casesVec,	\n" <<
 						"		const uint persons,				\n" <<
-						"		const uint totalStrata) {   		 	\n";    // TODO Make weight optional
+						"		const uint totalStrata,			\n" <<
+						"		__global const uint* KStrata) {   		 	\n";    // TODO Make weight optional
 
 				// Initialization
 				code << "	__local uint offK, offX, N, index, cvIndex;	\n";

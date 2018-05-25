@@ -34,6 +34,7 @@ namespace constant {
     static const int updateXBetaBlockSize = 256; // 512; // Appears best on K40
     static const int updateAllXBetaBlockSize = 32;
     static const int exactCLRBlockSize = 32;
+    static const int maxBlockSize = 256;
 }; // namespace constant
 
 template <typename DeviceVec, typename HostVec>
@@ -2921,7 +2922,7 @@ public:
     		if (BaseModel::exactCLR) {
     			detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
     			detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
-
+/*
     			std::cout << "hNWeight: ";
     			for (auto x:hNWeight) {
     				std::cout << x << " ";
@@ -2933,6 +2934,7 @@ public:
     				std::cout << x << " ";
     			}
     			std::cout << "\n";
+    			*/
 
 /*
     			std::cout << "hXjYVector: ";
@@ -3009,7 +3011,7 @@ public:
     		}
     	}
 
-        int wgs = 32;
+        int wgs = detail::constant::exactCLRBlockSize;
         if (dBuffer.size() < 2*wgs*cvIndexStride) {
         	dBuffer.resize(2*wgs*cvIndexStride);
         }
@@ -3059,6 +3061,10 @@ public:
         	int dN = N;
         	kernel.set_arg(19, dN);
         	kernel.set_arg(20, dKStrata);
+        	if (dBuffer1.size() < Kstride*3*cvIndexStride) {
+        		dBuffer1.resize(Kstride*3*cvIndexStride, queue);
+        	}
+        	kernel.set_arg(21, dBuffer1);
         }
 
         int loops = syncCVFolds / cvBlockSize;
@@ -3842,85 +3848,88 @@ virtual void runCCDIndex() {
     	pad = true;
     	syncCVFolds = foldToCompute;
 
-    	if (syncCVFolds > multiprocessors) {
-    	hSMStarts.resize(multiprocessors);
-    	hSMScales.resize(multiprocessors);
-    	int big;
-    	int small;
-
     	tpb0 = 1;
-    	while ((double)syncCVFolds /(double)multiprocessors > tpb0) {
-    		tpb0 = tpb0*2;
-    	}
+    	if (syncCVFolds > multiprocessors) {
+    		hSMStarts.resize(multiprocessors);
+    		hSMScales.resize(multiprocessors);
+    		int big;
+    		int small;
 
-    	int temp = (syncCVFolds - tpb0/2*multiprocessors);
-    	if (temp % (tpb0/2) != 0) {
-    		big = temp / (tpb0/2) + 1;
-    	} else {
-    		big = temp / (tpb0/2);
-    	}
-    	small = multiprocessors - big;
-    	std::cout << "tpb0: " << tpb0 << " big: " << big << " small: " << small << "\n";
+    		while ((double)syncCVFolds /(double)multiprocessors > tpb0) {
+    			tpb0 = tpb0*2;
+    		}
 
-    	temp = 0;
-    	hSMIndices.resize(0);
-
-    	std::vector<int> activeFoldsVec;
-    	for (int i=0; i<multiprocessors; i++) {
-    		if (i < big) {
-    			hSMStarts[i] = i*tpb0;
-    			hSMScales[i] = 1;
-    			for (int j=0; j<tpb0; j++) {
-    				hSMIndices.push_back(temp);
-    				temp++;
-    			}
+    		int temp = (syncCVFolds - tpb0/2*multiprocessors);
+    		if (temp % (tpb0/2) != 0) {
+    			big = temp / (tpb0/2) + 1;
     		} else {
-    			hSMStarts[i] = (big*tpb0+(i-big)*tpb0/2);
-    			hSMScales[i] = 2;
-    			for (int j=0; j<tpb0/2; j++) {
-    				hSMIndices.push_back(temp);
-    				temp++;
+    			big = temp / (tpb0/2);
+    		}
+    		small = multiprocessors - big;
+    		std::cout << "tpb0: " << tpb0 << " big: " << big << " small: " << small << "\n";
+
+    		temp = 0;
+    		hSMIndices.resize(0);
+
+    		std::vector<int> activeFoldsVec;
+    		for (int i=0; i<multiprocessors; i++) {
+    			if (i < big) {
+    				hSMStarts[i] = i*tpb0;
+    				hSMScales[i] = 1;
+    				for (int j=0; j<tpb0; j++) {
+    					hSMIndices.push_back(temp);
+    					temp++;
+    				}
+    			} else {
+    				hSMStarts[i] = (big*tpb0+(i-big)*tpb0/2);
+    				hSMScales[i] = 2;
+    				for (int j=0; j<tpb0/2; j++) {
+    					hSMIndices.push_back(temp);
+    					temp++;
+    				}
     			}
     		}
-    	}
 
-    	/*
+    		/*
     	int temp = 0;
     	while (temp < syncCVFolds) {
     		smStarts.push_back(temp);
     		smScales.push_back(1);
     		temp += tpb0;
     	}
-*/
-    	std::cout << "hSMStarts: ";
-    	for (auto x:hSMStarts) {
-    		std::cout << x << " ";
-    	}
-    	std::cout << "\n";
-    	std::cout << "hSMScales: ";
-    	for (auto x:hSMScales) {
-    		std::cout << x << " ";
-    	}
-    	std::cout << "\n";
-    	std::cout << "hSMIndices: ";
-    	for (auto x:hSMIndices) {
-    		std::cout << x << " ";
-    	}
-    	std::cout << "\n";
+    		 */
+    		std::cout << "hSMStarts: ";
+    		for (auto x:hSMStarts) {
+    			std::cout << x << " ";
+    		}
+    		std::cout << "\n";
+    		std::cout << "hSMScales: ";
+    		for (auto x:hSMScales) {
+    			std::cout << x << " ";
+    		}
+    		std::cout << "\n";
+    		std::cout << "hSMIndices: ";
+    		for (auto x:hSMIndices) {
+    			std::cout << x << " ";
+    		}
+    		std::cout << "\n";
 
-    	detail::resizeAndCopyToDevice(hSMStarts, dSMStarts, queue);
-    	detail::resizeAndCopyToDevice(hSMScales, dSMScales, queue);
-    	detail::resizeAndCopyToDevice(hSMIndices, dSMIndices, queue);
+    		detail::resizeAndCopyToDevice(hSMStarts, dSMStarts, queue);
+    		detail::resizeAndCopyToDevice(hSMScales, dSMScales, queue);
+    		detail::resizeAndCopyToDevice(hSMIndices, dSMIndices, queue);
 
-    	for (auto x:hSMScales) {
-    		hSMScales0.push_back(x);
+    		for (auto x:hSMScales) {
+    			hSMScales0.push_back(x);
+    		}
+
+    		for (auto x:hSMIndices) {
+    			hSMIndices0.push_back(x);
+    		}
     	}
 
-    	for (auto x:hSMIndices) {
-    		hSMIndices0.push_back(x);
+    	if (BaseModel::exactCLR) {
+    		tpb0 = 1;
     	}
-    	}
-
 
         if (pad) {
         	// layout by person
@@ -4567,17 +4576,13 @@ virtual void runCCDIndex() {
     		options << " -cl-mad-enable";
 
     		auto source = writeCodeForExactCLRDoItAllKernel(formatType, priorType);
-    		//std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
-    		//std::cout << "program built\n";
     		auto kernel = compute::kernel(program, source.name);
 
     		kernelDoItAll[formatType*3+priorType] = std::move(kernel);
 
     		source = writeCodeForExactCLRDoItAllSingleKernel(formatType, priorType);
-    		//std::cout << source.body;
     		program = compute::program::build_with_source(source.body, ctx, options.str());
-    		//std::cout << "program built\n";
     		auto kernelSingle = compute::kernel(program, source.name);
 
     		kernelDoItAllSingle[formatType*3+priorType] = std::move(kernelSingle);
@@ -4609,9 +4614,7 @@ virtual void runCCDIndex() {
 
 
     		source = writeCodeForDoItAllSingleKernel(formatType, priorType);
-    		//std::cout << source.body;
     		program = compute::program::build_with_source(source.body, ctx, options.str());
-    		//std::cout << "program built\n";
     		auto kernelSingle = compute::kernel(program, source.name);
 
     		kernelDoItAllSingle[formatType*3+priorType] = std::move(kernelSingle);
@@ -4662,9 +4665,7 @@ virtual void runCCDIndex() {
         options << " -cl-mad-enable";
 
     	auto source = writeCodeForProcessDeltaKernel(priorType);
-    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
-    	std::cout << "process delta kernel built\n";
     	auto kernel = compute::kernel(program, source.name);
 
     	kernelProcessDeltaBuffer[priorType] = std::move(kernel);
@@ -4892,9 +4893,7 @@ virtual void runCCDIndex() {
         // Run-time constant arguments.
 
         auto source = writeCodeForSyncUpdateXBetaKernel(formatType);
-        std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        std::cout << "update xbeta sync program built\n";
         auto kernelSync = compute::kernel(program, source.name);
         kernelUpdateXBetaSync[formatType] = std::move(kernelSync);
 
