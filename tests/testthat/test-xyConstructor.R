@@ -1,6 +1,8 @@
 library(testthat)
 library(survival)
 
+context("test-xyConstructor.R")
+
 #
 # Tests for the XY constructor of ModelData
 #

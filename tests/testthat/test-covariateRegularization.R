@@ -1,5 +1,7 @@
 library("testthat")
 
+context("test-covariateRegularization.R")
+
 test_that("Find covariate by name and number", {
     counts <- c(18,17,15,20,10,20,25,13,12)
     outcome <- gl(3,1,9)

@@ -1,5 +1,7 @@
 library("testthat")
 
+context("test-parameterizedPriors.R")
+
 test_that("lazy parameterization evaluation", {
 
     # initially invalid

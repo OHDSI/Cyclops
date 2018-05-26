@@ -2,6 +2,8 @@ library("testthat")
 library("ff")
 #options(fftempdir = "s:/FFtemp")
 
+context("test-predict.R")
+
 test_that("Test predict for Poisson regression", {
     sim <- simulateCyclopsData(nstrata = 1, nrows = 10000, ncovars = 2, eCovarsPerRow = 0.5, effectSizeSd = 1,model = "poisson")
     covariates <- sim$covariates

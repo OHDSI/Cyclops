@@ -2,6 +2,8 @@ library("testthat")
 library("survival")
 library("gnm")
 
+context("test-conditionalPoisson.R")
+
 test_that("Check simple SCCS as conditional logistic regression", {
 #     source("helper-conditionalPoisson.R")
     tolerance <- 1E-6

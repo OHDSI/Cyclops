@@ -1,5 +1,7 @@
 library("testthat")
 
+context("test-largeBernoulli.R")
+
 #
 # Large Bernoulli regression
 #

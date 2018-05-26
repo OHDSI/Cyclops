@@ -1,6 +1,8 @@
 library("testthat")
 library("survival")
 
+context("test-survfit.R")
+
 test_that("Check very small Cox example with no ties, breslow baseline", {
     test <- read.table(header=T, sep = ",", text = "
 start, length, event, x1, x2
