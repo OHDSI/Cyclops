@@ -417,6 +417,39 @@ public:
 
         std::cerr << "Format types required: " << need << std::endl;
 
+		// shadily sets hNWeight to determine right block size
+    	if (BaseModel::exactCLR) {
+    		if (hNWeight.size() < N + 1) { // Add +1 for extra (zero-weight stratum)
+    			hNWeight.resize(N + 1);
+    		}
+
+    		std::fill(hNWeight.begin(), hNWeight.end(), static_cast<real>(0));
+    		for (size_t k = 0; k < K; ++k) {
+    			hNWeight[hPid[k]] += hY[k];
+    		}
+
+    		tpb0 = 1;
+    		int clrSize = 32;
+
+    		real maxCases = 0;
+    		for (int i=0; i<N; i++) {
+    			if (hNWeight[i] > maxCases) {
+    				maxCases = hNWeight[i];
+    			}
+    		}
+
+    		while (maxCases >= clrSize) {
+    			clrSize = clrSize * 2;
+    		}
+    		if (clrSize > detail::constant::maxBlockSize) {
+    			clrSize = detail::constant::maxBlockSize;
+    		}
+
+    		detail::constant::exactCLRBlockSize = clrSize;
+
+    		std::cout << "exactCLRBlockSize: " << detail::constant::exactCLRBlockSize << "\n";
+    	}
+
         buildAllKernels(neededFormatTypes);
         std::cout << "built all kernels \n";
 
@@ -3931,41 +3964,6 @@ virtual void runCCDIndex() {
     		for (auto x:hSMIndices) {
     			hSMIndices0.push_back(x);
     		}
-    	}
-
-    	if (BaseModel::exactCLR) {
-
-    		// shadily sets hNWeight to determine right block size
-
-    		if (hNWeight.size() < N + 1) { // Add +1 for extra (zero-weight stratum)
-    			hNWeight.resize(N + 1);
-    		}
-
-    		std::fill(hNWeight.begin(), hNWeight.end(), static_cast<real>(0));
-    		for (size_t k = 0; k < K; ++k) {
-    			hNWeight[hPid[k]] += hY[k];
-    		}
-
-    		tpb0 = 1;
-    		int clrSize = 32;
-
-    		real maxCases = 0;
-    		for (int i=0; i<N; i++) {
-    			if (hNWeight[i] > maxCases) {
-    				maxCases = hNWeight[i];
-    			}
-    		}
-
-    		while (maxCases >= clrSize) {
-    			clrSize = clrSize * 2;
-    		}
-    		if (clrSize > detail::constant::maxBlockSize) {
-    			clrSize = detail::constant::maxBlockSize;
-    		}
-
-    		detail::constant::exactCLRBlockSize = clrSize;
-
-    		std::cout << "exactCLRBlockSize: " << detail::constant::exactCLRBlockSize << "\n";
     	}
 
         if (pad) {
