@@ -34,6 +34,7 @@ namespace constant {
     static const int updateXBetaBlockSize = 256; // 512; // Appears best on K40
     static const int updateAllXBetaBlockSize = 32;
     int exactCLRBlockSize = 32;
+    int exactCLRSyncBlockSize = 32;
     static const int maxBlockSize = 256;
 }; // namespace constant
 
@@ -428,7 +429,6 @@ public:
     			hNWeight[hPid[k]] += hY[k];
     		}
 
-    		tpb0 = 1;
     		int clrSize = 32;
 
     		real maxCases = 0;
@@ -3044,7 +3044,7 @@ public:
     		}
     	}
 
-        int wgs = detail::constant::exactCLRBlockSize;
+        int wgs = detail::constant::exactCLRSyncBlockSize;
         if (dBuffer.size() < 2*wgs*cvIndexStride) {
         	dBuffer.resize(2*wgs*cvIndexStride);
         }
@@ -3085,7 +3085,7 @@ public:
 
         int a = 1;
         if (BaseModel::exactCLR) {
-        	a = detail::constant::exactCLRBlockSize;
+        	a = detail::constant::exactCLRSyncBlockSize;
         	kernel.set_arg(15, dNtoK);
         	kernel.set_arg(16, dNWeight);
         	int Kstride = detail::getAlignedLength<16>(K);
@@ -3966,6 +3966,13 @@ virtual void runCCDIndex() {
     		}
     	}
 
+    	if (BaseModel::exactCLR) {
+    		if (tpb0>8) tpb0=8;
+    		detail::constant::exactCLRSyncBlockSize = detail::constant::maxBlockSize/tpb0;
+
+    		std::cout << "exactCLRSyncBlockSize: " << detail::constant::exactCLRSyncBlockSize << "\n";
+    	}
+
         if (pad) {
         	// layout by person
         	cvBlockSize = tpb0;
@@ -4593,7 +4600,7 @@ virtual void runCCDIndex() {
     	if (BaseModel::exactCLR) {
     		std::stringstream options;
 
-    		int mytpb1 = detail::constant::exactCLRBlockSize;
+    		int mytpb1 = detail::constant::exactCLRSyncBlockSize;
 
     		if (sizeof(real) == 8) {
 #ifdef USE_VECTOR
@@ -4833,7 +4840,7 @@ virtual void runCCDIndex() {
     	if (BaseModel::exactCLR) {
     		std::stringstream options;
 
-    		int mytpb1 = detail::constant::exactCLRBlockSize;
+    		int mytpb1 = detail::constant::exactCLRSyncBlockSize;
 
     		if (sizeof(real) == 8) {
 #ifdef USE_VECTOR
