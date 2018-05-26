@@ -564,7 +564,9 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const auto algorithmType = arguments.algorithmType;
 	const int qnQ = 0;
 	const auto mmepsilon = arguments.mmtolerance;
+	const bool useLogSum = arguments.useLogSum;
 	modelSpecifics.setAlgorithmType(algorithmType);
+	modelSpecifics.setLogSum(useLogSum);
 
 	initialBound = arguments.initialBound;
 
@@ -665,6 +667,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 	const auto epsilon = arguments.tolerance;
 	const auto algorithmType = arguments.algorithmType;
 	const auto mmepsilon = arguments.mmtolerance;
+	const bool useLogSum = arguments.useLogSum;
 	const int qnQ = 0;
 
 	// Make sure internal state is up-to-date

@@ -64,6 +64,8 @@ public:
 
 	virtual void setAlgorithmType(AlgorithmType alg);
 
+	virtual void setLogSum(bool logSum);
+
 	virtual void setWeights(double* inWeights, bool useCrossValidation) = 0; // pure virtual
 
 	virtual void computeGradientAndHessian(int index, double *ogradient,
@@ -317,6 +319,8 @@ protected:
 // 	real* hXBetaSave;
 
 	AlgorithmType algorithmType;
+
+	bool useLogSum;
 
 	//RealVector hBeta;
 	RealVector hXBeta; // TODO Delegate to ModelSpecifics

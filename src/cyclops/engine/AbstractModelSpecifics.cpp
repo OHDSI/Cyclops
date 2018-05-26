@@ -293,6 +293,10 @@ void AbstractModelSpecifics::setAlgorithmType(AlgorithmType alg) {
 	algorithmType = alg;
 }
 
+void AbstractModelSpecifics::setLogSum(bool logSum) {
+	useLogSum = logSum;
+}
+
 int AbstractModelSpecifics::getAlignedLength(int N) {
 	return (N / 16) * 16 + (N % 16 == 0 ? 0 : 16);
 }

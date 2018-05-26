@@ -14,7 +14,7 @@
 
 // #define GPU_DEBUG
 #undef GPU_DEBUG
-#define USE_LOG_SUM
+//#define USE_LOG_SUM
 #define TIME_DEBUG
 
 #include <Rcpp.h>
@@ -329,6 +329,7 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::hXjXPool;
     using ModelSpecifics<BaseModel, WeightType>::logLikelihoodFixedTermPool;
     using ModelSpecifics<BaseModel, WeightType>::normPool;
+    using ModelSpecifics<BaseModel, WeightType>::useLogSum;
 
     const static int tpb = 128; // threads-per-block  // Appears best on K40
     const static int maxWgs = 2;  // work-group-size
@@ -696,7 +697,8 @@ public:
         */
 
         if (BaseModel::exactCLR) {
-        	auto& kernel = (useWeights) ? // Double-dispatch
+        	// not using weights, but use useLogSum
+        	auto& kernel = (useLogSum) ? // Double-dispatch
         	                            kernelGradientHessianWeighted[formatType] :
         	                            kernelGradientHessianNoWeight[formatType];
         	//std::cerr << "index: " << index << '\n';
@@ -708,23 +710,15 @@ public:
         		detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
         		initialized = true;
 
-#ifdef USE_LOG_SUM
-        		std::vector<real> hLogX;
-        		hLogX.resize(dColumns.getData().size());
-        		compute::copy(std::begin(dColumns.getData()), std::end(dColumns.getData()), std::begin(hLogX), queue);
-        		for (int i=0; i<hLogX.size(); i++) {
-        			hLogX[i] = log(hLogX[i]);
+        		if (useLogSum) {
+        			std::vector<real> hLogX;
+        			hLogX.resize(dColumns.getData().size());
+        			compute::copy(std::begin(dColumns.getData()), std::end(dColumns.getData()), std::begin(hLogX), queue);
+        			for (int i=0; i<hLogX.size(); i++) {
+        				hLogX[i] = log(hLogX[i]);
+        			}
+        			detail::resizeAndCopyToDevice(hLogX, dLogX, queue);
         		}
-        		detail::resizeAndCopyToDevice(hLogX, dLogX, queue);
-
-        		/*
-        		std::cout << "logX: ";
-        		for (auto x:hLogX) {
-        			std::cout << x << " ";
-        		}
-        		std::cout << "\n";
-        		*/
-#endif
 
         		bool dense = TRUE;
         		for (int index=0; index<J; index++) {
@@ -859,16 +853,15 @@ public:
 */
         	}
 
-
         	kernel.set_arg(0, dColumns.getDataOffset(index));
         	kernel.set_arg(1, dColumns.getIndicesOffset(index));
         	kernel.set_arg(2, dColumns.getTaskCount(index));
 
-#ifdef USE_LOG_SUM
+if (useLogSum) {
         	kernel.set_arg(3, dLogX);
-#else
+} else {
         	kernel.set_arg(3, dColumns.getData());
-#endif
+}
         	kernel.set_arg(4, dColumns.getIndices());
         	kernel.set_arg(5, dNtoK);
 
@@ -881,11 +874,11 @@ public:
         		hBuffer.resize(3*N*a);
         	}
         	kernel.set_arg(6, dNWeight);
-#ifdef USE_LOG_SUM
+if (useLogSum) {
         	kernel.set_arg(7, dXBeta);
-#else
+} else {
         	kernel.set_arg(7, dExpXBeta);
-#endif
+}
 
         	/*
         	std::vector<real> blah;
@@ -940,17 +933,17 @@ public:
     	    for (int i=0; i<N; ++i) {
     	    	//int k = (int)hNWeight[i]%(a-1);
     	    	//if (k == 0) k = a-1;
-#ifdef USE_LOG_SUM
-    	    	gradient -= (real) -exp(hBuffer[3*i+1] - hBuffer[3*i]);
-    	    	hessian -= (real) (exp(2*(hBuffer[3*i+1]-hBuffer[3*i])) - exp(hBuffer[3*i+2] - hBuffer[3*i]));
-    	    	//gradient -= (real) -exp(hBuffer[3*i*a+a+k]-hBuffer[3*i*a+k]);
-    	    	//hessian -= (real) (exp(2*(hBuffer[3*i*a+a+k]-hBuffer[3*i*a+k]))  - exp(hBuffer[3*i*a+2*a+k]-hBuffer[3*i*a+k]));
-#else
-    	    	gradient -= (real)(-hBuffer[3*i+1]/hBuffer[3*i]);
-    	    	hessian -= (real)((hBuffer[3*i+1]/hBuffer[3*i]) * (hBuffer[3*i+1]/hBuffer[3*i]) - hBuffer[3*i+2]/hBuffer[3*i]);
-    	    	//gradient -= (real)(-hBuffer[3*i*a+a+k]/hBuffer[3*i*a+k]);
-    	    	//hessian -= (real)((hBuffer[3*i*a+a+k]/hBuffer[3*i*a+k]) * (hBuffer[3*i*a+a+k]/hBuffer[3*i*a+k]) - hBuffer[3*i*a+2*a+k]/hBuffer[3*i*a+k]);
-#endif
+    	    	if (useLogSum) {
+    	    		gradient -= (real) -exp(hBuffer[3*i+1] - hBuffer[3*i]);
+    	    		hessian -= (real) (exp(2*(hBuffer[3*i+1]-hBuffer[3*i])) - exp(hBuffer[3*i+2] - hBuffer[3*i]));
+    	    		//gradient -= (real) -exp(hBuffer[3*i*a+a+k]-hBuffer[3*i*a+k]);
+    	    		//hessian -= (real) (exp(2*(hBuffer[3*i*a+a+k]-hBuffer[3*i*a+k]))  - exp(hBuffer[3*i*a+2*a+k]-hBuffer[3*i*a+k]));
+    	    	} else {
+    	    		gradient -= (real)(-hBuffer[3*i+1]/hBuffer[3*i]);
+    	    		hessian -= (real)((hBuffer[3*i+1]/hBuffer[3*i]) * (hBuffer[3*i+1]/hBuffer[3*i]) - hBuffer[3*i+2]/hBuffer[3*i]);
+    	    		//gradient -= (real)(-hBuffer[3*i*a+a+k]/hBuffer[3*i*a+k]);
+    	    		//hessian -= (real)((hBuffer[3*i*a+a+k]/hBuffer[3*i*a+k]) * (hBuffer[3*i*a+a+k]/hBuffer[3*i*a+k]) - hBuffer[3*i*a+2*a+k]/hBuffer[3*i*a+k]);
+    	    	}
     	    }
 
     	    /*
@@ -2949,7 +2942,7 @@ public:
     }
 
 
-    virtual void runCCDIndex() {
+    virtual void runCCDIndexSeparate() {
     	if (!initialized) {
     		initialized = true;
     		if (BaseModel::exactCLR) {
@@ -2979,15 +2972,15 @@ public:
     			}
 */
 
-#ifdef USE_LOG_SUM
-    			std::vector<real> hLogX;
-    			hLogX.resize(dColumns.getData().size());
-    			compute::copy(std::begin(dColumns.getData()), std::end(dColumns.getData()), std::begin(hLogX), queue);
-    			for (int i=0; i<hLogX.size(); i++) {
-    				hLogX[i] = log(hLogX[i]);
+    			if (useLogSum) {
+    				std::vector<real> hLogX;
+    				hLogX.resize(dColumns.getData().size());
+    				compute::copy(std::begin(dColumns.getData()), std::end(dColumns.getData()), std::begin(hLogX), queue);
+    				for (int i=0; i<hLogX.size(); i++) {
+    					hLogX[i] = log(hLogX[i]);
+    				}
+    				detail::resizeAndCopyToDevice(hLogX, dLogX, queue);
     			}
-    			detail::resizeAndCopyToDevice(hLogX, dLogX, queue);
-#endif
 
     			bool dense = TRUE;
     			for (int index=0; index<J; index++) {
@@ -3055,17 +3048,19 @@ public:
 #endif
         FormatType formatType = modelData.getFormatType(index);
 
-        auto& kernel = kernelGradientHessianSync[formatType];
+        auto& kernel = (useLogSum) ? kernelGradientHessianSync[formatType] :
+        							 kernelGradientHessianSyncLog[formatType];
+
         const auto taskCount = dColumns.getTaskCount(index);
 
         kernel.set_arg(0, dColumns.getDataOffset(index));
         kernel.set_arg(1, dColumns.getIndicesOffset(index));
         kernel.set_arg(2, taskCount);
-#ifdef USE_LOG_SUM
-        kernel.set_arg(3, dLogX);
-#else
-        kernel.set_arg(3, dColumns.getData());
-#endif
+        if (useLogSum) {
+        	kernel.set_arg(3, dLogX);
+        } else {
+        	kernel.set_arg(3, dColumns.getData());
+        }
         kernel.set_arg(4, dColumns.getIndices());
         kernel.set_arg(5, dY);
         kernel.set_arg(6, dXBetaVector);
@@ -3276,8 +3271,12 @@ public:
         }
     }
 
-/*
+
 virtual void runCCDIndex() {
+	if (BaseModel::exactCLR) {
+		runCCDIndexSeparate();
+		return;
+	}
 	if (!initialized) {
         std::vector<int> hIndexListWithPrior[12];
 
@@ -3650,9 +3649,6 @@ virtual void runCCDIndex() {
 		}
 	}
 }
-*/
-
-
 
     virtual void runMM() {
         std::cout << "running mm kernels\n";
@@ -3969,6 +3965,10 @@ virtual void runCCDIndex() {
     	if (BaseModel::exactCLR) {
     		if (tpb0>8) tpb0=8;
     		detail::constant::exactCLRSyncBlockSize = detail::constant::maxBlockSize/tpb0;
+
+    		if (detail::constant::exactCLRSyncBlockSize > detail::constant::exactCLRBlockSize) {
+    			detail::constant::exactCLRSyncBlockSize = detail::constant::exactCLRBlockSize;
+    		}
 
     		std::cout << "exactCLRSyncBlockSize: " << detail::constant::exactCLRSyncBlockSize << "\n";
     	}
@@ -4574,9 +4574,9 @@ virtual void runCCDIndex() {
 
     SourceCode writeCodeForSyncComputeRemainingStatisticsKernel();
 
-    SourceCode writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool useWeights);
+    SourceCode writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool logSum);
 
-    SourceCode writeCodeForSyncCVGradientHessianKernelExactCLR(FormatType formatType);
+    SourceCode writeCodeForSyncCVGradientHessianKernelExactCLR(FormatType formatType, bool logSum);
 
     SourceCode writeCodeForGetLogLikelihood(bool useWeights, bool isNvidia);
 
@@ -4767,7 +4767,9 @@ virtual void runCCDIndex() {
 
         	// CCD Kernel
         	auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useWeights);
+        	std::cout << source.body;
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        	std::cout << "program built\n";
         	auto kernel = compute::kernel(program, source.name);
 
         	if (useWeights) {
@@ -4857,13 +4859,22 @@ virtual void runCCDIndex() {
     		}
     		options << " -cl-mad-enable";
 
-    		auto source = writeCodeForSyncCVGradientHessianKernelExactCLR(formatType);
-    		//std::cout << source.body;
+    		auto source = writeCodeForSyncCVGradientHessianKernelExactCLR(formatType, true);
+    		std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
-    		//std::cout << "program built\n";
+    		std::cout << "program built\n";
     		auto kernelSync = compute::kernel(program, source.name);
 
     		kernelGradientHessianSync[formatType] = std::move(kernelSync);
+
+
+    		source = writeCodeForSyncCVGradientHessianKernelExactCLR(formatType, false);
+    		std::cout << source.body;
+    		program = compute::program::build_with_source(source.body, ctx, options.str());
+    		std::cout << "program built\n";
+    		auto kernelSyncLog = compute::kernel(program, source.name);
+
+    		kernelGradientHessianSyncLog[formatType] = std::move(kernelSyncLog);
     	} else {
 
     		std::stringstream options;
@@ -5310,6 +5321,7 @@ virtual void runCCDIndex() {
     std::map<FormatType, compute::kernel> kernelGradientHessianAllWeighted;
     std::map<FormatType, compute::kernel> kernelGradientHessianAllNoWeight;
     std::map<FormatType, compute::kernel> kernelGradientHessianSync;
+    std::map<FormatType, compute::kernel> kernelGradientHessianSyncLog;
     std::map<FormatType, compute::kernel> kernelGradientHessianSync1;
 
     std::map<int, compute::kernel> kernelDoItAll;
