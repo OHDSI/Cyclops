@@ -1939,11 +1939,6 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"			B1[1][mylid] = -INFINITY;					\n" <<
 					"			B2[0][mylid] = -INFINITY;					\n" <<
 					"			B2[1][mylid] = -INFINITY;					\n" <<
-					"			if (lid1 == 0) {							\n" <<
-					"				B0[1][lid0] = firstRow[(stratumStart + start-1)*cvIndexStride + cvIndex];			\n" <<
-					"				B1[1][lid0] = firstRow[(persons + stratumStart + start-1)*cvIndexStride + cvIndex];	\n" <<
-					"				B2[1][lid0] = firstRow[(2*persons + stratumStart + start-1)*cvIndexStride + cvIndex];	\n" <<
-					"			}										\n";
 #else
 			code << "			B0[0][mylid] = 0;							\n" <<
 					"			B0[1][mylid] = 0;							\n" <<
@@ -1951,12 +1946,12 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"			B1[1][mylid] = 0;							\n" <<
 					"			B2[0][mylid] = 0;							\n" <<
 					"			B2[1][mylid] = 0;							\n" <<
-					"			if (lid1 == 0) {							\n" <<
-					"				B0[1][lid0] = firstRow[stratumStart + start-1];			\n" <<
-					"				B1[1][lid0] = firstRow[persons + stratumStart + start-1];	\n" <<
-					"				B2[1][lid0] = firstRow[2*persons + stratumStart + start-1];	\n" <<
-					"			}										\n";
 #endif
+					"			if (lid1 == 0) {							\n" <<
+					"				B0[1][lid0] = firstRow[(stratumStart + start-1)*cvIndexStride + cvIndex];			\n" <<
+					"				B1[1][lid0] = firstRow[(persons + stratumStart + start-1)*cvIndexStride + cvIndex];	\n" <<
+					"				B2[1][lid0] = firstRow[(2*persons + stratumStart + start-1)*cvIndexStride + cvIndex];	\n" <<
+					"			}										\n";
 
 			code << "			barrier(CLK_GLOBAL_MEM_FENCE);			\n";
 			code << "			barrier(CLK_LOCAL_MEM_FENCE);			\n";
@@ -2083,11 +2078,6 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"	B1[1][mylid] = -INFINITY;					\n" <<
 					"	B2[0][mylid] = -INFINITY;					\n" <<
 					"	B2[1][mylid] = -INFINITY;					\n" <<
-					"	if (lid1 == 0) {							\n" <<
-					"		B0[1][mylid] = firstRow[(stratumStart + start-1)*cvIndexStride+cvIndex];			\n" <<
-					"		B1[1][mylid] = firstRow[(persons + stratumStart + start-1)*cvIndexStride+cvIndex];	\n" <<
-					"		B2[1][mylid] = firstRow[(2*persons + stratumStart + start-1)*cvIndexStride+cvIndex];	\n" <<
-					"	}										\n";
 #else
 			code << "	B0[0][mylid] = 0;							\n" <<
 					"	B0[1][mylid] = 0;							\n" <<
@@ -2095,12 +2085,12 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"	B1[1][mylid] = 0;							\n" <<
 					"	B2[0][mylid] = 0;							\n" <<
 					"	B2[1][mylid] = 0;							\n" <<
-					"	if (lid1 == 0) {							\n" <<
-					"		B0[1][mylid] = firstRow[stratumStart + start-1)*cvIndexStride+cvIndex];			\n" <<
-					"		B1[1][mylid] = firstRow[persons + stratumStart + start-1)*cvIndexStride+cvIndex];	\n" <<
-					"		B2[1][mylid] = firstRow[2*persons + stratumStart + start-1)*cvIndexStride+cvIndex];	\n" <<
-					"	}										\n";
 #endif
+					"	if (lid1 == 0) {							\n" <<
+					"		B0[1][mylid] = firstRow[(stratumStart + start-1)*cvIndexStride+cvIndex];			\n" <<
+					"		B1[1][mylid] = firstRow[(persons + stratumStart + start-1)*cvIndexStride+cvIndex];	\n" <<
+					"		B2[1][mylid] = firstRow[(2*persons + stratumStart + start-1)*cvIndexStride+cvIndex];	\n" <<
+					"	}										\n";
 			code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
 			code << "	barrier(CLK_LOCAL_MEM_FENCE);		\n";
 
@@ -4370,8 +4360,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 #else
 					"			B0[current][mylid] = B0[1-current][mylid] + U*B0[1-current][mylid-myTPB0];	\n" <<
-					"			B1[current][mylid] = B1[1-current][mylid] + U*B1[1-current][mylid-myTPB0] + x*U*B0[1-current][[mylid-myTPB0];	\n" <<
-					"			B2[current][mylid] = B2[1-current][mylid] + U*B2[1-current][mylid-myTPB0] + x*U*B0[1-current][[mylid-myTPB0] + 2*x*U*B1[1-current][mylid-myTPB0];	\n" <<
+					"			B1[current][mylid] = B1[1-current][mylid] + U*B1[1-current][mylid-myTPB0] + x*U*B0[1-current][mylid-myTPB0];	\n" <<
+					"			B2[current][mylid] = B2[1-current][mylid] + U*B2[1-current][mylid-myTPB0] + x*U*B0[1-current][mylid-myTPB0] + 2*x*U*B1[1-current][mylid-myTPB0];	\n" <<
 #endif
 					"		}									\n" <<
 					"		current = 1 - current;				\n" <<

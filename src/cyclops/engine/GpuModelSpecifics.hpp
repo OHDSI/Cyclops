@@ -33,7 +33,7 @@ namespace detail {
 namespace constant {
     static const int updateXBetaBlockSize = 256; // 512; // Appears best on K40
     static const int updateAllXBetaBlockSize = 32;
-    static const int exactCLRBlockSize = 32;
+    int exactCLRBlockSize = 32;
     static const int maxBlockSize = 256;
 }; // namespace constant
 
@@ -3858,6 +3858,12 @@ virtual void runCCDIndex() {
     		while ((double)syncCVFolds /(double)multiprocessors > tpb0) {
     			tpb0 = tpb0*2;
     		}
+    		/*
+    		if (tpb0 > 16) {
+    			tpb0 = 16;
+    		}
+    		tpb1 = detail::constant::maxBlockSize / tpb0;
+    		*/
 
     		int temp = (syncCVFolds - tpb0/2*multiprocessors);
     		if (temp % (tpb0/2) != 0) {
@@ -3928,7 +3934,38 @@ virtual void runCCDIndex() {
     	}
 
     	if (BaseModel::exactCLR) {
+
+    		// shadily sets hNWeight to determine right block size
+
+    		if (hNWeight.size() < N + 1) { // Add +1 for extra (zero-weight stratum)
+    			hNWeight.resize(N + 1);
+    		}
+
+    		std::fill(hNWeight.begin(), hNWeight.end(), static_cast<real>(0));
+    		for (size_t k = 0; k < K; ++k) {
+    			hNWeight[hPid[k]] += hY[k];
+    		}
+
     		tpb0 = 1;
+    		int clrSize = 32;
+
+    		real maxCases = 0;
+    		for (int i=0; i<N; i++) {
+    			if (hNWeight[i] > maxCases) {
+    				maxCases = hNWeight[i];
+    			}
+    		}
+
+    		while (maxCases >= clrSize) {
+    			clrSize = clrSize * 2;
+    		}
+    		if (clrSize > detail::constant::maxBlockSize) {
+    			clrSize = detail::constant::maxBlockSize;
+    		}
+
+    		detail::constant::exactCLRBlockSize = clrSize;
+
+    		std::cout << "exactCLRBlockSize: " << detail::constant::exactCLRBlockSize << "\n";
     	}
 
         if (pad) {
@@ -4576,13 +4613,17 @@ virtual void runCCDIndex() {
     		options << " -cl-mad-enable";
 
     		auto source = writeCodeForExactCLRDoItAllKernel(formatType, priorType);
+    		//std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    		//std::cout << "program built\n";
     		auto kernel = compute::kernel(program, source.name);
 
     		kernelDoItAll[formatType*3+priorType] = std::move(kernel);
 
     		source = writeCodeForExactCLRDoItAllSingleKernel(formatType, priorType);
+    		//std::cout << source.body;
     		program = compute::program::build_with_source(source.body, ctx, options.str());
+    		//std::cout << "program built\n";
     		auto kernelSingle = compute::kernel(program, source.name);
 
     		kernelDoItAllSingle[formatType*3+priorType] = std::move(kernelSingle);
@@ -4812,9 +4853,9 @@ virtual void runCCDIndex() {
     		options << " -cl-mad-enable";
 
     		auto source = writeCodeForSyncCVGradientHessianKernelExactCLR(formatType);
-    		std::cout << source.body;
+    		//std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
-    		std::cout << "program built\n";
+    		//std::cout << "program built\n";
     		auto kernelSync = compute::kernel(program, source.name);
 
     		kernelGradientHessianSync[formatType] = std::move(kernelSync);
@@ -5146,9 +5187,9 @@ virtual void runCCDIndex() {
         buildEmptyKernel();
         std::cout << "built empty kernel\n";
         //buildReduceCVBufferKernel();
-        //std::cout << "built reduceCVBuffer kenel\n";
+        //std::cout << "built reduceCVBuffer kernel\n";
         //buildAllProcessDeltaKernels();
-        //std::cout << "built ProcessDelta kenels \n";
+        //std::cout << "built ProcessDelta kernels \n";
         //buildAllDoItAllKernels(neededFormatTypes);
         //std::cout << "built doItAll kernels\n";
     }
@@ -5165,9 +5206,9 @@ virtual void runCCDIndex() {
         buildAllSyncCVComputeRemainingStatisticsKernels();
         std::cout << "built computeRemainingStatistics kernels \n";
         buildReduceCVBufferKernel();
-        std::cout << "built reduceCVBuffer kenel\n";
+        std::cout << "built reduceCVBuffer kernel\n";
         buildAllProcessDeltaKernels();
-        std::cout << "built ProcessDelta kenels \n";
+        std::cout << "built ProcessDelta kernels \n";
         buildAllDoItAllKernels(neededFormatTypes);
         std::cout << "built doItAll kernels\n";
     }
