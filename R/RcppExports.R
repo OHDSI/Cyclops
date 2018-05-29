@@ -203,6 +203,10 @@ getNumberOfTypes <- function(object) {
     .Call(`_Cyclops_cyclopsUnivariableCorrelation`, x, covariateLabel)
 }
 
+.cyclopsUnivariableSeparability <- function(x, covariateLabel) {
+    .Call(`_Cyclops_cyclopsUnivariableSeparability`, x, covariateLabel)
+}
+
 .cyclopsSumByGroup <- function(x, covariateLabel, groupByLabel, power) {
     .Call(`_Cyclops_cyclopsSumByGroup`, x, covariateLabel, groupByLabel, power)
 }

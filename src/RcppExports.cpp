@@ -420,6 +420,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsUnivariableSeparability
+std::vector<int> cyclopsUnivariableSeparability(Environment x, const std::vector<long>& covariateLabel);
+RcppExport SEXP _Cyclops_cyclopsUnivariableSeparability(SEXP xSEXP, SEXP covariateLabelSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::vector<long>& >::type covariateLabel(covariateLabelSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsUnivariableSeparability(x, covariateLabel));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsSumByGroup
 List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel, const long groupByLabel, const int power);
 RcppExport SEXP _Cyclops_cyclopsSumByGroup(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP groupByLabelSEXP, SEXP powerSEXP) {
@@ -735,6 +747,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetNumberOfRows", (DL_FUNC) &_Cyclops_cyclopsGetNumberOfRows, 1},
     {"_Cyclops_cyclopsGetNumberOfTypes", (DL_FUNC) &_Cyclops_cyclopsGetNumberOfTypes, 1},
     {"_Cyclops_cyclopsUnivariableCorrelation", (DL_FUNC) &_Cyclops_cyclopsUnivariableCorrelation, 2},
+    {"_Cyclops_cyclopsUnivariableSeparability", (DL_FUNC) &_Cyclops_cyclopsUnivariableSeparability, 2},
     {"_Cyclops_cyclopsSumByGroup", (DL_FUNC) &_Cyclops_cyclopsSumByGroup, 4},
     {"_Cyclops_cyclopsSumByStratum", (DL_FUNC) &_Cyclops_cyclopsSumByStratum, 3},
     {"_Cyclops_cyclopsSum", (DL_FUNC) &_Cyclops_cyclopsSum, 3},

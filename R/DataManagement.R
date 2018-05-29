@@ -533,6 +533,40 @@ getUnivariableCorrelation <- function(cyclopsData, covariates = NULL, threshold 
     return(correlations)
 }
 
+#' @title Get univariable linear separability
+#'
+#' @description \code{getUnivariableSeparability} reports covariates that are univariably separable with the outcome
+#'
+#' @param cyclopsData    A Cyclops data object
+#' @param covariates Integer or string vector: list of covariates to report; default (NULL) implies all covariates
+#'
+#' @return A list of covariates that are univariably separable with the outcome
+#'
+#' @export
+getUnivariableSeparability <- function(cyclopsData, covariates = NULL) {
+    # Check for valid arguments
+    .checkData(cyclopsData)
+
+    labels <- covariates
+    covariates <- .checkCovariates(cyclopsData, covariates)
+    ids <- covariates
+    if (is.null(covariates)) {
+        covariates <- integer() # zero-length vector
+        labels <- cyclopsData$coefficientNames
+        ids <- getCovariateIds(cyclopsData)
+    }
+
+    types <- getCovariateTypes(cyclopsData, ids)
+    if (any(types == "sparse") || any(types == "dense")) {
+        warning("Sparse and dense types are not yet implemented")
+    }
+
+    separability <- .cyclopsUnivariableSeparability(cyclopsData, covariates)
+
+    names(separability) <- labels
+    return(separability == 1)
+}
+
 #' @title Apply simple data reductions
 #'
 #' @description \code{reduce} reports the count of non-zero elements, sum and sum-of-squares for specified covariates in a Cyclops data object.
