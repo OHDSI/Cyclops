@@ -360,9 +360,9 @@ std::vector<double> ModelSpecifics<BaseModel,WeightType>::getLogLikelihoods(bool
 				auto func = [&,cvIndex](const tbb::blocked_range<int>& range){
 					using std::isinf;
 					for (int i = range.begin(); i < range.end(); ++i) {
-						if (hKWeightPool[cvIndex][hNtoK[i]] == 1) {
+						if (hNWeightPool[cvIndex][i] > 0) {
 							int numSubjects = hNtoK[i+1] - hNtoK[i];
-							int numCases = hNWeight[i];
+							int numCases = hNWeightPool[cvIndex][i];
 							real value = computeHowardRecursionSingle<real>(offsExpXBetaPool[cvIndex].begin() + hNtoK[i], numSubjects, numCases);
 							//std::cout << "new values" << i << ": " << value[0] << " | " << value[1] << " | " << value[2] << '\n';
 							if (value==0 || isinf(value)) {
@@ -814,11 +814,11 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjY(bool useCrossValidation) 
 			for (int index = 0; index < syncCVFolds; index++) {
 				hXjYPool[index][j] = 0;
 			}
-			// all share hNWeight for now
+			// randomize by strata for now
 			for (; it; ++it) {
 				const int k = it.index();
 				for (int index = 0; index < syncCVFolds; index++) {
-					if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
+					if (BaseModel::exactTies && hNWeightPool[index][BaseModel::getGroup(hPid, k)] > 1) {
 						// Do not precompute
 						hXjYPool[index][j] += it.value() * hY[k] * hKWeightPool[index][k];
 					} else {
@@ -833,6 +833,7 @@ void ModelSpecifics<BaseModel, WeightType>::computeXjY(bool useCrossValidation) 
 					const int k = it.index();
 					if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
 						// Do not precompute
+						hXjY[j] += it.value() * hY[k] * hKWeight[k];
 					} else {
 						hXjY[j] += it.value() * hY[k] * hKWeight[k];
 					}
@@ -2636,6 +2637,7 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(double* inWeights, bool us
 		setPidForAccumulation(inWeights, index); //TODO implement
 	}
 
+
 	// Set N weights (these are the same for independent data models
 	// all the same for now, cv fold by stratum
 	if (hNWeight.size() < N + 1) { // Add +1 for extra (zero-weight stratum)
@@ -2648,11 +2650,10 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(double* inWeights, bool us
 		incrementByGroup(hNWeight.data(), hPid, k, event);
 	}
 
-
 	for (auto x:hNWeight) {
 		hNWeightPool[index].push_back(x);
 	}
-		/*
+
 	// Set N weights (these are the same for independent data models
 	if (hNWeightPool[index].size() < N + 1) { // Add +1 for extra (zero-weight stratum)
 		hNWeightPool[index].resize(N + 1);
@@ -2663,7 +2664,6 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(double* inWeights, bool us
 		WeightType event = BaseModel::observationCount(hY[k])*hKWeightPool[index][k];
 		incrementByGroup(hNWeightPool[index].data(), hPidPool[index], k, event);
 	}
-	*/
 
 #ifdef DEBUG_COX
 	cerr << "Done with set weights" << endl;
@@ -2980,10 +2980,10 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	        using std::isinf;
 //only 0 1 weights
 	        for (int i = range.begin(); i < range.end(); ++i) {
-	        	if (hKWeightPool[cvIndex][hNtoK[i]] == 1) {
+	        	if (hNWeightPool[cvIndex][i] > 0) {
 	        		DenseView<IteratorType> x(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
 	        		int numSubjects = hNtoK[i+1] - hNtoK[i];
-	        		int numCases = hNWeight[i];
+	        		int numCases = hNWeightPool[cvIndex][i];
 	        		std::vector<real> value = computeHowardRecursion<real>(offsExpXBetaPool[cvIndex].begin() + hNtoK[i], x, numSubjects, numCases);
 	        		//std::cout << "new values" << i << ": " << value[0] << " | " << value[1] << " | " << value[2] << '\n';
 	        		if (value[0]==0 || value[1] == 0 || value[2] == 0 || isinf(value[0]) || isinf(value[1]) || isinf(value[2])) {

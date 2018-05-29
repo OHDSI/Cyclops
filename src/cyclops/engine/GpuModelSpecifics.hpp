@@ -2829,14 +2829,21 @@ if (useLogSum) {
     		*/
     		// layout by person
 
-    		std::vector<real> hKWeightTemp(K*cvIndexStride,0.0);
+    		std::vector<real> hKWeightTemp(K*cvIndexStride, 0.0);
     		for (int i=0; i<K; i++) {
     			for (int j=0; j<syncCVFolds; j++) {
     				hKWeightTemp[i*cvIndexStride+j] = hKWeightPool[j][i];
     			}
     		}
 
-    		//detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
+    		std::vector<real> hNWeightTemp((N+1)*cvIndexStride, 0.0);
+    		for (int i=0; i<N+1; i++) {
+    			for (int j=0; j<syncCVFolds; j++) {
+    				hNWeightTemp[i*cvIndexStride+j] = hNWeightPool[j][i];
+    			}
+    		}
+
+    		detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
     		detail::resizeAndCopyToDevice(hKWeightTemp, dKWeightVector, queue);
     	}
     }
