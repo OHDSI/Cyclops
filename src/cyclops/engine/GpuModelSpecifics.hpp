@@ -3395,17 +3395,6 @@ virtual void runCCDIndex() {
         		detail::resizeAndCopyToDevice(hK, dKStrata, queue);
         	}
         }
-
-    	std::vector<real> blah;
-    	blah.resize(dXBetaVector.size());
-    	compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(blah), queue);
-    	std::cout << "xbeta: ";
-		for (int j=0; j<100; j++) {
-			for (int i=0; i<syncCVFolds; i++) {
-    			std::cout << blah[j*cvIndexStride+i] << " ";
-    		}
-    	}
-    	std::cout << "\n";
 	}
 
 	//for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
@@ -3543,17 +3532,6 @@ virtual void runCCDIndex() {
 			name = "compDoItAllKernelG" + getFormatTypeExtension(formatType) + " ";
 			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-
-	    	std::vector<real> blah;
-	    	blah.resize(dXBetaVector.size());
-	    	compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(blah), queue);
-	    	std::cout << "xbeta: ";
-    		for (int j=0; j<100; j++) {
-    			for (int i=0; i<syncCVFolds; i++) {
-	    			std::cout << blah[j*cvIndexStride+i] << " ";
-	    		}
-	    	}
-	    	std::cout << "\n";
 
 			} else {
 
@@ -4867,18 +4845,14 @@ virtual void runCCDIndex() {
     		options << " -cl-mad-enable";
 
     		auto source = writeCodeForSyncCVGradientHessianKernelExactCLR(formatType, true);
-    		std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
-    		std::cout << "program built\n";
     		auto kernelSync = compute::kernel(program, source.name);
 
     		kernelGradientHessianSync[formatType] = std::move(kernelSync);
 
 
     		source = writeCodeForSyncCVGradientHessianKernelExactCLR(formatType, false);
-    		std::cout << source.body;
     		program = compute::program::build_with_source(source.body, ctx, options.str());
-    		std::cout << "program built\n";
     		auto kernelSyncLog = compute::kernel(program, source.name);
 
     		kernelGradientHessianSyncLog[formatType] = std::move(kernelSyncLog);
@@ -4907,13 +4881,16 @@ virtual void runCCDIndex() {
     		// CCD Kernel
     		// Rcpp::stop("cGH");
     		auto source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia);
-
+    		std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    		std::cout << "program built\n";
     		auto kernelSync = compute::kernel(program, source.name);
     		kernelGradientHessianSync[formatType] = std::move(kernelSync);
 
     		source = writeCodeForSyncCV1GradientHessianKernel(formatType, isNvidia);
+    		std::cout << source.body;
     		program = compute::program::build_with_source(source.body, ctx, options.str());
+    		std::cout << "program built\n";
     		auto kernelSync1 = compute::kernel(program, source.name);
     		kernelGradientHessianSync1[formatType] = std::move(kernelSync1);
 
@@ -5487,9 +5464,10 @@ static std::string weightN(const std::string& arg, bool useWeights) {
 
 struct GroupedDataG {
 public:
-	std::string getGroupG() {
-		std::string code = "task";
-        return(code);
+	std::string getGroupG(const std::string& arg) {
+		return "id[" + arg + "]";
+		//std::string code = "id[task]";
+        //return(code);
 	}
 };
 
@@ -5499,25 +5477,28 @@ public:
 
 struct OrderedDataG {
 public:
-	std::string getGroupG() {
+	std::string getGroupG(const std::string& arg) {
+		return arg;
 		std::string code = "task";
-        return(code);
+        //return(code);
 	}
 };
 
 struct OrderedWithTiesDataG {
 public:
-	std::string getGroupG() {
-		std::string code = "id[task]";
-        return(code);
+	std::string getGroupG(const std::string& arg) {
+		return "id[" + arg + "]";
+		//std::string code = "id[task]";
+        //return(code);
 	}
 };
 
 struct IndependentDataG {
 public:
-	std::string getGroupG() {
-		std::string code = "task";
-        return(code);
+	std::string getGroupG(const std::string& arg) {
+		return arg;
+		//std::string code = "task";
+        //return(code);
 	}
 };
 
@@ -5534,6 +5515,9 @@ struct NoFixedLikelihoodTermsG {
 
 struct GLMProjectionG {
 public:
+	const static bool denomRequiresReduction = false;
+	const static bool logisticDenominator = false;
+
 	std::string logLikeNumeratorContribG() {
 		std::stringstream code;
 		code << "y * xb";
@@ -5547,6 +5531,7 @@ public:
 
 struct LogisticG {
 public:
+
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		// assume exists: numer, denom
 		std::stringstream code;
@@ -5633,6 +5618,8 @@ public:
 
 struct ConditionalLogisticRegressionG : public GroupedDataG, GLMProjectionG, FixedPidG, SurvivalG {
 public:
+	const static bool denomRequiresReduction = true;
+
 	std::string getDenomNullValueG () {
 		std::string code = "(REAL)0.0";
 		return(code);
@@ -5667,6 +5654,8 @@ public:
 
 struct TiedConditionalLogisticRegressionG : public GroupedWithTiesDataG, GLMProjectionG, FixedPidG, SurvivalG {
 public:
+	const static bool denomRequiresReduction = false;
+
 	std::string getDenomNullValueG () {
 		std::string code = "(REAL)0.0";
 		return(code);
@@ -5704,6 +5693,8 @@ public:
 struct LogisticRegressionG : public IndependentDataG, GLMProjectionG, LogisticG, FixedPidG,
 	NoFixedLikelihoodTermsG {
 public:
+	const static bool logisticDenominator = true;
+
 	std::string getDenomNullValueG () {
 		std::string code = "(REAL)1.0";
 		return(code);
@@ -5796,6 +5787,9 @@ public:
 
 struct LeastSquaresG : public IndependentDataG, FixedPidG, NoFixedLikelihoodTermsG  {
 public:
+	const static bool denomRequiresReduction = false;
+	const static bool logisticDenominator = false;
+
 	std::string getDenomNullValueG () {
 		std::string code = "(REAL)0.0";
 		return(code);

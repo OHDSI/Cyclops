@@ -186,12 +186,20 @@ static std::string weight(const std::string& arg, bool useWeights) {
             // Do nothing
         }
 
-        code << "       const REAL exb = expXBeta[k];     \n" <<
-                "       const REAL numer = " << timesX("exb", formatType) << ";\n" <<
+        code << "		REAL xb = xBeta[k];			\n" <<
+        		// needs offs later for SCCS
+        		"		REAL exb = " << BaseModelG::getOffsExpXBetaG() << " ;\n" <<
+        		//"       REAL exb = expXBeta[k];     \n" <<
+                "       REAL numer = " << timesX("exb", formatType) << ";\n";
                 //"       const REAL denom = 1.0 + exb;			\n";
-        		"		const REAL denom = denominator[k];		\n";
+        if (BaseModelG::logisticDenominator) {
+        	code << "REAL denom = 1.0 + exb;			\n";
+        } else {
+        	code << "REAL denom = denominator[" << BaseModelG::getGroupG("k") << "];\n";
+        }
+        //code << "		const REAL denom = denominator[k];		\n";
         if (useWeights) {
-            code << "       const REAL w = weight[k];\n";
+            code << "       REAL w = weight[k];\n";
         }
 
 /*
@@ -270,7 +278,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 #else
 				"       __global REAL* buffer,            \n" <<
 #endif // USE_VECTOR
-				"       __global const int* pIdVector,           \n" <<  // TODO Make id optional
+				"       __global const int* id,           \n" <<  // TODO Make id optional
 				"       __global const REAL* weightVector,	\n" <<
 				"		const uint cvIndexStride,		\n" <<
 				"		const uint blockSize,			\n" <<
@@ -313,12 +321,16 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		}
 		code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
 				"		REAL xb = xBetaVector[vecOffset];			\n" <<
-				"		REAL exb = exp(xb);							\n" <<
+        		"		REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n" <<
 				//"		REAL exb = expXBetaVector[vecOffset];	\n" <<
-				"		REAL numer = " << timesX("exb", formatType) << ";\n" <<
-				"		REAL denom = (REAL)1.0 + exb;				\n" <<
-				//"		REAL denom = denomPidVector[vecOffset];		\n" <<
-				"		REAL w = weightVector[vecOffset];\n";
+				"		REAL numer = " << timesX("exb", formatType) << ";\n";
+		if (BaseModelG::logisticDenominator) {
+			code << " 	REAL denom = (REAL)1.0 + exb;				\n";
+		} else {
+			code << "	REAL denom = denominator[" << BaseModelG::getGroupG("k") << "*cvIndexStride+cvIndex];\n";
+		}
+		//"		REAL denom = denomPidVector[vecOffset];		\n" <<
+		code << "		REAL w = weightVector[vecOffset];\n";
 		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
 		code << "       sum0 += gradient; \n" <<
 				"       sum1 += hessian;  \n";
@@ -338,12 +350,16 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		}
 		code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
 				"		REAL xb = xBetaVector[vecOffset];			\n" <<
-				"		REAL exb = exp(xb);							\n" <<
+				"		REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n" <<
 				//"		REAL exb = expXBetaVector[vecOffset];	\n" <<
-				"		REAL numer = " << timesX("exb", formatType) << ";\n" <<
-				"		REAL denom = (REAL)1.0 + exb;				\n" <<
-				//"		REAL denom = denomPidVector[vecOffset];		\n" <<
-				"		REAL w = weightVector[vecOffset];\n";
+				"		REAL numer = " << timesX("exb", formatType) << ";\n";
+		if (BaseModelG::logisticDenominator) {
+			code << " 	REAL denom = (REAL)1.0 + exb;				\n";
+		} else {
+			code << "	REAL denom = denominator[" << BaseModelG::getGroupG("k") << "*cvIndexStride+cvIndex];\n";
+		}
+		//"		REAL denom = denomPidVector[vecOffset];		\n" <<
+		code << "		REAL w = weightVector[vecOffset];\n";
 		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
 		code << "       sum0 += gradient; \n" <<
 				"       sum1 += hessian;  \n" <<
@@ -2901,7 +2917,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					//"const int k = task;";
         	code << "REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
         	code << "expXBeta[task] = exb;\n";
-    		code << "denominator[" << BaseModelG::getGroupG() << "] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+    		code << "denominator[" << BaseModelG::getGroupG("task") << "] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
         	//code << "denominator[task] = (REAL)1.0 + exb;\n";
         	//code << " 		REAL exb = exp(xBeta[task]);		\n" <<
         	//		"		expXBeta[task] = exb;		\n";

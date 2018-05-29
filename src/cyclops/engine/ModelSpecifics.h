@@ -457,11 +457,6 @@ public:
 		return groups[k];
 	}
 
-	std::string getGroupG() {
-		std::string code = "task";
-        return(code);
-	}
-
 	const static bool hasIndependentRows = false;
 };
 
@@ -482,11 +477,6 @@ public:
 		return k; // No ties
 	}
 
-	std::string getGroupG() {
-		std::string code = "task";
-        return(code);
-	}
-
 	const static bool hasResetableAccumulators = true;
 
 	const static bool hasIndependentRows = false;
@@ -504,11 +494,6 @@ public:
 		return groups[k];
 	}
 
-	std::string getGroupG() {
-		std::string code = "id[task]";
-        return(code);
-	}
-
 	const static bool hasResetableAccumulators = false;
 
 	const static bool hasIndependentRows = false;
@@ -524,11 +509,6 @@ public:
 
 	int getGroup(const int* groups, int k) {
 		return k;
-	}
-
-	std::string getGroupG() {
-		std::string code = "task";
-        return(code);
 	}
 
 	const static bool hasIndependentRows = true;
@@ -1335,11 +1315,6 @@ public:
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
 
-	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
-	}
-
 	real observationCount(real yi) {
 		return static_cast<real>(yi);
 	}
@@ -1443,11 +1418,6 @@ public:
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
 
-	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
-	}
-
 	real observationCount(real yi) {
 		return static_cast<real>(yi);
 	}
@@ -1528,11 +1498,6 @@ public:
 	}
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
-
-	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
-	}
 
 	real observationCount(real yi) {
 		return static_cast<real>(yi);
@@ -1617,11 +1582,6 @@ public:
 	}
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
-
-	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
-	}
 
 	real observationCount(real yi) {
 		return static_cast<real>(yi);
@@ -1708,11 +1668,6 @@ public:
 
 	static real getDenomNullValue () { return static_cast<real>(1.0); }
 
-	std::string getDenomNullValueG () {
-		std::string code = "(REAL)1.0";
-		return(code);
-	}
-
 	real observationCount(real yi) {
 		return static_cast<real>(1);
 	}
@@ -1754,11 +1709,6 @@ public:
 	const static bool precomputeHessian = false;
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
-
-	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
-	}
 
     real setIndependentDenominator(real expXBeta) {
         return expXBeta;
@@ -1862,11 +1812,6 @@ public:
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
 
-	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
-	}
-
     bool resetAccumulators(int* pid, int k, int currentPid) {
         return pid[k] != currentPid;
     }
@@ -1966,11 +1911,6 @@ public:
 	const static bool exactCLR = false;
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
-
-	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
-	}
 
 	real observationCount(real yi) {
 		return static_cast<real>(1);
@@ -2104,11 +2044,6 @@ public:
 	const static bool likelihoodHasFixedTerms = true;
 
 	static real getDenomNullValue () { return static_cast<real>(0.0); }
-
-	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
-	}
 
 	real observationCount(real yi) {
 		return static_cast<real>(1);
