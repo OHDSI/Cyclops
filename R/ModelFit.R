@@ -243,7 +243,7 @@ fitCyclopsModel <- function(cyclopsData,
         fit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)
     }
 
-    if (returnEstimates && fit$return_flag == "SUCCESS") {
+    if (returnEstimates) {
         estimates <- .cyclopsLogModel(cyclopsData$cyclopsInterfacePtr)
         fit <- c(fit, estimates)
         fit$estimation <- as.data.frame(fit$estimation)
@@ -311,15 +311,18 @@ fitCyclopsModel <- function(cyclopsData,
 #'
 #' @param object    Cyclops model fit object
 #' @param rescale   Boolean: rescale coefficients for unnormalized covariate values
+#' @param ignoreConvergence Boolean: return coefficients even if fit object did not converge
 #' @param ...       Other arguments
 #'
 #' @return Named numeric vector of model coefficients.
 #'
 #' @export
-coef.cyclopsFit <- function(object, rescale = FALSE, ...) {
-    if (is.null(object$estimation)) {
+coef.cyclopsFit <- function(object, rescale = FALSE, ignoreConvergence = FALSE, ...) {
+
+    if (object$return_flag != "SUCCESS" && !ignoreConvergence) {
         stop("Cyclops estimation is null; suspect that estimation did not converge.")
     }
+
     result <- object$estimation$estimate
     if (is.null(object$coefficientNames)) {
         names(result) <- object$estimation$column_label

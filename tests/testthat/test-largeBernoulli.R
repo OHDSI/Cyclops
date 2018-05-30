@@ -42,14 +42,24 @@ test_that("Separable covariates in logistic regression", {
 
     expect_error(coef(fit), "did not converge")
 
+    # Use separability condition
     separability <- getUnivariableSeparability(data)
     expect_equal(sum(separability), 1.0)
 
-    fit <- fitCyclopsModel(data, prior = createPrior("none"),
-                           forceNewObject = TRUE,
-                           fixedCoefficients = separability)
+    scFit <- fitCyclopsModel(data, prior = createPrior("none"),
+                             forceNewObject = TRUE,
+                             fixedCoefficients = separability)
 
-    expect_equivalent(coef(fit)[separability], 0.0)
+    expect_equivalent(coef(scFit)[separability], 0.0)
+
+    # Use estimate existence condition
+    separability <- is.nan(coef(fit, ignoreConvergence = TRUE))
+
+    ecFit <- fitCyclopsModel(data, prior = createPrior("none"),
+                             forceNewObject = TRUE,
+                             fixedCoefficients = separability)
+
+    expect_equivalent(coef(ecFit)[separability], 0.0)
 })
 
 test_that("Separable covariates in cox regression", {
