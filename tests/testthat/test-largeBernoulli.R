@@ -60,6 +60,11 @@ test_that("Separable covariates in logistic regression", {
                              fixedCoefficients = separability)
 
     expect_equivalent(coef(ecFit)[separability], 0.0)
+
+    # Use non-separable MLE prior
+    nsFit <- fitCyclopsModel(data, prior = createNonSeparablePrior(),
+                             forceNewObject = TRUE)
+    expect_true(is.na(coef(nsFit)[7]))
 })
 
 test_that("Separable covariates in cox regression", {
