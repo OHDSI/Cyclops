@@ -332,7 +332,7 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::useLogSum;
 
     const static int tpb = 128; // threads-per-block  // Appears best on K40
-    const static int maxWgs = 2;  // work-group-size
+    const static int maxWgs = 15; // use as # of multiprocessors //2;  // work-group-size
 
     int tpb0 = 8;
     int tpb1 = 32;
@@ -413,6 +413,11 @@ public:
         detail::resizeAndCopyToDevice(denomPid, dDenominator, queue);
         detail::resizeAndCopyToDevice(accDenomPid, dAccDenominator, queue);
         detail::resizeAndCopyToDevice(hPidInternal, dId, queue);
+        std::cout << "dId: ";
+        for (auto x:hPidInternal) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
         detail::resizeAndCopyToDevice(hOffs, dOffs, queue);
         detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
         detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
@@ -458,161 +463,178 @@ public:
     }
 
     // updates everything
-    virtual void computeRemainingStatistics(bool useWeights) {
-
-        //std::cerr << "GPU::cRS called" << std::endl;
+    virtual void computeRemainingStatistics() {
+    	//std::cerr << "GPU::cRS called" << std::endl;
     	if (syncCV) {
 #ifdef CYCLOPS_DEBUG_TIMING
-        auto start = bsccs::chrono::steady_clock::now();
+    		auto start = bsccs::chrono::steady_clock::now();
 #endif
+    		auto& kernel = kernelComputeRemainingStatisticsSync;
+    		kernel.set_arg(0, dXBetaVector);
+    		kernel.set_arg(1, dOffsExpXBetaVector);
+    		kernel.set_arg(2, dDenomPidVector);
+    		kernel.set_arg(3, dY);
+    		kernel.set_arg(4, dOffs);
+    		kernel.set_arg(5, dPidVector);
+    		kernel.set_arg(6, cvIndexStride);
+    		kernel.set_arg(7, cvBlockSize);
+    		kernel.set_arg(8, syncCVFolds);
 
-        auto& kernel = kernelComputeRemainingStatisticsSync;
-        kernel.set_arg(0, dXBetaVector);
-        kernel.set_arg(1, dOffsExpXBetaVector);
-        kernel.set_arg(2, dDenomPidVector);
-        kernel.set_arg(3, dY);
-        kernel.set_arg(4, dOffs);
-        kernel.set_arg(5, dPidVector);
-        kernel.set_arg(6, cvIndexStride);
-        kernel.set_arg(7, cvBlockSize);
-        kernel.set_arg(8, syncCVFolds);
+    		int loops = syncCVFolds / cvBlockSize;
+    		if (syncCVFolds % cvBlockSize != 0) {
+    			loops++;
+    		}
 
-        int loops = syncCVFolds / cvBlockSize;
-        if (syncCVFolds % cvBlockSize != 0) {
-        	loops++;
-        }
+    		size_t globalWorkSize[2];
+    		globalWorkSize[0] = loops*cvBlockSize;
+    		globalWorkSize[1] = K;
+    		size_t localWorkSize[2];
+    		localWorkSize[0] = cvBlockSize;
+    		localWorkSize[1] = 1;
+    		size_t dim = 2;
 
-        size_t globalWorkSize[2];
-        globalWorkSize[0] = loops*cvBlockSize;
-        globalWorkSize[1] = K;
-        size_t localWorkSize[2];
-        localWorkSize[0] = cvBlockSize;
-        localWorkSize[1] = 1;
-        size_t dim = 2;
+    		queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
+    		queue.finish();
 
-        queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
-        queue.finish();
+    		/*
+        	std::vector<int> foldIndices;
+        	size_t count = 0;
+        	for (int cvIndex = 0; cvIndex < syncCVFolds; ++cvIndex) {
+        		foldIndices.push_back(cvIndex);
+        	}
+    		 */
+    		/*
+            // get kernel
+            auto& kernel = kernelComputeRemainingStatisticsSync;
 
+            // set kernel args
+            size_t taskCount = cvIndexStride;
+            int dK = K;
+            kernel.set_arg(0, dK);
+            kernel.set_arg(1, dXBetaVector);
+            kernel.set_arg(2, dOffsExpXBetaVector);
+            kernel.set_arg(3, dDenomPidVector);
+            kernel.set_arg(4, dY);
+            kernel.set_arg(5, dOffs);
+            kernel.set_arg(6, dPidVector);
+            kernel.set_arg(7, cvIndexStride);
+            kernel.set_arg(8, dDoneVector);
+            //detail::resizeAndCopyToDevice(foldIndices, dIntVector1, queue);
+            //kernel.set_arg(8, dIntVector1);
 
-        /*
-    	std::vector<int> foldIndices;
-    	size_t count = 0;
-    	for (int cvIndex = 0; cvIndex < syncCVFolds; ++cvIndex) {
-    		foldIndices.push_back(cvIndex);
-    	}
-    	*/
-/*
-        // get kernel
-        auto& kernel = kernelComputeRemainingStatisticsSync;
+            // set work size, no looping
 
-        // set kernel args
-        size_t taskCount = cvIndexStride;
-        int dK = K;
-        kernel.set_arg(0, dK);
-        kernel.set_arg(1, dXBetaVector);
-        kernel.set_arg(2, dOffsExpXBetaVector);
-        kernel.set_arg(3, dDenomPidVector);
-        kernel.set_arg(4, dY);
-        kernel.set_arg(5, dOffs);
-        kernel.set_arg(6, dPidVector);
-        kernel.set_arg(7, cvIndexStride);
-        kernel.set_arg(8, dDoneVector);
-        //detail::resizeAndCopyToDevice(foldIndices, dIntVector1, queue);
-        //kernel.set_arg(8, dIntVector1);
+            size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
+            if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+            	++workGroups;
+            }
 
-        // set work size, no looping
+            const size_t globalWorkSize = workGroups * syncCVFolds * detail::constant::updateXBetaBlockSize;
+            int blockSize = workGroups * detail::constant::updateXBetaBlockSize;
+            kernel.set_arg(9, blockSize);
 
-        size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
-        if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
-        	++workGroups;
-        }
+            // run kernel
+            queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
+            queue.finish();
 
-        const size_t globalWorkSize = workGroups * syncCVFolds * detail::constant::updateXBetaBlockSize;
-        int blockSize = workGroups * detail::constant::updateXBetaBlockSize;
-        kernel.set_arg(9, blockSize);
-
-        // run kernel
-        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
-        queue.finish();
-
-*/
+    		 */
 
 #ifdef CYCLOPS_DEBUG_TIMING
-        auto end = bsccs::chrono::steady_clock::now();
-        ///////////////////////////"
-        duration["compRSGSync          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+    		auto end = bsccs::chrono::steady_clock::now();
+    		///////////////////////////"
+    		duration["compRSGSync          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
 #endif
     	} else {
+    		// single ccd
 
-        hBuffer.resize(K);
+    		if (!initialized) {
+    			if (BaseModelG::useNWeights) {
+    				detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
+    			}
+    			initialized = true;
+    		}
 
-    	//compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta), queue);
+    		hBuffer.resize(K);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    		auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+    		// get kernel
+    		auto& kernel = kernelComputeRemainingStatistics;
+
+    		// set kernel args
+    		const auto taskCount = K;
+    		int dK = K;
+    		kernel.set_arg(0, dK);
+    		kernel.set_arg(1, dXBeta);
+    		kernel.set_arg(2, dExpXBeta);
+    		kernel.set_arg(3, dDenominator);
+    		kernel.set_arg(4, dY);
+    		kernel.set_arg(5, dOffs);
+    		kernel.set_arg(6, dId);
+
+    		// set work size, no looping
+			size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
+			if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+				++workGroups;
+			}
+			auto localWorkSize = detail::constant::updateXBetaBlockSize;
+			auto globalWorkSize = workGroups * localWorkSize;
+
+			if (BaseModelG::useNWeights) {
+				kernel.set_arg(7, dNtoK);
+				kernel.set_arg(8, dNWeight);
+				localWorkSize = tpb;
+				globalWorkSize = N*localWorkSize;
+			}
 /*
- 	    // Currently RS only computed on CPU and then copied
-        if (BaseModel::likelihoodHasDenominator) {
-            compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(hBuffer), queue);
-            //compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
-            //compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(denomPid), queue);
-        }
-        */
+			std::vector<int> myNtoK;
+			myNtoK.resize(dNtoK.size());
+			compute::copy(std::begin(dNtoK), std::end(dNtoK), std::begin(myNtoK), queue);
+			std::cout << "NtoK: ";
+			for (auto x:myNtoK) {
+				std::cout << x << " ";
+			}
+			std::cout << "\n";
 
-        /*
-        compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(hBuffer), queue);
-        std::cout << "dExpXBeta: " << hBuffer[0] << ' ' << hBuffer[1] << '\n';
+			std::vector<real> myNWeight;
+			myNWeight.resize(dNWeight.size());
+			compute::copy(std::begin(dNWeight), std::end(dNWeight), std::begin(myNWeight), queue);
+			std::cout << "NWeight: ";
+			for (auto x:myNWeight) {
+				std::cout << x << " ";
+			}
+			std::cout << "\n";
+			*/
 
-        ModelSpecifics<BaseModel, WeightType>::computeRemainingStatistics(useWeights);
-        std::cout << "after cRS offsExpXBeta: " << offsExpXBeta[0] << ' ' << offsExpXBeta[1] << '\n';
-		*/
+			// run kernel
+			queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, localWorkSize);
+			queue.finish();
 
-#ifdef CYCLOPS_DEBUG_TIMING
-        auto start = bsccs::chrono::steady_clock::now();
-#endif
-        /*
-        if (algorithmType == AlgorithmType::MM) {
-        	compute::copy(std::begin(hBeta), std::end(hBeta), std::begin(dBeta), queue);
-        }
-        */
-
-        /*
-        if (BaseModel::likelihoodHasDenominator) {
-            compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta), queue);
-            //compute::copy(std::begin(denomPid), std::end(denomPid), std::begin(dDenominator), queue);
-        }
-        */
-
-        //compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(hBuffer), queue);
-        //std::cout << "before kernel dDenominator: " << hBuffer[0] << " " << hBuffer[1] << '\n';
-
-        // get kernel
-        auto& kernel = kernelComputeRemainingStatistics;
-
-        // set kernel args
-        const auto taskCount = K;
-        int dK = K;
-        kernel.set_arg(0, dK);
-        kernel.set_arg(1, dXBeta);
-        kernel.set_arg(2, dExpXBeta);
-        kernel.set_arg(3, dDenominator);
-        kernel.set_arg(4, dY);
-        kernel.set_arg(5, dOffs);
-        kernel.set_arg(6, dId);
-
-        // set work size, no looping
-        size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
-        if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
-        	++workGroups;
-        }
-        const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
-
-        // run kernel
-        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
-        queue.finish();
+			std::vector<real> hDenominator;
+			hDenominator.resize(dDenominator.size());
+			compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(hDenominator), queue);
+			std::cout << "denom: ";
+			for (auto x:hDenominator) {
+				std::cout << x << " ";
+			}
+			std::cout << "\n";
 
 #ifdef CYCLOPS_DEBUG_TIMING
-        auto end = bsccs::chrono::steady_clock::now();
-        ///////////////////////////"
-        duration["compRSG          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+			auto end = bsccs::chrono::steady_clock::now();
+			///////////////////////////"
+			duration["compRSG          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
 #endif
+    	}
+    }
+
+    // do nothing; try to roll denom into updatexb
+    virtual void computeRemainingStatistics(bool useWeights) {
+        //std::cerr << "GPU::cRS called" << std::endl;
+    	if (syncCV) {
+    		//computeRemainingStatistics();
+    	} else {
     	}
     }
 
@@ -857,11 +879,11 @@ public:
         	kernel.set_arg(1, dColumns.getIndicesOffset(index));
         	kernel.set_arg(2, dColumns.getTaskCount(index));
 
-if (useLogSum) {
-        	kernel.set_arg(3, dLogX);
-} else {
-        	kernel.set_arg(3, dColumns.getData());
-}
+        	if (useLogSum) {
+        		kernel.set_arg(3, dLogX);
+        	} else {
+        		kernel.set_arg(3, dColumns.getData());
+        	}
         	kernel.set_arg(4, dColumns.getIndices());
         	kernel.set_arg(5, dNtoK);
 
@@ -874,11 +896,11 @@ if (useLogSum) {
         		hBuffer.resize(3*N*a);
         	}
         	kernel.set_arg(6, dNWeight);
-if (useLogSum) {
-        	kernel.set_arg(7, dXBeta);
-} else {
-        	kernel.set_arg(7, dExpXBeta);
-}
+        	if (useLogSum) {
+        		kernel.set_arg(7, dXBeta);
+        	} else {
+        		kernel.set_arg(7, dExpXBeta);
+        	}
 
         	/*
         	std::vector<real> blah;
@@ -983,8 +1005,15 @@ if (useLogSum) {
         } else {
 
         	if (!initialized) {
-        		computeRemainingStatistics(true);
         		initialized = true;
+
+        		if (BaseModelG::useNWeights) {
+        			detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
+        			detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
+        		}
+
+        		computeRemainingStatistics();
+
         	}
 
         	auto& kernel = (useWeights) ? // Double-dispatch
@@ -996,8 +1025,8 @@ if (useLogSum) {
 
         	const auto taskCount = dColumns.getTaskCount(index);
 
-        	const auto wgs = maxWgs;
-        	const auto globalWorkSize = tpb * wgs;
+        	auto wgs = maxWgs;
+        	auto globalWorkSize = tpb * wgs;
 
         	size_t loops = taskCount / globalWorkSize;
         	if (taskCount % globalWorkSize != 0) {
@@ -1045,6 +1074,16 @@ if (useLogSum) {
         		kernel.set_arg(11, 0);
         	} else {
         		kernel.set_arg(11, dKWeight); // TODO Only when dKWeight gets reallocated
+        	}
+
+
+        	if (BaseModelG::useNWeights) {
+        		kernel.set_arg(12, dNWeight);
+        		int dN = N;
+        		kernel.set_arg(13, dN);
+        		kernel.set_arg(14, dNtoK);
+        		globalWorkSize = N * tpb;
+        		wgs = N;
         	}
 
         	//         std::cerr << "loop= " << loops << std::endl;
@@ -1101,6 +1140,14 @@ if (useLogSum) {
         	*ohessian = hessian;
 #else
         	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+
+        	/*
+        	std::cout << "hBuffer: ";
+        	for (int i=0; i<wgs; i++) {
+        		std::cout << hBuffer[i] << " " << hBuffer[i+wgs] << " ";
+        	}
+        	std::cout << "\n";
+        	*/
 
         	for (int i = 0; i < wgs; ++i) { // TODO Use SSE
         		gradient += hBuffer[i];
@@ -1572,7 +1619,7 @@ if (useLogSum) {
 		    detail::resizeAndCopyToDevice(norm, dNorm, queue);
 
 		    std::cerr << "\n";
-		    computeRemainingStatistics(true);
+		    computeRemainingStatistics();
 	    	//kernel.set_arg(12, dNorm);
 
 	        this->initializeMmXt();
@@ -1940,10 +1987,20 @@ if (useLogSum) {
         if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
             ++workGroups;
         }
-        const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+        //size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+
+        auto localWorkSize = detail::constant::updateXBetaBlockSize;
+        auto globalWorkSize = workGroups * localWorkSize;
+
+        if (BaseModelG::useNWeights) {
+        	kernel.set_arg(11, dNtoK);
+        	kernel.set_arg(12, dNWeight);
+        	localWorkSize = tpb;
+        	globalWorkSize = N*tpb;
+        }
 
         // run kernel
-        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, localWorkSize);
         queue.finish();
 
         hXBetaKnown = false; // dXBeta was just updated
@@ -2715,6 +2772,7 @@ if (useLogSum) {
 
     // letting cpu handle, need to do pid for acc
     virtual double getPredictiveLogLikelihood(double* weights) {
+    	computeRemainingStatistics();
         compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(denomPid), queue);
         compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
         compute::copy(std::begin(dKWeight), std::end(dKWeight), std::begin(hKWeight), queue);
@@ -2725,7 +2783,7 @@ if (useLogSum) {
         	// 		std::vector<int> savedPid = hPidInternal; // make copy
         	// 		std::vector<int> saveAccReset = accReset; // make copy
         	this->setPidForAccumulation(weights);
-        	computeRemainingStatistics(true); // compute accDenomPid
+        	computeRemainingStatistics(); // compute accDenomPid
         }
 
         // Compile-time switch for models with / with-out PID (hasIndependentRows)
@@ -2745,7 +2803,7 @@ if (useLogSum) {
         	// 		hPidInternal = savedPid; // make copy; TODO swap
         	// 		accReset = saveAccReset; // make copy; TODO swap
         	this->setPidForAccumulation(&saveKWeight[0]);
-        	computeRemainingStatistics(true);
+        	computeRemainingStatistics();
         }
 
         return static_cast<double>(logLikelihood);
@@ -2754,7 +2812,7 @@ if (useLogSum) {
 
     // letting cpu handle
     double getPredictiveLogLikelihood(double* weights, int cvIndex) {
-    	computeRemainingStatistics(true);
+    	computeRemainingStatistics();
 
     	if (BaseModel::exactCLR) {
     		std::vector<real> xBetaTemp(dXBetaVector.size());
@@ -4533,7 +4591,11 @@ virtual void runCCDIndex() {
 
     SourceCode writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
+    SourceCode writeCodeForStratifiedGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
+
     SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType);
+
+    SourceCode writeCodeForStratifiedUpdateXBetaKernel(FormatType formatType);
 
     SourceCode writeCodeForSyncUpdateXBetaKernel(FormatType formatType);
 
@@ -4556,6 +4618,8 @@ virtual void runCCDIndex() {
     SourceCode writeCodeForGetGradientObjectiveSync(bool isNvidia);
 
     SourceCode writeCodeForComputeRemainingStatisticsKernel();
+
+    SourceCode writeCodeForStratifiedComputeRemainingStatisticsKernel();
 
     SourceCode writeCodeForSyncComputeRemainingStatisticsKernel();
 
@@ -4786,9 +4850,16 @@ virtual void runCCDIndex() {
             }
             options << " -cl-mad-enable";
 
-        	// CCD Kernel
         	auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
+
+            if (BaseModelG::useNWeights) {
+            	source = writeCodeForStratifiedGradientHessianKernel(formatType, useWeights, isNvidia);
+            }
+
+            std::cout << source.body;
+        	// CCD Kernel
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        	std::cout << "program built\n";
         	auto kernel = compute::kernel(program, source.name);
         	// Rcpp::stop("cGH");
 
@@ -4907,13 +4978,35 @@ virtual void runCCDIndex() {
     void buildUpdateXBetaKernel(FormatType formatType) {
         std::stringstream options;
 
-        options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
+        if (BaseModelG::useNWeights) {
+        	if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+        		options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+#else
+        		options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+#endif // USE_VECTOR
+        	} else {
+#ifdef USE_VECTOR
+        		options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+#else
+        		options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+#endif // USE_VECTOR
+        	}
+        } else {
+        	options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
+        }
 
     	options << " -cl-mad-enable";
 
         auto source = writeCodeForUpdateXBetaKernel(formatType);
 
+        if (BaseModelG::useNWeights) {
+        	source = writeCodeForStratifiedUpdateXBetaKernel(formatType);
+        }
+
+        std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        std::cout << "program built\n";
         auto kernel = compute::kernel(program, source.name);
 
         // Rcpp::stop("uXB");
@@ -4986,12 +5079,34 @@ virtual void runCCDIndex() {
 
     void buildComputeRemainingStatisticsKernel() {
     	std::stringstream options;
-    	options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
+    	if (BaseModelG::useNWeights) {
+    		if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+    			options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+#else
+    			options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+#endif // USE_VECTOR
+    		} else {
+#ifdef USE_VECTOR
+    			options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+#else
+    			options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+#endif // USE_VECTOR
+    		}
+    	} else {
+    		options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
+    	}
 
     	options << " -cl-mad-enable";
 
         auto source = writeCodeForComputeRemainingStatisticsKernel();
+
+        if (BaseModelG::useNWeights) {
+        	source = writeCodeForStratifiedComputeRemainingStatisticsKernel();
+        }
+        std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        std::cout << "program built\n";
         auto kernel = compute::kernel(program, source.name);
 
         kernelComputeRemainingStatistics = std::move(kernel);
@@ -5392,7 +5507,7 @@ virtual void runCCDIndex() {
     int cvIndexStride;
     bool pad;
     int activeFolds;
-    int multiprocessors = 15;
+    int multiprocessors = maxWgs;
     compute::vector<real> dNWeightVector;
     compute::vector<real> dKWeightVector;
     compute::vector<real> dAccDenomPidVector;
@@ -5464,8 +5579,8 @@ static std::string weightN(const std::string& arg, bool useWeights) {
 
 struct GroupedDataG {
 public:
-	std::string getGroupG(const std::string& arg) {
-		return "id[" + arg + "]";
+	std::string getGroupG(const std::string& groups, const std::string& person) {
+		return groups + "[" + person + "]";
 		//std::string code = "id[task]";
         //return(code);
 	}
@@ -5477,17 +5592,17 @@ public:
 
 struct OrderedDataG {
 public:
-	std::string getGroupG(const std::string& arg) {
-		return arg;
-		std::string code = "task";
+	std::string getGroupG(const std::string& groups, const std::string& person) {
+		return person;
+		//std::string code = "task";
         //return(code);
 	}
 };
 
 struct OrderedWithTiesDataG {
 public:
-	std::string getGroupG(const std::string& arg) {
-		return "id[" + arg + "]";
+	std::string getGroupG(const std::string& groups, const std::string& person) {
+		return groups + "[" + person + "]";
 		//std::string code = "id[task]";
         //return(code);
 	}
@@ -5495,8 +5610,8 @@ public:
 
 struct IndependentDataG {
 public:
-	std::string getGroupG(const std::string& arg) {
-		return arg;
+	std::string getGroupG(const std::string& groups, const std::string& person) {
+		return person;
 		//std::string code = "task";
         //return(code);
 	}
@@ -5515,8 +5630,9 @@ struct NoFixedLikelihoodTermsG {
 
 struct GLMProjectionG {
 public:
-	const static bool denomRequiresReduction = false;
+	const static bool denomRequiresStratumReduction = false;
 	const static bool logisticDenominator = false;
+	const static bool useNWeights = false;
 
 	std::string logLikeNumeratorContribG() {
 		std::stringstream code;
@@ -5618,7 +5734,8 @@ public:
 
 struct ConditionalLogisticRegressionG : public GroupedDataG, GLMProjectionG, FixedPidG, SurvivalG {
 public:
-	const static bool denomRequiresReduction = true;
+	const static bool denomRequiresStratumReduction = true;
+	const static bool useNWeights = true;
 
 	std::string getDenomNullValueG () {
 		std::string code = "(REAL)0.0";
@@ -5654,7 +5771,7 @@ public:
 
 struct TiedConditionalLogisticRegressionG : public GroupedWithTiesDataG, GLMProjectionG, FixedPidG, SurvivalG {
 public:
-	const static bool denomRequiresReduction = false;
+	const static bool denomRequiresStratumReduction = false;
 
 	std::string getDenomNullValueG () {
 		std::string code = "(REAL)0.0";
@@ -5787,8 +5904,9 @@ public:
 
 struct LeastSquaresG : public IndependentDataG, FixedPidG, NoFixedLikelihoodTermsG  {
 public:
-	const static bool denomRequiresReduction = false;
+	const static bool denomRequiresStratumReduction = false;
 	const static bool logisticDenominator = false;
+	const static bool useNWeights = false;
 
 	std::string getDenomNullValueG () {
 		std::string code = "(REAL)0.0";

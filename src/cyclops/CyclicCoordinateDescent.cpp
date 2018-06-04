@@ -1215,7 +1215,7 @@ void CyclicCoordinateDescent::findMode(
 	        	} else {
 	        		//if (!fixBeta[index]) {
 	        			double delta = ccdUpdateBeta(index);
-	        			//std::cout << "delta " << index << ": " << delta << "\n";
+	        			std::cout << "delta " << index << ": " << delta << "\n";
 	        			//std::cerr << " " << delta;
 	        			delta = applyBounds(delta, index);
 	        			//std::cout << " " << delta;
@@ -1952,8 +1952,6 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, std::vec
 		modelSpecifics.computeRemainingStatistics(useCrossValidation, fixBetaTemp);
 	}
 }
-
-
 
 void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int index) { // TODO Rename
 	// Separate function for benchmarking
