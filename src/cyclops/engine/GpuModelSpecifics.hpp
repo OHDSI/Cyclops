@@ -412,9 +412,13 @@ public:
         detail::resizeAndCopyToDevice(offsExpXBeta, dExpXBeta, queue);
         detail::resizeAndCopyToDevice(denomPid, dDenominator, queue);
         detail::resizeAndCopyToDevice(accDenomPid, dAccDenominator, queue);
-        detail::resizeAndCopyToDevice(hPidInternal, dId, queue);
+        std::vector<int> myHPid;
+        for (int i=0; i<K; i++) {
+        	myHPid.push_back(hPid[i]);
+        }
+        detail::resizeAndCopyToDevice(myHPid, dId, queue);
         std::cout << "dId: ";
-        for (auto x:hPidInternal) {
+        for (auto x:myHPid) {
         	std::cout << x << " ";
         }
         std::cout << "\n";
@@ -1141,10 +1145,10 @@ public:
 #else
         	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
 
-        	/*
+/*
         	std::cout << "hBuffer: ";
         	for (int i=0; i<wgs; i++) {
-        		std::cout << hBuffer[i] << " " << hBuffer[i+wgs] << " ";
+        		std::cout <<  hBuffer[i] << " " << hBuffer[i+wgs] << " ";
         	}
         	std::cout << "\n";
         	*/

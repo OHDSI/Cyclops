@@ -307,7 +307,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		REAL sum1 = 0.0;			\n" <<
         		"		scratch[0][lid] = 0;		\n" <<
 				"		scratch[1][lid] = 0;		\n" <<
-        		"		uint stratumWeight = NWeight[id[stratum]];	\n" <<
+        		"		uint stratumWeight = NWeight[stratum];	\n" <<
 				"		uint task = NtoK[stratum] + lid;					\n" <<
 				"		uint stratumEnd = NtoK[stratum+1];	\n";
 
@@ -332,23 +332,17 @@ static std::string weight(const std::string& arg, bool useWeights) {
         		"			REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n" <<
         		//"       REAL exb = expXBeta[k];     \n" <<
                 "       	REAL numer = " << timesX("exb", formatType) << ";\n";
-                //"       const REAL denom = 1.0 + exb;			\n";
-        if (BaseModelG::logisticDenominator) {
-        	code << "		REAL denom = 1.0 + exb;			\n";
-        } else {
-        	code << "		REAL denom = denominator[" << BaseModelG::getGroupG("id", "k") << "];\n";
-        }
-        //code << "		const REAL denom = denominator[k];		\n";
         if (useWeights) {
             code << "       REAL w = KWeight[k];\n";
         }
-        code << BaseModelG::incrementGradientAndHessianG(formatType, useWeights);
-#ifdef USE_VECTOR
-        code << "       	sum += (TMP_REAL)(gradient, hessian); \n";
-#else
-        code << "       	sum0 += gradient * stratumWeight; \n" <<
-                "       	sum1 += hessian * stratumWeight;  \n";
-#endif // USE_VECTOR
+        code << "			sum0 += " << weight("numer", useWeights) << ";\n";
+        if (formatType == INDICATOR || formatType == INTERCEPT) {
+        	code << "		REAL nume2 = numer;						\n";
+        } else {
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n";
+        }
+
+    	code << "		sum1 += " << weight("nume2", useWeights) << ";\n";
 
         // Bookkeeping
         code << "       	task += TPB; \n" <<
@@ -369,11 +363,15 @@ static std::string weight(const std::string& arg, bool useWeights) {
 #endif
 
         code << "   if (lid == 0) { \n" <<
+        		"		REAL myNumer = scratch[0][0];		\n" <<
+				"		REAL myNumer2 = scratch[1][0];		\n" <<
+				"		REAL myDenom = denominator[stratum];	\n" <<
+				"		REAL gradient = myNumer/myDenom;		\n" <<
 #ifdef USE_VECTOR
                 "       buffer[get_group_id(0)] = scratch[0]; \n" <<
 #else
-                "       buffer[stratum] = scratch[0][0]; \n" <<
-                "       buffer[stratum + totalStrata] = scratch[1][0]; \n" <<
+                "       buffer[stratum] = stratumWeight*gradient; \n" <<
+                "       buffer[stratum + totalStrata] = stratumWeight*(myNumer2/myDenom - gradient*gradient); \n" <<
 #endif // USE_VECTOR
                 "   } \n";
 
