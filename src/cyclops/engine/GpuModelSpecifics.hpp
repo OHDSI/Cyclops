@@ -767,7 +767,7 @@ public:
         			NVec.resize(dColumns.getTaskCounts().size());
         			compute::copy(std::begin(dColumns.getTaskCounts()), std::end(dColumns.getTaskCounts()), std::begin(NVec), queue);
 
-        			std::vector<int> Kstrata(N*J);
+        			std::vector<int> Kstrata((N+1)*J);
 
         			for (int index=0; index<J; index++) {
         				FormatType formatType = modelData.getFormatType(index);
@@ -783,12 +783,9 @@ public:
         							i++;
         							currentK = hK[offK+i];
         						}
-        						if (currentK >= stratumEnd || i == tasks) {
-        							Kstrata[N*index+n] = -1;
-        						} else {
-        							Kstrata[N*index+n] = i;
-        						}
+        						Kstrata[(N+1)*index+n] = i;
         					}
+        					Kstrata[(N+1)*index+N] = tasks;
         				}
         			}
 
@@ -3072,7 +3069,7 @@ public:
     				NVec.resize(dColumns.getTaskCounts().size());
     				compute::copy(std::begin(dColumns.getTaskCounts()), std::end(dColumns.getTaskCounts()), std::begin(NVec), queue);
 
-    				std::vector<int> Kstrata(N*J);
+    				std::vector<int> Kstrata((N+1)*J);
 
     				for (int index=0; index<J; index++) {
     					FormatType formatType = modelData.getFormatType(index);
@@ -3088,12 +3085,16 @@ public:
     								i++;
     								currentK = hK[offK+i];
     							}
+    							Kstrata[(N+1)*index+n] = i;
+    							/*
     							if (currentK >= stratumEnd || i == tasks) {
-    								Kstrata[N*index+n] = -1;
+    								Kstrata[(N+1)*index+n] = -1;
     							} else {
-    								Kstrata[N*index+n] = i;
+    								Kstrata[(N+1)*index+n] = i;
     							}
+    							*/
     						}
+    						Kstrata[(N+1)*index+N] = tasks;
     					}
     				}
 
@@ -3104,6 +3105,13 @@ public:
     				detail::resizeAndCopyToDevice(hK, dKStrata, queue);
     			}
     		}
+
+    		if (BaseModelG::useNWeights) {
+    			detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
+    			detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
+    		}
+
+    		computeRemainingStatistics();
     	}
 
         int wgs = detail::constant::exactCLRSyncBlockSize;
@@ -3117,8 +3125,12 @@ public:
 #endif
         FormatType formatType = modelData.getFormatType(index);
 
-        auto& kernel = (useLogSum) ? kernelGradientHessianSync[formatType] :
-        							 kernelGradientHessianSyncLog[formatType];
+        if (!BaseModel::exactCLR) {
+        	useLogSum = false;
+        }
+
+        auto& kernel = (useLogSum) ? kernelGradientHessianSyncLog[formatType] :
+        							 kernelGradientHessianSync[formatType];
 
         const auto taskCount = dColumns.getTaskCount(index);
 
@@ -4615,6 +4627,8 @@ virtual void runCCDIndex() {
 
     SourceCode writeCodeForSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia);
 
+    SourceCode writeCodeForStratifiedSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia);
+
     SourceCode writeCodeForSyncCV1GradientHessianKernel(FormatType formatType, bool isNvidia);
 
     SourceCode writeCodeForGetGradientObjective(bool useWeights, bool isNvidia);
@@ -4923,14 +4937,14 @@ virtual void runCCDIndex() {
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
     		auto kernelSync = compute::kernel(program, source.name);
 
-    		kernelGradientHessianSync[formatType] = std::move(kernelSync);
+    		kernelGradientHessianSyncLog[formatType] = std::move(kernelSync);
 
 
     		source = writeCodeForSyncCVGradientHessianKernelExactCLR(formatType, false);
     		program = compute::program::build_with_source(source.body, ctx, options.str());
     		auto kernelSyncLog = compute::kernel(program, source.name);
 
-    		kernelGradientHessianSyncLog[formatType] = std::move(kernelSyncLog);
+    		kernelGradientHessianSync[formatType] = std::move(kernelSyncLog);
     	} else {
 
     		std::stringstream options;
