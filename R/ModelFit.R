@@ -26,7 +26,7 @@
 #'
 #' @param cyclopsData			A Cyclops data object
 #' @template prior
-#' @param control Cyclops control object, see \code{"\link{control}"}
+#' @param control  A \code{"cyclopsControl"} object constructed by \code{\link{createControl}}
 #' @param weights Vector of 0/1 weights for each data row
 #' @param forceNewObject Logical, forces the construction of a new Cyclops model fit object
 #' @param returnEstimates Logical, return regression coefficient estimates in Cyclops model fit object
@@ -745,7 +745,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #' @param parm      A specification of which parameters require confidence intervals,
 #'                  either a vector of numbers of covariateId names
 #' @param level     Numeric: confidence level required
-#' @param control   A Cyclops \code{\link{control}} object
+#' @param control   A \code{"cyclopsControl"} object constructed by \code{\link{createControl}}
 #' @param overrideNoRegularization   Logical: Enable confidence interval estimation for regularized parameters
 #' @param ... Additional argument(s) for methods
 #'
@@ -783,7 +783,7 @@ aconfint <- function(object, parm, level = 0.95, control,
 #' \code{vcov.cyclopsFit} returns the variance-covariance matrix for all covariates of a Cyclops model object
 #'
 #' @param object    A fitted Cyclops model object
-#' @param control   A Cyclops \code{\link{control}} object
+#' @param control    A \code{"cyclopsControl"} object constructed by \code{\link{createControl}}
 #' @param overrideNoRegularization   Logical: Enable variance-covariance estimation for regularized parameters
 #' @param ... Additional argument(s) for methods
 #'

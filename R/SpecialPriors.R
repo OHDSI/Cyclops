@@ -24,6 +24,7 @@
 #' \code{createNonSeparablePrior} creates a Cyclops prior object for use with \code{\link{fitCyclopsModel}}.
 #'
 #' @param maxIterations Numeric: maxium iterations to achieve convergence
+#' @param ... Additional argument(s) for \code{\link{fitCyclopsModel}}
 #'
 #' @examples
 #' prior <- createNonSeparablePrior()
