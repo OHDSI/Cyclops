@@ -10,7 +10,7 @@
 \arguments{
 \item{object}{A fitted Cyclops model object}
 
-\item{control}{A Cyclops \code{\link{control}} object}
+\item{control}{A \code{"cyclopsControl"} object constructed by \code{\link{createControl}}}
 
 \item{overrideNoRegularization}{Logical: Enable variance-covariance estimation for regularized parameters}
 
