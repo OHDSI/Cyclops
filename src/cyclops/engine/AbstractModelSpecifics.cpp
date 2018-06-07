@@ -104,7 +104,8 @@ AbstractModelSpecifics::AbstractModelSpecifics(const ModelData& input)
 	  hOffs(input.getTimeVectorRef()),
 // 	  hPid(const_cast<int*>(input.getPidVectorRef().data()))
 // 	  hPid(input.getPidVectorRef())
-      hPidOriginal(input.getPidVectorRef()), hPid(const_cast<int*>(hPidOriginal.data()))
+      hPidOriginal(input.getPidVectorRef()), hPid(const_cast<int*>(hPidOriginal.data())),
+      hPidSize(hPidOriginal.size())
 	  {
 	// Do nothing
 }
@@ -129,6 +130,7 @@ void AbstractModelSpecifics::setPidForAccumulation(const real* weights) {
 
 	hPidInternal =  hPidOriginal; // Make copy
 	hPid = hPidInternal.data(); // Point to copy
+	hPidSize = hPidInternal.size();
 	accReset.clear();
 
 	const int ignore = -1;
@@ -187,16 +189,16 @@ void AbstractModelSpecifics::setPidForAccumulation(const real* weights) {
 void AbstractModelSpecifics::setupSparseIndices(const int max) {
 	sparseIndices.clear(); // empty if full!
 
-	for (size_t j = 0; j < J; ++j) {
-		if (modelData.getFormatType(j) == DENSE || modelData.getFormatType(j) == INTERCEPT) {
+	for (size_t column = 0; column < J; ++column) {
+		if (modelData.getFormatType(column) == DENSE || modelData.getFormatType(column) == INTERCEPT) {
 			sparseIndices.push_back(NULL);
 		} else {
 			std::set<int> unique;
-			const size_t n = modelData.getNumberOfEntries(j);
-			const int* indicators = modelData.getCompressedColumnVector(j);
+			const size_t n = modelData.getNumberOfEntries(column);
+			const int* indicators = modelData.getCompressedColumnVector(column);
 			for (size_t j = 0; j < n; j++) { // Loop through non-zero entries only
 				const int k = indicators[j];
-				const int i = hPid[k];  // TODO container-overflow #Generate some simulated data: #Fit the model
+			    const int i = (k < hPidSize) ? hPid[k] : k;
 				if (i < max) {
 					unique.insert(i);
 				}
