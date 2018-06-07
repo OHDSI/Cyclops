@@ -3011,32 +3011,9 @@ public:
     virtual void runCCDIndexSeparate() {
     	if (!initialized) {
     		initialized = true;
-    		if (BaseModel::exactCLR) {
+    		if (BaseModel::exactCLR || BaseModelG::useNWeights) {
     			detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
     			detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
-/*
-    			std::cout << "hNWeight: ";
-    			for (auto x:hNWeight) {
-    				std::cout << x << " ";
-    			}
-    			std::cout << "\n";
-
-    			std::cout << "hNtoK: ";
-    			for (auto x:hNtoK) {
-    				std::cout << x << " ";
-    			}
-    			std::cout << "\n";
-    			*/
-
-/*
-    			std::cout << "hXjYVector: ";
-    			for (int i=0; i<syncCVFolds; i++) {
-    				for (auto x:hXjYPool[i]) {
-    					std::cout << x << " ";
-    				}
-    				std::cout << "\n";
-    			}
-*/
 
     			if (useLogSum) {
     				std::vector<real> hLogX;
@@ -3174,6 +3151,18 @@ public:
         		dBuffer1.resize(Kstride*3*cvIndexStride, queue);
         	}
         	kernel.set_arg(21, dBuffer1);
+        }
+
+        if (BaseModelG::useNWeights) {
+        	a = tpb1;
+        	kernel.set_arg(15, dNtoK);
+        	kernel.set_arg(16, dNWeight);
+        	int Kstride = detail::getAlignedLength<16>(K);
+        	kernel.set_arg(17, Kstride);
+        	kernel.set_arg(18, index);
+        	int dN = N;
+        	kernel.set_arg(19, dN);
+        	kernel.set_arg(20, dKStrata);
         }
 
         int loops = syncCVFolds / cvBlockSize;
@@ -4951,15 +4940,15 @@ virtual void runCCDIndex() {
 
     		if (sizeof(real) == 8) {
 #ifdef USE_VECTOR
-    			options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << cvBlockSize;
+    			options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << cvBlockSize;
 #else
-    			options << "-DREAL=double -DTMP_REAL=double -DTPB=" << cvBlockSize;
+    			options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << cvBlockSize;
 #endif // USE_VECTOR
     		} else {
 #ifdef USE_VECTOR
-    			options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << cvBlockSize;
+    			options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << cvBlockSize;
 #else
-    			options << "-DREAL=float -DTMP_REAL=float -DTPB=" << cvBlockSize;
+    			options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << cvBlockSize;
 #endif // USE_VECTOR
     		}
     		options << " -cl-mad-enable";
@@ -4970,6 +4959,9 @@ virtual void runCCDIndex() {
     		// CCD Kernel
     		// Rcpp::stop("cGH");
     		auto source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia);
+    		if (BaseModelG::useNWeights) {
+    			source = writeCodeForStratifiedSyncCVGradientHessianKernel(formatType, isNvidia);
+    		}
     		std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
     		std::cout << "program built\n";

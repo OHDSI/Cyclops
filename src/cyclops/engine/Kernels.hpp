@@ -539,16 +539,21 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"	__global const uint* KStrata) {   		 	\n";    // TODO Make weight optional
 
 			code << "	if (get_global_id(0) == 0) allZero[0] = 1;	\n" <<
-					"	__local REAL numer[TPB0*TPB1];			\n" <<
-					"	__local REAL numer2[TPB0*TPB1];			\n" <<
-					"	__local REAL localWeights[TPB0];	\n" <<
+					"	__local REAL numeArray[TPB0*TPB1];			\n" <<
+					"	__local REAL nume2Array[TPB0*TPB1];			\n" <<
+					"	__local REAL outputGrad[TPB0];			\n" <<
+					"	__local REAL outputHess[TPB0];			\n" <<
 					"	uint lid0 = get_local_id(0);		\n" <<
 					"	uint lid1 = get_local_id(1);		\n" <<
 					"	uint mylid = lid1*TPB0+lid0;		\n" <<
 					"	uint cvIndex = get_group_id(0)*blockSize+lid0;	\n" <<
 					"	uint stratum = get_group_id(1);			\n" <<
 					"	uint loopSize = get_num_groups(1);		\n" <<
-					"	__local int stratumStart, stratumEnd, stratumSize;	\n";
+					"	if (lid1 == 0) {					\n" <<
+					"		outputGrad[lid0] = 0.0;				\n" <<
+					"		outputHess[lid0] = 0.0;				\n" <<
+					"	}									\n" <<
+					"	__local uint stratumStart, stratumEnd;	\n";
 
 			code << "	while (stratum < totalStrata) {		\n" <<
 					"		REAL sum0 = 0.0;				\n" <<
@@ -556,103 +561,82 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"		if (mylid == 0) {				\n" <<
 					"			stratumStart = NtoK[stratum];	\n" <<
 					"			stratumEnd = NtoK[stratum+1];	\n" <<
-					"			stratumSize = stratumEnd - stratumStart;	\n" <<
+					"		}								\n" <<
 					"		barrier(CLK_LOCAL_MEM_FENCE);	\n" <<
-					"		if (lid1 == 0) {					\n" <<
-					"			REAL temp = weightVector[vecOffset];	\n" <<
-					"			localWeights[lid0] = temp;		\n" <<
-					"		}									\n" <<
-					"		int offKStrata = index*totalStrata + stratum;	\n" <<
-					"		int task1 = lid1;					\n";
+					"		int offKStrata = index*totalStrata + stratum;	\n";
 
 			if (formatType == INDICATOR || formatType == SPARSE) {
 				code << "	if (mylid == 0) {				\n" <<
 						"		stratumStart = KStrata[offKStrata];	\n" <<
 						"		stratumEnd = KStrata[offKStrata+1];	\n" <<
-						"		stratumSize = stratumEnd - stratumStart;	\n";
-
-				code << "	uint currentKIndex, currentK, nextKIndex	\n" <<
-						"	task1 = KStrata[offKStrata] + lid1;\n" <<
-						"	nextKIndex = KStrata[offKStrata+1];	\n" <<
-						"	if (currentKIndex == -1) {			\n" <<
-						"		currentK = -1;					\n" <<
-						"	} else {							\n" <<
-						"		currentK = K[offK+currentKIndex];	\n" <<
 						"	}									\n" <<
-						"	barrier(CLK_LOCAL_MEM_FENCE);			\n";
-			} else {
-				code << "	task1 = stratumStart + lid1;		\n";
+						"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
 			}
+			code << "		int task1 = stratumStart + lid1;					\n";
 
-					if (formatType == INTERCEPT) {
-						code << "	REAL x;						\n";
-					} else {
-						code << "	__local REAL x;				\n";
-					}
-
-
+			code << "		while (task1 < stratumEnd) {	\n";
 			if (formatType == INDICATOR || formatType == SPARSE) {
-				code << "  	uint k = K[offK + task1];      	\n";
+				code << "  		uint k = K[offK + task1];      	\n";
 			} else { // DENSE, INTERCEPT
-				code << "   uint k = task1;           		\n";
+				code << "   	uint k = task1;           		\n";
 			}
-			code << "		while (k < stratumEnd) {		\n";
-
 			if (formatType == SPARSE || formatType == DENSE) {
-				code << "  	REAL x = X[offX + task1]; \n";
+				code << "  		REAL x = X[offX + task1]; \n";
 			} else { // INDICATOR, INTERCEPT
 				// Do nothing
 			}
-		code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
-				"		REAL xb = xBetaVector[vecOffset];			\n" <<
-        		"		REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n" <<
-				//"		REAL exb = expXBetaVector[vecOffset];	\n" <<
-				"		REAL numer = " << timesX("exb", formatType) << ";\n";
-		if (BaseModelG::logisticDenominator) {
-			code << " 	REAL denom = (REAL)1.0 + exb;				\n";
-		} else {
-			code << "	REAL denom = denomPidVector[" << BaseModelG::getGroupG("pIdVector", "k") << "*cvIndexStride+cvIndex];\n";
-		}
-		//"		REAL denom = denomPidVector[vecOffset];		\n" <<
-		code << "		REAL w = weightVector[vecOffset];\n";
-		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
-		code << "       sum0 += gradient; \n" <<
-				"       sum1 += hessian;  \n";
-		code << "       task1 += 1; \n" <<
-				"   } \n";
 
-		code << "	if (gid1 < remainder)	{				\n";
-		if (formatType == INDICATOR || formatType == SPARSE) {
-			code << "  	uint k = K[offK + task1];      	\n";
-		} else { // DENSE, INTERCEPT
-			code << "   uint k = task1;           		\n";
-		}
-		if (formatType == SPARSE || formatType == DENSE) {
-			code << "  	REAL x = X[offX + task1]; \n";
-		} else { // INDICATOR, INTERCEPT
-			// Do nothing
-		}
-		code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
-				"		REAL xb = xBetaVector[vecOffset];			\n" <<
-				"		REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n" <<
-				//"		REAL exb = expXBetaVector[vecOffset];	\n" <<
-				"		REAL numer = " << timesX("exb", formatType) << ";\n";
-		if (BaseModelG::logisticDenominator) {
-			code << " 	REAL denom = (REAL)1.0 + exb;				\n";
-		} else {
-			code << "	REAL denom = denomPidVector[" << BaseModelG::getGroupG("pIdVector", "k") << "*cvIndexStride+cvIndex];\n";
-		}
-		//"		REAL denom = denomPidVector[vecOffset];		\n" <<
-		code << "		REAL w = weightVector[vecOffset];\n";
-		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
-		code << "       sum0 += gradient; \n" <<
-				"       sum1 += hessian;  \n" <<
-				"	}						\n";
+	        code << "			uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
+	        		"			REAL xb = xBetaVector[vecOffset];			\n" <<
+	        		// needs offs later for SCCS
+	        		"			REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n" <<
+	                "       	REAL numer = " << timesX("exb", formatType) << ";\n" <<
+	                "			sum0 += numer;\n";
+	        if (formatType == INDICATOR || formatType == INTERCEPT) {
+	        	code << "		REAL nume2 = numer;						\n";
+	        } else {
+	            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n";
+	        }
 
-		code << "	buffer[cvIndexStride*gid1 + cvIndex] = sum0;	\n" <<
-				"	buffer[cvIndexStride*(gid1+loopSize) + cvIndex] = sum1;	\n" <<
+	    	code << "			sum1 += nume2;				\n" <<
+	    			"			task1 += TPB1;				\n " <<
+					"		}								\n" <<
+					"		numeArray[mylid] = sum0;		\n" <<
+					"		nume2Array[mylid] = sum1;		\n" <<
+
+					"   	for(int j = 1; j < TPB1; j <<= 1) {          \n" <<
+					"      		barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
+					"       	uint mask = (j << 1) - 1;               \n" <<
+					"       	if ((lid1 & mask) == 0) {                \n" <<
+					"           	numeArray[mylid] += numeArray[mylid+j*TPB0]; \n" <<
+					"           	nume2Array[mylid] += nume2Array[mylid+j*TPB0]; \n" <<
+					"       	}                                       \n" <<
+					"   	}                                         \n";
+
+	        code << "   	if (lid1 == 0) { 							\n" <<
+	        		"			REAL stratumWeight = weightVector[NtoK[stratum]*cvIndexStride+cvIndex];	\n" <<
+	        		"			REAL myNumer = numeArray[mylid];		\n" <<
+					"			REAL myNumer2 = nume2Array[mylid];		\n" <<
+					"			REAL myDenom = denomPidVector[stratum*cvIndexStride+cvIndex];	\n" <<
+					"			REAL gradient = myNumer/myDenom;		\n" <<
+	#ifdef USE_VECTOR
+	                "       	buffer[get_group_id(0)] = scratch[0]; \n" <<
+	#else
+	                "       	outputGrad[lid0] += stratumWeight*gradient; \n" <<
+	                "       	outputHess[lid0] += stratumWeight*(myNumer2/myDenom - gradient*gradient); \n" <<
+	#endif // USE_VECTOR
+	                "   	} \n";
+
+	        code << "		stratum += loopSize;		\n" <<
+	        		"		barrier(CLK_LOCAL_MEM_FENCE);	\n" <<
+	        		"	}								\n";
+
+
+		code << "	if (lid1 == 0) {					\n" <<
+				"		buffer[cvIndexStride*get_group_id(1) + cvIndex] = outputGrad[lid0];	\n" <<
+				"		buffer[cvIndexStride*(get_group_id(1)+loopSize) + cvIndex] = outputHess[lid0];	\n" <<
 				"	}									\n";
-		//code << "}  \n"; // End of kernel
+		code << "}  \n"; // End of kernel
 		return SourceCode(code.str(), name);
 	}
 
