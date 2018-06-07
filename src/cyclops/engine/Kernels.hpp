@@ -1443,7 +1443,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 							"			B2[current][lid] = log_sum(log_sum(log_sum(B2[1-current][lid], U+B2[1-current][lid-1]), x + U + B0[1-current][lid-1]), logTwo + x + U + B1[1-current][lid-1]);	\n";
 				} else {
 					code << "			B0[current][lid] = B0[1-current][lid] + U*B0[1-current][lid-1];	\n" <<
-							"			B1[current][lid] = B1[1-current][lid] + U*B1[1-current][lid-1] + x*U*B0[1-current][lid-1];	\n";
+							"			B1[current][lid] = B1[1-current][lid] + U*B1[1-current][lid-1] + x*U*B0[1-current][lid-1];	\n" <<
+							"			B2[current][lid] = B2[1-current][lid] + U*B2[1-current][lid-1] + x*U*B0[1-current][lid-1] + 2*x*U*B1[1-current][lid-1];	\n";
 				}
 				code << "		}									\n" <<
 						"		current = 1 - current;				\n" <<
