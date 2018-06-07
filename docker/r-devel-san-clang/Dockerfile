@@ -52,6 +52,7 @@ RUN RDscript -e 'install.packages("testthat")'
 RUN RDscript -e 'install.packages("ggplot2")'
 RUN RDscript -e 'install.packages("ff")'
 RUN RDscript -e 'install.packages("ffbase")'
+RUN RDscript -e 'install.packages("roxygen2")'
 
 RUN mkdir -p ~/.R \
   && echo 'PKG_CXXFLAGS= -I../inst/include -stdlib=libc++ -fno-omit-frame-pointer -g -Wno-ignored-attributes -Wno-deprecated-declarations -Wno-sign-compare' > ~/.R/Makevars \
@@ -60,14 +61,12 @@ RUN mkdir -p ~/.R \
 
 RUN RDscript -e 'install.packages("Cyclops", dependencies = TRUE)'
 
-RUN git clone https://github.com/OHDSI/Cyclops \
-  && RD CMD build Cyclops --no-build-vignettes
+#RUN git clone https://github.com/OHDSI/Cyclops \
+#  && RD CMD build Cyclops --no-build-vignettes
 
 ENV UBSAN_OPTIONS print_stacktrace=1
 ENV ASAN_OPTIONS alloc_dealloc_mismatch=0:detect_leaks=0:detect_odr_violation=0:malloc_context_size=10:fast_unwind_on_malloc=false
 
-# $ docker run --cap-add SYS_PTRACE
-
-# To execute check: docker run --cap-add SYS_PTRACE --rm -it cyclops-san-clang /usr/bin/bash
+# To execute check: docker run --cap-add SYS_PTRACE -v /Users/msuchard/Dropbox/Projects/Cyclops:/home/user/Cyclops --rm -it cyclops-san-clang /usr/bin/bash
 # $ RD CMD check Cyclops*.tar.gz
 
