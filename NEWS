@@ -1,10 +1,11 @@
 Cyclops v1.3.4 (Not yet released)
 
 Changes: 1. fix undeclared dependencies in unit-tests: `MASS` and `microbenchmarks`
-		 2. fix issues with new `bit` submission to CRAN (TODO) -- really ATLAS
+		 2. fix issues with ATLAS compilation
 		 3. add contexts to testthat files
+		 4. fix ASAN errors in AbstractModelSpecifics
 
-Cyclops v1.3.3 (Not yet released)
+Cyclops v1.3.3 (Not released)
 ==============
 
 Changes: 1. fix testthat expected error message

@@ -31,7 +31,7 @@
 #'
 #' @docType package
 #' @name cyclops
-#' @import Rcpp Matrix
+#' @import Rcpp Matrix MASS
 #' @importFrom RcppParallel setThreadOptions
 #'
 #' @importFrom methods as
