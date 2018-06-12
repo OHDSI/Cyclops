@@ -275,4 +275,6 @@ test_that("Multi-core weights", {
                                   control = createControl(threads = 2,
                                                           noiseLevel = "silent"))
     ci2 <- confint(cyclopsFit, "x1")
+
+    expect_equal(ci1, ci2)
 })

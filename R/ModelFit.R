@@ -657,6 +657,10 @@ getCrossValidationInfo <- function(object) {
             control$seed <- as.integer(Sys.time())
         }
 
+        if (is.na(control$algorithm)) { # Provide backwards compatibility
+            control$algorithm <- "ccd"
+        }
+
         .cyclopsSetControl(cyclopsInterfacePtr, control$maxIterations, control$tolerance,
                            control$convergenceType, control$autoSearch, control$fold,
                            (control$fold * control$cvRepetitions),
