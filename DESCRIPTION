@@ -1,17 +1,27 @@
 Package: Cyclops
 Type: Package
 Title: Cyclic Coordinate Descent for Logistic, Poisson and Survival Analysis
-Version: 1.3.3-999
-Author: Marc A. Suchard [aut, cre],
-    Martijn J. Schuemie [aut],
-    Trevor R. Shaddox [aut]
-Maintainer: Marc A. Suchard <msuchard@ucla.edu>
+Version: 1.3.3
+Authors@R: c(
+    person("Marc A.", "Suchard", email = "msuchard@ucla.edu", role = c("aut","cre")),
+    person("Martijn J.", "Schuemie", role = "aut"),
+    person("Trevor R.", "Shaddox", role = "aut"),
+    person("Yuxi", "Tian", role = "aut"),
+    person("Sushil", "Mittal", role ="ctb"),
+    person("Observational Health Data Sciences and Informatics", role = "cph"),
+    person("Marcus", "Geelnard", role = c("cph", "ctb"),
+      comment = "provided the TinyThread library"),
+    person("Rutgers University", role = c("cph", "ctb"),
+      comment = "provided the HParSearch routine"),
+    person("R Development Core Team", role = c("cph", "ctb"),
+      comment = "provided the ZeroIn routine")
+    )
 Description: This model fitting tool incorporates cyclic coordinate descent and
     majorization-minimization approaches to fit a variety of regression models
     found in large-scale observational healthcare data.  Implementations focus
     on computational optimization and fine-scale parallelization to yield
-    efficient inference in massive datasets.
-    Suchard, Simpson, Zorych, Ryan and Madigan (2013) <doi:10.1145/2414416.2414791>
+    efficient inference in massive datasets.  Please see: Suchard, Simpson, Zorych, 
+    Ryan and Madigan (2013) <doi:10.1145/2414416.2414791>
 License: Apache License 2.0
 LazyData: Yes
 URL: https://github.com/ohdsi/cyclops
