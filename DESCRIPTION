@@ -1,7 +1,7 @@
 Package: Cyclops
 Type: Package
 Title: Cyclic Coordinate Descent for Logistic, Poisson and Survival Analysis
-Version: 1.3.3
+Version: 1.3.4
 Authors@R: c(
     person("Marc A.", "Suchard", email = "msuchard@ucla.edu", role = c("aut","cre")),
     person("Martijn J.", "Schuemie", role = "aut"),
@@ -20,7 +20,7 @@ Description: This model fitting tool incorporates cyclic coordinate descent and
     majorization-minimization approaches to fit a variety of regression models
     found in large-scale observational healthcare data.  Implementations focus
     on computational optimization and fine-scale parallelization to yield
-    efficient inference in massive datasets.  Please see: 
+    efficient inference in massive datasets.  Please see:
     Suchard, Simpson, Zorych, Ryan and Madigan (2013) <doi:10.1145/2414416.2414791>.
 License: Apache License 2.0
 LazyData: Yes

@@ -11,5 +11,5 @@ There are currently no downstream dependencies.
 
 ## Fixes as specified in 11/6/2018 email from Swetlana Herbrandt
 * Added DOI of methods reference to `Description` field
-* Removed test (test-KKTSwindle.R) that wrote/read from home filespace
+* Removed test (test-KKTSwindle.R) that accidentally wrote/read from home filespace
 * Added all minor contributors and copyright holders to Authors@R in DESCRIPTION file
