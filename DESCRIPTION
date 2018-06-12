@@ -1,7 +1,7 @@
 Package: Cyclops
 Type: Package
 Title: Cyclic Coordinate Descent for Logistic, Poisson and Survival Analysis
-Version: 1.3.4
+Version: 1.3.3-999
 Author: Marc A. Suchard [aut, cre],
     Martijn J. Schuemie [aut],
     Trevor R. Shaddox [aut]
@@ -11,6 +11,7 @@ Description: This model fitting tool incorporates cyclic coordinate descent and
     found in large-scale observational healthcare data.  Implementations focus
     on computational optimization and fine-scale parallelization to yield
     efficient inference in massive datasets.
+    Suchard, Simpson, Zorych, Ryan and Madigan (2013) <doi:10.1145/2414416.2414791>
 License: Apache License 2.0
 LazyData: Yes
 URL: https://github.com/ohdsi/cyclops

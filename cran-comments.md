@@ -8,3 +8,7 @@ There were no ERRORs, WARNINGs or NOTEs.
 
 ## Downstream dependencies
 There are currently no downstream dependencies.
+
+## Fixes as specified in 11/6/2018 email from Swetlana Herbrandt
+* Added DOI of methods reference to `Description` field
+*
