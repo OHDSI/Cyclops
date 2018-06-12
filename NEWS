@@ -1,4 +1,4 @@
-Cyclops v1.3.4 (Not yet released)
+Cyclops v1.3.4 (Release date: 2018-06-11)
 
 Changes: 1. fix undeclared dependencies in unit-tests: `MASS` and `microbenchmarks`
 		 2. fix issues with ATLAS compilation
