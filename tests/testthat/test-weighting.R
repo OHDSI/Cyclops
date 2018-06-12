@@ -255,3 +255,24 @@ test_that("Small Bernoulli dense regression with zero-weights", {
     expect_equal(predict(fit)[which(weights == 1)], predict(fit_sub), check.attributes = FALSE)
 })
 
+test_that("Multi-core weights", {
+    test <- read.table(header=T, sep = ",", text = "
+                   start, length, status, x1, x2
+                       0, 5,  0,0,1
+                       0, 4,  1,1,2
+                       0, 3,  0,0,1
+                       0, 2,  0,1,0
+                       0, 2,  1,0,0
+                       0, 1,  0,1,0
+                       0, 1,  1,2,1 ")
+    weights <- c(1,2,1,2,3,2,1)
+
+    cyclopsData <- createCyclopsData(Surv(length, status) ~ x1 + x2, data = test, modelType = "cox")
+    cyclopsFit <- fitCyclopsModel(cyclopsData, weights = weights,
+                                  control = createControl(noiseLevel = "silent"))
+    ci1 <- confint(cyclopsFit, "x1")
+    cyclopsFit <- fitCyclopsModel(cyclopsData, weights = weights,
+                                  control = createControl(threads = 2,
+                                                          noiseLevel = "silent"))
+    ci2 <- confint(cyclopsFit, "x1")
+})

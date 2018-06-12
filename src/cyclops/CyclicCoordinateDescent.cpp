@@ -91,6 +91,16 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 
 	init(hXI.getHasOffsetCovariate());
 
+	if (copy.hWeights.size() > 0) {
+
+	    std::vector<double> buffer;
+	    buffer.resize(copy.hWeights.size());
+	    std::copy(std::begin(copy.hWeights), std::end(copy.hWeights), std::begin(buffer));
+
+	    setWeights(buffer.data());
+	    checkAllLazyFlags();
+	}
+
 	// Copy over exisiting beta;
 	bool allBetaZero = true;
 	for (int j = 0; j < J; ++j) {
