@@ -230,7 +230,11 @@ convertToCyclopsData.ffdf <- function(outcomes,
             covariates$minTime <- NULL
             covariates$time <- NULL
             covariates$y <- NULL
-            covariates <- ffbase::merge.ffdf(covariates, outcomes, by = c("stratumId", "rowId"))
+            # covariates <- ffbase::merge.ffdf(covariates, outcomes, by = c("stratumId", "rowId"))
+            idx <- ffbase::ffmatch(covariates$rowId, outcomes$rowId)
+            covariates$minTime <- outcomes$minTime[idx]
+            covariates$time <- outcomes$time[idx]
+            covariates$y <- outcomes$y[idx]
             if (!isSorted(covariates, c("covariateId", "stratumId", "time", "y", "rowId"), c(TRUE, TRUE, FALSE, TRUE, TRUE))){
                 if(!quiet) {
                     writeLines("Sorting covariates by covariateId, stratumId, time (descending), y, and rowId")
