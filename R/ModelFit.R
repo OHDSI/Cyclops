@@ -251,6 +251,9 @@ fitCyclopsModel <- function(cyclopsData,
     fit$call <- cl
     fit$cyclopsData <- cyclopsData
     fit$coefficientNames <- cyclopsData$coefficientNames
+    if (!is.null(fixedCoefficients)) {
+        fit$fixedCoefficients <- fixedCoefficients
+    }
     fit$rowNames <- cyclopsData$rowNames
     fit$scale <- cyclopsData$scale
     fit$threads <- threads
@@ -714,6 +717,12 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     }
     threshold <- qchisq(level, df = 1) / 2
     threads <- object$threads
+
+    if (!is.null(object$fixedCoefficients)) {
+        if (any(object$fixedCoefficients[parm])) {
+            stop("Cannot estimate confidence interval for a fixed coefficient")
+        }
+    }
 
     prof <- .cyclopsProfileModel(object$cyclopsData$cyclopsInterfacePtr, parm,
                                  threads, threshold,
