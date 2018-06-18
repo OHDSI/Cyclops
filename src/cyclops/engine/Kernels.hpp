@@ -128,6 +128,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 }; // anonymous namespace
 
+
+	// nonstratified CCD
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia) {
@@ -253,6 +255,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
     }
 
+	// stratified CCD
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia) {
@@ -384,6 +387,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
     }
 
+	// CV nonstratified CCD
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia) {
@@ -502,6 +506,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		return SourceCode(code.str(), name);
 	}
 
+	// CV stratified CCD
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia) {
@@ -729,6 +734,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		}
 		*/
 
+	// deprecated, for different indices at once
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
 	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncCV1GradientHessianKernel(FormatType formatType, bool isNvidia) {
@@ -823,6 +829,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		return SourceCode(code.str(), name);
 	}
 
+	// MM
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
 	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForMMGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia) {
@@ -954,6 +961,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
 	}
 
+	// CV MM
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	    SourceCode
 		GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncCVMMGradientHessianKernel(FormatType formatType, bool isNvidia) {
@@ -1147,7 +1155,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		}
 		*/
 
-
+	// not working? greedy CCD
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
 	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForAllGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia) {
@@ -1257,6 +1265,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	    return SourceCode(code.str(), name);
 	}
 
+	// CLR
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
 	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool logSum) {
@@ -1878,6 +1887,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	}
 
 
+	// CV CLR
 	template <class BaseModel, typename WeightType, class BaseModelG>
 		SourceCode
 		GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncCVGradientHessianKernelExactCLR(FormatType formatType, bool logSum) {
@@ -2162,7 +2172,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 			if (formatType == SPARSE) {
 				code << "		if (mylid == 0) {						\n" <<
-						"			if (currentK == -1 || currentKIndex >= N || stratumStart + col != currentK) {			\n";
+						"			if (stratumStart + col != currentK) {			\n";
 				if (logSum) {
 					code << "			x = -INFINITY;								\n";
 				} else {
@@ -2716,6 +2726,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	*/
 
 
+	// update nonstratified
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForUpdateXBetaKernel(FormatType formatType) {
@@ -2773,6 +2784,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
     }
 
+	// update stratified
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedUpdateXBetaKernel(FormatType formatType) {
@@ -2840,6 +2852,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
     }
 
+	// for MM update all indices
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
 	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForUpdateAllXBetaKernel(FormatType formatType, bool isNvidia) {
@@ -2920,7 +2933,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
 	}
 
-
+	// CV update XB
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncUpdateXBetaKernel(FormatType formatType) {
@@ -3053,6 +3066,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
     }
     */
 
+	// deprecated CV for multiple indices
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSync1UpdateXBetaKernel(FormatType formatType) {
@@ -3209,6 +3223,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	    */
 
 
+	// MM update XB, this or update all?
 	template <class BaseModel, typename WeightType, class BaseModelG>
 		    SourceCode
 			GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForMMUpdateXBetaKernel(bool isNvidia) {
@@ -3280,6 +3295,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		    }
 
 
+	// nonstratified CRS
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForComputeRemainingStatisticsKernel() {
@@ -3321,6 +3337,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
     }
 
+	// stratified CRS
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedComputeRemainingStatisticsKernel() {
@@ -3373,6 +3390,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
     }
 
+	// CV CRS
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncComputeRemainingStatisticsKernel() {
@@ -3460,6 +3478,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
     }
 */
 
+	// gradient objective
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
 	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGetGradientObjective(bool useWeights, bool isNvidia) {
@@ -3507,7 +3526,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         return SourceCode(code.str(), name);
 	}
 
-
+	// CV gradient objective
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	    SourceCode
 		GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGetGradientObjectiveSync(bool isNvidia) {
@@ -3599,7 +3618,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		}
 		*/
 
-
+	// not being used. working?
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
 	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGetLogLikelihood(bool useWeights, bool isNvidia) {
@@ -3668,6 +3687,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	    return SourceCode(code.str(), name);
 	}
 
+	// accumulate over workgroups for compute grad hessian
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
 	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForReduceCVBuffer() {
@@ -3706,7 +3726,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	    return SourceCode(code.str(), name);
 	}
 
-
+	// step between compute grad hess and update XB
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
 	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForProcessDeltaKernel(int priorType) {
@@ -3899,7 +3919,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	    }
 */
 
-
+	// CV update grad/hess + process delta + update XB
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForDoItAllKernel(FormatType formatType, int priorType) {
@@ -4159,6 +4179,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		return SourceCode(code.str(), name);
 	}
 
+	// CV update grad/hess + process delta + update xb
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	    SourceCode
 	    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForDoItAllSingleKernel(FormatType formatType, int priorType) {
@@ -4538,6 +4559,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	}
 	*/
 
+	// inefficient putting all stratum together
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	    SourceCode
 	    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForExactCLRDoItAllKernel(FormatType formatType, int priorType) {
@@ -4906,6 +4928,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 			return SourceCode(code.str(), name);
 		}
 
+	// inefficient putting all stratum together
 	template <class BaseModel, typename WeightType, class BaseModelG>
 		    SourceCode
 		    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForExactCLRDoItAllSingleKernel(FormatType formatType, int priorType) {
@@ -5249,7 +5272,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				return SourceCode(code.str(), name);
 			}
 
-
+	// working? attempt at do it all for MM
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForMMFindDeltaKernel(FormatType formatType, int priorType) {
@@ -5405,6 +5428,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		return SourceCode(code.str(), name);
 	}
 
+	// empty kernel to test timings
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
 	    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForEmptyKernel() {
