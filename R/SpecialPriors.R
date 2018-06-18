@@ -80,6 +80,8 @@ nonSeparableHook <- function(
 
         if (fit$return_flag == "ILLCONDITIONED") {
             new_separable <- is.nan(coef(fit, ignoreConvergence = TRUE)) | separable
+        } else {
+            new_separable <- separable
         }
 
         if (all(new_separable == separable) || count >= maxIterations) {
