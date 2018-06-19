@@ -3105,8 +3105,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 			code << "   REAL inc = delta;           \n";
 		}
 		code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
-				"		REAL xb = xBetaVector[vecOffset] + inc;	\n" <<
-				"		xBetaVector[vecOffset] = xb;	\n" <<
+				"		REAL xb = xBetaVector[vecOffset];	\n" <<
+				"		xBetaVector[vecOffset] = xb + inc;	\n" <<
 				"		sum += exp(xb + inc) - exp(xb);	\n" <<
 				"		task += TPB1;					\n" <<
 				"	}									\n" <<

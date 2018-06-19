@@ -3071,13 +3071,6 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
                 denomPidPool[cvIndex], hNWeightPool[cvIndex],
                 typename IteratorType::tag());
 
-
-        std::cout << "denom" << cvIndex << ": ";
-        for (int i=0; i<N; i++) {
-        	std::cout << denomPidPool[cvIndex][i] << " ";
-        }
-        std::cout << "\n";
-
 		const auto result = variants::trial::nested_reduce(
 		        rangeKey.begin(), rangeKey.end(),
 		        rangeXNumerator.begin(), rangeGradient.begin(),

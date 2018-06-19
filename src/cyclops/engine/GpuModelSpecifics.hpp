@@ -1089,6 +1089,15 @@ public:
         				detail::resizeAndCopyToDevice(Kstrata, dKStrata, queue);
         			}
         		}
+/*
+        		std::vector<real> myWeights;
+        		myWeights.resize(dNWeight.size());
+        		compute::copy(std::begin(dNWeight), std::end(dNWeight), std::begin(myWeights), queue);
+        		for (auto x:myWeights) {
+        			std::cout << x << " ";
+        		}
+        		std::cout << "\n";
+        		*/
 
         		computeRemainingStatistics();
 
@@ -1241,8 +1250,6 @@ public:
         if (BaseModel::precomputeHessian) { // Compile-time switch
         	hessian += static_cast<real>(2.0) * hXjX[index];
         }
-
-        std::cout << "gpu grad: " << gradient << " gpu hess: " << hessian << " \n";
 
         *ogradient = gradient;
         *ohessian = hessian;
@@ -3170,18 +3177,15 @@ public:
     			}
     		}
 
-    		if (BaseModelG::useNWeights) {
-    			detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
-    			detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
-    		}
-
+/*
     		std::vector<real> myWeights;
-    		myWeights.resize(dKWeightVector.size());
-    		compute::copy(std::begin(dKWeightVector), std::end(dKWeightVector), std::begin(myWeights), queue);
+    		myWeights.resize(dNWeight.size());
+    		compute::copy(std::begin(dNWeight), std::end(dNWeight), std::begin(myWeights), queue);
     		for (auto x:myWeights) {
     			std::cout << x << " ";
     		}
     		std::cout << "\n";
+    		*/
 
     		computeRemainingStatistics();
     	}
@@ -3205,7 +3209,7 @@ public:
         							 kernelGradientHessianSync[formatType];
 
         const auto taskCount = dColumns.getTaskCount(index);
-
+/*
         std::vector<real> myDenom;
         myDenom.resize(dDenomPidVector.size());
         compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(myDenom), queue);
@@ -3216,6 +3220,7 @@ public:
         	}
         	std::cout << "\n";
         }
+        */
 
         //std::cout << "kernel 0 called\n";
         kernel.set_arg(0, dColumns.getDataOffset(index));
@@ -3348,6 +3353,7 @@ public:
         queue.enqueue_1d_range_kernel(kernel1, 0, syncCVFolds*tpb, tpb);
         queue.finish();
 
+        /*
         std::vector<real> hDeltaVector;
         hDeltaVector.resize(dDeltaVector.size());
         compute::copy(std::begin(dDeltaVector), std::end(dDeltaVector), std::begin(hDeltaVector), queue);
@@ -3356,16 +3362,7 @@ public:
         	std::cout << x << " ";
         }
         std::cout << "\n";
-/*
-        //std::vector<real> blah;
-        blah.resize(dDeltaVector.size());
-        compute::copy(std::begin(dDeltaVector), std::end(dDeltaVector), std::begin(blah), queue);
-        std::cout << "deltaVector " << index << ": ";
-        for (int i=0; i<syncCVFolds; i++) {
-        	std::cout << blah[index*cvIndexStride+i] << " ";
-        }
-        std::cout << "\n";
-*/
+        */
 
 #ifdef CYCLOPS_DEBUG_TIMING
         end = bsccs::chrono::steady_clock::now();
@@ -4332,6 +4329,7 @@ virtual void runCCDIndex() {
 
     void turnOffSyncCV() {
     	syncCV = false;
+    	initialized = false;
     }
 
     bool isGPU() {return true;};
