@@ -284,7 +284,9 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "       __global const REAL* KWeight,		\n" <<
 				"		__global const REAL* NWeight,		\n" <<
 				"		const uint totalStrata,				\n" <<
-				"		__global const int* NtoK) {    \n";    // TODO Make weight optional
+				"		__global const int* NtoK,			\n" <<
+				"		const uint index,					\n" <<
+				"		__global const uint* KStrata) {    \n";    // TODO Make weight optional
 
         // Initialization
         code << "   const uint lid = get_local_id(0); \n" <<
@@ -304,17 +306,31 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 //"   REAL sum0 = 0.0; \n" <<
                 //"   REAL sum1 = 0.0; \n";
 
+        code << "	__local uint stratumStart, stratumEnd;	\n";
+
 
         code << "	while(stratum < totalStrata) {	\n" <<
         		"		REAL sum0 = 0.0;			\n" <<
 				"		REAL sum1 = 0.0;			\n" <<
         		"		scratch[0][lid] = 0;		\n" <<
 				"		scratch[1][lid] = 0;		\n" <<
+				"		if (lid == 0) {				\n" <<
+				"			stratumStart = NtoK[stratum];	\n" <<
+				"			stratumEnd = NtoK[stratum+1];	\n" <<
+				"		}									\n" <<
         		"		uint stratumWeight = NWeight[stratum];	\n" <<
-				"		uint task = NtoK[stratum] + lid;					\n" <<
-				"		uint stratumEnd = NtoK[stratum+1];	\n";
+				"		barrier(CLK_LOCAL_MEM_FENCE);	\n" <<
+				"		int offKStrata = index*(totalStrata+1) + stratum;	\n";
 
-        code << "  		while (task < stratumEnd) { \n";
+        if (formatType == INDICATOR || formatType == SPARSE) {
+        	code << "	if (lid == 0) {				\n" <<
+        			"		stratumStart = KStrata[offKStrata];	\n" <<
+					"		stratumEnd = KStrata[offKStrata+1];	\n" <<
+					"	}									\n" <<
+					"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
+			}
+        code << "		int task = stratumStart + lid;					\n";
+        code << "  		while (task < stratumEnd) { 	\n";
 
         // Fused transformation-reduction
 
@@ -568,7 +584,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"			stratumEnd = NtoK[stratum+1];	\n" <<
 					"		}								\n" <<
 					"		barrier(CLK_LOCAL_MEM_FENCE);	\n" <<
-					"		int offKStrata = index*totalStrata + stratum;	\n";
+					"		int offKStrata = index*(totalStrata+1) + stratum;	\n";
 
 			if (formatType == INDICATOR || formatType == SPARSE) {
 				code << "	if (mylid == 0) {				\n" <<
@@ -619,7 +635,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"   	}                                         \n";
 
 	        code << "   	if (lid1 == 0) { 							\n" <<
-	        		"			REAL stratumWeight = weightVector[NtoK[stratum]*cvIndexStride+cvIndex];	\n" <<
+	        		"			REAL stratumWeight = weightVector[NtoK[stratum]*cvIndexStride+cvIndex] * NWeights[stratum];	\n" <<
 	        		"			REAL myNumer = numeArray[mylid];		\n" <<
 					"			REAL myNumer2 = nume2Array[mylid];		\n" <<
 					"			REAL myDenom = denomPidVector[stratum*cvIndexStride+cvIndex];	\n" <<
@@ -2807,7 +2823,10 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "       __global REAL* denominator,\n" <<
                 "       __global const int* id,		\n" <<
 				"		__global const int* NtoK,	\n" <<
-				"		__global const REAL* NWeights) {   \n";
+				"		__global const REAL* NWeights,	\n" <<
+				"		const uint index,			\n" <<
+				"		const uint totalStrata,		\n" <<
+				"		__global const uint* KStrata) {   \n";
 
         code << "	uint lid = get_local_id(0);		\n" <<
         		"	uint stratum = get_group_id(0);	\n" <<
@@ -2820,9 +2839,18 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		end = NtoK[stratum+1];		\n" <<
 				"		stratumWeight = NWeights[stratum];	\n" <<
 				"	} 								\n" <<
-				"	barrier(CLK_LOCAL_MEM_FENCE);	\n" <<
-				"	uint task = start + lid;		\n" <<
-				"	while (task < end) {			\n";
+				"		barrier(CLK_LOCAL_MEM_FENCE);	\n" <<
+				"		int offKStrata = index*(totalStrata+1) + stratum;	\n";
+
+        if (formatType == INDICATOR || formatType == SPARSE) {
+        	code << "	if (lid == 0) {				\n" <<
+        			"		start = KStrata[offKStrata];	\n" <<
+					"		end = KStrata[offKStrata+1];	\n" <<
+					"	}									\n" <<
+					"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
+			}
+        code << "		int task = start + lid;					\n";
+        code << "  		while (task < end) { 	\n";
         if (formatType == INDICATOR || formatType == SPARSE) {
             code << "   const uint k = K[offK + task];         \n";
         } else { // DENSE, INTERCEPT
@@ -2999,6 +3027,109 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
         return SourceCode(code.str(), name);
     }
+
+	// CV update XB
+	template <class BaseModel, typename WeightType, class BaseModelG>
+	SourceCode
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedSyncUpdateXBetaKernel(FormatType formatType) {
+
+		std::string name = "updateXBetaSyncStratified" + getFormatTypeExtension(formatType);
+
+		std::stringstream code;
+		code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+		code << "__kernel void " << name << "(     \n" <<
+				"   const uint offX,           \n" <<
+				"   const uint offK,           \n" <<
+				"   __global const REAL* deltaVector,          \n" <<
+				"   __global const REAL* X,    \n" <<
+				"   __global const int* K,     \n" <<
+				"   __global const REAL* Y,    \n" <<
+				"   __global REAL* xBetaVector,      \n" <<
+				"   __global REAL* expXBetaVector,   \n" <<
+				"   __global REAL* denomPidVector,\n" <<
+				"   __global const int* id,		\n" <<
+				"	const uint cvIndexStride,			\n" <<
+				"	__global const REAL* Offs,	\n" <<
+				"	const uint size0,			\n" <<
+				"	const uint syncCVFolds,		\n" <<
+				"	const uint index,			\n" <<
+				"	__global const int* allZero,   \n" <<
+				"	__global const uint* NtoK,				\n" <<
+				"	__global const REAL* NWeights,			\n" <<
+				"	__global const REAL* KWeights,			\n" <<
+				"	const uint persons,						\n" <<
+				"	const uint totalStrata,					\n" <<
+				"	__global const uint* KStrata) {   		 	\n";
+
+
+		code << "	uint lid0 = get_local_id(0);		\n" <<
+				"	uint lid1 = get_local_id(1);		\n" <<
+				"	if (allZero[0] == 0) {				\n" <<
+				"	uint stratum = get_group_id(1);			\n" <<
+				"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
+				"	REAL delta = deltaVector[index*cvIndexStride+cvIndex];	\n";// <<
+		code << "	REAL sum = 0.0;						\n" <<
+				"	__local REAL scratch[TPB0*TPB1];	\n" <<
+				"	__local uint start, end;			\n" <<
+				"	__local REAL stratumWeight;			\n" <<
+				"	uint mylid = lid1*TPB0 + lid0;		\n" <<
+				"	if (mylid == 0) {					\n" <<
+				"		start = NtoK[stratum];			\n" <<
+				"		end = NtoK[stratum+1];			\n" <<
+				//"		stratumWeight = NWeights[stratum];	\n" <<
+				"	}									\n" <<
+				"	barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
+				//"	uint task = start + lid1;			\n" <<
+				"	int offKStrata = index*(totalStrata+1) + stratum;	\n";
+
+		if (formatType == INDICATOR || formatType == SPARSE) {
+			code << "	if (mylid == 0) {				\n" <<
+					"		start = KStrata[offKStrata];	\n" <<
+					"		end = KStrata[offKStrata+1];	\n" <<
+					"	}									\n" <<
+					"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
+		}
+		code << "	int task = start + lid1;					\n";
+
+		code << "	while (task < end) {				\n";
+
+		if (formatType == INDICATOR || formatType == SPARSE) {
+			code << "  	uint k = K[offK + task];      	\n";
+		} else { // DENSE, INTERCEPT
+			code << "   uint k = task;           		\n";
+		}
+		if (formatType == SPARSE || formatType == DENSE) {
+			code << "   REAL inc = delta * X[offX + task]; \n";
+		} else { // INDICATOR, INTERCEPT
+			code << "   REAL inc = delta;           \n";
+		}
+		code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
+				"		REAL xb = xBetaVector[vecOffset] + inc;	\n" <<
+				"		xBetaVector[vecOffset] = xb;	\n" <<
+				"		sum += exp(xb + inc) - exp(xb);	\n" <<
+				"		task += TPB1;					\n" <<
+				"	}									\n" <<
+				"	scratch[mylid] = sum;				\n";
+
+		code << "   for(int j = 1; j < TPB1; j <<= 1) {          \n" <<
+				"     	barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
+				"      	uint mask = (j << 1) - 1;               \n" <<
+				"      	if ((lid1 & mask) == 0) {                \n" <<
+				"          	scratch[mylid] += scratch[mylid+j*TPB0]; \n" <<
+				"      	}                                       \n" <<
+				"  	}                                         \n";
+
+		code << "	if (lid1 == 0) {						\n" <<
+				"		denomPidVector[stratum*cvIndexStride+cvIndex] += scratch[lid0];\n" << // * stratumWeight;	\n" <<
+				"	}									\n";
+		code << "}		\n";
+
+		code << "}  	\n";
+
+        return SourceCode(code.str(), name);
+
+	}
 
 
 	/*
@@ -3433,6 +3564,66 @@ static std::string weight(const std::string& arg, bool useWeights) {
         code << "}    \n";
         return SourceCode(code.str(), name);
     }
+
+	// CV CRS stratified
+	template <class BaseModel, typename WeightType, class BaseModelG>
+	SourceCode
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedSyncComputeRemainingStatisticsKernel() {
+
+		std::string name = "computeRemainingStatisticsStratified";
+
+		std::stringstream code;
+		code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+		code << "__kernel void " << name << "(     \n" <<
+				"		__global REAL* xBetaVector,	   \n" <<
+				"       __global REAL* expXBetaVector,   \n" <<
+				"       __global REAL* denomPidVector,\n" <<
+				"		__global REAL* Y,			\n" <<
+				"		__global REAL* Offs,		\n" <<
+				"       __global const int* pIdVector,		\n" <<
+				"		const uint cvIndexStride,	\n" <<
+				"		const uint size0,			\n" <<
+				"		const uint syncCVFolds,		\n" <<
+				"		__global const REAL* weightVector,	\n" <<
+				"		__global const int* NtoK,	\n" <<
+				"		__global const REAL* NWeight) {   \n" <<
+				//"	uint lid0 = get_local_id(0);	\n" <<
+				"	uint lid = get_local_id(1);	\n" <<
+				"	uint cvIndex = get_group_id(0);	\n" <<
+				"	uint stratum = get_group_id(1);	\n" <<
+				"	__local uint start, end;		\n" <<
+				"	__local REAL stratumWeight;		\n" <<
+				"	if (lid == 0) {						\n" <<
+				"		start = NtoK[stratum];			\n" <<
+				"		end = NtoK[stratum+1];			\n" <<
+        		"		stratumWeight = weightVector[NtoK[stratum]*cvIndexStride+cvIndex];	\n" <<
+				"	}									\n" <<
+				"	barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
+				"	__local REAL scratch[TPB];			\n" <<
+				"	REAL sum = 0.0;						\n" <<
+				"	uint task = start + lid;			\n";
+		// Local and thread storage
+		code << "   while (task < end) {      			\n";
+		code << "		uint vecOffset = task*cvIndexStride + cvIndex;	\n";
+		code << "		const REAL xb = xBetaVector[vecOffset];	\n" <<
+				//"const REAL y = Y[task];\n" <<
+				//"const int k = task;";
+				"		REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n" <<
+				"		expXBetaVector[vecOffset] = exb;		\n" <<
+				"		sum += exb;						\n" <<
+				"		task += TPB;					\n" <<
+				"	}									\n";
+		code << "	scratch[lid] = sum;					\n";
+		code << ReduceBody1<real,false>::body();
+		code << "	if (lid == 0) {						\n" <<
+				"		denomPidVector[stratum*cvIndexStride+cvIndex] = scratch[0];	\n" <<
+				//"		denomPidVector[" << BaseModelG::getGroupG("pIdVector", "start") << "*cvIndexStride+cvIndex] = scratch[0];	\n" <<
+				"	}									\n";
+		code << "}    \n";
+
+		return SourceCode(code.str(), name);
+	}
 
 /*
 	template <class BaseModel, typename WeightType, class BaseModelG>

@@ -468,6 +468,7 @@ public:
 
     // updates everything
     virtual void computeRemainingStatistics() {
+    	//std::cout << "CRS called\n";
     	//std::cerr << "GPU::cRS called" << std::endl;
     	if (syncCV) {
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -497,8 +498,38 @@ public:
     		localWorkSize[1] = 1;
     		size_t dim = 2;
 
+			if (BaseModelG::useNWeights) {
+				kernel.set_arg(9, dKWeightVector);
+				kernel.set_arg(10, dNtoK);
+				kernel.set_arg(11, dNWeight);
+				globalWorkSize[0] = syncCVFolds;
+				globalWorkSize[1] =  N*tpb;
+				localWorkSize[0] = 1;
+				localWorkSize[1] = tpb;
+			}
+
+			/*
+    		std::vector<real> hDenominator;
+    		hDenominator.resize(dDenomPidVector.size());
+    		compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(hDenominator), queue);
+    		std::cout << "before denom: ";
+    		for (auto x:hDenominator) {
+    			std::cout << x << " ";
+    		}
+    		std::cout << "\n";
+    		*/
+
     		queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
     		queue.finish();
+
+    		/*
+    		compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(hDenominator), queue);
+    		std::cout << "after denom: ";
+    		for (auto x:hDenominator) {
+    			std::cout << x << " ";
+    		}
+    		std::cout << "\n";
+    		*/
 
     		/*
         	std::vector<int> foldIndices;
@@ -1011,6 +1042,52 @@ public:
         		if (BaseModelG::useNWeights) {
         			detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
         			detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
+
+        			bool dense = TRUE;
+        			for (int index=0; index<J; index++) {
+        				FormatType formatType = modelData.getFormatType(index);
+        				if (formatType == FormatType::INDICATOR || formatType == FormatType::SPARSE) {
+        					dense = FALSE;
+        				}
+        			}
+
+        			if (!dense) {
+        				std::vector<int> hK;
+        				hK.resize(dColumns.getIndices().size());
+        				compute::copy(std::begin(dColumns.getIndices()), std::end(dColumns.getIndices()), std::begin(hK), queue);
+
+        				std::vector<int> offKVec;
+        				offKVec.resize(dColumns.getIndicesStarts().size());
+        				compute::copy(std::begin(dColumns.getIndicesStarts()), std::end(dColumns.getIndicesStarts()), std::begin(offKVec), queue);
+
+        				std::vector<int> NVec;
+        				NVec.resize(dColumns.getTaskCounts().size());
+        				compute::copy(std::begin(dColumns.getTaskCounts()), std::end(dColumns.getTaskCounts()), std::begin(NVec), queue);
+
+        				std::vector<int> Kstrata((N+1)*J);
+
+        				for (int index=0; index<J; index++) {
+        					FormatType formatType = modelData.getFormatType(index);
+        					if (formatType == FormatType::INDICATOR || formatType == FormatType::SPARSE) {
+        						int offK = offKVec[index];
+        						int currentK = hK[offK];
+        						int tasks = NVec[index];
+        						int i=0;
+        						for (int n=0; n<N; n++) {
+        							int stratumStart = hNtoK[n];
+        							int stratumEnd = hNtoK[n+1];
+        							while(currentK < stratumStart && i < tasks) {
+        								i++;
+        								currentK = hK[offK+i];
+        							}
+        							Kstrata[(N+1)*index+n] = i;
+        						}
+        						Kstrata[(N+1)*index+N] = tasks;
+        					}
+        				}
+
+        				detail::resizeAndCopyToDevice(Kstrata, dKStrata, queue);
+        			}
         		}
 
         		computeRemainingStatistics();
@@ -1083,6 +1160,8 @@ public:
         		int dN = N;
         		kernel.set_arg(13, dN);
         		kernel.set_arg(14, dNtoK);
+        		kernel.set_arg(15, index);
+        		kernel.set_arg(16, dKStrata);
         		globalWorkSize = N * tpb;
         		wgs = N;
         	}
@@ -1142,14 +1221,6 @@ public:
 #else
         	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
 
-/*
-        	std::cout << "hBuffer: ";
-        	for (int i=0; i<wgs; i++) {
-        		std::cout <<  hBuffer[i] << " " << hBuffer[i+wgs] << " ";
-        	}
-        	std::cout << "\n";
-        	*/
-
         	for (int i = 0; i < wgs; ++i) { // TODO Use SSE
         		gradient += hBuffer[i];
         		hessian  += hBuffer[i + wgs];
@@ -1170,6 +1241,8 @@ public:
         if (BaseModel::precomputeHessian) { // Compile-time switch
         	hessian += static_cast<real>(2.0) * hXjX[index];
         }
+
+        std::cout << "gpu grad: " << gradient << " gpu hess: " << hessian << " \n";
 
         *ogradient = gradient;
         *ohessian = hessian;
@@ -1998,6 +2071,10 @@ public:
         	kernel.set_arg(12, dNWeight);
         	localWorkSize = tpb;
         	globalWorkSize = N*tpb;
+        	kernel.set_arg(13, index);
+        	int dN = N;
+        	kernel.set_arg(14, dN);
+        	kernel.set_arg(15, dKStrata);
         }
 
         // run kernel
@@ -2834,9 +2911,19 @@ public:
     		compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(xBetaTemp), queue);
     		compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(denomTemp), queue);
 
+
     		for (int i=0; i<K; i++) {
     			hXBetaPool[cvIndex][i] = xBetaTemp[i*cvIndexStride+cvIndex];
-    			denomPidPool[cvIndex][i] = denomTemp[i*cvIndexStride+cvIndex];
+    		}
+
+    		if (BaseModelG::useNWeights) {
+    			for (int i=0; i<N; i++) {
+        			denomPidPool[cvIndex][i] = denomTemp[i*cvIndexStride+cvIndex];
+    			}
+    		} else {
+    			for (int i=0; i<K; i++) {
+        			denomPidPool[cvIndex][i] = denomTemp[i*cvIndexStride+cvIndex];
+    			}
     		}
     	}
 
@@ -3088,6 +3175,14 @@ public:
     			detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
     		}
 
+    		std::vector<real> myWeights;
+    		myWeights.resize(dKWeightVector.size());
+    		compute::copy(std::begin(dKWeightVector), std::end(dKWeightVector), std::begin(myWeights), queue);
+    		for (auto x:myWeights) {
+    			std::cout << x << " ";
+    		}
+    		std::cout << "\n";
+
     		computeRemainingStatistics();
     	}
 
@@ -3111,6 +3206,18 @@ public:
 
         const auto taskCount = dColumns.getTaskCount(index);
 
+        std::vector<real> myDenom;
+        myDenom.resize(dDenomPidVector.size());
+        compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(myDenom), queue);
+        for (int i=0; i<syncCVFolds; i++) {
+        	std::cout << "denom" << i << ": ";
+        	for (int j=0; j<N; j++) {
+        		std::cout << myDenom[j*cvIndexStride+i] << " ";
+        	}
+        	std::cout << "\n";
+        }
+
+        //std::cout << "kernel 0 called\n";
         kernel.set_arg(0, dColumns.getDataOffset(index));
         kernel.set_arg(1, dColumns.getIndicesOffset(index));
         kernel.set_arg(2, taskCount);
@@ -3200,22 +3307,11 @@ public:
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-/*
-        std::vector<double> blah;
-        blah.resize(dBuffer.size());
-        compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(blah), queue);
-        std::cout << "buffer: ";
-        for (auto x:blah) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
-*/
-
-
 #ifdef CYCLOPS_DEBUG_TIMING
         start = bsccs::chrono::steady_clock::now();
 #endif
 
+        //std::cout << "kernel 1\n";
         int priorType = priorTypes[index];
         auto& kernel1 = kernelProcessDeltaBuffer[priorType];
 
@@ -3251,6 +3347,15 @@ public:
 
         queue.enqueue_1d_range_kernel(kernel1, 0, syncCVFolds*tpb, tpb);
         queue.finish();
+
+        std::vector<real> hDeltaVector;
+        hDeltaVector.resize(dDeltaVector.size());
+        compute::copy(std::begin(dDeltaVector), std::end(dDeltaVector), std::begin(hDeltaVector), queue);
+        std::cout << "deltavector" << index << ": ";
+        for (auto x:hDeltaVector) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
 /*
         //std::vector<real> blah;
         blah.resize(dDeltaVector.size());
@@ -3275,6 +3380,7 @@ public:
 #endif
         auto& kernel2 = kernelUpdateXBetaSync[modelData.getFormatType(index)];
 
+        //std::cout << "kernel 2\n";
         // set kernel args
         kernel2.set_arg(0, dColumns.getDataOffset(index));
         kernel2.set_arg(1, dColumns.getIndicesOffset(index));
@@ -3293,6 +3399,17 @@ public:
         kernel2.set_arg(14, index);
         kernel2.set_arg(15, dAllZero);
 
+        if (BaseModelG::useNWeights) {
+        	kernel2.set_arg(16, dNtoK);
+        	kernel2.set_arg(17, dNWeight);
+        	kernel2.set_arg(18, dKWeightVector);
+        	int Kstride = detail::getAlignedLength<16>(K);
+        	kernel2.set_arg(19, Kstride);
+        	int dN = N;
+        	kernel2.set_arg(20, dN);
+        	kernel2.set_arg(21, dKStrata);
+        }
+
         loops = syncCVFolds / cvBlockSize;
         if (syncCVFolds % cvBlockSize != 0) {
         	loops++;
@@ -3300,8 +3417,14 @@ public:
 
         globalWorkSize[0] = loops*cvBlockSize;
         globalWorkSize[1] = taskCount;
+        if (BaseModelG::useNWeights) {
+        	globalWorkSize[1] = tpb1*N;
+        }
         localWorkSize[0] = cvBlockSize;
         localWorkSize[1] = 1;
+        if (BaseModelG::useNWeights) {
+        	localWorkSize[1] = tpb1;
+        }
         dim = 2;
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -3343,7 +3466,7 @@ public:
 
 
 virtual void runCCDIndex() {
-	if (BaseModel::exactCLR) {
+	if (BaseModel::exactCLR || BaseModelG::useNWeights) {
 		runCCDIndexSeparate();
 		return;
 	}
@@ -4604,6 +4727,8 @@ virtual void runCCDIndex() {
 
     SourceCode writeCodeForSyncUpdateXBetaKernel(FormatType formatType);
 
+    SourceCode writeCodeForStratifiedSyncUpdateXBetaKernel(FormatType formatType);
+
     SourceCode writeCodeForSync1UpdateXBetaKernel(FormatType formatType);
 
     SourceCode writeCodeForUpdateAllXBetaKernel(FormatType formatType, bool isNvidia);
@@ -4629,6 +4754,8 @@ virtual void runCCDIndex() {
     SourceCode writeCodeForStratifiedComputeRemainingStatisticsKernel();
 
     SourceCode writeCodeForSyncComputeRemainingStatisticsKernel();
+
+    SourceCode writeCodeForStratifiedSyncComputeRemainingStatisticsKernel();
 
     SourceCode writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool logSum);
 
@@ -4674,17 +4801,13 @@ virtual void runCCDIndex() {
     		options << " -cl-mad-enable";
 
     		auto source = writeCodeForExactCLRDoItAllKernel(formatType, priorType);
-    		//std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
-    		//std::cout << "program built\n";
     		auto kernel = compute::kernel(program, source.name);
 
     		kernelDoItAll[formatType*3+priorType] = std::move(kernel);
 
     		source = writeCodeForExactCLRDoItAllSingleKernel(formatType, priorType);
-    		//std::cout << source.body;
     		program = compute::program::build_with_source(source.body, ctx, options.str());
-    		//std::cout << "program built\n";
     		auto kernelSingle = compute::kernel(program, source.name);
 
     		kernelDoItAllSingle[formatType*3+priorType] = std::move(kernelSingle);
@@ -4823,9 +4946,7 @@ virtual void runCCDIndex() {
 
         	// CCD Kernel
         	auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useWeights);
-        	std::cout << source.body;
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        	std::cout << "program built\n";
         	auto kernel = compute::kernel(program, source.name);
 
         	if (useWeights) {
@@ -4969,9 +5090,7 @@ virtual void runCCDIndex() {
     		kernelGradientHessianSync[formatType] = std::move(kernelSync);
 
     		source = writeCodeForSyncCV1GradientHessianKernel(formatType, isNvidia);
-    		std::cout << source.body;
     		program = compute::program::build_with_source(source.body, ctx, options.str());
-    		std::cout << "program built\n";
     		auto kernelSync1 = compute::kernel(program, source.name);
     		kernelGradientHessianSync1[formatType] = std::move(kernelSync1);
 
@@ -5028,8 +5147,23 @@ virtual void runCCDIndex() {
     void buildSyncCVUpdateXBetaKernel(FormatType formatType) {
         std::stringstream options;
 
-        options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
-
+        if (BaseModelG::useNWeights) {
+        	if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+        		options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1;
+#else
+        		options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << tpb1;
+#endif // USE_VECTOR
+        	} else {
+#ifdef USE_VECTOR
+        		options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1;
+#else
+        		options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << tpb1;
+#endif // USE_VECTOR
+        	}
+        } else {
+        	options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
+        }
         options << " -cl-mad-enable";
 
         // Rcpp::stop("uXB");
@@ -5037,7 +5171,12 @@ virtual void runCCDIndex() {
         // Run-time constant arguments.
 
         auto source = writeCodeForSyncUpdateXBetaKernel(formatType);
+        if (BaseModelG::useNWeights) {
+        	source = writeCodeForStratifiedSyncUpdateXBetaKernel(formatType);
+        }
+        std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        std::cout << "program built\n";
         auto kernelSync = compute::kernel(program, source.name);
         kernelUpdateXBetaSync[formatType] = std::move(kernelSync);
 
@@ -5123,12 +5262,33 @@ virtual void runCCDIndex() {
     }
 
     void buildSyncCVComputeRemainingStatisticsKernel() {
-        std::stringstream options;
-        options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
+    	std::stringstream options;
+    	if (BaseModelG::useNWeights) {
+    		if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+    			options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+#else
+    			options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+#endif // USE_VECTOR
+    		} else {
+#ifdef USE_VECTOR
+    			options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+#else
+    			options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+#endif // USE_VECTOR
+    		}
+        } else {
+        	options << "-DREAL=" << (sizeof(real) == 8 ? "double" : "float");
+        }
 
         options << " -cl-mad-enable";
         auto source = writeCodeForSyncComputeRemainingStatisticsKernel();
+        if (BaseModelG::useNWeights) {
+        	source = writeCodeForStratifiedSyncComputeRemainingStatisticsKernel();
+        }
+        std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        std::cout << "program built\n";
         auto kernelSync = compute::kernel(program, source.name);
 
         kernelComputeRemainingStatisticsSync = std::move(kernelSync);

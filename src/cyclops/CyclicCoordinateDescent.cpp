@@ -1203,13 +1203,13 @@ void CyclicCoordinateDescent::findMode(
 	        	if (syncCV) {
 	        		std::vector<double> deltaVec = ccdUpdateBetaVec(index);
 	        		deltaVec = applyBounds(deltaVec, index);
-/*
+
 	        		std::cout << "deltaVec" << index << ": ";
 	        		for (auto x:deltaVec) {
 	        			std::cout << x << " ";
 	        		}
 	        		std::cout << "\n";
-*/
+
 	        		updateSufficientStatistics(deltaVec, index);
 	        		computeRemainingStatistics(true, deltaVec);
 	        	} else {
@@ -1796,7 +1796,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	}
 
 	double blah = jointPrior->getDelta(gh, hBeta, index);
-	//std::cout << " delta: " << blah;
+	//std::cout << " delta: " << blah << "\n";
 
 	return blah;
 
@@ -2249,7 +2249,7 @@ std::vector<double> CyclicCoordinateDescent::ccdUpdateBetaVec(int index) {
 			}
 			//gh = priors::GradientHessian(gradList[cvIndex], hessList[cvIndex]);
 			gh = ghList[cvIndex];
-			//std::cout << "gh " << cvIndex <<  ": " << gh.first << " | " << gh.second << " ";
+			std::cout << "gh " << cvIndex <<  ": " << gh.first << " | " << gh.second << " ";
 			double blah = jointPrior->getDelta(gh, hBetaPool[cvIndex], index);
 			//std::cout << "delta: " << blah << "\n";
 			result.push_back(blah);

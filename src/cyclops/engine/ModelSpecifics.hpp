@@ -1599,7 +1599,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		//std::cout << N << '\n';
 
 	    //tbb::mutex mutex0;
-/*
+
 	    tbb::combinable<real> newGrad(static_cast<real>(0));
 	    tbb::combinable<real> newHess(static_cast<real>(0));
 
@@ -1635,7 +1635,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	         //std::cout << "index: "<<index;
 
-		*/
+
 
 /*
 		std::cout << "expXBeta: ";
@@ -1680,7 +1680,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 			}
 		}
 		*/
-
+/*
 	    for (int i=0; i<N; i++) {
 	    	//std::cout << "grad: " << gradient << " hess: " << hessian << " ";
 	        DenseView<IteratorType> x(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
@@ -1703,6 +1703,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 	        //std::cout << "stratum: " << i << " " << value[0] << " " << value[1] << " " << value[2] << "\n ";
 	    }
+	    */
 
 	    //std::cout << '\n';
     	//std::cout << "gradient: " << gradient << " hess: " << hessian << " \n";
@@ -1740,6 +1741,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
                 denomPid, hNWeight,
                 typename IteratorType::tag());
 
+        //std::cout << "hBuffer: ";
 		const auto result = variants::trial::nested_reduce(
 		        rangeKey.begin(), rangeKey.end(),
 		        rangeXNumerator.begin(), rangeGradient.begin(),
@@ -1747,6 +1749,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
                 TestNumeratorKernel<BaseModel,IteratorType,real>(), // Inner transform-reduce
 		       	TestGradientKernel<BaseModel,IteratorType,Weights,real>()); // Outer transform-reduce
 
+		//std::cout << "\n";
 		gradient = result.real();
 		hessian = result.imag();
 // #endif
@@ -3068,6 +3071,13 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
                 denomPidPool[cvIndex], hNWeightPool[cvIndex],
                 typename IteratorType::tag());
 
+
+        std::cout << "denom" << cvIndex << ": ";
+        for (int i=0; i<N; i++) {
+        	std::cout << denomPidPool[cvIndex][i] << " ";
+        }
+        std::cout << "\n";
+
 		const auto result = variants::trial::nested_reduce(
 		        rangeKey.begin(), rangeKey.end(),
 		        rangeXNumerator.begin(), rangeGradient.begin(),
@@ -3445,12 +3455,13 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 		}
 	}
 
-	auto func = [&](const tbb::blocked_range<int>& range) {
-		for (int k = range.begin(); k < range.end(); ++k) {
+	//auto func = [&](const tbb::blocked_range<int>& range) {
+		//for (int k = range.begin(); k < range.end(); ++k) {
+		for (int k=0; k<count; k++) {
 			computeGradientAndHessian(index, &ghList[temp[k]].first, &ghList[temp[k]].second, useWeights, temp[k]);
 		}
-	};
-	tbb::parallel_for(tbb::blocked_range<int>(0,count),func);
+	//};
+	//tbb::parallel_for(tbb::blocked_range<int>(0,count),func);
 }
 
 
