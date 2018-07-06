@@ -1040,8 +1040,13 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 //  	        SerialOnly()
 // 		);
 //
-// 		gradient = result.real();
-// 		hessian = result.imag();
+// 	        BaseModel::incrementGradientAndHessian(it,
+//                                                 w, // Signature-only, for iterator-type specialization
+//                                                 &gradient, &hessian, numerator1, numerator2,
+//                                                 denomPid[hPid[i]], hNWeight[hPid[i]], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
+// 	    }
+
+// #ifdef OLD_WAY
 //
 // 	} else {
 //

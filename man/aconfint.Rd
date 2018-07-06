@@ -15,7 +15,7 @@ either a vector of numbers of covariateId names}
 
 \item{level}{Numeric: confidence level required}
 
-\item{control}{A Cyclops \code{\link{control}} object}
+\item{control}{A \code{"cyclopsControl"} object constructed by \code{\link{createControl}}}
 
 \item{overrideNoRegularization}{Logical: Enable confidence interval estimation for regularized parameters}
 

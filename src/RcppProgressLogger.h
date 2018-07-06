@@ -21,11 +21,13 @@ namespace loggers {
 
 class RcppProgressLogger : public ProgressLogger {
 public:
-    RcppProgressLogger(bool _silent = false, bool _concurrent = false) 
+    RcppProgressLogger(bool _silent = false, bool _concurrent = false)
     	: silent(_silent), concurrent(_concurrent) { }
-    
+
+    virtual ~RcppProgressLogger() { }
+
     void setSilent(bool _silent) { silent = _silent; }
-    
+
     void setConcurrent(bool _concurrent) { concurrent = _concurrent; }
 
     void writeLine(const std::ostringstream& stream) {
@@ -36,66 +38,68 @@ public:
         	    lock.unlock();
         	} else {
                 Rcpp::Rcout << stream.str() << std::endl;
-            }            
+            }
         }
-    }    
-    
-    void yield() { 
+    }
+
+    void yield() {
     	if (!concurrent) {
 	        R_CheckUserInterrupt();
 	    }
     }
-    
-    void flush() { 
-        if (!concurrent) {       
+
+    void flush() {
+        if (!concurrent) {
             lock.lock();
             while (!buffer.empty()) {
                 Rcpp::Rcout << buffer.front() << std::endl;
-                buffer.pop_front();          
+                buffer.pop_front();
             }
             lock.unlock();
         }
     }
-    
+
 private:
     bool silent;
     bool concurrent;
-    
-    bsccs::mutex lock;    
-    std::deque<std::string> buffer;        
+
+    bsccs::mutex lock;
+    std::deque<std::string> buffer;
 };
 
 class RcppErrorHandler : public ErrorHandler {
 public:
 	RcppErrorHandler(bool _concurrent = false)
 		: concurrent(_concurrent) { }
-		
-	void setConcurrent(bool _concurrent) { concurrent = _concurrent; }		
+
+    virtual ~RcppErrorHandler() { }
+
+	void setConcurrent(bool _concurrent) { concurrent = _concurrent; }
 
     void throwError(const std::ostringstream& stream) {
 		if (concurrent) {
 			lock.lock();
 			buffer.push_back(stream.str());
-			lock.unlock();			
+			lock.unlock();
 		} else {
 			Rcpp::stop(stream.str());
 		}
     }
-    
+
     void flush() {
-    	if (!concurrent && !buffer.empty()) {    		
-    		std::stringstream stream;    		
+    	if (!concurrent && !buffer.empty()) {
+    		std::stringstream stream;
     		while (!buffer.empty()) {
     			stream << buffer.front() << std::endl;
     			buffer.pop_front();
     		}
-    		Rcpp::stop(stream.str());    		
-    	}    
+    		Rcpp::stop(stream.str());
+    	}
     }
-    
-private: 
+
+private:
 	bool concurrent;
-	bsccs::mutex lock; 
+	bsccs::mutex lock;
 	std::deque<std::string> buffer;
 };
 

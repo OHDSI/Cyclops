@@ -1,5 +1,7 @@
 library("testthat")
 
+context("test-largeBernoulli.R")
+
 #
 # Large Bernoulli regression
 #
@@ -18,3 +20,79 @@ library("testthat")
 # 	expect_named(coef(cyclopsFit)) # Reads covariate names from file
 # 	expect_named(predict(cyclopsFit)) # Reads row names from file
 # })
+
+test_that("Separable covariates in logistic regression", {
+    set.seed(666)
+
+    simulant <- simulateCyclopsData(nstrata = 1,
+                                ncovars = 5,
+                                model = "logistic")
+
+    successes <- simulant$outcomes$rowId[simulant$outcomes$y == 1]
+    separable <- simulant$covariates[simulant$covariates$covariateId == 3 &
+                                         simulant$covariates$rowId %in% successes,]
+    separable$covariateId <- 6
+
+    simulant$covariates <- rbind(simulant$covariates, separable)
+
+    data <- convertToCyclopsData(simulant$outcomes, simulant$covariates, modelType = "lr",
+                                        addIntercept = TRUE)
+
+    fit <- fitCyclopsModel(data, prior = createPrior("none"))
+
+    expect_error(coef(fit), "did not converge")
+
+    # Use separability condition
+    separability <- getUnivariableSeparability(data)
+    expect_equal(sum(separability), 1.0)
+
+    scFit <- fitCyclopsModel(data, prior = createPrior("none"),
+                             forceNewObject = TRUE,
+                             fixedCoefficients = separability)
+
+    expect_equivalent(coef(scFit)[separability], 0.0)
+
+    # Use estimate existence condition
+    separability <- is.nan(coef(fit, ignoreConvergence = TRUE))
+
+    ecFit <- fitCyclopsModel(data, prior = createPrior("none"),
+                             forceNewObject = TRUE,
+                             fixedCoefficients = separability)
+
+    expect_equivalent(coef(ecFit)[separability], 0.0)
+
+    # Use non-separable MLE prior
+    nsFit <- fitCyclopsModel(data, prior = createNonSeparablePrior(),
+                             forceNewObject = TRUE)
+    expect_true(is.na(coef(nsFit)[7]))
+})
+
+test_that("Separable covariates in cox regression", {
+    set.seed(666)
+
+    simulant <- simulateCyclopsData(nstrata = 1,
+                                    ncovars = 5,
+                                    model = "survival")
+
+    successes <- simulant$outcomes$rowId[simulant$outcomes$y == 1]
+    separable <- simulant$covariates[simulant$covariates$covariateId == 3 &
+                                         simulant$covariates$rowId %in% successes,]
+    separable$covariateId <- 6
+
+    simulant$covariates <- rbind(simulant$covariates, separable)
+
+    data <- convertToCyclopsData(simulant$outcomes, simulant$covariates, modelType = "cox")
+
+    fit <- fitCyclopsModel(data, prior = createPrior("none"))
+
+    #expect_error(coef(fit), "did not converge") TODO
+
+    separability <- getUnivariableSeparability(data)
+    expect_equal(sum(separability), 1.0)
+
+    fit <- fitCyclopsModel(data, prior = createPrior("none"),
+                           forceNewObject = TRUE,
+                           fixedCoefficients = separability)
+
+    expect_equivalent(coef(fit)[separability], 0.0)
+})

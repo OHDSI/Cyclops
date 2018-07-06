@@ -14,7 +14,7 @@ fitCyclopsModel(cyclopsData, prior = createPrior("none"),
 
 \item{prior}{A prior object. More details are given below.}
 
-\item{control}{Cyclops control object, see \code{"\link{control}"}}
+\item{control}{A \code{"cyclopsControl"} object constructed by \code{\link{createControl}}}
 
 \item{weights}{Vector of 0/1 weights for each data row}
 

@@ -2,6 +2,7 @@ Cyclops
 =======
 
 [![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/Cyclops)](https://CRAN.R-project.org/package=Cyclops)
+[![CRAN_Status_Badge](http://cranlogs.r-pkg.org/badges/Cyclops)](https://cran.r-project.org/package=Cyclops)
 
 Introduction
 ============
@@ -32,7 +33,7 @@ Cyclops in an R package, with most functionality implemented in C++. Cyclops use
 
 System Requirements
 ===================
-Requires R (version 3.1.0 or higher). Installation on Windows requires [RTools]( https://CRAN.R-project.org/bin/windows/Rtools/) (`devtools >= 1.12` required for RTools34, otherwise RTools33 works fine).
+Requires R (version 3.1.0 or higher). Compilation on Windows requires [RTools >= 3.4]( https://CRAN.R-project.org/bin/windows/Rtools/).
 
 Dependencies
 ============

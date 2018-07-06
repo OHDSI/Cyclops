@@ -8,16 +8,8 @@
 #include <limits>
 #include <iostream>
 
-#pragma GCC diagnostic push
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
-#pragma GCC diagnostic ignored "-Wpragmas"
-#endif
-#pragma GCC diagnostic ignored "-Wunknown-pragmas"
-#pragma GCC diagnostic ignored "-Wignored-attributes" // To keep C++14 quiet
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <Eigen/Dense>
 #include <Eigen/LU>
-#pragma GCC diagnostic pop
 
 //#include "tnt_array2d.h"
 //#include "tnt_array2d_utils.h"

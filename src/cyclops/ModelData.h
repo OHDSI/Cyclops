@@ -56,6 +56,8 @@ public:
 
     virtual size_t getColumnIndex(const IdType covariate) const = 0;
 
+    virtual FormatType getColumnType(const IdType& covariate) const = 0;
+
     virtual std::string getColumnTypeString(const IdType& covariate) const = 0;
 
     virtual ModelType getModelType() const = 0;
@@ -67,6 +69,8 @@ public:
     virtual size_t getNumberOfPatients() const = 0;
 
     virtual size_t getNumberOfRows() const = 0;
+
+    virtual size_t getNumberOfEntries(const IdType& covariate) const = 0;
 
     virtual size_t getNumberOfCovariates() const = 0;
 
@@ -117,6 +121,8 @@ public:
     virtual void logTransformCovariate(const IdType covariate) = 0;
 
     virtual void convertCovariateToDense(const IdType covariate) = 0;
+
+	virtual double innerProductWithOutcome(const size_t index) const = 0;
 
     virtual void loadY(
             const std::vector<IdType>& stratumId,
@@ -176,6 +182,8 @@ public:
     size_t getNumberOfColumns() const { return X.getNumberOfColumns(); }
 
     size_t getNumberOfRows() const { return X.getNumberOfRows(); }
+
+  	size_t getNumberOfEntries(const IdType& covariate) const { return X.getNumberOfEntries(covariate); }
 
     int getColumnIndexByName(IdType name) const { return X.getColumnIndexByName(name); }
 
@@ -244,6 +252,10 @@ public:
 
 	std::string getColumnTypeString(const IdType& covariate) const {
 	    return X.getColumn(covariate).getTypeString();
+	}
+
+	FormatType getColumnType(const IdType& covariate) const {
+		return X.getColumn(covariate).getFormatType();
 	}
 
 	IdType getColumnNumericalLabel(const IdType& covariate) const {
@@ -476,6 +488,10 @@ public:
 	        break;
 	    }
 	    return sum;
+	}
+
+	double innerProductWithOutcome(const size_t index) const {
+		return innerProductWithOutcome(index, InnerProduct());
 	}
 
 	template <typename T, typename F>

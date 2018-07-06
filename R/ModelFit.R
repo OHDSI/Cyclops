@@ -26,7 +26,7 @@
 #'
 #' @param cyclopsData			A Cyclops data object
 #' @template prior
-#' @param control Cyclops control object, see \code{"\link{control}"}
+#' @param control  A \code{"cyclopsControl"} object constructed by \code{\link{createControl}}
 #' @param weights Vector of 0/1 weights for each data row
 #' @param forceNewObject Logical, forces the construction of a new Cyclops model fit object
 #' @param returnEstimates Logical, return regression coefficient estimates in Cyclops model fit object
@@ -255,7 +255,7 @@ fitCyclopsModel <- function(cyclopsData,
         fit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)
     }
 
-    if (returnEstimates && fit$return_flag == "SUCCESS") {
+    if (returnEstimates) {
         estimates <- .cyclopsLogModel(cyclopsData$cyclopsInterfacePtr)
         fit <- c(fit, estimates)
         fit$estimation <- as.data.frame(fit$estimation)
@@ -263,6 +263,9 @@ fitCyclopsModel <- function(cyclopsData,
     fit$call <- cl
     fit$cyclopsData <- cyclopsData
     fit$coefficientNames <- cyclopsData$coefficientNames
+    if (!is.null(fixedCoefficients)) {
+        fit$fixedCoefficients <- fixedCoefficients
+    }
     fit$rowNames <- cyclopsData$rowNames
     fit$scale <- cyclopsData$scale
     fit$threads <- threads
@@ -275,7 +278,8 @@ fitCyclopsModel <- function(cyclopsData,
         saved <- covariates
         if (inherits(covariates, "character")) {
             # Try to match names
-            covariates <- match(covariates, cyclopsData$coefficientNames)
+            indices <- match(covariates, cyclopsData$coefficientNames)
+            covariates <- getCovariateIds(cyclopsData)[indices]
         }
         covariates = as.numeric(covariates)
 
@@ -328,15 +332,18 @@ fitCyclopsModel <- function(cyclopsData,
 #'
 #' @param object    Cyclops model fit object
 #' @param rescale   Boolean: rescale coefficients for unnormalized covariate values
+#' @param ignoreConvergence Boolean: return coefficients even if fit object did not converge
 #' @param ...       Other arguments
 #'
 #' @return Named numeric vector of model coefficients.
 #'
 #' @export
-coef.cyclopsFit <- function(object, rescale = FALSE, ...) {
-    if (is.null(object$estimation)) {
+coef.cyclopsFit <- function(object, rescale = FALSE, ignoreConvergence = FALSE, ...) {
+
+    if (object$return_flag != "SUCCESS" && !ignoreConvergence) {
         stop("Cyclops estimation is null; suspect that estimation did not converge.")
     }
+
     result <- object$estimation$estimate
     if (is.null(object$coefficientNames)) {
         names(result) <- object$estimation$column_label
@@ -741,6 +748,12 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     threshold <- qchisq(level, df = 1) / 2
     threads <- object$threads
 
+    if (!is.null(object$fixedCoefficients)) {
+        if (any(object$fixedCoefficients[parm])) {
+            stop("Cannot estimate confidence interval for a fixed coefficient")
+        }
+    }
+
     prof <- .cyclopsProfileModel(object$cyclopsData$cyclopsInterfacePtr, parm,
                                  threads, threshold,
                                  overrideNoRegularization,
@@ -771,7 +784,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #' @param parm      A specification of which parameters require confidence intervals,
 #'                  either a vector of numbers of covariateId names
 #' @param level     Numeric: confidence level required
-#' @param control   A Cyclops \code{\link{control}} object
+#' @param control   A \code{"cyclopsControl"} object constructed by \code{\link{createControl}}
 #' @param overrideNoRegularization   Logical: Enable confidence interval estimation for regularized parameters
 #' @param ... Additional argument(s) for methods
 #'
@@ -809,7 +822,7 @@ aconfint <- function(object, parm, level = 0.95, control,
 #' \code{vcov.cyclopsFit} returns the variance-covariance matrix for all covariates of a Cyclops model object
 #'
 #' @param object    A fitted Cyclops model object
-#' @param control   A Cyclops \code{\link{control}} object
+#' @param control    A \code{"cyclopsControl"} object constructed by \code{\link{createControl}}
 #' @param overrideNoRegularization   Logical: Enable variance-covariance estimation for regularized parameters
 #' @param ... Additional argument(s) for methods
 #'

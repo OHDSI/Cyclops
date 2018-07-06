@@ -1,12 +1,12 @@
 library("testthat")
 
+context("test-covariateRegularization.R")
+
 test_that("Find covariate by name and number", {
     counts <- c(18,17,15,20,10,20,25,13,12)
     outcome <- gl(3,1,9)
     treatment <- gl(3,3)
     tolerance <- 1E-4
-
-    glmFit <- glm(counts ~ outcome + treatment, family = poisson()) # gold standard
 
     dataPtr <- createCyclopsData(counts ~ outcome + treatment,
                                   modelType = "pr")
@@ -17,8 +17,8 @@ test_that("Find covariate by name and number", {
                           control = createControl(noiseLevel = "silent"))
 
     # Shrinkage on treatment-effects
-    expect_less_than(coef(cyclopsFit)[4], coef(glmFit)[4])
-    expect_less_than(coef(cyclopsFit)[5], coef(glmFit)[5])
+    expect_equivalent(coef(cyclopsFit)[4], 0.0)
+    expect_equivalent(coef(cyclopsFit)[5], 0.0)
 
     dataPtr2 <- createCyclopsData(counts ~ outcome + treatment,
                                    modelType = "pr")

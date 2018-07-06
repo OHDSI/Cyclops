@@ -1,11 +1,43 @@
-Cyclops v1.2.4 (not released)
+Cyclops v1.3.4 (Release date: 2018-06-11)
+
+Changes: 1. fix undeclared dependencies in unit-tests: `MASS` and `microbenchmarks`
+		 2. fix issues with ATLAS compilation
+		 3. add contexts to testthat files
+		 4. fix ASAN errors in AbstractModelSpecifics
+
+Cyclops v1.3.3 (Not released)
+==============
+
+Changes: 1. fix testthat expected error message
+
+Cyclops v1.3.2 (Release date: 2018-05-04)
+==============
+
+Changes: 1. explicitly includes `<complex>` header, needed for `R` 3.5 builds
+         2. remove `pragma` statements used to quiet `RcppEigen` and `RcppParallel`
+
+Cyclops v1.3.1 (Not released)
+==============
+
+Changes: 1. fixes covariate indices returned from `.checkCovariates` when excluding
+            covariates from regularization
+
+Cyclops v1.3.0 (Release date: 2017-08-23)
+==============
 
 Changes: 1. implements specialized priors through callbacks for use, for example,
             in the BrokenAdaptiveRidge package to provide L0-based model selection
          2. implements specialized control through callbacks for use, for example,
             auto-and-grid-based cross-validation hyperparameter searches
+         3. removes src/boost that clashes with BH 1.65.0
+
+Cyclops v1.2.3 (Not released)
+==============
+
+Changes: 1. fixed `predict` error with `ff.data.frame` with size == 0
 
 Cyclops v1.2.2 (Release date: 2016-10-06)
+==============
 
 Changes: 1. fixed `solaris` build errors
          2. added compatibility for C++14 (make_unique)

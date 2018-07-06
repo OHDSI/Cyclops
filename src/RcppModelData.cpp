@@ -245,6 +245,59 @@ std::vector<double> cyclopsUnivariableCorrelation(Environment x,
     return data->univariableCorrelation(covariateLabel);
 }
 
+// [[Rcpp::export(.cyclopsUnivariableSeparability)]]
+std::vector<int> cyclopsUnivariableSeparability(Environment x,
+                                                  const std::vector<long>& covariateLabel) {
+    XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(x);
+
+    std::vector<int> result;
+
+    auto oneVariable = [&data, &result](const size_t index) {
+
+        int value = 0;
+        bsccs::FormatType formatType = data->getColumnType(index);
+
+        if (formatType == bsccs::INTERCEPT) {
+
+            const double xy = data->innerProductWithOutcome(index);
+            const double length = static_cast<double>(data->getNumberOfRows());
+
+            if (xy == 0.0 || xy == length) {
+                value = 1;
+            }
+
+        } else if (formatType == bsccs::INDICATOR) {
+
+            const double xy = data->innerProductWithOutcome(index);
+            const double length = static_cast<double>(data->getNumberOfEntries(index));
+
+            if (xy == 0.0 || xy == length) {
+                value = 1;
+            }
+
+        } else {
+            // TODO -- not yet implemented
+        }
+
+        result.push_back(value);
+    };
+
+    if (covariateLabel.size() == 0) {
+        result.reserve(data->getNumberOfCovariates());
+        size_t index = (data->getHasOffsetCovariate()) ? 1 : 0;
+        for (; index <  data->getNumberOfCovariates(); ++index) {
+            oneVariable(index);
+        }
+    } else {
+        result.reserve(covariateLabel.size());
+        for(auto it = covariateLabel.begin(); it != covariateLabel.end(); ++it) {
+            oneVariable(data->getColumnIndex(*it));
+        }
+    }
+
+    return result;
+}
+
 // [[Rcpp::export(".cyclopsSumByGroup")]]
 List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel,
 		const long groupByLabel, const int power) {

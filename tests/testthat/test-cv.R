@@ -1,5 +1,7 @@
 library("testthat")
 
+context("test-cv.R")
+
 # ### COX ERROR
 #
 # library(Cyclops)

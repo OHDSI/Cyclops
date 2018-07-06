@@ -182,10 +182,12 @@ protected:
 
 	const std::vector<int>& hPidOriginal;
 	int* hPid;
+	size_t hPidSize;
 	std::vector<int> hPidInternal;
 
 	// RealVector hXBeta; // TODO Delegate to ModelSpecifics
 	// RealVector hXBetaSave; // Delegate
+
 
 	size_t N; // Number of patients
 	size_t K; // Number of exposure levels

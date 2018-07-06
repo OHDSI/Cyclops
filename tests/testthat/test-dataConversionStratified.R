@@ -3,6 +3,8 @@ library("survival")
 library("gnm")
 library("ff")
 
+context("test-dataConversionStratified.R")
+
 test_that("Test clr", {
   gold <- clogit(case ~ spontaneous + induced + strata(stratum), data=infert)
 
@@ -117,8 +119,8 @@ test_that("Test stratified cox using lung dataset ", {
 
 
 test_that("Test conditional poisson regression", {
-    skip_on_cran() # Do not run on CRAN
-    skip("Do not run")
+  #skip_on_cran() # Do not run on CRAN
+  #skip("Do not run")
   sim <- simulateCyclopsData(nstrata = 2, nrows = 10000, ncovars = 2, eCovarsPerRow = 0.5, effectSizeSd = 1,model = "poisson")
   covariates <- sim$covariates
   outcomes <- sim$outcomes
