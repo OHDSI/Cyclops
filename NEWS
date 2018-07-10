@@ -1,3 +1,9 @@
+Cyclops v1.9.999 (Not yet released)
+
+Changes: 1. simplify internal transformation-reductions loops
+         2. implemented non-negative weights
+         3. allow for run-time selection of 32-/64-bit reals
+
 Cyclops v1.3.4 (Release date: 2018-06-11)
 
 Changes: 1. fix undeclared dependencies in unit-tests: `MASS` and `microbenchmarks`
