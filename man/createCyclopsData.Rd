@@ -45,6 +45,8 @@ createCyclopsData(formula, sparseFormula, indicatorFormula, modelType, data,
 
 \item{normalize}{String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)}
 
+\item{floatingPoint}{Integer: Floating-point representation size (32 or 64)}
+
 \item{method}{Currently undocumented}
 }
 \value{

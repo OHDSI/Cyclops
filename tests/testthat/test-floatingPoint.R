@@ -49,7 +49,7 @@ test_that("Single precision", {
     cyclopsFitS <- fitCyclopsModel(dataPtrS, prior = createPrior("none"),
                                    control = createControl(noiseLevel = "silent"))
 
-    expect_equal(coef(cyclopsFitS), coef(glmFit), tolerance = tolerance)
+    expect_equal(coef(cyclopsFitS), coef(glmFit), tolerance = tolerance * 10)
 })
 
 test_that("Speed difference", {

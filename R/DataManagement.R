@@ -72,6 +72,8 @@
 #' Currently undocumented
 #' @param normalize
 #' String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)
+#' @param floatingPoint
+#' Integer: Floating-point representation size (32 or 64)
 #'
 #' @return
 #' A list that contains a Cyclops model data object pointer and an operation duration
