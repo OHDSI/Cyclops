@@ -158,6 +158,18 @@ getCovariateTypes <- function(object, covariateLabel) {
     .Call(`_Cyclops_cyclopsGetCovariateType`, object, covariateLabel)
 }
 
+#' @title Get floating point size
+#'
+#' @description
+#' \code{getFloatingPointSize} returns the floating-point representation size in a Cyclops data object
+#'
+#' @param object   A Cyclops data object
+#'
+#' @export
+getFloatingPointSize <- function(object) {
+    .Call(`_Cyclops_cyclopsGetFloatingPointSize`, object)
+}
+
 #' @title Get total number of covariates
 #'
 #' @description
@@ -227,8 +239,8 @@ getNumberOfTypes <- function(object) {
     .Call(`_Cyclops_cyclopsSum`, x, covariateLabel, power)
 }
 
-.cyclopsNewSqlData <- function(modelTypeName, noiseLevel) {
-    .Call(`_Cyclops_cyclopsNewSqlData`, modelTypeName, noiseLevel)
+.cyclopsNewSqlData <- function(modelTypeName, noiseLevel, floatingPoint) {
+    .Call(`_Cyclops_cyclopsNewSqlData`, modelTypeName, noiseLevel, floatingPoint)
 }
 
 .cyclopsMedian <- function(vector) {
@@ -295,7 +307,7 @@ getTimeVector <- function(object) {
     .Call(`_Cyclops_cyclopsReadFileData`, fileName, modelTypeName)
 }
 
-.cyclopsModelData <- function(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset = FALSE, numTypes = 1L) {
-    .Call(`_Cyclops_cyclopsModelData`, pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset, numTypes)
+.cyclopsModelData <- function(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset = FALSE, numTypes = 1L, floatingPoint = 64L) {
+    .Call(`_Cyclops_cyclopsModelData`, pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset, numTypes, floatingPoint)
 }
 

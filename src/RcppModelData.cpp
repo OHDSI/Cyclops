@@ -175,6 +175,20 @@ CharacterVector cyclopsGetCovariateType(Environment object, const std::vector<in
 	return types;
 }
 
+//' @title Get floating point size
+//'
+//' @description
+//' \code{getFloatingPointSize} returns the floating-point representation size in a Cyclops data object
+//'
+//' @param object   A Cyclops data object
+//'
+//' @export
+//  [[Rcpp::export(getFloatingPointSize)]]
+int cyclopsGetFloatingPointSize(Environment object) {
+    XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
+    return data->getFloatingPointSize();
+}
+
 //' @title Get total number of covariates
 //'
 //' @description
@@ -344,17 +358,31 @@ std::vector<double> cyclopsSum(Environment x, const std::vector<long>& covariate
 
 
 
+bsccs::AbstractModelData* factory(const bsccs::ModelType modelType, const bool silent,
+                           const int floatingPoint) {
+    using namespace bsccs;
+
+    if (floatingPoint == 32) {
+        return new RcppModelData<float>(modelType,
+            bsccs::make_shared<loggers::RcppProgressLogger>(silent),
+            bsccs::make_shared<loggers::RcppErrorHandler>());
+    } else {
+        return new RcppModelData<double>(modelType,
+            bsccs::make_shared<loggers::RcppProgressLogger>(silent),
+            bsccs::make_shared<loggers::RcppErrorHandler>());
+    }
+}
+
 // [[Rcpp::export(".cyclopsNewSqlData")]]
-List cyclopsNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel) {
+List cyclopsNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel,
+                       int floatingPoint) {
 	using namespace bsccs;
 
 	NoiseLevels noise = RcppCcdInterface::parseNoiseLevel(noiseLevel);
 	bool silent = (noise == SILENT);
 
     ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName);
-	AbstractModelData* ptr = new RcppModelData<double>(modelType,
-        bsccs::make_shared<loggers::RcppProgressLogger>(silent),
-        bsccs::make_shared<loggers::RcppErrorHandler>());
+    AbstractModelData* ptr = factory(modelType, silent, floatingPoint);
 
 	XPtr<AbstractModelData> sqlModelData(ptr);
 
@@ -634,7 +662,8 @@ List cyclopsReadFileData(const std::string& fileName, const std::string& modelTy
 List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix,
     const std::string& modelTypeName,
     bool useTimeAsOffset = false,
-    int numTypes = 1) {
+    int numTypes = 1,
+    int floatingPoint = 64) {
 
     using namespace bsccs;
     ModelType modelType = RcppCcdInterface::parseModelType(modelTypeName);
@@ -682,10 +711,14 @@ List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEX
 		ipv = ixx.slot("p");
 	}
 
-	auto modelData = new RcppModelData<double>(modelType, ipid, iy, iz, ioffs, dxv, siv,
-                                            spv, sxv, iiv, ipv, useTimeAsOffset, numTypes);
+	AbstractModelData* modelData =
+	    (floatingPoint == 32) ?
+	    static_cast<AbstractModelData*>(new RcppModelData<float>(modelType, ipid, iy, iz, ioffs, dxv, siv,
+                               spv, sxv, iiv, ipv, useTimeAsOffset, numTypes)) :
+        static_cast<AbstractModelData*>(new RcppModelData<double>(modelType, ipid, iy, iz, ioffs, dxv, siv,
+            spv, sxv, iiv, ipv, useTimeAsOffset, numTypes));
 
-    XPtr<AbstractModelData> ptr(static_cast<AbstractModelData*>(modelData));
+    XPtr<AbstractModelData> ptr(modelData);
 
 	double duration = timer();
 

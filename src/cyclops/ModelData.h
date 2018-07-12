@@ -162,6 +162,8 @@ public:
 
     virtual void printMatrixMarketFormat(std::ostream& stream) const = 0;
 
+    virtual int getFloatingPointSize() const = 0;
+
     virtual ~AbstractModelData() { }
 
 // private:
@@ -178,6 +180,8 @@ public:
 
     typedef typename CompressedDataColumn<RealType>::RealVector RealVector;
     typedef typename CompressedDataColumn<RealType>::RealVectorPtr RealVectorPtr;
+
+    int getFloatingPointSize() const { return sizeof(RealType) * 8; }
 
     size_t getNumberOfColumns() const { return X.getNumberOfColumns(); }
 

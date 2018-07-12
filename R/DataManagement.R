@@ -96,11 +96,15 @@
 #' @export
 createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelType,
                               data, subset = NULL, weights = NULL, offset = NULL, time = NULL, pid = NULL, y = NULL, type = NULL, dx = NULL,
-                              sx = NULL, ix = NULL, model = FALSE, normalize = NULL, method = "cyclops.fit") {
+                              sx = NULL, ix = NULL, model = FALSE, normalize = NULL,
+                              floatingPoint = 64,
+                              method = "cyclops.fit") {
     cl <- match.call() # save to return
     mf.all <- match.call(expand.dots = FALSE)
 
     if (!.isValidModelType(modelType)) stop("Invalid model type.")
+
+    .checkFloatingPoint(floatingPoint)
 
     hasIntercept <- FALSE
     colnames <- NULL
@@ -331,7 +335,8 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
         pid <- c(1:length(y)) # TODO Should not be necessary
     }
 
-    md <- .cyclopsModelData(pid, y, type, time, dx, sx, ix, modelType, useTimeAsOffset, numTypes)
+    md <- .cyclopsModelData(pid, y, type, time, dx, sx, ix, modelType, useTimeAsOffset, numTypes,
+                            floatingPoint)
     result <- new.env(parent = emptyenv())
     result$cyclopsDataPtr <- md$data
     result$modelType <- modelType
@@ -375,6 +380,12 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
     }
 
     result
+}
+
+.checkFloatingPoint <- function(floatingPoint) {
+      if (floatingPoint != 64 && floatingPoint != 32) {
+          stop("Invalid floating point precision")
+      }
 }
 
 .normalizeCovariates <- function(cyclopsData, type) {
@@ -826,7 +837,8 @@ finalizeSqlCyclopsData <- function(object,
 }
 
 #' @keywords internal
-createSqlCyclopsData <- function(modelType, control) {
+createSqlCyclopsData <- function(modelType, control,
+                                 floatingPoint = 64) {
     cl <- match.call() # save to return
 
     if (!.isValidModelType(modelType)) stop("Invalid model type.")
@@ -837,7 +849,7 @@ createSqlCyclopsData <- function(modelType, control) {
         noiseLevel <- control$noiseLevel
     }
 
-    sql <- .cyclopsNewSqlData(modelType, noiseLevel)
+    sql <- .cyclopsNewSqlData(modelType, noiseLevel, floatingPoint)
     result <- new.env(parent = emptyenv()) # TODO Remove code duplication with two functions above
     result$cyclopsDataPtr <- sql$cyclopsDataPtr
     result$modelType <- modelType
@@ -946,6 +958,7 @@ print.cyclopsData <- function(x, show.call=TRUE ,...) {
         if (.cyclopsGetHasOffset(x)) {
             cat("    Offset: ", .cyclopsGetMeanOffset(x), " (mean)\n", sep = "")
         }
+        cat("   FP size:", getFloatingPointSize(x))
     } else {
         cat("\nObject is no longer or improperly initialized.\n")
     }

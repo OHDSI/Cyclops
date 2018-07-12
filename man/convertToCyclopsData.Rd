@@ -8,15 +8,16 @@
 \usage{
 convertToCyclopsData(outcomes, covariates, modelType = "lr",
   addIntercept = TRUE, checkSorting = TRUE, checkRowIds = TRUE,
-  normalize = NULL, quiet = FALSE)
+  normalize = NULL, quiet = FALSE, floatingPoint = 64)
 
 \method{convertToCyclopsData}{ffdf}(outcomes, covariates, modelType = "lr",
   addIntercept = TRUE, checkSorting = TRUE, checkRowIds = TRUE,
-  normalize = NULL, quiet = FALSE)
+  normalize = NULL, quiet = FALSE, floatingPoint = 64)
 
 \method{convertToCyclopsData}{data.frame}(outcomes, covariates,
   modelType = "lr", addIntercept = TRUE, checkSorting = TRUE,
-  checkRowIds = TRUE, normalize = NULL, quiet = FALSE)
+  checkRowIds = TRUE, normalize = NULL, quiet = FALSE,
+  floatingPoint = 64)
 }
 \arguments{
 \item{outcomes}{A data frame or ffdf object containing the outcomes with predefined columns (see below).}
@@ -34,6 +35,8 @@ convertToCyclopsData(outcomes, covariates, modelType = "lr",
 \item{normalize}{String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)}
 
 \item{quiet}{If true, (warning) messages are surpressed.}
+
+\item{floatingPoint}{Specified floating-point representation size (32 or 64)}
 }
 \value{
 An object of type cyclopsData

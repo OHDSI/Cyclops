@@ -94,6 +94,7 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
 #' @param checkRowIds   Check if all rowIds in the covariates appear in the outcomes.
 #' @param normalize     String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)
 #' @param quiet         If true, (warning) messages are surpressed.
+#' @param floatingPoint Specified floating-point representation size (32 or 64)
 #'
 #' @details
 #' These columns are expected in the outcome object:
@@ -150,7 +151,8 @@ convertToCyclopsData <- function(outcomes,
                                  checkSorting = TRUE,
                                  checkRowIds = TRUE,
                                  normalize = NULL,
-                                 quiet = FALSE) {
+                                 quiet = FALSE,
+                                 floatingPoint = 64) {
     UseMethod("convertToCyclopsData")
 }
 
@@ -163,7 +165,8 @@ convertToCyclopsData.ffdf <- function(outcomes,
                                       checkSorting = TRUE,
                                       checkRowIds = TRUE,
                                       normalize = NULL,
-                                      quiet = FALSE){
+                                      quiet = FALSE,
+                                      floatingPoint = 64){
     if ((modelType == "clr" | modelType == "cpr") & addIntercept){
         if(!quiet) {
             warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)
@@ -256,7 +259,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
         }
     }
 
-    dataPtr <- createSqlCyclopsData(modelType = modelType)
+    dataPtr <- createSqlCyclopsData(modelType = modelType, floatingPoint = floatingPoint)
 
     loadNewSqlCyclopsDataY(dataPtr,
                            if (is.null(outcomes$stratumId) | modelType == "lr" | modelType == "pr") {NULL} else {ff::as.ram.ff(outcomes$stratumId)},
@@ -301,7 +304,8 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                             checkSorting = TRUE,
                                             checkRowIds = TRUE,
                                             normalize = NULL,
-                                            quiet = FALSE){
+                                            quiet = FALSE,
+                                            floatingPoint = 64){
     if ((modelType == "clr" | modelType == "cpr") & addIntercept){
         if(!quiet)
             warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)
@@ -374,7 +378,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
             covariates <- covariates[covariateRowsWithMapping,]
         }
     }
-    dataPtr <- createSqlCyclopsData(modelType = modelType)
+    dataPtr <- createSqlCyclopsData(modelType = modelType, floatingPoint = floatingPoint)
 
     loadNewSqlCyclopsDataY(dataPtr, outcomes$stratumId, outcomes$rowId, outcomes$y, outcomes$time)
 

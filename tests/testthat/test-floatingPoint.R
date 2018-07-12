@@ -1,0 +1,54 @@
+library("testthat")
+
+context("test-floatingPoint.R")
+
+#
+# FP precision
+#
+
+test_that("Double precision", {
+	binomial_bid <- c(1,5,10,20,30,40,50,75,100,150,200)
+	binomial_n <- c(31,29,27,25,23,21,19,17,15,15,15)
+	binomial_y <- c(0,3,6,7,9,13,17,12,11,14,13)
+
+	log_bid <- log(c(rep(rep(binomial_bid, binomial_n - binomial_y)), rep(binomial_bid, binomial_y)))
+	y <- c(rep(0, sum(binomial_n - binomial_y)), rep(1, sum(binomial_y)))
+
+	tolerance <- 1E-4
+
+	glmFit <- glm(y ~ log_bid, family = binomial()) # gold standard
+
+	dataPtrD <- createCyclopsData(y ~ log_bid, modelType = "lr",
+	                              floatingPoint = 64)
+
+	expect_equal(getFloatingPointSize(dataPtrD), 64)
+
+	cyclopsFitD <- fitCyclopsModel(dataPtrD, prior = createPrior("none"),
+	                       control = createControl(noiseLevel = "silent"))
+
+	expect_equal(coef(cyclopsFitD), coef(glmFit), tolerance = tolerance)
+})
+
+test_that("Single precision", {
+    binomial_bid <- c(1,5,10,20,30,40,50,75,100,150,200)
+    binomial_n <- c(31,29,27,25,23,21,19,17,15,15,15)
+    binomial_y <- c(0,3,6,7,9,13,17,12,11,14,13)
+
+    log_bid <- log(c(rep(rep(binomial_bid, binomial_n - binomial_y)), rep(binomial_bid, binomial_y)))
+    y <- c(rep(0, sum(binomial_n - binomial_y)), rep(1, sum(binomial_y)))
+
+    tolerance <- 1E-4
+
+    glmFit <- glm(y ~ log_bid, family = binomial()) # gold standard
+
+    dataPtrS <- createCyclopsData(y ~ log_bid, modelType = "lr",
+                                  floatingPoint = 32)
+
+    expect_equal(getFloatingPointSize(dataPtrS), 32)
+
+    cyclopsFitS <- fitCyclopsModel(dataPtrS, prior = createPrior("none"),
+                                   control = createControl(noiseLevel = "silent"))
+
+    expect_equal(coef(cyclopsFitS), coef(glmFit), tolerance = tolerance)
+})
+

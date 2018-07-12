@@ -389,6 +389,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsGetFloatingPointSize
+int cyclopsGetFloatingPointSize(Environment object);
+RcppExport SEXP _Cyclops_cyclopsGetFloatingPointSize(SEXP objectSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type object(objectSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetFloatingPointSize(object));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsGetNumberOfColumns
 int cyclopsGetNumberOfColumns(Environment object);
 RcppExport SEXP _Cyclops_cyclopsGetNumberOfColumns(SEXP objectSEXP) {
@@ -498,14 +509,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsNewSqlData
-List cyclopsNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel);
-RcppExport SEXP _Cyclops_cyclopsNewSqlData(SEXP modelTypeNameSEXP, SEXP noiseLevelSEXP) {
+List cyclopsNewSqlData(const std::string& modelTypeName, const std::string& noiseLevel, int floatingPoint);
+RcppExport SEXP _Cyclops_cyclopsNewSqlData(SEXP modelTypeNameSEXP, SEXP noiseLevelSEXP, SEXP floatingPointSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string& >::type modelTypeName(modelTypeNameSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type noiseLevel(noiseLevelSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsNewSqlData(modelTypeName, noiseLevel));
+    Rcpp::traits::input_parameter< int >::type floatingPoint(floatingPointSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsNewSqlData(modelTypeName, noiseLevel, floatingPoint));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -717,8 +729,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsModelData
-List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix, const std::string& modelTypeName, bool useTimeAsOffset, int numTypes);
-RcppExport SEXP _Cyclops_cyclopsModelData(SEXP pidSEXP, SEXP ySEXP, SEXP zSEXP, SEXP offsSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP, SEXP modelTypeNameSEXP, SEXP useTimeAsOffsetSEXP, SEXP numTypesSEXP) {
+List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix, const std::string& modelTypeName, bool useTimeAsOffset, int numTypes, int floatingPoint);
+RcppExport SEXP _Cyclops_cyclopsModelData(SEXP pidSEXP, SEXP ySEXP, SEXP zSEXP, SEXP offsSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP, SEXP modelTypeNameSEXP, SEXP useTimeAsOffsetSEXP, SEXP numTypesSEXP, SEXP floatingPointSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -732,7 +744,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::string& >::type modelTypeName(modelTypeNameSEXP);
     Rcpp::traits::input_parameter< bool >::type useTimeAsOffset(useTimeAsOffsetSEXP);
     Rcpp::traits::input_parameter< int >::type numTypes(numTypesSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsModelData(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset, numTypes));
+    Rcpp::traits::input_parameter< int >::type floatingPoint(floatingPointSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsModelData(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset, numTypes, floatingPoint));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -769,6 +782,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetNumberOfStrata", (DL_FUNC) &_Cyclops_cyclopsGetNumberOfStrata, 1},
     {"_Cyclops_cyclopsGetCovariateIds", (DL_FUNC) &_Cyclops_cyclopsGetCovariateIds, 1},
     {"_Cyclops_cyclopsGetCovariateType", (DL_FUNC) &_Cyclops_cyclopsGetCovariateType, 2},
+    {"_Cyclops_cyclopsGetFloatingPointSize", (DL_FUNC) &_Cyclops_cyclopsGetFloatingPointSize, 1},
     {"_Cyclops_cyclopsGetNumberOfColumns", (DL_FUNC) &_Cyclops_cyclopsGetNumberOfColumns, 1},
     {"_Cyclops_cyclopsPrintMatrixMarket", (DL_FUNC) &_Cyclops_cyclopsPrintMatrixMarket, 2},
     {"_Cyclops_cyclopsGetNumberOfRows", (DL_FUNC) &_Cyclops_cyclopsGetNumberOfRows, 1},
@@ -778,7 +792,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsSumByGroup", (DL_FUNC) &_Cyclops_cyclopsSumByGroup, 4},
     {"_Cyclops_cyclopsSumByStratum", (DL_FUNC) &_Cyclops_cyclopsSumByStratum, 3},
     {"_Cyclops_cyclopsSum", (DL_FUNC) &_Cyclops_cyclopsSum, 3},
-    {"_Cyclops_cyclopsNewSqlData", (DL_FUNC) &_Cyclops_cyclopsNewSqlData, 2},
+    {"_Cyclops_cyclopsNewSqlData", (DL_FUNC) &_Cyclops_cyclopsNewSqlData, 3},
     {"_Cyclops_cyclopsMedian", (DL_FUNC) &_Cyclops_cyclopsMedian, 1},
     {"_Cyclops_cyclopsQuantile", (DL_FUNC) &_Cyclops_cyclopsQuantile, 2},
     {"_Cyclops_cyclopsNormalizeCovariates", (DL_FUNC) &_Cyclops_cyclopsNormalizeCovariates, 2},
@@ -795,7 +809,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsAppendSqlData", (DL_FUNC) &_Cyclops_cyclopsAppendSqlData, 8},
     {"_Cyclops_cyclopsGetInterceptLabel", (DL_FUNC) &_Cyclops_cyclopsGetInterceptLabel, 1},
     {"_Cyclops_cyclopsReadFileData", (DL_FUNC) &_Cyclops_cyclopsReadFileData, 2},
-    {"_Cyclops_cyclopsModelData", (DL_FUNC) &_Cyclops_cyclopsModelData, 10},
+    {"_Cyclops_cyclopsModelData", (DL_FUNC) &_Cyclops_cyclopsModelData, 11},
     {NULL, NULL, 0}
 };
 
