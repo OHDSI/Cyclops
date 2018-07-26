@@ -417,11 +417,13 @@ public:
         	myHPid.push_back(hPid[i]);
         }
         detail::resizeAndCopyToDevice(myHPid, dId, queue);
+        /*
         std::cout << "dId: ";
         for (auto x:myHPid) {
         	std::cout << x << " ";
         }
         std::cout << "\n";
+         */
         detail::resizeAndCopyToDevice(hOffs, dOffs, queue);
         detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
         detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
@@ -647,6 +649,7 @@ public:
 			queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, localWorkSize);
 			queue.finish();
 
+			/*
 			std::vector<real> hDenominator;
 			hDenominator.resize(dDenominator.size());
 			compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(hDenominator), queue);
@@ -655,6 +658,7 @@ public:
 				std::cout << x << " ";
 			}
 			std::cout << "\n";
+			 */
 
 #ifdef CYCLOPS_DEBUG_TIMING
 			auto end = bsccs::chrono::steady_clock::now();

@@ -1535,6 +1535,8 @@ public:
                 gradient * (static_cast<RealType>(1.0) - g) :
                 weight * (numerator2 / denominator - g * g);
 
+        //std::cout << weight << " " << numerator << " " << numerator2 << " " << denominator <<  " " << gradient << " " << hessian << " ";
+
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
 

@@ -2372,15 +2372,15 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 		auto expXBeta = offsExpXBetaPool[cvIndex].data();
 		auto hPidStart = hPidPool[cvIndex];
 		fillVector(denomPidPool[cvIndex].data(), N, BaseModel::getDenomNullValue());
-		//auto func = [&](const tbb::blocked_range<int>& range) {
-	    //	for (int k = range.begin(); k < range.end(); ++k) {
-		for (int k=0; k<K; ++k) {
+		auto func = [&](const tbb::blocked_range<int>& range) {
+	    	for (int k = range.begin(); k < range.end(); ++k) {
+		//for (int k=0; k<K; ++k) {
 	    		expXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
 	    		//incrementByGroup(denomPidStart, hPidPool[cvIndex], k, offsExpXBetaPool[cvIndex][k]);
 	    		incrementByGroup(denomPidStart, hPidStart, k, expXBeta[k]);
 	    	}
-		//};
-		//tbb::parallel_for(tbb::blocked_range<int>(0,K),func);
+		};
+		tbb::parallel_for(tbb::blocked_range<int>(0,K),func);
 		computeAccumlatedDenominator(useWeights, cvIndex);
 	}
     //tbb::parallel_for(tbb::blocked_range<int>(0,syncCVFolds),func);
@@ -3130,9 +3130,9 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(std::vector<double>& allD
 #endif
 #endif
 
-	//auto func = [&](const tbb::blocked_range<int>& range) {
-		//for (int i = range.begin(); i < range.end(); ++i) {
-	for (int i=0; i<allDelta.size(); i++) {
+	auto func = [&](const tbb::blocked_range<int>& range) {
+		for (int i = range.begin(); i < range.end(); ++i) {
+	//for (int i=0; i<allDelta.size(); i++) {
 		// Run-time dispatch to implementation depending on covariate FormatType
 		switch(modelData.getFormatType(updateIndices[i].first)) {
 		case INDICATOR :
@@ -3152,9 +3152,9 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(std::vector<double>& allD
 		//exit(-1);
 		}
 		}
-	//};
+	};
 
-	//tbb::parallel_for(tbb::blocked_range<int>(0,allDelta.size()),func);
+	tbb::parallel_for(tbb::blocked_range<int>(0,allDelta.size()),func);
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifndef CYCLOPS_DEBUG_TIMING_LOW
@@ -3448,13 +3448,13 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(int index, 
 		}
 	}
 
-	//auto func = [&](const tbb::blocked_range<int>& range) {
-		//for (int k = range.begin(); k < range.end(); ++k) {
-		for (int k=0; k<count; k++) {
+	auto func = [&](const tbb::blocked_range<int>& range) {
+		for (int k = range.begin(); k < range.end(); ++k) {
+		//for (int k=0; k<count; k++) {
 			computeGradientAndHessian(index, &ghList[temp[k]].first, &ghList[temp[k]].second, useWeights, temp[k]);
 		}
-	//};
-	//tbb::parallel_for(tbb::blocked_range<int>(0,count),func);
+	};
+	tbb::parallel_for(tbb::blocked_range<int>(0,count),func);
 }
 
 
@@ -3468,9 +3468,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(
     auto start = bsccs::chrono::steady_clock::now();
 #endif
 #endif
-	//auto func = [&](const tbb::blocked_range<int>& range) {
-		//for (int i = range.begin(); i < range.end(); ++i) {
-    for (int i = 0; i < updateIndices.size(); i++) {
+	auto func = [&](const tbb::blocked_range<int>& range) {
+		for (int i = range.begin(); i < range.end(); ++i) {
+    //for (int i = 0; i < updateIndices.size(); i++) {
     	 double *ogradient = &(gh[i].first);
     	 double *ohessian  = &(gh[i].second);
 
@@ -3492,9 +3492,9 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessian(
     		 break;
     	 }
     }
-	//};
+	};
 
-	//tbb::parallel_for(tbb::blocked_range<int>(0,updateIndices.size()),func);
+	tbb::parallel_for(tbb::blocked_range<int>(0,updateIndices.size()),func);
 
 
 #ifdef CYCLOPS_DEBUG_TIMING
