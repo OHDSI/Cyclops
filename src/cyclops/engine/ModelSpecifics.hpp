@@ -1001,7 +1001,7 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 //                 AccumulateLikeNumeratorKernel<BaseModel,real,int,false>(begin(hY), begin(hXBeta), begin(hKWeight)),
 //                 SerialOnly()
 //     		);
-
+/*
     auto rangeNumerator = helper::getRangeAllNumerators(K, hY, hXBeta, hKWeight);
 
     real logLikelihood = useCrossValidation ?
@@ -1074,6 +1074,37 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 	if (BaseModel::likelihoodHasFixedTerms) {
 		logLikelihood += logLikelihoodFixedTerm;
 	}
+	*/
+
+	real logLikelihood = static_cast<real>(0.0);
+	if (useCrossValidation) {
+		for (size_t i = 0; i < K; i++) {
+			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]) * hKWeight[i];
+		}
+	} else {
+		for (size_t i = 0; i < K; i++) {
+			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]);
+		}
+	}
+
+	if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+		if(BaseModel::cumulativeGradientAndHessian) {
+			for (size_t i = 0; i < N; i++) {
+				// Weights modified in computeNEvents()
+				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], accDenomPid[i]);
+			}
+		} else {  // TODO Unnecessary code duplication
+			for (size_t i = 0; i < N; i++) {
+				// Weights modified in computeNEvents()
+				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], denomPid[i]);
+			}
+		}
+	}
+	// RANGE
+
+	if (BaseModel::likelihoodHasFixedTerms) {
+		logLikelihood += logLikelihoodFixedTerm;
+	}
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
@@ -1129,6 +1160,8 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(double* 
 		}
 
 		// Compile-time switch for models with / with-out PID (hasIndependentRows)
+
+		/*
 		auto range = helper::getRangeAllPredictiveLikelihood(K, hY, hXBeta,
 				(BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
 						weights, hPid, std::integral_constant<bool, BaseModel::hasIndependentRows>());
@@ -1140,7 +1173,33 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(double* 
 				kernel,
 				SerialOnly()
 		);
+		*/
 
+
+		for (size_t i = 0; i < K; i++) {
+			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]) * weights[i];
+		}
+
+		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+			if(BaseModel::cumulativeGradientAndHessian) {
+				for (size_t i = 0; i < N; i++) {
+					// Weights modified in computeNEvents()
+					logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], accDenomPid[i]);
+				}
+			} else {  // TODO Unnecessary code duplication
+				for (size_t i = 0; i < N; i++) {
+					// Weights modified in computeNEvents()
+					logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], denomPid[i]);
+				}
+			}
+		}
+		// RANGE
+
+		if (BaseModel::likelihoodHasFixedTerms) {
+			logLikelihood += logLikelihoodFixedTerm;
+		}
+
+/*
 		if (BaseModel::cumulativeGradientAndHessian) {
 
 			// 		hPidInternal = savedPid; // make copy; TODO swap
@@ -1148,6 +1207,7 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(double* 
 			setPidForAccumulation(&saveKWeight[0]);
 			computeRemainingStatistics(true);
 		}
+		*/
 	}
 
 	return static_cast<double>(logLikelihood);
@@ -2352,8 +2412,13 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 		if (BaseModel::likelihoodHasDenominator) {
 			fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
 			for (size_t k = 0; k < K; ++k) {
-				offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
-				incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
+				real newExpXBeta = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
+				offsExpXBeta[k] = newExpXBeta;
+				real weightoffsExpXBeta =  useWeights ?
+						hKWeight[k] * newExpXBeta :
+						newExpXBeta; // TODO Delegate condition to gOEXB
+
+				incrementByGroup(denomPid.data(), hPid, k, newExpXBeta);
 			}
 			computeAccumlatedDenominator(useWeights); // WAS computeAccumlatedNumerDenom
 		}

@@ -313,6 +313,22 @@ void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
 
 double CyclicCoordinateDescent::getPredictiveLogLikelihood(double* weights) {
 
+	std::vector<double> savedWeights;
+
+	if (weights != nullptr) {
+		savedWeights = hWeights; // Save original
+		setWeights(weights);
+	}
+
+	auto result = getLogLikelihood();
+
+	std::cout << "pred log likelihood " << result << "\n";
+
+	if (weights != nullptr) {
+		setWeights(savedWeights.data());
+	}
+
+	/*
 	xBetaKnown = false;
 
 	if (!xBetaKnown) {
@@ -327,10 +343,13 @@ double CyclicCoordinateDescent::getPredictiveLogLikelihood(double* weights) {
 	}
 
 	getDenominators();
+	*/
 
 	std::cout << "iterations: " << lastIterationCount << " ";
 
-	return modelSpecifics.getPredictiveLogLikelihood(weights); // TODO Pass double
+	return result;
+
+	//return modelSpecifics.getPredictiveLogLikelihood(weights); // TODO Pass double
 }
 
 void CyclicCoordinateDescent::getPredictiveEstimates(double* y, double* weights) const {
