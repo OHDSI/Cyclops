@@ -1224,7 +1224,7 @@ void CyclicCoordinateDescent::findMode(
 	        			if (delta != 0.0) {
 	        				sufficientStatisticsKnown = false;
 	        				updateSufficientStatistics(delta, index);
-	        				computeRemainingStatistics();
+	        				//computeRemainingStatistics();
 	        			}
 	        		//}
 

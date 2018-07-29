@@ -1569,6 +1569,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 #endif
 
 	} else if (BaseModel::hasIndependentRows) {
+		/*
 		// Poisson, Logistic, Least-Squares
 		auto range = helper::independent::getRangeX(modelData, index,
 		        offsExpXBeta, hXBeta, hY, denomPid, hNWeight,
@@ -1593,6 +1594,24 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 		gradient = result.real();
 		hessian = result.imag();
+		*/
+		IteratorType it(modelData, index);
+		 //IteratorType it(hX, index);
+
+		 for (; it; ++it) {
+			 const int i = it.index();
+
+			 real numerator1 = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], hXBeta[i], hY[i]);
+			 real numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+					 BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<real>(0);
+
+			 // Compile-time delegation
+			 BaseModel::incrementGradientAndHessian(it,
+					 w, // Signature-only, for iterator-type specialization
+					 &gradient, &hessian, numerator1, numerator2,
+					 denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
+
+		 }
 
 	} else if (BaseModel::exactCLR) {
 		// TiedConditionalLogisticRegression
@@ -2201,6 +2220,7 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 // #ifdef NEW_LOOPS
 
 #if 1
+	/*
 	auto range = helper::getRangeX(modelData, index, typename IteratorType::tag());
 
 	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,real,int>(
@@ -2220,7 +2240,7 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 // 		RcppParallel() // TODO Currently *not* thread-safe
           SerialOnly()
 		);
-
+*/
 #else
 
     if (BaseModel::hasIndependentRows) {
@@ -2286,17 +2306,17 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 
 
 // #else
-// 	IteratorType it(modelData, index);
-// 	for (; it; ++it) {
-// 		const int k = it.index();
-// 		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
-// 		// Update denominators as well
-// 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-// 			real oldEntry = offsExpXBeta[k];
-// 			real newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
-// 			incrementByGroup(denomPid, hPid, k, (newEntry - oldEntry));
-// 		}
-// 	}
+ 	IteratorType it(modelData, index);
+ 	for (; it; ++it) {
+ 		const int k = it.index();
+ 		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
+ 		// Update denominators as well
+ 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+ 			real oldEntry = offsExpXBeta[k];
+ 			real newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
+ 			incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry));
+ 		}
+ 	}
 //
 // #endif
 
