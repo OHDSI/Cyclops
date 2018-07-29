@@ -1231,7 +1231,7 @@ void CyclicCoordinateDescent::findMode(
 	        		*/
 
 	        		updateSufficientStatistics(deltaVec, index);
-	        		computeRemainingStatistics(true, deltaVec);
+	        		//computeRemainingStatistics(true, deltaVec);
 	        	} else {
 	        		//if (!fixBeta[index]) {
 	        			double delta = ccdUpdateBeta(index);

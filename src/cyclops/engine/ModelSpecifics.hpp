@@ -1001,7 +1001,7 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 //                 AccumulateLikeNumeratorKernel<BaseModel,real,int,false>(begin(hY), begin(hXBeta), begin(hKWeight)),
 //                 SerialOnly()
 //     		);
-/*
+
     auto rangeNumerator = helper::getRangeAllNumerators(K, hY, hXBeta, hKWeight);
 
     real logLikelihood = useCrossValidation ?
@@ -1074,7 +1074,7 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 	if (BaseModel::likelihoodHasFixedTerms) {
 		logLikelihood += logLikelihoodFixedTerm;
 	}
-	*/
+	/*
 
 	real logLikelihood = static_cast<real>(0.0);
 	if (useCrossValidation) {
@@ -1105,6 +1105,7 @@ double ModelSpecifics<BaseModel,WeightType>::getLogLikelihood(bool useCrossValid
 	if (BaseModel::likelihoodHasFixedTerms) {
 		logLikelihood += logLikelihoodFixedTerm;
 	}
+	*/
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
@@ -1161,7 +1162,6 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(double* 
 
 		// Compile-time switch for models with / with-out PID (hasIndependentRows)
 
-		/*
 		auto range = helper::getRangeAllPredictiveLikelihood(K, hY, hXBeta,
 				(BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
 						weights, hPid, std::integral_constant<bool, BaseModel::hasIndependentRows>());
@@ -1173,9 +1173,9 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(double* 
 				kernel,
 				SerialOnly()
 		);
-		*/
 
 
+/*
 		for (size_t i = 0; i < K; i++) {
 			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]) * weights[i];
 		}
@@ -1198,8 +1198,9 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(double* 
 		if (BaseModel::likelihoodHasFixedTerms) {
 			logLikelihood += logLikelihoodFixedTerm;
 		}
+		*/
 
-/*
+
 		if (BaseModel::cumulativeGradientAndHessian) {
 
 			// 		hPidInternal = savedPid; // make copy; TODO swap
@@ -1207,7 +1208,7 @@ double ModelSpecifics<BaseModel,WeightType>::getPredictiveLogLikelihood(double* 
 			setPidForAccumulation(&saveKWeight[0]);
 			computeRemainingStatistics(true);
 		}
-		*/
+
 	}
 
 	return static_cast<double>(logLikelihood);
@@ -3026,6 +3027,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 #endif
 
 	} else if (BaseModel::hasIndependentRows) {
+		/*
 		//auto blah = std::begin(modelData.getCompressedColumnVectorSTL(0));
 
 		// Poisson, Logistic, Least-Squares
@@ -3052,6 +3054,24 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 
 		gradient = result.real();
 		hessian = result.imag();
+		*/
+
+		IteratorType it(modelData, index);
+				 //IteratorType it(hX, index);
+
+		for (; it; ++it) {
+			const int i = it.index();
+
+			real numerator1 = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBetaPool[cvIndex][i], hXBetaPool[cvIndex][i], hY[i]);
+			real numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+					BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBetaPool[cvIndex][i]) : static_cast<real>(0);
+
+			// Compile-time delegation
+			BaseModel::incrementGradientAndHessian(it,
+					w, // Signature-only, for iterator-type specialization
+					&gradient, &hessian, numerator1, numerator2,
+					denomPidPool[cvIndex][i], hNWeightPool[cvIndex][i], it.value(), hXBetaPool[cvIndex][i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
+		}
 
 	} else if (BaseModel::exactCLR) { //TODO figure out weights
 		// TiedConditionalLogisticRegression
@@ -3326,16 +3346,8 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 	}
 
 #if 1
+	/*
 	auto range = helper::getRangeX(modelData, index, typename IteratorType::tag());
-
-/*
-	std::cout << "offExpXBetaPool " << cvIndex << " before: ";
-	for (auto x : offsExpXBetaPool[cvIndex]) {
-		std::cout << " " << x;
-	}
-	std::cout << "\n";
-	*/
-
 
 	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,real,int>(
 					realDelta, begin(offsExpXBetaPool[cvIndex]), begin(hXBetaPool[cvIndex]),
@@ -3354,13 +3366,7 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 // 		RcppParallel() // TODO Currently *not* thread-safe
           SerialOnly()
 		);
-/*
-	std::cout << "offExpXBetaPool " << cvIndex << " after: ";
-	for (auto x : offsExpXBetaPool[cvIndex]) {
-		std::cout << " " << x;
-	}
-	std::cout << "\n";
-	*/
+*/
 
 #else
 
@@ -3424,6 +3430,19 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
 //
 // 	::Rf_error("return");
 
+ 	IteratorType it(modelData, index);
+ 	for (; it; ++it) {
+ 		const int k = it.index();
+ 		hXBetaPool[cvIndex][k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
+ 		// Update denominators as well
+ 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+ 			real oldEntry = offsExpXBetaPool[cvIndex][k];
+ 			real newEntry = offsExpXBetaPool[cvIndex][k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBetaPool[cvIndex][k], hY[k], k);
+ 			incrementByGroup(denomPidPool[cvIndex].data(), hPid, k, (newEntry - oldEntry));
+ 		}
+ 	}
+//
+// #endif
 
 
 // #else
