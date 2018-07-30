@@ -229,6 +229,12 @@ public:
 
 	virtual void resetBeta() {};
 
+	virtual std::vector<double> getBeta() {
+		std::vector<double> blah;
+		blah.push_back(0);
+		return(blah);
+	};
+
 	virtual double getPredictiveLogLikelihood(double* weights, int cvIndex) = 0; // pure virtual
 
 	virtual void computeAllGradientAndHessian(std::vector<GradientHessian>& gh, const std::vector<bool>& fixBeta, bool useWeights) = 0; // pure virtual

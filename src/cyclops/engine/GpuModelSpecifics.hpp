@@ -351,7 +351,7 @@ public:
       dY(ctx), dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dAccDenominator(ctx), dBuffer(ctx), dKWeight(ctx), dNWeight(ctx),
       dId(ctx), dNorm(ctx), dOffs(ctx), dFixBeta(ctx), dIntVector1(ctx), dIntVector2(ctx), dIntVector3(ctx), dIntVector4(ctx), dRealVector1(ctx), dRealVector2(ctx), dFirstRow(ctx),
       dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx), dNtoK(ctx), dAllDelta(ctx), dColumnsXt(ctx),
-	  dXBetaVector(ctx), dOffsExpXBetaVector(ctx), dDenomPidVector(ctx), dNWeightVector(ctx), dKWeightVector(ctx), dPidVector(ctx),
+	  dXBetaVector(ctx), dOffsExpXBetaVector(ctx), dDenomPidVector(ctx), dNWeightVector(ctx), dKWeightVector(ctx), dPidVector(ctx), dBound(ctx), dXjY(ctx),
 	  dAccDenomPidVector(ctx), dAccNumerPidVector(ctx), dAccNumerPid2Vector(ctx), dAccResetVector(ctx), dPidInternalVector(ctx), dNumerPidVector(ctx),
 	  dNumerPid2Vector(ctx), dNormVector(ctx), dXjXVector(ctx), dXjYVector(ctx), dDeltaVector(ctx), dBoundVector(ctx), dPriorParams(ctx), dBetaVector(ctx),
 	  dAllZero(ctx), dDoneVector(ctx), dIndexListWithPrior(ctx), dCVIndices(ctx), dSMStarts(ctx), dSMScales(ctx), dSMIndices(ctx), dLogX(ctx), dKStrata(ctx),
@@ -588,7 +588,7 @@ public:
     			if (BaseModelG::useNWeights) {
     				detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
     			}
-    			initialized = true;
+    			initialized = false;
     		}
 
     		hBuffer.resize(K);
@@ -1232,12 +1232,6 @@ public:
         	*ogradient = gradient;
         	*ohessian = hessian;
 #else
-        	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
-
-        	for (int i = 0; i < wgs; ++i) { // TODO Use SSE
-        		gradient += hBuffer[i];
-        		hessian  += hBuffer[i + wgs];
-        	}
 
 #ifdef CYCLOPS_DEBUG_TIMING
         auto end0 = bsccs::chrono::steady_clock::now();
@@ -1245,6 +1239,31 @@ public:
         auto name0 = "compGradHessKernelG" + getFormatTypeExtension(formatType) + " ";
         duration[name0] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end0 - start0).count();
 #endif
+        	compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+
+        	for (int i = 0; i < wgs; ++i) { // TODO Use SSE
+        		gradient += hBuffer[i];
+        		hessian  += hBuffer[i + wgs];
+        	}
+
+
+
+        /*
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start1 = bsccs::chrono::steady_clock::now();
+#endif
+
+        auto& kernel1 = kernelEmpty;
+        kernel1.set_arg(0, 1);
+    	queue.enqueue_1d_range_kernel(kernel1, 0, globalWorkSize, tpb);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end1 = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        auto name1 = "emptyKernelG" + getFormatTypeExtension(formatType) + " ";
+        duration[name1] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start1).count();
+#endif
+*/
         }
 
         if (BaseModel::precomputeGradient) { // Compile-time switch
@@ -3005,6 +3024,13 @@ public:
     	}
     }
 
+    virtual std::vector<double> getBeta() {
+    	std::vector<double> blah;
+    	blah.resize(dBeta.size());
+    	compute::copy(std::begin(dBeta), std::end(dBeta), std::begin(blah), queue);
+    	return(blah);
+    }
+
     virtual const RealVector& getXBeta() {
         if (!hXBetaKnown) {
             compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
@@ -3099,10 +3125,16 @@ public:
     }
 
     virtual void resetBeta() {
+    	if (syncCV) {
     	std::vector<real> temp;
     	//temp.resize(J*syncCVFolds, 0.0);
     	temp.resize(J*cvIndexStride, 0.0);
     	detail::resizeAndCopyToDevice(temp, dBetaVector, queue);
+    	} else {
+    		std::vector<real> temp;
+    		temp.resize(J, 0.0);
+    		detail::resizeAndCopyToDevice(temp, dBeta, queue);
+    	}
     }
 
 
@@ -3582,6 +3614,8 @@ virtual void runCCDIndex() {
         		detail::resizeAndCopyToDevice(hK, dKStrata, queue);
         	}
         }
+
+        detail::resizeAndCopyToDevice(hXjY, dXjY, queue);
 	}
 
 	//for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
@@ -3607,7 +3641,97 @@ virtual void runCCDIndex() {
 			//FormatType formatType = modelData.getFormatType(index);
 			//int priorType = priorTypes[index];
 
-			if (activeFolds > multiprocessors) {
+			if (!syncCV) {
+				auto& kernel0 = kernelDoItAllNoSyncCV[formatType*3+priorType];
+				//const auto taskCount = dColumns.getTaskCount(index);
+
+				//for (int m = 0; m < length; m++) {
+				//int index = dIndexListWithPrior[indexListWithPriorStarts[i*3+j] + m];
+				//const auto taskCount = dColumns.getTaskCount(index);
+
+				//std::cout << "index " << index << " format " << formatType << " prior " << priorType << " \n";
+
+				kernel0.set_arg(0, dColumns.getDataStarts());
+				kernel0.set_arg(1, dColumns.getIndicesStarts());
+				kernel0.set_arg(2, dColumns.getTaskCounts());
+				//kernel.set_arg(0, dColumns.getDataOffset(index));
+				//kernel.set_arg(1, dColumns.getIndicesOffset(index));
+				//kernel.set_arg(2, taskCount);
+#ifdef USE_LOG_SUM
+				kernel0.set_arg(3, dLogX);
+#else
+				kernel0.set_arg(3, dColumns.getData());
+#endif
+				kernel0.set_arg(4, dColumns.getIndices());
+				//kernel.set_arg(5, dY);
+				//kernel.set_arg(6, dOffs);
+				kernel0.set_arg(5, dXBeta);
+				//kernel.set_arg(8, dOffsExpXBetaVector);
+				//kernel.set_arg(9, dDenomPidVector);
+				//kernel.set_arg(10, dPidVector);
+				if (dKWeight.size() == 0) {
+					kernel0.set_arg(6, 0);
+				} else {
+					kernel0.set_arg(6, dKWeight); // TODO Only when dKWeight gets reallocated
+				}
+				kernel0.set_arg(7, dBound);
+				kernel0.set_arg(8, dPriorParams);
+				kernel0.set_arg(9, dXjY);
+				kernel0.set_arg(10, dBeta);
+
+				//kernel.set_arg(18, syncCVFolds);
+				int dJ = J;
+				//kernel.set_arg(14, index);
+				kernel0.set_arg(11, indexListWithPriorStarts[i*3+j]);
+				kernel0.set_arg(12, length);
+				kernel0.set_arg(13, dIndexListWithPrior);
+
+				size_t globalWorkSize;
+				size_t localWorkSize;
+
+				// not working
+				/*
+				if (BaseModel::exactCLR) {
+					kernel1.set_arg(16, dNtoK);
+					kernel1.set_arg(17, dNWeight);
+					int KStride = detail::getAlignedLength<16>(K);
+					kernel1.set_arg(18, KStride);
+					int dN = N;
+					kernel1.set_arg(19, dN);
+					globalWorkSize = tpb0*detail::constant::exactCLRBlockSize*activeFolds;
+					localWorkSize = tpb0*detail::constant::exactCLRBlockSize;
+				} else {
+					globalWorkSize =  tpb0*tpb1*activeFolds;
+					localWorkSize = tpb0*tpb1;
+				}
+				*/
+				globalWorkSize =  tpb;
+				localWorkSize = tpb;
+
+				//std::cout << "global work size: " << tpb0*tpb1*activeFolds << " local work size: " << tpb0*tpb1 << "\n";
+
+#ifdef CYCLOPS_DEBUG_TIMING
+				auto end = bsccs::chrono::steady_clock::now();
+				///////////////////////////"
+				auto name = "compDoItAllNoSyncCVArgsG" + getFormatTypeExtension(formatType) + " ";
+				duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+				start = bsccs::chrono::steady_clock::now();
+#endif
+
+				queue.enqueue_1d_range_kernel(kernel0, 0, globalWorkSize, localWorkSize);
+				queue.finish();
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+				end = bsccs::chrono::steady_clock::now();
+				///////////////////////////"
+				name = "compDoItAllNoSyncCVKernelG" + getFormatTypeExtension(formatType) + " ";
+				duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+			} else if (activeFolds > multiprocessors) {
 			auto& kernel = kernelDoItAll[formatType*3+priorType];
 			//const auto taskCount = dColumns.getTaskCount(index);
 
@@ -4571,11 +4695,17 @@ virtual void runCCDIndex() {
     }
 
     void setBounds(double initialBound) {
+    	if (syncCV) {
     	std::vector<real> temp;
         //temp.resize(J*syncCVFolds, initialBound);
     	// layout by person
     	temp.resize(J*cvIndexStride, initialBound);
     	detail::resizeAndCopyToDevice(temp, dBoundVector, queue);
+    	} else {
+    		std::vector<real> temp;
+    		temp.resize(J, initialBound);
+    		detail::resizeAndCopyToDevice(temp, dBound, queue);
+    	}
     }
 
     void setPriorTypes(std::vector<int>& inTypes) {
@@ -4690,6 +4820,15 @@ virtual void runCCDIndex() {
     	buildGetLogLikelihoodKernel(false); ++b;
     }
 
+    void buildAllDoItAllNoSyncCVKernels(const std::vector<FormatType>& neededFormatTypes) {
+        int b = 0;
+        for (FormatType formatType : neededFormatTypes) {
+            buildDoItAllNoSyncCVKernel(formatType, 0);
+            buildDoItAllNoSyncCVKernel(formatType, 1);
+            buildDoItAllNoSyncCVKernel(formatType, 2);
+        }
+    }
+
     void buildAllDoItAllKernels(const std::vector<FormatType>& neededFormatTypes) {
         int b = 0;
         for (FormatType formatType : neededFormatTypes) {
@@ -4777,9 +4916,37 @@ virtual void runCCDIndex() {
 
     SourceCode writeCodeForDoItAllSingleKernel(FormatType formatType, int priorType);
 
+    SourceCode writeCodeForDoItAllNoSyncCVKernel(FormatType formatType, int priorType);
+
     SourceCode writeCodeForExactCLRDoItAllSingleKernel(FormatType formatType, int priorType);
 
     SourceCode writeCodeForMMFindDeltaKernel(FormatType formatType, int priorType);
+
+    void buildDoItAllNoSyncCVKernel(FormatType formatType, int priorType) {
+    	std::stringstream options;
+
+    	if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+    		options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
+#else
+    		options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
+#endif // USE_VECTOR
+    	} else {
+#ifdef USE_VECTOR
+    		options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
+#else
+    		options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
+#endif // USE_VECTOR
+    	}
+    	options << " -cl-mad-enable";
+
+    	auto source = writeCodeForDoItAllNoSyncCVKernel(formatType, priorType);
+    	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    	auto kernel = compute::kernel(program, source.name);
+
+    	kernelDoItAllNoSyncCV[formatType*3+priorType] = std::move(kernel);
+
+    }
 
     void buildDoItAllKernel(FormatType formatType, int priorType) {
     	if (BaseModel::exactCLR) {
@@ -5479,6 +5646,8 @@ virtual void runCCDIndex() {
         //std::cout << "built ProcessDelta kernels \n";
         //buildAllDoItAllKernels(neededFormatTypes);
         //std::cout << "built doItAll kernels\n";
+        buildAllDoItAllNoSyncCVKernels(neededFormatTypes);
+        std::cout << "built doItAllNoSyncCV kernels\n";
     }
 
     void buildAllSyncCVKernels(const std::vector<FormatType>& neededFormatTypes) {
@@ -5597,6 +5766,8 @@ virtual void runCCDIndex() {
 
     std::map<int, compute::kernel> kernelDoItAll;
     std::map<int, compute::kernel> kernelDoItAllSingle;
+    std::map<int, compute::kernel> kernelDoItAllNoSyncCV;
+
     std::map<int, compute::kernel> kernelMMFindDelta;
     std::map<int, compute::kernel> kernelProcessDeltaBuffer;
 
@@ -5638,6 +5809,9 @@ virtual void runCCDIndex() {
     compute::vector<real> dOffs;
     compute::vector<int>  dFixBeta;
     compute::vector<real> dAllDelta;
+
+    compute::vector<real> dBound;
+    compute::vector<real> dXjY;
 
     // for exactCLR
     std::vector<int> subjects;

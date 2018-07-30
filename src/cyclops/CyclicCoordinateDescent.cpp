@@ -172,13 +172,13 @@ void CyclicCoordinateDescent::resetBounds() {
 				hDeltaPool[index][j] = initialBound;
 			}
 		}
-		if (usingGPU) {
-			modelSpecifics.setBounds(initialBound);
-		}
 	} else {
 		for (int j = 0; j < J; j++) {
 			hDelta[j] = initialBound;
 		}
+	}
+	if (usingGPU) {
+		modelSpecifics.setBounds(initialBound);
 	}
 }
 
@@ -247,13 +247,13 @@ void CyclicCoordinateDescent::resetBeta(void) {
 				hBetaPool[i][j] = 0.0;
 			}
 		}
-		if (usingGPU) {
-			modelSpecifics.resetBeta();
-		}
 	} else {
 		for (auto j = start; j < J; j++) {
 			hBeta[j] = 0.0;
 		}
+	}
+	if (usingGPU) {
+		modelSpecifics.resetBeta();
 	}
 	computeXBeta();
 	sufficientStatisticsKnown = false;
@@ -427,7 +427,9 @@ double convertHyperparameterToVariance(double value) {
 
 void CyclicCoordinateDescent::setHyperprior(int index, double value) {
     jointPrior->setVariance(index, value);
-    if (usingGPU && syncCV) {
+    // new always syncCV
+    if (usingGPU) {
+    //if (usingGPU && syncCV) {
 		std::vector<double> varianceList = jointPrior->getVariance();
 		std::vector<double> temp;
 		temp.resize(J, 0.0);
@@ -1054,6 +1056,28 @@ void CyclicCoordinateDescent::findMode(
 		if (allDeltaObj.size() < J) allDeltaObj.resize(J);
 	}
 
+	if (usingGPU) {
+		modelSpecifics.setBounds(initialBound);
+		std::vector<int> priorList;
+		std::vector<double> varianceList = jointPrior->getVariance();
+		std::vector<double> temp;
+		temp.resize(J, 0.0);
+
+		for (int i=0; i<J; i++) {
+			int type = jointPrior->getPriorType(i);
+			priorList.push_back(type);
+			if (type == 1) {
+				temp[i] = convertVarianceToHyperparameter(varianceList[0]);
+			}
+			if (type == 2) {
+				temp[i] = varianceList[0];
+			}
+		}
+		modelSpecifics.setPriorTypes(priorList);
+		modelSpecifics.setPriorParams(temp);
+		modelSpecifics.resetBeta();
+	}
+
 	auto cycle = [this,&iteration,&algorithmType,&allDelta,&allDeltaPool,&lastObjFunc,&lastObjFuncVec,&convergenceType] {
 
 		if (iteration%10==0) {
@@ -1212,8 +1236,13 @@ void CyclicCoordinateDescent::findMode(
 	    	//std::cout<<hBeta[0]<<"\n";
 	        // Do a complete cycle in serial
 	    	//std::cout << "starting cycle\n";
-        	if (usingGPU && syncCV) {
+	    	// new always syncCV
+	    	if (usingGPU) {
+        	//if (usingGPU && syncCV) {
         		modelSpecifics.runCCDIndex();
+        		if (!syncCV) {
+        			hBeta = modelSpecifics.getBeta();
+        		}
         	} else {
         		for(int index = 0; index < J; index++) {
 
