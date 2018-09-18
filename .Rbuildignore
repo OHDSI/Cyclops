@@ -24,3 +24,4 @@ config.logo
 config.status
 autom4te.cache/
 compare_versions
+Cyclops_*.tar.gz
