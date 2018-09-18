@@ -7,8 +7,16 @@
 #include <thread>
 #include <boost/iterator/counting_iterator.hpp>
 
+// #define USE_RCPP_PARALLEL
+#undef USE_RCPP_PARALLEL
+
+#ifdef USE_RCPP_PARALLEL
 #include "RcppParallel.h"
+#endif
+
 //#include "engine/ThreadPool.h"
+
+
 
 namespace bsccs {
 
@@ -16,7 +24,10 @@ struct SerialOnly { };
 struct ParallelInfo { };
 struct OpenMP { };
 struct Vanilla { };
+
+#ifdef USE_RCPP_PARALLEL
 struct RcppParallel { };
+#endif
 
 struct C11Threads {
 
@@ -82,7 +93,7 @@ namespace variants {
 
 	namespace impl {
 
-
+#ifdef USE_RCPP_PARALLEL
 	    template <typename InputIt, typename ResultType, typename BinaryFunction>
 	    struct Reducer : public ::RcppParallel::Worker {
 
@@ -139,6 +150,7 @@ namespace variants {
 
 			return function;
 		}
+#endif
 
 // 		template <typename InputIt, typename UnaryFunction>
 // 		inline UnaryFunction for_each(InputIt begin, InputIt end, UnaryFunction function,
@@ -244,20 +256,26 @@ namespace variants {
 //         return f;
 //     }
 
+#ifdef USE_RCPP_PARALLEL
     template <class InputIt, class UnaryFunction>
     inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, C11Threads& x) {
         return impl::for_each(first, last, f, x);
     }
+#endif
 
 //    template <class InputIt, class UnaryFunction>
 //    inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, C11ThreadPool& x) {
 //        return impl::for_each(first, last, f, x);
 //    }
 
+
+#ifdef USE_RCPP_PARALLEL
     template <class InputIt, class UnaryFunction>
     inline UnaryFunction for_each(InputIt first, InputIt last, UnaryFunction f, RcppParallel x) {
         return impl::for_each(first, last, f, x);
     }
+#endif
+
 //
 //     template <class UnaryFunction>
 //     inline UnaryFunction for_each(int first, int last, UnaryFunction f, C11Threads& x) {
@@ -290,6 +308,7 @@ namespace variants {
 		};
 
 
+#ifdef USE_RCPP_PARALLEL
 		template <class InputIt, class ResultType, class BinaryFunction>
 		inline ResultType reduce(InputIt begin, InputIt end,
 		    ResultType result, BinaryFunction function,
@@ -300,6 +319,7 @@ namespace variants {
 
 
 		}
+#endif
 
     	template <class InputIt, class ResultType, class BinaryFunction>
 	    inline ResultType reduce(InputIt begin, InputIt end,

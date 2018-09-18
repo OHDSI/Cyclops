@@ -4,12 +4,18 @@
 * win-builder (devel and release)
 
 ## R CMD check results
-There were no ERRORs, WARNINGs or NOTEs.
+* There were no ERRORs or WARNINGs
+* There is 1 (occasional) NOTE:
+
+checking installed package size ... NOTE
+  installed size is 22.5Mb
+  sub-directories of 1Mb or more:
+    libs 21.7Mb
+
+This occurs on systems (like `r-devel-linux-x86_64-fedora-clang`) that include debug
+symbols in their compilation; Cyclops performance is heavily dependent on many template
+instantiations that generate a large library when including debug symbols.  Future
+availability of C++17 `if (constexpr ...)` should decrease library size substantially.
 
 ## Downstream dependencies
 There are currently no downstream dependencies.
-
-## Fixes as specified in 11/6/2018 email from Swetlana Herbrandt
-* Added DOI of methods reference to `Description` field
-* Removed test (test-KKTSwindle.R) that accidentally wrote/read from home filespace
-* Added all minor contributors and copyright holders to Authors@R in DESCRIPTION file

@@ -1,12 +1,13 @@
 Package: Cyclops
 Type: Package
 Title: Cyclic Coordinate Descent for Logistic, Poisson and Survival Analysis
-Version: 1.9.999
+Version: 1.9.9999
 Authors@R: c(
     person("Marc A.", "Suchard", email = "msuchard@ucla.edu", role = c("aut","cre")),
     person("Martijn J.", "Schuemie", role = "aut"),
     person("Trevor R.", "Shaddox", role = "aut"),
     person("Yuxi", "Tian", role = "aut"),
+    person("Jianxiao", "Yang", role = "aut"),
     person("Sushil", "Mittal", role ="ctb"),
     person("Observational Health Data Sciences and Informatics", role = "cph"),
     person("Marcus", "Geelnard", role = c("cph", "ctb"),
@@ -40,9 +41,7 @@ Imports:
     MASS
 LinkingTo: Rcpp,
     BH (>= 1.51.0),
-    RcppEigen (>= 0.3.2),
-    RcppParallel
-SystemRequirements: GNU make
+    RcppEigen (>= 0.3.2)
 Suggests:
     testthat,
     gnm,
