@@ -4,7 +4,7 @@ Changes: 1. simplify internal transformation-reductions loops
          2. implemented non-negative weights
          3. allow for run-time selection of 32-/64-bit reals
          4. remove dependence on GNUmake
-         5. temporarily remove dependence on RcppParallel (until TBB is again R-compliant)
+         5. temporarily remove dependence on `RcppParallel` (until TBB is again R-compliant)
 
 Cyclops v1.3.4 (Release date: 2018-06-11)
 
