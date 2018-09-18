@@ -20,8 +20,10 @@
 #include "Recursions.hpp"
 #include "ParallelLoops.h"
 
+#ifdef USE_RCPP_PARALLEL
 #include <tbb/combinable.h>
 #include <tbb/parallel_for.h>
+#endif
 
 //#include "R.h"
 //#include "Rcpp.h" // TODO Remove
@@ -1099,6 +1101,9 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 
 	} else if (BaseModel::exactCLR) {
 	    //tbb::mutex mutex0;
+
+#ifdef USE_RCPP_PARALLEL
+
 	    tbb::combinable<RealType> newGrad(static_cast<RealType>(0));
 	    tbb::combinable<RealType> newHess(static_cast<RealType>(0));
 
@@ -1130,9 +1135,9 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	    tbb::parallel_for(tbb::blocked_range<int>(0,N),func);
 	    gradient += newGrad.combine([](const RealType& x, const RealType& y) {return x+y;});
 	    hessian += newHess.combine([](const RealType& x, const RealType& y) {return x+y;});
-
+#else
 	    //     std::cout<<"\n"<<"index: "<<index;
-	    /*
+
 	    for (int i=0; i<N; i++) {
 	    DenseView<IteratorType, RealType> x(IteratorType(hX, index), hNtoK[i], hNtoK[i+1]);
 	    int numSubjects = hNtoK[i+1] - hNtoK[i];
@@ -1152,7 +1157,8 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	    gradient -= (RealType)(-value[1]/value[0]);
 	    hessian -= (RealType)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
 	    }
-	    */
+#endif // USE_RCPP_PARALLEL
+
 	} else {
 
 	    IteratorType it(hX, index);
