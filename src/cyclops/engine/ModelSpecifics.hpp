@@ -1138,6 +1138,8 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 #else
 	    //     std::cout<<"\n"<<"index: "<<index;
 
+	    using std::isinf;
+
 	    for (int i=0; i<N; i++) {
 	    DenseView<IteratorType, RealType> x(IteratorType(hX, index), hNtoK[i], hNtoK[i+1]);
 	    int numSubjects = hNtoK[i+1] - hNtoK[i];

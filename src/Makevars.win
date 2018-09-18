@@ -28,8 +28,8 @@ CXX_STD = CXX11
 
 PKG_CPPFLAGS = -I. -Icyclops -DR_BUILD -DWIN_BUILD -DDOUBLE_PRECISION -DRCPP_PARALLEL_USE_TBB=1
 
-PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \
-			-e "RcppParallel::RcppParallelLibs()")
+# PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \
+#			-e "RcppParallel::RcppParallelLibs()")
 
 SOURCES = $(wildcard *.cpp cyclops/*.cpp cyclops/drivers/*.cpp cyclops/engine/*.cpp \
 					cyclops/io/*.cpp cyclops/priors/*.cpp utils/*.cpp \
