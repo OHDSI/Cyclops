@@ -1950,6 +1950,7 @@ void ModelSpecifics<BaseModel,RealType>::setPidForAccumulation(const AnyRealType
 
     hPidInternal =  hPidOriginal; // Make copy
     hPid = hPidInternal.data(); // Point to copy
+    hPidSize = hPidInternal.size();
     accReset.clear();
 
     const int ignore = -1;
@@ -2018,8 +2019,7 @@ void ModelSpecifics<BaseModel,RealType>::setupSparseIndices(const int max) {
             const int* indicators = hX.getCompressedColumnVector(j);
             for (size_t j = 0; j < n; j++) { // Loop through non-zero entries only
                 const int k = indicators[j];
-                const int i = hPid[k]; // TODO Old
-                //const int i = (k < hPidSize) ? hPid[k] : k; // TODO New
+                const int i = (k < hPidSize) ? hPid[k] : k;
                 if (i < max) {
                     unique.insert(i);
                 }

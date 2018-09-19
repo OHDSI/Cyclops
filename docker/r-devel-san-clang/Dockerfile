@@ -78,7 +78,7 @@ RUN RDscript -e 'install.packages("expm")'
 RUN RDscript -e 'install.packages("lattice")'
 
 RUN RDscript -e 'install.packages("devtools")'
-RUN RDscript -e 'install.packages("RcppParallel")'
+#RUN RDscript -e 'install.packages("RcppParallel")'
 RUN RDscript -e 'install.packages("RcppEigen")'
 RUN RDscript -e 'install.packages("microbenchmark")'
 RUN RDscript -e 'install.packages("stringi")'
@@ -103,6 +103,7 @@ RUN mkdir -p ~/.R \
 ENV UBSAN_OPTIONS print_stacktrace=1
 ENV ASAN_OPTIONS alloc_dealloc_mismatch=0:detect_leaks=0:detect_odr_violation=0:malloc_context_size=10:fast_unwind_on_malloc=false
 
+# To build container: docker build -t cyclops-san-clang .
 # To execute check: docker run --cap-add SYS_PTRACE -v /Users/msuchard/Dropbox/Projects/Cyclops:/home/user/Cyclops --rm -it cyclops-san-clang /usr/bin/bash
 # $ RD CMD check Cyclops*.tar.gz
 

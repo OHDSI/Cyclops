@@ -159,6 +159,7 @@ AbstractModelSpecifics::AbstractModelSpecifics(const AbstractModelData& input)
 // 	  hPid(const_cast<int*>(input.getPidVectorRef().data()))
 // 	  hPid(input.getPidVectorRef())
       hPidOriginal(input.getPidVectorRef()), hPid(const_cast<int*>(hPidOriginal.data())),
+      hPidSize(hPidOriginal.size()),
       boundType(MmBoundType::METHOD_2) {
 
 	// Do nothing

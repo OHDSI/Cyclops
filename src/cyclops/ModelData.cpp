@@ -91,12 +91,10 @@ void ModelData<RealType>::loadY(
 	touchedY = true;
 
 	if (!previouslyLoaded) { // Load stratum and row IDs
-// 		std::ostringstream stream;
-// 		stream << "Load stratum and row IDs";
-		//error->throwError(stream);
-// 		std::cerr << stream.str() << std::endl;
 
-		pid.reserve(oRowId.size()); // TODO ASAN error here
+        if (oRowId.size() > 0) {
+		    pid.reserve(oRowId.size());
+        }
 
 		bool processStrata = oStratumId.size() > 0;
 

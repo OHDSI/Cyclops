@@ -35,7 +35,6 @@ Imports:
     bit,
     ff,
     ffbase,
-    RcppParallel,
     methods,
     survival,
     MASS
