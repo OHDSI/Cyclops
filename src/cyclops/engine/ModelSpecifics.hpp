@@ -576,35 +576,6 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 
-// RANGE
-//     auto rangeNumerator = helper::getRangeAllNumerators<RealType>(K, hY, hXBeta, hKWeight);
-//
-//     RealType logLikelihood = useCrossValidation ?
-//     		variants::reduce(
-//                 rangeNumerator.begin(), rangeNumerator.end(), static_cast<RealType>(0.0),
-//                 TestAccumulateLikeNumeratorKernel<BaseModel,RealType,true>(),
-//                 SerialOnly()
-//     		) :
-//     		variants::reduce(
-//                 rangeNumerator.begin(), rangeNumerator.end(), static_cast<RealType>(0.0),
-//                 TestAccumulateLikeNumeratorKernel<BaseModel,RealType,false>(),
-//                 SerialOnly()
-//     		);
-//
-//     if (BaseModel::likelihoodHasDenominator) {
-//
-// 		auto rangeDenominator = (BaseModel::cumulativeGradientAndHessian) ?
-// 				helper::getRangeAllDenominators<RealType>(N, accDenomPid, hNWeight) :
-// 				helper::getRangeAllDenominators<RealType>(N, denomPid, hNWeight);
-//
-// 		logLikelihood -= variants::reduce(
-// 				rangeDenominator.begin(), rangeDenominator.end(),
-// 				static_cast<RealType>(0.0),
-// 				TestAccumulateLikeDenominatorKernel<BaseModel,RealType>(),
-// 				SerialOnly()
-// 		);
-//     }
-
 	RealType logLikelihood = static_cast<RealType>(0.0);
 	if (useCrossValidation) {
 		for (size_t i = 0; i < K; i++) {
@@ -656,20 +627,6 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 		computeRemainingStatistics(true); // compute accDenomPid
     }
 
-	// Compile-time switch for models with / with-out PID (hasIndependentRows)
-// RANGE
-// 	auto range = helper::getRangeAllPredictiveLikelihood<RealType>(K, hY, hXBeta,
-// 		(BaseModel::cumulativeGradientAndHessian) ? accDenomPid : denomPid,
-// 		weights, hPid, std::integral_constant<bool, BaseModel::hasIndependentRows>());
-//
-// 	auto kernel = TestPredLikeKernel<BaseModel,RealType>();
-//
-// 	RealType logLikelihood = variants::reduce(
-// 			range.begin(), range.end(), static_cast<RealType>(0.0),
-// 			kernel,
-// 			SerialOnly()
-// 		);
-
 	RealType logLikelihood = static_cast<RealType>(0.0);
 
 	if (BaseModel::cumulativeGradientAndHessian)	{
@@ -681,8 +638,6 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 	        logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], &denomPid[0], hPid, k);
 	    }
 	}
-
-        // RANGE
 
 	if (BaseModel::cumulativeGradientAndHessian) {
 
@@ -696,15 +651,6 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::getPredictiveEstimates(double* y, double* weights){
 
-	// TODO Check with SM: the following code appears to recompute hXBeta at large expense
-//	std::vector<RealType> xBeta(K,0.0);
-//	for(int j = 0; j < J; j++){
-//		GenericIterator it(modelData, j);
-//		for(; it; ++it){
-//			const int k = it.index();
-//			xBeta[k] += it.value() * hBeta[j] * weights[k];
-//		}
-//	}
 	if (weights) {
 		for (size_t k = 0; k < K; ++k) {
 			if (weights[k]) {
@@ -878,17 +824,9 @@ void ModelSpecifics<BaseModel,RealType>::computeMMGradientAndHessianImpl(int ind
                 it.value(), hXBeta[k], hY[k], norm[k]);
     }
 
-    //hessian = 40 * modelData.getNumberOfStrata() * modelData.getNumberOfColumns() / 4.0; // curvature[index];
-
-    // hessian *= curvature[index];
-
-    //std::cerr << "g: " << gradient << " h: " << hessian << " f: " << hXjY[index] << std::endl;
-
     if (BaseModel::precomputeGradient) { // Compile-time switch
         gradient -= hXjY[index];
     }
-
-//    std::cerr << hXjY[index] << std::endl;
 
     if (BaseModel::precomputeHessian) { // Compile-time switch
         hessian += static_cast<RealType>(2.0) * hXjX[index];
@@ -924,155 +862,61 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 
     if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 
-#ifdef DEBUG_COX2
-	    RealType lastG = gradient;
-	    RealType lastH = hessian;
-#endif
-
     	if (sparseIndices[index] == nullptr || sparseIndices[index]->size() > 0) {
 
-		// TODO
-		// x. Fill numerators <- 0
-		// x. Compute non-zero numerators
-		// x. Segmented scan of numerators
-		// x. Transformation/reduction of [begin,end)
+    	    IteratorType it(sparseIndices[index].get(), N);
 
-		IteratorType it(sparseIndices[index].get(), N);
+    	    RealType accNumerPid  = static_cast<RealType>(0);
+    	    RealType accNumerPid2 = static_cast<RealType>(0);
 
+    	    // find start relavent accumulator reset point
+    	    auto reset = begin(accReset);
+    	    while( *reset < it.index() ) {
+    	        ++reset;
+    	    }
 
-		RealType accNumerPid  = static_cast<RealType>(0);
-		RealType accNumerPid2 = static_cast<RealType>(0);
+    	    for (; it; ) {
+    	        int i = it.index();
 
-// 		const RealType* data = modelData.getDataVector(index);
+    	        if (*reset <= i) {
+    	            accNumerPid  = static_cast<RealType>(0.0);
+    	            accNumerPid2 = static_cast<RealType>(0.0);
+    	            ++reset;
+    	        }
 
-        // find start relavent accumulator reset point
-        auto reset = begin(accReset);
-        while( *reset < it.index() ) {
-            ++reset;
-        }
+    	        const auto numerator1 = numerPid[i];
+    	        const auto numerator2 = numerPid2[i];
 
-		for (; it; ) {
-			int i = it.index();
+    	        accNumerPid += numerator1;
+    	        accNumerPid2 += numerator2;
 
-			if (*reset <= i) {
-			    accNumerPid  = static_cast<RealType>(0.0);
-			    accNumerPid2 = static_cast<RealType>(0.0);
-			    ++reset;
-			}
+    	        // Compile-time delegation
+    	        BaseModel::incrementGradientAndHessian(it,
+                        w, // Signature-only, for iterator-type specialization
+                        &gradient, &hessian, accNumerPid, accNumerPid2,
+                        accDenomPid[i], hNWeight[i], 0.0, hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
 
-			const auto numerator1 = numerPid[i];
-			const auto numerator2 = numerPid2[i];
+    	        ++it;
 
-//     		const RealType numerator1 = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], hXBeta[i], hY[i]);
-//     		const RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-//                    BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
+    	        if (IteratorType::isSparse) {
 
-     		accNumerPid += numerator1;
-     		accNumerPid2 += numerator2;
+    	            const int next = it ? it.index() : N;
+    	            for (++i; i < next; ++i) {
 
-//#define DEBUG_COX2
+    	                if (*reset <= i) {
+    	                    accNumerPid  = static_cast<RealType>(0.0);
+    	                    accNumerPid2 = static_cast<RealType>(0.0);
+    	                    ++reset;
+    	                }
 
-#ifdef DEBUG_COX2
-#endif
-			// Compile-time delegation
-			BaseModel::incrementGradientAndHessian(it,
-					w, // Signature-only, for iterator-type specialization
-					&gradient, &hessian, accNumerPid, accNumerPid2,
-					accDenomPid[i], hNWeight[i],
-                             0.0,
-                             //it.value(),
-                             hXBeta[i], hY[i]);
-					// When function is in-lined, compiler will only use necessary arguments
-#ifdef DEBUG_COX2
-			using namespace std;
-
-			if (lastG != gradient || lastH != hessian) {
-
-			cerr << "w: " << i << " " << hNWeight[i] << " " << numerator1 << ":" <<
-				    accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[i];
-
-			cerr << " -> g:" << gradient << " h:" << hessian << endl;
-			}
-
-			lastG = gradient; lastH = hessian;
-#endif
-			++it;
-
-			if (IteratorType::isSparse) {
-// 				++data;
-				const int next = it ? it.index() : N;
-				for (++i; i < next; ++i) {
-#ifdef DEBUG_COX
-			cerr << "q: " << i << " " << hNWeight[i] << " " << 0 << ":" <<
-					accNumerPid << ":" << accNumerPid2 << ":" << accDenomPid[i];
-#endif
-                    if (*reset <= i) {
-			            accNumerPid  = static_cast<RealType>(0.0);
-        			    accNumerPid2 = static_cast<RealType>(0.0);
-		        	    ++reset;
-                   }
-
-					BaseModel::incrementGradientAndHessian(it,
-							w, // Signature-only, for iterator-type specialization
-							&gradient, &hessian, accNumerPid, accNumerPid2,
-							accDenomPid[i], hNWeight[i], static_cast<RealType>(0), hXBeta[i], hY[i]);
-							// When function is in-lined, compiler will only use necessary arguments
-#ifdef DEBUG_COX
-			cerr << " -> g:" << gradient << " h:" << hessian << endl;
-#endif
-
-				}
-			}
+    	                BaseModel::incrementGradientAndHessian(it,
+                                w, // Signature-only, for iterator-type specialization
+    	                        &gradient, &hessian, accNumerPid, accNumerPid2,
+    	                        accDenomPid[i], hNWeight[i], static_cast<RealType>(0), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
+    	            }
+    	        }
+    	    }
 		}
-		}
-
-#ifdef DEBUG_COX2
-    Rcpp::stop("out");
-#endif
-
-// RANGE
-// 	} else if (BaseModel::hasIndependentRows) {
-//
-// 		auto range = helper::independent::getRangeX(hX, index,
-// 		        offsExpXBeta, hXBeta, hY, denomPid, hNWeight,
-// 		        typename IteratorType::tag());
-//
-// 		const auto result = variants::reduce(range.begin(), range.end(), Fraction<RealType>(0,0),
-// 		    TransformAndAccumulateGradientAndHessianKernelIndependent<BaseModel,IteratorType, Weights, RealType, int>(),
-//  	        SerialOnly()
-// 		);
-//
-// 	        BaseModel::incrementGradientAndHessian(it,
-//                                                 w, // Signature-only, for iterator-type specialization
-//                                                 &gradient, &hessian, numerator1, numerator2,
-//                                                 denomPid[hPid[i]], hNWeight[hPid[i]], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
-// 	    }
-
-// #ifdef OLD_WAY
-//
-// 	} else {
-//
-// 		auto rangeKey = helper::dependent::getRangeKey(hX, index, hPid,
-// 		        typename IteratorType::tag());
-//
-//         auto rangeXNumerator = helper::dependent::getRangeX(hX, index, offsExpXBeta,
-//                 typename IteratorType::tag());
-//
-//         auto rangeGradient = helper::dependent::getRangeGradient(sparseIndices[index].get(), N, // runtime error: reference binding to null pointer of type 'struct vector'
-//                 denomPid, hNWeight,
-//                 typename IteratorType::tag());
-//
-// 		const auto result = variants::trial::nested_reduce(
-// 		        rangeKey.begin(), rangeKey.end(),
-// 		        rangeXNumerator.begin(), rangeGradient.begin(),
-// 		        std::pair<RealType,RealType>{0,0}, Fraction<RealType>{0,0},
-//                 TestNumeratorKernel<BaseModel,IteratorType,RealType>(), // Inner transform-reduce
-// 		       	TestGradientKernel<BaseModel,IteratorType,Weights>()); // Outer transform-reduce
-//
-// 		gradient = result.real();
-// 		hessian = result.imag();
-//
-//     } // not Cox
 
 	} else if (BaseModel::hasIndependentRows) {
 
@@ -1090,13 +934,6 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                     w, // Signature-only, for iterator-type specialization
                     &gradient, &hessian, numerator1, numerator2,
                     denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
-
-// #define DEBUG_LR
-#ifdef DEBUG_LR
-	        std::cerr << "q: " << i << " " << hNWeight[i] << " " << ":" <<
-	            numerator1 << ":" << numerator2 << ":" << denomPid[i] << ":" << hXBeta[i];
-	        std::cerr << " -> g:" << gradient << " h:" << hessian << std::endl;
-#endif
 	    }
 
 	} else if (BaseModel::exactCLR) {
@@ -1136,7 +973,6 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	    gradient += newGrad.combine([](const RealType& x, const RealType& y) {return x+y;});
 	    hessian += newHess.combine([](const RealType& x, const RealType& y) {return x+y;});
 #else
-	    //     std::cout<<"\n"<<"index: "<<index;
 
 	    using std::isinf;
 
@@ -1182,57 +1018,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                     &gradient, &hessian, numerator1, numerator2,
                     denomPid[hPid[i]], hNWeight[hPid[i]], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
 	    }
-
-
-//
-// 	    // IteratorType gradientIt(sparseIndices[index].get(), N);
-//
-// 	    //std::pair<RealType> gh{0,0};
-// 	    std::pair<RealType,RealType> numerator{0,0};
-//
-// 	    // nested transformation_reduction
-// 	    const auto end = it.size() - 1;
-// 	    for (int key = 0; key < end; ++key, ++it) {
-//
-// 	        //numerator = f_in(numerator, *numeratorsIt);
-// 	        const int i = it.index();
-// 	        numerator.first  += BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
-// 	        numerator.second += (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-// 	                BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
-//
-// 	        if (hPid[i] != hPid[i + 1]) {
-//
-// 	            // gh = f_out(gh, numerators, *gradientIt);
-// 	            // const int j = gradientIt.index();
-// 	            BaseModel::incrementGradientAndHessian(it,
-//                     w, // Signature-only, for iterator-type specialization
-//                     &gradient, &hessian, numerator.first, numerator.second,
-//                     denomPid[hPid[i]], hNWeight[hPid[i]], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
-//
-// 	           // denomPid[BaseModel::getGroup(hPid, k)], hNWeight[BaseModel::getGroup(hPid, k)]
-//
-// 	            // Reset
-// 	            numerator = std::pair<RealType,RealType>{0,0};
-// 	            // ++gradientIt;
-// 	        }
-// 	    }
-//
-// 	    // Handle tail
-//
-// 	    //numerator = f_in(numerator, *numeratorsIt);
-// 	    const int i = it.index();
-// 	    numerator.first  += BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
-// 	    numerator.second += (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-// 	            BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
-//
-// 	    // gh = f_out(gh, numerators, *gradientIt);
-// 	    // const int j = gradientIt.index();
-// 	    BaseModel::incrementGradientAndHessian(it,
-//             w, // Signature-only, for iterator-type specialization
-//             &gradient, &hessian, numerator.first, numerator.second,
-//             denomPid[hPid[i]], hNWeight[hPid[i]], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
 	}
-// RANGE
 
 	if (BaseModel::precomputeGradient) { // Compile-time switch
 		gradient -= hXjY[index];
@@ -1261,8 +1047,6 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformation(int indexOne, 
 		double *oinfo, bool useWeights) {
 
 	if (useWeights) {
-// 		std::cerr << "Weights are not yet implemented in Fisher Information calculations" << std::endl;
-// 		exit(-1);
 		throw new std::logic_error("Weights are not yet implemented in Fisher Information calculations");
 	} else { // no weights
 		switch (hX.getFormatType(indexOne)) {
@@ -1306,17 +1090,12 @@ template<class BaseModel, typename RealType> template<class IteratorType>
 SparseIterator<RealType> ModelSpecifics<BaseModel, RealType>::getSubjectSpecificHessianIterator(int index) {
 
 	if (hessianSparseCrossTerms.find(index) == hessianSparseCrossTerms.end()) {
-		// Make new
-//		std::vector<int>* indices = new std::vector<int>();
+
         auto indices = make_shared<std::vector<int> >();
-//		std::vector<real>* values = new std::vector<real>();
         auto values = make_shared<std::vector<RealType> >();
-//		CompressedDataColumn* column = new CompressedDataColumn(indices, values,
-//				SPARSE);
+
     	CDCPtr column = bsccs::make_shared<CompressedDataColumn<RealType>>(indices, values, SPARSE);
-		hessianSparseCrossTerms.insert(std::make_pair(index,
-// 		    CompressedDataColumn(indices, values, SPARSE)));
-		    column));
+		hessianSparseCrossTerms.insert(std::make_pair(index, column));
 
 		IteratorType itCross(hX, index);
 		for (; itCross;) {
@@ -1372,7 +1151,6 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformationImpl(int indexO
 						BaseModel::gradientNumeratorContrib(crossOne.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
 			}
 			hessianCrossTerms[indexOne];
-//			std::cerr << std::accumulate(crossOneTerms.begin(), crossOneTerms.end(), 0.0) << std::endl;
 			hessianCrossTerms[indexOne].swap(crossOneTerms);
 		}
 		std::vector<real>& crossOneTerms = hessianCrossTerms[indexOne];
@@ -1387,7 +1165,6 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformationImpl(int indexO
 						BaseModel::gradientNumeratorContrib(crossTwo.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
 			}
 			hessianCrossTerms[indexTwo];
-//			std::cerr << std::accumulate(crossTwoTerms.begin(), crossTwoTerms.end(), 0.0) << std::endl;
 			hessianCrossTerms[indexTwo].swap(crossTwoTerms);
 		}
 		std::vector<real>& crossTwoTerms = hessianCrossTerms[indexTwo];
@@ -1397,7 +1174,6 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformationImpl(int indexO
 		for (int n = 0; n < N; ++n) {
 			cross += crossOneTerms[n] * crossTwoTerms[n] / (denomPid[n] * denomPid[n]);
 		}
-//		std::cerr << cross << std::endl;
 		information -= cross;
 #else
 		SparseIterator<RealType> sparseCrossOneTerms = getSubjectSpecificHessianIterator<IteratorTypeOne>(indexOne);
@@ -1501,67 +1277,6 @@ void ModelSpecifics<BaseModel,RealType>::incrementNumeratorForGradientImpl(int i
 #endif
 #endif
 
-// #ifdef NEW_LOOPS
-
-// 	auto zeroRange = helper::getRangeNumerator(sparseIndices[index], N, typename IteratorType::tag());
-//
-// 	auto zeroKernel = ZeroOutNumerator<BaseModel,IteratorType,real,int>(
-// 			begin(numerPid), begin(numerPid2)
-// 	);
-//
-// 	variants::for_each( // TODO Rewrite as variants::fill if rate-limiting
-// 		zeroRange.begin(), zeroRange.end(),
-// 		zeroKernel,
-// // 		info
-// // 		threadPool
-// 		SerialOnly()
-// // 		RcppParallel()
-// 	);
-//
-// 	if (true) {
-//
-// 	auto computeRange = helper::getRangeX(modelData, index, typename IteratorType::tag());
-//
-// 	auto computeKernel = NumeratorForGradientKernel<BaseModel,IteratorType,real,int>(
-// 					begin(numerPid), begin(numerPid2),
-// 					begin(offsExpXBeta), begin(hXBeta),
-// 					begin(hY),
-// 					begin(hPid));
-//
-// 	variants::for_each(
-// 		computeRange.begin(), computeRange.end(),
-// 		computeKernel,
-// // 		info
-// //   		threadPool
-//  		SerialOnly()
-// //		RcppParallel() //  TODO Not thread-safe
-// 		);
-//
-// 	} else {
-// //	auto computeRange = helper::getRangeXDependent(modelData, index,
-// //		numerPid, numerPid2, offsExpXBeta, hXBeta, hY, hPid,
-// //// 		typename IteratorType::tag()
-// //		DenseTag()
-// //		);
-// //
-// //	auto info = C11Threads(4, 100);
-//
-//     // Let computeRange -> tuple<i, j, x>
-//
-// //    auto computeRangeCOO = helper::getRangeCOOX(modelData, index,
-// //        typename IteratorType::tag());
-// //
-// //    variants::transform_segmented_reduce(
-// //        computeRangeCOO.begin(), computeRangeCOO.end()
-// //
-// //    );
-//
-// 	}
-
-// #else
-
-// TODO Delegate Weights::isWeighted to gradientNumeratorContrib
-
 	IteratorType it(hX, index);
 	for (; it; ++it) {
 		const int k = it.index();
@@ -1577,26 +1292,7 @@ void ModelSpecifics<BaseModel,RealType>::incrementNumeratorForGradientImpl(int i
                         BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k])
                 );
 		}
-
-#ifdef DEBUG_COX
-using namespace std;
-//			if (numerPid[BaseModel::getGroup(hPid, k)] > 0 && numerPid[BaseModel::getGroup(hPid, k)] < 1e-40) {
-				cerr << "Increment" << endl;
-				cerr << "hPid = "
-				//<< hPid <<
-				", k = " << k << ", index = " << BaseModel::getGroup(hPid, k) << endl;
-				cerr << BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]) <<  " "
-				<< it.value() << " " << offsExpXBeta[k] << " " << hXBeta[k] << " " << hY[k] << endl;
-//				exit(-1);
-//			}
-#endif
-
-
-
 	}
-
-// #endif // NEW_LOOPS
-
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
@@ -1655,8 +1351,6 @@ void ModelSpecifics<BaseModel,RealType>::updateXBeta(double delta, int index, bo
 			break;
 	    }
 		default : break;
-			// throw error
-			//exit(-1);
 	}
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -1678,102 +1372,21 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 #endif
 #endif
 
-// RANGE
-// #if 1
-// 	auto range = helper::getRangeX(hX, index, typename IteratorType::tag());
-//
-// 	auto kernel = UpdateXBetaKernel<BaseModel,IteratorType,RealType,int>(
-// 					realDelta, begin(offsExpXBeta), begin(hXBeta),
-// 					begin(hY),
-// 					begin(hPid),
-// 					begin(denomPid),
-// 					begin(hOffs)
-// 					);
-//
-//
-// 	variants::for_each(
-// 		range.begin(), range.end(),
-// 		kernel,
-//           SerialOnly()
-// 		);
-//
-// #else
-//
-//     if (BaseModel::hasIndependentRows) {
-//
-//         auto range = helper::independent::getRangeXBeta(modelData, index,
-//                 offsExpXBeta, hXBeta, denomPid, hOffs,
-//                 typename IteratorType::tag());
-//
-//         auto kernel = TestUpdateXBetaKernel<BaseModel,IteratorType,RealType>(realDelta);
-//         variants::for_each(
-//             range.begin(), range.end(),
-//             kernel,
-//             SerialOnly()
-//         );
-//
-//     } else {
-//
-//         auto rangeXBeta = helper::independent::getRangeXBeta(modelData, index,
-//             offsExpXBeta, hXBeta, denomPid, /* denom not used here */ hOffs,
-//             typename IteratorType::tag());
-//
-//  		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid,
-// 		        typename IteratorType::tag());
-//
-// 		auto rangeDenominator = helper::dependent::getRangeDenominator(sparseIndices[index].get(), N,
-// 		        denomPid, typename IteratorType::tag());
-//
-//         auto kernel = TestUpdateXBetaKernelDependent<BaseModel,IteratorType,real>(realDelta);
-//
-//         auto key = rangeKey.begin();
-//         auto end = rangeKey.end();
-//         auto inner = rangeXBeta.begin();
-//         auto outer = rangeDenominator.begin();
-//
-//         const auto stop = end - 1;
-//
-//         real result = 0;
-//
-//         for (; key != stop; ++key, ++inner) {
-//
-//             result = kernel(result, *inner);
-//
-//             if (*key != *(key + 1)) {
-//
-//                 *outer = result + *outer;
-//
-//                 result = 0;
-//                 ++outer;
-//             }
-//         }
-//
-//         result = kernel(result, *inner);
-//
-//         *outer = result + *outer;
-//     }
-//
-// #endif
-
 	IteratorType it(hX, index);
 	for (; it; ++it) {
 		const int k = it.index();
 		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
+
 		// Update denominators as well (denominators include (weight * offsExpXBeta))
 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-		// 	RealType oldEntry = offsExpXBeta[k];
-		//  RealType newEntry = offsExpXBeta[k] = hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
-		// 	incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry));
-
 			RealType oldEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition to forming offExpXBeta
 			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k); // Update offsExpXBeta
 			RealType newEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition
 			incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
 		}
 	}
-// RANGE
 
-	computeAccumlatedDenominator(Weights::isWeighted); // TODO pass compile-time?
+	computeAccumlatedDenominator(Weights::isWeighted);
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
@@ -1793,17 +1406,15 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
 
     if (BaseModel::likelihoodHasDenominator) {
         fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
-        for (size_t k = 0; k < K; ++k) {
-            // offsExpXBeta[k] = hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
-            // incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
 
+        for (size_t k = 0; k < K; ++k) {
             offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
             RealType weightoffsExpXBeta =  Weights::isWeighted ?
                 hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k) :
                 BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k); // TODO Delegate condition to gOEXB
             incrementByGroup(denomPid.data(), hPid, k, weightoffsExpXBeta); // Update denominators
         }
-        computeAccumlatedDenominator(Weights::isWeighted); // WAS computeAccumlatedNumerDenom
+        computeAccumlatedDenominator(Weights::isWeighted);
     }
 }
 
@@ -1820,34 +1431,6 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatistics(bool useWeig
 	    computeRemainingStatisticsImpl<UnweightedOperation>();
 	}
 
-	// auto& xBeta = getXBeta();
-	//
-	// if (BaseModel::likelihoodHasDenominator) {
-	// 	fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
-	// 	for (size_t k = 0; k < K; ++k) {
-	// 		// offsExpXBeta[k] = hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
-	// 		// incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
-	//
-	// 		offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
-	// 		RealType weightoffsExpXBeta =  Weights::isWeighted ?
-	// 		    hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k) :
-	// 		    BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k); // TODO Delegate condition to gOEXB
-	// 		incrementByGroup(denomPid.data(), hPid, k, weightoffsExpXBeta); // Update denominators
-	// 	}
-	// 	computeAccumlatedDenominator(useWeights); // WAS computeAccumlatedNumerDenom
-	// }
-
-	// std::cerr << "finished MS.cRS" << std::endl;
-
-#ifdef DEBUG_COX
-	using namespace std;
-	cerr << "Done with initial denominators" << endl;
-
-	for (int i = 0; i < N; ++i) {
-		cerr << denomPid[i] << " " << accDenomPid[i] << " " << numerPid[i] << endl;
-	}
-#endif
-
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
 	///////////////////////////"
@@ -1861,6 +1444,7 @@ void ModelSpecifics<BaseModel,RealType>::computeAccumlatedNumerator(bool useWeig
 
 	if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
 			BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
+
 		if (accNumerPid.size() != N) {
 			accNumerPid.resize(N, static_cast<RealType>(0));
 		}
@@ -1894,44 +1478,27 @@ template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeAccumlatedDenominator(bool useWeights) {
 
 	if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
-		BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
-			if (accDenomPid.size() != (N + 1)) {
-				accDenomPid.resize(N + 1, static_cast<RealType>(0));
-			}
-// 			if (accNumerPid.size() != N) {
-// 				accNumerPid.resize(N, static_cast<RealType>(0));
-// 			}
-// 			if (accNumerPid2.size() != N) {
-// 				accNumerPid2.resize(N, static_cast<RealType>(0));
-// 			}
+		    BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 
-			// segmented prefix-scan
-			RealType totalDenom = static_cast<RealType>(0);
-// 			RealType totalNumer = static_cast<RealType>(0);
-// 			RealType totalNumer2 = static_cast<RealType>(0);
+	    if (accDenomPid.size() != (N + 1)) {
+	        accDenomPid.resize(N + 1, static_cast<RealType>(0));
+	    }
 
-			auto reset = begin(accReset);
+	    // segmented prefix-scan
+	    RealType totalDenom = static_cast<RealType>(0);
 
-			for (size_t i = 0; i < N; ++i) {
-// TODO CHECK
-				if (static_cast<unsigned int>(*reset) == i) { // TODO Check with SPARSE
-					totalDenom = static_cast<RealType>(0);
-// 					totalNumer = static_cast<RealType>(0);
-// 					totalNumer2 = static_cast<RealType>(0);
-					++reset;
-				}
+	    auto reset = begin(accReset);
 
-				totalDenom += denomPid[i];
-// 				totalNumer += numerPid[i];
-// 				totalNumer2 += numerPid2[i];
-				accDenomPid[i] = totalDenom;
-// 				accNumerPid[i] = totalNumer;
-// 				accNumerPid2[i] = totalNumer2;
-#if defined(DEBUG_COX) || defined(DEBUG_COX_MIN)
-                using namespace std;
-				cerr << denomPid[i] << " " << accDenomPid[i] << " (beta)" << endl;
-#endif
-			}
+	    for (size_t i = 0; i < N; ++i) {
+
+	        if (static_cast<unsigned int>(*reset) == i) { // TODO Check with SPARSE
+	            totalDenom = static_cast<RealType>(0);
+	            ++reset;
+	        }
+
+	        totalDenom += denomPid[i];
+	        accDenomPid[i] = totalDenom;
+	    }
 	}
 }
 
@@ -2044,7 +1611,6 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
         double* iNumerPid,
         double* iNumerPid2,
         double* iDenomPid,
-        //		int* iNEvents,
         double* iXjY,
         std::vector<std::vector<int>* >* iSparseIndices,
         const int* iPid_unused,
@@ -2052,9 +1618,8 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
         double* iXBeta,
         double* iOffs,
         double* iBeta,
-        const double* iY_unused//,
-    //		real* iWeights
-) {
+        const double* iY_unused) {
+
     N = iN;
     K = iK;
     J = iJ;
@@ -2095,4 +1660,3 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
 } // namespace
 
 #endif /* MODELSPECIFICS_HPP_ */
-//
