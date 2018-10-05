@@ -3226,7 +3226,7 @@ public:
     		computeRemainingStatistics();
     	}
 
-        int wgs = detail::constant::exactCLRSyncBlockSize;
+        int wgs = detail::constant::exactCLRSyncBlockSize; // for reduction across strata
         if (dBuffer.size() < 2*wgs*cvIndexStride) {
         	dBuffer.resize(2*wgs*cvIndexStride);
         }
@@ -3241,10 +3241,198 @@ public:
         	useLogSum = false;
         }
 
+        if (!syncCV) {
+        	auto& kernel = (useLogSum) ? kernelGradientHessianWeighted[formatType] :
+        			kernelGradientHessianNoWeight[formatType];
+
+        	if (BaseModelG::useNWeights) {
+        	    kernel = kernelGradientHessianNoWeight[formatType];
+        		//kernel = (useWeights) ? kernelGradientHessianWeighted[formatType] :
+        		//		kernelGradientHessianNoWeight[formatType];
+        	}
+
+        	const auto taskCount = dColumns.getTaskCount(index);
+
+        	//std::cout << "kernel 0 called\n";
+        	kernel.set_arg(0, dColumns.getDataOffset(index));
+        	kernel.set_arg(1, dColumns.getIndicesOffset(index));
+        	kernel.set_arg(2, taskCount);
+        	if (useLogSum) {
+        		kernel.set_arg(3, dLogX);
+        	} else {
+        		kernel.set_arg(3, dColumns.getData());
+        	}
+        	kernel.set_arg(4, dColumns.getIndices());
+        	kernel.set_arg(5, dY);
+        	kernel.set_arg(6, dXBetaVector);
+        	kernel.set_arg(7, dOffsExpXBetaVector);
+        	kernel.set_arg(8, dDenominator);
+        	kernel.set_arg(9, dNtoK);
+        	kernel.set_arg(10, dNWeight);
+        	if (dBuffer.size() < 2*wgs) {
+        		dBuffer.resize(2*wgs, queue);
+        	}
+        	kernel.set_arg(11, dBuffer);
+
+        	size_t globalWorkSize = 0;
+        	size_t localWorkSize = 0;
+
+        	if (BaseModel::exactCLR) {
+        		int Kstride = detail::getAlignedLength<16>(K);
+        		if (dBuffer1.size() < 3*Kstride) {
+        			dBuffer1.resize(3*Kstride, queue);
+        		}
+        		kernel.set_arg(12, dBuffer1);
+        		kernel.set_arg(13, Kstride);
+        		int dN = N;
+        		kernel.set_arg(14, dN);
+        		kernel.set_arg(15, index);
+        		kernel.set_arg(16, dKStrata);
+        		globalWorkSize = wgs * detail::constant::exactCLRBlockSize;
+        		localWorkSize = detail::constant::exactCLRBlockSize;
+        	} else {
+        		if (dKWeight.size() == 0) {
+        			kernel.set_arg(11, 0);
+        		} else {
+        			kernel.set_arg(12, dKWeight); // TODO Only when dKWeight gets reallocated
+        		}
+        		int dN = N;
+        		kernel.set_arg(13, dN);
+        		kernel.set_arg(14, index);
+        		kernel.set_arg(15, dKStrata);
+        		globalWorkSize = wgs * tpb;
+        		localWorkSize = tpb;
+        		// wgs = N;
+        	}
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        	auto end = bsccs::chrono::steady_clock::now();
+        	///////////////////////////"
+        	auto name = "compGradHessArgsG" + getFormatTypeExtension(formatType) + " ";
+        	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+        	// run kernel
+#ifdef CYCLOPS_DEBUG_TIMING
+        	start = bsccs::chrono::steady_clock::now();
+#endif
+        	queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, localWorkSize);
+        	queue.finish();
+#ifdef CYCLOPS_DEBUG_TIMING
+        	end = bsccs::chrono::steady_clock::now();
+        	///////////////////////////"
+        	name = "compGradHessKernelG" + getFormatTypeExtension(formatType) + " ";
+        	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+        	////////////////////////// Start Process Delta
+#ifdef CYCLOPS_DEBUG_TIMING
+        	start = bsccs::chrono::steady_clock::now();
+#endif
+        	//std::cout << "kernel 1\n";
+        	int priorType = priorTypes[index];
+        	auto& kernel1 = kernelProcessDeltaBuffer[priorType];
+
+        	kernel1.set_arg(0, dBuffer);
+        	if (dDeltaVector.size() < J) {
+        		dDeltaVector.resize(J);
+        	}
+        	kernel1.set_arg(1, dDeltaVector);
+        	kernel1.set_arg(2, wgs);
+        	kernel1.set_arg(3, dBound);
+        	kernel1.set_arg(4, dPriorParams);
+        	kernel1.set_arg(5, dXjY);
+        	kernel1.set_arg(6, index);
+        	kernel1.set_arg(7, dBeta);
+#ifdef CYCLOPS_DEBUG_TIMING
+        	end = bsccs::chrono::steady_clock::now();
+        	///////////////////////////"
+        	name = "compProcessDeltaArgsG" + getFormatTypeExtension(formatType) + " ";
+        	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+        	///////// run kernel
+#ifdef CYCLOPS_DEBUG_TIMING
+        	start = bsccs::chrono::steady_clock::now();
+#endif
+
+        	queue.enqueue_1d_range_kernel(kernel1, 0, wgs, wgs);
+        	queue.finish();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        	end = bsccs::chrono::steady_clock::now();
+        	///////////////////////////"
+        	name = "compProcessDeltaKernelG" + getFormatTypeExtension(formatType) + " ";
+        	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        	start = bsccs::chrono::steady_clock::now();
+#endif
+        	auto& kernel2 = kernelUpdateXBeta[formatType];
+
+        	kernel2.set_arg(0, dColumns.getDataOffset(index));
+        	kernel2.set_arg(1, dColumns.getIndicesOffset(index));
+        	kernel2.set_arg(2, taskCount);
+        	kernel2.set_arg(3, dDeltaVector);
+        	kernel2.set_arg(4, dColumns.getData());
+        	kernel2.set_arg(5, dColumns.getIndices());
+        	kernel2.set_arg(6, dY);
+        	kernel2.set_arg(7, dXBeta);
+        	kernel2.set_arg(8, dExpXBeta);
+        	kernel2.set_arg(9, dDenominator);
+        	kernel2.set_arg(10, dId);
+        	kernel2.set_arg(11, index);
+
+        	// set work size; no looping
+        	size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
+        	if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+        		++workGroups;
+        	}
+        	//size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+
+        	localWorkSize = detail::constant::updateXBetaBlockSize;
+        	globalWorkSize = workGroups * localWorkSize;
+
+        	if (BaseModelG::useNWeights) {
+        		kernel2.set_arg(12, dNtoK);
+        		kernel2.set_arg(13, dNWeight);
+        		localWorkSize = tpb;
+        		globalWorkSize = N*tpb;
+        		int dN = N;
+        		kernel2.set_arg(14, dN);
+        		kernel2.set_arg(15, dKStrata);
+        	}
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        	end = bsccs::chrono::steady_clock::now();
+        	///////////////////////////"
+        	name = "compUpdateXBetaArgsG" + getFormatTypeExtension(formatType) + " ";
+        	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        	start = bsccs::chrono::steady_clock::now();
+#endif
+
+        	// run kernel
+        	queue.enqueue_1d_range_kernel(kernel2, 0, globalWorkSize, localWorkSize);
+        	queue.finish();
+
+        	hXBetaKnown = false; // dXBeta was just updated
+#ifdef CYCLOPS_DEBUG_TIMING
+        	end = bsccs::chrono::steady_clock::now();
+        	///////////////////////////"
+        	name = "compUpdateXBetaKernelG" + getFormatTypeExtension(formatType) + " ";
+        	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+        } else {
+
         auto& kernel = (useLogSum) ? kernelGradientHessianSyncLog[formatType] :
         							 kernelGradientHessianSync[formatType];
 
         const auto taskCount = dColumns.getTaskCount(index);
+
 /*
         std::vector<real> myDenom;
         myDenom.resize(dDenomPidVector.size());
@@ -3348,13 +3536,15 @@ public:
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
+
+        ////////////////////////////////// Start Process Delta
 #ifdef CYCLOPS_DEBUG_TIMING
         start = bsccs::chrono::steady_clock::now();
 #endif
 
         //std::cout << "kernel 1\n";
         int priorType = priorTypes[index];
-        auto& kernel1 = kernelProcessDeltaBuffer[priorType];
+        auto& kernel1 = kernelProcessDeltaSyncCVBuffer[priorType];
 
         kernel1.set_arg(0, dBuffer);
         if (dDeltaVector.size() < J*cvIndexStride) {
@@ -3493,6 +3683,7 @@ public:
     	}
     	std::cout << "\n";
  */
+        }
 
         }
     }
@@ -4795,10 +4986,10 @@ virtual void runCCDIndex() {
         }
     }
 
-    void buildAllProcessDeltaKernels() {
-    	buildProcessDeltaKernel(0);
-    	buildProcessDeltaKernel(1);
-    	buildProcessDeltaKernel(2);
+    void buildAllProcessDeltaSyncCVKernels() {
+    	buildProcessDeltaSyncCVKernel(0);
+    	buildProcessDeltaSyncCVKernel(1);
+    	buildProcessDeltaSyncCVKernel(2);
     }
 
     void buildAllGetGradientObjectiveKernels() {
@@ -4910,6 +5101,8 @@ virtual void runCCDIndex() {
 
     SourceCode writeCodeForProcessDeltaKernel(int priorType);
 
+    SourceCode writeCodeForProcessDeltaSyncCVKernel(int priorType);
+
     SourceCode writeCodeForDoItAllKernel(FormatType formatType, int priorType);
 
     SourceCode writeCodeForExactCLRDoItAllKernel(FormatType formatType, int priorType);
@@ -4941,6 +5134,7 @@ virtual void runCCDIndex() {
     	options << " -cl-mad-enable";
 
     	auto source = writeCodeForDoItAllNoSyncCVKernel(formatType, priorType);
+    	//std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	auto kernel = compute::kernel(program, source.name);
 
@@ -5001,6 +5195,7 @@ virtual void runCCDIndex() {
     		options << " -cl-mad-enable";
 
     		auto source = writeCodeForDoItAllKernel(formatType, priorType);
+    		std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
     		auto kernel = compute::kernel(program, source.name);
 
@@ -5065,6 +5260,31 @@ virtual void runCCDIndex() {
     	kernelProcessDeltaBuffer[priorType] = std::move(kernel);
     }
 
+    void buildProcessDeltaSyncCVKernel(int priorType) {
+        std::stringstream options;
+
+        if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+        options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+#else
+        options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+#endif // USE_VECTOR
+        } else {
+#ifdef USE_VECTOR
+            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+#else
+            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+#endif // USE_VECTOR
+        }
+        options << " -cl-mad-enable";
+
+    	auto source = writeCodeForProcessDeltaSyncCVKernel(priorType);
+    	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    	auto kernel = compute::kernel(program, source.name);
+
+    	kernelProcessDeltaSyncCVBuffer[priorType] = std::move(kernel);
+    }
+
     void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
 
 //         compute::vector<compute::double2_> buf(10, ctx);
@@ -5114,17 +5334,20 @@ virtual void runCCDIndex() {
             options << " -cl-mad-enable";
 
         	// CCD Kernel
-        	auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useWeights);
+        	//auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useWeights);
+            auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useLogSum);
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernel = compute::kernel(program, source.name);
 
         	if (useWeights) {
         		kernelGradientHessianWeighted[formatType] = std::move(kernel);
+        		std::cout << source.body;
         		//kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
         		//kernelGradientHessianAllWeighted[formatType] = std::move(kernelAll);
         		//kernelGradientHessianSyncWeighted[formatType] = std::move(kernelSync);
         	} else {
         		kernelGradientHessianNoWeight[formatType] = std::move(kernel);
+        		std::cout << source.body;
         		//kernelGradientHessianMMNoWeight[formatType] = std::move(kernelMM);
         		//kernelGradientHessianAllNoWeight[formatType] = std::move(kernelAll);
         		//kernelGradientHessianSyncNoWeight[formatType] = std::move(kernelSync);
@@ -5151,9 +5374,9 @@ virtual void runCCDIndex() {
 
             if (BaseModelG::useNWeights) {
             	source = writeCodeForStratifiedGradientHessianKernel(formatType, useWeights, isNvidia);
+            	std::cout << source.body;
             }
 
-            std::cout << source.body;
         	// CCD Kernel
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
         	std::cout << "program built\n";
@@ -5213,6 +5436,7 @@ virtual void runCCDIndex() {
     		options << " -cl-mad-enable";
 
     		auto source = writeCodeForSyncCVGradientHessianKernelExactCLR(formatType, true);
+    		std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
     		auto kernelSync = compute::kernel(program, source.name);
 
@@ -5220,6 +5444,7 @@ virtual void runCCDIndex() {
 
 
     		source = writeCodeForSyncCVGradientHessianKernelExactCLR(formatType, false);
+    		std::cout << source.body;
     		program = compute::program::build_with_source(source.body, ctx, options.str());
     		auto kernelSyncLog = compute::kernel(program, source.name);
 
@@ -5252,7 +5477,6 @@ virtual void runCCDIndex() {
     		if (BaseModelG::useNWeights) {
     			source = writeCodeForStratifiedSyncCVGradientHessianKernel(formatType, isNvidia);
     		}
-    		std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
     		std::cout << "program built\n";
     		auto kernelSync = compute::kernel(program, source.name);
@@ -5302,7 +5526,6 @@ virtual void runCCDIndex() {
         	source = writeCodeForStratifiedUpdateXBetaKernel(formatType);
         }
 
-        std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         std::cout << "program built\n";
         auto kernel = compute::kernel(program, source.name);
@@ -5343,7 +5566,6 @@ virtual void runCCDIndex() {
         if (BaseModelG::useNWeights) {
         	source = writeCodeForStratifiedSyncUpdateXBetaKernel(formatType);
         }
-        std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         std::cout << "program built\n";
         auto kernelSync = compute::kernel(program, source.name);
@@ -5422,7 +5644,6 @@ virtual void runCCDIndex() {
         if (BaseModelG::useNWeights) {
         	source = writeCodeForStratifiedComputeRemainingStatisticsKernel();
         }
-        std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         std::cout << "program built\n";
         auto kernel = compute::kernel(program, source.name);
@@ -5455,7 +5676,6 @@ virtual void runCCDIndex() {
         if (BaseModelG::useNWeights) {
         	source = writeCodeForStratifiedSyncComputeRemainingStatisticsKernel();
         }
-        std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         std::cout << "program built\n";
         auto kernelSync = compute::kernel(program, source.name);
@@ -5663,7 +5883,7 @@ virtual void runCCDIndex() {
         std::cout << "built computeRemainingStatistics kernels \n";
         buildReduceCVBufferKernel();
         std::cout << "built reduceCVBuffer kernel\n";
-        buildAllProcessDeltaKernels();
+        buildAllProcessDeltaSyncCVKernels();
         std::cout << "built ProcessDelta kernels \n";
         buildAllDoItAllKernels(neededFormatTypes);
         std::cout << "built doItAll kernels\n";
@@ -5733,7 +5953,7 @@ virtual void runCCDIndex() {
     		printKernel(entry.second, stream);
     	}
 
-    	for (auto& entry : kernelProcessDeltaBuffer) {
+    	for (auto& entry : kernelProcessDeltaSyncCVBuffer) {
     		printKernel(entry.second, stream);
     	}
 
@@ -5770,6 +5990,7 @@ virtual void runCCDIndex() {
 
     std::map<int, compute::kernel> kernelMMFindDelta;
     std::map<int, compute::kernel> kernelProcessDeltaBuffer;
+    std::map<int, compute::kernel> kernelProcessDeltaSyncCVBuffer;
 
     compute::kernel kernelEmpty;
     compute::kernel kernelReduceCVBuffer;

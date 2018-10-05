@@ -164,7 +164,7 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 
 	for (int i = 0; i < repetitions; ++i) {
 		//selectorPool.push_back(selector.clone());
-		selectorPool[i]->reseed();
+		//selectorPool[i]->reseed();
 		selector.permute();
 		for (int j = 0; j < arguments.fold; ++j) {
 			int index = i * arguments.fold + j;

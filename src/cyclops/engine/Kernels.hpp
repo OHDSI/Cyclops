@@ -275,16 +275,16 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "       __global const REAL* xBeta,       \n" <<
                 "       __global const REAL* expXBeta,    \n" <<
                 "       __global const REAL* denominator, \n" <<
+				"		__global const int* NtoK,			\n" <<
+				"		__global const REAL* NWeight,		\n" <<
 #ifdef USE_VECTOR
                 "       __global TMP_REAL* buffer,     \n" <<
 #else
                 "       __global REAL* buffer,            \n" <<
 #endif // USE_VECTOR
-                "       __global const int* id,           \n" <<  // TODO Make id optional
+                //"       __global const int* id,           \n" <<  // TODO Make id optional
                 "       __global const REAL* KWeight,		\n" <<
-				"		__global const REAL* NWeight,		\n" <<
 				"		const uint totalStrata,				\n" <<
-				"		__global const int* NtoK,			\n" <<
 				"		const uint index,					\n" <<
 				"		__global const uint* KStrata) {    \n";    // TODO Make weight optional
 
@@ -292,6 +292,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
         code << "   const uint lid = get_local_id(0); \n" <<
         		"	uint stratum = get_group_id(0);	\n" <<
 				"	uint loopSize = get_num_groups(0);	\n" <<
+				"	REAL grad = 0;						\n" <<
+				"	REAL hess = 0;						\n" <<
                 //"   const uint loopSize = get_global_size(0); \n" <<
                 //"   uint task = get_global_id(0);  \n" <<
                     // Local and thread storage
@@ -389,14 +391,21 @@ static std::string weight(const std::string& arg, bool useWeights) {
 #ifdef USE_VECTOR
                 "       buffer[get_group_id(0)] = scratch[0]; \n" <<
 #else
-                "       buffer[stratum] = stratumWeight*gradient; \n" <<
-                "       buffer[stratum + totalStrata] = stratumWeight*(myNumer2/myDenom - gradient*gradient); \n" <<
+				"		grad += stratumWeight * gradient;		\n" <<
+				"		hess += stratumWeight*(myNumer2/myDenom - gradient*gradient); \n" <<
+                //"       buffer[stratum] = stratumWeight*gradient; \n" <<
+                //"       buffer[stratum + totalStrata] = stratumWeight*(myNumer2/myDenom - gradient*gradient); \n" <<
 #endif // USE_VECTOR
                 "   } \n";
 
         code << "	stratum += loopSize;		\n" <<
         		"	barrier(CLK_LOCAL_MEM_FENCE);	\n" <<
         		"}								\n";
+
+        code << "	if (lid == 0) {									\n" <<
+        		"		buffer[get_group_id(0)] = grad;				\n" <<
+				"		buffer[get_group_id(0) + loopSize] = hess;	\n" <<
+				"	}												\n";
 
         code << "}  \n"; // End of kernel
 
@@ -1308,25 +1317,32 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		                "   const uint N,              \n" <<
 		                "   __global const REAL* X,           		\n" <<
 		                "   __global const int* K,            		\n" <<
+						"	__global const real* Y,					\n" <<
+						"	__global const REAL* xBeta,				\n" <<
+						"	__global const REAL* expXBeta,			\n" <<		// not used
+						"	__global const REAL* denominator,		\n" <<
 						"	__global const uint* NtoK,				\n" <<
 						"	__global const REAL* casesVec,			\n" <<
-						"	__global const REAL* expXBeta,				\n" <<
-						"	__global REAL* output,					\n" <<
+						"	__global REAL* buffer,					\n" <<
 						"	__global REAL* firstRow,				\n" <<
 						"	const uint persons,						\n" <<
+						"	const uint totalStrata,					\n" <<
 						"	const uint index,						\n" <<
 						"	__global const uint* KStrata) {    					\n";
 				code << "	uint lid = get_local_id(0);				\n" <<
 						"	uint stratum, stratumStart, cases, total, controls;		\n" <<
 						"	stratum = get_group_id(0);				\n" <<
-						"	cases = casesVec[stratum];				\n" <<
+						"	uint loopSize = get_num_groups(0);	\n";
+				code << "	__local REAL B0[2][TPB];					\n" <<
+						"	__local REAL B1[2][TPB];				\n" <<
+						"	__local REAL B2[2][TPB];				\n";
+				code << " 	while (stratum < totalStrata) {			\n" <<
+						"	uint lastLid = cases;							\n";
+			    code << "	cases = casesVec[stratum];				\n" <<
 						"	stratumStart = NtoK[stratum];			\n" <<
 						"	total = NtoK[stratum+1] - stratumStart;	\n" <<
 						"	controls = total - cases;				\n" <<
-						"	uint offKStrata = index*get_num_groups(0) + stratum;	\n" <<
-						"	__local REAL B0[2][TPB];					\n" <<
-						"	__local REAL B1[2][TPB];				\n" <<
-						"	__local REAL B2[2][TPB];				\n";
+						"	uint offKStrata = index*get_num_groups(0) + stratum;	\n";
 				if (logSum) {
 					code << "	B0[0][lid] = -INFINITY;					\n" <<
 							"	B0[1][lid] = -INFINITY;					\n" <<
@@ -1395,8 +1411,12 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					code << "__local REAL x;				\n";
 				}
 
-				code << "	for (int col = 0; col < total; col++) {	\n" <<
-						"		REAL U = expXBeta[stratumStart+col];	\n";
+				code << "	for (int col = 0; col < total; col++) {	\n";
+				if (logSum) {
+					code << "REAL U = xBeta[stratumStart + col];	\n";
+				} else {
+					code << "REAL U = exp(xBeta[stratumStart + col];	\n";
+				}
 
 				if (formatType == DENSE) {
 					code << "	if (lid == 0) {						\n" <<
@@ -1482,12 +1502,13 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"	output[stratum*3*TPB + 2*TPB + lid] = B2[1-current][lid];	\n";
 						*/
 
-
+				/*
 				code << "	if (lid == 0) {							\n" <<
 						"		output[stratum*3] = B0[1-current][cases];	\n" <<
 						"		output[stratum*3+1] = B1[1-current][cases];	\n" <<
 						"		output[stratum*3+2] = B2[1-current][cases];	\n" <<
 						"	}										\n";
+						*/
 
 
 
@@ -1519,8 +1540,12 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					code << "__local REAL x;				\n";
 				}
 
-				code << "	for (int col = start; col < end; col++) {	\n" <<
-						"		REAL U = expXBeta[stratumStart+col];	\n";
+				code << "	for (int col = start; col < end; col++) {	\n";
+				if (logSum) {
+					code << "REAL U = xBeta[stratumStart + col];	\n";
+				} else {
+					code << "REAL U = exp(xBeta[stratumStart + col];	\n";
+				}
 				if (formatType == DENSE) {
 					code << "	if (lid == 0) {						\n" <<
 							"		x = X[offX+stratumStart+col];			\n" <<
@@ -1655,8 +1680,12 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
 				code << "	barrier(CLK_LOCAL_MEM_FENCE);			\n";
 
-				code << "	for (int col = start; col < end; col++) {	\n" <<
-						"		REAL U = expXBeta[stratumStart+col];	\n";
+				code << "	for (int col = start; col < end; col++) {	\n";
+				if (logSum) {
+					code << "REAL U = xBeta[stratumStart + col];	\n";
+				} else {
+					code << "REAL U = exp(xBeta[stratumStart + col];	\n";
+				}
 				if (formatType == DENSE) {
 					code << "	if (lid == 0) {						\n" <<
 							"		x = X[offX+stratumStart+col];			\n" <<
@@ -1750,7 +1779,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				// final loop
 				code << "	start = (loops-1) * (TPB - 1);			\n" <<
 						"	end = total;						\n" <<
-						"	uint lastLid = (cases-1)%(TPB-1)+1;		\n" <<
+						"	lastLid = (cases-1)%(TPB-1)+1;		\n" <<
 						"	current = 0;						\n";
 				code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
 
@@ -1796,8 +1825,12 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				code << "	barrier(CLK_GLOBAL_MEM_FENCE);			\n";
 				code << "	barrier(CLK_LOCAL_MEM_FENCE);		\n";
 
-				code << "	for (int col = start; col < end; col++) {	\n" <<
-						"		REAL U = expXBeta[stratumStart+col];	\n";
+				code << "	for (int col = start; col < end; col++) {	\n";
+				if (logSum) {
+					code << "REAL U = xBeta[stratumStart + col];	\n";
+				} else {
+					code << "REAL U = exp(xBeta[stratumStart + col];	\n";
+				}
 				if (formatType == DENSE) {
 					code << "	if (lid == 0) {						\n" <<
 							"		x = X[offX+stratumStart+col];			\n" <<
@@ -1886,7 +1919,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"	output[stratum*3*TPB + 2*TPB + lid] = B2[1-current][lid];	\n";
 						*/
 
-
+				/*
 				code << "	if (lid == lastLid) {							\n" <<
 						//"		int id = (cases - 1) % (TPB-1) + 1;			\n" <<
 						//"		if (id == 0) id = TPB - 1;			\n" <<
@@ -1894,9 +1927,39 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"		output[stratum*3+1] = B1[1-current][lid];	\n" <<
 						"		output[stratum*3+2] = B2[1-current][lid];	\n" <<
 						"	}										\n";
-
-
+						*/
 				code << "}											\n";
+
+		        code << "	stratum += loopSize;		\n" <<
+		        		"	barrier(CLK_LOCAL_MEM_FENCE);	\n" <<
+		        		"}								\n";
+
+
+				code << "		if (lid1 == 0) {							\n" <<
+						//"			if (localWeights[lid0] != 0) {			\n" <<
+						"				REAL value0 = B0[1-current][lastLid];	\n" <<
+						"				REAL value1 = B1[1-current][lastLid];	\n" <<
+						"				REAL value2 = B2[1-current][lastLid];	\n";
+				if (logSum) {
+					code << "				grad -= -exp(value1 - value0);			\n" <<
+							"				hess -= exp(2*(value1-value0)) - exp(value2 - value0);	\n";
+				} else {
+					code << "				grad -= -value1/value0;					\n" <<
+							"				hess -= value1*value1/value0/value0 - value2/value0;		\n";
+				}
+				//code << "			}									\n" <<
+				code <<	"		}										\n";
+
+				code << "		stratum += loopSize;					\n";
+				code << "		barrier(CLK_LOCAL_MEM_FENCE);			\n";
+				code << "		barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+				code << "}												\n";									// end sum over strata
+
+
+				code << "	if (lid1 == 0) {							\n" <<									// write output
+						"		buffer[get_group_id(0)] = grad;	\n" <<
+						"		buffer[loopSize+get_group_id(0)] = hess;	\n" <<
+						"	}											\n";
 
 		        code << "}  \n"; // End of kernel
 		        return SourceCode(code.str(), name);
@@ -2181,7 +2244,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"				} else {							\n" <<
 						"					currentK = K[offK+currentKIndex];	\n" <<
 						"				}									\n" <<
-						"			}								\n" <<						"			}								\n" <<
+						"			}								\n" <<
 						"		}									\n" <<
 						"		barrier(CLK_LOCAL_MEM_FENCE);		\n";
 			}
@@ -2202,7 +2265,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"				} else {							\n" <<
 						"					currentK = K[offK+currentKIndex];	\n" <<
 						"				}									\n" <<
-						"			}								\n" <<						"			}								\n" <<
+						"			}								\n" <<
 						"		}									\n" <<
 						"		barrier(CLK_LOCAL_MEM_FENCE);		\n";
 			}
@@ -2322,7 +2385,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"					} else {							\n" <<
 						"						currentK = K[offK+currentKIndex];	\n" <<
 						"					}									\n" <<
-						"				}								\n" <<						"				}								\n" <<
+						"				}								\n" <<
 						"			}									\n" <<
 						"			barrier(CLK_LOCAL_MEM_FENCE);		\n";
 			}
@@ -2343,7 +2406,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"					} else {							\n" <<
 						"						currentK = K[offK+currentKIndex];	\n" <<
 						"					}									\n" <<
-						"				}								\n" <<						"				}								\n" <<
+						"				}								\n" <<
 						"			}									\n" <<
 						"			barrier(CLK_LOCAL_MEM_FENCE);		\n";
 			}
@@ -2467,7 +2530,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"			} else {							\n" <<
 						"				currentK = K[offK+currentKIndex];	\n" <<
 						"			}									\n" <<
-						"		}								\n" <<						"		}								\n" <<
+						"		}								\n" <<
 						"	}									\n" <<
 						"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
 			}
@@ -2488,7 +2551,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"			} else {							\n" <<
 						"				currentK = K[offK+currentKIndex];	\n" <<
 						"			}									\n" <<
-						"		}								\n" <<						"		}								\n" <<
+						"		}								\n" <<
 						"	}									\n" <<
 						"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
 			}
@@ -2513,7 +2576,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"		current = 1 - current;				\n" <<
 					"		barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
 					"	}										\n";
-			code << "}											\n";
+			code << "}											\n";										// end loops > 1
 
 
 			code << "		if (lid1 == 0) {							\n" <<
@@ -2534,10 +2597,10 @@ static std::string weight(const std::string& arg, bool useWeights) {
 			code << "		stratum += loopSize;					\n";
 			code << "		barrier(CLK_LOCAL_MEM_FENCE);			\n";
 			code << "		barrier(CLK_GLOBAL_MEM_FENCE);			\n";
-			code << "}												\n";
+			code << "}												\n";									// end sum over strata
 
 
-			code << "	if (lid1 == 0) {							\n" <<
+			code << "	if (lid1 == 0) {							\n" <<									// write output
 					"		buffer[cvIndexStride*get_group_id(1) + cvIndex] = grad;	\n" <<
 					"		buffer[cvIndexStride*(loopSize+get_group_id(1)) + cvIndex] = hess;	\n" <<
 					"	}											\n";
@@ -2756,15 +2819,17 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "       const uint offX,           \n" <<
                 "       const uint offK,           \n" <<
                 "       const uint N,              \n" <<
-                "       const REAL delta,          \n" <<
+                "       __global const REAL* deltaVector,          \n" <<
                 "       __global const REAL* X,    \n" <<
                 "       __global const int* K,     \n" <<
                 "       __global const REAL* Y,    \n" <<
                 "       __global REAL* xBeta,      \n" <<
                 "       __global REAL* expXBeta,   \n" <<
                 "       __global REAL* denominator,\n" <<
-                "       __global const int* id) {   \n" <<
-                "   const uint task = get_global_id(0); \n";
+                "       __global const int* id,		\n" <<
+				"		const uint index) {   \n";
+        code << "   const uint task = get_global_id(0); \n" <<
+        		"	REAL delta = deltaVector[index];	\n";
 
         if (formatType == INDICATOR || formatType == SPARSE) {
             code << "   const uint k = K[offK + task];         \n";
@@ -2814,7 +2879,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "       const uint offX,           \n" <<
                 "       const uint offK,           \n" <<
                 "       const uint N,              \n" <<
-                "       const REAL delta,          \n" <<
+                "       __global const REAL* deltaVector,          \n" <<
                 "       __global const REAL* X,    \n" <<
                 "       __global const int* K,     \n" <<
                 "       __global const REAL* Y,    \n" <<
@@ -2822,13 +2887,14 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "       __global REAL* expXBeta,   \n" <<
                 "       __global REAL* denominator,\n" <<
                 "       __global const int* id,		\n" <<
+				"		const uint index,			\n" <<
 				"		__global const int* NtoK,	\n" <<
 				"		__global const REAL* NWeights,	\n" <<
-				"		const uint index,			\n" <<
 				"		const uint totalStrata,		\n" <<
 				"		__global const uint* KStrata) {   \n";
 
         code << "	uint lid = get_local_id(0);		\n" <<
+        		"	REAL delta = deltaVector[index];	\n" <<
         		"	uint stratum = get_group_id(0);	\n" <<
 				"	__local REAL scratch[TPB];		\n" <<
 				"	REAL sum = 0.0;					\n" <<
@@ -3918,9 +3984,105 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	}
 
 	// step between compute grad hess and update XB
+		template <class BaseModel, typename WeightType, class BaseModelG>
+		SourceCode
+		GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForProcessDeltaKernel(int priorType) {
+	        std::string name;
+	        if (priorType == 0) name = "ProcessDeltaKernelNone";
+	        if (priorType == 1) name = "ProcessDeltaKernelLaplace";
+	        if (priorType == 2) name = "ProcessDeltaKernelNormal";
+
+		    std::stringstream code;
+		    code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+		    code << "__kernel void " << name << "(            \n" <<
+		    		"		__global const REAL* buffer,				\n" <<
+					"		__global REAL* deltaVector,			\n" <<
+					"		const uint wgs,						\n" <<
+					"		__global REAL* boundVector,				\n" <<
+					"		__global const REAL* priorParams,			\n" <<
+					"		__global const REAL* XjYVector,			\n" <<
+					"		const uint index,					\n" <<
+					"		__global REAL* betaVector) {    \n";    // TODO Make weight optional
+		    // Initialization
+		    code <<	"	__local REAL scratch[2][TPB];				\n" <<
+					"	uint lid = get_local_id(0);				\n" <<
+					"	if (lid < wgs) {						\n" <<
+					"		scratch[0][lid] = buffer[lid];	\n" <<
+					"		scratch[1][lid] = buffer[lid+wgs];	\n" <<
+					"	}										\n" <<
+		            "   for(int j = 1; j < wgs; j <<= 1) {          \n" <<
+		            "       barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
+		            "       uint mask = (j << 1) - 1;               \n" <<
+		            "       if ((lid & mask) == 0) {                \n" <<
+		            "           scratch[0][lid] += scratch[0][lid + j]; \n" <<
+		            "           scratch[1][lid] += scratch[1][lid + j]; \n" <<
+		            "       }                                       \n" <<
+		            "   }                                           \n";
+
+		    code << "	if (lid == 0) {							\n" <<
+		    		"		__local uint offset;				\n" <<
+					"		offset = index;			\n" <<
+					"		__local REAL grad, hess, beta, delta;		\n" <<
+					"		grad = scratch[0][lid] - XjYVector[offset];		\n" <<
+					"		hess = scratch[1][lid];		\n" <<
+	    			"		beta = betaVector[offset];		\n";
+		    		//"		uint offset = cvIndex*J+index;		\n" <<
+					//"		REAL grad = scratch[0][lid] - XjYVector[offset];		\n" <<
+					//"		REAL hess = scratch[1][lid];		\n" <<
+	    			//"		REAL beta = betaVector[offset];		\n";
+		    if (priorType == 0) {
+		    	code << " delta = -grad / hess;			\n";
+		    }
+		    if (priorType == 1) {
+		    	code << "	REAL lambda = priorParams[index];	\n" <<
+						"	REAL negupdate = - (grad - lambda) / hess; \n" <<
+						"	REAL posupdate = - (grad + lambda) / hess; \n" <<
+						"	if (beta == 0 ) {					\n" <<
+						"		if (negupdate < 0) {			\n" <<
+						"			delta = negupdate;			\n" <<
+						"		} else if (posupdate > 0) {		\n" <<
+						"			delta = posupdate;			\n" <<
+						"		} else {						\n" <<
+						"			delta = 0;					\n" <<
+						"		}								\n" <<
+						"	} else {							\n" <<
+						"		if (beta < 0) {					\n" <<
+						"			delta = negupdate;			\n" <<
+						"			if (beta+delta > 0) delta = -beta;	\n" <<
+						"		} else {						\n" <<
+						"			delta = posupdate;			\n" <<
+						"			if (beta+delta < 0) delta = -beta;	\n" <<
+						"		}								\n" <<
+						"	}									\n";
+		    }
+		    if (priorType == 2) {
+		    	code << "	REAL var = priorParams[index];		\n" <<
+						"	delta = - (grad + (beta / var)) / (hess + (1.0 / var));	\n";
+		    }
+
+		    code << "	REAL bound = boundVector[offset];		\n" <<
+		    		"	if (delta < -bound)	{					\n" <<
+					"		delta = -bound;						\n" <<
+					"	} else if (delta > bound) {				\n" <<
+					"		delta = bound;						\n" <<
+					"	}										\n" <<
+					//"	REAL intermediate = 2;					\n" <<
+					"	REAL intermediate = max(fabs(delta)*2, bound/2);	\n" <<
+					"	intermediate = max(intermediate, 0.001);	\n" <<
+					"	boundVector[offset] = intermediate;		\n" <<
+					"	deltaVector[index] = delta;	\n" <<
+					"	betaVector[offset] = delta + beta;		\n" <<
+					"	}										\n";
+
+		    code << "	}										\n";
+		    return SourceCode(code.str(), name);
+		}
+
+	// step between compute grad hess and update XB
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
-	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForProcessDeltaKernel(int priorType) {
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForProcessDeltaSyncCVKernel(int priorType) {
         std::string name;
         if (priorType == 0) name = "ProcessDeltaKernelNone";
         if (priorType == 1) name = "ProcessDeltaKernelLaplace";
