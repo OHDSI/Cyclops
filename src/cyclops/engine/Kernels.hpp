@@ -1317,7 +1317,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		                "   const uint N,              \n" <<
 		                "   __global const REAL* X,           		\n" <<
 		                "   __global const int* K,            		\n" <<
-						"	__global const real* Y,					\n" <<
+						"	__global const REAL* Y,					\n" <<
 						"	__global const REAL* xBeta,				\n" <<
 						"	__global const REAL* expXBeta,			\n" <<		// not used
 						"	__global const REAL* denominator,		\n" <<
@@ -1332,17 +1332,19 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				code << "	uint lid = get_local_id(0);				\n" <<
 						"	uint stratum, stratumStart, cases, total, controls;		\n" <<
 						"	stratum = get_group_id(0);				\n" <<
+						"	REAL grad = 0;							\n" <<
+						"	REAL hess = 0;							\n" <<
 						"	uint loopSize = get_num_groups(0);	\n";
 				code << "	__local REAL B0[2][TPB];					\n" <<
 						"	__local REAL B1[2][TPB];				\n" <<
 						"	__local REAL B2[2][TPB];				\n";
-				code << " 	while (stratum < totalStrata) {			\n" <<
-						"	uint lastLid = cases;							\n";
+				code << " 	while (stratum < totalStrata) {			\n";
 			    code << "	cases = casesVec[stratum];				\n" <<
+						"	uint lastLid = cases;					\n" <<
 						"	stratumStart = NtoK[stratum];			\n" <<
 						"	total = NtoK[stratum+1] - stratumStart;	\n" <<
 						"	controls = total - cases;				\n" <<
-						"	uint offKStrata = index*get_num_groups(0) + stratum;	\n";
+						"	uint offKStrata = index*totalStrata + stratum;	\n";
 				if (logSum) {
 					code << "	B0[0][lid] = -INFINITY;					\n" <<
 							"	B0[1][lid] = -INFINITY;					\n" <<
@@ -1367,7 +1369,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 							"		B0[1][lid] = 1;						\n" <<
 							"	}										\n";
 				}
-						//"	uint current = 0;						\n";
+				code << "	uint current = 0;						\n";
 
 
 				code << "	uint loops;								\n" <<
@@ -1378,18 +1380,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				// if loops == 1
 				code << "if (loops == 1) {							\n" <<
-				        "	uint current = 0;						\n";
-
-				/*
-				if (formatType == INDICATOR || formatType == SPARSE) {
-				code << "	uint currentKIndex = 0;					\n" <<
-						"	uint currentK = K[offK];				\n" <<
-						"	while (currentK < stratumStart) {		\n" <<
-						"		currentKIndex++;					\n" <<
-						"		currentK = K[offK + currentKIndex];		\n" <<
-						"	}										\n";
-				}
-				*/
+				        "	current = 0;						\n";
 
 				if (formatType == INDICATOR || formatType == SPARSE) {
 				code << "	__local uint currentKIndex, currentK, KIndexEnd;	\n" <<
@@ -1415,7 +1406,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				if (logSum) {
 					code << "REAL U = xBeta[stratumStart + col];	\n";
 				} else {
-					code << "REAL U = exp(xBeta[stratumStart + col];	\n";
+					code << "REAL U = exp(xBeta[stratumStart + col]);	\n";
 				}
 
 				if (formatType == DENSE) {
@@ -1496,23 +1487,10 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"		barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
 						"	}										\n";
 
-				/*
-				code << "	output[stratum*3*TPB + lid] = B0[1-current][lid];	\n" <<
-						"	output[stratum*3*TPB + TPB + lid] = B1[1-current][lid];	\n" <<
-						"	output[stratum*3*TPB + 2*TPB + lid] = B2[1-current][lid];	\n";
-						*/
-
-				/*
-				code << "	if (lid == 0) {							\n" <<
-						"		output[stratum*3] = B0[1-current][cases];	\n" <<
-						"		output[stratum*3+1] = B1[1-current][cases];	\n" <<
-						"		output[stratum*3+2] = B2[1-current][cases];	\n" <<
-						"	}										\n";
-						*/
-
 
 
 				code << "} else {									\n";
+
 
 				// loop 1
 				code << "	int start = 0;							\n" << //loop * TPB;					\n" <<
@@ -1533,7 +1511,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"	barrier(CLK_LOCAL_MEM_FENCE);			\n";
 				}
 
-				code << "	uint current = 0;						\n";
+				code << "	current = 0;						\n";
 				if (formatType == INTERCEPT) {
 					code << "REAL x;						\n";
 				} else {
@@ -1544,7 +1522,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				if (logSum) {
 					code << "REAL U = xBeta[stratumStart + col];	\n";
 				} else {
-					code << "REAL U = exp(xBeta[stratumStart + col];	\n";
+					code << "REAL U = exp(xBeta[stratumStart + col]);	\n";
 				}
 				if (formatType == DENSE) {
 					code << "	if (lid == 0) {						\n" <<
@@ -1684,7 +1662,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				if (logSum) {
 					code << "REAL U = xBeta[stratumStart + col];	\n";
 				} else {
-					code << "REAL U = exp(xBeta[stratumStart + col];	\n";
+					code << "REAL U = exp(xBeta[stratumStart + col]);	\n";
 				}
 				if (formatType == DENSE) {
 					code << "	if (lid == 0) {						\n" <<
@@ -1829,7 +1807,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				if (logSum) {
 					code << "REAL U = xBeta[stratumStart + col];	\n";
 				} else {
-					code << "REAL U = exp(xBeta[stratumStart + col];	\n";
+					code << "REAL U = exp(xBeta[stratumStart + col]);	\n";
 				}
 				if (formatType == DENSE) {
 					code << "	if (lid == 0) {						\n" <<
@@ -1913,29 +1891,11 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"		barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
 						"	}										\n";
 
-				/*
-				code << "	output[stratum*3*TPB + lid] = B0[1-current][lid];	\n" <<
-						"	output[stratum*3*TPB + TPB + lid] = B1[1-current][lid];	\n" <<
-						"	output[stratum*3*TPB + 2*TPB + lid] = B2[1-current][lid];	\n";
-						*/
-
-				/*
-				code << "	if (lid == lastLid) {							\n" <<
-						//"		int id = (cases - 1) % (TPB-1) + 1;			\n" <<
-						//"		if (id == 0) id = TPB - 1;			\n" <<
-						"		output[stratum*3] = B0[1-current][lid];	\n" <<
-						"		output[stratum*3+1] = B1[1-current][lid];	\n" <<
-						"		output[stratum*3+2] = B2[1-current][lid];	\n" <<
-						"	}										\n";
-						*/
 				code << "}											\n";
 
-		        code << "	stratum += loopSize;		\n" <<
-		        		"	barrier(CLK_LOCAL_MEM_FENCE);	\n" <<
-		        		"}								\n";
 
 
-				code << "		if (lid1 == 0) {							\n" <<
+				code << "		if (lid == 0) {							\n" <<
 						//"			if (localWeights[lid0] != 0) {			\n" <<
 						"				REAL value0 = B0[1-current][lastLid];	\n" <<
 						"				REAL value1 = B1[1-current][lastLid];	\n" <<
@@ -1952,11 +1912,11 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 				code << "		stratum += loopSize;					\n";
 				code << "		barrier(CLK_LOCAL_MEM_FENCE);			\n";
-				code << "		barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+				//code << "		barrier(CLK_GLOBAL_MEM_FENCE);			\n";
 				code << "}												\n";									// end sum over strata
 
 
-				code << "	if (lid1 == 0) {							\n" <<									// write output
+				code << "	if (lid == 0) {							\n" <<									// write output
 						"		buffer[get_group_id(0)] = grad;	\n" <<
 						"		buffer[loopSize+get_group_id(0)] = hess;	\n" <<
 						"	}											\n";

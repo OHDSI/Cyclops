@@ -3140,6 +3140,7 @@ public:
 
     virtual void runCCDIndexSeparate() {
     	if (!initialized) {
+    		std::cout << "here0 ";
     		initialized = true;
     		if (BaseModel::exactCLR || BaseModelG::useNWeights) {
     			detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
@@ -3222,13 +3223,21 @@ public:
     		}
     		std::cout << "\n";
     		*/
+    		detail::resizeAndCopyToDevice(hXjY, dXjY, queue);
 
     		computeRemainingStatistics();
     	}
 
         int wgs = detail::constant::exactCLRSyncBlockSize; // for reduction across strata
-        if (dBuffer.size() < 2*wgs*cvIndexStride) {
-        	dBuffer.resize(2*wgs*cvIndexStride);
+
+        if (syncCV) {
+        	if (dBuffer.size() < 2*wgs*cvIndexStride) {
+        		dBuffer.resize(2*wgs*cvIndexStride);
+        	}
+        } else {
+        	if (dBuffer.size() < 2*wgs) {
+        		dBuffer.resize(2*wgs);
+        	}
         }
 
         for (int index = 0; index < J; index++) {
@@ -3269,9 +3278,6 @@ public:
         	kernel.set_arg(8, dDenominator);
         	kernel.set_arg(9, dNtoK);
         	kernel.set_arg(10, dNWeight);
-        	if (dBuffer.size() < 2*wgs) {
-        		dBuffer.resize(2*wgs, queue);
-        	}
         	kernel.set_arg(11, dBuffer);
 
         	size_t globalWorkSize = 0;
@@ -3325,11 +3331,20 @@ public:
         	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
+
+        	hBuffer.resize(2*wgs);
+        	compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs, std::begin(hBuffer), queue);
+        	std::cout << "buffer: ";
+        	for (auto x:hBuffer) {
+        		std::cout << x << " ";
+        	}
+        	std::cout << "\n";
+
+
         	////////////////////////// Start Process Delta
 #ifdef CYCLOPS_DEBUG_TIMING
         	start = bsccs::chrono::steady_clock::now();
 #endif
-        	//std::cout << "kernel 1\n";
         	int priorType = priorTypes[index];
         	auto& kernel1 = kernelProcessDeltaBuffer[priorType];
 
@@ -3365,9 +3380,21 @@ public:
         	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
+
+        	hBuffer1.resize(J);
+        	compute::copy(std::begin(dDeltaVector), std::begin(dBuffer)+J, std::begin(hBuffer1), queue);
+        	std::cout << "delta: ";
+        	for (auto x:hBuffer1) {
+        		std::cout << x << " ";
+        	}
+        	std::cout << "\n";
+
+
+
 #ifdef CYCLOPS_DEBUG_TIMING
         	start = bsccs::chrono::steady_clock::now();
 #endif
+
         	auto& kernel2 = kernelUpdateXBeta[formatType];
 
         	kernel2.set_arg(0, dColumns.getDataOffset(index));
@@ -4986,6 +5013,12 @@ virtual void runCCDIndex() {
         }
     }
 
+    void buildAllProcessDeltaKernels() {
+    	buildProcessDeltaKernel(0);
+    	buildProcessDeltaKernel(1);
+    	buildProcessDeltaKernel(2);
+    }
+
     void buildAllProcessDeltaSyncCVKernels() {
     	buildProcessDeltaSyncCVKernel(0);
     	buildProcessDeltaSyncCVKernel(1);
@@ -5254,6 +5287,7 @@ virtual void runCCDIndex() {
         options << " -cl-mad-enable";
 
     	auto source = writeCodeForProcessDeltaKernel(priorType);
+    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	auto kernel = compute::kernel(program, source.name);
 
@@ -5335,23 +5369,33 @@ virtual void runCCDIndex() {
 
         	// CCD Kernel
         	//auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useWeights);
-            auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useLogSum);
+            auto source = writeCodeForGradientHessianKernelExactCLR(formatType, true);
+    		std::cout << source.body;
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernel = compute::kernel(program, source.name);
 
-        	if (useWeights) {
+        	kernelGradientHessianWeighted[formatType] = std::move(kernel); // using it for logsum
+
+        	source = writeCodeForGradientHessianKernelExactCLR(formatType, false);
+        	program = compute::program::build_with_source(source.body, ctx, options.str());
+        	kernel = compute::kernel(program, source.name);
+
+        	kernelGradientHessianNoWeight[formatType] = std::move(kernel); // using it for logsum
+
+
+        	/*
+        	if (useLogSum) {
         		kernelGradientHessianWeighted[formatType] = std::move(kernel);
-        		std::cout << source.body;
         		//kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
         		//kernelGradientHessianAllWeighted[formatType] = std::move(kernelAll);
         		//kernelGradientHessianSyncWeighted[formatType] = std::move(kernelSync);
         	} else {
         		kernelGradientHessianNoWeight[formatType] = std::move(kernel);
-        		std::cout << source.body;
         		//kernelGradientHessianMMNoWeight[formatType] = std::move(kernelMM);
         		//kernelGradientHessianAllNoWeight[formatType] = std::move(kernelAll);
         		//kernelGradientHessianSyncNoWeight[formatType] = std::move(kernelSync);
         	}
+        	*/
         } else {
             std::stringstream options;
 
@@ -5521,6 +5565,7 @@ virtual void runCCDIndex() {
     	options << " -cl-mad-enable";
 
         auto source = writeCodeForUpdateXBetaKernel(formatType);
+        std::cout << source.body;
 
         if (BaseModelG::useNWeights) {
         	source = writeCodeForStratifiedUpdateXBetaKernel(formatType);
@@ -5862,8 +5907,8 @@ virtual void runCCDIndex() {
         std::cout << "built empty kernel\n";
         //buildReduceCVBufferKernel();
         //std::cout << "built reduceCVBuffer kernel\n";
-        //buildAllProcessDeltaKernels();
-        //std::cout << "built ProcessDelta kernels \n";
+        buildAllProcessDeltaKernels();
+        std::cout << "built ProcessDelta kernels \n";
         //buildAllDoItAllKernels(neededFormatTypes);
         //std::cout << "built doItAll kernels\n";
         buildAllDoItAllNoSyncCVKernels(neededFormatTypes);
