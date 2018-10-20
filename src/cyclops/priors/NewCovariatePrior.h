@@ -180,7 +180,9 @@ static PriorPtr makePrior(PriorType priorType, PriorFunctionPtr& priorFunction,
         break;
     case NORMAL :
         Rcpp::stop("Parameterized normal priors are not yet implemented");
-        prior = bsccs::make_shared<NormalPrior>(1.0);
+        break;
+    case BAR_UPDATE :
+        Rcpp::stop("Parameterized BAR updates are not yet implemented");
         break;
     default : break;
     }

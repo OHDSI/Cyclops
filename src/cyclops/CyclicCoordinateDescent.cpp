@@ -490,6 +490,8 @@ double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
 	} else
 	if (convergenceType == LANGE) {
 		return getLogLikelihood() + getLogPrior();
+	} else if (convergenceType == ONE_STEP) {
+	    return 0.0;
 	} else {
     	std::ostringstream stream;
     	stream << "Invalid convergence type: " << convergenceType;

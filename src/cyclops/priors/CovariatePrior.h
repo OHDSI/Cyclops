@@ -446,6 +446,86 @@ private:
 	VariancePtr variance;
 };
 
+class BarUpdatePrior : public CovariatePrior {
+public:
+
+    BarUpdatePrior(double variance) : CovariatePrior(), variance(makeVariance(variance)) {
+         // Do nothing
+    }
+
+    BarUpdatePrior(VariancePtr ptr) : CovariatePrior(), variance(ptr) {
+        // Do nothing
+    }
+
+    virtual ~BarUpdatePrior() {
+        // Do nothing
+    }
+
+    const std::string getDescription() const {
+        double sigma2Beta = getVariance();
+        std::stringstream info;
+        info << "BarUpdate(" << sigma2Beta << ")";
+        return info.str();
+    }
+
+    bool getIsRegularized() const {
+        return true;
+    }
+
+    bool getSupportsKktSwindle() const {
+        return false;
+    }
+
+    double getKktBoundary() const {
+        return 0.0;
+    }
+
+    double logDensity(const DoubleVector& beta, const int index) const {
+        auto x = beta[index];
+        double sigma2Beta = getVariance();
+        return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
+    }
+
+    double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const {
+        double sigma2Beta = getVariance();
+        double beta = betaVector[index];
+        return - (gh.first + (beta / sigma2Beta)) /
+            (gh.second + (1.0 / sigma2Beta));
+        // TODO Update here
+    }
+
+    std::vector<VariancePtr> getVarianceParameters() const {
+        auto tmp = std::vector<VariancePtr>();
+        tmp.push_back(variance);
+        return tmp;
+    }
+
+protected:
+    double getVariance() const {
+        return variance.get();
+    }
+
+private:
+    template <typename Vector>
+    typename Vector::value_type logIndependentDensity(const Vector& vector) const {
+        double sigma2Beta = getVariance();
+        return -0.5 * vector.size() * std::log(2.0 * PI * sigma2Beta)
+            - 0.5 * twoNormSquared(vector) / sigma2Beta;
+    }
+
+    template <typename Vector>
+    typename Vector::value_type twoNormSquared(const Vector& vector) const {
+        typename Vector::value_type norm = 0.0;
+        for (typename Vector::const_iterator it = vector.begin();
+             it != vector.end(); ++it) {
+            norm += (*it) * (*it);
+        }
+        return norm;
+    }
+
+    VariancePtr variance;
+};
+
 class HierarchicalNormalPrior : public NormalPrior {
 public:
     typedef std::vector<int> NeighborList;

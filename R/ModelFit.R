@@ -559,7 +559,7 @@ createPrior <- function(priorType,
                         neighborhood = NULL,
                         useCrossValidation = FALSE,
                         forceIntercept = FALSE) {
-    validNames = c("none", "laplace","normal", "hierarchical")
+    validNames = c("none", "laplace","normal", "barupdate", "hierarchical")
     stopifnot(priorType %in% validNames)
     if (!is.null(exclude)) {
         if (!inherits(exclude, "character") &&
@@ -576,6 +576,9 @@ createPrior <- function(priorType,
 
     if (priorType == "none" && useCrossValidation) {
         stop("Cannot perform cross validation with a flat prior")
+    }
+    if (priorType == "barupdate" && useCrossValidation) {
+        stop("Cannot perform cross valudation with BAR updates")
     }
     if (priorType == "hierarchical" && missing(graph)) {
         stop("Must provide a graph for a hierarchical prior")

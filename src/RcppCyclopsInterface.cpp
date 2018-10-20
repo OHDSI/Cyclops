@@ -572,6 +572,8 @@ bsccs::ConvergenceType RcppCcdInterface::parseConvergenceType(const std::string&
 		type = MITTAL;
 	} else if (convergenceName == "zhang") {
 		type = ZHANG_OLES;
+	} else if (convergenceName == "onestep") {
+	    type = ONE_STEP;
 	} else {
 		handleError("Invalid convergence type.");
 	}
@@ -602,6 +604,8 @@ bsccs::priors::PriorType RcppCcdInterface::parsePriorType(const std::string& pri
 		priorType = LAPLACE;
 	} else if (priorName == "normal") {
 		priorType = NORMAL;
+	} else if (priorName == "barupdate") {
+	    priorType = BAR_UPDATE;
 	} else {
  		handleError("Invalid prior type.");
  	}

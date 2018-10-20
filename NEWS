@@ -1,4 +1,10 @@
+Cyclops v2.0.1 (Release date: 2018-09-23)
+==============
+
+Changes: 1. patch two memory leaks in `ModelData.cpp` and `ModelSpecifics.hpp`
+
 Cyclops v2.0.0 (Release date: 2018-09-18)
+==============
 
 Changes: 1. simplify internal transformation-reductions loops
          2. implemented non-negative weights
@@ -7,6 +13,7 @@ Changes: 1. simplify internal transformation-reductions loops
          5. temporarily remove dependence on `RcppParallel` (until TBB is again R-compliant)
 
 Cyclops v1.3.4 (Release date: 2018-06-11)
+==============
 
 Changes: 1. fix undeclared dependencies in unit-tests: `MASS` and `microbenchmarks`
 		 2. fix issues with ATLAS compilation

@@ -42,9 +42,6 @@
     }
 #endif
 
-// #ifdef R_BUILD  // old alternative -DR_BUILD
-// #endif
-
 namespace bsccs {
 
 #if __cplusplus >= 201402L
@@ -104,7 +101,8 @@ namespace priors {
 enum PriorType {
 	NONE = 0,
 	LAPLACE,
-	NORMAL
+	NORMAL,
+	BAR_UPDATE
 };
 
 } // namespace priors
@@ -113,6 +111,7 @@ enum ConvergenceType {
 	GRADIENT,
 	LANGE,
 	MITTAL,
+	ONE_STEP,
 	ZHANG_OLES
 };
 
@@ -212,15 +211,9 @@ inline bool requiresOffset(const ModelType modelType) {
 	return (modelType == ModelType::SELF_CONTROLLED_MODEL);
 }
 
-//#define UNUSED(x) ((void)(x))
-//UNUSED(requiresStratumID);
-
 } // namespace Models
 
 // Hierarchical prior types
-
-// typedef std::map<int, int> HierarchicalParentMap;
-// typedef std::map<int, std::vector<int> > HierarchicalChildMap;
 typedef std::vector<int> HierarchicalParentMap;
 typedef std::vector<std::vector<int> > HierarchicalChildMap;
 typedef std::map<IdType, ProfileVector> NeighborhoodMap;
