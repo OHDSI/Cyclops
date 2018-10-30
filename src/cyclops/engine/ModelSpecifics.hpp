@@ -1683,11 +1683,14 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	    tbb::combinable<real> newGrad(static_cast<real>(0));
 	    tbb::combinable<real> newHess(static_cast<real>(0));
 
-	    auto func = [&,index](const tbb::blocked_range<int>& range){
+	    //auto func = [&,index](const tbb::blocked_range<int>& range){
+	    	std::vector<real> grad;
+	    	std::vector<real> hess;
 
 	        using std::isinf;
 
-	        for (int i = range.begin(); i < range.end(); ++i) {
+	        //for (int i = range.begin(); i < range.end(); ++i) {
+	        for (int i=0; i< N; i++) {
 	            DenseView<IteratorType> x(IteratorType(modelData, index), hNtoK[i], hNtoK[i+1]);
 	            int numSubjects = hNtoK[i+1] - hNtoK[i];
 	            int numCases = hNWeight[i];
@@ -1698,20 +1701,35 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 	                std::vector<DDouble> value = computeHowardRecursion<DDouble>(offsExpXBeta.begin() + hNtoK[i], newX, numSubjects, numCases);//, threadPool);//, hY.begin() + hNtoK[i]);
 	                using namespace sugar;
 	                //mutex0.lock();
+
+	                grad.push_back(value[1]/value[0]);
+	                hess.push_back(-((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]));
+
 	                newGrad.local() -= (real)(-value[1]/value[0]);
 	                newHess.local() -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
 	                //mutex0.unlock();
 	                continue;
 	            }
 	            //mutex0.lock();
+                grad.push_back(value[1]/value[0]);
+                hess.push_back(-((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]));
+
 	            newGrad.local() -= (real)(-value[1]/value[0]);
 	            newHess.local() -= (real)((value[1]/value[0]) * (value[1]/value[0]) - value[2]/value[0]);
 	            //mutex0.unlock();
 	        }
-	    };
-	    tbb::parallel_for(tbb::blocked_range<int>(0,N),func);
+	    //};
+	    //tbb::parallel_for(tbb::blocked_range<int>(0,N),func);
 	    gradient += newGrad.combine([](const real& x, const real& y) {return x+y;});
 	    hessian += newHess.combine([](const real& x, const real& y) {return x+y;});
+
+	    for (int i=0; i<N; i++) {
+	    	std::cout << grad[i] << " ";
+	    }
+	    for (int i=0; i<N; i++) {
+	    	std::cout << hess[i] << " ";
+	    }
+	    std::cout << "\n";
 
 	         //std::cout << "index: "<<index;
 
@@ -1811,6 +1829,30 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 //
 // #ifdef NEW_WAY2
 
+		if (BaseModel::efron) {
+			auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid,
+			        typename IteratorType::tag());
+
+	        auto rangeXNumerator = helper::dependent::getRangeXY(modelData, index, offsExpXBeta, hY,
+	                typename IteratorType::tag());
+
+	        auto rangeGradient = helper::dependent::getRangeGradientY(sparseIndices[index].get(), N, // runtime error: reference binding to null pointer of type 'struct vector'
+	                denomPid, denomPid2, hNWeight,
+	                typename IteratorType::tag());
+
+	        //std::cout << "hBuffer: ";
+			const auto result = variants::trial::nested_reduce(
+			        rangeKey.begin(), rangeKey.end(),
+			        rangeXNumerator.begin(), rangeGradient.begin(),
+					boost::tuple<real,real,real,real>{0,0,0,0}, Fraction<real>{0,0},
+	                TestNumeratorYKernel<BaseModel,IteratorType,real>(), // Inner transform-reduce
+			       	TestGradientYKernel<BaseModel,IteratorType,Weights,real>()); // Outer transform-reduce
+
+			//std::cout << "\n";
+			gradient = result.real();
+			hessian = result.imag();
+		} else {
+
 		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPid,
 		        typename IteratorType::tag());
 
@@ -1832,6 +1874,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 		//std::cout << "\n";
 		gradient = result.real();
 		hessian = result.imag();
+		}
 // #endif
 
 //       std::cerr << std::endl
@@ -2376,6 +2419,10 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
  			real oldEntry = offsExpXBeta[k];
  			real newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
  			incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry));
+
+ 			if (BaseModel::efron) {
+ 				incrementByGroup(denomPid2.data(), hPid, k, hY[k]*(newEntry - oldEntry));
+ 			}
  		}
  	}
 //
@@ -2423,6 +2470,20 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 			}
 			computeAccumlatedDenominator(useWeights); // WAS computeAccumlatedNumerDenom
 		}
+
+		if (BaseModel::efron) {
+			fillVector(denomPid2.data(), N, BaseModel::getDenomNullValue());
+			for (size_t k = 0; k < K; ++k) {
+				//real newExpXBeta = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
+				//offsExpXBeta[k] = newExpXBeta;
+				real newExpXBeta = offsExpXBeta[k] * hY[k];
+				real weightoffsExpXBeta =  useWeights ?
+						hKWeight[k] * newExpXBeta :
+						newExpXBeta; // TODO Delegate condition to gOEXB
+
+				incrementByGroup(denomPid2.data(), hPid, k, newExpXBeta);
+			}
+		}
 	}
 	// std::cerr << "finished MS.cRS" << std::endl;
 
@@ -2469,6 +2530,7 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 		tbb::parallel_for(tbb::blocked_range<int>(0,K),func);
 		computeAccumlatedDenominator(useWeights, cvIndex);
 	}
+
     //tbb::parallel_for(tbb::blocked_range<int>(0,syncCVFolds),func);
 
 	// std::cerr << "finished MS.cRS" << std::endl;

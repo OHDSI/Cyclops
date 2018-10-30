@@ -351,6 +351,7 @@ protected:
 // 	real* numerPid2;
 
 	RealVector denomPid;
+	RealVector denomPid2;
 	RealVector numerPid;
 	RealVector numerPid2;
 

@@ -160,7 +160,7 @@ fitCyclopsModel <- function(cyclopsData,
     if (control$selectorType == "auto") {
         if (cyclopsData$modelType %in% c("pr", "lr")) {
             control$selectorType <- "byRow"
-        } else if (cyclopsData$modelType %in% c("clr_exact", "clr")) {
+        } else if (cyclopsData$modelType %in% c("clr_exact", "clr", "clr_efron")) {
             control$selectorType <- "byPid"
         } else {
             rowsPerStratum <- (getNumberOfRows(cyclopsData) / getNumberOfStrata(cyclopsData))

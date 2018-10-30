@@ -151,6 +151,9 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
     case ModelType::CONDITIONAL_LOGISTIC :
         model =  deviceFactory<ConditionalLogisticRegression<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
         break;
+    case ModelType::EFRON_TIED_CONDITIONAL_LOGISTIC :
+        model =  deviceFactory<EfronConditionalLogisticRegression<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
+        break;
     case ModelType::TIED_CONDITIONAL_LOGISTIC :
         model =  deviceFactory<TiedConditionalLogisticRegression<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
         break;
@@ -546,6 +549,7 @@ void AbstractModelSpecifics::initialize(
 // 	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
 // 	numerPid2 = numerPid + 2 * alignedLength;
 	denomPid.resize(alignedLength);
+	denomPid2.resize(alignedLength);
 	numerPid.resize(alignedLength);
 	numerPid2.resize(alignedLength);
 

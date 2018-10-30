@@ -131,6 +131,7 @@ enum class ModelType {
 	POISSON,
 	LOGISTIC,
 	CONDITIONAL_LOGISTIC,
+	EFRON_TIED_CONDITIONAL_LOGISTIC,
 	TIED_CONDITIONAL_LOGISTIC,
 	CONDITIONAL_POISSON,
 	SELF_CONTROLLED_MODEL,
@@ -178,6 +179,7 @@ namespace Models {
 
 inline bool removeIntercept(const ModelType modelType) {
 	return (modelType == ModelType::CONDITIONAL_LOGISTIC ||
+			modelType == ModelType::EFRON_TIED_CONDITIONAL_LOGISTIC ||
 			modelType == ModelType::TIED_CONDITIONAL_LOGISTIC ||
 			modelType == ModelType::CONDITIONAL_POISSON ||
 			modelType == ModelType::SELF_CONTROLLED_MODEL);
@@ -185,6 +187,7 @@ inline bool removeIntercept(const ModelType modelType) {
 
 inline bool requiresStratumID(const ModelType modelType) {
 	return (modelType == ModelType::CONDITIONAL_LOGISTIC ||
+			modelType == ModelType::EFRON_TIED_CONDITIONAL_LOGISTIC ||
 			modelType == ModelType::TIED_CONDITIONAL_LOGISTIC ||
             modelType == ModelType::CONDITIONAL_POISSON ||
             modelType == ModelType::SELF_CONTROLLED_MODEL);
