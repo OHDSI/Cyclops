@@ -1749,6 +1749,8 @@ public:
     		}
     	}
 
+    	//std::cout << numerator << " " << numerator2 << " "<< numerator3 << " "<< numerator4 << " " << denominator << " " << denominator2 << " " << gradient << " " << hessian << "\n";
+
         //const RealType hessian =
            // (IteratorType::isIndicator) ?
               //  gradient * (static_cast<RealType>(1.0) - g) :

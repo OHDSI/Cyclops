@@ -290,6 +290,7 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::hPidInternal;
     using ModelSpecifics<BaseModel, WeightType>::hOffs;
     using ModelSpecifics<BaseModel, WeightType>::denomPid;
+    using ModelSpecifics<BaseModel, WeightType>::denomPid2;
     using ModelSpecifics<BaseModel, WeightType>::accDenomPid;
     using ModelSpecifics<BaseModel, WeightType>::accNumerPid;
     using ModelSpecifics<BaseModel, WeightType>::accNumerPid2;
@@ -348,10 +349,10 @@ public:
           , compute::command_queue::enable_profiling
       ),
       dColumns(ctx),
-      dY(ctx), dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dAccDenominator(ctx), dBuffer(ctx), dKWeight(ctx), dNWeight(ctx),
+      dY(ctx), dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dDenominator2(ctx), dAccDenominator(ctx), dBuffer(ctx), dKWeight(ctx), dNWeight(ctx),
       dId(ctx), dNorm(ctx), dOffs(ctx), dFixBeta(ctx), dIntVector1(ctx), dIntVector2(ctx), dIntVector3(ctx), dIntVector4(ctx), dRealVector1(ctx), dRealVector2(ctx), dFirstRow(ctx),
       dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx), dNtoK(ctx), dAllDelta(ctx), dColumnsXt(ctx),
-	  dXBetaVector(ctx), dOffsExpXBetaVector(ctx), dDenomPidVector(ctx), dNWeightVector(ctx), dKWeightVector(ctx), dPidVector(ctx), dBound(ctx), dXjY(ctx),
+	  dXBetaVector(ctx), dOffsExpXBetaVector(ctx), dDenomPidVector(ctx), dDenomPid2Vector(ctx), dNWeightVector(ctx), dKWeightVector(ctx), dPidVector(ctx), dBound(ctx), dXjY(ctx),
 	  dAccDenomPidVector(ctx), dAccNumerPidVector(ctx), dAccNumerPid2Vector(ctx), dAccResetVector(ctx), dPidInternalVector(ctx), dNumerPidVector(ctx),
 	  dNumerPid2Vector(ctx), dNormVector(ctx), dXjXVector(ctx), dXjYVector(ctx), dDeltaVector(ctx), dBoundVector(ctx), dPriorParams(ctx), dBetaVector(ctx),
 	  dAllZero(ctx), dDoneVector(ctx), dIndexListWithPrior(ctx), dCVIndices(ctx), dSMStarts(ctx), dSMScales(ctx), dSMIndices(ctx), dLogX(ctx), dKStrata(ctx),
@@ -411,6 +412,7 @@ public:
         detail::resizeAndCopyToDevice(hXBeta, dXBeta, queue);  hXBetaKnown = true; dXBetaKnown = true;
         detail::resizeAndCopyToDevice(offsExpXBeta, dExpXBeta, queue);
         detail::resizeAndCopyToDevice(denomPid, dDenominator, queue);
+        detail::resizeAndCopyToDevice(denomPid2, dDenominator2, queue);
         detail::resizeAndCopyToDevice(accDenomPid, dAccDenominator, queue);
         std::vector<int> myHPid;
         for (int i=0; i<K; i++) {
@@ -486,6 +488,7 @@ public:
     		kernel.set_arg(6, cvIndexStride);
     		kernel.set_arg(7, cvBlockSize);
     		kernel.set_arg(8, syncCVFolds);
+    		//kernel.set_arg(9, dDenomPid2Vector);
 
     		int loops = syncCVFolds / cvBlockSize;
     		if (syncCVFolds % cvBlockSize != 0) {
@@ -508,6 +511,7 @@ public:
 				globalWorkSize[1] =  N*tpb;
 				localWorkSize[0] = 1;
 				localWorkSize[1] = tpb;
+				kernel.set_arg(12, dDenomPid2Vector);
 			}
 
 			/*
@@ -523,6 +527,30 @@ public:
 
     		queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
     		queue.finish();
+
+    		/*
+    		std::vector<real> myDenom1;
+    		myDenom1.resize(dDenomPidVector.size());
+    		compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(myDenom1), queue);
+    		for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+    			std::cout << "denom1, cvIndex " << cvIndex << ": ";
+    			for (int i=0; i<N; i++) {
+    				std::cout << myDenom1[i*cvIndexStride + cvIndex] << " ";
+    			}
+    			std::cout << "\n";
+    		}
+
+    		std::vector<real> myDenom2;
+    		myDenom2.resize(dDenomPid2Vector.size());
+    		compute::copy(std::begin(dDenomPid2Vector), std::end(dDenomPid2Vector), std::begin(myDenom2), queue);
+    		for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+    			std::cout << "denom2, cvIndex " << cvIndex << ": ";
+    			for (int i=0; i<N; i++) {
+    				std::cout << myDenom2[i*cvIndexStride + cvIndex] << " ";
+    			}
+    			std::cout << "\n";
+    		}
+    		*/
 
     		/*
     		compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(hDenominator), queue);
@@ -624,6 +652,7 @@ public:
 				kernel.set_arg(8, dNWeight);
 				localWorkSize = tpb;
 				globalWorkSize = N*localWorkSize;
+				kernel.set_arg(9, dDenominator2);
 			}
 /*
 			std::vector<int> myNtoK;
@@ -3140,7 +3169,6 @@ public:
 
     virtual void runCCDIndexSeparate() {
     	if (!initialized) {
-    		std::cout << "here0 ";
     		initialized = true;
     		if (BaseModel::exactCLR || BaseModelG::useNWeights) {
     			detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
@@ -3207,6 +3235,7 @@ public:
     				}
 
     				detail::resizeAndCopyToDevice(Kstrata, dKStrata, queue);
+
     			} else {
     				std::vector<int> hK;
     				hK.push_back(0);
@@ -3223,9 +3252,29 @@ public:
     		}
     		std::cout << "\n";
     		*/
+
     		detail::resizeAndCopyToDevice(hXjY, dXjY, queue);
 
     		computeRemainingStatistics();
+/*
+    		std::vector<real> myDenom1;
+    		myDenom1.resize(dDenominator.size());
+    		compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(myDenom1), queue);
+    		std::cout << "denom1: ";
+    		for (auto x:myDenom1) {
+    			std::cout << x << " ";
+    		}
+    		std::cout << "\n";
+
+    		std::vector<real> myDenom2;
+    		myDenom2.resize(dDenominator2.size());
+    		compute::copy(std::begin(dDenominator2), std::end(dDenominator2), std::begin(myDenom2), queue);
+    		std::cout << "denom2: ";
+    		for (auto x:myDenom2) {
+    			std::cout << x << " ";
+    		}
+    		std::cout << "\n";
+    		*/
     	}
 
         int wgs = detail::constant::exactCLRSyncBlockSize; // for reduction across strata
@@ -3273,8 +3322,8 @@ public:
         	}
         	kernel.set_arg(4, dColumns.getIndices());
         	kernel.set_arg(5, dY);
-        	kernel.set_arg(6, dXBetaVector);
-        	kernel.set_arg(7, dOffsExpXBetaVector);
+        	kernel.set_arg(6, dXBeta);
+        	kernel.set_arg(7, dExpXBeta);
         	kernel.set_arg(8, dDenominator);
         	kernel.set_arg(9, dNtoK);
         	kernel.set_arg(10, dNWeight);
@@ -3306,6 +3355,7 @@ public:
         		kernel.set_arg(13, dN);
         		kernel.set_arg(14, index);
         		kernel.set_arg(15, dKStrata);
+        		kernel.set_arg(16, dDenominator2);
         		globalWorkSize = wgs * tpb;
         		localWorkSize = tpb;
         		// wgs = N;
@@ -3331,7 +3381,7 @@ public:
         	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-
+/*
         	hBuffer.resize(2*wgs);
         	compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs, std::begin(hBuffer), queue);
         	std::cout << "buffer: ";
@@ -3339,6 +3389,7 @@ public:
         		std::cout << x << " ";
         	}
         	std::cout << "\n";
+        	*/
 
 
         	////////////////////////// Start Process Delta
@@ -3359,6 +3410,8 @@ public:
         	kernel1.set_arg(5, dXjY);
         	kernel1.set_arg(6, index);
         	kernel1.set_arg(7, dBeta);
+        	int dN = N;
+        	kernel1.set_arg(8, dN);
 #ifdef CYCLOPS_DEBUG_TIMING
         	end = bsccs::chrono::steady_clock::now();
         	///////////////////////////"
@@ -3380,7 +3433,7 @@ public:
         	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-
+/*
         	hBuffer1.resize(J);
         	compute::copy(std::begin(dDeltaVector), std::begin(dBuffer)+J, std::begin(hBuffer1), queue);
         	std::cout << "delta: ";
@@ -3388,7 +3441,7 @@ public:
         		std::cout << x << " ";
         	}
         	std::cout << "\n";
-
+*/
 
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -3428,6 +3481,7 @@ public:
         		int dN = N;
         		kernel2.set_arg(14, dN);
         		kernel2.set_arg(15, dKStrata);
+        		kernel2.set_arg(16, dDenominator2);
         	}
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -3526,6 +3580,7 @@ public:
         	int dN = N;
         	kernel.set_arg(19, dN);
         	kernel.set_arg(20, dKStrata);
+        	kernel.set_arg(21, dDenomPid2Vector);
         }
 
         int loops = syncCVFolds / cvBlockSize;
@@ -3606,16 +3661,15 @@ public:
         queue.enqueue_1d_range_kernel(kernel1, 0, syncCVFolds*tpb, tpb);
         queue.finish();
 
-        /*
         std::vector<real> hDeltaVector;
         hDeltaVector.resize(dDeltaVector.size());
         compute::copy(std::begin(dDeltaVector), std::end(dDeltaVector), std::begin(hDeltaVector), queue);
-        std::cout << "deltavector" << index << ": ";
-        for (auto x:hDeltaVector) {
-        	std::cout << x << " ";
+        std::cout << "deltaVec" << index << ": ";
+        for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+        	std::cout << hDeltaVector[index*cvIndexStride + cvIndex] << " ";
         }
         std::cout << "\n";
-        */
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
         end = bsccs::chrono::steady_clock::now();
@@ -3658,6 +3712,7 @@ public:
         	int dN = N;
         	kernel2.set_arg(20, dN);
         	kernel2.set_arg(21, dKStrata);
+        	kernel2.set_arg(22, dDenomPid2Vector);
         }
 
         loops = syncCVFolds / cvBlockSize;
@@ -3710,6 +3765,31 @@ public:
     	}
     	std::cout << "\n";
  */
+/*
+		std::vector<real> myDenom1;
+		myDenom1.resize(dDenomPidVector.size());
+		compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(myDenom1), queue);
+		for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+		 	std::cout << "denom1, cvIndex " << cvIndex << ": ";
+		 	for (int i=0; i<N; i++) {
+				std::cout << myDenom1[i*cvIndexStride + cvIndex] << " ";
+			}
+			std::cout << "\n";
+		}
+
+		std::vector<real> myDenom2;
+		myDenom2.resize(dDenomPid2Vector.size());
+		compute::copy(std::begin(dDenomPid2Vector), std::end(dDenomPid2Vector), std::begin(myDenom2), queue);
+		for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+			std::cout << "denom2, cvIndex " << cvIndex << ": ";
+			for (int i=0; i<N; i++) {
+				std::cout << myDenom2[i*cvIndexStride + cvIndex] << " ";
+			}
+			std::cout << "\n";
+		}
+		*/
+
+
         }
 
         }
@@ -4544,6 +4624,7 @@ virtual void runCCDIndex() {
         std::vector<real> hXBetaTemp;
         std::vector<real> offsExpXBetaTemp;
         std::vector<real> denomPidTemp;
+        std::vector<real> denomPid2Temp;
         //std::vector<real> numerPidTemp;
         //std::vector<real> numerPid2Temp;
         //std::vector<real> hXjYTemp;
@@ -4566,6 +4647,9 @@ virtual void runCCDIndex() {
 
         	std::fill(std::begin(blah), std::end(blah), denomPid[i]);
         	appendAndPad(blah, denomPidTemp, garbage, pad);
+
+        	std::fill(std::begin(blah), std::end(blah), denomPid2[i]);
+        	appendAndPad(blah, denomPid2Temp, garbage, pad);
 
         	std::fill(std::begin(blah1), std::end(blah1), hPid[i]);
         	appendAndPad(blah1, hPidTemp, garbage, pad);
@@ -4616,6 +4700,7 @@ virtual void runCCDIndex() {
         detail::resizeAndCopyToDevice(hXBetaTemp, dXBetaVector, queue);
         detail::resizeAndCopyToDevice(offsExpXBetaTemp, dOffsExpXBetaVector, queue);
         detail::resizeAndCopyToDevice(denomPidTemp, dDenomPidVector, queue);
+        detail::resizeAndCopyToDevice(denomPid2Temp, dDenomPid2Vector, queue);
         //detail::resizeAndCopyToDevice(numerPidTemp, dNumerPidVector, queue);
         //detail::resizeAndCopyToDevice(numerPid2Temp, dNumerPid2Vector, queue);
         //detail::resizeAndCopyToDevice(hXjYTemp, dXjYVector, queue);
@@ -5084,15 +5169,15 @@ virtual void runCCDIndex() {
 
     SourceCode writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
-    SourceCode writeCodeForStratifiedGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
+    SourceCode writeCodeForStratifiedGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia, bool efron);
 
     SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType);
 
-    SourceCode writeCodeForStratifiedUpdateXBetaKernel(FormatType formatType);
+    SourceCode writeCodeForStratifiedUpdateXBetaKernel(FormatType formatType, bool efron);
 
     SourceCode writeCodeForSyncUpdateXBetaKernel(FormatType formatType);
 
-    SourceCode writeCodeForStratifiedSyncUpdateXBetaKernel(FormatType formatType);
+    SourceCode writeCodeForStratifiedSyncUpdateXBetaKernel(FormatType formatType, bool efron);
 
     SourceCode writeCodeForSync1UpdateXBetaKernel(FormatType formatType);
 
@@ -5106,7 +5191,7 @@ virtual void runCCDIndex() {
 
     SourceCode writeCodeForSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia);
 
-    SourceCode writeCodeForStratifiedSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia);
+    SourceCode writeCodeForStratifiedSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia, bool efron);
 
     SourceCode writeCodeForSyncCV1GradientHessianKernel(FormatType formatType, bool isNvidia);
 
@@ -5116,11 +5201,11 @@ virtual void runCCDIndex() {
 
     SourceCode writeCodeForComputeRemainingStatisticsKernel();
 
-    SourceCode writeCodeForStratifiedComputeRemainingStatisticsKernel();
+    SourceCode writeCodeForStratifiedComputeRemainingStatisticsKernel(bool efron);
 
     SourceCode writeCodeForSyncComputeRemainingStatisticsKernel();
 
-    SourceCode writeCodeForStratifiedSyncComputeRemainingStatisticsKernel();
+    SourceCode writeCodeForStratifiedSyncComputeRemainingStatisticsKernel(bool efron);
 
     SourceCode writeCodeForGradientHessianKernelExactCLR(FormatType formatType, bool logSum);
 
@@ -5167,7 +5252,6 @@ virtual void runCCDIndex() {
     	options << " -cl-mad-enable";
 
     	auto source = writeCodeForDoItAllNoSyncCVKernel(formatType, priorType);
-    	//std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	auto kernel = compute::kernel(program, source.name);
 
@@ -5228,7 +5312,6 @@ virtual void runCCDIndex() {
     		options << " -cl-mad-enable";
 
     		auto source = writeCodeForDoItAllKernel(formatType, priorType);
-    		std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
     		auto kernel = compute::kernel(program, source.name);
 
@@ -5287,7 +5370,6 @@ virtual void runCCDIndex() {
         options << " -cl-mad-enable";
 
     	auto source = writeCodeForProcessDeltaKernel(priorType);
-    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	auto kernel = compute::kernel(program, source.name);
 
@@ -5370,7 +5452,6 @@ virtual void runCCDIndex() {
         	// CCD Kernel
         	//auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useWeights);
             auto source = writeCodeForGradientHessianKernelExactCLR(formatType, true);
-    		std::cout << source.body;
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernel = compute::kernel(program, source.name);
 
@@ -5417,8 +5498,7 @@ virtual void runCCDIndex() {
         	auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
 
             if (BaseModelG::useNWeights) {
-            	source = writeCodeForStratifiedGradientHessianKernel(formatType, useWeights, isNvidia);
-            	std::cout << source.body;
+            	source = writeCodeForStratifiedGradientHessianKernel(formatType, useWeights, isNvidia, BaseModel::efron);
             }
 
         	// CCD Kernel
@@ -5480,7 +5560,6 @@ virtual void runCCDIndex() {
     		options << " -cl-mad-enable";
 
     		auto source = writeCodeForSyncCVGradientHessianKernelExactCLR(formatType, true);
-    		std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
     		auto kernelSync = compute::kernel(program, source.name);
 
@@ -5488,7 +5567,6 @@ virtual void runCCDIndex() {
 
 
     		source = writeCodeForSyncCVGradientHessianKernelExactCLR(formatType, false);
-    		std::cout << source.body;
     		program = compute::program::build_with_source(source.body, ctx, options.str());
     		auto kernelSyncLog = compute::kernel(program, source.name);
 
@@ -5519,7 +5597,8 @@ virtual void runCCDIndex() {
     		// Rcpp::stop("cGH");
     		auto source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia);
     		if (BaseModelG::useNWeights) {
-    			source = writeCodeForStratifiedSyncCVGradientHessianKernel(formatType, isNvidia);
+    			source = writeCodeForStratifiedSyncCVGradientHessianKernel(formatType, isNvidia, BaseModel::efron);
+    			std::cout << source.body;
     		}
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
     		std::cout << "program built\n";
@@ -5565,10 +5644,9 @@ virtual void runCCDIndex() {
     	options << " -cl-mad-enable";
 
         auto source = writeCodeForUpdateXBetaKernel(formatType);
-        std::cout << source.body;
 
         if (BaseModelG::useNWeights) {
-        	source = writeCodeForStratifiedUpdateXBetaKernel(formatType);
+        	source = writeCodeForStratifiedUpdateXBetaKernel(formatType, BaseModel::efron);
         }
 
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
@@ -5609,7 +5687,8 @@ virtual void runCCDIndex() {
 
         auto source = writeCodeForSyncUpdateXBetaKernel(formatType);
         if (BaseModelG::useNWeights) {
-        	source = writeCodeForStratifiedSyncUpdateXBetaKernel(formatType);
+        	source = writeCodeForStratifiedSyncUpdateXBetaKernel(formatType, BaseModel::efron);
+        	std::cout << source.body;
         }
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         std::cout << "program built\n";
@@ -5687,7 +5766,7 @@ virtual void runCCDIndex() {
         auto source = writeCodeForComputeRemainingStatisticsKernel();
 
         if (BaseModelG::useNWeights) {
-        	source = writeCodeForStratifiedComputeRemainingStatisticsKernel();
+        	source = writeCodeForStratifiedComputeRemainingStatisticsKernel(BaseModel::efron);
         }
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         std::cout << "program built\n";
@@ -5719,7 +5798,8 @@ virtual void runCCDIndex() {
         options << " -cl-mad-enable";
         auto source = writeCodeForSyncComputeRemainingStatisticsKernel();
         if (BaseModelG::useNWeights) {
-        	source = writeCodeForStratifiedSyncComputeRemainingStatisticsKernel();
+        	source = writeCodeForStratifiedSyncComputeRemainingStatisticsKernel(BaseModel::efron);
+        	std::cout << source.body;
         }
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         std::cout << "program built\n";
@@ -6070,6 +6150,7 @@ virtual void runCCDIndex() {
     compute::vector<real> dXBeta;
     compute::vector<real> dExpXBeta;
     compute::vector<real> dDenominator;
+    compute::vector<real> dDenominator2;
     compute::vector<real> dAccDenominator;
     compute::vector<real> dNorm;
     compute::vector<real> dOffs;
@@ -6131,6 +6212,7 @@ virtual void runCCDIndex() {
     compute::vector<real> dXBetaVector;
     compute::vector<real> dOffsExpXBetaVector;
     compute::vector<real> dDenomPidVector;
+    compute::vector<real> dDenomPid2Vector;
     compute::vector<real> dNumerPidVector;
     compute::vector<real> dNumerPid2Vector;
     compute::vector<real> dXjYVector;
@@ -6348,6 +6430,44 @@ struct ConditionalLogisticRegressionG : public GroupedDataG, GLMProjectionG, Fix
 public:
 	const static bool denomRequiresStratumReduction = true;
 	const static bool useNWeights = true;
+
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
+
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+		std::stringstream code;
+        code << "       REAL g = numer / denom;      \n";
+        code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
+        if (formatType == INDICATOR || formatType == INTERCEPT) {
+            code << "       REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
+        } else {
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
+        }
+        return(code.str());
+	}
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "exp(xb)";
+        return(code.str());
+    }
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "wN * log(denom)";
+		return(code.str());
+	}
+
+};
+
+struct EfronConditionalLogisticRegressionG : public GroupedDataG, GLMProjectionG, FixedPidG, SurvivalG {
+public:
+	const static bool denomRequiresStratumReduction = true;
+	const static bool useNWeights = true;
+	const static bool efron = true;
 
 	std::string getDenomNullValueG () {
 		std::string code = "(REAL)0.0";

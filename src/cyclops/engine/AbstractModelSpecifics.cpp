@@ -188,6 +188,9 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
     	    case ModelType::CONDITIONAL_LOGISTIC :
     	        model =  deviceFactory<ConditionalLogisticRegression<ModelData::RealType>,ModelData::RealType,ConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
     	        break;
+    	    case ModelType::EFRON_TIED_CONDITIONAL_LOGISTIC :
+    	        model =  deviceFactory<EfronConditionalLogisticRegression<ModelData::RealType>,ModelData::RealType,EfronConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
+    	        break;
     	    case ModelType::TIED_CONDITIONAL_LOGISTIC :
     	        model =  deviceFactory<TiedConditionalLogisticRegression<ModelData::RealType>,ModelData::RealType,TiedConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
     	        break;

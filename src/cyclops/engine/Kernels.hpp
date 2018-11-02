@@ -50,6 +50,26 @@ struct ReduceBody2 {
     }
 };
 
+template<typename T, bool isNvidiaDevice>
+struct ReduceBody4 {
+    static std::string body() {
+        std::stringstream k;
+        // local reduction for non-NVIDIA device
+        k <<
+            "   for(int j = 1; j < TPB; j <<= 1) {          \n" <<
+            "       barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
+            "       uint mask = (j << 1) - 1;               \n" <<
+            "       if ((lid & mask) == 0) {                \n" <<
+            "           scratch[0][lid] += scratch[0][lid + j]; \n" <<
+            "           scratch[1][lid] += scratch[1][lid + j]; \n" <<
+			"			scratch[2][lid] += scratch[2][lid + j];	\n" <<
+			"			scratch[3][lid] += scratch[3][lid + j];	\n" <<
+            "       }                                       \n" <<
+            "   }                                           \n";
+        return k.str();
+    }
+};
+
 template<typename T>
 struct ReduceBody1<T,true>
 {
@@ -97,6 +117,36 @@ struct ReduceBody2<T,true>
             "       if (TPB >=  8) { lmem[0][lid] = sum0 = sum0 + lmem[0][lid+ 4]; lmem[1][lid] = sum1 = sum1 + lmem[1][lid+ 4]; } \n" <<
             "       if (TPB >=  4) { lmem[0][lid] = sum0 = sum0 + lmem[0][lid+ 2]; lmem[1][lid] = sum1 = sum1 + lmem[1][lid+ 2]; } \n" <<
             "       if (TPB >=  2) { lmem[0][lid] = sum0 = sum0 + lmem[0][lid+ 1]; lmem[1][lid] = sum1 = sum1 + lmem[1][lid+ 1]; } \n" <<
+            "   }                                            \n";
+        return k.str();
+    }
+};
+
+template<typename T>
+struct ReduceBody4<T,true>
+{
+    static std::string body() {
+        std::stringstream k;
+        k <<
+            "   barrier(CLK_LOCAL_MEM_FENCE); \n" <<
+            "   if (TPB >= 1024) { if (lid < 512) { sum0 += scratch[0][lid + 512]; scratch[0][lid] = sum0; sum1 += scratch[1][lid + 512]; scratch[1][lid] = sum1; \n" <<
+			"										sum2 += scratch[2][lid + 512]; scratch[2][lid] = sum2; sum3 += scratch[3][lid + 512]; scratch[3][lid] = sum3; } barrier(CLK_LOCAL_MEM_FENCE); } \n" <<
+            "   if (TPB >=  512) { if (lid < 256) { sum0 += scratch[0][lid + 256]; scratch[0][lid] = sum0; sum1 += scratch[1][lid + 256]; scratch[1][lid] = sum1; \n" <<
+			"										sum2 += scratch[2][lid + 256]; scratch[2][lid] = sum2; sum3 += scratch[3][lid + 256]; scratch[3][lid] = sum3; } barrier(CLK_LOCAL_MEM_FENCE); } \n" <<
+            "   if (TPB >=  256) { if (lid < 128) { sum0 += scratch[0][lid + 128]; scratch[0][lid] = sum0; sum1 += scratch[1][lid + 128]; scratch[1][lid] = sum1; \n" <<
+			"										sum2 += scratch[2][lid + 128]; scratch[2][lid] = sum2; sum3 += scratch[3][lid + 128]; scratch[3][lid] = sum3; } barrier(CLK_LOCAL_MEM_FENCE); } \n" <<
+            "   if (TPB >=  128) { if (lid <  64) { sum0 += scratch[0][lid +  64]; scratch[0][lid] = sum0; sum1 += scratch[1][lid +  64]; scratch[1][lid] = sum1; \n" <<
+			"										sum2 += scratch[2][lid +  64]; scratch[2][lid] = sum2; sum3 += scratch[3][lid +  64]; scratch[3][lid] = sum3; } barrier(CLK_LOCAL_MEM_FENCE); } \n" <<
+        // warp reduction
+            "   if (lid < 32) { \n" <<
+        // volatile this way we don't need any barrier
+            "       volatile __local TMP_REAL **lmem = scratch; \n" <<
+            "       if (TPB >= 64) { lmem[0][lid] = sum0 = sum0 + lmem[0][lid+32]; lmem[1][lid] = sum1 = sum1 + lmem[1][lid+32]; lmem[2][lid] = sum2 = sum2 + lmem[2][lid+32]; lmem[3][lid] = sum3 = sum3 + lmem[3][lid+32];} \n" <<
+            "       if (TPB >= 32) { lmem[0][lid] = sum0 = sum0 + lmem[0][lid+16]; lmem[1][lid] = sum1 = sum1 + lmem[1][lid+16]; lmem[2][lid] = sum2 = sum2 + lmem[2][lid+16]; lmem[3][lid] = sum3 = sum3 + lmem[3][lid+16];} \n" <<
+            "       if (TPB >= 16) { lmem[0][lid] = sum0 = sum0 + lmem[0][lid+ 8]; lmem[1][lid] = sum1 = sum1 + lmem[1][lid+ 8]; lmem[2][lid] = sum2 = sum2 + lmem[2][lid+ 8]; lmem[3][lid] = sum3 = sum3 + lmem[3][lid+ 8];} \n" <<
+            "       if (TPB >=  8) { lmem[0][lid] = sum0 = sum0 + lmem[0][lid+ 4]; lmem[1][lid] = sum1 = sum1 + lmem[1][lid+ 4]; lmem[2][lid] = sum2 = sum2 + lmem[2][lid+ 4]; lmem[3][lid] = sum3 = sum3 + lmem[3][lid+ 4];} \n" <<
+            "       if (TPB >=  4) { lmem[0][lid] = sum0 = sum0 + lmem[0][lid+ 2]; lmem[1][lid] = sum1 = sum1 + lmem[1][lid+ 2]; lmem[2][lid] = sum2 = sum2 + lmem[2][lid+ 2]; lmem[3][lid] = sum3 = sum3 + lmem[3][lid+ 2];} \n" <<
+            "       if (TPB >=  2) { lmem[0][lid] = sum0 = sum0 + lmem[0][lid+ 1]; lmem[1][lid] = sum1 = sum1 + lmem[1][lid+ 1]; lmem[2][lid] = sum2 = sum2 + lmem[2][lid+ 1]; lmem[3][lid] = sum3 = sum3 + lmem[3][lid+ 1];} \n" <<
             "   }                                            \n";
         return k.str();
     }
@@ -258,7 +308,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	// stratified CCD
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
-    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia) {
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia, bool efron) {
 
         std::string name = "computeGradHess" + getFormatTypeExtension(formatType) + (useWeights ? "W" : "N");
 
@@ -286,23 +336,28 @@ static std::string weight(const std::string& arg, bool useWeights) {
                 "       __global const REAL* KWeight,		\n" <<
 				"		const uint totalStrata,				\n" <<
 				"		const uint index,					\n" <<
-				"		__global const uint* KStrata) {    \n";    // TODO Make weight optional
+				"		__global const uint* KStrata, 		\n" <<
+				"		__global const REAL* denominator2) {    \n";    // TODO Make weight optional
 
         // Initialization
         code << "   const uint lid = get_local_id(0); \n" <<
         		"	uint stratum = get_group_id(0);	\n" <<
 				"	uint loopSize = get_num_groups(0);	\n" <<
 				"	REAL grad = 0;						\n" <<
-				"	REAL hess = 0;						\n" <<
+				"	REAL hess = 0;						\n";
                 //"   const uint loopSize = get_global_size(0); \n" <<
                 //"   uint task = get_global_id(0);  \n" <<
                     // Local and thread storage
+        if (efron) {
+        	code << "__local REAL scratch[4][TPB];		\n";
+        } else {
 #ifdef USE_VECTOR
-                "   __local TMP_REAL scratch[TPB]; \n" <<
-                "   TMP_REAL sum = 0.0;            \n" <<
+        	code << "   __local TMP_REAL scratch[TPB]; \n" <<
+                "   TMP_REAL sum = 0.0;            \n";
 #else
-                "   __local REAL scratch[2][TPB];  \n";// <<
+			code << "   __local REAL scratch[2][TPB];  \n";// <<
 #endif // USE_VECTOR
+        }
 
                // "   __local REAL scratch1[TPB];  \n" <<
                 //"   REAL sum0 = 0.0; \n" <<
@@ -314,9 +369,15 @@ static std::string weight(const std::string& arg, bool useWeights) {
         code << "	while(stratum < totalStrata) {	\n" <<
         		"		REAL sum0 = 0.0;			\n" <<
 				"		REAL sum1 = 0.0;			\n" <<
-        		"		scratch[0][lid] = 0;		\n" <<
-				"		scratch[1][lid] = 0;		\n" <<
-				"		if (lid == 0) {				\n" <<
+				"		scratch[0][lid] = 0;		\n" <<
+				"		scratch[1][lid] = 0;		\n";
+        if (efron) {
+        	code << "	REAL sum2 = 0.0;			\n" <<
+        			"	REAL sum3 = 0.0;			\n" <<
+					"	scratch[2][lid] = 0;		\n" <<
+					"	scratch[3][lid] = 0;		\n";
+        }
+        code << "		if (lid == 0) {				\n" <<
 				"			stratumStart = NtoK[stratum];	\n" <<
 				"			stratumEnd = NtoK[stratum+1];	\n" <<
 				"		}									\n" <<
@@ -354,9 +415,10 @@ static std::string weight(const std::string& arg, bool useWeights) {
         		//"       REAL exb = expXBeta[k];     \n" <<
                 "       	REAL numer = " << timesX("exb", formatType) << ";\n";
         if (useWeights) {
-            code << "       REAL w = KWeight[k];\n";
+            code << "       REAL w = KWeight[k];		\n" <<
+            		"		numer = w * numer;			\n";
         }
-        code << "			sum0 += " << weight("numer", useWeights) << ";\n";
+        code << "			sum0 += numer;				\n";
         if (formatType == INDICATOR || formatType == INTERCEPT) {
         	code << "		REAL nume2 = numer;						\n";
         } else {
@@ -365,38 +427,69 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
     	code << "		sum1 += " << weight("nume2", useWeights) << ";\n";
 
-        // Bookkeeping
-        code << "       	task += TPB; \n" <<
-                "   	} \n" <<
-                    // Thread -> local
+    	if (efron) {
+    		code << "	sum2 += Y[k] * numer;\n";
+    		code << "	sum3 += Y[k] * " << timesX("numer", formatType) << ";\n";
+    	}
+
+    	// Bookkeeping
+    	code << "       	task += TPB; \n" <<
+    			"   	} \n" <<
+				// Thread -> local
 #ifdef USE_VECTOR
-                "   scratch[lid] = sum; \n";
+				"   scratch[lid] = sum; \n";
 #else
-                "   	scratch[0][lid] = sum0; \n" <<
-                "   	scratch[1][lid] = sum1; \n";
+    			"   	scratch[0][lid] = sum0; \n" <<
+    			"   	scratch[1][lid] = sum1; \n";
+
+    	if (efron) {
+    		code << "	scratch[2][lid] = sum2;	\n" <<
+    				"	scratch[3][lid] = sum3;	\n";
+                }
 #endif // USE_VECTOR
 
+
+    	if (efron) {
+            code << (isNvidia ? ReduceBody4<real,true>::body() : ReduceBody4<real,false>::body());
+    	} else {
 #ifdef USE_VECTOR
         // code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
         code << ReduceBody1<real,false>::body();
 #else
         code << (isNvidia ? ReduceBody2<real,true>::body() : ReduceBody2<real,false>::body());
 #endif
+    	}
 
         code << "   if (lid == 0) { \n" <<
         		"		REAL myNumer = scratch[0][0];		\n" <<
-				"		REAL myNumer2 = scratch[1][0];		\n" <<
-				"		REAL myDenom = denominator[stratum];	\n" <<
-				"		REAL gradient = myNumer/myDenom;		\n" <<
+				"		REAL myNumer1 = scratch[1][0];		\n" <<
+				"		REAL myDenom = denominator[stratum];	\n";
+        if (efron) {
+        	code << "	REAL myNumer2 = scratch[2][0];		\n" <<
+        			"	REAL myNumer3 = scratch[3][0];		\n" <<
+					"	REAL myDenom2 = denominator2[stratum];	\n";
+
+        	code << "	if (stratumWeight > 0) {	\n" <<
+        			"		for (int i=1; i<= stratumWeight; i++) {	\n" <<
+        			"			REAL n = myNumer - (i-1.0)/stratumWeight * myNumer2;	\n" <<
+					"			REAL d = myDenom - (i-1.0)/stratumWeight * myDenom2;	\n" <<
+					"			REAL g = n/d;					\n" <<
+					"			grad += g;						\n" <<
+					"			hess += (myNumer1 - (i-1.0)/stratumWeight*myNumer3)/d - g*g;	\n" <<
+					"		}									\n" <<
+					"	}										\n";
+        } else {
 #ifdef USE_VECTOR
-                "       buffer[get_group_id(0)] = scratch[0]; \n" <<
+        code << "       buffer[get_group_id(0)] = scratch[0]; \n" <<
 #else
+        code << "		REAL gradient = myNumer/myDenom;		\n" <<
 				"		grad += stratumWeight * gradient;		\n" <<
-				"		hess += stratumWeight*(myNumer2/myDenom - gradient*gradient); \n" <<
-                //"       buffer[stratum] = stratumWeight*gradient; \n" <<
+				"		hess += stratumWeight*(myNumer1/myDenom - gradient*gradient); \n";
+        }
+				//"       buffer[stratum] = stratumWeight*gradient; \n" <<
                 //"       buffer[stratum + totalStrata] = stratumWeight*(myNumer2/myDenom - gradient*gradient); \n" <<
 #endif // USE_VECTOR
-                "   } \n";
+        code << "   } \n";
 
         code << "	stratum += loopSize;		\n" <<
         		"	barrier(CLK_LOCAL_MEM_FENCE);	\n" <<
@@ -534,7 +627,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	// CV stratified CCD
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
-    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia) {
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia, bool efron) {
 
 		std::string name = "computeStratifiedSyncCVGradHess" + getFormatTypeExtension(formatType);
 
@@ -566,12 +659,17 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"	const uint persons,						\n" <<
 				"	const uint index,						\n" <<
 				"	const uint totalStrata,					\n" <<
-				"	__global const uint* KStrata) {   		 	\n";    // TODO Make weight optional
+				"	__global const uint* KStrata,			\n" <<
+				"	__global const REAL* denomPid2Vector) {   		 	\n";    // TODO Make weight optional
 
 			code << "	if (get_global_id(0) == 0) allZero[0] = 1;	\n" <<
 					"	__local REAL numeArray[TPB0*TPB1];			\n" <<
-					"	__local REAL nume2Array[TPB0*TPB1];			\n" <<
-					"	__local REAL outputGrad[TPB0];			\n" <<
+					"	__local REAL nume1Array[TPB0*TPB1];			\n";
+			if (efron) {
+				code << "	__local REAL nume2Array[TPB0*TPB1];		\n" <<
+						"	__local REAL nume3Array[TPB0*TPB1];		\n";
+			}
+			code << "	__local REAL outputGrad[TPB0];			\n" <<
 					"	__local REAL outputHess[TPB0];			\n" <<
 					"	uint lid0 = get_local_id(0);		\n" <<
 					"	uint lid1 = get_local_id(1);		\n" <<
@@ -587,8 +685,12 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 			code << "	while (stratum < totalStrata) {		\n" <<
 					"		REAL sum0 = 0.0;				\n" <<
-					"		REAL sum1 = 0.0;				\n" <<
-					"		if (mylid == 0) {				\n" <<
+					"		REAL sum1 = 0.0;				\n";
+			if (efron) {
+				code << "	REAL sum2 = 0.0;				\n" <<
+						"	REAL sum3 = 0.0;				\n";
+			}
+			code << "		if (mylid == 0) {				\n" <<
 					"			stratumStart = NtoK[stratum];	\n" <<
 					"			stratumEnd = NtoK[stratum+1];	\n" <<
 					"		}								\n" <<
@@ -628,34 +730,65 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n";
 	        }
 
-	    	code << "			sum1 += nume2;				\n" <<
-	    			"			task1 += TPB1;				\n " <<
-					"		}								\n" <<
-					"		numeArray[mylid] = sum0;		\n" <<
-					"		nume2Array[mylid] = sum1;		\n" <<
+	    	code << "			sum1 += nume2;				\n";
+	    	if (efron) {
+	    		code << "		sum2 += numer * Y[k];		\n" <<
+	    				"		sum3 += nume2 * Y[k];		\n";
+	    	}
+	    	code <<	"			task1 += TPB1;				\n ";
 
-					"   	for(int j = 1; j < TPB1; j <<= 1) {          \n" <<
+	    	code << "		}								\n" <<
+					"		numeArray[mylid] = sum0;		\n" <<
+					"		nume1Array[mylid] = sum1;		\n";
+
+	    	if (efron) {
+	    		code <<	"	nume2Array[mylid] = sum2;		\n" <<
+	    				"	nume3Array[mylid] = sum3;		\n";
+	    	}
+
+	    	code << "   	for(int j = 1; j < TPB1; j <<= 1) {          \n" <<
 					"      		barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
 					"       	uint mask = (j << 1) - 1;               \n" <<
 					"       	if ((lid1 & mask) == 0) {                \n" <<
 					"           	numeArray[mylid] += numeArray[mylid+j*TPB0]; \n" <<
-					"           	nume2Array[mylid] += nume2Array[mylid+j*TPB0]; \n" <<
-					"       	}                                       \n" <<
+					"           	nume1Array[mylid] += nume1Array[mylid+j*TPB0]; \n";
+	    	if (efron) {
+	    		code << "			nume2Array[mylid] += nume2Array[mylid+j*TPB0];	\n" <<
+	    				"			nume3Array[mylid] += nume3Array[mylid+j*TPB0];	\n";
+	    	}
+	    	code << "       	}                                       \n" <<
 					"   	}                                         \n";
 
 	        code << "   	if (lid1 == 0) { 							\n" <<
 	        		"			REAL stratumWeight = weightVector[NtoK[stratum]*cvIndexStride+cvIndex] * NWeights[stratum];	\n" <<
 	        		"			REAL myNumer = numeArray[mylid];		\n" <<
-					"			REAL myNumer2 = nume2Array[mylid];		\n" <<
-					"			REAL myDenom = denomPidVector[stratum*cvIndexStride+cvIndex];	\n" <<
-					"			REAL gradient = myNumer/myDenom;		\n" <<
-	#ifdef USE_VECTOR
-	                "       	buffer[get_group_id(0)] = scratch[0]; \n" <<
-	#else
-	                "       	outputGrad[lid0] += stratumWeight*gradient; \n" <<
-	                "       	outputHess[lid0] += stratumWeight*(myNumer2/myDenom - gradient*gradient); \n" <<
-	#endif // USE_VECTOR
-	                "   	} \n";
+					"			REAL myNumer1 = nume1Array[mylid];		\n" <<
+					"			REAL myDenom = denomPidVector[stratum*cvIndexStride+cvIndex];	\n";
+
+	        if (efron) {
+	        	code << "		REAL myNumer2 = nume2Array[mylid];		\n" <<
+	        			"		REAL myNumer3 = nume3Array[mylid];		\n" <<
+						"		REAL myDenom2 = denomPid2Vector[stratum*cvIndexStride+cvIndex];	\n" <<
+						"		if (stratumWeight > 0) {				\n" <<
+						"			for (int i=1; i<=stratumWeight; i++) {	\n" <<
+	        			"				REAL n = myNumer - (i-1.0)/stratumWeight * myNumer2;	\n" <<
+						"				REAL d = myDenom - (i-1.0)/stratumWeight * myDenom2;	\n" <<
+						"				REAL g = n/d;					\n" <<
+						"				outputGrad[lid0] += g;			\n" <<
+						"				outputHess[lid0] += (myNumer1 - (i-1.0)/stratumWeight*myNumer3)/d - g*g;	\n" <<
+						"			}									\n" <<
+						"		}										\n";
+	        } else {
+	        	code << "			REAL gradient = myNumer/myDenom;		\n" <<
+#ifdef USE_VECTOR
+	        			"       	buffer[get_group_id(0)] = scratch[0]; \n" <<
+#else
+						"       	outputGrad[lid0] += stratumWeight*gradient; \n" <<
+						"       	outputHess[lid0] += stratumWeight*(myNumer1/myDenom - gradient*gradient); \n";
+
+#endif // USE_VECTOR
+	        }
+	        code << "   	} \n";
 
 	        code << "		stratum += loopSize;		\n" <<
 	        		"		barrier(CLK_LOCAL_MEM_FENCE);	\n" <<
@@ -2828,7 +2961,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	// update stratified
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
-    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedUpdateXBetaKernel(FormatType formatType) {
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedUpdateXBetaKernel(FormatType formatType, bool efron) {
 
         std::string name = "updateXBeta" + getFormatTypeExtension(formatType);
 
@@ -2851,13 +2984,19 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		__global const int* NtoK,	\n" <<
 				"		__global const REAL* NWeights,	\n" <<
 				"		const uint totalStrata,		\n" <<
-				"		__global const uint* KStrata) {   \n";
+				"		__global const uint* KStrata,	\n" <<
+				"		__global REAL* denominator2) {   \n";
 
         code << "	uint lid = get_local_id(0);		\n" <<
         		"	REAL delta = deltaVector[index];	\n" <<
-        		"	uint stratum = get_group_id(0);	\n" <<
-				"	__local REAL scratch[TPB];		\n" <<
-				"	REAL sum = 0.0;					\n" <<
+        		"	uint stratum = get_group_id(0);	\n";
+        if (efron) {
+        	code << "	__local REAL scratch[2][TPB];	\n" <<
+        			"	REAL sum1 = 0.0;			\n";
+        } else {
+        	code << "	__local REAL scratch[TPB];		\n";
+        }
+        code << "	REAL sum = 0.0;					\n" <<
 				"	__local uint start, end;		\n" <<
 				"	__local REAL stratumWeight;		\n" <<
 				"	if (lid == 0) {					\n" <<
@@ -2890,17 +3029,30 @@ static std::string weight(const std::string& arg, bool useWeights) {
         }
 
         code << "		REAL xb = xBeta[k];				\n" <<
-                "       xBeta[k] = xb + inc;            \n";
-        code << "		sum += exp(xb+inc) - exp(xb);	\n" <<
-        		"		task += TPB;					\n" <<
-				"	}									\n" <<
-				"	scratch[lid] = sum;					\n";
-
-        code << ReduceBody1<real,false>::body();
-
-        code << "	if (lid == 0) {						\n" <<
-        		"		denominator[stratum] += scratch[0];\n" << // * stratumWeight;	\n" <<
+                "       xBeta[k] = xb + inc;            \n" <<
+				"		REAL inc1 = exp(xb+inc) - exp(xb);	\n";
+        code << "		sum += inc1;					\n";
+        if (efron) {
+        	code << "	sum1 += Y[k]*inc1;				\n";
+        }
+        code << "		task += TPB;					\n" <<
 				"	}									\n";
+        if (efron) {
+        	code << "scratch[0][lid] = sum;				\n" <<
+        			"scratch[1][lid] = sum1;			\n";
+            code << ReduceBody2<real,false>::body();
+            code << "	if (lid == 0) {						\n" <<
+            		"		denominator[stratum] += scratch[0][0];\n" << // * stratumWeight;	\n" <<
+    				"		denominator2[stratum] += scratch[1][0];	\n" <<
+					"	}									\n";
+        } else {		// breslow
+        	code << "scratch[lid] = sum;				\n";
+            code << ReduceBody1<real,false>::body();
+            code << "	if (lid == 0) {						\n" <<
+            		"		denominator[stratum] += scratch[0];\n" << // * stratumWeight;	\n" <<
+    				"	}									\n";
+        }
+
         code << "}    \n";
 
         return SourceCode(code.str(), name);
@@ -3057,7 +3209,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	// CV update XB
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
-	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedSyncUpdateXBetaKernel(FormatType formatType) {
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedSyncUpdateXBetaKernel(FormatType formatType, bool efron) {
 
 		std::string name = "updateXBetaSyncStratified" + getFormatTypeExtension(formatType);
 
@@ -3086,7 +3238,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"	__global const REAL* KWeights,			\n" <<
 				"	const uint persons,						\n" <<
 				"	const uint totalStrata,					\n" <<
-				"	__global const uint* KStrata) {   		 	\n";
+				"	__global const uint* KStrata,	\n" <<
+				"	__global REAL* denomPid2Vector) {   		 	\n";
 
 
 		code << "	uint lid0 = get_local_id(0);		\n" <<
@@ -3096,10 +3249,15 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
 				"	REAL delta = deltaVector[index*cvIndexStride+cvIndex];	\n";// <<
 		code << "	REAL sum = 0.0;						\n" <<
-				"	__local REAL scratch[TPB0*TPB1];	\n" <<
-				"	__local uint start, end;			\n" <<
+				"	__local REAL scratch[TPB0*TPB1];	\n";
+		if (efron) {
+			code << "	REAL sum1 = 0.0;					\n" <<
+					"	__local REAL scratch1[TPB0*TPB1];	\n";
+		}
+		code << "	__local uint start, end;			\n" <<
 				"	__local REAL stratumWeight;			\n" <<
 				"	uint mylid = lid1*TPB0 + lid0;		\n" <<
+				"	scratch[mylid] = 0.0;				\n" <<
 				"	if (mylid == 0) {					\n" <<
 				"		start = NtoK[stratum];			\n" <<
 				"		end = NtoK[stratum+1];			\n" <<
@@ -3133,22 +3291,35 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
 				"		REAL xb = xBetaVector[vecOffset];	\n" <<
 				"		xBetaVector[vecOffset] = xb + inc;	\n" <<
-				"		sum += exp(xb + inc) - exp(xb);	\n" <<
-				"		task += TPB1;					\n" <<
+				"		REAL inc1 = exp(xb + inc) - exp(xb);	\n" <<
+				"		sum += inc1;					\n";
+		if (efron) {
+			code << "	sum1 += inc1*Y[k];				\n";
+		}
+		code << "		task += TPB1;					\n" <<
 				"	}									\n" <<
 				"	scratch[mylid] = sum;				\n";
+		if (efron) {
+			code << "	scratch1[mylid] = sum1;			\n";
+		}
 
 		code << "   for(int j = 1; j < TPB1; j <<= 1) {          \n" <<
 				"     	barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
 				"      	uint mask = (j << 1) - 1;               \n" <<
 				"      	if ((lid1 & mask) == 0) {                \n" <<
-				"          	scratch[mylid] += scratch[mylid+j*TPB0]; \n" <<
-				"      	}                                       \n" <<
+				"          	scratch[mylid] += scratch[mylid+j*TPB0]; \n";
+		if (efron) {
+			code << "		scratch1[mylid] += scratch1[mylid+j*TPB0];	\n";
+		}
+		code << "      	}                                       \n" <<
 				"  	}                                         \n";
 
 		code << "	if (lid1 == 0) {						\n" <<
-				"		denomPidVector[stratum*cvIndexStride+cvIndex] += scratch[lid0];\n" << // * stratumWeight;	\n" <<
-				"	}									\n";
+				"		denomPidVector[stratum*cvIndexStride+cvIndex] += scratch[lid0];\n"; // * stratumWeight;	\n" <<
+		if (efron) {
+			code << "	denomPid2Vector[stratum*cvIndexStride+cvIndex] += scratch1[lid0];\n";
+		}
+		code << "	}									\n";
 		code << "}		\n";
 
 		code << "}  	\n";
@@ -3497,7 +3668,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	// stratified CRS
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
-    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedComputeRemainingStatisticsKernel() {
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedComputeRemainingStatisticsKernel(bool efron) {
 
         std::string name = "computeRemainingStatistics";
 
@@ -3513,7 +3684,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		__global REAL* Offs,		\n" <<
                 "       __global const int* id,		\n" <<
 				"		__global const int* NtoK,	\n" <<
-				"		__global const REAL* NWeight) {   \n";
+				"		__global const REAL* NWeight,	\n" <<
+				"		__global REAL* denominator2) {   \n";
         code << "   uint lid = get_local_id(0); 		\n" <<
         		"	uint stratum = get_group_id(0);		\n" <<
 				"	__local uint start, end;			\n" <<
@@ -3523,10 +3695,17 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		end = NtoK[stratum+1];			\n" <<
 				"		stratumWeight = NWeight[stratum];	\n" <<
 				"	}									\n" <<
-				"	barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
-				"	__local REAL scratch[TPB];			\n" <<
-				"	REAL sum = 0.0;						\n" <<
-				"	uint task = start + lid;			\n";
+				"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
+        if (efron) {
+        	code << "	__local REAL scratch[2][TPB];	\n" <<
+        			"	REAL sum = 0.0;					\n" <<
+					"	REAL sum1 = 0.0;				\n";
+        } else {
+        	code << "	__local REAL scratch[TPB];			\n" <<
+        			"	REAL sum = 0.0;						\n";
+        }
+
+        code << "	uint task = start + lid;			\n";
         //        "   const uint loopSize = get_global_size(0); \n";
         // Local and thread storage
         code << "   while (task < end) {      			\n";
@@ -3535,14 +3714,28 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					//"const int k = task;";
         		"		REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n" <<
 				"		expXBeta[task] = exb;			\n" <<
-				"		sum += exb;						\n" <<
-				"		task += TPB;					\n" <<
+				"		sum += exb;						\n";
+        if (efron) {
+        	code << "	sum1 += exb * Y[task];			\n";
+        }
+        code << "		task += TPB;					\n" <<
 				"	}									\n";
-        code << "	scratch[lid] = sum;					\n";
-        code << ReduceBody1<real,false>::body();
-        code << "	if (lid == 0) {						\n" <<
-        		"		denominator[stratum] = scratch[0];\n" <<// * stratumWeight;	\n" <<
-				"	}									\n";
+        if (efron) {
+        	code << "	scratch[0][lid] = sum;			\n" <<
+        			"	scratch[1][lid] = sum1;			\n";
+            code << ReduceBody2<real,false>::body();
+            code << "	if (lid == 0) {						\n" <<
+            		"		denominator[stratum] = scratch[0][0];\n" <<// * stratumWeight;	\n" <<
+					"		denominator2[stratum] = scratch[1][0];	\n" <<
+    				"	}									\n";
+        } else {
+        	code << "	scratch[lid] = sum;				\n";
+            code << ReduceBody1<real,false>::body();
+            code << "	if (lid == 0) {						\n" <<
+            		"		denominator[stratum] = scratch[0];\n" <<// * stratumWeight;	\n" <<
+    				"	}									\n";
+        }
+
         code << "}    \n";
         return SourceCode(code.str(), name);
     }
@@ -3594,7 +3787,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	// CV CRS stratified
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
-	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedSyncComputeRemainingStatisticsKernel() {
+	GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForStratifiedSyncComputeRemainingStatisticsKernel(bool efron) {
 
 		std::string name = "computeRemainingStatisticsStratified";
 
@@ -3613,7 +3806,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		const uint syncCVFolds,		\n" <<
 				"		__global const REAL* weightVector,	\n" <<
 				"		__global const int* NtoK,	\n" <<
-				"		__global const REAL* NWeight) {   \n" <<
+				"		__global const REAL* NWeight,	\n" <<
+				"		__global REAL* denomPid2Vector) {   \n" <<
 				//"	uint lid0 = get_local_id(0);	\n" <<
 				"	uint lid = get_local_id(1);	\n" <<
 				"	uint cvIndex = get_group_id(0);	\n" <<
@@ -3625,10 +3819,16 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		end = NtoK[stratum+1];			\n" <<
         		"		stratumWeight = weightVector[NtoK[stratum]*cvIndexStride+cvIndex];	\n" <<
 				"	}									\n" <<
-				"	barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
-				"	__local REAL scratch[TPB];			\n" <<
-				"	REAL sum = 0.0;						\n" <<
-				"	uint task = start + lid;			\n";
+				"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
+		if (efron) {
+			code << "	__local REAL scratch[2][TPB];	\n" <<
+					"	REAL sum = 0.0; 				\n" <<
+					"	REAL sum1 = 0.0;				\n";
+		} else {
+			code << "	__local REAL scratch[TPB];			\n" <<
+					"	REAL sum = 0.0;						\n";
+		}
+		code << "	uint task = start + lid;			\n";
 		// Local and thread storage
 		code << "   while (task < end) {      			\n";
 		code << "		uint vecOffset = task*cvIndexStride + cvIndex;	\n";
@@ -3637,15 +3837,27 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				//"const int k = task;";
 				"		REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n" <<
 				"		expXBetaVector[vecOffset] = exb;		\n" <<
-				"		sum += exb;						\n" <<
-				"		task += TPB;					\n" <<
+				"		sum += exb;						\n";
+		if (efron) {
+			code << "	sum1 += exb * Y[task];			\n";
+		}
+		code << "		task += TPB;					\n" <<
 				"	}									\n";
-		code << "	scratch[lid] = sum;					\n";
-		code << ReduceBody1<real,false>::body();
-		code << "	if (lid == 0) {						\n" <<
-				"		denomPidVector[stratum*cvIndexStride+cvIndex] = scratch[0];	\n" <<
-				//"		denomPidVector[" << BaseModelG::getGroupG("pIdVector", "start") << "*cvIndexStride+cvIndex] = scratch[0];	\n" <<
-				"	}									\n";
+		if (efron) {
+			code << "	scratch[0][lid] = sum;			\n" <<
+					"	scratch[1][lid] = sum1;			\n";
+			code << ReduceBody2<real,false>::body();
+			code << "	if (lid == 0) {						\n" <<
+					"		denomPidVector[stratum*cvIndexStride+cvIndex] = scratch[0][0];	\n" <<
+					"		denomPid2Vector[stratum*cvIndexStride+cvIndex] = scratch[1][0];	\n" <<
+					"	}									\n";
+		} else {
+			code << "	scratch[lid] = sum;					\n";
+			code << ReduceBody1<real,false>::body();
+			code << "	if (lid == 0) {						\n" <<
+					"		denomPidVector[stratum*cvIndexStride+cvIndex] = scratch[0];	\n" <<
+					"	}									\n";
+		}
 		code << "}    \n";
 
 		return SourceCode(code.str(), name);
@@ -3963,15 +4175,18 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"		__global const REAL* priorParams,			\n" <<
 					"		__global const REAL* XjYVector,			\n" <<
 					"		const uint index,					\n" <<
-					"		__global REAL* betaVector) {    \n";    // TODO Make weight optional
+					"		__global REAL* betaVector,			\n" <<
+					"		const uint totalStrata) {    \n";    // TODO Make weight optional
 		    // Initialization
 		    code <<	"	__local REAL scratch[2][TPB];				\n" <<
 					"	uint lid = get_local_id(0);				\n" <<
-					"	if (lid < wgs) {						\n" <<
+					"	uint k = totalStrata;					\n" <<
+					"	if (k > wgs) k = wgs;					\n" <<
+					"	if (lid < k) {						\n" <<
 					"		scratch[0][lid] = buffer[lid];	\n" <<
 					"		scratch[1][lid] = buffer[lid+wgs];	\n" <<
 					"	}										\n" <<
-		            "   for(int j = 1; j < wgs; j <<= 1) {          \n" <<
+		            "   for(int j = 1; j < k; j <<= 1) {          \n" <<
 		            "       barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
 		            "       uint mask = (j << 1) - 1;               \n" <<
 		            "       if ((lid & mask) == 0) {                \n" <<

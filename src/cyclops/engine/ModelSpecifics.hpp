@@ -2454,6 +2454,24 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 			}
 		};
 		tbb::parallel_for(tbb::blocked_range<int>(0,syncCVFolds),func);
+
+		/*
+		for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex ++) {
+		 	std::cout << "denom1, cvIndex " << cvIndex << ": ";
+		 	for (auto x:denomPidPool[cvIndex]) {
+		 		std::cout << x << " ";
+		 	}
+		 	std::cout << "\n";
+		}
+
+		for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex ++) {
+		 	std::cout << "denom2, cvIndex " << cvIndex << ": ";
+		 	for (auto x:denomPid2Pool[cvIndex]) {
+		 		std::cout << x << " ";
+		 	}
+		 	std::cout << "\n";
+		}
+		*/
 	} else {
 		auto& xBeta = getXBeta();
 
@@ -2519,15 +2537,15 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 		auto expXBeta = offsExpXBetaPool[cvIndex].data();
 		auto hPidStart = hPidPool[cvIndex];
 		fillVector(denomPidPool[cvIndex].data(), N, BaseModel::getDenomNullValue());
-		auto func = [&](const tbb::blocked_range<int>& range) {
-	    	for (int k = range.begin(); k < range.end(); ++k) {
-		//for (int k=0; k<K; ++k) {
+		//auto func = [&](const tbb::blocked_range<int>& range) {
+	    	//for (int k = range.begin(); k < range.end(); ++k) {
+		for (int k=0; k<K; ++k) {
 	    		expXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
 	    		//incrementByGroup(denomPidStart, hPidPool[cvIndex], k, offsExpXBetaPool[cvIndex][k]);
 	    		incrementByGroup(denomPidStart, hPidStart, k, expXBeta[k]);
 	    	}
-		};
-		tbb::parallel_for(tbb::blocked_range<int>(0,K),func);
+		//};
+		//tbb::parallel_for(tbb::blocked_range<int>(0,K),func);
 		computeAccumlatedDenominator(useWeights, cvIndex);
 	}
 
@@ -3429,6 +3447,24 @@ void ModelSpecifics<BaseModel,WeightType>::updateXBeta(std::vector<double>& real
 		}
 	};
 	tbb::parallel_for(tbb::blocked_range<int>(0,count),func);
+
+	/*
+	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex ++) {
+	 	std::cout << "denom1, cvIndex " << cvIndex << ": ";
+	 	for (auto x:denomPidPool[cvIndex]) {
+	 		std::cout << x << " ";
+	 	}
+	 	std::cout << "\n";
+	}
+
+	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex ++) {
+	 	std::cout << "denom2, cvIndex " << cvIndex << ": ";
+	 	for (auto x:denomPid2Pool[cvIndex]) {
+	 		std::cout << x << " ";
+	 	}
+	 	std::cout << "\n";
+	}
+	*/
 
 }
 
