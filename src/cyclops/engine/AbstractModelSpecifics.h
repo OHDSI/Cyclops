@@ -182,6 +182,7 @@ public:
 	std::vector<RealVector> offsExpXBetaPool;
 
 	std::vector<RealVector> denomPidPool;
+	std::vector<RealVector> denomPid2Pool;
 	std::vector<RealVector> numerPidPool;
 	std::vector<RealVector> numerPid2Pool;
 

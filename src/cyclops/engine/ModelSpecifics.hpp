@@ -2531,6 +2531,20 @@ void ModelSpecifics<BaseModel,WeightType>::computeRemainingStatistics(bool useWe
 		computeAccumlatedDenominator(useWeights, cvIndex);
 	}
 
+	if (BaseModel::efron) {
+		fillVector(denomPid2Pool[cvIndex].data(), N, BaseModel::getDenomNullValue());
+		for (size_t k = 0; k < K; ++k) {
+			//real newExpXBeta = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
+			//offsExpXBeta[k] = newExpXBeta;
+			real newExpXBeta = offsExpXBetaPool[cvIndex][k] * hY[k];
+			real weightoffsExpXBeta =  useWeights ?
+					hKWeightPool[cvIndex][k] * newExpXBeta :
+					newExpXBeta; // TODO Delegate condition to gOEXB
+
+			incrementByGroup(denomPid2Pool[cvIndex].data(), hPid, k, newExpXBeta);
+		}
+	}
+
     //tbb::parallel_for(tbb::blocked_range<int>(0,syncCVFolds),func);
 
 	// std::cerr << "finished MS.cRS" << std::endl;
@@ -2725,6 +2739,7 @@ void ModelSpecifics<BaseModel,WeightType>::turnOnSyncCV(int foldToCompute) {
 		hXBetaPool.push_back(hXBeta);
 		offsExpXBetaPool.push_back(offsExpXBeta);
 		denomPidPool.push_back(denomPid);
+		denomPid2Pool.push_back(denomPid2);
 		numerPidPool.push_back(numerPid);
 		numerPid2Pool.push_back(numerPid2);
 		hXjYPool.push_back(hXjY);
@@ -3228,25 +3243,49 @@ void ModelSpecifics<BaseModel,WeightType>::computeGradientAndHessianImpl(int ind
 //
 // #ifdef NEW_WAY2
 
-		auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPidPool[cvIndex],
-		        typename IteratorType::tag());
+		if (BaseModel::efron) {
+			auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPidPool[cvIndex],
+					typename IteratorType::tag());
 
-        auto rangeXNumerator = helper::dependent::getRangeX(modelData, index, offsExpXBetaPool[cvIndex],
-                typename IteratorType::tag());
+			auto rangeXNumerator = helper::dependent::getRangeXY(modelData, index, offsExpXBetaPool[cvIndex], hY,
+					typename IteratorType::tag());
 
-        auto rangeGradient = helper::dependent::getRangeGradient(sparseIndices[index].get(), N, // runtime error: reference binding to null pointer of type 'struct vector'
-                denomPidPool[cvIndex], hNWeightPool[cvIndex],
-                typename IteratorType::tag());
+			auto rangeGradient = helper::dependent::getRangeGradientY(sparseIndices[index].get(), N, // runtime error: reference binding to null pointer of type 'struct vector'
+					denomPidPool[cvIndex], denomPid2Pool[cvIndex], hNWeightPool[cvIndex],
+					typename IteratorType::tag());
 
-		const auto result = variants::trial::nested_reduce(
-		        rangeKey.begin(), rangeKey.end(),
-		        rangeXNumerator.begin(), rangeGradient.begin(),
-		        std::pair<real,real>{0,0}, Fraction<real>{0,0},
-                TestNumeratorKernel<BaseModel,IteratorType,real>(), // Inner transform-reduce
-		       	TestGradientKernel<BaseModel,IteratorType,Weights,real>()); // Outer transform-reduce
+			//std::cout << "hBuffer: ";
+			const auto result = variants::trial::nested_reduce(
+					rangeKey.begin(), rangeKey.end(),
+					rangeXNumerator.begin(), rangeGradient.begin(),
+					boost::tuple<real,real,real,real>{0,0,0,0}, Fraction<real>{0,0},
+					TestNumeratorYKernel<BaseModel,IteratorType,real>(), // Inner transform-reduce
+					TestGradientYKernel<BaseModel,IteratorType,Weights,real>()); // Outer transform-reduce
 
-		gradient = result.real();
-		hessian = result.imag();
+			//std::cout << "\n";
+			gradient = result.real();
+			hessian = result.imag();
+		} else {
+			auto rangeKey = helper::dependent::getRangeKey(modelData, index, hPidPool[cvIndex],
+					typename IteratorType::tag());
+
+			auto rangeXNumerator = helper::dependent::getRangeX(modelData, index, offsExpXBetaPool[cvIndex],
+					typename IteratorType::tag());
+
+			auto rangeGradient = helper::dependent::getRangeGradient(sparseIndices[index].get(), N, // runtime error: reference binding to null pointer of type 'struct vector'
+					denomPidPool[cvIndex], hNWeightPool[cvIndex],
+					typename IteratorType::tag());
+
+			const auto result = variants::trial::nested_reduce(
+					rangeKey.begin(), rangeKey.end(),
+					rangeXNumerator.begin(), rangeGradient.begin(),
+					std::pair<real,real>{0,0}, Fraction<real>{0,0},
+					TestNumeratorKernel<BaseModel,IteratorType,real>(), // Inner transform-reduce
+					TestGradientKernel<BaseModel,IteratorType,Weights,real>()); // Outer transform-reduce
+
+			gradient = result.real();
+			hessian = result.imag();
+		}
 // #endif
 
 //       std::cerr << std::endl
@@ -3501,6 +3540,10 @@ inline void ModelSpecifics<BaseModel,WeightType>::updateXBetaImpl(real realDelta
  			real oldEntry = offsExpXBetaPool[cvIndex][k];
  			real newEntry = offsExpXBetaPool[cvIndex][k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBetaPool[cvIndex][k], hY[k], k);
  			incrementByGroup(denomPidPool[cvIndex].data(), hPid, k, (newEntry - oldEntry));
+
+ 			if (BaseModel::efron) {
+ 			    incrementByGroup(denomPid2Pool[cvIndex].data(), hPid, k, hY[k]*(newEntry - oldEntry));
+ 			}
  		}
  	}
 //

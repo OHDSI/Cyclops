@@ -18,3 +18,5 @@ src/Makevars
 autom4te.cache/
 *.DS_Store
 *.Rapp.history
+*.RData
+*conflicted*
