@@ -46,4 +46,4 @@ Suggests:
     gnm,
     ggplot2,
     microbenchmark
-RoxygenNote: 6.0.1
+RoxygenNote: 6.1.1
