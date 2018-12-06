@@ -487,11 +487,20 @@ public:
     }
 
     double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const {
-        double sigma2Beta = getVariance();
+
         double beta = betaVector[index];
-        return - (gh.first + (beta / sigma2Beta)) /
-            (gh.second + (1.0 / sigma2Beta));
-        // TODO Update here
+        double lambda = 1 / getVariance();
+        double delta = 0.0;
+        double beta2 = (gh.second * beta) - gh.first;
+        int signBeta2 = sign(beta2);
+        if (std::abs(beta2) < (2 * std::sqrt(lambda * gh.second))) {
+            delta = - beta;
+        } else if (signBeta2 < 0) {
+            delta = - (beta / 2) - gh.first / (2 * gh.second) - std::sqrt(beta2 * beta2 - (4 * lambda * gh.second)) / (2 * gh.second);
+        } else if (signBeta2 > 0) {
+            delta = - (beta / 2) - gh.first / (2 * gh.second) + std::sqrt(beta2 * beta2 - (4 * lambda * gh.second)) / (2 * gh.second);
+        }
+        return delta;
     }
 
     std::vector<VariancePtr> getVarianceParameters() const {
@@ -523,8 +532,22 @@ private:
         return norm;
     }
 
+    int sign(double x) const {
+        if (x == 0) {
+            return 0;
+        }
+        if (x < 0) {
+            return -1;
+        }
+        return 1;
+    }
+
     VariancePtr variance;
 };
+
+
+
+
 
 class HierarchicalNormalPrior : public NormalPrior {
 public:
