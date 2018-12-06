@@ -18,7 +18,7 @@ test_that("Small Bernoulli dense regression", {
 	                                  useCrossValidation = TRUE),
 	             "Cannot perform")
 
-	prior <- createPrior(priorType = "barupdate")
+	prior <- createPrior(priorType = "barupdate", variance = 1)
 	control <- createControl(convergenceType = "onestep")
 
 	expect_warning(fit <- fitCyclopsModel(data, prior, control),
@@ -26,4 +26,25 @@ test_that("Small Bernoulli dense regression", {
 
 	expect_equal(fit$iterations, 1)
 	expect_equal(fit$return_flag, "SUCCESS")
+})
+
+test_that("Small Poisson dense regression; unpenalized regression", {
+    y <- c(1, 6, 16, 23, 27, 39, 31, 30, 43, 51, 63, 70, 88, 97, 91, 104, 110, 113, 149, 159)
+    x <- 1:20
+
+    data <- createCyclopsData(y ~ x, modelType = "pr")
+    #Run "unpenalized regression"
+    tolerance <- 1E-8
+    delta <- 1
+    b.old <- c(0, 0)
+    while(delta > tolerance) {
+        prior <- createPrior(priorType = "barupdate", variance = Inf)
+        control <- createControl(convergenceType = "onestep")
+        fit <- fitCyclopsModel(data, prior = prior, control = control,
+                               startingCoefficients = b.old)
+        delta <- max(abs((coef(fit) - b.old)))
+        b.old <- coef(fit)
+    }
+    glm.fit <- glm(y ~ x, family = "poisson")
+    expect_equal(b.old, glm.fit$coefficients, tolerance = 1E-6)
 })
