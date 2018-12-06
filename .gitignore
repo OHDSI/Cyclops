@@ -18,7 +18,6 @@ config.log
 config.status
 debug
 docker
-extras
 notes
 tests/testthat/test-KKTSwindle.R
 tests/testthat/test-weighted_cv.R
