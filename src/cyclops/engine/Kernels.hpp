@@ -4187,6 +4187,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		    // Initialization
 		    code <<	"	__local REAL scratch[2][TPB];				\n" <<
 					"	uint lid = get_local_id(0);				\n" <<
+					"	scratch[0][lid] = 0.0;					\n" <<
+					"	scratch[1][lid] = 0.0;					\n" <<
 					"	uint k = totalStrata;					\n" <<
 					"	if (k > wgs) k = wgs;					\n" <<
 					"	if (lid < k) {						\n" <<

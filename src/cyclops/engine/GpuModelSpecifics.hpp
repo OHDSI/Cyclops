@@ -3396,7 +3396,7 @@ public:
 
         	//std::cout << "global: " << globalWorkSize << " local: " << localWorkSize << "\n";
 
-        	/*
+/*
         	hBuffer.resize(2*wgs);
         	compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs, std::begin(hBuffer), queue);
 
@@ -3405,7 +3405,8 @@ public:
         		std::cout << x << " ";
         	}
         	std::cout << "\n";
-*/
+        	*/
+
 
 
         	////////////////////////// Start Process Delta
@@ -3455,6 +3456,7 @@ public:
         	std::cout << "delta " << index << ": " << hBuffer1[index] << "\n";
         	std::cout << "\n";
         	*/
+
         	/*
         	for (auto x:hBuffer1) {
         		std::cout << x << " ";
