@@ -1477,7 +1477,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"	stratumStart = NtoK[stratum];			\n" <<
 						"	total = NtoK[stratum+1] - stratumStart;	\n" <<
 						"	controls = total - cases;				\n" <<
-						"	uint offKStrata = index*totalStrata + stratum;	\n";
+						"	uint offKStrata = index*(totalStrata+1) + stratum;	\n";
 				if (logSum) {
 					code << "	B0[0][lid] = -INFINITY;					\n" <<
 							"	B0[1][lid] = -INFINITY;					\n" <<
@@ -2027,32 +2027,39 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				code << "}											\n";
 
 
-
 				code << "		if (lid == 0) {							\n" <<
 						//"			if (localWeights[lid0] != 0) {			\n" <<
 						"				REAL value0 = B0[1-current][lastLid];	\n" <<
 						"				REAL value1 = B1[1-current][lastLid];	\n" <<
 						"				REAL value2 = B2[1-current][lastLid];	\n";
 				if (logSum) {
-					code << "				grad -= -exp(value1 - value0);			\n" <<
-							"				hess -= exp(2*(value1-value0)) - exp(value2 - value0);	\n";
+					code << "				grad -= (REAL)-exp(value1 - value0);			\n" <<
+							"				hess -= (REAL)exp(2*(value1-value0)) - exp(value2 - value0);	\n";
 				} else {
-					code << "				grad -= -value1/value0;					\n" <<
-							"				hess -= value1*value1/value0/value0 - value2/value0;		\n";
+					code << "				grad -= (REAL)-value1/value0;					\n" <<
+							"				hess -= (REAL)value1*value1/value0/value0 - value2/value0;		\n";
 				}
+				code << 	"		buffer[stratum] = grad;	\n" <<
+							"		buffer[loopSize+stratum] = hess;	\n";
+				//code << "		if (get_group_id(0) < totalStrata) printf(\"(s %d g %f h %f)\",stratum, grad, hess);\n";
+
 				//code << "			}									\n" <<
 				code <<	"		}										\n";
 
+				/*
+				code << "	if (lid == 0) {							\n" <<									// write output
+						"		buffer[stratum] = grad;	\n" <<
+						"		buffer[loopSize+stratum] = hess;	\n" <<
+						"		if (get_group_id(0) < totalStrata) printf(\"(s %d g %f h %f)\",get_group_id(0), buffer[get_group_id(0)], buffer[loopSize+get_group_id(0)]);\n" <<
+						"	}											\n";
+						*/
+
 				code << "		stratum += loopSize;					\n";
 				code << "		barrier(CLK_LOCAL_MEM_FENCE);			\n";
-				//code << "		barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+				code << "		barrier(CLK_GLOBAL_MEM_FENCE);			\n";
 				code << "}												\n";									// end sum over strata
 
 
-				code << "	if (lid == 0) {							\n" <<									// write output
-						"		buffer[get_group_id(0)] = grad;	\n" <<
-						"		buffer[loopSize+get_group_id(0)] = hess;	\n" <<
-						"	}											\n";
 
 		        code << "}  \n"; // End of kernel
 		        return SourceCode(code.str(), name);
@@ -4185,6 +4192,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"	if (lid < k) {						\n" <<
 					"		scratch[0][lid] = buffer[lid];	\n" <<
 					"		scratch[1][lid] = buffer[lid+wgs];	\n" <<
+					//"		printf(\"(s %d g %f h %f)\",lid, scratch[0][lid], scratch[1][lid]);\n" <<
 					"	}										\n" <<
 		            "   for(int j = 1; j < k; j <<= 1) {          \n" <<
 		            "       barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
@@ -4248,6 +4256,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"	boundVector[offset] = intermediate;		\n" <<
 					"	deltaVector[index] = delta;	\n" <<
 					"	betaVector[offset] = delta + beta;		\n" <<
+					//"	printf(\"delta %d: %f\", index, delta);		\n" <<
+
 					"	}										\n";
 
 		    code << "	}										\n";

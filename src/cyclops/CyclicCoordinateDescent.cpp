@@ -2306,11 +2306,15 @@ std::vector<double> CyclicCoordinateDescent::ccdUpdateBetaVec(int index) {
 		}
 	}
 
+	/*
+
 	std::cout << "deltaVec" << index << ": ";
 	for (auto x:result) {
 		std::cout << x << " ";
 	}
+
 	std::cout << "\n";
+	*/
 /*
 	std::cout << "h" << index << ": ";
 	for (int i=0; i<syncCVFolds; i++) {

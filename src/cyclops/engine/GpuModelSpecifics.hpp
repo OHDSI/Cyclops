@@ -3236,6 +3236,14 @@ public:
 
     				detail::resizeAndCopyToDevice(Kstrata, dKStrata, queue);
 
+    				/*
+    				std::cout << "Kstrata: ";
+    				for (auto x : Kstrata) {
+    					std::cout << x << " ";
+    				}
+    				std::cout << "\n";
+    				*/
+
     			} else {
     				std::vector<int> hK;
     				hK.push_back(0);
@@ -3294,6 +3302,8 @@ public:
         auto start = bsccs::chrono::steady_clock::now();
 #endif
         FormatType formatType = modelData.getFormatType(index);
+
+        //std::cout << "formatType " << index << ": " << formatType << "\n";
 
         if (!BaseModel::exactCLR) {
         	useLogSum = false;
@@ -3381,15 +3391,21 @@ public:
         	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-/*
+
+        	//std::cout << "\n";
+
+        	//std::cout << "global: " << globalWorkSize << " local: " << localWorkSize << "\n";
+
+        	/*
         	hBuffer.resize(2*wgs);
         	compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs, std::begin(hBuffer), queue);
+
         	std::cout << "buffer: ";
         	for (auto x:hBuffer) {
         		std::cout << x << " ";
         	}
         	std::cout << "\n";
-        	*/
+*/
 
 
         	////////////////////////// Start Process Delta
@@ -3436,7 +3452,20 @@ public:
 /*
         	hBuffer1.resize(J);
         	compute::copy(std::begin(dDeltaVector), std::begin(dBuffer)+J, std::begin(hBuffer1), queue);
-        	std::cout << "delta: ";
+        	std::cout << "delta " << index << ": " << hBuffer1[index] << "\n";
+        	std::cout << "\n";
+        	*/
+        	/*
+        	for (auto x:hBuffer1) {
+        		std::cout << x << " ";
+        	}
+        	std::cout << "\n";
+        	*/
+
+        	/*
+        	hBuffer1.resize(K);
+        	compute::copy(std::begin(dXBeta), std::begin(dXBeta)+K, std::begin(hBuffer1), queue);
+        	std::cout << "xBeta " << index << ": ";
         	for (auto x:hBuffer1) {
         		std::cout << x << " ";
         	}
@@ -3506,6 +3535,8 @@ public:
         	name = "compUpdateXBetaKernelG" + getFormatTypeExtension(formatType) + " ";
         	duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
+
+
 
         } else {
 
@@ -5452,6 +5483,7 @@ virtual void runCCDIndex() {
         	// CCD Kernel
         	//auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useWeights);
             auto source = writeCodeForGradientHessianKernelExactCLR(formatType, true);
+            std::cout << source.body;
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernel = compute::kernel(program, source.name);
 
