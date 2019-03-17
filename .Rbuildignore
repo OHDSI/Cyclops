@@ -27,3 +27,4 @@ compare_versions
 Cyclops_*.tar.gz
 _pkgdown.yml
 docs
+NEWS.old
