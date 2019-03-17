@@ -1,6 +1,7 @@
 library("testthat")
 
 context("test-cv.R")
+suppressWarnings(RNGversion("3.5.0"))
 
 # ### COX ERROR
 #

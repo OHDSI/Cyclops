@@ -2,6 +2,7 @@ library("testthat")
 library("survival")
 
 context("test-xyConstructor.R")
+suppressWarnings(RNGversion("3.5.0"))
 
 #
 # Tests for the XY constructor of ModelData

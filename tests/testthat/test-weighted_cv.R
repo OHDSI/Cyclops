@@ -1,4 +1,5 @@
 library(testthat)
+suppressWarnings(RNGversion("3.5.0"))
 
 test_that("Logistic regression with cross-validation", {
 

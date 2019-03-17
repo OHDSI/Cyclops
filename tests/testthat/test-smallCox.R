@@ -1,6 +1,8 @@
 library("testthat")
 library("survival")
 
+suppressWarnings(RNGversion("3.5.0"))
+
 test_that("Check very small Cox example with no ties, but with/without strata", {
     test <- read.table(header=T, sep = ",", text = "
 start, length, event, x1, x2

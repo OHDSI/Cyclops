@@ -117,7 +117,7 @@ fitCyclopsModel <- function(cyclopsData,
                                          })
         }
 
-        if (prior$priorType != "none" &&
+        if (prior$priorType[1] != "none" &&
             is.null(prior$graph) && # TODO Ignore hierarchical models for now
             .cyclopsGetHasIntercept(cyclopsData) &&
             !prior$forceIntercept) {
@@ -574,13 +574,13 @@ createPrior <- function(priorType,
         stop("Prior types and variances have a dimensionality mismatch")
     }
 
-    if (priorType == "none" && useCrossValidation) {
+    if (all(priorType == "none") && useCrossValidation) {
         stop("Cannot perform cross validation with a flat prior")
     }
-    if (priorType == "barupdate" && useCrossValidation) {
+    if (any(priorType == "barupdate") && useCrossValidation) {
         stop("Cannot perform cross valudation with BAR updates")
     }
-    if (priorType == "hierarchical" && missing(graph)) {
+    if (any(priorType == "hierarchical") && missing(graph)) {
         stop("Must provide a graph for a hierarchical prior")
     }
     if (!is.null(neighborhood)) {
