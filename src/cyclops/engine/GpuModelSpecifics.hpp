@@ -3259,39 +3259,9 @@ public:
     				detail::resizeAndCopyToDevice(hK, dKStrata, queue);
     			}
     		}
-
-/*
-    		std::vector<real> myWeights;
-    		myWeights.resize(dNWeight.size());
-    		compute::copy(std::begin(dNWeight), std::end(dNWeight), std::begin(myWeights), queue);
-    		for (auto x:myWeights) {
-    			std::cout << x << " ";
-    		}
-    		std::cout << "\n";
-    		*/
-
     		detail::resizeAndCopyToDevice(hXjY, dXjY, queue);
 
     		computeRemainingStatistics();
-/*
-    		std::vector<real> myDenom1;
-    		myDenom1.resize(dDenominator.size());
-    		compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(myDenom1), queue);
-    		std::cout << "denom1: ";
-    		for (auto x:myDenom1) {
-    			std::cout << x << " ";
-    		}
-    		std::cout << "\n";
-
-    		std::vector<real> myDenom2;
-    		myDenom2.resize(dDenominator2.size());
-    		compute::copy(std::begin(dDenominator2), std::end(dDenominator2), std::begin(myDenom2), queue);
-    		std::cout << "denom2: ";
-    		for (auto x:myDenom2) {
-    			std::cout << x << " ";
-    		}
-    		std::cout << "\n";
-    		*/
     	}
 
         int wgs = detail::constant::exactCLRSyncBlockSize; // for reduction across strata
@@ -3797,61 +3767,29 @@ public:
         duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-/*
-    	std::vector<real> blah;
-    	blah.resize(dXBetaVector.size());
-    	compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(blah), queue);
-    	std::cout << "xbeta: ";
-    	for (int i=0; i<syncCVFolds; i++) {
-    		std::cout << blah[i*cvIndexStride] << " ";
-    	}
-    	std::cout << "\n";
- */
-/*
-		std::vector<real> myDenom1;
-		myDenom1.resize(dDenomPidVector.size());
-		compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(myDenom1), queue);
-		for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
-		 	std::cout << "denom1, cvIndex " << cvIndex << ": ";
-		 	for (int i=0; i<N; i++) {
-				std::cout << myDenom1[i*cvIndexStride + cvIndex] << " ";
-			}
-			std::cout << "\n";
-		}
-
-		std::vector<real> myDenom2;
-		myDenom2.resize(dDenomPid2Vector.size());
-		compute::copy(std::begin(dDenomPid2Vector), std::end(dDenomPid2Vector), std::begin(myDenom2), queue);
-		for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
-			std::cout << "denom2, cvIndex " << cvIndex << ": ";
-			for (int i=0; i<N; i++) {
-				std::cout << myDenom2[i*cvIndexStride + cvIndex] << " ";
-			}
-			std::cout << "\n";
-		}
-		*/
-
-
         }
 
         }
     }
 
+virtual void runCCDIndex1() {
+
+}
 
 virtual void runCCDIndex() {
 	if (BaseModel::exactCLR || BaseModelG::useNWeights) {
 		runCCDIndexSeparate();
 		return;
 	}
-	if (!initialized) {
-        std::vector<int> hIndexListWithPrior[12];
 
+	if (!initialized) {
+		initialized = true;
+        std::vector<int> hIndexListWithPrior[12];
         for (int i=0; i<J; i++) {
         	int formatType = formatList[i];
         	int priorType = priorTypes[i];
         	hIndexListWithPrior[formatType*3+priorType].push_back(i);
         }
-
         std::vector<int> hIndices;
         int starts = 0;
         for (int i=0; i<12; i++) {
@@ -3861,100 +3799,12 @@ virtual void runCCDIndex() {
         	for (int j=0; j<length; j++) {
         		hIndices.push_back(hIndexListWithPrior[i][j]);
         	}
-
-
         	if (length > 0) {
         		std::cout << "format " << i/3 << " priorType " << i%3 << " length " << length << " start " << starts << "\n ";
-        		//for (auto x:hIndexListWithPrior[i]) {
-        		//	std::cout << x << " ";
-        		//}
-        		//std::cout << "\n";
         	}
-
-
         	starts += length;
         }
-
         detail::resizeAndCopyToDevice(hIndices, dIndexListWithPrior, queue);
-
-        initialized = true;
-
-        if (BaseModel::exactCLR) {
-        	detail::resizeAndCopyToDevice(hNtoK, dNtoK, queue);
-        	detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
-
-#ifdef USE_LOG_SUM
-        	std::vector<real> hLogX;
-        	hLogX.resize(dColumns.getData().size());
-        	compute::copy(std::begin(dColumns.getData()), std::end(dColumns.getData()), std::begin(hLogX), queue);
-        	for (int i=0; i<hLogX.size(); i++) {
-        		hLogX[i] = log(hLogX[i]);
-        	}
-        	detail::resizeAndCopyToDevice(hLogX, dLogX, queue);
-
-
-                		std::cout << "logX: ";
-                		for (auto x:hLogX) {
-                			std::cout << x << " ";
-                		}
-                		std::cout << "\n";
-
-#endif
-
-        	bool dense = TRUE;
-        	for (int index=0; index<J; index++) {
-        		FormatType formatType = modelData.getFormatType(index);
-        		if (formatType == FormatType::INDICATOR || formatType == FormatType::SPARSE) {
-        			dense = FALSE;
-        		}
-        	}
-
-        	if (!dense) {
-        		std::vector<int> hK;
-        		hK.resize(dColumns.getIndices().size());
-        		compute::copy(std::begin(dColumns.getIndices()), std::end(dColumns.getIndices()), std::begin(hK), queue);
-
-        		std::vector<int> offKVec;
-        		offKVec.resize(dColumns.getIndicesStarts().size());
-        		compute::copy(std::begin(dColumns.getIndicesStarts()), std::end(dColumns.getIndicesStarts()), std::begin(offKVec), queue);
-
-        		std::vector<int> NVec;
-        		NVec.resize(dColumns.getTaskCounts().size());
-        		compute::copy(std::begin(dColumns.getTaskCounts()), std::end(dColumns.getTaskCounts()), std::begin(NVec), queue);
-
-        		std::vector<int> Kstrata(N*J);
-
-        		for (int index=0; index<J; index++) {
-        			FormatType formatType = modelData.getFormatType(index);
-        			if (formatType == FormatType::INDICATOR || formatType == FormatType::SPARSE) {
-        				int offK = offKVec[index];
-        				int currentK = hK[offK];
-        				int tasks = NVec[index];
-        				int i=0;
-        				for (int n=0; n<N; n++) {
-        					int stratumStart = hNtoK[n];
-        					int stratumEnd = hNtoK[n+1];
-        					while(currentK < stratumStart && i < tasks) {
-        						i++;
-        						currentK = hK[offK+i];
-        					}
-        					if (currentK >= stratumEnd || i == tasks) {
-        						Kstrata[N*index+n] = -1;
-        					} else {
-        						Kstrata[N*index+n] = i;
-        					}
-        				}
-        			}
-        		}
-
-        		detail::resizeAndCopyToDevice(Kstrata, dKStrata, queue);
-        	} else {
-        		std::vector<int> hK;
-        		hK.push_back(0);
-        		detail::resizeAndCopyToDevice(hK, dKStrata, queue);
-        	}
-        }
-
         detail::resizeAndCopyToDevice(hXjY, dXjY, queue);
 	}
 
