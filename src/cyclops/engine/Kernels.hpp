@@ -4189,13 +4189,21 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					"	uint lid = get_local_id(0);				\n" <<
 					"	scratch[0][lid] = 0.0;					\n" <<
 					"	scratch[1][lid] = 0.0;					\n" <<
-					"	uint k = totalStrata;					\n" <<
-					"	if (k > wgs) k = wgs;					\n" <<
-					"	if (lid < k) {						\n" <<
-					"		scratch[0][lid] = buffer[lid];	\n" <<
-					"		scratch[1][lid] = buffer[lid+wgs];	\n" <<
+					//"	uint k = totalStrata;					\n" <<
+					"	uint k = TPB;							\n" <<
+					"	uint task = lid;						\n" <<
+					"	while (task < wgs) {					\n" <<
+					"		scratch[0][lid] += buffer[lid];		\n" <<
+					"		scratch[1][lid] += buffer[lid+wgs];	\n" <<
+					"		task += TPB;						\n" <<
 					//"		printf(\"(s %d g %f h %f)\",lid, scratch[0][lid], scratch[1][lid]);\n" <<
 					"	}										\n" <<
+					//"	if (k > wgs) k = wgs;					\n" <<
+					//"	if (lid < k) {						\n" <<
+					//"		scratch[0][lid] = buffer[lid];	\n" <<
+					//"		scratch[1][lid] = buffer[lid+wgs];	\n" <<
+					//"		printf(\"(s %d g %f h %f)\",lid, scratch[0][lid], scratch[1][lid]);\n" <<
+					//"	}										\n" <<
 		            "   for(int j = 1; j < k; j <<= 1) {          \n" <<
 		            "       barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
 		            "       uint mask = (j << 1) - 1;               \n" <<
@@ -5019,6 +5027,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"			} else if (delta > bound) {				\n" <<
 						"				delta = bound;						\n" <<
 						"			}										\n" <<
+						//"			printf(\"delta %d: %f\\n\", index, delta);	\n" <<
 						"			REAL intermediate = max(fabs(delta)*2, bound/2);	\n" <<
 						"			intermediate = max(intermediate, 0.001);\n" <<
 						"			boundVector[offset] = intermediate;		\n" <<

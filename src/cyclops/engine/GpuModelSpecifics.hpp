@@ -332,9 +332,7 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::normPool;
     using ModelSpecifics<BaseModel, WeightType>::useLogSum;
 
-    const static int tpb = 128; // threads-per-block  // Appears best on K40
-    //const static int maxWgs = clGetDeviceInfo(0, CL_DEVICE_MAX_COMPUTE_UNITS);
-    //const static int maxWgs = 15; // use as # of multiprocessors //2;  // work-group-size
+    int tpb = 128; // threads-per-block  // Appears best on K40
     int maxWgs = 15;
 
     int tpb0 = 8;
@@ -3773,7 +3771,439 @@ public:
     }
 
 virtual void runCCDIndex1() {
+	if (BaseModel::exactCLR || BaseModelG::useNWeights) {
+			runCCDIndexSeparate();
+			return;
+	}
+	if (!initialized) {
+		initialized = true;
+        detail::resizeAndCopyToDevice(hXjY, dXjY, queue);
+	}
 
+	 int wgs = maxWgs; // for reduction across strata
+
+	 if (syncCV) {
+		 if (dBuffer.size() < 2*wgs*cvIndexStride) {
+			 dBuffer.resize(2*wgs*cvIndexStride);
+		 }
+	 } else {
+		 if (dBuffer.size() < 2*wgs) {
+			 dBuffer.resize(2*wgs);
+		 }
+	 }
+
+	 for (int index = 0; index < J; index++) {
+#ifdef CYCLOPS_DEBUG_TIMING
+		 auto start = bsccs::chrono::steady_clock::now();
+#endif
+		 FormatType formatType = modelData.getFormatType(index);
+
+		 if (!syncCV) {
+			 auto& kernel = kernelGradientHessianNoWeight[formatType];
+
+			 const auto taskCount = dColumns.getTaskCount(index);
+
+			 //std::cout << "kernel 0 called\n";
+			 kernel.set_arg(0, dColumns.getDataOffset(index));
+			 kernel.set_arg(1, dColumns.getIndicesOffset(index));
+			 kernel.set_arg(2, taskCount);
+			 kernel.set_arg(3, dColumns.getData());
+			 kernel.set_arg(4, dColumns.getIndices());
+			 kernel.set_arg(5, dY);
+			 kernel.set_arg(6, dXBeta);
+			 kernel.set_arg(7, dExpXBeta);
+			 kernel.set_arg(8, dDenominator);
+			 kernel.set_arg(9, dBuffer);
+			 kernel.set_arg(10, dId);
+			 kernel.set_arg(11, dKWeight);
+
+			 size_t globalWorkSize = wgs*tpb;
+			 size_t localWorkSize = tpb;
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 auto end = bsccs::chrono::steady_clock::now();
+			 ///////////////////////////"
+			 auto name = "compGradHessArgsG" + getFormatTypeExtension(formatType) + " ";
+			 duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+			 // run kernel
+#ifdef CYCLOPS_DEBUG_TIMING
+			 start = bsccs::chrono::steady_clock::now();
+#endif
+			 queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, localWorkSize);
+			 queue.finish();
+#ifdef CYCLOPS_DEBUG_TIMING
+			 end = bsccs::chrono::steady_clock::now();
+			 ///////////////////////////"
+			 name = "compGradHessKernelG" + getFormatTypeExtension(formatType) + " ";
+			 duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+/*
+			 std::vector<real> myBuffer;
+			 myBuffer.resize(dBuffer.size());
+			 compute::copy(std::begin(dBuffer), std::begin(dBuffer) + dBuffer.size(), std::begin(myBuffer), queue);
+			 std::cout << "buffer: ";
+			 for (auto x:myBuffer) {
+				 std::cout << x << " ";
+			 }
+			 std::cout << "\n";
+			 */
+
+
+			 ////////////////////////// Start Process Delta
+#ifdef CYCLOPS_DEBUG_TIMING
+			 start = bsccs::chrono::steady_clock::now();
+#endif
+			 int priorType = priorTypes[index];
+			 auto& kernel1 = kernelProcessDeltaBuffer[priorType];
+
+			 kernel1.set_arg(0, dBuffer);
+			 if (dDeltaVector.size() < J) {
+				 dDeltaVector.resize(J);
+			 }
+			 kernel1.set_arg(1, dDeltaVector);
+			 kernel1.set_arg(2, wgs);
+			 kernel1.set_arg(3, dBound);
+			 kernel1.set_arg(4, dPriorParams);
+			 kernel1.set_arg(5, dXjY);
+			 kernel1.set_arg(6, index);
+			 kernel1.set_arg(7, dBeta);
+			 //int dN = N;
+			 kernel1.set_arg(8, wgs);
+#ifdef CYCLOPS_DEBUG_TIMING
+			 end = bsccs::chrono::steady_clock::now();
+			 ///////////////////////////"
+			 name = "compProcessDeltaArgsG" + getFormatTypeExtension(formatType) + " ";
+			 duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+			 ///////// run kernel
+#ifdef CYCLOPS_DEBUG_TIMING
+			 start = bsccs::chrono::steady_clock::now();
+#endif
+
+			 queue.enqueue_1d_range_kernel(kernel1, 0, tpb, tpb);
+			 queue.finish();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 end = bsccs::chrono::steady_clock::now();
+			 ///////////////////////////"
+			 name = "compProcessDeltaKernelG" + getFormatTypeExtension(formatType) + " ";
+			 duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+			 /*
+			 std::vector<real> myDelta;
+			 myDelta.resize(dDeltaVector.size());
+			 compute::copy(std::begin(dDeltaVector), std::begin(dDeltaVector)+J, std::begin(myDelta), queue);
+			 std::cout << "delta " << index << ": " << myDelta[index] << "\n";
+			 */
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 start = bsccs::chrono::steady_clock::now();
+#endif
+
+			 auto& kernel2 = kernelUpdateXBeta[formatType];
+
+			 kernel2.set_arg(0, dColumns.getDataOffset(index));
+			 kernel2.set_arg(1, dColumns.getIndicesOffset(index));
+			 kernel2.set_arg(2, taskCount);
+			 kernel2.set_arg(3, dDeltaVector);
+			 kernel2.set_arg(4, dColumns.getData());
+			 kernel2.set_arg(5, dColumns.getIndices());
+			 kernel2.set_arg(6, dY);
+			 kernel2.set_arg(7, dXBeta);
+			 kernel2.set_arg(8, dExpXBeta);
+			 kernel2.set_arg(9, dDenominator);
+			 kernel2.set_arg(10, dId);
+			 kernel2.set_arg(11, index);
+
+			 // set work size; no looping
+			 size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
+			 if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+				 ++workGroups;
+			 }
+			 //size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+
+			 localWorkSize = detail::constant::updateXBetaBlockSize;
+			 globalWorkSize = workGroups * localWorkSize;
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 end = bsccs::chrono::steady_clock::now();
+			 ///////////////////////////"
+			 name = "compUpdateXBetaArgsG" + getFormatTypeExtension(formatType) + " ";
+			 duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 start = bsccs::chrono::steady_clock::now();
+#endif
+
+			 // run kernel
+			 queue.enqueue_1d_range_kernel(kernel2, 0, globalWorkSize, localWorkSize);
+			 queue.finish();
+
+			 hXBetaKnown = false; // dXBeta was just updated
+#ifdef CYCLOPS_DEBUG_TIMING
+			 end = bsccs::chrono::steady_clock::now();
+			 ///////////////////////////"
+			 name = "compUpdateXBetaKernelG" + getFormatTypeExtension(formatType) + " ";
+			 duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+
+
+		 } else {
+
+			 auto& kernel = (useLogSum) ? kernelGradientHessianSyncLog[formatType] :
+					 kernelGradientHessianSync[formatType];
+
+			 const auto taskCount = dColumns.getTaskCount(index);
+
+			 /*
+	        std::vector<real> myDenom;
+	        myDenom.resize(dDenomPidVector.size());
+	        compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(myDenom), queue);
+	        for (int i=0; i<syncCVFolds; i++) {
+	        	std::cout << "denom" << i << ": ";
+	        	for (int j=0; j<N; j++) {
+	        		std::cout << myDenom[j*cvIndexStride+i] << " ";
+	        	}
+	        	std::cout << "\n";
+	        }
+			  */
+
+			 //std::cout << "kernel 0 called\n";
+			 kernel.set_arg(0, dColumns.getDataOffset(index));
+			 kernel.set_arg(1, dColumns.getIndicesOffset(index));
+			 kernel.set_arg(2, taskCount);
+			 if (useLogSum) {
+				 kernel.set_arg(3, dLogX);
+			 } else {
+				 kernel.set_arg(3, dColumns.getData());
+			 }
+			 kernel.set_arg(4, dColumns.getIndices());
+			 kernel.set_arg(5, dY);
+			 kernel.set_arg(6, dXBetaVector);
+			 kernel.set_arg(7, dOffsExpXBetaVector);
+			 kernel.set_arg(8, dDenomPidVector);
+			 kernel.set_arg(9, dBuffer); // Can get reallocated.
+			 kernel.set_arg(10, dPidVector);
+			 if (dKWeightVector.size() == 0) {
+				 kernel.set_arg(11, 0);
+			 } else {
+				 kernel.set_arg(11, dKWeightVector); // TODO Only when dKWeight gets reallocated
+			 }
+
+			 kernel.set_arg(12, cvIndexStride);
+			 kernel.set_arg(13, cvBlockSize);
+			 kernel.set_arg(14, dAllZero);
+
+			 int a = 1;
+			 if (BaseModel::exactCLR) {
+				 a = detail::constant::exactCLRSyncBlockSize;
+				 kernel.set_arg(15, dNtoK);
+				 kernel.set_arg(16, dNWeight);
+				 int Kstride = detail::getAlignedLength<16>(K);
+				 kernel.set_arg(17, Kstride);
+				 kernel.set_arg(18, index);
+				 int dN = N;
+				 kernel.set_arg(19, dN);
+				 kernel.set_arg(20, dKStrata);
+				 if (dBuffer1.size() < Kstride*3*cvIndexStride) {
+					 dBuffer1.resize(Kstride*3*cvIndexStride, queue);
+				 }
+				 kernel.set_arg(21, dBuffer1);
+			 }
+
+			 if (BaseModelG::useNWeights) {
+				 a = tpb1;
+				 kernel.set_arg(15, dNtoK);
+				 kernel.set_arg(16, dNWeight);
+				 int Kstride = detail::getAlignedLength<16>(K);
+				 kernel.set_arg(17, Kstride);
+				 kernel.set_arg(18, index);
+				 int dN = N;
+				 kernel.set_arg(19, dN);
+				 kernel.set_arg(20, dKStrata);
+				 kernel.set_arg(21, dDenomPid2Vector);
+			 }
+
+			 int loops = syncCVFolds / cvBlockSize;
+			 if (syncCVFolds % cvBlockSize != 0) {
+				 loops++;
+			 }
+
+			 size_t globalWorkSize[2];
+			 globalWorkSize[0] = loops*cvBlockSize;
+			 globalWorkSize[1] = wgs*a;
+			 size_t localWorkSize[2];
+			 localWorkSize[0] = cvBlockSize;
+			 localWorkSize[1] = a;
+			 size_t dim = 2;
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 auto end = bsccs::chrono::steady_clock::now();
+			 ///////////////////////////"
+			 auto name = "compGradHessArgsG" + getFormatTypeExtension(formatType) + " ";
+			 duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 start = bsccs::chrono::steady_clock::now();
+#endif
+
+			 queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
+			 queue.finish();
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 end = bsccs::chrono::steady_clock::now();
+			 ///////////////////////////"
+			 name = "compGradHessKernelG" + getFormatTypeExtension(formatType) + " ";
+			 duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+
+			 ////////////////////////////////// Start Process Delta
+#ifdef CYCLOPS_DEBUG_TIMING
+			 start = bsccs::chrono::steady_clock::now();
+#endif
+
+			 //std::cout << "kernel 1\n";
+			 int priorType = priorTypes[index];
+			 auto& kernel1 = kernelProcessDeltaSyncCVBuffer[priorType];
+
+			 kernel1.set_arg(0, dBuffer);
+			 if (dDeltaVector.size() < J*cvIndexStride) {
+				 dDeltaVector.resize(J*cvIndexStride);
+			 }
+			 kernel1.set_arg(1, dDeltaVector);
+			 kernel1.set_arg(2, syncCVFolds);
+			 kernel1.set_arg(3, cvIndexStride);
+			 kernel1.set_arg(4, wgs);
+			 kernel1.set_arg(5, dBoundVector);
+			 kernel1.set_arg(6, dPriorParams);
+			 kernel1.set_arg(7, dXjYVector);
+			 int dJ = J;
+			 kernel1.set_arg(8, dJ);
+			 kernel1.set_arg(9, index);
+			 kernel1.set_arg(10, dBetaVector);
+			 kernel1.set_arg(11, dAllZero);
+			 kernel1.set_arg(12, dDoneVector);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 end = bsccs::chrono::steady_clock::now();
+			 ///////////////////////////"
+			 name = "compProcessDeltaArgsG" + getFormatTypeExtension(formatType) + " ";
+			 duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 start = bsccs::chrono::steady_clock::now();
+#endif
+
+
+			 queue.enqueue_1d_range_kernel(kernel1, 0, syncCVFolds*tpb, tpb);
+			 queue.finish();
+
+			 std::vector<real> hDeltaVector;
+			 hDeltaVector.resize(dDeltaVector.size());
+			 compute::copy(std::begin(dDeltaVector), std::end(dDeltaVector), std::begin(hDeltaVector), queue);
+			 std::cout << "deltaVec" << index << ": ";
+			 for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+				 std::cout << hDeltaVector[index*cvIndexStride + cvIndex] << " ";
+			 }
+			 std::cout << "\n";
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 end = bsccs::chrono::steady_clock::now();
+			 ///////////////////////////"
+			 name = "compProcessDeltaKernelG" + getFormatTypeExtension(formatType) + " ";
+			 duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 start = bsccs::chrono::steady_clock::now();
+#endif
+			 auto& kernel2 = kernelUpdateXBetaSync[modelData.getFormatType(index)];
+
+			 //std::cout << "kernel 2\n";
+			 // set kernel args
+			 kernel2.set_arg(0, dColumns.getDataOffset(index));
+			 kernel2.set_arg(1, dColumns.getIndicesOffset(index));
+			 kernel2.set_arg(2, dDeltaVector);
+			 kernel2.set_arg(3, dColumns.getData());
+			 kernel2.set_arg(4, dColumns.getIndices());
+			 kernel2.set_arg(5, dY);
+			 kernel2.set_arg(6, dXBetaVector);
+			 kernel2.set_arg(7, dOffsExpXBetaVector);
+			 kernel2.set_arg(8, dDenomPidVector);
+			 kernel2.set_arg(9, dPidVector);
+			 kernel2.set_arg(10, cvIndexStride);
+			 kernel2.set_arg(11, dOffs);
+			 kernel2.set_arg(12, cvBlockSize);
+			 kernel2.set_arg(13, syncCVFolds);
+			 kernel2.set_arg(14, index);
+			 kernel2.set_arg(15, dAllZero);
+
+			 if (BaseModelG::useNWeights) {
+				 kernel2.set_arg(16, dNtoK);
+				 kernel2.set_arg(17, dNWeight);
+				 kernel2.set_arg(18, dKWeightVector);
+				 int Kstride = detail::getAlignedLength<16>(K);
+				 kernel2.set_arg(19, Kstride);
+				 int dN = N;
+				 kernel2.set_arg(20, dN);
+				 kernel2.set_arg(21, dKStrata);
+				 kernel2.set_arg(22, dDenomPid2Vector);
+			 }
+
+			 loops = syncCVFolds / cvBlockSize;
+			 if (syncCVFolds % cvBlockSize != 0) {
+				 loops++;
+			 }
+
+			 globalWorkSize[0] = loops*cvBlockSize;
+			 globalWorkSize[1] = taskCount;
+			 if (BaseModelG::useNWeights) {
+				 globalWorkSize[1] = tpb1*N;
+			 }
+			 localWorkSize[0] = cvBlockSize;
+			 localWorkSize[1] = 1;
+			 if (BaseModelG::useNWeights) {
+				 localWorkSize[1] = tpb1;
+			 }
+			 dim = 2;
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 end = bsccs::chrono::steady_clock::now();
+			 ///////////////////////////"
+			 name = "compUpdateXBetaArgsG" + getFormatTypeExtension(formatType) + " ";
+			 duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 start = bsccs::chrono::steady_clock::now();
+#endif
+
+			 // run kernel
+			 queue.enqueue_nd_range_kernel(kernel2, dim, 0, globalWorkSize, localWorkSize);
+			 queue.finish();
+
+			 hXBetaKnown = false; // dXBeta was just updated
+#ifdef CYCLOPS_DEBUG_TIMING
+			 end = bsccs::chrono::steady_clock::now();
+			 ///////////////////////////"
+			 name = "compUpdateXBetaKernelG" + getFormatTypeExtension(formatType) + " ";
+			 duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+		 }
+	 }
 }
 
 virtual void runCCDIndex() {
@@ -4916,7 +5346,7 @@ virtual void runCCDIndex() {
     	for (int i=0; i<J; i++) {
     		temp[i] = inParams[i];
     	}
-    	/*
+
     	std::cout << "prior types: ";
     	for (auto x:priorTypes) {
     		std::cout << x << " ";
@@ -4927,7 +5357,7 @@ virtual void runCCDIndex() {
     		std::cout << x << " ";
     	}
     	std::cout << "\n";
-*/
+
     	detail::resizeAndCopyToDevice(temp, dPriorParams, queue);
     }
 
