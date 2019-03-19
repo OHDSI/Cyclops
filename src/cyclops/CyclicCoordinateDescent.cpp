@@ -1268,7 +1268,7 @@ void CyclicCoordinateDescent::findMode(
 	        			//std::cerr << " " << delta;
 	        			delta = applyBounds(delta, index);
 	        			//std::cout << " " << delta;
-	        			//std::cout << "delta" << index << ": " << delta << "\n";
+	        			//std::cout << "delta " << index << ": " << delta << "\n";
 	        			if (delta != 0.0) {
 	        				sufficientStatisticsKnown = false;
 	        				updateSufficientStatistics(delta, index);

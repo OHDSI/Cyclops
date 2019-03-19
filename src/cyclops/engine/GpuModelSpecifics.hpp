@@ -5346,7 +5346,7 @@ virtual void runCCDIndex() {
     	for (int i=0; i<J; i++) {
     		temp[i] = inParams[i];
     	}
-
+/*
     	std::cout << "prior types: ";
     	for (auto x:priorTypes) {
     		std::cout << x << " ";
@@ -5357,7 +5357,7 @@ virtual void runCCDIndex() {
     		std::cout << x << " ";
     	}
     	std::cout << "\n";
-
+*/
     	detail::resizeAndCopyToDevice(temp, dPriorParams, queue);
     }
 
