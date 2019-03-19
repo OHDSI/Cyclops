@@ -320,7 +320,8 @@ double CyclicCoordinateDescent::getPredictiveLogLikelihood(double* weights) {
 		setWeights(weights);
 	}
 
-	auto result = getLogLikelihood();
+	//auto result = getLogLikelihood();
+	auto result = modelSpecifics.getPredictiveLogLikelihood(weights);
 
 	std::cout << "pred log likelihood " << result << "\n";
 
