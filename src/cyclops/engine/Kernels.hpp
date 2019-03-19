@@ -4298,6 +4298,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	    		//"	uint cvIndex = get_group_id(0);			\n" <<
 	    		"	__local REAL scratch[2][TPB];				\n" <<
 				"	uint lid = get_local_id(0);				\n" <<
+				"	scratch[0][lid] = 0.0;					\n" <<
+				"	scratch[1][lid] = 0.0;					\n" <<
 				"	if (lid < wgs) {						\n" <<
 				"		scratch[0][lid] = buffer[lid*cvIndexStride+cvIndex];	\n" <<
 				"		scratch[1][lid] = buffer[(lid+wgs)*cvIndexStride+cvIndex];	\n" <<

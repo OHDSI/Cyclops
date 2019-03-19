@@ -333,7 +333,9 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::useLogSum;
 
     const static int tpb = 128; // threads-per-block  // Appears best on K40
-    const static int maxWgs = 15; // use as # of multiprocessors //2;  // work-group-size
+    //const static int maxWgs = clGetDeviceInfo(0, CL_DEVICE_MAX_COMPUTE_UNITS);
+    //const static int maxWgs = 15; // use as # of multiprocessors //2;  // work-group-size
+    int maxWgs = 15;
 
     int tpb0 = 8;
     int tpb1 = 32;
@@ -373,6 +375,13 @@ public:
         std::cerr << "start dI" << std::endl;
 #endif
         //isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+
+
+        //cl_uint buf_uint;
+        //clGetDeviceInfo(0, CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(cl_uint), &buf_uint, NULL);
+        //maxWgs = buf_uint;
+        maxWgs = device.get_info<cl_uint>(CL_DEVICE_MAX_COMPUTE_UNITS);
+        std::cout << "maxWgs: " << maxWgs << "\n";
 
         int need = 0;
 
@@ -5485,7 +5494,7 @@ virtual void runCCDIndex() {
         	// CCD Kernel
         	//auto source = writeCodeForGradientHessianKernelExactCLR(formatType, useWeights);
             auto source = writeCodeForGradientHessianKernelExactCLR(formatType, true);
-            std::cout << source.body;
+            //std::cout << source.body;
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
         	auto kernel = compute::kernel(program, source.name);
 
