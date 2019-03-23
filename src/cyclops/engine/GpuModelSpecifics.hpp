@@ -333,7 +333,8 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::useLogSum;
 
     int tpb = 128; // threads-per-block  // Appears best on K40
-    int maxWgs = 15;
+    int maxWgs;
+    //int maxWgs = 15;
 
     int tpb0 = 8;
     int tpb1 = 32;
@@ -378,7 +379,7 @@ public:
         //cl_uint buf_uint;
         //clGetDeviceInfo(0, CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(cl_uint), &buf_uint, NULL);
         //maxWgs = buf_uint;
-        maxWgs = device.get_info<cl_uint>(CL_DEVICE_MAX_COMPUTE_UNITS);
+        maxWgs = device.get_info<cl_uint>(CL_DEVICE_MAX_COMPUTE_UNITS)*4/5;
         std::cout << "maxWgs: " << maxWgs << "\n";
 
         int need = 0;
@@ -6523,7 +6524,8 @@ virtual void runCCDIndex() {
     int cvIndexStride;
     bool pad;
     int activeFolds;
-    int multiprocessors = maxWgs;
+    int multiprocessors = device.get_info<cl_uint>(CL_DEVICE_MAX_COMPUTE_UNITS)*4/5;
+
     compute::vector<real> dNWeightVector;
     compute::vector<real> dKWeightVector;
     compute::vector<real> dAccDenomPidVector;
