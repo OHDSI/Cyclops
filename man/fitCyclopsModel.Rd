@@ -7,14 +7,18 @@
 fitCyclopsModel(cyclopsData, prior = createPrior("none"),
   control = createControl(), weights = NULL, forceNewObject = FALSE,
   returnEstimates = TRUE, startingCoefficients = NULL,
+<<<<<<< HEAD
   computeDevice = "native", fixedCoefficients = NULL)
+=======
+  fixedCoefficients = NULL, computeDevice = "native")
+>>>>>>> master
 }
 \arguments{
 \item{cyclopsData}{A Cyclops data object}
 
 \item{prior}{A prior object. More details are given below.}
 
-\item{control}{Cyclops control object, see \code{"\link{control}"}}
+\item{control}{A \code{"cyclopsControl"} object constructed by \code{\link{createControl}}}
 
 \item{weights}{Vector of 0/1 weights for each data row}
 
@@ -27,6 +31,8 @@ fitCyclopsModel(cyclopsData, prior = createPrior("none"),
 \item{computeDevice}{String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU}
 
 \item{fixedCoefficients}{Vector of booleans indicating if coefficient should be fix}
+
+\item{computeDevice}{String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU}
 }
 \value{
 A list that contains a Cyclops model fit object pointer and an operation duration

@@ -9,13 +9,14 @@
 
 #include "CcdInterface.h"
 #include "priors/JointPrior.h"
+#include "priors/PriorFunction.h"
 
 namespace bsccs {
 
 // typedef std::vector<Rcpp::List> NeighborhoodMap;
 // typedef Rcpp::List NeighborhoodMap;
 
-class RcppModelData; // forward reference
+class AbstractModelData; // forward reference
 
 class RcppCcdInterface : public CcdInterface {
 
@@ -23,7 +24,7 @@ public:
 
 	RcppCcdInterface();
 
-    RcppCcdInterface(RcppModelData& modelData);
+    RcppCcdInterface(AbstractModelData& modelData);
 
     virtual ~RcppCcdInterface();
 
@@ -75,6 +76,10 @@ public:
     	return result;
     }
 
+    void setParameterizedPrior(const std::vector<std::string>& priorName,
+                              bsccs::priors::PriorFunctionPtr& priorFunctionPtr,
+                              const ProfileVector& flatPrior);
+
 	void setPrior(
 				const std::vector<std::string>& basePriorName,
 				const std::vector<double>& baseVariance,
@@ -86,7 +91,7 @@ public:
 
     // For debug purposes
     CyclicCoordinateDescent& getCcd() { return *ccd; }
-    ModelData& getModelData() { return *modelData; }
+    AbstractModelData& getModelData() { return *modelData; }
 
     static void appendRList(Rcpp::List& list, const Rcpp::List& append);
 
@@ -101,6 +106,11 @@ protected:
 
 		static void handleError(const std::string& str);
 
+    priors::JointPriorPtr makePrior(
+            const std::vector<std::string>& priorName,
+            bsccs::priors::PriorFunctionPtr& priorFunctionPtr,
+            const ProfileVector& flatPrior);
+
 		priors::JointPriorPtr makePrior(
 				const std::vector<std::string>& basePriorName,
 				const std::vector<double>& baseVariance,
@@ -109,35 +119,34 @@ protected:
 				const NeighborhoodMap& neighborhood);
 
     void initializeModelImpl(
-            ModelData** modelData,
+            AbstractModelData** modelData,
             CyclicCoordinateDescent** ccd,
             AbstractModelSpecifics** model);
 
     void predictModelImpl(
             CyclicCoordinateDescent *ccd,
-            ModelData *modelData);
+            AbstractModelData *modelData);
 
     void logModelImpl(
             CyclicCoordinateDescent *ccd,
-            ModelData *modelData,
+            AbstractModelData *modelData,
             ProfileInformationMap& profileMap,
             bool withASE);
 
      void diagnoseModelImpl(
             CyclicCoordinateDescent *ccd,
-            ModelData *modelData,
+            AbstractModelData *modelData,
     		double loadTime,
     		double updateTime);
 
 private:
 
-			RcppModelData& rcppModelData; // TODO Make const?
+			AbstractModelData& rcppModelData; // TODO Make const?
 
-//      Rcpp::XPtr<RcppModelData> data;
-//      Rcpp::XPtr<CyclicCoordinateDescent> ccd;
-//      Rcpp::XPtr<AbstractModelSpecifics> model;
+	 		AbstractModelData* modelData;
 
-	 		ModelData* modelData;
+// 	 		ModelData* modelData;
+
 			CyclicCoordinateDescent* ccd;
 			AbstractModelSpecifics* modelSpecifics;
 

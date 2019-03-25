@@ -1,5 +1,7 @@
 library("testthat")
 
+context("test-normalization.R")
+
 test_that("Simple normalization", {
     counts <- c(18,17,15,20,10,20,25,13,12)
     outcome <- gl(3,1,9)

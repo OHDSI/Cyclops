@@ -4,7 +4,8 @@
 \alias{getUnivariableCorrelation}
 \title{Get univariable correlation}
 \usage{
-getUnivariableCorrelation(cyclopsData, covariates = NULL, threshold = 0)
+getUnivariableCorrelation(cyclopsData, covariates = NULL,
+  threshold = 0)
 }
 \arguments{
 \item{cyclopsData}{A Cyclops data object}

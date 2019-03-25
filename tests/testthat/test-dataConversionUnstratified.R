@@ -2,9 +2,11 @@ library("testthat")
 library("survival")
 library("ff")
 
+context("test-dataConversionUnstratified.R")
+
 test_that("Test data.frame to data for lr", {
-  gold <- glm(case ~ spontaneous + induced, data=infert, family="binomial")    
-  
+  gold <- glm(case ~ spontaneous + induced, data=infert, family="binomial")
+
   #Convert infert dataset to Cyclops format:
   covariates <- data.frame(rowId = rep(1:nrow(infert),2),
                            covariateId = rep(1:2,each=nrow(infert)),
@@ -13,32 +15,32 @@ test_that("Test data.frame to data for lr", {
                          y = infert$case)
   #Make sparse:
   covariates <- covariates[covariates$covariateValue != 0,]
-  
+
   #Sort:
   # covariates <- covariates[order(covariates$rowId,covariates$covariateId),]
   # outcomes <- outcomes[order(outcomes$rowId),]
-  
+
   cyclopsDataFfdf <- convertToCyclopsData(as.ffdf(outcomes),as.ffdf(covariates),modelType = "lr",addIntercept = TRUE)
-  fitFfdf <- fitCyclopsModel(cyclopsDataFfdf,prior = createPrior("none"))  
-  
+  fitFfdf <- fitCyclopsModel(cyclopsDataFfdf,prior = createPrior("none"))
+
   cyclopsData <- convertToCyclopsData(outcomes,covariates,modelType = "lr",addIntercept = TRUE)
-  fit <- fitCyclopsModel(cyclopsData,prior = createPrior("none"))  
-  
-  
+  fit <- fitCyclopsModel(cyclopsData,prior = createPrior("none"))
+
+
   tolerance <- 1E-4
   expect_equal(as.vector(coef(fit)), as.vector(coef(gold)), tolerance = tolerance)
   expect_equal(as.vector(coef(fitFfdf)), as.vector(coef(gold)), tolerance = tolerance)
 })
 
-test_that("Test unstratified cox using lung dataset ", { 
+test_that("Test unstratified cox using lung dataset ", {
   test <- lung
   test[is.na(test)] <- 0 # Don't want to bother with missing values
-  
+
   gold <- coxph(Surv(time, status) ~ age + ph.ecog + ph.karno + pat.karno + meal.cal + wt.loss, test, method="breslow")
-  
+
   cyclopsDataFormula <- createCyclopsData(Surv(time, status) ~ age + ph.ecog + ph.karno + pat.karno + meal.cal + wt.loss, data=test,modelType="cox")
   fitFormula <- fitCyclopsModel(cyclopsDataFormula)
-  
+
   #Convert to data.frames for Cyclops:
   nCovars = 6
   covariates <- data.frame(stratumId = 0,
@@ -51,20 +53,20 @@ test_that("Test unstratified cox using lung dataset ", {
                          rowId = 1:nrow(test),
                          y = test$status-1,
                          time = test$time)
-  
+
   #Make sparse:
   covariates <- covariates[covariates$covariateValue != 0,]
-  
+
   #Sort:
   # covariates <- covariates[order(covariates$stratumId,-covariates$time,covariates$y,covariates$rowId),]
   # outcomes <- outcomes[order(outcomes$stratumId,-outcomes$time,outcomes$y,outcomes$rowId),]
-  
+
   cyclopsDataFfdf <- convertToCyclopsData(as.ffdf(outcomes),as.ffdf(covariates),modelType = "cox")
-  fitFfdf <- fitCyclopsModel(cyclopsDataFfdf,prior = createPrior("none"))  
-  
+  fitFfdf <- fitCyclopsModel(cyclopsDataFfdf,prior = createPrior("none"))
+
   cyclopsData <- convertToCyclopsData(outcomes,covariates,modelType = "cox")
-  fit <- fitCyclopsModel(cyclopsData,prior = createPrior("none"))  
-  
+  fit <- fitCyclopsModel(cyclopsData,prior = createPrior("none"))
+
   tolerance <- 1E-4
   expect_equal(as.vector(coef(fit)), as.vector(coef(fitFormula)), tolerance = tolerance)
   expect_equal(as.vector(coef(fit)), as.vector(coef(gold)), tolerance = tolerance)
@@ -72,11 +74,11 @@ test_that("Test unstratified cox using lung dataset ", {
 })
 
 
-test_that("Test poisson regression", { 
+test_that("Test poisson regression", {
   sim <- simulateCyclopsData(nstrata = 1, nrows = 10000, ncovars = 2, eCovarsPerRow = 0.5, effectSizeSd = 1,model = "poisson")
   covariates <- sim$covariates
   outcomes <- sim$outcomes
-  
+
   #Convert to data format for gnm:
   ncovars <- max(covariates$covariateId)
   nrows <- nrow(outcomes)
@@ -85,27 +87,27 @@ test_that("Test poisson regression", {
     m[covariates$rowId[i],covariates$covariateId[i]] <- 1
   }
   data <- as.data.frame(m)
-  
+
   data$rowId <- 1:nrow(data)
   data <- merge(data,outcomes)
   data <- data[order(data$stratumId,data$rowId),]
   formula <- as.formula(paste(c("y ~ V1",paste("V",2:ncovars,sep="")),collapse=" + "))
-  
+
   gold <- gnm(formula, family=poisson, offset=log(time), data = data)
-  
+
   cyclopsDataFormula <- createCyclopsData(formula, offset=log(time), data=data,modelType="pr")
   fitFormula <- fitCyclopsModel(cyclopsDataFormula)
-  
+
   #Sort:
   # covariates <- covariates[order(covariates$rowId),]
   # outcomes <- outcomes[order(outcomes$rowId),]
-  
+
   cyclopsDataFfdf <- convertToCyclopsData(as.ffdf(outcomes),as.ffdf(covariates),modelType = "pr",addIntercept = TRUE)
-  fitFfdf <- fitCyclopsModel(cyclopsDataFfdf,prior = createPrior("none"))  
-  
+  fitFfdf <- fitCyclopsModel(cyclopsDataFfdf,prior = createPrior("none"))
+
   cyclopsData <- convertToCyclopsData(outcomes,covariates,modelType = "pr",addIntercept = TRUE)
-  fit <- fitCyclopsModel(cyclopsData,prior = createPrior("none"))  
-  
+  fit <- fitCyclopsModel(cyclopsData,prior = createPrior("none"))
+
   tolerance <- 1E-4
   expect_equal(as.vector(sort(coef(fit))), as.vector(sort(coef(fitFormula))), tolerance = tolerance)
   expect_equal(as.vector(sort(coef(fit))), as.vector(sort(coef(gold))), tolerance = tolerance)

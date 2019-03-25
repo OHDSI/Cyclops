@@ -94,6 +94,7 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
 #' @param checkRowIds   Check if all rowIds in the covariates appear in the outcomes.
 #' @param normalize     String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)
 #' @param quiet         If true, (warning) messages are surpressed.
+#' @param floatingPoint Specified floating-point representation size (32 or 64)
 #'
 #' @details
 #' These columns are expected in the outcome object:
@@ -103,6 +104,7 @@ isSorted.ffdf <- function(data,columnNames,ascending=rep(TRUE,length(columnNames
 #'   \verb{y}    \tab(real) \tab The outcome variable \cr
 #'   \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
 #'                  \tab        \tab(e.g. number of days) \cr
+#'   \verb{weight} \tab(real) \tab Non-negative weight to apply to outcome
 #' }
 #'
 #' These columns are expected in the covariates object:
@@ -149,7 +151,8 @@ convertToCyclopsData <- function(outcomes,
                                  checkSorting = TRUE,
                                  checkRowIds = TRUE,
                                  normalize = NULL,
-                                 quiet = FALSE) {
+                                 quiet = FALSE,
+                                 floatingPoint = 64) {
     UseMethod("convertToCyclopsData")
 }
 
@@ -162,7 +165,8 @@ convertToCyclopsData.ffdf <- function(outcomes,
                                       checkSorting = TRUE,
                                       checkRowIds = TRUE,
                                       normalize = NULL,
-                                      quiet = FALSE){
+                                      quiet = FALSE,
+                                      floatingPoint = 64){
     if ((modelType == "clr" | modelType == "cpr" | modelType == "clr_exact" | modelType == "clr_efron") & addIntercept){
         if(!quiet) {
             warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)
@@ -230,7 +234,11 @@ convertToCyclopsData.ffdf <- function(outcomes,
             covariates$minTime <- NULL
             covariates$time <- NULL
             covariates$y <- NULL
-            covariates <- ffbase::merge.ffdf(covariates, outcomes, by = c("stratumId", "rowId"))
+            # covariates <- ffbase::merge.ffdf(covariates, outcomes, by = c("stratumId", "rowId"))
+            idx <- ffbase::ffmatch(covariates$rowId, outcomes$rowId)
+            covariates$minTime <- outcomes$minTime[idx]
+            covariates$time <- outcomes$time[idx]
+            covariates$y <- outcomes$y[idx]
             if (!isSorted(covariates, c("covariateId", "stratumId", "time", "y", "rowId"), c(TRUE, TRUE, FALSE, TRUE, TRUE))){
                 if(!quiet) {
                     writeLines("Sorting covariates by covariateId, stratumId, time (descending), y, and rowId")
@@ -251,7 +259,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
         }
     }
 
-    dataPtr <- createSqlCyclopsData(modelType = modelType)
+    dataPtr <- createSqlCyclopsData(modelType = modelType, floatingPoint = floatingPoint)
 
     loadNewSqlCyclopsDataY(dataPtr,
                            if (is.null(outcomes$stratumId) | modelType == "lr" | modelType == "pr") {NULL} else {ff::as.ram.ff(outcomes$stratumId)},
@@ -277,6 +285,12 @@ convertToCyclopsData.ffdf <- function(outcomes,
         .normalizeCovariates(dataPtr, normalize)
     }
 
+    if (is.null(outcomes$weight)) {
+        dataPtr$weights <- NULL
+    } else {
+        dataPtr$weights <- ff::as.ram.ff(outcomes$weight)
+    }
+
     return(dataPtr)
 
 }
@@ -290,7 +304,8 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                             checkSorting = TRUE,
                                             checkRowIds = TRUE,
                                             normalize = NULL,
-                                            quiet = FALSE){
+                                            quiet = FALSE,
+                                            floatingPoint = 64){
     if ((modelType == "clr" | modelType == "cpr" | modelType == "clr_exact" | modelType == "clr_efron") & addIntercept){
         if(!quiet)
             warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)
@@ -363,7 +378,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
             covariates <- covariates[covariateRowsWithMapping,]
         }
     }
-    dataPtr <- createSqlCyclopsData(modelType = modelType)
+    dataPtr <- createSqlCyclopsData(modelType = modelType, floatingPoint = floatingPoint)
 
     loadNewSqlCyclopsDataY(dataPtr, outcomes$stratumId, outcomes$rowId, outcomes$y, outcomes$time)
 
@@ -377,6 +392,12 @@ convertToCyclopsData.data.frame <- function(outcomes,
 
     if (!is.null(normalize)) {
         .normalizeCovariates(dataPtr, normalize)
+    }
+
+    if (is.null(outcomes$weight)) {
+        dataPtr$weights <- NULL
+    } else {
+        dataPtr$weights <- outcomes$weight
     }
 
     return(dataPtr)

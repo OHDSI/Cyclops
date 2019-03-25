@@ -20,14 +20,12 @@ struct SparseTag {};
 struct DenseTag {};
 struct InterceptTag {};
 
-
-
 // Iterator for a sparse of indicators column
+template <typename Scalar>
 class IndicatorIterator {
   public:
 
 	typedef IndicatorTag tag;
-	typedef real Scalar;
 	typedef int Index;
 	typedef boost::tuples::tuple<Index> XTuple;
 
@@ -41,7 +39,7 @@ class IndicatorIterator {
 // 	  : mIndices(col.getColumns()),
 // 	    mId(0), mEnd(
 
-	inline IndicatorIterator(const CompressedDataMatrix& mat, Index column)
+	inline IndicatorIterator(const CompressedDataMatrix<Scalar>& mat, Index column)
 	  : mIndices(mat.getCompressedColumnVector(column)),
 	    mId(0), mEnd(mat.getNumberOfEntries(column)){
 		// Do nothing
@@ -67,6 +65,9 @@ class IndicatorIterator {
 
     inline Index index() const { return mIndices[mId]; }
     inline operator bool() const { return (mId < mEnd); }
+    inline Index size() const { return mEnd; }
+	inline Scalar multiply(const Scalar x) const { return x; }
+	inline Scalar multiply(const Scalar x, const Index index) { return x; }
 
   protected:
     const Index* mIndices;
@@ -75,11 +76,11 @@ class IndicatorIterator {
 };
 
 // Iterator for a sparse column
+template <typename Scalar>
 class SparseIterator {
   public:
 
 	typedef SparseTag tag;
-	typedef real Scalar;
 	typedef int Index;
 	typedef boost::tuples::tuple<Index, Scalar> XTuple;
 
@@ -89,13 +90,13 @@ class SparseIterator {
 	enum  { isIndicator = false };
 	enum  { isSparse = true };
 
-	inline SparseIterator(const CompressedDataMatrix& mat, Index column)
+	inline SparseIterator(const CompressedDataMatrix<Scalar>& mat, Index column)
 	  : mValues(mat.getDataVector(column)), mIndices(mat.getCompressedColumnVector(column)),
 	    mId(0), mEnd(mat.getNumberOfEntries(column)){
 		// Do nothing
 	}
 
-	inline SparseIterator(const CompressedDataColumn& column)
+	inline SparseIterator(const CompressedDataColumn<Scalar>& column)
 	  : mValues(column.getData()), mIndices(column.getColumns()),
 	    mId(0), mEnd(column.getNumberOfEntries()){
 		// Do nothing
@@ -121,6 +122,9 @@ class SparseIterator {
 
     inline Index index() const { return mIndices[mId]; }
     inline operator bool() const { return (mId < mEnd); }
+    inline Index size() const { return mEnd; }
+	inline Scalar multiply(const Scalar x) const { return x * mValues[mId]; }
+	inline Scalar multiply(const Scalar x, const Index index) const { return x * mValues[index]; }
 
   protected:
     const Scalar* mValues;
@@ -129,10 +133,9 @@ class SparseIterator {
     const Index mEnd;
 };
 
-template <typename IteratorType>
+template <typename IteratorType, typename Scalar>
 class DenseView {
 public:
-	typedef real Scalar;
 	typedef int Index;
 
 	enum  { isIndicator = false };
@@ -167,6 +170,9 @@ public:
 
     inline Index index() const { return mId; }
     inline operator bool() const { return (mId < mEnd); }
+    inline Index size() const { return mEnd; }
+	inline Scalar multiply(const Scalar x) const { return x * value(); }
+
 
 protected:
 	IteratorType mIterator;
@@ -195,6 +201,7 @@ public:
 	inline CountingIterator& operator++() { ++mId; return *this; }
 	inline Index index() const  { return mId; }
 	inline operator bool() const { return (mId < mEnd); }
+    inline Index size() const { return mEnd; }
 
 protected:
 	Index mId;
@@ -202,11 +209,11 @@ protected:
 };
 
 // Iterator for a dense column
+template <typename Scalar>
 class DenseIterator {
   public:
 
 	typedef DenseTag tag;
-	typedef real Scalar;
 	typedef int Index;
 	typedef boost::tuples::tuple<Index, Scalar> XTuple;
 
@@ -221,7 +228,7 @@ class DenseIterator {
 
 	}
 
-	inline DenseIterator(const CompressedDataMatrix& mat, Index column)
+	inline DenseIterator(const CompressedDataMatrix<Scalar>& mat, Index column)
 	  : mValues(mat.getDataVector(column)),
 	    mId(0),
 	    //mEnd(mat.getNumberOfRows())
@@ -247,6 +254,9 @@ class DenseIterator {
 
     inline Index index() const { return mId; }
     inline operator bool() const { return (mId < mEnd); }
+    inline Index size() const { return mEnd; }
+	inline Scalar multiply(const Scalar x) const { return x * mValues[mId]; }
+	inline Scalar multiply(const Scalar x, const Index index) const { return x * mValues[index]; }
 
   protected:
     const Scalar* mValues;
@@ -255,11 +265,11 @@ class DenseIterator {
 };
 
 // Iterator for an intercept column
+template <typename Scalar>
 class InterceptIterator {
   public:
 
 	typedef InterceptTag tag; // TODO Fix!!!
-	typedef real Scalar;
 	typedef int Index;
 	typedef boost::tuples::tuple<Index> XTuple;
 
@@ -273,7 +283,7 @@ class InterceptIterator {
 		// Do nothing
 	}
 
-	inline InterceptIterator(const CompressedDataMatrix& mat, Index column)
+	inline InterceptIterator(const CompressedDataMatrix<Scalar>& mat, Index column)
 	  : mId(0), mEnd(mat.getNumberOfRows()){
 		// Do nothing
 	}
@@ -296,6 +306,9 @@ class InterceptIterator {
 
     inline Index index() const { return mId; }
     inline operator bool() const { return (mId < mEnd); }
+    inline Index size() const { return mEnd; }
+	inline Scalar multiply(const Scalar x) const { return x; }
+	inline Scalar multiply(const Scalar x, const Index index) const { return x; }
 
   protected:
     Index mId;
@@ -303,16 +316,16 @@ class InterceptIterator {
 };
 
 // Iterator for a dense view of an arbitrary column
+template <typename Scalar>
 class DenseViewIterator {
   public:
 
-	typedef real Scalar;
 	typedef int Index;
 
 	enum  { isIndicator = false };
 	enum  { isSparse = false };
 
-	inline DenseViewIterator(const CompressedDataMatrix& mat, Index column)
+	inline DenseViewIterator(const CompressedDataMatrix<Scalar>& mat, Index column)
 	  : mValues(mat.getDataVector(column)),
 	    mId(0), mEnd(mat.getNumberOfRows()){
 		// Do nothing
@@ -325,6 +338,10 @@ class DenseViewIterator {
 
     inline Index index() const { return mId; }
     inline operator bool() const { return (mId < mEnd); }
+    inline Index size() const { return mEnd; }
+	inline Scalar multiply(const Scalar x) const { return x * mValues[mId]; }
+	inline Scalar multiply(const Scalar x, const Index index) const { return x * mValues[index]; }
+
 
   protected:
     const Scalar* mValues;
@@ -333,13 +350,13 @@ class DenseViewIterator {
 };
 
 // Generic iterator for a run-time format determined column
+template <typename Scalar>
 class GenericIterator {
   public:
 
-	typedef real Scalar;
 	typedef int Index;
 
-	inline GenericIterator(const CompressedDataMatrix& mat, Index column)
+	inline GenericIterator(const CompressedDataMatrix<Scalar>& mat, Index column)
 	  : mFormatType(mat.getFormatType(column)),
 	    mId(0) {
 		if (mFormatType == DENSE) {
@@ -380,6 +397,8 @@ class GenericIterator {
     	}
     }
     inline operator bool() const { return (mId < mEnd); }
+    inline Index size() const { return mEnd; }
+	inline Scalar multiply(const Scalar x) const { return x * value(); }
 
   protected:
     const FormatType mFormatType;
@@ -390,14 +409,13 @@ class GenericIterator {
 };
 
 // Iterator for grouping by another IndicatorIterator
-template <class IteratorType>
+template <class IteratorType, typename Scalar>
 class GroupByIterator {
 public:
 
-    typedef real Scalar;
     typedef int Index;
 
-    inline GroupByIterator(IteratorType& itMain, IndicatorIterator& _groupBy)
+    inline GroupByIterator(IteratorType& itMain, IndicatorIterator<Scalar>& _groupBy)
         : iterator(itMain), groupBy(_groupBy) {
         // Find start
         advance();
@@ -440,15 +458,14 @@ private:
 	}
 
     IteratorType& iterator;
-    IndicatorIterator& groupBy;
+    IndicatorIterator<Scalar>& groupBy;
 };
 
 // Iterator for the component-wise product of two Iterator
-template <class IteratorOneType, class IteratorTwoType>
+template <class IteratorOneType, class IteratorTwoType, typename Scalar>
 class PairProductIterator {
   public:
 
-	typedef real Scalar;
 	typedef int Index;
 
 //	enum  { isIndicator = true }; // Need to determine from IteratorTypeOne/IteratorTypeTwo
@@ -504,6 +521,9 @@ class PairProductIterator {
     IteratorOneType& iteratorOne;
     IteratorTwoType& iteratorTwo;
 };
+
+// template <typename RealType>
+// inline RealType multiply()
 
 // const std::string DenseIterator::name = "Den";
 // const std::string IndicatorIterator::name = "Ind";

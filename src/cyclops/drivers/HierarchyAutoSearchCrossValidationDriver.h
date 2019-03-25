@@ -14,10 +14,10 @@ namespace bsccs {
 
 class HierarchyAutoSearchCrossValidationDriver : public AutoSearchCrossValidationDriver {
 public:
-	HierarchyAutoSearchCrossValidationDriver(const ModelData& _modelData,
+	HierarchyAutoSearchCrossValidationDriver(const AbstractModelData& _modelData,
 			const CCDArguments& arguments,
 			loggers::ProgressLoggerPtr _logger,
-			loggers::ErrorHandlerPtr _error,			
+			loggers::ErrorHandlerPtr _error,
 			std::vector<double>* wtsExclude = NULL);
 
 	virtual ~HierarchyAutoSearchCrossValidationDriver();

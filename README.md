@@ -1,7 +1,13 @@
 Cyclops
 =======
 
+[![Build Status](https://travis-ci.org/OHDSI/Cyclops.svg?branch=master)](https://travis-ci.org/OHDSI/Cyclops)
+[![codecov.io](https://codecov.io/github/OHDSI/Cyclops/coverage.svg?branch=master)](https://codecov.io/github/OHDSI/Cyclops?branch=master)
 [![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/Cyclops)](https://CRAN.R-project.org/package=Cyclops)
+[![CRAN_Status_Badge](http://cranlogs.r-pkg.org/badges/Cyclops)](https://cran.r-project.org/package=Cyclops)
+
+Cyclops is part of the [OHDSI Methods Library](https://ohdsi.github.io/MethodsLibrary).
+
 
 Introduction
 ============
@@ -36,36 +42,32 @@ Cyclops in an R package, with most functionality implemented in C++. Cyclops use
 
 System Requirements
 ===================
-Requires R (version 3.1.0 or higher). Installation on Windows requires [RTools]( https://CRAN.R-project.org/bin/windows/Rtools/) (`devtools >= 1.12` required for RTools34, otherwise RTools33 works fine).
+Requires R (version 3.1.0 or higher). Compilation on Windows requires [RTools >= 3.4]( https://CRAN.R-project.org/bin/windows/Rtools/).
 
-Dependencies
+Installation
 ============
- * There are no dependencies.
+In R, to install the latest stable version, install from CRAN:
 
-Getting Started
-===============
-1. On Windows, make sure [RTools](https://CRAN.R-project.org/bin/windows/Rtools/) is installed.
-2. In R, use the following commands to download and install Cyclops:
+```r
+install.packages("Cyclops")
+```
+  
+To install the latest development version, install from GitHub. Note that this will require RTools to be installed.
 
-  ```r
-  install.packages("devtools")
-  library(devtools)
-  install_github("ohdsi/Cyclops") 
-  ```
+```r
+install.packages("devtools")
+devtools::install_github("ohdsi/Cyclops")
+```
 
-3. To perform a Cyclops model fit, use the following commands in R:
-
-  ```r
-  library(Cyclops)
-  cyclopsData <- createCyclopsDataFrame(formula)
-  cyclopsFit <- fitCyclopsModel(cyclopsData)
-  ```
  
-Getting Involved
-================
+User Documentation
+==================
 * Package manual: [Cyclops manual](https://raw.githubusercontent.com/OHDSI/Cyclops/master/extras/Cyclops.pdf) 
+
+Support
+=======
 * Developer questions/comments/feedback: <a href="http://forums.ohdsi.org/c/developers">OHDSI Forum</a>
-* We use the <a href="../../issues">GitHub issue tracker</a> for all bugs/issues/enhancements
+* We use the <a href="https://github.com/OHDSI/Cyclops/issues">GitHub issue tracker</a> for all bugs/issues/enhancements
  
 License
 =======
@@ -78,10 +80,7 @@ Development
 ===========
 Cyclops is being developed in R Studio.
 
-###Development status
-
-[![Build Status](https://travis-ci.org/OHDSI/Cyclops.svg?branch=master)](https://travis-ci.org/OHDSI/Cyclops)
-[![codecov.io](https://codecov.io/github/OHDSI/Cyclops/coverage.svg?branch=master)](https://codecov.io/github/OHDSI/Cyclops?branch=master)
+### Development status
 
 Beta
 

@@ -12,6 +12,8 @@
 
 namespace bsccs {
 
+typedef double real;
+
 class Compare{
 	vector<int>& _vec;
 	vector<int>& _rands;

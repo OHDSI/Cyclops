@@ -72,6 +72,8 @@
 #' Currently undocumented
 #' @param normalize
 #' String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)
+#' @param floatingPoint
+#' Integer: Floating-point representation size (32 or 64)
 #'
 #' @return
 #' A list that contains a Cyclops model data object pointer and an operation duration
@@ -96,11 +98,15 @@
 #' @export
 createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelType,
                               data, subset = NULL, weights = NULL, offset = NULL, time = NULL, pid = NULL, y = NULL, type = NULL, dx = NULL,
-                              sx = NULL, ix = NULL, model = FALSE, normalize = NULL, method = "cyclops.fit") {
+                              sx = NULL, ix = NULL, model = FALSE, normalize = NULL,
+                              floatingPoint = 64,
+                              method = "cyclops.fit") {
     cl <- match.call() # save to return
     mf.all <- match.call(expand.dots = FALSE)
 
     if (!.isValidModelType(modelType)) stop("Invalid model type.")
+
+    .checkFloatingPoint(floatingPoint)
 
     hasIntercept <- FALSE
     colnames <- NULL
@@ -264,6 +270,9 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
             if (!missing(type)) {
                 type <- type[sortOrder]
             }
+            if (!missing(weights)) {
+                weights <- weights[sortOrder]
+            }
             time <- time[sortOrder]
             dx <- dx[sortOrder, ]
             if (class(dx) == "numeric") {
@@ -328,7 +337,8 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
         pid <- c(1:length(y)) # TODO Should not be necessary
     }
 
-    md <- .cyclopsModelData(pid, y, type, time, dx, sx, ix, modelType, useTimeAsOffset, numTypes)
+    md <- .cyclopsModelData(pid, y, type, time, dx, sx, ix, modelType, useTimeAsOffset, numTypes,
+                            floatingPoint)
     result <- new.env(parent = emptyenv())
     result$cyclopsDataPtr <- md$data
     result$modelType <- modelType
@@ -350,6 +360,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
     }
 
     result$sortOrder <- sortOrder
+    result$weights <- weights
 
     if (identical(method, "debug")) {
         result$debug <- list()
@@ -371,6 +382,12 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
     }
 
     result
+}
+
+.checkFloatingPoint <- function(floatingPoint) {
+      if (floatingPoint != 64 && floatingPoint != 32) {
+          stop("Invalid floating point precision")
+      }
 }
 
 .normalizeCovariates <- function(cyclopsData, type) {
@@ -531,6 +548,40 @@ getUnivariableCorrelation <- function(cyclopsData, covariates = NULL, threshold 
 
     names(correlations) <- labels
     return(correlations)
+}
+
+#' @title Get univariable linear separability
+#'
+#' @description \code{getUnivariableSeparability} reports covariates that are univariably separable with the outcome
+#'
+#' @param cyclopsData    A Cyclops data object
+#' @param covariates Integer or string vector: list of covariates to report; default (NULL) implies all covariates
+#'
+#' @return A list of covariates that are univariably separable with the outcome
+#'
+#' @export
+getUnivariableSeparability <- function(cyclopsData, covariates = NULL) {
+    # Check for valid arguments
+    .checkData(cyclopsData)
+
+    labels <- covariates
+    covariates <- .checkCovariates(cyclopsData, covariates)
+    ids <- covariates
+    if (is.null(covariates)) {
+        covariates <- integer() # zero-length vector
+        labels <- cyclopsData$coefficientNames
+        ids <- getCovariateIds(cyclopsData)
+    }
+
+    types <- getCovariateTypes(cyclopsData, ids)
+    if (any(types == "sparse") || any(types == "dense")) {
+        warning("Sparse and dense types are not yet implemented")
+    }
+
+    separability <- .cyclopsUnivariableSeparability(cyclopsData, covariates)
+
+    names(separability) <- labels
+    return(separability == 1)
 }
 
 #' @title Apply simple data reductions
@@ -790,7 +841,8 @@ finalizeSqlCyclopsData <- function(object,
 }
 
 #' @keywords internal
-createSqlCyclopsData <- function(modelType, control) {
+createSqlCyclopsData <- function(modelType, control,
+                                 floatingPoint = 64) {
     cl <- match.call() # save to return
 
     if (!.isValidModelType(modelType)) stop("Invalid model type.")
@@ -801,7 +853,7 @@ createSqlCyclopsData <- function(modelType, control) {
         noiseLevel <- control$noiseLevel
     }
 
-    sql <- .cyclopsNewSqlData(modelType, noiseLevel)
+    sql <- .cyclopsNewSqlData(modelType, noiseLevel, floatingPoint)
     result <- new.env(parent = emptyenv()) # TODO Remove code duplication with two functions above
     result$cyclopsDataPtr <- sql$cyclopsDataPtr
     result$modelType <- modelType
@@ -910,6 +962,7 @@ print.cyclopsData <- function(x, show.call=TRUE ,...) {
         if (.cyclopsGetHasOffset(x)) {
             cat("    Offset: ", .cyclopsGetMeanOffset(x), " (mean)\n", sep = "")
         }
+        cat("   FP size:", getFloatingPointSize(x))
     } else {
         cat("\nObject is no longer or improperly initialized.\n")
     }

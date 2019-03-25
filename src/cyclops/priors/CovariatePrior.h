@@ -29,7 +29,100 @@ namespace priors {
 typedef std::pair<double, double> GradientHessian;
 typedef std::vector<double> DoubleVector;
 
-typedef bsccs::shared_ptr<double> VariancePtr;
+//typedef bsccs::shared_ptr<double> VariancePtr;
+
+template <typename T, typename C>
+class CallbackSharedPtr {
+public:
+    typedef  bsccs::shared_ptr<T> SharedPtr;
+
+public:
+ //   CallbackSharedPtr(T* t) : ptr(t), callback(nullptr) { }
+
+//    CallbackSharedPtr(T* t, C* c) : ptr(t), callback(c) { }
+
+    // CallbackSharedPtr(const CallbackSharedPtr& refptr) :  ptr(refptr),
+    //     callback(refptr.callback) { }
+
+    CallbackSharedPtr(const SharedPtr& refptr) : ptr(refptr), callback(nullptr) { }
+
+    CallbackSharedPtr(const SharedPtr& refptr, C* c) : ptr(refptr), callback(c) { }
+
+    // const T& operator*() const { return *ptr; }
+    //
+    // T& operator*() {
+    //     std::cerr << "A ";
+    //     signal();
+    //     return *ptr;
+    // }
+
+    void set(const T& t) {
+        signal();
+        *ptr = t;
+    }
+
+    const T& get() const {
+        return *ptr;
+    }
+
+    // const T* operator->() const { return ptr.operator->(); }
+    //
+    // T* operator->() {
+    //     std::cerr << "B ";
+    //     signal();
+    //     return ptr.operator->();
+    // }
+
+    void setCallback(C* c) {
+        callback = c;
+    }
+
+    bool operator==(const CallbackSharedPtr<T,C>& rhs) noexcept {
+        return ptr == rhs.ptr;
+    }
+
+private:
+    void signal() {
+        // std::cerr << "signal()" << std::endl;
+        if (callback != nullptr) {
+            callback->callback();
+        }
+    }
+
+    SharedPtr ptr;
+    C* callback;
+};
+
+struct Cachable {
+
+    Cachable() : valid(false) { }
+
+    bool isValid() const { return valid; }
+
+protected:
+    void setValid(bool v) { valid = v; }
+
+private:
+    bool valid;
+};
+
+struct CacheCallback : public Cachable {
+
+    CacheCallback() : Cachable() {
+        // std::cerr <<"ctor Cachable" << std::endl;
+    }
+
+    void callback() {
+        // std::cerr << "callback()" << std::endl;
+        setValid(false);
+    }
+};
+
+// struct NoCallback { // TODO Use enable_if
+//     void callback() { }
+// };
+
+typedef CallbackSharedPtr<double,CacheCallback> VariancePtr;
 
 class CovariatePrior; // forward declaration
 typedef bsccs::shared_ptr<CovariatePrior> PriorPtr;
@@ -192,7 +285,7 @@ public:
 	std::vector<VariancePtr> getVarianceParameters() const {
 	    auto tmp = std::vector<VariancePtr>();
 	    tmp.push_back(variance);
-		return std::move(tmp);
+		return tmp;
 	}
 
 protected:
@@ -205,7 +298,7 @@ protected:
 	}
 
 	double getLambda() const {
-		return convertVarianceToHyperparameter(*variance);
+		return convertVarianceToHyperparameter(variance.get());
 	}
 
 private:
@@ -276,7 +369,7 @@ public:
 
 private:
 	double getEpsilon() const {
-		return convertVarianceToHyperparameter(*variance2);
+		return convertVarianceToHyperparameter(variance2.get());
 	}
 
 	VariancePtr variance2;
@@ -338,12 +431,12 @@ public:
 	std::vector<VariancePtr> getVarianceParameters() const {
 	    auto tmp = std::vector<VariancePtr>();
 	    tmp.push_back(variance);
-		return std::move(tmp);
+		return tmp;
 	}
 
 protected:
     double getVariance() const {
-        return *variance;
+        return variance.get();
     }
 
 private:
@@ -367,6 +460,109 @@ private:
 	VariancePtr variance;
 };
 
+class BarUpdatePrior : public CovariatePrior {
+public:
+
+    BarUpdatePrior(double variance) : CovariatePrior(), variance(makeVariance(variance)) {
+         // Do nothing
+    }
+
+    BarUpdatePrior(VariancePtr ptr) : CovariatePrior(), variance(ptr) {
+        // Do nothing
+    }
+
+    virtual ~BarUpdatePrior() {
+        // Do nothing
+    }
+
+    const std::string getDescription() const {
+        double sigma2Beta = getVariance();
+        std::stringstream info;
+        info << "BarUpdate(" << sigma2Beta << ")";
+        return info.str();
+    }
+
+    bool getIsRegularized() const {
+        return true;
+    }
+
+    bool getSupportsKktSwindle() const {
+        return false;
+    }
+
+    double getKktBoundary() const {
+        return 0.0;
+    }
+
+    double logDensity(const DoubleVector& beta, const int index) const {
+        auto x = beta[index];
+        double sigma2Beta = getVariance();
+        return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
+    }
+
+    double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const {
+
+        double beta = betaVector[index];
+        double lambda = 1 / getVariance();
+        double delta = 0.0;
+        double beta2 = (gh.second * beta) - gh.first;
+        int signBeta2 = sign(beta2);
+        if (std::abs(beta2) < (2 * std::sqrt(lambda * gh.second))) {
+            delta = - beta;
+        } else if (signBeta2 < 0) {
+            delta = - (beta / 2) - gh.first / (2 * gh.second) - std::sqrt(beta2 * beta2 - (4 * lambda * gh.second)) / (2 * gh.second);
+        } else if (signBeta2 > 0) {
+            delta = - (beta / 2) - gh.first / (2 * gh.second) + std::sqrt(beta2 * beta2 - (4 * lambda * gh.second)) / (2 * gh.second);
+        }
+        return delta;
+    }
+
+    std::vector<VariancePtr> getVarianceParameters() const {
+        auto tmp = std::vector<VariancePtr>();
+        tmp.push_back(variance);
+        return tmp;
+    }
+
+protected:
+    double getVariance() const {
+        return variance.get();
+    }
+
+private:
+    template <typename Vector>
+    typename Vector::value_type logIndependentDensity(const Vector& vector) const {
+        double sigma2Beta = getVariance();
+        return -0.5 * vector.size() * std::log(2.0 * PI * sigma2Beta)
+            - 0.5 * twoNormSquared(vector) / sigma2Beta;
+    }
+
+    template <typename Vector>
+    typename Vector::value_type twoNormSquared(const Vector& vector) const {
+        typename Vector::value_type norm = 0.0;
+        for (typename Vector::const_iterator it = vector.begin();
+             it != vector.end(); ++it) {
+            norm += (*it) * (*it);
+        }
+        return norm;
+    }
+
+    int sign(double x) const {
+        if (x == 0) {
+            return 0;
+        }
+        if (x < 0) {
+            return -1;
+        }
+        return 1;
+    }
+
+    VariancePtr variance;
+};
+
+
+
+
+
 class HierarchicalNormalPrior : public NormalPrior {
 public:
     typedef std::vector<int> NeighborList;
@@ -383,11 +579,11 @@ public:
     std::vector<VariancePtr> getVarianceParameters() const {
         auto tmp = NormalPrior::getVarianceParameters();
         tmp.push_back(variance2);
-        return std::move(tmp);
+        return tmp;
     }
 
 protected:
-    double getVariance2() const { return *variance2; }
+    double getVariance2() const { return variance2.get(); }
 
 private:
     VariancePtr variance2;

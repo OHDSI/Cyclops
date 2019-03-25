@@ -1,0 +1,70 @@
+Cyclops v2.0.2 (Release date: 2019-03-17)
+==============
+
+Changes: 1. use `RNGversion("3.5.0")` in unit-tests to reproduce old RNG behavior
+         2. fix prior-type checks when specifying multiple types
+
+Cyclops v2.0.1 (Release date: 2018-09-23)
+==============
+
+Changes: 1. patch two memory leaks in `ModelData.cpp` and `ModelSpecifics.hpp`
+
+Cyclops v2.0.0 (Release date: 2018-09-18)
+==============
+
+Changes: 1. simplify internal transformation-reductions loops
+         2. implemented non-negative weights
+         3. allow for run-time selection of 32-/64-bit reals
+         4. remove dependence on GNUmake
+         5. temporarily remove dependence on `RcppParallel` (until TBB is again R-compliant)
+
+Cyclops v1.3.4 (Release date: 2018-06-11)
+==============
+
+Changes: 1. fix undeclared dependencies in unit-tests: `MASS` and `microbenchmarks`
+		 2. fix issues with ATLAS compilation
+		 3. add contexts to testthat files
+		 4. fix ASAN errors in AbstractModelSpecifics
+
+Cyclops v1.3.3 (Not released)
+==============
+
+Changes: 1. fix testthat expected error message
+
+Cyclops v1.3.2 (Release date: 2018-05-04)
+==============
+
+Changes: 1. explicitly includes `<complex>` header, needed for `R` 3.5 builds
+         2. remove `pragma` statements used to quiet `RcppEigen` and `RcppParallel`
+
+Cyclops v1.3.1 (Not released)
+==============
+
+Changes: 1. fixes covariate indices returned from `.checkCovariates` when excluding
+            covariates from regularization
+
+Cyclops v1.3.0 (Release date: 2017-08-23)
+==============
+
+Changes: 1. implements specialized priors through callbacks for use, for example,
+            in the BrokenAdaptiveRidge package to provide L0-based model selection
+         2. implements specialized control through callbacks for use, for example,
+            auto-and-grid-based cross-validation hyperparameter searches
+         3. removes src/boost that clashes with BH 1.65.0
+
+Cyclops v1.2.3 (Not released)
+==============
+
+Changes: 1. fixed `predict` error with `ff.data.frame` with size == 0
+
+Cyclops v1.2.2 (Release date: 2016-10-06)
+==============
+
+Changes: 1. fixed `solaris` build errors
+         2. added compatibility for C++14 (make_unique)
+         3. fixed multiple ASan warnings
+
+Cyclops v1.2.0 (Release date: 2016-08-01)
+==============
+
+Changes: initial submission to CRAN

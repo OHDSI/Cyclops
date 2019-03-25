@@ -55,15 +55,16 @@ public:
 		vector<string> strVector;
 		string outerDelimiter(DELIMITER);
 
-		SparseIndexer indexer(*modelData);
+		SparseIndexer<double> indexer(modelData->getX());
 
 		// Allocate a column for intercept
 //		IntVector* nullVector = new IntVector();
 //		imputePolicy->push_back(nullVector,0);
 //		indexer.addColumn(0, DENSE);
 
-		int currentRow = 0;
-		modelData->nRows = 0;
+		int currentRow = 0;		
+// 		modelData->nRows = 0;
+		setNumberRows(*modelData, 0);
 		int maxCol = 0;
 		while (getline(in, line) && (currentRow < MAX_ENTRIES)) {
 			if (!line.empty()) {
@@ -133,24 +134,24 @@ public:
 						}
 						int col = indexer.getIndex(drug);
 						if(thisCovariate[1] == MISSING_STRING_1 || thisCovariate[1] == MISSING_STRING_2){
-							if(modelData->getFormatType(col) == DENSE){
-								modelData->getColumn(col).add_data(currentRow, 0.0);
+							if(modelData->getX().getFormatType(col) == DENSE){
+								modelData->getX().getColumn(col).add_data(currentRow, 0.0);
 							}
 							imputePolicy->push_back(col,currentRow);
 						}
 						else{
 							real value = static_cast<real>(atof(thisCovariate[1].c_str()));
-							if(modelData->getFormatType(col) == DENSE){
-								modelData->getColumn(col).add_data(currentRow, value);
+							if(modelData->getX().getFormatType(col) == DENSE){
+								modelData->getX().getColumn(col).add_data(currentRow, value);
 							}
-							else if(modelData->getFormatType(col) == INDICATOR){
+							else if(modelData->getX().getFormatType(col) == INDICATOR){
 								if(value != 1.0 && value != 0.0){
-										modelData->convertColumnToDense(col);
-									modelData->getColumn(col).add_data(currentRow,value);
+										modelData->getX().convertColumnToDense(col);
+									modelData->getX().getColumn(col).add_data(currentRow,value);
 								}
 								else{
 									if(value == 1.0){
-										modelData->getColumn(col).add_data(currentRow,1.0);
+										modelData->getX().getColumn(col).add_data(currentRow,1.0);
 									}
 								}
 							}
@@ -158,14 +159,14 @@ public:
 					}
 				}
 				currentRow++;
-				modelData->nRows++;
+				modelData->getX().nRows++;
 			}
 		}
 
-		for(int col = 0; col < modelData->nCols; col++) {
-			if(modelData->getFormatType(col) == DENSE) {
-				if(modelData->getColumn(col).getDataVectorLength() < currentRow) {
-					modelData->getColumn(col).add_data(currentRow-1,0.0);
+		for(int col = 0; col < modelData->getX().nCols; col++) {
+			if(modelData->getX().getFormatType(col) == DENSE) {
+				if(modelData->getX().getColumn(col).getDataVectorLength() < currentRow) {
+					modelData->getX().getColumn(col).add_data(currentRow-1,0.0);
 				}
 			}
 		}
@@ -174,18 +175,20 @@ public:
 		cout << "RTestInputReader" << endl;
 		cout << "Read " << currentRow << " data lines from " << fileName << endl;
 		cout << "Number of stratum: " << numCases << endl;
-		cout << "Number of covariates: " << modelData->nCols << endl;
+		cout << "Number of covariates: " << modelData->getX().nCols << endl;
 #endif
 
-		modelData->nPatients = numCases;
-		modelData->nRows = currentRow;
-		modelData->conditionId = "0";
+		//modelData->nPatients = numCases;
+		setNumberPatients(*modelData, numCases);
+		modelData->getX().nRows = currentRow;
+		//modelData->getX().conditionId = "0";
+		setConditionId(*modelData, "0");
 		
 		
-		cerr << "Total 0: " << modelData->getColumn(0).sumColumn(currentRow) << endl;
-		cerr << "Total 1: " << modelData->getColumn(1).sumColumn(currentRow) << endl;
-		cerr << "Y: " << std::accumulate(modelData->y.begin(), modelData->y.end(), 0.0) << endl;
-		cerr << "Z: " << std::accumulate(modelData->z.begin(), modelData->z.end(), 0.0) << endl;
+		//cerr << "Total 0: " << modelData->getX().getColumn(0).sumColumn(currentRow) << endl;
+		//cerr << "Total 1: " << modelData->getX().getColumn(1).sumColumn(currentRow) << endl;
+		//cerr << "Y: " << std::accumulate(modelData->y.begin(), modelData->y.end(), 0.0) << endl;
+		//cerr << "Z: " << std::accumulate(modelData->z.begin(), modelData->z.end(), 0.0) << endl;
 
 //		cerr << "Total 2: " << modelData->getColumn(2).sumColumn(currentRow) << endl;
 	}

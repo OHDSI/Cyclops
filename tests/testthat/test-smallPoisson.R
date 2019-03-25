@@ -45,32 +45,30 @@ test_that("Small Poisson fixed beta", {
     expect_equivalent(coef(cyclopsFitD)[4], 0)
 })
 
-test_that("Parallel confint", {
-    library(testthat)
-    dobson <- data.frame(
-        counts = c(18,17,15,20,10,20,25,13,12),
-        outcome = gl(3,1,9),
-        treatment = gl(3,3)
-    )
-    tolerance <- 1E-4
-
-    glmFit <- glm(counts ~ outcome + treatment, data = dobson, family = poisson()) # gold standard
-
-    dataPtrD <- createCyclopsData(counts ~ outcome + treatment, data = dobson,
-                                  modelType = "pr")
-    cyclopsFit1 <- fitCyclopsModel(dataPtrD,
-                                   prior = createPrior("none"),
-                                   control = createControl(noiseLevel = "silent",
-                                                           threads = 1))
-    cyclopsFit2 <- fitCyclopsModel(dataPtrD,
-                                   prior = createPrior("none"),
-                                   control = createControl(noiseLevel = "silent",
-                                                           threads = 2))
-
-    expect_equal(confint(cyclopsFit1, c(1:3)), confint(cyclopsFit2, c(1:3)))
-    ## TODO Check output of confint for "Using 2 thread(s)"
-})
-
+# test_that("Parallel confint", {
+#     dobson <- data.frame(
+#         counts = c(18,17,15,20,10,20,25,13,12),
+#         outcome = gl(3,1,9),
+#         treatment = gl(3,3)
+#     )
+#     tolerance <- 1E-4
+#
+#     glmFit <- glm(counts ~ outcome + treatment, data = dobson, family = poisson()) # gold standard
+#
+#     dataPtrD <- createCyclopsData(counts ~ outcome + treatment, data = dobson,
+#                                   modelType = "pr")
+#     cyclopsFit1 <- fitCyclopsModel(dataPtrD,
+#                                    prior = createPrior("none"),
+#                                    control = createControl(noiseLevel = "silent",
+#                                                            threads = 1))
+#     cyclopsFit2 <- fitCyclopsModel(dataPtrD,
+#                                    prior = createPrior("none"),
+#                                    control = createControl(noiseLevel = "silent",
+#                                                            threads = 2))
+#
+#     expect_equal(confint(cyclopsFit1, c(1:3)), confint(cyclopsFit2, c(1:3)))
+#     ## TODO Check output of confint for "Using 2 thread(s)"
+# })
 
 test_that("Specify CI level", {
 ###function(object, parm, level, ...)

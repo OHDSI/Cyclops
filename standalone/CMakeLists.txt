@@ -30,7 +30,7 @@ include_directories(${RCPP_PARALLEL_ROOT}/include)
 			 
 find_package(Boost)
 
-#add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/CCD)
+# add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/CCD)
 add_subdirectory(${CMAKE_SOURCE_DIR}/codebase/CCD-DP)
 
 #if(CUDA_FOUND)

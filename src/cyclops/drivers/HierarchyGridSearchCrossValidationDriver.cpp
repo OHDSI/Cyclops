@@ -102,7 +102,7 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 				ccd.update(allArguments.modeFinding);
 				// Compute predictive loglikelihood for this fold
 				selector.getComplement(weights);
-				double logLikelihood = ccd.getPredictiveLogLikelihood(&weights[0]);
+				double logLikelihood = ccd.getNewPredictiveLogLikelihood(&weights[0]);
 
                 std::ostringstream stream;
 				stream << "Grid-point #" << (step + 1) << " at " << point;

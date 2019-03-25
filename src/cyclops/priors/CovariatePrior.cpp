@@ -247,9 +247,12 @@ namespace bsccs {
             case NORMAL :
                 prior = bsccs::make_shared<NormalPrior>(variance);
                 break;
+            case BAR_UPDATE :
+                prior = bsccs::make_shared<BarUpdatePrior>(variance);
             default : break;
         }
         return prior;
     }
+
 	} // namespace priors
 } // namespace bsccs

@@ -174,7 +174,6 @@ std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorTy
 		result.push_back(dB);
 		result.push_back(ddB);
 	} else {
-
 	    //std::vector<T> B[2];
 	    // T B[2][3*(numCases+1)];
 	    // B[0][0] = 1;
@@ -184,7 +183,6 @@ std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorTy
 	    //     B[1][i] = 0;
 	    // }
 	 	std::vector<T> B[2];
-
 	//     B.emplace_back(std::vector<T>(1, static_cast<T>(1)));
 	//     B.emplace_back(std::vector<T>(1, static_cast<T>(1)));
 
@@ -327,8 +325,42 @@ std::vector<T> computeHowardRecursion(UIteratorType itExpXBeta, SparseIteratorTy
 		std::cout << "\n";
 		*/
 
-
-	}
+		for (int n=1; n<= numSubjects; n++) {
+			T x = *itX;
+			T t = *itExpXBeta;
+			if (n>numSubjects-numCases+1) start++;
+			if (n<=numCases) end++;
+			// int nloop = end-start+1;
+			//std::cout<<"before"<<B[!currentB][3*start]<<'\n';
+			//std::future<void> futures[4];
+/*
+			for (int i=0; i<nThreads; ++i) {
+			    std::future<void> tempFuture = threadPool.push([x,t,currentB,&B](int id, int tStart,int tEnd){
+			        //futures.push_back(std::move(threadPool.enqueue([=,&B](int tStart,int tEnd){
+			        for (int m=tStart; m<tEnd; m++) {
+			            T b = B[currentB][3*m-3];
+			            T db = B[currentB][3*m-2];
+			            T tb = t*b;
+			            T xtb = x*tb;
+			            T tdb = t*db;
+			            B[!currentB][3*m] = B[currentB][3*m] + tb;
+			            B[!currentB][3*m+1] = B[currentB][3*m+1] + tdb + xtb;
+			            B[!currentB][3*m+2] = B[currentB][3*m+2] + t * B[currentB][3*m-1] + x*xtb + 2*x*tdb;
+			        }
+			    },start+i*nloop/nThreads,start+((i+1)==nThreads?nloop:(t+1)*nloop/nThreads));
+			    //if (tempFuture.valid()) futures[i]=std::move(tempFuture);
+				//futures.emplace_back(tempFuture);
+				//futures.push_back(std::move(tempFuture));
+						//task.wait();
+			}
+ */
+			//std::cout<<threadPool.n_idle() <<" ";
+			// for (int i=0; i<nThreads; i++) {
+				// futures[i].wait();
+			// }
+			// threadPool.clear_queue();
+			//threadPool.stop(true);
+			//std::cout<<"after"<<B[!currentB][3*start]<<'\n';
 
 	//result.push_back(maxXi);
 	//result.push_back(maxSorted);
@@ -430,7 +462,6 @@ T computeHowardRecursionSingle(UIteratorType itExpXBeta,
 			//     int tStart = start + i * nloop / nThreads;
 			//     int tEnd = start + ((i + 1) == nThreads ? nloop : (i + 1) * nloop / nThreads);
 			//
-
 			    for (int m = 1; m <= numCases; ++m) {
 			        T b = B[currentB][m-1];
 			        T tb = t*b;

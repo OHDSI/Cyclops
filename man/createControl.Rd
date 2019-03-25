@@ -6,11 +6,20 @@
 \usage{
 createControl(maxIterations = 1000, tolerance = 1e-06,
   convergenceType = "gradient", cvType = "auto", fold = 10,
+<<<<<<< HEAD
   lowerLimit = 0.01, upperLimit = 20, gridSteps = 10, cvRepetitions = 1,
   minCVData = 100, noiseLevel = "silent", threads = 1, seed = NULL,
   resetCoefficients = FALSE, startingVariance = -1, useKKTSwindle = FALSE,
   tuneSwindle = 10, selectorType = "auto", initialBound = 2,
   maxBoundCount = 5, algorithm = "ccd", useSyncCV = FALSE)
+=======
+  lowerLimit = 0.01, upperLimit = 20, gridSteps = 10,
+  cvRepetitions = 1, minCVData = 100, noiseLevel = "silent",
+  threads = 1, seed = NULL, resetCoefficients = FALSE,
+  startingVariance = -1, useKKTSwindle = FALSE, tuneSwindle = 10,
+  selectorType = "auto", initialBound = 2, maxBoundCount = 5,
+  algorithm = "ccd")
+>>>>>>> master
 }
 \arguments{
 \item{maxIterations}{Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error}
@@ -71,18 +80,18 @@ A Cyclops control object of class inheriting from \code{"cyclopsControl"} for us
 }
 \examples{
 #Generate some simulated data:
-sim <- simulateCyclopsData(nstrata = 1, nrows = 1000, ncovars = 2, eCovarsPerRow = 0.5, 
+sim <- simulateCyclopsData(nstrata = 1, nrows = 1000, ncovars = 2, eCovarsPerRow = 0.5,
                            model = "poisson")
-cyclopsData <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "pr", 
+cyclopsData <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "pr",
                                     addIntercept = TRUE)
 
-#Define the prior and control objects to use cross-validation for finding the 
+#Define the prior and control objects to use cross-validation for finding the
 #optimal hyperparameter:
 prior <- createPrior("laplace", exclude = 0, useCrossValidation = TRUE)
 control <- createControl(cvType = "auto", noiseLevel = "quiet")
 
 #Fit the model
-fit <- fitCyclopsModel(cyclopsData,prior = prior, control = control)  
+fit <- fitCyclopsModel(cyclopsData,prior = prior, control = control)
 
 #Find out what the optimal hyperparameter was:
 getHyperParameter(fit)

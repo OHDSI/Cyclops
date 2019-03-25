@@ -93,7 +93,7 @@ void GridSearchCrossValidationDriver::logResults(const CCDArguments& allArgument
 // 	ccd.resetBeta(); // Cold-start
 // }
 
-std::vector<double> GridSearchCrossValidationDriver::doCrossValidationLoop(
+MaxPoint GridSearchCrossValidationDriver::doCrossValidationLoop(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
 			const CCDArguments& allArguments,
@@ -134,7 +134,9 @@ std::vector<double> GridSearchCrossValidationDriver::doCrossValidationLoop(
 // 		stream << "\t" << lambda << " (lambda)" << std::endl;
 // 	}
 // 	logger->writeLine(stream);
-    return std::vector<double>(1, maxPoint);
+    std::vector<double> point(1, maxPoint);
+    return MaxPoint{point, maxValue};
+    //return std::vector<double>(1, maxPoint);
 }
 
 

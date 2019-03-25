@@ -23,7 +23,7 @@ class BootstrapDriver : public AbstractDriver {
 public:
 	BootstrapDriver(
 			int inReplicates,
-			ModelData* inModelData,
+			AbstractModelData* inModelData,
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error
 		);
@@ -41,7 +41,7 @@ public:
 
 private:
 	const int replicates;
-	ModelData* modelData;
+	AbstractModelData* modelData;
 	const int J;
 	rarray estimates;
 };

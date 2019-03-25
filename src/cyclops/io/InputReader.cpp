@@ -50,7 +50,7 @@ using namespace std;
 InputReader::InputReader(
 	loggers::ProgressLoggerPtr _logger,
 	loggers::ErrorHandlerPtr _error
-	) : logger(_logger), error(_error), modelData(new ModelData(ModelType::NONE, _logger, _error)), deleteModelData(true) {
+) : logger(_logger), error(_error), modelData(new ModelData<double>(ModelType::NONE, _logger, _error)), deleteModelData(true) {
 	// Do nothing
 }
 

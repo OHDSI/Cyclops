@@ -20,3 +20,10 @@ autom4te.cache/
 *.Rapp.history
 *.RData
 *conflicted*
+config.log
+config.status
+debug
+docker
+notes
+tests/testthat/test-KKTSwindle.R
+tests/testthat/test-weighted_cv.R

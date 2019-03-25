@@ -82,7 +82,7 @@ void SCCSInputReader::readFile(const char* fileName) {
 
 	vector<IntVector*> unorderColumns = vector<IntVector*>();
 
-	SparseIndexer indexer(*modelData);
+	SparseIndexer<double> indexer(modelData->getX());
 
 	int numPatients = 0;
 	int numDrugs = 0;
@@ -114,24 +114,29 @@ void SCCSInputReader::readFile(const char* fileName) {
 			ss >> unmappedPid;
 			if (unmappedPid != currentPid) { // New patient, ASSUMES these are sorted
 				if (currentPid != MISSING_STRING) { // Skip first switch
-					modelData->nevents.push_back(numEvents);
+					//modelData->nevents.push_back(numEvents);
+					push_back_nevents(*modelData, numEvents);
+					
 					numEvents = 0;
 				}
 				currentPid = unmappedPid;
 				numPatients++;
 			}
-			modelData->pid.push_back(numPatients - 1);
+			//modelData->pid.push_back(numPatients - 1);
+			push_back_pid(*modelData, numPatients - 1);
 
 			// Parse third entry
 			int thisY;
 			ss >> thisY;
 			numEvents += thisY;
-			modelData->y.push_back(thisY);
+			//modelData->y.push_back(thisY);
+			push_back_y(*modelData, thisY);
 
 			// Parse fourth entry
 			int thisOffs;
 			ss >> thisOffs;
-			modelData->offs.push_back(thisOffs);
+			//modelData->offs.push_back(thisOffs);
+			push_back_offs(*modelData, thisOffs);
 
 			// Parse remaining (variable-length) entries
 			IdType drug;		
@@ -155,10 +160,11 @@ void SCCSInputReader::readFile(const char* fileName) {
 		}
 	}
 
-	modelData->nevents.push_back(numEvents); // Save last patient
+	//modelData->nevents.push_back(numEvents); // Save last patient
+	push_back_nevents(*modelData, numEvents);
 
 	// Easy to sort columns now in AOS format
-	modelData->sortColumns(CompressedDataColumn::sortNumerically);
+	//Columns(CompressedDataColumn::sortNumerically);
 	
 #ifndef MY_RCPP_FLAG
 	cout << "Read " << currentEntry << " data lines from " << fileName << endl;
@@ -168,9 +174,12 @@ void SCCSInputReader::readFile(const char* fileName) {
 //	cout << "Number of patients: " << numPatients << endl;
 //	cout << "Number of drugs: " << modelData->getNumberOfColumns() << endl;
 
-	modelData->nPatients = numPatients;
-	modelData->nRows = currentEntry;
-	modelData->conditionId = outcomeId;
+	//modelData->nPatients = numPatients;
+	setNumberPatients(*modelData, numPatients);	
+	//modelData->nRows = currentEntry;
+	setNumberRows(*modelData, currentEntry);	
+	//modelData->conditionId = outcomeId;
+	setConditionId(*modelData, outcomeId);
 
 #if 0
 	cout << "Converting first column to dense format" << endl;

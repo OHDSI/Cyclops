@@ -13,8 +13,15 @@ struct QuadrCoefs {
     double c0,c1,c2;
 };
 
+struct StepValue {
+    bool first;
+    double second;
+    double expected;
 
-/* UniModalSearch: 
+    StepValue(bool cont, double x, double y) : first(cont), second(x), expected(y) { }
+};
+
+/* UniModalSearch:
  - collects loglikelihood results from previous steps
  - suggests next step
 */
@@ -39,10 +46,10 @@ public:
                 best = y_by_x.find( x );
         }
     }
-    pair<bool,double> step(); // recommend: do/not next step, the next x value
+    StepValue step(); // recommend: do/not next step, the next x value
     //ctor
     UniModalSearch( double stdstep=100, double stop_by_y=.01, double stop_by_x=log(1.5),
-        double firstCut=1.0 ) 
+        double firstCut=1.0 )
         : m_stdstep(stdstep), m_stop_by_y(stop_by_y), m_stop_by_x(stop_by_x), m_first_cut(firstCut) {}
 
     friend std::ostream& operator<< (std::ostream& stream, const UniModalSearch& search);
@@ -66,19 +73,19 @@ QuadrCoefs QuadrLogFit( const map<double,UniModalSearch::MS> & y_by_x );
 
     All Rights Reserved
 
-    Permission to use, copy, and modify this software and its documentation for any purpose 
-    other than its incorporation into a commercial product is hereby granted without fee, 
-    provided that the above copyright notice appears in all copies and that both that 
-    copyright notice and this permission notice appear in supporting documentation, and that 
-    the names of Rutgers University, DIMACS, and the authors not be used in advertising or 
-    publicity pertaining to distribution of the software without specific, written prior 
+    Permission to use, copy, and modify this software and its documentation for any purpose
+    other than its incorporation into a commercial product is hereby granted without fee,
+    provided that the above copyright notice appears in all copies and that both that
+    copyright notice and this permission notice appear in supporting documentation, and that
+    the names of Rutgers University, DIMACS, and the authors not be used in advertising or
+    publicity pertaining to distribution of the software without specific, written prior
     permission.
 
-    RUTGERS UNIVERSITY, DIMACS, AND THE AUTHORS DISCLAIM ALL WARRANTIES WITH REGARD TO 
-    THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
-    ANY PARTICULAR PURPOSE. IN NO EVENT SHALL RUTGERS UNIVERSITY, DIMACS, OR THE AUTHORS 
-    BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER 
-    RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, 
-    NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR 
+    RUTGERS UNIVERSITY, DIMACS, AND THE AUTHORS DISCLAIM ALL WARRANTIES WITH REGARD TO
+    THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+    ANY PARTICULAR PURPOSE. IN NO EVENT SHALL RUTGERS UNIVERSITY, DIMACS, OR THE AUTHORS
+    BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER
+    RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+    NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
     PERFORMANCE OF THIS SOFTWARE.
 */

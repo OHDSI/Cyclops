@@ -42,15 +42,12 @@
     }
 #endif
 
-// #ifdef R_BUILD  // old alternative -DR_BUILD
-// #endif
-
 namespace bsccs {
 
 #if __cplusplus >= 201402L
 	using std::make_unique; // Use C++14 version
 #else
-	// Emulate 
+	// Emulate
 	template<typename T, typename ...Args>
 	bsccs::unique_ptr<T> make_unique( Args&& ...args ) {
     	return bsccs::unique_ptr<T>( new T( std::forward<Args>(args)... ) );
@@ -59,17 +56,24 @@ namespace bsccs {
 
 // Internal types
 
-#ifdef DOUBLE_PRECISION
-	typedef double real;
-#else
-	typedef float real;
-#endif
+// #ifdef DOUBLE_PRECISION
+// 	typedef double real;
+// #else
+// 	typedef float real;
+// #endif
+
+// template <typename T>
+// using Vector = std::vector<T>;
+
+// template <typename T>
+// using VectorPtr = bsccs::shared_ptr<Vector<T> >;
 
 typedef std::vector<int> IntVector;
-typedef std::vector<real> RealVector;
 typedef bsccs::shared_ptr<IntVector> IntVectorPtr;
-typedef bsccs::shared_ptr<RealVector> RealVectorPtr;
+
 typedef int64_t IdType;
+typedef double Fp64Type;
+typedef float Fp32Type;
 
 // Output types
 
@@ -97,7 +101,8 @@ namespace priors {
 enum PriorType {
 	NONE = 0,
 	LAPLACE,
-	NORMAL
+	NORMAL,
+	BAR_UPDATE
 };
 
 } // namespace priors
@@ -106,6 +111,7 @@ enum ConvergenceType {
 	GRADIENT,
 	LANGE,
 	MITTAL,
+	ONE_STEP,
 	ZHANG_OLES
 };
 
@@ -144,6 +150,13 @@ enum class AlgorithmType {
 	CCD = 0,
 	MM,
 	CCDGREEDY,
+	SIZE_OF_ENUM // Keep at end
+};
+
+enum class PrecisionType {
+	FP64 = 0,
+	FP32,
+	FP16,
 	SIZE_OF_ENUM // Keep at end
 };
 
@@ -202,15 +215,9 @@ inline bool requiresOffset(const ModelType modelType) {
 	return (modelType == ModelType::SELF_CONTROLLED_MODEL);
 }
 
-//#define UNUSED(x) ((void)(x))
-//UNUSED(requiresStratumID);
-
 } // namespace Models
 
 // Hierarchical prior types
-
-// typedef std::map<int, int> HierarchicalParentMap;
-// typedef std::map<int, std::vector<int> > HierarchicalChildMap;
 typedef std::vector<int> HierarchicalParentMap;
 typedef std::vector<std::vector<int> > HierarchicalChildMap;
 typedef std::map<IdType, ProfileVector> NeighborhoodMap;

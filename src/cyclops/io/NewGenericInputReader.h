@@ -35,7 +35,7 @@ public:
 	{
 		// Do nothing
 	}
-	
+
 // 	NewGenericInputReader(const bsccs::ModelType model) : BaseInputReader<NewGenericInputReader>()
 // 		, upcastToDense(false)
 // 		, upcastToSparse(false)
@@ -52,9 +52,9 @@ public:
 // 	//	, modelType(model)
 // 	{
 // 		setRequiredFlags(model);
-// 	}	
+// 	}
 
-	NewGenericInputReader(const bsccs::ModelType model, 
+	NewGenericInputReader(const bsccs::ModelType model,
 			loggers::ProgressLoggerPtr logger, loggers::ErrorHandlerPtr error) : BaseInputReader<NewGenericInputReader>(logger, error)
 		, upcastToDense(false)
 		, upcastToSparse(false)
@@ -101,7 +101,7 @@ public:
 		}
 
 		if (includeCensoredData) {
-			parseSingleTimeEntry<real>(ss, rowInfo);
+			parseSingleTimeEntry<double>(ss, rowInfo);
 		}
 
 		if (useBBROutcome) {
@@ -117,7 +117,7 @@ public:
 		}
 
 		if (includeIntercept) {
-			modelData->getColumn(columnIntercept).add_data(rowInfo.currentRow, static_cast<real>(1.0));
+			modelData->getX().getColumn(columnIntercept).add_data(rowInfo.currentRow, static_cast<double>(1.0));
 		}
 		parseAllBBRCovariatesEntry(ss, rowInfo, indicatorOnly);
 	}
@@ -155,25 +155,25 @@ public:
 
 	void addFixedCovariateColumns(void) {
 		if (includeOffset) {
-			modelData->push_back(DENSE); // Column 0
+			modelData->getX().push_back(DENSE); // Column 0
 			modelData->setHasOffsetCovariate(true);
-			modelData->getColumn(0).add_label(-1);
+			modelData->getX().getColumn(0).add_label(-1);
 		}
 		if (includeIntercept) {
-			modelData->push_back(DENSE); // Column 0 or 1
+			modelData->getX().push_back(DENSE); // Column 0 or 1
 			modelData->setHasInterceptCovariate(true);
-			columnIntercept = modelData->getNumberOfColumns() - 1;			
+			columnIntercept = modelData->getNumberOfColumns() - 1;
 		}
 	}
 
-	void upcastColumns(ModelData* modelData, RowInformation& rowInfo) {
+	void upcastColumns(ModelData<double>* modelData, RowInformation& rowInfo) {
 		if (upcastToSparse) {
 			std::ostringstream stream;
 			stream << "Going to up-cast all columns to sparse!";
 			logger->writeLine(stream);
 			size_t i = includeIntercept ? 1 : 0;
 			for (; i < modelData->getNumberOfColumns(); ++i) {
-				modelData->getColumn(i).convertColumnToSparse();
+				modelData->getX().getColumn(i).convertColumnToSparse();
 			}
 		}
 		if (upcastToDense) {
@@ -181,7 +181,7 @@ public:
 			stream << "Going to up-cast all columns to dense!";
 			logger->writeLine(stream);
 			for (size_t i = 0; i < modelData->getNumberOfColumns(); ++i) {
-				modelData->getColumn(i).convertColumnToDense(rowInfo.currentRow);
+				modelData->getX().getColumn(i).convertColumnToDense(rowInfo.currentRow);
 			}
 		}
 	}
@@ -201,15 +201,15 @@ private:
 	bool includeRowLabel;
 	bool includeStratumLabel;
 	bool includeCensoredData;
-//	bool includeCensoredData2;	
-	bool includeWeights;	
+//	bool includeCensoredData2;
+	bool includeWeights;
 	bool includeSCCSOffset;
 	bool indicatorOnly;
 
 //	bsccs::Models::ModelType modelType;
-	
+
 	int columnIntercept;
-	bool offsetInLogSpace;	
+	bool offsetInLogSpace;
 };
 
 } // namespace

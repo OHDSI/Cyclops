@@ -8,16 +8,8 @@
 #include <limits>
 #include <iostream>
 
-#pragma GCC diagnostic push
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
-#pragma GCC diagnostic ignored "-Wpragmas"
-#endif
-#pragma GCC diagnostic ignored "-Wunknown-pragmas"
-#pragma GCC diagnostic ignored "-Wignored-attributes" // To keep C++14 quiet
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <Eigen/Dense>
 #include <Eigen/LU>
-#pragma GCC diagnostic pop
 
 //#include "tnt_array2d.h"
 //#include "tnt_array2d_utils.h"
@@ -71,9 +63,9 @@ QuadrCoefs QuadrLogFit( const map<double,UniModalSearch::MS> & y_by_x )
     return ret;
 }
 
-pair<bool,double> UniModalSearch::step() //recommend: do/not next step, and the next x value
+StepValue UniModalSearch::step() //recommend: do/not next step, and the next x value
 {
-    pair<bool,double> ret(true,0);
+    StepValue ret(true,0,0);
     switch( y_by_x.size() ) {
     case 0: ret.second = 1; break;
     case 1:
@@ -92,12 +84,16 @@ pair<bool,double> UniModalSearch::step() //recommend: do/not next step, and the 
     default: // 3 or more
 		if( y_by_x.begin()->first==best->first ) {  //max is at the left - move to the left
             ret.second = best->first / m_stdstep;
-			if( !(best->first > numeric_limits<double>::denorm_min()) ) //inf or nan
+			if( !(best->first > numeric_limits<double>::denorm_min()) ) { //inf or nan
 				ret.first = false;
+			    ret.expected = best->second.m;
+			}
 		}else if( y_by_x.rbegin()->first==best->first ) { //max is at the right - move to the right
             ret.second = best->first * m_stdstep;
-			if( !(best->first < numeric_limits<double>::infinity()) ) //inf or nan
+			if( !(best->first < numeric_limits<double>::infinity()) ) { //inf or nan
 				ret.first = false;
+			    ret.expected = best->second.m;
+			}
 		}else { //max is 'bracketed'
             QuadrCoefs coefs = QuadrLogFit( y_by_x );
             double log_argmax = - coefs.c1 / coefs.c2 / 2;
@@ -111,6 +107,7 @@ pair<bool,double> UniModalSearch::step() //recommend: do/not next step, and the 
             //ret.first = fabs(deriv) > stop_by_y;
 
             ret.second = exp( log_argmax );
+            ret.expected = expected_max;
             //map<double,double>::const_iterator left = best; left--;
             //map<double,double>::const_iterator right = best; right++;
 //            std::cout
