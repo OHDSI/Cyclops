@@ -18,54 +18,9 @@
 
 namespace bsccs {
 
-<<<<<<< HEAD
-// bsccs::shared_ptr<AbstractModelSpecifics> AbstractModelSpecifics::factory(const ModelType modelType,
-//                                                                           const ModelData& modelData,
-//                                                                           const DeviceType deviceType) {
-// 	bsccs::shared_ptr<AbstractModelSpecifics> model;
-// 	switch (modelType) {
-// 		case ModelType::SELF_CONTROLLED_MODEL :
-// 			model =  bsccs::make_shared<ModelSpecifics<SelfControlledCaseSeries<real>,real> >(modelData);
-// 			break;
-// 		case ModelType::CONDITIONAL_LOGISTIC :
-// 			model =  bsccs::make_shared<ModelSpecifics<ConditionalLogisticRegression<real>,real> >(modelData);
-// 			break;
-// 		case ModelType::TIED_CONDITIONAL_LOGISTIC :
-// 			model =  bsccs::make_shared<ModelSpecifics<TiedConditionalLogisticRegression<real>,real> >(modelData);
-// 			break;
-// 		case ModelType::LOGISTIC :
-// 			model = bsccs::make_shared<ModelSpecifics<LogisticRegression<real>,real> >(modelData);
-// 			break;
-// 		case ModelType::NORMAL :
-// 			model = bsccs::make_shared<ModelSpecifics<LeastSquares<real>,real> >(modelData);
-// 			break;
-// 		case ModelType::POISSON :
-// 			model = bsccs::make_shared<ModelSpecifics<PoissonRegression<real>,real> >(modelData);
-// 			break;
-// 		case ModelType::CONDITIONAL_POISSON :
-// 			model = bsccs::make_shared<ModelSpecifics<ConditionalPoissonRegression<real>,real> >(modelData);
-// 			break;
-// 		case ModelType::COX_RAW :
-// 			model = bsccs::make_shared<ModelSpecifics<CoxProportionalHazards<real>,real> >(modelData);
-// 			break;
-// 		case ModelType::COX :
-// 			model = bsccs::make_shared<ModelSpecifics<BreslowTiedCoxProportionalHazards<real>,real> >(modelData);
-// 			break;
-// 		default:
-// 			throw std::invalid_argument("Unknown modelType");
-// 			break;
-// 	}
-// 	return model;
-// }
-
-template <class Model, typename RealType>
-AbstractModelSpecifics* AbstractModelSpecifics::deviceFactory(
-        const ModelData& modelData,
-=======
-template <class Model, typename RealType>
+template <class Model, typename RealType, class ModelG>
 AbstractModelSpecifics* deviceFactory(
         const ModelData<RealType>& modelData,
->>>>>>> master
         const DeviceType deviceType,
         const std::string& deviceName) {
     AbstractModelSpecifics* model = nullptr;
@@ -74,32 +29,9 @@ AbstractModelSpecifics* deviceFactory(
     case DeviceType::CPU :
         model = new ModelSpecifics<Model,RealType>(modelData);
         break;
-<<<<<<< HEAD
-=======
 #ifdef HAVE_OPENCL
     case DeviceType::GPU :
-        model = new GpuModelSpecifics<Model,RealType>(modelData, deviceName);
-        break;
-#endif // HAVE_OPENCL
->>>>>>> master
-    default:
-        break; // nullptr
-    }
-    return model;
-}
-<<<<<<< HEAD
-
-template <class Model, typename RealType, class ModelG>
-AbstractModelSpecifics* AbstractModelSpecifics::deviceFactory(
-        const ModelData& modelData,
-        const DeviceType deviceType,
-        const std::string& deviceName) {
-    AbstractModelSpecifics* model = nullptr;
-
-    switch (deviceType) {
-#ifdef HAVE_OPENCL
-    case DeviceType::GPU :
-        model = new GpuModelSpecifics<Model,RealType,ModelG>(modelData, deviceName);
+        model = new GpuModelSpecifics<Model,RealType, ModelG>(modelData, deviceName);
         break;
 #endif // HAVE_OPENCL
     default:
@@ -107,196 +39,6 @@ AbstractModelSpecifics* AbstractModelSpecifics::deviceFactory(
     }
     return model;
 }
-
-// template <class Engine>
-// AbstractModelSpecifics* AbstractModelSpecifics::modelFactory(const ModelType modelType,
-//                                     const ModelData& modelData) {
-//     AbstractModelSpecifics* model = nullptr;
-//     //     switch (deviceType) {
-//     //     case DeviceType::CPU :
-//     switch (modelType) {
-//     case ModelType::SELF_CONTROLLED_MODEL :
-//         model =  new Engine<SelfControlledCaseSeries<real>,real>(modelData);
-//         break;
-//     case ModelType::CONDITIONAL_LOGISTIC :
-//         model =  new Engine<ConditionalLogisticRegression<real>,real>(modelData);
-//         break;
-//     case ModelType::TIED_CONDITIONAL_LOGISTIC :
-//         model =  new Engine<TiedConditionalLogisticRegression<real>,real>(modelData);
-//         break;
-//     case ModelType::LOGISTIC :
-//         model = new Engine<LogisticRegression<real>,real>(modelData);
-//         break;
-//     case ModelType::NORMAL :
-//         model = new Engine<LeastSquares<real>,real>(modelData);
-//         break;
-//     case ModelType::POISSON :
-//         model = new Engine<PoissonRegression<real>,real>(modelData);
-//         break;
-//     case ModelType::CONDITIONAL_POISSON :
-//         model = new Engine<ConditionalPoissonRegression<real>,real>(modelData);
-//         break;
-//     case ModelType::COX_RAW :
-//         model = new Engine<CoxProportionalHazards<real>,real>(modelData);
-//         break;
-//     case ModelType::COX :
-//         model = new Engine<BreslowTiedCoxProportionalHazards<real>,real>(modelData);
-//         break;
-//     default:
-//         break;
-//     // }
-//     }
-//     return model;
-// }
-
-AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelType,
-                                                        const ModelData& modelData,
-                                                        const DeviceType deviceType,
-                                                        const std::string& deviceName) {
-    AbstractModelSpecifics* model = nullptr;
-
-    //if (modelType != ModelType::LOGISTIC && deviceType == DeviceType::GPU) {
-        //return model; // Implementing lr first on GPU.
-    //}
-
-    switch (modelType) {
-    case ModelType::SELF_CONTROLLED_MODEL :
-        model =  deviceFactory<SelfControlledCaseSeries<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
-        break;
-    case ModelType::CONDITIONAL_LOGISTIC :
-        model =  deviceFactory<ConditionalLogisticRegression<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
-        break;
-    case ModelType::EFRON_TIED_CONDITIONAL_LOGISTIC :
-        model =  deviceFactory<EfronConditionalLogisticRegression<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
-        break;
-    case ModelType::TIED_CONDITIONAL_LOGISTIC :
-        model =  deviceFactory<TiedConditionalLogisticRegression<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
-        break;
-    case ModelType::LOGISTIC :
-        model = deviceFactory<LogisticRegression<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
-        break;
-    case ModelType::NORMAL :
-        model = deviceFactory<LeastSquares<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
-        break;
-    case ModelType::POISSON :
-        model = deviceFactory<PoissonRegression<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
-        break;
-    case ModelType::CONDITIONAL_POISSON :
-        model = deviceFactory<ConditionalPoissonRegression<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
-        break;
-    case ModelType::COX_RAW :
-        model = deviceFactory<CoxProportionalHazards<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
-        break;
-    case ModelType::COX :
-        model = deviceFactory<BreslowTiedCoxProportionalHazards<ModelData::RealType>,ModelData::RealType>(modelData, deviceType, deviceName);
-        break;
-    default:
-        break;
-    }
-
-#ifdef HAVE_OPENCL
-    if (deviceType == DeviceType::GPU) {
-    	 switch (modelType) {
-    	    case ModelType::SELF_CONTROLLED_MODEL :
-    	        model =  deviceFactory<SelfControlledCaseSeries<ModelData::RealType>,ModelData::RealType,SelfControlledCaseSeriesG>(modelData, deviceType, deviceName);
-    	        break;
-    	    case ModelType::CONDITIONAL_LOGISTIC :
-    	        model =  deviceFactory<ConditionalLogisticRegression<ModelData::RealType>,ModelData::RealType,ConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
-    	        break;
-    	    case ModelType::EFRON_TIED_CONDITIONAL_LOGISTIC :
-    	        model =  deviceFactory<EfronConditionalLogisticRegression<ModelData::RealType>,ModelData::RealType,EfronConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
-    	        break;
-    	    case ModelType::TIED_CONDITIONAL_LOGISTIC :
-    	        model =  deviceFactory<TiedConditionalLogisticRegression<ModelData::RealType>,ModelData::RealType,TiedConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
-    	        break;
-    	    case ModelType::LOGISTIC :
-    	        model = deviceFactory<LogisticRegression<ModelData::RealType>,ModelData::RealType,LogisticRegressionG>(modelData, deviceType, deviceName);
-    	        break;
-    	    case ModelType::NORMAL :
-    	        model = deviceFactory<LeastSquares<ModelData::RealType>,ModelData::RealType,LeastSquaresG>(modelData, deviceType, deviceName);
-    	        break;
-    	    case ModelType::POISSON :
-    	        model = deviceFactory<PoissonRegression<ModelData::RealType>,ModelData::RealType,PoissonRegressionG>(modelData, deviceType, deviceName);
-    	        break;
-    	    case ModelType::CONDITIONAL_POISSON :
-    	        model = deviceFactory<ConditionalPoissonRegression<ModelData::RealType>,ModelData::RealType,ConditionalPoissonRegressionG>(modelData, deviceType, deviceName);
-    	        break;
-    	    case ModelType::COX_RAW :
-    	        model = deviceFactory<CoxProportionalHazards<ModelData::RealType>,ModelData::RealType,CoxProportionalHazardsG>(modelData, deviceType, deviceName);
-    	        break;
-    	    case ModelType::COX :
-    	        model = deviceFactory<BreslowTiedCoxProportionalHazards<ModelData::RealType>,ModelData::RealType,BreslowTiedCoxProportionalHazardsG>(modelData, deviceType, deviceName);
-    	        break;
-    	    default:
-    	        break;
-    	    }
-    }
-#endif // HAVE_OPENCL
-
-
-    return model;
-}
-
-// AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelType,
-//                                                         const ModelData& modelData,
-//                                                         const DeviceType deviceType) {
-// 	AbstractModelSpecifics* model = nullptr;
-//     switch (modelType) {
-//     case ModelType::SELF_CONTROLLED_MODEL :
-//         model =  new ModelSpecifics<SelfControlledCaseSeries<real>,real>(modelData);
-//         break;
-//     case ModelType::CONDITIONAL_LOGISTIC :
-//         model =  new ModelSpecifics<ConditionalLogisticRegression<real>,real>(modelData);
-//         break;
-//     case ModelType::TIED_CONDITIONAL_LOGISTIC :
-//         model =  new ModelSpecifics<TiedConditionalLogisticRegression<real>,real>(modelData);
-//         break;
-//     case ModelType::LOGISTIC :
-//         model = new ModelSpecifics<LogisticRegression<real>,real>(modelData);
-//         break;
-//     case ModelType::NORMAL :
-//         model = new ModelSpecifics<LeastSquares<real>,real>(modelData);
-//         break;
-//     case ModelType::POISSON :
-//         model = new ModelSpecifics<PoissonRegression<real>,real>(modelData);
-//         break;
-//     case ModelType::CONDITIONAL_POISSON :
-//         model = new ModelSpecifics<ConditionalPoissonRegression<real>,real>(modelData);
-//         break;
-//     case ModelType::COX_RAW :
-//         model = new ModelSpecifics<CoxProportionalHazards<real>,real>(modelData);
-//         break;
-//     case ModelType::COX :
-//         model = new ModelSpecifics<BreslowTiedCoxProportionalHazards<real>,real>(modelData);
-//         break;
-//     default:
-//         break;
-//     }
-// 	return model;
-// }
-
-//AbstractModelSpecifics::AbstractModelSpecifics(
-//		const std::vector<real>& y,
-//		const std::vector<real>& z) : hY(y), hZ(z) {
-//	// Do nothing
-//}
-
-AbstractModelSpecifics::AbstractModelSpecifics(const ModelData& input)
-	: //oY(input.getYVectorRef()), oZ(input.getZVectorRef()),
-	  //oPid(input.getPidVectorRef()),
-	  modelData(input),
-//	  hXI(static_cast<CompressedDataMatrix*>(const_cast<ModelData*>(&modelData))),
-// 	  hY(const_cast<real*>(input.getYVectorRef().data())), //hZ(const_cast<real*>(input.getZVectorRef().data())),
-	  hY(input.getYVectorRef()),
-// 	  hOffs(const_cast<real*>(input.getTimeVectorRef().data())),
-	  hOffs(input.getTimeVectorRef()),
-// 	  hPid(const_cast<int*>(input.getPidVectorRef().data()))
-// 	  hPid(input.getPidVectorRef())
-      hPidOriginal(input.getPidVectorRef()), hPid(const_cast<int*>(hPidOriginal.data())),
-      boundType(MmBoundType::METHOD_2),
-	  algorithmType(AlgorithmType::CCD)
-	  {
-=======
 
 template <typename RealType>
 AbstractModelSpecifics* precisionFactory(
@@ -315,17 +57,35 @@ AbstractModelSpecifics* precisionFactory<float>(
     AbstractModelSpecifics* model = nullptr;
 
     switch (modelType) {
+    case ModelType::SELF_CONTROLLED_MODEL : // TODO does this work?
+        model =  deviceFactory<SelfControlledCaseSeries<float>,float,SelfControlledCaseSeriesG>(modelData, deviceType, deviceName);
+        break;
+    case ModelType::CONDITIONAL_LOGISTIC : // TODO does this work?
+        model =  deviceFactory<ConditionalLogisticRegression<float>,float,ConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
+        break;
+    case ModelType::EFRON_TIED_CONDITIONAL_LOGISTIC : // TODO does this work?
+        model =  deviceFactory<EfronConditionalLogisticRegression<float>,float,EfronConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
+        break;
+    case ModelType::TIED_CONDITIONAL_LOGISTIC : // TODO does this work?
+        model =  deviceFactory<TiedConditionalLogisticRegression<float>,float,TiedConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
+        break;
     case ModelType::LOGISTIC :
-        model = deviceFactory<LogisticRegression<float>,float>(modelData, deviceType, deviceName);
+        model = deviceFactory<LogisticRegression<float>,float,LogisticRegressionG>(modelData, deviceType, deviceName);
+        break;
+    case ModelType::NORMAL : // TODO does this work?
+        model = deviceFactory<LeastSquares<float>,float,LeastSquaresG>(modelData, deviceType, deviceName);
         break;
     case ModelType::POISSON :
-        model = deviceFactory<PoissonRegression<float>,float>(modelData, deviceType, deviceName);
+        model = deviceFactory<PoissonRegression<float>,float,PoissonRegressionG>(modelData, deviceType, deviceName);
         break;
     case ModelType::CONDITIONAL_POISSON :
-        model = deviceFactory<ConditionalPoissonRegression<float>,float>(modelData, deviceType, deviceName);
+        model = deviceFactory<ConditionalPoissonRegression<float>,float,ConditionalPoissonRegressionG>(modelData, deviceType, deviceName);
+        break;
+    case ModelType::COX_RAW : // TODO does this work?
+        model = deviceFactory<CoxProportionalHazards<float>,float,CoxProportionalHazardsG>(modelData, deviceType, deviceName);
         break;
     case ModelType::COX :
-        model = deviceFactory<BreslowTiedCoxProportionalHazards<float>,float>(modelData, deviceType, deviceName);
+        model = deviceFactory<BreslowTiedCoxProportionalHazards<float>,float,BreslowTiedCoxProportionalHazardsG>(modelData, deviceType, deviceName);
         break;
     default:
         break;
@@ -345,31 +105,34 @@ AbstractModelSpecifics* precisionFactory<double>(
 
     switch (modelType) {
     case ModelType::SELF_CONTROLLED_MODEL :
-        model =  deviceFactory<SelfControlledCaseSeries<double>,double>(modelData, deviceType, deviceName);
+        model =  deviceFactory<SelfControlledCaseSeries<double>,double,SelfControlledCaseSeriesG>(modelData, deviceType, deviceName);
         break;
     case ModelType::CONDITIONAL_LOGISTIC :
-        model =  deviceFactory<ConditionalLogisticRegression<double>,double>(modelData, deviceType, deviceName);
+        model =  deviceFactory<ConditionalLogisticRegression<double>,double,ConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
+        break;
+    case ModelType::EFRON_TIED_CONDITIONAL_LOGISTIC :
+        model =  deviceFactory<EfronConditionalLogisticRegression<double>,double,EfronConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
         break;
     case ModelType::TIED_CONDITIONAL_LOGISTIC :
-        model =  deviceFactory<TiedConditionalLogisticRegression<double>,double>(modelData, deviceType, deviceName);
+        model =  deviceFactory<TiedConditionalLogisticRegression<double>,double,TiedConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
         break;
     case ModelType::LOGISTIC :
-        model = deviceFactory<LogisticRegression<double>,double>(modelData, deviceType, deviceName);
+        model = deviceFactory<LogisticRegression<double>,double,LogisticRegressionG>(modelData, deviceType, deviceName);
         break;
     case ModelType::NORMAL :
-        model = deviceFactory<LeastSquares<double>,double>(modelData, deviceType, deviceName);
+        model = deviceFactory<LeastSquares<double>,double,LeastSquaresG>(modelData, deviceType, deviceName);
         break;
     case ModelType::POISSON :
-        model = deviceFactory<PoissonRegression<double>,double>(modelData, deviceType, deviceName);
+        model = deviceFactory<PoissonRegression<double>,double,PoissonRegressionG>(modelData, deviceType, deviceName);
         break;
     case ModelType::CONDITIONAL_POISSON :
-        model = deviceFactory<ConditionalPoissonRegression<double>,double>(modelData, deviceType, deviceName);
+        model = deviceFactory<ConditionalPoissonRegression<double>,double,ConditionalPoissonRegressionG>(modelData, deviceType, deviceName);
         break;
     case ModelType::COX_RAW :
-        model = deviceFactory<CoxProportionalHazards<double>,double>(modelData, deviceType, deviceName);
+        model = deviceFactory<CoxProportionalHazards<double>,double,CoxProportionalHazardsG>(modelData, deviceType, deviceName);
         break;
     case ModelType::COX :
-        model = deviceFactory<BreslowTiedCoxProportionalHazards<double>,double>(modelData, deviceType, deviceName);
+        model = deviceFactory<BreslowTiedCoxProportionalHazards<double>,double,BreslowTiedCoxProportionalHazardsG>(modelData, deviceType, deviceName);
         break;
     default:
         break;
@@ -408,9 +171,9 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
 AbstractModelSpecifics::AbstractModelSpecifics(const AbstractModelData& input)
 	: hPidOriginal(input.getPidVectorRef()), hPid(const_cast<int*>(hPidOriginal.data())),
       hPidSize(hPidOriginal.size()),
-      boundType(MmBoundType::METHOD_2) {
-
->>>>>>> master
+      boundType(MmBoundType::METHOD_2),
+      algorithmType(AlgorithmType::CCD) {
+    // modelData(input), hY(input.getYVectorRef()), hOffs(input.getTimeVectorRef()),
 	// Do nothing
 }
 
@@ -437,8 +200,7 @@ int AbstractModelSpecifics::getAlignedLength(int N) {
 	return (N / 16) * 16 + (N % 16 == 0 ? 0 : 16);
 }
 
-<<<<<<< HEAD
-
+// TODO take out?
 template <typename RealType>
 void AbstractModelSpecifics::setPidForAccumulation(const RealType* weights) {
 
@@ -499,6 +261,7 @@ void AbstractModelSpecifics::setPidForAccumulation(const RealType* weights) {
 	setupSparseIndices(N); // ignore pid == N (pointing to removed data strata)
 }
 
+// TODO take out?
 template <typename RealType>
 void AbstractModelSpecifics::setPidForAccumulation(const RealType* weights, int cvIndex) {
 
@@ -559,7 +322,7 @@ void AbstractModelSpecifics::setPidForAccumulation(const RealType* weights, int 
 	setupSparseIndices(N, cvIndex); // ignore pid == N (pointing to removed data strata)
 }
 
-
+// TODO take out?
 void AbstractModelSpecifics::setupSparseIndices(const int max) {
 	sparseIndices.clear(); // empty if full!
 
@@ -594,6 +357,7 @@ void AbstractModelSpecifics::setupSparseIndices(const int max) {
 	*/
 }
 
+// TODO take out?
 void AbstractModelSpecifics::setupSparseIndices(const int max, int cvIndex) {
 	sparseIndicesPool[cvIndex].clear(); // empty if full!
 
@@ -629,10 +393,12 @@ void AbstractModelSpecifics::setupSparseIndices(const int max, int cvIndex) {
 
 }
 
+// TODO take out?
 void AbstractModelSpecifics::deviceInitialization() {
     // Do nothing
 }
 
+// TODO take out?
 void AbstractModelSpecifics::initialize(
 		int iN,
 		int iK,
@@ -691,6 +457,4 @@ void AbstractModelSpecifics::initialize(
 
 }
 
-=======
->>>>>>> master
 } // namespace
