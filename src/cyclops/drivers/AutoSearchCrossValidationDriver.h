@@ -15,7 +15,7 @@ namespace bsccs {
 class AutoSearchCrossValidationDriver : public AbstractCrossValidationDriver {
 public:
 	AutoSearchCrossValidationDriver(
-			const AbstractModelData& modelData,
+			const ModelData& modelData,
 			const CCDArguments& arguments,
 			loggers::ProgressLoggerPtr _logger,
 			loggers::ErrorHandlerPtr _error,
@@ -50,7 +50,7 @@ protected:
 // 	std::vector<double> gridPoint;
 // 	std::vector<double> gridValue;
 
-	const AbstractModelData& modelData;
+	const ModelData& modelData;
 // 	double maxPoint;
 // 	int gridSize;
 // 	double lowerLimit;
@@ -58,7 +58,7 @@ protected:
 // 	std::vector<double>* weightsExclude;
 	double maxSteps;
 
-	virtual MaxPoint doCrossValidationLoop(
+	virtual std::vector<double> doCrossValidationLoop(
 			CyclicCoordinateDescent& ccd,
 			AbstractSelector& selector,
 			const CCDArguments& arguments,

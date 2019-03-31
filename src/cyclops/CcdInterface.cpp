@@ -72,6 +72,7 @@ namespace bsccs {
 // using namespace TCLAP;
 using namespace std;
 
+//Sushil:Implementing gettimeofday functionality for windows.
 #ifdef _MSC_VER
 	#if defined(_MSC_VER) || defined(_MSC_EXTENSIONS)
 		#define DELTA_EPOCH_IN_MICROSECS  11644473600000000Ui64
@@ -186,7 +187,7 @@ void CcdInterface::setDefaultArguments(void) {
 }
 
 double CcdInterface::initializeModel(
-		AbstractModelData** modelData,
+		ModelData** modelData,
 		CyclicCoordinateDescent** ccd,
 		AbstractModelSpecifics** model) {
 
@@ -209,7 +210,7 @@ std::string CcdInterface::getPathAndFileName(const CCDArguments& arguments, std:
 	return fileName;
 }
 
-double CcdInterface::predictModel(CyclicCoordinateDescent *ccd, AbstractModelData *modelData) {
+double CcdInterface::predictModel(CyclicCoordinateDescent *ccd, ModelData *modelData) {
 
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
@@ -259,7 +260,7 @@ struct OptimizationProfile {
 	bool includePenalty;
 };
 
-double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelData *modelData,
+double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
 		const ProfileVector& profileCI, ProfileInformationMap& profileMap,
 		int inThreads, double threshold,
 		bool overrideNoRegularization, bool includePenalty) {
@@ -408,13 +409,13 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 
 			if (arguments.noiseLevel >= NOISY) {
 	            std::ostringstream stream;
-				stream << "Profile: " << modelData->getColumnLabel(index) << " (" << lowerPt << ", "
+				stream << "Profile: " << modelData->getColumn(index).getLabel() << " (" << lowerPt << ", "
 						<< upperPt << ")  in " << evals;
 				logger->writeLine(stream);
 			}
 
 			ProfileInformation profile(lowerPt, upperPt, evals);
-			profileMap.insert(std::pair<IdType, ProfileInformation>(modelData->getColumnNumericalLabel(index), profile));
+			profileMap.insert(std::pair<IdType, ProfileInformation>(modelData->getColumn(index).getNumericalLabel(), profile));
 
 			// std::cerr << "Placing " << profileCI[index] << " with " << profile.lower95Bound << std::endl;
 
@@ -524,7 +525,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	return calculateSeconds(time1, time2);
 }
 
-double CcdInterface::diagnoseModel(CyclicCoordinateDescent *ccd, AbstractModelData *modelData,
+double CcdInterface::diagnoseModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
 		double loadTime,
 		double updateTime) {
 
@@ -537,7 +538,7 @@ double CcdInterface::diagnoseModel(CyclicCoordinateDescent *ccd, AbstractModelDa
 	return calculateSeconds(time1, time2);
 }
 
-double CcdInterface::logModel(CyclicCoordinateDescent *ccd, AbstractModelData *modelData,
+double CcdInterface::logModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
 	    ProfileInformationMap& profileMap, bool withASE) {
 
 	struct timeval time1, time2;
@@ -595,7 +596,7 @@ SelectorType CcdInterface::getDefaultSelectorTypeOrOverride(SelectorType selecto
 
 double CcdInterface::runBoostrap(
 		CyclicCoordinateDescent *ccd,
-		AbstractModelData *modelData,
+		ModelData *modelData,
 		std::vector<double>& savedBeta) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
@@ -631,30 +632,15 @@ double CcdInterface::runFitMLEAtMode(CyclicCoordinateDescent* ccd) {
 	return calculateSeconds(time1, time2);
 }
 
-double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractModelData *modelData) {
+double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, ModelData *modelData) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
 	auto selectorType = getDefaultSelectorTypeOrOverride(
 		arguments.crossValidation.selectorType, modelData->getModelType());
 
-	// Get possible weights
-	std::vector<double> weights = ccd->getWeights();
-
-	bool useWeights = false;
-	for (auto& w : weights) {
-		if (w != 1.0) {
-			useWeights = true;
-			break;
-		}
-	}
-
-	CrossValidationSelector selector(arguments.crossValidation.fold,
-	 		modelData->getPidVectorSTL(),
-			selectorType, arguments.seed, logger, error,
-			nullptr,
-			(useWeights ? &weights : nullptr)
-			); // TODO ERROR HERE!  NOT ALL MODELS ARE SUBJECT
+	CrossValidationSelector selector(arguments.crossValidation.fold, modelData->getPidVectorSTL(),
+			selectorType, arguments.seed, logger, error); // TODO ERROR HERE!  NOT ALL MODELS ARE SUBJECT
 
 	AbstractCrossValidationDriver* driver;
 	if (arguments.crossValidation.useAutoSearchCV) {

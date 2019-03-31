@@ -1,8 +1,6 @@
 library("testthat")
 library("ffbase")
 
-context("test-isSorted.R")
-
 test_that("isSorted data.frame", {
   x <- data.frame(a = runif(1000),b = runif(1000))
   x <- round(x,digits=2)

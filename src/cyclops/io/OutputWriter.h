@@ -28,7 +28,7 @@ public:
 namespace OutputHelper {
 struct NoMissingPolicy {
 	// No API at moment
-	bool isMissing(double value) {
+	bool isMissing(real value) {
 		return false;
 	}
 
@@ -144,7 +144,7 @@ private:
 template <typename DerivedFormat, typename Missing = OutputHelper::NoMissingPolicy>
 class BaseOutputWriter : public OutputWriter, Missing {
 public:
-	BaseOutputWriter(CyclicCoordinateDescent& _ccd, const AbstractModelData& _data) :
+	BaseOutputWriter(CyclicCoordinateDescent& _ccd, const ModelData& _data) :
 		OutputWriter(), ccd(_ccd), data(_data), delimitor(","), endl("\n") {
 		// Do nothing
 	}
@@ -210,7 +210,7 @@ protected:
 	}
 
 	CyclicCoordinateDescent& ccd;
-	const AbstractModelData& data;
+	const ModelData& data;
 	string delimitor;
 	string endl;
 };
@@ -220,7 +220,7 @@ protected:
 
 class DiagnosticsOutputWriter : public BaseOutputWriter<DiagnosticsOutputWriter> {
 public:
-	DiagnosticsOutputWriter(CyclicCoordinateDescent& ccd, const AbstractModelData& data) :
+	DiagnosticsOutputWriter(CyclicCoordinateDescent& ccd, const ModelData& data) :
 		BaseOutputWriter<DiagnosticsOutputWriter>(ccd, data) {
 		// Do nothing
 	}
@@ -274,9 +274,6 @@ public:
 		out.addMetaKey("prior_info").addMetaValue(priorInfo);
 		out.addMetaKey("variance").addMetaValue(hyperParameter);
 		out.addMetaKey("covariate_count").addMetaValue(covariateCount);
-		out.addMetaKey("cross_validation").addMetaValue(
-		    ccd.getCrossValidationInfo()
-		);
 
 		for (ExtraInformationVector::const_iterator it = extraInfoVector.begin();
 			it != extraInfoVector.end(); ++it) {
@@ -298,7 +295,7 @@ private:
 
 class PredictionOutputWriter : public BaseOutputWriter<PredictionOutputWriter> {
 public:
-	PredictionOutputWriter(CyclicCoordinateDescent& ccd, const AbstractModelData& data) :
+	PredictionOutputWriter(CyclicCoordinateDescent& ccd, const ModelData& data) :
 		BaseOutputWriter<PredictionOutputWriter>(ccd, data) {
 		// Do nothing
 	}
@@ -353,7 +350,7 @@ private:
 
 class EstimationOutputWriter : public BaseOutputWriter<EstimationOutputWriter> {
 public:
-	EstimationOutputWriter(CyclicCoordinateDescent& ccd, const AbstractModelData& data) :
+	EstimationOutputWriter(CyclicCoordinateDescent& ccd, const ModelData& data) :
 		BaseOutputWriter<EstimationOutputWriter>(ccd, data), withProfileBounds(false) {
 		// Do nothing
 	}
@@ -399,7 +396,7 @@ public:
 	template <typename Stream>
 	void writeRow(Stream& out, OutputHelper::RowInformation& rowInfo) {
 	    if (rowInfo.currentRow > 0 || !data.getHasOffsetCovariate()) {
-            out.addValue(data.getColumnNumericalLabel(rowInfo.currentRow)).addDelimitor();
+            out.addValue(data.getColumn(rowInfo.currentRow).getNumericalLabel()).addDelimitor();
             out.addValue(ccd.getBeta(rowInfo.currentRow));
             if (withProfileBounds && informationList[rowInfo.currentRow].defined) {
                 // TODO Delegate to friend of ProfileInformation

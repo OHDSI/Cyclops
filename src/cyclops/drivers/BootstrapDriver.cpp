@@ -22,11 +22,11 @@ using std::ostream_iterator;
 
 BootstrapDriver::BootstrapDriver(
 		int inReplicates,
-		AbstractModelData* inModelData,
+		ModelData* inModelData,
 		loggers::ProgressLoggerPtr _logger,
 		loggers::ErrorHandlerPtr _error
 		) : AbstractDriver(_logger, _error), replicates(inReplicates), modelData(inModelData),
-		J(inModelData->getNumberOfCovariates()) {
+		J(inModelData->getNumberOfColumns()) {
 
 	// Set-up storage for bootstrap estimates
 	estimates.resize(J);
@@ -94,7 +94,7 @@ void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<doub
 	}
 
 	for (int j = 0; j < J; ++j) {
-		outLog << modelData->getColumnLabel(j) <<
+		outLog << modelData->getColumn(j).getLabel() <<
 			sep << conditionId << sep;
 		if (arguments.reportRawEstimates) {
 			ostream_iterator<double> output(outLog, sep.c_str());

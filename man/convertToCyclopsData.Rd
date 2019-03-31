@@ -8,17 +8,15 @@
 \usage{
 convertToCyclopsData(outcomes, covariates, modelType = "lr",
   addIntercept = TRUE, checkSorting = TRUE, checkRowIds = TRUE,
-  normalize = NULL, quiet = FALSE, floatingPoint = 64)
+  normalize = NULL, quiet = FALSE)
 
-\method{convertToCyclopsData}{ffdf}(outcomes, covariates,
-  modelType = "lr", addIntercept = TRUE, checkSorting = TRUE,
-  checkRowIds = TRUE, normalize = NULL, quiet = FALSE,
-  floatingPoint = 64)
+\method{convertToCyclopsData}{ffdf}(outcomes, covariates, modelType = "lr",
+  addIntercept = TRUE, checkSorting = TRUE, checkRowIds = TRUE,
+  normalize = NULL, quiet = FALSE)
 
 \method{convertToCyclopsData}{data.frame}(outcomes, covariates,
   modelType = "lr", addIntercept = TRUE, checkSorting = TRUE,
-  checkRowIds = TRUE, normalize = NULL, quiet = FALSE,
-  floatingPoint = 64)
+  checkRowIds = TRUE, normalize = NULL, quiet = FALSE)
 }
 \arguments{
 \item{outcomes}{A data frame or ffdf object containing the outcomes with predefined columns (see below).}
@@ -36,8 +34,6 @@ convertToCyclopsData(outcomes, covariates, modelType = "lr",
 \item{normalize}{String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)}
 
 \item{quiet}{If true, (warning) messages are surpressed.}
-
-\item{floatingPoint}{Specified floating-point representation size (32 or 64)}
 }
 \value{
 An object of type cyclopsData
@@ -53,7 +49,6 @@ These columns are expected in the outcome object:
   \verb{y}    \tab(real) \tab The outcome variable \cr
   \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
                  \tab        \tab(e.g. number of days) \cr
-  \verb{weight} \tab(real) \tab Non-negative weight to apply to outcome
 }
 
 These columns are expected in the covariates object:

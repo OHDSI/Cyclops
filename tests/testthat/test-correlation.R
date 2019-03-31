@@ -1,8 +1,6 @@
 library("testthat")
 library("survival")
 
-context("test-correlation.R")
-
 #
 # Small Poisson MLE regression
 #

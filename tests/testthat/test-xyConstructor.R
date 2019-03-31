@@ -1,8 +1,5 @@
-library("testthat")
-library("survival")
-
-context("test-xyConstructor.R")
-suppressWarnings(RNGversion("3.5.0"))
+library(testthat)
+library(survival)
 
 #
 # Tests for the XY constructor of ModelData
@@ -212,7 +209,7 @@ test_that("Test COO-constructor", {
 
 test_that("Data errors and casting in COO-constructor", {
     dataPtr <- createSqlCyclopsData(modelType = "lr")
-    expect_error(loadNewSeqlCyclopsDataMultipleX(dataPtr, c(1,1), c(1,1), NULL))
+    expect_error(loadNewSeqlCyclopsDataMultipleX(dataPtr, c(1,1), c(1,1), NULL), "1 - 1")
 
     loadNewSeqlCyclopsDataMultipleX(dataPtr, c(2,2), c(1,2), c(1,1))
     expect_equal(as.character(summary(dataPtr)[2,"type"]), "indicator")

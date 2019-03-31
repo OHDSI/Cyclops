@@ -15,7 +15,16 @@
 #include "priors/JointPrior.h"
 #include "io/ProgressLogger.h"
 
+#pragma GCC diagnostic push
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
+#pragma GCC diagnostic ignored "-Wpragmas"
+#endif
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
+#pragma GCC diagnostic ignored "-Wignored-attributes" // To keep C++14 quiet
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <Eigen/Dense>
+#pragma GCC diagnostic pop
+
 #include <deque>
 
 #include "Types.h"
@@ -49,21 +58,21 @@ public:
 	typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 
 	CyclicCoordinateDescent(
-			const AbstractModelData& modelData,
+			const ModelData& modelData,
 			AbstractModelSpecifics& specifics,
 			priors::JointPriorPtr prior,
 			loggers::ProgressLoggerPtr logger,
 			loggers::ErrorHandlerPtr error
 		);
 
-	// CyclicCoordinateDescent(
-	// 		int inN,
-	// 		CompressedDataMatrix* inX,
-	// 		int* inEta,
-	// 		int* inOffs,
-	// 		int* inNEvents,
-	// 		int* inPid
-	// 	);
+	CyclicCoordinateDescent(
+			int inN,
+			CompressedDataMatrix* inX,
+			int* inEta,
+			int* inOffs,
+			int* inNEvents,
+			int* inPid
+		);
 
 	CyclicCoordinateDescent* clone();
 
@@ -73,9 +82,7 @@ public:
 
 	double getLogLikelihood(void);
 
-	//double getPredictiveLogLikelihood(double* weights);
-
-	double getNewPredictiveLogLikelihood(double* weights);
+	double getPredictiveLogLikelihood(double* weights);
 
 	void getPredictiveEstimates(double* y, double* weights) const;
 
@@ -120,8 +127,6 @@ public:
 
 	void setWeights(double* weights);
 
-	std::vector<double> getWeights();
-
 	void setLogisticRegression(bool idoLR);
 
 //	template <typename T>
@@ -135,11 +140,7 @@ public:
 
 	std::vector<double> getHyperprior(void) const;
 
-	string getPriorInfo() const;
-
-	string getCrossValidationInfo() const;
-
-	void setCrossValidationInfo(string info);
+	string getPriorInfo();
 
 	string getConditionId() const {
 		return conditionId;
@@ -203,7 +204,7 @@ protected:
 
 	AbstractModelSpecifics& modelSpecifics;
 	priors::JointPriorPtr jointPrior;
-	const AbstractModelData& hXI;
+	const ModelData& hXI;
 
 	CyclicCoordinateDescent(const CyclicCoordinateDescent& copy);
 
@@ -293,8 +294,9 @@ protected:
 
 	double ccdUpdateBeta(int index);
 
-	void mmUpdateAllBeta(std::vector<double>& allDelta,
-                         const std::vector<bool>& fixedBeta);
+
+	void mmUpdateAllBeta(std::vector<double>& allDelta);
+
 
 	double applyBounds(
 			double inDelta,
@@ -351,7 +353,7 @@ protected:
 	const int* hPid;
 
 	int** hXColumnRowIndicators; // J-vector
-
+	
 	typedef std::vector<double> DoubleVector;
 	DoubleVector hBeta;
 
@@ -398,8 +400,6 @@ protected:
 	typedef std::deque<SetBetaEntry> SetBetaContainer;
 
 	SetBetaContainer setBetaList;
-
-	string crossValidationInfo;
 
 	loggers::ProgressLoggerPtr logger;
 	loggers::ErrorHandlerPtr error;

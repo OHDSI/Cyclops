@@ -4,7 +4,6 @@
 standalone
 .csettings
 \.o$
-\.o-*$
 \.so$
 papers
 .git
@@ -24,8 +23,3 @@ docker
 config.logo
 config.status
 autom4te.cache/
-compare_versions
-Cyclops_*.tar.gz
-_pkgdown.yml
-docs
-NEWS.old

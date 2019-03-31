@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
 
 	CyclicCoordinateDescent* ccd = NULL;
 	AbstractModelSpecifics* model = NULL;
-	AbstractModelData* modelData = NULL;
+	ModelData* modelData = NULL;
 // 	CCDArguments arguments;
 	
 	CmdLineCcdInterface interface(argc, argv);
@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
 					SelectorType::BY_PID, arguments.seed,
 					bsccs::make_shared<loggers::CoutLogger>(),
 					bsccs::make_shared<loggers::CerrErrorHandler>());
-			std::vector<double> weights;
+			std::vector<bsccs::real> weights;
 			selector.getWeights(0, weights);
 			ccd->setWeights(&weights[0]);
 		}

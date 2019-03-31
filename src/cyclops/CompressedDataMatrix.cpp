@@ -16,22 +16,19 @@
 
 namespace bsccs {
 
-template <typename RealType>
-CompressedDataMatrix<RealType>::CompressedDataMatrix() : nRows(0), nCols(0), nEntries(0) {
+CompressedDataMatrix::CompressedDataMatrix() : nRows(0), nCols(0), nEntries(0) {
 	// Do nothing
 }
 
-template <typename RealType>
-CompressedDataMatrix<RealType>::~CompressedDataMatrix() {
+CompressedDataMatrix::~CompressedDataMatrix() {
 //	typedef std::vector<CompressedDataColumn*>::iterator CIterator;
 //	for (CIterator it = allColumns.begin(); it != allColumns.end(); ++it) {
 //		delete *it;
 //	}
 }
 
-template <typename RealType>
-RealType CompressedDataMatrix<RealType>::sumColumn(int column) {
-	RealType sum = 0.0;
+real CompressedDataMatrix::sumColumn(int column) {
+	real sum = 0.0;
 	if (getFormatType(column) == DENSE) {
 	    throw new std::invalid_argument("DENSE");
 // 		cerr << "Not yet implemented (DENSE)." << endl;
@@ -46,19 +43,17 @@ RealType CompressedDataMatrix<RealType>::sumColumn(int column) {
 	return sum;
 }
 
-template <typename RealType>
 struct DrugIDComparator {
 	IdType id;
 	DrugIDComparator(IdType i) : id(i) { }
-	bool operator()(const typename CompressedDataColumn<RealType>::Ptr& column) {
+	bool operator()(const CompressedDataColumn::Ptr& column) {
 		return column->getNumericalLabel() == id;
 	}
 };
 
-template <typename RealType>
-int CompressedDataMatrix<RealType>::getColumnIndexByName(IdType name) const {
+int CompressedDataMatrix::getColumnIndexByName(IdType name) const {
 
-	DrugIDComparator<RealType> cmp(name);
+	DrugIDComparator cmp(name);
 	auto found = std::find_if(
 			allColumns.begin(), allColumns.end(), cmp);
 	if (found != allColumns.end()) {
@@ -94,33 +89,27 @@ int CompressedDataMatrix<RealType>::getColumnIndexByName(IdType name) const {
 // #endif
 // }
 
-template <typename RealType>
-void CompressedDataMatrix<RealType>::convertColumnToSparse(int column) {
+void CompressedDataMatrix::convertColumnToSparse(int column) {
 	allColumns[column]->convertColumnToSparse();
 }
 
-template <typename RealType>
-void CompressedDataMatrix<RealType>::convertColumnToDense(int column) {
+void CompressedDataMatrix::convertColumnToDense(int column) {
 	allColumns[column]->convertColumnToDense(nRows);
 }
 
-template <typename RealType>
-size_t CompressedDataMatrix<RealType>::getNumberOfRows(void) const {
+size_t CompressedDataMatrix::getNumberOfRows(void) const {
 	return nRows;
 }
 
-template <typename RealType>
-size_t CompressedDataMatrix<RealType>::getNumberOfColumns(void) const {
+size_t CompressedDataMatrix::getNumberOfColumns(void) const {
 	return nCols;
 }
 
-template <typename RealType>
-size_t CompressedDataMatrix<RealType>::getNumberOfEntries(int column) const {
+size_t CompressedDataMatrix::getNumberOfEntries(int column) const {
 	return allColumns[column]->getNumberOfEntries();
 }
 
-template <typename RealType>
-size_t CompressedDataMatrix<RealType>::getNumberOfNonZeroEntries(int column) const {
+size_t CompressedDataMatrix::getNumberOfNonZeroEntries(int column) const {
     const auto type = getFormatType(column);
     if (type == INTERCEPT || type == DENSE) {
         return getNumberOfRows();
@@ -129,40 +118,34 @@ size_t CompressedDataMatrix<RealType>::getNumberOfNonZeroEntries(int column) con
     }
 }
 
-template <typename RealType>
-int* CompressedDataMatrix<RealType>::getCompressedColumnVector(int column) const {
+int* CompressedDataMatrix::getCompressedColumnVector(int column) const {
 	return allColumns[column]->getColumns();
 }
 
-template <typename RealType>
-std::vector<int>& CompressedDataMatrix<RealType>::getCompressedColumnVectorSTL(int column) const {
+std::vector<int>& CompressedDataMatrix::getCompressedColumnVectorSTL(int column) const {
 	return allColumns[column]->getColumnsVector();
 }
 
-template <typename RealType>
-RealType* CompressedDataMatrix<RealType>::getDataVector(int column) const {
+real* CompressedDataMatrix::getDataVector(int column) const {
 	return allColumns[column]->getData();
 }
 
-template <typename RealType>
-typename CompressedDataMatrix<RealType>::RealVector&
-CompressedDataMatrix<RealType>::getDataVectorSTL(int column) const {
+std::vector<real>& CompressedDataMatrix::getDataVectorSTL(int column) const {
 	return allColumns[column]->getDataVector();
 }
 
-template <typename RealType>
-FormatType CompressedDataMatrix<RealType>::getFormatType(int column) const {
+
+FormatType CompressedDataMatrix::getFormatType(int column) const {
 	return allColumns[column]->getFormatType();
 }
 
-template <typename RealType>
-void CompressedDataColumn<RealType>::fill(RealVector& values, int nRows) const {
+void CompressedDataColumn::fill(RealVector& values, int nRows) {
 	values.resize(nRows);
 	if (formatType == DENSE) {
 			values.assign(data->begin(), data->end());
 		} else {
 			bool isSparse = formatType == SPARSE;
-			values.assign(nRows, static_cast<RealType>(0));
+			values.assign(nRows, 0.0);
 			int* indicators = getColumns();
 			size_t n = getNumberOfEntries();
 			for (size_t i = 0; i < n; ++i) {
@@ -170,16 +153,14 @@ void CompressedDataColumn<RealType>::fill(RealVector& values, int nRows) const {
 				if (isSparse) {
 					values[k] = data->at(i);
 				} else {
-					values[k] = static_cast<RealType>(1.0);
+					values[k] = 1.0;
 				}
 			}
 		}
 }
 
-template <typename RealType>
-bsccs::shared_ptr<CompressedDataMatrix<RealType>>
-CompressedDataMatrix<RealType>::transpose() const {
-	auto matTranspose = bsccs::make_shared<CompressedDataMatrix<RealType>>();
+bsccs::shared_ptr<CompressedDataMatrix> CompressedDataMatrix::transpose() const {
+	auto matTranspose = bsccs::make_shared<CompressedDataMatrix>();
 // 	CompressedDataMatrix* matTranspose = new CompressedDataMatrix();
 
 	matTranspose->nRows = this->getNumberOfColumns();
@@ -225,7 +206,7 @@ CompressedDataMatrix<RealType>::transpose() const {
 		} else if (thisFormatType == INTERCEPT) {
 			int rows = getNumberOfRows();
 			for (int j = 0; j < rows; ++j) {
-				matTranspose->getColumn(j).add_data(i, 1.0);
+				matTranspose->getColumn(j).add_data(i, 1.0);			
 			}
 		} else {
 			for (size_t j = 0; j < nRows; j++) {
@@ -239,18 +220,16 @@ CompressedDataMatrix<RealType>::transpose() const {
 }
 
 // TODO Fix massive copying
-template <typename RealType>
-void CompressedDataMatrix<RealType>::addToColumnVector(int column, IntVector addEntries) const{
+void CompressedDataMatrix::addToColumnVector(int column, IntVector addEntries) const{
 	allColumns[column]->addToColumnVector(addEntries);
 }
 
-template <typename RealType>
-void CompressedDataMatrix<RealType>::removeFromColumnVector(int column, IntVector removeEntries) const{
+void CompressedDataMatrix::removeFromColumnVector(int column, IntVector removeEntries) const{
 	allColumns[column]->removeFromColumnVector(removeEntries);
 }
 
-template <typename RealType>
-void CompressedDataMatrix<RealType>::getDataRow(int row, RealType* x) const {
+
+void CompressedDataMatrix::getDataRow(int row, real* x) const {
 	for(size_t j = 0; j < nCols; j++)
 	{
 		if(this->allColumns[j]->getFormatType() == DENSE)
@@ -270,8 +249,7 @@ void CompressedDataMatrix<RealType>::getDataRow(int row, RealType* x) const {
 	}
 }
 
-template <typename RealType>
-void CompressedDataMatrix<RealType>::setNumberOfColumns(int nColumns) { // TODO Depricate?
+void CompressedDataMatrix::setNumberOfColumns(int nColumns) {
 	nCols = nColumns;
 }
 // End TODO
@@ -282,53 +260,53 @@ void CompressedDataMatrix<RealType>::setNumberOfColumns(int nColumns) { // TODO 
 //	printVector(values.data(), values.size());
 //}
 
-template <typename RealType>
-RealType CompressedDataColumn<RealType>::sumColumn(int nRows) { // TODO Depricate
+real CompressedDataColumn::sumColumn(int nRows) {
 	RealVector values;
 	fill(values, nRows);
-	return std::accumulate(values.begin(), values.end(), static_cast<RealType>(0.0));
+	return std::accumulate(values.begin(), values.end(), static_cast<real>(0.0));
 }
 
-
-template <typename RealType>
-RealType CompressedDataColumn<RealType>::squaredSumColumn(size_t n) const {
+real CompressedDataColumn::squaredSumColumn(size_t n) const {
 	if (formatType == INDICATOR) {
 		return getNumberOfEntries();
 	} else if (formatType == INTERCEPT) {
-	    return static_cast<RealType>(n);
+	    return static_cast<real>(n);
 	} else {
-		return std::inner_product( data->begin(), data->end(), data->begin(), static_cast<RealType>(0));
+		return std::inner_product( data->begin(), data->end(), data->begin(), static_cast<real>(0.0));
 	}
 }
 
-template <typename RealType>
-void CompressedDataColumn<RealType>::convertColumnToSparse(void) {
+void CompressedDataColumn::convertColumnToSparse(void) {
 	if (formatType == SPARSE) {
 		return;
 	}
 	if (formatType == DENSE) {
+// 		fprintf(stderr, "Format not yet support.\n");
+// 		exit(-1);
         throw new std::invalid_argument("DENSE");
 	}
 
 	if (data == NULL) {
+//		data = new real_vector();
         data = make_shared<RealVector>();
 	}
 
-	const RealType value = static_cast<RealType>(1);
+	const real value = 1.0;
 	data->assign(getNumberOfEntries(), value);
 	formatType = SPARSE;
 }
 
-template <typename RealType>
-void CompressedDataColumn<RealType>::convertColumnToDense(int nRows) {
+void CompressedDataColumn::convertColumnToDense(int nRows) {
 	if (formatType == DENSE) {
 		return;
 	}
 
+//	real_vector* oldData = data;
     RealVectorPtr oldData = data;
+//	data = new real_vector();
     data = make_shared<RealVector>();
 
-	data->resize(nRows, static_cast<RealType>(0));
+	data->resize(nRows, static_cast<real>(0));
 
 	int* indicators = getColumns();
 	int n = getNumberOfEntries();
@@ -338,7 +316,7 @@ void CompressedDataColumn<RealType>::convertColumnToDense(int nRows) {
 //		cerr << " " << k;
 //		nonzero++;
 
-		RealType value = (formatType == SPARSE) ? oldData->at(i) : static_cast<RealType>(1);
+		real value = (formatType == SPARSE) ? oldData->at(i) : 1.0;
 
 		data->at(k) = value;
 	}
@@ -351,8 +329,7 @@ void CompressedDataColumn<RealType>::convertColumnToDense(int nRows) {
 }
 
 // TODO Fix massive copying
-template <typename RealType>
-void CompressedDataColumn<RealType>::addToColumnVector(IntVector addEntries){
+void CompressedDataColumn::addToColumnVector(IntVector addEntries){
 	int lastit = 0;
 
 	for(int i = 0; i < (int)addEntries.size(); i++)
@@ -368,8 +345,7 @@ void CompressedDataColumn<RealType>::addToColumnVector(IntVector addEntries){
 	}
 }
 
-template <typename RealType>
-void CompressedDataColumn<RealType>::removeFromColumnVector(IntVector removeEntries){
+void CompressedDataColumn::removeFromColumnVector(IntVector removeEntries){
 	int lastit = 0;
 	IntVector::iterator it1 = removeEntries.begin();
 	IntVector::iterator it2 = columns->begin();
@@ -385,48 +361,5 @@ void CompressedDataColumn<RealType>::removeFromColumnVector(IntVector removeEntr
 		}
 	}
 }
-
-template <typename RealType>
-void CompressedDataColumn<RealType>::printMatrixMarketFormat(std::ostream& stream, const int rows, const int columnNumber) const {
-
-    if (formatType == DENSE || formatType == INTERCEPT) {
-        for (int row = 0; row < rows; ++row) {
-            double value = (formatType == DENSE) ? getDataVector()[row] : 1.0;
-            stream << (row + 1) << " " << (columnNumber + 1) << " " << value << "\n";
-        }
-    } else if (formatType == SPARSE || formatType == INDICATOR) {
-        const auto columns = getColumnsVector();
-
-        for (int i = 0; i < columns.size(); ++i) {
-            double value = (formatType == SPARSE) ? getDataVector()[i] : 1.0;
-            stream << (columns[i] + 1) << " " << (columnNumber + 1) <<  " " << value << "\n";
-        }
-    } else {
-        throw new std::invalid_argument("Unknon type");
-    }
-}
-
-template <typename RealType>
-void CompressedDataMatrix<RealType>::printMatrixMarketFormat(std::ostream& stream) const {
-
-    size_t nnz = 0;
-    for (int i = 0; i < getNumberOfColumns(); ++i) {
-        nnz += getNumberOfNonZeroEntries(i);
-    }
-
-    stream << "%%MatrixMarket matrix coordinate real general\n";
-    stream << "%\n";
-    stream << getNumberOfRows() << " " << getNumberOfColumns() << " " << nnz << "\n";
-
-    for (int col = 0; col < getNumberOfColumns(); ++col) {
-        getColumn(col).printMatrixMarketFormat(stream, getNumberOfRows(), col);
-    }
-}
-
-// Instantiate classes
-template class CompressedDataColumn<double>;
-template class CompressedDataColumn<float>;
-template class CompressedDataMatrix<double>;
-template class CompressedDataMatrix<float>;
 
 } // namespace

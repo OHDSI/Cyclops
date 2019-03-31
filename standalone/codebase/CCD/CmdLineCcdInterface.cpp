@@ -30,11 +30,11 @@
 // #include "ModelData.h"
 #include "io/InputReader.h"
 #include "io/HierarchyReader.h"
-//#include "io/CLRInputReader.h"
-//#include "io/RTestInputReader.h"
-//#include "io/CCTestInputReader.h"
-//#include "io/CoxInputReader.h"
-//#include "io/SCCSInputReader.h"
+#include "io/CLRInputReader.h"
+#include "io/RTestInputReader.h"
+#include "io/CCTestInputReader.h"
+#include "io/CoxInputReader.h"
+#include "io/SCCSInputReader.h"
 #include "io/NewCLRInputReader.h"
 #include "io/NewSCCSInputReader.h"
 #include "io/NewCoxInputReader.h"
@@ -324,7 +324,7 @@ void CmdLineCcdInterface::parseCommandLine(std::vector<std::string>& args) {
 }
 
 void CmdLineCcdInterface::initializeModelImpl(
-		AbstractModelData** modelData,
+		ModelData** modelData,
 		CyclicCoordinateDescent** ccd,
 		AbstractModelSpecifics** model) {
 	
@@ -362,17 +362,15 @@ void CmdLineCcdInterface::initializeModelImpl(
 	logger = bsccs::make_shared<loggers::CoutLogger>();
 	error = bsccs::make_shared<loggers::CerrErrorHandler>();
 	if (arguments.fileFormat == "sccs") {
-//		reader = new SCCSInputReader();
-		cerr << "Invalid file format." << endl;
-		exit(-1);
+		reader = new SCCSInputReader();
 	} else if (arguments.fileFormat == "clr") {
 		reader = new NewCLRInputReader(logger, error);
-// 	} else if (arguments.fileFormat == "csv") {
-// 		reader = new RTestInputReader();
-// 	} else if (arguments.fileFormat == "cc") {
-// 		reader = new CCTestInputReader();
-// 	} else if (arguments.fileFormat == "cox-csv") {
-// 		reader = new CoxInputReader();
+	} else if (arguments.fileFormat == "csv") {
+		reader = new RTestInputReader();
+	} else if (arguments.fileFormat == "cc") {
+		reader = new CCTestInputReader();
+	} else if (arguments.fileFormat == "cox-csv") {
+		reader = new CoxInputReader();
 	} else if (arguments.fileFormat == "bbr") {
 		reader = new BBRInputReader<NoImputation>();
 	} else if (arguments.fileFormat == "generic") {
@@ -412,8 +410,7 @@ void CmdLineCcdInterface::initializeModelImpl(
 // 			exit(-1);
 // 	}
 
-	*model = AbstractModelSpecifics::factory(modelType, **modelData,
-			DeviceType::CPU, "");
+	*model = AbstractModelSpecifics::factory(modelType, **modelData);
 	if (*model == nullptr) {
 		cerr << "Invalid model type." << endl;
 		exit(-1);
@@ -451,7 +448,7 @@ void CmdLineCcdInterface::initializeModelImpl(
 	if (arguments.flatPrior.size() == 0) {
 		prior = std::make_shared<FullyExchangeableJointPrior>(singlePrior);
 	} else {
-		const int length =  (*modelData)->getNumberOfCovariates();
+		const int length =  (*modelData)->getNumberOfColumns();
 		std::shared_ptr<MixtureJointPrior> mixturePrior = std::make_shared<MixtureJointPrior>(
 						singlePrior, length
 				);
@@ -497,14 +494,14 @@ void CmdLineCcdInterface::initializeModelImpl(
 	cout << "Everything loaded and ready to run ..." << endl;	
 }
 
-void CmdLineCcdInterface::predictModelImpl(CyclicCoordinateDescent *ccd, AbstractModelData *modelData) {
+void CmdLineCcdInterface::predictModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData) {
 
 	bsccs::PredictionOutputWriter predictor(*ccd, *modelData);
 	string fileName = getPathAndFileName(arguments, "pred_");
 	predictor.writeFile(fileName.c_str());
 }
 	    
-void CmdLineCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, AbstractModelData *modelData,
+void CmdLineCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,
 	    ProfileInformationMap& profileMap, bool withASE) {
 
 	using namespace bsccs;
@@ -515,7 +512,7 @@ void CmdLineCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, AbstractMod
 	estimates.writeFile(fileName.c_str());
 }
 
-void CmdLineCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, AbstractModelData *modelData,	
+void CmdLineCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,	
 		double loadTime,
 		double updateTime) {
 

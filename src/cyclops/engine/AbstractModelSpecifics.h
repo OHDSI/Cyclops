@@ -15,20 +15,21 @@
 
 #include "Types.h"
 #include "priors/CovariatePrior.h"
-#include "ModelData.h"
 
 namespace bsccs {
 
 typedef std::pair<double, double> GradientHessian;
 
-//class AbstractModelData; // forward declaration
+class CompressedDataMatrix;  // forward declaration
+class CompressedDataColumn; // forward declaration
+class ModelData; // forward declaration
 enum class ModelType; // forward declaration
 
-// #ifdef DOUBLE_PRECISION
-// 	typedef double real;
-// #else
-// 	typedef float real;
-// #endif
+#ifdef DOUBLE_PRECISION
+	typedef double real;
+#else
+	typedef float real;
+#endif
 
 // #define DEBUG_COX // Uncomment to get output for Cox model
 // #define DEBUG_COX_MIN
@@ -40,27 +41,26 @@ public:
 //			const std::vector<real>& y,
 //			const std::vector<real>& z);
 
-	AbstractModelSpecifics(const AbstractModelData& intput);
+	AbstractModelSpecifics(const ModelData& intput);
 
 	virtual ~AbstractModelSpecifics();
 
-	virtual void initialize(
+	void initialize(
 			int iN,
 			int iK,
 			int iJ,
-			const void* iXi,
-			// const CompressedDataMatrix<double>* iXI, // TODO Change to const&
-			double* iNumerPid,
-			double* iNumerPid2,
-			double* iDenomPid,
-			double* iXjY,
+			const CompressedDataMatrix* iXI, // TODO Change to const&
+			real* iNumerPid,
+			real* iNumerPid2,
+			real* iDenomPid,
+			real* iXjY,
 			std::vector<std::vector<int>* >* iSparseIndices,
 			const int* iPid,
-			double* iOffsExpXBeta,
-			double* iXBeta,
-			double* iOffs,
-			double* iBeta,
-			const double* iY) = 0; // pure virtual
+			real* iOffsExpXBeta,
+			real* iXBeta,
+			real* iOffs,
+			real* iBeta,
+			const real* iY);
 
 	virtual void setAlgorithmType(AlgorithmType alg);
 
@@ -73,14 +73,12 @@ public:
 
 	virtual void computeMMGradientAndHessian(std::vector<GradientHessian>& gh, const std::vector<bool>& fixBeta, bool useWeights) = 0; // pure virtual
 
-	virtual void computeNumeratorForGradient(int index, bool useWeights) = 0; // pure virtual
+	virtual void computeNumeratorForGradient(int index) = 0; // pure virtual
 
 	virtual void computeFisherInformation(int indexOne, int indexTwo,
 			double *oinfo, bool useWeights) = 0; // pure virtual
 
-	virtual void updateXBeta(double realDelta, int index, bool useWeights) = 0; // pure virtual
-
-	virtual void computeXBeta(double* beta, bool useWeights) = 0; // pure virtual
+	virtual void updateXBeta(real realDelta, int index, bool useWeights) = 0; // pure virtual
 
 	virtual void updateAllXBeta(std::vector<double>& allDelta, bool useWeights) = 0;
 
@@ -121,13 +119,13 @@ public:
 //                                                            const DeviceType deviceType);
 
 	static AbstractModelSpecifics* factory(const ModelType modelType,
-                                           const AbstractModelData& modelData,
+                                           const ModelData& modelData,
                                            const DeviceType deviceType,
                                            const std::string& deviceName);
 
-	virtual const std::vector<double> getXBeta() = 0;
+	virtual const RealVector& getXBeta() = 0;
 
-	virtual const std::vector<double> getXBetaSave() = 0;
+	virtual const RealVector& getXBetaSave() = 0;
 
 	virtual void saveXBeta() = 0;
 
@@ -191,7 +189,6 @@ public:
 	std::vector<RealVector> hXjYPool;
 	std::vector<RealVector> hXjXPool;
 	std::vector<real> logLikelihoodFixedTermPool;
-	std::vector<RealVector> normPool;
 	/*
 
 	RealVector accDenomPidPool;
@@ -250,16 +247,16 @@ protected:
 //                                            const ModelData& modelData);
 
     template <class Model, typename RealType>
-    static AbstractModelSpecifics* deviceFactory(const ModelData<RealType>& modelData,
+    static AbstractModelSpecifics* deviceFactory(const ModelData& modelData,
                                                  const DeviceType deviceType,
                                                  const std::string& deviceName);
 
     template <class Model, typename RealType, class ModelG>
-    static AbstractModelSpecifics* deviceFactory(const ModelData<RealType>& modelData,
+    static AbstractModelSpecifics* deviceFactory(const ModelData& modelData,
                                                  const DeviceType deviceType,
                                                  const std::string& deviceName);
 
-    virtual void deviceInitialization() = 0;
+    virtual void deviceInitialization();
 
 	int getAlignedLength(int N);
 
@@ -288,9 +285,15 @@ protected:
 		fillVector(vector, length, T());
 	}
 
+	//syncCV
+	template <typename RealType>
+	void setPidForAccumulation(const RealType *weights, int cvIndex);
+
+	void setupSparseIndices(const int max, int cvIndex);
 
 protected:
-//	const AbstractModelData& modelData;
+	const ModelData& modelData;
+
 // 	const std::vector<real>& oY;
 // 	const std::vector<real>& oZ;
 // 	const std::vector<int>& oPid;
@@ -298,54 +301,79 @@ protected:
 	// TODO Change to const& (is never nullptr)
 // 	const CompressedDataMatrix* hXI; // K-by-J-indicator matrix
 
+	RealVector accDenomPid;
+	RealVector accNumerPid;
+	RealVector accNumerPid2;
+
+	IntVector accReset;
+
+	const std::vector<real>& hY;
+	const std::vector<real>& hOffs;
+// 	const std::vector<int>& hPid;
+
+// 	real* hY; // K-vector
+//	real* hZ; // K-vector
+// 	real* hOffs;  // K-vector
+
+	const std::vector<int>& hPidOriginal;
+	int* hPid;
+	std::vector<int> hPidInternal;
+
+//	int** hXColumnRowIndicators; // J-vector
+
+//	real* hBeta;
+// 	real* hXBeta;
+// 	real* hXBetaSave;
+
 	AlgorithmType algorithmType;
 
 	bool useLogSum;
 
-	// RealVector accDenomPid;
-	// RealVector accNumerPid;
-	// RealVector accNumerPid2;
+	//RealVector hBeta;
+	RealVector hXBeta; // TODO Delegate to ModelSpecifics
+	RealVector hXBetaSave; // Delegate
+	RealVector norm;
 
-	std::vector<int> accReset;
+	std::vector<RealVector> normPool;
 
-// 	const std::vector<real>& hY;
-// 	const std::vector<real>& hOffs;
-// // 	const std::vector<int>& hPid;
-
-	const std::vector<int>& hPidOriginal;
-	int* hPid;
-	size_t hPidSize;
-	std::vector<int> hPidInternal;
-
-	// RealVector hXBeta; // TODO Delegate to ModelSpecifics
-	// RealVector hXBetaSave; // Delegate
-	// RealVector norm
+//	real* hDelta;
 
 	size_t N; // Number of patients
 	size_t K; // Number of exposure levels
 	size_t J; // Number of drugs
 
-	// RealVector offsExpXBeta;
-	// RealVector denomPid;
-	// RealVector denomPid2;
-	// RealVector numerPid;
-	// RealVector numerPid2;
-	//
-	// RealVector hXjY;
-	// RealVector hXjX;
-	// RealType logLikelihoodFixedTerm;
+//	real* expXBeta;
+//	real* offsExpXBeta;
+	RealVector offsExpXBeta;
+
+// 	RealVector numerDenomPidCache;
+// 	real* denomPid; // all nested with a single cache
+// 	real* numerPid;
+// 	real* numerPid2;
+
+	RealVector denomPid;
+	RealVector denomPid2;
+	RealVector numerPid;
+	RealVector numerPid2;
+
+
+//	real* xOffsExpXBeta;
+//	real* hXjY;
+	RealVector hXjY;
+	RealVector hXjX;
+	real logLikelihoodFixedTerm;
 
 	typedef std::vector<int> IndexVector;
 	typedef bsccs::shared_ptr<IndexVector> IndexVectorPtr;
 
 	std::vector<IndexVectorPtr> sparseIndices; // TODO in c++11, are pointers necessary?
 
-	typedef std::map<int, std::vector<double> > HessianMap;
+	typedef std::map<int, std::vector<real> > HessianMap;
 	HessianMap hessianCrossTerms;
 
-    // typedef bsccs::shared_ptr<CompressedDataColumn> CDCPtr;
-	// typedef std::map<int, CDCPtr> HessianSparseMap;
-	// HessianSparseMap hessianSparseCrossTerms;
+    typedef bsccs::shared_ptr<CompressedDataColumn> CDCPtr;
+	typedef std::map<int, CDCPtr> HessianSparseMap;
+	HessianSparseMap hessianSparseCrossTerms;
 
 	typedef std::vector<int> TimeTie;
 	std::vector<TimeTie> ties;
@@ -353,13 +381,14 @@ protected:
 	std::vector<int> beginTies;
 	std::vector<int> endTies;
 
-	// typedef bsccs::shared_ptr<CompressedDataMatrix> CdmPtr;
+	typedef bsccs::shared_ptr<CompressedDataMatrix> CdmPtr;
 
-	// CdmPtr hXt;
+	CdmPtr hXt;
 	const MmBoundType boundType;
 	std::vector<double> curvature;
 
 	std::vector<std::vector<IndexVectorPtr>> sparseIndicesPool; // TODO in c++11, are pointers necessary?
+
 };
 
 typedef bsccs::shared_ptr<AbstractModelSpecifics> ModelSpecificsPtr;

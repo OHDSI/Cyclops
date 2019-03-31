@@ -26,7 +26,7 @@
 namespace bsccs {
 
     class CyclicCoordinateDescent; // forward declaration
-    class AbstractModelData;
+    class ModelData;
     class AbstractModelSpecifics;
 
 struct CrossValidationArguments {
@@ -158,7 +158,7 @@ public:
     virtual ~CcdInterface();
 
     double initializeModel(
-            AbstractModelData** modelData,
+            ModelData** modelData,
             CyclicCoordinateDescent** ccd,
             AbstractModelSpecifics** model);
 
@@ -170,11 +170,11 @@ public:
 
     double predictModel(
             CyclicCoordinateDescent *ccd,
-            AbstractModelData *modelData);
+            ModelData *modelData);
 
     double profileModel(
             CyclicCoordinateDescent *ccd,
-            AbstractModelData *modelData,
+            ModelData *modelData,
             const ProfileVector& profileCI,
             ProfileInformationMap &profileMap,
             int threads,
@@ -184,11 +184,11 @@ public:
 
     double runCrossValidation(
             CyclicCoordinateDescent *ccd,
-            AbstractModelData *modelData);
+            ModelData *modelData);
 
     double runBoostrap(
             CyclicCoordinateDescent *ccd,
-            AbstractModelData *modelData,
+            ModelData *modelData,
             std::vector<double>& savedBeta);
 
     void setDefaultArguments();
@@ -196,13 +196,13 @@ public:
     void setZeroBetaAsFixed(
             CyclicCoordinateDescent *ccd);
 
-    double logModel(CyclicCoordinateDescent *ccd, AbstractModelData *modelData,
+    double logModel(CyclicCoordinateDescent *ccd, ModelData *modelData,
             ProfileInformationMap &profileMap,
             bool withProfileBounds);
 
     double diagnoseModel(
             CyclicCoordinateDescent *ccd,
-            AbstractModelData *modelData,
+            ModelData *modelData,
             double loadTime,
             double updateTime);
 
@@ -226,21 +226,21 @@ protected:
     CCDArguments arguments;
 
     virtual void initializeModelImpl(
-            AbstractModelData** modelData,
+            ModelData** modelData,
             CyclicCoordinateDescent** ccd,
             AbstractModelSpecifics** model) = 0;
 
     virtual void predictModelImpl(
             CyclicCoordinateDescent *ccd,
-            AbstractModelData *modelData) = 0;
+            ModelData *modelData) = 0;
 
-    virtual void logModelImpl(CyclicCoordinateDescent *ccd, AbstractModelData *modelData,
+    virtual void logModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,
             ProfileInformationMap &profileMap,
             bool withProfileBounds) = 0;
 
     virtual void diagnoseModelImpl(
             CyclicCoordinateDescent *ccd,
-            AbstractModelData *modelData,
+            ModelData *modelData,
     		double loadTime,
     		double updateTime) = 0;
 

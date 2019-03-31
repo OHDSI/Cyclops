@@ -33,7 +33,7 @@ class HierarchyReader {
 public:
 	HierarchyReader();
 
-	HierarchyReader(const char* fileName, AbstractModelData* modelData);
+	HierarchyReader(const char* fileName, ModelData* modelData);
 
 	HierarchicalChildMap returnGetChildMap();
 

@@ -18,7 +18,6 @@
 #include "io/OutputWriter.h"
 #include "RcppOutputHelper.h"
 #include "RcppProgressLogger.h"
-#include "priors/NewCovariatePrior.h"
 
 // Rcpp export code
 
@@ -140,18 +139,7 @@ double cyclopsGetPredictiveLogLikelihood(SEXP inRcppCcdInterface,
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
-    // return interface->getCcd().getPredictiveLogLikelihood(&weights[0]);
-    Rcpp::stop("No longer implemented");
-    return 0.0;
-}
-
-// [[Rcpp::export(".cyclopsGetNewPredictiveLogLikelihood")]]
-double cyclopsGetNewPredictiveLogLikelihood(SEXP inRcppCcdInterface,
-                                         NumericVector& weights) {
-    using namespace bsccs;
-    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
-
-    return interface->getCcd().getNewPredictiveLogLikelihood(&weights[0]);
+    return interface->getCcd().getPredictiveLogLikelihood(&weights[0]);
 }
 
 // [[Rcpp::export(".cyclopsGetLogLikelihood")]]
@@ -180,7 +168,7 @@ Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP 
 	        indices.push_back(index);
 	    }
 	} else {
-		for (size_t index = 0; index < interface->getModelData().getNumberOfCovariates(); ++index) {
+		for (size_t index = 0; index < interface->getModelData().getNumberOfColumns(); ++index) {
 			indices.push_back(index);
 		}
 	}
@@ -231,96 +219,6 @@ void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& pr
  	}
 
     interface->setPrior(priorTypeName, variance, exclude, map, neighborhood);
-}
-
-#include "priors/PriorFunction.h"
-
-class RcppPriorFunction : public bsccs::priors::PriorFunction {
-public:
-    using bsccs::priors::PriorFunction::ResultSet;
-    using bsccs::priors::PriorFunction::Evaluation;
-
-    RcppPriorFunction(Rcpp::Function function, const std::vector<double>& startingParameters) :
-        PriorFunction(startingParameters), function(function) {
-        // Do nothing
-    }
-
-protected:
-
-    ResultSet execute(const Arguments& arguments) const {
-        // std::cerr << "execute()" << std::endl;
-        ResultSet results;
-
-        lock.lock();
-        const auto list = as<List>(function(arguments));
-        lock.unlock();
-
-        for (int i = 0; i < list.size(); ++i) {
-            results.emplace_back(as<Evaluation>(list[i]));
-        }
-
-        return results;
-    }
-
-private:
-    Rcpp::Function function;
-    mutable bsccs::mutex lock;
-};
-
-// [[Rcpp::export(".cyclopsTestParameterizedPrior")]]
-Rcpp::List cyclopsTestParameterizedPrior(Rcpp::Function& priorFunction,
-                                   const std::vector<double>& startingParameters,
-                                   const std::vector<int>& indices,
-                                   const std::vector<double>& values) {
-    RcppPriorFunction func(priorFunction, startingParameters);
-
-    std::ostringstream stream;
-
-    std::vector<int> valid;
-    std::vector<std::vector<double>> evaluation;
-
-    if (indices.size() != values.size()) {
-        Rcpp::stop("Noncomforming test vectors");
-    }
-
-    auto parameter = func.getVarianceParameters();
-
-    for (int i = 0;i < indices.size(); ++i) {
-
-        if (indices[i] > 0) {
-           parameter[indices[i] - 1].set(values[i]);
-        }
-
-        valid.push_back(func.isValid());
-        evaluation.push_back(func(0));
-    }
-
-    return List::create(
-        Rcpp::Named("valid") = valid,
-        Rcpp::Named("evaluation") = evaluation
-    );
-}
-
-// [[Rcpp::export(".cyclopsSetParameterizedPrior")]]
-void cyclopsSetParameterizedPrior(SEXP inRcppCcdInterface,
-                                  const std::vector<std::string>& priorTypeName,
-                                  Rcpp::Function& priorFunction,
-                                  const std::vector<double>& startingParameters,
-                                  SEXP excludeNumeric) {
-    using namespace bsccs;
-    using namespace bsccs::priors;
-
-    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
-
-    ProfileVector exclude;
-    if (!Rf_isNull(excludeNumeric)) {
-        exclude = as<ProfileVector>(excludeNumeric);
-    }
-
-    PriorFunctionPtr abstractFunc = bsccs::make_shared<RcppPriorFunction>(
-        as<Function>(priorFunction), startingParameters);
-
-    interface->setParameterizedPrior(priorTypeName, abstractFunc, exclude);
 }
 
 // [[Rcpp::export(".cyclopsProfileModel")]]
@@ -483,7 +381,7 @@ List cyclopsLogModel(SEXP inRcppCcdInterface) {
 	std::vector<double> values;
     auto index = data.getHasOffsetCovariate() ? 1 : 0;
     for ( ; index < ccd.getBetaSize(); ++index) {
-        labels.push_back(data.getColumnNumericalLabel(index));
+        labels.push_back(data.getColumn(index).getNumericalLabel());
         values.push_back(ccd.getBeta(index));
     }
 
@@ -526,7 +424,7 @@ List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, cons
                             bool computeMLE = false) {
 	using namespace bsccs;
 
-	XPtr<AbstractModelData> rcppModelData(inModelData);
+	XPtr<RcppModelData> rcppModelData(inModelData);
 	XPtr<RcppCcdInterface> interface(
 		new RcppCcdInterface(*rcppModelData));
 
@@ -580,8 +478,6 @@ bsccs::ConvergenceType RcppCcdInterface::parseConvergenceType(const std::string&
 		type = MITTAL;
 	} else if (convergenceName == "zhang") {
 		type = ZHANG_OLES;
-	} else if (convergenceName == "onestep") {
-	    type = ONE_STEP;
 	} else {
 		handleError("Invalid convergence type.");
 	}
@@ -612,8 +508,6 @@ bsccs::priors::PriorType RcppCcdInterface::parsePriorType(const std::string& pri
 		priorType = LAPLACE;
 	} else if (priorName == "normal") {
 		priorType = NORMAL;
-	} else if (priorName == "barupdate") {
-	    priorType = BAR_UPDATE;
 	} else {
  		handleError("Invalid prior type.");
  	}
@@ -686,39 +580,6 @@ void RcppCcdInterface::setNoiseLevel(bsccs::NoiseLevels noiseLevel) {
     logger->setSilent(noiseLevel == bsccs::NoiseLevels::SILENT);
 }
 
-void RcppCcdInterface::setParameterizedPrior(const std::vector<std::string>& priorName,
-                             bsccs::priors::PriorFunctionPtr& priorFunctionPtr,
-                             const ProfileVector& flatPrior) {
-    auto prior = makePrior(priorName, priorFunctionPtr, flatPrior);
-    ccd->setPrior(prior);
-}
-
-priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>& priorName,
-                                                  bsccs::priors::PriorFunctionPtr& priorFunctionPtr,
-                                                  const ProfileVector& flatPrior) {
-
-    const auto dataLength = modelData->getNumberOfCovariates();
-
-    const auto resultsLength = priorFunctionPtr->getMaxIndex();
-
-    if ((dataLength != resultsLength) ||
-        (priorName.size() != 1 && priorName.size() != dataLength)) {
-        Rcpp::stop("Wrong prior dimensions");
-    }
-
-    auto first = bsccs::priors::makePrior(parsePriorType(priorName[0]),
-                                          priorFunctionPtr, 0);
-    auto prior = bsccs::make_shared<bsccs::priors::MixtureJointPrior>(first, dataLength);
-
-    for (size_t i = 1; i < dataLength; ++i) {
-        auto columnPrior = bsccs::priors::makePrior(parsePriorType(priorName[i]),
-                                                    priorFunctionPtr, i);
-        prior->changePrior(columnPrior, i);
-    }
-
-    return prior;
-}
-
 void RcppCcdInterface::setPrior(const std::vector<std::string>& basePriorName, const std::vector<double>& baseVariance,
 		const ProfileVector& flatPrior, const HierarchicalChildMap& map, const NeighborhoodMap& neighborhood) {
 	using namespace bsccs::priors;
@@ -731,7 +592,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
 		const ProfileVector& flatPrior, const HierarchicalChildMap& hierarchyMap, const NeighborhoodMap& neighborhood) {
 	using namespace bsccs::priors;
 
-    const size_t length = modelData->getNumberOfCovariates();
+    const int length = modelData->getNumberOfColumns();
 
  	if (   flatPrior.size() == 0
  	    && hierarchyMap.size() == 0
@@ -742,7 +603,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
         auto first = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[0]), baseVariance[0]);
         auto prior = bsccs::make_shared<MixtureJointPrior>(first, length);
 
-        for (size_t i = 1; i < length; ++i) {
+        for (int i = 1; i < length; ++i) {
             auto columnPrior = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[i]), baseVariance[i]);
             prior->changePrior(columnPrior, i);
         }
@@ -783,7 +644,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
             prior = hPrior;
 	 	}
  	} else {
- 		const int length =  modelData->getNumberOfCovariates();
+ 		const int length =  modelData->getNumberOfColumns();
  		bsccs::shared_ptr<MixtureJointPrior> mixturePrior = bsccs::make_shared<MixtureJointPrior>(
  						singlePrior, length
  				);
@@ -848,7 +709,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
 }
 // TODO Massive code duplicate (to remove) with CmdLineCcdInterface
 void RcppCcdInterface::initializeModelImpl(
-		AbstractModelData** modelData,
+		ModelData** modelData,
 		CyclicCoordinateDescent** ccd,
 		AbstractModelSpecifics** model) {
 
@@ -939,7 +800,7 @@ void RcppCcdInterface::initializeModelImpl(
 
 }
 
-void RcppCcdInterface::predictModelImpl(CyclicCoordinateDescent *ccd, AbstractModelData *modelData) {
+void RcppCcdInterface::predictModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData) {
 
 // 	bsccs::PredictionOutputWriter predictor(*ccd, *modelData);
 //
@@ -968,7 +829,7 @@ void RcppCcdInterface::predictModelImpl(CyclicCoordinateDescent *ccd, AbstractMo
 
 }
 
-void RcppCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, AbstractModelData *modelData,
+void RcppCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,
 	    ProfileInformationMap& profileMap, bool withASE) {
 
  		// TODO Move into super-class
@@ -981,7 +842,7 @@ void RcppCcdInterface::logModelImpl(CyclicCoordinateDescent *ccd, AbstractModelD
   	estimates.writeStream(out);
 }
 
-void RcppCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, AbstractModelData *modelData,
+void RcppCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, ModelData *modelData,
 		double loadTime,
 		double updateTime) {
 
@@ -991,7 +852,7 @@ void RcppCcdInterface::diagnoseModelImpl(CyclicCoordinateDescent *ccd, AbstractM
   	diagnostics.writeStream(test);
 }
 
-RcppCcdInterface::RcppCcdInterface(AbstractModelData& _rcppModelData)
+RcppCcdInterface::RcppCcdInterface(RcppModelData& _rcppModelData)
 	: rcppModelData(_rcppModelData), modelData(NULL), ccd(NULL), modelSpecifics(NULL) {
 	arguments.noiseLevel = SILENT; // Change default value from command-line version
 }

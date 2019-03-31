@@ -41,8 +41,8 @@ void AbstractCrossValidationDriver::resetForOptimal(
 
 	ccd.setWeights(NULL);
 
-    for (int i = 0; i < maxPoint.point.size(); ++i) {
-	    ccd.setHyperprior(i, maxPoint.point[i]);
+    for (int i = 0; i < maxPoint.size(); ++i) {
+	    ccd.setHyperprior(i, maxPoint[i]);
     }
 	ccd.resetBeta(); // Cold-start
 }
@@ -123,27 +123,22 @@ void AbstractCrossValidationDriver::drive(
 
 	// Report results
 	std::ostringstream stream1;
-	std::ostringstream report;
 	stream1 << std::endl;
-	stream1 << "Maximum predicted log likelihood (" << maxPoint.value << ") estimated at:" << std::endl;
-	report << maxPoint.value;
+	stream1 << "Maximum predicted log likelihood estimated at:" << std::endl;
 	stream1 << "\t";
-	for (int i = 0; i < maxPoint.point.size(); ++i) {
-	    stream1 << maxPoint.point[i] << " ";
-	    report << " " << maxPoint.point[i];
+	for (int i = 0; i < maxPoint.size(); ++i) {
+	    stream1 << maxPoint[i] << " ";
 	}
 	stream1 << "(variance)" << std::endl;
 	if (!allArguments.useNormalPrior) {
 	    stream1 << "\t";
-	    for (int i = 0; i < maxPoint.point.size(); ++i) {
-		    double lambda = convertVarianceToHyperparameter(maxPoint.point[i]);
+	    for (int i = 0; i < maxPoint.size(); ++i) {
+		    double lambda = convertVarianceToHyperparameter(maxPoint[i]);
 	        stream1 << lambda << " ";
 	    }
 		stream1 << "(lambda)" << std::endl;
 	}
 	logger->writeLine(stream1);
-
-	ccd.setCrossValidationInfo(report.str());
 }
 
 double AbstractCrossValidationDriver::doCrossValidationStep(
@@ -363,7 +358,7 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 						}
 					}
 
-					double logLikelihood = ccdTask->getNewPredictiveLogLikelihood(&weights[0]);
+					double logLikelihood = ccdTask->getPredictiveLogLikelihood(&weights[0]);
 
 					// Store value
 					stream << logLikelihood;
