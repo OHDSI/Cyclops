@@ -496,6 +496,8 @@ public:
     		kernel.set_arg(6, cvIndexStride);
     		kernel.set_arg(7, cvBlockSize);
     		kernel.set_arg(8, syncCVFolds);
+    		int dK = K;
+    		kernel.set_arg(9, dK);
     		//kernel.set_arg(9, dDenomPid2Vector);
 
     		int loops = syncCVFolds / cvBlockSize;
@@ -504,12 +506,21 @@ public:
     		}
 
     		size_t globalWorkSize[2];
-    		globalWorkSize[0] = loops*cvBlockSize;
-    		globalWorkSize[1] = K;
     		size_t localWorkSize[2];
-    		localWorkSize[0] = cvBlockSize;
-    		localWorkSize[1] = 1;
     		size_t dim = 2;
+
+    		if (layoutByPerson) {
+    			globalWorkSize[0] = loops*cvBlockSize;
+    			globalWorkSize[1] = K;
+    			localWorkSize[0] = cvBlockSize;
+    			localWorkSize[1] = 1;
+    		} else {
+    			int wgs = 16;
+    			globalWorkSize[0] = syncCVFolds;
+    			globalWorkSize[1] = wgs * tpb;
+    			localWorkSize[0] = 1;
+    			localWorkSize[1] = tpb;
+    		}
 
 			if (BaseModelG::useNWeights) {
 				kernel.set_arg(9, dKWeightVector);
@@ -2769,16 +2780,18 @@ public:
         */
         auto& kernel = kernelGetGradientObjectiveSync;
 
-        const auto wgs = 128;
+        int wgs = layoutByPerson ? 128 : 8;
         int dK = K;
         kernel.set_arg(0, dK);
         kernel.set_arg(1, dY);
         kernel.set_arg(2, dXBetaVector);
-        if (dBuffer.size() < wgs*cvIndexStride) {
-        	dBuffer.resize(wgs * cvIndexStride, queue);
+
+        int size = layoutByPerson ? cvIndexStride : syncCVFolds;
+        if (dBuffer.size() < wgs*size) {
+        	dBuffer.resize(wgs * size, queue);
         }
-        if (hBuffer.size() < wgs*cvIndexStride) {
-            hBuffer.resize(wgs * cvIndexStride);
+        if (hBuffer.size() < wgs*size) {
+            hBuffer.resize(wgs * size);
         }
         kernel.set_arg(3, dBuffer); // Can get reallocated.
         kernel.set_arg(4, cvIndexStride);
@@ -2796,26 +2809,41 @@ public:
         }
 
         size_t globalWorkSize[2];
-        globalWorkSize[0] = loops*cvBlockSize;
-        globalWorkSize[1] = wgs;
         size_t localWorkSize[2];
-        localWorkSize[0] = cvBlockSize;
-        localWorkSize[1] = 1;
         size_t dim = 2;
 
+        if (layoutByPerson) {
+            globalWorkSize[0] = loops*cvBlockSize;
+            globalWorkSize[1] = wgs;
+            localWorkSize[0] = cvBlockSize;
+            localWorkSize[1] = 1;
+        } else {
+        	globalWorkSize[0] = syncCVFolds;
+        	globalWorkSize[1] = wgs*tpb;
+        	localWorkSize[0] = 1;
+        	localWorkSize[1] = tpb;
+        }
 
         queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
         queue.finish();
 
-        compute::copy(std::begin(dBuffer), std::begin(dBuffer)+wgs*cvIndexStride, std::begin(hBuffer), queue);
+        compute::copy(std::begin(dBuffer), std::begin(dBuffer)+wgs*size, std::begin(hBuffer), queue);
 
         std::vector<double> result;
         result.resize(syncCVFolds, 0.0);
-        for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
-        	for (int j = 0; j < wgs; ++j) { // TODO Use SSE
-        		result[cvIndex] += hBuffer[j*cvIndexStride+cvIndex];
+        if (layoutByPerson) {
+        	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+        		for (int j = 0; j < wgs; ++j) { // TODO Use SSE
+        			result[cvIndex] += hBuffer[j*cvIndexStride+cvIndex];
+        		}
         	}
-    	}
+        } else {
+        	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+        		for (int j = 0; j < wgs; ++j) { // TODO Use SSE
+        			result[cvIndex] += hBuffer[cvIndex*wgs+j];
+        		}
+        	}
+        }
 
 #ifdef GPU_DEBUG
         std::cerr << gradient << " & " << hessian << std::endl << std::endl;
@@ -2972,21 +3000,28 @@ public:
 
     	} else {
 
-    		// layout by person
-    		std::vector<real> xBetaTemp(dXBetaVector.size());
-    		std::vector<real> denomTemp(dDenomPidVector.size());
-    		compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(xBetaTemp), queue);
-    		compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(denomTemp), queue);
+    		if (layoutByPerson) {
+
+    			// layout by person
+    			std::vector<real> xBetaTemp(dXBetaVector.size());
+    			std::vector<real> denomTemp(dDenomPidVector.size());
+    			compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(xBetaTemp), queue);
+    			compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(denomTemp), queue);
 
 
-    		for (int i=0; i<K; i++) {
-    			hXBetaPool[cvIndex][i] = xBetaTemp[i*cvIndexStride+cvIndex];
+    			for (int i=0; i<K; i++) {
+    				hXBetaPool[cvIndex][i] = xBetaTemp[i*cvIndexStride+cvIndex];
+    			}
+
+    			int end = BaseModelG::useNWeights ? N : K;
+    			for (int i=0; i<end; i++) {
+    				denomPidPool[cvIndex][i] = denomTemp[i*cvIndexStride+cvIndex];
+    			}
+    		} else {
+    	    	compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
+    	    	compute::copy(std::begin(dDenomPidVector)+cvIndexStride*cvIndex, std::begin(dDenomPidVector)+cvIndexStride*cvIndex+K, std::begin(denomPidPool[cvIndex]), queue);
+
     		}
-
-    		int end = BaseModelG::useNWeights ? N : K;
-			for (int i=0; i<end; i++) {
-    			denomPidPool[cvIndex][i] = denomTemp[i*cvIndexStride+cvIndex];
-			}
     	}
 
     	//compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
@@ -3037,17 +3072,31 @@ public:
     		*/
     		// layout by person
 
-    		std::vector<real> hKWeightTemp(K*cvIndexStride, 0.0);
-    		for (int i=0; i<K; i++) {
-    			for (int j=0; j<syncCVFolds; j++) {
-    				hKWeightTemp[i*cvIndexStride+j] = hKWeightPool[j][i];
-    			}
-    		}
+    		std::vector<real> hKWeightTemp;
+    		std::vector<real> hNWeightTemp;
 
-    		std::vector<real> hNWeightTemp((N+1)*cvIndexStride, 0.0);
-    		for (int i=0; i<N+1; i++) {
-    			for (int j=0; j<syncCVFolds; j++) {
-    				hNWeightTemp[i*cvIndexStride+j] = hNWeightPool[j][i];
+    		if (layoutByPerson) {
+    			hKWeightTemp.resize(K*cvIndexStride, 0.0);
+    			for (int i=0; i<K; i++) {
+    				for (int j=0; j<syncCVFolds; j++) {
+    					hKWeightTemp[i*cvIndexStride+j] = hKWeightPool[j][i];
+    				}
+    			}
+
+    			hNWeightTemp.resize((N+1)*cvIndexStride, 0.0);
+    			for (int i=0; i<N+1; i++) {
+    				for (int j=0; j<syncCVFolds; j++) {
+    					hNWeightTemp[i*cvIndexStride+j] = hNWeightPool[j][i];
+    				}
+    			}
+    		} else {
+
+    			int garbage = 0;
+
+    			for (int i=0; i<syncCVFolds; i++) {
+    				//std::cout << "hNWeightPool size" << i << ": " << hNWeightPool[i].size() << "\n";
+    				appendAndPad(hNWeightPool[i], hNWeightTemp, garbage, pad); // not using for now
+    				appendAndPad(hKWeightPool[i], hKWeightTemp, garbage, pad);
     			}
     		}
 
@@ -3130,19 +3179,23 @@ public:
     virtual void copyXBetaVec() {
     	// layout by person
 
-    	std::vector<real> temp(K*cvIndexStride,0.0);
-    	for (int i=0; i<K; i++) {
-    		for (int j=0; j<syncCVFolds; j++) {
-    			temp[i*cvIndexStride+j] = hXBetaPool[j][i];
-    		}
+    	std::vector<real> temp;
+    	if (layoutByPerson) {
+        	temp.resize(K*cvIndexStride,0.0);
+        	for (int i=0; i<K; i++) {
+        		for (int j=0; j<syncCVFolds; j++) {
+        			temp[i*cvIndexStride+j] = hXBetaPool[j][i];
+        		}
+        	}
+    	} else {
+        	int garbage = 0;
+        	for (int  i=0; i<syncCVFolds; i++) {
+        		appendAndPad(hXBetaPool[i], temp, garbage, pad);
+        	}
     	}
 
 /*
     	std::vector<real> temp;
-    	int garbage;
-    	for (int  i=0; i<syncCVFolds; i++) {
-    		appendAndPad(hXBetaPool[i], temp, garbage, pad);
-    	}
 */
     	compute::copy(std::begin(temp), std::end(temp), std::begin(dXBetaVector), queue);
     	//detail::resizeAndCopyToDevice(temp, dXBetaVector, queue);
@@ -6144,6 +6197,7 @@ virtual void runCCDIndex() {
 
         options << " -cl-mad-enable";
         auto source = writeCodeForSyncComputeRemainingStatisticsKernel();
+        std::cout << source.body;
         if (BaseModelG::useNWeights) {
         	source = writeCodeForStratifiedSyncComputeRemainingStatisticsKernel(BaseModel::efron);
         	std::cout << source.body;
