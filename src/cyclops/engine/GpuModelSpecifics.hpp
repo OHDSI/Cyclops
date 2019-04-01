@@ -2983,15 +2983,10 @@ public:
     			hXBetaPool[cvIndex][i] = xBetaTemp[i*cvIndexStride+cvIndex];
     		}
 
-    		if (BaseModelG::useNWeights) {
-    			for (int i=0; i<N; i++) {
-        			denomPidPool[cvIndex][i] = denomTemp[i*cvIndexStride+cvIndex];
-    			}
-    		} else {
-    			for (int i=0; i<K; i++) {
-        			denomPidPool[cvIndex][i] = denomTemp[i*cvIndexStride+cvIndex];
-    			}
-    		}
+    		int end = BaseModelG::useNWeights ? N : K;
+			for (int i=0; i<end; i++) {
+    			denomPidPool[cvIndex][i] = denomTemp[i*cvIndexStride+cvIndex];
+			}
     	}
 
     	//compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
@@ -4794,6 +4789,9 @@ virtual void runCCDIndex() {
     	pad = true;
     	syncCVFolds = foldToCompute;
 
+    	layoutByPerson = true;
+    	if (!layoutByPerson) multiprocessors = syncCVFolds;
+
     	tpb0 = 1;
     	if (syncCVFolds > multiprocessors) {
     		hSMStarts.resize(multiprocessors);
@@ -4929,6 +4927,8 @@ virtual void runCCDIndex() {
         	//cvIndexStride = syncCVFolds;
         }
 
+        if (!layoutByPerson) cvIndexStride = detail::getAlignedLength<16>(K);
+
         std::cout << "cvStride: " << cvIndexStride << "\n";
 
     	//int dataStart = 0;
@@ -4958,23 +4958,34 @@ virtual void runCCDIndex() {
         //std::vector<int> cvIndexOffsets;
 
 
-        for (int i=0; i<K; i++) {
-        	//std::fill(std::begin(blah), std::end(blah), static_cast<real>(hKWeight[i]));
-        	//appendAndPad(blah, hKWeightTemp, garbage, pad);
+        if (layoutByPerson) {
+        	for (int i=0; i<K; i++) {
+        		//std::fill(std::begin(blah), std::end(blah), static_cast<real>(hKWeight[i]));
+        		//appendAndPad(blah, hKWeightTemp, garbage, pad);
 
-        	std::fill(std::begin(blah), std::end(blah), hXBeta[i]);
-        	appendAndPad(blah, hXBetaTemp, garbage, pad);
+        		std::fill(std::begin(blah), std::end(blah), hXBeta[i]);
+        		appendAndPad(blah, hXBetaTemp, garbage, pad);
 
-        	std::fill(std::begin(blah), std::end(blah), offsExpXBeta[i]);
-        	appendAndPad(blah, offsExpXBetaTemp, garbage, pad);
+        		std::fill(std::begin(blah), std::end(blah), offsExpXBeta[i]);
+        		appendAndPad(blah, offsExpXBetaTemp, garbage, pad);
 
-        	std::fill(std::begin(blah), std::end(blah), denomPid[i]);
-        	appendAndPad(blah, denomPidTemp, garbage, pad);
+        		std::fill(std::begin(blah), std::end(blah), denomPid[i]);
+        		appendAndPad(blah, denomPidTemp, garbage, pad);
 
-        	std::fill(std::begin(blah), std::end(blah), denomPid2[i]);
-        	appendAndPad(blah, denomPid2Temp, garbage, pad);
+        		std::fill(std::begin(blah), std::end(blah), denomPid2[i]);
+        		appendAndPad(blah, denomPid2Temp, garbage, pad);
 
-        	std::fill(std::begin(blah1), std::end(blah1), hPid[i]);
+        		std::fill(std::begin(blah1), std::end(blah1), hPid[i]);
+        		appendAndPad(blah1, hPidTemp, garbage, pad);
+        	}
+        } else {
+        	for (int i=0; i<K; i++) {
+        		blah1.push_back(hPid[i]);
+        	}
+        	appendAndPad(hXBeta, hXBetaTemp, garbage, pad);
+        	appendAndPad(offsExpXBeta, offsExpXBetaTemp, garbage, pad);
+        	appendAndPad(denomPid, denomPidTemp, garbage, pad);
+        	appendAndPad(denomPid2, denomPid2Temp, garbage, pad);
         	appendAndPad(blah1, hPidTemp, garbage, pad);
         }
 
@@ -5041,7 +5052,8 @@ virtual void runCCDIndex() {
 
         std::vector<int> hDone;
         std::vector<int> hCVIndices;
-        hDone.resize(cvIndexStride, 0);
+        int a = layoutByPerson ? cvIndexStride : syncCVFolds;
+        hDone.resize(a, 0);
         for (int i=0; i<syncCVFolds; i++) {
         	hDone[i] = 1;
         	hCVIndices.push_back(i);
@@ -5290,6 +5302,7 @@ virtual void runCCDIndex() {
     void computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
     	ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInGradientAndHessian(useCrossValidation);
 
+    	// layout by person
     	//std::vector<real> xjxTemp;
     	//xjxTemp.resize(J*syncCVFolds);
     	if (syncCV) {
@@ -5305,11 +5318,20 @@ virtual void runCCDIndex() {
     	}
     	*/
 
-    	xjyTemp.resize(J*cvIndexStride, 0.0);
+    	if (layoutByPerson) {
+    		xjyTemp.resize(J*cvIndexStride, 0.0);
 
-    	for (int i=0; i<J; i++) {
-    		for (int j=0; j<syncCVFolds; j++) {
-    			xjyTemp[i*cvIndexStride+j] = hXjYPool[j][i];
+    		for (int i=0; i<J; i++) {
+    			for (int j=0; j<syncCVFolds; j++) {
+    				xjyTemp[i*cvIndexStride+j] = hXjYPool[j][i];
+    			}
+    		}
+    	} else {
+    		xjyTemp.resize(J*syncCVFolds, 0.0);
+    		for (int i=0; i<J; i++) {
+    			for (int j=0; j<syncCVFolds; j++) {
+    				xjyTemp[j*J+i] = hXjYPool[j][i];
+    			}
     		}
     	}
 
@@ -5322,11 +5344,12 @@ virtual void runCCDIndex() {
 
     void setBounds(double initialBound) {
     	if (syncCV) {
-    	std::vector<real> temp;
-        //temp.resize(J*syncCVFolds, initialBound);
-    	// layout by person
-    	temp.resize(J*cvIndexStride, initialBound);
-    	detail::resizeAndCopyToDevice(temp, dBoundVector, queue);
+    		std::vector<real> temp;
+    		//temp.resize(J*syncCVFolds, initialBound);
+    		// layout by person
+    		int size = layoutByPerson ? cvIndexStride : syncCVFolds;
+    		temp.resize(J*size, initialBound);
+    		detail::resizeAndCopyToDevice(temp, dBoundVector, queue);
     	} else {
     		std::vector<real> temp;
     		temp.resize(J, initialBound);
@@ -6520,6 +6543,7 @@ virtual void runCCDIndex() {
     bool hXBetaKnown;
 
     // syhcCV
+    bool layoutByPerson;
     int cvBlockSize;
     int cvIndexStride;
     bool pad;
