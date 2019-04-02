@@ -3752,7 +3752,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
     SourceCode
     GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncComputeRemainingStatisticsKernel() {
 
-		bool layoutByPerson = true;
+		bool layoutByPerson = false;
         std::string name = "computeRemainingStatistics";
 
         std::stringstream code;
@@ -3769,6 +3769,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"		const uint size0,			\n" <<
 				"		const uint syncCVFolds,		\n" <<
 				"		const uint N) {   \n";
+
         if (layoutByPerson) {
         	code << "	uint lid0 = get_local_id(0);	\n" <<
         			"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
@@ -3778,10 +3779,11 @@ static std::string weight(const std::string& arg, bool useWeights) {
         } else {
         	code << "	uint cvIndex = get_group_id(0);	\n" <<
         			"	uint task = get_global_id(1);	\n" <<
-					"	uint loopSize = get_num_groups(1)*TPB;	\n" <<
+					"	uint loopSize = get_global_size(1);	\n" <<
 					"	while (task < N) {				\n" <<
 					"	uint vecOffset = task+cvIndexStride * cvIndex;	\n";
         }
+
 
         code << "REAL xb = xBetaVector[vecOffset];\n";
         code << "REAL exb = " << BaseModelG::getOffsExpXBetaG() << ";\n";
@@ -3799,6 +3801,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         if (!layoutByPerson) {
         	code << "	task += loopSize;	\n";
         }
+
         code << "   } \n";
         code << "}    \n";
         return SourceCode(code.str(), name);
@@ -3980,7 +3983,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	    SourceCode
 		GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGetGradientObjectiveSync(bool isNvidia) {
 
-			bool layoutByPerson = true;
+			bool layoutByPerson = false;
 			std::string name;
 		        name = "getGradientObjectiveSync";
 
@@ -4004,6 +4007,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 						"	uint outIndex = cvIndex + cvIndexStride * get_group_id(1);	\n";
 	        } else {
 	        	code << "	uint cvIndex = get_group_id(0);	\n" <<
+	        			"	__local REAL scratch[TPB];				\n" <<
+						"	uint lid = get_local_id(1);	\n" <<
 	        			"	uint task1 = get_global_id(1);	\n" <<
 						"	uint loopSize = TPB * get_num_groups(1);	\n" <<
 						"	uint outIndex = cvIndex * get_num_groups(1) + get_group_id(1);	\n";
@@ -4019,12 +4024,20 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	        code << "		REAL w = weightVector[vecOffset];	\n" <<
 	        		"		REAL y = Y[task1];				\n" <<
 					"		REAL xb = xBetaVector[vecOffset];	\n" <<
+					//"		printf(\"%f \", xb);	\n" <<
 					"		sum += w * y * xb;				\n" <<
 					"		task1 += loopSize;		\n" <<
-					"	} 									\n" <<
-					"	buffer[outIndex] = sum;	\n" <<
+					"	} 									\n";
+	        if (layoutByPerson) {
+	        	code << "	buffer[outIndex] = sum;	\n";
+	        }
+	        if (!layoutByPerson) {
+	        	code << "scratch[lid] = sum;		\n";
+	            code << (isNvidia ? ReduceBody1<real,true>::body() : ReduceBody1<real,false>::body());
+	            code << "if (lid == 0) buffer[outIndex] = scratch[0];	\n";
+	        }
 				    //"   if (get_global_id(0) == 0) printf(\"inside kernel\");    \n" <<
-					"	}									\n";
+	        code << "	}									\n";
 	        //code << "}  \n"; // End of kernel
 	        return SourceCode(code.str(), name);
 		}
@@ -4761,6 +4774,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	    SourceCode
 	    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForDoItAllSingleKernel(FormatType formatType, int priorType) {
 
+			bool layoutByPerson = false;
 			std::string name;
 	        if (priorType == 0) name = "doItAllSingle" + getFormatTypeExtension(formatType) + "PriorNone";
 	        if (priorType == 1) name = "doItAllSingle" + getFormatTypeExtension(formatType) + "PriorLaplace";
@@ -4795,7 +4809,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 					//"		const uint index)	{				\n";
 					"		const uint indexStart,				\n" <<
 					"		const uint length,				\n" <<
-					"		__global const uint* indices) {   		 	\n";    // TODO Make weight optional
+					"		__global const uint* indices,	\n" <<
+					"		const uint J) {   		 	\n";    // TODO Make weight optional
 			// Initialization
 			code << "	__local uint offK, offX, N, index, cvIndex;	\n" <<
 					//"	if (get_global_id(0)==0) printf(\"tpb = %d \", TPB);	\n" <<
@@ -4825,8 +4840,12 @@ static std::string weight(const std::string& arg, bool useWeights) {
 			} else { // INDICATOR, INTERCEPT
 				// Do nothing
 			}
-			code << "			uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
-					"			REAL xb = xBetaVector[vecOffset];			\n" <<
+			if (layoutByPerson) {
+				code << "			uint vecOffset = k*cvIndexStride + cvIndex;	\n";
+			} else {
+				code << "			uint vecOffset = k+cvIndexStride * cvIndex;	\n";
+			}
+			code << "			REAL xb = xBetaVector[vecOffset];			\n" <<
 					"			if (count < 3) localXB[count*TPB+lid] = xb;	\n" <<
 					"			REAL exb = exp(xb);							\n" <<
 					"			REAL numer = " << timesX("exb", formatType) << ";\n" <<
@@ -4844,9 +4863,13 @@ static std::string weight(const std::string& arg, bool useWeights) {
 
 	        code << ReduceBody2<real,false>::body();
 
-			code << "		if (lid == 0) {	\n" <<
-					"			uint offset = cvIndexStride*index+cvIndex;		\n" <<
-					"			REAL grad0 = scratch[0][lid];			\n" <<
+			code << "		if (lid == 0) {	\n";
+			if (layoutByPerson) {
+				code << "	uint offset = cvIndexStride*index+cvIndex;		\n";
+			} else {
+				code << "	uint offset = cvIndexStride*cvIndex+index;		\n";
+			}
+			code << "			REAL grad0 = scratch[0][lid];			\n" <<
 					"			grad0 = grad0 - XjYVector[offset];	\n" <<
 					"			REAL hess0 = scratch[1][lid];			\n" <<
 					"			REAL beta = betaVector[offset];		\n";
@@ -4907,8 +4930,12 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	        } else { // INDICATOR, INTERCEPT
 	        	code << "   		REAL inc = delta;           	\n";
 	        }
-	        code << "				uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
-	        		"				REAL xb;						\n" <<
+	        if (layoutByPerson) {
+	        	code << "				uint vecOffset = k*cvIndexStride + cvIndex;	\n";
+	        } else {
+	        	code << "				uint vecOffset = k+cvIndexStride * cvIndex;	\n";
+	        }
+	        code << "				REAL xb;						\n" <<
 					"				if (count < 3) {				\n" <<
 					"					xb = localXB[count*TPB+lid] + inc; \n" <<
 					"				} else {						\n" <<

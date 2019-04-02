@@ -2824,10 +2824,18 @@ public:
         	localWorkSize[1] = tpb;
         }
 
+
         queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
         queue.finish();
 
         compute::copy(std::begin(dBuffer), std::begin(dBuffer)+wgs*size, std::begin(hBuffer), queue);
+
+        std::cout << "after hBuffer: ";
+        for (auto x:hBuffer) {
+        	std::cout << x << " ";
+        }
+        std::cout << "\n";
+
 
         std::vector<double> result;
         result.resize(syncCVFolds, 0.0);
@@ -3102,6 +3110,14 @@ public:
 
     		detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
     		detail::resizeAndCopyToDevice(hKWeightTemp, dKWeightVector, queue);
+
+    		/*
+    		std::cout << "dKWeights: ";
+    		for (auto x:hKWeightTemp) {
+    		    std::cout << x << " ";
+    		}
+    		std::cout << "\n";
+    		*/
     	}
     }
 
@@ -4559,23 +4575,16 @@ virtual void runCCDIndex() {
 				kernel1.set_arg(13, indexListWithPriorStarts[i*3+j]);
 				kernel1.set_arg(14, length);
 				kernel1.set_arg(15, dIndexListWithPrior);
+				kernel1.set_arg(16, dJ);
 
 				size_t globalWorkSize;
 				size_t localWorkSize;
 
-				if (BaseModel::exactCLR) {
-					kernel1.set_arg(16, dNtoK);
-					kernel1.set_arg(17, dNWeight);
-					int KStride = detail::getAlignedLength<16>(K);
-					kernel1.set_arg(18, KStride);
-					int dN = N;
-					kernel1.set_arg(19, dN);
-					globalWorkSize = tpb0*detail::constant::exactCLRBlockSize*activeFolds;
-					localWorkSize = tpb0*detail::constant::exactCLRBlockSize;
-				} else {
-					globalWorkSize =  tpb0*tpb1*activeFolds;
-					localWorkSize = tpb0*tpb1;
-				}
+				globalWorkSize =  tpb*activeFolds;
+				localWorkSize = tpb;
+
+
+				//std::cout << "tpb: " << tpb << " tpb0: " << tpb0 << " tpb1: " << tpb1 << "\n";
 
 
 				//const auto globalWorkSize = tpb;
@@ -4585,6 +4594,18 @@ virtual void runCCDIndex() {
 				if (syncCVFolds % cvBlockSize != 0) {
 					loops++;
 				}
+
+				/*
+		        std::cout << "XBeta size: " << dXBetaVector.size() << "\n";
+		        std::vector<real> myXBeta;
+		        myXBeta.resize(dXBetaVector.size());
+		        compute::copy(std::begin(dXBetaVector), std::begin(dXBetaVector) + dXBetaVector.size(), std::begin(myXBeta), queue);
+		        std::cout << "XBeta: ";
+		        for (auto x:myXBeta) {
+		        	std::cout << x << " ";
+		        }
+		        std::cout << "\n";
+		        */
 
 		        //size_t globalWorkSize = tpb0*tpb1*activeFolds;
 
@@ -4842,7 +4863,7 @@ virtual void runCCDIndex() {
     	pad = true;
     	syncCVFolds = foldToCompute;
 
-    	layoutByPerson = true;
+    	layoutByPerson = false;
     	if (!layoutByPerson) multiprocessors = syncCVFolds;
 
     	tpb0 = 1;
@@ -4980,6 +5001,7 @@ virtual void runCCDIndex() {
         	//cvIndexStride = syncCVFolds;
         }
 
+        tpb1 = tpb / tpb0;
         if (!layoutByPerson) cvIndexStride = detail::getAlignedLength<16>(K);
 
         std::cout << "cvStride: " << cvIndexStride << "\n";
@@ -5035,11 +5057,13 @@ virtual void runCCDIndex() {
         	for (int i=0; i<K; i++) {
         		blah1.push_back(hPid[i]);
         	}
-        	appendAndPad(hXBeta, hXBetaTemp, garbage, pad);
-        	appendAndPad(offsExpXBeta, offsExpXBetaTemp, garbage, pad);
-        	appendAndPad(denomPid, denomPidTemp, garbage, pad);
-        	appendAndPad(denomPid2, denomPid2Temp, garbage, pad);
-        	appendAndPad(blah1, hPidTemp, garbage, pad);
+        	for (int i=0; i<syncCVFolds; i++) {
+        		appendAndPad(hXBeta, hXBetaTemp, garbage, pad);
+        		appendAndPad(offsExpXBeta, offsExpXBetaTemp, garbage, pad);
+        		appendAndPad(denomPid, denomPidTemp, garbage, pad);
+        		appendAndPad(denomPid2, denomPid2Temp, garbage, pad);
+        		appendAndPad(blah1, hPidTemp, garbage, pad);
+        	}
         }
 
 /*
@@ -5666,15 +5690,15 @@ virtual void runCCDIndex() {
 
     		if (sizeof(real) == 8) {
 #ifdef USE_VECTOR
-    			options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << tpb0  << " -DTPB1=" << mytpb1 << " -DTPB=" << tpb0*mytpb1;
+    			options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << tpb0  << " -DTPB1=" << mytpb1 << " -DTPB=" << tpb;
 #else
-    			options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << mytpb1 << " -DTPB=" << tpb0*mytpb1;
+    			options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << mytpb1 << " -DTPB=" << tpb;
 #endif // USE_VECTOR
     		} else {
 #ifdef USE_VECTOR
-    			options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << tpb0  << " -DTPB1=" << mytpb1 << " -DTPB=" << tpb0*mytpb1;
+    			options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << tpb0  << " -DTPB1=" << mytpb1 << " -DTPB=" << tpb;
 #else
-    			options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << mytpb1 << " -DTPB=" << tpb0*mytpb1;
+    			options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << mytpb1 << " -DTPB=" << tpb;
 #endif // USE_VECTOR
     		}
     		options << " -cl-mad-enable";
@@ -5686,6 +5710,7 @@ virtual void runCCDIndex() {
     		kernelDoItAll[formatType*3+priorType] = std::move(kernel);
 
     		source = writeCodeForExactCLRDoItAllSingleKernel(formatType, priorType);
+    		std::cout << source.body;
     		program = compute::program::build_with_source(source.body, ctx, options.str());
     		auto kernelSingle = compute::kernel(program, source.name);
 
@@ -5718,6 +5743,7 @@ virtual void runCCDIndex() {
 
 
     		source = writeCodeForDoItAllSingleKernel(formatType, priorType);
+    		std::cout << source.body;
     		program = compute::program::build_with_source(source.body, ctx, options.str());
     		auto kernelSingle = compute::kernel(program, source.name);
 
@@ -6298,6 +6324,7 @@ virtual void runCCDIndex() {
 
     	// Run-time constant arguments.
     	auto source = writeCodeForGetGradientObjectiveSync(isNvidia);
+    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	auto kernelSync = compute::kernel(program, source.name);
     	kernelGetGradientObjectiveSync = std::move(kernelSync);
