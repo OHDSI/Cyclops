@@ -4867,7 +4867,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
 			if (layoutByPerson) {
 				code << "	uint offset = cvIndexStride*index+cvIndex;		\n";
 			} else {
-				code << "	uint offset = cvIndexStride*cvIndex+index;		\n";
+				code << "	uint offset = J*cvIndex+index;		\n";
 			}
 			code << "			REAL grad0 = scratch[0][lid];			\n" <<
 					"			grad0 = grad0 - XjYVector[offset];	\n" <<

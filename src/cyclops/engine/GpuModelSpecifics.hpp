@@ -2830,11 +2830,11 @@ public:
 
         compute::copy(std::begin(dBuffer), std::begin(dBuffer)+wgs*size, std::begin(hBuffer), queue);
 
-        std::cout << "after hBuffer: ";
-        for (auto x:hBuffer) {
-        	std::cout << x << " ";
-        }
-        std::cout << "\n";
+//        std::cout << "after hBuffer: ";
+//        for (auto x:hBuffer) {
+//        	std::cout << x << " ";
+//        }
+//        std::cout << "\n";
 
 
         std::vector<double> result;
