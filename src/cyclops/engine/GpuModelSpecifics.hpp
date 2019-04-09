@@ -332,12 +332,12 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::normPool;
     using ModelSpecifics<BaseModel, WeightType>::useLogSum;
 
-    int tpb = 128; // threads-per-block  // Appears best on K40
+    int tpb = 256; // threads-per-block  // Appears best on K40
     int maxWgs;
     //int maxWgs = 15;
 
-    int tpb0 = 8;
-    int tpb1 = 32;
+    int tpb0 = 16;
+    int tpb1 = 16;
 
     // const static int globalWorkSize = tpb * wgs;
 
@@ -4863,7 +4863,7 @@ virtual void runCCDIndex() {
     	pad = true;
     	syncCVFolds = foldToCompute;
 
-    	layoutByPerson = false;
+    	layoutByPerson = true;
     	if (!layoutByPerson) multiprocessors = syncCVFolds;
 
     	tpb0 = 1;
@@ -5620,13 +5620,13 @@ virtual void runCCDIndex() {
 
     SourceCode writeCodeForGetGradientObjective(bool useWeights, bool isNvidia);
 
-    SourceCode writeCodeForGetGradientObjectiveSync(bool isNvidia);
+    SourceCode writeCodeForGetGradientObjectiveSync(bool isNvidia, bool layoutByPerson);
 
     SourceCode writeCodeForComputeRemainingStatisticsKernel();
 
     SourceCode writeCodeForStratifiedComputeRemainingStatisticsKernel(bool efron);
 
-    SourceCode writeCodeForSyncComputeRemainingStatisticsKernel();
+    SourceCode writeCodeForSyncComputeRemainingStatisticsKernel(bool layoutByPerson);
 
     SourceCode writeCodeForStratifiedSyncComputeRemainingStatisticsKernel(bool efron);
 
@@ -5648,7 +5648,7 @@ virtual void runCCDIndex() {
 
     SourceCode writeCodeForExactCLRDoItAllKernel(FormatType formatType, int priorType);
 
-    SourceCode writeCodeForDoItAllSingleKernel(FormatType formatType, int priorType);
+    SourceCode writeCodeForDoItAllSingleKernel(FormatType formatType, int priorType, bool layoutByPerson);
 
     SourceCode writeCodeForDoItAllNoSyncCVKernel(FormatType formatType, int priorType);
 
@@ -5742,8 +5742,7 @@ virtual void runCCDIndex() {
     		kernelDoItAll[formatType*3+priorType] = std::move(kernel);
 
 
-    		source = writeCodeForDoItAllSingleKernel(formatType, priorType);
-    		std::cout << source.body;
+    		source = writeCodeForDoItAllSingleKernel(formatType, priorType, layoutByPerson);
     		program = compute::program::build_with_source(source.body, ctx, options.str());
     		auto kernelSingle = compute::kernel(program, source.name);
 
@@ -6222,7 +6221,7 @@ virtual void runCCDIndex() {
         }
 
         options << " -cl-mad-enable";
-        auto source = writeCodeForSyncComputeRemainingStatisticsKernel();
+        auto source = writeCodeForSyncComputeRemainingStatisticsKernel(layoutByPerson);
         std::cout << source.body;
         if (BaseModelG::useNWeights) {
         	source = writeCodeForStratifiedSyncComputeRemainingStatisticsKernel(BaseModel::efron);
@@ -6323,7 +6322,7 @@ virtual void runCCDIndex() {
     	isNvidia = false;
 
     	// Run-time constant arguments.
-    	auto source = writeCodeForGetGradientObjectiveSync(isNvidia);
+    	auto source = writeCodeForGetGradientObjectiveSync(isNvidia, layoutByPerson);
     	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	auto kernelSync = compute::kernel(program, source.name);

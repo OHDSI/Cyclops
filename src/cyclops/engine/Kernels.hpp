@@ -3750,9 +3750,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	// CV CRS
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode
-    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncComputeRemainingStatisticsKernel() {
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncComputeRemainingStatisticsKernel(bool layoutByPerson) {
 
-		bool layoutByPerson = false;
         std::string name = "computeRemainingStatistics";
 
         std::stringstream code;
@@ -3981,9 +3980,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	// CV gradient objective
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	    SourceCode
-		GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGetGradientObjectiveSync(bool isNvidia) {
+		GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGetGradientObjectiveSync(bool isNvidia, bool layoutByPerson) {
 
-			bool layoutByPerson = false;
 			std::string name;
 		        name = "getGradientObjectiveSync";
 
@@ -4581,12 +4579,19 @@ static std::string weight(const std::string& arg, bool useWeights) {
 				"	uint lid1 = get_local_id(1);		\n" <<
 				"	uint mylid1 = lid1 * smScale + lid0 / myTPB0;		\n" <<
 				//"	uint mylid1 = lid1;					\n" <<
+				"	__local int allDone;				\n" <<
+				"	allDone = 1;						\n" <<
+				"	barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
 
 				"	if (mylid1 == 0) {					\n" <<
 				"		int temp = doneVector[cvIndex];	\n" <<
+				"		if (temp == 0) allDone = 0;		\n" <<
 				"		localDone[lid0] = temp;	\n" <<
 				//"		//scratchInt[lid0] = temp;	\n" <<
 				"	}									\n";
+				"	barrier(CLK_LOCAL_MEM_FENCE);		\n";
+
+				code << "	if (allDone == 0)	{				\n";
 /*
 		code << "	for(int j = 1; j < myTPB0; j <<= 1) {          	\n" <<
 				"       barrier(CLK_LOCAL_MEM_FENCE);           	\n" <<
@@ -4764,6 +4769,7 @@ static std::string weight(const std::string& arg, bool useWeights) {
         code << "}	\n";
 
         code << "}	\n";
+        code << "}	\n";
 		//code << "}	\n";
 		code << "}	\n";
 		return SourceCode(code.str(), name);
@@ -4772,9 +4778,8 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	// CV update grad/hess + process delta + update xb
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	    SourceCode
-	    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForDoItAllSingleKernel(FormatType formatType, int priorType) {
+	    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForDoItAllSingleKernel(FormatType formatType, int priorType, bool layoutByPerson) {
 
-			bool layoutByPerson = false;
 			std::string name;
 	        if (priorType == 0) name = "doItAllSingle" + getFormatTypeExtension(formatType) + "PriorNone";
 	        if (priorType == 1) name = "doItAllSingle" + getFormatTypeExtension(formatType) + "PriorLaplace";
