@@ -60,7 +60,7 @@ before_install:
   - curl -OLs https://eddelbuettel.github.io/r-travis/run.sh && chmod 0755 run.sh
   # add Eddelbuttel launchpad repo
   - sudo add-apt-repository -y ppa:edd/misc
-#  - ./run.sh bootstrap
+  - ./run.sh bootstrap
 #  - rm -rf ~/Rlib # Reinstall all packages
   - |
     if [[ "linux" == "linux" ]]; then
