@@ -2993,6 +2993,9 @@ public:
 
     // letting cpu handle
     double getPredictiveLogLikelihood(double* weights, int cvIndex) {
+#ifdef CYCLOPS_DEBUG_TIMING
+			auto start = bsccs::chrono::steady_clock::now();
+#endif
     	computeRemainingStatistics();
 
     	if (BaseModel::exactCLR) {
@@ -3034,7 +3037,15 @@ public:
 
     	//compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
     	//compute::copy(std::begin(dDenomPidVector)+cvIndexStride*cvIndex, std::begin(dDenomPidVector)+cvIndexStride*cvIndex+K, std::begin(denomPidPool[cvIndex]), queue);
-    	return ModelSpecifics<BaseModel, WeightType>::getPredictiveLogLikelihood(weights, cvIndex);
+    	double result = ModelSpecifics<BaseModel, WeightType>::getPredictiveLogLikelihood(weights, cvIndex);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			auto end = bsccs::chrono::steady_clock::now();
+			///////////////////////////"
+			auto name = "getPredictiveLoglikelihood";
+			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+			return result;
     }
 
     // letting cpu handle
@@ -5377,8 +5388,17 @@ virtual void runCCDIndex() {
     }
 
     void computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
+#ifdef CYCLOPS_DEBUG_TIMING
+			auto start = bsccs::chrono::steady_clock::now();
+#endif
     	ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInGradientAndHessian(useCrossValidation);
 
+//#ifdef CYCLOPS_DEBUG_TIMING
+//			auto end1 = bsccs::chrono::steady_clock::now();
+//			///////////////////////////"
+//			auto name1 = "computeFixedTermsInGradientAndHessianCPUPortion";
+//			duration[name1] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start).count();
+//#endif
     	// layout by person
     	//std::vector<real> xjxTemp;
     	//xjxTemp.resize(J*syncCVFolds);
@@ -5416,6 +5436,13 @@ virtual void runCCDIndex() {
     	//detail::resizeAndCopyToDevice(xjxTemp, dXjXVector, queue);
     	detail::resizeAndCopyToDevice(xjyTemp, dXjYVector, queue);
     	}
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			auto end = bsccs::chrono::steady_clock::now();
+			///////////////////////////"
+			auto name = "computeFixedTermsInGradientAndHessian";
+			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
 
     }
 
