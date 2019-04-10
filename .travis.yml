@@ -12,10 +12,8 @@ matrix:
         apt:
           update: true
           sources:
-          - r-packages-precise
+          - ubuntu-toolchain-r-test
           packages:
-          - r-base-dev
-          - r-recommended
           - texinfo
           - qpdf
     # gcc 6
@@ -24,11 +22,8 @@ matrix:
         apt:
           update: true
           sources:
-          - r-packages-precise
           - ubuntu-toolchain-r-test
           packages:
-          - r-base-dev
-          - r-recommended
           - texinfo
           - qpdf
           - g++-6
