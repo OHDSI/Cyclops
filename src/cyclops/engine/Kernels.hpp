@@ -4161,6 +4161,52 @@ static std::string weight(const std::string& arg, bool useWeights) {
 	    return SourceCode(code.str(), name);
 	}
 
+	template <class BaseModel, typename WeightType, class BaseModelG>
+		SourceCode
+		GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForGetPredLogLikelihood(bool layoutByPerson) {
+	        std::string name = "predLogLikelihood";
+
+	        std::stringstream code;
+
+		    code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+		    code << "__kernel void " << name << "(            	\n" <<
+		    		"	const uint N,							\n" <<
+					"	const uint cvIndex,						\n" <<
+		    		"	__global const REAL* XBetaVector,		\n" <<
+					"	__global const REAL* Y,					\n" <<
+					"	__global const REAL* weights,			\n" <<
+					"	__global const REAL* denomPidVector,	\n" <<
+					"	__const uint cvIndexStride,				\n" <<
+					"	__global REAL* buffer)	{	\n" <<
+					"	__local REAL scratch[TPB];				\n" <<
+					"	uint lid = get_local_id(0);				\n" <<
+					"	uint task = lid;						\n" <<
+					"	REAL sum = 0.0;							\n" <<
+					"	while (task < N) {						\n";
+		    if (layoutByPerson) {
+		    	code << "	uint vecOffset = task * cvIndexStride + cvIndex;	\n";
+        		code << "	sum += (XBetaVector[vecOffset] - log(denomPidVector[" << BaseModelG::getGroupG("pIdVector", "task") << " * cvIndexStride + cvIndex])) * Y[task] * weights[task]; \n";
+
+		    } else {
+		    	code << "	uint vecOffset = task + cvIndexStride * cvIndex;	\n";
+        		code << "	sum += (XBetaVector[vecOffset] - log(denomPidVector[" << BaseModelG::getGroupG("pIdVector", "task") << " + cvIndexStride * cvIndex])) * Y[task] * weights[task]; \n";
+		    }
+		    code << "		task += TPB;						\n";
+		    code << "	}										\n";
+		    code << "	scratch[lid] = sum;						\n";
+
+	        code << ReduceBody1<real,false>::body();
+
+	        code << "	if (lid == 0) {							\n" <<
+	        		"		buffer[0] = scratch[lid];		\n" <<
+					"	}										\n";
+
+		    code << "	}										\n";
+
+		    return SourceCode(code.str(), name);
+	}
+
 	// accumulate over workgroups for compute grad hessian
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode
