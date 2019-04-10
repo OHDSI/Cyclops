@@ -38,3 +38,6 @@ Suggests:
     gnm,
     ggplot2
 RoxygenNote: 6.0.1
+Remotes:
+	github::OHDSI/RcppBoostCompute,
+	github::OHDSI/BoostCompiledLibrary
