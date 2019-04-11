@@ -26,11 +26,9 @@ Imports:
     RcppParallel,
     methods
 LinkingTo: Rcpp,
-    BH (>= 1.51.0),
+    BH (>= 1.69.0),
     RcppEigen (>= 0.3.2),
-    RcppParallel,
-    BoostCompiledLibraries,
-    RcppBoostCompute
+    RcppParallel
 +SystemRequirements: GNU make
 Suggests:
     testthat,

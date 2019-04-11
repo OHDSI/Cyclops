@@ -1,42 +1,8 @@
-#language: cpp
-#compiler:
-#- gcc
-#sudo: required
-#before_install:
-#- curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
-#- chmod 755 ./travis-tool.sh
-#- ./travis-tool.sh bootstrap
-#- sudo sed 's/-g//g' /etc/R/Makeconf > tmp
-#- sudo mv tmp /etc/R/Makeconf
-#- ./travis-tool.sh install_devtools
-#- ./travis-tool.sh install_deps
-#- ./travis-tool.sh install_r ggplot2 ff ffbase
-#- ./travis-tool.sh install_github jimhester/covr
-#- ./travis-tool.sh install_github eddelbuettel/drat
-#before_script:
-#- sudo apt-get install libboost-dev
-#- export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
-#- export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')
-#script:
-#- ./travis-tool.sh run_tests
-#- ls -l Cyclops.Rcheck/Cyclops/libs
-#after_failure:
-#- ./travis-tool.sh dump_logs
-#notifications:
-#  recipients:
-#  - msuchard@gmail.com
-#  email:
-#    on_success: change
-#    on_failure: always
-#after_success:
-#- Rscript -e 'library(covr);codecov()'
-#- curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/development/trigger/e51f720d-c4e7-45df-b042-5d8a362bd7e0/
-#- test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && bash
-#  deploy.sh
-#  - grep '\-g'  /etc/R/Makeconf | sed 's/-g//g' > ~/.R/Makevars # Turn off debug symbols
+language: c
 
-languague: c
-sudo: false
+sudo: required
+
+dist: trusty
 
 matrix:
   include:
@@ -44,23 +10,20 @@ matrix:
     - compiler: gcc
       addons:
         apt:
+          update: true
           sources:
-          - r-packages-precise
+          - ubuntu-toolchain-r-test
           packages:
-          - r-base-dev
-          - r-recommended
           - texinfo
           - qpdf
     # gcc 6
     - compiler: gcc
       addons:
         apt:
+          update: true
           sources:
-          - r-packages-precise
           - ubuntu-toolchain-r-test
           packages:
-          - r-base-dev
-          - r-recommended
           - texinfo
           - qpdf
           - g++-6
@@ -82,13 +45,17 @@ matrix:
 #    - texinfo
 #    - qpdf
 
-cache:
-  directories:
-    - ~/Rlib     # R libraries
-    - ~/texlive  # LaTex
-    - ~/bin      # pandoc
+#cache:
+#  directories:
+#    - ~/Rlib     # R libraries
+#    - ~/texlive  # LaTex
+#    - ~/bin      # pandoc
 
 before_install:
+  - curl -OLs https://eddelbuettel.github.io/r-travis/run.sh && chmod 0755 run.sh
+  # add Eddelbuttel launchpad repo
+  - sudo add-apt-repository -y ppa:edd/misc
+  - ./run.sh bootstrap
 #  - rm -rf ~/Rlib # Reinstall all packages
   - |
     if [[ "linux" == "linux" ]]; then
@@ -114,11 +81,14 @@ install:
   - echo 'R_LIBS=~/Rlib' > .Renviron
   - echo 'options(repos = "http://cran.rstudio.com")' > .Rprofile
   - mkdir -p ~/.R
+  #
+  - ./run.sh install_aptget r-cran-rcpp r-cran-bit r-cran-ff r-cran-ffbase r-cran-rcppparallel r-cran-rcppeigen r-cran-ggplot2 r-cran-testthat r-cran-gnm r-cran-devtools
+  - ./run.sh install_r drat covr microbenchmark
   # Build LaTex and pandoc
-  - mkdir -p ~/bin
-  - wget -q -O - https://github.com/yihui/crandalf/raw/master/inst/scripts/install-texlive | bash
-  - wget -q -O - https://github.com/yihui/crandalf/raw/master/inst/scripts/install-pandoc | bash
-  - PATH=$HOME/texlive/bin/x86_64-linux:$PATH
+#  - mkdir -p ~/bin
+#  - wget -q -O - https://github.com/yihui/crandalf/raw/master/inst/scripts/install-texlive | bash
+#  - wget -q -O - https://github.com/yihui/crandalf/raw/master/inst/scripts/install-pandoc | bash
+#  - PATH=$HOME/texlive/bin/x86_64-linux:$PATH
   # Install R packages
   - Rscript -e "if (require('devtools')) install.packages('devtools')"
   - Rscript -e "if (require('covr')) devtools::install_github('jimhester/covr')"
