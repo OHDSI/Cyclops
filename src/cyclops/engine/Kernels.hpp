@@ -4207,6 +4207,90 @@ static std::string weight(const std::string& arg, bool useWeights) {
 		    return SourceCode(code.str(), name);
 	}
 
+	template <class BaseModel, typename WeightType, class BaseModelG>
+			SourceCode
+			GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForComputeXjYKernel(FormatType formatType, bool layoutByPerson) {
+		        std::string name = "computeXjY";
+
+		        std::stringstream code;
+
+			    code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+			    code << "__kernel void " << name << "(            	\n" <<
+						"	__global const uint* offXVec,                  \n" <<
+						"   __global const uint* offKVec,                  \n" <<
+						"   __global const uint* NVec,                     \n" <<
+						//"       const uint offX,                  \n" <<
+						//"       const uint offK,                  \n" <<
+						//"       const uint N,                     \n" <<
+						"   __global const REAL* X,           \n" <<
+						"   __global const int* K,            \n" <<
+						"	__global const REAL* Y,					\n" <<
+						"	__global const REAL* weightVector,		\n" <<
+						"	__global REAL* XjYVector,	\n" <<
+						"	__const uint cvIndexStride,				\n" <<
+						"	const uint J,							\n" <<
+						"	const uint length,						\n" <<
+						"	__global const int* indices)	{	\n" <<
+						"	__local REAL scratch[TPB];				\n" <<
+						"	uint cvIndex = get_group_id(0);			\n" <<
+						"	uint lid = get_local_id(0);				\n";
+
+					code << "	for (int ind = 0; ind < length; ind++) {	\n" <<
+						"		int index = indices[ind];			\n" <<
+						"		uint offK = offKVec[index];			\n" <<
+						"		uint offX = offXVec[index];			\n" <<
+						"		uint N = NVec[index];				\n" <<
+						"		uint task = lid;				\n" <<
+						"		REAL sum = 0.0;							\n";
+
+					code << "		while (task < N) {						\n";
+				if (formatType == INDICATOR || formatType == SPARSE) {
+					code << "  		uint k = K[offK + task];      	\n";
+				} else { // DENSE, INTERCEPT
+					code << "   	uint k = task;           		\n";
+				}
+				if (formatType == SPARSE || formatType == DENSE) {
+					code << "  		REAL x = X[offX + task]; \n";
+				} else { // INDICATOR, INTERCEPT
+					// Do nothing
+				}
+
+			    if (layoutByPerson) {
+			    	code << "		uint vecOffset = k * cvIndexStride + cvIndex;	\n";
+			    } else {
+			    	code << "		uint vecOffset = k + cvIndexStride * cvIndex;	\n";
+			    }
+
+				code << "			sum += " << timesX("Y[k] * weightVector[vecOffset]", formatType) << ";\n";
+
+			    code << "			task += TPB;						\n";
+			    code << "		}										\n";
+
+			    code << "		scratch[lid] = sum;						\n";
+
+		        code << ReduceBody1<real,false>::body();
+
+		        code << "		if (lid == 0) {							\n";
+		        if (layoutByPerson) {
+		        	code << "		uint vecOffset = index * cvIndexStride + cvIndex; \n";
+		        } else {
+		        	code << "		uint vecOffset = cvIndex * J + index;			\n";
+		        }
+		        code << "			XjYVector[vecOffset] = scratch[lid];		\n";
+		        code << "		}										\n";
+
+		        code << "		barrier(CLK_GLOBAL_MEM_FENCE);			\n";
+
+		        code << "	}										\n";
+
+
+			    code << "	}										\n";
+
+
+			    return SourceCode(code.str(), name);
+		}
+
 	// accumulate over workgroups for compute grad hessian
 	template <class BaseModel, typename WeightType, class BaseModelG>
 	SourceCode

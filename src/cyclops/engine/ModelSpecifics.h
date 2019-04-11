@@ -329,6 +329,12 @@ protected:
 
     void updateAllXBeta(std::vector<double>& allDelta, bool useWeights, int cvIndex);
 
+	void computeXjY(bool useCrossValidation);
+
+	void computeXjX(bool useCrossValidation);
+
+	void computeNtoKIndices(bool useCrossValidation);
+
 
 private:
 
@@ -366,11 +372,6 @@ private:
 	template<class IteratorType>
 	SparseIterator getSubjectSpecificHessianIterator(int index);
 
-	void computeXjY(bool useCrossValidation);
-
-	void computeXjX(bool useCrossValidation);
-
-	void computeNtoKIndices(bool useCrossValidation);
 
 //	std::vector<int> nPid;
 //	std::vector<real> nY;

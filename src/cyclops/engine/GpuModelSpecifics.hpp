@@ -5428,7 +5428,7 @@ virtual void runCCDIndex() {
 #ifdef CYCLOPS_DEBUG_TIMING
 			auto start = bsccs::chrono::steady_clock::now();
 #endif
-    	ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInGradientAndHessian(useCrossValidation);
+    	//ModelSpecifics<BaseModel,WeightType>::computeFixedTermsInGradientAndHessian(useCrossValidation);
 
 //#ifdef CYCLOPS_DEBUG_TIMING
 //			auto end1 = bsccs::chrono::steady_clock::now();
@@ -5436,43 +5436,55 @@ virtual void runCCDIndex() {
 //			auto name1 = "computeFixedTermsInGradientAndHessianCPUPortion";
 //			duration[name1] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start).count();
 //#endif
+
+
+    	if (ModelSpecifics<BaseModel,WeightType>::sortPid()) {
+    		ModelSpecifics<BaseModel,WeightType>::doSortPid(useCrossValidation);
+    	}
+    	if (ModelSpecifics<BaseModel,WeightType>::allocateXjY()) {
+    		computeXjY(useCrossValidation);
+    	}
+    	if (ModelSpecifics<BaseModel,WeightType>::allocateXjX()) {
+    	    ModelSpecifics<BaseModel,WeightType>::computeXjX(useCrossValidation);
+    	}
+    	if (ModelSpecifics<BaseModel,WeightType>::allocateNtoKIndices()) {
+    		ModelSpecifics<BaseModel,WeightType>::computeNtoKIndices(useCrossValidation);
+    	}
+
     	// layout by person
-    	//std::vector<real> xjxTemp;
-    	//xjxTemp.resize(J*syncCVFolds);
+/*
     	if (syncCV) {
-    	std::vector<real> xjyTemp;
-    	/*
-    	xjyTemp.resize(J*syncCVFolds, 0.0);
+    		std::vector<real> xjyTemp;
 
-    	for (int i=0; i<syncCVFolds; i++) {
-    		for (int j=0; j<J; j++) {
-    			//xjxTemp[i*J+j] = hXjXPool[i][j];
-    			xjyTemp[i*J+j] = hXjYPool[i][j];
-    		}
-    	}
-    	*/
+    		if (layoutByPerson) {
+    			xjyTemp.resize(J*cvIndexStride, 0.0);
 
-    	if (layoutByPerson) {
-    		xjyTemp.resize(J*cvIndexStride, 0.0);
-
-    		for (int i=0; i<J; i++) {
-    			for (int j=0; j<syncCVFolds; j++) {
-    				xjyTemp[i*cvIndexStride+j] = hXjYPool[j][i];
+    			for (int i=0; i<J; i++) {
+    				for (int j=0; j<syncCVFolds; j++) {
+    					xjyTemp[i*cvIndexStride+j] = hXjYPool[j][i];
+    				}
+    			}
+    		} else {
+    			xjyTemp.resize(J*syncCVFolds, 0.0);
+    			for (int i=0; i<J; i++) {
+    				for (int j=0; j<syncCVFolds; j++) {
+    					xjyTemp[j*J+i] = hXjYPool[j][i];
+    				}
     			}
     		}
-    	} else {
-    		xjyTemp.resize(J*syncCVFolds, 0.0);
-    		for (int i=0; i<J; i++) {
-    			for (int j=0; j<syncCVFolds; j++) {
-    				xjyTemp[j*J+i] = hXjYPool[j][i];
-    			}
+
+
+    		//detail::resizeAndCopyToDevice(xjxTemp, dXjXVector, queue);
+    		detail::resizeAndCopyToDevice(xjyTemp, dXjYVector, queue);
+
+    		std::cout << "XjY: ";
+    		for (auto x:xjyTemp) {
+    		    std::cout << x << " ";
     		}
+    		std::cout << "\n";
     	}
+*/
 
-
-    	//detail::resizeAndCopyToDevice(xjxTemp, dXjXVector, queue);
-    	detail::resizeAndCopyToDevice(xjyTemp, dXjYVector, queue);
-    	}
 
 #ifdef CYCLOPS_DEBUG_TIMING
 			auto end = bsccs::chrono::steady_clock::now();
@@ -5481,6 +5493,63 @@ virtual void runCCDIndex() {
 			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
+    }
+
+    void computeXjY(bool useCrossValidation) {
+    	if (!syncCV) {
+    		ModelSpecifics<BaseModel,WeightType>::computeXjY(useCrossValidation);
+    	} else {
+//    		std::vector<real> myXjY;
+    		int size = layoutByPerson ? cvIndexStride : syncCVFolds;
+
+    		dXjYVector.resize(J*size);
+//    		myXjY.resize(J*size);
+
+    		for (int i = FormatType::INTERCEPT; i >= FormatType::DENSE; --i) {
+    			FormatType formatType = (FormatType)i;
+
+    			std::vector<int> indices;
+    			for (int index=0; index<J; index++) {
+    				int formatType1 = formatList[index];
+    				if (formatType1 == formatType) {
+    					indices.push_back(index);
+    				}
+    			}
+
+    			if (indices.size() > 0) {
+    				auto& kernel = kernelComputeXjY[formatType];
+    				kernel.set_arg(0, dColumns.getDataStarts());
+    				kernel.set_arg(1, dColumns.getIndicesStarts());
+    				kernel.set_arg(2, dColumns.getTaskCounts());
+    				kernel.set_arg(3, dColumns.getData());
+    				kernel.set_arg(4, dColumns.getIndices());
+    				kernel.set_arg(5, dY);
+    				kernel.set_arg(6, dKWeightVector);
+    				kernel.set_arg(7, dXjYVector);
+    				kernel.set_arg(8, cvIndexStride);
+    				int dJ = J;
+    				kernel.set_arg(9, dJ);
+    				int length = indices.size();
+    				kernel.set_arg(10, length);
+
+    	    		detail::resizeAndCopyToDevice(indices, dIntVector1, queue);
+    	    		kernel.set_arg(11, dIntVector1);
+
+    				size_t globalWorkSize = syncCVFolds * tpb;
+    				size_t localWorkSize = tpb;
+
+    	            queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, localWorkSize);
+    	            queue.finish();
+    			}
+    		}
+
+//    		compute::copy(std::begin(dXjYVector), std::begin(dXjYVector)+J*size, std::begin(myXjY), queue);
+//    		std::cout << "XjY: ";
+//    		for (auto x:myXjY) {
+//    		    std::cout << x << " ";
+//    		}
+//    		std::cout << "\n";
+    	}
     }
 
     void setBounds(double initialBound) {
@@ -5583,6 +5652,13 @@ virtual void runCCDIndex() {
         for (FormatType formatType : neededFormatTypes) {
             buildSyncCVGradientHessianKernel(formatType); ++b;
         }
+    }
+
+    void buildAllComputeXjYKernels(const std::vector<FormatType>& neededFormatTypes) {
+    	int b = 0;
+    	for (FormatType formatType : neededFormatTypes) {
+    		buildXjYKernel(formatType); ++b;
+    	}
     }
 
     void buildAllProcessDeltaKernels() {
@@ -5706,6 +5782,8 @@ virtual void runCCDIndex() {
     SourceCode writeCodeForGetLogLikelihood(bool useWeights, bool isNvidia);
 
     SourceCode writeCodeForGetPredLogLikelihood(bool layoutByPerson);
+
+    SourceCode writeCodeForComputeXjYKernel(FormatType formatType, bool layoutByPerson);
 
     SourceCode writeCodeForMMUpdateXBetaKernel(bool isNvidia);
 
@@ -6460,6 +6538,31 @@ virtual void runCCDIndex() {
          kernelGetPredLogLikelihood = std::move(kernel);
     }
 
+    void buildXjYKernel(FormatType formatType) {
+    	std::stringstream options;
+        if (sizeof(real) == 8) {
+#ifdef USE_VECTOR
+        options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+#else
+        options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+#endif // USE_VECTOR
+        } else {
+#ifdef USE_VECTOR
+            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+#else
+            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+#endif // USE_VECTOR
+        }
+        options << " -cl-mad-enable";
+
+         auto source = writeCodeForComputeXjYKernel(formatType, layoutByPerson);
+         std::cout << source.body;
+         auto program = compute::program::build_with_source(source.body, ctx, options.str());
+         auto kernel = compute::kernel(program, source.name);
+
+         kernelComputeXjY[formatType] = std::move(kernel);
+    }
+
     void buildReduceCVBufferKernel() {
        	std::stringstream options;
            if (sizeof(real) == 8) {
@@ -6537,6 +6640,8 @@ virtual void runCCDIndex() {
         std::cout << "built doItAll kernels\n";
         buildPredLogLikelihoodKernel();
         std::cout << "built pred likelihood kernel\n";
+        buildAllComputeXjYKernels(neededFormatTypes);
+        std::cout << "built xjy kernels\n";
     }
 
     void printAllKernels(std::ostream& stream) {
@@ -6633,6 +6738,7 @@ virtual void runCCDIndex() {
     std::map<FormatType, compute::kernel> kernelGradientHessianSync;
     std::map<FormatType, compute::kernel> kernelGradientHessianSyncLog;
     std::map<FormatType, compute::kernel> kernelGradientHessianSync1;
+    std::map<FormatType, compute::kernel> kernelComputeXjY;
 
     std::map<int, compute::kernel> kernelDoItAll;
     std::map<int, compute::kernel> kernelDoItAllSingle;
@@ -6653,6 +6759,7 @@ virtual void runCCDIndex() {
     compute::kernel kernelGetLogLikelihoodWeighted;
     compute::kernel kernelGetLogLikelihoodNoWeight;
     compute::kernel kernelGetPredLogLikelihood;
+
     std::map<FormatType, compute::kernel> kernelUpdateAllXBeta;
     std::map<FormatType, std::vector<int>> indicesFormats;
     std::vector<FormatType> formatList;
