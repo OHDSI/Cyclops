@@ -3274,11 +3274,11 @@ public:
 
     virtual void resetBeta() {
     	if (syncCV) {
-    	std::vector<real> temp;
-    	//temp.resize(J*syncCVFolds, 0.0);
-    	int size = layoutByPerson ? cvIndexStride : syncCVFolds;
-    	temp.resize(J*size, 0.0);
-    	detail::resizeAndCopyToDevice(temp, dBetaVector, queue);
+    		std::vector<real> temp;
+    		//temp.resize(J*syncCVFolds, 0.0);
+    		int size = layoutByPerson ? cvIndexStride : syncCVFolds;
+    		temp.resize(J*size, 0.0);
+    		detail::resizeAndCopyToDevice(temp, dBetaVector, queue);
     	} else {
     		std::vector<real> temp;
     		temp.resize(J, 0.0);

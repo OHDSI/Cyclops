@@ -219,6 +219,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 			);
 
 	usingGPU = modelSpecifics.isGPU();
+	modelSpecifics.resetBeta();
 }
 
 int CyclicCoordinateDescent::getAlignedLength(int N) {
@@ -2168,7 +2169,7 @@ void CyclicCoordinateDescent::turnOnSyncCV(int foldToCompute) {
 		}
 		modelSpecifics.setPriorTypes(priorList);
 		modelSpecifics.setPriorParams(temp);
-		modelSpecifics.resetBeta();
+		//modelSpecifics.resetBeta();
 	}
 }
 
