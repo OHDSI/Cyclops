@@ -2834,9 +2834,9 @@ void ModelSpecifics<BaseModel,WeightType>::setWeights(double* inWeights, bool us
 		incrementByGroup(hNWeight.data(), hPid, k, event);
 	}
 
-	for (auto x:hNWeight) {
-		hNWeightPool[index].push_back(x);
-	}
+//	for (auto x:hNWeight) {
+//		hNWeightPool[index].push_back(x);
+//	}
 
 	// Set N weights (these are the same for independent data models
 	if (hNWeightPool[index].size() < N + 1) { // Add +1 for extra (zero-weight stratum)

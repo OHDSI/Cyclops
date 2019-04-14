@@ -5236,7 +5236,8 @@ virtual void runCCDIndex() {
 
     	activeFolds = 0;
     	bool reset = true;
-    	hDone.resize(cvIndexStride, 0);
+    	int size = layoutByPerson ? cvIndexStride : syncCVFolds;
+    	hDone.resize(size, 0);
     	for (int i=0; i<syncCVFolds; i++) {
     		if (!donePool[i]) {
     			hDone[i] = 1;

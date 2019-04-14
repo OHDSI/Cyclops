@@ -1076,7 +1076,7 @@ void CyclicCoordinateDescent::findMode(
 		}
 		modelSpecifics.setPriorTypes(priorList);
 		modelSpecifics.setPriorParams(temp);
-		modelSpecifics.resetBeta();
+		//modelSpecifics.resetBeta();
 	}
 
 	auto cycle = [this,&iteration,&algorithmType,&allDelta,&allDeltaPool,&lastObjFunc,&lastObjFuncVec,&convergenceType] {
