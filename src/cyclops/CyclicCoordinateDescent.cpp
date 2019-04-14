@@ -2169,7 +2169,7 @@ void CyclicCoordinateDescent::turnOnSyncCV(int foldToCompute) {
 		}
 		modelSpecifics.setPriorTypes(priorList);
 		modelSpecifics.setPriorParams(temp);
-		//modelSpecifics.resetBeta();
+		modelSpecifics.resetBeta();
 	}
 }
 

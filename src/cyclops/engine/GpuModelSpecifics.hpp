@@ -4911,7 +4911,7 @@ virtual void runCCDIndex() {
     	pad = true;
     	syncCVFolds = foldToCompute;
 
-    	layoutByPerson = true;
+    	layoutByPerson = false;
     	if (!layoutByPerson) multiprocessors = syncCVFolds;
 
     	tpb0 = 1;
