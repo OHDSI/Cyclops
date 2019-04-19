@@ -1246,7 +1246,8 @@ void CyclicCoordinateDescent::findMode(
         			hBeta = modelSpecifics.getBeta();
         		}
         	} else {
-        		for(int index = 0; index < J; index++) {
+        		//for (int index = J-1; index >= 0; index --) {
+        		for (int index = 0; index < J; index++) {
 
 	        	//std::cout << "index " << index << ": ";
 		    	//std::cout << "hBeta[0]: " << hBeta[0] << " hBeta[1]: " << hBeta[1] << '\n';
