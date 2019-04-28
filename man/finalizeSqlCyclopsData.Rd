@@ -6,7 +6,8 @@
 \usage{
 finalizeSqlCyclopsData(object, addIntercept = FALSE,
   useOffsetCovariate = NULL, offsetAlreadyOnLogScale = FALSE,
-  sortCovariates = FALSE, makeCovariatesDense = NULL, magicFlag = FALSE)
+  sortCovariates = FALSE, makeCovariatesDense = NULL,
+  magicFlag = FALSE)
 }
 \arguments{
 \item{object}{Cyclops data object}

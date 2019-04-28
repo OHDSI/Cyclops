@@ -10,9 +10,9 @@ convertToCyclopsData(outcomes, covariates, modelType = "lr",
   addIntercept = TRUE, checkSorting = TRUE, checkRowIds = TRUE,
   normalize = NULL, quiet = FALSE)
 
-\method{convertToCyclopsData}{ffdf}(outcomes, covariates, modelType = "lr",
-  addIntercept = TRUE, checkSorting = TRUE, checkRowIds = TRUE,
-  normalize = NULL, quiet = FALSE)
+\method{convertToCyclopsData}{ffdf}(outcomes, covariates,
+  modelType = "lr", addIntercept = TRUE, checkSorting = TRUE,
+  checkRowIds = TRUE, normalize = NULL, quiet = FALSE)
 
 \method{convertToCyclopsData}{data.frame}(outcomes, covariates,
   modelType = "lr", addIntercept = TRUE, checkSorting = TRUE,

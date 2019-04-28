@@ -4,7 +4,8 @@
 \alias{createAbridgePrior}
 \title{Create an ABRIDGE Cyclops prior object}
 \usage{
-createAbridgePrior(penalty = "bic", exclude = c(), forceIntercept = FALSE)
+createAbridgePrior(penalty = "bic", exclude = c(),
+  forceIntercept = FALSE)
 }
 \arguments{
 \item{penalty}{Specifies the ABRIDGE penalty; possible values are `BIC` or `AIC` or a numeric value}

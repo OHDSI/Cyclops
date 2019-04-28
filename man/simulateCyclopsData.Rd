@@ -5,8 +5,8 @@
 \title{Simulation Cyclops dataset}
 \usage{
 simulateCyclopsData(nstrata = 200, nrows = 10000, ncovars = 20,
-  effectSizeSd = 1, zeroEffectSizeProp = 0.9, eCovarsPerRow = ncovars/100,
-  model = "survival")
+  effectSizeSd = 1, zeroEffectSizeProp = 0.9,
+  eCovarsPerRow = ncovars/100, model = "survival")
 }
 \arguments{
 \item{nstrata}{Numeric: Number of strata}
