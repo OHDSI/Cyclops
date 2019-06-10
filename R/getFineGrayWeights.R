@@ -28,6 +28,7 @@
 #' 
 #' @return A list that returns an object of class \code{Surv} that forces in the competing risks indicators and a vector of weights needed for parameter estimation.
 #' @examples
+#' library(survival)
 #' set.seed(10)
 #' ftime <- rexp(200)
 #' fstatus <- sample(0:2, 200, replace = TRUE)
@@ -39,7 +40,7 @@ getFineGrayWeights <- function(ftime, fstatus, cencode = 0, failcode = 1) {
     # Check for errors
     if(!cencode %in% unique(fstatus)) stop("cencode must be a valid value from fstatus")
     if(!failcode %in% unique(fstatus)) stop("cencode must be a valid value from fstatus")
-    if(any(ftime) < 0) stop("all values of ftime must be positive valued")
+    if(any(ftime < 0)) stop("all values of ftime must be positive valued")
 
     obj <- Surv(ftime, fstatus)
     obj[, 2] <- fstatus # Changes NA's to competing risks indicators
