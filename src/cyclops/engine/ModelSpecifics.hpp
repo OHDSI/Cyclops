@@ -112,7 +112,7 @@ double ModelSpecifics<BaseModel,RealType>::getGradientObjective(bool useCrossVal
 		} else {
 			for (int i = 0; i < K; i++) {
 				criterion += xBeta[i] * hY[i];
-			}
+            }
 		}
 
 		return static_cast<double> (criterion);
@@ -432,8 +432,13 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, bool useC
 			hKWeight[k] = inWeights[k];
 		}
 	} else {
-		std::fill(hKWeight.begin(), hKWeight.end(), static_cast<RealType>(1));
-	}
+		//std::fill(hKWeight.begin(), hKWeight.end(), static_cast<RealType>(1));
+		//Eric: We turned off cv but we still want weights to be incorporated somehow.
+		//Eric: Set inWeights[k] = 1 if we want to run a regular Cox model
+        for (size_t k = 0; k < K; ++k) {
+            hKWeight[k] = inWeights[k];
+        }
+    }
 
 	if (initializeAccumulationVectors()) {
 		setPidForAccumulation(inWeights);
@@ -444,11 +449,16 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, bool useC
 		hNWeight.resize(N + 1);
 	}
 
-	std::fill(hNWeight.begin(), hNWeight.end(), static_cast<RealType>(0));
-	for (size_t k = 0; k < K; ++k) {
-		RealType event = BaseModel::observationCount(hY[k]) * hKWeight[k];
-		incrementByGroup(hNWeight.data(), hPid, k, event);
-	}
+    std::fill(hNWeight.begin(), hNWeight.end(), static_cast<RealType>(0));
+    for (size_t k = 0; k < K; ++k) {
+        //RealType event = BaseModel::observationCount(hY[k]) * hKWeight[k];
+        //Eric: Edit weights to appropriately handle competing risks data
+        // Checked: Weights are correctly sorted
+        // For Cox mode, K and N are the SAME
+        RealType event = (BaseModel::observationCount(hY[k]) == static_cast<RealType>(0)) ?
+                         static_cast<RealType>(0) : hKWeight[k];
+        incrementByGroup(hNWeight.data(), hPid, k, event);
+    }
 
 #ifdef DEBUG_COX
 	cerr << "Done with set weights" << endl;
@@ -465,7 +475,7 @@ void ModelSpecifics<BaseModel, RealType>::computeXjY(bool useCrossValidation) {
 
 		if (useCrossValidation) {
 			for (; it; ++it) {
-				const int k = it.index();
+                const int k = it.index();
 				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
 					// Do not precompute
 					hXjY[j] += it.value() * hY[k] * hKWeight[k]; // TODO Remove
@@ -475,13 +485,16 @@ void ModelSpecifics<BaseModel, RealType>::computeXjY(bool useCrossValidation) {
 			}
 		} else {
 			for (; it; ++it) {
-				const int k = it.index();
+                const int k = it.index();
 				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
 					// Do not precompute
-					hXjY[j] += it.value() * hY[k]; // TODO Remove
+                    hXjY[j] += it.value() * hY[k];
 				} else {
-					hXjY[j] += it.value() * hY[k];
-				}
+					//Eric: Modify for competing risks data
+				    //hXjY[j] += it.value() * hY[k];
+                    hXjY[j] += (BaseModel::observationCount(hY[k]) != static_cast<RealType>(1)) ? static_cast<RealType>(0) :
+                            it.value();
+                }
 			}
 		}
 #ifdef DEBUG_COX
@@ -534,6 +547,7 @@ void ModelSpecifics<BaseModel, RealType>::computeNtoKIndices(bool useCrossValida
 	hNtoK[n] = K;
 }
 
+//Eric: Does not apply to Cox model (skip)
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeFixedTermsInLogLikelihood(bool useCrossValidation) {
 	if(BaseModel::likelihoodHasFixedTerms) {
@@ -570,6 +584,7 @@ void ModelSpecifics<BaseModel,RealType>::computeFixedTermsInGradientAndHessian(b
 }
 
 template <class BaseModel,typename RealType>
+//Eric: Modify the first input of logLikeNumeratorContrib and logLikeDenominatorContrib
 double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidation) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -583,16 +598,22 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 		}
 	} else {
 		for (size_t i = 0; i < K; i++) {
-			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]);
+            //logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]);
+            logLikelihood += BaseModel::logLikeNumeratorContrib(BaseModel::observationCount(hY[i]) != static_cast<RealType>(1) ?
+                    static_cast<RealType>(0) : static_cast<RealType>(1),
+                    hXBeta[i]);
 		}
-	}
+    }
 
-	if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+    if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
 		if(BaseModel::cumulativeGradientAndHessian) {
 			for (size_t i = 0; i < N; i++) {
 				// Weights modified in computeNEvents()
-				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], accDenomPid[i]);
-			}
+				//logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], accDenomPid[i]);
+                logLikelihood -= BaseModel::logLikeDenominatorContrib(BaseModel::observationCount(hY[i]) != static_cast<RealType>(1) ?
+                        static_cast<RealType>(0) : static_cast<RealType>(1),
+                        accDenomPid[i]);
+            }
 		} else {  // TODO Unnecessary code duplication
 			for (size_t i = 0; i < N; i++) {
 				// Weights modified in computeNEvents()
@@ -600,7 +621,8 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 			}
 		}
 	}
-	// RANGE
+
+    // RANGE
 
 	if (BaseModel::likelihoodHasFixedTerms) {
 		logLikelihood += logLikelihoodFixedTerm;
@@ -862,12 +884,15 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 
     if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 
-    	if (sparseIndices[index] == nullptr || sparseIndices[index]->size() > 0) {
+        if (sparseIndices[index] == nullptr || sparseIndices[index]->size() > 0) {
 
     	    IteratorType it(sparseIndices[index].get(), N);
 
-    	    RealType accNumerPid  = static_cast<RealType>(0);
-    	    RealType accNumerPid2 = static_cast<RealType>(0);
+    	    //Eric: Aim to precompute accumlated numerators beforehand.
+    	    //RealType accNumerPid  = static_cast<RealType>(0);
+    	    //RealType accNumerPid2 = static_cast<RealType>(0);
+            computeAccumlatedNumerator(Weights::isWeighted); // Confirmed that it works for 0/1 survival
+            computeBackwardAccumlatedNumerator(it, Weights::isWeighted); //Confirmed that it works for 0/1/X survival
 
     	    // find start relavent accumulator reset point
     	    auto reset = begin(accReset);
@@ -878,40 +903,47 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
     	    for (; it; ) {
     	        int i = it.index();
 
-    	        if (*reset <= i) {
-    	            accNumerPid  = static_cast<RealType>(0.0);
-    	            accNumerPid2 = static_cast<RealType>(0.0);
-    	            ++reset;
-    	        }
+    	        //if (*reset <= i) {
+    	        //    accNumerPid  = static_cast<RealType>(0.0);
+    	        //    accNumerPid2 = static_cast<RealType>(0.0);
+    	        //    ++reset;
+    	        //}
 
-    	        const auto numerator1 = numerPid[i];
-    	        const auto numerator2 = numerPid2[i];
+    	        //const auto numerator1 = numerPid[i];
+    	        //const auto numerator2 = numerPid2[i];
 
-    	        accNumerPid += numerator1;
-    	        accNumerPid2 += numerator2;
+    	        //accNumerPid += numerator1;
+    	        //accNumerPid2 += numerator2;
 
     	        // Compile-time delegation
-    	        BaseModel::incrementGradientAndHessian(it,
-                        w, // Signature-only, for iterator-type specialization
-                        &gradient, &hessian, accNumerPid, accNumerPid2,
-                        accDenomPid[i], hNWeight[i], 0.0, hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
+    	        //Eric:
+                //BaseModel::incrementGradientAndHessian(it,
+                //        w, // Signature-only, for iterator-type specialization
+                //        &gradient, &hessian, accNumerPid[i], accNumerPid2[i],
+                //        accDenomPid[i], hNWeight[i], 0.0, hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
+                BaseModel::incrementGradientAndHessian(it,
+                                                       w, // Signature-only, for iterator-type specialization
+                                                       &gradient, &hessian, accNumerPid[i], accNumerPid2[i],
+                                                       accDenomPid[i], BaseModel::observationCount(hY[i]) ==
+                                                               static_cast<RealType>(1) ? static_cast<RealType> (1) : static_cast<RealType> (0)
+                                                               , 0.0, hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
 
-    	        ++it;
+                ++it;
 
     	        if (IteratorType::isSparse) {
 
     	            const int next = it ? it.index() : N;
     	            for (++i; i < next; ++i) {
 
-    	                if (*reset <= i) {
-    	                    accNumerPid  = static_cast<RealType>(0.0);
-    	                    accNumerPid2 = static_cast<RealType>(0.0);
-    	                    ++reset;
-    	                }
+    	                //if (*reset <= i) {
+    	                //    accNumerPid  = static_cast<RealType>(0.0);
+    	                //    accNumerPid2 = static_cast<RealType>(0.0);
+    	                //    ++reset;
+    	               // }
 
     	                BaseModel::incrementGradientAndHessian(it,
                                 w, // Signature-only, for iterator-type specialization
-    	                        &gradient, &hessian, accNumerPid, accNumerPid2,
+    	                        &gradient, &hessian, accNumerPid[i], accNumerPid2[i],
     	                        accDenomPid[i], hNWeight[i], static_cast<RealType>(0), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
     	            }
     	        }
@@ -1281,14 +1313,14 @@ void ModelSpecifics<BaseModel,RealType>::incrementNumeratorForGradientImpl(int i
 	for (; it; ++it) {
 		const int k = it.index();
 		incrementByGroup(numerPid.data(), hPid, k,
-                   Weights::isWeighted ?
-                       hKWeight[k] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]) :
+                   //Weights::isWeighted ?
+                   //    hKWeight[k] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]) :
 		               BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k])
 		    );
 		if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
 			incrementByGroup(numerPid2.data(), hPid, k,
-                    Weights::isWeighted ?
-                        hKWeight[k] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]) :
+                    //Weights::isWeighted ?
+                    //    hKWeight[k] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]) :
                         BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k])
                 );
 		}
@@ -1363,6 +1395,7 @@ void ModelSpecifics<BaseModel,RealType>::updateXBeta(double delta, int index, bo
 
 }
 
+//Eric: Update denominator here
 template <class BaseModel,typename RealType> template <class IteratorType, class Weights>
 inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDelta, int index) {
 
@@ -1377,16 +1410,18 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 		const int k = it.index();
 		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
 
-		// Update denominators as well (denominators include (weight * offsExpXBeta))
+        // Update denominators as well (denominators include (weight * offsExpXBeta))
 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-			RealType oldEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition to forming offExpXBeta
-			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k); // Update offsExpXBeta
+		    RealType oldEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition to forming offExpXBeta
+            offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k); // Update offsExpXBeta
 			RealType newEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition
-			incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
+            incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
 		}
 	}
 
 	computeAccumlatedDenominator(Weights::isWeighted);
+    //Eric: Compute competing risks contributions to denomPid
+    computeBackwardAccumlatedDenominator(Weights::isWeighted);
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
@@ -1399,6 +1434,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 
 }
 
+//Eric: Update denominator here
 template <class BaseModel, typename RealType> template <class Weights>
 void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
 
@@ -1415,6 +1451,8 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
             incrementByGroup(denomPid.data(), hPid, k, weightoffsExpXBeta); // Update denominators
         }
         computeAccumlatedDenominator(Weights::isWeighted);
+        //Eric: Compute competing risks contributions to denomPid
+        computeBackwardAccumlatedDenominator(Weights::isWeighted);
     }
 }
 
@@ -1439,6 +1477,7 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatistics(bool useWeig
 
 }
 
+//Eric: Modify this to allow for backward scan and see if using accumlated will change the results.
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeAccumlatedNumerator(bool useWeights) {
 
@@ -1470,7 +1509,7 @@ void ModelSpecifics<BaseModel,RealType>::computeAccumlatedNumerator(bool useWeig
 			totalNumer2 += numerPid2[i];
 			accNumerPid[i] = totalNumer;
 			accNumerPid2[i] = totalNumer2;
-		}
+        }
 	}
 }
 
@@ -1496,11 +1535,77 @@ void ModelSpecifics<BaseModel,RealType>::computeAccumlatedDenominator(bool useWe
 	            ++reset;
 	        }
 
+            //Eric (note):
+            //computeAccumlatedDenominator computes the 'forward' scan.
 	        totalDenom += denomPid[i];
 	        accDenomPid[i] = totalDenom;
 	    }
 	}
 }
+
+template <class IteratorType>
+int makeReverseIterator(IteratorType it) {
+    return 0; // TODO MAS: make reverse iterators
+}
+
+//Eric: Just like computeAccumlatedNumerator but using hY and hKWeights for competing risk events
+template <class BaseModel,typename RealType> template <class IteratorType>
+void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedNumerator(IteratorType forwardIterator, bool useWeights) {
+
+    if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
+        BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
+
+        auto revIt = makeReverseIterator(it);
+
+        // segmented prefix-scan
+        RealType totalNumer = static_cast<RealType>(0);
+        RealType totalNumer2 = static_cast<RealType>(0);
+
+        auto reset = begin(accReset);
+
+        //Q: How can we change int to size_t w/o errors
+        for (int i = (N - 1); i >= 0; i--) {
+            if (static_cast<unsigned int>(*reset) == i) {
+                totalNumer = static_cast<RealType>(0);
+                totalNumer2 = static_cast<RealType>(0);
+                ++reset;
+            }
+
+            totalNumer += (BaseModel::observationCount(hY[i]) > static_cast<RealType>(1)) ? numerPid[i] / hNWeight[i] : 0;
+            totalNumer2 += (BaseModel::observationCount(hY[i]) > static_cast<RealType>(1)) ? numerPid2[i] / hNWeight[i] : 0;
+            accNumerPid[i] += (BaseModel::observationCount(hY[i]) == static_cast<RealType>(1)) ? hNWeight[i] * totalNumer : 0;
+            accNumerPid2[i] += (BaseModel::observationCount(hY[i]) == static_cast<RealType>(1)) ? hNWeight[i] * totalNumer2 : 0;
+        }
+    }
+}
+
+//Eric: Just like computeAccumlatedDenominator but using hY and hKWeights for competing risk events
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedDenominator(bool useWeights) {
+
+    if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
+            BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
+
+        // segmented prefix-scan
+        RealType totalDenom = static_cast<RealType>(0);
+
+        auto reset = begin(accReset);
+
+        //Q: How can we change int to size_t w/o errors
+        for (int i = (N - 1); i >= 0; i--) {
+
+            if (static_cast<unsigned int>(*reset) == i) { // TODO Check with SPARSE
+                totalDenom = static_cast<RealType>(0);
+                ++reset;
+            }
+
+            //Eric: Use this to perform 'backward' scan and update accDenomPid
+            totalDenom += (BaseModel::observationCount(hY[i]) > static_cast<RealType>(1)) ? denomPid[i] / hNWeight[i] : 0;
+            accDenomPid[i] += (BaseModel::observationCount(hY[i]) == static_cast<RealType>(1)) ? hNWeight[i] * totalDenom : 0;
+        }
+    }
+}
+
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::doSortPid(bool useCrossValidation) {

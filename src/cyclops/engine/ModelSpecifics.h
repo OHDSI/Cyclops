@@ -173,7 +173,11 @@ protected:
 
 	void computeAccumlatedDenominator(bool useWeights);
 
-	void computeFixedTermsInLogLikelihood(bool useCrossValidation);
+    void computeBackwardAccumlatedNumerator(bool useWeights); //Eric
+
+    void computeBackwardAccumlatedDenominator(bool useWeights); //Eric
+
+    void computeFixedTermsInLogLikelihood(bool useCrossValidation);
 
 	void computeFixedTermsInGradientAndHessian(bool useCrossValidation);
 
@@ -426,7 +430,7 @@ public:
 
     template <typename RealType>
     RealType logLikeNumeratorContrib(int yi, RealType xBetai) {
-		return yi * xBetai;
+        return yi * xBetai;
 	}
 
 	template <class XType, typename RealType>
@@ -448,7 +452,7 @@ public:
 			RealType weight,
 			RealType x, RealType xBeta, RealType y) {
 		*information += weight * predictor / denom * it.value();
-	}
+    }
 
 	template <class IteratorType, class Weights>
 	inline void incrementMMGradientAndHessian(
@@ -1069,24 +1073,33 @@ public:
 		return static_cast<RealType>(yi);
 	}
 
-	template <class IteratorType, class Weights>
-	void incrementGradientAndHessian(
-			const IteratorType& it,
-			Weights false_signature,
-			RealType* gradient, RealType* hessian,
-			RealType numer, RealType numer2, RealType denom,
-			RealType nEvents,
-			RealType x, RealType xBeta, RealType y) {
+	//Eric (to be used later. 0/1 for primary event
+    //RealType primaryCount(RealType yi) {
+    //    return static_cast<RealType>(yi) !=  static_cast<RealType>(1) ? static_cast<RealType>(0) :
+    //    static_cast<RealType>(1);
+    //}
 
-		const RealType t = numer / denom;
-		const RealType g = nEvents * t; // Always use weights (not censured indicator)
-		*gradient += g;
-		if (IteratorType::isIndicator) {
-			*hessian += g * (static_cast<RealType>(1.0) - t);
-		} else {
-			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
-		}
-	}
+	template <class IteratorType, class Weights>
+    void incrementGradientAndHessian(
+            const IteratorType& it,
+            Weights false_signature,
+            RealType* gradient, RealType* hessian,
+            RealType numer, RealType numer2, RealType denom,
+            RealType nEvents,
+            RealType x, RealType xBeta, RealType y) {
+
+        //Eric: Calculate gradient and Hessian using censured indicator (weights should already be included in numer, numer2, and denom)
+        // nEvents is defined as 0 if not primary event, 1 if primary event
+
+        const RealType t = numer / denom;
+        const RealType g = nEvents * t; // Always use weights (not censured indicator)
+        *gradient += g;
+        if (IteratorType::isIndicator) {
+            *hessian += g * (static_cast<RealType>(1.0) - t);
+        } else {
+            *hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
+        }
+    }
 
 	template <class IteratorType, class WeightOperationType>
 	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
@@ -1121,9 +1134,9 @@ public:
 		return std::exp(xBeta);
 	}
 
-	RealType logLikeDenominatorContrib(RealType ni, RealType accDenom) {
-		return ni*std::log(accDenom);
-	}
+    RealType logLikeDenominatorContrib(RealType ni, RealType accDenom) {
+        return ni*std::log(accDenom);
+    }
 
 	RealType logPredLikeContrib(RealType y, RealType weight, RealType xBeta, RealType denominator) {
 	    return weight == static_cast<RealType>(0) ? static_cast<RealType>(0) :
@@ -1132,8 +1145,9 @@ public:
 
 	RealType logPredLikeContrib(RealType ji, RealType weighti, RealType xBetai, const RealType* denoms,
 			const int* groups, int i) {
-		return weighti == static_cast<RealType>(0) ? static_cast<RealType>(0) :
-		    ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
+        return weighti == static_cast<RealType>(0) ? static_cast<RealType>(0) :
+               ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
+
 	}
 
 	RealType predictEstimate(RealType xBeta){
@@ -1342,7 +1356,8 @@ public:
 	}
 
 	RealType logLikeDenominatorContrib(RealType ni, RealType denom) {
-		return std::log(denom);
+		return ni * std::log(denom);
+		//return observationCount(ni) != static_cast<RealType>(1) ? static_cast<RealType> (0) : std::log(denom);
 	}
 
 	RealType logPredLikeContrib(RealType y, RealType weight, RealType xBeta, RealType denominator) {

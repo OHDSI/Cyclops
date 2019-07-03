@@ -471,7 +471,8 @@ void CyclicCoordinateDescent::setWeights(double* iWeights) {
 		for (int i = 0; i < K; ++i) {
 			hWeights[i] = iWeights[i];
 		}
-		useCrossValidation = true;
+		//useCrossValidation = true;
+		useCrossValidation = false; //Eric: Force useCrossValidation to false.
 		validWeights = false;
 		sufficientStatisticsKnown = false;
 	}
