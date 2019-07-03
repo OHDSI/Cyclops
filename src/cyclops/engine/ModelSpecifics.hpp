@@ -889,10 +889,9 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
     	    IteratorType it(sparseIndices[index].get(), N);
 
     	    //Eric: Aim to precompute accumlated numerators beforehand.
-    	    //RealType accNumerPid  = static_cast<RealType>(0);
-    	    //RealType accNumerPid2 = static_cast<RealType>(0);
-            computeAccumlatedNumerator(Weights::isWeighted); // Confirmed that it works for 0/1 survival
-            computeBackwardAccumlatedNumerator(it, Weights::isWeighted); //Confirmed that it works for 0/1/X survival
+    	    RealType accNumerPid  = static_cast<RealType>(0);
+    	    RealType accNumerPid2 = static_cast<RealType>(0);
+            computeBackwardAccumlatedNumerator(Weights::isWeighted); // Linear scan to compute competing risks contribution
 
     	    // find start relavent accumulator reset point
     	    auto reset = begin(accReset);
@@ -903,17 +902,17 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
     	    for (; it; ) {
     	        int i = it.index();
 
-    	        //if (*reset <= i) {
-    	        //    accNumerPid  = static_cast<RealType>(0.0);
-    	        //    accNumerPid2 = static_cast<RealType>(0.0);
-    	        //    ++reset;
-    	        //}
+    	        if (*reset <= i) {
+    	            accNumerPid  = static_cast<RealType>(0.0);
+    	            accNumerPid2 = static_cast<RealType>(0.0);
+    	            ++reset;
+    	        }
 
-    	        //const auto numerator1 = numerPid[i];
-    	        //const auto numerator2 = numerPid2[i];
+    	        const auto numerator1 = numerPid[i];
+                const auto numerator2 = numerPid2[i];
 
-    	        //accNumerPid += numerator1;
-    	        //accNumerPid2 += numerator2;
+    	        accNumerPid += numerator1;
+    	        accNumerPid2 += numerator2;
 
     	        // Compile-time delegation
     	        //Eric:
@@ -923,10 +922,11 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                 //        accDenomPid[i], hNWeight[i], 0.0, hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
                 BaseModel::incrementGradientAndHessian(it,
                                                        w, // Signature-only, for iterator-type specialization
-                                                       &gradient, &hessian, accNumerPid[i], accNumerPid2[i],
-                                                       accDenomPid[i], BaseModel::observationCount(hY[i]) ==
-                                                               static_cast<RealType>(1) ? static_cast<RealType> (1) : static_cast<RealType> (0)
-                                                               , 0.0, hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
+                                                       &gradient, &hessian, accNumerPid + decNumerPid[i],
+                                                       accNumerPid2 + decNumerPid2[i], accDenomPid[i],
+                                                       BaseModel::observationCount(hY[i]) ==
+                                                       static_cast<RealType>(1) ? static_cast<RealType> (1) : static_cast<RealType> (0),
+                                                       0.0, hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
 
                 ++it;
 
@@ -935,15 +935,15 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
     	            const int next = it ? it.index() : N;
     	            for (++i; i < next; ++i) {
 
-    	                //if (*reset <= i) {
-    	                //    accNumerPid  = static_cast<RealType>(0.0);
-    	                //    accNumerPid2 = static_cast<RealType>(0.0);
-    	                //    ++reset;
-    	               // }
+    	                if (*reset <= i) {
+    	                    accNumerPid  = static_cast<RealType>(0.0);
+    	                    accNumerPid2 = static_cast<RealType>(0.0);
+    	                    ++reset;
+    	                }
 
     	                BaseModel::incrementGradientAndHessian(it,
                                 w, // Signature-only, for iterator-type specialization
-    	                        &gradient, &hessian, accNumerPid[i], accNumerPid2[i],
+    	                        &gradient, &hessian, accNumerPid, accNumerPid2,
     	                        accDenomPid[i], hNWeight[i], static_cast<RealType>(0), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
     	            }
     	        }
@@ -1548,14 +1548,26 @@ int makeReverseIterator(IteratorType it) {
     return 0; // TODO MAS: make reverse iterators
 }
 
+//Eric: This is for including sparse iterators.
+// Removed because of errors in ModelSpecifics.h when trying to define computeBackwardAccumlatedNumerator with IteratorType input.
+
+//template <class BaseModel,typename RealType> template <class IteratorType>
+//void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedNumerator(IteratorType forwardIterator, bool useWeights) {
+
 //Eric: Just like computeAccumlatedNumerator but using hY and hKWeights for competing risk events
-template <class BaseModel,typename RealType> template <class IteratorType>
-void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedNumerator(IteratorType forwardIterator, bool useWeights) {
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedNumerator(bool useWeights) {
 
     if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
         BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 
-        auto revIt = makeReverseIterator(it);
+        if (decNumerPid.size() != N) {
+            decNumerPid.resize(N, static_cast<RealType>(0));
+        }
+        if (decNumerPid2.size() != N) {
+            decNumerPid2.resize(N, static_cast<RealType>(0));
+        }
+        //auto revIt = makeReverseIterator(it);
 
         // segmented prefix-scan
         RealType totalNumer = static_cast<RealType>(0);
@@ -1573,8 +1585,8 @@ void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedNumerator(Iter
 
             totalNumer += (BaseModel::observationCount(hY[i]) > static_cast<RealType>(1)) ? numerPid[i] / hNWeight[i] : 0;
             totalNumer2 += (BaseModel::observationCount(hY[i]) > static_cast<RealType>(1)) ? numerPid2[i] / hNWeight[i] : 0;
-            accNumerPid[i] += (BaseModel::observationCount(hY[i]) == static_cast<RealType>(1)) ? hNWeight[i] * totalNumer : 0;
-            accNumerPid2[i] += (BaseModel::observationCount(hY[i]) == static_cast<RealType>(1)) ? hNWeight[i] * totalNumer2 : 0;
+            decNumerPid[i] = (BaseModel::observationCount(hY[i]) == static_cast<RealType>(1)) ? hNWeight[i] * totalNumer : 0;
+            decNumerPid2[i] = (BaseModel::observationCount(hY[i]) == static_cast<RealType>(1)) ? hNWeight[i] * totalNumer2 : 0;
         }
     }
 }

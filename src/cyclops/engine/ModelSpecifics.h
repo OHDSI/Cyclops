@@ -127,6 +127,10 @@ protected:
     RealVector accDenomPid;
     RealVector accNumerPid;
     RealVector accNumerPid2;
+    //Eric: Create two new vectors for backwards scan
+    RealVector decNumerPid;
+    RealVector decNumerPid2;
+
 
     // const RealVector& hY;
     // const RealVector& hOffs;
@@ -173,7 +177,7 @@ protected:
 
 	void computeAccumlatedDenominator(bool useWeights);
 
-    void computeBackwardAccumlatedNumerator(IteratorType forwardIterator, bool useWeights); //Eric
+    void computeBackwardAccumlatedNumerator(bool useWeights); //Eric
 
     void computeBackwardAccumlatedDenominator(bool useWeights); //Eric
 
