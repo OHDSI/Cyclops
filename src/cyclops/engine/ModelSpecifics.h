@@ -173,7 +173,7 @@ protected:
 
 	void computeAccumlatedDenominator(bool useWeights);
 
-    void computeBackwardAccumlatedNumerator(bool useWeights); //Eric
+    void computeBackwardAccumlatedNumerator(IteratorType forwardIterator, bool useWeights); //Eric
 
     void computeBackwardAccumlatedDenominator(bool useWeights); //Eric
 
