@@ -19,10 +19,9 @@ test_that("Check very small Fine-Gray example with no ties", {
     dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "cox", weights = fgDat$weights)
     cyclopsFit <- Cyclops:::fitCyclopsModel(dataPtr)
     goldFit <- crr(test$length, test$event, cbind(test$x1, test$x2), variance = FALSE)
-    max(abs(goldFit$coef - coef(cyclopsFit)))
 
     tolerance <- 1E-4
-    #expect_equal(coef(cyclopsFit), coef(goldRight), tolerance = tolerance)
+    expect_equal(coef(cyclopsFit), coef(goldRight), tolerance = tolerance)
 })
 
 test_that("Check very small Fine-Gray example with time-ties, but no failure ties", {
@@ -40,8 +39,7 @@ test_that("Check very small Fine-Gray example with time-ties, but no failure tie
     dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "cox", weights = fgDat$weights)
     cyclopsFit <- Cyclops:::fitCyclopsModel(dataPtr)
     goldFit <- crr(test$length, test$event, cbind(test$x1, test$x2), variance = FALSE)
-    max(abs(goldFit$coef - coef(cyclopsFit)))
 
     tolerance <- 1E-4
-    #expect_equal(coef(cyclopsFit), coef(goldRight), tolerance = tolerance)
+    expect_equal(coef(cyclopsFit), coef(goldRight), tolerance = tolerance)
 })
