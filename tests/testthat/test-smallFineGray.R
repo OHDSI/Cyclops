@@ -21,7 +21,7 @@ test_that("Check very small Fine-Gray example with no ties", {
     goldFit <- crr(test$length, test$event, cbind(test$x1, test$x2), variance = FALSE)
 
     tolerance <- 1E-4
-    expect_equal(coef(cyclopsFit), coef(goldFit), tolerance = tolerance)
+    expect_equivalent(coef(cyclopsFit), goldFit$coef, tolerance = tolerance)
 })
 
 test_that("Check very small Fine-Gray example with time-ties, but no failure ties", {
