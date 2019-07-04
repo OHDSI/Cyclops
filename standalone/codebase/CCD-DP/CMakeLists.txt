@@ -1,11 +1,11 @@
-set(RCCD_SOURCE_DIR ${CMAKE_SOURCE_DIR}/../src)
-set(CCD_SOURCE_DIR ${CMAKE_SOURCE_DIR}/codebase)
+set(RCCD_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
+set(CCD_SOURCE_DIR ${CMAKE_SOURCE_DIR}/standalone/codebase)
 
 include_directories(. 
     ${RCCD_SOURCE_DIR}
     ${RCCD_SOURCE_DIR}/cyclops
-    ${CMAKE_SOURCE_DIR}/codebase
-    ${CMAKE_SOURCE_DIR}/codebase/CCD 
+    ${CMAKE_SOURCE_DIR}/standalone/codebase
+    ${CMAKE_SOURCE_DIR}/standalone/codebase/CCD
     ${Boost_INCLUDE_DIR}          
     )
 
@@ -17,6 +17,8 @@ set(BASE_SOURCE_FILES
 	${RCCD_SOURCE_DIR}/cyclops/io/InputReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/io/HierarchyReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/io/SCCSInputReader.cpp
+     ${CCD_SOURCE_DIR}/CCD/io/NewCoxInputReader.h
+     ${CCD_SOURCE_DIR}/CCD/io/NewCoxInputReader.h
 #	 ${CCD_SOURCE_DIR}/CCD/io/CLRInputReader.cpp
 #	 ${CCD_SOURCE_DIR}/CCD/io/RTestInputReader.cpp
 #	 ${CCD_SOURCE_DIR}/CCD/io/CoxInputReader.cpp
@@ -36,8 +38,6 @@ set(BASE_SOURCE_FILES
 	${RCCD_SOURCE_DIR}/cyclops/drivers/BootstrapDriver.cpp
 	${RCCD_SOURCE_DIR}/utils/HParSearch.cpp
 	${RCCD_SOURCE_DIR}/tinythread/tinythread.cpp
-		${RCCD_SOURCE_DIR}/cyclops/engine/ModelSpecifics.hpp
-		${RCCD_SOURCE_DIR}/cyclops/engine/ModelSpecifics.h
 	)
 	
 set(CCD_SOURCE_FILES
@@ -71,7 +71,11 @@ add_definitions(-DDOUBLE_PRECISION)
 	add_executable(ccd-dp ${CCD_SOURCE_FILES})
 	target_link_libraries(ccd-dp base_bsccs-dp)
 	
-	add_library(model_specifics ${RCCD_SOURCE_DIR}/cyclops/engine/AbstractModelSpecifics.cpp)
+	add_library(model_specifics
+			${RCCD_SOURCE_DIR}/cyclops/engine/AbstractModelSpecifics.cpp
+			${RCCD_SOURCE_DIR}/cyclops/engine/ModelSpecifics.hpp
+			${RCCD_SOURCE_DIR}/cyclops/engine/ModelSpecifics.h
+			)
 	
 set_target_properties(model_specifics PROPERTIES COMPILE_FLAGS "-save-temps")
  	
