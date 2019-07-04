@@ -43,3 +43,4 @@ test_that("Check very small Fine-Gray example with time-ties, but no failure tie
     tolerance <- 1E-4
     expect_equivalent(coef(cyclopsFit), goldFit$coef, tolerance = tolerance)
 })
+

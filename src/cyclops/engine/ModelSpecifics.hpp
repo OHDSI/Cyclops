@@ -892,6 +892,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
     	    RealType accNumerPid  = static_cast<RealType>(0);
     	    RealType accNumerPid2 = static_cast<RealType>(0);
             computeBackwardAccumlatedNumerator(Weights::isWeighted); // Linear scan to compute competing risks contribution
+            //Eric: numerPid's should already be precomputed
 
     	    // find start relavent accumulator reset point
     	    auto reset = begin(accReset);
@@ -928,7 +929,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                                                        &gradient, &hessian, accNumerPid + decNumerPid[i],
                                                        accNumerPid2 + decNumerPid2[i], accDenomPid[i],
                                                        BaseModel::observationCount(hY[i]) ==
-                                                       static_cast<RealType>(1) ? static_cast<RealType> (1) : static_cast<RealType> (0),
+                                                       static_cast<RealType>(1) ? static_cast<RealType>(1) : static_cast<RealType>(0),
                                                        0.0, hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
 
                 ++it;
@@ -938,11 +939,11 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
     	            const int next = it ? it.index() : N;
     	            for (++i; i < next; ++i) {
 
-    	                if (*reset <= i) {
-    	                    accNumerPid  = static_cast<RealType>(0.0);
-    	                    accNumerPid2 = static_cast<RealType>(0.0);
-    	                    ++reset;
-    	                }
+    	                //if (*reset <= i) {
+    	                //    accNumerPid  = static_cast<RealType>(0.0);
+    	                //    accNumerPid2 = static_cast<RealType>(0.0);
+    	                //    ++reset;
+    	                //}
 
     	                BaseModel::incrementGradientAndHessian(it,
                                 w, // Signature-only, for iterator-type specialization
@@ -1316,14 +1317,14 @@ void ModelSpecifics<BaseModel,RealType>::incrementNumeratorForGradientImpl(int i
 	for (; it; ++it) {
 		const int k = it.index();
 		incrementByGroup(numerPid.data(), hPid, k,
-                   Weights::isWeighted ?
-                       hKWeight[k] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]) :
+                   //Weights::isWeighted ?
+                   //    hKWeight[k] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]) :
 		               BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k])
 		    );
 		if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
 			incrementByGroup(numerPid2.data(), hPid, k,
-                    Weights::isWeighted ?
-                        hKWeight[k] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]) :
+                    //Weights::isWeighted ?
+                    //    hKWeight[k] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]) :
                         BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k])
                 );
 		}
@@ -1447,8 +1448,8 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
 
         for (size_t k = 0; k < K; ++k) {
             offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
-            RealType weightoffsExpXBeta =  Weights::isWeighted ?
-                hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k) :
+            RealType weightoffsExpXBeta =  //Weights::isWeighted ?
+                //hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k) :
                 BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k); // TODO Delegate condition to gOEXB
             incrementByGroup(denomPid.data(), hPid, k, weightoffsExpXBeta); // Update denominators
         }
@@ -1552,7 +1553,7 @@ int makeReverseIterator(IteratorType it) {
 //template <class BaseModel,typename RealType> template <class IteratorType>
 //void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedNumerator(IteratorType forwardIterator, bool useWeights) {
 
-//Eric: Just like computeAccumlatedNumerator but using hY and hKWeights for competing risk events
+//Eric: Just like computeAccumlatedNumerator but using hY and hNWeights for competing risk events
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedNumerator(bool useWeights) {
 
