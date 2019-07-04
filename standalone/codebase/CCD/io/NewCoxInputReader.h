@@ -19,7 +19,8 @@ public:
 
 	NewCoxInputReader(
 		loggers::ProgressLoggerPtr _logger,
-		loggers::ErrorHandlerPtr _error) : BaseInputReader<NewCoxInputReader>(_logger, _error) {
+		loggers::ErrorHandlerPtr _error) : BaseInputReader<NewCoxInputReader>(_logger, _error),
+		        hasWeights(false) {
 		// Do nothing	
 	}
 
@@ -29,17 +30,32 @@ public:
 		//modelData->pid.push_back(rowInfo.numCases);
 		rowInfo.numCases++;
 	}
-	
+
+	template <typename T>
+	inline void parseWeightEntry(stringstream& ss, RowInformation& rowInfo) {
+        T thisY;
+        ss >> thisY;
+        push_back_z(*modelData, thisY);
+	}
+
 	inline void parseRow(stringstream& ss, RowInformation& rowInfo) {		
 		parseNoStratumEntry(ss, rowInfo);
 		parseSingleTimeEntry<double>(ss, rowInfo);
-		parseSingleOutcomeEntry<int>(ss, rowInfo);	
+		parseSingleOutcomeEntry<int>(ss, rowInfo);
+		if (hasWeights) {
+		    parseWeightEntry<double>(ss, rowInfo);
+		}
 		parseAllBBRCovariatesEntry(ss, rowInfo, false);
 	}
 	
 	void parseHeader(ifstream& in) {
-		// Do nothing
-	}
+        string line;
+        getline(in, line); // Read header
+        auto index = line.find("has_weights");
+        if (index != string::npos) {
+            hasWeights = true;
+        }
+    }
 
 #ifdef UPCAST_DENSE
 	void upcastColumns(ModelData<double>* modelData, RowInformation& rowInfo) {
@@ -51,6 +67,9 @@ public:
 		modelData->convertAllCovariatesToDense(rowInfo.currentRow);
 	}
 #endif
+
+private:
+    bool hasWeights;
 	
 };
 

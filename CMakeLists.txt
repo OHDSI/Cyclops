@@ -28,8 +28,7 @@ else()
 	message(FATAL_ERROR "RCPP_PARALLEL_ROOT is not defined")
 endif()
 
-include_directories(${RCPP_PARALLEL_ROOT}/include
-		${RCPP_EIGEN_ROOT}/include)
+include_directories(${RCPP_PARALLEL_ROOT}/include)
 
 find_package(Boost)
 
