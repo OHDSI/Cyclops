@@ -1077,12 +1077,6 @@ public:
 		return static_cast<RealType>(yi);
 	}
 
-	//Eric (to be used later. 0/1 for primary event
-    //RealType primaryCount(RealType yi) {
-    //    return static_cast<RealType>(yi) !=  static_cast<RealType>(1) ? static_cast<RealType>(0) :
-    //    static_cast<RealType>(1);
-    //}
-
 	template <class IteratorType, class Weights>
     void incrementGradientAndHessian(
             const IteratorType& it,
