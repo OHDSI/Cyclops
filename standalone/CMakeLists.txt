@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 2.6)
 project(SCCS)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -g -pedantic -fPIC -std=c++0x")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -g -pedantic -fPIC -std=c++0x")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g -pedantic -fPIC -std=c++0x")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -g -pedantic -fPIC -std=c++0x")
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -g -pg")
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -g -pg")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 -g -pg")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -O0 -g -pg")
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/CMake ${CMAKE_MODULE_PATH})
 
@@ -15,7 +15,7 @@ endif(APPLE)
 
 #find_package(CUDA)
 
-
+set(R_LIBRARIES "/Library/Frameworks/R.framework/Versions/3.5/Resources/library/")
 	
 if(DEFINED R_LIBRARIES)
 	set(BOOST_ROOT
