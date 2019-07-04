@@ -939,11 +939,11 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
     	            const int next = it ? it.index() : N;
     	            for (++i; i < next; ++i) {
 
-    	                //if (*reset <= i) {
-    	                //    accNumerPid  = static_cast<RealType>(0.0);
-    	                //    accNumerPid2 = static_cast<RealType>(0.0);
-    	                //    ++reset;
-    	                //}
+    	                if (*reset <= i) {
+    	                    accNumerPid  = static_cast<RealType>(0.0);
+    	                    accNumerPid2 = static_cast<RealType>(0.0);
+    	                    ++reset;
+    	                }
 
     	                BaseModel::incrementGradientAndHessian(it,
                                 w, // Signature-only, for iterator-type specialization

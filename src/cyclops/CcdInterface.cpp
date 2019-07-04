@@ -567,8 +567,9 @@ double CcdInterface::fitModel(CyclicCoordinateDescent *ccd) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
-	std::vector<double> weights(7, 1.0);
-	ccd->setWeights(weights.data());
+	//Eric: Commented this out.
+	//std::vector<double> weights(7, 1.0);
+	//ccd->setWeights(weights.data());
 	ccd->update(arguments.modeFinding);
 
 	gettimeofday(&time2, NULL);
