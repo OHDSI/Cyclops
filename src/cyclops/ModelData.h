@@ -94,6 +94,8 @@ public:
 
     virtual std::vector<double> copyTimeVector() const = 0;
 
+    virtual std::vector<double> copyZVector() const = 0;
+
     virtual std::vector<double> univariableCorrelation(
             const std::vector<long>& covariateLabel) const = 0;
 
@@ -332,6 +334,12 @@ public:
 	std::vector<double> copyYVector() const {
         std::vector<double> copy(y.size());
 	    std::copy(std::begin(y), std::end(y), std::begin(copy));
+	    return copy;
+	}
+
+	std::vector<double> copyZVector() const {
+	    std::vector<double> copy(z.size());
+	    std::copy(std::begin(z), std::end(z), std::begin(copy));
 	    return copy;
 	}
 
