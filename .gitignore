@@ -6,6 +6,7 @@
 .Rhistory
 standalone/build/**
 src/**/*.o
+src/**/*.o-*
 src/*.so
 src/*.dll
 CMakeCache.txt

@@ -10,8 +10,6 @@
 
 #include "io/BaseInputReader.h"
 
-#define UPCAST_DENSE
-
 namespace bsccs {
 
 class NewCoxInputReader : public BaseInputReader<NewCoxInputReader> {
@@ -20,7 +18,7 @@ public:
 	NewCoxInputReader(
 		loggers::ProgressLoggerPtr _logger,
 		loggers::ErrorHandlerPtr _error) : BaseInputReader<NewCoxInputReader>(_logger, _error),
-		        hasWeights(false) {
+		        hasWeights(false), castToDense(false) {
 		// Do nothing	
 	}
 
@@ -55,21 +53,22 @@ public:
         if (index != string::npos) {
             hasWeights = true;
         }
+        index = line.find("dense");
+        if (index != string::npos) {
+            castToDense = true;
+        }
     }
 
-#ifdef UPCAST_DENSE
 	void upcastColumns(ModelData<double>* modelData, RowInformation& rowInfo) {
-		cerr << "Going to up-cast all columns to dense!" << endl;
-//		for (int i = 0; i < modelData->getNumberOfColumns(); ++i) {
-//			modelData->convertCovariateToDense(i + 1);
-//			modelData->getColumn(index).convertColumnToDense(rowInfo.currentRow);
-//		}
-		modelData->convertAllCovariatesToDense(rowInfo.currentRow);
+	    if (castToDense) {
+            cerr << "Going to up-cast all columns to dense!" << endl;
+            modelData->convertAllCovariatesToDense(rowInfo.currentRow);
+        }
 	}
-#endif
 
 private:
     bool hasWeights;
+	bool castToDense;
 	
 };
 

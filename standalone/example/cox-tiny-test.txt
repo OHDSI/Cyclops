@@ -1,4 +1,4 @@
-header
+header dense
 4   1
 3.5 1 1:2
 3   0 2:1
