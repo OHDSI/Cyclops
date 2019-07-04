@@ -28,3 +28,4 @@ Cyclops_*.tar.gz
 _pkgdown.yml
 docs
 NEWS.old
+CMakeLists.txt

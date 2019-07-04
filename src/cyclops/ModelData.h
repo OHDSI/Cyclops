@@ -363,6 +363,8 @@ public:
 
 	void logTransformCovariate(const IdType covariate);
 
+	void convertAllCovariatesToDense(int length);
+
 	void convertCovariateToDense(const IdType covariate);
 
     size_t getNumberOfCovariates() const {

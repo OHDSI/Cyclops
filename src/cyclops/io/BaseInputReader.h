@@ -301,7 +301,8 @@ protected:
 	void parseSingleTimeEntry(stringstream& ss, RowInformation& rowInfo) {
 		T thisY;
 		ss >> thisY;
-		push_back_z(*modelData, thisY);
+		//push_back_z(*modelData, thisY);
+		push_back_offs(*modelData, thisY);
 		//modelData->z.push_back(thisY);
 	}
 
