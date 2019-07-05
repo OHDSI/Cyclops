@@ -177,7 +177,8 @@ protected:
 
 	void computeAccumlatedDenominator(bool useWeights);
 
-    void computeBackwardAccumlatedNumerator(bool useWeights); //Eric
+	template <class IteratorType>
+    void computeBackwardAccumlatedNumerator(IteratorType it, bool useWeights); //Eric
 
     void computeBackwardAccumlatedDenominator(bool useWeights); //Eric
 

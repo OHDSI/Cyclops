@@ -891,7 +891,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 
     	    RealType accNumerPid  = static_cast<RealType>(0);
     	    RealType accNumerPid2 = static_cast<RealType>(0);
-            computeBackwardAccumlatedNumerator(Weights::isWeighted); // Linear scan to compute competing risks contribution
+            computeBackwardAccumlatedNumerator(it, Weights::isWeighted); // Linear scan to compute competing risks contribution
             //Eric: numerPid's should already be precomputed
 
     	    // find start relavent accumulator reset point
@@ -1542,51 +1542,38 @@ void ModelSpecifics<BaseModel,RealType>::computeAccumlatedDenominator(bool useWe
 	}
 }
 
-template <class IteratorType>
-int makeReverseIterator(IteratorType it) {
-    return 0; // TODO MAS: make reverse iterators
-}
-
-//Eric: This is for including sparse iterators.
-// Removed because of errors in ModelSpecifics.h when trying to define computeBackwardAccumlatedNumerator with IteratorType input.
-
-//template <class BaseModel,typename RealType> template <class IteratorType>
-//void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedNumerator(IteratorType forwardIterator, bool useWeights) {
-
 //Eric: Just like computeAccumlatedNumerator but using hY and hNWeights for competing risk events
-template <class BaseModel,typename RealType>
-void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedNumerator(bool useWeights) {
+template <class BaseModel,typename RealType> template <class IteratorType>
+void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedNumerator(
+        IteratorType it,
+        bool useWeights) {
 
-    if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
-        BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
+    if (decNumerPid.size() != N) {
+        decNumerPid.resize(N, static_cast<RealType>(0));
+    }
+    if (decNumerPid2.size() != N) {
+        decNumerPid2.resize(N, static_cast<RealType>(0));
+    }
+    auto revIt = it.reverse();
 
-        if (decNumerPid.size() != N) {
-            decNumerPid.resize(N, static_cast<RealType>(0));
+    // segmented prefix-scan
+    RealType totalNumer = static_cast<RealType>(0);
+    RealType totalNumer2 = static_cast<RealType>(0);
+
+    auto reset = begin(accReset);
+
+    //Q: How can we change int to size_t w/o errors
+    for (int i = (N - 1); i >= 0; i--) {
+        if (static_cast<unsigned int>(*reset) == i) {
+            totalNumer = static_cast<RealType>(0);
+            totalNumer2 = static_cast<RealType>(0);
+            ++reset;
         }
-        if (decNumerPid2.size() != N) {
-            decNumerPid2.resize(N, static_cast<RealType>(0));
-        }
-        //auto revIt = makeReverseIterator(it);
 
-        // segmented prefix-scan
-        RealType totalNumer = static_cast<RealType>(0);
-        RealType totalNumer2 = static_cast<RealType>(0);
-
-        auto reset = begin(accReset);
-
-        //Q: How can we change int to size_t w/o errors
-        for (int i = (N - 1); i >= 0; i--) {
-            if (static_cast<unsigned int>(*reset) == i) {
-                totalNumer = static_cast<RealType>(0);
-                totalNumer2 = static_cast<RealType>(0);
-                ++reset;
-            }
-
-            totalNumer += (BaseModel::observationCount(hY[i]) > static_cast<RealType>(1)) ? numerPid[i] / hNWeight[i] : 0;
-            totalNumer2 += (BaseModel::observationCount(hY[i]) > static_cast<RealType>(1)) ? numerPid2[i] / hNWeight[i] : 0;
-            decNumerPid[i] = (BaseModel::observationCount(hY[i]) == static_cast<RealType>(1)) ? hNWeight[i] * totalNumer : 0;
-            decNumerPid2[i] = (BaseModel::observationCount(hY[i]) == static_cast<RealType>(1)) ? hNWeight[i] * totalNumer2 : 0;
-        }
+        totalNumer += (BaseModel::observationCount(hY[i]) > static_cast<RealType>(1)) ? numerPid[i] / hNWeight[i] : 0;
+        totalNumer2 += (BaseModel::observationCount(hY[i]) > static_cast<RealType>(1)) ? numerPid2[i] / hNWeight[i] : 0;
+        decNumerPid[i] = (BaseModel::observationCount(hY[i]) == static_cast<RealType>(1)) ? hNWeight[i] * totalNumer : 0;
+        decNumerPid2[i] = (BaseModel::observationCount(hY[i]) == static_cast<RealType>(1)) ? hNWeight[i] * totalNumer2 : 0;
     }
 }
 
