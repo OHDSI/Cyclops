@@ -1560,20 +1560,40 @@ void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedNumerator(
     RealType totalNumer = static_cast<RealType>(0);
     RealType totalNumer2 = static_cast<RealType>(0);
 
-    auto reset = begin(accReset);
+    auto reset = end(accReset) - 1;
 
     //Q: How can we change int to size_t w/o errors
-    for (int i = (N - 1); i >= 0; i--) {
+    for ( ; revIt; ) {
+
+        int i = revIt.index();
+
         if (static_cast<unsigned int>(*reset) == i) {
             totalNumer = static_cast<RealType>(0);
             totalNumer2 = static_cast<RealType>(0);
-            ++reset;
+            --reset;
         }
 
         totalNumer += (BaseModel::observationCount(hY[i]) > static_cast<RealType>(1)) ? numerPid[i] / hNWeight[i] : 0;
         totalNumer2 += (BaseModel::observationCount(hY[i]) > static_cast<RealType>(1)) ? numerPid2[i] / hNWeight[i] : 0;
         decNumerPid[i] = (BaseModel::observationCount(hY[i]) == static_cast<RealType>(1)) ? hNWeight[i] * totalNumer : 0;
         decNumerPid2[i] = (BaseModel::observationCount(hY[i]) == static_cast<RealType>(1)) ? hNWeight[i] * totalNumer2 : 0;
+
+        --revIt;
+
+        if (IteratorType::isSparse) {
+
+            const int next = revIt ? revIt.index() : 0;
+            for (--i; i >= next; --i) { // TODO MAS: This may be incorrect
+
+//                if (*reset <= i) { // TODO MAS: This is not correct (only need for stratifed models)
+//                    accNumerPid  = static_cast<RealType>(0);
+//                    accNumerPid2 = static_cast<RealType>(0);
+//                    ++reset;
+//                }
+
+                // TODO Do work here!!!
+            }
+        }
     }
 }
 
