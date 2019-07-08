@@ -288,8 +288,6 @@ class GpuModelSpecifics : public ModelSpecifics<BaseModel, RealType>, BaseModelG
 
 };
 
-
-
 static std::string timesX(const std::string& arg, const FormatType formatType) {
     return (formatType == INDICATOR || formatType == INTERCEPT) ?
         arg : arg + " * x";
@@ -306,3 +304,469 @@ static std::string weightK(const std::string& arg, bool useWeights) {
 static std::string weightN(const std::string& arg, bool useWeights) {
     return useWeights ? "wN * " + arg : arg;
 }
+
+struct GroupedDataG {
+public:
+	std::string getGroupG(const std::string& groups, const std::string& person) {
+		return groups + "[" + person + "]";
+	}
+};
+
+struct GroupedWithTiesDataG : GroupedDataG {
+public:
+};
+
+struct OrderedDataG {
+public:
+	std::string getGroupG(const std::string& groups, const std::string& person) {
+		return person;
+	}
+};
+
+struct OrderedWithTiesDataG {
+public:
+	std::string getGroupG(const std::string& groups, const std::string& person) {
+		return groups + "[" + person + "]";
+	}
+};
+
+struct IndependentDataG {
+public:
+	std::string getGroupG(const std::string& groups, const std::string& person) {
+		return person;
+	}
+};
+
+struct FixedPidG {
+};
+
+struct SortedPidG {
+};
+
+struct NoFixedLikelihoodTermsG {
+	// TODO throw error like in ModelSpecifics.h?
+};
+
+#define Fraction std::complex
+
+struct GLMProjectionG {
+public:
+	const static bool denomRequiresStratumReduction = false; // TODO not using now
+	const static bool logisticDenominator = false; // TODO not using now
+	const static bool useNWeights = false;
+
+	std::string gradientNumeratorContribG(
+			const std::string& x, const std::string& predictor,
+			const std::string& xBeta, const std::string& y) {
+		return predictor + "*" + x;
+	}
+
+	std::string logLikeNumeratorContribG(
+			const std::string& yi, const std::string& xBetai) {
+		return yi + "*" + xBetai;
+	}
+
+	std::string gradientNumerator2ContribG(
+			const std::string& x, const std::string& predictor) {
+		return predictor + "*" + x + "*" + x;
+	}
+
+};
+
+struct SurvivalG {
+public:
+	// TODO incrementFisherInformation
+	// TODO incrementMMGradientAndHessian
+};
+
+struct LogisticG {
+public:
+
+	// TODO incrementFisherInformation
+
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+		// assume exists: numer, denom, w if weighted
+		std::stringstream code;
+        code << "       REAL g = numer / denom;      \n";
+        code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
+        if (formatType == INDICATOR || formatType == INTERCEPT) {
+            code << "       REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
+        } else {
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
+        }
+        return(code.str());
+	}
+
+	// TODO incrementMMGradientAndHessian
+	// TODO is the other increment G + H deprecated?
+
+};
+
+struct SelfControlledCaseSeriesG : public GroupedDataG, GLMProjectionG, FixedPidG, SurvivalG {
+public:
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
+
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+		std::stringstream code;
+        code << "       REAL g = numer / denom;      \n";
+        code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
+        if (formatType == INDICATOR || formatType == INTERCEPT) {
+            code << "       REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
+        } else {
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
+        }
+        return(code.str());
+	}
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "offs * exp(xb)";
+        return(code.str());
+    }
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "wN * log(denom)";
+		return(code.str());
+	}
+
+};
+
+struct ConditionalPoissonRegressionG : public GroupedDataG, GLMProjectionG, FixedPidG, SurvivalG {
+public:
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
+
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+		std::stringstream code;
+        code << "       REAL g = numer / denom;      \n";
+        code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
+        if (formatType == INDICATOR || formatType == INTERCEPT) {
+            code << "       REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
+        } else {
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
+        }
+        return(code.str());
+	}
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "exp(xb)";
+        return(code.str());
+    }
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "wN * log(denom)";
+		return(code.str());
+	}
+
+};
+
+struct ConditionalLogisticRegressionG : public GroupedDataG, GLMProjectionG, FixedPidG, SurvivalG {
+public:
+	const static bool denomRequiresStratumReduction = true;
+	const static bool useNWeights = true;
+
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
+
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+		std::stringstream code;
+        code << "       REAL g = numer / denom;      \n";
+        code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
+        if (formatType == INDICATOR || formatType == INTERCEPT) {
+            code << "       REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
+        } else {
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
+        }
+        return(code.str());
+	}
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "exp(xb)";
+        return(code.str());
+    }
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "wN * log(denom)";
+		return(code.str());
+	}
+
+};
+
+struct EfronConditionalLogisticRegressionG : public GroupedDataG, GLMProjectionG, FixedPidG, SurvivalG {
+public:
+	const static bool denomRequiresStratumReduction = true;
+	const static bool useNWeights = true;
+	const static bool efron = true;
+
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
+
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+		std::stringstream code;
+        code << "       REAL g = numer / denom;      \n";
+        code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
+        if (formatType == INDICATOR || formatType == INTERCEPT) {
+            code << "       REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
+        } else {
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
+        }
+        return(code.str());
+	}
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "exp(xb)";
+        return(code.str());
+    }
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "wN * log(denom)";
+		return(code.str());
+	}
+
+};
+
+struct TiedConditionalLogisticRegressionG : public GroupedWithTiesDataG, GLMProjectionG, FixedPidG, SurvivalG {
+public:
+	const static bool denomRequiresStratumReduction = false;
+
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "exp(xb)";
+        return(code.str());
+    }
+
+    // same as lr, do not use
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+		// assume exists: numer, denom
+		std::stringstream code;
+        code << "       REAL g = numer / denom;      \n";
+        code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
+        if (formatType == INDICATOR || formatType == INTERCEPT) {
+            code << "       REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
+        } else {
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
+        }
+        return(code.str());
+	}
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "wN * log(denom)";
+		return(code.str());
+	}
+
+};
+
+struct LogisticRegressionG : public IndependentDataG, GLMProjectionG, LogisticG, FixedPidG,
+	NoFixedLikelihoodTermsG {
+public:
+	const static bool logisticDenominator = true;
+
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)1.0";
+		return(code);
+	}
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "exp(xb)";
+        return(code.str());
+    }
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "log(denom)";
+		return(code.str());
+	}
+
+};
+
+struct CoxProportionalHazardsG : public OrderedDataG, GLMProjectionG, SortedPidG, NoFixedLikelihoodTermsG, SurvivalG {
+public:
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
+
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+		std::stringstream code;
+        code << "       REAL g = numer / denom;      \n";
+        code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
+        if (formatType == INDICATOR || formatType == INTERCEPT) {
+            code << "       REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
+        } else {
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
+        }
+        return(code.str());
+	}
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "exp(xb)";
+        return(code.str());
+    }
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "wN * log(denom)";
+		return(code.str());
+	}
+
+};
+
+struct StratifiedCoxProportionalHazardsG : public CoxProportionalHazardsG {
+public:
+};
+
+struct BreslowTiedCoxProportionalHazardsG : public OrderedWithTiesDataG, GLMProjectionG, SortedPidG, NoFixedLikelihoodTermsG, SurvivalG {
+public:
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "exp(xb)";
+        return(code.str());
+    }
+
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+		std::stringstream code;
+        code << "       REAL g = numer / denom;      \n";
+        code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
+        if (formatType == INDICATOR || formatType == INTERCEPT) {
+            code << "       REAL hessian  = " << weight("g * ((REAL)1.0 - g)", useWeights) << ";\n";
+        } else {
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("(nume2 / denom - g * g)", useWeights) << ";\n";
+        }
+        return(code.str());
+	}
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "wN * log(denom)";
+		return(code.str());
+	}
+};
+
+struct LeastSquaresG : public IndependentDataG, FixedPidG, NoFixedLikelihoodTermsG  {
+public:
+	const static bool denomRequiresStratumReduction = false;
+	const static bool logisticDenominator = false;
+	const static bool useNWeights = false;
+
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
+
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+		return("");
+	}
+
+	std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "(REAL)0.0";
+        return(code.str());
+    }
+
+	std::string logLikeNumeratorContribG() {
+		std::stringstream code;
+		code << "(y-xb)*(y-xb)";
+		return(code.str());
+	}
+
+	real logLikeDenominatorContrib(int ni, real denom) {
+		return std::log(denom);
+	}
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "log(denom)";
+		return(code.str());
+	}
+
+};
+
+struct PoissonRegressionG : public IndependentDataG, GLMProjectionG, FixedPidG {
+public:
+	std::string getDenomNullValueG () {
+		std::string code = "(REAL)0.0";
+		return(code);
+	}
+
+	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+		std::stringstream code;
+        code << "       REAL gradient = " << weight("numer", useWeights) << ";\n";
+        if (formatType == INDICATOR || formatType == INTERCEPT) {
+            code << "       REAL hessian  = gradient;\n";
+        } else {
+            code << "       REAL nume2 = " << timesX("numer", formatType) << ";\n" <<
+                    "       REAL hessian  = " << weight("nume2", useWeights) << ";\n";
+        }
+        return(code.str());
+	}
+
+    std::string getOffsExpXBetaG() {
+		std::stringstream code;
+		code << "exp(xb)";
+        return(code.str());
+    }
+
+	std::string logLikeDenominatorContribG() {
+		std::stringstream code;
+		code << "denom";
+		return(code.str());
+	}
+
+};
+
+
+} // namespace bsccs
+
+#include "Kernels.hpp"
+
+#endif /* GPUMODELSPECIFICS_HPP_ */
+
+
+
+
+
+
+
+
+
+
+
+
+
