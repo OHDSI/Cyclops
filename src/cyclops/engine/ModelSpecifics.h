@@ -127,7 +127,7 @@ protected:
     RealVector accDenomPid;
     RealVector accNumerPid;
     RealVector accNumerPid2;
-    //Eric: Create two new vectors for backwards scan
+    //ESK: Create two new vectors for backwards scan
     RealVector decNumerPid;
     RealVector decNumerPid2;
 
@@ -178,9 +178,9 @@ protected:
 	void computeAccumlatedDenominator(bool useWeights);
 
 	template <class IteratorType>
-    void computeBackwardAccumlatedNumerator(IteratorType it, bool useWeights); //Eric
+    void computeBackwardAccumlatedNumerator(IteratorType it, bool useWeights); //ESK: For competing risks data
 
-    void computeBackwardAccumlatedDenominator(bool useWeights); //Eric
+    void computeBackwardAccumlatedDenominator(bool useWeights); //ESK: For competing risks data
 
     void computeFixedTermsInLogLikelihood(bool useCrossValidation);
 
@@ -1086,9 +1086,6 @@ public:
             RealType numer, RealType numer2, RealType denom,
             RealType nEvents,
             RealType x, RealType xBeta, RealType y) {
-
-        //Eric: Calculate gradient and Hessian using censured indicator (weights should already be included in numer, numer2, and denom)
-        // nEvents is defined as 0 if not primary event, 1 if primary event
 
         const RealType t = numer / denom;
         const RealType g = nEvents * t; // Always use weights (not censured indicator)
