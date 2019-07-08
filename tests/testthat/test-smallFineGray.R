@@ -24,7 +24,7 @@ test_that("Check very small Fine-Gray example with no ties", {
     expect_equivalent(coef(cyclopsFit), goldFit$coef, tolerance = tolerance)
 })
 
-test_that("Check very small Fine-Gray example with time-ties, but no failure ties", {
+test_that("Check very small Fine-Gray example with time ties, but no failure ties", {
     test <- read.table(header=T, sep = ",", text = "
                        start, length, event, x1, x2
                        0, 4,1,0,0
@@ -34,6 +34,27 @@ test_that("Check very small Fine-Gray example with time-ties, but no failure tie
                        0, 2,1,1,1
                        0, 2,0,1,0
                        0, 2,0,1,0")
+
+    fgDat <- Cyclops:::getFineGrayWeights(test$length, test$event)
+    dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "cox", weights = fgDat$weights)
+    cyclopsFit <- Cyclops:::fitCyclopsModel(dataPtr)
+    goldFit <- crr(test$length, test$event, cbind(test$x1, test$x2), variance = FALSE)
+
+    tolerance <- 1E-4
+    expect_equivalent(coef(cyclopsFit), goldFit$coef, tolerance = tolerance)
+})
+
+test_that("Check very small Fine-Gray example with time ties and failure ties", {
+    test <- read.table(header=T, sep = ",", text = "
+                       start, length, event, x1, x2
+                       0, 4,  1,0,0
+                       0, 3, 2,2,0
+                       0, 3,  1,0,1
+                       0, 3, 1,0,1
+                       0, 2,  0,1,1
+                       0, 1, 0,1,0
+                       0, 1, 1,1,0,
+                       0, 1, 1,1,1")
 
     fgDat <- Cyclops:::getFineGrayWeights(test$length, test$event)
     dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "cox", weights = fgDat$weights)
