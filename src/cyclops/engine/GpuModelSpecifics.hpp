@@ -405,9 +405,15 @@ public:
 
 struct SelfControlledCaseSeriesG : public GroupedDataG, GLMProjectionG, FixedPidG, SurvivalG {
 public:
+
+	std::string logLikeFixedTermsContribG(
+			const std::string& yi, const std::string& offseti,
+			const std::string& logoffseti) {
+		return yi + "*" + "log(" + offseti + ")";
+	}
+
 	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
+		return "(REAL)0.0";
 	}
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
@@ -423,25 +429,62 @@ public:
         return(code.str());
 	}
 
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "offs * exp(xb)";
-        return(code.str());
+	// TODO incrementMMGradientAndHessian
+
+    std::string getOffsExpXBetaG(
+    		const std::string& offs, const std::string& xBeta) {
+    	return offs + "*" + "exp(" + xBeta + ")";
     }
 
-	std::string logLikeDenominatorContribG() {
-		std::stringstream code;
-		code << "wN * log(denom)";
-		return(code.str());
+    std::string getOffsExpXBetaG(
+    		const std::string& offs, const std::string& xBeta,
+			const std::string& y, const std::string& k) {
+    	return offs + "[" +  k + "]" + "*" + "exp(" + xBeta + ")";
+    }
+
+	std::string logLikeDenominatorContribG(
+			const std::string& ni, const std::string& denom) {
+		return ni + "*" + "log("  + denom + ")";
 	}
+
+	std::string logPredLikeContribG(
+			const std::string& y, const std::string& weight,
+			const std::string& xBeta, const std::string& denominator) {
+	    return y + "*" + weight + "*"  + "(" + xBeta + "- log(" + denominator + "))";
+	}
+
+	std::string logPredLikeContribG(
+			const std::string& ji, const std::string& weighti,
+			const std::string& xBetai, const std::string& denoms,
+			const std::string& groups, const std::string& i) {
+		return ji + "*" + weighti + "*" + "(" + xBetai + "- log(" + denoms + "[" + getGroupG(groups, i) + "]))";
+	}
+
+	// TODO predictEstimate
 
 };
 
 struct ConditionalPoissonRegressionG : public GroupedDataG, GLMProjectionG, FixedPidG, SurvivalG {
 public:
+
+	// outputs logLikeFixedTerm
+	std::string logLikeFixedTermsContribG(
+			const std::string& yi, const std::string& offseti,
+			const std::string& logoffseti) {
+		std::string code;
+		code << "logLikeFixedTerm = (REAL)0.0;";
+		code << "for (int i=2; i<=(int)" + yi + "; i++)";
+			code << "logLikeFixedTerm -= log((REAL)i);";
+		return(code);
+	} // TODO not sure if this works
+
 	std::string getDenomNullValueG () {
 		std::string code = "(REAL)0.0";
 		return(code);
+	}
+
+	std::string observationCountG(const std::string& yi) {
+		return "(REAL)" + yi;
 	}
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
@@ -457,17 +500,38 @@ public:
         return(code.str());
 	}
 
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "exp(xb)";
-        return(code.str());
+
+    std::string getOffsExpXBetaG(
+    		const std::string& offs, const std::string& xBeta) {
+		return "exp(" + xBeta + ")";
     }
 
-	std::string logLikeDenominatorContribG() {
-		std::stringstream code;
-		code << "wN * log(denom)";
-		return(code.str());
+    std::string getOffsExpXBetaG(
+    		const std::string& offs, const std::string& xBeta,
+			const std::string& y, const std::string& k) {
+		return "exp(" + xBeta + ")";
+    }
+
+
+	std::string logLikeDenominatorContribG(
+			const std::string& ni, const std::string& denom) {
+		return ni + "*" + "log(" + denom + ")";
 	}
+
+	std::string logPredLikeContribG(
+			const std::string& y, const std::string& weight,
+			const std::string& xBeta, const std::string& denominator) {
+		return y + "*" + weight + "*" +  "(" + xBeta + "- log(" + denominator + "))";
+	}
+
+	std::string logPredLikeContribG(
+			const std::string& ji, const std::string& weighti,
+			const std::string& xBetai, const std::string& denoms,
+			const std::string& groups, const std::string& i) {
+		return ji + "*" + weighti + "*" + "(" + xBetai + " - log(" + denoms + "[" + getGroupG(groups, i) + "]))";
+	}
+
+	// TODO predictEstimate
 
 };
 
@@ -476,9 +540,15 @@ public:
 	const static bool denomRequiresStratumReduction = true;
 	const static bool useNWeights = true;
 
+	// TODO logLikeFixedTermsContrib throw error?
+
 	std::string getDenomNullValueG () {
 		std::string code = "(REAL)0.0";
 		return(code);
+	}
+
+	std::string observationCountG(const std::string& yi) {
+		return "(REAL)" + yi;
 	}
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
@@ -494,19 +564,40 @@ public:
         return(code.str());
 	}
 
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "exp(xb)";
-        return(code.str());
+    std::string getOffsExpXBetaG(
+    		const std::string& offs, const std::string& xBeta) {
+		return "exp(" + xBeta + ")";
     }
 
-	std::string logLikeDenominatorContribG() {
-		std::stringstream code;
-		code << "wN * log(denom)";
-		return(code.str());
+    std::string getOffsExpXBetaG(
+    		const std::string& offs, const std::string& xBeta,
+			const std::string& y, const std::string& k) {
+		return "exp(" + xBeta + ")";
+    }
+
+	std::string logLikeDenominatorContribG(
+			const std::string& ni, const std::string& denom) {
+		return ni + "*" + "log(" + denom + ")";
 	}
 
+	std::string logPredLikeContribG(
+			const std::string& y, const std::string& weight,
+			const std::string& xBeta, const std::string& denominator) {
+		return y + "*" + weight + "*" +  "(" + xBeta + "- log(" + denominator + "))";
+	}
+
+	std::string logPredLikeContribG(
+			const std::string& ji, const std::string& weighti,
+			const std::string& xBetai, const std::string& denoms,
+			const std::string& groups, const std::string& i) {
+		return ji + "*" + weighti + "*" + "(" + xBetai + " - log(" + denoms + "[" + getGroupG(groups, i) + "]))";
+	}
+
+	//TODO predictEstimate
+
 };
+
+// TODO add efron properly
 
 struct EfronConditionalLogisticRegressionG : public GroupedDataG, GLMProjectionG, FixedPidG, SurvivalG {
 public:
@@ -550,16 +641,16 @@ struct TiedConditionalLogisticRegressionG : public GroupedWithTiesDataG, GLMProj
 public:
 	const static bool denomRequiresStratumReduction = false;
 
+	// TODO logLikeFixedTermsContrib throw error?
+
 	std::string getDenomNullValueG () {
 		std::string code = "(REAL)0.0";
 		return(code);
 	}
 
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "exp(xb)";
-        return(code.str());
-    }
+	std::string observationCountG(const std::string& yi) {
+		return "(REAL)" + yi;
+	}
 
     // same as lr, do not use
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
@@ -576,11 +667,36 @@ public:
         return(code.str());
 	}
 
-	std::string logLikeDenominatorContribG() {
-		std::stringstream code;
-		code << "wN * log(denom)";
-		return(code.str());
+    std::string getOffsExpXBetaG(
+    		const std::string& offs, const std::string& xBeta) {
+		return "exp(" + xBeta + ")";
+    }
+
+    std::string getOffsExpXBetaG(
+    		const std::string& offs, const std::string& xBeta,
+			const std::string& y, const std::string& k) {
+		return "exp(" + xBeta + ")";
+    }
+
+	std::string logLikeDenominatorContribG(
+			const std::string& ni, const std::string& denom) {
+		return ni + "*" + "log(" + denom + ")";
 	}
+
+	std::string logPredLikeContribG(
+			const std::string& y, const std::string& weight,
+			const std::string& xBeta, const std::string& denominator) {
+		return y + "*" + weight + "*" +  "(" + xBeta + "- log(" + denominator + "))";
+	}
+
+	std::string logPredLikeContribG(
+			const std::string& ji, const std::string& weighti,
+			const std::string& xBetai, const std::string& denoms,
+			const std::string& groups, const std::string& i) {
+		return ji + "*" + weighti + "*" + "(" + xBetai + " - log(" + denoms + "[" + getGroupG(groups, i) + "]))";
+	}
+
+	//TODO predictEstimate
 
 };
 
@@ -594,19 +710,58 @@ public:
 		return(code);
 	}
 
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "exp(xb)";
-        return(code.str());
-    }
-
-	std::string logLikeDenominatorContribG() {
-		std::stringstream code;
-		code << "log(denom)";
-		return(code.str());
+	std::string observationCountG(const std::string& yi) {
+		return "(REAL)1.0";
 	}
 
+	std::string setIndependentDenominatorG(const std::string& expXBeta) {
+	    return "(REAL)1.0 + " + expXBeta;
+	}
+
+    std::string getOffsExpXBetaG(
+    		const std::string& offs, const std::string& xBeta) {
+		return "exp(" + xBeta + ")";
+    }
+
+    std::string getOffsExpXBetaG(
+    		const std::string& offs, const std::string& xBeta,
+			const std::string& y, const std::string& k) {
+		return "exp(" + xBeta + ")";
+    }
+
+    // outputs logLikeDenominatorContrib
+    std::string logLikeDenominatorContribG(
+    		const std::string& ni, const std::string& denom) {
+    	std::stringstream code;
+    	code << "REAL logLikeDenominatorContrib;";
+    	code << "if (" + ni + " == (REAL)0.0)  {";
+    	code << "	logLikeDenominatorContrib = 0.0;";
+    	code << "} else {";
+    	code << "	logLikeDenominatorContrib = " + ni + "* log((" + denom + "- (REAL)1.0)/" + ni + "+ (REAL)1.0);";
+    	code << "}";
+    	return(code);
+	}
+
+	std::string logPredLikeContribG(
+			const std::string& y, const std::string& weight,
+			const std::string& xBeta, const std::string& denominator) {
+		return y + "*" + weight + "*" +  "(" + xBeta + "- log(" + denominator + "))";
+	}
+
+	std::string logPredLikeContribG(
+			const std::string& ji, const std::string& weighti,
+			const std::string& xBetai, const std::string& denoms,
+			const std::string& groups, const std::string& i) {
+		return ji + "*" + weighti + "*" + "(" + xBetai + " - log(" + denoms + "[" + getGroupG(groups, i) + "]))";
+	}
+
+	//TODO predictEstimate
+
+	//TODO incrementGradientAndHessian2
+
 };
+
+// TODO transcribe rest of BaseModelG's from BaseModel once figure out how to handle cox
 
 struct CoxProportionalHazardsG : public OrderedDataG, GLMProjectionG, SortedPidG, NoFixedLikelihoodTermsG, SurvivalG {
 public:
