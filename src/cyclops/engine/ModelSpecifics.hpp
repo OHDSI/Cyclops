@@ -458,7 +458,7 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, bool useC
         incrementByGroup(hNWeight.data(), hPid, k, event);
     }
 
-    //ESK: Compute hNtoK indices manually here.
+    //ESK: Compute hNtoK indices manually here. (Needed for backwards accumulation weights)
     hNtoK.resize(N+1);
     int n = 0;
     for (size_t k = 0; k < K;) {
@@ -619,9 +619,6 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 			for (size_t i = 0; i < N; i++) {
 				// Weights modified in computeNEvents()
 				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], accDenomPid[i]);
-                //logLikelihood -= BaseModel::logLikeDenominatorContrib(BaseModel::observationCount(hY[i]) != static_cast<RealType>(1) ?
-                //        static_cast<RealType>(0) : hNWeight[i],
-                //        accDenomPid[i]);
             }
 		} else {  // TODO Unnecessary code duplication
 			for (size_t i = 0; i < N; i++) {
@@ -921,10 +918,6 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 
     	        accNumerPid += numerator1;
     	        accNumerPid2 += numerator2;
-
-                //std::cout << "Event Indicator " << hY[i] << ": " << "accDenom: " << accDenomPid[i] << " " <<
-                //"hNWeight: " << hNWeight[i] <<  " " << "Group: " << BaseModel::getGroup(hPid, i) <<
-                //" " << "hKWeight: " << hKWeight[i] << std::endl;
 
                 // Compile-time delegation
     	        //ESK:
@@ -1536,7 +1529,6 @@ void ModelSpecifics<BaseModel,RealType>::computeAccumlatedDenominator(bool useWe
 	        }
 
 	        totalDenom += denomPid[i];
-            std::cout << "Obs = " << i << ", "  << "hY = " << hY[hNtoK[i]] << ", " <<  "Front Contrib = " <<  totalDenom  <<  std::endl;
             accDenomPid[i] = totalDenom;
 	    }
 	}
@@ -1571,17 +1563,11 @@ void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedNumerator(
             totalNumer2 = static_cast<RealType>(0);
             --reset;
         }
-        //std::cout << "Iterating over " << i << ", "  << "hY = " << hY[i] << ", " << "hPid[i] = " << hPid[i] << ", " << "# Events = " << hNWeight[i] <<
-        //", " << ", " << "hWeight = " << hKWeight[i] << ", " << "Group = " << BaseModel::getGroup(hPid, i) <<  std::endl;
 
         totalNumer += (BaseModel::observationCount(hY[hNtoK[i]]) > static_cast<RealType>(1)) ? numerPid[i] / hKWeight[hNtoK[i]] : 0;
         totalNumer2 += (BaseModel::observationCount(hY[hNtoK[i]]) > static_cast<RealType>(1)) ? numerPid2[i] / hKWeight[hNtoK[i]] : 0;
-        //totalNumer += (BaseModel::observationCount(hY[i]) > static_cast<RealType>(1)) ? numerPid[i] / hKWeight[hPid[i]] : 0;
-        //totalNumer2 += (BaseModel::observationCount(hY[i]) > static_cast<RealType>(1)) ? numerPid2[i] / hKWeight[hPid[i]] : 0;
         decNumerPid[i] = (BaseModel::observationCount(hY[hNtoK[i]]) == static_cast<RealType>(1)) ? hKWeight[hNtoK[i]] * totalNumer : 0;
         decNumerPid2[i] = (BaseModel::observationCount(hY[hNtoK[i]]) == static_cast<RealType>(1)) ? hKWeight[hNtoK[i]] * totalNumer2 : 0;
-        //decNumerPid[i] = (BaseModel::observationCount(hY[i]) == static_cast<RealType>(1)) ? hNWeight[i] * hKWeight[hPid[i]] * totalNumer : 0;
-        //decNumerPid2[i] = (BaseModel::observationCount(hY[i]) == static_cast<RealType>(1)) ? hNWeight[i] * hKWeight[hPid[i]] * totalNumer2 : 0;
 
         --revIt;
 
@@ -1625,10 +1611,7 @@ void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedDenominator(bo
 
             //ESK: Use this to perform 'backward' scan and update accDenomPid
             totalDenom += (BaseModel::observationCount(hY[hNtoK[i]]) > static_cast<RealType>(1)) ? denomPid[i] / hKWeight[hNtoK[i]] : 0;
-            backDenom = (BaseModel::observationCount(hY[hNtoK[i]]) == static_cast<RealType>(1)) ? hKWeight[hNtoK[i]] * totalDenom : 0;
-            accDenomPid[i] += backDenom;
-            std::cout << "Obs = " << i << ", "  << "hY = " << hY[hNtoK[i]] << ", " <<  "Back Contrib = " <<  backDenom  << ", " << "Weight = " << hKWeight[hNtoK[i]] << ", " << "Group weight = " <<  hKWeight[i]
-            << std::endl;
+            accDenomPid[i] += (BaseModel::observationCount(hY[hNtoK[i]]) == static_cast<RealType>(1)) ? hKWeight[hNtoK[i]] * totalDenom : 0;
         }
     }
 }
