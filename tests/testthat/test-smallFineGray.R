@@ -29,11 +29,11 @@ test_that("Check very small Fine-Gray example with time ties, but no failure tie
                        start, length, event, x1, x2
                        0, 4,1,0,0
                        0, 3,2,2,0
-                       0, 3,1,0,1
                        0, 3,2,0,1
-                       0, 2,1,1,1
+                       0, 3,1,0,1
                        0, 2,0,1,0
-                       0, 2,0,1,0")
+                       0, 2,0,1,0
+                       0, 2,1,1,1")
 
     fgDat <- Cyclops:::getFineGrayWeights(test$length, test$event)
     dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "cox", weights = fgDat$weights)
@@ -48,11 +48,12 @@ test_that("Check very small Fine-Gray example with time ties and failure ties", 
     test <- read.table(header=T, sep = ",", text = "
                        start, length, event, x1, x2
                        0, 4,  1,0,0
-                       0, 3, 2,2,0
+                       0, 3, 1,2,0
                        0, 3,  1,0,1
-                       0, 3, 1,0,1
+                       0, 3, 2,0,1
                        0, 2,  0,1,1
-                       0, 1, 0,1,0
+                       0, 1, 2,1,0
+                       0, 1, 0,1,1,
                        0, 1, 1,1,0,
                        0, 1, 1,1,1")
 
