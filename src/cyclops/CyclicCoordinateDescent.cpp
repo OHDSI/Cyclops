@@ -224,6 +224,8 @@ void CyclicCoordinateDescent::init(bool offset) {
 			NULL
 		//	hY
 			);
+
+	usingGPU = modelSpecifics.isGPU();
 }
 
 int CyclicCoordinateDescent::getAlignedLength(int N) {

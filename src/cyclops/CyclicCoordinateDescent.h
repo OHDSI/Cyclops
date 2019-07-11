@@ -15,6 +15,16 @@
 #include "priors/JointPrior.h"
 #include "io/ProgressLogger.h"
 
+// TODO is the following needed?
+#pragma GCC diagnostic push
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
+#pragma GCC diagnostic ignored "-Wpragmas"
+#endif
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
+#pragma GCC diagnostic ignored "-Wignored-attributes" // To keep C++14 quiet
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#pragma GCC diagnostic pop
+
 #include <Eigen/Dense>
 #include <deque>
 
@@ -172,6 +182,8 @@ public:
 	loggers::ProgressLogger& getProgressLogger() const { return *logger; }
 
 	loggers::ErrorHandler& getErrorHandler() const { return *error; }
+
+	bool usingGPU;
 
 protected:
 
@@ -373,6 +385,7 @@ protected:
 
 	loggers::ProgressLoggerPtr logger;
 	loggers::ErrorHandlerPtr error;
+
 };
 
 double convertVarianceToHyperparameter(double variance);

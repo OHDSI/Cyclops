@@ -278,13 +278,218 @@ private:
 template <class BaseModel, typename RealType, class BaseModelG>
 class GpuModelSpecifics : public ModelSpecifics<BaseModel, RealType>, BaseModelG {
 
+    using ModelSpecifics<BaseModel, RealType>::modelData;
+    using ModelSpecifics<BaseModel, RealType>::hNtoK;
+    using ModelSpecifics<BaseModel, RealType>::hPid;
+    using ModelSpecifics<BaseModel, RealType>::hPidInternal;
+    using ModelSpecifics<BaseModel, RealType>::accReset;
+    using ModelSpecifics<BaseModel, RealType>::hXjY;
+    using ModelSpecifics<BaseModel, RealType>::hXjX;
+    using ModelSpecifics<BaseModel, RealType>::sparseIndices;
+    using ModelSpecifics<BaseModel, RealType>::K;
+    using ModelSpecifics<BaseModel, RealType>::J;
+    using ModelSpecifics<BaseModel, RealType>::N;
+    using ModelSpecifics<BaseModel, RealType>::duration;
+    using ModelSpecifics<BaseModel, RealType>::norm;
+    using ModelSpecifics<BaseModel, RealType>::boundType;
+    using ModelSpecifics<BaseModel, RealType>::hXt;
+    using ModelSpecifics<BaseModel, RealType>::logLikelihoodFixedTerm;
+
+	using BaseModel::offsExpXBeta;
+	using BaseModel::hXBeta;
+	using BaseModel::hY;
+	using BaseModel::hOffs;
+    using BaseModel::denomPid;
+    using BaseModel::denomPid2;
+    using BaseModel::numerPid;
+    using BaseModel::numerPid2;
+	using BaseModel::hNWeight;
+	using BaseModel::hKWeight;
+
+
+	/*
+    using ModelSpecifics<BaseModel, RealType>::accDenomPid;
+    using ModelSpecifics<BaseModel, RealType>::accNumerPid;
+    using ModelSpecifics<BaseModel, RealType>::accNumerPid2;
+    */
+
+    //using ModelSpecifics<BaseModel, WeightType>::hBeta;
+    //using ModelSpecifics<BaseModel, WeightType>::algorithmType;
+
+    //using ModelSpecifics<BaseModel, WeightType>::syncCV;
+    //using ModelSpecifics<BaseModel, WeightType>::syncCVFolds;
+
+    /*
+    using ModelSpecifics<BaseModel, WeightType>::hNWeightPool;
+    using ModelSpecifics<BaseModel, WeightType>::hKWeightPool;
+    using ModelSpecifics<BaseModel, WeightType>::accDenomPidPool;
+    using ModelSpecifics<BaseModel, WeightType>::accNumerPid2Pool;
+    using ModelSpecifics<BaseModel, WeightType>::accResetPool;
+    using ModelSpecifics<BaseModel, WeightType>::hPidPool;
+    using ModelSpecifics<BaseModel, WeightType>::hPidInternalPool;
+    using ModelSpecifics<BaseModel, WeightType>::hXBetaPool;
+    using ModelSpecifics<BaseModel, WeightType>::offsExpXBetaPool;
+    using ModelSpecifics<BaseModel, WeightType>::denomPidPool;
+    using ModelSpecifics<BaseModel, WeightType>::numerPidPool;
+    using ModelSpecifics<BaseModel, WeightType>::numerPid2Pool;
+    using ModelSpecifics<BaseModel, WeightType>::hXjYPool;
+    using ModelSpecifics<BaseModel, WeightType>::hXjXPool;
+    using ModelSpecifics<BaseModel, WeightType>::logLikelihoodFixedTermPool;
+    using ModelSpecifics<BaseModel, WeightType>::normPool;
+    using ModelSpecifics<BaseModel, WeightType>::useLogSum;
+    */
+
 	bool double_precision = false;
+
+    GpuModelSpecifics(const ModelData& input,
+                      const std::string& deviceName)
+    : ModelSpecifics<BaseModel,WeightType>(input),
+      device(compute::system::find_device(deviceName)),
+      ctx(device),
+      queue(ctx, device
+          , compute::command_queue::enable_profiling
+      ),
+      dColumns(ctx),
+      dY(ctx), dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dDenominator2(ctx), dAccDenominator(ctx), dBuffer(ctx), dKWeight(ctx), dNWeight(ctx),
+      dId(ctx), dNorm(ctx), dOffs(ctx), dFixBeta(ctx), dIntVector1(ctx), dIntVector2(ctx), dIntVector3(ctx), dIntVector4(ctx), dRealVector1(ctx), dRealVector2(ctx), dFirstRow(ctx),
+      dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx), dNtoK(ctx), dAllDelta(ctx), dColumnsXt(ctx),
+	  dXBetaVector(ctx), dOffsExpXBetaVector(ctx), dDenomPidVector(ctx), dDenomPid2Vector(ctx), dNWeightVector(ctx), dKWeightVector(ctx), dPidVector(ctx), dBound(ctx), dXjY(ctx),
+	  dAccDenomPidVector(ctx), dAccNumerPidVector(ctx), dAccNumerPid2Vector(ctx), dAccResetVector(ctx), dPidInternalVector(ctx), dNumerPidVector(ctx),
+	  dNumerPid2Vector(ctx), dNormVector(ctx), dXjXVector(ctx), dXjYVector(ctx), dDeltaVector(ctx), dBoundVector(ctx), dPriorParams(ctx), dBetaVector(ctx),
+	  dAllZero(ctx), dDoneVector(ctx), dIndexListWithPrior(ctx), dCVIndices(ctx), dSMStarts(ctx), dSMScales(ctx), dSMIndices(ctx), dLogX(ctx), dKStrata(ctx),
+	  dXBetaKnown(false), hXBetaKnown(false){
+
+        std::cerr << "ctor GpuModelSpecifics" << std::endl;
+
+        // Get device ready to compute
+        std::cerr << "Using: " << device.name() << std::endl;
+    }
+
+    virtual ~GpuModelSpecifics() {
+        std::cerr << "dtor GpuModelSpecifics" << std::endl;
+    }
+
     virtual void deviceInitialization() {
     	RealType blah = 0;
     	if (sizeof(blah)==8) {
     		double_precision = true;
     	}
+
+		std::vector<real> temp;
+		temp.resize(J, 0.0);
+		detail::resizeAndCopyToDevice(temp, dBeta, queue);
     }
+
+    bool isGPU() {return true;};
+
+
+    std::vector<real> hBuffer0;
+    std::vector<real> hBuffer;
+    std::vector<real> hBuffer1;
+    std::vector<real> xMatrix;
+    std::vector<real> expXMatrix;
+	std::vector<real> hFirstRow;
+	std::vector<real> hOverflow;
+
+    // Internal storage
+    compute::vector<real> dY;
+    compute::vector<real> dBeta;
+    compute::vector<real> dXBeta;
+    compute::vector<real> dExpXBeta;
+    compute::vector<real> dDenominator;
+    compute::vector<real> dDenominator2;
+    compute::vector<real> dAccDenominator;
+    compute::vector<real> dNorm;
+    compute::vector<real> dOffs;
+    compute::vector<int>  dFixBeta;
+    compute::vector<real> dAllDelta;
+
+    compute::vector<real> dBound;
+    compute::vector<real> dXjY;
+
+    // for exactCLR
+    std::vector<int> subjects;
+    int totalCases;
+    int maxN;
+    int maxCases;
+    compute::vector<real>  dRealVector1;
+    compute::vector<real>  dRealVector2;
+    compute::vector<int>  dIntVector1;
+    compute::vector<int>  dIntVector2;
+    compute::vector<int>  dIntVector3;
+    compute::vector<int>  dIntVector4;
+    compute::vector<real> dXMatrix;
+    compute::vector<real> dExpXMatrix;
+    bool initialized = false;
+    compute::vector<real> dOverflow0;
+    compute::vector<real> dOverflow1;
+    compute::vector<int> dNtoK;
+    compute::vector<real> dFirstRow;
+    compute::vector<int> dAllZero;
+    compute::vector<real> dLogX;
+    compute::vector<int> dKStrata;
+
+#ifdef USE_VECTOR
+    compute::vector<compute::double2_> dBuffer;
+#else
+    compute::vector<real> dBuffer;
+    compute::vector<real> dBuffer1;
+#endif // USE_VECTOR
+    compute::vector<real> dKWeight;	//TODO make these weighttype
+    compute::vector<real> dNWeight; //TODO make these weighttype
+    compute::vector<int> dId;
+
+    bool dXBetaKnown;
+    bool hXBetaKnown;
+
+    // syhcCV
+    bool layoutByPerson;
+    int cvBlockSize;
+    int cvIndexStride;
+    bool pad;
+    int activeFolds;
+    int multiprocessors = device.get_info<cl_uint>(CL_DEVICE_MAX_COMPUTE_UNITS)*4/5;
+
+    compute::vector<real> dNWeightVector;
+    compute::vector<real> dKWeightVector;
+    compute::vector<real> dAccDenomPidVector;
+    compute::vector<real> dAccNumerPidVector;
+    compute::vector<real> dAccNumerPid2Vector;
+    compute::vector<int> dAccResetVector;
+    compute::vector<int> dPidVector;
+    compute::vector<int> dPidInternalVector;
+    compute::vector<real> dXBetaVector;
+    compute::vector<real> dOffsExpXBetaVector;
+    compute::vector<real> dDenomPidVector;
+    compute::vector<real> dDenomPid2Vector;
+    compute::vector<real> dNumerPidVector;
+    compute::vector<real> dNumerPid2Vector;
+    compute::vector<real> dXjYVector;
+    compute::vector<real> dXjXVector;
+    //compute::vector<real> dLogLikelihoodFixedTermVector;
+    //compute::vector<IndexVectorPtr> dSparseIndicesVector;
+    compute::vector<real> dNormVector;
+    compute::vector<real> dDeltaVector;
+    compute::vector<real> dBoundVector;
+    compute::vector<real> dPriorParams;
+    compute::vector<real> dBetaVector;
+    compute::vector<int> dDoneVector;
+    compute::vector<int> dCVIndices;
+    compute::vector<int> dSMStarts;
+    compute::vector<int> dSMScales;
+    compute::vector<int> dSMIndices;
+
+    std::vector<int> hSMStarts;
+    std::vector<int> hSMScales;
+    std::vector<int> hSMIndices;
+
+    std::vector<int> hSMScales0;
+    std::vector<int> hSMIndices0;
+
+    std::vector<real> priorTypes;
+    compute::vector<int> dIndexListWithPrior;
+    std::vector<int> indexListWithPriorStarts;
+    std::vector<int> indexListWithPriorLengths;
 
 };
 

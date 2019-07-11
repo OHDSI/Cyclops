@@ -95,6 +95,8 @@ public:
 
     virtual void printTiming() = 0; // pure virtual
 
+    virtual bool isGPU() = 0;
+
 //	virtual void sortPid(bool useCrossValidation) = 0; // pure virtual
 
 //	static bsccs::shared_ptr<AbstractModelSpecifics> factory(const ModelType modelType, const ModelData& modelData);

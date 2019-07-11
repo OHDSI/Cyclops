@@ -55,6 +55,7 @@ protected:
     RealVector hXBeta;
     RealVector offsExpXBeta;
     RealVector denomPid;
+    RealVector denomPid2;
     RealVector numerPid;
     RealVector numerPid2;
 
@@ -93,6 +94,8 @@ public:
 	virtual void axpyXBeta(const double beta, const int j);
 
 	virtual void computeXBeta(double* beta, bool useWeights);
+
+	virtual bool isGPU() {return false;};
 
 	//virtual double getGradientObjective();
 
@@ -211,6 +214,10 @@ protected:
 	using Storage<RealType>::hNWeight;
 	using Storage<RealType>::hKWeight;
 
+	std::vector<int> hNtoK;
+
+	RealVector norm;
+
 	// std::vector<RealType> hNWeight;
 	// std::vector<RealType> hKWeight;
 
@@ -275,10 +282,6 @@ private:
 
 	template <class InteratorType>
 	void incrementNormsImpl(int index);
-
-	std::vector<int> hNtoK;
-
-	RealVector norm;
 
 	struct WeightedOperation {
 		const static bool isWeighted = true;
