@@ -226,6 +226,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 			);
 
 	usingGPU = modelSpecifics.isGPU();
+	resetBeta();
 }
 
 int CyclicCoordinateDescent::getAlignedLength(int N) {
@@ -243,6 +244,9 @@ void CyclicCoordinateDescent::resetBeta(void) {
     auto start = hXI.getHasOffsetCovariate() ? 1 : 0;
     for (auto j = start; j < J; j++) {
 		hBeta[j] = 0.0;
+	}
+	if (usingGPU) {
+		modelSpecifics.resetBeta();
 	}
 	computeXBeta();
 	sufficientStatisticsKnown = false;

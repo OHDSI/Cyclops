@@ -274,9 +274,9 @@ private:
     UInt tasks;
 };
 
-
 template <class BaseModel, typename RealType, class BaseModelG>
 class GpuModelSpecifics : public ModelSpecifics<BaseModel, RealType>, BaseModelG {
+public:
 
     using ModelSpecifics<BaseModel, RealType>::modelData;
     using ModelSpecifics<BaseModel, RealType>::hNtoK;
@@ -305,7 +305,6 @@ class GpuModelSpecifics : public ModelSpecifics<BaseModel, RealType>, BaseModelG
     using BaseModel::numerPid2;
 	using BaseModel::hNWeight;
 	using BaseModel::hKWeight;
-
 
 	/*
     using ModelSpecifics<BaseModel, RealType>::accDenomPid;
@@ -374,69 +373,82 @@ class GpuModelSpecifics : public ModelSpecifics<BaseModel, RealType>, BaseModelG
     	if (sizeof(blah)==8) {
     		double_precision = true;
     	}
+    }
 
-		std::vector<real> temp;
-		temp.resize(J, 0.0);
-		detail::resizeAndCopyToDevice(temp, dBeta, queue);
+    virtual void resetBeta() {
+    	/*
+    	if (syncCV) {
+    		std::vector<real> temp;
+    		//temp.resize(J*syncCVFolds, 0.0);
+    		int size = layoutByPerson ? cvIndexStride : syncCVFolds;
+    		temp.resize(J*size, 0.0);
+    		detail::resizeAndCopyToDevice(temp, dBetaVector, queue);
+    	} else {
+    	*/
+    		std::vector<RealType> temp;
+    		temp.resize(J, 0.0);
+    		detail::resizeAndCopyToDevice(temp, dBeta, queue);
+    	//}
     }
 
     bool isGPU() {return true;};
 
 
-    std::vector<real> hBuffer0;
-    std::vector<real> hBuffer;
-    std::vector<real> hBuffer1;
-    std::vector<real> xMatrix;
-    std::vector<real> expXMatrix;
-	std::vector<real> hFirstRow;
-	std::vector<real> hOverflow;
+    // CPU storage
+    std::vector<RealType> hBuffer0;
+    std::vector<RealType> hBuffer;
+    std::vector<RealType> hBuffer1;
+    std::vector<RealType> xMatrix;
+    std::vector<RealType> expXMatrix;
+	std::vector<RealType> hFirstRow;
+	std::vector<RealType> hOverflow;
 
-    // Internal storage
-    compute::vector<real> dY;
-    compute::vector<real> dBeta;
-    compute::vector<real> dXBeta;
-    compute::vector<real> dExpXBeta;
-    compute::vector<real> dDenominator;
-    compute::vector<real> dDenominator2;
-    compute::vector<real> dAccDenominator;
-    compute::vector<real> dNorm;
-    compute::vector<real> dOffs;
+    // device storage
+    compute::vector<RealType> dY;
+    compute::vector<RealType> dBeta;
+    compute::vector<RealType> dXBeta;
+    compute::vector<RealType> dExpXBeta;
+    compute::vector<RealType> dDenominator;
+    compute::vector<RealType> dDenominator2;
+    compute::vector<RealType> dAccDenominator;
+    compute::vector<RealType> dNorm;
+    compute::vector<RealType> dOffs;
     compute::vector<int>  dFixBeta;
-    compute::vector<real> dAllDelta;
+    compute::vector<RealType> dAllDelta;
 
-    compute::vector<real> dBound;
-    compute::vector<real> dXjY;
+    compute::vector<RealType> dBound;
+    compute::vector<RealType> dXjY;
 
     // for exactCLR
     std::vector<int> subjects;
     int totalCases;
     int maxN;
     int maxCases;
-    compute::vector<real>  dRealVector1;
-    compute::vector<real>  dRealVector2;
+    compute::vector<RealType>  dRealVector1;
+    compute::vector<RealType>  dRealVector2;
     compute::vector<int>  dIntVector1;
     compute::vector<int>  dIntVector2;
     compute::vector<int>  dIntVector3;
     compute::vector<int>  dIntVector4;
-    compute::vector<real> dXMatrix;
-    compute::vector<real> dExpXMatrix;
+    compute::vector<RealType> dXMatrix;
+    compute::vector<RealType> dExpXMatrix;
     bool initialized = false;
-    compute::vector<real> dOverflow0;
-    compute::vector<real> dOverflow1;
+    compute::vector<RealType> dOverflow0;
+    compute::vector<RealType> dOverflow1;
     compute::vector<int> dNtoK;
-    compute::vector<real> dFirstRow;
+    compute::vector<RealType> dFirstRow;
     compute::vector<int> dAllZero;
-    compute::vector<real> dLogX;
+    compute::vector<RealType> dLogX;
     compute::vector<int> dKStrata;
 
 #ifdef USE_VECTOR
     compute::vector<compute::double2_> dBuffer;
 #else
-    compute::vector<real> dBuffer;
-    compute::vector<real> dBuffer1;
+    compute::vector<RealType> dBuffer;
+    compute::vector<RealType> dBuffer1;
 #endif // USE_VECTOR
-    compute::vector<real> dKWeight;	//TODO make these weighttype
-    compute::vector<real> dNWeight; //TODO make these weighttype
+    compute::vector<RealType> dKWeight;	//TODO make these weighttype
+    compute::vector<RealType> dNWeight; //TODO make these weighttype
     compute::vector<int> dId;
 
     bool dXBetaKnown;
@@ -450,29 +462,29 @@ class GpuModelSpecifics : public ModelSpecifics<BaseModel, RealType>, BaseModelG
     int activeFolds;
     int multiprocessors = device.get_info<cl_uint>(CL_DEVICE_MAX_COMPUTE_UNITS)*4/5;
 
-    compute::vector<real> dNWeightVector;
-    compute::vector<real> dKWeightVector;
-    compute::vector<real> dAccDenomPidVector;
-    compute::vector<real> dAccNumerPidVector;
-    compute::vector<real> dAccNumerPid2Vector;
+    compute::vector<RealType> dNWeightVector;
+    compute::vector<RealType> dKWeightVector;
+    compute::vector<RealType> dAccDenomPidVector;
+    compute::vector<RealType> dAccNumerPidVector;
+    compute::vector<RealType> dAccNumerPid2Vector;
     compute::vector<int> dAccResetVector;
     compute::vector<int> dPidVector;
     compute::vector<int> dPidInternalVector;
-    compute::vector<real> dXBetaVector;
-    compute::vector<real> dOffsExpXBetaVector;
-    compute::vector<real> dDenomPidVector;
-    compute::vector<real> dDenomPid2Vector;
-    compute::vector<real> dNumerPidVector;
-    compute::vector<real> dNumerPid2Vector;
-    compute::vector<real> dXjYVector;
-    compute::vector<real> dXjXVector;
+    compute::vector<RealType> dXBetaVector;
+    compute::vector<RealType> dOffsExpXBetaVector;
+    compute::vector<RealType> dDenomPidVector;
+    compute::vector<RealType> dDenomPid2Vector;
+    compute::vector<RealType> dNumerPidVector;
+    compute::vector<RealType> dNumerPid2Vector;
+    compute::vector<RealType> dXjYVector;
+    compute::vector<RealType> dXjXVector;
     //compute::vector<real> dLogLikelihoodFixedTermVector;
     //compute::vector<IndexVectorPtr> dSparseIndicesVector;
-    compute::vector<real> dNormVector;
-    compute::vector<real> dDeltaVector;
-    compute::vector<real> dBoundVector;
-    compute::vector<real> dPriorParams;
-    compute::vector<real> dBetaVector;
+    compute::vector<RealType> dNormVector;
+    compute::vector<RealType> dDeltaVector;
+    compute::vector<RealType> dBoundVector;
+    compute::vector<RealType> dPriorParams;
+    compute::vector<RealType> dBetaVector;
     compute::vector<int> dDoneVector;
     compute::vector<int> dCVIndices;
     compute::vector<int> dSMStarts;
@@ -486,7 +498,7 @@ class GpuModelSpecifics : public ModelSpecifics<BaseModel, RealType>, BaseModelG
     std::vector<int> hSMScales0;
     std::vector<int> hSMIndices0;
 
-    std::vector<real> priorTypes;
+    std::vector<RealType> priorTypes;
     compute::vector<int> dIndexListWithPrior;
     std::vector<int> indexListWithPriorStarts;
     std::vector<int> indexListWithPriorLengths;
