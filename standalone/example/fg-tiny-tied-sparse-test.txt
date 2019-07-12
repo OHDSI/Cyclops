@@ -1,4 +1,4 @@
-header has_weights dense
+header has_weights 
 4   1 0.711111 
 3   1 0.711111 1:2
 3   1 0.711111 2:1
