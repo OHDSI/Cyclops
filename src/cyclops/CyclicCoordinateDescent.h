@@ -183,7 +183,20 @@ public:
 
 	loggers::ErrorHandler& getErrorHandler() const { return *error; }
 
-	bool usingGPU;
+// GPU
+	void setWeights(double* iWeights, int syncCVIndex);
+
+	double getPredictiveLogLikelihood(double* weights, int cvIndex);
+
+	std::vector<double> getPredictiveLogLikelihood(std::vector<std::vector<double>>& weightsPool);
+
+	void turnOnSyncCV(int foldToCompute);
+
+	void turnOffSyncCV(void);
+
+	bool GPU() {
+		return usingGPU;
+	}
 
 protected:
 
@@ -385,6 +398,8 @@ protected:
 
 	loggers::ProgressLoggerPtr logger;
 	loggers::ErrorHandlerPtr error;
+
+	bool usingGPU;
 
 };
 
