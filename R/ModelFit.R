@@ -305,16 +305,16 @@ fitCyclopsModel <- function(cyclopsData,
         || is.null(x$cyclopsInterfacePtr)
         || class(x$cyclopsInterfacePtr) != "externalptr"
         || .isRcppPtrNull(x$cyclopsInterfacePtr)
-        || .cyclopsGetComputeDevice(x$cyclopsInterfacePtr) != computeDevice
+        #|| .cyclopsGetComputeDevice(x$cyclopsInterfacePtr) != computeDevice TODO is this necessary?
     ) {
 
         if (testOnly == TRUE) {
             stop("Interface object is not initialized")
         }
 
-        # if (computeDevice != "native") {
-        #     stopifnot(computeDevice %in% listOpenCLDevices())
-        # }
+        if (computeDevice != "native") {
+            stopifnot(computeDevice %in% listOpenCLDevices())
+        }
 
         # Build interface
         interface <- .cyclopsInitializeModel(x$cyclopsDataPtr, modelType = x$modelType, computeDevice, computeMLE = TRUE)

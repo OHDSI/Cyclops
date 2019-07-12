@@ -15,8 +15,8 @@
 #include <thread>
 #include <complex>
 
-// #define CYCLOPS_DEBUG_TIMING
-// #define CYCLOPS_DEBUG_TIMING_LOW
+//#define CYCLOPS_DEBUG_TIMING
+//#define CYCLOPS_DEBUG_TIMING_LOW
 
 #ifdef CYCLOPS_DEBUG_TIMING
     #include "Timing.h"
@@ -143,6 +143,7 @@ protected:
 
     using BaseModel::offsExpXBeta;
     using BaseModel::denomPid;
+    using BaseModel::denomPid2;
     using BaseModel::numerPid;
     using BaseModel::numerPid2;
 

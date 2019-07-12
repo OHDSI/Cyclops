@@ -97,6 +97,15 @@
     .Call(`_Cyclops_cyclopsInitializeModel`, inModelData, modelType, computeDevice, computeMLE)
 }
 
+#' @export
+listOpenCLDevices <- function() {
+    .Call(`_Cyclops_listOpenCLDevices`)
+}
+
+.getDefaultOpenCLDevice <- function() {
+    .Call(`_Cyclops_getDefaultOpenCLDevice`)
+}
+
 .isSorted <- function(dataFrame, indexes, ascending) {
     .Call(`_Cyclops_isSorted`, dataFrame, indexes, ascending)
 }

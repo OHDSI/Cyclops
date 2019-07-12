@@ -100,7 +100,7 @@ public:
 
     virtual ~AllGpuColumns() { }
 
-    void initialize(const CompressedDataMatrix& mat,
+    void initialize(const CompressedDataMatrix<RealType>& mat,
                     compute::command_queue& queue,
                     size_t K, bool pad) {
         std::vector<RealType> flatData;
@@ -232,7 +232,7 @@ public:
 
     //GpuColumn(const GpuColumn<RealType>& copy);
 
-    GpuColumn(const CompressedDataColumn& column,
+    GpuColumn(const CompressedDataColumn<RealType>& column,
               const compute::context& context,
               compute::command_queue& queue,
               size_t denseLength)
@@ -289,22 +289,26 @@ public:
     using ModelSpecifics<BaseModel, RealType>::K;
     using ModelSpecifics<BaseModel, RealType>::J;
     using ModelSpecifics<BaseModel, RealType>::N;
+
+#ifdef CYCLOPS_DEBUG_TIMING
     using ModelSpecifics<BaseModel, RealType>::duration;
+#endif
+
     using ModelSpecifics<BaseModel, RealType>::norm;
     using ModelSpecifics<BaseModel, RealType>::boundType;
     using ModelSpecifics<BaseModel, RealType>::hXt;
     using ModelSpecifics<BaseModel, RealType>::logLikelihoodFixedTerm;
 
-	using BaseModel::offsExpXBeta;
-	using BaseModel::hXBeta;
-	using BaseModel::hY;
-	using BaseModel::hOffs;
-    using BaseModel::denomPid;
-    using BaseModel::denomPid2;
-    using BaseModel::numerPid;
-    using BaseModel::numerPid2;
-	using BaseModel::hNWeight;
-	using BaseModel::hKWeight;
+	using ModelSpecifics<BaseModel, RealType>::offsExpXBeta;
+	using ModelSpecifics<BaseModel, RealType>::hXBeta;
+	using ModelSpecifics<BaseModel, RealType>::hY;
+	using ModelSpecifics<BaseModel, RealType>::hOffs;
+	using ModelSpecifics<BaseModel, RealType>::denomPid;
+	using ModelSpecifics<BaseModel, RealType>::denomPid2;
+	using ModelSpecifics<BaseModel, RealType>::numerPid;
+	using ModelSpecifics<BaseModel, RealType>::numerPid2;
+	using ModelSpecifics<BaseModel, RealType>::hNWeight;
+	using ModelSpecifics<BaseModel, RealType>::hKWeight;
 
 	/*
     using ModelSpecifics<BaseModel, RealType>::accDenomPid;
@@ -340,9 +344,9 @@ public:
 
 	bool double_precision = false;
 
-    GpuModelSpecifics(const ModelData& input,
+    GpuModelSpecifics(const ModelData<RealType>& input,
                       const std::string& deviceName)
-    : ModelSpecifics<BaseModel,WeightType>(input),
+    : ModelSpecifics<BaseModel,RealType>(input),
       device(compute::system::find_device(deviceName)),
       ctx(device),
       queue(ctx, device
@@ -393,6 +397,35 @@ public:
 
     bool isGPU() {return true;};
 
+private:
+
+    template <class T>
+       void appendAndPad(const T& source, T& destination, int& length, bool pad) {
+           for (auto x : source) {
+               destination.push_back(x);
+           }
+           if (pad) {
+               auto i = source.size();
+               const auto end = detail::getAlignedLength<16>(i);
+               for (; i < end; ++i) {
+                   destination.push_back(typename T::value_type());
+               }
+               length += end;
+           } else {
+               length += source.size();
+           }
+       }
+
+    // boost::compute objects
+    const compute::device device;
+    const compute::context ctx;
+    compute::command_queue queue;
+    compute::program program;
+
+    // vectors of columns
+    // std::vector<GpuColumn<real> > columns;
+    AllGpuColumns<RealType> dColumns;
+    AllGpuColumns<RealType> dColumnsXt;
 
     // CPU storage
     std::vector<RealType> hBuffer0;
@@ -688,16 +721,15 @@ public:
 	std::string logLikeFixedTermsContribG(
 			const std::string& yi, const std::string& offseti,
 			const std::string& logoffseti) {
-		std::string code;
+		std::stringstream code;
 		code << "logLikeFixedTerm = (REAL)0.0;";
 		code << "for (int i=2; i<=(int)" + yi + "; i++)";
 			code << "logLikeFixedTerm -= log((REAL)i);";
-		return(code);
+		return(code.str());
 	} // TODO not sure if this works
 
 	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
+		return "(REAL)0.0";
 	}
 
 	std::string observationCountG(const std::string& yi) {
@@ -760,8 +792,7 @@ public:
 	// TODO logLikeFixedTermsContrib throw error?
 
 	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
+	    return "(REAL)0.0";
 	}
 
 	std::string observationCountG(const std::string& yi) {
@@ -823,8 +854,7 @@ public:
 	const static bool efron = true;
 
 	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
+		return "(REAL)0.0";
 	}
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
@@ -861,8 +891,7 @@ public:
 	// TODO logLikeFixedTermsContrib throw error?
 
 	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
+		return "(REAL)0.0";
 	}
 
 	std::string observationCountG(const std::string& yi) {
@@ -923,8 +952,7 @@ public:
 	const static bool logisticDenominator = true;
 
 	std::string getDenomNullValueG () {
-		std::string code = "(REAL)1.0";
-		return(code);
+		return "(REAL)1.0";
 	}
 
 	std::string observationCountG(const std::string& yi) {
@@ -956,7 +984,7 @@ public:
     	code << "} else {";
     	code << "	logLikeDenominatorContrib = " + ni + "* log((" + denom + "- (REAL)1.0)/" + ni + "+ (REAL)1.0);";
     	code << "}";
-    	return(code);
+    	return(code.str());
 	}
 
 	std::string logPredLikeContribG(
@@ -983,8 +1011,7 @@ public:
 struct CoxProportionalHazardsG : public OrderedDataG, GLMProjectionG, SortedPidG, NoFixedLikelihoodTermsG, SurvivalG {
 public:
 	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
+		return "(REAL)0.0";
 	}
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
@@ -1021,8 +1048,7 @@ public:
 struct BreslowTiedCoxProportionalHazardsG : public OrderedWithTiesDataG, GLMProjectionG, SortedPidG, NoFixedLikelihoodTermsG, SurvivalG {
 public:
 	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
+		return "(REAL)0.0";
 	}
 
     std::string getOffsExpXBetaG() {
@@ -1058,8 +1084,7 @@ public:
 	const static bool useNWeights = false;
 
 	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
+		return "(REAL)0.0";
 	}
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
@@ -1078,10 +1103,6 @@ public:
 		return(code.str());
 	}
 
-	real logLikeDenominatorContrib(int ni, real denom) {
-		return std::log(denom);
-	}
-
 	std::string logLikeDenominatorContribG() {
 		std::stringstream code;
 		code << "log(denom)";
@@ -1093,8 +1114,7 @@ public:
 struct PoissonRegressionG : public IndependentDataG, GLMProjectionG, FixedPidG {
 public:
 	std::string getDenomNullValueG () {
-		std::string code = "(REAL)0.0";
-		return(code);
+		return "(REAL)0.0";
 	}
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {

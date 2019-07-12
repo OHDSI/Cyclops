@@ -309,6 +309,26 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// listOpenCLDevices
+Rcpp::CharacterVector listOpenCLDevices();
+RcppExport SEXP _Cyclops_listOpenCLDevices() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(listOpenCLDevices());
+    return rcpp_result_gen;
+END_RCPP
+}
+// getDefaultOpenCLDevice
+std::string getDefaultOpenCLDevice();
+RcppExport SEXP _Cyclops_getDefaultOpenCLDevice() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(getDefaultOpenCLDevice());
+    return rcpp_result_gen;
+END_RCPP
+}
 // isSorted
 bool isSorted(const DataFrame& dataFrame, const std::vector<std::string>& indexes, const std::vector<bool>& ascending);
 RcppExport SEXP _Cyclops_isSorted(SEXP dataFrameSEXP, SEXP indexesSEXP, SEXP ascendingSEXP) {
@@ -775,6 +795,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsFitModel", (DL_FUNC) &_Cyclops_cyclopsFitModel, 1},
     {"_Cyclops_cyclopsLogModel", (DL_FUNC) &_Cyclops_cyclopsLogModel, 1},
     {"_Cyclops_cyclopsInitializeModel", (DL_FUNC) &_Cyclops_cyclopsInitializeModel, 4},
+    {"_Cyclops_listOpenCLDevices", (DL_FUNC) &_Cyclops_listOpenCLDevices, 0},
+    {"_Cyclops_getDefaultOpenCLDevice", (DL_FUNC) &_Cyclops_getDefaultOpenCLDevice, 0},
     {"_Cyclops_isSorted", (DL_FUNC) &_Cyclops_isSorted, 3},
     {"_Cyclops_isSortedVectorList", (DL_FUNC) &_Cyclops_isSortedVectorList, 2},
     {"_Cyclops_cyclopsPrintRowIds", (DL_FUNC) &_Cyclops_cyclopsPrintRowIds, 1},
