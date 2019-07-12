@@ -907,7 +907,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
     	    for (; it; ) {
     	        int i = it.index();
 
-    	        if (*reset <= i) {
+                if (*reset <= i) {
     	            accNumerPid  = static_cast<RealType>(0.0);
     	            accNumerPid2 = static_cast<RealType>(0.0);
     	            ++reset;
@@ -918,6 +918,14 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 
     	        accNumerPid += numerator1;
     	        accNumerPid2 += numerator2;
+    	        //ESK
+                std::cout << "i = " << i  << std::endl;
+                std::cout << "hY = " << hY[hNtoK[i]]  << std::endl;
+                std::cout << "accNumerPid = " << accNumerPid  << std::endl;
+                std::cout << "decNumerPid = " << decNumerPid[i]  << std::endl;
+                std::cout << "accDenomPid = " << accDenomPid[i]  << std::endl;
+                std::cout << "Gradient contribution = " << hNWeight[i] * (accNumerPid + decNumerPid[i]) / accDenomPid[i] << std::endl;
+                std::cout << std::endl;
 
                 // Compile-time delegation
     	        //ESK:
@@ -925,15 +933,22 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                         w, // Signature-only, for iterator-type specialization
                         &gradient, &hessian, accNumerPid + decNumerPid[i], accNumerPid2 + decNumerPid2[i],
                         accDenomPid[i], hNWeight[i], 0.0, hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
-
                 ++it;
 
     	        if (IteratorType::isSparse) {
 
     	            const int next = it ? it.index() : N;
-    	            for (++i; i < next; ++i) {
+                    //ESK: Calculate quantities for the "skipped over" indices (i.e. 0 covariate values)
+                    for (++i; i < next; ++i) {
+                        std::cout << "i = " << i  << std::endl;
+                        std::cout << "hY = " << hY[hNtoK[i]]  << std::endl;
+                        std::cout << "accNumerPid = " << accNumerPid  << std::endl;
+                        std::cout << "decNumerPid = " << decNumerPid[i]  << std::endl;
+                        std::cout << "accDenomPid = " << accDenomPid[i]  << std::endl;
+                        std::cout << "Gradient contribution = " << hNWeight[i] * (accNumerPid + decNumerPid[i]) / accDenomPid[i] << std::endl;
+                        std::cout << std::endl;
 
-    	                if (*reset <= i) {
+                        if (*reset <= i) {
     	                    accNumerPid  = static_cast<RealType>(0.0);
     	                    accNumerPid2 = static_cast<RealType>(0.0);
     	                    ++reset;
@@ -941,7 +956,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 
     	                BaseModel::incrementGradientAndHessian(it,
                                 w, // Signature-only, for iterator-type specialization
-    	                        &gradient, &hessian, accNumerPid, accNumerPid2,
+    	                        &gradient, &hessian, accNumerPid + decNumerPid[i], accNumerPid2 + decNumerPid2[i],
     	                        accDenomPid[i], hNWeight[i], static_cast<RealType>(0), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
     	            }
     	        }
@@ -1558,7 +1573,7 @@ void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedNumerator(
 
         int i = revIt.index();
 
-        if (static_cast<unsigned int>(*reset) == i) {
+        if (static_cast<signed int>(*reset) == i) {
             totalNumer = static_cast<RealType>(0);
             totalNumer2 = static_cast<RealType>(0);
             --reset;
@@ -1568,23 +1583,25 @@ void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedNumerator(
         totalNumer2 += (BaseModel::observationCount(hY[hNtoK[i]]) > static_cast<RealType>(1)) ? numerPid2[i] / hKWeight[hNtoK[i]] : 0;
         decNumerPid[i] = (BaseModel::observationCount(hY[hNtoK[i]]) == static_cast<RealType>(1)) ? hKWeight[hNtoK[i]] * totalNumer : 0;
         decNumerPid2[i] = (BaseModel::observationCount(hY[hNtoK[i]]) == static_cast<RealType>(1)) ? hKWeight[hNtoK[i]] * totalNumer2 : 0;
-
         --revIt;
 
         if (IteratorType::isSparse) {
 
-            const int next = revIt ? revIt.index() : 0;
-            for (--i; i >= next; --i) { // TODO MAS: This may be incorrect
+            const int next = revIt ? revIt.index() : -1;
+            for (--i; i > next; --i) { // TODO MAS: This may be incorrect
+                //if (*reset <= i) { // TODO MAS: This is not correct (only need for stratifed models)
+                //    accNumerPid  = static_cast<RealType>(0);
+                //    accNumerPid2 = static_cast<RealType>(0);
+                //    ++reset;
+                //}
 
-//                if (*reset <= i) { // TODO MAS: This is not correct (only need for stratifed models)
-//                    accNumerPid  = static_cast<RealType>(0);
-//                    accNumerPid2 = static_cast<RealType>(0);
-//                    ++reset;
-//                }
-
-                // TODO Do work here!!!
+                // ESK: Start implementing sparse (Seems correct)
+                //totalNumer += (BaseModel::observationCount(hY[hNtoK[i]]) > static_cast<RealType>(1)) ? numerPid[i] / hKWeight[hNtoK[i]] : 0;
+                //totalNumer2 += (BaseModel::observationCount(hY[hNtoK[i]]) > static_cast<RealType>(1)) ? numerPid2[i] / hKWeight[hNtoK[i]] : 0;
+                decNumerPid[i] = (BaseModel::observationCount(hY[hNtoK[i]]) == static_cast<RealType>(1)) ? hKWeight[hNtoK[i]] * totalNumer : 0;
+                decNumerPid2[i] = (BaseModel::observationCount(hY[hNtoK[i]]) == static_cast<RealType>(1)) ? hKWeight[hNtoK[i]] * totalNumer2 : 0;
             }
-        }
+        } // End isSparse
     }
 }
 
