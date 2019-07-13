@@ -895,8 +895,11 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
     	    IteratorType it(sparseIndices[index].get(), N);
 
     	    RealType accNumerPid  = static_cast<RealType>(0);
-    	    RealType accNumerPid2 = static_cast<RealType>(0);
-            computeBackwardAccumlatedNumerator(it, Weights::isWeighted); // Linear scan to compute competing risks contribution
+            RealType accNumerPid2  = static_cast<RealType>(0);
+            RealType decNumerPid = static_cast<RealType>(0); // ESK: Competing risks contrib to gradient
+            RealType decNumerPid2 = static_cast<RealType>(0); // ESK: Competing risks contrib to hessian
+
+            //computeBackwardAccumlatedNumerator(it, Weights::isWeighted); // Perform inside loop rather than outside.
 
     	    // find start relavent accumulator reset point
     	    auto reset = begin(accReset);
@@ -918,20 +921,12 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 
     	        accNumerPid += numerator1;
     	        accNumerPid2 += numerator2;
-    	        //ESK
-                std::cout << "i = " << i  << std::endl;
-                std::cout << "hY = " << hY[hNtoK[i]]  << std::endl;
-                std::cout << "accNumerPid = " << accNumerPid  << std::endl;
-                std::cout << "decNumerPid = " << decNumerPid[i]  << std::endl;
-                std::cout << "accDenomPid = " << accDenomPid[i]  << std::endl;
-                std::cout << "Gradient contribution = " << hNWeight[i] * (accNumerPid + decNumerPid[i]) / accDenomPid[i] << std::endl;
-                std::cout << std::endl;
 
                 // Compile-time delegation
     	        //ESK:
                 BaseModel::incrementGradientAndHessian(it,
                         w, // Signature-only, for iterator-type specialization
-                        &gradient, &hessian, accNumerPid + decNumerPid[i], accNumerPid2 + decNumerPid2[i],
+                        &gradient, &hessian, accNumerPid, accNumerPid2,
                         accDenomPid[i], hNWeight[i], 0.0, hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
                 ++it;
 
@@ -940,13 +935,6 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
     	            const int next = it ? it.index() : N;
                     //ESK: Calculate quantities for the "skipped over" indices (i.e. 0 covariate values)
                     for (++i; i < next; ++i) {
-                        std::cout << "i = " << i  << std::endl;
-                        std::cout << "hY = " << hY[hNtoK[i]]  << std::endl;
-                        std::cout << "accNumerPid = " << accNumerPid  << std::endl;
-                        std::cout << "decNumerPid = " << decNumerPid[i]  << std::endl;
-                        std::cout << "accDenomPid = " << accDenomPid[i]  << std::endl;
-                        std::cout << "Gradient contribution = " << hNWeight[i] * (accNumerPid + decNumerPid[i]) / accDenomPid[i] << std::endl;
-                        std::cout << std::endl;
 
                         if (*reset <= i) {
     	                    accNumerPid  = static_cast<RealType>(0.0);
@@ -956,11 +944,67 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 
     	                BaseModel::incrementGradientAndHessian(it,
                                 w, // Signature-only, for iterator-type specialization
-    	                        &gradient, &hessian, accNumerPid + decNumerPid[i], accNumerPid2 + decNumerPid2[i],
+    	                        &gradient, &hessian, accNumerPid, accNumerPid2,
     	                        accDenomPid[i], hNWeight[i], static_cast<RealType>(0), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
     	            }
     	        }
     	    }
+
+    	    // Manually perform backwards accumulation here instead of a separate function.
+            auto revIt = it.reverse();
+
+            // segmented prefix-scan
+            RealType totalNumer = static_cast<RealType>(0);
+            RealType totalNumer2 = static_cast<RealType>(0);
+
+            auto backReset = end(accReset) - 1;
+
+            for ( ; revIt; ) {
+
+                int i = revIt.index();
+
+                if (static_cast<signed int>(*backReset) == i) {
+                    totalNumer = static_cast<RealType>(0);
+                    totalNumer2 = static_cast<RealType>(0);
+                    --backReset;
+                }
+
+                totalNumer += (BaseModel::observationCount(hY[hNtoK[i]]) > static_cast<RealType>(1)) ? numerPid[i] / hKWeight[hNtoK[i]] : 0;
+                totalNumer2 += (BaseModel::observationCount(hY[hNtoK[i]]) > static_cast<RealType>(1)) ? numerPid2[i] / hKWeight[hNtoK[i]] : 0;
+                decNumerPid = (BaseModel::observationCount(hY[hNtoK[i]]) == static_cast<RealType>(1)) ?
+                                 hKWeight[hNtoK[i]] * totalNumer : 0;
+                decNumerPid2 = (BaseModel::observationCount(hY[hNtoK[i]]) == static_cast<RealType>(1)) ?
+                                  hKWeight[hNtoK[i]] * totalNumer2 : 0;
+
+
+                // Increase gradient and hessian by competing risks contribution
+                BaseModel::incrementGradientAndHessian(it,
+                                                       w, // Signature-only, for iterator-type specialization
+                                                       &gradient, &hessian, decNumerPid, decNumerPid2,
+                                                       accDenomPid[i], hNWeight[i], static_cast<RealType>(0), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necess
+                --revIt;
+
+                if (IteratorType::isSparse) {
+
+                    const int next = revIt ? revIt.index() : -1;
+                    for (--i; i > next; --i) { // TODO MAS: This may be incorrect
+                        //if (*reset <= i) { // TODO MAS: This is not correct (only need for stratifed models)
+                        //    accNumerPid  = static_cast<RealType>(0);
+                        //    accNumerPid2 = static_cast<RealType>(0);
+                        //    ++reset;
+                        //}
+
+                        // ESK: Start implementing sparse
+                        decNumerPid = (BaseModel::observationCount(hY[hNtoK[i]]) == static_cast<RealType>(1)) ? hKWeight[hNtoK[i]] * totalNumer : 0;
+                        decNumerPid2 = (BaseModel::observationCount(hY[hNtoK[i]]) == static_cast<RealType>(1)) ? hKWeight[hNtoK[i]] * totalNumer2 : 0;
+                        BaseModel::incrementGradientAndHessian(it,
+                                                               w, // Signature-only, for iterator-type specialization
+                                                               &gradient, &hessian, decNumerPid, decNumerPid2,
+                                                               accDenomPid[i], hNWeight[i], static_cast<RealType>(0),
+                                                               hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necess
+                    }
+                }
+            } // End backwards iterator
 		}
 
 	} else if (BaseModel::hasIndependentRows) {
@@ -1549,7 +1593,7 @@ void ModelSpecifics<BaseModel,RealType>::computeAccumlatedDenominator(bool useWe
 	}
 }
 
-//For competing risks data
+// ESK: This is no longer needed. Incorporated in incrementGradientAndHessian
 template <class BaseModel,typename RealType> template <class IteratorType>
 void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedNumerator(
         IteratorType it,
@@ -1595,17 +1639,15 @@ void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedNumerator(
                 //    ++reset;
                 //}
 
-                // ESK: Start implementing sparse (Seems correct)
-                //totalNumer += (BaseModel::observationCount(hY[hNtoK[i]]) > static_cast<RealType>(1)) ? numerPid[i] / hKWeight[hNtoK[i]] : 0;
-                //totalNumer2 += (BaseModel::observationCount(hY[hNtoK[i]]) > static_cast<RealType>(1)) ? numerPid2[i] / hKWeight[hNtoK[i]] : 0;
+                // ESK: Start implementing sparse
                 decNumerPid[i] = (BaseModel::observationCount(hY[hNtoK[i]]) == static_cast<RealType>(1)) ? hKWeight[hNtoK[i]] * totalNumer : 0;
                 decNumerPid2[i] = (BaseModel::observationCount(hY[hNtoK[i]]) == static_cast<RealType>(1)) ? hKWeight[hNtoK[i]] * totalNumer2 : 0;
             }
-        } // End isSparse
+        }
     }
 }
 
-//For competing risks data. ESK: Should include reverse iterator here too.
+// ESK: Needed for competing risks contribution
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeBackwardAccumlatedDenominator(bool useWeights) {
 

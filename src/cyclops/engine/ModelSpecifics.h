@@ -127,9 +127,8 @@ protected:
     RealVector accDenomPid;
     RealVector accNumerPid;
     RealVector accNumerPid2;
-    //ESK: Create two new vectors for backwards scan
-    RealVector decNumerPid;
-    RealVector decNumerPid2;
+    RealVector decNumerPid; // ESK: Needed for competing risks
+    RealVector decNumerPid2; // ESK: Needed for competing risks
 
 
     // const RealVector& hY;
