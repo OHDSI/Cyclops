@@ -443,6 +443,15 @@ public:
 	}
 };
 
+// ESK: Two-way scan indicator
+struct TwoWayScan {
+    const static bool twoWayScan = true;
+};
+
+struct OneWayScan {
+    const static bool twoWayScan = false;
+};
+
 template <typename RealType>
 struct Survival {
 public:
