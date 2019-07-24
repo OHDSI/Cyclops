@@ -46,7 +46,7 @@ namespace bsccs {
  	{ModelType::SELF_CONTROLLED_MODEL, "sccs"},
  	{ModelType::COX, "cox"},
  	{ModelType::COX_RAW, "cox_raw"},
- 	{ModelType::FINE_GRAY, "fine_gray"},
+ 	{ModelType::FINE_GRAY, "fgr"},
  };
 
 } // namespace bsccs
