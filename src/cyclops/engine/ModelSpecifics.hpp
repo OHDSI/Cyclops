@@ -987,8 +987,8 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                 if (IteratorType::isSparse) {
 
                     const int next = revIt ? revIt.index() : -1;
-                    for (--i; i > next; --i) { // TODO MAS: This may be incorrect
-                        //if (*reset <= i) { // TODO MAS: This is not correct (only need for stratifed models)
+                    for (--i; i > next; --i) {
+                        //if (*reset <= i) { // TODO MAS: This is not correct (only need for stratified models)
                         //    accNumerPid  = static_cast<RealType>(0);
                         //    accNumerPid2 = static_cast<RealType>(0);
                         //    ++reset;
