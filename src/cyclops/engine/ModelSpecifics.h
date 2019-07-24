@@ -1252,6 +1252,102 @@ public:
 	}
 };
 
+// ESK: Add Fine-Gray structure
+template <typename RealType>
+struct BreslowTiedFineGray: public Storage<RealType>, OrderedWithTiesData, GLMProjection, SortedPid, NoFixedLikelihoodTerms, Survival<RealType> {
+public:
+    typedef typename Storage<RealType>::RealVector RealVector;
+    BreslowTiedFineGray(const RealVector& y, const RealVector& offs)
+            : Storage<RealType>(y, offs) { }
+
+        const static bool precomputeHessian = false;
+
+        static RealType getDenomNullValue () { return static_cast<RealType>(0); }
+
+        bool resetAccumulators(int* pid, int k, int currentPid) {
+            return pid[k] != currentPid;
+        }
+
+        // ESK: observationCount = Uncensored observation
+        RealType observationCount(RealType yi) {
+            return static_cast<RealType>(yi)   static_cast<RealType>(yi);
+        }
+
+        template <class IteratorType, class Weights>
+        void incrementGradientAndHessian(
+                const IteratorType& it,
+                Weights false_signature,
+                RealType* gradient, RealType* hessian,
+                RealType numer, RealType numer2, RealType denom,
+                RealType nEvents,
+                RealType x, RealType xBeta, RealType y) {
+
+        const RealType t = numer / denom;
+        const RealType g = nEvents * t; // Always use weights (not censured indicator)
+        *gradient += g;
+       if (IteratorType::isIndicator) {
+            *hessian += g * (static_cast<RealType>(1.0) - t);
+        } else {
+            *hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
+        }
+    }
+
+    template <class IteratorType, class WeightOperationType>
+    inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
+                                                          RealType numerator, RealType numerator2, RealType denominator, RealType weight,
+                                                          RealType xBeta, RealType y) {
+
+// 	    std::cout << "TODO" << std::endl;
+// 	    std::exit(-1); // breslow cox
+
+        throw new std::logic_error("breslow cox model not yet support");
+
+        const RealType g = numerator / denominator;
+
+        const RealType gradient =
+                (WeightOperationType::isWeighted) ? weight * g : g;
+
+        const RealType hessian =
+                (IteratorType::isIndicator) ?
+                (WeightOperationType::isWeighted) ?
+                weight * g * (static_cast<RealType>(1.0) - g) :
+                g * (static_cast<RealType>(1.0) - g)
+                                                :
+                (WeightOperationType::isWeighted) ?
+                weight * (numerator2 / denominator - g * g) :
+                (numerator2 / denominator - g * g);
+
+        return { lhs.real() + gradient, lhs.imag() + hessian };
+    }
+
+    RealType getOffsExpXBeta(const RealType offs, const RealType xBeta) {
+        return std::exp(xBeta);
+    }
+
+    RealType getOffsExpXBeta(const RealType* offs, RealType xBeta, RealType y, int k) {
+        return std::exp(xBeta);
+    }
+
+    RealType logLikeDenominatorContrib(RealType ni, RealType accDenom) {
+        return ni*std::log(accDenom);
+    }
+
+    RealType logPredLikeContrib(RealType y, RealType weight, RealType xBeta, RealType denominator) {
+        return weight == static_cast<RealType>(0) ? static_cast<RealType>(0) :
+               y * weight * (xBeta - std::log(denominator));
+    }
+
+    RealType logPredLikeContrib(RealType ji, RealType weighti, RealType xBetai, const RealType* denoms,
+                                const int* groups, int i) {
+        return weighti == 0.0 ? 0.0 :
+              ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
+    }
+
+    RealType predictEstimate(RealType xBeta){
+        return xBeta;
+    }
+};
+
 template <typename RealType>
 struct LeastSquares : public Storage<RealType>, IndependentData, FixedPid, NoFixedLikelihoodTerms {
 public:
