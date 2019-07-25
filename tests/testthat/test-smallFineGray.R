@@ -16,7 +16,7 @@ test_that("Check very small Fine-Gray example with no ties", {
                        0, 1,  1,1,0")
 
     fgDat <- Cyclops:::getFineGrayWeights(test$length, test$event)
-    dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "fgr", weights = fgDat$weights)
+    dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "cox", weights = fgDat$weights)
     cyclopsFit <- Cyclops:::fitCyclopsModel(dataPtr)
     goldFit <- crr(test$length, test$event, cbind(test$x1, test$x2), variance = FALSE)
 
@@ -36,7 +36,7 @@ test_that("Check very small Fine-Gray example with time ties, but no failure tie
                        0, 2,1,1,1")
 
     fgDat <- Cyclops:::getFineGrayWeights(test$length, test$event)
-    dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "fgr", weights = fgDat$weights)
+    dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "cox", weights = fgDat$weights)
     cyclopsFit <- Cyclops:::fitCyclopsModel(dataPtr)
     goldFit <- crr(test$length, test$event, cbind(test$x1, test$x2), variance = FALSE)
 
@@ -58,7 +58,7 @@ test_that("Check very small Fine-Gray example with time ties and failure ties", 
                        0, 1, 1,1,1")
 
     fgDat <- Cyclops:::getFineGrayWeights(test$length, test$event)
-    dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "fgr", weights = fgDat$weights)
+    dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "cox", weights = fgDat$weights)
     cyclopsFit <- Cyclops:::fitCyclopsModel(dataPtr)
     goldFit <- crr(test$length, test$event, cbind(test$x1, test$x2), variance = FALSE)
 
@@ -78,7 +78,7 @@ test_that("Check very small Fine-Gray example with no ties (sparse vs. dense)", 
                        0, 1,  1,1,0")
 
     fgDat <- Cyclops:::getFineGrayWeights(test$length, test$event)
-    dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "fgr", weights = fgDat$weights)
+    dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "cox", weights = fgDat$weights)
     denseFit <- Cyclops:::fitCyclopsModel(dataPtr)
 
     outcomes <- data.frame(rowId = 1:7, time = test$length, y = test$event, weight = fgDat$weights)
@@ -86,7 +86,7 @@ test_that("Check very small Fine-Gray example with no ties (sparse vs. dense)", 
                              covariateId = c(1, 2, 2, 1, 2, 1, 1),
                              covariateValue = c(2, 1, 1, 1, 1, 1, 1))
 
-    dataPtr <- convertToCyclopsData(outcomes, covariates, modelType = "fgr")
+    dataPtr <- convertToCyclopsData(outcomes, covariates, modelType = "cox")
     sparseFit <- fitCyclopsModel(dataPtr)
 
     tolerance <- 1E-8
@@ -106,7 +106,7 @@ test_that("Check very small Fine-Gray example with time ties, but no failure tie
                        0, 2,1,1,1")
 
     fgDat <- Cyclops:::getFineGrayWeights(test$length, test$event)
-    dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "fgr", weights = fgDat$weights)
+    dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "cox", weights = fgDat$weights)
     denseFit <- Cyclops:::fitCyclopsModel(dataPtr)
 
     outcomes <- data.frame(rowId = 1:7, time = test$length, y = test$event, weight = fgDat$weights)
@@ -114,7 +114,7 @@ test_that("Check very small Fine-Gray example with time ties, but no failure tie
                              covariateId = c(1, 2, 2, 1, 1, 1, 2),
                              covariateValue = c(2, 1, 1, 1, 1, 1, 1))
 
-    dataPtr <- convertToCyclopsData(outcomes, covariates, modelType = "fgr")
+    dataPtr <- convertToCyclopsData(outcomes, covariates, modelType = "cox")
     sparseFit <- fitCyclopsModel(dataPtr)
 
     tolerance <- 1E-8
@@ -135,7 +135,7 @@ test_that("Check very small Fine-Gray example with time ties and failure ties (s
                        0, 1, 1,1,1")
 
     fgDat <- Cyclops:::getFineGrayWeights(test$length, test$event)
-    dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "fgr", weights = fgDat$weights)
+    dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "cox", weights = fgDat$weights)
     denseFit <- Cyclops:::fitCyclopsModel(dataPtr)
 
     outcomes <- data.frame(rowId = 1:9, time = test$length, y = test$event, weight = fgDat$weights)
