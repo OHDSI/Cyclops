@@ -179,7 +179,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
         }
     }
 
-    if (modelType == "cox"){
+    if (modelType == "cox" | modelType == "fgr"){
         if (is.null(outcomes$stratumId)){
             outcomes$stratumId <- ff::ff(1, vmode="double", length=nrow(outcomes))
             covariates$stratumId <- ff::ff(1, vmode="double", length=nrow(covariates))
@@ -219,7 +219,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
                 covariates <- covariates[ff::ffdforder(covariates[c("covariateId", "stratumId","rowId")]),]
             }
         }
-        if (modelType == "cox"){
+        if (modelType == "cox" | modelType == "fgr"){
             outcomes$minTime <- ff::ff(vmode="double", length=length(outcomes$time))
             for (i in bit::chunk(outcomes$time)){
                 outcomes$minTime[i] <- 0-outcomes$time[i]
@@ -267,7 +267,7 @@ convertToCyclopsData.ffdf <- function(outcomes,
                            ff::as.ram.ff(outcomes$y),
                            if (is.null(outcomes$time)) {NULL} else {ff::as.ram.ff(outcomes$time)})
 
-    if (addIntercept & modelType != "cox")
+    if (addIntercept & (modelType != "cox" & modelType != "fgr"))
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
     for (i in bit::chunk(covariates)){
         covarNames <- unique(covariates$covariateId[i,])
@@ -319,7 +319,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
         outcomes$stratumId <- NULL
         covariates$stratumId <- NULL
     }
-    if (modelType == "cox" & is.null(outcomes$stratumId)){
+    if ((modelType == "cox" | modelType == "fgr") & is.null(outcomes$stratumId)){
         outcomes$stratumId <- 0
         covariates$stratumId <- 0 # MAS: Added
     }
@@ -350,7 +350,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
                 covariates <- covariates[order(covariates$covariateId, covariates$stratumId,covariates$rowId),]
             }
         }
-        if (modelType == "cox"){
+        if (modelType == "cox" | modelType == "fgr"){
             if (!isSorted(outcomes,c("stratumId", "time", "y", "rowId"),c(TRUE, FALSE, TRUE, TRUE))){
                 if(!quiet)
                     writeLines("Sorting outcomes by stratumId, time (descending), y and rowId")
@@ -382,7 +382,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
 
     loadNewSqlCyclopsDataY(dataPtr, outcomes$stratumId, outcomes$rowId, outcomes$y, outcomes$time)
 
-    if (addIntercept & modelType != "cox")
+    if (addIntercept & (modelType != "cox" & modelType != "fgr"))
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
 
     covarNames <- unique(covariates$covariateId)
