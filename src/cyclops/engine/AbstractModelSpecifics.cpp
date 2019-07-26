@@ -69,6 +69,9 @@ AbstractModelSpecifics* precisionFactory<float>(
     case ModelType::COX :
         model = deviceFactory<BreslowTiedCoxProportionalHazards<float>,float>(modelData, deviceType, deviceName);
         break;
+    case ModelType::FINE_GRAY:
+        model = deviceFactory<BreslowTiedFineGray<float>,float>(modelData, deviceType, deviceName);
+        break;
     default:
         break;
     }
