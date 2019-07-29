@@ -140,6 +140,14 @@ public:
 
 	virtual void updateDoneFolds(std::vector<bool>& donePool) {};
 
+	virtual void runCCDIndex() {};
+
+	virtual std::vector<double> getBeta() {
+		std::vector<double> blah;
+		blah.push_back(0);
+		return(blah);
+	};
+
 	virtual double getPredictiveLogLikelihood(double* weights, int cvIndex) = 0; // pure virtual
 
 protected:

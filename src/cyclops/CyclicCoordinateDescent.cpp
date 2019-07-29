@@ -954,20 +954,29 @@ void CyclicCoordinateDescent::findMode(
 
 	    } else {
 
-	        // Do a complete cycle in serial
-	        for(int index = 0; index < J; index++) {
+	    	if (usingGPU) {
+	    		//if (usingGPU && syncCV) {
+	    		modelSpecifics.runCCDIndex();
+	    		if (!syncCV) {
+	    			hBeta = modelSpecifics.getBeta();
+	    		}
+	    	} else {
 
-	            if (!fixBeta[index]) {
-	                double delta = ccdUpdateBeta(index);
-	                delta = applyBounds(delta, index);
-	                if (delta != 0.0) {
-	                    sufficientStatisticsKnown = false;
-	                    updateSufficientStatistics(delta, index);
-	                }
-	            }
+	    		// Do a complete cycle in serial
+	    		for(int index = 0; index < J; index++) {
 
-	            log(index);
-	        }
+	    			if (!fixBeta[index]) {
+	    				double delta = ccdUpdateBeta(index);
+	    				delta = applyBounds(delta, index);
+	    				if (delta != 0.0) {
+	    					sufficientStatisticsKnown = false;
+	    					updateSufficientStatistics(delta, index);
+	    				}
+	    			}
+
+	    			log(index);
+	    		}
+	    	}
 	    }
 	    iteration++;
 	};
