@@ -103,6 +103,8 @@ public:
 
 	virtual bool isGPU() {return false;};
 
+	virtual double getPredictiveLogLikelihood(double* weights, int cvIndex) {return 0;};
+
 	//virtual double getGradientObjective();
 
 	virtual void deviceInitialization();

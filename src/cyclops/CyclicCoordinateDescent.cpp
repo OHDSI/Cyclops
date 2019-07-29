@@ -1579,7 +1579,33 @@ void CyclicCoordinateDescent::turnOffSyncCV() {
 }
 
 std::vector<double> CyclicCoordinateDescent::getPredictiveLogLikelihood(std::vector<std::vector<double>>& weightsPool) {
+	xBetaKnown = false;
+	if (usingGPU && syncCV) xBetaKnown = true;
+
+	if (!xBetaKnown) {
+		computeXBeta();
+		xBetaKnown = true;
+		sufficientStatisticsKnown = false;
+	}
+
+	if (!sufficientStatisticsKnown) {
+		computeRemainingStatistics(true, 0); // TODO Remove index????
+		sufficientStatisticsKnown = true;
+	}
+
+	getDenominators();
+
 	std::vector<double> result;
+	result.resize(syncCVFolds);
+	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+		if (donePool[cvIndex]) {
+			result[cvIndex] = modelSpecifics.getPredictiveLogLikelihood(&weightsPool[cvIndex][0], cvIndex); // TODO Pass double
+		} else {
+			result[cvIndex] = std::numeric_limits<double>::quiet_NaN();
+		}
+	}
+
+	std::cout << "iterations: " << lastIterationCount << " ";
 	return result;
 }
 

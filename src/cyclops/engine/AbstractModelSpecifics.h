@@ -140,7 +140,7 @@ public:
 
 	virtual void updateDoneFolds(std::vector<bool>& donePool) {};
 
-
+	virtual double getPredictiveLogLikelihood(double* weights, int cvIndex) = 0; // pure virtual
 
 protected:
 
