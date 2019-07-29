@@ -1533,4 +1533,71 @@ inline int CyclicCoordinateDescent::sign(double x) {
 	return 1;
 }
 
+void CyclicCoordinateDescent::turnOnSyncCV(int foldToCompute) {
+
+	syncCV = true;
+	syncCVFolds = foldToCompute;
+	std::cout << "foldToCompute: " << foldToCompute << "\n";
+	modelSpecifics.turnOnSyncCV(foldToCompute);
+	for(int i=0; i<foldToCompute; ++i) {
+		hBetaPool.push_back(hBeta);
+		hDeltaPool.push_back(hDelta);
+		hWeightsPool.push_back(hWeights);
+	}
+
+	fixBetaPool.resize(foldToCompute);
+	donePool.resize(foldToCompute, false);
+	for (int i=0; i<foldToCompute; i++) {
+		fixBetaPool[i].resize(J, false);
+	}
+
+	modelSpecifics.setBounds(initialBound);
+	std::vector<int> priorList;
+	std::vector<double> varianceList = jointPrior->getVariance();
+	std::vector<double> temp;
+	temp.resize(J, 0.0);
+
+	for (int i=0; i<J; i++) {
+		int type = jointPrior->getPriorType(i);
+		priorList.push_back(type);
+		if (type == 1) {
+			temp[i] = convertVarianceToHyperparameter(varianceList[0]);
+		}
+		if (type == 2) {
+			temp[i] = varianceList[0];
+		}
+	}
+	modelSpecifics.setPriorTypes(priorList);
+	modelSpecifics.setPriorParams(temp);
+	modelSpecifics.resetBeta();
+
+}
+
+void CyclicCoordinateDescent::turnOffSyncCV() {
+	syncCV = false;
+	modelSpecifics.turnOffSyncCV();
+}
+
+std::vector<double> CyclicCoordinateDescent::getPredictiveLogLikelihood(std::vector<std::vector<double>>& weightsPool) {
+	std::vector<double> result;
+	return result;
+}
+
+double getPredictiveLogLikelihood(double* weights, int cvIndex) {
+	return 0;
+}
+
+
+void CyclicCoordinateDescent::setWeights(double* iWeights, int syncCVIndex) {
+	if (hWeightsPool[syncCVIndex].size() != static_cast<size_t>(K)) {
+		hWeightsPool[syncCVIndex].resize(K); // = (double*) malloc(sizeof(double) * K);
+	}
+	for (int i = 0; i < K; ++i) {
+		hWeightsPool[syncCVIndex][i] = iWeights[i];
+	}
+	useCrossValidation = true;
+	validWeights = false;
+	sufficientStatisticsKnown = false;
+}
+
 } // namespace

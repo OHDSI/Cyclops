@@ -125,6 +125,22 @@ public:
 
 	virtual void resetBeta() {};
 
+	virtual void turnOnSyncCV(int foldToCompute) = 0;
+
+	virtual void turnOffSyncCV() = 0;
+
+	bool syncCV = false;
+	int syncCVFolds;
+
+	virtual void setBounds(double initialBound) {};
+
+	virtual void setPriorTypes(std::vector<int>& typeList) {};
+
+	virtual void setPriorParams(std::vector<double>& paramList) {};
+
+	virtual void updateDoneFolds(std::vector<bool>& donePool) {};
+
+
 
 protected:
 

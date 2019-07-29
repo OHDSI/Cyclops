@@ -198,6 +198,17 @@ public:
 		return usingGPU;
 	}
 
+	std::vector<double> getObjectiveFunctions(int convergenceType);
+
+	std::vector<double> getLogLikelihoods(void);
+
+	std::vector<double> getLogPriors(void);
+
+	std::vector<double> ccdUpdateBetaVec(int index);
+
+	void ccdUpdateBetaVec(std::vector<double>& deltaVec, std::vector<std::pair<int,int>>& indicesToUpdate);
+
+
 protected:
 
 	bsccs::unique_ptr<AbstractModelSpecifics> privateModelSpecifics;
@@ -399,7 +410,16 @@ protected:
 	loggers::ProgressLoggerPtr logger;
 	loggers::ErrorHandlerPtr error;
 
+	// GPU items
+	std::vector<DoubleVector> hBetaPool;
+	std::vector<DoubleVector> hDeltaPool;
+	std::vector<std::vector<bool>> fixBetaPool;
+	std::vector<bool> donePool;
+	std::vector<DoubleVector> hWeightsPool; // Make DoubleVector and delegate to ModelSpecifics
+
 	bool usingGPU;
+	bool syncCV = false;
+	int syncCVFolds;
 
 };
 

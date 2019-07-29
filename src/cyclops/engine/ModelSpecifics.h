@@ -95,6 +95,12 @@ public:
 
 	virtual void computeXBeta(double* beta, bool useWeights);
 
+	// GPU
+
+	virtual void turnOnSyncCV(int foldToCompute) {};
+
+	virtual void turnOffSyncCV(void) {};
+
 	virtual bool isGPU() {return false;};
 
 	//virtual double getGradientObjective();
