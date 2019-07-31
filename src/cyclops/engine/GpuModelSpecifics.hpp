@@ -342,6 +342,11 @@ public:
     using ModelSpecifics<BaseModel, WeightType>::useLogSum;
     */
 
+    int tpb = 256; // threads-per-block  // Appears best on K40
+    int maxWgs;
+    int tpb0 = 16;
+    int tpb1 = 16;
+
 	bool double_precision = false;
 
     GpuModelSpecifics(const ModelData<RealType>& input,
@@ -352,15 +357,21 @@ public:
       queue(ctx, device
           , compute::command_queue::enable_profiling
       ),
-      dColumns(ctx),
-      dY(ctx), dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx), dDenominator2(ctx), dAccDenominator(ctx), dBuffer(ctx), dKWeight(ctx), dNWeight(ctx),
-      dId(ctx), dNorm(ctx), dOffs(ctx), dFixBeta(ctx), dIntVector1(ctx), dIntVector2(ctx), dIntVector3(ctx), dIntVector4(ctx), dRealVector1(ctx), dRealVector2(ctx), dFirstRow(ctx),
-      dBuffer1(ctx), dXMatrix(ctx), dExpXMatrix(ctx), dOverflow0(ctx), dOverflow1(ctx), dNtoK(ctx), dAllDelta(ctx), dColumnsXt(ctx),
-	  dXBetaVector(ctx), dOffsExpXBetaVector(ctx), dDenomPidVector(ctx), dDenomPid2Vector(ctx), dNWeightVector(ctx), dKWeightVector(ctx), dPidVector(ctx), dBound(ctx), dXjY(ctx),
-	  dAccDenomPidVector(ctx), dAccNumerPidVector(ctx), dAccNumerPid2Vector(ctx), dAccResetVector(ctx), dPidInternalVector(ctx), dNumerPidVector(ctx),
-	  dNumerPid2Vector(ctx), dNormVector(ctx), dXjXVector(ctx), dXjYVector(ctx), dDeltaVector(ctx), dBoundVector(ctx), dPriorParams(ctx), dBetaVector(ctx),
-	  dAllZero(ctx), dDoneVector(ctx), dIndexListWithPrior(ctx), dCVIndices(ctx), dSMStarts(ctx), dSMScales(ctx), dSMIndices(ctx), dLogX(ctx), dKStrata(ctx),
-	  dXBetaKnown(false), hXBetaKnown(false){
+      dColumns(ctx), dColumnsXt(ctx),
+      dY(ctx), dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx), dDenominator(ctx),
+	  dDenominator2(ctx), dAccDenominator(ctx), dNorm(ctx), dOffs(ctx),
+	  dBound(ctx), dXjY(ctx), dNtoK(ctx),
+	  //  dFixBeta(ctx), dAllDelta(ctx), dRealVector1(ctx),
+	  dBuffer(ctx), dBuffer1(ctx), dKWeight(ctx), dNWeight(ctx),
+      dId(ctx), dIntVector1(ctx), dIntVector2(ctx),
+	  dXBetaVector(ctx), dOffsExpXBetaVector(ctx), dDenomPidVector(ctx),
+	  dDenomPid2Vector(ctx), dNWeightVector(ctx), dKWeightVector(ctx), dPidVector(ctx),
+	  dAccDenomPidVector(ctx), dAccNumerPidVector(ctx), dAccNumerPid2Vector(ctx),
+	  dAccResetVector(ctx), dPidInternalVector(ctx), dNumerPidVector(ctx),
+	  dNumerPid2Vector(ctx), dNormVector(ctx), dXjXVector(ctx), dXjYVector(ctx),
+	  dDeltaVector(ctx), dBoundVector(ctx), dPriorParams(ctx), dBetaVector(ctx),
+	  dAllZero(ctx), dDoneVector(ctx), dIndexListWithPrior(ctx), dCVIndices(ctx),
+	  dSMStarts(ctx), dSMScales(ctx), dSMIndices(ctx), dLogX(ctx), dKStrata(ctx){
 
         std::cerr << "ctor GpuModelSpecifics" << std::endl;
 
@@ -393,6 +404,169 @@ public:
     		temp.resize(J, 0.0);
     		detail::resizeAndCopyToDevice(temp, dBeta, queue);
     	//}
+    }
+
+    void turnOnSyncCV(int foldToCompute) {
+    	ModelSpecifics<BaseModel, WeightType>::turnOnSyncCV(foldToCompute);
+
+    	std::cout << "start turn on syncCV\n";
+
+    	syncCV = true;
+    	pad = true;
+    	syncCVFolds = foldToCompute;
+
+    	layoutByPerson = false;
+    	if (!layoutByPerson) multiprocessors = syncCVFolds;
+
+    	tpb0 = 16;
+
+    	if (BaseModel::exactCLR) {
+    		detail::constant::exactCLRSyncBlockSize = detail::constant::maxBlockSize/tpb0;
+
+    		if (detail::constant::exactCLRSyncBlockSize > detail::constant::exactCLRBlockSize) {
+    			detail::constant::exactCLRSyncBlockSize = detail::constant::exactCLRBlockSize;
+    		}
+
+    		std::cout << "exactCLRSyncBlockSize: " << detail::constant::exactCLRSyncBlockSize << "\n";
+    	}
+
+        if (pad) {
+        	// layout by person
+        	cvBlockSize = tpb0;
+        	cvIndexStride = detail::getAlignedLength<16>(syncCVFolds);
+        } else {
+        	// do not use
+        	cvIndexStride = K;
+        	//cvIndexStride = syncCVFolds;
+        }
+
+        tpb1 = tpb / tpb0;
+        if (!layoutByPerson) cvIndexStride = detail::getAlignedLength<16>(K);
+
+        std::cout << "cvStride: " << cvIndexStride << "\n";
+
+    	//int dataStart = 0;
+    	int garbage = 0;
+
+    	std::vector<real> blah(cvIndexStride, 0);
+    	std::vector<int> blah1(cvIndexStride, 0);
+        //std::vector<real> hNWeightTemp;
+        std::vector<real> hKWeightTemp;
+        //std::vector<real> accDenomPidTemp;
+        //std::vector<real> accNumerPidTemp;
+        //std::vector<real> accNumerPid2Temp;
+        //std::vector<int> accResetTemp;
+        std::vector<int> hPidTemp;
+        //std::vector<int> hPidInternalTemp;
+        std::vector<real> hXBetaTemp;
+        std::vector<real> offsExpXBetaTemp;
+        std::vector<real> denomPidTemp;
+        std::vector<real> denomPid2Temp;
+        //std::vector<real> numerPidTemp;
+        //std::vector<real> numerPid2Temp;
+        //std::vector<real> hXjYTemp;
+        //std::vector<real> hXjXTemp;
+        //std::vector<real> logLikelihoodFixedTermTemp;
+        //std::vector<IndexVectorPtr> sparseIndicesTemp;
+        //std::vector<real> normTemp;
+        //std::vector<int> cvIndexOffsets;
+
+
+        if (layoutByPerson) {
+        	for (int i=0; i<K; i++) {
+        		//std::fill(std::begin(blah), std::end(blah), static_cast<real>(hKWeight[i]));
+        		//appendAndPad(blah, hKWeightTemp, garbage, pad);
+
+        		std::fill(std::begin(blah), std::end(blah), hXBeta[i]);
+        		appendAndPad(blah, hXBetaTemp, garbage, pad);
+
+        		std::fill(std::begin(blah), std::end(blah), offsExpXBeta[i]);
+        		appendAndPad(blah, offsExpXBetaTemp, garbage, pad);
+
+        		std::fill(std::begin(blah), std::end(blah), denomPid[i]);
+        		appendAndPad(blah, denomPidTemp, garbage, pad);
+
+        		std::fill(std::begin(blah), std::end(blah), denomPid2[i]);
+        		appendAndPad(blah, denomPid2Temp, garbage, pad);
+
+        		std::fill(std::begin(blah1), std::end(blah1), hPid[i]);
+        		appendAndPad(blah1, hPidTemp, garbage, pad);
+        	}
+        } else {
+        	for (int i=0; i<K; i++) {
+        		blah1.push_back(hPid[i]);
+        	}
+        	for (int i=0; i<syncCVFolds; i++) {
+        		appendAndPad(hXBeta, hXBetaTemp, garbage, pad);
+        		appendAndPad(offsExpXBeta, offsExpXBetaTemp, garbage, pad);
+        		appendAndPad(denomPid, denomPidTemp, garbage, pad);
+        		appendAndPad(denomPid2, denomPid2Temp, garbage, pad);
+        		appendAndPad(blah1, hPidTemp, garbage, pad);
+        	}
+        }
+        //detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
+        //detail::resizeAndCopyToDevice(hKWeightTemp, dKWeightVector, queue);
+        //detail::resizeAndCopyToDevice(accDenomPidTemp, dAccDenomPidVector, queue);
+        //detail::resizeAndCopyToDevice(accNumerPidTemp, dAccNumerPidVector, queue);
+        //detail::resizeAndCopyToDevice(accNumerPid2Temp, dAccNumerPid2Vector, queue);
+        //detail::resizeAndCopyToDevice(accResetTemp, dAccResetVector, queue);
+        detail::resizeAndCopyToDevice(hPidTemp, dPidVector, queue);
+        //detail::resizeAndCopyToDevice(hPidInternalTemp, dPidInternalVector, queue);
+        detail::resizeAndCopyToDevice(hXBetaTemp, dXBetaVector, queue);
+        detail::resizeAndCopyToDevice(offsExpXBetaTemp, dOffsExpXBetaVector, queue);
+        detail::resizeAndCopyToDevice(denomPidTemp, dDenomPidVector, queue);
+        detail::resizeAndCopyToDevice(denomPid2Temp, dDenomPid2Vector, queue);
+        //detail::resizeAndCopyToDevice(numerPidTemp, dNumerPidVector, queue);
+        //detail::resizeAndCopyToDevice(numerPid2Temp, dNumerPid2Vector, queue);
+        //detail::resizeAndCopyToDevice(hXjYTemp, dXjYVector, queue);
+        //detail::resizeAndCopyToDevice(hXjXTemp, dXjXVector, queue);
+        //detail::resizeAndCopyToDevice(logLikelihoodFixedTermTemp, dLogLikelihoodFixedTermVector, queue);
+        //detail::resizeAndCopyToDevice(sparseIndicesTemp, dSpareIndicesVector, queue);
+        //detail::resizeAndCopyToDevice(normTemp, dNormVector, queue);
+        //detail::resizeAndCopyToDevice(cvIndexOffsets, dcvIndexOffsets, queue);
+
+        // AllZero
+        std::vector<int> hAllZero;
+        hAllZero.push_back(0);
+        detail::resizeAndCopyToDevice(hAllZero, dAllZero, queue);
+
+        // Done vector
+        std::vector<int> hDone;
+        std::vector<int> hCVIndices;
+        int a = layoutByPerson ? cvIndexStride : syncCVFolds;
+        hDone.resize(a, 0);
+        for (int i=0; i<syncCVFolds; i++) {
+        	hDone[i] = 1;
+        	hCVIndices.push_back(i);
+        }
+    	activeFolds = syncCVFolds;
+
+        detail::resizeAndCopyToDevice(hDone, dDoneVector, queue);
+        detail::resizeAndCopyToDevice(hCVIndices, dCVIndices, queue);
+
+        // build needed syncCV kernels
+        int need = 0;
+        for (size_t j = 0; j < J /*modelData.getNumberOfColumns()*/; ++j) {
+            const auto& column = modelData.getColumn(j);
+            // columns.emplace_back(GpuColumn<real>(column, ctx, queue, K));
+            need |= (1 << column.getFormatType());
+        }
+        std::vector<FormatType> neededFormatTypes;
+        for (int t = 0; t < 4; ++t) {
+            if (need & (1 << t)) {
+                neededFormatTypes.push_back(static_cast<FormatType>(t));
+            }
+        }
+        std::cerr << "Format types required: " << need << std::endl;
+        buildAllSyncCVKernels(neededFormatTypes);
+        std::cout << "built all syncCV kernels \n";
+
+        //printAllSyncCVKernels(std::cerr);
+    }
+
+    void turnOffSyncCV() {
+    	syncCV = false;
+    	initialized = false;
     }
 
     bool isGPU() {return true;};
@@ -446,8 +620,8 @@ private:
     compute::vector<RealType> dAccDenominator;
     compute::vector<RealType> dNorm;
     compute::vector<RealType> dOffs;
-    compute::vector<int>  dFixBeta;
-    compute::vector<RealType> dAllDelta;
+    //compute::vector<int>  dFixBeta;
+    //compute::vector<RealType> dAllDelta;
 
     compute::vector<RealType> dBound;
     compute::vector<RealType> dXjY;
@@ -457,19 +631,11 @@ private:
     int totalCases;
     int maxN;
     int maxCases;
-    compute::vector<RealType>  dRealVector1;
-    compute::vector<RealType>  dRealVector2;
+    //compute::vector<RealType>  dRealVector1;
     compute::vector<int>  dIntVector1;
     compute::vector<int>  dIntVector2;
-    compute::vector<int>  dIntVector3;
-    compute::vector<int>  dIntVector4;
-    compute::vector<RealType> dXMatrix;
-    compute::vector<RealType> dExpXMatrix;
     bool initialized = false;
-    compute::vector<RealType> dOverflow0;
-    compute::vector<RealType> dOverflow1;
     compute::vector<int> dNtoK;
-    compute::vector<RealType> dFirstRow;
     compute::vector<int> dAllZero;
     compute::vector<RealType> dLogX;
     compute::vector<int> dKStrata;
@@ -483,9 +649,6 @@ private:
     compute::vector<RealType> dKWeight;	//TODO make these weighttype
     compute::vector<RealType> dNWeight; //TODO make these weighttype
     compute::vector<int> dId;
-
-    bool dXBetaKnown;
-    bool hXBetaKnown;
 
     // syhcCV
     bool layoutByPerson;
