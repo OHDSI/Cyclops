@@ -343,7 +343,7 @@ public:
     */
 
     int tpb = 256; // threads-per-block  // Appears best on K40
-    int maxWgs;
+    int maxWgs = 16;
     int tpb0 = 16;
     int tpb1 = 16;
 
@@ -388,6 +388,101 @@ public:
     	if (sizeof(blah)==8) {
     		double_precision = true;
     	}
+
+#ifdef TIME_DEBUG
+        std::cerr << "start dI" << std::endl;
+#endif
+        //isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+
+        std::cout << "maxWgs: " << maxWgs << "\n";
+
+        int need = 0;
+
+        // Copy data
+        dColumns.initialize(modelData, queue, K, true);
+        //this->initializeMmXt();
+        //dColumnsXt.initialize(*hXt, queue, K, true);
+        formatList.resize(J);
+
+        for (size_t j = 0; j < J /*modelData.getNumberOfColumns()*/; ++j) {
+
+#ifdef TIME_DEBUG
+          //  std::cerr << "dI " << j << std::endl;
+#endif
+
+            const auto& column = modelData.getColumn(j);
+            // columns.emplace_back(GpuColumn<real>(column, ctx, queue, K));
+            need |= (1 << column.getFormatType());
+
+            indicesFormats[(FormatType)column.getFormatType()].push_back(j);
+            formatList[j] = (FormatType)column.getFormatType();
+        }
+            // Rcpp::stop("done");
+
+        std::vector<FormatType> neededFormatTypes;
+        for (int t = 0; t < 4; ++t) {
+            if (need & (1 << t)) {
+                neededFormatTypes.push_back(static_cast<FormatType>(t));
+            }
+        }
+
+        auto& inputY = modelData.getYVectorRef();
+        detail::resizeAndCopyToDevice(inputY, dY, queue);
+
+        // Internal buffers
+        //detail::resizeAndCopyToDevice(hBeta, dBeta, queue);
+        detail::resizeAndCopyToDevice(hXBeta, dXBeta, queue);  hXBetaKnown = true; dXBetaKnown = true;
+        detail::resizeAndCopyToDevice(offsExpXBeta, dExpXBeta, queue);
+        detail::resizeAndCopyToDevice(denomPid, dDenominator, queue);
+        detail::resizeAndCopyToDevice(denomPid2, dDenominator2, queue);
+        detail::resizeAndCopyToDevice(accDenomPid, dAccDenominator, queue);
+        std::vector<int> myHPid;
+        for (int i=0; i<K; i++) {
+        	myHPid.push_back(hPid[i]);
+        }
+        detail::resizeAndCopyToDevice(myHPid, dId, queue);
+        detail::resizeAndCopyToDevice(hOffs, dOffs, queue);
+        detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
+        detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
+
+        std::cerr << "Format types required: " << need << std::endl;
+
+		// shadily sets hNWeight to determine right block size TODO do something about this
+    	if (BaseModel::exactCLR) {
+    		if (hNWeight.size() < N + 1) { // Add +1 for extra (zero-weight stratum)
+    			hNWeight.resize(N + 1);
+    		}
+
+    		std::fill(hNWeight.begin(), hNWeight.end(), static_cast<real>(0));
+    		for (size_t k = 0; k < K; ++k) {
+    			hNWeight[hPid[k]] += hY[k];
+    		}
+
+    		int clrSize = 32;
+
+    		real maxCases = 0;
+    		for (int i=0; i<N; i++) {
+    			if (hNWeight[i] > maxCases) {
+    				maxCases = hNWeight[i];
+    			}
+    		}
+
+    		while (maxCases >= clrSize) {
+    			clrSize = clrSize * 2;
+    		}
+    		if (clrSize > detail::constant::maxBlockSize) {
+    			clrSize = detail::constant::maxBlockSize;
+    		}
+
+    		detail::constant::exactCLRBlockSize = clrSize;
+
+    		std::cout << "exactCLRBlockSize: " << detail::constant::exactCLRBlockSize << "\n";
+    	}
+
+        buildAllKernels(neededFormatTypes);
+        std::cout << "built all kernels \n";
+
+        //printAllKernels(std::cerr);
     }
 
     virtual void resetBeta() {
@@ -572,6 +667,52 @@ public:
     bool isGPU() {return true;};
 
 private:
+
+    void buildAllKernels(const std::vector<FormatType>& neededFormatTypes) {
+        buildAllGradientHessianKernels(neededFormatTypes);
+        std::cout << "built gradhessian kernels \n";
+        buildAllUpdateXBetaKernels(neededFormatTypes);
+        std::cout << "built updateXBeta kernels \n";
+        buildAllGetGradientObjectiveKernels();
+        std::cout << "built getGradObjective kernels \n";
+        buildAllGetLogLikelihoodKernels();
+        std::cout << "built getLogLikelihood kernels \n";
+        buildAllComputeRemainingStatisticsKernels();
+        std::cout << "built computeRemainingStatistics kernels \n";
+        buildEmptyKernel();
+        std::cout << "built empty kernel\n";
+        //buildReduceCVBufferKernel();
+        //std::cout << "built reduceCVBuffer kernel\n";
+        buildAllProcessDeltaKernels();
+        std::cout << "built ProcessDelta kernels \n";
+        //buildAllDoItAllKernels(neededFormatTypes);
+        //std::cout << "built doItAll kernels\n";
+        buildAllDoItAllNoSyncCVKernels(neededFormatTypes);
+        std::cout << "built doItAllNoSyncCV kernels\n";
+    }
+
+    void buildAllSyncCVKernels(const std::vector<FormatType>& neededFormatTypes) {
+        buildAllSyncCVGradientHessianKernels(neededFormatTypes);
+        std::cout << "built syncCV gradhessian kernels \n";
+        buildAllSyncCVUpdateXBetaKernels(neededFormatTypes);
+        std::cout << "built syncCV updateXBeta kernels \n";
+        buildAllSyncCVGetGradientObjectiveKernels();
+        std::cout << "built syncCV getGradObjective kernels \n";
+        //buildAllGetLogLikelihoodKernels();
+        //std::cout << "built getLogLikelihood kernels \n";
+        buildAllSyncCVComputeRemainingStatisticsKernels();
+        std::cout << "built computeRemainingStatistics kernels \n";
+        buildReduceCVBufferKernel();
+        std::cout << "built reduceCVBuffer kernel\n";
+        buildAllProcessDeltaSyncCVKernels();
+        std::cout << "built ProcessDelta kernels \n";
+        buildAllDoItAllKernels(neededFormatTypes);
+        std::cout << "built doItAll kernels\n";
+        buildPredLogLikelihoodKernel();
+        std::cout << "built pred likelihood kernel\n";
+        buildAllComputeXjYKernels(neededFormatTypes);
+        std::cout << "built xjy kernels\n";
+    }
 
     template <class T>
        void appendAndPad(const T& source, T& destination, int& length, bool pad) {
