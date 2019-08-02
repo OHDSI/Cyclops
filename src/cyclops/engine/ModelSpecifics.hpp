@@ -1014,10 +1014,11 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                      BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i])
 	            : static_cast<RealType>(0);
 
+	        // TODO currently hacking x to provide numerPid
 	        BaseModel::incrementGradientAndHessian(it,
                     w, // Signature-only, for iterator-type specialization
                     &gradient, &hessian, numerator1, numerator2,
-                    denomPid[hPid[i]], hNWeight[hPid[i]], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
+                    denomPid[hPid[i]], hNWeight[hPid[i]], numerPid[hPid[i]], 0, 0); // When function is in-lined, compiler will only use necessary arguments
 	    }
 	}
 
@@ -1202,7 +1203,7 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 #endif
 #endif
 
-	if (BaseModel::cumulativeGradientAndHessian) {
+	if (BaseModel::hasNtoKIndices || BaseModel::cumulativeGradientAndHessian) {
 		switch (hX.getFormatType(index)) {
 		case INDICATOR : {
 				IndicatorIterator<RealType> itI(*(sparseIndices)[index]);
