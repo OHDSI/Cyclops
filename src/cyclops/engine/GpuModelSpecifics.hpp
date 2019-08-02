@@ -279,6 +279,7 @@ class GpuModelSpecifics : public ModelSpecifics<BaseModel, RealType>, BaseModelG
 public:
 
     using ModelSpecifics<BaseModel, RealType>::modelData;
+    using ModelSpecifics<BaseModel, RealType>::hX;
     using ModelSpecifics<BaseModel, RealType>::hNtoK;
     using ModelSpecifics<BaseModel, RealType>::hPid;
     using ModelSpecifics<BaseModel, RealType>::hPidInternal;
@@ -310,17 +311,15 @@ public:
 	using ModelSpecifics<BaseModel, RealType>::hNWeight;
 	using ModelSpecifics<BaseModel, RealType>::hKWeight;
 
-	/*
+    using ModelSpecifics<BaseModel, RealType>::syncCV;
+    using ModelSpecifics<BaseModel, RealType>::syncCVFolds;
+
     using ModelSpecifics<BaseModel, RealType>::accDenomPid;
     using ModelSpecifics<BaseModel, RealType>::accNumerPid;
     using ModelSpecifics<BaseModel, RealType>::accNumerPid2;
-    */
 
     //using ModelSpecifics<BaseModel, WeightType>::hBeta;
     //using ModelSpecifics<BaseModel, WeightType>::algorithmType;
-
-    //using ModelSpecifics<BaseModel, WeightType>::syncCV;
-    //using ModelSpecifics<BaseModel, WeightType>::syncCVFolds;
 
     /*
     using ModelSpecifics<BaseModel, WeightType>::hNWeightPool;
@@ -399,7 +398,7 @@ public:
         int need = 0;
 
         // Copy data
-        dColumns.initialize(modelData, queue, K, true);
+        dColumns.initialize(hX, queue, K, true);
         //this->initializeMmXt();
         //dColumnsXt.initialize(*hXt, queue, K, true);
         formatList.resize(J);
@@ -409,13 +408,13 @@ public:
 #ifdef TIME_DEBUG
           //  std::cerr << "dI " << j << std::endl;
 #endif
-
-            const auto& column = modelData.getColumn(j);
+        	FormatType format = hX.getFormatType(j);
+            //const auto& column = modelData.getColumn(j);
             // columns.emplace_back(GpuColumn<real>(column, ctx, queue, K));
-            need |= (1 << column.getFormatType());
+            need |= (1 << format);
 
-            indicesFormats[(FormatType)column.getFormatType()].push_back(j);
-            formatList[j] = (FormatType)column.getFormatType();
+            indicesFormats[format].push_back(j);
+            formatList[j] = format;
         }
             // Rcpp::stop("done");
 
@@ -453,14 +452,14 @@ public:
     			hNWeight.resize(N + 1);
     		}
 
-    		std::fill(hNWeight.begin(), hNWeight.end(), static_cast<real>(0));
+    		std::fill(hNWeight.begin(), hNWeight.end(), static_cast<RealType>(0));
     		for (size_t k = 0; k < K; ++k) {
     			hNWeight[hPid[k]] += hY[k];
     		}
 
     		int clrSize = 32;
 
-    		real maxCases = 0;
+    		RealType maxCases = 0;
     		for (int i=0; i<N; i++) {
     			if (hNWeight[i] > maxCases) {
     				maxCases = hNWeight[i];
@@ -502,7 +501,7 @@ public:
     }
 
     void turnOnSyncCV(int foldToCompute) {
-    	ModelSpecifics<BaseModel, WeightType>::turnOnSyncCV(foldToCompute);
+    	ModelSpecifics<BaseModel, RealType>::turnOnSyncCV(foldToCompute);
 
     	std::cout << "start turn on syncCV\n";
 
@@ -543,20 +542,20 @@ public:
     	//int dataStart = 0;
     	int garbage = 0;
 
-    	std::vector<real> blah(cvIndexStride, 0);
+    	std::vector<RealType> blah(cvIndexStride, 0);
     	std::vector<int> blah1(cvIndexStride, 0);
         //std::vector<real> hNWeightTemp;
-        std::vector<real> hKWeightTemp;
+        std::vector<RealType> hKWeightTemp;
         //std::vector<real> accDenomPidTemp;
         //std::vector<real> accNumerPidTemp;
         //std::vector<real> accNumerPid2Temp;
         //std::vector<int> accResetTemp;
         std::vector<int> hPidTemp;
         //std::vector<int> hPidInternalTemp;
-        std::vector<real> hXBetaTemp;
-        std::vector<real> offsExpXBetaTemp;
-        std::vector<real> denomPidTemp;
-        std::vector<real> denomPid2Temp;
+        std::vector<RealType> hXBetaTemp;
+        std::vector<RealType> offsExpXBetaTemp;
+        std::vector<RealType> denomPidTemp;
+        std::vector<RealType> denomPid2Temp;
         //std::vector<real> numerPidTemp;
         //std::vector<real> numerPid2Temp;
         //std::vector<real> hXjYTemp;
@@ -642,9 +641,11 @@ public:
         // build needed syncCV kernels
         int need = 0;
         for (size_t j = 0; j < J /*modelData.getNumberOfColumns()*/; ++j) {
-            const auto& column = modelData.getColumn(j);
+            FormatType format = hX.getFormatType(j);
+
+            //const auto& column = modelData.getColumn(j);
             // columns.emplace_back(GpuColumn<real>(column, ctx, queue, K));
-            need |= (1 << column.getFormatType());
+            need |= (1 << format);
         }
         std::vector<FormatType> neededFormatTypes;
         for (int t = 0; t < 4; ++t) {
@@ -669,49 +670,49 @@ public:
 private:
 
     void buildAllKernels(const std::vector<FormatType>& neededFormatTypes) {
-        buildAllGradientHessianKernels(neededFormatTypes);
-        std::cout << "built gradhessian kernels \n";
-        buildAllUpdateXBetaKernels(neededFormatTypes);
-        std::cout << "built updateXBeta kernels \n";
-        buildAllGetGradientObjectiveKernels();
-        std::cout << "built getGradObjective kernels \n";
-        buildAllGetLogLikelihoodKernels();
-        std::cout << "built getLogLikelihood kernels \n";
-        buildAllComputeRemainingStatisticsKernels();
-        std::cout << "built computeRemainingStatistics kernels \n";
-        buildEmptyKernel();
-        std::cout << "built empty kernel\n";
-        //buildReduceCVBufferKernel();
-        //std::cout << "built reduceCVBuffer kernel\n";
-        buildAllProcessDeltaKernels();
-        std::cout << "built ProcessDelta kernels \n";
-        //buildAllDoItAllKernels(neededFormatTypes);
-        //std::cout << "built doItAll kernels\n";
-        buildAllDoItAllNoSyncCVKernels(neededFormatTypes);
-        std::cout << "built doItAllNoSyncCV kernels\n";
+//        buildAllGradientHessianKernels(neededFormatTypes);
+//        std::cout << "built gradhessian kernels \n";
+//        buildAllUpdateXBetaKernels(neededFormatTypes);
+//        std::cout << "built updateXBeta kernels \n";
+//        buildAllGetGradientObjectiveKernels();
+//        std::cout << "built getGradObjective kernels \n";
+//        buildAllGetLogLikelihoodKernels();
+//        std::cout << "built getLogLikelihood kernels \n";
+//        buildAllComputeRemainingStatisticsKernels();
+//        std::cout << "built computeRemainingStatistics kernels \n";
+//        buildEmptyKernel();
+//        std::cout << "built empty kernel\n";
+//        //buildReduceCVBufferKernel();
+//        //std::cout << "built reduceCVBuffer kernel\n";
+//        buildAllProcessDeltaKernels();
+//        std::cout << "built ProcessDelta kernels \n";
+//        //buildAllDoItAllKernels(neededFormatTypes);
+//        //std::cout << "built doItAll kernels\n";
+//        buildAllDoItAllNoSyncCVKernels(neededFormatTypes);
+//        std::cout << "built doItAllNoSyncCV kernels\n";
     }
 
     void buildAllSyncCVKernels(const std::vector<FormatType>& neededFormatTypes) {
-        buildAllSyncCVGradientHessianKernels(neededFormatTypes);
-        std::cout << "built syncCV gradhessian kernels \n";
-        buildAllSyncCVUpdateXBetaKernels(neededFormatTypes);
-        std::cout << "built syncCV updateXBeta kernels \n";
-        buildAllSyncCVGetGradientObjectiveKernels();
-        std::cout << "built syncCV getGradObjective kernels \n";
-        //buildAllGetLogLikelihoodKernels();
-        //std::cout << "built getLogLikelihood kernels \n";
-        buildAllSyncCVComputeRemainingStatisticsKernels();
-        std::cout << "built computeRemainingStatistics kernels \n";
-        buildReduceCVBufferKernel();
-        std::cout << "built reduceCVBuffer kernel\n";
-        buildAllProcessDeltaSyncCVKernels();
-        std::cout << "built ProcessDelta kernels \n";
-        buildAllDoItAllKernels(neededFormatTypes);
-        std::cout << "built doItAll kernels\n";
-        buildPredLogLikelihoodKernel();
-        std::cout << "built pred likelihood kernel\n";
-        buildAllComputeXjYKernels(neededFormatTypes);
-        std::cout << "built xjy kernels\n";
+//        buildAllSyncCVGradientHessianKernels(neededFormatTypes);
+//        std::cout << "built syncCV gradhessian kernels \n";
+//        buildAllSyncCVUpdateXBetaKernels(neededFormatTypes);
+//        std::cout << "built syncCV updateXBeta kernels \n";
+//        buildAllSyncCVGetGradientObjectiveKernels();
+//        std::cout << "built syncCV getGradObjective kernels \n";
+//        //buildAllGetLogLikelihoodKernels();
+//        //std::cout << "built getLogLikelihood kernels \n";
+//        buildAllSyncCVComputeRemainingStatisticsKernels();
+//        std::cout << "built computeRemainingStatistics kernels \n";
+//        buildReduceCVBufferKernel();
+//        std::cout << "built reduceCVBuffer kernel\n";
+//        buildAllProcessDeltaSyncCVKernels();
+//        std::cout << "built ProcessDelta kernels \n";
+//        buildAllDoItAllKernels(neededFormatTypes);
+//        std::cout << "built doItAll kernels\n";
+//        buildPredLogLikelihoodKernel();
+//        std::cout << "built pred likelihood kernel\n";
+//        buildAllComputeXjYKernels(neededFormatTypes);
+//        std::cout << "built xjy kernels\n";
     }
 
     template <class T>
@@ -737,10 +738,14 @@ private:
     compute::command_queue queue;
     compute::program program;
 
+    std::map<FormatType, std::vector<int>> indicesFormats;
+    std::vector<FormatType> formatList;
+
     // vectors of columns
     // std::vector<GpuColumn<real> > columns;
     AllGpuColumns<RealType> dColumns;
     AllGpuColumns<RealType> dColumnsXt;
+
 
     // CPU storage
     std::vector<RealType> hBuffer0;
@@ -791,7 +796,12 @@ private:
     compute::vector<RealType> dNWeight; //TODO make these weighttype
     compute::vector<int> dId;
 
+    bool dXBetaKnown;
+    bool hXBetaKnown;
+
     // syhcCV
+//    bool syncCV;
+//    int syncCVFolds;
     bool layoutByPerson;
     int cvBlockSize;
     int cvIndexStride;
