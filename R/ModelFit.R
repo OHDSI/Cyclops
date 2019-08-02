@@ -797,6 +797,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #' (by default 2.5% and 97.5%)
 #'
 #' @keywords internal
+#' @export
 aconfint <- function(object, parm, level = 0.95, control,
                      overrideNoRegularization = FALSE, ...) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)
