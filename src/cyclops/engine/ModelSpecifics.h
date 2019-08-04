@@ -632,15 +632,15 @@ public:
 			RealType* gradient, RealType* hessian,
 			RealType numer, RealType numer2, RealType denom,
 			RealType nEvents,
-			RealType x, RealType xBeta, RealType y) { // TODO hacking x to provide numerPid
+			RealType x, RealType xBeta, RealType y) {
 
 		const RealType t = numer / denom;
 		const RealType g = nEvents * t; // Always use weights (number of events)
 		*gradient += g;
 		if (IteratorType::isIndicator) {
-			*hessian += g * (static_cast<RealType>(1.0) - x / denom);
+			*hessian += g * (static_cast<RealType>(1.0) - t);
 		} else {
-			*hessian += nEvents * (numer2 / denom - t * x / denom); // Bounded by x_j^2
+			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
 		}
 	}
 
@@ -742,9 +742,9 @@ public:
 		const RealType g = nEvents * t; // Always use weights (number of events)
 		*gradient += g;
 		if (IteratorType::isIndicator) {
-			*hessian += g * (static_cast<RealType>(1.0) - x / denom);
+			*hessian += g * (static_cast<RealType>(1.0) - t);
 		} else {
-			*hessian += nEvents * (numer2 / denom - t * x / denom); // Bounded by x_j^2
+			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
 		}
 	}
 
@@ -821,15 +821,15 @@ public:
 			RealType* gradient, RealType* hessian,
 			RealType numer, RealType numer2, RealType denom,
 			RealType nEvents,
-			RealType x, RealType xBeta, RealType y) { // TODO hacking x to provide numerPid
+			RealType x, RealType xBeta, RealType y) {
 
 		const RealType t = numer / denom;
 		const RealType g = nEvents * t; // Always use weights (number of events)
 		*gradient += g;
 		if (IteratorType::isIndicator) {
-			*hessian += g * (static_cast<RealType>(1.0) - x / denom);
+			*hessian += g * (static_cast<RealType>(1.0) - t);
 		} else {
-			*hessian += nEvents * (numer2 / denom - t * x / denom); // Bounded by x_j^2
+			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
 		}
 	}
 

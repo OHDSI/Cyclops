@@ -1000,26 +1000,21 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 
 	} else {
 
-	    IteratorType it(hX, index);
+		IteratorType it(hX, index);
 
-	    for (; it; ++it) {
-	        const int i = it.index();
+		for (int i = 0; i < N; i++) {
+			RealType numerator1 = numerPid[i];
+			RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+					numerPid2[i] : static_cast<RealType>(0);
 
-	        RealType numerator1 = (Weights::isWeighted) ? // TODO Delegate condition to gNC
-	            hKWeight[i] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0)) :
-	            BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
-	        RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-	            (Weights::isWeighted) ?
-	                 hKWeight[i] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) :
-                     BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i])
-	            : static_cast<RealType>(0);
+			if (numerator1 != static_cast<RealType>(0) || numerator2 != static_cast<RealType>(0)) {
+				BaseModel::incrementGradientAndHessian(it,
+						w, // Signature-only, for iterator-type specialization
+						&gradient, &hessian, numerator1, numerator2,
+						denomPid[i], hNWeight[i], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
+			}
+		}
 
-	        // TODO currently hacking x to provide numerPid
-	        BaseModel::incrementGradientAndHessian(it,
-                    w, // Signature-only, for iterator-type specialization
-                    &gradient, &hessian, numerator1, numerator2,
-                    denomPid[hPid[i]], hNWeight[hPid[i]], numerPid[hPid[i]], 0, 0); // When function is in-lined, compiler will only use necessary arguments
-	    }
 	}
 
 	if (BaseModel::precomputeGradient) { // Compile-time switch
@@ -1206,9 +1201,13 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 	if (BaseModel::hasNtoKIndices || BaseModel::cumulativeGradientAndHessian) {
 		switch (hX.getFormatType(index)) {
 		case INDICATOR : {
-				IndicatorIterator<RealType> itI(*(sparseIndices)[index]);
-				for (; itI; ++itI) { // Only affected entries
-					numerPid[itI.index()] = static_cast<RealType>(0.0);
+//				IndicatorIterator<RealType> itI(*(sparseIndices)[index]);
+//				for (; itI; ++itI) { // Only affected entries
+//					numerPid[itI.index()] = static_cast<RealType>(0.0);
+//				}
+				zeroVector(numerPid.data(), N);
+				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
+					zeroVector(numerPid2.data(), N);
 				}
 				if (useWeights) {
 				    incrementNumeratorForGradientImpl<IndicatorIterator<RealType>, WeightedOperation>(index);
@@ -1218,12 +1217,16 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 				break;
 		}
 		case SPARSE : {
-				SparseIterator<RealType> itS(*(sparseIndices)[index]);
-				for (; itS; ++itS) { // Only affected entries
-					numerPid[itS.index()] = static_cast<RealType>(0.0);
-					if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
-						numerPid2[itS.index()] = static_cast<RealType>(0.0); // TODO Does this invalid the cache line too much?
-					}
+//				SparseIterator<RealType> itS(*(sparseIndices)[index]);
+//				for (; itS; ++itS) { // Only affected entries
+//					numerPid[itS.index()] = static_cast<RealType>(0.0);
+//					if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
+//						numerPid2[itS.index()] = static_cast<RealType>(0.0); // TODO Does this invalid the cache line too much?
+//					}
+//				}
+				zeroVector(numerPid.data(), N);
+				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
+					zeroVector(numerPid2.data(), N);
 				}
 				if (useWeights) {
 				    incrementNumeratorForGradientImpl<SparseIterator<RealType>, WeightedOperation>(index);
