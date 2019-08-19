@@ -50,6 +50,8 @@
 #' Currently unused
 #' @param weights
 #' Currently unused
+#' @param censorWeights
+#' Vector of subject-specific censoring weights (between 0 and 1). Currently only supported in \code{modelType = "fgr"}.
 #' @param offset
 #' Currently unused
 #' @param pid
