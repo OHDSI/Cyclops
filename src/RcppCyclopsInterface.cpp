@@ -136,6 +136,15 @@ void cyclopsSetWeights(SEXP inRcppCcdInterface,
     interface->getCcd().setWeights(&weights[0]);
 }
 
+// [[Rcpp::export(".cyclopsSetCensorWeights")]]
+void cyclopsSetCensorWeights(SEXP inRcppCcdInterface,
+                       NumericVector& weights) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    interface->getCcd().setCensorWeights(&weights[0]);
+}
+
 // [[Rcpp::export(".cyclopsGetPredictiveLogLikelihood")]]
 double cyclopsGetPredictiveLogLikelihood(SEXP inRcppCcdInterface,
     NumericVector& weights) {

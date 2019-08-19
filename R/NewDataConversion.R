@@ -291,6 +291,12 @@ convertToCyclopsData.ffdf <- function(outcomes,
         dataPtr$weights <- ff::as.ram.ff(outcomes$weight)
     }
 
+    if (is.null(outcomes$censorWeight)) {
+        dataPtr$censorWeights <- NULL
+    } else {
+        dataPtr$censorWeights <- ff::as.ram.ff(outcomes$censorWeight)
+    }
+
     return(dataPtr)
 
 }
@@ -398,6 +404,13 @@ convertToCyclopsData.data.frame <- function(outcomes,
         dataPtr$weights <- NULL
     } else {
         dataPtr$weights <- outcomes$weight
+    }
+
+
+    if (is.null(outcomes$censorWeight)) {
+        dataPtr$censorWeights <- NULL
+    } else {
+        dataPtr$censorWeights <- outcomes$censorWeight
     }
 
     return(dataPtr)

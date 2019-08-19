@@ -421,8 +421,10 @@ void ModelSpecifics<BaseModel,RealType>::axpyXBeta(const double beta, const int 
 
 }
 
+
+// ESK: Added cWeights (censoring weights) as an input
 template <class BaseModel,typename RealType>
-void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, bool useCrossValidation) {
+void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *cenWeights, bool useCrossValidation) {
 	// Set K weights
 	if (hKWeight.size() != K) {
 		hKWeight.resize(K);
@@ -470,7 +472,7 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, bool useC
         hNtoK[n] = K;
 
         for (size_t k = 0; k < K; ++k) {
-            hYWeight[k] = inWeights[k];
+            hYWeight[k] = cenWeights[k];
         }
     }
 

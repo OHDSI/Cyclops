@@ -241,6 +241,20 @@ fitCyclopsModel <- function(cyclopsData,
         .cyclopsSetWeights(cyclopsData$cyclopsInterfacePtr, weights)
     }
 
+    # censorWeight check for the Fine-Gray model
+    if (cyclopsData$modelType == "fgr" & is.null(cyclopsData$censorWeights)) {
+        stop("Subject-specific censoring weights must be specified for modelType = 'fgr'.")
+    }
+
+    if (!is.null(cyclopsData$censorWeights)) {
+        if (cyclopsData$modelType != 'fgr') {
+            warning(paste0("modelType = '", cyclopsData$modelType, "' does not use censorWeights. Weights will not be passed further."))
+        } else {
+
+            .cyclopsSetCensorWeights(cyclopsData$cyclopsInterfacePtr, cyclopsData$censorWeights)
+        }
+    }
+
     if (prior$useCrossValidation) {
         minCVData <- control$minCVData
         if (control$selectorType == "byRow" && minCVData > getNumberOfRows(cyclopsData)) {

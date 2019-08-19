@@ -202,7 +202,8 @@ protected:
 
 	bool sortPid(void);
 
-	void setWeights(double* inWeights, bool useCrossValidation);
+	//void setWeights(double* inWeights, bool useCrossValidation);
+	void setWeights(double* inWeights, double *cenWeights, bool useCrossValidation);
 
 	void doSortPid(bool useCrossValidation);
 
