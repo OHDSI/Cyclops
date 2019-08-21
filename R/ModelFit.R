@@ -248,11 +248,15 @@ fitCyclopsModel <- function(cyclopsData,
 
     if (!is.null(cyclopsData$censorWeights)) {
         if (cyclopsData$modelType != 'fgr') {
-            warning(paste0("modelType = '", cyclopsData$modelType, "' does not use censorWeights. Weights will not be passed further."))
-        } else {
-
-            .cyclopsSetCensorWeights(cyclopsData$cyclopsInterfacePtr, cyclopsData$censorWeights)
+            warning(paste0("modelType = '", cyclopsData$modelType, "' does not use censorWeights. These weights will not be passed further."))
         }
+        if (length(cyclopsData$censorWeights) != getNumberOfRows(cyclopsData)) {
+            stop("Must provide a censorWeight for each data row")
+        }
+        if (any(cyclopsData$censorWeights < 0) || any(cyclopsData$censorWeights > 1)) {
+            stop("Only weights between 0 and 1 are allowed for censorWeights")
+        }
+        .cyclopsSetCensorWeights(cyclopsData$cyclopsInterfacePtr, cyclopsData$censorWeights)
     }
 
     if (prior$useCrossValidation) {

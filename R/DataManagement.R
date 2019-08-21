@@ -131,7 +131,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
         outcome <- model.response(mf.d)
         if (inherits(outcome, "Surv")) {
             if (!.isSurvivalModelType(modelType)) {
-                stop("Censored outcomes are currently only support for Cox regression.")
+                stop("Censored outcomes are currently only supported for Cox regression.")
             }
             if (dim(outcome)[2] == 3) {
                 time <- as.numeric(outcome[,2] - outcome[,1])
