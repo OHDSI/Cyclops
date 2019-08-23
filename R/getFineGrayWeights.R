@@ -31,6 +31,7 @@
 #' fstatus <- c(1, 2, 0, 1, 2, 0, 1, 2, 0, 1)
 #' getFineGrayWeights(ftime, fstatus, cencode = 0, failcode = 1)
 #' @import survival
+#' @importFrom stats approx
 #' @export
 #'
 getFineGrayWeights <- function(ftime, fstatus, cencode = 0, failcode = 1) {
