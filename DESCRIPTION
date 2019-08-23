@@ -37,7 +37,8 @@ Imports:
     ffbase,
     methods,
     survival,
-    MASS
+    MASS,
+    cmprsk
 LinkingTo: Rcpp,
     BH (>= 1.51.0),
     RcppEigen (>= 0.3.2)
@@ -45,6 +46,5 @@ Suggests:
     testthat,
     gnm,
     ggplot2,
-    microbenchmark,
-    cmprsk
+    microbenchmark
 RoxygenNote: 6.1.1
