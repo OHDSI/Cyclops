@@ -1,3 +1,9 @@
+Cyclops v2.0.2 (Release date: 2019-03-17)
+==============
+
+Changes: 1. use `RNGversion("3.5.0")` in unit-tests to reproduce old RNG behavior
+         2. fix prior-type checks when specifying multiple types
+
 Cyclops v2.0.1 (Release date: 2018-09-23)
 ==============
 

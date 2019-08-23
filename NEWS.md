@@ -1,14 +1,22 @@
+Cyclops v2.0.2
+==============
+
+Changes:
+
+1. use `RNGversion("3.5.0")` in unit-tests to reproduce old RNG behavior
+2. fix prior-type checks when specifying multiple types
+
 Cyclops 2.0.1
 =============
 
-Changes: 
+Changes:
 
 1. patch two memory leaks in `ModelData.cpp` and `ModelSpecifics.hpp`
 
 Cyclops 2.0.0
 =============
 
-Changes: 
+Changes:
 
 1. simplify internal transformation-reductions loops
 2. implemented non-negative weights
@@ -29,14 +37,14 @@ Changes:
 Cyclops 1.3.3
 =============
 
-Changes: 
+Changes:
 
 1. fix testthat expected error message
 
 Cyclops 1.3.2
 =============
 
-Changes: 
+Changes:
 
 1. explicitly includes `<complex>` header, needed for `R` 3.5 builds
 2. remove `pragma` statements used to quiet `RcppEigen` and `RcppParallel`
@@ -44,14 +52,14 @@ Changes:
 Cyclops 1.3.1
 =============
 
-Changes: 
+Changes:
 
 1. fixes covariate indices returned from `.checkCovariates` when excluding covariates from regularization
 
 Cyclops 1.3.0
 =============
 
-Changes: 
+Changes:
 
 1. implements specialized priors through callbacks for use, for example, in the BrokenAdaptiveRidge package to provide L0-based model selection
 2. implements specialized control through callbacks for use, for example, auto-and-grid-based cross-validation hyperparameter searches
@@ -60,14 +68,14 @@ Changes:
 Cyclops 1.2.3
 =============
 
-Changes: 
+Changes:
 
 1. fixed `predict` error with `ff.data.frame` with size == 0
 
 Cyclops 1.2.2
 =============
 
-Changes: 
+Changes:
 
 1. fixed `solaris` build errors
 2. added compatibility for C++14 (make_unique)

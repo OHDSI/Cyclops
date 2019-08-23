@@ -4,6 +4,7 @@ library("gnm")
 library("ff")
 
 context("test-dataConversionStratified.R")
+suppressWarnings(RNGversion("3.5.0"))
 
 test_that("Test clr", {
   gold <- clogit(case ~ spontaneous + induced + strata(stratum), data=infert)

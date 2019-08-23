@@ -101,6 +101,17 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 	    checkAllLazyFlags();
 	}
 
+	// ESK: Copy hWeights functionality for cWeights
+	if (copy.cWeights.size() > 0) {
+
+	    std::vector<double> buffer;
+	    buffer.resize(copy.cWeights.size());
+	    std::copy(std::begin(copy.cWeights), std::end(copy.cWeights), std::begin(buffer));
+
+	    setCensorWeights(buffer.data());
+	    checkAllLazyFlags();
+	}
+
 	// Copy over exisiting beta;
 	bool allBetaZero = true;
 	for (int j = 0; j < J; ++j) {
@@ -197,6 +208,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 
 	fixBeta.resize(J, false);
 	hWeights.resize(0);
+    cWeights.resize(0); // ESK: For censor weights
 
 	useCrossValidation = false;
 	validWeights = false;
@@ -231,9 +243,14 @@ int CyclicCoordinateDescent::getAlignedLength(int N) {
 }
 
 void CyclicCoordinateDescent::computeNEvents() {
+	//modelSpecifics.setWeights(
+	//	hWeights.size() > 0 ? hWeights.data() : nullptr,
+	//	useCrossValidation);
+	// ESK: My version to incorporate censor weights as well
 	modelSpecifics.setWeights(
-		hWeights.size() > 0 ? hWeights.data() : nullptr,
-		useCrossValidation);
+	    hWeights.size() > 0 ? hWeights.data() : nullptr,
+	    cWeights.size() > 0 ? cWeights.data() : nullptr,
+	    useCrossValidation);
 }
 
 void CyclicCoordinateDescent::resetBeta(void) {
@@ -452,6 +469,10 @@ std::vector<double> CyclicCoordinateDescent::getWeights() {
     return hWeights; // Makes copy
 }
 
+std::vector<double> CyclicCoordinateDescent::getCensorWeights() {
+    return cWeights; // Makes copy
+}
+
 void CyclicCoordinateDescent::setWeights(double* iWeights) {
 
 	if (iWeights == NULL) {
@@ -475,6 +496,22 @@ void CyclicCoordinateDescent::setWeights(double* iWeights) {
 		validWeights = false;
 		sufficientStatisticsKnown = false;
 	}
+}
+
+void CyclicCoordinateDescent::setCensorWeights(double* dWeights) {
+    if (dWeights == NULL) {
+        if (cWeights.size() != 0) {
+            cWeights.resize(0);
+        }
+    } else {
+
+        if (cWeights.size() != static_cast<size_t>(K)) {
+            cWeights.resize(K);
+        }
+        for (int i = 0; i < K; ++i) {
+            cWeights[i] = dWeights[i];
+        }
+    }
 }
 
 double CyclicCoordinateDescent::getLogPrior(void) {

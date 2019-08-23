@@ -7,8 +7,7 @@
 readCyclopsData(fileName, modelType)
 }
 \arguments{
-\item{fileName}{Name of text file to be read. If fileName does not contain an absolute path,
-the name is relative to the current working directory, \code{\link{getwd}}.}
+\item{fileName}{Name of text file to be read. If fileName does not contain an absolute path,}
 
 \item{modelType}{character string: Valid types are listed below.}
 }
@@ -67,6 +66,7 @@ Currently supported model types are:
  \verb{	"cpr"} \tab Conditional Poisson regression \cr
 	\verb{	"sccs"} \tab Self-controlled case series \cr
 	\verb{	"cox"} \tab Cox proportional hazards regression \cr
+	\verb{	"fgr"} \tab Fine-Gray proportional subdistribution hazards regression \cr
 }
 }
 

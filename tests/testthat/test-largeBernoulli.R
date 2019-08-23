@@ -1,6 +1,7 @@
 library("testthat")
 
 context("test-largeBernoulli.R")
+suppressWarnings(RNGversion("3.5.0"))
 
 #
 # Large Bernoulli regression

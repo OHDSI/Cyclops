@@ -45,7 +45,8 @@ namespace bsccs {
  	{ModelType::CONDITIONAL_POISSON, "cpr"},
  	{ModelType::SELF_CONTROLLED_MODEL, "sccs"},
  	{ModelType::COX, "cox"},
- 	{ModelType::COX_RAW, "cox_raw"}
+ 	{ModelType::COX_RAW, "cox_raw"},
+ 	{ModelType::FINE_GRAY, "fgr"},
  };
 
 } // namespace bsccs
@@ -68,7 +69,8 @@ std::vector<std::string> cyclopsGetRemoveInterceptNames() {
 		modelTypeNames[ModelType::CONDITIONAL_POISSON],
 		modelTypeNames[ModelType::SELF_CONTROLLED_MODEL],
 		modelTypeNames[ModelType::COX],
-		modelTypeNames[ModelType::COX_RAW]
+		modelTypeNames[ModelType::COX_RAW],
+        modelTypeNames[ModelType::FINE_GRAY]
 	};
 	return names;
 }
@@ -78,7 +80,8 @@ std::vector<std::string> cyclopsGetIsSurvivalNames() {
 	using namespace bsccs;
 	std::vector<std::string> names = {
 		modelTypeNames[ModelType::COX],
-		modelTypeNames[ModelType::COX_RAW]
+		modelTypeNames[ModelType::COX_RAW],
+        modelTypeNames[ModelType::FINE_GRAY]
 	};
 	return names;
 }
@@ -89,7 +92,8 @@ std::vector<std::string> cyclopsGetUseOffsetNames() {
 	std::vector<std::string> names = {
 		modelTypeNames[ModelType::SELF_CONTROLLED_MODEL],
 		modelTypeNames[ModelType::COX],
-		modelTypeNames[ModelType::COX_RAW]
+		modelTypeNames[ModelType::COX_RAW],
+        modelTypeNames[ModelType::FINE_GRAY]
 	};
 	return names;
 }
@@ -130,6 +134,15 @@ void cyclopsSetWeights(SEXP inRcppCcdInterface,
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
     interface->getCcd().setWeights(&weights[0]);
+}
+
+// [[Rcpp::export(".cyclopsSetCensorWeights")]]
+void cyclopsSetCensorWeights(SEXP inRcppCcdInterface,
+                       NumericVector& weights) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    interface->getCcd().setCensorWeights(&weights[0]);
 }
 
 // [[Rcpp::export(".cyclopsGetPredictiveLogLikelihood")]]

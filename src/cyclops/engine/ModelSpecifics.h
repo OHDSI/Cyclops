@@ -60,6 +60,7 @@ protected:
 
     RealVector hNWeight;
     RealVector hKWeight;
+    RealVector hYWeight; // ESK: Added
 };
 
 template <class BaseModel, typename RealType>
@@ -127,6 +128,9 @@ protected:
     RealVector accDenomPid;
     RealVector accNumerPid;
     RealVector accNumerPid2;
+    RealVector decNumerPid; // ESK: Needed for competing risks
+    RealVector decNumerPid2; // ESK: Needed for competing risks
+
 
     // const RealVector& hY;
     // const RealVector& hOffs;
@@ -173,7 +177,12 @@ protected:
 
 	void computeAccumlatedDenominator(bool useWeights);
 
-	void computeFixedTermsInLogLikelihood(bool useCrossValidation);
+	template <class IteratorType>
+    void computeBackwardAccumlatedNumerator(IteratorType it, bool useWeights); //ESK: For competing risks data (not in use)
+
+    void computeBackwardAccumlatedDenominator(bool useWeights); // ESK: For competing risks data (not in use; merged into computeAccumlatedDenominator)
+
+    void computeFixedTermsInLogLikelihood(bool useCrossValidation);
 
 	void computeFixedTermsInGradientAndHessian(bool useCrossValidation);
 
@@ -193,7 +202,8 @@ protected:
 
 	bool sortPid(void);
 
-	void setWeights(double* inWeights, bool useCrossValidation);
+	//void setWeights(double* inWeights, bool useCrossValidation);
+	void setWeights(double* inWeights, double *cenWeights, bool useCrossValidation);
 
 	void doSortPid(bool useCrossValidation);
 
@@ -210,6 +220,7 @@ protected:
 
 	using Storage<RealType>::hNWeight;
 	using Storage<RealType>::hKWeight;
+    using Storage<RealType>::hYWeight; // ESK: Added
 
 	// std::vector<RealType> hNWeight;
 	// std::vector<RealType> hKWeight;
@@ -418,7 +429,11 @@ public:
 
 	const static bool exactCLR = false;
 
-	template <class XType, typename RealType>
+    const static bool isTwoWayScan = false; // ESK: Added
+
+    const static bool isSurvivalModel = false; //ESK: Added
+
+    template <class XType, typename RealType>
 	RealType gradientNumeratorContrib(XType x, RealType predictor, RealType xBeta, RealType y) {
 //		using namespace indicator_sugar;
 		return predictor * x;
@@ -426,7 +441,7 @@ public:
 
     template <typename RealType>
     RealType logLikeNumeratorContrib(int yi, RealType xBetai) {
-		return yi * xBetai;
+        return yi * xBetai;
 	}
 
 	template <class XType, typename RealType>
@@ -434,6 +449,37 @@ public:
 		return predictor * x * x;
 	}
 };
+
+//ESK: Create new structure for survival data (added isSurvivalModel & new logLikeNumeratorContrib)
+struct SurvivalProjection {
+public:
+    const static bool precomputeGradient = true; // XjY
+
+    const static bool likelihoodHasDenominator = true;
+
+    const static bool hasTwoNumeratorTerms = true;
+
+    const static bool exactCLR = false;
+
+    const static bool isSurvivalModel = true; // ESK: Added
+
+    template <class XType, typename RealType>
+    RealType gradientNumeratorContrib(XType x, RealType predictor, RealType xBeta, RealType y) {
+//		using namespace indicator_sugar;
+        return predictor * x;
+    }
+
+    template <typename RealType>
+    RealType logLikeNumeratorContrib(int yi, RealType xBetai) {
+        return yi != 1 ? 0 : xBetai;
+    }
+
+    template <class XType, typename RealType>
+    RealType gradientNumerator2Contrib(XType x, RealType predictor) {
+        return predictor * x * x;
+    }
+};
+
 
 template <typename RealType>
 struct Survival {
@@ -448,7 +494,7 @@ public:
 			RealType weight,
 			RealType x, RealType xBeta, RealType y) {
 		*information += weight * predictor / denom * it.value();
-	}
+    }
 
 	template <class IteratorType, class Weights>
 	inline void incrementMMGradientAndHessian(
@@ -1049,13 +1095,15 @@ public:
 };
 
 template <typename RealType>
-struct CoxProportionalHazards : public Storage<RealType>, OrderedData, GLMProjection, SortedPid, NoFixedLikelihoodTerms, Survival<RealType> {
+struct CoxProportionalHazards : public Storage<RealType>, OrderedData, SurvivalProjection, SortedPid, NoFixedLikelihoodTerms, Survival<RealType> {
 public:
     typedef typename Storage<RealType>::RealVector RealVector;
     CoxProportionalHazards(const RealVector& y, const RealVector& offs)
         : Storage<RealType>(y, offs) { }
 
 	const static bool precomputeHessian = false;
+
+    const static bool isTwoWayScan = false; // ESK: Added
 
 	static RealType getDenomNullValue () { return static_cast<RealType>(0); }
 
@@ -1070,23 +1118,23 @@ public:
 	}
 
 	template <class IteratorType, class Weights>
-	void incrementGradientAndHessian(
-			const IteratorType& it,
-			Weights false_signature,
-			RealType* gradient, RealType* hessian,
-			RealType numer, RealType numer2, RealType denom,
-			RealType nEvents,
-			RealType x, RealType xBeta, RealType y) {
+    void incrementGradientAndHessian(
+            const IteratorType& it,
+            Weights false_signature,
+            RealType* gradient, RealType* hessian,
+            RealType numer, RealType numer2, RealType denom,
+            RealType nEvents,
+            RealType x, RealType xBeta, RealType y) {
 
-		const RealType t = numer / denom;
-		const RealType g = nEvents * t; // Always use weights (not censured indicator)
-		*gradient += g;
-		if (IteratorType::isIndicator) {
-			*hessian += g * (static_cast<RealType>(1.0) - t);
-		} else {
-			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
-		}
-	}
+        const RealType t = numer / denom;
+        const RealType g = nEvents * t; // Always use weights (not censured indicator)
+        *gradient += g;
+        if (IteratorType::isIndicator) {
+            *hessian += g * (static_cast<RealType>(1.0) - t);
+        } else {
+            *hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
+        }
+    }
 
 	template <class IteratorType, class WeightOperationType>
 	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
@@ -1121,9 +1169,9 @@ public:
 		return std::exp(xBeta);
 	}
 
-	RealType logLikeDenominatorContrib(RealType ni, RealType accDenom) {
-		return ni*std::log(accDenom);
-	}
+    RealType logLikeDenominatorContrib(RealType ni, RealType accDenom) {
+        return ni*std::log(accDenom);
+    }
 
 	RealType logPredLikeContrib(RealType y, RealType weight, RealType xBeta, RealType denominator) {
 	    return weight == static_cast<RealType>(0) ? static_cast<RealType>(0) :
@@ -1132,8 +1180,9 @@ public:
 
 	RealType logPredLikeContrib(RealType ji, RealType weighti, RealType xBetai, const RealType* denoms,
 			const int* groups, int i) {
-		return weighti == static_cast<RealType>(0) ? static_cast<RealType>(0) :
-		    ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
+        return weighti == static_cast<RealType>(0) ? static_cast<RealType>(0) :
+               ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
+
 	}
 
 	RealType predictEstimate(RealType xBeta){
@@ -1150,7 +1199,7 @@ public:
 };
 
 template <typename RealType>
-struct BreslowTiedCoxProportionalHazards : public Storage<RealType>, OrderedWithTiesData, GLMProjection, SortedPid, NoFixedLikelihoodTerms, Survival<RealType> {
+struct BreslowTiedCoxProportionalHazards : public Storage<RealType>, OrderedWithTiesData, SurvivalProjection, SortedPid, NoFixedLikelihoodTerms, Survival<RealType> {
 public:
     typedef typename Storage<RealType>::RealVector RealVector;
     BreslowTiedCoxProportionalHazards(const RealVector& y, const RealVector& offs)
@@ -1158,14 +1207,18 @@ public:
 
 	const static bool precomputeHessian = false;
 
-	static RealType getDenomNullValue () { return static_cast<RealType>(0); }
+    const static bool isTwoWayScan = false; // ESK: Added (change this once FINE_GRAY works)
+
+    static RealType getDenomNullValue () { return static_cast<RealType>(0); }
 
     bool resetAccumulators(int* pid, int k, int currentPid) {
         return pid[k] != currentPid;
     }
 
 	RealType observationCount(RealType yi) {
+        // ESK: Change this back once FINE_GRAY works
 		return static_cast<RealType>(yi);
+        //return static_cast<RealType>(yi) != static_cast<RealType>(1) ? static_cast<RealType>(0) : static_cast<RealType>(1);
 	}
 
 	template <class IteratorType, class Weights>
@@ -1243,6 +1296,104 @@ public:
 	}
 };
 
+// ESK: Add Fine-Gray structure
+template <typename RealType>
+struct BreslowTiedFineGray: public Storage<RealType>, OrderedWithTiesData, SurvivalProjection, SortedPid, NoFixedLikelihoodTerms, Survival<RealType> {
+public:
+    typedef typename Storage<RealType>::RealVector RealVector;
+    BreslowTiedFineGray(const RealVector& y, const RealVector& offs)
+            : Storage<RealType>(y, offs) { }
+
+    const static bool precomputeHessian = false;
+
+    const static bool isTwoWayScan = true; // ESK: Added
+
+    static RealType getDenomNullValue () { return static_cast<RealType>(0); }
+
+    bool resetAccumulators(int* pid, int k, int currentPid) {
+        return pid[k] != currentPid;
+    }
+
+    // ESK: observationCount = Uncensored observation
+    RealType observationCount(RealType yi) {
+        return static_cast<RealType>(yi) != static_cast<RealType>(1) ? static_cast<RealType>(0) : static_cast<RealType>(1);
+    }
+
+    template <class IteratorType, class Weights>
+    void incrementGradientAndHessian(
+            const IteratorType& it,
+            Weights false_signature,
+            RealType* gradient, RealType* hessian,
+             RealType numer, RealType numer2, RealType denom,
+            RealType nEvents,
+            RealType x, RealType xBeta, RealType y) {
+
+    const RealType t = numer / denom;
+    const RealType g = nEvents * t; // Always use weights (not censured indicator)
+    *gradient += g;
+       if (IteratorType::isIndicator) {
+            *hessian += g * (static_cast<RealType>(1.0) - t);
+        } else {
+            *hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
+        }
+    }
+
+    template <class IteratorType, class WeightOperationType>
+    inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
+                                                          RealType numerator, RealType numerator2, RealType denominator, RealType weight,
+                                                          RealType xBeta, RealType y) {
+
+// 	    std::cout << "TODO" << std::endl;
+// 	    std::exit(-1); // breslow cox
+
+        throw new std::logic_error("breslow cox model not yet support");
+
+        const RealType g = numerator / denominator;
+
+        const RealType gradient =
+                (WeightOperationType::isWeighted) ? weight * g : g;
+
+        const RealType hessian =
+                (IteratorType::isIndicator) ?
+                (WeightOperationType::isWeighted) ?
+                weight * g * (static_cast<RealType>(1.0) - g) :
+                g * (static_cast<RealType>(1.0) - g)
+                                                :
+                (WeightOperationType::isWeighted) ?
+                weight * (numerator2 / denominator - g * g) :
+                (numerator2 / denominator - g * g);
+
+        return { lhs.real() + gradient, lhs.imag() + hessian };
+    }
+
+    RealType getOffsExpXBeta(const RealType offs, const RealType xBeta) {
+        return std::exp(xBeta);
+    }
+
+    RealType getOffsExpXBeta(const RealType* offs, RealType xBeta, RealType y, int k) {
+        return std::exp(xBeta);
+    }
+
+    RealType logLikeDenominatorContrib(RealType ni, RealType accDenom) {
+        return ni*std::log(accDenom);
+    }
+
+    RealType logPredLikeContrib(RealType y, RealType weight, RealType xBeta, RealType denominator) {
+        return weight == static_cast<RealType>(0) ? static_cast<RealType>(0) :
+               y * weight * (xBeta - std::log(denominator));
+    }
+
+    RealType logPredLikeContrib(RealType ji, RealType weighti, RealType xBetai, const RealType* denoms,
+                                const int* groups, int i) {
+        return weighti == 0.0 ? 0.0 :
+              ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
+    }
+
+    RealType predictEstimate(RealType xBeta){
+        return xBeta;
+    }
+};
+
 template <typename RealType>
 struct LeastSquares : public Storage<RealType>, IndependentData, FixedPid, NoFixedLikelihoodTerms {
 public:
@@ -1262,7 +1413,11 @@ public:
 
 	const static bool exactCLR = false;
 
-	static RealType getDenomNullValue () { return static_cast<RealType>(0); }
+    const static bool isTwoWayScan = false; // ESK: Added
+
+    const static bool isSurvivalModel = false; //ESK: Added
+
+    static RealType getDenomNullValue () { return static_cast<RealType>(0); }
 
 	RealType observationCount(RealType yi) {
 		return static_cast<RealType>(1);
@@ -1342,7 +1497,7 @@ public:
 	}
 
 	RealType logLikeDenominatorContrib(RealType ni, RealType denom) {
-		return std::log(denom);
+		return ni * std::log(denom);
 	}
 
 	RealType logPredLikeContrib(RealType y, RealType weight, RealType xBeta, RealType denominator) {

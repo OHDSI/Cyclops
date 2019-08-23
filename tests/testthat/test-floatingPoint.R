@@ -1,6 +1,7 @@
 library("testthat")
 
 context("test-floatingPoint.R")
+suppressWarnings(RNGversion("3.5.0"))
 
 #
 # FP precision

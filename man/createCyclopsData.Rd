@@ -5,10 +5,10 @@
 \title{Create a Cyclops data object}
 \usage{
 createCyclopsData(formula, sparseFormula, indicatorFormula, modelType,
-  data, subset = NULL, weights = NULL, offset = NULL, time = NULL,
-  pid = NULL, y = NULL, type = NULL, dx = NULL, sx = NULL,
-  ix = NULL, model = FALSE, normalize = NULL, floatingPoint = 64,
-  method = "cyclops.fit")
+  data, subset = NULL, weights = NULL, censorWeights = NULL,
+  offset = NULL, time = NULL, pid = NULL, y = NULL, type = NULL,
+  dx = NULL, sx = NULL, ix = NULL, model = FALSE,
+  normalize = NULL, floatingPoint = 64, method = "cyclops.fit")
 }
 \arguments{
 \item{formula}{An object of class \code{"\link{formula}"} that provides a symbolic description of the numerically dense model response and terms.}
@@ -24,6 +24,8 @@ createCyclopsData(formula, sparseFormula, indicatorFormula, modelType,
 \item{subset}{Currently unused}
 
 \item{weights}{Currently unused}
+
+\item{censorWeights}{Vector of subject-specific censoring weights (between 0 and 1). Currently only supported in \code{modelType = "fgr"}.}
 
 \item{offset}{Currently unused}
 
@@ -81,6 +83,7 @@ Currently supported model types are:
  \verb{	"cpr"} \tab Conditional Poisson regression \cr
 	\verb{	"sccs"} \tab Self-controlled case series \cr
 	\verb{	"cox"} \tab Cox proportional hazards regression \cr
+	\verb{	"fgr"} \tab Fine-Gray proportional subdistribution hazards regression \cr
 }
 }
 

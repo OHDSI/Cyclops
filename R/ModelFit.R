@@ -117,7 +117,7 @@ fitCyclopsModel <- function(cyclopsData,
                                          })
         }
 
-        if (prior$priorType != "none" &&
+        if (prior$priorType[1] != "none" &&
             is.null(prior$graph) && # TODO Ignore hierarchical models for now
             .cyclopsGetHasIntercept(cyclopsData) &&
             !prior$forceIntercept) {
@@ -239,6 +239,24 @@ fitCyclopsModel <- function(cyclopsData,
         }
 
         .cyclopsSetWeights(cyclopsData$cyclopsInterfacePtr, weights)
+    }
+
+    # censorWeight check for the Fine-Gray model
+    if (cyclopsData$modelType == "fgr" & is.null(cyclopsData$censorWeights)) {
+        stop("Subject-specific censoring weights must be specified for modelType = 'fgr'.")
+    }
+
+    if (!is.null(cyclopsData$censorWeights)) {
+        if (cyclopsData$modelType != 'fgr') {
+            warning(paste0("modelType = '", cyclopsData$modelType, "' does not use censorWeights. These weights will not be passed further."))
+        }
+        if (length(cyclopsData$censorWeights) != getNumberOfRows(cyclopsData)) {
+            stop("Must provide a censorWeight for each data row")
+        }
+        if (any(cyclopsData$censorWeights < 0) || any(cyclopsData$censorWeights > 1)) {
+            stop("Only weights between 0 and 1 are allowed for censorWeights")
+        }
+        .cyclopsSetCensorWeights(cyclopsData$cyclopsInterfacePtr, cyclopsData$censorWeights)
     }
 
     if (prior$useCrossValidation) {
@@ -574,13 +592,13 @@ createPrior <- function(priorType,
         stop("Prior types and variances have a dimensionality mismatch")
     }
 
-    if (priorType == "none" && useCrossValidation) {
+    if (all(priorType == "none") && useCrossValidation) {
         stop("Cannot perform cross validation with a flat prior")
     }
-    if (priorType == "barupdate" && useCrossValidation) {
+    if (any(priorType == "barupdate") && useCrossValidation) {
         stop("Cannot perform cross valudation with BAR updates")
     }
-    if (priorType == "hierarchical" && missing(graph)) {
+    if (any(priorType == "hierarchical") && missing(graph)) {
         stop("Must provide a graph for a hierarchical prior")
     }
     if (!is.null(neighborhood)) {

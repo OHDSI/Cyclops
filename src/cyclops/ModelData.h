@@ -94,6 +94,8 @@ public:
 
     virtual std::vector<double> copyTimeVector() const = 0;
 
+    virtual std::vector<double> copyZVector() const = 0;
+
     virtual std::vector<double> univariableCorrelation(
             const std::vector<long>& covariateLabel) const = 0;
 
@@ -335,6 +337,12 @@ public:
 	    return copy;
 	}
 
+	std::vector<double> copyZVector() const {
+	    std::vector<double> copy(z.size());
+	    std::copy(std::begin(z), std::end(z), std::begin(copy));
+	    return copy;
+	}
+
 	std::vector<double> copyTimeVector() const {
 	    std::vector<double> copy(offs.size());
 	    std::copy(std::begin(offs), std::end(offs), std::begin(copy));
@@ -362,6 +370,8 @@ public:
 	void setOffsetCovariate(const IdType covariate);
 
 	void logTransformCovariate(const IdType covariate);
+
+	void convertAllCovariatesToDense(int length);
 
 	void convertCovariateToDense(const IdType covariate);
 
