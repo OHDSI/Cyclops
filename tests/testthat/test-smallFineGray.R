@@ -1,6 +1,5 @@
 library("testthat")
 library("survival")
-library("cmprsk")
 
 suppressWarnings(RNGversion("3.5.0"))
 
@@ -18,10 +17,10 @@ test_that("Check very small Fine-Gray example with no ties", {
     fgDat <- Cyclops:::getFineGrayWeights(test$length, test$event)
     dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "fgr", censorWeights = fgDat$weights)
     cyclopsFit <- Cyclops:::fitCyclopsModel(dataPtr)
-    goldFit <- crr(test$length, test$event, cbind(test$x1, test$x2), variance = FALSE)
-
+    #goldFit <- crr(test$length, test$event, cbind(test$x1, test$x2), variance = FALSE)
+    goldFit <- c(-0.1488093, -0.5338005) # From crr function in cmprsk
     tolerance <- 1E-4
-    expect_equivalent(coef(cyclopsFit), goldFit$coef, tolerance = tolerance)
+    expect_equivalent(coef(cyclopsFit), goldFit, tolerance = tolerance)
 })
 
 test_that("Check very small Fine-Gray example with time ties, but no failure ties", {
@@ -38,10 +37,11 @@ test_that("Check very small Fine-Gray example with time ties, but no failure tie
     fgDat <- Cyclops:::getFineGrayWeights(test$length, test$event)
     dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "fgr", censorWeights = fgDat$weights)
     cyclopsFit <- Cyclops:::fitCyclopsModel(dataPtr)
-    goldFit <- crr(test$length, test$event, cbind(test$x1, test$x2), variance = FALSE)
+    #goldFit <- crr(test$length, test$event, cbind(test$x1, test$x2), variance = FALSE)
+    goldFit <- c(-0.2313091, 0.8480080)
 
     tolerance <- 1E-4
-    expect_equivalent(coef(cyclopsFit), goldFit$coef, tolerance = tolerance)
+    expect_equivalent(coef(cyclopsFit), goldFit, tolerance = tolerance)
 })
 
 test_that("Check very small Fine-Gray example with time ties and failure ties", {
@@ -60,10 +60,10 @@ test_that("Check very small Fine-Gray example with time ties and failure ties", 
     fgDat <- Cyclops:::getFineGrayWeights(test$length, test$event)
     dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "fgr", censorWeights = fgDat$weights)
     cyclopsFit <- Cyclops:::fitCyclopsModel(dataPtr)
-    goldFit <- crr(test$length, test$event, cbind(test$x1, test$x2), variance = FALSE)
-
+    #goldFit <- crr(test$length, test$event, cbind(test$x1, test$x2), variance = FALSE)
+    goldFit <- c(0.41804493,  0.02838637)
     tolerance <- 1E-4
-    expect_equivalent(coef(cyclopsFit), goldFit$coef, tolerance = tolerance)
+    expect_equivalent(coef(cyclopsFit), goldFit, tolerance = tolerance)
 })
 
 test_that("Check very small Fine-Gray example with no ties (sparse vs. dense)", {
