@@ -45,5 +45,6 @@ Suggests:
     testthat,
     gnm,
     ggplot2,
-    microbenchmark
+    microbenchmark,
+    cmprsk
 RoxygenNote: 6.1.1
