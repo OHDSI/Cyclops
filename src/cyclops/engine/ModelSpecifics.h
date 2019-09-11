@@ -58,6 +58,8 @@ protected:
     RealVector denomPid2;
     RealVector numerPid;
     RealVector numerPid2;
+    RealVector numerPid3;
+    RealVector numerPid4;
 
     RealVector hNWeight;
     RealVector hKWeight;
@@ -154,6 +156,8 @@ protected:
     using BaseModel::denomPid2;
     using BaseModel::numerPid;
     using BaseModel::numerPid2;
+    using BaseModel::numerPid3;
+    using BaseModel::numerPid4;
 
     // RealVector offsExpXBeta;
     // RealVector denomPid;
@@ -428,6 +432,8 @@ public:
 
 	const static bool hasTwoNumeratorTerms = true;
 
+	const static bool efron = false;
+
 	const static bool exactCLR = false;
 
 	template <class XType, typename RealType>
@@ -445,6 +451,7 @@ public:
 	RealType gradientNumerator2Contrib(XType x, RealType predictor) {
 		return predictor * x * x;
 	}
+
 };
 
 template <typename RealType>
@@ -830,6 +837,99 @@ public:
 			*hessian += g * (static_cast<RealType>(1.0) - t);
 		} else {
 			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
+		}
+	}
+
+	template <class IteratorType, class WeightOerationType>
+	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
+	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
+	    RealType xBeta, RealType y) {
+
+    	const RealType g = numerator / denominator;
+    	const RealType gradient = weight * g; // Always use weights (number of events)
+
+        const RealType hessian =
+            (IteratorType::isIndicator) ?
+                gradient * (static_cast<RealType>(1.0) - g) :
+                weight * (numerator2 / denominator - g * g);
+
+        return { lhs.real() + gradient, lhs.imag() + hessian };
+    }
+
+	RealType getOffsExpXBeta(const RealType offs, const RealType xBeta) {
+        return std::exp(xBeta);
+	}
+
+	RealType getOffsExpXBeta(const RealType* offs, RealType xBeta, RealType y, int k) {
+		return std::exp(xBeta);
+	}
+
+	RealType logLikeDenominatorContrib(RealType ni, RealType denom) {
+		return ni * std::log(denom);
+	}
+
+	RealType logPredLikeContrib(RealType y, RealType weight, RealType xBeta, RealType denominator) {
+	    return y * weight * (xBeta - std::log(denominator));
+	}
+
+	RealType logPredLikeContrib(RealType ji, RealType weighti, RealType xBetai, const RealType* denoms,
+			const int* groups, int i) {
+		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
+	}
+
+	RealType predictEstimate(RealType xBeta){
+		return xBeta;
+	}
+
+};
+
+template <typename RealType>
+struct EfronConditionalLogisticRegression : public Storage<RealType>, GroupedData, GLMProjection, FixedPid, Survival<RealType> {
+public:
+
+	const static bool efron = true;
+
+    typedef typename Storage<RealType>::RealVector RealVector;
+    EfronConditionalLogisticRegression(const RealVector& y, const RealVector& offs)
+        : Storage<RealType>(y, offs) { }
+
+	const static bool precomputeHessian = false; // XjX
+	const static bool likelihoodHasFixedTerms = false;
+
+	RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoffseti) {
+        throw new std::logic_error("Not model-specific");
+		return static_cast<RealType>(0);
+	}
+
+	static RealType getDenomNullValue () { return static_cast<RealType>(0); }
+
+	RealType observationCount(RealType yi) {
+		return static_cast<RealType>(yi);
+	}
+
+	template <class IteratorType, class Weights>
+	void incrementGradientAndHessian(
+			const IteratorType& it,
+			Weights false_signature,
+			RealType* gradient, RealType* hessian,
+			RealType numer, RealType numer2, RealType denom,
+			RealType nEvents,
+			RealType x, RealType xBeta, RealType y) { // TODO hacking x, xBeta, y
+
+		const RealType numer3 = x;
+		const RealType numer4 = xBeta;
+		const RealType denom2 = y;
+
+		for (int j = 0; j < nEvents; j++) {
+			RealType n = numer - j / nEvents * numer3;
+			RealType d = denom - j / nEvents * denom2;
+			RealType t = n / d;
+			*gradient += t;
+			if (IteratorType::isIndicator) {
+				*hessian += t * (static_cast<RealType>(1.0) - t);
+			} else {
+				*hessian += (numer2 - j / nEvents * numer4) / d - t * t;
+			}
 		}
 	}
 
@@ -1271,6 +1371,8 @@ public:
 	const static bool likelihoodHasDenominator = false;
 
 	const static bool hasTwoNumeratorTerms = false;
+
+	const static bool efron = false;
 
 	const static bool exactCLR = false;
 

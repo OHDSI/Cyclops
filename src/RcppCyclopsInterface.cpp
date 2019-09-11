@@ -41,6 +41,7 @@ namespace bsccs {
  	{ModelType::POISSON, "pr"},
  	{ModelType::LOGISTIC, "lr"},
  	{ModelType::CONDITIONAL_LOGISTIC, "clr"},
+ 	{ModelType::EFRON_CONDITIONAL_LOGISTIC, "clr_efron"},
  	{ModelType::TIED_CONDITIONAL_LOGISTIC, "clr_exact"},
  	{ModelType::CONDITIONAL_POISSON, "cpr"},
  	{ModelType::SELF_CONTROLLED_MODEL, "sccs"},
@@ -64,6 +65,7 @@ std::vector<std::string> cyclopsGetRemoveInterceptNames() {
 	using namespace bsccs;
 	std::vector<std::string> names = {
 		modelTypeNames[ModelType::CONDITIONAL_LOGISTIC],
+        modelTypeNames[ModelType::EFRON_CONDITIONAL_LOGISTIC],
 		modelTypeNames[ModelType::TIED_CONDITIONAL_LOGISTIC],
 		modelTypeNames[ModelType::CONDITIONAL_POISSON],
 		modelTypeNames[ModelType::SELF_CONTROLLED_MODEL],

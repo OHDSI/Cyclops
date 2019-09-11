@@ -80,6 +80,9 @@ AbstractModelSpecifics* precisionFactory<float>(
     case ModelType::TIED_CONDITIONAL_LOGISTIC :
     	model =  deviceFactory<TiedConditionalLogisticRegression<float>,float>(modelData, deviceType, deviceName);
     	break;
+    case ModelType::EFRON_CONDITIONAL_LOGISTIC :
+    	model =  deviceFactory<EfronConditionalLogisticRegression<float>,float>(modelData, deviceType, deviceName);
+    	break;
     case ModelType::LOGISTIC :
     	model = deviceFactory<LogisticRegression<float>,float>(modelData, deviceType, deviceName);
     	break;
@@ -113,6 +116,9 @@ AbstractModelSpecifics* precisionFactory<float>(
     	     	break;
     	     case ModelType::TIED_CONDITIONAL_LOGISTIC :
     	     	model =  deviceFactory<TiedConditionalLogisticRegression<float>,float,TiedConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
+    	     	break;
+    	     case ModelType::EFRON_CONDITIONAL_LOGISTIC :
+    	     	model =  deviceFactory<EfronConditionalLogisticRegression<float>,float,EfronConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::LOGISTIC :
     	     	model = deviceFactory<LogisticRegression<float>,float,LogisticRegressionG>(modelData, deviceType, deviceName);
@@ -160,6 +166,9 @@ AbstractModelSpecifics* precisionFactory<double>(
     case ModelType::TIED_CONDITIONAL_LOGISTIC :
         model =  deviceFactory<TiedConditionalLogisticRegression<double>,double>(modelData, deviceType, deviceName);
         break;
+    case ModelType::EFRON_CONDITIONAL_LOGISTIC :
+        model =  deviceFactory<EfronConditionalLogisticRegression<double>,double>(modelData, deviceType, deviceName);
+        break;
     case ModelType::LOGISTIC :
         model = deviceFactory<LogisticRegression<double>,double>(modelData, deviceType, deviceName);
         break;
@@ -192,6 +201,9 @@ AbstractModelSpecifics* precisionFactory<double>(
     	     	break;
     	     case ModelType::TIED_CONDITIONAL_LOGISTIC :
     	     	model =  deviceFactory<TiedConditionalLogisticRegression<double>,double,TiedConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
+    	     	break;
+    	     case ModelType::EFRON_CONDITIONAL_LOGISTIC :
+    	     	model =  deviceFactory<EfronConditionalLogisticRegression<double>,double,EfronConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::LOGISTIC :
     	     	model = deviceFactory<LogisticRegression<double>,double,LogisticRegressionG>(modelData, deviceType, deviceName);

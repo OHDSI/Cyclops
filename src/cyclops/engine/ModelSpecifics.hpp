@@ -594,7 +594,13 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 				// Weights modified in computeNEvents()
 				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], accDenomPid[i]);
 			}
-		} else {  // TODO Unnecessary code duplication
+		} else if (BaseModel::efron) {
+			for (size_t i = 0; i < N; i++) {
+				for (size_t j = 0; j < hNWeight[i]; j++) {
+					logLikelihood -= std::log(denomPid[i] - j / hNWeight[i] * denomPid2[i]);
+				}
+			}
+		} else { // TODO Unnecessary code duplication
 			for (size_t i = 0; i < N; i++) {
 				// Weights modified in computeNEvents()
 				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], denomPid[i]);
@@ -1006,12 +1012,16 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 			RealType numerator1 = numerPid[i];
 			RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
 					numerPid2[i] : static_cast<RealType>(0);
+			RealType numerator3 = BaseModel::efron ? numerPid3[i] : static_cast<RealType>(0);
+			RealType numerator4 = (!IteratorType::isIndicator && BaseModel::efron) ?
+					numerPid4[i] : static_cast<RealType>(0);
+			RealType denom2 = BaseModel::efron ? denomPid2[i] : static_cast<RealType>(0);
 
 			if (numerator1 != static_cast<RealType>(0) || numerator2 != static_cast<RealType>(0)) {
 				BaseModel::incrementGradientAndHessian(it,
 						w, // Signature-only, for iterator-type specialization
 						&gradient, &hessian, numerator1, numerator2,
-						denomPid[i], hNWeight[i], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
+						denomPid[i], hNWeight[i], numerator3, numerator4, denom2); // When function is in-lined, compiler will only use necessary arguments
 			}
 		}
 
@@ -1206,8 +1216,8 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 //					numerPid[itI.index()] = static_cast<RealType>(0.0);
 //				}
 				zeroVector(numerPid.data(), N);
-				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
-					zeroVector(numerPid2.data(), N);
+				if (BaseModel::efron) {
+					zeroVector(numerPid3.data(), N);
 				}
 				if (useWeights) {
 				    incrementNumeratorForGradientImpl<IndicatorIterator<RealType>, WeightedOperation>(index);
@@ -1228,6 +1238,10 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
 					zeroVector(numerPid2.data(), N);
 				}
+				if (BaseModel::efron) {
+					zeroVector(numerPid3.data(), N);
+					zeroVector(numerPid4.data(), N);
+				}
 				if (useWeights) {
 				    incrementNumeratorForGradientImpl<SparseIterator<RealType>, WeightedOperation>(index);
 				} else {
@@ -1240,6 +1254,10 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
 					zeroVector(numerPid2.data(), N);
 				}
+				if (BaseModel::efron) {
+					zeroVector(numerPid3.data(), N);
+					zeroVector(numerPid4.data(), N);
+				}
 				if (useWeights) {
 				    incrementNumeratorForGradientImpl<DenseIterator<RealType>, WeightedOperation>(index);
 				} else {
@@ -1251,6 +1269,10 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 				zeroVector(numerPid.data(), N);
 				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
 					zeroVector(numerPid2.data(), N);
+				}
+				if (BaseModel::efron) {
+					zeroVector(numerPid3.data(), N);
+					zeroVector(numerPid4.data(), N);
 				}
 				if (useWeights) {
 				    incrementNumeratorForGradientImpl<InterceptIterator<RealType>, WeightedOperation>(index);
@@ -1295,6 +1317,20 @@ void ModelSpecifics<BaseModel,RealType>::incrementNumeratorForGradientImpl(int i
                     Weights::isWeighted ?
                         hKWeight[k] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]) :
                         BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k])
+                );
+		}
+		if (BaseModel::efron) {
+			incrementByGroup(numerPid3.data(), hPid, k,
+					Weights::isWeighted ?
+						hKWeight[k] * hY[k] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]) :
+						hY[k] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k])
+				);
+		}
+		if (!IteratorType::isIndicator && BaseModel::efron) {
+			incrementByGroup(numerPid4.data(), hPid, k,
+                    Weights::isWeighted ?
+                        hKWeight[k] * hY[k] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]) :
+                        hY[k] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k])
                 );
 		}
 	}
@@ -1388,6 +1424,9 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k); // Update offsExpXBeta
 			RealType newEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition
 			incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
+			if (BaseModel::efron) {
+				incrementByGroup(denomPid2.data(), hPid, k, hY[k]*(newEntry - oldEntry)); // Update denominators
+			}
 		}
 	}
 
@@ -1411,6 +1450,9 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
 
     if (BaseModel::likelihoodHasDenominator) {
         fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
+        if (BaseModel::efron) {
+        	fillVector(denomPid2.data(), N, BaseModel::getDenomNullValue());
+        }
 
         for (size_t k = 0; k < K; ++k) {
             offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
@@ -1418,6 +1460,9 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
                 hKWeight[k] * BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k) :
                 BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k); // TODO Delegate condition to gOEXB
             incrementByGroup(denomPid.data(), hPid, k, weightoffsExpXBeta); // Update denominators
+			if (BaseModel::efron) {
+				incrementByGroup(denomPid2.data(), hPid, k, hY[k]*weightoffsExpXBeta); // Update denominators
+			}
         }
         computeAccumlatedDenominator(Weights::isWeighted);
     }
@@ -1655,8 +1700,11 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
     // 	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
     // 	numerPid2 = numerPid + 2 * alignedLength;
     denomPid.resize(alignedLength);
+    denomPid2.resize(alignedLength);
     numerPid.resize(alignedLength);
     numerPid2.resize(alignedLength);
+    numerPid3.resize(alignedLength);
+    numerPid4.resize(alignedLength);
 
     deviceInitialization();
 
