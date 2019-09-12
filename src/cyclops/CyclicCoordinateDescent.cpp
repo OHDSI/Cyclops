@@ -956,7 +956,7 @@ void CyclicCoordinateDescent::findMode(
 
 	    	if (usingGPU) {
 	    		//if (usingGPU && syncCV) {
-	    		modelSpecifics.runCCDIndex();
+	    		modelSpecifics.runCCD(useCrossValidation);
 	    		if (!syncCV) {
 	    			hBeta = modelSpecifics.getBeta();
 	    		}

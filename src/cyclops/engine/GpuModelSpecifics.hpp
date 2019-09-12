@@ -500,6 +500,182 @@ public:
     	//}
     }
 
+    void computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
+#ifdef CYCLOPS_DEBUG_TIMING
+			auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+    	if (ModelSpecifics<BaseModel,RealType>::sortPid()) {
+    		ModelSpecifics<BaseModel,RealType>::doSortPid(useCrossValidation);
+    	}
+    	if (ModelSpecifics<BaseModel,RealType>::allocateXjY()) {
+    		computeXjY(useCrossValidation);
+    	}
+    	if (ModelSpecifics<BaseModel,RealType>::allocateXjX()) {
+    	    ModelSpecifics<BaseModel,RealType>::computeXjX(useCrossValidation);
+    	}
+    	if (ModelSpecifics<BaseModel,RealType>::allocateNtoKIndices()) {
+    		ModelSpecifics<BaseModel,RealType>::computeNtoKIndices(useCrossValidation);
+    	}
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			auto end = bsccs::chrono::steady_clock::now();
+			///////////////////////////"
+			auto name = "computeFixedTermsInGradientAndHessian";
+			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+    }
+
+    void computeXjY(bool useCrossValidation) {
+        	if (!syncCV) {
+        		ModelSpecifics<BaseModel,RealType>::computeXjY(useCrossValidation);
+                detail::resizeAndCopyToDevice(hXjY, dXjY, queue);
+        	} else {
+        		int size = layoutByPerson ? cvIndexStride : syncCVFolds;
+
+        		dXjYVector.resize(J*size);
+
+        		for (int i = FormatType::INTERCEPT; i >= FormatType::DENSE; --i) {
+        			FormatType formatType = (FormatType)i;
+
+        			std::vector<int> indices;
+        			for (int index=0; index<J; index++) {
+        				int formatType1 = formatList[index];
+        				if (formatType1 == formatType) {
+        					indices.push_back(index);
+        				}
+        			}
+
+        			if (indices.size() > 0) {
+        				auto& kernel = kernelComputeXjY[formatType];
+        				kernel.set_arg(0, dColumns.getDataStarts());
+        				kernel.set_arg(1, dColumns.getIndicesStarts());
+        				kernel.set_arg(2, dColumns.getTaskCounts());
+        				kernel.set_arg(3, dColumns.getData());
+        				kernel.set_arg(4, dColumns.getIndices());
+        				kernel.set_arg(5, dY);
+        				kernel.set_arg(6, dKWeightVector);
+        				kernel.set_arg(7, dXjYVector);
+        				kernel.set_arg(8, cvIndexStride);
+        				int dJ = J;
+        				kernel.set_arg(9, dJ);
+        				int length = indices.size();
+        				kernel.set_arg(10, length);
+
+        	    		detail::resizeAndCopyToDevice(indices, dIntVector1, queue);
+        	    		kernel.set_arg(11, dIntVector1);
+
+        				size_t globalWorkSize = syncCVFolds * tpb;
+        				size_t localWorkSize = tpb;
+
+        	            queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, localWorkSize);
+        	            queue.finish();
+        			}
+        		}
+        	}
+        }
+
+    virtual void runCCDexactCLR(bool useWeights) {
+
+    }
+
+    virtual void runCCDStratified(bool useWeights) {
+
+    }
+
+    virtual void runCCDNonStratified(bool useWeights) {
+    	int wgs = maxWgs; // for reduction across strata
+
+    	if (useWeights) {
+    		if (dBuffer.size() < 2*wgs*cvIndexStride) {
+    			dBuffer.resize(2*wgs*cvIndexStride);
+    		}
+    	} else {
+    		if (dBuffer.size() < 2*wgs) {
+    			dBuffer.resize(2*wgs);
+    		}
+
+    		for (int index = 0; index < J; index++) {
+#ifdef CYCLOPS_DEBUG_TIMING
+    			auto start = bsccs::chrono::steady_clock::now();
+#endif
+    			FormatType formatType = hX.getFormatType(index);
+
+    			auto& kernel = kernelGradientHessianNoWeight[formatType];
+
+    			const auto taskCount = dColumns.getTaskCount(index);
+
+    			//std::cout << "kernel 0 called\n";
+    			kernel.set_arg(0, dColumns.getDataOffset(index));
+    			kernel.set_arg(1, dColumns.getIndicesOffset(index));
+    			kernel.set_arg(2, taskCount);
+    			kernel.set_arg(3, dColumns.getData());
+    			kernel.set_arg(4, dColumns.getIndices());
+    			kernel.set_arg(5, dY);
+    			kernel.set_arg(6, dXBeta);
+    			kernel.set_arg(7, dExpXBeta);
+    			kernel.set_arg(8, dDenominator);
+    			kernel.set_arg(9, dBuffer);
+    			kernel.set_arg(10, dId);
+    			kernel.set_arg(11, dKWeight);
+
+    			size_t globalWorkSize = wgs*tpb;
+    			size_t localWorkSize = tpb;
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    			auto end = bsccs::chrono::steady_clock::now();
+    			///////////////////////////"
+    			auto name = "compGradHessArgsG" + getFormatTypeExtension(formatType) + " ";
+    			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+    			// run kernel
+#ifdef CYCLOPS_DEBUG_TIMING
+    			start = bsccs::chrono::steady_clock::now();
+#endif
+    			queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, localWorkSize);
+    			queue.finish();
+#ifdef CYCLOPS_DEBUG_TIMING
+    			end = bsccs::chrono::steady_clock::now();
+    			///////////////////////////"
+    			name = "compGradHessKernelG" + getFormatTypeExtension(formatType) + " ";
+    			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+    		}
+
+    		hBuffer.resize(wgs*2);
+        	compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs, std::begin(hBuffer), queue);
+        	std::cout << "hBuffer: ";
+        	for (auto x:hBuffer) {
+        		std::cout << x << " ";
+        	}
+        	std::cout << "\n";
+
+    	}
+    }
+
+    virtual void runCCD(bool useWeights) {
+
+    	 int wgs = maxWgs; // for reduction across strata
+
+    	 if (BaseModel::exactCLR) {
+    		 runCCDexactCLR(useWeights);
+    	 } else if (BaseModelG::useNWeights) {
+    		 runCCDStratified(useWeights);
+    	 } else {
+    		 runCCDNonStratified(useWeights);
+    	 }
+
+    	 for (int index = 0; index < J; index++) {
+#ifdef CYCLOPS_DEBUG_TIMING
+    		 auto start = bsccs::chrono::steady_clock::now();
+#endif
+    		 FormatType formatType = hX.getFormatType(index);
+    	 }
+
+    }
+
     void turnOnSyncCV(int foldToCompute) {
     	ModelSpecifics<BaseModel, RealType>::turnOnSyncCV(foldToCompute);
 
@@ -670,8 +846,8 @@ public:
 private:
 
     void buildAllKernels(const std::vector<FormatType>& neededFormatTypes) {
-//        buildAllGradientHessianKernels(neededFormatTypes);
-//        std::cout << "built gradhessian kernels \n";
+        buildAllGradientHessianKernels(neededFormatTypes);
+        std::cout << "built gradhessian kernels \n";
 //        buildAllUpdateXBetaKernels(neededFormatTypes);
 //        std::cout << "built updateXBeta kernels \n";
 //        buildAllGetGradientObjectiveKernels();
@@ -711,9 +887,97 @@ private:
 //        std::cout << "built doItAll kernels\n";
 //        buildPredLogLikelihoodKernel();
 //        std::cout << "built pred likelihood kernel\n";
-//        buildAllComputeXjYKernels(neededFormatTypes);
-//        std::cout << "built xjy kernels\n";
+        buildAllComputeXjYKernels(neededFormatTypes);
+        std::cout << "built xjy kernels\n";
     }
+
+    void buildAllGradientHessianKernels(const std::vector<FormatType>& neededFormatTypes) {
+        int b = 0;
+        for (FormatType formatType : neededFormatTypes) {
+            buildGradientHessianKernel(formatType, true); ++b;
+            buildGradientHessianKernel(formatType, false); ++b;
+        }
+    }
+
+    void buildAllComputeXjYKernels(const std::vector<FormatType>& neededFormatTypes) {
+    	int b = 0;
+    	for (FormatType formatType : neededFormatTypes) {
+    		buildXjYKernel(formatType); ++b;
+    	}
+    }
+
+    void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
+
+        auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+        isNvidia = false;
+        std::stringstream options;
+
+        if (BaseModel::exactCLR) {
+        } else if (BaseModelG::useNWeights) {
+        } else {
+
+            if (double_precision) {
+            	options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+            } else {
+                options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+            }
+            options << " -cl-mad-enable";
+
+            std::cout << "double precision: " << double_precision << " tpb: " << tpb << "\n";
+
+        	auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
+        	std::cout << source.body;
+
+        	// CCD Kernel
+        	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        	std::cout << "program built\n";
+        	auto kernel = compute::kernel(program, source.name);
+
+        	if (useWeights) {
+        		kernelGradientHessianWeighted[formatType] = std::move(kernel);
+        	} else {
+        		kernelGradientHessianNoWeight[formatType] = std::move(kernel);
+        	}
+        }
+    }
+
+    void buildXjYKernel(FormatType formatType) {
+    	std::stringstream options;
+    	if (double_precision) {
+    		options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+        } else {
+
+            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+        }
+        options << " -cl-mad-enable";
+
+         auto source = writeCodeForComputeXjYKernel(formatType, layoutByPerson);
+         std::cout << source.body;
+         auto program = compute::program::build_with_source(source.body, ctx, options.str());
+         auto kernel = compute::kernel(program, source.name);
+
+         kernelComputeXjY[formatType] = std::move(kernel);
+    }
+
+    std::string getFormatTypeExtension(FormatType formatType) {
+        switch (formatType) {
+        case DENSE:
+            return "Den";
+        case SPARSE:
+            return "Spa";
+        case INDICATOR:
+            return "Ind";
+        case INTERCEPT:
+            return "Icp";
+        default: return "";
+        }
+    }
+
+
+    SourceCode writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
+
+    SourceCode writeCodeForComputeXjYKernel(FormatType formatType, bool layoutByPerson);
+
 
     template <class T>
        void appendAndPad(const T& source, T& destination, int& length, bool pad) {
@@ -737,6 +1001,11 @@ private:
     const compute::context ctx;
     compute::command_queue queue;
     compute::program program;
+
+    std::map<FormatType, compute::kernel> kernelGradientHessianWeighted;
+    std::map<FormatType, compute::kernel> kernelGradientHessianNoWeight;
+    std::map<FormatType, compute::kernel> kernelComputeXjY;
+
 
     std::map<FormatType, std::vector<int>> indicesFormats;
     std::vector<FormatType> formatList;
@@ -1184,17 +1453,18 @@ public:
         return(code.str());
 	}
 
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "exp(xb)";
-        return(code.str());
+    std::string getOffsExpXBetaG(
+    		const std::string& offs, const std::string& xBeta) {
+		return "exp(" + xBeta + ")";
     }
 
-	std::string logLikeDenominatorContribG() {
-		std::stringstream code;
-		code << "wN * log(denom)";
-		return(code.str());
+
+	std::string logLikeDenominatorContribG(
+			const std::string& ni, const std::string& denom) {
+		return ni + "*" + "log(" + denom + ")";
 	}
+
+
 
 };
 
@@ -1341,16 +1611,15 @@ public:
         return(code.str());
 	}
 
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "exp(xb)";
-        return(code.str());
+    std::string getOffsExpXBetaG(
+    		const std::string& offs, const std::string& xBeta) {
+		return "exp(" + xBeta + ")";
     }
 
-	std::string logLikeDenominatorContribG() {
-		std::stringstream code;
-		code << "wN * log(denom)";
-		return(code.str());
+
+	std::string logLikeDenominatorContribG(
+			const std::string& ni, const std::string& denom) {
+		return ni + "*" + "log(" + denom + ")";
 	}
 
 };
@@ -1365,11 +1634,6 @@ public:
 		return "(REAL)0.0";
 	}
 
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "exp(xb)";
-        return(code.str());
-    }
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
 		std::stringstream code;
@@ -1384,10 +1648,15 @@ public:
         return(code.str());
 	}
 
-	std::string logLikeDenominatorContribG() {
-		std::stringstream code;
-		code << "wN * log(denom)";
-		return(code.str());
+    std::string getOffsExpXBetaG(
+    		const std::string& offs, const std::string& xBeta) {
+		return "exp(" + xBeta + ")";
+    }
+
+
+	std::string logLikeDenominatorContribG(
+			const std::string& ni, const std::string& denom) {
+		return ni + "*" + "log(" + denom + ")";
 	}
 };
 
@@ -1405,22 +1674,21 @@ public:
 		return("");
 	}
 
-	std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "(REAL)0.0";
-        return(code.str());
-    }
-
 	std::string logLikeNumeratorContribG() {
 		std::stringstream code;
 		code << "(y-xb)*(y-xb)";
 		return(code.str());
 	}
 
-	std::string logLikeDenominatorContribG() {
-		std::stringstream code;
-		code << "log(denom)";
-		return(code.str());
+    std::string getOffsExpXBetaG(
+    		const std::string& offs, const std::string& xBeta) {
+		return "(REAL)0.0";
+    }
+
+
+	std::string logLikeDenominatorContribG(
+			const std::string& ni, const std::string& denom) {
+		return "log(" + denom + ")";
 	}
 
 };
@@ -1443,16 +1711,15 @@ public:
         return(code.str());
 	}
 
-    std::string getOffsExpXBetaG() {
-		std::stringstream code;
-		code << "exp(xb)";
-        return(code.str());
+    std::string getOffsExpXBetaG(
+    		const std::string& offs, const std::string& xBeta) {
+		return "exp(" + xBeta + ")";
     }
 
-	std::string logLikeDenominatorContribG() {
-		std::stringstream code;
-		code << "denom";
-		return(code.str());
+
+	std::string logLikeDenominatorContribG(
+			const std::string& ni, const std::string& denom) {
+		return denom;
 	}
 
 };

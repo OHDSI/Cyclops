@@ -15,7 +15,7 @@
 #include <thread>
 #include <complex>
 
-//#define CYCLOPS_DEBUG_TIMING
+#define CYCLOPS_DEBUG_TIMING
 //#define CYCLOPS_DEBUG_TIMING_LOW
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -234,6 +234,12 @@ protected:
 	// std::vector<RealType> hNWeight;
 	// std::vector<RealType> hKWeight;
 
+	void computeXjY(bool useCrossValidation);
+
+	void computeXjX(bool useCrossValidation);
+
+	void computeNtoKIndices(bool useCrossValidation);
+
 #ifdef CYCLOPS_DEBUG_TIMING
 	//	std::vector<double> duration;
 	std::map<std::string,long long> duration;
@@ -277,12 +283,6 @@ private:
 
 	template<class IteratorType>
 	SparseIterator<RealType> getSubjectSpecificHessianIterator(int index);
-
-	void computeXjY(bool useCrossValidation);
-
-	void computeXjX(bool useCrossValidation);
-
-	void computeNtoKIndices(bool useCrossValidation);
 
 	void initializeMmXt();
 

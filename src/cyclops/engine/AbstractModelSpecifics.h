@@ -140,7 +140,7 @@ public:
 
 	virtual void updateDoneFolds(std::vector<bool>& donePool) {};
 
-	virtual void runCCDIndex() {};
+	virtual void runCCD(bool useCrossValidation) {};
 
 	virtual std::vector<double> getBeta() {
 		std::vector<double> blah;
