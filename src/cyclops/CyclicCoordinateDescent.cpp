@@ -398,6 +398,21 @@ double convertHyperparameterToVariance(double value) {
 
 void CyclicCoordinateDescent::setHyperprior(int index, double value) {
     jointPrior->setVariance(index, value);
+    if (usingGPU) {
+		std::vector<double> varianceList = jointPrior->getVariance();
+		std::vector<double> temp;
+		temp.resize(J, 0.0);
+		for (int i=0; i<J; i++) {
+			int type = jointPrior->getPriorType(i);
+			if (type == 1) {
+				temp[i] = convertVarianceToHyperparameter(varianceList[0]);
+			}
+			if (type == 2) {
+				temp[i] = varianceList[0];
+			}
+		}
+		modelSpecifics.setPriorParams(temp);
+    }
 }
 
 // TODO Depricate
@@ -910,6 +925,28 @@ void CyclicCoordinateDescent::findMode(
 	    lastLogPosterior = -10E10;
 	}
 
+	if (usingGPU) {
+		modelSpecifics.setBounds(initialBound);
+		std::vector<int> priorList;
+		std::vector<double> varianceList = jointPrior->getVariance();
+		std::vector<double> temp;
+		temp.resize(J, 0.0);
+
+		for (int i=0; i<J; i++) {
+			int type = jointPrior->getPriorType(i);
+			priorList.push_back(type);
+			if (type == 1) {
+				temp[i] = convertVarianceToHyperparameter(varianceList[0]);
+			}
+			if (type == 2) {
+				temp[i] = varianceList[0];
+			}
+		}
+		modelSpecifics.setPriorTypes(priorList);
+		modelSpecifics.setPriorParams(temp);
+		//modelSpecifics.resetBeta();
+	}
+
 	auto cycle = [this,&iteration,algorithmType,&allDelta] {
 
 	    auto log = [this](const int index) {
@@ -968,6 +1005,7 @@ void CyclicCoordinateDescent::findMode(
 	    			if (!fixBeta[index]) {
 	    				double delta = ccdUpdateBeta(index);
 	    				delta = applyBounds(delta, index);
+	    				std::cout << "index: " << index << " delta: " << delta << "\n";
 	    				if (delta != 0.0) {
 	    					sufficientStatisticsKnown = false;
 	    					updateSufficientStatistics(delta, index);
@@ -1364,6 +1402,8 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 
 	priors::GradientHessian gh;
 	computeGradientAndHessian(index, &gh.first, &gh.second);
+
+	std::cout << "index: " << index << " grad: " << gh.first << " hess: " << gh.second << "\n";
 
 	if (gh.second < 0.0) {
 	    gh.first = 0.0;
