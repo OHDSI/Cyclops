@@ -484,6 +484,22 @@ public:
         //printAllKernels(std::cerr);
     }
 
+    // set single weights
+    virtual void setWeights(double* inWeights, bool useCrossValidation) {
+    	// Currently only computed on CPU and then copied to GPU
+    	ModelSpecifics<BaseModel, RealType>::setWeights(inWeights, useCrossValidation);
+
+    	detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
+    	detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
+    }
+
+    virtual std::vector<double> getBeta() {
+    	std::vector<double> blah;
+    	blah.resize(dBeta.size());
+    	compute::copy(std::begin(dBeta), std::end(dBeta), std::begin(blah), queue);
+    	return(blah);
+    }
+
     virtual void resetBeta() {
     	/*
     	if (syncCV) {
@@ -676,12 +692,6 @@ public:
     	if (!syncCV) {
     		ModelSpecifics<BaseModel,RealType>::computeXjY(useCrossValidation);
     		detail::resizeAndCopyToDevice(hXjY, dXjY, queue);
-
-    		std::cout << "XjY: ";
-    		for (auto x:hXjY) {
-    			std::cout << x << " ";
-    		}
-    		std::cout << "\n";
     	} else {
     		int size = layoutByPerson ? cvIndexStride : syncCVFolds;
 
@@ -921,6 +931,130 @@ public:
     	}
     	queue.finish();
 
+    }
+
+    virtual void runCCDNonStratified1(bool useWeights) {
+    	if (!initialized) {
+    		initialized = true;
+    		std::vector<int> hIndexListWithPrior[12];
+    		for (int i=0; i<J; i++) {
+    			int formatType = formatList[i];
+    			int priorType = priorTypes[i];
+    			hIndexListWithPrior[formatType*3+priorType].push_back(i);
+    		}
+    		std::vector<int> hIndices;
+    		int starts = 0;
+    		for (int i=0; i<12; i++) {
+    			int length = hIndexListWithPrior[i].size();
+    			indexListWithPriorLengths.push_back(length);
+    			indexListWithPriorStarts.push_back(starts);
+    			for (int j=0; j<length; j++) {
+    				hIndices.push_back(hIndexListWithPrior[i][j]);
+    			}
+    			if (length > 0) {
+    				std::cout << "format " << i/3 << " priorType " << i%3 << " length " << length << " start " << starts << "\n ";
+    			}
+    			starts += length;
+    		}
+    		detail::resizeAndCopyToDevice(hIndices, dIndexListWithPrior, queue);
+    		detail::resizeAndCopyToDevice(hXjY, dXjY, queue);
+    	}
+
+    	//for (int i = FormatType::DENSE; i <= FormatType::INTERCEPT; ++i) {
+    	for (int i = FormatType::INTERCEPT; i >= FormatType::DENSE; --i) {
+    		for (int j = 0; j < 3; j++) {
+#ifdef CYCLOPS_DEBUG_TIMING
+    			auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+    			FormatType formatType = (FormatType)i;
+    			int priorType = j;
+
+
+    			int length = indexListWithPriorLengths[i*3+j];
+    			if (length == 0) {
+    				continue;
+    			}
+
+    			if (!useWeights) {
+    				auto& kernel0 = kernelDoItAllNoSyncCV[formatType*3+priorType];
+    				//const auto taskCount = dColumns.getTaskCount(index);
+
+    				//for (int m = 0; m < length; m++) {
+    				//int index = dIndexListWithPrior[indexListWithPriorStarts[i*3+j] + m];
+    				//const auto taskCount = dColumns.getTaskCount(index);
+
+    				//std::cout << "index " << index << " format " << formatType << " prior " << priorType << " \n";
+
+    				kernel0.set_arg(0, dColumns.getDataStarts());
+    				kernel0.set_arg(1, dColumns.getIndicesStarts());
+    				kernel0.set_arg(2, dColumns.getTaskCounts());
+    				//kernel.set_arg(0, dColumns.getDataOffset(index));
+    				//kernel.set_arg(1, dColumns.getIndicesOffset(index));
+    				//kernel.set_arg(2, taskCount);
+#ifdef USE_LOG_SUM
+    				kernel0.set_arg(3, dLogX);
+#else
+    				kernel0.set_arg(3, dColumns.getData());
+#endif
+    				kernel0.set_arg(4, dColumns.getIndices());
+    				//kernel.set_arg(5, dY);
+    				//kernel.set_arg(6, dOffs);
+    				kernel0.set_arg(5, dXBeta);
+    				//kernel.set_arg(8, dOffsExpXBetaVector);
+    				//kernel.set_arg(9, dDenomPidVector);
+    				//kernel.set_arg(10, dPidVector);
+    				if (dKWeight.size() == 0) {
+    					kernel0.set_arg(6, 0);
+    				} else {
+    					kernel0.set_arg(6, dKWeight); // TODO Only when dKWeight gets reallocated
+    				}
+    				kernel0.set_arg(7, dBound);
+    				kernel0.set_arg(8, dPriorParams);
+    				kernel0.set_arg(9, dXjY);
+    				kernel0.set_arg(10, dBeta);
+
+    				//kernel.set_arg(18, syncCVFolds);
+    				int dJ = J;
+    				//kernel.set_arg(14, index);
+    				kernel0.set_arg(11, indexListWithPriorStarts[i*3+j]);
+    				kernel0.set_arg(12, length);
+    				kernel0.set_arg(13, dIndexListWithPrior);
+
+    				size_t globalWorkSize;
+    				size_t localWorkSize;
+
+    				globalWorkSize =  tpb;
+    				localWorkSize = tpb;
+
+    				//std::cout << "global work size: " << tpb0*tpb1*activeFolds << " local work size: " << tpb0*tpb1 << "\n";
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    				auto end = bsccs::chrono::steady_clock::now();
+    				///////////////////////////"
+    				auto name = "compDoItAllNoSyncCVArgsG" + getFormatTypeExtension(formatType) + " ";
+    				duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    				start = bsccs::chrono::steady_clock::now();
+#endif
+
+    				queue.enqueue_1d_range_kernel(kernel0, 0, globalWorkSize, localWorkSize);
+    				queue.finish();
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    				end = bsccs::chrono::steady_clock::now();
+    				///////////////////////////"
+    				name = "compDoItAllNoSyncCVKernelG" + getFormatTypeExtension(formatType) + " ";
+    				duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+    			} else {
+
+    			}
+    		}
+    	}
     }
 
     virtual void runCCD(bool useWeights) {
@@ -1169,8 +1303,8 @@ private:
         std::cout << "built ProcessDelta kernels \n";
 //        //buildAllDoItAllKernels(neededFormatTypes);
 //        //std::cout << "built doItAll kernels\n";
-//        buildAllDoItAllNoSyncCVKernels(neededFormatTypes);
-//        std::cout << "built doItAllNoSyncCV kernels\n";
+        buildAllDoItAllNoSyncCVKernels(neededFormatTypes);
+        std::cout << "built doItAllNoSyncCV kernels\n";
     }
 
     void buildAllSyncCVKernels(const std::vector<FormatType>& neededFormatTypes) {
@@ -1227,6 +1361,15 @@ private:
     	for (FormatType formatType : neededFormatTypes) {
     		buildXjYKernel(formatType); ++b;
     	}
+    }
+
+    void buildAllDoItAllNoSyncCVKernels(const std::vector<FormatType>& neededFormatTypes) {
+        int b = 0;
+        for (FormatType formatType : neededFormatTypes) {
+            buildDoItAllNoSyncCVKernel(formatType, 0);
+            buildDoItAllNoSyncCVKernel(formatType, 1);
+            buildDoItAllNoSyncCVKernel(formatType, 2);
+        }
     }
 
     void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
@@ -1379,6 +1522,33 @@ private:
          kernelComputeXjY[formatType] = std::move(kernel);
     }
 
+    void buildDoItAllNoSyncCVKernel(FormatType formatType, int priorType) {
+    	std::stringstream options;
+
+    	if (double_precision) {
+#ifdef USE_VECTOR
+    		options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
+#else
+    		options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
+#endif // USE_VECTOR
+    	} else {
+#ifdef USE_VECTOR
+    		options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
+#else
+    		options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
+#endif // USE_VECTOR
+    	}
+    	options << " -cl-mad-enable";
+
+    	auto source = writeCodeForDoItAllNoSyncCVKernel(formatType, priorType);
+    	std::cout << source.body;
+    	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    	auto kernel = compute::kernel(program, source.name);
+
+    	kernelDoItAllNoSyncCV[formatType*3+priorType] = std::move(kernel);
+
+    }
+
     std::string getFormatTypeExtension(FormatType formatType) {
         switch (formatType) {
         case DENSE:
@@ -1404,6 +1574,8 @@ private:
     SourceCode writeCodeForStratifiedComputeRemainingStatisticsKernel(bool efron);
 
     SourceCode writeCodeForComputeXjYKernel(FormatType formatType, bool layoutByPerson);
+
+    SourceCode writeCodeForDoItAllNoSyncCVKernel(FormatType formatType, int priorType);
 
 
     template <class T>
@@ -1434,7 +1606,7 @@ private:
     std::map<FormatType, compute::kernel> kernelUpdateXBeta;
     std::map<int, compute::kernel> kernelProcessDeltaBuffer;
     std::map<FormatType, compute::kernel> kernelComputeXjY;
-
+    std::map<int, compute::kernel> kernelDoItAllNoSyncCV;
     compute::kernel kernelComputeRemainingStatistics;
 
     std::map<FormatType, std::vector<int>> indicesFormats;
