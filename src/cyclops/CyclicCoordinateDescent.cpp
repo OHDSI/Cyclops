@@ -947,7 +947,20 @@ void CyclicCoordinateDescent::findMode(
 		//modelSpecifics.resetBeta();
 	}
 
-	auto cycle = [this,&iteration,algorithmType,&allDelta] {
+	auto cycle = [this,&lastObjFunc,&iteration,algorithmType,&allDelta] {
+
+		if (iteration%10==0) {
+			std::cout<<"iteration " << iteration << " ";
+
+			if (!syncCV) {
+				std::cout << "lastObjFunc: " << lastObjFunc << " ";
+			}
+
+			if (syncCV) {
+			}
+
+			std::cout << "\n";
+		}
 
 	    auto log = [this](const int index) {
 	        if ( (noiseLevel > QUIET) && ((index+1) % 100 == 0)) {
@@ -1005,7 +1018,7 @@ void CyclicCoordinateDescent::findMode(
 	    			if (!fixBeta[index]) {
 	    				double delta = ccdUpdateBeta(index);
 	    				delta = applyBounds(delta, index);
-	    				std::cout << "index: " << index << " delta: " << delta << "\n";
+//	    				std::cout << "index: " << index << " delta: " << delta << "\n";
 	    				if (delta != 0.0) {
 	    					sufficientStatisticsKnown = false;
 	    					updateSufficientStatistics(delta, index);
@@ -1403,7 +1416,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	priors::GradientHessian gh;
 	computeGradientAndHessian(index, &gh.first, &gh.second);
 
-	std::cout << "index: " << index << " grad: " << gh.first << " hess: " << gh.second << "\n";
+//	std::cout << "index: " << index << " grad: " << gh.first << " hess: " << gh.second << "\n";
 
 	if (gh.second < 0.0) {
 	    gh.first = 0.0;

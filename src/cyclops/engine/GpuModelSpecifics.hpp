@@ -342,7 +342,7 @@ public:
     */
 
     int tpb = 256; // threads-per-block  // Appears best on K40
-    int maxWgs = 16;
+    int maxWgs = 1;
     int tpb0 = 16;
     int tpb1 = 16;
 
@@ -611,6 +611,67 @@ public:
     	}
     }
 
+    // letting modelspecifics handle it, but kernel available
+       virtual double getGradientObjective(bool useCrossValidation) {
+   #ifdef GPU_DEBUG
+           ModelSpecifics<BaseModel, RealType>::getGradientObjective(useCrossValidation);
+           std::cerr << *ogradient << " & " << *ohessian << std::endl;
+   #endif // GPU_DEBUG
+
+   #ifdef CYCLOPS_DEBUG_TIMING
+           auto start = bsccs::chrono::steady_clock::now();
+   #endif
+
+           compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
+           return ModelSpecifics<BaseModel,RealType>::getGradientObjective(useCrossValidation);
+   /*
+           //FormatType formatType = FormatType::DENSE;
+
+           auto& kernel = (useCrossValidation) ? // Double-dispatch
+                               kernelGetGradientObjectiveWeighted :
+   							kernelGetGradientObjectiveNoWeight;
+
+           const auto wgs = maxWgs;
+           const auto globalWorkSize = tpb * wgs;
+
+           int dK = K;
+           kernel.set_arg(0, dK);
+           kernel.set_arg(1, dY);
+           kernel.set_arg(2, dXBeta);
+           dBuffer.resize(2 * maxWgs, queue);
+           kernel.set_arg(3, dBuffer); // Can get reallocated.
+           hBuffer.resize(2 * maxWgs);
+           if (dKWeight.size() == 0) {
+               kernel.set_arg(4, 0);
+           } else {
+               kernel.set_arg(4, dKWeight); // TODO Only when dKWeight gets reallocated
+           }
+
+           queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
+           queue.finish();
+
+           compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+
+           double objective = 0.0;
+
+           for (int i = 0; i < wgs; ++i) { // TODO Use SSE
+           	objective += hBuffer[i];
+           }
+
+   #ifdef GPU_DEBUG
+           std::cerr << gradient << " & " << hessian << std::endl << std::endl;
+   #endif // GPU_DEBUG
+
+   #ifdef CYCLOPS_DEBUG_TIMING
+           auto end = bsccs::chrono::steady_clock::now();
+           ///////////////////////////"
+           auto name = "compGradObj";
+           duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+   #endif
+           return(objective);
+    */
+       }
+
     void computeXjY(bool useCrossValidation) {
     	if (!syncCV) {
     		ModelSpecifics<BaseModel,RealType>::computeXjY(useCrossValidation);
@@ -725,7 +786,7 @@ public:
     			start = bsccs::chrono::steady_clock::now();
 #endif
     			queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, localWorkSize);
-    			queue.finish();
+//    			queue.finish();
 #ifdef CYCLOPS_DEBUG_TIMING
     			end = bsccs::chrono::steady_clock::now();
     			///////////////////////////"
@@ -776,7 +837,7 @@ public:
 #endif
 
     			queue.enqueue_1d_range_kernel(kernel1, 0, tpb, tpb);
-    			queue.finish();
+//    			queue.finish();
 
 #ifdef CYCLOPS_DEBUG_TIMING
     			end = bsccs::chrono::steady_clock::now();
@@ -785,17 +846,81 @@ public:
     			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-    			hBuffer.resize(J);
+//    			hBuffer.resize(J);
 //    			compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs, std::begin(hBuffer), queue);
-    			compute::copy(std::begin(dDeltaVector), std::begin(dDeltaVector)+J, std::begin(hBuffer), queue);
-    			std::cout << "delta " << index << ": " << hBuffer[index] << "\n";
+//    			compute::copy(std::begin(dDeltaVector), std::begin(dDeltaVector)+J, std::begin(hBuffer), queue);
+//    			std::cout << "delta " << index << ": " << hBuffer[index] << "\n";
 //    			std::cout << "hBuffer: ";
 //    			for (auto x:hBuffer) {
 //    				std::cout << x << " ";
 //    			}
 //    			std::cout << "\n";
+
+////////////////// Start update XBeta
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 start = bsccs::chrono::steady_clock::now();
+#endif
+
+			 auto& kernel2 = kernelUpdateXBeta[formatType];
+
+			 kernel2.set_arg(0, dColumns.getDataOffset(index));
+			 kernel2.set_arg(1, dColumns.getIndicesOffset(index));
+			 kernel2.set_arg(2, taskCount);
+			 kernel2.set_arg(3, dDeltaVector);
+			 kernel2.set_arg(4, dColumns.getData());
+			 kernel2.set_arg(5, dColumns.getIndices());
+			 kernel2.set_arg(6, dY);
+			 kernel2.set_arg(7, dXBeta);
+			 kernel2.set_arg(8, dExpXBeta);
+			 kernel2.set_arg(9, dDenominator);
+			 kernel2.set_arg(10, dId);
+			 kernel2.set_arg(11, index);
+
+			 // set work size; no looping
+			 size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
+			 if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+				 ++workGroups;
+			 }
+			 //size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+
+			 localWorkSize = detail::constant::updateXBetaBlockSize;
+			 globalWorkSize = workGroups * localWorkSize;
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 end = bsccs::chrono::steady_clock::now();
+			 ///////////////////////////"
+			 name = "compUpdateXBetaArgsG" + getFormatTypeExtension(formatType) + " ";
+			 duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+			 start = bsccs::chrono::steady_clock::now();
+#endif
+
+			 // run kernel
+			 queue.enqueue_1d_range_kernel(kernel2, 0, globalWorkSize, localWorkSize);
+//			 queue.finish();
+
+			 hXBetaKnown = false; // dXBeta was just updated
+#ifdef CYCLOPS_DEBUG_TIMING
+			 end = bsccs::chrono::steady_clock::now();
+			 ///////////////////////////"
+			 name = "compUpdateXBetaKernelG" + getFormatTypeExtension(formatType) + " ";
+			 duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+//			 hBuffer.resize(100);
+//			 compute::copy(std::begin(dXBeta), std::begin(dXBeta)+100, std::begin(hBuffer), queue);
+//			 std::cout << "xBeta: ";
+//			 for (auto x:hBuffer) {
+//				 std::cout << x << " ";
+//			 }
+//			 std::cout << "\n";
     		}
     	}
+    	queue.finish();
+
     }
 
     virtual void runCCD(bool useWeights) {
@@ -809,15 +934,21 @@ public:
     	 } else {
     		 runCCDNonStratified(useWeights);
     	 }
-
-    	 for (int index = 0; index < J; index++) {
-#ifdef CYCLOPS_DEBUG_TIMING
-    		 auto start = bsccs::chrono::steady_clock::now();
-#endif
-    		 FormatType formatType = hX.getFormatType(index);
-    	 }
-
     }
+
+    virtual void runCCD1(bool useWeights) {
+
+    	 int wgs = maxWgs; // for reduction across strata
+
+    	 if (BaseModel::exactCLR) {
+    		 runCCDexactCLR(useWeights);
+    	 } else if (BaseModelG::useNWeights) {
+    		 runCCDStratified(useWeights);
+    	 } else {
+    		 runCCDNonStratified1(useWeights);
+    	 }
+    }
+
 
     void turnOnSyncCV(int foldToCompute) {
     	ModelSpecifics<BaseModel, RealType>::turnOnSyncCV(foldToCompute);
@@ -1022,8 +1153,8 @@ private:
     void buildAllKernels(const std::vector<FormatType>& neededFormatTypes) {
         buildAllGradientHessianKernels(neededFormatTypes);
         std::cout << "built gradhessian kernels \n";
-//        buildAllUpdateXBetaKernels(neededFormatTypes);
-//        std::cout << "built updateXBeta kernels \n";
+        buildAllUpdateXBetaKernels(neededFormatTypes);
+        std::cout << "built updateXBeta kernels \n";
 //        buildAllGetGradientObjectiveKernels();
 //        std::cout << "built getGradObjective kernels \n";
 //        buildAllGetLogLikelihoodKernels();
@@ -1070,6 +1201,12 @@ private:
         for (FormatType formatType : neededFormatTypes) {
             buildGradientHessianKernel(formatType, true); ++b;
             buildGradientHessianKernel(formatType, false); ++b;
+        }
+    }
+
+    void buildAllUpdateXBetaKernels(const std::vector<FormatType>& neededFormatTypes) {
+        for (FormatType formatType : neededFormatTypes) {
+            buildUpdateXBetaKernel(formatType);
         }
     }
 
@@ -1126,6 +1263,42 @@ private:
         	}
         }
     }
+
+    void buildUpdateXBetaKernel(FormatType formatType) {
+            std::stringstream options;
+
+
+            if (double_precision) {
+#ifdef USE_VECTOR
+            	options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+#else
+            	options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+#endif // USE_VECTOR
+            } else {
+#ifdef USE_VECTOR
+            	options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+#else
+            	options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+#endif // USE_VECTOR
+            }
+
+        	options << " -cl-mad-enable";
+
+            auto source = writeCodeForUpdateXBetaKernel(formatType);
+
+            if (BaseModelG::useNWeights) {
+//            	source = writeCodeForStratifiedUpdateXBetaKernel(formatType, BaseModel::efron);
+            }
+
+            auto program = compute::program::build_with_source(source.body, ctx, options.str());
+            std::cout << "program built\n";
+            auto kernel = compute::kernel(program, source.name);
+
+            // Rcpp::stop("uXB");
+
+            // Run-time constant arguments.
+            kernelUpdateXBeta[formatType] = std::move(kernel);
+        }
 
     void buildProcessDeltaKernel(int priorType) {
         std::stringstream options;
@@ -1222,6 +1395,8 @@ private:
 
     SourceCode writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
+    SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType);
+
     SourceCode writeCodeForProcessDeltaKernel(int priorType);
 
     SourceCode writeCodeForComputeRemainingStatisticsKernel();
@@ -1256,6 +1431,7 @@ private:
 
     std::map<FormatType, compute::kernel> kernelGradientHessianWeighted;
     std::map<FormatType, compute::kernel> kernelGradientHessianNoWeight;
+    std::map<FormatType, compute::kernel> kernelUpdateXBeta;
     std::map<int, compute::kernel> kernelProcessDeltaBuffer;
     std::map<FormatType, compute::kernel> kernelComputeXjY;
 
