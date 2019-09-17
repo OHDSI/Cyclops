@@ -280,6 +280,125 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForGradientHessianK
 	return SourceCode(code.str(), name);
 }
 
+// CV nonstratified CCD
+	template <class BaseModel, typename RealType, class BaseModelG>
+    SourceCode
+    GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia, bool layoutByPerson) {
+
+		std::string name = "computeSyncCVGradHess" + getFormatTypeExtension(formatType);
+
+		std::stringstream code;
+		code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+		code << "__kernel void " << name << "(            \n" <<
+				"       const uint offX,                  \n" <<
+				"       const uint offK,                  \n" <<
+				"       const uint N,                     \n" <<
+				"       __global const REAL* X,           \n" <<
+				"       __global const int* K,            \n" <<
+				"       __global const REAL* Y,           \n" <<
+				"       __global const REAL* xBetaVector,       \n" <<
+				"       __global const REAL* expXBetaVector,    \n" <<
+				"       __global const REAL* denomPidVector, \n" <<
+#ifdef USE_VECTOR
+				"       __global TMP_REAL* buffer,     \n" <<
+#else
+				"       __global REAL* buffer,            \n" <<
+#endif // USE_VECTOR
+				"       __global const int* pIdVector,           \n" <<  // TODO Make id optional
+				"       __global const REAL* weightVector,	\n" <<
+				"		const uint cvIndexStride,		\n" <<
+				"		const uint blockSize,			\n" <<
+				"		__global int* allZero) {   		 	\n";    // TODO Make weight optional
+		// Initialization
+		code << "	if (get_global_id(0) == 0) allZero[0] = 1;	\n" <<
+				"	uint lid0 = get_local_id(0);		\n" <<
+		        "   uint gid1, loops, remainder; 			\n" <<
+				"   gid1 = get_group_id(1);             \n" <<
+				"	uint loopSize = get_num_groups(1);	\n" <<
+		        //"   loopSize = get_num_groups(1);       \n" <<
+				"	loops = N / loopSize;					\n" <<
+				"	remainder = N % loopSize;			\n" <<
+				"	uint task1;							\n" <<
+				"	if (gid1 < remainder) {				\n" <<
+				"		task1 = gid1*(loops+1);			\n" <<
+				"	} else {							\n" <<
+				"		task1 = remainder*(loops+1) + (gid1-remainder)*loops;	\n" <<
+				"	}									\n" <<
+				//"	uint task1 = gid1;					\n" <<
+				//"	__local REAL scratch[2][TPB];		\n" <<
+		        //"   __local REAL sum0[TPB];             \n" <<
+		        //"   __local REAL sum1[TPB];             \n" <<
+				//"	sum0[lid0] = 0.0;					\n" <<
+				//"	sum1[lid0] = 0.0;					\n" <<
+				"	uint cvIndex = get_group_id(0)*blockSize+lid0;	\n" <<
+				"	REAL sum0 = 0.0;					\n" <<
+				"	REAL sum1 = 0.0;					\n";
+
+		code <<	"	for (int i=0; i<loops; i++) {		\n";
+		if (formatType == INDICATOR || formatType == SPARSE) {
+			code << "  	uint k = K[offK + task1];      	\n";
+		} else { // DENSE, INTERCEPT
+			code << "   uint k = task1;           		\n";
+		}
+		if (formatType == SPARSE || formatType == DENSE) {
+			code << "  	REAL x = X[offX + task1]; \n";
+		} else { // INDICATOR, INTERCEPT
+			// Do nothing
+		}
+		code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
+				"		REAL xb = xBetaVector[vecOffset];			\n" <<
+        		"		REAL exb = " << BaseModelG::getOffsExpXBetaG("0", "xb") << ";\n" <<
+				//"		REAL exb = expXBetaVector[vecOffset];	\n" <<
+				"		REAL numer = " << timesX("exb", formatType) << ";\n";
+		if (BaseModelG::logisticDenominator) {
+			code << " 	REAL denom = (REAL)1.0 + exb;				\n";
+		} else {
+			code << "	REAL denom = denomPidVector[" << BaseModelG::getGroupG("pIdVector", "k") << "*cvIndexStride+cvIndex];\n";
+		}
+		//"		REAL denom = denomPidVector[vecOffset];		\n" <<
+		code << "		REAL w = weightVector[vecOffset];\n";
+		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
+		code << "       sum0 += gradient; \n" <<
+				"       sum1 += hessian;  \n";
+		code << "       task1 += 1; \n" <<
+				"   } \n";
+
+		code << "	if (gid1 < remainder)	{				\n";
+		if (formatType == INDICATOR || formatType == SPARSE) {
+			code << "  	uint k = K[offK + task1];      	\n";
+		} else { // DENSE, INTERCEPT
+			code << "   uint k = task1;           		\n";
+		}
+		if (formatType == SPARSE || formatType == DENSE) {
+			code << "  	REAL x = X[offX + task1]; \n";
+		} else { // INDICATOR, INTERCEPT
+			// Do nothing
+		}
+		code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
+				"		REAL xb = xBetaVector[vecOffset];			\n" <<
+				"		REAL exb = " << BaseModelG::getOffsExpXBetaG("0", "xb") << ";\n" <<
+				//"		REAL exb = expXBetaVector[vecOffset];	\n" <<
+				"		REAL numer = " << timesX("exb", formatType) << ";\n";
+		if (BaseModelG::logisticDenominator) {
+			code << " 	REAL denom = (REAL)1.0 + exb;				\n";
+		} else {
+			code << "	REAL denom = denomPidVector[" << BaseModelG::getGroupG("pIdVector", "k") << "*cvIndexStride+cvIndex];\n";
+		}
+		//"		REAL denom = denomPidVector[vecOffset];		\n" <<
+		code << "		REAL w = weightVector[vecOffset];\n";
+		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
+		code << "       sum0 += gradient; \n" <<
+				"       sum1 += hessian;  \n" <<
+				"	}						\n";
+
+		code << "	buffer[cvIndexStride*gid1 + cvIndex] = sum0;	\n" <<
+				"	buffer[cvIndexStride*(gid1+loopSize) + cvIndex] = sum1;	\n" <<
+				"	}									\n";
+		//code << "}  \n"; // End of kernel
+		return SourceCode(code.str(), name);
+	}
+
 template <class BaseModel, typename RealType, class BaseModelG>
 SourceCode
 GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForProcessDeltaKernel(int priorType) {

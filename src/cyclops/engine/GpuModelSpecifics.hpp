@@ -1308,8 +1308,8 @@ private:
     }
 
     void buildAllSyncCVKernels(const std::vector<FormatType>& neededFormatTypes) {
-//        buildAllSyncCVGradientHessianKernels(neededFormatTypes);
-//        std::cout << "built syncCV gradhessian kernels \n";
+        buildAllSyncCVGradientHessianKernels(neededFormatTypes);
+        std::cout << "built syncCV gradhessian kernels \n";
 //        buildAllSyncCVUpdateXBetaKernels(neededFormatTypes);
 //        std::cout << "built syncCV updateXBeta kernels \n";
 //        buildAllSyncCVGetGradientObjectiveKernels();
@@ -1335,6 +1335,13 @@ private:
         for (FormatType formatType : neededFormatTypes) {
             buildGradientHessianKernel(formatType, true); ++b;
             buildGradientHessianKernel(formatType, false); ++b;
+        }
+    }
+
+    void buildAllSyncCVGradientHessianKernels(const std::vector<FormatType>& neededFormatTypes) {
+        int b = 0;
+        for (FormatType formatType : neededFormatTypes) {
+            buildSyncCVGradientHessianKernel(formatType); ++b;
         }
     }
 
@@ -1406,6 +1413,45 @@ private:
         	}
         }
     }
+
+    void buildSyncCVGradientHessianKernel(FormatType formatType) {
+        	if (BaseModel::exactCLR) {
+
+        	} else {
+
+        		std::stringstream options;
+
+        		if (double_precision) {
+    #ifdef USE_VECTOR
+        			options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
+    #else
+        			options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
+    #endif // USE_VECTOR
+        		} else {
+    #ifdef USE_VECTOR
+        			options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
+    #else
+        			options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
+    #endif // USE_VECTOR
+        		}
+        		options << " -cl-mad-enable";
+
+        		auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+        		isNvidia = false;
+
+        		// CCD Kernel
+        		// Rcpp::stop("cGH");
+        		auto source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia, layoutByPerson);
+//        		if (BaseModelG::useNWeights) {
+//        			source = writeCodeForStratifiedSyncCVGradientHessianKernel(formatType, isNvidia, BaseModel::efron);
+//        			std::cout << source.body;
+//        		}
+        		auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        		std::cout << "program built\n";
+        		auto kernelSync = compute::kernel(program, source.name);
+        		kernelGradientHessianSync[formatType] = std::move(kernelSync);
+        	}
+        }
 
     void buildUpdateXBetaKernel(FormatType formatType) {
             std::stringstream options;
@@ -1577,6 +1623,8 @@ private:
 
     SourceCode writeCodeForDoItAllNoSyncCVKernel(FormatType formatType, int priorType);
 
+    SourceCode writeCodeForSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia, bool layoutByPerson);
+
 
     template <class T>
        void appendAndPad(const T& source, T& destination, int& length, bool pad) {
@@ -1603,6 +1651,7 @@ private:
 
     std::map<FormatType, compute::kernel> kernelGradientHessianWeighted;
     std::map<FormatType, compute::kernel> kernelGradientHessianNoWeight;
+    std::map<FormatType, compute::kernel> kernelGradientHessianSync;
     std::map<FormatType, compute::kernel> kernelUpdateXBeta;
     std::map<int, compute::kernel> kernelProcessDeltaBuffer;
     std::map<FormatType, compute::kernel> kernelComputeXjY;
