@@ -938,6 +938,69 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForDoItAllNoSyncCVK
 	return SourceCode(code.str(), name);
 }
 
+// CV gradient objective
+template <class BaseModel, typename RealType, class BaseModelG>
+SourceCode
+GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForGetGradientObjectiveSync(bool isNvidia, bool layoutByPerson) {
+
+	std::string name;
+	name = "getGradientObjectiveSync";
+
+	std::stringstream code;
+	code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+	code << "__kernel void " << name << "(            \n" <<
+			"       const uint N,                     \n" <<
+			"       __global const REAL* Y,           \n" <<
+			"       __global const REAL* xBetaVector,       \n" <<
+			"       __global REAL* buffer,            \n" <<
+			"		const uint cvIndexStride,					\n" <<
+			"       __global const REAL* weightVector,	\n" <<
+			"		const uint size0,				\n" <<
+			"		const uint syncCVFolds) {    \n";    // TODO Make weight optional
+	if (layoutByPerson) {
+		code << "	uint lid0 = get_local_id(0);		\n" <<
+				"	uint task1 = get_group_id(1);		\n" <<
+				"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
+				"	uint loopSize = get_num_groups(1);	\n" <<
+				"	uint outIndex = cvIndex + cvIndexStride * get_group_id(1);	\n";
+	} else {
+		code << "	uint cvIndex = get_group_id(0);	\n" <<
+				"	__local REAL scratch[TPB];				\n" <<
+				"	uint lid = get_local_id(1);	\n" <<
+				"	uint task1 = get_global_id(1);	\n" <<
+				"	uint loopSize = TPB * get_num_groups(1);	\n" <<
+				"	uint outIndex = cvIndex * get_num_groups(1) + get_group_id(1);	\n";
+	}
+	code << "	REAL sum = 0.0;					\n" <<
+			//"	if (cvIndex < syncCVFolds) {		\n" <<
+			"	while (task1 < N) {					\n";
+	if (layoutByPerson) {
+		code << "	uint vecOffset = task1*cvIndexStride+cvIndex;	\n";
+	} else {
+		code << "	uint vecOffset = task1+cvIndexStride*cvIndex;	\n";
+	}
+	code << "		REAL w = weightVector[vecOffset];	\n" <<
+			"		REAL y = Y[task1];				\n" <<
+			"		REAL xb = xBetaVector[vecOffset];	\n" <<
+			//"		printf(\"%f \", xb);	\n" <<
+			"		sum += w * y * xb;				\n" <<
+			"		task1 += loopSize;		\n" <<
+			"	} 									\n";
+	if (layoutByPerson) {
+		code << "	buffer[outIndex] = sum;	\n";
+	}
+	if (!layoutByPerson) {
+		code << "scratch[lid] = sum;		\n";
+		code << (isNvidia ? ReduceBody1<RealType,true>::body() : ReduceBody1<RealType,false>::body());
+		code << "if (lid == 0) buffer[outIndex] = scratch[0];	\n";
+	}
+	//"   if (get_global_id(0) == 0) printf(\"inside kernel\");    \n" <<
+	code << "	}									\n";
+	//code << "}  \n"; // End of kernel
+	return SourceCode(code.str(), name);
+}
+
 
 
 /*

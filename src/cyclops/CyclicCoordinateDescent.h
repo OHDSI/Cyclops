@@ -312,6 +312,12 @@ protected:
                               int iteration,
                               double* lastObjFunc);
 
+	bool performCheckConvergence(int convergenceType,
+                              double epsilon,
+                              int maxIterations,
+                              int iteration,
+                              std::vector<double>& lastObjFunc);
+
 	double computeConvergenceCriterion(double newObjFxn, double oldObjFxn);
 
 	virtual double computeZhangOlesConvergenceCriterion(void);

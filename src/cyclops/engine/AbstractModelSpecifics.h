@@ -150,6 +150,10 @@ public:
 
 	virtual double getPredictiveLogLikelihood(double* weights, int cvIndex) = 0; // pure virtual
 
+	virtual void setWeights(double* inWeights, bool useCrossValidation, int index) = 0; // pure virtual
+
+    virtual std::vector<double> getGradientObjectives() = 0; // pure virtual
+
 protected:
 
 //     template <class Engine>

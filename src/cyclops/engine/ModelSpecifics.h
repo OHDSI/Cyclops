@@ -211,6 +211,8 @@ protected:
 
 	void setWeights(double* inWeights, bool useCrossValidation);
 
+	void setWeights(double* inWeights, bool useCrossValidation, int index) {};
+
 	void doSortPid(bool useCrossValidation);
 
 	template <typename AnyRealType>
@@ -239,6 +241,22 @@ protected:
 	void computeXjX(bool useCrossValidation);
 
 	void computeNtoKIndices(bool useCrossValidation);
+
+	template <class OutType, class InType>
+	void incrementByGroup(OutType* values, int* groups, int k, InType inc) {
+		values[BaseModel::getGroup(groups, k)] += inc; // TODO delegate to BaseModel (different in tied-models)
+	}
+
+	RealType observationCount(RealType yi) {
+		return BaseModel::observationCount(yi);
+	}
+
+
+	std::vector<double> getGradientObjectives(void) {
+		std::vector<double> result;
+		return result;
+	}
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	//	std::vector<double> duration;
@@ -269,11 +287,6 @@ private:
 
 	template <class IteratorType, class Weights>
 	void updateXBetaImpl(RealType delta, int index);
-
-	template <class OutType, class InType>
-	void incrementByGroup(OutType* values, int* groups, int k, InType inc) {
-		values[BaseModel::getGroup(groups, k)] += inc; // TODO delegate to BaseModel (different in tied-models)
-	}
 
 	template <typename IteratorTypeOne, class Weights>
 	void dispatchFisherInformation(int indexOne, int indexTwo, double *oinfo, Weights w);

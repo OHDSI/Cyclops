@@ -493,6 +493,94 @@ public:
     	detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
     }
 
+    // set syncCV weights
+
+    virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex) {
+
+    	if (hKWeightPool[cvIndex].size() != K) {
+    		hKWeightPool[cvIndex].resize(K);
+    	}
+    	if (useCrossValidation) {
+    		for (size_t k = 0; k < K; ++k) {
+    			hKWeightPool[cvIndex][k] = inWeights[k];
+    		}
+    	} else {
+    		std::fill(hKWeightPool[cvIndex].begin(), hKWeightPool[cvIndex].end(), static_cast<RealType>(1));
+    	}
+
+//    	if (initializeAccumulationVectors()) {
+//    		setPidForAccumulation(inWeights, index); //TODO implement
+//    	}
+
+
+    	// Set N weights (these are the same for independent data models
+    	// all the same for now, cv fold by stratum
+    	if (hNWeight.size() < N + 1) { // Add +1 for extra (zero-weight stratum)
+    		hNWeight.resize(N + 1);
+    	}
+
+    	std::fill(hNWeight.begin(), hNWeight.end(), static_cast<RealType>(0));
+    	for (size_t k = 0; k < K; ++k) {
+    	    RealType event = ModelSpecifics<BaseModel, RealType>::observationCount(hY[k])*1;
+    		ModelSpecifics<BaseModel, RealType>::incrementByGroup(hNWeight.data(), hPid, k, event);
+    	}
+
+    	//	for (auto x:hNWeight) {
+    	//		hNWeightPool[index].push_back(x);
+    	//	}
+
+    	// Set N weights (these are the same for independent data models
+    	if (hNWeightPool[cvIndex].size() < N + 1) { // Add +1 for extra (zero-weight stratum)
+    		hNWeightPool[cvIndex].resize(N + 1);
+    	}
+
+    	std::fill(hNWeightPool[cvIndex].begin(), hNWeightPool[cvIndex].end(), static_cast<RealType>(0));
+    	for (size_t k = 0; k < K; ++k) {
+    		RealType event = ModelSpecifics<BaseModel, RealType>::observationCount(hY[k])*hKWeightPool[cvIndex][k];
+    		ModelSpecifics<BaseModel, RealType>::incrementByGroup(hNWeightPool[cvIndex].data(), hPid, k, event);
+    	}
+
+    	//ModelSpecifics<BaseModel,RealType>::setWeights(inWeights, useCrossValidation, cvIndex);
+    	if (cvIndex == syncCVFolds - 1) {
+    		//std::vector<real> hNWeightTemp;
+
+    		// layout by person
+
+    		std::vector<RealType> hKWeightTemp;
+    		std::vector<RealType> hNWeightTemp;
+
+    		if (layoutByPerson) {
+    			hKWeightTemp.resize(K*cvIndexStride, 0.0);
+    			for (int i=0; i<K; i++) {
+    				for (int j=0; j<syncCVFolds; j++) {
+    					hKWeightTemp[i*cvIndexStride+j] = hKWeightPool[j][i];
+    				}
+    			}
+
+    			hNWeightTemp.resize((N+1)*cvIndexStride, 0.0);
+    			for (int i=0; i<N+1; i++) {
+    				for (int j=0; j<syncCVFolds; j++) {
+    					hNWeightTemp[i*cvIndexStride+j] = hNWeightPool[j][i];
+    				}
+    			}
+    		} else {
+
+    			int garbage = 0;
+
+    			for (int i=0; i<syncCVFolds; i++) {
+    				//std::cout << "hNWeightPool size" << i << ": " << hNWeightPool[i].size() << "\n";
+    				appendAndPad(hNWeightPool[i], hNWeightTemp, garbage, pad); // not using for now
+    				appendAndPad(hKWeightPool[i], hKWeightTemp, garbage, pad);
+    			}
+    		}
+
+    		detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
+    		detail::resizeAndCopyToDevice(hKWeightTemp, dKWeightVector, queue);
+
+    	}
+    }
+
+
     virtual std::vector<double> getBeta() {
     	std::vector<double> blah;
     	blah.resize(dBeta.size());
@@ -687,6 +775,110 @@ public:
            return(objective);
     */
        }
+
+       // syncCV
+
+       std::vector<double> getGradientObjectives() {
+#ifdef GPU_DEBUG
+    	   ModelSpecifics<BaseModel, WeightType>::getGradientObjective(useCrossValidation);
+    	   std::cerr << *ogradient << " & " << *ohessian << std::endl;
+#endif // GPU_DEBUG
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    	   auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+
+    	   auto& kernel = kernelGetGradientObjectiveSync;
+
+    	   int wgs = layoutByPerson ? 128 : 8;
+    	   int dK = K;
+    	   kernel.set_arg(0, dK);
+    	   kernel.set_arg(1, dY);
+    	   kernel.set_arg(2, dXBetaVector);
+
+    	   int size = layoutByPerson ? cvIndexStride : syncCVFolds;
+    	   if (dBuffer.size() < wgs*size) {
+    		   dBuffer.resize(wgs * size, queue);
+    	   }
+    	   if (hBuffer.size() < wgs*size) {
+    		   hBuffer.resize(wgs * size);
+    	   }
+    	   kernel.set_arg(3, dBuffer); // Can get reallocated.
+    	   kernel.set_arg(4, cvIndexStride);
+    	   if (dKWeightVector.size() == 0) {
+    		   kernel.set_arg(5, 0);
+    	   } else {
+    		   kernel.set_arg(5, dKWeightVector); // TODO Only when dKWeight gets reallocated
+    	   }
+    	   kernel.set_arg(6, cvBlockSize);
+    	   kernel.set_arg(7, syncCVFolds);
+
+    	   int loops = syncCVFolds / cvBlockSize;
+    	   if (syncCVFolds % cvBlockSize != 0) {
+    		   loops++;
+    	   }
+
+    	   size_t globalWorkSize[2];
+    	   size_t localWorkSize[2];
+    	   size_t dim = 2;
+
+    	   if (layoutByPerson) {
+    		   globalWorkSize[0] = loops*cvBlockSize;
+    		   globalWorkSize[1] = wgs;
+    		   localWorkSize[0] = cvBlockSize;
+    		   localWorkSize[1] = 1;
+    	   } else {
+    		   globalWorkSize[0] = syncCVFolds;
+    		   globalWorkSize[1] = wgs*tpb;
+    		   localWorkSize[0] = 1;
+    		   localWorkSize[1] = tpb;
+    	   }
+
+
+    	   queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
+    	   queue.finish();
+
+    	   compute::copy(std::begin(dBuffer), std::begin(dBuffer)+wgs*size, std::begin(hBuffer), queue);
+
+    	   //        std::cout << "after hBuffer: ";
+    	   //        for (auto x:hBuffer) {
+    	   //        	std::cout << x << " ";
+    	   //        }
+    	   //        std::cout << "\n";
+
+
+    	   std::vector<double> result;
+    	   result.resize(syncCVFolds, 0.0);
+    	   if (layoutByPerson) {
+    		   for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+    			   for (int j = 0; j < wgs; ++j) { // TODO Use SSE
+    				   result[cvIndex] += hBuffer[j*cvIndexStride+cvIndex];
+    			   }
+    		   }
+    	   } else {
+    		   for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+    			   for (int j = 0; j < wgs; ++j) { // TODO Use SSE
+    				   result[cvIndex] += hBuffer[cvIndex*wgs+j];
+    			   }
+    		   }
+    	   }
+
+#ifdef GPU_DEBUG
+    	   std::cerr << gradient << " & " << hessian << std::endl << std::endl;
+#endif // GPU_DEBUG
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    	   auto end = bsccs::chrono::steady_clock::now();
+    	   ///////////////////////////"
+    	   auto name = "compGradObjG";
+    	   duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+    	   return result;
+       }
+
+
 
     void computeXjY(bool useCrossValidation) {
     	if (!syncCV) {
@@ -1182,6 +1374,12 @@ public:
         		appendAndPad(blah1, hPidTemp, garbage, pad);
         	}
         }
+
+    	for(int i=0; i<syncCVFolds; ++i) {
+    		hNWeightPool.push_back(hNWeight);
+    		hKWeightPool.push_back(hKWeight);
+    		//hPidPool.push_back(hPid);
+    	}
         //detail::resizeAndCopyToDevice(hNWeightTemp, dNWeightVector, queue);
         //detail::resizeAndCopyToDevice(hKWeightTemp, dKWeightVector, queue);
         //detail::resizeAndCopyToDevice(accDenomPidTemp, dAccDenomPidVector, queue);
@@ -1282,6 +1480,37 @@ public:
     	detail::resizeAndCopyToDevice(temp, dPriorParams, queue);
     }
 
+    virtual void updateDoneFolds(std::vector<bool>& donePool) {
+#ifdef CYCLOPS_DEBUG_TIMING
+			auto start = bsccs::chrono::steady_clock::now();
+#endif
+    	std::vector<int> hDone;
+    	std::vector<int> hCVIndices;
+
+    	// layout by person
+
+    	activeFolds = 0;
+    	bool reset = true;
+    	int size = layoutByPerson ? cvIndexStride : syncCVFolds;
+    	hDone.resize(size, 0);
+    	for (int i=0; i<syncCVFolds; i++) {
+    		if (!donePool[i]) {
+    			hDone[i] = 1;
+    			hCVIndices.push_back(i);
+    			activeFolds++;
+    		} else {
+    			reset = false;
+    		}
+    	}
+    	detail::resizeAndCopyToDevice(hCVIndices, dCVIndices, queue);
+#ifdef CYCLOPS_DEBUG_TIMING
+			auto end = bsccs::chrono::steady_clock::now();
+			///////////////////////////"
+			auto name = "updateDoneFoldsG";
+			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+    }
+
 private:
 
     void buildAllKernels(const std::vector<FormatType>& neededFormatTypes) {
@@ -1312,8 +1541,8 @@ private:
         std::cout << "built syncCV gradhessian kernels \n";
 //        buildAllSyncCVUpdateXBetaKernels(neededFormatTypes);
 //        std::cout << "built syncCV updateXBeta kernels \n";
-//        buildAllSyncCVGetGradientObjectiveKernels();
-//        std::cout << "built syncCV getGradObjective kernels \n";
+        buildAllSyncCVGetGradientObjectiveKernels();
+        std::cout << "built syncCV getGradObjective kernels \n";
 //        //buildAllGetLogLikelihoodKernels();
 //        //std::cout << "built getLogLikelihood kernels \n";
 //        buildAllSyncCVComputeRemainingStatisticsKernels();
@@ -1377,6 +1606,11 @@ private:
             buildDoItAllNoSyncCVKernel(formatType, 1);
             buildDoItAllNoSyncCVKernel(formatType, 2);
         }
+    }
+
+    void buildAllSyncCVGetGradientObjectiveKernels() {
+        int b = 0;
+        buildSyncCVGetGradientObjectiveKernel(); ++b;
     }
 
     void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
@@ -1595,6 +1829,34 @@ private:
 
     }
 
+    void buildSyncCVGetGradientObjectiveKernel() {
+    	std::stringstream options;
+    	if (double_precision) {
+#ifdef USE_VECTOR
+    		options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+#else
+    		options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+#endif // USE_VECTOR
+    	} else {
+#ifdef USE_VECTOR
+    		options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+#else
+    		options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+#endif // USE_VECTOR
+    	}
+    	options << " -cl-mad-enable";
+
+    	auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+    	isNvidia = false;
+
+    	// Run-time constant arguments.
+    	auto source = writeCodeForGetGradientObjectiveSync(isNvidia, layoutByPerson);
+    	std::cout << source.body;
+    	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    	auto kernelSync = compute::kernel(program, source.name);
+    	kernelGetGradientObjectiveSync = std::move(kernelSync);
+    }
+
     std::string getFormatTypeExtension(FormatType formatType) {
         switch (formatType) {
         case DENSE:
@@ -1625,6 +1887,7 @@ private:
 
     SourceCode writeCodeForSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia, bool layoutByPerson);
 
+    SourceCode writeCodeForGetGradientObjectiveSync(bool isNvidia, bool layoutByPerson);
 
     template <class T>
        void appendAndPad(const T& source, T& destination, int& length, bool pad) {
@@ -1657,6 +1920,7 @@ private:
     std::map<FormatType, compute::kernel> kernelComputeXjY;
     std::map<int, compute::kernel> kernelDoItAllNoSyncCV;
     compute::kernel kernelComputeRemainingStatistics;
+    compute::kernel kernelGetGradientObjectiveSync;
 
     std::map<FormatType, std::vector<int>> indicesFormats;
     std::vector<FormatType> formatList;
@@ -1675,6 +1939,9 @@ private:
     std::vector<RealType> expXMatrix;
 	std::vector<RealType> hFirstRow;
 	std::vector<RealType> hOverflow;
+	std::vector<std::vector<RealType>> hKWeightPool;
+	std::vector<std::vector<RealType>> hNWeightPool;
+	//std::vector<std::vector<RealType>> hPidPool;
 
     // device storage
     compute::vector<RealType> dY;
