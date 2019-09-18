@@ -300,42 +300,29 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForGradientHessianK
 				"       __global const REAL* xBetaVector,       \n" <<
 				"       __global const REAL* expXBetaVector,    \n" <<
 				"       __global const REAL* denomPidVector, \n" <<
-#ifdef USE_VECTOR
-				"       __global TMP_REAL* buffer,     \n" <<
-#else
 				"       __global REAL* buffer,            \n" <<
-#endif // USE_VECTOR
 				"       __global const int* pIdVector,           \n" <<  // TODO Make id optional
 				"       __global const REAL* weightVector,	\n" <<
 				"		const uint cvIndexStride,		\n" <<
-				"		const uint blockSize,			\n" <<
+				"		const uint KStride,				\n" <<
+				"		const uint syncCVFolds,			\n" <<
 				"		__global int* allZero) {   		 	\n";    // TODO Make weight optional
 		// Initialization
 		code << "	if (get_global_id(0) == 0) allZero[0] = 1;	\n" <<
 				"	uint lid0 = get_local_id(0);		\n" <<
-		        "   uint gid1, loops, remainder; 			\n" <<
-				"   gid1 = get_group_id(1);             \n" <<
-				"	uint loopSize = get_num_groups(1);	\n" <<
-		        //"   loopSize = get_num_groups(1);       \n" <<
-				"	loops = N / loopSize;					\n" <<
-				"	remainder = N % loopSize;			\n" <<
-				"	uint task1;							\n" <<
-				"	if (gid1 < remainder) {				\n" <<
-				"		task1 = gid1*(loops+1);			\n" <<
-				"	} else {							\n" <<
-				"		task1 = remainder*(loops+1) + (gid1-remainder)*loops;	\n" <<
-				"	}									\n" <<
-				//"	uint task1 = gid1;					\n" <<
-				//"	__local REAL scratch[2][TPB];		\n" <<
-		        //"   __local REAL sum0[TPB];             \n" <<
-		        //"   __local REAL sum1[TPB];             \n" <<
-				//"	sum0[lid0] = 0.0;					\n" <<
-				//"	sum1[lid0] = 0.0;					\n" <<
-				"	uint cvIndex = get_group_id(0)*blockSize+lid0;	\n" <<
+				"	uint lid1 = get_local_id(1);		\n" <<
+				"	uint cvIndex = get_global_id(0);	\n" <<
+		        "   uint gid1 = get_group_id(1);             \n" <<
+				"	uint loopSize = get_global_size(1);	\n" <<
+				"	uint task1 = gid1;							\n" <<
+				"	uint myId = lid1*TPB0+lid0;			\n" <<
+				"	__local REAL scratch[2][TPB];		\n" <<
 				"	REAL sum0 = 0.0;					\n" <<
 				"	REAL sum1 = 0.0;					\n";
 
-		code <<	"	for (int i=0; i<loops; i++) {		\n";
+		code << "	if (cvIndex < syncCVFolds) {		\n";
+		code << "	while (task1 < N) {					\n";
+
 		if (formatType == INDICATOR || formatType == SPARSE) {
 			code << "  	uint k = K[offK + task1];      	\n";
 		} else { // DENSE, INTERCEPT
@@ -346,54 +333,30 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForGradientHessianK
 		} else { // INDICATOR, INTERCEPT
 			// Do nothing
 		}
-		code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
-				"		REAL xb = xBetaVector[vecOffset];			\n" <<
-        		"		REAL exb = " << BaseModelG::getOffsExpXBetaG("0", "xb") << ";\n" <<
-				//"		REAL exb = expXBetaVector[vecOffset];	\n" <<
-				"		REAL numer = " << timesX("exb", formatType) << ";\n";
-		if (BaseModelG::logisticDenominator) {
-			code << " 	REAL denom = (REAL)1.0 + exb;				\n";
+
+		if (layoutByPerson) {
+			code << "	uint vecOffset = k * cvIndexStride + cvIndex;	\n";
 		} else {
-			code << "	REAL denom = denomPidVector[" << BaseModelG::getGroupG("pIdVector", "k") << "*cvIndexStride+cvIndex];\n";
+			code << "	uint vecOffset = k + KStride * cvIndex;	\n";
 		}
-		//"		REAL denom = denomPidVector[vecOffset];		\n" <<
+		code << "		REAL xb = xBetaVector[vecOffset];			\n" <<
+        		"		REAL exb = " << BaseModelG::getOffsExpXBetaG("0", "xb") << ";\n" <<
+				"		REAL numer = " << timesX("exb", formatType) << ";\n";
+		code << " 	REAL denom = (REAL)1.0 + exb;				\n";
+
 		code << "		REAL w = weightVector[vecOffset];\n";
 		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
 		code << "       sum0 += gradient; \n" <<
 				"       sum1 += hessian;  \n";
-		code << "       task1 += 1; \n" <<
+		code << "       task1 += loopSize; \n" <<
 				"   } \n";
 
-		code << "	if (gid1 < remainder)	{				\n";
-		if (formatType == INDICATOR || formatType == SPARSE) {
-			code << "  	uint k = K[offK + task1];      	\n";
-		} else { // DENSE, INTERCEPT
-			code << "   uint k = task1;           		\n";
-		}
-		if (formatType == SPARSE || formatType == DENSE) {
-			code << "  	REAL x = X[offX + task1]; \n";
-		} else { // INDICATOR, INTERCEPT
-			// Do nothing
-		}
-		code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
-				"		REAL xb = xBetaVector[vecOffset];			\n" <<
-				"		REAL exb = " << BaseModelG::getOffsExpXBetaG("0", "xb") << ";\n" <<
-				//"		REAL exb = expXBetaVector[vecOffset];	\n" <<
-				"		REAL numer = " << timesX("exb", formatType) << ";\n";
-		if (BaseModelG::logisticDenominator) {
-			code << " 	REAL denom = (REAL)1.0 + exb;				\n";
-		} else {
-			code << "	REAL denom = denomPidVector[" << BaseModelG::getGroupG("pIdVector", "k") << "*cvIndexStride+cvIndex];\n";
-		}
-		//"		REAL denom = denomPidVector[vecOffset];		\n" <<
-		code << "		REAL w = weightVector[vecOffset];\n";
-		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
-		code << "       sum0 += gradient; \n" <<
-				"       sum1 += hessian;  \n" <<
-				"	}						\n";
+		code << "	buffer[cvIndex * loopSize + gid1] = sum0;	\n" <<
+				"	buffer[(cvIndex + syncCVFolds) * loopSize + gid1] = sum1;	\n";
 
-		code << "	buffer[cvIndexStride*gid1 + cvIndex] = sum0;	\n" <<
-				"	buffer[cvIndexStride*(gid1+loopSize) + cvIndex] = sum1;	\n" <<
+//		code << "	buffer[cvIndexStride * gid1 + cvIndex] = sum0;	\n" <<
+//				"	buffer[cvIndexStride * (gid1+loopSize) + cvIndex] = sum1;	\n" <<
+		code << "	}										\n" <<
 				"	}									\n";
 		//code << "}  \n"; // End of kernel
 		return SourceCode(code.str(), name);
@@ -610,6 +573,65 @@ template <class BaseModel, typename WeightType, class BaseModelG>
         code << "}    \n";
         return SourceCode(code.str(), name);
     }
+
+// CV CRS
+	template <class BaseModel, typename WeightType, class BaseModelG>
+    SourceCode
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForSyncComputeRemainingStatisticsKernel(bool layoutByPerson) {
+
+        std::string name = "computeRemainingStatistics";
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "(     \n" <<
+				"		__global REAL* xBetaVector,	   \n" <<
+                "       __global REAL* expXBetaVector,   \n" <<
+                "       __global REAL* denomPidVector,\n" <<
+				"		__global REAL* Y,			\n" <<
+				"		__global REAL* Offs,		\n" <<
+                "       __global const int* pIdVector,		\n" <<
+				"		const uint cvIndexStride,	\n" <<
+				"		const uint size0,			\n" <<
+				"		const uint syncCVFolds,		\n" <<
+				"		const uint N) {   \n";
+
+        if (layoutByPerson) {
+        	code << "	uint lid0 = get_local_id(0);	\n" <<
+        			"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
+					"	uint task = get_group_id(1);	\n" <<
+					"	if (cvIndex < syncCVFolds) {	\n" <<
+					"	uint vecOffset = task*cvIndexStride + cvIndex;	\n";
+        } else {
+        	code << "	uint cvIndex = get_group_id(0);	\n" <<
+        			"	uint task = get_global_id(1);	\n" <<
+					"	uint loopSize = get_global_size(1);	\n" <<
+					"	while (task < N) {				\n" <<
+					"	uint vecOffset = task+cvIndexStride * cvIndex;	\n";
+        }
+
+        code << "REAL xb = xBetaVector[vecOffset];\n";
+        code << "REAL exb = " << BaseModelG::getOffsExpXBetaG("0", "xb") << ";\n";
+        code << "expXBetaVector[vecOffset] = exb;\n";
+        //"const REAL y = Y[task];\n" <<
+        //"const REAL offs = Offs[task];\n";
+
+        if (BaseModel::likelihoodHasDenominator) {
+        	if (layoutByPerson) {
+        		code << "denomPidVector[" << BaseModelG::getGroupG("pIdVector", "task") << "*cvIndexStride+cvIndex] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+        	} else {
+        		code << "denomPidVector[" << BaseModelG::getGroupG("pIdVector", "task") << "+cvIndexStride*cvIndex] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+        	}
+        }
+        if (!layoutByPerson) {
+        	code << "	task += loopSize;	\n";
+        }
+
+        code << "   } \n";
+        code << "}    \n";
+        return SourceCode(code.str(), name);
+    }
+
 
 // stratified CRS
 template <class BaseModel, typename RealType, class BaseModelG>
@@ -953,49 +975,55 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForGetGradientObjec
 			"       const uint N,                     \n" <<
 			"       __global const REAL* Y,           \n" <<
 			"       __global const REAL* xBetaVector,       \n" <<
+			"       __global const REAL* weightVector,	\n" <<
 			"       __global REAL* buffer,            \n" <<
 			"		const uint cvIndexStride,					\n" <<
-			"       __global const REAL* weightVector,	\n" <<
-			"		const uint size0,				\n" <<
-			"		const uint syncCVFolds) {    \n";    // TODO Make weight optional
+			"		const uint KStride) {    \n";    // TODO Make weight optional
+
+	code << "	__local REAL scratch[TPB];				\n";
+	code << "	uint lid0 = get_local_id(0);		\n" <<
+			"	uint lid1 = get_local_id(1);		\n" <<
+			"	uint mylid = lid1 * TPB0 + lid0;		\n";
+	code << "	uint cvIndex = get_global_id(0);	\n" <<
+			"	uint gid1 = get_global_id(1);		\n" <<
+			"	uint loopSize = get_global_size(1);	\n" <<
+			"	uint task1 = gid1;					\n" <<
+			"	REAL sum = 0.0;						\n";
+
+	code << "	while (task1 < N) {					\n";
+
 	if (layoutByPerson) {
-		code << "	uint lid0 = get_local_id(0);		\n" <<
-				"	uint task1 = get_group_id(1);		\n" <<
-				"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
-				"	uint loopSize = get_num_groups(1);	\n" <<
-				"	uint outIndex = cvIndex + cvIndexStride * get_group_id(1);	\n";
+		code << "		uint vecOffset = task1 * cvIndexStride + cvIndex;	\n";
 	} else {
-		code << "	uint cvIndex = get_group_id(0);	\n" <<
-				"	__local REAL scratch[TPB];				\n" <<
-				"	uint lid = get_local_id(1);	\n" <<
-				"	uint task1 = get_global_id(1);	\n" <<
-				"	uint loopSize = TPB * get_num_groups(1);	\n" <<
-				"	uint outIndex = cvIndex * get_num_groups(1) + get_group_id(1);	\n";
-	}
-	code << "	REAL sum = 0.0;					\n" <<
-			//"	if (cvIndex < syncCVFolds) {		\n" <<
-			"	while (task1 < N) {					\n";
-	if (layoutByPerson) {
-		code << "	uint vecOffset = task1*cvIndexStride+cvIndex;	\n";
-	} else {
-		code << "	uint vecOffset = task1+cvIndexStride*cvIndex;	\n";
+		code << "		uint vecOffset = KStride * cvIndex + task1;	\n";
 	}
 	code << "		REAL w = weightVector[vecOffset];	\n" <<
 			"		REAL y = Y[task1];				\n" <<
 			"		REAL xb = xBetaVector[vecOffset];	\n" <<
-			//"		printf(\"%f \", xb);	\n" <<
 			"		sum += w * y * xb;				\n" <<
 			"		task1 += loopSize;		\n" <<
 			"	} 									\n";
+
+
 	if (layoutByPerson) {
-		code << "	buffer[outIndex] = sum;	\n";
-	}
-	if (!layoutByPerson) {
-		code << "scratch[lid] = sum;		\n";
+		code << "	scratch[mylid] = sum;		\n";
+		code << "   for(int j = 1; j < TPB1; j <<= 1) {          \n" <<
+	            "       barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
+	            "       uint mask = (j << 1) - 1;               \n" <<
+	            "       if ((lid1 & mask) == 0) {                \n" <<
+	            "           scratch[mylid] += scratch[mylid + j * TPB0]; \n" <<
+	            "       }                                       \n" <<
+	            "   }                                         \n";
+	} else {
+		code << "	uint lid = lid1;					\n";
+		code << "	scratch[lid] = sum;					\n";
 		code << (isNvidia ? ReduceBody1<RealType,true>::body() : ReduceBody1<RealType,false>::body());
-		code << "if (lid == 0) buffer[outIndex] = scratch[0];	\n";
 	}
-	//"   if (get_global_id(0) == 0) printf(\"inside kernel\");    \n" <<
+
+	code << "	if (lid1 == 0) {					\n" <<
+			"		buffer[get_global_id(0) * get_num_groups(1) + get_group_id(1)] = scratch[mylid];	\n" <<
+			"	}									\n";
+
 	code << "	}									\n";
 	//code << "}  \n"; // End of kernel
 	return SourceCode(code.str(), name);

@@ -589,19 +589,17 @@ public:
     }
 
     virtual void resetBeta() {
-    	/*
     	if (syncCV) {
-    		std::vector<real> temp;
+    		std::vector<RealType> temp;
     		//temp.resize(J*syncCVFolds, 0.0);
     		int size = layoutByPerson ? cvIndexStride : syncCVFolds;
-    		temp.resize(J*size, 0.0);
+    		temp.resize(J * size, 0.0);
     		detail::resizeAndCopyToDevice(temp, dBetaVector, queue);
     	} else {
-    	*/
     		std::vector<RealType> temp;
     		temp.resize(J, 0.0);
     		detail::resizeAndCopyToDevice(temp, dBeta, queue);
-    	//}
+    	}
     }
 
     void computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
@@ -636,7 +634,65 @@ public:
     virtual void computeRemainingStatistics(bool useWeights) {
         //std::cerr << "GPU::cRS called" << std::endl;
     	if (syncCV) {
-    		//computeRemainingStatistics();
+#ifdef CYCLOPS_DEBUG_TIMING
+    		auto start = bsccs::chrono::steady_clock::now();
+#endif
+    		auto& kernel = kernelComputeRemainingStatisticsSync;
+    		kernel.set_arg(0, dXBetaVector);
+    		kernel.set_arg(1, dOffsExpXBetaVector);
+    		kernel.set_arg(2, dDenomPidVector);
+    		kernel.set_arg(3, dY);
+    		kernel.set_arg(4, dOffs);
+    		kernel.set_arg(5, dPidVector);
+    		kernel.set_arg(6, cvIndexStride);
+    		kernel.set_arg(7, tpb0);
+    		kernel.set_arg(8, syncCVFolds);
+    		int dK = K;
+    		kernel.set_arg(9, dK);
+    		//kernel.set_arg(9, dDenomPid2Vector);
+
+    		int loops = syncCVFolds / tpb0;
+    		if (syncCVFolds % tpb0 != 0) {
+    			loops++;
+    		}
+
+    		size_t globalWorkSize[2];
+    		size_t localWorkSize[2];
+    		size_t dim = 2;
+
+    		if (layoutByPerson) {
+    			globalWorkSize[0] = loops*tpb0;
+    			globalWorkSize[1] = K;
+    			localWorkSize[0] = tpb0;
+    			localWorkSize[1] = 1;
+    		} else {
+    			int wgs = 16;
+    			globalWorkSize[0] = syncCVFolds;
+    			globalWorkSize[1] = wgs * tpb;
+    			localWorkSize[0] = 1;
+    			localWorkSize[1] = tpb;
+    		}
+
+
+    		queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
+    		queue.finish();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    		auto end = bsccs::chrono::steady_clock::now();
+    		///////////////////////////"
+    		duration["compRSGSync          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+#endif
+
+    		std::vector<RealType> hDenominator;
+    		hDenominator.resize(dDenomPidVector.size());
+    		compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(hDenominator), queue);
+    		std::cout << "denom: ";
+    		for (int i=0; i<32; i++) {
+    			std::cout << hDenominator[i] << " ";
+    		}
+    		std::cout << "\n";
+
+
     	} else {
     		hBuffer.resize(K);
 
@@ -697,14 +753,14 @@ public:
     		queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, localWorkSize);
     		queue.finish();
 
-//    		std::vector<RealType> hDenominator;
-//    		hDenominator.resize(dDenominator.size());
-//    		compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(hDenominator), queue);
-//    		std::cout << "denom: ";
-//    		for (auto x:hDenominator) {
-//    		    std::cout << x << " ";
-//    		}
-//    		std::cout << "\n";
+    		//    		std::vector<RealType> hDenominator;
+    		//    		hDenominator.resize(dDenominator.size());
+    		//    		compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(hDenominator), queue);
+    		//    		std::cout << "denom: ";
+    		//    		for (auto x:hDenominator) {
+    		//    		    std::cout << x << " ";
+    		//    		}
+    		//    		std::cout << "\n";
 
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -779,6 +835,7 @@ public:
        // syncCV
 
        std::vector<double> getGradientObjectives() {
+    	   std::cout << "running gradobjs\n";
 #ifdef GPU_DEBUG
     	   ModelSpecifics<BaseModel, WeightType>::getGradientObjective(useCrossValidation);
     	   std::cerr << *ogradient << " & " << *ohessian << std::endl;
@@ -788,34 +845,31 @@ public:
     	   auto start = bsccs::chrono::steady_clock::now();
 #endif
 
-
     	   auto& kernel = kernelGetGradientObjectiveSync;
 
-    	   int wgs = layoutByPerson ? 128 : 8;
+    	   int wgs = maxWgs;
     	   int dK = K;
     	   kernel.set_arg(0, dK);
     	   kernel.set_arg(1, dY);
     	   kernel.set_arg(2, dXBetaVector);
 
+    	   if (dKWeightVector.size() == 0) {
+    		   kernel.set_arg(3, 0);
+    	   } else {
+    		   kernel.set_arg(3, dKWeightVector); // TODO Only when dKWeight gets reallocated
+    	   }
+
     	   int size = layoutByPerson ? cvIndexStride : syncCVFolds;
-    	   if (dBuffer.size() < wgs*size) {
+    	   if (dBuffer.size() < wgs * size) {
     		   dBuffer.resize(wgs * size, queue);
     	   }
-    	   if (hBuffer.size() < wgs*size) {
-    		   hBuffer.resize(wgs * size);
-    	   }
-    	   kernel.set_arg(3, dBuffer); // Can get reallocated.
-    	   kernel.set_arg(4, cvIndexStride);
-    	   if (dKWeightVector.size() == 0) {
-    		   kernel.set_arg(5, 0);
-    	   } else {
-    		   kernel.set_arg(5, dKWeightVector); // TODO Only when dKWeight gets reallocated
-    	   }
-    	   kernel.set_arg(6, cvBlockSize);
-    	   kernel.set_arg(7, syncCVFolds);
+    	   kernel.set_arg(4, dBuffer); // Can get reallocated.
 
-    	   int loops = syncCVFolds / cvBlockSize;
-    	   if (syncCVFolds % cvBlockSize != 0) {
+    	   kernel.set_arg(5, cvIndexStride);
+    	   kernel.set_arg(6, KStride);
+
+    	   int loops = syncCVFolds / tpb0;
+    	   if (syncCVFolds % tpb0 != 0) {
     		   loops++;
     	   }
 
@@ -824,10 +878,10 @@ public:
     	   size_t dim = 2;
 
     	   if (layoutByPerson) {
-    		   globalWorkSize[0] = loops*cvBlockSize;
-    		   globalWorkSize[1] = wgs;
-    		   localWorkSize[0] = cvBlockSize;
-    		   localWorkSize[1] = 1;
+    		   globalWorkSize[0] = loops*tpb0;
+    		   globalWorkSize[1] = wgs*tpb1;
+    		   localWorkSize[0] = tpb0;
+    		   localWorkSize[1] = tpb1;
     	   } else {
     		   globalWorkSize[0] = syncCVFolds;
     		   globalWorkSize[1] = wgs*tpb;
@@ -835,34 +889,29 @@ public:
     		   localWorkSize[1] = tpb;
     	   }
 
-
     	   queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
     	   queue.finish();
 
+    	   if (hBuffer.size() != wgs * size) {
+    		   hBuffer.resize(wgs * size);
+    	   }
+
+    	   std::cout << "wgs: " << wgs << " size: " << size << "\n";
     	   compute::copy(std::begin(dBuffer), std::begin(dBuffer)+wgs*size, std::begin(hBuffer), queue);
 
-    	   //        std::cout << "after hBuffer: ";
-    	   //        for (auto x:hBuffer) {
-    	   //        	std::cout << x << " ";
-    	   //        }
-    	   //        std::cout << "\n";
-
+    	   std::cout << "hBuffer: ";
+    	   for (auto x:hBuffer) {
+    		   std::cout << x << " ";
+    	   }
+    	   std::cout << "\n";
 
     	   std::vector<double> result;
     	   result.resize(syncCVFolds, 0.0);
-    	   if (layoutByPerson) {
-    		   for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
-    			   for (int j = 0; j < wgs; ++j) { // TODO Use SSE
-    				   result[cvIndex] += hBuffer[j*cvIndexStride+cvIndex];
-    			   }
-    		   }
-    	   } else {
-    		   for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
-    			   for (int j = 0; j < wgs; ++j) { // TODO Use SSE
-    				   result[cvIndex] += hBuffer[cvIndex*wgs+j];
-    			   }
-    		   }
-    	   }
+		   for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+			   for (int j = 0; j < wgs; ++j) { // TODO Use SSE
+				   result[cvIndex] += hBuffer[cvIndex * wgs + j];
+			   }
+		   }
 
 #ifdef GPU_DEBUG
     	   std::cerr << gradient << " & " << hessian << std::endl << std::endl;
@@ -941,9 +990,89 @@ public:
     	int wgs = maxWgs; // for reduction across strata
 
     	if (useWeights) {
-    		if (dBuffer.size() < 2*wgs*cvIndexStride) {
-    			dBuffer.resize(2*wgs*cvIndexStride);
+    		if (dBuffer.size() < 2*wgs*syncCVFolds) {
+    			dBuffer.resize(2*wgs*syncCVFolds);
     		}
+
+    		for (int index = 0; index < J; index++) {
+#ifdef CYCLOPS_DEBUG_TIMING
+    			auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+    			FormatType formatType = hX.getFormatType(index);
+
+    			auto& kernel = kernelGradientHessianSync[formatType];
+
+    			const auto taskCount = dColumns.getTaskCount(index);
+
+    			//std::cout << "kernel 0 called\n";
+    			kernel.set_arg(0, dColumns.getDataOffset(index));
+    			kernel.set_arg(1, dColumns.getIndicesOffset(index));
+    			kernel.set_arg(2, taskCount);
+    			kernel.set_arg(3, dColumns.getData());
+    			kernel.set_arg(4, dColumns.getIndices());
+    			kernel.set_arg(5, dY);
+    			kernel.set_arg(6, dXBetaVector);
+    			kernel.set_arg(7, dOffsExpXBetaVector);
+    			kernel.set_arg(8, dDenomPidVector);
+    			kernel.set_arg(9, dBuffer); // Can get reallocated.
+    			kernel.set_arg(10, dPidVector);
+    			if (dKWeightVector.size() == 0) {
+    				kernel.set_arg(11, 0);
+    			} else {
+    				kernel.set_arg(11, dKWeightVector); // TODO Only when dKWeight gets reallocated
+    			}
+
+    			kernel.set_arg(12, cvIndexStride);
+    			kernel.set_arg(13, KStride);
+    			kernel.set_arg(14, syncCVFolds);
+    			kernel.set_arg(15, dAllZero);
+
+    			int loops = syncCVFolds / tpb0;
+    			if (syncCVFolds % tpb0 != 0) {
+    				loops++;
+    			}
+
+    			size_t globalWorkSize[2];
+    			globalWorkSize[0] = loops*tpb0;
+    			globalWorkSize[1] = wgs*tpb1;
+    			size_t localWorkSize[2];
+    			localWorkSize[0] = tpb0;
+    			localWorkSize[1] = tpb1;
+    			size_t dim = 2;
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    			auto end = bsccs::chrono::steady_clock::now();
+    			///////////////////////////"
+    			auto name = "compGradHessArgsG" + getFormatTypeExtension(formatType) + " ";
+    			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    			start = bsccs::chrono::steady_clock::now();
+#endif
+
+    			queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
+    			queue.finish();
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    			end = bsccs::chrono::steady_clock::now();
+    			///////////////////////////"
+    			name = "compGradHessKernelG" + getFormatTypeExtension(formatType) + " ";
+    			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+//    			hBuffer.resize(2*wgs*syncCVFolds);
+//    			compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs*syncCVFolds, std::begin(hBuffer), queue);
+//    			std::cout << "Buffer: ";
+//    			for (auto x:hBuffer) {
+//    				std::cout << x << " ";
+//    			}
+//    			std::cout << "\n";
+
+    		}
+
     	} else {
     		if (dBuffer.size() < 2*wgs) {
     			dBuffer.resize(2*wgs);
@@ -1285,10 +1414,11 @@ public:
     	pad = true;
     	syncCVFolds = foldToCompute;
 
-    	layoutByPerson = false;
+    	layoutByPerson = true;
     	if (!layoutByPerson) multiprocessors = syncCVFolds;
 
-    	tpb0 = 16;
+    	tpb0 = layoutByPerson ? 16 : 1;
+        tpb1 = tpb / tpb0;
 
     	if (BaseModel::exactCLR) {
     		detail::constant::exactCLRSyncBlockSize = detail::constant::maxBlockSize/tpb0;
@@ -1300,26 +1430,19 @@ public:
     		std::cout << "exactCLRSyncBlockSize: " << detail::constant::exactCLRSyncBlockSize << "\n";
     	}
 
-        if (pad) {
-        	// layout by person
-        	cvBlockSize = tpb0;
-        	cvIndexStride = detail::getAlignedLength<16>(syncCVFolds);
-        } else {
-        	// do not use
-        	cvIndexStride = K;
-        	//cvIndexStride = syncCVFolds;
-        }
+    	// layout by person
+    	cvIndexStride = detail::getAlignedLength<16>(syncCVFolds);
+    	KStride = detail::getAlignedLength<16>(K);
 
-        tpb1 = tpb / tpb0;
-        if (!layoutByPerson) cvIndexStride = detail::getAlignedLength<16>(K);
+    	int size = layoutByPerson ? cvIndexStride : KStride;
 
-        std::cout << "cvStride: " << cvIndexStride << "\n";
+        std::cout << "size: " << size << "\n";
 
     	//int dataStart = 0;
     	int garbage = 0;
 
-    	std::vector<RealType> blah(cvIndexStride, 0);
-    	std::vector<int> blah1(cvIndexStride, 0);
+    	std::vector<RealType> blah(size, 0);
+    	std::vector<int> blah1(size, 0);
         //std::vector<real> hNWeightTemp;
         std::vector<RealType> hKWeightTemp;
         //std::vector<real> accDenomPidTemp;
@@ -1545,8 +1668,8 @@ private:
         std::cout << "built syncCV getGradObjective kernels \n";
 //        //buildAllGetLogLikelihoodKernels();
 //        //std::cout << "built getLogLikelihood kernels \n";
-//        buildAllSyncCVComputeRemainingStatisticsKernels();
-//        std::cout << "built computeRemainingStatistics kernels \n";
+        buildAllSyncCVComputeRemainingStatisticsKernels();
+        std::cout << "built computeRemainingStatistics kernels \n";
 //        buildReduceCVBufferKernel();
 //        std::cout << "built reduceCVBuffer kernel\n";
 //        buildAllProcessDeltaSyncCVKernels();
@@ -1592,6 +1715,10 @@ private:
     	//}
     }
 
+    void buildAllSyncCVComputeRemainingStatisticsKernels() {
+        buildSyncCVComputeRemainingStatisticsKernel();
+    }
+
     void buildAllComputeXjYKernels(const std::vector<FormatType>& neededFormatTypes) {
     	int b = 0;
     	for (FormatType formatType : neededFormatTypes) {
@@ -1633,7 +1760,6 @@ private:
             std::cout << "double precision: " << double_precision << " tpb: " << tpb << "\n";
 
         	auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
-        	std::cout << source.body;
 
         	// CCD Kernel
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
@@ -1676,6 +1802,7 @@ private:
         		// CCD Kernel
         		// Rcpp::stop("cGH");
         		auto source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia, layoutByPerson);
+        		std::cout << source.body;
 //        		if (BaseModelG::useNWeights) {
 //        			source = writeCodeForStratifiedSyncCVGradientHessianKernel(formatType, isNvidia, BaseModel::efron);
 //        			std::cout << source.body;
@@ -1742,7 +1869,6 @@ private:
         options << " -cl-mad-enable";
 
     	auto source = writeCodeForProcessDeltaKernel(priorType);
-    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	auto kernel = compute::kernel(program, source.name);
 
@@ -1783,6 +1909,25 @@ private:
             kernelComputeRemainingStatistics = std::move(kernel);
         }
 
+    void buildSyncCVComputeRemainingStatisticsKernel() {
+    	std::stringstream options;
+
+    	options << "-DREAL=" << (double_precision == 8 ? "double" : "float");
+
+        options << " -cl-mad-enable";
+        auto source = writeCodeForSyncComputeRemainingStatisticsKernel(layoutByPerson);
+        std::cout << source.body;
+//        if (BaseModelG::useNWeights) {
+//        	source = writeCodeForStratifiedSyncComputeRemainingStatisticsKernel(BaseModel::efron);
+//        	std::cout << source.body;
+//        }
+        auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        std::cout << "program built\n";
+        auto kernelSync = compute::kernel(program, source.name);
+
+        kernelComputeRemainingStatisticsSync = std::move(kernelSync);
+    }
+
 
     void buildXjYKernel(FormatType formatType) {
     	std::stringstream options;
@@ -1821,7 +1966,6 @@ private:
     	options << " -cl-mad-enable";
 
     	auto source = writeCodeForDoItAllNoSyncCVKernel(formatType, priorType);
-    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	auto kernel = compute::kernel(program, source.name);
 
@@ -1833,15 +1977,15 @@ private:
     	std::stringstream options;
     	if (double_precision) {
 #ifdef USE_VECTOR
-    		options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+    		options << "-DREAL=double -DTMP_REAL=double2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
 #else
-    		options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+    		options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
 #endif // USE_VECTOR
     	} else {
 #ifdef USE_VECTOR
-    		options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+    		options << "-DREAL=float -DTMP_REAL=float2 -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
 #else
-    		options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+    		options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
 #endif // USE_VECTOR
     	}
     	options << " -cl-mad-enable";
@@ -1889,6 +2033,9 @@ private:
 
     SourceCode writeCodeForGetGradientObjectiveSync(bool isNvidia, bool layoutByPerson);
 
+    SourceCode writeCodeForSyncComputeRemainingStatisticsKernel(bool layoutByPerson);
+
+
     template <class T>
        void appendAndPad(const T& source, T& destination, int& length, bool pad) {
            for (auto x : source) {
@@ -1921,6 +2068,8 @@ private:
     std::map<int, compute::kernel> kernelDoItAllNoSyncCV;
     compute::kernel kernelComputeRemainingStatistics;
     compute::kernel kernelGetGradientObjectiveSync;
+    compute::kernel kernelComputeRemainingStatisticsSync;
+
 
     std::map<FormatType, std::vector<int>> indicesFormats;
     std::vector<FormatType> formatList;
@@ -1993,6 +2142,7 @@ private:
     bool layoutByPerson;
     int cvBlockSize;
     int cvIndexStride;
+    int KStride;
     bool pad;
     int activeFolds;
     int multiprocessors = device.get_info<cl_uint>(CL_DEVICE_MAX_COMPUTE_UNITS)*4/5;
