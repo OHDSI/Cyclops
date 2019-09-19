@@ -843,7 +843,6 @@ public:
        // syncCV
 
        std::vector<double> getGradientObjectives() {
-    	   std::cout << "running gradobjs\n";
 #ifdef GPU_DEBUG
     	   ModelSpecifics<BaseModel, WeightType>::getGradientObjective(useCrossValidation);
     	   std::cerr << *ogradient << " & " << *ohessian << std::endl;
@@ -903,9 +902,10 @@ public:
     	   if (hBuffer.size() != wgs * size) {
     		   hBuffer.resize(wgs * size);
     	   }
+    	   compute::copy(std::begin(dBuffer), std::begin(dBuffer)+wgs*size, std::begin(hBuffer), queue);
+
 
 //    	   std::cout << "wgs: " << wgs << " size: " << size << "\n";
-//    	   compute::copy(std::begin(dBuffer), std::begin(dBuffer)+wgs*size, std::begin(hBuffer), queue);
 //
 //    	   std::cout << "hBuffer: ";
 //    	   for (auto x:hBuffer) {
@@ -2086,7 +2086,7 @@ private:
     	options << " -cl-mad-enable";
 
     	auto source = writeCodeForProcessDeltaSyncCVKernel(priorType, layoutByPerson);
-    	std::cout << source.body;
+//    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	auto kernel = compute::kernel(program, source.name);
 
@@ -2159,7 +2159,7 @@ private:
         options << " -cl-mad-enable";
 
          auto source = writeCodeForComputeXjYKernel(formatType, layoutByPerson);
-         std::cout << source.body;
+//         std::cout << source.body;
          auto program = compute::program::build_with_source(source.body, ctx, options.str());
          auto kernel = compute::kernel(program, source.name);
 

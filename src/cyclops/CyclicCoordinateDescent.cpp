@@ -1786,13 +1786,13 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
 
     if (convergenceType < ZHANG_OLES) {
     	std::vector<double> thisObjFuncVec = getObjectiveFunctions(convergenceType);
-    	/*
-    	std::cout << "thisObjFunc: ";
-        for (auto x : thisObjFuncVec) {
-            std::cout << " " << x;
-        }
-        std::cout << '\n';
-        */
+
+//    	std::cout << "thisObjFunc " << iteration << ": ";
+//        for (auto x : thisObjFuncVec) {
+//            std::cout << " " << x;
+//        }
+//        std::cout << '\n';
+
     	//std::cout << "ObjFunc" << convergenceType << ": " << thisObjFunc << '\n';
     	bool needsUpdate = false;
     	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
