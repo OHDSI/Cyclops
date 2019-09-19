@@ -1063,13 +1063,13 @@ public:
     			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-//    			hBuffer.resize(2*wgs*syncCVFolds);
-//    			compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs*syncCVFolds, std::begin(hBuffer), queue);
-//    			std::cout << "Buffer: ";
-//    			for (auto x:hBuffer) {
-//    				std::cout << x << " ";
-//    			}
-//    			std::cout << "\n";
+    			hBuffer.resize(2*wgs*syncCVFolds);
+    			compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs*syncCVFolds, std::begin(hBuffer), queue);
+    			std::cout << "Buffer: ";
+    			for (auto x:hBuffer) {
+    				std::cout << x << " ";
+    			}
+    			std::cout << "\n";
 
     		}
 
@@ -1414,7 +1414,7 @@ public:
     	pad = true;
     	syncCVFolds = foldToCompute;
 
-    	layoutByPerson = true;
+    	layoutByPerson = false;
     	if (!layoutByPerson) multiprocessors = syncCVFolds;
 
     	tpb0 = layoutByPerson ? 16 : 1;

@@ -315,7 +315,7 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForGradientHessianK
 		        "   uint gid1 = get_group_id(1);             \n" <<
 				"	uint loopSize = get_global_size(1);	\n" <<
 				"	uint task1 = gid1;							\n" <<
-				"	uint myId = lid1*TPB0+lid0;			\n" <<
+				"	uint mylid = lid1*TPB0+lid0;			\n" <<
 				"	__local REAL scratch[2][TPB];		\n" <<
 				"	REAL sum0 = 0.0;					\n" <<
 				"	REAL sum1 = 0.0;					\n";
@@ -342,7 +342,7 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForGradientHessianK
 		code << "		REAL xb = xBetaVector[vecOffset];			\n" <<
         		"		REAL exb = " << BaseModelG::getOffsExpXBetaG("0", "xb") << ";\n" <<
 				"		REAL numer = " << timesX("exb", formatType) << ";\n";
-		code << " 	REAL denom = (REAL)1.0 + exb;				\n";
+		code << " 		REAL denom = (REAL)1.0 + exb;				\n";
 
 		code << "		REAL w = weightVector[vecOffset];\n";
 		code << BaseModelG::incrementGradientAndHessianG(formatType, true);
@@ -351,11 +351,29 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForGradientHessianK
 		code << "       task1 += loopSize; \n" <<
 				"   } \n";
 
-		code << "	buffer[cvIndex * loopSize + gid1] = sum0;	\n" <<
-				"	buffer[(cvIndex + syncCVFolds) * loopSize + gid1] = sum1;	\n";
 
-//		code << "	buffer[cvIndexStride * gid1 + cvIndex] = sum0;	\n" <<
-//				"	buffer[cvIndexStride * (gid1+loopSize) + cvIndex] = sum1;	\n" <<
+		code << "	scratch[0][mylid] = sum0;	\n" <<
+				"	scratch[1][mylid] = sum1;	\n";
+
+		if (layoutByPerson) {
+		code << "   for(int j = 1; j < TPB1; j <<= 1) {          \n" <<
+	            "       barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
+	            "       uint mask = (j << 1) - 1;               \n" <<
+	            "       if ((lid1 & mask) == 0) {                \n" <<
+	            "           scratch[0][mylid] += scratch[0][mylid + TPB0 * j]; \n" <<
+	            "           scratch[1][mylid] += scratch[1][mylid + TPB0 * j]; \n" <<
+	            "       }                                       \n" <<
+	            "   }                                         	\n";
+		} else {
+			code << "	uint lid = lid1;					\n";
+			code << (isNvidia ? ReduceBody2<RealType,true>::body() : ReduceBody2<RealType,false>::body());
+		}
+
+	code << "	if (lid1 == 0) {					\n" <<
+			"		buffer[get_global_id(0) * get_num_groups(1) + get_group_id(1)] = scratch[0][mylid];	\n" <<
+			"		buffer[(get_global_id(0) + syncCVFolds) * get_num_groups(1) + get_group_id(1)] = scratch[1][mylid];	\n" <<
+			"	}									\n";
+
 		code << "	}										\n" <<
 				"	}									\n";
 		//code << "}  \n"; // End of kernel
