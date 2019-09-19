@@ -1099,38 +1099,96 @@ public:
     			kernel1.set_arg(12, dDoneVector);
 
 #ifdef CYCLOPS_DEBUG_TIMING
-end = bsccs::chrono::steady_clock::now();
-///////////////////////////"
-name = "compProcessDeltaArgsG" + getFormatTypeExtension(formatType) + " ";
-duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+    			end = bsccs::chrono::steady_clock::now();
+    			///////////////////////////"
+    			name = "compProcessDeltaArgsG" + getFormatTypeExtension(formatType) + " ";
+    			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
 #ifdef CYCLOPS_DEBUG_TIMING
-start = bsccs::chrono::steady_clock::now();
+    			start = bsccs::chrono::steady_clock::now();
 #endif
 
 
-queue.enqueue_1d_range_kernel(kernel1, 0, syncCVFolds*tpb, tpb);
-queue.finish();
+    			queue.enqueue_1d_range_kernel(kernel1, 0, syncCVFolds*tpb, tpb);
+    			queue.finish();
 
-			 std::vector<RealType> hDeltaVector;
-			 hDeltaVector.resize(dDeltaVector.size());
-			 compute::copy(std::begin(dDeltaVector), std::end(dDeltaVector), std::begin(hDeltaVector), queue);
-			 std::cout << "deltaVec" << index << ": ";
-			 for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
-				 std::cout << hDeltaVector[index*cvIndexStride + cvIndex] << " ";
-			 }
-			 std::cout << "\n";
+    			std::vector<RealType> hDeltaVector;
+    			hDeltaVector.resize(dDeltaVector.size());
+    			compute::copy(std::begin(dDeltaVector), std::end(dDeltaVector), std::begin(hDeltaVector), queue);
+    			std::cout << "deltaVec" << index << ": ";
+    			for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+    				std::cout << hDeltaVector[index*cvIndexStride + cvIndex] << " ";
+    			}
+    			std::cout << "\n";
 
 
 #ifdef CYCLOPS_DEBUG_TIMING
-end = bsccs::chrono::steady_clock::now();
-///////////////////////////"
-name = "compProcessDeltaKernelG" + getFormatTypeExtension(formatType) + " ";
-duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+    			end = bsccs::chrono::steady_clock::now();
+    			///////////////////////////"
+    			name = "compProcessDeltaKernelG" + getFormatTypeExtension(formatType) + " ";
+    			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
+#ifdef CYCLOPS_DEBUG_TIMING
+    			start = bsccs::chrono::steady_clock::now();
+#endif
+    			auto& kernel2 = kernelUpdateXBetaSync[hX.getFormatType(index)];
 
+    			//std::cout << "kernel 2\n";
+    			// set kernel args
+    			kernel2.set_arg(0, dColumns.getDataOffset(index));
+    			kernel2.set_arg(1, dColumns.getIndicesOffset(index));
+    			kernel2.set_arg(2, taskCount);
+    			kernel2.set_arg(3, dDeltaVector);
+    			kernel2.set_arg(4, dColumns.getData());
+    			kernel2.set_arg(5, dColumns.getIndices());
+    			kernel2.set_arg(6, dY);
+    			kernel2.set_arg(7, dXBetaVector);
+    			kernel2.set_arg(8, dOffsExpXBetaVector);
+    			kernel2.set_arg(9, dDenomPidVector);
+    			kernel2.set_arg(10, dPidVector);
+    			kernel2.set_arg(11, cvIndexStride);
+    			kernel2.set_arg(12, dOffs);
+    			kernel2.set_arg(13, KStride);
+    			kernel2.set_arg(14, syncCVFolds);
+    			kernel2.set_arg(15, index);
+    			kernel2.set_arg(16, dAllZero);
+
+    			loops = syncCVFolds / tpb0;
+    			if (syncCVFolds % tpb0 != 0) {
+    				loops++;
+    			}
+
+    			globalWorkSize[0] = loops * tpb0;
+    			globalWorkSize[1] = wgs * tpb1;
+    			localWorkSize[0] = tpb0;
+    			localWorkSize[1] = tpb1;
+
+    			dim = 2;
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    			end = bsccs::chrono::steady_clock::now();
+    			///////////////////////////"
+    			name = "compUpdateXBetaArgsG" + getFormatTypeExtension(formatType) + " ";
+    			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    			start = bsccs::chrono::steady_clock::now();
+#endif
+
+    			// run kernel
+    			queue.enqueue_nd_range_kernel(kernel2, dim, 0, globalWorkSize, localWorkSize);
+    			queue.finish();
+
+    			hXBetaKnown = false; // dXBeta was just updated
+#ifdef CYCLOPS_DEBUG_TIMING
+    			end = bsccs::chrono::steady_clock::now();
+    			///////////////////////////"
+    			name = "compUpdateXBetaKernelG" + getFormatTypeExtension(formatType) + " ";
+    			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
 
     		}
 
@@ -1475,7 +1533,7 @@ duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start)
     	pad = true;
     	syncCVFolds = foldToCompute;
 
-    	layoutByPerson = false;
+    	layoutByPerson = true;
     	if (!layoutByPerson) multiprocessors = syncCVFolds;
 
     	tpb0 = layoutByPerson ? 16 : 1;
@@ -1723,8 +1781,8 @@ private:
     void buildAllSyncCVKernels(const std::vector<FormatType>& neededFormatTypes) {
         buildAllSyncCVGradientHessianKernels(neededFormatTypes);
         std::cout << "built syncCV gradhessian kernels \n";
-//        buildAllSyncCVUpdateXBetaKernels(neededFormatTypes);
-//        std::cout << "built syncCV updateXBeta kernels \n";
+        buildAllSyncCVUpdateXBetaKernels(neededFormatTypes);
+        std::cout << "built syncCV updateXBeta kernels \n";
         buildAllSyncCVGetGradientObjectiveKernels();
         std::cout << "built syncCV getGradObjective kernels \n";
 //        //buildAllGetLogLikelihoodKernels();
@@ -1761,6 +1819,12 @@ private:
     void buildAllUpdateXBetaKernels(const std::vector<FormatType>& neededFormatTypes) {
         for (FormatType formatType : neededFormatTypes) {
             buildUpdateXBetaKernel(formatType);
+        }
+    }
+
+    void buildAllSyncCVUpdateXBetaKernels(const std::vector<FormatType>& neededFormatTypes) {
+        for (FormatType formatType : neededFormatTypes) {
+            buildSyncCVUpdateXBetaKernel(formatType);
         }
     }
 
@@ -1882,40 +1946,58 @@ private:
         }
 
     void buildUpdateXBetaKernel(FormatType formatType) {
-            std::stringstream options;
+    	std::stringstream options;
 
 
-            if (double_precision) {
+    	if (double_precision) {
 #ifdef USE_VECTOR
-            	options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+    		options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
 #else
-            	options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+    		options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
 #endif // USE_VECTOR
-            } else {
+    	} else {
 #ifdef USE_VECTOR
-            	options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+    		options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
 #else
-            	options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+    		options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
 #endif // USE_VECTOR
-            }
+    	}
 
-        	options << " -cl-mad-enable";
+    	options << " -cl-mad-enable";
 
-            auto source = writeCodeForUpdateXBetaKernel(formatType);
+    	auto source = writeCodeForUpdateXBetaKernel(formatType);
 
-            if (BaseModelG::useNWeights) {
-//            	source = writeCodeForStratifiedUpdateXBetaKernel(formatType, BaseModel::efron);
-            }
+    	if (BaseModelG::useNWeights) {
+    		//            	source = writeCodeForStratifiedUpdateXBetaKernel(formatType, BaseModel::efron);
+    	}
 
-            auto program = compute::program::build_with_source(source.body, ctx, options.str());
-            std::cout << "program built\n";
-            auto kernel = compute::kernel(program, source.name);
+    	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    	std::cout << "program built\n";
+    	auto kernel = compute::kernel(program, source.name);
 
-            // Rcpp::stop("uXB");
+    	// Rcpp::stop("uXB");
 
-            // Run-time constant arguments.
-            kernelUpdateXBeta[formatType] = std::move(kernel);
-        }
+    	// Run-time constant arguments.
+    	kernelUpdateXBeta[formatType] = std::move(kernel);
+    }
+
+    void buildSyncCVUpdateXBetaKernel(FormatType formatType) {
+    	std::stringstream options;
+
+    	if (double_precision) {
+    		options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
+    	} else {
+    		options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
+    	}
+    	options << " -cl-mad-enable";
+
+    	auto source = writeCodeForSyncUpdateXBetaKernel(formatType, layoutByPerson);
+    	std::cout << source.body;
+    	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    	std::cout << "program built\n";
+    	auto kernelSync = compute::kernel(program, source.name);
+    	kernelUpdateXBetaSync[formatType] = std::move(kernelSync);
+    }
 
     void buildProcessDeltaKernel(int priorType) {
         std::stringstream options;
@@ -1943,22 +2025,22 @@ private:
     }
 
     void buildProcessDeltaSyncCVKernel(int priorType) {
-            std::stringstream options;
+    	std::stringstream options;
 
-            if (double_precision) {
-            	options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
-            } else {
-            	options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
-            }
-            options << " -cl-mad-enable";
+    	if (double_precision) {
+    		options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+    	} else {
+    		options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+    	}
+    	options << " -cl-mad-enable";
 
-        	auto source = writeCodeForProcessDeltaSyncCVKernel(priorType);
-        	std::cout << source.body;
-        	auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        	auto kernel = compute::kernel(program, source.name);
+    	auto source = writeCodeForProcessDeltaSyncCVKernel(priorType);
+    	std::cout << source.body;
+    	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    	auto kernel = compute::kernel(program, source.name);
 
-        	kernelProcessDeltaSyncCVBuffer[priorType] = std::move(kernel);
-        }
+    	kernelProcessDeltaSyncCVBuffer[priorType] = std::move(kernel);
+    }
 
 
     void buildComputeRemainingStatisticsKernel() {
@@ -2105,6 +2187,8 @@ private:
 
     SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType);
 
+    SourceCode writeCodeForSyncUpdateXBetaKernel(FormatType formatType, bool layoutByPerson);
+
     SourceCode writeCodeForProcessDeltaKernel(int priorType);
 
     SourceCode writeCodeForProcessDeltaSyncCVKernel(int priorType);
@@ -2151,6 +2235,7 @@ private:
     std::map<FormatType, compute::kernel> kernelGradientHessianNoWeight;
     std::map<FormatType, compute::kernel> kernelGradientHessianSync;
     std::map<FormatType, compute::kernel> kernelUpdateXBeta;
+    std::map<FormatType, compute::kernel> kernelUpdateXBetaSync;
     std::map<int, compute::kernel> kernelProcessDeltaBuffer;
     std::map<int, compute::kernel> kernelProcessDeltaSyncCVBuffer;
     std::map<FormatType, compute::kernel> kernelComputeXjY;

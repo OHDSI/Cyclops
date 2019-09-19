@@ -492,9 +492,9 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForProcessDeltaKern
 }
 
 // step between compute grad hess and update XB
-template <class BaseModel, typename WeightType, class BaseModelG>
+template <class BaseModel, typename RealType, class BaseModelG>
 SourceCode
-GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForProcessDeltaSyncCVKernel(int priorType) {
+GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForProcessDeltaSyncCVKernel(int priorType) {
     std::string name;
     if (priorType == 0) name = "ProcessDeltaKernelNone";
     if (priorType == 1) name = "ProcessDeltaKernelLaplace";
@@ -658,6 +658,76 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForProcessDeltaSy
 
         code << "   } \n";
         code << "}    \n";
+
+        return SourceCode(code.str(), name);
+    }
+
+	// CV update XB
+	template <class BaseModel, typename RealType, class BaseModelG>
+    SourceCode
+    GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForSyncUpdateXBetaKernel(FormatType formatType, bool layoutByPerson) {
+
+        std::string name = "updateXBetaSync" + getFormatTypeExtension(formatType);
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "(     \n" <<
+                "       const uint offX,           \n" <<
+                "       const uint offK,           \n" <<
+				"		const uint N,				\n" <<
+                "       __global const REAL* deltaVector,          \n" <<
+                "       __global const REAL* X,    \n" <<
+                "       __global const int* K,     \n" <<
+                "       __global const REAL* Y,    \n" <<
+                "       __global REAL* xBetaVector,      \n" <<
+                "       __global REAL* expXBetaVector,   \n" <<
+                "       __global REAL* denomPidVector,\n" <<
+                "       __global const int* id,		\n" <<
+				"		const uint cvIndexStride,			\n" <<
+				"		__global const REAL* Offs,	\n" <<
+				"		const uint KStride,			\n" <<
+				"		const uint syncCVFolds,		\n" <<
+				"		const uint index,			\n" <<
+				"		__global const int* allZero) {   \n";
+
+        code << "	uint lid0 = get_local_id(0);		\n" <<
+        		"	uint lid1 = get_local_id(1);		\n" <<
+        		"	if (allZero[0] == 0) {				\n";
+        code << "	uint mylid = lid1 * TPB0 + lid0;	\n" <<
+        		"	uint task1 = get_global_id(1);			\n" <<
+				"	uint cvIndex = get_global_id(0);	\n" <<
+				"	uint loopSize = get_global_size(1);	\n" <<
+				"	if (cvIndex < syncCVFolds) {		\n";
+        code << "		REAL delta = deltaVector[index * cvIndexStride + cvIndex];	\n";// <<
+        code << "	if (delta != 0) {					\n";
+
+        code << "	while (task1 < N) {					\n";
+        if (formatType == INDICATOR || formatType == SPARSE) {
+        	code << "  	uint k = K[offK + task1];      	\n";
+        } else { // DENSE, INTERCEPT
+        	code << "   uint k = task1;           		\n";
+        }
+        if (formatType == SPARSE || formatType == DENSE) {
+            code << "   REAL inc = delta * X[offX + task1]; \n";
+        } else { // INDICATOR, INTERCEPT
+            code << "   REAL inc = delta;           \n";
+        }
+        if (layoutByPerson) {
+        	code << "	uint vecOffset = k*cvIndexStride + cvIndex;	\n";
+        } else {
+        	code << "	uint vecOffset = k + KStride * cvIndex;		\n";
+        }
+        code << "		REAL xb = xBetaVector[vecOffset] + inc;	\n" <<
+				"		xBetaVector[vecOffset] = xb;	\n";
+        code << "		task1 += loopSize;				\n";
+        code << "	}									\n";
+
+
+        code << "   } \n";
+        code << "}	\n";
+        code << "}    \n";
+        code << "}		\n";
 
         return SourceCode(code.str(), name);
     }
