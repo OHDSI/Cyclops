@@ -491,6 +491,117 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForProcessDeltaKern
 	return SourceCode(code.str(), name);
 }
 
+// step between compute grad hess and update XB
+template <class BaseModel, typename WeightType, class BaseModelG>
+SourceCode
+GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForProcessDeltaSyncCVKernel(int priorType) {
+    std::string name;
+    if (priorType == 0) name = "ProcessDeltaKernelNone";
+    if (priorType == 1) name = "ProcessDeltaKernelLaplace";
+    if (priorType == 2) name = "ProcessDeltaKernelNormal";
+
+    std::stringstream code;
+    code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+    code << "__kernel void " << name << "(            \n" <<
+    		"		__global const REAL* buffer,				\n" <<
+			"		__global REAL* deltaVector,			\n" <<
+			"		const uint syncCVFolds,				\n" <<
+			"		const uint cvIndexStride,			\n" <<
+			"		const uint wgs,						\n" <<
+			"		__global REAL* boundVector,				\n" <<
+			"		__global const REAL* priorParams,			\n" <<
+			"		__global const REAL* XjYVector,			\n" <<
+			"		const uint J,						\n" <<
+			"		const uint index,					\n" <<
+			"		__global REAL* betaVector,			\n" <<
+			"		__global uint* allZero,				\n" <<
+			"		__global const int* doneVector) {    \n";    // TODO Make weight optional
+    // Initialization
+    code <<	"	__local uint cvIndex;					\n" <<
+    		"	cvIndex = get_group_id(0);				\n" <<
+    		//"	uint cvIndex = get_group_id(0);			\n" <<
+    		"	__local REAL scratch[2][TPB];				\n" <<
+			"	uint lid = get_local_id(0);				\n" <<
+			"	scratch[0][lid] = 0.0;					\n" <<
+			"	scratch[1][lid] = 0.0;					\n" <<
+			"	if (lid < wgs) {						\n" <<
+			"		scratch[0][lid] = buffer[lid + wgs * cvIndex];	\n" <<
+			"		scratch[1][lid] = buffer[lid + wgs * (cvIndex + syncCVFolds)];	\n" <<
+			"	}										\n" <<
+            "   for(int j = 1; j < wgs; j <<= 1) {          \n" <<
+            "       barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
+            "       uint mask = (j << 1) - 1;               \n" <<
+            "       if ((lid & mask) == 0) {                \n" <<
+            "           scratch[0][lid] += scratch[0][lid + j]; \n" <<
+            "           scratch[1][lid] += scratch[1][lid + j]; \n" <<
+            "       }                                       \n" <<
+            "   }                                           \n";
+
+    code << "	if (lid == 0) {							\n" <<
+    		"		__local uint offset;				\n" <<
+			"		offset = index*cvIndexStride+cvIndex;			\n" <<
+			"		__local REAL grad, hess, beta, delta;		\n" <<
+			"		grad = scratch[0][lid] - XjYVector[offset];		\n" <<
+			"		hess = scratch[1][lid];		\n" <<
+			"		beta = betaVector[offset];		\n";
+    		//"		uint offset = cvIndex*J+index;		\n" <<
+			//"		REAL grad = scratch[0][lid] - XjYVector[offset];		\n" <<
+			//"		REAL hess = scratch[1][lid];		\n" <<
+			//"		REAL beta = betaVector[offset];		\n";
+    if (priorType == 0) {
+    	code << " delta = -grad / hess;			\n";
+    }
+    if (priorType == 1) {
+    	code << "	REAL lambda = priorParams[index];	\n" <<
+				"	REAL negupdate = - (grad - lambda) / hess; \n" <<
+				"	REAL posupdate = - (grad + lambda) / hess; \n" <<
+				"	if (beta == 0 ) {					\n" <<
+				"		if (negupdate < 0) {			\n" <<
+				"			delta = negupdate;			\n" <<
+				"		} else if (posupdate > 0) {		\n" <<
+				"			delta = posupdate;			\n" <<
+				"		} else {						\n" <<
+				"			delta = 0;					\n" <<
+				"		}								\n" <<
+				"	} else {							\n" <<
+				"		if (beta < 0) {					\n" <<
+				"			delta = negupdate;			\n" <<
+				"			if (beta+delta > 0) delta = -beta;	\n" <<
+				"		} else {						\n" <<
+				"			delta = posupdate;			\n" <<
+				"			if (beta+delta < 0) delta = -beta;	\n" <<
+				"		}								\n" <<
+				"	}									\n";
+    }
+    if (priorType == 2) {
+    	code << "	REAL var = priorParams[index];		\n" <<
+				"	delta = - (grad + (beta / var)) / (hess + (1.0 / var));	\n";
+    }
+
+    code << "	delta = delta * doneVector[cvIndex];	\n" <<
+    		"	REAL bound = boundVector[offset];		\n" <<
+    		"	if (delta < -bound)	{					\n" <<
+			"		delta = -bound;						\n" <<
+			"	} else if (delta > bound) {				\n" <<
+			"		delta = bound;						\n" <<
+			"	}										\n" <<
+			//"	REAL intermediate = 2;					\n" <<
+			"	REAL intermediate = max(fabs(delta)*2, bound/2);	\n" <<
+			"	intermediate = max(intermediate, 0.001);	\n" <<
+			"	boundVector[offset] = intermediate;		\n" <<
+			"	deltaVector[index*cvIndexStride+cvIndex] = delta;	\n" <<
+			"	betaVector[offset] = delta + beta;		\n" <<
+			"	if (delta != 0.0)	{						\n" <<
+			"		allZero[0] = 0;						\n" <<
+			"	}										\n" <<
+			"	}										\n";
+
+    code << "	}										\n";
+    return SourceCode(code.str(), name);
+}
+
+
 // update nonstratified
 	template <class BaseModel, typename WeightType, class BaseModelG>
     SourceCode

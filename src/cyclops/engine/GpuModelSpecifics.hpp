@@ -1071,6 +1071,67 @@ public:
     			}
     			std::cout << "\n";
 
+    			////////////////////////////////// Start Process Delta
+#ifdef CYCLOPS_DEBUG_TIMING
+    			start = bsccs::chrono::steady_clock::now();
+#endif
+
+    			//std::cout << "kernel 1\n";
+    			int priorType = priorTypes[index];
+    			auto& kernel1 = kernelProcessDeltaSyncCVBuffer[priorType];
+
+    			kernel1.set_arg(0, dBuffer);
+    			if (dDeltaVector.size() < J*cvIndexStride) {
+    				dDeltaVector.resize(J*cvIndexStride);
+    			}
+    			kernel1.set_arg(1, dDeltaVector);
+    			kernel1.set_arg(2, syncCVFolds);
+    			kernel1.set_arg(3, cvIndexStride);
+    			kernel1.set_arg(4, wgs);
+    			kernel1.set_arg(5, dBoundVector);
+    			kernel1.set_arg(6, dPriorParams);
+    			kernel1.set_arg(7, dXjYVector);
+    			int dJ = J;
+    			kernel1.set_arg(8, dJ);
+    			kernel1.set_arg(9, index);
+    			kernel1.set_arg(10, dBetaVector);
+    			kernel1.set_arg(11, dAllZero);
+    			kernel1.set_arg(12, dDoneVector);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+end = bsccs::chrono::steady_clock::now();
+///////////////////////////"
+name = "compProcessDeltaArgsG" + getFormatTypeExtension(formatType) + " ";
+duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+start = bsccs::chrono::steady_clock::now();
+#endif
+
+
+queue.enqueue_1d_range_kernel(kernel1, 0, syncCVFolds*tpb, tpb);
+queue.finish();
+
+			 std::vector<RealType> hDeltaVector;
+			 hDeltaVector.resize(dDeltaVector.size());
+			 compute::copy(std::begin(dDeltaVector), std::end(dDeltaVector), std::begin(hDeltaVector), queue);
+			 std::cout << "deltaVec" << index << ": ";
+			 for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+				 std::cout << hDeltaVector[index*cvIndexStride + cvIndex] << " ";
+			 }
+			 std::cout << "\n";
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+end = bsccs::chrono::steady_clock::now();
+///////////////////////////"
+name = "compProcessDeltaKernelG" + getFormatTypeExtension(formatType) + " ";
+duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+
+
     		}
 
     	} else {
@@ -1672,8 +1733,8 @@ private:
         std::cout << "built computeRemainingStatistics kernels \n";
 //        buildReduceCVBufferKernel();
 //        std::cout << "built reduceCVBuffer kernel\n";
-//        buildAllProcessDeltaSyncCVKernels();
-//        std::cout << "built ProcessDelta kernels \n";
+        buildAllProcessDeltaSyncCVKernels();
+        std::cout << "built ProcessDelta kernels \n";
 //        buildAllDoItAllKernels(neededFormatTypes);
 //        std::cout << "built doItAll kernels\n";
 //        buildPredLogLikelihoodKernel();
@@ -1707,6 +1768,12 @@ private:
     	buildProcessDeltaKernel(0);
     	buildProcessDeltaKernel(1);
     	buildProcessDeltaKernel(2);
+    }
+
+    void buildAllProcessDeltaSyncCVKernels() {
+    	buildProcessDeltaSyncCVKernel(0);
+    	buildProcessDeltaSyncCVKernel(1);
+    	buildProcessDeltaSyncCVKernel(2);
     }
 
     void buildAllComputeRemainingStatisticsKernels() {
@@ -1875,6 +1942,25 @@ private:
     	kernelProcessDeltaBuffer[priorType] = std::move(kernel);
     }
 
+    void buildProcessDeltaSyncCVKernel(int priorType) {
+            std::stringstream options;
+
+            if (double_precision) {
+            	options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+            } else {
+            	options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+            }
+            options << " -cl-mad-enable";
+
+        	auto source = writeCodeForProcessDeltaSyncCVKernel(priorType);
+        	std::cout << source.body;
+        	auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        	auto kernel = compute::kernel(program, source.name);
+
+        	kernelProcessDeltaSyncCVBuffer[priorType] = std::move(kernel);
+        }
+
+
     void buildComputeRemainingStatisticsKernel() {
         	std::stringstream options;
         	if (BaseModelG::useNWeights) {
@@ -2021,6 +2107,8 @@ private:
 
     SourceCode writeCodeForProcessDeltaKernel(int priorType);
 
+    SourceCode writeCodeForProcessDeltaSyncCVKernel(int priorType);
+
     SourceCode writeCodeForComputeRemainingStatisticsKernel();
 
     SourceCode writeCodeForStratifiedComputeRemainingStatisticsKernel(bool efron);
@@ -2064,6 +2152,7 @@ private:
     std::map<FormatType, compute::kernel> kernelGradientHessianSync;
     std::map<FormatType, compute::kernel> kernelUpdateXBeta;
     std::map<int, compute::kernel> kernelProcessDeltaBuffer;
+    std::map<int, compute::kernel> kernelProcessDeltaSyncCVBuffer;
     std::map<FormatType, compute::kernel> kernelComputeXjY;
     std::map<int, compute::kernel> kernelDoItAllNoSyncCV;
     compute::kernel kernelComputeRemainingStatistics;
