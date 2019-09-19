@@ -691,14 +691,14 @@ public:
     		duration["compRSGSync          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
 #endif
 
-    		std::vector<RealType> hDenominator;
-    		hDenominator.resize(dDenomPidVector.size());
-    		compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(hDenominator), queue);
-    		std::cout << "denom: ";
-    		for (int i=0; i<32; i++) {
-    			std::cout << hDenominator[i] << " ";
-    		}
-    		std::cout << "\n";
+//    		std::vector<RealType> hDenominator;
+//    		hDenominator.resize(dDenomPidVector.size());
+//    		compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(hDenominator), queue);
+//    		std::cout << "denom: ";
+//    		for (int i=0; i<32; i++) {
+//    			std::cout << hDenominator[i] << " ";
+//    		}
+//    		std::cout << "\n";
 
 
     	} else {
@@ -904,14 +904,14 @@ public:
     		   hBuffer.resize(wgs * size);
     	   }
 
-    	   std::cout << "wgs: " << wgs << " size: " << size << "\n";
-    	   compute::copy(std::begin(dBuffer), std::begin(dBuffer)+wgs*size, std::begin(hBuffer), queue);
-
-    	   std::cout << "hBuffer: ";
-    	   for (auto x:hBuffer) {
-    		   std::cout << x << " ";
-    	   }
-    	   std::cout << "\n";
+//    	   std::cout << "wgs: " << wgs << " size: " << size << "\n";
+//    	   compute::copy(std::begin(dBuffer), std::begin(dBuffer)+wgs*size, std::begin(hBuffer), queue);
+//
+//    	   std::cout << "hBuffer: ";
+//    	   for (auto x:hBuffer) {
+//    		   std::cout << x << " ";
+//    	   }
+//    	   std::cout << "\n";
 
     	   std::vector<double> result;
     	   result.resize(syncCVFolds, 0.0);
@@ -968,13 +968,14 @@ public:
     				kernel.set_arg(6, dKWeightVector);
     				kernel.set_arg(7, dXjYVector);
     				kernel.set_arg(8, cvIndexStride);
+    				kernel.set_arg(9, KStride);
     				int dJ = J;
-    				kernel.set_arg(9, dJ);
+    				kernel.set_arg(10, dJ);
     				int length = indices.size();
-    				kernel.set_arg(10, length);
+    				kernel.set_arg(11, length);
 
     				detail::resizeAndCopyToDevice(indices, dIntVector1, queue);
-    				kernel.set_arg(11, dIntVector1);
+    				kernel.set_arg(12, dIntVector1);
 
     				size_t globalWorkSize = syncCVFolds * tpb;
     				size_t localWorkSize = tpb;
@@ -1000,32 +1001,32 @@ public:
     	if (!initialized) {
     		initialized = true;
 
-    		std::cout << "dKWeight size: " << dKWeightVector.size() << "\n";
-			hBuffer.resize(dKWeightVector.size());
-			compute::copy(std::begin(dKWeightVector), std::begin(dKWeightVector)+dKWeightVector.size(), std::begin(hBuffer), queue);
-			std::cout << "dKWeightVector: ";
-			for (auto x:hBuffer) {
-				std::cout << x << " ";
-			}
-			std::cout << "\n";
-
-    		std::cout << "dXBetaVector size: " << dXBetaVector.size() << "\n";
-			hBuffer.resize(dXBetaVector.size());
-			compute::copy(std::begin(dXBetaVector), std::begin(dXBetaVector)+dXBetaVector.size(), std::begin(hBuffer), queue);
-			std::cout << "dXBetaVector: ";
-			for (auto x:hBuffer) {
-				std::cout << x << " ";
-			}
-			std::cout << "\n";
-
-    		std::cout << "dXjYVector size: " << dXjYVector.size() << "\n";
-			hBuffer.resize(dXjYVector.size());
-			compute::copy(std::begin(dXjYVector), std::begin(dXjYVector)+dXjYVector.size(), std::begin(hBuffer), queue);
-			std::cout << "dXjYVector: ";
-			for (auto x:hBuffer) {
-				std::cout << x << " ";
-			}
-			std::cout << "\n";
+//    		std::cout << "dKWeight size: " << dKWeightVector.size() << "\n";
+//			hBuffer.resize(dKWeightVector.size());
+//			compute::copy(std::begin(dKWeightVector), std::begin(dKWeightVector)+dKWeightVector.size(), std::begin(hBuffer), queue);
+//			std::cout << "dKWeightVector: ";
+//			for (auto x:hBuffer) {
+//				std::cout << x << " ";
+//			}
+//			std::cout << "\n";
+//
+//    		std::cout << "dXBetaVector size: " << dXBetaVector.size() << "\n";
+//			hBuffer.resize(dXBetaVector.size());
+//			compute::copy(std::begin(dXBetaVector), std::begin(dXBetaVector)+dXBetaVector.size(), std::begin(hBuffer), queue);
+//			std::cout << "dXBetaVector: ";
+//			for (auto x:hBuffer) {
+//				std::cout << x << " ";
+//			}
+//			std::cout << "\n";
+//
+//    		std::cout << "dXjYVector size: " << dXjYVector.size() << "\n";
+//			hBuffer.resize(dXjYVector.size());
+//			compute::copy(std::begin(dXjYVector), std::begin(dXjYVector)+dXjYVector.size(), std::begin(hBuffer), queue);
+//			std::cout << "dXjYVector: ";
+//			for (auto x:hBuffer) {
+//				std::cout << x << " ";
+//			}
+//			std::cout << "\n";
 
 
     	}
@@ -1105,13 +1106,13 @@ public:
     			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-    			hBuffer.resize(2*wgs*syncCVFolds);
-    			compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs*syncCVFolds, std::begin(hBuffer), queue);
-    			std::cout << "Buffer: ";
-    			for (auto x:hBuffer) {
-    				std::cout << x << " ";
-    			}
-    			std::cout << "\n";
+//    			hBuffer.resize(2*wgs*syncCVFolds);
+//    			compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs*syncCVFolds, std::begin(hBuffer), queue);
+//    			std::cout << "Buffer: ";
+//    			for (auto x:hBuffer) {
+//    				std::cout << x << " ";
+//    			}
+//    			std::cout << "\n";
 
     			////////////////////////////////// Start Process Delta
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -1155,14 +1156,14 @@ public:
     			queue.enqueue_1d_range_kernel(kernel1, 0, syncCVFolds*tpb, tpb);
     			queue.finish();
 
-    			std::vector<RealType> hDeltaVector;
-    			hDeltaVector.resize(dDeltaVector.size());
-    			compute::copy(std::begin(dDeltaVector), std::end(dDeltaVector), std::begin(hDeltaVector), queue);
-    			std::cout << "deltaVec" << index << ": ";
-    			for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
-    				std::cout << hDeltaVector[index*cvIndexStride + cvIndex] << " ";
-    			}
-    			std::cout << "\n";
+//    			std::vector<RealType> hDeltaVector;
+//    			hDeltaVector.resize(dDeltaVector.size());
+//    			compute::copy(std::begin(dDeltaVector), std::end(dDeltaVector), std::begin(hDeltaVector), queue);
+//    			std::cout << "deltaVec" << index << ": ";
+//    			for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+//    				std::cout << hDeltaVector[index*cvIndexStride + cvIndex] << " ";
+//    			}
+//    			std::cout << "\n";
 
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -1231,13 +1232,13 @@ public:
     			name = "compUpdateXBetaKernelG" + getFormatTypeExtension(formatType) + " ";
     			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-    			hBuffer.resize(dXBetaVector.size());
-    			compute::copy(std::begin(dXBetaVector), std::begin(dXBetaVector)+dXBetaVector.size(), std::begin(hBuffer), queue);
-    			std::cout << "dXBetaVector: ";
-    			for (auto x:hBuffer) {
-    				std::cout << x << " ";
-    			}
-    			std::cout << "\n";
+//    			hBuffer.resize(dXBetaVector.size());
+//    			compute::copy(std::begin(dXBetaVector), std::begin(dXBetaVector)+dXBetaVector.size(), std::begin(hBuffer), queue);
+//    			std::cout << "dXBetaVector: ";
+//    			for (auto x:hBuffer) {
+//    				std::cout << x << " ";
+//    			}
+//    			std::cout << "\n";
     		}
 
     	} else {
