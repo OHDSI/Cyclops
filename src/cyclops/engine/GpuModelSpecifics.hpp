@@ -497,6 +497,14 @@ public:
 
     virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex) {
 
+//    	std::cout << "weights: ";
+//    	if (cvIndex == syncCVFolds - 1) {
+//    		for (int i=0; i<100; i++) {
+//    			std::cout << inWeights[i] << " ";
+//    		}
+//    	}
+//    	std::cout << "\n";
+
     	if (hKWeightPool[cvIndex].size() != K) {
     		hKWeightPool[cvIndex].resize(K);
     	}
@@ -989,6 +997,39 @@ public:
     virtual void runCCDNonStratified(bool useWeights) {
     	int wgs = maxWgs; // for reduction across strata
 
+    	if (!initialized) {
+    		initialized = true;
+
+    		std::cout << "dKWeight size: " << dKWeightVector.size() << "\n";
+			hBuffer.resize(dKWeightVector.size());
+			compute::copy(std::begin(dKWeightVector), std::begin(dKWeightVector)+dKWeightVector.size(), std::begin(hBuffer), queue);
+			std::cout << "dKWeightVector: ";
+			for (auto x:hBuffer) {
+				std::cout << x << " ";
+			}
+			std::cout << "\n";
+
+    		std::cout << "dXBetaVector size: " << dXBetaVector.size() << "\n";
+			hBuffer.resize(dXBetaVector.size());
+			compute::copy(std::begin(dXBetaVector), std::begin(dXBetaVector)+dXBetaVector.size(), std::begin(hBuffer), queue);
+			std::cout << "dXBetaVector: ";
+			for (auto x:hBuffer) {
+				std::cout << x << " ";
+			}
+			std::cout << "\n";
+
+    		std::cout << "dXjYVector size: " << dXjYVector.size() << "\n";
+			hBuffer.resize(dXjYVector.size());
+			compute::copy(std::begin(dXjYVector), std::begin(dXjYVector)+dXjYVector.size(), std::begin(hBuffer), queue);
+			std::cout << "dXjYVector: ";
+			for (auto x:hBuffer) {
+				std::cout << x << " ";
+			}
+			std::cout << "\n";
+
+
+    	}
+
     	if (useWeights) {
     		if (dBuffer.size() < 2*wgs*syncCVFolds) {
     			dBuffer.resize(2*wgs*syncCVFolds);
@@ -1004,6 +1045,7 @@ public:
     			auto& kernel = kernelGradientHessianSync[formatType];
 
     			const auto taskCount = dColumns.getTaskCount(index);
+//    			std::cout << "taskCount " << index << ": " << taskCount << "\n";
 
     			//std::cout << "kernel 0 called\n";
     			kernel.set_arg(0, dColumns.getDataOffset(index));
@@ -1189,7 +1231,13 @@ public:
     			name = "compUpdateXBetaKernelG" + getFormatTypeExtension(formatType) + " ";
     			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-
+    			hBuffer.resize(dXBetaVector.size());
+    			compute::copy(std::begin(dXBetaVector), std::begin(dXBetaVector)+dXBetaVector.size(), std::begin(hBuffer), queue);
+    			std::cout << "dXBetaVector: ";
+    			for (auto x:hBuffer) {
+    				std::cout << x << " ";
+    			}
+    			std::cout << "\n";
     		}
 
     	} else {
@@ -1533,11 +1581,13 @@ public:
     	pad = true;
     	syncCVFolds = foldToCompute;
 
-    	layoutByPerson = true;
+    	layoutByPerson = false;
     	if (!layoutByPerson) multiprocessors = syncCVFolds;
 
     	tpb0 = layoutByPerson ? 16 : 1;
         tpb1 = tpb / tpb0;
+
+        std::cout << "tpb0: " << tpb0 << " tpb1: " << tpb1  << "\n";
 
     	if (BaseModel::exactCLR) {
     		detail::constant::exactCLRSyncBlockSize = detail::constant::maxBlockSize/tpb0;
@@ -1555,7 +1605,7 @@ public:
 
     	int size = layoutByPerson ? cvIndexStride : KStride;
 
-        std::cout << "size: " << size << "\n";
+        std::cout << "cvIndexStride: " << cvIndexStride << " KStride: " << KStride << "\n";
 
     	//int dataStart = 0;
     	int garbage = 0;
@@ -1933,7 +1983,7 @@ private:
         		// CCD Kernel
         		// Rcpp::stop("cGH");
         		auto source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia, layoutByPerson);
-        		std::cout << source.body;
+//        		std::cout << source.body;
 //        		if (BaseModelG::useNWeights) {
 //        			source = writeCodeForStratifiedSyncCVGradientHessianKernel(formatType, isNvidia, BaseModel::efron);
 //        			std::cout << source.body;
@@ -1992,7 +2042,7 @@ private:
     	options << " -cl-mad-enable";
 
     	auto source = writeCodeForSyncUpdateXBetaKernel(formatType, layoutByPerson);
-    	std::cout << source.body;
+//    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	std::cout << "program built\n";
     	auto kernelSync = compute::kernel(program, source.name);
@@ -2034,7 +2084,7 @@ private:
     	}
     	options << " -cl-mad-enable";
 
-    	auto source = writeCodeForProcessDeltaSyncCVKernel(priorType);
+    	auto source = writeCodeForProcessDeltaSyncCVKernel(priorType, layoutByPerson);
     	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	auto kernel = compute::kernel(program, source.name);
@@ -2084,7 +2134,7 @@ private:
 
         options << " -cl-mad-enable";
         auto source = writeCodeForSyncComputeRemainingStatisticsKernel(layoutByPerson);
-        std::cout << source.body;
+//        std::cout << source.body;
 //        if (BaseModelG::useNWeights) {
 //        	source = writeCodeForStratifiedSyncComputeRemainingStatisticsKernel(BaseModel::efron);
 //        	std::cout << source.body;
@@ -2108,7 +2158,7 @@ private:
         options << " -cl-mad-enable";
 
          auto source = writeCodeForComputeXjYKernel(formatType, layoutByPerson);
-         //std::cout << source.body;
+         std::cout << source.body;
          auto program = compute::program::build_with_source(source.body, ctx, options.str());
          auto kernel = compute::kernel(program, source.name);
 
@@ -2191,7 +2241,7 @@ private:
 
     SourceCode writeCodeForProcessDeltaKernel(int priorType);
 
-    SourceCode writeCodeForProcessDeltaSyncCVKernel(int priorType);
+    SourceCode writeCodeForProcessDeltaSyncCVKernel(int priorType, bool layoutByPerson);
 
     SourceCode writeCodeForComputeRemainingStatisticsKernel();
 

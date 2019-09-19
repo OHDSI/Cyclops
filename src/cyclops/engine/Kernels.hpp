@@ -312,7 +312,7 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForGradientHessianK
 				"	uint lid0 = get_local_id(0);		\n" <<
 				"	uint lid1 = get_local_id(1);		\n" <<
 				"	uint cvIndex = get_global_id(0);	\n" <<
-		        "   uint gid1 = get_group_id(1);             \n" <<
+		        "   uint gid1 = get_global_id(1);             \n" <<
 				"	uint loopSize = get_global_size(1);	\n" <<
 				"	uint task1 = gid1;							\n" <<
 				"	uint mylid = lid1*TPB0+lid0;			\n" <<
@@ -494,7 +494,7 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForProcessDeltaKern
 // step between compute grad hess and update XB
 template <class BaseModel, typename RealType, class BaseModelG>
 SourceCode
-GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForProcessDeltaSyncCVKernel(int priorType) {
+GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForProcessDeltaSyncCVKernel(int priorType, bool layoutByPerson) {
     std::string name;
     if (priorType == 0) name = "ProcessDeltaKernelNone";
     if (priorType == 1) name = "ProcessDeltaKernelLaplace";
@@ -539,9 +539,13 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForProcessDeltaSync
             "   }                                           \n";
 
     code << "	if (lid == 0) {							\n" <<
-    		"		__local uint offset;				\n" <<
-			"		offset = index*cvIndexStride+cvIndex;			\n" <<
-			"		__local REAL grad, hess, beta, delta;		\n" <<
+    		"		__local uint offset;				\n";
+    if (layoutByPerson) {
+		code << "		offset = index * cvIndexStride + cvIndex;			\n";
+    } else {
+		code << "		offset = index + J * cvIndex;			\n";
+    }
+					code << "		__local REAL grad, hess, beta, delta;		\n" <<
 			"		grad = scratch[0][lid] - XjYVector[offset];		\n" <<
 			"		hess = scratch[1][lid];		\n" <<
 			"		beta = betaVector[offset];		\n";
