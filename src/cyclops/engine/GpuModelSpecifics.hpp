@@ -1084,7 +1084,7 @@ public:
 
     }
 
-    virtual void runCCDNonStratified(bool useWeights) {
+    virtual void runCCDNonStratified1(bool useWeights) {
     	int wgs = maxWgs; // for reduction across strata
 
     	if (!initialized) {
@@ -1511,7 +1511,7 @@ public:
 
     }
 
-    virtual void runCCDNonStratified1(bool useWeights) {
+    virtual void runCCDNonStratified(bool useWeights) {
     	if (!initialized) {
     		initialized = true;
     		std::vector<int> hIndexListWithPrior[12];
@@ -1594,18 +1594,20 @@ public:
     				kernel.set_arg(10, dBetaVector);
     				kernel.set_arg(11, dDoneVector);
     				kernel.set_arg(12, cvIndexStride);
-    				//kernel.set_arg(18, syncCVFolds);
+    				kernel.set_arg(13, KStride);
     				int dJ = J;
+    				kernel.set_arg(14, dJ);
+    				kernel.set_arg(15, syncCVFolds);
     				//kernel.set_arg(14, index);
-    				kernel.set_arg(13, indexListWithPriorStarts[i*3+j]);
-    				kernel.set_arg(14, length);
-    				kernel.set_arg(15, dIndexListWithPrior);
+    				kernel.set_arg(16, indexListWithPriorStarts[i*3+j]);
+    				kernel.set_arg(17, length);
+    				kernel.set_arg(18, dIndexListWithPrior);
 
     				//const auto globalWorkSize = tpb;
 
 
-    				int loops = syncCVFolds / cvBlockSize;
-    				if (syncCVFolds % cvBlockSize != 0) {
+    				int loops = syncCVFolds / tpb0;
+    				if (syncCVFolds % tpb0 != 0) {
     					loops++;
     				}
 
@@ -1615,7 +1617,7 @@ public:
     		        size_t localWorkSize[2];
 
     	    		globalWorkSize[0] = loops*tpb0;
-    	    		globalWorkSize[1] = wgs*tpb1;
+    	    		globalWorkSize[1] = tpb1;
     	    		localWorkSize[0] = tpb0;
     	    		localWorkSize[1] = tpb1;
 
@@ -1768,7 +1770,7 @@ public:
     	pad = true;
     	syncCVFolds = foldToCompute;
 
-    	layoutByPerson = false;
+    	layoutByPerson = true;
     	if (!layoutByPerson) multiprocessors = syncCVFolds;
 
     	tpb0 = layoutByPerson ? 16 : 1;
@@ -2426,14 +2428,16 @@ private:
     		std::stringstream options;
 
     		if (double_precision) {
-    			options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb0*tpb1;
+    			options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
     		} else {
-    			options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb0*tpb1;
+    			options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
     		}
     		options << " -cl-mad-enable";
 
     		auto source = writeCodeForDoItAllKernel(formatType, priorType, layoutByPerson);
+    		std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    		std::cout << "program built\n";
     		auto kernel = compute::kernel(program, source.name);
 
     		kernelDoItAll[formatType*3+priorType] = std::move(kernel);
