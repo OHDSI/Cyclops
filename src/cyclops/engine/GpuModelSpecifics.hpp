@@ -1554,7 +1554,106 @@ public:
     				continue;
     			}
 
-    			if (!useWeights) {
+    			if (useWeights) {
+
+    				auto& kernel = kernelDoItAll[formatType*3+priorType];
+    				//const auto taskCount = dColumns.getTaskCount(index);
+
+    				//for (int m = 0; m < length; m++) {
+    					//int index = dIndexListWithPrior[indexListWithPriorStarts[i*3+j] + m];
+    				    //const auto taskCount = dColumns.getTaskCount(index);
+
+    	    			//std::cout << "index " << index << " format " << formatType << " prior " << priorType << " \n";
+
+    				kernel.set_arg(0, dColumns.getDataStarts());
+    				kernel.set_arg(1, dColumns.getIndicesStarts());
+    				kernel.set_arg(2, dColumns.getTaskCounts());
+    		        //kernel.set_arg(0, dColumns.getDataOffset(index));
+    		        //kernel.set_arg(1, dColumns.getIndicesOffset(index));
+    				//kernel.set_arg(2, taskCount);
+    	#ifdef USE_LOG_SUM
+    				kernel.set_arg(3, dLogX);
+    	#else
+    				kernel.set_arg(3, dColumns.getData());
+    	#endif
+    				kernel.set_arg(4, dColumns.getIndices());
+    				//kernel.set_arg(5, dY);
+    				//kernel.set_arg(6, dOffs);
+    				kernel.set_arg(5, dXBetaVector);
+    				//kernel.set_arg(8, dOffsExpXBetaVector);
+    				//kernel.set_arg(9, dDenomPidVector);
+    				//kernel.set_arg(10, dPidVector);
+    				if (dKWeightVector.size() == 0) {
+    					kernel.set_arg(6, 0);
+    				} else {
+    					kernel.set_arg(6, dKWeightVector); // TODO Only when dKWeight gets reallocated
+    				}
+    				kernel.set_arg(7, dBoundVector);
+    				kernel.set_arg(8, dPriorParams);
+    				kernel.set_arg(9, dXjYVector);
+    				kernel.set_arg(10, dBetaVector);
+    				kernel.set_arg(11, dDoneVector);
+    				kernel.set_arg(12, cvIndexStride);
+    				//kernel.set_arg(18, syncCVFolds);
+    				int dJ = J;
+    				//kernel.set_arg(14, index);
+    				kernel.set_arg(13, indexListWithPriorStarts[i*3+j]);
+    				kernel.set_arg(14, length);
+    				kernel.set_arg(15, dIndexListWithPrior);
+
+    				//const auto globalWorkSize = tpb;
+
+
+    				int loops = syncCVFolds / cvBlockSize;
+    				if (syncCVFolds % cvBlockSize != 0) {
+    					loops++;
+    				}
+
+    	    		const auto wgs = maxWgs;
+
+    		        size_t globalWorkSize[2];
+    		        size_t localWorkSize[2];
+
+    	    		globalWorkSize[0] = loops*tpb0;
+    	    		globalWorkSize[1] = wgs*tpb1;
+    	    		localWorkSize[0] = tpb0;
+    	    		localWorkSize[1] = tpb1;
+
+    		        //size_t globalWorkSize[2];
+    		        //globalWorkSize[0] = tpb0*loops;
+    		        //globalWorkSize[0] = cvBlockSize * loops;
+    		        //globalWorkSize[0] = tpb0 * multiprocessors;
+    		        //globalWorkSize[1] =  tpb1;
+
+    		        //size_t localWorkSize[2];
+    		        //localWorkSize[0] = cvBlockSize;
+    		        //localWorkSize[0] = tpb0;
+    		        //localWorkSize[1] = tpb1;
+
+    		        size_t dim = 2;
+
+    	#ifdef CYCLOPS_DEBUG_TIMING
+    				auto end = bsccs::chrono::steady_clock::now();
+    				///////////////////////////"
+    				auto name = "compDoItAllArgsG" + getFormatTypeExtension(formatType) + " ";
+    				duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+    	#endif
+
+    	#ifdef CYCLOPS_DEBUG_TIMING
+    				start = bsccs::chrono::steady_clock::now();
+    	#endif
+
+    		        queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
+    		        queue.finish();
+
+    	#ifdef CYCLOPS_DEBUG_TIMING
+    				end = bsccs::chrono::steady_clock::now();
+    				///////////////////////////"
+    				name = "compDoItAllKernelG" + getFormatTypeExtension(formatType) + " ";
+    				duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+    	#endif
+
+    			} else {
     				auto& kernel0 = kernelDoItAllNoSyncCV[formatType*3+priorType];
     				//const auto taskCount = dColumns.getTaskCount(index);
 
@@ -1628,8 +1727,6 @@ public:
     				name = "compDoItAllNoSyncCVKernelG" + getFormatTypeExtension(formatType) + " ";
     				duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-    			} else {
-
     			}
     		}
     	}
@@ -1933,8 +2030,8 @@ private:
 //        std::cout << "built reduceCVBuffer kernel\n";
         buildAllProcessDeltaSyncCVKernels();
         std::cout << "built ProcessDelta kernels \n";
-//        buildAllDoItAllKernels(neededFormatTypes);
-//        std::cout << "built doItAll kernels\n";
+        buildAllDoItAllKernels(neededFormatTypes);
+        std::cout << "built doItAll kernels\n";
         buildPredLogLikelihoodKernel();
         std::cout << "built pred likelihood kernel\n";
         buildAllComputeXjYKernels(neededFormatTypes);
@@ -2008,6 +2105,15 @@ private:
             buildDoItAllNoSyncCVKernel(formatType, 0);
             buildDoItAllNoSyncCVKernel(formatType, 1);
             buildDoItAllNoSyncCVKernel(formatType, 2);
+        }
+    }
+
+    void buildAllDoItAllKernels(const std::vector<FormatType>& neededFormatTypes) {
+        int b = 0;
+        for (FormatType formatType : neededFormatTypes) {
+            buildDoItAllKernel(formatType, 0);
+            buildDoItAllKernel(formatType, 1);
+            buildDoItAllKernel(formatType, 2);
         }
     }
 
@@ -2314,6 +2420,26 @@ private:
 
     }
 
+    void buildDoItAllKernel(FormatType formatType, int priorType) {
+    	if (BaseModel::exactCLR) {
+    	} else {
+    		std::stringstream options;
+
+    		if (double_precision) {
+    			options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb0*tpb1;
+    		} else {
+    			options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb0*tpb1;
+    		}
+    		options << " -cl-mad-enable";
+
+    		auto source = writeCodeForDoItAllKernel(formatType, priorType, layoutByPerson);
+    		auto program = compute::program::build_with_source(source.body, ctx, options.str());
+    		auto kernel = compute::kernel(program, source.name);
+
+    		kernelDoItAll[formatType*3+priorType] = std::move(kernel);
+    	}
+    }
+
     void buildSyncCVGetGradientObjectiveKernel() {
     	std::stringstream options;
     	if (double_precision) {
@@ -2376,6 +2502,8 @@ private:
 
     SourceCode writeCodeForDoItAllNoSyncCVKernel(FormatType formatType, int priorType);
 
+    SourceCode writeCodeForDoItAllKernel(FormatType formatType, int priorType, bool layoutByPerson);
+
     SourceCode writeCodeForSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia, bool layoutByPerson);
 
     SourceCode writeCodeForGetGradientObjectiveSync(bool isNvidia, bool layoutByPerson);
@@ -2414,7 +2542,10 @@ private:
     std::map<int, compute::kernel> kernelProcessDeltaBuffer;
     std::map<int, compute::kernel> kernelProcessDeltaSyncCVBuffer;
     std::map<FormatType, compute::kernel> kernelComputeXjY;
+
+    std::map<int, compute::kernel> kernelDoItAll;
     std::map<int, compute::kernel> kernelDoItAllNoSyncCV;
+
     compute::kernel kernelComputeRemainingStatistics;
     compute::kernel kernelGetGradientObjectiveSync;
     compute::kernel kernelComputeRemainingStatisticsSync;

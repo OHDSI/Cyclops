@@ -1215,6 +1215,271 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForDoItAllNoSyncCVK
 	return SourceCode(code.str(), name);
 }
 
+// CV update grad/hess + process delta + update XB
+template <class BaseModel, typename WeightType, class BaseModelG>
+SourceCode
+GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForDoItAllKernel(FormatType formatType, int priorType, bool layoutByPerson) {
+
+	std::string name;
+	if (priorType == 0) name = "doItAll" + getFormatTypeExtension(formatType) + "PriorNone";
+	if (priorType == 1) name = "doItAll" + getFormatTypeExtension(formatType) + "PriorLaplace";
+	if (priorType == 2) name = "doItAll" + getFormatTypeExtension(formatType) + "PriorNormal";
+
+	std::stringstream code;
+	code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+	code << "__kernel void " << name << "(            \n" <<
+			"       __global const uint* offXVec,                  \n" <<
+			"       __global const uint* offKVec,                  \n" <<
+			"       __global const uint* NVec,                     \n" <<
+			//"       const uint offX,                  \n" <<
+			//"       const uint offK,                  \n" <<
+			//"       const uint N,                     \n" <<
+			"       __global const REAL* X,           \n" <<
+			"       __global const int* K,            \n" <<
+			//"       __global const REAL* Y,           \n" <<
+			//"		__global const REAL* Offs,		  \n" <<
+			"       __global REAL* xBetaVector,       \n" <<
+			//"       __global REAL* expXBetaVector,    \n" <<
+			//"       __global REAL* denomPidVector,	  \n" <<
+			//"       __global const int* pIdVector,           \n" <<  // TODO Make id optional
+			"       __global const REAL* weightVector,	\n" <<
+			"		__global REAL* boundVector,				\n" <<
+			"		__global const REAL* priorParams,			\n" <<
+			"		__global const REAL* XjYVector,			\n" <<
+			"		__global REAL* betaVector,			\n" <<
+			"		__global const int* doneVector,		\n" <<
+			"		const uint cvIndexStride,		\n" <<
+			//"		const uint syncCVFolds,			\n" <<
+			//"		const uint index)	{				\n";
+			"		const uint indexStart,				\n" <<
+			"		const uint length,				\n" <<
+			"		__global const uint* indices) {   		 	\n";    // TODO Make weight optional
+	// Initialization
+	code << "	__local uint offK, offX, N, index, allZero;	\n";
+	if (priorType == 1) {
+		code << "__local REAL lambda;				\n";
+	}
+	if (priorType == 2) {
+		code << "__local REAL var;				\n";
+	}
+	code << "	__local REAL grad[TPB1*TPB0];		\n" <<
+			"	__local REAL hess[TPB1*TPB0];		\n" <<
+			"	__local REAL deltaVec[TPB0];		\n" <<
+			"	__local int localDone[TPB0];		\n" <<
+			//"	__local int scratchInt[TPB0];		\n" <<
+			"	__local REAL localXB[TPB1*3*TPB0];	\n" <<
+			"	uint lid0 = get_local_id(0);			\n" <<
+			"	uint smScale = smScales[get_group_id(0)];	\n" <<
+			//"	uint myTPB0 = TPB0;					\n" <<
+			//"	uint myTPB1 = TPB1;					\n" <<
+			"	uint myTPB0 = TPB0 / smScale;		\n" <<
+			"	uint myTPB1 = TPB1 * smScale;		\n" <<
+			//"	if (get_global_id(0) == 0) printf(\"smScale %d tpb0 %d tpb1 %d \", smScale, myTPB0, myTPB1);	\n" <<
+			"	uint mylid0 = lid0 % myTPB0;		\n" <<
+			//"	uint mylid0 = lid0;					\n" <<
+			//"	uint cvIndex = smStarts[get_group_id(0)] + mylid0;	\n" <<
+			"	uint cvIndex = smIndices[smStarts[get_group_id(0)] + mylid0];	\n" <<
+			//"	uint cvIndex = get_group_id(0)*TPB0 + lid0;	\n" <<
+			"	uint lid1 = get_local_id(1);		\n" <<
+			"	uint mylid1 = lid1 * smScale + lid0 / myTPB0;		\n" <<
+			//"	uint mylid1 = lid1;					\n" <<
+			// "	__local int allDone;				\n" <<
+			// "	allDone = 1;						\n" <<
+			// "	barrier(CLK_LOCAL_MEM_FENCE);		\n" <<
+
+			"	if (mylid1 == 0) {					\n" <<
+			"		int temp = doneVector[cvIndex];	\n" <<
+			// "		if (temp == 0) allDone = 0;		\n" <<
+			"		localDone[lid0] = temp;	\n" <<
+			//"		//scratchInt[lid0] = temp;	\n" <<
+			"	}									\n";
+	// code << "	barrier(CLK_LOCAL_MEM_FENCE);		\n";
+
+	// code << "	if (allDone == 0)	{				\n";
+	/*
+		code << "	for(int j = 1; j < myTPB0; j <<= 1) {          	\n" <<
+				"       barrier(CLK_LOCAL_MEM_FENCE);           	\n" <<
+				"       uint mask = (j << 1) - 1;               	\n" <<
+				"       if (mylid1==0 && (lid0 & mask) == 0) {                	\n" <<
+				"           scratchInt[lid0] += scratchInt[lid0 + j]; 		\n" <<
+				"       }                                       	\n" <<
+				"	}									\n";
+
+		code << "   barrier(CLK_LOCAL_MEM_FENCE);           \n";
+		code << "	if (scratchInt[0] > 0) {			\n";
+	 */
+	code << "	for (int n = 0; n < length; n++) {	\n" <<
+			"		index = indices[indexStart + n];	\n" <<
+			"		offK = offKVec[index];			\n" <<
+			"		offX = offXVec[index];			\n" <<
+			"		N = NVec[index];				\n" <<
+			"	uint task = mylid1;					\n" <<
+			"	uint count = 0;						\n" <<
+			"	REAL sum0 = 0.0;					\n" <<
+			"	REAL sum1 = 0.0;					\n";
+	code <<	"	while (task < N) {		\n";
+	if (formatType == INDICATOR || formatType == SPARSE) {
+		code << "  	uint k = K[offK + task];      	\n";
+	} else { // DENSE, INTERCEPT
+		code << "   uint k = task;           		\n";
+	}
+	if (formatType == SPARSE || formatType == DENSE) {
+		code << "  	REAL x = X[offX + task]; \n";
+	} else { // INDICATOR, INTERCEPT
+		// Do nothing
+	}
+	code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
+			"		REAL xb = xBetaVector[vecOffset];			\n" <<
+			"		if (count < 3) localXB[(mylid1+myTPB1*count)*myTPB0 + mylid0] = xb;	\n" <<
+			"		REAL exb = exp(xb);							\n" <<
+			//"		REAL exb = expXBetaVector[vecOffset];	\n" <<
+			"		REAL numer = " << timesX("exb", formatType) << ";\n" <<
+			"		REAL denom = (REAL)1.0 + exb;				\n" <<
+			//"		REAL denom = denomPidVector[vecOffset];		\n" <<
+			"		REAL w = weightVector[vecOffset];\n";
+	code << BaseModelG::incrementGradientAndHessianG(formatType, true);
+	code << "       sum0 += gradient; \n" <<
+			"       sum1 += hessian;  \n";
+	code << "       task += myTPB1; \n" <<
+			"		count += 1;		\n" <<
+			"   } \n";
+
+	code << "	grad[mylid1*myTPB0+mylid0] = sum0;	\n" <<
+			"	hess[mylid1*myTPB0+mylid0] = sum1;	\n";
+
+	code << "   for(int j = 1; j < myTPB1; j <<= 1) {          \n" <<
+			"       barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
+			"       uint mask = (j << 1) - 1;               \n" <<
+			"       if ((mylid1 & mask) == 0) {                \n" <<
+			"           grad[mylid1*myTPB0+mylid0] += grad[(mylid1+j)*myTPB0+mylid0]; \n" <<
+			"           hess[mylid1*myTPB0+mylid0] += hess[(mylid1+j)*myTPB0+mylid0]; \n" <<
+			"       }                                       \n" <<
+			"   }                                         \n";
+
+	code << "	if (mylid0 == 0 && mylid1 == 0) {			\n" <<
+			"	allZero = 1;								\n";
+	if (priorType == 1) {
+		code << "lambda = priorParams[index];				\n";
+	}
+	if (priorType == 2) {
+		code << "var = priorParams[index];				\n";
+	}
+	code << "	}										\n";
+	code << "	barrier(CLK_LOCAL_MEM_FENCE);				\n";
+	code << "	if (mylid1 == 0) {	\n" <<
+			"		uint offset = cvIndexStride*index+cvIndex;		\n" <<
+			"		REAL grad0 = grad[lid0];		\n" <<
+			"		grad0 = grad0 - XjYVector[offset];	\n" <<
+			"		REAL hess0 = hess[lid0];		\n" <<
+			"		REAL beta = betaVector[offset];		\n" <<
+			"		REAL delta;							\n";
+
+	if (priorType == 0) {
+		code << " delta = -grad0 / hess0;			\n";
+	}
+	if (priorType == 1) {
+		//code << "	REAL lambda = priorParams[index];	\n" <<
+		code << "	REAL negupdate = - (grad0 - lambda) / hess0; \n" <<
+				"	REAL posupdate = - (grad0 + lambda) / hess0; \n" <<
+				"	if (beta == 0 ) {					\n" <<
+				"		if (negupdate < 0) {			\n" <<
+				"			delta = negupdate;			\n" <<
+				"		} else if (posupdate > 0) {		\n" <<
+				"			delta = posupdate;			\n" <<
+				"		} else {						\n" <<
+				"			delta = 0;					\n" <<
+				"		}								\n" <<
+				"	} else {							\n" <<
+				"		if (beta < 0) {					\n" <<
+				"			delta = negupdate;			\n" <<
+				"			if (beta+delta > 0) delta = -beta;	\n" <<
+				"		} else {						\n" <<
+				"			delta = posupdate;			\n" <<
+				"			if (beta+delta < 0) delta = -beta;	\n" <<
+				"		}								\n" <<
+				"	}									\n";
+	}
+	if (priorType == 2) {
+		//code << "	REAL var = priorParams[index];		\n" <<
+		code << "	delta = - (grad0 + (beta / var)) / (hess0 + (1.0 / var));	\n";
+	}
+
+	code << "	delta = delta * localDone[lid0];	\n" <<
+			"	REAL bound = boundVector[offset];		\n" <<
+			"	if (delta < -bound)	{					\n" <<
+			"		delta = -bound;						\n" <<
+			"	} else if (delta > bound) {				\n" <<
+			"		delta = bound;						\n" <<
+			"	}										\n" <<
+			"	deltaVec[lid0] = delta;					\n" <<
+			"	REAL intermediate = max(fabs(delta)*2, bound/2);	\n" <<
+			"	intermediate = max(intermediate, 0.001);	\n" <<
+			"	boundVector[offset] = intermediate;		\n" <<
+			//"	betaVector[offset] = delta + beta;		\n" <<
+			"	if (delta != 0) {						\n" <<
+			"		betaVector[offset] = delta + beta;	\n" <<
+			"		allZero = 0;						\n" <<
+			"	}										\n";
+	/*
+				"	if (delta == 0) {						\n" <<
+				"		scratchInt[lid0] = 0;				\n" <<
+				"	} else {								\n" <<
+				"		scratchInt[lid0] = 1;				\n" <<
+				"	}										\n" <<
+	 */
+
+	code << "	}										\n";
+	/*
+		code << "	for(int j = 1; j < myTPB0; j <<= 1) {          	\n" <<
+				"       barrier(CLK_LOCAL_MEM_FENCE);           	\n" <<
+				"       uint mask = (j << 1) - 1;               	\n" <<
+				"       if (mylid1==0 && (lid0 & mask) == 0) {                	\n" <<
+				"           scratchInt[lid0] += scratchInt[lid0 + j]; 		\n" <<
+				"       }                                       	\n" <<
+				"	}									\n";
+	 */
+	code << "   barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
+			"	if (allZero == 0)		{				\n" <<
+			//"	if (scratchInt[0] > 0) {				\n" <<
+			"	REAL delta = deltaVec[mylid0];			\n" <<
+			"	count = 0;							\n" <<
+			"	task = mylid1;						\n";
+
+	code <<	"	while (task < N) {		\n";
+	if (formatType == INDICATOR || formatType == SPARSE) {
+		code << "  	uint k = K[offK + task];      	\n";
+	} else { // DENSE, INTERCEPT
+		code << "   uint k = task;           		\n";
+	}
+	if (formatType == SPARSE || formatType == DENSE) {
+		code << "   REAL inc = delta * X[offX + task]; \n";
+	} else { // INDICATOR, INTERCEPT
+		code << "   REAL inc = delta;           	\n";
+	}
+	code << "		uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
+			"		REAL xb;						\n" <<
+			"		if (count < 3) {				\n" <<
+			"			xb = localXB[(mylid1+myTPB1*count)*myTPB0 + mylid0] + inc; \n" <<
+			"		} else {						\n" <<
+			"			xb = xBetaVector[vecOffset] + inc;	\n" <<
+			"		}								\n" <<
+			//"		REAL xb = xBetaVector[vecOffset] + inc;	\n" <<
+			"		xBetaVector[vecOffset] = xb;	\n";
+	code << "		task += myTPB1;							\n" <<
+			"		count += 1;						\n";
+	code << "} 										\n";
+
+	code << "   barrier(CLK_GLOBAL_MEM_FENCE);           \n";
+	code << "}	\n";
+
+	code << "}	\n";
+	// code << "}	\n";
+	//code << "}	\n";
+	code << "}	\n";
+	return SourceCode(code.str(), name);
+}
+
 // CV gradient objective
 template <class BaseModel, typename RealType, class BaseModelG>
 SourceCode
