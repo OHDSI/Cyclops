@@ -119,6 +119,12 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 
 	            double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
 
+	            std::cout << "predLikelihoods: ";
+	            for (auto x : predLogLikelihood) {
+	            	std::cout << x << " ";
+	            }
+	            std::cout << "\n";
+
 	            std::ostringstream stream;
 	            stream << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
 	            searcher.tried(currentOptimal[dim], pointEstimate, stdDevEstimate);
