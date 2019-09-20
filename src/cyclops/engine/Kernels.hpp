@@ -795,43 +795,46 @@ template <class BaseModel, typename WeightType, class BaseModelG>
 				"		__global REAL* Offs,		\n" <<
                 "       __global const int* pIdVector,		\n" <<
 				"		const uint cvIndexStride,	\n" <<
-				"		const uint size0,			\n" <<
+				"		const uint KStride,			\n" <<
 				"		const uint syncCVFolds,		\n" <<
 				"		const uint N) {   \n";
 
-        if (layoutByPerson) {
-        	code << "	uint lid0 = get_local_id(0);	\n" <<
-        			"	uint cvIndex = get_group_id(0)*size0+lid0;	\n" <<
-					"	uint task = get_group_id(1);	\n" <<
-					"	if (cvIndex < syncCVFolds) {	\n" <<
-					"	uint vecOffset = task*cvIndexStride + cvIndex;	\n";
-        } else {
-        	code << "	uint cvIndex = get_group_id(0);	\n" <<
-        			"	uint task = get_global_id(1);	\n" <<
-					"	uint loopSize = get_global_size(1);	\n" <<
-					"	while (task < N) {				\n" <<
-					"	uint vecOffset = task+cvIndexStride * cvIndex;	\n";
-        }
+        code << "		uint lid0 = get_local_id(0);	\n" <<
+        		"		uint lid1 = get_local_id(1);	\n" <<
+				"		uint cvIndex = get_global_id(0);	\n" <<
+				"		uint gid1 = get_global_id(1);	\n" <<
+				"		uint loopSize = get_global_size(1);	\n" <<
+				"		uint task1 = gid1;				\n";
 
-        code << "REAL xb = xBetaVector[vecOffset];\n";
-        code << "REAL exb = " << BaseModelG::getOffsExpXBetaG("0", "xb") << ";\n";
-        code << "expXBetaVector[vecOffset] = exb;\n";
+        code << "		if (cvIndex < syncCVFolds) {	\n" <<
+        		"			while (task1 < N) {			\n";
+
+        if (layoutByPerson) {
+        	code << "		uint vecOffset = task1 * cvIndexStride + cvIndex;	\n";
+        } else {
+        	code << "		uint vecOffset = task1 + KStride * cvIndex;			\n";
+        }
+        code << "			REAL xb = xBetaVector[vecOffset];\n";
+        code << "			REAL exb = " << BaseModelG::getOffsExpXBetaG("0", "xb") << ";\n";
+        code << "			expXBetaVector[vecOffset] = exb;\n";
+
         //"const REAL y = Y[task];\n" <<
         //"const REAL offs = Offs[task];\n";
 
         if (BaseModel::likelihoodHasDenominator) {
         	if (layoutByPerson) {
-        		code << "denomPidVector[" << BaseModelG::getGroupG("pIdVector", "task") << "*cvIndexStride+cvIndex] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+        		code << "	denomPidVector[" << BaseModelG::getGroupG("pIdVector", "task1") << " * cvIndexStride + cvIndex] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
         	} else {
-        		code << "denomPidVector[" << BaseModelG::getGroupG("pIdVector", "task") << "+cvIndexStride*cvIndex] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
+        		code << "	denomPidVector[" << BaseModelG::getGroupG("pIdVector", "task1") << " + KStride * cvIndex] =" << BaseModelG::getDenomNullValueG() << "+ exb;\n";
         	}
         }
-        if (!layoutByPerson) {
-        	code << "	task += loopSize;	\n";
-        }
+        	code << "		task1 += loopSize;	\n";
 
-        code << "   } \n";
-        code << "}    \n";
+        code << "   		} \n";
+        code << "		}    \n";
+
+        code << "	}    \n";
+
         return SourceCode(code.str(), name);
     }
 
@@ -995,6 +998,54 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForComputeXjYKernel
 
 	return SourceCode(code.str(), name);
 }
+
+template <class BaseModel, typename RealType, class BaseModelG>
+SourceCode
+GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForGetPredLogLikelihood(bool layoutByPerson) {
+	std::string name = "predLogLikelihood";
+
+	std::stringstream code;
+
+	code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+	code << "__kernel void " << name << "(            	\n" <<
+			"	const uint N,							\n" <<
+			"	const uint cvIndex,						\n" <<
+			"	__global const REAL* XBetaVector,		\n" <<
+			"	__global const REAL* Y,					\n" <<
+			"	__global const REAL* weights,			\n" <<
+			"	__global const REAL* denomPidVector,	\n" <<
+			"	__const uint cvIndexStride,				\n" <<
+			"	__const uint KStride,					\n" <<
+			"	__global REAL* buffer)	{	\n" <<
+			"	__local REAL scratch[TPB];				\n" <<
+			"	uint lid = get_local_id(0);				\n" <<
+			"	uint task = lid;						\n" <<
+			"	REAL sum = 0.0;							\n" <<
+			"	while (task < N) {						\n";
+	if (layoutByPerson) {
+		code << "	uint vecOffset = task * cvIndexStride + cvIndex;	\n";
+		code << "	sum += (XBetaVector[vecOffset] - log(denomPidVector[" << BaseModelG::getGroupG("pIdVector", "task") << " * cvIndexStride + cvIndex])) * Y[task] * weights[task]; \n";
+
+	} else {
+		code << "	uint vecOffset = task + KStride * cvIndex;	\n";
+		code << "	sum += (XBetaVector[vecOffset] - log(denomPidVector[" << BaseModelG::getGroupG("pIdVector", "task") << " + KStride * cvIndex])) * Y[task] * weights[task]; \n";
+	}
+	code << "		task += TPB;						\n";
+	code << "	}										\n";
+	code << "	scratch[lid] = sum;						\n";
+
+	code << ReduceBody1<RealType,false>::body();
+
+	code << "	if (lid == 0) {							\n" <<
+			"		buffer[0] = scratch[lid];		\n" <<
+			"	}										\n";
+
+	code << "	}										\n";
+
+	return SourceCode(code.str(), name);
+}
+
 
 template <class BaseModel, typename RealType, class BaseModelG>
 SourceCode

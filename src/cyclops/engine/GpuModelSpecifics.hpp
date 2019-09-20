@@ -653,7 +653,7 @@ public:
     		kernel.set_arg(4, dOffs);
     		kernel.set_arg(5, dPidVector);
     		kernel.set_arg(6, cvIndexStride);
-    		kernel.set_arg(7, tpb0);
+    		kernel.set_arg(7, KStride);
     		kernel.set_arg(8, syncCVFolds);
     		int dK = K;
     		kernel.set_arg(9, dK);
@@ -667,20 +667,12 @@ public:
     		size_t globalWorkSize[2];
     		size_t localWorkSize[2];
     		size_t dim = 2;
+    		const auto wgs = maxWgs;
 
-    		if (layoutByPerson) {
-    			globalWorkSize[0] = loops*tpb0;
-    			globalWorkSize[1] = K;
-    			localWorkSize[0] = tpb0;
-    			localWorkSize[1] = 1;
-    		} else {
-    			int wgs = 16;
-    			globalWorkSize[0] = syncCVFolds;
-    			globalWorkSize[1] = wgs * tpb;
-    			localWorkSize[0] = 1;
-    			localWorkSize[1] = tpb;
-    		}
-
+    		globalWorkSize[0] = loops*tpb0;
+    		globalWorkSize[1] = wgs*tpb1;
+    		localWorkSize[0] = tpb0;
+    		localWorkSize[1] = tpb1;
 
     		queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
     		queue.finish();
@@ -986,6 +978,103 @@ public:
     		}
     	}
     }
+
+    // letting cpu handle
+        double getPredictiveLogLikelihood(double* weights, int cvIndex) {
+    #ifdef CYCLOPS_DEBUG_TIMING
+    			auto start = bsccs::chrono::steady_clock::now();
+    #endif
+        	computeRemainingStatistics(true);
+
+        	double result;
+
+        	if (BaseModel::exactCLR) {
+        // 		std::vector<RealType> xBetaTemp(dXBetaVector.size());
+        // 		std::vector<RealType> expXBetaTemp(dOffsExpXBetaVector.size());
+        // 		compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(xBetaTemp), queue);
+        // 		compute::copy(std::begin(dOffsExpXBetaVector), std::end(dOffsExpXBetaVector), std::begin(expXBetaTemp), queue);
+        //
+        // 		for (int i=0; i<K; i++) {
+        // 			hXBetaPool[cvIndex][i] = xBetaTemp[i*cvIndexStride+cvIndex];
+        // 			offsExpXBetaPool[cvIndex][i] = expXBetaTemp[i*cvIndexStride+cvIndex];
+        // 		}
+        //
+        //     	result = ModelSpecifics<BaseModel, WeightType>::getPredictiveLogLikelihood(weights, cvIndex);
+
+        	} else {
+        		/*
+
+        		if (layoutByPerson) {
+
+        			// layout by person
+        			std::vector<real> xBetaTemp(dXBetaVector.size());
+        			std::vector<real> denomTemp(dDenomPidVector.size());
+        			compute::copy(std::begin(dXBetaVector), std::end(dXBetaVector), std::begin(xBetaTemp), queue);
+        			compute::copy(std::begin(dDenomPidVector), std::end(dDenomPidVector), std::begin(denomTemp), queue);
+
+
+        			for (int i=0; i<K; i++) {
+        				hXBetaPool[cvIndex][i] = xBetaTemp[i*cvIndexStride+cvIndex];
+        			}
+
+        			int end = BaseModelG::useNWeights ? N : K;
+        			for (int i=0; i<end; i++) {
+        				denomPidPool[cvIndex][i] = denomTemp[i*cvIndexStride+cvIndex];
+        			}
+        		} else {
+        	    	compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
+        	    	compute::copy(std::begin(dDenomPidVector)+cvIndexStride*cvIndex, std::begin(dDenomPidVector)+cvIndexStride*cvIndex+K, std::begin(denomPidPool[cvIndex]), queue);
+
+        		}
+        		*/
+
+
+
+        		auto& kernel = kernelGetPredLogLikelihood;
+
+        		int dK = K;
+        		kernel.set_arg(0, dK);
+        		kernel.set_arg(1, cvIndex);
+        		kernel.set_arg(2, dXBetaVector);
+        		kernel.set_arg(3, dY);
+        		std::vector<RealType> myWeights;
+        		myWeights.resize(K);
+        		for (int i=0; i<K; i++) {
+        			myWeights[i] = weights[i];
+        		}
+            	detail::resizeAndCopyToDevice(myWeights, dBuffer, queue);
+            	kernel.set_arg(4, dBuffer);
+            	kernel.set_arg(5, dDenomPidVector);
+            	kernel.set_arg(6, cvIndexStride);
+            	kernel.set_arg(7, KStride);
+            	dBuffer1.resize(1);
+            	kernel.set_arg(8, dBuffer1);
+
+            	size_t globalWorkSize = tpb;
+            	size_t localWorkSize = tpb;
+
+                queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, localWorkSize);
+                queue.finish();
+
+                std::vector<RealType> myResult;
+                myResult.resize(1);
+
+                compute::copy(std::begin(dBuffer1), std::begin(dBuffer1) + 1, std::begin(myResult), queue);
+
+                result = myResult[0];
+
+        	}
+
+        	//compute::copy(std::begin(dXBetaVector)+cvIndexStride*cvIndex, std::begin(dXBetaVector)+cvIndexStride*cvIndex+K, std::begin(hXBetaPool[cvIndex]), queue);
+        	//compute::copy(std::begin(dDenomPidVector)+cvIndexStride*cvIndex, std::begin(dDenomPidVector)+cvIndexStride*cvIndex+K, std::begin(denomPidPool[cvIndex]), queue);
+    #ifdef CYCLOPS_DEBUG_TIMING
+    			auto end = bsccs::chrono::steady_clock::now();
+    			///////////////////////////"
+    			auto name = "getPredictiveLoglikelihood";
+    			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+    #endif
+    			return result;
+        }
 
     virtual void runCCDexactCLR(bool useWeights) {
 
@@ -1846,8 +1935,8 @@ private:
         std::cout << "built ProcessDelta kernels \n";
 //        buildAllDoItAllKernels(neededFormatTypes);
 //        std::cout << "built doItAll kernels\n";
-//        buildPredLogLikelihoodKernel();
-//        std::cout << "built pred likelihood kernel\n";
+        buildPredLogLikelihoodKernel();
+        std::cout << "built pred likelihood kernel\n";
         buildAllComputeXjYKernels(neededFormatTypes);
         std::cout << "built xjy kernels\n";
     }
@@ -1906,6 +1995,11 @@ private:
     	for (FormatType formatType : neededFormatTypes) {
     		buildXjYKernel(formatType); ++b;
     	}
+    }
+
+    void buildPredLogLikelihoodKernel() {
+    	int b = 0;
+    	buildGetPredLogLikelihoodKernel(); ++b;
     }
 
     void buildAllDoItAllNoSyncCVKernels(const std::vector<FormatType>& neededFormatTypes) {
@@ -2131,8 +2225,11 @@ private:
     void buildSyncCVComputeRemainingStatisticsKernel() {
     	std::stringstream options;
 
-    	options << "-DREAL=" << (double_precision == 8 ? "double" : "float");
-
+    	if (double_precision) {
+    		options << "-DREAL=double -DTMP_REAL=double -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
+    	} else {
+    		options << "-DREAL=float -DTMP_REAL=float -DTPB0=" << tpb0  << " -DTPB1=" << tpb1 << " -DTPB=" << tpb;
+    	}
         options << " -cl-mad-enable";
         auto source = writeCodeForSyncComputeRemainingStatisticsKernel(layoutByPerson);
 //        std::cout << source.body;
@@ -2164,6 +2261,31 @@ private:
          auto kernel = compute::kernel(program, source.name);
 
          kernelComputeXjY[formatType] = std::move(kernel);
+    }
+
+    void buildGetPredLogLikelihoodKernel() {
+    	std::stringstream options;
+        if (double_precision) {
+#ifdef USE_VECTOR
+        options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+#else
+        options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+#endif // USE_VECTOR
+        } else {
+#ifdef USE_VECTOR
+            options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+#else
+            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+#endif // USE_VECTOR
+        }
+        options << " -cl-mad-enable";
+
+         auto source = writeCodeForGetPredLogLikelihood(layoutByPerson);
+         std::cout << source.body;
+         auto program = compute::program::build_with_source(source.body, ctx, options.str());
+         auto kernel = compute::kernel(program, source.name);
+
+         kernelGetPredLogLikelihood = std::move(kernel);
     }
 
     void buildDoItAllNoSyncCVKernel(FormatType formatType, int priorType) {
@@ -2250,6 +2372,8 @@ private:
 
     SourceCode writeCodeForComputeXjYKernel(FormatType formatType, bool layoutByPerson);
 
+    SourceCode writeCodeForGetPredLogLikelihood(bool layoutByPerson);
+
     SourceCode writeCodeForDoItAllNoSyncCVKernel(FormatType formatType, int priorType);
 
     SourceCode writeCodeForSyncCVGradientHessianKernel(FormatType formatType, bool isNvidia, bool layoutByPerson);
@@ -2294,6 +2418,8 @@ private:
     compute::kernel kernelComputeRemainingStatistics;
     compute::kernel kernelGetGradientObjectiveSync;
     compute::kernel kernelComputeRemainingStatisticsSync;
+    compute::kernel kernelGetPredLogLikelihood;
+
 
 
     std::map<FormatType, std::vector<int>> indicesFormats;
