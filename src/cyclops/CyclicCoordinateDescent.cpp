@@ -301,20 +301,49 @@ void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
 
 double CyclicCoordinateDescent::getNewPredictiveLogLikelihood(double* weights) {
 
-    std::vector<double> savedWeights;
+//     std::vector<double> savedWeights;
+//
+// 	if (weights != nullptr) {
+// 	    savedWeights = hWeights; // Save original
+// 	    setWeights(weights);
+// 	}
+//
+// 	auto result = getLogLikelihood();
+//
+// 	if (weights != nullptr) {
+// 	    setWeights(savedWeights.data());
+// 	}
+//
+// 	return result;
 
+    xBetaKnown = false;
+
+    if (!xBetaKnown) {
+        computeXBeta();
+        xBetaKnown = true;
+        sufficientStatisticsKnown = false;
+    }
+
+    std::vector<double> savedWeights;
 	if (weights != nullptr) {
 	    savedWeights = hWeights; // Save original
-	    setWeights(weights);
+	    modelSpecifics.setWeights(weights, true);
 	}
 
-	auto result = getLogLikelihood();
+    if (!sufficientStatisticsKnown) {
+        computeRemainingStatistics(true, 0); // TODO Remove index????
+        sufficientStatisticsKnown = true;
+    }
+
+    getDenominators();
+
+	auto result = modelSpecifics.getPredictiveLogLikelihood(weights);
 
 	if (weights != nullptr) {
-	    setWeights(savedWeights.data());
-	}
+	    modelSpecifics.setWeights(savedWeights.data(), true);
+    }
 
-	return result;
+    return result;
 }
 
 void CyclicCoordinateDescent::getPredictiveEstimates(double* y, double* weights) const {

@@ -246,7 +246,7 @@ private:
 
 	template <class OutType, class InType>
 	void incrementByGroup(OutType* values, int* groups, int k, InType inc) {
-		values[BaseModel::getGroup(groups, k)] += inc; // TODO delegate to BaseModel (different in tied-models)
+	    values[BaseModel::getGroup(groups, k)] += inc; // TODO delegate to BaseModel (different in tied-models)
 	}
 
 	template <typename IteratorTypeOne, class Weights>
@@ -500,56 +500,25 @@ public:
 			RealType weight,
 			RealType x, RealType xBeta, RealType y) {
 
-	    // const RealType g = numer / denom;
-	    // if (Weights::isWeighted) {
-	    //     *gradient += weight * g;
-	    // } else {
-	    //     *gradient += g;
-	    // }
-	    // if (IteratorType::isIndicator) {
-	    //     if (Weights::isWeighted) {
-	    //         *hessian += weight * g * (static_cast<RealType>(1.0) - g);
-	    //     } else {
-	    //         *hessian += g * (static_cast<RealType>(1.0) - g);
-	    //     }
-	    // } else {
-	    //     if (Weights::isWeighted) {
-	    //         *hessian += weight * (numer2 / denom - g * g); // Bounded by x_j^2
-	    //     } else {
-	    //         *hessian += (numer2 / denom - g * g); // Bounded by x_j^2
-	    //     }
-	    // }
-
-
-	    // unlike Cox, denom of LR shouldn't include weights
-	    // current_denom = weight * offsExpXBeta + 1
-	    // correct_denom = offsExpXBeta + 1 = (current_denom - 1) / weight + 1
-		const RealType d = Weights::isWeighted ?
-	        (weight == static_cast<RealType>(0.0)) ?
-	            1.0 :
-                (denom - static_cast<RealType>(1.0)) / weight + static_cast<RealType>(1.0) :
-	        denom;
-
-//	    const RealType d = (denom - static_cast<RealType>(1.0)) / weight + static_cast<RealType>(1.0); // correct denom
-	    const RealType g = numer / d;
+	    const RealType g = numer / denom;
 	    if (Weights::isWeighted) {
-			*gradient += weight * g;
-		} else {
-			*gradient += g;
-		}
-		if (IteratorType::isIndicator) {
-			if (Weights::isWeighted) {
-				*hessian += weight * g * (static_cast<RealType>(1.0) - g);
-			} else {
-				*hessian += g * (static_cast<RealType>(1.0) - g);
-			}
-		} else {
-			if (Weights::isWeighted) {
-				*hessian += weight * (numer2 / d - g * g); // Bounded by x_j^2
-			} else {
-				*hessian += (numer2 / d - g * g); // Bounded by x_j^2
-			}
-		}
+	        *gradient += weight * g;
+	    } else {
+	        *gradient += g;
+	    }
+	    if (IteratorType::isIndicator) {
+	        if (Weights::isWeighted) {
+	            *hessian += weight * g * (static_cast<RealType>(1.0) - g);
+	        } else {
+	            *hessian += g * (static_cast<RealType>(1.0) - g);
+	        }
+	    } else {
+	        if (Weights::isWeighted) {
+	            *hessian += weight * (numer2 / denom - g * g); // Bounded by x_j^2
+	        } else {
+	            *hessian += (numer2 / denom - g * g); // Bounded by x_j^2
+	        }
+	    }
 	}
 
 	template <class IteratorType, class Weights>
@@ -981,15 +950,7 @@ public:
 	}
 
 	RealType logLikeDenominatorContrib(RealType ni, RealType denom) {
-	    // return std::log(denom); // weights are calculated in wrong place for LR
-	    // current_denom = weight * offsExpXBeta + 1
-	    // current_loglikedenom = log(current_denom) = log(weight * offsExpXBeta + 1)
-	    // correct_loglikedenom = weight * log(offsExpXBeta + 1) = weight * log((current_denom - 1) / weight + 1)
-	    if (ni == static_cast<RealType>(0.0)) {
-	        return 0.0;
-	    } else {
-		    return ni * std::log((denom - static_cast<RealType>(1.0))/ni + static_cast<RealType>(1.0));
-	    }
+	    return std::log(denom);
 	}
 
 	RealType logPredLikeContrib(RealType y, RealType weight, RealType xBeta, RealType denominator) {
