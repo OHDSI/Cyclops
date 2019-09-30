@@ -1281,31 +1281,21 @@ void ModelSpecifics<BaseModel,RealType>::incrementNumeratorForGradientImpl(int i
 #endif
 
 	IteratorType it(hX, index);
-	if (BaseModel::hasStrataCrossTerms && !BaseModel::hasResetableAccumulators && !BaseModel::hasNtoKIndices) { // BreslowCox
-	    for (; it; ++it) {
-	        const int k = it.index();
-	        incrementByGroup(numerPid.data(), hPid, k,
-                          Weights::isWeighted ?
-                              hKWeight[k] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]) :
-                              BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k])
-                );
-	        if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
-	            incrementByGroup(numerPid2.data(), hPid, k,
-                              Weights::isWeighted ?
-                                  hKWeight[k] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]) :
-                                  BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k])
-	                );
-	        }
-	    }
-	} else { // other models except for BreslowCox
-	    for (; it; ++it) {
-	        const int k = it.index();
-	        incrementByGroup(numerPid.data(), hPid, k, BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]));
-	        if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
-	            incrementByGroup(numerPid2.data(), hPid, k, BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]));
-	        }
-	    }
-	}
+    for (; it; ++it) {
+        const int k = it.index();
+        incrementByGroup(numerPid.data(), hPid, k,
+                         Weights::isWeighted ?
+                             hKWeight[k] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]) :
+                             BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k])
+        );
+        if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
+            incrementByGroup(numerPid2.data(), hPid, k,
+                             Weights::isWeighted ?
+                                 hKWeight[k] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]) :
+                                 BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k])
+            );
+        }
+    }
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
@@ -1386,7 +1376,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 #endif
 
 	IteratorType it(hX, index);
-    if (BaseModel::hasStrataCrossTerms && !BaseModel::hasResetableAccumulators && !BaseModel::hasNtoKIndices) { // BreslowCox
+    if (BaseModel::cumulativeGradientAndHessian) { // BreslowCox
         for (; it; ++it) {
             const int k = it.index();
             hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
@@ -1401,7 +1391,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
                 incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
             }
         }
-    } else { // other models except for BreslowCox
+    } else {
         for (; it; ++it) {
             const int k = it.index();
             hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
@@ -1435,7 +1425,7 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
     if (BaseModel::likelihoodHasDenominator) {
         fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
 
-        if (BaseModel::hasStrataCrossTerms && !BaseModel::hasResetableAccumulators && !BaseModel::hasNtoKIndices) { // BreslowCox
+        if (BaseModel::cumulativeGradientAndHessian) { // BreslowCox
             for (size_t k = 0; k < K; ++k) {
                 offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
                 RealType weightoffsExpXBeta =  Weights::isWeighted ?
@@ -1443,7 +1433,7 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
                     BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
                 incrementByGroup(denomPid.data(), hPid, k, weightoffsExpXBeta); // Update denominators
             }
-        } else { // other models except for BreslowCox
+        } else {
             for (size_t k = 0; k < K; ++k) {
                 offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
                 incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
