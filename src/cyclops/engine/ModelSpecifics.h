@@ -950,7 +950,7 @@ public:
 	}
 
 	RealType logLikeDenominatorContrib(RealType ni, RealType denom) {
-	    return std::log(denom);
+	    return ni * std::log(denom);
 	}
 
 	RealType logPredLikeContrib(RealType y, RealType weight, RealType xBeta, RealType denominator) {
@@ -1185,7 +1185,7 @@ public:
 	}
 
 	RealType logLikeDenominatorContrib(RealType ni, RealType accDenom) {
-		return ni*std::log(accDenom);
+		return ni * std::log(accDenom);
 	}
 
 	RealType logPredLikeContrib(RealType y, RealType weight, RealType xBeta, RealType denominator) {
@@ -1423,7 +1423,7 @@ public:
 	}
 
 	RealType logLikeDenominatorContrib(RealType ni, RealType denom) {
-		return denom;
+		return ni * denom;
 	}
 
 	RealType logPredLikeContrib(RealType y, RealType weight, RealType xBeta, RealType denominator) {
