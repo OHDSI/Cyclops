@@ -1535,6 +1535,22 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForGetGradientObjec
 	return SourceCode(code.str(), name);
 }
 
+// empty kernel to test timings
+template <class BaseModel, typename WeightType, class BaseModelG>
+SourceCode
+    GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForEmptyKernel() {
+        std::string name = "empty";
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "( 	\n" <<
+        		"	const uint blah) {			\n" <<
+				"	uint lid = get_local_id(0);	\n" <<
+        		"}   		 					\n";
+        return SourceCode(code.str(), name);
+    }
+
+
 
 
 /*

@@ -1328,6 +1328,21 @@ public:
 //    				std::cout << x << " ";
 //    			}
 //    			std::cout << "\n";
+
+//    			/////// EMPTY KERNEL
+//#ifdef CYCLOPS_DEBUG_TIMING
+//    			start = bsccs::chrono::steady_clock::now();
+//#endif
+//    			auto& kernel3 = kernelEmpty;
+//    			kernel3.set_arg(0, 1);
+//    			queue.enqueue_1d_range_kernel(kernel3, 0, wgs*tpb, tpb);
+////    			queue.finish();
+//#ifdef CYCLOPS_DEBUG_TIMING
+//    			end = bsccs::chrono::steady_clock::now();
+//    			///////////////////////////"
+//    			name = "emptyKernelG" + getFormatTypeExtension(formatType) + " ";
+//    			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+//#endif
     		}
 
     	} else {
@@ -1499,6 +1514,21 @@ public:
 			 name = "compUpdateXBetaKernelG" + getFormatTypeExtension(formatType) + " ";
 			 duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
+
+//			 ////// EMPTY KERNEL
+//#ifdef CYCLOPS_DEBUG_TIMING
+//    			start = bsccs::chrono::steady_clock::now();
+//#endif
+//    			auto& kernel3 = kernelEmpty;
+//    			kernel3.set_arg(0, 1);
+//    			queue.enqueue_1d_range_kernel(kernel3, 0, wgs*tpb, tpb);
+////    			queue.finish();
+//#ifdef CYCLOPS_DEBUG_TIMING
+//    			end = bsccs::chrono::steady_clock::now();
+//    			///////////////////////////"
+//    			name = "emptyKernelG" + getFormatTypeExtension(formatType) + " ";
+//    			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+//#endif
 
 //			 hBuffer.resize(100);
 //			 compute::copy(std::begin(dXBeta), std::begin(dXBeta)+100, std::begin(hBuffer), queue);
@@ -1763,7 +1793,7 @@ public:
     	pad = true;
     	syncCVFolds = foldToCompute;
 
-    	layoutByPerson = true;
+    	layoutByPerson = false;
     	if (!layoutByPerson) multiprocessors = syncCVFolds;
 
     	tpb0 = layoutByPerson ? 16 : 1;
@@ -1998,8 +2028,8 @@ private:
 //        std::cout << "built getLogLikelihood kernels \n";
         buildAllComputeRemainingStatisticsKernels();
         std::cout << "built computeRemainingStatistics kernels \n";
-//        buildEmptyKernel();
-//        std::cout << "built empty kernel\n";
+        buildEmptyKernel();
+        std::cout << "built empty kernel\n";
 //        //buildReduceCVBufferKernel();
 //        //std::cout << "built reduceCVBuffer kernel\n";
         buildAllProcessDeltaKernels();
@@ -2116,6 +2146,21 @@ private:
         int b = 0;
         buildSyncCVGetGradientObjectiveKernel(); ++b;
     }
+
+    void buildEmptyKernel() {
+        std::stringstream options;
+
+        options << "-DREAL=" << (double_precision ? "double" : "float");
+
+        options << " -cl-mad-enable";
+
+        auto source = writeCodeForEmptyKernel();
+        std::cout << source.body;
+        auto program = compute::program::build_with_source(source.body, ctx, options.str());
+        auto kernelSync = compute::kernel(program, source.name);
+        kernelEmpty = std::move(kernelSync);
+    }
+
 
     void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
 
@@ -2483,6 +2528,8 @@ private:
         }
     }
 
+    SourceCode writeCodeForEmptyKernel();
+
     SourceCode writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
     SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType);
@@ -2551,7 +2598,7 @@ private:
     compute::kernel kernelGetGradientObjectiveSync;
     compute::kernel kernelComputeRemainingStatisticsSync;
     compute::kernel kernelGetPredLogLikelihood;
-
+    compute::kernel kernelEmpty;
 
 
     std::map<FormatType, std::vector<int>> indicesFormats;
