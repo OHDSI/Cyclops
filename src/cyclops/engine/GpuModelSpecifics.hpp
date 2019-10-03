@@ -1472,8 +1472,10 @@ public:
 			 }
 			 //size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
 
-			 localWorkSize = detail::constant::updateXBetaBlockSize;
-			 globalWorkSize = workGroups * localWorkSize;
+			 //localWorkSize = detail::constant::updateXBetaBlockSize;
+			 //globalWorkSize = workGroups * localWorkSize;
+			 localWorkSize = tpb;
+			 globalWorkSize = wgs*tpb;
 
 #ifdef CYCLOPS_DEBUG_TIMING
 			 end = bsccs::chrono::steady_clock::now();
@@ -1507,7 +1509,7 @@ public:
 //			 std::cout << "\n";
     		}
     	}
-    	queue.finish();
+    	//queue.finish();
 
     }
 
@@ -1734,7 +1736,7 @@ public:
     	}
     }
 
-    virtual void runCCD(bool useWeights) {
+    virtual void runCCD(bool useWeights, bool doItAll) {
 
     	 int wgs = maxWgs; // for reduction across strata
 
@@ -1743,20 +1745,11 @@ public:
     	 } else if (BaseModelG::useNWeights) {
     		 runCCDStratified(useWeights);
     	 } else {
-    		 runCCDNonStratified(useWeights);
-    	 }
-    }
-
-    virtual void runCCD1(bool useWeights) {
-
-    	 int wgs = maxWgs; // for reduction across strata
-
-    	 if (BaseModel::exactCLR) {
-    		 runCCDexactCLR(useWeights);
-    	 } else if (BaseModelG::useNWeights) {
-    		 runCCDStratified(useWeights);
-    	 } else {
-    		 runCCDNonStratified1(useWeights);
+    		 if (doItAll) {
+    			 runCCDNonStratified(useWeights);
+    		 } else {
+        		 runCCDNonStratified1(useWeights);
+    		 }
     	 }
     }
 
@@ -1770,7 +1763,7 @@ public:
     	pad = true;
     	syncCVFolds = foldToCompute;
 
-    	layoutByPerson = false;
+    	layoutByPerson = true;
     	if (!layoutByPerson) multiprocessors = syncCVFolds;
 
     	tpb0 = layoutByPerson ? 16 : 1;
@@ -2141,9 +2134,8 @@ private:
             }
             options << " -cl-mad-enable";
 
-            std::cout << "double precision: " << double_precision << " tpb: " << tpb << "\n";
-
         	auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
+        	std::cout << source.body;
 
         	// CCD Kernel
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
@@ -2219,6 +2211,7 @@ private:
     	options << " -cl-mad-enable";
 
     	auto source = writeCodeForUpdateXBetaKernel(formatType);
+    	std::cout << source.body;
 
     	if (BaseModelG::useNWeights) {
     		//            	source = writeCodeForStratifiedUpdateXBetaKernel(formatType, BaseModel::efron);
@@ -2271,6 +2264,8 @@ private:
         options << " -cl-mad-enable";
 
     	auto source = writeCodeForProcessDeltaKernel(priorType);
+    	std::cout << source.body;
+
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	auto kernel = compute::kernel(program, source.name);
 
@@ -2415,6 +2410,8 @@ private:
     	options << " -cl-mad-enable";
 
     	auto source = writeCodeForDoItAllNoSyncCVKernel(formatType, priorType);
+    	std::cout << source.body;
+
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	auto kernel = compute::kernel(program, source.name);
 

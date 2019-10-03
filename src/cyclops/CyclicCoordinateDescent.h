@@ -232,12 +232,12 @@ protected:
 	void computeFixedTermsInGradientAndHessian(void);
 
 	void findMode(const int maxIterations, const int convergenceType, const double epsilon,
-               const AlgorithmType algorithmType, const int qQN);
+               const AlgorithmType algorithmType, const int qQN, const bool doItAll);
 
 	template <typename Iterator>
 	void findMode(Iterator begin, Iterator end,
 		const int maxIterations, const int convergenceType, const double epsilon,
-		const AlgorithmType algorithmType, const int qQN);
+		const AlgorithmType algorithmType, const int qQN, const bool doItAll);
 
 	template <typename Container>
 	void computeKktConditions(Container& set);

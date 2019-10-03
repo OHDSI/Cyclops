@@ -629,8 +629,11 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForProcessDeltaSync
                 "       __global REAL* denominator,\n" <<
                 "       __global const int* id,		\n" <<
 				"		const uint index) {   \n";
-        code << "   const uint task = get_global_id(0); \n" <<
+        code << "   uint task = get_global_id(0); \n" <<
         		"	REAL delta = deltaVector[index];	\n";
+        code << "	const uint loopSize = get_global_size(0); \n";
+
+        code << "	while (task < N) {				\n";
 
         if (formatType == INDICATOR || formatType == SPARSE) {
             code << "   const uint k = K[offK + task];         \n";
@@ -644,9 +647,9 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForProcessDeltaSync
             code << "   const REAL inc = delta;           \n";
         }
 
-        code << "   if (task < N) {      				\n";
         code << "       REAL xb = xBeta[k] + inc; 		\n" <<
                 "       xBeta[k] = xb;                  \n";
+        code << "		task += loopSize;				\n";
 
         if (BaseModel::likelihoodHasDenominator) {
             // TODO: The following is not YET thread-safe for multi-row observations
@@ -1089,7 +1092,7 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForDoItAllNoSyncCVK
 			//"	if (get_global_id(0)==0) printf(\"tpb = %d \", TPB);	\n" <<
 			"	__local REAL scratch[2][TPB];			\n" <<
 			"	__local REAL delta;					\n" <<
-			"	__local REAL localXB[TPB*3];	\n" <<
+			//"	__local REAL localXB[TPB*3];	\n" <<
 			"	uint lid = get_local_id(0);			\n" <<
 			"	cvIndex = 0;						\n" <<
 			"	cvIndexStride = 1;					\n";
@@ -1100,7 +1103,7 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForDoItAllNoSyncCVK
 			"		offX = offXVec[index];			\n" <<
 			"		N = NVec[index];				\n" <<
 			"		uint task = lid;				\n" <<
-			"		uint count = 0;					\n" <<
+			//"		uint count = 0;					\n" <<
 			"		REAL sum0 = 0.0;				\n" <<
 			"		REAL sum1 = 0.0;				\n";
 	code <<	"		while (task < N) {				\n";
@@ -1116,7 +1119,7 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForDoItAllNoSyncCVK
 	}
 	code << "			uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
 			"			REAL xb = xBetaVector[vecOffset];			\n" <<
-			"			if (count < 3) localXB[count*TPB+lid] = xb;	\n" <<
+			//"			if (count < 3) localXB[count*TPB+lid] = xb;	\n" <<
 			"			REAL exb = exp(xb);							\n" <<
 			"			REAL numer = " << timesX("exb", formatType) << ";\n" <<
 			"			REAL denom = (REAL)1.0 + exb;				\n" <<
@@ -1125,7 +1128,7 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForDoItAllNoSyncCVK
 	code << "       	sum0 += gradient; \n" <<
 			"       	sum1 += hessian;  \n";
 	code << "       	task += TPB; \n" <<
-			"			count += 1;		\n" <<
+			//"			count += 1;		\n" <<
 			"   	} \n";
 
 	code << "		scratch[0][lid] = sum0;	\n" <<
@@ -1184,7 +1187,7 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForDoItAllNoSyncCVK
 			"		}										\n";
 	code << "   	barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
 			"		if (delta != 0) {				\n" <<
-			"			count = 0;							\n" <<
+			//"			count = 0;							\n" <<
 			"			task = lid;						\n";
 	code <<	"			while (task < N) {		\n";
 	if (formatType == INDICATOR || formatType == SPARSE) {
@@ -1199,14 +1202,14 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForDoItAllNoSyncCVK
 	}
 	code << "				uint vecOffset = k*cvIndexStride + cvIndex;	\n" <<
 			"				REAL xb;						\n" <<
-			"				if (count < 3) {				\n" <<
-			"					xb = localXB[count*TPB+lid] + inc; \n" <<
-			"				} else {						\n" <<
+			//"				if (count < 3) {				\n" <<
+			//"					xb = localXB[count*TPB+lid] + inc; \n" <<
+			//"				} else {						\n" <<
 			"					xb = xBetaVector[vecOffset] + inc;	\n" <<
-			"				}								\n" <<
+			//"				}								\n" <<
 			"				xBetaVector[vecOffset] = xb;	\n";
-	code << "				task += TPB;					\n" <<
-			"				count += 1;						\n";
+	code << "				task += TPB;					\n";
+	//code << "				count += 1;						\n";
 	code << "			} 									\n";
 	code << "   		barrier(CLK_GLOBAL_MEM_FENCE);      \n";
 	code << "		}	\n";

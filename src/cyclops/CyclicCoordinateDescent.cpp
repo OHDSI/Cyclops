@@ -562,6 +562,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const auto epsilon = arguments.tolerance;
 	const int maxCount = arguments.maxBoundCount;
 	const auto algorthmType = arguments.algorithmType;
+	const bool doItAll = arguments.doItAll;
 	const int qnQ = 0;
 
 	initialBound = arguments.initialBound;
@@ -585,7 +586,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
  	    if (arguments.useKktSwindle && jointPrior->getSupportsKktSwindle()) {
 		    kktSwindle(arguments);
 	    } else {
-		    findMode(maxIterations, convergenceType, epsilon, algorthmType, qnQ);
+		    findMode(maxIterations, convergenceType, epsilon, algorthmType, qnQ, doItAll);
 	    }
 	    ++count;
 
@@ -608,13 +609,13 @@ typedef std::tuple<
 template <typename Iterator>
 void CyclicCoordinateDescent::findMode(Iterator begin, Iterator end,
 		const int maxIterations, const int convergenceType, const double epsilon,
-		const AlgorithmType algorithmType, const int qnQ) {
+		const AlgorithmType algorithmType, const int qnQ, const bool doItAll) {
 
 	std::fill(fixBeta.begin(), fixBeta.end(), true);
  	std::for_each(begin, end, [this] (ScoreTuple& tuple) {
  		fixBeta[std::get<0>(tuple)] = false;
  	});
-	findMode(maxIterations, convergenceType, epsilon, algorithmType, qnQ);
+	findMode(maxIterations, convergenceType, epsilon, algorithmType, qnQ, doItAll);
     // fixBeta is no longer valid
 }
 
@@ -624,6 +625,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 	const auto convergenceType = arguments.convergenceType;
 	const auto epsilon = arguments.tolerance;
 	const auto algorithmType = arguments.algorithmType;
+	const auto doItAll = arguments.doItAll;
 	const int qnQ = 0;
 
 	// Make sure internal state is up-to-date
@@ -681,7 +683,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 			auto start = bsccs::chrono::steady_clock::now();
 
 			findMode(begin(activeSet), end(activeSet), maxIterations, convergenceType, epsilon,
-            algorithmType, qnQ);
+            algorithmType, qnQ, doItAll);
 
 			auto end = bsccs::chrono::steady_clock::now();
 			bsccs::chrono::duration<double> elapsed_seconds = end-start;
@@ -896,7 +898,7 @@ void CyclicCoordinateDescent::findMode(
 		int convergenceType,
 		double epsilon,
 		AlgorithmType algorithmType,
-		int qnQ
+		int qnQ, bool doItAll
 		) {
 
 	if (convergenceType < GRADIENT || convergenceType > ZHANG_OLES) {
@@ -973,7 +975,7 @@ void CyclicCoordinateDescent::findMode(
 		//modelSpecifics.resetBeta();
 	}
 
-	auto cycle = [this,&lastObjFunc,&lastObjFuncVec,&iteration,algorithmType,&allDelta] {
+	auto cycle = [this,&lastObjFunc,&lastObjFuncVec,&iteration,algorithmType,&allDelta,&doItAll] {
 
 		if (iteration%10==0) {
 			std::cout<<"iteration " << iteration << " ";
@@ -1037,7 +1039,7 @@ void CyclicCoordinateDescent::findMode(
 
 	    	if (usingGPU) {
 	    		//if (usingGPU && syncCV) {
-	    		modelSpecifics.runCCD(useCrossValidation);
+	    		modelSpecifics.runCCD(useCrossValidation, doItAll);
 	    		if (!syncCV) {
 	    			hBeta = modelSpecifics.getBeta();
 	    		}

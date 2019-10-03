@@ -377,7 +377,7 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 		bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps,
 		const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance,
         bool useKKTSwindle, int swindleMultipler, const std::string& selectorType, double initialBound,
-        int maxBoundCount, const std::string& algorithm
+        int maxBoundCount, const std::string& algorithm, bool doItAll
 		) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
@@ -390,6 +390,7 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
     args.modeFinding.swindleMultipler = swindleMultipler;
     args.modeFinding.initialBound = initialBound;
     args.modeFinding.maxBoundCount = maxBoundCount;
+    args.modeFinding.doItAll = doItAll;
     if (algorithm == "mm") {
         args.modeFinding.algorithmType = AlgorithmType::MM;
     }

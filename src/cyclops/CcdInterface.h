@@ -78,6 +78,7 @@ struct ModeFindingArguments {
 	int swindleMultipler;
 	double initialBound;
 	int maxBoundCount;
+	bool doItAll;
 	AlgorithmType algorithmType;
 
 	ModeFindingArguments() :
