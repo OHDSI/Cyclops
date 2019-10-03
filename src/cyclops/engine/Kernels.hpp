@@ -1261,9 +1261,11 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForDoItAllKernel(
 	code << "	__local uint offK, offX, N, index, allZero;	\n";
 	if (priorType == 1) {
 		code << "__local REAL lambda;				\n";
+		code << "lambda = priorParams[indices[0]];	\n";
 	}
 	if (priorType == 2) {
 		code << "__local REAL var;				\n";
+		code << "var = priorParams[indices[0]];	\n";
 	}
 	code << "	__local REAL grad[TPB];		\n" <<
 			"	__local REAL hess[TPB];		\n" <<
@@ -1345,10 +1347,10 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForDoItAllKernel(
 	code << "	if (lid0 == 0 && lid1 == 0) {			\n" <<
 			"		allZero = 1;								\n";
 	if (priorType == 1) {
-		code << "	lambda = priorParams[index];				\n";
+		//code << "	lambda = priorParams[index];				\n";
 	}
 	if (priorType == 2) {
-		code << "	var = priorParams[index];				\n";
+		//code << "	var = priorParams[index];				\n";
 	}
 	code << "	}										\n";
 	code << "	barrier(CLK_LOCAL_MEM_FENCE);				\n";

@@ -342,7 +342,7 @@ public:
     */
 
     int tpb = 256; // threads-per-block  // Appears best on K40
-    int maxWgs = 1;
+    int maxWgs = 16;
     int tpb0 = 16;
     int tpb1 = 16;
 
@@ -1185,7 +1185,7 @@ public:
 #endif
 
     			queue.enqueue_nd_range_kernel(kernel, dim, 0, globalWorkSize, localWorkSize);
-    			queue.finish();
+//    			queue.finish();
 
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -1243,7 +1243,7 @@ public:
 
 
     			queue.enqueue_1d_range_kernel(kernel1, 0, syncCVFolds*tpb, tpb);
-    			queue.finish();
+//    			queue.finish();
 
 //    			std::vector<RealType> hDeltaVector;
 //    			hDeltaVector.resize(dDeltaVector.size());
@@ -1312,7 +1312,7 @@ public:
 
     			// run kernel
     			queue.enqueue_nd_range_kernel(kernel2, dim, 0, globalWorkSize, localWorkSize);
-    			queue.finish();
+//    			queue.finish();
 
     			hXBetaKnown = false; // dXBeta was just updated
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -1770,7 +1770,7 @@ public:
     	pad = true;
     	syncCVFolds = foldToCompute;
 
-    	layoutByPerson = true;
+    	layoutByPerson = false;
     	if (!layoutByPerson) multiprocessors = syncCVFolds;
 
     	tpb0 = layoutByPerson ? 16 : 1;
