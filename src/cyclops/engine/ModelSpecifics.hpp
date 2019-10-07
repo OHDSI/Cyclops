@@ -1004,14 +1004,19 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	    for (; it; ++it) {
 	        const int i = it.index();
 
-	        RealType numerator1 = (Weights::isWeighted) ? // TODO Delegate condition to gNC
-	            hKWeight[i] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0)) :
-	            BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
-	        RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-	            (Weights::isWeighted) ?
-	                 hKWeight[i] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) :
-                     BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) :
-	            static_cast<RealType>(0);
+// 	        RealType numerator1 = (Weights::isWeighted) ? // TODO Delegate condition to gNC
+// 	            hKWeight[i] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0)) :
+// 	            BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
+// 	        RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+// 	            (Weights::isWeighted) ?
+// 	                 hKWeight[i] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) :
+//                      BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) :
+// 	            static_cast<RealType>(0);
+
+            RealType numerator1 = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
+            RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+                BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) :
+                static_cast<RealType>(0);
 
 	        BaseModel::incrementGradientAndHessian(it,
                     w, // Signature-only, for iterator-type specialization
@@ -1373,7 +1378,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 #endif
 
 	IteratorType it(hX, index);
-    if (BaseModel::cumulativeGradientAndHessian || BaseModel::hasStrataCrossTerms) { // cox, clr, cpr, sccs
+    if (BaseModel::cumulativeGradientAndHessian) { // cox
         for (; it; ++it) {
             const int k = it.index();
             hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
@@ -1421,7 +1426,7 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
     if (BaseModel::likelihoodHasDenominator) {
         fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
 
-        if (BaseModel::cumulativeGradientAndHessian || BaseModel::hasStrataCrossTerms) { // cox, clr, cpr, sccs
+        if (BaseModel::cumulativeGradientAndHessian) { // cox
             for (size_t k = 0; k < K; ++k) {
                 offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
                 RealType weightoffsExpXBeta =  Weights::isWeighted ?
