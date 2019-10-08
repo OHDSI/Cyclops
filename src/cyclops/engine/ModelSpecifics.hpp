@@ -618,18 +618,25 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 template <class BaseModel,typename RealType>
 double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* weights) {
 
-    std::vector<RealType> saveKWeight;
+    std::vector<double> saveKWeight;
 	if (BaseModel::cumulativeGradientAndHessian)	{
 
- 		saveKWeight = hKWeight; // make copy
+ 		// saveKWeight = hKWeight; // make copy
+	    if (saveKWeight.size() != K) {
+	        saveKWeight.resize(K);
+	    }
+	    for (size_t k = 0; k < K; ++k) {
+	        saveKWeight[k] = hKWeight[k]; // make copy to a double vector
+	    }
 
 		setPidForAccumulation(weights);
+		setWeights(weights, true); // set new weights
 		computeRemainingStatistics(true); // compute accDenomPid
 	}
 
 	RealType logLikelihood = static_cast<RealType>(0.0);
 
-	if (BaseModel::cumulativeGradientAndHessian)	{
+	if (BaseModel::cumulativeGradientAndHessian) {
 	    for (size_t k = 0; k < K; ++k) {
 	        logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], &accDenomPid[0], hPid, k); // TODO Going to crash with ties
 	    }
@@ -640,8 +647,8 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 	}
 
 	if (BaseModel::cumulativeGradientAndHessian) {
-
 		setPidForAccumulation(&saveKWeight[0]);
+	    setWeights(saveKWeight.data(), true); // set old weights
 		computeRemainingStatistics(true);
 	}
 
@@ -1392,7 +1399,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
                 incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
             }
         }
-    } else { // lr, pr
+    } else {
         for (; it; ++it) {
             const int k = it.index();
             hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
@@ -1434,7 +1441,7 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
                     BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
                 incrementByGroup(denomPid.data(), hPid, k, weightoffsExpXBeta); // Update denominators
             }
-        } else { // lr, pr
+        } else {
             for (size_t k = 0; k < K; ++k) {
                 offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
                 incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
