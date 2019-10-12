@@ -494,7 +494,7 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForProcessDeltaKern
 // step between compute grad hess and update XB
 template <class BaseModel, typename RealType, class BaseModelG>
 SourceCode
-GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForProcessDeltaSyncCVKernel(int priorType, bool layoutByPerson) {
+GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForProcessDeltaSyncCVKernel(int priorType) {
     std::string name;
     if (priorType == 0) name = "ProcessDeltaKernelNone";
     if (priorType == 1) name = "ProcessDeltaKernelLaplace";
@@ -540,11 +540,11 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForProcessDeltaSync
 
     code << "	if (lid == 0) {							\n" <<
     		"		__local uint offset;				\n";
-    if (layoutByPerson) {
-		code << "		offset = index * cvIndexStride + cvIndex;			\n";
-    } else {
+//    if (layoutByPerson) {
+//		code << "		offset = index * cvIndexStride + cvIndex;			\n";
+//    } else {
 		code << "		offset = index + J * cvIndex;			\n";
-    }
+//    }
 					code << "		__local REAL grad, hess, beta, delta;		\n" <<
 			"		grad = scratch[0][lid] - XjYVector[offset];		\n" <<
 			"		hess = scratch[1][lid];		\n" <<
@@ -983,11 +983,11 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForComputeXjYKernel
 	code << ReduceBody1<RealType,false>::body();
 
 	code << "		if (lid == 0) {							\n";
-	if (layoutByPerson) {
-		code << "		uint vecOffset = index * cvIndexStride + cvIndex; \n";
-	} else {
+//	if (layoutByPerson) {
+//		code << "		uint vecOffset = index * cvIndexStride + cvIndex; \n";
+//	} else {
 		code << "		uint vecOffset = cvIndex * J + index;			\n";
-	}
+//	}
 	code << "			XjYVector[vecOffset] = scratch[lid];		\n";
 	code << "		}										\n";
 
@@ -1360,11 +1360,11 @@ GpuModelSpecifics<BaseModel, WeightType, BaseModelG>::writeCodeForDoItAllKernel(
 
 
 	code << "	if (lid1 == 0) {	\n";
-    if (layoutByPerson) {
-		code << "	uint offset = index * cvIndexStride + cvIndex;			\n";
-    } else {
+//    if (layoutByPerson) {
+//		code << "	uint offset = index * cvIndexStride + cvIndex;			\n";
+//    } else {
 		code << "	uint offset = index + J * cvIndex;			\n";
-    }
+//    }
     code << "		REAL grad0 = grad[lid0];		\n" <<
 			"		grad0 = grad0 - XjYVector[offset];	\n" <<
 			"		REAL hess0 = hess[lid0];		\n" <<

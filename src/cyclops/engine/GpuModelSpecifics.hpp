@@ -600,7 +600,8 @@ public:
     	if (syncCV) {
     		std::vector<RealType> temp;
     		//temp.resize(J*syncCVFolds, 0.0);
-    		int size = layoutByPerson ? cvIndexStride : syncCVFolds;
+//    		int size = layoutByPerson ? cvIndexStride : syncCVFolds;
+    		int size = syncCVFolds;
     		temp.resize(J * size, 0.0);
     		detail::resizeAndCopyToDevice(temp, dBetaVector, queue);
     	} else {
@@ -934,8 +935,8 @@ public:
     		ModelSpecifics<BaseModel,RealType>::computeXjY(useCrossValidation);
     		detail::resizeAndCopyToDevice(hXjY, dXjY, queue);
     	} else {
-    		int size = layoutByPerson ? cvIndexStride : syncCVFolds;
-
+    		//int size = layoutByPerson ? cvIndexStride : syncCVFolds;
+    		int size = syncCVFolds;
     		dXjYVector.resize(J*size);
 
     		for (int i = FormatType::INTERCEPT; i >= FormatType::DENSE; --i) {
@@ -1958,7 +1959,8 @@ public:
     		std::vector<RealType> temp;
     		//temp.resize(J*syncCVFolds, initialBound);
     		// layout by person
-    		int size = layoutByPerson ? cvIndexStride : syncCVFolds;
+//    		int size = layoutByPerson ? cvIndexStride : syncCVFolds;
+    		int size = syncCVFolds;
     		temp.resize(J*size, initialBound);
     		detail::resizeAndCopyToDevice(temp, dBoundVector, queue);
     	} else {
@@ -2155,7 +2157,7 @@ private:
         options << " -cl-mad-enable";
 
         auto source = writeCodeForEmptyKernel();
-        std::cout << source.body;
+        //std::cout << source.body;
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
         auto kernelSync = compute::kernel(program, source.name);
         kernelEmpty = std::move(kernelSync);
@@ -2180,7 +2182,7 @@ private:
             options << " -cl-mad-enable";
 
         	auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
-        	std::cout << source.body;
+        	//std::cout << source.body;
 
         	// CCD Kernel
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
@@ -2223,7 +2225,7 @@ private:
         		// CCD Kernel
         		// Rcpp::stop("cGH");
         		auto source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia, layoutByPerson);
-//        		std::cout << source.body;
+        		std::cout << source.body;
 //        		if (BaseModelG::useNWeights) {
 //        			source = writeCodeForStratifiedSyncCVGradientHessianKernel(formatType, isNvidia, BaseModel::efron);
 //        			std::cout << source.body;
@@ -2256,7 +2258,7 @@ private:
     	options << " -cl-mad-enable";
 
     	auto source = writeCodeForUpdateXBetaKernel(formatType);
-    	std::cout << source.body;
+//    	std::cout << source.body;
 
     	if (BaseModelG::useNWeights) {
     		//            	source = writeCodeForStratifiedUpdateXBetaKernel(formatType, BaseModel::efron);
@@ -2283,7 +2285,7 @@ private:
     	options << " -cl-mad-enable";
 
     	auto source = writeCodeForSyncUpdateXBetaKernel(formatType, layoutByPerson);
-//    	std::cout << source.body;
+    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	std::cout << "program built\n";
     	auto kernelSync = compute::kernel(program, source.name);
@@ -2309,7 +2311,7 @@ private:
         options << " -cl-mad-enable";
 
     	auto source = writeCodeForProcessDeltaKernel(priorType);
-    	std::cout << source.body;
+//    	std::cout << source.body;
 
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	auto kernel = compute::kernel(program, source.name);
@@ -2327,8 +2329,8 @@ private:
     	}
     	options << " -cl-mad-enable";
 
-    	auto source = writeCodeForProcessDeltaSyncCVKernel(priorType, layoutByPerson);
-//    	std::cout << source.body;
+    	auto source = writeCodeForProcessDeltaSyncCVKernel(priorType);
+    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	auto kernel = compute::kernel(program, source.name);
 
@@ -2429,7 +2431,7 @@ private:
         options << " -cl-mad-enable";
 
          auto source = writeCodeForGetPredLogLikelihood(layoutByPerson);
-         std::cout << source.body;
+//         std::cout << source.body;
          auto program = compute::program::build_with_source(source.body, ctx, options.str());
          auto kernel = compute::kernel(program, source.name);
 
@@ -2455,7 +2457,7 @@ private:
     	options << " -cl-mad-enable";
 
     	auto source = writeCodeForDoItAllNoSyncCVKernel(formatType, priorType);
-    	std::cout << source.body;
+//    	std::cout << source.body;
 
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	auto kernel = compute::kernel(program, source.name);
@@ -2477,7 +2479,7 @@ private:
     		options << " -cl-mad-enable";
 
     		auto source = writeCodeForDoItAllKernel(formatType, priorType, layoutByPerson);
-    		std::cout << source.body;
+//    		std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
     		std::cout << "program built\n";
     		auto kernel = compute::kernel(program, source.name);
@@ -2538,7 +2540,7 @@ private:
 
     SourceCode writeCodeForProcessDeltaKernel(int priorType);
 
-    SourceCode writeCodeForProcessDeltaSyncCVKernel(int priorType, bool layoutByPerson);
+    SourceCode writeCodeForProcessDeltaSyncCVKernel(int priorType);
 
     SourceCode writeCodeForComputeRemainingStatisticsKernel();
 
