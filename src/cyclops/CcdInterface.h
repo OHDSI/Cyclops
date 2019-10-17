@@ -43,6 +43,7 @@ struct CrossValidationArguments {
 	bool doFitAtOptimal;
     double startingVariance;
     SelectorType selectorType;
+    bool syncCV;
 
     CrossValidationArguments() :
         doCrossValidation(false),
@@ -55,7 +56,8 @@ struct CrossValidationArguments {
         cvFileName("cv.txt"),
         doFitAtOptimal(true),
         startingVariance(-1),   // Use default from Genkins et al.
-        selectorType(SelectorType::BY_PID)
+        selectorType(SelectorType::BY_PID),
+		syncCV(false)
         { }
 };
 

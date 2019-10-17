@@ -1002,6 +1002,76 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForComputeXjYKernel
 	return SourceCode(code.str(), name);
 }
 
+// not being used. working?
+template <class BaseModel, typename RealType, class BaseModelG>
+SourceCode
+GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForGetLogLikelihood(bool useWeights, bool isNvidia) {
+    std::string name;
+    if(useWeights) {
+        name = "getLogLikelihoodW";
+    } else {
+        name = "getLogLikelihoodN";
+    }
+
+    std::stringstream code;
+    code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+    code << "__kernel void " << name << "(            \n" <<
+    		"       const uint K,                     \n" <<
+			"		 const uint N,					   \n" <<
+			"       __global const REAL* Y,           \n" <<
+			"       __global const REAL* xBeta,       \n" <<
+			"		 __global const REAL* denominator,				\n" <<
+			"		 __global const REAL* accDenominator,			\n" <<
+			"       __global REAL* buffer,            \n" <<
+			"       __global const REAL* Kweight,	   \n" <<
+			"		 __global const REAL* Nweight) {    \n";    // TODO Make weight optional
+    // Initialization
+
+    code << "   const uint lid = get_local_id(0); \n" <<
+    		"   const uint loopSize = get_global_size(0); \n" <<
+			"   uint task = get_global_id(0);  \n" <<
+			// Local and thread storage
+			"   __local REAL scratch[TPB];  \n" <<
+			"   REAL sum = 0.0; \n";
+
+	code << "   while (task < K) { \n";
+
+    if (useWeights) {
+    	code << "       const REAL wK = Kweight[task];\n";
+    }
+    code << "	const REAL xb = xBeta[task];     \n" <<
+    		"	const REAL y = Y[task];			 \n";
+    code << " sum += " << weightK(BaseModelG::logLikeNumeratorContribG("y","xb"), useWeights) << ";\n";
+
+    if (BaseModel::likelihoodHasDenominator) {
+    	code << "if (task < N) {	\n";
+    	code << " const REAL wN = Nweight[task];\n";
+    	if (BaseModel::cumulativeGradientAndHessian) {
+    		code << "const REAL denom = accDenominator[task];\n";
+    	} else {
+    		code << "const REAL denom = denominator[task];\n";
+    	}
+    	code << "sum -= (REAL) " << BaseModelG::logLikeDenominatorContribG("wN", "denom") << ";\n";
+    	code << "}\n";
+    }
+
+    // Bookkeeping
+    code << "       task += loopSize; \n" <<
+    		"   } \n";
+			// Thread -> local
+			code << "   scratch[lid] = sum; \n";
+    code << (isNvidia ? ReduceBody1<RealType,true>::body() : ReduceBody1<RealType,false>::body());
+
+    code << "   if (lid == 0) { \n" <<
+    		"       buffer[get_group_id(0)] = scratch[0]; \n" <<
+			"   } \n";
+
+    code << "}  \n"; // End of kernel
+    return SourceCode(code.str(), name);
+}
+
+
 template <class BaseModel, typename RealType, class BaseModelG>
 SourceCode
 GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForGetPredLogLikelihood(bool layoutByPerson) {
@@ -1028,11 +1098,11 @@ GpuModelSpecifics<BaseModel, RealType, BaseModelG>::writeCodeForGetPredLogLikeli
 			"	while (task < N) {						\n";
 	if (layoutByPerson) {
 		code << "	uint vecOffset = task * cvIndexStride + cvIndex;	\n";
-		code << "	sum += (XBetaVector[vecOffset] - log(denomPidVector[" << BaseModelG::getGroupG("pIdVector", "task") << " * cvIndexStride + cvIndex])) * Y[task] * weights[task]; \n";
+		code << "	sum += (XBetaVector[vecOffset] ) * Y[task] * weights[task]- log(denomPidVector[" << BaseModelG::getGroupG("pIdVector", "task") << " * cvIndexStride + cvIndex])* weights[task]; \n";
 
 	} else {
 		code << "	uint vecOffset = task + KStride * cvIndex;	\n";
-		code << "	sum += (XBetaVector[vecOffset] - log(denomPidVector[" << BaseModelG::getGroupG("pIdVector", "task") << " + KStride * cvIndex])) * Y[task] * weights[task]; \n";
+		code << "	sum += (XBetaVector[vecOffset] ) * Y[task] * weights[task]- log(denomPidVector[" << BaseModelG::getGroupG("pIdVector", "task") << " + KStride * cvIndex])* weights[task]; \n";
 	}
 	code << "		task += TPB;						\n";
 	code << "	}										\n";

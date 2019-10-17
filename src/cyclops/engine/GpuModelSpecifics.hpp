@@ -493,6 +493,30 @@ public:
     	detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
     }
 
+    virtual void computeFixedTermsInLogLikelihood(bool useCrossValidation) {
+    	ModelSpecifics<BaseModel, RealType>::computeFixedTermsInLogLikelihood(useCrossValidation);
+    }
+
+    // virtual void computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
+    // 	ModelSpecifics<BaseModel, RealType>::computeFixedTermsInGradientAndHessian(useCrossValidation);
+    // }
+
+//    virtual double getLogLikelihood(bool useCrossValidation) {
+////    	std::cout << "get log likelihood: \n";
+//
+//    	hXBeta.resize(K);
+//    	compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
+//
+////    	for (int i=0; i<20; i++) {
+////    		std::cout << hXBeta[i] << " ";
+////    	}
+////    	std::cout << "\n";
+//
+//    	double result = ModelSpecifics<BaseModel, RealType>::getLogLikelihood(useCrossValidation);
+//    	std::cout << result << "\n";
+//    	return result;
+//    }
+
     // set syncCV weights
 
     virtual void setWeights(double* inWeights, bool useCrossValidation, int cvIndex) {
@@ -980,6 +1004,69 @@ public:
     	}
     }
 
+    // using kernel, should let modelspecifics handle maybe
+    double getLogLikelihood(bool useCrossValidation) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    	auto start = bsccs::chrono::steady_clock::now();
+#endif
+        auto& kernel = (useCrossValidation) ? // Double-dispatch
+                            kernelGetLogLikelihoodWeighted :
+							kernelGetLogLikelihoodNoWeight;
+
+        const auto wgs = maxWgs;
+        const auto globalWorkSize = tpb * wgs;
+
+        int dK = K;
+        int dN = N;
+        // Run-time constant arguments.
+        kernel.set_arg(0, dK);
+        kernel.set_arg(1, dN);
+        kernel.set_arg(2, dY);
+        kernel.set_arg(3, dXBeta);
+        kernel.set_arg(4, dDenominator);
+        kernel.set_arg(5, dAccDenominator);
+        if (dBuffer.size() < wgs) {
+        	dBuffer.resize(wgs, queue);
+        }
+        kernel.set_arg(6, dBuffer); // Can get reallocated.
+        if (dKWeight.size() == 0) {
+        	kernel.set_arg(7, 0);
+        } else {
+        	kernel.set_arg(7, dKWeight); // TODO Only when dKWeight gets reallocated
+        }
+        if (dNWeight.size() == 0) {
+        	kernel.set_arg(7, 0);
+        } else {
+        	kernel.set_arg(8, dNWeight); // TODO Only when dKWeight gets reallocated
+        }
+
+        queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, tpb);
+        queue.finish();
+
+        hBuffer.resize(wgs);
+        compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+
+        double logLikelihood = 0.0;
+
+        for (int i = 0; i < wgs; ++i) { // TODO Use SSE
+        	logLikelihood += hBuffer[i];
+        }
+
+        if (BaseModel::likelihoodHasFixedTerms) {
+        	logLikelihood += logLikelihoodFixedTerm;
+        }
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        duration["compLogLikeG      "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+        return(logLikelihood);
+    }
+
+
     // letting cpu handle
         double getPredictiveLogLikelihood(double* weights, int cvIndex) {
     #ifdef CYCLOPS_DEBUG_TIMING
@@ -1121,7 +1208,7 @@ public:
 
     	}
 
-    	if (useWeights) {
+    	if (syncCV) {
     		if (dBuffer.size() < 2*wgs*syncCVFolds) {
     			dBuffer.resize(2*wgs*syncCVFolds);
     		}
@@ -1357,7 +1444,8 @@ public:
 #endif
     			FormatType formatType = hX.getFormatType(index);
 
-    			auto& kernel = kernelGradientHessianNoWeight[formatType];
+    			auto& kernel = useWeights ? kernelGradientHessianWeighted[formatType] :
+    			kernelGradientHessianNoWeight[formatType];
 
     			const auto taskCount = dColumns.getTaskCount(index);
 
@@ -1587,7 +1675,7 @@ public:
     				continue;
     			}
 
-    			if (useWeights) {
+    			if (syncCV) {
 
     				auto& kernel = kernelDoItAll[formatType*3+priorType];
     				//const auto taskCount = dColumns.getTaskCount(index);
@@ -2026,8 +2114,8 @@ private:
         std::cout << "built updateXBeta kernels \n";
 //        buildAllGetGradientObjectiveKernels();
 //        std::cout << "built getGradObjective kernels \n";
-//        buildAllGetLogLikelihoodKernels();
-//        std::cout << "built getLogLikelihood kernels \n";
+        buildAllGetLogLikelihoodKernels();
+        std::cout << "built getLogLikelihood kernels \n";
         buildAllComputeRemainingStatisticsKernels();
         std::cout << "built computeRemainingStatistics kernels \n";
         buildEmptyKernel();
@@ -2119,6 +2207,12 @@ private:
     	for (FormatType formatType : neededFormatTypes) {
     		buildXjYKernel(formatType); ++b;
     	}
+    }
+
+    void buildAllGetLogLikelihoodKernels() {
+        int b = 0;
+    	buildGetLogLikelihoodKernel(true); ++b;
+    	buildGetLogLikelihoodKernel(false); ++b;
     }
 
     void buildPredLogLikelihoodKernel() {
@@ -2413,6 +2507,32 @@ private:
          kernelComputeXjY[formatType] = std::move(kernel);
     }
 
+    void buildGetLogLikelihoodKernel(bool useWeights) {
+    	std::stringstream options;
+        if (double_precision) {
+        	options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+        } else {
+            options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+        }
+        options << " -cl-mad-enable";
+
+         bool isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+         isNvidia = false;
+
+         auto source = writeCodeForGetLogLikelihood(useWeights, isNvidia);
+         std::cout << source.body;
+         auto program = compute::program::build_with_source(source.body, ctx, options.str());
+         auto kernel = compute::kernel(program, source.name);
+
+         // Run-time constant arguments.
+
+         if (useWeights) {
+             kernelGetLogLikelihoodWeighted = std::move(kernel);
+         } else {
+        	 kernelGetLogLikelihoodNoWeight = std::move(kernel);
+         }
+    }
+
     void buildGetPredLogLikelihoodKernel() {
     	std::stringstream options;
         if (double_precision) {
@@ -2548,6 +2668,8 @@ private:
 
     SourceCode writeCodeForComputeXjYKernel(FormatType formatType, bool layoutByPerson);
 
+    SourceCode writeCodeForGetLogLikelihood(bool useWeights, bool isNvidia);
+
     SourceCode writeCodeForGetPredLogLikelihood(bool layoutByPerson);
 
     SourceCode writeCodeForDoItAllNoSyncCVKernel(FormatType formatType, int priorType);
@@ -2599,6 +2721,8 @@ private:
     compute::kernel kernelComputeRemainingStatistics;
     compute::kernel kernelGetGradientObjectiveSync;
     compute::kernel kernelComputeRemainingStatisticsSync;
+    compute::kernel kernelGetLogLikelihoodWeighted;
+    compute::kernel kernelGetLogLikelihoodNoWeight;
     compute::kernel kernelGetPredLogLikelihood;
     compute::kernel kernelEmpty;
 
@@ -3162,14 +3286,15 @@ public:
     // outputs logLikeDenominatorContrib
     std::string logLikeDenominatorContribG(
     		const std::string& ni, const std::string& denom) {
-    	std::stringstream code;
-    	code << "REAL logLikeDenominatorContrib;";
-    	code << "if (" + ni + " == (REAL)0.0)  {";
-    	code << "	logLikeDenominatorContrib = 0.0;";
-    	code << "} else {";
-    	code << "	logLikeDenominatorContrib = " + ni + "* log((" + denom + "- (REAL)1.0)/" + ni + "+ (REAL)1.0);";
-    	code << "}";
-    	return(code.str());
+//    	std::stringstream code;
+//    	code << "REAL logLikeDenominatorContrib;";
+//    	code << "if (" + ni + " == (REAL)0.0)  {";
+//    	code << "	logLikeDenominatorContrib = 0.0;";
+//    	code << "} else {";
+//    	code << "	logLikeDenominatorContrib = " + ni + "* log((" + denom + "- (REAL)1.0)/" + ni + "+ (REAL)1.0);";
+//    	code << "}";
+//    	return(code.str());
+    	return ni + "*" + "log(" + denom + ")";
 	}
 
 	std::string logPredLikeContribG(
@@ -3275,7 +3400,8 @@ public:
 		return("");
 	}
 
-	std::string logLikeNumeratorContribG() {
+	std::string logLikeNumeratorContribG(
+			const std::string& yi, const std::string& xBetai) {
 		std::stringstream code;
 		code << "(y-xb)*(y-xb)";
 		return(code.str());

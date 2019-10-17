@@ -488,7 +488,8 @@ createControl <- function(maxIterations = 1000,
                           initialBound = 2.0,
                           maxBoundCount = 5,
                           algorithm = "ccd",
-                          doItAll = TRUE) {
+                          doItAll = TRUE,
+                          syncCV = FALSE) {
     validCVNames = c("grid", "auto")
     stopifnot(cvType %in% validCVNames)
 
@@ -522,7 +523,8 @@ createControl <- function(maxIterations = 1000,
                    initialBound = initialBound,
                    maxBoundCount = maxBoundCount,
                    algorithm = algorithm,
-                   doItAll = doItAll),
+                   doItAll = doItAll,
+                   syncCV = syncCV),
               class = "cyclopsControl")
 }
 
@@ -680,7 +682,7 @@ getCrossValidationInfo <- function(object) {
                            control$noiseLevel, control$threads, control$seed, control$resetCoefficients,
                            control$startingVariance, control$useKKTSwindle, control$tuneSwindle,
                            control$selectorType, control$initialBound, control$maxBoundCount,
-                           control$algorithm, control$doItAll
+                           control$algorithm, control$doItAll, control$syncCV
                           )
     }
 }

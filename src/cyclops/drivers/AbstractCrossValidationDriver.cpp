@@ -34,7 +34,7 @@ void AbstractCrossValidationDriver::resetForOptimal(
 		const CCDArguments& arguments) {
 
 	// turn off syncCV for calculation of single GPU model
-	if (ccd.GPU()) {
+	if (ccd.GPU() && arguments.crossValidation.syncCV) {
 		ccd.turnOffSyncCV();
 	}
 
@@ -67,7 +67,8 @@ void AbstractCrossValidationDriver::drive(
 	stream2 << "Using " << nThreads << " thread(s)";
 	logger->writeLine(stream2);
 
-	if (ccd.GPU()) {
+	if (ccd.GPU() && allArguments.crossValidation.syncCV) {
+//	if (false) {
 		ccd.turnOnSyncCV(allArguments.crossValidation.foldToCompute);
 		nThreads = 1;
 	}
@@ -154,7 +155,8 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 	predLogLikelihood.resize(arguments.foldToCompute);
 
 	// GPU using syncCV
-	if (ccd.GPU()) {
+	//if (false) {
+	if (ccd.GPU() && allArguments.crossValidation.syncCV) {
 		int repetitions = arguments.foldToCompute / arguments.fold;
 
 		// set weights
