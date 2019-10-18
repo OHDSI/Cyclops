@@ -1251,6 +1251,8 @@ void CyclicCoordinateDescent::findMode(
     }
 
 	lastIterationCount = iteration;
+	std::cout << "iterations: " << lastIterationCount << " ";
+
 	updateCount += 1;
 
 	modelSpecifics.printTiming();
