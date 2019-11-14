@@ -36,18 +36,30 @@ using std::stringstream;
 
 namespace bsccs {
 
+    template <typename RealType>
 class InputReader {
 public:
 //     InputReader();
 
-	InputReader(
-		loggers::ProgressLoggerPtr _logger,
-	    loggers::ErrorHandlerPtr _error
-	);
+//	InputReader(
+//		loggers::ProgressLoggerPtr _logger,
+//	    loggers::ErrorHandlerPtr _error
+//	);
 
-	virtual ~InputReader();
+        InputReader(
+                loggers::ProgressLoggerPtr _logger,
+                loggers::ErrorHandlerPtr _error
+        ) : logger(_logger), error(_error), modelData(new ModelData<RealType>(ModelType::NONE, _logger, _error)), deleteModelData(true) {
+            // Do nothing
+        }
 
-	virtual void readFile(const char* fileName) = 0;
+	virtual ~InputReader() {
+            if (deleteModelData) {
+                delete modelData;
+            }
+        }
+
+        virtual void readFile(const char* fileName) = 0;
 
 	AbstractModelData* getModelData() {
 		// TODO Use smart pointer
@@ -56,7 +68,14 @@ public:
 	}
 
 protected:
-	bool listContains(const vector<IdType>& list, IdType value);
+//	bool listContains(const vector<IdType>& list, IdType value);
+
+        bool listContains(const vector<IdType>& list, IdType value) {
+            return (find(list.begin(), list.end(), value)
+                    !=  list.end());
+        }
+
+
 
 	void split( vector<string> & theStringVector,  /* Altered/returned value */
 	       const  string  & theString,
@@ -104,7 +123,7 @@ protected:
 	loggers::ProgressLoggerPtr logger;
 	loggers::ErrorHandlerPtr error;
 
-	ModelData<double>* modelData;
+	ModelData<RealType>* modelData;
 	bool deleteModelData;
 };
 

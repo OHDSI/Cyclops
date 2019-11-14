@@ -13,12 +13,12 @@
 
 namespace bsccs {
 
-class NewGenericInputReader : public BaseInputReader<NewGenericInputReader> {
+class NewGenericInputReader : public BaseInputReader<double, NewGenericInputReader> {
 public:
 
 	NewGenericInputReader(
 		loggers::ProgressLoggerPtr logger,
-		loggers::ErrorHandlerPtr error) : BaseInputReader<NewGenericInputReader>(logger, error)
+		loggers::ErrorHandlerPtr error) : BaseInputReader<double, NewGenericInputReader>(logger, error)
 		, upcastToDense(false)
 		, upcastToSparse(false)
 		, useBBROutcome(false)
@@ -55,7 +55,7 @@ public:
 // 	}
 
 	NewGenericInputReader(const bsccs::ModelType model,
-			loggers::ProgressLoggerPtr logger, loggers::ErrorHandlerPtr error) : BaseInputReader<NewGenericInputReader>(logger, error)
+			loggers::ProgressLoggerPtr logger, loggers::ErrorHandlerPtr error) : BaseInputReader<double, NewGenericInputReader>(logger, error)
 		, upcastToDense(false)
 		, upcastToSparse(false)
 		, useBBROutcome(false)
@@ -84,7 +84,7 @@ public:
 		}
 	}
 
-	inline void parseRow(stringstream& ss, RowInformation& rowInfo) {
+	inline void parseRow(stringstream& ss, RowInformation<double>& rowInfo) {
 
 		if (includeRowLabel) {
 			parseRowLabel(ss, rowInfo);
@@ -101,13 +101,13 @@ public:
 		}
 
 		if (includeCensoredData) {
-			parseSingleTimeEntry<double>(ss, rowInfo);
+			parseSingleTimeEntry(ss, rowInfo);
 		}
 
 		if (useBBROutcome) {
-			parseSingleBBROutcomeEntry<int>(ss, rowInfo);
+			parseSingleBBROutcomeEntry(ss, rowInfo);
 		} else {
-			parseSingleOutcomeEntry<int>(ss, rowInfo);
+			parseSingleOutcomeEntry(ss, rowInfo);
 		}
 
 		if (includeSCCSOffset) {
@@ -166,7 +166,7 @@ public:
 		}
 	}
 
-	void upcastColumns(ModelData<double>* modelData, RowInformation& rowInfo) {
+	void upcastColumns(ModelData<double>* modelData, RowInformation<double>& rowInfo) {
 		if (upcastToSparse) {
 			std::ostringstream stream;
 			stream << "Going to up-cast all columns to sparse!";

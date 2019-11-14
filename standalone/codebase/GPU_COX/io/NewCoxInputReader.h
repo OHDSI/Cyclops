@@ -14,17 +14,24 @@
 
 namespace bsccs {
 
-class NewCoxInputReader : public BaseInputReader<NewCoxInputReader> {
+    template <typename RealType>
+class NewCoxInputReader : public BaseInputReader<RealType, NewCoxInputReader<RealType>> {
 public:
+
+    using BaseInputReader<RealType, NewCoxInputReader<RealType>>::addEventEntry;
+    using BaseInputReader<RealType, NewCoxInputReader<RealType>>::modelData;
+    using BaseInputReader<RealType, NewCoxInputReader<RealType>>::parseSingleTimeEntry;
+    using BaseInputReader<RealType, NewCoxInputReader<RealType>>::parseSingleOutcomeEntry;
+    using BaseInputReader<RealType, NewCoxInputReader<RealType>>::parseAllBBRCovariatesEntry;
 
 	NewCoxInputReader(
 		loggers::ProgressLoggerPtr _logger,
-		loggers::ErrorHandlerPtr _error) : BaseInputReader<NewCoxInputReader>(_logger, _error),
+		loggers::ErrorHandlerPtr _error) : BaseInputReader<RealType, NewCoxInputReader<RealType>>(_logger, _error),
                                            hasWeights(false), castToDense(false) {
 		// Do nothing	
 	}
 
-    void parseNoStratumEntry(stringstream& ss, RowInformation& rowInfo) {
+    void parseNoStratumEntry(stringstream& ss, RowInformation<RealType>& rowInfo) {
         addEventEntry(1);
         push_back_pid(*modelData, 1);
         //modelData->pid.push_back(rowInfo.numCases);
@@ -32,16 +39,17 @@ public:
     }
 
     template <typename T>
-    inline void parseWeightEntry(stringstream& ss, RowInformation& rowInfo) {
+    inline void parseWeightEntry(stringstream& ss, RowInformation<RealType>& rowInfo) {
         T thisY;
         ss >> thisY;
         push_back_z(*modelData, thisY);
     }
 
-    inline void parseRow(stringstream& ss, RowInformation& rowInfo) {
-        parseNoStratumEntry(ss, rowInfo);
-        parseSingleTimeEntry<double>(ss, rowInfo);
-        parseSingleOutcomeEntry<int>(ss, rowInfo);
+    inline void parseRow(stringstream& ss, RowInformation<RealType>& rowInfo) {
+//	    std::cout << "parseRow in newcoxreader" << '\n';
+        parseNoStratumEntry(ss, rowInfo); // push_back_nevents & push_back_pid
+        parseSingleTimeEntry(ss, rowInfo); // push_back_offs
+        parseSingleOutcomeEntry(ss, rowInfo); // push_back_y
         if (hasWeights) {
             parseWeightEntry<double>(ss, rowInfo);
         }
@@ -61,7 +69,7 @@ public:
         }
     }
 
-    void upcastColumns(ModelData<double>* modelData, RowInformation& rowInfo) {
+    void upcastColumns(ModelData<RealType>* modelData, RowInformation<RealType>& rowInfo) {
         if (castToDense) {
             cerr << "Going to up-cast all columns to dense!" << endl;
             modelData->convertAllCovariatesToDense(rowInfo.currentRow);

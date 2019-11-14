@@ -630,6 +630,13 @@ void ModelData<RealType>::convertCovariateToDense(const IdType covariate) {
 }
 
 template <typename RealType>
+void ModelData<RealType>::convertAllCovariatesToDense(int length) {
+    for (int index = 0; index < getNumberOfColumns(); ++index) {
+        X.getColumn(index).convertColumnToDense(length);
+    }
+}
+
+template <typename RealType>
 void ModelData<RealType>::setOffsetCovariate(const IdType covariate) {
     int index;
     if (covariate == -1) { // TODO  Bad, magic number

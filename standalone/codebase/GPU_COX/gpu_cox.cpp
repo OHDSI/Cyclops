@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
 // 	interface.parseCommandLine(argc, argv, arguments);
 
 	double timeInitialize = interface.initializeModel(&modelData, &ccd, &model);
-
+	std::cout << "FINISH timeInitialize" << '\n';
 	double timeUpdate;
 	if (arguments.crossValidation.doCrossValidation) {
 		timeUpdate = interface.runCrossValidation(ccd, modelData);

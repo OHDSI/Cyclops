@@ -17,12 +17,13 @@
 //#define USE_LOG_SUM
 #define TIME_DEBUG
 
-#include <Rcpp.h>
+//#include <Rcpp.h>
 
 #include "ModelSpecifics.h"
 #include "Iterators.h"
 
 #include <boost/compute/algorithm/reduce.hpp>
+#include <boost/compute/algorithm/inclusive_scan.hpp>
 
 namespace bsccs {
 
@@ -65,7 +66,7 @@ void compare(const HostVec& host, const DeviceVec& device, const std::string& er
     }
     if (!valid) {
         //forward_exception_to_r(error);
-        Rcpp::stop(error);
+//        Rcpp::stop(error);
         // throw new std::logic_error(error);
     }
 }
@@ -384,9 +385,10 @@ public:
 
     virtual void deviceInitialization() {
     	RealType blah = 0;
-    	if (sizeof(blah)==8) {
-    		double_precision = true;
-    	}
+        std::cout << "deviceInitialization sizeof(blah) = " << sizeof(blah) << '\n';
+//    	if (sizeof(blah)==8) {
+//    		double_precision = true;
+//    	}
 
 #ifdef TIME_DEBUG
         std::cerr << "start dI" << std::endl;
@@ -491,15 +493,20 @@ public:
 
     	detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
     	detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
+    	// std::cout << "GPUMS hKWeight" ;
+    	// for (auto x : hKWeight ){
+    	//     std::cout << x ;
+    	// }
+    	// std::cout << '\n';
     }
 
     virtual void computeFixedTermsInLogLikelihood(bool useCrossValidation) {
     	ModelSpecifics<BaseModel, RealType>::computeFixedTermsInLogLikelihood(useCrossValidation);
     }
 
-    // virtual void computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
-    // 	ModelSpecifics<BaseModel, RealType>::computeFixedTermsInGradientAndHessian(useCrossValidation);
-    // }
+//     virtual void computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
+//     	ModelSpecifics<BaseModel, RealType>::computeFixedTermsInGradientAndHessian(useCrossValidation);
+//     }
 
 //    virtual double getLogLikelihood(bool useCrossValidation) {
 ////    	std::cout << "get log likelihood: \n";
@@ -665,7 +672,7 @@ public:
     }
 
     virtual void computeRemainingStatistics(bool useWeights) {
-        //std::cerr << "GPU::cRS called" << std::endl;
+        std::cerr << "S GPU::cRS called" << std::endl;
     	if (syncCV) {
 #ifdef CYCLOPS_DEBUG_TIMING
     		auto start = bsccs::chrono::steady_clock::now();
@@ -778,23 +785,61 @@ public:
     		queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, localWorkSize);
     		queue.finish();
 
-    		//    		std::vector<RealType> hDenominator;
-    		//    		hDenominator.resize(dDenominator.size());
-    		//    		compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(hDenominator), queue);
-    		//    		std::cout << "denom: ";
-    		//    		for (auto x:hDenominator) {
-    		//    		    std::cout << x << " ";
-    		//    		}
-    		//    		std::cout << "\n";
+            std::vector<RealType> hxb;
+            hxb.resize(dXBeta.size());
+            compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hxb), queue);
+            std::cout << "dXBeta: ";
+            for (auto x:hxb) {
+                std::cout << x << " ";
+            }
+            std::cout << "\n";
 
+            std::vector<RealType> hexb;
+            hexb.resize(dExpXBeta.size());
+            compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(hexb), queue);
+            std::cout << "dExpXBeta: ";
+            for (auto x:hexb) {
+                std::cout << x << " ";
+            }
+            std::cout << "\n";
 
+            if (BaseModel::cumulativeGradientAndHessian) { //cox
+                computeAccumlatedDenominator(true);
+            }
 #ifdef CYCLOPS_DEBUG_TIMING
     		auto end = bsccs::chrono::steady_clock::now();
     		///////////////////////////"
     		duration["compRSG          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
 #endif
     	}
+        std::cerr << "E GPU::cRS called" << std::endl;
     }
+
+    virtual void computeAccumlatedDenominator(bool useWeights) {
+
+//        inclusive_scan(std::begin(dDenominator), std::end(dDenominator), std::begin(dAccDenominator), queue);
+
+        // print dDenominator
+        std::vector<RealType> hd;
+        hd.resize(dDenominator.size());
+        compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(hd), queue);
+        std::cout << "dDenominator: ";
+        for (auto x:hd) {
+            std::cout << x << " ";
+        }
+        std::cout << "\n";
+
+        // print dAccDenominator
+        std::vector<RealType> haccd;
+        haccd.resize(dAccDenominator.size());
+        compute::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(haccd), queue);
+        std::cout << "dAccDenominator: ";
+        for (auto x:haccd) {
+            std::cout << x << " ";
+        }
+        std::cout << "\n";
+    }
+
 
     // letting modelspecifics handle it, but kernel available
        virtual double getGradientObjective(bool useCrossValidation) {
@@ -956,6 +1001,7 @@ public:
 
     void computeXjY(bool useCrossValidation) {
     	if (!syncCV) {
+//    	    std::cout << "computeXjY !syncCV" << '\n';
     		ModelSpecifics<BaseModel,RealType>::computeXjY(useCrossValidation);
     		detail::resizeAndCopyToDevice(hXjY, dXjY, queue);
     	} else {
@@ -1172,6 +1218,254 @@ public:
 
     }
 
+    virtual void runCCDOrderedWithTies(bool useWeights) {
+        int wgs = maxWgs; // for reduction across strata
+
+        // std::cout << "START runCCDOrderedWithTies" << '\n';
+        if (!initialized) {
+            initialized = true;
+
+            //    		std::cout << "dKWeight size: " << dKWeightVector.size() << "\n";
+            //			hBuffer.resize(dKWeightVector.size());
+            //			compute::copy(std::begin(dKWeightVector), std::begin(dKWeightVector)+dKWeightVector.size(), std::begin(hBuffer), queue);
+            //			std::cout << "dKWeightVector: ";
+            //			for (auto x:hBuffer) {
+            //				std::cout << x << " ";
+            //			}
+            //			std::cout << "\n";
+            //
+            //    		std::cout << "dXBetaVector size: " << dXBetaVector.size() << "\n";
+            //			hBuffer.resize(dXBetaVector.size());
+            //			compute::copy(std::begin(dXBetaVector), std::begin(dXBetaVector)+dXBetaVector.size(), std::begin(hBuffer), queue);
+            //			std::cout << "dXBetaVector: ";
+            //			for (auto x:hBuffer) {
+            //				std::cout << x << " ";
+            //			;}
+            //			std::cout << "\n";
+            //
+            //    		std::cout << "dXjYVector size: " << dXjYVector.size() << "\n";
+            //			hBuffer.resize(dXjYVector.size());
+            //			compute::copy(std::begin(dXjYVector), std::begin(dXjYVector)+dXjYVector.size(), std::begin(hBuffer), queue);
+            //			std::cout << "dXjYVector: ";
+            //			for (auto x:hBuffer) {
+            //				std::cout << x << " ";
+            //			}
+            //			std::cout << "\n";
+
+
+        }
+
+        if (syncCV) {
+
+        } else {
+            if (dBuffer.size() < 2*wgs) {
+                dBuffer.resize(2*wgs);
+            }
+
+            for (int index = 0; index < J; index++) {
+
+                ////////////////////////// Compute Gradient and Hessian
+#ifdef CYCLOPS_DEBUG_TIMING
+                auto start = bsccs::chrono::steady_clock::now();
+#endif
+                FormatType formatType = hX.getFormatType(index);
+
+                auto& kernel = useWeights ? kernelGradientHessianWeighted[formatType] :
+                    kernelGradientHessianNoWeight[formatType];
+
+                const auto taskCount = dColumns.getTaskCount(index);
+
+                //std::cout << "kernel 0 called\n";
+                kernel.set_arg(0, dColumns.getDataOffset(index));
+                kernel.set_arg(1, dColumns.getIndicesOffset(index));
+                kernel.set_arg(2, taskCount);
+                kernel.set_arg(3, dColumns.getData());
+                kernel.set_arg(4, dColumns.getIndices());
+                kernel.set_arg(5, dY);
+                kernel.set_arg(6, dXBeta);
+                kernel.set_arg(7, dExpXBeta);
+                kernel.set_arg(8, dAccDenominator);
+                kernel.set_arg(9, dBuffer);
+                kernel.set_arg(10, dId);
+                kernel.set_arg(11, dKWeight);
+
+                size_t globalWorkSize = wgs*tpb;
+                size_t localWorkSize = tpb;
+
+#ifdef CYCLOPS_DEBUG_TIMING
+                auto end = bsccs::chrono::steady_clock::now();
+                ///////////////////////////"
+                auto name = "compGradHessArgsG" + getFormatTypeExtension(formatType) + " ";
+                duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+                // run kernel
+#ifdef CYCLOPS_DEBUG_TIMING
+                start = bsccs::chrono::steady_clock::now();
+#endif
+                queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, localWorkSize);
+                //    			queue.finish();
+#ifdef CYCLOPS_DEBUG_TIMING
+                end = bsccs::chrono::steady_clock::now();
+                ///////////////////////////"
+                name = "compGradHessKernelG" + getFormatTypeExtension(formatType) + " ";
+                duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+                // std::vector<RealType> haccd;
+                // haccd.resize(dAccDenominator.size());
+                // compute::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(haccd), queue);
+                // std::cout << "haccd: ";
+                // for (auto x:haccd) {
+                //     std::cout << x << " ";
+                // }
+                // std::cout << "\n";
+
+                ////////////////////////// Start Process Delta
+#ifdef CYCLOPS_DEBUG_TIMING
+                start = bsccs::chrono::steady_clock::now();
+#endif
+
+                //    			hBuffer.resize(J);
+                //    			compute::copy(std::begin(dPriorParams), std::begin(dPriorParams)+J, std::begin(hBuffer), queue);
+                //    			std::cout << "priors: ";
+                //    			for (auto x:hBuffer) {
+                //    				std::cout << x << " ";
+                //    			}
+                //    			std::cout << "\n";
+
+
+                int priorType = priorTypes[index];
+                auto& kernel1 = kernelProcessDeltaBuffer[priorType];
+
+                kernel1.set_arg(0, dBuffer);
+                if (dDeltaVector.size() < J) {
+                    dDeltaVector.resize(J);
+                }
+                kernel1.set_arg(1, dDeltaVector);
+                kernel1.set_arg(2, wgs);
+                kernel1.set_arg(3, dBound);
+                kernel1.set_arg(4, dPriorParams);
+                kernel1.set_arg(5, dXjY);
+                kernel1.set_arg(6, index);
+                kernel1.set_arg(7, dBeta);
+                //int dN = N;
+                kernel1.set_arg(8, wgs);
+#ifdef CYCLOPS_DEBUG_TIMING
+                end = bsccs::chrono::steady_clock::now();
+                ///////////////////////////"
+                name = "compProcessDeltaArgsG" + getFormatTypeExtension(formatType) + " ";
+                duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+                ///////// run kernel
+#ifdef CYCLOPS_DEBUG_TIMING
+                start = bsccs::chrono::steady_clock::now();
+#endif
+
+                queue.enqueue_1d_range_kernel(kernel1, 0, tpb, tpb);
+                //    			queue.finish();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+                end = bsccs::chrono::steady_clock::now();
+                ///////////////////////////"
+                name = "compProcessDeltaKernelG" + getFormatTypeExtension(formatType) + " ";
+                duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+                //    			hBuffer.resize(J);
+                //    			compute::copy(std::begin(dBuffer), std::begin(dBuffer)+2*wgs, std::begin(hBuffer), queue);
+                //    			compute::copy(std::begin(dDeltaVector), std::begin(dDeltaVector)+J, std::begin(hBuffer), queue);
+                //    			std::cout << "delta " << index << ": " << hBuffer[index] << "\n";
+                //    			std::cout << "hBuffer: ";
+                //    			for (auto x:hBuffer) {
+                //    				std::cout << x << " ";
+                //    			}
+                //    			std::cout << "\n";
+
+                ////////////////// Start update XBeta
+
+#ifdef CYCLOPS_DEBUG_TIMING
+                start = bsccs::chrono::steady_clock::now();
+#endif
+
+                auto& kernel2 = kernelUpdateXBeta[formatType];
+
+                kernel2.set_arg(0, dColumns.getDataOffset(index));
+                kernel2.set_arg(1, dColumns.getIndicesOffset(index));
+                kernel2.set_arg(2, taskCount);
+                kernel2.set_arg(3, dDeltaVector);
+                kernel2.set_arg(4, dColumns.getData());
+                kernel2.set_arg(5, dColumns.getIndices());
+                kernel2.set_arg(6, dY);
+                kernel2.set_arg(7, dXBeta);
+                kernel2.set_arg(8, dExpXBeta);
+                kernel2.set_arg(9, dDenominator);
+                kernel2.set_arg(10, dId);
+                kernel2.set_arg(11, index);
+
+                // set work size; no looping
+                size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
+                if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+                    ++workGroups;
+                }
+                //size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+
+                //localWorkSize = detail::constant::updateXBetaBlockSize;
+                //globalWorkSize = workGroups * localWorkSize;
+                localWorkSize = tpb;
+                globalWorkSize = wgs*tpb;
+
+#ifdef CYCLOPS_DEBUG_TIMING
+                end = bsccs::chrono::steady_clock::now();
+                ///////////////////////////"
+                name = "compUpdateXBetaArgsG" + getFormatTypeExtension(formatType) + " ";
+                duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+                start = bsccs::chrono::steady_clock::now();
+#endif
+
+                // run kernel
+                queue.enqueue_1d_range_kernel(kernel2, 0, globalWorkSize, localWorkSize);
+                //			 queue.finish();
+
+                hXBetaKnown = false; // dXBeta was just updated
+#ifdef CYCLOPS_DEBUG_TIMING
+                end = bsccs::chrono::steady_clock::now();
+                ///////////////////////////"
+                name = "compUpdateXBetaKernelG" + getFormatTypeExtension(formatType) + " ";
+                duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+                //			 ////// EMPTY KERNEL
+                //#ifdef CYCLOPS_DEBUG_TIMING
+                //    			start = bsccs::chrono::steady_clock::now();
+                //#endif
+                //    			auto& kernel3 = kernelEmpty;
+                //    			kernel3.set_arg(0, 1);
+                //    			queue.enqueue_1d_range_kernel(kernel3, 0, wgs*tpb, tpb);
+                ////    			queue.finish();
+                //#ifdef CYCLOPS_DEBUG_TIMING
+                //    			end = bsccs::chrono::steady_clock::now();
+                //    			///////////////////////////"
+                //    			name = "emptyKernelG" + getFormatTypeExtension(formatType) + " ";
+                //    			duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+                //#endif
+
+                //			 hBuffer.resize(100);
+                //			 compute::copy(std::begin(dXBeta), std::begin(dXBeta)+100, std::begin(hBuffer), queue);
+                //			 std::cout << "xBeta: ";
+                //			 for (auto x:hBuffer) {
+                //				 std::cout << x << " ";
+                //			 }
+                //			 std::cout << "\n";
+            }
+        }
+        //queue.finish();
+        // std::cout << "END runCCDOrderedWithTies" << '\n';
+    }
+
     virtual void runCCDNonStratified1(bool useWeights) {
     	int wgs = maxWgs; // for reduction across strata
 
@@ -1193,7 +1487,7 @@ public:
 //			std::cout << "dXBetaVector: ";
 //			for (auto x:hBuffer) {
 //				std::cout << x << " ";
-//			}
+//			;}
 //			std::cout << "\n";
 //
 //    		std::cout << "dXjYVector size: " << dXjYVector.size() << "\n";
@@ -1633,6 +1927,7 @@ public:
     }
 
     virtual void runCCDNonStratified(bool useWeights) {
+        std::cout << "START runCCDNonStratified" << '\n';
     	if (!initialized) {
     		initialized = true;
     		std::vector<int> hIndexListWithPrior[12];
@@ -1853,6 +2148,7 @@ public:
     			}
     		}
     	}
+    	std::cout << "END runCCDNonStratified" << '\n';
     }
 
     virtual void runCCD(bool useWeights, bool doItAll) {
@@ -1861,8 +2157,11 @@ public:
 
     	 if (BaseModel::exactCLR) {
     		 runCCDexactCLR(useWeights);
-    	 } else if (BaseModelG::useNWeights) {
+    	 } else if (BaseModelG::useNWeights) { // clr
     		 runCCDStratified(useWeights);
+    	 } else if (BaseModel::cumulativeGradientAndHessian) { // cox
+//    	     runCCDNonStratified(useWeights);
+    	     runCCDOrderedWithTies(useWeights);
     	 } else {
     		 if (doItAll) {
     			 runCCDNonStratified(useWeights);
@@ -2275,8 +2574,8 @@ private:
             }
             options << " -cl-mad-enable";
 
-        	auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
-        	//std::cout << source.body;
+            auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
+            // std::cout << source.body;
 
         	// CCD Kernel
         	auto program = compute::program::build_with_source(source.body, ctx, options.str());
@@ -2319,13 +2618,13 @@ private:
         		// CCD Kernel
         		// Rcpp::stop("cGH");
         		auto source = writeCodeForSyncCVGradientHessianKernel(formatType, isNvidia, layoutByPerson);
-        		std::cout << source.body;
+//        		std::cout << source.body;
 //        		if (BaseModelG::useNWeights) {
 //        			source = writeCodeForStratifiedSyncCVGradientHessianKernel(formatType, isNvidia, BaseModel::efron);
 //        			std::cout << source.body;
 //        		}
         		auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        		std::cout << "program built\n";
+        		// std::cout << "program built\n";
         		auto kernelSync = compute::kernel(program, source.name);
         		kernelGradientHessianSync[formatType] = std::move(kernelSync);
         	}
@@ -2359,7 +2658,7 @@ private:
     	}
 
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
-    	std::cout << "program built\n";
+    	// std::cout << "program built\n";
     	auto kernel = compute::kernel(program, source.name);
 
     	// Rcpp::stop("uXB");
@@ -2379,9 +2678,9 @@ private:
     	options << " -cl-mad-enable";
 
     	auto source = writeCodeForSyncUpdateXBetaKernel(formatType, layoutByPerson);
-    	std::cout << source.body;
+//    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
-    	std::cout << "program built\n";
+    	// std::cout << "program built\n";
     	auto kernelSync = compute::kernel(program, source.name);
     	kernelUpdateXBetaSync[formatType] = std::move(kernelSync);
     }
@@ -2459,8 +2758,9 @@ private:
             if (BaseModelG::useNWeights) {
             	source = writeCodeForStratifiedComputeRemainingStatisticsKernel(BaseModel::efron);
             }
+            std::cout << source.body;
             auto program = compute::program::build_with_source(source.body, ctx, options.str());
-            std::cout << "program built\n";
+            // std::cout << "program built\n";
             auto kernel = compute::kernel(program, source.name);
 
             kernelComputeRemainingStatistics = std::move(kernel);
@@ -2482,7 +2782,7 @@ private:
 //        	std::cout << source.body;
 //        }
         auto program = compute::program::build_with_source(source.body, ctx, options.str());
-        std::cout << "program built\n";
+        // std::cout << "program built\n";
         auto kernelSync = compute::kernel(program, source.name);
 
         kernelComputeRemainingStatisticsSync = std::move(kernelSync);
@@ -2520,7 +2820,7 @@ private:
          isNvidia = false;
 
          auto source = writeCodeForGetLogLikelihood(useWeights, isNvidia);
-         std::cout << source.body;
+//         std::cout << source.body;
          auto program = compute::program::build_with_source(source.body, ctx, options.str());
          auto kernel = compute::kernel(program, source.name);
 
@@ -2601,7 +2901,7 @@ private:
     		auto source = writeCodeForDoItAllKernel(formatType, priorType, layoutByPerson);
 //    		std::cout << source.body;
     		auto program = compute::program::build_with_source(source.body, ctx, options.str());
-    		std::cout << "program built\n";
+    		// std::cout << "program built\n";
     		auto kernel = compute::kernel(program, source.name);
 
     		kernelDoItAll[formatType*3+priorType] = std::move(kernel);
@@ -2630,7 +2930,7 @@ private:
 
     	// Run-time constant arguments.
     	auto source = writeCodeForGetGradientObjectiveSync(isNvidia, layoutByPerson);
-    	std::cout << source.body;
+//    	std::cout << source.body;
     	auto program = compute::program::build_with_source(source.body, ctx, options.str());
     	auto kernelSync = compute::kernel(program, source.name);
     	kernelGetGradientObjectiveSync = std::move(kernelSync);
@@ -2943,6 +3243,8 @@ public:
 	// TODO incrementFisherInformation
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+//	    std::cout << "GPUMS LogisticG incrementGradientAndHessianG" << '\n';
+
 		// assume exists: numer, denom, w if weighted
 		std::stringstream code;
         code << "       REAL g = numer / denom;      \n";
@@ -3325,6 +3627,7 @@ public:
 	}
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+//	    std::cout << "GPUMS CoxProportionalHazardsG incrementGradientAndHessianG" << '\n';
 		std::stringstream code;
         code << "       REAL g = numer / denom;      \n";
         code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
@@ -3339,12 +3642,14 @@ public:
 
     std::string getOffsExpXBetaG(
     		const std::string& offs, const std::string& xBeta) {
+//        std::cout << "GPUMS CoxProportionalHazardsG getOffsExpXBetaG" << '\n';
 		return "exp(" + xBeta + ")";
     }
 
 
 	std::string logLikeDenominatorContribG(
 			const std::string& ni, const std::string& denom) {
+//	    std::cout << "GPUMS CoxProportionalHazardsG logLikeDenominatorContribG" << '\n';
 		return ni + "*" + "log(" + denom + ")";
 	}
 
@@ -3362,6 +3667,7 @@ public:
 
 
 	std::string incrementGradientAndHessianG(FormatType formatType, bool useWeights) {
+	    // std::cout << "GPUMS BreslowTiedCoxProportionalHazardsG string incrementGradientAndHessianG" << '\n';
 		std::stringstream code;
         code << "       REAL g = numer / denom;      \n";
         code << "       REAL gradient = " << weight("g", useWeights) << ";\n";
@@ -3376,12 +3682,16 @@ public:
 
     std::string getOffsExpXBetaG(
     		const std::string& offs, const std::string& xBeta) {
+        // std::cout << "GPUMS BreslowTiedCoxProportionalHazardsG string getOffsExpXBetaG" << '\n';
+
 		return "exp(" + xBeta + ")";
     }
 
 
 	std::string logLikeDenominatorContribG(
 			const std::string& ni, const std::string& denom) {
+//	    std::cout << "GPUMS BreslowTiedCoxProportionalHazardsG string logLikeDenominatorContribG" << '\n';
+
 		return ni + "*" + "log(" + denom + ")";
 	}
 };

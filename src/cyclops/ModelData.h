@@ -32,13 +32,13 @@
 
 namespace bsccs {
 
-// template <class T> void reindexVector(std::vector<T>& vec, std::vector<int> ind) {
-// 	int n = (int) vec.size();
-// 	std::vector<T> temp = vec;
-// 	for(int i = 0; i < n; i++){
-// 		vec[i] = temp[ind[i]];
-// 	}
-// }
+ template <class T> void reindexVector(std::vector<T>& vec, std::vector<int> ind) {
+ 	int n = (int) vec.size();
+ 	std::vector<T> temp = vec;
+ 	for(int i = 0; i < n; i++){
+ 		vec[i] = temp[ind[i]];
+ 	}
+ }
 
 class AbstractModelData {
     // fp-agnostic interface to model data
@@ -93,6 +93,8 @@ public:
     virtual std::vector<double> copyYVector() const = 0;
 
     virtual std::vector<double> copyTimeVector() const = 0;
+
+    virtual std::vector<double> copyZVector() const = 0;
 
     virtual std::vector<double> univariableCorrelation(
             const std::vector<long>& covariateLabel) const = 0;
@@ -240,6 +242,14 @@ public:
 
 	virtual ~ModelData();
 
+	AbstractModelData* castToFloat() {
+	    auto* floatModelData = new ModelData<float>(modelType, pid, y, z, offs, log, error);
+
+
+
+	    return floatModelData;
+	}
+
 	const CompressedDataMatrix<RealType>& getX() const {
 	    return X;
 	}
@@ -335,6 +345,12 @@ public:
 	    return copy;
 	}
 
+    std::vector<double> copyZVector() const {
+        std::vector<double> copy(z.size());
+        std::copy(std::begin(z), std::end(z), std::begin(copy));
+        return copy;
+    }
+
 	std::vector<double> copyTimeVector() const {
 	    std::vector<double> copy(offs.size());
 	    std::copy(std::begin(offs), std::end(offs), std::begin(copy));
@@ -362,6 +378,8 @@ public:
 	void setOffsetCovariate(const IdType covariate);
 
 	void logTransformCovariate(const IdType covariate);
+
+    void convertAllCovariatesToDense(int length);
 
 	void convertCovariateToDense(const IdType covariate);
 
@@ -619,6 +637,16 @@ public:
 	friend void setConditionId(ModelData<double>& modelData, const std::string& id);
 	friend void setNumberPatients(ModelData<double>& modelData, const int cases);
 	friend void setNumberRows(ModelData<double>& modelData, const int nrows);
+
+    friend void push_back_label(ModelData<float>& modeData, const std::string& label);
+    friend void push_back_pid(ModelData<float>& modeData, const int cases);
+    friend void push_back_y(ModelData<float>& modelData, const float value);
+    friend void push_back_nevents(ModelData<float>& modelData, const int num);
+    friend void push_back_z(ModelData<float>& modelData, const float value);
+    friend void push_back_offs(ModelData<float>& modelData, const float value);
+    friend void setConditionId(ModelData<float>& modelData, const std::string& id);
+    friend void setNumberPatients(ModelData<float>& modelData, const int cases);
+    friend void setNumberRows(ModelData<float>& modelData, const int nrows);
 
 protected:
 
