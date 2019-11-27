@@ -47,23 +47,23 @@ using namespace std;
 //    deleteModelData(true)
 //{}
 
-InputReader::InputReader(
-	loggers::ProgressLoggerPtr _logger,
-	loggers::ErrorHandlerPtr _error
-) : logger(_logger), error(_error), modelData(new ModelData<double>(ModelType::NONE, _logger, _error)), deleteModelData(true) {
-	// Do nothing
-}
+//InputReader::InputReader(
+//	loggers::ProgressLoggerPtr _logger,
+//	loggers::ErrorHandlerPtr _error
+//) : logger(_logger), error(_error), modelData(new ModelData<double>(ModelType::NONE, _logger, _error)), deleteModelData(true) {
+//	// Do nothing
+//}
 
-bool InputReader::listContains(const vector<IdType>& list, IdType value) {
-	return (find(list.begin(), list.end(), value)
-				!=  list.end());
-}
-
-InputReader::~InputReader() {
-	if (deleteModelData) {
-		delete modelData;
-	}
-}
+//bool InputReader::listContains(const vector<IdType>& list, IdType value) {
+//	return (find(list.begin(), list.end(), value)
+//				!=  list.end());
+//}
+//
+//InputReader::~InputReader() {
+//	if (deleteModelData) {
+//		delete modelData;
+//	}
+//}
 
 } // namespace
 

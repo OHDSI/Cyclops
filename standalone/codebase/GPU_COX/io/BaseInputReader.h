@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "InputReader.h"
-#include "SparseIndexer.h"
+#include "io/SparseIndexer.h"
 #include "io/ProgressLogger.h"
 
 #define MAX_ENTRIES		1000000000
@@ -19,9 +19,11 @@
 
 namespace bsccs {
 
-
-//template <typename RealType>
 void push_back_label(ModelData<double>& modelData, const std::string& label) {
+    modelData.labels.push_back(label);
+}
+
+void push_back_label(ModelData<float>& modelData, const std::string& label) {
     modelData.labels.push_back(label);
 }
 
@@ -29,7 +31,16 @@ void push_back_pid(ModelData<double>& modelData, const int cases) {
     modelData.pid.push_back(cases);
 }
 
+void push_back_pid(ModelData<float>& modelData, const int cases) {
+    modelData.pid.push_back(cases);
+}
+
 void push_back_y(ModelData<double>& modelData, const double value) {
+    modelData.y.push_back(value);
+}
+
+
+void push_back_y(ModelData<float>& modelData, const float value) {
     modelData.y.push_back(value);
 }
 
@@ -37,7 +48,15 @@ void push_back_nevents(ModelData<double>& modelData, const int num) {
     modelData.nevents.push_back(num);
 }
 
+void push_back_nevents(ModelData<float>& modelData, const int num) {
+    modelData.nevents.push_back(num);
+}
+
 void push_back_z(ModelData<double>& modelData, const double value) {
+    modelData.z.push_back(value);
+}
+
+void push_back_z(ModelData<float>& modelData, const float value) {
     modelData.z.push_back(value);
 }
 
@@ -45,7 +64,15 @@ void push_back_offs(ModelData<double>& modelData, const double value) {
     modelData.offs.push_back(value);
 }
 
+void push_back_offs(ModelData<float>& modelData, const float value) {
+    modelData.offs.push_back(value);
+}
+
 void setConditionId(ModelData<double>& modelData, const std::string& id) {
+    modelData.conditionId = id;
+}
+
+void setConditionId(ModelData<float>& modelData, const std::string& id) {
     modelData.conditionId = id;
 }
 
@@ -53,8 +80,16 @@ void setNumberPatients(ModelData<double>& modelData, const int cases) {
     modelData.nPatients = cases;
 }
 
+void setNumberPatients(ModelData<float>& modelData, const int cases) {
+    modelData.nPatients = cases;
+}
+
 void setNumberRows(ModelData<double>& modelData, const int nrows) {
 	modelData.getX().nRows = nrows;
+}
+
+void setNumberRows(ModelData<float>& modelData, const int nrows) {
+    modelData.getX().nRows = nrows;
 }
 
 
@@ -66,18 +101,19 @@ using std::ifstream;
 
 typedef std::vector<std::string> string_vector;
 
+template <typename RealType>
 struct RowInformation {
 	int currentRow;
 	int numCases;
 	int numEvents;
 	string outcomeId;
 	string currentPid;
-	SparseIndexer<double> indexer;
+	SparseIndexer<RealType> indexer;
 	string_vector scratch;
 
 	RowInformation(int _currentRow, int _numCases, int _numEvents,
 			string _outcomeId, string _currentPid,
-			SparseIndexer<double> _indexer) : currentRow(_currentRow), numCases(_numCases),
+			SparseIndexer<RealType> _indexer) : currentRow(_currentRow), numCases(_numCases),
 			numEvents(_numEvents), outcomeId(_outcomeId), currentPid(_currentPid),
 			indexer(_indexer) {
 		// Do nothing
@@ -99,13 +135,16 @@ struct NoMissingPolicy {
 	}
 };
 
-template <typename DerivedFormat, typename Missing = NoMissingPolicy>
-class BaseInputReader : public InputReader, Missing {
+template <typename RealType, typename DerivedFormat, typename Missing = NoMissingPolicy>
+class BaseInputReader : public InputReader<RealType>, Missing {
 public:
 	typedef std::vector<int> int_vector;
 	typedef std::vector<string> string_vector;
 
-	using InputReader::modelData;
+	using InputReader<RealType>::modelData;
+    using InputReader<RealType>::error;
+    using InputReader<RealType>::logger;
+    using InputReader<RealType>::split;
 
 // 	BaseInputReader() : InputReader(
 // 		bsccs::make_shared<loggers::CoutLogger>(),
@@ -115,7 +154,7 @@ public:
 
 	BaseInputReader(
 		loggers::ProgressLoggerPtr _logger,
-		loggers::ErrorHandlerPtr _error) : InputReader(_logger, _error), innerDelimitor(":") {
+		loggers::ErrorHandlerPtr _error) : InputReader<RealType>(_logger, _error), innerDelimitor(":") {
 		// Do nothing
 	}
 
@@ -132,11 +171,8 @@ public:
 			error->throwError(stream);
 		}
 
-// 		in.close();
-// 		return;
-
 		// Initial values
-		RowInformation rowInfo(0,0,0, MISSING_STRING, MISSING_STRING, modelData->getX());
+		RowInformation<RealType> rowInfo(0,0,0, MISSING_STRING, MISSING_STRING, modelData->getX());
 		string line;
 
 		try {
@@ -185,11 +221,11 @@ protected:
 		getline(in, line); // Read header
 	}
 
-	void upcastColumns(ModelData<double>* modelData, RowInformation& rowInfo) {
+	void upcastColumns(ModelData<RealType>* modelData, RowInformation<RealType>& rowInfo) {
 		// Do nothing
 	}
 
-	void parseAllBBRCovariatesEntry(stringstream& ss, RowInformation& rowInfo, bool indicatorOnly) {
+	void parseAllBBRCovariatesEntry(stringstream& ss, RowInformation<RealType>& rowInfo, bool indicatorOnly) {
 		string entry;
 //		int count = 0;
 		while (ss >> entry) {
@@ -210,7 +246,7 @@ protected:
 				Missing::hook1(); // Handle allocation if necessary
 			}
 
-			CompressedDataColumn<double>& column = rowInfo.indexer.getColumn(drug);
+			CompressedDataColumn<RealType>& column = rowInfo.indexer.getColumn(drug);
 			if (value != static_cast<double>(1) && value != static_cast<double>(0)) {
 				if (column.getFormatType() == INDICATOR) {
 					std::ostringstream stream;
@@ -239,7 +275,7 @@ protected:
 
 	void doSort() {
 		// Easy to sort columns now in AOS format
-		modelData->getX().sortColumns(CompressedDataColumn<double>::sortNumerically);
+		modelData->getX().sortColumns(CompressedDataColumn<RealType>::sortNumerically);
 	}
 
 	void addFixedCovariateColumns(void) {
@@ -247,7 +283,7 @@ protected:
 	}
 
 	void parseConditionEntry(stringstream& ss,
-			RowInformation& rowInfo) {
+			RowInformation<RealType>& rowInfo) {
 		string currentOutcomeId;
 		ss >> currentOutcomeId;
 		if (rowInfo.outcomeId == MISSING_STRING) {
@@ -259,21 +295,21 @@ protected:
 		}
 	}
 
-	void parseNoStratumEntry(stringstream& ss, RowInformation& rowInfo) {
+	void parseNoStratumEntry(stringstream& ss, RowInformation<RealType>& rowInfo) {
 		addEventEntry(1);
 	    push_back_pid(*modelData, rowInfo.numCases);
 		//modelData->pid.push_back(rowInfo.numCases);
 		rowInfo.numCases++;
 	}
 
-	void parseRowLabel(stringstream& ss, RowInformation& rowInfo) {
+	void parseRowLabel(stringstream& ss, RowInformation<RealType>& rowInfo) {
 		string label;
 		ss >> label;
 		push_back_label(*modelData, label);
 		//modelData->labels.push_back(label);
 	}
 
-	void parseStratumEntry(stringstream& ss, RowInformation& rowInfo) {
+	void parseStratumEntry(stringstream& ss, RowInformation<RealType>& rowInfo) {
 		string unmappedPid;
 		ss >> unmappedPid;
 		if (unmappedPid != rowInfo.currentPid) { // New patient, ASSUMES these are sorted
@@ -288,36 +324,34 @@ protected:
 		//modelData->pid.push_back(rowInfo.numCases - 1);
 	}
 
-	template <typename T>
-	void parseSingleOutcomeEntry(stringstream& ss, RowInformation& rowInfo) {
-		T thisY;
+	void parseSingleOutcomeEntry(stringstream& ss, RowInformation<RealType>& rowInfo) {
+		int thisY;
 		ss >> thisY;
 		rowInfo.numEvents += thisY;
 		push_back_y(*modelData, thisY);
 		//modelData->y.push_back(thisY);
 	}
 
-	template <typename T>
-	void parseSingleTimeEntry(stringstream& ss, RowInformation& rowInfo) {
-		T thisY;
+	void parseSingleTimeEntry(stringstream& ss, RowInformation<RealType>& rowInfo) {
+		RealType thisY;
 		ss >> thisY;
-		push_back_z(*modelData, thisY);
+//		push_back_z(*modelData, thisY);
+        push_back_offs(*modelData, thisY);
 		//modelData->z.push_back(thisY);
 	}
 
-	template <typename T>
-	void parseSingleBBROutcomeEntry(stringstream& ss, RowInformation& rowInfo) {
-		T thisY;
+	void parseSingleBBROutcomeEntry(stringstream& ss, RowInformation<RealType>& rowInfo) {
+		int thisY;
 		ss >> thisY;
-		if (thisY < static_cast<T>(0)) { // BBR uses +1 / -1, BSCCS uses 1 / 0.
-			thisY = static_cast<T>(0);
+		if (thisY < static_cast<int>(0)) { // BBR uses +1 / -1, BSCCS uses 1 / 0.
+			thisY = static_cast<int>(0);
 		}
 		rowInfo.numEvents += thisY;
 		push_back_y(*modelData, thisY);
 		//modelData->y.push_back(thisY);
 	}
 
-	void parseOffsetCovariateEntry(stringstream& ss, RowInformation& rowInfo, bool inLogSpace) {
+	void parseOffsetCovariateEntry(stringstream& ss, RowInformation<RealType>& rowInfo, bool inLogSpace) {
 		double thisOffset;
 		ss >> thisOffset;
 		if (!inLogSpace) {
@@ -326,14 +360,14 @@ protected:
 		modelData->getX().getColumn(0).add_data(rowInfo.currentRow, thisOffset);
 	}
 
-	void parseOffsetEntry(stringstream& ss, RowInformation&) {
+	void parseOffsetEntry(stringstream& ss, RowInformation<RealType>&) {
 		double thisOffs;
 		ss >> thisOffs;
 		push_back_offs(*modelData, thisOffs);
 		//modelData->offs.push_back(thisOffs);
 	}
 
-	void parseAllIndicatorCovariatesEntry(stringstream& ss, RowInformation& rowInfo) {
+	void parseAllIndicatorCovariatesEntry(stringstream& ss, RowInformation<RealType>& rowInfo) {
 		IdType drug;
 		while (ss >> drug) {
 			if (drug == 0) { // No drug

@@ -18,7 +18,7 @@ set(BASE_SOURCE_FILES
 	${RCCD_SOURCE_DIR}/cyclops/ModelData.cpp
 	${RCCD_SOURCE_DIR}/cyclops/io/InputReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/io/HierarchyReader.cpp
-	 ${CCD_SOURCE_DIR}/CCD/io/SCCSInputReader.cpp
+#	 ${CCD_SOURCE_DIR}/CCD/io/SCCSInputReader.cpp
 #	 ${CCD_SOURCE_DIR}/CCD/io/CLRInputReader.cpp
 #	 ${CCD_SOURCE_DIR}/CCD/io/RTestInputReader.cpp
 #	 ${CCD_SOURCE_DIR}/CCD/io/CoxInputReader.cpp
