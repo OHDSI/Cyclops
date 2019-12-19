@@ -235,10 +235,11 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
                                                         const AbstractModelData& abstractModelData,
                                                         const DeviceType deviceType,
                                                         const std::string& deviceName) {
+
     AbstractModelSpecifics* model = nullptr;
 
-    if (modelType != ModelType::LOGISTIC && deviceType == DeviceType::GPU) {
-        return model; // Implementing lr first on GPU.
+    if (modelType != ModelType::LOGISTIC && modelType != ModelType::COX && deviceType == DeviceType::GPU) {
+        return model; // Implementing lr and cox first on GPU.
     }
 
     switch(abstractModelData.getPrecisionType()) {
