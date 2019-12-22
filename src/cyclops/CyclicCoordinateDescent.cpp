@@ -977,6 +977,7 @@ void CyclicCoordinateDescent::findMode(
 
 	auto cycle = [this,&lastObjFunc,&lastObjFuncVec,&iteration,algorithmType,&allDelta,&doItAll] {
 
+	    /*
 		if (iteration%10==0) {
 			std::cout<<"iteration " << iteration << " ";
 
@@ -994,6 +995,7 @@ void CyclicCoordinateDescent::findMode(
 
 			std::cout << "\n";
 		}
+	     */
 
 	    auto log = [this](const int index) {
 	        if ( (noiseLevel > QUIET) && ((index+1) % 100 == 0)) {
