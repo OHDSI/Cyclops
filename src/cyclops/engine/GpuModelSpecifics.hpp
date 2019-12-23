@@ -79,12 +79,12 @@ namespace constant {
 
 }; // namespace detail
 
-struct SourceCode {
-    std::string body;
-    std::string name;
-
-    SourceCode(std::string body, std::string name) : body(body), name(name) { }
-};
+//struct SourceCode {
+//    std::string body;
+//    std::string name;
+//
+//    SourceCode(std::string body, std::string name) : body(body), name(name) { }
+//};
 
 //template <typename RealType>
 //class AllGpuColumns {
@@ -704,7 +704,6 @@ public:
     }
 
     virtual void computeRemainingStatistics(bool useWeights) {
-        std::cerr << "S GPU::cRS called" << std::endl;
     	if (syncCV) {
 #ifdef CYCLOPS_DEBUG_TIMING
     		auto start = bsccs::chrono::steady_clock::now();
@@ -817,24 +816,24 @@ public:
     		queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, localWorkSize);
     		queue.finish();
 
-    		// print results
-            std::vector<RealType> hxb;
-            hxb.resize(dXBeta.size());
-            compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hxb), queue);
-            std::cout << "dXBeta: ";
-            for (auto x:hxb) {
-                std::cout << x << " ";
-            }
-            std::cout << "\n";
-
-            std::vector<RealType> hexb;
-            hexb.resize(dExpXBeta.size());
-            compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(hexb), queue);
-            std::cout << "dExpXBeta: ";
-            for (auto x:hexb) {
-                std::cout << x << " ";
-            }
-            std::cout << "\n";
+//    		// print results
+//            std::vector<RealType> hxb;
+//            hxb.resize(dXBeta.size());
+//            compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hxb), queue);
+//            std::cout << "dXBeta: ";
+//            for (auto x:hxb) {
+//                std::cout << x << " ";
+//            }
+//            std::cout << "\n";
+//
+//            std::vector<RealType> hexb;
+//            hexb.resize(dExpXBeta.size());
+//            compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(hexb), queue);
+//            std::cout << "dExpXBeta: ";
+//            for (auto x:hexb) {
+//                std::cout << x << " ";
+//            }
+//            std::cout << "\n";
 
 #ifdef CYCLOPS_DEBUG_TIMING
     		auto end = bsccs::chrono::steady_clock::now();
@@ -842,7 +841,6 @@ public:
     		duration["compRSG          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
 #endif
     	}
-        std::cerr << "E GPU::cRS called" << std::endl;
     }
 
 
@@ -2761,7 +2759,7 @@ private:
             if (BaseModelG::useNWeights) {
             	source = writeCodeForStratifiedComputeRemainingStatisticsKernel(BaseModel::efron);
             }
-            std::cout << source.body;
+//            std::cout << source.body;
             auto program = compute::program::build_with_source(source.body, ctx, options.str());
             // std::cout << "program built\n";
             auto kernel = compute::kernel(program, source.name);

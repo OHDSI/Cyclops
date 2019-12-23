@@ -16,6 +16,10 @@
 #include "engine/GpuModelSpecifics.hpp"
 #endif // HAVE_OPENCL
 
+#ifdef GPU_COX
+#include "engine/GpuModelSpecificsCox.hpp"
+#endif //GPU_COX
+
 namespace bsccs {
 
 template <class Model, typename RealType>
@@ -28,6 +32,9 @@ AbstractModelSpecifics* deviceFactory(
     switch (deviceType) {
     case DeviceType::CPU :
         model = new ModelSpecifics<Model,RealType>(modelData);
+        break;
+    case DeviceType::GPU :
+        model = new GpuModelSpecificsCox<Model,RealType>(modelData, deviceName);
         break;
     default:
         break; // nullptr
@@ -109,40 +116,52 @@ AbstractModelSpecifics* precisionFactory<float>(
     if (deviceType == DeviceType::GPU) {
     	 switch (modelType) {
     	 case ModelType::SELF_CONTROLLED_MODEL :
-    	     	model =  deviceFactory<SelfControlledCaseSeries<float>,float,SelfControlledCaseSeriesG>(modelData, deviceType, deviceName);
+//    	     	model =  deviceFactory<SelfControlledCaseSeries<float>,float,SelfControlledCaseSeriesG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::CONDITIONAL_LOGISTIC :
-    	     	model =  deviceFactory<ConditionalLogisticRegression<float>,float,ConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
+//    	     	model =  deviceFactory<ConditionalLogisticRegression<float>,float,ConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::TIED_CONDITIONAL_LOGISTIC :
-    	     	model =  deviceFactory<TiedConditionalLogisticRegression<float>,float,TiedConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
+//    	     	model =  deviceFactory<TiedConditionalLogisticRegression<float>,float,TiedConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::EFRON_CONDITIONAL_LOGISTIC :
-    	     	model =  deviceFactory<EfronConditionalLogisticRegression<float>,float,EfronConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
+//    	     	model =  deviceFactory<EfronConditionalLogisticRegression<float>,float,EfronConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::LOGISTIC :
     	     	model = deviceFactory<LogisticRegression<float>,float,LogisticRegressionG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::NORMAL :
-    	     	model = deviceFactory<LeastSquares<float>,float,LeastSquaresG>(modelData, deviceType, deviceName);
+//    	     	model = deviceFactory<LeastSquares<float>,float,LeastSquaresG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::POISSON :
-    	     	model = deviceFactory<PoissonRegression<float>,float,PoissonRegressionG>(modelData, deviceType, deviceName);
+//    	     	model = deviceFactory<PoissonRegression<float>,float,PoissonRegressionG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::CONDITIONAL_POISSON :
-    	     	model = deviceFactory<ConditionalPoissonRegression<float>,float,ConditionalPoissonRegressionG>(modelData, deviceType, deviceName);
+//    	     	model = deviceFactory<ConditionalPoissonRegression<float>,float,ConditionalPoissonRegressionG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::COX_RAW :
-    	     	model = deviceFactory<CoxProportionalHazards<float>,float,CoxProportionalHazardsG>(modelData, deviceType, deviceName);
+//    	     	model = deviceFactory<CoxProportionalHazards<float>,float,CoxProportionalHazardsG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::COX :
-    	     	model = deviceFactory<BreslowTiedCoxProportionalHazards<float>,float,BreslowTiedCoxProportionalHazardsG>(modelData, deviceType, deviceName);
+//    	     	model = deviceFactory<BreslowTiedCoxProportionalHazards<float>,float,BreslowTiedCoxProportionalHazardsG>(modelData, deviceType, deviceName);
     	     	break;
     	    default:
     	        break;
     	    }
     }
 #endif // HAVE_OPENCL
+
+#ifdef GPU_COX
+    if (deviceType == DeviceType::GPU) {
+    	 switch (modelType) {
+    	     case ModelType::COX :
+    	     	model = deviceFactory<BreslowTiedCoxProportionalHazards<float>,float>(modelData, deviceType, deviceName);
+    	     	break;
+    	    default:
+    	        break;
+    	    }
+    }
+#endif // GPU_COX
 
     return model;
 }
@@ -190,44 +209,58 @@ AbstractModelSpecifics* precisionFactory<double>(
     default:
         break;
     }
+
 #ifdef HAVE_OPENCL
     if (deviceType == DeviceType::GPU) {
     	 switch (modelType) {
     	 case ModelType::SELF_CONTROLLED_MODEL :
-    	     	model =  deviceFactory<SelfControlledCaseSeries<double>,double,SelfControlledCaseSeriesG>(modelData, deviceType, deviceName);
+//    	     	model =  deviceFactory<SelfControlledCaseSeries<double>,double,SelfControlledCaseSeriesG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::CONDITIONAL_LOGISTIC :
-    	     	model =  deviceFactory<ConditionalLogisticRegression<double>,double,ConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
+//    	     	model =  deviceFactory<ConditionalLogisticRegression<double>,double,ConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::TIED_CONDITIONAL_LOGISTIC :
-    	     	model =  deviceFactory<TiedConditionalLogisticRegression<double>,double,TiedConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
+//    	     	model =  deviceFactory<TiedConditionalLogisticRegression<double>,double,TiedConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::EFRON_CONDITIONAL_LOGISTIC :
-    	     	model =  deviceFactory<EfronConditionalLogisticRegression<double>,double,EfronConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
+//    	     	model =  deviceFactory<EfronConditionalLogisticRegression<double>,double,EfronConditionalLogisticRegressionG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::LOGISTIC :
     	     	model = deviceFactory<LogisticRegression<double>,double,LogisticRegressionG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::NORMAL :
-    	     	model = deviceFactory<LeastSquares<double>,double,LeastSquaresG>(modelData, deviceType, deviceName);
+//    	     	model = deviceFactory<LeastSquares<double>,double,LeastSquaresG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::POISSON :
-    	     	model = deviceFactory<PoissonRegression<double>,double,PoissonRegressionG>(modelData, deviceType, deviceName);
+//    	     	model = deviceFactory<PoissonRegression<double>,double,PoissonRegressionG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::CONDITIONAL_POISSON :
-    	     	model = deviceFactory<ConditionalPoissonRegression<double>,double,ConditionalPoissonRegressionG>(modelData, deviceType, deviceName);
+//    	     	model = deviceFactory<ConditionalPoissonRegression<double>,double,ConditionalPoissonRegressionG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::COX_RAW :
-    	     	model = deviceFactory<CoxProportionalHazards<double>,double,CoxProportionalHazardsG>(modelData, deviceType, deviceName);
+//    	     	model = deviceFactory<CoxProportionalHazards<double>,double,CoxProportionalHazardsG>(modelData, deviceType, deviceName);
     	     	break;
     	     case ModelType::COX :
-    	     	model = deviceFactory<BreslowTiedCoxProportionalHazards<double>,double,BreslowTiedCoxProportionalHazardsG>(modelData, deviceType, deviceName);
+//    	     	model = deviceFactory<BreslowTiedCoxProportionalHazards<double>,double,BreslowTiedCoxProportionalHazardsG>(modelData, deviceType, deviceName);
     	     	break;
     	    default:
     	        break;
     	    }
     }
 #endif // HAVE_OPENCL
+
+#ifdef GPU_COX
+    if (deviceType == DeviceType::GPU) {
+        switch (modelType) {
+            case ModelType::COX :
+    	     	model = deviceFactory<BreslowTiedCoxProportionalHazards<double>,double>(modelData, deviceType, deviceName);
+                break;
+            default:
+                break;
+        }
+    }
+#endif // GPU_COX
+
     return model;
 }
 

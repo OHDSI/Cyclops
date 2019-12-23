@@ -54,6 +54,13 @@ namespace bsccs {
         }
     }
 
+    struct SourceCode {
+        std::string body;
+        std::string name;
+
+        SourceCode(std::string body, std::string name) : body(body), name(name) { }
+    };
+
     template <typename RealType>
     class AllGpuColumns {
     public:
@@ -414,4 +421,4 @@ namespace bsccs {
     };
 
 }
-#endif //GPU_COX_BASEGPUMODELSPECIFICS_HPP
+#endif //BASEGPUMODELSPECIFICS_HPP
