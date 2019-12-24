@@ -19,6 +19,7 @@
 
 #include "Recursions.hpp"
 #include "ParallelLoops.h"
+#include "Ranges.h"
 
 #ifdef USE_RCPP_PARALLEL
 #include <tbb/combinable.h>
@@ -26,7 +27,7 @@
 #endif
 
 //#include "R.h"
-//#include "Rcpp.h" // TODO Remove
+#include "Rcpp.h" // TODO Remove
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	#include "Timing.h"
@@ -1006,30 +1007,68 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 
 	} else {
 
-	    IteratorType it(hX, index);
+// 	    auto rangeKey = helper::dependent::getRangeKey(
+// 	        hX, index, hPid,
+//             typename IteratorType::tag());
+//
+// 	    auto rangeXNumerator = helper::dependent::getRangeX(
+// 	        hX, index, offsExpXBeta,
+//             typename IteratorType::tag());
+//
+// 	    auto rangeGradient = helper::dependent::getRangeGradient(
+// 	        sparseIndices[index].get(), N, // runtime error: reference binding to null pointer of type 'struct vector'
+//             denomPid, hNWeight,
+//             typename IteratorType::tag());
+//
+// 	    const auto result = variants::trial::nested_reduce(
+// 	        rangeKey.begin(), rangeKey.end(), // key
+// 	        rangeXNumerator.begin(), // inner
+// 	        rangeGradient.begin(), // outer
+// 	        std::pair<RealType,RealType>{0,0}, Fraction<RealType>{0,0},
+// 	        TestNumeratorKernel<BaseModel,IteratorType,RealType>(), // Inner transform-reduce
+// 	        TestGradientKernel<BaseModel,IteratorType,Weights,RealType>()); // Outer transform-reduce
+//
+// 	    gradient = result.real();
+// 	    hessian = result.imag();
 
-	    for (; it; ++it) {
+	    IteratorType it(hX, index);
+	    const int end = it.size() - 1;
+
+	    RealType numerator1 = static_cast<RealType>(0);
+	    RealType numerator2 = static_cast<RealType>(0);
+	    int key = hPid[it.index()];
+
+	    auto incrementNumerators = [this,&it,&numerator1,&numerator2]() {
 	        const int i = it.index();
 
-// 	        RealType numerator1 = (Weights::isWeighted) ? // TODO Delegate condition to gNC
-// 	            hKWeight[i] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0)) :
-// 	            BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
-// 	        RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-// 	            (Weights::isWeighted) ?
-// 	                 hKWeight[i] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) :
-//                      BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) :
-// 	            static_cast<RealType>(0);
+	        numerator1 += BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
+	        numerator2 += (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+	        BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) :
+	            static_cast<RealType>(0);
+	    };
 
-            RealType numerator1 = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], static_cast<RealType>(0), static_cast<RealType>(0));
-            RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-                BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) :
-                static_cast<RealType>(0);
+	    for ( ; it.inRange(end); ++it) {
+	        incrementNumerators();
 
-	        BaseModel::incrementGradientAndHessian(it,
-                    w, // Signature-only, for iterator-type specialization
-                    &gradient, &hessian, numerator1, numerator2,
-                    denomPid[hPid[i]], hNWeight[hPid[i]], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
+	        const int nextKey = hPid[it.nextIndex()];
+	        if (key != nextKey) {
+
+	            BaseModel::incrementGradientAndHessian(it, w, // Signature-only, for iterator-type specialization
+                                                    &gradient, &hessian, numerator1, numerator2,
+                                                    denomPid[key], hNWeight[key], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
+
+	            numerator1 = static_cast<RealType>(0);
+	            numerator2 = static_cast<RealType>(0);
+
+	            key = nextKey;
+	        }
 	    }
+
+	    incrementNumerators();
+
+	    BaseModel::incrementGradientAndHessian(it, w, // Signature-only, for iterator-type specialization
+                                            &gradient, &hessian, numerator1, numerator2,
+                                            denomPid[key], hNWeight[key], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
 	}
 
 	if (BaseModel::precomputeGradient) { // Compile-time switch

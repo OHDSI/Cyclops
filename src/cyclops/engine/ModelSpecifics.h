@@ -419,7 +419,7 @@ public:
 	const static bool exactCLR = false;
 
 	template <class XType, typename RealType>
-	RealType gradientNumeratorContrib(XType x, RealType predictor, RealType xBeta, RealType y) {
+	static RealType gradientNumeratorContrib(XType x, RealType predictor, RealType xBeta, RealType y) {
 //		using namespace indicator_sugar;
 		return predictor * x;
 	}
@@ -430,7 +430,7 @@ public:
 	}
 
 	template <class XType, typename RealType>
-	RealType gradientNumerator2Contrib(XType x, RealType predictor) {
+	static RealType gradientNumerator2Contrib(XType x, RealType predictor) {
 		return predictor * x * x;
 	}
 };
@@ -492,7 +492,7 @@ public:
 	}
 
 	template <class IteratorType, class Weights> // TODO Code duplication with LR
-	void incrementGradientAndHessian(
+	static void incrementGradientAndHessian(
 			const IteratorType& it,
 			Weights w,
 			RealType* gradient, RealType* hessian,
@@ -538,7 +538,7 @@ public:
 	}
 
 	template <class IteratorType, class WeightOperationType>
-	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
+	static inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 
@@ -583,7 +583,7 @@ public:
 	}
 
 	template <class IteratorType, class Weights>
-	void incrementGradientAndHessian(
+	static void incrementGradientAndHessian(
 			const IteratorType& it,
 			Weights false_signature,
 			RealType* gradient, RealType* hessian,
@@ -618,7 +618,7 @@ public:
 	}
 
 	template <class IteratorType, class WeightOperationType>
-	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
+	static inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 
@@ -687,7 +687,7 @@ public:
 	}
 
 	template <class IteratorType, class Weights>
-	void incrementGradientAndHessian(
+	static void incrementGradientAndHessian(
 			const IteratorType& it,
 			Weights false_signature,
 			RealType* gradient, RealType* hessian,
@@ -706,19 +706,19 @@ public:
 	}
 
 	template <class IteratorType, class WeightOperationType>
-	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
+	static inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 
         // Same as CLR, TODO Remove code-duplication
 
-    	const RealType g = numerator / denominator;
-    	const RealType gradient = weight * g; // Always use weights (number of events)
+    	const RealType t = numerator / denominator;
+    	const RealType gradient = weight * t; // Always use weights (number of events)
 
         const RealType hessian =
             (IteratorType::isIndicator) ?
-                gradient * (static_cast<RealType>(1.0) - g) :
-                weight * (numerator2 / denominator - g * g);
+                gradient * (static_cast<RealType>(1.0) - t) :
+                weight * (numerator2 / denominator - t * t);
 
         return { lhs.real() + gradient, lhs.imag() + hessian };
     }
@@ -772,7 +772,7 @@ public:
 	}
 
 	template <class IteratorType, class Weights>
-	void incrementGradientAndHessian(
+	static void incrementGradientAndHessian(
 			const IteratorType& it,
 			Weights false_signature,
 			RealType* gradient, RealType* hessian,
@@ -791,7 +791,7 @@ public:
 	}
 
 	template <class IteratorType, class WeightOerationType>
-	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
+	static inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 
@@ -857,7 +857,7 @@ public:
 	}
 
 	template <class IteratorType, class Weights>
-	void incrementGradientAndHessian(
+	static void incrementGradientAndHessian(
 			const IteratorType& it,
 			Weights false_signature,
 			RealType* gradient, RealType* hessian,
@@ -876,7 +876,7 @@ public:
 	}
 
 	template <class IteratorType, class WeightOperationType>
-	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
+	static inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 
@@ -972,7 +972,7 @@ public:
 	using Storage<RealType>::hKWeight;
 
 	template <class IteratorType, class Weights, typename Index>
-	void incrementGradientAndHessian2(
+	static void incrementGradientAndHessian2(
 	        RealType& gradient, RealType& hessian,
 	        const IteratorType& it,
 	        const Index index) {
@@ -1031,7 +1031,7 @@ public:
 	}
 
 	template <class IteratorType, class Weights>
-	void incrementGradientAndHessian(
+	static void incrementGradientAndHessian(
 			const IteratorType& it,
 			Weights false_signature,
 			RealType* gradient, RealType* hessian,
@@ -1050,7 +1050,7 @@ public:
 	}
 
 	template <class IteratorType, class WeightOperationType>
-	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
+	static inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 
@@ -1130,7 +1130,7 @@ public:
 	}
 
 	template <class IteratorType, class Weights>
-	void incrementGradientAndHessian(
+	static void incrementGradientAndHessian(
 			const IteratorType& it,
 			Weights false_signature,
 			RealType* gradient, RealType* hessian,
@@ -1149,7 +1149,7 @@ public:
 	}
 
 	template <class IteratorType, class WeightOperationType>
-	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
+	static inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 
@@ -1235,12 +1235,12 @@ public:
 	}
 
 	template <class XType>
-	RealType gradientNumeratorContrib(XType x, RealType predictor, RealType xBeta, RealType y) {
+	static RealType gradientNumeratorContrib(XType x, RealType predictor, RealType xBeta, RealType y) {
 			return static_cast<RealType>(2) * (xBeta - y) * x;
 	}
 
 	template <class XType>
-	RealType gradientNumerator2Contrib(XType x, RealType predictor) {
+	static RealType gradientNumerator2Contrib(XType x, RealType predictor) {
         throw new std::logic_error("Not model-specific");
 		return static_cast<RealType>(0);
 	}
@@ -1258,7 +1258,7 @@ public:
 	}
 
 	template <class IteratorType, class Weights>
-	void incrementGradientAndHessian(
+	static void incrementGradientAndHessian(
 			const IteratorType& it,
 			const Weights& w,
 			RealType* gradient, RealType* hessian,
@@ -1284,7 +1284,7 @@ public:
 	}
 
 	template <class IteratorType, class WeightOperationType>
-	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
+	static inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 
@@ -1352,7 +1352,7 @@ public:
 	}
 
 	template <class IteratorType, class Weights>
-	void incrementGradientAndHessian(
+	static void incrementGradientAndHessian(
 		const IteratorType& it,
 		const Weights& w,
 		RealType* gradient, RealType* hessian,
@@ -1398,7 +1398,7 @@ public:
 	}
 
 	template <class IteratorType, class WeightOperationType>
-	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
+	static inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 
@@ -1446,6 +1446,89 @@ public:
 		return logLikeFixedTerm;
 	}
 
+};
+
+struct OneValue { };
+
+template <class T>
+inline T operator*(const T& lhs, const OneValue& rhs) { return lhs; }
+
+template <class IteratorType, class RealType, int index>
+struct TupleXGetterNew {
+
+    typedef RealType ReturnType;
+
+    template <class TupleType>
+    inline ReturnType operator()(TupleType& tuple) const {
+        return boost::get<index>(tuple);
+    }
+};
+
+template <class RealType, int index>
+struct TupleXGetterNew<IndicatorIterator<RealType>, RealType, index> {
+
+    typedef OneValue ReturnType;
+
+    template <class TupleType>
+    inline ReturnType operator()(TupleType& tuple) const {
+        return OneValue();
+    }
+};
+
+template <class RealType, int index>
+struct TupleXGetterNew<InterceptIterator<RealType>, RealType, index> {
+
+    typedef OneValue ReturnType;
+
+    template <class TupleType>
+    inline ReturnType operator()(TupleType& tuple) const {
+        return OneValue();
+    }
+};
+
+template <class BaseModel, class IteratorType, class RealType>
+struct TestNumeratorKernel {
+
+    template <class NumeratorType, class TupleType>
+    NumeratorType operator()(const NumeratorType lhs, const TupleType tuple) {
+
+        const auto expXBeta = boost::get<0>(tuple);
+        const auto x = getX(tuple); //boost::get<1>(tuple);
+
+        return {
+            lhs.first + BaseModel::gradientNumeratorContrib(x, expXBeta, 0.0, 0.0),
+            (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+            lhs.second +  BaseModel::gradientNumerator2Contrib(x, expXBeta) :
+            0.0
+        };
+    }
+
+    private:	 // TODO Code duplication; remove
+        template <class TupleType>
+        inline auto getX(TupleType tuple) const -> typename TupleXGetterNew<IteratorType, RealType, 5>::ReturnType {
+            return TupleXGetterNew<IteratorType, RealType, 1>()(tuple);
+        }
+
+};
+
+template <class BaseModel, class IteratorType, class WeightType, class RealType>
+struct TestGradientKernel {
+
+    template <class GradientType, class NumeratorType, class TupleType>
+    GradientType operator()(const GradientType lhs, const NumeratorType numerator, const TupleType tuple) {
+        const auto denominator = boost::get<0>(tuple);
+        const auto weight = boost::get<1>(tuple);
+
+        // std::cerr << "N n1: " << numerator.first << " n2: " << numerator.second
+        //           << " d: " << denominator << " w: " << weight <<  std::endl;
+
+        return BaseModel::template incrementGradientAndHessian<IteratorType,
+                                                               WeightType>(
+                                                                       lhs,
+                                                                       numerator.first, numerator.second,
+                                                                       denominator, weight, 0.0, 0.0
+                                                               );
+    }
 };
 
 } // namespace
