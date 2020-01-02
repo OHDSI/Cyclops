@@ -804,7 +804,7 @@ getCyclopsProfileLogLikelihood <- function(object, parm, x,
         }
     }
 
-    grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm,
+    grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
                                          threads, includePenalty)
 
     grid

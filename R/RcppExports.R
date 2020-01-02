@@ -69,8 +69,8 @@
     invisible(.Call(`_Cyclops_cyclopsSetParameterizedPrior`, inRcppCcdInterface, priorTypeName, priorFunction, startingParameters, excludeNumeric))
 }
 
-.cyclopsGetProfileLikelihood <- function(inRcppCcdInterface, sexpCovariate, sexpPoints, threads, includePenalty) {
-    .Call(`_Cyclops_cyclopsGetProfileLikelihood`, inRcppCcdInterface, sexpCovariate, sexpPoints, threads, includePenalty)
+.cyclopsGetProfileLikelihood <- function(inRcppCcdInterface, inCovariate, points, threads, includePenalty) {
+    .Call(`_Cyclops_cyclopsGetProfileLikelihood`, inRcppCcdInterface, inCovariate, points, threads, includePenalty)
 }
 
 .cyclopsProfileModel <- function(inRcppCcdInterface, sexpCovariates, threads, threshold, override, includePenalty) {

@@ -206,17 +206,17 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsGetProfileLikelihood
-List cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface, SEXP sexpCovariate, SEXP sexpPoints, int threads, bool includePenalty);
-RcppExport SEXP _Cyclops_cyclopsGetProfileLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariateSEXP, SEXP sexpPointsSEXP, SEXP threadsSEXP, SEXP includePenaltySEXP) {
+List cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface, SEXP inCovariate, const std::vector<double> points, int threads, bool includePenalty);
+RcppExport SEXP _Cyclops_cyclopsGetProfileLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP inCovariateSEXP, SEXP pointsSEXP, SEXP threadsSEXP, SEXP includePenaltySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
-    Rcpp::traits::input_parameter< SEXP >::type sexpCovariate(sexpCovariateSEXP);
-    Rcpp::traits::input_parameter< SEXP >::type sexpPoints(sexpPointsSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type inCovariate(inCovariateSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double> >::type points(pointsSEXP);
     Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
     Rcpp::traits::input_parameter< bool >::type includePenalty(includePenaltySEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsGetProfileLikelihood(inRcppCcdInterface, sexpCovariate, sexpPoints, threads, includePenalty));
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetProfileLikelihood(inRcppCcdInterface, inCovariate, points, threads, includePenalty));
     return rcpp_result_gen;
 END_RCPP
 }
