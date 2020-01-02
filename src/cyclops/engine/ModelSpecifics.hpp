@@ -1031,12 +1031,26 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 // 	    gradient = result.real();
 // 	    hessian = result.imag();
 
+        using RealTypePair = std::pair<RealType, RealType>;
+
 	    IteratorType it(hX, index);
 	    const int end = it.size() - 1;
 
 	    RealType numerator1 = static_cast<RealType>(0);
 	    RealType numerator2 = static_cast<RealType>(0);
 	    int key = hPid[it.index()];
+
+// 	    auto incrementNumerators2 = [this](const typename IteratorType::Index i, const typename IteratorType::ValueType x,
+//                                            const RealTypePair lhs) -> RealTypePair {
+//
+// 	        const auto linearPredictor = offsExpXBeta[i];
+// 	        return {
+//     	       lhs.first + BaseModel::gradientNumeratorContrib(x, linearPredictor, static_cast<RealType>(0), static_cast<RealType>(0)),
+// 	           lhs.second + (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms ?
+// 	                BaseModel::gradientNumerator2Contrib(x, linearPredictor) :
+// 	                static_cast<RealType>(0))
+// 	        };
+// 	    };
 
 	    auto incrementNumerators = [this,&it,&numerator1,&numerator2]() {
 	        const int i = it.index();

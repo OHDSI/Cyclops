@@ -27,6 +27,7 @@ class IndicatorIterator {
 
 	typedef IndicatorTag tag;
 	typedef int Index;
+	typedef Scalar ValueType;
 	typedef boost::tuples::tuple<Index> XTuple;
 
 	const static std::string name;
@@ -86,6 +87,7 @@ class SparseIterator {
 
 	typedef SparseTag tag;
 	typedef int Index;
+	typedef Scalar ValueType;
 	typedef boost::tuples::tuple<Index, Scalar> XTuple;
 
 	const static std::string name;
@@ -148,6 +150,7 @@ template <typename IteratorType, typename Scalar>
 class DenseView {
 public:
 	typedef int Index;
+    typedef Scalar ValueType;
 
 	enum  { isIndicator = false };
 	enum  { isSparse = false };
@@ -228,6 +231,7 @@ class DenseIterator {
 
 	typedef DenseTag tag;
 	typedef int Index;
+	typedef Scalar ValueType;
 	typedef boost::tuples::tuple<Index, Scalar> XTuple;
 
 	const static std::string name;
@@ -287,6 +291,7 @@ class InterceptIterator {
 
 	typedef InterceptTag tag; // TODO Fix!!!
 	typedef int Index;
+	typedef Scalar ValueType;
 	typedef boost::tuples::tuple<Index> XTuple;
 
 	const static std::string name;
@@ -340,6 +345,7 @@ class DenseViewIterator {
   public:
 
 	typedef int Index;
+    typedef Scalar ValueType;
 
 	enum  { isIndicator = false };
 	enum  { isSparse = false };
@@ -375,6 +381,7 @@ class GenericIterator {
   public:
 
 	typedef int Index;
+    typedef Scalar ValueType;
 
 	inline GenericIterator(const CompressedDataMatrix<Scalar>& mat, Index column)
 	  : mFormatType(mat.getFormatType(column)),
@@ -441,6 +448,7 @@ class GroupByIterator {
 public:
 
     typedef int Index;
+    typedef Scalar ValueType;
 
     inline GroupByIterator(IteratorType& itMain, IndicatorIterator<Scalar>& _groupBy)
         : iterator(itMain), groupBy(_groupBy) {
@@ -494,6 +502,7 @@ class PairProductIterator {
   public:
 
 	typedef int Index;
+    typedef Scalar ValueType;
 
 //	enum  { isIndicator = true }; // Need to determine from IteratorTypeOne/IteratorTypeTwo
 //	enum  { isSparse = true };
