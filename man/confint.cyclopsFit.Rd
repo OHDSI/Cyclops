@@ -31,8 +31,7 @@ These columns are labelled as (1-level) / 2 and 1 - (1 - level) / 2 in percent
 }
 \description{
 \code{confinit.cyclopsFit} profiles the data likelihood to construct confidence intervals of
-arbitrary level. Usually it only makes sense to do this for variables that have not been regularized
-TODO: Profile data likelihood or joint distribution of remaining parameters.
+arbitrary level. Usually it only makes sense to do this for variables that have not been regularized.
 }
 \examples{
 #Generate some simulated data:
