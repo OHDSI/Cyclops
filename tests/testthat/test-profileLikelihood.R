@@ -3,7 +3,7 @@ library("survival")
 
 suppressWarnings(RNGversion("3.5.0"))
 
-test_that("Check very small Cox example with no ties, but with/without strata", {
+test_that("Check evaluate profile likelihood with two variables", {
     test <- read.table(header=T, sep = ",", text = "
 start, length, event, x1, x2
 0, 4,  1,0,0
@@ -14,14 +14,38 @@ start, length, event, x1, x2
 0, 1.5,0,1,0
 0, 1,  1,1,0
 ")
-
     data <- createCyclopsData(Surv(length, event) ~ x1 + x2, data = test,
                               modelType = "cox")
-    fit <- fitCyclopsModel(data) # TODO Fix so not needed
+    fit <- fitCyclopsModel(data)
 
-    x <- seq(from = -2, to = 2, length = 10)
+    x <- seq(from = 0.8, to = 0.9, length = 100)
     out <- getCyclopsProfileLogLikelihood(fit, "x1", x)
 
-    expect_equal(out$value, x)
+    argMax <- out$point[which(out$value == max(out$value))]
+    expect_equivalent(coef(fit)["x1"], argMax, tolerance = 0.01)
+})
+
+test_that("Check evaluate profile likelihood with one variable; cold-start", {
+    test <- read.table(header=T, sep = ",", text = "
+start, length, event, x1, x2
+0, 4,  1,0,0
+0, 3.5,1,2,0
+0, 3,  0,0,1
+0, 2.5,1,0,1
+0, 2,  1,1,1
+0, 1.5,0,1,0
+0, 1,  1,1,0
+")
+    data <- createCyclopsData(Surv(length, event) ~ x1, data = test,
+                              modelType = "cox")
+    fit <- fitCyclopsModel(data, fixedCoefficients = c(TRUE))
+
+    x <- seq(from = 0.3, to = 0.4, length = 100)
+    out <- getCyclopsProfileLogLikelihood(fit, "x1", x)
+    argMax <- out$point[which(out$value == max(out$value))]
+
+    gold <- fitCyclopsModel(data, forceNewObject = TRUE)
+    expect_equivalent(coef(gold)["x1"], argMax, tolerance = 0.01)
+    expect_equivalent(coef(fit)["x1"], 0)
 })
 

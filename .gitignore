@@ -21,3 +21,4 @@ docker
 notes
 tests/testthat/test-KKTSwindle.R
 tests/testthat/test-weighted_cv.R
+src/hide

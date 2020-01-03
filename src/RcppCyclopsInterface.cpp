@@ -322,7 +322,7 @@ void cyclopsSetParameterizedPrior(SEXP inRcppCcdInterface,
 }
 
 // [[Rcpp::export(".cyclopsGetProfileLikelihood")]]
-List cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface,
+DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface,
                                  SEXP inCovariate,
                                  const std::vector<double> points,
                                  int threads, bool includePenalty) {
@@ -334,7 +334,7 @@ List cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface,
     std::vector<double> values(points.size());
     interface->evaluateProfileModel(covariate, points, values, threads, includePenalty);
 
-    return List::create(
+    return DataFrame::create(
         Rcpp::Named("point") = points,
         Rcpp::Named("value") = values
     );

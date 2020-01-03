@@ -546,6 +546,8 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
     int nThreads = (inThreads == -1) ?
     bsccs::thread::hardware_concurrency() : inThreads;
 
+    double mode = ccd->getLogLikelihood(); // TODO Remove
+
     std::ostringstream stream2;
     stream2 << "Using " << nThreads << " thread(s)";
     logger->writeLine(stream2);
@@ -563,20 +565,25 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
         ccdPool.push_back(ccd->clone());
     }
 
-    auto evaluate = [this](const int index, const double point, CyclicCoordinateDescent* ccd) {
-        return point;
+    auto evaluate = [this, index, includePenalty](const double point,
+                            CyclicCoordinateDescent* ccd) {
+
+        OptimizationProfile eval(*ccd, arguments, index,
+                                 0.0, 0.0, includePenalty);
+
+        return eval.objective(point);
     };
 
     if (nThreads == 1) {
         for (int i = 0; i < points.size(); ++i) {
-            values[i] = evaluate(i, points[i], ccd);
+            values[i] = evaluate(points[i], ccd);
         }
     } else {
         auto scheduler = TaskScheduler<boost::counting_iterator<int>>(
             boost::make_counting_iterator(0), boost::make_counting_iterator(static_cast<int>(points.size())), nThreads);
 
         auto oneTask = [&evaluate, &scheduler, &ccdPool, &points, &values](unsigned long task) {
-            values[task] = evaluate(task, points[task], ccdPool[scheduler.getThreadIndex(task)]);
+            values[task] = evaluate(points[task], ccdPool[scheduler.getThreadIndex(task)]);
         };
 
         // Run all tasks in parallel
@@ -588,6 +595,16 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
         ccd->getProgressLogger().flush();
         ccd->getErrorHandler().flush();
     }
+
+    // Reset
+    for (int j = 0; j < J; ++j) {
+        ccd->setBeta(j, x0s[j]);
+    }
+    // DEBUG, TODO Remove?
+    double testMode = ccd->getLogLikelihood();
+    std::ostringstream stream;
+    stream << "Difference after profile: " << testMode << " " << mode;
+    logger->writeLine(stream);
 
     // Clean up copies
     for (int i = 1; i < nThreads; ++i) {
