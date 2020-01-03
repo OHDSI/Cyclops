@@ -798,15 +798,8 @@ getCyclopsProfileLogLikelihood <- function(object, parm, x,
     parm <- .checkCovariates(object$cyclopsData, parm)
     threads <- object$threads
 
-    if (!is.null(object$fixedCoefficients)) {
-        if (any(object$fixedCoefficients[parm])) {
-            stop("Cannot evaluate the profile likelihood for a fixed coefficient")
-        }
-    }
-
     grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
                                          threads, includePenalty)
-
     grid
 }
 
