@@ -681,9 +681,10 @@ getCrossValidationInfo <- function(object) {
                            control$selectorType, control$initialBound, control$maxBoundCount,
                            control$algorithm
                           )
+        return(control)
     }
 
-    return(control)
+    return(NULL)
 }
 
 #' @title Extract standard errors
