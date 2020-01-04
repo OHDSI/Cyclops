@@ -186,7 +186,7 @@ fitCyclopsModel <- function(cyclopsData,
             writeLines(paste("Using cross-validation selector type", control$selectorType))
         }
     }
-    .setControl(cyclopsData$cyclopsInterfacePtr, control)
+    control <- .setControl(cyclopsData$cyclopsInterfacePtr, control)
     threads <- control$threads
 
     if (!is.null(startingCoefficients)) {
@@ -269,6 +269,7 @@ fitCyclopsModel <- function(cyclopsData,
     fit$rowNames <- cyclopsData$rowNames
     fit$scale <- cyclopsData$scale
     fit$threads <- threads
+    fit$seed <- control$seed
     class(fit) <- "cyclopsFit"
     return(fit)
 }
@@ -681,6 +682,8 @@ getCrossValidationInfo <- function(object) {
                            control$algorithm
                           )
     }
+
+    return(control)
 }
 
 #' @title Extract standard errors
