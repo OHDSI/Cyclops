@@ -668,7 +668,7 @@ getCrossValidationInfo <- function(object) {
             control$seed <- as.integer(Sys.time())
         }
 
-        if (is.na(control$algorithm)) { # Provide backwards compatibility
+        if (is.null(control$algoritm) || is.na(control$algorithm)) { # Provide backwards compatibility
             control$algorithm <- "ccd"
         }
 
