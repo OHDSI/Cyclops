@@ -519,18 +519,18 @@ public:
     }
 
     // set single weights
-    virtual void setWeights(double* inWeights, bool useCrossValidation) {
-    	// Currently only computed on CPU and then copied to GPU
-    	ModelSpecifics<BaseModel, RealType>::setWeights(inWeights, useCrossValidation);
-
-    	detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
-    	detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
-    	// std::cout << "GPUMS hKWeight" ;
-    	// for (auto x : hKWeight ){
-    	//     std::cout << x ;
-    	// }
-    	// std::cout << '\n';
-    }
+//    virtual void setWeights(double* inWeights, bool useCrossValidation) {
+//    	// Currently only computed on CPU and then copied to GPU
+//    	ModelSpecifics<BaseModel, RealType>::setWeights(inWeights, useCrossValidation);
+//
+//    	detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
+//    	detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
+//    	// std::cout << "GPUMS hKWeight" ;
+//    	// for (auto x : hKWeight ){
+//    	//     std::cout << x ;
+//    	// }
+//    	// std::cout << '\n';
+//    }
 
     virtual void computeFixedTermsInLogLikelihood(bool useCrossValidation) {
     	ModelSpecifics<BaseModel, RealType>::computeFixedTermsInLogLikelihood(useCrossValidation);

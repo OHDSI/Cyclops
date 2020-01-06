@@ -3,6 +3,78 @@ library("testthat")
 library("survival")
 
 GpuDevice <- listOpenCLDevices()[2]
+tolerance <- 1E-4
+
+# # large cox
+# sim <- simulateCyclopsData(nstrata = 200,
+#                            nrows = 100000,
+#                            ncovars = 200,
+#                            effectSizeSd = 1,
+#                            zeroEffectSizeProp = 0.9,
+#                            eCovarsPerRow = 0.2,
+#                            model = "survival")
+# cyclopsData_CPU <- convertToCyclopsData(sim$outcomes, sim$covariates,
+#                                         modelType = "cox",floatingPoint = 32,
+#                                         addIntercept = TRUE)
+# fit_CPU <- fitCyclopsModel(cyclopsData_CPU)
+#
+# cyclopsData_GPU <- convertToCyclopsData(sim$outcomes, sim$covariates,
+#                                         modelType = "cox",floatingPoint = 32,
+#                                         addIntercept = TRUE)
+# fit_GPU <- fitCyclopsModel(cyclopsData_GPU, computeDevice = GpuDevice)
+# expect_equal(coef(fit_GPU), coef(fit_CPU), tolerance = tolerance)
+
+# small cox
+test_that("Check small Cox on GPU", {
+    test <- read.table(header=T, sep = ",", text = "
+                   start, length, event, x1, x2
+                       0, 4,  1,0,0
+                       0, 3.5,1,2,0
+                       0, 3,  0,0,1
+                       0, 2.5,1,0,1
+                       0, 2,  1,1,1
+                       0, 1.5,0,1,0
+                       0, 1,  1,1,0")
+
+    goldRight <- coxph(Surv(length, event) ~ x1 + x2, test)
+    dataPtrRight_CPU <- createCyclopsData(Surv(length, event) ~ x1 + x2, data = test,
+                                          modelType = "cox", floatingPoint = 32)
+    cyclopsFitRight_CPU <- fitCyclopsModel(dataPtrRight_CPU)
+
+    dataPtrRight_GPU <- createCyclopsData(Surv(length, event) ~ x1 + x2, data = test,
+                                          modelType = "cox", floatingPoint = 32)
+    cyclopsFitRight_GPU <- fitCyclopsModel(dataPtrRight_GPU, computeDevice = GpuDevice)
+
+    expect_equal(coef(cyclopsFitRight_CPU), coef(goldRight), tolerance = tolerance)
+    expect_equal(coef(cyclopsFitRight_GPU), coef(cyclopsFitRight_CPU), tolerance = tolerance)
+})
+
+test_that("Check small Cox example with failure ties and strata on GPU", {
+    test <- read.table(header=T, sep = ",", text = "
+                       start, length, event, x1, x2
+                       0, 4,  1,0,0
+                       0, 3,  1,2,0
+                       0, 3,  0,0,1
+                       0, 2,  1,0,1
+                       0, 2,  1,1,1
+                       0, 1,  0,1,0
+                       0, 1,  1,1,0")
+
+    # We get the correct answer when last entry is censored
+    goldRight <- coxph(Surv(length, event) ~ x1 + strata(x2), test, ties = "breslow")
+
+    dataPtrRight_CPU <- createCyclopsData(Surv(length, event) ~ x1 + strata(x2), data = test,
+                                           modelType = "cox", floatingPoint = 32)
+    cyclopsFitRight_CPU <- fitCyclopsModel(dataPtrRight_CPU)
+
+    dataPtrRight_GPU <- createCyclopsData(Surv(length, event) ~ x1 + strata(x2), data = test,
+                                          modelType = "cox", floatingPoint = 32)
+    cyclopsFitRight_GPU <- fitCyclopsModel(dataPtrRight_GPU, computeDevice = GpuDevice)
+
+    tolerance <- 1E-4
+    expect_equal(coef(cyclopsFitRight_CPU), coef(goldRight), tolerance = tolerance)
+    expect_equal(coef(cyclopsFitRight_CPU), coef(cyclopsFitRight_GPU), tolerance = tolerance)
+})
 
 # make sure logistic regression still works
 test_that("Small Bernoulli dense regression using GPU", {
@@ -25,3 +97,6 @@ test_that("Small Bernoulli dense regression using GPU", {
 
     expect_equal(coef(cyclopsFitD), coef(glmFit), tolerance = tolerance)
 })
+
+
+
