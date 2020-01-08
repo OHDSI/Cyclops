@@ -52,6 +52,13 @@ public:
     			override, includePenalty);
     }
 
+    double evaluateProfileModel(const IdType covariate,
+                                const std::vector<double>& points,
+                                std::vector<double>& values,
+                                int threads, bool includePenalty) {
+        return CcdInterface::evaluateProfileModel(ccd, modelData, covariate, points, values, threads, includePenalty);
+    }
+
     double runCrossValidation() {
     	return CcdInterface::runCrossValidation(ccd, modelData);
     }

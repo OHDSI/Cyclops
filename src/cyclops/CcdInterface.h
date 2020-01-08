@@ -178,6 +178,15 @@ public:
             bool overrideNoRegularization = false,
             bool includePenalty = false);
 
+    double evaluateProfileModel(
+            CyclicCoordinateDescent *ccd,
+            AbstractModelData *modelData,
+            const IdType covariate,
+            const std::vector<double>& points,
+            std::vector<double>& values,
+            int threads,
+            bool includePenalty);
+
     double runCrossValidation(
             CyclicCoordinateDescent *ccd,
             AbstractModelData *modelData);

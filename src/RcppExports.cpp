@@ -205,6 +205,21 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsGetProfileLikelihood
+DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface, SEXP inCovariate, const std::vector<double> points, int threads, bool includePenalty);
+RcppExport SEXP _Cyclops_cyclopsGetProfileLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP inCovariateSEXP, SEXP pointsSEXP, SEXP threadsSEXP, SEXP includePenaltySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type inCovariate(inCovariateSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double> >::type points(pointsSEXP);
+    Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
+    Rcpp::traits::input_parameter< bool >::type includePenalty(includePenaltySEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetProfileLikelihood(inRcppCcdInterface, inCovariate, points, threads, includePenalty));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsProfileModel
 List cyclopsProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, int threads, double threshold, bool override, bool includePenalty);
 RcppExport SEXP _Cyclops_cyclopsProfileModel(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP, SEXP threadsSEXP, SEXP thresholdSEXP, SEXP overrideSEXP, SEXP includePenaltySEXP) {
@@ -768,6 +783,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsSetPrior", (DL_FUNC) &_Cyclops_cyclopsSetPrior, 6},
     {"_Cyclops_cyclopsTestParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsTestParameterizedPrior, 4},
     {"_Cyclops_cyclopsSetParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsSetParameterizedPrior, 5},
+    {"_Cyclops_cyclopsGetProfileLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetProfileLikelihood, 5},
     {"_Cyclops_cyclopsProfileModel", (DL_FUNC) &_Cyclops_cyclopsProfileModel, 6},
     {"_Cyclops_cyclopsPredictModel", (DL_FUNC) &_Cyclops_cyclopsPredictModel, 1},
     {"_Cyclops_cyclopsSetControl", (DL_FUNC) &_Cyclops_cyclopsSetControl, 21},
