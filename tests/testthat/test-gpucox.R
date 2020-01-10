@@ -5,8 +5,8 @@ library("survival")
 GpuDevice <- listOpenCLDevices()[2]
 tolerance <- 1E-4
 
-# # large cox
-# sim <- simulateCyclopsData(nstrata = 200,
+# large cox
+# sim <- simulateCyclopsData(nstrata = 2000,
 #                            nrows = 100000,
 #                            ncovars = 200,
 #                            effectSizeSd = 1,
@@ -88,6 +88,11 @@ test_that("Small Bernoulli dense regression using GPU", {
 
     # gold standard
     glmFit <- glm(y ~ log_bid, family = binomial())
+
+    # # cpu
+    # dataPtrD_c <- createCyclopsData(y ~ log_bid, modelType = "lr", floatingPoint = 32)
+    # cyclopsFitD_c <- fitCyclopsModel(dataPtrD_c, prior = createPrior("none"),
+    #                                  control = createControl(noiseLevel = "silent"))
 
     # gpu
     dataPtrD <- createCyclopsData(y ~ log_bid, modelType = "lr", floatingPoint = 32)

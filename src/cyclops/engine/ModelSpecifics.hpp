@@ -1527,6 +1527,10 @@ void ModelSpecifics<BaseModel,RealType>::computeAccumlatedNumerator(bool useWeig
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeAccumlatedDenominator(bool useWeights) {
 
+#ifdef CYCLOPS_DEBUG_TIMING
+    auto start2 = bsccs::chrono::steady_clock::now();
+#endif
+
 	if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
 		    BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 
@@ -1550,6 +1554,12 @@ void ModelSpecifics<BaseModel,RealType>::computeAccumlatedDenominator(bool useWe
 	        accDenomPid[i] = totalDenom;
 	    }
 	}
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    auto end2 = bsccs::chrono::steady_clock::now();
+    ///////////////////////////"
+    duration["accumlatedDenom  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();;
+#endif
 }
 
 template <class BaseModel,typename RealType>

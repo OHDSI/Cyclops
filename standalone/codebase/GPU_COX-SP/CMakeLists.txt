@@ -7,6 +7,7 @@ set(CCD_SOURCE_DIR ${CMAKE_SOURCE_DIR}/standalone/codebase)
 
 MESSAGE(STATUS "Configuring OpenCL")
 FIND_PACKAGE(OpenCL REQUIRED)
+ADD_DEFINITIONS(-DGPU_COX)
 ADD_DEFINITIONS(-DHAVE_OPENCL)
 #ADD_DEFINITIONS(-DOPENCL)
 
@@ -56,10 +57,12 @@ set(BASE_SOURCE_FILES
 	${RCCD_SOURCE_DIR}/tinythread/tinythread.cpp
 	${RCCD_SOURCE_DIR}/cyclops/engine/ModelSpecifics.hpp
 	${RCCD_SOURCE_DIR}/cyclops/engine/ModelSpecifics.h
+	${RCCD_SOURCE_DIR}/cyclops/engine/BaseGpuModelSpecifics.hpp
 	${RCCD_SOURCE_DIR}/cyclops/engine/GpuModelSpecifics.hpp
-	${RCCD_SOURCE_DIR}/cyclops/engine/Kernels.hpp
-	)
-	
+	${RCCD_SOURCE_DIR}/cyclops/engine/GpuModelSpecificsCox.hpp
+	${RCCD_SOURCE_DIR}/cyclops/engine/KernelsCox.hpp
+	${RCCD_SOURCE_DIR}/cyclops/engine/Kernels.hpp)
+
 set(CCD_SOURCE_FILES
 		${CCD_SOURCE_DIR}/GPU_COX/gpu_cox.cpp)
 	

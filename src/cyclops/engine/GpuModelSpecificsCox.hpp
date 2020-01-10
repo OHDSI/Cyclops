@@ -93,35 +93,35 @@ namespace bsccs{
         }
 
 
-//        virtual void computeRemainingStatistics(bool useWeights) {
-//
-//            std::cerr << "GPU::cRS called" << std::endl;
-//
-//            // Currently RS only computed on CPU and then copied
-//            ModelSpecifics<BaseModel, RealType>::computeRemainingStatistics(useWeights);
-//
-//#ifdef CYCLOPS_DEBUG_TIMING
-//            auto start = bsccs::chrono::steady_clock::now();
-//#endif
-//            /*
-//            if (algorithmType == AlgorithmType::MM) {
-//                compute::copy(std::begin(hBeta), std::end(hBeta), std::begin(dBeta), queue);
-//            }
-//            */
-//
-//            if (BaseModel::likelihoodHasDenominator) {
-//                compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta), queue);
-//                compute::copy(std::begin(denomPid), std::end(denomPid), std::begin(dDenominator), queue);
-//            }
-//
-//
-//#ifdef CYCLOPS_DEBUG_TIMING
-//            auto end = bsccs::chrono::steady_clock::now();
-//            ///////////////////////////"
-//            duration["compRSG          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
-//#endif
-//
-//        }
+        virtual void computeRemainingStatistics(bool useWeights) {
+
+            std::cerr << "GPU::cRS called" << std::endl;
+
+            // Currently RS only computed on CPU and then copied
+            ModelSpecifics<BaseModel, RealType>::computeRemainingStatistics(useWeights);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start = bsccs::chrono::steady_clock::now();
+#endif
+            /*
+            if (algorithmType == AlgorithmType::MM) {
+                compute::copy(std::begin(hBeta), std::end(hBeta), std::begin(dBeta), queue);
+            }
+            */
+
+            if (BaseModel::likelihoodHasDenominator) {
+                compute::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta), queue);
+                compute::copy(std::begin(denomPid), std::end(denomPid), std::begin(dDenominator), queue);
+            }
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            duration["compRSG          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+#endif
+
+        }
 
         virtual void updateXBeta(double realDelta, int index, bool useWeights) {
 
@@ -142,7 +142,7 @@ namespace bsccs{
             kernel.set_arg(0, dColumns.getDataOffset(index)); // offX
             kernel.set_arg(1, dColumns.getIndicesOffset(index)); // offK
             kernel.set_arg(2, taskCount); // N
-            if (double_precision){
+            if (double_precision) {
                 kernel.set_arg(3, realDelta);
             } else {
                 auto fDelta = (float)realDelta;
@@ -167,41 +167,41 @@ namespace bsccs{
 
             hXBetaKnown = false; // dXBeta was just updated
 
-            ModelSpecifics<BaseModel, RealType>::computeRemainingStatistics(useWeights);
-
-//            // print results
-////            std::vector<RealType> hxb;
-//            hXBeta.resize(dExpXBeta.size());
-//            compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
-//            std::cout << "dXBeta: ";
-//            for (auto x:hXBeta) {
-//                std::cout << x << " ";
-//            }
-//            std::cout << "\n";
-//
-////            std::vector<RealType> hexb;
-//            offsExpXBeta.resize(dExpXBeta.size());
-//            compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(offsExpXBeta), queue);
-//            std::cout << "dExpXBeta: ";
-//            for (auto x:offsExpXBeta) {
-//                std::cout << x << " ";
-//            }
-//            std::cout << "\n";
-//
-//            denomPid.resize(dDenominator.size());
-//            compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(denomPid), queue);
-//            std::cout << "dDenominator: ";
-//            for (auto x:denomPid) {
-//                std::cout << x << " ";
-//            }
-//            std::cout << "\n";
-
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
             auto name = "updateXBetaG" + getFormatTypeExtension(formatType) + "  ";
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
+
+            // copy results to host
+            hXBeta.resize(dExpXBeta.size());
+            compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
+
+            offsExpXBeta.resize(dExpXBeta.size());
+            compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(offsExpXBeta), queue);
+
+            denomPid.resize(dDenominator.size());
+            compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(denomPid), queue);
+
+            // print results
+//            std::cout << "dXBeta: ";
+//            for (auto x:hXBeta) {
+//                std::cout << x << " ";
+//            }
+//            std::cout << "\n";
+//            std::cout << "dExpXBeta: ";
+//            for (auto x:offsExpXBeta) {
+//                std::cout << x << " ";
+//            }
+//            std::cout << "\n";
+//            std::cout << "dDenominator: ";
+//            for (auto x:denomPid) {
+//                std::cout << x << " ";
+//            }
+//            std::cout << "\n";
+
+            ModelSpecifics<BaseModel, RealType>::computeAccumlatedDenominator(useWeights);
 
 #ifdef GPU_DEBUG
             // Compare results:
@@ -256,6 +256,14 @@ namespace bsccs{
             }
         }
 
+//        void buildAllGradientHessianKernels(const std::vector<FormatType>& neededFormatTypes) {
+//            int b = 0;
+//            for (FormatType formatType : neededFormatTypes) {
+//                buildGradientHessianKernel(formatType, true); ++b;
+//                buildGradientHessianKernel(formatType, false); ++b;
+//            }
+//        }
+
         std::string getFormatTypeExtension(FormatType formatType) {
             switch (formatType) {
                 case DENSE:
@@ -271,6 +279,8 @@ namespace bsccs{
         }
 
         SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType);
+
+//        SourceCode writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
         void buildUpdateXBetaKernel(FormatType formatType) {
 
@@ -303,6 +313,109 @@ namespace bsccs{
             kernelUpdateXBeta[formatType] = std::move(kernel);
         }
 
+
+//        void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
+//
+//            std::stringstream options;
+//
+//            if (double_precision) {
+//#ifdef USE_VECTOR
+//                options << "-DREAL=double -DTMP_REAL=double2 -DTPB=" << tpb;
+//#else
+//                options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+//#endif // USE_VECTOR
+//            } else {
+//#ifdef USE_VECTOR
+//                options << "-DREAL=float -DTMP_REAL=float2 -DTPB=" << tpb;
+//#else
+//                options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+//#endif // USE_VECTOR
+//            }
+//            options << " -cl-mad-enable -cl-fast-relaxed-math"; // " -cl-mad-enable"?
+//
+////            if (double_precision) {
+////                options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+////            } else {
+////                options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+////            }
+////            options << " -cl-mad-enable";
+//
+////         compute::vector<compute::double2_> buf(10, ctx);
+////
+////         compute::double2_ sum = compute::double2_{0.0, 0.0};
+////         compute::reduce(buf.begin(), buf.end(), &sum, queue);
+////
+////         std::cerr << sum << std::endl;
+////
+////         auto cache = compute::program_cache::get_global_cache(ctx);
+////         auto list = cache->get_keys();
+////         std::cerr << "list size = " << list.size() << std::endl;
+////         for (auto a : list) {
+////             std::cerr << a.first << ":" << a.second << std::endl;
+////             auto p = cache->get(a.first, a.second);
+////             if (p) {
+////                 std::cerr << p->source() << std::endl;
+////             }
+////         }
+////
+////         Rcpp::stop("out");
+//
+//            const auto isNvidia = compute::detail::is_nvidia_device(queue.get_device());
+//
+////         std::cerr << queue.get_device().name() << " " << queue.get_device().vendor() << std::endl;
+////         std::cerr << "isNvidia = " << isNvidia << std::endl;
+////         Rcpp::stop("out");
+//
+//            auto source = writeCodeForGradientHessianKernel(formatType, useWeights, isNvidia);
+//
+//            /*
+//            if (algorithmType == AlgorithmType::MM) {
+//                std::cout << "wrote MM source\n";
+//                source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
+//            }
+//            */
+//
+//            // std::cerr << options.str() << std::endl;
+//            // std::cerr << source.body << std::endl;
+//
+//            std::cout << "formatType: " << formatType << " isNvidia: " << isNvidia << '\n';
+//            auto program = compute::program::build_with_source(source.body, ctx, options.str());
+//            std::cout << "program built \n";
+//            auto kernel = compute::kernel(program, source.name);
+//            std::cout << "kernal built \n";
+//
+//            // Rcpp::stop("cGH");
+//
+//            // Run-time constant arguments.
+//            kernel.set_arg(5, dY);
+//            kernel.set_arg(6, dXBeta);
+//            kernel.set_arg(7, dExpXBeta);
+//            kernel.set_arg(8, dDenominator);
+//            kernel.set_arg(9, dBuffer);  // TODO Does not seem to stick
+//            kernel.set_arg(10, dId);
+//            kernel.set_arg(11, dKWeight); // TODO Does not seem to stick
+//
+////            source = writeCodeForMMGradientHessianKernel(formatType, useWeights, isNvidia);
+////            program = compute::program::build_with_source(source.body, ctx, options.str());
+////            auto kernelMM = compute::kernel(program, source.name);
+////            kernelMM.set_arg(5, dY);
+////            kernelMM.set_arg(6, dXBeta);
+////            kernelMM.set_arg(7, dExpXBeta);
+////            kernelMM.set_arg(8, dDenominator);
+////            kernelMM.set_arg(9, dBuffer);  // TODO Does not seem to stick
+////            kernelMM.set_arg(10, dId);
+////            kernelMM.set_arg(11, dKWeight); // TODO Does not seem to stick
+//
+//            if (useWeights) {
+//                kernelGradientHessianWeighted[formatType] = std::move(kernel);
+////                kernelGradientHessianMMWeighted[formatType] = std::move(kernelMM);
+//            } else {
+//                kernelGradientHessianNoWeight[formatType] = std::move(kernel);
+////                kernelGradientHessianMMNoWeight[formatType] = std::move(kernelMM);
+//            }
+//        }
+
+
         void buildAllKernels(const std::vector<FormatType>& neededFormatTypes) {
 //            buildAllGradientHessianKernels(neededFormatTypes);
 //            std::cout << "built gradhessian kernels \n";
@@ -311,6 +424,8 @@ namespace bsccs{
         }
 
         std::map<FormatType, compute::kernel> kernelUpdateXBeta;
+//        std::map<FormatType, compute::kernel> kernelGradientHessianWeighted;
+//        std::map<FormatType, compute::kernel> kernelGradientHessianNoWeight;
 
         bool hXBetaKnown;
         bool dXBetaKnown;

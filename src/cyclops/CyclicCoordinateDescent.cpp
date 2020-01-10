@@ -1251,7 +1251,7 @@ void CyclicCoordinateDescent::findMode(
     }
 
 	lastIterationCount = iteration;
-	std::cout << "iterations: " << lastIterationCount << " ";
+	std::cout << "iterations: " << lastIterationCount << " lastObjFunc: " << lastObjFunc << '\n';
 
 	updateCount += 1;
 
