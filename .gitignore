@@ -4,6 +4,9 @@
 .settings
 .Rproj.user
 .Rhistory
+.RData
+.DS_Store
+.idea/
 standalone/build/**
 src/**/*.o
 src/*.so
@@ -22,5 +25,6 @@ docker
 notes
 tests/testthat/test-KKTSwindle.R
 tests/testthat/test-weighted_cv.R
+standalone/out.txt
 *conflicted*
 *tmp*
