@@ -520,8 +520,99 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 		}
 #endif // NEW_PROFILE
 
-	gettimeofday(&time2, NULL);
-	return calculateSeconds(time1, time2);
+    gettimeofday(&time2, NULL);
+    return calculateSeconds(time1, time2);
+}
+
+double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, AbstractModelData *modelData,
+                                          const IdType covariate,
+                                          const std::vector<double>& points,
+                                          std::vector<double>& values,
+                                          int inThreads,
+                                          bool includePenalty) {
+
+    struct timeval time1, time2;
+    gettimeofday(&time1, NULL);
+
+    int index = modelData->getColumnIndexByName(covariate);
+
+    if (index == -1) {
+        std::ostringstream stream;
+        stream << "Variable " << covariate << " not found.";
+        error->throwError(stream);
+    }
+
+    // Parallelize across grid values
+    int nThreads = (inThreads == -1) ?
+    bsccs::thread::hardware_concurrency() : inThreads;
+
+    double mode = ccd->getLogLikelihood(); // TODO Remove
+
+    std::ostringstream stream2;
+    stream2 << "Using " << nThreads << " thread(s)";
+    logger->writeLine(stream2);
+
+    int J = ccd->getBetaSize();
+    std::vector<double> x0s(J);
+    for (int j = 0; j < J; ++j) {
+        x0s[j] = ccd->getBeta(j);
+    }
+
+    std::vector<CyclicCoordinateDescent*> ccdPool;
+    ccdPool.push_back(ccd);
+
+    for (int i = 1; i < nThreads; ++i) {
+        ccdPool.push_back(ccd->clone());
+    }
+
+    auto evaluate = [this, index, includePenalty](const double point,
+                            CyclicCoordinateDescent* ccd) {
+
+        OptimizationProfile eval(*ccd, arguments, index,
+                                 0.0, 0.0, includePenalty);
+
+        return eval.objective(point);
+    };
+
+    if (nThreads == 1) {
+        for (int i = 0; i < points.size(); ++i) {
+            values[i] = evaluate(points[i], ccd);
+        }
+    } else {
+        auto scheduler = TaskScheduler<boost::counting_iterator<int>>(
+            boost::make_counting_iterator(0), boost::make_counting_iterator(static_cast<int>(points.size())), nThreads);
+
+        auto oneTask = [&evaluate, &scheduler, &ccdPool, &points, &values](unsigned long task) {
+            values[task] = evaluate(points[task], ccdPool[scheduler.getThreadIndex(task)]);
+        };
+
+        // Run all tasks in parallel
+        ccd->getProgressLogger().setConcurrent(true);
+        ccd->getErrorHandler().setConcurrent(true);
+        scheduler.execute(oneTask);
+        ccd->getProgressLogger().setConcurrent(false);
+        ccd->getErrorHandler().setConcurrent(false);
+        ccd->getProgressLogger().flush();
+        ccd->getErrorHandler().flush();
+    }
+
+    // Reset
+    for (int j = 0; j < J; ++j) {
+        ccd->setBeta(j, x0s[j]);
+    }
+    // DEBUG, TODO Remove?
+    double testMode = ccd->getLogLikelihood();
+    std::ostringstream stream;
+    stream << "Difference after profile: " << testMode << " " << mode;
+    logger->writeLine(stream);
+
+    // Clean up copies
+    for (int i = 1; i < nThreads; ++i) {
+        delete ccdPool[i]; // TODO use shared_ptr
+    }
+
+    gettimeofday(&time2, NULL);
+    return calculateSeconds(time1, time2);
 }
 
 double CcdInterface::diagnoseModel(CyclicCoordinateDescent *ccd, AbstractModelData *modelData,

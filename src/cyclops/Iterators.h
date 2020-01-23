@@ -27,6 +27,7 @@ class IndicatorIterator {
 
 	typedef IndicatorTag tag;
 	typedef int Index;
+	typedef Scalar ValueType;
 	typedef boost::tuples::tuple<Index> XTuple;
 
 	const static std::string name;
@@ -61,10 +62,14 @@ class IndicatorIterator {
 //	}
 
     inline IndicatorIterator& operator++() { ++mId; return *this; }
+	inline IndicatorIterator operator++(int) { auto rtn = *this; ++(*this); return rtn; }
+
     inline const Scalar value() const { return static_cast<Scalar>(1); }
 
     inline Index index() const { return mIndices[mId]; }
+	inline Index nextIndex() const { return mIndices[mId + 1]; }
     inline operator bool() const { return (mId < mEnd); }
+	inline bool inRange(const Scalar i) const { return (mId < i); }
     inline Index size() const { return mEnd; }
 	inline Scalar multiply(const Scalar x) const { return x; }
 	inline Scalar multiply(const Scalar x, const Index index) { return x; }
@@ -82,6 +87,7 @@ class SparseIterator {
 
 	typedef SparseTag tag;
 	typedef int Index;
+	typedef Scalar ValueType;
 	typedef boost::tuples::tuple<Index, Scalar> XTuple;
 
 	const static std::string name;
@@ -113,6 +119,11 @@ class SparseIterator {
 	}
 
     inline SparseIterator& operator++() { ++mId; return *this; }
+	inline SparseIterator operator++(int) { auto rtn = *this; ++(*this); return rtn; }
+
+
+//	bool operator==(iterator other) const {return num == other.num;}
+//	bool operator!=(iterator other) const {return !(*this == other);}
 
     inline const Scalar value() const {
 //    	cerr << "Oh yes!" << endl;
@@ -121,7 +132,9 @@ class SparseIterator {
     inline Scalar& valueRef() { return const_cast<Scalar&>(mValues[mId]); }
 
     inline Index index() const { return mIndices[mId]; }
+	inline Index nextIndex() const { return mIndices[mId + 1]; }
     inline operator bool() const { return (mId < mEnd); }
+	inline bool inRange(const Scalar i) const { return (mId < i); }
     inline Index size() const { return mEnd; }
 	inline Scalar multiply(const Scalar x) const { return x * mValues[mId]; }
 	inline Scalar multiply(const Scalar x, const Index index) const { return x * mValues[index]; }
@@ -137,6 +150,7 @@ template <typename IteratorType, typename Scalar>
 class DenseView {
 public:
 	typedef int Index;
+    typedef Scalar ValueType;
 
 	enum  { isIndicator = false };
 	enum  { isSparse = false };
@@ -169,6 +183,7 @@ public:
     }
 
     inline Index index() const { return mId; }
+	inline Index nextIndex() const { return mId + 1; }
     inline operator bool() const { return (mId < mEnd); }
     inline Index size() const { return mEnd; }
 	inline Scalar multiply(const Scalar x) const { return x * value(); }
@@ -200,6 +215,7 @@ public:
 
 	inline CountingIterator& operator++() { ++mId; return *this; }
 	inline Index index() const  { return mId; }
+	inline Index nextIndex() const { return mId + 1; }
 	inline operator bool() const { return (mId < mEnd); }
     inline Index size() const { return mEnd; }
 
@@ -215,6 +231,7 @@ class DenseIterator {
 
 	typedef DenseTag tag;
 	typedef int Index;
+	typedef Scalar ValueType;
 	typedef boost::tuples::tuple<Index, Scalar> XTuple;
 
 	const static std::string name;
@@ -248,12 +265,15 @@ class DenseIterator {
 	}
 
     inline DenseIterator& operator++() { ++mId; return *this; }
+	inline DenseIterator operator++(int) { auto rtn = *this; ++(*this); return rtn; }
 
     inline const Scalar value() const { return mValues[mId]; }
     inline Scalar& valueRef() { return const_cast<Scalar&>(mValues[mId]); }
 
     inline Index index() const { return mId; }
+	inline Index nextIndex() const { return mId + 1; }
     inline operator bool() const { return (mId < mEnd); }
+	inline bool inRange(const Scalar i) const { return (mId < i); }
     inline Index size() const { return mEnd; }
 	inline Scalar multiply(const Scalar x) const { return x * mValues[mId]; }
 	inline Scalar multiply(const Scalar x, const Index index) const { return x * mValues[index]; }
@@ -271,6 +291,7 @@ class InterceptIterator {
 
 	typedef InterceptTag tag; // TODO Fix!!!
 	typedef int Index;
+	typedef Scalar ValueType;
 	typedef boost::tuples::tuple<Index> XTuple;
 
 	const static std::string name;
@@ -299,13 +320,16 @@ class InterceptIterator {
 	}
 
     inline InterceptIterator& operator++() { ++mId; return *this; }
+	inline InterceptIterator operator++(int) { auto rtn = *this; ++(*this); return rtn; }
 
     inline const int value() const { return 1; }
     inline int valueRef() { return 1; }
     // TODO Confirm optimization of (real) * value() => (real)
 
     inline Index index() const { return mId; }
+	inline Index nextIndex() const { return mId + 1; }
     inline operator bool() const { return (mId < mEnd); }
+	inline bool inRange(const Scalar i) const { return (mId < i); }
     inline Index size() const { return mEnd; }
 	inline Scalar multiply(const Scalar x) const { return x; }
 	inline Scalar multiply(const Scalar x, const Index index) const { return x; }
@@ -321,6 +345,7 @@ class DenseViewIterator {
   public:
 
 	typedef int Index;
+    typedef Scalar ValueType;
 
 	enum  { isIndicator = false };
 	enum  { isSparse = false };
@@ -337,6 +362,7 @@ class DenseViewIterator {
     inline Scalar& valueRef() { return const_cast<Scalar&>(mValues[mId]); }
 
     inline Index index() const { return mId; }
+	inline Index nextIndex() const { return mId + 1; }
     inline operator bool() const { return (mId < mEnd); }
     inline Index size() const { return mEnd; }
 	inline Scalar multiply(const Scalar x) const { return x * mValues[mId]; }
@@ -355,6 +381,7 @@ class GenericIterator {
   public:
 
 	typedef int Index;
+    typedef Scalar ValueType;
 
 	inline GenericIterator(const CompressedDataMatrix<Scalar>& mat, Index column)
 	  : mFormatType(mat.getFormatType(column)),
@@ -396,6 +423,13 @@ class GenericIterator {
     		return mIndices[mId];
     	}
     }
+	inline Index nextIndex() const {
+	    if (mFormatType == DENSE || mFormatType == INTERCEPT) {
+	        return mId + 1;
+	    } else {
+	        return mIndices[mId + 1];
+	    }
+	}
     inline operator bool() const { return (mId < mEnd); }
     inline Index size() const { return mEnd; }
 	inline Scalar multiply(const Scalar x) const { return x * value(); }
@@ -414,6 +448,7 @@ class GroupByIterator {
 public:
 
     typedef int Index;
+    typedef Scalar ValueType;
 
     inline GroupByIterator(IteratorType& itMain, IndicatorIterator<Scalar>& _groupBy)
         : iterator(itMain), groupBy(_groupBy) {
@@ -467,6 +502,7 @@ class PairProductIterator {
   public:
 
 	typedef int Index;
+    typedef Scalar ValueType;
 
 //	enum  { isIndicator = true }; // Need to determine from IteratorTypeOne/IteratorTypeTwo
 //	enum  { isSparse = true };

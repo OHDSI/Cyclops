@@ -186,7 +186,7 @@ fitCyclopsModel <- function(cyclopsData,
             writeLines(paste("Using cross-validation selector type", control$selectorType))
         }
     }
-    .setControl(cyclopsData$cyclopsInterfacePtr, control)
+    control <- .setControl(cyclopsData$cyclopsInterfacePtr, control)
     threads <- control$threads
 
     if (!is.null(startingCoefficients)) {
@@ -269,6 +269,7 @@ fitCyclopsModel <- function(cyclopsData,
     fit$rowNames <- cyclopsData$rowNames
     fit$scale <- cyclopsData$scale
     fit$threads <- threads
+    fit$seed <- control$seed
     class(fit) <- "cyclopsFit"
     return(fit)
 }
@@ -671,7 +672,7 @@ getCrossValidationInfo <- function(object) {
             control$seed <- as.integer(Sys.time())
         }
 
-        if (is.na(control$algorithm)) { # Provide backwards compatibility
+        if (is.null(control$algoritm) || is.na(control$algorithm)) { # Provide backwards compatibility
             control$algorithm <- "ccd"
         }
 
@@ -684,7 +685,10 @@ getCrossValidationInfo <- function(object) {
                            control$selectorType, control$initialBound, control$maxBoundCount,
                            control$algorithm, control$doItAll, control$syncCV
                           )
+        return(control)
     }
+
+    return(NULL)
 }
 
 #' @title Extract standard errors
@@ -721,8 +725,7 @@ getSEs <- function(object, covariates) {
 #'
 #' @description
 #' \code{confinit.cyclopsFit} profiles the data likelihood to construct confidence intervals of
-#' arbitrary level. Usually it only makes sense to do this for variables that have not been regularized
-#' TODO: Profile data likelihood or joint distribution of remaining parameters.
+#' arbitrary level. Usually it only makes sense to do this for variables that have not been regularized.
 #'
 #' @param object    A fitted Cyclops model object
 #' @param parm      A specification of which parameters require confidence intervals,
@@ -779,6 +782,33 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     prof[which(is.nan(prof[, 3])), 3] <- NA
 
     prof
+}
+
+#' @title Profile likelihood for Cyclops model parameters
+#'
+#' @description
+#' \code{getCyclopsProfileLogLikelihood} evaluates the profile likelihood at a grid of parameter values.
+#'
+#' @param object    A fitted Cyclops model object
+#' @param parm      A specification of which parameter requires profiling,
+#'                  either a vector of numbers of covariateId names
+#' @param x         A vector of values of the parameter
+#' @param includePenalty    Logical: Include regularized covariate penalty in profile
+#'
+#' @return
+#' A vector of the profile log likelihood evaluated at x
+#'
+#' @export
+getCyclopsProfileLogLikelihood <- function(object, parm, x,
+                                           includePenalty = TRUE) {
+
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+    parm <- .checkCovariates(object$cyclopsData, parm)
+    threads <- object$threads
+
+    grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
+                                         threads, includePenalty)
+    grid
 }
 
 #' @title Asymptotic confidence intervals for a fitted Cyclops model object
