@@ -23,6 +23,17 @@ namespace bsccs{
 
     namespace compute = boost::compute;
 
+//    namespace detail {
+//
+//        namespace constant {
+//            static const int updateXBetaBlockSize = 256; // 512; // Appears best on K40
+//            static const int updateAllXBetaBlockSize = 32;
+//            int exactCLRBlockSize = 32;
+//            int exactCLRSyncBlockSize = 32;
+//            static const int maxBlockSize = 256;
+//        }; // namespace constant
+//    }; // namespace detail
+
     template <class BaseModel, typename RealType>
     class GpuModelSpecificsCox :
             public BaseGpuModelSpecifics<BaseModel, RealType> {
@@ -42,7 +53,7 @@ namespace bsccs{
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::hPid;
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::K;
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::J;
-//        using BaseGpuModelSpecifics<BaseModel, RealType>::N;
+        using BaseGpuModelSpecifics<BaseModel, RealType>::N;
         using BaseGpuModelSpecifics<BaseModel, RealType>::offsExpXBeta;
         using BaseGpuModelSpecifics<BaseModel, RealType>::hXBeta;
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::hY;
@@ -53,7 +64,7 @@ namespace bsccs{
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::numerPid2;
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::hNWeight;
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::hKWeight;
-//        using BaseGpuModelSpecifics<BaseModel, RealType>::accDenomPid;
+        using BaseGpuModelSpecifics<BaseModel, RealType>::accDenomPid;
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::accNumerPid;
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::accNumerPid2;
 
@@ -67,7 +78,7 @@ namespace bsccs{
         using BaseGpuModelSpecifics<BaseModel, RealType>::dExpXBeta;
         using BaseGpuModelSpecifics<BaseModel, RealType>::dDenominator;
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::dDenominator2;
-//        using BaseGpuModelSpecifics<BaseModel, RealType>::dAccDenominator;
+        using BaseGpuModelSpecifics<BaseModel, RealType>::dAccDenominator;
         using BaseGpuModelSpecifics<BaseModel, RealType>::dColumns;
 
         int tpb = 256; // threads-per-block  // Appears best on K40
@@ -75,7 +86,8 @@ namespace bsccs{
 
         GpuModelSpecificsCox(const ModelData<RealType>& input,
                              const std::string& deviceName)
-        : BaseGpuModelSpecifics<BaseModel, RealType>(input, deviceName){
+        : BaseGpuModelSpecifics<BaseModel, RealType>(input, deviceName),
+          dBuffer(ctx){
 
             std::cerr << "ctor GpuModelSpecificsCox" << std::endl;
 
@@ -139,6 +151,7 @@ namespace bsccs{
 //         const auto taskCount = column.getTaskCount();
             const auto taskCount = dColumns.getTaskCount(index);
 
+//            std::cout << "taskCount: " << taskCount << " dDenominator.size(): " << dDenominator.size() << '\n';
             kernel.set_arg(0, dColumns.getDataOffset(index)); // offX
             kernel.set_arg(1, dColumns.getIndicesOffset(index)); // offK
             kernel.set_arg(2, taskCount); // N
@@ -201,7 +214,8 @@ namespace bsccs{
 //            }
 //            std::cout << "\n";
 
-            ModelSpecifics<BaseModel, RealType>::computeAccumlatedDenominator(useWeights);
+//            ModelSpecifics<BaseModel, RealType>::computeAccumlatedDenominator(useWeights);
+            computeAccumlatedDenominator(useWeights);
 
 #ifdef GPU_DEBUG
             // Compare results:
@@ -209,6 +223,57 @@ namespace bsccs{
         detail::compare(offsExpXBeta, dExpXBeta, "expXBeta not equal");
         detail::compare(denomPid, dDenominator, "denominator not equal");
 #endif // GPU_DEBUG
+        }
+
+        virtual void computeAccumlatedDenominator(bool useWeights) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start = bsccs::chrono::steady_clock::now();
+#endif
+
+            auto& kernel = kernelComputeAccumlatedDenominator;
+
+            int tc = dDenominator.size();
+            const auto taskCount = tc;
+
+//            kernel.set_arg(0, dColumns.getDataOffset()); // offX
+//            kernel.set_arg(1, dColumns.getIndicesOffset()); // offK
+            kernel.set_arg(0, taskCount);
+            kernel.set_arg(1, dDenominator);
+            if (dAccDenominator.size() < dDenominator.size()) {
+                dAccDenominator.resize(dDenominator.size(), queue);
+            }
+            kernel.set_arg(2, dAccDenominator);
+            if (dBuffer.size() < dDenominator.size()) {
+                dBuffer.resize(dDenominator.size(), queue);
+            }
+            kernel.set_arg(3, dBuffer);
+            kernel.set_arg(4, dId);
+
+            size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
+            if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+                ++workGroups;
+            }
+            const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+            queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
+            queue.finish();
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            duration["accumlatedDenomG "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+            // copy results to host
+            accDenomPid.resize(dAccDenominator.size());
+            compute::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid), queue);//            std::cout << "dDenominator: ";
+
+//            std::cout << "dAccDenominator: ";
+//            for (auto x:accDenomPid) {
+//                std::cout << x << " ";
+//            }
+//            std::cout << "\n";
+
         }
 
         virtual const std::vector<double> getXBeta() {
@@ -256,6 +321,12 @@ namespace bsccs{
             }
         }
 
+        void buildAllComputeAccumlatedDenominatorKernels() {
+            //for (FormatType formatType : neededFormatTypes) {
+            buildComputeAccumlatedDenominatorKernel(true);
+            buildComputeAccumlatedDenominatorKernel(false);
+            //}
+        }
 //        void buildAllGradientHessianKernels(const std::vector<FormatType>& neededFormatTypes) {
 //            int b = 0;
 //            for (FormatType formatType : neededFormatTypes) {
@@ -279,6 +350,7 @@ namespace bsccs{
         }
 
         SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType);
+        SourceCode writecodeForComputeAccumlatedDenominatorKernel(bool useWeights);
 
 //        SourceCode writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
@@ -313,6 +385,26 @@ namespace bsccs{
             kernelUpdateXBeta[formatType] = std::move(kernel);
         }
 
+        void buildComputeAccumlatedDenominatorKernel(bool useWeights) {
+
+            std::stringstream options;
+            if (double_precision) {
+                options << "-DREAL=double -DTMP_REAL=double -DTPB=" << tpb;
+            } else {
+                options << "-DREAL=float -DTMP_REAL=float -DTPB=" << tpb;
+            }
+            options << " -cl-mad-enable";
+
+            auto source = writecodeForComputeAccumlatedDenominatorKernel(useWeights);
+
+            std::cerr << source.body << std::endl;
+
+            auto program = compute::program::build_with_source(source.body, ctx, options.str());
+            std::cout << "built accDenominator program \n";
+            auto kernel = compute::kernel(program, source.name);
+
+            kernelComputeAccumlatedDenominator = std::move(kernel);
+        }
 
 //        void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
 //
@@ -421,12 +513,16 @@ namespace bsccs{
 //            std::cout << "built gradhessian kernels \n";
             buildAllUpdateXBetaKernels(neededFormatTypes);
             std::cout << "built updateXBeta kernels \n";
+            buildAllComputeAccumlatedDenominatorKernels();
+            std::cout << "built accumulatedDenominator kernels \n";
         }
 
         std::map<FormatType, compute::kernel> kernelUpdateXBeta;
+        compute::kernel kernelComputeAccumlatedDenominator;
 //        std::map<FormatType, compute::kernel> kernelGradientHessianWeighted;
 //        std::map<FormatType, compute::kernel> kernelGradientHessianNoWeight;
 
+        compute::vector<RealType> dBuffer;
         bool hXBetaKnown;
         bool dXBetaKnown;
     };

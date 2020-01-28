@@ -28,7 +28,7 @@
 
 
 //#include "R.h"
-#include "Rcpp.h" // TODO Remove
+//#include "Rcpp.h" // TODO Remove
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	#include "Timing.h"

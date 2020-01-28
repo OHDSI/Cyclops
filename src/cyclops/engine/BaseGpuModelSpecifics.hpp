@@ -16,6 +16,14 @@ namespace bsccs {
 
     namespace detail {
 
+        namespace constant {
+            static const int updateXBetaBlockSize = 256; // 512; // Appears best on K40
+            static const int updateAllXBetaBlockSize = 32;
+            int exactCLRBlockSize = 32;
+            int exactCLRSyncBlockSize = 32;
+            static const int maxBlockSize = 256;
+        }; // namespace constant
+
         template <typename DeviceVec, typename HostVec>
         DeviceVec allocateAndCopyToDevice(const HostVec& hostVec, const compute::context& context, compute::command_queue& queue) {
             DeviceVec deviceVec(hostVec.size(), context);

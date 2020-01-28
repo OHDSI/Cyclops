@@ -13,6 +13,76 @@ namespace bsccs{
 
     template <class BaseModel, typename RealType>
     SourceCode
+    GpuModelSpecificsCox<BaseModel, RealType>::writecodeForComputeAccumlatedDenominatorKernel(bool useWeights) {
+
+        std::string name = "computeAccumlatedDenominator";
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel void " << name << "(          \n" <<
+//             "       const uint offX,           \n" <<
+//             "       const uint offK,           \n" <<
+                "       const uint taskCount,           \n" <<
+                "       __global REAL* denominator,     \n" <<
+                "       __global REAL* accDenominator,  \n" <<
+                "       __global REAL* buffer,          \n" <<
+                "       __global const int* id)  {      \n" ;
+
+        // Initialization
+        code << "   uint gid = get_global_id(0);   \n" <<
+                "   uint lid = get_local_id(0);    \n" <<
+                "   const uint scale = taskCount;  \n" <<
+                "   uint d = 1;                    \n" ;
+
+        code << "   buffer[2*lid] = denominator[2*gid];         \n" <<
+                "   buffer[2*lid+1] = denominator[2*gid+1];     \n" ;
+
+        // up-sweep
+        code << "   for(uint s = (scale >> 1); s > 0; s >>= 1) {    \n" <<
+                "       barrier(CLK_LOCAL_MEM_FENCE);               \n" <<
+                "       if (lid < s) {                              \n" <<
+                "           uint i = d*(2*lid+1)-1;                 \n" <<
+                "           uint j = d*(2*lid+2)-1;                 \n" <<
+                "           buffer[j] += buffer[i];                 \n" <<
+                "       }                                           \n" <<
+                "       d <<= 1;                                    \n" <<
+                "   }                                               \n";
+
+        // down-sweep
+        code << "   if(lid == 0) buffer[taskCount - 1] = 0;     \n" ;
+//        code << "   if(lid == 0) {                              \n" <<
+//                "       const REAL sum = buffer[taskCount - 1];       \n" <<
+//                "       accDenominator[taskCount - 1] = buffer[taskCount - 1];       \n" <<
+//                "       buffer[scale - 1] = 0;              \n" <<
+//                "   }                                           \n";
+        code << "   for(uint s = 1; s < scale; s <<= 1) {       \n" <<
+                "       d >>= 1;                                \n" <<
+                "       barrier(CLK_LOCAL_MEM_FENCE);           \n" <<
+                "       if (lid < s) {                          \n" <<
+                "           uint i = d*(2*lid+1)-1;             \n" <<
+                "           uint j = d*(2*lid+2)-1;             \n" <<
+                "           REAL temp = buffer[i];              \n" <<
+                "           buffer[i] = buffer[j];              \n" <<
+                "           buffer[j] += temp;                  \n" <<
+                "       }                                       \n" <<
+                "   }                                           \n";
+
+        // copy results
+//        code << "   accDenominator[taskCount - 1] = sum;                \n";
+        code << "   barrier(CLK_LOCAL_MEM_FENCE);                   \n" <<
+                "   if (lid < scale) {                              \n" <<
+                "       accDenominator[2*gid] = buffer[2*lid+1];    \n" <<
+                "       accDenominator[2*gid+1] = buffer[2*lid+2];  \n" <<
+                "   }                                               \n";
+
+        code << "}    \n";
+
+        return SourceCode(code.str(), name);
+    }
+
+    template <class BaseModel, typename RealType>
+    SourceCode
     GpuModelSpecificsCox<BaseModel, RealType>::writeCodeForUpdateXBetaKernel(FormatType formatType) {
 
         std::string name = "updateXBeta" + getFormatTypeExtension(formatType);
