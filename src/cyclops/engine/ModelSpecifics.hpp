@@ -1307,11 +1307,11 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 //>>>>>>> master
 		switch (hX.getFormatType(index)) {
 		case INDICATOR : {
-//				IndicatorIterator<RealType> itI(*(sparseIndices)[index]);
-//				for (; itI; ++itI) { // Only affected entries
-//					numerPid[itI.index()] = static_cast<RealType>(0.0);
-//				}
-				zeroVector(numerPid.data(), N);
+				IndicatorIterator<RealType> itI(*(sparseIndices)[index]);
+				for (; itI; ++itI) { // Only affected entries
+					numerPid[itI.index()] = static_cast<RealType>(0.0);
+				}
+//				zeroVector(numerPid.data(), N);
 				if (BaseModel::efron) {
 					zeroVector(numerPid3.data(), N);
 				}
@@ -1323,17 +1323,17 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 				break;
 		}
 		case SPARSE : {
-//				SparseIterator<RealType> itS(*(sparseIndices)[index]);
-//				for (; itS; ++itS) { // Only affected entries
-//					numerPid[itS.index()] = static_cast<RealType>(0.0);
-//					if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
-//						numerPid2[itS.index()] = static_cast<RealType>(0.0); // TODO Does this invalid the cache line too much?
-//					}
-//				}
-				zeroVector(numerPid.data(), N);
-				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
-					zeroVector(numerPid2.data(), N);
+				SparseIterator<RealType> itS(*(sparseIndices)[index]);
+				for (; itS; ++itS) { // Only affected entries
+					numerPid[itS.index()] = static_cast<RealType>(0.0);
+					if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
+						numerPid2[itS.index()] = static_cast<RealType>(0.0); // TODO Does this invalid the cache line too much?
+					}
 				}
+//				zeroVector(numerPid.data(), N);
+//				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
+//					zeroVector(numerPid2.data(), N);
+//				}
 				if (BaseModel::efron) {
 					zeroVector(numerPid3.data(), N);
 					zeroVector(numerPid4.data(), N);

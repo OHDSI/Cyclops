@@ -597,9 +597,9 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 		}
 		if (usingGPU) modelSpecifics.updateDoneFolds(donePool);
 	}
-	for (int i=0; i<J; i++) {
-		fixBeta[i] = false;
-	}
+//	for (int i=0; i<J; i++) {
+//		fixBeta[i] = false;
+//	}
 
 
 	while (!done) {

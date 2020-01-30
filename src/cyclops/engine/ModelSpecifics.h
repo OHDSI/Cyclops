@@ -226,15 +226,15 @@ protected:
 
 	void printTiming(void);
 
-//	using Storage<RealType>::hNWeight;
-//	using Storage<RealType>::hKWeight;
+	using Storage<RealType>::hNWeight;
+	using Storage<RealType>::hKWeight;
 
 	std::vector<int> hNtoK;
 
 	RealVector norm;
 
-	 std::vector<RealType> hNWeight;
-	 std::vector<RealType> hKWeight;
+//	 std::vector<RealType> hNWeight;
+//	 std::vector<RealType> hKWeight;
 
 	void computeXjY(bool useCrossValidation);
 
