@@ -81,13 +81,17 @@ namespace bsccs{
         using BaseGpuModelSpecifics<BaseModel, RealType>::dAccDenominator;
         using BaseGpuModelSpecifics<BaseModel, RealType>::dColumns;
 
-        int tpb = 256; // threads-per-block  // Appears best on K40
+        std::vector<double> hBuffer;
+        std::vector<double> hBuffer1;
 
+        int tpb = 256; // threads-per-block  // Appears best on K40
+        int PSC_K = 32;
+        int PSC_WG_SIZE = 256;
 
         GpuModelSpecificsCox(const ModelData<RealType>& input,
                              const std::string& deviceName)
         : BaseGpuModelSpecifics<BaseModel, RealType>(input, deviceName),
-          dBuffer(ctx){
+          dBuffer(ctx), dBuffer1(ctx){
 
             std::cerr << "ctor GpuModelSpecificsCox" << std::endl;
 
@@ -230,33 +234,119 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start = bsccs::chrono::steady_clock::now();
 #endif
-
-            auto& kernel = kernelComputeAccumlatedDenominator;
-
             int tc = dDenominator.size();
             const auto taskCount = tc;
-
-//            kernel.set_arg(0, dColumns.getDataOffset()); // offX
-//            kernel.set_arg(1, dColumns.getIndicesOffset()); // offK
-            kernel.set_arg(0, taskCount);
-            kernel.set_arg(1, dDenominator);
-            if (dAccDenominator.size() < dDenominator.size()) {
-                dAccDenominator.resize(dDenominator.size(), queue);
-            }
-            kernel.set_arg(2, dAccDenominator);
-            if (dBuffer.size() < dDenominator.size()) {
-                dBuffer.resize(dDenominator.size(), queue);
-            }
-            kernel.set_arg(3, dBuffer);
-            kernel.set_arg(4, dId);
-
             size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
             if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
                 ++workGroups;
             }
             const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+            const auto intervalSize = 8192;
+//            const auto maxInterval = 144;
+            if (dAccDenominator.size() < dDenominator.size()) {
+                dAccDenominator.resize(dDenominator.size(), queue);
+            }
+            if (dBuffer.size() < dDenominator.size()) {
+                dBuffer.resize(dDenominator.size(), queue);
+            }
+            if (dBuffer1.size() < workGroups) {
+                dBuffer1.resize(workGroups, queue);
+            }
+
+            // first level
+            auto& kernel = kernelScanLev1;
+            kernel.set_arg(0, dDenominator);
+            kernel.set_arg(1, dAccDenominator);
+            kernel.set_arg(2, dBuffer); // partial_scan_buffer
+            kernel.set_arg(3, taskCount);
+            kernel.set_arg(4, intervalSize);
+            kernel.set_arg(5, dBuffer1); // interval_results
+
+//            std::cout << " GlobalWorkSize: " << globalWorkSize << " workGroups: " << workGroups << " BlockSize: " << detail::constant::updateXBetaBlockSize << " taskCount: " << taskCount;
             queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
             queue.finish();
+
+//            // check intermediate results
+//            hBuffer.resize(dBuffer.size());
+//            compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+//            std::cout << "dBuffer: ";
+//            for (auto x:hBuffer) {
+//                std::cout << x << " ";
+//            }
+//            std::cout << "\n";
+//            hBuffer1.resize(dBuffer1.size());
+//            compute::copy(std::begin(dBuffer1), std::end(dBuffer1), std::begin(hBuffer1), queue);
+//            std::cout << "dBuffer1: ";
+//            for (auto x:hBuffer1) {
+//                std::cout << x << " ";
+//            }
+//            std::cout << "\n";
+
+            // second level
+            auto& kernel1 = kernelScanLev2;
+            kernel1.set_arg(0, dDenominator);
+            kernel1.set_arg(1, dAccDenominator);
+            kernel1.set_arg(2, dBuffer1); // interval_results
+            kernel1.set_arg(3, dBuffer1); // partial_scan_buffer
+            kernel1.set_arg(4, taskCount);
+            kernel1.set_arg(5, intervalSize);
+
+//            size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
+//            if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+//                ++workGroups;
+//            }
+//            const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+            queue.enqueue_1d_range_kernel(kernel1, 0, detail::constant::updateXBetaBlockSize, detail::constant::updateXBetaBlockSize);
+            queue.finish();
+
+//            // check intermediate results
+//            hBuffer.resize(dBuffer.size());
+//            compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+//            std::cout << "dBuffer: ";
+//            for (auto x:hBuffer) {
+//                std::cout << x << " ";
+//            }
+//            std::cout << "\n";
+//            hBuffer1.resize(dBuffer1.size());
+//            compute::copy(std::begin(dBuffer1), std::end(dBuffer1), std::begin(hBuffer1), queue);
+//            std::cout << "dBuffer1: ";
+//            for (auto x:hBuffer1) {
+//                std::cout << x << " ";
+//            }
+//            std::cout << "\n";
+
+            // final update
+            auto& kernel2 = kernelScanUpd;
+            kernel2.set_arg(0, dDenominator);
+            kernel2.set_arg(1, dAccDenominator);
+            kernel2.set_arg(2, taskCount);
+            kernel2.set_arg(3, intervalSize);
+            kernel2.set_arg(4, dBuffer1); // interval_results
+            kernel2.set_arg(5, dBuffer); // partial_scan_buffer
+
+//            size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
+//            if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+//                ++workGroups;
+//            }
+//            const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+            queue.enqueue_1d_range_kernel(kernel2, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
+            queue.finish();
+
+//            // check intermediate results
+//            hBuffer.resize(dBuffer.size());
+//            compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
+//            std::cout << "dBuffer: ";
+//            for (auto x:hBuffer) {
+//                std::cout << x << " ";
+//            }
+//            std::cout << "\n";
+//            hBuffer1.resize(dBuffer1.size());
+//            compute::copy(std::begin(dBuffer1), std::end(dBuffer1), std::begin(hBuffer1), queue);
+//            std::cout << "dBuffer1: ";
+//            for (auto x:hBuffer1) {
+//                std::cout << x << " ";
+//            }
+//            std::cout << "\n";
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
@@ -274,6 +364,34 @@ namespace bsccs{
 //            }
 //            std::cout << "\n";
 
+            // naive scan
+//            auto& kernel = kernelComputeAccumlatedDenominator;
+//
+//            int tc = dDenominator.size();
+//            const auto taskCount = tc;
+//
+////            kernel.set_arg(0, dColumns.getDataOffset()); // offX
+////            kernel.set_arg(1, dColumns.getIndicesOffset()); // offK
+//            kernel.set_arg(0, taskCount);
+//            kernel.set_arg(1, dDenominator);
+//            if (dAccDenominator.size() < dDenominator.size()) {
+//                dAccDenominator.resize(dDenominator.size(), queue);
+//            }
+//            kernel.set_arg(2, dAccDenominator);
+//            if (dBuffer.size() < dDenominator.size()) {
+//                dBuffer.resize(dDenominator.size(), queue);
+//            }
+//            std::cout << "dDenominator.size(): " << dDenominator.size() << '\n';
+//            kernel.set_arg(3, dBuffer);
+//            kernel.set_arg(4, dId);
+//
+//            size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
+//            if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
+//                ++workGroups;
+//            }
+//            const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
+//            queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
+//            queue.finish();
         }
 
         virtual const std::vector<double> getXBeta() {
@@ -327,6 +445,19 @@ namespace bsccs{
             buildComputeAccumlatedDenominatorKernel(false);
             //}
         }
+
+        void buildAllScanLev1Kernels() {
+            buildScanLev1Kernel();
+        }
+
+        void buildAllScanLev2Kernels() {
+            buildScanLev2Kernel();
+        }
+
+        void buildAllScanUpdKernels() {
+            buildScanUpdKernel();
+        }
+
 //        void buildAllGradientHessianKernels(const std::vector<FormatType>& neededFormatTypes) {
 //            int b = 0;
 //            for (FormatType formatType : neededFormatTypes) {
@@ -350,8 +481,10 @@ namespace bsccs{
         }
 
         SourceCode writeCodeForUpdateXBetaKernel(FormatType formatType);
-        SourceCode writecodeForComputeAccumlatedDenominatorKernel(bool useWeights);
-
+        SourceCode writeCodeForComputeAccumlatedDenominatorKernel(bool useWeights);
+        SourceCode writecodeForScanLev1Kernel();
+        SourceCode writecodeForScanLev2Kernel();
+        SourceCode writecodeForScanUpdKernel();
 //        SourceCode writeCodeForGradientHessianKernel(FormatType formatType, bool useWeights, bool isNvidia);
 
         void buildUpdateXBetaKernel(FormatType formatType) {
@@ -367,7 +500,7 @@ namespace bsccs{
 
             auto source = writeCodeForUpdateXBetaKernel(formatType);
 
-            std::cerr << source.body << std::endl;
+//            std::cerr << source.body << std::endl;
 
             auto program = compute::program::build_with_source(source.body, ctx, options.str());
             std::cout << "built updateXBeta program \n";
@@ -395,9 +528,9 @@ namespace bsccs{
             }
             options << " -cl-mad-enable";
 
-            auto source = writecodeForComputeAccumlatedDenominatorKernel(useWeights);
+            auto source = writeCodeForComputeAccumlatedDenominatorKernel(useWeights);
 
-            std::cerr << source.body << std::endl;
+//            std::cerr << source.body << std::endl;
 
             auto program = compute::program::build_with_source(source.body, ctx, options.str());
             std::cout << "built accDenominator program \n";
@@ -405,6 +538,70 @@ namespace bsccs{
 
             kernelComputeAccumlatedDenominator = std::move(kernel);
         }
+
+        void buildScanLev1Kernel() {
+
+            std::stringstream options;
+            if (double_precision) {
+                options << "-DREAL=double -DTMP_REAL=double -Dpsc_K=" << PSC_K << " -Dpsc_WG_SIZE=" << PSC_WG_SIZE;
+            } else {
+                options << "-DREAL=float -DTMP_REAL=float -Dpsc_K=" << PSC_K<< " -Dpsc_WG_SIZE=" << PSC_WG_SIZE;
+            }
+            options << " -cl-mad-enable";
+
+            auto source = writecodeForScanLev1Kernel();
+
+//            std::cerr << source.body << std::endl;
+
+            auto program = compute::program::build_with_source(source.body, ctx, options.str());
+            std::cout << "built scan_lev1 program \n";
+            auto kernel = compute::kernel(program, source.name);
+
+            kernelScanLev1 = std::move(kernel);
+        }
+
+        void buildScanLev2Kernel() {
+
+            std::stringstream options;
+            if (double_precision) {
+                options << "-DREAL=double -DTMP_REAL=double -Dpsc_K=" << PSC_K << " -Dpsc_WG_SIZE=" << PSC_WG_SIZE;
+            } else {
+                options << "-DREAL=float -DTMP_REAL=float -Dpsc_K=" << PSC_K<< " -Dpsc_WG_SIZE=" << PSC_WG_SIZE;
+            }
+            options << " -cl-mad-enable";
+
+            auto source = writecodeForScanLev2Kernel();
+
+//            std::cerr << source.body << std::endl;
+
+            auto program = compute::program::build_with_source(source.body, ctx, options.str());
+            std::cout << "built scan_lev2 program \n";
+            auto kernel = compute::kernel(program, source.name);
+
+            kernelScanLev2 = std::move(kernel);
+        }
+
+        void buildScanUpdKernel() {
+
+            std::stringstream options;
+            if (double_precision) {
+                options << "-DREAL=double -DTMP_REAL=double -Dpsc_K=" << PSC_K << " -Dpsc_WG_SIZE=" << PSC_WG_SIZE;
+            } else {
+                options << "-DREAL=float -DTMP_REAL=float -Dpsc_K=" << PSC_K<< " -Dpsc_WG_SIZE=" << PSC_WG_SIZE;
+            }
+            options << " -cl-mad-enable";
+
+            auto source = writecodeForScanUpdKernel();
+
+//            std::cerr << source.body << std::endl;
+
+            auto program = compute::program::build_with_source(source.body, ctx, options.str());
+            std::cout << "built scan_final_update program \n";
+            auto kernel = compute::kernel(program, source.name);
+
+            kernelScanUpd = std::move(kernel);
+        }
+
 
 //        void buildGradientHessianKernel(FormatType formatType, bool useWeights) {
 //
@@ -515,14 +712,24 @@ namespace bsccs{
             std::cout << "built updateXBeta kernels \n";
             buildAllComputeAccumlatedDenominatorKernels();
             std::cout << "built accumulatedDenominator kernels \n";
+            buildAllScanLev1Kernels();
+            std::cout << "built ScanLev1 kernels \n";
+            buildAllScanLev2Kernels();
+            std::cout << "built ScanLev2 kernels \n";
+            buildAllScanUpdKernels();
+            std::cout << "built ScanUpd kernels \n";
         }
 
         std::map<FormatType, compute::kernel> kernelUpdateXBeta;
         compute::kernel kernelComputeAccumlatedDenominator;
+        compute::kernel kernelScanLev1;
+        compute::kernel kernelScanLev2;
+        compute::kernel kernelScanUpd;
 //        std::map<FormatType, compute::kernel> kernelGradientHessianWeighted;
 //        std::map<FormatType, compute::kernel> kernelGradientHessianNoWeight;
 
         compute::vector<RealType> dBuffer;
+        compute::vector<RealType> dBuffer1;
         bool hXBetaKnown;
         bool dXBetaKnown;
     };

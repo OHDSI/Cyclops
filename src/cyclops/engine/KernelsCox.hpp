@@ -13,7 +13,861 @@ namespace bsccs{
 
     template <class BaseModel, typename RealType>
     SourceCode
-    GpuModelSpecificsCox<BaseModel, RealType>::writecodeForComputeAccumlatedDenominatorKernel(bool useWeights) {
+    GpuModelSpecificsCox<BaseModel, RealType>::writecodeForScanLev1Kernel() {
+
+        std::string name = "scan_lev1";
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel\n" <<
+//             "__attribute__((reqd_work_group_size(psc_WG_SIZE, 1, 1)))\n" <<
+             "void scan_lev1(\n" <<
+             "    __global float *input_ary, __global float *output_ary,\n" <<
+             "    __global float *restrict psc_partial_scan_buffer,\n" <<
+             "    const int N,\n" <<
+             "    const int psc_interval_size\n" <<
+             "        , __global float *restrict psc_interval_results\n" <<
+             "    ) {\n" <<
+             "    // index psc_K in first dimension used for psc_carry storage\n" <<
+             "        struct psc_wrapped_scan_type\n" <<
+             "        {\n" <<
+             "            float psc_value;\n" <<
+             "        };\n" <<
+//             "    // padded in psc_WG_SIZE to avoid bank conflicts\n" <<
+             "    __local struct psc_wrapped_scan_type psc_ldata[psc_K + 1][psc_WG_SIZE + 1];\n" <<
+             "    const int psc_interval_begin = psc_interval_size * get_group_id(0);\n" <<
+             "    const int psc_interval_end   = min(psc_interval_begin + psc_interval_size, N);\n" <<
+             "    const int psc_unit_size  = psc_K * psc_WG_SIZE; \n" << // 8192 = 32 * 256
+             "    int psc_unit_base = psc_interval_begin;\n" <<
+             "\n" <<
+             "\n" <<
+             "            for(; psc_unit_base + psc_unit_size <= psc_interval_end; psc_unit_base += psc_unit_size)\n" <<
+             "\n" <<
+             "        {\n" <<
+             "\n" <<
+             "            // {{{ read a unit's worth of data from psc_global\n" <<
+             "\n" <<
+             "            for(int psc_k = 0; psc_k < psc_K; psc_k++)\n" <<
+             "            {\n" <<
+             "                const int psc_offset = psc_k*psc_WG_SIZE + get_local_id(0);\n" <<
+             "                const int psc_read_i = psc_unit_base + psc_offset;\n" <<
+             "\n" <<
+             "                {\n" <<
+             "\n" <<
+             "                    float psc_scan_value = (input_ary[psc_read_i]);\n" <<
+             "\n" <<
+             "                    const int psc_o_mod_k = psc_offset % psc_K;\n" <<
+             "                    const int psc_o_div_k = psc_offset / psc_K;\n" <<
+             "                    psc_ldata[psc_o_mod_k][psc_o_div_k].psc_value = psc_scan_value;\n" <<
+             "\n" <<
+             "                }\n" <<
+             "            }\n" <<
+             "\n" <<
+//             "            pycl_printf(("after read from psc_global\n"));\n" <<
+            "\n" <<
+            "            // }}}\n" <<
+            "\n" <<
+            "            // {{{ psc_carry in from previous unit, if applicable\n" <<
+            "\n" <<
+            "\n" <<
+            "            if (get_local_id(0) == 0 && psc_unit_base != psc_interval_begin)\n" <<
+            "            {\n" <<
+            "                float psc_tmp = psc_ldata[psc_K][psc_WG_SIZE - 1].psc_value;\n" <<
+            "                float psc_tmp_aux = psc_ldata[0][0].psc_value;\n" <<
+            "\n" <<
+            "                psc_ldata[0][0].psc_value = psc_tmp + psc_tmp_aux;\n" <<
+            "            }\n" <<
+            "\n" <<
+//            "            pycl_printf(("after psc_carry-in\n"));\n" <<
+            "\n" <<
+            "            // }}}\n" <<
+            "\n" <<
+            "            barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+            "\n" <<
+            "            // {{{ scan along psc_k (sequentially in each work item)\n" <<
+            "\n" <<
+            "            float psc_sum = psc_ldata[0][get_local_id(0)].psc_value;\n" <<
+            "\n" <<
+            "\n" <<
+            "            for (int psc_k = 1; psc_k < psc_K; psc_k++)\n" <<
+            "            {\n" <<
+            "                {\n" <<
+            "                    float psc_tmp = psc_ldata[psc_k][get_local_id(0)].psc_value;\n" <<
+            "\n" <<
+            "\n" <<
+            "                    psc_sum = psc_sum + psc_tmp;\n" <<
+            "\n" <<
+            "                    psc_ldata[psc_k][get_local_id(0)].psc_value = psc_sum;\n" <<
+            "                }\n" <<
+            "            }\n" <<
+            "\n" <<
+//            "            pycl_prfloatf(("after scan along psc_k\n"));\n" <<
+            "\n" <<
+            "            // }}}\n" <<
+            "\n" <<
+            "            // store psc_carry in out-of-bounds (padding) array entry (index psc_K) in\n" <<
+            "            // the psc_K direction\n" <<
+            "            psc_ldata[psc_K][get_local_id(0)].psc_value = psc_sum;\n" <<
+            "\n" <<
+            "\n" <<
+            "            barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+            "\n" <<
+            "            // {{{ tree-based local parallel scan\n" <<
+            "\n" <<
+            "            // This tree-based scan works as follows:\n" <<
+            "            // - Each work item adds the previous item to its current state\n" <<
+            "            // - barrier\n" <<
+            "            // - Each work item adds in the item from two positions to the left\n" <<
+            "            // - barrier\n" <<
+            "            // - Each work item adds in the item from four positions to the left\n" <<
+            "            // ...\n" <<
+            "            // At the end, each item has summed all prior items.\n" <<
+            "\n" <<
+            "            // across psc_k groups, along local id\n" <<
+            "            // (uses out-of-bounds psc_k=psc_K array entry for storage)\n" <<
+            "\n" <<
+            "            float psc_val = psc_ldata[psc_K][get_local_id(0)].psc_value;\n" <<
+            "\n" <<
+            "\n" <<
+            "            for (int depth = 1; depth <= psc_WG_SIZE; depth<<=1) {\n" <<
+            "\n" <<
+            "                // {{{ reads from local allowed, writes to local not allowed\n" <<
+            "\n" <<
+            "                if (get_local_id(0) >= depth) {\n" <<
+            "\n" <<
+            "                    float psc_tmp = psc_ldata[psc_K][get_local_id(0) - depth].psc_value;\n" <<
+            "\n" <<
+            "                    {\n" <<
+            "                        psc_val = psc_tmp + psc_val;\n" <<
+            "                    }\n" <<
+            "                }\n" <<
+            "\n" <<
+            "                // }}}\n" <<
+            "\n" <<
+            "                barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+            "\n" <<
+            "                // {{{ writes to local allowed, reads from local not allowed\n" <<
+            "\n" <<
+            "                psc_ldata[psc_K][get_local_id(0)].psc_value = psc_val;\n" <<
+            "\n" <<
+            "                // }}}\n" <<
+            "\n" <<
+            "                barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+            "\n" <<
+            "            }\n" <<
+            "\n" <<
+//            "            pycl_printf(("after tree scan\n"));\n" <<
+            "\n" <<
+            "            // }}}\n" <<
+            "\n" <<
+            "            // {{{ update local values\n" <<
+            "\n" <<
+            "            if (get_local_id(0) > 0)\n" <<
+            "            {\n" <<
+            "                psc_sum = psc_ldata[psc_K][get_local_id(0) - 1].psc_value;\n" <<
+            "\n" <<
+            "                for(int psc_k = 0; psc_k < psc_K; psc_k++)\n" <<
+            "                {\n" <<
+            "                    {\n" <<
+            "                        float psc_tmp = psc_ldata[psc_k][get_local_id(0)].psc_value;\n" <<
+            "                        psc_ldata[psc_k][get_local_id(0)].psc_value = psc_sum + psc_tmp;\n" <<
+            "                    }\n" <<
+            "                }\n" <<
+            "            }\n" <<
+            "\n" <<
+            "\n" <<
+//            "            pycl_printf(("after local update\n"));\n" <<
+            "\n" <<
+            "            // }}}\n" <<
+            "\n" <<
+            "            barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+            "\n" <<
+            "            // {{{ write data\n" <<
+            "\n" <<
+            "            {\n" <<
+            "                // work hard with index math to achieve contiguous 32-bit stores\n" <<
+            "                __global int *psc_dest =\n" <<
+            "                    (__global int *) (psc_partial_scan_buffer + psc_unit_base);\n" <<
+            "\n" <<
+            "\n" <<
+            "\n" <<
+            "                const int psc_scan_types_per_int = 1;\n" <<
+            "\n" <<
+            "\n" <<
+            "                    for (int k = 0; k < psc_K; k++)\n" <<
+            "                    {\n" <<
+            "                        int psc_linear_index = k*psc_WG_SIZE + get_local_id(0);\n" <<
+            "                        int psc_linear_scan_data_idx =\n" <<
+            "                                psc_linear_index / psc_scan_types_per_int;\n" <<
+            "                        int remainder =\n" <<
+            "                                psc_linear_index - psc_linear_scan_data_idx * psc_scan_types_per_int;\n" <<
+            "\n" <<
+            "                        __local int *psc_src = (__local int *) &(\n" <<
+            "                        psc_ldata\n" <<
+            "                        [psc_linear_scan_data_idx % psc_K]\n" <<
+            "                        [psc_linear_scan_data_idx / psc_K].psc_value);\n" <<
+            "\n" <<
+            "                        psc_dest[psc_linear_index] = psc_src[remainder];\n" <<
+            "                    }\n" <<
+            "\n" <<
+            "\n" <<
+            "            }\n" <<
+            "\n" <<
+//            "            pycl_printf(("after write\n"));\n" <<
+            "\n" <<
+            "            // }}}\n" <<
+            "\n" <<
+            "            barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+            "        }\n" <<
+            "\n" <<
+            "            if (psc_unit_base < psc_interval_end)\n" <<
+            "\n" <<
+            "        {\n" <<
+            "\n" <<
+            "            // {{{ read a unit's worth of data from psc_global\n" <<
+            "\n" <<
+            "            for(int psc_k = 0; psc_k < psc_K; psc_k++)\n" <<
+            "            {\n" <<
+            "                const int psc_offset = psc_k*psc_WG_SIZE + get_local_id(0);\n" <<
+            "                const int psc_read_i = psc_unit_base + psc_offset;\n" <<
+            "\n" <<
+            "                if (psc_read_i < psc_interval_end)\n" <<
+            "                {\n" <<
+            "\n" <<
+            "                    float psc_scan_value = (input_ary[psc_read_i]);\n" <<
+            "\n" <<
+            "                    const int psc_o_mod_k = psc_offset % psc_K;\n" <<
+            "                    const int psc_o_div_k = psc_offset / psc_K;\n" <<
+            "                    psc_ldata[psc_o_mod_k][psc_o_div_k].psc_value = psc_scan_value;\n" <<
+            "\n" <<
+            "                }\n" <<
+            "            }\n" <<
+            "\n" <<
+//            "            pycl_printf(("after read from psc_global\n"));\n" <<
+            "\n" <<
+            "            // }}}\n" <<
+            "\n" <<
+            "            // {{{ psc_carry in from previous unit, if applicable\n" <<
+            "\n" <<
+            "\n" <<
+            "            if (get_local_id(0) == 0 && psc_unit_base != psc_interval_begin)\n" <<
+            "            {\n" <<
+            "                float psc_tmp = psc_ldata[psc_K][psc_WG_SIZE - 1].psc_value;\n" <<
+            "                float psc_tmp_aux = psc_ldata[0][0].psc_value;\n" <<
+            "\n" <<
+            "                psc_ldata[0][0].psc_value = psc_tmp + psc_tmp_aux;\n" <<
+            "            }\n" <<
+            "\n" <<
+//            "            pycl_printf(("after psc_carry-in\n"));\n" <<
+            "\n" <<
+            "            // }}}\n" <<
+            "\n" <<
+            "            barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+            "\n" <<
+            "            // {{{ scan along psc_k (sequentially in each work item)\n" <<
+            "\n" <<
+            "            float psc_sum = psc_ldata[0][get_local_id(0)].psc_value;\n" <<
+            "\n" <<
+            "                const int psc_offset_end = psc_interval_end - psc_unit_base;\n" <<
+            "\n" <<
+            "            for (int psc_k = 1; psc_k < psc_K; psc_k++)\n" <<
+            "            {\n" <<
+            "                if ((int) (psc_K * get_local_id(0) + psc_k) < psc_offset_end)\n" <<
+            "                {\n" <<
+            "                    float psc_tmp = psc_ldata[psc_k][get_local_id(0)].psc_value;\n" <<
+            "\n" <<
+            "\n" <<
+            "                    psc_sum = psc_sum + psc_tmp;\n" <<
+            "\n" <<
+            "                    psc_ldata[psc_k][get_local_id(0)].psc_value = psc_sum;\n" <<
+            "                }\n" <<
+            "            }\n" <<
+            "\n" <<
+//            "            pycl_printf(("after scan along psc_k\n"));\n" <<
+            "\n" <<
+            "            // }}}\n" <<
+            "\n" <<
+            "            // store psc_carry in out-of-bounds (padding) array entry (index psc_K) in\n" <<
+            "            // the psc_K direction\n" <<
+            "            psc_ldata[psc_K][get_local_id(0)].psc_value = psc_sum;\n" <<
+            "\n" <<
+            "\n" <<
+            "            barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+            "\n" <<
+            "            // {{{ tree-based local parallel scan\n" <<
+            "\n" <<
+            "            // This tree-based scan works as follows:\n" <<
+            "            // - Each work item adds the previous item to its current state\n" <<
+            "            // - barrier\n" <<
+            "            // - Each work item adds in the item from two positions to the left\n" <<
+            "            // - barrier\n" <<
+            "            // - Each work item adds in the item from four positions to the left\n" <<
+            "            // ...\n" <<
+            "            // At the end, each item has summed all prior items.\n" <<
+            "\n" <<
+            "            // across psc_k groups, along local id\n" <<
+            "            // (uses out-of-bounds psc_k=psc_K array entry for storage)\n" <<
+            "\n" <<
+            "            float psc_val = psc_ldata[psc_K][get_local_id(0)].psc_value;\n" <<
+            "\n" <<
+            "\n" <<
+            "                for (int depth = 1; depth <= psc_WG_SIZE; depth<<=1) {\n" <<
+            "\n" <<
+            "                    // {{{ reads from local allowed, writes to local not allowed\n" <<
+            "\n" <<
+            "                    if (get_local_id(0) >= depth)\n" <<
+            "                    {\n" <<
+            "                        float psc_tmp = psc_ldata[psc_K][get_local_id(0) - depth].psc_value;\n" <<
+            "                        if (psc_K*get_local_id(0) < psc_offset_end)\n" <<
+            "                        {\n" <<
+            "                            psc_val = psc_tmp + psc_val;\n" <<
+            "                        }\n" <<
+            "\n" <<
+            "                    }\n" <<
+            "\n" <<
+            "                    // }}}\n" <<
+            "\n" <<
+            "                    barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+            "\n" <<
+            "                    // {{{ writes to local allowed, reads from local not allowed\n" <<
+            "\n" <<
+            "                    psc_ldata[psc_K][get_local_id(0)].psc_value = psc_val;\n" <<
+            "\n" <<
+            "                    // }}}\n" <<
+            "\n" <<
+            "                    barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+            "                }\n" <<
+            "\n" <<
+//            "            pycl_printf(("after tree scan\n"));\n" <<
+            "\n" <<
+            "            // }}}\n" <<
+            "\n" <<
+            "            // {{{ update local values\n" <<
+            "\n" <<
+            "            if (get_local_id(0) > 0)\n" <<
+            "            {\n" <<
+            "                psc_sum = psc_ldata[psc_K][get_local_id(0) - 1].psc_value;\n" <<
+            "\n" <<
+            "                for(int psc_k = 0; psc_k < psc_K; psc_k++)\n" <<
+            "                {\n" <<
+            "                    if (psc_K * get_local_id(0) + psc_k < psc_offset_end)\n" <<
+            "                    {\n" <<
+            "                        float psc_tmp = psc_ldata[psc_k][get_local_id(0)].psc_value;\n" <<
+            "                        psc_ldata[psc_k][get_local_id(0)].psc_value = psc_sum + psc_tmp;\n" <<
+            "                    }\n" <<
+            "                }\n" <<
+            "            }\n" <<
+            "\n" <<
+            "\n" <<
+//            "            pycl_printf(("after local update\n"));\n" <<
+            "\n" <<
+            "            // }}}\n" <<
+            "\n" <<
+            "            barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+            "\n" <<
+            "            // {{{ write data\n" <<
+            "\n" <<
+            "            {\n" <<
+            "                // work hard with index math to achieve contiguous 32-bit stores\n" <<
+            "                __global int *psc_dest =\n" <<
+            "                    (__global int *) (psc_partial_scan_buffer + psc_unit_base);\n" <<
+            "\n" <<
+            "\n" <<
+            "\n" <<
+            "                const int psc_scan_types_per_int = 1;\n" <<
+            "\n" <<
+            "\n" <<
+            "                for (int k = 0; k < psc_K; k++) {\n" <<
+            "\n" <<
+            "                    if (k*psc_WG_SIZE + get_local_id(0) < psc_scan_types_per_int*(psc_interval_end - psc_unit_base))\n" <<
+            "                    {\n" <<
+            "                        int psc_linear_index = k*psc_WG_SIZE + get_local_id(0);\n" <<
+            "                        int psc_linear_scan_data_idx =\n" <<
+            "                                psc_linear_index / psc_scan_types_per_int;\n" <<
+            "                        int remainder =\n" <<
+            "                                psc_linear_index - psc_linear_scan_data_idx * psc_scan_types_per_int;\n" <<
+            "\n" <<
+            "                        __local int *psc_src = (__local int *) &(\n" <<
+            "                        psc_ldata\n" <<
+            "                        [psc_linear_scan_data_idx % psc_K]\n" <<
+            "                        [psc_linear_scan_data_idx / psc_K].psc_value);\n" <<
+            "\n" <<
+            "                        psc_dest[psc_linear_index] = psc_src[remainder];\n" <<
+            "                    }\n" <<
+            "                }\n" <<
+            "\n" <<
+            "            }\n" <<
+            "\n" <<
+//            "            pycl_printf(("after write\n"));\n" <<
+            "\n" <<
+            "            // }}}\n" <<
+            "\n" <<
+            "            barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+            "        }\n" <<
+            "\n" <<
+            "    // write interval psc_sum\n" <<
+            "        if (get_local_id(0) == 0)\n" <<
+            "        {\n" <<
+            "            psc_interval_results[get_group_id(0)] = psc_partial_scan_buffer[psc_interval_end - 1];\n" <<
+            "        }\n" <<
+            "}    \n";
+
+
+        return SourceCode(code.str(), name);
+    }
+
+    template <class BaseModel, typename RealType>
+    SourceCode
+    GpuModelSpecificsCox<BaseModel, RealType>::writecodeForScanLev2Kernel() {
+
+        std::string name = "scan_lev2";
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel\n" <<
+//                "__attribute__((reqd_work_group_size(psc_WG_SIZE, 1, 1)))\n" <<
+                "void scan_lev2(\n" <<
+                "    __global float *input_ary, __global float *output_ary, __global float *interval_sums,\n" <<
+                "    __global float *restrict psc_partial_scan_buffer,\n" <<
+                "    const int N,\n" <<
+                "    const int psc_interval_size\n" <<
+                "    )\n" <<
+                "{\n" <<
+                "\n" <<
+                "\n" <<
+                "    // index psc_K in first dimension used for psc_carry storage\n" <<
+                "        struct psc_wrapped_scan_type\n" <<
+                "        {\n" <<
+                "            float psc_value;\n" <<
+                "        };\n" <<
+                "    // padded in psc_WG_SIZE to avoid bank conflicts\n" <<
+                "    __local struct psc_wrapped_scan_type psc_ldata[psc_K + 1][psc_WG_SIZE + 1];\n" <<
+                "\n" <<
+                "    const int psc_interval_begin = psc_interval_size * get_group_id(0);\n" <<
+                "    const int psc_interval_end   = min(psc_interval_begin + psc_interval_size, N);\n" <<
+                "\n" <<
+                "    const int psc_unit_size  = psc_K * psc_WG_SIZE;\n" <<
+                "\n" <<
+                "    int psc_unit_base = psc_interval_begin;\n" <<
+                "\n" <<
+                "\n" <<
+                "            for(; psc_unit_base + psc_unit_size <= psc_interval_end; psc_unit_base += psc_unit_size)\n" <<
+                "\n" <<
+                "        {\n" <<
+                "\n" <<
+                "\n" <<
+                "            // {{{ read a unit's worth of data from psc_global\n" <<
+                "\n" <<
+                "            for(int psc_k = 0; psc_k < psc_K; psc_k++)\n" <<
+                "            {\n" <<
+                "                const int psc_offset = psc_k*psc_WG_SIZE + get_local_id(0);\n" <<
+                "                const int psc_read_i = psc_unit_base + psc_offset;\n" <<
+                "\n" <<
+                "                {\n" <<
+                "\n" <<
+                "                    float psc_scan_value = (interval_sums[psc_read_i]);\n" <<
+                "\n" <<
+                "                    const int psc_o_mod_k = psc_offset % psc_K;\n" <<
+                "                    const int psc_o_div_k = psc_offset / psc_K;\n" <<
+                "                    psc_ldata[psc_o_mod_k][psc_o_div_k].psc_value = psc_scan_value;\n" <<
+                "\n" <<
+                "                }\n" <<
+                "            }\n" <<
+                "\n" <<
+//                "            pycl_printf(("after read from psc_global\n"));\n" <<
+                "\n" <<
+                "            // }}}\n" <<
+                "\n" <<
+                "            // {{{ psc_carry in from previous unit, if applicable\n" <<
+                "\n" <<
+                "\n" <<
+                "            if (get_local_id(0) == 0 && psc_unit_base != psc_interval_begin)\n" <<
+                "            {\n" <<
+                "                float psc_tmp = psc_ldata[psc_K][psc_WG_SIZE - 1].psc_value;\n" <<
+                "                float psc_tmp_aux = psc_ldata[0][0].psc_value;\n" <<
+                "\n" <<
+                "                psc_ldata[0][0].psc_value = psc_tmp + psc_tmp_aux;\n" <<
+                "            }\n" <<
+                "\n" <<
+//                "            pycl_printf(("after psc_carry-in\n"));\n" <<
+                "\n" <<
+                "            // }}}\n" <<
+                "\n" <<
+                "            barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+                "\n" <<
+                "            // {{{ scan along psc_k (sequentially in each work item)\n" <<
+                "\n" <<
+                "            float psc_sum = psc_ldata[0][get_local_id(0)].psc_value;\n" <<
+                "\n" <<
+                "\n" <<
+                "            for (int psc_k = 1; psc_k < psc_K; psc_k++)\n" <<
+                "            {\n" <<
+                "                {\n" <<
+                "                    float psc_tmp = psc_ldata[psc_k][get_local_id(0)].psc_value;\n" <<
+                "\n" <<
+                "\n" <<
+                "                    psc_sum = psc_sum + psc_tmp;\n" <<
+                "\n" <<
+                "                    psc_ldata[psc_k][get_local_id(0)].psc_value = psc_sum;\n" <<
+                "                }\n" <<
+                "            }\n" <<
+                "\n" <<
+//                "            pycl_printf(("after scan along psc_k\n"));\n" <<
+                "\n" <<
+                "            // }}}\n" <<
+                "\n" <<
+                "            // store psc_carry in out-of-bounds (padding) array entry (index psc_K) in\n" <<
+                "            // the psc_K direction\n" <<
+                "            psc_ldata[psc_K][get_local_id(0)].psc_value = psc_sum;\n" <<
+                "\n" <<
+                "\n" <<
+                "            barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+                "\n" <<
+                "            // {{{ tree-based local parallel scan\n" <<
+                "\n" <<
+                "            // This tree-based scan works as follows:\n" <<
+                "            // - Each work item adds the previous item to its current state\n" <<
+                "            // - barrier\n" <<
+                "            // - Each work item adds in the item from two positions to the left\n" <<
+                "            // - barrier\n" <<
+                "            // - Each work item adds in the item from four positions to the left\n" <<
+                "            // ...\n" <<
+                "            // At the end, each item has summed all prior items.\n" <<
+                "\n" <<
+                "            // across psc_k groups, along local id\n" <<
+                "            // (uses out-of-bounds psc_k=psc_K array entry for storage)\n" <<
+                "\n" <<
+                "            float psc_val = psc_ldata[psc_K][get_local_id(0)].psc_value;\n" <<
+                "\n" <<
+                "\n" <<
+                "                for (int depth = 1; depth <= psc_WG_SIZE; depth<<=1) {\n" <<
+                "\n" <<
+                "                    // {{{ reads from local allowed, writes to local not allowed\n" <<
+                "\n" <<
+                "                    if (get_local_id(0) >= depth)\n" <<
+                "                    {\n" <<
+                "                        float psc_tmp = psc_ldata[psc_K][get_local_id(0) - depth].psc_value;\n" <<
+                "                        {\n" <<
+                "                            psc_val = psc_tmp + psc_val;\n" <<
+                "                        }\n" <<
+                "\n" <<
+                "                    }\n" <<
+                "\n" <<
+                "                    // }}}\n" <<
+                "\n" <<
+                "                    barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+                "\n" <<
+                "                    // {{{ writes to local allowed, reads from local not allowed\n" <<
+                "\n" <<
+                "                    psc_ldata[psc_K][get_local_id(0)].psc_value = psc_val;\n" <<
+                "\n" <<
+                "                    // }}}\n" <<
+                "\n" <<
+                "                    barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+                "                }\n" <<
+                "\n" <<
+                "\n" <<
+//                "            pycl_printf(("after tree scan\n"));\n" <<
+                "\n" <<
+                "            // }}}\n" <<
+                "\n" <<
+                "            // {{{ update local values\n" <<
+                "\n" <<
+                "            if (get_local_id(0) > 0)\n" <<
+                "            {\n" <<
+                "                psc_sum = psc_ldata[psc_K][get_local_id(0) - 1].psc_value;\n" <<
+                "\n" <<
+                "                for(int psc_k = 0; psc_k < psc_K; psc_k++)\n" <<
+                "                {\n" <<
+                "                    {\n" <<
+                "                        float psc_tmp = psc_ldata[psc_k][get_local_id(0)].psc_value;\n" <<
+                "                        psc_ldata[psc_k][get_local_id(0)].psc_value = psc_sum + psc_tmp;\n" <<
+                "                    }\n" <<
+                "                }\n" <<
+                "            }\n" <<
+                "\n" <<
+                "\n" <<
+//                "            pycl_printf(("after local update\n"));\n" <<
+                "\n" <<
+                "            // }}}\n" <<
+                "\n" <<
+                "            barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+                "\n" <<
+                "            // {{{ write data\n" <<
+                "\n" <<
+                "            {\n" <<
+                "                // work hard with index math to achieve contiguous 32-bit stores\n" <<
+                "                __global int *psc_dest =\n" <<
+                "                    (__global int *) (psc_partial_scan_buffer + psc_unit_base);\n" <<
+                "\n" <<
+                "\n" <<
+                "\n" <<
+                "                const int psc_scan_types_per_int = 1;\n" <<
+                "\n" <<
+                "\n" <<
+                "                    for (int k = 0; k < psc_K; k++)\n" <<
+                "                    {\n" <<
+                "                        int psc_linear_index = k*psc_WG_SIZE + get_local_id(0);\n" <<
+                "                        int psc_linear_scan_data_idx =\n" <<
+                "                                psc_linear_index / psc_scan_types_per_int;\n" <<
+                "                        int remainder =\n" <<
+                "                                psc_linear_index - psc_linear_scan_data_idx * psc_scan_types_per_int;\n" <<
+                "\n" <<
+                "                        __local int *psc_src = (__local int *) &(\n" <<
+                "                        psc_ldata\n" <<
+                "                        [psc_linear_scan_data_idx % psc_K]\n" <<
+                "                        [psc_linear_scan_data_idx / psc_K].psc_value);\n" <<
+                "\n" <<
+                "                        psc_dest[psc_linear_index] = psc_src[remainder];\n" <<
+                "                    }\n" <<
+                "\n" <<
+                "\n" <<
+                "            }\n" <<
+                "\n" <<
+//                "            pycl_printf(("after write\n"));\n" <<
+                "\n" <<
+                "            // }}}\n" <<
+                "\n" <<
+                "            barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+                "        }\n" <<
+                "\n" <<
+                "\n" <<
+                "            if (psc_unit_base < psc_interval_end)\n" <<
+                "\n" <<
+                "        {\n" <<
+                "\n" <<
+                "            // {{{ read a unit's worth of data from psc_global\n" <<
+                "\n" <<
+                "            for(int psc_k = 0; psc_k < psc_K; psc_k++)\n" <<
+                "            {\n" <<
+                "                const int psc_offset = psc_k*psc_WG_SIZE + get_local_id(0);\n" <<
+                "                const int psc_read_i = psc_unit_base + psc_offset;\n" <<
+                "\n" <<
+                "                if (psc_read_i < psc_interval_end)\n" <<
+                "                {\n" <<
+                "\n" <<
+                "                    float psc_scan_value = (interval_sums[psc_read_i]);\n" <<
+                "\n" <<
+                "                    const int psc_o_mod_k = psc_offset % psc_K;\n" <<
+                "                    const int psc_o_div_k = psc_offset / psc_K;\n" <<
+                "                    psc_ldata[psc_o_mod_k][psc_o_div_k].psc_value = psc_scan_value;\n" <<
+                "\n" <<
+                "                }\n" <<
+                "            }\n" <<
+                "\n" <<
+//                "            pycl_printf(("after read from psc_global\n"));\n" <<
+                "\n" <<
+                "            // }}}\n" <<
+                "\n" <<
+                "            // {{{ psc_carry in from previous unit, if applicable\n" <<
+                "\n" <<
+                "\n" <<
+                "            if (get_local_id(0) == 0 && psc_unit_base != psc_interval_begin)\n" <<
+                "            {\n" <<
+                "                float psc_tmp = psc_ldata[psc_K][psc_WG_SIZE - 1].psc_value;\n" <<
+                "                float psc_tmp_aux = psc_ldata[0][0].psc_value;\n" <<
+                "\n" <<
+                "                psc_ldata[0][0].psc_value = psc_tmp + psc_tmp_aux;\n" <<
+                "            }\n" <<
+                "\n" <<
+//                "            pycl_printf(("after psc_carry-in\n"));\n" <<
+                "\n" <<
+                "            // }}}\n" <<
+                "\n" <<
+                "            barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+                "\n" <<
+                "            // {{{ scan along psc_k (sequentially in each work item)\n" <<
+                "\n" <<
+                "            float psc_sum = psc_ldata[0][get_local_id(0)].psc_value;\n" <<
+                "\n" <<
+                "                const int psc_offset_end = psc_interval_end - psc_unit_base;\n" <<
+                "\n" <<
+                "            for (int psc_k = 1; psc_k < psc_K; psc_k++)\n" <<
+                "            {\n" <<
+                "                if ((int) (psc_K * get_local_id(0) + psc_k) < psc_offset_end)\n" <<
+                "                {\n" <<
+                "                    float psc_tmp = psc_ldata[psc_k][get_local_id(0)].psc_value;\n" <<
+                "\n" <<
+                "\n" <<
+                "                    psc_sum = psc_sum + psc_tmp;\n" <<
+                "\n" <<
+                "                    psc_ldata[psc_k][get_local_id(0)].psc_value = psc_sum;\n" <<
+                "                }\n" <<
+                "            }\n" <<
+                "\n" <<
+//                "            pycl_printf(("after scan along psc_k\n"));\n" <<
+                "\n" <<
+                "            // }}}\n" <<
+                "\n" <<
+                "            // store psc_carry in out-of-bounds (padding) array entry (index psc_K) in\n" <<
+                "            // the psc_K direction\n" <<
+                "            psc_ldata[psc_K][get_local_id(0)].psc_value = psc_sum;\n" <<
+                "\n" <<
+                "\n" <<
+                "            barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+                "\n" <<
+                "            // {{{ tree-based local parallel scan\n" <<
+                "\n" <<
+                "            // This tree-based scan works as follows:\n" <<
+                "            // - Each work item adds the previous item to its current state\n" <<
+                "            // - barrier\n" <<
+                "            // - Each work item adds in the item from two positions to the left\n" <<
+                "            // - barrier\n" <<
+                "            // - Each work item adds in the item from four positions to the left\n" <<
+                "            // ...\n" <<
+                "            // At the end, each item has summed all prior items.\n" <<
+                "\n" <<
+                "            // across psc_k groups, along local id\n" <<
+                "            // (uses out-of-bounds psc_k=psc_K array entry for storage)\n" <<
+                "\n" <<
+                "            float psc_val = psc_ldata[psc_K][get_local_id(0)].psc_value;\n" <<
+                "\n" <<
+                "\n" <<
+                "                for (int depth = 1; depth <= psc_WG_SIZE; depth<<=1) {\n" <<
+                "\n" <<
+                "                    // {{{ reads from local allowed, writes to local not allowed\n" <<
+                "\n" <<
+                "                    if (get_local_id(0) >= depth)\n" <<
+                "                    {\n" <<
+                "                        float psc_tmp = psc_ldata[psc_K][get_local_id(0) - depth].psc_value;\n" <<
+                "                        if (psc_K*get_local_id(0) < psc_offset_end)\n" <<
+                "                        {\n" <<
+                "                            psc_val = psc_tmp + psc_val;\n" <<
+                "                        }\n" <<
+                "\n" <<
+                "                    }\n" <<
+                "\n" <<
+                "                    // }}}\n" <<
+                "\n" <<
+                "                    barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+                "\n" <<
+                "                    // {{{ writes to local allowed, reads from local not allowed\n" <<
+                "\n" <<
+                "                    psc_ldata[psc_K][get_local_id(0)].psc_value = psc_val;\n" <<
+                "\n" <<
+                "                    // }}}\n" <<
+                "\n" <<
+                "                    barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+                "                }\n" <<
+                "\n" <<
+//                "            pycl_printf(("after tree scan\n"));\n" <<
+                "\n" <<
+                "            // }}}\n" <<
+                "\n" <<
+                "            // {{{ update local values\n" <<
+                "\n" <<
+                "            if (get_local_id(0) > 0)\n" <<
+                "            {\n" <<
+                "                psc_sum = psc_ldata[psc_K][get_local_id(0) - 1].psc_value;\n" <<
+                "\n" <<
+                "                for(int psc_k = 0; psc_k < psc_K; psc_k++)\n" <<
+                "                {\n" <<
+                "                    if (psc_K * get_local_id(0) + psc_k < psc_offset_end)\n" <<
+                "                    {\n" <<
+                "                        float psc_tmp = psc_ldata[psc_k][get_local_id(0)].psc_value;\n" <<
+                "                        psc_ldata[psc_k][get_local_id(0)].psc_value = psc_sum + psc_tmp;\n" <<
+                "                    }\n" <<
+                "                }\n" <<
+                "            }\n" <<
+                "\n" <<
+                "\n" <<
+//                "            pycl_printf(("after local update\n"));\n" <<
+                "\n" <<
+                "            // }}}\n" <<
+                "\n" <<
+                "            barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+                "\n" <<
+                "            // {{{ write data\n" <<
+                "\n" <<
+                "            {\n" <<
+                "                // work hard with index math to achieve contiguous 32-bit stores\n" <<
+                "                __global int *psc_dest =\n" <<
+                "                    (__global int *) (psc_partial_scan_buffer + psc_unit_base);\n" <<
+                "\n" <<
+                "\n" <<
+                "\n" <<
+                "                const int psc_scan_types_per_int = 1;\n" <<
+                "\n" <<
+                "\n" <<
+                "                for (int k = 0; k < psc_K; k++) {\n" <<
+                "\n" <<
+                "                    if (k*psc_WG_SIZE + get_local_id(0) < psc_scan_types_per_int*(psc_interval_end - psc_unit_base))\n" <<
+                "                    {\n" <<
+                "                        int psc_linear_index = k*psc_WG_SIZE + get_local_id(0);\n" <<
+                "                        int psc_linear_scan_data_idx =\n" <<
+                "                                psc_linear_index / psc_scan_types_per_int;\n" <<
+                "                        int remainder =\n" <<
+                "                                psc_linear_index - psc_linear_scan_data_idx * psc_scan_types_per_int;\n" <<
+                "\n" <<
+                "                        __local int *psc_src = (__local int *) &(\n" <<
+                "                        psc_ldata\n" <<
+                "                        [psc_linear_scan_data_idx % psc_K]\n" <<
+                "                        [psc_linear_scan_data_idx / psc_K].psc_value);\n" <<
+                "\n" <<
+                "                        psc_dest[psc_linear_index] = psc_src[remainder];\n" <<
+                "                    }\n" <<
+                "                }\n" <<
+                "\n" <<
+                "            }\n" <<
+                "\n" <<
+//                "            pycl_printf(("after write\n"));\n" <<
+                "\n" <<
+                "            // }}}\n" <<
+                "\n" <<
+                "            barrier(CLK_LOCAL_MEM_FENCE);\n" <<
+                "        }\n" <<
+                "    }\n";
+
+        return SourceCode(code.str(), name);
+    }
+
+    template <class BaseModel, typename RealType>
+    SourceCode
+    GpuModelSpecificsCox<BaseModel, RealType>::writecodeForScanUpdKernel() {
+
+        std::string name = "scan_final_update";
+
+        std::stringstream code;
+        code << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+
+        code << "__kernel\n" <<
+//             "__attribute__((reqd_work_group_size(psc_WG_SIZE, 1, 1)))\n" <<
+             "void scan_final_update(\n" <<
+             "    __global float *input_ary, __global float *output_ary,\n" <<
+             "    const int N,\n" <<
+             "    const int psc_interval_size,\n" <<
+             "    __global float *restrict psc_interval_results,\n" <<
+             "    __global float *restrict psc_partial_scan_buffer\n" <<
+             "    )\n" <<
+             "{\n" <<
+             "    const int psc_interval_begin = psc_interval_size * get_group_id(0);\n" <<
+             "    const int psc_interval_end = min(psc_interval_begin + psc_interval_size, N);\n" <<
+             "\n" <<
+             "    // psc_carry from last interval\n" <<
+             "    float psc_carry = 0;\n" <<
+             "    if (get_group_id(0) != 0)\n" <<
+             "        psc_carry = psc_interval_results[get_group_id(0) - 1];\n" <<
+             "\n" <<
+             "        // {{{ no look-behind ('prev_item' not in output_statement -> simpler)\n" <<
+             "        int psc_update_i = psc_interval_begin+get_local_id(0);\n" <<
+             "        for(; psc_update_i < psc_interval_end; psc_update_i += psc_WG_SIZE)\n" <<
+             "        {\n" <<
+             "            float psc_partial_val = psc_partial_scan_buffer[psc_update_i];\n" <<
+             "            float item = psc_carry + psc_partial_val;\n" <<
+             "            int i = psc_update_i;\n" <<
+             "            { output_ary[i] = item;; }\n" <<
+             "        }\n" <<
+             "        // }}}\n" <<
+             "    }\n";
+
+        return SourceCode(code.str(), name);
+    }
+
+    template <class BaseModel, typename RealType>
+    SourceCode
+    GpuModelSpecificsCox<BaseModel, RealType>::writeCodeForComputeAccumlatedDenominatorKernel(bool useWeights) {
 
         std::string name = "computeAccumlatedDenominator";
 
@@ -35,8 +889,8 @@ namespace bsccs{
                 "   const uint scale = taskCount;  \n" <<
                 "   uint d = 1;                    \n" ;
 
-        code << "   buffer[2*lid] = denominator[2*gid];         \n" <<
-                "   buffer[2*lid+1] = denominator[2*gid+1];     \n" ;
+        code << "   barrier(CLK_LOCAL_MEM_FENCE);                   \n" ;
+        code << "   buffer[lid] = denominator[gid];             \n" ;
 
         // up-sweep
         code << "   for(uint s = (scale >> 1); s > 0; s >>= 1) {    \n" <<
@@ -72,8 +926,7 @@ namespace bsccs{
 //        code << "   accDenominator[taskCount - 1] = sum;                \n";
         code << "   barrier(CLK_LOCAL_MEM_FENCE);                   \n" <<
                 "   if (lid < scale) {                              \n" <<
-                "       accDenominator[2*gid] = buffer[2*lid+1];    \n" <<
-                "       accDenominator[2*gid+1] = buffer[2*lid+2];  \n" <<
+                "       accDenominator[gid] = buffer[lid+1];        \n" <<
                 "   }                                               \n";
 
         code << "}    \n";
