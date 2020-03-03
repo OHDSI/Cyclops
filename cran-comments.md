@@ -1,10 +1,12 @@
-## New submission following email from Kurt Hornik reporting RNG changes in R-devel that resulted in unit-test errors.
+## New submission following email from Kurt Hornik reporting unit-test errors likely
+originating from `stringsAsFactors = FALSE` by default in upcoming `R 4.0.0`.
 
-* all unit-tests using RNG now pass
-* 3 small bug fixes when taking logical operations with mismatched vector sizes under R-devel
+* all unit-tests now pass using `R Under development (unstable) (2020-03-01 r77880)`
+* several small bug fixes when fitting conditional Poisson models
 
 ## Test environments
-* local OS X install, R 3.5.1
+* local OS X install, R 3.6.1
+* docker container based on `rocker/r-devel` but compiled with `r77880`
 * ubuntu 14.04 (on travis-ci), R 3.5.1, gcc 4.8.4 and gcc 6.0
 * win-builder (devel and release)
 
