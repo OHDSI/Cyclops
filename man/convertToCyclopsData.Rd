@@ -6,19 +6,41 @@
 \alias{convertToCyclopsData.data.frame}
 \title{Convert data from two data frames or ffdf objects into a CyclopsData object}
 \usage{
-convertToCyclopsData(outcomes, covariates, modelType = "lr",
-  addIntercept = TRUE, checkSorting = TRUE, checkRowIds = TRUE,
-  normalize = NULL, quiet = FALSE, floatingPoint = 64)
+convertToCyclopsData(
+  outcomes,
+  covariates,
+  modelType = "lr",
+  addIntercept = TRUE,
+  checkSorting = TRUE,
+  checkRowIds = TRUE,
+  normalize = NULL,
+  quiet = FALSE,
+  floatingPoint = 64
+)
 
-\method{convertToCyclopsData}{ffdf}(outcomes, covariates,
-  modelType = "lr", addIntercept = TRUE, checkSorting = TRUE,
-  checkRowIds = TRUE, normalize = NULL, quiet = FALSE,
-  floatingPoint = 64)
+\method{convertToCyclopsData}{ffdf}(
+  outcomes,
+  covariates,
+  modelType = "lr",
+  addIntercept = TRUE,
+  checkSorting = TRUE,
+  checkRowIds = TRUE,
+  normalize = NULL,
+  quiet = FALSE,
+  floatingPoint = 64
+)
 
-\method{convertToCyclopsData}{data.frame}(outcomes, covariates,
-  modelType = "lr", addIntercept = TRUE, checkSorting = TRUE,
-  checkRowIds = TRUE, normalize = NULL, quiet = FALSE,
-  floatingPoint = 64)
+\method{convertToCyclopsData}{data.frame}(
+  outcomes,
+  covariates,
+  modelType = "lr",
+  addIntercept = TRUE,
+  checkSorting = TRUE,
+  checkRowIds = TRUE,
+  normalize = NULL,
+  quiet = FALSE,
+  floatingPoint = 64
+)
 }
 \arguments{
 \item{outcomes}{A data frame or ffdf object containing the outcomes with predefined columns (see below).}

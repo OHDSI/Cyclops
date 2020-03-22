@@ -4,8 +4,14 @@
 \alias{createAutoGridCrossValidationControl}
 \title{Create a Cyclops control object that supports multiple hyperparameters}
 \usage{
-createAutoGridCrossValidationControl(outerGrid, autoPosition = 1,
-  refitAtMaximum = TRUE, cvType = "auto", initialValue = 1, ...)
+createAutoGridCrossValidationControl(
+  outerGrid,
+  autoPosition = 1,
+  refitAtMaximum = TRUE,
+  cvType = "auto",
+  initialValue = 1,
+  ...
+)
 }
 \arguments{
 \item{outerGrid}{List or data.frame of grid parameters to explore}

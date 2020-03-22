@@ -4,11 +4,27 @@
 \alias{createCyclopsData}
 \title{Create a Cyclops data object}
 \usage{
-createCyclopsData(formula, sparseFormula, indicatorFormula, modelType,
-  data, subset = NULL, weights = NULL, offset = NULL, time = NULL,
-  pid = NULL, y = NULL, type = NULL, dx = NULL, sx = NULL,
-  ix = NULL, model = FALSE, normalize = NULL, floatingPoint = 64,
-  method = "cyclops.fit")
+createCyclopsData(
+  formula,
+  sparseFormula,
+  indicatorFormula,
+  modelType,
+  data,
+  subset = NULL,
+  weights = NULL,
+  offset = NULL,
+  time = NULL,
+  pid = NULL,
+  y = NULL,
+  type = NULL,
+  dx = NULL,
+  sx = NULL,
+  ix = NULL,
+  model = FALSE,
+  normalize = NULL,
+  floatingPoint = 64,
+  method = "cyclops.fit"
+)
 }
 \arguments{
 \item{formula}{An object of class \code{"\link{formula}"} that provides a symbolic description of the numerically dense model response and terms.}

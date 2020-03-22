@@ -4,9 +4,15 @@
 \alias{confint.cyclopsFit}
 \title{Confidence intervals for Cyclops model parameters}
 \usage{
-\method{confint}{cyclopsFit}(object, parm, level = 0.95,
-  overrideNoRegularization = FALSE, includePenalty = TRUE,
-  rescale = FALSE, ...)
+\method{confint}{cyclopsFit}(
+  object,
+  parm,
+  level = 0.95,
+  overrideNoRegularization = FALSE,
+  includePenalty = TRUE,
+  rescale = FALSE,
+  ...
+)
 }
 \arguments{
 \item{object}{A fitted Cyclops model object}

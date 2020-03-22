@@ -4,9 +4,14 @@
 \alias{finalizeSqlCyclopsData}
 \title{finalizeSqlCyclopsData}
 \usage{
-finalizeSqlCyclopsData(object, addIntercept = FALSE,
-  useOffsetCovariate = NULL, offsetAlreadyOnLogScale = FALSE,
-  sortCovariates = FALSE, makeCovariatesDense = NULL)
+finalizeSqlCyclopsData(
+  object,
+  addIntercept = FALSE,
+  useOffsetCovariate = NULL,
+  offsetAlreadyOnLogScale = FALSE,
+  sortCovariates = FALSE,
+  makeCovariatesDense = NULL
+)
 }
 \arguments{
 \item{object}{Cyclops data object}

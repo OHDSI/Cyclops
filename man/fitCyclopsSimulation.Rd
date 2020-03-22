@@ -4,8 +4,13 @@
 \alias{fitCyclopsSimulation}
 \title{Fit simulated data}
 \usage{
-fitCyclopsSimulation(sim, useCyclops = TRUE, model = "logistic",
-  coverage = TRUE, includePenalty = FALSE)
+fitCyclopsSimulation(
+  sim,
+  useCyclops = TRUE,
+  model = "logistic",
+  coverage = TRUE,
+  includePenalty = FALSE
+)
 }
 \arguments{
 \item{sim}{A simulated Cyclops dataset generated via \code{simulateCyclopsData}}

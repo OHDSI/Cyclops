@@ -2,6 +2,8 @@ library("testthat")
 library("survival")
 library("gnm")
 
+tolerance <- 1E-4
+
 test_that("Check very small Cox example with ties, but without weights",{
     test <- read.table(header=T, sep = ",", text = "
                        start, length, status, x1, x2

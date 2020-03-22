@@ -8,11 +8,9 @@
 \usage{
 isSorted(data, columnNames, ascending = rep(TRUE, length(columnNames)))
 
-\method{isSorted}{data.frame}(data, columnNames, ascending = rep(TRUE,
-  length(columnNames)))
+\method{isSorted}{data.frame}(data, columnNames, ascending = rep(TRUE, length(columnNames)))
 
-\method{isSorted}{ffdf}(data, columnNames, ascending = rep(TRUE,
-  length(columnNames)))
+\method{isSorted}{ffdf}(data, columnNames, ascending = rep(TRUE, length(columnNames)))
 }
 \arguments{
 \item{data}{Either a data.frame of ffdf object.}
