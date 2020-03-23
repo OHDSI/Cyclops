@@ -16,9 +16,6 @@ A data frame with 38 rows and 6 variables:
   ...
 }
 }
-\source{
-\url{http://statistics.open.ac.uk/sccs/r.htm}
-}
 \usage{
 data(oxford)
 }
