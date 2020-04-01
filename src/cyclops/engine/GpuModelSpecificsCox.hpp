@@ -18,6 +18,7 @@
 
 #include "BaseGpuModelSpecifics.hpp"
 #include "Iterators.h"
+#include "CubScan.h"
 
 namespace bsccs{
 
@@ -234,7 +235,9 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start = bsccs::chrono::steady_clock::now();
 #endif
-            int tc = dDenominator.size();
+            CubScan(&denomPid[0], &accDenomPid[0], N);
+	    /*
+	    int tc = dDenominator.size();
             const auto taskCount = tc;
             size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
             if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
@@ -348,21 +351,24 @@ namespace bsccs{
 //            }
 //            std::cout << "\n";
 
+	    */
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
             duration["accumlatedDenomG "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
+	    /*
             // copy results to host
             accDenomPid.resize(dAccDenominator.size());
             compute::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid), queue);//            std::cout << "dDenominator: ";
 
-//            std::cout << "dAccDenominator: ";
-//            for (auto x:accDenomPid) {
-//                std::cout << x << " ";
-//            }
-//            std::cout << "\n";
+            std::cout << "accDenominator: ";
+            for (auto x:accDenomPid) {
+                std::cout << x << " ";
+            }
+            std::cout << "\n";
+	    */
 
             // naive scan
 //            auto& kernel = kernelComputeAccumlatedDenominator;
