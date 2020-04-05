@@ -74,7 +74,7 @@ OBJECTS.io = \
 
 OBJECTS.engine = \
     cyclops/engine/AbstractModelSpecifics.o \
-    cyclops/engine/CubScan.o
+    cyclops/engine/CudaKernel.o
 
 OBJECTS.utils = \
     utils/HParSearch.o

@@ -15,10 +15,12 @@
 #define TIME_DEBUG
 
 //#include <Rcpp.h>
+#include <cuda.h>
+#include <cuda_runtime_api.h>
 
 #include "BaseGpuModelSpecifics.hpp"
 #include "Iterators.h"
-#include "CubScan.h"
+#include "CudaKernel.h"
 
 namespace bsccs{
 
@@ -89,6 +91,7 @@ namespace bsccs{
         int PSC_K = 32;
         int PSC_WG_SIZE = 256;
 
+	
         GpuModelSpecificsCox(const ModelData<RealType>& input,
                              const std::string& deviceName)
         : BaseGpuModelSpecifics<BaseModel, RealType>(input, deviceName),
@@ -232,10 +235,22 @@ namespace bsccs{
 
         virtual void computeAccumlatedDenominator(bool useWeights) {
 
+            CudaKernel CudaData(&denomPid[0], N);
+            CudaData.CubScanMalloc(N);
+
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start = bsccs::chrono::steady_clock::now();
 #endif
-            CubScan(&denomPid[0], &accDenomPid[0], N);
+           
+	    //float timerG = 0;
+            //auto startG = std::chrono::steady_clock::now();
+
+	    CudaData.CubScan(N);
+	    
+	    //auto durationG = std::chrono::steady_clock::now() - startG;
+            //timerG = std::chrono::duration<float, std::milli>(durationG).count();
+
+            //std::cout << "GPU takes " << timerG << "ms" << '\n';
 	    /*
 	    int tc = dDenominator.size();
             const auto taskCount = tc;
@@ -357,6 +372,9 @@ namespace bsccs{
             ///////////////////////////"
             duration["accumlatedDenomG "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
+	    //std::cout << "GPU timer: " << duration["accumlatedDenomG "] << '\n';
+	    // copy results to host
+	    cudaMemcpy(&accDenomPid[0], CudaData.d_out, sizeof(float) * N, cudaMemcpyDeviceToHost);
 
 	    /*
             // copy results to host
