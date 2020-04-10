@@ -90,12 +90,13 @@ namespace bsccs{
         int tpb = 256; // threads-per-block  // Appears best on K40
         int PSC_K = 32;
         int PSC_WG_SIZE = 256;
-
+//	CudaKernel<RealType> CudaData;
 	
         GpuModelSpecificsCox(const ModelData<RealType>& input,
                              const std::string& deviceName)
         : BaseGpuModelSpecifics<BaseModel, RealType>(input, deviceName),
           dBuffer(ctx), dBuffer1(ctx){
+       
 
             std::cerr << "ctor GpuModelSpecificsCox" << std::endl;
 
@@ -204,24 +205,24 @@ namespace bsccs{
 
             denomPid.resize(dDenominator.size());
             compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(denomPid), queue);
-
+/*
             // print results
-//            std::cout << "dXBeta: ";
-//            for (auto x:hXBeta) {
-//                std::cout << x << " ";
-//            }
-//            std::cout << "\n";
-//            std::cout << "dExpXBeta: ";
-//            for (auto x:offsExpXBeta) {
-//                std::cout << x << " ";
-//            }
-//            std::cout << "\n";
-//            std::cout << "dDenominator: ";
-//            for (auto x:denomPid) {
-//                std::cout << x << " ";
-//            }
-//            std::cout << "\n";
-
+            std::cout << "dXBeta: ";
+            for (auto x:hXBeta) {
+                std::cout << x << " ";
+            }
+            std::cout << "\n";
+            std::cout << "dExpXBeta: ";
+            for (auto x:offsExpXBeta) {
+                std::cout << x << " ";
+	    }
+            std::cout << "\n";
+	    std::cout << "dDenominator: ";
+            for (auto x:denomPid) {
+                std::cout << x << " ";
+            }
+            std::cout << "\n";
+*/
 //            ModelSpecifics<BaseModel, RealType>::computeAccumlatedDenominator(useWeights);
             computeAccumlatedDenominator(useWeights);
 
@@ -234,8 +235,14 @@ namespace bsccs{
         }
 
         virtual void computeAccumlatedDenominator(bool useWeights) {
-
-            CudaKernel CudaData(&denomPid[0], N);
+            /*
+            std::cout << "DenomPid before scan: ";
+            for (auto x:denomPid) {
+                std::cout << x << " ";
+            }
+            std::cout << "\n";
+*/
+            CudaKernel<RealType> CudaData(&denomPid[0], N);
             CudaData.CubScanMalloc(N);
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -380,13 +387,14 @@ namespace bsccs{
             // copy results to host
             accDenomPid.resize(dAccDenominator.size());
             compute::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid), queue);//            std::cout << "dDenominator: ";
-
+             */
+	    /*
             std::cout << "accDenominator: ";
             for (auto x:accDenomPid) {
                 std::cout << x << " ";
             }
             std::cout << "\n";
-	    */
+	     */
 
             // naive scan
 //            auto& kernel = kernelComputeAccumlatedDenominator;
