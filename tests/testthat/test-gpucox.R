@@ -2,27 +2,33 @@ library(Cyclops)
 library("testthat")
 library("survival")
 
-GpuDevice <- listOpenCLDevices()[2]
+
+GpuDevice <- listOpenCLDevices()[1] # "TITAN V"
+# GpuDevice <- listOpenCLDevices()[2] # "GeForce RTX 2080"
 tolerance <- 1E-4
 
-# large cox
-# sim <- simulateCyclopsData(nstrata = 2000,
-#                            nrows = 100000,
-#                            ncovars = 200,
-#                            effectSizeSd = 1,
-#                            zeroEffectSizeProp = 0.9,
-#                            eCovarsPerRow = 0.2,
-#                            model = "survival")
-# cyclopsData_CPU <- convertToCyclopsData(sim$outcomes, sim$covariates,
-#                                         modelType = "cox",floatingPoint = 32,
-#                                         addIntercept = TRUE)
-# fit_CPU <- fitCyclopsModel(cyclopsData_CPU)
-#
-# cyclopsData_GPU <- convertToCyclopsData(sim$outcomes, sim$covariates,
-#                                         modelType = "cox",floatingPoint = 32,
-#                                         addIntercept = TRUE)
-# fit_GPU <- fitCyclopsModel(cyclopsData_GPU, computeDevice = GpuDevice)
-# expect_equal(coef(fit_GPU), coef(fit_CPU), tolerance = tolerance)
+# N = 100000
+set.seed(123)
+sim <- simulateCyclopsData(nstrata = 1,
+                           nrows = 100000,
+                           ncovars = 100,
+                           effectSizeSd = 1,
+                           zeroEffectSizeProp = 0.8,
+                           eCovarsPerRow = 0.2,
+                           model = "survival")
+set.seed(12)
+sim$outcomes$time <- sim$outcomes$time + rnorm(100000, mean = 0, sd = 0.01)
+
+cyclopsData_CPU <- convertToCyclopsData(sim$outcomes, sim$covariates,
+                                        modelType = "cox",floatingPoint = 64,
+                                        addIntercept = TRUE)
+fit_CPU <- fitCyclopsModel(cyclopsData_CPU) # iterations: 6 lastObjFunc: 733.17
+cyclopsData_GPU <- convertToCyclopsData(sim$outcomes, sim$covariates,
+                                        modelType = "cox",floatingPoint = 64,
+                                        addIntercept = TRUE)
+fit_GPU <- fitCyclopsModel(cyclopsData_GPU, computeDevice = GpuDevice) # iterations: 6 lastObjFunc: 733.17
+expect_equal(coef(fit_GPU), coef(fit_CPU), tolerance = tolerance)
+
 
 # small cox
 test_that("Check small Cox on GPU", {
