@@ -6,8 +6,8 @@ class CudaKernel {
 public:
 
     // Allocate device arrays
-    float* d_in;
-    float* d_out;
+    T* d_in;
+    T* d_out;
     
     // Allocate temporary storage
     void *d_temp_storage = NULL;

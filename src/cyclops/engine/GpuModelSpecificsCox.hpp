@@ -246,184 +246,24 @@ namespace bsccs{
             CudaData.CubScanMalloc(N);
 
 #ifdef CYCLOPS_DEBUG_TIMING
-            auto start = bsccs::chrono::steady_clock::now();
+            auto start2 = bsccs::chrono::steady_clock::now();
 #endif
            
-	    //float timerG = 0;
-            //auto startG = std::chrono::steady_clock::now();
-
 	    CudaData.CubScan(N);
-	    
-	    //auto durationG = std::chrono::steady_clock::now() - startG;
-            //timerG = std::chrono::duration<float, std::milli>(durationG).count();
-
-            //std::cout << "GPU takes " << timerG << "ms" << '\n';
-	    /*
-	    int tc = dDenominator.size();
-            const auto taskCount = tc;
-            size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
-            if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
-                ++workGroups;
-            }
-            const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
-            const auto intervalSize = 8192;
-//            const auto maxInterval = 144;
-            if (dAccDenominator.size() < dDenominator.size()) {
-                dAccDenominator.resize(dDenominator.size(), queue);
-            }
-            if (dBuffer.size() < dDenominator.size()) {
-                dBuffer.resize(dDenominator.size(), queue);
-            }
-            if (dBuffer1.size() < workGroups) {
-                dBuffer1.resize(workGroups, queue);
-            }
-
-            // first level
-            auto& kernel = kernelScanLev1;
-            kernel.set_arg(0, dDenominator);
-            kernel.set_arg(1, dAccDenominator);
-            kernel.set_arg(2, dBuffer); // partial_scan_buffer
-            kernel.set_arg(3, taskCount);
-            kernel.set_arg(4, intervalSize);
-            kernel.set_arg(5, dBuffer1); // interval_results
-
-//            std::cout << " GlobalWorkSize: " << globalWorkSize << " workGroups: " << workGroups << " BlockSize: " << detail::constant::updateXBetaBlockSize << " taskCount: " << taskCount;
-            queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
-            queue.finish();
-
-//            // check intermediate results
-//            hBuffer.resize(dBuffer.size());
-//            compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
-//            std::cout << "dBuffer: ";
-//            for (auto x:hBuffer) {
-//                std::cout << x << " ";
-//            }
-//            std::cout << "\n";
-//            hBuffer1.resize(dBuffer1.size());
-//            compute::copy(std::begin(dBuffer1), std::end(dBuffer1), std::begin(hBuffer1), queue);
-//            std::cout << "dBuffer1: ";
-//            for (auto x:hBuffer1) {
-//                std::cout << x << " ";
-//            }
-//            std::cout << "\n";
-
-            // second level
-            auto& kernel1 = kernelScanLev2;
-            kernel1.set_arg(0, dDenominator);
-            kernel1.set_arg(1, dAccDenominator);
-            kernel1.set_arg(2, dBuffer1); // interval_results
-            kernel1.set_arg(3, dBuffer1); // partial_scan_buffer
-            kernel1.set_arg(4, taskCount);
-            kernel1.set_arg(5, intervalSize);
-
-//            size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
-//            if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
-//                ++workGroups;
-//            }
-//            const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
-            queue.enqueue_1d_range_kernel(kernel1, 0, detail::constant::updateXBetaBlockSize, detail::constant::updateXBetaBlockSize);
-            queue.finish();
-
-//            // check intermediate results
-//            hBuffer.resize(dBuffer.size());
-//            compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
-//            std::cout << "dBuffer: ";
-//            for (auto x:hBuffer) {
-//                std::cout << x << " ";
-//            }
-//            std::cout << "\n";
-//            hBuffer1.resize(dBuffer1.size());
-//            compute::copy(std::begin(dBuffer1), std::end(dBuffer1), std::begin(hBuffer1), queue);
-//            std::cout << "dBuffer1: ";
-//            for (auto x:hBuffer1) {
-//                std::cout << x << " ";
-//            }
-//            std::cout << "\n";
-
-            // final update
-            auto& kernel2 = kernelScanUpd;
-            kernel2.set_arg(0, dDenominator);
-            kernel2.set_arg(1, dAccDenominator);
-            kernel2.set_arg(2, taskCount);
-            kernel2.set_arg(3, intervalSize);
-            kernel2.set_arg(4, dBuffer1); // interval_results
-            kernel2.set_arg(5, dBuffer); // partial_scan_buffer
-
-//            size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
-//            if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
-//                ++workGroups;
-//            }
-//            const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
-            queue.enqueue_1d_range_kernel(kernel2, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
-            queue.finish();
-
-//            // check intermediate results
-//            hBuffer.resize(dBuffer.size());
-//            compute::copy(std::begin(dBuffer), std::end(dBuffer), std::begin(hBuffer), queue);
-//            std::cout << "dBuffer: ";
-//            for (auto x:hBuffer) {
-//                std::cout << x << " ";
-//            }
-//            std::cout << "\n";
-//            hBuffer1.resize(dBuffer1.size());
-//            compute::copy(std::begin(dBuffer1), std::end(dBuffer1), std::begin(hBuffer1), queue);
-//            std::cout << "dBuffer1: ";
-//            for (auto x:hBuffer1) {
-//                std::cout << x << " ";
-//            }
-//            std::cout << "\n";
-
-	    */
+	   
 #ifdef CYCLOPS_DEBUG_TIMING
-            auto end = bsccs::chrono::steady_clock::now();
+            auto end2 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
-            duration["accumlatedDenomG "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+            duration["accumlatedDenomG "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
 #endif
-	    //std::cout << "GPU timer: " << duration["accumlatedDenomG "] << '\n';
 	    // copy results to host
-	    cudaMemcpy(&accDenomPid[0], CudaData.d_out, sizeof(float) * N, cudaMemcpyDeviceToHost);
+	    cudaMemcpy(&accDenomPid[0], CudaData.d_out, sizeof(RealType) * N, cudaMemcpyDeviceToHost);
+	
+	    std::cout << "N: " << N << " accDenomPid[N-1]: " << accDenomPid[N-1] << '\n';
+	    double timerG = 0;
+            timerG = bsccs::chrono::duration<double, std::milli>(end2-start2).count();
+            std::cout << "timerG: " << timerG << '\n';
 
-	    /*
-            // copy results to host
-            accDenomPid.resize(dAccDenominator.size());
-            compute::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid), queue);//            std::cout << "dDenominator: ";
-             */
-	    /*
-            std::cout << "accDenominator: ";
-            for (auto x:accDenomPid) {
-                std::cout << x << " ";
-            }
-            std::cout << "\n";
-	     */
-
-            // naive scan
-//            auto& kernel = kernelComputeAccumlatedDenominator;
-//
-//            int tc = dDenominator.size();
-//            const auto taskCount = tc;
-//
-////            kernel.set_arg(0, dColumns.getDataOffset()); // offX
-////            kernel.set_arg(1, dColumns.getIndicesOffset()); // offK
-//            kernel.set_arg(0, taskCount);
-//            kernel.set_arg(1, dDenominator);
-//            if (dAccDenominator.size() < dDenominator.size()) {
-//                dAccDenominator.resize(dDenominator.size(), queue);
-//            }
-//            kernel.set_arg(2, dAccDenominator);
-//            if (dBuffer.size() < dDenominator.size()) {
-//                dBuffer.resize(dDenominator.size(), queue);
-//            }
-//            std::cout << "dDenominator.size(): " << dDenominator.size() << '\n';
-//            kernel.set_arg(3, dBuffer);
-//            kernel.set_arg(4, dId);
-//
-//            size_t workGroups = taskCount / detail::constant::updateXBetaBlockSize;
-//            if (taskCount % detail::constant::updateXBetaBlockSize != 0) {
-//                ++workGroups;
-//            }
-//            const size_t globalWorkSize = workGroups * detail::constant::updateXBetaBlockSize;
-//            queue.enqueue_1d_range_kernel(kernel, 0, globalWorkSize, detail::constant::updateXBetaBlockSize);
-//            queue.finish();
         }
 
         virtual const std::vector<double> getXBeta() {
