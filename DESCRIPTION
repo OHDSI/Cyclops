@@ -32,9 +32,7 @@ Depends:
 Imports:
     Matrix,
     Rcpp (>= 0.12.12),
-    bit,
-    ff,
-    ffbase,
+    Andromeda,
     methods,
     survival,
     MASS
