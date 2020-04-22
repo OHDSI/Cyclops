@@ -144,10 +144,10 @@ namespace bsccs{
 
         }
 
-        virtual void updateXBeta(double realDelta, int index, bool useWeights) {
+        virtual void updateXBeta(double delta, int index, bool useWeights) {
 
 #ifdef GPU_DEBUG
-            ModelSpecifics<BaseModel, WeightType>::updateXBeta(realDelta, index, useWeights);
+            ModelSpecifics<BaseModel, WeightType>::updateXBeta(delta, index, useWeights);
 #endif // GPU_DEBUG
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -155,21 +155,14 @@ namespace bsccs{
 #endif
 
             FormatType formatType = hX.getFormatType(index);
-            auto& kernel = kernelUpdateXBeta[formatType];
-//         auto& column = columns[index];
-//         const auto taskCount = column.getTaskCount();
+ 
+ 	    auto& kernel = kernelUpdateXBeta[formatType];
             const auto taskCount = dColumns.getTaskCount(index);
-
-//            std::cout << "taskCount: " << taskCount << " dDenominator.size(): " << dDenominator.size() << '\n';
-            kernel.set_arg(0, dColumns.getDataOffset(index)); // offX
+            
+	    kernel.set_arg(0, dColumns.getDataOffset(index)); // offX
             kernel.set_arg(1, dColumns.getIndicesOffset(index)); // offK
             kernel.set_arg(2, taskCount); // N
-            if (double_precision) {
-                kernel.set_arg(3, realDelta);
-            } else {
-                auto fDelta = (float)realDelta;
-                kernel.set_arg(3, fDelta);
-            }
+            kernel.set_arg(3, static_cast<RealType>(delta));
             kernel.set_arg(4, dColumns.getData()); // *X
             kernel.set_arg(5, dColumns.getIndices()); // *K
 //            kernel.set_arg(6, dY);
@@ -203,28 +196,13 @@ namespace bsccs{
             offsExpXBeta.resize(dExpXBeta.size());
             compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(offsExpXBeta), queue);
 
-            denomPid.resize(dDenominator.size());
-            compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(denomPid), queue);
-/*
-            // print results
-            std::cout << "dXBeta: ";
-            for (auto x:hXBeta) {
-                std::cout << x << " ";
-            }
-            std::cout << "\n";
-            std::cout << "dExpXBeta: ";
-            for (auto x:offsExpXBeta) {
-                std::cout << x << " ";
-	    }
-            std::cout << "\n";
-	    std::cout << "dDenominator: ";
-            for (auto x:denomPid) {
-                std::cout << x << " ";
-            }
-            std::cout << "\n";
-*/
-//            ModelSpecifics<BaseModel, RealType>::computeAccumlatedDenominator(useWeights);
-            computeAccumlatedDenominator(useWeights);
+	    // transform scan
+	    CudaKernel<RealType> CudaData(&hXBeta[0], N);
+            CudaData.CubExpScanMalloc(N);
+            CudaData.CubExpScan(N);
+            cudaMemcpy(&accDenomPid[0], CudaData.d_out, sizeof(RealType) * N, cudaMemcpyDeviceToHost);
+
+           //computeAccumlatedDenominator(useWeights);
 
 #ifdef GPU_DEBUG
             // Compare results:
@@ -235,13 +213,7 @@ namespace bsccs{
         }
 
         virtual void computeAccumlatedDenominator(bool useWeights) {
-            /*
-            std::cout << "DenomPid before scan: ";
-            for (auto x:denomPid) {
-                std::cout << x << " ";
-            }
-            std::cout << "\n";
-*/
+ 
             CudaKernel<RealType> CudaData(&denomPid[0], N);
             CudaData.CubScanMalloc(N);
 
@@ -582,7 +554,8 @@ namespace bsccs{
 //            std::cout << "built gradhessian kernels \n";
             buildAllUpdateXBetaKernels(neededFormatTypes);
             std::cout << "built updateXBeta kernels \n";
-            buildAllComputeAccumlatedDenominatorKernels();
+        /*    
+	    buildAllComputeAccumlatedDenominatorKernels();
             std::cout << "built accumulatedDenominator kernels \n";
             buildAllScanLev1Kernels();
             std::cout << "built ScanLev1 kernels \n";
@@ -590,7 +563,8 @@ namespace bsccs{
             std::cout << "built ScanLev2 kernels \n";
             buildAllScanUpdKernels();
             std::cout << "built ScanUpd kernels \n";
-        }
+        */
+	}
 
         std::map<FormatType, compute::kernel> kernelUpdateXBeta;
         compute::kernel kernelComputeAccumlatedDenominator;

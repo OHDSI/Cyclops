@@ -1,5 +1,14 @@
 #include <vector>
 
+struct CustomExp
+{
+    template <typename T>
+    __host__ __device__ __forceinline__
+    T operator()(const T &a) const {
+        return exp(a);
+    }
+};
+
 template <class T>
 class CudaKernel {
 
@@ -8,7 +17,11 @@ public:
     // Allocate device arrays
     T* d_in;
     T* d_out;
-    
+    T* d_itr;
+
+    // Operator
+    CustomExp    exp_op;
+
     // Allocate temporary storage
     void *d_temp_storage = NULL;
     size_t temp_storage_bytes = 0;
@@ -18,4 +31,7 @@ public:
 
     void CubScanMalloc(int num_items);
     void CubScan(int num_items);
+    void CubExpScanMalloc(int num_items);
+    void CubExpScan(int num_items);
+
 };

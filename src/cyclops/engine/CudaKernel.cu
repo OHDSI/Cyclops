@@ -43,6 +43,29 @@ void CudaKernel<T>::CubScan(int num_items)
     DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_in, d_out, num_items);
 }
 
+template <class T>
+void CudaKernel<T>::CubExpScanMalloc(int num_items)
+{
+    // Determine temporary device storage requirements
+    DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_in, d_out, num_items);
+
+    // Allocate temporary storage
+    cudaMalloc(&d_temp_storage, temp_storage_bytes);
+}
+
+template <class T>
+void CudaKernel<T>::CubExpScan(int num_items)
+{
+//    auto start = std::chrono::steady_clock::now();
+
+    TransformInputIterator<T, CustomExp, T*> d_itr(d_in, exp_op);
+    DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_itr, d_out, num_items);
+    
+//    auto end = std::chrono::steady_clock::now();
+//    timerG += std::chrono::duration<double, std::milli>(end - start).count();
+//    std::cout << "GPU takes " << timerG << " ms" << '\n';
+}
+
 template class CudaKernel<float>;
 template class CudaKernel<double>;
 
