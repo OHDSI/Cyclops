@@ -101,14 +101,6 @@
     .Call(`_Cyclops_cyclopsInitializeModel`, inModelData, modelType, computeDevice, computeMLE)
 }
 
-.isSorted <- function(dataFrame, indexes, ascending) {
-    .Call(`_Cyclops_isSorted`, dataFrame, indexes, ascending)
-}
-
-.isSortedVectorList <- function(vectorList, ascending) {
-    .Call(`_Cyclops_isSortedVectorList`, vectorList, ascending)
-}
-
 #' @title Print row identifiers
 #'
 #' @description
