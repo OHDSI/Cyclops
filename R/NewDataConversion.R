@@ -376,15 +376,17 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                 if(!quiet) {
                     writeLines("Sorting outcomes by rowId")
                 }
-                rownames(outcomes) <- NULL #Needs to be null or the ordering of ffdf will fail
-                outcomes <- outcomes[ff::ffdforder(outcomes[c("rowId")]),]
+                # rownames(outcomes) <- NULL #Needs to be null or the ordering of ffdf will fail
+                # outcomes <- outcomes[ff::ffdforder(outcomes[c("rowId")]),]
+                outcomes <- outcomes %>% arrange(rowId)
             }
             if (!isSorted(covariates,c("covariateId","rowId"))){
                 if(!quiet) {
                     writeLines("Sorting covariates by covariateId, rowId")
                 }
-                rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
-                covariates <- covariates[ff::ffdforder(covariates[c("covariateId","rowId")]),]
+                # rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
+                # covariates <- covariates[ff::ffdforder(covariates[c("covariateId","rowId")]),]
+                covariates <- covariates %>% arrange(covariateId, rowId)
             }
         }
         if (modelType == "clr" | modelType == "cpr"){
