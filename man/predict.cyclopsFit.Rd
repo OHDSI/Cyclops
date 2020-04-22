@@ -9,9 +9,9 @@
 \arguments{
 \item{object}{A Cyclops model fit object}
 
-\item{newOutcomes}{An optional data frame or ffdf object, similar to the object used in \code{\link{convertToCyclopsData}}.}
+\item{newOutcomes}{An optional data frame or Andromeda table object, similar to the object used in \code{\link{convertToCyclopsData}}.}
 
-\item{newCovariates}{An optional data frame or ffdf object, similar to the object used in \code{\link{convertToCyclopsData}}.}
+\item{newCovariates}{An optional data frame or Andromeda table object, similar to the object used in \code{\link{convertToCyclopsData}}.}
 
 \item{...}{Additional arguments}
 }

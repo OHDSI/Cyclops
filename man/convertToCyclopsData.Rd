@@ -94,7 +94,7 @@ stratumId (if present), -time, y, and rowId.
 }
 \section{Methods (by class)}{
 \itemize{
-\item \code{data.frame}: Convert data from two \code{ffdf}
+\item \code{data.frame}: Convert data from two \code{data.frame}
 
 \item \code{tbl_dbi}: Convert data from two \code{Andromeda} tables
 }}

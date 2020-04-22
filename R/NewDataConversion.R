@@ -91,145 +91,6 @@ convertToCyclopsData <- function(outcomes,
     UseMethod("convertToCyclopsData")
 }
 
-#' @describeIn convertToCyclopsData Convert data from two \code{ffdf}
-#' @export
-# convertToCyclopsData.ffdf <- function(outcomes,
-#                                       covariates,
-#                                       modelType = "lr",
-#                                       addIntercept = TRUE,
-#                                       checkSorting = TRUE,
-#                                       checkRowIds = TRUE,
-#                                       normalize = NULL,
-#                                       quiet = FALSE,
-#                                       floatingPoint = 64){
-#     if ((modelType == "clr" | modelType == "cpr") & addIntercept){
-#         if(!quiet) {
-#             warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)
-#         }
-#         addIntercept = FALSE
-#     }
-#     if (modelType == "pr" | modelType == "cpr") {
-#         if (any(outcomes$time <= 0)) {
-#             stop("time cannot be non-positive",call.=FALSE)
-#         }
-#     }
-#
-#     if (modelType == "cox"){
-#         if (is.null(outcomes$stratumId)){
-#             outcomes$stratumId <- ff::ff(1, vmode="double", length=nrow(outcomes))
-#             covariates$stratumId <- ff::ff(1, vmode="double", length=nrow(covariates))
-#         }
-#     }
-#
-#     if (checkSorting){
-#         if (modelType == "lr" | modelType == "pr"){
-#             if (!isSorted(outcomes,c("rowId"))){
-#                 if(!quiet) {
-#                     writeLines("Sorting outcomes by rowId")
-#                 }
-#                 rownames(outcomes) <- NULL #Needs to be null or the ordering of ffdf will fail
-#                 outcomes <- outcomes[ff::ffdforder(outcomes[c("rowId")]),]
-#             }
-#             if (!isSorted(covariates,c("covariateId","rowId"))){
-#                 if(!quiet) {
-#                     writeLines("Sorting covariates by covariateId, rowId")
-#                 }
-#                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
-#                 covariates <- covariates[ff::ffdforder(covariates[c("covariateId","rowId")]),]
-#             }
-#         }
-#         if (modelType == "clr" | modelType == "cpr"){
-#             if (!isSorted(outcomes,c("stratumId","rowId"))){
-#                 if(!quiet) {
-#                     writeLines("Sorting outcomes by stratumId and rowId")
-#                 }
-#                 rownames(outcomes) <- NULL #Needs to be null or the ordering of ffdf will fail
-#                 outcomes <- outcomes[ff::ffdforder(outcomes[c("stratumId","rowId")]),]
-#             }
-#             if (!isSorted(covariates,c("covariateId", "stratumId","rowId"))){
-#                 if(!quiet) {
-#                     writeLines("Sorting covariates by covariateId, stratumId and rowId")
-#                 }
-#                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
-#                 covariates <- covariates[ff::ffdforder(covariates[c("covariateId", "stratumId","rowId")]),]
-#             }
-#         }
-#         if (modelType == "cox"){
-#             outcomes$minTime <- ff::ff(vmode="double", length=length(outcomes$time))
-#             for (i in bit::chunk(outcomes$time)){
-#                 outcomes$minTime[i] <- 0-outcomes$time[i]
-#             }
-#             if (!isSorted(outcomes,c("stratumId", "time", "y", "rowId"),c(TRUE, FALSE, TRUE, TRUE))){
-#                 if(!quiet) {
-#                     writeLines("Sorting outcomes by stratumId, time (descending), y, and rowId")
-#                 }
-#                 rownames(outcomes) <- NULL #Needs to be null or the ordering of ffdf will fail
-#                 outcomes <- outcomes[ff::ffdforder(outcomes[c("stratumId","minTime", "y", "rowId")]),]
-#             }
-#             covariates$minTime <- NULL
-#             covariates$time <- NULL
-#             covariates$y <- NULL
-#             # covariates <- ffbase::merge.ffdf(covariates, outcomes, by = c("stratumId", "rowId"))
-#             idx <- ffbase::ffmatch(covariates$rowId, outcomes$rowId)
-#             covariates$minTime <- outcomes$minTime[idx]
-#             covariates$time <- outcomes$time[idx]
-#             covariates$y <- outcomes$y[idx]
-#             if (!isSorted(covariates, c("covariateId", "stratumId", "time", "y", "rowId"), c(TRUE, TRUE, FALSE, TRUE, TRUE))){
-#                 if(!quiet) {
-#                     writeLines("Sorting covariates by covariateId, stratumId, time (descending), y, and rowId")
-#                 }
-#                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
-#                 covariates <- covariates[ff::ffdforder(covariates[c("covariateId", "stratumId", "minTime", "y", "rowId")]),]
-#             }
-#         }
-#     }
-#     if (checkRowIds){
-#         mapped <- ffbase::ffmatch(x = covariates$rowId, table = outcomes$rowId)
-#         if (ffbase::any.ff(ffbase::is.na.ff(mapped))){
-#             if(!quiet) {
-#                 writeLines("Removing covariate values with rowIds that are not in outcomes")
-#             }
-#             rownames(covariates) <- NULL
-#             covariates <- covariates[ffbase::ffwhich(mapped, is.na(mapped) == FALSE),]
-#         }
-#     }
-#
-#     dataPtr <- createSqlCyclopsData(modelType = modelType, floatingPoint = floatingPoint)
-#
-#     loadNewSqlCyclopsDataY(dataPtr,
-#                            if (is.null(outcomes$stratumId) | modelType == "lr" | modelType == "pr") {NULL} else {ff::as.ram.ff(outcomes$stratumId)},
-#                            ff::as.ram.ff(outcomes$rowId),
-#                            ff::as.ram.ff(outcomes$y),
-#                            if (is.null(outcomes$time)) {NULL} else {ff::as.ram.ff(outcomes$time)})
-#
-#     if (addIntercept & modelType != "cox")
-#         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
-#     for (i in bit::chunk(covariates)){
-#         covarNames <- unique(covariates$covariateId[i,])
-#         loadNewSeqlCyclopsDataMultipleX(dataPtr,
-#                                         covariates$covariateId[i,],
-#                                         covariates$rowId[i,],
-#                                         covariates$covariateValue[i,],
-#                                         name = covarNames, # TODO Does this really work?
-#                                         append = TRUE)
-#     }
-#     if (modelType == "pr" || modelType == "cpr")
-#         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
-#
-#     if (!is.null(normalize)) {
-#         .normalizeCovariates(dataPtr, normalize)
-#     }
-#
-#     if (is.null(outcomes$weight)) {
-#         dataPtr$weights <- NULL
-#     } else {
-#         dataPtr$weights <- ff::as.ram.ff(outcomes$weight)
-#     }
-#
-#     return(dataPtr)
-#
-# }
-
 #' @describeIn convertToCyclopsData Convert data from two \code{data.frame}
 #' @export
 convertToCyclopsData.data.frame <- function(outcomes,
@@ -365,8 +226,10 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
 
     if (modelType == "cox"){
         if (providedNoStrata){
-            outcomes$stratumId <- ff::ff(1, vmode="double", length=nrow(outcomes))
-            covariates$stratumId <- ff::ff(1, vmode="double", length=nrow(covariates))
+            # outcomes$stratumId <- ff::ff(1, vmode="double", length=nrow(outcomes))
+            # covariates$stratumId <- ff::ff(1, vmode="double", length=nrow(covariates))
+            outcomes <- outcomes %>% mutate(stratumId = 1.0)
+            covariates <- covariates %>% mutate(stratumId = 1.0)
         }
     }
 
@@ -512,11 +375,16 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         .normalizeCovariates(dataPtr, normalize)
     }
 
-    if (is.null(outcomes$weight)) {
-        dataPtr$weights <- NULL
+    if ("weights" %in% colnames(outcomes)) {
+        dataPtr$weights <- outcomes %>% select(weights) %>% pull()
     } else {
-        dataPtr$weights <- ff::as.ram.ff(outcomes$weight)
+        dataPtr$weights <- NULL
     }
+    # if (is.null(outcomes$weight)) {
+    #     dataPtr$weights <- NULL
+    # } else {
+    #     dataPtr$weights <- ff::as.ram.ff(outcomes$weight)
+    # }
 
     return(dataPtr)
 
