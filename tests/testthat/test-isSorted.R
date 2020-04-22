@@ -1,5 +1,5 @@
 library("testthat")
-library("ffbase")
+library("Andromeda")
 
 context("test-isSorted.R")
 
@@ -17,12 +17,13 @@ test_that("isSorted data.frame", {
   expect_false(isSorted(x,c("a","b")))
 })
 
-test_that("isSorted ffdf", {
+test_that("isSorted Andromeda", {
 #   x <- data.frame(a = runif(20000000),b = runif(20000000)) # Takes too much time for a unit-test
   x <- data.frame(a = runif(200),b = runif(200))
   x <- round(x,digits=2)
-  x <- as.ffdf(x)
-  expect_false(isSorted(x,c("a","b"),c(TRUE,FALSE)))
+  andr <- andromeda(x = x)
+  expect_false(isSorted(andr$x,c("a","b"),c(TRUE,FALSE)))
+
   x <- x[ffdforder(x[c("a","b")]),]
 
   expect_true(isSorted(x,c("a","b")))

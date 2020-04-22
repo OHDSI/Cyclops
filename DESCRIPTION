@@ -33,9 +33,10 @@ Imports:
     Matrix,
     Rcpp (>= 0.12.12),
     Andromeda,
+    dplyr,
+    dbplyr,
     methods,
-    survival,
-    MASS
+    survival
 LinkingTo: Rcpp,
     BH (>= 1.51.0),
     RcppEigen (>= 0.3.2)

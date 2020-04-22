@@ -2,8 +2,8 @@
 % Please edit documentation in R/NewDataConversion.R
 \name{convertToCyclopsData}
 \alias{convertToCyclopsData}
-\alias{convertToCyclopsData.ffdf}
 \alias{convertToCyclopsData.data.frame}
+\alias{convertToCyclopsData.tbl_dbi}
 \title{Convert data from two data frames or ffdf objects into a CyclopsData object}
 \usage{
 convertToCyclopsData(
@@ -18,7 +18,7 @@ convertToCyclopsData(
   floatingPoint = 64
 )
 
-\method{convertToCyclopsData}{ffdf}(
+\method{convertToCyclopsData}{data.frame}(
   outcomes,
   covariates,
   modelType = "lr",
@@ -30,7 +30,7 @@ convertToCyclopsData(
   floatingPoint = 64
 )
 
-\method{convertToCyclopsData}{data.frame}(
+\method{convertToCyclopsData}{tbl_dbi}(
   outcomes,
   covariates,
   modelType = "lr",
@@ -94,9 +94,9 @@ stratumId (if present), -time, y, and rowId.
 }
 \section{Methods (by class)}{
 \itemize{
-\item \code{ffdf}: Convert data from two \code{ffdf}
+\item \code{data.frame}: Convert data from two \code{ffdf}
 
-\item \code{data.frame}: Convert data from two \code{data.frame}
+\item \code{tbl_dbi}: Convert data from two \code{Andromeda} tables
 }}
 
 \examples{
