@@ -56,11 +56,6 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
             stop("`newCovariates` and `newOutcomes` must be of the same type")
         }
 
-        # if (ff::is.ffdf(newCovariates) && !ff::is.ffdf(newOutcomes))
-        #     newOutcomes <- ff::as.ffdf(newOutcomes)
-        # if (ff::is.ffdf(newOutcomes) && !ff::is.ffdf(newCovariates))
-        #     newCovariates <- ff::as.ffdf(newCovariates)
-
         coefficients <- coef(object)
         intercept <- coefficients[1]
         coefficients <- coefficients[2:length(coefficients)]
@@ -69,33 +64,26 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
         coefficients <- coefficients[coefficients$beta != 0, ]
 
         if (inherits(newCovariates, "tbl_dbi")) {
-        # if (ff::is.ffdf(newCovariates)) {
 
             # Optimized for Andromeda
             if (nrow(coefficients) == 0) {
                 if ("time" %in% colnames(newOutcomes)) {
-                    prediction <- data.frame(rowId = newOutcomes %>% select(rowId) %>% pull(),
-                                                 # as.numeric(ff::as.ram(newOutcomes$rowId)),
-                                             time = newOutcomes %>% select(time) %>% pull())
-                                                 # as.numeric(ff::as.ram(newOutcomes$time)))
+                    prediction <- data.frame(rowId = newOutcomes %>% select(.data$rowId) %>% pull(),
+                                             time = newOutcomes %>% select(.data$time) %>% pull())
                 } else {
-                    prediction <- data.frame(rowId = newOutcomes %>% select(rowId) %>% pull())
-                                                 # as.numeric(ff::as.ram(newOutcomes$rowId)))
+                    prediction <- data.frame(rowId = newOutcomes %>% select(.data$rowId) %>% pull())
                 }
                 prediction$value <- intercept
             } else {
                 prediction <- inner_join(newCovariates,
                                          coefficients, by = "covariateId", copy = TRUE)
-                    # ffbase::merge.ffdf(newCovariates, ff::as.ffdf(coefficients), by = "covariateId")
-                # prediction$value <- prediction$covariateValue * prediction$beta
-                # prediction <- .bySum(prediction$value, prediction$rowId)
-                # colnames(prediction) <- c("rowId", "value")
-                prediction <- prediction %>% mutate(value = covariateValue * beta) %>%
-                    group_by(rowId) %>% summarize(value = sum(value, na.rm = TRUE))
+
+                prediction <- prediction %>% mutate(value = .data$covariateValue * .data$beta) %>%
+                    group_by(.data$rowId) %>% summarize(value = sum(.data$value, na.rm = TRUE))
 
                 prediction <- left_join(newOutcomes,
                                          prediction, by = "rowId") %>% collect()
-                    # merge(ff::as.ram(newOutcomes), prediction, by = "rowId", all.x = TRUE)
+
                 prediction$value[is.na(prediction$value)] <- 0
                 prediction$value <- prediction$value + intercept
             }

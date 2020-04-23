@@ -226,8 +226,6 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
 
     if (modelType == "cox"){
         if (providedNoStrata){
-            # outcomes$stratumId <- ff::ff(1, vmode="double", length=nrow(outcomes))
-            # covariates$stratumId <- ff::ff(1, vmode="double", length=nrow(covariates))
             outcomes <- outcomes %>% mutate(stratumId = 1.0)
             covariates <- covariates %>% mutate(stratumId = 1.0)
         }
@@ -239,17 +237,13 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                 if(!quiet) {
                     writeLines("Sorting outcomes by rowId")
                 }
-                # rownames(outcomes) <- NULL #Needs to be null or the ordering of ffdf will fail
-                # outcomes <- outcomes[ff::ffdforder(outcomes[c("rowId")]),]
-                outcomes <- outcomes %>% arrange(rowId)
+                outcomes <- outcomes %>% arrange(.data$rowId)
             }
             if (!isSorted(covariates,c("covariateId","rowId"))){
                 if(!quiet) {
                     writeLines("Sorting covariates by covariateId, rowId")
                 }
-                # rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
-                # covariates <- covariates[ff::ffdforder(covariates[c("covariateId","rowId")]),]
-                covariates <- covariates %>% arrange(covariateId, rowId)
+                covariates <- covariates %>% arrange(.data$covariateId, .data$rowId)
             }
         }
         if (modelType == "clr" | modelType == "cpr"){
@@ -257,68 +251,45 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                 if(!quiet) {
                     writeLines("Sorting outcomes by stratumId and rowId")
                 }
-                # rownames(outcomes) <- NULL #Needs to be null or the ordering of ffdf will fail
-                # outcomes <- outcomes[ff::ffdforder(outcomes[c("stratumId","rowId")]),]
-                outcomes <- outcomes %>% arrange(stratumId, rowId)
+                outcomes <- outcomes %>% arrange(.data$stratumId, .data$rowId)
             }
             if (!isSorted(covariates,c("covariateId", "stratumId","rowId"))){
                 if(!quiet) {
                     writeLines("Sorting covariates by covariateId, stratumId and rowId")
                 }
-                # rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
-                # covariates <- covariates[ff::ffdforder(covariates[c("covariateId", "stratumId","rowId")]),]
-                covariates <- covariates %>% arrange(covariateId, stratumId, rowId)
+                covariates <- covariates %>% arrange(.data$covariateId, .data$stratumId, .data$rowId)
             }
         }
         if (modelType == "cox"){
-            # outcomes$minTime <- ff::ff(vmode="double", length=length(outcomes$time))
-            # for (i in bit::chunk(outcomes$time)){
-            #     outcomes$minTime[i] <- 0-outcomes$time[i]
-            # }
             outcomes <- outcomes %>% mutate(minTime = -time)
             if (!isSorted(outcomes,c("stratumId", "time", "y", "rowId"),c(TRUE, FALSE, TRUE, TRUE))){
                 if(!quiet) {
                     writeLines("Sorting outcomes by stratumId, time (descending), y, and rowId")
                 }
-                # rownames(outcomes) <- NULL #Needs to be null or the ordering of ffdf will fail
-                # outcomes <- outcomes[ff::ffdforder(outcomes[c("stratumId","minTime", "y", "rowId")]),]
-                outcomes <- outcomes %>% arrange(stratumId, minTime, y, rowId)
+                outcomes <- outcomes %>% arrange(.data$stratumId, .data$minTime, .data$y, .data$rowId)
             }
-            # covariates$minTime <- NULL
-            # covariates$time <- NULL
-            # covariates$y <- NULL
-            # idx <- ffbase::ffmatch(covariates$rowId, outcomes$rowId)
-            # covariates$minTime <- outcomes$minTime[idx]
-            # covariates$time <- outcomes$time[idx]
-            # covariates$y <- outcomes$y[idx]
-            covariates <- covariates %>% inner_join(outcomes %>% select(rowId, minTime, time, y), by = "rowId")
+
+            covariates <- covariates %>% inner_join(outcomes %>% select(.data$rowId, .data$minTime, .data$time, .data$y), by = "rowId")
             if (!isSorted(covariates, c("covariateId", "stratumId", "time", "y", "rowId"), c(TRUE, TRUE, FALSE, TRUE, TRUE))){
                 if(!quiet) {
                     writeLines("Sorting covariates by covariateId, stratumId, time (descending), y, and rowId")
                 }
                 # rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
                 # covariates <- covariates[ff::ffdforder(covariates[c("covariateId", "stratumId", "minTime", "y", "rowId")]),]
-                covariates <- covariates %>% arrange(covariateId, stratumId, minTime, y, rowId)
+                covariates <- covariates %>% arrange(.data$covariateId, .data$stratumId, .data$minTime, .data$y, .data$rowId)
             }
         }
     }
     if (checkRowIds){
-        # mapped <- ffbase::ffmatch(x = covariates$rowId, table = outcomes$rowId)
-        # if (ffbase::any.ff(ffbase::is.na.ff(mapped))){
-        #     if(!quiet) {
-        #         writeLines("Removing covariate values with rowIds that are not in outcomes")
-        #     }
-        #     rownames(covariates) <- NULL
-        #     covariates <- covariates[ffbase::ffwhich(mapped, is.na(mapped) == FALSE),]
-        # }
-        notMapped <- anti_join(covariates %>% select(rowId),
-                               outcomes %>% select(rowId), by = "rowId") %>% count() %>% collect()
+
+        notMapped <- anti_join(covariates %>% select(.data$rowId),
+                               outcomes %>% select(.data$rowId), by = "rowId") %>% count() %>% collect()
         if (notMapped > 0) {
             if(!quiet) {
                 writeLines("Removing covariate values with rowIds that are not in outcomes")
             }
             covariates <- inner_join(covariates,
-                                     outcomes %>% select(rowId), by = "rowId")
+                                     outcomes %>% select(.data$rowId), by = "rowId")
         }
     }
 
@@ -326,44 +297,28 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
 
     loadNewSqlCyclopsDataY(dataPtr,
                            if (providedNoStrata | modelType == "lr" | modelType == "pr") { NULL } else {
-                               #ff::as.ram.ff(outcomes$stratumId)
-                               outcomes %>% select(stratumId) %>% pull()
+                               outcomes %>% select(.data$stratumId) %>% pull()
                                },
-                           #ff::as.ram.ff(outcomes$rowId),
-                           outcomes %>% select(rowId) %>% pull(),
-                           #ff::as.ram.ff(outcomes$y),
-                           outcomes %>% select(y) %>% pull(),
+                           outcomes %>% select(.data$rowId) %>% pull(),
+                           outcomes %>% select(.data$y) %>% pull(),
                            if ("time" %in% colnames(outcomes)) {
-                               outcomes %>% select(time) %>% pull()
+                               outcomes %>% select(.data$time) %>% pull()
                            } else {
                                NULL
-                           }
-                           # if (is.null(outcomes$time)) {NULL} else {
-                           #     #ff::as.ram.ff(outcomes$time)
-                           #
-                           #  }
-                           )
+                           })
 
     if (addIntercept & modelType != "cox")
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
-    # for (i in bit::chunk(covariates)){
-    #     covarNames <- unique(covariates$covariateId[i,])
-    #     loadNewSeqlCyclopsDataMultipleX(dataPtr,
-    #                                     covariates$covariateId[i,],
-    #                                     covariates$rowId[i,],
-    #                                     covariates$covariateValue[i,],
-    #                                     name = covarNames, # TODO Does this really work?
-    #                                     append = TRUE)
-    # }
+
     Andromeda::batchApply(covariates,
                           function(cov) {
-                              covIds <- cov %>% select(covariateId) %>% pull()
+                              covIds <- cov %>% select(.data$covariateId) %>% pull()
                               covarNames <- unique(covIds)
                               loadNewSeqlCyclopsDataMultipleX(
                                   dataPtr,
                                   covIds,
-                                  cov %>% select(rowId) %>% pull(),
-                                  cov %>% select(covariateValue) %>% pull(),
+                                  cov %>% select(.data$rowId) %>% pull(),
+                                  cov %>% select(.data$covariateValue) %>% pull(),
                                   name = covarNames,
                                   append = TRUE)
                           },
@@ -376,16 +331,10 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     }
 
     if ("weights" %in% colnames(outcomes)) {
-        dataPtr$weights <- outcomes %>% select(weights) %>% pull()
+        dataPtr$weights <- outcomes %>% select(.data$weights) %>% pull()
     } else {
         dataPtr$weights <- NULL
     }
-    # if (is.null(outcomes$weight)) {
-    #     dataPtr$weights <- NULL
-    # } else {
-    #     dataPtr$weights <- ff::as.ram.ff(outcomes$weight)
-    # }
 
     return(dataPtr)
-
 }
