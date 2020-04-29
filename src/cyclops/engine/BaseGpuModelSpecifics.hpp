@@ -37,14 +37,13 @@ namespace bsccs {
             deviceVec.resize(hostVec.size());
             compute::copy(std::begin(hostVec), std::end(hostVec), std::begin(deviceVec), queue);
         }
-
+/*
 	template <typename DeviceVec, typename HostVec>
         void resizeAndCopyToDeviceCuda(const HostVec& hostVec, DeviceVec& deviceVec) {
             deviceVec.resize(hostVec.size());
-	    //cudaMemcpy(deviceVec, hostVec, sizeof(hostVec), cudaMemcpyHostToDevice);
 	    thrust::copy(hostVec.begin(), hostVec.end(), deviceVec.begin());
         }
-
+*/
         template <typename HostVec, typename DeviceVec>
         void compare(const HostVec& host, const DeviceVec& device, const std::string& error, double tolerance = 1E-10) {
             bool valid = true;
@@ -164,14 +163,16 @@ namespace bsccs {
             detail::resizeAndCopyToDevice(indicesStarts, dindicesStarts, queue);
             detail::resizeAndCopyToDevice(taskCounts, dtaskCounts, queue);
 */
+	    /*
 	    CudaDetail<RealType> rdetail;
 	    CudaDetail<int> idetail;
 	    CudaDetail<UInt> udetail;
-	    rdetail.resizeAndCopyToDeviceCuda(flatData, data);
-            idetail.resizeAndCopyToDeviceCuda(flatIndices, indices);
-            udetail.resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
-            udetail.resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
-            udetail.resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
+	    */
+	    resizeAndCopyToDeviceCuda(flatData, data);
+            resizeAndCopyToDeviceCuda(flatIndices, indices);
+            resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
+            resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
+            resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
 
             std::cerr << "AGC end " << flatData.size() << " " << flatIndices.size() << std::endl;
         }
