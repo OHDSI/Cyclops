@@ -18,15 +18,15 @@ __global__ void kernelUpdateXBeta(int offX, int offK, int N, T delta,
     int task = blockIdx.x * blockDim.x + threadIdx.x;
 
     //if (formatType == INDICATOR || formatType == SPARSE) {
-//	int k = K[offK + task];
+	int k = K[offK + task];
     //} else { // DENSE, INTERCEPT
-	int k = task;
+//	int k = task;
     //}
 
     //if (formatType == SPARSE || formatType == DENSE) {
-	T inc = delta * d_X[offX + task];
+//	T inc = delta * d_X[offX + task];
     //} else { // INDICATOR, INTERCEPT
-//	T inc = delta;
+	T inc = delta;
     //}
 
     if (task < N) {

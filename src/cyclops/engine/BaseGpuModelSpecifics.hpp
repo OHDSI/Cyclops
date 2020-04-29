@@ -163,11 +163,7 @@ namespace bsccs {
             detail::resizeAndCopyToDevice(indicesStarts, dindicesStarts, queue);
             detail::resizeAndCopyToDevice(taskCounts, dtaskCounts, queue);
 */
-	    /*
-	    CudaDetail<RealType> rdetail;
-	    CudaDetail<int> idetail;
-	    CudaDetail<UInt> udetail;
-	    */
+
 	    resizeAndCopyToDeviceCuda(flatData, data);
             resizeAndCopyToDeviceCuda(flatIndices, indices);
             resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);

@@ -151,12 +151,9 @@ namespace bsccs{
             ModelSpecifics<BaseModel, WeightType>::updateXBeta(delta, index, useWeights);
 #endif // GPU_DEBUG
 
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto start = bsccs::chrono::steady_clock::now();
-#endif
 /*
-	    // FOR TEST: check data
-	    std::cout << "delta: " << delta << '\n';
+            // FOR TEST: check data
+            std::cout << "delta: " << delta << '\n';
             std::cout << "old hXBeta: ";
             for (auto x:hXBeta) {
                     std::cout << x << " ";
@@ -172,10 +169,39 @@ namespace bsccs{
                     std::cout << x << " ";
             }
             std::cout << "\n";
-	    std::cout << "K: " << K  << " N: " << N << " TaskCount: " << dColumns.getTaskCount(index) << '\n';
-	    std::cout << "offX: " << dColumns.getDataOffset(index) << " offK: " << dColumns.getIndicesOffset(index) << '\n';
+            std::cout << "K: " << K  << " N: " << N << " TaskCount: " << dColumns.getTaskCount(index) << '\n';
+            std::cout << "offX: " << dColumns.getDataOffset(index) << " offK: " << dColumns.getIndicesOffset(index) << '\n';
 */
-	    FormatType formatType = hX.getFormatType(index);
+            FormatType formatType = hX.getFormatType(index);
+
+            // cuda class
+            CudaKernel<RealType> CudaData(dColumns.getData(), dColumns.getIndices(), &hXBeta[0], &offsExpXBeta[0], K);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start = bsccs::chrono::steady_clock::now();
+#endif
+           
+	    // updateXBeta kernel
+            int gridSize, blockSize;
+            blockSize = 256;
+            gridSize = (int)ceil((double)N/blockSize);
+            CudaData.updateXBeta(dColumns.getDataOffset(index), dColumns.getIndicesOffset(index), dColumns.getTaskCount(index), static_cast<RealType>(delta), gridSize, blockSize);
+
+            // scan (computeAccumlatedDenominator)
+            CudaData.CubScanMalloc(K);
+            CudaData.CubScan(K);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name = "updateXBetaG" + getFormatTypeExtension(formatType) + "  ";
+            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+            // copy the results to host
+            cudaMemcpy(&hXBeta[0], CudaData.d_XBeta, sizeof(RealType) * K, cudaMemcpyDeviceToHost);
+            cudaMemcpy(&offsExpXBeta[0], CudaData.d_ExpXBeta, sizeof(RealType) * K, cudaMemcpyDeviceToHost);
+            cudaMemcpy(&accDenomPid[0], CudaData.d_AccDenom, sizeof(RealType) * K, cudaMemcpyDeviceToHost);
+
 /*
  	    auto& kernel = kernelUpdateXBeta[formatType];
             const auto taskCount = dColumns.getTaskCount(index);
@@ -222,60 +248,7 @@ namespace bsccs{
             auto name = "updateXBetaG" + getFormatTypeExtension(formatType) + "  ";
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-	    
-*/
-
-	    // cuda class
-	    CudaKernel<RealType> CudaData(dColumns.getData(), dColumns.getIndices(), &hXBeta[0], &offsExpXBeta[0], K);
-/*	    
-	    // FOR TEST: check data
-	    std::vector<RealType> test(2*K, 0);
-	    cudaMemcpy(&test[0], CudaData.d_Xj, sizeof(RealType) * 2*K, cudaMemcpyDeviceToHost);
-	    std::cout << "test Xj: ";
-            for (auto x:test) {
-                    std::cout << x << " ";
-            }
-            std::cout << "\n";
-	    std::vector<RealType> test2(2*K, 0);
-            cudaMemcpy(&test2[0], CudaData.d_K, sizeof(int) * 2*K, cudaMemcpyDeviceToHost);
-            std::cout << "test K: ";
-            for (auto x:test2) {
-                    std::cout << x << " ";
-            }
-            std::cout << "\n";
-*/            
-	    // updateXBeta kernel
-	    int gridSize, blockSize;
-	    blockSize = 256;
-	    gridSize = (int)ceil((double)N/blockSize);
-	    CudaData.updateXBeta(dColumns.getDataOffset(index), dColumns.getIndicesOffset(index), dColumns.getTaskCount(index), static_cast<RealType>(delta), gridSize, blockSize);
- 	    
-	    // scan
-	    CudaData.CubScanMalloc(K);
-            CudaData.CubScan(K);
-
-	    // copy the results to host
-            cudaMemcpy(&hXBeta[0], CudaData.d_XBeta, sizeof(RealType) * K, cudaMemcpyDeviceToHost);
-            cudaMemcpy(&offsExpXBeta[0], CudaData.d_ExpXBeta, sizeof(RealType) * K, cudaMemcpyDeviceToHost);
-	    cudaMemcpy(&accDenomPid[0], CudaData.d_AccDenom, sizeof(RealType) * K, cudaMemcpyDeviceToHost);
-/*
-   	    // FOR TEST: check data
-            std::cout << "new hXBeta: ";
-            for (auto x:hXBeta) {
-                    std::cout << x << " ";
-            }
-            std::cout << "\n";
-            std::cout << "new offsExpXBeta: ";
-            for (auto x:offsExpXBeta) {
-                    std::cout << x << " ";
-            }
-            std::cout << "\n";
-	    std::cout << "new accDenomPid: ";
-            for (auto x:accDenomPid) {
-                    std::cout << x << " ";
-            }
-            std::cout << "\n";
-*/	    
+*/	   
 	    //computeAccumlatedDenominator(useWeights);
 
 #ifdef GPU_DEBUG
