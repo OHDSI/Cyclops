@@ -6,9 +6,10 @@
 #define BASEGPUMODELSPECIFICS_HPP
 
 #include <boost/compute/algorithm/reduce.hpp>
-//#include <boost/compute/algorithm/inclusive_scan.hpp>
+#include <thrust/device_vector.h>
 
 #include "ModelSpecifics.hpp"
+#include "CudaDetail.h"
 
 namespace bsccs {
 
@@ -35,6 +36,13 @@ namespace bsccs {
         void resizeAndCopyToDevice(const HostVec& hostVec, DeviceVec& deviceVec, compute::command_queue& queue) {
             deviceVec.resize(hostVec.size());
             compute::copy(std::begin(hostVec), std::end(hostVec), std::begin(deviceVec), queue);
+        }
+
+	template <typename DeviceVec, typename HostVec>
+        void resizeAndCopyToDeviceCuda(const HostVec& hostVec, DeviceVec& deviceVec) {
+            deviceVec.resize(hostVec.size());
+	    //cudaMemcpy(deviceVec, hostVec, sizeof(hostVec), cudaMemcpyHostToDevice);
+	    thrust::copy(hostVec.begin(), hostVec.end(), deviceVec.begin());
         }
 
         template <typename HostVec, typename DeviceVec>
@@ -72,6 +80,7 @@ namespace bsccs {
     template <typename RealType>
     class AllGpuColumns {
     public:
+/*	    
         typedef compute::vector<RealType> DataVector;
         typedef compute::vector<int> IndicesVector;
         typedef compute::uint_ UInt;
@@ -81,6 +90,18 @@ namespace bsccs {
         AllGpuColumns(const compute::context& context) : indices(context), data(context), // {
                                                          ddataStarts(context), dindicesStarts(context), dtaskCounts(context) {
             // Do nothing
+        }
+*/
+
+        typedef thrust::device_vector<RealType> DataVector;
+        typedef thrust::device_vector<int> IndicesVector;
+        typedef unsigned int UInt;
+        typedef thrust::device_vector<UInt> dStartsVector;
+        typedef std::vector<UInt> hStartsVector;
+
+        AllGpuColumns(const compute::context& context) {
+            // Do nothing
+
         }
 
         virtual ~AllGpuColumns() { }
@@ -124,13 +145,33 @@ namespace bsccs {
                     taskCounts.push_back(column.getNumberOfEntries());
                 }
             }
+/*
+	    // FOR TEST: check data
+	    std::cout << "flatData: ";
+	    for (auto x:flatData) {
+		    std::cout << x << " ";
+	    }
+	    std::cout << "\n";
+            std::cout << "flatIndices: ";
+            for (auto x:flatIndices) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
 
             detail::resizeAndCopyToDevice(flatData, data, queue);
             detail::resizeAndCopyToDevice(flatIndices, indices, queue);
             detail::resizeAndCopyToDevice(dataStarts, ddataStarts, queue);
             detail::resizeAndCopyToDevice(indicesStarts, dindicesStarts, queue);
             detail::resizeAndCopyToDevice(taskCounts, dtaskCounts, queue);
-
+*/
+	    CudaDetail<RealType> rdetail;
+	    CudaDetail<int> idetail;
+	    CudaDetail<UInt> udetail;
+	    rdetail.resizeAndCopyToDeviceCuda(flatData, data);
+            idetail.resizeAndCopyToDeviceCuda(flatIndices, indices);
+            udetail.resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
+            udetail.resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
+            udetail.resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
 
             std::cerr << "AGC end " << flatData.size() << " " << flatIndices.size() << std::endl;
         }
@@ -146,12 +187,20 @@ namespace bsccs {
         UInt getTaskCount(int column) const {
             return taskCounts[column];
         }
-
+/*
         const DataVector& getData() const {
             return data;
         }
-
+*/
+        DataVector& getData() {
+            return data;
+        }
+/*
         const IndicesVector& getIndices() const {
+            return indices;
+        }
+*/	
+        IndicesVector& getIndices() {
             return indices;
         }
 
@@ -194,6 +243,7 @@ namespace bsccs {
 
         IndicesVector indices;
         DataVector data;
+
         hStartsVector taskCounts;
         hStartsVector dataStarts;
         hStartsVector indicesStarts;
@@ -336,7 +386,7 @@ namespace bsccs {
             int need = 0;
 
             // Copy data
-            dColumns.initialize(hX, queue, K, true);
+	    dColumns.initialize(hX, queue, K, true);
             //this->initializeMmXt();
             //dColumnsXt.initialize(*hXt, queue, K, true);
             formatList.resize(J);

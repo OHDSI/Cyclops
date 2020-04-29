@@ -22,6 +22,7 @@
 #include "Iterators.h"
 #include "CudaKernel.h"
 
+
 namespace bsccs{
 
     namespace compute = boost::compute;
@@ -54,7 +55,7 @@ namespace bsccs{
         using BaseGpuModelSpecifics<BaseModel, RealType>::modelData;
         using BaseGpuModelSpecifics<BaseModel, RealType>::hX;
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::hPid;
-//        using BaseGpuModelSpecifics<BaseModel, RealType>::K;
+       	using BaseGpuModelSpecifics<BaseModel, RealType>::K;
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::J;
         using BaseGpuModelSpecifics<BaseModel, RealType>::N;
         using BaseGpuModelSpecifics<BaseModel, RealType>::offsExpXBeta;
@@ -153,9 +154,29 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start = bsccs::chrono::steady_clock::now();
 #endif
-
-            FormatType formatType = hX.getFormatType(index);
- 
+/*
+	    // FOR TEST: check data
+	    std::cout << "delta: " << delta << '\n';
+            std::cout << "old hXBeta: ";
+            for (auto x:hXBeta) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+            std::cout << "old offsExpXBeta: ";
+            for (auto x:offsExpXBeta) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+            std::cout << "old accDenomPid: ";
+            for (auto x:accDenomPid) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+	    std::cout << "K: " << K  << " N: " << N << " TaskCount: " << dColumns.getTaskCount(index) << '\n';
+	    std::cout << "offX: " << dColumns.getDataOffset(index) << " offK: " << dColumns.getIndicesOffset(index) << '\n';
+*/
+	    FormatType formatType = hX.getFormatType(index);
+/*
  	    auto& kernel = kernelUpdateXBeta[formatType];
             const auto taskCount = dColumns.getTaskCount(index);
             
@@ -182,27 +203,80 @@ namespace bsccs{
 
             hXBetaKnown = false; // dXBeta was just updated
 
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto end = bsccs::chrono::steady_clock::now();
-            ///////////////////////////"
-            auto name = "updateXBetaG" + getFormatTypeExtension(formatType) + "  ";
-            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
-
-            // copy results to host
+	    // copy results to host
             hXBeta.resize(dExpXBeta.size());
             compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);
 
             offsExpXBeta.resize(dExpXBeta.size());
             compute::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(offsExpXBeta), queue);
 
-	    // transform scan
-	    CudaKernel<RealType> CudaData(&hXBeta[0], N);
-            CudaData.CubExpScanMalloc(N);
-            CudaData.CubExpScan(N);
-            cudaMemcpy(&accDenomPid[0], CudaData.d_out, sizeof(RealType) * N, cudaMemcpyDeviceToHost);
+            denomPid.resize(dDenominator.size());
+            compute::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(denomPid), queue);
 
-           //computeAccumlatedDenominator(useWeights);
+	    // cAD
+	    ModelSpecifics<BaseModel, RealType>::computeAccumlatedDenominator(useWeights);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name = "updateXBetaG" + getFormatTypeExtension(formatType) + "  ";
+            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+	    
+*/
+
+	    // cuda class
+	    CudaKernel<RealType> CudaData(dColumns.getData(), dColumns.getIndices(), &hXBeta[0], &offsExpXBeta[0], K);
+/*	    
+	    // FOR TEST: check data
+	    std::vector<RealType> test(2*K, 0);
+	    cudaMemcpy(&test[0], CudaData.d_Xj, sizeof(RealType) * 2*K, cudaMemcpyDeviceToHost);
+	    std::cout << "test Xj: ";
+            for (auto x:test) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+	    std::vector<RealType> test2(2*K, 0);
+            cudaMemcpy(&test2[0], CudaData.d_K, sizeof(int) * 2*K, cudaMemcpyDeviceToHost);
+            std::cout << "test K: ";
+            for (auto x:test2) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+*/            
+	    // updateXBeta kernel
+	    int gridSize, blockSize;
+	    blockSize = 256;
+	    gridSize = (int)ceil((double)N/blockSize);
+	    CudaData.updateXBeta(dColumns.getDataOffset(index), dColumns.getIndicesOffset(index), dColumns.getTaskCount(index), static_cast<RealType>(delta), gridSize, blockSize);
+ 	    
+	    // scan
+	    CudaData.CubScanMalloc(K);
+            CudaData.CubScan(K);
+
+	    // copy the results to host
+            cudaMemcpy(&hXBeta[0], CudaData.d_XBeta, sizeof(RealType) * K, cudaMemcpyDeviceToHost);
+            cudaMemcpy(&offsExpXBeta[0], CudaData.d_ExpXBeta, sizeof(RealType) * K, cudaMemcpyDeviceToHost);
+	    cudaMemcpy(&accDenomPid[0], CudaData.d_AccDenom, sizeof(RealType) * K, cudaMemcpyDeviceToHost);
+/*
+   	    // FOR TEST: check data
+            std::cout << "new hXBeta: ";
+            for (auto x:hXBeta) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+            std::cout << "new offsExpXBeta: ";
+            for (auto x:offsExpXBeta) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+	    std::cout << "new accDenomPid: ";
+            for (auto x:accDenomPid) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+*/	    
+	    //computeAccumlatedDenominator(useWeights);
 
 #ifdef GPU_DEBUG
             // Compare results:
@@ -211,7 +285,7 @@ namespace bsccs{
         detail::compare(denomPid, dDenominator, "denominator not equal");
 #endif // GPU_DEBUG
         }
-
+/*
         virtual void computeAccumlatedDenominator(bool useWeights) {
  
             CudaKernel<RealType> CudaData(&denomPid[0], N);
@@ -237,7 +311,7 @@ namespace bsccs{
             std::cout << "timerG: " << timerG << '\n';
 
         }
-
+*/
         virtual const std::vector<double> getXBeta() {
             if (!hXBetaKnown) {
                 compute::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta), queue);

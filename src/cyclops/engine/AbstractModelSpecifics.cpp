@@ -52,7 +52,7 @@ AbstractModelSpecifics* deviceFactory(
     switch (deviceType) {
 #ifdef HAVE_OPENCL
     case DeviceType::GPU :
-        model = new GpuModelSpecifics<Model,RealType,ModelG>(modelData, deviceName);
+//        model = new GpuModelSpecifics<Model,RealType,ModelG>(modelData, deviceName);
         break;
 #endif // HAVE_OPENCL
     default:
