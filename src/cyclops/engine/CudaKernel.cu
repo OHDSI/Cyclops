@@ -11,7 +11,7 @@
 using namespace cub;
 	
 template <typename T>
-__global__ void kernelUpdateXBeta(int offX, int offK, int N, T delta,
+__global__ void kernelUpdateXBeta(int offX, int offK, const int taskCount, T delta,
                 T* d_X, int* K, T* d_XBeta, T* d_ExpXBeta)
 //__global__ void kernelUpdateXBeta(T* d_X, T* d_XBeta, T* d_ExpXBeta, T delta, int N)
 {
@@ -29,7 +29,7 @@ __global__ void kernelUpdateXBeta(int offX, int offK, int N, T delta,
 	T inc = delta;
     //}
 
-    if (task < N) {
+    if (task < taskCount) {
 	T xb = d_XBeta[k] + inc;
         d_XBeta[k] = xb;
 	d_ExpXBeta[k] = expf(xb);
@@ -62,11 +62,11 @@ CudaKernel<T>::~CudaKernel()
 }
 
 template <class T>
-void CudaKernel<T>::updateXBeta(unsigned int offX, unsigned int offK, unsigned int N, T delta, int gridSize, int blockSize)
+void CudaKernel<T>::updateXBeta(unsigned int offX, unsigned int offK, const unsigned int taskCount, T delta, int gridSize, int blockSize)
 {
 //    auto start1 = std::chrono::steady_clock::now();
 
-    kernelUpdateXBeta<<<gridSize, blockSize>>>(offX, offK, N, delta, d_X, d_K, d_XBeta, d_ExpXBeta);
+    kernelUpdateXBeta<<<gridSize, blockSize>>>(offX, offK, taskCount, delta, d_X, d_K, d_XBeta, d_ExpXBeta);
 
 //    auto end1 = std::chrono::steady_clock::now();
 //    timerG1 += std::chrono::duration<double, std::milli>(end1 - start1).count();

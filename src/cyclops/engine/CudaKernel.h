@@ -36,6 +36,6 @@ public:
     void CubScan(int num_items);
     void CubExpScanMalloc(int num_items);
     void CubExpScan(int num_items);
-    void updateXBeta(unsigned int offX, unsigned int offK, unsigned int N, T delta, int gridSize, int blockSize);
+    void updateXBeta(unsigned int offX, unsigned int offK, const unsigned int taskCount, T delta, int gridSize, int blockSize);
 
 };

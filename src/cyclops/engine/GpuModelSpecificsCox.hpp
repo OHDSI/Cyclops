@@ -173,6 +173,7 @@ namespace bsccs{
             std::cout << "offX: " << dColumns.getDataOffset(index) << " offK: " << dColumns.getIndicesOffset(index) << '\n';
 */
             FormatType formatType = hX.getFormatType(index);
+	    const auto taskCount = dColumns.getTaskCount(index);
 
             // cuda class
             CudaKernel<RealType> CudaData(dColumns.getData(), dColumns.getIndices(), &hXBeta[0], &offsExpXBeta[0], K);
@@ -184,8 +185,8 @@ namespace bsccs{
 	    // updateXBeta kernel
             int gridSize, blockSize;
             blockSize = 256;
-            gridSize = (int)ceil((double)N/blockSize);
-            CudaData.updateXBeta(dColumns.getDataOffset(index), dColumns.getIndicesOffset(index), dColumns.getTaskCount(index), static_cast<RealType>(delta), gridSize, blockSize);
+            gridSize = (int)ceil((double)taskCount/blockSize);
+            CudaData.updateXBeta(dColumns.getDataOffset(index), dColumns.getIndicesOffset(index), taskCount, static_cast<RealType>(delta), gridSize, blockSize);
 
             // scan (computeAccumlatedDenominator)
             CudaData.CubScanMalloc(K);
