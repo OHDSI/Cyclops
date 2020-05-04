@@ -316,7 +316,7 @@ namespace bsccs {
         using ModelSpecifics<BaseModel, RealType>::hPid;
         using ModelSpecifics<BaseModel, RealType>::hPidInternal;
         using ModelSpecifics<BaseModel, RealType>::accReset;
-//        using ModelSpecifics<BaseModel, RealType>::hXjY;
+        using ModelSpecifics<BaseModel, RealType>::hXjY;
 //        using ModelSpecifics<BaseModel, RealType>::hXjX;
         using ModelSpecifics<BaseModel, RealType>::sparseIndices;
         using ModelSpecifics<BaseModel, RealType>::K;

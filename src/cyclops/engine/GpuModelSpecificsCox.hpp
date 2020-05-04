@@ -54,6 +54,7 @@ namespace bsccs{
 
         using BaseGpuModelSpecifics<BaseModel, RealType>::modelData;
         using BaseGpuModelSpecifics<BaseModel, RealType>::hX;
+	using BaseGpuModelSpecifics<BaseModel, RealType>::hXjY;
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::hPid;
        	using BaseGpuModelSpecifics<BaseModel, RealType>::K;
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::J;
@@ -64,13 +65,13 @@ namespace bsccs{
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::hOffs;
         using BaseGpuModelSpecifics<BaseModel, RealType>::denomPid;
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::denomPid2;
-//        using BaseGpuModelSpecifics<BaseModel, RealType>::numerPid;
-//        using BaseGpuModelSpecifics<BaseModel, RealType>::numerPid2;
-//        using BaseGpuModelSpecifics<BaseModel, RealType>::hNWeight;
+        using BaseGpuModelSpecifics<BaseModel, RealType>::numerPid;
+        using BaseGpuModelSpecifics<BaseModel, RealType>::numerPid2;
+        using BaseGpuModelSpecifics<BaseModel, RealType>::hNWeight;
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::hKWeight;
         using BaseGpuModelSpecifics<BaseModel, RealType>::accDenomPid;
-//        using BaseGpuModelSpecifics<BaseModel, RealType>::accNumerPid;
-//        using BaseGpuModelSpecifics<BaseModel, RealType>::accNumerPid2;
+        using BaseGpuModelSpecifics<BaseModel, RealType>::accNumerPid;
+        using BaseGpuModelSpecifics<BaseModel, RealType>::accNumerPid2;
 
         using BaseGpuModelSpecifics<BaseModel, RealType>::dKWeight;
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::dNWeight;
@@ -145,8 +146,106 @@ namespace bsccs{
 
         }
 
+
+	virtual void computeGradientAndHessian(int index, double *ogradient,
+                                           double *ohessian, bool useWeights) {
+	
+    		std::vector<RealType> gradient(1, static_cast<RealType>(0));
+		std::vector<RealType> hessian(1, static_cast<RealType>(0));
+
+//		std::cout << "GPU::cGH called \n";
+		FormatType formatType = hX.getFormatType(index);
+		const auto taskCount = dColumns.getTaskCount(index);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start = bsccs::chrono::steady_clock::now();
+#endif	
+	    // cuda class
+	    CudaKernel<RealType> CudaData(&numerPid[0], &numerPid2[0], &accDenomPid[0], &hNWeight[0], N);
+
+            // scan (computeAccumlatedNumerator)
+	    CudaData.CubScan(CudaData.d_Numer, CudaData.d_AccNumer, N);
+	    CudaData.CubScan(CudaData.d_Numer2, CudaData.d_AccNumer2, N);
+            //CudaData.computeAccNumerMalloc(N);
+            //CudaData.computeAccNumer(N);
+
+/*
+	    // FOR TEST
+            if (accNumerPid.size() != (N + 1)) {
+                accNumerPid.resize(N + 1, static_cast<RealType>(0));
+            }
+            cudaMemcpy(&accNumerPid[0], CudaData.d_AccNumer, sizeof(RealType) * N, cudaMemcpyDeviceToHost);
+            if (accNumerPid2.size() != (N + 1)) {
+                accNumerPid2.resize(N + 1, static_cast<RealType>(0));
+            }
+            cudaMemcpy(&accNumerPid2[0], CudaData.d_AccNumer2, sizeof(RealType) * N, cudaMemcpyDeviceToHost);
+  
+            std::cout << "accnumer: ";
+            for (auto x:accNumerPid) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+            std::cout << "accnumer2: ";
+            for (auto x:accNumerPid2) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+            std::cout << "accDenomPid: ";
+            for (auto x:accDenomPid) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+            std::cout << "hNWeight: ";
+            for (auto x:hNWeight) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+*/
+	    // kernel
+            int gridSize, blockSize;
+            blockSize = 256;
+            gridSize = (int)ceil((double)N/blockSize);
+	    CudaData.computeGradientAndHessian(N, gridSize, blockSize);
+
+	    /*
+	    // FOR TEST
+	    std::vector<RealType> Grad(N, 0);
+	    std::vector<RealType> Hess(N, 0);
+	    cudaMemcpy(&Grad[0], CudaData.d_G, sizeof(RealType) * N, cudaMemcpyDeviceToHost);
+	    cudaMemcpy(&Hess[0], CudaData.d_H, sizeof(RealType) * N, cudaMemcpyDeviceToHost);
+	    
+            std::cout << "g: ";
+            for (auto x:Grad) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+            std::cout << "h: ";
+            for (auto x:Hess) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+	    */
+	    
+	    cudaMemcpy(&gradient[0], CudaData.d_G, sizeof(RealType), cudaMemcpyDeviceToHost);
+	    cudaMemcpy(&hessian[0], CudaData.d_H, sizeof(RealType), cudaMemcpyDeviceToHost);
+	    //std::cout << "g: " << gradient[0] << " h: " << hessian[0] << '\n';
+
+	    gradient[0] -= hXjY[index];
+	    *ogradient = static_cast<double>(gradient[0]);
+	    *ohessian = static_cast<double>(hessian[0]);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+	    auto end = bsccs::chrono::steady_clock::now();
+	    ///////////////////////////"
+	    auto name = "compGradHessG" + getFormatTypeExtension(formatType) + " ";
+	    duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+	}
+
         virtual void updateXBeta(double delta, int index, bool useWeights) {
 
+		std::cout << "GPU::updateXBeta called \n";
 #ifdef GPU_DEBUG
             ModelSpecifics<BaseModel, WeightType>::updateXBeta(delta, index, useWeights);
 #endif // GPU_DEBUG
@@ -189,8 +288,9 @@ namespace bsccs{
             CudaData.updateXBeta(dColumns.getDataOffset(index), dColumns.getIndicesOffset(index), taskCount, static_cast<RealType>(delta), gridSize, blockSize);
 
             // scan (computeAccumlatedDenominator)
-            CudaData.CubScanMalloc(K);
-            CudaData.CubScan(K);
+	    CudaData.CubScan(CudaData.d_ExpXBeta, CudaData.d_AccDenom, K);
+//            CudaData.computeAccDenomMalloc(K);
+//            CudaData.computeAccDenom(K);
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
