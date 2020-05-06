@@ -18,15 +18,15 @@ __global__ void kernelUpdateXBeta(int offX, int offK, const int taskCount, T del
     int task = blockIdx.x * blockDim.x + threadIdx.x;
 
     //if (formatType == INDICATOR || formatType == SPARSE) {
-//	int k = K[offK + task];
+	int k = K[offK + task];
     //} else { // DENSE, INTERCEPT
-	int k = task;
+//	int k = task;
     //}
 
     //if (formatType == SPARSE || formatType == DENSE) {
-	T inc = delta * d_X[offX + task];
+//	T inc = delta * d_X[offX + task];
     //} else { // INDICATOR, INTERCEPT
-//	T inc = delta;
+	T inc = delta;
     //}
 
     if (task < taskCount) {
@@ -46,9 +46,9 @@ __global__ void kernelComputeGradientAndHessian(T* d_Gradient, T* d_Hessian, T* 
         T g = d_NWeight[task] * t;
         d_Gradient[task] = g;
         //if (IteratorType::isIndicator) {
-//            d_Hessian[task] = g * (1.0 - t);
+            d_Hessian[task] = g * (1.0 - t);
         //} else {
-	    d_Hessian[task] = d_NWeight[task] * (d_AccNumer2[task] / d_AccDenom[task] - t * t);
+//	    d_Hessian[task] = d_NWeight[task] * (d_AccNumer2[task] / d_AccDenom[task] - t * t);
         //}
     }
 }

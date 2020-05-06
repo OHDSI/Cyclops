@@ -156,17 +156,31 @@ namespace bsccs{
 //		std::cout << "GPU::cGH called \n";
 		FormatType formatType = hX.getFormatType(index);
 		const auto taskCount = dColumns.getTaskCount(index);
+/*
+	    // FOR TEST
+            std::cout << "numer: ";
+            for (auto x:numerPid) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+            std::cout << "numer2: ";
+            for (auto x:numerPid2) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+*/
+            // cuda class
+            CudaKernel<RealType> CudaData(&numerPid[0], &numerPid2[0], &accDenomPid[0], &hNWeight[0], N);
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start = bsccs::chrono::steady_clock::now();
 #endif	
-	    // cuda class
-	    CudaKernel<RealType> CudaData(&numerPid[0], &numerPid2[0], &accDenomPid[0], &hNWeight[0], N);
 
-            // scan (computeAccumlatedNumerator)
+	    // scan (computeAccumlatedNumerator)
 	    CudaData.CubScan(CudaData.d_Numer, CudaData.d_AccNumer, N);
 	    CudaData.CubScan(CudaData.d_Numer2, CudaData.d_AccNumer2, N);
-            //CudaData.computeAccNumerMalloc(N);
+  
+  	    //CudaData.computeAccNumerMalloc(N);
             //CudaData.computeAccNumer(N);
 
 /*
@@ -190,7 +204,8 @@ namespace bsccs{
                     std::cout << x << " ";
             }
             std::cout << "\n";
-            std::cout << "accDenomPid: ";
+
+	    std::cout << "accDenomPid: ";
             for (auto x:accDenomPid) {
                     std::cout << x << " ";
             }
@@ -201,39 +216,32 @@ namespace bsccs{
             }
             std::cout << "\n";
 */
+
 	    // kernel
             int gridSize, blockSize;
             blockSize = 256;
             gridSize = (int)ceil((double)N/blockSize);
 	    CudaData.computeGradientAndHessian(N, gridSize, blockSize);
 
-	    /*
+/*	    
 	    // FOR TEST
 	    std::vector<RealType> Grad(N, 0);
 	    std::vector<RealType> Hess(N, 0);
-	    cudaMemcpy(&Grad[0], CudaData.d_G, sizeof(RealType) * N, cudaMemcpyDeviceToHost);
-	    cudaMemcpy(&Hess[0], CudaData.d_H, sizeof(RealType) * N, cudaMemcpyDeviceToHost);
+	    cudaMemcpy(&Grad[0], CudaData.d_Gradient, sizeof(RealType) * N, cudaMemcpyDeviceToHost);
+	    cudaMemcpy(&Hess[0], CudaData.d_Hessian, sizeof(RealType) * N, cudaMemcpyDeviceToHost);
 	    
-            std::cout << "g: ";
+            std::cout << "grad: ";
             for (auto x:Grad) {
                     std::cout << x << " ";
             }
             std::cout << "\n";
-            std::cout << "h: ";
+            std::cout << "hess: ";
             for (auto x:Hess) {
                     std::cout << x << " ";
             }
             std::cout << "\n";
-	    */
+*/	    
 	    
-	    cudaMemcpy(&gradient[0], CudaData.d_G, sizeof(RealType), cudaMemcpyDeviceToHost);
-	    cudaMemcpy(&hessian[0], CudaData.d_H, sizeof(RealType), cudaMemcpyDeviceToHost);
-	    //std::cout << "g: " << gradient[0] << " h: " << hessian[0] << '\n';
-
-	    gradient[0] -= hXjY[index];
-	    *ogradient = static_cast<double>(gradient[0]);
-	    *ohessian = static_cast<double>(hessian[0]);
-
 #ifdef CYCLOPS_DEBUG_TIMING
 	    auto end = bsccs::chrono::steady_clock::now();
 	    ///////////////////////////"
@@ -241,11 +249,18 @@ namespace bsccs{
 	    duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
+            cudaMemcpy(&gradient[0], CudaData.d_G, sizeof(RealType), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&hessian[0], CudaData.d_H, sizeof(RealType), cudaMemcpyDeviceToHost);
+            //std::cout << "g: " << gradient[0] << " h: " << hessian[0] << " xjy: " << hXjY[index] << '\n';
+
+            gradient[0] -= hXjY[index];
+            *ogradient = static_cast<double>(gradient[0]);
+            *ohessian = static_cast<double>(hessian[0]);
 	}
 
         virtual void updateXBeta(double delta, int index, bool useWeights) {
 
-		std::cout << "GPU::updateXBeta called \n";
+//		std::cout << "GPU::updateXBeta called \n";
 #ifdef GPU_DEBUG
             ModelSpecifics<BaseModel, WeightType>::updateXBeta(delta, index, useWeights);
 #endif // GPU_DEBUG

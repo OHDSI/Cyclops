@@ -1300,18 +1300,17 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 #endif
 #endif
 
-//<<<<<<< HEAD
 	if (BaseModel::hasNtoKIndices || BaseModel::cumulativeGradientAndHessian) {
-//=======
-//	if (BaseModel::cumulativeGradientAndHessian) { // cox
-//>>>>>>> master
+
 		switch (hX.getFormatType(index)) {
 		case INDICATOR : {
 				IndicatorIterator<RealType> itI(*(sparseIndices)[index]);
+/*				
 				for (; itI; ++itI) { // Only affected entries
 					numerPid[itI.index()] = static_cast<RealType>(0.0);
 				}
-//				zeroVector(numerPid.data(), N);
+*/
+				zeroVector(numerPid.data(), N);
 				if (BaseModel::efron) {
 					zeroVector(numerPid3.data(), N);
 				}
