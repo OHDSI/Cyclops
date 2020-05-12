@@ -184,20 +184,12 @@ namespace bsccs {
         UInt getTaskCount(int column) const {
             return taskCounts[column];
         }
-/*
+
         const DataVector& getData() const {
             return data;
         }
-*/
-        DataVector& getData() {
-            return data;
-        }
-/*
-        const IndicesVector& getIndices() const {
-            return indices;
-        }
-*/	
-        IndicesVector& getIndices() {
+
+	const IndicesVector& getIndices() const {
             return indices;
         }
 

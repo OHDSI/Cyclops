@@ -153,7 +153,6 @@ namespace bsccs{
     		std::vector<RealType> gradient(1, static_cast<RealType>(0));
 		std::vector<RealType> hessian(1, static_cast<RealType>(0));
 
-//		std::cout << "GPU::cGH called \n";
 		FormatType formatType = hX.getFormatType(index);
 		const auto taskCount = dColumns.getTaskCount(index);
 /*
@@ -179,10 +178,6 @@ namespace bsccs{
 	    // scan (computeAccumlatedNumerator)
 	    CudaData.CubScan(CudaData.d_Numer, CudaData.d_AccNumer, N);
 	    CudaData.CubScan(CudaData.d_Numer2, CudaData.d_AccNumer2, N);
-  
-  	    //CudaData.computeAccNumerMalloc(N);
-            //CudaData.computeAccNumer(N);
-
 /*
 	    // FOR TEST
             if (accNumerPid.size() != (N + 1)) {
@@ -260,7 +255,6 @@ namespace bsccs{
 
         virtual void updateXBeta(double delta, int index, bool useWeights) {
 
-//		std::cout << "GPU::updateXBeta called \n";
 #ifdef GPU_DEBUG
             ModelSpecifics<BaseModel, WeightType>::updateXBeta(delta, index, useWeights);
 #endif // GPU_DEBUG
@@ -304,8 +298,6 @@ namespace bsccs{
 
             // scan (computeAccumlatedDenominator)
 	    CudaData.CubScan(CudaData.d_ExpXBeta, CudaData.d_AccDenom, K);
-//            CudaData.computeAccDenomMalloc(K);
-//            CudaData.computeAccDenom(K);
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();

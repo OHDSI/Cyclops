@@ -2,35 +2,35 @@
 
 struct CustomExp
 {
-    template <typename T>
+    template <typename RealType>
     __host__ __device__ __forceinline__
-    T operator()(const T &a) const {
+    RealType operator()(const RealType &a) const {
         return exp(a);
     }
 };
 
-template <class T>
+template <class RealType>
 class CudaKernel {
 
 public:
 
     // Allocate device arrays
-    T* d_X;
-    int* d_K;
-    T* d_XBeta;
-    T* d_ExpXBeta;
-    T* d_AccDenom;
-    T* d_Numer;
-    T* d_Numer2;
-    T* d_AccNumer;
-    T* d_AccNumer2;
-    T* d_itr;
+    const RealType* d_X;
+    const int* d_K;
+    RealType* d_XBeta;
+    RealType* d_ExpXBeta;
+    RealType* d_AccDenom;
+    RealType* d_Numer;
+    RealType* d_Numer2;
+    RealType* d_AccNumer;
+    RealType* d_AccNumer2;
+    RealType* d_itr;
     
-    T* d_NWeight;
-    T* d_Gradient;
-    T* d_Hessian;
-    T* d_G;
-    T* d_H;
+    RealType* d_NWeight;
+    RealType* d_Gradient;
+    RealType* d_Hessian;
+    RealType* d_G;
+    RealType* d_H;
 
     // Operator
     CustomExp    exp_op;
@@ -39,19 +39,19 @@ public:
     void *d_temp_storage = NULL;
     size_t temp_storage_bytes = 0;
 
-    CudaKernel(T* h_Numer, T* h_Numer2, T* h_AccDenom, T* h_NWeight, int num_items);
-    CudaKernel(thrust::device_vector<T>& X, thrust::device_vector<int>& K, T* h_XBeta, T* h_ExpXBeta, int num_items);
+    CudaKernel(RealType* h_Numer, RealType* h_Numer2, RealType* h_AccDenom, RealType* h_NWeight, int num_items);
+    CudaKernel(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, RealType* h_XBeta, RealType* h_ExpXBeta, int num_items);
     ~CudaKernel();
 
-    void CubScan(T* d_in, T* d_out, int num_items);
-    void CubReduce(T* d_in, T* d_out, int num_items);
+    void CubScan(RealType* d_in, RealType* d_out, int num_items);
+    void CubReduce(RealType* d_in, RealType* d_out, int num_items);
     void computeAccDenomMalloc(int num_items);
     void computeAccDenom(int num_items);
     void computeAccNumerMalloc(int num_items);
     void computeAccNumer(int num_items);
     void CubExpScanMalloc(int num_items);
     void CubExpScan(int num_items);
-    void updateXBeta(unsigned int offX, unsigned int offK, const unsigned int taskCount, T delta, int gridSize, int blockSize);
+    void updateXBeta(unsigned int offX, unsigned int offK, const unsigned int taskCount, RealType delta, int gridSize, int blockSize);
     void computeGradientAndHessian(size_t& N, int& gridSize, int& blockSize);
 
 };

@@ -10,10 +10,10 @@
 
 using namespace cub;
 	
-template <typename T>
-__global__ void kernelUpdateXBeta(int offX, int offK, const int taskCount, T delta,
-                T* d_X, int* K, T* d_XBeta, T* d_ExpXBeta)
-//__global__ void kernelUpdateXBeta(T* d_X, T* d_XBeta, T* d_ExpXBeta, T delta, int N)
+template <typename RealType>
+__global__ void kernelUpdateXBeta(int offX, int offK, const int taskCount, RealType delta,
+                const RealType* d_X, const int* K, RealType* d_XBeta, RealType* d_ExpXBeta)
+//__global__ void kernelUpdateXBeta(RealType* d_X, RealType* d_XBeta, RealType* d_ExpXBeta, RealType delta, int N)
 {
     int task = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -24,26 +24,26 @@ __global__ void kernelUpdateXBeta(int offX, int offK, const int taskCount, T del
     //}
 
     //if (formatType == SPARSE || formatType == DENSE) {
-//	T inc = delta * d_X[offX + task];
+//	RealType inc = delta * d_X[offX + task];
     //} else { // INDICATOR, INTERCEPT
-	T inc = delta;
+	RealType inc = delta;
     //}
 
     if (task < taskCount) {
-	T xb = d_XBeta[k] + inc;
+	RealType xb = d_XBeta[k] + inc;
         d_XBeta[k] = xb;
 	d_ExpXBeta[k] = expf(xb);
     }
 }
 
-template <typename T>
-__global__ void kernelComputeGradientAndHessian(T* d_Gradient, T* d_Hessian, T* d_AccNumer, T* d_AccNumer2, T* d_AccDenom, T* d_NWeight, int N)
+template <typename RealType>
+__global__ void kernelComputeGradientAndHessian(RealType* d_Gradient, RealType* d_Hessian, RealType* d_AccNumer, RealType* d_AccNumer2, RealType* d_AccDenom, RealType* d_NWeight, int N)
 {
     int task = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (task < N) {
-        T t = d_AccNumer[task] / d_AccDenom[task];
-        T g = d_NWeight[task] * t;
+        RealType t = d_AccNumer[task] / d_AccDenom[task];
+        RealType g = d_NWeight[task] * t;
         d_Gradient[task] = g;
         //if (IteratorType::isIndicator) {
             d_Hessian[task] = g * (1.0 - t);
@@ -53,59 +53,59 @@ __global__ void kernelComputeGradientAndHessian(T* d_Gradient, T* d_Hessian, T* 
     }
 }
 
-template <class T>
-CudaKernel<T>::CudaKernel(thrust::device_vector<T>& X, thrust::device_vector<int>& K, T* h_XBeta, T* h_ExpXBeta, int num_items)
+template <class RealType>
+CudaKernel<RealType>::CudaKernel(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, RealType* h_XBeta, RealType* h_ExpXBeta, int num_items)
 {
-//    std::cout << "X size: " << sizeof(X) << " T size: " << sizeof(T) << '\n';
+//    std::cout << "X size: " << sizeof(X) << " RealType size: " << sizeof(RealType) << '\n';
 //    std::cout << "K size: " << sizeof(K) << " int size: " << sizeof(int) << '\n';
     
     // Allocate device arrays
-    cudaMalloc(&d_XBeta,  sizeof(T) * num_items);
-    cudaMalloc(&d_ExpXBeta,  sizeof(T) * num_items);
-    cudaMalloc(&d_AccDenom, sizeof(T) * num_items);
+    cudaMalloc(&d_XBeta,  sizeof(RealType) * num_items);
+    cudaMalloc(&d_ExpXBeta,  sizeof(RealType) * num_items);
+    cudaMalloc(&d_AccDenom, sizeof(RealType) * num_items);
 
     // Copy input from host to device
     d_X = thrust::raw_pointer_cast(&X[0]);
     d_K = thrust::raw_pointer_cast(&K[0]);
-    cudaMemcpy(d_XBeta, h_XBeta, sizeof(T) * num_items, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_ExpXBeta, h_ExpXBeta, sizeof(T) * num_items, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_XBeta, h_XBeta, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_ExpXBeta, h_ExpXBeta, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
 //    std::cout << "CUDA class Created \n";
 }
 
-template <class T>
-CudaKernel<T>::CudaKernel(T* h_Numer, T* h_Numer2, T* h_AccDenom, T* h_NWeight, int num_items)
+template <class RealType>
+CudaKernel<RealType>::CudaKernel(RealType* h_Numer, RealType* h_Numer2, RealType* h_AccDenom, RealType* h_NWeight, int num_items)
 {
     // Allocate device arrays
-    cudaMalloc(&d_Numer,  sizeof(T) * num_items);
-    cudaMalloc(&d_Numer2,  sizeof(T) * num_items);
-    cudaMalloc(&d_AccDenom, sizeof(T) * num_items);
-    cudaMalloc(&d_NWeight, sizeof(T) * num_items);
+    cudaMalloc(&d_Numer,  sizeof(RealType) * num_items);
+    cudaMalloc(&d_Numer2,  sizeof(RealType) * num_items);
+    cudaMalloc(&d_AccDenom, sizeof(RealType) * num_items);
+    cudaMalloc(&d_NWeight, sizeof(RealType) * num_items);
 
-    cudaMalloc(&d_AccNumer, sizeof(T) * num_items);
-    cudaMalloc(&d_AccNumer2, sizeof(T) * num_items);
-    cudaMalloc(&d_Gradient, sizeof(T) * num_items);
-    cudaMalloc(&d_Hessian, sizeof(T) * num_items);
-    cudaMalloc(&d_G, sizeof(T));
-    cudaMalloc(&d_H, sizeof(T));
+    cudaMalloc(&d_AccNumer, sizeof(RealType) * num_items);
+    cudaMalloc(&d_AccNumer2, sizeof(RealType) * num_items);
+    cudaMalloc(&d_Gradient, sizeof(RealType) * num_items);
+    cudaMalloc(&d_Hessian, sizeof(RealType) * num_items);
+    cudaMalloc(&d_G, sizeof(RealType));
+    cudaMalloc(&d_H, sizeof(RealType));
 
 
     // Copy input from host to device
-    cudaMemcpy(d_Numer, h_Numer, sizeof(T) * num_items, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_Numer2, h_Numer2, sizeof(T) * num_items, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_AccDenom, h_AccDenom, sizeof(T) * num_items, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_NWeight, h_NWeight, sizeof(T) * num_items, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Numer, h_Numer, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Numer2, h_Numer2, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_AccDenom, h_AccDenom, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_NWeight, h_NWeight, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
 
 //    std::cout << "CUDA class Created \n";
 }
 
-template <class T>
-CudaKernel<T>::~CudaKernel()
+template <class RealType>
+CudaKernel<RealType>::~CudaKernel()
 {
 //    std::cout << "CUDA class Destroyed \n";
 }
 
-template <class T>
-void CudaKernel<T>::updateXBeta(unsigned int offX, unsigned int offK, const unsigned int taskCount, T delta, int gridSize, int blockSize)
+template <class RealType>
+void CudaKernel<RealType>::updateXBeta(unsigned int offX, unsigned int offK, const unsigned int taskCount, RealType delta, int gridSize, int blockSize)
 {
 //    auto start1 = std::chrono::steady_clock::now();
 
@@ -115,22 +115,22 @@ void CudaKernel<T>::updateXBeta(unsigned int offX, unsigned int offK, const unsi
 //    timerG1 += std::chrono::duration<double, std::milli>(end1 - start1).count();
 }
 
-template <class T>
-void CudaKernel<T>::computeGradientAndHessian(size_t& N, int& gridSize, int& blockSize)
+template <class RealType>
+void CudaKernel<RealType>::computeGradientAndHessian(size_t& N, int& gridSize, int& blockSize)
 {
 //    auto start1 = std::chrono::steady_clock::now();
 
     kernelComputeGradientAndHessian<<<gridSize, blockSize>>>(d_Gradient, d_Hessian, d_AccNumer, d_AccNumer2, d_AccDenom, d_NWeight, N);
 
-    CudaKernel<T>::CubReduce(d_Gradient, d_G, N);
-    CudaKernel<T>::CubReduce(d_Hessian, d_H, N);
+    CudaKernel<RealType>::CubReduce(d_Gradient, d_G, N);
+    CudaKernel<RealType>::CubReduce(d_Hessian, d_H, N);
 
 //    auto end1 = std::chrono::steady_clock::now();
 //    timerG1 += std::chrono::duration<double, std::milli>(end1 - start1).count();
 }
 
-template <class T>
-void CudaKernel<T>::CubReduce(T* d_in, T* d_out, int num_items)
+template <class RealType>
+void CudaKernel<RealType>::CubReduce(RealType* d_in, RealType* d_out, int num_items)
 {
     // Allocate temporary storage
     void *d_temp_storage0 = NULL;
@@ -147,8 +147,8 @@ void CudaKernel<T>::CubReduce(T* d_in, T* d_out, int num_items)
     cudaFree(d_temp_storage0);
 }
 
-template <class T>
-void CudaKernel<T>::CubScan(T* d_in, T* d_out, int num_items)
+template <class RealType>
+void CudaKernel<RealType>::CubScan(RealType* d_in, RealType* d_out, int num_items)
 {
     // Allocate temporary storage
     void *d_temp_storage0 = NULL;
@@ -165,8 +165,8 @@ void CudaKernel<T>::CubScan(T* d_in, T* d_out, int num_items)
     cudaFree(d_temp_storage0);
 }
 
-template <class T>
-void CudaKernel<T>::computeAccDenomMalloc(int num_items)
+template <class RealType>
+void CudaKernel<RealType>::computeAccDenomMalloc(int num_items)
 {
     // Determine temporary device storage requirements
     DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_ExpXBeta, d_AccDenom, num_items);
@@ -175,14 +175,14 @@ void CudaKernel<T>::computeAccDenomMalloc(int num_items)
     cudaMalloc(&d_temp_storage, temp_storage_bytes);
 }
 
-template <class T>
-void CudaKernel<T>::computeAccDenom(int num_items)
+template <class RealType>
+void CudaKernel<RealType>::computeAccDenom(int num_items)
 {
     DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_ExpXBeta, d_AccDenom, num_items);
 }
 
-template <class T>
-void CudaKernel<T>::computeAccNumerMalloc(int num_items)
+template <class RealType>
+void CudaKernel<RealType>::computeAccNumerMalloc(int num_items)
 {
     // Determine temporary device storage requirements
     DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_Numer, d_AccNumer, num_items);
@@ -191,15 +191,15 @@ void CudaKernel<T>::computeAccNumerMalloc(int num_items)
     cudaMalloc(&d_temp_storage, temp_storage_bytes);
 }
 
-template <class T>
-void CudaKernel<T>::computeAccNumer(int num_items)
+template <class RealType>
+void CudaKernel<RealType>::computeAccNumer(int num_items)
 {
     DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_Numer, d_AccNumer, num_items);
     DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_Numer2, d_AccNumer2, num_items);
 }
 
-template <class T>
-void CudaKernel<T>::CubExpScanMalloc(int num_items)
+template <class RealType>
+void CudaKernel<RealType>::CubExpScanMalloc(int num_items)
 {
     // Determine temporary device storage requirements
     DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_XBeta, d_AccDenom, num_items);
@@ -208,12 +208,12 @@ void CudaKernel<T>::CubExpScanMalloc(int num_items)
     cudaMalloc(&d_temp_storage, temp_storage_bytes);
 }
 
-template <class T>
-void CudaKernel<T>::CubExpScan(int num_items)
+template <class RealType>
+void CudaKernel<RealType>::CubExpScan(int num_items)
 {
 //    auto start = std::chrono::steady_clock::now();
 
-    TransformInputIterator<T, CustomExp, T*> d_itr(d_XBeta, exp_op);
+    TransformInputIterator<RealType, CustomExp, RealType*> d_itr(d_XBeta, exp_op);
     DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_itr, d_AccDenom, num_items);
     
 //    auto end = std::chrono::steady_clock::now();
