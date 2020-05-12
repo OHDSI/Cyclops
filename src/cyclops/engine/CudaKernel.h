@@ -39,8 +39,8 @@ public:
     void *d_temp_storage = NULL;
     size_t temp_storage_bytes = 0;
 
-    CudaKernel(RealType* h_Numer, RealType* h_Numer2, RealType* h_AccDenom, RealType* h_NWeight, int num_items);
-    CudaKernel(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, RealType* h_XBeta, RealType* h_ExpXBeta, int num_items);
+    CudaKernel(int num_items);
+    CudaKernel(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, int num_items);
     ~CudaKernel();
 
     void CubScan(RealType* d_in, RealType* d_out, int num_items);

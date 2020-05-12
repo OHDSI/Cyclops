@@ -54,7 +54,7 @@ __global__ void kernelComputeGradientAndHessian(RealType* d_Gradient, RealType* 
 }
 
 template <class RealType>
-CudaKernel<RealType>::CudaKernel(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, RealType* h_XBeta, RealType* h_ExpXBeta, int num_items)
+CudaKernel<RealType>::CudaKernel(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, int num_items)
 {
 //    std::cout << "X size: " << sizeof(X) << " RealType size: " << sizeof(RealType) << '\n';
 //    std::cout << "K size: " << sizeof(K) << " int size: " << sizeof(int) << '\n';
@@ -63,17 +63,19 @@ CudaKernel<RealType>::CudaKernel(const thrust::device_vector<RealType>& X, const
     cudaMalloc(&d_XBeta,  sizeof(RealType) * num_items);
     cudaMalloc(&d_ExpXBeta,  sizeof(RealType) * num_items);
     cudaMalloc(&d_AccDenom, sizeof(RealType) * num_items);
-
-    // Copy input from host to device
     d_X = thrust::raw_pointer_cast(&X[0]);
     d_K = thrust::raw_pointer_cast(&K[0]);
+
+/*
+    // Copy input from host to device
     cudaMemcpy(d_XBeta, h_XBeta, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
     cudaMemcpy(d_ExpXBeta, h_ExpXBeta, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
+*/
 //    std::cout << "CUDA class Created \n";
 }
 
 template <class RealType>
-CudaKernel<RealType>::CudaKernel(RealType* h_Numer, RealType* h_Numer2, RealType* h_AccDenom, RealType* h_NWeight, int num_items)
+CudaKernel<RealType>::CudaKernel(int num_items)
 {
     // Allocate device arrays
     cudaMalloc(&d_Numer,  sizeof(RealType) * num_items);
@@ -88,13 +90,13 @@ CudaKernel<RealType>::CudaKernel(RealType* h_Numer, RealType* h_Numer2, RealType
     cudaMalloc(&d_G, sizeof(RealType));
     cudaMalloc(&d_H, sizeof(RealType));
 
-
+/*
     // Copy input from host to device
     cudaMemcpy(d_Numer, h_Numer, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
     cudaMemcpy(d_Numer2, h_Numer2, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
     cudaMemcpy(d_AccDenom, h_AccDenom, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
     cudaMemcpy(d_NWeight, h_NWeight, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
-
+*/
 //    std::cout << "CUDA class Created \n";
 }
 
