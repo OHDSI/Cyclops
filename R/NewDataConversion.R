@@ -210,99 +210,123 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          normalize = NULL,
                                          quiet = FALSE,
                                          floatingPoint = 64){
-    if ((modelType == "clr" | modelType == "cpr") & addIntercept){
-        if(!quiet) {
-            warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)
+    if ((modelType == "clr" | modelType == "cpr") & addIntercept) {
+        if (!quiet) {
+            warning("Intercepts are not allowed in conditional models, removing intercept",call. = FALSE)
         }
         addIntercept = FALSE
     }
     if (modelType == "pr" | modelType == "cpr") {
         if (any(outcomes$time <= 0)) {
-            stop("time cannot be non-positive",call.=FALSE)
+            stop("time cannot be non-positive",call. = FALSE)
         }
     }
 
     providedNoStrata <- !("stratumId" %in% colnames(outcomes))
 
-    if (modelType == "cox"){
-        if (providedNoStrata){
-            outcomes <- outcomes %>% mutate(stratumId = 1.0)
-            covariates <- covariates %>% mutate(stratumId = 1.0)
+    if (modelType == "cox") {
+        if (providedNoStrata) {
+            outcomes <- outcomes %>%
+                mutate(stratumId = 1.0)
+            covariates <- covariates %>%
+                mutate(stratumId = 1.0)
         }
     }
 
-    if (checkSorting){
-        if (modelType == "lr" | modelType == "pr"){
-            if (!isSorted(outcomes,c("rowId"))){
-                if(!quiet) {
-                    writeLines("Sorting outcomes by rowId")
-                }
-                outcomes <- outcomes %>% arrange(.data$rowId)
-            }
-            if (!isSorted(covariates,c("covariateId","rowId"))){
-                if(!quiet) {
-                    writeLines("Sorting covariates by covariateId, rowId")
-                }
-                covariates <- covariates %>% arrange(.data$covariateId, .data$rowId)
-            }
-        }
-        if (modelType == "clr" | modelType == "cpr"){
-            if (!isSorted(outcomes,c("stratumId","rowId"))){
-                if(!quiet) {
-                    writeLines("Sorting outcomes by stratumId and rowId")
-                }
-                outcomes <- outcomes %>% arrange(.data$stratumId, .data$rowId)
-            }
-            if (!isSorted(covariates,c("covariateId", "stratumId","rowId"))){
-                if(!quiet) {
-                    writeLines("Sorting covariates by covariateId, stratumId and rowId")
-                }
-                covariates <- covariates %>% arrange(.data$covariateId, .data$stratumId, .data$rowId)
-            }
-        }
-        if (modelType == "cox"){
-            outcomes <- outcomes %>% mutate(minTime = -time)
-            if (!isSorted(outcomes,c("stratumId", "time", "y", "rowId"),c(TRUE, FALSE, TRUE, TRUE))){
-                if(!quiet) {
-                    writeLines("Sorting outcomes by stratumId, time (descending), y, and rowId")
-                }
-                outcomes <- outcomes %>% arrange(.data$stratumId, .data$minTime, .data$y, .data$rowId)
-            }
-
-            covariates <- covariates %>% inner_join(outcomes %>% select(.data$rowId, .data$minTime, .data$time, .data$y), by = "rowId")
-            if (!isSorted(covariates, c("covariateId", "stratumId", "time", "y", "rowId"), c(TRUE, TRUE, FALSE, TRUE, TRUE))){
-                if(!quiet) {
-                    writeLines("Sorting covariates by covariateId, stratumId, time (descending), y, and rowId")
-                }
-                # rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
-                # covariates <- covariates[ff::ffdforder(covariates[c("covariateId", "stratumId", "minTime", "y", "rowId")]),]
-                covariates <- covariates %>% arrange(.data$covariateId, .data$stratumId, .data$minTime, .data$y, .data$rowId)
-            }
-        }
-    }
-    if (checkRowIds){
-
-        notMapped <- anti_join(covariates %>% select(.data$rowId),
-                               outcomes %>% select(.data$rowId), by = "rowId") %>% count() %>% collect()
-        if (notMapped > 0) {
-            if(!quiet) {
+    if (checkRowIds) {
+        covariateRowIds <- covariates %>%
+            distinct(.data$rowId) %>%
+            pull()
+        outcomeRowIds <- select(outcomes, .data$rowId) %>%
+            pull()
+        mapping <- match(covariateRowIds, outcomeRowIds)
+        if (any(is.na(mapping))) {
+            if (!quiet) {
                 writeLines("Removing covariate values with rowIds that are not in outcomes")
             }
-            covariates <- inner_join(covariates,
-                                     outcomes %>% select(.data$rowId), by = "rowId")
+            covariates <- covariates %>%
+                filter(.data$rowId %in% outcomeRowIds)
+        }
+    }
+
+    # Sorting should be last, as other operations may change ordering:
+    if (checkSorting) {
+        if (modelType == "lr" | modelType == "pr") {
+            if (!Andromeda::isSorted(outcomes, "rowId")) {
+                if (!quiet) {
+                    writeLines("Sorting outcomes by rowId")
+                }
+                outcomes <- outcomes %>%
+                    arrange(.data$rowId)
+            }
+            if (!Andromeda::isSorted(covariates, c("covariateId","rowId"))) {
+                if (!quiet) {
+                    writeLines("Sorting covariates by covariateId, rowId")
+                }
+                covariates <- covariates %>%
+                    arrange(.data$covariateId, .data$rowId)
+            }
+        }
+        if (modelType == "clr" | modelType == "cpr") {
+            if (!isSorted(outcomes,c("stratumId","rowId"))) {
+                if (!quiet) {
+                    writeLines("Sorting outcomes by stratumId and rowId")
+                }
+                outcomes <- outcomes %>%
+                    arrange(.data$stratumId, .data$rowId)
+            }
+            if (!isSorted(covariates,c("covariateId", "stratumId","rowId"))) {
+                if (!quiet) {
+                    writeLines("Sorting covariates by covariateId, stratumId and rowId")
+                }
+                covariates <- covariates %>%
+                    arrange(.data$covariateId, .data$stratumId, .data$rowId)
+            }
+        }
+        if (modelType == "cox") {
+            outcomes <- outcomes %>%
+                mutate(minTime = -time)
+            if (!isSorted(outcomes,c("stratumId", "time", "y", "rowId"),c(TRUE, FALSE, TRUE, TRUE))) {
+                if (!quiet) {
+                    writeLines("Sorting outcomes by stratumId, time (descending), y, and rowId")
+                }
+                outcomes <- outcomes %>%
+                    arrange(.data$stratumId, .data$minTime, .data$y, .data$rowId)
+            }
+
+            covariates <- covariates %>%
+                inner_join(select(outcomes, .data$rowId, .data$minTime, .data$time, .data$y), by = "rowId")
+            if (!isSorted(covariates, c("covariateId", "stratumId", "time", "y", "rowId"),
+                          c(TRUE, TRUE, FALSE, TRUE, TRUE))) {
+                if (!quiet) {
+                    writeLines("Sorting covariates by covariateId, stratumId, time (descending), y, and rowId")
+                }
+                covariates <- covariates %>%
+                    arrange(.data$covariateId, .data$stratumId, .data$minTime, .data$y, .data$rowId)
+            }
         }
     }
 
     dataPtr <- createSqlCyclopsData(modelType = modelType, floatingPoint = floatingPoint)
 
     loadNewSqlCyclopsDataY(dataPtr,
-                           if (providedNoStrata | modelType == "lr" | modelType == "pr") { NULL } else {
-                               outcomes %>% select(.data$stratumId) %>% pull()
-                               },
-                           outcomes %>% select(.data$rowId) %>% pull(),
-                           outcomes %>% select(.data$y) %>% pull(),
+                           if (providedNoStrata | modelType == "lr" | modelType == "pr") {
+                               NULL
+                           } else {
+                               outcomes %>%
+                                   select(.data$stratumId) %>%
+                                   pull()
+                           },
+                           outcomes %>%
+                               select(.data$rowId) %>%
+                               pull(),
+                           outcomes %>%
+                               select(.data$y) %>%
+                               pull(),
                            if ("time" %in% colnames(outcomes)) {
-                               outcomes %>% select(.data$time) %>% pull()
+                               outcomes %>%
+                                   select(.data$time) %>%
+                                   pull()
                            } else {
                                NULL
                            })
@@ -310,6 +334,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     if (addIntercept & modelType != "cox")
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
 
+    system.time(
     Andromeda::batchApply(covariates,
                           function(cov) {
                               covIds <- cov %>% select(.data$covariateId) %>% pull()
@@ -317,12 +342,17 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                               loadNewSeqlCyclopsDataMultipleX(
                                   dataPtr,
                                   covIds,
-                                  cov %>% select(.data$rowId) %>% pull(),
-                                  cov %>% select(.data$covariateValue) %>% pull(),
+                                  cov %>%
+                                      select(.data$rowId) %>%
+                                      pull(),
+                                  cov %>%
+                                      select(.data$covariateValue) %>%
+                                      pull(),
                                   name = covarNames,
                                   append = TRUE)
                           },
                           batchSize = 100000) # TODO Pick magic number
+    )
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
 
@@ -331,7 +361,9 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     }
 
     if ("weights" %in% colnames(outcomes)) {
-        dataPtr$weights <- outcomes %>% select(.data$weights) %>% pull()
+        dataPtr$weights <- outcomes %>%
+            select(.data$weights) %>%
+            pull()
     } else {
         dataPtr$weights <- NULL
     }
