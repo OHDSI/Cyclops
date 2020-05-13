@@ -53,6 +53,33 @@ __global__ void kernelComputeGradientAndHessian(RealType* d_Gradient, RealType* 
     }
 }
 
+
+
+// for all
+template <class RealType>
+CudaKernel<RealType>::CudaKernel(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& offK, int K, int N)
+{
+    cudaMalloc(&d_XBeta,  sizeof(RealType) * K);
+    cudaMalloc(&d_ExpXBeta,  sizeof(RealType) * K);
+
+    cudaMalloc(&d_Numer,  sizeof(RealType) * N);
+    cudaMalloc(&d_Numer2,  sizeof(RealType) * N);
+
+    cudaMalloc(&d_AccDenom, sizeof(RealType) * N);
+    cudaMalloc(&d_AccNumer, sizeof(RealType) * N);
+    cudaMalloc(&d_AccNumer2, sizeof(RealType) * N);
+
+    cudaMalloc(&d_Gradient, sizeof(RealType) * N);
+    cudaMalloc(&d_Hessian, sizeof(RealType) * N);
+    cudaMalloc(&d_G, sizeof(RealType));
+    cudaMalloc(&d_H, sizeof(RealType));
+
+    cudaMalloc(&d_NWeight, sizeof(RealType) * N);
+    d_X = thrust::raw_pointer_cast(&X[0]);
+    d_K = thrust::raw_pointer_cast(&offK[0]);
+
+}
+
 template <class RealType>
 CudaKernel<RealType>::CudaKernel(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, int num_items)
 {
@@ -106,6 +133,8 @@ CudaKernel<RealType>::~CudaKernel()
 //    std::cout << "CUDA class Destroyed \n";
 }
 
+
+
 template <class RealType>
 void CudaKernel<RealType>::updateXBeta(unsigned int offX, unsigned int offK, const unsigned int taskCount, RealType delta, int gridSize, int blockSize)
 {
@@ -130,6 +159,8 @@ void CudaKernel<RealType>::computeGradientAndHessian(size_t& N, int& gridSize, i
 //    auto end1 = std::chrono::steady_clock::now();
 //    timerG1 += std::chrono::duration<double, std::milli>(end1 - start1).count();
 }
+
+
 
 template <class RealType>
 void CudaKernel<RealType>::CubReduce(RealType* d_in, RealType* d_out, int num_items)
@@ -166,6 +197,8 @@ void CudaKernel<RealType>::CubScan(RealType* d_in, RealType* d_out, int num_item
     DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, d_in, d_out, num_items);
     cudaFree(d_temp_storage0);
 }
+
+
 
 template <class RealType>
 void CudaKernel<RealType>::computeAccDenomMalloc(int num_items)

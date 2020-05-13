@@ -97,7 +97,9 @@ namespace bsccs{
         GpuModelSpecificsCox(const ModelData<RealType>& input,
                              const std::string& deviceName)
         : BaseGpuModelSpecifics<BaseModel, RealType>(input, deviceName),
-          dBuffer(ctx), dBuffer1(ctx){
+          dBuffer(ctx), dBuffer1(ctx)
+//	  , CudaKernel(dColumns.getData(), dColumns.getIndices(), K, N)
+		    {
        
 
             std::cerr << "ctor GpuModelSpecificsCox" << std::endl;
