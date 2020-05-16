@@ -21,7 +21,7 @@
 #include "BaseGpuModelSpecifics.hpp"
 #include "Iterators.h"
 #include "CudaKernel.h"
-
+//#include "CudaDetail.h"
 
 namespace bsccs{
 
@@ -37,7 +37,7 @@ namespace bsccs{
 //            static const int maxBlockSize = 256;
 //        }; // namespace constant
 //    }; // namespace detail
-
+ 
     template <class BaseModel, typename RealType>
     class GpuModelSpecificsCox :
             public BaseGpuModelSpecifics<BaseModel, RealType> {
@@ -84,7 +84,7 @@ namespace bsccs{
         using BaseGpuModelSpecifics<BaseModel, RealType>::dDenominator;
 //        using BaseGpuModelSpecifics<BaseModel, RealType>::dDenominator2;
         using BaseGpuModelSpecifics<BaseModel, RealType>::dAccDenominator;
-        using BaseGpuModelSpecifics<BaseModel, RealType>::dColumns;
+        using BaseGpuModelSpecifics<BaseModel, RealType>::dCudaColumns;
 
         std::vector<double> hBuffer;
         std::vector<double> hBuffer1;
@@ -92,13 +92,16 @@ namespace bsccs{
         int tpb = 256; // threads-per-block  // Appears best on K40
         int PSC_K = 32;
         int PSC_WG_SIZE = 256;
-//	CudaKernel<RealType> CudaData;
+
+//	AllGpuColumns<RealType> dCudaColumns;
+	CudaKernel<RealType> CudaData;
 	
         GpuModelSpecificsCox(const ModelData<RealType>& input,
                              const std::string& deviceName)
-        : BaseGpuModelSpecifics<BaseModel, RealType>(input, deviceName),
-          dBuffer(ctx), dBuffer1(ctx)
-//	  , CudaKernel(dColumns.getData(), dColumns.getIndices(), K, N)
+        : BaseGpuModelSpecifics<BaseModel, RealType>(input, deviceName)
+          //dBuffer(ctx), dBuffer1(ctx)
+	  //, dCudaColumns()
+	  , CudaData()
 		    {
        
 
@@ -112,9 +115,10 @@ namespace bsccs{
 
         virtual void deviceInitialization() {
             BaseGpuModelSpecifics<BaseModel, RealType>::deviceInitialization();
+	    CudaData.initialize(K, N);
             hXBetaKnown = true;
             dXBetaKnown = true;
-            buildAllKernels(neededFormatTypes);
+            //buildAllKernels(neededFormatTypes);
         }
 
 
@@ -152,17 +156,18 @@ namespace bsccs{
 	virtual void computeGradientAndHessian(int index, double *ogradient,
                                            double *ohessian, bool useWeights) {
 	
+	//	std::cout << "GPU computeGradientAndHessian \n";
 		std::vector<RealType> gradient(1, static_cast<RealType>(0));
 		std::vector<RealType> hessian(1, static_cast<RealType>(0));
 		
 		FormatType formatType = hX.getFormatType(index);
-		const auto taskCount = dColumns.getTaskCount(index);
+		const auto taskCount = dCudaColumns.getTaskCount(index);
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start0 = bsccs::chrono::steady_clock::now();
 #endif
             // cuda class
-            CudaKernel<RealType> CudaData(N);
+//            CudaKernel<RealType> CudaData(N);
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end0 = bsccs::chrono::steady_clock::now();
@@ -240,6 +245,8 @@ namespace bsccs{
             gradient[0] -= hXjY[index];
             *ogradient = static_cast<double>(gradient[0]);
             *ohessian = static_cast<double>(hessian[0]);
+
+	 
 	}
 
 
@@ -249,17 +256,37 @@ namespace bsccs{
             ModelSpecifics<BaseModel, WeightType>::updateXBeta(delta, index, useWeights);
 #endif // GPU_DEBUG
 
+//	    ModelSpecifics<BaseModel, RealType>::updateXBeta(delta, index, useWeights);
+	    //std::cout << "GPU updateXBeta \n";
 /*
             // FOR TEST: check data
             std::cout << "delta: " << delta << '\n';
             std::cout << "K: " << K  << " N: " << N << " TaskCount: " << dColumns.getTaskCount(index) << '\n';
             std::cout << "offX: " << dColumns.getDataOffset(index) << " offK: " << dColumns.getIndicesOffset(index) << '\n';
+
+            // FOR TEST: check data
+            std::cout << "delta: " << delta << '\n';
+            std::cout << "old hXBeta: ";
+            for (auto x:hXBeta) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+            std::cout << "old offsExpXBeta: ";
+            for (auto x:offsExpXBeta) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+            std::cout << "old accDenomPid: ";
+            for (auto x:accDenomPid) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
 */
             FormatType formatType = hX.getFormatType(index);
-	    const auto taskCount = dColumns.getTaskCount(index);
+	    const auto taskCount = dCudaColumns.getTaskCount(index);
 
             // cuda class
-            CudaKernel<RealType> CudaData(dColumns.getData(), dColumns.getIndices(), K);
+//            CudaKernel<RealType> CudaData(K);
 
 	    // copy from host to device
             cudaMemcpy(CudaData.d_XBeta, &hXBeta[0], sizeof(RealType) * K, cudaMemcpyHostToDevice);
@@ -268,11 +295,12 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start = bsccs::chrono::steady_clock::now();
 #endif
+
 	    // updateXBeta kernel
             int gridSize, blockSize;
             blockSize = 256;
             gridSize = (int)ceil((double)taskCount/blockSize);
-            CudaData.updateXBeta(dColumns.getDataOffset(index), dColumns.getIndicesOffset(index), taskCount, static_cast<RealType>(delta), gridSize, blockSize);
+            CudaData.updateXBeta(dCudaColumns.getData(), dCudaColumns.getIndices(), dCudaColumns.getDataOffset(index), dCudaColumns.getIndicesOffset(index), taskCount, static_cast<RealType>(delta), gridSize, blockSize);
 
             // scan (computeAccumlatedDenominator)
 	    CudaData.CubScan(CudaData.d_ExpXBeta, CudaData.d_AccDenom, K);
@@ -287,7 +315,23 @@ namespace bsccs{
             cudaMemcpy(&hXBeta[0], CudaData.d_XBeta, sizeof(RealType) * K, cudaMemcpyDeviceToHost);
             cudaMemcpy(&offsExpXBeta[0], CudaData.d_ExpXBeta, sizeof(RealType) * K, cudaMemcpyDeviceToHost);
             cudaMemcpy(&accDenomPid[0], CudaData.d_AccDenom, sizeof(RealType) * K, cudaMemcpyDeviceToHost);
-
+/*
+            std::cout << "new hXBeta: ";
+            for (auto x:hXBeta) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+            std::cout << "new offsExpXBeta: ";
+            for (auto x:offsExpXBeta) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+            std::cout << "new accDenomPid: ";
+            for (auto x:accDenomPid) {
+                    std::cout << x << " ";
+            }
+            std::cout << "\n";
+*/
 /*
  	    auto& kernel = kernelUpdateXBeta[formatType];
             const auto taskCount = dColumns.getTaskCount(index);

@@ -2,7 +2,7 @@
 #include <thrust/copy.h>
 
 #include "CudaDetail.h"
-
+/*
 template <typename DeviceVec, typename HostVec>
 void resizeAndCopyToDeviceCuda(const HostVec& hostVec, DeviceVec& deviceVec) 
 {
@@ -17,8 +17,8 @@ template void resizeAndCopyToDeviceCuda<thrust::device_vector<float>, std::vecto
 template void resizeAndCopyToDeviceCuda<thrust::device_vector<int>, std::vector<int>>(const std::vector<int>& hostVec, thrust::device_vector<int>& deviceVec);
 
 template void resizeAndCopyToDeviceCuda<thrust::device_vector<unsigned int>, std::vector<unsigned int>>(const std::vector<unsigned int>& hostVec, thrust::device_vector<unsigned int>& deviceVec);
+*/
 
-/*
 template <class T>
 CudaDetail<T>::CudaDetail(){
 
@@ -40,5 +40,5 @@ template class CudaDetail<float>;
 template class CudaDetail<double>;
 template class CudaDetail<int>;
 template class CudaDetail<unsigned int>;
-*/
+
 

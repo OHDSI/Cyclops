@@ -15,8 +15,8 @@ class CudaKernel {
 public:
 
     // Allocate device arrays
-    const RealType* d_X;
-    const int* d_K;
+    //const RealType* d_X;
+    //const int* d_K;
     RealType* d_XBeta;
     RealType* d_ExpXBeta;
     RealType* d_AccDenom;
@@ -39,20 +39,24 @@ public:
     void *d_temp_storage = NULL;
     size_t temp_storage_bytes = 0;
 
-    CudaKernel(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& offK, int K, int N); // for all
-    CudaKernel(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, int num_items);
-    CudaKernel(int num_items);
+    CudaKernel();
     ~CudaKernel();
+
+    void initialize(int K, int N);   
+    void updateXBeta(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, unsigned int offX, unsigned int offK, const unsigned int taskCount, RealType delta, int gridSize, int blockSize);
+    void computeGradientAndHessian(size_t& N, int& gridSize, int& blockSize);
 
     void CubScan(RealType* d_in, RealType* d_out, int num_items);
     void CubReduce(RealType* d_in, RealType* d_out, int num_items);
+
+    /*
     void computeAccDenomMalloc(int num_items);
     void computeAccDenom(int num_items);
     void computeAccNumerMalloc(int num_items);
     void computeAccNumer(int num_items);
+
     void CubExpScanMalloc(int num_items);
     void CubExpScan(int num_items);
-    void updateXBeta(unsigned int offX, unsigned int offK, const unsigned int taskCount, RealType delta, int gridSize, int blockSize);
-    void computeGradientAndHessian(size_t& N, int& gridSize, int& blockSize);
-
+    */
 };
+

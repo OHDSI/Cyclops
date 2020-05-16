@@ -54,11 +54,39 @@ __global__ void kernelComputeGradientAndHessian(RealType* d_Gradient, RealType* 
 }
 
 
-
-// for all
 template <class RealType>
-CudaKernel<RealType>::CudaKernel(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& offK, int K, int N)
+CudaKernel<RealType>::CudaKernel()
+{ 
+	std::cout << "CUDA class Created \n";
+}
+
+template <class RealType>
+CudaKernel<RealType>::~CudaKernel()
 {
+
+    cudaFree(d_XBeta);
+    cudaFree(d_ExpXBeta);
+    cudaFree(d_AccDenom);
+
+    cudaFree(d_Numer);
+    cudaFree(d_Numer2);
+    cudaFree(d_AccDenom);
+    cudaFree(d_AccNumer);
+    cudaFree(d_AccNumer2);
+    cudaFree(d_NWeight);
+    cudaFree(d_Gradient);
+    cudaFree(d_Hessian);
+    cudaFree(d_G);
+    cudaFree(d_H);
+
+    std::cout << "CUDA class Destroyed \n";
+}
+
+template <class RealType>
+void CudaKernel<RealType>::initialize(int K, int N)
+{
+
+	//TODO use thrust	
     cudaMalloc(&d_XBeta,  sizeof(RealType) * K);
     cudaMalloc(&d_ExpXBeta,  sizeof(RealType) * K);
 
@@ -74,73 +102,17 @@ CudaKernel<RealType>::CudaKernel(const thrust::device_vector<RealType>& X, const
     cudaMalloc(&d_G, sizeof(RealType));
     cudaMalloc(&d_H, sizeof(RealType));
 
-    cudaMalloc(&d_NWeight, sizeof(RealType) * N);
-    d_X = thrust::raw_pointer_cast(&X[0]);
-    d_K = thrust::raw_pointer_cast(&offK[0]);
-
-}
-
-template <class RealType>
-CudaKernel<RealType>::CudaKernel(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, int num_items)
-{
-//    std::cout << "X size: " << sizeof(X) << " RealType size: " << sizeof(RealType) << '\n';
-//    std::cout << "K size: " << sizeof(K) << " int size: " << sizeof(int) << '\n';
+    cudaMalloc(&d_NWeight, sizeof(RealType) * N);    
     
-    // Allocate device arrays
-    cudaMalloc(&d_XBeta,  sizeof(RealType) * num_items);
-    cudaMalloc(&d_ExpXBeta,  sizeof(RealType) * num_items);
-    cudaMalloc(&d_AccDenom, sizeof(RealType) * num_items);
-    d_X = thrust::raw_pointer_cast(&X[0]);
-    d_K = thrust::raw_pointer_cast(&K[0]);
-
-/*
-    // Copy input from host to device
-    cudaMemcpy(d_XBeta, h_XBeta, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_ExpXBeta, h_ExpXBeta, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
-*/
-//    std::cout << "CUDA class Created \n";
+    std::cout << "Initialize CUDA vector \n";
 }
 
 template <class RealType>
-CudaKernel<RealType>::CudaKernel(int num_items)
-{
-    // Allocate device arrays
-    cudaMalloc(&d_Numer,  sizeof(RealType) * num_items);
-    cudaMalloc(&d_Numer2,  sizeof(RealType) * num_items);
-    cudaMalloc(&d_AccDenom, sizeof(RealType) * num_items);
-    cudaMalloc(&d_NWeight, sizeof(RealType) * num_items);
-
-    cudaMalloc(&d_AccNumer, sizeof(RealType) * num_items);
-    cudaMalloc(&d_AccNumer2, sizeof(RealType) * num_items);
-    cudaMalloc(&d_Gradient, sizeof(RealType) * num_items);
-    cudaMalloc(&d_Hessian, sizeof(RealType) * num_items);
-    cudaMalloc(&d_G, sizeof(RealType));
-    cudaMalloc(&d_H, sizeof(RealType));
-
-/*
-    // Copy input from host to device
-    cudaMemcpy(d_Numer, h_Numer, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_Numer2, h_Numer2, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_AccDenom, h_AccDenom, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_NWeight, h_NWeight, sizeof(RealType) * num_items, cudaMemcpyHostToDevice);
-*/
-//    std::cout << "CUDA class Created \n";
-}
-
-template <class RealType>
-CudaKernel<RealType>::~CudaKernel()
-{
-//    std::cout << "CUDA class Destroyed \n";
-}
-
-
-
-template <class RealType>
-void CudaKernel<RealType>::updateXBeta(unsigned int offX, unsigned int offK, const unsigned int taskCount, RealType delta, int gridSize, int blockSize)
+void CudaKernel<RealType>::updateXBeta(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, unsigned int offX, unsigned int offK, const unsigned int taskCount, RealType delta, int gridSize, int blockSize)
 {
 //    auto start1 = std::chrono::steady_clock::now();
 
-    kernelUpdateXBeta<<<gridSize, blockSize>>>(offX, offK, taskCount, delta, d_X, d_K, d_XBeta, d_ExpXBeta);
+    kernelUpdateXBeta<<<gridSize, blockSize>>>(offX, offK, taskCount, delta, thrust::raw_pointer_cast(&X[0]), thrust::raw_pointer_cast(&K[0]), d_XBeta, d_ExpXBeta);
 
 //    auto end1 = std::chrono::steady_clock::now();
 //    timerG1 += std::chrono::duration<double, std::milli>(end1 - start1).count();
@@ -177,6 +149,7 @@ void CudaKernel<RealType>::CubReduce(RealType* d_in, RealType* d_out, int num_it
 
     // Launch kernel
     DeviceReduce::Sum(d_temp_storage0, temp_storage_bytes0, d_in, d_out, num_items);
+
     cudaFree(d_temp_storage0);
 }
 
@@ -195,11 +168,12 @@ void CudaKernel<RealType>::CubScan(RealType* d_in, RealType* d_out, int num_item
 
     // Launch kernel
     DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, d_in, d_out, num_items);
+
     cudaFree(d_temp_storage0);
 }
 
 
-
+/*
 template <class RealType>
 void CudaKernel<RealType>::computeAccDenomMalloc(int num_items)
 {
@@ -255,6 +229,7 @@ void CudaKernel<RealType>::CubExpScan(int num_items)
 //    timerG += std::chrono::duration<double, std::milli>(end - start).count();
 //    std::cout << "GPU takes " << timerG << " ms" << '\n';
 }
+*/
 
 template class CudaKernel<float>;
 template class CudaKernel<double>;

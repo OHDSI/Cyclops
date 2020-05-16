@@ -98,15 +98,17 @@ namespace bsccs {
         typedef thrust::device_vector<UInt> dStartsVector;
         typedef std::vector<UInt> hStartsVector;
 
-        AllGpuColumns(const compute::context& context) {
+        AllGpuColumns() {
             // Do nothing
-
+//		std::cout << "ctor AGC \n";
         }
 
-        virtual ~AllGpuColumns() { }
+        virtual ~AllGpuColumns() {
+//		std::cout << "dtor AGC \n";       
+	}
 
         void initialize(const CompressedDataMatrix<RealType>& mat,
-                        compute::command_queue& queue,
+                        //compute::command_queue& queue,
                         size_t K, bool pad) {
             std::vector<RealType> flatData;
             std::vector<int> flatIndices;
@@ -144,31 +146,29 @@ namespace bsccs {
                     taskCounts.push_back(column.getNumberOfEntries());
                 }
             }
-/*
-	    // FOR TEST: check data
-	    std::cout << "flatData: ";
-	    for (auto x:flatData) {
-		    std::cout << x << " ";
-	    }
-	    std::cout << "\n";
-            std::cout << "flatIndices: ";
-            for (auto x:flatIndices) {
-                    std::cout << x << " ";
-            }
-            std::cout << "\n";
 
+/*
             detail::resizeAndCopyToDevice(flatData, data, queue);
             detail::resizeAndCopyToDevice(flatIndices, indices, queue);
             detail::resizeAndCopyToDevice(dataStarts, ddataStarts, queue);
             detail::resizeAndCopyToDevice(indicesStarts, dindicesStarts, queue);
             detail::resizeAndCopyToDevice(taskCounts, dtaskCounts, queue);
 */
-
+/*
 	    resizeAndCopyToDeviceCuda(flatData, data);
             resizeAndCopyToDeviceCuda(flatIndices, indices);
             resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
             resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
             resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
+*/
+	    CudaDetail<RealType> rdetail;
+	    CudaDetail<int> idetail;
+	    CudaDetail<UInt> udetail;
+	    rdetail.resizeAndCopyToDeviceCuda(flatData, data);
+	    idetail.resizeAndCopyToDeviceCuda(flatIndices, indices);
+	    udetail.resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
+	    udetail.resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
+	    udetail.resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
 
             std::cerr << "AGC end " << flatData.size() << " " << flatIndices.size() << std::endl;
         }
@@ -192,8 +192,8 @@ namespace bsccs {
 	const IndicesVector& getIndices() const {
             return indices;
         }
-
-        const dStartsVector& getDataStarts() const {
+	
+	const dStartsVector& getDataStarts() const {
             return ddataStarts;
         }
 
@@ -347,7 +347,7 @@ namespace bsccs {
                 queue(ctx, device,
                         compute::command_queue::enable_profiling
                 ),
-                dColumns(ctx),
+                dCudaColumns(),
                 dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx),
                 dDenominator(ctx), dDenominator2(ctx), dAccDenominator(ctx),
                 dOffs(ctx), dKWeight(ctx), dNWeight(ctx), dId(ctx),
@@ -375,7 +375,7 @@ namespace bsccs {
             int need = 0;
 
             // Copy data
-	    dColumns.initialize(hX, queue, K, true);
+	    dCudaColumns.initialize(hX, K, true);
             //this->initializeMmXt();
             //dColumnsXt.initialize(*hXt, queue, K, true);
             formatList.resize(J);
@@ -448,7 +448,7 @@ namespace bsccs {
 
         // vectors of columns
         // std::vector<GpuColumn<real> > columns;
-        AllGpuColumns<RealType> dColumns;
+        AllGpuColumns<RealType> dCudaColumns;
 //        AllGpuColumns<RealType> dColumnsXt;
 
         std::map<FormatType, std::vector<int>> indicesFormats;
