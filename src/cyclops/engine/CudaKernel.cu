@@ -37,18 +37,18 @@ __global__ void kernelUpdateXBeta(int offX, int offK, const int taskCount, RealT
 }
 
 template <typename RealType>
-__global__ void kernelComputeGradientAndHessian(RealType* d_Gradient, RealType* d_Hessian, RealType* d_AccNumer, RealType* d_AccNumer2, RealType* d_AccDenom, RealType* d_NWeight, int N)
+__global__ void kernelComputeGradientAndHessian(RealType* d_BufferG, RealType* d_BufferH, RealType* d_AccNumer, RealType* d_AccNumer2, RealType* d_AccDenom, RealType* d_NWeight, int N)
 {
     int task = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (task < N) {
         RealType t = d_AccNumer[task] / d_AccDenom[task];
         RealType g = d_NWeight[task] * t;
-        d_Gradient[task] = g;
+        d_BufferG[task] = g;
         //if (IteratorType::isIndicator) {
-            d_Hessian[task] = g * (1.0 - t);
+            d_BufferH[task] = g * (1.0 - t);
         //} else {
-//	    d_Hessian[task] = d_NWeight[task] * (d_AccNumer2[task] / d_AccDenom[task] - t * t);
+//	    d_BufferH[task] = d_NWeight[task] * (d_AccNumer2[task] / d_AccDenom[task] - t * t);
         //}
     }
 }
@@ -74,10 +74,10 @@ CudaKernel<RealType>::~CudaKernel()
     cudaFree(d_AccNumer);
     cudaFree(d_AccNumer2);
     cudaFree(d_NWeight);
+    cudaFree(d_BufferG);
+    cudaFree(d_BufferH);
     cudaFree(d_Gradient);
     cudaFree(d_Hessian);
-    cudaFree(d_G);
-    cudaFree(d_H);
 
     std::cout << "CUDA class Destroyed \n";
 }
@@ -97,10 +97,10 @@ void CudaKernel<RealType>::initialize(int K, int N)
     cudaMalloc(&d_AccNumer, sizeof(RealType) * N);
     cudaMalloc(&d_AccNumer2, sizeof(RealType) * N);
 
-    cudaMalloc(&d_Gradient, sizeof(RealType) * N);
-    cudaMalloc(&d_Hessian, sizeof(RealType) * N);
-    cudaMalloc(&d_G, sizeof(RealType));
-    cudaMalloc(&d_H, sizeof(RealType));
+    cudaMalloc(&d_BufferG, sizeof(RealType) * N);
+    cudaMalloc(&d_BufferH, sizeof(RealType) * N);
+    cudaMalloc(&d_Gradient, sizeof(RealType));
+    cudaMalloc(&d_Hessian, sizeof(RealType));
 
     cudaMalloc(&d_NWeight, sizeof(RealType) * N);    
     
@@ -123,10 +123,10 @@ void CudaKernel<RealType>::computeGradientAndHessian(size_t& N, int& gridSize, i
 {
 //    auto start1 = std::chrono::steady_clock::now();
 
-    kernelComputeGradientAndHessian<<<gridSize, blockSize>>>(d_Gradient, d_Hessian, d_AccNumer, d_AccNumer2, d_AccDenom, d_NWeight, N);
+    kernelComputeGradientAndHessian<<<gridSize, blockSize>>>(d_BufferG, d_BufferH, d_AccNumer, d_AccNumer2, d_AccDenom, d_NWeight, N);
 
-    CudaKernel<RealType>::CubReduce(d_Gradient, d_G, N);
-    CudaKernel<RealType>::CubReduce(d_Hessian, d_H, N);
+    CudaKernel<RealType>::CubReduce(d_BufferG, d_Gradient, N);
+    CudaKernel<RealType>::CubReduce(d_BufferH, d_Hessian, N);
 
 //    auto end1 = std::chrono::steady_clock::now();
 //    timerG1 += std::chrono::duration<double, std::milli>(end1 - start1).count();

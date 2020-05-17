@@ -38,7 +38,7 @@ namespace bsccs {
             compute::copy(std::begin(hostVec), std::end(hostVec), std::begin(deviceVec), queue);
         }
 /*
-	template <typename DeviceVec, typename HostVec>
+	    template <typename DeviceVec, typename HostVec>
         void resizeAndCopyToDeviceCuda(const HostVec& hostVec, DeviceVec& deviceVec) {
             deviceVec.resize(hostVec.size());
 	    thrust::copy(hostVec.begin(), hostVec.end(), deviceVec.begin());
@@ -155,20 +155,20 @@ namespace bsccs {
             detail::resizeAndCopyToDevice(taskCounts, dtaskCounts, queue);
 */
 /*
-	    resizeAndCopyToDeviceCuda(flatData, data);
+	        resizeAndCopyToDeviceCuda(flatData, data);
             resizeAndCopyToDeviceCuda(flatIndices, indices);
             resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
             resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
             resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
 */
-	    CudaDetail<RealType> rdetail;
-	    CudaDetail<int> idetail;
-	    CudaDetail<UInt> udetail;
-	    rdetail.resizeAndCopyToDeviceCuda(flatData, data);
-	    idetail.resizeAndCopyToDeviceCuda(flatIndices, indices);
-	    udetail.resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
-	    udetail.resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
-	    udetail.resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
+            CudaDetail<RealType> rdetail;
+            CudaDetail<int> idetail;
+            CudaDetail<UInt> udetail;
+            rdetail.resizeAndCopyToDeviceCuda(flatData, data);
+            idetail.resizeAndCopyToDeviceCuda(flatIndices, indices);
+            udetail.resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
+            udetail.resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
+            udetail.resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
 
             std::cerr << "AGC end " << flatData.size() << " " << flatIndices.size() << std::endl;
         }
@@ -189,11 +189,11 @@ namespace bsccs {
             return data;
         }
 
-	const IndicesVector& getIndices() const {
+	    const IndicesVector& getIndices() const {
             return indices;
         }
 	
-	const dStartsVector& getDataStarts() const {
+	    const dStartsVector& getDataStarts() const {
             return ddataStarts;
         }
 
@@ -375,7 +375,7 @@ namespace bsccs {
             int need = 0;
 
             // Copy data
-	    dCudaColumns.initialize(hX, K, true);
+	        dCudaColumns.initialize(hX, K, true);
             //this->initializeMmXt();
             //dColumnsXt.initialize(*hXt, queue, K, true);
             formatList.resize(J);

@@ -14,9 +14,7 @@ class CudaKernel {
 
 public:
 
-    // Allocate device arrays
-    //const RealType* d_X;
-    //const int* d_K;
+    // Device arrays
     RealType* d_XBeta;
     RealType* d_ExpXBeta;
     RealType* d_AccDenom;
@@ -27,17 +25,14 @@ public:
     RealType* d_itr;
     
     RealType* d_NWeight;
+    RealType* d_BufferG;
+    RealType* d_BufferH;
     RealType* d_Gradient;
     RealType* d_Hessian;
-    RealType* d_G;
-    RealType* d_H;
 
     // Operator
     CustomExp    exp_op;
 
-    // Allocate temporary storage
-    void *d_temp_storage = NULL;
-    size_t temp_storage_bytes = 0;
 
     CudaKernel();
     ~CudaKernel();
