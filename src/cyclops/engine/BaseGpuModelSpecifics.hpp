@@ -9,7 +9,7 @@
 #include <thrust/device_vector.h>
 
 #include "ModelSpecifics.hpp"
-#include "CudaDetail.h"
+//#include "CudaDetail.h"
 
 namespace bsccs {
 
@@ -37,13 +37,7 @@ namespace bsccs {
             deviceVec.resize(hostVec.size());
             compute::copy(std::begin(hostVec), std::end(hostVec), std::begin(deviceVec), queue);
         }
-/*
-	    template <typename DeviceVec, typename HostVec>
-        void resizeAndCopyToDeviceCuda(const HostVec& hostVec, DeviceVec& deviceVec) {
-            deviceVec.resize(hostVec.size());
-	    thrust::copy(hostVec.begin(), hostVec.end(), deviceVec.begin());
-        }
-*/
+
         template <typename HostVec, typename DeviceVec>
         void compare(const HostVec& host, const DeviceVec& device, const std::string& error, double tolerance = 1E-10) {
             bool valid = true;
@@ -79,7 +73,7 @@ namespace bsccs {
     template <typename RealType>
     class AllGpuColumns {
     public:
-/*	    
+	    
         typedef compute::vector<RealType> DataVector;
         typedef compute::vector<int> IndicesVector;
         typedef compute::uint_ UInt;
@@ -90,8 +84,8 @@ namespace bsccs {
                                                          ddataStarts(context), dindicesStarts(context), dtaskCounts(context) {
             // Do nothing
         }
-*/
 
+/*
         typedef thrust::device_vector<RealType> DataVector;
         typedef thrust::device_vector<int> IndicesVector;
         typedef unsigned int UInt;
@@ -102,13 +96,13 @@ namespace bsccs {
             // Do nothing
 //		std::cout << "ctor AGC \n";
         }
-
+*/
         virtual ~AllGpuColumns() {
 //		std::cout << "dtor AGC \n";       
 	}
 
         void initialize(const CompressedDataMatrix<RealType>& mat,
-                        //compute::command_queue& queue,
+                        compute::command_queue& queue,
                         size_t K, bool pad) {
             std::vector<RealType> flatData;
             std::vector<int> flatIndices;
@@ -147,20 +141,20 @@ namespace bsccs {
                 }
             }
 
-/*
+
             detail::resizeAndCopyToDevice(flatData, data, queue);
             detail::resizeAndCopyToDevice(flatIndices, indices, queue);
             detail::resizeAndCopyToDevice(dataStarts, ddataStarts, queue);
             detail::resizeAndCopyToDevice(indicesStarts, dindicesStarts, queue);
             detail::resizeAndCopyToDevice(taskCounts, dtaskCounts, queue);
-*/
+
 /*
 	        resizeAndCopyToDeviceCuda(flatData, data);
             resizeAndCopyToDeviceCuda(flatIndices, indices);
             resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
             resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
             resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
-*/
+
             CudaDetail<RealType> rdetail;
             CudaDetail<int> idetail;
             CudaDetail<UInt> udetail;
@@ -169,7 +163,7 @@ namespace bsccs {
             udetail.resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
             udetail.resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
             udetail.resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
-
+*/
             std::cerr << "AGC end " << flatData.size() << " " << flatIndices.size() << std::endl;
         }
 
@@ -347,7 +341,7 @@ namespace bsccs {
                 queue(ctx, device,
                         compute::command_queue::enable_profiling
                 ),
-                dCudaColumns(),
+                dColumns(),
                 dBeta(ctx), dXBeta(ctx), dExpXBeta(ctx),
                 dDenominator(ctx), dDenominator2(ctx), dAccDenominator(ctx),
                 dOffs(ctx), dKWeight(ctx), dNWeight(ctx), dId(ctx),
@@ -375,7 +369,7 @@ namespace bsccs {
             int need = 0;
 
             // Copy data
-	        dCudaColumns.initialize(hX, K, true);
+	        dColumns.initialize(hX, queue, K, true);
             //this->initializeMmXt();
             //dColumnsXt.initialize(*hXt, queue, K, true);
             formatList.resize(J);
@@ -432,11 +426,6 @@ namespace bsccs {
 
             detail::resizeAndCopyToDevice(hKWeight, dKWeight, queue);
             detail::resizeAndCopyToDevice(hNWeight, dNWeight, queue);
-            // std::cout << "GPUMS hKWeight" ;
-            // for (auto x : hKWeight ){
-            //     std::cout << x ;
-            // }
-            // std::cout << '\n';
         }
 
     protected:
@@ -448,7 +437,7 @@ namespace bsccs {
 
         // vectors of columns
         // std::vector<GpuColumn<real> > columns;
-        AllGpuColumns<RealType> dCudaColumns;
+        AllGpuColumns<RealType> dColumns;
 //        AllGpuColumns<RealType> dColumnsXt;
 
         std::map<FormatType, std::vector<int>> indicesFormats;

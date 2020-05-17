@@ -38,9 +38,10 @@ public:
     ~CudaKernel();
 
     void initialize(int K, int N);   
-    void updateXBeta(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, unsigned int offX, unsigned int offK, const unsigned int taskCount, RealType delta, int gridSize, int blockSize);
+    void updateXBeta(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, unsigned int offX, unsigned int offK, const unsigned int taskCount, RealType delta, thrust::device_vector<RealType>& dXBeta, thrust::device_vector<RealType>& dExpXBeta, int gridSize, int blockSize);
     void computeGradientAndHessian(size_t& N, int& gridSize, int& blockSize);
 
+    //void CubScan(thrust::device_vector<RealType>& d_in, thrust::device_vector<RealType>& d_out, int num_items);
     void CubScan(RealType* d_in, RealType* d_out, int num_items);
     void CubReduce(RealType* d_in, RealType* d_out, int num_items);
 

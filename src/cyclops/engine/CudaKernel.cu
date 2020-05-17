@@ -63,7 +63,7 @@ CudaKernel<RealType>::CudaKernel()
 template <class RealType>
 CudaKernel<RealType>::~CudaKernel()
 {
-
+/*
     cudaFree(d_XBeta);
     cudaFree(d_ExpXBeta);
     cudaFree(d_AccDenom);
@@ -78,7 +78,7 @@ CudaKernel<RealType>::~CudaKernel()
     cudaFree(d_BufferH);
     cudaFree(d_Gradient);
     cudaFree(d_Hessian);
-
+*/
     std::cout << "CUDA class Destroyed \n";
 }
 
@@ -108,12 +108,20 @@ void CudaKernel<RealType>::initialize(int K, int N)
 }
 
 template <class RealType>
-void CudaKernel<RealType>::updateXBeta(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, unsigned int offX, unsigned int offK, const unsigned int taskCount, RealType delta, int gridSize, int blockSize)
+void CudaKernel<RealType>::updateXBeta(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, unsigned int offX, unsigned int offK, const unsigned int taskCount, RealType delta, thrust::device_vector<RealType>& dXBeta, thrust::device_vector<RealType>& dExpXBeta, int gridSize, int blockSize)
 {
 //    auto start1 = std::chrono::steady_clock::now();
-
-    kernelUpdateXBeta<<<gridSize, blockSize>>>(offX, offK, taskCount, delta, thrust::raw_pointer_cast(&X[0]), thrust::raw_pointer_cast(&K[0]), d_XBeta, d_ExpXBeta);
-
+	/*
+            for(int i = 0; i < dXBeta.size(); i++) {
+                    std::cout << "old i: " << i << " xb: "  << dXBeta[i] << " exb: " << dExpXBeta[i] << std::endl;
+            }
+*/
+    kernelUpdateXBeta<<<gridSize, blockSize>>>(offX, offK, taskCount, delta, thrust::raw_pointer_cast(&X[0]), thrust::raw_pointer_cast(&K[0]), thrust::raw_pointer_cast(&dXBeta[0]), thrust::raw_pointer_cast(&dExpXBeta[0]));
+    /*
+            for(int i = 0; i < dXBeta.size(); i++) {
+                    std::cout << "new i: " << i << " xb: "  << dXBeta[i] << " exb: " << dExpXBeta[i] << std::endl;
+            }
+	    */
 //    auto end1 = std::chrono::steady_clock::now();
 //    timerG1 += std::chrono::duration<double, std::milli>(end1 - start1).count();
 }
@@ -154,6 +162,7 @@ void CudaKernel<RealType>::CubReduce(RealType* d_in, RealType* d_out, int num_it
 }
 
 template <class RealType>
+//void CudaKernel<RealType>::CubScan(thrust::device_vector<RealType>& d_in, thrust::device_vector<RealType>& d_out, int num_items)
 void CudaKernel<RealType>::CubScan(RealType* d_in, RealType* d_out, int num_items)
 {
     // Allocate temporary storage
@@ -161,6 +170,7 @@ void CudaKernel<RealType>::CubScan(RealType* d_in, RealType* d_out, int num_item
     size_t temp_storage_bytes0 = 0;
 
     // Determine temporary device storage requirements
+    //DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, thrust::raw_pointer_cast(&d_in[0]), thrust::raw_pointer_cast(&d_out[0]), num_items);
     DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, d_in, d_out, num_items);
 
     // Allocate temporary storage
@@ -170,6 +180,7 @@ void CudaKernel<RealType>::CubScan(RealType* d_in, RealType* d_out, int num_item
     DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, d_in, d_out, num_items);
 
     cudaFree(d_temp_storage0);
+
 }
 
 
