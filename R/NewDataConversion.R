@@ -81,7 +81,7 @@ convertToCyclopsData <- function(outcomes,
                                  covariates,
                                  modelType = "lr",
                                  addIntercept = TRUE,
-                                 checkSorting = TRUE,
+                                 checkSorting = NULL,
                                  checkRowIds = TRUE,
                                  normalize = NULL,
                                  quiet = FALSE,
@@ -95,12 +95,12 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                             covariates,
                                             modelType = "lr",
                                             addIntercept = TRUE,
-                                            checkSorting = TRUE,
+                                            checkSorting = NULL,
                                             checkRowIds = TRUE,
                                             normalize = NULL,
                                             quiet = FALSE,
                                             floatingPoint = 64) {
-    if (!missing(checkSorting))
+    if (!is.null(checkSorting))
         warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
 
     if ((modelType == "clr" | modelType == "cpr") & addIntercept) {
@@ -217,12 +217,12 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          covariates,
                                          modelType = "lr",
                                          addIntercept = TRUE,
-                                         checkSorting = TRUE,
+                                         checkSorting = NULL,
                                          checkRowIds = TRUE,
                                          normalize = NULL,
                                          quiet = FALSE,
                                          floatingPoint = 64) {
-    if (!missing(checkSorting))
+    if (!is.null(checkSorting))
         warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
 
     if ((modelType == "clr" | modelType == "cpr") & addIntercept) {
