@@ -51,7 +51,7 @@ convertToCyclopsData(
 
 \item{addIntercept}{Add an intercept to the model?}
 
-\item{checkSorting}{Check if the data are sorted appropriately, and if not, sort.}
+\item{checkSorting}{(DEPRECATED) Check if the data are sorted appropriately, and if not, sort.}
 
 \item{checkRowIds}{Check if all rowIds in the covariates appear in the outcomes.}
 
@@ -85,12 +85,6 @@ These columns are expected in the covariates object:
   \verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
   \verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
 }
-
-Note: If checkSorting is turned off, the outcome table should be sorted by stratumId (if present)
-and then rowId except for Cox regression when the table should be sorted by
-stratumId (if present), -time, y, and rowId. The covariate table should be sorted by covariateId, stratumId
-(if present), rowId except for Cox regression when the table should be sorted by covariateId,
-stratumId (if present), -time, y, and rowId.
 }
 \section{Methods (by class)}{
 \itemize{

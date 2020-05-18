@@ -16,6 +16,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames))){
+    return(.isSorted(data, columnNames, ascending))
+}
+
 #' Convert data from two data frames or ffdf objects into a CyclopsData object
 #'
 #' @description
@@ -25,7 +29,7 @@
 #' @param covariates    A data frame or ffdf object containing the covariates with predefined columns (see below).
 #' @param modelType     Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"
 #' @param addIntercept  Add an intercept to the model?
-#' @param checkSorting  Check if the data are sorted appropriately, and if not, sort.
+#' @param checkSorting  (DEPRECATED) Check if the data are sorted appropriately, and if not, sort.
 #' @param checkRowIds   Check if all rowIds in the covariates appear in the outcomes.
 #' @param normalize     String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)
 #' @param quiet         If true, (warning) messages are surpressed.
@@ -49,12 +53,6 @@
 #'   \verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
 #'   \verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
 #' }
-#'
-#' Note: If checkSorting is turned off, the outcome table should be sorted by stratumId (if present)
-#' and then rowId except for Cox regression when the table should be sorted by
-#' stratumId (if present), -time, y, and rowId. The covariate table should be sorted by covariateId, stratumId
-#' (if present), rowId except for Cox regression when the table should be sorted by covariateId,
-#' stratumId (if present), -time, y, and rowId.
 #'
 #' @return
 #' An object of type cyclopsData
@@ -102,6 +100,9 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                             normalize = NULL,
                                             quiet = FALSE,
                                             floatingPoint = 64) {
+    if (!missing(checkSorting))
+        warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
+
     if ((modelType == "clr" | modelType == "cpr") & addIntercept) {
         if (!quiet)
             warning("Intercepts are not allowed in conditional models, removing intercept", call. = FALSE)
@@ -120,53 +121,52 @@ convertToCyclopsData.data.frame <- function(outcomes,
         covariates$stratumId <- 0
     }
 
-    if (checkSorting) {
-        if (modelType == "lr" | modelType == "pr") {
-            if (!Andromeda::isSorted(outcomes, c("rowId"))) {
-                if (!quiet)
-                    writeLines("Sorting outcomes by rowId")
-                outcomes <- outcomes[order(outcomes$rowId),]
-            }
-            if (!Andromeda::isSorted(covariates, c("covariateId", "rowId"))) {
-                if (!quiet)
-                    writeLines("Sorting covariates by covariateId and rowId")
-                covariates <- covariates[order(covariates$covariateId, covariates$rowId),]
-            }
-        }
 
-        if (modelType == "clr" | modelType == "cpr") {
-            if (!Andromeda::isSorted(outcomes, c("stratumId","rowId"))) {
-                if (!quiet)
-                    writeLines("Sorting outcomes by stratumId and rowId")
-                outcomes <- outcomes[order(outcomes$stratumId,outcomes$rowId),]
-            }
-            if (!Andromeda::isSorted(covariates, c("covariateId", "stratumId","rowId"))) {
-                if (!quiet)
-                    writeLines("Sorting covariates by covariateId, stratumId, and rowId")
-                covariates <- covariates[order(covariates$covariateId, covariates$stratumId, covariates$rowId),]
-            }
+    if (modelType == "lr" | modelType == "pr") {
+        if (!isSorted(outcomes, c("rowId"))) {
+            if (!quiet)
+                writeLines("Sorting outcomes by rowId")
+            outcomes <- outcomes[order(outcomes$rowId),]
         }
-        if (modelType == "cox") {
-            if (!Andromeda::isSorted(outcomes,
-                                     c("stratumId", "time", "y", "rowId"),
-                                     c(TRUE, FALSE, TRUE, TRUE))) {
-                if (!quiet)
-                    writeLines("Sorting outcomes by stratumId, time (descending), y and rowId")
-                outcomes <- outcomes[order(outcomes$stratumId, -outcomes$time, outcomes$y, outcomes$rowId),]
-            }
-            if (!"time" %in% colnames(covariates)) {
-                covariates$time <- NULL
-                covariates$y <- NULL
-                covariates$stratumId <- NULL
-                covariates <- merge(covariates, outcomes, by = c("rowId"))
-            }
-            if (!Andromeda::isSorted(covariates,
-                                     c("covariateId", "stratumId", "time", "y", "rowId"),
-                                     c(TRUE, TRUE, FALSE, TRUE, TRUE))) {
-                if (!quiet)
-                    writeLines("Sorting covariates by covariateId, stratumId, time (descending), y, and rowId")
-                covariates <- covariates[order(covariates$covariateId, covariates$stratumId, -covariates$time, covariates$y, covariates$rowId),]
-            }
+        if (!isSorted(covariates, c("covariateId", "rowId"))) {
+            if (!quiet)
+                writeLines("Sorting covariates by covariateId and rowId")
+            covariates <- covariates[order(covariates$covariateId, covariates$rowId),]
+        }
+    }
+
+    if (modelType == "clr" | modelType == "cpr") {
+        if (!isSorted(outcomes, c("stratumId","rowId"))) {
+            if (!quiet)
+                writeLines("Sorting outcomes by stratumId and rowId")
+            outcomes <- outcomes[order(outcomes$stratumId,outcomes$rowId),]
+        }
+        if (!isSorted(covariates, c("covariateId", "stratumId","rowId"))) {
+            if (!quiet)
+                writeLines("Sorting covariates by covariateId, stratumId, and rowId")
+            covariates <- covariates[order(covariates$covariateId, covariates$stratumId, covariates$rowId),]
+        }
+    }
+    if (modelType == "cox") {
+        if (!isSorted(outcomes,
+                      c("stratumId", "time", "y", "rowId"),
+                      c(TRUE, FALSE, TRUE, TRUE))) {
+            if (!quiet)
+                writeLines("Sorting outcomes by stratumId, time (descending), y and rowId")
+            outcomes <- outcomes[order(outcomes$stratumId, -outcomes$time, outcomes$y, outcomes$rowId),]
+        }
+        if (!"time" %in% colnames(covariates)) {
+            covariates$time <- NULL
+            covariates$y <- NULL
+            covariates$stratumId <- NULL
+            covariates <- merge(covariates, outcomes, by = c("rowId"))
+        }
+        if (!isSorted(covariates,
+                      c("covariateId", "stratumId", "time", "y", "rowId"),
+                      c(TRUE, TRUE, FALSE, TRUE, TRUE))) {
+            if (!quiet)
+                writeLines("Sorting covariates by covariateId, stratumId, time (descending), y, and rowId")
+            covariates <- covariates[order(covariates$covariateId, covariates$stratumId, -covariates$time, covariates$y, covariates$rowId),]
         }
     }
     if (checkRowIds) {
@@ -222,6 +222,9 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          normalize = NULL,
                                          quiet = FALSE,
                                          floatingPoint = 64) {
+    if (!missing(checkSorting))
+        warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
+
     if ((modelType == "clr" | modelType == "cpr") & addIntercept) {
         if (!quiet) {
             warning("Intercepts are not allowed in conditional models, removing intercept", call. = FALSE)
@@ -265,13 +268,16 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     # Also, should always explicitly define sorting, else not guaranteed.
     if (modelType == "lr" | modelType == "pr") {
         outcomes <- outcomes %>%
-            covariates <- covariates %>%
-                arrange(.data$covariateId, .data$rowId)
+            arrange(.data$rowId)
+
+        covariates <- covariates %>%
+            arrange(.data$covariateId, .data$rowId)
     }
 
     if (modelType == "clr" | modelType == "cpr") {
         outcomes <- outcomes %>%
             arrange(.data$stratumId, .data$rowId)
+
         covariates <- covariates %>%
             arrange(.data$covariateId, .data$stratumId, .data$rowId)
     }
@@ -305,11 +311,11 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     loadCovariates <- function(batch) {
         covarNames <- unique(batch$covariateId)
         loadNewSeqlCyclopsDataMultipleX(object = dataPtr,
-                                         covariateId = batch$covariateId,
-                                         rowId = batch$rowId,
-                                         covariateValue = batch$covariateValue,
-                                         name = covarNames,
-                                         append = TRUE)
+                                        covariateId = batch$covariateId,
+                                        rowId = batch$rowId,
+                                        covariateValue = batch$covariateValue,
+                                        name = covarNames,
+                                        append = TRUE)
     }
 
     Andromeda::batchApply(covariates,

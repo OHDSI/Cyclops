@@ -312,6 +312,31 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// isSorted
+bool isSorted(const DataFrame& dataFrame, const std::vector<std::string>& indexes, const std::vector<bool>& ascending);
+RcppExport SEXP _Cyclops_isSorted(SEXP dataFrameSEXP, SEXP indexesSEXP, SEXP ascendingSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const DataFrame& >::type dataFrame(dataFrameSEXP);
+    Rcpp::traits::input_parameter< const std::vector<std::string>& >::type indexes(indexesSEXP);
+    Rcpp::traits::input_parameter< const std::vector<bool>& >::type ascending(ascendingSEXP);
+    rcpp_result_gen = Rcpp::wrap(isSorted(dataFrame, indexes, ascending));
+    return rcpp_result_gen;
+END_RCPP
+}
+// isSortedVectorList
+bool isSortedVectorList(const List& vectorList, const std::vector<bool>& ascending);
+RcppExport SEXP _Cyclops_isSortedVectorList(SEXP vectorListSEXP, SEXP ascendingSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const List& >::type vectorList(vectorListSEXP);
+    Rcpp::traits::input_parameter< const std::vector<bool>& >::type ascending(ascendingSEXP);
+    rcpp_result_gen = Rcpp::wrap(isSortedVectorList(vectorList, ascending));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsPrintRowIds
 void cyclopsPrintRowIds(Environment object);
 RcppExport SEXP _Cyclops_cyclopsPrintRowIds(SEXP objectSEXP) {
@@ -753,6 +778,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsFitModel", (DL_FUNC) &_Cyclops_cyclopsFitModel, 1},
     {"_Cyclops_cyclopsLogModel", (DL_FUNC) &_Cyclops_cyclopsLogModel, 1},
     {"_Cyclops_cyclopsInitializeModel", (DL_FUNC) &_Cyclops_cyclopsInitializeModel, 4},
+    {"_Cyclops_isSorted", (DL_FUNC) &_Cyclops_isSorted, 3},
+    {"_Cyclops_isSortedVectorList", (DL_FUNC) &_Cyclops_isSortedVectorList, 2},
     {"_Cyclops_cyclopsPrintRowIds", (DL_FUNC) &_Cyclops_cyclopsPrintRowIds, 1},
     {"_Cyclops_isRcppPtrNull", (DL_FUNC) &_Cyclops_isRcppPtrNull, 1},
     {"_Cyclops_cyclopsGetNumberOfStrata", (DL_FUNC) &_Cyclops_cyclopsGetNumberOfStrata, 1},
