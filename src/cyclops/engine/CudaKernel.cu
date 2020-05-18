@@ -37,7 +37,7 @@ __global__ void kernelUpdateXBeta(int offX, int offK, const int taskCount, RealT
 }
 
 template <typename RealType>
-__global__ void kernelComputeGradientAndHessian(RealType* d_BufferG, RealType* d_BufferH, RealType* d_AccNumer, RealType* d_AccNumer2, RealType* d_AccDenom, RealType* d_NWeight, int N)
+__global__ void kernelComputeGradientAndHessian(RealType* d_BufferG, RealType* d_BufferH, const RealType* d_AccNumer, const RealType* d_AccNumer2, const RealType* d_AccDenom, const RealType* d_NWeight, int N)
 {
     int task = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -63,29 +63,13 @@ CudaKernel<RealType>::CudaKernel()
 template <class RealType>
 CudaKernel<RealType>::~CudaKernel()
 {
-/*
-    cudaFree(d_XBeta);
-    cudaFree(d_ExpXBeta);
-    cudaFree(d_AccDenom);
-
-    cudaFree(d_Numer);
-    cudaFree(d_Numer2);
-    cudaFree(d_AccDenom);
-    cudaFree(d_AccNumer);
-    cudaFree(d_AccNumer2);
-    cudaFree(d_NWeight);
-    cudaFree(d_BufferG);
-    cudaFree(d_BufferH);
-    cudaFree(d_Gradient);
-    cudaFree(d_Hessian);
-*/
     std::cout << "CUDA class Destroyed \n";
 }
 
 template <class RealType>
 void CudaKernel<RealType>::initialize(int K, int N)
 {
-
+/*
 	//TODO use thrust	
     cudaMalloc(&d_XBeta,  sizeof(RealType) * K);
     cudaMalloc(&d_ExpXBeta,  sizeof(RealType) * K);
@@ -105,39 +89,25 @@ void CudaKernel<RealType>::initialize(int K, int N)
     cudaMalloc(&d_NWeight, sizeof(RealType) * N);    
     
     std::cout << "Initialize CUDA vector \n";
+    */
 }
 
 template <class RealType>
 void CudaKernel<RealType>::updateXBeta(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, unsigned int offX, unsigned int offK, const unsigned int taskCount, RealType delta, thrust::device_vector<RealType>& dXBeta, thrust::device_vector<RealType>& dExpXBeta, int gridSize, int blockSize)
 {
-//    auto start1 = std::chrono::steady_clock::now();
-	/*
-            for(int i = 0; i < dXBeta.size(); i++) {
-                    std::cout << "old i: " << i << " xb: "  << dXBeta[i] << " exb: " << dExpXBeta[i] << std::endl;
-            }
-*/
     kernelUpdateXBeta<<<gridSize, blockSize>>>(offX, offK, taskCount, delta, thrust::raw_pointer_cast(&X[0]), thrust::raw_pointer_cast(&K[0]), thrust::raw_pointer_cast(&dXBeta[0]), thrust::raw_pointer_cast(&dExpXBeta[0]));
-    /*
-            for(int i = 0; i < dXBeta.size(); i++) {
-                    std::cout << "new i: " << i << " xb: "  << dXBeta[i] << " exb: " << dExpXBeta[i] << std::endl;
-            }
-	    */
-//    auto end1 = std::chrono::steady_clock::now();
-//    timerG1 += std::chrono::duration<double, std::milli>(end1 - start1).count();
 }
 
 template <class RealType>
-void CudaKernel<RealType>::computeGradientAndHessian(size_t& N, int& gridSize, int& blockSize)
+void CudaKernel<RealType>::computeGradientAndHessian(const thrust::device_vector<RealType>& d_AccNumer, const thrust::device_vector<RealType>& d_AccNumer2, const thrust::device_vector<RealType>& d_AccDenom, const thrust::device_vector<RealType>& d_NWeight, thrust::device_vector<RealType>& d_Gradient, thrust::device_vector<RealType>& d_Hessian, size_t& N, int& gridSize, int& blockSize)
 {
-//    auto start1 = std::chrono::steady_clock::now();
+    thrust::device_vector<RealType> d_BufferG(N, static_cast<RealType>(0));
+    thrust::device_vector<RealType> d_BufferH(N, static_cast<RealType>(0));
 
-    kernelComputeGradientAndHessian<<<gridSize, blockSize>>>(d_BufferG, d_BufferH, d_AccNumer, d_AccNumer2, d_AccDenom, d_NWeight, N);
+    kernelComputeGradientAndHessian<<<gridSize, blockSize>>>(thrust::raw_pointer_cast(&d_BufferG[0]), thrust::raw_pointer_cast(&d_BufferH[0]), thrust::raw_pointer_cast(&d_AccNumer[0]), thrust::raw_pointer_cast(&d_AccNumer2[0]), thrust::raw_pointer_cast(&d_AccDenom[0]), thrust::raw_pointer_cast(&d_NWeight[0]), N);
 
-    CudaKernel<RealType>::CubReduce(d_BufferG, d_Gradient, N);
-    CudaKernel<RealType>::CubReduce(d_BufferH, d_Hessian, N);
-
-//    auto end1 = std::chrono::steady_clock::now();
-//    timerG1 += std::chrono::duration<double, std::milli>(end1 - start1).count();
+    CudaKernel<RealType>::CubReduce(thrust::raw_pointer_cast(&d_BufferG[0]), thrust::raw_pointer_cast(&d_Gradient[0]), N);
+    CudaKernel<RealType>::CubReduce(thrust::raw_pointer_cast(&d_BufferH[0]), thrust::raw_pointer_cast(&d_Hessian[0]), N);
 }
 
 

@@ -15,20 +15,7 @@ class CudaKernel {
 public:
 
     // Device arrays
-    RealType* d_XBeta;
-    RealType* d_ExpXBeta;
-    RealType* d_AccDenom;
-    RealType* d_Numer;
-    RealType* d_Numer2;
-    RealType* d_AccNumer;
-    RealType* d_AccNumer2;
-    RealType* d_itr;
-    
-    RealType* d_NWeight;
-    RealType* d_BufferG;
-    RealType* d_BufferH;
-    RealType* d_Gradient;
-    RealType* d_Hessian;
+    RealType* d_itr; 
 
     // Operator
     CustomExp    exp_op;
@@ -39,7 +26,7 @@ public:
 
     void initialize(int K, int N);   
     void updateXBeta(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, unsigned int offX, unsigned int offK, const unsigned int taskCount, RealType delta, thrust::device_vector<RealType>& dXBeta, thrust::device_vector<RealType>& dExpXBeta, int gridSize, int blockSize);
-    void computeGradientAndHessian(size_t& N, int& gridSize, int& blockSize);
+    void computeGradientAndHessian(const thrust::device_vector<RealType>& d_AccNumer, const thrust::device_vector<RealType>& d_AccNumer2, const thrust::device_vector<RealType>& d_AccDenom, const thrust::device_vector<RealType>& d_NWeight, thrust::device_vector<RealType>& d_Gradient, thrust::device_vector<RealType>& d_Hessian, size_t& N, int& gridSize, int& blockSize);
 
     //void CubScan(thrust::device_vector<RealType>& d_in, thrust::device_vector<RealType>& d_out, int num_items);
     void CubScan(RealType* d_in, RealType* d_out, int num_items);
