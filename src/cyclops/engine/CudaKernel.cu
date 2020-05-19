@@ -5,6 +5,8 @@
 #include <cub/cub.cuh>
 #include <thrust/device_vector.h>
 #include <thrust/device_ptr.h>
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/for_each.h>
 
 #include "CudaKernel.h"
 
@@ -53,6 +55,16 @@ __global__ void kernelComputeGradientAndHessian(RealType* d_BufferG, RealType* d
     }
 }
 
+struct functorComputeGradientAndHessian
+{
+    template <typename Tuple>
+    __host__ __device__
+    void operator()(Tuple t)
+    {
+        thrust::get<4>(t) = thrust::get<0>(t) * thrust::get<1>(t) / thrust::get<2>(t);
+        thrust::get<5>(t) = thrust::get<4>(t) * (1 - thrust::get<1>(t) / thrust::get<2>(t));
+    }
+};
 
 template <class RealType>
 CudaKernel<RealType>::CudaKernel()
@@ -104,7 +116,20 @@ void CudaKernel<RealType>::computeGradientAndHessian(const thrust::device_vector
     thrust::device_vector<RealType> d_BufferG(N, static_cast<RealType>(0));
     thrust::device_vector<RealType> d_BufferH(N, static_cast<RealType>(0));
 
-    kernelComputeGradientAndHessian<<<gridSize, blockSize>>>(thrust::raw_pointer_cast(&d_BufferG[0]), thrust::raw_pointer_cast(&d_BufferH[0]), thrust::raw_pointer_cast(&d_AccNumer[0]), thrust::raw_pointer_cast(&d_AccNumer2[0]), thrust::raw_pointer_cast(&d_AccDenom[0]), thrust::raw_pointer_cast(&d_NWeight[0]), N);
+    //kernelComputeGradientAndHessian<<<gridSize, blockSize>>>(thrust::raw_pointer_cast(&d_BufferG[0]), thrust::raw_pointer_cast(&d_BufferH[0]), thrust::raw_pointer_cast(&d_AccNumer[0]), thrust::raw_pointer_cast(&d_AccNumer2[0]), thrust::raw_pointer_cast(&d_AccDenom[0]), thrust::raw_pointer_cast(&d_NWeight[0]), N);
+    thrust::for_each(thrust::make_zip_iterator(thrust::make_tuple(d_NWeight.begin(),
+                                                                  d_AccNumer.begin(),
+                                                                  d_AccDenom.begin(),
+                                                                  d_AccNumer2.begin(),
+                                                                  d_BufferG.begin(),
+                                                                  d_BufferH.begin())),
+                     thrust::make_zip_iterator(thrust::make_tuple(d_NWeight.end(),
+                                                                  d_AccNumer.end(),
+                                                                  d_AccDenom.end(),
+                                                                  d_AccNumer2.end(),
+                                                                  d_BufferG.end(),
+                                                                  d_BufferH.end())),
+                     functorComputeGradientAndHessian());
 
     CudaKernel<RealType>::CubReduce(thrust::raw_pointer_cast(&d_BufferG[0]), thrust::raw_pointer_cast(&d_Gradient[0]), N);
     CudaKernel<RealType>::CubReduce(thrust::raw_pointer_cast(&d_BufferH[0]), thrust::raw_pointer_cast(&d_Hessian[0]), N);
