@@ -40,8 +40,8 @@ before_install:
   - ./run.sh bootstrap
 
 install:
-  - ./run.sh install_aptget r-cran-rcpp r-cran-dplyr r-cran-dbplyr r-cran-Andromeda r-cran-rcppparallel r-cran-rcppeigen r-cran-ggplot2 r-cran-testthat r-cran-gnm r-cran-devtools
-  - ./run.sh install_r drat covr microbenchmark
+  - ./run.sh install_aptget r-cran-rcpp r-cran-dplyr r-cran-rcppparallel r-cran-rcppeigen r-cran-ggplot2 r-cran-testthat r-cran-gnm r-cran-devtools
+  - ./run.sh install_r drat covr microbenchmark dbplyr Andromeda
   - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
   - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')
 
