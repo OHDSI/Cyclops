@@ -126,8 +126,6 @@ class SparseIterator {
 //	bool operator!=(iterator other) const {return !(*this == other);}
 
     inline const Scalar value() const {
-//    	cerr << "Oh yes!" << endl;
-//    	exit(-1);
     	return mValues[mId]; }
     inline Scalar& valueRef() { return const_cast<Scalar&>(mValues[mId]); }
 

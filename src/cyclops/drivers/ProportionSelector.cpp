@@ -59,30 +59,6 @@ void ProportionSelector::getWeights(int batch, std::vector<double>& weights) {
 
 	std::fill(weights.begin(), weights.end(), 0.0);
 	std::fill(weights.begin(), weights.begin() + total, 1.0);
-//	if (batch == -1) {
-//		return;
-//	}
-//
-//	if (type == SUBJECT) {
-//		for (int k = 0; k < K; k++) {
-//			int count = selectedSet.count(ids->at(k));
-//			weights[k] = static_cast<real>(count);
-//		}
-//	} else {
-//		std::cerr << "ProportionSelector::getWeights is not yet implemented." << std::endl;
-//		exit(-1);
-//	}
-//
-//	real total = 0.0;
-//	for (int k = 0; k < K; ++k) {
-//		total += weights[k];
-//	}
-//	std::cerr << "total weights = " << total << std::endl;
-//
-////	for (int k = 0; k < 10; ++k) {
-////		std::cerr << weights[k] << std::endl;
-////	}
-////	exit(-1);
 }
 
 void ProportionSelector::getComplement(std::vector<double>& weights) {

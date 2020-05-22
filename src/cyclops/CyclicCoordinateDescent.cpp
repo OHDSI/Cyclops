@@ -1294,9 +1294,6 @@ void CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix(void) {
 //			}
 			hessianMatrix(jj,ii) = hessianMatrix(ii,jj) = fisherInformation;
 
-//			std::cerr << "Info = " << fisherInformation << std::endl;
-//			std::cerr << "Hess = " << getHessianDiagonal(0) << std::endl;
-//			exit(-1);
 		}
 	}
 

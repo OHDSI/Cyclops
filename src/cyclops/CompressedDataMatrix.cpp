@@ -34,12 +34,8 @@ RealType CompressedDataMatrix<RealType>::sumColumn(int column) {
 	RealType sum = 0.0;
 	if (getFormatType(column) == DENSE) {
 	    throw new std::invalid_argument("DENSE");
-// 		cerr << "Not yet implemented (DENSE)." << endl;
-// 		exit(-1);
 	} else if (getFormatType(column) == SPARSE) {
 	    throw new std::invalid_argument("DENSE");
-// 		cerr << "Not yet implemented (SPARSE)." << endl;
-// 		exit(-1);
 	} else { // is indiciator
 		sum = allColumns[column]->getNumberOfEntries();
 	}
@@ -67,32 +63,6 @@ int CompressedDataMatrix<RealType>::getColumnIndexByName(IdType name) const {
 		return -1;
 	}
 }
-
-// void CompressedDataMatrix::printColumn(int column) {
-// #if 1
-// 	cerr << "Not yet implemented.\n";
-// 	exit(-1);
-// #else
-// 	real_vector values;
-// 	if (getFormatType(column) == DENSE) {
-// 		values.assign(data[column]->begin(), data[column]->end());
-// 	} else {
-// 		bool isSparse = getFormatType(column) == SPARSE;
-// 		values.assign(nRows, 0.0);
-// 		int* indicators = getCompressedColumnVector(column);
-// 		size_t n = getNumberOfEntries(column);
-// 		for (size_t i = 0; i < n; ++i) {
-// 			const int k = indicators[i];
-// 			if (isSparse) {
-// 				values[k] = data[column]->at(i);
-// 			} else {
-// 				values[k] = 1.0;
-// 			}
-// 		}
-// 	}
-// 	printVector(values.data(), values.size());
-// #endif
-// }
 
 template <typename RealType>
 void CompressedDataMatrix<RealType>::convertColumnToSparse(int column) {

@@ -1,4 +1,12 @@
+Cyclops v2.0.4
+==============
+
+Changes:
+
+1. removed, unused variable imputation functions that contained a `std::exit`
+
 Cyclops v2.0.3
+==============
 
 Changes:
 

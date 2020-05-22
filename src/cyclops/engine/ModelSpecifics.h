@@ -1154,7 +1154,6 @@ public:
 	    RealType xBeta, RealType y) {
 
 // 	    std::cout << "TODO" << std::endl;
-// 	    std::exit(-1); // breslow cox
 
         throw new std::logic_error("breslow cox model not yet support");
 
