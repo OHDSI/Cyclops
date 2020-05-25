@@ -9,7 +9,7 @@ struct CustomExp
     }
 };
 
-template <class RealType>
+template <typename RealType>
 class CudaKernel {
 
 public:
@@ -26,7 +26,7 @@ public:
 
     void initialize(int K, int N);   
     void updateXBeta(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, unsigned int offX, unsigned int offK, const unsigned int taskCount, RealType delta, thrust::device_vector<RealType>& dXBeta, thrust::device_vector<RealType>& dExpXBeta, int gridSize, int blockSize);
-    void computeGradientAndHessian(const thrust::device_vector<RealType>& d_AccNumer, const thrust::device_vector<RealType>& d_AccNumer2, thrust::device_vector<RealType>& d_AccDenom, const thrust::device_vector<RealType>& d_NWeight, thrust::device_vector<RealType>& d_Gradient, thrust::device_vector<RealType>& d_Hessian, size_t& N, int& gridSize, int& blockSize);
+    void computeGradientAndHessian(thrust::device_vector<RealType>& d_AccNumer, thrust::device_vector<RealType>& d_AccNumer2, thrust::device_vector<RealType>& d_AccDenom, thrust::device_vector<RealType>& d_NWeight, thrust::device_vector<RealType>& d_Gradient, thrust::device_vector<RealType>& d_Hessian, size_t& N, int& gridSize, int& blockSize);
 
     //void CubScan(thrust::device_vector<RealType>& d_in, thrust::device_vector<RealType>& d_out, int num_items);
     void CubScan(RealType* d_in, RealType* d_out, int num_items);
