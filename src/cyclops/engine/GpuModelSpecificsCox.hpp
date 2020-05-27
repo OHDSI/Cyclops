@@ -474,7 +474,7 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start4 = bsccs::chrono::steady_clock::now();
 #endif
-            // copy the results from host to host
+            // copy the results from device to host
 	    thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
 	    thrust::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(offsExpXBeta));
 	    thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid));
@@ -491,6 +491,78 @@ namespace bsccs{
         detail::compare(offsExpXBeta, dExpXBeta, "expXBeta not equal");
         detail::compare(denomPid, dDenominator, "denominator not equal");
 #endif // GPU_DEBUG
+        }
+
+        virtual void computeNumeratorForGradient(int index, bool useWeights) {
+            //std::cout << "GPU computeNumeratorForGradient called \n";
+
+            FormatType formatType = hX.getFormatType(index);
+            const auto taskCount = dCudaColumns.getTaskCount(index);
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start = bsccs::chrono::steady_clock::now();
+#endif
+            // zero vector
+	    resizeAndZeroToDeviceCuda(dNumerator, N);
+            if (BaseModel::hasTwoNumeratorTerms) {
+                resizeAndZeroToDeviceCuda(dNumerator2, N);
+            }
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name = "compNumForG" + getFormatTypeExtension(formatType) + "    cudaBuffer";
+            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start1 = bsccs::chrono::steady_clock::now();
+#endif
+            // copy from host to device
+	    resizeAndCopyToDeviceCuda(offsExpXBeta, dExpXBeta);
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end1 = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name1 = "compNumForG" + getFormatTypeExtension(formatType) + "   cudaMemcpy1";
+            duration[name1] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start1).count();
+#endif
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start2 = bsccs::chrono::steady_clock::now();
+#endif	
+            // computeNumeratorForGradient kernel
+            int gridSize, blockSize;
+            blockSize = 256;
+            gridSize = (int)ceil((double)taskCount/blockSize);
+            CudaData.computeNumeratorForGradient(dCudaColumns.getData(),
+                                                 dCudaColumns.getIndices(),
+                                                 dCudaColumns.getDataOffset(index),
+                                                 dCudaColumns.getIndicesOffset(index),
+                                                 taskCount,
+                                                 dExpXBeta,
+                                                 dNumerator,
+                                                 dNumerator2,
+                                                 gridSize,
+                                                 blockSize);
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end2 = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name2 = "compNumForG" + getFormatTypeExtension(formatType) + "     transform";
+            duration[name2] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
+#endif
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start3 = bsccs::chrono::steady_clock::now();
+#endif
+	    // copy the results from device to host
+            thrust::copy(std::begin(dNumerator), std::end(dNumerator), std::begin(numerPid));
+            thrust::copy(std::begin(dNumerator2), std::end(dNumerator2), std::begin(numerPid2));
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end3 = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name3 = "compNumForG" + getFormatTypeExtension(formatType) + "   cudaMemcpy2";
+            duration[name3] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end3 - start3).count();
+#endif
         }
 
         virtual const std::vector<double> getXBeta() {
