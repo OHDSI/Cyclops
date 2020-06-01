@@ -15,9 +15,14 @@
 using namespace cub;
 	
 template <typename RealType>
-__global__ void kernelUpdateXBeta(int offX, int offK, const int taskCount, RealType delta,
-                const RealType* d_X, const int* K, RealType* d_XBeta, RealType* d_ExpXBeta)
-//__global__ void kernelUpdateXBeta(RealType* d_X, RealType* d_XBeta, RealType* d_ExpXBeta, RealType delta, int N)
+__global__ void kernelUpdateXBeta(int offX, 
+				  int offK, 
+				  const int taskCount, 
+				  RealType delta,
+				  const RealType* d_X, 
+				  const int* K, 
+				  RealType* d_XBeta, 
+				  RealType* d_ExpXBeta)
 {
     int task = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -36,7 +41,7 @@ __global__ void kernelUpdateXBeta(int offX, int offK, const int taskCount, RealT
     if (task < taskCount) {
 	RealType xb = d_XBeta[k] + inc;
         d_XBeta[k] = xb;
-	d_ExpXBeta[k] = expf(xb);
+	d_ExpXBeta[k] = exp(xb);
     }
 }
 
@@ -69,7 +74,13 @@ __global__ void kernelComputeNumeratorForGradient(int offX,
 }
 
 template <typename RealType>
-__global__ void kernelComputeGradientAndHessian(RealType* d_BufferG, RealType* d_BufferH, const RealType* d_AccNumer, const RealType* d_AccNumer2, const RealType* d_AccDenom, const RealType* d_NWeight, int N)
+__global__ void kernelComputeGradientAndHessian(RealType* d_BufferG, 
+						RealType* d_BufferH, 
+						const RealType* d_AccNumer, 
+						const RealType* d_AccNumer2, 
+						const RealType* d_AccDenom, 
+						const RealType* d_NWeight, 
+						int N)
 {
     int task = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -126,33 +137,27 @@ CudaKernel<RealType>::~CudaKernel()
 template <typename RealType>
 void CudaKernel<RealType>::initialize(int K, int N)
 {
-/*
-	//TODO use thrust	
-    cudaMalloc(&d_XBeta,  sizeof(RealType) * K);
-    cudaMalloc(&d_ExpXBeta,  sizeof(RealType) * K);
-
-    cudaMalloc(&d_Numer,  sizeof(RealType) * N);
-    cudaMalloc(&d_Numer2,  sizeof(RealType) * N);
-
-    cudaMalloc(&d_AccDenom, sizeof(RealType) * N);
-    cudaMalloc(&d_AccNumer, sizeof(RealType) * N);
-    cudaMalloc(&d_AccNumer2, sizeof(RealType) * N);
-
-    cudaMalloc(&d_BufferG, sizeof(RealType) * N);
-    cudaMalloc(&d_BufferH, sizeof(RealType) * N);
-    cudaMalloc(&d_Gradient, sizeof(RealType));
-    cudaMalloc(&d_Hessian, sizeof(RealType));
-
-    cudaMalloc(&d_NWeight, sizeof(RealType) * N);    
-    
-    std::cout << "Initialize CUDA vector \n";
-    */
 }
 
 template <typename RealType>
-void CudaKernel<RealType>::updateXBeta(const thrust::device_vector<RealType>& X, const thrust::device_vector<int>& K, unsigned int offX, unsigned int offK, const unsigned int taskCount, RealType delta, thrust::device_vector<RealType>& dXBeta, thrust::device_vector<RealType>& dExpXBeta, int gridSize, int blockSize)
+void CudaKernel<RealType>::updateXBeta(const thrust::device_vector<RealType>& X, 
+				       const thrust::device_vector<int>& K, 
+				       unsigned int offX, 
+				       unsigned int offK, 
+				       const unsigned int taskCount, 
+				       RealType delta, 
+				       thrust::device_vector<RealType>& dXBeta, 
+				       thrust::device_vector<RealType>& dExpXBeta, 
+				       int gridSize, int blockSize)
 {
-    kernelUpdateXBeta<<<gridSize, blockSize>>>(offX, offK, taskCount, delta, thrust::raw_pointer_cast(&X[0]), thrust::raw_pointer_cast(&K[0]), thrust::raw_pointer_cast(&dXBeta[0]), thrust::raw_pointer_cast(&dExpXBeta[0]));
+    kernelUpdateXBeta<<<gridSize, blockSize>>>(offX, 
+		    			       offK, 
+					       taskCount, 
+					       delta, 
+					       thrust::raw_pointer_cast(&X[0]), 
+					       thrust::raw_pointer_cast(&K[0]), 
+					       thrust::raw_pointer_cast(&dXBeta[0]), 
+					       thrust::raw_pointer_cast(&dExpXBeta[0]));
 }
 
 template <typename RealType>
@@ -177,7 +182,14 @@ void CudaKernel<RealType>::computeNumeratorForGradient(const thrust::device_vect
 }
 
 template <typename RealType>
-void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealType>& d_AccNumer, thrust::device_vector<RealType>& d_AccNumer2, thrust::device_vector<RealType>& d_AccDenom, thrust::device_vector<RealType>& d_NWeight, thrust::device_vector<RealType>& d_Gradient, thrust::device_vector<RealType>& d_Hessian, size_t& N, int& gridSize, int& blockSize)
+void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealType>& d_AccNumer, 
+						     thrust::device_vector<RealType>& d_AccNumer2, 
+						     thrust::device_vector<RealType>& d_AccDenom, 
+						     thrust::device_vector<RealType>& d_NWeight, 
+						     thrust::device_vector<RealType>& d_Gradient, 
+						     thrust::device_vector<RealType>& d_Hessian, 
+						     size_t& N, 
+						     int& gridSize, int& blockSize)
 {
 typedef thrust::tuple<RealType,RealType> Tup2;
 typedef typename thrust::device_vector<RealType>::iterator VecItr;

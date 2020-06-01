@@ -7,6 +7,12 @@ template <typename DeviceVec, typename HostVec>
 void resizeCudaVec(const HostVec& hostVec, DeviceVec& deviceVec);
 
 template <typename DeviceVec>
+void resizeCudaVecSize(DeviceVec& deviceVec, int num_items);
+
+template <typename DeviceVec>
+void zeroCudaVec(DeviceVec& deviceVec);
+
+template <typename DeviceVec>
 void resizeAndZeroToDeviceCuda(DeviceVec& deviceVec, int num_items);
 
 /*
