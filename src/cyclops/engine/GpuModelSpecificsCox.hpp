@@ -292,6 +292,7 @@ namespace bsccs{
 
             std::cerr << "GPU::cRS called" << std::endl;
 
+	    hXBetaKnown = true;
             // Currently RS only computed on CPU and then copied
             ModelSpecifics<BaseModel, RealType>::computeRemainingStatistics(useWeights);
 
@@ -320,16 +321,41 @@ namespace bsccs{
 
         }
 
+        virtual double getGradientObjective(bool useCrossValidation) {
+            
+            // TODO write gpu version to avoid D-H copying
+            ModelSpecifics<BaseModel, RealType>::getGradientObjective(useCrossValidation);
+        }
+
+	virtual double getLogLikelihood(bool useCrossValidation) {
+
+//	std::cout << "GPU::cLL called" << std::endl;
+
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
+            // TODO write gpu version to avoid D-H copying
+            thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid));
+            
+#ifdef CYCLOPS_DEBUG_TIMING
+        auto end = bsccs::chrono::steady_clock::now();
+        ///////////////////////////"
+        duration["compLogLikeG     "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+#endif
+            // Currently LL only computed on CPU and then copied
+            ModelSpecifics<BaseModel, RealType>::getLogLikelihood(useCrossValidation);
+
+	}	
 
 	virtual void computeGradientAndHessian(int index, double *ogradient,
                                            double *ohessian, bool useWeights) {
 
-//            std::cout << "GPU computeGradientAndHessian \n";
-		    std::vector<RealType> gradient(1, static_cast<RealType>(0));
-		    std::vector<RealType> hessian(1, static_cast<RealType>(0));
-		
-		    FormatType formatType = hX.getFormatType(index);
-		    const auto taskCount = dCudaColumns.getTaskCount(index);
+//            std::cout << "GPU::cGAH \n";
+            std::vector<RealType> gradient(1, static_cast<RealType>(0));
+            std::vector<RealType> hessian(1, static_cast<RealType>(0));
+            
+            FormatType formatType = hX.getFormatType(index);
+            const auto taskCount = dCudaColumns.getTaskCount(index);
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start = bsccs::chrono::steady_clock::now();
@@ -345,21 +371,6 @@ namespace bsccs{
             auto name = "compGradHessG" + getFormatTypeExtension(formatType) + "  cudaBuffer";
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-/*
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto start1 = bsccs::chrono::steady_clock::now();
-#endif
-	        // copy from host to device
-//	    resizeAndCopyToDeviceCuda(numerPid, dNumerator);
-//	    resizeAndCopyToDeviceCuda(numerPid2, dNumerator2);
-//	    resizeAndCopyToDeviceCuda(accDenomPid, dAccDenominator);
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto end1 = bsccs::chrono::steady_clock::now();
-            ///////////////////////////"
-            auto name1 = "compGradHessG" + getFormatTypeExtension(formatType) + " cudaMemcpy1";
-            duration[name1] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start1).count();
-#endif
-*/
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start2 = bsccs::chrono::steady_clock::now();
@@ -379,11 +390,18 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start3 = bsccs::chrono::steady_clock::now();
 #endif
-	        // kernel
+            // kernel
             int gridSize, blockSize;
             blockSize = 256;
             gridSize = (int)ceil((double)N/blockSize);
-	        CudaData.computeGradientAndHessian(dAccNumer, dAccNumer2, dAccDenominator, dNWeight, dGradient, dHessian, N, gridSize, blockSize);
+	    CudaData.computeGradientAndHessian(dAccNumer, 
+			    		       dAccNumer2, 
+					       dAccDenominator, 
+					       dNWeight, 
+					       dGradient, 
+					       dHessian, 
+					       N, 
+					       gridSize, blockSize);
     
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end3 = bsccs::chrono::steady_clock::now();
@@ -395,8 +413,8 @@ namespace bsccs{
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start4 = bsccs::chrono::steady_clock::now();
-#endif
-	        // copy the results from device to host
+#endif    
+	    // copy the results from device to host
 	    thrust::copy(std::begin(dGradient), std::end(dGradient), std::begin(gradient));
 	    thrust::copy(std::begin(dHessian), std::end(dHessian), std::begin(hessian));
             
@@ -423,7 +441,7 @@ namespace bsccs{
 #endif // GPU_DEBUG
 
 //	    ModelSpecifics<BaseModel, RealType>::updateXBeta(delta, index, useWeights);
-	    //std::cout << "GPU updateXBeta called \n";
+//	    std::cout << "GPU updateXBeta called \n";
 /*
             // FOR TEST: check data
             std::cout << "delta: " << delta << '\n';
@@ -431,21 +449,7 @@ namespace bsccs{
             std::cout << "offX: " << dColumns.getDataOffset(index) << " offK: " << dColumns.getIndicesOffset(index) << '\n';
 */
             FormatType formatType = hX.getFormatType(index);
-	        const auto taskCount = dCudaColumns.getTaskCount(index);
-/*
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto start1 = bsccs::chrono::steady_clock::now();
-#endif	
-            // copy from host to device
-            //thrust::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta));
-            //thrust::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta));
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto end1 = bsccs::chrono::steady_clock::now();
-            ///////////////////////////"
-            auto name1 = "updateXBetaG" + getFormatTypeExtension(formatType) + "   cudaMemcpy1";
-            duration[name1] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start1).count();
-#endif
-*/
+            const auto taskCount = dCudaColumns.getTaskCount(index);
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start2 = bsccs::chrono::steady_clock::now();
@@ -454,7 +458,16 @@ namespace bsccs{
             int gridSize, blockSize;
             blockSize = 256;
             gridSize = (int)ceil((double)taskCount/blockSize);
-            CudaData.updateXBeta(dCudaColumns.getData(), dCudaColumns.getIndices(), dCudaColumns.getDataOffset(index), dCudaColumns.getIndicesOffset(index), taskCount, static_cast<RealType>(delta), dXBeta, dExpXBeta, gridSize, blockSize);
+            CudaData.updateXBeta(dCudaColumns.getData(), 
+			    	 dCudaColumns.getIndices(), 
+				 dCudaColumns.getDataOffset(index), 
+				 dCudaColumns.getIndicesOffset(index), 
+				 taskCount, 
+				 static_cast<RealType>(delta), 
+				 dXBeta, 
+				 dExpXBeta, 
+				 gridSize, blockSize);
+	    hXBetaKnown = false;
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end2 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
@@ -467,7 +480,8 @@ namespace bsccs{
             auto start3 = bsccs::chrono::steady_clock::now();
 #endif
             // scan (computeAccumlatedDenominator)
-	        CudaData.CubScan(thrust::raw_pointer_cast(&dExpXBeta[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
+            CudaData.CubScan(thrust::raw_pointer_cast(&dExpXBeta[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
+
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end3 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
@@ -475,20 +489,6 @@ namespace bsccs{
             duration[name3] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end3 - start3).count();
 #endif
 
-
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto start4 = bsccs::chrono::steady_clock::now();
-#endif
-            // copy the results from device to host
-	    thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
-//	    thrust::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(offsExpXBeta));
-	    thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid));
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto end4 = bsccs::chrono::steady_clock::now();
-            ///////////////////////////"
-            auto name4 = "updateXBetaG" + getFormatTypeExtension(formatType) + "   cudaMemcpy2";
-            duration[name4] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end4 - start4).count();
-#endif
 
 #ifdef GPU_DEBUG
             // Compare results:
@@ -518,19 +518,7 @@ namespace bsccs{
             auto name = "compNumForG" + getFormatTypeExtension(formatType) + "    cudaBuffer";
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-/*
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto start1 = bsccs::chrono::steady_clock::now();
-#endif
-            // copy from host to device
-	    //thrust::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta));
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto end1 = bsccs::chrono::steady_clock::now();
-            ///////////////////////////"
-            auto name1 = "compNumForG" + getFormatTypeExtension(formatType) + "   cudaMemcpy1";
-            duration[name1] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start1).count();
-#endif
-*/
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start2 = bsccs::chrono::steady_clock::now();
@@ -555,27 +543,11 @@ namespace bsccs{
             auto name2 = "compNumForG" + getFormatTypeExtension(formatType) + "     transform";
             duration[name2] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
 #endif
-
-/*
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto start3 = bsccs::chrono::steady_clock::now();
-#endif
-	    // copy the results from device to host
-//            thrust::copy(std::begin(dNumerator), std::end(dNumerator), std::begin(numerPid));
-	    if (BaseModel::hasTwoNumeratorTerms) {
-//            	thrust::copy(std::begin(dNumerator2), std::end(dNumerator2), std::begin(numerPid2));
-	    }
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto end3 = bsccs::chrono::steady_clock::now();
-            ///////////////////////////"
-            auto name3 = "compNumForG" + getFormatTypeExtension(formatType) + "   cudaMemcpy2";
-            duration[name3] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end3 - start3).count();
-#endif
-*/
         }
 
         virtual const std::vector<double> getXBeta() {
             if (!hXBetaKnown) {
+//		    std::cout << "GPU::getXBeta called \n";
                 thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
                 hXBetaKnown = true;
             }
