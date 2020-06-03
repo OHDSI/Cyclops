@@ -84,7 +84,7 @@ namespace bsccs{
                     taskCounts.push_back(column.getNumberOfEntries());
                 }
             }
-            
+	    
 	    resizeAndCopyToDeviceCuda(flatData, data);
             resizeAndCopyToDeviceCuda(flatIndices, indices);
             resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
@@ -266,15 +266,19 @@ namespace bsccs{
 
 	    // Internal buffers
             resizeCudaVec(hXBeta, dXBeta); // K
-            resizeCudaVec(offsExpXBeta, dExpXBeta); // K
+            resizeCudaVec(offsExpXBeta, dExpXBeta); 
+	    
 	    resizeCudaVec(numerPid, dNumerator); // getAlignedLength(N + 1)
-            if (BaseModel::hasTwoNumeratorTerms) {
+	    if (BaseModel::hasTwoNumeratorTerms) {
                 resizeCudaVec(numerPid2, dNumerator2);
             }
 	    resizeCudaVec(numerPid, dAccNumer);
 	    resizeCudaVec(numerPid2, dAccNumer2);
-
+           	    
 	    resizeCudaVecSize(dAccDenominator, N+1);
+
+	    resizeCudaVecSize(dGradient, 1);
+	    resizeCudaVecSize(dHessian, 1);
 //            std::cerr << "Format types required: " << need << std::endl;
 
         }
@@ -305,13 +309,9 @@ namespace bsccs{
             }
             */
 
-            if (BaseModel::likelihoodHasDenominator) {
-		thrust::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta));
-                thrust::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta));
-		thrust::copy(std::begin(accDenomPid), std::end(accDenomPid), std::begin(dAccDenominator));
-//                thrust::copy(std::begin(denomPid), std::end(denomPid), std::begin(dDenominator));
-            }
-
+	    thrust::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta));
+	    thrust::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta));
+	    thrust::copy(std::begin(accDenomPid), std::end(accDenomPid), std::begin(dAccDenominator));
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
@@ -356,33 +356,54 @@ namespace bsccs{
             
             FormatType formatType = hX.getFormatType(index);
             const auto taskCount = dCudaColumns.getTaskCount(index);
-
+/*
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start = bsccs::chrono::steady_clock::now();
 #endif
 	    // zero buffer
 	    zeroCudaVec(dAccNumer);
 	    zeroCudaVec(dAccNumer2);
-	    dGradient = gradient;
-	    dHessian = hessian;
+	    zeroCudaVec(dGradient);
+	    zeroCudaVec(dHessian);
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
             auto name = "compGradHessG" + getFormatTypeExtension(formatType) + "  cudaBuffer";
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-
+*/
+/*
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start2 = bsccs::chrono::steady_clock::now();
 #endif	
-            // scan (computeAccumlatedNumerator)
-            CudaData.CubScan(thrust::raw_pointer_cast(&dNumerator[0]), thrust::raw_pointer_cast(&dAccNumer[0]), N);
-            CudaData.CubScan(thrust::raw_pointer_cast(&dNumerator[0]), thrust::raw_pointer_cast(&dAccNumer2[0]), N);
-
+            // dense scan on tuple
+            CudaData.computeAccumulatedNumerator(dNumerator,
+                                                 dNumerator2,
+                                                 dAccNumer,
+                                                 dAccNumer2,
+                                                 N);
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end2 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
             auto name2 = "compGradHessG" + getFormatTypeExtension(formatType) + "    accNumer";
+            duration[name2] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
+#endif
+*/
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start2 = bsccs::chrono::steady_clock::now();
+#endif
+            // dense scan on tuple
+            CudaData.computeAccumulatedNumerAndDenom(dExpXBeta,
+			    			     dNumerator,
+						     dNumerator2,
+						     dAccDenominator,
+						     dAccNumer,
+						     dAccNumer2,
+						     N);
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end2 = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name2 = "compGradHessG" + getFormatTypeExtension(formatType) + "    accNAndD";
             duration[name2] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
 #endif
 
@@ -390,19 +411,14 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start3 = bsccs::chrono::steady_clock::now();
 #endif
-            // kernel
-            int gridSize, blockSize;
-            blockSize = 256;
-            gridSize = (int)ceil((double)N/blockSize);
+            // dense transform reduction
 	    CudaData.computeGradientAndHessian(dAccNumer, 
 			    		       dAccNumer2, 
 					       dAccDenominator, 
 					       dNWeight, 
 					       dGradient, 
 					       dHessian, 
-					       N, 
-					       gridSize, blockSize);
-    
+					       N);
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end3 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
@@ -454,7 +470,7 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start2 = bsccs::chrono::steady_clock::now();
 #endif
-            // updateXBeta kernel
+            // sparse transformation
             int gridSize, blockSize;
             blockSize = 256;
             gridSize = (int)ceil((double)taskCount/blockSize);
@@ -475,11 +491,11 @@ namespace bsccs{
             duration[name2] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
 #endif
 
-
+/*
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start3 = bsccs::chrono::steady_clock::now();
 #endif
-            // scan (computeAccumlatedDenominator)
+            // dense scan
             CudaData.CubScan(thrust::raw_pointer_cast(&dExpXBeta[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -488,7 +504,7 @@ namespace bsccs{
             auto name3 = "updateXBetaG" + getFormatTypeExtension(formatType) + "      accDenom";
             duration[name3] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end3 - start3).count();
 #endif
-
+*/
 
 #ifdef GPU_DEBUG
             // Compare results:
@@ -503,11 +519,11 @@ namespace bsccs{
 
             FormatType formatType = hX.getFormatType(index);
             const auto taskCount = dCudaColumns.getTaskCount(index);
+
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start = bsccs::chrono::steady_clock::now();
-#endif
-	    
-            // zero vector
+#endif	    
+            // dense zero vector
 	    zeroCudaVec(dNumerator);
             if (BaseModel::hasTwoNumeratorTerms) {
                 zeroCudaVec(dNumerator2);
@@ -515,7 +531,7 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
-            auto name = "compNumForG" + getFormatTypeExtension(formatType) + "    cudaBuffer";
+            auto name = "compNumForG" + getFormatTypeExtension(formatType) + "    zeroBuffer";
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
@@ -523,7 +539,7 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start2 = bsccs::chrono::steady_clock::now();
 #endif	
-            // computeNumeratorForGradient kernel
+            // sparse transformation
             int gridSize, blockSize;
             blockSize = 256;
             gridSize = (int)ceil((double)taskCount/blockSize);
@@ -535,8 +551,7 @@ namespace bsccs{
                                                  dExpXBeta,
                                                  dNumerator,
                                                  dNumerator2,
-                                                 gridSize,
-                                                 blockSize);
+                                                 gridSize, blockSize);
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end2 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"

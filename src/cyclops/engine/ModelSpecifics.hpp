@@ -1688,15 +1688,11 @@ void ModelSpecifics<BaseModel,RealType>::computeAccumlatedNumerator(bool useWeig
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeAccumlatedDenominator(bool useWeights) {
-/*
-	for (int i =0; i < N; i++) {
-		denomPid[i] = static_cast<RealType>(i);
-	}
 
 #ifdef CYCLOPS_DEBUG_TIMING
     auto start2 = bsccs::chrono::steady_clock::now();
 #endif
-*/
+
 	if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
 		    BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 
@@ -1721,12 +1717,12 @@ void ModelSpecifics<BaseModel,RealType>::computeAccumlatedDenominator(bool useWe
 	    }
 //	    std::cout << "N: " << N << " totalDenom: " << totalDenom << '\n';
 	}
-/*
 #ifdef CYCLOPS_DEBUG_TIMING
     auto end2 = bsccs::chrono::steady_clock::now();
     ///////////////////////////"
     duration["accumlatedDenom  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();;
 #endif
+/*
     double timerC = 0;
     timerC = bsccs::chrono::duration<double, std::milli>(end2-start2).count();
     std::cout << "timerC: " << timerC << '\n';

@@ -49,8 +49,19 @@ public:
 				   thrust::device_vector<RealType>& d_NWeight, 
 				   thrust::device_vector<RealType>& d_Gradient, 
 				   thrust::device_vector<RealType>& d_Hessian, 
-				   size_t& N, 
-				   int& gridSize, int& blockSize);
+				   size_t& N);
+    void computeAccumulatedNumerator(thrust::device_vector<RealType>& d_Numerator,
+                                     thrust::device_vector<RealType>& d_Numerator2,
+                                     thrust::device_vector<RealType>& d_AccNumer,
+                                     thrust::device_vector<RealType>& d_AccNumer2,
+                                     size_t& N);
+    void computeAccumulatedNumerAndDenom(thrust::device_vector<RealType>& d_Denominator,
+                                         thrust::device_vector<RealType>& d_Numerator,
+					 thrust::device_vector<RealType>& d_Numerator2,
+					 thrust::device_vector<RealType>& d_AccDenom,
+					 thrust::device_vector<RealType>& d_AccNumer,
+					 thrust::device_vector<RealType>& d_AccNumer2,
+					 size_t& N);
 
     //void CubScan(thrust::device_vector<RealType>& d_in, thrust::device_vector<RealType>& d_out, int num_items);
     void CubScan(RealType* d_in, RealType* d_out, int num_items);

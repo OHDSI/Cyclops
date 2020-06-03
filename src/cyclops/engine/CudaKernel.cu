@@ -6,8 +6,8 @@
 #include <thrust/device_vector.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/zip_iterator.h>
-#include <thrust/transform_reduce.h>
 #include <thrust/tuple.h>
+//#include <thrust/transform_reduce.h>
 //#include <thrust/for_each.h>
 
 #include "CudaKernel.h"
@@ -106,6 +106,18 @@ struct TuplePlus
     }
 };
 
+struct TuplePlus3
+{
+    template<typename L, typename R>
+    __host__ __device__
+    thrust::tuple<L, L, L> operator()(thrust::tuple<L, L, L> lhs, thrust::tuple<R, R, R> rhs)
+    {
+            return thrust::make_tuple(thrust::get<0>(lhs) + thrust::get<0>(rhs),
+                                      thrust::get<1>(lhs) + thrust::get<1>(rhs),
+                                      thrust::get<2>(lhs) + thrust::get<2>(rhs));
+    }
+};
+
 template <typename RealType>
 struct functorCGH :
         public thrust::unary_function<thrust::tuple<RealType, RealType, RealType, RealType>,
@@ -188,8 +200,7 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
 						     thrust::device_vector<RealType>& d_NWeight, 
 						     thrust::device_vector<RealType>& d_Gradient, 
 						     thrust::device_vector<RealType>& d_Hessian, 
-						     size_t& N, 
-						     int& gridSize, int& blockSize)
+						     size_t& N)
 {
 typedef thrust::tuple<RealType,RealType> Tup2;
 typedef typename thrust::device_vector<RealType>::iterator VecItr;
@@ -197,36 +208,12 @@ typedef thrust::tuple<VecItr,VecItr,VecItr,VecItr> TupVec4;
 typedef thrust::zip_iterator<TupVec4> ZipVec4;
 
     d_AccDenom[N] = static_cast<RealType>(1); // avoid nan
-/*
-    // thrust transform reduction
-    functorCGH<RealType> cGAH;
-    thrust::tuple<RealType, RealType> init = thrust::make_tuple<RealType, RealType>(0, 0);
-    thrust::tuple<RealType, RealType> gh = thrust::transform_reduce(
-                     thrust::make_zip_iterator(thrust::make_tuple(d_NWeight.begin(), 
-                                                                  d_AccNumer.begin(), 
-                                                                  d_AccDenom.begin(), 
-                                                                  d_AccNumer2.begin())),
-                     thrust::make_zip_iterator(thrust::make_tuple(d_NWeight.end(), 
-                                                                  d_AccNumer.end(), 
-                                                                  d_AccDenom.end(), 
-                                                                  d_AccNumer2.end())),
-                     cGAH,
-                     init,
-                     TuplePlus());
- 
-    d_Gradient[0] = thrust::get<0>(gh);
-    d_Hessian[0] = thrust::get<1>(gh);
-*/
-    // cub transfrom reduction
 
+    // cub transfrom reduction
     auto begin = thrust::make_zip_iterator(thrust::make_tuple(d_NWeight.begin(),
                                                               d_AccNumer.begin(),
                                                               d_AccDenom.begin(),
                                                               d_AccNumer2.begin()));
-    auto end = thrust::make_zip_iterator(thrust::make_tuple(d_NWeight.end(),
-                                                            d_AccNumer.end(),
-                                                            d_AccDenom.end(),
-                                                            d_AccNumer2.end()));
     thrust::tuple<RealType, RealType> init = thrust::make_tuple<RealType, RealType>(0, 0);
     auto gh = thrust::make_zip_iterator(thrust::make_tuple(d_Gradient.begin(), d_Hessian.begin()));
 
@@ -239,9 +226,7 @@ typedef thrust::zip_iterator<TupVec4> ZipVec4;
     size_t temp_storage_bytes = 0;
 
     DeviceReduce::Reduce(d_temp_storage, temp_storage_bytes, itr, gh, N, TuplePlus(), init);
-
     cudaMalloc(&d_temp_storage, temp_storage_bytes);
-
     DeviceReduce::Reduce(d_temp_storage, temp_storage_bytes, itr, gh, N, TuplePlus(), init);
 
     cudaFree(d_temp_storage);
@@ -249,7 +234,47 @@ typedef thrust::zip_iterator<TupVec4> ZipVec4;
 //    std::cout << "G: " << d_Gradient[0] << " H: " << d_Hessian[0] << '\n';
 }
 
+template <typename RealType>
+void CudaKernel<RealType>::computeAccumulatedNumerator(thrust::device_vector<RealType>& d_Numerator,
+                                                       thrust::device_vector<RealType>& d_Numerator2,
+                                                       thrust::device_vector<RealType>& d_AccNumer,
+                                                       thrust::device_vector<RealType>& d_AccNumer2,
+                                                       size_t& N)
+{
+    auto results = thrust::make_zip_iterator(thrust::make_tuple(d_AccNumer.begin(), d_AccNumer2.begin()));
+    auto begin = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(), d_Numerator2.begin()));
 
+    void *d_temp_storage0 = NULL;
+    size_t temp_storage_bytes0 = 0;
+
+    DeviceScan::InclusiveScan(d_temp_storage0, temp_storage_bytes0, begin, results, TuplePlus(), N);
+    cudaMalloc(&d_temp_storage0, temp_storage_bytes0);
+    DeviceScan::InclusiveScan(d_temp_storage0, temp_storage_bytes0, begin, results, TuplePlus(), N);
+    
+    cudaFree(d_temp_storage0);
+}
+
+template <typename RealType>
+void CudaKernel<RealType>::computeAccumulatedNumerAndDenom(thrust::device_vector<RealType>& d_Denominator,
+							   thrust::device_vector<RealType>& d_Numerator,
+							   thrust::device_vector<RealType>& d_Numerator2,
+							   thrust::device_vector<RealType>& d_AccDenom,
+							   thrust::device_vector<RealType>& d_AccNumer,
+							   thrust::device_vector<RealType>& d_AccNumer2,
+							   size_t& N)
+{
+    auto results = thrust::make_zip_iterator(thrust::make_tuple(d_AccDenom.begin(), d_AccNumer.begin(), d_AccNumer2.begin()));
+    auto begin = thrust::make_zip_iterator(thrust::make_tuple(d_Denominator.begin(), d_Numerator.begin(), d_Numerator2.begin()));
+
+    void *d_temp_storage0 = NULL;
+    size_t temp_storage_bytes0 = 0;
+
+    DeviceScan::InclusiveScan(d_temp_storage0, temp_storage_bytes0, begin, results, TuplePlus3(), N);
+    cudaMalloc(&d_temp_storage0, temp_storage_bytes0);
+    DeviceScan::InclusiveScan(d_temp_storage0, temp_storage_bytes0, begin, results, TuplePlus3(), N);
+
+    cudaFree(d_temp_storage0);
+}
 
 template <typename RealType>
 void CudaKernel<RealType>::CubReduce(RealType* d_in, RealType* d_out, int num_items)
@@ -271,7 +296,6 @@ void CudaKernel<RealType>::CubReduce(RealType* d_in, RealType* d_out, int num_it
 }
 
 template <typename RealType>
-//void CudaKernel<RealType>::CubScan(thrust::device_vector<RealType>& d_in, thrust::device_vector<RealType>& d_out, int num_items)
 void CudaKernel<RealType>::CubScan(RealType* d_in, RealType* d_out, int num_items)
 {
     // Allocate temporary storage
@@ -279,7 +303,6 @@ void CudaKernel<RealType>::CubScan(RealType* d_in, RealType* d_out, int num_item
     size_t temp_storage_bytes0 = 0;
 
     // Determine temporary device storage requirements
-    //DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, thrust::raw_pointer_cast(&d_in[0]), thrust::raw_pointer_cast(&d_out[0]), num_items);
     DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, d_in, d_out, num_items);
 
     // Allocate temporary storage
