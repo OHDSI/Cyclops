@@ -20,11 +20,23 @@ public:
     // Operator
     CustomExp    exp_op;
 
+    // Allocate temporary storage
+    void *d_temp_storage_acc = NULL;
+    size_t temp_storage_bytes_acc = 0;
 
     CudaKernel();
     ~CudaKernel();
 
-    void initialize(int K, int N);   
+    void allocTempStorage(thrust::device_vector<RealType>& d_Denominator,
+                    thrust::device_vector<RealType>& d_Numerator,
+		    thrust::device_vector<RealType>& d_Numerator2,
+		    thrust::device_vector<RealType>& d_AccDenom,
+		    thrust::device_vector<RealType>& d_AccNumer,
+		    thrust::device_vector<RealType>& d_AccNumer2,
+		    thrust::device_vector<RealType>& d_NWeight,
+		    thrust::device_vector<RealType>& d_Gradient,
+		    thrust::device_vector<RealType>& d_Hessian,
+		    size_t& N);
     void updateXBeta(const thrust::device_vector<RealType>& X, 
 		     const thrust::device_vector<int>& K, 
 		     unsigned int offX, 
@@ -33,6 +45,8 @@ public:
 		     RealType delta, 
 		     thrust::device_vector<RealType>& dXBeta, 
 		     thrust::device_vector<RealType>& dExpXBeta, 
+		     thrust::device_vector<RealType>& dNumerator,
+		     thrust::device_vector<RealType>& dNumerator2,
 		     int gridSize, int blockSize);
     void computeNumeratorForGradient(const thrust::device_vector<RealType>& X,
                                      const thrust::device_vector<int>& K,
@@ -63,11 +77,11 @@ public:
 					 thrust::device_vector<RealType>& d_AccNumer2,
 					 size_t& N);
 
+    /*
     //void CubScan(thrust::device_vector<RealType>& d_in, thrust::device_vector<RealType>& d_out, int num_items);
     void CubScan(RealType* d_in, RealType* d_out, int num_items);
     void CubReduce(RealType* d_in, RealType* d_out, int num_items);
 
-    /*
     void computeAccDenomMalloc(int num_items);
     void computeAccDenom(int num_items);
     void computeAccNumerMalloc(int num_items);

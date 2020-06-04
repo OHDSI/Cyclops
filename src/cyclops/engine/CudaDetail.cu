@@ -5,6 +5,13 @@
 #include "CudaDetail.h"
 
 template <typename DeviceVec, typename HostVec>
+void resizeAndZeroCudaVec(const HostVec& hostVec, DeviceVec& deviceVec)
+{
+        deviceVec.resize(hostVec.size());
+        thrust::fill(deviceVec.begin(), deviceVec.end(), 0.0);
+}
+
+template <typename DeviceVec, typename HostVec>
 void resizeAndCopyToDeviceCuda(const HostVec& hostVec, DeviceVec& deviceVec) 
 {
 	deviceVec.resize(hostVec.size());
@@ -36,6 +43,8 @@ void resizeAndZeroToDeviceCuda(DeviceVec& deviceVec, int num_items)
         thrust::fill(deviceVec.begin(), deviceVec.end(), 0.0);
 }
 
+template void resizeAndZeroCudaVec<thrust::device_vector<double>, std::vector<double>>(const std::vector<double>& hostVec, thrust::device_vector<double>& deviceVec);
+template void resizeAndZeroCudaVec<thrust::device_vector<float>, std::vector<float>>(const std::vector<float>& hostVec, thrust::device_vector<float>& deviceVec);
 
 template void resizeAndCopyToDeviceCuda<thrust::device_vector<double>, std::vector<double>>(const std::vector<double>& hostVec, thrust::device_vector<double>& deviceVec);
 template void resizeAndCopyToDeviceCuda<thrust::device_vector<float>, std::vector<float>>(const std::vector<float>& hostVec, thrust::device_vector<float>& deviceVec);

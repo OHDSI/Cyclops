@@ -268,9 +268,9 @@ namespace bsccs{
             resizeCudaVec(hXBeta, dXBeta); // K
             resizeCudaVec(offsExpXBeta, dExpXBeta); 
 	    
-	    resizeCudaVec(numerPid, dNumerator); // getAlignedLength(N + 1)
+	    resizeAndZeroCudaVec(numerPid, dNumerator); // getAlignedLength(N + 1)
 	    if (BaseModel::hasTwoNumeratorTerms) {
-                resizeCudaVec(numerPid2, dNumerator2);
+                resizeAndZeroCudaVec(numerPid2, dNumerator2);
             }
 	    resizeCudaVec(numerPid, dAccNumer);
 	    resizeCudaVec(numerPid2, dAccNumer2);
@@ -279,6 +279,18 @@ namespace bsccs{
 
 	    resizeCudaVecSize(dGradient, 1);
 	    resizeCudaVecSize(dHessian, 1);
+
+	    // Allocate temporary storage for scan and reduction
+	    CudaData.allocTempStorage(dExpXBeta,
+                                      dNumerator,
+				      dNumerator2,
+				      dAccDenominator,
+				      dAccNumer,
+				      dAccNumer2,
+				      dNWeight,
+				      dGradient,
+				      dHessian,
+				      N);
 //            std::cerr << "Format types required: " << need << std::endl;
 
         }
@@ -356,22 +368,6 @@ namespace bsccs{
             
             FormatType formatType = hX.getFormatType(index);
             const auto taskCount = dCudaColumns.getTaskCount(index);
-/*
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto start = bsccs::chrono::steady_clock::now();
-#endif
-	    // zero buffer
-	    zeroCudaVec(dAccNumer);
-	    zeroCudaVec(dAccNumer2);
-	    zeroCudaVec(dGradient);
-	    zeroCudaVec(dHessian);
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto end = bsccs::chrono::steady_clock::now();
-            ///////////////////////////"
-            auto name = "compGradHessG" + getFormatTypeExtension(formatType) + "  cudaBuffer";
-            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
-*/
 /*
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start2 = bsccs::chrono::steady_clock::now();
@@ -482,6 +478,8 @@ namespace bsccs{
 				 static_cast<RealType>(delta), 
 				 dXBeta, 
 				 dExpXBeta, 
+				 dNumerator,
+				 dNumerator2,
 				 gridSize, blockSize);
 	    hXBetaKnown = false;
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -519,7 +517,7 @@ namespace bsccs{
 
             FormatType formatType = hX.getFormatType(index);
             const auto taskCount = dCudaColumns.getTaskCount(index);
-
+/*
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start = bsccs::chrono::steady_clock::now();
 #endif	    
@@ -534,7 +532,7 @@ namespace bsccs{
             auto name = "compNumForG" + getFormatTypeExtension(formatType) + "    zeroBuffer";
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-
+*/
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start2 = bsccs::chrono::steady_clock::now();
