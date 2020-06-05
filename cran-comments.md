@@ -3,6 +3,8 @@ in code-based, but possibly not compiled.
 
 * `std::exit` was present in an _unused_ .cpp file; this file is now removed.
 
+* We also removed dependence on packages `bit` (orphaned), `ffbase` and `ff`
+
 ## Test environments
 * local OS X install, R 4.0.0
 * ubuntu 14.04 (on travis-ci), R 3.6.3, gcc 4.8.4 and gcc 6.0

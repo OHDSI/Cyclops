@@ -1,7 +1,7 @@
 Package: Cyclops
 Type: Package
 Title: Cyclic Coordinate Descent for Logistic, Poisson and Survival Analysis
-Version: 2.0.4
+Version: 3.0.0
 Authors@R: c(
     person("Marc A.", "Suchard", email = "msuchard@ucla.edu", role = c("aut","cre")),
     person("Martijn J.", "Schuemie", role = "aut"),
@@ -33,7 +33,7 @@ Imports:
     rlang,
     Matrix,
     Rcpp (>= 0.12.12),
-    Andromeda,
+    Andromeda (>= 0.3.1),
     dplyr,
     dbplyr,
     methods,
