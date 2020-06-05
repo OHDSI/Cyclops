@@ -1,18 +1,16 @@
-## New submission following email from Kurt Hornik reporting unit-test errors likely
-originating from `stringsAsFactors = FALSE` by default in upcoming `R 4.0.0`.
+## New submission following email from Brian Ripley reporting presence of `std::terminate`
+in code-based, but possibly not compiled.
 
-* all unit-tests now pass using `R Under development (unstable) (2020-03-01 r77880)`
-* several small bug fixes when fitting conditional Poisson models
+* `std::exit` was present in an _unused_ .cpp file; this file is now removed.
 
 ## Test environments
-* local OS X install, R 3.6.1
-* docker container based on `rocker/r-devel` but compiled with `r77880`
-* ubuntu 14.04 (on travis-ci), R 3.5.1, gcc 4.8.4 and gcc 6.0
+* local OS X install, R 4.0.0
+* ubuntu 14.04 (on travis-ci), R 3.6.3, gcc 4.8.4 and gcc 6.0
 * win-builder (devel and release)
 
 ## R CMD check results
 * There were no ERRORs or WARNINGs
-* This is 1 occasional NOTE:
+* There is 1 occasional NOTE:
   checking installed package size ... NOTE
     installed size is 22.5Mb
     sub-directories of 1Mb or more:
