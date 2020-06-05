@@ -6,18 +6,6 @@
 
 using namespace Rcpp;
 
-// bySum
-DataFrame bySum(List ffValues, List ffBins);
-RcppExport SEXP _Cyclops_bySum(SEXP ffValuesSEXP, SEXP ffBinsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< List >::type ffValues(ffValuesSEXP);
-    Rcpp::traits::input_parameter< List >::type ffBins(ffBinsSEXP);
-    rcpp_result_gen = Rcpp::wrap(bySum(ffValues, ffBins));
-    return rcpp_result_gen;
-END_RCPP
-}
 // cyclopsGetModelTypeNames
 std::vector<std::string> cyclopsGetModelTypeNames();
 RcppExport SEXP _Cyclops_cyclopsGetModelTypeNames() {
@@ -766,7 +754,6 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_Cyclops_bySum", (DL_FUNC) &_Cyclops_bySum, 2},
     {"_Cyclops_cyclopsGetModelTypeNames", (DL_FUNC) &_Cyclops_cyclopsGetModelTypeNames, 0},
     {"_Cyclops_cyclopsGetRemoveInterceptNames", (DL_FUNC) &_Cyclops_cyclopsGetRemoveInterceptNames, 0},
     {"_Cyclops_cyclopsGetIsSurvivalNames", (DL_FUNC) &_Cyclops_cyclopsGetIsSurvivalNames, 0},

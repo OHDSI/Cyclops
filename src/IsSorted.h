@@ -3,7 +3,7 @@
  *
  * This file is part of Cyclops
  *
- * Copyright 2014 Observational Health Data Sciences and Informatics
+ * Copyright 2020 Observational Health Data Sciences and Informatics
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
- * @author Observational Health Data Sciences and Informatics
- * @author Martijn Schuemie
- * @author Marc Suchard
  */
 
 #ifndef __IsSorted_h__

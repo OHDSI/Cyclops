@@ -2,8 +2,8 @@
 % Please edit documentation in R/NewDataConversion.R
 \name{convertToCyclopsData}
 \alias{convertToCyclopsData}
-\alias{convertToCyclopsData.ffdf}
 \alias{convertToCyclopsData.data.frame}
+\alias{convertToCyclopsData.tbl_dbi}
 \title{Convert data from two data frames or ffdf objects into a CyclopsData object}
 \usage{
 convertToCyclopsData(
@@ -11,19 +11,7 @@ convertToCyclopsData(
   covariates,
   modelType = "lr",
   addIntercept = TRUE,
-  checkSorting = TRUE,
-  checkRowIds = TRUE,
-  normalize = NULL,
-  quiet = FALSE,
-  floatingPoint = 64
-)
-
-\method{convertToCyclopsData}{ffdf}(
-  outcomes,
-  covariates,
-  modelType = "lr",
-  addIntercept = TRUE,
-  checkSorting = TRUE,
+  checkSorting = NULL,
   checkRowIds = TRUE,
   normalize = NULL,
   quiet = FALSE,
@@ -35,7 +23,19 @@ convertToCyclopsData(
   covariates,
   modelType = "lr",
   addIntercept = TRUE,
-  checkSorting = TRUE,
+  checkSorting = NULL,
+  checkRowIds = TRUE,
+  normalize = NULL,
+  quiet = FALSE,
+  floatingPoint = 64
+)
+
+\method{convertToCyclopsData}{tbl_dbi}(
+  outcomes,
+  covariates,
+  modelType = "lr",
+  addIntercept = TRUE,
+  checkSorting = NULL,
   checkRowIds = TRUE,
   normalize = NULL,
   quiet = FALSE,
@@ -51,7 +51,7 @@ convertToCyclopsData(
 
 \item{addIntercept}{Add an intercept to the model?}
 
-\item{checkSorting}{Check if the data are sorted appropriately, and if not, sort.}
+\item{checkSorting}{(DEPRECATED) Check if the data are sorted appropriately, and if not, sort.}
 
 \item{checkRowIds}{Check if all rowIds in the covariates appear in the outcomes.}
 
@@ -75,7 +75,7 @@ These columns are expected in the outcome object:
   \verb{y}    \tab(real) \tab The outcome variable \cr
   \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
                  \tab        \tab(e.g. number of days) \cr
-  \verb{weight} \tab(real) \tab Non-negative weight to apply to outcome
+  \verb{weight} \tab(real) \tab (optional) Non-negative weight to apply to outcome
 }
 
 These columns are expected in the covariates object:
@@ -85,18 +85,12 @@ These columns are expected in the covariates object:
   \verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
   \verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
 }
-
-Note: If checkSorting is turned off, the outcome table should be sorted by stratumId (if present)
-and then rowId except for Cox regression when the table should be sorted by
-stratumId (if present), -time, y, and rowId. The covariate table should be sorted by covariateId, stratumId
-(if present), rowId except for Cox regression when the table should be sorted by covariateId,
-stratumId (if present), -time, y, and rowId.
 }
 \section{Methods (by class)}{
 \itemize{
-\item \code{ffdf}: Convert data from two \code{ffdf}
-
 \item \code{data.frame}: Convert data from two \code{data.frame}
+
+\item \code{tbl_dbi}: Convert data from two \code{Andromeda} tables
 }}
 
 \examples{

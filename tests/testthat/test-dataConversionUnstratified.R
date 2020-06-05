@@ -1,6 +1,6 @@
 library("testthat")
 library("survival")
-library("ff")
+library("Andromeda")
 
 context("test-dataConversionUnstratified.R")
 
@@ -16,12 +16,9 @@ test_that("Test data.frame to data for lr", {
   #Make sparse:
   covariates <- covariates[covariates$covariateValue != 0,]
 
-  #Sort:
-  # covariates <- covariates[order(covariates$rowId,covariates$covariateId),]
-  # outcomes <- outcomes[order(outcomes$rowId),]
-
-  cyclopsDataFfdf <- convertToCyclopsData(as.ffdf(outcomes),as.ffdf(covariates),modelType = "lr",addIntercept = TRUE)
-  fitFfdf <- fitCyclopsModel(cyclopsDataFfdf,prior = createPrior("none"))
+  andr <- andromeda(outcomes = outcomes, covariates = covariates)
+  cyclopsDataAndr <- convertToCyclopsData(andr$outcomes,andr$covariates,modelType = "lr",addIntercept = TRUE)
+  fitAndr <- fitCyclopsModel(cyclopsDataAndr,prior = createPrior("none"))
 
   cyclopsData <- convertToCyclopsData(outcomes,covariates,modelType = "lr",addIntercept = TRUE)
   fit <- fitCyclopsModel(cyclopsData,prior = createPrior("none"))
@@ -29,7 +26,7 @@ test_that("Test data.frame to data for lr", {
 
   tolerance <- 1E-4
   expect_equal(as.vector(coef(fit)), as.vector(coef(gold)), tolerance = tolerance)
-  expect_equal(as.vector(coef(fitFfdf)), as.vector(coef(gold)), tolerance = tolerance)
+  expect_equal(as.vector(coef(fitAndr)), as.vector(coef(gold)), tolerance = tolerance)
 })
 
 test_that("Test unstratified cox using lung dataset ", {
@@ -46,9 +43,7 @@ test_that("Test unstratified cox using lung dataset ", {
   covariates <- data.frame(stratumId = 0,
                            rowId = rep(1:nrow(test),nCovars),
                            covariateId = rep(1:nCovars,each = nrow(test)),
-                           covariateValue = c(test$age,test$ph.ecog,test$ph.karno,test$pat.karno,test$meal.cal,test$wt.loss),
-                           time = rep(test$time,nCovars),
-                           y = rep(test$status-1,nCovars))
+                           covariateValue = c(test$age,test$ph.ecog,test$ph.karno,test$pat.karno,test$meal.cal,test$wt.loss))
   outcomes <- data.frame(stratumId = 0,
                          rowId = 1:nrow(test),
                          y = test$status-1,
@@ -57,12 +52,9 @@ test_that("Test unstratified cox using lung dataset ", {
   #Make sparse:
   covariates <- covariates[covariates$covariateValue != 0,]
 
-  #Sort:
-  # covariates <- covariates[order(covariates$stratumId,-covariates$time,covariates$y,covariates$rowId),]
-  # outcomes <- outcomes[order(outcomes$stratumId,-outcomes$time,outcomes$y,outcomes$rowId),]
-
-  cyclopsDataFfdf <- convertToCyclopsData(as.ffdf(outcomes),as.ffdf(covariates),modelType = "cox")
-  fitFfdf <- fitCyclopsModel(cyclopsDataFfdf,prior = createPrior("none"))
+  andr <- andromeda(outcomes = outcomes, covariates = covariates)
+  cyclopsDataAndr <- convertToCyclopsData(andr$outcomes,andr$covariates,modelType = "cox")
+  fitAndr <- fitCyclopsModel(cyclopsDataAndr,prior = createPrior("none"))
 
   cyclopsData <- convertToCyclopsData(outcomes,covariates,modelType = "cox")
   fit <- fitCyclopsModel(cyclopsData,prior = createPrior("none"))
@@ -70,7 +62,7 @@ test_that("Test unstratified cox using lung dataset ", {
   tolerance <- 1E-4
   expect_equal(as.vector(coef(fit)), as.vector(coef(fitFormula)), tolerance = tolerance)
   expect_equal(as.vector(coef(fit)), as.vector(coef(gold)), tolerance = tolerance)
-  expect_equal(as.vector(coef(fitFfdf)), as.vector(coef(gold)), tolerance = tolerance)
+  expect_equal(as.vector(coef(fitAndr)), as.vector(coef(gold)), tolerance = tolerance)
 })
 
 
@@ -98,12 +90,9 @@ test_that("Test poisson regression", {
   cyclopsDataFormula <- createCyclopsData(formula, offset=log(time), data=data,modelType="pr")
   fitFormula <- fitCyclopsModel(cyclopsDataFormula)
 
-  #Sort:
-  # covariates <- covariates[order(covariates$rowId),]
-  # outcomes <- outcomes[order(outcomes$rowId),]
-
-  cyclopsDataFfdf <- convertToCyclopsData(as.ffdf(outcomes),as.ffdf(covariates),modelType = "pr",addIntercept = TRUE)
-  fitFfdf <- fitCyclopsModel(cyclopsDataFfdf,prior = createPrior("none"))
+  andr <- andromeda(outcomes = outcomes, covariates = covariates)
+  cyclopsDataAndr <- convertToCyclopsData(andr$outcomes,andr$covariates,modelType = "pr",addIntercept = TRUE)
+  fitAndr <- fitCyclopsModel(cyclopsDataAndr,prior = createPrior("none"))
 
   cyclopsData <- convertToCyclopsData(outcomes,covariates,modelType = "pr",addIntercept = TRUE)
   fit <- fitCyclopsModel(cyclopsData,prior = createPrior("none"))
@@ -111,6 +100,6 @@ test_that("Test poisson regression", {
   tolerance <- 1E-4
   expect_equal(as.vector(sort(coef(fit))), as.vector(sort(coef(fitFormula))), tolerance = tolerance)
   expect_equal(as.vector(sort(coef(fit))), as.vector(sort(coef(gold))), tolerance = tolerance)
-  expect_equal(as.vector(sort(coef(fitFfdf))), as.vector(sort(coef(gold))), tolerance = tolerance)
+  expect_equal(as.vector(sort(coef(fitAndr))), as.vector(sort(coef(gold))), tolerance = tolerance)
 })
 

@@ -600,11 +600,11 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
     for (int j = 0; j < J; ++j) {
         ccd->setBeta(j, x0s[j]);
     }
-    // DEBUG, TODO Remove?
-    double testMode = ccd->getLogLikelihood();
-    std::ostringstream stream;
-    stream << "Difference after profile: " << testMode << " " << mode;
-    logger->writeLine(stream);
+    // DEBUG
+    //double testMode = ccd->getLogLikelihood();
+    //std::ostringstream stream;
+    //stream << "Difference after profile: " << testMode << " " << mode;
+    //logger->writeLine(stream);
 
     // Clean up copies
     for (int i = 1; i < nThreads; ++i) {

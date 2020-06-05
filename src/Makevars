@@ -66,12 +66,10 @@ OBJECTS.thread = \
 
 OBJECTS.R = \
     IsSorted.o \
-    BySum.o \
     RcppExports.o \
     RcppModelData.o \
     RcppCyclopsInterface.o \
-    RcppIsSorted.o \
-    RcppBySum.o
+    RcppIsSorted.o
 
 OBJECTS = $(OBJECTS.cyclops) $(OBJECTS.drivers) \
           $(OBJECTS.engine) $(OBJECTS.utils) \

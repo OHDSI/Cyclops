@@ -1,6 +1,5 @@
 library("testthat")
-library("ff")
-#options(fftempdir = "s:/FFtemp")
+library("Andromeda")
 
 context("test-predict.R")
 
@@ -17,8 +16,9 @@ test_that("Test predict for Poisson regression", {
     predictNew <- predict(fit, outcomes, covariates)
     expect_equal(predictOriginal, predictNew)
 
-    # Test using ffdf
-    predictNew <- predict(fit, as.ffdf(outcomes),as.ffdf(covariates))
+    # Test using Andromeda
+    andr <- andromeda(outcomes = outcomes, covariates = covariates)
+    predictNew <- predict(fit, andr$outcomes, andr$covariates)
     expect_equal(predictOriginal, predictNew)
 })
 
@@ -35,8 +35,9 @@ test_that("Test predict for logistic regression", {
     predictNew <- predict(fit, outcomes, covariates)
     expect_equal(predictOriginal, predictNew)
 
-    # Test using ffdf
-    predictNew <- predict(fit, as.ffdf(outcomes),as.ffdf(covariates))
+    # Test using Andromeda
+    andr <- andromeda(outcomes = outcomes, covariates = covariates)
+    predictNew <- predict(fit, andr$outcomes, andr$covariates)
     expect_equal(predictOriginal, predictNew)
 })
 
@@ -53,8 +54,9 @@ test_that("Test predict for pr with all-zero betas", {
     predictNew <- predict(fit, outcomes, covariates)
     expect_equal(predictOriginal, predictNew)
 
-    # Test using ffdf
-    predictNew <- predict(fit, as.ffdf(outcomes),as.ffdf(covariates))
+    # Test using Andromeda
+    andr <- andromeda(outcomes = outcomes, covariates = covariates)
+    predictNew <- predict(fit, andr$outcomes, andr$covariates)
     expect_equal(predictOriginal, predictNew)
 
     # newCovariates <- as.ffdf(covariates)
@@ -75,7 +77,8 @@ test_that("Test predict for lr with all-zero betas", {
     predictNew <- predict(fit, outcomes, covariates)
     expect_equal(predictOriginal, predictNew)
 
-    # Test using ffdf
-    predictNew <- predict(fit, as.ffdf(outcomes),as.ffdf(covariates))
+    # Test using Andromeda
+    andr <- andromeda(outcomes = outcomes, covariates = covariates)
+    predictNew <- predict(fit, andr$outcomes, andr$covariates)
     expect_equal(predictOriginal, predictNew)
 })
