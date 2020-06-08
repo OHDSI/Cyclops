@@ -32,7 +32,7 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' @param checkSorting  (DEPRECATED) Check if the data are sorted appropriately, and if not, sort.
 #' @param checkRowIds   Check if all rowIds in the covariates appear in the outcomes.
 #' @param normalize     String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)
-#' @param quiet         If true, (warning) messages are surpressed.
+#' @param quiet         If true, (warning) messages are suppressed.
 #' @param floatingPoint Specified floating-point representation size (32 or 64)
 #'
 #' @details

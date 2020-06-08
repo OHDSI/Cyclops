@@ -57,7 +57,7 @@ convertToCyclopsData(
 
 \item{normalize}{String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)}
 
-\item{quiet}{If true, (warning) messages are surpressed.}
+\item{quiet}{If true, (warning) messages are suppressed.}
 
 \item{floatingPoint}{Specified floating-point representation size (32 or 64)}
 }

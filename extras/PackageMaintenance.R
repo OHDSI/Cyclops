@@ -18,14 +18,16 @@
 OhdsiRTools::formatRFolder()
 OhdsiRTools::checkUsagePackage("Cyclops")
 OhdsiRTools::updateCopyrightYearFolder()
+devtools::spell_check()
 
 # Create manual and website
 if (.Platform$OS.type == "unix") {
   system("rm extras/Cyclops.pdf")
   system("R CMD Rd2pdf ./ --output=extras/Cyclops.pdf")
 } else {
-  shell("rm extras/Cyclops.pdf")
+  unlink("extras/Cyclops.pdf")
   shell("R CMD Rd2pdf ./ --output=extras/Cyclops.pdf")
 }
 
 pkgdown::build_site()
+OhdsiRTools::fixHadesLogo()

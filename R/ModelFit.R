@@ -443,7 +443,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param upperLimit				Numeric: Upper prior variance limit for grid-search
 #' @param gridSteps					Numeric: Number of steps in grid-search
 #' @param cvRepetitions			Numeric: Number of repetitions of X-fold cross validation
-#' @param minCVData					Numeric: Minumim number of data for cross validation
+#' @param minCVData					Numeric: Minimum number of data for cross validation
 #' @param noiseLevel				String: level of Cyclops screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})
 #' @param threads               Numeric: Specify number of CPU threads to employ in cross-validation; default = 1 (auto = -1)
 #' @param seed                  Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.

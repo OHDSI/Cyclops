@@ -49,7 +49,7 @@ Option \code{"grid"} selects a grid-search cross validation}
 
 \item{cvRepetitions}{Numeric: Number of repetitions of X-fold cross validation}
 
-\item{minCVData}{Numeric: Minumim number of data for cross validation}
+\item{minCVData}{Numeric: Minimum number of data for cross validation}
 
 \item{noiseLevel}{String: level of Cyclops screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})}
 

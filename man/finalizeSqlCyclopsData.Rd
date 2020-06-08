@@ -27,7 +27,7 @@ otherwise include a single numeric or character covariate name.}
 \item{sortCovariates}{Sort covariates in numeric-order with intercept first if it exists.}
 
 \item{makeCovariatesDense}{List of numeric or character covariates names to densely represent in Cyclops data object.
-For efficiency, we suggest making atleast the intercept dense.}
+For efficiency, we suggest making at least the intercept dense.}
 }
 \description{
 \code{finalizeSqlCyclopsData} finalizes a Cyclops data object

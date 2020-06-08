@@ -6,7 +6,7 @@ Cyclops
 [![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/Cyclops)](https://CRAN.R-project.org/package=Cyclops)
 [![CRAN_Status_Badge](http://cranlogs.r-pkg.org/badges/Cyclops)](https://cran.r-project.org/package=Cyclops)
 
-Cyclops is part of the [OHDSI Methods Library](https://ohdsi.github.io/MethodsLibrary).
+Cyclops is part of the [HADES](https://ohdsi.github.io/Hades).
 
 
 Introduction
@@ -58,12 +58,19 @@ devtools::install_github("ohdsi/Cyclops")
  
 User Documentation
 ==================
+Documentation can be found on the [package website](https://ohdsi.github.io/Cyclops).
+
+PDF versions of the documentation are also available:
 * Package manual: [Cyclops manual](https://raw.githubusercontent.com/OHDSI/Cyclops/master/extras/Cyclops.pdf) 
 
 Support
 =======
 * Developer questions/comments/feedback: <a href="http://forums.ohdsi.org/c/developers">OHDSI Forum</a>
 * We use the <a href="https://github.com/OHDSI/Cyclops/issues">GitHub issue tracker</a> for all bugs/issues/enhancements
+
+Contributing
+============
+Read [here](https://ohdsi.github.io/Hades/contribute.html) how you can contribute to this package.
  
 License
 =======
@@ -83,5 +90,3 @@ Beta
 Acknowledgements
 ================
 - This project is supported in part through the National Science Foundation grants IIS 1251151 and DMS 1264153.
-
-
