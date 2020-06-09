@@ -10,19 +10,47 @@ struct CustomExp
 };
 
 template <typename RealType>
+struct functorCGH :
+        public thrust::unary_function<thrust::tuple<RealType, RealType, RealType, RealType>,
+                                      thrust::tuple<RealType, RealType>>
+{
+        typedef typename thrust::tuple<RealType, RealType, RealType, RealType> InputTuple;
+        typedef typename thrust::tuple<RealType, RealType>       OutputTuple;
+
+        __host__ __device__
+                OutputTuple operator()(const InputTuple& t) const
+                {
+                        auto temp = thrust::get<0>(t) * thrust::get<1>(t) / thrust::get<2>(t);
+                        return OutputTuple(temp, temp * (1 - thrust::get<1>(t) / thrust::get<2>(t)));
+                }
+};
+
+template <typename RealType>
 class CudaKernel {
+	
+    typedef thrust::tuple<RealType,RealType> Tup2;
+    typedef typename thrust::device_vector<RealType>::iterator VecItr;
+    typedef thrust::tuple<VecItr,VecItr,VecItr,VecItr> TupVec4;
+    typedef thrust::zip_iterator<TupVec4> ZipVec4;
 
 public:
 
     // Device arrays
     RealType* d_itr; 
+    Tup2 init = thrust::make_tuple<RealType, RealType>(0, 0);
 
     // Operator
     CustomExp    exp_op;
+    functorCGH<RealType> cGAH;
 
     // Allocate temporary storage
-    void *d_temp_storage_acc = NULL;
-    size_t temp_storage_bytes_acc = 0;
+    /*
+    void *d_temp_storage = NULL;
+    size_t temp_storage_bytes = 0;
+    void *d_temp_storage0 = NULL;
+    size_t temp_storage_bytes0 = 0;
+    */
+    
 
     CudaKernel();
     ~CudaKernel();
@@ -77,11 +105,12 @@ public:
 					 thrust::device_vector<RealType>& d_AccNumer2,
 					 size_t& N);
 
-    /*
+
     //void CubScan(thrust::device_vector<RealType>& d_in, thrust::device_vector<RealType>& d_out, int num_items);
+
     void CubScan(RealType* d_in, RealType* d_out, int num_items);
     void CubReduce(RealType* d_in, RealType* d_out, int num_items);
-
+/*
     void computeAccDenomMalloc(int num_items);
     void computeAccDenom(int num_items);
     void computeAccNumerMalloc(int num_items);
