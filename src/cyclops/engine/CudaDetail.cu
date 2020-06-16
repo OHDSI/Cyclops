@@ -57,6 +57,7 @@ template void resizeCudaVec<thrust::device_vector<float>, std::vector<float>>(co
 
 template void resizeCudaVecSize<thrust::device_vector<double>>(thrust::device_vector<double>& deviceVec, int num_items);
 template void resizeCudaVecSize<thrust::device_vector<float>>(thrust::device_vector<float>& deviceVec, int num_items);
+template void resizeCudaVecSize<thrust::device_vector<int>>(thrust::device_vector<int>& deviceVec, int num_items);
 
 template void zeroCudaVec<thrust::device_vector<double>>(thrust::device_vector<double>& deviceVec);
 template void zeroCudaVec<thrust::device_vector<float>>(thrust::device_vector<float>& deviceVec);

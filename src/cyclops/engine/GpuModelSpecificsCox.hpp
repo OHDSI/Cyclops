@@ -48,8 +48,8 @@ namespace bsccs{
 
         void initialize(const CompressedDataMatrix<RealType>& mat,
                         size_t K, bool pad) {
-            std::vector<RealType> flatData;
-            std::vector<int> flatIndices;
+            //std::vector<RealType> flatData;
+            //std::vector<int> flatIndices;
 
             std::cerr << "Cuda AGC start" << std::endl;
 
@@ -91,6 +91,12 @@ namespace bsccs{
             resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
             resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
 /*
+            std::cout << "flatIndices: ";
+            for (auto x:flatIndices) {
+             std::cout << x << " ";
+            }
+            std::cout << "\n";	
+
             CudaDetail<RealType> rdetail;
             CudaDetail<int> idetail;
             CudaDetail<UInt> udetail;
@@ -114,6 +120,10 @@ namespace bsccs{
         UInt getTaskCount(int column) const {
             return taskCounts[column];
         }
+
+	const std::vector<int>& getHIndices() const {
+		return flatIndices;
+	}
 
         const DataVector& getData() const {
             return data;
@@ -166,6 +176,9 @@ namespace bsccs{
         hStartsVector taskCounts;
         hStartsVector dataStarts;
         hStartsVector indicesStarts;
+	
+	std::vector<RealType> flatData;
+	std::vector<int> flatIndices;
 
         dStartsVector dtaskCounts;
         dStartsVector ddataStarts;
@@ -274,13 +287,17 @@ namespace bsccs{
             }
 	    resizeCudaVec(numerPid, dAccNumer);
 	    resizeCudaVec(numerPid2, dAccNumer2);
-           	    
+	    
 	    resizeCudaVecSize(dAccDenominator, N+1);
 
 	    resizeCudaVecSize(dGradient, 1);
 	    resizeCudaVecSize(dHessian, 1);
 
-	    /*
+            resizeCudaVec(numerPid, dBuffer1);
+            resizeCudaVec(numerPid2, dBuffer2);
+	    resizeCudaVecSize(dBuffer3, N+1);
+/*	    
+            resizeCudaVecSize(indicesN, N);
 	    // Allocate temporary storage for scan and reduction
 	    CudaData.allocTempStorage(dExpXBeta,
                                       dNumerator,
@@ -291,8 +308,9 @@ namespace bsccs{
 				      dNWeight,
 				      dGradient,
 				      dHessian,
-				      N);
-	    */
+				      N,
+				      indicesN);
+*/	   
 //            std::cerr << "Format types required: " << need << std::endl;
 
         }
@@ -416,7 +434,11 @@ namespace bsccs{
 					       dNWeight, 
 					       dGradient, 
 					       dHessian, 
-					       N);
+					       N
+//					       , dCudaColumns.getHIndices(),
+//					       dCudaColumns.getIndicesOffset(index),
+//					       indicesN
+					       );
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end3 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
@@ -448,6 +470,21 @@ namespace bsccs{
             *ogradient = static_cast<double>(gradient[0]);
             *ohessian = static_cast<double>(hessian[0]);
 	 
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start1 = bsccs::chrono::steady_clock::now();
+#endif
+            // dense scan on tuple
+            CudaData.empty4(dAccNumer,
+                            dAccNumer2,
+                            dBuffer1,
+                            dBuffer2);
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end1 = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name1 = "compGradHessG" + getFormatTypeExtension(formatType) + "      empty4";
+            duration[name2] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start1).count();
+#endif
+
 	}
 
 
@@ -462,8 +499,8 @@ namespace bsccs{
 /*
             // FOR TEST: check data
             std::cout << "delta: " << delta << '\n';
-            std::cout << "K: " << K  << " N: " << N << " TaskCount: " << dColumns.getTaskCount(index) << '\n';
-            std::cout << "offX: " << dColumns.getDataOffset(index) << " offK: " << dColumns.getIndicesOffset(index) << '\n';
+            std::cout << "K: " << K  << " N: " << N << " TaskCount: " << dCudaColumns.getTaskCount(index) << '\n';
+	    std::cout << "index: " << index << " TaskCount: " << dCudaColumns.getTaskCount(index) << " offX: " << dCudaColumns.getDataOffset(index) << " offK: " << dCudaColumns.getIndicesOffset(index) << '\n';
 */
             FormatType formatType = hX.getFormatType(index);
             const auto taskCount = dCudaColumns.getTaskCount(index);
@@ -509,6 +546,20 @@ namespace bsccs{
             
 	    auto name = "updateXBetaG" + getFormatTypeExtension(formatType) + "  ";
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end3 - start2).count();
+#endif
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start4 = bsccs::chrono::steady_clock::now();
+#endif
+            // dense scan on tuple
+            CudaData.empty2(dAccDenominator,
+                            dBuffer3);
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end4 = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name4 = "updateXBetaG" + getFormatTypeExtension(formatType) + "       empty2";
+            duration[name4] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end4 - start4).count();
 #endif
 
 
@@ -626,11 +677,17 @@ namespace bsccs{
         thrust::device_vector<RealType> dNumerator;
 	thrust::device_vector<RealType> dNumerator2;
 	
+	thrust::device_vector<int> indicesN;
+	
 	// buffer
 	thrust::device_vector<RealType> dAccNumer;
 	thrust::device_vector<RealType> dAccNumer2;
 	thrust::device_vector<RealType> dGradient;
 	thrust::device_vector<RealType> dHessian;
+
+	thrust::device_vector<RealType> dBuffer1;
+	thrust::device_vector<RealType> dBuffer2;
+	thrust::device_vector<RealType> dBuffer3;
     };
 } // namespace bsccs
 

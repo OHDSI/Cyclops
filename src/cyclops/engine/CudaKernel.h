@@ -64,7 +64,8 @@ public:
 		    thrust::device_vector<RealType>& d_NWeight,
 		    thrust::device_vector<RealType>& d_Gradient,
 		    thrust::device_vector<RealType>& d_Hessian,
-		    size_t& N);
+		    size_t& N,
+		    thrust::device_vector<int>& indicesN);
     void updateXBeta(const thrust::device_vector<RealType>& X, 
 		     const thrust::device_vector<int>& K, 
 		     unsigned int offX, 
@@ -91,7 +92,11 @@ public:
 				   thrust::device_vector<RealType>& d_NWeight, 
 				   thrust::device_vector<RealType>& d_Gradient, 
 				   thrust::device_vector<RealType>& d_Hessian, 
-				   size_t& N);
+				   size_t& N
+//				   ,const std::vector<int>& K,
+//				   unsigned int offK,
+//				   thrust::device_vector<int>& indicesN
+				   );
     void computeAccumulatedNumerator(thrust::device_vector<RealType>& d_Numerator,
                                      thrust::device_vector<RealType>& d_Numerator2,
                                      thrust::device_vector<RealType>& d_AccNumer,
@@ -105,7 +110,12 @@ public:
 					 thrust::device_vector<RealType>& d_AccNumer2,
 					 size_t& N);
 
-
+    void empty4(thrust::device_vector<RealType>& d_AccNumer,
+                                  thrust::device_vector<RealType>& d_AccNumer2,
+                                  thrust::device_vector<RealType>& d_Buffer1,
+                                  thrust::device_vector<RealType>& d_Buffer2);
+    void empty2(thrust::device_vector<RealType>& d_AccDenom,
+		    thrust::device_vector<RealType>& d_Buffer3);
     //void CubScan(thrust::device_vector<RealType>& d_in, thrust::device_vector<RealType>& d_out, int num_items);
 
     void CubScan(RealType* d_in, RealType* d_out, int num_items);

@@ -7,6 +7,8 @@
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/tuple.h>
+#include <thrust/sequence.h>
+#include <thrust/iterator/permutation_iterator.h>
 //#include <thrust/transform_reduce.h>
 //#include <thrust/for_each.h>
 
@@ -161,8 +163,11 @@ void CudaKernel<RealType>::allocTempStorage(thrust::device_vector<RealType>& d_D
 					    thrust::device_vector<RealType>& d_NWeight,
 					    thrust::device_vector<RealType>& d_Gradient,
 					    thrust::device_vector<RealType>& d_Hessian,
-					    size_t& N)
+					    size_t& N,
+					    thrust::device_vector<int>& indicesN)
 {
+	thrust::sequence(indicesN.begin(), indicesN.end());
+
 /*	
     // for scan in accNumer
     auto results = thrust::make_zip_iterator(thrust::make_tuple(d_AccNumer.begin(), d_AccNumer2.begin()));
@@ -234,10 +239,19 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
 						     thrust::device_vector<RealType>& d_NWeight, 
 						     thrust::device_vector<RealType>& d_Gradient, 
 						     thrust::device_vector<RealType>& d_Hessian, 
-						     size_t& N)
+						     size_t& N
+//						     ,const std::vector<int>& K,
+//                                                     unsigned int offK,
+//                                                     thrust::device_vector<int>& indicesN
+						     )
 {
     d_AccDenom[N] = static_cast<RealType>(1); // avoid nan
-
+    //int start = K[offK];
+/*
+    for (int i = K[offK]; i < N; i++) {
+	    std::cout << indicesN[i] << '\n';
+    }
+*/    
     // cub transfrom reduction
     auto begin_gh = thrust::make_zip_iterator(thrust::make_tuple(d_NWeight.begin(),
                                                               d_AccNumer.begin(),
@@ -255,7 +269,16 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
     DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, results_gh, N, TuplePlus(), init);
     cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
     DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, results_gh, N, TuplePlus(), init);
-
+/*
+    // start from the first non-zero entry
+    DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, 
+		    thrust::make_permutation_iterator(itr, indicesN.begin() + start),
+		    results_gh, N, TuplePlus(), init);
+    cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
+    DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, 
+		    thrust::make_permutation_iterator(itr, indicesN.begin() + start),
+		    results_gh, N, TuplePlus(), init);
+*/
     cudaFree(d_temp_storage_gh);
 
 //    std::cout << "G: " << d_Gradient[0] << " H: " << d_Hessian[0] << '\n';
@@ -304,6 +327,24 @@ void CudaKernel<RealType>::computeAccumulatedNumerator(thrust::device_vector<Rea
     DeviceScan::InclusiveScan(d_temp_storage, temp_storage_bytes, begin, results, TuplePlus(), N);
 
     cudaFree(d_temp_storage);
+}
+
+
+template <typename RealType>
+void CudaKernel<RealType>::empty4(thrust::device_vector<RealType>& d_AccNumer,
+				  thrust::device_vector<RealType>& d_AccNumer2,
+				  thrust::device_vector<RealType>& d_Buffer1,
+				  thrust::device_vector<RealType>& d_Buffer2)
+{
+	d_Buffer1 = d_AccNumer;
+	d_Buffer2 = d_AccNumer2;
+}
+
+template <typename RealType>
+void CudaKernel<RealType>::empty2(thrust::device_vector<RealType>& d_AccDenom,
+                                  thrust::device_vector<RealType>& d_Buffer3)
+{
+        d_Buffer3 = d_AccDenom;
 }
 
 
