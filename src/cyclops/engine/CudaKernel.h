@@ -43,14 +43,12 @@ public:
     CustomExp    exp_op;
     functorCGH<RealType> cGAH;
 
-    // Allocate temporary storage
-    /*
-    void *d_temp_storage = NULL;
-    size_t temp_storage_bytes = 0;
+    // Declare temporary storage
     void *d_temp_storage0 = NULL;
     size_t temp_storage_bytes0 = 0;
-    */
-    
+//    void *d_temp_storage = NULL;
+//    size_t temp_storage_bytes = 0;
+        
 
     CudaKernel();
     ~CudaKernel();

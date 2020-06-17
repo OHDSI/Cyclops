@@ -296,9 +296,10 @@ namespace bsccs{
             resizeCudaVec(numerPid, dBuffer1);
             resizeCudaVec(numerPid2, dBuffer2);
 	    resizeCudaVecSize(dBuffer3, N+1);
-/*	    
-            resizeCudaVecSize(indicesN, N);
-	    // Allocate temporary storage for scan and reduction
+    
+//            resizeCudaVecSize(indicesN, N);
+
+            // Allocate temporary storage for scan and reduction
 	    CudaData.allocTempStorage(dExpXBeta,
                                       dNumerator,
 				      dNumerator2,
@@ -310,7 +311,7 @@ namespace bsccs{
 				      dHessian,
 				      N,
 				      indicesN);
-*/	   
+	   
 //            std::cerr << "Format types required: " << need << std::endl;
 
         }
@@ -469,11 +470,11 @@ namespace bsccs{
             gradient[0] -= hXjY[index];
             *ogradient = static_cast<double>(gradient[0]);
             *ohessian = static_cast<double>(hessian[0]);
-	 
+/*	 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start1 = bsccs::chrono::steady_clock::now();
 #endif
-            // dense scan on tuple
+            // empty kernel
             CudaData.empty4(dAccNumer,
                             dAccNumer2,
                             dBuffer1,
@@ -482,9 +483,9 @@ namespace bsccs{
             auto end1 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
             auto name1 = "compGradHessG" + getFormatTypeExtension(formatType) + "      empty4";
-            duration[name2] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start1).count();
+            duration[name1] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start1).count();
 #endif
-
+*/
 	}
 
 
@@ -548,11 +549,11 @@ namespace bsccs{
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end3 - start2).count();
 #endif
 
-
+/*
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start4 = bsccs::chrono::steady_clock::now();
 #endif
-            // dense scan on tuple
+            // empty kernel
             CudaData.empty2(dAccDenominator,
                             dBuffer3);
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -561,7 +562,7 @@ namespace bsccs{
             auto name4 = "updateXBetaG" + getFormatTypeExtension(formatType) + "       empty2";
             duration[name4] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end4 - start4).count();
 #endif
-
+*/
 
 #ifdef GPU_DEBUG
             // Compare results:
