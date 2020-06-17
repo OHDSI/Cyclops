@@ -292,11 +292,11 @@ namespace bsccs{
 
 	    resizeCudaVecSize(dGradient, 1);
 	    resizeCudaVecSize(dHessian, 1);
-
+/*
             resizeCudaVec(numerPid, dBuffer1);
             resizeCudaVec(numerPid2, dBuffer2);
 	    resizeCudaVecSize(dBuffer3, N+1);
-    
+*/    
 //            resizeCudaVecSize(indicesN, N);
 
             // Allocate temporary storage for scan and reduction

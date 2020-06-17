@@ -150,7 +150,8 @@ template <typename RealType>
 CudaKernel<RealType>::~CudaKernel()
 {
     cudaFree(d_temp_storage0); // accDenom
-//    cudaFree(d_temp_storage); // accNumer
+    cudaFree(d_temp_storage); // accNumer
+    cudaFree(d_temp_storage_gh); // cGAH
     std::cout << "CUDA class Destroyed \n";
 }
 
@@ -172,14 +173,25 @@ void CudaKernel<RealType>::allocTempStorage(thrust::device_vector<RealType>& d_D
     // for scan in accDenom	
     DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, &d_Denominator[0], &d_AccDenom[0], N);
     cudaMalloc(&d_temp_storage0, temp_storage_bytes0);
-/*	
+	
     // for scan in accNumer
     auto results = thrust::make_zip_iterator(thrust::make_tuple(d_AccNumer.begin(), d_AccNumer2.begin()));
     auto begin = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(), d_Numerator2.begin()));
-
     DeviceScan::InclusiveScan(d_temp_storage, temp_storage_bytes, begin, results, TuplePlus(), N);
     cudaMalloc(&d_temp_storage, temp_storage_bytes);
 
+    // for reduction in compGAndH
+    auto begin_gh = thrust::make_zip_iterator(thrust::make_tuple(d_NWeight.begin(),
+                                                              d_AccNumer.begin(),
+                                                              d_AccDenom.begin(),
+                                                              d_AccNumer2.begin()));
+    auto results_gh = thrust::make_zip_iterator(thrust::make_tuple(d_Gradient.begin(), d_Hessian.begin()));
+    TransformInputIterator<Tup2, functorCGH<RealType>, ZipVec4> itr(begin_gh, cGAH);
+
+    DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, results_gh, N, TuplePlus(), init);
+    cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
+
+/*
     // for scan in compDAndN	  	
     auto results_acc = thrust::make_zip_iterator(thrust::make_tuple(d_AccDenom.begin(), d_AccNumer.begin(), d_AccNumer2.begin()));
     auto begin_acc = thrust::make_zip_iterator(thrust::make_tuple(d_Denominator.begin(), d_Numerator.begin(), d_Numerator2.begin()));
@@ -187,7 +199,6 @@ void CudaKernel<RealType>::allocTempStorage(thrust::device_vector<RealType>& d_D
     DeviceScan::InclusiveScan(d_temp_storage_acc, temp_storage_bytes_acc, begin_acc, results_acc, TuplePlus3(), N);
     cudaMalloc(&d_temp_storage_acc, temp_storage_bytes_acc);
 */
-    // for reduction in compGAndH
 }
 
 template <typename RealType>
@@ -270,12 +281,12 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
     // reduction
 
     // Declare temporary storage
-    void *d_temp_storage_gh = NULL;
-    size_t temp_storage_bytes_gh = 0;
+//    void *d_temp_storage_gh = NULL;
+//    size_t temp_storage_bytes_gh = 0;
 
     // Determine temporary device storage requirements and allocate temporary storage
-    DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, results_gh, N, TuplePlus(), init);
-    cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
+//    DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, results_gh, N, TuplePlus(), init);
+//    cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
 
     // Launch kernel
     DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, results_gh, N, TuplePlus(), init);
@@ -293,7 +304,7 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
 		    thrust::make_permutation_iterator(itr, indicesN.begin() + start),
 		    results_gh, N, TuplePlus(), init);
 */
-    cudaFree(d_temp_storage_gh);
+//    cudaFree(d_temp_storage_gh);
 
 //    std::cout << "G: " << d_Gradient[0] << " H: " << d_Hessian[0] << '\n';
 }
@@ -309,17 +320,17 @@ void CudaKernel<RealType>::computeAccumulatedNumerator(thrust::device_vector<Rea
     auto begin = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(), d_Numerator2.begin()));
 
     // Declare temporary storage
-    void *d_temp_storage = NULL;
-    size_t temp_storage_bytes = 0;
+//    void *d_temp_storage = NULL;
+//    size_t temp_storage_bytes = 0;
 
     // Determine temporary device storage requirements and allocate temporary storage
-    DeviceScan::InclusiveScan(d_temp_storage, temp_storage_bytes, begin, results, TuplePlus(), N);
-    cudaMalloc(&d_temp_storage, temp_storage_bytes);
+//    DeviceScan::InclusiveScan(d_temp_storage, temp_storage_bytes, begin, results, TuplePlus(), N);
+//    cudaMalloc(&d_temp_storage, temp_storage_bytes);
    
     // Launch kernel
     DeviceScan::InclusiveScan(d_temp_storage, temp_storage_bytes, begin, results, TuplePlus(), N);
 
-    cudaFree(d_temp_storage);
+//    cudaFree(d_temp_storage);
 }
 
 
