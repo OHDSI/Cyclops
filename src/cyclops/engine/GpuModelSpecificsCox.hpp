@@ -241,6 +241,7 @@ namespace bsccs{
         }
 
         virtual ~GpuModelSpecificsCox() {
+	    cudaFree(d_results);
             std::cerr << "dtor GpuModelSpecificsCox" << std::endl;
         }
 
@@ -290,8 +291,9 @@ namespace bsccs{
 	    
 	    resizeCudaVecSize(dAccDenominator, N+1);
 
-	    resizeCudaVecSize(dGradient, 1);
-	    resizeCudaVecSize(dHessian, 1);
+//	    resizeCudaVecSize(dGradient, 1);
+//	    resizeCudaVecSize(dHessian, 1);
+	    cudaMalloc((void**)&d_results, sizeof(double2));
 /*
             resizeCudaVec(numerPid, dBuffer1);
             resizeCudaVec(numerPid2, dBuffer2);
@@ -307,8 +309,9 @@ namespace bsccs{
 				      dAccNumer,
 				      dAccNumer2,
 				      dNWeight,
-				      dGradient,
-				      dHessian,
+//				      dGradient,
+//				      dHessian,
+				      d_results,
 				      N,
 				      indicesN);
 	   
@@ -384,9 +387,10 @@ namespace bsccs{
                                            double *ohessian, bool useWeights) {
 
 //            std::cout << "GPU::cGAH \n";
-            std::vector<RealType> gradient(1, static_cast<RealType>(0));
-            std::vector<RealType> hessian(1, static_cast<RealType>(0));
-            
+//            std::vector<RealType> gradient(1, static_cast<RealType>(0));
+//            std::vector<RealType> hessian(1, static_cast<RealType>(0));
+            double2 h_results;
+
             FormatType formatType = hX.getFormatType(index);
             const auto taskCount = dCudaColumns.getTaskCount(index);
 
@@ -433,8 +437,9 @@ namespace bsccs{
 			    		       dAccNumer2, 
 					       dAccDenominator, 
 					       dNWeight, 
-					       dGradient, 
-					       dHessian, 
+//					       dGradient, 
+//					       dHessian, 
+					       d_results,
 					       N
 //					       , dCudaColumns.getHIndices(),
 //					       dCudaColumns.getIndicesOffset(index),
@@ -451,26 +456,40 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start4 = bsccs::chrono::steady_clock::now();
 #endif    
-	    // copy the results from device to host
+/*	    // copy the results from device to host
+	    thrust::copy(std::begin(dGradient)+N-1, std::end(dGradient), std::begin(gradient));
+	    thrust::copy(std::begin(dHessian)+N-1, std::end(dHessian), std::begin(hessian));
+
 	    thrust::copy(std::begin(dGradient), std::end(dGradient), std::begin(gradient));
-	    thrust::copy(std::begin(dHessian), std::end(dHessian), std::begin(hessian));
-            
+    	    thrust::copy(std::begin(dHessian), std::end(dHessian), std::begin(hessian));
+*/	    
+	    cudaMemcpy(&h_results, d_results, sizeof(double2), cudaMemcpyDeviceToHost);
+	    //std::cout << "index: " << index << " g: " << h_results.x << " h: " << h_results.y << '\n';
+	    
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end4 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
             auto name4 = "compGradHessG" + getFormatTypeExtension(formatType) + " cudaMemcpy2";
             duration[name4] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end4 - start4).count();
-
+/*
+	    double timerG = 0;
+	    timerG = std::chrono::duration<double, std::milli>(end4 - start4).count();
+	    std::cout << "timerG: " << timerG << '\n';
+*/	    
 	    auto name = "compGradHessG" + getFormatTypeExtension(formatType) + " ";
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end4 - start2).count();
 #endif	    
 	    
 //	        std::cout << "g: " << gradient[0] << " h: " << hessian[0] << " xjy: " << hXjY[index] << '\n';
-
+/*
             gradient[0] -= hXjY[index];
             *ogradient = static_cast<double>(gradient[0]);
             *ohessian = static_cast<double>(hessian[0]);
-/*	 
+*/
+	    h_results.x -= hXjY[index];
+	    *ogradient = static_cast<double>(h_results.x);
+	    *ohessian = static_cast<double>(h_results.y);
+/*
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start1 = bsccs::chrono::steady_clock::now();
 #endif
@@ -681,6 +700,7 @@ namespace bsccs{
 	thrust::device_vector<int> indicesN;
 	
 	// buffer
+	double2 *d_results;
 	thrust::device_vector<RealType> dAccNumer;
 	thrust::device_vector<RealType> dAccNumer2;
 	thrust::device_vector<RealType> dGradient;

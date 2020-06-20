@@ -12,16 +12,21 @@ struct CustomExp
 template <typename RealType>
 struct functorCGH :
         public thrust::unary_function<thrust::tuple<RealType, RealType, RealType, RealType>,
-                                      thrust::tuple<RealType, RealType>>
+                                      //thrust::tuple<RealType, RealType>>
+				      double2>
 {
         typedef typename thrust::tuple<RealType, RealType, RealType, RealType> InputTuple;
         typedef typename thrust::tuple<RealType, RealType>       OutputTuple;
 
         __host__ __device__
-                OutputTuple operator()(const InputTuple& t) const
+                double2 operator()(const InputTuple& t) const
                 {
                         auto temp = thrust::get<0>(t) * thrust::get<1>(t) / thrust::get<2>(t);
-                        return OutputTuple(temp, temp * (1 - thrust::get<1>(t) / thrust::get<2>(t)));
+                        //return OutputTuple(temp, temp * (1 - thrust::get<1>(t) / thrust::get<2>(t)));
+			double2 out;
+			out.x = temp;
+			out.y = temp * (1 - thrust::get<1>(t) / thrust::get<2>(t));
+			return out;
                 }
 };
 
@@ -38,12 +43,13 @@ public:
     // Device arrays
     RealType* d_itr; 
     Tup2 init = thrust::make_tuple<RealType, RealType>(0, 0);
-
+    double2 d_init;
+    
     // Operator
     CustomExp    exp_op;
     functorCGH<RealType> cGAH;
 
-    // Declare temporary storage
+    // Temporary storage required by cub::scan and cub::reduce
     void *d_temp_storage0 = NULL;
     size_t temp_storage_bytes0 = 0;
     void *d_temp_storage = NULL;
@@ -61,8 +67,9 @@ public:
 		    thrust::device_vector<RealType>& d_AccNumer,
 		    thrust::device_vector<RealType>& d_AccNumer2,
 		    thrust::device_vector<RealType>& d_NWeight,
-		    thrust::device_vector<RealType>& d_Gradient,
-		    thrust::device_vector<RealType>& d_Hessian,
+//		    thrust::device_vector<RealType>& d_Gradient,
+//		    thrust::device_vector<RealType>& d_Hessian,
+		    double2* d_results,
 		    size_t& N,
 		    thrust::device_vector<int>& indicesN);
     void updateXBeta(const thrust::device_vector<RealType>& X, 
@@ -89,8 +96,9 @@ public:
 		    		   thrust::device_vector<RealType>& d_AccNumer2, 
 				   thrust::device_vector<RealType>& d_AccDenom, 
 				   thrust::device_vector<RealType>& d_NWeight, 
-				   thrust::device_vector<RealType>& d_Gradient, 
-				   thrust::device_vector<RealType>& d_Hessian, 
+//				   thrust::device_vector<RealType>& d_Gradient, 
+//				   thrust::device_vector<RealType>& d_Hessian, 
+				   double2* d_results,
 				   size_t& N
 //				   ,const std::vector<int>& K,
 //				   unsigned int offK,

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <chrono>
+#include <vector_types.h>
 
 #include <cub/cub.cuh>
 #include <thrust/device_vector.h>
@@ -123,6 +124,19 @@ struct TuplePlus3
                                       thrust::get<2>(lhs) + thrust::get<2>(rhs));
     }
 };
+
+struct Double2Plus
+{
+        __host__ __device__
+        double2 operator()(double2& a, double2& b)
+        {
+                double2 out;
+                out.x = a.x + b.x;
+                out.y = a.y + b.y;
+                return out;
+        }
+};
+
 /*
 template <typename RealType>
 struct functorCGH :
@@ -152,6 +166,7 @@ CudaKernel<RealType>::~CudaKernel()
     cudaFree(d_temp_storage0); // accDenom
     cudaFree(d_temp_storage); // accNumer
     cudaFree(d_temp_storage_gh); // cGAH
+    //cudaFree(d_init);
     std::cout << "CUDA class Destroyed \n";
 }
 
@@ -163,8 +178,9 @@ void CudaKernel<RealType>::allocTempStorage(thrust::device_vector<RealType>& d_D
 					    thrust::device_vector<RealType>& d_AccNumer,
 					    thrust::device_vector<RealType>& d_AccNumer2,
 					    thrust::device_vector<RealType>& d_NWeight,
-					    thrust::device_vector<RealType>& d_Gradient,
-					    thrust::device_vector<RealType>& d_Hessian,
+//					    thrust::device_vector<RealType>& d_Gradient,
+//					    thrust::device_vector<RealType>& d_Hessian,
+					    double2* d_results,
 					    size_t& N,
 					    thrust::device_vector<int>& indicesN)
 {
@@ -185,10 +201,14 @@ void CudaKernel<RealType>::allocTempStorage(thrust::device_vector<RealType>& d_D
                                                               d_AccNumer.begin(),
                                                               d_AccDenom.begin(),
                                                               d_AccNumer2.begin()));
-    auto results_gh = thrust::make_zip_iterator(thrust::make_tuple(d_Gradient.begin(), d_Hessian.begin()));
-    TransformInputIterator<Tup2, functorCGH<RealType>, ZipVec4> itr(begin_gh, cGAH);
+//    auto results_gh = thrust::make_zip_iterator(thrust::make_tuple(d_Gradient.begin(), d_Hessian.begin()));
 
-    DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, results_gh, N, TuplePlus(), init);
+    TransformInputIterator<double2, functorCGH<RealType>, ZipVec4> itr(begin_gh, cGAH);
+
+    d_init.x = d_init.y = 0.0;
+
+    DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, d_results, N, Double2Plus(), d_init);
+//    DeviceScan::InclusiveScan(d_temp_storage_gh, temp_storage_bytes_gh, itr, results_gh, TuplePlus(), N);
     cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
 
 /*
@@ -252,8 +272,9 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
 						     thrust::device_vector<RealType>& d_AccNumer2, 
 						     thrust::device_vector<RealType>& d_AccDenom, 
 						     thrust::device_vector<RealType>& d_NWeight, 
-						     thrust::device_vector<RealType>& d_Gradient, 
-						     thrust::device_vector<RealType>& d_Hessian, 
+//						     thrust::device_vector<RealType>& d_Gradient, 
+//						     thrust::device_vector<RealType>& d_Hessian, 
+						     double2* d_results,
 						     size_t& N
 //						     ,const std::vector<int>& K,
 //                                                     unsigned int offK,
@@ -268,28 +289,17 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
     }
 */    
     // cub transfrom reduction
-
     auto begin_gh = thrust::make_zip_iterator(thrust::make_tuple(d_NWeight.begin(),
                                                               d_AccNumer.begin(),
                                                               d_AccDenom.begin(),
                                                               d_AccNumer2.begin()));
-    auto results_gh = thrust::make_zip_iterator(thrust::make_tuple(d_Gradient.begin(), d_Hessian.begin()));
-
+//    auto results_gh = thrust::make_zip_iterator(thrust::make_tuple(d_Gradient.begin(), d_Hessian.begin()));
+    
     // transform iterator
-    TransformInputIterator<Tup2, functorCGH<RealType>, ZipVec4> itr(begin_gh, cGAH);
-
-    // reduction
-
-    // Declare temporary storage
-//    void *d_temp_storage_gh = NULL;
-//    size_t temp_storage_bytes_gh = 0;
-
-    // Determine temporary device storage requirements and allocate temporary storage
-//    DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, results_gh, N, TuplePlus(), init);
-//    cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
+    TransformInputIterator<double2, functorCGH<RealType>, ZipVec4> itr(begin_gh, cGAH);
 
     // Launch kernel
-    DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, results_gh, N, TuplePlus(), init);
+    DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, d_results, N, Double2Plus(), d_init);
 /*
     // start from the first non-zero entry
 
@@ -304,8 +314,6 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
 		    thrust::make_permutation_iterator(itr, indicesN.begin() + start),
 		    results_gh, N, TuplePlus(), init);
 */
-//    cudaFree(d_temp_storage_gh);
-
 //    std::cout << "G: " << d_Gradient[0] << " H: " << d_Hessian[0] << '\n';
 }
 
@@ -318,19 +326,10 @@ void CudaKernel<RealType>::computeAccumulatedNumerator(thrust::device_vector<Rea
 {
     auto results = thrust::make_zip_iterator(thrust::make_tuple(d_AccNumer.begin(), d_AccNumer2.begin()));
     auto begin = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(), d_Numerator2.begin()));
-
-    // Declare temporary storage
-//    void *d_temp_storage = NULL;
-//    size_t temp_storage_bytes = 0;
-
-    // Determine temporary device storage requirements and allocate temporary storage
-//    DeviceScan::InclusiveScan(d_temp_storage, temp_storage_bytes, begin, results, TuplePlus(), N);
-//    cudaMalloc(&d_temp_storage, temp_storage_bytes);
-   
+  
     // Launch kernel
     DeviceScan::InclusiveScan(d_temp_storage, temp_storage_bytes, begin, results, TuplePlus(), N);
 
-//    cudaFree(d_temp_storage);
 }
 
 
