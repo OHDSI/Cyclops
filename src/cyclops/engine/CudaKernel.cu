@@ -244,6 +244,7 @@ void CudaKernel<RealType>::updateXBeta(const thrust::device_vector<RealType>& X,
 					       thrust::raw_pointer_cast(&dExpXBeta[0]),
 					       thrust::raw_pointer_cast(&dNumerator[0]),
 					       thrust::raw_pointer_cast(&dNumerator2[0]));
+	cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
 }
 
 template <typename RealType>
@@ -265,6 +266,7 @@ void CudaKernel<RealType>::computeNumeratorForGradient(const thrust::device_vect
                                                                thrust::raw_pointer_cast(&dExpXBeta[0]),
                                                                thrust::raw_pointer_cast(&dNumerator[0]),
                                                                thrust::raw_pointer_cast(&dNumerator2[0]));
+    cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
 }
 
 template <typename RealType>
@@ -281,6 +283,7 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
 //                                                     thrust::device_vector<int>& indicesN
 						     )
 {
+	// MAS Do not do this copy; it could be expensive.
     d_AccDenom[N] = static_cast<RealType>(1); // avoid nan
     //int start = K[offK];
 /*
@@ -300,6 +303,7 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
 
     // Launch kernel
     DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, d_results, N, Double2Plus(), d_init);
+    cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
 /*
     // start from the first non-zero entry
 
@@ -329,7 +333,7 @@ void CudaKernel<RealType>::computeAccumulatedNumerator(thrust::device_vector<Rea
 
     // Launch kernel
     DeviceScan::InclusiveScan(d_temp_storage, temp_storage_bytes, begin, results, TuplePlus(), N);
-
+	cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
 }
 
 
@@ -364,7 +368,7 @@ void CudaKernel<RealType>::CubScan(RealType* d_in, RealType* d_out, int num_item
 
     // Launch kernel
     DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, d_in, d_out, num_items);
-
+	cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
 //    cudaFree(d_temp_storage0);
 
 }
@@ -389,12 +393,14 @@ void CudaKernel<RealType>::computeAccumulatedNumerAndDenom(thrust::device_vector
 
     // Determine temporary device storage requirements and allocate temporary storage
     DeviceScan::InclusiveScan(d_temp_storage_acc, temp_storage_bytes_acc, begin_acc, results_acc, TuplePlus3(), N);
-    cudaMalloc(&d_temp_storage_acc, temp_storage_bytes_acc);
+    cudaMalloc(&d_temp_storage_acc, temp_storage_bytes_acc); // MAS Why is this still here?
 
     // Launch kernel
     DeviceScan::InclusiveScan(d_temp_storage_acc, temp_storage_bytes_acc, begin_acc, results_acc, TuplePlus3(), N);
 
-    cudaFree(d_temp_storage_acc);
+    cudaFree(d_temp_storage_acc); // MAS Why is this still here?
+
+    cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
 }
 
 template <typename RealType>
@@ -407,7 +413,7 @@ void CudaKernel<RealType>::CubReduce(RealType* d_in, RealType* d_out, int num_it
 
     // Determine temporary device storage requirements and allocate temporary storage
     DeviceReduce::Sum(d_temp_storage0, temp_storage_bytes0, d_in, d_out, num_items);
-    cudaMalloc(&d_temp_storage0, temp_storage_bytes0);
+    cudaMalloc(&d_temp_storage0, temp_storage_bytes0); // MAS Why?
 
     // Launch kernel
     DeviceReduce::Sum(d_temp_storage0, temp_storage_bytes0, d_in, d_out, num_items);
