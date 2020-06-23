@@ -242,6 +242,8 @@ namespace bsccs{
 
         virtual ~GpuModelSpecificsCox() {
 	    cudaFree(d_results);
+//	    free(p_results);
+	    cudaFreeHost(p_results);
             std::cerr << "dtor GpuModelSpecificsCox" << std::endl;
         }
 
@@ -289,11 +291,13 @@ namespace bsccs{
 	    resizeCudaVec(numerPid, dAccNumer);
 	    resizeCudaVec(numerPid2, dAccNumer2);
 	    
-	    resizeCudaVecSize(dAccDenominator, N+1);
+	    resizeCudaVecSize(dAccDenominator, N); // N+1?
 
 //	    resizeCudaVecSize(dGradient, 1);
 //	    resizeCudaVecSize(dHessian, 1);
 	    cudaMalloc((void**)&d_results, sizeof(double2));
+//	    p_results = (double2 *)malloc(sizeof(double2));
+	    cudaMallocHost((void **) &p_results, sizeof(double2));
 /*
             resizeCudaVec(numerPid, dBuffer1);
             resizeCudaVec(numerPid2, dBuffer2);
@@ -347,7 +351,7 @@ namespace bsccs{
 
 	    thrust::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta));
 	    thrust::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta));
-	    thrust::copy(std::begin(accDenomPid), std::end(accDenomPid), std::begin(dAccDenominator));
+	    thrust::copy(std::begin(accDenomPid), std::end(accDenomPid)-1, std::begin(dAccDenominator));
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
@@ -463,7 +467,8 @@ namespace bsccs{
 	    thrust::copy(std::begin(dGradient), std::end(dGradient), std::begin(gradient));
     	    thrust::copy(std::begin(dHessian), std::end(dHessian), std::begin(hessian));
 */	    
-	    cudaMemcpy(&h_results, d_results, sizeof(double2), cudaMemcpyDeviceToHost);
+	    cudaMemcpy(p_results, d_results, sizeof(double2), cudaMemcpyDeviceToHost);
+	    h_results = *p_results;
 	    //std::cout << "index: " << index << " g: " << h_results.x << " h: " << h_results.y << '\n';
 	    
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -700,7 +705,8 @@ namespace bsccs{
 	thrust::device_vector<int> indicesN;
 	
 	// buffer
-	double2 *d_results;
+	double2 *d_results; // device GH
+	double2 *p_results; // host GH
 	thrust::device_vector<RealType> dAccNumer;
 	thrust::device_vector<RealType> dAccNumer2;
 	thrust::device_vector<RealType> dGradient;
