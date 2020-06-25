@@ -39,12 +39,10 @@ namespace bsccs{
 
         CudaAllGpuColumns() {
             // Do nothing
-//		std::cout << "ctor AGC \n";
         }
 
         virtual ~CudaAllGpuColumns() {
-//		std::cout << "dtor AGC \n";       
-	}
+        }
 
         void initialize(const CompressedDataMatrix<RealType>& mat,
                         size_t K, bool pad) {
@@ -84,12 +82,12 @@ namespace bsccs{
                     taskCounts.push_back(column.getNumberOfEntries());
                 }
             }
-	    
-	    resizeAndCopyToDeviceCuda(flatData, data);
-            resizeAndCopyToDeviceCuda(flatIndices, indices);
-            resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
-            resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
-            resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
+
+			resizeAndCopyToDeviceCuda(flatData, data);
+			resizeAndCopyToDeviceCuda(flatIndices, indices);
+			resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
+			resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
+			resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
 /*
             std::cout << "flatIndices: ";
             for (auto x:flatIndices) {
@@ -121,19 +119,19 @@ namespace bsccs{
             return taskCounts[column];
         }
 
-	const std::vector<int>& getHIndices() const {
-		return flatIndices;
-	}
+        const std::vector<int>& getHIndices() const {
+            return flatIndices;
+        }
 
         const DataVector& getData() const {
             return data;
         }
 
-	    const IndicesVector& getIndices() const {
+        const IndicesVector& getIndices() const {
             return indices;
         }
-	
-	    const dStartsVector& getDataStarts() const {
+
+        const dStartsVector& getDataStarts() const {
             return ddataStarts;
         }
 
@@ -176,9 +174,9 @@ namespace bsccs{
         hStartsVector taskCounts;
         hStartsVector dataStarts;
         hStartsVector indicesStarts;
-	
-	std::vector<RealType> flatData;
-	std::vector<int> flatIndices;
+
+        std::vector<RealType> flatData;
+        std::vector<int> flatIndices;
 
         dStartsVector dtaskCounts;
         dStartsVector ddataStarts;
@@ -230,21 +228,19 @@ namespace bsccs{
                              const std::string& deviceName)
         : ModelSpecifics<BaseModel,RealType>(input),
           dCudaColumns(),
-	  dXBeta(), dExpXBeta(),
-	  dDenominator(), dAccDenominator(),
-          dKWeight(), dNWeight()
-          , CudaData()
-	{
-       
+          dXBeta(), dExpXBeta(),
+          dDenominator(), dAccDenominator(),
+          dKWeight(), dNWeight(),
+          CudaData()
+          {
             std::cerr << "ctor GpuModelSpecificsCox" << std::endl;
-
-        }
+          }
 
         virtual ~GpuModelSpecificsCox() {
-	    cudaFree(d_results);
-//	    free(p_results);
-	    cudaFreeHost(p_results);
-            std::cerr << "dtor GpuModelSpecificsCox" << std::endl;
+			cudaFree(d_results);
+//			free(p_results);
+			cudaFreeHost(p_results);
+			std::cerr << "dtor GpuModelSpecificsCox" << std::endl;
         }
 
         virtual void deviceInitialization() {
@@ -252,7 +248,7 @@ namespace bsccs{
             std::cerr << "start dI" << std::endl;
 #endif
             // Copy data
-	        dCudaColumns.initialize(hX, K, true);
+            dCudaColumns.initialize(hX, K, true);
 /*
 	    formatList.resize(J);
 	    int need = 0;
@@ -280,78 +276,74 @@ namespace bsccs{
             }
 */
 
-	    // Internal buffers
-            resizeCudaVec(hXBeta, dXBeta); // K
-            resizeCudaVec(offsExpXBeta, dExpXBeta); 
-	    
-	    resizeAndZeroCudaVec(numerPid, dNumerator); // getAlignedLength(N + 1)
-	    if (BaseModel::hasTwoNumeratorTerms) {
-                resizeAndZeroCudaVec(numerPid2, dNumerator2);
-            }
-	    resizeCudaVec(numerPid, dAccNumer);
-	    resizeCudaVec(numerPid2, dAccNumer2);
-	    
-	    resizeCudaVecSize(dAccDenominator, N); // N+1?
+        // Internal buffers
+		resizeCudaVec(hXBeta, dXBeta); // K
+		resizeCudaVec(offsExpXBeta, dExpXBeta);
 
-//	    resizeCudaVecSize(dGradient, 1);
-//	    resizeCudaVecSize(dHessian, 1);
-	    cudaMalloc((void**)&d_results, sizeof(double2));
-//	    p_results = (double2 *)malloc(sizeof(double2));
-	    cudaMallocHost((void **) &p_results, sizeof(double2));
+		resizeAndZeroCudaVec(numerPid, dNumerator); // getAlignedLength(N + 1)
+		if (BaseModel::hasTwoNumeratorTerms) {
+		    resizeAndZeroCudaVec(numerPid2, dNumerator2);
+		}
+		resizeCudaVec(numerPid, dAccNumer);
+		resizeCudaVec(numerPid2, dAccNumer2);
+
+		resizeCudaVecSize(dAccDenominator, N); // N+1?
+
+		cudaMalloc((void**)&d_results, sizeof(double2));
+//		p_results = (double2 *)malloc(sizeof(double2));
+		cudaMallocHost((void **) &p_results, sizeof(double2));
 /*
-            resizeCudaVec(numerPid, dBuffer1);
-            resizeCudaVec(numerPid2, dBuffer2);
-	    resizeCudaVecSize(dBuffer3, N+1);
+		resizeCudaVec(numerPid, dBuffer1);
+		resizeCudaVec(numerPid2, dBuffer2);
+		resizeCudaVecSize(dBuffer3, N+1);
 */    
-//            resizeCudaVecSize(indicesN, N);
+//		resizeCudaVecSize(indicesN, N);
 
-            // Allocate temporary storage for scan and reduction
-	    CudaData.allocTempStorage(dExpXBeta,
-                                      dNumerator,
-				      dNumerator2,
-				      dAccDenominator,
-				      dAccNumer,
-				      dAccNumer2,
-				      dNWeight,
-//				      dGradient,
-//				      dHessian,
-				      d_results,
-				      N,
-				      indicesN);
-	   
-//            std::cerr << "Format types required: " << need << std::endl;
+		// Allocate temporary storage for scan and reduction
+		CudaData.allocTempStorage(dExpXBeta,
+		        dNumerator,
+		        dNumerator2,
+		        dAccDenominator,
+		        dAccNumer,
+		        dAccNumer2,
+		        dNWeight,
+		        d_results,
+		        N,
+		        indicesN);
+
+//        std::cerr << "Format types required: " << need << std::endl;
 
         }
-        
-	virtual void setWeights(double* inWeights, bool useCrossValidation) {
-            // Currently only computed on CPU and then copied to GPU
-            ModelSpecifics<BaseModel, RealType>::setWeights(inWeights, useCrossValidation);
 
-            resizeAndCopyToDeviceCuda(hKWeight, dKWeight);
-            resizeAndCopyToDeviceCuda(hNWeight, dNWeight);
-//            std::cout << "GPU::setWeights called \n";
+        virtual void setWeights(double* inWeights, bool useCrossValidation) {
+			// Currently only computed on CPU and then copied to GPU
+			ModelSpecifics<BaseModel, RealType>::setWeights(inWeights, useCrossValidation);
+
+			resizeAndCopyToDeviceCuda(hKWeight, dKWeight);
+			resizeAndCopyToDeviceCuda(hNWeight, dNWeight);
+//			std::cout << "GPU::setWeights called \n";
         }
 
         virtual void computeRemainingStatistics(bool useWeights) {
 
             std::cerr << "GPU::cRS called" << std::endl;
+            hXBetaKnown = true;
 
-	    hXBetaKnown = true;
             // Currently RS only computed on CPU and then copied
-            ModelSpecifics<BaseModel, RealType>::computeRemainingStatistics(useWeights);
+			ModelSpecifics<BaseModel, RealType>::computeRemainingStatistics(useWeights);
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start = bsccs::chrono::steady_clock::now();
 #endif
-            /*
+/*
             if (algorithmType == AlgorithmType::MM) {
                 compute::copy(std::begin(hBeta), std::end(hBeta), std::begin(dBeta), queue);
             }
-            */
+*/
 
-	    thrust::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta));
-	    thrust::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta));
-	    thrust::copy(std::begin(accDenomPid), std::end(accDenomPid)-1, std::begin(dAccDenominator));
+			thrust::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta));
+			thrust::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta));
+			thrust::copy(std::begin(accDenomPid), std::end(accDenomPid)-1, std::begin(dAccDenominator));
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
@@ -362,51 +354,50 @@ namespace bsccs{
         }
 
         virtual double getGradientObjective(bool useCrossValidation) {
-            
+
             // TODO write gpu version to avoid D-H copying
-            ModelSpecifics<BaseModel, RealType>::getGradientObjective(useCrossValidation);
+			ModelSpecifics<BaseModel, RealType>::getGradientObjective(useCrossValidation);
         }
 
-	virtual double getLogLikelihood(bool useCrossValidation) {
-
-//	std::cout << "GPU::cLL called" << std::endl;
+        virtual double getLogLikelihood(bool useCrossValidation) {
+//			std::cout << "GPU::cLL called" << std::endl;
 
 #ifdef CYCLOPS_DEBUG_TIMING
-        auto start = bsccs::chrono::steady_clock::now();
+            auto start = bsccs::chrono::steady_clock::now();
 #endif
-            // TODO write gpu version to avoid D-H copying
-            thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid));
+			// TODO write gpu version to avoid D-H copying
+			thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid));
             
 #ifdef CYCLOPS_DEBUG_TIMING
-        auto end = bsccs::chrono::steady_clock::now();
-        ///////////////////////////"
-        duration["compLogLikeG     "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+            auto end = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            duration["compLogLikeG     "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
 #endif
-            // Currently LL only computed on CPU and then copied
-            ModelSpecifics<BaseModel, RealType>::getLogLikelihood(useCrossValidation);
+			// Currently LL only computed on CPU and then copied
+			ModelSpecifics<BaseModel, RealType>::getLogLikelihood(useCrossValidation);
 
-	}	
+        }
 
-	virtual void computeGradientAndHessian(int index, double *ogradient,
+        virtual void computeGradientAndHessian(int index, double *ogradient,
                                            double *ohessian, bool useWeights) {
 
-//            std::cout << "GPU::cGAH \n";
-//            std::vector<RealType> gradient(1, static_cast<RealType>(0));
-//            std::vector<RealType> hessian(1, static_cast<RealType>(0));
-            double2 h_results;
+//			std::cout << "GPU::cGAH \n";
+//			std::vector<RealType> gradient(1, static_cast<RealType>(0));
+//			std::vector<RealType> hessian(1, static_cast<RealType>(0));
+			double2 h_results;
 
-            FormatType formatType = hX.getFormatType(index);
-            const auto taskCount = dCudaColumns.getTaskCount(index);
+			FormatType formatType = hX.getFormatType(index);
+			const auto taskCount = dCudaColumns.getTaskCount(index);
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start2 = bsccs::chrono::steady_clock::now();
 #endif	
-            // dense scan on tuple
-            CudaData.computeAccumulatedNumerator(dNumerator,
-                                                 dNumerator2,
-                                                 dAccNumer,
-                                                 dAccNumer2,
-                                                 N);
+			// dense scan on tuple
+			CudaData.computeAccumulatedNumerator(dNumerator,
+			        dNumerator2,
+			        dAccNumer,
+			        dAccNumer2,
+			        N);
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end2 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
@@ -417,8 +408,8 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start2 = bsccs::chrono::steady_clock::now();
 #endif
-            // dense scan on tuple
-            CudaData.computeAccumulatedNumerAndDenom(dExpXBeta,
+			// dense scan on tuple
+			CudaData.computeAccumulatedNumerAndDenom(dExpXBeta,
 			    			     dNumerator,
 						     dNumerator2,
 						     dAccDenominator,
@@ -436,19 +427,17 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start3 = bsccs::chrono::steady_clock::now();
 #endif
-            // dense transform reduction
-	    CudaData.computeGradientAndHessian(dAccNumer, 
-			    		       dAccNumer2, 
-					       dAccDenominator, 
-					       dNWeight, 
-//					       dGradient, 
-//					       dHessian, 
-					       d_results,
-					       N
-//					       , dCudaColumns.getHIndices(),
-//					       dCudaColumns.getIndicesOffset(index),
-//					       indicesN
-					       );
+			// dense transform reduction
+			CudaData.computeGradientAndHessian(dAccNumer,
+			        dAccNumer2,
+			        dAccDenominator,
+			        dNWeight,
+			        d_results,
+			        N
+//			        , dCudaColumns.getHIndices(),
+//			        dCudaColumns.getIndicesOffset(index),
+//			        indicesN
+			        );
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end3 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
@@ -460,46 +449,32 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start4 = bsccs::chrono::steady_clock::now();
 #endif    
-/*	    // copy the results from device to host
-	    thrust::copy(std::begin(dGradient)+N-1, std::end(dGradient), std::begin(gradient));
-	    thrust::copy(std::begin(dHessian)+N-1, std::end(dHessian), std::begin(hessian));
-
-	    thrust::copy(std::begin(dGradient), std::end(dGradient), std::begin(gradient));
-    	    thrust::copy(std::begin(dHessian), std::end(dHessian), std::begin(hessian));
-*/	    
-	    cudaMemcpy(p_results, d_results, sizeof(double2), cudaMemcpyDeviceToHost);
-	    h_results = *p_results;
-	    //std::cout << "index: " << index << " g: " << h_results.x << " h: " << h_results.y << '\n';
-	    
+			cudaMemcpy(p_results, d_results, sizeof(double2), cudaMemcpyDeviceToHost);
+			h_results = *p_results;
+//			std::cout << "index: " << index << " g: " << h_results.x << " h: " << h_results.y << '\n';
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end4 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
             auto name4 = "compGradHessG" + getFormatTypeExtension(formatType) + " cudaMemcpy2";
             duration[name4] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end4 - start4).count();
 /*
-	    double timerG = 0;
-	    timerG = std::chrono::duration<double, std::milli>(end4 - start4).count();
-	    std::cout << "timerG: " << timerG << '\n';
+            double timerG = 0;
+            timerG = std::chrono::duration<double, std::milli>(end4 - start4).count();
+            std::cout << "timerG: " << timerG << '\n';
 */	    
-	    auto name = "compGradHessG" + getFormatTypeExtension(formatType) + " ";
+            auto name = "compGradHessG" + getFormatTypeExtension(formatType) + " ";
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end4 - start2).count();
 #endif	    
 	    
-//	        std::cout << "g: " << gradient[0] << " h: " << hessian[0] << " xjy: " << hXjY[index] << '\n';
-/*
-            gradient[0] -= hXjY[index];
-            *ogradient = static_cast<double>(gradient[0]);
-            *ohessian = static_cast<double>(hessian[0]);
-*/
-	    h_results.x -= hXjY[index];
-	    *ogradient = static_cast<double>(h_results.x);
-	    *ohessian = static_cast<double>(h_results.y);
+			h_results.x -= hXjY[index];
+			*ogradient = static_cast<double>(h_results.x);
+			*ohessian = static_cast<double>(h_results.y);
 /*
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start1 = bsccs::chrono::steady_clock::now();
 #endif
-            // empty kernel
-            CudaData.empty4(dAccNumer,
+			// empty kernel
+			CudaData.empty4(dAccNumer,
                             dAccNumer2,
                             dBuffer1,
                             dBuffer2);
@@ -510,7 +485,7 @@ namespace bsccs{
             duration[name1] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start1).count();
 #endif
 */
-	}
+        }
 
 
         virtual void updateXBeta(double delta, int index, bool useWeights) {
@@ -519,36 +494,34 @@ namespace bsccs{
             ModelSpecifics<BaseModel, WeightType>::updateXBeta(delta, index, useWeights);
 #endif // GPU_DEBUG
 
-//	    ModelSpecifics<BaseModel, RealType>::updateXBeta(delta, index, useWeights);
-//	    std::cout << "GPU updateXBeta called \n";
 /*
             // FOR TEST: check data
             std::cout << "delta: " << delta << '\n';
             std::cout << "K: " << K  << " N: " << N << " TaskCount: " << dCudaColumns.getTaskCount(index) << '\n';
-	    std::cout << "index: " << index << " TaskCount: " << dCudaColumns.getTaskCount(index) << " offX: " << dCudaColumns.getDataOffset(index) << " offK: " << dCudaColumns.getIndicesOffset(index) << '\n';
+            std::cout << "index: " << index << " TaskCount: " << dCudaColumns.getTaskCount(index) << " offX: " << dCudaColumns.getDataOffset(index) << " offK: " << dCudaColumns.getIndicesOffset(index) << '\n';
 */
-            FormatType formatType = hX.getFormatType(index);
-            const auto taskCount = dCudaColumns.getTaskCount(index);
+			FormatType formatType = hX.getFormatType(index);
+			const auto taskCount = dCudaColumns.getTaskCount(index);
 
 #ifdef CYCLOPS_DEBUG_TIMING
-            auto start2 = bsccs::chrono::steady_clock::now();
+         auto start2 = bsccs::chrono::steady_clock::now();
 #endif
-            // sparse transformation
-            int gridSize, blockSize;
-            blockSize = 256;
-            gridSize = (int)ceil((double)taskCount/blockSize);
-            CudaData.updateXBeta(dCudaColumns.getData(), 
-			    	 dCudaColumns.getIndices(), 
-				 dCudaColumns.getDataOffset(index), 
-				 dCudaColumns.getIndicesOffset(index), 
-				 taskCount, 
-				 static_cast<RealType>(delta), 
-				 dXBeta, 
-				 dExpXBeta, 
-				 dNumerator,
-				 dNumerator2,
-				 gridSize, blockSize);
-	    hXBetaKnown = false;
+			// sparse transformation
+			int gridSize, blockSize;
+			blockSize = 256;
+			gridSize = (int)ceil((double)taskCount/blockSize);
+			CudaData.updateXBeta(dCudaColumns.getData(),
+			        dCudaColumns.getIndices(),
+			        dCudaColumns.getDataOffset(index),
+			        dCudaColumns.getIndicesOffset(index),
+			        taskCount,
+			        static_cast<RealType>(delta),
+			        dXBeta,
+			        dExpXBeta,
+			        dNumerator,
+			        dNumerator2,
+			        gridSize, blockSize);
+			hXBetaKnown = false;
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end2 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
@@ -558,24 +531,23 @@ namespace bsccs{
 
 
 #ifdef CYCLOPS_DEBUG_TIMING
-            auto start3 = bsccs::chrono::steady_clock::now();
+         auto start3 = bsccs::chrono::steady_clock::now();
 #endif
-            // dense scan
-            CudaData.CubScan(thrust::raw_pointer_cast(&dExpXBeta[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
-
+			// dense scan
+			CudaData.CubScan(thrust::raw_pointer_cast(&dExpXBeta[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end3 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
             auto name3 = "updateXBetaG" + getFormatTypeExtension(formatType) + "     accDenom";
             duration[name3] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end3 - start3).count();
-            
-	    auto name = "updateXBetaG" + getFormatTypeExtension(formatType) + "  ";
+
+            auto name = "updateXBetaG" + getFormatTypeExtension(formatType) + "  ";
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end3 - start2).count();
 #endif
 
 /*
 #ifdef CYCLOPS_DEBUG_TIMING
-            auto start4 = bsccs::chrono::steady_clock::now();
+           auto start4 = bsccs::chrono::steady_clock::now();
 #endif
             // empty kernel
             CudaData.empty2(dAccDenominator,
@@ -590,34 +562,33 @@ namespace bsccs{
 
 #ifdef GPU_DEBUG
             // Compare results:
-        detail::compare(hXBeta, dXBeta, "xBeta not equal");
-        detail::compare(offsExpXBeta, dExpXBeta, "expXBeta not equal");
-        detail::compare(denomPid, dDenominator, "denominator not equal");
+            detail::compare(hXBeta, dXBeta, "xBeta not equal");
+            detail::compare(offsExpXBeta, dExpXBeta, "expXBeta not equal");
+            detail::compare(denomPid, dDenominator, "denominator not equal");
 #endif // GPU_DEBUG
         }
 
         virtual void computeNumeratorForGradient(int index, bool useWeights) {
-            //std::cout << "GPU computeNumeratorForGradient called \n";
 
-            FormatType formatType = hX.getFormatType(index);
-            const auto taskCount = dCudaColumns.getTaskCount(index);
+			FormatType formatType = hX.getFormatType(index);
+			const auto taskCount = dCudaColumns.getTaskCount(index);
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start = bsccs::chrono::steady_clock::now();
 #endif	
-            // sparse transformation
-            int gridSize, blockSize;
-            blockSize = 256;
-            gridSize = (int)ceil((double)taskCount/blockSize);
-            CudaData.computeNumeratorForGradient(dCudaColumns.getData(),
-                                                 dCudaColumns.getIndices(),
-                                                 dCudaColumns.getDataOffset(index),
-                                                 dCudaColumns.getIndicesOffset(index),
-                                                 taskCount,
-                                                 dExpXBeta,
-                                                 dNumerator,
-                                                 dNumerator2,
-                                                 gridSize, blockSize);
+			// sparse transformation
+			int gridSize, blockSize;
+			blockSize = 256;
+			gridSize = (int)ceil((double)taskCount/blockSize);
+			CudaData.computeNumeratorForGradient(dCudaColumns.getData(),
+			        dCudaColumns.getIndices(),
+			        dCudaColumns.getDataOffset(index),
+			        dCudaColumns.getIndicesOffset(index),
+			        taskCount,
+			        dExpXBeta,
+			        dNumerator,
+			        dNumerator2,
+			        gridSize, blockSize);
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
@@ -627,42 +598,36 @@ namespace bsccs{
         }
 
         virtual const std::vector<double> getXBeta() {
-            if (!hXBetaKnown) {
+			if (!hXBetaKnown) {
 //		    std::cout << "GPU::getXBeta called \n";
-                thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
-                hXBetaKnown = true;
-            }
-            return ModelSpecifics<BaseModel, RealType>::getXBeta();
+				thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
+				hXBetaKnown = true;
+			}
+			return ModelSpecifics<BaseModel, RealType>::getXBeta();
         }
 
         virtual const std::vector<double> getXBetaSave() {
-            return ModelSpecifics<BaseModel, RealType>::getXBetaSave();
+			return ModelSpecifics<BaseModel, RealType>::getXBetaSave();
         }
 
         virtual void saveXBeta() {
-            if (!hXBetaKnown) {
-                thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
-                hXBetaKnown = true;
-            }
-            ModelSpecifics<BaseModel, RealType>::saveXBeta();
+			if (!hXBetaKnown) {
+			    thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
+			    hXBetaKnown = true;
+			}
+			ModelSpecifics<BaseModel, RealType>::saveXBeta();
         }
 
         virtual void zeroXBeta() {
-
-            //std::cerr << "GPU::zXB called" << std::endl;
-
-            ModelSpecifics<BaseModel, RealType>::zeroXBeta(); // touches hXBeta
-
-            dXBetaKnown = false;
+//			std::cerr << "GPU::zXB called" << std::endl;
+			ModelSpecifics<BaseModel, RealType>::zeroXBeta(); // touches hXBeta
+			dXBetaKnown = false;
         }
 
         virtual void axpyXBeta(const double beta, const int j) {
-
-            //std::cerr << "GPU::aXB called" << std::endl;
-
-            ModelSpecifics<BaseModel, RealType>::axpyXBeta(beta, j); // touches hXBeta
-
-            dXBetaKnown = false;
+//			std::cerr << "GPU::aXB called" << std::endl;
+			ModelSpecifics<BaseModel, RealType>::axpyXBeta(beta, j); // touches hXBeta
+			dXBetaKnown = false;
         }
 
     private:
@@ -681,40 +646,40 @@ namespace bsccs{
             }
         }
 
-        bool hXBetaKnown;
-        bool dXBetaKnown;
+		bool hXBetaKnown;
+		bool dXBetaKnown;
 /*
-	bool double_precision = false;
+		bool double_precision = false;
 
-        std::map<FormatType, std::vector<int>> indicesFormats;
-        std::vector<FormatType> formatList;
-        std::vector<FormatType> neededFormatTypes;
+		std::map<FormatType, std::vector<int>> indicesFormats;
+		std::vector<FormatType> formatList;
+		std::vector<FormatType> neededFormatTypes;
 */
-	// device storage
-	thrust::device_vector<RealType> dKWeight;
-        thrust::device_vector<RealType> dNWeight;
+		// device storage
+		thrust::device_vector<RealType> dKWeight;
+		thrust::device_vector<RealType> dNWeight;
 
-	thrust::device_vector<RealType> dXBeta;
-        thrust::device_vector<RealType> dExpXBeta;
-        thrust::device_vector<RealType> dDenominator;
-        thrust::device_vector<RealType> dAccDenominator;
+		thrust::device_vector<RealType> dXBeta;
+		thrust::device_vector<RealType> dExpXBeta;
+		thrust::device_vector<RealType> dDenominator;
+		thrust::device_vector<RealType> dAccDenominator;
 
-        thrust::device_vector<RealType> dNumerator;
-	thrust::device_vector<RealType> dNumerator2;
-	
-	thrust::device_vector<int> indicesN;
-	
-	// buffer
-	double2 *d_results; // device GH
-	double2 *p_results; // host GH
-	thrust::device_vector<RealType> dAccNumer;
-	thrust::device_vector<RealType> dAccNumer2;
-	thrust::device_vector<RealType> dGradient;
-	thrust::device_vector<RealType> dHessian;
+		thrust::device_vector<RealType> dNumerator;
+		thrust::device_vector<RealType> dNumerator2;
 
-	thrust::device_vector<RealType> dBuffer1;
-	thrust::device_vector<RealType> dBuffer2;
-	thrust::device_vector<RealType> dBuffer3;
+		thrust::device_vector<int> indicesN;
+
+		// buffer
+		double2 *d_results; // device GH
+		double2 *p_results; // host GH
+		thrust::device_vector<RealType> dAccNumer;
+		thrust::device_vector<RealType> dAccNumer2;
+		thrust::device_vector<RealType> dGradient;
+		thrust::device_vector<RealType> dHessian;
+
+		thrust::device_vector<RealType> dBuffer1;
+		thrust::device_vector<RealType> dBuffer2;
+		thrust::device_vector<RealType> dBuffer3;
     };
 } // namespace bsccs
 
