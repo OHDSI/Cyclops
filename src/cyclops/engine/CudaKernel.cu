@@ -76,7 +76,7 @@ __global__ void kernelComputeNumeratorForGradient(int offX,
 //	        dNumerator2[k] = dX[offX + task] * dNumerator[k];
 //	    } else { // INDICATOR, INTERCEPT
 	        dNumerator[k] = dExpXBeta[k];
-	    }
+//	    }
 	}
 }
 
