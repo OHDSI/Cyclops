@@ -184,7 +184,7 @@ simulateCyclopsData <- function(nstrata = 200,
     data$rowId <- 1:nrow(data)
     data <- merge(data,sim$outcomes)
     data <- data[order(data$stratumId,data$rowId),]
-    formula <- as.formula(paste(c("Surv(time,y) ~ strata(stratumId)",paste("v",1:ncovars,sep="")),collapse=" + "))
+    formula <- as.formula(paste(c("Surv(time,y) ~ strata(stratumId)",paste("V",1:ncovars,sep="")),collapse=" + "))
     fit <- survival::coxph(formula,data=data)
     if (coverage) {
         ci <- confint(fit)
@@ -256,9 +256,10 @@ fitCyclopsSimulation <- function(sim,
                                  useCyclops = TRUE,
                                  model = "logistic",
                                  coverage = TRUE,
-                                 includePenalty = FALSE) {
+                                 includePenalty = FALSE,
+				 computeDevice = "native") {
     if (useCyclops) {
-        .fitCyclopsSimulationUsingCyclops(sim, model, coverage = coverage, includePenalty = includePenalty)
+        .fitCyclopsSimulationUsingCyclops(sim, model, coverage = coverage, includePenalty = includePenalty, computeDevice = computeDevice)
     } else {
         .fitCyclopsSimulationUsingOtherThanCyclops(sim, model, coverage)
     }
@@ -280,9 +281,10 @@ fitCyclopsSimulation <- function(sim,
 
 .fitCyclopsSimulationUsingCyclops <- function(sim,
                                               model = "logistic",
-                                              regularized = TRUE,
+                                              regularized = FALSE,
                                               coverage = TRUE,
-                                              includePenalty = FALSE){
+                                              includePenalty = FALSE,
+					      computeDevice = computeDevice){
     if (!regularized)
         includePenalty = FALSE
     start <- Sys.time()
@@ -322,7 +324,11 @@ fitCyclopsSimulation <- function(sim,
             }
         }
     } else {
-        cyclopsFit <- fitCyclopsModel(dataPtr, prior = createPrior("none"))
+        if (computeDevice == "native") {
+            cyclopsFit <- fitCyclopsModel(dataPtr, prior = createPrior("none"))
+        } else {
+            cyclopsFit <- fitCyclopsModel(dataPtr, prior = createPrior("none"), computeDevice = computeDevice)
+        }
         coefCyclops <- data.frame(covariateId = as.integer(names(coef(cyclopsFit))),beta=coef(cyclopsFit))
         coefCyclops <- coefCyclops[order(coefCyclops$covariateId),]
         coefCyclops <- coefCyclops$beta
@@ -344,7 +350,11 @@ fitCyclopsSimulation <- function(sim,
                      signif(cyclopsFit$timeFit,3), attr(cyclopsFit$timeFit,"units"),
                      ")"))
 
-    df <- data.frame(coef = coefCyclops, lbCi95 = lbCi95, ubCi95 = ubCi95)
+    if (coverage) {
+        df <- data.frame(coef = coefCyclops, lbCi95 = lbCi95, ubCi95 = ubCi95)
+    } else {
+        df <- data.frame(coef = coefCyclops)
+    }
     attr(df, "dataPtr") <- dataPtr
     df
 }

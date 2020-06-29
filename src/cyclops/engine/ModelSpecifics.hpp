@@ -104,6 +104,10 @@ AbstractModelSpecifics* ModelSpecifics<BaseModel,RealType>::clone() const {
 template <class BaseModel, typename RealType>
 double ModelSpecifics<BaseModel,RealType>::getGradientObjective(bool useCrossValidation) {
 
+#ifdef CYCLOPS_DEBUG_TIMING
+    auto start = bsccs::chrono::steady_clock::now();
+#endif
+
 		auto& xBeta = getXBeta();
 
 		RealType criterion = 0;
@@ -116,7 +120,11 @@ double ModelSpecifics<BaseModel,RealType>::getGradientObjective(bool useCrossVal
 				criterion += xBeta[i] * hY[i];
 			}
 		}
-
+#ifdef CYCLOPS_DEBUG_TIMING
+    auto end = bsccs::chrono::steady_clock::now();
+    ///////////////////////////"
+    duration["getGradObj       "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
 		return static_cast<double> (criterion);
 	}
 

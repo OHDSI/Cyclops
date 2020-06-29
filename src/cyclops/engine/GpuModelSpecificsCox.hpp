@@ -326,15 +326,14 @@ namespace bsccs{
 
         virtual void computeRemainingStatistics(bool useWeights) {
 
-            std::cerr << "GPU::cRS called" << std::endl;
-            hXBetaKnown = true;
-
-            // Currently RS only computed on CPU and then copied
-			ModelSpecifics<BaseModel, RealType>::computeRemainingStatistics(useWeights);
-
+                        std::cerr << "GPU::cRS called" << std::endl;
+                        hXBetaKnown = true;
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start = bsccs::chrono::steady_clock::now();
 #endif
+                        // Currently RS only computed on CPU and then copied
+			ModelSpecifics<BaseModel, RealType>::computeRemainingStatistics(useWeights);
+
 /*
             if (algorithmType == AlgorithmType::MM) {
                 compute::copy(std::begin(hBeta), std::end(hBeta), std::begin(dBeta), queue);
@@ -355,9 +354,10 @@ namespace bsccs{
 
         virtual double getGradientObjective(bool useCrossValidation) {
 
-            // TODO write gpu version to avoid D-H copying
+                        // TODO write gpu version to avoid D-H copying
 			ModelSpecifics<BaseModel, RealType>::getGradientObjective(useCrossValidation);
-        }
+      
+      	}
 
         virtual double getLogLikelihood(bool useCrossValidation) {
 //			std::cout << "GPU::cLL called" << std::endl;
@@ -367,15 +367,14 @@ namespace bsccs{
 #endif
 			// TODO write gpu version to avoid D-H copying
 			thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid));
+                        // Currently LL only computed on CPU and then copied
+                        ModelSpecifics<BaseModel, RealType>::getLogLikelihood(useCrossValidation);
             
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
             duration["compLogLikeG     "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
 #endif
-			// Currently LL only computed on CPU and then copied
-			ModelSpecifics<BaseModel, RealType>::getLogLikelihood(useCrossValidation);
-
         }
 
         virtual void computeGradientAndHessian(int index, double *ogradient,
@@ -598,11 +597,20 @@ namespace bsccs{
         }
 
         virtual const std::vector<double> getXBeta() {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start = bsccs::chrono::steady_clock::now();
+#endif
 			if (!hXBetaKnown) {
 //		    std::cout << "GPU::getXBeta called \n";
 				thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
 				hXBetaKnown = true;
 			}
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            duration["getXBetaG        "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+#endif
 			return ModelSpecifics<BaseModel, RealType>::getXBeta();
         }
 
