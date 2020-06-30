@@ -173,12 +173,19 @@ void CudaKernel<RealType>::allocTempStorage(thrust::device_vector<RealType>& d_D
 	// for scan in accDenom
 	DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, &d_Denominator[0], &d_AccDenom[0], N);
 	cudaMalloc(&d_temp_storage0, temp_storage_bytes0);
-
+/*
 	// for scan in accNumer
 	auto results = thrust::make_zip_iterator(thrust::make_tuple(d_AccNumer.begin(), d_AccNumer2.begin()));
 	auto begin = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(), d_Numerator2.begin()));
 	DeviceScan::InclusiveScan(d_temp_storage, temp_storage_bytes, begin, results, TuplePlus(), N);
 	cudaMalloc(&d_temp_storage, temp_storage_bytes);
+*/
+        // for scan in compDAndN
+        auto results_acc = thrust::make_zip_iterator(thrust::make_tuple(d_AccDenom.begin(), d_AccNumer.begin(), d_AccNumer2.begin()));
+        auto begin_acc = thrust::make_zip_iterator(thrust::make_tuple(d_Denominator.begin(), d_Numerator.begin(), d_Numerator2.begin()));
+
+        DeviceScan::InclusiveScan(d_temp_storage_acc, temp_storage_bytes_acc, begin_acc, results_acc, TuplePlus3(), N);
+        cudaMalloc(&d_temp_storage_acc, temp_storage_bytes_acc);
 
 	// for reduction in compGAndH
 	auto begin_gh = thrust::make_zip_iterator(thrust::make_tuple(d_NWeight.begin(),
@@ -195,14 +202,6 @@ void CudaKernel<RealType>::allocTempStorage(thrust::device_vector<RealType>& d_D
 //	DeviceScan::InclusiveScan(d_temp_storage_gh, temp_storage_bytes_gh, itr, results_gh, TuplePlus(), N);
 	cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
 
-/*
-	// for scan in compDAndN
-	auto results_acc = thrust::make_zip_iterator(thrust::make_tuple(d_AccDenom.begin(), d_AccNumer.begin(), d_AccNumer2.begin()));
-	auto begin_acc = thrust::make_zip_iterator(thrust::make_tuple(d_Denominator.begin(), d_Numerator.begin(), d_Numerator2.begin()));
-
-	DeviceScan::InclusiveScan(d_temp_storage_acc, temp_storage_bytes_acc, begin_acc, results_acc, TuplePlus3(), N);
-	cudaMalloc(&d_temp_storage_acc, temp_storage_bytes_acc);
-*/
 }
 
 template <typename RealType>
@@ -326,6 +325,22 @@ void CudaKernel<RealType>::computeAccumulatedNumerator(thrust::device_vector<Rea
 	cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
 }
 
+template <typename RealType>
+void CudaKernel<RealType>::computeAccumulatedNumerAndDenom(thrust::device_vector<RealType>& d_Denominator,
+                                                           thrust::device_vector<RealType>& d_Numerator,
+                                                           thrust::device_vector<RealType>& d_Numerator2,
+                                                           thrust::device_vector<RealType>& d_AccDenom,
+                                                           thrust::device_vector<RealType>& d_AccNumer,
+                                                           thrust::device_vector<RealType>& d_AccNumer2,
+                                                           size_t& N)
+{
+    	auto results_acc = thrust::make_zip_iterator(thrust::make_tuple(d_AccDenom.begin(), d_AccNumer.begin(), d_AccNumer2.begin()));
+    	auto begin_acc = thrust::make_zip_iterator(thrust::make_tuple(d_Denominator.begin(), d_Numerator.begin(), d_Numerator2.begin()));
+
+     	// Launch kernel
+    	DeviceScan::InclusiveScan(d_temp_storage_acc, temp_storage_bytes_acc, begin_acc, results_acc, TuplePlus3(), N);
+	    cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
+}
 
 template <typename RealType>
 void CudaKernel<RealType>::empty4(thrust::device_vector<RealType>& d_AccNumer,

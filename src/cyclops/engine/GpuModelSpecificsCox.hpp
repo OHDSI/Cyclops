@@ -367,14 +367,45 @@ namespace bsccs{
 #endif
 			// TODO write gpu version to avoid D-H copying
 			thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid));
-                        // Currently LL only computed on CPU and then copied
-                        ModelSpecifics<BaseModel, RealType>::getLogLikelihood(useCrossValidation);
+
+			// Currently LL only computed on CPU and then copied
+			ModelSpecifics<BaseModel, RealType>::getLogLikelihood(useCrossValidation);
             
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
             duration["compLogLikeG     "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
 #endif
+        }
+        
+	virtual void computeNumeratorForGradient(int index, bool useWeights) {
+
+                        FormatType formatType = hX.getFormatType(index);
+                        const auto taskCount = dCudaColumns.getTaskCount(index);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start = bsccs::chrono::steady_clock::now();
+#endif
+                        // sparse transformation
+                        int gridSize, blockSize;
+                        blockSize = 256;
+                        gridSize = (int)ceil((double)taskCount/blockSize);
+                        CudaData.computeNumeratorForGradient(dCudaColumns.getData(),
+                                dCudaColumns.getIndices(),
+                                dCudaColumns.getDataOffset(index),
+                                dCudaColumns.getIndicesOffset(index),
+                                taskCount,
+                                dExpXBeta,
+                                dNumerator,
+                                dNumerator2,
+                                gridSize, blockSize);
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name = "compNumForG" + getFormatTypeExtension(formatType) + "   ";
+            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+
         }
 
         virtual void computeGradientAndHessian(int index, double *ogradient,
@@ -387,6 +418,18 @@ namespace bsccs{
 
 			FormatType formatType = hX.getFormatType(index);
 			const auto taskCount = dCudaColumns.getTaskCount(index);
+/*
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start1 = bsccs::chrono::steady_clock::now();
+#endif
+                        // dense scan
+//                        CudaData.CubScan(thrust::raw_pointer_cast(&dExpXBeta[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end1 = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name1 = "compGradHessG" + getFormatTypeExtension(formatType) + "    accDenom";
+            duration[name1] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start1).count();
+#endif
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start2 = bsccs::chrono::steady_clock::now();
@@ -403,7 +446,7 @@ namespace bsccs{
             auto name2 = "compGradHessG" + getFormatTypeExtension(formatType) + "    accNumer";
             duration[name2] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
 #endif
-/*
+*/
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start2 = bsccs::chrono::steady_clock::now();
 #endif
@@ -421,7 +464,7 @@ namespace bsccs{
             auto name2 = "compGradHessG" + getFormatTypeExtension(formatType) + "    accNAndD";
             duration[name2] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
 #endif
-*/
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start3 = bsccs::chrono::steady_clock::now();
@@ -524,11 +567,13 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end2 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
-            auto name2 = "updateXBetaG" + getFormatTypeExtension(formatType) + "    transform";
-            duration[name2] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
+//            auto name2 = "updateXBetaG" + getFormatTypeExtension(formatType) + "    transform";
+//            duration[name2] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
+            auto name = "updateXBetaG" + getFormatTypeExtension(formatType) + "  ";
+            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
 #endif
 
-
+/*
 #ifdef CYCLOPS_DEBUG_TIMING
          auto start3 = bsccs::chrono::steady_clock::now();
 #endif
@@ -543,7 +588,7 @@ namespace bsccs{
             auto name = "updateXBetaG" + getFormatTypeExtension(formatType) + "  ";
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end3 - start2).count();
 #endif
-
+*/
 /*
 #ifdef CYCLOPS_DEBUG_TIMING
            auto start4 = bsccs::chrono::steady_clock::now();
@@ -567,36 +612,7 @@ namespace bsccs{
 #endif // GPU_DEBUG
         }
 
-        virtual void computeNumeratorForGradient(int index, bool useWeights) {
-
-			FormatType formatType = hX.getFormatType(index);
-			const auto taskCount = dCudaColumns.getTaskCount(index);
-
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto start = bsccs::chrono::steady_clock::now();
-#endif	
-			// sparse transformation
-			int gridSize, blockSize;
-			blockSize = 256;
-			gridSize = (int)ceil((double)taskCount/blockSize);
-			CudaData.computeNumeratorForGradient(dCudaColumns.getData(),
-			        dCudaColumns.getIndices(),
-			        dCudaColumns.getDataOffset(index),
-			        dCudaColumns.getIndicesOffset(index),
-			        taskCount,
-			        dExpXBeta,
-			        dNumerator,
-			        dNumerator2,
-			        gridSize, blockSize);
-#ifdef CYCLOPS_DEBUG_TIMING
-            auto end = bsccs::chrono::steady_clock::now();
-            ///////////////////////////"
-            auto name = "compNumForG" + getFormatTypeExtension(formatType) + "   ";
-            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
-#endif
-        }
-
-        virtual const std::vector<double> getXBeta() {
+	virtual const std::vector<double> getXBeta() {
 
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start = bsccs::chrono::steady_clock::now();

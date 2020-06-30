@@ -56,6 +56,8 @@ public:
 	size_t temp_storage_bytes = 0;
 	void *d_temp_storage_gh = NULL;
 	size_t temp_storage_bytes_gh = 0;
+        void *d_temp_storage_acc = NULL;
+        size_t temp_storage_bytes_acc = 0;
 
 	CudaKernel();
 	~CudaKernel();
