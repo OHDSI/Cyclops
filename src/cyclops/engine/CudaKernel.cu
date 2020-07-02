@@ -23,7 +23,7 @@ __global__ void kernelUpdateXBeta(int offX,
 				  const int taskCount,
 				  RealType delta,
 				  const RealType* d_X,
-				  const int* K,
+				  const int* d_K,
 				  RealType* d_XBeta,
 				  RealType* d_ExpXBeta,
 				  RealType* d_Numerator,
@@ -32,7 +32,7 @@ __global__ void kernelUpdateXBeta(int offX,
 	int task = blockIdx.x * blockDim.x + threadIdx.x;
 
 //	if (formatType == INDICATOR || formatType == SPARSE) {
-	    int k = K[offK + task];
+	    int k = d_K[offK + task];
 //	} else { // DENSE, INTERCEPT
 //	    int k = task;
 //	}
@@ -56,49 +56,26 @@ template <typename RealType>
 __global__ void kernelComputeNumeratorForGradient(int offX,
                                                   int offK,
                                                   const int taskCount,
-                                                  const RealType* dX,
-                                                  const int* K,
-                                                  RealType* dExpXBeta,
-                                                  RealType* dNumerator,
-                                                  RealType* dNumerator2)
+                                                  const RealType* d_X,
+                                                  const int* d_K,
+                                                  RealType* d_ExpXBeta,
+                                                  RealType* d_Numerator,
+                                                  RealType* d_Numerator2)
 {
 	int task = blockIdx.x * blockDim.x + threadIdx.x;
 
 //	if (formatType == INDICATOR || formatType == SPARSE) {
-	    int k = K[offK + task];
+	    int k = d_K[offK + task];
 //	} else { // DENSE, INTERCEPT
 //	    int k = task;
 //	}
 
 	if (task < taskCount) {
 //	    if (formatType == SPARSE || formatType == DENSE) {
-//	        dNumerator[k] = dX[offX + task] * dExpXBeta[k];
-//	        dNumerator2[k] = dX[offX + task] * dNumerator[k];
+//	        d_Numerator[k] = d_X[offX + task] * d_ExpXBeta[k];
+//	        d_Numerator2[k] = d_X[offX + task] * d_Numerator[k];
 //	    } else { // INDICATOR, INTERCEPT
-	        dNumerator[k] = dExpXBeta[k];
-//	    }
-	}
-}
-
-template <typename RealType>
-__global__ void kernelComputeGradientAndHessian(RealType* d_BufferG,
-						RealType* d_BufferH,
-						const RealType* d_AccNumer,
-						const RealType* d_AccNumer2,
-						const RealType* d_AccDenom,
-						const RealType* d_NWeight,
-						int N)
-{
-	int task = blockIdx.x * blockDim.x + threadIdx.x;
-
-	if (task < N) {
-		RealType t = d_AccNumer[task] / d_AccDenom[task];
-		RealType g = d_NWeight[task] * t;
-		d_BufferG[task] = g;
-//	    if (IteratorType::isIndicator) {
-			d_BufferH[task] = g * (1.0 - t);
-//	    } else {
-//	        d_BufferH[task] = d_NWeight[task] * (d_AccNumer2[task] / d_AccDenom[task] - t * t);
+	        d_Numerator[k] = d_ExpXBeta[k];
 //	    }
 	}
 }
@@ -149,6 +126,7 @@ CudaKernel<RealType>::~CudaKernel()
 {
 	cudaFree(d_temp_storage0); // accDenom
 	cudaFree(d_temp_storage); // accNumer
+	cudaFree(d_temp_storage_acc); // accNAndD
 	cudaFree(d_temp_storage_gh); // cGAH
 //	cudaFree(d_init);
 	std::cout << "CUDA class Destroyed \n";
@@ -164,16 +142,16 @@ void CudaKernel<RealType>::allocTempStorage(thrust::device_vector<RealType>& d_D
 					    thrust::device_vector<RealType>& d_NWeight,
 //					    thrust::device_vector<RealType>& d_Gradient,
 //					    thrust::device_vector<RealType>& d_Hessian,
-					    double2* d_results,
+					    double2* dGH,
 					    size_t& N,
 					    thrust::device_vector<int>& indicesN)
 {
-	thrust::sequence(indicesN.begin(), indicesN.end());
-
+//	thrust::sequence(indicesN.begin(), indicesN.end());
+/*
 	// for scan in accDenom
 	DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, &d_Denominator[0], &d_AccDenom[0], N);
 	cudaMalloc(&d_temp_storage0, temp_storage_bytes0);
-/*
+
 	// for scan in accNumer
 	auto results = thrust::make_zip_iterator(thrust::make_tuple(d_AccNumer.begin(), d_AccNumer2.begin()));
 	auto begin = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(), d_Numerator2.begin()));
@@ -192,63 +170,61 @@ void CudaKernel<RealType>::allocTempStorage(thrust::device_vector<RealType>& d_D
 											  d_AccNumer.begin(),
 											  d_AccDenom.begin(),
 											  d_AccNumer2.begin()));
-//	auto results_gh = thrust::make_zip_iterator(thrust::make_tuple(d_Gradient.begin(), d_Hessian.begin()));
 
 	TransformInputIterator<double2, functorCGH<RealType>, ZipVec4> itr(begin_gh, cGAH);
 
 	d_init.x = d_init.y = 0.0;
 
-	DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, d_results, N, Double2Plus(), d_init);
-//	DeviceScan::InclusiveScan(d_temp_storage_gh, temp_storage_bytes_gh, itr, results_gh, TuplePlus(), N);
+	DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, dGH, N, Double2Plus(), d_init);
 	cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
 
 }
 
 template <typename RealType>
-void CudaKernel<RealType>::updateXBeta(const thrust::device_vector<RealType>& X,
-				       const thrust::device_vector<int>& K,
+void CudaKernel<RealType>::updateXBeta(const thrust::device_vector<RealType>& d_X,
+				       const thrust::device_vector<int>& d_K,
 				       unsigned int offX,
 				       unsigned int offK,
 				       const unsigned int taskCount,
 				       RealType delta,
-				       thrust::device_vector<RealType>& dXBeta,
-				       thrust::device_vector<RealType>& dExpXBeta,
-				       thrust::device_vector<RealType>& dNumerator,
-				       thrust::device_vector<RealType>& dNumerator2,
+				       thrust::device_vector<RealType>& d_XBeta,
+				       thrust::device_vector<RealType>& d_ExpXBeta,
+				       thrust::device_vector<RealType>& d_Numerator,
+				       thrust::device_vector<RealType>& d_Numerator2,
 				       int gridSize, int blockSize)
 {
 	kernelUpdateXBeta<<<gridSize, blockSize>>>(offX,
 		    			                       offK,
 		    			                       taskCount,
 		    			                       delta,
-		    			                       thrust::raw_pointer_cast(&X[0]),
-		    			                       thrust::raw_pointer_cast(&K[0]),
-		    			                       thrust::raw_pointer_cast(&dXBeta[0]),
-		    			                       thrust::raw_pointer_cast(&dExpXBeta[0]),
-		    			                       thrust::raw_pointer_cast(&dNumerator[0]),
-		    			                       thrust::raw_pointer_cast(&dNumerator2[0]));
+		    			                       thrust::raw_pointer_cast(&d_X[0]),
+		    			                       thrust::raw_pointer_cast(&d_K[0]),
+		    			                       thrust::raw_pointer_cast(&d_XBeta[0]),
+		    			                       thrust::raw_pointer_cast(&d_ExpXBeta[0]),
+		    			                       thrust::raw_pointer_cast(&d_Numerator[0]),
+		    			                       thrust::raw_pointer_cast(&d_Numerator2[0]));
 	cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
 }
 
 template <typename RealType>
-void CudaKernel<RealType>::computeNumeratorForGradient(const thrust::device_vector<RealType>& X,
-		    				    				       const thrust::device_vector<int>& K,
+void CudaKernel<RealType>::computeNumeratorForGradient(const thrust::device_vector<RealType>& d_X,
+		    				    				       const thrust::device_vector<int>& d_K,
 		    				    				       unsigned int offX,
 		    				    				       unsigned int offK,
 		    				    				       const unsigned int taskCount,
-		    				    				       thrust::device_vector<RealType>& dExpXBeta,
-		    				    				       thrust::device_vector<RealType>& dNumerator,
-		    				    				       thrust::device_vector<RealType>& dNumerator2,
+		    				    				       thrust::device_vector<RealType>& d_ExpXBeta,
+		    				    				       thrust::device_vector<RealType>& d_Numerator,
+		    				    				       thrust::device_vector<RealType>& d_Numerator2,
 		    				    				       int gridSize, int blockSize)
 {
 	kernelComputeNumeratorForGradient<<<gridSize, blockSize>>>(offX,
 		    				    				               offK,
 		    				    				               taskCount,
-		    				    				               thrust::raw_pointer_cast(&X[0]),
-		    				    				               thrust::raw_pointer_cast(&K[0]),
-		    				    				               thrust::raw_pointer_cast(&dExpXBeta[0]),
-		    				    				               thrust::raw_pointer_cast(&dNumerator[0]),
-		    				    				               thrust::raw_pointer_cast(&dNumerator2[0]));
+		    				    				               thrust::raw_pointer_cast(&d_X[0]),
+		    				    				               thrust::raw_pointer_cast(&d_K[0]),
+		    				    				               thrust::raw_pointer_cast(&d_ExpXBeta[0]),
+		    				    				               thrust::raw_pointer_cast(&d_Numerator[0]),
+		    				    				               thrust::raw_pointer_cast(&d_Numerator2[0]));
 	cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
 }
 
@@ -259,7 +235,7 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
 						     thrust::device_vector<RealType>& d_NWeight,
 //						     thrust::device_vector<RealType>& d_Gradient,
 //						     thrust::device_vector<RealType>& d_Hessian,
-						     double2* d_results,
+						     double2* dGH,
 						     size_t& N
 //						     ,const std::vector<int>& K,
 //                                                     unsigned int offK,
@@ -277,13 +253,11 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
                                             	                 d_AccNumer.begin(),
                                             	                 d_AccDenom.begin(),
                                             	                 d_AccNumer2.begin()));
-//	auto results_gh = thrust::make_zip_iterator(thrust::make_tuple(d_Gradient.begin(), d_Hessian.begin()));
-
 	// transform iterator
 	TransformInputIterator<double2, functorCGH<RealType>, ZipVec4> itr(begin_gh, cGAH);
 
 	// Launch kernel
-	DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, d_results, N, Double2Plus(), d_init);
+	DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, dGH, N, Double2Plus(), d_init);
 	cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
 /*
 	// thrust::transform_reduce
@@ -307,7 +281,6 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
 	    thrust::make_permutation_iterator(itr, indicesN.begin() + start),
 	    results_gh, N, TuplePlus(), init);
 */
-//    	std::cout << "G: " << d_Gradient[0] << " H: " << d_Hessian[0] << '\n';
 }
 
 template <typename RealType>
@@ -339,7 +312,7 @@ void CudaKernel<RealType>::computeAccumulatedNumerAndDenom(thrust::device_vector
 
      	// Launch kernel
     	DeviceScan::InclusiveScan(d_temp_storage_acc, temp_storage_bytes_acc, begin_acc, results_acc, TuplePlus3(), N);
-	    cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
+	cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
 }
 
 template <typename RealType>
@@ -371,29 +344,26 @@ void CudaKernel<RealType>::CubScan(RealType* d_in, RealType* d_out, int num_item
 
 /* currently not using
 template <typename RealType>
-void CudaKernel<RealType>::computeAccumulatedNumerAndDenom(thrust::device_vector<RealType>& d_Denominator,
-                                                           thrust::device_vector<RealType>& d_Numerator,
-                                                           thrust::device_vector<RealType>& d_Numerator2,
-                                                           thrust::device_vector<RealType>& d_AccDenom,
-                                                           thrust::device_vector<RealType>& d_AccNumer,
-                                                           thrust::device_vector<RealType>& d_AccNumer2,
-                                                           size_t& N)
+__global__ void kernelComputeGradientAndHessian(RealType* d_BufferG,
+                                                RealType* d_BufferH,
+                                                const RealType* d_AccNumer,
+                                                const RealType* d_AccNumer2,
+                                                const RealType* d_AccDenom,
+                                                const RealType* d_NWeight,
+                                                int N)
 {
-    	auto results_acc = thrust::make_zip_iterator(thrust::make_tuple(d_AccDenom.begin(), d_AccNumer.begin(), d_AccNumer2.begin()));
-    	auto begin_acc = thrust::make_zip_iterator(thrust::make_tuple(d_Denominator.begin(), d_Numerator.begin(), d_Numerator2.begin()));
+        int task = blockIdx.x * blockDim.x + threadIdx.x;
 
-    	// Declare temporary storage
-//    	void *d_temp_storage_acc = NULL;
-//    	size_t temp_storage_bytes_acc = 0;
-
-    	// Determine temporary device storage requirements and allocate temporary storage
-//    	DeviceScan::InclusiveScan(d_temp_storage_acc, temp_storage_bytes_acc, begin_acc, results_acc, TuplePlus3(), N);
-//    	cudaMalloc(&d_temp_storage_acc, temp_storage_bytes_acc); // MAS Why is this still here?
-
-    	// Launch kernel
-    	DeviceScan::InclusiveScan(d_temp_storage_acc, temp_storage_bytes_acc, begin_acc, results_acc, TuplePlus3(), N);
-
-	cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
+        if (task < N) {
+                RealType t = d_AccNumer[task] / d_AccDenom[task];
+                RealType g = d_NWeight[task] * t;
+                d_BufferG[task] = g;
+//          if (IteratorType::isIndicator) {
+                        d_BufferH[task] = g * (1.0 - t);
+//          } else {
+//              d_BufferH[task] = d_NWeight[task] * (d_AccNumer2[task] / d_AccDenom[task] - t * t);
+//          }
+        }
 }
 
 template <typename RealType>

@@ -82,12 +82,13 @@ namespace bsccs{
                     taskCounts.push_back(column.getNumberOfEntries());
                 }
             }
-
+/*
 			resizeAndCopyToDeviceCuda(flatData, data);
 			resizeAndCopyToDeviceCuda(flatIndices, indices);
 			resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
 			resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
 			resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
+*/
 /*
             std::cout << "flatIndices: ";
             for (auto x:flatIndices) {
@@ -104,8 +105,16 @@ namespace bsccs{
             udetail.resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
             udetail.resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
 */
-            std::cerr << "cuda AGC end " << flatData.size() << " " << flatIndices.size() << std::endl;
+            std::cerr << "cuda AGC end " << flatData.size() << " " << flatIndices.size() << " " << dataStarts.size() << " " << indicesStarts.size() << " " << taskCounts.size() << std::endl;
         }
+
+	void resizeAndCopyColumns () {
+                        resizeAndCopyToDeviceCuda(flatData, data);
+                        resizeAndCopyToDeviceCuda(flatIndices, indices);
+                        resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
+                        resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
+                        resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
+	}
 
         UInt getDataOffset(int column) const {
             return dataStarts[column];
@@ -237,9 +246,9 @@ namespace bsccs{
           }
 
         virtual ~GpuModelSpecificsCox() {
-			cudaFree(d_results);
-//			free(p_results);
-			cudaFreeHost(p_results);
+			cudaFree(dGH);
+//			free(pGH);
+			cudaFreeHost(pGH);
 			std::cerr << "dtor GpuModelSpecificsCox" << std::endl;
         }
 
@@ -247,8 +256,18 @@ namespace bsccs{
 #ifdef TIME_DEBUG
             std::cerr << "start dI" << std::endl;
 #endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start = bsccs::chrono::steady_clock::now();
+#endif	    
             // Copy data
             dCudaColumns.initialize(hX, K, true);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            duration["z dColumnInitialize  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+#endif
 /*
 	    formatList.resize(J);
 	    int need = 0;
@@ -276,6 +295,19 @@ namespace bsccs{
             }
 */
 
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start1 = bsccs::chrono::steady_clock::now();
+#endif
+	    	dCudaColumns.resizeAndCopyColumns();
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end1 = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            duration["z resizeAndCopyColumn"] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start1).count();;
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start2 = bsccs::chrono::steady_clock::now();
+#endif
         // Internal buffers
 		resizeCudaVec(hXBeta, dXBeta); // K
 		resizeCudaVec(offsExpXBeta, dExpXBeta);
@@ -289,16 +321,24 @@ namespace bsccs{
 
 		resizeCudaVecSize(dAccDenominator, N); // N+1?
 
-		cudaMalloc((void**)&d_results, sizeof(double2));
-//		p_results = (double2 *)malloc(sizeof(double2));
-		cudaMallocHost((void **) &p_results, sizeof(double2));
+		cudaMalloc((void**)&dGH, sizeof(double2));
+//		pGH = (double2 *)malloc(sizeof(double2));
+		cudaMallocHost((void **) &pGH, sizeof(double2));
 /*
 		resizeCudaVec(numerPid, dBuffer1);
 		resizeCudaVec(numerPid2, dBuffer2);
 		resizeCudaVecSize(dBuffer3, N+1);
 */    
 //		resizeCudaVecSize(indicesN, N);
-
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end2 = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            duration["z resizeAndCopyCuda  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();;
+#endif
+	
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start3 = bsccs::chrono::steady_clock::now();
+#endif
 		// Allocate temporary storage for scan and reduction
 		CudaData.allocTempStorage(dExpXBeta,
 		        dNumerator,
@@ -307,10 +347,14 @@ namespace bsccs{
 		        dAccNumer,
 		        dAccNumer2,
 		        dNWeight,
-		        d_results,
+		        dGH,
 		        N,
 		        indicesN);
-
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end3 = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            duration["z cudaAllocStorage   "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end3 - start3).count();;
+#endif
 //        std::cerr << "Format types required: " << need << std::endl;
 
         }
@@ -353,9 +397,9 @@ namespace bsccs{
         }
 
         virtual double getGradientObjective(bool useCrossValidation) {
-
+                        
                         // TODO write gpu version to avoid D-H copying
-			ModelSpecifics<BaseModel, RealType>::getGradientObjective(useCrossValidation);
+			return ModelSpecifics<BaseModel, RealType>::getGradientObjective(useCrossValidation);
       
       	}
 
@@ -369,7 +413,7 @@ namespace bsccs{
 			thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid));
 
 			// Currently LL only computed on CPU and then copied
-			ModelSpecifics<BaseModel, RealType>::getLogLikelihood(useCrossValidation);
+			return ModelSpecifics<BaseModel, RealType>::getLogLikelihood(useCrossValidation);
             
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
@@ -414,7 +458,7 @@ namespace bsccs{
 //			std::cout << "GPU::cGAH \n";
 //			std::vector<RealType> gradient(1, static_cast<RealType>(0));
 //			std::vector<RealType> hessian(1, static_cast<RealType>(0));
-			double2 h_results;
+			double2 GH;
 
 			FormatType formatType = hX.getFormatType(index);
 			const auto taskCount = dCudaColumns.getTaskCount(index);
@@ -474,7 +518,7 @@ namespace bsccs{
 			        dAccNumer2,
 			        dAccDenominator,
 			        dNWeight,
-			        d_results,
+			        dGH,
 			        N
 //			        , dCudaColumns.getHIndices(),
 //			        dCudaColumns.getIndicesOffset(index),
@@ -491,9 +535,9 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start4 = bsccs::chrono::steady_clock::now();
 #endif    
-			cudaMemcpy(p_results, d_results, sizeof(double2), cudaMemcpyDeviceToHost);
-			h_results = *p_results;
-//			std::cout << "index: " << index << " g: " << h_results.x << " h: " << h_results.y << '\n';
+			cudaMemcpy(pGH, dGH, sizeof(double2), cudaMemcpyDeviceToHost);
+			GH = *pGH;
+//			std::cout << "index: " << index << " g: " << GH.x << " h: " << GH.y << '\n';
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end4 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
@@ -508,9 +552,9 @@ namespace bsccs{
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end4 - start2).count();
 #endif	    
 	    
-			h_results.x -= hXjY[index];
-			*ogradient = static_cast<double>(h_results.x);
-			*ohessian = static_cast<double>(h_results.y);
+			GH.x -= hXjY[index];
+			*ogradient = static_cast<double>(GH.x);
+			*ohessian = static_cast<double>(GH.y);
 /*
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start1 = bsccs::chrono::steady_clock::now();
@@ -694,8 +738,8 @@ namespace bsccs{
 		thrust::device_vector<int> indicesN;
 
 		// buffer
-		double2 *d_results; // device GH
-		double2 *p_results; // host GH
+		double2 *dGH; // device GH
+		double2 *pGH; // host GH
 		thrust::device_vector<RealType> dAccNumer;
 		thrust::device_vector<RealType> dAccNumer2;
 		thrust::device_vector<RealType> dGradient;

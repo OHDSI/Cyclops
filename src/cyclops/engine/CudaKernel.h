@@ -41,7 +41,6 @@ class CudaKernel {
 public:
 
 	// Device arrays
-	RealType* d_itr;
 	Tup2 init = thrust::make_tuple<RealType, RealType>(0, 0);
 	double2 d_init;
 
@@ -56,8 +55,8 @@ public:
 	size_t temp_storage_bytes = 0;
 	void *d_temp_storage_gh = NULL;
 	size_t temp_storage_bytes_gh = 0;
-        void *d_temp_storage_acc = NULL;
-        size_t temp_storage_bytes_acc = 0;
+	void *d_temp_storage_acc = NULL;
+	size_t temp_storage_bytes_acc = 0;
 
 	CudaKernel();
 	~CudaKernel();
@@ -71,28 +70,28 @@ public:
 	        thrust::device_vector<RealType>& d_NWeight,
 //	        thrust::device_vector<RealType>& d_Gradient,
 //	        thrust::device_vector<RealType>& d_Hessian,
-	        double2* d_results,
+	        double2* dGH,
 	        size_t& N,
 	        thrust::device_vector<int>& indicesN);
-	void updateXBeta(const thrust::device_vector<RealType>& X,
-	        const thrust::device_vector<int>& K,
+	void updateXBeta(const thrust::device_vector<RealType>& d_X,
+	        const thrust::device_vector<int>& d_K,
 	        unsigned int offX,
 	        unsigned int offK,
 	        const unsigned int taskCount,
 	        RealType delta,
-	        thrust::device_vector<RealType>& dXBeta,
-	        thrust::device_vector<RealType>& dExpXBeta,
-	        thrust::device_vector<RealType>& dNumerator,
-	        thrust::device_vector<RealType>& dNumerator2,
+	        thrust::device_vector<RealType>& d_XBeta,
+	        thrust::device_vector<RealType>& d_ExpXBeta,
+	        thrust::device_vector<RealType>& d_Numerator,
+	        thrust::device_vector<RealType>& d_Numerator2,
 	        int gridSize, int blockSize);
-	void computeNumeratorForGradient(const thrust::device_vector<RealType>& X,
-	        const thrust::device_vector<int>& K,
+	void computeNumeratorForGradient(const thrust::device_vector<RealType>& d_X,
+	        const thrust::device_vector<int>& d_K,
 	        unsigned int offX,
 	        unsigned int offK,
 	        const unsigned int taskCount,
-	        thrust::device_vector<RealType>& dExpXBeta,
-	        thrust::device_vector<RealType>& dNumerator,
-	        thrust::device_vector<RealType>& dNumerator2,
+	        thrust::device_vector<RealType>& d_ExpXBeta,
+	        thrust::device_vector<RealType>& d_Numerator,
+	        thrust::device_vector<RealType>& d_Numerator2,
 	        int gridSize, int blockSize);
 	void computeGradientAndHessian(thrust::device_vector<RealType>& d_AccNumer,
             thrust::device_vector<RealType>& d_AccNumer2,
@@ -100,7 +99,7 @@ public:
 	        thrust::device_vector<RealType>& d_NWeight,
 //	        thrust::device_vector<RealType>& d_Gradient,
 //	        thrust::device_vector<RealType>& d_Hessian,
-	        double2* d_results,
+	        double2* dGH,
 	        size_t& N
 //	        ,const std::vector<int>& K,
 //	        unsigned int offK,
