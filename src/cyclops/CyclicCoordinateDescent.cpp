@@ -226,6 +226,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 			);
 
 	usingGPU = modelSpecifics.isGPU();
+	usingCUDA = modelSpecifics.isCUDA();
 	resetBeta();
 }
 
@@ -249,11 +250,11 @@ void CyclicCoordinateDescent::computeNEvents() {
 
 void CyclicCoordinateDescent::resetBeta(void) {
 
-    auto start = hXI.getHasOffsetCovariate() ? 1 : 0;
-    for (auto j = start; j < J; j++) {
+	auto start = hXI.getHasOffsetCovariate() ? 1 : 0;
+	for (auto j = start; j < J; j++) {
 		hBeta[j] = 0.0;
 	}
-	if (usingGPU) {
+	if (usingGPU || usingCUDA) {
 		modelSpecifics.resetBeta();
 	}
 	computeXBeta();
@@ -973,7 +974,7 @@ void CyclicCoordinateDescent::findMode(
 	    lastLogPosterior = -10E10;
 	}
 
-	if (usingGPU) {
+	if (usingGPU || usingCUDA) {
 		modelSpecifics.setBounds(initialBound);
 		std::vector<int> priorList;
 		std::vector<double> varianceList = jointPrior->getVariance();
@@ -994,7 +995,7 @@ void CyclicCoordinateDescent::findMode(
 		modelSpecifics.setPriorParams(temp);
 		//modelSpecifics.resetBeta();
 	}
-
+	
 	auto cycle = [this,&lastObjFunc,&lastObjFuncVec,&iteration,algorithmType,&allDelta,&doItAll] {
 
 		if (iteration%10==0) {
@@ -1069,15 +1070,27 @@ void CyclicCoordinateDescent::findMode(
 	    		for(int index = 0; index < J; index++) {
 
 	    			if (!fixBeta[index]) {
-	    				double delta = ccdUpdateBeta(index);
-	    				delta = applyBounds(delta, index);
-//	    				std::cout << "index: " << index << " delta: " << delta << "\n";
-	    				if (delta != 0.0) {
-	    					sufficientStatisticsKnown = false;
-	    					updateSufficientStatistics(delta, index);
-	    				}
-	    			}
-
+					if (usingCUDA) {
+						modelSpecifics.updateBetaAndDelta(index, useCrossValidation);
+						/*
+						double delta = ccdUpdateBeta(index);
+						delta = applyBounds(delta, index);
+						std::cout << "index: " << index << " delta: " << delta << "\n";
+						if (delta != 0.0) {
+							sufficientStatisticsKnown = false;
+							updateSufficientStatistics(delta, index);
+						}
+						*/
+					} else {
+						double delta = ccdUpdateBeta(index);
+						delta = applyBounds(delta, index);
+					//	std::cout << "index: " << index << " delta: " << delta << "\n";
+						if (delta != 0.0) {
+							sufficientStatisticsKnown = false;
+							updateSufficientStatistics(delta, index);
+						}
+					}	
+				}
 	    			log(index);
 	    		}
 	    	}

@@ -424,6 +424,7 @@ protected:
 	std::vector<DoubleVector> hWeightsPool; // Make DoubleVector and delegate to ModelSpecifics
 
 	bool usingGPU;
+	bool usingCUDA;
 	bool syncCV = false;
 	int syncCVFolds;
 

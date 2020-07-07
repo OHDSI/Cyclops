@@ -308,7 +308,11 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start2 = bsccs::chrono::steady_clock::now();
 #endif
-        // Internal buffers
+        
+	    	RealHBeta.resize(J);
+		DoubleHBeta.resize(J);
+
+	    	// Internal buffers
 		resizeCudaVec(hXBeta, dXBeta); // K
 		resizeCudaVec(offsExpXBeta, dExpXBeta);
 
@@ -320,6 +324,7 @@ namespace bsccs{
 		resizeCudaVec(numerPid2, dAccNumer2);
 
 		resizeCudaVecSize(dAccDenominator, N); // N+1?
+		resizeCudaVecSize(dDeltaVector, J);
 
 		cudaMalloc((void**)&dGH, sizeof(double2));
 //		pGH = (double2 *)malloc(sizeof(double2));
@@ -367,6 +372,14 @@ namespace bsccs{
 			resizeAndCopyToDeviceCuda(hNWeight, dNWeight);
 //			std::cout << "GPU::setWeights called \n";
         }
+	
+	virtual void computeXjY(bool useCrossValidation) {
+		
+			ModelSpecifics<BaseModel, RealType>::computeXjY(useCrossValidation);
+			resizeAndCopyToDeviceCuda(hXjY, dXjY);
+
+        }
+        
 
         virtual void computeRemainingStatistics(bool useWeights) {
 
@@ -537,7 +550,7 @@ namespace bsccs{
 #endif    
 			cudaMemcpy(pGH, dGH, sizeof(double2), cudaMemcpyDeviceToHost);
 			GH = *pGH;
-//			std::cout << "index: " << index << " g: " << GH.x << " h: " << GH.y << '\n';
+			std::cout << "index: " << index << " g: " << GH.x << " h: " << GH.y << " XjY: " << hXjY[index] << '\n';
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end4 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
@@ -656,6 +669,174 @@ namespace bsccs{
 #endif // GPU_DEBUG
         }
 
+	virtual void updateBetaAndDelta(int index, bool useWeights) {
+
+			FormatType formatType = hX.getFormatType(index);
+			const auto taskCount = dCudaColumns.getTaskCount(index);
+
+			int gridSize, blockSize;
+			blockSize = 256;
+			gridSize = (int)ceil((double)taskCount/blockSize);
+
+            ////////////////////////// computeGradientAndHessian
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start = bsccs::chrono::steady_clock::now();
+#endif
+			// sparse transformation
+			CudaData.computeNumeratorForGradient(dCudaColumns.getData(),
+			        dCudaColumns.getIndices(),
+			        dCudaColumns.getDataOffset(index),
+			        dCudaColumns.getIndicesOffset(index),
+			        taskCount,
+			        dExpXBeta,
+			        dNumerator,
+			        dNumerator2,
+			        gridSize, blockSize);
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name = "updateBetaAndDelta" + getFormatTypeExtension(formatType) + "   transform1";
+            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+/*
+            std::vector<RealType> tempNumer(16, 0);
+            thrust::copy(std::begin(dNumerator), std::end(dNumerator), std::begin(tempNumer));
+            std::cout << "Numer: ";
+            for (auto x:tempNumer) {
+                std::cout << x << " ";
+            }
+            std::cout << "\n";
+	    */
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start1 = bsccs::chrono::steady_clock::now();
+#endif
+			// dense scan on tuple
+			CudaData.computeAccumulatedNumerator(dNumerator,
+			        dNumerator2,
+			        dAccNumer,
+			        dAccNumer2,
+			        N);
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end1 = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name1 = "updateBetaAndDelta" + getFormatTypeExtension(formatType) + "    accNumer";
+            duration[name1] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start1).count();
+#endif
+            /*
+	    std::vector<RealType> tempANumer(16, 0);
+            thrust::copy(std::begin(dAccNumer), std::end(dAccNumer), std::begin(tempANumer));
+            std::cout << "AccNumer: ";
+            for (auto x:tempANumer) {
+                std::cout << x << " ";
+            }
+            std::cout << "\n";
+	    std::vector<RealType> tempADenom(16, 0);
+            thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(tempADenom));
+            std::cout << "AccDenom: ";
+            for (auto x:tempADenom) {
+                std::cout << x << " ";
+            }
+            std::cout << "\n";
+	    */
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start2 = bsccs::chrono::steady_clock::now();
+#endif
+			// dense transform reduction
+			CudaData.computeGradientAndHessian(dAccNumer,
+			        dAccNumer2,
+			        dAccDenominator,
+			        dNWeight,
+			        dGH,
+			        N);
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end2 = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name2 = "updateBetaAndDelta" + getFormatTypeExtension(formatType) + " transReduce";
+            duration[name2] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
+#endif
+/*
+	    double2 temp;
+	    cudaMemcpy(pGH, dGH, sizeof(double2), cudaMemcpyDeviceToHost);
+	    temp = *pGH;
+	    std::cout << "index: " << index << " g: " << temp.x << " h: " << temp.y << '\n';
+            
+	std::vector<RealType> tempXjY(16, 0);
+            thrust::copy(std::begin(dXjY), std::end(dXjY), std::begin(tempXjY));
+            std::cout << "XjY: ";
+            for (auto x:tempXjY) {
+                std::cout << x << " ";
+            }
+            std::cout << "\n";
+	    */
+            ////////////////////////// processDelta
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start3 = bsccs::chrono::steady_clock::now();
+#endif
+            CudaData.processDelta(dDeltaVector,
+                    dBound,
+                    dBeta,
+                    dXjY,
+                    dGH,
+                    dPriorParams,
+                    priorTypes,
+                    index,
+		    gridSize, blockSize);
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end3 = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name3 = "updateBetaAndDelta" + getFormatTypeExtension(formatType) + "processDelta";
+            duration[name3] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end3 - start3).count();
+#endif
+/*	    
+            double2 temp;
+            cudaMemcpy(pGH, dGH, sizeof(double2), cudaMemcpyDeviceToHost);
+            temp = *pGH;
+	    std::vector<RealType> tempDelta;
+	    tempDelta.resize(J);
+            thrust::copy(std::begin(dDeltaVector), std::end(dDeltaVector), std::begin(tempDelta));
+
+            std::cout << "index: " << index << " g: " << temp.x << " h: " << temp.y << " delta: " << tempDelta[index] << '\n';
+*/
+            ////////////////////////// updateXBeta
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto start4 = bsccs::chrono::steady_clock::now();
+#endif
+			// sparse transformation
+			CudaData.updateXBeta1(dCudaColumns.getData(),
+			        dCudaColumns.getIndices(),
+			        dCudaColumns.getDataOffset(index),
+			        dCudaColumns.getIndicesOffset(index),
+			        taskCount,
+			        dDeltaVector,
+			        dXBeta,
+			        dExpXBeta,
+			        dNumerator,
+			        dNumerator2,
+			        index,
+			        gridSize, blockSize);
+			hXBetaKnown = false;
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end4 = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name4 = "updateBetaAndDelta" + getFormatTypeExtension(formatType) + "  transform2";
+            duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end4 - start4).count();
+#endif
+
+
+#ifdef CYCLOPS_DEBUG_TIMING
+         auto start5 = bsccs::chrono::steady_clock::now();
+#endif
+			// dense scan
+			CudaData.CubScan(thrust::raw_pointer_cast(&dExpXBeta[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
+#ifdef CYCLOPS_DEBUG_TIMING
+            auto end5 = bsccs::chrono::steady_clock::now();
+            ///////////////////////////"
+            auto name5 = "updateBetaAndDelta" + getFormatTypeExtension(formatType) + "    accDenom";
+            duration[name3] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end5 - start5).count();
+#endif
+
+        }
+
 	virtual const std::vector<double> getXBeta() {
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -698,6 +879,47 @@ namespace bsccs{
 			dXBetaKnown = false;
         }
 
+	virtual std::vector<double> getBeta() {
+		thrust::copy(std::begin(dBeta), std::end(dBeta), std::begin(RealHBeta));
+		std::copy(RealHBeta.begin(), RealHBeta.end(), DoubleHBeta.begin());
+		return DoubleHBeta;
+        }
+	
+	virtual void resetBeta() {
+		std::vector<RealType> tempHBeta;
+		tempHBeta.resize(J, 0.0);
+		resizeAndCopyToDeviceCuda(tempHBeta, dBeta);
+        }
+
+	bool isCUDA() {return true;};
+	
+	void setBounds(double initialBound) {
+		std::vector<RealType> temp;
+		temp.resize(J, initialBound);
+		/*
+		for (int j = 0; j < J; j++) {
+			std::cout << "j: " << j << " bound: " << temp[j] << '\n';
+		}
+		*/
+		resizeAndCopyToDeviceCuda(temp, dBound);
+	}
+	
+	void setPriorTypes(std::vector<int>& inTypes) {
+		priorTypes.resize(J);
+		for (int i=0; i<J; i++) {
+			priorTypes[i] = inTypes[i];
+		}
+	}
+	
+	void setPriorParams(std::vector<double>& inParams) {
+		std::vector<RealType> temp;
+		temp.resize(J, 0.0);
+		for (int i=0; i<J; i++) {
+			temp[i] = inParams[i];
+		}
+		resizeAndCopyToDeviceCuda(temp, dPriorParams);
+	}
+
     private:
 
         std::string getFormatTypeExtension(FormatType formatType) {
@@ -723,10 +945,17 @@ namespace bsccs{
 		std::vector<FormatType> formatList;
 		std::vector<FormatType> neededFormatTypes;
 */
+
+		std::vector<RealType> priorTypes;
+		std::vector<RealType> RealHBeta;
+		std::vector<double> DoubleHBeta;
+
 		// device storage
 		thrust::device_vector<RealType> dKWeight;
 		thrust::device_vector<RealType> dNWeight;
 
+		thrust::device_vector<RealType> dXjY;
+		thrust::device_vector<RealType> dBeta;
 		thrust::device_vector<RealType> dXBeta;
 		thrust::device_vector<RealType> dExpXBeta;
 		thrust::device_vector<RealType> dDenominator;
@@ -736,6 +965,9 @@ namespace bsccs{
 		thrust::device_vector<RealType> dNumerator2;
 
 		thrust::device_vector<int> indicesN;
+		thrust::device_vector<RealType> dBound;
+		thrust::device_vector<RealType> dDeltaVector;
+		thrust::device_vector<RealType> dPriorParams;
 
 		// buffer
 		double2 *dGH; // device GH

@@ -105,6 +105,8 @@ public:
 
 	virtual bool isGPU() {return false;};
 
+	virtual bool isCUDA() {return false;};
+
 	virtual double getPredictiveLogLikelihood(double* weights, int cvIndex) {return 0;};
 
 	//virtual double getGradientObjective();

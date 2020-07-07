@@ -123,6 +123,8 @@ public:
 // GPU code
     virtual bool isGPU() = 0;
 
+    virtual bool isCUDA() = 0;
+
 	virtual void resetBeta() {};
 
 	virtual void turnOnSyncCV(int foldToCompute) = 0;
@@ -141,6 +143,8 @@ public:
 	virtual void updateDoneFolds(std::vector<bool>& donePool) {};
 
 	virtual void runCCD(bool useCrossValidation, bool doItAll) {};
+
+	virtual void updateBetaAndDelta(int index, bool useWeights) {};
 
 	virtual std::vector<double> getBeta() {
 		std::vector<double> blah;
