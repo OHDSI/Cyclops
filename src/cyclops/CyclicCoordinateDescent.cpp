@@ -1059,37 +1059,31 @@ void CyclicCoordinateDescent::findMode(
 	    } else {
 
 	    	if (usingGPU) {
-	    		//if (usingGPU && syncCV) {
+			//if (usingGPU && syncCV) {
 	    		modelSpecifics.runCCD(useCrossValidation, doItAll);
 	    		if (!syncCV) {
 	    			hBeta = modelSpecifics.getBeta();
 	    		}
+		} else if (usingCUDA) {
+			for(int index = 0; index < J; index++) {
+				if (!fixBeta[index]) {
+					modelSpecifics.updateBetaAndDelta(index, useCrossValidation);
+				}
+			}
+			hBeta = modelSpecifics.getBeta();
 	    	} else {
 
 	    		// Do a complete cycle in serial
 	    		for(int index = 0; index < J; index++) {
 
 	    			if (!fixBeta[index]) {
-					if (usingCUDA) {
-						modelSpecifics.updateBetaAndDelta(index, useCrossValidation);
-						/*
-						double delta = ccdUpdateBeta(index);
-						delta = applyBounds(delta, index);
-						std::cout << "index: " << index << " delta: " << delta << "\n";
-						if (delta != 0.0) {
-							sufficientStatisticsKnown = false;
-							updateSufficientStatistics(delta, index);
-						}
-						*/
-					} else {
 						double delta = ccdUpdateBeta(index);
 						delta = applyBounds(delta, index);
 					//	std::cout << "index: " << index << " delta: " << delta << "\n";
 						if (delta != 0.0) {
 							sufficientStatisticsKnown = false;
 							updateSufficientStatistics(delta, index);
-						}
-					}	
+						}	
 				}
 	    			log(index);
 	    		}

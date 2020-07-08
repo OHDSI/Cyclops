@@ -333,19 +333,15 @@ void CudaKernel<RealType>::processDelta(thrust::device_vector<RealType>& d_Delta
 		    				    		int index,
 		    				    		int gridSize, int blockSize)
 {
-	std::cout << "processDelta kernel \n";
-	kernelProcessDelta<<<gridSize, blockSize>>>(thrust::raw_pointer_cast(&d_DeltaVector[0]),
+//	std::cout << "processDelta kernel \n";
+	kernelProcessDelta<<<1, 1>>>(thrust::raw_pointer_cast(&d_DeltaVector[0]),
 	                                            thrust::raw_pointer_cast(&d_Bound[0]),
 	                                            thrust::raw_pointer_cast(&d_Beta[0]),
 	                                            thrust::raw_pointer_cast(&d_XjY[0]),
 	                                            d_GH,
-	                                            index);                                           
+	                                            index);
 	cudaDeviceSynchronize();
-/*	
-	std::vector<RealType> temp(2, 0);
-	thrust::copy(std::begin(d_DeltaVector), std::end(d_DeltaVector), std::begin(temp));
-	std::cout << "index: " << index << " delta: " << temp[index] << '\n';
-*/	
+	d_DeltaVector[index];	
 }
 
 template <typename RealType>

@@ -565,6 +565,9 @@ void ModelSpecifics<BaseModel,RealType>::computeFixedTermsInLogLikelihood(bool u
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
+#ifdef CYCLOPS_DEBUG_TIMING
+    auto start = bsccs::chrono::steady_clock::now();
+#endif
 	if (sortPid()) {
 		doSortPid(useCrossValidation);
 	}
@@ -577,6 +580,12 @@ void ModelSpecifics<BaseModel,RealType>::computeFixedTermsInGradientAndHessian(b
 	if (allocateNtoKIndices()) {
 		computeNtoKIndices(useCrossValidation);
 	}
+#ifdef CYCLOPS_DEBUG_TIMING
+    auto end = bsccs::chrono::steady_clock::now();
+    ///////////////////////////"
+    auto name = "compFixedGH      ";
+    duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
 }
 
 template <class BaseModel,typename RealType>
