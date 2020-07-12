@@ -324,7 +324,7 @@ namespace bsccs{
 		resizeCudaVec(numerPid2, dAccNumer2);
 
 		resizeCudaVecSize(dAccDenominator, N); // N+1?
-		resizeCudaVecSize(dDeltaVector, J);
+//		resizeCudaVecSize(dDeltaVector, J);
 
 		cudaMalloc((void**)&dGH, sizeof(double2));
 //		pGH = (double2 *)malloc(sizeof(double2));
@@ -774,7 +774,7 @@ namespace bsccs{
                 std::cout << x << " ";
             }
             std::cout << "\n";
-*/	    
+ 
             ////////////////////////// processDelta
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start3 = bsccs::chrono::steady_clock::now();
@@ -794,7 +794,7 @@ namespace bsccs{
             auto name3 = "updateBetaAndDelta" + getFormatTypeExtension(formatType) + " processDelta";
             duration[name3] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end3 - start3).count();
 #endif
-/*	    
+	    
             double2 temp;
             cudaMemcpy(pGH, dGH, sizeof(double2), cudaMemcpyDeviceToHost);
             temp = *pGH;
@@ -816,7 +816,10 @@ namespace bsccs{
 			        dCudaColumns.getDataOffset(index),
 			        dCudaColumns.getIndicesOffset(index),
 			        taskCount,
-			        dDeltaVector,
+			        dGH,
+				dXjY,
+				dBound,
+				dBeta,
 			        dXBeta,
 			        dExpXBeta,
 			        dNumerator,
@@ -985,7 +988,7 @@ namespace bsccs{
 
 		thrust::device_vector<int> indicesN;
 		thrust::device_vector<RealType> dBound;
-		thrust::device_vector<RealType> dDeltaVector;
+//		thrust::device_vector<RealType> dDeltaVector;
 		thrust::device_vector<RealType> dPriorParams;
 
 		// buffer

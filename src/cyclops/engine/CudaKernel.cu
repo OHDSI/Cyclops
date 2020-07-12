@@ -57,14 +57,39 @@ __global__ void kernelUpdateXBeta1(int offX,
 				  int offK,
 				  const int taskCount,
 				  int index,
-				  RealType* d_DeltaVector,
 				  const RealType* d_X,
 				  const int* d_K,
+				  double2* d_GH,
+				  RealType* d_XjY,
+				  RealType* d_Bound,
+				  RealType* d_Beta,
 				  RealType* d_XBeta,
 				  RealType* d_ExpXBeta,
 				  RealType* d_Numerator,
 				  RealType* d_Numerator2)
 {
+	// process delta, update beta and bound
+	double2 GH = *d_GH;
+	RealType g = GH.x - d_XjY[index];
+	RealType h = GH.y;
+	RealType beta = d_Beta[index];
+
+	RealType delta = -g/h; // no prior
+
+	RealType bound = d_Bound[index];
+	if (delta < -bound) {
+		delta = -bound;
+	} else if (delta > bound) {
+		delta = bound;
+	}
+	d_Beta[index] = delta + beta;
+
+	auto intermediate = max(2*abs(delta), bound/2);
+	intermediate = max(intermediate, 0.001);
+	d_Bound[index] = intermediate;
+
+
+	// update xb and exb
 	int task = blockIdx.x * blockDim.x + threadIdx.x;
 
 //	if (formatType == INDICATOR || formatType == SPARSE) {
@@ -74,9 +99,9 @@ __global__ void kernelUpdateXBeta1(int offX,
 //	}
 
 //	if (formatType == SPARSE || formatType == DENSE) {
-//	    RealType inc = d_DeltaVector[index] * d_X[offX + task];
+//	    RealType inc = delta * d_X[offX + task];
 //	} else { // INDICATOR, INTERCEPT
-	    RealType inc = d_DeltaVector[index];
+	    RealType inc = delta;
 //	}
 
 	if (task < taskCount) {
@@ -277,7 +302,10 @@ void CudaKernel<RealType>::updateXBeta1(const thrust::device_vector<RealType>& d
 				       unsigned int offX,
 				       unsigned int offK,
 				       const unsigned int taskCount,
-				       thrust::device_vector<RealType>& d_DeltaVector,
+				       double2* d_GH,
+				       thrust::device_vector<RealType>& d_XjY,
+				       thrust::device_vector<RealType>& d_Bound,
+				       thrust::device_vector<RealType>& d_Beta,
 				       thrust::device_vector<RealType>& d_XBeta,
 				       thrust::device_vector<RealType>& d_ExpXBeta,
 				       thrust::device_vector<RealType>& d_Numerator,
@@ -289,14 +317,17 @@ void CudaKernel<RealType>::updateXBeta1(const thrust::device_vector<RealType>& d
 		    			                       offK,
 		    			                       taskCount,
 		    			                       index,
-		    			                       thrust::raw_pointer_cast(&d_DeltaVector[0]),
 		    			                       thrust::raw_pointer_cast(&d_X[0]),
 		    			                       thrust::raw_pointer_cast(&d_K[0]),
+							       d_GH,
+							       thrust::raw_pointer_cast(&d_XjY[0]),
+							       thrust::raw_pointer_cast(&d_Bound[0]),
+							       thrust::raw_pointer_cast(&d_Beta[0]),
 		    			                       thrust::raw_pointer_cast(&d_XBeta[0]),
 		    			                       thrust::raw_pointer_cast(&d_ExpXBeta[0]),
 		    			                       thrust::raw_pointer_cast(&d_Numerator[0]),
 		    			                       thrust::raw_pointer_cast(&d_Numerator2[0]));
-	cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
+	cudaDeviceSynchronize();
 }
 
 template <typename RealType>
