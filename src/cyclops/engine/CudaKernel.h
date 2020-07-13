@@ -97,7 +97,7 @@ public:
                  thrust::device_vector<RealType>& d_ExpXBeta,
                  thrust::device_vector<RealType>& d_Numerator,
                  thrust::device_vector<RealType>& d_Numerator2,
-                 int index,
+                 int index, int formatType,
                  int gridSize, int blockSize);
 	void computeNumeratorForGradient(const thrust::device_vector<RealType>& d_X,
 	        const thrust::device_vector<int>& d_K,
@@ -107,6 +107,7 @@ public:
 	        thrust::device_vector<RealType>& d_ExpXBeta,
 	        thrust::device_vector<RealType>& d_Numerator,
 	        thrust::device_vector<RealType>& d_Numerator2,
+		int formatType,
 	        int gridSize, int blockSize);
 	void processDelta(thrust::device_vector<RealType>& d_DeltaVector,
                       thrust::device_vector<RealType>& d_Bound,

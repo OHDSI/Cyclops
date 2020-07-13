@@ -445,6 +445,7 @@ namespace bsccs{
 	virtual void computeNumeratorForGradient(int index, bool useWeights) {
 
                         FormatType formatType = hX.getFormatType(index);
+			int formatInt = getFormatTypeInt(formatType);
                         const auto taskCount = dCudaColumns.getTaskCount(index);
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -462,6 +463,7 @@ namespace bsccs{
                                 dExpXBeta,
                                 dNumerator,
                                 dNumerator2,
+				formatInt,
                                 gridSize, blockSize);
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
@@ -679,6 +681,7 @@ namespace bsccs{
 	virtual void updateBetaAndDelta(int index, bool useWeights) {
 
 			FormatType formatType = hX.getFormatType(index);
+			int formatInt = getFormatTypeInt(formatType);
 			const auto taskCount = dCudaColumns.getTaskCount(index);
 
 			int gridSize, blockSize;
@@ -698,6 +701,7 @@ namespace bsccs{
 			        dExpXBeta,
 			        dNumerator,
 			        dNumerator2,
+				formatInt,
 			        gridSize, blockSize);
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
@@ -824,7 +828,7 @@ namespace bsccs{
 			        dExpXBeta,
 			        dNumerator,
 			        dNumerator2,
-			        index,
+			        index, formatInt,
 			        gridSize, blockSize);
 			hXBetaKnown = false;
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -958,6 +962,19 @@ namespace bsccs{
             }
         }
 
+        int getFormatTypeInt(FormatType formatType) {
+            switch (formatType) {
+                case DENSE:
+                    return 1;
+                case SPARSE:
+                    return 2;
+                case INDICATOR:
+                    return 3;
+                case INTERCEPT:
+                    return 4;
+                default: return 0;
+            }
+        }
 		bool hXBetaKnown;
 		bool dXBetaKnown;
 /*
