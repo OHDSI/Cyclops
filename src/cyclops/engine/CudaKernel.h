@@ -1,4 +1,7 @@
 #include <vector>
+#include "../CompressedDataMatrix.h"
+
+typedef typename bsccs::FormatType FormatType;
 
 struct CustomExp
 {
@@ -9,10 +12,9 @@ struct CustomExp
 	}
 };
 
-template <typename RealType>
+template <typename RealType, bool isIndicator>
 struct functorCGH :
 		public thrust::unary_function<thrust::tuple<RealType, RealType, RealType, RealType>,
-//		        thrust::tuple<RealType, RealType>>
 		        double2>
 {
 	typedef typename thrust::tuple<RealType, RealType, RealType, RealType> InputTuple;
@@ -21,32 +23,45 @@ struct functorCGH :
 	__host__ __device__
 	double2 operator()(const InputTuple& t) const
 	{
+		/*
 	    auto temp = thrust::get<0>(t) * thrust::get<1>(t) / thrust::get<2>(t);
-//	    return OutputTuple(temp, temp * (1 - thrust::get<1>(t) / thrust::get<2>(t)));
 		double2 out;
 		out.x = temp;
 		out.y = temp * (1 - thrust::get<1>(t) / thrust::get<2>(t));
 		return out;
+		*/
+	    auto temp = thrust::get<1>(t) / thrust::get<2>(t);
+	    double2 out;
+	    out.x = thrust::get<0>(t) * temp;
+	    if (isIndicator) {
+	        out.y = out.x * (1 - temp);
+	    } else {
+	        out.y = thrust::get<0>(t) * (thrust::get<3>(t) / thrust::get<2>(t) - temp * temp);
+	    }
+	    return out;
 	}
 };
 
 template <typename RealType>
 class CudaKernel {
 
+//	typedef typename bsccs::FormatType FormatType;
 	typedef thrust::tuple<RealType,RealType> Tup2;
 	typedef typename thrust::device_vector<RealType>::iterator VecItr;
 	typedef thrust::tuple<VecItr,VecItr,VecItr,VecItr> TupVec4;
 	typedef thrust::zip_iterator<TupVec4> ZipVec4;
 
 public:
-
+	
 	// Device arrays
 	Tup2 init = thrust::make_tuple<RealType, RealType>(0, 0);
 	double2 d_init;
 
 	// Operator
 	CustomExp    exp_op;
-	functorCGH<RealType> cGAH;
+//	functorCGH<RealType> cGAH;
+	functorCGH<RealType, true> compGradHessInd;
+	functorCGH<RealType, false> compGradHessNInd;
 
 	// Temporary storage required by cub::scan and cub::reduce
 	void *d_temp_storage0 = NULL;
@@ -68,8 +83,6 @@ public:
 	        thrust::device_vector<RealType>& d_AccNumer,
 	        thrust::device_vector<RealType>& d_AccNumer2,
 	        thrust::device_vector<RealType>& d_NWeight,
-//	        thrust::device_vector<RealType>& d_Gradient,
-//	        thrust::device_vector<RealType>& d_Hessian,
 	        double2* dGH,
 	        size_t& N,
 	        thrust::device_vector<int>& indicesN);
@@ -97,7 +110,7 @@ public:
                  thrust::device_vector<RealType>& d_ExpXBeta,
                  thrust::device_vector<RealType>& d_Numerator,
                  thrust::device_vector<RealType>& d_Numerator2,
-                 int index, int formatType,
+                 int index, int formatInt, FormatType formatType,
                  int gridSize, int blockSize);
 	void computeNumeratorForGradient(const thrust::device_vector<RealType>& d_X,
 	        const thrust::device_vector<int>& d_K,
@@ -107,7 +120,7 @@ public:
 	        thrust::device_vector<RealType>& d_ExpXBeta,
 	        thrust::device_vector<RealType>& d_Numerator,
 	        thrust::device_vector<RealType>& d_Numerator2,
-		int formatType,
+		int formatInt,
 	        int gridSize, int blockSize);
 	void processDelta(thrust::device_vector<RealType>& d_DeltaVector,
                       thrust::device_vector<RealType>& d_Bound,
@@ -122,9 +135,8 @@ public:
             thrust::device_vector<RealType>& d_AccNumer2,
 	        thrust::device_vector<RealType>& d_AccDenom,
 	        thrust::device_vector<RealType>& d_NWeight,
-//	        thrust::device_vector<RealType>& d_Gradient,
-//	        thrust::device_vector<RealType>& d_Hessian,
 	        double2* dGH,
+		int formatInt,
 	        size_t& N
 //	        ,const std::vector<int>& K,
 //	        unsigned int offK,

@@ -483,6 +483,7 @@ namespace bsccs{
 			double2 GH;
 
 			FormatType formatType = hX.getFormatType(index);
+			int formatInt = getFormatTypeInt(formatType);
 			const auto taskCount = dCudaColumns.getTaskCount(index);
 /*
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -541,6 +542,7 @@ namespace bsccs{
 			        dAccDenominator,
 			        dNWeight,
 			        dGH,
+				formatInt,
 			        N
 //			        , dCudaColumns.getHIndices(),
 //			        dCudaColumns.getIndicesOffset(index),
@@ -701,7 +703,7 @@ namespace bsccs{
 			        dExpXBeta,
 			        dNumerator,
 			        dNumerator2,
-				formatInt,
+                                formatInt,
 			        gridSize, blockSize);
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
@@ -709,15 +711,8 @@ namespace bsccs{
             auto name = "updateBetaAndDelta" + getFormatTypeExtension(formatType) + "    compNumer";
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-/*
-            std::vector<RealType> tempNumer(16, 0);
-            thrust::copy(std::begin(dNumerator), std::end(dNumerator), std::begin(tempNumer));
-            std::cout << "Numer: ";
-            for (auto x:tempNumer) {
-                std::cout << x << " ";
-            }
-            std::cout << "\n";
-	    */
+
+
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start1 = bsccs::chrono::steady_clock::now();
 #endif
@@ -733,22 +728,8 @@ namespace bsccs{
             auto name1 = "updateBetaAndDelta" + getFormatTypeExtension(formatType) + "     accNumer";
             duration[name1] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start1).count();
 #endif
-            /*
-	    std::vector<RealType> tempANumer(16, 0);
-            thrust::copy(std::begin(dAccNumer), std::end(dAccNumer), std::begin(tempANumer));
-            std::cout << "AccNumer: ";
-            for (auto x:tempANumer) {
-                std::cout << x << " ";
-            }
-            std::cout << "\n";
-	    std::vector<RealType> tempADenom(16, 0);
-            thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(tempADenom));
-            std::cout << "AccDenom: ";
-            for (auto x:tempADenom) {
-                std::cout << x << " ";
-            }
-            std::cout << "\n";
-	    */
+
+
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start2 = bsccs::chrono::steady_clock::now();
 #endif
@@ -758,6 +739,7 @@ namespace bsccs{
 			        dAccDenominator,
 			        dNWeight,
 			        dGH,
+                                formatInt,
 			        N);
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end2 = bsccs::chrono::steady_clock::now();
@@ -766,19 +748,6 @@ namespace bsccs{
             duration[name2] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
 #endif
 /*
-	    double2 temp;
-	    cudaMemcpy(pGH, dGH, sizeof(double2), cudaMemcpyDeviceToHost);
-	    temp = *pGH;
-	    std::cout << "index: " << index << " g: " << temp.x << " h: " << temp.y << '\n';
-            
-    	    std::vector<RealType> tempXjY(16, 0);
-            thrust::copy(std::begin(dXjY), std::end(dXjY), std::begin(tempXjY));
-            std::cout << "XjY: ";
-            for (auto x:tempXjY) {
-                std::cout << x << " ";
-            }
-            std::cout << "\n";
- 
             ////////////////////////// processDelta
 #ifdef CYCLOPS_DEBUG_TIMING
             auto start3 = bsccs::chrono::steady_clock::now();
@@ -797,18 +766,7 @@ namespace bsccs{
             ///////////////////////////"
             auto name3 = "updateBetaAndDelta" + getFormatTypeExtension(formatType) + " processDelta";
             duration[name3] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end3 - start3).count();
-#endif
-	    
-            double2 temp;
-            cudaMemcpy(pGH, dGH, sizeof(double2), cudaMemcpyDeviceToHost);
-            temp = *pGH;
-	    std::cout << "index: " << index << " g: " << temp.x << " h: " << temp.y << '\n';
-	    
-	    std::vector<RealType> tempDelta;
-	    tempDelta.resize(J);
-            thrust::copy(std::begin(dDeltaVector), std::end(dDeltaVector), std::begin(tempDelta));
-
-            std::cout << "index: " << index << " g: " << temp.x << " h: " << temp.y << " delta: " << tempDelta[index] << '\n';
+#endif	    
 */
             ////////////////////////// updateXBeta
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -821,14 +779,14 @@ namespace bsccs{
 			        dCudaColumns.getIndicesOffset(index),
 			        taskCount,
 			        dGH,
-				dXjY,
-				dBound,
-				dBeta,
+                                dXjY,
+                                dBound,
+                                dBeta,
 			        dXBeta,
 			        dExpXBeta,
 			        dNumerator,
 			        dNumerator2,
-			        index, formatInt,
+			        index, formatInt, formatType,
 			        gridSize, blockSize);
 			hXBetaKnown = false;
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -975,6 +933,7 @@ namespace bsccs{
                 default: return 0;
             }
         }
+
 		bool hXBetaKnown;
 		bool dXBetaKnown;
 /*
