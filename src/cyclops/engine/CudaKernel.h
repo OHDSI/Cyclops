@@ -3,6 +3,10 @@
 
 typedef typename bsccs::FormatType FormatType;
 
+enum FormatTypeCuda {
+        DENSE, SPARSE, INDICATOR, INTERCEPT
+};
+
 struct CustomExp
 {
 	template <typename RealType>
@@ -18,18 +22,10 @@ struct functorCGH :
 		        double2>
 {
 	typedef typename thrust::tuple<RealType, RealType, RealType, RealType> InputTuple;
-	typedef typename thrust::tuple<RealType, RealType>       OutputTuple;
 
 	__host__ __device__
 	double2 operator()(const InputTuple& t) const
 	{
-		/*
-	    auto temp = thrust::get<0>(t) * thrust::get<1>(t) / thrust::get<2>(t);
-		double2 out;
-		out.x = temp;
-		out.y = temp * (1 - thrust::get<1>(t) / thrust::get<2>(t));
-		return out;
-		*/
 	    auto temp = thrust::get<1>(t) / thrust::get<2>(t);
 	    double2 out;
 	    out.x = thrust::get<0>(t) * temp;
@@ -45,7 +41,6 @@ struct functorCGH :
 template <typename RealType>
 class CudaKernel {
 
-//	typedef typename bsccs::FormatType FormatType;
 	typedef thrust::tuple<RealType,RealType> Tup2;
 	typedef typename thrust::device_vector<RealType>::iterator VecItr;
 	typedef thrust::tuple<VecItr,VecItr,VecItr,VecItr> TupVec4;
@@ -110,7 +105,8 @@ public:
                  thrust::device_vector<RealType>& d_ExpXBeta,
                  thrust::device_vector<RealType>& d_Numerator,
                  thrust::device_vector<RealType>& d_Numerator2,
-                 int index, int formatInt, FormatType formatType,
+                 int index, 
+		 FormatType& formatType,
                  int gridSize, int blockSize);
 	void computeNumeratorForGradient(const thrust::device_vector<RealType>& d_X,
 	        const thrust::device_vector<int>& d_K,
@@ -120,7 +116,7 @@ public:
 	        thrust::device_vector<RealType>& d_ExpXBeta,
 	        thrust::device_vector<RealType>& d_Numerator,
 	        thrust::device_vector<RealType>& d_Numerator2,
-		int formatInt,
+		FormatType& formatType,
 	        int gridSize, int blockSize);
 	void processDelta(thrust::device_vector<RealType>& d_DeltaVector,
                       thrust::device_vector<RealType>& d_Bound,
@@ -136,7 +132,7 @@ public:
 	        thrust::device_vector<RealType>& d_AccDenom,
 	        thrust::device_vector<RealType>& d_NWeight,
 	        double2* dGH,
-		int formatInt,
+		FormatType& formatType,
 	        size_t& N
 //	        ,const std::vector<int>& K,
 //	        unsigned int offK,

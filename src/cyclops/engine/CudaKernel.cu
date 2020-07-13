@@ -17,7 +17,6 @@
 
 using namespace cub;
 
-
 template <typename RealType>
 __global__ void kernelUpdateXBeta(int offX,
 				  int offK,
@@ -53,7 +52,7 @@ __global__ void kernelUpdateXBeta(int offX,
 	}
 }
 
-template <typename RealType, int formatInt>
+template <typename RealType, FormatTypeCuda formatType>
 __global__ void kernelUpdateXBeta1(int offX,
 				  int offK,
 				  const int taskCount,
@@ -96,15 +95,13 @@ __global__ void kernelUpdateXBeta1(int offX,
 	int k;
 	RealType inc;
 
-	if (formatInt == 3 || formatInt == 2) { // INDICATOR, SPARSE
-//	if (formatType == INDICATOR || formatType == SPARSE) {
+	if (formatType == INDICATOR || formatType == SPARSE) {
 	    k = d_K[offK + task];
 	} else { // DENSE, INTERCEPT
 	    k = task;
 	}
 
-	if (formatInt == 2 || formatInt == 1) { // SPARSE, DENSE
-//	if (formatType == SPARSE || formatType == DENSE) {
+	if (formatType == SPARSE || formatType == DENSE) {
 	    inc = delta * d_X[offX + task];
 	} else { // INDICATOR, INTERCEPT
 	    inc = delta;
@@ -115,12 +112,15 @@ __global__ void kernelUpdateXBeta1(int offX,
 	    d_XBeta[k] = xb;
 	    d_ExpXBeta[k] = exp(xb);
 	    d_Numerator[k] = 0;
-	    d_Numerator2[k] = 0;
+	    if (formatType != INDICATOR) {
+		    d_Numerator2[k] = 0;
+	    }
+//	    d_Numerator2[k] = 0;
 	}
 	
 }
 
-template <typename RealType, int formatType>
+template <typename RealType, FormatTypeCuda formatType>
 __global__ void kernelComputeNumeratorForGradient(int offX,
                                                   int offK,
                                                   const int taskCount,
@@ -134,14 +134,14 @@ __global__ void kernelComputeNumeratorForGradient(int offX,
 
 	int k;
 
-	if (formatType == 3 || formatType == 2) { // INDICATOR, SPARSE
+	if (formatType == INDICATOR || formatType == SPARSE) {
 	    k = d_K[offK + task];
 	} else { // DENSE, INTERCEPT
 	    k = task;
 	}
 
 	if (task < taskCount) {
-	    if (formatType == 2 || formatType == 1) { // SPARSE, DENSE
+	    if (formatType == SPARSE || formatType == DENSE) {
 	        d_Numerator[k] = d_X[offX + task] * d_ExpXBeta[k];
 	        d_Numerator2[k] = d_X[offX + task] * d_Numerator[k];
 	    } else { // INDICATOR, INTERCEPT
@@ -239,8 +239,6 @@ void CudaKernel<RealType>::allocTempStorage(thrust::device_vector<RealType>& d_D
 					    thrust::device_vector<RealType>& d_AccNumer,
 					    thrust::device_vector<RealType>& d_AccNumer2,
 					    thrust::device_vector<RealType>& d_NWeight,
-//					    thrust::device_vector<RealType>& d_Gradient,
-//					    thrust::device_vector<RealType>& d_Hessian,
 					    double2* dGH,
 					    size_t& N,
 					    thrust::device_vector<int>& indicesN)
@@ -319,63 +317,11 @@ void CudaKernel<RealType>::updateXBeta1(const thrust::device_vector<RealType>& d
 				       thrust::device_vector<RealType>& d_ExpXBeta,
 				       thrust::device_vector<RealType>& d_Numerator,
 				       thrust::device_vector<RealType>& d_Numerator2,
-				       int index, int formatInt, FormatType formatType,
+				       int index, 
+				       FormatType& formatType,
 				       int gridSize, int blockSize)
 {
-	switch (formatInt) {
-		case 1 :
-			kernelUpdateXBeta1<RealType, 1><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
-		    			                       thrust::raw_pointer_cast(&d_X[0]),
-		    			                       thrust::raw_pointer_cast(&d_K[0]),
-		    			                       d_GH,
-		    			                       thrust::raw_pointer_cast(&d_XjY[0]),
-		    			                       thrust::raw_pointer_cast(&d_Bound[0]),
-		    			                       thrust::raw_pointer_cast(&d_Beta[0]),
-		    			                       thrust::raw_pointer_cast(&d_XBeta[0]),
-		    			                       thrust::raw_pointer_cast(&d_ExpXBeta[0]),
-		    			                       thrust::raw_pointer_cast(&d_Numerator[0]),
-		    			                       thrust::raw_pointer_cast(&d_Numerator2[0]));
-		    break;
-		case 2 :
-			kernelUpdateXBeta1<RealType, 2><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
-		    			                       thrust::raw_pointer_cast(&d_X[0]),
-		    			                       thrust::raw_pointer_cast(&d_K[0]),
-		    			                       d_GH,
-		    			                       thrust::raw_pointer_cast(&d_XjY[0]),
-		    			                       thrust::raw_pointer_cast(&d_Bound[0]),
-		    			                       thrust::raw_pointer_cast(&d_Beta[0]),
-		    			                       thrust::raw_pointer_cast(&d_XBeta[0]),
-		    			                       thrust::raw_pointer_cast(&d_ExpXBeta[0]),
-		    			                       thrust::raw_pointer_cast(&d_Numerator[0]),
-		    			                       thrust::raw_pointer_cast(&d_Numerator2[0]));
-		    break;
-		case 3 :
-			kernelUpdateXBeta1<RealType, 3><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
-		    			                       thrust::raw_pointer_cast(&d_X[0]),
-		    			                       thrust::raw_pointer_cast(&d_K[0]),
-		    			                       d_GH,
-		    			                       thrust::raw_pointer_cast(&d_XjY[0]),
-		    			                       thrust::raw_pointer_cast(&d_Bound[0]),
-		    			                       thrust::raw_pointer_cast(&d_Beta[0]),
-		    			                       thrust::raw_pointer_cast(&d_XBeta[0]),
-		    			                       thrust::raw_pointer_cast(&d_ExpXBeta[0]),
-		    			                       thrust::raw_pointer_cast(&d_Numerator[0]),
-		    			                       thrust::raw_pointer_cast(&d_Numerator2[0]));
-		    break;
-		case 4 :
-			kernelUpdateXBeta1<RealType, 4><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
-		    			                       thrust::raw_pointer_cast(&d_X[0]),
-		    			                       thrust::raw_pointer_cast(&d_K[0]),
-		    			                       d_GH,
-		    			                       thrust::raw_pointer_cast(&d_XjY[0]),
-		    			                       thrust::raw_pointer_cast(&d_Bound[0]),
-		    			                       thrust::raw_pointer_cast(&d_Beta[0]),
-		    			                       thrust::raw_pointer_cast(&d_XBeta[0]),
-		    			                       thrust::raw_pointer_cast(&d_ExpXBeta[0]),
-		    			                       thrust::raw_pointer_cast(&d_Numerator[0]),
-		    			                       thrust::raw_pointer_cast(&d_Numerator2[0]));
-		    break;
-		/*
+        switch (formatType) {
 		case DENSE :
 			kernelUpdateXBeta1<RealType, DENSE><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
 		    			                       thrust::raw_pointer_cast(&d_X[0]),
@@ -428,9 +374,8 @@ void CudaKernel<RealType>::updateXBeta1(const thrust::device_vector<RealType>& d
 		    			                       thrust::raw_pointer_cast(&d_Numerator[0]),
 		    			                       thrust::raw_pointer_cast(&d_Numerator2[0]));
 		    break;
-		    */
 	}
-
+ 
 	cudaDeviceSynchronize();
 }
 
@@ -443,12 +388,12 @@ void CudaKernel<RealType>::computeNumeratorForGradient(const thrust::device_vect
 		    				    				       thrust::device_vector<RealType>& d_ExpXBeta,
 		    				    				       thrust::device_vector<RealType>& d_Numerator,
 		    				    				       thrust::device_vector<RealType>& d_Numerator2,
-										       int formatInt,
+										       FormatType& formatType,
 		    				    				       int gridSize, int blockSize)
 {
-        switch (formatInt) {
-                case 1 :
-                        kernelComputeNumeratorForGradient<RealType, 1><<<gridSize, blockSize>>>(offX,
+        switch (formatType) {
+                case DENSE :
+                        kernelComputeNumeratorForGradient<RealType, DENSE><<<gridSize, blockSize>>>(offX,
                                                                                                offK,
                                                                                                taskCount,
                                                                                                thrust::raw_pointer_cast(&d_X[0]),
@@ -457,8 +402,8 @@ void CudaKernel<RealType>::computeNumeratorForGradient(const thrust::device_vect
                                                                                                thrust::raw_pointer_cast(&d_Numerator[0]),
                                                                                                thrust::raw_pointer_cast(&d_Numerator2[0]));
                 break;	
-                case 2 :
-                        kernelComputeNumeratorForGradient<RealType, 2><<<gridSize, blockSize>>>(offX,
+                case SPARSE :
+                        kernelComputeNumeratorForGradient<RealType, SPARSE><<<gridSize, blockSize>>>(offX,
                                                                                                offK,
                                                                                                taskCount,
                                                                                                thrust::raw_pointer_cast(&d_X[0]),
@@ -467,8 +412,8 @@ void CudaKernel<RealType>::computeNumeratorForGradient(const thrust::device_vect
                                                                                                thrust::raw_pointer_cast(&d_Numerator[0]),
                                                                                                thrust::raw_pointer_cast(&d_Numerator2[0]));
                 break;
-                case 3 :
-                        kernelComputeNumeratorForGradient<RealType, 3><<<gridSize, blockSize>>>(offX,
+                case INDICATOR :
+                        kernelComputeNumeratorForGradient<RealType, INDICATOR><<<gridSize, blockSize>>>(offX,
                                                                                                offK,
                                                                                                taskCount,
                                                                                                thrust::raw_pointer_cast(&d_X[0]),
@@ -477,8 +422,8 @@ void CudaKernel<RealType>::computeNumeratorForGradient(const thrust::device_vect
                                                                                                thrust::raw_pointer_cast(&d_Numerator[0]),
                                                                                                thrust::raw_pointer_cast(&d_Numerator2[0]));
                 break;
-                case 4 :
-                        kernelComputeNumeratorForGradient<RealType, 4><<<gridSize, blockSize>>>(offX,
+                case INTERCEPT :
+                        kernelComputeNumeratorForGradient<RealType, INTERCEPT><<<gridSize, blockSize>>>(offX,
                                                                                                offK,
                                                                                                taskCount,
                                                                                                thrust::raw_pointer_cast(&d_X[0]),
@@ -520,10 +465,8 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
 						     thrust::device_vector<RealType>& d_AccNumer2,
 						     thrust::device_vector<RealType>& d_AccDenom,
 						     thrust::device_vector<RealType>& d_NWeight,
-//						     thrust::device_vector<RealType>& d_Gradient,
-//						     thrust::device_vector<RealType>& d_Hessian,
 						     double2* dGH,
-						     int formatInt,
+						     FormatType& formatType,
 						     size_t& N
 //						     ,const std::vector<int>& K,
 //                                                     unsigned int offK,
@@ -542,7 +485,7 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
                                             	                 d_AccDenom.begin(),
                                             	                 d_AccNumer2.begin()));
 
-	if (formatInt == 3) {
+	if (formatType == INDICATOR) {
 	    TransformInputIterator<double2, functorCGH<RealType, true>, ZipVec4> itr(begin_gh, compGradHessInd);
 	    DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, dGH, N, Double2Plus(), d_init);
 	} else {

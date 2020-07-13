@@ -445,7 +445,6 @@ namespace bsccs{
 	virtual void computeNumeratorForGradient(int index, bool useWeights) {
 
                         FormatType formatType = hX.getFormatType(index);
-			int formatInt = getFormatTypeInt(formatType);
                         const auto taskCount = dCudaColumns.getTaskCount(index);
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -463,7 +462,7 @@ namespace bsccs{
                                 dExpXBeta,
                                 dNumerator,
                                 dNumerator2,
-				formatInt,
+				formatType,
                                 gridSize, blockSize);
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
@@ -483,7 +482,6 @@ namespace bsccs{
 			double2 GH;
 
 			FormatType formatType = hX.getFormatType(index);
-			int formatInt = getFormatTypeInt(formatType);
 			const auto taskCount = dCudaColumns.getTaskCount(index);
 /*
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -542,7 +540,7 @@ namespace bsccs{
 			        dAccDenominator,
 			        dNWeight,
 			        dGH,
-				formatInt,
+				formatType,
 			        N
 //			        , dCudaColumns.getHIndices(),
 //			        dCudaColumns.getIndicesOffset(index),
@@ -683,7 +681,6 @@ namespace bsccs{
 	virtual void updateBetaAndDelta(int index, bool useWeights) {
 
 			FormatType formatType = hX.getFormatType(index);
-			int formatInt = getFormatTypeInt(formatType);
 			const auto taskCount = dCudaColumns.getTaskCount(index);
 
 			int gridSize, blockSize;
@@ -696,20 +693,22 @@ namespace bsccs{
 #endif
 			// sparse transformation
 			CudaData.computeNumeratorForGradient(dCudaColumns.getData(),
-			        dCudaColumns.getIndices(),
-			        dCudaColumns.getDataOffset(index),
-			        dCudaColumns.getIndicesOffset(index),
-			        taskCount,
-			        dExpXBeta,
-			        dNumerator,
-			        dNumerator2,
-                                formatInt,
-			        gridSize, blockSize);
+					dCudaColumns.getIndices(),
+					dCudaColumns.getDataOffset(index),
+					dCudaColumns.getIndicesOffset(index),
+					taskCount,
+					dExpXBeta,
+					dNumerator,
+					dNumerator2,
+					formatType,
+					gridSize, blockSize);
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
-            auto name = "updateBetaAndDelta" + getFormatTypeExtension(formatType) + "    compNumer";
+            auto name = "y updateBetaAndDelta" + getFormatTypeExtension(formatType) + "    compNumer";
             duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+            duration["compNumForGradG  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+
 #endif
 
 
@@ -718,14 +717,14 @@ namespace bsccs{
 #endif
 			// dense scan on tuple
 			CudaData.computeAccumulatedNumerator(dNumerator,
-			        dNumerator2,
-			        dAccNumer,
-			        dAccNumer2,
-			        N);
+					dNumerator2,
+					dAccNumer,
+					dAccNumer2,
+					N);
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end1 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
-            auto name1 = "updateBetaAndDelta" + getFormatTypeExtension(formatType) + "     accNumer";
+            auto name1 = "y updateBetaAndDelta" + getFormatTypeExtension(formatType) + "     accNumer";
             duration[name1] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start1).count();
 #endif
 
@@ -735,17 +734,19 @@ namespace bsccs{
 #endif
 			// dense transform reduction
 			CudaData.computeGradientAndHessian(dAccNumer,
-			        dAccNumer2,
-			        dAccDenominator,
-			        dNWeight,
-			        dGH,
-                                formatInt,
-			        N);
+					dAccNumer2,
+					dAccDenominator,
+					dNWeight,
+					dGH,
+					formatType,
+					N);
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end2 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
-            auto name2 = "updateBetaAndDelta" + getFormatTypeExtension(formatType) + "  transReduce";
+            auto name2 = "y updateBetaAndDelta" + getFormatTypeExtension(formatType) + "  transReduce";
             duration[name2] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
+	    duration["compGradAndHessG "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start1).count();
+
 #endif
 /*
             ////////////////////////// processDelta
@@ -774,25 +775,26 @@ namespace bsccs{
 #endif
 			// sparse transformation
 			CudaData.updateXBeta1(dCudaColumns.getData(),
-			        dCudaColumns.getIndices(),
-			        dCudaColumns.getDataOffset(index),
-			        dCudaColumns.getIndicesOffset(index),
-			        taskCount,
-			        dGH,
-                                dXjY,
-                                dBound,
-                                dBeta,
-			        dXBeta,
-			        dExpXBeta,
-			        dNumerator,
-			        dNumerator2,
-			        index, formatInt, formatType,
-			        gridSize, blockSize);
+					dCudaColumns.getIndices(),
+					dCudaColumns.getDataOffset(index),
+					dCudaColumns.getIndicesOffset(index),
+					taskCount,
+					dGH,
+					dXjY,
+					dBound,
+					dBeta,
+					dXBeta,
+					dExpXBeta,
+					dNumerator,
+					dNumerator2,
+					index, 
+					formatType,
+					gridSize, blockSize);
 			hXBetaKnown = false;
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end4 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
-            auto name4 = "updateBetaAndDelta" + getFormatTypeExtension(formatType) + "  updateXBeta";
+            auto name4 = "y updateBetaAndDelta" + getFormatTypeExtension(formatType) + "  updateXBeta";
             duration[name4] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end4 - start4).count();
 #endif
 /*	    
@@ -812,8 +814,9 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
             auto end5 = bsccs::chrono::steady_clock::now();
             ///////////////////////////"
-            auto name5 = "updateBetaAndDelta" + getFormatTypeExtension(formatType) + "     accDenom";
+            auto name5 = "y updateBetaAndDelta" + getFormatTypeExtension(formatType) + "     accDenom";
             duration[name5] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end5 - start5).count();
+	    duration["updateXBetaG     "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end5 - start4).count();
 #endif
         }
 
@@ -917,20 +920,6 @@ namespace bsccs{
                 case INTERCEPT:
                     return "Icp";
                 default: return "";
-            }
-        }
-
-        int getFormatTypeInt(FormatType formatType) {
-            switch (formatType) {
-                case DENSE:
-                    return 1;
-                case SPARSE:
-                    return 2;
-                case INDICATOR:
-                    return 3;
-                case INTERCEPT:
-                    return 4;
-                default: return 0;
             }
         }
 
