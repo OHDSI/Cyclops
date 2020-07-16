@@ -52,7 +52,7 @@ __global__ void kernelUpdateXBeta(int offX,
 	}
 }
 
-template <typename RealType, FormatTypeCuda formatType>
+template <typename RealType, FormatTypeCuda formatType, PriorTypeCuda priorType>
 __global__ void kernelUpdateXBeta1(int offX,
 				  int offK,
 				  const int taskCount,
@@ -66,16 +66,48 @@ __global__ void kernelUpdateXBeta1(int offX,
 				  RealType* d_XBeta,
 				  RealType* d_ExpXBeta,
 				  RealType* d_Numerator,
-				  RealType* d_Numerator2)
+				  RealType* d_Numerator2,
+				  RealType* d_PriorParams)
 {
-	// process delta, update beta and bound
+	// get gradient, hessian, and old beta
 	double2 GH = *d_GH;
 	RealType g = GH.x - d_XjY[index];
 	RealType h = GH.y;
 	RealType beta = d_Beta[index];
 
-	RealType delta = -g/h; // no prior
+	// process delta
+	RealType delta;
+	if (priorType == NOPRIOR) {
+		delta = -g/h;
+	}
+	if (priorType == LAPLACE) {
+		RealType lambda = d_PriorParams[index];
+		RealType neg_update = - (g - lambda) / h;
+		RealType pos_update = - (g + lambda) / h;
+		if (beta == 0) {
+			if (neg_update < 0) {
+				delta = neg_update;
+			} else if (pos_update > 0) {
+				delta = pos_update;
+			} else {
+				delta = 0;
+			}
+		} else {
+			if (beta < 0) {
+				delta = neg_update;
+				if (beta+delta > 0) delta = -beta;
+			} else {
+				delta = pos_update;
+				if (beta+delta < 0) delta = -beta;
+			}
+		}
+	}
+	if (priorType == NORMAL) {
+		RealType variance = d_PriorParams[index];
+		delta = - (g + (beta / variance)) / (h + (1.0 / variance));
+	}
 
+	// update beta
 	RealType bound = d_Bound[index];
 	if (delta < -bound) {
 		delta = -bound;
@@ -84,40 +116,51 @@ __global__ void kernelUpdateXBeta1(int offX,
 	}
 	d_Beta[index] = delta + beta;
 
+	// update bound
 	auto intermediate = max(2*abs(delta), bound/2);
 	intermediate = max(intermediate, 0.001);
 	d_Bound[index] = intermediate;
 
 
-	// update xb and exb
+	// update xb and exb if needed, zero numer
+
 	int task = blockIdx.x * blockDim.x + threadIdx.x;
-
+                
 	int k;
-	RealType inc;
-
 	if (formatType == INDICATOR || formatType == SPARSE) {
-	    k = d_K[offK + task];
+		k = d_K[offK + task];
 	} else { // DENSE, INTERCEPT
-	    k = task;
+		k = task;
 	}
 
-	if (formatType == SPARSE || formatType == DENSE) {
-	    inc = delta * d_X[offX + task];
-	} else { // INDICATOR, INTERCEPT
-	    inc = delta;
-	}
+	if (delta != 0.0) { // update xb and exb, zero numer
+		
+		RealType inc;
+		if (formatType == SPARSE || formatType == DENSE) {
+			inc = delta * d_X[offX + task];
+		} else { // INDICATOR, INTERCEPT
+			inc = delta;
+		}
+		
+		if (task < taskCount) {
+			RealType xb = d_XBeta[k] + inc;
+			d_XBeta[k] = xb;
+			d_ExpXBeta[k] = exp(xb);
+			d_Numerator[k] = 0;
+			if (formatType != INDICATOR) {
+				d_Numerator2[k] = 0;
+			}
+		}
 
-	if (task < taskCount) {
-	    RealType xb = d_XBeta[k] + inc;
-	    d_XBeta[k] = xb;
-	    d_ExpXBeta[k] = exp(xb);
-	    d_Numerator[k] = 0;
-	    if (formatType != INDICATOR) {
-		    d_Numerator2[k] = 0;
-	    }
-//	    d_Numerator2[k] = 0;
+	} else { // only zero numer
+
+		if (task < taskCount) {
+			d_Numerator[k] = 0;
+			if (formatType != INDICATOR) {
+				d_Numerator2[k] = 0;
+			}
+		}
 	}
-	
 }
 
 template <typename RealType, FormatTypeCuda formatType>
@@ -133,7 +176,6 @@ __global__ void kernelComputeNumeratorForGradient(int offX,
 	int task = blockIdx.x * blockDim.x + threadIdx.x;
 
 	int k;
-
 	if (formatType == INDICATOR || formatType == SPARSE) {
 	    k = d_K[offK + task];
 	} else { // DENSE, INTERCEPT
@@ -317,13 +359,17 @@ void CudaKernel<RealType>::updateXBeta1(const thrust::device_vector<RealType>& d
 				       thrust::device_vector<RealType>& d_ExpXBeta,
 				       thrust::device_vector<RealType>& d_Numerator,
 				       thrust::device_vector<RealType>& d_Numerator2,
+				       thrust::device_vector<RealType>& d_PriorParams,
+				       const int priorTypes,
 				       int index, 
 				       FormatType& formatType,
 				       int gridSize, int blockSize)
 {
+	// TODO: write double dispatch function 
+	const PriorTypeCuda priorType = NOPRIOR;
         switch (formatType) {
 		case DENSE :
-			kernelUpdateXBeta1<RealType, DENSE><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
+			kernelUpdateXBeta1<RealType, DENSE, priorType><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
 		    			                       thrust::raw_pointer_cast(&d_X[0]),
 		    			                       thrust::raw_pointer_cast(&d_K[0]),
 		    			                       d_GH,
@@ -333,10 +379,11 @@ void CudaKernel<RealType>::updateXBeta1(const thrust::device_vector<RealType>& d
 		    			                       thrust::raw_pointer_cast(&d_XBeta[0]),
 		    			                       thrust::raw_pointer_cast(&d_ExpXBeta[0]),
 		    			                       thrust::raw_pointer_cast(&d_Numerator[0]),
-		    			                       thrust::raw_pointer_cast(&d_Numerator2[0]));
+		    			                       thrust::raw_pointer_cast(&d_Numerator2[0]),
+							       thrust::raw_pointer_cast(&d_PriorParams[0]));
 		    break;
 		case SPARSE :
-			kernelUpdateXBeta1<RealType, SPARSE><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
+			kernelUpdateXBeta1<RealType, SPARSE, priorType><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
 		    			                       thrust::raw_pointer_cast(&d_X[0]),
 		    			                       thrust::raw_pointer_cast(&d_K[0]),
 		    			                       d_GH,
@@ -346,10 +393,11 @@ void CudaKernel<RealType>::updateXBeta1(const thrust::device_vector<RealType>& d
 		    			                       thrust::raw_pointer_cast(&d_XBeta[0]),
 		    			                       thrust::raw_pointer_cast(&d_ExpXBeta[0]),
 		    			                       thrust::raw_pointer_cast(&d_Numerator[0]),
-		    			                       thrust::raw_pointer_cast(&d_Numerator2[0]));
+		    			                       thrust::raw_pointer_cast(&d_Numerator2[0]),
+							       thrust::raw_pointer_cast(&d_PriorParams[0]));
 		    break;
 		case INDICATOR :
-			kernelUpdateXBeta1<RealType, INDICATOR><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
+			kernelUpdateXBeta1<RealType, INDICATOR, priorType><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
 		    			                       thrust::raw_pointer_cast(&d_X[0]),
 		    			                       thrust::raw_pointer_cast(&d_K[0]),
 		    			                       d_GH,
@@ -359,10 +407,11 @@ void CudaKernel<RealType>::updateXBeta1(const thrust::device_vector<RealType>& d
 		    			                       thrust::raw_pointer_cast(&d_XBeta[0]),
 		    			                       thrust::raw_pointer_cast(&d_ExpXBeta[0]),
 		    			                       thrust::raw_pointer_cast(&d_Numerator[0]),
-		    			                       thrust::raw_pointer_cast(&d_Numerator2[0]));
+		    			                       thrust::raw_pointer_cast(&d_Numerator2[0]),
+							       thrust::raw_pointer_cast(&d_PriorParams[0]));
 		    break;
 		case INTERCEPT :
-			kernelUpdateXBeta1<RealType, INTERCEPT><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
+			kernelUpdateXBeta1<RealType, INTERCEPT, priorType><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
 		    			                       thrust::raw_pointer_cast(&d_X[0]),
 		    			                       thrust::raw_pointer_cast(&d_K[0]),
 		    			                       d_GH,
@@ -372,7 +421,8 @@ void CudaKernel<RealType>::updateXBeta1(const thrust::device_vector<RealType>& d
 		    			                       thrust::raw_pointer_cast(&d_XBeta[0]),
 		    			                       thrust::raw_pointer_cast(&d_ExpXBeta[0]),
 		    			                       thrust::raw_pointer_cast(&d_Numerator[0]),
-		    			                       thrust::raw_pointer_cast(&d_Numerator2[0]));
+		    			                       thrust::raw_pointer_cast(&d_Numerator2[0]),
+							       thrust::raw_pointer_cast(&d_PriorParams[0]));
 		    break;
 	}
  

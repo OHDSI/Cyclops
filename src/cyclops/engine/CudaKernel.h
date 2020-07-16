@@ -7,6 +7,10 @@ enum FormatTypeCuda {
         DENSE, SPARSE, INDICATOR, INTERCEPT
 };
 
+enum PriorTypeCuda {
+	NOPRIOR, LAPLACE, NORMAL
+};
+
 struct CustomExp
 {
 	template <typename RealType>
@@ -105,6 +109,8 @@ public:
                  thrust::device_vector<RealType>& d_ExpXBeta,
                  thrust::device_vector<RealType>& d_Numerator,
                  thrust::device_vector<RealType>& d_Numerator2,
+		 thrust::device_vector<RealType>& dPriorParams,
+		 const int priorTypes,
                  int index, 
 		 FormatType& formatType,
                  int gridSize, int blockSize);
@@ -150,6 +156,8 @@ public:
 	        thrust::device_vector<RealType>& d_AccNumer,
 	        thrust::device_vector<RealType>& d_AccNumer2,
 	        size_t& N);
+	const std::vector<int>& getPriorType(std::vector<int>& priorTypes) const;
+
 
 	void empty4(thrust::device_vector<RealType>& d_AccNumer,
 	        thrust::device_vector<RealType>& d_AccNumer2,

@@ -787,6 +787,8 @@ namespace bsccs{
 					dExpXBeta,
 					dNumerator,
 					dNumerator2,
+					dPriorParams,
+					getPriorTypes(index),
 					index, 
 					formatType,
 					gridSize, blockSize);
@@ -891,6 +893,10 @@ namespace bsccs{
 		resizeAndCopyToDeviceCuda(temp, dBound);
 	}
 	
+	const int getPriorTypes(int index) const {
+		return priorTypes[index];
+	}
+
 	void setPriorTypes(std::vector<int>& inTypes) {
 		priorTypes.resize(J);
 		for (int i=0; i<J; i++) {
@@ -933,7 +939,7 @@ namespace bsccs{
 		std::vector<FormatType> neededFormatTypes;
 */
 
-		std::vector<RealType> priorTypes;
+		std::vector<int> priorTypes;
 		std::vector<RealType> RealHBeta;
 		std::vector<double> DoubleHBeta;
 
