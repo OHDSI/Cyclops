@@ -394,6 +394,72 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
 }
 
 
+template <typename RealType, FormatTypeCuda formatType>
+void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
+                        const thrust::device_vector<int>& d_K,
+                        unsigned int offX,
+                        unsigned int offK,
+                        const unsigned int taskCount,
+                        double2* d_GH,
+                        thrust::device_vector<RealType>& d_XjY,
+                        thrust::device_vector<RealType>& d_Bound,
+                        thrust::device_vector<RealType>& d_Beta,
+                        thrust::device_vector<RealType>& d_XBeta,
+                        thrust::device_vector<RealType>& d_ExpXBeta,
+                        thrust::device_vector<RealType>& d_Numerator,
+                        thrust::device_vector<RealType>& d_Numerator2,
+                        thrust::device_vector<RealType>& d_PriorParams,
+                        const int priorTypes,
+                        int index,
+                        int gridSize, int blockSize)
+{
+	switch (priorTypes) {
+		case 0 :
+			kernelUpdateXBeta<RealType, formatType, NOPRIOR><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
+                                                               thrust::raw_pointer_cast(&d_X[0]),
+                                                               thrust::raw_pointer_cast(&d_K[0]),
+                                                               d_GH,
+                                                               thrust::raw_pointer_cast(&d_XjY[0]),
+                                                               thrust::raw_pointer_cast(&d_Bound[0]),
+                                                               thrust::raw_pointer_cast(&d_Beta[0]),
+                                                               thrust::raw_pointer_cast(&d_XBeta[0]),
+                                                               thrust::raw_pointer_cast(&d_ExpXBeta[0]),
+                                                               thrust::raw_pointer_cast(&d_Numerator[0]),
+                                                               thrust::raw_pointer_cast(&d_Numerator2[0]),
+                                                               thrust::raw_pointer_cast(&d_PriorParams[0]));
+			break;
+		case 1 :
+			kernelUpdateXBeta<RealType, formatType, LAPLACE><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
+                                                               thrust::raw_pointer_cast(&d_X[0]),
+                                                               thrust::raw_pointer_cast(&d_K[0]),
+                                                               d_GH,
+                                                               thrust::raw_pointer_cast(&d_XjY[0]),
+                                                               thrust::raw_pointer_cast(&d_Bound[0]),
+                                                               thrust::raw_pointer_cast(&d_Beta[0]),
+                                                               thrust::raw_pointer_cast(&d_XBeta[0]),
+                                                               thrust::raw_pointer_cast(&d_ExpXBeta[0]),
+                                                               thrust::raw_pointer_cast(&d_Numerator[0]),
+                                                               thrust::raw_pointer_cast(&d_Numerator2[0]),
+                                                               thrust::raw_pointer_cast(&d_PriorParams[0]));
+			break;
+		case 2 :
+			kernelUpdateXBeta<RealType, formatType, NORMAL><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
+                                                               thrust::raw_pointer_cast(&d_X[0]),
+                                                               thrust::raw_pointer_cast(&d_K[0]),
+                                                               d_GH,
+                                                               thrust::raw_pointer_cast(&d_XjY[0]),
+                                                               thrust::raw_pointer_cast(&d_Bound[0]),
+                                                               thrust::raw_pointer_cast(&d_Beta[0]),
+                                                               thrust::raw_pointer_cast(&d_XBeta[0]),
+                                                               thrust::raw_pointer_cast(&d_ExpXBeta[0]),
+                                                               thrust::raw_pointer_cast(&d_Numerator[0]),
+                                                               thrust::raw_pointer_cast(&d_Numerator2[0]),
+                                                               thrust::raw_pointer_cast(&d_PriorParams[0]));
+			break;
+	}
+}
+
+
 template <typename RealType>
 void CudaKernel<RealType>::updateXBeta(const thrust::device_vector<RealType>& d_X,
                                        const thrust::device_vector<int>& d_K,
@@ -414,66 +480,40 @@ void CudaKernel<RealType>::updateXBeta(const thrust::device_vector<RealType>& d_
                                        FormatType& formatType,
                                        int gridSize, int blockSize)
 {
-        // TODO: write double dispatch function
-        const PriorTypeCuda priorType = NOPRIOR;
-        switch (formatType) {
-                case DENSE :
-                        kernelUpdateXBeta<RealType, DENSE, priorType><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
-                                                               thrust::raw_pointer_cast(&d_X[0]),
-                                                               thrust::raw_pointer_cast(&d_K[0]),
-                                                               d_GH,
-                                                               thrust::raw_pointer_cast(&d_XjY[0]),
-                                                               thrust::raw_pointer_cast(&d_Bound[0]),
-                                                               thrust::raw_pointer_cast(&d_Beta[0]),
-                                                               thrust::raw_pointer_cast(&d_XBeta[0]),
-                                                               thrust::raw_pointer_cast(&d_ExpXBeta[0]),
-                                                               thrust::raw_pointer_cast(&d_Numerator[0]),
-                                                               thrust::raw_pointer_cast(&d_Numerator2[0]),
-                                                               thrust::raw_pointer_cast(&d_PriorParams[0]));
-                    break;
-                case SPARSE :
-                        kernelUpdateXBeta<RealType, SPARSE, priorType><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
-                                                               thrust::raw_pointer_cast(&d_X[0]),
-                                                               thrust::raw_pointer_cast(&d_K[0]),
-                                                               d_GH,
-                                                               thrust::raw_pointer_cast(&d_XjY[0]),
-                                                               thrust::raw_pointer_cast(&d_Bound[0]),
-                                                               thrust::raw_pointer_cast(&d_Beta[0]),
-                                                               thrust::raw_pointer_cast(&d_XBeta[0]),
-                                                               thrust::raw_pointer_cast(&d_ExpXBeta[0]),
-                                                               thrust::raw_pointer_cast(&d_Numerator[0]),
-                                                               thrust::raw_pointer_cast(&d_Numerator2[0]),
-                                                               thrust::raw_pointer_cast(&d_PriorParams[0]));
-                    break;
-                case INDICATOR :
-                        kernelUpdateXBeta<RealType, INDICATOR, priorType><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
-                                                               thrust::raw_pointer_cast(&d_X[0]),
-                                                               thrust::raw_pointer_cast(&d_K[0]),
-                                                               d_GH,
-                                                               thrust::raw_pointer_cast(&d_XjY[0]),
-                                                               thrust::raw_pointer_cast(&d_Bound[0]),
-                                                               thrust::raw_pointer_cast(&d_Beta[0]),
-                                                               thrust::raw_pointer_cast(&d_XBeta[0]),
-                                                               thrust::raw_pointer_cast(&d_ExpXBeta[0]),
-                                                               thrust::raw_pointer_cast(&d_Numerator[0]),
-                                                               thrust::raw_pointer_cast(&d_Numerator2[0]),
-                                                               thrust::raw_pointer_cast(&d_PriorParams[0]));
-                    break;
-                case INTERCEPT :
-                        kernelUpdateXBeta<RealType, INTERCEPT, priorType><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
-                                                               thrust::raw_pointer_cast(&d_X[0]),
-                                                               thrust::raw_pointer_cast(&d_K[0]),
-                                                               d_GH,
-                                                               thrust::raw_pointer_cast(&d_XjY[0]),
-                                                               thrust::raw_pointer_cast(&d_Bound[0]),
-                                                               thrust::raw_pointer_cast(&d_Beta[0]),
-                                                               thrust::raw_pointer_cast(&d_XBeta[0]),
-                                                               thrust::raw_pointer_cast(&d_ExpXBeta[0]),
-                                                               thrust::raw_pointer_cast(&d_Numerator[0]),
-                                                               thrust::raw_pointer_cast(&d_Numerator2[0]),
-                                                               thrust::raw_pointer_cast(&d_PriorParams[0]));
-                    break;
-        }
+	switch (formatType) {
+		case DENSE :
+			dispatchPriorType<RealType, DENSE>(d_X, d_K, offX, offK,
+                                                          taskCount, d_GH, d_XjY, d_Bound,
+                                                          d_Beta, d_XBeta, d_ExpXBeta,
+                                                          d_Numerator, d_Numerator2,
+                                                          d_PriorParams, priorTypes,
+                                                          index, gridSize, blockSize);
+			break;
+		case SPARSE :
+			dispatchPriorType<RealType, SPARSE>(d_X, d_K, offX, offK,
+                                                          taskCount, d_GH, d_XjY, d_Bound,
+                                                          d_Beta, d_XBeta, d_ExpXBeta,
+                                                          d_Numerator, d_Numerator2,
+                                                          d_PriorParams, priorTypes,
+                                                          index, gridSize, blockSize);
+			break;
+		case INDICATOR :
+			dispatchPriorType<RealType, INDICATOR>(d_X, d_K, offX, offK,
+                                                          taskCount, d_GH, d_XjY, d_Bound,
+                                                          d_Beta, d_XBeta, d_ExpXBeta,
+                                                          d_Numerator, d_Numerator2,
+                                                          d_PriorParams, priorTypes,
+                                                          index, gridSize, blockSize);
+			break;
+		case INTERCEPT :
+			dispatchPriorType<RealType, INTERCEPT>(d_X, d_K, offX, offK,
+                                                          taskCount, d_GH, d_XjY, d_Bound,
+                                                          d_Beta, d_XBeta, d_ExpXBeta,
+                                                          d_Numerator, d_Numerator2,
+                                                          d_PriorParams, priorTypes,
+                                                          index, gridSize, blockSize);
+			break;
+	}
 
         cudaDeviceSynchronize();
 }

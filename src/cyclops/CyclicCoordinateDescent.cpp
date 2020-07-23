@@ -1064,13 +1064,13 @@ void CyclicCoordinateDescent::findMode(
 	    		if (!syncCV) {
 	    			hBeta = modelSpecifics.getBeta();
 	    		}
-		} else if (usingCUDA) {
-			for(int index = 0; index < J; index++) {
-				if (!fixBeta[index]) {
-					modelSpecifics.updateBetaAndDelta(index, useCrossValidation);
-				}
-			}
-			hBeta = modelSpecifics.getBeta();
+	    	} else if (usingCUDA) {
+	    		for(int index = 0; index < J; index++) {
+	    			if (!fixBeta[index]) {
+	    				modelSpecifics.updateBetaAndDelta(index, useCrossValidation);
+	    			}
+	    		}
+	    		hBeta = modelSpecifics.getBeta();
 	    	} else {
 
 	    		// Do a complete cycle in serial
