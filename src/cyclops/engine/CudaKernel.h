@@ -20,6 +20,26 @@ struct CustomExp
 	}
 };
 
+template<typename RealType, bool isIndicator>
+struct functorCGH
+{
+    typedef typename thrust::tuple<RealType, RealType> InputTuple;
+
+    __host__ __device__
+    double2 operator()(const InputTuple& accNAndN2, const InputTuple& accDAndW) const
+    {
+        auto temp = thrust::get<0>(accNAndN2) / thrust::get<0>(accDAndW);
+        double2 out;
+        out.x = thrust::get<1>(accDAndW) * temp;
+        if (isIndicator) {
+            out.y = out.x * (1 - temp);
+        } else {
+            out.y = thrust::get<1>(accDAndW) * (thrust::get<1>(accNAndN2) / thrust::get<0>(accDAndW) - temp * temp);
+        }
+        return out;
+    }
+};
+/*
 template <typename RealType, bool isIndicator>
 struct functorCGH :
 		public thrust::unary_function<thrust::tuple<RealType, RealType, RealType, RealType>,
@@ -41,7 +61,7 @@ struct functorCGH :
 		return out;
 	}
 };
-
+*/
 template <typename RealType>
 class CudaKernel {
 
@@ -64,8 +84,8 @@ public:
 	// Temporary storage required by cub::scan and cub::reduce
 	void *d_temp_storage0 = NULL;
 	size_t temp_storage_bytes0 = 0;
-	void *d_temp_storage = NULL;
-	size_t temp_storage_bytes = 0;
+//	void *d_temp_storage = NULL;
+//	size_t temp_storage_bytes = 0;
 	void *d_temp_storage_gh = NULL;
 	size_t temp_storage_bytes_gh = 0;
 //	void *d_temp_storage_acc = NULL;
@@ -81,7 +101,8 @@ public:
 			thrust::device_vector<RealType>& d_AccNumer,
 			thrust::device_vector<RealType>& d_AccNumer2,
 			thrust::device_vector<RealType>& d_NWeight,
-			double2* dGH,
+			double2* d_GH,
+			double2* d_BlockGH,
 			size_t& N,
 			thrust::device_vector<int>& indicesN);
 	
@@ -96,17 +117,14 @@ public:
 			FormatType& formatType,
 			int gridSize, int blockSize);
         
-	void computeAccumulatedNumerator(thrust::device_vector<RealType>& d_Numerator,
-                        thrust::device_vector<RealType>& d_Numerator2,
-                        thrust::device_vector<RealType>& d_AccNumer,
-                        thrust::device_vector<RealType>& d_AccNumer2,
-                        size_t& N);
-	
-	void computeGradientAndHessian(thrust::device_vector<RealType>& d_AccNumer,
+	void computeGradientAndHessian(thrust::device_vector<RealType>& d_Numerator,
+			thrust::device_vector<RealType>& d_Numerator2,
+			thrust::device_vector<RealType>& d_AccNumer,
 			thrust::device_vector<RealType>& d_AccNumer2,
 			thrust::device_vector<RealType>& d_AccDenom,
 			thrust::device_vector<RealType>& d_NWeight,
-			double2* dGH,
+			double2* d_GH,
+			double2* d_BlockGH,
 			FormatType& formatType,
 			size_t& N
 //			,const std::vector<int>& K,
@@ -133,6 +151,15 @@ public:
                         FormatType& formatType,
                         int gridSize, int blockSize);
 
+        void CubScan(RealType* d_in, RealType* d_out, int num_items);
+
+	// not using
+        void computeAccumulatedNumerator(thrust::device_vector<RealType>& d_Numerator,
+                        thrust::device_vector<RealType>& d_Numerator2,
+                        thrust::device_vector<RealType>& d_AccNumer,
+                        thrust::device_vector<RealType>& d_AccNumer2,
+                        size_t& N);
+
 	void computeAccumulatedNumerAndDenom(thrust::device_vector<RealType>& d_Denominator,
 			thrust::device_vector<RealType>& d_Numerator,
 			thrust::device_vector<RealType>& d_Numerator2,
@@ -147,8 +174,6 @@ public:
 			thrust::device_vector<RealType>& d_Buffer2);
 	void empty2(thrust::device_vector<RealType>& d_AccDenom,
 			thrust::device_vector<RealType>& d_Buffer3);
-
-	void CubScan(RealType* d_in, RealType* d_out, int num_items);
 
 };
 

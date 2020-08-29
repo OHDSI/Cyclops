@@ -26,7 +26,7 @@ PKG_LIBS = `$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"` -lOpenCL -lcuda -lcudar
 
 CXX_STD = CXX11
 
-NVCC = /usr/local/cuda/bin/nvcc
+NVCC = /usr/local/cuda/bin/nvcc -arch=sm_70
 
 CPICFLAGS = -fpic
 
@@ -44,7 +44,8 @@ EXTRA_INCLUDES =  -I/usr/share/R/include -DNDEBUG
 
 EXTRA_LIBS = -lOpenCL -L/usr/local/cuda/lib64 -lcuda -lcudart -Wl,-rpath,/usr/local/cuda/lib64 -ldl -L/usr/lib/R/lib -lR
 
-CUB_LIB = -I/home/yangjx/cub
+#CUB_LIB = -I/home/yangjx/cub
+CUB_LIB = -I/home/yangjx/my_cub/cub
 
 OBJECTS.cyclops = \
     cyclops/CcdInterface.o \

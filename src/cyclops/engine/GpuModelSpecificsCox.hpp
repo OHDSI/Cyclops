@@ -226,6 +226,7 @@ namespace bsccs{
 
 		virtual ~GpuModelSpecificsCox() {
 			cudaFree(dGH);
+			cudaFree(dBlockGH);
 //			free(pGH);
 //			cudaFreeHost(pGH);
 			std::cerr << "dtor GpuModelSpecificsCox" << std::endl;
@@ -307,6 +308,7 @@ namespace bsccs{
 			resizeCudaVecSize(dAccDenominator, N); // N+1?
 	
 			cudaMalloc((void**)&dGH, sizeof(double2));
+                        cudaMalloc((void**)&dBlockGH, sizeof(double2));
 /*
 			resizeCudaVecSize(indicesN, N);
 			pGH = (double2 *)malloc(sizeof(double2));
@@ -336,6 +338,7 @@ namespace bsccs{
 					dAccNumer2,
 					dNWeight,
 					dGH,
+					dBlockGH,
 					N,
 					indicesN);
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -442,12 +445,12 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto end = bsccs::chrono::steady_clock::now();
 		///////////////////////////"
-		auto name = "y updateBetaAndDelta" + getFormatTypeExtension(formatType) + "    compNumer";
-		duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+//		auto name = "y updateBetaAndDelta" + getFormatTypeExtension(formatType) + "    compNumer";
+//		duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 		duration["compNumForGradG  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-
+/*
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto start1 = bsccs::chrono::steady_clock::now();
 #endif
@@ -463,25 +466,28 @@ namespace bsccs{
 		auto name1 = "y updateBetaAndDelta" + getFormatTypeExtension(formatType) + "     accNumer";
 		duration[name1] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end1 - start1).count();
 #endif
-
+*/
 		
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto start2 = bsccs::chrono::steady_clock::now();
 #endif
 			// dense transform reduction
-			CudaData.computeGradientAndHessian(dAccNumer,
+			CudaData.computeGradientAndHessian(dNumerator,
+					dNumerator2,
+					dAccNumer,
 					dAccNumer2,
 					dAccDenominator,
 					dNWeight,
 					dGH,
+					dBlockGH,
 					formatType,
 					N);
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto end2 = bsccs::chrono::steady_clock::now();
 		///////////////////////////"
-		auto name2 = "y updateBetaAndDelta" + getFormatTypeExtension(formatType) + "  transReduce";
-		duration[name2] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
-		duration["compGradAndHessG "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start1).count();
+//		auto name2 = "y updateBetaAndDelta" + getFormatTypeExtension(formatType) + "  transReduce";
+//		duration[name2] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
+		duration["compGradAndHessG "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
 #endif
 
 		
@@ -680,6 +686,7 @@ namespace bsccs{
 
 		// buffer
 		double2 *dGH; // device GH
+		double2 *dBlockGH; // block aggregate
 //		double2 *pGH; // host GH
 		thrust::device_vector<RealType> dAccNumer;
 		thrust::device_vector<RealType> dAccNumer2;
