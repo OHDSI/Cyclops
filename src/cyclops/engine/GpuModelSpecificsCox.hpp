@@ -297,6 +297,7 @@ namespace bsccs{
 			// Allocate device storage
 			resizeCudaVec(hXBeta, dXBeta); // K
 			resizeCudaVec(offsExpXBeta, dExpXBeta);
+			resizeCudaVec(denomPid, dDenominator);
 
 			resizeAndZeroCudaVec(numerPid, dNumerator); // getAlignedLength(N + 1)
 			if (BaseModel::hasTwoNumeratorTerms) {
@@ -385,6 +386,7 @@ namespace bsccs{
 			
 			thrust::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta));
 			thrust::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta));
+			thrust::copy(std::begin(denomPid), std::end(denomPid), std::begin(dDenominator));
 			thrust::copy(std::begin(accDenomPid), std::end(accDenomPid)-1, std::begin(dAccDenominator));
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -407,6 +409,7 @@ namespace bsccs{
 		auto start = bsccs::chrono::steady_clock::now();
 #endif
 			// TODO write gpu version to avoid D-H copying
+	//	std::cout << "DH-copy dAccDenominator \n";
 			thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid));
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto end = bsccs::chrono::steady_clock::now();
@@ -437,6 +440,7 @@ namespace bsccs{
 					dCudaColumns.getDataOffset(index),
 					dCudaColumns.getIndicesOffset(index),
 					taskCount,
+					dKWeight,
 					dExpXBeta,
 					dNumerator,
 					dNumerator2,
@@ -449,7 +453,15 @@ namespace bsccs{
 //		duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 		duration["compNumForGradG  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-
+/*
+                std::vector<RealType> test0(K, 0);
+                thrust::copy(std::begin(dNumerator), std::end(dNumerator), std::begin(test0));
+                std::cout << "numer: ";
+                for (auto x:test0) {
+                        std::cout << x << " ";
+                }
+                std::cout << "\n";
+*/		
 /*
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto start1 = bsccs::chrono::steady_clock::now();
@@ -504,9 +516,11 @@ namespace bsccs{
 					dGH,
 					dXjY,
 					dBound,
+					dKWeight,
 					dBeta,
 					dXBeta,
 					dExpXBeta,
+					dDenominator,
 					dNumerator,
 					dNumerator2,
 					dPriorParams,
@@ -522,19 +536,28 @@ namespace bsccs{
 		duration[name4] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end4 - start4).count();
 #endif
 /*	    
-		std::vector<RealType> tempEXB(K, 0);
-		thrust::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(tempEXB));
-		std::cout << "exb: ";
-		for (auto x:tempEXB) {
-		std::cout << x << " ";
+		std::vector<RealType> test(K, 0);
+		thrust::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(test));
+		std::cout << "denom: ";
+		for (auto x:test) {
+			std::cout << x << " ";
 		}
 		std::cout << "\n";
+
+		std::vector<RealType> test(K, 0);
+                thrust::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(test));
+                std::cout << "exb: ";
+                for (auto x:test) {
+                        std::cout << x << " ";
+                }
+                std::cout << "\n";
 */
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto start5 = bsccs::chrono::steady_clock::now();
 #endif
 			// dense scan
-			CudaData.CubScan(thrust::raw_pointer_cast(&dExpXBeta[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
+			CudaData.CubScan(thrust::raw_pointer_cast(&dDenominator[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
+//			CudaData.CubScan(thrust::raw_pointer_cast(&dExpXBeta[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto end5 = bsccs::chrono::steady_clock::now();
 		///////////////////////////"
@@ -551,6 +574,7 @@ namespace bsccs{
 #endif
 			if (!hXBetaKnown) {
 //	    			std::cout << "GPU::getXBeta called \n";
+	    		//	std::cout << "DH-copy dXBeta getXBeta \n";
 				thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
 				hXBetaKnown = true;
 			}
@@ -568,6 +592,7 @@ namespace bsccs{
 
 		virtual void saveXBeta() {
 			if (!hXBetaKnown) {
+		//	std::cout << "DH-copy dXBeta saveXBeta \n";
 			    thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
 			    hXBetaKnown = true;
 			}
@@ -591,6 +616,7 @@ namespace bsccs{
 		auto start = bsccs::chrono::steady_clock::now();
 #endif
 //			std::cout << "GPU::getBeta called \n";
+		//	std::cout << "DH-copy dBeta getBeta \n";
 			thrust::copy(std::begin(dBeta), std::end(dBeta), std::begin(RealHBeta));
 			std::copy(RealHBeta.begin(), RealHBeta.end(), DoubleHBeta.begin());
 #ifdef CYCLOPS_DEBUG_TIMING

@@ -150,7 +150,7 @@ AbstractModelSpecifics* precisionFactory<float>(
     	    }
     }
 #endif // HAVE_OPENCL
-
+/*
 #ifdef GPU_COX
     if (deviceType == DeviceType::GPU) {
     	 switch (modelType) {
@@ -162,7 +162,7 @@ AbstractModelSpecifics* precisionFactory<float>(
     	    }
     }
 #endif // GPU_COX
-
+*/
     return model;
 }
 
@@ -248,7 +248,7 @@ AbstractModelSpecifics* precisionFactory<double>(
     	    }
     }
 #endif // HAVE_OPENCL
-
+/*
 #ifdef GPU_COX
     if (deviceType == DeviceType::GPU) {
         switch (modelType) {
@@ -260,7 +260,7 @@ AbstractModelSpecifics* precisionFactory<double>(
         }
     }
 #endif // GPU_COX
-
+*/
     return model;
 }
 

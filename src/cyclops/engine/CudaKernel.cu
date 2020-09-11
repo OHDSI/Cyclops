@@ -24,6 +24,7 @@ __global__ void kernelComputeNumeratorForGradient(int offX,
                                                   const int taskCount,
                                                   const RealType* d_X,
                                                   const int* d_K,
+						  RealType* d_KWeight,
                                                   RealType* d_ExpXBeta,
                                                   RealType* d_Numerator,
                                                   RealType* d_Numerator2)
@@ -39,10 +40,10 @@ __global__ void kernelComputeNumeratorForGradient(int offX,
 
         if (task < taskCount) {
             if (formatType == SPARSE || formatType == DENSE) {
-                d_Numerator[k] = d_X[offX + task] * d_ExpXBeta[k];
+                d_Numerator[k] = d_X[offX + task] * d_ExpXBeta[k] * d_KWeight[k];
                 d_Numerator2[k] = d_X[offX + task] * d_Numerator[k];
             } else { // INDICATOR, INTERCEPT
-                d_Numerator[k] = d_ExpXBeta[k];
+                d_Numerator[k] = d_ExpXBeta[k] * d_KWeight[k];
             }
         }
 }
@@ -58,9 +59,11 @@ __global__ void kernelUpdateXBeta(int offX,
 				  double2* d_GH,
 				  RealType* d_XjY,
 				  RealType* d_Bound,
+				  RealType* d_KWeight,
 				  RealType* d_Beta,
 				  RealType* d_XBeta,
 				  RealType* d_ExpXBeta,
+				  RealType* d_Denominator,
 				  RealType* d_Numerator,
 				  RealType* d_Numerator2,
 				  RealType* d_PriorParams)
@@ -118,7 +121,8 @@ __global__ void kernelUpdateXBeta(int offX,
 	d_Bound[index] = intermediate;
 
 
-	// update xb and exb if needed, zero numer
+	// update xb, exb, and denom if needed
+	// zero numer and numer2
 
 	int task = blockIdx.x * blockDim.x + threadIdx.x;
                 
@@ -142,6 +146,7 @@ __global__ void kernelUpdateXBeta(int offX,
 			RealType xb = d_XBeta[k] + inc;
 			d_XBeta[k] = xb;
 			d_ExpXBeta[k] = exp(xb);
+			d_Denominator[k] = exp(xb) * d_KWeight[k];
 			d_Numerator[k] = 0;
 			if (formatType != INDICATOR) {
 				d_Numerator2[k] = 0;
@@ -275,6 +280,7 @@ void CudaKernel<RealType>::computeNumeratorForGradient(const thrust::device_vect
 						unsigned int offX,
 						unsigned int offK,
 						const unsigned int taskCount,
+						thrust::device_vector<RealType>& d_KWeight,
 						thrust::device_vector<RealType>& d_ExpXBeta,
 						thrust::device_vector<RealType>& d_Numerator,
 						thrust::device_vector<RealType>& d_Numerator2,
@@ -288,6 +294,7 @@ void CudaKernel<RealType>::computeNumeratorForGradient(const thrust::device_vect
                                                                                                taskCount,
                                                                                                thrust::raw_pointer_cast(&d_X[0]),
                                                                                                thrust::raw_pointer_cast(&d_K[0]),
+											       thrust::raw_pointer_cast(&d_KWeight[0]),
                                                                                                thrust::raw_pointer_cast(&d_ExpXBeta[0]),
                                                                                                thrust::raw_pointer_cast(&d_Numerator[0]),
                                                                                                thrust::raw_pointer_cast(&d_Numerator2[0]));
@@ -298,6 +305,7 @@ void CudaKernel<RealType>::computeNumeratorForGradient(const thrust::device_vect
                                                                                                taskCount,
                                                                                                thrust::raw_pointer_cast(&d_X[0]),
                                                                                                thrust::raw_pointer_cast(&d_K[0]),
+											       thrust::raw_pointer_cast(&d_KWeight[0]),
                                                                                                thrust::raw_pointer_cast(&d_ExpXBeta[0]),
                                                                                                thrust::raw_pointer_cast(&d_Numerator[0]),
                                                                                                thrust::raw_pointer_cast(&d_Numerator2[0]));
@@ -308,6 +316,7 @@ void CudaKernel<RealType>::computeNumeratorForGradient(const thrust::device_vect
                                                                                                taskCount,
                                                                                                thrust::raw_pointer_cast(&d_X[0]),
                                                                                                thrust::raw_pointer_cast(&d_K[0]),
+											       thrust::raw_pointer_cast(&d_KWeight[0]),
                                                                                                thrust::raw_pointer_cast(&d_ExpXBeta[0]),
                                                                                                thrust::raw_pointer_cast(&d_Numerator[0]),
                                                                                                thrust::raw_pointer_cast(&d_Numerator2[0]));
@@ -318,6 +327,7 @@ void CudaKernel<RealType>::computeNumeratorForGradient(const thrust::device_vect
                                                                                                taskCount,
                                                                                                thrust::raw_pointer_cast(&d_X[0]),
                                                                                                thrust::raw_pointer_cast(&d_K[0]),
+											       thrust::raw_pointer_cast(&d_KWeight[0]),
                                                                                                thrust::raw_pointer_cast(&d_ExpXBeta[0]),
                                                                                                thrust::raw_pointer_cast(&d_Numerator[0]),
                                                                                                thrust::raw_pointer_cast(&d_Numerator2[0]));
@@ -418,9 +428,11 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                         double2* d_GH,
                         thrust::device_vector<RealType>& d_XjY,
                         thrust::device_vector<RealType>& d_Bound,
+			thrust::device_vector<RealType>& d_KWeight,
                         thrust::device_vector<RealType>& d_Beta,
                         thrust::device_vector<RealType>& d_XBeta,
                         thrust::device_vector<RealType>& d_ExpXBeta,
+			thrust::device_vector<RealType>& d_Denominator,
                         thrust::device_vector<RealType>& d_Numerator,
                         thrust::device_vector<RealType>& d_Numerator2,
                         thrust::device_vector<RealType>& d_PriorParams,
@@ -436,9 +448,11 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                                                                d_GH,
                                                                thrust::raw_pointer_cast(&d_XjY[0]),
                                                                thrust::raw_pointer_cast(&d_Bound[0]),
+							       thrust::raw_pointer_cast(&d_KWeight[0]),
                                                                thrust::raw_pointer_cast(&d_Beta[0]),
                                                                thrust::raw_pointer_cast(&d_XBeta[0]),
                                                                thrust::raw_pointer_cast(&d_ExpXBeta[0]),
+							       thrust::raw_pointer_cast(&d_Denominator[0]),
                                                                thrust::raw_pointer_cast(&d_Numerator[0]),
                                                                thrust::raw_pointer_cast(&d_Numerator2[0]),
                                                                thrust::raw_pointer_cast(&d_PriorParams[0]));
@@ -450,9 +464,11 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                                                                d_GH,
                                                                thrust::raw_pointer_cast(&d_XjY[0]),
                                                                thrust::raw_pointer_cast(&d_Bound[0]),
+							       thrust::raw_pointer_cast(&d_KWeight[0]),
                                                                thrust::raw_pointer_cast(&d_Beta[0]),
                                                                thrust::raw_pointer_cast(&d_XBeta[0]),
                                                                thrust::raw_pointer_cast(&d_ExpXBeta[0]),
+							       thrust::raw_pointer_cast(&d_Denominator[0]),
                                                                thrust::raw_pointer_cast(&d_Numerator[0]),
                                                                thrust::raw_pointer_cast(&d_Numerator2[0]),
                                                                thrust::raw_pointer_cast(&d_PriorParams[0]));
@@ -464,9 +480,11 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                                                                d_GH,
                                                                thrust::raw_pointer_cast(&d_XjY[0]),
                                                                thrust::raw_pointer_cast(&d_Bound[0]),
+							       thrust::raw_pointer_cast(&d_KWeight[0]),
                                                                thrust::raw_pointer_cast(&d_Beta[0]),
                                                                thrust::raw_pointer_cast(&d_XBeta[0]),
                                                                thrust::raw_pointer_cast(&d_ExpXBeta[0]),
+							       thrust::raw_pointer_cast(&d_Denominator[0]),
                                                                thrust::raw_pointer_cast(&d_Numerator[0]),
                                                                thrust::raw_pointer_cast(&d_Numerator2[0]),
                                                                thrust::raw_pointer_cast(&d_PriorParams[0]));
@@ -484,9 +502,11 @@ void CudaKernel<RealType>::updateXBeta(const thrust::device_vector<RealType>& d_
                                        double2* d_GH,
                                        thrust::device_vector<RealType>& d_XjY,
                                        thrust::device_vector<RealType>& d_Bound,
+				       thrust::device_vector<RealType>& d_KWeight,
                                        thrust::device_vector<RealType>& d_Beta,
                                        thrust::device_vector<RealType>& d_XBeta,
                                        thrust::device_vector<RealType>& d_ExpXBeta,
+				       thrust::device_vector<RealType>& d_Denominator,
                                        thrust::device_vector<RealType>& d_Numerator,
                                        thrust::device_vector<RealType>& d_Numerator2,
                                        thrust::device_vector<RealType>& d_PriorParams,
@@ -498,32 +518,32 @@ void CudaKernel<RealType>::updateXBeta(const thrust::device_vector<RealType>& d_
 	switch (formatType) {
 		case DENSE :
 			dispatchPriorType<RealType, DENSE>(d_X, d_K, offX, offK,
-                                                          taskCount, d_GH, d_XjY, d_Bound,
-                                                          d_Beta, d_XBeta, d_ExpXBeta,
+                                                          taskCount, d_GH, d_XjY, d_Bound, d_KWeight,
+                                                          d_Beta, d_XBeta, d_ExpXBeta, d_Denominator,
                                                           d_Numerator, d_Numerator2,
                                                           d_PriorParams, priorTypes,
                                                           index, gridSize, blockSize);
 			break;
 		case SPARSE :
 			dispatchPriorType<RealType, SPARSE>(d_X, d_K, offX, offK,
-                                                          taskCount, d_GH, d_XjY, d_Bound,
-                                                          d_Beta, d_XBeta, d_ExpXBeta,
+                                                          taskCount, d_GH, d_XjY, d_Bound, d_KWeight,
+                                                          d_Beta, d_XBeta, d_ExpXBeta, d_Denominator,
                                                           d_Numerator, d_Numerator2,
                                                           d_PriorParams, priorTypes,
                                                           index, gridSize, blockSize);
 			break;
 		case INDICATOR :
 			dispatchPriorType<RealType, INDICATOR>(d_X, d_K, offX, offK,
-                                                          taskCount, d_GH, d_XjY, d_Bound,
-                                                          d_Beta, d_XBeta, d_ExpXBeta,
+                                                          taskCount, d_GH, d_XjY, d_Bound, d_KWeight,
+                                                          d_Beta, d_XBeta, d_ExpXBeta, d_Denominator,
                                                           d_Numerator, d_Numerator2,
                                                           d_PriorParams, priorTypes,
                                                           index, gridSize, blockSize);
 			break;
 		case INTERCEPT :
 			dispatchPriorType<RealType, INTERCEPT>(d_X, d_K, offX, offK,
-                                                          taskCount, d_GH, d_XjY, d_Bound,
-                                                          d_Beta, d_XBeta, d_ExpXBeta,
+                                                          taskCount, d_GH, d_XjY, d_Bound, d_KWeight,
+                                                          d_Beta, d_XBeta, d_ExpXBeta, d_Denominator,
                                                           d_Numerator, d_Numerator2,
                                                           d_PriorParams, priorTypes,
                                                           index, gridSize, blockSize);
