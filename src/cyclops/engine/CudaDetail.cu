@@ -30,10 +30,10 @@ void resizeCudaVecSize(DeviceVec& deviceVec, int num_items)
         deviceVec.resize(num_items);
 }
 
-template <typename DeviceVec>
-void zeroCudaVec(DeviceVec& deviceVec)
+template <typename DeviceVec, typename RealType>
+void fillCudaVec(DeviceVec& deviceVec, RealType val)
 {
-        thrust::fill(deviceVec.begin(), deviceVec.end(), 0.0);
+        thrust::fill(deviceVec.begin(), deviceVec.end(), val);
 }
 
 template <typename DeviceVec>
@@ -59,8 +59,8 @@ template void resizeCudaVecSize<thrust::device_vector<double>>(thrust::device_ve
 template void resizeCudaVecSize<thrust::device_vector<float>>(thrust::device_vector<float>& deviceVec, int num_items);
 template void resizeCudaVecSize<thrust::device_vector<int>>(thrust::device_vector<int>& deviceVec, int num_items);
 
-template void zeroCudaVec<thrust::device_vector<double>>(thrust::device_vector<double>& deviceVec);
-template void zeroCudaVec<thrust::device_vector<float>>(thrust::device_vector<float>& deviceVec);
+template void fillCudaVec<thrust::device_vector<double>, double>(thrust::device_vector<double>& deviceVec, double);
+template void fillCudaVec<thrust::device_vector<float>, float>(thrust::device_vector<float>& deviceVec, float);
 
 template void resizeAndZeroToDeviceCuda<thrust::device_vector<double>>(thrust::device_vector<double>& deviceVec, int num_items);
 template void resizeAndZeroToDeviceCuda<thrust::device_vector<float>>(thrust::device_vector<float>& deviceVec, int num_items);

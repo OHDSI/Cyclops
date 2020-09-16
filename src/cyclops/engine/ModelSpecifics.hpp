@@ -86,6 +86,7 @@ ModelSpecifics<BaseModel,RealType>::ModelSpecifics(const ModelData<RealType>& in
 	{
     	// Do nothing
 	// TODO Memory allocation here
+	std::cerr << "ctor ModelSpecifics \n";
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto now = bsccs::chrono::system_clock::now();
@@ -145,6 +146,7 @@ void ModelSpecifics<BaseModel,RealType>::printTiming() {
 template <class BaseModel,typename RealType>
 ModelSpecifics<BaseModel,RealType>::~ModelSpecifics() {
 	// TODO Memory release here
+	std::cerr << "dtor ModelSpecifics \n";
 
 #ifdef CYCLOPS_DEBUG_TIMING
 
@@ -642,11 +644,12 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 
 template <class BaseModel,typename RealType>
 double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* weights) {
+	std::cout << "MS::getPredictiveLogLikelihood called \n";
 
-    std::vector<double> saveKWeight;
+	std::vector<double> saveKWeight;
 	if (BaseModel::cumulativeGradientAndHessian)	{
 
- 		// saveKWeight = hKWeight; // make copy
+ 	    // saveKWeight = hKWeight; // make copy
 	    if (saveKWeight.size() != K) {
 	        saveKWeight.resize(K);
 	    }
@@ -654,9 +657,9 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 	        saveKWeight[k] = hKWeight[k]; // make copy to a double vector
 	    }
 
-		setPidForAccumulation(weights);
-		setWeights(weights, true); // set new weights
-		computeRemainingStatistics(true); // compute accDenomPid
+	    setPidForAccumulation(weights);
+	    setWeights(weights, true); // set new weights
+	    computeRemainingStatistics(true); // compute accDenomPid
 	}
 
 	RealType logLikelihood = static_cast<RealType>(0.0);
@@ -672,9 +675,9 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 	}
 
 	if (BaseModel::cumulativeGradientAndHessian) {
-		setPidForAccumulation(&saveKWeight[0]);
+	    setPidForAccumulation(&saveKWeight[0]);
 	    setWeights(saveKWeight.data(), true); // set old weights
-		computeRemainingStatistics(true);
+	    computeRemainingStatistics(true);
 	}
 
 	return static_cast<double>(logLikelihood);

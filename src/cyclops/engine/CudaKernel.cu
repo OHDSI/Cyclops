@@ -203,7 +203,7 @@ struct Double2Plus
 template <typename RealType>
 CudaKernel<RealType>::CudaKernel()
 {
-	std::cout << "CUDA class Created \n";
+	std::cout << "ctor CudaKernel \n";
 }
 
 template <typename RealType>
@@ -214,7 +214,7 @@ CudaKernel<RealType>::~CudaKernel()
 //	cudaFree(d_temp_storage_acc); // accNAndD
 	cudaFree(d_temp_storage_gh); // cGAH
 //	cudaFree(d_init);
-	std::cout << "CUDA class Destroyed \n";
+	std::cout << "dtor CudaKernel \n";
 }
 
 
@@ -244,31 +244,14 @@ void CudaKernel<RealType>::allocTempStorage(thrust::device_vector<RealType>& d_D
 			TuplePlus(), Double2Plus(), compGradHessInd, N);
 	cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
 
-/*	
-	// for scan in accNumer
-	auto results = thrust::make_zip_iterator(thrust::make_tuple(d_AccNumer.begin(), d_AccNumer2.begin()));
-	auto begin = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(), d_Numerator2.begin()));
-	DeviceScan::InclusiveScan(d_temp_storage, temp_storage_bytes, begin, results, TuplePlus(), N);
-	cudaMalloc(&d_temp_storage, temp_storage_bytes);
-
-	// for scan in accNAndD
-	auto results_acc = thrust::make_zip_iterator(thrust::make_tuple(d_AccDenom.begin(), d_AccNumer.begin(), d_AccNumer2.begin()));
-	auto begin_acc = thrust::make_zip_iterator(thrust::make_tuple(d_Denominator.begin(), d_Numerator.begin(), d_Numerator2.begin()));
-
-	DeviceScan::InclusiveScan(d_temp_storage_acc, temp_storage_bytes_acc, begin_acc, results_acc, TuplePlus3(), N);
-	cudaMalloc(&d_temp_storage_acc, temp_storage_bytes_acc);
-
-	// for reduction in compGAndH
-	auto begin_gh = thrust::make_zip_iterator(thrust::make_tuple(d_NWeight.begin(),
-								d_AccNumer.begin(),
-								d_AccDenom.begin(),
-								d_AccNumer2.begin()));
-
-	TransformInputIterator<double2, functorCGH<RealType, true>, ZipVec4> itr(begin_gh, compGradHessInd);
-
-	d_init.x = d_init.y = 0.0;
-
-	DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, dGH, N, Double2Plus(), d_init);
+/*
+	auto begin2 = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(),
+				d_Numerator2.begin(),
+				d_Denominator.begin()));
+	DeviceFuse::ScanReduce1(d_temp_storage_gh, temp_storage_bytes_gh,
+			begin2, thrust::raw_pointer_cast(&d_NWeight[0]),
+			d_BlockGH, d_GH, thrust::raw_pointer_cast(&d_AccDenom[0]),
+			TuplePlus3(), Double2Plus(), compGradHessInd1, scanOutput, N);
 	cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
 */
 }
@@ -370,52 +353,41 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
 		DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh, begin0, begin1, d_BlockGH, d_GH,
 				TuplePlus(), Double2Plus(), compGradHessNInd, N);
 	}
-/*	
-	// cub scan
-	auto results = thrust::make_zip_iterator(thrust::make_tuple(d_AccNumer.begin(), d_AccNumer2.begin()));
-	auto begin = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(), d_Numerator2.begin()));
-
-	// Launch kernel
-	DeviceScan::InclusiveScan(d_temp_storage, temp_storage_bytes, begin, results, TuplePlus(), N);
+	cudaDeviceSynchronize();
+}
 
 
-	// cub transfrom reduction
-	auto begin_gh = thrust::make_zip_iterator(thrust::make_tuple(d_NWeight.begin(),
-                                            	                 d_AccNumer.begin(),
-                                            	                 d_AccDenom.begin(),
-                                            	                 d_AccNumer2.begin()));
-
+template <typename RealType>
+void CudaKernel<RealType>::computeGradientAndHessian1(thrust::device_vector<RealType>& d_Numerator,
+                                                     thrust::device_vector<RealType>& d_Numerator2,
+                                                     thrust::device_vector<RealType>& d_Denominator,
+                                                     thrust::device_vector<RealType>& d_AccNumer,
+                                                     thrust::device_vector<RealType>& d_AccNumer2,
+                                                     thrust::device_vector<RealType>& d_AccDenom,
+                                                     thrust::device_vector<RealType>& d_NWeight,
+                                                     double2* d_GH,
+                                                     double2* d_BlockGH,
+                                                     FormatType& formatType,
+                                                     size_t& N
+)
+{
+	// fused scan reduction
+	auto begin2 = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(),
+				d_Numerator2.begin(),
+				d_Denominator.begin()));
 	if (formatType == INDICATOR) {
-	    TransformInputIterator<double2, functorCGH<RealType, true>, ZipVec4> itr(begin_gh, compGradHessInd);
-	    DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, dGH, N, Double2Plus(), d_init);
+		DeviceFuse::ScanReduce1(d_temp_storage_gh, temp_storage_bytes_gh,
+				begin2, thrust::raw_pointer_cast(&d_NWeight[0]),
+				d_BlockGH, d_GH, thrust::raw_pointer_cast(&d_AccDenom[0]),
+				TuplePlus3(), Double2Plus(), compGradHessInd1, scanOutput, N);
 	} else {
-	    TransformInputIterator<double2, functorCGH<RealType, false>, ZipVec4> itr(begin_gh, compGradHessNInd);
-	    DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh, itr, dGH, N, Double2Plus(), d_init);
+		DeviceFuse::ScanReduce1(d_temp_storage_gh, temp_storage_bytes_gh,
+				begin2, thrust::raw_pointer_cast(&d_NWeight[0]),
+				d_BlockGH, d_GH, thrust::raw_pointer_cast(&d_AccDenom[0]),
+				TuplePlus3(), Double2Plus(), compGradHessNInd1, scanOutput, N);
 	}
-*/
-	cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
-/*
-	// thrust::transform_reduce
-	GH = thrust::transform_reduce(
-                    thrust::make_zip_iterator(thrust::make_tuple(d_NWeight.begin(), d_AccNumer.begin(), d_AccDenom.begin(), d_AccNumer2.begin())),
-                    thrust::make_zip_iterator(thrust::make_tuple(d_NWeight.end(), d_AccNumer.end(), d_AccDenom.end(), d_AccNumer2.end())),
-                    cGAH,
-                    d_init,
-                    Double2Plus());
 
-	// start from the first non-zero entry
-
-	// Determine temporary device storage requirements and allocate temporary storage
-	DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh,
-	    thrust::make_permutation_iterator(itr, indicesN.begin() + start),
-	    results_gh, N, TuplePlus(), init);
-	cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
-
-	// Launch kernel
-	DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh,
-	    thrust::make_permutation_iterator(itr, indicesN.begin() + start),
-	    results_gh, N, TuplePlus(), init);
-*/
+	cudaDeviceSynchronize();
 }
 
 
@@ -428,11 +400,11 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                         double2* d_GH,
                         thrust::device_vector<RealType>& d_XjY,
                         thrust::device_vector<RealType>& d_Bound,
-			thrust::device_vector<RealType>& d_KWeight,
+                        thrust::device_vector<RealType>& d_KWeight,
                         thrust::device_vector<RealType>& d_Beta,
                         thrust::device_vector<RealType>& d_XBeta,
                         thrust::device_vector<RealType>& d_ExpXBeta,
-			thrust::device_vector<RealType>& d_Denominator,
+                        thrust::device_vector<RealType>& d_Denominator,
                         thrust::device_vector<RealType>& d_Numerator,
                         thrust::device_vector<RealType>& d_Numerator2,
                         thrust::device_vector<RealType>& d_PriorParams,
@@ -448,11 +420,11 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                                                                d_GH,
                                                                thrust::raw_pointer_cast(&d_XjY[0]),
                                                                thrust::raw_pointer_cast(&d_Bound[0]),
-							       thrust::raw_pointer_cast(&d_KWeight[0]),
+                                                               thrust::raw_pointer_cast(&d_KWeight[0]),
                                                                thrust::raw_pointer_cast(&d_Beta[0]),
                                                                thrust::raw_pointer_cast(&d_XBeta[0]),
                                                                thrust::raw_pointer_cast(&d_ExpXBeta[0]),
-							       thrust::raw_pointer_cast(&d_Denominator[0]),
+                                                               thrust::raw_pointer_cast(&d_Denominator[0]),
                                                                thrust::raw_pointer_cast(&d_Numerator[0]),
                                                                thrust::raw_pointer_cast(&d_Numerator2[0]),
                                                                thrust::raw_pointer_cast(&d_PriorParams[0]));
@@ -464,11 +436,11 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                                                                d_GH,
                                                                thrust::raw_pointer_cast(&d_XjY[0]),
                                                                thrust::raw_pointer_cast(&d_Bound[0]),
-							       thrust::raw_pointer_cast(&d_KWeight[0]),
+                                                               thrust::raw_pointer_cast(&d_KWeight[0]),
                                                                thrust::raw_pointer_cast(&d_Beta[0]),
                                                                thrust::raw_pointer_cast(&d_XBeta[0]),
                                                                thrust::raw_pointer_cast(&d_ExpXBeta[0]),
-							       thrust::raw_pointer_cast(&d_Denominator[0]),
+                                                               thrust::raw_pointer_cast(&d_Denominator[0]),
                                                                thrust::raw_pointer_cast(&d_Numerator[0]),
                                                                thrust::raw_pointer_cast(&d_Numerator2[0]),
                                                                thrust::raw_pointer_cast(&d_PriorParams[0]));
@@ -480,11 +452,11 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                                                                d_GH,
                                                                thrust::raw_pointer_cast(&d_XjY[0]),
                                                                thrust::raw_pointer_cast(&d_Bound[0]),
-							       thrust::raw_pointer_cast(&d_KWeight[0]),
+                                                               thrust::raw_pointer_cast(&d_KWeight[0]),
                                                                thrust::raw_pointer_cast(&d_Beta[0]),
                                                                thrust::raw_pointer_cast(&d_XBeta[0]),
                                                                thrust::raw_pointer_cast(&d_ExpXBeta[0]),
-							       thrust::raw_pointer_cast(&d_Denominator[0]),
+                                                               thrust::raw_pointer_cast(&d_Denominator[0]),
                                                                thrust::raw_pointer_cast(&d_Numerator[0]),
                                                                thrust::raw_pointer_cast(&d_Numerator2[0]),
                                                                thrust::raw_pointer_cast(&d_PriorParams[0]));
@@ -502,11 +474,11 @@ void CudaKernel<RealType>::updateXBeta(const thrust::device_vector<RealType>& d_
                                        double2* d_GH,
                                        thrust::device_vector<RealType>& d_XjY,
                                        thrust::device_vector<RealType>& d_Bound,
-				       thrust::device_vector<RealType>& d_KWeight,
+                                       thrust::device_vector<RealType>& d_KWeight,
                                        thrust::device_vector<RealType>& d_Beta,
                                        thrust::device_vector<RealType>& d_XBeta,
                                        thrust::device_vector<RealType>& d_ExpXBeta,
-				       thrust::device_vector<RealType>& d_Denominator,
+                                       thrust::device_vector<RealType>& d_Denominator,
                                        thrust::device_vector<RealType>& d_Numerator,
                                        thrust::device_vector<RealType>& d_Numerator2,
                                        thrust::device_vector<RealType>& d_PriorParams,
