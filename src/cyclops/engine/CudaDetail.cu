@@ -43,6 +43,16 @@ void resizeAndZeroToDeviceCuda(DeviceVec& deviceVec, int num_items)
         thrust::fill(deviceVec.begin(), deviceVec.end(), 0.0);
 }
 
+template <typename DeviceVec>
+void printCudaVec(DeviceVec& deviceVec, DeviceVec& deviceVec1, DeviceVec& deviceVec2, int num_items)
+{
+	for (int i = 0; i < num_items; i++) {
+//		if (deviceVec[i] != 1) {
+			std::cout << " i: " << i << " v: " << deviceVec[i] << " v1: " << deviceVec1[i] << " v2: " << deviceVec2[i] << '\n';
+//		}
+	}
+}
+
 template void resizeAndZeroCudaVec<thrust::device_vector<double>, std::vector<double>>(const std::vector<double>& hostVec, thrust::device_vector<double>& deviceVec);
 template void resizeAndZeroCudaVec<thrust::device_vector<float>, std::vector<float>>(const std::vector<float>& hostVec, thrust::device_vector<float>& deviceVec);
 
@@ -64,6 +74,10 @@ template void fillCudaVec<thrust::device_vector<float>, float>(thrust::device_ve
 
 template void resizeAndZeroToDeviceCuda<thrust::device_vector<double>>(thrust::device_vector<double>& deviceVec, int num_items);
 template void resizeAndZeroToDeviceCuda<thrust::device_vector<float>>(thrust::device_vector<float>& deviceVec, int num_items);
+
+template void printCudaVec<thrust::device_vector<double>>(thrust::device_vector<double>& deviceVec, thrust::device_vector<double>& deviceVec1, thrust::device_vector<double>& deviceVec2, int num_items);
+template void printCudaVec<thrust::device_vector<float>>(thrust::device_vector<float>& deviceVec, thrust::device_vector<float>& deviceVec1, thrust::device_vector<float>& deviceVec2, int num_items);
+
 
 /*
 template <class T>

@@ -18,6 +18,9 @@ void fillCudaVec(DeviceVec& deviceVec, RealType val);
 template <typename DeviceVec>
 void resizeAndZeroToDeviceCuda(DeviceVec& deviceVec, int num_items);
 
+template <typename DeviceVec>
+void printCudaVec(DeviceVec& deviceVec, DeviceVec& deviceVec1, DeviceVec& deviceVec2, int num_items);
+
 /*
 template <class T>
 class CudaDetail {

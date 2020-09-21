@@ -50,7 +50,7 @@ struct functorCGH1
     {
         auto temp = thrust::get<0>(accNAndD) / thrust::get<2>(accNAndD);
         double2 out;
-        out.x = temp;
+        out.x = nEvents * temp;
         if (isIndicator) {
             out.y = out.x * (1 - temp);
         } else {
