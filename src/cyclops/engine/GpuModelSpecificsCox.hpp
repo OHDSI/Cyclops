@@ -292,12 +292,12 @@ namespace bsccs{
 */        
 			// Allocate host storage	    
 			RealHBeta.resize(J);
-			DoubleHBeta.resize(J);
+//			DoubleHBeta.resize(J);
 		
 			// Allocate device storage
 			resizeCudaVec(hXBeta, dXBeta); // K
-			resizeCudaVec(offsExpXBeta, dExpXBeta);
-			resizeCudaVec(denomPid, dDenominator);
+			resizeCudaVec(offsExpXBeta, dExpXBeta); // K
+			resizeCudaVec(denomPid, dDenominator); // K
 
 			resizeAndZeroCudaVec(numerPid, dNumerator); // getAlignedLength(N + 1)
 			if (BaseModel::hasTwoNumeratorTerms) {
@@ -306,7 +306,7 @@ namespace bsccs{
 			resizeCudaVec(numerPid, dAccNumer);
 			resizeCudaVec(numerPid2, dAccNumer2);
 
-			resizeCudaVecSize(dAccDenominator, N); // N+1?
+			resizeCudaVecSize(dAccDenominator, N+1);
 	
 			cudaMalloc((void**)&dGH, sizeof(double2));
                         cudaMalloc((void**)&dBlockGH, sizeof(double2));
@@ -357,7 +357,7 @@ namespace bsccs{
 
 			resizeAndCopyToDeviceCuda(hKWeight, dKWeight);
 			resizeAndCopyToDeviceCuda(hNWeight, dNWeight);
-			std::cout << " HD-copy in GPU::setWeights \n";
+//			std::cout << " HD-copy in GPU::setWeights \n";
 		}
 
 		virtual void computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
@@ -386,8 +386,8 @@ namespace bsccs{
 			thrust::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta));
 			thrust::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta));
 			thrust::copy(std::begin(denomPid), std::end(denomPid), std::begin(dDenominator));
-			thrust::copy(std::begin(accDenomPid), std::end(accDenomPid)-1, std::begin(dAccDenominator));
-			std::cout << " HD-copy in GPU::computeRemainingStatistics \n";
+			thrust::copy(std::begin(accDenomPid), std::end(accDenomPid), std::begin(dAccDenominator));
+//			std::cout << " HD-copy in GPU::computeRemainingStatistics \n";
 
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto end = bsccs::chrono::steady_clock::now();
@@ -409,7 +409,7 @@ namespace bsccs{
 #endif
 			// TODO write gpu version to avoid D-H copying
 			thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid));
-			std::cout << " DH-copy in GPU::getLogLikelihood \n";
+//			std::cout << " DH-copy in GPU::getLogLikelihood \n";
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto end = bsccs::chrono::steady_clock::now();
 		///////////////////////////"
@@ -452,15 +452,7 @@ namespace bsccs{
 //		duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 		duration["compNumForGradG  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
-/*
-                std::vector<RealType> test0(K, 0);
-                thrust::copy(std::begin(dNumerator), std::end(dNumerator), std::begin(test0));
-                std::cout << "numer: ";
-                for (auto x:test0) {
-                        std::cout << x << " ";
-                }
-                std::cout << "\n";
-*/
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto start2 = bsccs::chrono::steady_clock::now();
@@ -537,28 +529,12 @@ namespace bsccs{
 		auto name4 = "y updateBetaAndDelta" + getFormatTypeExtension(formatType) + "  updateXBeta";
 		duration[name4] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end4 - start4).count();
 #endif
-/*	    
-		std::vector<RealType> test(K, 0);
-		thrust::copy(std::begin(dDenominator), std::end(dDenominator), std::begin(test));
-		std::cout << "denom: ";
-		for (auto x:test) {
-			std::cout << x << " ";
-		}
-		std::cout << "\n";
 
-		std::vector<RealType> test(K, 0);
-                thrust::copy(std::begin(dExpXBeta), std::end(dExpXBeta), std::begin(test));
-                std::cout << "exb: ";
-                for (auto x:test) {
-                        std::cout << x << " ";
-                }
-                std::cout << "\n";
-*/
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto start5 = bsccs::chrono::steady_clock::now();
 #endif
 			// dense scan
-			CudaData.CubScan(thrust::raw_pointer_cast(&dDenominator[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
+			CudaData.CubScan(thrust::raw_pointer_cast(&dDenominator[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), N);
 //			CudaData.CubScan(thrust::raw_pointer_cast(&dExpXBeta[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto end5 = bsccs::chrono::steady_clock::now();
@@ -576,7 +552,7 @@ namespace bsccs{
 #endif
 			if (!hXBetaKnown) {
 				thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
-				std::cout << " DH-copy in GPU::getXBeta \n";
+//				std::cout << " DH-copy in GPU::getXBeta \n";
 				hXBetaKnown = true;
 			}
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -594,7 +570,7 @@ namespace bsccs{
 		virtual void saveXBeta() {
 			if (!hXBetaKnown) {
 				thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
-				std::cout << " DH-copy in GPU::saveXBeta \n";
+//				std::cout << " DH-copy in GPU::saveXBeta \n";
 				hXBetaKnown = true;
 			}
 			ModelSpecifics<BaseModel, RealType>::saveXBeta();
@@ -616,29 +592,28 @@ namespace bsccs{
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto start = bsccs::chrono::steady_clock::now();
 #endif
-			std::cout << " DH-copy in GPU::getBeta \n";
+//			std::cout << " DH-copy in GPU::getBeta \n";
 			thrust::copy(std::begin(dBeta), std::end(dBeta), std::begin(RealHBeta));
-			std::copy(RealHBeta.begin(), RealHBeta.end(), DoubleHBeta.begin());
+//			std::copy(RealHBeta.begin(), RealHBeta.end(), DoubleHBeta.begin());
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto end = bsccs::chrono::steady_clock::now();
 		///////////////////////////"
 		duration["z getBetaG              "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
 #endif
-			return DoubleHBeta;
+//			return DoubleHBeta;
+			return std::vector<double>(std::begin(RealHBeta), std::end(RealHBeta));
 		}
 		
 		virtual void resetBeta() {
-			std::vector<RealType> tempHBeta;
-			tempHBeta.resize(J, 0.0);
-			resizeAndCopyToDeviceCuda(tempHBeta, dBeta);
+			resizeCudaVecSize(dBeta, J);
+			fillCudaVec(dBeta, static_cast<RealType>(0.0));
 		}
 
 		bool isCUDA() {return true;};
 	
 		void setBounds(double initialBound) {
-			std::vector<RealType> temp;
-			temp.resize(J, initialBound);
-			resizeAndCopyToDeviceCuda(temp, dBound);
+			resizeCudaVecSize(dBound, J);
+			fillCudaVec(dBound, static_cast<RealType>(initialBound));
 		}
 	
 		const int getPriorTypes(int index) const {
@@ -689,7 +664,7 @@ namespace bsccs{
 
 		std::vector<int> priorTypes;
 		std::vector<RealType> RealHBeta;
-		std::vector<double> DoubleHBeta;
+//		std::vector<double> DoubleHBeta;
 
 		// device storage
 		thrust::device_vector<RealType> dKWeight;
