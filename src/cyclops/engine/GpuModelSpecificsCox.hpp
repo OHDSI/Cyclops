@@ -307,6 +307,8 @@ namespace bsccs{
 			resizeCudaVec(numerPid2, dAccNumer2);
 
 			resizeCudaVecSize(dAccDenominator, N+1);
+
+			resizeAndZeroToDeviceCuda(dDeltaVector, J);
 	
 			cudaMalloc((void**)&dGH, sizeof(double2));
                         cudaMalloc((void**)&dBlockGH, sizeof(double2));
@@ -408,6 +410,7 @@ namespace bsccs{
 		auto start = bsccs::chrono::steady_clock::now();
 #endif
 			// TODO write gpu version to avoid D-H copying
+//			CudaData.CubScan(thrust::raw_pointer_cast(&dDenominator[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), N);
 			thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid));
 //			std::cout << " DH-copy in GPU::getLogLikelihood \n";
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -496,13 +499,38 @@ namespace bsccs{
 		duration["compGradAndHessG "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
 #endif
 */
+
+
+			////////////////////////// processDelta
+#ifdef CYCLOPS_DEBUG_TIMING
+		auto start3 = bsccs::chrono::steady_clock::now();
+#endif
+			CudaData.processDelta(dGH,
+					dXjY,
+					dDeltaVector,
+					dBeta,
+					dBound,
+					dPriorParams,
+					getPriorTypes(index),
+					index,
+					1, 1);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+		auto end3 = bsccs::chrono::steady_clock::now();
+		///////////////////////////"
+		auto name3 = "y updateBetaAndDelta" + getFormatTypeExtension(formatType) + "  updateDelta";
+		duration[name3] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end3 - start3).count();
+#endif
+
 		
+
 			////////////////////////// updateXBeta
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto start4 = bsccs::chrono::steady_clock::now();
 #endif
 			// sparse transformation
-			CudaData.updateXBeta(dCudaColumns.getData(),
+/*
+			CudaData.updateXBetaAndDelta(dCudaColumns.getData(),
 					dCudaColumns.getIndices(),
 					dCudaColumns.getDataOffset(index),
 					dCudaColumns.getIndicesOffset(index),
@@ -519,6 +547,22 @@ namespace bsccs{
 					dNumerator2,
 					dPriorParams,
 					getPriorTypes(index),
+					index, 
+					formatType,
+					gridSize, blockSize);
+*/
+			CudaData.updateXBeta(dCudaColumns.getData(),
+					dCudaColumns.getIndices(),
+					dCudaColumns.getDataOffset(index),
+					dCudaColumns.getIndicesOffset(index),
+					taskCount,
+					dDeltaVector,
+					dKWeight,
+					dXBeta,
+					dExpXBeta,
+					dDenominator,
+					dNumerator,
+					dNumerator2,
 					index, 
 					formatType,
 					gridSize, blockSize);
@@ -682,7 +726,7 @@ namespace bsccs{
 
 		thrust::device_vector<int> indicesN;
 		thrust::device_vector<RealType> dBound;
-//		thrust::device_vector<RealType> dDeltaVector;
+		thrust::device_vector<RealType> dDeltaVector;
 		thrust::device_vector<RealType> dPriorParams;
 
 		// buffer

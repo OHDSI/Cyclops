@@ -178,7 +178,7 @@ public:
 			size_t& N
 			);
 
-	void updateXBeta(const thrust::device_vector<RealType>& d_X,
+	void updateXBetaAndDelta(const thrust::device_vector<RealType>& d_X,
 			const thrust::device_vector<int>& d_K,
 			unsigned int offX,
 			unsigned int offK,
@@ -198,8 +198,34 @@ public:
 			int index,
 			FormatType& formatType,
 			int gridSize, int blockSize);
+	
+	void processDelta(double2* d_GH,
+			thrust::device_vector<RealType>& d_XjY,
+			thrust::device_vector<RealType>& d_Delta,
+			thrust::device_vector<RealType>& d_Beta,
+			thrust::device_vector<RealType>& d_Bound,
+			thrust::device_vector<RealType>& d_PriorParams,
+			const int priorType,
+			int index,
+			int gridSize, int blockSize);
 
-        void CubScan(RealType* d_in, RealType* d_out, int num_items);
+	void updateXBeta(const thrust::device_vector<RealType>& d_X,
+			const thrust::device_vector<int>& d_K,
+			unsigned int offX,
+			unsigned int offK,
+			const unsigned int taskCount,
+			thrust::device_vector<RealType>& d_Delta,
+			thrust::device_vector<RealType>& d_KWeight,
+			thrust::device_vector<RealType>& d_XBeta,
+			thrust::device_vector<RealType>& d_ExpXBeta,
+			thrust::device_vector<RealType>& d_Denominator,
+			thrust::device_vector<RealType>& d_Numerator,
+			thrust::device_vector<RealType>& d_Numerator2,
+			int index,
+			FormatType& formatType,
+			int gridSize, int blockSize);	
+	
+	void CubScan(RealType* d_in, RealType* d_out, int num_items);
 
 	// not using
 	void computeAccumulatedNumerator(thrust::device_vector<RealType>& d_Numerator,
