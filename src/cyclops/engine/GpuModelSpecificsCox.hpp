@@ -306,7 +306,7 @@ namespace bsccs{
 			resizeCudaVec(numerPid, dAccNumer);
 			resizeCudaVec(numerPid2, dAccNumer2);
 
-			resizeCudaVecSize(dAccDenominator, N+1);
+//			resizeCudaVecSize(dAccDenominator, N+1);
 
 			resizeAndZeroToDeviceCuda(dDeltaVector, J);
 	
@@ -384,6 +384,10 @@ namespace bsccs{
 #endif
 			// Currently RS only computed on CPU and then copied
 			ModelSpecifics<BaseModel, RealType>::computeRemainingStatistics(useWeights);
+
+			if (dAccDenominator.size() != (N + 1)) {
+				resizeCudaVecSize(dAccDenominator, N+1);
+			}
 			
 			thrust::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta));
 			thrust::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta));
