@@ -644,7 +644,7 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 
 template <class BaseModel,typename RealType>
 double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* weights) {
-	std::cout << "MS::getPredictiveLogLikelihood called \n";
+//	std::cout << "MS::getPredictiveLogLikelihood called \n";
 
 	std::vector<double> saveKWeight;
 	if (BaseModel::cumulativeGradientAndHessian)	{

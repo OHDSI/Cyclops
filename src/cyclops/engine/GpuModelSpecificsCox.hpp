@@ -194,7 +194,7 @@ namespace bsccs{
 		using ModelSpecifics<BaseModel, RealType>::N;
 		using ModelSpecifics<BaseModel, RealType>::offsExpXBeta;
 		using ModelSpecifics<BaseModel, RealType>::hXBeta;
-//		using ModelSpecifics<BaseModel, RealType>::hY;
+		using ModelSpecifics<BaseModel, RealType>::hY;
 //		using ModelSpecifics<BaseModel, RealType>::hOffs;
 		using ModelSpecifics<BaseModel, RealType>::denomPid;
 		using ModelSpecifics<BaseModel, RealType>::numerPid;
@@ -312,6 +312,8 @@ namespace bsccs{
 	
 			cudaMalloc((void**)&dGH, sizeof(double2));
                         cudaMalloc((void**)&dBlockGH, sizeof(double2));
+
+//			cudaMallocHost((void **) &pGH, sizeof(double2));
 /*
 			resizeCudaVecSize(indicesN, N);
 			pGH = (double2 *)malloc(sizeof(double2));
@@ -355,8 +357,38 @@ namespace bsccs{
 
 		virtual void setWeights(double* inWeights, bool useCrossValidation) {
 			// Currently only computed on CPU and then copied to GPU
-			ModelSpecifics<BaseModel, RealType>::setWeights(inWeights, useCrossValidation);
+//			ModelSpecifics<BaseModel, RealType>::setWeights(inWeights, useCrossValidation);
 
+			// Host
+
+			// Set K weights
+			offCV = 0;
+			if (hKWeight.size() != K) {
+				hKWeight.resize(K);
+			}
+			if (useCrossValidation) {
+				for (size_t k = 0; k < K; ++k) {
+					hKWeight[k] = inWeights[k];
+				}
+				// Find first non-zero weight
+				while(inWeights != nullptr && inWeights[offCV] == 0.0 && offCV < K) {
+					offCV++;
+				}
+			} else {
+				std::fill(hKWeight.begin(), hKWeight.end(), static_cast<RealType>(1));
+			}
+
+			// Set N weights (these are the same for independent data models
+			if (hNWeight.size() != K) {
+				hNWeight.resize(K);
+			}
+
+			std::fill(hNWeight.begin(), hNWeight.end(), static_cast<RealType>(0));
+			for (size_t k = 0; k < K; ++k) {
+				hNWeight[k] = hY[k] * hKWeight[k];
+			}
+
+			// Device
 			resizeAndCopyToDeviceCuda(hKWeight, dKWeight);
 			resizeAndCopyToDeviceCuda(hNWeight, dNWeight);
 //			std::cout << " HD-copy in GPU::setWeights \n";
@@ -383,10 +415,30 @@ namespace bsccs{
 		auto start = bsccs::chrono::steady_clock::now();
 #endif
 			// Currently RS only computed on CPU and then copied
-			ModelSpecifics<BaseModel, RealType>::computeRemainingStatistics(useWeights);
+//			ModelSpecifics<BaseModel, RealType>::computeRemainingStatistics(useWeights);
 
-			if (dAccDenominator.size() != (N + 1)) {
-				resizeCudaVecSize(dAccDenominator, N+1);
+			// Host
+
+			auto& xBeta = getXBeta();
+
+			std::fill(denomPid.begin(), denomPid.end(), static_cast<RealType>(0));
+
+			if (accDenomPid.size() != K) {
+				accDenomPid.resize(K, static_cast<RealType>(0));
+			}
+			RealType totalDenom = static_cast<RealType>(0);
+
+			// Update exb, denom, and accDenom
+			for (size_t k = 0; k < K; ++k) {
+				offsExpXBeta[k] = std::exp(xBeta[k]);
+				denomPid[k] =  hKWeight[k] * std::exp(xBeta[k]);
+				totalDenom += denomPid[k];
+				accDenomPid[k] = totalDenom;
+			}
+
+			// Device
+			if (dAccDenominator.size() != K) {
+				resizeCudaVecSize(dAccDenominator, K);
 			}
 			
 			thrust::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta));
@@ -402,17 +454,12 @@ namespace bsccs{
 #endif
 		}
 		
-		virtual double getGradientObjective(bool useCrossValidation) {
-			
-			// TODO write gpu version to avoid D-H copying
-			return ModelSpecifics<BaseModel, RealType>::getGradientObjective(useCrossValidation);
-		}
-		
 		virtual double getLogLikelihood(bool useCrossValidation) {
 
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto start = bsccs::chrono::steady_clock::now();
 #endif
+			// Device
 			// TODO write gpu version to avoid D-H copying
 //			CudaData.CubScan(thrust::raw_pointer_cast(&dDenominator[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), N);
 			thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid));
@@ -422,10 +469,50 @@ namespace bsccs{
 		///////////////////////////"
 		duration["z compLogLikeG          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
 #endif
-			// Currently LL only computed on CPU and then copied
-			return ModelSpecifics<BaseModel, RealType>::getLogLikelihood(useCrossValidation); 
+			// Host
+			RealType logLikelihood = static_cast<RealType>(0.0);
+
+			for (size_t i = 0; i < K; i++) {
+				logLikelihood += hY[i] * hXBeta[i] * hKWeight[i];
+				logLikelihood -= hNWeight[i] * std::log(accDenomPid[i]);
+			}
+
+			return static_cast<double>(logLikelihood);
+//			return ModelSpecifics<BaseModel, RealType>::getLogLikelihood(useCrossValidation); 
 		}
 		
+		virtual double getPredictiveLogLikelihood(double* weights) {
+//			std::cout << "GPUMS::getPredictiveLogLikelihood called \n";
+
+			// Save old weights
+			std::vector<double> saveKWeight;
+			if (saveKWeight.size() != K) {
+				saveKWeight.resize(K);
+			}
+			for (size_t k = 0; k < K; ++k) {
+				saveKWeight[k] = hKWeight[k]; // make copy to a double vector
+			}
+
+			// Set new weights
+//			setPidForAccumulation(weights);
+			setWeights(weights, true);
+			computeRemainingStatistics(true); // compute accDenomPid
+			
+			// Compute predictive loglikelihood
+			RealType logLikelihood = static_cast<RealType>(0.0);
+			for (size_t k = 0; k < K; ++k) {
+				logLikelihood += weights[k] == 0.0 ? 0.0
+					: hY[k] * weights[k] * (hXBeta[k] - std::log(accDenomPid[k]));
+			}
+			
+			// Set back old weights
+//			setPidForAccumulation(&saveKWeight[0]);
+			setWeights(saveKWeight.data(), true); //
+			computeRemainingStatistics(true);
+            
+			return static_cast<double>(logLikelihood);
+		}
+
 		virtual void updateBetaAndDelta(int index, bool useWeights) {
 
 			FormatType formatType = hX.getFormatType(index);
@@ -474,7 +561,8 @@ namespace bsccs{
 					dGH,
 					dBlockGH,
 					formatType,
-					N);
+					offCV,
+					K);
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto end2 = bsccs::chrono::steady_clock::now();
 		///////////////////////////"
@@ -496,7 +584,7 @@ namespace bsccs{
 					dGH,
 					dBlockGH,
 					formatType,
-					N);
+					K);
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto end2 = bsccs::chrono::steady_clock::now();
 		///////////////////////////"
@@ -582,7 +670,7 @@ namespace bsccs{
 		auto start5 = bsccs::chrono::steady_clock::now();
 #endif
 			// dense scan
-			CudaData.CubScan(thrust::raw_pointer_cast(&dDenominator[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), N);
+			CudaData.CubScan(thrust::raw_pointer_cast(&dDenominator[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
 //			CudaData.CubScan(thrust::raw_pointer_cast(&dExpXBeta[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto end5 = bsccs::chrono::steady_clock::now();
@@ -710,6 +798,7 @@ namespace bsccs{
 		std::vector<FormatType> neededFormatTypes;
 */
 
+		size_t offCV;
 		std::vector<int> priorTypes;
 		std::vector<RealType> RealHBeta;
 //		std::vector<double> DoubleHBeta;
@@ -739,12 +828,12 @@ namespace bsccs{
 //		double2 *pGH; // host GH
 		thrust::device_vector<RealType> dAccNumer;
 		thrust::device_vector<RealType> dAccNumer2;
-		thrust::device_vector<RealType> dGradient;
-		thrust::device_vector<RealType> dHessian;
+//		thrust::device_vector<RealType> dGradient;
+//		thrust::device_vector<RealType> dHessian;
 
-		thrust::device_vector<RealType> dBuffer1;
-		thrust::device_vector<RealType> dBuffer2;
-		thrust::device_vector<RealType> dBuffer3;
+//		thrust::device_vector<RealType> dBuffer1;
+//		thrust::device_vector<RealType> dBuffer2;
+//		thrust::device_vector<RealType> dBuffer3;
 	
 	}; // GpuModelSpecificsCox
 } // namespace bsccs

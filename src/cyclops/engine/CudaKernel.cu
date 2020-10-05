@@ -456,6 +456,7 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
 						     double2* d_GH,
 						     double2* d_BlockGH,
 						     FormatType& formatType,
+						     size_t& offCV,
 						     size_t& N
 //						     ,const std::vector<int>& K,
 //                                                     unsigned int offK,
@@ -469,14 +470,14 @@ void CudaKernel<RealType>::computeGradientAndHessian(thrust::device_vector<RealT
 	}
 */
 	// fused scan reduction
-	auto begin0 = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(), d_Numerator2.begin()));
-	auto begin1 = thrust::make_zip_iterator(thrust::make_tuple(d_AccDenom.begin(), d_NWeight.begin()));
+	auto begin0 = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin()+offCV, d_Numerator2.begin()+offCV));
+	auto begin1 = thrust::make_zip_iterator(thrust::make_tuple(d_AccDenom.begin()+offCV, d_NWeight.begin()+offCV));
 	if (formatType == INDICATOR) {
 		DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh, begin0, begin1, d_BlockGH, d_GH,
-				TuplePlus(), Double2Plus(), compGradHessInd, N);
+				TuplePlus(), Double2Plus(), compGradHessInd, N-offCV);
 	} else {
 		DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh, begin0, begin1, d_BlockGH, d_GH,
-				TuplePlus(), Double2Plus(), compGradHessNInd, N);
+				TuplePlus(), Double2Plus(), compGradHessNInd, N-offCV);
 	}
 	cudaDeviceSynchronize();
 }

@@ -159,6 +159,7 @@ public:
 			double2* d_GH,
 			double2* d_BlockGH,
 			FormatType& formatType,
+			size_t& offCV,
 			size_t& N
 //			,const std::vector<int>& K,
 //			unsigned int offK,
