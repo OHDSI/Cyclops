@@ -16,6 +16,9 @@ template <typename DeviceVec, typename RealType>
 void fillCudaVec(DeviceVec& deviceVec, RealType val);
 
 template <typename DeviceVec>
+void copyCudaVec(DeviceVec& source, DeviceVec& destination);
+
+template <typename DeviceVec>
 void resizeAndZeroToDeviceCuda(DeviceVec& deviceVec, int num_items);
 
 template <typename DeviceVec>

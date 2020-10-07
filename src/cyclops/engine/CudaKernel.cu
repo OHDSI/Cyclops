@@ -181,6 +181,7 @@ __global__ void kernelUpdateXBetaAndDelta(int offX,
 				  RealType* d_Bound,
 				  RealType* d_KWeight,
 				  RealType* d_Beta,
+				  RealType* d_BetaBuffer,
 				  RealType* d_XBeta,
 				  RealType* d_ExpXBeta,
 				  RealType* d_Denominator,
@@ -192,7 +193,7 @@ __global__ void kernelUpdateXBetaAndDelta(int offX,
 	double2 GH = *d_GH;
 	RealType g = GH.x - d_XjY[index];
 	RealType h = GH.y;
-	RealType beta = d_Beta[index];
+	RealType beta = d_BetaBuffer[index];
 
 	// process delta
 	RealType delta;
@@ -523,6 +524,7 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                         thrust::device_vector<RealType>& d_Bound,
                         thrust::device_vector<RealType>& d_KWeight,
                         thrust::device_vector<RealType>& d_Beta,
+                        thrust::device_vector<RealType>& d_BetaBuffer,			
                         thrust::device_vector<RealType>& d_XBeta,
                         thrust::device_vector<RealType>& d_ExpXBeta,
                         thrust::device_vector<RealType>& d_Denominator,
@@ -543,6 +545,7 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                                                                thrust::raw_pointer_cast(&d_Bound[0]),
                                                                thrust::raw_pointer_cast(&d_KWeight[0]),
                                                                thrust::raw_pointer_cast(&d_Beta[0]),
+                                                               thrust::raw_pointer_cast(&d_BetaBuffer[0]),
                                                                thrust::raw_pointer_cast(&d_XBeta[0]),
                                                                thrust::raw_pointer_cast(&d_ExpXBeta[0]),
                                                                thrust::raw_pointer_cast(&d_Denominator[0]),
@@ -559,6 +562,7 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                                                                thrust::raw_pointer_cast(&d_Bound[0]),
                                                                thrust::raw_pointer_cast(&d_KWeight[0]),
                                                                thrust::raw_pointer_cast(&d_Beta[0]),
+                                                               thrust::raw_pointer_cast(&d_BetaBuffer[0]),
                                                                thrust::raw_pointer_cast(&d_XBeta[0]),
                                                                thrust::raw_pointer_cast(&d_ExpXBeta[0]),
                                                                thrust::raw_pointer_cast(&d_Denominator[0]),
@@ -575,6 +579,7 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                                                                thrust::raw_pointer_cast(&d_Bound[0]),
                                                                thrust::raw_pointer_cast(&d_KWeight[0]),
                                                                thrust::raw_pointer_cast(&d_Beta[0]),
+                                                               thrust::raw_pointer_cast(&d_BetaBuffer[0]),
                                                                thrust::raw_pointer_cast(&d_XBeta[0]),
                                                                thrust::raw_pointer_cast(&d_ExpXBeta[0]),
                                                                thrust::raw_pointer_cast(&d_Denominator[0]),
@@ -597,6 +602,7 @@ void CudaKernel<RealType>::updateXBetaAndDelta(const thrust::device_vector<RealT
                                        thrust::device_vector<RealType>& d_Bound,
                                        thrust::device_vector<RealType>& d_KWeight,
                                        thrust::device_vector<RealType>& d_Beta,
+                                       thrust::device_vector<RealType>& d_BetaBuffer,
                                        thrust::device_vector<RealType>& d_XBeta,
                                        thrust::device_vector<RealType>& d_ExpXBeta,
                                        thrust::device_vector<RealType>& d_Denominator,
@@ -612,7 +618,7 @@ void CudaKernel<RealType>::updateXBetaAndDelta(const thrust::device_vector<RealT
 		case DENSE :
 			dispatchPriorType<RealType, DENSE>(d_X, d_K, offX, offK,
                                                           taskCount, d_GH, d_XjY, d_Bound, d_KWeight,
-                                                          d_Beta, d_XBeta, d_ExpXBeta, d_Denominator,
+                                                          d_Beta, d_BetaBuffer, d_XBeta, d_ExpXBeta, d_Denominator,
                                                           d_Numerator, d_Numerator2,
                                                           d_PriorParams, priorTypes,
                                                           index, gridSize, blockSize);
@@ -620,7 +626,7 @@ void CudaKernel<RealType>::updateXBetaAndDelta(const thrust::device_vector<RealT
 		case SPARSE :
 			dispatchPriorType<RealType, SPARSE>(d_X, d_K, offX, offK,
                                                           taskCount, d_GH, d_XjY, d_Bound, d_KWeight,
-                                                          d_Beta, d_XBeta, d_ExpXBeta, d_Denominator,
+                                                          d_Beta, d_BetaBuffer, d_XBeta, d_ExpXBeta, d_Denominator,
                                                           d_Numerator, d_Numerator2,
                                                           d_PriorParams, priorTypes,
                                                           index, gridSize, blockSize);
@@ -628,7 +634,7 @@ void CudaKernel<RealType>::updateXBetaAndDelta(const thrust::device_vector<RealT
 		case INDICATOR :
 			dispatchPriorType<RealType, INDICATOR>(d_X, d_K, offX, offK,
                                                           taskCount, d_GH, d_XjY, d_Bound, d_KWeight,
-                                                          d_Beta, d_XBeta, d_ExpXBeta, d_Denominator,
+                                                          d_Beta, d_BetaBuffer, d_XBeta, d_ExpXBeta, d_Denominator,
                                                           d_Numerator, d_Numerator2,
                                                           d_PriorParams, priorTypes,
                                                           index, gridSize, blockSize);
@@ -636,7 +642,7 @@ void CudaKernel<RealType>::updateXBetaAndDelta(const thrust::device_vector<RealT
 		case INTERCEPT :
 			dispatchPriorType<RealType, INTERCEPT>(d_X, d_K, offX, offK,
                                                           taskCount, d_GH, d_XjY, d_Bound, d_KWeight,
-                                                          d_Beta, d_XBeta, d_ExpXBeta, d_Denominator,
+                                                          d_Beta, d_BetaBuffer, d_XBeta, d_ExpXBeta, d_Denominator,
                                                           d_Numerator, d_Numerator2,
                                                           d_PriorParams, priorTypes,
                                                           index, gridSize, blockSize);
@@ -652,6 +658,7 @@ void CudaKernel<RealType>::processDelta(double2* d_GH,
 		thrust::device_vector<RealType>& d_XjY,
 		thrust::device_vector<RealType>& d_Delta,
 		thrust::device_vector<RealType>& d_Beta,
+		thrust::device_vector<RealType>& d_BetaBuffer,
 		thrust::device_vector<RealType>& d_Bound,
 		thrust::device_vector<RealType>& d_PriorParams,
 		const int priorType,

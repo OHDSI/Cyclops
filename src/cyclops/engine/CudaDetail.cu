@@ -37,6 +37,12 @@ void fillCudaVec(DeviceVec& deviceVec, RealType val)
 }
 
 template <typename DeviceVec>
+void copyCudaVec(DeviceVec& source, DeviceVec& destination)
+{
+        destination = source;
+}
+
+template <typename DeviceVec>
 void resizeAndZeroToDeviceCuda(DeviceVec& deviceVec, int num_items)
 {
         deviceVec.resize(num_items);
@@ -71,6 +77,9 @@ template void resizeCudaVecSize<thrust::device_vector<int>>(thrust::device_vecto
 
 template void fillCudaVec<thrust::device_vector<double>, double>(thrust::device_vector<double>& deviceVec, double);
 template void fillCudaVec<thrust::device_vector<float>, float>(thrust::device_vector<float>& deviceVec, float);
+
+template void copyCudaVec<thrust::device_vector<double>>(thrust::device_vector<double>& source, thrust::device_vector<double>& destination);
+template void copyCudaVec<thrust::device_vector<float>>(thrust::device_vector<float>& source, thrust::device_vector<float>& destination);
 
 template void resizeAndZeroToDeviceCuda<thrust::device_vector<double>>(thrust::device_vector<double>& deviceVec, int num_items);
 template void resizeAndZeroToDeviceCuda<thrust::device_vector<float>>(thrust::device_vector<float>& deviceVec, int num_items);

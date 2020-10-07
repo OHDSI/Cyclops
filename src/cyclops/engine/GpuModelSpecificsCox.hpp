@@ -632,6 +632,7 @@ namespace bsccs{
 					dBound,
 					dKWeight,
 					dBeta,
+					dBetaBuffer,
 					dXBeta,
 					dExpXBeta,
 					dDenominator,
@@ -732,6 +733,7 @@ namespace bsccs{
 		auto start = bsccs::chrono::steady_clock::now();
 #endif
 //			std::cout << " DH-copy in GPU::getBeta \n";
+			copyCudaVec(dBeta, dBetaBuffer);
 			thrust::copy(std::begin(dBeta), std::end(dBeta), std::begin(RealHBeta));
 //			std::copy(RealHBeta.begin(), RealHBeta.end(), DoubleHBeta.begin());
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -746,6 +748,8 @@ namespace bsccs{
 		virtual void resetBeta() {
 			resizeCudaVecSize(dBeta, J);
 			fillCudaVec(dBeta, static_cast<RealType>(0.0));
+			resizeCudaVecSize(dBetaBuffer, J);
+			fillCudaVec(dBetaBuffer, static_cast<RealType>(0.0));
 		}
 
 		bool isCUDA() {return true;};
@@ -812,6 +816,7 @@ namespace bsccs{
 
 		thrust::device_vector<RealType> dXjY;
 		thrust::device_vector<RealType> dBeta;
+		thrust::device_vector<RealType> dBetaBuffer;
 		thrust::device_vector<RealType> dXBeta;
 		thrust::device_vector<RealType> dExpXBeta;
 		thrust::device_vector<RealType> dDenominator;
@@ -820,7 +825,7 @@ namespace bsccs{
 		thrust::device_vector<RealType> dNumerator;
 		thrust::device_vector<RealType> dNumerator2;
 
-//		thrust::device_vector<int> indicesN;
+		thrust::device_vector<int> indicesN;
 		thrust::device_vector<RealType> dBound;
 		thrust::device_vector<RealType> dDeltaVector;
 		thrust::device_vector<RealType> dPriorParams;
