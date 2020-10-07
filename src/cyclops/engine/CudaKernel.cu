@@ -354,14 +354,14 @@ void CudaKernel<RealType>::allocTempStorage(thrust::device_vector<RealType>& d_D
 	// for scan in accDenom
 	DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, &d_Denominator[0], &d_AccDenom[0], N);
 	cudaMalloc(&d_temp_storage0, temp_storage_bytes0);
-
+/*
 	// for fused scan reduction (double scan)
 	auto begin0 = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(), d_Numerator2.begin()));
 	auto begin1 = thrust::make_zip_iterator(thrust::make_tuple(d_AccDenom.begin(), d_NWeight.begin()));
 	DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh, begin0, begin1, d_BlockGH, d_GH,
 			TuplePlus(), Double2Plus(), compGradHessInd, N);
 
-/*
+*/
 	auto begin2 = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(),
 				d_Numerator2.begin(),
 				d_Denominator.begin()));
@@ -372,12 +372,6 @@ void CudaKernel<RealType>::allocTempStorage(thrust::device_vector<RealType>& d_D
 			d_BlockGH, d_GH, // output
                         TuplePlus3(), Double2Plus(), compGradHessInd1, N);
 
-	// triple scan with storing accDenom
-	DeviceFuse::ScanReduce1(d_temp_storage_gh, temp_storage_bytes_gh,
-			begin2, thrust::raw_pointer_cast(&d_NWeight[0]), //input
-			d_BlockGH, d_GH, thrust::raw_pointer_cast(&d_AccDenom[0]), // output
-			TuplePlus3(), Double2Plus(), compGradHessInd1, scanOutput, N);
-*/
 	cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
 }
 
@@ -494,37 +488,24 @@ void CudaKernel<RealType>::computeGradientAndHessian1(thrust::device_vector<Real
                                                      double2* d_GH,
                                                      double2* d_BlockGH,
                                                      FormatType& formatType,
+						     size_t& offK,
                                                      size_t& N
 )
 {
-	// fused scan reduction
-	auto begin2 = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(),
-				d_Numerator2.begin(),
-				d_Denominator.begin()));
+	// fused scan reduction (including Denom -> accDenom)
+	auto begin2 = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin() + offK,
+				d_Numerator2.begin() + offK,
+				d_Denominator.begin() + offK));
 	if (formatType == INDICATOR) {
-
 		DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh,
                         begin2, thrust::raw_pointer_cast(&d_NWeight[0]),
                         d_BlockGH, d_GH,
-                        TuplePlus3(), Double2Plus(), compGradHessInd1, N);
-/*
-		DeviceFuse::ScanReduce1(d_temp_storage_gh, temp_storage_bytes_gh,
-				begin2, thrust::raw_pointer_cast(&d_NWeight[0]),
-				d_BlockGH, d_GH, thrust::raw_pointer_cast(&d_AccDenom[0]),
-				TuplePlus3(), Double2Plus(), compGradHessInd1, scanOutput, N);
-*/
+                        TuplePlus3(), Double2Plus(), compGradHessInd1, N - offK);
 	} else {
-
 		DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh,
                         begin2, thrust::raw_pointer_cast(&d_NWeight[0]),
                         d_BlockGH, d_GH,
-                        TuplePlus3(), Double2Plus(), compGradHessNInd1, N);
-/*
-		DeviceFuse::ScanReduce1(d_temp_storage_gh, temp_storage_bytes_gh,
-				begin2, thrust::raw_pointer_cast(&d_NWeight[0]),
-				d_BlockGH, d_GH, thrust::raw_pointer_cast(&d_AccDenom[0]),
-				TuplePlus3(), Double2Plus(), compGradHessNInd1, scanOutput, N);
-*/
+                        TuplePlus3(), Double2Plus(), compGradHessNInd1, N - offK);
 	}
 
 	cudaDeviceSynchronize();

@@ -461,7 +461,7 @@ namespace bsccs{
 #endif
 			// Device
 			// TODO write gpu version to avoid D-H copying
-//			CudaData.CubScan(thrust::raw_pointer_cast(&dDenominator[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), N);
+			CudaData.CubScan(thrust::raw_pointer_cast(&dDenominator[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
 			thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid));
 //			std::cout << " DH-copy in GPU::getLogLikelihood \n";
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -547,7 +547,7 @@ namespace bsccs{
 		duration["compNumForGradG  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-
+/*
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto start2 = bsccs::chrono::steady_clock::now();
 #endif
@@ -568,8 +568,8 @@ namespace bsccs{
 		///////////////////////////"
 		duration["compGradAndHessG "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
 #endif
+*/
 
-/*
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto start2 = bsccs::chrono::steady_clock::now();
 #endif
@@ -584,15 +584,16 @@ namespace bsccs{
 					dGH,
 					dBlockGH,
 					formatType,
+					offCV,
 					K);
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto end2 = bsccs::chrono::steady_clock::now();
 		///////////////////////////"
 		duration["compGradAndHessG "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
 #endif
-*/
 
 
+/*
 			////////////////////////// processDelta
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto start3 = bsccs::chrono::steady_clock::now();
@@ -613,7 +614,7 @@ namespace bsccs{
 		auto name3 = "y updateBetaAndDelta" + getFormatTypeExtension(formatType) + "  updateDelta";
 		duration[name3] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end3 - start3).count();
 #endif
-
+*/
 		
 
 			////////////////////////// updateXBeta
@@ -621,7 +622,6 @@ namespace bsccs{
 		auto start4 = bsccs::chrono::steady_clock::now();
 #endif
 			// sparse transformation
-/*
 			CudaData.updateXBetaAndDelta(dCudaColumns.getData(),
 					dCudaColumns.getIndices(),
 					dCudaColumns.getDataOffset(index),
@@ -642,7 +642,7 @@ namespace bsccs{
 					index, 
 					formatType,
 					gridSize, blockSize);
-*/
+/*
 			CudaData.updateXBeta(dCudaColumns.getData(),
 					dCudaColumns.getIndices(),
 					dCudaColumns.getDataOffset(index),
@@ -658,14 +658,16 @@ namespace bsccs{
 					index, 
 					formatType,
 					gridSize, blockSize);
+*/
 			hXBetaKnown = false;
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto end4 = bsccs::chrono::steady_clock::now();
 		///////////////////////////"
-		auto name4 = "y updateBetaAndDelta" + getFormatTypeExtension(formatType) + "  updateXBeta";
-		duration[name4] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end4 - start4).count();
+//		auto name4 = "y updateBetaAndDelta" + getFormatTypeExtension(formatType) + "  updateXBeta";
+//		duration[name4] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end4 - start4).count();
+		duration["updateXBetaG     "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end4 - start4).count();
 #endif
-
+/*
 #ifdef CYCLOPS_DEBUG_TIMING
 		auto start5 = bsccs::chrono::steady_clock::now();
 #endif
@@ -679,6 +681,7 @@ namespace bsccs{
 		duration[name5] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end5 - start5).count();
 		duration["updateXBetaG     "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end5 - start4).count();
 #endif
+*/
 		}
 
 		virtual const std::vector<double> getXBeta() {
@@ -817,7 +820,7 @@ namespace bsccs{
 		thrust::device_vector<RealType> dNumerator;
 		thrust::device_vector<RealType> dNumerator2;
 
-		thrust::device_vector<int> indicesN;
+//		thrust::device_vector<int> indicesN;
 		thrust::device_vector<RealType> dBound;
 		thrust::device_vector<RealType> dDeltaVector;
 		thrust::device_vector<RealType> dPriorParams;
