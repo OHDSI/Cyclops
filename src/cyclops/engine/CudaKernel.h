@@ -11,14 +11,6 @@ enum PriorTypeCuda {
 	NOPRIOR, LAPLACE, NORMAL
 };
 
-struct CustomExp
-{
-	template <typename RealType>
-	__host__ __device__ __forceinline__
-	RealType operator()(const RealType &a) const {
-		return exp(a);
-	}
-};
 
 template<typename RealType, typename RealType2, bool isIndicator>
 struct functorCGH
@@ -72,29 +64,7 @@ struct functorThird
     }
 };
 
-/*
-template <typename RealType, bool isIndicator>
-struct functorCGH :
-		public thrust::unary_function<thrust::tuple<RealType, RealType, RealType, RealType>,
-		        double2>
-{
-	typedef typename thrust::tuple<RealType, RealType, RealType, RealType> InputTuple;
 
-	__host__ __device__
-	double2 operator()(const InputTuple& t) const
-	{
-		auto temp = thrust::get<1>(t) / thrust::get<2>(t);
-		double2 out;
-		out.x = thrust::get<0>(t) * temp;
-		if (isIndicator) {
-			out.y = out.x * (1 - temp);
-		} else {
-			out.y = thrust::get<0>(t) * (thrust::get<3>(t) / thrust::get<2>(t) - temp * temp);
-		}
-		return out;
-	}
-};
-*/
 template <typename RealType, typename RealType2>
 class CudaKernel {
 
@@ -105,12 +75,7 @@ class CudaKernel {
 
 public:
 	
-	// Device arrays
-//	Tup2 init = thrust::make_tuple<RealType, RealType>(0, 0);
-	double2 d_init;
-
 	// Operator
-//	CustomExp    exp_op;
 	functorCGH<RealType, RealType2, true> compGradHessInd;
 	functorCGH<RealType, RealType2, false> compGradHessNInd;
 	functorCGH1<RealType, RealType2, true> compGradHessInd1;
@@ -135,8 +100,7 @@ public:
 			thrust::device_vector<RealType>& d_NWeight,
 			RealType2* d_GH,
 			RealType2* d_BlockGH,
-			size_t& N,
-			thrust::device_vector<int>& indicesN);
+			size_t& N);
 	
 	void computeNumeratorForGradient(const thrust::device_vector<RealType>& d_X,
 			const thrust::device_vector<int>& d_K,
@@ -161,9 +125,6 @@ public:
 			FormatType& formatType,
 			size_t& offCV,
 			size_t& N
-//			,const std::vector<int>& K,
-//			unsigned int offK,
-//			thrust::device_vector<int>& indicesN
 			);
         
 	void computeGradientAndHessian1(thrust::device_vector<RealType>& d_Numerator,
@@ -200,38 +161,39 @@ public:
 			const int priorTypes,
 			int index,
 			FormatType& formatType,
-			int gridSize, int blockSize);
-	
-	void processDelta(double2* d_GH,
-			thrust::device_vector<RealType>& d_XjY,
-			thrust::device_vector<RealType>& d_Delta,
-			thrust::device_vector<RealType>& d_Beta,
-			thrust::device_vector<RealType>& d_BetaBuffer,
-			thrust::device_vector<RealType>& d_Bound,
-			thrust::device_vector<RealType>& d_PriorParams,
-			const int priorType,
-			int index,
-			int gridSize, int blockSize);
-
-	void updateXBeta(const thrust::device_vector<RealType>& d_X,
-			const thrust::device_vector<int>& d_K,
-			unsigned int offX,
-			unsigned int offK,
-			const unsigned int taskCount,
-			thrust::device_vector<RealType>& d_Delta,
-			thrust::device_vector<RealType>& d_KWeight,
-			thrust::device_vector<RealType>& d_XBeta,
-			thrust::device_vector<RealType>& d_ExpXBeta,
-			thrust::device_vector<RealType>& d_Denominator,
-			thrust::device_vector<RealType>& d_Numerator,
-			thrust::device_vector<RealType>& d_Numerator2,
-			int index,
-			FormatType& formatType,
 			int gridSize, int blockSize);	
 	
 	void CubScan(RealType* d_in, RealType* d_out, int num_items);
 
+
 	// not using
+	void processDelta(double2* d_GH,
+                        thrust::device_vector<RealType>& d_XjY,
+                        thrust::device_vector<RealType>& d_Delta,
+                        thrust::device_vector<RealType>& d_Beta,
+                        thrust::device_vector<RealType>& d_BetaBuffer,
+                        thrust::device_vector<RealType>& d_Bound,
+                        thrust::device_vector<RealType>& d_PriorParams,
+                        const int priorType,
+                        int index,
+                        int gridSize, int blockSize);
+
+        void updateXBeta(const thrust::device_vector<RealType>& d_X,
+                        const thrust::device_vector<int>& d_K,
+                        unsigned int offX,
+                        unsigned int offK,
+                        const unsigned int taskCount,
+                        thrust::device_vector<RealType>& d_Delta,
+                        thrust::device_vector<RealType>& d_KWeight,
+                        thrust::device_vector<RealType>& d_XBeta,
+                        thrust::device_vector<RealType>& d_ExpXBeta,
+                        thrust::device_vector<RealType>& d_Denominator,
+                        thrust::device_vector<RealType>& d_Numerator,
+                        thrust::device_vector<RealType>& d_Numerator2,
+                        int index,
+                        FormatType& formatType,
+                        int gridSize, int blockSize);
+
 	void computeAccumulatedNumerator(thrust::device_vector<RealType>& d_Numerator,
                         thrust::device_vector<RealType>& d_Numerator2,
                         thrust::device_vector<RealType>& d_AccNumer,
