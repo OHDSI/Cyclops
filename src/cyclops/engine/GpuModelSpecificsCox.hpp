@@ -176,6 +176,15 @@ namespace bsccs{
 		std::vector<FormatType> formats;
 	};
 
+template <typename RealType> struct MakePair;
+template <> struct MakePair<float>
+{
+	typedef float2 type;
+};
+template <> struct MakePair<double>
+{
+	typedef double2 type;
+};
 
 	template <class BaseModel, typename RealType>
 	class GpuModelSpecificsCox :
@@ -209,8 +218,10 @@ namespace bsccs{
 		int PSC_K = 32;
 		int PSC_WG_SIZE = 256;
 
+		typedef typename MakePair<RealType>::type RealType2;
+
 		CudaAllGpuColumns<RealType> dCudaColumns;
-		CudaKernel<RealType> CudaData;
+		CudaKernel<RealType, RealType2> CudaData;
 	
 		GpuModelSpecificsCox(const ModelData<RealType>& input,
 				const std::string& deviceName)
@@ -310,10 +321,10 @@ namespace bsccs{
 
 			resizeAndZeroToDeviceCuda(dDeltaVector, J);
 	
-			cudaMalloc((void**)&dGH, sizeof(double2));
-                        cudaMalloc((void**)&dBlockGH, sizeof(double2));
+			cudaMalloc((void**)&dGH, sizeof(RealType2));
+                        cudaMalloc((void**)&dBlockGH, sizeof(RealType2));
 
-//			cudaMallocHost((void **) &pGH, sizeof(double2));
+//			cudaMallocHost((void **) &pGH, sizeof(RealType2));
 /*
 			resizeCudaVecSize(indicesN, N);
 			pGH = (double2 *)malloc(sizeof(double2));
@@ -368,7 +379,7 @@ namespace bsccs{
 			}
 			if (useCrossValidation) {
 				for (size_t k = 0; k < K; ++k) {
-					hKWeight[k] = inWeights[k];
+					hKWeight[k] = static_cast<RealType>(inWeights[k]);
 				}
 				// Find first non-zero weight
 				while(inWeights != nullptr && inWeights[offCV] == 0.0 && offCV < K) {
@@ -592,7 +603,6 @@ namespace bsccs{
 		duration["compGradAndHessG "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
 #endif
 
-
 /*
 			////////////////////////// processDelta
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -774,7 +784,7 @@ namespace bsccs{
 			std::vector<RealType> temp;
 			temp.resize(J, 0.0);
 			for (int i=0; i<J; i++) {
-				temp[i] = inParams[i];
+				temp[i] = static_cast<RealType>(inParams[i]);
 			}
 			resizeAndCopyToDeviceCuda(temp, dPriorParams);
 		}
@@ -831,9 +841,9 @@ namespace bsccs{
 		thrust::device_vector<RealType> dPriorParams;
 
 		// buffer
-		double2 *dGH; // device GH
-		double2 *dBlockGH; // block aggregate
-//		double2 *pGH; // host GH
+		RealType2 *dGH; // device GH
+		RealType2 *dBlockGH; // block aggregate
+//		RealType2 *pGH; // host GH
 		thrust::device_vector<RealType> dAccNumer;
 		thrust::device_vector<RealType> dAccNumer2;
 //		thrust::device_vector<RealType> dGradient;

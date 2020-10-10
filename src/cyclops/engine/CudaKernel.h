@@ -20,16 +20,16 @@ struct CustomExp
 	}
 };
 
-template<typename RealType, bool isIndicator>
+template<typename RealType, typename RealType2, bool isIndicator>
 struct functorCGH
 {
     typedef typename thrust::tuple<RealType, RealType> InputTuple;
 
     __host__ __device__
-    double2 operator()(const InputTuple& accNAndN2, const InputTuple& accDAndW) const
+    RealType2 operator()(const InputTuple& accNAndN2, const InputTuple& accDAndW) const
     {
         auto temp = thrust::get<0>(accNAndN2) / thrust::get<0>(accDAndW);
-        double2 out;
+        RealType2 out;
         out.x = thrust::get<1>(accDAndW) * temp;
         if (isIndicator) {
             out.y = out.x * (1 - temp);
@@ -40,16 +40,16 @@ struct functorCGH
     }
 };
 
-template<typename RealType, bool isIndicator>
+template<typename RealType, typename RealType2, bool isIndicator>
 struct functorCGH1
 {
     typedef typename thrust::tuple<RealType, RealType, RealType> InputTuple;
 
     __host__ __device__
-    double2 operator()(const InputTuple& accNAndD, const RealType nEvents) const
+    RealType2 operator()(const InputTuple& accNAndD, const RealType nEvents) const
     {
         auto temp = thrust::get<0>(accNAndD) / thrust::get<2>(accNAndD);
-        double2 out;
+        RealType2 out;
         out.x = nEvents * temp;
         if (isIndicator) {
             out.y = out.x * (1 - temp);
@@ -95,7 +95,7 @@ struct functorCGH :
 	}
 };
 */
-template <typename RealType>
+template <typename RealType, typename RealType2>
 class CudaKernel {
 
 	typedef thrust::tuple<RealType,RealType> Tup2;
@@ -111,10 +111,10 @@ public:
 
 	// Operator
 //	CustomExp    exp_op;
-	functorCGH<RealType, true> compGradHessInd;
-	functorCGH<RealType, false> compGradHessNInd;
-	functorCGH1<RealType, true> compGradHessInd1;
-	functorCGH1<RealType, false> compGradHessNInd1;
+	functorCGH<RealType, RealType2, true> compGradHessInd;
+	functorCGH<RealType, RealType2, false> compGradHessNInd;
+	functorCGH1<RealType, RealType2, true> compGradHessInd1;
+	functorCGH1<RealType, RealType2, false> compGradHessNInd1;
 	functorThird<RealType> scanOutput;
 
 	// Temporary storage required by cub::scan and cub::reduce
@@ -133,8 +133,8 @@ public:
 			thrust::device_vector<RealType>& d_AccNumer,
 			thrust::device_vector<RealType>& d_AccNumer2,
 			thrust::device_vector<RealType>& d_NWeight,
-			double2* d_GH,
-			double2* d_BlockGH,
+			RealType2* d_GH,
+			RealType2* d_BlockGH,
 			size_t& N,
 			thrust::device_vector<int>& indicesN);
 	
@@ -156,8 +156,8 @@ public:
 			thrust::device_vector<RealType>& d_AccNumer2,
 			thrust::device_vector<RealType>& d_AccDenom,
 			thrust::device_vector<RealType>& d_NWeight,
-			double2* d_GH,
-			double2* d_BlockGH,
+			RealType2* d_GH,
+			RealType2* d_BlockGH,
 			FormatType& formatType,
 			size_t& offCV,
 			size_t& N
@@ -173,8 +173,8 @@ public:
 			thrust::device_vector<RealType>& d_AccNumer2,
 			thrust::device_vector<RealType>& d_AccDenom,
 			thrust::device_vector<RealType>& d_NWeight,
-			double2* d_GH,
-			double2* d_BlockGH,
+			RealType2* d_GH,
+			RealType2* d_BlockGH,
 			FormatType& formatType,
 			size_t& offCV,
 			size_t& N
@@ -185,7 +185,7 @@ public:
 			unsigned int offX,
 			unsigned int offK,
 			const unsigned int taskCount,
-			double2* d_GH,
+			RealType2* d_GH,
 			thrust::device_vector<RealType>& d_XjY,
 			thrust::device_vector<RealType>& d_Bound,
 			thrust::device_vector<RealType>& d_KWeight,
