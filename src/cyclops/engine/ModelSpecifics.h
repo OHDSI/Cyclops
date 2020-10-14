@@ -103,6 +103,8 @@ public:
 
 	virtual void turnOffSyncCV(void) {};
 
+	virtual void turnOnStreamCV(int foldToCompute) {};
+
 	virtual bool isGPU() {return false;};
 
 	virtual bool isCUDA() {return false;};

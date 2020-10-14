@@ -194,6 +194,8 @@ public:
 
 	void turnOffSyncCV(void);
 
+	void turnOnStreamCV(int foldToCompute);
+
 	bool GPU() {
 		return usingGPU;
 	}
@@ -208,6 +210,7 @@ public:
 
 	void ccdUpdateBetaVec(std::vector<double>& deltaVec, std::vector<std::pair<int,int>>& indicesToUpdate);
 
+	void getFold(int fold);
 
 protected:
 
@@ -424,9 +427,11 @@ protected:
 	std::vector<DoubleVector> hWeightsPool; // Make DoubleVector and delegate to ModelSpecifics
 
 	bool usingGPU;
-	bool usingCUDA;
 	bool syncCV = false;
 	int syncCVFolds;
+	bool usingCUDA;
+	bool streamCV = false;
+	int streamCVFolds;
 
 };
 

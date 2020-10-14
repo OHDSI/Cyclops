@@ -131,6 +131,8 @@ public:
 
 	virtual void turnOffSyncCV() = 0;
 
+	virtual void turnOnStreamCV(int foldToCompute) = 0;
+
 	bool syncCV = false;
 	int syncCVFolds;
 
@@ -145,6 +147,8 @@ public:
 	virtual void runCCD(bool useCrossValidation, bool doItAll) {};
 
 	virtual void updateBetaAndDelta(int index, bool useWeights) {};
+
+	virtual void setFold(int fold) {};
 
 	virtual std::vector<double> getBeta() {
 		std::vector<double> blah;

@@ -74,7 +74,11 @@ class CudaKernel {
 	typedef thrust::zip_iterator<TupVec4> ZipVec4;
 
 public:
-	
+
+//	cudaStream_t* streams;
+	int CVFolds;
+	int fold;
+
 	// Operator
 	functorCGH<RealType, RealType2, true> compGradHessInd;
 	functorCGH<RealType, RealType2, false> compGradHessNInd;
@@ -90,6 +94,10 @@ public:
 
 	CudaKernel();
 	~CudaKernel();
+
+	void allocStreams(int streamCVFolds);
+
+	void setFold(int currentFold);
 
 	void allocTempStorage(thrust::device_vector<RealType>& d_Denominator,
 			thrust::device_vector<RealType>& d_Numerator,

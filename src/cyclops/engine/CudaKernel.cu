@@ -235,12 +235,39 @@ CudaKernel<RealType, RealType2>::CudaKernel()
 template <typename RealType, typename RealType2>
 CudaKernel<RealType, RealType2>::~CudaKernel()
 {
+	std::cout <<"START dtor \n";
+/*
+	for (int i = 0; i < CVFolds; i++) {
+		cudaStreamDestroy(streams[i]);
+	}
+	free(streams);
+*/
 	cudaFree(d_temp_storage0); // accDenom
 	cudaFree(d_temp_storage_gh); // cGAH
+
+//	cudaDeviceReset();
 
 	std::cout << "dtor CudaKernel \n";
 }
 
+
+template <typename RealType, typename RealType2>
+void CudaKernel<RealType, RealType2>::allocStreams(int streamCVFolds)
+{
+	CVFolds = streamCVFolds;
+/*	
+	streams = (cudaStream_t *) malloc(CVFolds * sizeof(cudaStream_t));
+	for (int i = 0; i < streamCVFolds; i++) {
+		cudaStreamCreate(&(streams[i]));
+	}
+*/
+}
+
+template <typename RealType, typename RealType2>
+void CudaKernel<RealType, RealType2>::setFold(int currentFold)
+{
+	fold = currentFold;
+}
 
 template <typename RealType, typename RealType2>
 void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<RealType>& d_Denominator,
@@ -257,7 +284,7 @@ void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<Rea
 	// for scan in accDenom
 	DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, &d_Denominator[0], &d_AccDenom[0], N);
 	cudaMalloc(&d_temp_storage0, temp_storage_bytes0);
-/*
+
 	// for fused scan reduction (double scan)
 	auto begin0 = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(), 
 								   d_Numerator2.begin()));
@@ -266,9 +293,9 @@ void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<Rea
 	DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh, 
 			begin0, begin1, 
 			d_BlockGH, d_GH,
-			TuplePlus(), Double2Plus(), compGradHessInd, N);
-*/
+			TuplePlus(), RealType2Plus(), compGradHessInd, N);
 
+/*
 	auto begin2 = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(),
 								   d_Numerator2.begin(),
 								   d_Denominator.begin()));
@@ -278,7 +305,7 @@ void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<Rea
 			begin2, thrust::raw_pointer_cast(&d_NWeight[0]), // input
 			d_BlockGH, d_GH, // output
 			TuplePlus3(), RealType2Plus(), compGradHessInd1, N);
-
+*/
 	cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
 }
 
@@ -438,7 +465,7 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
 {
 	switch (priorTypes) {
 		case 0 :
-			kernelUpdateXBetaAndDelta<RealType, RealType2, formatType, NOPRIOR><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
+			kernelUpdateXBetaAndDelta<RealType, RealType2, formatType, NOPRIOR><<<gridSize, blockSize, 0>>>(offX, offK, taskCount, index,
                                                                thrust::raw_pointer_cast(&d_X[0]),
                                                                thrust::raw_pointer_cast(&d_K[0]),
                                                                d_GH,

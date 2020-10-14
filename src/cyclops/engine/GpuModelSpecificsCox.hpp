@@ -517,7 +517,7 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 	duration["compNumForGradG  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
-/*
+
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto start2 = bsccs::chrono::steady_clock::now();
 #endif
@@ -541,8 +541,8 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 	///////////////////////////"
 	duration["compGradAndHessG "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
 #endif
-*/
 
+/*
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto start2 = bsccs::chrono::steady_clock::now();
 #endif
@@ -564,7 +564,7 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 	///////////////////////////"
 	duration["compGradAndHessG "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
 #endif
-	
+*/	
 
 	////////////////////////// updateXBetaAndDelta
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -692,6 +692,19 @@ void setPriorParams(std::vector<double>& inParams) {
 	resizeAndCopyToDeviceCuda(temp, dPriorParams);
 }
 
+void turnOnStreamCV(int foldToCompute) {
+	streamCV = true;
+	streamCVFolds = foldToCompute;
+	CudaData.allocStreams(streamCVFolds);
+	std::cout << "GPUMS streamCVFolds: " << streamCVFolds << '\n';
+}
+
+void setFold(int inFold){
+	fold = inFold;
+	CudaData.setFold(inFold);
+	std::cout << "GPUMS current fold: " << fold << '\n';
+}
+
 private:
 
 std::string getFormatTypeExtension(FormatType formatType) {
@@ -707,6 +720,10 @@ std::string getFormatTypeExtension(FormatType formatType) {
 		default: return "";
 	}
 }
+
+	bool streamCV;
+	int streamCVFolds;
+	int fold;
 
 	bool hXBetaKnown;
 	bool dXBetaKnown;

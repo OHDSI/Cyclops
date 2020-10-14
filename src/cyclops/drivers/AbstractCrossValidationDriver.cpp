@@ -73,6 +73,11 @@ void AbstractCrossValidationDriver::drive(
 		nThreads = 1;
 	}
 
+	bool streamCV = true;
+	if (streamCV) {
+		ccd.turnOnStreamCV(allArguments.crossValidation.foldToCompute);
+	}
+
 	std::vector<CyclicCoordinateDescent*> ccdPool;
 	std::vector<AbstractSelector*> selectorPool;
 
@@ -247,6 +252,7 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 			}
 
 			int fold = task % arguments.fold;
+			ccdTask->getFold(fold);
 
 			// Get this fold and update
 			std::vector<double> weights; // Task-specific

@@ -1659,6 +1659,19 @@ inline int CyclicCoordinateDescent::sign(double x) {
 	return 1;
 }
 
+void CyclicCoordinateDescent::getFold(int fold) {
+	modelSpecifics.setFold(fold);
+}
+
+void CyclicCoordinateDescent::turnOnStreamCV(int foldToCompute) {
+
+	streamCV = true;
+	streamCVFolds = foldToCompute;
+	std::cout << "foldToCompute: " << foldToCompute << "\n";
+	modelSpecifics.turnOnStreamCV(foldToCompute);
+
+}
+
 void CyclicCoordinateDescent::turnOnSyncCV(int foldToCompute) {
 
 	syncCV = true;
