@@ -229,6 +229,8 @@ struct RealType2Plus
 template <typename RealType, typename RealType2>
 CudaKernel<RealType, RealType2>::CudaKernel()
 {
+	stream = (cudaStream_t *) malloc(sizeof(cudaStream_t));
+	cudaStreamCreate(&stream[0]);
 	std::cout << "ctor CudaKernel \n";
 }
 
@@ -242,6 +244,7 @@ CudaKernel<RealType, RealType2>::~CudaKernel()
 	}
 	free(streams);
 */
+	free(stream);
 	cudaFree(d_temp_storage0); // accDenom
 	cudaFree(d_temp_storage_gh); // cGAH
 
@@ -282,7 +285,7 @@ void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<Rea
 						       size_t& N)
 {
 	// for scan in accDenom
-	DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, &d_Denominator[0], &d_AccDenom[0], N);
+	DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, &d_Denominator[0], &d_AccDenom[0], N, stream[0]);
 	cudaMalloc(&d_temp_storage0, temp_storage_bytes0);
 
 	// for fused scan reduction (double scan)
@@ -293,7 +296,7 @@ void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<Rea
 	DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh, 
 			begin0, begin1, 
 			d_BlockGH, d_GH,
-			TuplePlus(), RealType2Plus(), compGradHessInd, N);
+			TuplePlus(), RealType2Plus(), compGradHessInd, N, stream[0]);
 
 /*
 	auto begin2 = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(),
@@ -304,7 +307,7 @@ void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<Rea
 	DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh, 
 			begin2, thrust::raw_pointer_cast(&d_NWeight[0]), // input
 			d_BlockGH, d_GH, // output
-			TuplePlus3(), RealType2Plus(), compGradHessInd1, N);
+			TuplePlus3(), RealType2Plus(), compGradHessInd1, N, stream);
 */
 	cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
 }
@@ -325,7 +328,7 @@ void CudaKernel<RealType, RealType2>::computeNumeratorForGradient(const thrust::
 {
         switch (formatType) {
                 case DENSE :
-                        kernelComputeNumeratorForGradient<RealType, DENSE><<<gridSize, blockSize>>>(offX,
+                        kernelComputeNumeratorForGradient<RealType, DENSE><<<gridSize, blockSize, 0, stream[0]>>>(offX,
                                                                                                offK,
                                                                                                taskCount,
                                                                                                thrust::raw_pointer_cast(&d_X[0]),
@@ -336,7 +339,7 @@ void CudaKernel<RealType, RealType2>::computeNumeratorForGradient(const thrust::
                                                                                                thrust::raw_pointer_cast(&d_Numerator2[0]));
                 break;	
                 case SPARSE :
-                        kernelComputeNumeratorForGradient<RealType, SPARSE><<<gridSize, blockSize>>>(offX,
+                        kernelComputeNumeratorForGradient<RealType, SPARSE><<<gridSize, blockSize, 0, stream[0]>>>(offX,
                                                                                                offK,
                                                                                                taskCount,
                                                                                                thrust::raw_pointer_cast(&d_X[0]),
@@ -347,7 +350,7 @@ void CudaKernel<RealType, RealType2>::computeNumeratorForGradient(const thrust::
                                                                                                thrust::raw_pointer_cast(&d_Numerator2[0]));
                 break;
                 case INDICATOR :
-                        kernelComputeNumeratorForGradient<RealType, INDICATOR><<<gridSize, blockSize>>>(offX,
+                        kernelComputeNumeratorForGradient<RealType, INDICATOR><<<gridSize, blockSize, 0, stream[0]>>>(offX,
                                                                                                offK,
                                                                                                taskCount,
                                                                                                thrust::raw_pointer_cast(&d_X[0]),
@@ -358,7 +361,7 @@ void CudaKernel<RealType, RealType2>::computeNumeratorForGradient(const thrust::
                                                                                                thrust::raw_pointer_cast(&d_Numerator2[0]));
                 break;
                 case INTERCEPT :
-                        kernelComputeNumeratorForGradient<RealType, INTERCEPT><<<gridSize, blockSize>>>(offX,
+                        kernelComputeNumeratorForGradient<RealType, INTERCEPT><<<gridSize, blockSize, 0, stream[0]>>>(offX,
                                                                                                offK,
                                                                                                taskCount,
                                                                                                thrust::raw_pointer_cast(&d_X[0]),
@@ -396,12 +399,12 @@ void CudaKernel<RealType, RealType2>::computeGradientAndHessian(thrust::device_v
 		DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh, 
 				begin0, begin1, 
 				d_BlockGH, d_GH,
-				TuplePlus(), RealType2Plus(), compGradHessInd, N - offCV);
+				TuplePlus(), RealType2Plus(), compGradHessInd, N - offCV, stream[0]);
 	} else {
 		DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh, 
 				begin0, begin1, 
 				d_BlockGH, d_GH,
-				TuplePlus(), RealType2Plus(), compGradHessNInd, N - offCV);
+				TuplePlus(), RealType2Plus(), compGradHessNInd, N - offCV, stream[0]);
 	}
 	cudaDeviceSynchronize();
 }
@@ -429,12 +432,12 @@ void CudaKernel<RealType, RealType2>::computeGradientAndHessian1(thrust::device_
 		DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh,
 				begin2, thrust::raw_pointer_cast(&d_NWeight[0]),
 				d_BlockGH, d_GH,
-				TuplePlus3(), RealType2Plus(), compGradHessInd1, N - offCV);
+				TuplePlus3(), RealType2Plus(), compGradHessInd1, N - offCV, stream[0]);
 	} else {
 		DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh,
 				begin2, thrust::raw_pointer_cast(&d_NWeight[0]),
 				d_BlockGH, d_GH,
-				TuplePlus3(), RealType2Plus(), compGradHessNInd1, N - offCV);
+				TuplePlus3(), RealType2Plus(), compGradHessNInd1, N - offCV, stream[0]);
 	}
 
 	cudaDeviceSynchronize();
@@ -460,12 +463,12 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
 		       thrust::device_vector<RealType>& d_Numerator2,
 		       thrust::device_vector<RealType>& d_PriorParams,
 		       const int priorTypes,
-		       int index,
+		       int index, cudaStream_t stream,
 		       int gridSize, int blockSize)
 {
 	switch (priorTypes) {
 		case 0 :
-			kernelUpdateXBetaAndDelta<RealType, RealType2, formatType, NOPRIOR><<<gridSize, blockSize, 0>>>(offX, offK, taskCount, index,
+			kernelUpdateXBetaAndDelta<RealType, RealType2, formatType, NOPRIOR><<<gridSize, blockSize, 0, stream>>>(offX, offK, taskCount, index,
                                                                thrust::raw_pointer_cast(&d_X[0]),
                                                                thrust::raw_pointer_cast(&d_K[0]),
                                                                d_GH,
@@ -482,7 +485,7 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                                                                thrust::raw_pointer_cast(&d_PriorParams[0]));
 			break;
 		case 1 :
-			kernelUpdateXBetaAndDelta<RealType, RealType2, formatType, LAPLACE><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
+			kernelUpdateXBetaAndDelta<RealType, RealType2, formatType, LAPLACE><<<gridSize, blockSize, 0, stream>>>(offX, offK, taskCount, index,
                                                                thrust::raw_pointer_cast(&d_X[0]),
                                                                thrust::raw_pointer_cast(&d_K[0]),
                                                                d_GH,
@@ -499,7 +502,7 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                                                                thrust::raw_pointer_cast(&d_PriorParams[0]));
 			break;
 		case 2 :
-			kernelUpdateXBetaAndDelta<RealType, RealType2, formatType, NORMAL><<<gridSize, blockSize>>>(offX, offK, taskCount, index,
+			kernelUpdateXBetaAndDelta<RealType, RealType2, formatType, NORMAL><<<gridSize, blockSize, 0, stream>>>(offX, offK, taskCount, index,
                                                                thrust::raw_pointer_cast(&d_X[0]),
                                                                thrust::raw_pointer_cast(&d_K[0]),
                                                                d_GH,
@@ -549,7 +552,7 @@ void CudaKernel<RealType, RealType2>::updateXBetaAndDelta(const thrust::device_v
                                                           d_Beta, d_BetaBuffer, d_XBeta, d_ExpXBeta, d_Denominator,
                                                           d_Numerator, d_Numerator2,
                                                           d_PriorParams, priorTypes,
-                                                          index, gridSize, blockSize);
+                                                          index, stream[0], gridSize, blockSize);
 			break;
 		case SPARSE :
 			dispatchPriorType<RealType, RealType2, SPARSE>(d_X, d_K, offX, offK,
@@ -557,7 +560,7 @@ void CudaKernel<RealType, RealType2>::updateXBetaAndDelta(const thrust::device_v
                                                           d_Beta, d_BetaBuffer, d_XBeta, d_ExpXBeta, d_Denominator,
                                                           d_Numerator, d_Numerator2,
                                                           d_PriorParams, priorTypes,
-                                                          index, gridSize, blockSize);
+                                                          index, stream[0], gridSize, blockSize);
 			break;
 		case INDICATOR :
 			dispatchPriorType<RealType, RealType2, INDICATOR>(d_X, d_K, offX, offK,
@@ -565,7 +568,7 @@ void CudaKernel<RealType, RealType2>::updateXBetaAndDelta(const thrust::device_v
                                                           d_Beta, d_BetaBuffer, d_XBeta, d_ExpXBeta, d_Denominator,
                                                           d_Numerator, d_Numerator2,
                                                           d_PriorParams, priorTypes,
-                                                          index, gridSize, blockSize);
+                                                          index, stream[0], gridSize, blockSize);
 			break;
 		case INTERCEPT :
 			dispatchPriorType<RealType, RealType2, INTERCEPT>(d_X, d_K, offX, offK,
@@ -573,7 +576,7 @@ void CudaKernel<RealType, RealType2>::updateXBetaAndDelta(const thrust::device_v
                                                           d_Beta, d_BetaBuffer, d_XBeta, d_ExpXBeta, d_Denominator,
                                                           d_Numerator, d_Numerator2,
                                                           d_PriorParams, priorTypes,
-                                                          index, gridSize, blockSize);
+                                                          index, stream[0], gridSize, blockSize);
 			break;
 	}
 
@@ -584,7 +587,7 @@ template <typename RealType, typename RealType2>
 void CudaKernel<RealType, RealType2>::CubScan(RealType* d_in, RealType* d_out, int num_items)
 {
 	// Launch kernel
-	DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, d_in, d_out, num_items);
+	DeviceScan::InclusiveSum(d_temp_storage0, temp_storage_bytes0, d_in, d_out, num_items, stream[0]);
 	cudaDeviceSynchronize();
 }
 

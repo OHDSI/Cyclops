@@ -34,7 +34,7 @@ AbstractModelSpecifics* deviceFactory(
         model = new ModelSpecifics<Model,RealType>(modelData);
         break;
     case DeviceType::GPU :
-        model = new GpuModelSpecificsCox<Model,RealType>(modelData, deviceName);
+        model = new GpuModelSpecificsCox<Model,RealType>(modelData);
         break;
     default:
         break; // nullptr

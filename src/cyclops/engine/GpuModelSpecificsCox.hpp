@@ -225,8 +225,8 @@ public:
 	CudaAllGpuColumns<RealType> dCudaColumns;
 	CudaKernel<RealType, RealType2> CudaData;
 	
-	GpuModelSpecificsCox(const ModelData<RealType>& input,
-			const std::string& deviceName)
+	GpuModelSpecificsCox(const ModelData<RealType>& input)
+//			const std::string& deviceName)
 		: ModelSpecifics<BaseModel,RealType>(input),
 		dCudaColumns(),
 		dBeta(), dXBeta(), dExpXBeta(),
@@ -243,6 +243,10 @@ public:
 //		cudaFreeHost(pGH);
 		std::cerr << "dtor GpuModelSpecificsCox" << std::endl;
 	}
+
+virtual AbstractModelSpecifics* clone() const {
+	return new GpuModelSpecificsCox<BaseModel,RealType>(modelData);
+}
 
 virtual void deviceInitialization() {
 #ifdef TIME_DEBUG

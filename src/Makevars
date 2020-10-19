@@ -103,7 +103,7 @@ all: $(OBJECTS)
 	g++ -std=gnu++11 -shared $(R_LIBS) $(CPICFLAGS) -o Cyclops.so $(OBJECTS) -pthread $(EXTRA_LIBS)
 
 %.o: %.cu
-	$(NVCC) -c -Xcompiler "$(CPICFLAGS) $(CPPFLAGS) $(CFLAGS) -c" $(CUB_LIB) $(INCLUDES) $(EXTRA_INCLUDES) $(RCPP_FLAGS) $(R_PATH_LINKER) $^ -o $@
+	$(NVCC) --default-stream per-thread -c -Xcompiler "$(CPICFLAGS) $(CPPFLAGS) $(CFLAGS) -c" $(CUB_LIB) $(INCLUDES) $(EXTRA_INCLUDES) $(RCPP_FLAGS) $(R_PATH_LINKER) $^ -o $@
 
 clean:
 	rm -rf *o

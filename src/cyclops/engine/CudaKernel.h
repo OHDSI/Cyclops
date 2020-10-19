@@ -75,7 +75,7 @@ class CudaKernel {
 
 public:
 
-//	cudaStream_t* streams;
+	cudaStream_t* stream;
 	int CVFolds;
 	int fold;
 

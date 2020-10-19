@@ -72,12 +72,12 @@ void AbstractCrossValidationDriver::drive(
 		ccd.turnOnSyncCV(allArguments.crossValidation.foldToCompute);
 		nThreads = 1;
 	}
-
+/*
 	bool streamCV = true;
 	if (streamCV) {
 		ccd.turnOnStreamCV(allArguments.crossValidation.foldToCompute);
 	}
-
+*/
 	std::vector<CyclicCoordinateDescent*> ccdPool;
 	std::vector<AbstractSelector*> selectorPool;
 
