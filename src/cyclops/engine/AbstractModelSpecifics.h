@@ -150,6 +150,8 @@ public:
 
 	virtual void setFold(int fold) {};
 
+	virtual void setHXBeta() {};
+
 	virtual std::vector<double> getBeta() {
 		std::vector<double> blah;
 		blah.push_back(0);

@@ -450,7 +450,9 @@ virtual double getLogLikelihood(bool useCrossValidation) {
 
 	for (size_t i = 0; i < K; i++) {
 		logLikelihood += hY[i] * hXBeta[i] * hKWeight[i];
+//		std::cout << "    GPUMS::getLogLikelihood i: " << i << " hY[i]: " << hY[i] << " hXBeta[i]: " << hXBeta[i] << " ll: " << logLikelihood << '\n';
 		logLikelihood -= hNWeight[i] * std::log(accDenomPid[i]);
+//		std::cout << "    GPUMS::getLogLikelihood i: " << i << " hNWeight[i]: " << hNWeight[i] << " accDenomPid[i]: " << accDenomPid[i] << " ll: " << logLikelihood << '\n';
 	}
 
 	return static_cast<double>(logLikelihood);
@@ -487,6 +489,43 @@ virtual double getPredictiveLogLikelihood(double* weights) {
 	computeRemainingStatistics(true);
 	
 	return static_cast<double>(logLikelihood);
+}
+
+virtual void setHXBeta() {
+	thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
+	hXBetaKnown = true;
+}
+
+virtual void updateXBeta(double delta, int index, bool useWeights) {
+	FormatType formatType = hX.getFormatType(index);
+	const auto taskCount = dCudaColumns.getTaskCount(index);
+	
+	int gridSize, blockSize;
+	blockSize = 256;
+	gridSize = (int)ceil((double)taskCount/blockSize);
+	
+	CudaData.updateXBeta(dCudaColumns.getData(),
+			dCudaColumns.getIndices(),
+			dCudaColumns.getDataOffset(index),
+			dCudaColumns.getIndicesOffset(index),
+			taskCount,
+			static_cast<RealType>(delta),
+			dKWeight,
+			dBeta,
+			dBetaBuffer,
+			dXBeta,
+			dExpXBeta,
+			dDenominator,
+			dAccDenominator,
+			dNumerator,
+			dNumerator2,
+			index,
+			K,
+			formatType,
+			gridSize, blockSize);
+	hXBetaKnown = false;
+//	thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
+//	hXBetaKnown = true;
 }
 
 virtual void updateBetaAndDelta(int index, bool useWeights) {
@@ -654,6 +693,7 @@ virtual std::vector<double> getBeta() {
 //	std::cout << " DH-copy in GPU::getBeta \n";
 	copyCudaVec(dBeta, dBetaBuffer);
 	thrust::copy(std::begin(dBeta), std::end(dBeta), std::begin(RealHBeta));
+	//std::cout << "hb0: " << RealHBeta[0] << " hb1: " << RealHBeta[1] << '\n';
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
 	///////////////////////////"

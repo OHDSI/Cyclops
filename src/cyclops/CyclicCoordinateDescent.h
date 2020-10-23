@@ -212,6 +212,10 @@ public:
 
 	void getFold(int fold);
 
+	void getHBeta(void);
+
+	void setHXBeta(void);
+
 protected:
 
 	bsccs::unique_ptr<AbstractModelSpecifics> privateModelSpecifics;

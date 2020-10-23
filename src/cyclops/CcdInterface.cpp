@@ -362,6 +362,8 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	    }
 	};
 
+    ccd->getHBeta();
+
     if (nThreads == 1) {
         std::for_each(std::begin(bounds), std::end(bounds),
                       [&getBound, ccd](const BoundType bound) {
@@ -426,6 +428,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 		    for (int j = 0; j < J; ++j) {
 		        ccd->setBeta(j, x0s[j]);
 		    }
+		    ccd->setHXBeta();
 		    // DEBUG, TODO Remove?
 // 		    double testMode = ccd->getLogLikelihood();
 // 		    std::ostringstream stream;

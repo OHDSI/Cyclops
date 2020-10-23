@@ -483,6 +483,18 @@ void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
 	varianceKnown = false;
 }
 
+void CyclicCoordinateDescent::getHBeta(void) {
+	if (usingCUDA) {
+		hBeta = modelSpecifics.getBeta();
+	}
+}
+
+void CyclicCoordinateDescent::setHXBeta(void) {
+	if (usingCUDA) {
+		modelSpecifics.setHXBeta();
+	}
+}
+
 void CyclicCoordinateDescent::setBeta(int i, double beta) {
 #define PROCESS_IN_MS
 #ifdef PROCESS_IN_MS
