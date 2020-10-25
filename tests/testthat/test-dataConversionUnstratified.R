@@ -1,6 +1,7 @@
 library("testthat")
 library("survival")
 library("Andromeda")
+library("gnm")
 
 context("test-dataConversionUnstratified.R")
 

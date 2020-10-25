@@ -37,7 +37,8 @@ Imports:
     dplyr,
     dbplyr,
     methods,
-    survival
+    survival,
+    bit64
 LinkingTo: Rcpp,
     BH (>= 1.51.0),
     RcppEigen (>= 0.3.2)
@@ -47,4 +48,4 @@ Suggests:
     gnm,
     ggplot2,
     microbenchmark
-RoxygenNote: 7.1.0
+RoxygenNote: 7.1.1

@@ -670,17 +670,19 @@ appendSqlCyclopsData <- function(object,
                           cCovariateValue)
 }
 
+#' @importFrom bit64 as.integer64 is.integer64
 #' @keywords internal
-loadNewSeqlCyclopsDataMultipleX <- function(object,
-                                            covariateId, # Vector
-                                            rowId, # Vector
-                                            covariateValue = NULL, # Vector
-                                            name,
-                                            append = FALSE,
-                                            checkSorting = FALSE,
-                                            checkCovariateIds = FALSE,
-                                            checkCovariateBounds = FALSE,
-                                            forceSparse = FALSE) {
+loadNewSqlCyclopsDataMultipleX <- function(object,
+                                           covariateId, # Vector
+                                           rowId, # Vector
+                                           covariateValue = NULL, # Vector
+                                           name,
+                                           append = FALSE,
+                                           checkSorting = FALSE,
+                                           checkCovariateIds = FALSE,
+                                           checkCovariateBounds = FALSE,
+                                           forceSparse = FALSE) {
+
     if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
 
     if (length(covariateId) != length(rowId)) stop("Vector length mismatch")
@@ -688,14 +690,21 @@ loadNewSeqlCyclopsDataMultipleX <- function(object,
     if (is.null(covariateValue)) {
         if (forceSparse) stop("Must provide covariate values when forcing sparse")
         covariateValue <- as.numeric(c())
-    }
-    else {
+    } else {
         if (length(covariateId) != length(covariateValue)) stop ("Vector length mismatch")
     }
 
     if (checkSorting) {
         # TODO: Check sorted by (1) covariateId, (2) rowId
         stop("Not yet implemented")
+    }
+
+    if (!bit64::is.integer64(covariateId)) {
+      covariateId <- bit64::as.integer64(covariateId)
+    }
+
+    if (!bit64::is.integer64(rowId)) {
+      rowId <- bit64::as.integer64(rowId)
     }
 
     index <- .loadCyclopsDataMultipleX(object,
@@ -708,12 +717,12 @@ loadNewSeqlCyclopsDataMultipleX <- function(object,
                                        forceSparse)
 
     if (!missing(name)) {
-        if(is.null(object$coefficientNames)) {
+        if (is.null(object$coefficientNames)) {
             object$coefficientNames <- as.character(c())
         }
         start <- index + 1
         end <- index + length(name)
-        object$coefficientNames[start:end] <- name
+        object$coefficientNames[start:end] <- as.character(name)
     }
 }
 
@@ -734,10 +743,18 @@ loadNewSqlCyclopsDataX <- function(object,
         stop("Replacing an X column is not currently supported")
     }
 
-    if (is.null(rowId)) rowId <- as.integer(c())
+    if (is.null(rowId)) rowId <- bit64::as.integer64(c())
     if (is.null(covariateValue)) {
         if (forceSparse) stop("Must provide covariate values when forcing sparse")
         covariateValue <- as.numeric(c())
+    }
+
+    if (!bit64::is.integer64(covariateId)) {
+      covariateId <- bit64::as.integer64(covariateId)
+    }
+
+    if (!bit64::is.integer64(rowId)) {
+      rowId <- bit64::as.integer64(rowId)
     }
 
     # throws error if covariateId already exists and append == FALSE
@@ -767,8 +784,8 @@ loadNewSqlCyclopsDataY <- function(object,
         stop("Object is no longer or improperly initialized.")
     }
 
-    if (is.null(stratumId)) stratumId <- as.integer(c())
-    if (is.null(rowId)) rowId <- as.integer(c())
+    if (is.null(stratumId)) stratumId <- bit64::as.integer64(c())
+    if (is.null(rowId)) rowId <- bit64::as.integer64(c())
 
     if (is.unsorted(stratumId)) {
         stop("All columns must be sorted first by stratumId (if supplied) and then by rowId")
@@ -777,6 +794,14 @@ loadNewSqlCyclopsDataY <- function(object,
     if (is.null(time)) {
         if (.isSurvivalModelType(object$modelType)) stop("Must provide time for survival model")
         time <- as.numeric(c())
+    }
+
+    if (!bit64::is.integer64(stratumId)) {
+      stratumId <- bit64::as.integer64(stratumId)
+    }
+
+    if (!bit64::is.integer64(rowId)) {
+      rowId <- bit64::as.integer64(rowId)
     }
 
     .loadCyclopsDataY(object,
@@ -877,6 +902,27 @@ isInitialized <- function(object) {
 }
 
 
+#' @title Get covariate types
+#'
+#' @description
+#' \code{getCovariateTypes} returns a vector covariate types in a Cyclops data object
+#'
+#' @param object    A Cyclops data object
+#' @param covariateLabel Integer vector: covariate identifiers to return
+#'
+#' @export
+getCovariateTypes <- function(object, covariateLabel) {
+  if (!isInitialized(object)) {
+    stop("Cyclops data object is no longer or improperly initialized")
+  }
+
+  if (!bit64::is.integer64(covariateLabel)) {
+    covariateLabel <- bit64::as.integer64(covariateLabel)
+  }
+
+  return(.getCovariateTypes(object, covariateLabel))
+}
+
 #' @title Cyclops data object summary
 #'
 #' @method summary cyclopsData
@@ -920,11 +966,7 @@ summary.cyclopsData <- function(object, ...) {
     }
 
     if (!is.null(object$coefficientNames)) {
-        #         if(.cyclopsGetHasIntercept(x)) {
-        #             row.names(tdf) <- x$coefficientNames[-1]
-        #         } else {
         row.names(tdf) <- object$coefficientNames
-        #         }
     }
     tdf
 }

@@ -186,15 +186,16 @@ convertToCyclopsData.data.frame <- function(outcomes,
                            y = outcomes$y,
                            time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
 
-    if (addIntercept & modelType != "cox")
+    if (addIntercept & modelType != "cox") {
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
+    }
 
     covarNames <- unique(covariates$covariateId)
-    loadNewSeqlCyclopsDataMultipleX(object = dataPtr,
-                                    covariateId = covariates$covariateId,
-                                    rowId = covariates$rowId,
-                                    covariateValue = covariates$covariateValue,
-                                    name = covarNames)
+    loadNewSqlCyclopsDataMultipleX(object = dataPtr,
+                                   covariateId = covariates$covariateId,
+                                   rowId = covariates$rowId,
+                                   covariateValue = covariates$covariateValue,
+                                   name = covarNames)
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
 
@@ -305,12 +306,13 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                            y = outcomes$y,
                            time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
 
-    if (addIntercept & modelType != "cox")
+    if (addIntercept & modelType != "cox") {
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
+    }
 
     loadCovariates <- function(batch) {
         covarNames <- unique(batch$covariateId)
-        loadNewSeqlCyclopsDataMultipleX(object = dataPtr,
+        loadNewSqlCyclopsDataMultipleX(object = dataPtr,
                                         covariateId = batch$covariateId,
                                         rowId = batch$rowId,
                                         covariateValue = batch$covariateValue,

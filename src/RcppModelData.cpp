@@ -134,38 +134,38 @@ int cyclopsGetNumberOfStrata(Environment object) {
 //' @title Get covariate identifiers
 //'
 //' @description
-//' \code{getCovariateIds} returns a vector of integer covariate identifiers in a Cyclops data object
+//' \code{getCovariateIds} returns a vector of integer64 covariate identifiers in a Cyclops data object
 //'
 //' @param object    A Cyclops data object
 //'
 //' @export
 // [[Rcpp::export("getCovariateIds")]]
-std::vector<int64_t> cyclopsGetCovariateIds(Environment object) {
+NumericVector cyclopsGetCovariateIds(Environment object) {
     using namespace bsccs;
 	XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
-	ProfileVector covariates;
+	NumericVector covariates;
+
 	size_t i = 0;
 	if (data->getHasOffsetCovariate()) i++;
-// 	if (data->getHasInterceptCovariate()) i++;
+
 	for (; i < data->getNumberOfCovariates(); ++i) {
-		covariates.push_back(data->getColumnNumericalLabel(i));
+	    int64_t label = data->getColumnNumericalLabel(i);
+
+	    double bit;
+	    std::memcpy(&bit, &label, sizeof(double));
+
+		covariates.push_back(bit);
 	}
+	covariates.attr("class") = "integer64";
 	return covariates;
 }
 
-//' @title Get covariate types
-//'
-//' @description
-//' \code{getCovariateTypes} returns a vector covariate types in a Cyclops data object
-//'
-//' @param object    A Cyclops data object
-//' @param covariateLabel Integer vector: covariate identifiers to return
-//'
-//' @export
-// [[Rcpp::export("getCovariateTypes")]]
-CharacterVector cyclopsGetCovariateType(Environment object, const std::vector<int64_t>& covariateLabel) {
+// [[Rcpp::export(".getCovariateTypes")]]
+CharacterVector cyclopsGetCovariateType(Environment object, const std::vector<double>& bitCovariateLabel) {
     using namespace bsccs;
 	XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
+
+	const auto covariateLabel = reinterpret_cast<const std::vector<int64_t>&>(bitCovariateLabel);
 	CharacterVector types(covariateLabel.size());
 
 	for (size_t i = 0; i < covariateLabel.size(); ++i) {
@@ -545,23 +545,25 @@ void cyclopsFinalizeData(
     data->setIsFinalized(true);
 }
 
-
 // [[Rcpp::export(".loadCyclopsDataY")]]
 void cyclopsLoadDataY(Environment x,
-        const std::vector<int64_t>& stratumId,
-        const std::vector<int64_t>& rowId,
-        const std::vector<double>& y,
-        const std::vector<double>& time) {
+                      const std::vector<double>& stratumId,
+                      const std::vector<double>& rowId,
+                      const std::vector<double>& y,
+                      const std::vector<double>& time) {
 
     using namespace bsccs;
     XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
-    data->loadY(stratumId, rowId, y, time);
+
+    data->loadY(reinterpret_cast<const std::vector<int64_t>&>(stratumId),
+                reinterpret_cast<const std::vector<int64_t>&>(rowId),
+                y, time);
 }
 
 // [[Rcpp::export(".loadCyclopsDataMultipleX")]]
 int cyclopsLoadDataMultipleX(Environment x,
-		const std::vector<int64_t>& covariateId,
-		const std::vector<int64_t>& rowId,
+		const std::vector<double>& covariateId,
+		const std::vector<double>& rowId,
 		const std::vector<double>& covariateValue,
 		const bool checkCovariateIds,
 		const bool checkCovariateBounds,
@@ -571,14 +573,16 @@ int cyclopsLoadDataMultipleX(Environment x,
 	using namespace bsccs;
 	XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
 
-	return data->loadMultipleX(covariateId, rowId, covariateValue, checkCovariateIds,
-                            checkCovariateBounds, append, forceSparse);
+	return data->loadMultipleX(reinterpret_cast<const std::vector<int64_t>&>(covariateId),
+                               reinterpret_cast<const std::vector<int64_t>&>(rowId),
+                               covariateValue, checkCovariateIds,
+                               checkCovariateBounds, append, forceSparse);
 }
 
 // [[Rcpp::export(".loadCyclopsDataX")]]
 int cyclopsLoadDataX(Environment x,
-        const int64_t covariateId,
-        const std::vector<int64_t>& rowId,
+        const double bitCovariateId,
+        const std::vector<double>& rowId,
         const std::vector<double>& covariateValue,
         const bool replace,
         const bool append,
@@ -587,10 +591,15 @@ int cyclopsLoadDataX(Environment x,
     using namespace bsccs;
     XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
 
+    int64_t covariateId;
+    std::memcpy(&covariateId, &bitCovariateId, sizeof(double));
+
     // rowId.size() == 0 -> dense
     // covariateValue.size() == 0 -> indicator
 
-    return data->loadX(covariateId, rowId, covariateValue, replace, append, forceSparse);
+    return data->loadX(covariateId,
+                       reinterpret_cast<const std::vector<int64_t>&>(rowId),
+                       covariateValue, replace, append, forceSparse);
 }
 
 // NOTE:  IdType does not get exported into RcppExports, so hard-coded here
