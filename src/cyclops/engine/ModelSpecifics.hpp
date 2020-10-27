@@ -1532,44 +1532,44 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 
 	IteratorType it(hX, index);
 // <<<<<<< HEAD
-	for (; it; ++it) {
-		const int k = it.index();
-		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
-        // Update denominators as well (denominators include (weight * offsExpXBeta))
-		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-		    RealType oldEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition to forming offExpXBeta
-            offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k); // Update offsExpXBeta
-			RealType newEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition
-            incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
-		}
-	}
+// 	for (; it; ++it) {
+// 		const int k = it.index();
+// 		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
+//         // Update denominators as well (denominators include (weight * offsExpXBeta))
+// 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+// 		    RealType oldEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition to forming offExpXBeta
+//             offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k); // Update offsExpXBeta
+// 			RealType newEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition
+//             incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
+// 		}
+// 	}
 // =======
-//     if (BaseModel::cumulativeGradientAndHessian) { // cox
-//         for (; it; ++it) {
-//             const int k = it.index();
-//             hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
-//
-//             if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-//                 RealType oldEntry = Weights::isWeighted ?
-//                     hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition to forming offExpXBeta
-//                 offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k); // Update offsExpXBeta
-//                 RealType newEntry = Weights::isWeighted ?
-//                     hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition
-//                 incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
-//             }
-//         }
-//     } else {
-//         for (; it; ++it) {
-//             const int k = it.index();
-//             hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
-//
-//             if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-//                 RealType oldEntry = offsExpXBeta[k];
-//                 RealType newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
-//                 incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry));
-//             }
-//         }
-//     }
+    if (BaseModel::cumulativeGradientAndHessian) { // cox
+        for (; it; ++it) {
+            const int k = it.index();
+            hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
+
+            if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+                RealType oldEntry = Weights::isWeighted ?
+                    hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition to forming offExpXBeta
+                offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k); // Update offsExpXBeta
+                RealType newEntry = Weights::isWeighted ?
+                    hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition
+                incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
+            }
+        }
+    } else {
+        for (; it; ++it) {
+            const int k = it.index();
+            hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
+
+            if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+                RealType oldEntry = offsExpXBeta[k];
+                RealType newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
+                incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry));
+            }
+        }
+    }
 // >>>>>>> develop
 
 	computeAccumlatedDenominator(Weights::isWeighted);

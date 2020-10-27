@@ -30,7 +30,7 @@
 #' ftime <- c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 #' fstatus <- c(1, 2, 0, 1, 2, 0, 1, 2, 0, 1)
 #' getFineGrayWeights(ftime, fstatus, cencode = 0, failcode = 1)
-#' @importFrom survival survfit
+#' @importFrom survival survfit Surv
 #' @importFrom stats approx
 #' @export
 getFineGrayWeights <- function(ftime, fstatus,
@@ -41,7 +41,7 @@ getFineGrayWeights <- function(ftime, fstatus,
     if(!failcode %in% unique(fstatus)) stop("cencode must be a valid value from fstatus")
     if(any(ftime < 0)) stop("all values of ftime must be positive valued")
 
-    obj <- suppressWarnings(Surv(ftime, fstatus)) # Suppress warning given by Surv function
+    obj <- suppressWarnings(survival::Surv(ftime, fstatus)) # Suppress warning given by Surv function
     obj[, 2] <- fstatus # Changes NA's to competing risks indicators
     cenind   <- ifelse(fstatus == cencode, 1, 0)
     obj[, 2] <- ifelse(obj[, 2] == failcode, 1, 2 * (1 - cenind)) # Changes competing risks to 2
