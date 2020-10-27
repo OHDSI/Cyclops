@@ -32,3 +32,4 @@ CMakeLists.txt
 deprecated
 CRAN-RELEASE
 .github/
+^\.github$
