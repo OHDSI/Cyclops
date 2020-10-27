@@ -6,18 +6,6 @@
 
 using namespace Rcpp;
 
-// bySum
-DataFrame bySum(List ffValues, List ffBins);
-RcppExport SEXP _Cyclops_bySum(SEXP ffValuesSEXP, SEXP ffBinsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< List >::type ffValues(ffValuesSEXP);
-    Rcpp::traits::input_parameter< List >::type ffBins(ffBinsSEXP);
-    rcpp_result_gen = Rcpp::wrap(bySum(ffValues, ffBins));
-    return rcpp_result_gen;
-END_RCPP
-}
 // cyclopsGetModelTypeNames
 std::vector<std::string> cyclopsGetModelTypeNames();
 RcppExport SEXP _Cyclops_cyclopsGetModelTypeNames() {
@@ -216,6 +204,21 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsGetProfileLikelihood
+DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface, SEXP inCovariate, const std::vector<double> points, int threads, bool includePenalty);
+RcppExport SEXP _Cyclops_cyclopsGetProfileLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP inCovariateSEXP, SEXP pointsSEXP, SEXP threadsSEXP, SEXP includePenaltySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type inCovariate(inCovariateSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double> >::type points(pointsSEXP);
+    Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
+    Rcpp::traits::input_parameter< bool >::type includePenalty(includePenaltySEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetProfileLikelihood(inRcppCcdInterface, inCovariate, points, threads, includePenalty));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsProfileModel
 List cyclopsProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, int threads, double threshold, bool override, bool includePenalty);
 RcppExport SEXP _Cyclops_cyclopsProfileModel(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP, SEXP threadsSEXP, SEXP thresholdSEXP, SEXP overrideSEXP, SEXP includePenaltySEXP) {
@@ -378,7 +381,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsGetCovariateIds
-std::vector<int64_t> cyclopsGetCovariateIds(Environment object);
+NumericVector cyclopsGetCovariateIds(Environment object);
 RcppExport SEXP _Cyclops_cyclopsGetCovariateIds(SEXP objectSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -389,14 +392,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsGetCovariateType
-CharacterVector cyclopsGetCovariateType(Environment object, const std::vector<int64_t>& covariateLabel);
-RcppExport SEXP _Cyclops_cyclopsGetCovariateType(SEXP objectSEXP, SEXP covariateLabelSEXP) {
+CharacterVector cyclopsGetCovariateType(Environment object, const std::vector<double>& bitCovariateLabel);
+RcppExport SEXP _Cyclops_cyclopsGetCovariateType(SEXP objectSEXP, SEXP bitCovariateLabelSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Environment >::type object(objectSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type covariateLabel(covariateLabelSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsGetCovariateType(object, covariateLabel));
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type bitCovariateLabel(bitCovariateLabelSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetCovariateType(object, bitCovariateLabel));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -650,13 +653,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsLoadDataY
-void cyclopsLoadDataY(Environment x, const std::vector<int64_t>& stratumId, const std::vector<int64_t>& rowId, const std::vector<double>& y, const std::vector<double>& time);
+void cyclopsLoadDataY(Environment x, const std::vector<double>& stratumId, const std::vector<double>& rowId, const std::vector<double>& y, const std::vector<double>& time);
 RcppExport SEXP _Cyclops_cyclopsLoadDataY(SEXP xSEXP, SEXP stratumIdSEXP, SEXP rowIdSEXP, SEXP ySEXP, SEXP timeSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type stratumId(stratumIdSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type rowId(rowIdSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type stratumId(stratumIdSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type rowId(rowIdSEXP);
     Rcpp::traits::input_parameter< const std::vector<double>& >::type y(ySEXP);
     Rcpp::traits::input_parameter< const std::vector<double>& >::type time(timeSEXP);
     cyclopsLoadDataY(x, stratumId, rowId, y, time);
@@ -664,14 +667,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsLoadDataMultipleX
-int cyclopsLoadDataMultipleX(Environment x, const std::vector<int64_t>& covariateId, const std::vector<int64_t>& rowId, const std::vector<double>& covariateValue, const bool checkCovariateIds, const bool checkCovariateBounds, const bool append, const bool forceSparse);
+int cyclopsLoadDataMultipleX(Environment x, const std::vector<double>& covariateId, const std::vector<double>& rowId, const std::vector<double>& covariateValue, const bool checkCovariateIds, const bool checkCovariateBounds, const bool append, const bool forceSparse);
 RcppExport SEXP _Cyclops_cyclopsLoadDataMultipleX(SEXP xSEXP, SEXP covariateIdSEXP, SEXP rowIdSEXP, SEXP covariateValueSEXP, SEXP checkCovariateIdsSEXP, SEXP checkCovariateBoundsSEXP, SEXP appendSEXP, SEXP forceSparseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type covariateId(covariateIdSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type rowId(rowIdSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type covariateId(covariateIdSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type rowId(rowIdSEXP);
     Rcpp::traits::input_parameter< const std::vector<double>& >::type covariateValue(covariateValueSEXP);
     Rcpp::traits::input_parameter< const bool >::type checkCovariateIds(checkCovariateIdsSEXP);
     Rcpp::traits::input_parameter< const bool >::type checkCovariateBounds(checkCovariateBoundsSEXP);
@@ -682,19 +685,19 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsLoadDataX
-int cyclopsLoadDataX(Environment x, const int64_t covariateId, const std::vector<int64_t>& rowId, const std::vector<double>& covariateValue, const bool replace, const bool append, const bool forceSparse);
-RcppExport SEXP _Cyclops_cyclopsLoadDataX(SEXP xSEXP, SEXP covariateIdSEXP, SEXP rowIdSEXP, SEXP covariateValueSEXP, SEXP replaceSEXP, SEXP appendSEXP, SEXP forceSparseSEXP) {
+int cyclopsLoadDataX(Environment x, const double bitCovariateId, const std::vector<double>& rowId, const std::vector<double>& covariateValue, const bool replace, const bool append, const bool forceSparse);
+RcppExport SEXP _Cyclops_cyclopsLoadDataX(SEXP xSEXP, SEXP bitCovariateIdSEXP, SEXP rowIdSEXP, SEXP covariateValueSEXP, SEXP replaceSEXP, SEXP appendSEXP, SEXP forceSparseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
-    Rcpp::traits::input_parameter< const int64_t >::type covariateId(covariateIdSEXP);
-    Rcpp::traits::input_parameter< const std::vector<int64_t>& >::type rowId(rowIdSEXP);
+    Rcpp::traits::input_parameter< const double >::type bitCovariateId(bitCovariateIdSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type rowId(rowIdSEXP);
     Rcpp::traits::input_parameter< const std::vector<double>& >::type covariateValue(covariateValueSEXP);
     Rcpp::traits::input_parameter< const bool >::type replace(replaceSEXP);
     Rcpp::traits::input_parameter< const bool >::type append(appendSEXP);
     Rcpp::traits::input_parameter< const bool >::type forceSparse(forceSparseSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsLoadDataX(x, covariateId, rowId, covariateValue, replace, append, forceSparse));
+    rcpp_result_gen = Rcpp::wrap(cyclopsLoadDataX(x, bitCovariateId, rowId, covariateValue, replace, append, forceSparse));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -762,7 +765,6 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_Cyclops_bySum", (DL_FUNC) &_Cyclops_bySum, 2},
     {"_Cyclops_cyclopsGetModelTypeNames", (DL_FUNC) &_Cyclops_cyclopsGetModelTypeNames, 0},
     {"_Cyclops_cyclopsGetRemoveInterceptNames", (DL_FUNC) &_Cyclops_cyclopsGetRemoveInterceptNames, 0},
     {"_Cyclops_cyclopsGetIsSurvivalNames", (DL_FUNC) &_Cyclops_cyclopsGetIsSurvivalNames, 0},
@@ -780,6 +782,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsSetPrior", (DL_FUNC) &_Cyclops_cyclopsSetPrior, 6},
     {"_Cyclops_cyclopsTestParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsTestParameterizedPrior, 4},
     {"_Cyclops_cyclopsSetParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsSetParameterizedPrior, 5},
+    {"_Cyclops_cyclopsGetProfileLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetProfileLikelihood, 5},
     {"_Cyclops_cyclopsProfileModel", (DL_FUNC) &_Cyclops_cyclopsProfileModel, 6},
     {"_Cyclops_cyclopsPredictModel", (DL_FUNC) &_Cyclops_cyclopsPredictModel, 1},
     {"_Cyclops_cyclopsSetControl", (DL_FUNC) &_Cyclops_cyclopsSetControl, 21},

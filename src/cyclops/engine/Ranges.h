@@ -11,6 +11,7 @@
 #include <boost/iterator/permutation_iterator.hpp>
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/iterator/zip_iterator.hpp>
+#include <boost/range/iterator_range.hpp>
 
 namespace bsccs {
 

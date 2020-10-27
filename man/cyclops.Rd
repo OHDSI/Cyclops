@@ -3,7 +3,6 @@
 \docType{package}
 \name{cyclops}
 \alias{cyclops}
-\alias{cyclops-package}
 \title{Cyclops: Cyclic coordinate descent for logistic, Poisson and survival analysis}
 \description{
 The Cyclops package incorporates cyclic coordinate descent and

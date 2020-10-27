@@ -4,8 +4,7 @@
 \alias{vcov.cyclopsFit}
 \title{Calculate variance-covariance matrix for a fitted Cyclops model object}
 \usage{
-\method{vcov}{cyclopsFit}(object, control,
-  overrideNoRegularization = FALSE, ...)
+\method{vcov}{cyclopsFit}(object, control, overrideNoRegularization = FALSE, ...)
 }
 \arguments{
 \item{object}{A fitted Cyclops model object}

@@ -40,8 +40,8 @@ before_install:
   - ./run.sh bootstrap
 
 install:
-  - ./run.sh install_aptget r-cran-rcpp r-cran-bit r-cran-ff r-cran-ffbase r-cran-rcppparallel r-cran-rcppeigen r-cran-ggplot2 r-cran-testthat r-cran-gnm r-cran-devtools
-  - ./run.sh install_r drat covr microbenchmark
+  - ./run.sh install_aptget r-cran-rcpp r-cran-dplyr r-cran-rcppparallel r-cran-rcppeigen r-cran-ggplot2 r-cran-testthat r-cran-gnm r-cran-devtools
+  - ./run.sh install_r drat covr microbenchmark dbplyr Andromeda
   - Rscript -e 'devtools::install_version("cmprsk", version = "2.2-7", repos = "http://cran.us.r-project.org")' # For R < 3.6
   - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
   - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')
@@ -50,6 +50,7 @@ script:
   - ./run.sh run_tests
 
 after_success:
+  - Rscript -e 'covr::codecov()'
   - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && perl compare_versions --tag && bash deploy.sh && curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/broadsea-methodslibrary/trigger/f0b51cec-4027-4781-9383-4b38b42dd4f5/
 
 after_failure:

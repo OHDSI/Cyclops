@@ -318,20 +318,40 @@ void CyclicCoordinateDescent::logResults(const char* fileName, bool withASE) {
 
 double CyclicCoordinateDescent::getNewPredictiveLogLikelihood(double* weights) {
 
-    std::vector<double> savedWeights;
+//     std::vector<double> savedWeights;
+//
+// 	if (weights != nullptr) {
+// 	    savedWeights = hWeights; // Save original
+// 	    setWeights(weights);
+// 	    // modelSpecifics.setWeights(weights, true);
+// 	}
+//
+// 	auto result = getLogLikelihood();
+// 	// auto result = modelSpecifics.getPredictiveLogLikelihood(weights);
+//
+// 	if (weights != nullptr) {
+// 	    setWeights(savedWeights.data());
+// 	    // modelSpecifics.setWeights(savedWeights.data(), true);
+// 	}
+//
+// 	return result;
 
-	if (weights != nullptr) {
-	    savedWeights = hWeights; // Save original
-	    setWeights(weights);
-	}
+    xBetaKnown = false;
 
-	auto result = getLogLikelihood();
+    if (!xBetaKnown) {
+        computeXBeta();
+        xBetaKnown = true;
+        sufficientStatisticsKnown = false;
+    }
 
-	if (weights != nullptr) {
-	    setWeights(savedWeights.data());
-	}
+    if (!sufficientStatisticsKnown) {
+        computeRemainingStatistics(true, 0); // TODO Remove index????
+        sufficientStatisticsKnown = true;
+    }
 
-	return result;
+    getDenominators();
+
+    return modelSpecifics.getPredictiveLogLikelihood(weights); // TODO Pass double
 }
 
 void CyclicCoordinateDescent::getPredictiveEstimates(double* y, double* weights) const {
@@ -1311,9 +1331,6 @@ void CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix(void) {
 //			}
 			hessianMatrix(jj,ii) = hessianMatrix(ii,jj) = fisherInformation;
 
-//			std::cerr << "Info = " << fisherInformation << std::endl;
-//			std::cerr << "Hess = " << getHessianDiagonal(0) << std::endl;
-//			exit(-1);
 		}
 	}
 

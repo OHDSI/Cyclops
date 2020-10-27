@@ -29,3 +29,5 @@ _pkgdown.yml
 docs
 NEWS.old
 CMakeLists.txt
+deprecated
+CRAN-RELEASE

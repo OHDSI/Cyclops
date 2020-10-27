@@ -25,3 +25,5 @@ tests/testthat/test-weighted_cv.R
 .idea
 cmake-build-debug
 standalone/*.txt
+src/hide
+extras

@@ -4,8 +4,14 @@
 \alias{aconfint}
 \title{Asymptotic confidence intervals for a fitted Cyclops model object}
 \usage{
-aconfint(object, parm, level = 0.95, control,
-  overrideNoRegularization = FALSE, ...)
+aconfint(
+  object,
+  parm,
+  level = 0.95,
+  control,
+  overrideNoRegularization = FALSE,
+  ...
+)
 }
 \arguments{
 \item{object}{A fitted Cyclops model object}

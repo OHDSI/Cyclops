@@ -1,3 +1,27 @@
+Cyclops v3.0.0
+==============
+
+Changes:
+
+1. switch to `Andromeda` from `ff` to hold large datasets.  This change breaks API
+
+Cyclops v2.0.4
+==============
+
+Changes:
+
+1. removed, unused variable imputation functions that contained a `std::exit`
+
+Cyclops v2.0.3
+==============
+
+Changes:
+
+1. fix computation under conditional Poisson models by reverting to v1.3.4-style loop
+2. fix several unit-tests for compatibility with `R 4.0` factors
+3. add ability to profile likelihood function in parallel
+4. add initial infrastructure for competing risks models
+
 Cyclops v2.0.2
 ==============
 

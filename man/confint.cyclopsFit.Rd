@@ -4,9 +4,15 @@
 \alias{confint.cyclopsFit}
 \title{Confidence intervals for Cyclops model parameters}
 \usage{
-\method{confint}{cyclopsFit}(object, parm, level = 0.95,
-  overrideNoRegularization = FALSE, includePenalty = TRUE,
-  rescale = FALSE, ...)
+\method{confint}{cyclopsFit}(
+  object,
+  parm,
+  level = 0.95,
+  overrideNoRegularization = FALSE,
+  includePenalty = TRUE,
+  rescale = FALSE,
+  ...
+)
 }
 \arguments{
 \item{object}{A fitted Cyclops model object}
@@ -31,8 +37,7 @@ These columns are labelled as (1-level) / 2 and 1 - (1 - level) / 2 in percent
 }
 \description{
 \code{confinit.cyclopsFit} profiles the data likelihood to construct confidence intervals of
-arbitrary level. Usually it only makes sense to do this for variables that have not been regularized
-TODO: Profile data likelihood or joint distribution of remaining parameters.
+arbitrary level. Usually it only makes sense to do this for variables that have not been regularized.
 }
 \examples{
 #Generate some simulated data:

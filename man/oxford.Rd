@@ -4,7 +4,8 @@
 \name{oxford}
 \alias{oxford}
 \title{Oxford self-controlled case series data}
-\format{A data frame with 38 rows and 6 variables:
+\format{
+A data frame with 38 rows and 6 variables:
 \describe{
   \item{indiv}{patient identifier}
   \item{event}{number of events in interval}
@@ -13,9 +14,7 @@
   \item{exgr}{exposure group}
   \item{loginterval}{log interval length}
   ...
-}}
-\source{
-\url{http://statistics.open.ac.uk/sccs/r.htm}
+}
 }
 \usage{
 data(oxford)

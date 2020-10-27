@@ -7,7 +7,7 @@
 createNonSeparablePrior(maxIterations = 10, ...)
 }
 \arguments{
-\item{maxIterations}{Numeric: maxium iterations to achieve convergence}
+\item{maxIterations}{Numeric: maximum iterations to achieve convergence}
 
 \item{...}{Additional argument(s) for \code{\link{fitCyclopsModel}}}
 }

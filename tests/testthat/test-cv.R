@@ -194,3 +194,15 @@ test_that("Using multi-core CV", {
     # Warm starting should be faster
     expect_less_than(time3[3], time1[3])
 })
+
+test_that("Seed gets returned", {
+    y <- 0
+    x <- 1
+    data <- createCyclopsData(y ~ x, modelType = "lr")
+    fit <- fitCyclopsModel(data, control = createControl(seed = 123))
+    expect_equal(fit$seed, 123)
+
+    fit <- fitCyclopsModel(data, forceNewObject = TRUE,
+                           control = createControl(seed = NULL))
+    expect_true(!is.null(fit$seed))
+})

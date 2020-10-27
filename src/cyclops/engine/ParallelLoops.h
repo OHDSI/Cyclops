@@ -84,8 +84,6 @@ namespace variants {
             return f_out(result_out, result_in, *outer);
         }
 
-
-
     } // namespace trial
 
     const int nThreads = 4;
