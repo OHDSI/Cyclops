@@ -39,9 +39,3 @@ after_success:
   - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && perl compare_versions --tag && bash deploy.sh && curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/broadsea-methodslibrary/trigger/f0b51cec-4027-4781-9383-4b38b42dd4f5/
   - Rscript -e 'library(covr);codecov()'
 
-env:
-  global:
-  - secure: PiXvBNIYwsoV6XRx9MLNu2MOI6sgk/xgJO/T4FCCRC+0zBuNUUkvDN2mEKO8y2p+CgwXDq/JVq9gJb6NvwBf2lj7PDQwEuxU3j0Tinx56IdIrWbia98QW91b8F8+dg8M3FEt0BEPlbiDKqSjhqcv3fXOOoxT9QbQjaZaA1zkCAk=
-
-#  - Rscript -e 'devtools::install_version("cmprsk", version = "2.2-7", repos = "http://cran.us.r-project.org")' # For R < 3.6
-
