@@ -1,10 +1,12 @@
 language: r
-sudo: false
+
 cache: packages
 
 branches:
   except:
     - /^*-v[0-9]/
+
+dist: trusty
 
 r_packages:
   - covr
