@@ -1,62 +1,45 @@
-# Run Travis CI for R using https://eddelbuettel.github.io/r-travis/
-
-language: c
-
-sudo: required
-
-dist: trusty
+language: r
+sudo: false
+cache: packages
 
 branches:
   except:
     - /^*-v[0-9]/
 
-matrix:
-  include:
-    # gcc default
-    - compiler: gcc
-    # gcc 6
-    - compiler: gcc
-      addons:
-        apt:
-          update: true
-          sources:
-          - ubuntu-toolchain-r-test
-          packages:
-          - g++-6
-      before_script:
-        - export CC=gcc-6
-        - export CXX=g++-6
-        - mkdir -p ~/.R
-        - echo 'CC=gcc-6' > ~/.R/Makevars
-        - echo 'CXX=g++-6' >> ~/.R/Makevars
-        - echo 'CXX1X=g++-6' >> ~/.R/Makevars
-        - echo 'CXX11=g++-6' >> ~/.R/Makevars
-        - echo 'PKG_CXXFLAGS= -std=c++14 -s -g1 -Wno-ignored-attributes -Wno-deprecated-declarations' >> ~/.R/Makevars
+r_packages:
+  - covr
+  - drat
+  - devtools
+  - microbenchmark
+  - dbplyr
+  - Andromeda
+  -cmprsk
 
-before_install:
-  - curl -OLs https://eddelbuettel.github.io/r-travis/run.sh && chmod 0755 run.sh
-  # add Eddelbuttel launchpad repo
-  - sudo add-apt-repository -y ppa:edd/misc
-  - ./run.sh bootstrap
-
-install:
-  - ./run.sh install_aptget r-cran-rcpp r-cran-dplyr r-cran-rcppparallel r-cran-rcppeigen r-cran-ggplot2 r-cran-testthat r-cran-gnm r-cran-devtools
-  - ./run.sh install_r drat covr microbenchmark dbplyr Andromeda
-  - Rscript -e 'devtools::install_version("cmprsk", version = "2.2-7", repos = "http://cran.us.r-project.org")' # For R < 3.6
+before_script:
   - export PKG_NAME=$(Rscript -e 'cat(paste0(devtools::as.package(".")$package))')
   - export PKG_TARBALL=$(Rscript -e 'pkg <- devtools::as.package("."); cat(paste0(pkg$package,"_",pkg$version,".tar.gz"))')
 
+# Build and check package
 script:
-  - ./run.sh run_tests
-
-after_success:
-  - Rscript -e 'covr::codecov()'
-  - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && perl compare_versions --tag && bash deploy.sh && curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/broadsea-methodslibrary/trigger/f0b51cec-4027-4781-9383-4b38b42dd4f5/
-
-after_failure:
-  - ./run.sh dump_logs
+  - R CMD build .
+  - _R_CHECK_CRAN_INCOMING_=FALSE R CMD check "${PKG_TARBALL}" --as-cran
+  - cat ${PKG_NAME}.Rcheck/00install.out # Print out install / compile log
 
 notifications:
+  recipients:
+    - msuchard@gmail.com
+    - schuemie@ohdsi.org
   email:
     on_success: change
     on_failure: change
+
+after_success:
+  - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && perl compare_versions --tag && bash deploy.sh && curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/broadsea-methodslibrary/trigger/f0b51cec-4027-4781-9383-4b38b42dd4f5/
+  - Rscript -e 'library(covr);codecov()'
+
+env:
+  global:
+  - secure: PiXvBNIYwsoV6XRx9MLNu2MOI6sgk/xgJO/T4FCCRC+0zBuNUUkvDN2mEKO8y2p+CgwXDq/JVq9gJb6NvwBf2lj7PDQwEuxU3j0Tinx56IdIrWbia98QW91b8F8+dg8M3FEt0BEPlbiDKqSjhqcv3fXOOoxT9QbQjaZaA1zkCAk=
+
+#  - Rscript -e 'devtools::install_version("cmprsk", version = "2.2-7", repos = "http://cran.us.r-project.org")' # For R < 3.6
+
