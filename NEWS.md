@@ -1,3 +1,11 @@
+Cyclops v3.1.0
+==============
+
+Changes:
+
+1. implement Fine-Gray competing risks regression
+
+
 Cyclops v3.0.0
 ==============
 

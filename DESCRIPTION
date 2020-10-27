@@ -1,13 +1,14 @@
 Package: Cyclops
 Type: Package
 Title: Cyclic Coordinate Descent for Logistic, Poisson and Survival Analysis
-Version: 3.0.0
+Version: 3.1.0
 Authors@R: c(
     person("Marc A.", "Suchard", email = "msuchard@ucla.edu", role = c("aut","cre")),
     person("Martijn J.", "Schuemie", role = "aut"),
     person("Trevor R.", "Shaddox", role = "aut"),
     person("Yuxi", "Tian", role = "aut"),
     person("Jianxiao", "Yang", role = "aut"),
+    person("Eric", "Kawaguchi", role = "aut"),
     person("Sushil", "Mittal", role ="ctb"),
     person("Observational Health Data Sciences and Informatics", role = "cph"),
     person("Marcus", "Geelnard", role = c("cph", "ctb"),
