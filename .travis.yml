@@ -28,10 +28,10 @@ script:
   - cat ${PKG_NAME}.Rcheck/00install.out # Print out install / compile log
 
 notifications:
-  recipients:
-    - msuchard@gmail.com
-    - schuemie@ohdsi.org
   email:
+    recipients:
+      - msuchard@gmail.com
+      - schuemie@ohdsi.org
     on_success: change
     on_failure: change
 
