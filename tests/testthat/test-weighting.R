@@ -287,7 +287,7 @@ test_that("Large Cox regression with weighting",{
                                effectSizeSd=0.5,
                                eCovarsPerRow=2,
                                model="survival")
-    sim$outcomes$weight <- 1/sim$outcomes$rr
+    sim$outcomes$weights <- 1/sim$outcomes$rr
 
     # Gold standard
     covariates <- sim$covariates
@@ -303,7 +303,7 @@ test_that("Large Cox regression with weighting",{
     data <- merge(data,sim$outcomes)
     data <- data[order(data$stratumId,data$rowId),]
     formula <- as.formula(paste(c("Surv(time,y) ~ strata(stratumId)",paste("V",1:ncovars,sep="")),collapse=" + "))
-    fitCoxph <- survival::coxph(formula, data = data, weights = data$weight, ties = "breslow")
+    fitCoxph <- survival::coxph(formula, data = data, weights = data$weights, ties = "breslow")
 
     # Cyclops
     cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes,
