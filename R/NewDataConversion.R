@@ -43,7 +43,8 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'   \verb{y}    \tab(real) \tab The outcome variable \cr
 #'   \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
 #'                  \tab        \tab(e.g. number of days) \cr
-#'   \verb{weight} \tab(real) \tab (optional) Non-negative weight to apply to outcome
+#'   \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome
+#'   \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided.
 #' }
 #'
 #' These columns are expected in the covariates object:
@@ -205,16 +206,21 @@ convertToCyclopsData.data.frame <- function(outcomes,
         .normalizeCovariates(dataPtr, normalize)
     }
 
-    if ("weight" %in% colnames(outcomes)) {
-        dataPtr$weights <- outcomes$weight
+    if ("weights" %in% colnames(outcomes)) {
+        dataPtr$weights <- outcomes$weights
     } else {
-        dataPtr$weights <- NULL
+        dataPtr$censorWeights <- NULL
     }
 
-    if (is.null(outcomes$censorWeight)) {
-        dataPtr$censorWeights <- NULL
+    if ("censorWeights" %in% colnames(outcomes)) {
+        dataPtr$censorWeights <- outcomes$censorWeights
     } else {
-        dataPtr$censorWeights <- outcomes$censorWeight
+        if (modelType == "fgr") {
+            dataPtr$censorWeights <- getFineGrayWeights(outcomes$time, outcomes$y)$weights
+            writeLines("Generating censoring weights")
+        } else {
+            dataPtr$censorWeights <- NULL
+        }
     }
 
     return(dataPtr)
@@ -341,21 +347,27 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         .normalizeCovariates(dataPtr, normalize)
     }
 
-    if ("weight" %in% colnames(outcomes)) {
+    if ("weights" %in% colnames(outcomes)) {
         dataPtr$weights <- outcomes %>%
-            select(.data$weight) %>%
+            select(.data$weights) %>%
             pull()
     } else {
         dataPtr$weights <- NULL
     }
 
-
-    if (is.null(outcomes$censorWeight)) {
-        dataPtr$censorWeights <- NULL
-    } else {
+    if ("censorWeights" %in% colnames(outcomes)) {
         dataPtr$censorWeights <- outcomes %>%
-            select(.data$censorWeight) %>%
+            select(.data$censorWeights) %>%
             pull()
+    } else {
+        if (modelType == "fgr") {
+            dataPtr$censorWeights <- getFineGrayWeights(
+                outcomes %>% select(.data$time) %>% pull(),
+                outcomes %>% select(.data$y) %>%pull())$weights
+            writeLines("Generating censoring weights")
+        } else {
+            dataPtr$censorWeights <- NULL
+        }
     }
 
     return(dataPtr)
