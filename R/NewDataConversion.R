@@ -149,6 +149,11 @@ convertToCyclopsData.data.frame <- function(outcomes,
     }
 
     if (modelType == "cox" | modelType == "fgr") {
+
+        if (modelType == "cox" & length(unique(outcomes$y)) > 2) {
+            stop("Cox model only accepts one outcome type")
+        }
+
         if (!isSorted(outcomes,
                       c("stratumId", "time", "y", "rowId"),
                       c(TRUE, FALSE, TRUE, TRUE))) {
@@ -299,6 +304,12 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     }
 
     if (modelType == "cox" | modelType == "fgr") {
+
+        if (modelType == "cox" &
+            (select(outcomes, .data$y) %>% distinct() %>% count() %>% collect() > 2)) {
+            stop("Cox model only accepts one outcome type")
+        }
+
         outcomes <- outcomes %>%
             arrange(.data$stratumId, desc(.data$time), .data$y, .data$rowId)
         if (!"time" %in% colnames(covariates)) {
@@ -348,22 +359,19 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     }
 
     if ("weights" %in% colnames(outcomes)) {
-        dataPtr$weights <- outcomes %>%
-            select(.data$weights) %>%
-            pull()
+        dataPtr$weights <- outcomes %>% pull(.data$weights)
     } else {
         dataPtr$weights <- NULL
     }
 
     if ("censorWeights" %in% colnames(outcomes)) {
-        dataPtr$censorWeights <- outcomes %>%
-            select(.data$censorWeights) %>%
-            pull()
+        dataPtr$censorWeights <- outcomes %>% pull(.data$censorWeights)
     } else {
         if (modelType == "fgr") {
             dataPtr$censorWeights <- getFineGrayWeights(
-                outcomes %>% select(.data$time) %>% pull(),
-                outcomes %>% select(.data$y) %>%pull())$weights
+                outcomes %>% pull(.data$time),
+                outcomes %>% pull(.data$y)
+            )$weights
             writeLines("Generating censoring weights")
         } else {
             dataPtr$censorWeights <- NULL

@@ -4,6 +4,7 @@ Cyclops v3.1.0
 Changes:
 
 1. implement Fine-Gray competing risks regression
+2. fixed `getCyclopsProfileLogLikelihood` when starting with extreme coefficients
 
 
 Cyclops v3.0.0
@@ -64,7 +65,7 @@ Changes:
 1. fix undeclared dependencies in unit-tests: `MASS` and `microbenchmarks`
 2. fix issues with ATLAS compilation
 3. add contexts to testthat files
-4. fix ASAN errors in AbstractModelSpecifics
+4. fix ASAN errors in `AbstractModelSpecifics`
 
 Cyclops 1.3.3
 =============

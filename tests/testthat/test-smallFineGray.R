@@ -4,6 +4,30 @@ library("cmprsk")
 
 suppressWarnings(RNGversion("3.5.0"))
 
+test_that("Check that Cox fits only have 2 outcome identifies", {
+    test <- read.table(header=T, sep = ",", text = "
+                       start, length, event, x1, x2
+                       0, 4,  1,0,0
+                       0, 3.5,2,2,0
+                       0, 3,  0,0,1
+                       0, 2.5,2,0,1
+                       0, 2,  1,1,1
+                       0, 1.5,0,1,0
+                       0, 1,  1,1,0")
+    outcomes <- data.frame(rowId = 1:7,
+                           time = c(4, 3.5, 3, 2.5, 2, 1.5, 1),
+                           y = c(1, 2, 0, 0, 1, 1, 1))
+
+    covariates <- data.frame(rowId = c(2, 3, 4, 5, 5, 6, 7),
+                             covariateId = c(1, 2, 2, 1, 2, 1, 1),
+                             covariateValue = c(2, 1, 1, 1, 1, 1, 1))
+
+    expect_error(ptr <- convertToCyclopsData(outcomes, covariates, modelType = "cox"))
+
+    andro <- Andromeda::andromeda(outcomes = outcomes, covariates = covariates)
+    expect_error(ptr <- convertToCyclopsData(andro$outcomes, andro$covariates, modelType = "cox"))
+})
+
 test_that("Check very small Fine-Gray example with no ties", {
     test <- read.table(header=T, sep = ",", text = "
                        start, length, event, x1, x2
