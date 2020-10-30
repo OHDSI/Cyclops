@@ -36,7 +36,6 @@ Imports:
     Rcpp (>= 0.12.12),
     Andromeda (>= 0.3.1),
     dplyr,
-    dbplyr,
     methods,
     survival,
     bit64
