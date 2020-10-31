@@ -6,7 +6,7 @@ Cyclops
 [![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/Cyclops)](https://CRAN.R-project.org/package=Cyclops)
 [![CRAN_Status_Badge](http://cranlogs.r-pkg.org/badges/Cyclops)](https://cran.r-project.org/package=Cyclops)
 
-Cyclops is part of the [HADES](https://ohdsi.github.io/Hades).
+Cyclops is part of the [HADES](https://ohdsi.github.io/Hades/).
 
 
 Introduction
@@ -31,7 +31,7 @@ Examples
   cyclopsData <- createCyclopsDataFrame(formula)
   cyclopsFit <- fitCyclopsModel(cyclopsData)
 ```
- 
+
 Technology
 ============
 Cyclops in an R package, with most functionality implemented in C++. Cyclops uses cyclic coordinate descent to optimize the likelihood function, which makes use of the sparse nature of the data.
@@ -47,21 +47,21 @@ In R, to install the latest stable version, install from CRAN:
 ```r
 install.packages("Cyclops")
 ```
-  
+
 To install the latest development version, install from GitHub. Note that this will require RTools to be installed.
 
 ```r
 install.packages("devtools")
-devtools::install_github("ohdsi/Cyclops")
+devtools::install_github("OHDSI/Cyclops")
 ```
 
- 
+
 User Documentation
 ==================
-Documentation can be found on the [package website](https://ohdsi.github.io/Cyclops).
+Documentation can be found on the [package website](https://ohdsi.github.io/Cyclops/).
 
 PDF versions of the documentation are also available:
-* Package manual: [Cyclops manual](https://raw.githubusercontent.com/OHDSI/Cyclops/master/extras/Cyclops.pdf) 
+* Package manual: [Cyclops manual](https://raw.githubusercontent.com/OHDSI/Cyclops/master/extras/Cyclops.pdf)
 
 Support
 =======
@@ -71,7 +71,7 @@ Support
 Contributing
 ============
 Read [here](https://ohdsi.github.io/Hades/contribute.html) how you can contribute to this package.
- 
+
 License
 =======
 Cyclops is licensed under Apache License 2.0.   Cyclops contains the TinyThread libray.
