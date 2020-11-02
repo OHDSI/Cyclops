@@ -224,11 +224,20 @@ public:
 
 	CudaAllGpuColumns<RealType> dCudaColumns;
 	CudaKernel<RealType, RealType2> CudaData;
-	
+
+	GpuModelSpecificsCox() = delete;
+	GpuModelSpecificsCox(const GpuModelSpecificsCox& copy) = delete;
+
 	GpuModelSpecificsCox(const ModelData<RealType>& input)
 //			const std::string& deviceName)
 		: ModelSpecifics<BaseModel,RealType>(input),
 		dCudaColumns(),
+		dXjY(),
+		priorTypes(), RealHBeta(), dBetaBuffer(),
+		dNumerator(), dNumerator2(),
+		dAccNumer(), dAccNumer2(),
+		dGH(), dBlockGH(),
+		dBound(), dDeltaVector(), dPriorParams(),
 		dBeta(), dXBeta(), dExpXBeta(),
 		dDenominator(), dAccDenominator(),
 		dKWeight(), dNWeight(),
@@ -294,17 +303,20 @@ virtual void deviceInitialization() {
 	resizeCudaVec(hXBeta, dXBeta); // K
 	resizeCudaVec(offsExpXBeta, dExpXBeta); // K
 	resizeCudaVec(denomPid, dDenominator); // K
-
+/*
 	resizeAndZeroCudaVec(numerPid, dNumerator); // getAlignedLength(N + 1)
 	if (BaseModel::hasTwoNumeratorTerms) {
 		resizeAndZeroCudaVec(numerPid2, dNumerator2);
 	}
+*/
+	CudaData.resizeAndFillToDevice(dNumerator, static_cast<RealType>(0.0), numerPid.size());
+	CudaData.resizeAndFillToDevice(dNumerator2, static_cast<RealType>(0.0), numerPid2.size());
+
 	resizeCudaVec(numerPid, dAccNumer);
 	resizeCudaVec(numerPid2, dAccNumer2);
 
-//	resizeCudaVecSize(dAccDenominator, N+1);
-
-	resizeAndZeroToDeviceCuda(dDeltaVector, J);
+//	resizeAndZeroToDeviceCuda(dDeltaVector, J);
+	CudaData.resizeAndFillToDevice(dDeltaVector, static_cast<RealType>(0.0), J);
 	
 	cudaMalloc((void**)&dGH, sizeof(RealType2));
 	cudaMalloc((void**)&dBlockGH, sizeof(RealType2));
@@ -365,8 +377,10 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
 	}
 
 	// Device
-	resizeAndCopyToDeviceCuda(hKWeight, dKWeight);
-	resizeAndCopyToDeviceCuda(hNWeight, dNWeight);
+//	resizeAndCopyToDeviceCuda(hKWeight, dKWeight);
+//	resizeAndCopyToDeviceCuda(hNWeight, dNWeight);
+	CudaData.resizeAndCopyToDevice(hKWeight, dKWeight);
+	CudaData.resizeAndCopyToDevice(hNWeight, dNWeight);
 //	std::cout << " HD-copy in GPU::setWeights \n";
 }
 
@@ -376,7 +390,8 @@ virtual void computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
-	resizeAndCopyToDeviceCuda(hXjY, dXjY);	
+//	resizeAndCopyToDeviceCuda(hXjY, dXjY);	
+	CudaData.resizeAndCopyToDevice(hXjY, dXjY);
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
 	///////////////////////////"
@@ -416,11 +431,17 @@ virtual void computeRemainingStatistics(bool useWeights) {
 	if (dAccDenominator.size() != K) {
 		resizeCudaVecSize(dAccDenominator, K);
 	}
-			
+/*			
 	thrust::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta));
 	thrust::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta));
 	thrust::copy(std::begin(denomPid), std::end(denomPid), std::begin(dDenominator));
 	thrust::copy(std::begin(accDenomPid), std::end(accDenomPid), std::begin(dAccDenominator));
+*/
+	CudaData.copyFromHostToDevice(hXBeta, dXBeta);
+	CudaData.copyFromHostToDevice(offsExpXBeta, dExpXBeta);
+	CudaData.copyFromHostToDevice(denomPid, dDenominator);
+	CudaData.copyFromHostToDevice(accDenomPid, dAccDenominator);
+
 //	std::cout << " HD-copy in GPU::computeRemainingStatistics \n";
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -438,7 +459,8 @@ virtual double getLogLikelihood(bool useCrossValidation) {
 	// Device
 	// TODO write gpu version to avoid D-H copying
 	CudaData.CubScan(thrust::raw_pointer_cast(&dDenominator[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
-	thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid));
+//	thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid));
+	CudaData.copyFromDeviceToHost(dAccDenominator, accDenomPid);	
 //	std::cout << " DH-copy in GPU::getLogLikelihood \n";
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
@@ -482,7 +504,7 @@ virtual double getPredictiveLogLikelihood(double* weights) {
 		logLikelihood += weights[k] == 0.0 ? 0.0
 			: hY[k] * weights[k] * (hXBeta[k] - std::log(accDenomPid[k]));
 	}
-			
+	
 	// Set back old weights
 //	setPidForAccumulation(&saveKWeight[0]);
 	setWeights(saveKWeight.data(), true); //
@@ -492,7 +514,8 @@ virtual double getPredictiveLogLikelihood(double* weights) {
 }
 
 virtual void setHXBeta() {
-	thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
+//	thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
+	CudaData.copyFromDeviceToHost(dXBeta, hXBeta);
 	hXBetaKnown = true;
 }
 
@@ -649,7 +672,8 @@ virtual const std::vector<double> getXBeta() {
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 	if (!hXBetaKnown) {
-		thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
+//		thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
+		CudaData.copyFromDeviceToHost(dXBeta, hXBeta);		
 //		std::cout << " DH-copy in GPU::getXBeta \n";
 		hXBetaKnown = true;
 	}
@@ -667,7 +691,8 @@ virtual const std::vector<double> getXBetaSave() {
 
 virtual void saveXBeta() {
 	if (!hXBetaKnown) {
-		thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
+//		thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
+		CudaData.copyFromDeviceToHost(dXBeta, hXBeta);
 //		std::cout << " DH-copy in GPU::saveXBeta \n";
 		hXBetaKnown = true;
 	}
@@ -691,8 +716,12 @@ virtual std::vector<double> getBeta() {
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 //	std::cout << " DH-copy in GPU::getBeta \n";
+/*
 	copyCudaVec(dBeta, dBetaBuffer);
 	thrust::copy(std::begin(dBeta), std::end(dBeta), std::begin(RealHBeta));
+*/
+	CudaData.copyFromDeviceToDevice(dBeta, dBetaBuffer);
+	CudaData.copyFromDeviceToHost(dBeta, RealHBeta);
 	//std::cout << "hb0: " << RealHBeta[0] << " hb1: " << RealHBeta[1] << '\n';
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
@@ -703,17 +732,24 @@ virtual std::vector<double> getBeta() {
 }
 		
 virtual void resetBeta() {
+/*
 	resizeCudaVecSize(dBeta, J);
 	fillCudaVec(dBeta, static_cast<RealType>(0.0));
 	resizeCudaVecSize(dBetaBuffer, J);
 	fillCudaVec(dBetaBuffer, static_cast<RealType>(0.0));
+*/
+	CudaData.resizeAndFillToDevice(dBeta, static_cast<RealType>(0.0), J);
+	CudaData.resizeAndFillToDevice(dBetaBuffer, static_cast<RealType>(0.0), J);
 }
 
 bool isCUDA() {return true;};
 	
 void setBounds(double initialBound) {
+/*
 	resizeCudaVecSize(dBound, J);
 	fillCudaVec(dBound, static_cast<RealType>(initialBound));
+*/
+	CudaData.resizeAndFillToDevice(dBound, static_cast<RealType>(initialBound), J);
 }
 	
 const int getPriorTypes(int index) const {
@@ -733,7 +769,8 @@ void setPriorParams(std::vector<double>& inParams) {
 	for (int i=0; i<J; i++) {
 		temp[i] = static_cast<RealType>(inParams[i]);
 	}
-	resizeAndCopyToDeviceCuda(temp, dPriorParams);
+//	resizeAndCopyToDeviceCuda(temp, dPriorParams);
+	CudaData.resizeAndCopyToDevice(temp, dPriorParams);
 }
 
 void turnOnStreamCV(int foldToCompute) {

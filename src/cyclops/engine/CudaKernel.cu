@@ -331,6 +331,48 @@ void CudaKernel<RealType, RealType2>::setFold(int currentFold)
 }
 
 template <typename RealType, typename RealType2>
+void CudaKernel<RealType, RealType2>::resizeAndCopyToDevice(const std::vector<RealType>& hostVec, thrust::device_vector<RealType>& deviceVec)
+{
+	deviceVec.resize(hostVec.size());
+	cudaMemcpyAsync(thrust::raw_pointer_cast(deviceVec.data()),
+			thrust::raw_pointer_cast(hostVec.data()),
+			deviceVec.size()*sizeof(RealType),
+			cudaMemcpyHostToDevice, stream[0]);
+}
+
+template <typename RealType, typename RealType2>
+void CudaKernel<RealType, RealType2>::resizeAndFillToDevice(thrust::device_vector<RealType>& deviceVec, RealType val, int num_items)
+{
+	deviceVec.resize(num_items);
+	thrust::fill(deviceVec.begin(), deviceVec.end(), val);
+}
+
+template <typename RealType, typename RealType2>
+void CudaKernel<RealType, RealType2>::copyFromHostToDevice(const std::vector<RealType>& hostVec, thrust::device_vector<RealType>& deviceVec)
+{
+	cudaMemcpyAsync(thrust::raw_pointer_cast(deviceVec.data()),
+			thrust::raw_pointer_cast(hostVec.data()),
+			deviceVec.size()*sizeof(RealType),
+			cudaMemcpyHostToDevice, stream[0]);
+}
+
+template <typename RealType, typename RealType2>
+void CudaKernel<RealType, RealType2>::copyFromDeviceToHost(const thrust::device_vector<RealType>& deviceVec, std::vector<RealType>& hostVec)
+{
+	cudaMemcpyAsync(thrust::raw_pointer_cast(hostVec.data()),
+			thrust::raw_pointer_cast(deviceVec.data()),
+			deviceVec.size()*sizeof(RealType),
+			cudaMemcpyDeviceToHost, stream[0]);
+}
+
+template <typename RealType, typename RealType2>
+void CudaKernel<RealType, RealType2>::copyFromDeviceToDevice(const thrust::device_vector<RealType>& source, thrust::device_vector<RealType>& destination)
+{
+	thrust::copy(thrust::cuda::par.on(stream[0]), source.begin(), source.end(), destination.begin());
+}
+
+
+template <typename RealType, typename RealType2>
 void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<RealType>& d_Denominator,
 						       thrust::device_vector<RealType>& d_Numerator,
 						       thrust::device_vector<RealType>& d_Numerator2,

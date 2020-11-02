@@ -99,6 +99,16 @@ public:
 
 	void setFold(int currentFold);
 
+	void resizeAndCopyToDevice(const std::vector<RealType>& hostVec, thrust::device_vector<RealType>& deviceVec);
+
+	void resizeAndFillToDevice(thrust::device_vector<RealType>& deviceVec, RealType val, int num_items);
+
+	void copyFromHostToDevice(const std::vector<RealType>& hostVec, thrust::device_vector<RealType>& deviceVec);
+
+	void copyFromDeviceToHost(const thrust::device_vector<RealType>& deviceVec, std::vector<RealType>& hostVec);
+
+	void copyFromDeviceToDevice(const thrust::device_vector<RealType>& source, thrust::device_vector<RealType>& destination);
+
 	void allocTempStorage(thrust::device_vector<RealType>& d_Denominator,
 			thrust::device_vector<RealType>& d_Numerator,
 			thrust::device_vector<RealType>& d_Numerator2,
