@@ -1,4 +1,8 @@
-## Feature release and bug fix
+## Resubmission following email from Uwe Ligges:
+* "Please change http --> https, add trailing slashes, or follow moved content as appropriate."
+  - Done (both for offending URL and for CRAN logos)
+
+## New features in this release
 * implements Fine-Gray competing risks regression for massive datasets
 * fixed likelihood-profiling when starting with extreme coefficients
 
