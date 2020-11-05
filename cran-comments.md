@@ -1,9 +1,6 @@
-## New submission following email from Brian Ripley reporting presence of `std::terminate`
-in code-based, but possibly not compiled.
-
-* `std::exit` was present in an _unused_ .cpp file; this file is now removed.
-
-* We also removed dependence on packages `bit` (orphaned), `ffbase` and `ff`
+## Feature release and bug fix
+* implements Fine-Gray competing risks regression for massive datasets
+* fixed likelihood-profiling when starting with extreme coefficients
 
 ## Test environments
 * local OS X install, R 4.0.0
