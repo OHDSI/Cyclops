@@ -3,8 +3,8 @@ Cyclops
 
 [![Build Status](https://travis-ci.org/OHDSI/Cyclops.svg?branch=master)](https://travis-ci.org/OHDSI/Cyclops)
 [![codecov.io](https://codecov.io/github/OHDSI/Cyclops/coverage.svg?branch=master)](https://codecov.io/github/OHDSI/Cyclops?branch=master)
-[![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/Cyclops)](https://CRAN.R-project.org/package=Cyclops)
-[![CRAN_Status_Badge](http://cranlogs.r-pkg.org/badges/Cyclops)](https://cran.r-project.org/package=Cyclops)
+[![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/Cyclops)](https://CRAN.R-project.org/package=Cyclops)
+[![CRAN_Status_Badge](https://cranlogs.r-pkg.org/badges/Cyclops)](https://cran.r-project.org/package=Cyclops)
 
 Cyclops is part of the [HADES](https://ohdsi.github.io/Hades/).
 
@@ -76,7 +76,7 @@ License
 =======
 Cyclops is licensed under Apache License 2.0.   Cyclops contains the TinyThread libray.
 
-The TinyThread library is licensed under the [zlib/libpng](https://opensource.org/licenses/Zlib) license as described [here](http://tinythreadpp.bitsnbites.eu).
+The TinyThread library is licensed under the [zlib/libpng](https://opensource.org/licenses/Zlib/) license as described [here](https://tinythreadpp.bitsnbites.eu/).
 
 
 Development

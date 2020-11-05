@@ -30,6 +30,6 @@ docs
 NEWS.old
 CMakeLists.txt
 deprecated
-CRAN-RELEASE
 .github/
 ^\.github$
+^CRAN-RELEASE$
