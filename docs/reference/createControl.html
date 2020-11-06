@@ -72,7 +72,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Cyclops</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">3.0.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">3.1.0</span>
       </span>
     </div>
 
@@ -123,29 +123,29 @@
     <p><code>createControl</code> creates a Cyclops control object for use with <code><a href='fitCyclopsModel.html'>fitCyclopsModel</a></code>.</p>
     </div>
 
-    <pre class="usage"><span class='fu'>createControl</span>(
-  <span class='kw'>maxIterations</span> <span class='kw'>=</span> <span class='fl'>1000</span>,
-  <span class='kw'>tolerance</span> <span class='kw'>=</span> <span class='fl'>1e-06</span>,
-  <span class='kw'>convergenceType</span> <span class='kw'>=</span> <span class='st'>"gradient"</span>,
-  <span class='kw'>cvType</span> <span class='kw'>=</span> <span class='st'>"auto"</span>,
-  <span class='kw'>fold</span> <span class='kw'>=</span> <span class='fl'>10</span>,
-  <span class='kw'>lowerLimit</span> <span class='kw'>=</span> <span class='fl'>0.01</span>,
-  <span class='kw'>upperLimit</span> <span class='kw'>=</span> <span class='fl'>20</span>,
-  <span class='kw'>gridSteps</span> <span class='kw'>=</span> <span class='fl'>10</span>,
-  <span class='kw'>cvRepetitions</span> <span class='kw'>=</span> <span class='fl'>1</span>,
-  <span class='kw'>minCVData</span> <span class='kw'>=</span> <span class='fl'>100</span>,
-  <span class='kw'>noiseLevel</span> <span class='kw'>=</span> <span class='st'>"silent"</span>,
-  <span class='kw'>threads</span> <span class='kw'>=</span> <span class='fl'>1</span>,
-  <span class='kw'>seed</span> <span class='kw'>=</span> <span class='kw'>NULL</span>,
-  <span class='kw'>resetCoefficients</span> <span class='kw'>=</span> <span class='fl'>FALSE</span>,
-  <span class='kw'>startingVariance</span> <span class='kw'>=</span> -<span class='fl'>1</span>,
-  <span class='kw'>useKKTSwindle</span> <span class='kw'>=</span> <span class='fl'>FALSE</span>,
-  <span class='kw'>tuneSwindle</span> <span class='kw'>=</span> <span class='fl'>10</span>,
-  <span class='kw'>selectorType</span> <span class='kw'>=</span> <span class='st'>"auto"</span>,
-  <span class='kw'>initialBound</span> <span class='kw'>=</span> <span class='fl'>2</span>,
-  <span class='kw'>maxBoundCount</span> <span class='kw'>=</span> <span class='fl'>5</span>,
-  <span class='kw'>algorithm</span> <span class='kw'>=</span> <span class='st'>"ccd"</span>
-)</pre>
+    <pre class="usage"><span class='fu'>createControl</span><span class='op'>(</span>
+  maxIterations <span class='op'>=</span> <span class='fl'>1000</span>,
+  tolerance <span class='op'>=</span> <span class='fl'>1e-06</span>,
+  convergenceType <span class='op'>=</span> <span class='st'>"gradient"</span>,
+  cvType <span class='op'>=</span> <span class='st'>"auto"</span>,
+  fold <span class='op'>=</span> <span class='fl'>10</span>,
+  lowerLimit <span class='op'>=</span> <span class='fl'>0.01</span>,
+  upperLimit <span class='op'>=</span> <span class='fl'>20</span>,
+  gridSteps <span class='op'>=</span> <span class='fl'>10</span>,
+  cvRepetitions <span class='op'>=</span> <span class='fl'>1</span>,
+  minCVData <span class='op'>=</span> <span class='fl'>100</span>,
+  noiseLevel <span class='op'>=</span> <span class='st'>"silent"</span>,
+  threads <span class='op'>=</span> <span class='fl'>1</span>,
+  seed <span class='op'>=</span> <span class='cn'>NULL</span>,
+  resetCoefficients <span class='op'>=</span> <span class='cn'>FALSE</span>,
+  startingVariance <span class='op'>=</span> <span class='op'>-</span><span class='fl'>1</span>,
+  useKKTSwindle <span class='op'>=</span> <span class='cn'>FALSE</span>,
+  tuneSwindle <span class='op'>=</span> <span class='fl'>10</span>,
+  selectorType <span class='op'>=</span> <span class='st'>"auto"</span>,
+  initialBound <span class='op'>=</span> <span class='fl'>2</span>,
+  maxBoundCount <span class='op'>=</span> <span class='fl'>5</span>,
+  algorithm <span class='op'>=</span> <span class='st'>"ccd"</span>
+<span class='op'>)</span></pre>
 
     <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
     <table class="ref-arguments">
@@ -249,100 +249,146 @@ the average number of rows per stratum is smaller than the number of strata.</p>
 
     <h2 class="hasAnchor" id="examples"><a class="anchor" href="#examples"></a>Examples</h2>
     <pre class="examples"><div class='input'><span class='co'>#Generate some simulated data:</span>
-<span class='no'>sim</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='simulateCyclopsData.html'>simulateCyclopsData</a></span>(<span class='kw'>nstrata</span> <span class='kw'>=</span> <span class='fl'>1</span>, <span class='kw'>nrows</span> <span class='kw'>=</span> <span class='fl'>1000</span>, <span class='kw'>ncovars</span> <span class='kw'>=</span> <span class='fl'>2</span>, <span class='kw'>eCovarsPerRow</span> <span class='kw'>=</span> <span class='fl'>0.5</span>,
-                           <span class='kw'>model</span> <span class='kw'>=</span> <span class='st'>"poisson"</span>)</div><div class='output co'>#&gt; Sparseness = 75.2 %</div><div class='input'><span class='no'>cyclopsData</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='convertToCyclopsData.html'>convertToCyclopsData</a></span>(<span class='no'>sim</span>$<span class='no'>outcomes</span>, <span class='no'>sim</span>$<span class='no'>covariates</span>, <span class='kw'>modelType</span> <span class='kw'>=</span> <span class='st'>"pr"</span>,
-                                    <span class='kw'>addIntercept</span> <span class='kw'>=</span> <span class='fl'>TRUE</span>)</div><div class='output co'>#&gt; Sorting covariates by covariateId and rowId</div><div class='input'>
+<span class='va'>sim</span> <span class='op'>&lt;-</span> <span class='fu'><a href='simulateCyclopsData.html'>simulateCyclopsData</a></span><span class='op'>(</span>nstrata <span class='op'>=</span> <span class='fl'>1</span>, nrows <span class='op'>=</span> <span class='fl'>1000</span>, ncovars <span class='op'>=</span> <span class='fl'>2</span>, eCovarsPerRow <span class='op'>=</span> <span class='fl'>0.5</span>, 
+                           model <span class='op'>=</span> <span class='st'>"poisson"</span><span class='op'>)</span>
+</div><div class='output co'>#&gt; Sparseness = 75.2 %</div><div class='input'><span class='va'>cyclopsData</span> <span class='op'>&lt;-</span> <span class='fu'><a href='convertToCyclopsData.html'>convertToCyclopsData</a></span><span class='op'>(</span><span class='va'>sim</span><span class='op'>$</span><span class='va'>outcomes</span>, <span class='va'>sim</span><span class='op'>$</span><span class='va'>covariates</span>, modelType <span class='op'>=</span> <span class='st'>"pr"</span>, 
+                                    addIntercept <span class='op'>=</span> <span class='cn'>TRUE</span><span class='op'>)</span>
+</div><div class='output co'>#&gt; Sorting covariates by covariateId and rowId</div><div class='input'>
 <span class='co'>#Define the prior and control objects to use cross-validation for finding the </span>
 <span class='co'>#optimal hyperparameter:</span>
-<span class='no'>prior</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='createPrior.html'>createPrior</a></span>(<span class='st'>"laplace"</span>, <span class='kw'>exclude</span> <span class='kw'>=</span> <span class='fl'>0</span>, <span class='kw'>useCrossValidation</span> <span class='kw'>=</span> <span class='fl'>TRUE</span>)
-<span class='no'>control</span> <span class='kw'>&lt;-</span> <span class='fu'>createControl</span>(<span class='kw'>cvType</span> <span class='kw'>=</span> <span class='st'>"auto"</span>, <span class='kw'>noiseLevel</span> <span class='kw'>=</span> <span class='st'>"quiet"</span>)
+<span class='va'>prior</span> <span class='op'>&lt;-</span> <span class='fu'><a href='createPrior.html'>createPrior</a></span><span class='op'>(</span><span class='st'>"laplace"</span>, exclude <span class='op'>=</span> <span class='fl'>0</span>, useCrossValidation <span class='op'>=</span> <span class='cn'>TRUE</span><span class='op'>)</span>
+<span class='va'>control</span> <span class='op'>&lt;-</span> <span class='fu'>createControl</span><span class='op'>(</span>cvType <span class='op'>=</span> <span class='st'>"auto"</span>, noiseLevel <span class='op'>=</span> <span class='st'>"quiet"</span><span class='op'>)</span>
 
 <span class='co'>#Fit the model</span>
-<span class='no'>fit</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='fitCyclopsModel.html'>fitCyclopsModel</a></span>(<span class='no'>cyclopsData</span>,<span class='kw'>prior</span> <span class='kw'>=</span> <span class='no'>prior</span>, <span class='kw'>control</span> <span class='kw'>=</span> <span class='no'>control</span>)</div><div class='output co'>#&gt; Using cross-validation selector type byRow
-#&gt; Performing 10-fold cross-validation [seed = 1591596882] with data partitions of sizes 100 100 100 100 100 100 100 100 100 100
+<span class='va'>fit</span> <span class='op'>&lt;-</span> <span class='fu'><a href='fitCyclopsModel.html'>fitCyclopsModel</a></span><span class='op'>(</span><span class='va'>cyclopsData</span>,prior <span class='op'>=</span> <span class='va'>prior</span>, control <span class='op'>=</span> <span class='va'>control</span><span class='op'>)</span>  
+</div><div class='output co'>#&gt; Using cross-validation selector type byRow
+#&gt; Performing 10-fold cross-validation [seed = 1604638976] with data partitions of sizes 100 100 100 100 100 100 100 100 100 100
 #&gt; Using 1 thread(s)
 #&gt; Starting var = 0.248 (default)
-#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #1 Rep #1 pred log like = 500.971
-#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #2 Rep #1 pred log like = 553.783
-#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #3 Rep #1 pred log like = 507.299
-#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #4 Rep #1 pred log like = 548.896
-#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #5 Rep #1 pred log like = 468.404
-#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #6 Rep #1 pred log like = 422.213
-#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #7 Rep #1 pred log like = 415.364
-#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #8 Rep #1 pred log like = 442.488
-#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #9 Rep #1 pred log like = 498.304
-#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #10 Rep #1 pred log like = 367.703
-#&gt; AvgPred = 472.543 with stdev = 57.2922
+#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #1 Rep #1 pred log like = 380.425
+#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #2 Rep #1 pred log like = 443.495
+#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #3 Rep #1 pred log like = 532.939
+#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #4 Rep #1 pred log like = 539.865
+#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #5 Rep #1 pred log like = 614.918
+#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #6 Rep #1 pred log like = 445.159
+#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #7 Rep #1 pred log like = 464.306
+#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #8 Rep #1 pred log like = 432.631
+#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #9 Rep #1 pred log like = 503.361
+#&gt; Running at Laplace(2.83981) None  Grid-point #1 at 0.248 	Fold #10 Rep #1 pred log like = 366.59
+#&gt; AvgPred = 472.369 with stdev = 72.3644
 #&gt; Completed at 0.248
 #&gt; Next point at 2.48 with value 0 and continue = 1
-#&gt; search[ 0.248 ] = 472.543(57.2922)
+#&gt; search[ 0.248 ] = 472.369(72.3644)
 #&gt; 
-#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #1 Rep #1 pred log like = 500.963
-#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #2 Rep #1 pred log like = 553.766
-#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #3 Rep #1 pred log like = 507.277
-#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #4 Rep #1 pred log like = 548.862
-#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #5 Rep #1 pred log like = 468.383
-#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #6 Rep #1 pred log like = 422.186
-#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #7 Rep #1 pred log like = 415.387
-#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #8 Rep #1 pred log like = 442.459
-#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #9 Rep #1 pred log like = 498.287
-#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #10 Rep #1 pred log like = 367.701
-#&gt; AvgPred = 472.527 with stdev = 57.2847
+#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #1 Rep #1 pred log like = 380.438
+#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #2 Rep #1 pred log like = 443.499
+#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #3 Rep #1 pred log like = 532.897
+#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #4 Rep #1 pred log like = 539.811
+#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #5 Rep #1 pred log like = 614.929
+#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #6 Rep #1 pred log like = 445.128
+#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #7 Rep #1 pred log like = 464.308
+#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #8 Rep #1 pred log like = 432.602
+#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #9 Rep #1 pred log like = 503.355
+#&gt; Running at Laplace(0.898027) None  Grid-point #2 at 2.48 	Fold #10 Rep #1 pred log like = 366.587
+#&gt; AvgPred = 472.356 with stdev = 72.3594
 #&gt; Completed at 2.48
 #&gt; Next point at 0.0248 with value 0 and continue = 1
-#&gt; search[ 0.248 ] = 472.543(57.2922)
-#&gt; search[ 2.48 ] = 472.527(57.2847)
+#&gt; search[ 0.248 ] = 472.369(72.3644)
+#&gt; search[ 2.48 ] = 472.356(72.3594)
 #&gt; 
-#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #1 Rep #1 pred log like = 500.995
-#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #2 Rep #1 pred log like = 553.831
-#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #3 Rep #1 pred log like = 507.355
-#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #4 Rep #1 pred log like = 549.002
-#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #5 Rep #1 pred log like = 468.394
-#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #6 Rep #1 pred log like = 422.293
-#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #7 Rep #1 pred log like = 415.288
-#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #8 Rep #1 pred log like = 442.575
-#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #9 Rep #1 pred log like = 498.352
-#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #10 Rep #1 pred log like = 367.704
-#&gt; AvgPred = 472.579 with stdev = 57.3156
+#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #1 Rep #1 pred log like = 380.307
+#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #2 Rep #1 pred log like = 443.48
+#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #3 Rep #1 pred log like = 533.011
+#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #4 Rep #1 pred log like = 540.025
+#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #5 Rep #1 pred log like = 614.806
+#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #6 Rep #1 pred log like = 445.251
+#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #7 Rep #1 pred log like = 464.311
+#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #8 Rep #1 pred log like = 432.745
+#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #9 Rep #1 pred log like = 503.375
+#&gt; Running at Laplace(8.98027) None  Grid-point #3 at 0.0248 	Fold #10 Rep #1 pred log like = 366.597
+#&gt; AvgPred = 472.391 with stdev = 72.3688
 #&gt; Completed at 0.0248
 #&gt; Next point at 0.00248 with value 0 and continue = 1
-#&gt; search[ 0.0248 ] = 472.579(57.3156)
-#&gt; search[ 0.248 ] = 472.543(57.2922)
-#&gt; search[ 2.48 ] = 472.527(57.2847)
+#&gt; search[ 0.0248 ] = 472.391(72.3688)
+#&gt; search[ 0.248 ] = 472.369(72.3644)
+#&gt; search[ 2.48 ] = 472.356(72.3594)
 #&gt; 
-#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #1 Rep #1 pred log like = 501.054
-#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #2 Rep #1 pred log like = 553.863
-#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #3 Rep #1 pred log like = 507.074
-#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #4 Rep #1 pred log like = 549.294
-#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #5 Rep #1 pred log like = 468.291
-#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #6 Rep #1 pred log like = 422.434
-#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #7 Rep #1 pred log like = 415.017
-#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #8 Rep #1 pred log like = 442.724
-#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #9 Rep #1 pred log like = 498.374
-#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #10 Rep #1 pred log like = 367.617
-#&gt; AvgPred = 472.574 with stdev = 57.3698
+#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #1 Rep #1 pred log like = 379.821
+#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #2 Rep #1 pred log like = 443.423
+#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #3 Rep #1 pred log like = 533.208
+#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #4 Rep #1 pred log like = 540.45
+#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #5 Rep #1 pred log like = 614.424
+#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #6 Rep #1 pred log like = 445.486
+#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #7 Rep #1 pred log like = 464.303
+#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #8 Rep #1 pred log like = 433.094
+#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #9 Rep #1 pred log like = 503.29
+#&gt; Running at Laplace(28.3981) None  Grid-point #4 at 0.00248 	Fold #10 Rep #1 pred log like = 366.502
+#&gt; AvgPred = 472.4 with stdev = 72.397
 #&gt; Completed at 0.00248
-#&gt; Next point at 0.00134154 with value 472.578 and continue = 0
-#&gt; search[ 0.00248 ] = 472.574(57.3698)
-#&gt; search[ 0.0248 ] = 472.579(57.3156)
-#&gt; search[ 0.248 ] = 472.543(57.2922)
-#&gt; search[ 2.48 ] = 472.527(57.2847)
+#&gt; Next point at 0.000248 with value 0 and continue = 1
+#&gt; search[ 0.00248 ] = 472.4(72.397)
+#&gt; search[ 0.0248 ] = 472.391(72.3688)
+#&gt; search[ 0.248 ] = 472.369(72.3644)
+#&gt; search[ 2.48 ] = 472.356(72.3594)
+#&gt; 
+#&gt; Running at Laplace(89.8027) None  Grid-point #5 at 0.000248 	Fold #1 Rep #1 pred log like = 379.632
+#&gt; Running at Laplace(89.8027) None  Grid-point #5 at 0.000248 	Fold #2 Rep #1 pred log like = 443.287
+#&gt; Running at Laplace(89.8027) None  Grid-point #5 at 0.000248 	Fold #3 Rep #1 pred log like = 533.459
+#&gt; Running at Laplace(89.8027) None  Grid-point #5 at 0.000248 	Fold #4 Rep #1 pred log like = 541.143
+#&gt; Running at Laplace(89.8027) None  Grid-point #5 at 0.000248 	Fold #5 Rep #1 pred log like = 614.167
+#&gt; Running at Laplace(89.8027) None  Grid-point #5 at 0.000248 	Fold #6 Rep #1 pred log like = 445.322
+#&gt; Running at Laplace(89.8027) None  Grid-point #5 at 0.000248 	Fold #7 Rep #1 pred log like = 464.2
+#&gt; Running at Laplace(89.8027) None  Grid-point #5 at 0.000248 	Fold #8 Rep #1 pred log like = 433.781
+#&gt; Running at Laplace(89.8027) None  Grid-point #5 at 0.000248 	Fold #9 Rep #1 pred log like = 503.079
+#&gt; Running at Laplace(89.8027) None  Grid-point #5 at 0.000248 	Fold #10 Rep #1 pred log like = 366.266
+#&gt; AvgPred = 472.434 with stdev = 72.4588
+#&gt; Completed at 0.000248
+#&gt; Next point at 2.48e-05 with value 0 and continue = 1
+#&gt; search[ 0.000248 ] = 472.434(72.4588)
+#&gt; search[ 0.00248 ] = 472.4(72.397)
+#&gt; search[ 0.0248 ] = 472.391(72.3688)
+#&gt; search[ 0.248 ] = 472.369(72.3644)
+#&gt; search[ 2.48 ] = 472.356(72.3594)
+#&gt; 
+#&gt; Running at Laplace(283.981) None  Grid-point #6 at 2.48e-05 	Fold #1 Rep #1 pred log like = 379.632
+#&gt; Running at Laplace(283.981) None  Grid-point #6 at 2.48e-05 	Fold #2 Rep #1 pred log like = 443.287
+#&gt; Running at Laplace(283.981) None  Grid-point #6 at 2.48e-05 	Fold #3 Rep #1 pred log like = 533.459
+#&gt; Running at Laplace(283.981) None  Grid-point #6 at 2.48e-05 	Fold #4 Rep #1 pred log like = 541.143
+#&gt; Running at Laplace(283.981) None  Grid-point #6 at 2.48e-05 	Fold #5 Rep #1 pred log like = 614.167
+#&gt; Running at Laplace(283.981) None  Grid-point #6 at 2.48e-05 	Fold #6 Rep #1 pred log like = 445.322
+#&gt; Running at Laplace(283.981) None  Grid-point #6 at 2.48e-05 	Fold #7 Rep #1 pred log like = 464.2
+#&gt; Running at Laplace(283.981) None  Grid-point #6 at 2.48e-05 	Fold #8 Rep #1 pred log like = 433.781
+#&gt; Running at Laplace(283.981) None  Grid-point #6 at 2.48e-05 	Fold #9 Rep #1 pred log like = 503.079
+#&gt; Running at Laplace(283.981) None  Grid-point #6 at 2.48e-05 	Fold #10 Rep #1 pred log like = 366.266
+#&gt; AvgPred = 472.434 with stdev = 72.4588
+#&gt; Completed at 2.48e-05
+#&gt; Next point at 1.17698e-26 with value 472.6 and continue = 0
+#&gt; search[ 2.48e-05 ] = 472.434(72.4588)
+#&gt; search[ 0.000248 ] = 472.434(72.4588)
+#&gt; search[ 0.00248 ] = 472.4(72.397)
+#&gt; search[ 0.0248 ] = 472.391(72.3688)
+#&gt; search[ 0.248 ] = 472.369(72.3644)
+#&gt; search[ 2.48 ] = 472.356(72.3594)
 #&gt; 
 #&gt; 
-#&gt; Maximum predicted log likelihood (472.578) estimated at:
-#&gt; 	0.00134154 (variance)
-#&gt; 	38.6112 (lambda)
+#&gt; Maximum predicted log likelihood (472.6) estimated at:
+#&gt; 	1.17698e-26 (variance)
+#&gt; 	1.30356e+13 (lambda)
 #&gt; 
 #&gt; Fitting model at optimal hyperparameter
-#&gt; Using prior: Laplace(38.6112) None </div><div class='input'>
+#&gt; Using prior: Laplace(1.30356e+13) None </div><div class='input'>
 <span class='co'>#Find out what the optimal hyperparameter was:</span>
-<span class='fu'><a href='getHyperParameter.html'>getHyperParameter</a></span>(<span class='no'>fit</span>)</div><div class='output co'>#&gt; [1] 0.001341541</div><div class='input'>
+<span class='fu'><a href='getHyperParameter.html'>getHyperParameter</a></span><span class='op'>(</span><span class='va'>fit</span><span class='op'>)</span>
+</div><div class='output co'>#&gt; [1] 1.176981e-26</div><div class='input'>
 <span class='co'>#Extract the current log-likelihood, and coefficients</span>
-<span class='fu'><a href='https://rdrr.io/r/stats/logLik.html'>logLik</a></span>(<span class='no'>fit</span>)</div><div class='output co'>#&gt; 'log Lik.' -2055.199 (df=3)</div><div class='input'><span class='fu'><a href='https://rdrr.io/r/stats/coef.html'>coef</a></span>(<span class='no'>fit</span>)</div><div class='output co'>#&gt; (Intercept)           1           2 
-#&gt; -3.84526823  0.00000000 -0.02136532 </div><div class='input'>
+<span class='fu'><a href='https://rdrr.io/r/stats/logLik.html'>logLik</a></span><span class='op'>(</span><span class='va'>fit</span><span class='op'>)</span>
+</div><div class='output co'>#&gt; 'log Lik.' -2056.259 (df=3)</div><div class='input'><span class='fu'><a href='https://rdrr.io/r/stats/coef.html'>coef</a></span><span class='op'>(</span><span class='va'>fit</span><span class='op'>)</span>
+</div><div class='output co'>#&gt; (Intercept)           1           2 
+#&gt;   -3.850744    0.000000    0.000000 </div><div class='input'>
 <span class='co'>#We can only retrieve the confidence interval for unregularized coefficients:</span>
-<span class='fu'><a href='https://rdrr.io/r/stats/confint.html'>confint</a></span>(<span class='no'>fit</span>, <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(<span class='fl'>0</span>))</div><div class='output co'>#&gt; Using 1 thread(s)</div><div class='output co'>#&gt;      covariate     2.5 %    97.5 % evaluations
-#&gt; [1,]         0 -3.875853 -3.814564          23</div></pre>
+<span class='fu'><a href='https://rdrr.io/r/stats/confint.html'>confint</a></span><span class='op'>(</span><span class='va'>fit</span>, <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span><span class='op'>(</span><span class='fl'>0</span><span class='op'>)</span><span class='op'>)</span>
+</div><div class='output co'>#&gt; Using 1 thread(s)</div><div class='output co'>#&gt;      covariate     2.5 %    97.5 % evaluations
+#&gt; [1,]         0 -3.877549 -3.824165          24</div></pre>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
     <nav id="toc" data-toggle="toc" class="sticky-top">
@@ -354,11 +400,11 @@ the average number of rows per stratum is smaller than the number of strata.</p>
 
       <footer>
       <div class="copyright">
-  <p>Developed by Marc A. Suchard, Martijn J. Schuemie, Trevor R. Shaddox, Yuxi Tian, Jianxiao Yang.</p>
+  <p>Developed by Marc A. Suchard, Martijn J. Schuemie, Trevor R. Shaddox, Yuxi Tian, Jianxiao Yang, Eric Kawaguchi.</p>
 </div>
 
 <div class="pkgdown">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.5.1.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.6.1.</p>
 </div>
 
       </footer>

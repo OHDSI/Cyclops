@@ -72,7 +72,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Cyclops</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">3.0.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">3.1.0</span>
       </span>
     </div>
 
@@ -123,15 +123,14 @@
     <p><code>readCyclopsData</code> reads a Cyclops-formatted text file.</p>
     </div>
 
-    <pre class="usage"><span class='fu'>readCyclopsData</span>(<span class='no'>fileName</span>, <span class='no'>modelType</span>)</pre>
+    <pre class="usage"><span class='fu'>readCyclopsData</span><span class='op'>(</span><span class='va'>fileName</span>, <span class='va'>modelType</span><span class='op'>)</span></pre>
 
     <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
     <table class="ref-arguments">
     <colgroup><col class="name" /><col class="desc" /></colgroup>
     <tr>
       <th>fileName</th>
-      <td><p>Name of text file to be read. If fileName does not contain an absolute path,
-the name is relative to the current working directory, <code><a href='https://rdrr.io/r/base/getwd.html'>getwd</a></code>.</p></td>
+      <td><p>Name of text file to be read. If fileName does not contain an absolute path,</p></td>
     </tr>
     <tr>
       <th>modelType</th>
@@ -163,7 +162,7 @@ file may start with '<samp>#</samp>', indicating that it contains header options
 
 
 <p>Successive lines of the file are white-space delimited and follow the format:</p>
-<pre>	[Row ID] {Stratum ID} [Weight] &amp;lt;Outcome&amp;gt; {Censored} {Offset} &amp;lt;BBR covariates&amp;gt;</pre>
+<pre>	[Row ID] {Stratum ID} [Weight] &lt;Outcome&gt; {Censored} {Offset} &lt;BBR covariates&gt;</pre>
 
 <ul>
 <li><p><code>[optional]</code></p></li>
@@ -191,14 +190,16 @@ are consecutive.
 <tr><td><code>	"cpr"</code></td><td>Conditional Poisson regression</td></tr>
 <tr><td><code>	"sccs"</code></td><td>Self-controlled case series</td></tr>
 <tr><td><code>	"cox"</code></td><td>Cox proportional hazards regression</td></tr>
+<tr><td><code>	"fgr"</code></td><td>Fine-Gray proportional subdistribution hazards regression</td></tr>
 </table>
 
 
 
     <h2 class="hasAnchor" id="examples"><a class="anchor" href="#examples"></a>Examples</h2>
-    <pre class="examples"><div class='input'><span class='kw'>if</span> (<span class='fl'>FALSE</span>) {
-<span class='no'>dataPtr</span> <span class='kw'>=</span> <span class='fu'>readCyclopsData</span>(<span class='fu'><a href='https://rdrr.io/r/base/system.file.html'>system.file</a></span>(<span class='st'>"extdata/infert_ccd.txt"</span>, <span class='kw'>package</span><span class='kw'>=</span><span class='st'>"Cyclops"</span>), <span class='st'>"clr"</span>)
-}</div></pre>
+    <pre class="examples"><div class='input'><span class='kw'>if</span> <span class='op'>(</span><span class='cn'>FALSE</span><span class='op'>)</span> <span class='op'>{</span>
+<span class='va'>dataPtr</span> <span class='op'>=</span> <span class='fu'>readCyclopsData</span><span class='op'>(</span><span class='fu'><a href='https://rdrr.io/r/base/system.file.html'>system.file</a></span><span class='op'>(</span><span class='st'>"extdata/infert_ccd.txt"</span>, package<span class='op'>=</span><span class='st'>"Cyclops"</span><span class='op'>)</span>, <span class='st'>"clr"</span><span class='op'>)</span>
+<span class='op'>}</span>
+</div></pre>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
     <nav id="toc" data-toggle="toc" class="sticky-top">
@@ -210,11 +211,11 @@ are consecutive.
 
       <footer>
       <div class="copyright">
-  <p>Developed by Marc A. Suchard, Martijn J. Schuemie, Trevor R. Shaddox, Yuxi Tian, Jianxiao Yang.</p>
+  <p>Developed by Marc A. Suchard, Martijn J. Schuemie, Trevor R. Shaddox, Yuxi Tian, Jianxiao Yang, Eric Kawaguchi.</p>
 </div>
 
 <div class="pkgdown">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.5.1.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.6.1.</p>
 </div>
 
       </footer>

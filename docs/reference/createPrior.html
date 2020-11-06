@@ -72,7 +72,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Cyclops</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">3.0.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">3.1.0</span>
       </span>
     </div>
 
@@ -123,15 +123,15 @@
     <p><code>createPrior</code> creates a Cyclops prior object for use with <code><a href='fitCyclopsModel.html'>fitCyclopsModel</a></code>.</p>
     </div>
 
-    <pre class="usage"><span class='fu'>createPrior</span>(
-  <span class='no'>priorType</span>,
-  <span class='kw'>variance</span> <span class='kw'>=</span> <span class='fl'>1</span>,
-  <span class='kw'>exclude</span> <span class='kw'>=</span> <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(),
-  <span class='kw'>graph</span> <span class='kw'>=</span> <span class='kw'>NULL</span>,
-  <span class='kw'>neighborhood</span> <span class='kw'>=</span> <span class='kw'>NULL</span>,
-  <span class='kw'>useCrossValidation</span> <span class='kw'>=</span> <span class='fl'>FALSE</span>,
-  <span class='kw'>forceIntercept</span> <span class='kw'>=</span> <span class='fl'>FALSE</span>
-)</pre>
+    <pre class="usage"><span class='fu'>createPrior</span><span class='op'>(</span>
+  <span class='va'>priorType</span>,
+  variance <span class='op'>=</span> <span class='fl'>1</span>,
+  exclude <span class='op'>=</span> <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span><span class='op'>(</span><span class='op'>)</span>,
+  graph <span class='op'>=</span> <span class='cn'>NULL</span>,
+  neighborhood <span class='op'>=</span> <span class='cn'>NULL</span>,
+  useCrossValidation <span class='op'>=</span> <span class='cn'>FALSE</span>,
+  forceIntercept <span class='op'>=</span> <span class='cn'>FALSE</span>
+<span class='op'>)</span></pre>
 
     <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
     <table class="ref-arguments">
@@ -182,594 +182,638 @@ See <code>"glmnet"</code>, for example.</p>
 
     <h2 class="hasAnchor" id="examples"><a class="anchor" href="#examples"></a>Examples</h2>
     <pre class="examples"><div class='input'><span class='co'>#Generate some simulated data:</span>
-<span class='no'>sim</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='simulateCyclopsData.html'>simulateCyclopsData</a></span>(<span class='kw'>nstrata</span> <span class='kw'>=</span> <span class='fl'>1</span>, <span class='kw'>nrows</span> <span class='kw'>=</span> <span class='fl'>1000</span>, <span class='kw'>ncovars</span> <span class='kw'>=</span> <span class='fl'>2</span>, <span class='kw'>eCovarsPerRow</span> <span class='kw'>=</span> <span class='fl'>0.5</span>,
-                           <span class='kw'>model</span> <span class='kw'>=</span> <span class='st'>"poisson"</span>)</div><div class='output co'>#&gt; Sparseness = 75.8 %</div><div class='input'><span class='no'>cyclopsData</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='convertToCyclopsData.html'>convertToCyclopsData</a></span>(<span class='no'>sim</span>$<span class='no'>outcomes</span>, <span class='no'>sim</span>$<span class='no'>covariates</span>, <span class='kw'>modelType</span> <span class='kw'>=</span> <span class='st'>"pr"</span>,
-                                    <span class='kw'>addIntercept</span> <span class='kw'>=</span> <span class='fl'>TRUE</span>)</div><div class='output co'>#&gt; Sorting covariates by covariateId and rowId</div><div class='input'>
+<span class='va'>sim</span> <span class='op'>&lt;-</span> <span class='fu'><a href='simulateCyclopsData.html'>simulateCyclopsData</a></span><span class='op'>(</span>nstrata <span class='op'>=</span> <span class='fl'>1</span>, nrows <span class='op'>=</span> <span class='fl'>1000</span>, ncovars <span class='op'>=</span> <span class='fl'>2</span>, eCovarsPerRow <span class='op'>=</span> <span class='fl'>0.5</span>, 
+                           model <span class='op'>=</span> <span class='st'>"poisson"</span><span class='op'>)</span>
+</div><div class='output co'>#&gt; Sparseness = 75.8 %</div><div class='input'><span class='va'>cyclopsData</span> <span class='op'>&lt;-</span> <span class='fu'><a href='convertToCyclopsData.html'>convertToCyclopsData</a></span><span class='op'>(</span><span class='va'>sim</span><span class='op'>$</span><span class='va'>outcomes</span>, <span class='va'>sim</span><span class='op'>$</span><span class='va'>covariates</span>, modelType <span class='op'>=</span> <span class='st'>"pr"</span>, 
+                                    addIntercept <span class='op'>=</span> <span class='cn'>TRUE</span><span class='op'>)</span>
+</div><div class='output co'>#&gt; Sorting covariates by covariateId and rowId</div><div class='input'>
 <span class='co'>#Define the prior and control objects to use cross-validation for finding the </span>
 <span class='co'>#optimal hyperparameter:</span>
-<span class='no'>prior</span> <span class='kw'>&lt;-</span> <span class='fu'>createPrior</span>(<span class='st'>"laplace"</span>, <span class='kw'>exclude</span> <span class='kw'>=</span> <span class='fl'>0</span>, <span class='kw'>useCrossValidation</span> <span class='kw'>=</span> <span class='fl'>TRUE</span>)
-<span class='no'>control</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='createControl.html'>createControl</a></span>(<span class='kw'>cvType</span> <span class='kw'>=</span> <span class='st'>"auto"</span>, <span class='kw'>noiseLevel</span> <span class='kw'>=</span> <span class='st'>"quiet"</span>)
+<span class='va'>prior</span> <span class='op'>&lt;-</span> <span class='fu'>createPrior</span><span class='op'>(</span><span class='st'>"laplace"</span>, exclude <span class='op'>=</span> <span class='fl'>0</span>, useCrossValidation <span class='op'>=</span> <span class='cn'>TRUE</span><span class='op'>)</span>
+<span class='va'>control</span> <span class='op'>&lt;-</span> <span class='fu'><a href='createControl.html'>createControl</a></span><span class='op'>(</span>cvType <span class='op'>=</span> <span class='st'>"auto"</span>, noiseLevel <span class='op'>=</span> <span class='st'>"quiet"</span><span class='op'>)</span>
 
 <span class='co'>#Fit the model</span>
-<span class='no'>fit</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='fitCyclopsModel.html'>fitCyclopsModel</a></span>(<span class='no'>cyclopsData</span>,<span class='kw'>prior</span> <span class='kw'>=</span> <span class='no'>prior</span>, <span class='kw'>control</span> <span class='kw'>=</span> <span class='no'>control</span>)</div><div class='output co'>#&gt; Using cross-validation selector type byRow
-#&gt; Performing 10-fold cross-validation [seed = 1591596883] with data partitions of sizes 100 100 100 100 100 100 100 100 100 100
+<span class='va'>fit</span> <span class='op'>&lt;-</span> <span class='fu'><a href='fitCyclopsModel.html'>fitCyclopsModel</a></span><span class='op'>(</span><span class='va'>cyclopsData</span>,prior <span class='op'>=</span> <span class='va'>prior</span>, control <span class='op'>=</span> <span class='va'>control</span><span class='op'>)</span>  
+</div><div class='output co'>#&gt; Using cross-validation selector type byRow
+#&gt; Performing 10-fold cross-validation [seed = 1604638978] with data partitions of sizes 100 100 100 100 100 100 100 100 100 100
 #&gt; Using 1 thread(s)
 #&gt; Starting var = 0.242 (default)
-#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #1 Rep #1 pred log like = 830.493
-#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #2 Rep #1 pred log like = 865.958
-#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #3 Rep #1 pred log like = 744.579
-#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #4 Rep #1 pred log like = 747.384
-#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #5 Rep #1 pred log like = 700.417
-#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #6 Rep #1 pred log like = 882.724
-#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #7 Rep #1 pred log like = 717.863
-#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #8 Rep #1 pred log like = 786.315
-#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #9 Rep #1 pred log like = 684.439
-#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #10 Rep #1 pred log like = 872.989
-#&gt; AvgPred = 783.316 with stdev = 71.2127
+#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #1 Rep #1 pred log like = 793.706
+#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #2 Rep #1 pred log like = 828.285
+#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #3 Rep #1 pred log like = 762.048
+#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #4 Rep #1 pred log like = 837.995
+#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #5 Rep #1 pred log like = 703.076
+#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #6 Rep #1 pred log like = 739.376
+#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #7 Rep #1 pred log like = 784.397
+#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #8 Rep #1 pred log like = 808.528
+#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #9 Rep #1 pred log like = 809.063
+#&gt; Running at Laplace(2.8748) None  Grid-point #1 at 0.242 	Fold #10 Rep #1 pred log like = 765.471
+#&gt; AvgPred = 783.195 with stdev = 39.4456
 #&gt; Completed at 0.242
 #&gt; Next point at 2.42 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
 #&gt; 
-#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #1 Rep #1 pred log like = 830.565
-#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #2 Rep #1 pred log like = 865.988
-#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #3 Rep #1 pred log like = 744.572
-#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #4 Rep #1 pred log like = 747.324
-#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #5 Rep #1 pred log like = 700.383
-#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #6 Rep #1 pred log like = 882.721
-#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #7 Rep #1 pred log like = 717.857
-#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #8 Rep #1 pred log like = 786.321
-#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #9 Rep #1 pred log like = 684.432
-#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #10 Rep #1 pred log like = 873.008
-#&gt; AvgPred = 783.317 with stdev = 71.2317
+#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #1 Rep #1 pred log like = 793.752
+#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #2 Rep #1 pred log like = 828.31
+#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #3 Rep #1 pred log like = 762.03
+#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #4 Rep #1 pred log like = 837.915
+#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #5 Rep #1 pred log like = 703.04
+#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #6 Rep #1 pred log like = 739.398
+#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #7 Rep #1 pred log like = 784.395
+#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #8 Rep #1 pred log like = 808.533
+#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #9 Rep #1 pred log like = 809.107
+#&gt; Running at Laplace(0.909091) None  Grid-point #2 at 2.42 	Fold #10 Rep #1 pred log like = 765.476
+#&gt; AvgPred = 783.196 with stdev = 39.4475
 #&gt; Completed at 2.42
 #&gt; Next point at 24.2 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
 #&gt; 
-#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #1 Rep #1 pred log like = 830.587
-#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #2 Rep #1 pred log like = 865.997
-#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #3 Rep #1 pred log like = 744.57
-#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #4 Rep #1 pred log like = 747.305
-#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #5 Rep #1 pred log like = 700.372
-#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #6 Rep #1 pred log like = 882.72
-#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #7 Rep #1 pred log like = 717.855
-#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #9 Rep #1 pred log like = 684.429
-#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #10 Rep #1 pred log like = 873.014
-#&gt; AvgPred = 783.317 with stdev = 71.2377
+#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #1 Rep #1 pred log like = 793.766
+#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #2 Rep #1 pred log like = 828.318
+#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #3 Rep #1 pred log like = 762.024
+#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #4 Rep #1 pred log like = 837.89
+#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #5 Rep #1 pred log like = 703.028
+#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #6 Rep #1 pred log like = 739.405
+#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #7 Rep #1 pred log like = 784.395
+#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #9 Rep #1 pred log like = 809.121
+#&gt; Running at Laplace(0.28748) None  Grid-point #3 at 24.2 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4481
 #&gt; Completed at 24.2
 #&gt; Next point at 242 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
 #&gt; 
-#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #1 Rep #1 pred log like = 830.594
-#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #2 Rep #1 pred log like = 866
-#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #4 Rep #1 pred log like = 747.299
-#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #5 Rep #1 pred log like = 700.369
-#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #6 Rep #1 pred log like = 882.72
-#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #7 Rep #1 pred log like = 717.855
-#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #10 Rep #1 pred log like = 873.016
-#&gt; AvgPred = 783.317 with stdev = 71.2396
+#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #1 Rep #1 pred log like = 793.77
+#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #2 Rep #1 pred log like = 828.321
+#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #3 Rep #1 pred log like = 762.022
+#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #4 Rep #1 pred log like = 837.882
+#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #5 Rep #1 pred log like = 703.024
+#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #6 Rep #1 pred log like = 739.407
+#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #9 Rep #1 pred log like = 809.126
+#&gt; Running at Laplace(0.0909091) None  Grid-point #4 at 242 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4483
 #&gt; Completed at 242
 #&gt; Next point at 2420 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
 #&gt; 
-#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #1 Rep #1 pred log like = 830.596
-#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #4 Rep #1 pred log like = 747.297
-#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #5 Rep #1 pred log like = 700.368
-#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #6 Rep #1 pred log like = 882.72
-#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #10 Rep #1 pred log like = 873.016
-#&gt; AvgPred = 783.317 with stdev = 71.2402
+#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #1 Rep #1 pred log like = 793.772
+#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #2 Rep #1 pred log like = 828.321
+#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #4 Rep #1 pred log like = 837.879
+#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #9 Rep #1 pred log like = 809.127
+#&gt; Running at Laplace(0.028748) None  Grid-point #5 at 2420 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 2420
 #&gt; Next point at 24200 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #1 Rep #1 pred log like = 830.597
-#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #4 Rep #1 pred log like = 747.297
-#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #5 Rep #1 pred log like = 700.368
-#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2403
+#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #1 Rep #1 pred log like = 793.772
+#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #9 Rep #1 pred log like = 809.127
+#&gt; Running at Laplace(0.00909091) None  Grid-point #6 at 24200 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 24200
 #&gt; Next point at 242000 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #1 Rep #1 pred log like = 830.597
-#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #4 Rep #1 pred log like = 747.296
-#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #5 Rep #1 pred log like = 700.368
-#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2404
+#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #1 Rep #1 pred log like = 793.772
+#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #9 Rep #1 pred log like = 809.127
+#&gt; Running at Laplace(0.0028748) None  Grid-point #7 at 242000 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 242000
 #&gt; Next point at 2.42e+06 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
-#&gt; search[ 242000 ] = 783.317(71.2404)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #1 Rep #1 pred log like = 830.597
-#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #4 Rep #1 pred log like = 747.296
-#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #5 Rep #1 pred log like = 700.367
-#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2404
+#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #1 Rep #1 pred log like = 793.772
+#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #9 Rep #1 pred log like = 809.127
+#&gt; Running at Laplace(0.000909091) None  Grid-point #8 at 2.42e+06 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 2.42e+06
 #&gt; Next point at 2.42e+07 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
-#&gt; search[ 242000 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+06 ] = 783.317(71.2404)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+06 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #1 Rep #1 pred log like = 830.598
-#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #4 Rep #1 pred log like = 747.296
-#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #5 Rep #1 pred log like = 700.367
-#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2404
+#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #1 Rep #1 pred log like = 793.773
+#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #9 Rep #1 pred log like = 809.128
+#&gt; Running at Laplace(0.00028748) None  Grid-point #9 at 2.42e+07 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 2.42e+07
 #&gt; Next point at 2.42e+08 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
-#&gt; search[ 242000 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+06 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+07 ] = 783.317(71.2404)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+06 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+07 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #1 Rep #1 pred log like = 830.598
-#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #4 Rep #1 pred log like = 747.296
-#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #5 Rep #1 pred log like = 700.367
-#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2404
+#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #1 Rep #1 pred log like = 793.773
+#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #9 Rep #1 pred log like = 809.128
+#&gt; Running at Laplace(9.09091e-05) None  Grid-point #10 at 2.42e+08 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 2.42e+08
 #&gt; Next point at 2.42e+09 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
-#&gt; search[ 242000 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+06 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+07 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+08 ] = 783.317(71.2404)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+06 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+07 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+08 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #1 Rep #1 pred log like = 830.598
-#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #4 Rep #1 pred log like = 747.296
-#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #5 Rep #1 pred log like = 700.367
-#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2404
+#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #1 Rep #1 pred log like = 793.773
+#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #9 Rep #1 pred log like = 809.128
+#&gt; Running at Laplace(2.8748e-05) None  Grid-point #11 at 2.42e+09 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 2.42e+09
 #&gt; Next point at 2.42e+10 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
-#&gt; search[ 242000 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+06 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+07 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+08 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+09 ] = 783.317(71.2404)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+06 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+07 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+08 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+09 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #1 Rep #1 pred log like = 830.598
-#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #4 Rep #1 pred log like = 747.296
-#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #5 Rep #1 pred log like = 700.367
-#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2404
+#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #1 Rep #1 pred log like = 793.773
+#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #9 Rep #1 pred log like = 809.128
+#&gt; Running at Laplace(9.09091e-06) None  Grid-point #12 at 2.42e+10 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 2.42e+10
 #&gt; Next point at 2.42e+11 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
-#&gt; search[ 242000 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+06 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+07 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+08 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+09 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+10 ] = 783.317(71.2404)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+06 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+07 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+08 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+09 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+10 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #1 Rep #1 pred log like = 830.598
-#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #4 Rep #1 pred log like = 747.296
-#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #5 Rep #1 pred log like = 700.367
-#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2404
+#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #1 Rep #1 pred log like = 793.773
+#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #9 Rep #1 pred log like = 809.128
+#&gt; Running at Laplace(2.8748e-06) None  Grid-point #13 at 2.42e+11 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 2.42e+11
 #&gt; Next point at 2.42e+12 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
-#&gt; search[ 242000 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+06 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+07 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+08 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+09 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+10 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+11 ] = 783.317(71.2404)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+06 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+07 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+08 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+09 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+10 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+11 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #1 Rep #1 pred log like = 830.598
-#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #4 Rep #1 pred log like = 747.296
-#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #5 Rep #1 pred log like = 700.367
-#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2404
+#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #1 Rep #1 pred log like = 793.773
+#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #9 Rep #1 pred log like = 809.128
+#&gt; Running at Laplace(9.09091e-07) None  Grid-point #14 at 2.42e+12 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 2.42e+12
 #&gt; Next point at 2.42e+13 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
-#&gt; search[ 242000 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+06 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+07 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+08 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+09 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+10 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+11 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+12 ] = 783.317(71.2404)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+06 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+07 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+08 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+09 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+10 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+11 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+12 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #1 Rep #1 pred log like = 830.598
-#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #4 Rep #1 pred log like = 747.296
-#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #5 Rep #1 pred log like = 700.367
-#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2404
+#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #1 Rep #1 pred log like = 793.773
+#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #9 Rep #1 pred log like = 809.128
+#&gt; Running at Laplace(2.8748e-07) None  Grid-point #15 at 2.42e+13 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 2.42e+13
 #&gt; Next point at 2.42e+14 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
-#&gt; search[ 242000 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+06 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+07 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+08 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+09 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+10 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+11 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+12 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+13 ] = 783.317(71.2404)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+06 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+07 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+08 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+09 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+10 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+11 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+12 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+13 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #1 Rep #1 pred log like = 830.598
-#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #4 Rep #1 pred log like = 747.296
-#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #5 Rep #1 pred log like = 700.367
-#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2404
+#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #1 Rep #1 pred log like = 793.773
+#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #9 Rep #1 pred log like = 809.128
+#&gt; Running at Laplace(9.09091e-08) None  Grid-point #16 at 2.42e+14 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 2.42e+14
 #&gt; Next point at 2.42e+15 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
-#&gt; search[ 242000 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+06 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+07 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+08 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+09 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+10 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+11 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+12 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+13 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+14 ] = 783.317(71.2404)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+06 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+07 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+08 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+09 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+10 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+11 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+12 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+13 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+14 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #1 Rep #1 pred log like = 830.598
-#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #4 Rep #1 pred log like = 747.296
-#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #5 Rep #1 pred log like = 700.367
-#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2404
+#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #1 Rep #1 pred log like = 793.773
+#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #9 Rep #1 pred log like = 809.128
+#&gt; Running at Laplace(2.8748e-08) None  Grid-point #17 at 2.42e+15 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 2.42e+15
 #&gt; Next point at 2.42e+16 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
-#&gt; search[ 242000 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+06 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+07 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+08 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+09 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+10 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+11 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+12 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+13 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+14 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+15 ] = 783.317(71.2404)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+06 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+07 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+08 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+09 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+10 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+11 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+12 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+13 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+14 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+15 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #1 Rep #1 pred log like = 830.598
-#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #4 Rep #1 pred log like = 747.296
-#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #5 Rep #1 pred log like = 700.367
-#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2404
+#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #1 Rep #1 pred log like = 793.773
+#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #9 Rep #1 pred log like = 809.128
+#&gt; Running at Laplace(9.09091e-09) None  Grid-point #18 at 2.42e+16 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 2.42e+16
 #&gt; Next point at 2.42e+17 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
-#&gt; search[ 242000 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+06 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+07 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+08 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+09 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+10 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+11 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+12 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+13 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+14 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+15 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+16 ] = 783.317(71.2404)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+06 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+07 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+08 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+09 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+10 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+11 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+12 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+13 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+14 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+15 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+16 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #1 Rep #1 pred log like = 830.598
-#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #4 Rep #1 pred log like = 747.296
-#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #5 Rep #1 pred log like = 700.367
-#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2404
+#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #1 Rep #1 pred log like = 793.773
+#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #9 Rep #1 pred log like = 809.128
+#&gt; Running at Laplace(2.8748e-09) None  Grid-point #19 at 2.42e+17 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 2.42e+17
 #&gt; Next point at 2.42e+18 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
-#&gt; search[ 242000 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+06 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+07 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+08 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+09 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+10 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+11 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+12 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+13 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+14 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+15 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+16 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+17 ] = 783.317(71.2404)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+06 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+07 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+08 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+09 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+10 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+11 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+12 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+13 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+14 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+15 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+16 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+17 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #1 Rep #1 pred log like = 830.598
-#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #4 Rep #1 pred log like = 747.296
-#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #5 Rep #1 pred log like = 700.367
-#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2404
+#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #1 Rep #1 pred log like = 793.773
+#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #9 Rep #1 pred log like = 809.128
+#&gt; Running at Laplace(9.09091e-10) None  Grid-point #20 at 2.42e+18 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 2.42e+18
 #&gt; Next point at 2.42e+19 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
-#&gt; search[ 242000 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+06 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+07 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+08 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+09 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+10 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+11 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+12 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+13 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+14 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+15 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+16 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+17 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+18 ] = 783.317(71.2404)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+06 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+07 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+08 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+09 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+10 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+11 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+12 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+13 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+14 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+15 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+16 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+17 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+18 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #1 Rep #1 pred log like = 830.598
-#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #4 Rep #1 pred log like = 747.296
-#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #5 Rep #1 pred log like = 700.367
-#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2404
+#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #1 Rep #1 pred log like = 793.773
+#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #9 Rep #1 pred log like = 809.128
+#&gt; Running at Laplace(2.8748e-10) None  Grid-point #21 at 2.42e+19 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 2.42e+19
 #&gt; Next point at 2.42e+20 with value 0 and continue = 1
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
-#&gt; search[ 242000 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+06 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+07 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+08 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+09 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+10 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+11 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+12 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+13 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+14 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+15 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+16 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+17 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+18 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+19 ] = 783.317(71.2404)
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+06 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+07 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+08 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+09 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+10 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+11 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+12 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+13 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+14 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+15 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+16 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+17 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+18 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+19 ] = 783.196(39.4484)
 #&gt; 
-#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #1 Rep #1 pred log like = 830.598
-#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #2 Rep #1 pred log like = 866.001
-#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #3 Rep #1 pred log like = 744.569
-#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #4 Rep #1 pred log like = 747.296
-#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #5 Rep #1 pred log like = 700.367
-#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #6 Rep #1 pred log like = 882.719
-#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #7 Rep #1 pred log like = 717.854
-#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #8 Rep #1 pred log like = 786.323
-#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #9 Rep #1 pred log like = 684.428
-#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #10 Rep #1 pred log like = 873.017
-#&gt; AvgPred = 783.317 with stdev = 71.2404
+#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #1 Rep #1 pred log like = 793.773
+#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #9 Rep #1 pred log like = 809.128
+#&gt; Running at Laplace(9.09091e-11) None  Grid-point #22 at 2.42e+20 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
 #&gt; Completed at 2.42e+20
-#&gt; Next point at 2.46184e+12 with value 783.317 and continue = 0
-#&gt; search[ 0.242 ] = 783.316(71.2127)
-#&gt; search[ 2.42 ] = 783.317(71.2317)
-#&gt; search[ 24.2 ] = 783.317(71.2377)
-#&gt; search[ 242 ] = 783.317(71.2396)
-#&gt; search[ 2420 ] = 783.317(71.2402)
-#&gt; search[ 24200 ] = 783.317(71.2403)
-#&gt; search[ 242000 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+06 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+07 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+08 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+09 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+10 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+11 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+12 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+13 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+14 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+15 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+16 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+17 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+18 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+19 ] = 783.317(71.2404)
-#&gt; search[ 2.42e+20 ] = 783.317(71.2404)
+#&gt; Next point at 2.42e+21 with value 0 and continue = 1
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+06 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+07 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+08 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+09 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+10 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+11 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+12 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+13 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+14 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+15 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+16 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+17 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+18 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+19 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+20 ] = 783.196(39.4484)
+#&gt; 
+#&gt; Running at Laplace(2.8748e-11) None  Grid-point #23 at 2.42e+21 	Fold #1 Rep #1 pred log like = 793.773
+#&gt; Running at Laplace(2.8748e-11) None  Grid-point #23 at 2.42e+21 	Fold #2 Rep #1 pred log like = 828.322
+#&gt; Running at Laplace(2.8748e-11) None  Grid-point #23 at 2.42e+21 	Fold #3 Rep #1 pred log like = 762.021
+#&gt; Running at Laplace(2.8748e-11) None  Grid-point #23 at 2.42e+21 	Fold #4 Rep #1 pred log like = 837.878
+#&gt; Running at Laplace(2.8748e-11) None  Grid-point #23 at 2.42e+21 	Fold #5 Rep #1 pred log like = 703.023
+#&gt; Running at Laplace(2.8748e-11) None  Grid-point #23 at 2.42e+21 	Fold #6 Rep #1 pred log like = 739.408
+#&gt; Running at Laplace(2.8748e-11) None  Grid-point #23 at 2.42e+21 	Fold #7 Rep #1 pred log like = 784.394
+#&gt; Running at Laplace(2.8748e-11) None  Grid-point #23 at 2.42e+21 	Fold #8 Rep #1 pred log like = 808.535
+#&gt; Running at Laplace(2.8748e-11) None  Grid-point #23 at 2.42e+21 	Fold #9 Rep #1 pred log like = 809.128
+#&gt; Running at Laplace(2.8748e-11) None  Grid-point #23 at 2.42e+21 	Fold #10 Rep #1 pred log like = 765.477
+#&gt; AvgPred = 783.196 with stdev = 39.4484
+#&gt; Completed at 2.42e+21
+#&gt; Next point at 9.59816e+12 with value 783.196 and continue = 0
+#&gt; search[ 0.242 ] = 783.195(39.4456)
+#&gt; search[ 2.42 ] = 783.196(39.4475)
+#&gt; search[ 24.2 ] = 783.196(39.4481)
+#&gt; search[ 242 ] = 783.196(39.4483)
+#&gt; search[ 2420 ] = 783.196(39.4484)
+#&gt; search[ 24200 ] = 783.196(39.4484)
+#&gt; search[ 242000 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+06 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+07 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+08 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+09 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+10 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+11 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+12 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+13 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+14 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+15 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+16 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+17 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+18 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+19 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+20 ] = 783.196(39.4484)
+#&gt; search[ 2.42e+21 ] = 783.196(39.4484)
 #&gt; 
 #&gt; 
-#&gt; Maximum predicted log likelihood (783.317) estimated at:
-#&gt; 	2.46184e+12 (variance)
-#&gt; 	9.01332e-07 (lambda)
+#&gt; Maximum predicted log likelihood (783.196) estimated at:
+#&gt; 	9.59816e+12 (variance)
+#&gt; 	4.56479e-07 (lambda)
 #&gt; 
 #&gt; Fitting model at optimal hyperparameter
-#&gt; Using prior: Laplace(9.01332e-07) None </div><div class='input'>
+#&gt; Using prior: Laplace(4.56479e-07) None </div><div class='input'>
 <span class='co'>#Find out what the optimal hyperparameter was:</span>
-<span class='fu'><a href='getHyperParameter.html'>getHyperParameter</a></span>(<span class='no'>fit</span>)</div><div class='output co'>#&gt; [1] 2.461844e+12</div><div class='input'>
+<span class='fu'><a href='getHyperParameter.html'>getHyperParameter</a></span><span class='op'>(</span><span class='va'>fit</span><span class='op'>)</span>
+</div><div class='output co'>#&gt; [1] 9.598156e+12</div><div class='input'>
 <span class='co'>#Extract the current log-likelihood, and coefficients</span>
-<span class='fu'><a href='https://rdrr.io/r/stats/logLik.html'>logLik</a></span>(<span class='no'>fit</span>)</div><div class='output co'>#&gt; 'log Lik.' -2207.566 (df=3)</div><div class='input'><span class='fu'><a href='https://rdrr.io/r/stats/coef.html'>coef</a></span>(<span class='no'>fit</span>)</div><div class='output co'>#&gt; (Intercept)           1           2 
+<span class='fu'><a href='https://rdrr.io/r/stats/logLik.html'>logLik</a></span><span class='op'>(</span><span class='va'>fit</span><span class='op'>)</span>
+</div><div class='output co'>#&gt; 'log Lik.' -2207.566 (df=3)</div><div class='input'><span class='fu'><a href='https://rdrr.io/r/stats/coef.html'>coef</a></span><span class='op'>(</span><span class='va'>fit</span><span class='op'>)</span>
+</div><div class='output co'>#&gt; (Intercept)           1           2 
 #&gt; -3.58685740  0.05610044 -0.02769318 </div><div class='input'>
 <span class='co'>#We can only retrieve the confidence interval for unregularized coefficients:</span>
-<span class='fu'><a href='https://rdrr.io/r/stats/confint.html'>confint</a></span>(<span class='no'>fit</span>, <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(<span class='fl'>0</span>))</div><div class='output co'>#&gt; Using 1 thread(s)</div><div class='output co'>#&gt;      covariate     2.5 %    97.5 % evaluations
+<span class='fu'><a href='https://rdrr.io/r/stats/confint.html'>confint</a></span><span class='op'>(</span><span class='va'>fit</span>, <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span><span class='op'>(</span><span class='fl'>0</span><span class='op'>)</span><span class='op'>)</span>
+</div><div class='output co'>#&gt; Using 1 thread(s)</div><div class='output co'>#&gt;      covariate     2.5 %    97.5 % evaluations
 #&gt; [1,]         0 -3.616605 -3.557373          22</div></pre>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
@@ -782,11 +826,11 @@ See <code>"glmnet"</code>, for example.</p>
 
       <footer>
       <div class="copyright">
-  <p>Developed by Marc A. Suchard, Martijn J. Schuemie, Trevor R. Shaddox, Yuxi Tian, Jianxiao Yang.</p>
+  <p>Developed by Marc A. Suchard, Martijn J. Schuemie, Trevor R. Shaddox, Yuxi Tian, Jianxiao Yang, Eric Kawaguchi.</p>
 </div>
 
 <div class="pkgdown">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.5.1.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.6.1.</p>
 </div>
 
       </footer>

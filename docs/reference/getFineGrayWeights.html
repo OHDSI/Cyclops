@@ -6,7 +6,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Get number of strata — getNumberOfStrata • Cyclops</title>
+<title>Creates a Surv object that forces in competing risks and the IPCW needed for Fine-Gray estimation. — getFineGrayWeights • Cyclops</title>
 
 
 <!-- jquery -->
@@ -39,8 +39,8 @@
 
 
 
-<meta property="og:title" content="Get number of strata — getNumberOfStrata" />
-<meta property="og:description" content="getNumberOfStrata return the number of unique strata in a Cyclops data object" />
+<meta property="og:title" content="Creates a Surv object that forces in competing risks and the IPCW needed for Fine-Gray estimation. — getFineGrayWeights" />
+<meta property="og:description" content="getFineGrayWeights creates a list Surv object and vector of weights required for estimation." />
 
 
 
@@ -114,27 +114,52 @@
 <div class="row">
   <div class="col-md-9 contents">
     <div class="page-header">
-    <h1>Get number of strata</h1>
-    <small class="dont-index">Source: <a href='https://github.com/ohdsi/cyclops/blob/master/R/RcppExports.R'><code>R/RcppExports.R</code></a></small>
-    <div class="hidden name"><code>getNumberOfStrata.Rd</code></div>
+    <h1>Creates a <code>Surv</code> object that forces in competing risks and the IPCW needed for Fine-Gray estimation.</h1>
+    <small class="dont-index">Source: <a href='https://github.com/ohdsi/cyclops/blob/master/R/GetFrineGrayWeights.R'><code>R/GetFrineGrayWeights.R</code></a></small>
+    <div class="hidden name"><code>getFineGrayWeights.Rd</code></div>
     </div>
 
     <div class="ref-description">
-    <p><code>getNumberOfStrata</code> return the number of unique strata in a Cyclops data object</p>
+    <p><code>getFineGrayWeights</code> creates a list <code>Surv</code> object and vector of weights required for estimation.</p>
     </div>
 
-    <pre class="usage"><span class='fu'>getNumberOfStrata</span><span class='op'>(</span><span class='va'>object</span><span class='op'>)</span></pre>
+    <pre class="usage"><span class='fu'>getFineGrayWeights</span><span class='op'>(</span><span class='va'>ftime</span>, <span class='va'>fstatus</span>, cencode <span class='op'>=</span> <span class='fl'>0</span>, failcode <span class='op'>=</span> <span class='fl'>1</span><span class='op'>)</span></pre>
 
     <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
     <table class="ref-arguments">
     <colgroup><col class="name" /><col class="desc" /></colgroup>
     <tr>
-      <th>object</th>
-      <td><p>A Cyclops data object</p></td>
+      <th>ftime</th>
+      <td><p>Numeric: Observed event (failure) times</p></td>
+    </tr>
+    <tr>
+      <th>fstatus</th>
+      <td><p>Numeric: Observed event (failure) types</p></td>
+    </tr>
+    <tr>
+      <th>cencode</th>
+      <td><p>Numeric: Code to denote censored observations (Default is 0)</p></td>
+    </tr>
+    <tr>
+      <th>failcode</th>
+      <td><p>Numeric: Code to denote event of interest (Default is 1)</p></td>
     </tr>
     </table>
 
+    <h2 class="hasAnchor" id="value"><a class="anchor" href="#value"></a>Value</h2>
 
+    <p>A list that returns both an object of class <code>Surv</code> that forces in the competing risks indicators and a vector of weights needed for parameter estimation.</p>
+
+    <h2 class="hasAnchor" id="examples"><a class="anchor" href="#examples"></a>Examples</h2>
+    <pre class="examples"><div class='input'><span class='va'>ftime</span> <span class='op'>&lt;-</span> <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span><span class='op'>(</span><span class='fl'>1</span>, <span class='fl'>2</span>, <span class='fl'>3</span>, <span class='fl'>4</span>, <span class='fl'>5</span>, <span class='fl'>6</span>, <span class='fl'>7</span>, <span class='fl'>8</span>, <span class='fl'>9</span>, <span class='fl'>10</span><span class='op'>)</span>
+<span class='va'>fstatus</span> <span class='op'>&lt;-</span> <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span><span class='op'>(</span><span class='fl'>1</span>, <span class='fl'>2</span>, <span class='fl'>0</span>, <span class='fl'>1</span>, <span class='fl'>2</span>, <span class='fl'>0</span>, <span class='fl'>1</span>, <span class='fl'>2</span>, <span class='fl'>0</span>, <span class='fl'>1</span><span class='op'>)</span>
+<span class='fu'>getFineGrayWeights</span><span class='op'>(</span><span class='va'>ftime</span>, <span class='va'>fstatus</span>, cencode <span class='op'>=</span> <span class='fl'>0</span>, failcode <span class='op'>=</span> <span class='fl'>1</span><span class='op'>)</span>
+</div><div class='output co'>#&gt; $surv
+#&gt;  [1]  1   2   3+  4   5   6+  7   8   9+ 10 
+#&gt; 
+#&gt; $weights
+#&gt;  [1] 1.000 1.000 1.000 0.875 0.875 0.875 0.700 0.700 0.700 0.350
+#&gt; </div></pre>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
     <nav id="toc" data-toggle="toc" class="sticky-top">
