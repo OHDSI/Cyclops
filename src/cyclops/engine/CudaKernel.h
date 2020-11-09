@@ -167,6 +167,7 @@ public:
 			RealType2* d_GH,
 			thrust::device_vector<RealType>& d_XjY,
 			thrust::device_vector<RealType>& d_Bound,
+			thrust::device_vector<RealType>& d_BoundBuffer,
 			thrust::device_vector<RealType>& d_KWeight,
 			thrust::device_vector<RealType>& d_Beta,
 			thrust::device_vector<RealType>& d_BetaBuffer,

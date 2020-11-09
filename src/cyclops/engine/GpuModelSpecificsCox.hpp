@@ -645,6 +645,7 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 				dGH,
 				dXjY,
 				dBound,
+				dBoundBuffer,
 				dKWeight,
 				dBeta,
 				dBetaBuffer,
@@ -721,6 +722,7 @@ virtual std::vector<double> getBeta() {
 	thrust::copy(std::begin(dBeta), std::end(dBeta), std::begin(RealHBeta));
 */
 	CudaData.copyFromDeviceToDevice(dBeta, dBetaBuffer);
+	CudaData.copyFromDeviceToDevice(dBound, dBoundBuffer);
 	CudaData.copyFromDeviceToHost(dBeta, RealHBeta);
 	//std::cout << "hb0: " << RealHBeta[0] << " hb1: " << RealHBeta[1] << '\n';
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -750,6 +752,7 @@ void setBounds(double initialBound) {
 	fillCudaVec(dBound, static_cast<RealType>(initialBound));
 */
 	CudaData.resizeAndFillToDevice(dBound, static_cast<RealType>(initialBound), J);
+	CudaData.resizeAndFillToDevice(dBoundBuffer, static_cast<RealType>(initialBound), J);
 }
 	
 const int getPriorTypes(int index) const {
@@ -836,6 +839,7 @@ std::string getFormatTypeExtension(FormatType formatType) {
 	thrust::device_vector<RealType> dNumerator2;
 
 	thrust::device_vector<RealType> dBound;
+	thrust::device_vector<RealType> dBoundBuffer;
 	thrust::device_vector<RealType> dDeltaVector;
 	thrust::device_vector<RealType> dPriorParams;
 
