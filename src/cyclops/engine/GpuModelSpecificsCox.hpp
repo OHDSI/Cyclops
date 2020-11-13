@@ -81,13 +81,6 @@ public:
 				taskCounts.push_back(column.getNumberOfEntries());
 			}
 		}
-/*
-		resizeAndCopyToDeviceCuda(flatData, data);
-		resizeAndCopyToDeviceCuda(flatIndices, indices);
-		resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
-		resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
-		resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
-*/
 
 		std::cerr << "cuda AGC end " << flatData.size() << " " << flatIndices.size() << " " << dataStarts.size() << " " << indicesStarts.size() << " " << taskCounts.size() << std::endl;
 	}
@@ -213,8 +206,6 @@ public:
 	using ModelSpecifics<BaseModel, RealType>::hNWeight;
 	using ModelSpecifics<BaseModel, RealType>::hKWeight;
 	using ModelSpecifics<BaseModel, RealType>::accDenomPid;
-	using ModelSpecifics<BaseModel, RealType>::accNumerPid;
-	using ModelSpecifics<BaseModel, RealType>::accNumerPid2;
 
 	int tpb = 256; // threads-per-block  // Appears best on K40
 	int PSC_K = 32;
@@ -223,10 +214,7 @@ public:
 	typedef typename MakePair<RealType>::type RealType2;
 
 	CudaAllGpuColumns<RealType> dCudaColumns;
-	CudaKernel<RealType, RealType2> CudaData;
-
-	GpuModelSpecificsCox() = delete;
-	GpuModelSpecificsCox(const GpuModelSpecificsCox& copy) = delete;
+	CudaKernel<RealType, RealType2> CoxKernels;
 
 	GpuModelSpecificsCox(const ModelData<RealType>& input)
 //			const std::string& deviceName)
@@ -235,20 +223,17 @@ public:
 		dXjY(),
 		priorTypes(), RealHBeta(), dBetaBuffer(),
 		dNumerator(), dNumerator2(),
-		dAccNumer(), dAccNumer2(),
-		dGH(), dBlockGH(),
-		dBound(), dDeltaVector(), dPriorParams(),
+		dGH(),
+		dBound(), dPriorParams(),
 		dBeta(), dXBeta(), dExpXBeta(),
 		dDenominator(), dAccDenominator(),
 		dKWeight(), dNWeight(),
-		CudaData() {
+		CoxKernels() {
 		std::cerr << "ctor GpuModelSpecificsCox" << std::endl;
 	}
 
 	virtual ~GpuModelSpecificsCox() {
 		cudaFree(dGH);
-		cudaFree(dBlockGH);
-//		free(pGH);
 //		cudaFreeHost(pGH);
 		std::cerr << "dtor GpuModelSpecificsCox" << std::endl;
 	}
@@ -303,36 +288,20 @@ virtual void deviceInitialization() {
 	resizeCudaVec(hXBeta, dXBeta); // K
 	resizeCudaVec(offsExpXBeta, dExpXBeta); // K
 	resizeCudaVec(denomPid, dDenominator); // K
-/*
-	resizeAndZeroCudaVec(numerPid, dNumerator); // getAlignedLength(N + 1)
-	if (BaseModel::hasTwoNumeratorTerms) {
-		resizeAndZeroCudaVec(numerPid2, dNumerator2);
-	}
-*/
-	CudaData.resizeAndFillToDevice(dNumerator, static_cast<RealType>(0.0), numerPid.size());
-	CudaData.resizeAndFillToDevice(dNumerator2, static_cast<RealType>(0.0), numerPid2.size());
 
-	resizeCudaVec(numerPid, dAccNumer);
-	resizeCudaVec(numerPid2, dAccNumer2);
+	CoxKernels.resizeAndFillToDevice(dNumerator, static_cast<RealType>(0.0), numerPid.size());
+	CoxKernels.resizeAndFillToDevice(dNumerator2, static_cast<RealType>(0.0), numerPid2.size());
 
-//	resizeAndZeroToDeviceCuda(dDeltaVector, J);
-	CudaData.resizeAndFillToDevice(dDeltaVector, static_cast<RealType>(0.0), J);
-	
 	cudaMalloc((void**)&dGH, sizeof(RealType2));
-	cudaMalloc((void**)&dBlockGH, sizeof(RealType2));
 //	cudaMallocHost((void **) &pGH, sizeof(RealType2));
-//	pGH = (double2 *)malloc(sizeof(double2));
 
 	// Allocate temporary storage for scan and reduction
-	CudaData.allocTempStorage(dExpXBeta,
+	CoxKernels.allocTempStorage(dExpXBeta,
 				dNumerator,
 				dNumerator2,
 				dAccDenominator,
-				dAccNumer,
-				dAccNumer2,
 				dNWeight,
 				dGH,
-				dBlockGH,
 				N);
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
@@ -377,10 +346,8 @@ virtual void setWeights(double* inWeights, bool useCrossValidation) {
 	}
 
 	// Device
-//	resizeAndCopyToDeviceCuda(hKWeight, dKWeight);
-//	resizeAndCopyToDeviceCuda(hNWeight, dNWeight);
-	CudaData.resizeAndCopyToDevice(hKWeight, dKWeight);
-	CudaData.resizeAndCopyToDevice(hNWeight, dNWeight);
+	CoxKernels.resizeAndCopyToDevice(hKWeight, dKWeight);
+	CoxKernels.resizeAndCopyToDevice(hNWeight, dNWeight);
 //	std::cout << " HD-copy in GPU::setWeights \n";
 }
 
@@ -391,7 +358,7 @@ virtual void computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 //	resizeAndCopyToDeviceCuda(hXjY, dXjY);	
-	CudaData.resizeAndCopyToDevice(hXjY, dXjY);
+	CoxKernels.resizeAndCopyToDevice(hXjY, dXjY);
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
 	///////////////////////////"
@@ -431,16 +398,11 @@ virtual void computeRemainingStatistics(bool useWeights) {
 	if (dAccDenominator.size() != K) {
 		resizeCudaVecSize(dAccDenominator, K);
 	}
-/*			
-	thrust::copy(std::begin(hXBeta), std::end(hXBeta), std::begin(dXBeta));
-	thrust::copy(std::begin(offsExpXBeta), std::end(offsExpXBeta), std::begin(dExpXBeta));
-	thrust::copy(std::begin(denomPid), std::end(denomPid), std::begin(dDenominator));
-	thrust::copy(std::begin(accDenomPid), std::end(accDenomPid), std::begin(dAccDenominator));
-*/
-	CudaData.copyFromHostToDevice(hXBeta, dXBeta);
-	CudaData.copyFromHostToDevice(offsExpXBeta, dExpXBeta);
-	CudaData.copyFromHostToDevice(denomPid, dDenominator);
-	CudaData.copyFromHostToDevice(accDenomPid, dAccDenominator);
+
+	CoxKernels.copyFromHostToDevice(hXBeta, dXBeta);
+	CoxKernels.copyFromHostToDevice(offsExpXBeta, dExpXBeta);
+	CoxKernels.copyFromHostToDevice(denomPid, dDenominator);
+	CoxKernels.copyFromHostToDevice(accDenomPid, dAccDenominator);
 
 //	std::cout << " HD-copy in GPU::computeRemainingStatistics \n";
 
@@ -458,9 +420,8 @@ virtual double getLogLikelihood(bool useCrossValidation) {
 #endif
 	// Device
 	// TODO write gpu version to avoid D-H copying
-	CudaData.CubScan(thrust::raw_pointer_cast(&dDenominator[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
-//	thrust::copy(std::begin(dAccDenominator), std::end(dAccDenominator), std::begin(accDenomPid));
-	CudaData.copyFromDeviceToHost(dAccDenominator, accDenomPid);	
+	CoxKernels.computeAccumlatedDenominator(dDenominator, dAccDenominator, K);
+	CoxKernels.copyFromDeviceToHost(dAccDenominator, accDenomPid);	
 //	std::cout << " DH-copy in GPU::getLogLikelihood \n";
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
@@ -472,9 +433,7 @@ virtual double getLogLikelihood(bool useCrossValidation) {
 
 	for (size_t i = 0; i < K; i++) {
 		logLikelihood += hY[i] * hXBeta[i] * hKWeight[i];
-//		std::cout << "    GPUMS::getLogLikelihood i: " << i << " hY[i]: " << hY[i] << " hXBeta[i]: " << hXBeta[i] << " ll: " << logLikelihood << '\n';
 		logLikelihood -= hNWeight[i] * std::log(accDenomPid[i]);
-//		std::cout << "    GPUMS::getLogLikelihood i: " << i << " hNWeight[i]: " << hNWeight[i] << " accDenomPid[i]: " << accDenomPid[i] << " ll: " << logLikelihood << '\n';
 	}
 
 	return static_cast<double>(logLikelihood);
@@ -513,13 +472,12 @@ virtual double getPredictiveLogLikelihood(double* weights) {
 	return static_cast<double>(logLikelihood);
 }
 
-virtual void setHXBeta() {
-//	thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
-	CudaData.copyFromDeviceToHost(dXBeta, hXBeta);
+virtual void setHXBeta() { // for confint
+	CoxKernels.copyFromDeviceToHost(dXBeta, hXBeta);
 	hXBetaKnown = true;
 }
 
-virtual void updateXBeta(double delta, int index, bool useWeights) {
+virtual void updateXBeta(double delta, int index, bool useWeights) { // for confint
 	FormatType formatType = hX.getFormatType(index);
 	const auto taskCount = dCudaColumns.getTaskCount(index);
 	
@@ -527,7 +485,7 @@ virtual void updateXBeta(double delta, int index, bool useWeights) {
 	blockSize = 256;
 	gridSize = (int)ceil((double)taskCount/blockSize);
 	
-	CudaData.updateXBeta(dCudaColumns.getData(),
+	CoxKernels.updateXBeta(dCudaColumns.getData(),
 			dCudaColumns.getIndices(),
 			dCudaColumns.getDataOffset(index),
 			dCudaColumns.getIndicesOffset(index),
@@ -547,8 +505,6 @@ virtual void updateXBeta(double delta, int index, bool useWeights) {
 			formatType,
 			gridSize, blockSize);
 	hXBetaKnown = false;
-//	thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
-//	hXBetaKnown = true;
 }
 
 virtual void updateBetaAndDelta(int index, bool useWeights) {
@@ -566,7 +522,7 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 	// sparse transformation
-	CudaData.computeNumeratorForGradient(dCudaColumns.getData(),
+	CoxKernels.computeNumeratorForGradient(dCudaColumns.getData(),
 					dCudaColumns.getIndices(),
 					dCudaColumns.getDataOffset(index),
 					dCudaColumns.getIndicesOffset(index),
@@ -588,17 +544,14 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 	auto start2 = bsccs::chrono::steady_clock::now();
 #endif
 	// dense scan
-	CudaData.CubScan(thrust::raw_pointer_cast(&dDenominator[0]), thrust::raw_pointer_cast(&dAccDenominator[0]), K);
+	CoxKernels.computeAccumlatedDenominator(dDenominator, dAccDenominator, K);
 
 	// dense scan with transform reduction
-	CudaData.computeGradientAndHessian(dNumerator,
+	CoxKernels.computeGradientAndHessian(dNumerator,
 					dNumerator2,
-					dAccNumer,
-					dAccNumer2,
 					dAccDenominator,
 					dNWeight,
 					dGH,
-					dBlockGH,
 					formatType,
 					offCV,
 					K);
@@ -613,15 +566,12 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 	auto start2 = bsccs::chrono::steady_clock::now();
 #endif
 	// dense scan with transform reduction (including Denom -> accDenom)
-	CudaData.computeGradientAndHessian1(dNumerator,
+	CoxKernels.computeGradientAndHessian1(dNumerator,
 					dNumerator2,
 					dDenominator,
-					dAccNumer,
-					dAccNumer2,
 					dAccDenominator,
 					dNWeight,
 					dGH,
-					dBlockGH,
 					formatType,
 					offCV,
 					K);
@@ -637,7 +587,7 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 	auto start4 = bsccs::chrono::steady_clock::now();
 #endif
 	// sparse transformation
-	CudaData.updateXBetaAndDelta(dCudaColumns.getData(),
+	CoxKernels.updateXBetaAndDelta(dCudaColumns.getData(),
 				dCudaColumns.getIndices(),
 				dCudaColumns.getDataOffset(index),
 				dCudaColumns.getIndicesOffset(index),
@@ -673,8 +623,7 @@ virtual const std::vector<double> getXBeta() {
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 	if (!hXBetaKnown) {
-//		thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
-		CudaData.copyFromDeviceToHost(dXBeta, hXBeta);		
+		CoxKernels.copyFromDeviceToHost(dXBeta, hXBeta);		
 //		std::cout << " DH-copy in GPU::getXBeta \n";
 		hXBetaKnown = true;
 	}
@@ -692,8 +641,7 @@ virtual const std::vector<double> getXBetaSave() {
 
 virtual void saveXBeta() {
 	if (!hXBetaKnown) {
-//		thrust::copy(std::begin(dXBeta), std::end(dXBeta), std::begin(hXBeta));
-		CudaData.copyFromDeviceToHost(dXBeta, hXBeta);
+		CoxKernels.copyFromDeviceToHost(dXBeta, hXBeta);
 //		std::cout << " DH-copy in GPU::saveXBeta \n";
 		hXBetaKnown = true;
 	}
@@ -717,14 +665,9 @@ virtual std::vector<double> getBeta() {
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 //	std::cout << " DH-copy in GPU::getBeta \n";
-/*
-	copyCudaVec(dBeta, dBetaBuffer);
-	thrust::copy(std::begin(dBeta), std::end(dBeta), std::begin(RealHBeta));
-*/
-	CudaData.copyFromDeviceToDevice(dBeta, dBetaBuffer);
-	CudaData.copyFromDeviceToDevice(dBound, dBoundBuffer);
-	CudaData.copyFromDeviceToHost(dBeta, RealHBeta);
-	//std::cout << "hb0: " << RealHBeta[0] << " hb1: " << RealHBeta[1] << '\n';
+	CoxKernels.copyFromDeviceToDevice(dBound, dBoundBuffer);
+	CoxKernels.copyFromDeviceToDevice(dBeta, dBetaBuffer);
+	CoxKernels.copyFromDeviceToHost(dBeta, RealHBeta);
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
 	///////////////////////////"
@@ -734,25 +677,15 @@ virtual std::vector<double> getBeta() {
 }
 		
 virtual void resetBeta() {
-/*
-	resizeCudaVecSize(dBeta, J);
-	fillCudaVec(dBeta, static_cast<RealType>(0.0));
-	resizeCudaVecSize(dBetaBuffer, J);
-	fillCudaVec(dBetaBuffer, static_cast<RealType>(0.0));
-*/
-	CudaData.resizeAndFillToDevice(dBeta, static_cast<RealType>(0.0), J);
-	CudaData.resizeAndFillToDevice(dBetaBuffer, static_cast<RealType>(0.0), J);
+	CoxKernels.resizeAndFillToDevice(dBeta, static_cast<RealType>(0.0), J);
+	CoxKernels.resizeAndFillToDevice(dBetaBuffer, static_cast<RealType>(0.0), J);
 }
 
 bool isCUDA() {return true;};
 	
 void setBounds(double initialBound) {
-/*
-	resizeCudaVecSize(dBound, J);
-	fillCudaVec(dBound, static_cast<RealType>(initialBound));
-*/
-	CudaData.resizeAndFillToDevice(dBound, static_cast<RealType>(initialBound), J);
-	CudaData.resizeAndFillToDevice(dBoundBuffer, static_cast<RealType>(initialBound), J);
+	CoxKernels.resizeAndFillToDevice(dBound, static_cast<RealType>(initialBound), J);
+	CoxKernels.resizeAndFillToDevice(dBoundBuffer, static_cast<RealType>(initialBound), J);
 }
 	
 const int getPriorTypes(int index) const {
@@ -772,20 +705,19 @@ void setPriorParams(std::vector<double>& inParams) {
 	for (int i=0; i<J; i++) {
 		temp[i] = static_cast<RealType>(inParams[i]);
 	}
-//	resizeAndCopyToDeviceCuda(temp, dPriorParams);
-	CudaData.resizeAndCopyToDevice(temp, dPriorParams);
+	CoxKernels.resizeAndCopyToDevice(temp, dPriorParams);
 }
 
 void turnOnStreamCV(int foldToCompute) {
 	streamCV = true;
 	streamCVFolds = foldToCompute;
-	CudaData.allocStreams(streamCVFolds);
+	CoxKernels.allocStreams(streamCVFolds);
 	std::cout << "GPUMS streamCVFolds: " << streamCVFolds << '\n';
 }
 
 void setFold(int inFold){
 	fold = inFold;
-	CudaData.setFold(inFold);
+	CoxKernels.setFold(inFold);
 	std::cout << "GPUMS current fold: " << fold << '\n';
 }
 
@@ -840,22 +772,11 @@ std::string getFormatTypeExtension(FormatType formatType) {
 
 	thrust::device_vector<RealType> dBound;
 	thrust::device_vector<RealType> dBoundBuffer;
-	thrust::device_vector<RealType> dDeltaVector;
 	thrust::device_vector<RealType> dPriorParams;
 
-	// buffer
 	RealType2 *dGH; // device GH
-	RealType2 *dBlockGH; // block aggregate
 //	RealType2 *pGH; // host GH
-	thrust::device_vector<RealType> dAccNumer;
-	thrust::device_vector<RealType> dAccNumer2;
-//	thrust::device_vector<RealType> dGradient;
-//	thrust::device_vector<RealType> dHessian;
 
-//	thrust::device_vector<RealType> dBuffer1;
-//	thrust::device_vector<RealType> dBuffer2;
-//	thrust::device_vector<RealType> dBuffer3;
-	
 }; // GpuModelSpecificsCox
 } // namespace bsccs
 

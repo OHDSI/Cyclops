@@ -13,7 +13,7 @@ enum PriorTypeCuda {
 
 
 template<typename RealType, typename RealType2, bool isIndicator>
-struct functorCGH
+struct CompGradHess
 {
     typedef typename thrust::tuple<RealType, RealType> InputTuple;
 
@@ -33,7 +33,7 @@ struct functorCGH
 };
 
 template<typename RealType, typename RealType2, bool isIndicator>
-struct functorCGH1
+struct CompGradHess1
 {
     typedef typename thrust::tuple<RealType, RealType, RealType> InputTuple;
 
@@ -52,26 +52,9 @@ struct functorCGH1
     }
 };
 
-template<typename RealType>
-struct functorThird
-{
-    typedef typename thrust::tuple<RealType, RealType, RealType> InputTuple;
-
-    __host__ __device__
-    RealType operator()(InputTuple& accNAndD) const
-    {
-        return thrust::get<2>(accNAndD);
-    }
-};
-
 
 template <typename RealType, typename RealType2>
 class CudaKernel {
-
-	typedef thrust::tuple<RealType,RealType> Tup2;
-	typedef typename thrust::device_vector<RealType>::iterator VecItr;
-	typedef thrust::tuple<VecItr,VecItr,VecItr,VecItr> TupVec4;
-	typedef thrust::zip_iterator<TupVec4> ZipVec4;
 
 public:
 
@@ -80,15 +63,14 @@ public:
 	int fold;
 
 	// Operator
-	functorCGH<RealType, RealType2, true> compGradHessInd;
-	functorCGH<RealType, RealType2, false> compGradHessNInd;
-	functorCGH1<RealType, RealType2, true> compGradHessInd1;
-	functorCGH1<RealType, RealType2, false> compGradHessNInd1;
-	functorThird<RealType> scanOutput;
+	CompGradHess<RealType, RealType2, true> compGradHessInd;
+	CompGradHess<RealType, RealType2, false> compGradHessNInd;
+	CompGradHess1<RealType, RealType2, true> compGradHessInd1;
+	CompGradHess1<RealType, RealType2, false> compGradHessNInd1;
 
 	// Temporary storage required by cub::scan and cub::reduce
-	void *d_temp_storage0 = NULL;
-	size_t temp_storage_bytes0 = 0;
+	void *d_temp_storage_accd = NULL;
+	size_t temp_storage_bytes_accd = 0;
 	void *d_temp_storage_gh = NULL;
 	size_t temp_storage_bytes_gh = 0;
 
@@ -113,11 +95,8 @@ public:
 			thrust::device_vector<RealType>& d_Numerator,
 			thrust::device_vector<RealType>& d_Numerator2,
 			thrust::device_vector<RealType>& d_AccDenom,
-			thrust::device_vector<RealType>& d_AccNumer,
-			thrust::device_vector<RealType>& d_AccNumer2,
 			thrust::device_vector<RealType>& d_NWeight,
 			RealType2* d_GH,
-			RealType2* d_BlockGH,
 			size_t& N);
 	
 	void computeNumeratorForGradient(const thrust::device_vector<RealType>& d_X,
@@ -134,12 +113,9 @@ public:
         
 	void computeGradientAndHessian(thrust::device_vector<RealType>& d_Numerator,
 			thrust::device_vector<RealType>& d_Numerator2,
-			thrust::device_vector<RealType>& d_AccNumer,
-			thrust::device_vector<RealType>& d_AccNumer2,
 			thrust::device_vector<RealType>& d_AccDenom,
 			thrust::device_vector<RealType>& d_NWeight,
 			RealType2* d_GH,
-			RealType2* d_BlockGH,
 			FormatType& formatType,
 			size_t& offCV,
 			size_t& N
@@ -148,12 +124,9 @@ public:
 	void computeGradientAndHessian1(thrust::device_vector<RealType>& d_Numerator,
 			thrust::device_vector<RealType>& d_Numerator2,
 			thrust::device_vector<RealType>& d_Denominator,
-			thrust::device_vector<RealType>& d_AccNumer,
-			thrust::device_vector<RealType>& d_AccNumer2,
 			thrust::device_vector<RealType>& d_AccDenom,
 			thrust::device_vector<RealType>& d_NWeight,
 			RealType2* d_GH,
-			RealType2* d_BlockGH,
 			FormatType& formatType,
 			size_t& offCV,
 			size_t& N
@@ -182,7 +155,9 @@ public:
 			FormatType& formatType,
 			int gridSize, int blockSize);	
 	
-	void CubScan(RealType* d_in, RealType* d_out, int num_items);
+	void computeAccumlatedDenominator(thrust::device_vector<RealType>& d_Denominator, 
+			thrust::device_vector<RealType>& d_AccDenom, 
+			int N);
 
 
 	// not using
