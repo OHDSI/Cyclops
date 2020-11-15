@@ -50,6 +50,8 @@
 #' Currently unused
 #' @param weights
 #' Currently unused
+#' @param censorWeights
+#' Vector of subject-specific censoring weights (between 0 and 1). Currently only supported in \code{modelType = "fgr"}.
 #' @param offset
 #' Currently unused
 #' @param pid
@@ -97,7 +99,7 @@
 #'
 #' @export
 createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelType,
-                              data, subset = NULL, weights = NULL, offset = NULL, time = NULL, pid = NULL, y = NULL, type = NULL, dx = NULL,
+                              data, subset = NULL, weights = NULL, censorWeights = NULL, offset = NULL, time = NULL, pid = NULL, y = NULL, type = NULL, dx = NULL,
                               sx = NULL, ix = NULL, model = FALSE, normalize = NULL,
                               floatingPoint = 64,
                               method = "cyclops.fit") {
@@ -119,7 +121,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
             data <- environment(formula)
         }
         mf.all <- match.call(expand.dots = FALSE)
-        m.d <- match(c("formula", "data", "subset", "weights",
+        m.d <- match(c("formula", "data", "subset", "weights", "censorWeights",
                        "offset"), names(mf.all), 0L)
         mf.d <- mf.all[c(1L, m.d)]
         mf.d$drop.unused.levels <- TRUE
@@ -129,7 +131,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
         outcome <- model.response(mf.d)
         if (inherits(outcome, "Surv")) {
             if (!.isSurvivalModelType(modelType)) {
-                stop("Censored outcomes are currently only support for Cox regression.")
+                stop("Censored outcomes are currently only supported for Cox regression.")
             }
             if (dim(outcome)[2] == 3) {
                 time <- as.numeric(outcome[,2] - outcome[,1])
@@ -210,7 +212,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
             if (missing(data)) {
                 data <- environment(sparseFormula)
             }
-            m.s <- match(c("sparseFormula", "data", "subset", "weights",
+            m.s <- match(c("sparseFormula", "data", "subset", "weights", "censorWeights",
                            "offset"), names(mf.all), 0L)
             mf.s <- mf.all[c(1L, m.s)]
             mf.s$drop.unused.levels <- TRUE
@@ -238,7 +240,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
             if (missing(data)) {
                 data <- environment(indicatorFormula)
             }
-            m.i <- match(c("indicatorFormula", "data", "subset", "weights",
+            m.i <- match(c("indicatorFormula", "data", "subset", "weights", "censorWeights",
                            "offset"), names(mf.all), 0L)
             mf.i <- mf.all[c(1L, m.i)]
             mf.i$drop.unused.levels <- TRUE
@@ -272,6 +274,9 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
             }
             if (!missing(weights)) {
                 weights <- weights[sortOrder]
+            }
+            if (!missing(censorWeights)) {
+                censorWeights <- censorWeights[sortOrder]
             }
             time <- time[sortOrder]
             dx <- dx[sortOrder, ]
@@ -361,6 +366,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
 
     result$sortOrder <- sortOrder
     result$weights <- weights
+    result$censorWeights <- censorWeights
 
     if (identical(method, "debug")) {
         result$debug <- list()
@@ -487,7 +493,6 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
 #' @template types
 #'
 #' @param fileName          Name of text file to be read. If fileName does not contain an absolute path,
-#' 												 the name is relative to the current working directory, \code{\link{getwd}}.
 #'
 #' @return
 #' A list that contains a Cyclops model data object pointer and an operation duration

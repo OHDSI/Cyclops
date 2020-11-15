@@ -8,6 +8,7 @@
 .idea/
 standalone/build/**
 src/**/*.o
+src/**/*.o-*
 src/*.so
 src/*.dll
 CMakeCache.txt
@@ -24,8 +25,6 @@ docker
 notes
 tests/testthat/test-KKTSwindle.R
 tests/testthat/test-weighted_cv.R
-standalone/out.txt
-standalone/codebase/GPU_COX/imputation/
-*conflicted*
-*tmp*
-src/hide
+.idea
+cmake-build-debug
+standalone/*.txt

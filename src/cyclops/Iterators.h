@@ -20,6 +20,9 @@ struct SparseTag {};
 struct DenseTag {};
 struct InterceptTag {};
 
+template <typename Scalar>
+class ReverseIndicatorIterator;
+
 // Iterator for a sparse of indicators column
 template <typename Scalar>
 class IndicatorIterator {
@@ -74,11 +77,43 @@ class IndicatorIterator {
 	inline Scalar multiply(const Scalar x) const { return x; }
 	inline Scalar multiply(const Scalar x, const Index index) { return x; }
 
+	inline const Index* getIndices() const { return mIndices; }
+
+	ReverseIndicatorIterator<Scalar> reverse() const {
+	    return ReverseIndicatorIterator<Scalar>(*this);
+	}
+
   protected:
     const Index* mIndices;
     Index mId;
     const Index mEnd;
 };
+
+template <typename Scalar>
+class ReverseIndicatorIterator {
+public:
+
+    typedef int Index;
+
+    inline ReverseIndicatorIterator(const IndicatorIterator<Scalar>& forward)
+        : mIndices(forward.getIndices()), mEnd(forward.size()), mId(mEnd - 1) {}
+
+    inline ReverseIndicatorIterator& operator--() { --mId; return *this; }
+    inline operator bool() const { return (mId >= 0); }
+
+    inline const Scalar value() const { return static_cast<Scalar>(1); }
+    inline Index index() const { return mIndices[mId]; }
+
+    inline Index size() const { return mEnd; }
+
+protected:
+    const Index* mIndices;
+    const Index mEnd;
+    Index mId;
+};
+
+template <typename Scalar>
+class ReverseSparseIterator;
 
 // Iterator for a sparse column
 template <typename Scalar>
@@ -139,11 +174,43 @@ class SparseIterator {
 	inline Scalar multiply(const Scalar x) const { return x * mValues[mId]; }
 	inline Scalar multiply(const Scalar x, const Index index) const { return x * mValues[index]; }
 
+	inline const Scalar* getValues() const { return mValues; }
+	inline const Index* getIndices() const { return mIndices; }
+
+	ReverseSparseIterator<Scalar> reverse() const {
+	    return ReverseSparseIterator<Scalar>(*this);
+	}
+
   protected:
     const Scalar* mValues;
     const Index* mIndices;
     Index mId;
     const Index mEnd;
+};
+
+template <typename Scalar>
+class ReverseSparseIterator {
+public:
+
+    typedef int Index;
+
+    inline ReverseSparseIterator(const SparseIterator<Scalar>& forward)
+        : mValues(forward.getValues()), mIndices(forward.getIndices()),
+        mEnd(forward.size()), mId(mEnd - 1) {}
+
+    inline ReverseSparseIterator& operator--() { --mId; return *this; }
+    inline operator bool() const { return (mId >= 0); }
+
+    inline const Scalar value() const { return mValues[mId]; }
+    inline Index index() const { return mIndices[mId]; }
+
+    inline Index size() const { return mEnd; }
+
+protected:
+    const Scalar* mValues;
+    const Index* mIndices;
+    const Index mEnd;
+    Index mId;
 };
 
 template <typename IteratorType, typename Scalar>
@@ -224,6 +291,9 @@ protected:
 	const Index mEnd;
 };
 
+template <typename Scalar>
+class ReverseDenseIterator;
+
 // Iterator for a dense column
 template <typename Scalar>
 class DenseIterator {
@@ -278,11 +348,43 @@ class DenseIterator {
 	inline Scalar multiply(const Scalar x) const { return x * mValues[mId]; }
 	inline Scalar multiply(const Scalar x, const Index index) const { return x * mValues[index]; }
 
+	inline const Scalar* getValues() const { return mValues; }
+
+	ReverseDenseIterator<Scalar> reverse() const {
+	    return ReverseDenseIterator<Scalar>(*this);
+	}
+
   protected:
     const Scalar* mValues;
     Index mId;
     const Index mEnd;
 };
+
+template <typename Scalar>
+class ReverseDenseIterator {
+public:
+
+    typedef int Index;
+
+    inline ReverseDenseIterator(const DenseIterator<Scalar>& forward)
+        : mValues(forward.getValues()), mEnd(forward.size()), mId(mEnd - 1) {}
+
+    inline ReverseDenseIterator& operator--() { --mId; return *this; }
+    inline operator bool() const { return (mId >= 0); }
+
+    inline const Scalar value() const { return mValues[mId]; }
+    inline Index index() const { return mId; }
+
+    inline Index size() const { return mEnd; }
+
+protected:
+    const Scalar* mValues;
+    const Index mEnd;
+    Index mId;
+};
+
+template <typename Scalar>
+class ReverseInterceptIterator;
 
 // Iterator for an intercept column
 template <typename Scalar>
@@ -334,9 +436,35 @@ class InterceptIterator {
 	inline Scalar multiply(const Scalar x) const { return x; }
 	inline Scalar multiply(const Scalar x, const Index index) const { return x; }
 
+	ReverseInterceptIterator<Scalar> reverse() const {
+	    return ReverseInterceptIterator<Scalar>(*this);
+	}
+
   protected:
     Index mId;
     const Index mEnd;
+};
+
+template <typename Scalar>
+class ReverseInterceptIterator {
+public:
+
+    typedef int Index;
+
+    inline ReverseInterceptIterator(const InterceptIterator<Scalar>& forward)
+        : mEnd(forward.size()), mId(mEnd - 1) {}
+
+    inline ReverseInterceptIterator& operator--() { --mId; return *this; }
+    inline operator bool() const { return (mId >= 0); }
+
+    inline const Scalar value() const { return static_cast<Scalar>(1); }
+    inline Index index() const { return mId; }
+
+    inline Index size() const { return mEnd; }
+
+protected:
+    const Index mEnd;
+    Index mId;
 };
 
 // Iterator for a dense view of an arbitrary column
@@ -565,7 +693,6 @@ class PairProductIterator {
 // const std::string IndicatorIterator::name = "Ind";
 // const std::string SparseIterator::name = "Spa";
 // const std::string InterceptIterator::name = "Icp";
-
 
 } // namespace
 

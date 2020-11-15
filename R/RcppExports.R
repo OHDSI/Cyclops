@@ -41,6 +41,10 @@
     invisible(.Call(`_Cyclops_cyclopsSetWeights`, inRcppCcdInterface, weights))
 }
 
+.cyclopsSetCensorWeights <- function(inRcppCcdInterface, weights) {
+    invisible(.Call(`_Cyclops_cyclopsSetCensorWeights`, inRcppCcdInterface, weights))
+}
+
 .cyclopsGetPredictiveLogLikelihood <- function(inRcppCcdInterface, weights) {
     .Call(`_Cyclops_cyclopsGetPredictiveLogLikelihood`, inRcppCcdInterface, weights)
 }

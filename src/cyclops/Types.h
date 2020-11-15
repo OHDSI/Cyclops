@@ -143,6 +143,7 @@ enum class ModelType {
 	SELF_CONTROLLED_MODEL,
 	COX,
 	COX_RAW,
+	FINE_GRAY, // ESK: Added Fine-Gray
 	SIZE_OF_ENUM // Keep at end
 };
 

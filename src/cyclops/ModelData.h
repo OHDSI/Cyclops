@@ -345,11 +345,11 @@ public:
 	    return copy;
 	}
 
-    std::vector<double> copyZVector() const {
-        std::vector<double> copy(z.size());
-        std::copy(std::begin(z), std::end(z), std::begin(copy));
-        return copy;
-    }
+	std::vector<double> copyZVector() const {
+	    std::vector<double> copy(z.size());
+	    std::copy(std::begin(z), std::end(z), std::begin(copy));
+	    return copy;
+	}
 
 	std::vector<double> copyTimeVector() const {
 	    std::vector<double> copy(offs.size());
@@ -379,7 +379,7 @@ public:
 
 	void logTransformCovariate(const IdType covariate);
 
-    void convertAllCovariatesToDense(int length);
+	void convertAllCovariatesToDense(int length);
 
 	void convertCovariateToDense(const IdType covariate);
 

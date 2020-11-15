@@ -312,7 +312,7 @@ virtual void deviceInitialization() {
 
 }
 
-virtual void setWeights(double* inWeights, bool useCrossValidation) {
+virtual void setWeights(double* inWeights, double *cenWeights, bool useCrossValidation) {
 	// Currently only computed on CPU and then copied to GPU
 //	ModelSpecifics<BaseModel, RealType>::setWeights(inWeights, useCrossValidation);
 
@@ -454,7 +454,7 @@ virtual double getPredictiveLogLikelihood(double* weights) {
 
 	// Set new weights
 //	setPidForAccumulation(weights);
-	setWeights(weights, true);
+	setWeights(weights, nullptr, true);
 	computeRemainingStatistics(true); // compute accDenomPid
 
 	// Compute predictive loglikelihood
@@ -466,7 +466,7 @@ virtual double getPredictiveLogLikelihood(double* weights) {
 	
 	// Set back old weights
 //	setPidForAccumulation(&saveKWeight[0]);
-	setWeights(saveKWeight.data(), true); //
+	setWeights(saveKWeight.data(), nullptr, true); //
 	computeRemainingStatistics(true);
 	
 	return static_cast<double>(logLikelihood);

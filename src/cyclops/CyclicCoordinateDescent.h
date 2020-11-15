@@ -130,7 +130,11 @@ public:
 
 	void setWeights(double* weights);
 
+	void setCensorWeights(double* weights); // ESK: New function
+
 	std::vector<double> getWeights();
+
+	std::vector<double> getCensorWeights(); // ESK:
 
 	void setLogisticRegression(bool idoLR);
 
@@ -399,7 +403,7 @@ protected:
 	bool useCrossValidation;
 	bool doLogisticRegression;
 	DoubleVector hWeights; // Make DoubleVector and delegate to ModelSpecifics
-
+    DoubleVector cWeights; // ESK
 	int updateCount;
 	int likelihoodCount;
 
