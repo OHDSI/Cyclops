@@ -33,9 +33,11 @@ AbstractModelSpecifics* deviceFactory(
     case DeviceType::CPU :
         model = new ModelSpecifics<Model,RealType>(modelData);
         break;
+#ifdef GPU_COX
     case DeviceType::GPU :
         model = new GpuModelSpecificsCox<Model,RealType>(modelData);
         break;
+#endif //GPU_COX
     default:
         break; // nullptr
     }
