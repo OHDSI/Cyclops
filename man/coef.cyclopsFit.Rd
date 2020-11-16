@@ -4,8 +4,7 @@
 \alias{coef.cyclopsFit}
 \title{Extract model coefficients}
 \usage{
-\method{coef}{cyclopsFit}(object, rescale = FALSE,
-  ignoreConvergence = FALSE, ...)
+\method{coef}{cyclopsFit}(object, rescale = FALSE, ignoreConvergence = FALSE, ...)
 }
 \arguments{
 \item{object}{Cyclops model fit object}

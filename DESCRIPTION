@@ -1,13 +1,14 @@
 Package: Cyclops
 Type: Package
 Title: Cyclic Coordinate Descent for Logistic, Poisson and Survival Analysis
-Version: 2.0.2
+Version: 3.1.0
 Authors@R: c(
     person("Marc A.", "Suchard", email = "msuchard@ucla.edu", role = c("aut","cre")),
     person("Martijn J.", "Schuemie", role = "aut"),
     person("Trevor R.", "Shaddox", role = "aut"),
     person("Yuxi", "Tian", role = "aut"),
     person("Jianxiao", "Yang", role = "aut"),
+    person("Eric", "Kawaguchi", role = "aut"),
     person("Sushil", "Mittal", role ="ctb"),
     person("Observational Health Data Sciences and Informatics", role = "cph"),
     person("Marcus", "Geelnard", role = c("cph", "ctb"),
@@ -30,22 +31,23 @@ BugReports: https://github.com/ohdsi/cyclops/issues
 Depends:
     R (>= 3.1.0)
 Imports:
+    rlang,
     Matrix,
     Rcpp (>= 0.12.12),
-    bit,
-    ff,
-    ffbase,
+    Andromeda (>= 0.3.1),
+    dplyr,
     methods,
     survival,
-    MASS
+    bit64
 LinkingTo: Rcpp,
     BH (>= 1.51.0),
     RcppEigen (>= 0.3.2)
     RcppParallel
 Suggests:
     testthat,
+    MASS,
     gnm,
     ggplot2,
     microbenchmark,
     cmprsk
-RoxygenNote: 6.1.1
+RoxygenNote: 7.1.1

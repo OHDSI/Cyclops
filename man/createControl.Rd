@@ -4,14 +4,29 @@
 \alias{createControl}
 \title{Create a Cyclops control object}
 \usage{
-createControl(maxIterations = 1000, tolerance = 1e-06,
-  convergenceType = "gradient", cvType = "auto", fold = 10,
-  lowerLimit = 0.01, upperLimit = 20, gridSteps = 10,
-  cvRepetitions = 1, minCVData = 100, noiseLevel = "silent",
-  threads = 1, seed = NULL, resetCoefficients = FALSE,
-  startingVariance = -1, useKKTSwindle = FALSE, tuneSwindle = 10,
-  selectorType = "auto", initialBound = 2, maxBoundCount = 5,
-  algorithm = "ccd")
+createControl(
+  maxIterations = 1000,
+  tolerance = 1e-06,
+  convergenceType = "gradient",
+  cvType = "auto",
+  fold = 10,
+  lowerLimit = 0.01,
+  upperLimit = 20,
+  gridSteps = 10,
+  cvRepetitions = 1,
+  minCVData = 100,
+  noiseLevel = "silent",
+  threads = 1,
+  seed = NULL,
+  resetCoefficients = FALSE,
+  startingVariance = -1,
+  useKKTSwindle = FALSE,
+  tuneSwindle = 10,
+  selectorType = "auto",
+  initialBound = 2,
+  maxBoundCount = 5,
+  algorithm = "ccd"
+)
 }
 \arguments{
 \item{maxIterations}{Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error}
@@ -34,7 +49,7 @@ Option \code{"grid"} selects a grid-search cross validation}
 
 \item{cvRepetitions}{Numeric: Number of repetitions of X-fold cross validation}
 
-\item{minCVData}{Numeric: Minumim number of data for cross validation}
+\item{minCVData}{Numeric: Minimum number of data for cross validation}
 
 \item{noiseLevel}{String: level of Cyclops screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})}
 

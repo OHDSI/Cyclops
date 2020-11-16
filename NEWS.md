@@ -1,3 +1,36 @@
+Cyclops v3.1.0
+==============
+
+Changes:
+
+1. implement Fine-Gray competing risks regression
+2. fixed `getCyclopsProfileLogLikelihood` when starting with extreme coefficients
+
+
+Cyclops v3.0.0
+==============
+
+Changes:
+
+1. switch to `Andromeda` from `ff` to hold large datasets.  This change breaks API
+
+Cyclops v2.0.4
+==============
+
+Changes:
+
+1. removed, unused variable imputation functions that contained a `std::exit`
+
+Cyclops v2.0.3
+==============
+
+Changes:
+
+1. fix computation under conditional Poisson models by reverting to v1.3.4-style loop
+2. fix several unit-tests for compatibility with `R 4.0` factors
+3. add ability to profile likelihood function in parallel
+4. add initial infrastructure for competing risks models
+
 Cyclops v2.0.2
 ==============
 
@@ -32,7 +65,7 @@ Changes:
 1. fix undeclared dependencies in unit-tests: `MASS` and `microbenchmarks`
 2. fix issues with ATLAS compilation
 3. add contexts to testthat files
-4. fix ASAN errors in AbstractModelSpecifics
+4. fix ASAN errors in `AbstractModelSpecifics`
 
 Cyclops 1.3.3
 =============

@@ -4,8 +4,16 @@
 \alias{appendSqlCyclopsData}
 \title{appendSqlCyclopsData}
 \usage{
-appendSqlCyclopsData(object, oStratumId, oRowId, oY, oTime, cRowId,
-  cCovariateId, cCovariateValue)
+appendSqlCyclopsData(
+  object,
+  oStratumId,
+  oRowId,
+  oY,
+  oTime,
+  cRowId,
+  cCovariateId,
+  cCovariateValue
+)
 }
 \arguments{
 \item{object}{OHDSI Cyclops data object to append entries}

@@ -31,10 +31,11 @@
 #'
 #' @docType package
 #' @name cyclops
-#' @import Rcpp Matrix MASS
+#' @import Rcpp Matrix dplyr
 #'
 #' @importFrom methods as
 #' @importFrom stats aggregate as.formula coef coefficients confint contrasts deviance model.matrix model.offset model.response pchisq poisson qchisq qnorm rbinom rexp rnorm rpois runif terms time vcov
+#' @importFrom rlang .data
 #'
 #' @useDynLib Cyclops, .registration = TRUE
 NULL

@@ -697,9 +697,9 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 	        saveKWeight[k] = hKWeight[k]; // make copy to a double vector
 	    }
 
-	    setPidForAccumulation(weights);
-	    setWeights(weights, nullptr, true); // set new weights
-	    computeRemainingStatistics(true); // compute accDenomPid
+		setPidForAccumulation(weights);
+		setWeights(weights, nullptr, true); // set new weights // TODO Possible error for gfr
+		computeRemainingStatistics(true); // compute accDenomPid
 	}
 
 	RealType logLikelihood = static_cast<RealType>(0.0);
@@ -715,9 +715,9 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 	}
 
 	if (BaseModel::cumulativeGradientAndHessian) {
-	    setPidForAccumulation(&saveKWeight[0]);
-	    setWeights(saveKWeight.data(), nullptr, true); // set old weights
-	    computeRemainingStatistics(true);
+		setPidForAccumulation(&saveKWeight[0]);
+	    setWeights(saveKWeight.data(), nullptr, true); // set old weights // TODO Possible eror for gfr
+		computeRemainingStatistics(true);
 	}
 
 	return static_cast<double>(logLikelihood);
@@ -1655,7 +1655,19 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 #endif
 
 	IteratorType it(hX, index);
-//<<<<<<< HEAD
+// <<<<<<< HEAD
+// 	for (; it; ++it) {
+// 		const int k = it.index();
+// 		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
+//         // Update denominators as well (denominators include (weight * offsExpXBeta))
+// 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+// 		    RealType oldEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition to forming offExpXBeta
+//             offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k); // Update offsExpXBeta
+// 			RealType newEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition
+//             incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
+// 		}
+// 	}
+// =======
     if (BaseModel::cumulativeGradientAndHessian) { // cox
         for (; it; ++it) {
             const int k = it.index();
@@ -1687,21 +1699,9 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
             }
         }
     }
-/*
-=======
-	for (; it; ++it) {
-		const int k = it.index();
-		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
-        // Update denominators as well (denominators include (weight * offsExpXBeta))
-		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-		    RealType oldEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition to forming offExpXBeta
-            offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k); // Update offsExpXBeta
-			RealType newEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition
-            incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
-		}
-	}
->>>>>>> fine_gray
-*/
+
+// >>>>>>> develop
+
 	computeAccumlatedDenominator(Weights::isWeighted);
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -1847,7 +1847,7 @@ void ModelSpecifics<BaseModel,RealType>::computeAccumlatedDenominator(bool useWe
         }
         //ESK : Incorporate backwards scan here:
         if (BaseModel::isTwoWayScan) {
-            RealType backDenom = static_cast<RealType>(0);
+            // RealType backDenom = static_cast<RealType>(0);
             RealType totalDenom = static_cast<RealType>(0);
 
         auto reset = begin(accReset);

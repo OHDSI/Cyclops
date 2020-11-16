@@ -11,5 +11,5 @@ bibentry(bibtype = "Article",
         volume = "23",
         pages = "10",
         year = "2013",
-        url = "http://dl.acm.org/citation.cfm?id=2414791"
+        url = "https://dl.acm.org/doi/10.1145/2414416.2414791"
 )

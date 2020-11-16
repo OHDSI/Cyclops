@@ -29,3 +29,7 @@ _pkgdown.yml
 docs
 NEWS.old
 CMakeLists.txt
+deprecated
+.github/
+^\.github$
+^CRAN-RELEASE$

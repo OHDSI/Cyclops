@@ -19,7 +19,7 @@ BootstrapSelector::BootstrapSelector(
 		SelectorType inType,
 		long inSeed,
 	    loggers::ProgressLoggerPtr _logger,
-		loggers::ErrorHandlerPtr _error,		
+		loggers::ErrorHandlerPtr _error,
 		std::vector<real>* wtsExclude) : AbstractSelector(inIds, inType, inSeed, _logger, _error) {
 
     std::ostringstream stream;
@@ -66,17 +66,8 @@ void BootstrapSelector::permute() {
 	} else {
         std::ostringstream stream;
         stream << "BootstrapSelector::permute is not yet implemented.";
-        error->throwError(stream);	
+        error->throwError(stream);
 	}
-
-//	int total = 0;
-//	for (int i = 0; i < N; i++) {
-//		int count = selectedSet.count(i);
-//		std::cout << i << " : " << count << std::endl;
-//		total += count;
-//	}
-//	std::cout << "Total = " << total << std::endl;
-//	exit(0);
 }
 
 void BootstrapSelector::getWeights(int batch, std::vector<double>& weights) {
@@ -97,7 +88,7 @@ void BootstrapSelector::getWeights(int batch, std::vector<double>& weights) {
 	} else {
         std::ostringstream stream;
         stream << "BootstrapSelector::getWeights is not yet implemented.";
-        error->throwError(stream);     
+        error->throwError(stream);
 	}
 }
 

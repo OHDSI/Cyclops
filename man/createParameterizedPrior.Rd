@@ -4,8 +4,13 @@
 \alias{createParameterizedPrior}
 \title{Create a Cyclops parameterized prior object}
 \usage{
-createParameterizedPrior(priorType, parameterize, values,
-  useCrossValidation = FALSE, forceIntercept = FALSE)
+createParameterizedPrior(
+  priorType,
+  parameterize,
+  values,
+  useCrossValidation = FALSE,
+  forceIntercept = FALSE
+)
 }
 \arguments{
 \item{priorType}{Character vector: specifies prior distribution.  See below for options}

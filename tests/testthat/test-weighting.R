@@ -2,6 +2,8 @@ library("testthat")
 library("survival")
 library("gnm")
 
+tolerance <- 1E-4
+
 test_that("Check very small Cox example with ties, but without weights",{
     test <- read.table(header=T, sep = ",", text = "
                        start, length, status, x1, x2
@@ -275,6 +277,43 @@ test_that("Check conditional Poisson with cross-validation",{
                                                    noiseLevel = "quiet",
                                                    seed = 123))
 })
+
+
+test_that("Large Cox regression with weighting",{
+    set.seed(123)
+    sim <- simulateCyclopsData(nstrata=1000,
+                               ncovars=10,
+                               nrows=10000,
+                               effectSizeSd=0.5,
+                               eCovarsPerRow=2,
+                               model="survival")
+    sim$outcomes$weights <- 1/sim$outcomes$rr
+
+    # Gold standard
+    covariates <- sim$covariates
+    ncovars <- max(covariates$covariateId)
+    nrows <- nrow(sim$outcomes)
+    m <- matrix(0,nrows,ncovars)
+    for (i in 1:nrow(covariates)){
+        m[covariates$rowId[i],covariates$covariateId[i]] <- 1
+    }
+    data <- as.data.frame(m)
+
+    data$rowId <- 1:nrow(data)
+    data <- merge(data,sim$outcomes)
+    data <- data[order(data$stratumId,data$rowId),]
+    formula <- as.formula(paste(c("Surv(time,y) ~ strata(stratumId)",paste("V",1:ncovars,sep="")),collapse=" + "))
+    fitCoxph <- survival::coxph(formula, data = data, weights = data$weights, ties = "breslow")
+
+    # Cyclops
+    cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes,
+                                        covariates = sim$covariates,
+                                        modelType = "cox")
+    fitCyclops <- fitCyclopsModel(cyclopsData = cyclopsData)
+
+    expect_equivalent(coef(fitCyclops), coef(fitCoxph), tolerance = tolerance)
+})
+
 
 # # currently broken
 # test_that("Small conditional logistic regression with weighting", {

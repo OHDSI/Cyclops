@@ -10,5 +10,5 @@ getCovariateIds(object)
 \item{object}{A Cyclops data object}
 }
 \description{
-\code{getCovariateIds} returns a vector of integer covariate identifiers in a Cyclops data object
+\code{getCovariateIds} returns a vector of integer64 covariate identifiers in a Cyclops data object
 }

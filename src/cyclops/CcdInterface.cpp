@@ -561,21 +561,24 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
         x0s[j] = ccd->getBeta(j);
     }
 
-    std::vector<CyclicCoordinateDescent*> ccdPool;
-    ccdPool.push_back(ccd);
-
-    for (int i = 1; i < nThreads; ++i) {
-        ccdPool.push_back(ccd->clone());
-    }
-
     auto evaluate = [this, index, includePenalty](const double point,
-                            CyclicCoordinateDescent* ccd) {
+                                                  CyclicCoordinateDescent* ccd) {
 
         OptimizationProfile eval(*ccd, arguments, index,
                                  0.0, 0.0, includePenalty);
 
         return eval.objective(point);
     };
+
+    ccd->makeDirty(); // Reset internal memory
+    evaluate(0.0, ccd);
+
+    std::vector<CyclicCoordinateDescent*> ccdPool;
+    ccdPool.push_back(ccd);
+
+    for (int i = 1; i < nThreads; ++i) {
+        ccdPool.push_back(ccd->clone());
+    }
 
     if (nThreads == 1) {
         for (int i = 0; i < points.size(); ++i) {
@@ -603,11 +606,11 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
     for (int j = 0; j < J; ++j) {
         ccd->setBeta(j, x0s[j]);
     }
-    // DEBUG, TODO Remove?
-    double testMode = ccd->getLogLikelihood();
-    std::ostringstream stream;
-    stream << "Difference after profile: " << testMode << " " << mode;
-    logger->writeLine(stream);
+    // DEBUG
+    //double testMode = ccd->getLogLikelihood();
+    //std::ostringstream stream;
+    //stream << "Difference after profile: " << testMode << " " << mode;
+    //logger->writeLine(stream);
 
     // Clean up copies
     for (int i = 1; i < nThreads; ++i) {

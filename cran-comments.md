@@ -1,16 +1,19 @@
-## New submission following email from Kurt Hornik reporting RNG changes in R-devel that resulted in unit-test errors.
+## Resubmission following email from Uwe Ligges:
+* "Please change http --> https, add trailing slashes, or follow moved content as appropriate."
+  - Done (both for offending URL and for CRAN logos)
 
-* all unit-tests using RNG now pass
-* 3 small bug fixes when taking logical operations with mismatched vector sizes under R-devel
+## New features in this release
+* implements Fine-Gray competing risks regression for massive datasets
+* fixed likelihood-profiling when starting with extreme coefficients
 
 ## Test environments
-* local OS X install, R 3.5.1
-* ubuntu 14.04 (on travis-ci), R 3.5.1, gcc 4.8.4 and gcc 6.0
+* local OS X install, R 4.0.0
+* ubuntu 14.04 (on travis-ci), R 3.6.3, gcc 4.8.4 and gcc 6.0
 * win-builder (devel and release)
 
 ## R CMD check results
 * There were no ERRORs or WARNINGs
-* This is 1 occasional NOTE:
+* There is 1 occasional NOTE:
   checking installed package size ... NOTE
     installed size is 22.5Mb
     sub-directories of 1Mb or more:

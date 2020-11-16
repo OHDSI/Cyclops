@@ -2,23 +2,45 @@
 % Please edit documentation in R/NewDataConversion.R
 \name{convertToCyclopsData}
 \alias{convertToCyclopsData}
-\alias{convertToCyclopsData.ffdf}
 \alias{convertToCyclopsData.data.frame}
+\alias{convertToCyclopsData.tbl_dbi}
 \title{Convert data from two data frames or ffdf objects into a CyclopsData object}
 \usage{
-convertToCyclopsData(outcomes, covariates, modelType = "lr",
-  addIntercept = TRUE, checkSorting = TRUE, checkRowIds = TRUE,
-  normalize = NULL, quiet = FALSE, floatingPoint = 64)
+convertToCyclopsData(
+  outcomes,
+  covariates,
+  modelType = "lr",
+  addIntercept = TRUE,
+  checkSorting = NULL,
+  checkRowIds = TRUE,
+  normalize = NULL,
+  quiet = FALSE,
+  floatingPoint = 64
+)
 
-\method{convertToCyclopsData}{ffdf}(outcomes, covariates,
-  modelType = "lr", addIntercept = TRUE, checkSorting = TRUE,
-  checkRowIds = TRUE, normalize = NULL, quiet = FALSE,
-  floatingPoint = 64)
+\method{convertToCyclopsData}{data.frame}(
+  outcomes,
+  covariates,
+  modelType = "lr",
+  addIntercept = TRUE,
+  checkSorting = NULL,
+  checkRowIds = TRUE,
+  normalize = NULL,
+  quiet = FALSE,
+  floatingPoint = 64
+)
 
-\method{convertToCyclopsData}{data.frame}(outcomes, covariates,
-  modelType = "lr", addIntercept = TRUE, checkSorting = TRUE,
-  checkRowIds = TRUE, normalize = NULL, quiet = FALSE,
-  floatingPoint = 64)
+\method{convertToCyclopsData}{tbl_dbi}(
+  outcomes,
+  covariates,
+  modelType = "lr",
+  addIntercept = TRUE,
+  checkSorting = NULL,
+  checkRowIds = TRUE,
+  normalize = NULL,
+  quiet = FALSE,
+  floatingPoint = 64
+)
 }
 \arguments{
 \item{outcomes}{A data frame or ffdf object containing the outcomes with predefined columns (see below).}
@@ -29,13 +51,13 @@ convertToCyclopsData(outcomes, covariates, modelType = "lr",
 
 \item{addIntercept}{Add an intercept to the model?}
 
-\item{checkSorting}{Check if the data are sorted appropriately, and if not, sort.}
+\item{checkSorting}{(DEPRECATED) Check if the data are sorted appropriately, and if not, sort.}
 
 \item{checkRowIds}{Check if all rowIds in the covariates appear in the outcomes.}
 
 \item{normalize}{String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)}
 
-\item{quiet}{If true, (warning) messages are surpressed.}
+\item{quiet}{If true, (warning) messages are suppressed.}
 
 \item{floatingPoint}{Specified floating-point representation size (32 or 64)}
 }
@@ -53,7 +75,8 @@ These columns are expected in the outcome object:
   \verb{y}    \tab(real) \tab The outcome variable \cr
   \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
                  \tab        \tab(e.g. number of days) \cr
-  \verb{weight} \tab(real) \tab Non-negative weight to apply to outcome
+  \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
+  \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided.
 }
 
 These columns are expected in the covariates object:
@@ -63,18 +86,12 @@ These columns are expected in the covariates object:
   \verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
   \verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
 }
-
-Note: If checkSorting is turned off, the outcome table should be sorted by stratumId (if present)
-and then rowId except for Cox regression when the table should be sorted by
-stratumId (if present), -time, y, and rowId. The covariate table should be sorted by covariateId, stratumId
-(if present), rowId except for Cox regression when the table should be sorted by covariateId,
-stratumId (if present), -time, y, and rowId.
 }
 \section{Methods (by class)}{
 \itemize{
-\item \code{ffdf}: Convert data from two \code{ffdf}
-
 \item \code{data.frame}: Convert data from two \code{data.frame}
+
+\item \code{tbl_dbi}: Convert data from two \code{Andromeda} tables
 }}
 
 \examples{

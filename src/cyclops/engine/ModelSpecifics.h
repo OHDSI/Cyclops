@@ -472,12 +472,12 @@ public:
 
 	const static bool exactCLR = false;
 
-	const static bool isTwoWayScan = false; // ESK: Added
+    const static bool isTwoWayScan = false; // ESK: Added
 
 	const static bool isSurvivalModel = false; //ESK: Added
 
-	template <class XType, typename RealType>
-	RealType gradientNumeratorContrib(XType x, RealType predictor, RealType xBeta, RealType y) {
+    template <class XType, typename RealType>
+	RealType gradientNumeratorContrib(XType x, RealType predictor, RealType xBeta, RealType y) { // TODO Make static again?
 //		using namespace indicator_sugar;
 		return predictor * x;
 	}
@@ -1218,6 +1218,7 @@ public:
 /*
 <<<<<<< HEAD
 	template <class IteratorType, class Weights>
+<<<<<<< HEAD
 	static void incrementGradientAndHessian(
 			const IteratorType& it,
 			Weights false_signature,
@@ -1238,7 +1239,7 @@ public:
 =======
 */
     template <class IteratorType, class Weights>		
-    void incrementGradientAndHessian(
+    void incrementGradientAndHessian( // TODO Make static again?
             const IteratorType& it,
             Weights false_signature,
             RealType* gradient, RealType* hessian,
@@ -1255,7 +1256,6 @@ public:
             *hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
         }
     }
-//>>>>>>> fine_gray
 
 	template <class IteratorType, class WeightOperationType>
 	static inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
@@ -1367,7 +1367,6 @@ public:
 	    RealType xBeta, RealType y) {
 
 // 	    std::cout << "TODO" << std::endl;
-// 	    std::exit(-1); // breslow cox
 
         throw new std::logic_error("breslow cox model not yet support");
 

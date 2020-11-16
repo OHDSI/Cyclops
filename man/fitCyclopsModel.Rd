@@ -4,10 +4,17 @@
 \alias{fitCyclopsModel}
 \title{Fit a Cyclops model}
 \usage{
-fitCyclopsModel(cyclopsData, prior = createPrior("none"),
-  control = createControl(), weights = NULL, forceNewObject = FALSE,
-  returnEstimates = TRUE, startingCoefficients = NULL,
-  fixedCoefficients = NULL, computeDevice = "native")
+fitCyclopsModel(
+  cyclopsData,
+  prior = createPrior("none"),
+  control = createControl(),
+  weights = NULL,
+  forceNewObject = FALSE,
+  returnEstimates = TRUE,
+  startingCoefficients = NULL,
+  fixedCoefficients = NULL,
+  computeDevice = "native"
+)
 }
 \arguments{
 \item{cyclopsData}{A Cyclops data object}

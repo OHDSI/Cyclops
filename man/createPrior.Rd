@@ -4,9 +4,15 @@
 \alias{createPrior}
 \title{Create a Cyclops prior object}
 \usage{
-createPrior(priorType, variance = 1, exclude = c(), graph = NULL,
-  neighborhood = NULL, useCrossValidation = FALSE,
-  forceIntercept = FALSE)
+createPrior(
+  priorType,
+  variance = 1,
+  exclude = c(),
+  graph = NULL,
+  neighborhood = NULL,
+  useCrossValidation = FALSE,
+  forceIntercept = FALSE
+)
 }
 \arguments{
 \item{priorType}{Character: specifies prior distribution.  See below for options}
