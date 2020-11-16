@@ -111,7 +111,7 @@ test_that("Check cross-validation for lasso Cox on GPU", {
 })
 
 # multi-core
-test_that("Check cross-validation for lasso Cox on GPU", {
+test_that("Check multi-core cross-validation for lasso Cox on GPU", {
     set.seed(123)
     sim <- simulateCyclopsData(nstrata = 1,
                                nrows = 900,
