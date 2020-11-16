@@ -7,28 +7,6 @@ GpuDevice <- listOpenCLDevices()[1] # "TITAN V"
 # GpuDevice <- listOpenCLDevices()[2] # "GeForce RTX 2080"
 tolerance <- 1E-4
 
-# N = 100000
-set.seed(123)
-sim <- simulateCyclopsData(nstrata = 1,
-                           nrows = 100000,
-                           ncovars = 100,
-                           effectSizeSd = 1,
-                           zeroEffectSizeProp = 0.8,
-                           eCovarsPerRow = 0.2,
-                           model = "survival")
-set.seed(12)
-sim$outcomes$time <- sim$outcomes$time + rnorm(100000, mean = 0, sd = 0.01)
-
-cyclopsData_CPU <- convertToCyclopsData(sim$outcomes, sim$covariates,
-                                        modelType = "cox",floatingPoint = 64,
-                                        addIntercept = TRUE)
-fit_CPU <- fitCyclopsModel(cyclopsData_CPU) # iterations: 6 lastObjFunc: 733.17
-cyclopsData_GPU <- convertToCyclopsData(sim$outcomes, sim$covariates,
-                                        modelType = "cox",floatingPoint = 64,
-                                        addIntercept = TRUE)
-fit_GPU <- fitCyclopsModel(cyclopsData_GPU, computeDevice = GpuDevice) # iterations: 6 lastObjFunc: 733.17
-expect_equal(coef(fit_GPU), coef(fit_CPU), tolerance = tolerance)
-
 
 # small cox
 test_that("Check small Cox on GPU", {
@@ -77,6 +55,91 @@ start, length, event, x1, x2
 
     expect_equal(coef(cyclopsFitRight_GPU), coef(cyclopsFitRight_CPU), tolerance = tolerance)
 })
+
+
+# large cox
+test_that("Check Cox on GPU", {
+    set.seed(123)
+    sim <- simulateCyclopsData(nstrata = 1,
+                               nrows = 100000,
+                               ncovars = 100,
+                               effectSizeSd = 1,
+                               zeroEffectSizeProp = 0.8,
+                               eCovarsPerRow = 0.2,
+                               model = "survival")
+    set.seed(12)
+    sim$outcomes$time <- sim$outcomes$time + rnorm(100000, mean = 0, sd = 0.00001)
+
+    cyclopsData_CPU <- convertToCyclopsData(sim$outcomes, sim$covariates,
+                                            modelType = "cox",floatingPoint = 64,
+                                            addIntercept = TRUE)
+    fit_CPU <- fitCyclopsModel(cyclopsData_CPU) # iterations: 6 lastObjFunc: 733.17
+    cyclopsData_GPU <- convertToCyclopsData(sim$outcomes, sim$covariates,
+                                            modelType = "cox",floatingPoint = 64,
+                                            addIntercept = TRUE)
+    fit_GPU <- fitCyclopsModel(cyclopsData_GPU, computeDevice = GpuDevice) # iterations: 6 lastObjFunc: 733.17
+    expect_equal(coef(fit_GPU), coef(fit_CPU), tolerance = tolerance)
+})
+
+# lasso cv
+test_that("Check cross-validation for lasso Cox on GPU", {
+    set.seed(123)
+    sim <- simulateCyclopsData(nstrata = 1,
+                               nrows = 900,
+                               ncovars = 350,
+                               effectSizeSd = 1,
+                               zeroEffectSizeProp = 0.8,
+                               eCovarsPerRow = 1,
+                               model = "survival")
+    set.seed(123)
+    sim$outcomes$time <- sim$outcomes$time + rnorm(900, mean = 0, sd = 0.00001)
+
+    prior <- createPrior("laplace", useCrossValidation = TRUE)
+    control <- createControl(noiseLevel = "quiet", lowerLimit = 0.000001, upperLimit = 100,
+                                cvType = "auto", fold = 10, cvRepetitions = 1, startingVariance = 0.01, threads = 1,
+                                seed = 123)
+
+    cyclopsData_CPU <- convertToCyclopsData(sim$outcomes, sim$covariates,modelType = "cox",floatingPoint = 64,addIntercept = TRUE)
+    fit_CPU <- fitCyclopsModel(cyclopsData_CPU, prior = prior, control = control)
+
+    cyclopsData_GPU <- convertToCyclopsData(sim$outcomes, sim$covariates,modelType = "cox",floatingPoint = 64,addIntercept = TRUE)
+    fit_GPU <- fitCyclopsModel(cyclopsData_GPU, prior = prior, control = control, computeDevice = GpuDevice)
+
+    expect_equal(getHyperParameter(fit_GPU), getHyperParameter(fit_CPU), tolerance = tolerance)
+    expect_equal(coef(fit_GPU), coef(fit_CPU), tolerance = tolerance)
+
+})
+
+# multi-core
+test_that("Check cross-validation for lasso Cox on GPU", {
+    set.seed(123)
+    sim <- simulateCyclopsData(nstrata = 1,
+                               nrows = 900,
+                               ncovars = 350,
+                               effectSizeSd = 1,
+                               zeroEffectSizeProp = 0.8,
+                               eCovarsPerRow = 1,
+                               model = "survival")
+    set.seed(123)
+    sim$outcomes$time <- sim$outcomes$time + rnorm(900, mean = 0, sd = 0.00001)
+
+    prior <- createPrior("laplace", useCrossValidation = TRUE)
+    control <- createControl(noiseLevel = "quiet", lowerLimit = 0.000001, upperLimit = 100,
+                                cvType = "auto", fold = 10, cvRepetitions = 1, startingVariance = 0.01, threads = 2,
+                                seed = 123)
+
+    cyclopsData_CPU <- convertToCyclopsData(sim$outcomes, sim$covariates,modelType = "cox",floatingPoint = 64,addIntercept = TRUE)
+    fit_CPU <- fitCyclopsModel(cyclopsData_CPU, prior = prior, control = control)
+
+    cyclopsData_GPU <- convertToCyclopsData(sim$outcomes, sim$covariates,modelType = "cox",floatingPoint = 64,addIntercept = TRUE)
+    fit_GPU <- fitCyclopsModel(cyclopsData_GPU, prior = prior, control = control, computeDevice = GpuDevice)
+
+    expect_equal(getHyperParameter(fit_GPU), getHyperParameter(fit_CPU), tolerance = tolerance)
+    expect_equal(coef(fit_GPU), coef(fit_CPU), tolerance = tolerance)
+
+})
+
+
 
 # test_that("Check small Cox example with failure ties and strata on GPU", {
 #     test <- read.table(header=T, sep = ",", text = "
