@@ -15,7 +15,7 @@
 #include <thread>
 #include <complex>
 
-#define CYCLOPS_DEBUG_TIMING
+//#define CYCLOPS_DEBUG_TIMING
 //#define CYCLOPS_DEBUG_TIMING_LOW
 
 #ifdef CYCLOPS_DEBUG_TIMING
