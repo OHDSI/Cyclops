@@ -130,6 +130,10 @@ __global__ void kernelUpdateXBetaAndDelta(int offX,
 	RealType2 GH = *d_GH;
 	RealType g = GH.x - d_XjY[index];
 	RealType h = GH.y;
+	if (h < 0.0) {
+		g = 0.0;
+		h = 0.0;
+	}
 	RealType beta = d_BetaBuffer[index];
 
 	// process delta
