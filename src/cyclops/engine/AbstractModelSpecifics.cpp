@@ -279,7 +279,7 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
 
     AbstractModelSpecifics* model = nullptr;
 
-    if (modelType != ModelType::LOGISTIC && modelType != ModelType::COX && deviceType == DeviceType::GPU) {
+    if (modelType != ModelType::LOGISTIC && modelType != ModelType::COX && modelType != ModelType::FINE_GRAY && deviceType == DeviceType::GPU) {
         return model; // Implementing lr and cox first on GPU.
     }
 

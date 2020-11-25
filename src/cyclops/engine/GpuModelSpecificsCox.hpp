@@ -205,6 +205,7 @@ public:
 	using ModelSpecifics<BaseModel, RealType>::numerPid2;
 	using ModelSpecifics<BaseModel, RealType>::hNWeight;
 	using ModelSpecifics<BaseModel, RealType>::hKWeight;
+	using ModelSpecifics<BaseModel, RealType>::hYWeight;
 	using ModelSpecifics<BaseModel, RealType>::accDenomPid;
 
 	int tpb = 256; // threads-per-block  // Appears best on K40
@@ -220,14 +221,14 @@ public:
 //			const std::string& deviceName)
 		: ModelSpecifics<BaseModel,RealType>(input),
 		dCudaColumns(),
-		dXjY(),
+		dXjY(), dY(),
 		priorTypes(), RealHBeta(), dBetaBuffer(),
 		dNumerator(), dNumerator2(),
 		dGH(),
 		dBound(), dPriorParams(),
 		dBeta(), dXBeta(), dExpXBeta(),
 		dDenominator(), dAccDenominator(),
-		dKWeight(), dNWeight(),
+		dKWeight(), dNWeight(), dYWeight(),
 		CoxKernels() {
 		std::cerr << "ctor GpuModelSpecificsCox" << std::endl;
 	}
@@ -285,6 +286,8 @@ virtual void deviceInitialization() {
 	RealHBeta.resize(J);
 		
 	// Allocate device storage
+	CoxKernels.resizeAndCopyToDevice(hY, dY);
+
 	resizeCudaVec(hXBeta, dXBeta); // K
 	resizeCudaVec(offsExpXBeta, dExpXBeta); // K
 	resizeCudaVec(denomPid, dDenominator); // K
@@ -344,10 +347,23 @@ virtual void setWeights(double* inWeights, double *cenWeights, bool useCrossVali
 	for (size_t k = 0; k < K; ++k) {
 		hNWeight[k] = hY[k] * hKWeight[k];
 	}
-
+	
 	// Device
 	CoxKernels.resizeAndCopyToDevice(hKWeight, dKWeight);
 	CoxKernels.resizeAndCopyToDevice(hNWeight, dNWeight);
+
+	// Fine-gray
+	if (BaseModel::isTwoWayScan) {
+		if (hYWeight.size() != K) {
+			hYWeight.resize(K);
+		}
+		for (size_t k = 0; k < K; ++k) {
+			hYWeight[k] = cenWeights[k];
+		}
+		// Device
+		CoxKernels.resizeAndCopyToDevice(hYWeight, dYWeight);
+	}
+
 //	std::cout << " HD-copy in GPU::setWeights \n";
 }
 
@@ -582,6 +598,19 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 #endif
 */	
 
+	if (BaseModel::isTwoWayScan) {
+		CoxKernels.computeGradientAndHessianBackwards(dNumerator,
+				dNumerator2,
+				dDenominator,
+				dNWeight,
+				dYWeight,
+				dY,
+				dGH,
+				formatType,
+				offCV,
+				K);
+	}
+
 	////////////////////////// updateXBetaAndDelta
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto start4 = bsccs::chrono::steady_clock::now();
@@ -758,8 +787,10 @@ std::string getFormatTypeExtension(FormatType formatType) {
 	// device storage
 	thrust::device_vector<RealType> dKWeight;
 	thrust::device_vector<RealType> dNWeight;
+	thrust::device_vector<RealType> dYWeight;
 
 	thrust::device_vector<RealType> dXjY;
+	thrust::device_vector<RealType> dY;
 	thrust::device_vector<RealType> dBeta;
 	thrust::device_vector<RealType> dBetaBuffer;
 	thrust::device_vector<RealType> dXBeta;

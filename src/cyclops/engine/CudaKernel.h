@@ -132,6 +132,17 @@ public:
 			size_t& N
 			);
 
+	void computeGradientAndHessianBackwards(thrust::device_vector<RealType>& d_Numerator,
+			thrust::device_vector<RealType>& d_Numerator2,
+			thrust::device_vector<RealType>& d_Denominator,
+			thrust::device_vector<RealType>& d_NWeight,
+			thrust::device_vector<RealType>& d_YWeight,
+			thrust::device_vector<RealType>& d_Y,
+			RealType2* d_GH,
+			FormatType& formatType,
+			size_t& offCV,
+			size_t& N);
+
 	void updateXBetaAndDelta(const thrust::device_vector<RealType>& d_X,
 			const thrust::device_vector<int>& d_K,
 			unsigned int offX,
