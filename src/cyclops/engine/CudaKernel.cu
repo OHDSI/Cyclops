@@ -303,6 +303,10 @@ CudaKernel<RealType, RealType2>::~CudaKernel()
 	free(stream);
 	cudaFree(d_temp_storage_accd); // accDenom
 	cudaFree(d_temp_storage_gh); // cGAH
+	cudaFree(d_temp_storage_faccd); // FG: two-way scan for accDenom
+	cudaFree(d_temp_storage_fs); // FG: forward scans
+	cudaFree(d_temp_storage_bs); // FG: backward scans
+	cudaFree(d_temp_storage_fgh); // FG: cGAH
 
 //	cudaDeviceReset();
 	std::cout << "dtor CudaKernel \n";
@@ -376,6 +380,8 @@ void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<Rea
 						       RealType2* d_GH,
 						       size_t& N)
 {
+	d_init.x = d_init.y = 0.0;
+
 	// for scan in accDenom
 	DeviceScan::InclusiveSum(d_temp_storage_accd, temp_storage_bytes_accd, &d_Denominator[0], &d_AccDenom[0], N, stream[0]);
 	cudaMalloc(&d_temp_storage_accd, temp_storage_bytes_accd);
@@ -404,6 +410,88 @@ void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<Rea
 	cudaStreamSynchronize(stream[0]);
 }
 
+template <typename RealType, typename RealType2>
+void CudaKernel<RealType, RealType2>::allocTempStorageFG(thrust::device_vector<RealType>& d_Denominator,
+		thrust::device_vector<RealType>& d_Numerator,
+		thrust::device_vector<RealType>& d_Numerator2,
+		thrust::device_vector<RealType>& d_AccDenom,
+		thrust::device_vector<RealType>& d_AccNumer,
+		thrust::device_vector<RealType>& d_AccNumer2,
+		thrust::device_vector<RealType>& d_DecDenom,
+		thrust::device_vector<RealType>& d_DecNumer,
+		thrust::device_vector<RealType>& d_DecNumer2,
+		thrust::device_vector<RealType>& d_NWeight,
+		thrust::device_vector<RealType>& d_YWeight,
+		thrust::device_vector<RealType>& d_Y,
+		RealType2* d_GH,
+		size_t& N)
+{
+	// two-way scan for accDenom
+	auto begin_denoms = thrust::make_zip_iterator(thrust::make_tuple(
+				d_Denominator.begin(),
+				d_Denominator.rbegin(),
+				d_Y.rbegin(),
+				d_YWeight.rbegin()));
+	auto begin_accDenoms = thrust::make_zip_iterator(thrust::make_tuple(
+				d_AccDenom.begin(),
+				d_DecDenom.rbegin()));
+	
+	TransformInputIterator<Tup2, TwoWayScan<RealType>, NRZipVec4> itr_scan(begin_denoms, twoWayScan);
+	DeviceScan::InclusiveScan(d_temp_storage_faccd, temp_storage_bytes_faccd,
+			itr_scan, begin_accDenoms,
+			TuplePlus(), N, stream[0]);
+	cudaMalloc(&d_temp_storage_faccd, temp_storage_bytes_faccd);
+	
+	// forward scans
+	auto begin_forward = thrust::make_zip_iterator(thrust::make_tuple(
+				d_Numerator.begin(),
+				d_Numerator2.begin(),
+				d_Denominator.begin()));
+	auto begin_acc = thrust::make_zip_iterator(thrust::make_tuple(
+				d_AccNumer.begin(),
+				d_AccNumer2.begin(),
+				d_AccDenom.begin()));
+	DeviceScan::InclusiveScan(d_temp_storage_fs, temp_storage_bytes_fs,
+			begin_forward, begin_acc,
+			TuplePlus3(), N, stream[0]);
+	cudaMalloc(&d_temp_storage_fs, temp_storage_bytes_fs);
+	
+	// backward scans
+	auto rbegin_backward = thrust::make_zip_iterator(thrust::make_tuple(
+				d_Denominator.rbegin(),
+				d_Numerator.rbegin(),
+				d_Numerator2.rbegin(),
+				d_Y.rbegin(),
+				d_YWeight.rbegin()));
+	auto rbegin_dec = thrust::make_zip_iterator(thrust::make_tuple(
+				d_DecDenom.rbegin(),
+				d_DecNumer.rbegin(),
+				d_DecNumer2.rbegin()));
+	TransformInputIterator<Tup3, BackwardScans<RealType>, RZipVec5> itr_scans(rbegin_backward, backwardScans);
+	DeviceScan::InclusiveScan(d_temp_storage_bs, temp_storage_bytes_bs, 
+			itr_scans, rbegin_dec, 
+			TuplePlus3(), N, stream[0]);
+	cudaMalloc(&d_temp_storage_bs, temp_storage_bytes_bs);
+	
+	// transform reduction
+	auto begin_gh = thrust::make_zip_iterator(thrust::make_tuple(
+				d_AccDenom.begin(),
+				d_AccNumer.begin(),
+				d_AccNumer2.begin(),
+				d_DecDenom.begin(),
+				d_DecNumer.begin(),
+				d_DecNumer2.begin(),
+				d_NWeight.begin(),
+				d_Y.begin(),
+				d_YWeight.begin()));
+	TransformInputIterator<RealType2, TwoWayReduce<RealType, RealType2, true>, ZipVec9> itr_gh(begin_gh, fineGrayInd);
+	DeviceReduce::Reduce(d_temp_storage_fgh, temp_storage_bytes_fgh,
+			itr_gh, d_GH,
+			N, RealType2Plus(), d_init, stream[0]);
+	cudaMalloc(&d_temp_storage_fgh, temp_storage_bytes_fgh);
+	
+	cudaStreamSynchronize(stream[0]);
+}
 
 template <typename RealType, typename RealType2>
 void CudaKernel<RealType, RealType2>::computeNumeratorForGradient(const thrust::device_vector<RealType>& d_X,
@@ -530,18 +618,78 @@ void CudaKernel<RealType, RealType2>::computeGradientAndHessian1(thrust::device_
 }
 
 template <typename RealType, typename RealType2>
-void CudaKernel<RealType, RealType2>::computeGradientAndHessianBackwards(thrust::device_vector<RealType>& d_Numerator,
-									thrust::device_vector<RealType>& d_Numerator2,
-									thrust::device_vector<RealType>& d_Denominator,
-									thrust::device_vector<RealType>& d_NWeight,
-									thrust::device_vector<RealType>& d_YWeight,
-									thrust::device_vector<RealType>& d_Y,
-									RealType2* d_GH,
-									FormatType& formatType,
-									size_t& offCV,
-									size_t& N)
+void CudaKernel<RealType, RealType2>::computeTwoWayGradientAndHessian(thrust::device_vector<RealType>& d_Numerator,
+								thrust::device_vector<RealType>& d_Numerator2,
+								thrust::device_vector<RealType>& d_Denominator,
+								thrust::device_vector<RealType>& d_AccNumer,
+								thrust::device_vector<RealType>& d_AccNumer2,
+								thrust::device_vector<RealType>& d_AccDenom,
+								thrust::device_vector<RealType>& d_DecNumer,
+								thrust::device_vector<RealType>& d_DecNumer2,
+								thrust::device_vector<RealType>& d_DecDenom,
+								thrust::device_vector<RealType>& d_NWeight,
+								thrust::device_vector<RealType>& d_YWeight,
+								thrust::device_vector<RealType>& d_Y,
+								RealType2* d_GH,
+								FormatType& formatType,
+								size_t& offCV,
+								size_t& N)
 {
-	// TODO
+	// forward scan
+	auto begin_forward = thrust::make_zip_iterator(thrust::make_tuple(
+				d_Numerator.begin(), 
+				d_Numerator2.begin(), 
+				d_Denominator.begin()));
+	auto begin_acc = thrust::make_zip_iterator(thrust::make_tuple(
+				d_AccNumer.begin(), 
+				d_AccNumer2.begin(), 
+				d_AccDenom.begin()));
+	DeviceScan::InclusiveScan(d_temp_storage_fs, temp_storage_bytes_fs,
+			begin_forward, begin_acc,
+			TuplePlus3(), N, stream[0]);
+	
+	// backward scan
+	auto rbegin_backward = thrust::make_zip_iterator(thrust::make_tuple(
+				d_Denominator.rbegin(),
+				d_Numerator.rbegin(),
+				d_Numerator2.rbegin(),
+				d_Y.rbegin(),
+				d_YWeight.rbegin()));
+	auto rbegin_dec = thrust::make_zip_iterator(thrust::make_tuple(
+				d_DecDenom.rbegin(),
+				d_DecNumer.rbegin(),
+				d_DecNumer2.rbegin()));
+	TransformInputIterator<Tup3, BackwardScans<RealType>, RZipVec5> itr_scans(rbegin_backward, backwardScans);
+	DeviceScan::InclusiveScan(d_temp_storage_bs, temp_storage_bytes_bs, 
+			itr_scans, rbegin_dec, 
+			TuplePlus3(), N, stream[0]);
+
+	cudaStreamSynchronize(stream[0]);
+
+	// transform reduction
+	auto begin_gh = thrust::make_zip_iterator(thrust::make_tuple(
+				d_AccDenom.begin(),
+				d_AccNumer.begin(),
+				d_AccNumer2.begin(),
+				d_DecDenom.begin(),
+				d_DecNumer.begin(),
+				d_DecNumer2.begin(),
+				d_NWeight.begin(),
+				d_Y.begin(),
+				d_YWeight.begin()));
+	if (formatType == INDICATOR) {
+		TransformInputIterator<RealType2, TwoWayReduce<RealType, RealType2, true>, ZipVec9> itr_gh(begin_gh, fineGrayInd);
+		DeviceReduce::Reduce(d_temp_storage_fgh, temp_storage_bytes_fgh,
+				itr_gh, d_GH,
+				N, RealType2Plus(), d_init, stream[0]);
+	} else {
+		TransformInputIterator<RealType2, TwoWayReduce<RealType, RealType2, false>, ZipVec9> itr_gh(begin_gh, fineGrayNInd);
+		DeviceReduce::Reduce(d_temp_storage_fgh, temp_storage_bytes_fgh,
+				itr_gh, d_GH,
+				N, RealType2Plus(), d_init, stream[0]);
+	}
+
+	cudaStreamSynchronize(stream[0]);
 }
 
 
@@ -702,6 +850,38 @@ void CudaKernel<RealType, RealType2>::computeAccumlatedDenominator(thrust::devic
 
 	cudaStreamSynchronize(stream[0]);
 //	cudaDeviceSynchronize();
+}
+
+template <typename RealType, typename RealType2>
+void CudaKernel<RealType, RealType2>::computeTwoWayAccumlatedDenominator(thrust::device_vector<RealType>& d_Denominator,
+		thrust::device_vector<RealType>& d_AccDenom, 
+		thrust::device_vector<RealType>& d_DecDenom, 
+		thrust::device_vector<RealType>& d_YWeight, 
+		thrust::device_vector<RealType>& d_Y,
+		int N)
+{
+	// two-way scan
+	auto begin_denoms = thrust::make_zip_iterator(thrust::make_tuple(
+				d_Denominator.begin(),
+				d_Denominator.rbegin(),
+				d_Y.rbegin(),
+				d_YWeight.rbegin()));
+	auto begin_accDenoms = thrust::make_zip_iterator(thrust::make_tuple(
+				d_AccDenom.begin(), 
+				d_DecDenom.rbegin()));
+
+	TransformInputIterator<Tup2, TwoWayScan<RealType>, NRZipVec4> itr_scan(begin_denoms, twoWayScan);
+	DeviceScan::InclusiveScan(d_temp_storage_faccd, temp_storage_bytes_faccd, 
+			itr_scan, begin_accDenoms, 
+			TuplePlus(), N, stream[0]);
+	cudaStreamSynchronize(stream[0]);
+
+	// add two scans together
+	auto begin_denom = thrust::make_zip_iterator(thrust::make_tuple(d_AccDenom.begin(), d_DecDenom.begin()));
+	auto end_denom = thrust::make_zip_iterator(thrust::make_tuple(d_AccDenom.end(), d_DecDenom.end()));
+	auto begin_conditions = thrust::make_zip_iterator(thrust::make_tuple(d_Y.begin(), d_YWeight.begin()));
+	thrust::transform(begin_denom, end_denom, begin_conditions, d_AccDenom.begin(), scansAddition);
+	cudaStreamSynchronize(stream[0]);
 }
 
 

@@ -52,9 +52,104 @@ struct CompGradHess1
     }
 };
 
+template<typename RealType>
+struct TwoWayScan
+{
+    typedef typename thrust::tuple<RealType, RealType, RealType, RealType> InputTuple; // denom.begin(), denom.rbegin(), Y, YWeight
+    typedef typename thrust::tuple<RealType, RealType> OutputTuple; // accDenom, decDenom
+
+    __host__ __device__
+    OutputTuple operator()(const InputTuple& Inputs) const {
+        RealType d = thrust::get<0>(Inputs);
+        RealType dr = 0;
+        if (thrust::get<2>(Inputs) > static_cast<RealType>(1)) {
+            dr = thrust::get<1>(Inputs) / thrust::get<3>(Inputs);
+        }
+        return thrust::make_tuple(d, dr);
+    }
+};
+
+template<typename RealType>
+struct ScansAddition
+{
+    typedef typename thrust::tuple<RealType, RealType> InputTuple; // accDenom, decDenom
+    typedef typename thrust::tuple<RealType, RealType> ConditionTuple; // Y, YWeight
+
+    __host__ __device__
+    RealType operator()(const InputTuple& Inputs, const ConditionTuple& Conditions) const {
+        RealType accDenom = thrust::get<0>(Inputs);
+        if (thrust::get<0>(Conditions) == static_cast<RealType>(1)) {
+            accDenom += thrust::get<1>(Inputs) * thrust::get<1>(Conditions);
+        }
+        return accDenom;
+    }
+};
+
+template<typename RealType>
+struct BackwardScans
+{
+    typedef typename thrust::tuple<RealType, RealType, RealType, RealType, RealType> InputTuple; // denom, numer, numer2, Y, YWeight
+    typedef typename thrust::tuple<RealType, RealType, RealType> OutputTuple;
+
+    __host__ __device__
+    OutputTuple operator()(const InputTuple& Inputs) const {
+        RealType d = 0;
+        RealType n = 0;
+        RealType n2 = 0;
+        if (thrust::get<3>(Inputs) > static_cast<RealType>(1)) {
+            d = thrust::get<0>(Inputs) / thrust::get<4>(Inputs);
+            n = thrust::get<1>(Inputs) / thrust::get<4>(Inputs);
+            n2 = thrust::get<2>(Inputs) / thrust::get<4>(Inputs);
+        }
+        return thrust::make_tuple(d, n, n2);
+    }
+};
+
+template<typename RealType, typename RealType2, bool isIndicator>
+struct TwoWayReduce
+{
+    typedef typename thrust::tuple<RealType, RealType, RealType, RealType, RealType, RealType, RealType, RealType, RealType> InputTuple; // AccDenom, AccNumer, AccNumer2, DecDenom, DecNumer, DecNumer2, NWeight, Y, YWeight
+
+    __host__ __device__
+    RealType2 operator()(const InputTuple& Inputs) const {
+
+        RealType d = thrust::get<0>(Inputs);
+        RealType n = thrust::get<1>(Inputs);
+        RealType n2 = thrust::get<2>(Inputs);
+        if (thrust::get<7>(Inputs) == static_cast<RealType>(1)) {
+            d += thrust::get<3>(Inputs) * thrust::get<8>(Inputs);
+            n += thrust::get<4>(Inputs) * thrust::get<8>(Inputs);
+            n2 += thrust::get<5>(Inputs) * thrust::get<8>(Inputs);
+        }
+
+        auto temp = n / d;
+        RealType2 out;
+        out.x = thrust::get<6>(Inputs) * temp;
+        if (isIndicator) {
+            out.y = out.x * (1 - temp);
+        } else {
+            out.y = thrust::get<6>(Inputs) * (n2 / d - temp * temp);
+        }
+        return out;
+    }
+};
+
 
 template <typename RealType, typename RealType2>
 class CudaKernel {
+
+	typedef typename thrust::device_vector<RealType>::iterator VecItr;
+	typedef typename thrust::reverse_iterator<VecItr> RItr;
+
+	typedef thrust::tuple<RealType, RealType> Tup2;
+	typedef thrust::tuple<RealType, RealType, RealType> Tup3;
+
+	typedef thrust::tuple<VecItr, RItr, RItr, RItr> NRTupVec4;
+	typedef thrust::zip_iterator<NRTupVec4> NRZipVec4;
+	typedef thrust::tuple<RItr, RItr, RItr, RItr, RItr> RTupVec5;
+	typedef thrust::zip_iterator<RTupVec5> RZipVec5;
+	typedef thrust::tuple<VecItr, VecItr, VecItr, VecItr, VecItr, VecItr, VecItr, VecItr, VecItr> TupVec9;
+	typedef thrust::zip_iterator<TupVec9> ZipVec9;
 
 public:
 
@@ -62,17 +157,33 @@ public:
 	int CVFolds;
 	int fold;
 
+	RealType2 d_init;
+
 	// Operator
 	CompGradHess<RealType, RealType2, true> compGradHessInd;
 	CompGradHess<RealType, RealType2, false> compGradHessNInd;
 	CompGradHess1<RealType, RealType2, true> compGradHessInd1;
 	CompGradHess1<RealType, RealType2, false> compGradHessNInd1;
 
+	TwoWayScan<RealType> twoWayScan;
+	ScansAddition<RealType> scansAddition;
+	BackwardScans<RealType> backwardScans;
+	TwoWayReduce<RealType, RealType2, true> fineGrayInd;
+	TwoWayReduce<RealType, RealType2, false> fineGrayNInd;
+
 	// Temporary storage required by cub::scan and cub::reduce
 	void *d_temp_storage_accd = NULL;
 	size_t temp_storage_bytes_accd = 0;
+	void *d_temp_storage_faccd = NULL;
+	size_t temp_storage_bytes_faccd = 0;
 	void *d_temp_storage_gh = NULL;
 	size_t temp_storage_bytes_gh = 0;
+	void *d_temp_storage_fs = NULL;
+	size_t temp_storage_bytes_fs = 0;
+	void *d_temp_storage_bs = NULL;
+	size_t temp_storage_bytes_bs = 0;
+	void *d_temp_storage_fgh = NULL;
+	size_t temp_storage_bytes_fgh = 0;
 
 	CudaKernel();
 	~CudaKernel();
@@ -98,7 +209,22 @@ public:
 			thrust::device_vector<RealType>& d_NWeight,
 			RealType2* d_GH,
 			size_t& N);
-	
+
+	void allocTempStorageFG(thrust::device_vector<RealType>& d_Denominator,
+			thrust::device_vector<RealType>& d_Numerator,
+			thrust::device_vector<RealType>& d_Numerator2,
+			thrust::device_vector<RealType>& d_AccDenom,
+			thrust::device_vector<RealType>& d_AccNumer,
+			thrust::device_vector<RealType>& d_AccNumer2,
+			thrust::device_vector<RealType>& d_DecDenom,
+			thrust::device_vector<RealType>& d_DecNumer,
+			thrust::device_vector<RealType>& d_DecNumer2,
+			thrust::device_vector<RealType>& d_NWeight,
+			thrust::device_vector<RealType>& d_YWeight,
+			thrust::device_vector<RealType>& d_Y,
+			RealType2* d_GH,
+			size_t& N);
+
 	void computeNumeratorForGradient(const thrust::device_vector<RealType>& d_X,
 			const thrust::device_vector<int>& d_K,
 			unsigned int offX,
@@ -132,9 +258,15 @@ public:
 			size_t& N
 			);
 
-	void computeGradientAndHessianBackwards(thrust::device_vector<RealType>& d_Numerator,
+	void computeTwoWayGradientAndHessian(thrust::device_vector<RealType>& d_Numerator,
 			thrust::device_vector<RealType>& d_Numerator2,
 			thrust::device_vector<RealType>& d_Denominator,
+			thrust::device_vector<RealType>& d_AccNumer,
+			thrust::device_vector<RealType>& d_AccNumer2,
+			thrust::device_vector<RealType>& d_AccDenom,
+			thrust::device_vector<RealType>& d_DecNumer,
+			thrust::device_vector<RealType>& d_DecNumer2,
+			thrust::device_vector<RealType>& d_DecDenom,
 			thrust::device_vector<RealType>& d_NWeight,
 			thrust::device_vector<RealType>& d_YWeight,
 			thrust::device_vector<RealType>& d_Y,
@@ -170,6 +302,12 @@ public:
 			thrust::device_vector<RealType>& d_AccDenom, 
 			int N);
 
+	void computeTwoWayAccumlatedDenominator(thrust::device_vector<RealType>& d_Denominator,
+			thrust::device_vector<RealType>& d_AccDenom, 
+			thrust::device_vector<RealType>& d_DecDenom, 
+			thrust::device_vector<RealType>& d_YWeight, 
+			thrust::device_vector<RealType>& d_Y,
+			int N);
 
 	// not using
 	void processDelta(double2* d_GH,

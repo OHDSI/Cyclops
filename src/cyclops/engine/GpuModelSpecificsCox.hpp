@@ -227,7 +227,8 @@ public:
 		dGH(),
 		dBound(), dPriorParams(),
 		dBeta(), dXBeta(), dExpXBeta(),
-		dDenominator(), dAccDenominator(),
+		dDenominator(), dAccDenom(),
+		dAccNumer(), dAccNumer2(), dDecDenom(), dDecNumer(), dDecNumer2(),
 		dKWeight(), dNWeight(), dYWeight(),
 		CoxKernels() {
 		std::cerr << "ctor GpuModelSpecificsCox" << std::endl;
@@ -290,22 +291,46 @@ virtual void deviceInitialization() {
 
 	resizeCudaVec(hXBeta, dXBeta); // K
 	resizeCudaVec(offsExpXBeta, dExpXBeta); // K
-	resizeCudaVec(denomPid, dDenominator); // K
+//	resizeCudaVec(denomPid, dDenominator); // K
 
-	CoxKernels.resizeAndFillToDevice(dNumerator, static_cast<RealType>(0.0), numerPid.size());
-	CoxKernels.resizeAndFillToDevice(dNumerator2, static_cast<RealType>(0.0), numerPid2.size());
+	CoxKernels.resizeAndFillToDevice(dDenominator, static_cast<RealType>(0.0), K);
+	CoxKernels.resizeAndFillToDevice(dNumerator, static_cast<RealType>(0.0), K);
+	CoxKernels.resizeAndFillToDevice(dNumerator2, static_cast<RealType>(0.0), K);
+
+	CoxKernels.resizeAndFillToDevice(dAccNumer, static_cast<RealType>(0.0), K);
+	CoxKernels.resizeAndFillToDevice(dAccNumer2, static_cast<RealType>(0.0), K);
+	CoxKernels.resizeAndFillToDevice(dDecNumer, static_cast<RealType>(0.0), K);
+	CoxKernels.resizeAndFillToDevice(dDecNumer2, static_cast<RealType>(0.0), K);
+	CoxKernels.resizeAndFillToDevice(dDecDenom, static_cast<RealType>(0.0), K);
 
 	cudaMalloc((void**)&dGH, sizeof(RealType2));
 //	cudaMallocHost((void **) &pGH, sizeof(RealType2));
 
 	// Allocate temporary storage for scan and reduction
-	CoxKernels.allocTempStorage(dExpXBeta,
+	if (BaseModel::isTwoWayScan) {
+		CoxKernels.allocTempStorageFG(dDenominator,
 				dNumerator,
 				dNumerator2,
-				dAccDenominator,
+				dAccDenom,
+				dAccNumer,
+				dAccNumer2,
+				dDecDenom,
+				dDecNumer,
+				dDecNumer2,
+				dNWeight,
+				dYWeight,
+				dY,
+				dGH,
+				N);
+	} else {
+		CoxKernels.allocTempStorage(dExpXBeta,
+				dNumerator,
+				dNumerator2,
+				dAccDenom,
 				dNWeight,
 				dGH,
 				N);
+	}
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
 	///////////////////////////"
@@ -344,8 +369,14 @@ virtual void setWeights(double* inWeights, double *cenWeights, bool useCrossVali
 	}
 
 	std::fill(hNWeight.begin(), hNWeight.end(), static_cast<RealType>(0));
-	for (size_t k = 0; k < K; ++k) {
-		hNWeight[k] = hY[k] * hKWeight[k];
+	if (BaseModel::isTwoWayScan) {
+		for (size_t k = 0; k < K; ++k) {
+			hNWeight[k] = hKWeight[k] * (hY[k] != static_cast<RealType>(1)) ? static_cast<RealType>(0) : static_cast<RealType>(1);
+		}
+	} else {
+		for (size_t k = 0; k < K; ++k) {
+			hNWeight[k] = hY[k] * hKWeight[k];
+		}
 	}
 	
 	// Device
@@ -411,14 +442,14 @@ virtual void computeRemainingStatistics(bool useWeights) {
 	}
 
 	// Device
-	if (dAccDenominator.size() != K) {
-		resizeCudaVecSize(dAccDenominator, K);
+	if (dAccDenom.size() != K) {
+		resizeCudaVecSize(dAccDenom, K);
 	}
 
 	CoxKernels.copyFromHostToDevice(hXBeta, dXBeta);
 	CoxKernels.copyFromHostToDevice(offsExpXBeta, dExpXBeta);
 	CoxKernels.copyFromHostToDevice(denomPid, dDenominator);
-	CoxKernels.copyFromHostToDevice(accDenomPid, dAccDenominator);
+	CoxKernels.copyFromHostToDevice(accDenomPid, dAccDenom);
 
 //	std::cout << " HD-copy in GPU::computeRemainingStatistics \n";
 
@@ -436,8 +467,17 @@ virtual double getLogLikelihood(bool useCrossValidation) {
 #endif
 	// Device
 	// TODO write gpu version to avoid D-H copying
-	CoxKernels.computeAccumlatedDenominator(dDenominator, dAccDenominator, K);
-	CoxKernels.copyFromDeviceToHost(dAccDenominator, accDenomPid);	
+	if (BaseModel::isTwoWayScan) {
+		CoxKernels.computeTwoWayAccumlatedDenominator(dDenominator,
+				dAccDenom,
+				dDecDenom,
+				dYWeight,
+				dY,
+				K);
+	} else {
+		CoxKernels.computeAccumlatedDenominator(dDenominator, dAccDenom, K);
+	}
+	CoxKernels.copyFromDeviceToHost(dAccDenom, accDenomPid);	
 //	std::cout << " DH-copy in GPU::getLogLikelihood \n";
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
@@ -448,9 +488,12 @@ virtual double getLogLikelihood(bool useCrossValidation) {
 	RealType logLikelihood = static_cast<RealType>(0.0);
 
 	for (size_t i = 0; i < K; i++) {
-		logLikelihood += hY[i] * hXBeta[i] * hKWeight[i];
-		logLikelihood -= hNWeight[i] * std::log(accDenomPid[i]);
+		logLikelihood += hKWeight[i] * (hY[i] != 1) ? 0 : hXBeta[i];
 	}
+
+	for (size_t i = 0; i < K; i++) {
+		logLikelihood -= hNWeight[i] * std::log(accDenomPid[i]);
+        }
 
 	return static_cast<double>(logLikelihood);
 //	return ModelSpecifics<BaseModel, RealType>::getLogLikelihood(useCrossValidation); 
@@ -513,7 +556,7 @@ virtual void updateXBeta(double delta, int index, bool useWeights) { // for conf
 			dXBeta,
 			dExpXBeta,
 			dDenominator,
-			dAccDenominator,
+			dAccDenom,
 			dNumerator,
 			dNumerator2,
 			index,
@@ -559,18 +602,41 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto start2 = bsccs::chrono::steady_clock::now();
 #endif
+	
+	if (BaseModel::isTwoWayScan) {
+
+		CoxKernels.computeTwoWayGradientAndHessian(dNumerator,
+				dNumerator2,
+				dDenominator,
+				dAccNumer,
+				dAccNumer2,
+				dAccDenom,
+				dDecNumer,
+				dDecNumer2,
+				dDecDenom,
+				dNWeight,
+				dYWeight,
+				dY,
+				dGH,
+				formatType,
+				offCV,
+				K);
+	} else {
+
 	// dense scan
-	CoxKernels.computeAccumlatedDenominator(dDenominator, dAccDenominator, K);
+	CoxKernels.computeAccumlatedDenominator(dDenominator, dAccDenom, K);
 
 	// dense scan with transform reduction
 	CoxKernels.computeGradientAndHessian(dNumerator,
 					dNumerator2,
-					dAccDenominator,
+					dAccDenom,
 					dNWeight,
 					dGH,
 					formatType,
 					offCV,
 					K);
+
+	}
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end2 = bsccs::chrono::steady_clock::now();
 	///////////////////////////"
@@ -585,7 +651,7 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 	CoxKernels.computeGradientAndHessian1(dNumerator,
 					dNumerator2,
 					dDenominator,
-					dAccDenominator,
+					dAccDenom,
 					dNWeight,
 					dGH,
 					formatType,
@@ -597,19 +663,6 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 	duration["compGradAndHessG "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end2 - start2).count();
 #endif
 */	
-
-	if (BaseModel::isTwoWayScan) {
-		CoxKernels.computeGradientAndHessianBackwards(dNumerator,
-				dNumerator2,
-				dDenominator,
-				dNWeight,
-				dYWeight,
-				dY,
-				dGH,
-				formatType,
-				offCV,
-				K);
-	}
 
 	////////////////////////// updateXBetaAndDelta
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -796,10 +849,16 @@ std::string getFormatTypeExtension(FormatType formatType) {
 	thrust::device_vector<RealType> dXBeta;
 	thrust::device_vector<RealType> dExpXBeta;
 	thrust::device_vector<RealType> dDenominator;
-	thrust::device_vector<RealType> dAccDenominator;
+	thrust::device_vector<RealType> dAccDenom;
 
 	thrust::device_vector<RealType> dNumerator;
 	thrust::device_vector<RealType> dNumerator2;
+
+	thrust::device_vector<RealType> dAccNumer;
+	thrust::device_vector<RealType> dAccNumer2;
+	thrust::device_vector<RealType> dDecNumer;
+	thrust::device_vector<RealType> dDecNumer2;
+	thrust::device_vector<RealType> dDecDenom;
 
 	thrust::device_vector<RealType> dBound;
 	thrust::device_vector<RealType> dBoundBuffer;
