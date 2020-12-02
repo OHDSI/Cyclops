@@ -105,6 +105,31 @@ struct BackwardScans
     }
 };
 
+template<typename RealType>
+struct TwoWayScans
+{
+    typedef typename thrust::tuple<RealType, RealType, RealType, RealType,
+    RealType, RealType, RealType, RealType> InputTuple; // denom, denom.r, numer, numer.r, numer2, numer2.r, Y, YWeight
+    typedef typename thrust::tuple<RealType, RealType, RealType,
+    RealType, RealType, RealType> OutputTuple; // denom, denom.r, numer, numer.r, numer2, numer2.r
+
+    __host__ __device__
+    OutputTuple operator()(const InputTuple& Inputs) const {
+        RealType d = thrust::get<0>(Inputs);
+        RealType n = thrust::get<2>(Inputs);
+        RealType n2 = thrust::get<4>(Inputs);
+        RealType dr = 0;
+        RealType nr = 0;
+        RealType n2r = 0;
+        if (thrust::get<6>(Inputs) > static_cast<RealType>(1)) {
+            dr = thrust::get<1>(Inputs) / thrust::get<7>(Inputs);
+            nr = thrust::get<3>(Inputs) / thrust::get<7>(Inputs);
+            n2r = thrust::get<5>(Inputs) / thrust::get<7>(Inputs);
+        }
+        return thrust::make_tuple(d, dr, n, nr, n2, n2r);
+    }
+};
+
 template<typename RealType, typename RealType2, bool isIndicator>
 struct TwoWayReduce
 {
@@ -143,11 +168,14 @@ class CudaKernel {
 
 	typedef thrust::tuple<RealType, RealType> Tup2;
 	typedef thrust::tuple<RealType, RealType, RealType> Tup3;
+	typedef thrust::tuple<RealType, RealType, RealType, RealType, RealType, RealType> Tup6;
 
 	typedef thrust::tuple<VecItr, RItr, RItr, RItr> NRTupVec4;
 	typedef thrust::zip_iterator<NRTupVec4> NRZipVec4;
 	typedef thrust::tuple<RItr, RItr, RItr, RItr, RItr> RTupVec5;
 	typedef thrust::zip_iterator<RTupVec5> RZipVec5;
+	typedef thrust::tuple<VecItr, RItr, VecItr, RItr, VecItr, RItr, RItr, RItr> NRTupVec8;
+	typedef thrust::zip_iterator<NRTupVec8> NRZipVec8;
 	typedef thrust::tuple<VecItr, VecItr, VecItr, VecItr, VecItr, VecItr, VecItr, VecItr, VecItr> TupVec9;
 	typedef thrust::zip_iterator<TupVec9> ZipVec9;
 
@@ -168,6 +196,7 @@ public:
 	TwoWayScan<RealType> twoWayScan;
 	ScansAddition<RealType> scansAddition;
 	BackwardScans<RealType> backwardScans;
+	TwoWayScans<RealType> twoWayScans;
 	TwoWayReduce<RealType, RealType2, true> fineGrayInd;
 	TwoWayReduce<RealType, RealType2, false> fineGrayNInd;
 

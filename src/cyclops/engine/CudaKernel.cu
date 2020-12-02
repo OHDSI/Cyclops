@@ -250,6 +250,21 @@ struct TuplePlus3
 	}
 };
 
+struct TuplePlus6
+{
+	template<typename L, typename R>
+	__host__ __device__
+	thrust::tuple<L, L, L, L, L, L> operator()(thrust::tuple<L, L, L, L, L, L>& lhs, thrust::tuple<R, R, R, R, R, R>& rhs)
+	{
+		return thrust::make_tuple(thrust::get<0>(lhs) + thrust::get<0>(rhs),
+				thrust::get<1>(lhs) + thrust::get<1>(rhs),
+				thrust::get<2>(lhs) + thrust::get<2>(rhs),
+				thrust::get<3>(lhs) + thrust::get<3>(rhs),
+				thrust::get<4>(lhs) + thrust::get<4>(rhs),
+				thrust::get<5>(lhs) + thrust::get<5>(rhs));
+	}
+};
+
 struct Double2Plus
 {
 	__host__ __device__
@@ -472,7 +487,30 @@ void CudaKernel<RealType, RealType2>::allocTempStorageFG(thrust::device_vector<R
 			itr_scans, rbegin_dec, 
 			TuplePlus3(), N, stream[0]);
 	cudaMalloc(&d_temp_storage_bs, temp_storage_bytes_bs);
-	
+/*
+	// two-way scans
+	auto in_2way = thrust::make_zip_iterator(thrust::make_tuple(
+				d_Denominator.begin(),
+				d_Denominator.rbegin(),
+				d_Numerator.begin(),
+				d_Numerator.rbegin(),
+				d_Numerator2.begin(),
+				d_Numerator2.rbegin(),
+				d_Y.rbegin(),
+				d_YWeight.rbegin()));
+	auto out_2way = thrust::make_zip_iterator(thrust::make_tuple(
+				d_AccDenom.begin(),
+				d_DecDenom.rbegin(),
+				d_AccNumer.begin(),
+				d_DecNumer.rbegin(),
+				d_AccNumer2.begin(),
+				d_DecNumer2.rbegin()));
+	TransformInputIterator<Tup6, TwoWayScans<RealType>, NRZipVec8> itr_scans(in_2way, twoWayScans);
+	DeviceScan::InclusiveScan(d_temp_storage_bs, temp_storage_bytes_bs,
+			itr_scans, out_2way,
+			TuplePlus6(), N, stream[0]);
+	cudaMalloc(&d_temp_storage_bs, temp_storage_bytes_bs);
+*/
 	// transform reduction
 	auto begin_gh = thrust::make_zip_iterator(thrust::make_tuple(
 				d_AccDenom.begin(),
@@ -635,6 +673,7 @@ void CudaKernel<RealType, RealType2>::computeTwoWayGradientAndHessian(thrust::de
 								size_t& offCV,
 								size_t& N)
 {
+
 	// forward scan
 	auto begin_forward = thrust::make_zip_iterator(thrust::make_tuple(
 				d_Numerator.begin(), 
@@ -663,7 +702,29 @@ void CudaKernel<RealType, RealType2>::computeTwoWayGradientAndHessian(thrust::de
 	DeviceScan::InclusiveScan(d_temp_storage_bs, temp_storage_bytes_bs, 
 			itr_scans, rbegin_dec, 
 			TuplePlus3(), N, stream[0]);
-
+/*
+	// two-way scans
+	auto in_2way = thrust::make_zip_iterator(thrust::make_tuple(
+				d_Denominator.begin(),
+				d_Denominator.rbegin(),
+				d_Numerator.begin(),
+				d_Numerator.rbegin(),
+				d_Numerator2.begin(),
+				d_Numerator2.rbegin(),
+				d_Y.rbegin(),
+				d_YWeight.rbegin()));
+	auto out_2way = thrust::make_zip_iterator(thrust::make_tuple(
+				d_AccDenom.begin(),
+				d_DecDenom.rbegin(),
+				d_AccNumer.begin(),
+				d_DecNumer.rbegin(),
+				d_AccNumer2.begin(),
+				d_DecNumer2.rbegin()));
+	TransformInputIterator<Tup6, TwoWayScans<RealType>, NRZipVec8> itr_scans(in_2way, twoWayScans);
+	DeviceScan::InclusiveScan(d_temp_storage_bs, temp_storage_bytes_bs,
+			itr_scans, out_2way,
+			TuplePlus6(), N, stream[0]);
+*/
 	cudaStreamSynchronize(stream[0]);
 
 	// transform reduction
