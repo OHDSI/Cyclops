@@ -512,6 +512,7 @@ void CudaKernel<RealType, RealType2>::allocTempStorageFG(thrust::device_vector<R
 	cudaMalloc(&d_temp_storage_bs, temp_storage_bytes_bs);
 */
 	// transform reduction
+	d_init.x = d_init.y = 0.0;
 	auto begin_gh = thrust::make_zip_iterator(thrust::make_tuple(
 				d_AccDenom.begin(),
 				d_AccNumer.begin(),
@@ -686,6 +687,7 @@ void CudaKernel<RealType, RealType2>::computeTwoWayGradientAndHessian(thrust::de
 	DeviceScan::InclusiveScan(d_temp_storage_fs, temp_storage_bytes_fs,
 			begin_forward, begin_acc,
 			TuplePlus3(), N, stream[0]);
+//	cudaStreamSynchronize(stream[0]);
 	
 	// backward scan
 	auto rbegin_backward = thrust::make_zip_iterator(thrust::make_tuple(

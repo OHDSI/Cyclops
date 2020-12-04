@@ -425,8 +425,10 @@ virtual void computeRemainingStatistics(bool useWeights) {
 	// Host
 
 	auto& xBeta = getXBeta();
-
-	std::fill(denomPid.begin(), denomPid.end(), static_cast<RealType>(0));
+	
+	if (denomPid.size() != K) {
+		denomPid.resize(K, static_cast<RealType>(0));
+	}
 
 	if (accDenomPid.size() != K) {
 		accDenomPid.resize(K, static_cast<RealType>(0));
