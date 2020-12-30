@@ -79,3 +79,16 @@ jobs:
         with:
           name: ${{ runner.os }}-r${{ matrix.config.r }}-results
           path: check
+
+  Release:
+    needs: R-CMD-Check
+
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: First
+        if: ${{ github.event_name != 'pull_request' && github.branch == 'master' }}
+        run: |
+          perl compare_version --tag && \
+          bash deploy.sh && \
+          curl --data "build=true" -X POST https://registry.hub.docker.com/u/ohdsi/broadsea-methodslibrary/trigger/f0b51cec-4027-4781-9383-4b38b42dd4f5/

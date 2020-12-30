@@ -171,7 +171,7 @@ public:
 
 	void setInitialBound(double bound);
 
-	Matrix computeFisherInformation(const std::vector<size_t>& indices) const;
+	Matrix computeFisherInformation(const std::vector<IdType>& indices) const;
 
 	loggers::ProgressLogger& getProgressLogger() const { return *logger; }
 

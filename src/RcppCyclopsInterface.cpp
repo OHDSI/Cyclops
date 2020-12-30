@@ -174,7 +174,7 @@ double cyclopsGetLogLikelihood(SEXP inRcppCcdInterface) {
 }
 
 // [[Rcpp::export(".cyclopsGetFisherInformation")]]
-Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP sexpCovariates) {
+Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP sexpBitCovariates) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
@@ -182,10 +182,11 @@ Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP 
 // 	std::vector<size_t> indices;
 // 	for (int i = 0; i < p; ++i) indices.push_back(i);
 
-    std::vector<size_t> indices;
-    if (!Rf_isNull(sexpCovariates)) {
+    std::vector<IdType> indices;
+    if (!Rf_isNull(sexpBitCovariates)) {
 
-    	ProfileVector covariates = as<ProfileVector>(sexpCovariates);
+        const std::vector<double>& bitCovariates = as<std::vector<double>>(sexpBitCovariates);
+    	ProfileVector covariates =  reinterpret_cast<const std::vector<int64_t>&>(bitCovariates); // as<ProfileVector>(sexpCovariates);
     	for (auto it = covariates.begin(); it != covariates.end(); ++it) {
 	        size_t index = interface->getModelData().getColumnIndex(*it);
 	        indices.push_back(index);
@@ -225,7 +226,10 @@ void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& pr
 //	priors::PriorType priorType = RcppCcdInterface::parsePriorType(priorTypeName);
  	ProfileVector exclude;
  	if (!Rf_isNull(excludeNumeric)) {
- 		exclude = as<ProfileVector>(excludeNumeric);
+
+ 	    const std::vector<double>& bitExcludeNumeric = as<std::vector<double>>(excludeNumeric);
+ 	    exclude = reinterpret_cast<const std::vector<int64_t>&>(bitExcludeNumeric);
+ 		//exclude = as<ProfileVector>(excludeNumeric);
  	}
 
  	HierarchicalChildMap map;
@@ -237,7 +241,16 @@ void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& pr
  	if (!Rf_isNull(sexpNeighborhood)) {
  		for (int i = 0; i < sexpNeighborhood.size(); ++i) {
  			Rcpp::List element = sexpNeighborhood[i];
- 			neighborhood[as<IdType>(element[0])] = as<ProfileVector>(element[1]);
+
+ 		    const std::vector<double>& bitElement1 = as<std::vector<double>>(element[1]);
+ 		    double bitElement0 = element[0];
+ 		    IdType element0;
+ 		    std::memcpy(&element0, &bitElement0, sizeof(double));
+
+ 			neighborhood[
+ 			    // as<IdType>(element[0])
+ 			    element0
+ 			    ] = reinterpret_cast<const std::vector<IdType>&>(bitElement1); // as<ProfileVector>(element[1]);
  		}
  	}
 
@@ -342,7 +355,10 @@ DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface,
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
-    const IdType covariate = as<IdType>(inCovariate);
+    double bitCovariate = as<double>(inCovariate);
+    IdType covariate;
+    std::memcpy(&covariate, &bitCovariate, sizeof(double));
+    //const IdType covariate = as<IdType>(inCovariate);
 
     std::vector<double> values(points.size());
     interface->evaluateProfileModel(covariate, points, values, threads, includePenalty);
@@ -360,7 +376,10 @@ List cyclopsProfileModel(SEXP inRcppCcdInterface, SEXP sexpCovariates, int threa
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
 	if (!Rf_isNull(sexpCovariates)) {
-		ProfileVector covariates = as<ProfileVector>(sexpCovariates);
+
+	    const std::vector<double>& bitCovariates = as<std::vector<double>>(sexpCovariates);
+        ProfileVector covariates = reinterpret_cast<const std::vector<int64_t>&>(bitCovariates);
+		//ProfileVector covariates = as<ProfileVector>(sexpCovariates);
 
 		ProfileInformationMap profileMap;
         interface->profileModel(covariates, profileMap, threads, threshold, override, includePenalty);

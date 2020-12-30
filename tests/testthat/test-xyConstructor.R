@@ -233,7 +233,7 @@ test_that("Poisson xy-construction with offset", {
 
     cyclopsData1 <- convertToCyclopsData(outcomes = sim$outcomes,
                                          covariates = sim$covariates,
-                                         modelType = "pr", checkSorting = TRUE,
+                                         modelType = "pr",
                                          checkRowIds = FALSE)
 
     sim$covariates <- sim$covariates[order(sim$covariates$covariateId,

@@ -540,7 +540,7 @@ getUnivariableCorrelation <- function(cyclopsData, covariates = NULL, threshold 
     labels <- covariates
     covariates <- .checkCovariates(cyclopsData, covariates)
     if (is.null(covariates)) {
-        covariates <- integer() # zero-length vector
+        covariates <- bit64::as.integer64(c()) # zero-length vector
         labels <- cyclopsData$coefficientNames
     }
 
@@ -573,7 +573,7 @@ getUnivariableSeparability <- function(cyclopsData, covariates = NULL) {
     covariates <- .checkCovariates(cyclopsData, covariates)
     ids <- covariates
     if (is.null(covariates)) {
-        covariates <- integer() # zero-length vector
+        covariates <- bit64::as.integer64(c()) # zero-length vector
         labels <- cyclopsData$coefficientNames
         ids <- getCovariateIds(cyclopsData)
     }
@@ -863,7 +863,7 @@ finalizeSqlCyclopsData <- function(object,
     }
     if (!is.null(useOffsetCovariate) && useOffsetCovariate != -1) {
         if (!is.null(object$coefficientNames)) {
-            object$coefficientNames = object$coefficientNames[-useOffsetCovariate]
+            object$coefficientNames = object$coefficientNames[-as.integer(useOffsetCovariate)]
         }
     }
 }

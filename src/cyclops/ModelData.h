@@ -97,7 +97,7 @@ public:
     virtual std::vector<double> copyZVector() const = 0;
 
     virtual std::vector<double> univariableCorrelation(
-            const std::vector<long>& covariateLabel) const = 0;
+            const std::vector<IdType>& covariateLabel) const = 0;
 
     virtual void sumByPid(
             std::vector<double>& result, const IdType covariate, const int power) const = 0;
@@ -562,7 +562,7 @@ public:
 	};
 
 
-	std::vector<double> univariableCorrelation(const std::vector<long>& covariateLabel) const {
+	std::vector<double> univariableCorrelation(const std::vector<IdType>& covariateLabel) const {
 
 	    const double Ey1 = reduce(-1, FirstPower()) / getNumberOfRows();
 	    const double Ey2 = reduce(-1, SecondPower()) / getNumberOfRows();

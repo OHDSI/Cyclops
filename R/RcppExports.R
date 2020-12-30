@@ -53,8 +53,8 @@
     .Call(`_Cyclops_cyclopsGetLogLikelihood`, inRcppCcdInterface)
 }
 
-.cyclopsGetFisherInformation <- function(inRcppCcdInterface, sexpCovariates) {
-    .Call(`_Cyclops_cyclopsGetFisherInformation`, inRcppCcdInterface, sexpCovariates)
+.cyclopsGetFisherInformation <- function(inRcppCcdInterface, sexpBitCovariates) {
+    .Call(`_Cyclops_cyclopsGetFisherInformation`, inRcppCcdInterface, sexpBitCovariates)
 }
 
 .cyclopsSetPrior <- function(inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph, sexpNeighborhood) {
@@ -214,24 +214,24 @@ getNumberOfTypes <- function(object) {
     .Call(`_Cyclops_cyclopsGetNumberOfTypes`, object)
 }
 
-.cyclopsUnivariableCorrelation <- function(x, covariateLabel) {
-    .Call(`_Cyclops_cyclopsUnivariableCorrelation`, x, covariateLabel)
+.cyclopsUnivariableCorrelation <- function(x, bitCovariateLabel) {
+    .Call(`_Cyclops_cyclopsUnivariableCorrelation`, x, bitCovariateLabel)
 }
 
-.cyclopsUnivariableSeparability <- function(x, covariateLabel) {
-    .Call(`_Cyclops_cyclopsUnivariableSeparability`, x, covariateLabel)
+.cyclopsUnivariableSeparability <- function(x, bitCovariateLabel) {
+    .Call(`_Cyclops_cyclopsUnivariableSeparability`, x, bitCovariateLabel)
 }
 
-.cyclopsSumByGroup <- function(x, covariateLabel, groupByLabel, power) {
-    .Call(`_Cyclops_cyclopsSumByGroup`, x, covariateLabel, groupByLabel, power)
+.cyclopsSumByGroup <- function(x, bitCovariateLabel, bitGroupByLabel, power) {
+    .Call(`_Cyclops_cyclopsSumByGroup`, x, bitCovariateLabel, bitGroupByLabel, power)
 }
 
-.cyclopsSumByStratum <- function(x, covariateLabel, power) {
-    .Call(`_Cyclops_cyclopsSumByStratum`, x, covariateLabel, power)
+.cyclopsSumByStratum <- function(x, bitCovariateLabel, power) {
+    .Call(`_Cyclops_cyclopsSumByStratum`, x, bitCovariateLabel, power)
 }
 
-.cyclopsSum <- function(x, covariateLabel, power) {
-    .Call(`_Cyclops_cyclopsSum`, x, covariateLabel, power)
+.cyclopsSum <- function(x, bitCovariateLabel, power) {
+    .Call(`_Cyclops_cyclopsSum`, x, bitCovariateLabel, power)
 }
 
 .cyclopsNewSqlData <- function(modelTypeName, noiseLevel, floatingPoint) {

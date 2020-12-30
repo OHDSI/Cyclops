@@ -150,14 +150,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsGetFisherInformation
-Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP sexpCovariates);
-RcppExport SEXP _Cyclops_cyclopsGetFisherInformation(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP) {
+Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP sexpBitCovariates);
+RcppExport SEXP _Cyclops_cyclopsGetFisherInformation(SEXP inRcppCcdInterfaceSEXP, SEXP sexpBitCovariatesSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
-    Rcpp::traits::input_parameter< const SEXP >::type sexpCovariates(sexpCovariatesSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsGetFisherInformation(inRcppCcdInterface, sexpCovariates));
+    Rcpp::traits::input_parameter< const SEXP >::type sexpBitCovariates(sexpBitCovariatesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetFisherInformation(inRcppCcdInterface, sexpBitCovariates));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -459,66 +459,66 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsUnivariableCorrelation
-std::vector<double> cyclopsUnivariableCorrelation(Environment x, const std::vector<long>& covariateLabel);
-RcppExport SEXP _Cyclops_cyclopsUnivariableCorrelation(SEXP xSEXP, SEXP covariateLabelSEXP) {
+std::vector<double> cyclopsUnivariableCorrelation(Environment x, const std::vector<double>& bitCovariateLabel);
+RcppExport SEXP _Cyclops_cyclopsUnivariableCorrelation(SEXP xSEXP, SEXP bitCovariateLabelSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
-    Rcpp::traits::input_parameter< const std::vector<long>& >::type covariateLabel(covariateLabelSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsUnivariableCorrelation(x, covariateLabel));
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type bitCovariateLabel(bitCovariateLabelSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsUnivariableCorrelation(x, bitCovariateLabel));
     return rcpp_result_gen;
 END_RCPP
 }
 // cyclopsUnivariableSeparability
-std::vector<int> cyclopsUnivariableSeparability(Environment x, const std::vector<long>& covariateLabel);
-RcppExport SEXP _Cyclops_cyclopsUnivariableSeparability(SEXP xSEXP, SEXP covariateLabelSEXP) {
+std::vector<int> cyclopsUnivariableSeparability(Environment x, const std::vector<double>& bitCovariateLabel);
+RcppExport SEXP _Cyclops_cyclopsUnivariableSeparability(SEXP xSEXP, SEXP bitCovariateLabelSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
-    Rcpp::traits::input_parameter< const std::vector<long>& >::type covariateLabel(covariateLabelSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsUnivariableSeparability(x, covariateLabel));
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type bitCovariateLabel(bitCovariateLabelSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsUnivariableSeparability(x, bitCovariateLabel));
     return rcpp_result_gen;
 END_RCPP
 }
 // cyclopsSumByGroup
-List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel, const long groupByLabel, const int power);
-RcppExport SEXP _Cyclops_cyclopsSumByGroup(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP groupByLabelSEXP, SEXP powerSEXP) {
+List cyclopsSumByGroup(Environment x, const std::vector<double>& bitCovariateLabel, const double bitGroupByLabel, const int power);
+RcppExport SEXP _Cyclops_cyclopsSumByGroup(SEXP xSEXP, SEXP bitCovariateLabelSEXP, SEXP bitGroupByLabelSEXP, SEXP powerSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
-    Rcpp::traits::input_parameter< const std::vector<long>& >::type covariateLabel(covariateLabelSEXP);
-    Rcpp::traits::input_parameter< const long >::type groupByLabel(groupByLabelSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type bitCovariateLabel(bitCovariateLabelSEXP);
+    Rcpp::traits::input_parameter< const double >::type bitGroupByLabel(bitGroupByLabelSEXP);
     Rcpp::traits::input_parameter< const int >::type power(powerSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsSumByGroup(x, covariateLabel, groupByLabel, power));
+    rcpp_result_gen = Rcpp::wrap(cyclopsSumByGroup(x, bitCovariateLabel, bitGroupByLabel, power));
     return rcpp_result_gen;
 END_RCPP
 }
 // cyclopsSumByStratum
-List cyclopsSumByStratum(Environment x, const std::vector<long>& covariateLabel, const int power);
-RcppExport SEXP _Cyclops_cyclopsSumByStratum(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP powerSEXP) {
+List cyclopsSumByStratum(Environment x, const std::vector<double>& bitCovariateLabel, const int power);
+RcppExport SEXP _Cyclops_cyclopsSumByStratum(SEXP xSEXP, SEXP bitCovariateLabelSEXP, SEXP powerSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
-    Rcpp::traits::input_parameter< const std::vector<long>& >::type covariateLabel(covariateLabelSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type bitCovariateLabel(bitCovariateLabelSEXP);
     Rcpp::traits::input_parameter< const int >::type power(powerSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsSumByStratum(x, covariateLabel, power));
+    rcpp_result_gen = Rcpp::wrap(cyclopsSumByStratum(x, bitCovariateLabel, power));
     return rcpp_result_gen;
 END_RCPP
 }
 // cyclopsSum
-std::vector<double> cyclopsSum(Environment x, const std::vector<long>& covariateLabel, const int power);
-RcppExport SEXP _Cyclops_cyclopsSum(SEXP xSEXP, SEXP covariateLabelSEXP, SEXP powerSEXP) {
+std::vector<double> cyclopsSum(Environment x, const std::vector<double>& bitCovariateLabel, const int power);
+RcppExport SEXP _Cyclops_cyclopsSum(SEXP xSEXP, SEXP bitCovariateLabelSEXP, SEXP powerSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
-    Rcpp::traits::input_parameter< const std::vector<long>& >::type covariateLabel(covariateLabelSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type bitCovariateLabel(bitCovariateLabelSEXP);
     Rcpp::traits::input_parameter< const int >::type power(powerSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsSum(x, covariateLabel, power));
+    rcpp_result_gen = Rcpp::wrap(cyclopsSum(x, bitCovariateLabel, power));
     return rcpp_result_gen;
 END_RCPP
 }

@@ -121,7 +121,7 @@ fitCyclopsModel <- function(cyclopsData,
             is.null(prior$graph) && # TODO Ignore hierarchical models for now
             .cyclopsGetHasIntercept(cyclopsData) &&
             !prior$forceIntercept) {
-            interceptId <- .cyclopsGetInterceptLabel(cyclopsData)
+            interceptId <- bit64::as.integer64(.cyclopsGetInterceptLabel(cyclopsData))
             warn <- FALSE
             if (is.null(prior$exclude)) {
                 prior$exclude <- c(interceptId)
@@ -300,7 +300,11 @@ fitCyclopsModel <- function(cyclopsData,
             indices <- match(covariates, cyclopsData$coefficientNames)
             covariates <- getCovariateIds(cyclopsData)[indices]
         }
-        covariates = as.numeric(covariates)
+        # covariates = as.numeric(covariates)
+
+        if (!bit64::is.integer64(covariates)) {
+            covariates <- bit64::as.integer64(covariates)
+        }
 
         if (any(is.na(covariates))) {
             stop("Unable to match all covariates: ", paste(saved, collapse = ", "))
@@ -729,9 +733,10 @@ getSEs <- function(object, covariates) {
     if (getNumberOfCovariates(object$cyclopsData) != length(covariates)) {
         warning("Asymptotic standard errors are only valid if computed for all covariates simultaneously")
     }
+
     fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsData$cyclopsInterfacePtr, covariates)
     ses <- sqrt(diag(solve(fisherInformation)))
-    names(ses) <- object$coefficientNames[covariates]
+    names(ses) <- object$coefficientNames[as.integer(covariates)]
     ses
 }
 
@@ -773,7 +778,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     threads <- object$threads
 
     if (!is.null(object$fixedCoefficients)) {
-        if (any(object$fixedCoefficients[parm])) {
+        if (any(object$fixedCoefficients[as.integer(parm)])) {
             stop("Cannot estimate confidence interval for a fixed coefficient")
         }
     }
@@ -783,11 +788,11 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
                                  overrideNoRegularization,
                                  includePenalty)
     if (!is.null(object$scale) && rescale) {
-        prof$lower <- prof$lower * object$scale[parm]
-        prof$upper <- prof$upper * object$scale[parm]
+        prof$lower <- prof$lower * object$scale[as.integer(parm)]
+        prof$upper <- prof$upper * object$scale[as.integer(parm)]
     }
     prof <- as.matrix(as.data.frame(prof))
-    rownames(prof) <- object$coefficientNames[parm]
+    rownames(prof) <- object$coefficientNames[as.integer(parm)]
     qs <- c((1 - level) / 2, 1 - (1 - level) / 2) * 100
     colnames(prof)[2:3] <- paste(sprintf("%.1f", qs), "%")
 
