@@ -304,11 +304,32 @@ struct RealType2Plus
 
 
 template <typename RealType, typename RealType2>
-CudaKernel<RealType, RealType2>::CudaKernel()
+CudaKernel<RealType, RealType2>::CudaKernel(const std::string& deviceName)
 {
+	// set device
+//	cudaSetDevice(1);
+	bool success = false;	
+	int devicesCount;
+	cudaGetDeviceCount(&devicesCount);
+	desiredDeviceName = deviceName;
+	for(int deviceIndex = 0; deviceIndex < devicesCount; ++deviceIndex) {
+		cudaDeviceProp deviceProperties;
+		cudaGetDeviceProperties(&deviceProperties, deviceIndex);
+		if (deviceProperties.name == desiredDeviceName) {
+			cudaSetDevice(deviceIndex);
+			success = true;
+		}
+	}
+
+	// create stream
 	stream = (cudaStream_t *) malloc(sizeof(cudaStream_t));
 	cudaStreamCreate(&stream[0]);
-	std::cout << "ctor CudaKernel \n";
+	
+	if (success) {
+		std::cout << "ctor CudaKernel on " << deviceName << '\n';
+	} else {
+		std::cout << "ctor CudaKernel on default device \n";
+	}
 }
 
 template <typename RealType, typename RealType2>
@@ -327,6 +348,12 @@ CudaKernel<RealType, RealType2>::~CudaKernel()
 	std::cout << "dtor CudaKernel \n";
 }
 
+
+template <typename RealType, typename RealType2>
+const std::string CudaKernel<RealType, RealType2>::getDeviceName() {
+	std::cout << "getDeviceName: " << desiredDeviceName << '\n';
+	return desiredDeviceName;
+}
 
 template <typename RealType, typename RealType2>
 void CudaKernel<RealType, RealType2>::allocStreams(int streamCVFolds)

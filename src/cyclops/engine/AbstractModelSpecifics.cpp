@@ -35,7 +35,7 @@ AbstractModelSpecifics* deviceFactory(
         break;
 #ifdef GPU_COX
     case DeviceType::GPU :
-        model = new GpuModelSpecificsCox<Model,RealType>(modelData);
+        model = new GpuModelSpecificsCox<Model,RealType>(modelData, deviceName);
         break;
 #endif //GPU_COX
     default:

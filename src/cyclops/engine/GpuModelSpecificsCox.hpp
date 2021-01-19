@@ -217,8 +217,8 @@ public:
 	CudaAllGpuColumns<RealType> dCudaColumns;
 	CudaKernel<RealType, RealType2> CoxKernels;
 
-	GpuModelSpecificsCox(const ModelData<RealType>& input)
-//			const std::string& deviceName)
+	GpuModelSpecificsCox(const ModelData<RealType>& input,
+			const std::string& deviceName)
 		: ModelSpecifics<BaseModel,RealType>(input),
 		dCudaColumns(),
 		dXjY(), dY(),
@@ -230,7 +230,7 @@ public:
 		dDenominator(), dAccDenom(),
 		dAccNumer(), dAccNumer2(), dDecDenom(), dDecNumer(), dDecNumer2(),
 		dKWeight(), dNWeight(), dYWeight(),
-		CoxKernels() {
+		CoxKernels(deviceName) {
 		std::cerr << "ctor GpuModelSpecificsCox" << std::endl;
 	}
 
@@ -241,7 +241,8 @@ public:
 	}
 
 virtual AbstractModelSpecifics* clone() const {
-	return new GpuModelSpecificsCox<BaseModel,RealType>(modelData);
+	// TODO: how to pass deviceName (currentDevice) in multi-stream cross-validation?
+	return new GpuModelSpecificsCox<BaseModel,RealType>(modelData, currentDevice);
 }
 
 virtual void deviceInitialization() {
@@ -331,6 +332,8 @@ virtual void deviceInitialization() {
 				dGH,
 				N);
 	}
+
+	std::cout << "K: " << K << " N: " << N << '\n';
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
 	///////////////////////////"
@@ -820,7 +823,9 @@ std::string getFormatTypeExtension(FormatType formatType) {
 		default: return "";
 	}
 }
-
+	
+//	const std::string currentDevice = CoxKernels.getDeviceName();
+	const std::string currentDevice;
 	bool streamCV;
 	int streamCVFolds;
 	int fold;

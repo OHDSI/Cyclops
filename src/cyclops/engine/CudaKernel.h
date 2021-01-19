@@ -1,3 +1,4 @@
+#include <string>
 #include <vector>
 #include "../CompressedDataMatrix.h"
 
@@ -181,6 +182,7 @@ class CudaKernel {
 
 public:
 
+	std::string desiredDeviceName;
 	cudaStream_t* stream;
 	int CVFolds;
 	int fold;
@@ -214,8 +216,10 @@ public:
 	void *d_temp_storage_fgh = NULL;
 	size_t temp_storage_bytes_fgh = 0;
 
-	CudaKernel();
+	CudaKernel(const std::string& deviceName);
 	~CudaKernel();
+
+	const std::string getDeviceName();
 
 	void allocStreams(int streamCVFolds);
 
