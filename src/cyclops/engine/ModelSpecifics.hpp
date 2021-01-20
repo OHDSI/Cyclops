@@ -473,17 +473,19 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *c
 		hYWeightDouble.resize(K);
 	}
     if (BaseModel::isTwoWayScan) {
-        hNtoK.resize(K + 1); // TODO: check appropriate size
+        hNtoK.resize(N + 1);
         int n = 0;
         for (size_t k = 0; k < K;) {
+            while (hKWeight[k] == static_cast<RealType>(0)) {
+                ++k;
+            }
             hNtoK[n] = k;
             int currentPid = hPid[k];
             do {
                 ++k;
-            } while (k < K && currentPid == hPid[k]);
+            } while (k < K && (currentPid == hPid[k] || hKWeight[k] == static_cast<RealType>(0)));
             ++n;
         }
-	std::cout << "K: " << K << " N+1: " << N+1 << " n: " << n << '\n';
         hNtoK[n] = K;
 
         for (size_t k = 0; k < K; ++k) {
@@ -720,7 +722,7 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 
 	if (BaseModel::cumulativeGradientAndHessian) {
 		setPidForAccumulation(&saveKWeight[0]);
-		setWeights(saveKWeight.data(), BaseModel::isTwoWayScan ? hYWeightDouble.data() : nullptr, true); // set new weights // TODO Possible error for gfr
+		setWeights(saveKWeight.data(), BaseModel::isTwoWayScan ? hYWeightDouble.data() : nullptr, true); // set old weights // TODO Possible error for gfr
 		computeRemainingStatistics(true);
 	}
 
