@@ -469,9 +469,11 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *c
     if (hYWeight.size() != K) {
         hYWeight.resize(K);
     }
-
+	if (hYWeightDouble.size() != K) {
+		hYWeightDouble.resize(K);
+	}
     if (BaseModel::isTwoWayScan) {
-        hNtoK.resize(N + 1);
+        hNtoK.resize(K + 1); // TODO: check appropriate size
         int n = 0;
         for (size_t k = 0; k < K;) {
             hNtoK[n] = k;
@@ -481,10 +483,12 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *c
             } while (k < K && currentPid == hPid[k]);
             ++n;
         }
+	std::cout << "K: " << K << " N+1: " << N+1 << " n: " << n << '\n';
         hNtoK[n] = K;
 
         for (size_t k = 0; k < K; ++k) {
             hYWeight[k] = cenWeights[k];
+            hYWeightDouble[k] = cenWeights[k];
         }
     }
 
@@ -698,7 +702,7 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 	    }
 
 		setPidForAccumulation(weights);
-		setWeights(weights, nullptr, true); // set new weights // TODO Possible error for gfr
+		setWeights(weights, BaseModel::isTwoWayScan ? hYWeightDouble.data() : nullptr, true); // set new weights // TODO Possible error for gfr
 		computeRemainingStatistics(true); // compute accDenomPid
 	}
 
@@ -716,7 +720,7 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 
 	if (BaseModel::cumulativeGradientAndHessian) {
 		setPidForAccumulation(&saveKWeight[0]);
-	    setWeights(saveKWeight.data(), nullptr, true); // set old weights // TODO Possible eror for gfr
+		setWeights(saveKWeight.data(), BaseModel::isTwoWayScan ? hYWeightDouble.data() : nullptr, true); // set new weights // TODO Possible error for gfr
 		computeRemainingStatistics(true);
 	}
 

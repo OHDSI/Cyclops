@@ -39,6 +39,7 @@
 
 #define Fraction std::complex
 
+
 namespace bsccs {
 
 template <typename RealType>
@@ -242,8 +243,8 @@ protected:
 
 	using Storage<RealType>::hNWeight;
 	using Storage<RealType>::hKWeight;
-    using Storage<RealType>::hYWeight; // ESK: Added
-
+	using Storage<RealType>::hYWeight; // ESK: Added
+	std::vector<double> hYWeightDouble;
 	std::vector<int> hNtoK;
 
 	RealVector norm;

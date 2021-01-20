@@ -206,6 +206,7 @@ public:
 	using ModelSpecifics<BaseModel, RealType>::hNWeight;
 	using ModelSpecifics<BaseModel, RealType>::hKWeight;
 	using ModelSpecifics<BaseModel, RealType>::hYWeight;
+	using ModelSpecifics<BaseModel, RealType>::hYWeightDouble;
 	using ModelSpecifics<BaseModel, RealType>::accDenomPid;
 
 	int tpb = 256; // threads-per-block  // Appears best on K40
@@ -391,8 +392,12 @@ virtual void setWeights(double* inWeights, double *cenWeights, bool useCrossVali
 		if (hYWeight.size() != K) {
 			hYWeight.resize(K);
 		}
+		if (hYWeightDouble.size() != K) {
+			hYWeightDouble.resize(K);
+		}
 		for (size_t k = 0; k < K; ++k) {
 			hYWeight[k] = cenWeights[k];
+			hYWeightDouble[k] = cenWeights[k];
 		}
 		// Device
 		CoxKernels.resizeAndCopyToDevice(hYWeight, dYWeight);
@@ -518,7 +523,7 @@ virtual double getPredictiveLogLikelihood(double* weights) {
 
 	// Set new weights
 //	setPidForAccumulation(weights);
-	setWeights(weights, nullptr, true);
+	setWeights(weights, BaseModel::isTwoWayScan ? hYWeightDouble.data() : nullptr, true);
 	computeRemainingStatistics(true); // compute accDenomPid
 
 	// Compute predictive loglikelihood
@@ -530,7 +535,7 @@ virtual double getPredictiveLogLikelihood(double* weights) {
 	
 	// Set back old weights
 //	setPidForAccumulation(&saveKWeight[0]);
-	setWeights(saveKWeight.data(), nullptr, true); //
+	setWeights(saveKWeight.data(), BaseModel::isTwoWayScan ? hYWeightDouble.data() : nullptr, true);
 	computeRemainingStatistics(true);
 	
 	return static_cast<double>(logLikelihood);
