@@ -375,7 +375,7 @@ virtual void setWeights(double* inWeights, double *cenWeights, bool useCrossVali
 	std::fill(hNWeight.begin(), hNWeight.end(), static_cast<RealType>(0));
 	if (BaseModel::isTwoWayScan) {
 		for (size_t k = 0; k < K; ++k) {
-			hNWeight[k] = hKWeight[k] * (hY[k] != static_cast<RealType>(1)) ? static_cast<RealType>(0) : static_cast<RealType>(1);
+			hNWeight[k] = hKWeight[k] * ((hY[k] != static_cast<RealType>(1)) ? static_cast<RealType>(0) : static_cast<RealType>(1));
 		}
 	} else {
 		for (size_t k = 0; k < K; ++k) {
@@ -498,7 +498,7 @@ virtual double getLogLikelihood(bool useCrossValidation) {
 	RealType logLikelihood = static_cast<RealType>(0.0);
 
 	for (size_t i = 0; i < K; i++) {
-		logLikelihood += hKWeight[i] * (hY[i] != 1) ? 0 : hXBeta[i];
+		logLikelihood += hKWeight[i] * ((hY[i] != 1) ? 0 : hXBeta[i]);
 	}
 
 	for (size_t i = 0; i < K; i++) {
