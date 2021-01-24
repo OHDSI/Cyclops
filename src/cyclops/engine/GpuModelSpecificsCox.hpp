@@ -450,7 +450,14 @@ virtual void computeRemainingStatistics(bool useWeights) {
 		totalDenom += denomPid[k];
 		accDenomPid[k] = totalDenom;
 	}
-
+	// Fine-gray
+	if (BaseModel::isTwoWayScan) {
+		totalDenom = static_cast<RealType>(0);
+		for (int i = (K - 1); i >= 0; i--) {
+			totalDenom += (hY[i] > static_cast<RealType>(1)) ? denomPid[i] / hYWeight[i] : 0;
+			accDenomPid[i] += (hY[i] == static_cast<RealType>(1)) ? hYWeight[i] * totalDenom : 0;
+		}
+	}
 	// Device
 	if (dAccDenom.size() != K) {
 		resizeCudaVecSize(dAccDenom, K);
