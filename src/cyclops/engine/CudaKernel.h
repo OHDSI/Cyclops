@@ -148,14 +148,20 @@ struct TwoWayReduce
             n2 += thrust::get<5>(Inputs) * thrust::get<8>(Inputs);
         }
 
-        auto temp = n / d;
         RealType2 out;
-        out.x = thrust::get<6>(Inputs) * temp;
-        if (isIndicator) {
-            out.y = out.x * (1 - temp);
+        if (d == static_cast<RealType>(0)) {
+            out.x = static_cast<RealType>(0);
+            out.y = static_cast<RealType>(0);
         } else {
-            out.y = thrust::get<6>(Inputs) * (n2 / d - temp * temp);
+            auto temp = n / d;
+            out.x = thrust::get<6>(Inputs) * temp;
+            if (isIndicator) {
+                out.y = out.x * (1 - temp);
+            } else {
+                out.y = thrust::get<6>(Inputs) * (n2 / d - temp * temp);
+            }
         }
+
         return out;
     }
 };
