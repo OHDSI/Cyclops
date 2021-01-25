@@ -57,17 +57,16 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	init(hXI.getHasOffsetCovariate());
 }
 
-CyclicCoordinateDescent* CyclicCoordinateDescent::clone() {
-	return new (std::nothrow) CyclicCoordinateDescent(*this);
+CyclicCoordinateDescent* CyclicCoordinateDescent::clone(const std::string deviceName) {
+	return new (std::nothrow) CyclicCoordinateDescent(*this, deviceName);
 }
 
 //template <typename T>
 //struct GetType<T>;
-
-CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& copy)
+CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& copy, const std::string deviceName)
 	: privateModelSpecifics(
 			bsccs::unique_ptr<AbstractModelSpecifics>(
-				copy.modelSpecifics.clone())), // deep copy
+				copy.modelSpecifics.clone(deviceName))), // deep copy
 	  modelSpecifics(*privateModelSpecifics),
       jointPrior(copy.jointPrior), // swallow
       hXI(copy.hXI), // swallow

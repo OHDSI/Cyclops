@@ -75,7 +75,7 @@ public:
 	// 		int* inPid
 	// 	);
 
-	CyclicCoordinateDescent* clone();
+	CyclicCoordinateDescent* clone(const std::string deviceName);
 
 	void logResults(const char* fileName, bool withASE);
 
@@ -228,7 +228,7 @@ protected:
 	priors::JointPriorPtr jointPrior;
 	const AbstractModelData& hXI;
 
-	CyclicCoordinateDescent(const CyclicCoordinateDescent& copy);
+	CyclicCoordinateDescent(const CyclicCoordinateDescent& copy, const std::string deviceName);
 
 	void init(bool offset);
 

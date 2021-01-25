@@ -85,7 +85,7 @@ void AbstractCrossValidationDriver::drive(
 	selectorPool.push_back(&selector);
 
 	for (int i = 1; i < nThreads; ++i) {
-		ccdPool.push_back(ccd.clone());
+		ccdPool.push_back(ccd.clone(allArguments.computeDevice.name));
 		selectorPool.push_back(selector.clone());
 	}
 

@@ -15,7 +15,7 @@
 #include <thread>
 #include <complex>
 
-#define CYCLOPS_DEBUG_TIMING
+//#define CYCLOPS_DEBUG_TIMING
 //#define CYCLOPS_DEBUG_TIMING_LOW
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -85,7 +85,7 @@ public:
 			const std::vector<bool>& fixBeta,
 			bool useWeights);
 
-	AbstractModelSpecifics* clone() const;
+	AbstractModelSpecifics* clone(const std::string deviceName) const;
 
 	virtual const std::vector<double> getXBeta();
 

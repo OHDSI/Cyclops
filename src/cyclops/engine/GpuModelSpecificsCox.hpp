@@ -241,9 +241,8 @@ public:
 		std::cerr << "dtor GpuModelSpecificsCox" << std::endl;
 	}
 
-virtual AbstractModelSpecifics* clone() const {
-	// TODO: how to pass deviceName (currentDevice) in multi-stream cross-validation?
-	return new GpuModelSpecificsCox<BaseModel,RealType>(modelData, currentDevice);
+virtual AbstractModelSpecifics* clone(const std::string deviceName) const {
+	return new GpuModelSpecificsCox<BaseModel,RealType>(modelData, deviceName);
 }
 
 virtual void deviceInitialization() {
