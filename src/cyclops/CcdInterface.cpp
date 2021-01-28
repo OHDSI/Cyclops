@@ -321,7 +321,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	ccdPool.push_back(ccd);
 
 	for (int i = 1; i < nThreads; ++i) {
-	    ccdPool.push_back(ccd->clone(arguments.computeDevice.name));
+	    ccdPool.push_back(ccd->clone(arguments.computeDevice));
 	}
 
     std::vector<double> lowerPts(indices.size());
@@ -577,7 +577,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
     ccdPool.push_back(ccd);
 
     for (int i = 1; i < nThreads; ++i) {
-        ccdPool.push_back(ccd->clone(arguments.computeDevice.name));
+        ccdPool.push_back(ccd->clone(arguments.computeDevice));
     }
 
     if (nThreads == 1) {

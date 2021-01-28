@@ -85,7 +85,7 @@ public:
 			const std::vector<bool>& fixBeta,
 			bool useWeights);
 
-	AbstractModelSpecifics* clone(const std::string deviceName) const;
+	AbstractModelSpecifics* clone(ComputeDeviceArguments computeDevice) const;
 
 	virtual const std::vector<double> getXBeta();
 

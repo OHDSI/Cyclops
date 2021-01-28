@@ -98,7 +98,7 @@ ModelSpecifics<BaseModel,RealType>::ModelSpecifics(const ModelData<RealType>& in
 }
 
 template <class BaseModel, typename RealType>
-AbstractModelSpecifics* ModelSpecifics<BaseModel,RealType>::clone(const std::string deviceName) const {
+AbstractModelSpecifics* ModelSpecifics<BaseModel,RealType>::clone(ComputeDeviceArguments computeDevice) const {
 	return new ModelSpecifics<BaseModel,RealType>(modelData);
 }
 

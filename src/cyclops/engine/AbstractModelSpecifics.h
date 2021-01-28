@@ -15,6 +15,7 @@
 
 #include "Types.h"
 #include "ModelData.h"
+#include "../CcdInterface.h"
 
 namespace bsccs {
 
@@ -100,7 +101,7 @@ public:
 
 //	static bsccs::shared_ptr<AbstractModelSpecifics> factory(const ModelType modelType, const ModelData& modelData);
 
-	virtual AbstractModelSpecifics* clone(const std::string deviceName) const = 0; // pure virtual
+	virtual AbstractModelSpecifics* clone(ComputeDeviceArguments computeDevice) const = 0; // pure virtual
 
 // 	static bsccs::shared_ptr<AbstractModelSpecifics> factory(const ModelType modelType,
 //                                                            const ModelData& modelData,

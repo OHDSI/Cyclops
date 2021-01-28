@@ -219,7 +219,7 @@ public:
 	CudaKernel<RealType, RealType2> CoxKernels;
 
 	GpuModelSpecificsCox(const ModelData<RealType>& input,
-			const std::string& deviceName)
+			const std::string deviceName)
 		: ModelSpecifics<BaseModel,RealType>(input),
 		dCudaColumns(),
 		dXjY(), dY(),
@@ -241,8 +241,8 @@ public:
 		std::cerr << "dtor GpuModelSpecificsCox" << std::endl;
 	}
 
-virtual AbstractModelSpecifics* clone(const std::string deviceName) const {
-	return new GpuModelSpecificsCox<BaseModel,RealType>(modelData, deviceName);
+virtual AbstractModelSpecifics* clone(ComputeDeviceArguments computeDevice) const {
+	return new GpuModelSpecificsCox<BaseModel,RealType>(modelData, computeDevice.name);
 }
 
 virtual void deviceInitialization() {
