@@ -816,7 +816,7 @@ void turnOnStreamCV(int foldToCompute) {
 void setFold(int inFold){
 	fold = inFold;
 	CoxKernels.setFold(inFold);
-	std::cout << "GPUMS current fold: " << fold << '\n';
+//	std::cout << "GPUMS current fold: " << fold << '\n';
 }
 
 private:

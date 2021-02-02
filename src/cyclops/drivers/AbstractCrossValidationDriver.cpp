@@ -252,7 +252,7 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 			}
 
 			int fold = task % arguments.fold;
-//			ccdTask->getFold(fold);
+			ccdTask->getFold(fold);
 
 			// Get this fold and update
 			std::vector<double> weights; // Task-specific

@@ -192,6 +192,7 @@ public:
 	cudaStream_t* stream;
 	int CVFolds;
 	int fold;
+	int devIndex;
 
 	RealType2 d_init;
 

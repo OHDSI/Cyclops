@@ -306,9 +306,9 @@ struct RealType2Plus
 template <typename RealType, typename RealType2>
 CudaKernel<RealType, RealType2>::CudaKernel(const std::string& deviceName)
 {
+
 	// set device
-//	cudaSetDevice(1);
-	bool success = false;	
+	bool deviceStatus;
 	int devicesCount;
 	cudaGetDeviceCount(&devicesCount);
 	desiredDeviceName = deviceName;
@@ -316,20 +316,23 @@ CudaKernel<RealType, RealType2>::CudaKernel(const std::string& deviceName)
 		cudaDeviceProp deviceProperties;
 		cudaGetDeviceProperties(&deviceProperties, deviceIndex);
 		if (deviceProperties.name == desiredDeviceName) {
-			cudaSetDevice(deviceIndex);
-			success = true;
+			deviceStatus = cudaSetDevice(deviceIndex);
+			devIndex = deviceIndex;
 		}
 	}
 
 	// create stream
 	stream = (cudaStream_t *) malloc(sizeof(cudaStream_t));
 	cudaStreamCreate(&stream[0]);
-	
-	if (success) {
+
+	if (deviceStatus == cudaSuccess) {
 		std::cout << "ctor CudaKernel on " << deviceName << '\n';
-	} else {
-		std::cout << "ctor CudaKernel on default device \n";
+	} else if (deviceStatus == cudaErrorDeviceAlreadyInUse) {
+		std::cout << "cudaErrorDeviceAlreadyInUse \n";
+	} else if (deviceStatus == cudaErrorInvalidDevice) {
+		std::cout << "cudaErrorInvalidDevice \n";
 	}
+
 }
 
 template <typename RealType, typename RealType2>
@@ -365,6 +368,13 @@ template <typename RealType, typename RealType2>
 void CudaKernel<RealType, RealType2>::setFold(int currentFold)
 {
 	fold = currentFold;
+	int curIndex;
+	cudaGetDevice(&curIndex);
+	if (curIndex != devIndex) {
+		// TODO: why and where is it set back to the default device?
+		bool deviceFlag = cudaSetDevice(devIndex);
+		std::cout << "SET DEVICE TO " << desiredDeviceName << " AGAIN at fold " << fold << '\n';
+	}
 }
 
 template <typename RealType, typename RealType2>
@@ -382,7 +392,8 @@ template <typename RealType, typename RealType2>
 void CudaKernel<RealType, RealType2>::resizeAndFillToDevice(thrust::device_vector<RealType>& deviceVec, RealType val, int num_items)
 {
 	deviceVec.resize(num_items);
-	thrust::fill(deviceVec.begin(), deviceVec.end(), val);
+	thrust::fill(thrust::cuda::par.on(stream[0]),deviceVec.begin(), deviceVec.end(), val);
+	cudaStreamSynchronize(stream[0]);
 }
 
 template <typename RealType, typename RealType2>
@@ -448,7 +459,6 @@ void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<Rea
 			TuplePlus3(), RealType2Plus(), compGradHessInd1, N, stream[0]);
 */
 	cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
-
 	cudaStreamSynchronize(stream[0]);
 }
 
