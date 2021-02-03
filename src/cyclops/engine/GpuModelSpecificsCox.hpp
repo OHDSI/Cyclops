@@ -763,9 +763,10 @@ virtual std::vector<double> getBeta() {
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 //	std::cout << " DH-copy in GPU::getBeta \n";
-	CoxKernels.copyFromDeviceToDevice(dBound, dBoundBuffer);
-	CoxKernels.copyFromDeviceToDevice(dBeta, dBetaBuffer);
-	CoxKernels.copyFromDeviceToHost(dBeta, RealHBeta);
+//	CoxKernels.copyFromDeviceToDevice(dBound, dBoundBuffer);
+//	CoxKernels.copyFromDeviceToDevice(dBeta, dBetaBuffer);
+//	CoxKernels.copyFromDeviceToHost(dBeta, RealHBeta);
+	CoxKernels.getBeta(RealHBeta);
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
 	///////////////////////////"
@@ -775,15 +776,17 @@ virtual std::vector<double> getBeta() {
 }
 		
 virtual void resetBeta() {
-	CoxKernels.resizeAndFillToDevice(dBeta, static_cast<RealType>(0.0), J);
-	CoxKernels.resizeAndFillToDevice(dBetaBuffer, static_cast<RealType>(0.0), J);
+//	CoxKernels.resizeAndFillToDevice(dBeta, static_cast<RealType>(0.0), J);
+//	CoxKernels.resizeAndFillToDevice(dBetaBuffer, static_cast<RealType>(0.0), J);
+	CoxKernels.resetBeta(dBeta, dBetaBuffer, J);
 }
 
 bool isCUDA() {return true;};
 	
 void setBounds(double initialBound) {
-	CoxKernels.resizeAndFillToDevice(dBound, static_cast<RealType>(initialBound), J);
-	CoxKernels.resizeAndFillToDevice(dBoundBuffer, static_cast<RealType>(initialBound), J);
+//	CoxKernels.resizeAndFillToDevice(dBound, static_cast<RealType>(initialBound), J);
+//	CoxKernels.resizeAndFillToDevice(dBoundBuffer, static_cast<RealType>(initialBound), J);
+	CoxKernels.setBounds(dBound, dBoundBuffer, static_cast<RealType>(initialBound), J);
 }
 	
 const int getPriorTypes(int index) const {

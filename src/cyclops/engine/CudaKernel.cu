@@ -346,11 +346,61 @@ CudaKernel<RealType, RealType2>::~CudaKernel()
 	cudaFree(d_temp_storage_fs); // FG: forward scans
 	cudaFree(d_temp_storage_bs); // FG: backward scans
 	cudaFree(d_temp_storage_fgh); // FG: cGAH
-
+	cudaFree(betaIn);
+	cudaFree(betaOut);
+	cudaFree(boundIn);
+	cudaFree(boundOut);
+	cudaFree(temp);
 //	cudaDeviceReset();
 	std::cout << "dtor CudaKernel \n";
 }
 
+template <typename RealType, typename RealType2>
+void CudaKernel<RealType, RealType2>::setBounds(thrust::device_vector<RealType>& d_Bound, thrust::device_vector<RealType>& d_BoundBuffer, RealType val, size_t& J)
+{
+        d_Bound.resize(J);
+        d_BoundBuffer.resize(J);
+        thrust::fill(thrust::cuda::par.on(stream[0]), d_Bound.begin(), d_Bound.end(), val);
+        thrust::fill(thrust::cuda::par.on(stream[0]), d_BoundBuffer.begin(), d_BoundBuffer.end(), val);
+        cudaStreamSynchronize(stream[0]);
+
+        boundOut = thrust::raw_pointer_cast(&d_Bound[0]);
+        boundIn = thrust::raw_pointer_cast(&d_BoundBuffer[0]);
+}
+
+template <typename RealType, typename RealType2>
+void CudaKernel<RealType, RealType2>::resetBeta(thrust::device_vector<RealType>& d_Beta, thrust::device_vector<RealType>& d_BetaBuffer, size_t& J)
+{
+	d_Beta.resize(J);
+	d_BetaBuffer.resize(J);
+	thrust::fill(thrust::cuda::par.on(stream[0]), d_Beta.begin(), d_Beta.end(), static_cast<RealType>(0.0));
+	thrust::fill(thrust::cuda::par.on(stream[0]), d_BetaBuffer.begin(), d_BetaBuffer.end(), static_cast<RealType>(0.0));
+	cudaStreamSynchronize(stream[0]);
+
+	betaOut = thrust::raw_pointer_cast(&d_Beta[0]);
+	betaIn = thrust::raw_pointer_cast(&d_BetaBuffer[0]);
+}
+
+template <typename RealType, typename RealType2>
+void CudaKernel<RealType, RealType2>::getBeta(std::vector<RealType>& hBeta)
+{
+	cudaMemcpyAsync(thrust::raw_pointer_cast(hBeta.data()), 
+			betaOut, 
+			hBeta.size()*sizeof(RealType), 
+			cudaMemcpyDeviceToHost, 
+			stream[0]);
+	cudaStreamSynchronize(stream[0]);
+
+	// swap beta ptr
+	temp = betaOut;
+	betaOut = betaIn;
+	betaIn = temp;
+
+	// swap bound ptr
+	temp = boundOut;
+	boundOut = boundIn;
+	boundIn = boundOut;
+}
 
 template <typename RealType, typename RealType2>
 const std::string CudaKernel<RealType, RealType2>::getDeviceName() {
@@ -801,11 +851,15 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
 		       const unsigned int taskCount,
 		       RealType2* d_GH,
 		       thrust::device_vector<RealType>& d_XjY,
-		       thrust::device_vector<RealType>& d_Bound,
-		       thrust::device_vector<RealType>& d_BoundBuffer,
+//		       thrust::device_vector<RealType>& d_Bound,
+//		       thrust::device_vector<RealType>& d_BoundBuffer,
+		       RealType* boundOut,
+		       RealType* boundIn,
 		       thrust::device_vector<RealType>& d_KWeight,
-		       thrust::device_vector<RealType>& d_Beta,
-		       thrust::device_vector<RealType>& d_BetaBuffer,			
+//		       thrust::device_vector<RealType>& d_Beta,
+//		       thrust::device_vector<RealType>& d_BetaBuffer,			
+		       RealType* betaOut,
+		       RealType* betaIn,
 		       thrust::device_vector<RealType>& d_XBeta,
 		       thrust::device_vector<RealType>& d_ExpXBeta,
 		       thrust::device_vector<RealType>& d_Denominator,
@@ -823,11 +877,11 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                                                                thrust::raw_pointer_cast(&d_K[0]),
                                                                d_GH,
                                                                thrust::raw_pointer_cast(&d_XjY[0]),
-                                                               thrust::raw_pointer_cast(&d_Bound[0]),
-                                                               thrust::raw_pointer_cast(&d_BoundBuffer[0]),
+                                                               boundOut,
+                                                               boundIn,
                                                                thrust::raw_pointer_cast(&d_KWeight[0]),
-                                                               thrust::raw_pointer_cast(&d_Beta[0]),
-                                                               thrust::raw_pointer_cast(&d_BetaBuffer[0]),
+                                                               betaOut,
+                                                               betaIn,
                                                                thrust::raw_pointer_cast(&d_XBeta[0]),
                                                                thrust::raw_pointer_cast(&d_ExpXBeta[0]),
                                                                thrust::raw_pointer_cast(&d_Denominator[0]),
@@ -841,11 +895,11 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                                                                thrust::raw_pointer_cast(&d_K[0]),
                                                                d_GH,
                                                                thrust::raw_pointer_cast(&d_XjY[0]),
-                                                               thrust::raw_pointer_cast(&d_Bound[0]),
-                                                               thrust::raw_pointer_cast(&d_BoundBuffer[0]),
+                                                               boundOut,
+                                                               boundIn,
                                                                thrust::raw_pointer_cast(&d_KWeight[0]),
-                                                               thrust::raw_pointer_cast(&d_Beta[0]),
-                                                               thrust::raw_pointer_cast(&d_BetaBuffer[0]),
+                                                               betaOut,
+                                                               betaIn,
                                                                thrust::raw_pointer_cast(&d_XBeta[0]),
                                                                thrust::raw_pointer_cast(&d_ExpXBeta[0]),
                                                                thrust::raw_pointer_cast(&d_Denominator[0]),
@@ -859,11 +913,11 @@ void dispatchPriorType(const thrust::device_vector<RealType>& d_X,
                                                                thrust::raw_pointer_cast(&d_K[0]),
                                                                d_GH,
                                                                thrust::raw_pointer_cast(&d_XjY[0]),
-                                                               thrust::raw_pointer_cast(&d_Bound[0]),
-                                                               thrust::raw_pointer_cast(&d_BoundBuffer[0]),
+                                                               boundOut,
+                                                               boundIn,
                                                                thrust::raw_pointer_cast(&d_KWeight[0]),
-                                                               thrust::raw_pointer_cast(&d_Beta[0]),
-                                                               thrust::raw_pointer_cast(&d_BetaBuffer[0]),
+                                                               betaOut,
+                                                               betaIn,
                                                                thrust::raw_pointer_cast(&d_XBeta[0]),
                                                                thrust::raw_pointer_cast(&d_ExpXBeta[0]),
                                                                thrust::raw_pointer_cast(&d_Denominator[0]),
@@ -902,32 +956,32 @@ void CudaKernel<RealType, RealType2>::updateXBetaAndDelta(const thrust::device_v
 	switch (formatType) {
 		case DENSE :
 			dispatchPriorType<RealType, RealType2, DENSE>(d_X, d_K, offX, offK,
-                                                          taskCount, d_GH, d_XjY, d_Bound, d_BoundBuffer, d_KWeight,
-                                                          d_Beta, d_BetaBuffer, d_XBeta, d_ExpXBeta, d_Denominator,
+                                                          taskCount, d_GH, d_XjY, boundOut, boundIn, d_KWeight,
+                                                          betaOut, betaIn, d_XBeta, d_ExpXBeta, d_Denominator,
                                                           d_Numerator, d_Numerator2,
                                                           d_PriorParams, priorTypes,
                                                           index, stream[0], gridSize, blockSize);
 			break;
 		case SPARSE :
 			dispatchPriorType<RealType, RealType2, SPARSE>(d_X, d_K, offX, offK,
-                                                          taskCount, d_GH, d_XjY, d_Bound, d_BoundBuffer, d_KWeight,
-                                                          d_Beta, d_BetaBuffer, d_XBeta, d_ExpXBeta, d_Denominator,
+                                                          taskCount, d_GH, d_XjY, boundOut, boundIn, d_KWeight,
+                                                          betaOut, betaIn, d_XBeta, d_ExpXBeta, d_Denominator,
                                                           d_Numerator, d_Numerator2,
                                                           d_PriorParams, priorTypes,
                                                           index, stream[0], gridSize, blockSize);
 			break;
 		case INDICATOR :
 			dispatchPriorType<RealType, RealType2, INDICATOR>(d_X, d_K, offX, offK,
-                                                          taskCount, d_GH, d_XjY, d_Bound, d_BoundBuffer, d_KWeight,
-                                                          d_Beta, d_BetaBuffer, d_XBeta, d_ExpXBeta, d_Denominator,
+                                                          taskCount, d_GH, d_XjY, boundOut, boundIn, d_KWeight,
+                                                          betaOut, betaIn, d_XBeta, d_ExpXBeta, d_Denominator,
                                                           d_Numerator, d_Numerator2,
                                                           d_PriorParams, priorTypes,
                                                           index, stream[0], gridSize, blockSize);
 			break;
 		case INTERCEPT :
 			dispatchPriorType<RealType, RealType2, INTERCEPT>(d_X, d_K, offX, offK,
-                                                          taskCount, d_GH, d_XjY, d_Bound, d_BoundBuffer, d_KWeight,
-                                                          d_Beta, d_BetaBuffer, d_XBeta, d_ExpXBeta, d_Denominator,
+                                                          taskCount, d_GH, d_XjY, boundOut, boundIn, d_KWeight,
+                                                          betaOut, betaIn, d_XBeta, d_ExpXBeta, d_Denominator,
                                                           d_Numerator, d_Numerator2,
                                                           d_PriorParams, priorTypes,
                                                           index, stream[0], gridSize, blockSize);
