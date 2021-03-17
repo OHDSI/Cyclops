@@ -399,7 +399,7 @@ void CudaKernel<RealType, RealType2>::getBeta(std::vector<RealType>& hBeta)
 	// swap bound ptr
 	temp = boundOut;
 	boundOut = boundIn;
-	boundIn = boundOut;
+	boundIn = temp;
 }
 
 template <typename RealType, typename RealType2>
