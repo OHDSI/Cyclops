@@ -6,8 +6,7 @@ library("survival")
 #
 
 test_that("Small exact, conditional logistic regression with no ties", {
-
-		#skip("Not yet implemented")
+    skip_on_cran()
 
     gold <- clogit(case ~ spontaneous + induced + strata(stratum), data=infert)
 
@@ -30,8 +29,7 @@ test_that("Small exact, conditional logistic regression with no ties", {
 })
 
  test_that("Small, exact conditinal logistic regression with ties" , {
-
- 		#skip("Not yet implemented")
+    skip_on_cran()
 
     withTies <- read.table(system.file("extdata/test1-clr.txt", package="Cyclops"), sep=",")
     names(withTies) <- c("stratum", "y",paste("x", 1:10, sep=""))

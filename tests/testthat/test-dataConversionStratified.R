@@ -107,7 +107,7 @@ test_that("Test stratified cox using lung dataset ", {
 
 
 test_that("Test conditional poisson regression", {
-  #skip_on_cran() # Do not run on CRAN
+  skip_on_cran() # Do not run on CRAN
   #skip("Do not run")
   set.seed(123)
   sim <- simulateCyclopsData(nstrata = 2, nrows = 10000, ncovars = 2, eCovarsPerRow = 0.5, effectSizeSd = 1,model = "poisson")

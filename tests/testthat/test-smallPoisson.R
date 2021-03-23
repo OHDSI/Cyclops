@@ -155,22 +155,22 @@ test_that("Get SEs in small Poisson model", {
     expect_equal(goldSE, cyclopsSE, tolerance = tolerance)
 })
 
-test_that("Playing with standardization", {
-    counts <- c(18,17,15,20,10,20,25,13,12)
-    outcome <- gl(3,1,9)
-    treatment <- gl(3,3)
-    tolerance <- 1E-4
-
-    dataPtr <- createCyclopsData(counts ~ outcome + treatment,
-                                      modelType = "pr")
-    cyclopsFit <- fitCyclopsModel(dataPtr,
-                                  prior = createPrior("none"))
-
-    dataPtrS <- createCyclopsData(counts ~ outcome + treatment,
-                                       modelType = "pr")
-    cyclopsFitS <- fitCyclopsModel(dataPtrS,
-                                   prior = createPrior("none"))
-
-    coef(cyclopsFit)
-    coef(cyclopsFitS)
-})
+# test_that("Playing with standardization", {
+#     counts <- c(18,17,15,20,10,20,25,13,12)
+#     outcome <- gl(3,1,9)
+#     treatment <- gl(3,3)
+#     tolerance <- 1E-4
+#
+#     dataPtr <- createCyclopsData(counts ~ outcome + treatment,
+#                                       modelType = "pr")
+#     cyclopsFit <- fitCyclopsModel(dataPtr,
+#                                   prior = createPrior("none"))
+#
+#     dataPtrS <- createCyclopsData(counts ~ outcome + treatment,
+#                                        modelType = "pr")
+#     cyclopsFitS <- fitCyclopsModel(dataPtrS,
+#                                    prior = createPrior("none"))
+#
+#     coef(cyclopsFit)
+#     coef(cyclopsFitS)
+# })

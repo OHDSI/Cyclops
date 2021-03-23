@@ -1,4 +1,11 @@
-## Submission following email from Kurt Hornik about new check-result
+## Resubmission following email from Uwe Ligges about check taking 20 mins
+on win-builder-r.
+
+* fixed by adding 'skip_on_cran()' to unit-test that evaluated exact solutions to
+conditional logistic regression likelihood function.  This test took approximately 90%
+of 'check' run-time on my system and on 'win-builder'
+
+## Initial submission following email from Kurt Hornik about new check-result
 errors in unit-tests due to changed behavior of 'survival' package dependency.
 
 * fixed function call signatures to 'survival' package functions
@@ -16,10 +23,10 @@ errors in unit-tests due to changed behavior of 'survival' package dependency.
     sub-directories of 1Mb or more:
       libs 21.7Mb
 
-This occurs on systems (like `r-devel-linux-x86_64-fedora-clang`) that include debug
+This occurs on systems (like 'r-devel-linux-x86_64-fedora-clang') that include debug
 symbols in their compilation; Cyclops performance is heavily dependent on many template
 instantiations that generate a large library when including debug symbols.  Future
-availability of C++17 `if (constexpr ...)` should decrease library size substantially.
+availability of C++17 'if (constexpr ...)' should decrease library size substantially.
 
 ## Downstream dependencies
-There are currently no downstream dependencies.
+* 'EvidenceSynthesis' - checked and works.

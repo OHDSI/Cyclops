@@ -23,6 +23,7 @@ suppressWarnings(RNGversion("3.5.0"))
 # })
 
 test_that("Separable covariates in logistic regression", {
+    skip_on_cran()
     set.seed(666)
 
     simulant <- simulateCyclopsData(nstrata = 1,
@@ -69,6 +70,7 @@ test_that("Separable covariates in logistic regression", {
 })
 
 test_that("Separable covariates in cox regression", {
+    skip_on_cran()
     set.seed(666)
 
     simulant <- simulateCyclopsData(nstrata = 1,
