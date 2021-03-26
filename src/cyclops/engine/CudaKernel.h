@@ -222,13 +222,13 @@ public:
 	size_t temp_storage_bytes_bs = 0;
 	void *d_temp_storage_fgh = NULL;
 	size_t temp_storage_bytes_fgh = 0;
-
-	RealType* betaIn;
-	RealType* betaOut;
-	RealType* boundIn;
-	RealType* boundOut;
-	RealType* temp;
-
+/*
+	RealType* betaIn = NULL;
+	RealType* betaOut = NULL;
+	RealType* boundIn = NULL;
+	RealType* boundOut = NULL;
+	RealType* temp = NULL;
+*/
 	CudaKernel(const std::string& deviceName);
 	~CudaKernel();
 
@@ -247,13 +247,15 @@ public:
 	void copyFromDeviceToHost(const thrust::device_vector<RealType>& deviceVec, std::vector<RealType>& hostVec);
 
 	void copyFromDeviceToDevice(const thrust::device_vector<RealType>& source, thrust::device_vector<RealType>& destination);
-
+/*
 	void setBounds(thrust::device_vector<RealType>& d_Bound, thrust::device_vector<RealType>& d_BoundBuffer, RealType val, size_t& J);
 
 	void resetBeta(thrust::device_vector<RealType>& dBeta, thrust::device_vector<RealType>& dBetaBuffer, size_t& J);
 
 	void getBeta(std::vector<RealType>& hBeta);
 
+	void getBound();
+*/
 	void allocTempStorage(thrust::device_vector<RealType>& d_Denominator,
 			thrust::device_vector<RealType>& d_Numerator,
 			thrust::device_vector<RealType>& d_Numerator2,
