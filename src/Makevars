@@ -1,5 +1,9 @@
+CUDA_HOME = /usr/local/cuda
+
+CUB_PATH = /home/yangjx/my_cub/cub
+
 ## Use the R_HOME indirection to support installations of multiple R version
-#PKG_LIBS = `$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"` -lOpenCL -lcuda -lcudart -lnvrtc -L/usr/local/cuda/lib64 -Wl,-rpath,/usr/local/cuda/lib64 -ldl
+PKG_LIBS = `$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"` -lOpenCL -pthread -L$(CUDA_HOME)/lib64 -lcuda -lcudart
 
 ## As an alternative, one can also add this code in a file 'configure'
 ##
@@ -26,26 +30,13 @@
 
 CXX_STD = CXX11
 
-NVCC = /usr/local/cuda/bin/nvcc -arch=sm_70
+NVCC = $(CUDA_HOME)/bin/nvcc -arch=sm_70
 
 CPICFLAGS = -fpic
 
-CFLAGS = -g -O2
-
-#RCPP_FLAGS = -I"/home/yangjx/R/x86_64-pc-linux-gnu-library/3.6/Rcpp/include" -I"/home/yangjx/R/x86_64-pc-linux-gnu-library/3.6/BH/include" -I"/home/yangjx/R/x86_64-pc-linux-gnu-library/3.6/RcppEigen/include"
-
-PKG_CPPFLAGS = -I. -Icyclops -DR_BUILD -DHAVE_OPENCL -DDOUBLE_PRECISION -DGPU_COX -pthread -D LINUX -I/usr/local/cuda/include -I/usr/local/cuda/lib64 -rdynamic
-
 PKG_CXXFLAGS = -g1
 
-R_LIBS = -L/usr/lib/R/lib -Wl,-Bsymbolic-functions -Wl,-z,relro
-
-EXTRA_INCLUDES =  -I/usr/share/R/include -DNDEBUG
-
-EXTRA_LIBS = -lOpenCL -L/usr/local/cuda/lib64 -lcuda -lcudart -Wl,-rpath,/usr/local/cuda/lib64 -ldl -L/usr/lib/R/lib -lR
-
-#CUB_LIB = -I/home/yangjx/cub
-CUB_LIB = -I/home/yangjx/my_cub/cub
+PKG_CPPFLAGS = -I. -Icyclops -DR_BUILD -DHAVE_OPENCL -DDOUBLE_PRECISION -DGPU_COX -pthread -I$(CUDA_HOME)/include -I$(CUDA_HOME)/lib64 -rdynamic
 
 OBJECTS.cyclops = \
     cyclops/CcdInterface.o \
@@ -98,10 +89,9 @@ OBJECTS = $(OBJECTS.cyclops) $(OBJECTS.drivers) \
           $(OBJECTS.priors) $(OBJECTS.io)
 
 all: $(OBJECTS)
-	g++ -std=gnu++11 -shared $(R_LIBS) $(CPICFLAGS) -o Cyclops.so $(OBJECTS) -pthread $(EXTRA_LIBS)
 
 %.o: %.cu
-	$(NVCC) --default-stream per-thread -c -Xcompiler "$(CPICFLAGS) $(CPPFLAGS) $(CFLAGS) -c" $(CUB_LIB) $(R_PATH_LINKER) $^ -o $@
+	$(NVCC) --default-stream per-thread -c -Xcompiler "$(CPICFLAGS) $(CPPFLAGS) -c" -I$(CUB_PATH) $(R_PATH_LINKER) $^ -o $@
 
 clean:
 	rm -rf *o
