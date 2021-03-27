@@ -1,5 +1,5 @@
 ## Use the R_HOME indirection to support installations of multiple R version
-PKG_LIBS = `$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"` -lOpenCL -lcuda -lcudart -lnvrtc -L/usr/local/cuda/lib64 -Wl,-rpath,/usr/local/cuda/lib64 -ldl
+#PKG_LIBS = `$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"` -lOpenCL -lcuda -lcudart -lnvrtc -L/usr/local/cuda/lib64 -Wl,-rpath,/usr/local/cuda/lib64 -ldl
 
 ## As an alternative, one can also add this code in a file 'configure'
 ##
@@ -32,9 +32,9 @@ CPICFLAGS = -fpic
 
 CFLAGS = -g -O2
 
-RCPP_FLAGS = -I"/home/yangjx/R/x86_64-pc-linux-gnu-library/3.6/Rcpp/include" -I"/home/yangjx/R/x86_64-pc-linux-gnu-library/3.6/BH/include" -I"/home/yangjx/R/x86_64-pc-linux-gnu-library/3.6/RcppEigen/include"
+#RCPP_FLAGS = -I"/home/yangjx/R/x86_64-pc-linux-gnu-library/3.6/Rcpp/include" -I"/home/yangjx/R/x86_64-pc-linux-gnu-library/3.6/BH/include" -I"/home/yangjx/R/x86_64-pc-linux-gnu-library/3.6/RcppEigen/include"
 
-PKG_CPPFLAGS = -I. -Icyclops -DR_BUILD -DHAVE_OPENCL -DDOUBLE_PRECISION -DGPU_COX -pthread -D LINUX -DJITIFY_PRINT_LINKER_LOG -DCUDA_INC_DIR="\"/usr/local/cuda/include\"" -I/usr/local/cuda/include -I/usr/local/cuda/lib64 -I/home/yangjx/cub -I/home/yangjx/jitify -rdynamic
+PKG_CPPFLAGS = -I. -Icyclops -DR_BUILD -DHAVE_OPENCL -DDOUBLE_PRECISION -DGPU_COX -pthread -D LINUX -I/usr/local/cuda/include -I/usr/local/cuda/lib64 -rdynamic
 
 PKG_CXXFLAGS = -g1
 
@@ -101,7 +101,7 @@ all: $(OBJECTS)
 	g++ -std=gnu++11 -shared $(R_LIBS) $(CPICFLAGS) -o Cyclops.so $(OBJECTS) -pthread $(EXTRA_LIBS)
 
 %.o: %.cu
-	$(NVCC) --default-stream per-thread -c -Xcompiler "$(CPICFLAGS) $(CPPFLAGS) $(CFLAGS) -c" $(CUB_LIB) $(INCLUDES) $(EXTRA_INCLUDES) $(RCPP_FLAGS) $(R_PATH_LINKER) $^ -o $@
+	$(NVCC) --default-stream per-thread -c -Xcompiler "$(CPICFLAGS) $(CPPFLAGS) $(CFLAGS) -c" $(CUB_LIB) $(R_PATH_LINKER) $^ -o $@
 
 clean:
 	rm -rf *o
