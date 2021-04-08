@@ -38,7 +38,7 @@ getFineGrayWeights <- function(ftime, fstatus,
 
     # Check for errors
     if(!cencode %in% unique(fstatus)) stop("cencode must be a valid value from fstatus")
-    if(!failcode %in% unique(fstatus)) stop("cencode must be a valid value from fstatus")
+    if(!failcode %in% unique(fstatus)) stop("failcode must be a valid value from fstatus")
     if(any(ftime < 0)) stop("all values of ftime must be positive valued")
 
     obj <- suppressWarnings(survival::Surv(ftime, fstatus)) # Suppress warning given by Surv function
