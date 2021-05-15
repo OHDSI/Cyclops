@@ -492,7 +492,7 @@ void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<Rea
 	// for scan in accDenom
 	DeviceScan::InclusiveSum(d_temp_storage_accd, temp_storage_bytes_accd, &d_Denominator[0], &d_AccDenom[0], N, stream[0]);
 	cudaMalloc(&d_temp_storage_accd, temp_storage_bytes_accd);
-
+/*
 	// for fused scan reduction (double scan)
 	auto begin0 = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(), 
 								   d_Numerator2.begin()));
@@ -502,7 +502,7 @@ void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<Rea
 			begin0, begin1, d_GH,
 			TuplePlus(), RealType2Plus(), compGradHessInd, N, stream[0]);
 
-/*
+*/
 	auto begin2 = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(),
 								   d_Numerator2.begin(),
 								   d_Denominator.begin()));
@@ -511,7 +511,7 @@ void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<Rea
 	DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh, 
 			begin2, thrust::raw_pointer_cast(&d_NWeight[0]), d_GH,
 			TuplePlus3(), RealType2Plus(), compGradHessInd1, N, stream[0]);
-*/
+
 	cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
 	cudaStreamSynchronize(stream[0]);
 }
@@ -730,17 +730,17 @@ void CudaKernel<RealType, RealType2>::computeGradientAndHessian1(thrust::device_
 								 size_t& N)
 {
 	// fused scan reduction (including Denom -> accDenom)
-	auto begin2 = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin() + offCV,
-								   d_Numerator2.begin() + offCV,
-								   d_Denominator.begin() + offCV));
+	auto begin2 = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(),
+								   d_Numerator2.begin(),
+								   d_Denominator.begin()));
 	if (formatType == INDICATOR) {
 		DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh,
 				begin2, thrust::raw_pointer_cast(&d_NWeight[0]), d_GH,
-				TuplePlus3(), RealType2Plus(), compGradHessInd1, N - offCV, stream[0]);
+				TuplePlus3(), RealType2Plus(), compGradHessInd1, N, stream[0]);
 	} else {
 		DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh,
 				begin2, thrust::raw_pointer_cast(&d_NWeight[0]), d_GH,
-				TuplePlus3(), RealType2Plus(), compGradHessNInd1, N - offCV, stream[0]);
+				TuplePlus3(), RealType2Plus(), compGradHessNInd1, N, stream[0]);
 	}
 
 	cudaStreamSynchronize(stream[0]);

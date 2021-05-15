@@ -41,13 +41,18 @@ struct CompGradHess1
     __host__ __device__
     RealType2 operator()(const InputTuple& accNAndD, const RealType nEvents) const
     {
-        auto temp = thrust::get<0>(accNAndD) / thrust::get<2>(accNAndD);
         RealType2 out;
-        out.x = nEvents * temp;
-        if (isIndicator) {
-            out.y = out.x * (1 - temp);
+        if (thrust::get<2>(accNAndD) == static_cast<RealType>(0)) {
+            out.x = static_cast<RealType>(0);
+            out.y = static_cast<RealType>(0);
         } else {
-            out.y = nEvents * (thrust::get<1>(accNAndD) / thrust::get<2>(accNAndD) - temp * temp);
+            auto temp = thrust::get<0>(accNAndD) / thrust::get<2>(accNAndD);
+            out.x = nEvents * temp;
+            if (isIndicator) {
+                out.y = out.x * (1 - temp);
+            } else {
+                out.y = nEvents * (thrust::get<1>(accNAndD) / thrust::get<2>(accNAndD) - temp * temp);
+            }
         }
         return out;
     }

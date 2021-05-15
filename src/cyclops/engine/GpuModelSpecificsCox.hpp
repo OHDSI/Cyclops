@@ -510,7 +510,6 @@ virtual double getLogLikelihood(bool useCrossValidation) {
 	for (size_t i = 0; i < K; i++) {
 		logLikelihood -= hNWeight[i] * std::log(accDenomPid[i]);
         }
-
 	return static_cast<double>(logLikelihood);
 //	return ModelSpecifics<BaseModel, RealType>::getLogLikelihood(useCrossValidation); 
 }
@@ -638,7 +637,7 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 				offCV,
 				K);
 	} else {
-
+/*
 	// dense scan
 	CoxKernels.computeAccumlatedDenominator(dDenominator, dAccDenom, K);
 
@@ -651,8 +650,20 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 					formatType,
 					offCV,
 					K);
+*/
+	// dense scan with transform reduction (including Denom -> accDenom)
+	CoxKernels.computeGradientAndHessian1(dNumerator,
+			dNumerator2,
+			dDenominator,
+			dAccDenom,
+			dNWeight,
+			dGH,
+			formatType,
+			offCV,
+			K);
 
 	}
+
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto end2 = bsccs::chrono::steady_clock::now();
 	///////////////////////////"
