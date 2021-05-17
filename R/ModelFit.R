@@ -825,8 +825,26 @@ getCyclopsProfileLogLikelihood <- function(object, parm, x,
     parm <- .checkCovariates(object$cyclopsData, parm)
     threads <- object$threads
 
-    grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
-                                         threads, includePenalty)
+    if (getNumberOfCovariates(object$cyclopsData) == 1) {
+        grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
+                                             threads, includePenalty)
+    } else {
+        # Partition sequence
+        y <- sort(x)
+        midPt <- floor(length(x) / 2)
+        lower <- y[midPt:1]
+        upper <- y[(midPt + 1):length(x)]
+
+        # Execute: TODO chunk and repeat until ill-conditioned
+        gridLower <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, lower,
+                                                  threads, includePenalty)
+        gridUpper <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, upper,
+                                                  threads, includePenalty)
+        # Merge
+        grid <- rbind(gridLower, gridUpper)
+        grid <- grid[order(grid$point),]
+        rownames(grid) <- NULL
+    }
     grid
 }
 
