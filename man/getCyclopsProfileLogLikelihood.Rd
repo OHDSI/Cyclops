@@ -4,15 +4,29 @@
 \alias{getCyclopsProfileLogLikelihood}
 \title{Profile likelihood for Cyclops model parameters}
 \usage{
-getCyclopsProfileLogLikelihood(object, parm, x, includePenalty = TRUE)
+getCyclopsProfileLogLikelihood(
+  object,
+  parm,
+  x = NULL,
+  bounds = NULL,
+  tolerance = 0.001,
+  initialGridSize = 10,
+  includePenalty = TRUE
+)
 }
 \arguments{
-\item{object}{A fitted Cyclops model object}
+\item{object}{Fitted Cyclops model object}
 
-\item{parm}{A specification of which parameter requires profiling,
+\item{parm}{Specification of which parameter requires profiling,
 either a vector of numbers of covariateId names}
 
-\item{x}{A vector of values of the parameter}
+\item{x}{Vector of values of the parameter}
+
+\item{bounds}{Pair of values to bound adaptive profiling}
+
+\item{tolerance}{Absolute tolerance allowed for adaptive profiling}
+
+\item{initialGridSize}{Initial grid size for adaptive profiling}
 
 \item{includePenalty}{Logical: Include regularized covariate penalty in profile}
 }

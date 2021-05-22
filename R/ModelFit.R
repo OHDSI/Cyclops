@@ -814,7 +814,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #' @param x         Vector of values of the parameter
 #' @param bounds    Pair of values to bound adaptive profiling
 #' @param tolerance Absolute tolerance allowed for adaptive profiling
-#' @initialGridSize Initial grid size for adaptive profiling
+#' @param initialGridSize Initial grid size for adaptive profiling
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
 #'
 #' @return
