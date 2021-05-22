@@ -808,18 +808,85 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #' @description
 #' \code{getCyclopsProfileLogLikelihood} evaluates the profile likelihood at a grid of parameter values.
 #'
-#' @param object    A fitted Cyclops model object
-#' @param parm      A specification of which parameter requires profiling,
+#' @param object    Fitted Cyclops model object
+#' @param parm      Specification of which parameter requires profiling,
 #'                  either a vector of numbers of covariateId names
-#' @param x         A vector of values of the parameter
+#' @param x         Vector of values of the parameter
+#' @param bounds    Pair of values to bound adaptive profiling
+#' @param tolerance Absolute tolerance allowed for adaptive profiling
+#' @initialGridSize Initial grid size for adaptive profiling
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
 #'
 #' @return
 #' A vector of the profile log likelihood evaluated at x
 #'
 #' @export
-getCyclopsProfileLogLikelihood <- function(object, parm, x,
+getCyclopsProfileLogLikelihood <- function(object,
+                                           parm,
+                                           x = NULL,
+                                           bounds = NULL,
+                                           tolerance = 1E-3,
+                                           initialGridSize = 10,
                                            includePenalty = TRUE) {
+
+    if (!xor(is.null(x), is.null(bounds))) {
+        stop("Must provide either `x` or `bounds`, but not both.")
+    }
+
+    if (!is.null(bounds)) { # Adaptive profiling using recursive calls
+
+        if (length(bounds) != 2 || bounds[1] >= bounds[2]) {
+            stop("Must provide bounds[1] < bounds[2]")
+        }
+
+        # If an MLE was found, let's not throw that bit of important information away:
+        if (fit$return_flag == "SUCCESS") {
+            profile <- tibble(point = coef(fit)[as.character(parm)],
+                              value = fit$log_likelihood)
+        } else {
+            profile <- tibble()
+        }
+
+        # Start with sparse grid:
+        grid <- seq(bounds[1], bounds[2], length.out = initialGridSize)
+
+        # Iterate until stopping criteria met:
+        while (length(grid) != 0) {
+
+            ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty)
+
+            profile <- bind_rows(profile, ll) %>% arrange(.data$point)
+
+            deltaX <- profile$point[2:nrow(profile)] - profile$point[1:(nrow(profile) - 1)]
+            deltaY <- profile$value[2:nrow(profile)] - profile$value[1:(nrow(profile) - 1)]
+            slopes <- deltaY / deltaX
+
+            # Compute where prior and posterior slopes intersect
+            slopes <- c(slopes[1] + (slopes[2] - slopes[3]),
+                        slopes,
+                        slopes[length(slopes)] - (slopes[length(slopes) - 1] - slopes[length(slopes)]))
+
+            interceptX <- (profile$value[2:nrow(profile)] -
+                               profile$point[2:nrow(profile)] * slopes[3:length(slopes)] -
+                               profile$value[1:(nrow(profile) - 1)] +
+                               profile$point[1:(nrow(profile) - 1)] * slopes[1:(length(slopes) - 2)]) /
+                (slopes[1:(length(slopes) - 2)] - slopes[3:length(slopes)])
+
+            # Compute absolute difference between linear interpolation and worst case scenario (which is at the intercept):
+            maxError <- abs((profile$value[1:(nrow(profile) - 1)] + (interceptX - profile$point[1:(nrow(profile) - 1)]) * slopes[1:(length(slopes) - 2)]) -
+                                (profile$value[1:(nrow(profile) - 1)] + (interceptX - profile$point[1:(nrow(profile) - 1)]) * slopes[2:(length(slopes) - 1)]))
+
+            exceed <- which(maxError > tolerance)
+            grid <- (profile$point[exceed] + profile$point[exceed + 1]) / 2
+        }
+    } else { # Use x
+        profile <- fixedGridProfileLogLikelihood(object, parm, x, includePenalty)
+    }
+
+    return(profile)
+}
+
+fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty) {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     parm <- .checkCovariates(object$cyclopsData, parm)
@@ -845,7 +912,8 @@ getCyclopsProfileLogLikelihood <- function(object, parm, x,
         grid <- grid[order(grid$point),]
         rownames(grid) <- NULL
     }
-    grid
+
+    return(grid)
 }
 
 #' @title Asymptotic confidence intervals for a fitted Cyclops model object
