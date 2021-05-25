@@ -31,7 +31,8 @@ either a vector of numbers of covariateId names}
 \item{includePenalty}{Logical: Include regularized covariate penalty in profile}
 }
 \value{
-A vector of the profile log likelihood evaluated at x
+A data frame containing the profile log likelihood. Returns NULL when the adaptive profiling fails
+to converge.
 }
 \description{
 \code{getCyclopsProfileLogLikelihood} evaluates the profile likelihood at a grid of parameter values.

@@ -818,7 +818,8 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
 #'
 #' @return
-#' A vector of the profile log likelihood evaluated at x
+#' A data frame containing the profile log likelihood. Returns NULL when the adaptive profiling fails
+#' to converge.
 #'
 #' @export
 getCyclopsProfileLogLikelihood <- function(object,
@@ -851,6 +852,7 @@ getCyclopsProfileLogLikelihood <- function(object,
         grid <- seq(bounds[1], bounds[2], length.out = initialGridSize)
 
         # Iterate until stopping criteria met:
+        priorMaxMaxError <- Inf
         while (length(grid) != 0) {
 
             ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty)
@@ -875,6 +877,13 @@ getCyclopsProfileLogLikelihood <- function(object,
             # Compute absolute difference between linear interpolation and worst case scenario (which is at the intercept):
             maxError <- abs((profile$value[1:(nrow(profile) - 1)] + (interceptX - profile$point[1:(nrow(profile) - 1)]) * slopes[1:(length(slopes) - 2)]) -
                                 (profile$value[1:(nrow(profile) - 1)] + (interceptX - profile$point[1:(nrow(profile) - 1)]) * slopes[2:(length(slopes) - 1)]))
+
+            maxMaxError <- max(maxError)
+            if (maxMaxError > priorMaxMaxError) {
+                warning("Failing to converge when using adaptive profiling.")
+                return(NULL)
+            }
+            priorMaxMaxError <- maxMaxError
 
             exceed <- which(maxError > tolerance)
             grid <- (profile$point[exceed] + profile$point[exceed + 1]) / 2
