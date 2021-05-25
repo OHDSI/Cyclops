@@ -861,6 +861,26 @@ getCyclopsProfileLogLikelihood <- function(object,
 
             profile <- bind_rows(profile, ll) %>% arrange(.data$point)
 
+            if (any(is.nan(profile$value))) {
+                if (all(is.nan(profile$value))) {
+                    warning("Failing to compute likelihood at entire initial grid.")
+                    return(NULL)
+                }
+
+                start <- min(which(!is.nan(profile$value)))
+                end <- max(which(!is.nan(profile$value)))
+                if (start == end) {
+                    warning("Failing to compute likelihood at entire grid except one. Giving up")
+                    return(NULL)
+                }
+                profile <- profile[start:end, ]
+                if (any(is.nan(profile$value))) {
+                    warning("Failing to compute likelihood in non-extreme regions. Giving up.")
+                    return(NULL)
+                }
+                warning("Failing to compute likelihood at extremes. Truncating bounds.")
+            }
+
             deltaX <- profile$point[2:nrow(profile)] - profile$point[1:(nrow(profile) - 1)]
             deltaY <- profile$value[2:nrow(profile)] - profile$value[1:(nrow(profile) - 1)]
             slopes <- deltaY / deltaX
