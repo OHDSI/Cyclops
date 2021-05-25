@@ -841,7 +841,9 @@ getCyclopsProfileLogLikelihood <- function(object,
         }
 
         # If an MLE was found, let's not throw that bit of important information away:
-        if (object$return_flag == "SUCCESS") {
+        if (object$return_flag == "SUCCESS" &&
+            coef(object)[as.character(parm)] > bounds[1] &&
+            coef(object)[as.character(parm)] < bounds[2]) {
             profile <- tibble(point = coef(object)[as.character(parm)],
                               value = object$log_likelihood)
         } else {
