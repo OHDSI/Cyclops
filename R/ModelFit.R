@@ -845,7 +845,7 @@ getCyclopsProfileLogLikelihood <- function(object,
             coef(object)[as.character(parm)] > bounds[1] &&
             coef(object)[as.character(parm)] < bounds[2]) {
             profile <- tibble(point = coef(object)[as.character(parm)],
-                              value = object$log_likelihood)
+                              value = fixedGridProfileLogLikelihood(object, parm, coef(object)[as.character(parm)], includePenalty))
         } else {
             profile <- tibble()
         }
