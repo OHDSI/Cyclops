@@ -900,8 +900,8 @@ getCyclopsProfileLogLikelihood <- function(object,
             maxError <- abs((profile$value[1:(nrow(profile) - 1)] + (interceptX - profile$point[1:(nrow(profile) - 1)]) * slopes[1:(length(slopes) - 2)]) -
                                 (profile$value[1:(nrow(profile) - 1)] + (interceptX - profile$point[1:(nrow(profile) - 1)]) * slopes[2:(length(slopes) - 1)]))
 
-            maxMaxError <- max(maxError)
-            if (maxMaxError > priorMaxMaxError) {
+            maxMaxError <- max(maxError, na.rm = TRUE)
+            if (is.na(maxMaxError) || maxMaxError > priorMaxMaxError) {
                 warning("Failing to converge when using adaptive profiling.")
                 return(NULL)
             }
