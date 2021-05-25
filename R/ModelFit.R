@@ -923,7 +923,7 @@ fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty) {
     parm <- .checkCovariates(object$cyclopsData, parm)
     threads <- object$threads
 
-    if (getNumberOfCovariates(object$cyclopsData) == 1) {
+    if (getNumberOfCovariates(object$cyclopsData) == 1 || length(x) == 1) {
         grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
                                              threads, includePenalty)
     } else {
