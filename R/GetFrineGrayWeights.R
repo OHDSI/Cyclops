@@ -33,7 +33,7 @@
 #' @importFrom survival survfit Surv
 #' @importFrom stats approx
 #' @export
-getFineGrayWeights <- function(ftime, fstatus,
+getFineGrayWeights <- function(ftime, fstatus, strata = NULL,
                                cencode = 0, failcode = 1) {
 
     # Check for errors
@@ -46,13 +46,40 @@ getFineGrayWeights <- function(ftime, fstatus,
     cenind   <- ifelse(fstatus == cencode, 1, 0)
     obj[, 2] <- ifelse(obj[, 2] == failcode, 1, 2 * (1 - cenind)) # Changes competing risks to 2
 
-    # Create IPCW here (see original F&G code)
-    u <- do.call('survfit', list(formula = Surv(ftime, cenind) ~ 1,
-                                 data = data.frame(ftime, cenind)))
-    u <- approx(c(0, u$time, max(u$time) * (1 + 10 * .Machine$double.eps)), c(1, u$surv, 0),
-                xout = ftime * (1 - 100 * .Machine$double.eps), method = 'constant',
-                f = 0, rule = 2)
-    uuu <- u$y
-    return(list(surv = obj,
-                weights = uuu))
+    if(!is.null(strata)){
+        #create weights from original F&G code for stratified data
+        d = data.frame(ftime=ftime, fstatus=fstatus,
+                       strata = strata, cenind = cenind)
+        d = d[order(d$ftime),]
+        usl = unique(d$strata)
+        ns = length(usl) #ifelse(d$fstatus==cencode,1,0)
+        #$fstatus = ifelse(d$fstatus==failcode,1,2*(1-d$cenind))
+
+        # want censoring dist km at ftime
+        d$subject = 1:length(d$ftime)
+        gout = NULL
+        for (j in 1:ns)  {
+            dsub = subset(d, strata == usl[j])
+            u =  do.call('survfit',list(formula=Surv(dsub$ftime,dsub$cenind) ~ 1))
+            u = summary(u,times=sort(dsub$ftime*(1-.Machine$double.eps)))
+            tmp = cbind(uuu=u$surv, subject=dsub$subject)
+            gout = rbind(gout, tmp)
+        }
+        d = merge(d,gout,by="subject")
+        uuu <- d$uuu
+
+    } else {
+        # Create IPCW here (see original F&G code)
+        u <- do.call('survfit', list(formula = Surv(ftime, cenind) ~ 1,
+                                     data = data.frame(ftime, cenind)))
+
+        ucomp <- summary(u,times= sort(ftime* (1- .Machine$double.eps))) #same thing as what's below, but reversed? why?
+        u <- approx(c(0, u$time, max(u$time) * (1 + 10 * .Machine$double.eps)), c(1, u$surv, 0),
+                    xout = ftime * (1 - 100 * .Machine$double.eps), method = 'constant',
+                    f = 0, rule = 2)
+        uuu <- u$y
+    }
+
+ return(list(surv = obj,
+             weights = uuu))
 }

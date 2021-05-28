@@ -1,6 +1,7 @@
 library("testthat")
 library("survival")
 library("cmprsk")
+library("crrSC")
 
 suppressWarnings(RNGversion("3.5.0"))
 
@@ -46,6 +47,33 @@ test_that("Check very small Fine-Gray example with no ties", {
 
     tolerance <- 1E-4
     expect_equivalent(coef(cyclopsFit), goldFit$coef, tolerance = tolerance)
+
+})
+
+test_that("Check very small stratified Fine-Gray example with no ties", {
+    test <- read.table(header=T, sep = ",", text = "
+                       start, length, event, x1, x2
+                       0, 4,  1,0,0
+                       0, 3.5,2,2,0
+                       0, 3,  0,0,1
+                       0, 2.5,2,0,1
+                       0, 2,  1,1,1
+                       0, 1.5,0,1,0
+                       0, 1,  1,1,0")
+
+    fgDat <- Cyclops:::getFineGrayWeights(test$length, test$event)
+
+    dataPtrStrat <- Cyclops::createCyclopsData(fgDat$surv ~ test$x1 + strata(test$x2), modelType = "fgr", censorWeights = fgDat$weights)
+    goldStrat <- crrSC::crrs(test$length, test$event, test$x1, strata = strata(test$x2))
+    cyclopsFitStrat <- Cyclops::fitCyclopsModel(dataPtrStrat)
+
+    dataPtrNonStrat <- Cyclops::createCyclopsData(fgDat$surv ~ test$x1, modelType = "fgr", censorWeights = fgDat$weights)
+    goldNonStrat <- cmprsk::crr(test$length, test$event, test$x1)
+    cyclopsFitNonStrat <- Cyclops::fitCyclopsModel(dataPtrNonStrat)
+
+    tolerance <- 1E-4
+    expect_equivalent(coef(cyclopsFitStrat), goldStrat$coef, tolerance = tolerance)
+    expect_equivalent(coef(cyclopsFitNonStrat), goldNonStrat$coef, tolerance = tolerance)
 })
 
 test_that("Check very small Fine-Gray example with time ties, but no failure ties", {
