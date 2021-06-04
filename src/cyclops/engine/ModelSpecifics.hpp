@@ -968,17 +968,17 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                 RealType totalNumer = static_cast<RealType>(0);
                 RealType totalNumer2 = static_cast<RealType>(0);
 
-                auto backReset = end(accReset) - 1;
+                auto backReset = end(accReset) - 2;
 
                 for ( ; revIt; ) {
 
                     int i = revIt.index();
 
-                    if (static_cast<signed int>(*backReset) == i) {
-                        totalNumer = static_cast<RealType>(0);
-                        totalNumer2 = static_cast<RealType>(0);
-                        --backReset;
-                    }
+//                    if (static_cast<signed int>(*backReset) == i) {
+//                        totalNumer = static_cast<RealType>(0);
+//                        totalNumer2 = static_cast<RealType>(0);
+//                        --backReset;
+//                    }
 
                     totalNumer += (hY[hNtoK[i]] > static_cast<RealType>(1)) ? numerPid[i] / hYWeight[hNtoK[i]] : 0;
                     totalNumer2 += (hY[hNtoK[i]] > static_cast<RealType>(1)) ? numerPid2[i] / hYWeight[hNtoK[i]]: 0;
@@ -995,6 +995,12 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                                                            accDenomPid[i], hNWeight[i], static_cast<RealType>(0), hXBeta[i],
                                                            hY[i]); // When function is in-lined, compiler will only use necess
                  --revIt;
+
+                    if (static_cast<signed int>(*backReset) == i) {
+                        totalNumer = static_cast<RealType>(0);
+                        totalNumer2 = static_cast<RealType>(0);
+                        --backReset;
+                    }
 
                     if (IteratorType::isSparse) {
 
@@ -1013,6 +1019,13 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                                                                    accDenomPid[i], hNWeight[i], static_cast<RealType>(0),
                                                                    hXBeta[i],
                                                                    hY[i]); // When function is in-lined, compiler will only use necess
+
+                            if (static_cast<signed int>(*backReset) == i) {
+                                totalNumer = static_cast<RealType>(0);
+                                totalNumer2 = static_cast<RealType>(0);
+                                --backReset;
+                            }
+
                         }
                     }
                 } // End two-way scan
@@ -1697,18 +1710,22 @@ void ModelSpecifics<BaseModel,RealType>::computeAccumlatedDenominator(bool useWe
             // RealType backDenom = static_cast<RealType>(0);
             RealType totalDenom = static_cast<RealType>(0);
 
-        auto reset = begin(accReset);
+            auto backReset = end(accReset) - 2;
 
             //Q: How can we change int to size_t w/o errors
             for (int i = (N - 1); i >= 0; i--) {
-
-                if (static_cast<unsigned int>(*reset) == i) { // TODO Check with SPARSE
-                    totalDenom = static_cast<RealType>(0);
-                    ++reset;
-                }
+//                if (static_cast<unsigned int>(*backReset) == i) { // TODO Check with SPARSE
+//                    totalDenom = static_cast<RealType>(0);
+//                    --backReset;
+//                }
 
                 totalDenom += (hY[hNtoK[i]] > static_cast<RealType>(1)) ? denomPid[i] / hYWeight[hNtoK[i]] : 0;
                 accDenomPid[i] += (hY[hNtoK[i]] == static_cast<RealType>(1)) ? hYWeight[hNtoK[i]] * totalDenom : 0;
+
+                if (static_cast<unsigned int>(*backReset) == i) { // TODO Check with SPARSE
+                    totalDenom = static_cast<RealType>(0);
+                    --backReset;
+                }
             }
         } // End two-way scan
     }
