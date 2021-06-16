@@ -1,3 +1,10 @@
+Cyclops v3.1.2
+==============
+
+Changes:
+
+1. adaptive likelihood profiling when objective function is concave.
+
 Cyclops v3.1.1
 ==============
 

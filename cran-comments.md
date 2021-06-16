@@ -1,18 +1,11 @@
-## Resubmission following email from Uwe Ligges about check taking 20 mins
-on win-builder-r.
+## Initial submission of minor patch update to package
 
-* fixed by adding 'skip_on_cran()' to unit-test that evaluated exact solutions to
-conditional logistic regression likelihood function.  This test took approximately 90%
-of 'check' run-time on my system and on 'win-builder'
-
-## Initial submission following email from Kurt Hornik about new check-result
-errors in unit-tests due to changed behavior of 'survival' package dependency.
-
-* fixed function call signatures to 'survival' package functions
+* optimized likelihood profiling when objective function is concave; no
+  changes to package dependencies or package API
 
 ## Test environments
 * local OS X install, R 4.0.4
-* ubuntu 14.04 (on travis-ci), R 3.6.3, gcc 4.8.4 and gcc 6.0
+* ubuntu 20.04 (via gh-actions: devel and release)
 * win-builder (devel and release)
 
 ## R CMD check results
