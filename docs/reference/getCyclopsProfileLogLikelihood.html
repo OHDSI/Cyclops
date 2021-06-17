@@ -72,7 +72,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Cyclops</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">3.1.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">3.1.2</span>
       </span>
     </div>
 
@@ -80,7 +80,7 @@
       <ul class="nav navbar-nav">
         <li>
   <a href="../index.html">
-    <span class="fas fa fas fa-home fa-lg"></span>
+    <span class="fas fa-home fa-lg"></span>
      
   </a>
 </li>
@@ -97,7 +97,7 @@
 </li>
 <li>
   <a href="https://github.com/ohdsi/cyclops/">
-    <span class="fab fa fab fa-github fa-lg"></span>
+    <span class="fab fa-github fa-lg"></span>
      
   </a>
 </li>
@@ -123,23 +123,43 @@
     <p><code>getCyclopsProfileLogLikelihood</code> evaluates the profile likelihood at a grid of parameter values.</p>
     </div>
 
-    <pre class="usage"><span class='fu'>getCyclopsProfileLogLikelihood</span><span class='op'>(</span><span class='va'>object</span>, <span class='va'>parm</span>, <span class='va'>x</span>, includePenalty <span class='op'>=</span> <span class='cn'>TRUE</span><span class='op'>)</span></pre>
+    <pre class="usage"><span class='fu'>getCyclopsProfileLogLikelihood</span><span class='op'>(</span>
+  <span class='va'>object</span>,
+  <span class='va'>parm</span>,
+  x <span class='op'>=</span> <span class='cn'>NULL</span>,
+  bounds <span class='op'>=</span> <span class='cn'>NULL</span>,
+  tolerance <span class='op'>=</span> <span class='fl'>0.001</span>,
+  initialGridSize <span class='op'>=</span> <span class='fl'>10</span>,
+  includePenalty <span class='op'>=</span> <span class='cn'>TRUE</span>
+<span class='op'>)</span></pre>
 
     <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
     <table class="ref-arguments">
     <colgroup><col class="name" /><col class="desc" /></colgroup>
     <tr>
       <th>object</th>
-      <td><p>A fitted Cyclops model object</p></td>
+      <td><p>Fitted Cyclops model object</p></td>
     </tr>
     <tr>
       <th>parm</th>
-      <td><p>A specification of which parameter requires profiling,
+      <td><p>Specification of which parameter requires profiling,
 either a vector of numbers of covariateId names</p></td>
     </tr>
     <tr>
       <th>x</th>
-      <td><p>A vector of values of the parameter</p></td>
+      <td><p>Vector of values of the parameter</p></td>
+    </tr>
+    <tr>
+      <th>bounds</th>
+      <td><p>Pair of values to bound adaptive profiling</p></td>
+    </tr>
+    <tr>
+      <th>tolerance</th>
+      <td><p>Absolute tolerance allowed for adaptive profiling</p></td>
+    </tr>
+    <tr>
+      <th>initialGridSize</th>
+      <td><p>Initial grid size for adaptive profiling</p></td>
     </tr>
     <tr>
       <th>includePenalty</th>
@@ -149,7 +169,8 @@ either a vector of numbers of covariateId names</p></td>
 
     <h2 class="hasAnchor" id="value"><a class="anchor" href="#value"></a>Value</h2>
 
-    <p>A vector of the profile log likelihood evaluated at x</p>
+    <p>A data frame containing the profile log likelihood. Returns NULL when the adaptive profiling fails
+to converge.</p>
 
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
