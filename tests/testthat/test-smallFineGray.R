@@ -45,8 +45,13 @@ test_that("Check very small Fine-Gray example with no ties", {
     cyclopsFit <- Cyclops:::fitCyclopsModel(dataPtr)
     goldFit <- crr(test$length, test$event, cbind(test$x1, test$x2), variance = FALSE)
 
+    dataSurv <- finegray(Surv(time = test$length, event = test$event, type = 'mstate') ~ test$x1 + test$x2)
+    survFit <- coxph(Surv(fgstart, fgstop, fgstatus) ~ `test$x1` + `test$x2`,
+                        weight = fgwt, data = dataSurv)
+
     tolerance <- 1E-4
     expect_equivalent(coef(cyclopsFit), goldFit$coef, tolerance = tolerance)
+    expect_equivalent(coef(cyclopsFit), survFit$coefficients, tolerance = tolerance)
 
 })
 
@@ -71,9 +76,16 @@ test_that("Check very small stratified Fine-Gray example with no ties", {
     goldNonStrat <- cmprsk::crr(test$length, test$event, test$x1)
     cyclopsFitNonStrat <- Cyclops::fitCyclopsModel(dataPtrNonStrat)
 
+    dataSurv <- finegray(Surv(time = length, event = event, type = 'mstate') ~ x1 + strata(x2),
+                         data = test)
+    dataSurv$strata <- sort(test$x2)
+    survFitStrat <- coxph(Surv(fgstart, fgstop, fgstatus) ~ x1 + strata(strata),
+                     weight = fgwt, data = dataSurv)
+
     tolerance <- 1E-4
     expect_equivalent(coef(cyclopsFitStrat), goldStrat$coef, tolerance = tolerance)
     expect_equivalent(coef(cyclopsFitNonStrat), goldNonStrat$coef, tolerance = tolerance)
+    expect_equivalent(coef(cyclopsFitStrat), survFitStrat$coefficients, tolerance = tolerance)
 })
 
 test_that("Check very small Fine-Gray example with time ties, but no failure ties", {
