@@ -56,6 +56,10 @@ test_that("Check medium stratified Fine-Gray example with no ties", {
     expect_equivalent(coef(cyclopsFitStratWeights), goldFitStratWeights$coef, tolerance = tolerance)
     expect_equivalent(coef(cyclopsFitStrat), goldFitStrat$coef, tolerance = tolerance)
 
+    #Compare Cyclops to survival
+    expect_equivalent(coef(cyclopsFit), survFit$coef, tolerance = tolerance)
+    expect_equivalent(coef(cyclopsFitStrat), survFitStrat$coef, tolerance = tolerance)
+
     #Expect that all three models yield unique results
     expect_false(coef(cyclopsFit) == coef(cyclopsFitStrat))
     expect_false(coef(cyclopsFit) == coef(cyclopsFitStratWeights))
