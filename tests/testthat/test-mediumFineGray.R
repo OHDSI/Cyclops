@@ -25,13 +25,13 @@ test_that("Check medium stratified Fine-Gray example with no ties", {
     cyclopsFit <- Cyclops::fitCyclopsModel(dataPtr)
 
     fgDatStratWeights <- Cyclops:::getFineGrayWeights(ftime = test$time, fstatus = test$type, strata = strata(test$age)) #fix
-    dataPtrStratWeights <- Cyclops::createCyclopsData(fgDatStrat$surv ~ test$trt + strata(test$age), modelType = "fgr", censorWeights = fgDatStrat$weights)
+    dataPtrStratWeights <- Cyclops::createCyclopsData(fgDatStratWeights$surv ~ test$trt + strata(test$age), modelType = "fgr", censorWeights = fgDatStratWeights$weights)
     cyclopsFitStratWeights <- Cyclops::fitCyclopsModel(dataPtrStratWeights)
 
-    dataPtrStrat <- Cyclops::createCyclopsData(fgDatStrat$surv ~ test$trt + strata(test$age), modelType = "fgr", censorWeights = fgDatNonStrat$weights)
+    dataPtrStrat <- Cyclops::createCyclopsData(fgDatStratWeights$surv ~ test$trt + strata(test$age), modelType = "fgr", censorWeights = fgDat$weights)
     cyclopsFitStrat <- Cyclops::fitCyclopsModel(dataPtrStrat)
 
-    dataPtrWeights <- Cyclops::createCyclopsData(fgDatNonStrat$surv ~ test$trt, modelType = "fgr", censorWeights = fgDatStratWeights$weights)
+    dataPtrWeights <- Cyclops::createCyclopsData(fgDat$surv ~ test$trt, modelType = "fgr", censorWeights = fgDatStratWeights$weights)
     cyclopsFitWeights <- Cyclops::fitCyclopsModel(dataPtrWeights)
 
     goldFit <- cmprsk::crr(test$time, test$type, test$trt)
