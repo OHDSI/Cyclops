@@ -47,26 +47,23 @@ getFineGrayWeights <- function(ftime, fstatus, strata = NULL,
     obj[, 2] <- ifelse(obj[, 2] == failcode, 1, 2 * (1 - cenind)) # Changes competing risks to 2
 
     if(!is.null(strata)){
-        #create weights from original F&G code for stratified data
-        d = data.frame(ftime=ftime, fstatus=fstatus,
-                       strata = strata, cenind = cenind)
-        d = d[order(d$ftime),]
-        usl = unique(d$strata)
-        ns = length(usl) #ifelse(d$fstatus==cencode,1,0)
-        #$fstatus = ifelse(d$fstatus==failcode,1,2*(1-d$cenind))
 
-        # want censoring dist km at ftime
-        d$subject = 1:length(d$ftime)
-        gout = NULL
-        for (j in 1:ns)  {
-            dsub = subset(d, strata == usl[j])
-            u =  do.call('survfit',list(formula=Surv(dsub$ftime,dsub$cenind) ~ 1))
-            u = summary(u,times=sort(dsub$ftime*(1-.Machine$double.eps)))
-            tmp = cbind(uuu=u$surv, subject=dsub$subject)
-            gout = rbind(gout, tmp)
+        df <- data.frame(ftime=ftime, fstatus=fstatus,
+                         strata = strata, cenind = cenind)
+        df$subject <- 1:length(df$ftime)
+        df <- arrange(df, ftime)
+        df <- split(df, df$strata)
+
+        getWtStrat <- function(df){
+            u <-  do.call('survfit',list(formula=Surv(df$ftime,df$cenind) ~ 1))
+            u <- summary(u,times=sort(df$ftime*(1-.Machine$double.eps)))
+            tmp <- data.frame(uuu=u$surv, subject=df$subject)
+            return(tmp)
         }
-        d = merge(d,gout,by="subject")
-        uuu <- d$uuu
+
+        weights <- lapply(df, getWtStrat) %>%
+            bind_rows() %>% arrange(subject)
+        uuu <- weights$uuu
 
     } else {
         # Create IPCW here (see original F&G code)
