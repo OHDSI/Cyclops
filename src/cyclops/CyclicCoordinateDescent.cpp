@@ -844,6 +844,7 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
     bool done = false;
     double conv;
     bool illconditioned = false;
+    bool poorBlr = false;
     if (convergenceType < ZHANG_OLES) {
         double thisObjFunc = getObjectiveFunction(convergenceType);
         if (thisObjFunc != thisObjFunc) {
@@ -857,6 +858,14 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
             illconditioned = true;
         } else {
             conv = computeConvergenceCriterion(thisObjFunc, *lastObjFunc);
+            if (conv == 0.0 && iteration == 1) {
+                std::ostringstream stream;
+                stream << "\nWarning: BLR gradient is ill-conditioned\n"
+                       << "Enforcing convergence!";
+                logger->writeLine(stream);
+                illconditioned = true;
+                poorBlr = true;
+            }
         }
         *lastObjFunc = thisObjFunc;
     } else { // ZHANG_OLES
@@ -880,7 +889,9 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
     }
 
     if (epsilon > 0 && conv < epsilon) {
-        if (illconditioned) {
+        if (poorBlr) {
+            lastReturnFlag = POOR_BLR_STEP;
+        } else if (illconditioned) {
             lastReturnFlag = ILLCONDITIONED;
         } else {
             if (noiseLevel > SILENT) {

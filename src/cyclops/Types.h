@@ -126,7 +126,8 @@ enum UpdateReturnFlags {
 	FAIL,
 	MAX_ITERATIONS,
 	ILLCONDITIONED,
-	MISSING_COVARIATES
+	MISSING_COVARIATES,
+	POOR_BLR_STEP
 };
 
 typedef std::vector<IdType> ProfileVector;

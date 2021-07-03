@@ -273,6 +273,21 @@ fitCyclopsModel <- function(cyclopsData,
         fit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)
     }
 
+    if (fit$return_flag == "POOR_BLR_STEP" && control$convergenceType == "gradient") {
+
+        warning("BLR convergence criterion failed; coefficient may be infinite")
+        control$convergenceType <- "lange"
+        return(fitCyclopsModel(cyclopsData = cyclopsData,
+                               prior = prior,
+                               control = control,
+                               weights = weights,
+                               forceNewObject = forceNewObject,
+                               returnEstimates = returnEstimates,
+                               startingCoefficients = startingCoefficients,
+                               fixedCoefficients = fixedCoefficients,
+                               computeDevice = computeDevice))
+    }
+
     if (returnEstimates) {
         estimates <- .cyclopsLogModel(cyclopsData$cyclopsInterfacePtr)
         fit <- c(fit, estimates)
