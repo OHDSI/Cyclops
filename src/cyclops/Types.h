@@ -102,7 +102,8 @@ enum PriorType {
 	NONE = 0,
 	LAPLACE,
 	NORMAL,
-	BAR_UPDATE
+	BAR_UPDATE,
+	JEFFREYS
 };
 
 } // namespace priors

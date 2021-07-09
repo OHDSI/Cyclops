@@ -1,11 +1,28 @@
 #include <algorithm>
 
 #include "priors/CovariatePrior.h"
+#include "CyclicCoordinateDescent.h"
 
 namespace bsccs {
 	namespace priors {
 
-	double FusedLaplacePrior::logDensity(const DoubleVector& betaVector, const int index) const {
+
+	double JeffreysPrior::logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
+	    double gradient, negativeHessian;
+
+	    double hessian = ccd.getHessianDiagonal(index);
+
+	    // modelSpecifics.updateXBeta(0.0, index, false);
+	    // modelSpecifics.computeRemainingStatistics(false);
+	    // modelSpecifics.computeGradientAndHessian(index, &gradient, &negativeHessian, false);
+
+
+	    double penalty = 0.5 * std::log(std::abs(hessian));
+	    //std::cerr << hessian << " " << penalty << std::endl;
+	    return penalty;
+	}
+
+	double FusedLaplacePrior::logDensity(const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const {
 	    auto x = betaVector[index];
 	    auto lambda = getLambda();
 	    auto epsilon = getEpsilon();
@@ -222,7 +239,7 @@ namespace bsccs {
 // 	    }
 // 	}
 
-    double HierarchicalNormalPrior::logDensity(const DoubleVector& beta, const int index) const {
+    double HierarchicalNormalPrior::logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
         auto x = beta[index];
         double sigma2Beta = getVariance();
         return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
@@ -249,6 +266,10 @@ namespace bsccs {
                 break;
             case BAR_UPDATE :
                 prior = bsccs::make_shared<BarUpdatePrior>(variance);
+                break;
+            case JEFFREYS :
+                prior = bsccs::make_shared<JeffreysPrior>();
+                break;
             default : break;
         }
         return prior;

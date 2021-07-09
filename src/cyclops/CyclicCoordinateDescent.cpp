@@ -535,7 +535,7 @@ void CyclicCoordinateDescent::setCensorWeights(double* dWeights) {
 }
 
 double CyclicCoordinateDescent::getLogPrior(void) {
-	return jointPrior->logDensity(hBeta);
+	return jointPrior->logDensity(hBeta, *this);
 }
 
 double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {

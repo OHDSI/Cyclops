@@ -657,6 +657,8 @@ bsccs::priors::PriorType RcppCcdInterface::parsePriorType(const std::string& pri
 		priorType = NORMAL;
 	} else if (priorName == "barupdate") {
 	    priorType = BAR_UPDATE;
+	} else if (priorName == "jeffreys") {
+	    priorType = JEFFREYS;
 	} else {
  		handleError("Invalid prior type.");
  	}

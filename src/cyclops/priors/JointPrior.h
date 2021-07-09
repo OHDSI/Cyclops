@@ -29,7 +29,7 @@ public:
 
 	// virtual std::vector<double> getVariance() const = 0; // pure virtual
 
-	virtual double logDensity(const DoubleVector& beta) const = 0; // pure virtual
+	virtual double logDensity(const DoubleVector& beta, CyclicCoordinateDescent& ccd) const = 0; // pure virtual
 
 	virtual double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const = 0; // pure virtual
 
@@ -120,12 +120,12 @@ public:
 // 		return std::move(tmp);
 // 	}
 
-	double logDensity(const DoubleVector& beta) const {
+	double logDensity(const DoubleVector& beta, CyclicCoordinateDescent& ccd) const {
 
 		// TODO assert(beta.size() == listPriors.size());
 		double result = 0.0;
 		for (size_t i = 0; i < beta.size(); ++i) {
-			result += listPriors[i]->logDensity(beta, i);
+			result += listPriors[i]->logDensity(beta, i, ccd);
 		}
 		return result;
 	}
@@ -506,11 +506,11 @@ public:
 // 		return hierarchyPriors[level]->getVariance(0);
 // 	}
 
-	double logDensity(const DoubleVector& beta) const {
+	double logDensity(const DoubleVector& beta, CyclicCoordinateDescent& ccd) const {
 		double result = 0.0;
 		// for (DoubleVector::const_iterator it = beta.begin(); it != beta.end(); ++it) {
 	    for (size_t i = 0; i < beta.size(); ++i) {
-			result += hierarchyPriors[0]->logDensity(beta, i);
+			result += hierarchyPriors[0]->logDensity(beta, i, ccd);
 		}
 		return result;
 	}
@@ -604,11 +604,11 @@ public:
 // 		return variances;
 // 	}
 
-	double logDensity(const DoubleVector& beta) const {
+	double logDensity(const DoubleVector& beta, CyclicCoordinateDescent& ccd) const {
 		double result = 0.0;
 		// for (DoubleVector::const_iterator it = beta.begin(); it != beta.end(); ++it) {
 	    for (size_t i = 0; i < beta.size(); ++i) {
-			result += singlePrior->logDensity(beta, i);
+			result += singlePrior->logDensity(beta, i, ccd);
 		}
 		return result;
 	}

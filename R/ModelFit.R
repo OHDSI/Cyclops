@@ -167,6 +167,10 @@ fitCyclopsModel <- function(cyclopsData,
             }
         }
 
+        if (prior$priorType == "jeffreys" && Cyclops::getNumberOfCovariates(cyclopsData) > 1) {
+            stop("Jeffreys prior is currently only implemented for 1 covariate")
+        }
+
         .cyclopsSetPrior(cyclopsData$cyclopsInterfacePtr, prior$priorType, prior$variance,
                          prior$exclude, graph, neighborhood)
     }
@@ -597,7 +601,7 @@ createPrior <- function(priorType,
                         neighborhood = NULL,
                         useCrossValidation = FALSE,
                         forceIntercept = FALSE) {
-    validNames = c("none", "laplace","normal", "barupdate", "hierarchical")
+    validNames = c("none", "laplace","normal", "barupdate", "hierarchical", "jeffreys")
     stopifnot(priorType %in% validNames)
     if (!is.null(exclude)) {
         if (!inherits(exclude, "character") &&
