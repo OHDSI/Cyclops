@@ -167,8 +167,20 @@ fitCyclopsModel <- function(cyclopsData,
             }
         }
 
-        if (prior$priorType == "jeffreys" && Cyclops::getNumberOfCovariates(cyclopsData) > 1) {
-            stop("Jeffreys prior is currently only implemented for 1 covariate")
+        if (prior$priorType == "jeffreys") {
+            if (Cyclops::getNumberOfCovariates(cyclopsData) > 1) {
+                stop("Jeffreys prior is currently only implemented for 1 covariate")
+            }
+
+            covariate <- Cyclops::getCovariateIds(cyclopsData)
+            if (Cyclops::getCovariateTypes(cyclopsData, covariate) != "indicator") {
+                count <- reduce(cyclopsData, covariate, power = 0)
+                sum <- reduce(cyclopsData, covariate, power = 1)
+                mean <- sum / count
+                if (!(mean == 0.0 || mean == 1.0)) {
+                    stop("Jeffreys prior is currently only implemented for indicator covariates")
+                }
+            }
         }
 
         .cyclopsSetPrior(cyclopsData$cyclopsInterfacePtr, prior$priorType, prior$variance,

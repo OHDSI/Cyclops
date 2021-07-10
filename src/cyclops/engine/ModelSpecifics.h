@@ -76,6 +76,8 @@ public:
 	void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian,  bool useWeights);
 
+	void computeThirdDerivative(int index, double *othird, bool useWeights);
+
 	virtual void computeMMGradientAndHessian(
 			std::vector<GradientHessian>& gh,
 			const std::vector<bool>& fixBeta,
@@ -243,6 +245,11 @@ private:
 			int index,
 			double *gradient,
 			double *hessian, Weights w);
+
+	template <class IteratorType, class Weights>
+	void computeThirdDerivativeImpl(
+	        int index,
+	        double *third, Weights w);
 
 	template <class IteratorType, class Weights>
 	void computeMMGradientAndHessianImpl(
@@ -515,6 +522,19 @@ public:
 
 	    // throw new std::logic_error("Not model-specific");
 	}
+
+	template <class IteratorType, class Weights>
+	inline void incrementThirdDerivative(
+	        const IteratorType& it,
+	        Weights false_signature,
+	        RealType* third,
+	        RealType numer, RealType numer2, RealType denom,
+	        RealType nEvents,
+	        RealType x, RealType xBeta, RealType y) {
+
+	    std::cerr << "3rd derivatives are not yet implemented (S)" << std::endl;
+	    throw new std::logic_error("3rd derivatives are not yet implemented");
+	}
 };
 
 template <typename RealType>
@@ -581,6 +601,19 @@ public:
 	        gradient += weight * expXBeta * x / denominator;
 	        hessian += weight * expXBeta * x * x / denominator; // * norm;
 	    }
+	}
+
+	template <class IteratorType, class Weights>
+	inline void incrementThirdDerivative(
+	        const IteratorType& it,
+	        Weights false_signature,
+	        RealType* third,
+	        RealType numer, RealType numer2, RealType denom,
+	        RealType nEvents,
+	        RealType x, RealType xBeta, RealType y) {
+
+	    std::cerr << "3rd derivatives are not yet implemented (L)" << std::endl;
+	    throw new std::logic_error("3rd derivatives are not yet implemented");
 	}
 
 	template <class IteratorType, class WeightOperationType>
@@ -749,6 +782,19 @@ public:
 		} else {
 			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
 		}
+	}
+
+	template <class IteratorType, class Weights>
+	inline void incrementThirdDerivative(
+	        const IteratorType& it,
+	        Weights false_signature,
+	        RealType* third,
+	        RealType numer, RealType numer2, RealType denom,
+	        RealType nEvents,
+	        RealType x, RealType xBeta, RealType y) {
+
+	    std::cerr << "3rd derivatives are not yet implemented (CPR)" << std::endl;
+	    throw new std::logic_error("3rd derivatives are not yet implemented");
 	}
 
 	template <class IteratorType, class WeightOperationType>
@@ -1079,7 +1125,7 @@ public:
 	}
 
 	template <class IteratorType, class Weights>
-    void incrementGradientAndHessian( // TODO Make static again?
+    inline void incrementGradientAndHessian( // TODO Make static again?
             const IteratorType& it,
             Weights false_signature,
             RealType* gradient, RealType* hessian,
@@ -1199,6 +1245,25 @@ public:
 		} else {
 			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
 		}
+	}
+
+	template <class IteratorType, class Weights>
+	inline void incrementThirdDerivative(
+	        const IteratorType& it,
+	        Weights false_signature,
+	        RealType* third,
+	        RealType numer, RealType numer2, RealType denom,
+	        RealType nEvents,
+	        RealType x, RealType xBeta, RealType y) {
+
+	    const RealType t = numer / denom;
+	    const RealType g = nEvents * t; // Always use weights (not censured indicator)
+	    // if (IteratorType::isIndicator) {
+	        *third += g * (static_cast<RealType>(1) - static_cast<RealType>(2) * t) * (static_cast<RealType>(1.0) - t);
+// 	    } else {
+// 	        std::cerr << "Dense-covariate 3rd derivatives are not yet implemented" << std::endl;
+//  	        throw new std::logic_error("Dense-covariate 3rd derivatives are not yet implemented");
+// 	    }
 	}
 
 	template <class IteratorType, class WeightOperationType>
@@ -1428,6 +1493,17 @@ public:
 	}
 
 	template <class IteratorType, class Weights>
+	inline void incrementThirdDerivative(
+	        const IteratorType& it,
+	        Weights false_signature,
+	        RealType* third,
+	        RealType numer, RealType numer2, RealType denom,
+	        RealType nEvents,
+	        RealType x, RealType xBeta, RealType y) {
+	   // Do nothing
+	}
+
+	template <class IteratorType, class Weights>
 	inline void incrementMMGradientAndHessian(
 	        RealType& gradient, RealType& hessian,
 	        RealType expXBeta, RealType denominator,
@@ -1540,6 +1616,19 @@ public:
 			// 		*gradient += numer;
 			// 		*hessian += numer2;
 			// }
+	}
+
+	template <class IteratorType, class Weights>
+	inline void incrementThirdDerivative(
+	        const IteratorType& it,
+	        Weights false_signature,
+	        RealType* third,
+	        RealType numer, RealType numer2, RealType denom,
+	        RealType nEvents,
+	        RealType x, RealType xBeta, RealType y) {
+
+	    std::cerr << "3rd derivatives are not yet implemented (PR)" << std::endl;
+	    throw new std::logic_error("3rd derivatives are not yet implemented");
 	}
 
 	template <class IteratorType, class Weights>

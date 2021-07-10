@@ -8,18 +8,17 @@ namespace bsccs {
 
 
 	double JeffreysPrior::logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
-	    double gradient, negativeHessian;
 
 	    double hessian = ccd.getHessianDiagonal(index);
-
-	    // modelSpecifics.updateXBeta(0.0, index, false);
-	    // modelSpecifics.computeRemainingStatistics(false);
-	    // modelSpecifics.computeGradientAndHessian(index, &gradient, &negativeHessian, false);
-
-
 	    double penalty = 0.5 * std::log(std::abs(hessian));
-	    //std::cerr << hessian << " " << penalty << std::endl;
 	    return penalty;
+	}
+
+	double JeffreysPrior::getDelta(GradientHessian gh,const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
+
+	    double jerk = ccd.getJerkDiagonal(index);
+	    //std::cerr << "j: " << jerk << std::endl;
+	    return -((gh.first - jerk) / gh.second);
 	}
 
 	double FusedLaplacePrior::logDensity(const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const {
@@ -58,7 +57,7 @@ namespace bsccs {
 	}
     } // namespace details
 
-	double FusedLaplacePrior::getDelta(const GradientHessian gh, const DoubleVector& betaVector, const int index) const {
+	double FusedLaplacePrior::getDelta(const GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const {
 	    const auto t1 = getLambda();
 	    const auto t2 = getEpsilon();
 	    const auto beta = betaVector[index];
@@ -245,7 +244,7 @@ namespace bsccs {
         return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
     }
 
-	double HierarchicalNormalPrior::getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const {
+	double HierarchicalNormalPrior::getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const {
 	    double sigma2Beta = getVariance();
 	    double beta = betaVector[index];
 	    return - (gh.first + (beta / sigma2Beta)) /

@@ -1257,6 +1257,18 @@ double CyclicCoordinateDescent::getHessianDiagonal(int index) {
 	return g_d2;
 }
 
+double CyclicCoordinateDescent::getJerkDiagonal(int index) {
+
+    checkAllLazyFlags();
+
+    double jerk;
+
+    computeNumeratorForGradient(index); // TODO Is this necessary?
+    modelSpecifics.computeThirdDerivative(index, &jerk, useCrossValidation);
+
+    return jerk;
+}
+
 double CyclicCoordinateDescent::getAsymptoticVariance(int indexOne, int indexTwo) {
 	checkAllLazyFlags();
 	if (!fisherInformationKnown) {
@@ -1393,7 +1405,7 @@ void CyclicCoordinateDescent::mmUpdateAllBeta(std::vector<double>& delta,
 
             gh[j].second /= scale;
 
-            delta[j] = jointPrior->getDelta(gh[j], hBeta, j);
+            delta[j] = jointPrior->getDelta(gh[j], hBeta, j, *this);
             // TODO this is only correct when joints are independent across dimensions
         } else {
             delta[j] = 0.0;
@@ -1420,7 +1432,7 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	    gh.second = 0.0;
 	}
 
-	return jointPrior->getDelta(gh, hBeta, index);
+	return jointPrior->getDelta(gh, hBeta, index, *this);
 }
 
 void CyclicCoordinateDescent::axpyXBeta(const double beta, const int j) {

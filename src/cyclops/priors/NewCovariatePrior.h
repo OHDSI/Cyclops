@@ -69,7 +69,7 @@ public:
 		return lambda;
 	}
 
-	double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const {
+	double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const {
 
 	    const auto locationLambda = getLocationLambda();
 	    const double location = locationLambda.first;

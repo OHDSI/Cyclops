@@ -31,7 +31,7 @@ public:
 
 	virtual double logDensity(const DoubleVector& beta, CyclicCoordinateDescent& ccd) const = 0; // pure virtual
 
-	virtual double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const = 0; // pure virtual
+	virtual double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const = 0; // pure virtual
 
 	virtual const std::string getDescription() const = 0; // pure virtual
 
@@ -134,8 +134,8 @@ public:
 	    return listPriors[index]->getIsRegularized();
 	}
 
-	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
-		return listPriors[index]->getDelta(gh, beta, index);
+	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
+		return listPriors[index]->getDelta(gh, beta, index, ccd);
 	}
 
 	bool getSupportsKktSwindle(const int index) const {
@@ -531,7 +531,7 @@ public:
 		return 0.0; // TODO fix
 	}
 
-	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
+	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
 // 		double t1 = 1/hierarchyPriors[0]->getVariance(0); // this is the hyperparameter that is used in the original code
 // 		double t2 = 1/hierarchyPriors[1]->getVariance(0);
 
@@ -613,8 +613,8 @@ public:
 		return result;
 	}
 
-	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const {
-		return singlePrior->getDelta(gh, beta, index);
+	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
+		return singlePrior->getDelta(gh, beta, index, ccd);
 	}
 
 	bool getIsRegularized(const int index) const {
