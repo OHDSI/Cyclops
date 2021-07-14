@@ -28,3 +28,4 @@ standalone/*.txt
 src/hide
 extras
 CRAN-RELEASE
+.DS_Store

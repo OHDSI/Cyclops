@@ -32,6 +32,7 @@
 #' @param returnEstimates Logical, return regression coefficient estimates in Cyclops model fit object
 #' @param startingCoefficients Vector of starting values for optimization
 #' @param fixedCoefficients Vector of booleans indicating if coefficient should be fix
+#' @param warnings Logical, report regularization warnings
 #' @param computeDevice String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU
 #'
 #' @return
@@ -70,6 +71,7 @@ fitCyclopsModel <- function(cyclopsData,
                             returnEstimates = TRUE,
                             startingCoefficients = NULL,
                             fixedCoefficients = NULL,
+                            warnings = TRUE,
 							computeDevice = "native") {
 
     # Delegate to control$setHook if exists
@@ -104,7 +106,7 @@ fitCyclopsModel <- function(cyclopsData,
 
     if (!is.null(prior$setHook)) {
 
-        prior$setHook(cyclopsData) # Call-back
+        prior$setHook(cyclopsData, warnings) # Call-back
 
     } else {
         prior$exclude <- .checkCovariates(cyclopsData, prior$exclude)
@@ -132,7 +134,7 @@ fitCyclopsModel <- function(cyclopsData,
                     warn <- TRUE
                 }
             }
-            if (warn) {
+            if (warn && warnings) {
                 warning("Excluding intercept from regularization")
             }
         }
@@ -167,7 +169,7 @@ fitCyclopsModel <- function(cyclopsData,
             }
         }
 
-        if (prior$priorType == "jeffreys") {
+        if (any(prior$priorType == "jeffreys")) {
             if (Cyclops::getNumberOfCovariates(cyclopsData) > 1) {
                 stop("Jeffreys prior is currently only implemented for 1 covariate")
             }
@@ -263,7 +265,7 @@ fitCyclopsModel <- function(cyclopsData,
     }
 
     if (!is.null(cyclopsData$censorWeights)) {
-        if (cyclopsData$modelType != 'fgr') {
+        if (cyclopsData$modelType != 'fgr' && warnings) {
             warning(paste0("modelType = '", cyclopsData$modelType, "' does not use censorWeights. These weights will not be passed further."))
         }
         if (length(cyclopsData$censorWeights) != getNumberOfRows(cyclopsData)) {
@@ -291,7 +293,10 @@ fitCyclopsModel <- function(cyclopsData,
 
     if (fit$return_flag == "POOR_BLR_STEP" && control$convergenceType == "gradient") {
 
-        warning("BLR convergence criterion failed; coefficient may be infinite")
+        if (warnings) {
+            warning("BLR convergence criterion failed; coefficient may be infinite")
+        }
+
         control$convergenceType <- "lange"
         return(fitCyclopsModel(cyclopsData = cyclopsData,
                                prior = prior,

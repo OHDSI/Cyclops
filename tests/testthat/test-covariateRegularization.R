@@ -104,7 +104,7 @@ test_that("Preclude intercept regularization by default", {
     expect_equal(coef(c2),
                  coef(c3))
 
-    expect_less_than(coef(c1)[1],  # Intercept is regularized
+    expect_lt(coef(c1)[1],  # Intercept is regularized
                      coef(c2)[1])
 })
 

@@ -66,7 +66,8 @@ test_that("Specify parameterized L1 regularization", {
         fit <- fitCyclopsModel(data, prior, forceNewObject = TRUE),
         "Excluding intercept")
 
-    comp <- fitCyclopsModel(data, prior = createPrior("laplace", variance = 2), forceNewObject = TRUE)
+    comp <- fitCyclopsModel(data, prior = createPrior("laplace", variance = 2),
+                            warnings = FALSE, forceNewObject = TRUE)
 
     expect_equal(coef(fit), coef(comp))
 
@@ -78,7 +79,7 @@ test_that("Specify parameterized L1 regularization", {
                                           })
                                       })
 
-    fit <- fitCyclopsModel(data, prior, forceNewObject = TRUE)
+    fit <- fitCyclopsModel(data, prior, warnings = FALSE, forceNewObject = TRUE)
 
     expect_equivalent(coef(fit)[4:5], c(0.2, 0.2))
 })
