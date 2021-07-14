@@ -47,7 +47,12 @@ test_that("Check Jeffreys prior with correct control", {
     cyclopsData <- createCyclopsData(Surv(time, outcome) ~ exposure, data = data, modelType = "cox")
     expect_warning(fit <- fitCyclopsModel(cyclopsData,
                                         prior = createPrior(priorType = "jeffreys")),
-                 regexp = ".*1 covariate.*")
+                 regexp = "BLR convergence")
+
+    fit <- fitCyclopsModel(cyclopsData = cyclopsData, forceNewObject = TRUE,
+                           prior = createPrior(priorType = "jeffreys"),
+                           control = createControl(convergenceType = "lange"))
+    expect_true(fit$return_flag == "SUCCESS")
 })
 
 test_that("Check Jeffreys prior with indicator only", {

@@ -858,7 +858,9 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
             illconditioned = true;
         } else {
             conv = computeConvergenceCriterion(thisObjFunc, *lastObjFunc);
-            if (conv == 0.0 && iteration == 1) {
+            if (conv == 0.0 && iteration == 1 && convergenceType != ONE_STEP &&
+                !std::all_of(std::begin(fixBeta), std::end(fixBeta), [](bool fixed) { return fixed; })
+            ) {
                 std::ostringstream stream;
                 stream << "\nWarning: BLR gradient is ill-conditioned\n"
                        << "Enforcing convergence!";
