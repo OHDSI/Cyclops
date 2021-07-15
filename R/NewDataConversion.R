@@ -346,11 +346,9 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                                         append = TRUE)
     }
 
-    suppressWarnings(
-        Andromeda::batchApply(covariates,
-                              loadCovariates,
-                              batchSize = 100000) # TODO Pick magic number
-    )
+    Andromeda::batchApply(covariates,
+                          loadCovariates,
+                          batchSize = 100000) # TODO Pick magic number
 
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
