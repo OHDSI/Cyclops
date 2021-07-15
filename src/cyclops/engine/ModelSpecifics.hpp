@@ -1324,8 +1324,7 @@ void ModelSpecifics<BaseModel,RealType>::computeThirdDerivativeImpl(int index, d
                 }
             }
         } else {
-            std::cerr << "Should not get here" << std::endl;
-            std::exit(-1);
+    		throw new std::logic_error("Not yet support");
         }
     }
 

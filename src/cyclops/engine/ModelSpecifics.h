@@ -532,7 +532,6 @@ public:
 	        RealType nEvents,
 	        RealType x, RealType xBeta, RealType y) {
 
-	    std::cerr << "3rd derivatives are not yet implemented (S)" << std::endl;
 	    throw new std::logic_error("3rd derivatives are not yet implemented");
 	}
 };
@@ -612,7 +611,6 @@ public:
 	        RealType nEvents,
 	        RealType x, RealType xBeta, RealType y) {
 
-	    std::cerr << "3rd derivatives are not yet implemented (L)" << std::endl;
 	    throw new std::logic_error("3rd derivatives are not yet implemented");
 	}
 
@@ -793,7 +791,6 @@ public:
 	        RealType nEvents,
 	        RealType x, RealType xBeta, RealType y) {
 
-	    std::cerr << "3rd derivatives are not yet implemented (CPR)" << std::endl;
 	    throw new std::logic_error("3rd derivatives are not yet implemented");
 	}
 
@@ -1261,7 +1258,6 @@ public:
 	    // if (IteratorType::isIndicator) {
 	        *third += g * (static_cast<RealType>(1) - static_cast<RealType>(2) * t) * (static_cast<RealType>(1.0) - t);
 // 	    } else {
-// 	        std::cerr << "Dense-covariate 3rd derivatives are not yet implemented" << std::endl;
 //  	        throw new std::logic_error("Dense-covariate 3rd derivatives are not yet implemented");
 // 	    }
 	}
@@ -1368,8 +1364,6 @@ public:
                                                           RealType numerator, RealType numerator2, RealType denominator, RealType weight,
                                                           RealType xBeta, RealType y) {
 
-// 	    std::cout << "TODO" << std::endl;
-// 	    std::exit(-1); // breslow cox
 
         throw new std::logic_error("breslow cox model not yet support");
 
@@ -1627,7 +1621,6 @@ public:
 	        RealType nEvents,
 	        RealType x, RealType xBeta, RealType y) {
 
-	    std::cerr << "3rd derivatives are not yet implemented (PR)" << std::endl;
 	    throw new std::logic_error("3rd derivatives are not yet implemented");
 	}
 
@@ -1761,9 +1754,6 @@ struct TestGradientKernel {
     GradientType operator()(const GradientType lhs, const NumeratorType numerator, const TupleType tuple) {
         const auto denominator = boost::get<0>(tuple);
         const auto weight = boost::get<1>(tuple);
-
-        // std::cerr << "N n1: " << numerator.first << " n2: " << numerator.second
-        //           << " d: " << denominator << " w: " << weight <<  std::endl;
 
         return BaseModel::template incrementGradientAndHessian<IteratorType,
                                                                WeightType>(
