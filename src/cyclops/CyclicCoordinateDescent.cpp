@@ -1070,148 +1070,148 @@ void CyclicCoordinateDescent::findMode(
 	qnQ = 0;
 
 	if (qnQ > 0) { // Use quasi-Newton
-	    using namespace Eigen;
-
-	    Eigen::MatrixXd secantsU(J, qnQ);
-	    Eigen::MatrixXd secantsV(J, qnQ);
-
-	    VectorXd x(J);
-
-	    // Fill initial secants
-	    int countU = 0;
-	    int countV = 0;
-
-	    for (int q = 0; q < qnQ; ++q) {
-	        x = Map<const VectorXd>(hBeta.data(), J); // Make copy
-
-	        cycle();
-	        done = check();
-	        if (done) break;
-
-	        if (countU == 0) { // First time through
-	            secantsU.col(countU) = Map<const VectorXd>(hBeta.data(), J) - x;
-	            ++countU;
-	        } else if (countU < qnQ - 1) { // Middle case
-	            secantsU.col(countU) = Map<const VectorXd>(hBeta.data(), J) - x;
-	            secantsV.col(countV) = secantsU.col(countU);
-	            ++countU;
-	            ++countV;
-	        } else { // Last time through
-	            secantsV.col(countV) = Map<const VectorXd>(hBeta.data(), J) - x;
-	            ++countV;
-	        }
-	    }
-
-	    // 	    std::cerr << secantsU << std::endl << std::endl;
-	    // 	    std::cerr << secantsV << std::endl;
-
-	    int newestSecant = qnQ - 1;
-	    int previousSecant = newestSecant - 1;
-
-	    while (!done) {
-
-	        // 2 cycles for each QN step
-	        x = Map<const VectorXd>(hBeta.data(), J); // Make copy
-	        cycle();
-	        // 	        done = check();
-	        // 	        if (done) {
-	        // 	            std::cerr << "break A" << std::endl;
-	        // 	            break;
-	        // 	        }
-
-	        secantsU.col(newestSecant) = Map<const VectorXd>(hBeta.data(), J) - x;
-
-	        VectorXd Fx = Map<const VectorXd>(hBeta.data(), J); // TODO Can remove?
-
-	        x = Map<const VectorXd>(hBeta.data(), J);
-	        cycle();
-	        // 	        done = check();
-	        // 	        if (done) {
-	        // 	            std::cerr << "break B" << std::endl;
-	        // 	            break;
-	        // 	        }
-
-	        secantsV.col(newestSecant) = Map<const VectorXd>(hBeta.data(), J) - x;
-
-	        // Do QN step here
-
-	        //             MatrixXd UtU = secantsU.transpose() * secantsU;
-	        //             MatrixXd UtV = secantsU.transpose() * secantsV;
-	        //             MatrixXd M = UtU - UtV;
-
-	        auto M = secantsU.transpose() * (secantsU - secantsV);
-
-	        auto Minv = M.inverse();
-
-	        auto A = secantsU.transpose() * secantsU.col(newestSecant);
-	        auto B = Minv * A;
-	        auto C = secantsV * B;
-
-	        // MatrixXd A = secantsV * Minv;
-	        // MatrixXd B = A * secantsU.transpose();
-	        // MatrixXd C = B * secantsV.col(newestSecant); // - (x - Fx)
-	        // MatrixXd C = B * secantsU.col(newestSecant); // TODO Can remove?
-
-	        //     VectorXd xqn = Map<const VectorXd>(hBeta.data(), J) + C;
-	        VectorXd xqn = Fx + C; // TODO Can remove?
-
-	        // Save CCD solution
-	        x = Map<const VectorXd>(hBeta.data(), J);
-	        double ccdObjective = getLogLikelihood() + getLogPrior();
-	        // double savedLastObjFunc = lastObjFunc;
-
-	        Map<VectorXd>(hBeta.data(), J) = xqn; // Set QN solution
-	        //             for (int j = 0; j < J; ++j) {
-	        //                 if (sign(hBeta[j]) == xqn(j)) {
-	        //                     hBeta[j] = xqn(j);
-	        //                 } else {
-	        //                     hBeta[j] = 0.0;
-	        //                 }
-	        //             }
-
-	        // xBetaKnown = false;
-	        // checkAllLazyFlags();
-	        modelSpecifics.computeXBeta(hBeta.data(), useCrossValidation);
-
-
-	        //             done = check();
-	        //             if (done) {
-	        //                 std::cerr << "break B" << std::endl;
-	        //                 break;
-	        //             }
-
-	        double qnObjective = getLogLikelihood() + getLogPrior();
-
-	        if (ccdObjective > qnObjective) { // Revert
-	            Map<VectorXd>(hBeta.data(), J) = x; // Set CCD solution
-	            modelSpecifics.computeXBeta(hBeta.data(), useCrossValidation);
-	            // xBetaKnown = false;
-	            // checkAllLazyFlags();
-
-	            double ccd2Objective = getLogLikelihood() + getLogPrior();
-
-	            if (ccdObjective != ccd2Objective) {
-	                std::cerr << "Poor revert: " << ccdObjective << " != " << ccd2Objective << " diff: "<< (ccdObjective - ccd2Objective) << std::endl;
-	            }
-	            // lastObjFunc = savedLastObjFunc;
-	            std::cerr << "revert" << std::endl;
-	        } else {
-	            std::cerr << "accept" << std::endl;
-	            //                 done = check();
-	            //                 if (done) {
-	            //                     std::cerr << "break C" << std::endl;
-	            //                     break;
-	            //                 }
-	        }
-
-	        done = check();
-
-	        // lastObjFunc = getLogLikelihood() + getLogPrior();
-
-	        // Get ready for next secant-pair
-	        previousSecant = newestSecant;
-	        newestSecant = (newestSecant + 1) % qnQ;
-	    }
+	    // using namespace Eigen;
+	    //
+	    // Eigen::MatrixXd secantsU(J, qnQ);
+	    // Eigen::MatrixXd secantsV(J, qnQ);
+	    //
+	    // VectorXd x(J);
+	    //
+	    // // Fill initial secants
+	    // int countU = 0;
+	    // int countV = 0;
+	    //
+	    // for (int q = 0; q < qnQ; ++q) {
+	    //     x = Map<const VectorXd>(hBeta.data(), J); // Make copy
+	    //
+	    //     cycle();
+	    //     done = check();
+	    //     if (done) break;
+	    //
+	    //     if (countU == 0) { // First time through
+	    //         secantsU.col(countU) = Map<const VectorXd>(hBeta.data(), J) - x;
+	    //         ++countU;
+	    //     } else if (countU < qnQ - 1) { // Middle case
+	    //         secantsU.col(countU) = Map<const VectorXd>(hBeta.data(), J) - x;
+	    //         secantsV.col(countV) = secantsU.col(countU);
+	    //         ++countU;
+	    //         ++countV;
+	    //     } else { // Last time through
+	    //         secantsV.col(countV) = Map<const VectorXd>(hBeta.data(), J) - x;
+	    //         ++countV;
+	    //     }
+	    // }
+	    //
+	    // // 	    std::cerr << secantsU << std::endl << std::endl;
+	    // // 	    std::cerr << secantsV << std::endl;
+	    //
+	    // int newestSecant = qnQ - 1;
+	    // int previousSecant = newestSecant - 1;
+	    //
+	    // while (!done) {
+	    //
+	    //     // 2 cycles for each QN step
+	    //     x = Map<const VectorXd>(hBeta.data(), J); // Make copy
+	    //     cycle();
+	    //     // 	        done = check();
+	    //     // 	        if (done) {
+	    //     // 	            std::cerr << "break A" << std::endl;
+	    //     // 	            break;
+	    //     // 	        }
+	    //
+	    //     secantsU.col(newestSecant) = Map<const VectorXd>(hBeta.data(), J) - x;
+	    //
+	    //     VectorXd Fx = Map<const VectorXd>(hBeta.data(), J); // TODO Can remove?
+	    //
+	    //     x = Map<const VectorXd>(hBeta.data(), J);
+	    //     cycle();
+	    //     // 	        done = check();
+	    //     // 	        if (done) {
+	    //     // 	            std::cerr << "break B" << std::endl;
+	    //     // 	            break;
+	    //     // 	        }
+	    //
+	    //     secantsV.col(newestSecant) = Map<const VectorXd>(hBeta.data(), J) - x;
+	    //
+	    //     // Do QN step here
+	    //
+	    //     //             MatrixXd UtU = secantsU.transpose() * secantsU;
+	    //     //             MatrixXd UtV = secantsU.transpose() * secantsV;
+	    //     //             MatrixXd M = UtU - UtV;
+	    //
+	    //     auto M = secantsU.transpose() * (secantsU - secantsV);
+	    //
+	    //     auto Minv = M.inverse();
+	    //
+	    //     auto A = secantsU.transpose() * secantsU.col(newestSecant);
+	    //     auto B = Minv * A;
+	    //     auto C = secantsV * B;
+	    //
+	    //     // MatrixXd A = secantsV * Minv;
+	    //     // MatrixXd B = A * secantsU.transpose();
+	    //     // MatrixXd C = B * secantsV.col(newestSecant); // - (x - Fx)
+	    //     // MatrixXd C = B * secantsU.col(newestSecant); // TODO Can remove?
+	    //
+	    //     //     VectorXd xqn = Map<const VectorXd>(hBeta.data(), J) + C;
+	    //     VectorXd xqn = Fx + C; // TODO Can remove?
+	    //
+	    //     // Save CCD solution
+	    //     x = Map<const VectorXd>(hBeta.data(), J);
+	    //     double ccdObjective = getLogLikelihood() + getLogPrior();
+	    //     // double savedLastObjFunc = lastObjFunc;
+	    //
+	    //     Map<VectorXd>(hBeta.data(), J) = xqn; // Set QN solution
+	    //     //             for (int j = 0; j < J; ++j) {
+	    //     //                 if (sign(hBeta[j]) == xqn(j)) {
+	    //     //                     hBeta[j] = xqn(j);
+	    //     //                 } else {
+	    //     //                     hBeta[j] = 0.0;
+	    //     //                 }
+	    //     //             }
+	    //
+	    //     // xBetaKnown = false;
+	    //     // checkAllLazyFlags();
+	    //     modelSpecifics.computeXBeta(hBeta.data(), useCrossValidation);
+	    //
+	    //
+	    //     //             done = check();
+	    //     //             if (done) {
+	    //     //                 std::cerr << "break B" << std::endl;
+	    //     //                 break;
+	    //     //             }
+	    //
+	    //     double qnObjective = getLogLikelihood() + getLogPrior();
+	    //
+	    //     if (ccdObjective > qnObjective) { // Revert
+	    //         Map<VectorXd>(hBeta.data(), J) = x; // Set CCD solution
+	    //         modelSpecifics.computeXBeta(hBeta.data(), useCrossValidation);
+	    //         // xBetaKnown = false;
+	    //         // checkAllLazyFlags();
+	    //
+	    //         double ccd2Objective = getLogLikelihood() + getLogPrior();
+	    //
+	    //         if (ccdObjective != ccd2Objective) {
+	    //             std::cerr << "Poor revert: " << ccdObjective << " != " << ccd2Objective << " diff: "<< (ccdObjective - ccd2Objective) << std::endl;
+	    //         }
+	    //         // lastObjFunc = savedLastObjFunc;
+	    //         std::cerr << "revert" << std::endl;
+	    //     } else {
+	    //         std::cerr << "accept" << std::endl;
+	    //         //                 done = check();
+	    //         //                 if (done) {
+	    //         //                     std::cerr << "break C" << std::endl;
+	    //         //                     break;
+	    //         //                 }
+	    //     }
+	    //
+	    //     done = check();
+	    //
+	    //     // lastObjFunc = getLogLikelihood() + getLogPrior();
+	    //
+	    //     // Get ready for next secant-pair
+	    //     previousSecant = newestSecant;
+	    //     newestSecant = (newestSecant + 1) % qnQ;
+	    // }
     } else { // No QN
         while (!done) {
             cycle();
