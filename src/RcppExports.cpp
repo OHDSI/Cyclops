@@ -114,18 +114,6 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
-// cyclopsGetPredictiveLogLikelihood
-double cyclopsGetPredictiveLogLikelihood(SEXP inRcppCcdInterface, NumericVector& weights);
-RcppExport SEXP _Cyclops_cyclopsGetPredictiveLogLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP weightsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
-    Rcpp::traits::input_parameter< NumericVector& >::type weights(weightsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsGetPredictiveLogLikelihood(inRcppCcdInterface, weights));
-    return rcpp_result_gen;
-END_RCPP
-}
 // cyclopsGetNewPredictiveLogLikelihood
 double cyclopsGetNewPredictiveLogLikelihood(SEXP inRcppCcdInterface, NumericVector& weights);
 RcppExport SEXP _Cyclops_cyclopsGetNewPredictiveLogLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP weightsSEXP) {
@@ -147,6 +135,18 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
     rcpp_result_gen = Rcpp::wrap(cyclopsGetLogLikelihood(inRcppCcdInterface));
     return rcpp_result_gen;
+END_RCPP
+}
+// cyclopsLogResult
+void cyclopsLogResult(SEXP inRcppCcdInterface, const std::string& fileName, bool withASE);
+RcppExport SEXP _Cyclops_cyclopsLogResult(SEXP inRcppCcdInterfaceSEXP, SEXP fileNameSEXP, SEXP withASESEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type fileName(fileNameSEXP);
+    Rcpp::traits::input_parameter< bool >::type withASE(withASESEXP);
+    cyclopsLogResult(inRcppCcdInterface, fileName, withASE);
+    return R_NilValue;
 END_RCPP
 }
 // cyclopsGetFisherInformation
@@ -775,9 +775,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetIsRegularized", (DL_FUNC) &_Cyclops_cyclopsGetIsRegularized, 2},
     {"_Cyclops_cyclopsSetWeights", (DL_FUNC) &_Cyclops_cyclopsSetWeights, 2},
     {"_Cyclops_cyclopsSetCensorWeights", (DL_FUNC) &_Cyclops_cyclopsSetCensorWeights, 2},
-    {"_Cyclops_cyclopsGetPredictiveLogLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetPredictiveLogLikelihood, 2},
     {"_Cyclops_cyclopsGetNewPredictiveLogLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetNewPredictiveLogLikelihood, 2},
     {"_Cyclops_cyclopsGetLogLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihood, 1},
+    {"_Cyclops_cyclopsLogResult", (DL_FUNC) &_Cyclops_cyclopsLogResult, 3},
     {"_Cyclops_cyclopsGetFisherInformation", (DL_FUNC) &_Cyclops_cyclopsGetFisherInformation, 2},
     {"_Cyclops_cyclopsSetPrior", (DL_FUNC) &_Cyclops_cyclopsSetPrior, 6},
     {"_Cyclops_cyclopsTestParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsTestParameterizedPrior, 4},

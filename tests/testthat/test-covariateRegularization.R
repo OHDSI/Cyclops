@@ -124,6 +124,8 @@ test_that("Specify each prior independently", {
 
     expect_true(coef(cyclopsFit)[4] == 0)
     expect_true(coef(cyclopsFit)[5] != 0)
+
+    expect_equal(getHyperParameter(cyclopsFit), c(1,1))
 })
 
 

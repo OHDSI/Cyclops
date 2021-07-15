@@ -696,7 +696,7 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
     }
     # TODO Remove code duplication with weights section of fitCyclopsModel
 
-    .cyclopsGetPredictiveLogLikelihood(object$cyclopsData$cyclopsInterfacePtr, weights)
+    .cyclopsGetNewPredictiveLogLikelihood(object$cyclopsData$cyclopsInterfacePtr, weights)
 }
 
 #' @title Get cross-validation information from a Cyclops model fit

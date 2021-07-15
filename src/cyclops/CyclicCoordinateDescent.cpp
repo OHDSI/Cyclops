@@ -1293,22 +1293,22 @@ double CyclicCoordinateDescent::getAsymptoticVariance(int indexOne, int indexTwo
 	}
 }
 
-double CyclicCoordinateDescent::getAsymptoticPrecision(int indexOne, int indexTwo) {
-	checkAllLazyFlags();
-	if (!fisherInformationKnown) {
-		computeAsymptoticPrecisionMatrix();
-		fisherInformationKnown = true;
-	}
-
-	IndexMap::iterator itOne = hessianIndexMap.find(indexOne);
-	IndexMap::iterator itTwo = hessianIndexMap.find(indexTwo);
-
-	if (itOne == hessianIndexMap.end() || itTwo == hessianIndexMap.end()) {
-		return NAN;
-	} else {
-		return hessianMatrix(itOne->second, itTwo->second);
-	}
-}
+// double CyclicCoordinateDescent::getAsymptoticPrecision(int indexOne, int indexTwo) {
+// 	checkAllLazyFlags();
+// 	if (!fisherInformationKnown) {
+// 		computeAsymptoticPrecisionMatrix();
+// 		fisherInformationKnown = true;
+// 	}
+//
+// 	IndexMap::iterator itOne = hessianIndexMap.find(indexOne);
+// 	IndexMap::iterator itTwo = hessianIndexMap.find(indexTwo);
+//
+// 	if (itOne == hessianIndexMap.end() || itTwo == hessianIndexMap.end()) {
+// 		return NAN;
+// 	} else {
+// 		return hessianMatrix(itOne->second, itTwo->second);
+// 	}
+// }
 
 CyclicCoordinateDescent::Matrix CyclicCoordinateDescent::computeFisherInformation(const std::vector<IdType>& indices) const {
     Matrix fisherInformation(indices.size(), indices.size());

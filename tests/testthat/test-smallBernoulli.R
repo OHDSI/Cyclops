@@ -25,6 +25,32 @@ test_that("Small Bernoulli dense regression", {
 	expect_equal(cyclopsFitD$log_likelihood, logLik(glmFit)[[1]], tolerance = tolerance)
 	expect_equal(confint(cyclopsFitD, c(1:2))[,2:3], confint(glmFit, c(1:2)), tolerance = tolerance)
 	expect_equal(predict(cyclopsFitD), predict(glmFit, type = "response"), tolerance = tolerance)
+
+	# Try with Zhang-Oles criterion
+	zoFit <- fitCyclopsModel(dataPtrD, prior = createPrior("none"), forceNewObject = TRUE,
+	                         control = createControl(convergenceType = "zhang", noiseLevel = "noisy"))
+	expect_equal(coef(cyclopsFitD), coef(zoFit), tolerance = tolerance)
+
+	# Try with KKT swindle
+	gold <- fitCyclopsModel(dataPtrD, prior = createPrior("laplace"), forceNewObject = TRUE, warnings = FALSE)
+
+	kktFit <- fitCyclopsModel(dataPtrD, prior = createPrior("laplace"), forceNewObject = TRUE, warnings = FALSE,
+	                          control = createControl(useKKTSwindle = TRUE, noiseLevel = "quiet"))
+	expect_equal(coef(gold), coef(kktFit))
+
+	# Test old logging routines
+	file <- tempfile()
+	Cyclops:::.cyclopsLogResults(cyclopsFitD$interface, file, TRUE)
+	result <- read.csv(file)
+	expect_equivalent(result$estimate, coef(cyclopsFitD), tolerance = tolerance)
+
+	cap <- capture.output(print(dataPtrD))
+	expect_false(is.null(cap))
+})
+
+test_that("Old BLR format", {
+    data <- readCyclopsData(system.file("extdata/infert_ccd.txt", package = "Cyclops"), "clr")
+    expect_equal(getNumberOfRows(data), 248)
 })
 
 test_that("Add intercept via finalize", {

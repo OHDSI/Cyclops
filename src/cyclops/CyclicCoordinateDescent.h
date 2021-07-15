@@ -101,7 +101,7 @@ public:
 
 	double getAsymptoticVariance(int i, int j);
 
-	double getAsymptoticPrecision(int i, int j);
+	// double getAsymptoticPrecision(int i, int j);
 
 //	void setZeroBetaFixed(void);
 
