@@ -335,8 +335,15 @@ fitCyclopsModel <- function(cyclopsData,
             # Try to match names
             indices <- match(covariates, cyclopsData$coefficientNames)
             covariates <- getCovariateIds(cyclopsData)[indices]
+        } else {
+            indices <- match(as.character(covariates), cyclopsData$coefficientNames)
         }
-        # covariates = as.numeric(covariates)
+        if (any(covariates == 0)) {
+            idx <- which(covariates == 0)
+            if (is.na(indices[idx])) {
+                indices[idx] <- 1
+            }
+        }
 
         if (!bit64::is.integer64(covariates)) {
             covariates <- bit64::as.integer64(covariates)
@@ -345,6 +352,7 @@ fitCyclopsModel <- function(cyclopsData,
         if (any(is.na(covariates))) {
             stop("Unable to match all covariates: ", paste(saved, collapse = ", "))
         }
+        attr(covariates, "indices") <- indices
     }
     covariates
 }
@@ -806,6 +814,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
                                rescale = FALSE, ...) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     #.setControl(object$cyclopsData$cyclopsInterfacePtr, control)
+
     parm <- .checkCovariates(object$cyclopsData, parm)
     if (level < 0.01 || level > 0.99) {
         stop("level must be between 0 and 1")
@@ -823,12 +832,14 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
                                  threads, threshold,
                                  overrideNoRegularization,
                                  includePenalty)
+
     if (!is.null(object$scale) && rescale) {
-        prof$lower <- prof$lower * object$scale[as.integer(parm)]
-        prof$upper <- prof$upper * object$scale[as.integer(parm)]
+        prof$lower <- prof$lower * object$scale[attr(parm, "indices")]
+        prof$upper <- prof$upper * object$scale[attr(parm, "indices")]
     }
     prof <- as.matrix(as.data.frame(prof))
-    rownames(prof) <- object$coefficientNames[as.integer(parm)]
+    rownames(prof) <- object$coefficientNames[attr(parm, "indices")]
+
     qs <- c((1 - level) / 2, 1 - (1 - level) / 2) * 100
     colnames(prof)[2:3] <- paste(sprintf("%.1f", qs), "%")
 
