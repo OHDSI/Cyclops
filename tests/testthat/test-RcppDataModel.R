@@ -16,7 +16,7 @@ test_that("quantile", {
         "Invalid quantile")
 })
 
-test_that("null ptr" {
+test_that("null ptr", {
     expect_error(
         Cyclops:::.isRcppPtrNull(1),
         "Input must be an Rcpp externalptr")
