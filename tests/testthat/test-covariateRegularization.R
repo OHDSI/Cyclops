@@ -126,6 +126,12 @@ test_that("Specify each prior independently", {
     expect_true(coef(cyclopsFit)[5] != 0)
 
     expect_equal(getHyperParameter(cyclopsFit), c(1,1))
+
+    expect_false(Cyclops:::.cyclopsGetIsRegularized(cyclopsFit$interface, 0))
+    expect_true(Cyclops:::.cyclopsGetIsRegularized(cyclopsFit$interface, 1))
+
+    expect_equal(Cyclops:::.cyclopsGetLogLikelihood(cyclopsFit$interface),
+                 cyclopsFit$log_likelihood)
 })
 
 
