@@ -44,6 +44,7 @@ LinkingTo: Rcpp,
     RcppEigen (>= 0.3.2)
 Suggests:
     testthat,
+    readr,
     MASS,
     gnm,
     ggplot2,
