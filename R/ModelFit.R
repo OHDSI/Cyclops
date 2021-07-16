@@ -828,10 +828,8 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
                                  threads, threshold,
                                  overrideNoRegularization,
                                  includePenalty)
-    indices <- as.integer(parm)
-    if (!is.null(attr(parm, "indices"))) {
-        indices <- attr(parm, "indices")
-    }
+
+    indices <- match(parm, getCovariateIds(object$cyclopsData))
 
     if (!is.null(object$scale) && rescale) {
         prof$lower <- prof$lower * object$scale[indices]
