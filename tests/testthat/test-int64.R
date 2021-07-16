@@ -35,10 +35,7 @@ test_that("Check int64 handling", {
     expect_error(
         expect_equal(sort(result2), sort(int64Result)),
         "1 string mismatch")
-
     expect_equal(rownames(confint(fit2, parm = longName)), longName)
-    expect_equal(rownames(confint(fit2, parm = bit64::as.integer64(longName))), longName)
-    expect_equal(rownames(confint(fit2, parm = c(0,2))), c("(Intercept)" ,"2"))
 })
 
 test_that("Check int64 reductions", {

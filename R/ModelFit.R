@@ -331,18 +331,13 @@ fitCyclopsModel <- function(cyclopsData,
 .checkCovariates <- function(cyclopsData, covariates) {
     if (!is.null(covariates)) {
         saved <- covariates
+
+        indices <- NULL
+
         if (inherits(covariates, "character")) {
             # Try to match names
             indices <- match(covariates, cyclopsData$coefficientNames)
             covariates <- getCovariateIds(cyclopsData)[indices]
-        } else {
-            indices <- match(as.character(covariates), cyclopsData$coefficientNames)
-        }
-        if (any(covariates == 0)) {
-            idx <- which(covariates == 0)
-            if (is.na(indices[idx])) {
-                indices[idx] <- 1
-            }
         }
 
         if (!bit64::is.integer64(covariates)) {
@@ -352,6 +347,7 @@ fitCyclopsModel <- function(cyclopsData,
         if (any(is.na(covariates))) {
             stop("Unable to match all covariates: ", paste(saved, collapse = ", "))
         }
+
         attr(covariates, "indices") <- indices
     }
     covariates
@@ -832,14 +828,17 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
                                  threads, threshold,
                                  overrideNoRegularization,
                                  includePenalty)
+    indices <- as.integer(parm)
+    if (!is.null(attr(parm, "indices"))) {
+        indices <- attr(parm, "indices")
+    }
 
     if (!is.null(object$scale) && rescale) {
-        prof$lower <- prof$lower * object$scale[attr(parm, "indices")]
-        prof$upper <- prof$upper * object$scale[attr(parm, "indices")]
+        prof$lower <- prof$lower * object$scale[indices]
+        prof$upper <- prof$upper * object$scale[indices]
     }
     prof <- as.matrix(as.data.frame(prof))
-    rownames(prof) <- object$coefficientNames[attr(parm, "indices")]
-
+    rownames(prof) <- object$coefficientNames[indices]
     qs <- c((1 - level) / 2, 1 - (1 - level) / 2) * 100
     colnames(prof)[2:3] <- paste(sprintf("%.1f", qs), "%")
 
