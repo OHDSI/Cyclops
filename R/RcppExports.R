@@ -109,18 +109,6 @@
     .Call(`_Cyclops_isSortedVectorList`, vectorList, ascending)
 }
 
-#' @title Print row identifiers
-#'
-#' @description
-#' \code{printCcdRowIds} return the row identifiers in a Cyclops data object
-#'
-#' @param object    A Cyclops data object
-#'
-#' @keywords internal
-printCyclopsRowIds <- function(object) {
-    invisible(.Call(`_Cyclops_cyclopsPrintRowIds`, object))
-}
-
 .isRcppPtrNull <- function(x) {
     .Call(`_Cyclops_isRcppPtrNull`, x)
 }

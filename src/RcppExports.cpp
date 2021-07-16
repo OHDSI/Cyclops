@@ -348,16 +348,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// cyclopsPrintRowIds
-void cyclopsPrintRowIds(Environment object);
-RcppExport SEXP _Cyclops_cyclopsPrintRowIds(SEXP objectSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Environment >::type object(objectSEXP);
-    cyclopsPrintRowIds(object);
-    return R_NilValue;
-END_RCPP
-}
 // isRcppPtrNull
 bool isRcppPtrNull(SEXP x);
 RcppExport SEXP _Cyclops_isRcppPtrNull(SEXP xSEXP) {
@@ -792,7 +782,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsInitializeModel", (DL_FUNC) &_Cyclops_cyclopsInitializeModel, 4},
     {"_Cyclops_isSorted", (DL_FUNC) &_Cyclops_isSorted, 3},
     {"_Cyclops_isSortedVectorList", (DL_FUNC) &_Cyclops_isSortedVectorList, 2},
-    {"_Cyclops_cyclopsPrintRowIds", (DL_FUNC) &_Cyclops_cyclopsPrintRowIds, 1},
     {"_Cyclops_isRcppPtrNull", (DL_FUNC) &_Cyclops_isRcppPtrNull, 1},
     {"_Cyclops_cyclopsGetNumberOfStrata", (DL_FUNC) &_Cyclops_cyclopsGetNumberOfStrata, 1},
     {"_Cyclops_cyclopsGetCovariateIds", (DL_FUNC) &_Cyclops_cyclopsGetCovariateIds, 1},
