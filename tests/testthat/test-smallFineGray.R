@@ -66,26 +66,47 @@ test_that("Check very small stratified Fine-Gray example with no ties", {
                        0, 1.5,0,1,0
                        0, 1,  1,1,0")
 
-    fgDat <- Cyclops:::getFineGrayWeights(test$length, test$event)
-
-    dataPtrStrat <- Cyclops::createCyclopsData(fgDat$surv ~ test$x1 + strata(test$x2), modelType = "fgr", censorWeights = fgDat$weights)
-    goldStrat <- crrSC::crrs(test$length, test$event, test$x1, strata = strata(test$x2))
+    #Stratified outcome with non-stratified censor weights
+    #Cyclops
+    fgDatStrat <- Cyclops:::getFineGrayWeights(test$length, test$event)
+    dataPtrStrat <- Cyclops::createCyclopsData(fgDatStrat$surv ~ test$x1 + strata(test$x2),
+                                               modelType = "fgr",
+                                               censorWeights = fgDatStrat$weights)
     cyclopsFitStrat <- Cyclops::fitCyclopsModel(dataPtrStrat)
 
-    dataPtrNonStrat <- Cyclops::createCyclopsData(fgDat$surv ~ test$x1, modelType = "fgr", censorWeights = fgDat$weights)
-    goldNonStrat <- cmprsk::crr(test$length, test$event, test$x1)
-    cyclopsFitNonStrat <- Cyclops::fitCyclopsModel(dataPtrNonStrat)
-
+    #survival
     dataSurv <- finegray(Surv(time = length, event = event, type = 'mstate') ~ x1 + strata(x2),
                          data = test)
     dataSurv$strata <- sort(test$x2)
     survFitStrat <- coxph(Surv(fgstart, fgstop, fgstatus) ~ x1 + strata(strata),
-                     weight = fgwt, data = dataSurv)
+                          weight = fgwt, data = dataSurv)
+
+    #Stratified outcome with stratified censor weights
+    #Cyclops
+    fgDatStratWeights <- Cyclops:::getFineGrayWeights(test$length, test$event, strata = strata(test$x2))
+    dataPtrStratWeights <- Cyclops::createCyclopsData(fgDatStratWeights$surv ~ test$x1 + strata(test$x2),
+                                                      modelType = "fgr",
+                                                      censorWeights = fgDatStratWeights$weights)
+    goldStrat <- crrSC::crrs(test$length, test$event, test$x1, strata = strata(test$x2), ctype = 1)
+    cyclopsFitStratWeights <- Cyclops::fitCyclopsModel(dataPtrStratWeights)
+
+    #survival
+    doSurvStrat <-  function(df){
+        surv <- finegray(Surv(time = length, event = event, type = 'mstate') ~ x1,
+                         data = df, count = "rep")
+        return(surv)
+    }
+
+    newTest <- test %>% split(f = test$x2)
+    newTestStratWeights <- lapply(newTest, doSurvStrat) %>% bind_rows(.id = "strata")
+    survFitStratWeights <- coxph(Surv(fgstart, fgstop, fgstatus) ~ x1 + strata(strata),
+                                 weight=fgwt, data=newTestStratWeights)
 
     tolerance <- 1E-4
-    expect_equivalent(coef(cyclopsFitStrat), goldStrat$coef, tolerance = tolerance)
-    expect_equivalent(coef(cyclopsFitNonStrat), goldNonStrat$coef, tolerance = tolerance)
     expect_equivalent(coef(cyclopsFitStrat), survFitStrat$coefficients, tolerance = tolerance)
+    expect_equivalent(coef(cyclopsFitStratWeights), survFitStratWeights$coefficients, tolerance = tolerance)
+
+
 })
 
 test_that("Check very small Fine-Gray example with time ties, but no failure ties", {

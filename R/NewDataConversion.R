@@ -81,7 +81,7 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 convertToCyclopsData <- function(outcomes,
                                  covariates,
                                  modelType = "lr",
-                                 censoredStratWeights = FALSE,
+                                 useStratCensorWeights = FALSE,
                                  addIntercept = TRUE,
                                  checkSorting = NULL,
                                  checkRowIds = TRUE,
@@ -96,7 +96,7 @@ convertToCyclopsData <- function(outcomes,
 convertToCyclopsData.data.frame <- function(outcomes,
                                             covariates,
                                             modelType = "lr",
-                                            censoredStratWeights = FALSE,
+                                            useStratCensorWeights = FALSE,
                                             addIntercept = TRUE,
                                             checkSorting = NULL,
                                             checkRowIds = TRUE,
@@ -223,12 +223,20 @@ convertToCyclopsData.data.frame <- function(outcomes,
         dataPtr$censorWeights <- outcomes %>% pull(.data$censorWeights)
     } else {
         if (modelType == "fgr") {
-            dataPtr$censorWeights <- getFineGrayWeights(
-                outcomes$time,
-                outcomes$y,
-                strata = outcomes$censoredStratWeights
-            )$weights
-            writeLines("Generating censoring weights")
+            if(useStratCensorWeights == TRUE){
+                dataPtr$censorWeights <- getFineGrayWeights(
+                    outcomes$time,
+                    outcomes$y,
+                    strata = outcomes$stratumId
+                )$weights
+                writeLines("Generating stratified censoring weights")
+            } else{
+                dataPtr$censorWeights <- getFineGrayWeights(
+                    outcomes$time,
+                    outcomes$y
+                )$weights
+                writeLines("Generating censoring weights")
+            }
         } else {
             dataPtr$censorWeights <- NULL
         }
@@ -242,7 +250,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
 convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          covariates,
                                          modelType = "lr",
-                                         censoredStratWeights = FALSE,
+                                         useStratCensorWeights = FALSE,
                                          addIntercept = TRUE,
                                          checkSorting = NULL,
                                          checkRowIds = TRUE,
@@ -375,12 +383,20 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         dataPtr$censorWeights <- outcomes %>% pull(.data$censorWeights)
     } else {
         if (modelType == "fgr") {
-            dataPtr$censorWeights <- getFineGrayWeights(
-                outcomes %>% pull(.data$time),
-                outcomes %>% pull(.data$y),
-                strata = outcomes$censoredStratWeights
-            )$weights
-            writeLines("Generating censoring weights")
+            if(useStratCensorWeights == TRUE){
+                dataPtr$censorWeights <- getFineGrayWeights(
+                    outcomes$time,
+                    outcomes$y,
+                    strata = outcomes$stratumId
+                )$weights
+                writeLines("Generating stratified censoring weights")
+            } else{
+                dataPtr$censorWeights <- getFineGrayWeights(
+                    outcomes$time,
+                    outcomes$y
+                )$weights
+                writeLines("Generating censoring weights")
+            }
         } else {
             dataPtr$censorWeights <- NULL
         }

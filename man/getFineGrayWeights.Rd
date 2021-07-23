@@ -11,6 +11,8 @@ getFineGrayWeights(ftime, fstatus, strata = NULL, cencode = 0, failcode = 1)
 
 \item{fstatus}{Numeric: Observed event (failure) types}
 
+\item{strata}{Stratification covariate}
+
 \item{cencode}{Numeric: Code to denote censored observations (Default is 0)}
 
 \item{failcode}{Numeric: Code to denote event of interest (Default is 1)}

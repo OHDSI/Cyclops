@@ -22,7 +22,8 @@
 #'
 #' @param ftime    Numeric: Observed event (failure) times
 #' @param fstatus  Numeric: Observed event (failure) types
-#' @param cencode Numeric: Code to denote censored observations (Default is 0)
+#' @param strata   Stratification covariate
+#' @param cencode  Numeric: Code to denote censored observations (Default is 0)
 #' @param failcode Numeric: Code to denote event of interest (Default is 1)
 #'
 #' @return A list that returns both an object of class \code{Surv} that forces in the competing risks indicators and a vector of weights needed for parameter estimation.
