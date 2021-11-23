@@ -237,6 +237,8 @@ public:
 	CudaKernel(const std::string& deviceName);
 	~CudaKernel();
 
+	cudaStream_t* getStream();
+
 	const std::string getDeviceName();
 
 	void allocStreams(int streamCVFolds);

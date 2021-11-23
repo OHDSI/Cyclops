@@ -37,9 +37,11 @@ public:
 
 	CudaAllGpuColumns() {
         	// Do nothing
+		std::cerr << "ctor CudaAllGpuColumns" << std::endl;
 	}
 
 	virtual ~CudaAllGpuColumns() {
+		std::cerr << "dtor CudaAllGpuColumns" << std::endl;
 	}
 
 	void initialize(const CompressedDataMatrix<RealType>& mat,
@@ -85,12 +87,14 @@ public:
 		std::cerr << "cuda AGC end " << flatData.size() << " " << flatIndices.size() << " " << dataStarts.size() << " " << indicesStarts.size() << " " << taskCounts.size() << std::endl;
 	}
 
-	void resizeAndCopyColumns () {
-		resizeAndCopyToDeviceCuda(flatData, data);
-		resizeAndCopyToDeviceCuda(flatIndices, indices);
-		resizeAndCopyToDeviceCuda(dataStarts, ddataStarts);
-		resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts);
-		resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts);
+	void resizeAndCopyColumns (cudaStream_t* stream) {
+		std::cout << "resizeAndCopyColumns \n";
+
+		resizeAndCopyToDeviceCuda(flatData, data, stream);
+		resizeAndCopyToDeviceCuda(flatIndices, indices, stream);
+		resizeAndCopyToDeviceCuda(dataStarts, ddataStarts, stream);
+		resizeAndCopyToDeviceCuda(indicesStarts, dindicesStarts, stream);
+		resizeAndCopyToDeviceCuda(taskCounts, dtaskCounts, stream);
 	}
 		
 	UInt getDataOffset(int column) const {
@@ -215,13 +219,14 @@ public:
 
 	typedef typename MakePair<RealType>::type RealType2;
 
-	CudaAllGpuColumns<RealType> dCudaColumns;
+//	CudaAllGpuColumns<RealType> dCudaColumns;
 	CudaKernel<RealType, RealType2> CoxKernels;
+	CudaAllGpuColumns<RealType> dCudaColumns;
 
 	GpuModelSpecificsCox(const ModelData<RealType>& input,
 			const std::string deviceName)
 		: ModelSpecifics<BaseModel,RealType>(input),
-		dCudaColumns(),
+//		dCudaColumns(),
 		dXjY(), dY(),
 		priorTypes(), RealHBeta(), dBetaBuffer(),
 		dNumerator(), dNumerator2(),
@@ -231,7 +236,7 @@ public:
 		dDenominator(), dAccDenom(),
 		dAccNumer(), dAccNumer2(), dDecDenom(), dDecNumer(), dDecNumer2(),
 		dKWeight(), dNWeight(), dYWeight(),
-		CoxKernels(deviceName) {
+		CoxKernels(deviceName), dCudaColumns(){
 		std::cerr << "ctor GpuModelSpecificsCox" << std::endl;
 	}
 
@@ -282,7 +287,7 @@ virtual void deviceInitialization() {
             } 
 */
 	// Copy columns to device
-	dCudaColumns.resizeAndCopyColumns();
+	dCudaColumns.resizeAndCopyColumns(CoxKernels.getStream());
 
 	// Allocate host storage	    
 	RealHBeta.resize(J);
@@ -290,10 +295,12 @@ virtual void deviceInitialization() {
 	// Allocate device storage
 	CoxKernels.resizeAndCopyToDevice(hY, dY);
 
-	resizeCudaVec(hXBeta, dXBeta); // K
-	resizeCudaVec(offsExpXBeta, dExpXBeta); // K
+//	resizeCudaVec(hXBeta, dXBeta); // K
+//	resizeCudaVec(offsExpXBeta, dExpXBeta); // K
 //	resizeCudaVec(denomPid, dDenominator); // K
 
+	CoxKernels.resizeAndFillToDevice(dXBeta, static_cast<RealType>(0.0), K);
+	CoxKernels.resizeAndFillToDevice(dExpXBeta, static_cast<RealType>(0.0), K);
 	CoxKernels.resizeAndFillToDevice(dDenominator, static_cast<RealType>(0.0), K);
 	CoxKernels.resizeAndFillToDevice(dNumerator, static_cast<RealType>(0.0), K);
 	CoxKernels.resizeAndFillToDevice(dNumerator2, static_cast<RealType>(0.0), K);
@@ -459,13 +466,15 @@ virtual void computeRemainingStatistics(bool useWeights) {
 	}
 	// Device
 	if (dAccDenom.size() != K) {
-		resizeCudaVecSize(dAccDenom, K);
+		CoxKernels.resizeAndCopyToDevice(accDenomPid, dAccDenom);
+	} else {
+		CoxKernels.copyFromHostToDevice(accDenomPid, dAccDenom);
 	}
 
 	CoxKernels.copyFromHostToDevice(hXBeta, dXBeta);
 	CoxKernels.copyFromHostToDevice(offsExpXBeta, dExpXBeta);
 	CoxKernels.copyFromHostToDevice(denomPid, dDenominator);
-	CoxKernels.copyFromHostToDevice(accDenomPid, dAccDenom);
+//	CoxKernels.copyFromHostToDevice(accDenomPid, dAccDenom);
 
 //	std::cout << " HD-copy in GPU::computeRemainingStatistics \n";
 

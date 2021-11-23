@@ -326,7 +326,7 @@ CudaKernel<RealType, RealType2>::CudaKernel(const std::string& deviceName)
 	cudaStreamCreate(&stream[0]);
 
 	if (deviceStatus == cudaSuccess) {
-		std::cout << "ctor CudaKernel on " << deviceName << '\n';
+		std::cout << "ctor CudaKernel on " << deviceName << " stream: " << stream << '\n';
 	} else if (deviceStatus == cudaErrorDeviceAlreadyInUse) {
 		std::cout << "cudaErrorDeviceAlreadyInUse \n";
 	} else if (deviceStatus == cudaErrorInvalidDevice) {
@@ -406,6 +406,12 @@ void CudaKernel<RealType, RealType2>::getBound()
 	boundIn = temp;
 }
 */
+
+template <typename RealType, typename RealType2>
+cudaStream_t* CudaKernel<RealType, RealType2>::getStream() {
+	return stream;
+}
+
 template <typename RealType, typename RealType2>
 const std::string CudaKernel<RealType, RealType2>::getDeviceName() {
 	std::cout << "getDeviceName: " << desiredDeviceName << '\n';
