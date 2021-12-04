@@ -116,6 +116,24 @@ void cyclopsSetBeta(SEXP inRcppCcdInterface, const std::vector<double>& beta) {
     interface->getCcd().setBeta(beta);
 }
 
+void jniSetBeta(void* ptr, const std::vector<double>& beta) {
+    using namespace bsccs;
+    RcppCcdInterface* interface = static_cast<RcppCcdInterface*>(ptr);
+    interface->getCcd().setBeta(beta);
+}
+
+void jniSetBeta(void* ptr, const int index, const double beta) {
+    using namespace bsccs;
+    RcppCcdInterface* interface = static_cast<RcppCcdInterface*>(ptr);
+    interface->getCcd().setBeta(index, beta);
+}
+
+double jniGetBeta(void* ptr, const int index) {
+    using namespace bsccs;
+    RcppCcdInterface* interface = static_cast<RcppCcdInterface*>(ptr);
+    return interface->getCcd().getBeta(index);
+}
+
 // [[Rcpp::export(.cyclopsSetFixedBeta)]]
 void cyclopsSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed) {
     using namespace bsccs;
@@ -177,12 +195,28 @@ double cyclopsGetLogLikelihood(SEXP inRcppCcdInterface) {
 	return interface->getCcd().getLogLikelihood();
 }
 
+double jniGetLogLikelihood(void* ptr) {
+    using namespace bsccs;
+    RcppCcdInterface* interface = static_cast<RcppCcdInterface*>(ptr);
+    return interface->getCcd().getLogLikelihood();
+}
+
+std::pair<double,double> jniGetGradientAndHessianDiagonal(void* ptr, const int index) {
+    using namespace bsccs;
+    RcppCcdInterface* interface = static_cast<RcppCcdInterface*>(ptr);
+    return interface->getCcd().getGradientAndHessianDiagonal(index);
+}
+
+int jniGetBetaSize(void* ptr) {
+    using namespace bsccs;
+    RcppCcdInterface* interface = static_cast<RcppCcdInterface*>(ptr);
+    return interface->getCcd().getBetaSize();
+}
 
 // [[Rcpp::export(".cyclopsLogResults")]]
 void cyclopsLogResult(SEXP inRcppCcdInterface, const std::string& fileName, bool withASE) {
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
-
     interface->logResultsToFile(fileName, withASE);
 }
 

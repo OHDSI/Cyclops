@@ -99,6 +99,8 @@ public:
 
 	double getJerkDiagonal(int index);
 
+	std::pair<double,double> getGradientAndHessianDiagonal(int index);
+
 	double getAsymptoticVariance(int i, int j);
 
 	// double getAsymptoticPrecision(int i, int j);

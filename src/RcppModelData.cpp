@@ -189,6 +189,18 @@ int cyclopsGetFloatingPointSize(Environment object) {
     return data->getFloatingPointSize();
 }
 
+int internalGetNumberOfColumns(bsccs::AbstractModelData* data) {
+    auto count = data->getNumberOfCovariates();
+    if (data->getHasOffsetCovariate()) {
+        --count;
+    }
+    return static_cast<int>(count);
+}
+
+int jniGetNumberOfColumns(void *ptr) {
+    return internalGetNumberOfColumns(static_cast<bsccs::AbstractModelData*>(ptr));
+}
+
 //' @title Get total number of covariates
 //'
 //' @description
@@ -200,11 +212,7 @@ int cyclopsGetFloatingPointSize(Environment object) {
 // [[Rcpp::export("getNumberOfCovariates")]]
 int cyclopsGetNumberOfColumns(Environment object) {
 	XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
-	auto count = data->getNumberOfCovariates();
-	if (data->getHasOffsetCovariate()) {
-	    --count;
-	}
-	return static_cast<int>(count);
+    return internalGetNumberOfColumns(data);
 }
 
 //' @title Print Cyclops data matrix to file

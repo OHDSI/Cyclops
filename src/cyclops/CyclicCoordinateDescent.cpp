@@ -1271,6 +1271,16 @@ double CyclicCoordinateDescent::getJerkDiagonal(int index) {
     return jerk;
 }
 
+std::pair<double,double> CyclicCoordinateDescent::getGradientAndHessianDiagonal(int index) {
+
+    checkAllLazyFlags();
+    double g_d1, g_d2;
+
+    computeNumeratorForGradient(index);
+    computeGradientAndHessian(index, &g_d1, &g_d2);
+    return std::pair<double, double>(g_d1, g_d2);
+}
+
 double CyclicCoordinateDescent::getAsymptoticVariance(int indexOne, int indexTwo) {
 	checkAllLazyFlags();
 	if (!fisherInformationKnown) {
