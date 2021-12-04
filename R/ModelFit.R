@@ -519,6 +519,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              If set to \code{"auto"}, \code{"byRow"} will be used for all models except conditional models where
 #'                              the average number of rows per stratum is smaller than the number of strata.
 #' @param initialBound          Numeric: Starting trust-region size
+#' @param stepSizeMultiplier    Numeric: Amount to scale gradient for each update
 #' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
 #' @param algorithm             String: name of fitting algorithm to employ; default is `ccd`
 #'
@@ -549,6 +550,7 @@ createControl <- function(maxIterations = 1000,
                           tuneSwindle = 10,
                           selectorType = "auto",
                           initialBound = 2.0,
+                          stepSizeMultiplier = 1.0,
                           maxBoundCount = 5,
                           algorithm = "ccd") {
     validCVNames = c("grid", "auto")
@@ -582,6 +584,7 @@ createControl <- function(maxIterations = 1000,
                    tuneSwindle = tuneSwindle,
                    selectorType = selectorType,
                    initialBound = initialBound,
+                   stepSizeMultiplier = stepSizeMultiplier,
                    maxBoundCount = maxBoundCount,
                    algorithm = algorithm),
               class = "cyclopsControl")
@@ -740,8 +743,8 @@ getCrossValidationInfo <- function(object) {
                            control$lowerLimit, control$upperLimit, control$gridSteps,
                            control$noiseLevel, control$threads, control$seed, control$resetCoefficients,
                            control$startingVariance, control$useKKTSwindle, control$tuneSwindle,
-                           control$selectorType, control$initialBound, control$maxBoundCount,
-                           control$algorithm
+                           control$selectorType, control$initialBound, control$stepSizeMultiplier,
+                           control$maxBoundCount, control$algorithm
                           )
         return(control)
     }

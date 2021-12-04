@@ -432,13 +432,12 @@ List cyclopsPredictModel(SEXP inRcppCcdInterface) {
 	return list;
 }
 
-
 // [[Rcpp::export(".cyclopsSetControl")]]
 void cyclopsSetControl(SEXP inRcppCcdInterface,
 		int maxIterations, double tolerance, const std::string& convergenceType,
 		bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps,
 		const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance,
-        bool useKKTSwindle, int swindleMultipler, const std::string& selectorType, double initialBound,
+        bool useKKTSwindle, int swindleMultipler, const std::string& selectorType, double initialBound,  double stepSizeMultiplier,
         int maxBoundCount, const std::string& algorithm
 		) {
 	using namespace bsccs;
@@ -451,6 +450,7 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
     args.modeFinding.useKktSwindle = useKKTSwindle;
     args.modeFinding.swindleMultipler = swindleMultipler;
     args.modeFinding.initialBound = initialBound;
+    args.modeFinding.stepSizeMultiplier = stepSizeMultiplier;
     args.modeFinding.maxBoundCount = maxBoundCount;
     if (algorithm == "mm") {
         args.modeFinding.algorithmType = AlgorithmType::MM;

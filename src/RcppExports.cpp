@@ -6,6 +6,11 @@
 
 using namespace Rcpp;
 
+#ifdef RCPP_USE_GLOBAL_ROSTREAM
+Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
+Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
+#endif
+
 // cyclopsGetModelTypeNames
 std::vector<std::string> cyclopsGetModelTypeNames();
 RcppExport SEXP _Cyclops_cyclopsGetModelTypeNames() {
@@ -247,8 +252,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsSetControl
-void cyclopsSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance, bool useKKTSwindle, int swindleMultipler, const std::string& selectorType, double initialBound, int maxBoundCount, const std::string& algorithm);
-RcppExport SEXP _Cyclops_cyclopsSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP threadsSEXP, SEXP seedSEXP, SEXP resetCoefficientsSEXP, SEXP startingVarianceSEXP, SEXP useKKTSwindleSEXP, SEXP swindleMultiplerSEXP, SEXP selectorTypeSEXP, SEXP initialBoundSEXP, SEXP maxBoundCountSEXP, SEXP algorithmSEXP) {
+void cyclopsSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance, bool useKKTSwindle, int swindleMultipler, const std::string& selectorType, double initialBound, double stepSizeMultiplier, int maxBoundCount, const std::string& algorithm);
+RcppExport SEXP _Cyclops_cyclopsSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP threadsSEXP, SEXP seedSEXP, SEXP resetCoefficientsSEXP, SEXP startingVarianceSEXP, SEXP useKKTSwindleSEXP, SEXP swindleMultiplerSEXP, SEXP selectorTypeSEXP, SEXP initialBoundSEXP, SEXP stepSizeMultiplierSEXP, SEXP maxBoundCountSEXP, SEXP algorithmSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
@@ -270,9 +275,10 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type swindleMultipler(swindleMultiplerSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type selectorType(selectorTypeSEXP);
     Rcpp::traits::input_parameter< double >::type initialBound(initialBoundSEXP);
+    Rcpp::traits::input_parameter< double >::type stepSizeMultiplier(stepSizeMultiplierSEXP);
     Rcpp::traits::input_parameter< int >::type maxBoundCount(maxBoundCountSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type algorithm(algorithmSEXP);
-    cyclopsSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm);
+    cyclopsSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, stepSizeMultiplier, maxBoundCount, algorithm);
     return R_NilValue;
 END_RCPP
 }
@@ -775,7 +781,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetProfileLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetProfileLikelihood, 5},
     {"_Cyclops_cyclopsProfileModel", (DL_FUNC) &_Cyclops_cyclopsProfileModel, 6},
     {"_Cyclops_cyclopsPredictModel", (DL_FUNC) &_Cyclops_cyclopsPredictModel, 1},
-    {"_Cyclops_cyclopsSetControl", (DL_FUNC) &_Cyclops_cyclopsSetControl, 21},
+    {"_Cyclops_cyclopsSetControl", (DL_FUNC) &_Cyclops_cyclopsSetControl, 22},
     {"_Cyclops_cyclopsRunCrossValidationl", (DL_FUNC) &_Cyclops_cyclopsRunCrossValidationl, 1},
     {"_Cyclops_cyclopsFitModel", (DL_FUNC) &_Cyclops_cyclopsFitModel, 1},
     {"_Cyclops_cyclopsLogModel", (DL_FUNC) &_Cyclops_cyclopsLogModel, 1},

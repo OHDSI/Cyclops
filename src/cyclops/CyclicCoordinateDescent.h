@@ -173,6 +173,8 @@ public:
 
 	void setInitialBound(double bound);
 
+	void setStepSizeMultiplier(double multiplier);
+
 	Matrix computeFisherInformation(const std::vector<IdType>& indices) const;
 
 	loggers::ProgressLogger& getProgressLogger() const { return *logger; }
@@ -276,6 +278,8 @@ protected:
 			double inDelta,
 			int index);
 
+	double applyStepSize(double delta);
+
 	bool performCheckConvergence(int convergenceType,
                               double epsilon,
                               int maxIterations,
@@ -335,6 +339,7 @@ protected:
 // 	DoubleVector& hXBetaSave; // Delegate
 	DoubleVector hDelta;
 	std::vector<bool> fixBeta;
+	double hStepSizeMultiplier;
 
 	int N; // Number of patients
 	int K; // Number of exposure levels

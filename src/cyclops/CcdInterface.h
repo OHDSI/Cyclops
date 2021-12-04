@@ -77,6 +77,7 @@ struct ModeFindingArguments {
 	bool useKktSwindle;
 	int swindleMultipler;
 	double initialBound;
+	double stepSizeMultiplier;
 	int maxBoundCount;
 	AlgorithmType algorithmType;
 

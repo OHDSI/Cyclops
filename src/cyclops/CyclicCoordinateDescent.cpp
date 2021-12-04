@@ -191,6 +191,10 @@ void CyclicCoordinateDescent::setInitialBound(double bound) {
     initialBound = bound;
 }
 
+void CyclicCoordinateDescent::setStepSizeMultiplier(double multiplier) {
+    hStepSizeMultiplier = multiplier;
+}
+
 void CyclicCoordinateDescent::resetBounds() {
 	for (int j = 0; j < J; j++) {
 		hDelta[j] = initialBound;
@@ -202,6 +206,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 	// Set parameters and statistics space
 	hDelta.resize(J, static_cast<double>(initialBound));
 	hBeta.resize(J, static_cast<double>(0.0));
+	hStepSizeMultiplier = 1.0;
 
 // 	hXBeta.resize(K, static_cast<double>(0.0));
 // 	hXBetaSave.resize(K, static_cast<double>(0.0));
@@ -593,6 +598,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const int qnQ = 0;
 
 	initialBound = arguments.initialBound;
+	setStepSizeMultiplier(arguments.stepSizeMultiplier);
 
 	int count = 0;
 	bool done = false;
@@ -918,7 +924,6 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
     return done;
 }
 
-
 void CyclicCoordinateDescent::findMode(
 		int maxIterations,
 		int convergenceType,
@@ -954,6 +959,12 @@ void CyclicCoordinateDescent::findMode(
 	}
 
 	resetBounds();
+
+	if (noiseLevel > QUIET) {
+	    std::ostringstream stream;
+	    stream << "Using step-size multiplier " << hStepSizeMultiplier;
+	    logger->writeLine(stream);
+	}
 
 	bool done = false;
 	int iteration = 0;
@@ -1023,6 +1034,7 @@ void CyclicCoordinateDescent::findMode(
 
 	            if (!fixBeta[index]) {
 	                double delta = ccdUpdateBeta(index);
+	                delta = applyStepSize(delta);   // TODO: Hacked in here to try step-halving with Mathilde
 	                delta = applyBounds(delta, index);
 	                if (delta != 0.0) {
 	                    sufficientStatisticsKnown = false;
@@ -1523,6 +1535,11 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 double CyclicCoordinateDescent::computeConvergenceCriterion(double newObjFxn, double oldObjFxn) {
 	// This is the stopping criterion that Ken Lange generally uses
 	return abs(newObjFxn - oldObjFxn) / (abs(newObjFxn) + 1.0);
+}
+
+double CyclicCoordinateDescent::applyStepSize(double delta) {
+    // std::cerr << " " << hStepSizeMultiplier;  // Screen hack to make sure this is called for Mathilde
+    return delta * hStepSizeMultiplier;
 }
 
 double CyclicCoordinateDescent::applyBounds(double delta, int index) {
