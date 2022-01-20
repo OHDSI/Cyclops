@@ -28,3 +28,5 @@ standalone/*.txt
 src/hide
 extras
 CRAN-RELEASE
+.Rdata
+.DS_Store
