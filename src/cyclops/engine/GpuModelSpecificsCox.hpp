@@ -250,6 +250,10 @@ virtual AbstractModelSpecifics* clone(ComputeDeviceArguments computeDevice) cons
 	return new GpuModelSpecificsCox<BaseModel,RealType>(modelData, computeDevice.name);
 }
 
+virtual void setPidForAccumulation(const double* weights) {
+	N = K;
+}
+
 virtual void deviceInitialization() {
 #ifdef TIME_DEBUG
 	std::cerr << "start dI" << std::endl;

@@ -1975,9 +1975,13 @@ void ModelSpecifics<BaseModel,RealType>::doSortPid(bool useCrossValidation) {
  */
 }
 
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::setPidForAccumulation(const double* weights) {
+	setPidForAccumulationImpl(weights);
+}
 
 template <class BaseModel,typename RealType> template <typename AnyRealType>
-void ModelSpecifics<BaseModel,RealType>::setPidForAccumulation(const AnyRealType* weights) {
+void ModelSpecifics<BaseModel,RealType>::setPidForAccumulationImpl(const AnyRealType* weights) {
 
     hPidInternal =  hPidOriginal; // Make copy
     hPid = hPidInternal.data(); // Point to copy

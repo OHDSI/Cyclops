@@ -181,8 +181,10 @@ protected:
 
 	int getAlignedLength(int N);
 
+	virtual void setPidForAccumulation(const double *weights) = 0;
+
 	template <typename RealType>
-	void setPidForAccumulation(const RealType *weights);
+	void setPidForAccumulationImpl(const RealType *weights);
 
 	void setupSparseIndices(const int max);
 

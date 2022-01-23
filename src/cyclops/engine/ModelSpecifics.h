@@ -116,6 +116,8 @@ public:
 
 	//virtual double getGradientObjective();
 
+	virtual void setPidForAccumulation(const double* weights);
+
 	virtual void deviceInitialization();
 
 	void initialize(
@@ -232,7 +234,7 @@ protected:
 	void doSortPid(bool useCrossValidation);
 
 	template <typename AnyRealType>
-	void setPidForAccumulation(const AnyRealType* weights);
+	void setPidForAccumulationImpl(const AnyRealType* weights);
 
 	void setupSparseIndices(const int max);
 
