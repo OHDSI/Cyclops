@@ -255,9 +255,9 @@ virtual void deviceInitialization() {
 	std::cerr << "start dI" << std::endl;
 #endif
 
-#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
 	auto start = bsccs::chrono::steady_clock::now();
-#endif	    
+#endif
 	// Initialize columns
 	dCudaColumns.initialize(hX, K, true);
 /*
@@ -341,10 +341,10 @@ virtual void deviceInitialization() {
 	}
 
 	std::cout << "K: " << K << " N: " << N << '\n';
-#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
 	///////////////////////////"
-	duration["z cudaDevInitialization "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+	duration["z cudaDevInit    "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 //        std::cerr << "Format types required: " << need << std::endl;
 
@@ -388,11 +388,18 @@ virtual void setWeights(double* inWeights, double *cenWeights, bool useCrossVali
 			hNWeight[k] = hY[k] * hKWeight[k];
 		}
 	}
-	
+
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
+	auto start = bsccs::chrono::steady_clock::now();
+#endif
 	// Device
 	CoxKernels.resizeAndCopyToDevice(hKWeight, dKWeight);
 	CoxKernels.resizeAndCopyToDevice(hNWeight, dNWeight);
-
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
+	auto end = bsccs::chrono::steady_clock::now();
+	///////////////////////////"
+	duration["z Data transfer  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
 	// Fine-gray
 	if (BaseModel::isTwoWayScan) {
 		if (hYWeight.size() != K) {
@@ -405,34 +412,38 @@ virtual void setWeights(double* inWeights, double *cenWeights, bool useCrossVali
 			hYWeight[k] = cenWeights[k];
 			hYWeightDouble[k] = cenWeights[k];
 		}
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
+	auto start = bsccs::chrono::steady_clock::now();
+#endif
 		// Device
 		CoxKernels.resizeAndCopyToDevice(hYWeight, dYWeight);
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
+	auto end = bsccs::chrono::steady_clock::now();
+	///////////////////////////"
+	duration["z Data transfer  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
 	}
 
-//	std::cout << " HD-copy in GPU::setWeights \n";
 }
 
 virtual void computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
 			
 	ModelSpecifics<BaseModel,RealType>::computeFixedTermsInGradientAndHessian(useCrossValidation);
-#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 //	resizeAndCopyToDeviceCuda(hXjY, dXjY);	
 	CoxKernels.resizeAndCopyToDevice(hXjY, dXjY);
-#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
 	///////////////////////////"
-	duration["z compFixedGHG          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+	duration["z Data transfer  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 }
 
 virtual void computeRemainingStatistics(bool useWeights) {
 			
 	hXBetaKnown = true;
-#ifdef CYCLOPS_DEBUG_TIMING
-	auto start = bsccs::chrono::steady_clock::now();
-#endif
 	// Currently RS only computed on CPU and then copied
 //	ModelSpecifics<BaseModel, RealType>::computeRemainingStatistics(useWeights);
 
@@ -464,6 +475,10 @@ virtual void computeRemainingStatistics(bool useWeights) {
 			accDenomPid[i] += (hY[i] == static_cast<RealType>(1)) ? hYWeight[i] * totalDenom : 0;
 		}
 	}
+
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
+        auto start = bsccs::chrono::steady_clock::now();
+#endif
 	// Device
 	if (dAccDenom.size() != K) {
 		CoxKernels.resizeAndCopyToDevice(accDenomPid, dAccDenom);
@@ -476,20 +491,15 @@ virtual void computeRemainingStatistics(bool useWeights) {
 	CoxKernels.copyFromHostToDevice(denomPid, dDenominator);
 //	CoxKernels.copyFromHostToDevice(accDenomPid, dAccDenom);
 
-//	std::cout << " HD-copy in GPU::computeRemainingStatistics \n";
-
-#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
 	///////////////////////////"
-	duration["z compRSG               "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+	duration["z Data transfer  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
 #endif
 }
 		
 virtual double getLogLikelihood(bool useCrossValidation) {
 
-#ifdef CYCLOPS_DEBUG_TIMING
-	auto start = bsccs::chrono::steady_clock::now();
-#endif
 	// Device
 	// TODO write gpu version to avoid D-H copying
 	if (BaseModel::isTwoWayScan) {
@@ -502,12 +512,14 @@ virtual double getLogLikelihood(bool useCrossValidation) {
 	} else {
 		CoxKernels.computeAccumlatedDenominator(dDenominator, dAccDenom, K);
 	}
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
+	auto start0 = bsccs::chrono::steady_clock::now();
+#endif
 	CoxKernels.copyFromDeviceToHost(dAccDenom, accDenomPid);	
-//	std::cout << " DH-copy in GPU::getLogLikelihood \n";
-#ifdef CYCLOPS_DEBUG_TIMING
-	auto end = bsccs::chrono::steady_clock::now();
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
+	auto end0 = bsccs::chrono::steady_clock::now();
 	///////////////////////////"
-	duration["z compLogLikeG          "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+	duration["z Data transfer  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end0 - start0).count();;
 #endif
 	// Host
 	RealType logLikelihood = static_cast<RealType>(0.0);
@@ -519,6 +531,7 @@ virtual double getLogLikelihood(bool useCrossValidation) {
 	for (size_t i = 0; i < K; i++) {
 		logLikelihood -= hNWeight[i] * std::log(accDenomPid[i]);
         }
+
 	return static_cast<double>(logLikelihood);
 //	return ModelSpecifics<BaseModel, RealType>::getLogLikelihood(useCrossValidation); 
 }
@@ -733,22 +746,24 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 	///////////////////////////"
 	duration["updateXBetaG     "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end4 - start4).count();
 #endif
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
+	duration["GPU GH           "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start + end2 - start2 + end4 - start4).count();
+#endif
 }
 
 virtual const std::vector<double> getXBeta() {
 
-#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 	if (!hXBetaKnown) {
-		CoxKernels.copyFromDeviceToHost(dXBeta, hXBeta);		
-//		std::cout << " DH-copy in GPU::getXBeta \n";
+		CoxKernels.copyFromDeviceToHost(dXBeta, hXBeta);
 		hXBetaKnown = true;
 	}
-#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
 	///////////////////////////"
-	duration["z getXBetaG             "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+	duration["z Data transfer  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
 #endif
 	return ModelSpecifics<BaseModel, RealType>::getXBeta();
 }
@@ -758,11 +773,18 @@ virtual const std::vector<double> getXBetaSave() {
 }
 
 virtual void saveXBeta() {
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
+	auto start = bsccs::chrono::steady_clock::now();
+#endif
 	if (!hXBetaKnown) {
 		CoxKernels.copyFromDeviceToHost(dXBeta, hXBeta);
-//		std::cout << " DH-copy in GPU::saveXBeta \n";
 		hXBetaKnown = true;
 	}
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
+	auto end = bsccs::chrono::steady_clock::now();
+	///////////////////////////"
+	duration["z Data transfer  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+#endif
 	ModelSpecifics<BaseModel, RealType>::saveXBeta();
 }
 
@@ -779,19 +801,18 @@ virtual void axpyXBeta(const double beta, const int j) {
 }
 
 virtual std::vector<double> getBeta() {
-#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
-//	std::cout << " DH-copy in GPU::getBeta \n";
 	CoxKernels.copyFromDeviceToDevice(dBound, dBoundBuffer);
 	CoxKernels.copyFromDeviceToDevice(dBeta, dBetaBuffer);
 	CoxKernels.copyFromDeviceToHost(dBeta, RealHBeta);
 //	CoxKernels.getBeta(RealHBeta);
 //	CoxKernels.getBound();
-#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
 	auto end = bsccs::chrono::steady_clock::now();
 	///////////////////////////"
-	duration["z getBetaG              "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
+	duration["z Data transfer  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();;
 #endif
 	return std::vector<double>(std::begin(RealHBeta), std::end(RealHBeta));
 }

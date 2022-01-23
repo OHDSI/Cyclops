@@ -15,7 +15,8 @@
 #include <thread>
 #include <complex>
 
-//#define CYCLOPS_DEBUG_TIMING
+#define CYCLOPS_DEBUG_TIMING
+#define CYCLOPS_GPU_COX_DEBUG_TIMING
 //#define CYCLOPS_DEBUG_TIMING_LOW
 
 #ifdef CYCLOPS_DEBUG_TIMING

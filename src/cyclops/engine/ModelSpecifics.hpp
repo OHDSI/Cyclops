@@ -803,6 +803,9 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessian(int index, do
 #endif
 #endif
 
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
+        duration["CPU GH           "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
 }
 
 template <class RealType>
@@ -1520,6 +1523,9 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 #endif
 #endif
 
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
+	duration["CPU GH           "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
 }
 
 template <class BaseModel,typename RealType> template <class IteratorType, class Weights>
@@ -1647,6 +1653,10 @@ void ModelSpecifics<BaseModel,RealType>::updateXBeta(double delta, int index, bo
 	///////////////////////////"
 	duration["updateXBeta      "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
+#endif
+
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
+	duration["CPU GH           "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
 }
@@ -2087,7 +2097,9 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
     if (allocateXjX()) {
         hXjX.resize(J);
     }
-
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
+	auto start = std::chrono::steady_clock::now();
+#endif
     if (initializeAccumulationVectors()) {
         setPidForAccumulation(static_cast<double*>(nullptr)); // calls setupSparseIndices() before returning
     } else {
@@ -2095,7 +2107,11 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
         // If true, then fill with pointers to CompressedDataColumn and do not delete in destructor
         setupSparseIndices(N); // Need to be recomputed when hPid change!
     }
-
+#ifdef CYCLOPS_GPU_COX_DEBUG_TIMING
+	auto end = std::chrono::steady_clock::now();
+	double timerPid = std::chrono::duration<double>(end - start).count();
+	std::cout << " OVERHEAD CCD setPid:  " << timerPid << " s \n";
+#endif
 
 
     size_t alignedLength = getAlignedLength(N + 1);
