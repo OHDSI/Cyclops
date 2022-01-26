@@ -1,3 +1,17 @@
+Cyclops v3.1.2
+==============
+
+Changes:
+
+1. adaptive likelihood profiling when objective function is concave.
+
+Cyclops v3.1.1
+==============
+
+Changes:
+
+1. specify new option `nocenter` in `survival` package when testing predicted hazard function
+
 Cyclops v3.1.0
 ==============
 

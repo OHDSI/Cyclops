@@ -8,7 +8,6 @@ context("test-smallCLR.R")
 #
 
 test_that("Small conditional logistic regression", {
-
     gold <- clogit(case ~ spontaneous + induced + strata(stratum), data=infert)
 
     dataPtr <- createCyclopsData(case ~ spontaneous + induced + strata(stratum),
@@ -29,12 +28,12 @@ test_that("Small conditional logistic regression", {
     expect_equal(confint(cyclopsFit, c(1:2), includePenalty = TRUE),
                  confint(cyclopsFit, c(1:2), includePenalty = FALSE))
 
-    dataPtrR <- createCyclopsData(case ~ spontaneous + induced + strata(stratum),
-                                       data = infert,
-                                       modelType = "clr")
-
-    cyclopsFitR <- fitCyclopsModel(dataPtrR,
-                                   prior = createPrior("laplace", 1, exclude = 1))
+    # dataPtrR <- createCyclopsData(case ~ spontaneous + induced + strata(stratum),
+    #                                    data = infert,
+    #                                    modelType = "clr")
+    #
+    # cyclopsFitR <- fitCyclopsModel(dataPtrR,
+    #                                prior = createPrior("laplace", 1, exclude = 1))
 
 #     expect_not_equal(confint(cyclopsFitR, c(1), includePenalty = TRUE),
 #                  confint(cyclopsFitR, c(1), includePenalty = FALSE))

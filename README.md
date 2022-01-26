@@ -2,7 +2,7 @@ Cyclops
 =======
 
 [![Build Status](https://github.com/ohdsi/Cyclops/workflows/R-CMD-check/badge.svg)](https://github.com/OHDSI/Cyclops/actions?query=workflow%3AR-CMD-check)
-[![codecov.io](https://codecov.io/github/OHDSI/Cyclops/coverage.svg?branch=master)](https://codecov.io/github/OHDSI/Cyclops?branch=master)
+[![codecov.io](https://codecov.io/github/OHDSI/Cyclops/coverage.svg?branch=main)](https://codecov.io/github/OHDSI/Cyclops?branch=main)
 [![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/Cyclops)](https://CRAN.R-project.org/package=Cyclops)
 [![CRAN_Status_Badge](https://cranlogs.r-pkg.org/badges/Cyclops)](https://cran.r-project.org/package=Cyclops)
 
@@ -61,7 +61,7 @@ User Documentation
 Documentation can be found on the [package website](https://ohdsi.github.io/Cyclops/).
 
 PDF versions of the documentation are also available:
-* Package manual: [Cyclops manual](https://raw.githubusercontent.com/OHDSI/Cyclops/master/extras/Cyclops.pdf)
+* Package manual: [Cyclops manual](https://raw.githubusercontent.com/OHDSI/Cyclops/main/extras/Cyclops.pdf)
 
 Support
 =======

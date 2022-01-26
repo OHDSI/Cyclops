@@ -15,7 +15,11 @@ start, length, event, x1, x2
 0, 1,  1,1,0
 ")
 
-    goldFit <-  coxph(Surv(start, length, event) ~ x1 + x2, test, ties = "breslow")
+    if (packageVersion("survival") >= '3.2.9') {
+        goldFit <-  coxph(Surv(start, length, event) ~ x1 + x2, test, ties = "breslow", nocenter = NULL)
+    } else {
+        goldFit <-  coxph(Surv(start, length, event) ~ x1 + x2, test, ties = "breslow")
+    }
     goldSurv <- survfit(goldFit)
 
     dataPtr <- createCyclopsData(Surv(length, event) ~ x1 + x2, data = test, modelType = "cox")
@@ -39,7 +43,11 @@ start, length, event, x1, x2
 0, 1,  1,1,0
 ")
 
-    goldFit <-  coxph(Surv(start, length, event) ~ x1 + x2, test, ties = "breslow")
+    if (packageVersion("survival") >= '3.2.9') {
+        goldFit <-  coxph(Surv(start, length, event) ~ x1 + x2, test, ties = "breslow", nocenter = NULL)
+    } else {
+        goldFit <-  coxph(Surv(start, length, event) ~ x1 + x2, test, ties = "breslow")
+    }
     goldSurv <- survfit(goldFit)
 
     dataPtr <- createCyclopsData(Surv(length, event) ~ x1 + x2, data = test, modelType = "cox")
@@ -61,7 +69,11 @@ start, length, event, x1, x2
 0, 2,  1,1,1
 0, 2,  1,0,0
 ")
-    goldFit <-  coxph(Surv(start, length, event) ~ x1 + x2, test, ties = "breslow")
+    if (packageVersion("survival") >= '3.2.9') {
+        goldFit <-  coxph(Surv(start, length, event) ~ x1 + x2, test, ties = "breslow", nocenter = NULL)
+    } else {
+        goldFit <-  coxph(Surv(start, length, event) ~ x1 + x2, test, ties = "breslow")
+    }
     goldSurv <- survfit(goldFit)
 
     dataPtr <- createCyclopsData(Surv(length, event) ~ x1 + x2, data = test, modelType = "cox")
@@ -84,7 +96,11 @@ start, length, event, x1, x2
 0, 1,  1,1,0
 ")
 
-    goldFit <-  coxph(Surv(start, length, event) ~ x1 + x2, test, ties = "breslow")
+    if (packageVersion("survival") >= '3.2.9') {
+        goldFit <-  coxph(Surv(start, length, event) ~ x1 + x2, test, ties = "breslow", nocenter = NULL)
+    } else {
+        goldFit <-  coxph(Surv(start, length, event) ~ x1 + x2, test, ties = "breslow")
+    }
     goldSurv <- survfit(goldFit)
 
     dataPtr <- createCyclopsData(Surv(length, event) ~ x1 + x2, data = test, modelType = "cox")

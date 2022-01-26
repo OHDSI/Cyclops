@@ -121,7 +121,7 @@ fitCyclopsModel <- function(cyclopsData,
             is.null(prior$graph) && # TODO Ignore hierarchical models for now
             .cyclopsGetHasIntercept(cyclopsData) &&
             !prior$forceIntercept) {
-            interceptId <- .cyclopsGetInterceptLabel(cyclopsData)
+            interceptId <- bit64::as.integer64(.cyclopsGetInterceptLabel(cyclopsData))
             warn <- FALSE
             if (is.null(prior$exclude)) {
                 prior$exclude <- c(interceptId)
@@ -300,7 +300,11 @@ fitCyclopsModel <- function(cyclopsData,
             indices <- match(covariates, cyclopsData$coefficientNames)
             covariates <- getCovariateIds(cyclopsData)[indices]
         }
-        covariates = as.numeric(covariates)
+        # covariates = as.numeric(covariates)
+
+        if (!bit64::is.integer64(covariates)) {
+            covariates <- bit64::as.integer64(covariates)
+        }
 
         if (any(is.na(covariates))) {
             stop("Unable to match all covariates: ", paste(saved, collapse = ", "))
@@ -733,9 +737,10 @@ getSEs <- function(object, covariates) {
     if (getNumberOfCovariates(object$cyclopsData) != length(covariates)) {
         warning("Asymptotic standard errors are only valid if computed for all covariates simultaneously")
     }
+
     fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsData$cyclopsInterfacePtr, covariates)
     ses <- sqrt(diag(solve(fisherInformation)))
-    names(ses) <- object$coefficientNames[covariates]
+    names(ses) <- object$coefficientNames[as.integer(covariates)]
     ses
 }
 
@@ -777,7 +782,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     threads <- object$threads
 
     if (!is.null(object$fixedCoefficients)) {
-        if (any(object$fixedCoefficients[parm])) {
+        if (any(object$fixedCoefficients[as.integer(parm)])) {
             stop("Cannot estimate confidence interval for a fixed coefficient")
         }
     }
@@ -787,11 +792,11 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
                                  overrideNoRegularization,
                                  includePenalty)
     if (!is.null(object$scale) && rescale) {
-        prof$lower <- prof$lower * object$scale[parm]
-        prof$upper <- prof$upper * object$scale[parm]
+        prof$lower <- prof$lower * object$scale[as.integer(parm)]
+        prof$upper <- prof$upper * object$scale[as.integer(parm)]
     }
     prof <- as.matrix(as.data.frame(prof))
-    rownames(prof) <- object$coefficientNames[parm]
+    rownames(prof) <- object$coefficientNames[as.integer(parm)]
     qs <- c((1 - level) / 2, 1 - (1 - level) / 2) * 100
     colnames(prof)[2:3] <- paste(sprintf("%.1f", qs), "%")
 
@@ -807,26 +812,143 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #' @description
 #' \code{getCyclopsProfileLogLikelihood} evaluates the profile likelihood at a grid of parameter values.
 #'
-#' @param object    A fitted Cyclops model object
-#' @param parm      A specification of which parameter requires profiling,
+#' @param object    Fitted Cyclops model object
+#' @param parm      Specification of which parameter requires profiling,
 #'                  either a vector of numbers of covariateId names
-#' @param x         A vector of values of the parameter
+#' @param x         Vector of values of the parameter
+#' @param bounds    Pair of values to bound adaptive profiling
+#' @param tolerance Absolute tolerance allowed for adaptive profiling
+#' @param initialGridSize Initial grid size for adaptive profiling
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
 #'
 #' @return
-#' A vector of the profile log likelihood evaluated at x
+#' A data frame containing the profile log likelihood. Returns NULL when the adaptive profiling fails
+#' to converge.
 #'
 #' @export
-getCyclopsProfileLogLikelihood <- function(object, parm, x,
+getCyclopsProfileLogLikelihood <- function(object,
+                                           parm,
+                                           x = NULL,
+                                           bounds = NULL,
+                                           tolerance = 1E-3,
+                                           initialGridSize = 10,
                                            includePenalty = TRUE) {
+
+    if (!xor(is.null(x), is.null(bounds))) {
+        stop("Must provide either `x` or `bounds`, but not both.")
+    }
+
+    if (!is.null(bounds)) { # Adaptive profiling using recursive calls
+
+        if (length(bounds) != 2 || bounds[1] >= bounds[2]) {
+            stop("Must provide bounds[1] < bounds[2]")
+        }
+
+        # If an MLE was found, let's not throw that bit of important information away:
+        if (object$return_flag == "SUCCESS" &&
+            coef(object)[as.character(parm)] > bounds[1] &&
+            coef(object)[as.character(parm)] < bounds[2]) {
+            profile <- tibble(point = coef(object)[as.character(parm)],
+                              value = fixedGridProfileLogLikelihood(object, parm, coef(object)[as.character(parm)], includePenalty)$value)
+        } else {
+            profile <- tibble()
+        }
+
+        # Start with sparse grid:
+        grid <- seq(bounds[1], bounds[2], length.out = initialGridSize)
+
+        # Iterate until stopping criteria met:
+        priorMaxMaxError <- Inf
+        while (length(grid) != 0) {
+
+            ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty)
+
+            profile <- bind_rows(profile, ll) %>% arrange(.data$point)
+
+            if (any(is.nan(profile$value))) {
+                if (all(is.nan(profile$value))) {
+                    warning("Failing to compute likelihood at entire initial grid.")
+                    return(NULL)
+                }
+
+                start <- min(which(!is.nan(profile$value)))
+                end <- max(which(!is.nan(profile$value)))
+                if (start == end) {
+                    warning("Failing to compute likelihood at entire grid except one. Giving up")
+                    return(NULL)
+                }
+                profile <- profile[start:end, ]
+                if (any(is.nan(profile$value))) {
+                    warning("Failing to compute likelihood in non-extreme regions. Giving up.")
+                    return(NULL)
+                }
+                warning("Failing to compute likelihood at extremes. Truncating bounds.")
+            }
+
+            deltaX <- profile$point[2:nrow(profile)] - profile$point[1:(nrow(profile) - 1)]
+            deltaY <- profile$value[2:nrow(profile)] - profile$value[1:(nrow(profile) - 1)]
+            slopes <- deltaY / deltaX
+
+            # Compute where prior and posterior slopes intersect
+            slopes <- c(slopes[1] + (slopes[2] - slopes[3]),
+                        slopes,
+                        slopes[length(slopes)] - (slopes[length(slopes) - 1] - slopes[length(slopes)]))
+
+            interceptX <- (profile$value[2:nrow(profile)] -
+                               profile$point[2:nrow(profile)] * slopes[3:length(slopes)] -
+                               profile$value[1:(nrow(profile) - 1)] +
+                               profile$point[1:(nrow(profile) - 1)] * slopes[1:(length(slopes) - 2)]) /
+                (slopes[1:(length(slopes) - 2)] - slopes[3:length(slopes)])
+
+            # Compute absolute difference between linear interpolation and worst case scenario (which is at the intercept):
+            maxError <- abs((profile$value[1:(nrow(profile) - 1)] + (interceptX - profile$point[1:(nrow(profile) - 1)]) * slopes[1:(length(slopes) - 2)]) -
+                                (profile$value[1:(nrow(profile) - 1)] + (interceptX - profile$point[1:(nrow(profile) - 1)]) * slopes[2:(length(slopes) - 1)]))
+
+            maxMaxError <- max(maxError, na.rm = TRUE)
+            if (is.na(maxMaxError) || maxMaxError > priorMaxMaxError) {
+                warning("Failing to converge when using adaptive profiling.")
+                return(NULL)
+            }
+            priorMaxMaxError <- maxMaxError
+
+            exceed <- which(maxError > tolerance)
+            grid <- (profile$point[exceed] + profile$point[exceed + 1]) / 2
+        }
+    } else { # Use x
+        profile <- fixedGridProfileLogLikelihood(object, parm, x, includePenalty)
+    }
+
+    return(profile)
+}
+
+fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty) {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     parm <- .checkCovariates(object$cyclopsData, parm)
     threads <- object$threads
 
-    grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
-                                         threads, includePenalty)
-    grid
+    if (getNumberOfCovariates(object$cyclopsData) == 1 || length(x) == 1) {
+        grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
+                                             threads, includePenalty)
+    } else {
+        # Partition sequence
+        y <- sort(x)
+        midPt <- floor(length(x) / 2)
+        lower <- y[midPt:1]
+        upper <- y[(midPt + 1):length(x)]
+
+        # Execute: TODO chunk and repeat until ill-conditioned
+        gridLower <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, lower,
+                                                  threads, includePenalty)
+        gridUpper <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, upper,
+                                                  threads, includePenalty)
+        # Merge
+        grid <- rbind(gridLower, gridUpper)
+        grid <- grid[order(grid$point),]
+        rownames(grid) <- NULL
+    }
+
+    return(grid)
 }
 
 #' @title Asymptotic confidence intervals for a fitted Cyclops model object

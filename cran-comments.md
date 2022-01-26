@@ -1,14 +1,11 @@
-## Resubmission following email from Uwe Ligges:
-* "Please change http --> https, add trailing slashes, or follow moved content as appropriate."
-  - Done (both for offending URL and for CRAN logos)
+## Initial submission of minor patch update to package
 
-## New features in this release
-* implements Fine-Gray competing risks regression for massive datasets
-* fixed likelihood-profiling when starting with extreme coefficients
+* optimized likelihood profiling when objective function is concave; no
+  changes to package dependencies or package API
 
 ## Test environments
-* local OS X install, R 4.0.0
-* ubuntu 14.04 (on travis-ci), R 3.6.3, gcc 4.8.4 and gcc 6.0
+* local OS X install, R 4.0.4
+* ubuntu 20.04 (via gh-actions: devel and release)
 * win-builder (devel and release)
 
 ## R CMD check results
@@ -19,10 +16,10 @@
     sub-directories of 1Mb or more:
       libs 21.7Mb
 
-This occurs on systems (like `r-devel-linux-x86_64-fedora-clang`) that include debug
+This occurs on systems (like 'r-devel-linux-x86_64-fedora-clang') that include debug
 symbols in their compilation; Cyclops performance is heavily dependent on many template
 instantiations that generate a large library when including debug symbols.  Future
-availability of C++17 `if (constexpr ...)` should decrease library size substantially.
+availability of C++17 'if (constexpr ...)' should decrease library size substantially.
 
 ## Downstream dependencies
-There are currently no downstream dependencies.
+* 'EvidenceSynthesis' - checked and works.

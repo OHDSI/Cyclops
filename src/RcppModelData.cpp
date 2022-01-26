@@ -254,14 +254,20 @@ int cyclopsGetNumberOfTypes(Environment object) {
 
 // [[Rcpp::export(.cyclopsUnivariableCorrelation)]]
 std::vector<double> cyclopsUnivariableCorrelation(Environment x,
-                                                  const std::vector<long>& covariateLabel) {
+                                                  const std::vector<double>& bitCovariateLabel) {
+
+    const auto covariateLabel = reinterpret_cast<const std::vector<int64_t>&>(bitCovariateLabel);
+
     XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(x);
     return data->univariableCorrelation(covariateLabel);
 }
 
 // [[Rcpp::export(.cyclopsUnivariableSeparability)]]
 std::vector<int> cyclopsUnivariableSeparability(Environment x,
-                                                  const std::vector<long>& covariateLabel) {
+                                                  const std::vector<double>& bitCovariateLabel) {
+
+    const auto covariateLabel = reinterpret_cast<const std::vector<int64_t>&>(bitCovariateLabel);
+
     XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(x);
 
     std::vector<int> result;
@@ -313,9 +319,15 @@ std::vector<int> cyclopsUnivariableSeparability(Environment x,
 }
 
 // [[Rcpp::export(".cyclopsSumByGroup")]]
-List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel,
-		const long groupByLabel, const int power) {
+List cyclopsSumByGroup(Environment x, const std::vector<double>& bitCovariateLabel,
+		const double bitGroupByLabel, const int power) {
 	XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(x);
+
+    const auto covariateLabel = reinterpret_cast<const std::vector<int64_t>&>(bitCovariateLabel);
+
+    bsccs::IdType groupByLabel;
+    std::memcpy(&groupByLabel, &bitGroupByLabel, sizeof(double));
+
     List list(covariateLabel.size());
     IntegerVector names(covariateLabel.size());
     for (size_t i = 0; i < covariateLabel.size(); ++i) {
@@ -329,9 +341,12 @@ List cyclopsSumByGroup(Environment x, const std::vector<long>& covariateLabel,
 }
 
 // [[Rcpp::export(".cyclopsSumByStratum")]]
-List cyclopsSumByStratum(Environment x, const std::vector<long>& covariateLabel,
+List cyclopsSumByStratum(Environment x, const std::vector<double>& bitCovariateLabel,
 		const int power) {
 	XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(x);
+
+    const auto covariateLabel = reinterpret_cast<const std::vector<int64_t>&>(bitCovariateLabel);
+
     List list(covariateLabel.size());
     IntegerVector names(covariateLabel.size());
     for (size_t i = 0; i < covariateLabel.size(); ++i) {
@@ -345,11 +360,14 @@ List cyclopsSumByStratum(Environment x, const std::vector<long>& covariateLabel,
 }
 
 // [[Rcpp::export(".cyclopsSum")]]
-std::vector<double> cyclopsSum(Environment x, const std::vector<long>& covariateLabel,
+std::vector<double> cyclopsSum(Environment x, const std::vector<double>& bitCovariateLabel,
 		const int power) {
+
+    const auto covariateLabel = reinterpret_cast<const std::vector<int64_t>&>(bitCovariateLabel);
+
 	XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(x);
 	std::vector<double> result;
-	for (std::vector<long>::const_iterator it = covariateLabel.begin();
+	for (auto it = covariateLabel.begin();
 	        it != covariateLabel.end(); ++it) {
 	    result.push_back(data->sum(*it, power));
 	}
@@ -494,7 +512,11 @@ void cyclopsFinalizeData(
 
     if (!Rf_isNull(sexpOffsetCovariate)) {
         // TODO handle offset
-        IdType covariate = as<IdType>(sexpOffsetCovariate);
+        double bitCovariate = as<double>(sexpOffsetCovariate);
+        IdType covariate;
+        std::memcpy(&covariate, &bitCovariate, sizeof(double));
+        //IdType covariate = as<IdType>(sexpOffsetCovariate);
+
         if (covariate != -1) {
             int index = data->getColumnIndexByName(covariate);
             if (index == -1) {
@@ -533,12 +555,11 @@ void cyclopsFinalizeData(
     }
 
     if (!Rf_isNull(sexpCovariatesDense)) {
-        // TODO handle dense conversion
-        ProfileVector covariates = as<ProfileVector>(sexpCovariatesDense);
+        const std::vector<double>& bitCovariatesDense = as<std::vector<double>>(sexpCovariatesDense);
+        ProfileVector covariates = reinterpret_cast<const std::vector<IdType>&>(bitCovariatesDense);
+        //ProfileVector covariates = as<ProfileVector>(sexpCovariatesDense);
         for (auto it = covariates.begin(); it != covariates.end(); ++it) {
             data->convertCovariateToDense(*it);
-        	// IdType index = data->getColumnIndex(*it);
-        	// data->getColumn(index).convertColumnToDense(data->getNumberOfRows());
         }
     }
 

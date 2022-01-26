@@ -2,7 +2,7 @@ library(testthat)
 suppressWarnings(RNGversion("3.5.0"))
 
 test_that("Logistic regression with cross-validation", {
-
+    skip_on_cran()
     set.seed(123)
 
     sim <- simulateCyclopsData(nstrata=1,
