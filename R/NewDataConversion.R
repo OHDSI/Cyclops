@@ -135,7 +135,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
         }
     }
 
-    if (modelType == "clr" | modelType == "cpr") {
+    if (modelType == "clr" | modelType == "cpr" | modelType == "plr") {
         if (!isSorted(outcomes, c("stratumId","rowId"))) {
             if (!quiet)
                 writeLines("Sorting outcomes by stratumId and rowId")
@@ -295,7 +295,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
             arrange(.data$covariateId, .data$rowId)
     }
 
-    if (modelType == "clr" | modelType == "cpr") {
+    if (modelType == "clr" | modelType == "cpr" | modelType == "plr") {
         outcomes <- outcomes %>%
             arrange(.data$stratumId, .data$rowId)
 

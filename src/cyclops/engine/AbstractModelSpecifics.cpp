@@ -72,6 +72,9 @@ AbstractModelSpecifics* precisionFactory<float>(
     case ModelType::FINE_GRAY:
         model = deviceFactory<BreslowTiedFineGray<float>,float>(modelData, deviceType, deviceName);
         break;
+    case ModelType::POOLED_LOGISTIC:
+        model = deviceFactory<PooledLogisticRegression<float>,float>(modelData, deviceType, deviceName);
+        break;
     default:
         break;
     }
@@ -118,6 +121,9 @@ AbstractModelSpecifics* precisionFactory<double>(
         break;
     case ModelType::FINE_GRAY:
         model = deviceFactory<BreslowTiedFineGray<double>,double>(modelData, deviceType, deviceName);
+        break;
+    case ModelType::POOLED_LOGISTIC:
+        model = deviceFactory<PooledLogisticRegression<double>,double>(modelData, deviceType, deviceName);
         break;
     default:
         break;

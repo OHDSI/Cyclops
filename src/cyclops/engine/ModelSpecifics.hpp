@@ -460,6 +460,12 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *c
     }
 
     if (BaseModel::isTwoWayScan) {
+        for (size_t k = 0; k < K; ++k) {
+            hYWeight[k] = cenWeights[k];
+        }
+    }
+
+    if (BaseModel::isTwoWayScan || BaseModel::pooledLR) {
         hNtoK.resize(N + 1);
         int n = 0;
         for (size_t k = 0; k < K;) {
@@ -471,10 +477,6 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *c
             ++n;
         }
         hNtoK[n] = K;
-
-        for (size_t k = 0; k < K; ++k) {
-            hYWeight[k] = cenWeights[k];
-        }
     }
 
 #ifdef DEBUG_COX
@@ -512,6 +514,14 @@ void ModelSpecifics<BaseModel, RealType>::computeXjY(bool useCrossValidation) {
 				} else if (BaseModel::isSurvivalModel) {
                     // ESK: Modified for survival data
                     hXjY[j] += it.value() * BaseModel::observationCount(hY[k]);
+				} else if (BaseModel::pooledLR) {
+				    if (hX.getFormatType(j) == DENSE || hX.getFormatType(j) == INTERCEPT) {
+				        hXjY[j] += it.value() * hY[k];
+				    } else {
+				        for (int k2 = hNtoK[k]; k2 < hNtoK[k+1]; k2++) {
+				            hXjY[j] += it.value() * hY[k2];
+				        }
+				    }
 				} else {
 				    hXjY[j] += it.value() * hY[k];
                 }
@@ -1019,6 +1029,41 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
             } // End backwards iterator
 		}
 
+
+    } else if (BaseModel::pooledLR) {
+
+        IteratorType it(hX, index);
+        if (!IteratorType::isSparse) {
+            for (; it; ++it) {
+                const int i = it.index();
+
+                RealType numerator1 = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], hXBeta[i], hY[i]);
+                RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+                BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
+
+                // Compile-time delegation
+                BaseModel::incrementGradientAndHessian(it,
+                                                       w, // Signature-only, for iterator-type specialization
+                                                       &gradient, &hessian, numerator1, numerator2,
+                                                       denomPid[i], hNWeight[i], it.value(), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
+            }
+        } else {
+            for (; it; ++it) {
+                const int i = it.index();
+                for (int k = hNtoK[i]; k < hNtoK[i+1]; k++) {
+
+                    RealType numerator1 = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]);
+                    RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
+                    BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]) : static_cast<RealType>(0);
+
+                    // Compile-time delegation
+                    BaseModel::incrementGradientAndHessian(it,
+                                                           w, // Signature-only, for iterator-type specialization
+                                                           &gradient, &hessian, numerator1, numerator2,
+                                                           denomPid[k], hNWeight[k], it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
+                }
+            }
+        }
 	} else if (BaseModel::hasIndependentRows) {
 
 	    IteratorType it(hX, index);
@@ -1558,6 +1603,34 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
                 incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
             }
         }
+    } else if (BaseModel::pooledLR) {
+        if (!IteratorType::isSparse) {
+            for (; it; ++it) {
+                const int k = it.index();
+                hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
+
+                if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+                    RealType oldEntry = offsExpXBeta[k];
+                    RealType newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
+                    incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry));
+                }
+            }
+        } else {
+            for (; it; ++it) {
+                const int i = it.index();
+
+                for (int k = hNtoK[i]; k < hNtoK[i+1]; k++) {
+                    hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
+
+                    if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+                        RealType oldEntry = offsExpXBeta[k];
+                        RealType newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
+                        incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry));
+                    }
+                }
+            }
+        }
+
     } else {
         for (; it; ++it) {
             const int k = it.index();
@@ -1937,6 +2010,9 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
     }
 
 
+    if (BaseModel:: pooledLR) { // TODO think again
+        N = K;
+    }
 
     size_t alignedLength = getAlignedLength(N + 1);
     // 	numerDenomPidCache.resize(3 * alignedLength, 0);

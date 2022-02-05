@@ -40,6 +40,7 @@ namespace bsccs {
  	{ModelType::NORMAL, "ls"},
  	{ModelType::POISSON, "pr"},
  	{ModelType::LOGISTIC, "lr"},
+ 	{ModelType::POOLED_LOGISTIC, "plr"},
  	{ModelType::CONDITIONAL_LOGISTIC, "clr"},
  	{ModelType::TIED_CONDITIONAL_LOGISTIC, "clr_exact"},
  	{ModelType::CONDITIONAL_POISSON, "cpr"},
