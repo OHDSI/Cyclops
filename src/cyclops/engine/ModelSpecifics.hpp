@@ -425,7 +425,7 @@ void ModelSpecifics<BaseModel,RealType>::axpyXBeta(const double beta, const int 
 
 // ESK: Added cWeights (censoring weights) as an input
 template <class BaseModel,typename RealType>
-void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *cenWeights, bool useCrossValidation) {
+void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *cenWeights, double *inFt, bool useCrossValidation) {
 	// Set K weights
 	if (hKWeight.size() != K) {
 		hKWeight.resize(K);
@@ -462,6 +462,16 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *c
     if (BaseModel::isTwoWayScan) {
         for (size_t k = 0; k < K; ++k) {
             hYWeight[k] = cenWeights[k];
+        }
+    }
+
+    if (BaseModel::pooledLR) {
+        if (hFt.size() != K) {
+            hFt.resize(K);
+        }
+        for (size_t k = 0; k < K; ++k) {
+            hFt[k] = inFt[k];
+            // std::cout << "k: " << k << " ft: " << hFt[k] << '\n';
         }
     }
 
@@ -674,7 +684,7 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 	    }
 
 		setPidForAccumulation(weights);
-		setWeights(weights, nullptr, true); // set new weights // TODO Possible error for gfr
+		setWeights(weights, nullptr, nullptr, true); // set new weights // TODO Possible error for gfr
 		computeRemainingStatistics(true); // compute accDenomPid
 	}
 
@@ -692,7 +702,7 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 
 	if (BaseModel::cumulativeGradientAndHessian) {
 		setPidForAccumulation(&saveKWeight[0]);
-	    setWeights(saveKWeight.data(), nullptr, true); // set old weights // TODO Possible eror for gfr
+	    setWeights(saveKWeight.data(), nullptr, nullptr, true); // set old weights // TODO Possible eror for gfr
 		computeRemainingStatistics(true);
 	}
 

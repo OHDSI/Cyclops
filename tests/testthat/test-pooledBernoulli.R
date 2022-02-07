@@ -50,7 +50,7 @@ test_that("Test data.frame to data for lr", {
                            rowId = 1:nrow(test),
                            y = test$status,
                            time = test$length,
-                           ft = test$length) # linear effect
+                           timeEffects = test$length) # linear effect
     covariates <- covariates[covariates$covariateValue != 0,]
 
     covariatesLong <- data.frame(stratumId = c(rep(1, 5), rep(2, 4), rep(3, 3), rep(4, 2), rep(5, 2), rep(6, 2), 7, 8),
@@ -61,7 +61,7 @@ test_that("Test data.frame to data for lr", {
                                rowId = 1:nrow(testLong),
                                y = testLong$status,
                                time = testLong$length,
-                               ft = testLong$length)
+                               timeEffects = testLong$length)
     covariatesLong <- covariatesLong[covariatesLong$covariateValue != 0,]
 
     # real lr (long outcome and long covariates)

@@ -76,7 +76,8 @@ These columns are expected in the outcome object:
   \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
                  \tab        \tab(e.g. number of days) \cr
   \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
-  \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided.
+  \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided \cr
+  \verb{timeEffects}  \tab(real) \tab (optional) Non-negative time effects for pooled logistic regression \cr
 }
 
 These columns are expected in the covariates object:

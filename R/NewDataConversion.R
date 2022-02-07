@@ -44,7 +44,8 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'   \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
 #'                  \tab        \tab(e.g. number of days) \cr
 #'   \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
-#'   \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided.
+#'   \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided \cr
+#'   \verb{timeEffects}  \tab(real) \tab (optional) Non-negative time effects for pooled logistic regression \cr
 #' }
 #'
 #' These columns are expected in the covariates object:
@@ -228,6 +229,17 @@ convertToCyclopsData.data.frame <- function(outcomes,
         }
     }
 
+    if ("timeEffects" %in% colnames(outcomes)) {
+        dataPtr$timeEffects <- outcomes$timeEffects
+    } else {
+        if (modelType == "plr") {
+            stop("Subject-specific time effects must be specified for modelType = 'plr'.")
+            # writeLines("Generating timeEffects") ## TODO write function for generating timeEffects
+        } else {
+            dataPtr$timeEffects <- NULL
+        }
+    }
+
     return(dataPtr)
 }
 
@@ -378,5 +390,15 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         }
     }
 
+    if ("timeEffects" %in% colnames(outcomes)) {
+        dataPtr$timeEffects <- outcomes %>% pull(.data$timeEffects)
+    } else {
+        if (modelType == "plr") {
+            stop("Subject-specific time effects must be specified for modelType = 'plr'.")
+            # writeLines("Generating timeEffects") ## TODO write function for generating timeEffects
+        } else {
+            dataPtr$timeEffects <- NULL
+        }
+    }
     return(dataPtr)
 }

@@ -259,6 +259,21 @@ fitCyclopsModel <- function(cyclopsData,
         .cyclopsSetCensorWeights(cyclopsData$cyclopsInterfacePtr, cyclopsData$censorWeights)
     }
 
+    # timeEffects check for the pooled logistic regression
+    if (cyclopsData$modelType == "plr" & is.null(cyclopsData$timeEffects)) {
+        stop("Subject-specific time effects must be specified for modelType = 'plr'.")
+    }
+
+    if (!is.null(cyclopsData$timeEffects)) {
+        if (cyclopsData$modelType != 'plr') {
+            warning(paste0("modelType = '", cyclopsData$modelType, "' does not support timeEffects."))
+        }
+        if (length(cyclopsData$timeEffects) != getNumberOfRows(cyclopsData)) {
+            stop("Must provide a timeEffects for each data row")
+        }
+        .cyclopsSetTimeEffects(cyclopsData$cyclopsInterfacePtr, cyclopsData$timeEffects)
+    }
+
     if (prior$useCrossValidation) {
         minCVData <- control$minCVData
         if (control$selectorType == "byRow" && minCVData > getNumberOfRows(cyclopsData)) {

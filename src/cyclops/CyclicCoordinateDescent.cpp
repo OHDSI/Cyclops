@@ -112,6 +112,16 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 	    checkAllLazyFlags();
 	}
 
+	if (copy.hFt.size() > 0) {
+
+	    std::vector<double> buffer;
+	    buffer.resize(copy.hFt.size());
+	    std::copy(std::begin(copy.hFt), std::end(copy.hFt), std::begin(buffer));
+
+	    setTimeEffects(buffer.data());
+	    checkAllLazyFlags();
+	}
+
 	// Copy over exisiting beta;
 	bool allBetaZero = true;
 	for (int j = 0; j < J; ++j) {
@@ -250,6 +260,7 @@ void CyclicCoordinateDescent::computeNEvents() {
 	modelSpecifics.setWeights(
 	    hWeights.size() > 0 ? hWeights.data() : nullptr,
 	    cWeights.size() > 0 ? cWeights.data() : nullptr,
+	    hFt.size() > 0 ? hFt.data() : nullptr,
 	    useCrossValidation);
 }
 
@@ -530,6 +541,22 @@ void CyclicCoordinateDescent::setCensorWeights(double* dWeights) {
         }
         for (int i = 0; i < K; ++i) {
             cWeights[i] = dWeights[i];
+        }
+    }
+}
+
+void CyclicCoordinateDescent::setTimeEffects(double* iFt) {
+    if (iFt == NULL) {
+        if (hFt.size() != 0) {
+            hFt.resize(0);
+        }
+    } else {
+
+        if (hFt.size() != static_cast<size_t>(K)) {
+            hFt.resize(K);
+        }
+        for (int i = 0; i < K; ++i) {
+            hFt[i] = iFt[i];
         }
     }
 }
