@@ -13,7 +13,7 @@ createCyclopsData(
   subset = NULL,
   weights = NULL,
   censorWeights = NULL,
-  timeEffect = NULL,
+  timeEffects = NULL,
   offset = NULL,
   time = NULL,
   pid = NULL,
