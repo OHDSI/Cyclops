@@ -782,6 +782,23 @@ loadNewSqlCyclopsDataX <- function(object,
 }
 
 #' @keywords internal
+loadNewSqlCyclopsDataTimeEffects <- function(object) {
+
+    if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
+
+    index <- .loadCyclopsDataTimeEffects(object)
+
+    # if (!missing(name)) {
+    #     if (is.null(object$coefficientNames)) {
+    #         object$coefficientNames <- as.character(c())
+    #     }
+    #     start <- index + 1
+    #     end <- index + length(name)
+    #     object$coefficientNames[start:end] <- as.character(name)
+    # }
+}
+
+#' @keywords internal
 loadNewSqlCyclopsDataY <- function(object,
                                    stratumId = NULL,
                                    rowId = NULL,

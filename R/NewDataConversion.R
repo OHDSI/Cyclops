@@ -205,6 +205,11 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                    rowId = covariates$rowId,
                                    covariateValue = covariates$covariateValue,
                                    name = covarNames)
+
+    if (modelType == "plr") {
+        loadNewSqlCyclopsDataTimeEffects(object = dataPtr)
+    }
+
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
 
@@ -362,6 +367,10 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     Andromeda::batchApply(covariates,
                           loadCovariates,
                           batchSize = 100000) # TODO Pick magic number
+
+    if (modelType == "plr") {
+        loadNewSqlCyclopsDataTimeEffects(object = dataPtr)
+    }
 
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
