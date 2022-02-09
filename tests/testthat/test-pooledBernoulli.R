@@ -65,7 +65,7 @@ test_that("Test data.frame to data for lr", {
     covariatesLong <- covariatesLong[covariatesLong$covariateValue != 0,]
 
     # real lr (long outcome and long covariates)
-    cyclopsDataLR <- convertToCyclopsData(outcomesLong,covariatesLong,modelType = "lr")
+    cyclopsDataLR <- convertToCyclopsData(outcomesLong[, 1:4],covariatesLong,modelType = "lr")
     fitLR <- fitCyclopsModel(cyclopsDataLR)
 
     # efficient pooled lr (long outcome and short covariates)
