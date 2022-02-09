@@ -370,6 +370,25 @@ int ModelData<RealType>::loadX(
 }
 
 template <typename RealType>
+int ModelData<RealType>::loadTimeEffects() {
+    int numOfCov  = getNumberOfColumns();
+    // for (int index = 0; index < numOfCov; index++) {
+    //     CompressedDataColumn<RealType>& column = X.getColumn(index);
+    //
+    //     FormatType format = column.getFormatType();
+    //     const std::vector<int> rowId = column.getColumnsVector();
+    //     const std::vector<RealType> covariateValue = column.getDataVector();
+    //
+    //     X.push_back(begin(rowId), end(rowId),
+    //                 begin(covariateValue), end(covariateValue),
+    //                 format);
+    //
+    //     X.getColumn(index + numOfCov).setTimeEffectType(true);
+    // }
+    return numOfCov;
+}
+
+template <typename RealType>
 size_t ModelData<RealType>::append(
         const std::vector<IdType>& oStratumId,
         const std::vector<IdType>& oRowId,
