@@ -45,6 +45,8 @@ createCyclopsData(
 
 \item{censorWeights}{Vector of subject-specific censoring weights (between 0 and 1). Currently only supported in \code{modelType = "fgr"}.}
 
+\item{timeEffects}{Vector of subject-specific time effects . Currently only supported in \code{modelType = "plr"}.}
+
 \item{offset}{Currently unused}
 
 \item{time}{Currently undocumented}
@@ -68,8 +70,6 @@ createCyclopsData(
 \item{floatingPoint}{Integer: Floating-point representation size (32 or 64)}
 
 \item{method}{Currently undocumented}
-
-\item{timeEffects}{Vector of subject-specific time effects . Currently only supported in \code{modelType = "plr"}.}
 }
 \value{
 A list that contains a Cyclops model data object pointer and an operation duration

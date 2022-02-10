@@ -526,10 +526,10 @@ void ModelSpecifics<BaseModel, RealType>::computeXjY(bool useCrossValidation) {
                     hXjY[j] += it.value() * BaseModel::observationCount(hY[k]);
 				} else if (BaseModel::pooledLR) {
 				    if (hX.getFormatType(j) == DENSE || hX.getFormatType(j) == INTERCEPT) {
-				        hXjY[j] += it.value() * hY[k] * (hX.hasTimeEffect(j) ? hFt[k] : static_cast<RealType>(1));
+				        hXjY[j] += it.value() * hY[k];
 				    } else {
 				        for (int k2 = hNtoK[k]; k2 < hNtoK[k+1]; k2++) {
-				            hXjY[j] += it.value() * hY[k2] * (hX.hasTimeEffect(j) ? hFt[k2] : static_cast<RealType>(1));
+				            hXjY[j] += it.value() * hY[k2];
 				        }
 				    }
 				} else {
@@ -1047,9 +1047,9 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
             for (; it; ++it) {
                 const int i = it.index();
 
-                RealType numerator1 = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], hXBeta[i], hY[i]) * (hX.hasTimeEffect(index) ? hFt[i] : static_cast<RealType>(1));
+                RealType numerator1 = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[i], hXBeta[i], hY[i]);
                 RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-                BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<RealType>(0) * (hX.hasTimeEffect(index) ? hFt[i] : static_cast<RealType>(1));
+                BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[i]) : static_cast<RealType>(0);
 
                 // Compile-time delegation
                 BaseModel::incrementGradientAndHessian(it,
@@ -1062,9 +1062,9 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                 const int i = it.index();
                 for (int k = hNtoK[i]; k < hNtoK[i+1]; k++) {
 
-                    RealType numerator1 = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]) * (hX.hasTimeEffect(index) ? hFt[k] : static_cast<RealType>(1));
+                    RealType numerator1 = BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]);
                     RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
-                    BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]) : static_cast<RealType>(0) * (hX.hasTimeEffect(index) ? hFt[k] : static_cast<RealType>(1));
+                    BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]) : static_cast<RealType>(0);
 
                     // Compile-time delegation
                     BaseModel::incrementGradientAndHessian(it,
@@ -1617,8 +1617,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
         if (!IteratorType::isSparse) {
             for (; it; ++it) {
                 const int k = it.index();
-                hXBeta[k] += realDelta * it.value() * (hX.hasTimeEffect(index) ?
-                                                           hFt[k] : static_cast<RealType>(1)); // TODO Check optimization with indicator and intercept
+                hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
 
                 if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
                     RealType oldEntry = offsExpXBeta[k];
@@ -1631,8 +1630,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
                 const int i = it.index();
 
                 for (int k = hNtoK[i]; k < hNtoK[i+1]; k++) {
-                    hXBeta[k] += realDelta * it.value() * (hX.hasTimeEffect(index) ?
-                                                               hFt[k] : static_cast<RealType>(1)); // TODO Check optimization with indicator and intercept
+                    hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
 
                     if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
                         RealType oldEntry = offsExpXBeta[k];

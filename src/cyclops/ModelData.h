@@ -152,9 +152,6 @@ public:
             const bool forceSparse
     ) = 0;
 
-    virtual int loadTimeEffects(
-    ) = 0;
-
     virtual size_t append(
             const std::vector<IdType>& oStratumId,
             const std::vector<IdType>& oRowId,
@@ -306,9 +303,6 @@ public:
 		const bool checkCovariateBounds,
 		const bool append,
 		const bool forceSparse
-	);
-
-	int loadTimeEffects(
 	);
 
 	const int* getPidVector() const;
