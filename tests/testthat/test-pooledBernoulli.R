@@ -4,7 +4,7 @@ library("Andromeda")
 
 context("test-pooledBernoulli.R")
 
-test_that("Test data.frame to data for lr", {
+test_that("Test data.frame to data for plr", {
     # library(Cyclops)
     # library("testthat")
     test <- read.table(header=T, sep = ",", text = "

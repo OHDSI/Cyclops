@@ -511,6 +511,14 @@ void ModelSpecifics<BaseModel, RealType>::computeXjY(bool useCrossValidation) {
 				} else if (BaseModel::isSurvivalModel) {
 				    // ESK: Modified for suvival data
                     hXjY[j] += it.value() * BaseModel::observationCount(hY[k]) * hKWeight[k];
+				} else if (BaseModel::pooledLR) {
+				    if (hX.getFormatType(j) == INTERCEPT) {
+				        hXjY[j] += it.value() * hY[k] * hKWeight[k];
+				    } else {
+				        for (int k2 = hNtoK[k]; k2 < hNtoK[k+1]; k2++) {
+				            hXjY[j] += it.value() * hY[k2] * hKWeight[k2];
+				        }
+				    }
 				} else {
 					hXjY[j] += it.value() * hY[k] * hKWeight[k];
 				}
@@ -525,7 +533,7 @@ void ModelSpecifics<BaseModel, RealType>::computeXjY(bool useCrossValidation) {
                     // ESK: Modified for survival data
                     hXjY[j] += it.value() * BaseModel::observationCount(hY[k]);
 				} else if (BaseModel::pooledLR) {
-				    if (hX.getFormatType(j) == DENSE || hX.getFormatType(j) == INTERCEPT) {
+				    if (hX.getFormatType(j) == INTERCEPT) {
 				        hXjY[j] += it.value() * hY[k];
 				    } else {
 				        for (int k2 = hNtoK[k]; k2 < hNtoK[k+1]; k2++) {
@@ -1043,7 +1051,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
     } else if (BaseModel::pooledLR) {
 
         IteratorType it(hX, index);
-        if (!IteratorType::isSparse) {
+        if (!IteratorType::isSparse && IteratorType::isIndicator) { // only intercept
             for (; it; ++it) {
                 const int i = it.index();
 
@@ -1614,7 +1622,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
             }
         }
     } else if (BaseModel::pooledLR) {
-        if (!IteratorType::isSparse) {
+        if (!IteratorType::isSparse && IteratorType::isIndicator) { // only intercept
             for (; it; ++it) {
                 const int k = it.index();
                 hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
