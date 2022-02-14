@@ -48,5 +48,6 @@ Suggests:
     gnm,
     ggplot2,
     microbenchmark,
-    cmprsk
+    cmprsk,
+    glmnet
 RoxygenNote: 7.1.2
