@@ -818,6 +818,31 @@ loadNewSqlCyclopsDataY <- function(object,
                       time)
 }
 
+#' @keywords internal
+loadNewSqlCyclopsDataTimeEffects <- function(object,
+                                             covariateId,
+                                             timeEffectId) { # Vector
+
+    if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
+
+    if (!all(timeEffectId %in% covariateId)) stop("Invalid covariateId.")
+
+    if (!bit64::is.integer64(timeEffectId)) {
+        timeEffectId <- bit64::as.integer64(timeEffectId)
+    }
+
+    index <- .loadCyclopsDataTimeEffects(object, timeEffectId)
+
+    # if (!missing(name)) {
+    #     if (is.null(object$coefficientNames)) {
+    #         object$coefficientNames <- as.character(c())
+    #     }
+    #     start <- index + 1
+    #     end <- index + length(name)
+    #     object$coefficientNames[start:end] <- as.character(name)
+    # }
+}
+
 
 #' @title finalizeSqlCyclopsData
 #'

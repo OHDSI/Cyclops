@@ -10,6 +10,7 @@ convertToCyclopsData(
   outcomes,
   covariates,
   modelType = "lr",
+  timeEffectId = NULL,
   addIntercept = TRUE,
   checkSorting = NULL,
   checkRowIds = TRUE,
@@ -22,6 +23,7 @@ convertToCyclopsData(
   outcomes,
   covariates,
   modelType = "lr",
+  timeEffectId = NULL,
   addIntercept = TRUE,
   checkSorting = NULL,
   checkRowIds = TRUE,
@@ -34,6 +36,7 @@ convertToCyclopsData(
   outcomes,
   covariates,
   modelType = "lr",
+  timeEffectId = NULL,
   addIntercept = TRUE,
   checkSorting = NULL,
   checkRowIds = TRUE,
@@ -48,6 +51,8 @@ convertToCyclopsData(
 \item{covariates}{A data frame or ffdf object containing the covariates with predefined columns (see below).}
 
 \item{modelType}{Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"}
+
+\item{timeEffectId}{A vector of column IDs with time effects.}
 
 \item{addIntercept}{Add an intercept to the model?}
 

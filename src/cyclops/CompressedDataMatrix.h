@@ -49,9 +49,9 @@ public:
     // typedef bsccs::shared_ptr<IntVector> IntVectorPtr;
     typedef bsccs::shared_ptr<RealVector> RealVectorPtr;
 
-	CompressedDataColumn(IntVectorPtr colIndices, RealVectorPtr colData, FormatType colFormat,
+	CompressedDataColumn(IntVectorPtr colIndices, RealVectorPtr colData, FormatType colFormat, bool timeType = false,
 			std::string colName = "", IdType nName = 0, bool sPtrs = false) :
-		 columns(colIndices), data(colData), formatType(colFormat), stringName(colName),
+		 columns(colIndices), data(colData), formatType(colFormat), timeEffect(timeType), stringName(colName),
 		 numericalName(nName), sharedPtrs(sPtrs) {
 		// Do nothing
 	}
@@ -108,6 +108,16 @@ public:
 
 	FormatType getFormatType() const {
 		return formatType;
+	}
+
+	bool hasTimeEffect() const { // TODO make this a type
+	    return timeEffect;
+	}
+
+	void setTimeEffectType(bool hasTimeEffect) {
+	    if (hasTimeEffect) {
+	        timeEffect = true;
+	    }
 	}
 
 	const std::string& getLabel() const {
@@ -235,6 +245,7 @@ private:
 	RealVectorPtr data;
 
 	FormatType formatType;
+	bool timeEffect; // TODO make this a type
 	mutable std::string stringName;
 	IdType numericalName;
 	bool sharedPtrs; // TODO Actually use shared pointers
@@ -281,6 +292,8 @@ public:
 	bsccs::shared_ptr<CompressedDataMatrix> transpose() const;
 
 	FormatType getFormatType(int column) const;
+
+	bool hasTimeEffect(int column) const;
 
 	void convertColumnToDense(int column);
 

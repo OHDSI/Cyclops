@@ -370,6 +370,42 @@ int ModelData<RealType>::loadX(
 }
 
 template <typename RealType>
+int ModelData<RealType>::loadTimeEffects(
+        const std::vector<int64_t>& timeEffectIds) {
+
+    int numOfCov = getNumberOfColumns();
+    int totalNumOfCov = numOfCov;
+
+    // time effect with intercept
+    FormatType format = SPARSE;
+    X.push_back(format);
+    size_t n  = getX().nRows;
+    CompressedDataColumn<RealType>& column = X.getColumn(totalNumOfCov);
+    for (size_t i = 0; i < n; i++) {
+        column.getDataVector().push_back(static_cast<RealType>(1));
+        column.getColumnsVector().push_back(i);
+    }
+    X.getColumn(totalNumOfCov++).setTimeEffectType(true);
+
+    // time effect with baseline covariates
+    for (auto index : timeEffectIds) {
+        // std::cout << "load index: " << index << '\n';
+        CompressedDataColumn<RealType>& column = X.getColumn(index);
+        FormatType format = column.getFormatType();
+
+        const std::vector<int> rowId = column.getColumnsVector();
+        const std::vector<RealType> covariateValue = column.getDataVector();
+
+        X.push_back(begin(rowId), end(rowId),
+                    begin(covariateValue), end(covariateValue),
+                    format);
+
+        X.getColumn(totalNumOfCov++).setTimeEffectType(true);
+    }
+    return numOfCov;
+}
+
+template <typename RealType>
 size_t ModelData<RealType>::append(
         const std::vector<IdType>& oStratumId,
         const std::vector<IdType>& oRowId,

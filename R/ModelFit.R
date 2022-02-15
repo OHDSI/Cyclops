@@ -261,7 +261,7 @@ fitCyclopsModel <- function(cyclopsData,
 
     # timeEffects check for the pooled logistic regression
     if (cyclopsData$modelType == "plr" & is.null(cyclopsData$timeEffects)) {
-        stop("Subject-specific time effects must be specified for modelType = 'plr'.")
+        warning("Subject-specific time effects are not specified for modelType = 'plr'.")
     }
 
     if (!is.null(cyclopsData$timeEffects)) {

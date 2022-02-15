@@ -623,6 +623,16 @@ int cyclopsLoadDataX(Environment x,
                        covariateValue, replace, append, forceSparse);
 }
 
+// [[Rcpp::export(".loadCyclopsDataTimeEffects")]]
+int cyclopsLoadDataTimeEffects(Environment x,
+                               const std::vector<double>& covariateId) {
+
+    using namespace bsccs;
+    XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
+
+    return data->loadTimeEffects(reinterpret_cast<const std::vector<int64_t>&>(covariateId));
+}
+
 // NOTE:  IdType does not get exported into RcppExports, so hard-coded here
 // TODO Could use SEXP signature and cast in function
 

@@ -28,6 +28,7 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' @param outcomes      A data frame or ffdf object containing the outcomes with predefined columns (see below).
 #' @param covariates    A data frame or ffdf object containing the covariates with predefined columns (see below).
 #' @param modelType     Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"
+#' @param timeEffectId  A vector of column IDs with time effects.
 #' @param addIntercept  Add an intercept to the model?
 #' @param checkSorting  (DEPRECATED) Check if the data are sorted appropriately, and if not, sort.
 #' @param checkRowIds   Check if all rowIds in the covariates appear in the outcomes.
@@ -82,6 +83,7 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 convertToCyclopsData <- function(outcomes,
                                  covariates,
                                  modelType = "lr",
+                                 timeEffectId = NULL,
                                  addIntercept = TRUE,
                                  checkSorting = NULL,
                                  checkRowIds = TRUE,
@@ -96,6 +98,7 @@ convertToCyclopsData <- function(outcomes,
 convertToCyclopsData.data.frame <- function(outcomes,
                                             covariates,
                                             modelType = "lr",
+                                            timeEffectId = NULL,
                                             addIntercept = TRUE,
                                             checkSorting = NULL,
                                             checkRowIds = TRUE,
@@ -205,6 +208,13 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                    rowId = covariates$rowId,
                                    covariateValue = covariates$covariateValue,
                                    name = covarNames)
+
+    if (modelType == "plr" && !is.null(timeEffectId)) {
+        loadNewSqlCyclopsDataTimeEffects(object = dataPtr,
+                                         covariateId = covariates$covariateId,
+                                         timeEffectId = timeEffectId)
+    }
+
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
 
@@ -233,7 +243,8 @@ convertToCyclopsData.data.frame <- function(outcomes,
         dataPtr$timeEffects <- outcomes$timeEffects
     } else {
         if (modelType == "plr") {
-            stop("Subject-specific time effects must be specified for modelType = 'plr'.")
+            warning("Subject-specific time effects are not specified for modelType = 'plr'.")
+            dataPtr$timeEffects <- NULL
             # writeLines("Generating timeEffects") ## TODO write function for generating timeEffects
         } else {
             dataPtr$timeEffects <- NULL
@@ -248,6 +259,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
 convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          covariates,
                                          modelType = "lr",
+                                         timeEffectId = NULL,
                                          addIntercept = TRUE,
                                          checkSorting = NULL,
                                          checkRowIds = TRUE,
@@ -394,7 +406,8 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         dataPtr$timeEffects <- outcomes %>% pull(.data$timeEffects)
     } else {
         if (modelType == "plr") {
-            stop("Subject-specific time effects must be specified for modelType = 'plr'.")
+            warning("Subject-specific time effects are not specified for modelType = 'plr'.")
+            dataPtr$timeEffects <- NULL
             # writeLines("Generating timeEffects") ## TODO write function for generating timeEffects
         } else {
             dataPtr$timeEffects <- NULL

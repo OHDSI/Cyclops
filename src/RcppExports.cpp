@@ -717,6 +717,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsLoadDataTimeEffects
+int cyclopsLoadDataTimeEffects(Environment x, const std::vector<double>& covariateId);
+RcppExport SEXP _Cyclops_cyclopsLoadDataTimeEffects(SEXP xSEXP, SEXP covariateIdSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type covariateId(covariateIdSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsLoadDataTimeEffects(x, covariateId));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsAppendSqlData
 int cyclopsAppendSqlData(Environment x, const std::vector<int64_t>& oStratumId, const std::vector<int64_t>& oRowId, const std::vector<double>& oY, const std::vector<double>& oTime, const std::vector<int64_t>& cRowId, const std::vector<int64_t>& cCovariateId, const std::vector<double>& cCovariateValue);
 RcppExport SEXP _Cyclops_cyclopsAppendSqlData(SEXP xSEXP, SEXP oStratumIdSEXP, SEXP oRowIdSEXP, SEXP oYSEXP, SEXP oTimeSEXP, SEXP cRowIdSEXP, SEXP cCovariateIdSEXP, SEXP cCovariateValueSEXP) {
@@ -838,6 +850,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsLoadDataY", (DL_FUNC) &_Cyclops_cyclopsLoadDataY, 5},
     {"_Cyclops_cyclopsLoadDataMultipleX", (DL_FUNC) &_Cyclops_cyclopsLoadDataMultipleX, 8},
     {"_Cyclops_cyclopsLoadDataX", (DL_FUNC) &_Cyclops_cyclopsLoadDataX, 7},
+    {"_Cyclops_cyclopsLoadDataTimeEffects", (DL_FUNC) &_Cyclops_cyclopsLoadDataTimeEffects, 2},
     {"_Cyclops_cyclopsAppendSqlData", (DL_FUNC) &_Cyclops_cyclopsAppendSqlData, 8},
     {"_Cyclops_cyclopsGetInterceptLabel", (DL_FUNC) &_Cyclops_cyclopsGetInterceptLabel, 1},
     {"_Cyclops_cyclopsReadFileData", (DL_FUNC) &_Cyclops_cyclopsReadFileData, 2},

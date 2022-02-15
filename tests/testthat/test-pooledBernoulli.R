@@ -3,7 +3,7 @@ library("glmnet")
 
 context("test-pooledBernoulli.R")
 
-test_that("Test data.frame to data for plr", {
+test_that("Test data.frame to data for plr without time effects", {
     tolerance <- 1E-4
 
     test <- read.table(header=T, sep = ",", text = "
@@ -41,7 +41,7 @@ test_that("Test data.frame to data for plr", {
     fitLR <- fitCyclopsModel(cyclopsDataLR)
 
     # efficient pooled lr (long outcome and short covariates)
-    cyclopsDataPLR <- convertToCyclopsData(outcomes = cbind(longOut, timeEffects = longOut$time), # linear effect
+    cyclopsDataPLR <- convertToCyclopsData(outcomes = cbind(longOut, timeEffects = longOut$time),
                                            covariates = shortCov,
                                            modelType = "plr")
     fitPLR <- fitCyclopsModel(cyclopsDataPLR)
@@ -50,3 +50,59 @@ test_that("Test data.frame to data for plr", {
     expect_equal(coef(fitLR), coef(fitPLR), tolerance = tolerance)
     expect_equivalent(logLik(fitLR),logLik(fitPLR))
 })
+
+test_that("Test data.frame to data for plr with time effects as interaction terms", {
+    tolerance <- 1E-3
+
+    library(Cyclops)
+    test <- read.table(header=T, sep = ",", text = "
+                       time, status, x1, x2
+                       5, 0, 0, 1
+                       4, 1, 1, 2
+                       3, 0, 0, 1
+                       2, 0, 1, 0
+                       2, 1, 0, 0
+                       2, 1, 0, 1
+                       1, 0, 0, 0
+                       1, 1, 2, 1 ")
+    longOut <- convertToLongOutcome(time = test$time, status = test$status)
+    denseCov <- data.frame(rowId = 1:dim(test)[1],
+                           x1 = test$x1,
+                           x2 = test$x2)
+
+    wideData <- merge(longOut, denseCov, by.x = "stratumId", by.y = "rowId")
+    wideData$interTerm <- wideData$x1 * wideData$time
+
+    nCovars <- 4
+    longCov <- data.frame(stratumId = 0,
+                          rowId = rep(1:nrow(wideData),nCovars),
+                          covariateId = rep(1:nCovars,each = nrow(wideData)),
+                          covariateValue = c(wideData$x1, wideData$x2, wideData$time, wideData$interTerm))
+    nCovars <- 2
+    shortCov <- data.frame(stratumId = 0,
+                           rowId = rep(1:nrow(denseCov),nCovars),
+                           covariateId = rep(1:nCovars,each = nrow(denseCov)),
+                           covariateValue = c(denseCov$x1, denseCov$x2))
+
+
+    # gold lr
+    goldLR <- glm(y ~ x1 + x2 + time + x1:time, data = wideData, family = binomial())
+
+    # real lr (long outcome and long covariates)
+    cyclopsDataLR <- convertToCyclopsData(outcomes = longOut,
+                                          covariates = longCov,
+                                          modelType = "lr")
+    fitLR <- fitCyclopsModel(cyclopsDataLR)
+
+    # efficient pooled lr (long outcome and short covariates)
+    cyclopsDataPLR <- convertToCyclopsData(outcomes = cbind(longOut, timeEffects = longOut$time), # linear effect
+                                           covariates = shortCov,
+                                           timeEffectId = c(1),
+                                           modelType = "plr")
+    fitPLR <- fitCyclopsModel(cyclopsDataPLR)
+
+    expect_equal(unname(coef(goldLR)), unname(coef(fitLR)), tolerance = tolerance)
+    expect_equal(unname(coef(fitLR)), unname(coef(fitPLR)), tolerance = tolerance)
+    expect_equivalent(logLik(fitLR),logLik(fitPLR))
+})
+
