@@ -173,6 +173,13 @@ protected:
 
 	void updateXBeta(double delta, int index, bool useWeights);
 
+	template <class IteratorType, class Weights>
+	void computeGradientAndHessianImplPooledLR(int index, IteratorType it, Weights w,
+                                            RealType* gradient, RealType* hessian);
+
+	template <class IteratorType>
+	void updateXBetaImplPooledLR(RealType realDelta, int index, IteratorType it, bool useWeights);
+
 	void computeRemainingStatistics(bool useWeights);
 
 	void computeAccumlatedNumerator(bool useWeights);
