@@ -1077,92 +1077,13 @@ public:
 };
 
 template <typename RealType>
-struct PooledLogisticRegression : public Storage<RealType>, IndependentData, GLMProjection, Logistic<RealType>, FixedPid,
-                                  NoFixedLikelihoodTerms {
+struct PooledLogisticRegression : public LogisticRegression<RealType> {
 public:
     typedef typename Storage<RealType>::RealVector RealVector;
     PooledLogisticRegression(const RealVector& y, const RealVector& offs)
-        : Storage<RealType>(y, offs) { }
+        : LogisticRegression<RealType>(y, offs) { }
 
-    const static bool precomputeHessian = false;
     const static bool pooledLR = true;
-
-    static RealType getDenomNullValue () { return static_cast<RealType>(1); }
-
-    RealType observationCount(RealType yi) {
-        return static_cast<RealType>(1);
-    }
-
-    RealType setIndependentDenominator(RealType expXBeta) {
-        return static_cast<RealType>(1) + expXBeta;
-    }
-
-    RealType getOffsExpXBeta(const RealType offs, const RealType xBeta) {
-        return std::exp(xBeta);
-    }
-
-    RealType getOffsExpXBeta(const RealType* offs, RealType xBeta, RealType y, int k) {
-        return std::exp(xBeta);
-    }
-
-    RealType logLikeDenominatorContrib(RealType ni, RealType denom) {
-        return ni * std::log(denom);
-    }
-
-    RealType logPredLikeContrib(RealType y, RealType weight, RealType xBeta, RealType denominator) {
-        return y * weight * (xBeta - std::log(denominator));
-    }
-
-    RealType logPredLikeContrib(RealType ji, RealType weighti, RealType xBetai, const RealType* denoms,
-                                const int* groups, int i) {
-        return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
-    }
-
-    RealType predictEstimate(RealType xBeta){
-        RealType t = std::exp(xBeta);
-        return t / (t + static_cast<RealType>(1));
-    }
-
-    using Storage<RealType>::offsExpXBeta;
-    using Storage<RealType>::denomPid;
-    using Storage<RealType>::hKWeight;
-
-    template <class IteratorType, class Weights, typename Index>
-    static void incrementGradientAndHessian2(
-            RealType& gradient, RealType& hessian,
-            const IteratorType& it,
-            const Index index) {
-
-        const auto i = it.index();
-
-        const auto numerator1 = it.multiple(offsExpXBeta[i], index); // expXBeta * x
-        const auto denominator = denomPid[i];
-
-        const auto g = numerator1 / denominator;
-        if (Weights::isWeighted) {
-            gradient += hKWeight[i] * g;
-        } else {
-            gradient += g;
-        }
-
-        if (IteratorType::isIndicator) {
-            const auto h = g * (RealType(1) - g);
-            if (Weights::isWeighted) {
-                hessian += hKWeight[i] * h;
-            } else {
-                hessian += h;
-            }
-        } else {
-            const auto numerator2 = it.multiple(numerator1, index); // expXBeta * x * x
-
-            const auto h = (numerator2 / denominator - g * g);
-            if (Weights::isWeighted) {
-                hessian += hKWeight[i] * h;
-            } else {
-                hessian += h;
-            }
-        }
-    }
 };
 
 template <typename RealType>
