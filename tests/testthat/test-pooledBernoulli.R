@@ -54,7 +54,6 @@ test_that("Test data.frame to data for plr without time effects", {
 test_that("Test data.frame to data for plr with time effects as interaction terms", {
     tolerance <- 1E-3
 
-    library(Cyclops)
     test <- read.table(header=T, sep = ",", text = "
                        time, status, x1, x2
                        5, 0, 0, 1
@@ -64,7 +63,7 @@ test_that("Test data.frame to data for plr with time effects as interaction term
                        2, 1, 0, 0
                        2, 1, 0, 1
                        1, 0, 0, 0
-                       1, 1, 2, 1 ")
+                       1, 1, 1, 1 ")
     longOut <- convertToLongOutcome(time = test$time, status = test$status)
     denseCov <- data.frame(rowId = 1:dim(test)[1],
                            x1 = test$x1,

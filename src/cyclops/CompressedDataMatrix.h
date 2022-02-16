@@ -90,6 +90,14 @@ public:
 		return *data;
 	}
 
+	IntVectorPtr getColumnsVectorPtr() {
+	    return columns;
+	}
+
+	RealVectorPtr getDataVectorPtr() {
+	    return data;
+	}
+
 	RealVector copyData() {
 // 		std::vector copy(std::begin(data), std::end(data));
 // 		return std::move(copy);

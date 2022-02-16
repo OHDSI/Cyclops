@@ -377,31 +377,23 @@ int ModelData<RealType>::loadTimeEffects(
     int totalNumOfCov = numOfCov;
 
     // time effect with intercept
-    FormatType format = SPARSE;
-    X.push_back(format);
-    size_t n  = getX().nRows;
-    CompressedDataColumn<RealType>& column = X.getColumn(totalNumOfCov);
-    for (size_t i = 0; i < n; i++) {
-        column.getDataVector().push_back(static_cast<RealType>(1));
-        column.getColumnsVector().push_back(i);
-    }
+    std::vector<RealType> interceptTime(getX().nRows, static_cast<RealType>(1));
+    FormatType format = DENSE;
+    X.push_back(NULL, NULL, interceptTime.begin(), interceptTime.end(), format);
+
     X.getColumn(totalNumOfCov++).setTimeEffectType(true);
 
     // time effect with baseline covariates
     for (auto index : timeEffectIds) {
-        // std::cout << "load index: " << index << '\n';
-        CompressedDataColumn<RealType>& column = X.getColumn(index);
-        FormatType format = column.getFormatType();
-
-        const std::vector<int> rowId = column.getColumnsVector();
-        const std::vector<RealType> covariateValue = column.getDataVector();
-
-        X.push_back(begin(rowId), end(rowId),
-                    begin(covariateValue), end(covariateValue),
-                    format);
+        // auto sharedPtrToColumnsVector = make_shared<IntVector>(column.getColumnsVector());
+        X.push_back(X.getColumn(index).getColumnsVectorPtr(),
+                    X.getColumn(index).getDataVectorPtr(),
+                    X.getFormatType(index));
+        X.getColumn(totalNumOfCov).convertColumnToDense(getNumberOfRows());
 
         X.getColumn(totalNumOfCov++).setTimeEffectType(true);
     }
+
     return numOfCov;
 }
 
