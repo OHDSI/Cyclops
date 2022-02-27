@@ -52,8 +52,6 @@
 #' Currently unused
 #' @param censorWeights
 #' Vector of subject-specific censoring weights (between 0 and 1). Currently only supported in \code{modelType = "fgr"}.
-#' @param timeEffects
-#' Vector of subject-specific time effects . Currently only supported in \code{modelType = "plr"}.
 #' @param offset
 #' Currently unused
 #' @param pid
@@ -101,7 +99,7 @@
 #'
 #' @export
 createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelType,
-                              data, subset = NULL, weights = NULL, censorWeights = NULL, timeEffects = NULL, offset = NULL, time = NULL, pid = NULL, y = NULL, type = NULL, dx = NULL,
+                              data, subset = NULL, weights = NULL, censorWeights = NULL, offset = NULL, time = NULL, pid = NULL, y = NULL, type = NULL, dx = NULL,
                               sx = NULL, ix = NULL, model = FALSE, normalize = NULL,
                               floatingPoint = 64,
                               method = "cyclops.fit") {
@@ -123,7 +121,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
             data <- environment(formula)
         }
         mf.all <- match.call(expand.dots = FALSE)
-        m.d <- match(c("formula", "data", "subset", "weights", "censorWeights", "timeEffects",
+        m.d <- match(c("formula", "data", "subset", "weights", "censorWeights",
                        "offset"), names(mf.all), 0L)
         mf.d <- mf.all[c(1L, m.d)]
         mf.d$drop.unused.levels <- TRUE
@@ -214,7 +212,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
             if (missing(data)) {
                 data <- environment(sparseFormula)
             }
-            m.s <- match(c("sparseFormula", "data", "subset", "weights", "censorWeights", "timeEffects",
+            m.s <- match(c("sparseFormula", "data", "subset", "weights", "censorWeights",
                            "offset"), names(mf.all), 0L)
             mf.s <- mf.all[c(1L, m.s)]
             mf.s$drop.unused.levels <- TRUE
@@ -242,7 +240,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
             if (missing(data)) {
                 data <- environment(indicatorFormula)
             }
-            m.i <- match(c("indicatorFormula", "data", "subset", "weights", "censorWeights", "timeEffects",
+            m.i <- match(c("indicatorFormula", "data", "subset", "weights", "censorWeights",
                            "offset"), names(mf.all), 0L)
             mf.i <- mf.all[c(1L, m.i)]
             mf.i$drop.unused.levels <- TRUE

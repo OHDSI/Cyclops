@@ -13,7 +13,6 @@ createCyclopsData(
   subset = NULL,
   weights = NULL,
   censorWeights = NULL,
-  timeEffects = NULL,
   offset = NULL,
   time = NULL,
   pid = NULL,
@@ -44,8 +43,6 @@ createCyclopsData(
 \item{weights}{Currently unused}
 
 \item{censorWeights}{Vector of subject-specific censoring weights (between 0 and 1). Currently only supported in \code{modelType = "fgr"}.}
-
-\item{timeEffects}{Vector of subject-specific time effects . Currently only supported in \code{modelType = "plr"}.}
 
 \item{offset}{Currently unused}
 

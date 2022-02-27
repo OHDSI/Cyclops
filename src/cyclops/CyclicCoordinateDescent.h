@@ -122,8 +122,6 @@ public:
 
 	void setCensorWeights(double* weights); // ESK: New function
 
-	void setTimeEffects(double* ft);
-
 	std::vector<double> getWeights();
 
 	std::vector<double> getCensorWeights(); // ESK:
@@ -357,7 +355,6 @@ protected:
 	bool doLogisticRegression;
 	DoubleVector hWeights; // Make DoubleVector and delegate to ModelSpecifics
     DoubleVector cWeights; // ESK
-    DoubleVector hFt;
 	int updateCount;
 	int likelihoodCount;
 

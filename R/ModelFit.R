@@ -271,7 +271,6 @@ fitCyclopsModel <- function(cyclopsData,
         if (length(cyclopsData$timeLinear) != getNumberOfRows(cyclopsData)) {
             stop("Must provide the linear time effect for each data row")
         }
-        .cyclopsSetTimeEffects(cyclopsData$cyclopsInterfacePtr, cyclopsData$timeLinear)
     }
 
     if (prior$useCrossValidation) {

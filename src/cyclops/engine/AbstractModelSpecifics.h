@@ -62,7 +62,7 @@ public:
 			const double* iY) = 0; // pure virtual
 
 	//virtual void setWeights(double* inWeights, bool useCrossValidation) = 0; // pure virtual
-	virtual void setWeights(double* inWeights, double* cenWeights, double* inFt, bool useCrossValidation) = 0; // pure virtual
+	virtual void setWeights(double* inWeights, double* cenWeights, bool useCrossValidation) = 0; // pure virtual
 
 	virtual void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian, bool useWeights) = 0; // pure virtual

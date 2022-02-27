@@ -146,15 +146,6 @@ void cyclopsSetCensorWeights(SEXP inRcppCcdInterface,
     interface->getCcd().setCensorWeights(&weights[0]);
 }
 
-// [[Rcpp::export(".cyclopsSetTimeEffects")]]
-void cyclopsSetTimeEffects(SEXP inRcppCcdInterface,
-                             NumericVector& timeEffects) {
-    using namespace bsccs;
-    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
-
-    interface->getCcd().setTimeEffects(&timeEffects[0]);
-}
-
 // [[Rcpp::export(".cyclopsGetPredictiveLogLikelihood")]]
 double cyclopsGetPredictiveLogLikelihood(SEXP inRcppCcdInterface,
     NumericVector& weights) {

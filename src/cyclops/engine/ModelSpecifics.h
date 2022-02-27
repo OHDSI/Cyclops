@@ -63,8 +63,6 @@ protected:
     RealVector hNWeight;
     RealVector hKWeight;
     RealVector hYWeight; // ESK: Added
-
-    RealVector hFt; // time effects in pooled lr
 };
 
 template <class BaseModel, typename RealType>
@@ -216,7 +214,7 @@ protected:
 	bool sortPid(void);
 
 	//void setWeights(double* inWeights, bool useCrossValidation);
-	void setWeights(double* inWeights, double *cenWeights, double *inFt, bool useCrossValidation);
+	void setWeights(double* inWeights, double *cenWeights, bool useCrossValidation);
 
 	void doSortPid(bool useCrossValidation);
 
@@ -234,8 +232,6 @@ protected:
 	using Storage<RealType>::hNWeight;
 	using Storage<RealType>::hKWeight;
     using Storage<RealType>::hYWeight; // ESK: Added
-
-    using Storage<RealType>::hFt;
 
 	// std::vector<RealType> hNWeight;
 	// std::vector<RealType> hKWeight;
