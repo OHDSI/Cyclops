@@ -669,8 +669,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsLoadDataY
-void cyclopsLoadDataY(Environment x, const std::vector<double>& stratumId, const std::vector<double>& rowId, const std::vector<double>& y, const std::vector<double>& time);
-RcppExport SEXP _Cyclops_cyclopsLoadDataY(SEXP xSEXP, SEXP stratumIdSEXP, SEXP rowIdSEXP, SEXP ySEXP, SEXP timeSEXP) {
+void cyclopsLoadDataY(Environment x, const std::vector<double>& stratumId, const std::vector<double>& rowId, const std::vector<double>& y, const std::vector<double>& time, const std::vector<double>& timeLinear);
+RcppExport SEXP _Cyclops_cyclopsLoadDataY(SEXP xSEXP, SEXP stratumIdSEXP, SEXP rowIdSEXP, SEXP ySEXP, SEXP timeSEXP, SEXP timeLinearSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
@@ -678,7 +678,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::vector<double>& >::type rowId(rowIdSEXP);
     Rcpp::traits::input_parameter< const std::vector<double>& >::type y(ySEXP);
     Rcpp::traits::input_parameter< const std::vector<double>& >::type time(timeSEXP);
-    cyclopsLoadDataY(x, stratumId, rowId, y, time);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type timeLinear(timeLinearSEXP);
+    cyclopsLoadDataY(x, stratumId, rowId, y, time, timeLinear);
     return R_NilValue;
 END_RCPP
 }
@@ -771,8 +772,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsModelData
-List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix, const std::string& modelTypeName, bool useTimeAsOffset, int numTypes, int floatingPoint);
-RcppExport SEXP _Cyclops_cyclopsModelData(SEXP pidSEXP, SEXP ySEXP, SEXP zSEXP, SEXP offsSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP, SEXP modelTypeNameSEXP, SEXP useTimeAsOffsetSEXP, SEXP numTypesSEXP, SEXP floatingPointSEXP) {
+List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP timeLinear, SEXP dx, SEXP sx, SEXP ix, const std::string& modelTypeName, bool useTimeAsOffset, int numTypes, int floatingPoint);
+RcppExport SEXP _Cyclops_cyclopsModelData(SEXP pidSEXP, SEXP ySEXP, SEXP zSEXP, SEXP offsSEXP, SEXP timeLinearSEXP, SEXP dxSEXP, SEXP sxSEXP, SEXP ixSEXP, SEXP modelTypeNameSEXP, SEXP useTimeAsOffsetSEXP, SEXP numTypesSEXP, SEXP floatingPointSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -780,6 +781,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< SEXP >::type y(ySEXP);
     Rcpp::traits::input_parameter< SEXP >::type z(zSEXP);
     Rcpp::traits::input_parameter< SEXP >::type offs(offsSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type timeLinear(timeLinearSEXP);
     Rcpp::traits::input_parameter< SEXP >::type dx(dxSEXP);
     Rcpp::traits::input_parameter< SEXP >::type sx(sxSEXP);
     Rcpp::traits::input_parameter< SEXP >::type ix(ixSEXP);
@@ -787,7 +789,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type useTimeAsOffset(useTimeAsOffsetSEXP);
     Rcpp::traits::input_parameter< int >::type numTypes(numTypesSEXP);
     Rcpp::traits::input_parameter< int >::type floatingPoint(floatingPointSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsModelData(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset, numTypes, floatingPoint));
+    rcpp_result_gen = Rcpp::wrap(cyclopsModelData(pid, y, z, offs, timeLinear, dx, sx, ix, modelTypeName, useTimeAsOffset, numTypes, floatingPoint));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -847,14 +849,14 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetYVector", (DL_FUNC) &_Cyclops_cyclopsGetYVector, 1},
     {"_Cyclops_cyclopsGetTimeVector", (DL_FUNC) &_Cyclops_cyclopsGetTimeVector, 1},
     {"_Cyclops_cyclopsFinalizeData", (DL_FUNC) &_Cyclops_cyclopsFinalizeData, 7},
-    {"_Cyclops_cyclopsLoadDataY", (DL_FUNC) &_Cyclops_cyclopsLoadDataY, 5},
+    {"_Cyclops_cyclopsLoadDataY", (DL_FUNC) &_Cyclops_cyclopsLoadDataY, 6},
     {"_Cyclops_cyclopsLoadDataMultipleX", (DL_FUNC) &_Cyclops_cyclopsLoadDataMultipleX, 8},
     {"_Cyclops_cyclopsLoadDataX", (DL_FUNC) &_Cyclops_cyclopsLoadDataX, 7},
     {"_Cyclops_cyclopsLoadDataTimeEffects", (DL_FUNC) &_Cyclops_cyclopsLoadDataTimeEffects, 2},
     {"_Cyclops_cyclopsAppendSqlData", (DL_FUNC) &_Cyclops_cyclopsAppendSqlData, 8},
     {"_Cyclops_cyclopsGetInterceptLabel", (DL_FUNC) &_Cyclops_cyclopsGetInterceptLabel, 1},
     {"_Cyclops_cyclopsReadFileData", (DL_FUNC) &_Cyclops_cyclopsReadFileData, 2},
-    {"_Cyclops_cyclopsModelData", (DL_FUNC) &_Cyclops_cyclopsModelData, 11},
+    {"_Cyclops_cyclopsModelData", (DL_FUNC) &_Cyclops_cyclopsModelData, 12},
     {NULL, NULL, 0}
 };
 

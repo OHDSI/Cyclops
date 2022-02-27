@@ -70,13 +70,15 @@ void ModelData<RealType>::loadY(
 		const std::vector<IdType>& oStratumId,
 		const std::vector<IdType>& oRowId,
 		const std::vector<double>& oY,
-		const std::vector<double>& oTime) {
+		const std::vector<double>& oTime,
+		const std::vector<double>& oTimeLinear) {
 
     bool previouslyLoaded = y.size() > 0;
 
     if (   (oStratumId.size() > 0 && oStratumId.size() != oY.size())
         || (oRowId.size() > 0 && oRowId.size() != oY.size())
         || (oTime.size() > 0 && oTime.size() != oY.size())
+        || (oTimeLinear.size() > 0 && oTimeLinear.size() != oY.size())
         || (previouslyLoaded && y.size() != oY.size())
     ) {
         std::ostringstream stream;
@@ -87,6 +89,9 @@ void ModelData<RealType>::loadY(
     copyAssign(y, oY); // y = oY; // copy assignment
 	if (oTime.size() == oY.size()) {
 		copyAssign(offs, oTime); // offs = oTime; // copy assignment
+	}
+	if (oTimeLinear.size() == oY.size()) {
+	    copyAssign(timeLinear, oTimeLinear); // copy assignment
 	}
 	touchedY = true;
 

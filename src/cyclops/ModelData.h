@@ -130,7 +130,8 @@ public:
             const std::vector<IdType>& stratumId,
             const std::vector<IdType>& rowId,
             const std::vector<double>& y,
-            const std::vector<double>& time
+            const std::vector<double>& time,
+            const std::vector<double>& timeLinear
     ) = 0;
 
     virtual int loadX(
@@ -229,6 +230,7 @@ public:
 			const InputRealVector& _y,
 			const InputRealVector& _z,
 			const InputRealVector& _offs,
+			const InputRealVector& _timeLinear,
             loggers::ProgressLoggerPtr _log,
             loggers::ErrorHandlerPtr _error
 			) :
@@ -237,6 +239,8 @@ public:
 		, y(_y.begin(), _y.end()) // copy
 		, z(_z.begin(), _z.end()) // copy
 		, offs(_offs.begin(), _offs.end()) // copy
+	    , timeLinear(_timeLinear.begin(), _timeLinear.begin())
+	    // , mapTimeEffects(0)
 		, sparseIndexer(X)
 		, log(_log), error(_error)
 		, touchedY(true), touchedX(true)
@@ -287,7 +291,8 @@ public:
 		const std::vector<IdType>& stratumId,
 		const std::vector<IdType>& rowId,
 		const std::vector<double>& y,
-		const std::vector<double>& time
+		const std::vector<double>& time,
+		const std::vector<double>& timeEffects
 	);
 
 	int loadX(
@@ -333,6 +338,10 @@ public:
 
 	const RealVector& getYVectorRef() const {
 		return y;
+	}
+
+	const RealVector& getTimeEffectLinearRef() const {
+	    return timeLinear;
 	}
 
 	const IntVector& getPidVectorRef() const { // Not const because PIDs can get renumbered
@@ -757,9 +766,12 @@ protected:
 	RealVector y;
 	RealVector z; // TODO Remove
 	RealVector offs; // TODO Rename to 'time'
+	RealVector timeLinear;
 	IntVector nevents; // TODO Where are these used?
 	std::string conditionId;
 	std::vector<std::string> labels; // TODO Change back to 'long'
+
+	// MapTimeEffects mapTimeEffects;
 
 	int nTypes;
 

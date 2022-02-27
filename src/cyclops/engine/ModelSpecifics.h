@@ -46,11 +46,13 @@ class Storage {
 public:
     typedef typename CompressedDataMatrix<RealType>::RealVector RealVector;
 
-    Storage(const RealVector& y, const RealVector& offs) : hY(y), hOffs(offs) { }
+    Storage(const RealVector& y, const RealVector& offs, const RealVector& timeLinear) : hY(y), hOffs(offs), hTimeLinear(timeLinear) { }
 
 protected:
     const RealVector& hY;
     const RealVector& hOffs;
+
+    const RealVector& hTimeLinear;
 
     RealVector hXBeta;
     RealVector offsExpXBeta;
@@ -140,6 +142,8 @@ protected:
     using BaseModel::hY;
     using BaseModel::hOffs;
     using BaseModel::hXBeta;
+
+    using BaseModel::hTimeLinear;
 
  //   RealVector hXBeta; // TODO Delegate to ModelSpecifics
     RealVector hXBetaSave; // Delegate
@@ -624,8 +628,8 @@ template <typename RealType>
 struct SelfControlledCaseSeries : public Storage<RealType>, GroupedData, GLMProjection, FixedPid, Survival<RealType> {
 public:
     typedef typename Storage<RealType>::RealVector RealVector;
-    SelfControlledCaseSeries(const RealVector& y, const RealVector& offs)
-        : Storage<RealType>(y, offs) { }
+    SelfControlledCaseSeries(const RealVector& y, const RealVector& offs, const RealVector& timeLinear)
+        : Storage<RealType>(y, offs, timeLinear) { }
 
 	const static bool precomputeHessian = false; // XjX
 
@@ -727,8 +731,8 @@ template <typename RealType>
 struct ConditionalPoissonRegression : public Storage<RealType>, GroupedData, GLMProjection, FixedPid, Survival<RealType> {
 public:
     typedef typename Storage<RealType>::RealVector RealVector;
-    ConditionalPoissonRegression(const RealVector& y, const RealVector& offs)
-        : Storage<RealType>(y, offs) { }
+    ConditionalPoissonRegression(const RealVector& y, const RealVector& offs, const RealVector& timeLinear)
+        : Storage<RealType>(y, offs, timeLinear) { }
 
 	const static bool precomputeHessian = false; // XjX
 
@@ -817,8 +821,8 @@ template <typename RealType>
 struct ConditionalLogisticRegression : public Storage<RealType>, GroupedData, GLMProjection, FixedPid, Survival<RealType> {
 public:
     typedef typename Storage<RealType>::RealVector RealVector;
-    ConditionalLogisticRegression(const RealVector& y, const RealVector& offs)
-        : Storage<RealType>(y, offs) { }
+    ConditionalLogisticRegression(const RealVector& y, const RealVector& offs, const RealVector& timeLinear)
+        : Storage<RealType>(y, offs, timeLinear) { }
 
 	const static bool precomputeHessian = false; // XjX
 	const static bool likelihoodHasFixedTerms = false;
@@ -901,8 +905,8 @@ template <typename RealType>
 struct TiedConditionalLogisticRegression : public Storage<RealType>, GroupedWithTiesData, GLMProjection, FixedPid, Survival<RealType> {
 public:
     typedef typename Storage<RealType>::RealVector RealVector;
-    TiedConditionalLogisticRegression(const RealVector& y, const RealVector& offs)
-        : Storage<RealType>(y, offs) { }
+    TiedConditionalLogisticRegression(const RealVector& y, const RealVector& offs, const RealVector& timeLinear)
+        : Storage<RealType>(y, offs, timeLinear) { }
 
 	const static bool precomputeGradient = true; // XjY   // TODO Until tied calculations are only used for ties
 	const static bool precomputeHessian = false; // XjX
@@ -991,8 +995,8 @@ struct LogisticRegression : public Storage<RealType>, IndependentData, GLMProjec
 	NoFixedLikelihoodTerms {
 public:
     typedef typename Storage<RealType>::RealVector RealVector;
-    LogisticRegression(const RealVector& y, const RealVector& offs)
-        : Storage<RealType>(y, offs) { }
+    LogisticRegression(const RealVector& y, const RealVector& offs, const RealVector& timeLinear)
+        : Storage<RealType>(y, offs, timeLinear) { }
 
 	const static bool precomputeHessian = false;
 
@@ -1080,8 +1084,8 @@ template <typename RealType>
 struct PooledLogisticRegression : public LogisticRegression<RealType> {
 public:
     typedef typename Storage<RealType>::RealVector RealVector;
-    PooledLogisticRegression(const RealVector& y, const RealVector& offs)
-        : LogisticRegression<RealType>(y, offs) { }
+    PooledLogisticRegression(const RealVector& y, const RealVector& offs, const RealVector& timeLinear)
+        : LogisticRegression<RealType>(y, offs, timeLinear) { }
 
     const static bool pooledLR = true;
 };
@@ -1090,8 +1094,8 @@ template <typename RealType>
 struct CoxProportionalHazards : public Storage<RealType>, OrderedData, SurvivalProjection, SortedPid, NoFixedLikelihoodTerms, Survival<RealType> {
 public:
     typedef typename Storage<RealType>::RealVector RealVector;
-    CoxProportionalHazards(const RealVector& y, const RealVector& offs)
-        : Storage<RealType>(y, offs) { }
+    CoxProportionalHazards(const RealVector& y, const RealVector& offs, const RealVector& timeLinear)
+        : Storage<RealType>(y, offs, timeLinear) { }
 
 	const static bool precomputeHessian = false;
 
@@ -1194,8 +1198,8 @@ template <typename RealType>
 struct BreslowTiedCoxProportionalHazards : public Storage<RealType>, OrderedWithTiesData, SurvivalProjection, SortedPid, NoFixedLikelihoodTerms, Survival<RealType> {
 public:
     typedef typename Storage<RealType>::RealVector RealVector;
-    BreslowTiedCoxProportionalHazards(const RealVector& y, const RealVector& offs)
-        : Storage<RealType>(y, offs) { }
+    BreslowTiedCoxProportionalHazards(const RealVector& y, const RealVector& offs, const RealVector& timeLinear)
+        : Storage<RealType>(y, offs, timeLinear) { }
 
 	const static bool precomputeHessian = false;
 
@@ -1292,8 +1296,8 @@ template <typename RealType>
 struct BreslowTiedFineGray: public Storage<RealType>, OrderedWithTiesData, SurvivalProjection, SortedPid, NoFixedLikelihoodTerms, Survival<RealType> {
 public:
     typedef typename Storage<RealType>::RealVector RealVector;
-    BreslowTiedFineGray(const RealVector& y, const RealVector& offs)
-            : Storage<RealType>(y, offs) { }
+    BreslowTiedFineGray(const RealVector& y, const RealVector& offs, const RealVector& timeLinear)
+            : Storage<RealType>(y, offs, timeLinear) { }
 
     const static bool precomputeHessian = false;
 
@@ -1389,8 +1393,8 @@ template <typename RealType>
 struct LeastSquares : public Storage<RealType>, IndependentData, FixedPid, NoFixedLikelihoodTerms {
 public:
     typedef typename Storage<RealType>::RealVector RealVector;
-    LeastSquares(const RealVector& y, const RealVector& offs)
-        : Storage<RealType>(y, offs) { }
+    LeastSquares(const RealVector& y, const RealVector& offs, const RealVector& timeLinear)
+        : Storage<RealType>(y, offs, timeLinear) { }
 
     using Storage<RealType>::hXBeta;
 
@@ -1513,8 +1517,8 @@ template <typename RealType>
 struct PoissonRegression : public Storage<RealType>, IndependentData, GLMProjection, FixedPid {
 public:
     typedef typename Storage<RealType>::RealVector RealVector;
-    PoissonRegression(const RealVector& y, const RealVector& offs)
-        : Storage<RealType>(y, offs) { }
+    PoissonRegression(const RealVector& y, const RealVector& offs, const RealVector& timeLinear)
+        : Storage<RealType>(y, offs, timeLinear) { }
 
 	const static bool precomputeHessian = false; // XjX
 

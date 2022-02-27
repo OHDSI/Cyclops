@@ -82,7 +82,7 @@ These columns are expected in the outcome object:
                  \tab        \tab(e.g. number of days) \cr
   \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
   \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided \cr
-  \verb{timeEffects}  \tab(real) \tab (optional) Non-negative time effects for pooled logistic regression \cr
+  \verb{timeLinear}  \tab(real) \tab (optional) Linear time effects for pooled logistic regression \cr
 }
 
 These columns are expected in the covariates object:

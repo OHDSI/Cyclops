@@ -260,18 +260,18 @@ fitCyclopsModel <- function(cyclopsData,
     }
 
     # timeEffects check for the pooled logistic regression
-    if (cyclopsData$modelType == "plr" & is.null(cyclopsData$timeEffects)) {
+    if (cyclopsData$modelType == "plr" & is.null(cyclopsData$timeLinear)) {
         warning("Subject-specific time effects are not specified for modelType = 'plr'.")
     }
 
-    if (!is.null(cyclopsData$timeEffects)) {
+    if (!is.null(cyclopsData$timeLinear)) {
         if (cyclopsData$modelType != 'plr') {
             warning(paste0("modelType = '", cyclopsData$modelType, "' does not support timeEffects."))
         }
-        if (length(cyclopsData$timeEffects) != getNumberOfRows(cyclopsData)) {
-            stop("Must provide a timeEffects for each data row")
+        if (length(cyclopsData$timeLinear) != getNumberOfRows(cyclopsData)) {
+            stop("Must provide the linear time effect for each data row")
         }
-        .cyclopsSetTimeEffects(cyclopsData$cyclopsInterfacePtr, cyclopsData$timeEffects)
+        .cyclopsSetTimeEffects(cyclopsData$cyclopsInterfacePtr, cyclopsData$timeLinear)
     }
 
     if (prior$useCrossValidation) {

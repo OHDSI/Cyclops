@@ -46,7 +46,7 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'                  \tab        \tab(e.g. number of days) \cr
 #'   \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
 #'   \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided \cr
-#'   \verb{timeEffects}  \tab(real) \tab (optional) Non-negative time effects for pooled logistic regression \cr
+#'   \verb{timeLinear}  \tab(real) \tab (optional) Linear time effects for pooled logistic regression \cr
 #' }
 #'
 #' These columns are expected in the covariates object:
@@ -196,7 +196,8 @@ convertToCyclopsData.data.frame <- function(outcomes,
                            stratumId = if ("stratumId" %in% colnames(outcomes)) outcomes$stratumId else NULL,
                            rowId = outcomes$rowId,
                            y = outcomes$y,
-                           time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
+                           time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL,
+                           timeLinear = if ("timeLinear" %in% colnames(outcomes)) outcomes$timeLinear else NULL)
 
     if (addIntercept & (modelType != "cox" & modelType != "fgr")) {
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
@@ -239,15 +240,15 @@ convertToCyclopsData.data.frame <- function(outcomes,
         }
     }
 
-    if ("timeEffects" %in% colnames(outcomes)) {
-        dataPtr$timeEffects <- outcomes$timeEffects
+    if ("timeLinear" %in% colnames(outcomes)) {
+        dataPtr$timeLinear <- outcomes$timeLinear
     } else {
         if (modelType == "plr") {
             warning("Subject-specific time effects are not specified for modelType = 'plr'.")
-            dataPtr$timeEffects <- NULL
-            # writeLines("Generating timeEffects") ## TODO write function for generating timeEffects
+            dataPtr$timeLinear <- NULL
+            # writeLines("Generating timeLinear") ## TODO write function for generating timeLinear
         } else {
-            dataPtr$timeEffects <- NULL
+            dataPtr$timeLinear <- NULL
         }
     }
 
@@ -402,15 +403,15 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         }
     }
 
-    if ("timeEffects" %in% colnames(outcomes)) {
-        dataPtr$timeEffects <- outcomes %>% pull(.data$timeEffects)
+    if ("timeLinear" %in% colnames(outcomes)) {
+        dataPtr$timeLinear <- outcomes %>% pull(.data$timeLinear)
     } else {
         if (modelType == "plr") {
             warning("Subject-specific time effects are not specified for modelType = 'plr'.")
-            dataPtr$timeEffects <- NULL
-            # writeLines("Generating timeEffects") ## TODO write function for generating timeEffects
+            dataPtr$timeLinear <- NULL
+            # writeLines("Generating timeLinear") ## TODO write function for generating timeLinear
         } else {
-            dataPtr$timeEffects <- NULL
+            dataPtr$timeLinear <- NULL
         }
     }
     return(dataPtr)
