@@ -27,7 +27,7 @@ test_that("Test data.frame to data for plr without time effects", {
                            x2 = test$x2)
     shortCov <- sparseCov[sparseCov$covariateValue != 0,]
 
-    longOut <- convertToLongOutcome(time = test$time, status = test$status)
+    longOut <- convertToLongOutcome(time = test$time, status = test$status, linearEffect = TRUE)$longOutcome
     longCov <- merge(longOut[,1:2], shortCov, by.x = "stratumId", by.y = "rowId", all.y = TRUE)
     wideData <- merge(longOut, denseCov, by.x = "stratumId", by.y = "rowId")
 
@@ -35,7 +35,7 @@ test_that("Test data.frame to data for plr without time effects", {
     goldLR <- glm(y ~ x1 + x2, data = wideData, family = binomial())
 
     # real lr (long outcome and long covariates)
-    cyclopsDataLR <- convertToCyclopsData(outcomes = longOut,
+    cyclopsDataLR <- convertToCyclopsData(outcomes = longOut[, 1:4],
                                           covariates = longCov,
                                           modelType = "lr")
     # cyclopsDataLR <- createCyclopsData(y ~ x1 + x2,
@@ -44,7 +44,7 @@ test_that("Test data.frame to data for plr without time effects", {
     fitLR <- fitCyclopsModel(cyclopsDataLR)
 
     # efficient pooled lr (long outcome and short covariates)
-    cyclopsDataPLR <- convertToCyclopsData(outcomes = cbind(longOut, timeLinear = longOut$time),
+    cyclopsDataPLR <- convertToCyclopsData(outcomes = longOut,
                                            covariates = shortCov,
                                            modelType = "plr")
     fitPLR <- fitCyclopsModel(cyclopsDataPLR)
@@ -67,7 +67,7 @@ test_that("Test data.frame to data for plr with time effects as interaction term
                        2, 1, 0, 1
                        1, 0, 0, 0
                        1, 1, 1, 1 ")
-    longOut <- convertToLongOutcome(time = test$time, status = test$status)
+    longOut <- convertToLongOutcome(time = test$time, status = test$status, linearEffect = TRUE)$longOutcome$timeLinear
     denseCov <- data.frame(rowId = 1:dim(test)[1],
                            x1 = test$x1,
                            x2 = test$x2)
@@ -90,7 +90,7 @@ test_that("Test data.frame to data for plr with time effects as interaction term
     goldLR <- glm(y ~ x1 + x2 + time + x1:time, data = wideData, family = binomial())
 
     # real lr (long outcome and long covariates)
-    # cyclopsDataLR <- convertToCyclopsData(outcomes = longOut,
+    # cyclopsDataLR <- convertToCyclopsData(outcomes = longOut[, 1:4],
     #                                       covariates = longCov,
     #                                       modelType = "lr")
     cyclopsDataLR <- createCyclopsData(y ~ x1 + x2+ time + x1:time,
@@ -99,7 +99,7 @@ test_that("Test data.frame to data for plr with time effects as interaction term
     fitLR <- fitCyclopsModel(cyclopsDataLR)
 
     # efficient pooled lr (long outcome and short covariates)
-    cyclopsDataPLR <- convertToCyclopsData(outcomes = cbind(longOut, timeLinear = longOut$time), # linear effect
+    cyclopsDataPLR <- convertToCyclopsData(outcomes = longOut,
                                            covariates = shortCov,
                                            timeEffectId = c(1),
                                            modelType = "plr")

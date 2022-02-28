@@ -21,8 +21,10 @@
 #' @description
 #' \code{convertToLongOutcome} creates a long outcome table for fitting pooled logistic regression.
 #'
-#' @param time    Numeric: Observed event time
-#' @param status  Numeric: Observed event status
+#' @param time         Numeric: Observed event time
+#' @param status       Numeric: Observed event status
+#' @param freqTime     Integer: Coarsen observed time to freqTime-day intervals
+#' @param linearEffect Logical: Generate linear time effects
 #'
 #' @return A long outcome table for fitting pooled logistic regression.
 #' @examples
@@ -30,8 +32,10 @@
 #' status <- c(0, 1, 0, 0, 1, 1, 0, 1)
 #' convertToLongOutcome(time, status)
 #' @export
-convertToLongOutcome <- function(time, status) {
+convertToLongOutcome <- function(time, status, freqTime = 1, linearEffect = FALSE) {
     if(length(time) != length(status)) stop("Vector length mismatch.")
+
+    if(freqTime > 1) time <- time %/% freqTime + 1
 
     n <- length(time)
     maxTime <- max(time[status == 1])
@@ -49,9 +53,13 @@ convertToLongOutcome <- function(time, status) {
                               time = realTime,
                               y = realY,
                               valid)
-    longOutcome <- longOutcome[longOutcome$valid == 1, c("stratumId", "time", "y")]
+    validIds <- longOutcome$valid == 1
+    longOutcome <- longOutcome[validIds, c("stratumId", "time", "y")]
     longOutcome$rowId <- 1:dim(longOutcome)[1]
     longOutcome <- longOutcome[, c(4, 1:3)]
 
-    return(longOutcome)
+    if (linearEffect) longOutcome$timeLinear <- longOutcome$time
+
+    return(list(longOutcome = longOutcome,
+                validIds = validIds))
 }

@@ -4,12 +4,16 @@
 \alias{convertToLongOutcome}
 \title{Creates long outcome table for fitting pooled logistic regression.}
 \usage{
-convertToLongOutcome(time, status)
+convertToLongOutcome(time, status, freqTime = 1, linearEffect = FALSE)
 }
 \arguments{
 \item{time}{Numeric: Observed event time}
 
 \item{status}{Numeric: Observed event status}
+
+\item{freqTime}{Integer: Coarsen observed time to freqTime-day intervals}
+
+\item{linearEffect}{Logical: Generate linear time effects}
 }
 \value{
 A long outcome table for fitting pooled logistic regression.
