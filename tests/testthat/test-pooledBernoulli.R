@@ -67,7 +67,7 @@ test_that("Test data.frame to data for plr with time effects as interaction term
                        2, 1, 0, 1
                        1, 0, 0, 0
                        1, 1, 1, 1 ")
-    longOut <- convertToLongOutcome(time = test$time, status = test$status, linearEffect = TRUE)$longOutcome$timeLinear
+    longOut <- convertToLongOutcome(time = test$time, status = test$status, linearEffect = TRUE)$longOutcome
     denseCov <- data.frame(rowId = 1:dim(test)[1],
                            x1 = test$x1,
                            x2 = test$x2)
