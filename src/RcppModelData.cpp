@@ -571,15 +571,14 @@ void cyclopsLoadDataY(Environment x,
                       const std::vector<double>& stratumId,
                       const std::vector<double>& rowId,
                       const std::vector<double>& y,
-                      const std::vector<double>& time,
-                      const std::vector<double>& timeLinear) {
+                      const std::vector<double>& time) {
 
     using namespace bsccs;
     XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
 
     data->loadY(reinterpret_cast<const std::vector<int64_t>&>(stratumId),
                 reinterpret_cast<const std::vector<int64_t>&>(rowId),
-                y, time, timeLinear);
+                y, time);
 }
 
 // [[Rcpp::export(".loadCyclopsDataMultipleX")]]
@@ -626,12 +625,13 @@ int cyclopsLoadDataX(Environment x,
 
 // [[Rcpp::export(".loadCyclopsDataTimeEffects")]]
 int cyclopsLoadDataTimeEffects(Environment x,
-                               const std::vector<double>& covariateId) {
+                               const std::vector<double>& covariateId,
+                               const std::vector<double>& timeLinear) {
 
     using namespace bsccs;
     XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
 
-    return data->loadTimeEffects(reinterpret_cast<const std::vector<int64_t>&>(covariateId));
+    return data->loadTimeEffects(reinterpret_cast<const std::vector<int64_t>&>(covariateId), timeLinear);
 }
 
 // NOTE:  IdType does not get exported into RcppExports, so hard-coded here
@@ -700,7 +700,7 @@ List cyclopsReadFileData(const std::string& fileName, const std::string& modelTy
 }
 
 // [[Rcpp::export(".cyclopsModelData")]]
-List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP timeLinear, SEXP dx, SEXP sx, SEXP ix,
+List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP dx, SEXP sx, SEXP ix,
     const std::string& modelTypeName,
     bool useTimeAsOffset = false,
     int numTypes = 1,
@@ -726,11 +726,6 @@ List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP timeLinear, SEXP
 	NumericVector ioffs;
 	if (!Rf_isNull(offs)) {
 		ioffs = offs;
-	}
-
-	NumericVector itimeLinear;
-	if (!Rf_isNull(timeLinear)) {
-	    itimeLinear = timeLinear;
 	}
 
 	// dense
@@ -759,9 +754,9 @@ List cyclopsModelData(SEXP pid, SEXP y, SEXP z, SEXP offs, SEXP timeLinear, SEXP
 
 	AbstractModelData* modelData =
 	    (floatingPoint == 32) ?
-	    static_cast<AbstractModelData*>(new RcppModelData<float>(modelType, ipid, iy, iz, ioffs, itimeLinear, dxv, siv,
+	    static_cast<AbstractModelData*>(new RcppModelData<float>(modelType, ipid, iy, iz, ioffs, dxv, siv,
                                spv, sxv, iiv, ipv, useTimeAsOffset, numTypes)) :
-        static_cast<AbstractModelData*>(new RcppModelData<double>(modelType, ipid, iy, iz, ioffs, itimeLinear, dxv, siv,
+        static_cast<AbstractModelData*>(new RcppModelData<double>(modelType, ipid, iy, iz, ioffs, dxv, siv,
             spv, sxv, iiv, ipv, useTimeAsOffset, numTypes));
 
     XPtr<AbstractModelData> ptr(modelData);
@@ -791,7 +786,6 @@ RcppModelData<RealType>::RcppModelData(
 		const NumericVector& _y,
 		const NumericVector& _type,
 		const NumericVector& _time,
-		const NumericVector& _timeLinear,
 		const NumericVector& dxv, // dense
 		const IntegerVector& siv, // sparse
 		const IntegerVector& spv,
@@ -806,7 +800,6 @@ RcppModelData<RealType>::RcppModelData(
 				_y,
 				_type,
 				_time,
-				_timeLinear,
 				bsccs::make_shared<loggers::RcppProgressLogger>(),
 				bsccs::make_shared<loggers::RcppErrorHandler>()
 				) {

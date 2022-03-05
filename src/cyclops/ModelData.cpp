@@ -70,15 +70,13 @@ void ModelData<RealType>::loadY(
 		const std::vector<IdType>& oStratumId,
 		const std::vector<IdType>& oRowId,
 		const std::vector<double>& oY,
-		const std::vector<double>& oTime,
-		const std::vector<double>& oTimeLinear) {
+		const std::vector<double>& oTime) {
 
     bool previouslyLoaded = y.size() > 0;
 
     if (   (oStratumId.size() > 0 && oStratumId.size() != oY.size())
         || (oRowId.size() > 0 && oRowId.size() != oY.size())
         || (oTime.size() > 0 && oTime.size() != oY.size())
-        || (oTimeLinear.size() > 0 && oTimeLinear.size() != oY.size())
         || (previouslyLoaded && y.size() != oY.size())
     ) {
         std::ostringstream stream;
@@ -89,9 +87,6 @@ void ModelData<RealType>::loadY(
     copyAssign(y, oY); // y = oY; // copy assignment
 	if (oTime.size() == oY.size()) {
 		copyAssign(offs, oTime); // offs = oTime; // copy assignment
-	}
-	if (oTimeLinear.size() == oY.size()) {
-	    copyAssign(timeLinear, oTimeLinear); // copy assignment
 	}
 	touchedY = true;
 
@@ -376,7 +371,11 @@ int ModelData<RealType>::loadX(
 
 template <typename RealType>
 int ModelData<RealType>::loadTimeEffects(
-        const std::vector<int64_t>& timeEffectIds) {
+        const std::vector<int64_t>& timeEffectIds,
+        const std::vector<double>& oTimeLinear) {
+
+    // copy assign time effects columns
+    mapTimeEffects.copyAssignLinearTimeEffect(oTimeLinear);
 
     int numOfCov = getNumberOfColumns();
     int totalNumOfCov = numOfCov;
@@ -386,7 +385,9 @@ int ModelData<RealType>::loadTimeEffects(
     FormatType format = DENSE;
     X.push_back(NULL, NULL, interceptTime.begin(), interceptTime.end(), format);
 
-    X.getColumn(totalNumOfCov++).setTimeEffectType(true);
+    mapTimeEffects.initializeTimeEffectMap(numOfCov);
+    mapTimeEffects.addTimeEffectColumn(0); // linear effect
+    totalNumOfCov++;
 
     // time effect with baseline covariates
     for (auto index : timeEffectIds) {
@@ -394,9 +395,9 @@ int ModelData<RealType>::loadTimeEffects(
         X.push_back(X.getColumn(index).getColumnsVectorPtr(),
                     X.getColumn(index).getDataVectorPtr(),
                     X.getFormatType(index));
-        X.getColumn(totalNumOfCov).convertColumnToDense(getNumberOfRows());
+        X.getColumn(totalNumOfCov++).convertColumnToDense(getNumberOfRows());
 
-        X.getColumn(totalNumOfCov++).setTimeEffectType(true);
+        mapTimeEffects.addTimeEffectColumn(0); // linear effect
     }
 
     return numOfCov;

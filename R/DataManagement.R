@@ -342,7 +342,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
         pid <- c(1:length(y)) # TODO Should not be necessary
     }
 
-    md <- .cyclopsModelData(pid, y, type, time, NULL, dx, sx, ix, modelType, useTimeAsOffset, numTypes,
+    md <- .cyclopsModelData(pid, y, type, time, dx, sx, ix, modelType, useTimeAsOffset, numTypes,
                             floatingPoint)
     result <- new.env(parent = emptyenv())
     result$cyclopsDataPtr <- md$data
@@ -784,8 +784,7 @@ loadNewSqlCyclopsDataY <- function(object,
                                    stratumId = NULL,
                                    rowId = NULL,
                                    y,
-                                   time = NULL,
-                                   timeLinear = NULL) {
+                                   time = NULL) {
     if (!isInitialized(object)) {
         stop("Object is no longer or improperly initialized.")
     }
@@ -802,10 +801,6 @@ loadNewSqlCyclopsDataY <- function(object,
         time <- as.numeric(c())
     }
 
-    if (is.null(timeLinear)) {
-        timeLinear <- as.numeric(c())
-    }
-
     if (!bit64::is.integer64(stratumId)) {
       stratumId <- bit64::as.integer64(stratumId)
     }
@@ -818,24 +813,28 @@ loadNewSqlCyclopsDataY <- function(object,
                       stratumId,
                       rowId,
                       y,
-                      time,
-                      timeLinear)
+                      time)
 }
 
 #' @keywords internal
 loadNewSqlCyclopsDataTimeEffects <- function(object,
                                              covariateId,
-                                             timeEffectId) { # Vector
+                                             timeEffectId, # Vector
+                                             timeLinear = NULL) {
 
     if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
 
-    if (!all(timeEffectId %in% covariateId)) stop("Invalid covariateId.")
+    if (!all(timeEffectId %in% covariateId)) stop("Invalid covariateId for time effects.")
 
     if (!bit64::is.integer64(timeEffectId)) {
         timeEffectId <- bit64::as.integer64(timeEffectId)
     }
 
-    index <- .loadCyclopsDataTimeEffects(object, timeEffectId)
+    if (is.null(timeLinear)) {
+        timeLinear <- as.numeric(c())
+    }
+
+    index <- .loadCyclopsDataTimeEffects(object, timeEffectId, timeLinear)
 
     # if (!missing(name)) {
     #     if (is.null(object$coefficientNames)) {

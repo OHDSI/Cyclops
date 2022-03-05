@@ -40,6 +40,50 @@ namespace bsccs {
 // 	}
 // }
 
+template <typename RealType>
+class MapTimeEffects {
+
+public:
+
+    MapTimeEffects() : mapTime(0) {};
+    MapTimeEffects(int numColumns) : mapTime(numColumns, -1) {}
+    virtual ~MapTimeEffects() {};
+
+    void copyAssignLinearTimeEffect(const std::vector<double>& inlinearEffect) {
+        if (linearEffect.size() != inlinearEffect.size()) {
+            linearEffect.resize(inlinearEffect.size());
+        }
+        std::copy(std::begin(inlinearEffect), std::end(inlinearEffect), std::begin(linearEffect));
+    }
+
+    void initializeTimeEffectMap(int numColumns) {
+        if (mapTime.size() != numColumns) {
+            mapTime.resize(numColumns);
+            fill(mapTime.begin(), mapTime.end(), -1);
+        }
+    }
+
+    void addTimeEffectColumn(int effectNum) {
+        mapTime.push_back(effectNum);
+    }
+
+    RealType getTimeEffect(int column, int row) const{
+        return linearEffect[row]; // TODO add column map
+    }
+
+    bool hasTimeEffect(int column) const{
+        return whichTimeEffectForColumn(column) >= 0;
+    }
+
+    int whichTimeEffectForColumn(int column) const{
+        return mapTime[column];
+    }
+
+    std::vector<int> mapTime;
+    std::vector<RealType> linearEffect;
+
+};
+
 class AbstractModelData {
     // fp-agnostic interface to model data
 public:
@@ -130,8 +174,7 @@ public:
             const std::vector<IdType>& stratumId,
             const std::vector<IdType>& rowId,
             const std::vector<double>& y,
-            const std::vector<double>& time,
-            const std::vector<double>& timeLinear
+            const std::vector<double>& time
     ) = 0;
 
     virtual int loadX(
@@ -154,7 +197,8 @@ public:
     ) = 0;
 
     virtual int loadTimeEffects(
-            const std::vector<int64_t>& timeEffectIds
+            const std::vector<int64_t>& timeEffectIds,
+            const std::vector<double>& timeLinear
     ) = 0;
 
     virtual size_t append(
@@ -170,6 +214,8 @@ public:
     virtual void printMatrixMarketFormat(std::ostream& stream) const = 0;
 
     virtual int getFloatingPointSize() const = 0;
+
+    // virtual const MapTimeEffects<RealType>& getMapTimeEffects() const = 0;
 
     virtual ~AbstractModelData() { }
 
@@ -211,6 +257,8 @@ public:
 
     CompressedDataMatrix<RealType> X;
 
+    MapTimeEffects<RealType> mapTimeEffects;
+
 	ModelData(
     	ModelType modelType,
         loggers::ProgressLoggerPtr log,
@@ -230,7 +278,6 @@ public:
 			const InputRealVector& _y,
 			const InputRealVector& _z,
 			const InputRealVector& _offs,
-			const InputRealVector& _timeLinear,
             loggers::ProgressLoggerPtr _log,
             loggers::ErrorHandlerPtr _error
 			) :
@@ -239,8 +286,7 @@ public:
 		, y(_y.begin(), _y.end()) // copy
 		, z(_z.begin(), _z.end()) // copy
 		, offs(_offs.begin(), _offs.end()) // copy
-	    , timeLinear(_timeLinear.begin(), _timeLinear.begin())
-	    // , mapTimeEffects(0)
+	    , mapTimeEffects(_y.size())
 		, sparseIndexer(X)
 		, log(_log), error(_error)
 		, touchedY(true), touchedX(true)
@@ -291,8 +337,7 @@ public:
 		const std::vector<IdType>& stratumId,
 		const std::vector<IdType>& rowId,
 		const std::vector<double>& y,
-		const std::vector<double>& time,
-		const std::vector<double>& timeEffects
+		const std::vector<double>& time
 	);
 
 	int loadX(
@@ -315,7 +360,8 @@ public:
 	);
 
 	int loadTimeEffects(
-	    const std::vector<int64_t>& timeEffectIds
+	    const std::vector<int64_t>& timeEffectIds,
+	    const std::vector<double>& timeLinear
 	);
 
 	const int* getPidVector() const;
@@ -423,6 +469,10 @@ public:
 	void setIsFinalized(bool b) {
 	    isFinalized = b;
 	}
+
+    const MapTimeEffects<RealType>& getMapTimeEffects() const {
+        return mapTimeEffects;
+    }
 
 	void sortDataColumns(std::vector<int> sortedInds);
 

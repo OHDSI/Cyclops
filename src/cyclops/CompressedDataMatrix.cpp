@@ -126,11 +126,6 @@ FormatType CompressedDataMatrix<RealType>::getFormatType(int column) const {
 }
 
 template <typename RealType>
-bool CompressedDataMatrix<RealType>::hasTimeEffect(int column) const {
-    return allColumns[column]->hasTimeEffect();
-}
-
-template <typename RealType>
 void CompressedDataColumn<RealType>::fill(RealVector& values, int nRows) const {
 	values.resize(nRows);
 	if (formatType == DENSE) {

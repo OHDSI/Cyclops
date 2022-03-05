@@ -278,8 +278,8 @@ getTimeVector <- function(object) {
     invisible(.Call(`_Cyclops_cyclopsFinalizeData`, x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag))
 }
 
-.loadCyclopsDataY <- function(x, stratumId, rowId, y, time, timeLinear) {
-    invisible(.Call(`_Cyclops_cyclopsLoadDataY`, x, stratumId, rowId, y, time, timeLinear))
+.loadCyclopsDataY <- function(x, stratumId, rowId, y, time) {
+    invisible(.Call(`_Cyclops_cyclopsLoadDataY`, x, stratumId, rowId, y, time))
 }
 
 .loadCyclopsDataMultipleX <- function(x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append, forceSparse) {
@@ -290,8 +290,8 @@ getTimeVector <- function(object) {
     .Call(`_Cyclops_cyclopsLoadDataX`, x, bitCovariateId, rowId, covariateValue, replace, append, forceSparse)
 }
 
-.loadCyclopsDataTimeEffects <- function(x, covariateId) {
-    .Call(`_Cyclops_cyclopsLoadDataTimeEffects`, x, covariateId)
+.loadCyclopsDataTimeEffects <- function(x, covariateId, timeLinear) {
+    .Call(`_Cyclops_cyclopsLoadDataTimeEffects`, x, covariateId, timeLinear)
 }
 
 .appendSqlCyclopsData <- function(x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue) {
@@ -306,7 +306,7 @@ getTimeVector <- function(object) {
     .Call(`_Cyclops_cyclopsReadFileData`, fileName, modelTypeName)
 }
 
-.cyclopsModelData <- function(pid, y, z, offs, timeLinear, dx, sx, ix, modelTypeName, useTimeAsOffset = FALSE, numTypes = 1L, floatingPoint = 64L) {
-    .Call(`_Cyclops_cyclopsModelData`, pid, y, z, offs, timeLinear, dx, sx, ix, modelTypeName, useTimeAsOffset, numTypes, floatingPoint)
+.cyclopsModelData <- function(pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset = FALSE, numTypes = 1L, floatingPoint = 64L) {
+    .Call(`_Cyclops_cyclopsModelData`, pid, y, z, offs, dx, sx, ix, modelTypeName, useTimeAsOffset, numTypes, floatingPoint)
 }
 

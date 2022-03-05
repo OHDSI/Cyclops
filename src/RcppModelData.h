@@ -29,7 +29,6 @@ public:
     using ModelData<RealType>::y;
     using ModelData<RealType>::error;
     using ModelData<RealType>::offs;
-    using ModelData<RealType>::timeLinear;
     using ModelData<RealType>::setHasOffsetCovariate;
     using ModelData<RealType>::getHasOffsetCovariate;
     // using ModelData<RealType>::getColumn;
@@ -53,7 +52,6 @@ public:
 			const NumericVector& y,
 			const NumericVector& z,
 			const NumericVector& offs,
-			const NumericVector& timeLinear,
 			const NumericVector& dxv, // dense
 			const IntegerVector& siv, // sparse
 			const IntegerVector& spv,

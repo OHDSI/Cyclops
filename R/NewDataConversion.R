@@ -196,8 +196,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
                            stratumId = if ("stratumId" %in% colnames(outcomes)) outcomes$stratumId else NULL,
                            rowId = outcomes$rowId,
                            y = outcomes$y,
-                           time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL,
-                           timeLinear = if ("timeLinear" %in% colnames(outcomes)) outcomes$timeLinear else NULL)
+                           time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
 
     if (addIntercept & (modelType != "cox" & modelType != "fgr")) {
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
@@ -213,7 +212,8 @@ convertToCyclopsData.data.frame <- function(outcomes,
     if (modelType == "plr" && !is.null(timeEffectId)) {
         loadNewSqlCyclopsDataTimeEffects(object = dataPtr,
                                          covariateId = covariates$covariateId,
-                                         timeEffectId = timeEffectId)
+                                         timeEffectId = timeEffectId,
+                                         timeLinear = if ("timeLinear" %in% colnames(outcomes)) outcomes$timeLinear else NULL)
     }
 
     if (modelType == "pr" || modelType == "cpr")
@@ -355,8 +355,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     loadNewSqlCyclopsDataY(object = dataPtr,
                            stratumId = if ("stratumId" %in% colnames(outcomes)) outcomes$stratumId else NULL,
                            rowId = outcomes$rowId,
-                           y = outcomes$y,
-                           time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
+                           y = outcomes$y)
 
     if (addIntercept & (modelType != "cox" & modelType != "fgr")) {
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
@@ -375,6 +374,13 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     Andromeda::batchApply(covariates,
                           loadCovariates,
                           batchSize = 100000) # TODO Pick magic number
+
+    if (modelType == "plr" && !is.null(timeEffectId)) {
+        loadNewSqlCyclopsDataTimeEffects(object = dataPtr,
+                                         covariateId = covariates$covariateId,
+                                         timeEffectId = timeEffectId,
+                                         timeLinear = if ("timeLinear" %in% colnames(outcomes)) outcomes$timeLinear else NULL)
+    }
 
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)

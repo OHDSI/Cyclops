@@ -75,10 +75,10 @@ template <class BaseModel,typename RealType>
 ModelSpecifics<BaseModel,RealType>::ModelSpecifics(const ModelData<RealType>& input)
 	: AbstractModelSpecifics(input),
    BaseModel(input.getYVectorRef(),
-             input.getTimeVectorRef(),
-             input.getTimeEffectLinearRef()),
+             input.getTimeVectorRef()),
    modelData(input),
-   hX(modelData.getX())
+   hX(modelData.getX()),
+   mapTimeEffects(modelData.getMapTimeEffects())
    // hY(input.getYVectorRef()),
    // hOffs(input.getTimeVectorRef())
  //  hPidOriginal(input.getPidVectorRef()), hPid(const_cast<int*>(hPidOriginal.data())),
@@ -506,10 +506,10 @@ void ModelSpecifics<BaseModel, RealType>::computeXjY(bool useCrossValidation) {
                     hXjY[j] += it.value() * BaseModel::observationCount(hY[k]) * hKWeight[k];
 				} else if (BaseModel::pooledLR) { // TODO break out of the hot loop
 				    if (hX.getFormatType(j) == INTERCEPT) {
-				        hXjY[j] += it.value() * hY[k] * hKWeight[k] * (hX.hasTimeEffect(j) ? hTimeLinear[k] : static_cast<RealType>(1));
+				        hXjY[j] += it.value() * hY[k] * hKWeight[k] * (mapTimeEffects.hasTimeEffect(j) ? mapTimeEffects.getTimeEffect(j, k) : static_cast<RealType>(1));
 				    } else {
 				        for (int k2 = hNtoK[k]; k2 < hNtoK[k+1]; k2++) {
-				            hXjY[j] += it.value() * hY[k2] * hKWeight[k2] * (hX.hasTimeEffect(j) ? hTimeLinear[k2] : static_cast<RealType>(1));
+				            hXjY[j] += it.value() * hY[k2] * hKWeight[k2] * (mapTimeEffects.hasTimeEffect(j) ? mapTimeEffects.getTimeEffect(j, k2) : static_cast<RealType>(1));
 				        }
 				    }
 				} else {
@@ -527,10 +527,10 @@ void ModelSpecifics<BaseModel, RealType>::computeXjY(bool useCrossValidation) {
                     hXjY[j] += it.value() * BaseModel::observationCount(hY[k]);
 				} else if (BaseModel::pooledLR) { // TODO break out of the hot loop
 				    if (hX.getFormatType(j) == INTERCEPT) {
-				        hXjY[j] += it.value() * hY[k] * (hX.hasTimeEffect(j) ? hTimeLinear[k] : static_cast<RealType>(1));
+				        hXjY[j] += it.value() * hY[k] * (mapTimeEffects.hasTimeEffect(j) ? mapTimeEffects.getTimeEffect(j, k) : static_cast<RealType>(1));
 				    } else {
 				        for (int k2 = hNtoK[k]; k2 < hNtoK[k+1]; k2++) {
-				            hXjY[j] += it.value() * hY[k2] * (hX.hasTimeEffect(j) ? hTimeLinear[k2] : static_cast<RealType>(1));
+				            hXjY[j] += it.value() * hY[k2] * (mapTimeEffects.hasTimeEffect(j) ? mapTimeEffects.getTimeEffect(j, k2) : static_cast<RealType>(1));
 				        }
 				    }
 				} else {
@@ -913,11 +913,11 @@ template <class BaseModel,typename RealType> template <class IteratorType, class
 void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImplPooledLR(int index, IteratorType it, Weights w,
                                                                                RealType* gradient, RealType* hessian) {
 
-    if (hX.hasTimeEffect(index)) { // hX.getMap.whichTimeEffect(index);
+    if (mapTimeEffects.hasTimeEffect(index)) {
         if (!IteratorType::isSparse && IteratorType::isIndicator) { // only intercept
             for (; it; ++it) {
                 const int i = it.index();
-                RealType itx = hTimeLinear[i] * it.value();
+                RealType itx = mapTimeEffects.getTimeEffect(index, i) * it.value();
 
                 RealType numerator1 = BaseModel::gradientNumeratorContrib(itx, offsExpXBeta[i], hXBeta[i], hY[i]);
                 RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
@@ -933,7 +933,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImplPooledLR(i
             for (; it; ++it) {
                 const int i = it.index();
                 for (int k = hNtoK[i]; k < hNtoK[i+1]; k++) {
-                    RealType itx = hTimeLinear[k] * it.value();
+                    RealType itx = mapTimeEffects.getTimeEffect(index, k) * it.value();
 
                     RealType numerator1 = BaseModel::gradientNumeratorContrib(itx, offsExpXBeta[k], hXBeta[k], hY[k]);
                     RealType numerator2 = (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) ?
@@ -1657,11 +1657,11 @@ void ModelSpecifics<BaseModel,RealType>::updateXBeta(double delta, int index, bo
 template <class BaseModel,typename RealType> template <class IteratorType>
 void ModelSpecifics<BaseModel,RealType>::updateXBetaImplPooledLR(RealType realDelta, int index, IteratorType it, bool useWeights) {
 
-    if (hX.hasTimeEffect(index)) {
+    if (mapTimeEffects.hasTimeEffect(index)) {
         if (!IteratorType::isSparse && IteratorType::isIndicator) { // only intercept
             for (; it; ++it) {
                 const int k = it.index();
-                hXBeta[k] += realDelta * it.value() * hTimeLinear[k]; // TODO Check optimization with indicator and intercept
+                hXBeta[k] += realDelta * it.value() * mapTimeEffects.getTimeEffect(index, k); // TODO Check optimization with indicator and intercept
 
                 if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
                     RealType oldEntry = offsExpXBeta[k];
@@ -1674,7 +1674,7 @@ void ModelSpecifics<BaseModel,RealType>::updateXBetaImplPooledLR(RealType realDe
                 const int i = it.index();
 
                 for (int k = hNtoK[i]; k < hNtoK[i+1]; k++) {
-                    hXBeta[k] += realDelta * it.value() * hTimeLinear[k]; // TODO Check optimization with indicator and intercept
+                    hXBeta[k] += realDelta * it.value() * mapTimeEffects.getTimeEffect(index, k); // TODO Check optimization with indicator and intercept
 
                     if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
                         RealType oldEntry = offsExpXBeta[k];
