@@ -355,7 +355,8 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     loadNewSqlCyclopsDataY(object = dataPtr,
                            stratumId = if ("stratumId" %in% colnames(outcomes)) outcomes$stratumId else NULL,
                            rowId = outcomes$rowId,
-                           y = outcomes$y)
+                           y = outcomes$y,
+                           time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
 
     if (addIntercept & (modelType != "cox" & modelType != "fgr")) {
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
