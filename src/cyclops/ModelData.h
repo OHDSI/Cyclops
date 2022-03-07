@@ -257,8 +257,6 @@ public:
 
     CompressedDataMatrix<RealType> X;
 
-    MapTimeEffects<RealType> mapTimeEffects;
-
 	ModelData(
     	ModelType modelType,
         loggers::ProgressLoggerPtr log,
@@ -386,9 +384,9 @@ public:
 		return y;
 	}
 
-	const RealVector& getTimeEffectLinearRef() const {
-	    return timeLinear;
-	}
+	// const RealVector& getTimeEffectLinearRef() const {
+	//     return timeLinear;
+	// }
 
 	const IntVector& getPidVectorRef() const { // Not const because PIDs can get renumbered
 		return pid;
@@ -816,12 +814,12 @@ protected:
 	RealVector y;
 	RealVector z; // TODO Remove
 	RealVector offs; // TODO Rename to 'time'
-	RealVector timeLinear;
+	// RealVector timeLinear;
 	IntVector nevents; // TODO Where are these used?
 	std::string conditionId;
 	std::vector<std::string> labels; // TODO Change back to 'long'
 
-	// MapTimeEffects mapTimeEffects;
+	MapTimeEffects<RealType> mapTimeEffects;
 
 	int nTypes;
 
