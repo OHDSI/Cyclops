@@ -238,6 +238,8 @@ int ModelData<RealType>::loadMultipleX(
 		index = -1; // new column
 	}
 
+	mapTimeEffects.initializeTimeEffectMap(getNumberOfColumns());
+
 	touchedX = true;
 	return firstColumnIndex;
 }
@@ -385,7 +387,6 @@ int ModelData<RealType>::loadTimeEffects(
     FormatType format = DENSE;
     X.push_back(NULL, NULL, interceptTime.begin(), interceptTime.end(), format);
 
-    mapTimeEffects.initializeTimeEffectMap(numOfCov);
     mapTimeEffects.addTimeEffectColumn(0); // linear effect
     totalNumOfCov++;
 
