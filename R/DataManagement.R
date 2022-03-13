@@ -819,8 +819,30 @@ loadNewSqlCyclopsDataY <- function(object,
 #' @keywords internal
 loadNewSqlCyclopsDataTimeEffects <- function(object,
                                              covariateId,
-                                             timeEffectId, # Vector
-                                             timeLinear = NULL) {
+                                             timeLinear) {
+
+    if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
+
+    if (is.null(timeLinear)) {
+        timeLinear <- as.numeric(c())
+    }
+
+    index <- .loadCyclopsDataTimeEffects(object, timeLinear)
+
+    # if (!missing(name)) {
+    #     if (is.null(object$coefficientNames)) {
+    #         object$coefficientNames <- as.character(c())
+    #     }
+    #     start <- index + 1
+    #     end <- index + length(name)
+    #     object$coefficientNames[start:end] <- as.character(name)
+    # }
+}
+
+#' @keywords internal
+loadNewSqlCyclopsDataTimeInteraction <- function(object,
+                                                  covariateId,
+                                                  timeEffectId) { # Vector
 
     if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
 
@@ -830,11 +852,7 @@ loadNewSqlCyclopsDataTimeEffects <- function(object,
         timeEffectId <- bit64::as.integer64(timeEffectId)
     }
 
-    if (is.null(timeLinear)) {
-        timeLinear <- as.numeric(c())
-    }
-
-    index <- .loadCyclopsDataTimeEffects(object, timeEffectId, timeLinear)
+    index <- .loadCyclopsDataTimeInteraction(object, timeEffectId)
 
     # if (!missing(name)) {
     #     if (is.null(object$coefficientNames)) {

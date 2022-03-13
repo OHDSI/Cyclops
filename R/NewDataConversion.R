@@ -209,11 +209,16 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                    covariateValue = covariates$covariateValue,
                                    name = covarNames)
 
-    if (modelType == "plr" && !is.null(timeEffectId)) {
+    if ("timeLinear" %in% colnames(outcomes)) {
         loadNewSqlCyclopsDataTimeEffects(object = dataPtr,
                                          covariateId = covariates$covariateId,
-                                         timeEffectId = timeEffectId,
-                                         timeLinear = if ("timeLinear" %in% colnames(outcomes)) outcomes$timeLinear else NULL)
+                                         outcomes$timeLinear)
+
+        if (modelType == "plr" && !is.null(timeEffectId)) {
+            loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,
+                                                 covariateId = covariates$covariateId,
+                                                 timeEffectId = timeEffectId)
+        }
     }
 
     if (modelType == "pr" || modelType == "cpr")
@@ -243,13 +248,14 @@ convertToCyclopsData.data.frame <- function(outcomes,
     if ("timeLinear" %in% colnames(outcomes)) {
         dataPtr$timeLinear <- outcomes$timeLinear
     } else {
-        if (modelType == "plr") {
-            warning("Subject-specific time effects are not specified for modelType = 'plr'.")
-            dataPtr$timeLinear <- NULL
-            # writeLines("Generating timeLinear") ## TODO write function for generating timeLinear
-        } else {
-            dataPtr$timeLinear <- NULL
-        }
+        dataPtr$timeLinear <- NULL
+        # if (modelType == "plr") {
+        #     warning("Subject-specific time effects are not specified for modelType = 'plr'.")
+        #     dataPtr$timeLinear <- NULL
+        #     # writeLines("Generating timeLinear") ## TODO write function for generating timeLinear
+        # } else {
+        #     dataPtr$timeLinear <- NULL
+        # }
     }
 
     return(dataPtr)
@@ -376,11 +382,16 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                           loadCovariates,
                           batchSize = 100000) # TODO Pick magic number
 
-    if (modelType == "plr" && !is.null(timeEffectId)) {
+    if ("timeLinear" %in% colnames(outcomes)) {
         loadNewSqlCyclopsDataTimeEffects(object = dataPtr,
                                          covariateId = covariates$covariateId,
-                                         timeEffectId = timeEffectId,
-                                         timeLinear = if ("timeLinear" %in% colnames(outcomes)) outcomes$timeLinear else NULL)
+                                         outcomes$timeLinear)
+
+        if (modelType == "plr" && !is.null(timeEffectId)) {
+            loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,
+                                                 covariateId = covariates$covariateId,
+                                                 timeEffectId = timeEffectId)
+        }
     }
 
     if (modelType == "pr" || modelType == "cpr")
@@ -413,13 +424,14 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     if ("timeLinear" %in% colnames(outcomes)) {
         dataPtr$timeLinear <- outcomes %>% pull(.data$timeLinear)
     } else {
-        if (modelType == "plr") {
-            warning("Subject-specific time effects are not specified for modelType = 'plr'.")
-            dataPtr$timeLinear <- NULL
-            # writeLines("Generating timeLinear") ## TODO write function for generating timeLinear
-        } else {
-            dataPtr$timeLinear <- NULL
-        }
+        dataPtr$timeLinear <- NULL
+        # if (modelType == "plr") {
+        #     warning("Subject-specific time effects are not specified for modelType = 'plr'.")
+        #     dataPtr$timeLinear <- NULL
+        #     # writeLines("Generating timeLinear") ## TODO write function for generating timeLinear
+        # } else {
+        #     dataPtr$timeLinear <- NULL
+        # }
     }
     return(dataPtr)
 }

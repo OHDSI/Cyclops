@@ -27,7 +27,7 @@ test_that("Test data.frame to data for plr without time effects", {
                            x2 = test$x2)
     shortCov <- sparseCov[sparseCov$covariateValue != 0,]
 
-    longOut <- convertToLongOutcome(time = test$time, status = test$status, linearEffect = TRUE)$longOutcome
+    longOut <- convertToLongOutcome(time = test$time, status = test$status)$longOutcome
     longCov <- merge(longOut[,1:2], shortCov, by.x = "stratumId", by.y = "rowId", all.y = TRUE)
     wideData <- merge(longOut, denseCov, by.x = "stratumId", by.y = "rowId")
 
@@ -35,7 +35,7 @@ test_that("Test data.frame to data for plr without time effects", {
     goldLR <- glm(y ~ x1 + x2, data = wideData, family = binomial())
 
     # real lr (long outcome and long covariates)
-    cyclopsDataLR <- convertToCyclopsData(outcomes = longOut[, 1:4],
+    cyclopsDataLR <- convertToCyclopsData(outcomes = longOut,
                                           covariates = longCov,
                                           modelType = "lr")
     # cyclopsDataLR <- createCyclopsData(y ~ x1 + x2,

@@ -197,8 +197,11 @@ public:
     ) = 0;
 
     virtual int loadTimeEffects(
-            const std::vector<int64_t>& timeEffectIds,
             const std::vector<double>& timeLinear
+    ) = 0;
+
+    virtual int loadTimeInteraction(
+            const std::vector<int64_t>& timeEffectIds
     ) = 0;
 
     virtual size_t append(
@@ -358,8 +361,11 @@ public:
 	);
 
 	int loadTimeEffects(
-	    const std::vector<int64_t>& timeEffectIds,
-	    const std::vector<double>& timeLinear
+	        const std::vector<double>& timeLinear
+	);
+
+	int loadTimeInteraction(
+	    const std::vector<int64_t>& timeEffectIds
 	);
 
 	const int* getPidVector() const;

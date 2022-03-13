@@ -625,13 +625,22 @@ int cyclopsLoadDataX(Environment x,
 
 // [[Rcpp::export(".loadCyclopsDataTimeEffects")]]
 int cyclopsLoadDataTimeEffects(Environment x,
-                               const std::vector<double>& covariateId,
                                const std::vector<double>& timeLinear) {
 
     using namespace bsccs;
     XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
 
-    return data->loadTimeEffects(reinterpret_cast<const std::vector<int64_t>&>(covariateId), timeLinear);
+    return data->loadTimeEffects(timeLinear);
+}
+
+// [[Rcpp::export(".loadCyclopsDataTimeInteraction")]]
+int cyclopsLoadDataTimeInteraction(Environment x,
+                               const std::vector<double>& covariateId) {
+
+    using namespace bsccs;
+    XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
+
+    return data->loadTimeInteraction(reinterpret_cast<const std::vector<int64_t>&>(covariateId));
 }
 
 // NOTE:  IdType does not get exported into RcppExports, so hard-coded here
