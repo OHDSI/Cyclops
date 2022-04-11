@@ -55,6 +55,8 @@ convertToCyclopsData(
 
 \item{modelType}{Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"}
 
+\item{timeEffects}{A data frame or ffdf object containing the time-dependent covariates (see below).}
+
 \item{timeEffectId}{A vector of column IDs with time effects.}
 
 \item{addIntercept}{Add an intercept to the model?}
@@ -100,7 +102,7 @@ These columns are expected in the timeEffects object:
 \tabular{lll}{
   \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-  \verb{linear}    \tab(real) \cr
+  \verb{linear}    \tab(real) \tab The value of the specified time-dependent covariate \cr
 }
 }
 \section{Methods (by class)}{

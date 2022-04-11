@@ -27,6 +27,7 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'
 #' @param outcomes      A data frame or ffdf object containing the outcomes with predefined columns (see below).
 #' @param covariates    A data frame or ffdf object containing the covariates with predefined columns (see below).
+#' @param timeEffects   A data frame or ffdf object containing the time-dependent covariates (see below).
 #' @param modelType     Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"
 #' @param timeEffectId  A vector of column IDs with time effects.
 #' @param addIntercept  Add an intercept to the model?
@@ -61,7 +62,7 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' \tabular{lll}{
 #'   \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
 #'   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-#'   \verb{linear}    \tab(real) \cr
+#'   \verb{linear}    \tab(real) \tab The value of the specified time-dependent covariate \cr
 #' }
 #'
 #' @return
