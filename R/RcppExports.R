@@ -294,6 +294,10 @@ getTimeVector <- function(object) {
     .Call(`_Cyclops_cyclopsLoadDataTimeEffects`, x, timeLinear)
 }
 
+.loadCyclopsDataTimeEffectsDF <- function(x, timeEffects) {
+    .Call(`_Cyclops_cyclopsLoadDataTimeEffectsDF`, x, timeEffects)
+}
+
 .loadCyclopsDataTimeInteraction <- function(x, covariateId) {
     .Call(`_Cyclops_cyclopsLoadDataTimeInteraction`, x, covariateId)
 }

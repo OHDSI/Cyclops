@@ -633,6 +633,21 @@ int cyclopsLoadDataTimeEffects(Environment x,
     return data->loadTimeEffects(timeLinear);
 }
 
+// [[Rcpp::export(".loadCyclopsDataTimeEffectsDF")]]
+int cyclopsLoadDataTimeEffectsDF(Environment x,
+                                 DataFrame timeEffects) {
+
+    using namespace bsccs;
+    XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
+
+    std::vector<std::vector<double>> te;
+    for (int i = 0; i < timeEffects.size(); i++) {
+        te.push_back(timeEffects[i]);
+    }
+
+    return data->loadTimeEffectsDF(te);
+}
+
 // [[Rcpp::export(".loadCyclopsDataTimeInteraction")]]
 int cyclopsLoadDataTimeInteraction(Environment x,
                                const std::vector<double>& covariateId) {

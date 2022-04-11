@@ -57,6 +57,13 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'   \verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
 #' }
 #'
+#' These columns are expected in the timeEffects object:
+#' \tabular{lll}{
+#'   \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
+#'   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
+#'   \verb{linear}    \tab(real) \cr
+#' }
+#'
 #' @return
 #' An object of type cyclopsData
 #'
@@ -83,6 +90,7 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 convertToCyclopsData <- function(outcomes,
                                  covariates,
                                  modelType = "lr",
+                                 timeEffects = NULL,
                                  timeEffectId = NULL,
                                  addIntercept = TRUE,
                                  checkSorting = NULL,
@@ -98,6 +106,7 @@ convertToCyclopsData <- function(outcomes,
 convertToCyclopsData.data.frame <- function(outcomes,
                                             covariates,
                                             modelType = "lr",
+                                            timeEffects = NULL,
                                             timeEffectId = NULL,
                                             addIntercept = TRUE,
                                             checkSorting = NULL,
@@ -149,6 +158,14 @@ convertToCyclopsData.data.frame <- function(outcomes,
             if (!quiet)
                 writeLines("Sorting covariates by covariateId, stratumId, and rowId")
             covariates <- covariates[order(covariates$covariateId, covariates$stratumId, covariates$rowId),]
+        }
+    }
+
+    if (!is.null(timeEffects)) {
+        if (!isSorted(timeEffects, c("stratumId","rowId"))) {
+            if (!quiet)
+                writeLines("Sorting timeEffects by stratumId and rowId")
+            timeEffects <- timeEffects[order(timeEffects$stratumId,timeEffects$rowId),]
         }
     }
 
@@ -209,10 +226,13 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                    covariateValue = covariates$covariateValue,
                                    name = covarNames)
 
-    if ("timeLinear" %in% colnames(outcomes)) {
+    if (!is.null(timeEffects)) {
+        loadNewSqlCyclopsDataTimeEffectsDF(object = dataPtr,
+                                           covariateId = covariates$covariateId,
+                                           timeEffects = timeEffects)
         loadNewSqlCyclopsDataTimeEffects(object = dataPtr,
                                          covariateId = covariates$covariateId,
-                                         outcomes$timeLinear)
+                                         timeEffects$linear)
 
         if (modelType == "plr" && !is.null(timeEffectId)) {
             loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,
@@ -266,6 +286,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
 convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          covariates,
                                          modelType = "lr",
+                                         timeEffects = NULL,
                                          timeEffectId = NULL,
                                          addIntercept = TRUE,
                                          checkSorting = NULL,
@@ -334,6 +355,11 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
             arrange(.data$covariateId, .data$stratumId, .data$rowId)
     }
 
+    if (!is.null(timeEffects)) {
+        timeEffects <- timeEffects %>%
+            arrange(.data$stratumId, .data$rowId)
+    }
+
     if (modelType == "cox" | modelType == "fgr") {
 
         if (modelType == "cox" &
@@ -382,10 +408,13 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                           loadCovariates,
                           batchSize = 100000) # TODO Pick magic number
 
-    if ("timeLinear" %in% colnames(outcomes)) {
+    if (!is.null(timeEffects)) {
+        loadNewSqlCyclopsDataTimeEffectsDF(object = dataPtr,
+                                           covariateId = covariates$covariateId,
+                                           timeEffects = timeEffects)
         loadNewSqlCyclopsDataTimeEffects(object = dataPtr,
                                          covariateId = covariates$covariateId,
-                                         outcomes$timeLinear)
+                                         timeEffects$linear)
 
         if (modelType == "plr" && !is.null(timeEffectId)) {
             loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,

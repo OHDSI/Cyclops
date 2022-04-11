@@ -840,6 +840,25 @@ loadNewSqlCyclopsDataTimeEffects <- function(object,
 }
 
 #' @keywords internal
+loadNewSqlCyclopsDataTimeEffectsDF <- function(object,
+                                               covariateId,
+                                               timeEffects) {
+
+    if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
+
+    index <- .loadCyclopsDataTimeEffectsDF(object, timeEffects[, -c(1:2)]) # skip rowId and stratumId
+
+    # if (!missing(name)) {
+    #     if (is.null(object$coefficientNames)) {
+    #         object$coefficientNames <- as.character(c())
+    #     }
+    #     start <- index + 1
+    #     end <- index + length(name)
+    #     object$coefficientNames[start:end] <- as.character(name)
+    # }
+}
+
+#' @keywords internal
 loadNewSqlCyclopsDataTimeInteraction <- function(object,
                                                   covariateId,
                                                   timeEffectId) { # Vector

@@ -10,6 +10,7 @@ convertToCyclopsData(
   outcomes,
   covariates,
   modelType = "lr",
+  timeEffects = NULL,
   timeEffectId = NULL,
   addIntercept = TRUE,
   checkSorting = NULL,
@@ -23,6 +24,7 @@ convertToCyclopsData(
   outcomes,
   covariates,
   modelType = "lr",
+  timeEffects = NULL,
   timeEffectId = NULL,
   addIntercept = TRUE,
   checkSorting = NULL,
@@ -36,6 +38,7 @@ convertToCyclopsData(
   outcomes,
   covariates,
   modelType = "lr",
+  timeEffects = NULL,
   timeEffectId = NULL,
   addIntercept = TRUE,
   checkSorting = NULL,
@@ -91,6 +94,13 @@ These columns are expected in the covariates object:
   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
   \verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
   \verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
+}
+
+These columns are expected in the timeEffects object:
+\tabular{lll}{
+  \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
+  \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
+  \verb{linear}    \tab(real) \cr
 }
 }
 \section{Methods (by class)}{

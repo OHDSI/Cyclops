@@ -200,6 +200,10 @@ public:
             const std::vector<double>& timeLinear
     ) = 0;
 
+    virtual int loadTimeEffectsDF(
+            std::vector<std::vector<double>>& timeEffects
+    ) = 0;
+
     virtual int loadTimeInteraction(
             const std::vector<int64_t>& timeEffectIds
     ) = 0;
@@ -362,6 +366,10 @@ public:
 
 	int loadTimeEffects(
 	        const std::vector<double>& timeLinear
+	);
+
+	int loadTimeEffectsDF(
+	        std::vector<std::vector<double>>& timeEffects
 	);
 
 	int loadTimeInteraction(

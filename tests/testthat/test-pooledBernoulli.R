@@ -99,8 +99,12 @@ test_that("Test data.frame to data for plr with time effects as interaction term
     fitLR <- fitCyclopsModel(cyclopsDataLR)
 
     # efficient pooled lr (long outcome and short covariates)
+    timeEffects <- longOut[,1:3]
+    colnames(timeEffects) <- c("rowId", "stratumId", "linear")
+    timeEffects <- timeEffects[sample(1:nrow(timeEffects)), ] # shuffle rows
     cyclopsDataPLR <- convertToCyclopsData(outcomes = longOut,
                                            covariates = shortCov,
+                                           timeEffects = timeEffects,
                                            timeEffectId = c(1),
                                            modelType = "plr")
     fitPLR <- fitCyclopsModel(cyclopsDataPLR)

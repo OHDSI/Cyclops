@@ -718,6 +718,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsLoadDataTimeEffectsDF
+int cyclopsLoadDataTimeEffectsDF(Environment x, DataFrame timeEffects);
+RcppExport SEXP _Cyclops_cyclopsLoadDataTimeEffectsDF(SEXP xSEXP, SEXP timeEffectsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    Rcpp::traits::input_parameter< DataFrame >::type timeEffects(timeEffectsSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsLoadDataTimeEffectsDF(x, timeEffects));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsLoadDataTimeInteraction
 int cyclopsLoadDataTimeInteraction(Environment x, const std::vector<double>& covariateId);
 RcppExport SEXP _Cyclops_cyclopsLoadDataTimeInteraction(SEXP xSEXP, SEXP covariateIdSEXP) {
@@ -851,6 +863,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsLoadDataMultipleX", (DL_FUNC) &_Cyclops_cyclopsLoadDataMultipleX, 8},
     {"_Cyclops_cyclopsLoadDataX", (DL_FUNC) &_Cyclops_cyclopsLoadDataX, 7},
     {"_Cyclops_cyclopsLoadDataTimeEffects", (DL_FUNC) &_Cyclops_cyclopsLoadDataTimeEffects, 2},
+    {"_Cyclops_cyclopsLoadDataTimeEffectsDF", (DL_FUNC) &_Cyclops_cyclopsLoadDataTimeEffectsDF, 2},
     {"_Cyclops_cyclopsLoadDataTimeInteraction", (DL_FUNC) &_Cyclops_cyclopsLoadDataTimeInteraction, 2},
     {"_Cyclops_cyclopsAppendSqlData", (DL_FUNC) &_Cyclops_cyclopsAppendSqlData, 8},
     {"_Cyclops_cyclopsGetInterceptLabel", (DL_FUNC) &_Cyclops_cyclopsGetInterceptLabel, 1},
