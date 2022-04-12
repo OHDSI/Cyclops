@@ -415,20 +415,21 @@ int ModelData<RealType>::loadTimeEffectsDF(
 
 template <typename RealType>
 int ModelData<RealType>::loadTimeInteraction(
+        std::unordered_map<int, int> timeEffectMap,
         const std::vector<int64_t>& timeEffectIds) {
 
     int numOfCov = getNumberOfColumns();
     int totalNumOfCov = numOfCov;
 
     // time effect with baseline covariates
-    for (auto index : timeEffectIds) {
+    for (auto t : timeEffectMap) {
         // auto sharedPtrToColumnsVector = make_shared<IntVector>(column.getColumnsVector());
-        X.push_back(X.getColumn(index).getColumnsVectorPtr(),
-                    X.getColumn(index).getDataVectorPtr(),
-                    X.getFormatType(index));
+        X.push_back(X.getColumn(t.first).getColumnsVectorPtr(),
+                    X.getColumn(t.first).getDataVectorPtr(),
+                    X.getFormatType(t.first));
         X.getColumn(totalNumOfCov++).convertColumnToDense(getNumberOfRows());
 
-        mapTimeEffects.addTimeEffectColumn(0); // linear effect
+        mapTimeEffects.addTimeEffectColumn(timeEffectMap[t.second]);
     }
 
     return numOfCov;

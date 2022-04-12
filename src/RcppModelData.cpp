@@ -650,12 +650,20 @@ int cyclopsLoadDataTimeEffectsDF(Environment x,
 
 // [[Rcpp::export(".loadCyclopsDataTimeInteraction")]]
 int cyclopsLoadDataTimeInteraction(Environment x,
-                               const std::vector<double>& covariateId) {
+                                   DataFrame timeEffectMap,
+                                   const std::vector<double>& covariateId) {
 
     using namespace bsccs;
     XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
 
-    return data->loadTimeInteraction(reinterpret_cast<const std::vector<int64_t>&>(covariateId));
+    std::unordered_map<int, int> tm;
+    NumericVector cId = timeEffectMap["covariateId"];
+    NumericVector tId = timeEffectMap["timeEffectId"];
+    for (int i = 0; i < timeEffectMap.nrows(); i++) {
+        tm[cId[i]] = tId[i];
+    }
+
+    return data->loadTimeInteraction(tm, reinterpret_cast<const std::vector<int64_t>&>(covariateId));
 }
 
 // NOTE:  IdType does not get exported into RcppExports, so hard-coded here

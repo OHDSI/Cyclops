@@ -212,6 +212,7 @@ public:
     ) = 0;
 
     virtual int loadTimeInteraction(
+            std::unordered_map<int, int> timeEffectMap,
             const std::vector<int64_t>& timeEffectIds
     ) = 0;
 
@@ -380,7 +381,8 @@ public:
 	);
 
 	int loadTimeInteraction(
-	    const std::vector<int64_t>& timeEffectIds
+	        std::unordered_map<int, int> timeEffectMap,
+	        const std::vector<int64_t>& timeEffectIds
 	);
 
 	const int* getPidVector() const;

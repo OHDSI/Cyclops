@@ -860,8 +860,9 @@ loadNewSqlCyclopsDataTimeEffectsDF <- function(object,
 
 #' @keywords internal
 loadNewSqlCyclopsDataTimeInteraction <- function(object,
-                                                  covariateId,
-                                                  timeEffectId) { # Vector
+                                                 covariateId,
+                                                 timeEffectMap,
+                                                 timeEffectId) { # Vector
 
     if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
 
@@ -871,7 +872,7 @@ loadNewSqlCyclopsDataTimeInteraction <- function(object,
         timeEffectId <- bit64::as.integer64(timeEffectId)
     }
 
-    index <- .loadCyclopsDataTimeInteraction(object, timeEffectId)
+    index <- .loadCyclopsDataTimeInteraction(object, timeEffectMap, timeEffectId)
 
     # if (!missing(name)) {
     #     if (is.null(object$coefficientNames)) {

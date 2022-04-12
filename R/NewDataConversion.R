@@ -28,6 +28,7 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' @param outcomes      A data frame or ffdf object containing the outcomes with predefined columns (see below).
 #' @param covariates    A data frame or ffdf object containing the covariates with predefined columns (see below).
 #' @param timeEffects   A data frame or ffdf object containing the time-dependent covariates (see below).
+#' @param timeEffectMap A data frame or ffdf object containing the interaction of time-independent covariates with time effects (see below).
 #' @param modelType     Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"
 #' @param timeEffectId  A vector of column IDs with time effects.
 #' @param addIntercept  Add an intercept to the model?
@@ -65,6 +66,12 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'   \verb{linear}    \tab(real) \tab The value of the specified time-dependent covariate \cr
 #' }
 #'
+#' These columns are expected in the timeEffectMap object:
+#' \tabular{lll}{
+#'   \verb{covariateId}    \tab(integer) \tab A numeric identifier of a time-independent covariate  \cr
+#'   \verb{timeEffectId}  	\tab(integer) \tab TimeEffect ID is used to link multiple time-independent covariates (x) to a single time effect (t) \cr
+#' }
+#'
 #' @return
 #' An object of type cyclopsData
 #'
@@ -92,6 +99,7 @@ convertToCyclopsData <- function(outcomes,
                                  covariates,
                                  modelType = "lr",
                                  timeEffects = NULL,
+                                 timeEffectMap = NULL,
                                  timeEffectId = NULL,
                                  addIntercept = TRUE,
                                  checkSorting = NULL,
@@ -108,6 +116,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                             covariates,
                                             modelType = "lr",
                                             timeEffects = NULL,
+                                            timeEffectMap = NULL,
                                             timeEffectId = NULL,
                                             addIntercept = TRUE,
                                             checkSorting = NULL,
@@ -238,6 +247,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
         if (modelType == "plr" && !is.null(timeEffectId)) {
             loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,
                                                  covariateId = covariates$covariateId,
+                                                 timeEffectMap = timeEffectMap,
                                                  timeEffectId = timeEffectId)
         }
     }
@@ -289,6 +299,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          modelType = "lr",
                                          timeEffects = NULL,
                                          timeEffectId = NULL,
+                                         timeEffectMap = NULL,
                                          addIntercept = TRUE,
                                          checkSorting = NULL,
                                          checkRowIds = TRUE,
@@ -420,6 +431,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         if (modelType == "plr" && !is.null(timeEffectId)) {
             loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,
                                                  covariateId = covariates$covariateId,
+                                                 timeEffectMap = timeEffectMap,
                                                  timeEffectId = timeEffectId)
         }
     }
