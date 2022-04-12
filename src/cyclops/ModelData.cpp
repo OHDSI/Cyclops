@@ -396,7 +396,21 @@ template <typename RealType>
 int ModelData<RealType>::loadTimeEffectsDF(
         std::vector<std::vector<double>>& oTimeEffects) {
 
-    return 0;
+    // copy assign time effects columns
+    mapTimeEffects.copyAssignTimeEffects(oTimeEffects);
+
+    int numOfCov = getNumberOfColumns();
+    int totalNumOfCov = numOfCov;
+
+    // time effect with intercept
+    std::vector<RealType> interceptTime(getX().nRows, static_cast<RealType>(1));
+    FormatType format = DENSE;
+    X.push_back(NULL, NULL, interceptTime.begin(), interceptTime.end(), format);
+
+    mapTimeEffects.addTimeEffectColumn(0); // linear effect
+    totalNumOfCov++;
+
+    return totalNumOfCov;
 }
 
 template <typename RealType>

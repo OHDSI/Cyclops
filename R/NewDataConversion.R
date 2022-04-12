@@ -231,9 +231,9 @@ convertToCyclopsData.data.frame <- function(outcomes,
         loadNewSqlCyclopsDataTimeEffectsDF(object = dataPtr,
                                            covariateId = covariates$covariateId,
                                            timeEffects = timeEffects)
-        loadNewSqlCyclopsDataTimeEffects(object = dataPtr,
-                                         covariateId = covariates$covariateId,
-                                         timeEffects$linear)
+        # loadNewSqlCyclopsDataTimeEffects(object = dataPtr,
+        #                                  covariateId = covariates$covariateId,
+        #                                  timeEffects$linear)
 
         if (modelType == "plr" && !is.null(timeEffectId)) {
             loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,
@@ -413,9 +413,9 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         loadNewSqlCyclopsDataTimeEffectsDF(object = dataPtr,
                                            covariateId = covariates$covariateId,
                                            timeEffects = timeEffects)
-        loadNewSqlCyclopsDataTimeEffects(object = dataPtr,
-                                         covariateId = covariates$covariateId,
-                                         timeEffects$linear)
+        # loadNewSqlCyclopsDataTimeEffects(object = dataPtr,
+        #                                  covariateId = covariates$covariateId,
+        #                                  timeEffects$linear)
 
         if (modelType == "plr" && !is.null(timeEffectId)) {
             loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,

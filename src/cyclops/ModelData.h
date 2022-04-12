@@ -56,6 +56,12 @@ public:
         std::copy(std::begin(inlinearEffect), std::end(inlinearEffect), std::begin(linearEffect));
     }
 
+    void copyAssignTimeEffects(std::vector<std::vector<double>>& inTimeEffects) {
+        for (int i = 0; i < inTimeEffects.size(); i++) {
+            timeEffects.push_back(inTimeEffects[i]);
+        }
+    }
+
     void initializeTimeEffectMap(int numColumns) {
         if (mapTime.size() != numColumns) {
             mapTime.resize(numColumns);
@@ -68,7 +74,7 @@ public:
     }
 
     RealType getTimeEffect(int column, int row) const{
-        return linearEffect[row]; // TODO add column map
+        return timeEffects[mapTime[column]][row];
     }
 
     bool hasTimeEffect(int column) const{
@@ -81,6 +87,7 @@ public:
 
     std::vector<int> mapTime;
     std::vector<RealType> linearEffect;
+    std::vector<std::vector<double>> timeEffects;
 
 };
 
