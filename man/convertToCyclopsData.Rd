@@ -12,7 +12,6 @@ convertToCyclopsData(
   modelType = "lr",
   timeEffects = NULL,
   timeEffectMap = NULL,
-  timeEffectId = NULL,
   addIntercept = TRUE,
   checkSorting = NULL,
   checkRowIds = TRUE,
@@ -27,7 +26,6 @@ convertToCyclopsData(
   modelType = "lr",
   timeEffects = NULL,
   timeEffectMap = NULL,
-  timeEffectId = NULL,
   addIntercept = TRUE,
   checkSorting = NULL,
   checkRowIds = TRUE,
@@ -42,7 +40,6 @@ convertToCyclopsData(
   modelType = "lr",
   timeEffects = NULL,
   timeEffectMap = NULL,
-  timeEffectId = NULL,
   addIntercept = TRUE,
   checkSorting = NULL,
   checkRowIds = TRUE,
@@ -61,8 +58,6 @@ convertToCyclopsData(
 \item{timeEffects}{A data frame or ffdf object containing the time-dependent covariates (see below).}
 
 \item{timeEffectMap}{A data frame or ffdf object containing the interaction of time-independent covariates with time effects (see below).}
-
-\item{timeEffectId}{A vector of column IDs with time effects.}
 
 \item{addIntercept}{Add an intercept to the model?}
 
@@ -92,7 +87,6 @@ These columns are expected in the outcome object:
                  \tab        \tab(e.g. number of days) \cr
   \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
   \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided \cr
-  \verb{timeLinear}  \tab(real) \tab (optional) Linear time effects for pooled logistic regression \cr
 }
 
 These columns are expected in the covariates object:
@@ -107,7 +101,7 @@ These columns are expected in the timeEffects object:
 \tabular{lll}{
   \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-  \verb{linear}    \tab(real) \tab The value of the specified time-dependent covariate \cr
+  \verb{timeEffect}    \tab(real) \tab The value of the specified time-dependent covariate \cr
 }
 
 These columns are expected in the timeEffectMap object:

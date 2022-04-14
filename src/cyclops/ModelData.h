@@ -50,13 +50,6 @@ public:
     MapTimeEffects(int numColumns) : mapTime(numColumns, -1) {}
     virtual ~MapTimeEffects() {};
 
-    void copyAssignLinearTimeEffect(const std::vector<double>& inlinearEffect) {
-        if (linearEffect.size() != inlinearEffect.size()) {
-            linearEffect.resize(inlinearEffect.size());
-        }
-        std::copy(std::begin(inlinearEffect), std::end(inlinearEffect), std::begin(linearEffect));
-    }
-
     void copyAssignTimeEffects(std::vector<std::vector<double>>& inTimeEffects) {
         for (int i = 0; i < inTimeEffects.size(); i++) {
             timeEffects.push_back(inTimeEffects[i]);
@@ -87,7 +80,6 @@ public:
     }
 
     std::vector<int> mapTime;
-    std::vector<RealType> linearEffect;
     std::vector<std::vector<double>> timeEffects;
 
 };
@@ -204,17 +196,12 @@ public:
             const bool forceSparse
     ) = 0;
 
-    virtual int loadTimeEffects(
-            const std::vector<double>& timeLinear
-    ) = 0;
-
     virtual int loadTimeEffectsDF(
             std::vector<std::vector<double>>& timeEffects
     ) = 0;
 
     virtual int loadTimeInteraction(
-            std::unordered_map<int, int> timeEffectMap,
-            const std::vector<int64_t>& timeEffectIds
+            std::unordered_map<int, int> timeEffectMap
     ) = 0;
 
     virtual size_t append(
@@ -373,17 +360,12 @@ public:
 		const bool forceSparse
 	);
 
-	int loadTimeEffects(
-	        const std::vector<double>& timeLinear
-	);
-
 	int loadTimeEffectsDF(
 	        std::vector<std::vector<double>>& timeEffects
 	);
 
 	int loadTimeInteraction(
-	        std::unordered_map<int, int> timeEffectMap,
-	        const std::vector<int64_t>& timeEffectIds
+	        std::unordered_map<int, int> timeEffectMap
 	);
 
 	const int* getPidVector() const;

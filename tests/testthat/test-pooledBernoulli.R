@@ -108,7 +108,6 @@ test_that("Test data.frame to data for plr with time effects as interaction term
                                            covariates = shortCov,
                                            timeEffects = timeEffects,
                                            timeEffectMap = timeMap,
-                                           timeEffectId = c(1),
                                            modelType = "plr")
     fitPLR <- fitCyclopsModel(cyclopsDataPLR)
 

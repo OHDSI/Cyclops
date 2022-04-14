@@ -817,29 +817,6 @@ loadNewSqlCyclopsDataY <- function(object,
 }
 
 #' @keywords internal
-loadNewSqlCyclopsDataTimeEffects <- function(object,
-                                             covariateId,
-                                             timeLinear) {
-
-    if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
-
-    if (is.null(timeLinear)) {
-        timeLinear <- as.numeric(c())
-    }
-
-    index <- .loadCyclopsDataTimeEffects(object, timeLinear)
-
-    # if (!missing(name)) {
-    #     if (is.null(object$coefficientNames)) {
-    #         object$coefficientNames <- as.character(c())
-    #     }
-    #     start <- index + 1
-    #     end <- index + length(name)
-    #     object$coefficientNames[start:end] <- as.character(name)
-    # }
-}
-
-#' @keywords internal
 loadNewSqlCyclopsDataTimeEffectsDF <- function(object,
                                                covariateId,
                                                timeEffects) {
@@ -861,18 +838,13 @@ loadNewSqlCyclopsDataTimeEffectsDF <- function(object,
 #' @keywords internal
 loadNewSqlCyclopsDataTimeInteraction <- function(object,
                                                  covariateId,
-                                                 timeEffectMap,
-                                                 timeEffectId) { # Vector
+                                                 timeEffectMap) {
 
     if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
 
-    if (!all(timeEffectId %in% covariateId)) stop("Invalid covariateId for time effects.")
+    if (!all(timeEffectMap$covariateId %in% covariateId)) stop("Invalid covariateId for time effects.")
 
-    if (!bit64::is.integer64(timeEffectId)) {
-        timeEffectId <- bit64::as.integer64(timeEffectId)
-    }
-
-    index <- .loadCyclopsDataTimeInteraction(object, timeEffectMap, timeEffectId)
+    index <- .loadCyclopsDataTimeInteraction(object, timeEffectMap)
 
     # if (!missing(name)) {
     #     if (is.null(object$coefficientNames)) {

@@ -290,16 +290,12 @@ getTimeVector <- function(object) {
     .Call(`_Cyclops_cyclopsLoadDataX`, x, bitCovariateId, rowId, covariateValue, replace, append, forceSparse)
 }
 
-.loadCyclopsDataTimeEffects <- function(x, timeLinear) {
-    .Call(`_Cyclops_cyclopsLoadDataTimeEffects`, x, timeLinear)
-}
-
 .loadCyclopsDataTimeEffectsDF <- function(x, timeEffects) {
     .Call(`_Cyclops_cyclopsLoadDataTimeEffectsDF`, x, timeEffects)
 }
 
-.loadCyclopsDataTimeInteraction <- function(x, timeEffectMap, covariateId) {
-    .Call(`_Cyclops_cyclopsLoadDataTimeInteraction`, x, timeEffectMap, covariateId)
+.loadCyclopsDataTimeInteraction <- function(x, timeEffectMap) {
+    .Call(`_Cyclops_cyclopsLoadDataTimeInteraction`, x, timeEffectMap)
 }
 
 .appendSqlCyclopsData <- function(x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue) {

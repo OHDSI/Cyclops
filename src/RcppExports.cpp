@@ -706,18 +706,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// cyclopsLoadDataTimeEffects
-int cyclopsLoadDataTimeEffects(Environment x, const std::vector<double>& timeLinear);
-RcppExport SEXP _Cyclops_cyclopsLoadDataTimeEffects(SEXP xSEXP, SEXP timeLinearSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type timeLinear(timeLinearSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsLoadDataTimeEffects(x, timeLinear));
-    return rcpp_result_gen;
-END_RCPP
-}
 // cyclopsLoadDataTimeEffectsDF
 int cyclopsLoadDataTimeEffectsDF(Environment x, DataFrame timeEffects);
 RcppExport SEXP _Cyclops_cyclopsLoadDataTimeEffectsDF(SEXP xSEXP, SEXP timeEffectsSEXP) {
@@ -731,15 +719,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsLoadDataTimeInteraction
-int cyclopsLoadDataTimeInteraction(Environment x, DataFrame timeEffectMap, const std::vector<double>& covariateId);
-RcppExport SEXP _Cyclops_cyclopsLoadDataTimeInteraction(SEXP xSEXP, SEXP timeEffectMapSEXP, SEXP covariateIdSEXP) {
+int cyclopsLoadDataTimeInteraction(Environment x, DataFrame timeEffectMap);
+RcppExport SEXP _Cyclops_cyclopsLoadDataTimeInteraction(SEXP xSEXP, SEXP timeEffectMapSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
     Rcpp::traits::input_parameter< DataFrame >::type timeEffectMap(timeEffectMapSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type covariateId(covariateIdSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsLoadDataTimeInteraction(x, timeEffectMap, covariateId));
+    rcpp_result_gen = Rcpp::wrap(cyclopsLoadDataTimeInteraction(x, timeEffectMap));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -863,9 +850,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsLoadDataY", (DL_FUNC) &_Cyclops_cyclopsLoadDataY, 5},
     {"_Cyclops_cyclopsLoadDataMultipleX", (DL_FUNC) &_Cyclops_cyclopsLoadDataMultipleX, 8},
     {"_Cyclops_cyclopsLoadDataX", (DL_FUNC) &_Cyclops_cyclopsLoadDataX, 7},
-    {"_Cyclops_cyclopsLoadDataTimeEffects", (DL_FUNC) &_Cyclops_cyclopsLoadDataTimeEffects, 2},
     {"_Cyclops_cyclopsLoadDataTimeEffectsDF", (DL_FUNC) &_Cyclops_cyclopsLoadDataTimeEffectsDF, 2},
-    {"_Cyclops_cyclopsLoadDataTimeInteraction", (DL_FUNC) &_Cyclops_cyclopsLoadDataTimeInteraction, 3},
+    {"_Cyclops_cyclopsLoadDataTimeInteraction", (DL_FUNC) &_Cyclops_cyclopsLoadDataTimeInteraction, 2},
     {"_Cyclops_cyclopsAppendSqlData", (DL_FUNC) &_Cyclops_cyclopsAppendSqlData, 8},
     {"_Cyclops_cyclopsGetInterceptLabel", (DL_FUNC) &_Cyclops_cyclopsGetInterceptLabel, 1},
     {"_Cyclops_cyclopsReadFileData", (DL_FUNC) &_Cyclops_cyclopsReadFileData, 2},

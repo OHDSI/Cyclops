@@ -30,7 +30,6 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' @param timeEffects   A data frame or ffdf object containing the time-dependent covariates (see below).
 #' @param timeEffectMap A data frame or ffdf object containing the interaction of time-independent covariates with time effects (see below).
 #' @param modelType     Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"
-#' @param timeEffectId  A vector of column IDs with time effects.
 #' @param addIntercept  Add an intercept to the model?
 #' @param checkSorting  (DEPRECATED) Check if the data are sorted appropriately, and if not, sort.
 #' @param checkRowIds   Check if all rowIds in the covariates appear in the outcomes.
@@ -48,7 +47,6 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'                  \tab        \tab(e.g. number of days) \cr
 #'   \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
 #'   \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided \cr
-#'   \verb{timeLinear}  \tab(real) \tab (optional) Linear time effects for pooled logistic regression \cr
 #' }
 #'
 #' These columns are expected in the covariates object:
@@ -63,7 +61,7 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' \tabular{lll}{
 #'   \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
 #'   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-#'   \verb{linear}    \tab(real) \tab The value of the specified time-dependent covariate \cr
+#'   \verb{timeEffect}    \tab(real) \tab The value of the specified time-dependent covariate \cr
 #' }
 #'
 #' These columns are expected in the timeEffectMap object:
@@ -100,7 +98,6 @@ convertToCyclopsData <- function(outcomes,
                                  modelType = "lr",
                                  timeEffects = NULL,
                                  timeEffectMap = NULL,
-                                 timeEffectId = NULL,
                                  addIntercept = TRUE,
                                  checkSorting = NULL,
                                  checkRowIds = TRUE,
@@ -117,7 +114,6 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                             modelType = "lr",
                                             timeEffects = NULL,
                                             timeEffectMap = NULL,
-                                            timeEffectId = NULL,
                                             addIntercept = TRUE,
                                             checkSorting = NULL,
                                             checkRowIds = TRUE,
@@ -237,18 +233,16 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                    name = covarNames)
 
     if (!is.null(timeEffects)) {
+        # load time-dependent covariates (long, including time effects)
         loadNewSqlCyclopsDataTimeEffectsDF(object = dataPtr,
                                            covariateId = covariates$covariateId,
                                            timeEffects = timeEffects)
-        # loadNewSqlCyclopsDataTimeEffects(object = dataPtr,
-        #                                  covariateId = covariates$covariateId,
-        #                                  timeEffects$linear)
 
-        if (modelType == "plr" && !is.null(timeEffectId)) {
+        # load interaction terms between time effect (long) and time-independent covariates (short)
+        if (modelType == "plr" && !is.null(timeEffectMap)) {
             loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,
                                                  covariateId = covariates$covariateId,
-                                                 timeEffectMap = timeEffectMap,
-                                                 timeEffectId = timeEffectId)
+                                                 timeEffectMap = timeEffectMap)
         }
     }
 
@@ -276,19 +270,6 @@ convertToCyclopsData.data.frame <- function(outcomes,
         }
     }
 
-    if ("timeLinear" %in% colnames(outcomes)) {
-        dataPtr$timeLinear <- outcomes$timeLinear
-    } else {
-        dataPtr$timeLinear <- NULL
-        # if (modelType == "plr") {
-        #     warning("Subject-specific time effects are not specified for modelType = 'plr'.")
-        #     dataPtr$timeLinear <- NULL
-        #     # writeLines("Generating timeLinear") ## TODO write function for generating timeLinear
-        # } else {
-        #     dataPtr$timeLinear <- NULL
-        # }
-    }
-
     return(dataPtr)
 }
 
@@ -299,7 +280,6 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          modelType = "lr",
                                          timeEffects = NULL,
                                          timeEffectMap = NULL,
-                                         timeEffectId = NULL,
                                          addIntercept = TRUE,
                                          checkSorting = NULL,
                                          checkRowIds = TRUE,
@@ -421,18 +401,16 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                           batchSize = 100000) # TODO Pick magic number
 
     if (!is.null(timeEffects)) {
+        # load time-dependent covariates (long, including time effects)
         loadNewSqlCyclopsDataTimeEffectsDF(object = dataPtr,
                                            covariateId = covariates$covariateId,
                                            timeEffects = timeEffects)
-        # loadNewSqlCyclopsDataTimeEffects(object = dataPtr,
-        #                                  covariateId = covariates$covariateId,
-        #                                  timeEffects$linear)
 
-        if (modelType == "plr" && !is.null(timeEffectId)) {
+        # load interaction terms between time effect (long) and time-independent covariates (short)
+        if (modelType == "plr" && !is.null(timeEffectMap)) {
             loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,
                                                  covariateId = covariates$covariateId,
-                                                 timeEffectMap = timeEffectMap,
-                                                 timeEffectId = timeEffectId)
+                                                 timeEffectMap = timeEffectMap)
         }
     }
 
@@ -463,17 +441,5 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         }
     }
 
-    if ("timeLinear" %in% colnames(outcomes)) {
-        dataPtr$timeLinear <- outcomes %>% pull(.data$timeLinear)
-    } else {
-        dataPtr$timeLinear <- NULL
-        # if (modelType == "plr") {
-        #     warning("Subject-specific time effects are not specified for modelType = 'plr'.")
-        #     dataPtr$timeLinear <- NULL
-        #     # writeLines("Generating timeLinear") ## TODO write function for generating timeLinear
-        # } else {
-        #     dataPtr$timeLinear <- NULL
-        # }
-    }
     return(dataPtr)
 }
