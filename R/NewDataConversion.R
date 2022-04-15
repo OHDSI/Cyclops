@@ -61,7 +61,8 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' \tabular{lll}{
 #'   \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
 #'   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-#'   \verb{timeEffect}    \tab(real) \tab The value of the specified time-dependent covariate \cr
+#'   \verb{timeEffect0}    \tab(real) \tab The value of the specified time-dependent covariate \cr
+#'   \verb{timeEffect1}    \tab(real) \tab (optional) The value of the specified time-dependent covariate \cr
 #' }
 #'
 #' These columns are expected in the timeEffectMap object:
@@ -173,6 +174,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
                 writeLines("Sorting timeEffects by stratumId and rowId")
             timeEffects <- timeEffects[order(timeEffects$stratumId,timeEffects$rowId),]
         }
+        if (nrow(timeEffects) != nrow(outcomes)) stop("Time effects and outcomes have a dimenntionality mismatch.")
     }
 
     if (modelType == "cox" | modelType == "fgr") {
@@ -240,6 +242,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
 
         # load interaction terms between time effect (long) and time-independent covariates (short)
         if (modelType == "plr" && !is.null(timeEffectMap)) {
+            if (!all(timeEffectMap$timeEffectId %in% 0:(ncol(timeEffects) - 3))) stop("Invalid timeEffectId for interaction terms.")
             loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,
                                                  covariateId = covariates$covariateId,
                                                  timeEffectMap = timeEffectMap)
@@ -350,6 +353,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     if (!is.null(timeEffects)) {
         timeEffects <- timeEffects %>%
             arrange(.data$stratumId, .data$rowId)
+        if (nrow(timeEffects) != nrow(data.frame(outcomes))) stop("Time effects and outcomes have a dimenntionality mismatch.")
     }
 
     if (modelType == "cox" | modelType == "fgr") {
@@ -408,6 +412,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
 
         # load interaction terms between time effect (long) and time-independent covariates (short)
         if (modelType == "plr" && !is.null(timeEffectMap)) {
+            if (!all(timeEffectMap$timeEffectId %in% 0:(ncol(timeEffects) - 3))) stop("Invalid timeEffectId for interaction terms.")
             loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,
                                                  covariateId = covariates$covariateId,
                                                  timeEffectMap = timeEffectMap)

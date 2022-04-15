@@ -101,7 +101,8 @@ These columns are expected in the timeEffects object:
 \tabular{lll}{
   \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-  \verb{timeEffect}    \tab(real) \tab The value of the specified time-dependent covariate \cr
+  \verb{timeEffect0}    \tab(real) \tab The value of the specified time-dependent covariate \cr
+  \verb{timeEffect1}    \tab(real) \tab (optional) The value of the specified time-dependent covariate \cr
 }
 
 These columns are expected in the timeEffectMap object:
