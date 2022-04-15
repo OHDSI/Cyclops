@@ -384,10 +384,11 @@ int ModelData<RealType>::loadTimeEffectsDF(
     // time effect with intercept
     std::vector<RealType> interceptTime(getX().nRows, static_cast<RealType>(1));
     FormatType format = DENSE;
-    X.push_back(NULL, NULL, interceptTime.begin(), interceptTime.end(), format);
-
-    mapTimeEffects.addTimeEffectColumn(0); // linear effect
-    totalNumOfCov++;
+    for (int i = 0; i < oTimeEffects.size(); i++) {
+        X.push_back(NULL, NULL, interceptTime.begin(), interceptTime.end(), format);
+        mapTimeEffects.addTimeEffectColumn(i); // linear effect
+        totalNumOfCov++;
+    }
 
     return totalNumOfCov;
 }
