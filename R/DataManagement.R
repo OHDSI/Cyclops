@@ -825,14 +825,11 @@ loadNewSqlCyclopsDataTimeEffectsDF <- function(object,
 
     index <- .loadCyclopsDataTimeEffectsDF(object, timeEffects[, -c(1:2)]) # skip rowId and stratumId
 
-    # if (!missing(name)) {
-    #     if (is.null(object$coefficientNames)) {
-    #         object$coefficientNames <- as.character(c())
-    #     }
-    #     start <- index + 1
-    #     end <- index + length(name)
-    #     object$coefficientNames[start:end] <- as.character(name)
-    # }
+    if (!is.null(object$coefficientNames)) {
+        # timeName <- colnames(timeEffects)[-c(1:2)]
+        timeName <- paste0("time", 1:(ncol(timeEffects) - 2))
+        object$coefficientNames <- append(object$coefficientNames, timeName)
+    }
 }
 
 #' @keywords internal
@@ -844,16 +841,14 @@ loadNewSqlCyclopsDataTimeInteraction <- function(object,
 
     if (!all(timeEffectMap$covariateId %in% covariateId)) stop("Invalid covariateId for time effects.")
 
+    timeEffectMap$timeEffectId <- timeEffectMap$timeEffectId - 1 # Cpp start from 0
+
     index <- .loadCyclopsDataTimeInteraction(object, timeEffectMap)
 
-    # if (!missing(name)) {
-    #     if (is.null(object$coefficientNames)) {
-    #         object$coefficientNames <- as.character(c())
-    #     }
-    #     start <- index + 1
-    #     end <- index + length(name)
-    #     object$coefficientNames[start:end] <- as.character(name)
-    # }
+    if (!is.null(object$coefficientNames)) {
+        timeEffectName <- paste0("x", timeEffectMap$covariateId, ":time", timeEffectMap$timeEffectId + 1)
+        object$coefficientNames <- append(object$coefficientNames, timeEffectName)
+    }
 }
 
 

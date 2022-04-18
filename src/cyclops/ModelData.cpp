@@ -386,7 +386,7 @@ int ModelData<RealType>::loadTimeEffectsDF(
     FormatType format = DENSE;
     for (int i = 0; i < oTimeEffects.size(); i++) {
         X.push_back(NULL, NULL, interceptTime.begin(), interceptTime.end(), format);
-        mapTimeEffects.addTimeEffectColumn(i); // linear effect
+        mapTimeEffects.addTimeEffectColumn(i);
         totalNumOfCov++;
     }
 

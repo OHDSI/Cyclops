@@ -242,7 +242,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
 
         # load interaction terms between time effect (long) and time-independent covariates (short)
         if (modelType == "plr" && !is.null(timeEffectMap)) {
-            if (!all(timeEffectMap$timeEffectId %in% 0:(ncol(timeEffects) - 3))) stop("Invalid timeEffectId for interaction terms.")
+            if (!all(timeEffectMap$timeEffectId %in% 1:(ncol(timeEffects) - 2))) stop("Invalid timeEffectId for interaction terms.")
             loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,
                                                  covariateId = covariates$covariateId,
                                                  timeEffectMap = timeEffectMap)
@@ -412,7 +412,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
 
         # load interaction terms between time effect (long) and time-independent covariates (short)
         if (modelType == "plr" && !is.null(timeEffectMap)) {
-            if (!all(timeEffectMap$timeEffectId %in% 0:(ncol(timeEffects) - 3))) stop("Invalid timeEffectId for interaction terms.")
+            if (!all(timeEffectMap$timeEffectId %in% 1:(ncol(timeEffects) - 2))) stop("Invalid timeEffectId for interaction terms.")
             loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,
                                                  covariateId = covariates$covariateId,
                                                  timeEffectMap = timeEffectMap)

@@ -101,13 +101,14 @@ test_that("Test data.frame to data for plr with multiple time-dependent covariat
                                            modelType = "plr")
     fitPLR <- fitCyclopsModel(cyclopsDataPLR)
 
-    expect_equal(unname(coef(goldLR)), unname(coef(fitLR)), tolerance = tolerance2)
+    expect_equal(coef(goldLR), coef(fitLR), tolerance = tolerance2)
     expect_equal(unname(coef(fitLR)), unname(coef(fitPLR)), tolerance = tolerance4)
     expect_equivalent(logLik(fitLR),logLik(fitPLR))
 })
 
 test_that("Test data.frame to data for plr with time effects as interaction terms", {
-    tolerance <- 1E-3
+    tolerance3 <- 1E-3
+    tolerance4 <- 1E-4
 
     test <- read.table(header=T, sep = ",", text = "
                        time, status, x1, x2
@@ -126,11 +127,11 @@ test_that("Test data.frame to data for plr with time effects as interaction term
 
     wideData <- merge(longOut, denseCov, by.x = "stratumId", by.y = "rowId")
 
-    nCovars <- 4
-    longCov <- data.frame(stratumId = 0,
-                          rowId = rep(1:nrow(wideData),nCovars),
-                          covariateId = rep(1:nCovars,each = nrow(wideData)),
-                          covariateValue = c(wideData$x1, wideData$x2, wideData$time, wideData$x1 * wideData$time))
+    # nCovars <- 4
+    # longCov <- data.frame(stratumId = 0,
+    #                       rowId = rep(1:nrow(wideData),nCovars),
+    #                       covariateId = rep(1:nCovars,each = nrow(wideData)),
+    #                       covariateValue = c(wideData$x1, wideData$x2, wideData$time, wideData$x1 * wideData$time))
     nCovars <- 2
     shortCov <- data.frame(stratumId = 0,
                            rowId = rep(1:nrow(denseCov),nCovars),
@@ -139,13 +140,13 @@ test_that("Test data.frame to data for plr with time effects as interaction term
 
 
     # gold lr
-    goldLR <- glm(y ~ x1 + x2 + time + x1:time, data = wideData, family = binomial())
+    goldLR <- glm(y ~ x1 + x2 + timeLinear + x1:timeLinear, data = wideData, family = binomial())
 
     # real lr (long outcome and long covariates)
     # cyclopsDataLR <- convertToCyclopsData(outcomes = longOut[, 1:4],
     #                                       covariates = longCov,
     #                                       modelType = "lr")
-    cyclopsDataLR <- createCyclopsData(y ~ x1 + x2+ time + x1:time,
+    cyclopsDataLR <- createCyclopsData(y ~ x1 + x2+ timeLinear + x1:timeLinear,
                                        data = wideData,
                                        modelType = "lr")
     fitLR <- fitCyclopsModel(cyclopsDataLR)
@@ -155,7 +156,7 @@ test_that("Test data.frame to data for plr with time effects as interaction term
     colnames(timeEffects) <- c("rowId", "stratumId", "linear")
     timeEffects <- timeEffects[sample(1:nrow(timeEffects)), ] # shuffle rows
     timeMap <- data.frame(covariateId = 1,
-                          timeEffectId = 0)
+                          timeEffectId = 1)
     cyclopsDataPLR <- convertToCyclopsData(outcomes = longOut,
                                            covariates = shortCov,
                                            timeEffects = timeEffects,
@@ -163,7 +164,7 @@ test_that("Test data.frame to data for plr with time effects as interaction term
                                            modelType = "plr")
     fitPLR <- fitCyclopsModel(cyclopsDataPLR)
 
-    expect_equal(unname(coef(goldLR)), unname(coef(fitLR)), tolerance = tolerance)
-    expect_equal(unname(coef(fitLR)), unname(coef(fitPLR)), tolerance = tolerance)
+    expect_equal(coef(goldLR), coef(fitLR), tolerance = tolerance3)
+    expect_equal(unname(coef(fitLR)), unname(coef(fitPLR)), tolerance = tolerance4)
     expect_equivalent(logLik(fitLR),logLik(fitPLR))
 })
