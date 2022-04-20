@@ -201,7 +201,7 @@ public:
     ) = 0;
 
     virtual int loadTimeInteraction(
-            std::unordered_map<int, int> timeEffectMap
+            std::vector<std::pair<int, int>>& timeEffectMap
     ) = 0;
 
     virtual size_t append(
@@ -365,7 +365,7 @@ public:
 	);
 
 	int loadTimeInteraction(
-	        std::unordered_map<int, int> timeEffectMap
+	        std::vector<std::pair<int, int>>& timeEffectMap
 	);
 
 	const int* getPidVector() const;

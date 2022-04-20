@@ -645,11 +645,11 @@ int cyclopsLoadDataTimeInteraction(Environment x,
     using namespace bsccs;
     XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
 
-    std::unordered_map<int, int> tm;
+    std::vector<std::pair<int, int>> tm;
     NumericVector cId = timeEffectMap["covariateId"];
     NumericVector tId = timeEffectMap["timeEffectId"];
     for (int i = 0; i < timeEffectMap.nrows(); i++) {
-        tm[cId[i]] = tId[i];
+        tm.push_back(std::make_pair(cId[i], tId[i]));
     }
 
     return data->loadTimeInteraction(tm);

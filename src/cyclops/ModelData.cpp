@@ -395,7 +395,7 @@ int ModelData<RealType>::loadTimeEffectsDF(
 
 template <typename RealType>
 int ModelData<RealType>::loadTimeInteraction(
-        std::unordered_map<int, int> timeEffectMap) {
+        std::vector<std::pair<int, int>>& timeEffectMap) {
 
     int numOfCov = getNumberOfColumns();
     int totalNumOfCov = numOfCov;
@@ -408,7 +408,7 @@ int ModelData<RealType>::loadTimeInteraction(
                     X.getFormatType(t.first));
         X.getColumn(totalNumOfCov++).convertColumnToDense(getNumberOfRows());
 
-        mapTimeEffects.addTimeEffectColumn(timeEffectMap[t.second]);
+        mapTimeEffects.addTimeEffectColumn(t.second);
     }
 
     return numOfCov;
