@@ -58,7 +58,7 @@ convertToLongOutcome <- function(time, status, freqTime = 1, linearEffect = FALS
     longOutcome$rowId <- 1:dim(longOutcome)[1]
     longOutcome <- longOutcome[, c(4, 1:3)]
 
-    if (linearEffect) longOutcome$timeLinear <- longOutcome$time
+    if (linearEffect) longOutcome$timeEffectLinear <- longOutcome$time
 
     return(list(longOutcome = longOutcome,
                 validIds = validIds))

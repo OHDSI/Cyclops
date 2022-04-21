@@ -823,11 +823,11 @@ loadNewSqlCyclopsDataTimeEffectsDF <- function(object,
 
     if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
 
-    index <- .loadCyclopsDataTimeEffectsDF(object, timeEffects[, -c(1:2)]) # skip rowId and stratumId
+    index <- .loadCyclopsDataTimeEffectsDF(object, timeEffects)
 
     if (!is.null(object$coefficientNames)) {
-        # timeName <- colnames(timeEffects)[-c(1:2)]
-        timeName <- paste0("time", 1:(ncol(timeEffects) - 2))
+        # timeName <- colnames(timeEffects)
+        timeName <- paste0("time", 1:ncol(timeEffects))
         object$coefficientNames <- append(object$coefficientNames, timeName)
     }
 }

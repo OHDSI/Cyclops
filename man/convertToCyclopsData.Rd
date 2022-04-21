@@ -10,7 +10,6 @@ convertToCyclopsData(
   outcomes,
   covariates,
   modelType = "lr",
-  timeEffects = NULL,
   timeEffectMap = NULL,
   addIntercept = TRUE,
   checkSorting = NULL,
@@ -24,7 +23,6 @@ convertToCyclopsData(
   outcomes,
   covariates,
   modelType = "lr",
-  timeEffects = NULL,
   timeEffectMap = NULL,
   addIntercept = TRUE,
   checkSorting = NULL,
@@ -38,7 +36,6 @@ convertToCyclopsData(
   outcomes,
   covariates,
   modelType = "lr",
-  timeEffects = NULL,
   timeEffectMap = NULL,
   addIntercept = TRUE,
   checkSorting = NULL,
@@ -54,8 +51,6 @@ convertToCyclopsData(
 \item{covariates}{A data frame or ffdf object containing the covariates with predefined columns (see below).}
 
 \item{modelType}{Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"}
-
-\item{timeEffects}{A data frame or ffdf object containing the time-dependent covariates (see below).}
 
 \item{timeEffectMap}{A data frame or ffdf object containing the interaction of time-independent covariates with time effects (see below).}
 
@@ -87,7 +82,10 @@ These columns are expected in the outcome object:
                  \tab        \tab(e.g. number of days) \cr
   \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
   \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided \cr
-}
+  \verb{timeEffect1}    \tab(real) \tab (optional) The value of the specified time-dependent covariate, \cr
+                        \tab        \tab the column name should start with timeEffect \cr
+  \verb{timeEffect2}    \tab(real) \tab (optional) The value of the specified time-dependent covariate, \cr
+                        \tab        \tab the column name should start with timeEffect \cr#' }
 
 These columns are expected in the covariates object:
 \tabular{lll}{
@@ -97,18 +95,10 @@ These columns are expected in the covariates object:
   \verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
 }
 
-These columns are expected in the timeEffects object:
-\tabular{lll}{
-  \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
-  \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-  \verb{timeEffect0}    \tab(real) \tab The value of the specified time-dependent covariate \cr
-  \verb{timeEffect1}    \tab(real) \tab (optional) The value of the specified time-dependent covariate \cr
-}
-
 These columns are expected in the timeEffectMap object:
 \tabular{lll}{
   \verb{covariateId}    \tab(integer) \tab A numeric identifier of a time-independent covariate  \cr
-  \verb{timeEffectId}  	\tab(integer) \tab TimeEffect ID is used to link multiple time-independent covariates (x) to a single time effect (t) \cr
+  \verb{timeEffectId}  	\tab(integer) \tab TimeEffect ID is used to link a time-independent covariate (x) to a time effect (t) \cr
 }
 }
 \section{Methods (by class)}{

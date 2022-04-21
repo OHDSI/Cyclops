@@ -69,7 +69,7 @@ test_that("Test data.frame to data for plr with multiple time-dependent covariat
                        1, 0, 0, 0
                        1, 1, 1, 1 ")
     longOut <- convertToLongOutcome(time = test$time, status = test$status, linearEffect = TRUE)$longOutcome
-    longOut$timeCubic <- longOut$timeLinear^3
+    longOut$timeEffectCubic <- longOut$timeEffectLinear^3
     denseCov <- data.frame(rowId = 1:dim(test)[1],
                            x1 = test$x1,
                            x2 = test$x2)
@@ -84,20 +84,17 @@ test_that("Test data.frame to data for plr with multiple time-dependent covariat
 
 
     # gold lr
-    goldLR <- glm(y ~ x1 + x2 + timeLinear + timeCubic, data = wideData, family = binomial())
+    goldLR <- glm(y ~ x1 + x2 + timeEffectLinear + timeEffectCubic, data = wideData, family = binomial())
 
     # real lr (long outcome and long covariates)
-    cyclopsDataLR <- createCyclopsData(y ~ x1 + x2 + timeLinear + timeCubic,
+    cyclopsDataLR <- createCyclopsData(y ~ x1 + x2 + timeEffectLinear + timeEffectCubic,
                                        data = wideData,
                                        modelType = "lr")
     fitLR <- fitCyclopsModel(cyclopsDataLR)
 
     # efficient pooled lr (long outcome and short covariates)
-    timeEffects <- longOut[,-c(3:4)]
-    timeEffects <- timeEffects[sample(1:nrow(timeEffects)), ] # shuffle rows
     cyclopsDataPLR <- convertToCyclopsData(outcomes = longOut,
                                            covariates = shortCov,
-                                           timeEffects = timeEffects,
                                            modelType = "plr")
     fitPLR <- fitCyclopsModel(cyclopsDataPLR)
 
@@ -140,26 +137,22 @@ test_that("Test data.frame to data for plr with time effects as interaction term
 
 
     # gold lr
-    goldLR <- glm(y ~ x1 + x2 + timeLinear + x1:timeLinear, data = wideData, family = binomial())
+    goldLR <- glm(y ~ x1 + x2 + timeEffectLinear + x1:timeEffectLinear, data = wideData, family = binomial())
 
     # real lr (long outcome and long covariates)
     # cyclopsDataLR <- convertToCyclopsData(outcomes = longOut[, 1:4],
     #                                       covariates = longCov,
     #                                       modelType = "lr")
-    cyclopsDataLR <- createCyclopsData(y ~ x1 + x2+ timeLinear + x1:timeLinear,
+    cyclopsDataLR <- createCyclopsData(y ~ x1 + x2+ timeEffectLinear + x1:timeEffectLinear,
                                        data = wideData,
                                        modelType = "lr")
     fitLR <- fitCyclopsModel(cyclopsDataLR)
 
     # efficient pooled lr (long outcome and short covariates)
-    timeEffects <- longOut[,1:3]
-    colnames(timeEffects) <- c("rowId", "stratumId", "linear")
-    timeEffects <- timeEffects[sample(1:nrow(timeEffects)), ] # shuffle rows
     timeEffectMap <- data.frame(covariateId = 1,
                                 timeEffectId = 1)
     cyclopsDataPLR <- convertToCyclopsData(outcomes = longOut,
                                            covariates = shortCov,
-                                           timeEffects = timeEffects,
                                            timeEffectMap = timeEffectMap,
                                            modelType = "plr")
     fitPLR <- fitCyclopsModel(cyclopsDataPLR)
@@ -184,7 +177,7 @@ test_that("Test for plr with the multiple time effects on multiple (time-indepen
                        1, 0, 0, 0
                        1, 1, 1, 1 ")
     longOut <- convertToLongOutcome(time = test$time, status = test$status, linearEffect = TRUE)$longOutcome
-    longOut$timeCubic <- longOut$timeLinear^3
+    longOut$timeEffectCubic <- longOut$timeEffectLinear^3
     denseCov <- data.frame(rowId = 1:dim(test)[1],
                            x1 = test$x1,
                            x2 = test$x2)
@@ -199,21 +192,19 @@ test_that("Test for plr with the multiple time effects on multiple (time-indepen
 
 
     # gold lr
-    goldLR <- glm(y ~ x1 + x2 + timeLinear + timeCubic + x1:timeCubic + x2:timeLinear, data = wideData, family = binomial())
+    goldLR <- glm(y ~ x1 + x2 + timeEffectLinear + timeEffectCubic + x1:timeEffectCubic + x2:timeEffectLinear, data = wideData, family = binomial())
 
     # real lr (long outcome and long covariates)
-    cyclopsDataLR <- createCyclopsData(y ~ x1 + x2 + timeLinear + timeCubic + x1:timeCubic + x2:timeLinear,
+    cyclopsDataLR <- createCyclopsData(y ~ x1 + x2 + timeEffectLinear + timeEffectCubic + x1:timeEffectCubic + x2:timeEffectLinear,
                                        data = wideData,
                                        modelType = "lr")
     fitLR <- fitCyclopsModel(cyclopsDataLR)
 
     # efficient pooled lr (long outcome and short covariates)
-    timeEffects <- longOut[,-c(3:4)]
     timeEffectMap <- data.frame(covariateId = c(1, 2), # TODO should we allow multiple types of time effect on the same covariate?
                                 timeEffectId = c(2, 1))
     cyclopsDataPLR <- convertToCyclopsData(outcomes = longOut,
                                            covariates = shortCov,
-                                           timeEffects = timeEffects,
                                            timeEffectMap = timeEffectMap,
                                            modelType = "plr")
     fitPLR <- fitCyclopsModel(cyclopsDataPLR)

@@ -27,7 +27,6 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'
 #' @param outcomes      A data frame or ffdf object containing the outcomes with predefined columns (see below).
 #' @param covariates    A data frame or ffdf object containing the covariates with predefined columns (see below).
-#' @param timeEffects   A data frame or ffdf object containing the time-dependent covariates (see below).
 #' @param timeEffectMap A data frame or ffdf object containing the interaction of time-independent covariates with time effects (see below).
 #' @param modelType     Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"
 #' @param addIntercept  Add an intercept to the model?
@@ -47,7 +46,10 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'                  \tab        \tab(e.g. number of days) \cr
 #'   \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
 #'   \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided \cr
-#' }
+#'   \verb{timeEffect1}    \tab(real) \tab (optional) The value of the specified time-dependent covariate, \cr
+#'                         \tab        \tab the column name should start with timeEffect \cr
+#'   \verb{timeEffect2}    \tab(real) \tab (optional) The value of the specified time-dependent covariate, \cr
+#'                         \tab        \tab the column name should start with timeEffect \cr#' }
 #'
 #' These columns are expected in the covariates object:
 #' \tabular{lll}{
@@ -57,18 +59,10 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'   \verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
 #' }
 #'
-#' These columns are expected in the timeEffects object:
-#' \tabular{lll}{
-#'   \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
-#'   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-#'   \verb{timeEffect0}    \tab(real) \tab The value of the specified time-dependent covariate \cr
-#'   \verb{timeEffect1}    \tab(real) \tab (optional) The value of the specified time-dependent covariate \cr
-#' }
-#'
 #' These columns are expected in the timeEffectMap object:
 #' \tabular{lll}{
 #'   \verb{covariateId}    \tab(integer) \tab A numeric identifier of a time-independent covariate  \cr
-#'   \verb{timeEffectId}  	\tab(integer) \tab TimeEffect ID is used to link multiple time-independent covariates (x) to a single time effect (t) \cr
+#'   \verb{timeEffectId}  	\tab(integer) \tab TimeEffect ID is used to link a time-independent covariate (x) to a time effect (t) \cr
 #' }
 #'
 #' @return
@@ -97,7 +91,6 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 convertToCyclopsData <- function(outcomes,
                                  covariates,
                                  modelType = "lr",
-                                 timeEffects = NULL,
                                  timeEffectMap = NULL,
                                  addIntercept = TRUE,
                                  checkSorting = NULL,
@@ -113,7 +106,6 @@ convertToCyclopsData <- function(outcomes,
 convertToCyclopsData.data.frame <- function(outcomes,
                                             covariates,
                                             modelType = "lr",
-                                            timeEffects = NULL,
                                             timeEffectMap = NULL,
                                             addIntercept = TRUE,
                                             checkSorting = NULL,
@@ -166,15 +158,6 @@ convertToCyclopsData.data.frame <- function(outcomes,
                 writeLines("Sorting covariates by covariateId, stratumId, and rowId")
             covariates <- covariates[order(covariates$covariateId, covariates$stratumId, covariates$rowId),]
         }
-    }
-
-    if (!is.null(timeEffects)) {
-        if (!isSorted(timeEffects, c("stratumId","rowId"))) {
-            if (!quiet)
-                writeLines("Sorting timeEffects by stratumId and rowId")
-            timeEffects <- timeEffects[order(timeEffects$stratumId,timeEffects$rowId),]
-        }
-        if (nrow(timeEffects) != nrow(outcomes)) stop("Time effects and outcomes have a dimenntionality mismatch.")
     }
 
     if (modelType == "cox" | modelType == "fgr") {
@@ -234,7 +217,8 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                    covariateValue = covariates$covariateValue,
                                    name = covarNames)
 
-    if (!is.null(timeEffects)) {
+    timeEffects <- dplyr::select(outcomes, starts_with("timeEffect"))
+    if (ncol(timeEffects) > 0) {
         # load time-dependent covariates (long, including time effects)
         loadNewSqlCyclopsDataTimeEffectsDF(object = dataPtr,
                                            covariateId = covariates$covariateId,
@@ -242,7 +226,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
 
         # load interaction terms between time effect (long) and time-independent covariates (short)
         if (modelType == "plr" && !is.null(timeEffectMap)) {
-            if (!all(timeEffectMap$timeEffectId %in% 1:(ncol(timeEffects) - 2))) stop("Invalid timeEffectId for interaction terms.")
+            if (!all(timeEffectMap$timeEffectId %in% 1:ncol(timeEffects))) stop("Invalid timeEffectId for interaction terms.")
             loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,
                                                  covariateId = covariates$covariateId,
                                                  timeEffectMap = timeEffectMap)
@@ -281,7 +265,6 @@ convertToCyclopsData.data.frame <- function(outcomes,
 convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          covariates,
                                          modelType = "lr",
-                                         timeEffects = NULL,
                                          timeEffectMap = NULL,
                                          addIntercept = TRUE,
                                          checkSorting = NULL,
@@ -350,12 +333,6 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
             arrange(.data$covariateId, .data$stratumId, .data$rowId)
     }
 
-    if (!is.null(timeEffects)) {
-        timeEffects <- timeEffects %>%
-            arrange(.data$stratumId, .data$rowId)
-        if (nrow(timeEffects) != nrow(data.frame(outcomes))) stop("Time effects and outcomes have a dimenntionality mismatch.")
-    }
-
     if (modelType == "cox" | modelType == "fgr") {
 
         if (modelType == "cox" &
@@ -404,7 +381,8 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                           loadCovariates,
                           batchSize = 100000) # TODO Pick magic number
 
-    if (!is.null(timeEffects)) {
+    timeEffects <- dplyr::select(outcomes, starts_with("timeEffect"))
+    if (ncol(timeEffects) > 0) {
         # load time-dependent covariates (long, including time effects)
         loadNewSqlCyclopsDataTimeEffectsDF(object = dataPtr,
                                            covariateId = covariates$covariateId,
@@ -412,7 +390,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
 
         # load interaction terms between time effect (long) and time-independent covariates (short)
         if (modelType == "plr" && !is.null(timeEffectMap)) {
-            if (!all(timeEffectMap$timeEffectId %in% 1:(ncol(timeEffects) - 2))) stop("Invalid timeEffectId for interaction terms.")
+            if (!all(timeEffectMap$timeEffectId %in% 1:ncol(timeEffects))) stop("Invalid timeEffectId for interaction terms.")
             loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,
                                                  covariateId = covariates$covariateId,
                                                  timeEffectMap = timeEffectMap)
