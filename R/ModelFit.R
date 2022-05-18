@@ -200,6 +200,7 @@ fitCyclopsModel <- function(cyclopsData,
         }
 
         .cyclopsSetBeta(cyclopsData$cyclopsInterfacePtr, startingCoefficients)
+        .cyclopsSetStartingBeta(cyclopsData$cyclopsInterfacePtr, startingCoefficients)
     }
 
     if (!is.null(fixedCoefficients)) {

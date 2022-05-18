@@ -25,8 +25,20 @@
     invisible(.Call(`_Cyclops_cyclopsSetBeta`, inRcppCcdInterface, beta))
 }
 
+.cyclopsGetBeta <- function(inRcppCcdInterface, index) {
+    .Call(`_Cyclops_cyclopsGetBeta`, inRcppCcdInterface, index)
+}
+
+.cyclopsSetStartingBeta <- function(inRcppCcdInterface, inStartingBeta) {
+    invisible(.Call(`_Cyclops_cyclopsSetStartingBeta`, inRcppCcdInterface, inStartingBeta))
+}
+
 .cyclopsSetFixedBeta <- function(inRcppCcdInterface, beta, fixed) {
     invisible(.Call(`_Cyclops_cyclopsSetFixedBeta`, inRcppCcdInterface, beta, fixed))
+}
+
+.cyclopsGetFixedBeta <- function(inRcppCcdInterface, index) {
+    .Call(`_Cyclops_cyclopsGetFixedBeta`, inRcppCcdInterface, index)
 }
 
 .cyclopsGetIsRegularized <- function(inRcppCcdInterface, index) {

@@ -131,6 +131,8 @@ public:
 //	template <typename T>
 	void setBeta(const std::vector<double>& beta);
 
+	void setStartingBeta(const std::vector<double>& inStartingBeta);
+	
 	void setBeta(int i, double beta);
 
 //	void double getHessianComponent(int i, int j);
@@ -328,6 +330,7 @@ protected:
 
 	typedef std::vector<double> DoubleVector;
 	DoubleVector hBeta;
+	DoubleVector startingBeta;
 
 // 	DoubleVector& hXBeta; // TODO Delegate to ModelSpecifics
 // 	DoubleVector& hXBetaSave; // Delegate
