@@ -1,3 +1,5 @@
+#define THRUST_IGNORE_CUB_VERSION_CHECK
+
 #include <thrust/device_vector.h>
 #include <thrust/device_ptr.h>
 #include <thrust/copy.h>

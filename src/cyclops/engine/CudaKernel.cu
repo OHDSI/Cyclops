@@ -3,6 +3,7 @@
 #include <chrono>
 #include <vector_types.h>
 
+#define THRUST_IGNORE_CUB_VERSION_CHECK
 #include <cub/cub.cuh>
 #include <thrust/device_vector.h>
 #include <thrust/device_ptr.h>
