@@ -386,6 +386,8 @@ int ModelData<RealType>::loadTimeEffectsDF(
     FormatType format = DENSE;
     for (int i = 0; i < oTimeEffects.size(); i++) {
         X.push_back(NULL, NULL, interceptTime.begin(), interceptTime.end(), format);
+        int index = getNumberOfColumns() - 1;
+        X.getColumn(index).add_label(index);
         mapTimeEffects.addTimeEffectColumn(i);
         totalNumOfCov++;
     }
@@ -407,7 +409,8 @@ int ModelData<RealType>::loadTimeInteraction(
                     X.getColumn(t.first).getDataVectorPtr(),
                     X.getFormatType(t.first));
         X.getColumn(totalNumOfCov++).convertColumnToDense(getNumberOfRows());
-
+        int index = getNumberOfColumns() - 1;
+        X.getColumn(index).add_label(index);
         mapTimeEffects.addTimeEffectColumn(t.second);
     }
 
