@@ -309,13 +309,12 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
             (select(outcomes, .data$y) %>% distinct() %>% count() %>% collect() > 2)) {
             stop("Cox model only accepts one outcome type")
         }
-
-        outcomes <- outcomes %>%
-            arrange(.data$stratumId, desc(.data$time), .data$y, .data$rowId)
         if (!"time" %in% colnames(covariates)) {
             covariates <- covariates %>%
                 inner_join(select(outcomes, .data$rowId, .data$time, .data$y), by = "rowId")
         }
+        outcomes <- outcomes %>%
+            arrange(.data$stratumId, desc(.data$time), .data$y, .data$rowId)
         covariates <- covariates %>%
             arrange(.data$covariateId, .data$stratumId, desc(.data$time), .data$y, .data$rowId)
     }

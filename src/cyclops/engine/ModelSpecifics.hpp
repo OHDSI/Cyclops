@@ -1198,7 +1198,147 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 #endif
 #endif
 
- }
+}
+
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeThirdDerivative(int index, double *othird, bool useWeights) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+    auto start = bsccs::chrono::steady_clock::now();
+#endif
+#endif
+
+    if (hX.getNumberOfNonZeroEntries(index) == 0) {
+        *othird = 0.0;
+        return;
+    }
+
+    // Run-time dispatch, so virtual call should not effect speed
+    if (useWeights) {
+        switch (hX.getFormatType(index)) {
+        case INDICATOR :
+            computeThirdDerivativeImpl<IndicatorIterator<RealType>>(index, othird, weighted);
+            break;
+        case SPARSE :
+            computeThirdDerivativeImpl<SparseIterator<RealType>>(index, othird, weighted);
+            break;
+        case DENSE :
+            computeThirdDerivativeImpl<DenseIterator<RealType>>(index, othird, weighted);
+            break;
+        case INTERCEPT :
+            computeThirdDerivativeImpl<InterceptIterator<RealType>>(index, othird, weighted);
+            break;
+        }
+    } else {
+        switch (hX.getFormatType(index)) {
+        case INDICATOR :
+            computeThirdDerivativeImpl<IndicatorIterator<RealType>>(index, othird, unweighted);
+            break;
+        case SPARSE :
+            computeThirdDerivativeImpl<SparseIterator<RealType>>(index, othird, unweighted);
+            break;
+        case DENSE :
+            computeThirdDerivativeImpl<DenseIterator<RealType>>(index, othird, unweighted);
+            break;
+        case INTERCEPT :
+            computeThirdDerivativeImpl<InterceptIterator<RealType>>(index, othird, unweighted);
+            break;
+        }
+    }
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifndef CYCLOPS_DEBUG_TIMING_LOW
+    auto end = bsccs::chrono::steady_clock::now();
+    ///////////////////////////"
+    duration["compThird  "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+#endif
+}
+
+template <class BaseModel,typename RealType> template <class IteratorType, class Weights>
+void ModelSpecifics<BaseModel,RealType>::computeThirdDerivativeImpl(int index, double *othird, Weights w) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+    auto start = bsccs::chrono::steady_clock::now();
+#endif
+#endif
+
+    RealType third = static_cast<RealType>(0);
+    RealType hessian = static_cast<RealType>(0);
+
+    if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
+
+        if (sparseIndices[index] == nullptr || sparseIndices[index]->size() > 0) {
+
+            IteratorType it(sparseIndices[index].get(), N);
+
+            RealType accNumerPid  = static_cast<RealType>(0);
+            RealType accNumerPid2  = static_cast<RealType>(0);
+
+            // find start relavent accumulator reset point
+            auto reset = begin(accReset);
+            while( *reset < it.index() ) {
+                ++reset;
+            }
+
+            for (; it; ) {
+                int i = it.index();
+
+                if (*reset <= i) {
+                    accNumerPid  = static_cast<RealType>(0.0);
+                    accNumerPid2 = static_cast<RealType>(0.0);
+                    ++reset;
+                }
+
+                const auto numerator1 = numerPid[i];
+                const auto numerator2 = numerPid2[i];
+
+                accNumerPid += numerator1;
+                accNumerPid2 += numerator2;
+
+                // Compile-time delegation
+                BaseModel::incrementThirdDerivative(it,
+                                                    w, // Signature-only, for iterator-type specialization
+                                                    &third, accNumerPid, accNumerPid2,
+                                                    accDenomPid[i], hNWeight[i], 0.0, hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
+                ++it;
+
+                if (IteratorType::isSparse) {
+
+                    const int next = it ? it.index() : N;
+                    for (++i; i < next; ++i) {
+
+                        if (*reset <= i) {
+                            accNumerPid  = static_cast<RealType>(0.0);
+                            accNumerPid2 = static_cast<RealType>(0.0);
+                            ++reset;
+                        }
+
+                        BaseModel::incrementThirdDerivative(it,
+                                                            w, // Signature-only, for iterator-type specialization
+                                                            &third, accNumerPid, accNumerPid2,
+                                                            accDenomPid[i], hNWeight[i], static_cast<RealType>(0), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
+                    }
+                }
+            }
+        } else {
+    		throw new std::logic_error("Not yet support");
+        }
+    }
+
+    *othird = static_cast<double>(third);
+
+#ifdef CYCLOPS_DEBUG_TIMING
+#ifdef CYCLOPS_DEBUG_TIMING_LOW
+    auto end = bsccs::chrono::steady_clock::now();
+    ///////////////////////////"
+    auto name = "compThird" + IteratorType::name + "  ";
+    duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
+#endif
+}
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeFisherInformation(int indexOne, int indexTwo,

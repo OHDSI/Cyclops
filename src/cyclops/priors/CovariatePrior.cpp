@@ -1,11 +1,27 @@
 #include <algorithm>
 
 #include "priors/CovariatePrior.h"
+#include "CyclicCoordinateDescent.h"
 
 namespace bsccs {
 	namespace priors {
 
-	double FusedLaplacePrior::logDensity(const DoubleVector& betaVector, const int index) const {
+
+	double JeffreysPrior::logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
+
+	    double hessian = ccd.getHessianDiagonal(index);
+	    double penalty = 0.5 * std::log(std::abs(hessian));
+	    return penalty;
+	}
+
+	double JeffreysPrior::getDelta(GradientHessian gh,const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
+
+	    double jerk = ccd.getJerkDiagonal(index);
+	    //std::cerr << "j: " << jerk << std::endl;
+	    return -((gh.first - jerk) / gh.second);
+	}
+
+	double FusedLaplacePrior::logDensity(const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const {
 	    auto x = betaVector[index];
 	    auto lambda = getLambda();
 	    auto epsilon = getEpsilon();
@@ -41,7 +57,7 @@ namespace bsccs {
 	}
     } // namespace details
 
-	double FusedLaplacePrior::getDelta(const GradientHessian gh, const DoubleVector& betaVector, const int index) const {
+	double FusedLaplacePrior::getDelta(const GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const {
 	    const auto t1 = getLambda();
 	    const auto t2 = getEpsilon();
 	    const auto beta = betaVector[index];
@@ -222,13 +238,13 @@ namespace bsccs {
 // 	    }
 // 	}
 
-    double HierarchicalNormalPrior::logDensity(const DoubleVector& beta, const int index) const {
+    double HierarchicalNormalPrior::logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
         auto x = beta[index];
         double sigma2Beta = getVariance();
         return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
     }
 
-	double HierarchicalNormalPrior::getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const {
+	double HierarchicalNormalPrior::getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const {
 	    double sigma2Beta = getVariance();
 	    double beta = betaVector[index];
 	    return - (gh.first + (beta / sigma2Beta)) /
@@ -249,6 +265,10 @@ namespace bsccs {
                 break;
             case BAR_UPDATE :
                 prior = bsccs::make_shared<BarUpdatePrior>(variance);
+                break;
+            case JEFFREYS :
+                prior = bsccs::make_shared<JeffreysPrior>();
+                break;
             default : break;
         }
         return prior;

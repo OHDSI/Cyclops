@@ -104,7 +104,7 @@ test_that("Preclude intercept regularization by default", {
     expect_equal(coef(c2),
                  coef(c3))
 
-    expect_less_than(coef(c1)[1],  # Intercept is regularized
+    expect_lt(coef(c1)[1],  # Intercept is regularized
                      coef(c2)[1])
 })
 
@@ -124,6 +124,14 @@ test_that("Specify each prior independently", {
 
     expect_true(coef(cyclopsFit)[4] == 0)
     expect_true(coef(cyclopsFit)[5] != 0)
+
+    expect_equal(getHyperParameter(cyclopsFit), c(1,1))
+
+    expect_false(Cyclops:::.cyclopsGetIsRegularized(cyclopsFit$interface, 0))
+    expect_true(Cyclops:::.cyclopsGetIsRegularized(cyclopsFit$interface, 1))
+
+    expect_equal(Cyclops:::.cyclopsGetLogLikelihood(cyclopsFit$interface),
+                 cyclopsFit$log_likelihood)
 })
 
 

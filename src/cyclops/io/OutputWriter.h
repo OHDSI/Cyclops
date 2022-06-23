@@ -234,6 +234,7 @@ public:
 			case MAX_ITERATIONS : return "MAX_ITERATIONS";
 			case ILLCONDITIONED : return "ILLCONDITIONED";
 			case MISSING_COVARIATES : return "MISSING_COVARIATES";
+		    case POOR_BLR_STEP : return "POOR_BLR_STEP";
 			default : return "FAILED";
 		}
 	}

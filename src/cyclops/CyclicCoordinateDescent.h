@@ -97,9 +97,11 @@ public:
 
 	double getHessianDiagonal(int index);
 
+	double getJerkDiagonal(int index);
+
 	double getAsymptoticVariance(int i, int j);
 
-	double getAsymptoticPrecision(int i, int j);
+	// double getAsymptoticPrecision(int i, int j);
 
 //	void setZeroBetaFixed(void);
 

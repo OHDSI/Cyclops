@@ -18,8 +18,8 @@ test_that("Small multi-type Poisson dense regression", {
 
     goldFit <- glm(counts ~ outcome + treatment, data = dobson1, family = poisson())
 
-    glmFit <- glm(counts ~ outcome + treatment, data = dobson, contrasts = dobson$type,
-                  family = poisson()) # gold standard
+    # glmFit <- glm(counts ~ outcome + treatment, data = dobson, contrasts = dobson$type,
+    #               family = poisson()) # gold standard
 
     dataPtrD <- createCyclopsData(counts ~ outcome + treatment, data = dobson,
                                        type = dobson$type,
@@ -125,8 +125,8 @@ test_that("Small multi-type Poisson with hierarchical prior", {
     dobson$type = as.factor(c(rep("A",9),rep("B",9)))
     tolerance <- 1E-4
 
-    glmFit <- glm(counts ~ outcome + treatment, data = dobson, contrasts = dobson$type,
-                  family = poisson()) # gold standard
+    # glmFit <- glm(counts ~ outcome + treatment, data = dobson, contrasts = dobson$type,
+    #               family = poisson()) # gold standard
 
     dataPtrD <- createCyclopsData(Multitype(counts, type) ~ outcome + treatment, data = dobson,
                                        modelType = "pr")

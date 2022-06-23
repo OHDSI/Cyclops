@@ -1,3 +1,10 @@
+Cyclops v3.1.3
+
+Changes:
+
+1. fixed likelihood profiling when non-convex due to numerical instability
+2. fixed parsing of 64-bit covariate IDs
+
 Cyclops v3.1.2
 ==============
 

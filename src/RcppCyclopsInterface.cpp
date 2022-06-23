@@ -49,6 +49,10 @@ namespace bsccs {
  	{ModelType::FINE_GRAY, "fgr"},
  };
 
+void RcppCcdInterface::logResultsToFile(const std::string& fileName, bool withASE) {
+    ccd->logResults(fileName.c_str(), withASE);
+}
+
 } // namespace bsccs
 
 // [[Rcpp::export(".cyclopsGetModelTypeNames")]]
@@ -145,16 +149,16 @@ void cyclopsSetCensorWeights(SEXP inRcppCcdInterface,
     interface->getCcd().setCensorWeights(&weights[0]);
 }
 
-// [[Rcpp::export(".cyclopsGetPredictiveLogLikelihood")]]
-double cyclopsGetPredictiveLogLikelihood(SEXP inRcppCcdInterface,
-    NumericVector& weights) {
-    using namespace bsccs;
-    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
-
-    // return interface->getCcd().getPredictiveLogLikelihood(&weights[0]);
-    Rcpp::stop("No longer implemented");
-    return 0.0;
-}
+// // [[Rcpp::export(".cyclopsGetPredictiveLogLikelihood")]]
+// double cyclopsGetPredictiveLogLikelihood(SEXP inRcppCcdInterface,
+//     NumericVector& weights) {
+//     using namespace bsccs;
+//     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+//
+//     // return interface->getCcd().getPredictiveLogLikelihood(&weights[0]);
+//     Rcpp::stop("No longer implemented");
+//     return 0.0;
+// }
 
 // [[Rcpp::export(".cyclopsGetNewPredictiveLogLikelihood")]]
 double cyclopsGetNewPredictiveLogLikelihood(SEXP inRcppCcdInterface,
@@ -171,6 +175,15 @@ double cyclopsGetLogLikelihood(SEXP inRcppCcdInterface) {
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
 	return interface->getCcd().getLogLikelihood();
+}
+
+
+// [[Rcpp::export(".cyclopsLogResults")]]
+void cyclopsLogResult(SEXP inRcppCcdInterface, const std::string& fileName, bool withASE) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    interface->logResultsToFile(fileName, withASE);
 }
 
 // [[Rcpp::export(".cyclopsGetFisherInformation")]]
@@ -657,6 +670,8 @@ bsccs::priors::PriorType RcppCcdInterface::parsePriorType(const std::string& pri
 		priorType = NORMAL;
 	} else if (priorName == "barupdate") {
 	    priorType = BAR_UPDATE;
+	} else if (priorName == "jeffreys") {
+	    priorType = JEFFREYS;
 	} else {
  		handleError("Invalid prior type.");
  	}

@@ -78,20 +78,20 @@ XPtr<bsccs::AbstractModelData> parseEnvironmentForPtr(const Environment& x) {
 // 	return ptr;
 // }
 
-//' @title Print row identifiers
-//'
-//' @description
-//' \code{printCcdRowIds} return the row identifiers in a Cyclops data object
-//'
-//' @param object    A Cyclops data object
-//'
-//' @keywords internal
-// [[Rcpp::export("printCyclopsRowIds")]]
-void cyclopsPrintRowIds(Environment object) {
-	XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
-//	std::ostreamstring stream;
-// 	std::vector<IdType>& rowsIds = data->get
-}
+// // ' @title Print row identifiers
+// // '
+// // ' @description
+// // ' \code{printCcdRowIds} return the row identifiers in a Cyclops data object
+// // '
+// // ' @param object    A Cyclops data object
+// // '
+// // ' @keywords internal
+// // [[Rcpp::export("printCyclopsRowIds")]]
+// // void cyclopsPrintRowIds(Environment object) {
+// //  	XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
+// // std::ostreamstring stream;
+// // 	std::vector<IdType>& rowsIds = data->get
+// // }
 
 // void testCcdCode(int position) {
 //     std::vector<int> v{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
