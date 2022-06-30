@@ -355,7 +355,7 @@ fitCyclopsModel <- function(cyclopsData,
 
 .checkData <- function(x) {
     # Check conditions
-    if (missing(x) || is.null(x$cyclopsDataPtr) || class(x$cyclopsDataPtr) != "externalptr") {
+    if (missing(x) || is.null(x$cyclopsDataPtr) || !inherits(x$cyclopsDataPtr, "externalptr")) {
         stop("Improperly constructed cyclopsData object")
     }
     if (.isRcppPtrNull(x$cyclopsDataPtr)) {
@@ -366,7 +366,7 @@ fitCyclopsModel <- function(cyclopsData,
 .checkInterface <- function(x, computeDevice = "native", forceNewObject = FALSE, testOnly = FALSE) {
     if (forceNewObject
         || is.null(x$cyclopsInterfacePtr)
-        || class(x$cyclopsInterfacePtr) != "externalptr"
+        || !inherits(x$cyclopsInterfacePtr, "externalptr")
         || .isRcppPtrNull(x$cyclopsInterfacePtr)
         || .cyclopsGetComputeDevice(x$cyclopsInterfacePtr) != computeDevice
     ) {
@@ -434,7 +434,7 @@ coef.cyclopsFit <- function(object, rescale = FALSE, ignoreConvergence = FALSE, 
 #'
 #' @export
 getHyperParameter <- function(object) {
-    if (class(object) == "cyclopsFit") {
+    if (inherits(object, "cyclopsFit")) {
         object$variance
     } else {
         NULL
