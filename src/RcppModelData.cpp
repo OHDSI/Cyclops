@@ -675,7 +675,7 @@ List cyclopsReadFileData(const std::string& fileName, const std::string& modelTy
 
     //const std::vector<double>& y = ptr->getYVectorRef();
     double total = 0.0; //std::accumulate(y.begin(), y.end(), 0.0);
-    // delete reader; // TODO Test
+    delete reader; // TODO Use smart_ptr
 
     double time = timer();
     List list = List::create(

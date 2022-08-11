@@ -5,6 +5,7 @@ library("cmprsk")
 suppressWarnings(RNGversion("3.5.0"))
 
 test_that("Check that Cox fits only have 2 outcome identifies", {
+    skip_on_cran()
     test <- read.table(header=T, sep = ",", text = "
                        start, length, event, x1, x2
                        0, 4,  1,0,0
@@ -123,6 +124,7 @@ test_that("Check very small Fine-Gray example with no ties (sparse vs. dense)", 
 })
 
 test_that("Check very small Fine-Gray example with no ties using Andromeda", {
+    skip_on_cran()
     test <- read.table(header=T, sep = ",", text = "
                        start, length, event, x1, x2
                        0, 4,  1,0,0
