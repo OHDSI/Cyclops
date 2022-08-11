@@ -67,6 +67,8 @@ public:
 	virtual void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian, bool useWeights) = 0; // pure virtual
 
+	virtual void computeThirdDerivative(int index, double *othird, bool useWeights) = 0; // pure virtual
+
 	virtual void computeMMGradientAndHessian(std::vector<GradientHessian>& gh, const std::vector<bool>& fixBeta, bool useWeights) = 0; // pure virtual
 
 	virtual void computeNumeratorForGradient(int index, bool useWeights) = 0; // pure virtual

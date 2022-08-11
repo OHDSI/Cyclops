@@ -1,3 +1,12 @@
+Cyclops v3.2.0
+
+Changes:
+
+1. fixed likelihood profiling when non-convex due to numerical instability
+2. fixed parsing of 64-bit covariate IDs
+3. fix BLR convergence criterion when there are 0 (survival) events
+3. add Jeffrey's prior for single regression coefficient
+
 Cyclops v3.1.2
 ==============
 

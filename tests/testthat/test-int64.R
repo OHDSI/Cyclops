@@ -25,6 +25,18 @@ test_that("Check int64 handling", {
     int64Result <- coef(fit64)
 
     expect_equal(int64Result, int32Result)
+
+    # Change to int64 labels
+    longName <- "1234567890"
+    data$covariates$covariateId[which(data$covariates$covariateId == bit64::as.integer64(1))] <- bit64::as.integer64(longName)
+    cyclopsData64b <- convertToCyclopsData(data$outcomes,data$covariates, modelType = "lr", addIntercept = TRUE)
+    fit2 <- fitCyclopsModel(cyclopsData64b)
+    result2 <- coef(fit2)
+    expect_error(
+        expect_equal(sort(result2), sort(int64Result)),
+        "1 string mismatch")
+    expect_equal(rownames(confint(fit2, parm = longName)), longName)
+    expect_equal(rownames(confint(fit2, parm = bit64::as.integer64(longName))), longName)
 })
 
 test_that("Check int64 reductions", {

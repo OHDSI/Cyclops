@@ -32,6 +32,7 @@
 #' @param returnEstimates Logical, return regression coefficient estimates in Cyclops model fit object
 #' @param startingCoefficients Vector of starting values for optimization
 #' @param fixedCoefficients Vector of booleans indicating if coefficient should be fix
+#' @param warnings Logical, report regularization warnings
 #' @param computeDevice String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU
 #'
 #' @return
@@ -70,6 +71,7 @@ fitCyclopsModel <- function(cyclopsData,
                             returnEstimates = TRUE,
                             startingCoefficients = NULL,
                             fixedCoefficients = NULL,
+                            warnings = TRUE,
 							computeDevice = "native") {
 
     # Delegate to control$setHook if exists
@@ -104,7 +106,7 @@ fitCyclopsModel <- function(cyclopsData,
 
     if (!is.null(prior$setHook)) {
 
-        prior$setHook(cyclopsData) # Call-back
+        prior$setHook(cyclopsData, warnings) # Call-back
 
     } else {
         prior$exclude <- .checkCovariates(cyclopsData, prior$exclude)
@@ -132,7 +134,7 @@ fitCyclopsModel <- function(cyclopsData,
                     warn <- TRUE
                 }
             }
-            if (warn) {
+            if (warn && warnings) {
                 warning("Excluding intercept from regularization")
             }
         }
@@ -164,6 +166,22 @@ fitCyclopsModel <- function(cyclopsData,
         if (is.null(graph) && is.null(neighborhood) && length(prior$priorType) > 1) {
             if (length(prior$priorType) != getNumberOfCovariates(cyclopsData)) {
                 stop("Length of priors must equal the number of covariates")
+            }
+        }
+
+        if (any(prior$priorType == "jeffreys")) {
+            if (Cyclops::getNumberOfCovariates(cyclopsData) > 1) {
+                stop("Jeffreys prior is currently only implemented for 1 covariate")
+            }
+
+            covariate <- Cyclops::getCovariateIds(cyclopsData)
+            if (Cyclops::getCovariateTypes(cyclopsData, covariate) != "indicator") {
+                count <- reduce(cyclopsData, covariate, power = 0)
+                sum <- reduce(cyclopsData, covariate, power = 1)
+                mean <- sum / count
+                if (!(mean == 0.0 || mean == 1.0)) {
+                    stop("Jeffreys prior is currently only implemented for indicator covariates")
+                }
             }
         }
 
@@ -247,7 +265,7 @@ fitCyclopsModel <- function(cyclopsData,
     }
 
     if (!is.null(cyclopsData$censorWeights)) {
-        if (cyclopsData$modelType != 'fgr') {
+        if (cyclopsData$modelType != 'fgr' && warnings) {
             warning(paste0("modelType = '", cyclopsData$modelType, "' does not use censorWeights. These weights will not be passed further."))
         }
         if (length(cyclopsData$censorWeights) != getNumberOfRows(cyclopsData)) {
@@ -273,6 +291,24 @@ fitCyclopsModel <- function(cyclopsData,
         fit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)
     }
 
+    if (fit$return_flag == "POOR_BLR_STEP" && control$convergenceType == "gradient") {
+
+        if (warnings) {
+            warning("BLR convergence criterion failed; coefficient may be infinite")
+        }
+
+        control$convergenceType <- "lange"
+        return(fitCyclopsModel(cyclopsData = cyclopsData,
+                               prior = prior,
+                               control = control,
+                               weights = weights,
+                               forceNewObject = forceNewObject,
+                               returnEstimates = returnEstimates,
+                               startingCoefficients = startingCoefficients,
+                               fixedCoefficients = fixedCoefficients,
+                               computeDevice = computeDevice))
+    }
+
     if (returnEstimates) {
         estimates <- .cyclopsLogModel(cyclopsData$cyclopsInterfacePtr)
         fit <- c(fit, estimates)
@@ -295,12 +331,14 @@ fitCyclopsModel <- function(cyclopsData,
 .checkCovariates <- function(cyclopsData, covariates) {
     if (!is.null(covariates)) {
         saved <- covariates
+
+        indices <- NULL
+
         if (inherits(covariates, "character")) {
             # Try to match names
             indices <- match(covariates, cyclopsData$coefficientNames)
             covariates <- getCovariateIds(cyclopsData)[indices]
         }
-        # covariates = as.numeric(covariates)
 
         if (!bit64::is.integer64(covariates)) {
             covariates <- bit64::as.integer64(covariates)
@@ -309,13 +347,15 @@ fitCyclopsModel <- function(cyclopsData,
         if (any(is.na(covariates))) {
             stop("Unable to match all covariates: ", paste(saved, collapse = ", "))
         }
+
+        attr(covariates, "indices") <- indices
     }
     covariates
 }
 
 .checkData <- function(x) {
     # Check conditions
-    if (missing(x) || is.null(x$cyclopsDataPtr) || class(x$cyclopsDataPtr) != "externalptr") {
+    if (missing(x) || is.null(x$cyclopsDataPtr) || !inherits(x$cyclopsDataPtr, "externalptr")) {
         stop("Improperly constructed cyclopsData object")
     }
     if (.isRcppPtrNull(x$cyclopsDataPtr)) {
@@ -326,7 +366,7 @@ fitCyclopsModel <- function(cyclopsData,
 .checkInterface <- function(x, computeDevice = "native", forceNewObject = FALSE, testOnly = FALSE) {
     if (forceNewObject
         || is.null(x$cyclopsInterfacePtr)
-        || class(x$cyclopsInterfacePtr) != "externalptr"
+        || !inherits(x$cyclopsInterfacePtr, "externalptr")
         || .isRcppPtrNull(x$cyclopsInterfacePtr)
         || .cyclopsGetComputeDevice(x$cyclopsInterfacePtr) != computeDevice
     ) {
@@ -394,7 +434,7 @@ coef.cyclopsFit <- function(object, rescale = FALSE, ignoreConvergence = FALSE, 
 #'
 #' @export
 getHyperParameter <- function(object) {
-    if (class(object) == "cyclopsFit") {
+    if (inherits(object, "cyclopsFit")) {
         object$variance
     } else {
         NULL
@@ -582,7 +622,7 @@ createPrior <- function(priorType,
                         neighborhood = NULL,
                         useCrossValidation = FALSE,
                         forceIntercept = FALSE) {
-    validNames = c("none", "laplace","normal", "barupdate", "hierarchical")
+    validNames = c("none", "laplace","normal", "barupdate", "hierarchical", "jeffreys")
     stopifnot(priorType %in% validNames)
     if (!is.null(exclude)) {
         if (!inherits(exclude, "character") &&
@@ -660,7 +700,7 @@ getCyclopsPredictiveLogLikelihood <- function(object, weights) {
     }
     # TODO Remove code duplication with weights section of fitCyclopsModel
 
-    .cyclopsGetPredictiveLogLikelihood(object$cyclopsData$cyclopsInterfacePtr, weights)
+    .cyclopsGetNewPredictiveLogLikelihood(object$cyclopsData$cyclopsInterfacePtr, weights)
 }
 
 #' @title Get cross-validation information from a Cyclops model fit
@@ -690,7 +730,7 @@ getCrossValidationInfo <- function(object) {
             control$seed <- as.integer(Sys.time())
         }
 
-        if (is.null(control$algoritm) || is.na(control$algorithm)) { # Provide backwards compatibility
+        if (is.null(control$algorithm) || is.na(control$algorithm)) { # Provide backwards compatibility
             control$algorithm <- "ccd"
         }
 
@@ -770,6 +810,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
                                rescale = FALSE, ...) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     #.setControl(object$cyclopsData$cyclopsInterfacePtr, control)
+
     parm <- .checkCovariates(object$cyclopsData, parm)
     if (level < 0.01 || level > 0.99) {
         stop("level must be between 0 and 1")
@@ -787,12 +828,15 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
                                  threads, threshold,
                                  overrideNoRegularization,
                                  includePenalty)
+
+    indices <- match(parm, getCovariateIds(object$cyclopsData))
+
     if (!is.null(object$scale) && rescale) {
-        prof$lower <- prof$lower * object$scale[as.integer(parm)]
-        prof$upper <- prof$upper * object$scale[as.integer(parm)]
+        prof$lower <- prof$lower * object$scale[indices]
+        prof$upper <- prof$upper * object$scale[indices]
     }
     prof <- as.matrix(as.data.frame(prof))
-    rownames(prof) <- object$coefficientNames[as.integer(parm)]
+    rownames(prof) <- object$coefficientNames[indices]
     qs <- c((1 - level) / 2, 1 - (1 - level) / 2) * 100
     colnames(prof)[2:3] <- paste(sprintf("%.1f", qs), "%")
 

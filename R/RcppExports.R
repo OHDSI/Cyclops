@@ -41,16 +41,16 @@
     invisible(.Call(`_Cyclops_cyclopsSetCensorWeights`, inRcppCcdInterface, weights))
 }
 
-.cyclopsGetPredictiveLogLikelihood <- function(inRcppCcdInterface, weights) {
-    .Call(`_Cyclops_cyclopsGetPredictiveLogLikelihood`, inRcppCcdInterface, weights)
-}
-
 .cyclopsGetNewPredictiveLogLikelihood <- function(inRcppCcdInterface, weights) {
     .Call(`_Cyclops_cyclopsGetNewPredictiveLogLikelihood`, inRcppCcdInterface, weights)
 }
 
 .cyclopsGetLogLikelihood <- function(inRcppCcdInterface) {
     .Call(`_Cyclops_cyclopsGetLogLikelihood`, inRcppCcdInterface)
+}
+
+.cyclopsLogResults <- function(inRcppCcdInterface, fileName, withASE) {
+    invisible(.Call(`_Cyclops_cyclopsLogResult`, inRcppCcdInterface, fileName, withASE))
 }
 
 .cyclopsGetFisherInformation <- function(inRcppCcdInterface, sexpBitCovariates) {
@@ -107,18 +107,6 @@
 
 .isSortedVectorList <- function(vectorList, ascending) {
     .Call(`_Cyclops_isSortedVectorList`, vectorList, ascending)
-}
-
-#' @title Print row identifiers
-#'
-#' @description
-#' \code{printCcdRowIds} return the row identifiers in a Cyclops data object
-#'
-#' @param object    A Cyclops data object
-#'
-#' @keywords internal
-printCyclopsRowIds <- function(object) {
-    invisible(.Call(`_Cyclops_cyclopsPrintRowIds`, object))
 }
 
 .isRcppPtrNull <- function(x) {

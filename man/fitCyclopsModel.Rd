@@ -13,6 +13,7 @@ fitCyclopsModel(
   returnEstimates = TRUE,
   startingCoefficients = NULL,
   fixedCoefficients = NULL,
+  warnings = TRUE,
   computeDevice = "native"
 )
 }
@@ -32,6 +33,8 @@ fitCyclopsModel(
 \item{startingCoefficients}{Vector of starting values for optimization}
 
 \item{fixedCoefficients}{Vector of booleans indicating if coefficient should be fix}
+
+\item{warnings}{Logical, report regularization warnings}
 
 \item{computeDevice}{String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU}
 }
