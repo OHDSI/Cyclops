@@ -46,8 +46,8 @@ class MapTimeEffects {
 
 public:
 
-    MapTimeEffects() : mapTime(0) {};
-    MapTimeEffects(int numColumns) : mapTime(numColumns, -1) {}
+    MapTimeEffects() : mapTime(0), numFixedEffect(0), numTimeEffect(0), numInteraction(0) {};
+    MapTimeEffects(int numColumns) : mapTime(numColumns, -1), numFixedEffect(0), numTimeEffect(0), numInteraction(0) {}
     virtual ~MapTimeEffects() {};
 
     void copyAssignTimeEffects(std::vector<std::vector<double>>& inTimeEffects) {
@@ -71,6 +71,10 @@ public:
         return timeEffects[mapTime[column]][row];
     }
 
+    const std::vector<double>& getTimeEffectVectorRef(int column) const {
+        return timeEffects[mapTime[column]];
+    }
+
     bool hasTimeEffect(int column) const{
         return whichTimeEffectForColumn(column) >= 0;
     }
@@ -79,8 +83,35 @@ public:
         return mapTime[column];
     }
 
+    void setNumFixedEffect(int inNum) {
+        numFixedEffect = inNum;
+    }
+
+    void setNumTimeEffect(int inNum) {
+        numTimeEffect = inNum;
+    }
+
+    void setNumInteraction(int inNum) {
+        numInteraction = inNum;
+    }
+
+    int getNumFixedEffect() const {
+        return numFixedEffect;
+    }
+
+    int getNumTimeEffect() const {
+        return numTimeEffect;
+    }
+
+    int getNumInteraction() const {
+        return numInteraction;
+    }
+
     std::vector<int> mapTime;
     std::vector<std::vector<double>> timeEffects;
+    int numFixedEffect;
+    int numTimeEffect;
+    int numInteraction;
 
 };
 

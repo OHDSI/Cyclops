@@ -272,6 +272,25 @@ RealType CompressedDataColumn<RealType>::squaredSumColumn(size_t n) const {
 }
 
 template <typename RealType>
+RealType CompressedDataColumn<RealType>::squaredSumColumnByPid(size_t n, IntVector& numPid) const {
+    if (formatType == INDICATOR) {
+        RealType inner_prod = 0;
+        for (size_t i = 0; i < getColumnsVector().size(); i++) {
+            inner_prod += numPid[getColumnsVector()[i]];
+        }
+        return inner_prod;
+    } else if (formatType == INTERCEPT) {
+        return static_cast<RealType>(n);
+    } else {
+        RealType inner_prod = 0;
+        for (size_t i = 0; i < getDataVector().size(); i++) {
+             inner_prod += getDataVector()[i] * getDataVector()[i] * numPid[getColumnsVector()[i]];
+        }
+        return inner_prod;
+    }
+}
+
+template <typename RealType>
 void CompressedDataColumn<RealType>::convertColumnToSparse(void) {
 	if (formatType == SPARSE) {
 		return;

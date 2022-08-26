@@ -380,6 +380,7 @@ int ModelData<RealType>::loadTimeEffectsDF(
 
     int numOfCov = getNumberOfColumns();
     int totalNumOfCov = numOfCov;
+    mapTimeEffects.setNumFixedEffect(totalNumOfCov);
 
     // time effect with intercept
     std::vector<RealType> interceptTime(getX().nRows, static_cast<RealType>(1));
@@ -391,6 +392,7 @@ int ModelData<RealType>::loadTimeEffectsDF(
         mapTimeEffects.addTimeEffectColumn(i);
         totalNumOfCov++;
     }
+    mapTimeEffects.setNumTimeEffect(totalNumOfCov);
 
     return totalNumOfCov;
 }
@@ -413,8 +415,9 @@ int ModelData<RealType>::loadTimeInteraction(
         X.getColumn(index).add_label(index);
         mapTimeEffects.addTimeEffectColumn(t.second);
     }
+    mapTimeEffects.setNumInteraction(totalNumOfCov);
 
-    return numOfCov;
+    return totalNumOfCov;
 }
 
 template <typename RealType>
@@ -732,9 +735,34 @@ double ModelData<RealType>::getSquaredNorm() const {
 	if (hasOffsetCovariate) ++startIndex;
 
 	std::vector<double> squaredNorm;
+	if (pid.size() > 0) {
+	    vector<int> numPid(nPatients, 0);
+	    int cur = pid[0], id = 0;
+	    for (size_t i = 0; i < pid.size(); i++) {
+	        if (pid[i] == cur) {
+	            numPid[id]++;
+	        } else{
+	            numPid[++id]++;
+	            cur = pid[i];
+	        }
+	    }
+	    // fixed effects
+	    for (size_t index = startIndex; index < mapTimeEffects.getNumFixedEffect(); ++index) {
+	        squaredNorm.push_back(X.getColumn(index).squaredSumColumnByPid(getNumberOfRows(), numPid));
+	        startIndex++;
+	    }
+	    // time effects
+	    for (size_t index = startIndex; index < mapTimeEffects.getNumTimeEffect(); index++) {
+	        squaredNorm.push_back(std::inner_product(mapTimeEffects.getTimeEffectVectorRef(index).begin(), mapTimeEffects.getTimeEffectVectorRef(index).end(), mapTimeEffects.getTimeEffectVectorRef(index).begin(), static_cast<double>(0))
+);
+	        startIndex++;
+	    }
+	    // TODO interactions terms
 
-	for (size_t index = startIndex; index < getNumberOfColumns(); ++index) {
-		squaredNorm.push_back(X.getColumn(index).squaredSumColumn(getNumberOfRows()));
+	} else {
+    	for (size_t index = startIndex; index < getNumberOfColumns(); ++index) {
+    		squaredNorm.push_back(X.getColumn(index).squaredSumColumn(getNumberOfRows()));
+    	}
 	}
 
 	return std::accumulate(squaredNorm.begin(), squaredNorm.end(), 0.0);

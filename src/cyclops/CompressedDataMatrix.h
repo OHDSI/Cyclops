@@ -208,6 +208,8 @@ public:
 
 	RealType squaredSumColumn(size_t n) const;
 
+	RealType squaredSumColumnByPid(size_t n, IntVector& numPid) const;
+
 // 	template <class T>
 // 	void printVector(T values, const int size) {
 // 	    using std::cout;
