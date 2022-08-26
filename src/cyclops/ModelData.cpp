@@ -735,7 +735,7 @@ double ModelData<RealType>::getSquaredNorm() const {
 	if (hasOffsetCovariate) ++startIndex;
 
 	std::vector<double> squaredNorm;
-	if (pid.size() > 0) {
+	if (mapTimeEffects.getNumTimeEffect() > 0) {
 	    vector<int> numPid(nPatients, 0);
 	    int cur = pid[0], id = 0;
 	    for (size_t i = 0; i < pid.size(); i++) {
@@ -753,12 +753,21 @@ double ModelData<RealType>::getSquaredNorm() const {
 	    }
 	    // time effects
 	    for (size_t index = startIndex; index < mapTimeEffects.getNumTimeEffect(); index++) {
-	        squaredNorm.push_back(std::inner_product(mapTimeEffects.getTimeEffectVectorRef(index).begin(), mapTimeEffects.getTimeEffectVectorRef(index).end(), mapTimeEffects.getTimeEffectVectorRef(index).begin(), static_cast<double>(0))
-);
+	        squaredNorm.push_back(std::inner_product(mapTimeEffects.getTimeEffectVectorRef(index).begin(), mapTimeEffects.getTimeEffectVectorRef(index).end(), mapTimeEffects.getTimeEffectVectorRef(index).begin(), static_cast<double>(0)));
 	        startIndex++;
 	    }
-	    // TODO interactions terms
-
+	    // interactions terms
+	    if (mapTimeEffects.getNumInteraction() > 0) {
+	        for (size_t index = startIndex; index < mapTimeEffects.getNumInteraction(); index++) {
+	            auto& column = X.getColumn(index);
+	            double inner_prod = 0, t = 0;
+	            for (size_t i = 0; i < mapTimeEffects.getTimeEffectVectorRef(index).size(); i++) {
+	                t = column.getDataVector()[pid[i]] * mapTimeEffects.getTimeEffect(index, i);
+	                inner_prod += t * t;
+	            }
+	            squaredNorm.push_back(inner_prod);
+	        }
+	    }
 	} else {
     	for (size_t index = startIndex; index < getNumberOfColumns(); ++index) {
     		squaredNorm.push_back(X.getColumn(index).squaredSumColumn(getNumberOfRows()));
