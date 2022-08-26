@@ -408,7 +408,8 @@ void ModelSpecifics<BaseModel,RealType>::axpy(RealType* y, const RealType alpha,
             if (!IteratorType::isSparse && IteratorType::isIndicator) { // only intercept
                 for (; it; ++it) {
                     const int k = it.index();
-                    y[k] += alpha * it.value();                }
+                    y[k] += alpha * it.value();
+                }
             } else { // dense inner loop
                 for (; it; ++it) {
                     const int i = it.index();
