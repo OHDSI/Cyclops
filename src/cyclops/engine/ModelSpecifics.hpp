@@ -387,10 +387,44 @@ bool ModelSpecifics<BaseModel,RealType>::hasResetableAccumulators(void) { return
 template <class BaseModel,typename RealType> template <class IteratorType>
 void ModelSpecifics<BaseModel,RealType>::axpy(RealType* y, const RealType alpha, const int index) {
 	IteratorType it(hX, index);
-	for (; it; ++it) {
-		const int k = it.index();
-		y[k] += alpha * it.value();
-	}
+
+    if (BaseModel::pooledLR) {
+        if (mapTimeEffects.hasTimeEffect(index)) {
+            if (!IteratorType::isSparse && IteratorType::isIndicator) { // only intercept
+                for (; it; ++it) {
+                    const int k = it.index();
+                    y[k] += alpha * it.value() * mapTimeEffects.getTimeEffect(index, k);
+                }
+            } else { // dense inner loop
+                for (; it; ++it) {
+                    const int i = it.index();
+
+                    for (int k = hNtoK[i]; k < hNtoK[i+1]; k++) {
+                        y[k] += alpha * it.value() * mapTimeEffects.getTimeEffect(index, k);
+                    }
+                }
+            }
+        } else {
+            if (!IteratorType::isSparse && IteratorType::isIndicator) { // only intercept
+                for (; it; ++it) {
+                    const int k = it.index();
+                    y[k] += alpha * it.value();                }
+            } else { // dense inner loop
+                for (; it; ++it) {
+                    const int i = it.index();
+
+                    for (int k = hNtoK[i]; k < hNtoK[i+1]; k++) {
+                        y[k] += alpha * it.value();
+                    }
+                }
+            }
+        }
+    } else {
+        for (; it; ++it) {
+            const int k = it.index();
+            y[k] += alpha * it.value();
+        }
+    }
 }
 
 template <class BaseModel,typename RealType>
