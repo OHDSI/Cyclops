@@ -280,15 +280,15 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
             }
             time <- time[sortOrder]
             dx <- dx[sortOrder, ]
-            if (class(dx) == "numeric") {
+            if (inherits(dx,"numeric")) {
                 dx = as(dx,"dgeMatrix")
             }
             sx <- sx[sortOrder, ]
-            if (class(sx) == "numeric") {
+            if (inherits(sx, "numeric")) {
                 sx = Matrix(sx, ncol = 1, sparse = TRUE)
             }
             ix <- ix[sortOrder, ]
-            if (class(ix) == "numeric") {
+            if (inherits(ix, "numeric")) {
                 ix = Matrix(ix, ncol = 1, sparse = TRUE)
             }
         }

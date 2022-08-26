@@ -546,7 +546,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
     int nThreads = (inThreads == -1) ?
     bsccs::thread::hardware_concurrency() : inThreads;
 
-    double mode = ccd->getLogLikelihood(); // TODO Remove
+    ccd->getLogLikelihood(); // TODO Remove
 
     std::ostringstream stream2;
     stream2 << "Using " << nThreads << " thread(s)";

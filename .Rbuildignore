@@ -33,3 +33,4 @@ deprecated
 .github/
 ^\.github$
 ^CRAN-RELEASE$
+.covrignore

@@ -13,7 +13,7 @@ test_that("Logistic regression with cross-validation", {
                                model="logistic")
 
     cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes, covariates = sim$covariates, modelType = "lr")
-    fit <- fitCyclopsModel(cyclopsData = cyclopsData,
+    fit <- fitCyclopsModel(cyclopsData = cyclopsData, warnings = FALSE,
                            prior = createPrior("laplace", useCrossValidation = TRUE),
                            control = createControl(fold = 10, cvRepetitions = 1,
                                                    startingVariance = 0.1, noiseLevel = "quiet", seed = 123))

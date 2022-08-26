@@ -41,7 +41,7 @@ createParameterizedPrior <- function(priorType,
         stop("Cannot perform cross validation with a flat prior")
     }
 
-    setHook <- function(cyclopsData) {
+    setHook <- function(cyclopsData, warnings) {
         # closure to capture arguments
         if (length(priorType) > 1) {
             if (length(priorType) != getNumberOfCovariates(cyclopsData)) {
@@ -51,7 +51,9 @@ createParameterizedPrior <- function(priorType,
 
         if (priorType[1] != "none" && .cyclopsGetHasIntercept(cyclopsData) && !forceIntercept) {
             priorType[1] <- "none"
-            warning("Excluding intercept from regularization")
+            if (warnings) {
+                warning("Excluding intercept from regularization")
+            }
         }
 
         .cyclopsSetParameterizedPrior(cyclopsData$cyclopsInterfacePtr,

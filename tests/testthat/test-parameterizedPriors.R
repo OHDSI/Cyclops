@@ -66,7 +66,8 @@ test_that("Specify parameterized L1 regularization", {
         fit <- fitCyclopsModel(data, prior, forceNewObject = TRUE),
         "Excluding intercept")
 
-    comp <- fitCyclopsModel(data, prior = createPrior("laplace", variance = 2), forceNewObject = TRUE)
+    comp <- fitCyclopsModel(data, prior = createPrior("laplace", variance = 2),
+                            warnings = FALSE, forceNewObject = TRUE)
 
     expect_equal(coef(fit), coef(comp))
 
@@ -78,7 +79,7 @@ test_that("Specify parameterized L1 regularization", {
                                           })
                                       })
 
-    fit <- fitCyclopsModel(data, prior, forceNewObject = TRUE)
+    fit <- fitCyclopsModel(data, prior, warnings = FALSE, forceNewObject = TRUE)
 
     expect_equivalent(coef(fit)[4:5], c(0.2, 0.2))
 })
@@ -126,7 +127,7 @@ test_that("Using parameterized cross-validation", {
                                                       if (i < (ncovars / 2)) {
                                                           return(c(0,x[1]))
                                                       } else {
-                                                          return(c(0,2 * x[2]))
+                                                          return(c(0,x[2]))
                                                       }
                                                   }
                                            )
@@ -134,11 +135,25 @@ test_that("Using parameterized cross-validation", {
                                        values = c(1, 0.5),
                                        useCrossValidation = TRUE)
 
-    # time3 <- system.time(fit3 <- fitCyclopsModel(cyclopsData,
-    #                                              prior=prior3,
-    #                                              control=control,
-    #                                              forceNewObject = TRUE))
+    control3 <- createAutoGridCrossValidationControl(outerGrid = c(0.1, 0.1, 0.2))
 
+    time3 <- system.time(fit3 <- fitCyclopsModel(cyclopsData,
+                                                 prior=prior3,
+                                                 control=control3,
+                                                 forceNewObject = TRUE))
 
+    expect_equal(length(unlist(strsplit(fit3$cross_validation, split = " "))), 3)
+
+    expect_error(createAutoGridCrossValidationControl(outerGrid = c(1,2,3),
+                                                      autoPosition = 0),
+                 "Auto-position is invalid")
+
+    # The following should execute w/o error
+    createAutoGridCrossValidationControl(outerGrid = matrix(c(1,2,3,4,5,6), nrow = 2),
+                                         autoPosition = 2)
+    createAutoGridCrossValidationControl(outerGrid = matrix(c(1,2,3,4,5,6), nrow = 2),
+                                         autoPosition = 3)
 })
+
+
 

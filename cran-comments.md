@@ -1,10 +1,12 @@
-## Initial submission of minor patch update to package
+## Initial submission of major patch update to package
 
-* optimized likelihood profiling when objective function is concave; no
-  changes to package dependencies or package API
+* fixed likelihood profiling when objective function is non-concave due
+  to floating-point truncation 
+* fixed parsing of 64-bit integer covariate IDs
+* added Jeffrey's prior for single regression coefficient
 
 ## Test environments
-* local OS X install, R 4.0.4
+* local OS X install, R 4.1
 * ubuntu 20.04 (via gh-actions: devel and release)
 * win-builder (devel and release)
 
