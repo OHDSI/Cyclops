@@ -663,7 +663,7 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 				offCV,
 				K);
 	} else {
-/*
+
 	// dense scan
 	CoxKernels.computeAccumlatedDenominator(dDenominator, dAccDenom, K);
 
@@ -676,7 +676,7 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 					formatType,
 					offCV,
 					K);
-*/
+/*
 	// dense scan with transform reduction (including Denom -> accDenom)
 	CoxKernels.computeGradientAndHessian1(dNumerator,
 			dNumerator2,
@@ -687,7 +687,7 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 			formatType,
 			offCV,
 			K);
-
+*/
 	}
 
 #ifdef CYCLOPS_DEBUG_TIMING
