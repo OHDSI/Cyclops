@@ -39,7 +39,7 @@ public:
 
 	virtual void resetForOptimal(
 			CyclicCoordinateDescent& ccd,
-			CrossValidationSelector& selector,
+			AbstractSelector& selector,
 			const CCDArguments& arguments);
 
 	virtual void logResults(const CCDArguments& arguments) = 0; // pure virtual

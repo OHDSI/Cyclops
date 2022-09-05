@@ -30,7 +30,7 @@ AbstractCrossValidationDriver::~AbstractCrossValidationDriver() {
 
 void AbstractCrossValidationDriver::resetForOptimal(
 		CyclicCoordinateDescent& ccd,
-		CrossValidationSelector& selector,
+		AbstractSelector& selector,
 		const CCDArguments& arguments) {
 
 	ccd.setWeights(NULL);
@@ -140,6 +140,8 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 
     const auto& arguments = allArguments.crossValidation;
     bool coldStart = allArguments.resetCoefficients;
+
+    std::cerr << "C " << arguments.foldToCompute << std::endl;
 
 	predLogLikelihood.resize(arguments.foldToCompute);
 
