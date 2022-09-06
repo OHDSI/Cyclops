@@ -32,3 +32,6 @@ src/hide
 extras
 CRAN-RELEASE
 .Rdata
+.DS_Store
+*.gcno
+*.gcda

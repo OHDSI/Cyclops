@@ -23,6 +23,9 @@
 #include "Types.h"
 
 namespace bsccs {
+
+class CyclicCoordinateDescent; // forward reference
+
 namespace priors {
 
 
@@ -140,9 +143,10 @@ public:
 
 	virtual const std::string getDescription() const = 0; // pure virtual
 
-	virtual double logDensity(const DoubleVector& beta, const int index) const = 0; // pure virtual
+	virtual double logDensity(const DoubleVector& beta, const int index,
+                             CyclicCoordinateDescent& ccd) const = 0; // pure virtual
 
-	virtual double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index) const = 0; // pure virtual
+	virtual double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const = 0; // pure virtual
 
 	virtual bool getIsRegularized() const = 0; // pure virtual
 
@@ -177,11 +181,15 @@ public:
 		return "None";
 	}
 
+//<<<<<<< HEAD
 	PriorType getPriorType() {
 		return PriorType::NONE;
 	}
 
-    double logDensity(const DoubleVector& beta, const int index) const {
+//    double logDensity(const DoubleVector& beta, const int index) const {
+//=======
+    double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
+//>>>>>>> main
         return 0.0;
     }
 
@@ -189,7 +197,7 @@ public:
 	    return false;
 	}
 
-	double getDelta(GradientHessian gh,const DoubleVector& beta, const int index) const {
+	double getDelta(GradientHessian gh,const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
 		return -(gh.first / gh.second); // No regularization
 	}
 
@@ -200,6 +208,46 @@ public:
 	double getKktBoundary() const {
 		return 0.0;
 	}
+};
+
+class JeffreysPrior : public CovariatePrior {
+public:
+    JeffreysPrior() : CovariatePrior() { }
+
+    virtual ~JeffreysPrior() { }
+
+    const std::string getDescription() const {
+        return "Jeffreys (univariable)";
+    }
+
+    double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const;
+
+    // double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
+    //     double gradient, negativeHessian;
+    //
+    //     double hessian = ccd.getHessianDiagonal(index);
+    //
+    //     // modelSpecifics.updateXBeta(0.0, index, false);
+    //     // modelSpecifics.computeRemainingStatistics(false);
+    //     // modelSpecifics.computeGradientAndHessian(index, &gradient, &negativeHessian, false);
+    //
+    //
+    //     double penalty = -0.5 * std::log(std::abs(hessian));
+    //     std::cerr << hessian << " " << penalty << std::endl;
+    //     return≥ penalty;
+    // }
+
+    double getDelta(GradientHessian gh,const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const;
+
+    bool getIsRegularized() const { return true; }
+
+    bool getSupportsKktSwindle() const { return false; }
+
+    double getKktBoundary() const { return 0.0; }
+
+    std::vector<VariancePtr> getVarianceParameters() const {
+        return std::vector<VariancePtr>();
+    }
 };
 
 class LaplacePrior : public CovariatePrior {
@@ -224,12 +272,16 @@ public:
 		info << "Laplace(" << lambda << ")";
 		return info.str();
 	}
+//<<<<<<< HEAD
 
 	PriorType getPriorType() {
 		return PriorType::LAPLACE;
 	}
 
-    double logDensity(const DoubleVector& beta, const int index) const {
+//    double logDensity(const DoubleVector& beta, const int index) const {
+//=======
+    double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
+//>>>>>>> main
         auto x = beta[index];
         auto lambda = getLambda();
         return std::log(0.5 * lambda) - lambda * std::abs(x);
@@ -248,7 +300,7 @@ public:
 		return lambda;
 	}
 
-	double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const {
+	double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const {
 
 		double beta = betaVector[index];
 		double lambda = getLambda();
@@ -364,9 +416,9 @@ public:
 		return info.str();
 	}
 
-	double logDensity(const DoubleVector& beta, const int index) const;
+	double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const;
 
-	double getDelta(const GradientHessian gh, const DoubleVector& betaVector, const int index) const;
+	double getDelta(const GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const;
 
 private:
 	double getEpsilon() const {
@@ -416,13 +468,13 @@ public:
 		return 0.0;
 	}
 
-    double logDensity(const DoubleVector& beta, const int index) const {
+    double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
         auto x = beta[index];
         double sigma2Beta = getVariance();
         return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
     }
 
-	double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const {
+	double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const {
 		double sigma2Beta = getVariance();
 		double beta = betaVector[index];
 		return - (gh.first + (beta / sigma2Beta)) /
@@ -495,13 +547,13 @@ public:
         return 0.0;
     }
 
-    double logDensity(const DoubleVector& beta, const int index) const {
+    double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
         auto x = beta[index];
         double sigma2Beta = getVariance();
         return -0.5 * std::log(2.0 * PI * sigma2Beta) - 0.5 * x * x / sigma2Beta;
     }
 
-    double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const {
+    double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const {
 
         double beta = betaVector[index];
         double lambda = 1 / getVariance();
@@ -573,9 +625,9 @@ public:
 
     virtual ~HierarchicalNormalPrior() { }
 
-    double logDensity(const DoubleVector& beta, const int index) const;
+    double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const;
 
-    double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const;
+    double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const;
 
     std::vector<VariancePtr> getVarianceParameters() const {
         auto tmp = NormalPrior::getVarianceParameters();

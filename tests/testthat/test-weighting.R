@@ -252,7 +252,7 @@ test_that("Small Poisson dense regression with weighting", {
 
     fit <- fitCyclopsModel(dataPtrD,
                            prior = createPrior("laplace", useCrossValidation = TRUE),
-                           weights = weights,
+                           weights = weights, warnings = FALSE,
                            control = createControl(minCVData = 1, noiseLevel = "quiet"))
 })
 
@@ -264,9 +264,11 @@ test_that("Check conditional Poisson with cross-validation",{
                                effectSizeSd=0.5,
                                eCovarsPerRow=2,
                                model="poisson")
-    cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes,
-                                        covariates = sim$covariates,
-                                        modelType = "cpr")
+    suppressWarnings(
+        cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes,
+                                            covariates = sim$covariates,
+                                            modelType = "cpr")
+    )
     fit <- fitCyclopsModel(cyclopsData = cyclopsData,
                            prior = createPrior("laplace",
                                                useCrossValidation = TRUE,

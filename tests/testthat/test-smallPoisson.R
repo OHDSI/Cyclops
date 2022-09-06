@@ -26,6 +26,75 @@ test_that("Small Poisson dense regression", {
     expect_equal(confint(cyclopsFitD, c("(Intercept)","outcome3")), confint(cyclopsFitD, c(1,3)))
 })
 
+test_that("Small Poisson dense regression in 32bit", {
+    dobson <- data.frame(
+        counts = c(18,17,15,20,10,20,25,13,12),
+        outcome = gl(3,1,9),
+        treatment = gl(3,3)
+    )
+    tolerance <- 1E-4
+
+    gold <- glm(counts ~ outcome + treatment, data = dobson, family = poisson()) # gold standard
+
+    data <- createCyclopsData(counts ~ outcome + treatment, data = dobson,
+                                  modelType = "pr", floatingPoint = 32)
+    expect_equal(getFloatingPointSize(data), 32)
+
+    fit <- fitCyclopsModel(data,
+                           prior = createPrior("none"),
+                           control = createControl(noiseLevel = "silent"))
+
+    expect_equal(coef(fit), coef(gold), tolerance = tolerance)
+
+    expect_equal(Cyclops:::.cyclopsGetMeanOffset(data), 0)
+})
+
+test_that("Errors for different criteria", {
+    dobson <- data.frame(
+        counts = c(18,17,15,20,10,20,25,13,12),
+        outcome = gl(3,1,9),
+        treatment = gl(3,3)
+    )
+    tolerance <- 1E-3
+
+    gold <- glm(counts ~ outcome + treatment, data = dobson, family = poisson()) # gold standard
+
+    data <- createCyclopsData(counts ~ outcome + treatment, data = dobson,
+                              modelType = "pr")
+
+    fit <- fitCyclopsModel(data,
+                           prior = createPrior("none"),
+                           control = createControl(convergenceType = "mittal",
+                                                   noiseLevel = "silent"))
+
+    expect_equal(coef(fit), coef(gold), tolerance = tolerance)
+})
+
+test_that("Small Poisson dense regression with offset", {
+    dobson <- data.frame(
+        counts = c(18,17,15,20,10,20,25,13,12),
+        outcome = as.numeric(gl(3,1,9)),
+        treatment = gl(3,3)
+    )
+    tolerance <- 1E-4
+
+    gold <- glm(counts ~  treatment, offset = outcome, data = dobson, family = poisson()) # gold standard
+
+    data <- createCyclopsData(counts ~  treatment, offset = as.numeric(outcome),
+                                    data = dobson, modelType = "pr")
+
+    fit <- fitCyclopsModel(data,
+                           prior = createPrior("none"),
+                           control = createControl(noiseLevel = "silent"))
+
+    expect_equal(coef(fit), coef(gold), tolerance = tolerance)
+
+    expect_error(Cyclops:::.cyclopsGetMeanOffset(fit),
+                 "Input must be a cyclopsData object")
+
+    expect_equal(Cyclops:::.cyclopsGetMeanOffset(data), 2)
+})
+
 test_that("Small Poisson fixed beta", {
     dobson <- data.frame(
         counts = c(18,17,15,20,10,20,25,13,12),

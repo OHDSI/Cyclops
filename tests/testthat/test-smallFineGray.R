@@ -252,7 +252,7 @@ test_that("Check very small Fine-Gray versus Cox for 0/1 events (censorWeights d
     dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "fgr", censorWeights = fgDat$weights)
     cyclopsFit1 <- Cyclops:::fitCyclopsModel(dataPtr)
     dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "cox", censorWeights = fgDat$weights)
-    cyclopsFit2 <- Cyclops:::fitCyclopsModel(dataPtr)
+    cyclopsFit2 <- Cyclops:::fitCyclopsModel(dataPtr, warnings = FALSE)
 
     tolerance <- 1E-4
     expect_equivalent(coef(cyclopsFit1), coef(cyclopsFit2), tolerance = tolerance)
@@ -272,7 +272,7 @@ test_that("Check very small Cox example with weights and censor weights defined 
     fgDat <- Cyclops:::getFineGrayWeights(test$length, test$event)
     dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "cox",
                                            weights = c(1, 1, 1, 0, 0, 1, 1), censorWeights = fgDat$weights)
-    cyclopsFit1 <- Cyclops:::fitCyclopsModel(dataPtr)
+    cyclopsFit1 <- Cyclops:::fitCyclopsModel(dataPtr, warnings = FALSE)
     dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "cox",
                                            weights = c(1, 1, 1, 0, 0, 1, 1))
     cyclopsFit2 <- Cyclops:::fitCyclopsModel(dataPtr)

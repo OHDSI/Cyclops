@@ -102,7 +102,8 @@ enum PriorType {
 	NONE = 0,
 	LAPLACE,
 	NORMAL,
-	BAR_UPDATE
+	BAR_UPDATE,
+	JEFFREYS
 };
 
 } // namespace priors
@@ -126,7 +127,8 @@ enum UpdateReturnFlags {
 	FAIL,
 	MAX_ITERATIONS,
 	ILLCONDITIONED,
-	MISSING_COVARIATES
+	MISSING_COVARIATES,
+	POOR_BLR_STEP
 };
 
 typedef std::vector<IdType> ProfileVector;

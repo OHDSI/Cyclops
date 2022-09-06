@@ -41,7 +41,7 @@ test_that("Small Poisson dense regression; unpenalized regression", {
         prior <- createPrior(priorType = "barupdate", variance = Inf)
         control <- createControl(convergenceType = "onestep")
         fit <- fitCyclopsModel(data, prior = prior, control = control,
-                               startingCoefficients = b.old)
+                               startingCoefficients = b.old, warnings = FALSE)
         delta <- max(abs((coef(fit) - b.old)))
         b.old <- coef(fit)
     }
