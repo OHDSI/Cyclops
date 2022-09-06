@@ -1,6 +1,6 @@
 CUDA_HOME = /usr/local/cuda
 
-CUB_PATH = /home/jianxiao/NVIDIA/cub
+CUB_PATH = /home/jianxiao/cub_cuda11 # path to CUB main branch
 
 ## Use the R_HOME indirection to support installations of multiple R version
 PKG_LIBS = `$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"` -lOpenCL -pthread -L$(CUDA_HOME)/lib64 -lcuda -lcudart
