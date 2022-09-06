@@ -15,6 +15,7 @@
 //#include <thrust/for_each.h>
 
 #include "CudaKernel.h"
+#include "fused_kernel/device_scan_reduce.cuh"
 
 using namespace cub;
 
