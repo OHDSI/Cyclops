@@ -86,7 +86,7 @@ test_that("Check cross-validation for lasso Cox on GPU", {
     set.seed(123)
     sim <- simulateCyclopsData(nstrata = 1,
                                nrows = 900,
-                               ncovars = 350,
+                               ncovars = 35,
                                effectSizeSd = 1,
                                zeroEffectSizeProp = 0.8,
                                eCovarsPerRow = 1,
@@ -115,7 +115,7 @@ test_that("Check multi-core cross-validation for lasso Cox on GPU", {
     set.seed(123)
     sim <- simulateCyclopsData(nstrata = 1,
                                nrows = 900,
-                               ncovars = 350,
+                               ncovars = 35,
                                effectSizeSd = 1,
                                zeroEffectSizeProp = 0.8,
                                eCovarsPerRow = 1,

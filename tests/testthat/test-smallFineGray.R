@@ -303,6 +303,7 @@ test_that("Check very small Fine-Gray example with weights and censor weights de
 
     goldFit <- crr(test$length, test$event, cbind(test$x1, test$x2), subset = sub, variance = FALSE)
 
+    tolerance <- 1E-6
     expect_equivalent(coef(dataFit), goldFit$coef, tolerance = tolerance)
 
 
