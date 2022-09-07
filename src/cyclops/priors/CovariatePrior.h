@@ -181,15 +181,11 @@ public:
 		return "None";
 	}
 
-//<<<<<<< HEAD
 	PriorType getPriorType() {
 		return PriorType::NONE;
 	}
 
-//    double logDensity(const DoubleVector& beta, const int index) const {
-//=======
     double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
-//>>>>>>> main
         return 0.0;
     }
 
@@ -272,16 +268,12 @@ public:
 		info << "Laplace(" << lambda << ")";
 		return info.str();
 	}
-//<<<<<<< HEAD
 
 	PriorType getPriorType() {
 		return PriorType::LAPLACE;
 	}
 
-//    double logDensity(const DoubleVector& beta, const int index) const {
-//=======
     double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
-//>>>>>>> main
         auto x = beta[index];
         auto lambda = getLambda();
         return std::log(0.5 * lambda) - lambda * std::abs(x);

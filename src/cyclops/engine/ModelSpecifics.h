@@ -314,14 +314,6 @@ private:
 	template <class IteratorType, class Weights>
 	void updateXBetaImpl(RealType delta, int index);
 
-//<<<<<<< HEAD
-//=======
-//	template <class OutType, class InType>
-//	void incrementByGroup(OutType* values, int* groups, int k, InType inc) {
-//	    values[BaseModel::getGroup(groups, k)] += inc; // TODO delegate to BaseModel (different in tied-models)
-//	}
-//
-//>>>>>>> master
 	template <typename IteratorTypeOne, class Weights>
 	void dispatchFisherInformation(int indexOne, int indexTwo, double *oinfo, Weights w);
 
@@ -1262,35 +1254,8 @@ public:
 		return static_cast<RealType>(yi);
 	}
 
-/*
-<<<<<<< HEAD
-	template <class IteratorType, class Weights>
-<<<<<<< HEAD
-<<<<<<< HEAD
-	static void incrementGradientAndHessian(
-			const IteratorType& it,
-			Weights false_signature,
-			RealType* gradient, RealType* hessian,
-			RealType numer, RealType numer2, RealType denom,
-			RealType nEvents,
-			RealType x, RealType xBeta, RealType y) {
-
-		const RealType t = numer / denom;
-		const RealType g = nEvents * t; // Always use weights (not censured indicator)
-		*gradient += g;
-		if (IteratorType::isIndicator) {
-			*hessian += g * (static_cast<RealType>(1.0) - t);
-		} else {
-			*hessian += nEvents * (numer2 / denom - t * t); // Bounded by x_j^2
-		}
-	}
-=======
-*/
     template <class IteratorType, class Weights>		
-//    void incrementGradientAndHessian( // TODO Make static again?
-//=======
     inline void incrementGradientAndHessian( // TODO Make static again?
-//>>>>>>> main
             const IteratorType& it,
             Weights false_signature,
             RealType* gradient, RealType* hessian,

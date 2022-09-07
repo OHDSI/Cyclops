@@ -1,8 +1,3 @@
-# <<<<<<< HEAD
-# #set(RCCD_SOURCE_DIR ${CMAKE_SOURCE_DIR}/../src)
-# #set(CCD_SOURCE_DIR ${CMAKE_SOURCE_DIR}/codebase)
-# =======
-# >>>>>>> fine_gray
 set(RCCD_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 set(CCD_SOURCE_DIR ${CMAKE_SOURCE_DIR}/standalone/codebase)
 
@@ -11,12 +6,8 @@ include_directories(.
     ${RCCD_SOURCE_DIR}/cyclops
     ${CMAKE_SOURCE_DIR}/standalone/codebase
     ${CMAKE_SOURCE_DIR}/standalone/codebase/CCD
-# <<<<<<< HEAD
-#     ${Boost_INCLUDE_DIR}          
-# =======
     ${Boost_INCLUDE_DIR}
 		${CMAKE_SOURCE_DIR}/codebase
-# >>>>>>> fine_gray
     )
 
 set(BASE_SOURCE_FILES	
@@ -26,17 +17,9 @@ set(BASE_SOURCE_FILES
 	${RCCD_SOURCE_DIR}/cyclops/ModelData.cpp
 	${RCCD_SOURCE_DIR}/cyclops/io/InputReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/io/HierarchyReader.cpp
-# <<<<<<< HEAD
-# #	 ${CCD_SOURCE_DIR}/CCD/io/SCCSInputReader.cpp
-# =======
 	 ${CCD_SOURCE_DIR}/CCD/io/SCCSInputReader.cpp
      ${CCD_SOURCE_DIR}/CCD/io/NewCoxInputReader.h
      ${CCD_SOURCE_DIR}/CCD/io/NewCoxInputReader.h
-# >>>>>>> fine_gray
-#	 ${CCD_SOURCE_DIR}/CCD/io/CLRInputReader.cpp
-#	 ${CCD_SOURCE_DIR}/CCD/io/RTestInputReader.cpp
-#	 ${CCD_SOURCE_DIR}/CCD/io/CoxInputReader.cpp
-#	 ${CCD_SOURCE_DIR}/CCD/io/CCTestInputReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/CmdLineCcdInterface.cpp
 	${RCCD_SOURCE_DIR}/cyclops/engine/AbstractModelSpecifics.cpp
 	${RCCD_SOURCE_DIR}/cyclops/drivers/AbstractDriver.cpp
