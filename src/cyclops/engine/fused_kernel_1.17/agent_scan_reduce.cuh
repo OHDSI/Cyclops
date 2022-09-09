@@ -61,7 +61,7 @@ template <
     int                         _VECTOR_LOAD_LENGTH,            ///< Number of items per vectorized load
     BlockLoadAlgorithm          _LOAD_ALGORITHM,                ///< The BlockLoad algorithm to use
     CacheLoadModifier           _LOAD_MODIFIER,                 ///< Cache load modifier for reading input elements
-    BlockStoreAlgorithm1        _STORE_ALGORITHM,               ///< The BlockStore algorithm to use
+    BlockStoreAlgorithm1         _STORE_ALGORITHM,               ///< The BlockStore algorithm to use
     BlockScanAlgorithm          _SCAN_ALGORITHM,                ///< The BlockScan algorithm to use
     BlockReduceAlgorithm        _BLOCK_ALGORITHM,               ///< Cooperative block-wide reduction algorithm to use
     typename                    ScalingType =  MemBoundScaling<NOMINAL_BLOCK_THREADS_4B, NOMINAL_ITEMS_PER_THREAD_4B, ComputeT> >
@@ -73,12 +73,12 @@ struct AgentScanReducePolicy :
     {
         VECTOR_LOAD_LENGTH  = _VECTOR_LOAD_LENGTH,  ///< Number of items per vectorized load
     };
-
+ 
     static const BlockLoadAlgorithm     LOAD_ALGORITHM          = _LOAD_ALGORITHM;          ///< The BlockLoad algorithm to use
     static const CacheLoadModifier      LOAD_MODIFIER           = _LOAD_MODIFIER;           ///< Cache load modifier for reading input elements
-    static const BlockStoreAlgorithm1   STORE_ALGORITHM         = _STORE_ALGORITHM;         ///< The BlockStore algorithm to use
+    static const BlockStoreAlgorithm1    STORE_ALGORITHM         = _STORE_ALGORITHM;         ///< The BlockStore algorithm to use
     static const BlockScanAlgorithm     SCAN_ALGORITHM          = _SCAN_ALGORITHM;          ///< The BlockScan algorithm to use
-    static const BlockReduceAlgorithm  BLOCK_ALGORITHM      = _BLOCK_ALGORITHM;     ///< Cooperative block-wide reduction algorithm to use
+    static const BlockReduceAlgorithm   BLOCK_ALGORITHM         = _BLOCK_ALGORITHM;         ///< Cooperative block-wide reduction algorithm to use
 };
 
 
@@ -89,7 +89,7 @@ struct AgentScanReducePolicy :
  ******************************************************************************/
 
 /**
- * \brief AgentScanReduce implements a stateful abstraction of CUDA thread blocks for participating in device-wide prefix scan and transform-reduction.
+ * \brief AgentScan implements a stateful abstraction of CUDA thread blocks for participating in device-wide prefix scan .
  */
 template <
     typename AgentScanReducePolicyT,    ///< Parameterized AgentScanReducePolicyT tuning policy type
@@ -108,37 +108,38 @@ struct AgentScanReduce
     //---------------------------------------------------------------------
 
     // The input value type
-    using ScanInputT = typename std::iterator_traits<ScanInputIteratorT>::value_type;
-    using TransformInputT = typename std::iterator_traits<TransformInputIteratorT>::value_type;
+    using ScanInputT = cub::detail::value_t<ScanInputIteratorT>;
+    using TransformInputT = cub::detail::value_t<TransformInputIteratorT>;
 
     // The output value type -- used as the intermediate accumulator
     // Per https://wg21.link/P0571, use InitValueT if provided, otherwise the
     // input iterator's value type.
     using ScanOutputT =
-      typename If<Equals<InitValueT, NullType>::VALUE, ScanInputT, InitValueT>::Type;
-    using ReduceOutputT =
-      typename If<(Equals<typename std::iterator_traits<OutputIteratorT>::value_type, void>::VALUE),  // OutputT =  (if output iterator's value type is void) ?
-        typename std::iterator_traits<ScanInputIteratorT>::value_type,                                          // ... then the input iterator's value type,
-        typename std::iterator_traits<OutputIteratorT>::value_type>::Type;                          // ... else the output iterator's value type
-
+      cub::detail::conditional_t<std::is_same<InitValueT, NullType>::value,
+                                 ScanInputT,
+                                 InitValueT>;
+    using ReduceOutputT = cub::detail::non_void_value_t<OutputIteratorT, ScanInputT>;
 
     // Tile status descriptor interface type
-    typedef ScanTileState<ScanOutputT> ScanTileStateT;
+    using ScanTileStateT = ScanTileState<ScanOutputT>;
 
     // Input iterator wrapper type (for applying cache modifier)
-    typedef typename If<IsPointer<ScanInputIteratorT>::VALUE,
-            CacheModifiedInputIterator<AgentScanReducePolicyT::LOAD_MODIFIER, ScanInputT, OffsetT>,   // Wrap the native input pointer with CacheModifiedInputIterator
-            ScanInputIteratorT>::Type                                                           // Directly use the supplied input iterator type
-        WrappedScanInputIteratorT;
-    typedef typename If<IsPointer<TransformInputIteratorT>::VALUE,
-            CacheModifiedInputIterator<AgentScanReducePolicyT::LOAD_MODIFIER, TransformInputT, OffsetT>,   // Wrap the native input pointer with CacheModifiedInputIterator
-                TransformInputIteratorT>::Type                                                           // Directly use the supplied input iterator type
-        WrappedTransformInputIteratorT;
+    // Wrap the native input pointer with CacheModifiedInputIterator
+    // or directly use the supplied input iterator type
+    using WrappedScanInputIteratorT = cub::detail::conditional_t<
+      std::is_pointer<ScanInputIteratorT>::value,
+      CacheModifiedInputIterator<AgentScanReducePolicyT::LOAD_MODIFIER, ScanInputT, OffsetT>,
+      ScanInputIteratorT>;
+    using WrappedTransformInputIteratorT = cub::detail::conditional_t<
+      std::is_pointer<TransformInputIteratorT>::value,
+      CacheModifiedInputIterator<AgentScanReducePolicyT::LOAD_MODIFIER, TransformInputT, OffsetT>,
+      TransformInputIteratorT>;
 
     // Constants
     enum
     {
-        IS_INCLUSIVE        = Equals<InitValueT, NullType>::VALUE,            // Inclusive scan if no init_value type is provided
+        // Inclusive scan if no init_value type is provided
+        IS_INCLUSIVE        = std::is_same<InitValueT, NullType>::value,
         BLOCK_THREADS       = AgentScanReducePolicyT::BLOCK_THREADS,
         ITEMS_PER_THREAD    = AgentScanReducePolicyT::ITEMS_PER_THREAD,
         TILE_ITEMS          = BLOCK_THREADS * ITEMS_PER_THREAD,
@@ -179,11 +180,12 @@ struct AgentScanReduce
             AgentScanReducePolicyT::SCAN_ALGORITHM>
         BlockScanT;
 
-    /// Parameterized BlockReduce primitive
+    // Parameterized BlockReduce primitive
+
     typedef BlockReduce<
             ReduceOutputT,
             AgentScanReducePolicyT::BLOCK_THREADS,
-            AgentScanReducePolicyT::BLOCK_ALGORITHM>
+            BLOCK_REDUCE_WARP_REDUCTIONS> // AgentScanReducePolicyT::BLOCK_ALGORITHM
         BlockReduceT;
 
     // Callback type for obtaining tile prefix during block scan
@@ -211,7 +213,7 @@ struct AgentScanReduce
         {
             typename TilePrefixCallbackOpT::TempStorage  prefix;     // Smem needed for cooperative prefix callback
             typename BlockScanT::TempStorage             scan;       // Smem needed for tile scanning
-            typename BlockReduceT::TempStorage           reduce;
+	    typename BlockReduceT::TempStorage           reduce;
         } scan_reduce_storage;
     };
 
@@ -220,7 +222,6 @@ struct AgentScanReduce
 
     /// Linear thread-id
     int linear_tid;
-
 
     //---------------------------------------------------------------------
     // Per-thread fields
@@ -299,6 +300,7 @@ struct AgentScanReduce
     {
         BlockScanT(temp_storage.scan_reduce_storage.scan).InclusiveScan(items, items, scan_op, prefix_op);
     }
+
 
     //---------------------------------------------------------------------
     // Constructor
@@ -403,7 +405,7 @@ struct AgentScanReduce
 
             CTA_SYNC();
 
-        // thread transform-reduction (TODO generalize)
+	    // thread transform-reduction (TODO generalize)
             int tid         = linear_tid & (CUB_PTX_WARP_THREADS - 1);
             int wid         = linear_tid >> CUB_PTX_LOG_WARP_THREADS;
             int warp_offset = wid * CUB_PTX_WARP_THREADS * ITEMS_PER_THREAD;
@@ -440,6 +442,7 @@ struct AgentScanReduce
 
         if (threadIdx.x == 0)
             d_block_sum[blockIdx.x] = block_aggregate;
+
     }
 
 

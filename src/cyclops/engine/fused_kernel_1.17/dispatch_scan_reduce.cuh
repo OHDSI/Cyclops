@@ -271,7 +271,7 @@ struct DeviceScanReducePolicy
 
 
 /**
- * Utility class for dispatching the appropriately-tuned kernels for DeviceScanReduce
+ * Utility class for dispatching the appropriately-tuned kernels for DeviceScan
  */
 template <
     typename ScanInputIteratorT,      ///< Random-access input iterator type for reading scan inputs \iterator
@@ -284,9 +284,9 @@ template <
     typename OffsetT,                 ///< Signed integer type for global offsets
     typename SelectedPolicy = DeviceScanReducePolicy<
       // Accumulator type.
-      typename If<Equals<InitValueT, NullType>::VALUE,
-                  typename std::iterator_traits<ScanInputIteratorT>::value_type,
-                  typename InitValueT::value_type>::Type>>
+      cub::detail::conditional_t<std::is_same<InitValueT, NullType>::value,
+                                 cub::detail::value_t<ScanInputIteratorT>,
+                                 typename InitValueT::value_type>>>
 struct DispatchScanReduce:
     SelectedPolicy
 {
@@ -300,17 +300,19 @@ struct DispatchScanReduce:
     };
 
     // The input value type
-    using InputT = typename std::iterator_traits<ScanInputIteratorT>::value_type;
+    using InputT = cub::detail::value_t<ScanInputIteratorT>;
 
     // The output value type -- used as the intermediate accumulator
     // Per https://wg21.link/P0571, use InitValueT::value_type if provided, otherwise the
     // input iterator's value type.
     using ScanOutputT =
-      typename If<Equals<InitValueT, NullType>::VALUE, InputT, typename InitValueT::value_type>::Type;
+      cub::detail::conditional_t<std::is_same<InitValueT, NullType>::value,
+                                 InputT,
+                                 typename InitValueT::value_type>;
     using ReduceOutputT =
-      typename If<(Equals<typename std::iterator_traits<OutputIteratorT>::value_type, void>::VALUE),  // OutputT =  (if output iterator's value type is void) ?
-            typename std::iterator_traits<ScanInputIteratorT>::value_type,                                  // ... then the input iterator's value type,
-            typename std::iterator_traits<OutputIteratorT>::value_type>::Type;                          // ... else the output iterator's value type
+      cub::detail::non_void_value_t<OutputIteratorT,
+                                        cub::detail::value_t<ScanInputIteratorT>>;
+
 
     void*                    d_temp_storage;         ///< [in] Device-accessible allocation of temporary storage.  When NULL, the required allocation size is written to \p temp_storage_bytes and no work is done.
     size_t&                  temp_storage_bytes;     ///< [in,out] Reference to size in bytes of \p d_temp_storage allocation

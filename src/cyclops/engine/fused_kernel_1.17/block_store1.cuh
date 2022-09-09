@@ -454,7 +454,7 @@ enum BlockStoreAlgorithm1
  * \tparam ALGORITHM            <b>[optional]</b> cub::BlockStoreAlgorithm tuning policy enumeration.  default: cub::BLOCK_STORE_DIRECT.
  * \tparam BLOCK_DIM_Y          <b>[optional]</b> The thread block length in threads along the Y dimension (default: 1)
  * \tparam BLOCK_DIM_Z          <b>[optional]</b> The thread block length in threads along the Z dimension (default: 1)
- * \tparam PTX_ARCH             <b>[optional]</b> \ptxversion
+ * \tparam LEGACY_PTX_ARCH      <b>[optional]</b> Unused.
  *
  * \par Overview
  * - The BlockStore class provides a single data movement abstraction that can be specialized
@@ -525,10 +525,10 @@ template <
     typename                T,
     int                     BLOCK_DIM_X,
     int                     ITEMS_PER_THREAD,
-    BlockStoreAlgorithm1    ALGORITHM           = BLOCK_STORE_DIRECT1,
+    BlockStoreAlgorithm1     ALGORITHM           = BLOCK_STORE_DIRECT1,
     int                     BLOCK_DIM_Y         = 1,
     int                     BLOCK_DIM_Z         = 1,
-    int                     PTX_ARCH            = CUB_PTX_ARCH>
+    int                     LEGACY_PTX_ARCH     = 0>
 class BlockStore1
 {
 private:
@@ -691,7 +691,7 @@ private:
     struct StoreInternal<BLOCK_STORE_TRANSPOSE1, DUMMY>
     {
         // BlockExchange utility type for keys
-        typedef BlockExchange<T, BLOCK_DIM_X, ITEMS_PER_THREAD, false, BLOCK_DIM_Y, BLOCK_DIM_Z, PTX_ARCH> BlockExchange;
+        typedef BlockExchange<T, BLOCK_DIM_X, ITEMS_PER_THREAD, false, BLOCK_DIM_Y, BLOCK_DIM_Z> BlockExchange;
 
         /// Shared memory storage layout type
         struct _TempStorage : BlockExchange::TempStorage
@@ -740,8 +740,7 @@ private:
                 temp_storage.valid_items = valid_items;     // Move through volatile smem as a workaround to prevent RF spilling on subsequent loads
             CTA_SYNC();
             StoreDirectStriped<BLOCK_THREADS>(linear_tid, block_itr, items, temp_storage.valid_items);
-        }
-
+	}
         /// Exchange items for partially-full tile (last tile), guarded by range
         template <typename OutputIteratorT>
         __device__ __forceinline__ void Exchange(
@@ -762,14 +761,14 @@ private:
     {
         enum
         {
-            WARP_THREADS = CUB_WARP_THREADS(PTX_ARCH)
+            WARP_THREADS = CUB_WARP_THREADS(0)
         };
 
         // Assert BLOCK_THREADS must be a multiple of WARP_THREADS
         CUB_STATIC_ASSERT((int(BLOCK_THREADS) % int(WARP_THREADS) == 0), "BLOCK_THREADS must be a multiple of WARP_THREADS");
 
         // BlockExchange utility type for keys
-        typedef BlockExchange<T, BLOCK_DIM_X, ITEMS_PER_THREAD, false, BLOCK_DIM_Y, BLOCK_DIM_Z, PTX_ARCH> BlockExchange;
+        typedef BlockExchange<T, BLOCK_DIM_X, ITEMS_PER_THREAD, false, BLOCK_DIM_Y, BLOCK_DIM_Z> BlockExchange;
 
         /// Shared memory storage layout type
         struct _TempStorage : BlockExchange::TempStorage
@@ -840,14 +839,14 @@ private:
     {
         enum
         {
-            WARP_THREADS = CUB_WARP_THREADS(PTX_ARCH)
+            WARP_THREADS = CUB_WARP_THREADS(0)
         };
 
         // Assert BLOCK_THREADS must be a multiple of WARP_THREADS
         CUB_STATIC_ASSERT((int(BLOCK_THREADS) % int(WARP_THREADS) == 0), "BLOCK_THREADS must be a multiple of WARP_THREADS");
 
         // BlockExchange utility type for keys
-        typedef BlockExchange<T, BLOCK_DIM_X, ITEMS_PER_THREAD, true, BLOCK_DIM_Y, BLOCK_DIM_Z, PTX_ARCH> BlockExchange;
+        typedef BlockExchange<T, BLOCK_DIM_X, ITEMS_PER_THREAD, true, BLOCK_DIM_Y, BLOCK_DIM_Z> BlockExchange;
 
         /// Shared memory storage layout type
         struct _TempStorage : BlockExchange::TempStorage
@@ -907,6 +906,7 @@ private:
         {
             BlockExchange(temp_storage).BlockedToWarpStriped(items);
         }
+ 
     };
  
 
@@ -1095,7 +1095,7 @@ public:
 
 template <class Policy,
           class It,
-          class T = typename std::iterator_traits<It>::value_type>
+          class T = cub::detail::value_t<It>>
 struct BlockStoreType1
 {
   using type = cub::BlockStore1<T,
