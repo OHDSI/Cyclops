@@ -200,9 +200,9 @@ struct DeviceScanReducePolicy
     static constexpr BlockLoadAlgorithm ScanTransposedLoad =
       LargeValues ? BLOCK_LOAD_WARP_TRANSPOSE_TIMESLICED
                   : BLOCK_LOAD_WARP_TRANSPOSE;
-    static constexpr BlockStoreAlgorithm1 ScanTransposedStore =
-      LargeValues ? BLOCK_STORE_WARP_TRANSPOSE_TIMESLICED1
-                  : BLOCK_STORE_WARP_TRANSPOSE1;
+    static constexpr BlockStoreAlgorithm ScanTransposedStore =
+      LargeValues ? BLOCK_STORE_WARP_TRANSPOSE_TIMESLICED
+                  : BLOCK_STORE_WARP_TRANSPOSE;
 
     /// SM350
     struct Policy350 : ChainedPolicy<350, Policy350, Policy350>
@@ -214,7 +214,7 @@ struct DeviceScanReducePolicy
                 4,
                 BLOCK_LOAD_DIRECT,
                 LOAD_LDG,
-                BLOCK_STORE_WARP_TRANSPOSE_TIMESLICED1,
+                BLOCK_STORE_WARP_TRANSPOSE_TIMESLICED,
                 BLOCK_SCAN_RAKING,
                 BLOCK_REDUCE_WARP_REDUCTIONS>
             ScanReducePolicyT;

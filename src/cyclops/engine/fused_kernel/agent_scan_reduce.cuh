@@ -37,7 +37,7 @@
 
 #include <cub/agent/single_pass_scan_operators.cuh>
 #include <cub/block/block_load.cuh>
-#include "block_store1.cuh"
+#include "block_store_exchange.cuh"
 #include <cub/block/block_scan.cuh>
 #include <cub/block/block_reduce.cuh>
 #include <cub/config.cuh>
@@ -61,7 +61,7 @@ template <
     int                         _VECTOR_LOAD_LENGTH,            ///< Number of items per vectorized load
     BlockLoadAlgorithm          _LOAD_ALGORITHM,                ///< The BlockLoad algorithm to use
     CacheLoadModifier           _LOAD_MODIFIER,                 ///< Cache load modifier for reading input elements
-    BlockStoreAlgorithm1        _STORE_ALGORITHM,               ///< The BlockStore algorithm to use
+    BlockStoreAlgorithm         _STORE_ALGORITHM,               ///< The BlockStore algorithm to use
     BlockScanAlgorithm          _SCAN_ALGORITHM,                ///< The BlockScan algorithm to use
     BlockReduceAlgorithm        _BLOCK_ALGORITHM,               ///< Cooperative block-wide reduction algorithm to use
     typename                    ScalingType =  MemBoundScaling<NOMINAL_BLOCK_THREADS_4B, NOMINAL_ITEMS_PER_THREAD_4B, ComputeT> >
@@ -76,7 +76,7 @@ struct AgentScanReducePolicy :
 
     static const BlockLoadAlgorithm     LOAD_ALGORITHM          = _LOAD_ALGORITHM;          ///< The BlockLoad algorithm to use
     static const CacheLoadModifier      LOAD_MODIFIER           = _LOAD_MODIFIER;           ///< Cache load modifier for reading input elements
-    static const BlockStoreAlgorithm1   STORE_ALGORITHM         = _STORE_ALGORITHM;         ///< The BlockStore algorithm to use
+    static const BlockStoreAlgorithm    STORE_ALGORITHM         = _STORE_ALGORITHM;         ///< The BlockStore algorithm to use
     static const BlockScanAlgorithm     SCAN_ALGORITHM          = _SCAN_ALGORITHM;          ///< The BlockScan algorithm to use
     static const BlockReduceAlgorithm  BLOCK_ALGORITHM      = _BLOCK_ALGORITHM;     ///< Cooperative block-wide reduction algorithm to use
 };
@@ -159,13 +159,13 @@ struct AgentScanReduce
         BlockLoadTransformT;
 
     // Parameterized BlockStore type
-    typedef BlockStore1<
+    typedef BlockStoreExchange<
             ScanInputT,
             AgentScanReducePolicyT::BLOCK_THREADS,
             AgentScanReducePolicyT::ITEMS_PER_THREAD,
             AgentScanReducePolicyT::STORE_ALGORITHM>
         BlockStoreScanT;
-    typedef BlockStore1<
+    typedef BlockStoreExchange<
             TransformInputT,
             AgentScanReducePolicyT::BLOCK_THREADS,
             AgentScanReducePolicyT::ITEMS_PER_THREAD,
