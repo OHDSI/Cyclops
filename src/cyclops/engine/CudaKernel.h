@@ -12,6 +12,46 @@ enum PriorTypeCuda {
 	NOPRIOR, LAPLACE, NORMAL
 };
 
+template<typename RealType>
+struct Tuple2Plus
+{
+	typedef typename thrust::tuple<RealType, RealType> Tuple2;
+	__host__ __device__
+	Tuple2 operator()(const Tuple2& lhs, const Tuple2& rhs)
+	{
+		return thrust::make_tuple(thrust::get<0>(lhs) + thrust::get<0>(rhs),
+				thrust::get<1>(lhs) + thrust::get<1>(rhs));
+	}
+};
+
+template<typename RealType>
+struct Tuple3Plus
+{
+	typedef typename thrust::tuple<RealType, RealType, RealType> Tuple3;
+	__host__ __device__
+	Tuple3 operator()(const Tuple3& lhs, const Tuple3& rhs)
+	{
+		return thrust::make_tuple(thrust::get<0>(lhs) + thrust::get<0>(rhs),
+				thrust::get<1>(lhs) + thrust::get<1>(rhs),
+				thrust::get<2>(lhs) + thrust::get<2>(rhs));
+	}
+};
+
+template<typename RealType>
+struct Tuple6Plus
+{
+	typedef typename thrust::tuple<RealType, RealType, RealType, RealType, RealType, RealType> Tuple6;
+	__host__ __device__
+	Tuple6 operator()(const Tuple6& lhs, const Tuple6& rhs)
+	{
+		return thrust::make_tuple(thrust::get<0>(lhs) + thrust::get<0>(rhs),
+				thrust::get<1>(lhs) + thrust::get<1>(rhs),
+				thrust::get<2>(lhs) + thrust::get<2>(rhs),
+				thrust::get<3>(lhs) + thrust::get<3>(rhs),
+				thrust::get<4>(lhs) + thrust::get<4>(rhs),
+				thrust::get<5>(lhs) + thrust::get<5>(rhs));
+	}
+};
 
 template<typename RealType, typename RealType2, bool isIndicator>
 struct CompGradHess
@@ -202,6 +242,10 @@ public:
 	RealType2 d_init;
 
 	// Operator
+	Tuple2Plus<RealType> tuple2Plus;
+	Tuple3Plus<RealType> tuple3Plus;
+	Tuple6Plus<RealType> tuple6Plus;
+
 	CompGradHess<RealType, RealType2, true> compGradHessInd;
 	CompGradHess<RealType, RealType2, false> compGradHessNInd;
 	CompGradHess1<RealType, RealType2, true> compGradHessInd1;

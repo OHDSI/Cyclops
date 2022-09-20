@@ -229,44 +229,6 @@ __global__ void kernelUpdateXBetaAndDelta(int offX,
 }
 
 
-struct TuplePlus
-{
-	template<typename L, typename R>
-	__host__ __device__
-	thrust::tuple<L, L> operator()(thrust::tuple<L, L>& lhs, thrust::tuple<R, R>& rhs)
-	{
-		return thrust::make_tuple(thrust::get<0>(lhs) + thrust::get<0>(rhs), 
-					  thrust::get<1>(lhs) + thrust::get<1>(rhs));
-	}
-};
-
-struct TuplePlus3
-{
-	template<typename L, typename R>
-	__host__ __device__
-	thrust::tuple<L, L, L> operator()(thrust::tuple<L, L, L>& lhs, thrust::tuple<R, R, R>& rhs)
-	{
-		return thrust::make_tuple(thrust::get<0>(lhs) + thrust::get<0>(rhs),
-					  thrust::get<1>(lhs) + thrust::get<1>(rhs),
-					  thrust::get<2>(lhs) + thrust::get<2>(rhs));
-	}
-};
-
-struct TuplePlus6
-{
-	template<typename L, typename R>
-	__host__ __device__
-	thrust::tuple<L, L, L, L, L, L> operator()(thrust::tuple<L, L, L, L, L, L>& lhs, thrust::tuple<R, R, R, R, R, R>& rhs)
-	{
-		return thrust::make_tuple(thrust::get<0>(lhs) + thrust::get<0>(rhs),
-				thrust::get<1>(lhs) + thrust::get<1>(rhs),
-				thrust::get<2>(lhs) + thrust::get<2>(rhs),
-				thrust::get<3>(lhs) + thrust::get<3>(rhs),
-				thrust::get<4>(lhs) + thrust::get<4>(rhs),
-				thrust::get<5>(lhs) + thrust::get<5>(rhs));
-	}
-};
-
 struct Double2Plus
 {
 	__host__ __device__
@@ -508,7 +470,7 @@ void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<Rea
 								   d_NWeight.begin()));
 	DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh, 
 			begin0, begin1, d_GH,
-			TuplePlus(), RealType2Plus(), compGradHessInd, N, stream[0]);
+			tuple2Plus, RealType2Plus(), compGradHessInd, N, stream[0]);
 
 /*
 	auto begin2 = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(),
@@ -518,7 +480,7 @@ void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<Rea
 	// triple scan without storing accDenom
 	DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh, 
 			begin2, thrust::raw_pointer_cast(&d_NWeight[0]), d_GH,
-			TuplePlus3(), RealType2Plus(), compGradHessInd1, N, stream[0]);
+			tuple3Plus, RealType2Plus(), compGradHessInd1, N, stream[0]);
 */
 	cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
 	cudaStreamSynchronize(stream[0]);
@@ -553,7 +515,7 @@ void CudaKernel<RealType, RealType2>::allocTempStorageFG(thrust::device_vector<R
 	TransformInputIterator<Tup2, TwoWayScan<RealType>, NRZipVec4> itr_scan(begin_denoms, twoWayScan);
 	DeviceScan::InclusiveScan(d_temp_storage_faccd, temp_storage_bytes_faccd,
 			itr_scan, begin_accDenoms,
-			TuplePlus(), N, stream[0]);
+			tuple2Plus, N, stream[0]);
 	cudaMalloc(&d_temp_storage_faccd, temp_storage_bytes_faccd);
 	
 	// forward scans
@@ -567,7 +529,7 @@ void CudaKernel<RealType, RealType2>::allocTempStorageFG(thrust::device_vector<R
 				d_AccDenom.begin()));
 	DeviceScan::InclusiveScan(d_temp_storage_fs, temp_storage_bytes_fs,
 			begin_forward, begin_acc,
-			TuplePlus3(), N, stream[0]);
+			tuple3Plus, N, stream[0]);
 	cudaMalloc(&d_temp_storage_fs, temp_storage_bytes_fs);
 	
 	// backward scans
@@ -584,7 +546,7 @@ void CudaKernel<RealType, RealType2>::allocTempStorageFG(thrust::device_vector<R
 	TransformInputIterator<Tup3, BackwardScans<RealType>, RZipVec5> itr_scans(rbegin_backward, backwardScans);
 	DeviceScan::InclusiveScan(d_temp_storage_bs, temp_storage_bytes_bs, 
 			itr_scans, rbegin_dec, 
-			TuplePlus3(), N, stream[0]);
+			tuple3Plus, N, stream[0]);
 	cudaMalloc(&d_temp_storage_bs, temp_storage_bytes_bs);
 /*
 	// two-way scans
@@ -607,7 +569,7 @@ void CudaKernel<RealType, RealType2>::allocTempStorageFG(thrust::device_vector<R
 	TransformInputIterator<Tup6, TwoWayScans<RealType>, NRZipVec8> itr_scans(in_2way, twoWayScans);
 	DeviceScan::InclusiveScan(d_temp_storage_bs, temp_storage_bytes_bs,
 			itr_scans, out_2way,
-			TuplePlus6(), N, stream[0]);
+			tuple6Plus, N, stream[0]);
 	cudaMalloc(&d_temp_storage_bs, temp_storage_bytes_bs);
 */
 	// transform reduction
@@ -714,11 +676,11 @@ void CudaKernel<RealType, RealType2>::computeGradientAndHessian(thrust::device_v
 	if (formatType == INDICATOR) {
 		DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh, 
 				begin0, begin1, d_GH,
-				TuplePlus(), RealType2Plus(), compGradHessInd, N - offCV, stream[0]);
+				tuple2Plus, RealType2Plus(), compGradHessInd, N - offCV, stream[0]);
 	} else {
 		DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh, 
 				begin0, begin1, d_GH,
-				TuplePlus(), RealType2Plus(), compGradHessNInd, N - offCV, stream[0]);
+				tuple2Plus, RealType2Plus(), compGradHessNInd, N - offCV, stream[0]);
 	}
 
 	cudaStreamSynchronize(stream[0]);
@@ -744,11 +706,11 @@ void CudaKernel<RealType, RealType2>::computeGradientAndHessian1(thrust::device_
 	if (formatType == INDICATOR) {
 		DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh,
 				begin2, thrust::raw_pointer_cast(&d_NWeight[0]), d_GH,
-				TuplePlus3(), RealType2Plus(), compGradHessInd1, N, stream[0]);
+				tuple3Plus, RealType2Plus(), compGradHessInd1, N, stream[0]);
 	} else {
 		DeviceFuse::ScanReduce(d_temp_storage_gh, temp_storage_bytes_gh,
 				begin2, thrust::raw_pointer_cast(&d_NWeight[0]), d_GH,
-				TuplePlus3(), RealType2Plus(), compGradHessNInd1, N, stream[0]);
+				tuple3Plus, RealType2Plus(), compGradHessNInd1, N, stream[0]);
 	}
 
 	cudaStreamSynchronize(stream[0]);
@@ -785,7 +747,7 @@ void CudaKernel<RealType, RealType2>::computeTwoWayGradientAndHessian(thrust::de
 				d_AccDenom.begin()));
 	DeviceScan::InclusiveScan(d_temp_storage_fs, temp_storage_bytes_fs,
 			begin_forward, begin_acc,
-			TuplePlus3(), N, stream[0]);
+			tuple3Plus, N, stream[0]);
 //	cudaStreamSynchronize(stream[0]);
 	
 	// backward scan
@@ -802,7 +764,7 @@ void CudaKernel<RealType, RealType2>::computeTwoWayGradientAndHessian(thrust::de
 	TransformInputIterator<Tup3, BackwardScans<RealType>, RZipVec5> itr_scans(rbegin_backward, backwardScans);
 	DeviceScan::InclusiveScan(d_temp_storage_bs, temp_storage_bytes_bs, 
 			itr_scans, rbegin_dec, 
-			TuplePlus3(), N, stream[0]);
+			tuple3Plus, N, stream[0]);
 /*
 	// two-way scans
 	auto in_2way = thrust::make_zip_iterator(thrust::make_tuple(
@@ -824,7 +786,7 @@ void CudaKernel<RealType, RealType2>::computeTwoWayGradientAndHessian(thrust::de
 	TransformInputIterator<Tup6, TwoWayScans<RealType>, NRZipVec8> itr_scans(in_2way, twoWayScans);
 	DeviceScan::InclusiveScan(d_temp_storage_bs, temp_storage_bytes_bs,
 			itr_scans, out_2way,
-			TuplePlus6(), N, stream[0]);
+			tuple6Plus, N, stream[0]);
 */
 	cudaStreamSynchronize(stream[0]);
 
@@ -1071,7 +1033,7 @@ void CudaKernel<RealType, RealType2>::computeTwoWayAccumlatedDenominator(thrust:
 	TransformInputIterator<Tup2, TwoWayScan<RealType>, NRZipVec4> itr_scan(begin_denoms, twoWayScan);
 	DeviceScan::InclusiveScan(d_temp_storage_faccd, temp_storage_bytes_faccd, 
 			itr_scan, begin_accDenoms, 
-			TuplePlus(), N, stream[0]);
+			tuple2Plus, N, stream[0]);
 	cudaStreamSynchronize(stream[0]);
 
 	// add two scans together
@@ -1231,7 +1193,7 @@ void CudaKernel<RealType>::computeAccumulatedNumerator(thrust::device_vector<Rea
         auto begin = thrust::make_zip_iterator(thrust::make_tuple(d_Numerator.begin(), d_Numerator2.begin()));
 
         // Launch kernel
-        DeviceScan::InclusiveScan(d_temp_storage, temp_storage_bytes, begin, results, TuplePlus(), N);
+        DeviceScan::InclusiveScan(d_temp_storage, temp_storage_bytes, begin, results, tuple2Plus, N);
         cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
 }
 
@@ -1248,7 +1210,7 @@ void CudaKernel<RealType>::computeAccumulatedNumerAndDenom(thrust::device_vector
         auto begin_acc = thrust::make_zip_iterator(thrust::make_tuple(d_Denominator.begin(), d_Numerator.begin(), d_Numerator2.begin()));
 
         // Launch kernel
-        DeviceScan::InclusiveScan(d_temp_storage_acc, temp_storage_bytes_acc, begin_acc, results_acc, TuplePlus3(), N);
+        DeviceScan::InclusiveScan(d_temp_storage_acc, temp_storage_bytes_acc, begin_acc, results_acc, tuple3Plus, N);
         cudaDeviceSynchronize(); // MAS Wait until kernel completes; may be important for timing
 }
 
