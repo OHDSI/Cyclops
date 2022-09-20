@@ -7,6 +7,7 @@ context("test-dataConversionStratified.R")
 suppressWarnings(RNGversion("3.5.0"))
 
 test_that("Test clr", {
+  skip_on_cran()
   gold <- clogit(case ~ spontaneous + induced + strata(stratum), data=infert)
 
   #Convert infert dataset to Cyclops format:
@@ -33,6 +34,7 @@ test_that("Test clr", {
 })
 
 test_that("Test stratified cox", {
+  skip_on_cran()
   test1 <- data.frame(time=c(4,3,1,1,2,2,3),
                       status=c(1,1,1,0,1,1,0),
                       x=c(0,2,1,1,1,0,0),
@@ -70,6 +72,7 @@ test_that("Test stratified cox", {
 })
 
 test_that("Test stratified cox using lung dataset ", {
+  skip_on_cran()
   test <- lung
   test[is.na(test)] <- 0 # Don't want to bother with missing values
 

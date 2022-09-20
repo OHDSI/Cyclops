@@ -30,7 +30,7 @@ AbstractCrossValidationDriver::~AbstractCrossValidationDriver() {
 
 void AbstractCrossValidationDriver::resetForOptimal(
 		CyclicCoordinateDescent& ccd,
-		CrossValidationSelector& selector,
+		AbstractSelector& selector,
 		const CCDArguments& arguments) {
 
 	// turn off syncCV for calculation of single GPU model
@@ -156,6 +156,8 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 
     const auto& arguments = allArguments.crossValidation;
     bool coldStart = allArguments.resetCoefficients;
+
+    std::cerr << "C " << arguments.foldToCompute << std::endl;
 
 	predLogLikelihood.resize(arguments.foldToCompute);
 

@@ -6,6 +6,7 @@ library("gnm")
 context("test-dataConversionUnstratified.R")
 
 test_that("Test data.frame to data for lr", {
+  skip_on_cran()
   gold <- glm(case ~ spontaneous + induced, data=infert, family="binomial")
 
   #Convert infert dataset to Cyclops format:
@@ -31,6 +32,7 @@ test_that("Test data.frame to data for lr", {
 })
 
 test_that("Test unstratified cox using lung dataset ", {
+  skip_on_cran()
   test <- lung
   test[is.na(test)] <- 0 # Don't want to bother with missing values
 
@@ -68,6 +70,7 @@ test_that("Test unstratified cox using lung dataset ", {
 
 
 test_that("Test poisson regression", {
+  skip_on_cran()
   sim <- simulateCyclopsData(nstrata = 1, nrows = 10000, ncovars = 2, eCovarsPerRow = 0.5, effectSizeSd = 1,model = "poisson")
   covariates <- sim$covariates
   outcomes <- sim$outcomes

@@ -1,9 +1,15 @@
-## Initial submission of major patch update to package
+## Re-submission after 'valgrind' check email from Uwe Ligges:
 
-* fixed likelihood profiling when objective function is non-concave due
-  to floating-point truncation 
-* fixed parsing of 64-bit integer covariate IDs
-* added Jeffrey's prior for single regression coefficient
+```
+Thanks, we see with valgrind it is better, but still leaking. 
+```
+
+## Fixes
+
+* all definite leaks on my M1 and linux (R 4.1) valgrind-versions are now gone.
+* replaced calls to '::Rf_error()' with 'Rcpp::stop()' to ensure that destructors get 
+  called before returning to R.
+* removed calls to JVM through Andromeda package (was an issue with the CRAN system JVM).
 
 ## Test environments
 * local OS X install, R 4.1
@@ -11,7 +17,12 @@
 * win-builder (devel and release)
 
 ## R CMD check results
-* There were no ERRORs or WARNINGs
+* There were no ERRORs
+* There is 1 occasional WARNING:
+  inclusion of 'abort'.
+  
+This inclusion comes from 'RcppEigen' and not 'Cyclops' on some platforms with R-devel.  
+  
 * There is 1 occasional NOTE:
   checking installed package size ... NOTE
     installed size is 22.5Mb
@@ -25,3 +36,4 @@ availability of C++17 'if (constexpr ...)' should decrease library size substant
 
 ## Downstream dependencies
 * 'EvidenceSynthesis' - checked and works.
+* 'EmpiricalCalibration' - checked and works.
