@@ -133,7 +133,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
         outcomes$stratumId <- NULL
         covariates$stratumId <- NULL
     }
-    if ((modelType == "cox" | modelType == "fgr") & !"stratumId" %in% colnames(outcomes)) {
+    if ((modelType == "cox" | modelType == "cox_time" | modelType == "fgr") & !"stratumId" %in% colnames(outcomes)) {
         outcomes$stratumId <- 0
         covariates$stratumId <- 0
     }
@@ -164,9 +164,9 @@ convertToCyclopsData.data.frame <- function(outcomes,
         }
     }
 
-    if (modelType == "cox" | modelType == "fgr") {
+    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr") {
 
-        if (modelType == "cox" & length(unique(outcomes$y)) > 2) {
+        if ((modelType == "cox" | modelType == "cox_time") & length(unique(outcomes$y)) > 2) {
             stop("Cox model only accepts one outcome type")
         }
 # <<<<<<< HEAD
@@ -228,7 +228,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
                            y = outcomes$y,
                            time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
 
-    if (addIntercept & (modelType != "cox" & modelType != "fgr")) {
+    if (addIntercept & (modelType != "cox" & modelType != "cox_time" & modelType != "fgr")) {
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
     }
 
@@ -322,7 +322,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
 #                 covariates <- covariates[order(covariates$covariateId, covariates$stratumId,covariates$rowId),]
 #             }
 # =======
-    if (modelType == "cox" | modelType == "fgr") {
+    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr") {
         if (providedNoStrata) {
             outcomes <- outcomes %>%
                 mutate(stratumId = 0)
@@ -366,9 +366,9 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
             arrange(.data$covariateId, .data$stratumId, .data$rowId)
     }
 
-    if (modelType == "cox" | modelType == "fgr") {
+    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr") {
 
-        if (modelType == "cox" &
+        if ((modelType == "cox" | modelType == "cox_time") &
             (select(outcomes, .data$y) %>% distinct() %>% count() %>% collect() > 2)) {
             stop("Cox model only accepts one outcome type")
         }
@@ -395,7 +395,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                            y = outcomes$y,
                            time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
 
-    if (addIntercept & (modelType != "cox" & modelType != "fgr")) {
+    if (addIntercept & (modelType != "cox" & modelType != "cox_time" & modelType != "fgr")) {
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
     }
 

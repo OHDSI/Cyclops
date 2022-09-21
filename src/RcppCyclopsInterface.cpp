@@ -47,6 +47,7 @@ namespace bsccs {
  	{ModelType::SELF_CONTROLLED_MODEL, "sccs"},
  	{ModelType::COX, "cox"},
  	{ModelType::COX_RAW, "cox_raw"},
+	{ModelType::TIME_VARYING_COX, "cox_time"},
  	{ModelType::FINE_GRAY, "fgr"},
  };
 
@@ -76,6 +77,7 @@ std::vector<std::string> cyclopsGetRemoveInterceptNames() {
 		modelTypeNames[ModelType::SELF_CONTROLLED_MODEL],
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
+		modelTypeNames[ModelType::TIME_VARYING_COX],
         modelTypeNames[ModelType::FINE_GRAY]
 	};
 	return names;
@@ -87,6 +89,7 @@ std::vector<std::string> cyclopsGetIsSurvivalNames() {
 	std::vector<std::string> names = {
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
+		modelTypeNames[ModelType::TIME_VARYING_COX],
         modelTypeNames[ModelType::FINE_GRAY]
 	};
 	return names;
@@ -99,6 +102,7 @@ std::vector<std::string> cyclopsGetUseOffsetNames() {
 		modelTypeNames[ModelType::SELF_CONTROLLED_MODEL],
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
+		modelTypeNames[ModelType::TIME_VARYING_COX],
         modelTypeNames[ModelType::FINE_GRAY]
 	};
 	return names;

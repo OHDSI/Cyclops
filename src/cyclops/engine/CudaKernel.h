@@ -289,6 +289,8 @@ public:
 
 	void setFold(int currentFold);
 
+	void resizeAndCopyToDeviceInt(const std::vector<int>& hostVec, thrust::device_vector<int>& deviceVec);
+
 	void resizeAndCopyToDevice(const std::vector<RealType>& hostVec, thrust::device_vector<RealType>& deviceVec);
 
 	void resizeAndFillToDevice(thrust::device_vector<RealType>& deviceVec, RealType val, int num_items);

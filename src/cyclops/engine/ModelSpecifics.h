@@ -120,6 +120,8 @@ public:
 
 	virtual void setPidForAccumulation(const double* weights);
 
+	virtual void getOriginalPid();
+
 	virtual void deviceInitialization();
 
 	void initialize(
@@ -478,6 +480,8 @@ public:
     const static bool isTwoWayScan = false; // ESK: Added
 
 	const static bool isSurvivalModel = false; //ESK: Added
+
+	const static bool isScanByKey = false;
 
     template <class XType, typename RealType>
 	RealType gradientNumeratorContrib(XType x, RealType predictor, RealType xBeta, RealType y) { // TODO Make static again?
@@ -1242,6 +1246,8 @@ public:
 
     const static bool isTwoWayScan = false; // ESK: Added
 
+    const static bool isScanByKey = false;
+
 	static RealType getDenomNullValue () { return static_cast<RealType>(0); }
 
 	RealType setIndependentDenominator(RealType expXBeta) {
@@ -1345,6 +1351,8 @@ public:
 	const static bool precomputeHessian = false;
 
     const static bool isTwoWayScan = false; // ESK: Added (change this once FINE_GRAY works)
+
+    const static bool isScanByKey = false;
 
     static RealType getDenomNullValue () { return static_cast<RealType>(0); }
 
@@ -1450,6 +1458,16 @@ public:
 	}
 };
 
+template <typename RealType>
+struct TimeVaryingCoxProportionalHazards : public BreslowTiedCoxProportionalHazards<RealType> {
+public:
+    typedef typename Storage<RealType>::RealVector RealVector;
+    TimeVaryingCoxProportionalHazards(const RealVector& y, const RealVector& offs)
+        : BreslowTiedCoxProportionalHazards<RealType>(y, offs) { }
+
+    const static bool isScanByKey = true;
+};
+
 // ESK: Add Fine-Gray structure
 template <typename RealType>
 struct BreslowTiedFineGray: public Storage<RealType>, OrderedWithTiesData, SurvivalProjection, SortedPid, NoFixedLikelihoodTerms, Survival<RealType> {
@@ -1461,6 +1479,8 @@ public:
     const static bool precomputeHessian = false;
 
     const static bool isTwoWayScan = true; // ESK: Added
+
+    const static bool isScanByKey = false;
 
     static RealType getDenomNullValue () { return static_cast<RealType>(0); }
 
@@ -1570,6 +1590,8 @@ public:
     const static bool isTwoWayScan = false; // ESK: Added
 
     const static bool isSurvivalModel = false; //ESK: Added
+
+    const static bool isScanByKey = false;
 
     static RealType getDenomNullValue () { return static_cast<RealType>(0); }
 

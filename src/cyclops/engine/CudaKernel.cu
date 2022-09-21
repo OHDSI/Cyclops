@@ -402,6 +402,17 @@ void CudaKernel<RealType, RealType2>::setFold(int currentFold)
 }
 
 template <typename RealType, typename RealType2>
+void CudaKernel<RealType, RealType2>::resizeAndCopyToDeviceInt(const std::vector<int>& hostVec, thrust::device_vector<int>& deviceVec)
+{
+	deviceVec.resize(hostVec.size());
+	cudaMemcpyAsync(thrust::raw_pointer_cast(deviceVec.data()),
+			thrust::raw_pointer_cast(hostVec.data()),
+			deviceVec.size()*sizeof(int),
+			cudaMemcpyHostToDevice, stream[0]);
+	cudaStreamSynchronize(stream[0]);	
+}
+
+template <typename RealType, typename RealType2>
 void CudaKernel<RealType, RealType2>::resizeAndCopyToDevice(const std::vector<RealType>& hostVec, thrust::device_vector<RealType>& deviceVec)
 {
 	deviceVec.resize(hostVec.size());

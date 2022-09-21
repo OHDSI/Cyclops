@@ -196,7 +196,7 @@ public:
 	using ModelSpecifics<BaseModel, RealType>::modelData;
 	using ModelSpecifics<BaseModel, RealType>::hX;
 	using ModelSpecifics<BaseModel, RealType>::hXjY;
-//	using ModelSpecifics<BaseModel, RealType>::hPid;
+	using ModelSpecifics<BaseModel, RealType>::hPidInternal;
 	using ModelSpecifics<BaseModel, RealType>::K;
 	using ModelSpecifics<BaseModel, RealType>::J;
 	using ModelSpecifics<BaseModel, RealType>::N;
@@ -227,7 +227,7 @@ public:
 			const std::string deviceName)
 		: ModelSpecifics<BaseModel,RealType>(input),
 //		dCudaColumns(),
-		dXjY(), dY(),
+		dXjY(), dPid(), dY(),
 		priorTypes(), RealHBeta(), dBetaBuffer(),
 		dNumerator(), dNumerator2(),
 		dGH(),
@@ -251,6 +251,10 @@ virtual AbstractModelSpecifics* clone(ComputeDeviceArguments computeDevice) cons
 }
 
 virtual void setPidForAccumulation(const double* weights) {
+	ModelSpecifics<BaseModel,RealType>::getOriginalPid();
+	if (BaseModel::isScanByKey) {
+		CoxKernels.resizeAndCopyToDeviceInt(hPidInternal, dPid);
+	}
 	N = K;
 }
 
@@ -295,7 +299,7 @@ virtual void deviceInitialization() {
 
 	// Allocate host storage	    
 	RealHBeta.resize(J);
-		
+
 	// Allocate device storage
 	CoxKernels.resizeAndCopyToDevice(hY, dY);
 
@@ -903,6 +907,8 @@ std::string getFormatTypeExtension(FormatType formatType) {
 	size_t offCV;
 	std::vector<int> priorTypes;
 	std::vector<RealType> RealHBeta;
+
+	thrust::device_vector<int> dPid;
 
 	// device storage
 	thrust::device_vector<RealType> dKWeight;

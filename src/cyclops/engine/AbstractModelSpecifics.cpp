@@ -110,6 +110,9 @@ AbstractModelSpecifics* precisionFactory<float>(
     case ModelType::COX :
         model = deviceFactory<BreslowTiedCoxProportionalHazards<float>,float>(modelData, deviceType, deviceName);
         break;
+    case ModelType::TIME_VARYING_COX :
+	model = deviceFactory<TimeVaryingCoxProportionalHazards<float>,float>(modelData, deviceType, deviceName);
+	break;
     case ModelType::FINE_GRAY:
         model = deviceFactory<BreslowTiedFineGray<float>,float>(modelData, deviceType, deviceName);
         break;
@@ -211,6 +214,9 @@ AbstractModelSpecifics* precisionFactory<double>(
     case ModelType::COX :
         model = deviceFactory<BreslowTiedCoxProportionalHazards<double>,double>(modelData, deviceType, deviceName);
         break;
+    case ModelType::TIME_VARYING_COX :
+        model = deviceFactory<TimeVaryingCoxProportionalHazards<double>,double>(modelData, deviceType, deviceName);
+        break;
     case ModelType::FINE_GRAY:
         model = deviceFactory<BreslowTiedFineGray<double>,double>(modelData, deviceType, deviceName);
         break;
@@ -279,7 +285,7 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
 
     AbstractModelSpecifics* model = nullptr;
 
-    if (modelType != ModelType::LOGISTIC && modelType != ModelType::COX && modelType != ModelType::FINE_GRAY && deviceType == DeviceType::GPU) {
+    if (modelType != ModelType::LOGISTIC && modelType != ModelType::COX && modelType != ModelType::TIME_VARYING_COX && modelType != ModelType::FINE_GRAY && deviceType == DeviceType::GPU) {
         return model; // Implementing lr and cox first on GPU.
     }
 
