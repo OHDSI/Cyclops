@@ -498,6 +498,57 @@ void CudaKernel<RealType, RealType2>::allocTempStorage(thrust::device_vector<Rea
 }
 
 template <typename RealType, typename RealType2>
+void CudaKernel<RealType, RealType2>::allocTempStorageByKey(thrust::device_vector<int>& d_Key,
+		thrust::device_vector<RealType>& d_Denominator,
+		thrust::device_vector<RealType>& d_Numerator,
+		thrust::device_vector<RealType>& d_Numerator2,
+		thrust::device_vector<RealType>& d_AccDenom,
+		thrust::device_vector<RealType>& d_NWeight,
+		RealType2* d_GH,
+		size_t& N)
+{
+	d_init.x = d_init.y = 0.0;
+
+	// scan for accDenom
+	DeviceScan::InclusiveSumByKey(d_temp_storage_accd, temp_storage_bytes_accd,
+			&d_Key[0], &d_Denominator[0], &d_AccDenom[0], N, cub::Equality(), stream[0]);
+	cudaMalloc(&d_temp_storage_accd, temp_storage_bytes_accd);
+
+	// scan for accNumer
+	d_AccNumer.resize(d_Numerator.size());
+	d_AccNumer2.resize(d_Numerator2.size());
+	auto scan_in = thrust::make_zip_iterator(
+			thrust::make_tuple(
+				d_Numerator.begin(),
+				d_Numerator2.begin()));
+	auto scan_out = thrust::make_zip_iterator(
+			thrust::make_tuple(
+				d_AccNumer.begin(),
+				d_AccNumer2.begin()));
+	DeviceScan::InclusiveScanByKey(d_temp_storage_accn, temp_storage_bytes_accn,
+			&d_Key[0],
+			scan_in, scan_out,
+			tuple2Plus,
+			N, cub::Equality(), stream[0]);
+	cudaMalloc(&d_temp_storage_accn, temp_storage_bytes_accn);
+
+	// transform reduction
+	auto trans_in = thrust::make_zip_iterator(
+			thrust::make_tuple(
+				d_AccDenom.begin(),
+				d_AccNumer.begin(),
+				d_AccNumer2.begin(),
+				d_NWeight.begin()));
+	TransformInputIterator<RealType2, CompGradHess2<RealType, RealType2, true>, ZipVec4> trans_itr(trans_in, compGradHessInd2);
+	DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh,
+			trans_itr, d_GH,
+			N, RealType2Plus(), d_init, stream[0]);
+	cudaMalloc(&d_temp_storage_gh, temp_storage_bytes_gh);
+
+	cudaStreamSynchronize(stream[0]);
+}
+
+template <typename RealType, typename RealType2>
 void CudaKernel<RealType, RealType2>::allocTempStorageFG(thrust::device_vector<RealType>& d_Denominator,
 		thrust::device_vector<RealType>& d_Numerator,
 		thrust::device_vector<RealType>& d_Numerator2,
@@ -726,6 +777,59 @@ void CudaKernel<RealType, RealType2>::computeGradientAndHessian1(thrust::device_
 
 	cudaStreamSynchronize(stream[0]);
 //	cudaDeviceSynchronize();
+}
+
+template <typename RealType, typename RealType2>
+void CudaKernel<RealType, RealType2>::computeGradientAndHessianByKey(thrust::device_vector<int>& d_Key,
+		thrust::device_vector<RealType>& d_Numerator,
+		thrust::device_vector<RealType>& d_Numerator2,
+		thrust::device_vector<RealType>& d_Denominator,
+		thrust::device_vector<RealType>& d_AccDenom,
+		thrust::device_vector<RealType>& d_NWeight,
+		RealType2* d_GH,
+		FormatType& formatType,
+		size_t& offCV,
+		size_t& N)
+{
+	// scan for accDenom
+	DeviceScan::InclusiveSumByKey(d_temp_storage_accd, temp_storage_bytes_accd,
+			&d_Key[0], &d_Denominator[0], &d_AccDenom[0], N, cub::Equality(), stream[0]);
+
+	// scan for accNumer
+	auto scan_in = thrust::make_zip_iterator(
+			thrust::make_tuple(
+				d_Numerator.begin(),
+				d_Numerator2.begin()));
+	auto scan_out = thrust::make_zip_iterator(
+			thrust::make_tuple(
+				d_AccNumer.begin(),
+				d_AccNumer2.begin()));
+	DeviceScan::InclusiveScanByKey(d_temp_storage_accn, temp_storage_bytes_accn,
+			&d_Key[0],
+			scan_in, scan_out,
+			tuple2Plus,
+			N, cub::Equality(), stream[0]);
+
+	// transform reduction
+	auto trans_in = thrust::make_zip_iterator(
+			thrust::make_tuple(
+				d_AccDenom.begin(),
+				d_AccNumer.begin(),
+				d_AccNumer2.begin(),
+				d_NWeight.begin()));
+	if (formatType == INDICATOR) {
+		TransformInputIterator<RealType2, CompGradHess2<RealType, RealType2, true>, ZipVec4> trans_itr(trans_in, compGradHessInd2);
+		DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh,
+				trans_itr, d_GH,
+				N, RealType2Plus(), d_init, stream[0]);
+	} else {
+		TransformInputIterator<RealType2, CompGradHess2<RealType, RealType2, false>, ZipVec4> trans_itr(trans_in, compGradHessNInd2);
+		DeviceReduce::Reduce(d_temp_storage_gh, temp_storage_bytes_gh,
+				trans_itr, d_GH,
+				N, RealType2Plus(), d_init, stream[0]);
+	}
+
+	cudaStreamSynchronize(stream[0]);
 }
 
 template <typename RealType, typename RealType2>
@@ -1021,6 +1125,18 @@ void CudaKernel<RealType, RealType2>::computeAccumlatedDenominator(thrust::devic
 
 	cudaStreamSynchronize(stream[0]);
 //	cudaDeviceSynchronize();
+}
+
+template <typename RealType, typename RealType2>
+void CudaKernel<RealType, RealType2>::computeAccumlatedDenominatorByKey(thrust::device_vector<int>& d_Key,
+		thrust::device_vector<RealType>& d_Denominator,
+		thrust::device_vector<RealType>& d_AccDenom,
+		int N)
+{
+	DeviceScan::InclusiveSumByKey(d_temp_storage_accd, temp_storage_bytes_accd,
+			&d_Key[0], &d_Denominator[0], &d_AccDenom[0], N, cub::Equality(), stream[0]);
+
+	cudaStreamSynchronize(stream[0]);
 }
 
 template <typename RealType, typename RealType2>

@@ -338,6 +338,15 @@ virtual void deviceInitialization() {
 				dY,
 				dGH,
 				N);
+	} else if (BaseModel::isScanByKey) {
+		CoxKernels.allocTempStorageByKey(dPid,
+				dExpXBeta,
+				dNumerator,
+				dNumerator2,
+				dAccDenom,
+				dNWeight,
+				dGH,
+				N);
 	} else {
 		CoxKernels.allocTempStorage(dExpXBeta,
 				dNumerator,
@@ -472,6 +481,7 @@ virtual void computeRemainingStatistics(bool useWeights) {
 	for (size_t k = 0; k < K; ++k) {
 		offsExpXBeta[k] = std::exp(xBeta[k]);
 		denomPid[k] =  hKWeight[k] * std::exp(xBeta[k]);
+		// TODO reset totalDenom for stratified model
 		totalDenom += denomPid[k];
 		accDenomPid[k] = totalDenom;
 	}
@@ -517,6 +527,8 @@ virtual double getLogLikelihood(bool useCrossValidation) {
 				dYWeight,
 				dY,
 				K);
+	} else if (BaseModel::isScanByKey) {
+		CoxKernels.computeAccumlatedDenominatorByKey(dPid, dDenominator, dAccDenom, K);
 	} else {
 		CoxKernels.computeAccumlatedDenominator(dDenominator, dAccDenom, K);
 	}
@@ -666,6 +678,19 @@ virtual void updateBetaAndDelta(int index, bool useWeights) {
 				formatType,
 				offCV,
 				K);
+	} else if (BaseModel::isScanByKey) {
+
+		CoxKernels.computeGradientAndHessianByKey(dPid,
+				dNumerator,
+				dNumerator2,
+				dDenominator,
+				dAccDenom,
+				dNWeight,
+				dGH,
+				formatType,
+				offCV,
+				K);
+
 	} else {
 
 	// dense scan

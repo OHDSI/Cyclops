@@ -98,6 +98,31 @@ struct CompGradHess1
     }
 };
 
+template<typename RealType, typename RealType2, bool isIndicator>
+struct CompGradHess2
+{
+    typedef typename thrust::tuple<RealType, RealType, RealType, RealType> InputTuple;
+
+    __host__ __device__
+    RealType2 operator()(const InputTuple& Inputs) const
+    {
+        RealType2 out;
+        if (thrust::get<0>(Inputs) == static_cast<RealType>(0)) {
+            out.x = static_cast<RealType>(0);
+            out.y = static_cast<RealType>(0);
+        } else {
+            auto temp = thrust::get<1>(Inputs) / thrust::get<0>(Inputs);
+            out.x = thrust::get<3>(Inputs) * temp;
+            if (isIndicator) {
+                out.y = out.x * (1 - temp);
+            } else {
+                out.y = thrust::get<3>(Inputs) * (thrust::get<2>(Inputs) / thrust::get<0>(Inputs) - temp * temp);
+            }
+        }
+        return out;
+    }
+};
+
 template<typename RealType>
 struct TwoWayScan
 {
@@ -220,8 +245,11 @@ class CudaKernel {
 
 	typedef thrust::tuple<RealType, RealType> Tup2;
 	typedef thrust::tuple<RealType, RealType, RealType> Tup3;
+	typedef thrust::tuple<RealType, RealType, RealType, RealType> Tup4;
 	typedef thrust::tuple<RealType, RealType, RealType, RealType, RealType, RealType> Tup6;
 
+	typedef thrust::tuple<VecItr, VecItr, VecItr, VecItr> TupVec4;
+	typedef thrust::zip_iterator<TupVec4> ZipVec4;
 	typedef thrust::tuple<VecItr, RItr, RItr, RItr> NRTupVec4;
 	typedef thrust::zip_iterator<NRTupVec4> NRZipVec4;
 	typedef thrust::tuple<RItr, RItr, RItr, RItr, RItr> RTupVec5;
@@ -250,6 +278,8 @@ public:
 	CompGradHess<RealType, RealType2, false> compGradHessNInd;
 	CompGradHess1<RealType, RealType2, true> compGradHessInd1;
 	CompGradHess1<RealType, RealType2, false> compGradHessNInd1;
+	CompGradHess2<RealType, RealType2, true> compGradHessInd2;
+	CompGradHess2<RealType, RealType2, false> compGradHessNInd2;
 
 	TwoWayScan<RealType> twoWayScan;
 	ScansAddition<RealType> scansAddition;
@@ -263,6 +293,8 @@ public:
 	size_t temp_storage_bytes_accd = 0;
 	void *d_temp_storage_faccd = NULL;
 	size_t temp_storage_bytes_faccd = 0;
+	void *d_temp_storage_accn = NULL;
+	size_t temp_storage_bytes_accn = 0;
 	void *d_temp_storage_gh = NULL;
 	size_t temp_storage_bytes_gh = 0;
 	void *d_temp_storage_fs = NULL;
@@ -271,6 +303,9 @@ public:
 	size_t temp_storage_bytes_bs = 0;
 	void *d_temp_storage_fgh = NULL;
 	size_t temp_storage_bytes_fgh = 0;
+
+	thrust::device_vector<RealType> d_AccNumer;
+	thrust::device_vector<RealType> d_AccNumer2;
 /*
 	RealType* betaIn = NULL;
 	RealType* betaOut = NULL;
@@ -310,6 +345,15 @@ public:
 	void getBound();
 */
 	void allocTempStorage(thrust::device_vector<RealType>& d_Denominator,
+			thrust::device_vector<RealType>& d_Numerator,
+			thrust::device_vector<RealType>& d_Numerator2,
+			thrust::device_vector<RealType>& d_AccDenom,
+			thrust::device_vector<RealType>& d_NWeight,
+			RealType2* d_GH,
+			size_t& N);
+
+	void allocTempStorageByKey(thrust::device_vector<int>& d_Key,
+			thrust::device_vector<RealType>& d_Denominator,
 			thrust::device_vector<RealType>& d_Numerator,
 			thrust::device_vector<RealType>& d_Numerator2,
 			thrust::device_vector<RealType>& d_AccDenom,
@@ -365,6 +409,18 @@ public:
 			size_t& N
 			);
 
+	void computeGradientAndHessianByKey(thrust::device_vector<int>& d_Key,
+			thrust::device_vector<RealType>& d_Numerator,
+			thrust::device_vector<RealType>& d_Numerator2,
+			thrust::device_vector<RealType>& d_Denominator,
+			thrust::device_vector<RealType>& d_AccDenom,
+			thrust::device_vector<RealType>& d_NWeight,
+			RealType2* d_GH,
+			FormatType& formatType,
+			size_t& offCV,
+			size_t& N
+			);
+
 	void computeTwoWayGradientAndHessian(thrust::device_vector<RealType>& d_Numerator,
 			thrust::device_vector<RealType>& d_Numerator2,
 			thrust::device_vector<RealType>& d_Denominator,
@@ -407,6 +463,11 @@ public:
 	
 	void computeAccumlatedDenominator(thrust::device_vector<RealType>& d_Denominator, 
 			thrust::device_vector<RealType>& d_AccDenom, 
+			int N);
+
+	void computeAccumlatedDenominatorByKey(thrust::device_vector<int>& d_Key,
+			thrust::device_vector<RealType>& d_Denominator,
+			thrust::device_vector<RealType>& d_AccDenom,
 			int N);
 
 	void computeTwoWayAccumlatedDenominator(thrust::device_vector<RealType>& d_Denominator,
