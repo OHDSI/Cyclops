@@ -1,6 +1,9 @@
 library(survival)
 library(testthat)
 
+GpuDevice <- listOpenCLDevices()[1]
+tolerance <- 1E-4
+
 test_that("Check very small Cox example with time-varying coefficient as stratified model", {
     test <- read.table(header=T, sep = ",", text = "
             start, length, event, x1, x2
@@ -30,7 +33,12 @@ test_that("Check very small Cox example with time-varying coefficient as stratif
                                       modelType = "cox_time")
     cyclopsFitStrat_CPU <- fitCyclopsModel(dataPtrStrat_CPU)
 
-    tolerance <- 1E-4
+    dataPtrStrat_GPU <- createCyclopsData(Surv(time, event) ~ x2 + x1.1 + x1.2 + strata(stratumId),
+                                      data = test_cyclops,
+                                      modelType = "cox_time")
+    cyclopsFitStrat_GPU <- fitCyclopsModel(dataPtrStrat_GPU, computeDevice = GpuDevice)
+
     expect_equal(unname(coef(cyclopsFitStrat_CPU)), unname(coef(goldStrat)), tolerance = tolerance)
+    expect_equal(coef(cyclopsFitStrat_CPU), coef(cyclopsFitStrat_GPU), tolerance = tolerance)
 })
 
