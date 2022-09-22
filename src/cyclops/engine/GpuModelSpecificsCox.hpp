@@ -197,6 +197,7 @@ public:
 	using ModelSpecifics<BaseModel, RealType>::hX;
 	using ModelSpecifics<BaseModel, RealType>::hXjY;
 	using ModelSpecifics<BaseModel, RealType>::hPidInternal;
+	using ModelSpecifics<BaseModel, RealType>::accReset;
 	using ModelSpecifics<BaseModel, RealType>::K;
 	using ModelSpecifics<BaseModel, RealType>::J;
 	using ModelSpecifics<BaseModel, RealType>::N;
@@ -251,10 +252,30 @@ virtual AbstractModelSpecifics* clone(ComputeDeviceArguments computeDevice) cons
 }
 
 virtual void setPidForAccumulation(const double* weights) {
-	ModelSpecifics<BaseModel,RealType>::getOriginalPid();
+
 	if (BaseModel::isScanByKey) {
+
+		// get original stratumId
+		ModelSpecifics<BaseModel,RealType>::getOriginalPid();
+
+		// set accReset
+		// TODO consider weights here?
+		int lastPid = hPidInternal[0];
+		for (size_t k = 1; k < K; ++k) {
+			int nextPid = hPidInternal[k];
+			if (nextPid != lastPid) { // start new strata
+				accReset.push_back(k);
+				lastPid = nextPid;
+			}
+		}
+		accReset.push_back(K);
+
+		for (auto a : accReset) std::cout << "accReset: " << a << '\n';
+
+		// copy stratumId from host to device
 		CoxKernels.resizeAndCopyToDeviceInt(hPidInternal, dPid);
 	}
+
 	N = K;
 }
 
@@ -475,16 +496,28 @@ virtual void computeRemainingStatistics(bool useWeights) {
 	if (accDenomPid.size() != K) {
 		accDenomPid.resize(K, static_cast<RealType>(0));
 	}
-	RealType totalDenom = static_cast<RealType>(0);
 
 	// Update exb, denom, and accDenom
+
+	RealType totalDenom = static_cast<RealType>(0);
+	auto reset = begin(accReset);
+
 	for (size_t k = 0; k < K; ++k) {
+
 		offsExpXBeta[k] = std::exp(xBeta[k]);
 		denomPid[k] =  hKWeight[k] * std::exp(xBeta[k]);
-		// TODO reset totalDenom for stratified model
+
+		if (BaseModel::isScanByKey) {
+			if (static_cast<unsigned int>(*reset) == k) {
+				totalDenom = static_cast<RealType>(0);
+				++reset;
+			}
+		}
+
 		totalDenom += denomPid[k];
 		accDenomPid[k] = totalDenom;
 	}
+
 	// Fine-gray
 	if (BaseModel::isTwoWayScan) {
 		totalDenom = static_cast<RealType>(0);
