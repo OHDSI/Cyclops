@@ -270,7 +270,7 @@ virtual void setPidForAccumulation(const double* weights) {
 		}
 		accReset.push_back(K);
 
-		for (auto a : accReset) std::cout << "accReset: " << a << '\n';
+		std::cerr << "Num of strata: " << accReset.size() << std::endl;
 
 		// copy stratumId from host to device
 		CoxKernels.resizeAndCopyToDeviceInt(hPidInternal, dPid);
