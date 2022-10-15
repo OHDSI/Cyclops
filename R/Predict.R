@@ -63,7 +63,7 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
                                    covariateId = as.numeric(names(coefficients)))
         coefficients <- coefficients[coefficients$beta != 0, ]
 
-        if (inherits(newCovariates, "tbl_dbi")) {
+        if (inherits(newCovariates, "tbl_dbi") || inherits(newCovariates, "FileSystemData")) {
 
             # Optimized for Andromeda
             if (nrow(coefficients) == 0) {
