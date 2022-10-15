@@ -42,11 +42,21 @@ WeightBasedSelector::~WeightBasedSelector() {
 	// Do nothing
 }
 
+double totalWeight(std::vector<double>& weights) {
+	double total = 0.0;
+	for (int i = 0; i < weights.size(); ++i) {
+		total += weights[i];
+	}
+	return total;
+}
+
 void WeightBasedSelector::getWeights(int batch, std::vector<double>& weights) {
    if (weights.size() < weightsOriginal->size()) {
        weights.resize(weightsOriginal->size());
    }
 	std::copy(weightsOriginal->begin(), weightsOriginal->end(), weights.begin());
+	
+	std::cerr << "getWeights total: " << totalWeight(weights) << std::endl;
 }
 
 AbstractSelector* WeightBasedSelector::clone() const {
@@ -57,6 +67,7 @@ void WeightBasedSelector::getComplement(std::vector<double>& weights) {
     for (auto it = weights.begin(); it != weights.end(); it++) {
 	    *it = 1 - *it;
     }
+    std::cerr << "getComplement total: " << totalWeight(weights) << std::endl;
 }
 
 void WeightBasedSelector::permute() {

@@ -242,6 +242,40 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          normalize = NULL,
                                          quiet = FALSE,
                                          floatingPoint = 64) {
+
+    .convertToCyclopsDataInternal(outcomes, covariates, modelType,
+                                  addIntercept, checkSorting, checkRowIds,
+                                  normalize, quiet, floatingPoint)
+}
+
+#' @export
+convertToCyclopsData.FileSystemDataset <- function(outcomes,
+                                         covariates,
+                                         modelType = "lr",
+                                         addIntercept = TRUE,
+                                         checkSorting = NULL,
+                                         checkRowIds = TRUE,
+                                         normalize = NULL,
+                                         quiet = FALSE,
+                                         floatingPoint = 64) {
+
+    .convertToCyclopsDataInternal(outcomes, covariates, modelType,
+                                  addIntercept, checkSorting, checkRowIds,
+                                  normalize, quiet, floatingPoint)
+}
+
+.convertToCyclopsDataInternal <- function(outcomes,
+                                          covariates,
+                                          modelType = "lr",
+                                          addIntercept = TRUE,
+                                          checkSorting = NULL,
+                                          checkRowIds = TRUE,
+                                          normalize = NULL,
+                                          quiet = FALSE,
+                                          floatingPoint = 64) {
+
+
+
     if (!is.null(checkSorting))
         warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
 
@@ -339,11 +373,11 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     loadCovariates <- function(batch) {
         covarNames <- unique(batch$covariateId)
         loadNewSqlCyclopsDataMultipleX(object = dataPtr,
-                                        covariateId = batch$covariateId,
-                                        rowId = batch$rowId,
-                                        covariateValue = batch$covariateValue,
-                                        name = covarNames,
-                                        append = TRUE)
+                                       covariateId = batch$covariateId,
+                                       rowId = batch$rowId,
+                                       covariateValue = batch$covariateValue,
+                                       name = covarNames,
+                                       append = TRUE)
     }
 
     Andromeda::batchApply(covariates,

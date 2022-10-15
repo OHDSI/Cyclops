@@ -2,6 +2,7 @@
 
 S3method(coef,cyclopsFit)
 S3method(confint,cyclopsFit)
+S3method(convertToCyclopsData,FileSystemDataset)
 S3method(convertToCyclopsData,data.frame)
 S3method(convertToCyclopsData,tbl_dbi)
 S3method(logLik,cyclopsFit)
