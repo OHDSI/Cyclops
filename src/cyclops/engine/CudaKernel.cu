@@ -11,11 +11,10 @@
 #include <thrust/tuple.h>
 #include <thrust/sequence.h>
 #include <thrust/iterator/permutation_iterator.h>
-//#include <thrust/transform_reduce.h>
-//#include <thrust/for_each.h>
 
 #include "CudaKernel.h"
 #include "fused_kernel/device_scan_reduce.cuh"
+//#include "fused_kernel_1.8.0/device_scan_reduce.cuh"
 
 using namespace cub;
 
