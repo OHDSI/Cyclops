@@ -81,16 +81,19 @@ convertToTimeVaryingCoef <- function(shortCov, longOut, timeVaryCoefId) {
 
         # get valid sparse covariates information in current stratum
         curStrata <- shortCov[shortCov$subjectId %in% subId, ]
-        curStrata$stratumId <- st # assign current stratumId
 
-        # recode covariateId for time-varying coefficients
-        # TODO update label
-        for (i in 1:numTime) {
-            curStrata[curStrata$covariateId == timeVaryCoefId[i], "covariateId"] <- numCov + numTime * (st - 2) + i
+        if (any(curStrata$covariateId %in% timeVaryCoefId)) { # skip when valid subjects only have non-zero time-indep covariates
+            curStrata$stratumId <- st # assign current stratumId
+
+            # recode covariateId for time-varying coefficients
+            # TODO update label
+            for (i in 1:numTime) {
+                curStrata[curStrata$covariateId == timeVaryCoefId[i], "covariateId"] <- numCov + numTime * (st - 2) + i
+            }
+
+            # bind current stratum to longCov
+            longCov <- rbind(longCov, curStrata)
         }
-
-        # bind current stratum to longCov
-        longCov <- rbind(longCov, curStrata)
     }
 
     # match rowId in longCov
