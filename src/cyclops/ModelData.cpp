@@ -370,6 +370,14 @@ int ModelData<RealType>::loadX(
 }
 
 template <typename RealType>
+int ModelData<RealType>::loadStratTimeEffects(
+        const std::vector<double>& timeEffectCovariateIds) {
+    // TODO
+	
+    return 0;
+}
+
+template <typename RealType>
 size_t ModelData<RealType>::append(
         const std::vector<IdType>& oStratumId,
         const std::vector<IdType>& oRowId,

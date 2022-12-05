@@ -81,6 +81,7 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 convertToCyclopsData <- function(outcomes,
                                  covariates,
                                  modelType = "lr",
+				 timeEffectMap = NULL,
                                  addIntercept = TRUE,
                                  checkSorting = NULL,
                                  checkRowIds = TRUE,
@@ -110,6 +111,7 @@ convertToCyclopsData <- function(outcomes,
 convertToCyclopsData.data.frame <- function(outcomes,
                                             covariates,
                                             modelType = "lr",
+					    timeEffectMap = NULL,
                                             addIntercept = TRUE,
                                             checkSorting = NULL,
                                             checkRowIds = TRUE,
@@ -238,6 +240,13 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                    rowId = covariates$rowId,
                                    covariateValue = covariates$covariateValue,
                                    name = covarNames)
+
+    if (modelType == "cox_time" && !is.null(timeEffectMap)) {
+        if (!all(timeEffectMap$covariateId %in% covariates$covariateId)) stop("Invalid covariateId for time effects.")
+        loadNewSqlCyclopsDataStratTimeEffects(object = dataPtr,
+                                              timeEffectCovariateId = timeEffectMap$covariateId)
+    }
+
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
 
@@ -284,6 +293,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
 convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          covariates,
                                          modelType = "lr",
+					 timeEffectMap = NULL,
                                          addIntercept = TRUE,
                                          checkSorting = NULL,
                                          checkRowIds = TRUE,
@@ -412,6 +422,12 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     Andromeda::batchApply(covariates,
                           loadCovariates,
                           batchSize = 100000) # TODO Pick magic number
+
+    if (modelType == "cox_time" && !is.null(timeEffectMap)) {
+        if (!all(timeEffectMap$covariateId %in% covariates$covariateId)) stop("Invalid covariateId for time effects.")
+        loadNewSqlCyclopsDataStratTimeEffects(object = dataPtr,
+                                              timeEffectCovariateId = timeEffectMap$covariateId)
+    }
 
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)

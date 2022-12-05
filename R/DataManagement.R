@@ -816,6 +816,14 @@ loadNewSqlCyclopsDataY <- function(object,
                       time)
 }
 
+#' @keywords internal
+loadNewSqlCyclopsDataStratTimeEffects <- function(object,
+                                                  timeEffectCovariateId) {
+
+    if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
+
+    index <- .loadCyclopsDataStratTimeEffects(object, timeEffectCovariateId)
+}
 
 #' @title finalizeSqlCyclopsData
 #'
