@@ -52,6 +52,107 @@ struct DeviceFuse
 
     /**
      * \brief Computes a device-wide inclusive prefix scan and transform-reduction using the specified binary \p scan_op functor, \p reduction_op functor and \p transform_op functor.
+     *
+     * @par Snippet
+     * The code snippet below illustrates the inclusive prefix scan and transform-reduction of an `int`
+     * device vector.
+     *
+     * @par
+     * @code
+     * #include <cub/cub.cuh>
+     * #include "device_scan_reduce.cuh"
+     *
+     * // CustomMin functor
+     * struct CustomMin
+     * {
+     *     template <typename T>
+     *     CUB_RUNTIME_FUNCTION __forceinline__
+     *     T operator()(const T &a, const T &b) const {
+     *         return (b < a) ? b : a;
+     *     }
+     * };
+     *
+     * // Declare, allocate, and initialize device-accessible pointers for
+     * // input and output
+     * int          num_items;      // e.g., 7
+     * int          *d_in;          // e.g., [1, 2, 2, 1, 3, 0, 1]
+     * int          *d_trans_in;    // e.g., [8, 6, 7, 5, 3, 0, 9]
+     * int          *d_sum;         // e.g., [-]
+     * CustomMin    min_op;
+     * ...
+     *
+     * // Determine temporary device storage requirements for inclusive
+     * // prefix scan
+     * void     *d_temp_storage = nullptr;
+     * size_t   temp_storage_bytes = 0;
+     * DeviceFuse::ScanReduce(
+     *   d_temp_storage, temp_storage_bytes,
+     *   d_in, d_trans_in, d_sum,
+     *   cub::Sum(), min_op, cub::Sum(),
+     *   num_items);
+     *
+     * // Allocate temporary storage for inclusive prefix sum
+     * cudaMalloc(&d_temp_storage, temp_storage_bytes);
+     *
+     * // Run inclusive prefix sum
+     * DeviceScan::InclusiveSum(
+     *   d_temp_storage, temp_storage_bytes,
+     *   d_in, d_trans_in, d_sum,
+     *   cub::Sum(), min_op, cub::Sum(),
+     *   num_items);
+     *
+     * // d_sum <-- [26]
+     * @endcode
+     *
+     * @tparam ScanInputIteratorT
+     *   **[inferred]** Random-access input iterator type for reading scan
+     *   inputs \iterator
+     *
+     * @tparam TransformInputIteratorT
+     *   **[inferred]** Random-access input iterator type for reading additional
+     *   input for transformation \iterator
+     *
+     * @tparam OutputIteratorT
+     *   **[inferred]** Random-access output iterator type for writing reduction
+     *   outputs \iterator
+     *
+     * @tparam ScanOpT
+     *   **[inferred]** Binary scan functor type having member
+     *   `T operator()(const T &a, const T &b)`
+     *
+     * @tparam ReductionOpT
+     *   **[inferred]** Binary reduction functor type having member
+     *   `T operator()(const T &a, const T &b)`
+     *
+     * @tparam TransformOpT
+     *   **[inferred]** Binary transform functor type having member
+     *   `T operator()(const T &a, const T &b)`
+     *
+     * @param[in] d_temp_storage
+     *   Device-accessible allocation of temporary storage. When `nullptr`, the
+     *   required allocation size is written to `temp_storage_bytes` and no
+     *   work is done.
+     *
+     * @param[in,out] temp_storage_bytes
+     *   Reference to size in bytes of `d_temp_storage` allocation
+     *
+     * @param[in] d_in
+     *   Random-access iterator to the input sequence of data items
+     *
+     * @param[in] d_trans_in
+     *   Random-access iterator to the additional input sequence of data items
+     *
+     * @param[out] d_sum
+     *   Random-access iterator to the output aggregate
+     *
+     * @param[in] num_items
+     *   Total number of input items (i.e., the length of `d_in`)
+     *
+     * @param[in] stream
+     *   **[optional]** CUDA stream to launch kernels within.
+     *   Default is stream<sub>0</sub>.
+     *
+     * [decoupled look-back]: https://research.nvidia.com/publication/single-pass-parallel-prefix-scan-decoupled-look-back
      */
     template <
         typename        ScanInputIteratorT,
