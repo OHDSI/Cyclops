@@ -45,6 +45,7 @@
 // #include "io/BBRInputReader.h"
 // #include "io/OutputWriter.h"
 #include "drivers/CrossValidationSelector.h"
+#include "drivers/WeightBasedSelector.h"
 #include "drivers/GridSearchCrossValidationDriver.h"
 #include "drivers/HierarchyGridSearchCrossValidationDriver.h"
 #include "drivers/AutoSearchCrossValidationDriver.h"
@@ -546,7 +547,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
     int nThreads = (inThreads == -1) ?
     bsccs::thread::hardware_concurrency() : inThreads;
 
-    double mode = ccd->getLogLikelihood(); // TODO Remove
+    ccd->getLogLikelihood(); // TODO Remove
 
     std::ostringstream stream2;
     stream2 << "Using " << nThreads << " thread(s)";
@@ -746,12 +747,32 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractMo
 		}
 	}
 
-	CrossValidationSelector selector(arguments.crossValidation.fold,
-	 		modelData->getPidVectorSTL(),
-			selectorType, arguments.seed, logger, error,
-			nullptr,
-			(useWeights ? &weights : nullptr)
-			); // TODO ERROR HERE!  NOT ALL MODELS ARE SUBJECT
+	// TODO ADD CODE HERE
+
+	//arguments.crossValidation.fold != -1 ?
+
+	AbstractSelector* ptr;
+	if (arguments.crossValidation.fold != -1) {
+	ptr = new CrossValidationSelector(arguments.crossValidation.fold,
+                             modelData->getPidVectorSTL(),
+                             selectorType, arguments.seed, logger, error,
+                             nullptr,
+                             (useWeights ? &weights : nullptr));
+	} else {
+	ptr =
+
+     new WeightBasedSelector(1,
+                             modelData->getPidVectorSTL(),
+                             selectorType, arguments.seed, logger, error,
+                             nullptr,
+                             &weights);
+	    arguments.crossValidation.foldToCompute = 1;
+	}
+
+	std::unique_ptr<AbstractSelector> selector =
+	    bsccs::unique_ptr<AbstractSelector>(ptr);
+
+	//    std::make_unique_ptr<AbstractSelector>(ptr2);
 
 	AbstractCrossValidationDriver* driver;
 	if (arguments.crossValidation.useAutoSearchCV) {
@@ -768,7 +789,7 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractMo
 		}
 	}
 
-	driver->drive(*ccd, selector, arguments);
+	driver->drive(*ccd, *selector, arguments);
 
 	gettimeofday(&time2, NULL);
 
@@ -781,7 +802,7 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractMo
 	        logger->writeLine(stream);
 	    }
 		// Do full fit for optimal parameter
-		driver->resetForOptimal(*ccd, selector, arguments);
+		driver->resetForOptimal(*ccd, *selector, arguments);
 		fitModel(ccd);
 		if (arguments.fitMLEAtMode) {
 			runFitMLEAtMode(ccd);

@@ -199,10 +199,10 @@ test_that("Seed gets returned", {
     y <- 0
     x <- 1
     data <- createCyclopsData(y ~ x, modelType = "lr")
-    fit <- fitCyclopsModel(data, control = createControl(seed = 123))
+    fit <- fitCyclopsModel(data, control = createControl(seed = 123), warnings = FALSE)
     expect_equal(fit$seed, 123)
 
     fit <- fitCyclopsModel(data, forceNewObject = TRUE,
-                           control = createControl(seed = NULL))
+                           control = createControl(seed = NULL), warnings = FALSE)
     expect_true(!is.null(fit$seed))
 })

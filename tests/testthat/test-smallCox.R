@@ -182,10 +182,18 @@ start, length, event, x1, x2
                                        weights = rep(c(0,1), 7))
 
     weights <- rep(c(1,0), 7)
-    # predictiveLogLik <- getCyclopsPredictiveLogLikelihood(cyclopsFitClean, weights)
-    #
-    # expect_equal(predictiveLogLik, logLik(goldRight)[[1]])
+    predictiveLogLik <- Cyclops:::getCyclopsPredictiveLogLikelihood(cyclopsFitClean, weights)
+    expect_equal(predictiveLogLik, logLik(goldRight)[[1]])
 
+    # Test error cases in predictive likelihood
+    expect_error(Cyclops:::getCyclopsPredictiveLogLikelihood(cyclopsFitClean, weights = c(1,2)),
+                 "Must provide")
+
+    expect_error(Cyclops:::getCyclopsPredictiveLogLikelihood(cyclopsFitClean, weights = rep(-1, 14)),
+                 "Only non-negative weights")
+
+    cap <- capture.output(print(cyclopsFitClean))
+    expect_false(is.null(cap))
 })
 
 test_that("Check SQL interface for a very small Cox example with failure ties and strata", {

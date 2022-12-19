@@ -78,14 +78,9 @@ Cyclops is licensed under Apache License 2.0.   Cyclops contains the TinyThread 
 
 The TinyThread library is licensed under the [zlib/libpng](https://opensource.org/licenses/Zlib/) license as described [here](https://tinythreadpp.bitsnbites.eu/).
 
-
 Development
 ===========
 Cyclops is being developed in R Studio.
-
-### Development status
-
-Beta
 
 Acknowledgements
 ================

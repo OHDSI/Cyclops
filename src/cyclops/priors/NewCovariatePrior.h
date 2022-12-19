@@ -47,7 +47,7 @@ public:
 		info << "Laplace(" << locationLambda.first << ", " << locationLambda.second << ")";
 		return info.str();
 	}
-    double logDensity(const DoubleVector& beta, const int index) const {
+    double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
         const auto x = beta[index];
         const auto locationLambda = getLocationLambda();
         const auto location = locationLambda.first;
@@ -69,7 +69,7 @@ public:
 		return lambda;
 	}
 
-	double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index) const {
+	double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const {
 
 	    const auto locationLambda = getLocationLambda();
 	    const double location = locationLambda.first;
@@ -183,6 +183,9 @@ static PriorPtr makePrior(PriorType priorType, PriorFunctionPtr& priorFunction,
         break;
     case BAR_UPDATE :
         Rcpp::stop("Parameterized BAR updates are not yet implemented");
+        break;
+    case JEFFREYS :
+        Rcpp::stop("Parameterized Jeffreys priors are not yet implemented");
         break;
     default : break;
     }

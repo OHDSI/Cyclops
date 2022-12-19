@@ -1,3 +1,29 @@
+develop
+==============
+
+Changes:
+
+1. improvements on adaptive likelihood profiling
+
+
+Cyclops v3.2.1
+==============
+
+Changes:
+
+1. fix small memory leak caused by direct call to '::Rf_error()'
+2. disable JVM calls on CRAN due to uninitialized memory in Java JVM
+
+Cyclops v3.2.0
+==============
+
+Changes:
+
+1. fixed likelihood profiling when non-convex due to numerical instability
+2. fixed parsing of 64-bit covariate IDs
+3. fix BLR convergence criterion when there are 0 (survival) events
+3. add Jeffrey's prior for single regression coefficient
+
 Cyclops v3.1.2
 ==============
 

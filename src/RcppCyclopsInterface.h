@@ -67,6 +67,8 @@ public:
     	return CcdInterface::runBoostrap(ccd, modelData, savedBeta);
     }
 
+    void logResultsToFile(const std::string& fileName, bool withASE);
+
     void setZeroBetaAsFixed() {
     	CcdInterface::setZeroBetaAsFixed(ccd);
     }
