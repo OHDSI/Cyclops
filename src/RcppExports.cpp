@@ -719,14 +719,17 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsLoadDataStratTimeEffects
-int cyclopsLoadDataStratTimeEffects(Environment x, const std::vector<double>& timeEffectCovariateId);
-RcppExport SEXP _Cyclops_cyclopsLoadDataStratTimeEffects(SEXP xSEXP, SEXP timeEffectCovariateIdSEXP) {
+int cyclopsLoadDataStratTimeEffects(Environment x, const std::vector<double>& stratumId, const std::vector<double>& rowId, const std::vector<double>& subjectId, const std::vector<double>& timeEffectCovariateId);
+RcppExport SEXP _Cyclops_cyclopsLoadDataStratTimeEffects(SEXP xSEXP, SEXP stratumIdSEXP, SEXP rowIdSEXP, SEXP subjectIdSEXP, SEXP timeEffectCovariateIdSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type stratumId(stratumIdSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type rowId(rowIdSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type subjectId(subjectIdSEXP);
     Rcpp::traits::input_parameter< const std::vector<double>& >::type timeEffectCovariateId(timeEffectCovariateIdSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsLoadDataStratTimeEffects(x, timeEffectCovariateId));
+    rcpp_result_gen = Rcpp::wrap(cyclopsLoadDataStratTimeEffects(x, stratumId, rowId, subjectId, timeEffectCovariateId));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -851,7 +854,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsLoadDataY", (DL_FUNC) &_Cyclops_cyclopsLoadDataY, 5},
     {"_Cyclops_cyclopsLoadDataMultipleX", (DL_FUNC) &_Cyclops_cyclopsLoadDataMultipleX, 8},
     {"_Cyclops_cyclopsLoadDataX", (DL_FUNC) &_Cyclops_cyclopsLoadDataX, 7},
-    {"_Cyclops_cyclopsLoadDataStratTimeEffects", (DL_FUNC) &_Cyclops_cyclopsLoadDataStratTimeEffects, 2},
+    {"_Cyclops_cyclopsLoadDataStratTimeEffects", (DL_FUNC) &_Cyclops_cyclopsLoadDataStratTimeEffects, 5},
     {"_Cyclops_cyclopsAppendSqlData", (DL_FUNC) &_Cyclops_cyclopsAppendSqlData, 8},
     {"_Cyclops_cyclopsGetInterceptLabel", (DL_FUNC) &_Cyclops_cyclopsGetInterceptLabel, 1},
     {"_Cyclops_cyclopsReadFileData", (DL_FUNC) &_Cyclops_cyclopsReadFileData, 2},

@@ -371,10 +371,96 @@ int ModelData<RealType>::loadX(
 
 template <typename RealType>
 int ModelData<RealType>::loadStratTimeEffects(
+        const std::vector<IdType>& oStratumId,
+        const std::vector<IdType>& oRowId,
+        const std::vector<IdType>& oSubjectId,
         const std::vector<double>& timeEffectCovariateIds) {
-    // TODO
-	
-    return 0;
+
+    int numOfFixedCov = getNumberOfColumns();
+
+    // 1. The inverse of rowIdMap
+    std::unordered_map<size_t,IdType> inverseRowIdMap;
+    for (const auto& pair : rowIdMap) {
+        inverseRowIdMap.insert({pair.second, pair.first});
+    }
+
+    // 2. Row-to-subject map
+    // 3. Valid subjects in current stratum (sorted)
+    // 4. Subject-to-row by stratum
+    std::unordered_map<IdType,IdType> rowToSubject;
+    std::vector<vector<IdType>> validSubjects;
+    std::vector<std::unordered_map<IdType,IdType>> subjectToRowByStratum;
+
+    IdType prevStrata = -1;
+    for (size_t i = 0; i < oRowId.size(); ++i) {
+
+        rowToSubject[oRowId[i]] = oSubjectId[i];
+
+        if (oStratumId[i] != prevStrata) {
+            validSubjects.push_back({});
+            subjectToRowByStratum.push_back({});
+        }
+        validSubjects.back().push_back(oSubjectId[i]);
+        subjectToRowByStratum.back()[oSubjectId[i]] = oRowId[i];
+
+        prevStrata = oStratumId[i];
+    }
+
+    // 5. Transpose of X
+    bsccs::shared_ptr<CompressedDataMatrix<RealType>> Xt;
+    Xt = X.transpose();
+
+    // Start from the 2nd stratum
+    for (int st = 1; st <= pid.back(); st++) {
+
+        for (int covId : timeEffectCovariateIds) {
+
+            int numEnt = X.getColumn(covId-1).getNumberOfEntries();
+            int i = 0, j = 0;
+            while (i < validSubjects[st].size() && j < numEnt) {
+                if (rowToSubject[inverseRowIdMap[X.getCompressedColumnVectorSTL(covId-1)[j]]]
+                        == validSubjects[st][i]) {
+                    // create or append to time-dept coefficient
+                    IdType newCovId = st * numOfFixedCov + (covId-1);
+                    auto index = getColumnIndexByName(newCovId);
+                    if (index < 0) { // create a new column for time-dept coefficient
+                        X.push_back(X.getFormatType(covId-1));
+                        index = getNumberOfColumns() - 1;
+                        X.getColumn(index).add_label(newCovId);
+                    }
+                    X.getColumn(index).add_data(
+                            static_cast<int>(rowIdMap[subjectToRowByStratum[st][validSubjects[st][i]]]),
+                            X.getDataVectorSTL(covId-1)[j]);
+
+                    i++,j++;
+                } else if ((rowToSubject[inverseRowIdMap[X.getCompressedColumnVectorSTL(covId-1)[j]]]
+                               > validSubjects[st][i])
+                    || ((rowToSubject[inverseRowIdMap[X.getCompressedColumnVectorSTL(covId-1)[j]]]
+                    < validSubjects[st][i]) && i == validSubjects[st].size()-1)) {
+
+                    // append all time-indept coefficients assoicated with the subject
+                    IdType fixedRow = rowIdMap[subjectToRowByStratum[0][validSubjects[st][i]]]; // mappedRow at 1st stratum
+                    IdType row = rowIdMap[subjectToRowByStratum[st][validSubjects[st][i]]]; // mappedRow at current stratum
+                    FormatType formatType = Xt->getColumn(fixedRow).getFormatType();
+                    for (size_t k = 0; k < Xt->getColumn(fixedRow).getNumberOfEntries(); k++) {
+                        IdType col = Xt->getCompressedColumnVectorSTL(fixedRow)[k];
+                        if (col < numOfFixedCov) {
+                            if (formatType == SPARSE || formatType == DENSE) {
+                                X.getColumn(col).add_data(row, Xt->getDataVectorSTL(fixedRow)[col]);
+                            } else {
+                                X.getColumn(col).add_data(row, static_cast<int>(1));
+                            }
+                        }
+                    }
+                    i++;
+                } else {
+                    j++;
+                }
+            }
+        }
+    }
+
+    return getNumberOfColumns();
 }
 
 template <typename RealType>

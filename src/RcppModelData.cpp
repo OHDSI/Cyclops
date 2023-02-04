@@ -625,12 +625,18 @@ int cyclopsLoadDataX(Environment x,
 
 // [[Rcpp::export(".loadCyclopsDataStratTimeEffects")]]
 int cyclopsLoadDataStratTimeEffects(Environment x,
+                                    const std::vector<double>& stratumId,
+                                    const std::vector<double>& rowId,
+                                    const std::vector<double>& subjectId,
                                     const std::vector<double>& timeEffectCovariateId) {
 
     using namespace bsccs;
     XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
 
-    return data->loadStratTimeEffects(timeEffectCovariateId);
+    return data->loadStratTimeEffects(reinterpret_cast<const std::vector<int64_t>&>(stratumId),
+		    reinterpret_cast<const std::vector<int64_t>&>(rowId),
+		    reinterpret_cast<const std::vector<int64_t>&>(subjectId),
+		    timeEffectCovariateId);
 }
 
 // NOTE:  IdType does not get exported into RcppExports, so hard-coded here

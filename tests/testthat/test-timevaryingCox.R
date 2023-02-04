@@ -70,5 +70,13 @@ test_that("Check very small Cox example with time-varying coefficient as stratif
     expect_equal(unname(coef(cyclopsFitSparse_CPU)), unname(coef(goldStrat)), tolerance = tolerance)
     expect_equal(coef(cyclopsFitSparse_CPU), coef(cyclopsFitSparse_GPU), tolerance = tolerance)
 
+    # GPU: long out and short cov
+    shortCovPtrSparse_GPU <- convertToCyclopsData(outcomes = longOut,
+                                                  covariates = sparseLongCov[sparseLongCov$stratumId == 1,],
+                                                  timeEffectMap = data.frame(covariateId = c(2)),
+                                                  modelType = "cox_time")
+    shortCovFitSparse_GPU <- fitCyclopsModel(shortCovPtrSparse_GPU, computeDevice = GpuDevice)
+    expect_equal(unname(coef(cyclopsFitSparse_GPU)), unname(coef(shortCovFitSparse_GPU)), tolerance = tolerance)
+
 })
 

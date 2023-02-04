@@ -153,6 +153,9 @@ public:
     ) = 0;
 
     virtual int loadStratTimeEffects(
+            const std::vector<IdType>& oStratumId,
+            const std::vector<IdType>& oRowId,
+            const std::vector<IdType>& oSubjectId,
             const std::vector<double>& timeEffectCovariateId
     ) = 0;
 
@@ -318,6 +321,9 @@ public:
 	);
 
 	int loadStratTimeEffects(
+		const std::vector<IdType>& oStratumId,
+		const std::vector<IdType>& oRowId,
+		const std::vector<IdType>& oSubjectId,
 		const std::vector<double>& timeEffectCovariateId
 	);
 
