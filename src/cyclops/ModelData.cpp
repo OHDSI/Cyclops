@@ -420,19 +420,24 @@ int ModelData<RealType>::loadStratTimeEffects(
             while (i < validSubjects[st].size() && j < numEnt) {
                 if (rowToSubject[inverseRowIdMap[X.getCompressedColumnVectorSTL(covId-1)[j]]]
                         == validSubjects[st][i]) {
+
                     // create or append to time-dept coefficient
-                    IdType newCovId = st * numOfFixedCov + (covId-1);
+                    IdType newCovId = st * numOfFixedCov + covId;
                     auto index = getColumnIndexByName(newCovId);
                     if (index < 0) { // create a new column for time-dept coefficient
                         X.push_back(X.getFormatType(covId-1));
                         index = getNumberOfColumns() - 1;
                         X.getColumn(index).add_label(newCovId);
                     }
-                    X.getColumn(index).add_data(
-                            static_cast<int>(rowIdMap[subjectToRowByStratum[st][validSubjects[st][i]]]),
-                            X.getDataVectorSTL(covId-1)[j]);
 
-                    i++,j++;
+                    FormatType formatType = X.getColumn(index).getFormatType();
+                    if (formatType == SPARSE || formatType == DENSE) {
+                        X.getColumn(index).add_data(static_cast<int>(rowIdMap[subjectToRowByStratum[st][validSubjects[st][i]]]), X.getDataVectorSTL(covId-1)[j]);
+                    } else {
+                        X.getColumn(index).add_data(static_cast<int>(rowIdMap[subjectToRowByStratum[st][validSubjects[st][i]]]), static_cast<int>(1));
+                    }
+
+		    i++,j++;
                 } else if ((rowToSubject[inverseRowIdMap[X.getCompressedColumnVectorSTL(covId-1)[j]]]
                                > validSubjects[st][i])
                     || ((rowToSubject[inverseRowIdMap[X.getCompressedColumnVectorSTL(covId-1)[j]]]
@@ -452,6 +457,7 @@ int ModelData<RealType>::loadStratTimeEffects(
                             }
                         }
                     }
+
                     i++;
                 } else {
                     j++;
