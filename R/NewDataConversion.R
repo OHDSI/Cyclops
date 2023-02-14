@@ -251,6 +251,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
 
     if (modelType == "cox_time" && !is.null(timeEffectMap)) {
         if (!all(timeEffectMap$covariateId %in% covariates$covariateId)) stop("Invalid covariateId for time effects.")
+        outcomes <- outcomes[order(outcomes$stratumId, outcomes$subjectId, outcomes$rowId),]
         loadNewSqlCyclopsDataStratTimeEffects(object = dataPtr,
 					      stratumId = outcomes$stratumId,
 					      rowId = outcomes$rowId,
@@ -441,6 +442,8 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
 
     if (modelType == "cox_time" && !is.null(timeEffectMap)) {
         if (!all(timeEffectMap$covariateId %in% covariates$covariateId)) stop("Invalid covariateId for time effects.")
+        outcomes <- outcomes %>%
+            arrange(.data$stratumId, .data$subjectId, .data$rowId)
         loadNewSqlCyclopsDataStratTimeEffects(object = dataPtr,
 					      stratumId = outcomes$stratumId,
 					      rowId = outcomes$rowId,

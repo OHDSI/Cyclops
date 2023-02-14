@@ -219,6 +219,14 @@ public:
 		return i->getNumericalLabel() < j->getNumericalLabel();
 	}
 
+	void sortRows() {
+		if (formatType == SPARSE || formatType == DENSE) {
+			std::sort(data->begin(), data->end(),
+					[&](int i, int j) -> bool {return (*columns)[i] < (*columns)[j];});
+		}
+		std::sort(columns->begin(), columns->end());
+	}
+
 	void addToColumnVector(IntVector addEntries);
 
 	void removeFromColumnVector(IntVector removeEntries);

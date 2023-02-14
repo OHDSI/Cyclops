@@ -466,6 +466,11 @@ int ModelData<RealType>::loadStratTimeEffects(
         }
     }
 
+    // Sort mappedRow in ascending order
+    for (int index = 0; index < getNumberOfColumns(); index++) {
+        X.getColumn(index).sortRows();
+    }
+
     return getNumberOfColumns();
 }
 
