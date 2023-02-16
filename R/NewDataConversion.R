@@ -255,7 +255,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
 					      stratumId = outcomes$stratumId,
 					      rowId = outcomes$rowId,
 					      subjectId = outcomes$subjectId,
-					      timeEffectCovariateId = timeEffectMap$covariateId)
+					      timeEffectCovariateId = sort(timeEffectMap$covariateId))
     }
 
     if (modelType == "pr" || modelType == "cpr")
@@ -445,7 +445,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
 					      stratumId = outcomes$stratumId,
 					      rowId = outcomes$rowId,
 					      subjectId = outcomes$subjectId,
-					      timeEffectCovariateId = timeEffectMap$covariateId)
+					      timeEffectCovariateId = sort(timeEffectMap$covariateId))
     }
 
     if (modelType == "pr" || modelType == "cpr")
