@@ -624,7 +624,7 @@ int cyclopsLoadDataX(Environment x,
 }
 
 // [[Rcpp::export(".loadCyclopsDataStratTimeEffects")]]
-int cyclopsLoadDataStratTimeEffects(Environment x,
+std::vector<std::string> cyclopsLoadDataStratTimeEffects(Environment x,
                                     const std::vector<double>& stratumId,
                                     const std::vector<double>& rowId,
                                     const std::vector<double>& subjectId,

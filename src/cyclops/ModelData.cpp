@@ -372,7 +372,7 @@ int ModelData<RealType>::loadX(
 }
 
 template <typename RealType>
-int ModelData<RealType>::loadStratTimeEffects(
+std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
         const std::vector<IdType>& oStratumId,
         const std::vector<IdType>& oRowId,
         const std::vector<IdType>& oSubjectId,
@@ -407,6 +407,10 @@ int ModelData<RealType>::loadStratTimeEffects(
     // Transpose of X
     bsccs::shared_ptr<CompressedDataMatrix<RealType>> Xt;
     Xt = X.transpose();
+
+    // Name for new covariates
+    std::vector<std::pair<IdType, IdType>> timeEffectCovariates; // (stratum, timeEffectCovariateName)
+    std::vector<std::string> timeEffectCovariatesName; // timeEffectCovariateName_stratum
 
     // Start from the 2nd stratum
     for (int st = 1; st <= pid.back(); st++) {
@@ -463,6 +467,7 @@ int ModelData<RealType>::loadStratTimeEffects(
                             X.push_back(X.getFormatType(coefIdx));
                             index = getNumberOfColumns() - 1;
                             X.getColumn(index).add_label(timeCovId);
+                            timeEffectCovariates.push_back({st+1, timeEffectCovariateIds[j]}); // (stratum, timeEffectCovariateName)
                         }
                         formatType = X.getColumn(index).getFormatType();
 
@@ -498,7 +503,13 @@ int ModelData<RealType>::loadStratTimeEffects(
     // Sort columns
     getX().sortColumns(CompressedDataColumn<RealType>::sortNumerically);
 
-    return getNumberOfColumns();
+    // Sort timeEffectCovariatesName
+    std::sort(timeEffectCovariates.begin(), timeEffectCovariates.end());
+    for (auto p : timeEffectCovariates) {
+        timeEffectCovariatesName.push_back(std::to_string(p.second) + '_' + std::to_string(p.first));
+    }
+
+    return timeEffectCovariatesName;
 }
 
 template <typename RealType>

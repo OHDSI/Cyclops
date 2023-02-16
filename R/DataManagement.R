@@ -845,11 +845,14 @@ loadNewSqlCyclopsDataStratTimeEffects <- function(object,
         timeEffectCovariateId <- bit64::as.integer64(timeEffectCovariateId)
     }
 
-    index <- .loadCyclopsDataStratTimeEffects(object,
-                                              stratumId,
-                                              rowId,
-                                              subjectId,
-                                              timeEffectCovariateId)
+    timeEffectCovariatesName <- .loadCyclopsDataStratTimeEffects(object,
+                                                                 stratumId,
+                                                                 rowId,
+                                                                 subjectId,
+                                                                 timeEffectCovariateId)
+    if (!is.null(object$coefficientNames)) {
+        object$coefficientNames <- append(object$coefficientNames, timeEffectCovariatesName)
+    }
 }
 
 #' @title finalizeSqlCyclopsData

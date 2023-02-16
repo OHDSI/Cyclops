@@ -719,7 +719,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsLoadDataStratTimeEffects
-int cyclopsLoadDataStratTimeEffects(Environment x, const std::vector<double>& stratumId, const std::vector<double>& rowId, const std::vector<double>& subjectId, const std::vector<double>& timeEffectCovariateId);
+std::vector<std::string> cyclopsLoadDataStratTimeEffects(Environment x, const std::vector<double>& stratumId, const std::vector<double>& rowId, const std::vector<double>& subjectId, const std::vector<double>& timeEffectCovariateId);
 RcppExport SEXP _Cyclops_cyclopsLoadDataStratTimeEffects(SEXP xSEXP, SEXP stratumIdSEXP, SEXP rowIdSEXP, SEXP subjectIdSEXP, SEXP timeEffectCovariateIdSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;

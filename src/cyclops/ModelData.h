@@ -152,7 +152,7 @@ public:
             const bool forceSparse
     ) = 0;
 
-    virtual int loadStratTimeEffects(
+    virtual std::vector<std::string> loadStratTimeEffects(
             const std::vector<IdType>& oStratumId,
             const std::vector<IdType>& oRowId,
             const std::vector<IdType>& oSubjectId,
@@ -320,7 +320,7 @@ public:
 		const bool forceSparse
 	);
 
-	int loadStratTimeEffects(
+	std::vector<std::string> loadStratTimeEffects(
 		const std::vector<IdType>& oStratumId,
 		const std::vector<IdType>& oRowId,
 		const std::vector<IdType>& oSubjectId,
