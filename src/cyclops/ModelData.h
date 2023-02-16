@@ -786,6 +786,7 @@ protected:
 	std::vector<std::string> labels; // TODO Change back to 'long'
 
 	int nTypes;
+	int maxCovariateId;
 
 private:
 	// Disable copy-constructors and copy-assignment

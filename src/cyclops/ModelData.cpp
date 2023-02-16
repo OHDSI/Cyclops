@@ -238,6 +238,8 @@ int ModelData<RealType>::loadMultipleX(
 		index = -1; // new column
 	}
 
+	maxCovariateId = covariateIds.back();
+
 	touchedX = true;
 	return firstColumnIndex;
 }
@@ -413,54 +415,78 @@ int ModelData<RealType>::loadStratTimeEffects(
     // Start from the 2nd stratum
     for (int st = 1; st <= pid.back(); st++) {
 
-        for (int covId : timeEffectCovariateIds) {
+        bool skip = true; // skip this stratum if no subject has time varying cov
+        for (IdType sub : validSubjects[st]) {
+            IdType fixedRow = rowIdMap[subjectToRowByStratum[0][sub]]; // mappedRow of sub at 1st stratum
+            if (Xt->getColumn(fixedRow).getNumberOfEntries() > 0) { // loop over existed (time-indept) covariates of sub
+                size_t i = 0, j = 0;
+                while (i < Xt->getColumn(fixedRow).getNumberOfEntries()
+                           && Xt->getCompressedColumnVectorSTL(fixedRow)[i] < numOfFixedCov
+                           && j < timeEffectCovariateIds.size()) {
 
-            int numEnt = X.getColumn(covId-1).getNumberOfEntries();
-            int i = 0, j = 0;
-            while (i < validSubjects[st].size() && j < numEnt) {
-                if (rowToSubject[inverseRowIdMap[X.getCompressedColumnVectorSTL(covId-1)[j]]]
-                        == validSubjects[st][i]) {
-
-                    // create or append to time-dept coefficient
-                    IdType newCovId = st * numOfFixedCov + covId;
-                    auto index = getColumnIndexByName(newCovId);
-                    if (index < 0) { // create a new column for time-dept coefficient
-                        X.push_back(X.getFormatType(covId-1));
-                        index = getNumberOfColumns() - 1;
-                        X.getColumn(index).add_label(newCovId);
-                    }
-
-                    FormatType formatType = X.getColumn(index).getFormatType();
-                    if (formatType == SPARSE || formatType == DENSE) {
-                        X.getColumn(index).add_data(static_cast<int>(rowIdMap[subjectToRowByStratum[st][validSubjects[st][i]]]), X.getDataVectorSTL(covId-1)[j]);
+                    IdType coefIdx = Xt->getCompressedColumnVectorSTL(fixedRow)[i]; // column index of sub
+                    int timeIdx = getColumnIndexByName(timeEffectCovariateIds[j]); // column index of time-varying cov
+                    if (coefIdx == timeIdx) {
+                        skip = false; break; // the stratum contains subject with time-varying cov
+                    } else if (coefIdx < timeIdx) {
+                        i++;
                     } else {
-                        X.getColumn(index).add_data(static_cast<int>(rowIdMap[subjectToRowByStratum[st][validSubjects[st][i]]]), static_cast<int>(1));
+                        j++;
                     }
+                }
+            }
+        }
+        if (skip) continue;
 
-		    i++,j++;
-                } else if ((rowToSubject[inverseRowIdMap[X.getCompressedColumnVectorSTL(covId-1)[j]]]
-                               > validSubjects[st][i])
-                    || ((rowToSubject[inverseRowIdMap[X.getCompressedColumnVectorSTL(covId-1)[j]]]
-                    < validSubjects[st][i]) && i == validSubjects[st].size()-1)) {
+        for (IdType sub : validSubjects[st]) {
 
-                    // append all time-indept coefficients assoicated with the subject
-                    IdType fixedRow = rowIdMap[subjectToRowByStratum[0][validSubjects[st][i]]]; // mappedRow at 1st stratum
-                    IdType row = rowIdMap[subjectToRowByStratum[st][validSubjects[st][i]]]; // mappedRow at current stratum
-                    FormatType formatType = Xt->getColumn(fixedRow).getFormatType();
-                    for (size_t k = 0; k < Xt->getColumn(fixedRow).getNumberOfEntries(); k++) {
-                        IdType col = Xt->getCompressedColumnVectorSTL(fixedRow)[k];
-                        if (col < numOfFixedCov) {
-                            if (formatType == SPARSE || formatType == DENSE) {
-                                X.getColumn(col).add_data(row, Xt->getDataVectorSTL(fixedRow)[col]);
-                            } else {
-                                X.getColumn(col).add_data(row, static_cast<int>(1));
-                            }
+            IdType fixedRow = rowIdMap[subjectToRowByStratum[0][sub]]; // mappedRow of sub at 1st stratum
+            IdType newRow = rowIdMap[subjectToRowByStratum[st][sub]]; // mappedRow of sub at current stratum
+            FormatType formatType = Xt->getColumn(fixedRow).getFormatType();
+
+            if (Xt->getColumn(fixedRow).getNumberOfEntries() > 0) { // loop over existed (time-indept) covariates of sub
+                size_t i = 0, j = 0;
+
+                while (i < Xt->getColumn(fixedRow).getNumberOfEntries()
+                           && Xt->getCompressedColumnVectorSTL(fixedRow)[i] < numOfFixedCov
+                           && j < timeEffectCovariateIds.size()) {
+
+                    IdType coefIdx = Xt->getCompressedColumnVectorSTL(fixedRow)[i]; // column index of sub
+                    int timeIdx = getColumnIndexByName(timeEffectCovariateIds[j]); // column index of time-varying cov
+                    auto index = coefIdx; // column index to append, will be updated below if append to a time-varying coef
+
+                    if (coefIdx == timeIdx) {
+                        // update index and formatType for time-varying coefficient
+                        IdType timeCovId = st * maxCovariateId + timeEffectCovariateIds[j];
+                        index = getColumnIndexByName(timeCovId);
+                        if (index < 0) { // create a new column for time-varying coefficient
+                            X.push_back(X.getFormatType(coefIdx));
+                            index = getNumberOfColumns() - 1;
+                            X.getColumn(index).add_label(timeCovId);
                         }
-                    }
+                        formatType = X.getColumn(index).getFormatType();
 
-                    i++;
-                } else {
-                    j++;
+                        i++;
+                        if (j < timeEffectCovariateIds.size()-1) j++;
+
+                        // append row and data
+                        if (formatType == SPARSE || formatType == DENSE) {
+                            X.getColumn(index).add_data(newRow, Xt->getDataVectorSTL(fixedRow)[coefIdx]);
+                        } else {
+                            X.getColumn(index).add_data(newRow, static_cast<int>(1));
+                        }
+                    } else if (coefIdx < timeIdx
+                                   || coefIdx > timeIdx && j == timeEffectCovariateIds.size()-1) {
+                        i++;
+                        // append row and data
+                        if (formatType == SPARSE || formatType == DENSE) {
+                            X.getColumn(index).add_data(newRow, Xt->getDataVectorSTL(fixedRow)[coefIdx]);
+                        } else {
+                            X.getColumn(index).add_data(newRow, static_cast<int>(1));
+                        }
+                    } else {
+                        j++;
+                    }
                 }
             }
         }
