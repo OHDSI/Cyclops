@@ -376,7 +376,7 @@ int ModelData<RealType>::loadStratTimeEffects(
         const std::vector<IdType>& oStratumId,
         const std::vector<IdType>& oRowId,
         const std::vector<IdType>& oSubjectId,
-        const std::vector<double>& timeEffectCovariateIds) {
+        const std::vector<IdType>& timeEffectCovariateIds) {
 
     int numOfFixedCov = getNumberOfColumns();
 
@@ -386,17 +386,13 @@ int ModelData<RealType>::loadStratTimeEffects(
         inverseRowIdMap.insert({pair.second, pair.first});
     }
 
-    // 2. Row-to-subject map
-    // 3. Valid subjects in current stratum (sorted)
-    // 4. Subject-to-row by stratum
-    std::unordered_map<IdType,IdType> rowToSubject;
+    // 2. Valid subjects in current stratum (sorted)
+    // 3. Subject-to-row by stratum
     std::vector<vector<IdType>> validSubjects;
     std::vector<std::unordered_map<IdType,IdType>> subjectToRowByStratum;
 
     IdType prevStrata = -1;
     for (size_t i = 0; i < oRowId.size(); ++i) {
-
-        rowToSubject[oRowId[i]] = oSubjectId[i];
 
         if (oStratumId[i] != prevStrata) {
             validSubjects.push_back({});
@@ -408,7 +404,7 @@ int ModelData<RealType>::loadStratTimeEffects(
         prevStrata = oStratumId[i];
     }
 
-    // 5. Transpose of X
+    // 4. Transpose of X
     bsccs::shared_ptr<CompressedDataMatrix<RealType>> Xt;
     Xt = X.transpose();
 
@@ -454,8 +450,10 @@ int ModelData<RealType>::loadStratTimeEffects(
                     IdType coefIdx = Xt->getCompressedColumnVectorSTL(fixedRow)[i]; // column index of sub
                     int timeIdx = getColumnIndexByName(timeEffectCovariateIds[j]); // column index of time-varying cov
                     auto index = coefIdx; // column index to append, will be updated below if append to a time-varying coef
+                    bool append = true;
 
                     if (coefIdx == timeIdx) {
+
                         // update index and formatType for time-varying coefficient
                         IdType timeCovId = st * maxCovariateId + timeEffectCovariateIds[j];
                         index = getColumnIndexByName(timeCovId);
@@ -469,23 +467,21 @@ int ModelData<RealType>::loadStratTimeEffects(
                         i++;
                         if (j < timeEffectCovariateIds.size()-1) j++;
 
-                        // append row and data
-                        if (formatType == SPARSE || formatType == DENSE) {
-                            X.getColumn(index).add_data(newRow, Xt->getDataVectorSTL(fixedRow)[coefIdx]);
-                        } else {
-                            X.getColumn(index).add_data(newRow, static_cast<int>(1));
-                        }
                     } else if (coefIdx < timeIdx
-                                   || coefIdx > timeIdx && j == timeEffectCovariateIds.size()-1) {
+                                   || (coefIdx > timeIdx && j == timeEffectCovariateIds.size()-1)) {
                         i++;
-                        // append row and data
+                    } else {
+                        // only move the pointer for timeEffectCovariateIds
+                        append = false;
+                        j++;
+                    }
+
+                    if (append) {
                         if (formatType == SPARSE || formatType == DENSE) {
                             X.getColumn(index).add_data(newRow, Xt->getDataVectorSTL(fixedRow)[coefIdx]);
                         } else {
                             X.getColumn(index).add_data(newRow, static_cast<int>(1));
                         }
-                    } else {
-                        j++;
                     }
                 }
             }

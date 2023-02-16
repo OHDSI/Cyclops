@@ -636,7 +636,7 @@ int cyclopsLoadDataStratTimeEffects(Environment x,
     return data->loadStratTimeEffects(reinterpret_cast<const std::vector<int64_t>&>(stratumId),
 		    reinterpret_cast<const std::vector<int64_t>&>(rowId),
 		    reinterpret_cast<const std::vector<int64_t>&>(subjectId),
-		    timeEffectCovariateId);
+		    reinterpret_cast<const std::vector<int64_t>&>(timeEffectCovariateId));
 }
 
 // NOTE:  IdType does not get exported into RcppExports, so hard-coded here

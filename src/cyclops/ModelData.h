@@ -156,7 +156,7 @@ public:
             const std::vector<IdType>& oStratumId,
             const std::vector<IdType>& oRowId,
             const std::vector<IdType>& oSubjectId,
-            const std::vector<double>& timeEffectCovariateId
+            const std::vector<IdType>& timeEffectCovariateId
     ) = 0;
 
     virtual size_t append(
@@ -324,7 +324,7 @@ public:
 		const std::vector<IdType>& oStratumId,
 		const std::vector<IdType>& oRowId,
 		const std::vector<IdType>& oSubjectId,
-		const std::vector<double>& timeEffectCovariateId
+		const std::vector<IdType>& timeEffectCovariateId
 	);
 
 	const int* getPidVector() const;
