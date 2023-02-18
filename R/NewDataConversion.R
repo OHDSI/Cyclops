@@ -188,7 +188,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
 #                 covariates <- covariates[ff::ffdforder(covariates[c("covariateId", "stratumId","rowId")]),]
 #             }
 # =======
-        if (modelType == "cox_time") {
+        if ("subjectId" %in% colnames(outcomes)) {
             if (!isSorted(outcomes,
                           c("stratumId", "time", "y", "subjectId", "rowId"),
                           c(TRUE, FALSE, TRUE, TRUE, TRUE))) {
@@ -397,7 +397,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
             covariates <- covariates %>%
                 inner_join(select(outcomes, .data$rowId, .data$time, .data$y), by = "rowId")
         }
-        if (modelType == "cox_time") {
+        if ("subjectId" %in% colnames(outcomes)) {
             outcomes <- outcomes %>%
                 arrange(.data$stratumId, desc(.data$time), .data$y, .data$subjectId, .data$rowId)
         } else {
