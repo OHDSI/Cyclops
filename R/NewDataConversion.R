@@ -264,6 +264,22 @@ convertToCyclopsData.FileSystemDataset <- function(outcomes,
                                   normalize, quiet, floatingPoint)
 }
 
+#' @export
+convertToCyclopsData.arrow_dplyr_query <- function(outcomes,
+                                                   covariates,
+                                                   modelType = "lr",
+                                                   addIntercept = TRUE,
+                                                   checkSorting = NULL,
+                                                   checkRowIds = TRUE,
+                                                   normalize = NULL,
+                                                   quiet = FALSE,
+                                                   floatingPoint = 64) {
+
+    .convertToCyclopsDataInternal(outcomes, covariates, modelType,
+                                  addIntercept, checkSorting, checkRowIds,
+                                  normalize, quiet, floatingPoint)
+}
+
 .convertToCyclopsDataInternal <- function(outcomes,
                                           covariates,
                                           modelType = "lr",
@@ -292,7 +308,7 @@ convertToCyclopsData.FileSystemDataset <- function(outcomes,
         }
     }
 
-    providedNoStrata <- !"stratumId" %in% colnames(outcomes)
+    providedNoStrata <- !"stratumId" %in% names(outcomes)
 
     if (modelType == "cox" | modelType == "fgr") {
         if (providedNoStrata) {
@@ -307,7 +323,7 @@ convertToCyclopsData.FileSystemDataset <- function(outcomes,
         covariateRowIds <- covariates %>%
             distinct(.data$rowId) %>%
             pull()
-        outcomeRowIds <- select(outcomes, .data$rowId) %>%
+        outcomeRowIds <- select(outcomes, "rowId") %>%
             pull()
         mapping <- match(covariateRowIds, outcomeRowIds)
         if (any(is.na(mapping))) {
@@ -340,12 +356,12 @@ convertToCyclopsData.FileSystemDataset <- function(outcomes,
     if (modelType == "cox" | modelType == "fgr") {
 
         if (modelType == "cox" &
-            (select(outcomes, .data$y) %>% distinct() %>% count() %>% collect() > 2)) {
+            (select(outcomes, "y") %>% distinct() %>% count() %>% collect() > 2)) {
             stop("Cox model only accepts one outcome type")
         }
-        if (!"time" %in% colnames(covariates)) {
+        if (!"time" %in% names(covariates)) {
             covariates <- covariates %>%
-                inner_join(select(outcomes, .data$rowId, .data$time, .data$y), by = "rowId")
+                inner_join(select(outcomes, "rowId", "time", "y"), by = "rowId")
         }
         outcomes <- outcomes %>%
             arrange(.data$stratumId, desc(.data$time), .data$y, .data$rowId)
@@ -361,10 +377,10 @@ convertToCyclopsData.FileSystemDataset <- function(outcomes,
     }
 
     loadNewSqlCyclopsDataY(object = dataPtr,
-                           stratumId = if ("stratumId" %in% colnames(outcomes)) outcomes$stratumId else NULL,
+                           stratumId = if ("stratumId" %in% names(outcomes)) outcomes$stratumId else NULL,
                            rowId = outcomes$rowId,
                            y = outcomes$y,
-                           time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
+                           time = if ("time" %in% names(outcomes)) outcomes$time else NULL)
 
     if (addIntercept & (modelType != "cox" & modelType != "fgr")) {
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
@@ -391,19 +407,19 @@ convertToCyclopsData.FileSystemDataset <- function(outcomes,
         .normalizeCovariates(dataPtr, normalize)
     }
 
-    if ("weights" %in% colnames(outcomes)) {
+    if ("weights" %in% names(outcomes)) {
         dataPtr$weights <- outcomes %>% pull(.data$weights)
     } else {
         dataPtr$weights <- NULL
     }
 
-    if ("censorWeights" %in% colnames(outcomes)) {
+    if ("censorWeights" %in% names(outcomes)) {
         dataPtr$censorWeights <- outcomes %>% pull(.data$censorWeights)
     } else {
         if (modelType == "fgr") {
             dataPtr$censorWeights <- getFineGrayWeights(
-                outcomes %>% pull(.data$time),
-                outcomes %>% pull(.data$y)
+                outcomes %>% pull("time"),
+                outcomes %>% pull("y")
             )$weights
             writeLines("Generating censoring weights")
         } else {

@@ -52,7 +52,9 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
         if (modelType == "cpr" || modelType == "clr")
             stop("Prediction for conditional models not implemented")
 
-        if (any(class(newOutcomes) != class(newCovariates))) {
+        if (any(class(newOutcomes) != class(newCovariates)) &&
+                !((inherits(newOutcomes, "FileSystemDataset") | inherits(newOutcomes, "arrow_dplyr_query")) &&
+                  (inherits(newCovariates, "FileSystemDataset") | inherits(newCovariates, "arrow_dplyr_query")))) {
             stop("`newCovariates` and `newOutcomes` must be of the same type")
         }
 
@@ -63,15 +65,17 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
                                    covariateId = as.numeric(names(coefficients)))
         coefficients <- coefficients[coefficients$beta != 0, ]
 
-        if (inherits(newCovariates, "tbl_dbi") || inherits(newCovariates, "FileSystemData")) {
+        if (inherits(newCovariates, "tbl_dbi") ||
+            inherits(newCovariates, "FileSystemDataset") ||
+            inherits(newCovariates, "arrow_dplyr_query")) {
 
             # Optimized for Andromeda
             if (nrow(coefficients) == 0) {
-                if ("time" %in% colnames(newOutcomes)) {
-                    prediction <- data.frame(rowId = newOutcomes %>% select(.data$rowId) %>% pull(),
-                                             time = newOutcomes %>% select(.data$time) %>% pull())
+                if ("time" %in% names(newOutcomes)) {
+                    prediction <- data.frame(rowId = newOutcomes %>% select("rowId") %>% pull(),
+                                             time = newOutcomes %>% select("time") %>% pull())
                 } else {
-                    prediction <- data.frame(rowId = newOutcomes %>% select(.data$rowId) %>% pull())
+                    prediction <- data.frame(rowId = newOutcomes %>% select("rowId") %>% pull())
                 }
                 prediction$value <- intercept
             } else {
@@ -82,7 +86,9 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
                     group_by(.data$rowId) %>% summarize(value = sum(.data$value, na.rm = TRUE))
 
                 prediction <- left_join(newOutcomes,
-                                         prediction, by = "rowId") %>% collect()
+                                         prediction, by = "rowId") %>%
+                    arrange(.data$rowId) %>%
+                    collect()
 
                 prediction$value[is.na(prediction$value)] <- 0
                 prediction$value <- prediction$value + intercept

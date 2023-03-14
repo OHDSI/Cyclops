@@ -139,12 +139,12 @@ test_that("Check very small Fine-Gray example with no ties using Andromeda", {
     dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "fgr", censorWeights = fgDat$weights)
     denseFit <- Cyclops:::fitCyclopsModel(dataPtr)
 
-    outcomes <- data.frame(rowId = 1:7, time = test$length, y = test$event, censorWeights = fgDat$weights)
+    outcomes <- data.frame(rowId = as.numeric(1:7), time = test$length, y = test$event, censorWeights = fgDat$weights)
     covariates <- data.frame(rowId = c(2, 3, 4, 5, 5, 6, 7),
                              covariateId = c(1, 2, 2, 1, 2, 1, 1),
                              covariateValue = c(2, 1, 1, 1, 1, 1, 1))
 
-    andro <- andromeda(outcomes = outcomes, covariates = covariates)
+    andro <- Andromeda::andromeda(outcomes = outcomes, covariates = covariates)
 
     dataPtr <- convertToCyclopsData(andro$outcomes, andro$covariates, modelType = "fgr")
     sparseFit <- fitCyclopsModel(dataPtr)
@@ -152,9 +152,9 @@ test_that("Check very small Fine-Gray example with no ties using Andromeda", {
     tolerance <- 1E-8
     expect_equivalent(coef(denseFit), coef(sparseFit), tolerance = tolerance)
 
-    woWeights <- data.frame(rowId = 1:7, time = test$length, y = test$event)
+    woWeights <- data.frame(rowId = as.numeric(1:7), time = test$length, y = test$event)
 
-    woAndro <- andromeda(outcomes = woWeights, covariates = covariates)
+    woAndro <- Andromeda::andromeda(outcomes = woWeights, covariates = covariates)
 
     woPtr <- convertToCyclopsData(woAndro$outcomes, woAndro$covariates, modelType = "fgr")
     woFit <- fitCyclopsModel(woPtr)
@@ -282,3 +282,4 @@ test_that("Check very small Cox example with weights and censor weights defined 
     tolerance <- 1E-4
     expect_equivalent(coef(cyclopsFit1), coef(cyclopsFit2), tolerance = tolerance)
 })
+

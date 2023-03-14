@@ -19,7 +19,7 @@ test_that("Test predict for Poisson regression", {
 
     # Test using Andromeda
     andr <- andromeda(outcomes = outcomes, covariates = covariates)
-    predictNew <- predict(fit, andr$outcomes, andr$covariates)
+    predictNew <- predict(object = fit, newOutcomes = andr$outcomes, newCovariates = andr$covariates)
     expect_equal(predictOriginal, predictNew)
 })
 
@@ -59,7 +59,7 @@ test_that("Test predict for pr with all-zero betas", {
 
     # Test using Andromeda
     andr <- andromeda(outcomes = outcomes, covariates = covariates)
-    predictNew <- predict(fit, andr$outcomes, andr$covariates)
+    predictNew <- predict(fit, andr$outcomes %>% filter(rowId > 0), andr$covariates)
     expect_equal(predictOriginal, predictNew)
 
     # newCovariates <- as.ffdf(covariates)
@@ -86,3 +86,4 @@ test_that("Test predict for lr with all-zero betas", {
     predictNew <- predict(fit, andr$outcomes, andr$covariates)
     expect_equal(predictOriginal, predictNew)
 })
+

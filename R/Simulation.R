@@ -49,7 +49,7 @@ simulateCyclopsData <- function(nstrata = 200,
     covarsPerRow[covarsPerRow > ncovars] <- ncovars
     covarsPerRow <- data.frame(covarsPerRow = covarsPerRow)
     covarRows <- sum(covarsPerRow$covarsPerRow)
-    covariates <- data.frame(rowId = rep(0,covarRows), covariateId = rep(0,covarRows), covariateValue = rep(1,covarRows))
+    covariates <- data.frame(rowId = as.numeric(rep(0,covarRows)), covariateId = rep(0,covarRows), covariateValue = rep(1,covarRows))
     cursor <- 1
     for (i in 1:nrow(covarsPerRow)){
         n <- covarsPerRow$covarsPerRow[i]
@@ -60,7 +60,7 @@ simulateCyclopsData <- function(nstrata = 200,
         }
     }
 
-    outcomes <- data.frame(rowId = 1:nrows, stratumId = round(runif(nrows,min=1,max=nstrata)), y=0)
+    outcomes <- data.frame(rowId = as.numeric(1:nrows), stratumId = round(runif(nrows,min=1,max=nstrata)), y=0)
     covariates <- merge(covariates,outcomes[,c("rowId","stratumId")])
 
     rowId_to_rr <- aggregate(rr ~ rowId, data=merge(covariates,effectSizes),prod)

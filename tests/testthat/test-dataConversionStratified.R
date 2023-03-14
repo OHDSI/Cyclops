@@ -96,7 +96,7 @@ test_that("Test stratified cox using lung dataset ", {
   covariates <- covariates[covariates$covariateValue != 0,]
 
   andr <- andromeda(outcomes = outcomes, covariates = covariates)
-  cyclopsDataAndr <- convertToCyclopsData(andr$outcomes,andr$covariates,modelType = "cox")
+  cyclopsDataAndr <- convertToCyclopsData(andr$outcomes %>% filter(rowId > 0),andr$covariates,modelType = "cox")
   fitAndr <- fitCyclopsModel(cyclopsDataAndr,prior = createPrior("none"))
 
   cyclopsData <- convertToCyclopsData(outcomes,covariates,modelType = "cox")
