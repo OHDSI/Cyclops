@@ -112,13 +112,10 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 
 	            std::vector<double> predLogLikelihood;
 
-	            std::cerr << "A" << std::endl;
-
 	            // Newly re-located code
 	            double pointEstimate = doCrossValidationStep(ccd, selector, allArguments, step,
                                                           nThreads, ccdPool, selectorPool,
                                                           predLogLikelihood);
-                std::cerr << "B" << std::endl;
 
 	            double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
 
