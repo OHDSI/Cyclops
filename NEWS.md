@@ -1,9 +1,17 @@
+Cyclops v3.3.0
+==============
+
+Changes:
+
+1. add data conversion from `arrow` backend
+2. remove dependency on very large Boost Header (`BH`)
+
 develop
 ==============
 
 Changes:
 
-1. improvements on adaptive likelihood profiling
+1. improvements on adaptive likelihood profiling (suspect broken)
 
 
 Cyclops v3.2.1
