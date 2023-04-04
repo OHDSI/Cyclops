@@ -1,4 +1,15 @@
+Cyclops v3.3.0
+==============
+
+Changes:
+
+1. bump for R 4.2
+2. fix CRAN warnings
+    a. used `minValues`
+    b. explicit dependence on C++11
+
 Cyclops v3.2.0
+==============
 
 Changes:
 
