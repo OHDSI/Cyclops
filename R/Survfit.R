@@ -4,15 +4,17 @@
 #' @description
 #' \code{survfit.cyclopsFit} computes baseline hazard function
 #'
-#' @param cyclopsFit A Cyclops survival model fit object
+#' @param formula A Cyclops survival model fit object
 #' @param type type of baseline survival, choices are: "aalen" (Breslow)
+#' @param ... for future methods
 #'
 #' @return Baseline survival function for mean covariates
 #'
 #' @importFrom survival survfit
 #'
 #' @export
-survfit.cyclopsFit <- function(cyclopsFit, type="aalen") {
+survfit.cyclopsFit <- function(formula, type="aalen", ...) {
+    cyclopsFit <- formula
     delta = meanLinearPredictor(cyclopsFit)
 
     times = getTimeVector(cyclopsFit$cyclopsData)

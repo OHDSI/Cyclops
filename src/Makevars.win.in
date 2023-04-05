@@ -24,8 +24,6 @@ PKG_LIBS = `$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"`
 ## done by a number of packages, but recommended only for more advanced users
 ## comfortable with autoconf and its related tools.
 
-CXX_STD = CXX11
-
 PKG_CPPFLAGS = -I. -Icyclops -DR_BUILD -DWIN_BUILD -DDOUBLE_PRECISION -DRCPP_PARALLEL_USE_TBB=1
 
 # PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \
