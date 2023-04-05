@@ -141,8 +141,6 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
     const auto& arguments = allArguments.crossValidation;
     bool coldStart = allArguments.resetCoefficients;
 
-    std::cerr << "C " << arguments.foldToCompute << std::endl;
-
 	predLogLikelihood.resize(arguments.foldToCompute);
 
 	auto& weightsExclude = this->weightsExclude;

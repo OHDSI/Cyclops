@@ -4,6 +4,7 @@ develop
 Changes:
 
 1. improvements on adaptive likelihood profiling
+2. fix line-endings on Makevar on windows
 
 Cyclops v3.3.0
 ==============
