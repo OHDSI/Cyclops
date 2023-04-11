@@ -785,7 +785,7 @@ getSEs <- function(object, covariates) {
 }
 
 #' @export
-doBootstrap <- function(object, outFileName, treatmentId) {
+runBootstrap <- function(object, outFileName, treatmentId) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     bs <- .cyclopsRunBootstrap(object$cyclopsData$cyclopsInterfacePtr, outFileName, treatmentId)
     bs
