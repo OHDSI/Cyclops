@@ -9,7 +9,8 @@ fitCyclopsSimulation(
   useCyclops = TRUE,
   model = "logistic",
   coverage = TRUE,
-  includePenalty = FALSE
+  includePenalty = FALSE,
+  computeDevice = "native"
 )
 }
 \arguments{

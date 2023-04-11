@@ -4,7 +4,7 @@
 \alias{getFineGrayWeights}
 \title{Creates a \code{Surv} object that forces in competing risks and the IPCW needed for Fine-Gray estimation.}
 \usage{
-getFineGrayWeights(ftime, fstatus, cencode = 0, failcode = 1)
+getFineGrayWeights(ftime, fstatus, cvweights = NULL, cencode = 0, failcode = 1)
 }
 \arguments{
 \item{ftime}{Numeric: Observed event (failure) times}

@@ -25,7 +25,9 @@ createControl(
   selectorType = "auto",
   initialBound = 2,
   maxBoundCount = 5,
-  algorithm = "ccd"
+  algorithm = "ccd",
+  doItAll = TRUE,
+  syncCV = FALSE
 )
 }
 \arguments{
