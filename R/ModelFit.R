@@ -784,6 +784,13 @@ getSEs <- function(object, covariates) {
     ses
 }
 
+#' @export
+doBootstrap <- function(object, outFileName, treatmentId) {
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+    bs <- .cyclopsRunBootstrap(object$cyclopsData$cyclopsInterfacePtr, outFileName, treatmentId)
+    bs
+}
+
 #' @title Confidence intervals for Cyclops model parameters
 #'
 #' @description

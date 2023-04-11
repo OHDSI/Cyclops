@@ -514,6 +514,31 @@ List cyclopsFitModel(SEXP inRcppCcdInterface) {
 	return list;
 }
 
+// [[Rcpp::export(".cyclopsRunBootstrap")]]
+List cyclopsRunBootstrap(SEXP inRcppCcdInterface, const std::string& outFileName, std::string& treatmentId) {
+    using namespace bsccs;
+
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    interface->getArguments().doBootstrap = true;
+    interface->getArguments().outFileName = outFileName;
+
+    // Save parameter point-estimates
+    std::vector<double> savedBeta;
+    for (int j = 0; j < interface->getCcd().getBetaSize(); ++j) {
+        savedBeta.push_back(interface->getCcd().getBeta(j));
+    } // TODO Handle above work in interface.runBootstrap
+    double timeUpdate = interface->runBoostrap(savedBeta, treatmentId);
+
+    interface->diagnoseModel(0.0, 0.0);
+
+    List list = List::create(
+        Rcpp::Named("interface")=interface,
+        Rcpp::Named("timeFit")=timeUpdate
+    );
+    RcppCcdInterface::appendRList(list, interface->getResult());
+    return list;
+}
+
 // [[Rcpp::export(".cyclopsLogModel")]]
 List cyclopsLogModel(SEXP inRcppCcdInterface) {
 	using namespace bsccs;
