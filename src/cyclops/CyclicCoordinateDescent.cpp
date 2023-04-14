@@ -54,6 +54,8 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	noiseLevel = NOISY;
 	initialBound = 2.0;
 
+	priorType = priors::NONE;
+
 	init(hXI.getHasOffsetCovariate());
 }
 
@@ -88,6 +90,8 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 	likelihoodCount = 0;
 	noiseLevel = copy.noiseLevel;
 	initialBound = copy.initialBound;
+
+	priorType = copy.priorType;
 
 	init(hXI.getHasOffsetCovariate());
 

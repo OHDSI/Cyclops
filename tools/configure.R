@@ -20,7 +20,7 @@ if (getRversion() < "4.1") {
 }
 
 if (.Platform$OS.type == "unix") {
-    cat(txt, file = makevars_out, sep = "\n")
+	cat(txt, file = makevars_out, sep = "\n")
 } else {
-    cat(txt_win, file = makevars_win_out, sep = "\n")
+	cat(txt_win, file = makevars_win_out, sep = "\n")
 }

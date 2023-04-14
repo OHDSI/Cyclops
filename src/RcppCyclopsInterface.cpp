@@ -622,8 +622,8 @@ void RcppCcdInterface::appendRList(Rcpp::List& list, const Rcpp::List& append) {
 }
 
 void RcppCcdInterface::handleError(const std::string& str) {
-	Rcpp::stop(str);
-//	::Rf_error(str.c_str());
+    Rcpp::stop(str);
+	// ::Rf_error(str.c_str());
 }
 
 bsccs::ConvergenceType RcppCcdInterface::parseConvergenceType(const std::string& convergenceName) {

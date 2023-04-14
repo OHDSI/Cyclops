@@ -1,7 +1,7 @@
 Package: Cyclops
 Type: Package
 Title: Cyclic Coordinate Descent for Logistic, Poisson and Survival Analysis
-Version: 3.3.0.99
+Version: 3.3.1.99
 Authors@R: c(
     person("Marc A.", "Suchard", email = "msuchard@ucla.edu", role = c("aut","cre")),
     person("Martijn J.", "Schuemie", role = "aut"),
@@ -51,4 +51,4 @@ Suggests:
     ggplot2,
     microbenchmark,
     cmprsk
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.3

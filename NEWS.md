@@ -4,7 +4,15 @@ develop
 Changes:
 
 1. improvements on adaptive likelihood profiling
-2. fix line-endings on Makevar on windows
+
+Cyclops v3.3.1
+==============
+
+Changes:
+
+1. fix uninitialized value in detected in computeAsymptoticPrecisionMatrix(); value was priorType
+2. fix memory leak caused by call to ::Rf_error()
+3. fix line-endings on Makevar on windows
 
 Cyclops v3.3.0
 ==============
