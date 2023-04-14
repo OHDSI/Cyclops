@@ -515,12 +515,13 @@ List cyclopsFitModel(SEXP inRcppCcdInterface) {
 }
 
 // [[Rcpp::export(".cyclopsRunBootstrap")]]
-List cyclopsRunBootstrap(SEXP inRcppCcdInterface, const std::string& outFileName, std::string& treatmentId) {
+List cyclopsRunBootstrap(SEXP inRcppCcdInterface, const std::string& outFileName, std::string& treatmentId, int replicates) {
     using namespace bsccs;
 
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
     interface->getArguments().doBootstrap = true;
     interface->getArguments().outFileName = outFileName;
+    interface->getArguments().replicates = replicates;
 
     // Save parameter point-estimates
     std::vector<double> savedBeta;

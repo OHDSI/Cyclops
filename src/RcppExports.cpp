@@ -306,15 +306,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsRunBootstrap
-List cyclopsRunBootstrap(SEXP inRcppCcdInterface, const std::string& outFileName, std::string& treatmentId);
-RcppExport SEXP _Cyclops_cyclopsRunBootstrap(SEXP inRcppCcdInterfaceSEXP, SEXP outFileNameSEXP, SEXP treatmentIdSEXP) {
+List cyclopsRunBootstrap(SEXP inRcppCcdInterface, const std::string& outFileName, std::string& treatmentId, int replicates);
+RcppExport SEXP _Cyclops_cyclopsRunBootstrap(SEXP inRcppCcdInterfaceSEXP, SEXP outFileNameSEXP, SEXP treatmentIdSEXP, SEXP replicatesSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type outFileName(outFileNameSEXP);
     Rcpp::traits::input_parameter< std::string& >::type treatmentId(treatmentIdSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsRunBootstrap(inRcppCcdInterface, outFileName, treatmentId));
+    Rcpp::traits::input_parameter< int >::type replicates(replicatesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsRunBootstrap(inRcppCcdInterface, outFileName, treatmentId, replicates));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -818,7 +819,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsSetControl", (DL_FUNC) &_Cyclops_cyclopsSetControl, 23},
     {"_Cyclops_cyclopsRunCrossValidationl", (DL_FUNC) &_Cyclops_cyclopsRunCrossValidationl, 1},
     {"_Cyclops_cyclopsFitModel", (DL_FUNC) &_Cyclops_cyclopsFitModel, 1},
-    {"_Cyclops_cyclopsRunBootstrap", (DL_FUNC) &_Cyclops_cyclopsRunBootstrap, 3},
+    {"_Cyclops_cyclopsRunBootstrap", (DL_FUNC) &_Cyclops_cyclopsRunBootstrap, 4},
     {"_Cyclops_cyclopsLogModel", (DL_FUNC) &_Cyclops_cyclopsLogModel, 1},
     {"_Cyclops_cyclopsInitializeModel", (DL_FUNC) &_Cyclops_cyclopsInitializeModel, 4},
     {"_Cyclops_listOpenCLDevices", (DL_FUNC) &_Cyclops_listOpenCLDevices, 0},

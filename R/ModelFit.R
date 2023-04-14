@@ -784,10 +784,17 @@ getSEs <- function(object, covariates) {
     ses
 }
 
+#' @title Run Bootstrap for Cyclops model parameter
+#'
+#' @param object    A fitted Cyclops model object
+#' @param outFileName     Character: Output file name
+#' @param treatmentId     Character: variable to output
+#' @param replicates      Numeric: number of bootstrap samples
+#'
 #' @export
-runBootstrap <- function(object, outFileName, treatmentId) {
+runBootstrap <- function(object, outFileName, treatmentId, replicates) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)
-    bs <- .cyclopsRunBootstrap(object$cyclopsData$cyclopsInterfacePtr, outFileName, treatmentId)
+    bs <- .cyclopsRunBootstrap(object$cyclopsData$cyclopsInterfacePtr, outFileName, treatmentId, replicates)
     bs
 }
 

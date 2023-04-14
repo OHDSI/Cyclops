@@ -93,8 +93,8 @@
     .Call(`_Cyclops_cyclopsFitModel`, inRcppCcdInterface)
 }
 
-.cyclopsRunBootstrap <- function(inRcppCcdInterface, outFileName, treatmentId) {
-    .Call(`_Cyclops_cyclopsRunBootstrap`, inRcppCcdInterface, outFileName, treatmentId)
+.cyclopsRunBootstrap <- function(inRcppCcdInterface, outFileName, treatmentId, replicates) {
+    .Call(`_Cyclops_cyclopsRunBootstrap`, inRcppCcdInterface, outFileName, treatmentId, replicates)
 }
 
 .cyclopsLogModel <- function(inRcppCcdInterface) {
