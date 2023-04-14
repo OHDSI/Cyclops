@@ -89,11 +89,11 @@ These columns are expected in the covariates object:
 }
 \section{Methods (by class)}{
 \itemize{
-\item \code{data.frame}: Convert data from two \code{data.frame}
+\item \code{convertToCyclopsData(data.frame)}: Convert data from two \code{data.frame}
 
-\item \code{tbl_dbi}: Convert data from two \code{Andromeda} tables
+\item \code{convertToCyclopsData(tbl_dbi)}: Convert data from two \code{Andromeda} tables
+
 }}
-
 \examples{
 #Convert infert dataset to Cyclops format:
 covariates <- data.frame(stratumId = rep(infert$stratum, 2),

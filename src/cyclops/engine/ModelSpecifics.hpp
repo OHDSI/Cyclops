@@ -1124,7 +1124,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 // 	    gradient = result.real();
 // 	    hessian = result.imag();
 
-        using RealTypePair = std::pair<RealType, RealType>;
+        // using RealTypePair = std::pair<RealType, RealType>;
 
 	    IteratorType it(hX, index);
 	    const int end = it.size() - 1;
@@ -1266,7 +1266,7 @@ void ModelSpecifics<BaseModel,RealType>::computeThirdDerivativeImpl(int index, d
 #endif
 
     RealType third = static_cast<RealType>(0);
-    RealType hessian = static_cast<RealType>(0);
+    // RealType hessian = static_cast<RealType>(0);
 
     if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 

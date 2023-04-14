@@ -622,8 +622,8 @@ void RcppCcdInterface::appendRList(Rcpp::List& list, const Rcpp::List& append) {
 }
 
 void RcppCcdInterface::handleError(const std::string& str) {
-//	Rcpp::stop(str); // TODO Want this to work
-	::Rf_error(str.c_str());
+    Rcpp::stop(str);
+	// ::Rf_error(str.c_str());
 }
 
 bsccs::ConvergenceType RcppCcdInterface::parseConvergenceType(const std::string& convergenceName) {
@@ -946,7 +946,7 @@ void RcppCcdInterface::initializeModelImpl(
 //  	}
 //  	singlePrior->setVariance(0, arguments.hyperprior);
 
- 	JointPriorPtr prior;
+ 	JointPriorPtr prior = nullptr;
 //  	if (arguments.flatPrior.size() == 0) {
 //  		prior = bsccs::make_shared<FullyExchangeableJointPrior>(singlePrior);
 //  	} else {
