@@ -4,6 +4,8 @@ develop
 Changes:
 
 1. improvements on adaptive likelihood profiling
+2. add `auto` option to `cvRepetitions`
+3. bumped explicit C++11 requirement up to R v4.1
 
 Cyclops v3.3.1
 ==============

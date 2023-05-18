@@ -204,6 +204,11 @@ fitCyclopsModel <- function(cyclopsData,
             writeLines(paste("Using cross-validation selector type", control$selectorType))
         }
     }
+
+    if (control$cvRepetitions == "auto") {
+        control$cvRepetitions <- .getNumberOfRepetitions(getNumberOfRows(cyclopsData))
+    }
+
     control <- .setControl(cyclopsData$cyclopsInterfacePtr, control)
     threads <- control$threads
 
@@ -324,6 +329,11 @@ fitCyclopsModel <- function(cyclopsData,
     fit$scale <- cyclopsData$scale
     fit$threads <- threads
     fit$seed <- control$seed
+
+    if (prior$useCrossValidation) {
+        fit$cvRepetitions <- control$cvRepetitions
+    }
+
     class(fit) <- "cyclopsFit"
     return(fit)
 }
@@ -1115,4 +1125,12 @@ convertToGlmnetLambda <- function(variance, nobs) {
 
     graph <-  lapply(0:(nParents - 1), function(n, types) { 0:(nTypes - 1) + n * nTypes }, types = nTypes)
     graph
+}
+
+.getNumberOfRepetitions <- function(nrows) {
+    top <- 1E2
+    factor <- 0.5
+    pmax(pmin(
+        ceiling(top / nrows^(factor))
+        , 10), 1)
 }

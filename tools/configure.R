@@ -9,7 +9,7 @@ makevars_win_out <- file.path("src", "Makevars.win")
 txt <- readLines(makevars_in)
 txt_win <- readLines(makevars_win_in)
 
-if (getRversion() < "4.1") {
+if (getRversion() < "4.2") {
     if (!any(grepl("^CXX_STD", txt))) {
         txt <- c("CXX_STD = CXX11", txt)
     }
