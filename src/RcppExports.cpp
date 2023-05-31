@@ -73,6 +73,29 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsGetBeta
+double cyclopsGetBeta(SEXP inRcppCcdInterface, const int index);
+RcppExport SEXP _Cyclops_cyclopsGetBeta(SEXP inRcppCcdInterfaceSEXP, SEXP indexSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const int >::type index(indexSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetBeta(inRcppCcdInterface, index));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cyclopsSetStartingBeta
+void cyclopsSetStartingBeta(SEXP inRcppCcdInterface, const std::vector<double>& inStartingBeta);
+RcppExport SEXP _Cyclops_cyclopsSetStartingBeta(SEXP inRcppCcdInterfaceSEXP, SEXP inStartingBetaSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type inStartingBeta(inStartingBetaSEXP);
+    cyclopsSetStartingBeta(inRcppCcdInterface, inStartingBeta);
+    return R_NilValue;
+END_RCPP
+}
 // cyclopsSetFixedBeta
 void cyclopsSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed);
 RcppExport SEXP _Cyclops_cyclopsSetFixedBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP, SEXP fixedSEXP) {
@@ -83,6 +106,18 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type fixed(fixedSEXP);
     cyclopsSetFixedBeta(inRcppCcdInterface, beta, fixed);
     return R_NilValue;
+END_RCPP
+}
+// cyclopsGetFixedBeta
+bool cyclopsGetFixedBeta(SEXP inRcppCcdInterface, const int index);
+RcppExport SEXP _Cyclops_cyclopsGetFixedBeta(SEXP inRcppCcdInterfaceSEXP, SEXP indexSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const int >::type index(indexSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetFixedBeta(inRcppCcdInterface, index));
+    return rcpp_result_gen;
 END_RCPP
 }
 // cyclopsGetIsRegularized
@@ -766,7 +801,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetUseOffsetNames", (DL_FUNC) &_Cyclops_cyclopsGetUseOffsetNames, 0},
     {"_Cyclops_cyclopsGetComputeDevice", (DL_FUNC) &_Cyclops_cyclopsGetComputeDevice, 1},
     {"_Cyclops_cyclopsSetBeta", (DL_FUNC) &_Cyclops_cyclopsSetBeta, 2},
+    {"_Cyclops_cyclopsGetBeta", (DL_FUNC) &_Cyclops_cyclopsGetBeta, 2},
+    {"_Cyclops_cyclopsSetStartingBeta", (DL_FUNC) &_Cyclops_cyclopsSetStartingBeta, 2},
     {"_Cyclops_cyclopsSetFixedBeta", (DL_FUNC) &_Cyclops_cyclopsSetFixedBeta, 3},
+    {"_Cyclops_cyclopsGetFixedBeta", (DL_FUNC) &_Cyclops_cyclopsGetFixedBeta, 2},
     {"_Cyclops_cyclopsGetIsRegularized", (DL_FUNC) &_Cyclops_cyclopsGetIsRegularized, 2},
     {"_Cyclops_cyclopsSetWeights", (DL_FUNC) &_Cyclops_cyclopsSetWeights, 2},
     {"_Cyclops_cyclopsSetCensorWeights", (DL_FUNC) &_Cyclops_cyclopsSetCensorWeights, 2},
