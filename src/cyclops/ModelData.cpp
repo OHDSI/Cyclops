@@ -400,7 +400,7 @@ std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
 
     // Transpose of X
     bsccs::shared_ptr<CompressedDataMatrix<RealType>> Xt;
-    Xt = X.transpose();
+    Xt = X.transpose(); // TODO figure out formatType of Xt
 
     // Name for new covariates
     std::vector<std::pair<IdType, IdType>> timeEffectCovariates; // (stratum, timeEffectCovariateName)
@@ -437,11 +437,11 @@ std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
         for (IdType sub : validSubjects[st]) {
 
             IdType fixedRow = rowIdMap[subjectToRowByStratum[0][sub]]; // mappedRow of sub at 1st stratum
-            IdType newRow = rowIdMap[subjectToRowByStratum[st][sub]]; // mappedRow of sub at current stratum
 
             if (Xt->getColumn(fixedRow).getNumberOfEntries() > 0) { // Loop over existed (time-indept) covariates of sub
                 size_t i = 0, j = 0;
 
+                IdType newRow = rowIdMap[subjectToRowByStratum[st][sub]]; // mappedRow of sub at current stratum
                 while (i < Xt->getColumn(fixedRow).getNumberOfEntries()
                            && Xt->getCompressedColumnVectorSTL(fixedRow)[i] < numOfFixedCov
                            && j < timeEffectCovariateIds.size()) {
@@ -452,8 +452,9 @@ std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
                     bool append = true;
 
                     if (coefIdx == timeIdx) {
+                        // coefIdx is a time-varying coef, append data, move both pointers
 
-                        // Update index and formatType for time-varying coefficient
+                        // Update index for time-varying coefficient
                         IdType timeCovId = st * maxCovariateId + timeEffectCovariateIds[j];
                         index = getColumnIndexByName(timeCovId);
                         if (index < 0) { // Create a new column for time-varying coefficient
@@ -468,6 +469,7 @@ std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
 
                     } else if (coefIdx < timeIdx
                                    || (coefIdx > timeIdx && j == timeEffectCovariateIds.size()-1)) {
+                        // coefIdx is a time-indept coef, append data, move the pointer to the next coefIdx
                         i++;
                     } else {
                         // Only move the pointer for timeEffectCovariateIds
@@ -476,15 +478,13 @@ std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
                     }
 
                     if (append) {
-                        FormatType formatType = X.getColumn(coefIdx).getFormatType();
+                        FormatType formatType = X.getColumn(coefIdx).getFormatType(); // formatType for getting data
                         if (formatType == SPARSE || formatType == DENSE) {
                             // TODO better way to get data from (coefIdx, fixedRow)?
                             auto it = find(X.getCompressedColumnVectorSTL(coefIdx).begin(), X.getCompressedColumnVectorSTL(coefIdx).end(), fixedRow);
 			    int rowIdx = it - X.getCompressedColumnVectorSTL(coefIdx).begin();
-//std::cout << "   SD append at (col, mappedRow) = (" << index << ", " << newRow << ") with val " << X.getDataVectorSTL(coefIdx)[rowIdx] << '\n';
                             X.getColumn(index).add_data(newRow, X.getDataVectorSTL(coefIdx)[rowIdx]);
                         } else {
-//std::cout << "   II append at (col, mappedRow) = (" << index << ", " << newRow << ") with val " << 1 << '\n';
                             X.getColumn(index).add_data(newRow, static_cast<int>(1));
                         }
                     }
