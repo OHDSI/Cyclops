@@ -380,12 +380,6 @@ std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
 
     int numOfFixedCov = getNumberOfColumns();
 
-    // The inverse of rowIdMap
-    std::unordered_map<size_t,IdType> inverseRowIdMap;
-    for (const auto& pair : rowIdMap) {
-        inverseRowIdMap.insert({pair.second, pair.first});
-    }
-
     // Valid subjects in current stratum
     // Subject-to-row by stratum
     std::vector<vector<IdType>> validSubjects;
@@ -444,7 +438,6 @@ std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
 
             IdType fixedRow = rowIdMap[subjectToRowByStratum[0][sub]]; // mappedRow of sub at 1st stratum
             IdType newRow = rowIdMap[subjectToRowByStratum[st][sub]]; // mappedRow of sub at current stratum
-            FormatType formatType = Xt->getColumn(fixedRow).getFormatType();
 
             if (Xt->getColumn(fixedRow).getNumberOfEntries() > 0) { // Loop over existed (time-indept) covariates of sub
                 size_t i = 0, j = 0;
@@ -469,7 +462,6 @@ std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
                             X.getColumn(index).add_label(timeCovId);
                             timeEffectCovariates.push_back({st+1, timeEffectCovariateIds[j]}); // (stratum, timeEffectCovariateName)
                         }
-                        formatType = X.getColumn(index).getFormatType();
 
                         i++;
                         if (j < timeEffectCovariateIds.size()-1) j++;
@@ -484,9 +476,15 @@ std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
                     }
 
                     if (append) {
+                        FormatType formatType = X.getColumn(coefIdx).getFormatType();
                         if (formatType == SPARSE || formatType == DENSE) {
-                            X.getColumn(index).add_data(newRow, Xt->getDataVectorSTL(fixedRow)[coefIdx]);
+                            // TODO better way to get data from (coefIdx, fixedRow)?
+                            auto it = find(X.getCompressedColumnVectorSTL(coefIdx).begin(), X.getCompressedColumnVectorSTL(coefIdx).end(), fixedRow);
+			    int rowIdx = it - X.getCompressedColumnVectorSTL(coefIdx).begin();
+//std::cout << "   SD append at (col, mappedRow) = (" << index << ", " << newRow << ") with val " << X.getDataVectorSTL(coefIdx)[rowIdx] << '\n';
+                            X.getColumn(index).add_data(newRow, X.getDataVectorSTL(coefIdx)[rowIdx]);
                         } else {
+//std::cout << "   II append at (col, mappedRow) = (" << index << ", " << newRow << ") with val " << 1 << '\n';
                             X.getColumn(index).add_data(newRow, static_cast<int>(1));
                         }
                     }
@@ -494,12 +492,12 @@ std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
             }
         }
     }
-
-    // Sort mappedRow in ascending order
+/*
+    // TODO need to sort mappedRow in ascending order?
     for (int index = 0; index < getNumberOfColumns(); index++) {
         X.getColumn(index).sortRows();
     }
-
+*/
     // Sort columns
     getX().sortColumns(CompressedDataColumn<RealType>::sortNumerically);
 
