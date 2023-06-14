@@ -50,7 +50,9 @@ test_that("Check very small Cox example with time-varying coefficient as stratif
     sparseShortCov <- sparseShortCov[sparseShortCov$covariateValue != 0,]
 
     # long out
-    longOut <- splitTime(test$length, test$event, cut = c(2))
+    longOut <- splitTime(data.frame(time = test$length,
+                                    y = test$event),
+                         cut = c(2))
 
     # long sparse cov
     sparseLongCov <- convertToTimeVaryingCoef(sparseShortCov, longOut, timeVaryCoefId = c(2))
@@ -72,7 +74,7 @@ test_that("Check very small Cox example with time-varying coefficient as stratif
 
     # GPU: long out and short cov
     shortCovPtrSparse_GPU <- convertToCyclopsData(outcomes = longOut,
-                                                  covariates = sparseLongCov[sparseLongCov$stratumId == 1,],
+                                                  covariates = sparseShortCov,
                                                   timeEffectMap = data.frame(covariateId = c(2)),
                                                   modelType = "cox_time")
     shortCovFitSparse_GPU <- fitCyclopsModel(shortCovPtrSparse_GPU, computeDevice = GpuDevice)

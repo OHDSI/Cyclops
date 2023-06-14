@@ -4,24 +4,23 @@
 \alias{splitTime}
 \title{Split the analysis time into several intervals for time-varying coefficients.}
 \usage{
-splitTime(time, y, cut)
+splitTime(shortOut, cut)
 }
 \arguments{
-\item{time}{Numeric: Observed event time}
+\item{shortOut}{A data frame containing the outcomes with predefined columns (see below).}
 
-\item{cut}{Numeric: Time points to cut at}
+\item{cut}{Numeric: Time points to cut at
 
-\item{status}{Numeric: Observed event status}
+These columns are expected in the shortOut object:
+\tabular{lll}{
+  \verb{rowId}   \tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
+  \verb{y}       \tab(real) \tab Observed event status \cr
+  \verb{time}    \tab(real) \tab Observed event time \cr
+}}
 }
 \value{
 A long outcome table for time-varying coefficients.
 }
 \description{
 \code{splitTime} split the analysis time into several intervals for time-varying coefficients
-}
-\examples{
-time <- c(4.0, 3.5, 3, 2.5, 2, 1.5, 1)
-status <- c(1, 1, 0, 1, 1, 0, 1)
-cut <- c(2)
-splitTime(time, status, cut)
 }
