@@ -786,7 +786,8 @@ protected:
 	std::vector<std::string> labels; // TODO Change back to 'long'
 
 	int nTypes;
-	int maxCovariateId;
+	int64_t maxCovariateId;
+	unordered_map<IdType, IdType> timeEffectCovariateIdMap; // (timeEffectCovariateName, index)
 
 private:
 	// Disable copy-constructors and copy-assignment

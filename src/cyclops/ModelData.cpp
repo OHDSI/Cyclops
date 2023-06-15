@@ -238,7 +238,7 @@ int ModelData<RealType>::loadMultipleX(
 		index = -1; // new column
 	}
 
-	maxCovariateId = covariateIds.back();
+	maxCovariateId = *max_element(covariateIds.begin(), covariateIds.end());
 
 	touchedX = true;
 	return firstColumnIndex;
@@ -454,14 +454,18 @@ std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
                     if (coefIdx == timeIdx) {
                         // coefIdx is a time-varying coef, append data, move both pointers
 
-                        // Update index for time-varying coefficient
-                        IdType timeCovId = st * maxCovariateId + timeEffectCovariateIds[j];
-                        index = getColumnIndexByName(timeCovId);
-                        if (index < 0) { // Create a new column for time-varying coefficient
+                        if (timeEffectCovariateIdMap.find(timeEffectCovariateIds[j]) != timeEffectCovariateIdMap.end()) {
+                            // The time-varying coefficient was already created at this stratum
+                            index = timeEffectCovariateIdMap[timeEffectCovariateIds[j]];
+                        } else {
+                            // Create a new column for the time-varying coefficient at this stratum
+                            index = getNumberOfColumns();
+                            timeEffectCovariateIdMap[timeEffectCovariateIds[j]] = index;
                             X.push_back(X.getFormatType(coefIdx));
-                            index = getNumberOfColumns() - 1;
-                            X.getColumn(index).add_label(timeCovId);
+                            IdType timeCovId = ++maxCovariateId;
+                            X.getColumn(index).add_label(timeCovId); // TODO return label to user or automatically exclude this column from L1 regularization
                             timeEffectCovariates.push_back({st+1, timeEffectCovariateIds[j]}); // (stratum, timeEffectCovariateName)
+                            //std::cout << "Create a new column with label [" << timeCovId << "] at stratum [" << st+1 << "] from cov [" << timeEffectCovariateIds[j] << "]\n";
                         }
 
                         i++;
@@ -482,7 +486,7 @@ std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
                         if (formatType == SPARSE || formatType == DENSE) {
                             // TODO better way to get data from (coefIdx, fixedRow)?
                             auto it = find(X.getCompressedColumnVectorSTL(coefIdx).begin(), X.getCompressedColumnVectorSTL(coefIdx).end(), fixedRow);
-			    int rowIdx = it - X.getCompressedColumnVectorSTL(coefIdx).begin();
+                            int rowIdx = it - X.getCompressedColumnVectorSTL(coefIdx).begin();
                             X.getColumn(index).add_data(newRow, X.getDataVectorSTL(coefIdx)[rowIdx]);
                         } else {
                             X.getColumn(index).add_data(newRow, static_cast<int>(1));
@@ -491,6 +495,7 @@ std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
                 }
             }
         }
+        timeEffectCovariateIdMap.clear(); // clear map for next stratum
     }
 /*
     // TODO need to sort mappedRow in ascending order?
