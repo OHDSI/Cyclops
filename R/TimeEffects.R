@@ -21,22 +21,34 @@ splitTime <- function(shortOut, cut) {
     if (!"time" %in% colnames(shortOut)) stop("Must provide observed event time.")
     if (!"y" %in% colnames(shortOut)) stop("Must provide observed event status.")
     if ("rowId" %in% colnames(shortOut)) {
-        colnames(shortOut)[which(names(shortOut) == "rowId")] <- "subjectId"
-        shortOut <- shortOut[order(shortOut$subjectId),]
+        shortOut <- shortOut %>%
+            rename(subjectId = rowId) %>%
+            arrange(subjectId)
     } else {
         shortOut$subjectId <- 1:nrow(shortOut)
     }
 
     longOut <- do.call('survSplit', list(formula = Surv(shortOut$time, shortOut$y)~.,
-                                         data = shortOut[,c("y", "subjectId")],
+                                         data = shortOut,
                                          cut = cut,
                                          episode = "stratumId",
                                          id = "newSubjectId"))
-    colnames(longOut)[which(names(longOut) == "event")] <- "y"
-    longOut$time <- longOut$tstop - longOut$tstart
+    longOut <- longOut %>%
+        rename(y = event) %>%
+        mutate(time = tstop - tstart) %>%
+        select(-c(newSubjectId, tstart, tstop)) %>%
+        arrange(stratumId, subjectId)
 
-    longOut <- longOut[order(longOut$stratumId, longOut$subjectId), c("stratumId", "subjectId", "time", "y")]
-    longOut$rowId <- 1:nrow(longOut)
+    # Restore rowIds
+    newSubjectId <- max(shortOut$subjectId)+1
+    longOut$rowId <-c(shortOut$subjectId, # rowId = subjectId at 1st stratum
+                      newSubjectId:(newSubjectId+(nrow(longOut)-nrow(shortOut))-1)) # create new distinct rowIds for other strata
+
+    # Reorder columns
+    longOut <- longOut %>%
+        select(rowId, everything()) %>%
+        select(subjectId, everything()) %>%
+        select(stratumId, everything())
 
     return(longOut)
 }
