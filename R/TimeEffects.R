@@ -25,9 +25,11 @@ splitTime <- function(shortOut, cut) {
             rename(subjectId = rowId) %>%
             arrange(subjectId)
     } else {
-        shortOut$subjectId <- 1:nrow(shortOut)
+        shortOut <- shortOut %>%
+            mutate(subjectId = row_number())
     }
 
+    shortOut <- collect(shortOut)
     longOut <- do.call('survSplit', list(formula = Surv(shortOut$time, shortOut$y)~.,
                                          data = shortOut,
                                          cut = cut,
@@ -40,9 +42,10 @@ splitTime <- function(shortOut, cut) {
         arrange(stratumId, subjectId)
 
     # Restore rowIds
-    newSubjectId <- max(shortOut$subjectId)+1
-    longOut$rowId <-c(shortOut$subjectId, # rowId = subjectId at 1st stratum
-                      newSubjectId:(newSubjectId+(nrow(longOut)-nrow(shortOut))-1)) # create new distinct rowIds for other strata
+    SubjectIds <- shortOut$subjectId
+    newSubjectId <- max(SubjectIds)+1
+    longOut$rowId <-c(SubjectIds, # rowId = subjectId at 1st stratum
+                      newSubjectId:(newSubjectId+(nrow(longOut)-length(SubjectIds))-1)) # create new distinct rowIds for other strata
 
     # Reorder columns
     longOut <- longOut %>%
