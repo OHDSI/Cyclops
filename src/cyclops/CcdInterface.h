@@ -197,7 +197,8 @@ public:
     double runBoostrap(
             CyclicCoordinateDescent *ccd,
             AbstractModelData *modelData,
-            std::vector<double>& savedBeta);
+            std::vector<double>& savedBeta,
+	    std::string& treatmentId);
 
     void setDefaultArguments();
 

@@ -697,21 +697,29 @@ SelectorType CcdInterface::getDefaultSelectorTypeOrOverride(SelectorType selecto
 double CcdInterface::runBoostrap(
 		CyclicCoordinateDescent *ccd,
 		AbstractModelData *modelData,
-		std::vector<double>& savedBeta) {
+		std::vector<double>& savedBeta,
+		std::string& treatmentId) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
 	auto selectorType = getDefaultSelectorTypeOrOverride(
 		arguments.crossValidation.selectorType, modelData->getModelType());
 
-	BootstrapSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
+	vector<int> ids;
+	if (selectorType == SelectorType::BY_ROW) {
+		std::cout << "runBoostrap SelectorType::BY_ROW \n";
+		ids.resize(modelData->getNumberOfRows());
+		std::iota(ids.begin(), ids.end(), 0);
+	}
+	BootstrapSelector selector(arguments.replicates, selectorType == SelectorType::BY_ROW ? ids : modelData->getPidVectorSTL(),
 			selectorType, arguments.seed, logger, error);
 	BootstrapDriver driver(arguments.replicates, modelData, logger, error);
 
 	driver.drive(*ccd, selector, arguments);
 	gettimeofday(&time2, NULL);
 
-	driver.logResults(arguments, savedBeta, ccd->getConditionId());
+//	driver.logResults(arguments, savedBeta, ccd->getConditionId());
+	driver.logHR(arguments, savedBeta, treatmentId);
 	return calculateSeconds(time1, time2);
 }
 
