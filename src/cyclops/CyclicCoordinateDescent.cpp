@@ -207,10 +207,14 @@ void CyclicCoordinateDescent::init(bool offset) {
 	hDelta.resize(J, static_cast<double>(initialBound));
 	hBeta.resize(J, static_cast<double>(0.0));
 
+	// initialize starting betas to default value 0.0
+	startingBeta.resize(J, static_cast<double>(0.0));
+	
 // 	hXBeta.resize(K, static_cast<double>(0.0));
 // 	hXBetaSave.resize(K, static_cast<double>(0.0));
 
 	fixBeta.resize(J, false);
+	
 	hWeights.resize(0);
     cWeights.resize(0); // ESK: For censor weights
 
@@ -221,6 +225,7 @@ void CyclicCoordinateDescent::init(bool offset) {
 	varianceKnown = false;
 	if (offset) {
 		hBeta[0] = static_cast<double>(1);
+		startingBeta[0] = static_cast<double>(1);
 		fixBeta[0] = true;
 		xBetaKnown = false;
 	} else {
@@ -261,7 +266,13 @@ void CyclicCoordinateDescent::resetBeta(void) {
 
     auto start = hXI.getHasOffsetCovariate() ? 1 : 0;
     for (auto j = start; j < J; j++) {
-		hBeta[j] = 0.0;
+
+    	// check if a non-zero starting beta is present
+    	if (startingBeta[j] != 0.0) {
+    		hBeta[j] = startingBeta[j];
+    	} else {
+    		hBeta[j] = 0.0;
+    	}
 	}
 	computeXBeta();
 	sufficientStatisticsKnown = false;
@@ -472,6 +483,13 @@ void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
 	sufficientStatisticsKnown = false;
 	fisherInformationKnown = false;
 	varianceKnown = false;
+}
+
+void CyclicCoordinateDescent::setStartingBeta(const std::vector<double>& inStartingBeta) {
+	// ToDo: This functionality could be merged into setBeta()
+	for (int j = 0; j < J; ++j) {
+		startingBeta[j] = inStartingBeta[j];
+	}
 }
 
 void CyclicCoordinateDescent::setBeta(int i, double beta) {
