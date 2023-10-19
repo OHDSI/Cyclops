@@ -1,7 +1,7 @@
 Package: Cyclops
 Type: Package
 Title: Cyclic Coordinate Descent for Logistic, Poisson and Survival Analysis
-Version: 3.2.1
+Version: 3.3.1.99
 Authors@R: c(
     person("Marc A.", "Suchard", email = "msuchard@ucla.edu", role = c("aut","cre")),
     person("Martijn J.", "Schuemie", role = "aut"),
@@ -26,6 +26,7 @@ Description: This model fitting tool incorporates cyclic coordinate descent and
     Suchard, Simpson, Zorych, Ryan and Madigan (2013) <doi:10.1145/2414416.2414791>.
 License: Apache License 2.0
 LazyData: Yes
+Biarch: true
 URL: https://github.com/ohdsi/cyclops
 BugReports: https://github.com/ohdsi/cyclops/issues
 Depends:
@@ -51,4 +52,4 @@ Suggests:
     ggplot2,
     microbenchmark,
     cmprsk
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.3

@@ -35,3 +35,5 @@ CRAN-RELEASE
 .DS_Store
 *.gcno
 *.gcda
+src/Makevars
+src/Makevars.win

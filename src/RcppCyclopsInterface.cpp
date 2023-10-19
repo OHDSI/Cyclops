@@ -118,6 +118,20 @@ void cyclopsSetBeta(SEXP inRcppCcdInterface, const std::vector<double>& beta) {
     interface->getCcd().setBeta(beta);
 }
 
+// [[Rcpp::export(.cyclopsGetBeta)]]
+double cyclopsGetBeta(SEXP inRcppCcdInterface, const int index) {
+	using namespace bsccs;
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	return interface->getCcd().getBeta(index);
+}
+
+// [[Rcpp::export(.cyclopsSetStartingBeta)]]
+void cyclopsSetStartingBeta(SEXP inRcppCcdInterface, const std::vector<double>& inStartingBeta) {
+	using namespace bsccs;
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	interface->getCcd().setStartingBeta(inStartingBeta);
+}
+
 // [[Rcpp::export(.cyclopsSetFixedBeta)]]
 void cyclopsSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed) {
     using namespace bsccs;
@@ -125,6 +139,14 @@ void cyclopsSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed) {
 
     interface->getCcd().setFixedBeta(beta - 1, fixed);
 }
+
+// [[Rcpp::export(.cyclopsGetFixedBeta)]]
+bool cyclopsGetFixedBeta(SEXP inRcppCcdInterface, const int index){
+	using namespace bsccs;
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	return interface->getCcd().getFixedBeta(index);
+}
+
 
 // [[Rcpp::export(".cyclopsGetIsRegularized")]]
 bool cyclopsGetIsRegularized(SEXP inRcppCcdInterface, const int index) {
@@ -653,8 +675,8 @@ void RcppCcdInterface::appendRList(Rcpp::List& list, const Rcpp::List& append) {
 }
 
 void RcppCcdInterface::handleError(const std::string& str) {
-	Rcpp::stop(str);
-//	::Rf_error(str.c_str());
+    Rcpp::stop(str);
+	// ::Rf_error(str.c_str());
 }
 
 bsccs::ConvergenceType RcppCcdInterface::parseConvergenceType(const std::string& convergenceName) {

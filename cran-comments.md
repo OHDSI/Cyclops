@@ -1,30 +1,24 @@
-## Re-submission after 'valgrind' check email from Uwe Ligges:
+## Resubmission after VALGRIND feedback from Brian Ripley
 
-```
-Thanks, we see with valgrind it is better, but still leaking. 
-```
+* fixed VALGRIND uninitialized value (UB) issue; variable 'priorType' was uninitialized,
+  specifically in:
 
-## Fixes
-
-* all definite leaks on my M1 and linux (R 4.1) valgrind-versions are now gone.
-* replaced calls to '::Rf_error()' with 'Rcpp::stop()' to ensure that destructors get 
-  called before returning to R.
-* removed calls to JVM through Andromeda package (was an issue with the CRAN system JVM).
+    ==2293460== Conditional jump or move depends on uninitialised value(s)
+    ==2293460==    at 0x22CE4848: bsccs::CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix() (packages/tests-vg/Cyclops/src/cyclops/CyclicCoordinateDescent.cpp:1335)
+    
+* fixed VALGRIND memory leak issue; was caused by calls to '::Rf_error()' instead of 
+  'Rcpp::stop()' when handling some error edge-cases
 
 ## Test environments
 * local OS X install, R 4.1
+* r-devel-valgrind docker container
 * ubuntu 20.04 (via gh-actions: devel and release)
 * win-builder (devel and release)
 
 ## R CMD check results
-* There were no ERRORs
-* There is 1 occasional WARNING:
-  inclusion of 'abort'.
-  
-This inclusion comes from 'RcppEigen' and not 'Cyclops' on some platforms with R-devel.  
-  
+* There were no ERRORs or WARNINGs   
 * There is 1 occasional NOTE:
-  checking installed package size ... NOTE
+    checking installed package size ... NOTE
     installed size is 22.5Mb
     sub-directories of 1Mb or more:
       libs 21.7Mb
@@ -37,3 +31,5 @@ availability of C++17 'if (constexpr ...)' should decrease library size substant
 ## Downstream dependencies
 * 'EvidenceSynthesis' - checked and works.
 * 'EmpiricalCalibration' - checked and works.
+* 'IterativeHardThresholding' - checked and works.
+* 'BrokenAdaptiveRidge' - checked and works.
