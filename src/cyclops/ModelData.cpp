@@ -465,7 +465,12 @@ std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
                             IdType timeCovId = ++maxCovariateId;
                             X.getColumn(index).add_label(timeCovId); // TODO return label to user or automatically exclude this column from L1 regularization
                             timeEffectCovariates.push_back({st+1, timeEffectCovariateIds[j]}); // (stratum, timeEffectCovariateName)
-                            //std::cout << "Create a new column with label [" << timeCovId << "] at stratum [" << st+1 << "] from cov [" << timeEffectCovariateIds[j] << "]\n";
+                            // std::cout << "Create a new column with label [" << timeCovId << "] at stratum [" << st+1 << "] from cov [" << timeEffectCovariateIds[j] << "]\n";
+                            std::ostringstream stream;
+                            stream << "Created a new column with label " << timeCovId
+                                   << " at stratum " << st+1
+                                   << " from cov " << timeEffectCovariateIds[j];
+                            log->writeLine(stream);
                         }
 
                         i++;

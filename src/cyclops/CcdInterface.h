@@ -127,6 +127,7 @@ struct CCDArguments {
 	// Needed for boot-strapping
 	bool doBootstrap;
 	bool reportRawEstimates;
+	bool reportDifference;
 	int replicates;
 	std::string bsFileName;
 	bool doPartial;
