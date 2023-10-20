@@ -34,3 +34,7 @@ deprecated
 ^\.github$
 ^CRAN-RELEASE$
 .covrignore
+src/Makevars$
+src/Makevars.win$
+to_fix*
+^CRAN-SUBMISSION$

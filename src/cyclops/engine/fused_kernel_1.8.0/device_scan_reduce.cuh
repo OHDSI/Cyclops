@@ -36,12 +36,17 @@
 
 #include <stdio.h>
 #include <iterator>
+#include <limits>
 
-#include <cub/config.cuh>
-#include <cub/thread/thread_operators.cuh>
+#include <cub/iterator/arg_index_input_iterator.cuh>
 #include "dispatch_scan_reduce.cuh"
+#include <cub/util_namespace.cuh>
 
-CUB_NAMESPACE_BEGIN
+/// Optional outer namespace(s)
+//CUB_NS_PREFIX
+
+/// CUB namespace
+namespace cub {
 
 struct DeviceFuse
 {
@@ -51,7 +56,8 @@ struct DeviceFuse
     //@{
 
     /**
-     * \brief Computes a device-wide inclusive prefix scan and transform-reduction using the specified binary \p scan_op functor, \p reduction_op functor and \p transform_op functor.
+     * \brief Computes a device-wide inclusive prefix scan and transform-reduction using the specified
+     * binary \p scan_op functor, \p reduction_op functor and \p transform_op functor.
      *
      * @par Snippet
      * The code snippet below illustrates the inclusive prefix scan and transform-reduction of an `int`
@@ -160,20 +166,20 @@ struct DeviceFuse
         typename        OutputIteratorT,
         typename        ScanOpT,
         typename        ReductionOpT,
-        typename        TransformOpT>
+        typename        TransformOpT>	
     CUB_RUNTIME_FUNCTION
     static cudaError_t ScanReduce(
-        void                    *d_temp_storage,            ///< [in] Device-accessible allocation of temporary storage.  When NULL, the required allocation size is written to \p temp_storage_bytes and no work is done.
-        size_t                  &temp_storage_bytes,        ///< [in,out] Reference to size in bytes of \p d_temp_storage allocation
-        ScanInputIteratorT      d_in,                       ///< [in] Random-access iterator to the input sequence of data items
-        TransformInputIteratorT d_trans_in,                 ///< [in] Random-access iterator to the additional input sequence of data items
-        OutputIteratorT         d_sum,                      ///< [out] Pointer to the output aggregate
-        ScanOpT                 scan_op,                    ///< [in] Binary scan functor
-        ReductionOpT            reduction_op,	            ///< [in] Binary reduction functor
-        TransformOpT            transform_op,	            ///< [in] Transformation functor on scan output
-        int                     num_items,                  ///< [in] Total number of input items (i.e., the length of \p d_in)
-        cudaStream_t            stream             = 0,     ///< [in] <b>[optional]</b> CUDA stream to launch kernels within.  Default is stream<sub>0</sub>.
-        bool                    debug_synchronous  = false) ///< [in] <b>[optional]</b> Whether or not to synchronize the stream after every kernel launch to check for errors.  May cause significant slowdown.  Default is \p false.
+        void            *d_temp_storage,                    ///< [in] %Device-accessible allocation of temporary storage.  When NULL, the required allocation size is written to \p temp_storage_bytes and no work is done.
+        size_t          &temp_storage_bytes,                ///< [in,out] Reference to size in bytes of \p d_temp_storage allocation
+        ScanInputIteratorT  d_in,                               ///< [in] Pointer to the input sequence of data items
+        TransformInputIteratorT d_trans_in,                              ///< [in] Pointer to the additional input sequence of data items for transformation
+        OutputIteratorT d_sum,                              ///< [out] Pointer to the output aggregate
+        ScanOpT         scan_op,                            ///< [in] Binary scan functor
+        ReductionOpT    reduction_op,	                    ///< [in] Binary reduction functor
+        TransformOpT    transform_op,	                    ///< [in] Transformation functor on scan output	
+        int             num_items,                          ///< [in] Total number of input items (i.e., the length of \p d_in)
+        cudaStream_t    stream             = 0,             ///< [in] <b>[optional]</b> CUDA stream to launch kernels within.  Default is stream<sub>0</sub>.
+        bool            debug_synchronous  = false)         ///< [in] <b>[optional]</b> Whether or not to synchronize the stream after every kernel launch to check for errors.  May cause significant slowdown.  Default is \p false.
     {
         // Signed integer type for global offsets
         typedef int OffsetT;
@@ -192,14 +198,9 @@ struct DeviceFuse
             stream,
             debug_synchronous);
     }
-    //@}  end member group
-
 };
 
-/**
- * \example example_device_fuse.cu
- */
-
-CUB_NAMESPACE_END
+}               // CUB namespace
+CUB_NS_POSTFIX  // Optional outer namespace(s)
 
 

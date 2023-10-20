@@ -39,7 +39,7 @@ public:
 
 	void logResults(const CCDArguments& arguments, std::vector<double>& savedBeta, std::string conditionId);
 
-void logHR(const CCDArguments& arguments, std::vector<double>& savedBeta, std::string treatmentId);
+	void logHR(const CCDArguments& arguments, std::vector<double>& savedBeta, std::string treatmentId);
 
 private:
 	const int replicates;

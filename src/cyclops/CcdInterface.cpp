@@ -708,7 +708,6 @@ double CcdInterface::runBoostrap(
 
 	vector<int> ids;
 	if (selectorType == SelectorType::BY_ROW) {
-		std::cout << "runBoostrap SelectorType::BY_ROW \n";
 		ids.resize(modelData->getNumberOfRows());
 		std::iota(ids.begin(), ids.end(), 0);
 	}

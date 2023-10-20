@@ -82,7 +82,7 @@ void BootstrapSelector::getWeights(int batch, std::vector<double>& weights) {
 		return;
 	}
 
-//	if (type == SelectorType::BY_PID) {
+	//if (type == SelectorType::BY_PID) {
 		for (size_t k = 0; k < K; k++) {
 			int count = selectedSet.count(ids.at(k));
 			weights[k] = static_cast<real>(count);

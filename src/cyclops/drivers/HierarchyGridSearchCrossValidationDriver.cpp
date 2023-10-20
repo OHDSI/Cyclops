@@ -74,7 +74,7 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 	std::vector<double> outerPoints;
 	std::vector<double> innerPoints;
 	std::vector<double> outerValues;
-	std::vector<double> minValues;
+	// std::vector<double> minValues;
 
 	for (int outerStep = 0; outerStep < gridSize; outerStep++){
 		std::vector<double> predLogLikelihoodOuter;
@@ -124,9 +124,9 @@ void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& cc
 		// Report results
 		double maxPoint;
 		double maxValue;
-		double minValue;
+		// double minValue; removed for v3.3.0; TODO why was this here?
 		findMax(&maxPoint, &maxValue);
-		minValues.push_back(minValue);
+		// minValues.push_back(minValue);
 
 		innerPoints.push_back(maxPoint);
 		outerPoints.push_back(outerPoint);
