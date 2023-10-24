@@ -5,6 +5,7 @@ GpuDevice <- listOpenCLDevices()[1]
 tolerance <- 1E-4
 
 test_that("Check very small Cox example with time-varying coefficient as stratified model", {
+    skip_if(length(listOpenCLDevices()) == 0, "GPU not available")
     test <- read.table(header=T, sep = ",", text = "
             start, length, event, x1, x2
             0, 4,  1,0,0
