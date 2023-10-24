@@ -8,7 +8,7 @@
 #include <numeric>
 #include <cmath>
 
-#include "boost/iterator/counting_iterator.hpp"
+// #include "boost/iterator/counting_iterator.hpp"
 
 #include "Types.h"
 #include "Thread.h"
@@ -146,10 +146,15 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 	auto& weightsExclude = this->weightsExclude;
 	auto& logger = this->logger;
 
-	auto scheduler = TaskScheduler<decltype(boost::make_counting_iterator(0))>(
-		boost::make_counting_iterator(0),
-		boost::make_counting_iterator(arguments.foldToCompute),
-		nThreads);
+	// auto scheduler = TaskScheduler<decltype(boost::make_counting_iterator(0))>(
+	// 	boost::make_counting_iterator(0),
+	// 	boost::make_counting_iterator(arguments.foldToCompute),
+	// 	nThreads);
+
+	auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
+	    IncrementableIterator<size_t>(0),
+	    IncrementableIterator<size_t>(arguments.foldToCompute),
+	    nThreads);
 
 	auto oneTask =
 		[step, coldStart, nThreads, &ccdPool, &selectorPool,

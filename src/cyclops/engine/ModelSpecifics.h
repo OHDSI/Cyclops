@@ -1696,7 +1696,7 @@ struct TupleXGetterNew {
 
     template <class TupleType>
     inline ReturnType operator()(TupleType& tuple) const {
-        return boost::get<index>(tuple);
+        return std::get<index>(tuple);
     }
 };
 
@@ -1728,7 +1728,7 @@ struct TestNumeratorKernel {
     template <class NumeratorType, class TupleType>
     NumeratorType operator()(const NumeratorType lhs, const TupleType tuple) {
 
-        const auto expXBeta = boost::get<0>(tuple);
+        const auto expXBeta = std::get<0>(tuple);
         const auto x = getX(tuple); //boost::get<1>(tuple);
 
         return {
@@ -1752,8 +1752,8 @@ struct TestGradientKernel {
 
     template <class GradientType, class NumeratorType, class TupleType>
     GradientType operator()(const GradientType lhs, const NumeratorType numerator, const TupleType tuple) {
-        const auto denominator = boost::get<0>(tuple);
-        const auto weight = boost::get<1>(tuple);
+        const auto denominator = std::get<0>(tuple);
+        const auto weight = std::get<1>(tuple);
 
         return BaseModel::template incrementGradientAndHessian<IteratorType,
                                                                WeightType>(

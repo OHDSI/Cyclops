@@ -21,7 +21,7 @@
 #include "AbstractSelector.h"
 #include "../utils/HParSearch.h"
 
-#include "boost/iterator/counting_iterator.hpp"
+// #include "boost/iterator/counting_iterator.hpp"
 
 namespace bsccs {
 
@@ -115,7 +115,7 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	            // Newly re-located code
 	            double pointEstimate = doCrossValidationStep(ccd, selector, allArguments, step,
                                                           nThreads, ccdPool, selectorPool,
-                                                          predLogLikelihood);             
+                                                          predLogLikelihood);
 
 	            double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
 
