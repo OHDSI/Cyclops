@@ -288,6 +288,7 @@ CudaKernel<RealType, RealType2>::CudaKernel(const std::string& deviceName)
 	stream = (cudaStream_t *) malloc(sizeof(cudaStream_t));
 	cudaStreamCreate(&stream[0]);
 
+#ifdef DEBUG_GPU_COX
 	if (deviceStatus == cudaSuccess) {
 		std::cout << "ctor CudaKernel on " << deviceName << " stream: " << stream << '\n';
 	} else if (deviceStatus == cudaErrorDeviceAlreadyInUse) {
@@ -295,7 +296,7 @@ CudaKernel<RealType, RealType2>::CudaKernel(const std::string& deviceName)
 	} else if (deviceStatus == cudaErrorInvalidDevice) {
 		std::cout << "cudaErrorInvalidDevice \n";
 	}
-
+#endif
 }
 
 template <typename RealType, typename RealType2>
@@ -315,7 +316,10 @@ CudaKernel<RealType, RealType2>::~CudaKernel()
 //	cudaFree(boundOut);
 //	cudaFree(temp);
 //	cudaDeviceReset();
+
+#ifdef DEBUG_GPU_COX
 	std::cout << "dtor CudaKernel \n";
+#endif
 }
 /*
 template <typename RealType, typename RealType2>
@@ -377,7 +381,9 @@ cudaStream_t* CudaKernel<RealType, RealType2>::getStream() {
 
 template <typename RealType, typename RealType2>
 const std::string CudaKernel<RealType, RealType2>::getDeviceName() {
+#ifdef DEBUG_GPU_COX
 	std::cout << "getDeviceName: " << desiredDeviceName << '\n';
+#endif
 	return desiredDeviceName;
 }
 
@@ -396,7 +402,9 @@ void CudaKernel<RealType, RealType2>::setFold(int currentFold)
 	if (curIndex != devIndex) {
 		// TODO: why and where is it set back to the default device?
 		bool deviceFlag = cudaSetDevice(devIndex);
+#ifdef DEBUG_GPU_COX
 		std::cout << "SET DEVICE TO " << desiredDeviceName << " AGAIN at fold " << fold << '\n';
+#endif
 	}
 }
 

@@ -255,7 +255,6 @@ int CyclicCoordinateDescent::getAlignedLength(int N) {
 }
 
 void CyclicCoordinateDescent::computeNEvents() {
-//<<<<<<< HEAD
 	if (syncCV) {
 		for (int i=0; i<syncCVFolds; i++) {
 			modelSpecifics.setWeights(
@@ -268,8 +267,7 @@ void CyclicCoordinateDescent::computeNEvents() {
 				cWeights.size() > 0 ? cWeights.data() : nullptr,
 				useCrossValidation);
 	}
-/*	
-=======
+/*
 	//modelSpecifics.setWeights(
 	//	hWeights.size() > 0 ? hWeights.data() : nullptr,
 	//	useCrossValidation);
@@ -278,7 +276,6 @@ void CyclicCoordinateDescent::computeNEvents() {
 	    hWeights.size() > 0 ? hWeights.data() : nullptr,
 	    cWeights.size() > 0 ? cWeights.data() : nullptr,
 	    useCrossValidation);
->>>>>>> fine_gray
 */
 }
 
@@ -1768,7 +1765,7 @@ void CyclicCoordinateDescent::turnOnStreamCV(int foldToCompute) {
 
 	streamCV = true;
 	streamCVFolds = foldToCompute;
-	std::cout << "foldToCompute: " << foldToCompute << "\n";
+//	std::cout << "foldToCompute: " << foldToCompute << "\n";
 	modelSpecifics.turnOnStreamCV(foldToCompute);
 
 }
@@ -1777,7 +1774,7 @@ void CyclicCoordinateDescent::turnOnSyncCV(int foldToCompute) {
 
 	syncCV = true;
 	syncCVFolds = foldToCompute;
-	std::cout << "foldToCompute: " << foldToCompute << "\n";
+//	std::cout << "foldToCompute: " << foldToCompute << "\n";
 	modelSpecifics.turnOnSyncCV(foldToCompute);
 	for(int i=0; i<foldToCompute; ++i) {
 		hBetaPool.push_back(hBeta);
@@ -1845,7 +1842,7 @@ std::vector<double> CyclicCoordinateDescent::getPredictiveLogLikelihood(std::vec
 		}
 	}
 
-	std::cout << "iterations: " << lastIterationCount << " ";
+//	std::cout << "iterations: " << lastIterationCount << " ";
 	return result;
 }
 

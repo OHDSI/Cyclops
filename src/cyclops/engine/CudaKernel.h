@@ -2,6 +2,8 @@
 #include <vector>
 #include "../CompressedDataMatrix.h"
 
+// #define DEBUG_GPU_COX
+
 typedef typename bsccs::FormatType FormatType;
 
 enum FormatTypeCuda {
