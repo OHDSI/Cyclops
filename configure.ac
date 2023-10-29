@@ -1,5 +1,5 @@
 # Process this file with autoconf to produce a configure script.
-AC_INIT(Cyclops, 3.3, msuchard@ucla.edu)
+AC_INIT([Cyclops],[3.3],[msuchard@ucla.edu])
 
 # find R home and set CC/CFLAGS
 : ${R_HOME=`R RHOME`}
@@ -26,8 +26,7 @@ if test -z "${CUDA_HOME}"; then
 else
 	AC_MSG_NOTICE("using CUDA_HOME=${CUDA_HOME}")
 	AC_ARG_WITH([arch],
-		[AC_HELP_STRING([--with-arch=SM],
-			[compute capability of the target device @<:@sm_70@:>@])],
+		[AS_HELP_STRING([--with-arch=SM],[compute capability of the target device @<:@sm_70@:>@])],
 		[ARCH="$withval"], [ARCH=sm_70])
 	AC_MSG_RESULT([setting compute capability of the target device to ${ARCH}])
 	NVCC="${CUDA_HOME}/bin/nvcc -arch=${ARCH}"
