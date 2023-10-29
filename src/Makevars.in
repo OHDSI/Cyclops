@@ -1,10 +1,10 @@
-CUDA_HOME = /usr/local/cuda
+CUDA_HOME = @CUDA_HOME@
 
-CUB_PATH = $(CUDA_HOME)/include
+CUB_PATH = $(CUDA_HOME)/include # CUB is included since CUDA Toolkit 11.0
 #CUB_PATH = /home/jianxiao/cub_1.8.0/cub
 
 ## Use the R_HOME indirection to support installations of multiple R version
-PKG_LIBS = `$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"` -lOpenCL -pthread -L$(CUDA_HOME)/lib64 -lcuda -lcudart
+PKG_LIBS = `$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"` @CUDA_LIBS@
 
 ## As an alternative, one can also add this code in a file 'configure'
 ##
@@ -29,15 +29,13 @@ PKG_LIBS = `$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"` -lOpenCL -pthread -L$(C
 ## done by a number of packages, but recommended only for more advanced users
 ## comfortable with autoconf and its related tools.
 
-CXX_STD = CXX11
-
-NVCC = $(CUDA_HOME)/bin/nvcc -arch=sm_70
+NVCC = @NVCC@
 
 CPICFLAGS = -fpic
 
 PKG_CXXFLAGS = -g1
 
-PKG_CPPFLAGS = -I. -Icyclops -DR_BUILD -DHAVE_OPENCL -DDOUBLE_PRECISION -DGPU_COX -pthread -I$(CUDA_HOME)/include -I$(CUDA_HOME)/lib64 -rdynamic
+PKG_CPPFLAGS = -I. -Icyclops -DR_BUILD -DDOUBLE_PRECISION @CUDA_CPPFLAGS@
 
 OBJECTS.cyclops = \
     cyclops/CcdInterface.o \
@@ -66,10 +64,15 @@ OBJECTS.priors = \
 OBJECTS.io = \
     cyclops/io/InputReader.o
 
+ifeq "$(CUDA_HOME)" ""
+OBJECTS.engine = \
+    cyclops/engine/AbstractModelSpecifics.o
+else
 OBJECTS.engine = \
     cyclops/engine/AbstractModelSpecifics.o \
     cyclops/engine/CudaKernel.o \
     cyclops/engine/CudaDetail.o
+endif
 
 OBJECTS.utils = \
     utils/HParSearch.o
@@ -90,6 +93,7 @@ OBJECTS = $(OBJECTS.cyclops) $(OBJECTS.drivers) \
           $(OBJECTS.threads) $(OBJECTS.R) \
           $(OBJECTS.priors) $(OBJECTS.io)
 
+ifneq "$(CUDA_HOME)" ""
 all: $(OBJECTS)
 
 %.o: %.cu
@@ -99,3 +103,4 @@ clean:
 	rm -rf *o
 
 .PHONY: all clean
+endif
