@@ -16,9 +16,9 @@
 #include "engine/GpuModelSpecifics.hpp"
 #endif // HAVE_OPENCL
 
-#ifdef GPU_COX
+#ifdef HAVE_CUDA
 #include "engine/GpuModelSpecificsCox.hpp"
-#endif //GPU_COX
+#endif //HAVE_CUDA
 
 namespace bsccs {
 
@@ -33,11 +33,11 @@ AbstractModelSpecifics* deviceFactory(
     case DeviceType::CPU :
         model = new ModelSpecifics<Model,RealType>(modelData);
         break;
-#ifdef GPU_COX
+#ifdef HAVE_CUDA
     case DeviceType::GPU :
         model = new GpuModelSpecificsCox<Model,RealType>(modelData, deviceName);
         break;
-#endif //GPU_COX
+#endif //HAVE_CUDA
     default:
         break; // nullptr
     }
@@ -54,7 +54,7 @@ AbstractModelSpecifics* deviceFactory(
     switch (deviceType) {
 #ifdef HAVE_OPENCL
     case DeviceType::GPU :
-//        model = new GpuModelSpecifics<Model,RealType,ModelG>(modelData, deviceName);
+        model = new GpuModelSpecifics<Model,RealType,ModelG>(modelData, deviceName);
         break;
 #endif // HAVE_OPENCL
     default:
@@ -158,19 +158,6 @@ AbstractModelSpecifics* precisionFactory<float>(
     	    }
     }
 #endif // HAVE_OPENCL
-/*
-#ifdef GPU_COX
-    if (deviceType == DeviceType::GPU) {
-    	 switch (modelType) {
-    	     case ModelType::COX :
-    	     	model = deviceFactory<BreslowTiedCoxProportionalHazards<float>,float>(modelData, deviceType, deviceName);
-    	     	break;
-    	    default:
-    	        break;
-    	    }
-    }
-#endif // GPU_COX
-*/
     return model;
 }
 
@@ -262,19 +249,6 @@ AbstractModelSpecifics* precisionFactory<double>(
     	    }
     }
 #endif // HAVE_OPENCL
-/*
-#ifdef GPU_COX
-    if (deviceType == DeviceType::GPU) {
-        switch (modelType) {
-            case ModelType::COX :
-    	     	model = deviceFactory<BreslowTiedCoxProportionalHazards<double>,double>(modelData, deviceType, deviceName);
-                break;
-            default:
-                break;
-        }
-    }
-#endif // GPU_COX
-*/
     return model;
 }
 

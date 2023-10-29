@@ -10,6 +10,11 @@
  #include <boost/compute/algorithm/reduce.hpp> // TODO Change
 #endif // HAVE_OPENCL
 
+#ifdef HAVE_CUDA
+ #include <cuda_runtime_api.h>
+ #include <cuda.h>
+#endif // HAVE_CUDA
+
 //' @export
 // [[Rcpp::export("listOpenCLDevices")]]
 Rcpp::CharacterVector listOpenCLDevices() {
@@ -22,6 +27,16 @@ Rcpp::CharacterVector listOpenCLDevices() {
 	}
 #endif // HAVE_OPENCL;
 
+#ifdef HAVE_CUDA
+    int devicesCount;
+    cudaGetDeviceCount(&devicesCount);
+    for(int deviceIndex = 0; deviceIndex < devicesCount; ++deviceIndex) {
+        cudaDeviceProp deviceProperties;
+        cudaGetDeviceProperties(&deviceProperties, deviceIndex);
+        devices.push_back(deviceProperties.name);
+    }
+#endif // HAVE_CUDA;
+
     return devices;
 }
 
@@ -30,6 +45,12 @@ std::string getDefaultOpenCLDevice() {
 #ifdef HAVE_OPENCL
 	return boost::compute::system::default_device().name();
 #else
-    return "";
+    #ifdef HAVE_CUDA
+        cudaDeviceProp deviceProperties;
+        cudaGetDeviceProperties(&deviceProperties, 0);
+        return deviceProperties.name;
+    #else
+        return "";
+    #endif // HAVE_CUDA
 #endif // HAVE_OPENCL
 }

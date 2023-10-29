@@ -18,6 +18,7 @@
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 
+#include "BaseGpuModelSpecifics.hpp"
 #include "ModelSpecifics.hpp"
 #include "Iterators.h"
 #include "CudaKernel.h"

@@ -9,7 +9,6 @@
 #include <thrust/device_vector.h>
 
 #include "ModelSpecifics.hpp"
-//#include "CudaDetail.h"
 
 namespace bsccs {
 

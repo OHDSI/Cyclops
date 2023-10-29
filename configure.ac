@@ -42,8 +42,8 @@ else
 		AC_MSG_RESULT("yes -- using ${CUDA_HOME}/lib64 for CUDA libs")
 		cu_libdir="${CUDA_HOME}/lib64"
 	fi
-	CUDA_LIBS="${CUDA_LIBS} -lOpenCL -L${cu_libdir} -lcudart"
-	CUDA_CPPFLAGS="${CUDA_CPPFLAGS} -DHAVE_OPENCL -DGPU_COX -I${CUDA_HOME}/include -I${cu_libdir} -pthread -rdynamic"
+	CUDA_LIBS="${CUDA_LIBS} -L${cu_libdir} -lcudart"
+	CUDA_CPPFLAGS="${CUDA_CPPFLAGS} -DHAVE_CUDA -I${CUDA_HOME}/include -I${cu_libdir} -pthread -rdynamic"
 fi
 
 AC_SUBST(CUDA_HOME)
