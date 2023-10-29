@@ -323,7 +323,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     }
 
     if (modelType == "pr" | modelType == "cpr") {
-        if (any(outcomes$time <= 0)) {
+        if (any((select(outcomes, time) %>% pull()) <= 0)) {
             stop("time cannot be non-positive", call. = FALSE)
         }
     }
@@ -419,7 +419,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                            stratumId = if ("stratumId" %in% colnames(outcomes)) outcomes$stratumId else NULL,
                            rowId = outcomes$rowId,
                            y = outcomes$y,
-                           time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
+                           time = if ("time" %in% colnames(outcomes)) (select(outcomes, time) %>% pull()) else NULL)
 
     if (addIntercept & (modelType != "cox" & modelType != "cox_time" & modelType != "fgr")) {
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
