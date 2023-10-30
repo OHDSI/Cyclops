@@ -634,8 +634,8 @@ reduce <- function(object, covariates, groupBy, power = 1) {
 #' \code{appendSqlCyclopsData} appends data to an OHDSI data object.
 #'
 #' @details Append data using two tables.  The outcomes table is dense and contains ...  The covariates table is sparse and contains ...
-#' All entries in the outcome table must be sorted in increasing order by {oStratumId, oRowId}.  All entries in the covariate table
-#' must be sorted in increasing order by {cRowId}. Each cRowId value must match exactly one oRowId value.
+#' All entries in the outcome table must be sorted in increasing order by (oStratumId, oRowId).  All entries in the covariate table
+#' must be sorted in increasing order by (cRowId). Each cRowId value must match exactly one oRowId value.
 #'
 #' @param object    OHDSI Cyclops data object to append entries
 #' @param oStratumId    Integer vector (optional): non-unique stratum identifier for each row in outcomes table

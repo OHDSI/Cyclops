@@ -208,12 +208,12 @@ void CyclicCoordinateDescent::init(bool offset) {
 
 	// initialize starting betas to default value 0.0
 	startingBeta.resize(J, static_cast<double>(0.0));
-	
+
 // 	hXBeta.resize(K, static_cast<double>(0.0));
 // 	hXBetaSave.resize(K, static_cast<double>(0.0));
 
 	fixBeta.resize(J, false);
-	
+
 	hWeights.resize(0);
     cWeights.resize(0); // ESK: For censor weights
 
@@ -757,7 +757,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 	int swindleIterationCount = 1;
 
 //	int initialActiveSize = activeSet.size();
-	int perPassSize = arguments.swindleMultipler;
+	// int perPassSize = arguments.swindleMultipler;
 
 	while (!done) {
 
@@ -885,7 +885,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 			}
 		}
 		++swindleIterationCount;
-		perPassSize *= 2;
+		// perPassSize *= 2;
 
 		logger->yield();			// This is not re-entrant safe
 	}

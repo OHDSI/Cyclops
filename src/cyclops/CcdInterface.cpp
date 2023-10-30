@@ -29,7 +29,7 @@
 #include "CyclicCoordinateDescent.h"
 #include "ModelData.h"
 
-#include "boost/iterator/counting_iterator.hpp"
+//#include "boost/iterator/counting_iterator.hpp"
 #include "Thread.h"
 
 // #include "io/InputReader.h"
@@ -373,9 +373,9 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
                       }
                     );
     } else {
-        auto scheduler = TaskScheduler<boost::counting_iterator<int> >(
-            boost::make_counting_iterator(0),
-            boost::make_counting_iterator(static_cast<int>(bounds.size())),
+        auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
+            IncrementableIterator<size_t>(0), // boost::make_counting_iterator(0),
+            IncrementableIterator<size_t>(bounds.size()), //boost::make_counting_iterator(static_cast<int>(bounds.size())),
             nThreads);
 
         auto oneTask = [&getBound, &scheduler, &ccdPool, &bounds](unsigned long task) {
@@ -587,8 +587,10 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
             values[i] = evaluate(points[i], ccd);
         }
     } else {
-        auto scheduler = TaskScheduler<boost::counting_iterator<int>>(
-            boost::make_counting_iterator(0), boost::make_counting_iterator(static_cast<int>(points.size())), nThreads);
+        auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
+            IncrementableIterator<size_t>(0), //boost::make_counting_iterator(0),
+            IncrementableIterator<size_t>(points.size()), //boost::make_counting_iterator(static_cast<int>(points.size())),
+            nThreads);
 
         auto oneTask = [&evaluate, &scheduler, &ccdPool, &points, &values](unsigned long task) {
             values[task] = evaluate(points[task], ccdPool[scheduler.getThreadIndex(task)]);
