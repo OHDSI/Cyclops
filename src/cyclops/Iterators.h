@@ -16,8 +16,15 @@ namespace bsccs {
  */
 
 template <typename T>
-class IncrementableIterator : public std::iterator<std::input_iterator_tag, T> {
+class IncrementableIterator {
 public:
+
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = T;
+    using difference_type = T;
+    using pointer = T*;
+    using reference = T&;
+
     IncrementableIterator(T value) : value(value) { }
 
     IncrementableIterator& operator++() {

@@ -7,6 +7,7 @@
 
 #include <numeric>
 #include <cmath>
+#include <iterator>
 
 // #include "boost/iterator/counting_iterator.hpp"
 

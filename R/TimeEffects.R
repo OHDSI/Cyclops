@@ -22,8 +22,8 @@ splitTime <- function(shortOut, cut) {
     if (!"y" %in% colnames(shortOut)) stop("Must provide observed event status.")
     if ("rowId" %in% colnames(shortOut)) {
         shortOut <- shortOut %>%
-            rename(subjectId = rowId) %>%
-            arrange(subjectId)
+            rename(subjectId = .data$rowId) %>%
+            arrange(.data$subjectId)
     } else {
         shortOut <- shortOut %>%
             mutate(subjectId = row_number())
@@ -36,10 +36,10 @@ splitTime <- function(shortOut, cut) {
                                          episode = "stratumId",
                                          id = "newSubjectId"))
     longOut <- longOut %>%
-        rename(y = event) %>%
-        mutate(time = tstop - tstart) %>%
-        select(-c(newSubjectId, tstart, tstop)) %>%
-        arrange(stratumId, subjectId)
+        rename(y = .data$event) %>%
+        mutate(time = .data$tstop - .data$tstart) %>%
+        select(-c(.data$newSubjectId, .data$tstart, .data$tstop)) %>%
+        arrange(.data$stratumId, .data$subjectId)
 
     # Restore rowIds
     SubjectIds <- shortOut$subjectId
@@ -49,9 +49,10 @@ splitTime <- function(shortOut, cut) {
 
     # Reorder columns
     longOut <- longOut %>%
-        select(rowId, everything()) %>%
-        select(subjectId, everything()) %>%
-        select(stratumId, everything())
+        select(.data$stratumId, .data$subjectId, .data$rowId, everything())
+        # select(.data$rowId, everything()) %>%
+        # select(.data$subjectId, everything()) %>%
+        # select(.data$stratumId, everything())
 
     return(longOut)
 }
