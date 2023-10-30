@@ -42,6 +42,7 @@ OBJECTS.drivers = \
     cyclops/drivers/BootstrapDriver.o \
     cyclops/drivers/BootstrapSelector.o \
     cyclops/drivers/CrossValidationSelector.o \
+    cyclops/drivers/WeightBasedSelector.o \
     cyclops/drivers/GridSearchCrossValidationDriver.o \
     cyclops/drivers/HierarchyAutoSearchCrossValidationDriver.o \
     cyclops/drivers/HierarchyGridSearchCrossValidationDriver.o \

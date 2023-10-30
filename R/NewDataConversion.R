@@ -253,7 +253,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     }
 
     if (modelType == "pr" | modelType == "cpr") {
-        if (any(outcomes$time <= 0)) {
+        if (any(pull(outcomes, .data$time) <= 0)) {
             stop("time cannot be non-positive", call. = FALSE)
         }
     }

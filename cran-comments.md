@@ -16,8 +16,8 @@
 * win-builder (devel and release)
 
 ## R CMD check results
-* There were no ERRORs or WARNINGs
-* There is 1 occasional NOTE (besides days since last submission):
+* There were no ERRORs or WARNINGs   
+* There is 1 occasional NOTE:
     checking installed package size ... NOTE
     installed size is 22.5Mb
     sub-directories of 1Mb or more:

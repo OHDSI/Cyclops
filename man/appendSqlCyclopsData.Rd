@@ -37,7 +37,7 @@ appendSqlCyclopsData(
 }
 \details{
 Append data using two tables.  The outcomes table is dense and contains ...  The covariates table is sparse and contains ...
-All entries in the outcome table must be sorted in increasing order by {oStratumId, oRowId}.  All entries in the covariate table
-must be sorted in increasing order by {cRowId}. Each cRowId value must match exactly one oRowId value.
+All entries in the outcome table must be sorted in increasing order by (oStratumId, oRowId).  All entries in the covariate table
+must be sorted in increasing order by (cRowId). Each cRowId value must match exactly one oRowId value.
 }
 \keyword{internal}

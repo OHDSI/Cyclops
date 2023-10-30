@@ -1,7 +1,7 @@
 Package: Cyclops
 Type: Package
 Title: Cyclic Coordinate Descent for Logistic, Poisson and Survival Analysis
-Version: 3.3.1
+Version: 3.3.1.999
 Authors@R: c(
     person("Marc A.", "Suchard", email = "msuchard@ucla.edu", role = c("aut","cre")),
     person("Martijn J.", "Schuemie", role = "aut"),
@@ -30,7 +30,7 @@ Biarch: true
 URL: https://github.com/ohdsi/cyclops
 BugReports: https://github.com/ohdsi/cyclops/issues
 Depends:
-    R (>= 3.1.0)
+    R (>= 3.5.0)
 Imports:
     rlang,
     Matrix,
@@ -41,7 +41,6 @@ Imports:
     survival,
     bit64
 LinkingTo: Rcpp,
-    BH (>= 1.51.0),
     RcppEigen (>= 0.3.2)
 Suggests:
     testthat,

@@ -19,7 +19,7 @@
 
 #include "Recursions.hpp"
 #include "ParallelLoops.h"
-#include "Ranges.h"
+// #include "Ranges.h"
 
 #ifdef USE_RCPP_PARALLEL
 #include <tbb/combinable.h>
@@ -1124,8 +1124,6 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 // 	    gradient = result.real();
 // 	    hessian = result.imag();
 
-        // using RealTypePair = std::pair<RealType, RealType>;
-
 	    IteratorType it(hX, index);
 	    const int end = it.size() - 1;
 
@@ -1266,7 +1264,6 @@ void ModelSpecifics<BaseModel,RealType>::computeThirdDerivativeImpl(int index, d
 #endif
 
     RealType third = static_cast<RealType>(0);
-    // RealType hessian = static_cast<RealType>(0);
 
     if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 
@@ -1671,19 +1668,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 #endif
 
 	IteratorType it(hX, index);
-// <<<<<<< HEAD
-// 	for (; it; ++it) {
-// 		const int k = it.index();
-// 		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
-//         // Update denominators as well (denominators include (weight * offsExpXBeta))
-// 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-// 		    RealType oldEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition to forming offExpXBeta
-//             offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k); // Update offsExpXBeta
-// 			RealType newEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition
-//             incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
-// 		}
-// 	}
-// =======
+
     if (BaseModel::cumulativeGradientAndHessian) { // cox
         for (; it; ++it) {
             const int k = it.index();
@@ -1710,7 +1695,6 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
             }
         }
     }
-// >>>>>>> develop
 
 	computeAccumlatedDenominator(Weights::isWeighted);
 

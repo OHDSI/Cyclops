@@ -1,7 +1,8 @@
 #ifndef ITERATORS_H
 #define ITERATORS_H
 
-#include <boost/tuple/tuple.hpp>
+//#include <boost/tuple/tuple.hpp>
+#include <tuple>
 
 #include "CompressedDataMatrix.h"
 
@@ -14,6 +15,47 @@ namespace bsccs {
  * single run-time determined iterator
  */
 
+template <typename T>
+class IncrementableIterator {
+public:
+
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = T;
+    using difference_type = T;
+    using pointer = T*;
+    using reference = T&;
+
+    IncrementableIterator(T value) : value(value) { }
+
+    IncrementableIterator& operator++() {
+        ++value;
+        return *this;
+    }
+
+    T operator*() const { return value; }
+
+    bool operator==(const IncrementableIterator& rhs) const {
+        return value == rhs.value;
+    }
+
+    bool operator!=(const IncrementableIterator& rhs) const {
+        return !(*this == rhs);
+    }
+
+    template <typename V>
+    IncrementableIterator operator+(V n) const {
+        IncrementableIterator copy = *this;
+        copy.value += n;
+        return copy;
+    }
+
+    bool operator<(const IncrementableIterator& rhs) const {
+        return value < rhs.value;
+    }
+
+private:
+    T value;
+};
 
 struct IndicatorTag {};
 struct SparseTag {};
@@ -31,7 +73,7 @@ class IndicatorIterator {
 	typedef IndicatorTag tag;
 	typedef int Index;
 	typedef Scalar ValueType;
-	typedef boost::tuples::tuple<Index> XTuple;
+	typedef std::tuple<Index> XTuple;
 
 	const static std::string name;
 
@@ -123,7 +165,8 @@ class SparseIterator {
 	typedef SparseTag tag;
 	typedef int Index;
 	typedef Scalar ValueType;
-	typedef boost::tuples::tuple<Index, Scalar> XTuple;
+//	typedef boost::tuples::tuple<Index, Scalar> XTuple;
+	typedef std::tuple<Index, Scalar> XTuple;
 
 	const static std::string name;
 
@@ -300,7 +343,8 @@ class DenseIterator {
 	typedef DenseTag tag;
 	typedef int Index;
 	typedef Scalar ValueType;
-	typedef boost::tuples::tuple<Index, Scalar> XTuple;
+// 	typedef boost::tuples::tuple<Index, Scalar> XTuple;
+	typedef std::tuple<Index, Scalar> XTuple;
 
 	const static std::string name;
 
@@ -392,7 +436,8 @@ class InterceptIterator {
 	typedef InterceptTag tag; // TODO Fix!!!
 	typedef int Index;
 	typedef Scalar ValueType;
-	typedef boost::tuples::tuple<Index> XTuple;
+// 	typedef boost::tuples::tuple<Index> XTuple;
+	typedef std::tuple<Index> XTuple;
 
 	const static std::string name;
 

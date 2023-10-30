@@ -1,22 +1,41 @@
+Cyclops v3.4.0
+==============
+
+Changes:
+
+1. remove dependence on `BH`
+2. improvements on adaptive likelihood profiling
+3. add `auto` option to `cvRepetitions`
+4. bumped explicit C++11 requirement up to R v4.1
+5. removed deprecated use of `dbplyr:::$.tbl_lazy`
+   a. breaking change in `dbplyr v2.4.0`
+
 Cyclops v3.3.1
 ==============
 
 Changes:
 
-1. fix uninitialized value in detected in computeAsymptoticPrecisionMatrix(); value was priorType
-2. fix memory leak caused by call to ::Rf_error()
+1. fix uninitialized value in detected in `computeAsymptoticPrecisionMatrix()`; value was priorType
+2. fix memory leak caused by call to `::Rf_error()`
 3. fix line-endings on Makevar on windows
 
 Cyclops v3.3.0
 ==============
-
-Changes:
 
 1. bump for R 4.2
 2. fix CRAN warnings
     a. used `minValues`
 3. fix CRAN notes
     a. remove explicit dependence on C++11 (except for R <= 4.0)   
+
+Cyclops v3.2.1
+==============
+
+Changes:
+
+1. fix small memory leak caused by direct call to '::Rf_error()'
+2. disable JVM calls on CRAN due to uninitialized memory in Java JVM
+
 
 Cyclops v3.2.0
 ==============

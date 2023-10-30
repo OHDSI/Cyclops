@@ -29,7 +29,7 @@
 #include "CyclicCoordinateDescent.h"
 #include "ModelData.h"
 
-#include "boost/iterator/counting_iterator.hpp"
+//#include "boost/iterator/counting_iterator.hpp"
 #include "Thread.h"
 
 // #include "io/InputReader.h"
@@ -45,6 +45,7 @@
 // #include "io/BBRInputReader.h"
 // #include "io/OutputWriter.h"
 #include "drivers/CrossValidationSelector.h"
+#include "drivers/WeightBasedSelector.h"
 #include "drivers/GridSearchCrossValidationDriver.h"
 #include "drivers/HierarchyGridSearchCrossValidationDriver.h"
 #include "drivers/AutoSearchCrossValidationDriver.h"
@@ -369,9 +370,9 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
                       }
                     );
     } else {
-        auto scheduler = TaskScheduler<boost::counting_iterator<int> >(
-            boost::make_counting_iterator(0),
-            boost::make_counting_iterator(static_cast<int>(bounds.size())),
+        auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
+            IncrementableIterator<size_t>(0), // boost::make_counting_iterator(0),
+            IncrementableIterator<size_t>(bounds.size()), //boost::make_counting_iterator(static_cast<int>(bounds.size())),
             nThreads);
 
         auto oneTask = [&getBound, &scheduler, &ccdPool, &bounds](unsigned long task) {
@@ -582,8 +583,10 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
             values[i] = evaluate(points[i], ccd);
         }
     } else {
-        auto scheduler = TaskScheduler<boost::counting_iterator<int>>(
-            boost::make_counting_iterator(0), boost::make_counting_iterator(static_cast<int>(points.size())), nThreads);
+        auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
+            IncrementableIterator<size_t>(0), //boost::make_counting_iterator(0),
+            IncrementableIterator<size_t>(points.size()), //boost::make_counting_iterator(static_cast<int>(points.size())),
+            nThreads);
 
         auto oneTask = [&evaluate, &scheduler, &ccdPool, &points, &values](unsigned long task) {
             values[task] = evaluate(points[task], ccdPool[scheduler.getThreadIndex(task)]);
@@ -746,12 +749,32 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractMo
 		}
 	}
 
-	CrossValidationSelector selector(arguments.crossValidation.fold,
-	 		modelData->getPidVectorSTL(),
-			selectorType, arguments.seed, logger, error,
-			nullptr,
-			(useWeights ? &weights : nullptr)
-			); // TODO ERROR HERE!  NOT ALL MODELS ARE SUBJECT
+	// TODO ADD CODE HERE
+
+	//arguments.crossValidation.fold != -1 ?
+
+	AbstractSelector* ptr;
+	if (arguments.crossValidation.fold != -1) {
+	ptr = new CrossValidationSelector(arguments.crossValidation.fold,
+                             modelData->getPidVectorSTL(),
+                             selectorType, arguments.seed, logger, error,
+                             nullptr,
+                             (useWeights ? &weights : nullptr));
+	} else {
+	ptr =
+
+     new WeightBasedSelector(1,
+                             modelData->getPidVectorSTL(),
+                             selectorType, arguments.seed, logger, error,
+                             nullptr,
+                             &weights);
+	    arguments.crossValidation.foldToCompute = 1;
+	}
+
+	std::unique_ptr<AbstractSelector> selector =
+	    bsccs::unique_ptr<AbstractSelector>(ptr);
+
+	//    std::make_unique_ptr<AbstractSelector>(ptr2);
 
 	AbstractCrossValidationDriver* driver;
 	if (arguments.crossValidation.useAutoSearchCV) {
@@ -768,7 +791,7 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractMo
 		}
 	}
 
-	driver->drive(*ccd, selector, arguments);
+	driver->drive(*ccd, *selector, arguments);
 
 	gettimeofday(&time2, NULL);
 
@@ -781,7 +804,7 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractMo
 	        logger->writeLine(stream);
 	    }
 		// Do full fit for optimal parameter
-		driver->resetForOptimal(*ccd, selector, arguments);
+		driver->resetForOptimal(*ccd, *selector, arguments);
 		fitModel(ccd);
 		if (arguments.fitMLEAtMode) {
 			runFitMLEAtMode(ccd);

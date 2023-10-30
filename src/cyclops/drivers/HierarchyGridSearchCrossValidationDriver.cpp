@@ -39,7 +39,7 @@ HierarchyGridSearchCrossValidationDriver::~HierarchyGridSearchCrossValidationDri
 
 void HierarchyGridSearchCrossValidationDriver::resetForOptimal(
 		CyclicCoordinateDescent& ccd,
-		CrossValidationSelector& selector,
+		AbstractSelector& selector,
 		const CCDArguments& arguments) {
 
 

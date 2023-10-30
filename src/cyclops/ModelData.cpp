@@ -17,8 +17,8 @@
 #include <list>
 #include <functional>
 
-#include <boost/iterator/permutation_iterator.hpp>
-#include <boost/iterator/transform_iterator.hpp>
+// #include <boost/iterator/permutation_iterator.hpp>
+// #include <boost/iterator/transform_iterator.hpp>
 
 #include "ModelData.h"
 

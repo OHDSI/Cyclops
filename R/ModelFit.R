@@ -204,6 +204,11 @@ fitCyclopsModel <- function(cyclopsData,
             writeLines(paste("Using cross-validation selector type", control$selectorType))
         }
     }
+
+    if (control$cvRepetitions == "auto") {
+        control$cvRepetitions <- .getNumberOfRepetitions(getNumberOfRows(cyclopsData))
+    }
+
     control <- .setControl(cyclopsData$cyclopsInterfacePtr, control)
     threads <- control$threads
 
@@ -218,6 +223,7 @@ fitCyclopsModel <- function(cyclopsData,
         }
 
         .cyclopsSetBeta(cyclopsData$cyclopsInterfacePtr, startingCoefficients)
+        .cyclopsSetStartingBeta(cyclopsData$cyclopsInterfacePtr, startingCoefficients)
     }
 
     if (!is.null(fixedCoefficients)) {
@@ -324,6 +330,11 @@ fitCyclopsModel <- function(cyclopsData,
     fit$scale <- cyclopsData$scale
     fit$threads <- threads
     fit$seed <- control$seed
+
+    if (prior$useCrossValidation) {
+        fit$cvRepetitions <- control$cvRepetitions
+    }
+
     class(fit) <- "cyclopsFit"
     return(fit)
 }
@@ -847,6 +858,18 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     prof
 }
 
+.initAdaptiveProfile <- function(object, parm, bounds, includePenalty) {
+    # If an MLE was found, let's not throw that bit of important information away:
+    if (object$return_flag == "SUCCESS" &&
+        coef(object)[as.character(parm)] > bounds[1] &&
+        coef(object)[as.character(parm)] < bounds[2]) {
+        profile <- tibble(point = coef(object)[as.character(parm)],
+                          value = fixedGridProfileLogLikelihood(object, parm, coef(object)[as.character(parm)], includePenalty)$value)
+    } else {
+        profile <- tibble()
+    }
+}
+
 #' @title Profile likelihood for Cyclops model parameters
 #'
 #' @description
@@ -873,7 +896,7 @@ getCyclopsProfileLogLikelihood <- function(object,
                                            tolerance = 1E-3,
                                            initialGridSize = 10,
                                            includePenalty = TRUE) {
-
+    maxResets <- 10
     if (!xor(is.null(x), is.null(bounds))) {
         stop("Must provide either `x` or `bounds`, but not both.")
     }
@@ -883,26 +906,16 @@ getCyclopsProfileLogLikelihood <- function(object,
         if (length(bounds) != 2 || bounds[1] >= bounds[2]) {
             stop("Must provide bounds[1] < bounds[2]")
         }
-
-        # If an MLE was found, let's not throw that bit of important information away:
-        if (object$return_flag == "SUCCESS" &&
-            coef(object)[as.character(parm)] > bounds[1] &&
-            coef(object)[as.character(parm)] < bounds[2]) {
-            profile <- tibble(point = coef(object)[as.character(parm)],
-                              value = fixedGridProfileLogLikelihood(object, parm, coef(object)[as.character(parm)], includePenalty)$value)
-        } else {
-            profile <- tibble()
-        }
+        profile <- .initAdaptiveProfile(object, parm, bounds, includePenalty)
 
         # Start with sparse grid:
         grid <- seq(bounds[1], bounds[2], length.out = initialGridSize)
 
         # Iterate until stopping criteria met:
         priorMaxMaxError <- Inf
+        resetsPerformed <- 0
         while (length(grid) != 0) {
-
             ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty)
-
             profile <- bind_rows(profile, ll) %>% arrange(.data$point)
 
             if (any(is.nan(profile$value))) {
@@ -928,6 +941,16 @@ getCyclopsProfileLogLikelihood <- function(object,
             deltaX <- profile$point[2:nrow(profile)] - profile$point[1:(nrow(profile) - 1)]
             deltaY <- profile$value[2:nrow(profile)] - profile$value[1:(nrow(profile) - 1)]
             slopes <- deltaY / deltaX
+
+            if (resetsPerformed < maxResets && !all(slopes[2:length(slopes)] < slopes[1:(length(slopes)-1)])) {
+                warning("Coefficient drift detected. Resetting Cyclops object and recomputing all likelihood values computed so far.")
+                grid <- profile$point
+                profile <- tibble()
+                interface <- .cyclopsInitializeModel(object$cyclopsData$cyclopsDataPtr, modelType = object$cyclopsData$modelType, "native", computeMLE = TRUE)
+                assign("cyclopsInterfacePtr", interface$interface, object)
+                resetsPerformed <- resetsPerformed + 1
+                next
+            }
 
             # Compute where prior and posterior slopes intersect
             slopes <- c(slopes[1] + (slopes[2] - slopes[3]),
@@ -1103,4 +1126,12 @@ convertToGlmnetLambda <- function(variance, nobs) {
 
     graph <-  lapply(0:(nParents - 1), function(n, types) { 0:(nTypes - 1) + n * nTypes }, types = nTypes)
     graph
+}
+
+.getNumberOfRepetitions <- function(nrows) {
+    top <- 1E2
+    factor <- 0.5
+    pmax(pmin(
+        ceiling(top / nrows^(factor))
+        , 10), 1)
 }

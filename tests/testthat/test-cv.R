@@ -206,3 +206,23 @@ test_that("Seed gets returned", {
                            control = createControl(seed = NULL), warnings = FALSE)
     expect_true(!is.null(fit$seed))
 })
+
+test_that("Auto cvRepetitions", {
+    data <- simulateCyclopsData(nstrata = 1, nrows = 1000, ncovars = 10, model = "logistic")
+    cyclopsData <- convertToCyclopsData(data$outcomes,
+                                        data$covariates,
+                                        modelType = "lr",
+                                        addIntercept = TRUE)
+
+    prior <- createPrior("laplace", exclude = c(0), useCrossValidation = TRUE)
+
+    control <- createControl(noiseLevel = "quiet",
+                             cvType = "auto",
+                             cvRepetitions = "auto")
+
+    fit <- fitCyclopsModel(cyclopsData,
+                           prior = prior,
+                           control = control)
+
+    expect_equal(fit$cvRepetitions, 4)
+})

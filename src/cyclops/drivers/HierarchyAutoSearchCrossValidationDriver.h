@@ -24,7 +24,7 @@ public:
 
 	virtual void resetForOptimal(
 			CyclicCoordinateDescent& ccd,
-			CrossValidationSelector& selector,
+			AbstractSelector& selector,
 			const CCDArguments& arguments);
 
 	virtual void drive(
