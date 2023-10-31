@@ -34,6 +34,7 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' @param normalize     String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)
 #' @param quiet         If true, (warning) messages are suppressed.
 #' @param floatingPoint Specified floating-point representation size (32 or 64)
+#' @param timeEffectMap A data frame or ffdf object containing the convariates that have time-varying effects on the outcome
 #'
 #' @details
 #' These columns are expected in the outcome object:
@@ -53,6 +54,11 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
 #'   \verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
 #'   \verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
+#' }
+#'
+#' These columns are expected in the timeEffectMap object:
+#' \tabular{lll}{
+#'   \verb{covariateId}    \tab(integer) \tab A numeric identifier of the covariates that have time-varying effects on the outcome \cr
 #' }
 #'
 #' @return

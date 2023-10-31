@@ -52,6 +52,8 @@ convertToCyclopsData(
 
 \item{modelType}{Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"}
 
+\item{timeEffectMap}{A data frame or ffdf object containing the convariates that have time-varying effects on the outcome}
+
 \item{addIntercept}{Add an intercept to the model?}
 
 \item{checkSorting}{(DEPRECATED) Check if the data are sorted appropriately, and if not, sort.}
@@ -88,6 +90,11 @@ These columns are expected in the covariates object:
   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
   \verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
   \verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
+}
+
+These columns are expected in the timeEffectMap object:
+\tabular{lll}{
+  \verb{covariateId}    \tab(integer) \tab A numeric identifier of the covariates that have time-varying effects on the outcome \cr
 }
 }
 \section{Methods (by class)}{

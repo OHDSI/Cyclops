@@ -532,6 +532,8 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param initialBound          Numeric: Starting trust-region size
 #' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
 #' @param algorithm             String: name of fitting algorithm to employ; default is `ccd`
+#' @param doItAll               Currently unused
+#' @param syncCV                Currently unused
 #'
 #' Todo: Describe convegence types
 #'

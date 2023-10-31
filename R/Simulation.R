@@ -250,6 +250,7 @@ simulateCyclopsData <- function(nstrata = 200,
 #' @param model  String: Fitted regression model type
 #' @param coverage Logical: report coverage statistics
 #' @param includePenalty   Logical: include regularized regression penalty in computing profile likelihood based confidence intervals
+#' @param computeDevice String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU
 #'
 #' @export
 fitCyclopsSimulation <- function(sim,

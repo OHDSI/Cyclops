@@ -22,6 +22,7 @@
 #'
 #' @param ftime    Numeric: Observed event (failure) times
 #' @param fstatus  Numeric: Observed event (failure) types
+#' @param cvweights Numeric: Vector of 0/1 (cross-validation) weights for each data row
 #' @param cencode Numeric: Code to denote censored observations (Default is 0)
 #' @param failcode Numeric: Code to denote event of interest (Default is 1)
 #'

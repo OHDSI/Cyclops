@@ -117,6 +117,11 @@
     .Call(`_Cyclops_cyclopsInitializeModel`, inModelData, modelType, computeDevice, computeMLE)
 }
 
+#' @title List available GPU devices
+#'
+#' @description
+#' \code{listOpenCLDevices} list available GPU devices
+#'
 #' @export
 listOpenCLDevices <- function() {
     .Call(`_Cyclops_listOpenCLDevices`)

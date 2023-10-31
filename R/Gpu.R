@@ -1,6 +1,10 @@
-#
-#
-
+#' @title Set GPU device
+#'
+#' @description
+#' \code{setOpenCLDevice} set GPU device
+#'
+#' @param name String: Name of GPU device
+#'
 #' @export
 setOpenCLDevice <- function(name) {
     devices <- listOpenCLDevices()

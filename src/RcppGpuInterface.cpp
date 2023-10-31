@@ -15,6 +15,11 @@
  #include <cuda.h>
 #endif // HAVE_CUDA
 
+//' @title List available GPU devices
+//'
+//' @description
+//' \code{listOpenCLDevices} list available GPU devices
+//'
 //' @export
 // [[Rcpp::export("listOpenCLDevices")]]
 Rcpp::CharacterVector listOpenCLDevices() {

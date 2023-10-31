@@ -11,6 +11,8 @@ getFineGrayWeights(ftime, fstatus, cvweights = NULL, cencode = 0, failcode = 1)
 
 \item{fstatus}{Numeric: Observed event (failure) types}
 
+\item{cvweights}{Numeric: Vector of 0/1 (cross-validation) weights for each data row}
+
 \item{cencode}{Numeric: Code to denote censored observations (Default is 0)}
 
 \item{failcode}{Numeric: Code to denote event of interest (Default is 1)}
