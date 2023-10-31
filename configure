@@ -589,6 +589,7 @@ LIBOBJS
 CUDA_CPPFLAGS
 CUDA_LIBS
 CUDA_HOME
+DEVICE
 NVCC
 target_alias
 host_alias
@@ -1701,6 +1702,7 @@ RHOST=`"${R_HOME}/bin/Rscript" -e 'cat(Sys.info()["sysname"])'`
 
 CUDA_LIBS=""
 CUDA_CPPFLAGS=""
+DEVICE=""
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking \"checking environment variable CUDA_HOME\"" >&5
 $as_echo_n "checking \"checking environment variable CUDA_HOME\"... " >&6; }
@@ -1714,6 +1716,7 @@ $as_echo "$as_me: \"no CUDA installation found\"" >&6;}
 else
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: \"using CUDA_HOME=${CUDA_HOME}\"" >&5
 $as_echo "$as_me: \"using CUDA_HOME=${CUDA_HOME}\"" >&6;}
+	DEVICE="_cuda"
 
 # Check whether --with-arch was given.
 if test "${with_arch+set}" = set; then :
@@ -1762,6 +1765,7 @@ $as_echo "\"yes -- using ${CUDA_HOME}/lib64 for CUDA libs\"" >&6; }
 	CUDA_LIBS="${CUDA_LIBS} -L${cu_libdir} -lcudart"
 	CUDA_CPPFLAGS="${CUDA_CPPFLAGS} -DHAVE_CUDA -I${CUDA_HOME}/include -I${cu_libdir} -pthread -rdynamic"
 fi
+
 
 
 

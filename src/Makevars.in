@@ -1,5 +1,7 @@
 CUDA_HOME = @CUDA_HOME@
 
+DEVICE = @DEVICE@
+
 CUB_PATH = $(CUDA_HOME)/include # CUB is included since CUDA Toolkit 11.0
 #CUB_PATH = /home/jianxiao/cub_1.8.0/cub
 
@@ -64,15 +66,14 @@ OBJECTS.priors = \
 OBJECTS.io = \
     cyclops/io/InputReader.o
 
-ifeq "$(CUDA_HOME)" ""
-OBJECTS.engine = \
-    cyclops/engine/AbstractModelSpecifics.o
-else
-OBJECTS.engine = \
+OBJECTS_engine = cyclops/engine/AbstractModelSpecifics.o
+OBJECTS_engine_cuda = \
     cyclops/engine/AbstractModelSpecifics.o \
     cyclops/engine/CudaKernel.o \
     cyclops/engine/CudaDetail.o
-endif
+
+OBJECTS.engine = $(OBJECTS_engine$(strip $(DEVICE)))
+
 
 OBJECTS.utils = \
     utils/HParSearch.o
@@ -93,7 +94,6 @@ OBJECTS = $(OBJECTS.cyclops) $(OBJECTS.drivers) \
           $(OBJECTS.threads) $(OBJECTS.R) \
           $(OBJECTS.priors) $(OBJECTS.io)
 
-ifneq "$(CUDA_HOME)" ""
 all: $(OBJECTS)
 
 %.o: %.cu
@@ -103,4 +103,3 @@ clean:
 	rm -rf *o
 
 .PHONY: all clean
-endif

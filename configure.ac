@@ -15,6 +15,7 @@ RHOST=`"${R_HOME}/bin/Rscript" -e 'cat(Sys.info()[["sysname"]])'`
 
 CUDA_LIBS=""
 CUDA_CPPFLAGS=""
+DEVICE=""
 
 AC_MSG_CHECKING("checking environment variable CUDA_HOME")
 if test -z "${CUDA_HOME}"; then
@@ -25,6 +26,7 @@ if test -z "${CUDA_HOME}"; then
 	AC_MSG_NOTICE("no CUDA installation found")
 else
 	AC_MSG_NOTICE("using CUDA_HOME=${CUDA_HOME}")
+	DEVICE="_cuda"
 	AC_ARG_WITH([arch],
 		[AS_HELP_STRING([--with-arch=SM],[compute capability of the target device @<:@sm_70@:>@])],
 		[ARCH="$withval"], [ARCH=sm_70])
@@ -45,6 +47,7 @@ else
 	CUDA_CPPFLAGS="${CUDA_CPPFLAGS} -DHAVE_CUDA -I${CUDA_HOME}/include -I${cu_libdir} -pthread -rdynamic"
 fi
 
+AC_SUBST(DEVICE)
 AC_SUBST(CUDA_HOME)
 AC_SUBST(CUDA_LIBS)
 AC_SUBST(CUDA_CPPFLAGS)
