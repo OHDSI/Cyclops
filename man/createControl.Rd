@@ -75,7 +75,7 @@ the average number of rows per stratum is smaller than the number of strata.}
 
 \item{maxBoundCount}{Numeric: Maximum number of tries to decrease initial trust-region size}
 
-\item{algorithm}{String: name of fitting algorithm to employ; default is `ccd`
+\item{algorithm}{String: name of fitting algorithm to employ; default is \code{ccd}
 
 Todo: Describe convegence types}
 }

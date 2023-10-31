@@ -29,8 +29,8 @@ either a vector of numbers of covariateId names}
 }
 \value{
 A matrix with columns reporting lower and upper confidence limits for each parameter.
-These columns are labelled as (1-level) / 2 and 1 - (1 - level) / 2 in %
-(by default 2.5% and 97.5%)
+These columns are labelled as (1-level) / 2 and 1 - (1 - level) / 2 in \%
+(by default 2.5\% and 97.5\%)
 }
 \description{
 \code{aconfinit} constructs confidence intervals of

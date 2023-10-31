@@ -22,18 +22,18 @@ A long sparse covariate table for time-varying coefficients.
 \details{
 These columns are expected in the shortCov object:
 \tabular{lll}{
-  \verb{rowId}  	       \tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-  \verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
-  \verb{covariateValue} \tab(real) \tab The value of the specified covariate \cr
+\verb{rowId}  	       \tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
+\verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
+\verb{covariateValue} \tab(real) \tab The value of the specified covariate \cr
 }
 
 These columns are expected in the longOut object:
 \tabular{lll}{
-  \verb{stratumId}   \tab(integer) \tab Stratum ID for time-varying models \cr
-  \verb{subjectId}  	\tab(integer) \tab Subject ID is used to link multiple covariates (x) at different time intervals to a single subject \cr
-  \verb{rowId}  	    \tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-  \verb{y}           \tab(real) \tab The outcome variable \cr
-  \verb{time}        \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
-                     \tab       \tab(e.g. number of days) \cr
+\verb{stratumId}   \tab(integer) \tab Stratum ID for time-varying models \cr
+\verb{subjectId}  	\tab(integer) \tab Subject ID is used to link multiple covariates (x) at different time intervals to a single subject \cr
+\verb{rowId}  	    \tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
+\verb{y}           \tab(real) \tab The outcome variable \cr
+\verb{time}        \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
+\tab       \tab(e.g. number of days) \cr
 }
 }

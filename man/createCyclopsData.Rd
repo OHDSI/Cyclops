@@ -83,24 +83,26 @@ Objects provided with \code{"sparseFormula"} and \code{"indicatorFormula"} must 
 coersed into sparse and indicator representations for computational efficiency.
 
 Items to discuss:
-* Only use formula or (y,dx,...)
-* stratum() in formula
-* offset() in formula
-* when \code{"stratum"} (renamed from pid) are necessary
-* when \code{"time"} are necessary
+\itemize{
+\item Only use formula or (y,dx,...)
+\item stratum() in formula
+\item offset() in formula
+\item when \code{"stratum"} (renamed from pid) are necessary
+\item when \code{"time"} are necessary
+}
 }
 \section{Models}{
 
 Currently supported model types are:
 \tabular{ll}{
-	\verb{	"ls"} \tab Least squares \cr
-	\verb{	"pr"} \tab Poisson regression \cr
-	\verb{	"lr"} \tab Logistic regression \cr
-	\verb{	"clr"} \tab Conditional logistic regression \cr
- \verb{	"cpr"} \tab Conditional Poisson regression \cr
-	\verb{	"sccs"} \tab Self-controlled case series \cr
-	\verb{	"cox"} \tab Cox proportional hazards regression \cr
-	\verb{	"fgr"} \tab Fine-Gray proportional subdistribution hazards regression \cr
+\verb{	"ls"} \tab Least squares \cr
+\verb{	"pr"} \tab Poisson regression \cr
+\verb{	"lr"} \tab Logistic regression \cr
+\verb{	"clr"} \tab Conditional logistic regression \cr
+\verb{	"cpr"} \tab Conditional Poisson regression \cr
+\verb{	"sccs"} \tab Self-controlled case series \cr
+\verb{	"cox"} \tab Cox proportional hazards regression \cr
+\verb{	"fgr"} \tab Fine-Gray proportional subdistribution hazards regression \cr
 }
 }
 

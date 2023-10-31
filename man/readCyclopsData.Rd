@@ -21,19 +21,19 @@ A list that contains a Cyclops model data object pointer and an operation durati
 This function reads a Cyclops-formatted text file and returns a Cyclops data object. The first line of the
 file may start with '\samp{#}', indicating that it contains header options.  Valid header options are:
 
- \tabular{ll}{
- \verb{	row_label}		\tab (assume file contains a numeric column of unique row identifiers) \cr
- \verb{	stratum_label}\tab (assume file contains a numeric column of stratum identifiers) \cr
- \verb{	weight}				\tab (assume file contains a column of row-specific model weights, currently unused) \cr
-	\verb{	offset}				\tab (assume file contains a dense column of linear predictor offsets) \cr
-	\verb{	bbr_outcome}	\tab (assume logistic outcomes are encoded -1/+1 following BBR) \cr
-	\verb{	log_offset}		\tab (assume file contains a dense column of values x_i for which log(x_i) is the offset) \cr
-	\verb{	add_intercept}\tab (automatically include an intercept column of all 1s for each entry) \cr
-	\verb{	indicator_only}\tab(assume all covariates 0/1-valued and only covariate name is given) \cr
-	\verb{	sparse}				\tab (force all BBR formatted covariates to be represented as sparse, instead of \cr
-                             \tab sparse-indicator, columns .. really only for debugging) \cr
-	\verb{	dense}				\tab (force all BBR formatted covariates to be represented as dense columns.. really\cr
-                             \tab only for debugging) \cr
+\tabular{ll}{
+\verb{	row_label}		\tab (assume file contains a numeric column of unique row identifiers) \cr
+\verb{	stratum_label}\tab (assume file contains a numeric column of stratum identifiers) \cr
+\verb{	weight}				\tab (assume file contains a column of row-specific model weights, currently unused) \cr
+\verb{	offset}				\tab (assume file contains a dense column of linear predictor offsets) \cr
+\verb{	bbr_outcome}	\tab (assume logistic outcomes are encoded -1/+1 following BBR) \cr
+\verb{	log_offset}		\tab (assume file contains a dense column of values x_i for which log(x_i) is the offset) \cr
+\verb{	add_intercept}\tab (automatically include an intercept column of all 1s for each entry) \cr
+\verb{	indicator_only}\tab(assume all covariates 0/1-valued and only covariate name is given) \cr
+\verb{	sparse}				\tab (force all BBR formatted covariates to be represented as sparse, instead of \cr
+\tab sparse-indicator, columns .. really only for debugging) \cr
+\verb{	dense}				\tab (force all BBR formatted covariates to be represented as dense columns.. really\cr
+\tab only for debugging) \cr
 }
 
 Successive lines of the file are white-space delimited and follow the format:
@@ -41,10 +41,10 @@ Successive lines of the file are white-space delimited and follow the format:
 \preformatted{	[Row ID] {Stratum ID} [Weight] <Outcome> {Censored} {Offset} <BBR covariates>}
 
 \itemize{
-  	\item \verb{[optional]}
-  	\item \verb{<required>}
-  	\item \verb{{required or optional depending on model}}
- }
+\item \verb{[optional]}
+\item \verb{<required>}
+\item \verb{{required or optional depending on model}}
+}
 
 Bayesian binary regression (BBR) covariates are white-space delimited and generally in a sparse
 \samp{<name>:<value>} format, where \samp{name} must (currently) be numeric and \samp{value} is non-zero.
@@ -59,14 +59,14 @@ are consecutive.
 
 Currently supported model types are:
 \tabular{ll}{
-	\verb{	"ls"} \tab Least squares \cr
-	\verb{	"pr"} \tab Poisson regression \cr
-	\verb{	"lr"} \tab Logistic regression \cr
-	\verb{	"clr"} \tab Conditional logistic regression \cr
- \verb{	"cpr"} \tab Conditional Poisson regression \cr
-	\verb{	"sccs"} \tab Self-controlled case series \cr
-	\verb{	"cox"} \tab Cox proportional hazards regression \cr
-	\verb{	"fgr"} \tab Fine-Gray proportional subdistribution hazards regression \cr
+\verb{	"ls"} \tab Least squares \cr
+\verb{	"pr"} \tab Poisson regression \cr
+\verb{	"lr"} \tab Logistic regression \cr
+\verb{	"clr"} \tab Conditional logistic regression \cr
+\verb{	"cpr"} \tab Conditional Poisson regression \cr
+\verb{	"sccs"} \tab Self-controlled case series \cr
+\verb{	"cox"} \tab Cox proportional hazards regression \cr
+\verb{	"fgr"} \tab Fine-Gray proportional subdistribution hazards regression \cr
 }
 }
 

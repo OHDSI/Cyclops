@@ -70,21 +70,21 @@ An object of type cyclopsData
 \details{
 These columns are expected in the outcome object:
 \tabular{lll}{
-  \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
-  \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-  \verb{y}    \tab(real) \tab The outcome variable \cr
-  \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
-                 \tab        \tab(e.g. number of days) \cr
-  \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
-  \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided.
+\verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
+\verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
+\verb{y}    \tab(real) \tab The outcome variable \cr
+\verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
+\tab        \tab(e.g. number of days) \cr
+\verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
+\verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided.
 }
 
 These columns are expected in the covariates object:
 \tabular{lll}{
-  \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
-  \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-  \verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
-  \verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
+\verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
+\verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
+\verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
+\verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
 }
 }
 \section{Methods (by class)}{
